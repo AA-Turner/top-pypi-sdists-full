@@ -22,19 +22,22 @@ namespace bmt = boost::math::tools;
 namespace Cantera
 {
 
+// TODO: After Cantera 3.2, this method can be replaced by delegating to
+// Reactor::Reactor(sol, true, name)
 Reactor::Reactor(shared_ptr<Solution> sol, const string& name)
-    : ReactorBase(name)
+    : ReactorBase(sol, name)
 {
-    if (!sol || !(sol->thermo())) {
-        warn_deprecated("Reactor::Reactor",
-            "Creation of empty reactor objects is deprecated in Cantera 3.1 and will "
-            "raise\nexceptions thereafter; reactor contents should be provided in the "
-            "constructor.");
-        return;
-    }
-    setSolution(sol);
-    setThermo(*sol->thermo());
-    setKinetics(*sol->kinetics());
+    m_kin = m_solution->kinetics().get();
+    setChemistryEnabled(m_kin->nReactions() > 0);
+    m_vol = 1.0; // By default, the volume is set to 1.0 m^3.
+}
+
+Reactor::Reactor(shared_ptr<Solution> sol, bool clone, const string& name)
+    : ReactorBase(sol, clone, name)
+{
+    m_kin = m_solution->kinetics().get();
+    setChemistryEnabled(m_kin->nReactions() > 0);
+    m_vol = 1.0; // By default, the volume is set to 1.0 m^3.
 }
 
 void Reactor::setDerivativeSettings(AnyMap& settings)
@@ -48,12 +51,11 @@ void Reactor::setDerivativeSettings(AnyMap& settings)
 
 void Reactor::setKinetics(Kinetics& kin)
 {
+    warn_deprecated("Reactor::setKinetics",
+        "After Cantera 3.2, a change of reactor contents after instantiation "
+        "will be disabled.");
     m_kin = &kin;
-    if (m_kin->nReactions() == 0) {
-        setChemistry(false);
-    } else {
-        setChemistry(true);
-    }
+    setChemistryEnabled(m_kin->nReactions() > 0);
 }
 
 void Reactor::getState(double* y)
@@ -128,12 +130,6 @@ size_t Reactor::nSensParams() const
     return ns;
 }
 
-void Reactor::syncState()
-{
-    ReactorBase::syncState();
-    m_mass = m_thermo->density() * m_vol;
-}
-
 void Reactor::updateState(double* y)
 {
     // The components of y are [0] the total mass, [1] the total volume,
@@ -197,7 +193,11 @@ void Reactor::updateConnected(bool updatePressure) {
     if (updatePressure) {
         m_pressure = m_thermo->pressure();
     }
-    m_intEnergy = m_thermo->intEnergy_mass();
+    try {
+        m_intEnergy = m_thermo->intEnergy_mass();
+    } catch (NotImplementedError&) {
+        m_intEnergy = NAN;
+    }
     m_thermo->saveState(m_state);
 
     // Update the mass flow rate of connected flow devices
@@ -306,7 +306,7 @@ void Reactor::evalSurfaces(double* LHS, double* RHS, double* sdot)
         double rs0 = 1.0/surf->siteDensity();
         size_t nk = surf->nSpecies();
         double sum = 0.0;
-        S->syncState();
+        S->restoreState();
         kin->getNetProductionRates(&m_work[0]);
         for (size_t k = 1; k < nk; k++) {
             RHS[loc + k] = m_work[k] * rs0 * surf->size(k);
@@ -321,6 +321,22 @@ void Reactor::evalSurfaces(double* LHS, double* RHS, double* sdot)
             sdot[k] += m_work[bulkloc + k] * wallarea;
         }
     }
+}
+
+vector<size_t> Reactor::steadyConstraints() const
+{
+    if (!energyEnabled()) {
+        throw CanteraError("Reactor::steadyConstraints", "Steady state solver cannot"
+            " be used with {0} when energy equation is disabled."
+            "\nConsider using IdealGas{0} instead.\n"
+            "See https://github.com/Cantera/enhancements/issues/234", type());
+    }
+    if (nSurfs() != 0) {
+        throw CanteraError("Reactor::steadyConstraints", "Steady state solver cannot"
+            " currently be used when reactor surfaces are present.\n"
+            "See https://github.com/Cantera/enhancements/issues/234.");
+    }
+    return {1}; // volume
 }
 
 Eigen::SparseMatrix<double> Reactor::finiteDifferenceJacobian()
@@ -388,7 +404,7 @@ void Reactor::evalSurfaces(double* RHS, double* sdot)
         double rs0 = 1.0/surf->siteDensity();
         size_t nk = surf->nSpecies();
         double sum = 0.0;
-        S->syncState();
+        S->restoreState();
         kin->getNetProductionRates(&m_work[0]);
         for (size_t k = 1; k < nk; k++) {
             RHS[loc + k] = m_work[k] * rs0 * surf->size(k);
@@ -436,7 +452,7 @@ void Reactor::addSensitivitySpeciesEnthalpy(size_t k)
 size_t Reactor::speciesIndex(const string& nm) const
 {
     // check for a gas species name
-    size_t k = m_thermo->speciesIndex(nm);
+    size_t k = m_thermo->speciesIndex(nm, false);
     if (k != npos) {
         return k;
     }
@@ -445,29 +461,33 @@ size_t Reactor::speciesIndex(const string& nm) const
     size_t offset = m_nsp;
     for (auto& S : m_surfaces) {
         ThermoPhase* th = S->thermo();
-        k = th->speciesIndex(nm);
+        k = th->speciesIndex(nm, false);
         if (k != npos) {
             return k + offset;
         } else {
             offset += th->nSpecies();
         }
     }
-    return npos;
+    throw CanteraError("Reactor::speciesIndex",
+        "Species '{}' not found", nm);
 }
 
 size_t Reactor::componentIndex(const string& nm) const
 {
-    size_t k = speciesIndex(nm);
-    if (k != npos) {
-        return k + 3;
-    } else if (nm == "mass") {
+    if (nm == "mass") {
         return 0;
-    } else if (nm == "volume") {
+    }
+    if (nm == "volume") {
         return 1;
-    } else if (nm == "int_energy") {
+    }
+    if (nm == "int_energy") {
         return 2;
-    } else {
-        return npos;
+    }
+    try {
+        return speciesIndex(nm) + 3;
+    } catch (const CanteraError&) {
+        throw CanteraError("Reactor::componentIndex",
+            "Component '{}' not found", nm);
     }
 }
 
@@ -494,7 +514,41 @@ string Reactor::componentName(size_t k) {
             }
         }
     }
-    throw CanteraError("Reactor::componentName", "Index is out of bounds.");
+    throw IndexError("Reactor::componentName", "component", k, m_nv);
+}
+
+double Reactor::upperBound(size_t k) const {
+    if (k == 0) {
+        return BigNumber; // mass
+    } else if (k == 1) {
+        return BigNumber; // volume
+    } else if (k == 2) {
+        return BigNumber; // internal energy
+    } else if (k >= 3 && k < m_nv) {
+        return 1.0; // species mass fraction or surface coverage
+    } else {
+        throw CanteraError("Reactor::upperBound", "Index {} is out of bounds.", k);
+    }
+}
+
+double Reactor::lowerBound(size_t k) const {
+    if (k == 0) {
+        return 0; // mass
+    } else if (k == 1) {
+        return 0; // volume
+    } else if (k == 2) {
+        return -BigNumber; // internal energy
+    } else if (k >= 3 && k < m_nv) {
+        return -Tiny; // species mass fraction or surface coverage
+    } else {
+        throw CanteraError("Reactor::lowerBound", "Index {} is out of bounds.", k);
+    }
+}
+
+void Reactor::resetBadValues(double* y) {
+    for (size_t k = 3; k < m_nv; k++) {
+        y[k] = std::max(y[k], 0.0);
+    }
 }
 
 void Reactor::applySensitivity(double* params)
@@ -569,9 +623,6 @@ bool Reactor::getAdvanceLimits(double *limits) const
 void Reactor::setAdvanceLimit(const string& nm, const double limit)
 {
     size_t k = componentIndex(nm);
-    if (k == npos) {
-        throw CanteraError("Reactor::setAdvanceLimit", "No component named '{}'", nm);
-    }
 
     if (m_thermo == 0) {
         throw CanteraError("Reactor::setAdvanceLimit",

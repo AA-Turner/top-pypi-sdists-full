@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_ai
-Version: 0.3.133
+Version: 0.3.163
 Summary: Framework for large language model evaluations
 Author: UK AI Security Institute
 License: MIT License
@@ -24,43 +24,50 @@ Requires-Dist: aioboto3>=13.0.0
 Requires-Dist: aiohttp>=3.9.0
 Requires-Dist: anyio>=4.8.0
 Requires-Dist: beautifulsoup4>=4.10.0
-Requires-Dist: click!=8.2.0,>=8.1.3
+Requires-Dist: boto3
+Requires-Dist: click!=8.2.0,<8.2.2,>=8.1.3
 Requires-Dist: debugpy
 Requires-Dist: docstring-parser>=0.16
 Requires-Dist: exceptiongroup>=1.0.2; python_version < "3.11"
-Requires-Dist: fsspec<=2025.3.0,>=2023.1.0
+Requires-Dist: frozendict>=2.4.6
+Requires-Dist: fsspec<=2025.9.0,>=2023.1.0
 Requires-Dist: httpx
 Requires-Dist: ijson>=3.2.0
 Requires-Dist: jsonlines>=3.0.0
 Requires-Dist: jsonpatch>=1.32
-Requires-Dist: jsonpath-ng>=1.7.0
+Requires-Dist: jsonpath-ng>=1.6.0
 Requires-Dist: jsonref>=1.1.0
 Requires-Dist: jsonschema>3.1.1
 Requires-Dist: mmh3>3.1.0
-Requires-Dist: nest_asyncio
+Requires-Dist: nest_asyncio2
 Requires-Dist: numpy
 Requires-Dist: platformdirs>=2.3.0
 Requires-Dist: psutil
 Requires-Dist: pydantic>=2.11.4
 Requires-Dist: python-dotenv>=0.16.0
 Requires-Dist: pyyaml
-Requires-Dist: rich<14.0.0,>=13.3.3
+Requires-Dist: rich!=14.0.0,>=13.3.3
 Requires-Dist: s3fs>=2023
 Requires-Dist: semver>=3.0.0
 Requires-Dist: shortuuid
 Requires-Dist: sniffio
 Requires-Dist: tenacity
-Requires-Dist: textual<v3.0.0,>=0.86.2
+Requires-Dist: textual>=2.1.0
+Requires-Dist: tiktoken>=0.12.0
 Requires-Dist: typing_extensions>=4.9.0
+Requires-Dist: universal-pathlib>=0.2.6
 Requires-Dist: zipp>=3.19.1
 Provides-Extra: dev
-Requires-Dist: anthropic>=0.52.0; extra == "dev"
-Requires-Dist: aioboto3; extra == "dev"
+Requires-Dist: adlfs>=2025.8.0; extra == "dev"
+Requires-Dist: anthropic>=0.62.0; extra == "dev"
 Requires-Dist: azure-identity; extra == "dev"
 Requires-Dist: azure-ai-inference; extra == "dev"
+Requires-Dist: fastapi; extra == "dev"
 Requires-Dist: google-genai; extra == "dev"
 Requires-Dist: griffe; extra == "dev"
 Requires-Dist: groq; extra == "dev"
+Requires-Dist: huggingface_hub>=1.0.0; extra == "dev"
+Requires-Dist: inspect_scout; extra == "dev"
 Requires-Dist: ipython; extra == "dev"
 Requires-Dist: jsonpath-ng; extra == "dev"
 Requires-Dist: markdown; extra == "dev"
@@ -86,10 +93,10 @@ Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: ruff==0.9.6; extra == "dev"
 Requires-Dist: together; extra == "dev"
 Requires-Dist: textual-dev>=0.86.2; extra == "dev"
-Requires-Dist: transformer-lens; extra == "dev"
 Requires-Dist: trio; extra == "dev"
 Requires-Dist: pandas-stubs; extra == "dev"
 Requires-Dist: pyarrow-stubs; extra == "dev"
+Requires-Dist: types-grpcio; extra == "dev"
 Requires-Dist: types-Markdown; extra == "dev"
 Requires-Dist: types-PyYAML; extra == "dev"
 Requires-Dist: types-beautifulsoup4; extra == "dev"
@@ -101,6 +108,8 @@ Requires-Dist: types-jsonschema; extra == "dev"
 Requires-Dist: types-protobuf; extra == "dev"
 Requires-Dist: types-psutil; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: xai_sdk; extra == "dev"
+Requires-Dist: uvicorn; extra == "dev"
 Provides-Extra: dev-mcp-tests
 Requires-Dist: mcp-server-fetch; extra == "dev-mcp-tests"
 Requires-Dist: mcp_server_git; extra == "dev-mcp-tests"
@@ -110,6 +119,7 @@ Requires-Dist: jupyter; extra == "doc"
 Requires-Dist: panflute; extra == "doc"
 Requires-Dist: markdown; extra == "doc"
 Requires-Dist: griffe; extra == "doc"
+Requires-Dist: click>=8.2.0; extra == "doc"
 Provides-Extra: dist
 Requires-Dist: twine; extra == "dist"
 Requires-Dist: build; extra == "dist"
@@ -122,6 +132,8 @@ Welcome to Inspect, a framework for large language model evaluations created by 
 Inspect provides many built-in components, including facilities for prompt engineering, tool usage, multi-turn dialog, and model graded evaluations. Extensions to Inspect (e.g. to support new elicitation and scoring techniques) can be provided by other Python packages.
 
 To get started with Inspect, please see the documentation at <https://inspect.aisi.org.uk/>.
+
+Inspect also includes a collection of over 100 pre-built evaluations ready to run on any model (learn more at [Inspect Evals](https://ukgovernmentbeis.github.io/inspect_evals/))
 
 ***
 
@@ -147,3 +159,15 @@ make test
 ```
 
 If you use VS Code, you should be sure to have installed the recommended extensions (Python, Ruff, and MyPy). Note that you'll be prompted to install these when you open the project in VS Code.
+
+***
+
+To work on the Inspect documentation, install the optional `[doc]` dependencies with the `-e` flag and build the docs:
+
+```
+pip install -e ".[doc]"
+cd docs
+quarto render # or 'quarto preview'
+```
+
+If you intend to work on the docs iteratively, you'll want to install the Quarto extension in VS Code.

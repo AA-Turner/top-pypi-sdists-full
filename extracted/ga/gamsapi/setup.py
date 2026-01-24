@@ -2,8 +2,8 @@
 #
 # GAMS - General Algebraic Modeling System Python API
 #
-# Copyright (c) 2016-2025 GAMS Software GmbH <support@gams.com>
-# Copyright (c) 2016-2025 GAMS Development Corp. <support@gams.com>
+# Copyright (c) 2016-2026 GAMS Software GmbH <support@gams.com>
+# Copyright (c) 2016-2026 GAMS Development Corp. <support@gams.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,7 +47,7 @@ EXTRAS = {
     ],
     "control": ["certifi", "urllib3"],
     "core": ["ply", "numpy"],
-    "engine": ["python_dateutil", "urllib3"],
+    "engine": ["pydantic", "python_dateutil", "urllib3"],
     "magic": ["ipython", "pandas>=2.2.2,<2.4"],
     "tools": ["pandas>=2.2.2,<2.4"],
     "transfer": ["pandas>=2.2.2,<2.4", "scipy"],
@@ -60,12 +60,10 @@ CLASSIFIERS = [
     "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -285,7 +283,7 @@ setup(
     packages=find_packages(where="src") + ["gams.connect.agents.schema"],
     package_dir={"": "src"},
     license="MIT",
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     extras_require=EXTRAS,
     classifiers=CLASSIFIERS,
     include_package_data=True,

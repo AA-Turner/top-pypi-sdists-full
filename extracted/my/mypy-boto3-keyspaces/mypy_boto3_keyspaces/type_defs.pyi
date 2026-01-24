@@ -3,7 +3,7 @@ Type annotations for keyspaces service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_keyspaces/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -32,14 +33,9 @@ from .literals import (
     ThroughputModeType,
     TypeStatusType,
     ViewTypeType,
+    WarmThroughputStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -117,6 +113,8 @@ __all__ = (
     "UpdateKeyspaceResponseTypeDef",
     "UpdateTableRequestTypeDef",
     "UpdateTableResponseTypeDef",
+    "WarmThroughputSpecificationSummaryTypeDef",
+    "WarmThroughputSpecificationTypeDef",
 )
 
 class TargetTrackingScalingPolicyConfigurationTypeDef(TypedDict):
@@ -169,7 +167,7 @@ class ReplicationSpecificationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -186,6 +184,10 @@ class PointInTimeRecoveryTypeDef(TypedDict):
 
 class TimeToLiveTypeDef(TypedDict):
     status: Literal["ENABLED"]
+
+class WarmThroughputSpecificationTypeDef(TypedDict):
+    readUnitsPerSecond: NotRequired[int]
+    writeUnitsPerSecond: NotRequired[int]
 
 FieldDefinitionTypeDef = TypedDict(
     "FieldDefinitionTypeDef",
@@ -226,6 +228,11 @@ class PointInTimeRecoverySummaryTypeDef(TypedDict):
     status: PointInTimeRecoveryStatusType
     earliestRestorableTimestamp: NotRequired[datetime]
 
+class WarmThroughputSpecificationSummaryTypeDef(TypedDict):
+    readUnitsPerSecond: int
+    writeUnitsPerSecond: int
+    status: WarmThroughputStatusType
+
 class GetTypeRequestTypeDef(TypedDict):
     keyspaceName: str
     typeName: str
@@ -234,7 +241,7 @@ class KeyspaceSummaryTypeDef(TypedDict):
     keyspaceName: str
     resourceArn: str
     replicationStrategy: RsType
-    replicationRegions: NotRequired[List[str]]
+    replicationRegions: NotRequired[list[str]]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -277,11 +284,6 @@ class AutoScalingPolicyTypeDef(TypedDict):
     targetTrackingScalingPolicyConfiguration: NotRequired[
         TargetTrackingScalingPolicyConfigurationTypeDef
     ]
-
-class ReplicaSpecificationSummaryTypeDef(TypedDict):
-    region: NotRequired[str]
-    status: NotRequired[TableStatusType]
-    capacitySpecification: NotRequired[CapacitySpecificationSummaryTypeDef]
 
 class CdcSpecificationTypeDef(TypedDict):
     status: CdcStatusType
@@ -326,14 +328,14 @@ class DeleteTypeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 ListTypesResponseTypeDef = TypedDict(
     "ListTypesResponseTypeDef",
     {
-        "types": List[str],
+        "types": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
         "nextToken": NotRequired[str],
     },
@@ -359,11 +361,11 @@ class CreateTypeRequestTypeDef(TypedDict):
 class GetTypeResponseTypeDef(TypedDict):
     keyspaceName: str
     typeName: str
-    fieldDefinitions: List[FieldDefinitionTypeDef]
+    fieldDefinitions: list[FieldDefinitionTypeDef]
     lastModifiedTimestamp: datetime
     status: TypeStatusType
-    directReferringTables: List[str]
-    directParentTypes: List[str]
+    directReferringTables: list[str]
+    directParentTypes: list[str]
     maxNestingDepth: int
     keyspaceArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -372,12 +374,18 @@ class GetKeyspaceResponseTypeDef(TypedDict):
     keyspaceName: str
     resourceArn: str
     replicationStrategy: RsType
-    replicationRegions: List[str]
-    replicationGroupStatuses: List[ReplicationGroupStatusTypeDef]
+    replicationRegions: list[str]
+    replicationGroupStatuses: list[ReplicationGroupStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class ReplicaSpecificationSummaryTypeDef(TypedDict):
+    region: NotRequired[str]
+    status: NotRequired[TableStatusType]
+    capacitySpecification: NotRequired[CapacitySpecificationSummaryTypeDef]
+    warmThroughputSpecification: NotRequired[WarmThroughputSpecificationSummaryTypeDef]
+
 class ListKeyspacesResponseTypeDef(TypedDict):
-    keyspaces: List[KeyspaceSummaryTypeDef]
+    keyspaces: list[KeyspaceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -397,15 +405,15 @@ class ListTypesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTablesResponseTypeDef(TypedDict):
-    tables: List[TableSummaryTypeDef]
+    tables: list[TableSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class SchemaDefinitionOutputTypeDef(TypedDict):
-    allColumns: List[ColumnDefinitionTypeDef]
-    partitionKeys: List[PartitionKeyTypeDef]
-    clusteringKeys: NotRequired[List[ClusteringKeyTypeDef]]
-    staticColumns: NotRequired[List[StaticColumnTypeDef]]
+    allColumns: list[ColumnDefinitionTypeDef]
+    partitionKeys: list[PartitionKeyTypeDef]
+    clusteringKeys: NotRequired[list[ClusteringKeyTypeDef]]
+    staticColumns: NotRequired[list[StaticColumnTypeDef]]
 
 class SchemaDefinitionTypeDef(TypedDict):
     allColumns: Sequence[ColumnDefinitionTypeDef]
@@ -433,9 +441,10 @@ class GetTableResponseTypeDef(TypedDict):
     defaultTimeToLive: int
     comment: CommentTypeDef
     clientSideTimestamps: ClientSideTimestampsTypeDef
-    replicaSpecifications: List[ReplicaSpecificationSummaryTypeDef]
+    replicaSpecifications: list[ReplicaSpecificationSummaryTypeDef]
     latestStreamArn: str
     cdcSpecification: CdcSpecificationSummaryTypeDef
+    warmThroughputSpecification: WarmThroughputSpecificationSummaryTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 SchemaDefinitionUnionTypeDef = Union[SchemaDefinitionTypeDef, SchemaDefinitionOutputTypeDef]
@@ -468,6 +477,7 @@ class CreateTableRequestTypeDef(TypedDict):
     autoScalingSpecification: NotRequired[AutoScalingSpecificationTypeDef]
     replicaSpecifications: NotRequired[Sequence[ReplicaSpecificationTypeDef]]
     cdcSpecification: NotRequired[CdcSpecificationTypeDef]
+    warmThroughputSpecification: NotRequired[WarmThroughputSpecificationTypeDef]
 
 class RestoreTableRequestTypeDef(TypedDict):
     sourceKeyspaceName: str
@@ -495,11 +505,12 @@ class UpdateTableRequestTypeDef(TypedDict):
     autoScalingSpecification: NotRequired[AutoScalingSpecificationTypeDef]
     replicaSpecifications: NotRequired[Sequence[ReplicaSpecificationTypeDef]]
     cdcSpecification: NotRequired[CdcSpecificationTypeDef]
+    warmThroughputSpecification: NotRequired[WarmThroughputSpecificationTypeDef]
 
 class GetTableAutoScalingSettingsResponseTypeDef(TypedDict):
     keyspaceName: str
     tableName: str
     resourceArn: str
     autoScalingSpecification: AutoScalingSpecificationTypeDef
-    replicaSpecifications: List[ReplicaAutoScalingSpecificationTypeDef]
+    replicaSpecifications: list[ReplicaAutoScalingSpecificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

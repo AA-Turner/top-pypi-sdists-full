@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: os-ken
-Version: 3.1.1
+Version: 4.1.1
 Summary: A component-based software defined networking framework for OpenStack.
 Home-page: http://www.openstack.org/
 Author: OpenStack
@@ -12,11 +12,11 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: eventlet>=0.27.0
@@ -28,6 +28,15 @@ Requires-Dist: ovs>=2.8.0
 Requires-Dist: packaging>=20.4
 Requires-Dist: Routes>=2.3.1
 Requires-Dist: WebOb>=1.8.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ======
 os-ken

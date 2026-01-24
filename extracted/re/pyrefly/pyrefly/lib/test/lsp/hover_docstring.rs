@@ -22,7 +22,7 @@ fn test_report_factory(
     move |state: &State, handle: &Handle, position: TextSize| -> String {
         let results = state
             .transaction()
-            .find_definition(handle, position, &FindPreference::default())
+            .find_definition(handle, position, FindPreference::default())
             .into_iter()
             .filter_map(|t| {
                 let docstring_range = t.docstring_range?;
@@ -166,7 +166,6 @@ Docstring Result: `Test docstring`
     );
 }
 
-// TODO(kylei): attribute docstrings
 #[test]
 fn method_test() {
     let code = r#"
@@ -182,14 +181,13 @@ print(Foo().f())
 # main.py
 5 | print(Foo().f())
                 ^
-Docstring Result: None
+Docstring Result: `Test docstring`
 "#
         .trim(),
         report.trim(),
     );
 }
 
-// TODO(kylei): attribute docstrings
 #[test]
 fn attribute_test() {
     let code = r#"
@@ -205,7 +203,29 @@ print(Foo.f())
 # main.py
 5 | print(Foo.f())
               ^
-Docstring Result: None
+Docstring Result: `Test docstring`
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn nested_class_test() {
+    let code = r#"
+class Foo:
+    class Bar:
+        """Test docstring"""
+print(Foo.Bar)
+#           ^
+"#;
+    let report = get_batched_lsp_operations_report(&[("main", code)], test_report_factory(code));
+    assert_eq!(
+        r#"
+# main.py
+5 | print(Foo.Bar)
+                ^
+Docstring Result: `Test docstring`
 "#
         .trim(),
         report.trim(),
@@ -242,7 +262,6 @@ Docstring Result: `Test docstring`
     );
 }
 
-// TODO(kylei): attribute docstrings
 #[test]
 fn cross_module_method_test() {
     let lib = r#"
@@ -264,7 +283,7 @@ print(Foo().f())
 # main.py
 3 | print(Foo().f())
                 ^
-Docstring Result: None
+Docstring Result: `Test docstring`
 
 
 # lib.py

@@ -88,7 +88,6 @@ class AccordionComponent(RadixPrimitiveComponent):
         variant: Literal["classic", "ghost", "outline", "soft", "surface"]
         | Var[Literal["classic", "ghost", "outline", "soft", "surface"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -123,7 +122,6 @@ class AccordionComponent(RadixPrimitiveComponent):
             *children: The children of the component.
             color_scheme: The color scheme of the component.
             variant: The variant of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -223,7 +221,6 @@ class AccordionRoot(AccordionComponent):
         variant: Literal["classic", "ghost", "outline", "soft", "surface"]
         | Var[Literal["classic", "ghost", "outline", "soft", "surface"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -271,7 +268,6 @@ class AccordionRoot(AccordionComponent):
             on_value_change: Fired when the opened the accordions changes.
             color_scheme: The color scheme of the component.
             variant: The variant of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -355,7 +351,6 @@ class AccordionItem(AccordionComponent):
         variant: Literal["classic", "ghost", "outline", "soft", "surface"]
         | Var[Literal["classic", "ghost", "outline", "soft", "surface"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -394,7 +389,6 @@ class AccordionItem(AccordionComponent):
             content: The content of the accordion item.
             color_scheme: The color scheme of the component.
             variant: The variant of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -476,7 +470,6 @@ class AccordionHeader(AccordionComponent):
         variant: Literal["classic", "ghost", "outline", "soft", "surface"]
         | Var[Literal["classic", "ghost", "outline", "soft", "surface"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -511,7 +504,6 @@ class AccordionHeader(AccordionComponent):
             *children: The children of the component.
             color_scheme: The color scheme of the component.
             variant: The variant of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -593,7 +585,6 @@ class AccordionTrigger(AccordionComponent):
         variant: Literal["classic", "ghost", "outline", "soft", "surface"]
         | Var[Literal["classic", "ghost", "outline", "soft", "surface"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -628,7 +619,6 @@ class AccordionTrigger(AccordionComponent):
             *children: The children of the component.
             color_scheme: The color scheme of the component.
             variant: The variant of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -648,7 +638,6 @@ class AccordionIcon(Icon):
     def create(
         cls,
         *children,
-        size: Var[int] | int | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -681,7 +670,6 @@ class AccordionIcon(Icon):
 
         Args:
             *children: The children of the component.
-            size: The size of the icon in pixels.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -769,7 +757,6 @@ class AccordionContent(AccordionComponent):
         variant: Literal["classic", "ghost", "outline", "soft", "surface"]
         | Var[Literal["classic", "ghost", "outline", "soft", "surface"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -804,7 +791,6 @@ class AccordionContent(AccordionComponent):
             *children: The children of the component.
             color_scheme: The color scheme of the component.
             variant: The variant of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import contextlib
+import datetime
 import enum
 import hashlib
 import os
@@ -23,12 +24,15 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 import unicodedata
 from typing import (
     TYPE_CHECKING,
     Any,
     NoReturn,
 )
+
+import humanize
 
 import nox.command
 import nox.virtualenv
@@ -196,6 +200,11 @@ class Session:
     def env(self) -> dict[str, str | None]:
         """A dictionary of environment variables to pass into all commands."""
         return self.virtualenv.env
+
+    @property
+    def env_dir(self) -> pathlib.Path:
+        """The path to the environment of this session."""
+        return pathlib.Path(self._runner.envdir)
 
     @property
     def posargs(self) -> list[str]:
@@ -728,7 +737,7 @@ class Session:
             args = _dblquote_pkg_install_args(args)
 
         if silent is None:
-            silent = True
+            silent = not self._runner.global_config.verbose
 
         extraopts: list[str] = []
         if auto_offline and venv.is_offline():
@@ -766,7 +775,7 @@ class Session:
     def install(
         self,
         *args: str,
-        env: Mapping[str, str] | None = None,
+        env: Mapping[str, str | None] | None = None,
         include_outer_env: bool = True,
         silent: bool | None = None,
         success_codes: Iterable[int] | None = None,
@@ -838,7 +847,7 @@ class Session:
             return
 
         if silent is None:
-            silent = True
+            silent = not self._runner.global_config.verbose
 
         if isinstance(venv, VirtualEnv) and venv.venv_backend == "uv":
             cmd = ["uv", "pip", "install"]
@@ -942,7 +951,9 @@ class SessionRunner:
             self.multi = True
 
     def __repr__(self) -> str:
-        return f"<SessionRunner {self.name}: {self.signatures!r} {self.multi}>"
+        return (
+            f"<{self.__class__.__name__} {self.name}: {self.signatures!r} {self.multi}>"
+        )
 
     @property
     def description(self) -> str | None:
@@ -1015,10 +1026,15 @@ class SessionRunner:
             or "virtualenv"
         ).split("|")
 
+        download_python = (
+            self.global_config.download_python or self.func.download_python or "auto"
+        )
+
         self.venv = get_virtualenv(
             *backends,
-            reuse_existing=reuse_existing,
+            download_python=download_python,
             envdir=self.envdir,
+            reuse_existing=reuse_existing,
             interpreter=self.func.python,
             venv_params=self.func.venv_params,
         )
@@ -1077,7 +1093,7 @@ class SessionRunner:
         )
 
     def execute(self) -> Result:
-        logger.warning(f"Running session {self.friendly_name}")
+        logger.session_info(f"Running session {self.friendly_name}")
 
         for dependency in self.get_direct_dependencies():
             if not dependency.result:
@@ -1088,9 +1104,11 @@ class SessionRunner:
                         f"Prerequisite session {dependency.friendly_name} was not"
                         " successful"
                     ),
+                    duration=0,
                 )
                 return self.result
 
+        start = time.perf_counter()
         try:
             cwd = os.path.realpath(os.path.dirname(self.global_config.noxfile))
 
@@ -1101,25 +1119,49 @@ class SessionRunner:
                 self.func(session)
 
             # Nothing went wrong; return a success.
-            self.result = Result(self, Status.SUCCESS)
+            self.result = Result(
+                self, Status.SUCCESS, duration=time.perf_counter() - start
+            )
 
         except nox.virtualenv.InterpreterNotFound as exc:
             if self.global_config.error_on_missing_interpreters:
-                self.result = Result(self, Status.FAILED, reason=str(exc))
+                self.result = Result(
+                    self,
+                    Status.FAILED,
+                    reason=str(exc),
+                    duration=time.perf_counter() - start,
+                )
             else:
                 logger.warning(
                     "Missing interpreters will error by default on CI systems."
                 )
-                self.result = Result(self, Status.SKIPPED, reason=str(exc))
+                self.result = Result(
+                    self,
+                    Status.SKIPPED,
+                    reason=str(exc),
+                    duration=time.perf_counter() - start,
+                )
 
         except _SessionQuit as exc:
-            self.result = Result(self, Status.ABORTED, reason=str(exc))
+            self.result = Result(
+                self,
+                Status.ABORTED,
+                reason=str(exc),
+                duration=time.perf_counter() - start,
+            )
 
         except _SessionSkip as exc:
-            self.result = Result(self, Status.SKIPPED, reason=str(exc))
+            self.result = Result(
+                self,
+                Status.SKIPPED,
+                reason=str(exc),
+                duration=time.perf_counter() - start,
+            )
 
         except nox.command.CommandFailed:
-            self.result = Result(self, Status.FAILED)
+            self.result = Result(
+                self, Status.FAILED, duration=time.perf_counter() - start
+            )
 
         except KeyboardInterrupt:
             logger.error(f"Session {self.friendly_name} interrupted.")
@@ -1127,16 +1169,33 @@ class SessionRunner:
 
         except Exception as exc:
             logger.exception(f"Session {self.friendly_name} raised exception {exc!r}")
-            self.result = Result(self, Status.FAILED)
+            self.result = Result(
+                self, Status.FAILED, duration=time.perf_counter() - start
+            )
 
         return self.result
+
+
+def _duration_str(seconds: float, text: str) -> str:
+    time_str = humanize.naturaldelta(datetime.timedelta(seconds=seconds))
+
+    # Might be "a moment" if short, return empty string in that case
+    if time_str == "a moment":
+        return ""
+
+    return text.format(time=time_str)
 
 
 class Result:
     """An object representing the result of a session."""
 
     def __init__(
-        self, session: SessionRunner, status: Status, reason: str | None = None
+        self,
+        session: SessionRunner,
+        status: Status,
+        reason: str | None = None,
+        *,
+        duration: float = 0.0,
     ) -> None:
         """Initialize the Result object.
 
@@ -1145,10 +1204,12 @@ class Result:
                 The session runner which ran.
             status (~nox.sessions.Status): The final result status.
             reason (str): Additional info.
+            duration (float): Time taken in seconds.
         """
         self.session = session
         self.status = status
         self.reason = reason
+        self.duration = duration
 
     def __bool__(self) -> bool:
         return self.status.value > 0
@@ -1161,12 +1222,12 @@ class Result:
             str: A word or phrase representing the status.
         """
         if self.status == Status.SUCCESS:
-            return "was successful"
+            return "was successful" + _duration_str(self.duration, " in {time}")
 
         status = self.status.name.lower()
         if self.reason:
-            return f"{status}: {self.reason}"
-
+            duration_err = _duration_str(self.duration, " (took {time})")
+            return f"{status}: {self.reason}{duration_err}"
         return status
 
     def log(self, message: str) -> None:
@@ -1196,4 +1257,5 @@ class Result:
             "result": self.status.name.lower(),
             "result_code": self.status.value,
             "signatures": self.session.signatures,
+            "duration": self.duration,
         }

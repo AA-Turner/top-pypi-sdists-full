@@ -142,6 +142,10 @@ class TeamGameLogs(Endpoint):
             "VsConference": vs_conference_nullable,
             "VsDivision": vs_division_nullable,
         }
+
+        # Initialize dataset attributes
+        self.team_game_logs = None
+
         if get_request:
             self.get_request()
 

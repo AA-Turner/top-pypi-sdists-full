@@ -9,95 +9,80 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+import datetime as _dt
+from typing import Any, Union
 
 from pydantic import Field
 
-from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.compat import ExtraGitHubModel, GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0072 import ActionsHostedRunnerMachineSpec
+from .group_0003 import SimpleUser
 
 
-class ActionsHostedRunner(GitHubModel):
-    """GitHub-hosted hosted runner
+class GistHistory(GitHubModel):
+    """Gist History
 
-    A Github-hosted hosted runner.
+    Gist History
     """
 
-    id: int = Field(description="The unique identifier of the hosted runner.")
-    name: str = Field(description="The name of the hosted runner.")
-    runner_group_id: Missing[int] = Field(
-        default=UNSET,
-        description="The unique identifier of the group that the hosted runner belongs to.",
-    )
-    image_details: Union[None, ActionsHostedRunnerPoolImage] = Field()
-    machine_size_details: ActionsHostedRunnerMachineSpec = Field(
-        title="Github-owned VM details.",
-        description="Provides details of a particular machine spec.",
-    )
-    status: Literal["Ready", "Provisioning", "Shutdown", "Deleting", "Stuck"] = Field(
-        description="The status of the runner."
-    )
-    platform: str = Field(description="The operating system of the image.")
-    maximum_runners: Missing[int] = Field(
-        default=UNSET,
-        description="The maximum amount of hosted runners. Runners will not scale automatically above this number. Use this setting to limit your cost.",
-    )
-    public_ip_enabled: bool = Field(
-        description="Whether public IP is enabled for the hosted runners."
-    )
-    public_ips: Missing[list[PublicIp]] = Field(
-        default=UNSET,
-        description="The public IP ranges when public IP is enabled for the hosted runners.",
-    )
-    last_active_on: Missing[Union[datetime, None]] = Field(
-        default=UNSET,
-        description="The time at which the runner was last used, in ISO 8601 format.",
-    )
+    user: Missing[Union[None, SimpleUser]] = Field(default=UNSET)
+    version: Missing[str] = Field(default=UNSET)
+    committed_at: Missing[_dt.datetime] = Field(default=UNSET)
+    change_status: Missing[GistHistoryPropChangeStatus] = Field(default=UNSET)
+    url: Missing[str] = Field(default=UNSET)
 
 
-class ActionsHostedRunnerPoolImage(GitHubModel):
-    """GitHub-hosted runner image details.
+class GistHistoryPropChangeStatus(GitHubModel):
+    """GistHistoryPropChangeStatus"""
 
-    Provides details of a hosted runner image
+    total: Missing[int] = Field(default=UNSET)
+    additions: Missing[int] = Field(default=UNSET)
+    deletions: Missing[int] = Field(default=UNSET)
+
+
+class GistSimplePropForkOf(GitHubModel):
+    """Gist
+
+    Gist
     """
 
-    id: str = Field(
-        description="The ID of the image. Use this ID for the `image` parameter when creating a new larger runner."
-    )
-    size_gb: int = Field(description="Image size in GB.")
-    display_name: str = Field(description="Display name for this image.")
-    source: Literal["github", "partner", "custom"] = Field(
-        description="The image provider."
-    )
+    url: str = Field()
+    forks_url: str = Field()
+    commits_url: str = Field()
+    id: str = Field()
+    node_id: str = Field()
+    git_pull_url: str = Field()
+    git_push_url: str = Field()
+    html_url: str = Field()
+    files: GistSimplePropForkOfPropFiles = Field()
+    public: bool = Field()
+    created_at: _dt.datetime = Field()
+    updated_at: _dt.datetime = Field()
+    description: Union[str, None] = Field()
+    comments: int = Field()
+    comments_enabled: Missing[bool] = Field(default=UNSET)
+    user: Union[None, SimpleUser] = Field()
+    comments_url: str = Field()
+    owner: Missing[Union[None, SimpleUser]] = Field(default=UNSET)
+    truncated: Missing[bool] = Field(default=UNSET)
+    forks: Missing[list[Any]] = Field(default=UNSET)
+    history: Missing[list[Any]] = Field(default=UNSET)
 
 
-class PublicIp(GitHubModel):
-    """Public IP for a GitHub-hosted larger runners.
-
-    Provides details of Public IP for a GitHub-hosted larger runners
-    """
-
-    enabled: Missing[bool] = Field(
-        default=UNSET, description="Whether public IP is enabled."
-    )
-    prefix: Missing[str] = Field(
-        default=UNSET, description="The prefix for the public IP."
-    )
-    length: Missing[int] = Field(
-        default=UNSET, description="The length of the IP prefix."
-    )
+class GistSimplePropForkOfPropFiles(ExtraGitHubModel):
+    """GistSimplePropForkOfPropFiles"""
 
 
-model_rebuild(ActionsHostedRunner)
-model_rebuild(ActionsHostedRunnerPoolImage)
-model_rebuild(PublicIp)
+model_rebuild(GistHistory)
+model_rebuild(GistHistoryPropChangeStatus)
+model_rebuild(GistSimplePropForkOf)
+model_rebuild(GistSimplePropForkOfPropFiles)
 
 __all__ = (
-    "ActionsHostedRunner",
-    "ActionsHostedRunnerPoolImage",
-    "PublicIp",
+    "GistHistory",
+    "GistHistoryPropChangeStatus",
+    "GistSimplePropForkOf",
+    "GistSimplePropForkOfPropFiles",
 )

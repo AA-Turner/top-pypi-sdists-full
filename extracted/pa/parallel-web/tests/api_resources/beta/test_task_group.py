@@ -9,6 +9,7 @@ import pytest
 
 from parallel import Parallel, AsyncParallel
 from tests.utils import assert_matches_type
+from parallel._utils import parse_date
 from parallel.types.beta import (
     TaskGroup,
     TaskGroupRunResponse,
@@ -123,8 +124,9 @@ class TestTaskGroup:
                     ],
                     "metadata": {"foo": "string"},
                     "source_policy": {
-                        "exclude_domains": ["string"],
-                        "include_domains": ["string"],
+                        "after_date": parse_date("2024-01-01"),
+                        "exclude_domains": ["reddit.com", "x.com", ".ai"],
+                        "include_domains": ["wikipedia.org", "usa.gov", ".edu"],
                     },
                     "task_spec": {
                         "output_schema": {
@@ -422,8 +424,9 @@ class TestAsyncTaskGroup:
                     ],
                     "metadata": {"foo": "string"},
                     "source_policy": {
-                        "exclude_domains": ["string"],
-                        "include_domains": ["string"],
+                        "after_date": parse_date("2024-01-01"),
+                        "exclude_domains": ["reddit.com", "x.com", ".ai"],
+                        "include_domains": ["wikipedia.org", "usa.gov", ".edu"],
                     },
                     "task_spec": {
                         "output_schema": {

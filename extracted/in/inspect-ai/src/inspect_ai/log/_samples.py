@@ -1,6 +1,6 @@
 import contextlib
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import AsyncGenerator, Iterator, Literal
 
 from anyio.abc import TaskGroup
@@ -11,7 +11,8 @@ from inspect_ai.util._limit import LimitExceededError
 from inspect_ai.util._sandbox import SandboxConnection
 from inspect_ai.util._sandbox.context import sandbox_connections
 
-from ._transcript import ModelEvent, Transcript
+from ..event._model import ModelEvent
+from ._transcript import Transcript
 
 
 class ActiveSample:
@@ -53,11 +54,11 @@ class ActiveSample:
         self._limit_exceeded_error: LimitExceededError | None = None
 
     def start(self, tg: TaskGroup) -> None:
-        self.started = datetime.now().timestamp()
+        self.started = datetime.now(timezone.utc).timestamp()
         self.tg = tg
 
     def complete(self) -> None:
-        self.completed = datetime.now().timestamp()
+        self.completed = datetime.now(timezone.utc).timestamp()
 
     @property
     def running_time(self) -> float:
@@ -65,7 +66,7 @@ class ActiveSample:
             completed = (
                 self.completed
                 if self.completed is not None
-                else datetime.now().timestamp()
+                else datetime.now(timezone.utc).timestamp()
             )
             return completed - self.started
         else:
@@ -189,6 +190,10 @@ def track_active_model_event(event: ModelEvent) -> Iterator[None]:
         yield
     finally:
         _active_model_event.reset(token)
+
+
+def has_active_model_event() -> bool:
+    return _active_model_event.get() is not None
 
 
 def report_active_sample_retry() -> None:

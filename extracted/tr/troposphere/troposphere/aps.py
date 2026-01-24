@@ -7,7 +7,82 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import integer
+from .validators import boolean, double, integer
+
+
+class IgnoreNearExpected(AWSProperty):
+    """
+    `IgnoreNearExpected <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-anomalydetector-ignorenearexpected.html>`__
+    """
+
+    props: PropsDictType = {
+        "Amount": (double, False),
+        "Ratio": (double, False),
+    }
+
+
+class RandomCutForestConfiguration(AWSProperty):
+    """
+    `RandomCutForestConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-anomalydetector-randomcutforestconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "IgnoreNearExpectedFromAbove": (IgnoreNearExpected, False),
+        "IgnoreNearExpectedFromBelow": (IgnoreNearExpected, False),
+        "Query": (str, True),
+        "SampleSize": (integer, False),
+        "ShingleSize": (integer, False),
+    }
+
+
+class AnomalyDetectorConfiguration(AWSProperty):
+    """
+    `AnomalyDetectorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-anomalydetector-anomalydetectorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "RandomCutForest": (RandomCutForestConfiguration, True),
+    }
+
+
+class Label(AWSProperty):
+    """
+    `Label <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-label.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, True),
+        "Value": (str, True),
+    }
+
+
+class MissingDataAction(AWSProperty):
+    """
+    `MissingDataAction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-anomalydetector-missingdataaction.html>`__
+    """
+
+    props: PropsDictType = {
+        "MarkAsAnomaly": (boolean, False),
+        "Skip": (boolean, False),
+    }
+
+
+class AnomalyDetector(AWSObject):
+    """
+    `AnomalyDetector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aps-anomalydetector.html>`__
+    """
+
+    resource_type = "AWS::APS::AnomalyDetector"
+
+    props: PropsDictType = {
+        "Alias": (str, True),
+        "Configuration": (AnomalyDetectorConfiguration, True),
+        "EvaluationIntervalInSeconds": (integer, False),
+        "Labels": ([Label], False),
+        "MissingDataAction": (MissingDataAction, False),
+        "Tags": (Tags, False),
+        "Workspace": (str, True),
+    }
 
 
 class ResourcePolicy(AWSObject):
@@ -79,6 +154,58 @@ class ScrapeConfiguration(AWSProperty):
     }
 
 
+class ComponentConfig(AWSProperty):
+    """
+    `ComponentConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-componentconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Options": (dict, False),
+    }
+
+
+class ScraperComponent(AWSProperty):
+    """
+    `ScraperComponent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-scrapercomponent.html>`__
+    """
+
+    props: PropsDictType = {
+        "Config": (ComponentConfig, False),
+        "Type": (str, True),
+    }
+
+
+class CloudWatchLogDestination(AWSProperty):
+    """
+    `CloudWatchLogDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-cloudwatchlogdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroupArn": (str, True),
+    }
+
+
+class ScraperLoggingDestination(AWSProperty):
+    """
+    `ScraperLoggingDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-scraperloggingdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchLogs": (CloudWatchLogDestination, False),
+    }
+
+
+class ScraperLoggingConfiguration(AWSProperty):
+    """
+    `ScraperLoggingConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-scraperloggingconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LoggingDestination": (ScraperLoggingDestination, True),
+        "ScraperComponents": ([ScraperComponent], True),
+    }
+
+
 class EksConfiguration(AWSProperty):
     """
     `EksConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-eksconfiguration.html>`__
@@ -91,13 +218,25 @@ class EksConfiguration(AWSProperty):
     }
 
 
+class VpcConfiguration(AWSProperty):
+    """
+    `VpcConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-vpcconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroupIds": ([str], True),
+        "SubnetIds": ([str], True),
+    }
+
+
 class Source(AWSProperty):
     """
     `Source <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-source.html>`__
     """
 
     props: PropsDictType = {
-        "EksConfiguration": (EksConfiguration, True),
+        "EksConfiguration": (EksConfiguration, False),
+        "VpcConfiguration": (VpcConfiguration, False),
     }
 
 
@@ -113,6 +252,7 @@ class Scraper(AWSObject):
         "Destination": (Destination, True),
         "RoleConfiguration": (RoleConfiguration, False),
         "ScrapeConfiguration": (ScrapeConfiguration, True),
+        "ScraperLoggingConfiguration": (ScraperLoggingConfiguration, False),
         "Source": (Source, True),
         "Tags": (Tags, False),
     }
@@ -125,16 +265,6 @@ class LoggingConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "LogGroupArn": (str, False),
-    }
-
-
-class CloudWatchLogDestination(AWSProperty):
-    """
-    `CloudWatchLogDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-cloudwatchlogdestination.html>`__
-    """
-
-    props: PropsDictType = {
-        "LogGroupArn": (str, True),
     }
 
 
@@ -166,17 +296,6 @@ class QueryLoggingConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "Destinations": ([LoggingDestination], True),
-    }
-
-
-class Label(AWSProperty):
-    """
-    `Label <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-workspace-label.html>`__
-    """
-
-    props: PropsDictType = {
-        "Name": (str, True),
-        "Value": (str, True),
     }
 
 

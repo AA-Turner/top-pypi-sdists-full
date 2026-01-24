@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 from django.test import TestCase
 
 from allauth.socialaccount.providers.asana.provider import AsanaProvider
@@ -10,11 +12,11 @@ class AsanaTests(OAuth2TestsMixin, TestCase):
 
     def get_mocked_response(self):
         return MockedResponse(
-            200,
+            HTTPStatus.OK,
             """
 {"data": {"photo": null, "workspaces": [{"id": 31337, "name": "example.com"},
 {"id": 3133777, "name": "Personal Projects"}], "email": "test@example.com",
-"name": "Test Name", "id": 43748387}}""",
+"name": "Test Name", "gid": 43748387}}""",
         )
 
     def get_expected_to_str(self):

@@ -17,9 +17,11 @@ from pydantic import BaseModel
 
 from githubkit.compat import model_dump, type_validate_python
 from githubkit.typing import Missing, UnsetType
-from githubkit.utils import UNSET, exclude_unset
+from githubkit.utils import UNSET, exclude_unset, parse_query_params
 
 if TYPE_CHECKING:
+    import datetime as _dt
+
     from githubkit import GitHubCore
     from githubkit.response import Response
     from githubkit.typing import Missing
@@ -28,6 +30,8 @@ if TYPE_CHECKING:
     from ..models import (
         CopilotOrganizationDetails,
         CopilotSeatDetails,
+        CopilotUsageMetrics1DayReport,
+        CopilotUsageMetrics28DayReport,
         CopilotUsageMetricsDay,
         EnterprisesEnterpriseCopilotBillingSeatsGetResponse200,
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
@@ -42,28 +46,30 @@ if TYPE_CHECKING:
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
     )
     from ..types import (
-        CopilotOrganizationDetailsType,
-        CopilotSeatDetailsType,
-        CopilotUsageMetricsDayType,
-        EnterprisesEnterpriseCopilotBillingSeatsGetResponse200Type,
+        CopilotOrganizationDetailsTypeForResponse,
+        CopilotSeatDetailsTypeForResponse,
+        CopilotUsageMetrics1DayReportTypeForResponse,
+        CopilotUsageMetrics28DayReportTypeForResponse,
+        CopilotUsageMetricsDayTypeForResponse,
+        EnterprisesEnterpriseCopilotBillingSeatsGetResponse200TypeForResponse,
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteBodyType,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostBodyType,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteBodyType,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostBodyType,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
-        EnterprisesEnterpriseMembersUsernameCopilotGetResponse200Type,
-        OrgsOrgCopilotBillingSeatsGetResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
+        EnterprisesEnterpriseMembersUsernameCopilotGetResponse200TypeForResponse,
+        OrgsOrgCopilotBillingSeatsGetResponse200TypeForResponse,
         OrgsOrgCopilotBillingSelectedTeamsDeleteBodyType,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
         OrgsOrgCopilotBillingSelectedTeamsPostBodyType,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
         OrgsOrgCopilotBillingSelectedUsersDeleteBodyType,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
         OrgsOrgCopilotBillingSelectedUsersPostBodyType,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     )
 
 
@@ -92,7 +98,7 @@ class CopilotClient:
         stream: bool = False,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSeatsGetResponse200,
-        EnterprisesEnterpriseCopilotBillingSeatsGetResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSeatsGetResponse200TypeForResponse,
     ]:
         """copilot/list-copilot-seats-for-enterprise
 
@@ -134,7 +140,7 @@ class CopilotClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=EnterprisesEnterpriseCopilotBillingSeatsGetResponse200,
@@ -156,7 +162,7 @@ class CopilotClient:
         stream: bool = False,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSeatsGetResponse200,
-        EnterprisesEnterpriseCopilotBillingSeatsGetResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSeatsGetResponse200TypeForResponse,
     ]:
         """copilot/list-copilot-seats-for-enterprise
 
@@ -198,7 +204,7 @@ class CopilotClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=EnterprisesEnterpriseCopilotBillingSeatsGetResponse200,
@@ -220,7 +226,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -234,7 +240,7 @@ class CopilotClient:
         selected_enterprise_teams: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
     ]: ...
 
     def add_copilot_seats_for_enterprise_teams(
@@ -249,7 +255,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-enterprise-teams
 
@@ -315,7 +321,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -329,7 +335,7 @@ class CopilotClient:
         selected_enterprise_teams: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
     ]: ...
 
     async def async_add_copilot_seats_for_enterprise_teams(
@@ -344,7 +350,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-enterprise-teams
 
@@ -410,7 +416,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -424,7 +430,7 @@ class CopilotClient:
         selected_enterprise_teams: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     def cancel_copilot_seats_for_enterprise_teams(
@@ -439,7 +445,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seats-for-enterprise-teams
 
@@ -507,7 +513,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -521,7 +527,7 @@ class CopilotClient:
         selected_enterprise_teams: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     async def async_cancel_copilot_seats_for_enterprise_teams(
@@ -536,7 +542,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedEnterpriseTeamsDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seats-for-enterprise-teams
 
@@ -604,7 +610,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedUsersPostBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -618,7 +624,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     def add_copilot_seats_for_enterprise_users(
@@ -633,7 +639,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-enterprise-users
 
@@ -700,7 +706,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedUsersPostBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -714,7 +720,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     async def async_add_copilot_seats_for_enterprise_users(
@@ -729,7 +735,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-enterprise-users
 
@@ -796,7 +802,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -810,7 +816,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     def cancel_copilot_seats_for_enterprise_users(
@@ -825,7 +831,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seats-for-enterprise-users
 
@@ -892,7 +898,7 @@ class CopilotClient:
         data: EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteBodyType,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -906,7 +912,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     async def async_cancel_copilot_seats_for_enterprise_users(
@@ -921,7 +927,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200,
-        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200Type,
+        EnterprisesEnterpriseCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seats-for-enterprise-users
 
@@ -988,7 +994,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-enterprise
 
         GET /enterprises/{enterprise}/copilot/metrics
@@ -1023,7 +1031,7 @@ class CopilotClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -1045,7 +1053,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-enterprise
 
         GET /enterprises/{enterprise}/copilot/metrics
@@ -1080,7 +1090,7 @@ class CopilotClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -1089,6 +1099,374 @@ class CopilotClient:
                 "403": BasicError,
                 "404": BasicError,
                 "422": BasicError,
+            },
+        )
+
+    def copilot_enterprise_one_day_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-enterprise-one-day-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/enterprise-1-day
+
+        Use this endpoint to retrieve download links for the Copilot enterprise usage metrics report for a specific day. The report provides comprehensive usage data for Copilot features across the enterprise.
+
+        The report contains aggregated metrics for the specified day, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed. Reports are available starting from October 10, 2025, and historical data can be accessed for up to 1 year from the current date.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-enterprise-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/enterprise-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_enterprise_one_day_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-enterprise-one-day-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/enterprise-1-day
+
+        Use this endpoint to retrieve download links for the Copilot enterprise usage metrics report for a specific day. The report provides comprehensive usage data for Copilot features across the enterprise.
+
+        The report contains aggregated metrics for the specified day, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed. Reports are available starting from October 10, 2025, and historical data can be accessed for up to 1 year from the current date.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-enterprise-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/enterprise-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def copilot_enterprise_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-enterprise-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/enterprise-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day enterprise Copilot usage metrics report. The report provides comprehensive usage data for Copilot features across the enterprise.
+
+        The report contains aggregated metrics for the previous 28 days, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-enterprise-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/enterprise-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_enterprise_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-enterprise-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/enterprise-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day enterprise Copilot usage metrics report. The report provides comprehensive usage data for Copilot features across the enterprise.
+
+        The report contains aggregated metrics for the previous 28 days, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-enterprise-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/enterprise-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def copilot_users_one_day_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-users-one-day-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/users-1-day
+
+        Use this endpoint to retrieve download links for the Copilot user usage metrics report for a specific day. The report provides detailed user-level usage data and engagement metrics for Copilot features across the enterprise.
+
+        The report contains user-specific metrics for the specified day, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed. Reports are available starting from October 10, 2025, and historical data can be accessed for up to 1 year from the current date.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-users-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/users-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_users_one_day_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-users-one-day-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/users-1-day
+
+        Use this endpoint to retrieve download links for the Copilot user usage metrics report for a specific day. The report provides detailed user-level usage data and engagement metrics for Copilot features across the enterprise.
+
+        The report contains user-specific metrics for the specified day, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed. Reports are available starting from October 10, 2025, and historical data can be accessed for up to 1 year from the current date.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-users-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/users-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def copilot_users_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-users-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/users-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day enterprise users Copilot usage metrics report. The report provides detailed user-level usage data and engagement metrics for Copilot features across the enterprise.
+
+        The report contains user-specific metrics for the previous 28 days, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-users-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/users-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_users_usage_metrics(
+        self,
+        enterprise: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-users-usage-metrics
+
+        GET /enterprises/{enterprise}/copilot/metrics/reports/users-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day enterprise users Copilot usage metrics report. The report provides detailed user-level usage data and engagement metrics for Copilot features across the enterprise.
+
+        The report contains user-specific metrics for the previous 28 days, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Enterprise owners, billing managers, and authorized users with fine-grained "View Enterprise Copilot Metrics" permission can retrieve Copilot metrics reports for the enterprise. OAuth app tokens and personal access tokens (classic) need either the `manage_billing:copilot` or `read:enterprise` scopes to use this endpoint.
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-users-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/enterprises/{enterprise}/copilot/metrics/reports/users-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
             },
         )
 
@@ -1101,7 +1479,7 @@ class CopilotClient:
         stream: bool = False,
     ) -> Response[
         EnterprisesEnterpriseMembersUsernameCopilotGetResponse200,
-        EnterprisesEnterpriseMembersUsernameCopilotGetResponse200Type,
+        EnterprisesEnterpriseMembersUsernameCopilotGetResponse200TypeForResponse,
     ]:
         """copilot/get-copilot-seat-details-for-enterprise-user
 
@@ -1153,7 +1531,7 @@ class CopilotClient:
         stream: bool = False,
     ) -> Response[
         EnterprisesEnterpriseMembersUsernameCopilotGetResponse200,
-        EnterprisesEnterpriseMembersUsernameCopilotGetResponse200Type,
+        EnterprisesEnterpriseMembersUsernameCopilotGetResponse200TypeForResponse,
     ]:
         """copilot/get-copilot-seat-details-for-enterprise-user
 
@@ -1207,7 +1585,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-enterprise-team
 
         GET /enterprises/{enterprise}/team/{team_slug}/copilot/metrics
@@ -1248,7 +1628,7 @@ class CopilotClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -1271,7 +1651,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-enterprise-team
 
         GET /enterprises/{enterprise}/team/{team_slug}/copilot/metrics
@@ -1312,7 +1694,7 @@ class CopilotClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -1330,7 +1712,9 @@ class CopilotClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[CopilotOrganizationDetails, CopilotOrganizationDetailsType]:
+    ) -> Response[
+        CopilotOrganizationDetails, CopilotOrganizationDetailsTypeForResponse
+    ]:
         """copilot/get-copilot-organization-details
 
         GET /orgs/{org}/copilot/billing
@@ -1375,7 +1759,9 @@ class CopilotClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[CopilotOrganizationDetails, CopilotOrganizationDetailsType]:
+    ) -> Response[
+        CopilotOrganizationDetails, CopilotOrganizationDetailsTypeForResponse
+    ]:
         """copilot/get-copilot-organization-details
 
         GET /orgs/{org}/copilot/billing
@@ -1424,7 +1810,7 @@ class CopilotClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgCopilotBillingSeatsGetResponse200,
-        OrgsOrgCopilotBillingSeatsGetResponse200Type,
+        OrgsOrgCopilotBillingSeatsGetResponse200TypeForResponse,
     ]:
         """copilot/list-copilot-seats
 
@@ -1458,7 +1844,7 @@ class CopilotClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgCopilotBillingSeatsGetResponse200,
@@ -1480,7 +1866,7 @@ class CopilotClient:
         stream: bool = False,
     ) -> Response[
         OrgsOrgCopilotBillingSeatsGetResponse200,
-        OrgsOrgCopilotBillingSeatsGetResponse200Type,
+        OrgsOrgCopilotBillingSeatsGetResponse200TypeForResponse,
     ]:
         """copilot/list-copilot-seats
 
@@ -1514,7 +1900,7 @@ class CopilotClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=OrgsOrgCopilotBillingSeatsGetResponse200,
@@ -1536,7 +1922,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedTeamsPostBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsPostResponse201,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -1550,7 +1936,7 @@ class CopilotClient:
         selected_teams: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsPostResponse201,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
     ]: ...
 
     def add_copilot_seats_for_teams(
@@ -1563,7 +1949,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsPostResponse201,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-teams
 
@@ -1632,7 +2018,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedTeamsPostBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsPostResponse201,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -1646,7 +2032,7 @@ class CopilotClient:
         selected_teams: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsPostResponse201,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
     ]: ...
 
     async def async_add_copilot_seats_for_teams(
@@ -1659,7 +2045,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsPostResponse201,
-        OrgsOrgCopilotBillingSelectedTeamsPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedTeamsPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-teams
 
@@ -1728,7 +2114,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedTeamsDeleteBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -1742,7 +2128,7 @@ class CopilotClient:
         selected_teams: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     def cancel_copilot_seat_assignment_for_teams(
@@ -1755,7 +2141,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seat-assignment-for-teams
 
@@ -1823,7 +2209,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedTeamsDeleteBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -1837,7 +2223,7 @@ class CopilotClient:
         selected_teams: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
     ]: ...
 
     async def async_cancel_copilot_seat_assignment_for_teams(
@@ -1850,7 +2236,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedTeamsDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seat-assignment-for-teams
 
@@ -1918,7 +2304,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedUsersPostBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -1932,7 +2318,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     def add_copilot_seats_for_users(
@@ -1945,7 +2331,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-users
 
@@ -2014,7 +2400,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedUsersPostBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     @overload
@@ -2028,7 +2414,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]: ...
 
     async def async_add_copilot_seats_for_users(
@@ -2041,7 +2427,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersPostResponse201,
-        OrgsOrgCopilotBillingSelectedUsersPostResponse201Type,
+        OrgsOrgCopilotBillingSelectedUsersPostResponse201TypeForResponse,
     ]:
         """copilot/add-copilot-seats-for-users
 
@@ -2110,7 +2496,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedUsersDeleteBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -2124,7 +2510,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     def cancel_copilot_seat_assignment_for_users(
@@ -2137,7 +2523,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seat-assignment-for-users
 
@@ -2205,7 +2591,7 @@ class CopilotClient:
         data: OrgsOrgCopilotBillingSelectedUsersDeleteBodyType,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     @overload
@@ -2219,7 +2605,7 @@ class CopilotClient:
         selected_usernames: list[str],
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]: ...
 
     async def async_cancel_copilot_seat_assignment_for_users(
@@ -2232,7 +2618,7 @@ class CopilotClient:
         **kwargs,
     ) -> Response[
         OrgsOrgCopilotBillingSelectedUsersDeleteResponse200,
-        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200Type,
+        OrgsOrgCopilotBillingSelectedUsersDeleteResponse200TypeForResponse,
     ]:
         """copilot/cancel-copilot-seat-assignment-for-users
 
@@ -2300,7 +2686,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-organization
 
         GET /orgs/{org}/copilot/metrics
@@ -2338,7 +2726,7 @@ class CopilotClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -2360,7 +2748,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-organization
 
         GET /orgs/{org}/copilot/metrics
@@ -2398,7 +2788,7 @@ class CopilotClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -2410,6 +2800,390 @@ class CopilotClient:
             },
         )
 
+    def copilot_organization_one_day_usage_metrics(
+        self,
+        org: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-one-day-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/organization-1-day
+
+        Use this endpoint to retrieve download links for the Copilot organization usage metrics report for a specific day. The report provides comprehensive usage data for Copilot features across the organization.
+
+        The report contains aggregated metrics for the specified day, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/organization-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_organization_one_day_usage_metrics(
+        self,
+        org: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-one-day-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/organization-1-day
+
+        Use this endpoint to retrieve download links for the Copilot organization usage metrics report for a specific day. The report provides comprehensive usage data for Copilot features across the organization.
+
+        The report contains aggregated metrics for the specified day, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/organization-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def copilot_organization_usage_metrics(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/organization-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day organization Copilot usage metrics report. The report provides comprehensive usage data for Copilot features across the organization.
+
+        The report contains aggregated metrics for the previous 28 days, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/organization-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_organization_usage_metrics(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/organization-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day organization Copilot usage metrics report. The report provides comprehensive usage data for Copilot features across the organization.
+
+        The report contains aggregated metrics for the previous 28 days, including usage statistics for various Copilot features, user engagement data, and feature adoption metrics. Reports are generated daily and made available for download through signed URLs with a limited expiration time.
+
+        The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/organization-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def copilot_organization_users_one_day_usage_metrics(
+        self,
+        org: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-users-one-day-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/users-1-day
+
+        Use this endpoint to retrieve download links for the Copilot organization user usage metrics report for a specific day. The report provides detailed user-level usage data and engagement metrics for Copilot features across the organization.
+
+        The report contains user-specific metrics for the specified day, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-users-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/users-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_organization_users_one_day_usage_metrics(
+        self,
+        org: str,
+        *,
+        day: _dt.date,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics1DayReport, CopilotUsageMetrics1DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-users-one-day-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/users-1-day
+
+        Use this endpoint to retrieve download links for the Copilot organization user usage metrics report for a specific day. The report provides detailed user-level usage data and engagement metrics for Copilot features across the organization.
+
+        The report contains user-specific metrics for the specified day, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date of the report. The report covers a complete day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-users-usage-metrics-for-a-specific-day
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics1DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/users-1-day"
+
+        params = {
+            "day": day,
+        }
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            params=exclude_unset(parse_query_params(params)),
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics1DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    def copilot_organization_users_usage_metrics(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-users-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/users-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day organization users Copilot usage metrics report. The report provides detailed user-level usage data and engagement metrics for Copilot features across the organization.
+
+        The report contains user-specific metrics for the previous 28 days, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-users-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/users-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return self._github.request(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
+    async def async_copilot_organization_users_usage_metrics(
+        self,
+        org: str,
+        *,
+        headers: Optional[Mapping[str, str]] = None,
+        stream: bool = False,
+    ) -> Response[
+        CopilotUsageMetrics28DayReport, CopilotUsageMetrics28DayReportTypeForResponse
+    ]:
+        """copilot/copilot-organization-users-usage-metrics
+
+        GET /orgs/{org}/copilot/metrics/reports/users-28-day/latest
+
+        Use this endpoint to retrieve download links for the latest 28-day organization users Copilot usage metrics report. The report provides detailed user-level usage data and engagement metrics for Copilot features across the organization.
+
+        The report contains user-specific metrics for the previous 28 days, including individual user engagement statistics, feature usage patterns, and adoption metrics broken down by user. This report allows authorized users to analyze Copilot usage at the user level to understand adoption patterns and identify opportunities for increased engagement.
+
+        Reports are generated daily and made available for download through signed URLs with a limited expiration time. The response includes download links to the report files, along with the specific date range covered by the report. The report covers a complete 28-day period ending on the most recent day for which data has been processed.
+
+        Organization owners and authorized users with fine-grained "View Organization Copilot Metrics" permission can retrieve Copilot metrics reports for the organization. OAuth app tokens and personal access tokens (classic) need the `read:org` scope to use this endpoint.
+
+        For more information about organization metrics attribution, see [How are metrics attributed across organizations](https://docs.github.com/enterprise-cloud@latest//copilot/concepts/copilot-metrics#how-are-metrics-attributed-across-organizations).
+
+        See also: https://docs.github.com/enterprise-cloud@latest//rest/copilot/copilot-usage-metrics#get-copilot-organization-users-usage-metrics
+        """
+
+        from ..models import BasicError, CopilotUsageMetrics28DayReport
+
+        url = f"/orgs/{org}/copilot/metrics/reports/users-28-day/latest"
+
+        headers = {"X-GitHub-Api-Version": self._REST_API_VERSION, **(headers or {})}
+
+        return await self._github.arequest(
+            "GET",
+            url,
+            headers=exclude_unset(headers),
+            stream=stream,
+            response_model=CopilotUsageMetrics28DayReport,
+            error_models={
+                "500": BasicError,
+                "403": BasicError,
+                "404": BasicError,
+            },
+        )
+
     def get_copilot_seat_details_for_user(
         self,
         org: str,
@@ -2417,7 +3191,7 @@ class CopilotClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[CopilotSeatDetails, CopilotSeatDetailsType]:
+    ) -> Response[CopilotSeatDetails, CopilotSeatDetailsTypeForResponse]:
         """copilot/get-copilot-seat-details-for-user
 
         GET /orgs/{org}/members/{username}/copilot
@@ -2464,7 +3238,7 @@ class CopilotClient:
         *,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[CopilotSeatDetails, CopilotSeatDetailsType]:
+    ) -> Response[CopilotSeatDetails, CopilotSeatDetailsTypeForResponse]:
         """copilot/get-copilot-seat-details-for-user
 
         GET /orgs/{org}/members/{username}/copilot
@@ -2515,7 +3289,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-team
 
         GET /orgs/{org}/team/{team_slug}/copilot/metrics
@@ -2553,7 +3329,7 @@ class CopilotClient:
         return self._github.request(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],
@@ -2576,7 +3352,9 @@ class CopilotClient:
         per_page: Missing[int] = UNSET,
         headers: Optional[Mapping[str, str]] = None,
         stream: bool = False,
-    ) -> Response[list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayType]]:
+    ) -> Response[
+        list[CopilotUsageMetricsDay], list[CopilotUsageMetricsDayTypeForResponse]
+    ]:
         """copilot/copilot-metrics-for-team
 
         GET /orgs/{org}/team/{team_slug}/copilot/metrics
@@ -2614,7 +3392,7 @@ class CopilotClient:
         return await self._github.arequest(
             "GET",
             url,
-            params=exclude_unset(params),
+            params=exclude_unset(parse_query_params(params)),
             headers=exclude_unset(headers),
             stream=stream,
             response_model=list[CopilotUsageMetricsDay],

@@ -1,40 +1,38 @@
 import asyncio
+import gc
+import logging
 from functools import partial
 from unittest import mock
 
 import pytest
 
-from async_lru import _LRUCacheWrapper
+from async_lru import _CacheItem, _LRUCacheWrapper
 
 
 async def test_done_callback_cancelled() -> None:
     wrapped = _LRUCacheWrapper(mock.ANY, None, False, None)
     loop = asyncio.get_running_loop()
     task = loop.create_future()
-    fut = loop.create_future()
 
     key = 1
 
-    task.add_done_callback(partial(wrapped._task_done_callback, fut, key))
-    wrapped._LRUCacheWrapper__tasks.add(task)  # type: ignore[attr-defined]
+    task.add_done_callback(partial(wrapped._task_done_callback, key))
 
     task.cancel()
 
     await asyncio.sleep(0)
 
-    assert fut.cancelled()
+    assert task not in wrapped._LRUCacheWrapper__tasks  # type: ignore[attr-defined]
 
 
 async def test_done_callback_exception() -> None:
     wrapped = _LRUCacheWrapper(mock.ANY, None, False, None)
     loop = asyncio.get_running_loop()
     task = loop.create_future()
-    fut = loop.create_future()
 
     key = 1
 
-    task.add_done_callback(partial(wrapped._task_done_callback, fut, key))
-    wrapped._LRUCacheWrapper__tasks.add(task)  # type: ignore[attr-defined]
+    task.add_done_callback(partial(wrapped._task_done_callback, key))
 
     exc = ZeroDivisionError()
 
@@ -42,31 +40,43 @@ async def test_done_callback_exception() -> None:
 
     await asyncio.sleep(0)
 
-    with pytest.raises(ZeroDivisionError):
-        await fut
-
-    with pytest.raises(ZeroDivisionError):
-        fut.result()
-
-    assert fut.exception() is exc
+    assert task not in wrapped._LRUCacheWrapper__tasks  # type: ignore[attr-defined]
 
 
-async def test_done_callback() -> None:
+async def test_done_callback_exception_logs(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.ERROR, logger="asyncio")
+
     wrapped = _LRUCacheWrapper(mock.ANY, None, False, None)
     loop = asyncio.get_running_loop()
-    task = loop.create_future()
 
-    key = 1
-    fut = loop.create_future()
+    async def boom() -> None:
+        await asyncio.sleep(0)
+        raise RuntimeError("boom")
 
-    task.add_done_callback(partial(wrapped._task_done_callback, fut, key))
-    wrapped._LRUCacheWrapper__tasks.add(task)  # type: ignore[attr-defined]
+    key = object()
+    task = loop.create_task(boom())
+    wrapped._LRUCacheWrapper__cache[key] = _CacheItem(task, None, 1)  # type: ignore[attr-defined]
+    task.add_done_callback(partial(wrapped._task_done_callback, key))
 
-    task.set_result(1)
-
+    while not task.done():
+        await asyncio.sleep(0)
     await asyncio.sleep(0)
 
-    assert fut.result() == 1
+    assert key not in wrapped._LRUCacheWrapper__cache  # type: ignore[attr-defined]
+    # asyncio disables logging when exception() is called; keep logging enabled.
+    assert task._log_traceback
+
+    caplog.clear()
+
+    del task  # Remove reference so task get garbage collected.
+    for _ in range(5):  # pragma: no branch
+        gc.collect()
+        await asyncio.sleep(0)
+        if "Task exception was never retrieved" in caplog.text:  # pragma: no branch
+            break
+
+    assert "Task exception was never retrieved" in caplog.text
+    assert "RuntimeError: boom" in caplog.text
 
 
 async def test_cache_invalidate_typed() -> None:

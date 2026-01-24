@@ -1,0 +1,838 @@
+import json
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+from _pytest.monkeypatch import MonkeyPatch
+from pydantic import BaseModel
+from pytest_httpx import HTTPXMock
+
+from uipath._cli._evals._models._evaluation_set import (
+    EvaluationItem,
+)
+from uipath._cli._evals.mocks.cache_manager import CacheManager
+from uipath._cli._evals.mocks.mocker import UiPathMockResponseGenerationError
+from uipath._cli._evals.mocks.mocks import (
+    _normalize_tool_name,
+    clear_execution_context,
+    is_tool_simulated,
+    set_execution_context,
+)
+from uipath._cli._evals.mocks.types import (
+    LLMMockingStrategy,
+    MockingContext,
+    MockitoMockingStrategy,
+)
+from uipath.eval.mocks import mockable
+
+_mock_span_collector = MagicMock()
+
+
+class TestNormalizeToolName:
+    """Tests for the _normalize_tool_name helper function."""
+
+    def test_replaces_underscores_with_spaces(self):
+        assert _normalize_tool_name("my_tool_name") == "my tool name"
+
+    def test_handles_no_underscores(self):
+        assert _normalize_tool_name("mytool") == "mytool"
+
+    def test_handles_empty_string(self):
+        assert _normalize_tool_name("") == ""
+
+    def test_handles_multiple_consecutive_underscores(self):
+        assert _normalize_tool_name("my__tool") == "my  tool"
+
+    def test_handles_leading_and_trailing_underscores(self):
+        assert _normalize_tool_name("_tool_") == " tool "
+
+
+class TestIsToolSimulated:
+    """Tests for the is_tool_simulated function."""
+
+    def test_returns_false_when_no_evaluation_context(self):
+        clear_execution_context()
+        assert is_tool_simulated("any_tool") is False
+
+    def test_returns_false_when_mocking_strategy_is_none(self):
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": None,
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("any_tool") is False
+        clear_execution_context()
+
+    def test_returns_true_for_llm_strategy_simulated_tool(self):
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": {
+                "type": "llm",
+                "prompt": "test prompt",
+                "toolsToSimulate": [{"name": "my_tool"}, {"name": "other_tool"}],
+            },
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("my_tool") is True
+        assert is_tool_simulated("other_tool") is True
+        clear_execution_context()
+
+    def test_returns_false_for_llm_strategy_non_simulated_tool(self):
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": {
+                "type": "llm",
+                "prompt": "test prompt",
+                "toolsToSimulate": [{"name": "my_tool"}],
+            },
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("not_simulated_tool") is False
+        clear_execution_context()
+
+    def test_returns_true_for_mockito_strategy_simulated_tool(self):
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": {
+                "type": "mockito",
+                "behaviors": [
+                    {
+                        "function": "my_tool",
+                        "arguments": {"args": [], "kwargs": {}},
+                        "then": [{"type": "return", "value": "result"}],
+                    }
+                ],
+            },
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("my_tool") is True
+        clear_execution_context()
+
+    def test_returns_false_for_mockito_strategy_non_simulated_tool(self):
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": {
+                "type": "mockito",
+                "behaviors": [
+                    {
+                        "function": "my_tool",
+                        "arguments": {"args": [], "kwargs": {}},
+                        "then": [{"type": "return", "value": "result"}],
+                    }
+                ],
+            },
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("not_simulated_tool") is False
+        clear_execution_context()
+
+    def test_handles_underscore_space_normalization_llm(self):
+        """Tool names with underscores should match config with spaces."""
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": {
+                "type": "llm",
+                "prompt": "test prompt",
+                "toolsToSimulate": [{"name": "my tool"}],
+            },
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("my_tool") is True
+        clear_execution_context()
+
+    def test_handles_underscore_space_normalization_mockito(self):
+        """Tool names with underscores should match config with spaces."""
+        clear_execution_context()
+        evaluation_item: dict[str, Any] = {
+            "id": "evaluation-id",
+            "name": "Test evaluation",
+            "inputs": {},
+            "evaluationCriterias": {"ExactMatchEvaluator": None},
+            "mockingStrategy": {
+                "type": "mockito",
+                "behaviors": [
+                    {
+                        "function": "my tool",
+                        "arguments": {"args": [], "kwargs": {}},
+                        "then": [{"type": "return", "value": "result"}],
+                    }
+                ],
+            },
+        }
+        evaluation = EvaluationItem(**evaluation_item)
+        set_execution_context(
+            MockingContext(
+                strategy=evaluation.mocking_strategy,
+                name=evaluation.name,
+                inputs=evaluation.inputs,
+            ),
+            _mock_span_collector,
+            "test-execution-id",
+        )
+
+        assert is_tool_simulated("my_tool") is True
+        clear_execution_context()
+
+
+def test_mockito_mockable_sync():
+    # Arrange
+    @mockable()
+    def foo(*args, **kwargs):
+        raise NotImplementedError()
+
+    @mockable()
+    def foofoo(*args, **kwargs):
+        raise NotImplementedError()
+
+    evaluation_item: dict[str, Any] = {
+        "id": "evaluation-id",
+        "name": "Mock foo",
+        "inputs": {},
+        "evaluationCriterias": {
+            "ExactMatchEvaluator": None,
+        },
+        "mockingStrategy": {
+            "type": "mockito",
+            "behaviors": [
+                {
+                    "function": "foo",
+                    "arguments": {"args": [], "kwargs": {}},
+                    "then": [
+                        {"type": "return", "value": "bar1"},
+                        {"type": "return", "value": "bar2"},
+                    ],
+                }
+            ],
+        },
+    }
+    evaluation = EvaluationItem(**evaluation_item)
+    assert isinstance(evaluation.mocking_strategy, MockitoMockingStrategy)
+
+    # Act & Assert
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+    assert foo() == "bar1"
+    assert foo() == "bar2"
+    assert foo() == "bar2"
+
+    with pytest.raises(UiPathMockResponseGenerationError):
+        assert foo(x=1)
+
+    with pytest.raises(NotImplementedError):
+        assert foofoo()
+
+    evaluation.mocking_strategy.behaviors[0].arguments.kwargs = {"x": 1}
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+    assert foo(x=1) == "bar1"
+
+    evaluation.mocking_strategy.behaviors[0].arguments.kwargs = {
+        "x": {"_target_": "mockito.any"}
+    }
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+    assert foo(x=2) == "bar1"
+
+
+@pytest.mark.asyncio
+async def test_mockito_mockable_async():
+    # Arrange
+    @mockable()
+    async def foo(*args, **kwargs):
+        raise NotImplementedError()
+
+    @mockable()
+    async def foofoo(*args, **kwargs):
+        raise NotImplementedError()
+
+    evaluation_item: dict[str, Any] = {
+        "id": "evaluation-id",
+        "name": "Mock foo",
+        "inputs": {},
+        "evaluationCriterias": {
+            "ExactMatchEvaluator": None,
+        },
+        "mockingStrategy": {
+            "type": "mockito",
+            "behaviors": [
+                {
+                    "function": "foo",
+                    "arguments": {"args": [], "kwargs": {}},
+                    "then": [
+                        {"type": "return", "value": "bar1"},
+                        {"type": "return", "value": "bar2"},
+                    ],
+                }
+            ],
+        },
+    }
+    evaluation = EvaluationItem(**evaluation_item)
+    assert isinstance(evaluation.mocking_strategy, MockitoMockingStrategy)
+
+    # Act & Assert
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+    assert await foo() == "bar1"
+    assert await foo() == "bar2"
+    assert await foo() == "bar2"
+
+    with pytest.raises(UiPathMockResponseGenerationError):
+        assert await foo(x=1)
+
+    with pytest.raises(NotImplementedError):
+        assert await foofoo()
+
+    evaluation.mocking_strategy.behaviors[0].arguments.kwargs = {"x": 1}
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+    assert await foo(x=1) == "bar1"
+
+    evaluation.mocking_strategy.behaviors[0].arguments.kwargs = {
+        "x": {"_target_": "mockito.any"}
+    }
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+    assert await foo(x=2) == "bar1"
+
+
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
+def test_llm_mockable_sync(httpx_mock: HTTPXMock, monkeypatch: MonkeyPatch):
+    monkeypatch.setenv("UIPATH_URL", "https://example.com")
+    monkeypatch.setenv("UIPATH_ACCESS_TOKEN", "1234567890")
+    monkeypatch.setattr(CacheManager, "get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(CacheManager, "set", lambda *args, **kwargs: None)
+
+    # Arrange
+    @mockable()
+    def foo(*args, **kwargs) -> str:
+        raise NotImplementedError()
+
+    @mockable()
+    def foofoo(*args, **kwargs):
+        raise NotImplementedError()
+
+    evaluation_item: dict[str, Any] = {
+        "id": "evaluation-id",
+        "name": "Mock foo",
+        "inputs": {},
+        "evaluationCriterias": {
+            "ExactMatchEvaluator": None,
+        },
+        "mockingStrategy": {
+            "type": "llm",
+            "prompt": "response is 'bar1'",
+            "toolsToSimulate": [{"name": "foo"}],
+        },
+    }
+    evaluation = EvaluationItem(**evaluation_item)
+    assert isinstance(evaluation.mocking_strategy, LLMMockingStrategy)
+    httpx_mock.add_response(
+        url="https://example.com/agenthub_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+    httpx_mock.add_response(
+        url="https://example.com/orchestrator_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+
+    httpx_mock.add_response(
+        url="https://example.com/llm/api/chat/completions"
+        "?api-version=2024-08-01-preview",
+        status_code=200,
+        json={
+            "id": "response-id",
+            "object": "",
+            "created": 0,
+            "model": "model",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "ai",
+                        "content": '"bar1"',
+                        "tool_calls": None,
+                    },
+                    "finish_reason": "EOS",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+                "total_tokens": 2,
+            },
+        },
+    )
+    # Act & Assert
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+
+    assert foo() == "bar1"
+
+    mock_request = httpx_mock.get_request(method="POST")
+    assert mock_request
+    request = json.loads(mock_request.content.decode("utf-8"))
+    assert request["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "OutputSchema",
+            "strict": False,
+            "schema": {"type": "string"},
+        },
+    }
+
+    with pytest.raises(NotImplementedError):
+        assert foofoo()
+    httpx_mock.add_response(
+        url="https://example.com/llm/api/chat/completions"
+        "?api-version=2024-08-01-preview",
+        status_code=200,
+        json={},
+    )
+    with pytest.raises(UiPathMockResponseGenerationError):
+        assert foo()
+
+
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
+async def test_llm_mockable_async(httpx_mock: HTTPXMock, monkeypatch: MonkeyPatch):
+    monkeypatch.setenv("UIPATH_URL", "https://example.com")
+    monkeypatch.setenv("UIPATH_ACCESS_TOKEN", "1234567890")
+    monkeypatch.setattr(CacheManager, "get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(CacheManager, "set", lambda *args, **kwargs: None)
+
+    # Arrange
+    @mockable()
+    async def foo(*args, **kwargs) -> str:
+        raise NotImplementedError()
+
+    @mockable()
+    async def foofoo(*args, **kwargs):
+        raise NotImplementedError()
+
+    evaluation_item: dict[str, Any] = {
+        "id": "evaluation-id",
+        "name": "Mock foo",
+        "inputs": {},
+        "evaluationCriterias": {
+            "ExactMatchEvaluator": None,
+        },
+        "mockingStrategy": {
+            "type": "llm",
+            "prompt": "response is 'bar1'",
+            "toolsToSimulate": [{"name": "foo"}],
+        },
+    }
+    evaluation = EvaluationItem(**evaluation_item)
+    assert isinstance(evaluation.mocking_strategy, LLMMockingStrategy)
+
+    # Mock capability checks
+    httpx_mock.add_response(
+        url="https://example.com/agenthub_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+    httpx_mock.add_response(
+        url="https://example.com/orchestrator_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+
+    httpx_mock.add_response(
+        url="https://example.com/llm/api/chat/completions"
+        "?api-version=2024-08-01-preview",
+        status_code=200,
+        json={
+            "id": "response-id",
+            "object": "",
+            "created": 0,
+            "model": "model",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "ai",
+                        "content": '"bar1"',
+                        "tool_calls": None,
+                    },
+                    "finish_reason": "EOS",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+                "total_tokens": 2,
+            },
+        },
+    )
+    # Act & Assert
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+
+    assert await foo() == "bar1"
+
+    mock_request = httpx_mock.get_request()
+    assert mock_request
+    request = json.loads(mock_request.content.decode("utf-8"))
+    assert request["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "OutputSchema",
+            "strict": False,
+            "schema": {"type": "string"},
+        },
+    }
+
+    with pytest.raises(NotImplementedError):
+        assert await foofoo()
+
+    httpx_mock.add_response(
+        url="https://example.com/llm/api/chat/completions"
+        "?api-version=2024-08-01-preview",
+        status_code=200,
+        json={},
+    )
+    with pytest.raises(UiPathMockResponseGenerationError):
+        assert await foo()
+
+
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
+def test_llm_mockable_with_output_schema_sync(
+    httpx_mock: HTTPXMock, monkeypatch: MonkeyPatch
+):
+    monkeypatch.setenv("UIPATH_URL", "https://example.com")
+    monkeypatch.setenv("UIPATH_ACCESS_TOKEN", "1234567890")
+    monkeypatch.setattr(CacheManager, "get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(CacheManager, "set", lambda *args, **kwargs: None)
+
+    class ToolResponseMock(BaseModel):
+        content: str
+
+    # Arrange
+    @mockable(output_schema=ToolResponseMock.model_json_schema())
+    def foo(*args, **kwargs) -> dict[str, Any]:
+        raise NotImplementedError()
+
+    evaluation_item: dict[str, Any] = {
+        "id": "evaluation-id",
+        "name": "Mock foo",
+        "inputs": {},
+        "evaluationCriterias": {
+            "ExactMatchEvaluator": None,
+        },
+        "mockingStrategy": {
+            "type": "llm",
+            "prompt": "response content is 'bar1'",
+            "toolsToSimulate": [{"name": "foo"}],
+        },
+    }
+    evaluation = EvaluationItem(**evaluation_item)
+    assert isinstance(evaluation.mocking_strategy, LLMMockingStrategy)
+    httpx_mock.add_response(
+        url="https://example.com/agenthub_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+    httpx_mock.add_response(
+        url="https://example.com/orchestrator_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+
+    httpx_mock.add_response(
+        url="https://example.com/llm/api/chat/completions"
+        "?api-version=2024-08-01-preview",
+        status_code=200,
+        json={
+            "id": "response-id",
+            "object": "",
+            "created": 0,
+            "model": "model",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "ai",
+                        "content": '{"content": "bar1"}',
+                        "tool_calls": None,
+                    },
+                    "finish_reason": "EOS",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+                "total_tokens": 2,
+            },
+        },
+    )
+    # Act & Assert
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+
+    assert foo() == {"content": "bar1"}
+    mock_request = httpx_mock.get_request()
+    assert mock_request
+    request = json.loads(mock_request.content.decode("utf-8"))
+    assert request["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "OutputSchema",
+            "strict": False,
+            "schema": {
+                "required": ["content"],
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"content": {"type": "string"}},
+            },
+        },
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.httpx_mock(assert_all_responses_were_requested=False)
+async def test_llm_mockable_with_output_schema_async(
+    httpx_mock: HTTPXMock, monkeypatch: MonkeyPatch
+):
+    monkeypatch.setenv("UIPATH_URL", "https://example.com")
+    monkeypatch.setenv("UIPATH_ACCESS_TOKEN", "1234567890")
+    monkeypatch.setattr(CacheManager, "get", lambda *args, **kwargs: None)
+    monkeypatch.setattr(CacheManager, "set", lambda *args, **kwargs: None)
+
+    class ToolResponseMock(BaseModel):
+        content: str
+
+    # Arrange
+    @mockable(output_schema=ToolResponseMock.model_json_schema())
+    async def foo(*args, **kwargs) -> dict[str, Any]:
+        raise NotImplementedError()
+
+    evaluation_item: dict[str, Any] = {
+        "id": "evaluation-id",
+        "name": "Mock foo",
+        "inputs": {},
+        "evaluationCriterias": {
+            "ExactMatchEvaluator": None,
+        },
+        "mockingStrategy": {
+            "type": "llm",
+            "prompt": "response content is 'bar1'",
+            "toolsToSimulate": [{"name": "foo"}],
+        },
+    }
+    evaluation = EvaluationItem(**evaluation_item)
+    assert isinstance(evaluation.mocking_strategy, LLMMockingStrategy)
+    httpx_mock.add_response(
+        url="https://example.com/agenthub_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+    httpx_mock.add_response(
+        url="https://example.com/orchestrator_/llm/api/capabilities",
+        status_code=200,
+        json={},
+    )
+
+    httpx_mock.add_response(
+        url="https://example.com/llm/api/chat/completions"
+        "?api-version=2024-08-01-preview",
+        status_code=200,
+        json={
+            "id": "response-id",
+            "object": "",
+            "created": 0,
+            "model": "model",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "ai",
+                        "content": '{"content": "bar1"}',
+                        "tool_calls": None,
+                    },
+                    "finish_reason": "EOS",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+                "total_tokens": 2,
+            },
+        },
+    )
+    # Act & Assert
+    set_execution_context(
+        MockingContext(
+            strategy=evaluation.mocking_strategy,
+            name=evaluation.name,
+            inputs=evaluation.inputs,
+        ),
+        _mock_span_collector,
+        "test-execution-id",
+    )
+
+    assert await foo() == {"content": "bar1"}
+    mock_request = httpx_mock.get_request()
+    assert mock_request
+    request = json.loads(mock_request.content.decode("utf-8"))
+    assert request["response_format"] == {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "OutputSchema",
+            "strict": False,
+            "schema": {
+                "required": ["content"],
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"content": {"type": "string"}},
+            },
+        },
+    }

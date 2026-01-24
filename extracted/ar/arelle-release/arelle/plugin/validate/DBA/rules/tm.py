@@ -3,26 +3,24 @@ See COPYRIGHT.md for copyright information.
 """
 from __future__ import annotations
 
-import datetime
-import decimal
-import itertools
 from collections.abc import Iterable
-from typing import Any, cast
+from typing import Any
 
 from arelle.typing import TypeGetText
 from arelle.ValidateXbrl import ValidateXbrl
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Validation import Validation
-from arelle.XmlValidateConst import VALID
 from . import errorOnRequiredFact, errorOnMultipleFacts
 from ..PluginValidationDataExtension import PluginValidationDataExtension
+from ..DisclosureSystems import ALL_DISCLOSURE_SYSTEMS, ARL_DISCLOSURE_SYSTEMS
 
 _: TypeGetText
 
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_DISCLOSURE_SYSTEMS
 )
 def rule_tm12(
         pluginData: PluginValidationDataExtension,
@@ -43,6 +41,7 @@ def rule_tm12(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ALL_DISCLOSURE_SYSTEMS
 )
 def rule_tm13(
         pluginData: PluginValidationDataExtension,
@@ -58,6 +57,7 @@ def rule_tm13(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm16(
         pluginData: PluginValidationDataExtension,
@@ -73,6 +73,7 @@ def rule_tm16(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm18(
         pluginData: PluginValidationDataExtension,
@@ -102,6 +103,7 @@ def rule_tm18(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm20(
         pluginData: PluginValidationDataExtension,
@@ -131,6 +133,7 @@ def rule_tm20(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm22(
         pluginData: PluginValidationDataExtension,
@@ -146,6 +149,7 @@ def rule_tm22(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm24(
         pluginData: PluginValidationDataExtension,
@@ -161,6 +165,7 @@ def rule_tm24(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm25(
         pluginData: PluginValidationDataExtension,
@@ -181,6 +186,7 @@ def rule_tm25(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm26(
         pluginData: PluginValidationDataExtension,
@@ -196,6 +202,7 @@ def rule_tm26(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm27(
         pluginData: PluginValidationDataExtension,
@@ -216,6 +223,7 @@ def rule_tm27(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm28(
         pluginData: PluginValidationDataExtension,
@@ -231,6 +239,7 @@ def rule_tm28(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm29(
         pluginData: PluginValidationDataExtension,
@@ -253,6 +262,7 @@ def rule_tm29(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm30(
         pluginData: PluginValidationDataExtension,
@@ -268,6 +278,7 @@ def rule_tm30(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm31(
         pluginData: PluginValidationDataExtension,
@@ -276,7 +287,7 @@ def rule_tm31(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    DBA.TM31: gsd:DateOfApprovalOfAnnualReport must only be tagged once if tagged
+    DBA.TM31: sob:DateOfApprovalOfAnnualReport must only be tagged once if tagged
     """
     if pluginData.isAnnualReport(val.modelXbrl):
         dateFacts = val.modelXbrl.factsByQname.get(pluginData.dateOfApprovalOfAnnualReportQn, set())
@@ -293,6 +304,7 @@ def rule_tm31(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm32(
         pluginData: PluginValidationDataExtension,
@@ -323,6 +335,7 @@ def rule_tm32(
 
 @validation(
     hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=ARL_DISCLOSURE_SYSTEMS
 )
 def rule_tm33(
         pluginData: PluginValidationDataExtension,

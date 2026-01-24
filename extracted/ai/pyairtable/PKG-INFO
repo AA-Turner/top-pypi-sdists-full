@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyairtable
-Version: 3.2.0
+Version: 3.3.0
 Summary: Python Client for the Airtable API
 Home-page: https://github.com/gtalarico/pyairtable
 Author: Gui Talarico
@@ -9,11 +9,11 @@ Keywords: airtable,api,client,pyairtable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development
 Description-Content-Type: text/markdown

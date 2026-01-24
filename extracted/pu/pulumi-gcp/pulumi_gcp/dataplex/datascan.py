@@ -26,6 +26,7 @@ class DatascanArgs:
                  execution_spec: pulumi.Input['DatascanExecutionSpecArgs'],
                  location: pulumi.Input[_builtins.str],
                  data_discovery_spec: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']] = None,
+                 data_documentation_spec: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']] = None,
                  data_profile_spec: Optional[pulumi.Input['DatascanDataProfileSpecArgs']] = None,
                  data_quality_spec: Optional[pulumi.Input['DatascanDataQualitySpecArgs']] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
@@ -42,6 +43,7 @@ class DatascanArgs:
         :param pulumi.Input[_builtins.str] location: The location where the data scan should reside.
         :param pulumi.Input['DatascanDataDiscoverySpecArgs'] data_discovery_spec: DataDiscoveryScan related setting.
                Structure is documented below.
+        :param pulumi.Input['DatascanDataDocumentationSpecArgs'] data_documentation_spec: DataDocumentationScan related setting.
         :param pulumi.Input['DatascanDataProfileSpecArgs'] data_profile_spec: DataProfileScan related setting.
                Structure is documented below.
         :param pulumi.Input['DatascanDataQualitySpecArgs'] data_quality_spec: DataQualityScan related setting.
@@ -61,6 +63,8 @@ class DatascanArgs:
         pulumi.set(__self__, "location", location)
         if data_discovery_spec is not None:
             pulumi.set(__self__, "data_discovery_spec", data_discovery_spec)
+        if data_documentation_spec is not None:
+            pulumi.set(__self__, "data_documentation_spec", data_documentation_spec)
         if data_profile_spec is not None:
             pulumi.set(__self__, "data_profile_spec", data_profile_spec)
         if data_quality_spec is not None:
@@ -136,6 +140,18 @@ class DatascanArgs:
     @data_discovery_spec.setter
     def data_discovery_spec(self, value: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']]):
         pulumi.set(self, "data_discovery_spec", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dataDocumentationSpec")
+    def data_documentation_spec(self) -> Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]:
+        """
+        DataDocumentationScan related setting.
+        """
+        return pulumi.get(self, "data_documentation_spec")
+
+    @data_documentation_spec.setter
+    def data_documentation_spec(self, value: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]):
+        pulumi.set(self, "data_documentation_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataProfileSpec")
@@ -222,6 +238,7 @@ class _DatascanState:
                  create_time: Optional[pulumi.Input[_builtins.str]] = None,
                  data: Optional[pulumi.Input['DatascanDataArgs']] = None,
                  data_discovery_spec: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']] = None,
+                 data_documentation_spec: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']] = None,
                  data_profile_spec: Optional[pulumi.Input['DatascanDataProfileSpecArgs']] = None,
                  data_quality_spec: Optional[pulumi.Input['DatascanDataQualitySpecArgs']] = None,
                  data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
@@ -246,6 +263,7 @@ class _DatascanState:
                Structure is documented below.
         :param pulumi.Input['DatascanDataDiscoverySpecArgs'] data_discovery_spec: DataDiscoveryScan related setting.
                Structure is documented below.
+        :param pulumi.Input['DatascanDataDocumentationSpecArgs'] data_documentation_spec: DataDocumentationScan related setting.
         :param pulumi.Input['DatascanDataProfileSpecArgs'] data_profile_spec: DataProfileScan related setting.
                Structure is documented below.
         :param pulumi.Input['DatascanDataQualitySpecArgs'] data_quality_spec: DataQualityScan related setting.
@@ -279,6 +297,8 @@ class _DatascanState:
             pulumi.set(__self__, "data", data)
         if data_discovery_spec is not None:
             pulumi.set(__self__, "data_discovery_spec", data_discovery_spec)
+        if data_documentation_spec is not None:
+            pulumi.set(__self__, "data_documentation_spec", data_documentation_spec)
         if data_profile_spec is not None:
             pulumi.set(__self__, "data_profile_spec", data_profile_spec)
         if data_quality_spec is not None:
@@ -351,6 +371,18 @@ class _DatascanState:
     @data_discovery_spec.setter
     def data_discovery_spec(self, value: Optional[pulumi.Input['DatascanDataDiscoverySpecArgs']]):
         pulumi.set(self, "data_discovery_spec", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dataDocumentationSpec")
+    def data_documentation_spec(self) -> Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]:
+        """
+        DataDocumentationScan related setting.
+        """
+        return pulumi.get(self, "data_documentation_spec")
+
+    @data_documentation_spec.setter
+    def data_documentation_spec(self, value: Optional[pulumi.Input['DatascanDataDocumentationSpecArgs']]):
+        pulumi.set(self, "data_documentation_spec", value)
 
     @_builtins.property
     @pulumi.getter(name="dataProfileSpec")
@@ -574,6 +606,7 @@ class Datascan(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  data: Optional[pulumi.Input[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
                  data_discovery_spec: Optional[pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
+                 data_documentation_spec: Optional[pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
                  data_profile_spec: Optional[pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
                  data_quality_spec: Optional[pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
                  data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
@@ -659,9 +692,32 @@ class Datascan(pulumi.CustomResource):
                         "results_table": "//bigquery.googleapis.com/projects/my-project-name/datasets/dataplex_dataset/tables/profile_export",
                     },
                 },
+                "catalog_publishing_enabled": True,
             },
             project="my-project-name",
             opts = pulumi.ResourceOptions(depends_on=[source]))
+        ```
+        ### Dataplex Datascan Onetime Profile
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        onetime_profile = gcp.dataplex.Datascan("onetime_profile",
+            location="us-central1",
+            data_scan_id="dataprofile-onetime",
+            data={
+                "resource": "//bigquery.googleapis.com/projects/bigquery-public-data/datasets/samples/tables/shakespeare",
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_profile_spec={},
+            project="my-project-name")
         ```
         ### Dataplex Datascan Basic Quality
 
@@ -808,6 +864,37 @@ class Datascan(pulumi.CustomResource):
             },
             project="my-project-name")
         ```
+        ### Dataplex Datascan Onetime Quality
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        onetime_quality = gcp.dataplex.Datascan("onetime_quality",
+            location="us-central1",
+            data_scan_id="dataquality-onetime",
+            data={
+                "resource": "//bigquery.googleapis.com/projects/bigquery-public-data/datasets/samples/tables/shakespeare",
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_quality_spec={
+                "rules": [{
+                    "dimension": "VALIDITY",
+                    "name": "rule1",
+                    "description": "rule 1 for validity dimension",
+                    "table_condition_expectation": {
+                        "sql_expression": "COUNT(*) > 0",
+                    },
+                }],
+            },
+            project="my-project-name")
+        ```
         ### Dataplex Datascan Basic Discovery
 
         ```python
@@ -815,7 +902,7 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_91042",
+            name="tf-test-bucket-name-_89605",
             location="us-west1",
             uniform_bucket_level_access=True)
         basic_discovery = gcp.dataplex.Datascan("basic_discovery",
@@ -843,13 +930,13 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_72490",
+            name="tf-test-bucket-name-_56730",
             location="us-west1",
             uniform_bucket_level_access=True)
         tf_test_connection = gcp.bigquery.Connection("tf_test_connection",
-            connection_id="tf-test-connection-_89605",
+            connection_id="tf-test-connection-_95154",
             location="us-central1",
-            friendly_name="tf-test-connection-_56730",
+            friendly_name="tf-test-connection-_64336",
             description="a bigquery connection for tf test",
             cloud_resource={})
         full_discovery = gcp.dataplex.Datascan("full_discovery",
@@ -910,6 +997,200 @@ class Datascan(pulumi.CustomResource):
             },
             project="my-project-name")
         ```
+        ### Dataplex Datascan Onetime Discovery
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
+            name="tf-test-bucket-name-_34962",
+            location="us-west1",
+            uniform_bucket_level_access=True)
+        onetime_discovery = gcp.dataplex.Datascan("onetime_discovery",
+            location="us-central1",
+            data_scan_id="datadiscovery-onetime",
+            data={
+                "resource": pulumi.Output.all(
+                    project=tf_test_bucket.project,
+                    name=tf_test_bucket.name
+        ).apply(lambda resolved_outputs: f"//storage.googleapis.com/projects/{resolved_outputs['project']}/buckets/{resolved_outputs['name']}")
+        ,
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_discovery_spec={},
+            project="my-project-name")
+        ```
+        ### Dataplex Datascan Documentation
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
+            dataset_id="tf_dataplex_test_dataset_id__74000",
+            default_table_expiration_ms=3600000)
+        tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
+            dataset_id=tf_dataplex_test_dataset.dataset_id,
+            table_id="tf_dataplex_test_table_id__75125",
+            deletion_protection=False,
+            schema=\"\"\"    [
+            {
+              \\"name\\": \\"name\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\"
+            },
+            {
+              \\"name\\": \\"station_id\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The id of the bike station\\"
+            },
+            {
+              \\"name\\": \\"address\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The address of the bike station\\"
+            },
+            {
+              \\"name\\": \\"power_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The powert type of the bike station\\"
+            },
+            {
+              \\"name\\": \\"property_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The type of the property\\"
+            },
+            {
+              \\"name\\": \\"number_of_docks\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The number of docks the property have\\"
+            },
+            {
+              \\"name\\": \\"footprint_length\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The footpring lenght of the property\\"
+            },
+            {
+              \\"name\\": \\"council_district\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The council district the property is in\\"
+            }
+            ]
+        \"\"\")
+        documentation = gcp.dataplex.Datascan("documentation",
+            location="us-central1",
+            data_scan_id="datadocumentation",
+            data={
+                "resource": pulumi.Output.all(
+                    dataset_id=tf_dataplex_test_dataset.dataset_id,
+                    table_id=tf_dataplex_test_table.table_id
+        ).apply(lambda resolved_outputs: f"//bigquery.googleapis.com/projects/my-project-name/datasets/{resolved_outputs['dataset_id']}/tables/{resolved_outputs['table_id']}")
+        ,
+            },
+            execution_spec={
+                "trigger": {
+                    "on_demand": {},
+                },
+            },
+            data_documentation_spec={},
+            project="my-project-name")
+        ```
+        ### Dataplex Datascan Onetime Documentation
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
+            dataset_id="tf_dataplex_test_dataset_id__88722",
+            default_table_expiration_ms=3600000)
+        tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
+            dataset_id=tf_dataplex_test_dataset.dataset_id,
+            table_id="tf_dataplex_test_table_id__39249",
+            deletion_protection=False,
+            schema=\"\"\"    [
+            {
+              \\"name\\": \\"name\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\"
+            },
+            {
+              \\"name\\": \\"station_id\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The id of the bike station\\"
+            },
+            {
+              \\"name\\": \\"address\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The address of the bike station\\"
+            },
+            {
+              \\"name\\": \\"power_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The powert type of the bike station\\"
+            },
+            {
+              \\"name\\": \\"property_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The type of the property\\"
+            },
+            {
+              \\"name\\": \\"number_of_docks\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The number of docks the property have\\"
+            },
+            {
+              \\"name\\": \\"footprint_length\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The footpring lenght of the property\\"
+            },
+            {
+              \\"name\\": \\"council_district\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The council district the property is in\\"
+            }
+            ]
+        \"\"\")
+        onetime_documentation = gcp.dataplex.Datascan("onetime_documentation",
+            location="us-central1",
+            data_scan_id="datadocumentation-onetime",
+            data={
+                "resource": pulumi.Output.all(
+                    dataset_id=tf_dataplex_test_dataset.dataset_id,
+                    table_id=tf_dataplex_test_table.table_id
+        ).apply(lambda resolved_outputs: f"//bigquery.googleapis.com/projects/my-project-name/datasets/{resolved_outputs['dataset_id']}/tables/{resolved_outputs['table_id']}")
+        ,
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_documentation_spec={},
+            project="my-project-name")
+        ```
 
         ## Import
 
@@ -947,6 +1228,7 @@ class Datascan(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']] data_discovery_spec: DataDiscoveryScan related setting.
                Structure is documented below.
+        :param pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']] data_documentation_spec: DataDocumentationScan related setting.
         :param pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']] data_profile_spec: DataProfileScan related setting.
                Structure is documented below.
         :param pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']] data_quality_spec: DataQualityScan related setting.
@@ -1045,9 +1327,32 @@ class Datascan(pulumi.CustomResource):
                         "results_table": "//bigquery.googleapis.com/projects/my-project-name/datasets/dataplex_dataset/tables/profile_export",
                     },
                 },
+                "catalog_publishing_enabled": True,
             },
             project="my-project-name",
             opts = pulumi.ResourceOptions(depends_on=[source]))
+        ```
+        ### Dataplex Datascan Onetime Profile
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        onetime_profile = gcp.dataplex.Datascan("onetime_profile",
+            location="us-central1",
+            data_scan_id="dataprofile-onetime",
+            data={
+                "resource": "//bigquery.googleapis.com/projects/bigquery-public-data/datasets/samples/tables/shakespeare",
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_profile_spec={},
+            project="my-project-name")
         ```
         ### Dataplex Datascan Basic Quality
 
@@ -1194,6 +1499,37 @@ class Datascan(pulumi.CustomResource):
             },
             project="my-project-name")
         ```
+        ### Dataplex Datascan Onetime Quality
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        onetime_quality = gcp.dataplex.Datascan("onetime_quality",
+            location="us-central1",
+            data_scan_id="dataquality-onetime",
+            data={
+                "resource": "//bigquery.googleapis.com/projects/bigquery-public-data/datasets/samples/tables/shakespeare",
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_quality_spec={
+                "rules": [{
+                    "dimension": "VALIDITY",
+                    "name": "rule1",
+                    "description": "rule 1 for validity dimension",
+                    "table_condition_expectation": {
+                        "sql_expression": "COUNT(*) > 0",
+                    },
+                }],
+            },
+            project="my-project-name")
+        ```
         ### Dataplex Datascan Basic Discovery
 
         ```python
@@ -1201,7 +1537,7 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_91042",
+            name="tf-test-bucket-name-_89605",
             location="us-west1",
             uniform_bucket_level_access=True)
         basic_discovery = gcp.dataplex.Datascan("basic_discovery",
@@ -1229,13 +1565,13 @@ class Datascan(pulumi.CustomResource):
         import pulumi_gcp as gcp
 
         tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
-            name="tf-test-bucket-name-_72490",
+            name="tf-test-bucket-name-_56730",
             location="us-west1",
             uniform_bucket_level_access=True)
         tf_test_connection = gcp.bigquery.Connection("tf_test_connection",
-            connection_id="tf-test-connection-_89605",
+            connection_id="tf-test-connection-_95154",
             location="us-central1",
-            friendly_name="tf-test-connection-_56730",
+            friendly_name="tf-test-connection-_64336",
             description="a bigquery connection for tf test",
             cloud_resource={})
         full_discovery = gcp.dataplex.Datascan("full_discovery",
@@ -1296,6 +1632,200 @@ class Datascan(pulumi.CustomResource):
             },
             project="my-project-name")
         ```
+        ### Dataplex Datascan Onetime Discovery
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        tf_test_bucket = gcp.storage.Bucket("tf_test_bucket",
+            name="tf-test-bucket-name-_34962",
+            location="us-west1",
+            uniform_bucket_level_access=True)
+        onetime_discovery = gcp.dataplex.Datascan("onetime_discovery",
+            location="us-central1",
+            data_scan_id="datadiscovery-onetime",
+            data={
+                "resource": pulumi.Output.all(
+                    project=tf_test_bucket.project,
+                    name=tf_test_bucket.name
+        ).apply(lambda resolved_outputs: f"//storage.googleapis.com/projects/{resolved_outputs['project']}/buckets/{resolved_outputs['name']}")
+        ,
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_discovery_spec={},
+            project="my-project-name")
+        ```
+        ### Dataplex Datascan Documentation
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
+            dataset_id="tf_dataplex_test_dataset_id__74000",
+            default_table_expiration_ms=3600000)
+        tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
+            dataset_id=tf_dataplex_test_dataset.dataset_id,
+            table_id="tf_dataplex_test_table_id__75125",
+            deletion_protection=False,
+            schema=\"\"\"    [
+            {
+              \\"name\\": \\"name\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\"
+            },
+            {
+              \\"name\\": \\"station_id\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The id of the bike station\\"
+            },
+            {
+              \\"name\\": \\"address\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The address of the bike station\\"
+            },
+            {
+              \\"name\\": \\"power_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The powert type of the bike station\\"
+            },
+            {
+              \\"name\\": \\"property_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The type of the property\\"
+            },
+            {
+              \\"name\\": \\"number_of_docks\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The number of docks the property have\\"
+            },
+            {
+              \\"name\\": \\"footprint_length\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The footpring lenght of the property\\"
+            },
+            {
+              \\"name\\": \\"council_district\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The council district the property is in\\"
+            }
+            ]
+        \"\"\")
+        documentation = gcp.dataplex.Datascan("documentation",
+            location="us-central1",
+            data_scan_id="datadocumentation",
+            data={
+                "resource": pulumi.Output.all(
+                    dataset_id=tf_dataplex_test_dataset.dataset_id,
+                    table_id=tf_dataplex_test_table.table_id
+        ).apply(lambda resolved_outputs: f"//bigquery.googleapis.com/projects/my-project-name/datasets/{resolved_outputs['dataset_id']}/tables/{resolved_outputs['table_id']}")
+        ,
+            },
+            execution_spec={
+                "trigger": {
+                    "on_demand": {},
+                },
+            },
+            data_documentation_spec={},
+            project="my-project-name")
+        ```
+        ### Dataplex Datascan Onetime Documentation
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        tf_dataplex_test_dataset = gcp.bigquery.Dataset("tf_dataplex_test_dataset",
+            dataset_id="tf_dataplex_test_dataset_id__88722",
+            default_table_expiration_ms=3600000)
+        tf_dataplex_test_table = gcp.bigquery.Table("tf_dataplex_test_table",
+            dataset_id=tf_dataplex_test_dataset.dataset_id,
+            table_id="tf_dataplex_test_table_id__39249",
+            deletion_protection=False,
+            schema=\"\"\"    [
+            {
+              \\"name\\": \\"name\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\"
+            },
+            {
+              \\"name\\": \\"station_id\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The id of the bike station\\"
+            },
+            {
+              \\"name\\": \\"address\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The address of the bike station\\"
+            },
+            {
+              \\"name\\": \\"power_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The powert type of the bike station\\"
+            },
+            {
+              \\"name\\": \\"property_type\\",
+              \\"type\\": \\"STRING\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The type of the property\\"
+            },
+            {
+              \\"name\\": \\"number_of_docks\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The number of docks the property have\\"
+            },
+            {
+              \\"name\\": \\"footprint_length\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The footpring lenght of the property\\"
+            },
+            {
+              \\"name\\": \\"council_district\\",
+              \\"type\\": \\"INTEGER\\",
+              \\"mode\\": \\"NULLABLE\\",
+              \\"description\\": \\"The council district the property is in\\"
+            }
+            ]
+        \"\"\")
+        onetime_documentation = gcp.dataplex.Datascan("onetime_documentation",
+            location="us-central1",
+            data_scan_id="datadocumentation-onetime",
+            data={
+                "resource": pulumi.Output.all(
+                    dataset_id=tf_dataplex_test_dataset.dataset_id,
+                    table_id=tf_dataplex_test_table.table_id
+        ).apply(lambda resolved_outputs: f"//bigquery.googleapis.com/projects/my-project-name/datasets/{resolved_outputs['dataset_id']}/tables/{resolved_outputs['table_id']}")
+        ,
+            },
+            execution_spec={
+                "trigger": {
+                    "one_time": {
+                        "ttl_after_scan_completion": "120s",
+                    },
+                },
+            },
+            data_documentation_spec={},
+            project="my-project-name")
+        ```
 
         ## Import
 
@@ -1344,6 +1874,7 @@ class Datascan(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None,
                  data: Optional[pulumi.Input[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
                  data_discovery_spec: Optional[pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
+                 data_documentation_spec: Optional[pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
                  data_profile_spec: Optional[pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
                  data_quality_spec: Optional[pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
                  data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1366,6 +1897,7 @@ class Datascan(pulumi.CustomResource):
                 raise TypeError("Missing required property 'data'")
             __props__.__dict__["data"] = data
             __props__.__dict__["data_discovery_spec"] = data_discovery_spec
+            __props__.__dict__["data_documentation_spec"] = data_documentation_spec
             __props__.__dict__["data_profile_spec"] = data_profile_spec
             __props__.__dict__["data_quality_spec"] = data_quality_spec
             if data_scan_id is None and not opts.urn:
@@ -1405,6 +1937,7 @@ class Datascan(pulumi.CustomResource):
             create_time: Optional[pulumi.Input[_builtins.str]] = None,
             data: Optional[pulumi.Input[Union['DatascanDataArgs', 'DatascanDataArgsDict']]] = None,
             data_discovery_spec: Optional[pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']]] = None,
+            data_documentation_spec: Optional[pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']]] = None,
             data_profile_spec: Optional[pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']]] = None,
             data_quality_spec: Optional[pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']]] = None,
             data_scan_id: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1434,6 +1967,7 @@ class Datascan(pulumi.CustomResource):
                Structure is documented below.
         :param pulumi.Input[Union['DatascanDataDiscoverySpecArgs', 'DatascanDataDiscoverySpecArgsDict']] data_discovery_spec: DataDiscoveryScan related setting.
                Structure is documented below.
+        :param pulumi.Input[Union['DatascanDataDocumentationSpecArgs', 'DatascanDataDocumentationSpecArgsDict']] data_documentation_spec: DataDocumentationScan related setting.
         :param pulumi.Input[Union['DatascanDataProfileSpecArgs', 'DatascanDataProfileSpecArgsDict']] data_profile_spec: DataProfileScan related setting.
                Structure is documented below.
         :param pulumi.Input[Union['DatascanDataQualitySpecArgs', 'DatascanDataQualitySpecArgsDict']] data_quality_spec: DataQualityScan related setting.
@@ -1468,6 +2002,7 @@ class Datascan(pulumi.CustomResource):
         __props__.__dict__["create_time"] = create_time
         __props__.__dict__["data"] = data
         __props__.__dict__["data_discovery_spec"] = data_discovery_spec
+        __props__.__dict__["data_documentation_spec"] = data_documentation_spec
         __props__.__dict__["data_profile_spec"] = data_profile_spec
         __props__.__dict__["data_quality_spec"] = data_quality_spec
         __props__.__dict__["data_scan_id"] = data_scan_id
@@ -1512,6 +2047,14 @@ class Datascan(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "data_discovery_spec")
+
+    @_builtins.property
+    @pulumi.getter(name="dataDocumentationSpec")
+    def data_documentation_spec(self) -> pulumi.Output[Optional['outputs.DatascanDataDocumentationSpec']]:
+        """
+        DataDocumentationScan related setting.
+        """
+        return pulumi.get(self, "data_documentation_spec")
 
     @_builtins.property
     @pulumi.getter(name="dataProfileSpec")

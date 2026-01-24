@@ -1,3 +1,4 @@
+import copy
 import logging
 import sys
 from logging.handlers import HTTPHandler, QueueHandler, QueueListener
@@ -6,8 +7,29 @@ from typing import TextIO
 
 import simplejson as json
 
-from fluidattacks_core.logging.filters import NoProductionFilter, ProductionOnlyFilter
+from fluidattacks_core.logging.filters import (
+    EnabledTelemetryFilter,
+    ErrorOnlyFilter,
+    NoProductionFilter,
+    ProductionOnlyFilter,
+)
 from fluidattacks_core.logging.formatters import ColorfulFormatter, CustomJsonFormatter
+
+
+class CustomQueueHandler(QueueHandler):
+    """Class to fix QueueHandler missing exc_info field."""
+
+    def prepare(self, record: logging.LogRecord) -> logging.LogRecord:
+        original_exc_info = record.exc_info
+
+        # Avoid duplicate exc_text in the log message
+        no_exc_record = copy.copy(record)
+        no_exc_record.exc_info = None
+        prepared = super().prepare(no_exc_record)
+
+        prepared.exc_info = original_exc_info
+
+        return prepared
 
 
 class DebuggingHandler(logging.StreamHandler[TextIO]):
@@ -18,8 +40,8 @@ class DebuggingHandler(logging.StreamHandler[TextIO]):
     - Formatter: `ColorfulFormatter`
     """
 
-    def __init__(self) -> None:
-        super().__init__(sys.stderr)
+    def __init__(self, stream: TextIO = sys.stderr) -> None:
+        super().__init__(stream)
         self.addFilter(NoProductionFilter())
         self.setFormatter(ColorfulFormatter())
 
@@ -32,13 +54,13 @@ class ProductionSyncHandler(logging.StreamHandler[TextIO]):
     - Formatter: `CustomJsonFormatter`
     """
 
-    def __init__(self) -> None:
-        super().__init__(sys.stderr)
+    def __init__(self, stream: TextIO = sys.stderr) -> None:
+        super().__init__(stream)
         self.addFilter(ProductionOnlyFilter())
         self.setFormatter(CustomJsonFormatter())
 
 
-class ProductionAsyncHandler(QueueHandler):
+class ProductionAsyncHandler(CustomQueueHandler):
     """Logging handler for production environments implemented with `QueueHandler`.
 
     Includes:
@@ -46,8 +68,8 @@ class ProductionAsyncHandler(QueueHandler):
     - Formatter: `CustomJsonFormatter`
     """
 
-    def __init__(self) -> None:
-        handler = logging.StreamHandler(sys.stderr)
+    def __init__(self, stream: TextIO = sys.stderr) -> None:
+        handler = logging.StreamHandler(stream)
         handler.addFilter(ProductionOnlyFilter())
         handler.setFormatter(CustomJsonFormatter())
 
@@ -96,8 +118,15 @@ class DatadogLogsHandler(HTTPHandler):
             self.handleError(record)
 
 
-class TelemetryAsyncHandler(QueueHandler):
-    """Logging handler for sending logs to telemetry services asynchronously."""
+class TelemetryAsyncHandler(CustomQueueHandler):
+    """Logging handler for sending logs to telemetry services asynchronously.
+
+    To enable telemetry, set the `TELEMETRY_OPT_OUT` environment variable different from `true`.
+
+    Includes:
+    - Filters: `ErrorOnlyFilter`, `EnabledTelemetryFilter`
+    - Formatter: `CustomJsonFormatter`
+    """
 
     def __init__(self, service: str, source: str, dd_client_token: str) -> None:
         """Initialize the TelemetryAsyncHandler.
@@ -108,6 +137,9 @@ class TelemetryAsyncHandler(QueueHandler):
             dd_client_token: The Datadog Client Token.
 
         """
+        self.addFilter(ErrorOnlyFilter())
+        self.addFilter(EnabledTelemetryFilter())
+
         handler = DatadogLogsHandler(service, source, dd_client_token)
         handler.setFormatter(CustomJsonFormatter())
 

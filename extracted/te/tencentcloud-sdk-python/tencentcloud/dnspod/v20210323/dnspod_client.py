@@ -98,8 +98,6 @@ class DnspodClient(AbstractClient):
     def CreateDomain(self, request):
         r"""添加域名
 
-        备注：该接口不支持添加子域名。
-
         :param request: Request instance for CreateDomain.
         :type request: :class:`tencentcloud.dnspod.v20210323.models.CreateDomainRequest`
         :rtype: :class:`tencentcloud.dnspod.v20210323.models.CreateDomainResponse`
@@ -1579,6 +1577,29 @@ class DnspodClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def ModifyDomainCNAMESpeedupStatusBatch(self, request):
+        r"""批量修改域名CNAME加速状态
+
+        :param request: Request instance for ModifyDomainCNAMESpeedupStatusBatch.
+        :type request: :class:`tencentcloud.dnspod.v20210323.models.ModifyDomainCNAMESpeedupStatusBatchRequest`
+        :rtype: :class:`tencentcloud.dnspod.v20210323.models.ModifyDomainCNAMESpeedupStatusBatchResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyDomainCNAMESpeedupStatusBatch", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyDomainCNAMESpeedupStatusBatchResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def ModifyDomainCustomLine(self, request):
         r"""修改域名的自定义线路
 
@@ -1639,6 +1660,29 @@ class DnspodClient(AbstractClient):
             body = self.call("ModifyDomainOwner", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyDomainOwnerResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyDomainRecursiveStatusBatch(self, request):
+        r"""批量修改域名递归解析加速状态
+
+        :param request: Request instance for ModifyDomainRecursiveStatusBatch.
+        :type request: :class:`tencentcloud.dnspod.v20210323.models.ModifyDomainRecursiveStatusBatchRequest`
+        :rtype: :class:`tencentcloud.dnspod.v20210323.models.ModifyDomainRecursiveStatusBatchResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyDomainRecursiveStatusBatch", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyDomainRecursiveStatusBatchResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1800,6 +1844,29 @@ class DnspodClient(AbstractClient):
             body = self.call("ModifyPackageAutoRenew", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyPackageAutoRenewResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyPackageDomain(self, request):
+        r"""套餐绑定、解绑、更换域名
+
+        :param request: Request instance for ModifyPackageDomain.
+        :type request: :class:`tencentcloud.dnspod.v20210323.models.ModifyPackageDomainRequest`
+        :rtype: :class:`tencentcloud.dnspod.v20210323.models.ModifyPackageDomainResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyPackageDomain", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyPackageDomainResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

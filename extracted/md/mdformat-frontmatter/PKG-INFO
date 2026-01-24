@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mdformat_frontmatter
-Version: 2.0.8
+Version: 2.0.10
 Summary: An mdformat plugin for parsing / ignoring frontmatter.
 Keywords: mdformat,markdown,markdown-it
 Author-email: Chris Butler <chris@thebutlers.me>
@@ -10,7 +10,8 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: mdformat >=0.7.16,<0.8.0
+License-File: LICENSE
+Requires-Dist: mdformat >=0.7.16
 Requires-Dist: mdit-py-plugins >=0.4.0
 Requires-Dist: ruamel.yaml
 Requires-Dist: pre-commit ; extra == "dev"

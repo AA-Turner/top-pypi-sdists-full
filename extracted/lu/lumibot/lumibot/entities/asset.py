@@ -5,6 +5,12 @@ from enum import Enum
 from lumibot.tools import parse_symbol
 
 
+FUTURES_MONTH_CODES = {
+    1: "F", 2: "G", 3: "H", 4: "J", 5: "K", 6: "M",
+    7: "N", 8: "Q", 9: "U", 10: "V", 11: "X", 12: "Z"
+}
+
+
 # Custom string enum implementation for Python 3.9 compatibility
 class StrEnum(str, Enum):
     """
@@ -16,11 +22,21 @@ class StrEnum(str, Enum):
     3. Can be used in string comparisons without explicit conversion
     """
     def __str__(self):
-        return self.value
+        # Avoid Enum.value property lookups in hot paths; StrEnum members are already `str`.
+        return str.__str__(self)
 
     def __eq__(self, other):
+        # PERF: Enum members are singletons. Fast-path identity equality before any type checks.
+        # This avoids repeated string compares for hot paths like `asset.asset_type == Asset.AssetType.CRYPTO`.
+        if self is other:
+            return True
         if isinstance(other, str):
-            return self.value == other
+            # Avoid Enum.value property lookups; compare as plain strings.
+            return str.__eq__(self, other)
+        # Fast-path: Enum equality is identity for same-class members. Avoid the Enum
+        # machinery on hot paths (AssetType comparisons are extremely frequent).
+        if isinstance(other, Enum):
+            return self is other
         return super().__eq__(other)
 
     def __hash__(self):
@@ -243,12 +259,20 @@ class Asset:
         if asset_type == self.AssetType.OPTION:
             self.multiplier = 100
 
+        # Note: Futures multipliers should be fetched from data provider (e.g., DataBento)
+        # at the data source level, not hardcoded here. The Asset class accepts multiplier
+        # as a parameter if the data source provides it.
+
         # Make sure right is upper case
         if right is not None:
             self.right = right.upper()
 
         self.asset_type = self.asset_type_must_be_one_of(asset_type)
         self.right = self.right_must_be_one_of(right)
+        # Cache the hash: Asset objects are used heavily as dict keys during backtests (quotes, bars,
+        # chains, positions). Recomputing tuple hashes millions of times dominates CPU in option-heavy
+        # strategies; caching preserves correctness as long as identity fields remain unchanged.
+        self._cached_hash = hash((self.symbol, self.asset_type, self.expiration, self.strike, self.right))
 
     @classmethod
     def symbol2asset(cls, symbol: str):
@@ -287,10 +311,6 @@ class Asset:
             return Asset(symbol=symbol, asset_type="crypto")
         else:
             return Asset(symbol=None)
-
-    def __hash__(self):
-        # Original hash implementation - keep this unchanged
-        return hash((self.symbol, self.asset_type, self.expiration, self.strike, self.right))
 
     def __repr__(self):
         if self.asset_type == "future":
@@ -332,7 +352,7 @@ class Asset:
 
     def __hash__(self):
         """Make Asset hashable for use in sets and dicts."""
-        return hash((self.symbol, self.asset_type, self.expiration, self.strike, self.right))
+        return self._cached_hash
 
     def asset_type_must_be_one_of(self, v):
         # TODO: check if this works!
@@ -381,6 +401,59 @@ class Asset:
         return True
 
     # ========= Serialization methods ===========
+    def to_minimal_dict(self) -> dict:
+        """
+        Return a minimal dictionary representation of the asset for progress logging.
+
+        This creates a lightweight representation suitable for real-time progress updates,
+        containing only the essential fields needed to identify the asset.
+
+        Returns
+        -------
+        dict
+            A minimal dictionary with keys:
+            - symbol: The asset symbol (e.g., "AAPL", "SPY")
+            - type: The asset type (e.g., "stock", "option", "future")
+            - For options: strike, exp (expiration), right (CALL/PUT), mult (multiplier)
+            - For futures: exp (expiration), mult (multiplier if != 1)
+
+        Example
+        -------
+        >>> asset = Asset(symbol="AAPL")
+        >>> asset.to_minimal_dict()
+        {'symbol': 'AAPL', 'type': 'stock'}
+
+        >>> option = Asset(symbol="AAPL", asset_type="option", strike=150,
+        ...                expiration=date(2024, 12, 20), right="CALL")
+        >>> option.to_minimal_dict()
+        {'symbol': 'AAPL', 'type': 'option', 'strike': 150.0, 'exp': '2024-12-20', 'right': 'CALL', 'mult': 100}
+        """
+        result = {
+            "symbol": self.symbol,
+            "type": str(self.asset_type) if self.asset_type else "stock",
+        }
+
+        # Add option-specific fields
+        if self.asset_type in (self.AssetType.OPTION, "option"):
+            if self.strike:
+                result["strike"] = float(self.strike)
+            if self.expiration:
+                result["exp"] = self.expiration.isoformat() if hasattr(self.expiration, 'isoformat') else str(self.expiration)
+            if self.right:
+                result["right"] = str(self.right)
+            if self.multiplier:
+                result["mult"] = self.multiplier
+
+        # Add future-specific fields
+        elif self.asset_type in (self.AssetType.FUTURE, self.AssetType.CONT_FUTURE,
+                                  self.AssetType.CRYPTO_FUTURE, "future", "cont_future", "crypto_future"):
+            if self.expiration:
+                result["exp"] = self.expiration.isoformat() if hasattr(self.expiration, 'isoformat') else str(self.expiration)
+            if self.multiplier and self.multiplier != 1:
+                result["mult"] = self.multiplier
+
+        return result
+
     def to_dict(self):
         return {
             "symbol": self.symbol,
@@ -496,34 +569,86 @@ class Asset:
 
     # ========== Continuous Futures Resolution Methods ==========
 
-    def resolve_continuous_futures_contract(self, reference_date: datetime = None) -> str:
+    def resolve_continuous_futures_contract(
+        self,
+        reference_date: datetime = None,
+        year_digits: int = 2,
+    ) -> str:
         """
-        Resolve a continuous futures asset to a specific contract symbol.
-        
-        This method is used to convert continuous futures (CONT_FUTURE) to the appropriate
-        active contract based on standard market conventions.
-        
+        Resolve a continuous futures asset to a specific contract symbol with
+        controllable year formatting.
+
         Parameters
         ----------
         reference_date : datetime, optional
-            Reference date for contract resolution. If None, uses current date.
-        
+            Reference date for contract resolution. Defaults to ``datetime.now()``.
+        year_digits : int, optional
+            Number of digits to use for the year portion. Supported values:
+            ``1`` (e.g., ``MNQZ5``), ``2`` (default, e.g., ``MNQZ25``), and ``4``
+            (e.g., ``MNQZ2025``).
+
         Returns
         -------
         str
-            Specific futures contract symbol (e.g., 'MESU25' for MES September 2025)
-            
+            Formatted futures contract symbol.
+
         Raises
         ------
         ValueError
-            If called on a non-continuous futures asset
+            If invoked on a non-continuous futures asset or if ``year_digits`` is
+            unsupported.
+        """
+        variants = self.resolve_continuous_futures_contract_variants(reference_date)
+
+        if year_digits not in variants:
+            raise ValueError(
+                f"Unsupported year_digits={year_digits} for futures contract formatting"
+            )
+
+        return variants[year_digits]
+
+    def resolve_continuous_futures_contract_variants(
+        self, reference_date: datetime = None
+    ) -> dict:
+        """
+        Resolve a continuous futures contract and return multiple formatting variants.
+
+        Parameters
+        ----------
+        reference_date : datetime, optional
+            Reference date for contract resolution. Defaults to ``datetime.now()``.
+
+        Returns
+        -------
+        dict
+            Dictionary containing contract variants keyed by the number of year
+            digits (1, 2, 4) along with metadata keys ``base``, ``target_year`` and
+            ``target_month``.
+
+        Raises
+        ------
+        ValueError
+            If invoked on a non-continuous futures asset.
         """
         if self.asset_type != self.AssetType.CONT_FUTURE:
-            raise ValueError(f"resolve_continuous_futures_contract() can only be called on CONT_FUTURE assets, got {self.asset_type}")
+            raise ValueError(
+                "resolve_continuous_futures_contract_variants() can only be called on CONT_FUTURE assets"
+            )
 
-        return self._generate_current_futures_contract(reference_date)
+        base_contract, target_year, target_month, effective_reference = (
+            self._determine_continuous_contract_components(reference_date)
+        )
 
-    def get_potential_futures_contracts(self) -> list:
+        variants = self._build_contract_variants(base_contract, target_year)
+        variants["base"] = base_contract
+        variants["target_year"] = target_year
+        variants["target_month"] = target_month
+
+        self._warn_on_outdated_contract(effective_reference, target_year, target_month, variants[2])
+
+        return variants
+
+    def get_potential_futures_contracts(self, reference_date: datetime = None) -> list:
         """
         Get a list of potential futures contracts in order of preference.
         
@@ -541,9 +666,11 @@ class Asset:
             If called on a non-continuous futures asset
         """
         if self.asset_type != self.AssetType.CONT_FUTURE:
-            raise ValueError(f"get_potential_futures_contracts() can only be called on CONT_FUTURE assets, got {self.asset_type}")
+            raise ValueError(
+                f"get_potential_futures_contracts() can only be called on CONT_FUTURE assets, got {self.asset_type}"
+            )
 
-        return self._generate_potential_contracts()
+        return self._generate_potential_contracts(reference_date)
 
     def _generate_current_futures_contract(self, reference_date: datetime = None) -> str:
         """
@@ -559,72 +686,10 @@ class Asset:
         str
             Contract symbol (e.g., 'MESU25')
         """
-        from datetime import datetime
+        variants = self.resolve_continuous_futures_contract_variants(reference_date)
+        return variants[2]
 
-        month_codes = {
-            1: 'F', 2: 'G', 3: 'H', 4: 'J', 5: 'K', 6: 'M',
-            7: 'N', 8: 'Q', 9: 'U', 10: 'V', 11: 'X', 12: 'Z'
-        }
-
-        if reference_date is None:
-            reference_date = datetime.now()
-
-        current_month = reference_date.month
-        current_year = reference_date.year
-        current_day = reference_date.day
-
-        # Use quarterly contracts (Mar, Jun, Sep, Dec) which are typically most liquid
-        # Futures contracts typically expire on the 3rd Friday of the contract month
-        # For safety, we roll to the next contract around the 15th of the expiry month
-        # This prevents using expired contracts
-
-        # Determine target quarter based on current date and expiration logic
-        if current_month == 12 and current_day >= 15:
-            # Mid-December onwards, December contract has expired, use March
-            target_month = 3
-            target_year = current_year + 1
-        elif current_month >= 10:  # October-November, use December
-            target_month = 12
-            target_year = current_year
-        elif current_month == 9 and current_day >= 15:
-            # Mid-September onwards, September contract has expired, use December
-            target_month = 12
-            target_year = current_year
-        elif current_month >= 7:  # July-August, use September
-            target_month = 9
-            target_year = current_year
-        elif current_month == 6 and current_day >= 15:
-            # Mid-June onwards, June contract has expired, use September
-            target_month = 9
-            target_year = current_year
-        elif current_month >= 4:  # April-May, use June
-            target_month = 6
-            target_year = current_year
-        elif current_month == 3 and current_day >= 15:
-            # Mid-March onwards, March contract has expired, use June
-            target_month = 6
-            target_year = current_year
-        else:  # Jan-Feb, use March
-            target_month = 3
-            target_year = current_year
-
-        month_code = month_codes.get(target_month, 'U')  # Default to September
-        year_code = target_year % 100
-
-        contract = f"{self.symbol}{month_code}{year_code:02d}"
-
-        # Add warning for old contracts (more than 6 months old)
-        contract_date = datetime(target_year, target_month, 1)
-        months_old = ((reference_date.year - target_year) * 12 + (reference_date.month - target_month))
-
-        if months_old > 6:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"⚠️ FUTURES CONTRACT WARNING: Resolved {self.symbol} continuous future to {contract} which is {months_old} months old (target date: {target_year}-{target_month:02d}). This contract may be expired or have limited data availability. Consider using a more recent time period for backtesting.")
-
-        return contract
-
-    def _generate_potential_contracts(self) -> list:
+    def _generate_potential_contracts(self, reference_date: datetime = None) -> list:
         """
         Generate potential contract symbols in order of preference.
         
@@ -633,99 +698,145 @@ class Asset:
         list
             List of contract symbols
         """
-        from datetime import datetime
+        now = reference_date or datetime.now()
+        y = now.year
+        m = now.month
+        d = now.day
 
-        month_codes = {
-            1: 'F', 2: 'G', 3: 'H', 4: 'J', 5: 'K', 6: 'M',
-            7: 'N', 8: 'Q', 9: 'U', 10: 'V', 11: 'X', 12: 'Z'
-        }
+        # Compute quarterly anchors (Mar, Jun, Sep, Dec) succinctly
+        quarter_months = [3, 6, 9, 12]
 
-        now = datetime.now()
-        current_year = now.year
-        current_month = now.month
+        # Find the index of the first quarterly month >= current month; if none, wrap to next year
+        idx = next((i for i, qm in enumerate(quarter_months) if qm >= m), None)
+        if idx is None:
+            idx = 0
+            y += 1
+
+        # Mid-month roll rule: if we're in a quarterly month and past mid-month (>=15), advance to next quarter
+        if m in quarter_months and d >= 15:
+            idx = (idx + 1) % 4
+            if idx == 0:
+                y += 1
+
+        q1_month, q1_year = quarter_months[idx], y
+
+        # Helper to advance N quarters ahead
+        def advance_quarter(month: int, year: int, steps: int = 1):
+            i = quarter_months.index(month)
+            new_i = i + steps
+            return quarter_months[new_i % 4], year + (new_i // 4)
+
+        # Next two quarters
+        q2_month, q2_year = advance_quarter(q1_month, q1_year, 1)
+        q3_month, q3_year = advance_quarter(q2_month, q2_year, 1)
+        target_quarters = [(q1_month, q1_year), (q2_month, q2_year), (q3_month, q3_year)]
 
         potential_contracts = []
 
-        # Generate quarterly contracts based on current month
-        if current_month >= 10:  # October onwards, use Dec, then Mar
-            target_quarters = [
-                (12, current_year),     # December this year
-                (3, current_year + 1),  # March next year
-                (6, current_year + 1),  # June next year
-            ]
-        elif current_month >= 7:  # July-September, use Sep, then Dec
-            target_quarters = [
-                (9, current_year),      # September this year
-                (12, current_year),     # December this year
-                (3, current_year + 1),  # March next year
-            ]
-        elif current_month >= 4:  # April-June - use Sep, then Dec
-            target_quarters = [
-                (9, current_year),      # September this year
-                (12, current_year),     # December this year
-                (3, current_year + 1),  # March next year
-            ]
-        else:  # Jan-March - use Jun, then Sep
-            target_quarters = [
-                (6, current_year),      # June this year
-                (9, current_year),      # September this year
-                (12, current_year),     # December this year
-            ]
-
-        # Generate quarterly contract symbols in multiple formats
+        # Local helper to generate all standard variants for a given month code/year
+        # Add quarterly contracts in multiple formats
         for month, year in target_quarters:
-            month_code = month_codes.get(month, 'Z')
-            year_code = year % 100
+            month_code = FUTURES_MONTH_CODES.get(month, "Z")
+            base = f"{self.symbol}{month_code}"
+            variants = self._build_contract_variants(base, year)
+            potential_contracts.append(variants[2])  # Standard (two-digit year)
+            potential_contracts.append(variants[1])  # Single-digit year
+            potential_contracts.append(f"{self.symbol}.{month_code}{year % 100:02d}")  # Dot notation
+            potential_contracts.append(variants[4])  # Full year variant
 
-            # Format 1: Standard futures format (MESZ25)
-            contract1 = f"{self.symbol}{month_code}{year_code:02d}"
-            potential_contracts.append(contract1)
+        # Monthly backups: next 3 months from now
+        for moff in range(1, 4):
+            tm = m + moff
+            ty = y
+            while tm > 12:
+                tm -= 12
+                ty += 1
+            mc = FUTURES_MONTH_CODES.get(tm, 'H')
+            base = f"{self.symbol}{mc}"
+            variants = self._build_contract_variants(base, ty)
+            for variant in (variants[2], variants[1]):
+                if variant not in potential_contracts:
+                    potential_contracts.append(variant)
 
-            # Format 2: Single-digit year format (MESZ5) - Tradovate style
-            contract2 = f"{self.symbol}{month_code}{year_code % 10}"
-            potential_contracts.append(contract2)
-
-            # Format 3: With dot separator (MES.Z25) - some platforms use this
-            contract3 = f"{self.symbol}.{month_code}{year_code:02d}"
-            potential_contracts.append(contract3)
-
-            # Format 4: Full year format (MESZ2025) - some platforms use this
-            contract4 = f"{self.symbol}{month_code}{year}"
-            potential_contracts.append(contract4)
-
-        # Also add some monthly contracts as backup
-        for month_offset in range(1, 4):  # Next 3 months
-            target_month = current_month + month_offset
-            target_year = current_year
-
-            # Handle year rollover
-            while target_month > 12:
-                target_month -= 12
-                target_year += 1
-
-            month_code = month_codes.get(target_month, 'H')
-            year_code = target_year % 100
-
-            # Standard format
-            contract = f"{self.symbol}{month_code}{year_code:02d}"
-            if contract not in potential_contracts:  # Avoid duplicates
-                potential_contracts.append(contract)
-            
-            # Single-digit year format
-            contract_1d = f"{self.symbol}{month_code}{year_code % 10}"
-            if contract_1d not in potential_contracts:  # Avoid duplicates
-                potential_contracts.append(contract_1d)
-
-        # Remove duplicates while preserving order
+        # De-duplicate preserving order
         seen = set()
-        unique_contracts = []
-        for contract in potential_contracts:
-            if contract not in seen:
-                seen.add(contract)
-                unique_contracts.append(contract)
+        unique = []
+        for c in potential_contracts:
+            if c not in seen:
+                seen.add(c)
+                unique.append(c)
 
-        return unique_contracts
+        # Ensure the resolved primary contract appears first so downstream
+        # consumers try the preferred contract before fallbacks.
+        try:
+            primary = self.resolve_continuous_futures_contract(reference_date)
+        except ValueError:
+            primary = None
+        if primary and primary in unique:
+            unique.remove(primary)
+            unique.insert(0, primary)
 
+        return unique
+
+    def _determine_continuous_contract_components(
+        self, reference_date: datetime = None
+    ) -> tuple[str, int, int, datetime]:
+        """Return base symbol, target year/month, and effective reference date."""
+        if reference_date is None:
+            reference_date = datetime.now()
+
+        # import logging
+        # logger = logging.getLogger(__name__)
+        # logger.info(f"[CONTRACT RESOLUTION] symbol={self.symbol}, reference_date={reference_date}, month={reference_date.month}, day={reference_date.day}")
+
+        from lumibot.tools import futures_roll
+
+        target_year, target_month = futures_roll.determine_contract_year_month(
+            self.symbol,
+            reference_date,
+        )
+
+        month_code = FUTURES_MONTH_CODES.get(target_month, "U")
+        base_contract = f"{self.symbol}{month_code}"
+
+        return base_contract, target_year, target_month, reference_date
+
+    @staticmethod
+    def _build_contract_variants(contract_base: str, target_year: int) -> dict:
+        """Build contract variants for different year digit formats."""
+        two_digit = target_year % 100
+        variants = {
+            1: f"{contract_base}{two_digit % 10}",
+            2: f"{contract_base}{two_digit:02d}",
+            4: f"{contract_base}{target_year}",
+        }
+        return variants
+
+    def _warn_on_outdated_contract(
+        self,
+        reference_date: datetime,
+        target_year: int,
+        target_month: int,
+        contract: str,
+    ) -> None:
+        """Emit a warning if the resolved contract is significantly in the past."""
+        contract_age_months = (
+            (reference_date.year - target_year) * 12 + (reference_date.month - target_month)
+        )
+
+        if contract_age_months > 6:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(
+                "⚠️ FUTURES CONTRACT WARNING: Resolved %s continuous future to %s "
+                "which is %s months old (target: %04d-%02d). Consider adjusting the backtest window.",
+                self.symbol,
+                contract,
+                contract_age_months,
+                target_year,
+                target_month,
+            )
 
 class AssetsMapping(UserDict):
     def __init__(self, mapping):

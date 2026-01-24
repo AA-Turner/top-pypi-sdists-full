@@ -5,6 +5,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.list_email_triggers_response_200_item_mode import ListEmailTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -31,11 +32,12 @@ class ListEmailTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListEmailTriggersResponse200ItemMode): job trigger mode
         workspaced_local_part (Union[Unset, bool]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListEmailTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to
             the script or flow
-        retry (Union[Unset, ListEmailTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListEmailTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
     local_part: str
@@ -47,6 +49,7 @@ class ListEmailTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListEmailTriggersResponse200ItemMode
     workspaced_local_part: Union[Unset, bool] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "ListEmailTriggersResponse200ItemErrorHandlerArgs"] = UNSET
@@ -65,6 +68,8 @@ class ListEmailTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         workspaced_local_part = self.workspaced_local_part
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -88,6 +93,7 @@ class ListEmailTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if workspaced_local_part is not UNSET:
@@ -130,6 +136,8 @@ class ListEmailTriggersResponse200Item:
 
         is_flow = d.pop("is_flow")
 
+        mode = ListEmailTriggersResponse200ItemMode(d.pop("mode"))
+
         workspaced_local_part = d.pop("workspaced_local_part", UNSET)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
@@ -158,6 +166,7 @@ class ListEmailTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             workspaced_local_part=workspaced_local_part,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,

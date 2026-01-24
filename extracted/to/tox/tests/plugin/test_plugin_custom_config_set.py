@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from functools import partial
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -33,8 +33,8 @@ def _custom_config_set(mocker: MockerFixture) -> None:
 
         env_conf.add_config(
             "docker",
-            of_type=Optional[DockerConfigSet],  # type: ignore[arg-type] # mypy fails to understand the type info
-            default=None,
+            of_type=DockerConfigSet | None,  # type: ignore[arg-type]
+            default=None,  # type: ignore[arg-type]
             desc="docker env",
             factory=partial(factory, env_conf.name),
         )

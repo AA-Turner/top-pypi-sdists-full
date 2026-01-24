@@ -293,6 +293,17 @@ class ProphecyRequests:
             print(f"Interims Request Failed: {str(e)}")
             raise e
 
+    @staticmethod
+    @prophecy_track_time('send_dataframe_records_count_payload')
+    def send_dataframe_records_count_payload(key: str, job: str):
+        try:
+            payload = DataSampleLoader.get_records_count_payload(key, job)
+            if (payload != None):
+                response = HttpClient.post("/interims", payload)
+        except Exception as e:
+            print(f"Records Count Request Failed: {str(e)}")
+            raise e
+
 
 ProphecyRequests.ping()
 
@@ -813,6 +824,22 @@ class DataSampleLoader:
         """Get DataFrame for display with caching."""
         df, _, _ = cls._get_entry_from_dataframes_map(key)
         return df
+
+    @classmethod
+    def get_records_count_payload(cls, key: str, job: str) -> Optional[str]:
+        """Get payload with proper JSON handling."""
+        df, _, _ = cls._get_entry_from_dataframes_map(key)
+
+        if df is None:
+            return None
+
+        try:
+            cnt = df.count()
+            result = {'job': job, 'schema':'', 'data': str(cnt), 'op': 'count'}
+            return cls._json_serialize(result)
+        except Exception as e:
+            print(f"Error creating payload for records count: {str(e)}")
+            raise ValueError(f"Error creating payload: {str(e)}")
 
 
 import itertools

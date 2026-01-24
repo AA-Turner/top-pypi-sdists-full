@@ -1,16 +1,16 @@
+import datetime
 import warnings
 
+import django
 from django.conf import settings
 from django.core.cache import caches
 from django.core.cache.backends.base import InvalidCacheBackendError
 from django.core.files.storage import default_storage, storages
 from django.core.mail.utils import DNS_NAME
 from django.template import engines as template_engines
-from django.utils.functional import LazyObject
-
 from django.utils.module_loading import import_string
 
-import datetime
+PRE_DJANGO_6 = django.VERSION < (6, 0)
 
 
 def get_backend(alias='default'):
@@ -140,3 +140,27 @@ def get_file_storage():
 
 CONTEXT_FIELD_CLASS = get_config().get('CONTEXT_FIELD_CLASS', 'django.db.models.JSONField')
 context_field_class = import_string(CONTEXT_FIELD_CLASS)
+
+
+def get_webhook_config(provider: str) -> dict:
+    """
+    Returns webhook configuration for a specific provider.
+
+    Args:
+        provider: The ESP name (e.g., 'SPARKPOST', 'MAILGUN', 'SES')
+
+    Returns:
+        Configuration dictionary for the provider, empty dict if not configured.
+
+    Example:
+        POST_OFFICE = {
+            'WEBHOOKS': {
+                'MAILGUN': {
+                    'SIGNING_KEY': 'your-key',
+                    'VERIFY_SIGNATURE': True,
+                },
+            },
+        }
+    """
+    webhooks_config = get_config().get('WEBHOOKS', {})
+    return webhooks_config.get(provider, {})

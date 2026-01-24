@@ -10,10 +10,9 @@ def readme():
 
 setup(
     name="soundcloud-v2",
-    version="1.6.0",
+    version="1.6.1",
     description=(
-        "Python wrapper for the internal v2 SoundCloud API."
-        "Does not require an API key."
+        "Python wrapper for the internal v2 SoundCloud API.Does not require an API key."
     ),
     long_description=readme(),
     long_description_content_type="text/markdown",

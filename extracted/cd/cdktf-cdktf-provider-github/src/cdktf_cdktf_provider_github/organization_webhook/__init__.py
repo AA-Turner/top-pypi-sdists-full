@@ -1,7 +1,7 @@
 r'''
 # `github_organization_webhook`
 
-Refer to the Terraform Registry for docs: [`github_organization_webhook`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook).
+Refer to the Terraform Registry for docs: [`github_organization_webhook`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrganizationWebhook(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.organizationWebhook.OrganizationWebhook",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook github_organization_webhook}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook github_organization_webhook}.'''
 
     def __init__(
         self,
@@ -63,14 +63,14 @@ class OrganizationWebhook(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook github_organization_webhook} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook github_organization_webhook} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#events OrganizationWebhook#events}
-        :param active: Indicate if the webhook should receive events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#active OrganizationWebhook#active}
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#configuration OrganizationWebhook#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#id OrganizationWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#events OrganizationWebhook#events}
+        :param active: Indicate if the webhook should receive events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#active OrganizationWebhook#active}
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#configuration OrganizationWebhook#configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#id OrganizationWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -112,7 +112,7 @@ class OrganizationWebhook(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrganizationWebhook to import.
-        :param import_from_id: The id of the existing OrganizationWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrganizationWebhook that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrganizationWebhook to import is found.
         '''
         if __debug__:
@@ -133,10 +133,10 @@ class OrganizationWebhook(
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#url OrganizationWebhook#url}
-        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#content_type OrganizationWebhook#content_type}
-        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#insecure_ssl OrganizationWebhook#insecure_ssl}
-        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#secret OrganizationWebhook#secret}
+        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#url OrganizationWebhook#url}
+        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#content_type OrganizationWebhook#content_type}
+        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#insecure_ssl OrganizationWebhook#insecure_ssl}
+        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#secret OrganizationWebhook#secret}
         '''
         value = OrganizationWebhookConfiguration(
             url=url,
@@ -292,10 +292,10 @@ class OrganizationWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#events OrganizationWebhook#events}
-        :param active: Indicate if the webhook should receive events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#active OrganizationWebhook#active}
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#configuration OrganizationWebhook#configuration}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#id OrganizationWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param events: A list of events which should trigger the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#events OrganizationWebhook#events}
+        :param active: Indicate if the webhook should receive events. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#active OrganizationWebhook#active}
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#configuration OrganizationWebhook#configuration}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#id OrganizationWebhook#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -406,7 +406,7 @@ class OrganizationWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def events(self) -> typing.List[builtins.str]:
         '''A list of events which should trigger the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#events OrganizationWebhook#events}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#events OrganizationWebhook#events}
         '''
         result = self._values.get("events")
         assert result is not None, "Required property 'events' is missing"
@@ -418,7 +418,7 @@ class OrganizationWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicate if the webhook should receive events.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#active OrganizationWebhook#active}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#active OrganizationWebhook#active}
         '''
         result = self._values.get("active")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -427,14 +427,14 @@ class OrganizationWebhookConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def configuration(self) -> typing.Optional["OrganizationWebhookConfiguration"]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#configuration OrganizationWebhook#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#configuration OrganizationWebhook#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional["OrganizationWebhookConfiguration"], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#id OrganizationWebhook#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#id OrganizationWebhook#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -474,10 +474,10 @@ class OrganizationWebhookConfiguration:
         secret: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#url OrganizationWebhook#url}
-        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#content_type OrganizationWebhook#content_type}
-        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#insecure_ssl OrganizationWebhook#insecure_ssl}
-        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#secret OrganizationWebhook#secret}
+        :param url: The URL of the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#url OrganizationWebhook#url}
+        :param content_type: The content type for the payload. Valid values are either 'form' or 'json'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#content_type OrganizationWebhook#content_type}
+        :param insecure_ssl: Insecure SSL boolean toggle. Defaults to 'false'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#insecure_ssl OrganizationWebhook#insecure_ssl}
+        :param secret: The shared secret for the webhook. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#secret OrganizationWebhook#secret}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ae727e18ba88051b74b00400aa262163499171ffa26b57a89ad69bc5dc3a384e)
@@ -499,7 +499,7 @@ class OrganizationWebhookConfiguration:
     def url(self) -> builtins.str:
         '''The URL of the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#url OrganizationWebhook#url}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#url OrganizationWebhook#url}
         '''
         result = self._values.get("url")
         assert result is not None, "Required property 'url' is missing"
@@ -509,7 +509,7 @@ class OrganizationWebhookConfiguration:
     def content_type(self) -> typing.Optional[builtins.str]:
         '''The content type for the payload. Valid values are either 'form' or 'json'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#content_type OrganizationWebhook#content_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#content_type OrganizationWebhook#content_type}
         '''
         result = self._values.get("content_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -520,7 +520,7 @@ class OrganizationWebhookConfiguration:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Insecure SSL boolean toggle. Defaults to 'false'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#insecure_ssl OrganizationWebhook#insecure_ssl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#insecure_ssl OrganizationWebhook#insecure_ssl}
         '''
         result = self._values.get("insecure_ssl")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -529,7 +529,7 @@ class OrganizationWebhookConfiguration:
     def secret(self) -> typing.Optional[builtins.str]:
         '''The shared secret for the webhook.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_webhook#secret OrganizationWebhook#secret}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_webhook#secret OrganizationWebhook#secret}
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional[builtins.str], result)

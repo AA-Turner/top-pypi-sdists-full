@@ -12,14 +12,23 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 import torch
 
 try:
     from cuequivariance_ops_torch import TriMulPrecision
 except ImportError:
-    TriMulPrecision = Any  # type: ignore
+    import enum
+
+    class TriMulPrecision(enum.IntEnum):  # type: ignore
+        """Fallback precision enum when cuequivariance_ops_torch is not available."""
+
+        NONE = -1
+        DEFAULT = 0
+        TF32 = 1
+        TF32x3 = 2
+        IEEE = 3
 
 
 def triangle_attention(
@@ -71,6 +80,7 @@ def triangle_attention(
         (1) Context is saved for backward pass. You don't need to save it manually.
         (2) Kernel precision (fp32, bf16, fp16) is based on input dtypes. For tf32, set it from torch global scope
         (3) Triangle attention kernel supports: all hidden_dim<=32 and divisible by 4 for tf32/fp32, and for all hidden_dim<=128 and divisible by 8 for bf16/fp16. In the rare instance that the kernel does not support an input config, fallback to torch is enabled instead of erroring out.
+        (4) Blackwell-optimized kernels (for compute capabilities 10.0 and 10.3) provide superior performance especially for long sequences and higher head dimensions. These kernels require the sequence length N to be a multiple of 8 for the forward pass; pad the sequence if necessary. Currently, this feature is supported only for cu13 builds.
 
     Example:
         >>> import torch
@@ -155,8 +165,8 @@ def triangle_multiplicative_update(
     Auto-tuning behavior can be controlled through environment variables:
 
     - Quick testing: Default configuration where tuning configs, if existent, are looked-up. If not, then falls back to default kernel parameters. No tuning is performed.
-    - On-Demand tuning: Set `CUEQ_TRITON_TUNING_MODE = "ONDEMAND"` to auto-tune for new shapes encountered on first run (may take several minutes)
-    - AOT tuning: Set `CUEQ_TRITON_TUNING_MODE = "AOT"` to perform full ahead-of-time tuning for optimal performance **(may take several hours)**
+    - On-Demand tuning: Set `CUEQ_TRITON_TUNING= "ONDEMAND"` to auto-tune for new shapes encountered on first run (may take several minutes)
+    - AOT tuning: Set `CUEQ_TRITON_TUNING= "AOT"` to perform full ahead-of-time tuning for optimal performance **(may take several hours)**
     - Ignore user cache: Set CUEQ_TRITON_IGNORE_EXISTING_CACHE to ignore both the default settings that come with the package and any user-local settings previously saved with AOT/ONDEMAND tuning. May be used to regenerate optimal settings for a particular setup.
     - Cache directory: Set `CUEQ_TRITON_CACHE_DIR` to specify where tuning configurations are stored
     - Note: When using Docker with default or on-demand tuning enabled, commit the container to persist tuning changes
@@ -258,19 +268,19 @@ def attention_pair_bias(
     z: torch.Tensor,
     mask: torch.Tensor,
     num_heads: int,
-    w_proj_z: torch.Tensor,
+    w_proj_z: Optional[torch.Tensor],
     w_proj_g: torch.Tensor,
     w_proj_o: torch.Tensor,
-    w_ln_z: torch.Tensor,
-    b_ln_z: torch.Tensor,
+    w_ln_z: Optional[torch.Tensor] = None,
+    b_ln_z: Optional[torch.Tensor] = None,
     b_proj_z: Optional[torch.Tensor] = None,
     b_proj_g: Optional[torch.Tensor] = None,
     b_proj_o: Optional[torch.Tensor] = None,
-    inf: Optional[float] = 1e6,
-    eps: Optional[float] = 1e-5,
+    inf: float = 1e6,
+    eps: float = 1e-5,
     attn_scale: Optional[float] = None,
-    compute_pair_bias: Optional[bool] = True,
-    multiplicity: Optional[int] = 1,
+    return_z_proj: bool = True,
+    is_cached_z_proj: bool = False,
 ):
     """Compute attention with pairwise bias for diffusion models.
 
@@ -288,7 +298,7 @@ def attention_pair_bias(
         k: Key tensor of shape (B * M, H, V, DH) where V is key sequence length.
         v: Value tensor of shape (B * M, H, V, DH).
         z: Pairwise tensor of shape (B, U, V, z_dim) containing pairwise interactions,
-            where z_dim can be arbitrary. This is the main input for the pairwise bias computation.
+            where z_dim can be arbitrary. This is the main input for the pairwise bias computation. If return_z_proj is True, z should be of shape (B, H, U, V).
         mask: Attention mask of shape (B, V) or (B * M, V) indicating which positions
             should be masked (0 = masked, 1 = unmasked).
         num_heads: Number of attention heads.
@@ -304,14 +314,11 @@ def attention_pair_bias(
         eps: Epsilon value for layer normalization. Defaults to 1e-5.
         attn_scale: Scaling factor for attention scores. If None, uses 1/sqrt(head_dim).
             Defaults to None.
-        compute_pair_bias: Whether to compute pairwise bias. If False, z tensor should already
-            be in the correct format (B, U, V, H). Defaults to True.
-        multiplicity: Multiplicity (diffusion steps). Should be explicitly set if multiplicity > 1
-            and is not reflected in z tensor. Defaults to 1.
+        return_z_proj: Whether to return the projected z tensor as the second output. Defaults to True.
+        is_cached_z_proj: Whether the z tensor is already projected and cached.
+            If True, z should be of shape (B, H, U, V). Defaults to False.
 
     Returns:
-        A tuple containing:
-
         - **output** (:class:`torch.Tensor`): Attention output of shape (B * M, S, D)
           with pairwise bias applied.
         - **proj_z** (:class:`torch.Tensor`): Projected z tensor of shape (B, H, U, V)
@@ -322,12 +329,17 @@ def attention_pair_bias(
           uses PyTorch fallback implementation.
         - For long sequences, uses optimized Triton kernels with automatic
           backend selection (CUDNN, Flash Attention, Efficient Attention).
-        - The multiplicity parameter (M) allows processing multiple diffusion
-          timesteps in a single forward pass.
+        - Multiplicity (M) is computed automatically from tensor shapes to allow
+          processing multiple diffusion timesteps in a single forward pass.
         - The proj_z output is experimental to prevent breakage when caching
           of pair bias tensor is enabled in the next release.
+        - Tested for bf16, fp16, fp32 and tf32. torch.set_float32_matmul_precision maybe used to toggle between fp32/tf32.
+        - Currently, the kernel provides superior performance only when DH (head dimension) is a multiple of 32.
+          For non-multiples of 32, we also recommend using graph compilation techniques like torch.compile, in addition.
 
     Examples:
+        Basic usage without caching:
+
         >>> import torch
         >>> from cuequivariance_torch import attention_pair_bias
         >>> if torch.cuda.is_available():  # doctest: +SKIP
@@ -336,29 +348,29 @@ def attention_pair_bias(
         ...     query_len, key_len, z_dim = 32, 32, 16
         ...     # Create input tensors on GPU
         ...     s = torch.randn(batch_size, seq_len, hidden_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     q = torch.randn(batch_size, num_heads, query_len, heads_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     k = torch.randn(batch_size, num_heads, key_len, heads_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     v = torch.randn(batch_size, num_heads, key_len, heads_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     z = torch.randn(batch_size, query_len, key_len, z_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     mask = torch.rand(batch_size, key_len,
         ...                       device=device) < 0.5
         ...     w_proj_z = torch.randn(num_heads, z_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     w_proj_g = torch.randn(hidden_dim, hidden_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     w_proj_o = torch.randn(hidden_dim, hidden_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     w_ln_z = torch.randn(z_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     b_ln_z = torch.randn(z_dim,
-        ...                     device=device, dtype=torch.float32)
+        ...                     device=device, dtype=torch.bfloat16)
         ...     # Perform operation
-        ...     output, proj_z = attention_pair_bias(
+        ...     output = attention_pair_bias(
         ...         s=s,
         ...         q=q,
         ...         k=k,
@@ -371,9 +383,36 @@ def attention_pair_bias(
         ...         w_proj_o=w_proj_o,
         ...         w_ln_z=w_ln_z,
         ...         b_ln_z=b_ln_z,
+        ...         return_z_proj=False,
         ...     )
         ...     print(output.shape)  # torch.Size([1, 32, 64])
         torch.Size([1, 32, 64])
+
+        Example with caching (recommended for inference when z doesn't change):
+
+        >>> # Check cache and determine if z is already projected
+        >>> if model_cache is not None and "proj_z" in model_cache:  # doctest: +SKIP
+        ...     z = model_cache["proj_z"]
+        ...     is_cached_z = True
+        ... else:
+        ...     is_cached_z = False
+        >>>
+        >>> # Call attention_pair_bias
+        >>> o, proj_z = attention_pair_bias(  # doctest: +SKIP
+        ...     s=s, q=q, k=k, v=v, z=z, mask=mask,
+        ...     num_heads=num_heads,
+        ...     w_proj_z=w_proj_z if not is_cached_z else None,
+        ...     w_proj_g=w_proj_g,
+        ...     w_proj_o=w_proj_o,
+        ...     w_ln_z=w_ln_z if not is_cached_z else None,
+        ...     b_ln_z=b_ln_z if not is_cached_z else None,
+        ...     return_z_proj=True,
+        ...     is_cached_z_proj=is_cached_z,
+        ... )
+        >>>
+        >>> # Cache proj_z for next call
+        >>> if model_cache is not None and "proj_z" not in model_cache:  # doctest: +SKIP
+        ...     model_cache["proj_z"] = proj_z
     """
 
     try:
@@ -404,6 +443,6 @@ def attention_pair_bias(
             inf=inf,
             eps=eps,
             attn_scale=attn_scale,
-            compute_pair_bias=compute_pair_bias,
-            multiplicity=multiplicity,
+            return_z_proj=return_z_proj,
+            is_cached_z_proj=is_cached_z_proj,
         )

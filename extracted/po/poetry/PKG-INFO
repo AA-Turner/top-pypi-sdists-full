@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry
-Version: 2.2.1
+Version: 2.3.1
 Summary: Python dependency management and packaging made easy.
 License-Expression: MIT
 License-File: LICENSE
@@ -9,9 +9,8 @@ Author: Sébastien Eustace
 Author-email: sebastien@eustace.io
 Maintainer: Arun Babu Neelicattu
 Maintainer-email: arun.neelicattu@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -22,17 +21,16 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: build (>=1.2.1,<2.0.0)
 Requires-Dist: cachecontrol[filecache] (>=0.14.0,<0.15.0)
 Requires-Dist: cleo (>=2.1.0,<3.0.0)
-Requires-Dist: dulwich (>=0.24.0,<0.25.0)
+Requires-Dist: dulwich (>=0.25.0,<0.26.0)
 Requires-Dist: fastjsonschema (>=2.18.0,<3.0.0)
 Requires-Dist: findpython (>=0.6.2,<0.8.0)
-Requires-Dist: importlib-metadata (>=4.4) ; python_version < "3.10"
 Requires-Dist: installer (>=0.7.0,<0.8.0)
 Requires-Dist: keyring (>=25.1.0,<26.0.0)
 Requires-Dist: packaging (>=24.2)
-Requires-Dist: pbs-installer[download,install] (>=2025.1.6,<2026.0.0)
+Requires-Dist: pbs-installer[download,install] (>=2025.6.10)
 Requires-Dist: pkginfo (>=1.12,<2.0)
 Requires-Dist: platformdirs (>=3.0.0,<5)
-Requires-Dist: poetry-core (==2.2.1)
+Requires-Dist: poetry-core (==2.3.0)
 Requires-Dist: pyproject-hooks (>=1.0.0,<2.0.0)
 Requires-Dist: requests (>=2.26,<3.0)
 Requires-Dist: requests-toolbelt (>=1.0.0,<2.0.0)

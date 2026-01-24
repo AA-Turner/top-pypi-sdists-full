@@ -5,9 +5,10 @@ import logging
 import os
 import re
 from collections import OrderedDict
+from collections.abc import Callable
 from contextlib import nullcontext
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 import torch
 from packaging.version import parse as parse_version
@@ -185,7 +186,9 @@ class SentenceTransformerTrainer(Trainer):
 
         # Get a dictionary of the default training arguments, so we can determine which arguments have been changed
         # for the model card
-        default_args_dict = SentenceTransformerTrainingArguments(output_dir="unused").to_dict()
+        default_args_dict = SentenceTransformerTrainingArguments(
+            output_dir="unused", accelerator_config={"use_configured_state": True}
+        ).to_dict()
 
         # If the model ID is set via the SentenceTransformerTrainingArguments, but not via the SentenceTransformerModelCardData,
         # then we can set it here for the model card regardless

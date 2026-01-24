@@ -6,14 +6,14 @@ from ..testing_utils import assert_no_logs, render_pages
 
 
 @assert_no_logs
-@pytest.mark.parametrize('css', (
+@pytest.mark.parametrize('css', [
     'columns: 4',
     'columns: 100px',
     'columns: 4 100px',
     'columns: 100px 4',
     'column-width: 100px',
     'column-count: 4',
-))
+])
 def test_columns(css):
     page, = render_pages('''
       <style>
@@ -38,13 +38,13 @@ def test_columns(css):
     assert [column.position_y for column in columns] == [0, 0, 0, 0]
 
 
-@pytest.mark.parametrize('value, width', (
+@pytest.mark.parametrize(('value', 'width'), [
     ('normal', 16),  # "normal" is 1em = 16px
     ('unknown', 16),  # default value is normal
     ('15px', 15),
     ('5%', 15),
     ('-1em', 16),  # negative values are not allowed
-))
+])
 def test_column_gap(value, width):
     page, = render_pages('''
       <style>
@@ -786,7 +786,7 @@ def test_columns_empty():
 
 
 @assert_no_logs
-@pytest.mark.parametrize('prop', ('height', 'min-height'))
+@pytest.mark.parametrize('prop', ['height', 'min-height'])
 def test_columns_fixed_height(prop):
     # TODO: we should test when the height is too small
     page, = render_pages('''
@@ -1078,3 +1078,23 @@ def test_columns_regression_7():
     column1, column2 = div.children
     assert column1.position_y == 0
     assert column2.position_y == 0
+
+
+@assert_no_logs
+def test_columns_margin_top():
+    page1, = render_pages('''
+      <style>
+        @page { size: 50px 10px }
+        body { font-size: 2px; line-height: 1 }
+      </style>
+      <div style="column-count: 2; margin-top: 1em">
+        a<br>b
+      </div>
+    ''')
+    html, = page1.children
+    body, = html.children
+    div, = body.children
+    assert div.position_y == 0
+    column1, column2 = div.children
+    assert column1.position_y == column2.position_y == 2
+    assert column1.children[0].position_y == column2.children[0].position_y == 2

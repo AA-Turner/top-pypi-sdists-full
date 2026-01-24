@@ -12,6 +12,9 @@ class PIICheck(GuardrailBase):
     def __init__(self):
         super().__init__()
 
+    def name(self):
+        return "PII Check"
+
     def validate(self, data: str):
         piillm_eval = PIILLMEval()
         request: LLMRequest[dict] = LLMRequest(
@@ -22,4 +25,4 @@ class PIICheck(GuardrailBase):
         wrapper = get_llm_wrapper(piillm_eval.provider, piillm_eval.model, Options())
         response: Dict[str, str] = wrapper.run_sync(request)  # type: ignore[assignment]
         if response.get("category") != "OK":
-            raise GuardException("PII Check failed: {}".format(response.get("reasoning")))
+            raise GuardException(self, response.get("reasoning") or "")

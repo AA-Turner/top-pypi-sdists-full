@@ -91,6 +91,8 @@ class AnswerRecordsAsyncClient:
     parse_document_path = staticmethod(AnswerRecordsClient.parse_document_path)
     intent_path = staticmethod(AnswerRecordsClient.intent_path)
     parse_intent_path = staticmethod(AnswerRecordsClient.parse_intent_path)
+    tool_path = staticmethod(AnswerRecordsClient.tool_path)
+    parse_tool_path = staticmethod(AnswerRecordsClient.parse_tool_path)
     common_billing_account_path = staticmethod(
         AnswerRecordsClient.common_billing_account_path
     )
@@ -358,13 +360,13 @@ class AnswerRecordsAsyncClient:
 
                    Currently, answer record includes:
 
-                   -  human agent assistant article suggestion
-                   -  human agent assistant faq article
+                   - human agent assistant article suggestion
+                   - human agent assistant faq article
 
                    It doesn't include:
 
-                   -  DetectIntent intent matching
-                   -  DetectIntent knowledge
+                   - DetectIntent intent matching
+                   - DetectIntent knowledge
 
                    Answer records are not related to the conversation
                    history in the Dialogflow Console. A Record is
@@ -623,13 +625,13 @@ class AnswerRecordsAsyncClient:
 
                    Currently, answer record includes:
 
-                   -  human agent assistant article suggestion
-                   -  human agent assistant faq article
+                   - human agent assistant article suggestion
+                   - human agent assistant faq article
 
                    It doesn't include:
 
-                   -  DetectIntent intent matching
-                   -  DetectIntent knowledge
+                   - DetectIntent intent matching
+                   - DetectIntent knowledge
 
                    Answer records are not related to the conversation
                    history in the Dialogflow Console. A Record is

@@ -1,4 +1,4 @@
-from typing import cast, Optional, List, Tuple, Union
+from typing import Optional, Union
 
 from django.core.exceptions import ImproperlyConfigured
 from django.db import connections
@@ -17,17 +17,19 @@ from rq.registry import (
 from rq.worker import Worker
 from rq.worker_registration import clean_worker_registry
 
-from .queues import get_connection, get_queue_by_index, get_scheduler
+from .connection_utils import get_connection, get_redis_connection, get_unique_connection_configs
+from .cron import DjangoCronScheduler
+from .queues import get_queue_by_index, get_scheduler
 from .settings import QUEUES_LIST
 from .templatetags.django_rq import to_localtime
 
 
 def get_scheduler_pid(queue):
     '''Checks whether there's a scheduler-lock on a particular queue, and returns the PID.
-        It Only works with RQ's Built-in RQScheduler.
-        When RQ-Scheduler is available returns False
-        If not, it checks the RQ's RQScheduler for a scheduler lock in the desired queue
-        Note: result might have some delay (1-15 minutes) but it helps visualizing whether the setup is working correctly
+    It Only works with RQ's Built-in RQScheduler.
+    When RQ-Scheduler is available returns False
+    If not, it checks the RQ's RQScheduler for a scheduler lock in the desired queue
+    Note: result might have some delay (1-15 minutes) but it helps visualizing whether the setup is working correctly
     '''
     try:
         # first try get the rq-scheduler
@@ -37,10 +39,10 @@ def get_scheduler_pid(queue):
         from rq.scheduler import RQScheduler
 
         # When a scheduler acquires a lock it adds an expiring key: (e.g: rq:scheduler-lock:<queue.name>)
-        #TODO: (RQ>= 1.13) return queue.scheduler_pid
+        # TODO: (RQ>= 1.13) return queue.scheduler_pid
         pid = queue.connection.get(RQScheduler.get_locking_key(queue.name))
         return int(pid.decode()) if pid is not None else None
-    except Exception as e:
+    except Exception:
         pass  # Return None
     return None
 
@@ -50,7 +52,7 @@ def get_statistics(run_maintenance_tasks=False):
     for index, config in enumerate(QUEUES_LIST):
         queue = get_queue_by_index(index)
         connection = queue.connection
-        connection_kwargs = connection.connection_pool.connection_kwargs
+        connection_kwargs = connection.connection_pool.connection_kwargs.copy()
 
         if run_maintenance_tasks:
             clean_registries(queue)
@@ -71,6 +73,7 @@ def get_statistics(run_maintenance_tasks=False):
         connection_kwargs.pop('connection_pool', None)
         connection_kwargs.pop('parser_class', None)
         connection_kwargs.pop('retry', None)
+        connection_kwargs.pop('password', None)
 
         queue_data = {
             'name': queue.name,
@@ -116,13 +119,38 @@ def get_scheduler_statistics():
         if conn_key not in schedulers:
             try:
                 scheduler = get_scheduler(config['name'])
-                schedulers[conn_key] ={
+                schedulers[conn_key] = {
                     'count': scheduler.count(),
                     'index': index,
                 }
             except ImproperlyConfigured:
                 pass
     return {'schedulers': schedulers}
+
+
+def get_cron_schedulers() -> list[DjangoCronScheduler]:
+    """
+    Fetches all running CronScheduler instances from each unique Redis connection
+    defined in RQ_QUEUES.
+
+    Returns:
+        List of running DjangoCronScheduler instances
+    """
+    unique_configs = get_unique_connection_configs()
+    cron_schedulers = []
+
+    for config in unique_configs:
+        try:
+            connection = get_redis_connection(config)
+            # Fetch all running schedulers for this connection
+            schedulers = DjangoCronScheduler.all(connection, cleanup=True)
+            cron_schedulers.extend(schedulers)
+        except Exception:
+            # Skip configs that fail to create a connection
+            # (e.g., USE_REDIS_CACHE without django-redis installed)
+            pass
+
+    return cron_schedulers
 
 
 def get_jobs(
@@ -137,7 +165,7 @@ def get_jobs(
             StartedJobRegistry,
         ]
     ] = None,
-) -> List[Job]:
+) -> list[Job]:
     """Fetch jobs in bulk from Redis.
     1. If job data is not present in Redis, discard the result
     2. If `registry` argument is supplied, delete empty jobs from registry
@@ -154,7 +182,7 @@ def get_jobs(
     return valid_jobs
 
 
-def get_executions(queue, composite_keys: List[Tuple[str, str]]) -> List[Execution]:
+def get_executions(queue, composite_keys: list[tuple[str, str]]) -> list[Execution]:
     """Fetch executions in bulk from Redis.
     1. If execution data is not present in Redis, discard the result
     """
@@ -202,13 +230,14 @@ def configure_sentry(sentry_dsn, **options):
 
     """
     import sentry_sdk
+
     sentry_options = {
         'debug': options.get('sentry_debug', False),
         'ca_certs': options.get('sentry_ca_certs', None),
         'integrations': [
             sentry_sdk.integrations.redis.RedisIntegration(),
             sentry_sdk.integrations.rq.RqIntegration(),
-            sentry_sdk.integrations.django.DjangoIntegration()
-        ]
+            sentry_sdk.integrations.django.DjangoIntegration(),
+        ],
     }
     sentry_sdk.init(sentry_dsn, **sentry_options)

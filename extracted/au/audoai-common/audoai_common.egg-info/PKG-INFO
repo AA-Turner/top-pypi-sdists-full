@@ -1,0 +1,18 @@
+Metadata-Version: 1.1
+Name: audoai-common
+Version: 0.3.1
+Summary: Library containing shared code for Audo AI APIs
+Home-page: https://github.com/audo-ai/audoai-python
+Author: Audo AI
+Author-email: info@audo.ai
+License: UNKNOWN
+Description: UNKNOWN
+Keywords: audoai
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9

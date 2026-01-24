@@ -4,15 +4,15 @@ from django.conf import settings
 from django.contrib.auth.models import Group
 from django.db.models import QuerySet
 from django.utils.functional import cached_property
+from django.utils.module_loading import import_string
 
 from wbcore.contrib.authentication.models import User
-from wbcore.utils.importlib import import_from_dotted_path
 
 
 class UserBackendRegistry:
     def __init__(self):
         internal_users_backend_path = getattr(settings, "USER_BACKEND", "wbcore.permissions.backend.UserBackend")
-        internal_users_backend_class = import_from_dotted_path(internal_users_backend_path)
+        internal_users_backend_class = import_string(internal_users_backend_path)
         self.backend = internal_users_backend_class()
 
     @cached_property

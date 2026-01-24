@@ -45,55 +45,69 @@ class ObservabilityPipelineQuotaProcessor(ModelNormal):
         )
 
         return {
+            "display_name": (str,),
             "drop_events": (bool,),
+            "enabled": (bool,),
             "id": (str,),
             "ignore_when_missing_partitions": (bool,),
             "include": (str,),
-            "inputs": ([str],),
             "limit": (ObservabilityPipelineQuotaProcessorLimit,),
             "name": (str,),
             "overflow_action": (ObservabilityPipelineQuotaProcessorOverflowAction,),
             "overrides": ([ObservabilityPipelineQuotaProcessorOverride],),
             "partition_fields": ([str],),
+            "too_many_buckets_action": (ObservabilityPipelineQuotaProcessorOverflowAction,),
             "type": (ObservabilityPipelineQuotaProcessorType,),
         }
 
     attribute_map = {
+        "display_name": "display_name",
         "drop_events": "drop_events",
+        "enabled": "enabled",
         "id": "id",
         "ignore_when_missing_partitions": "ignore_when_missing_partitions",
         "include": "include",
-        "inputs": "inputs",
         "limit": "limit",
         "name": "name",
         "overflow_action": "overflow_action",
         "overrides": "overrides",
         "partition_fields": "partition_fields",
+        "too_many_buckets_action": "too_many_buckets_action",
         "type": "type",
     }
 
     def __init__(
         self_,
-        drop_events: bool,
+        enabled: bool,
         id: str,
         include: str,
-        inputs: List[str],
         limit: ObservabilityPipelineQuotaProcessorLimit,
         name: str,
         type: ObservabilityPipelineQuotaProcessorType,
+        display_name: Union[str, UnsetType] = unset,
+        drop_events: Union[bool, UnsetType] = unset,
         ignore_when_missing_partitions: Union[bool, UnsetType] = unset,
         overflow_action: Union[ObservabilityPipelineQuotaProcessorOverflowAction, UnsetType] = unset,
         overrides: Union[List[ObservabilityPipelineQuotaProcessorOverride], UnsetType] = unset,
         partition_fields: Union[List[str], UnsetType] = unset,
+        too_many_buckets_action: Union[ObservabilityPipelineQuotaProcessorOverflowAction, UnsetType] = unset,
         **kwargs,
     ):
         """
-        The Quota Processor measures logging traffic for logs that match a specified filter. When the configured daily quota is met, the processor can drop or alert.
+        The ``quota`` processor measures logging traffic for logs that match a specified filter. When the configured daily quota is met, the processor can drop or alert.
 
-        :param drop_events: If set to ``true`` , logs that matched the quota filter and sent after the quota has been met are dropped; only logs that did not match the filter query continue through the pipeline.
-        :type drop_events: bool
+        **Supported pipeline types:** logs
 
-        :param id: The unique identifier for this component. Used to reference this component in other parts of the pipeline (for example, as the ``input`` to downstream components).
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param drop_events: If set to ``true`` , logs that match the quota filter and are sent after the quota is exceeded are dropped. Logs that do not match the filter continue through the pipeline. **Note** : You can set either ``drop_events`` or ``overflow_action`` , but not both.
+        :type drop_events: bool, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
+
+        :param id: The unique identifier for this component. Used in other parts of the pipeline to reference this component (for example, as the ``input`` to downstream components).
         :type id: str
 
         :param ignore_when_missing_partitions: If ``true`` , the processor skips quota checks when partition fields are missing from the logs.
@@ -102,16 +116,13 @@ class ObservabilityPipelineQuotaProcessor(ModelNormal):
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
 
-        :param inputs: A list of component IDs whose output is used as the ``input`` for this component.
-        :type inputs: [str]
-
         :param limit: The maximum amount of data or number of events allowed before the quota is enforced. Can be specified in bytes or events.
         :type limit: ObservabilityPipelineQuotaProcessorLimit
 
         :param name: Name of the quota.
         :type name: str
 
-        :param overflow_action: The action to take when the quota is exceeded. Options:
+        :param overflow_action: The action to take when the quota or bucket limit is exceeded. Options:
 
             * ``drop`` : Drop the event.
             * ``no_action`` : Let the event pass through.
@@ -124,9 +135,20 @@ class ObservabilityPipelineQuotaProcessor(ModelNormal):
         :param partition_fields: A list of fields used to segment log traffic for quota enforcement. Quotas are tracked independently by unique combinations of these field values.
         :type partition_fields: [str], optional
 
+        :param too_many_buckets_action: The action to take when the quota or bucket limit is exceeded. Options:
+
+            * ``drop`` : Drop the event.
+            * ``no_action`` : Let the event pass through.
+            * ``overflow_routing`` : Route to an overflow destination.
+        :type too_many_buckets_action: ObservabilityPipelineQuotaProcessorOverflowAction, optional
+
         :param type: The processor type. The value should always be ``quota``.
         :type type: ObservabilityPipelineQuotaProcessorType
         """
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
+        if drop_events is not unset:
+            kwargs["drop_events"] = drop_events
         if ignore_when_missing_partitions is not unset:
             kwargs["ignore_when_missing_partitions"] = ignore_when_missing_partitions
         if overflow_action is not unset:
@@ -135,12 +157,13 @@ class ObservabilityPipelineQuotaProcessor(ModelNormal):
             kwargs["overrides"] = overrides
         if partition_fields is not unset:
             kwargs["partition_fields"] = partition_fields
+        if too_many_buckets_action is not unset:
+            kwargs["too_many_buckets_action"] = too_many_buckets_action
         super().__init__(kwargs)
 
-        self_.drop_events = drop_events
+        self_.enabled = enabled
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.limit = limit
         self_.name = name
         self_.type = type

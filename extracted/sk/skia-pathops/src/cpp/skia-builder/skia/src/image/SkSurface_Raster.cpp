@@ -4,10 +4,10 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #include "src/image/SkSurface_Raster.h"
 
 #include "include/core/SkBitmap.h"
+#include "include/core/SkCPURecorder.h"
 #include "include/core/SkCanvas.h"
 #include "include/core/SkCapabilities.h"
 #include "include/core/SkImageInfo.h"
@@ -19,6 +19,8 @@
 #include "include/core/SkSurface.h"
 #include "include/private/base/SkAssert.h"
 #include "include/private/base/SkMath.h"
+#include "src/core/SkBitmapDevice.h"
+#include "src/core/SkCPURecorderImpl.h"
 #include "src/core/SkDevice.h"
 #include "src/core/SkImageInfoPriv.h"
 #include "src/core/SkImagePriv.h"
@@ -55,28 +57,50 @@ bool SkSurfaceValidateRasterInfo(const SkImageInfo& info, size_t rowBytes) {
     return true;
 }
 
-SkSurface_Raster::SkSurface_Raster(const SkImageInfo& info, void* pixels, size_t rb,
-                                   void (*releaseProc)(void* pixels, void* context), void* context,
+SkSurface_Raster::SkSurface_Raster(const SkImageInfo& info,
+                                   void* pixels,
+                                   size_t rb,
+                                   void (*releaseProc)(void* pixels, void* context),
+                                   void* context,
                                    const SkSurfaceProps* props)
-    : INHERITED(info, props)
-{
-    fBitmap.installPixels(info, pixels, rb, releaseProc, context);
+        : SkSurface_Raster(
+                  asRRI(skcpu::Recorder::TODO()), info, pixels, rb, releaseProc, context, props) {}
+
+SkSurface_Raster::SkSurface_Raster(const SkImageInfo& info,
+                                   sk_sp<SkPixelRef> pr,
+                                   const SkSurfaceProps* props)
+        : SkSurface_Raster(asRRI(skcpu::Recorder::TODO()), info, pr, props) {}
+
+SkSurface_Raster::SkSurface_Raster(skcpu::RecorderImpl* recorder,
+                                   const SkImageInfo& info,
+                                   void* pixels,
+                                   size_t rowBytes,
+                                   void (*releaseProc)(void* pixels, void* context),
+                                   void* context,
+                                   const SkSurfaceProps* props)
+        : SkSurface_Base(info, props), fRecorder(recorder) {
+    fBitmap.installPixels(info, pixels, rowBytes, releaseProc, context);
     fWeOwnThePixels = false;    // We are "Direct"
 }
 
-SkSurface_Raster::SkSurface_Raster(const SkImageInfo& info, sk_sp<SkPixelRef> pr,
+SkSurface_Raster::SkSurface_Raster(skcpu::RecorderImpl* recorder,
+                                   const SkImageInfo& info,
+                                   sk_sp<SkPixelRef> pr,
                                    const SkSurfaceProps* props)
-    : INHERITED(pr->width(), pr->height(), props)
-{
+        : SkSurface_Base(pr->width(), pr->height(), props), fRecorder(recorder) {
     fBitmap.setInfo(info, pr->rowBytes());
     fBitmap.setPixelRef(std::move(pr), 0, 0);
     fWeOwnThePixels = true;
 }
 
-SkCanvas* SkSurface_Raster::onNewCanvas() { return new SkCanvas(fBitmap, this->props()); }
+SkCanvas* SkSurface_Raster::onNewCanvas() {
+    SkASSERT(fRecorder);
+    return new SkCanvas(sk_make_sp<SkBitmapDevice>(fRecorder, fBitmap, this->props()));
+}
 
 sk_sp<SkSurface> SkSurface_Raster::onNewSurface(const SkImageInfo& info) {
-    return SkSurface::MakeRaster(info, &this->props());
+    SkASSERT(fRecorder);
+    return fRecorder->makeBitmapSurface(info, 0, &this->props());
 }
 
 void SkSurface_Raster::onDraw(SkCanvas* canvas, SkScalar x, SkScalar y,
@@ -145,7 +169,8 @@ bool SkSurface_Raster::onCopyOnWrite(ContentChangeMode mode) {
         // what is being used by the image. Next we update the canvas to use
         // this as its backend, so we can't modify the image's pixels anymore.
         SkASSERT(this->getCachedCanvas());
-        this->getCachedCanvas()->baseDevice()->replaceBitmapBackendForRasterSurface(fBitmap);
+        SkBitmapDevice* bmDev = static_cast<SkBitmapDevice*>(this->getCachedCanvas()->rootDevice());
+        bmDev->replaceBitmapBackendForRasterSurface(fBitmap);
     }
     return true;
 }
@@ -154,31 +179,39 @@ sk_sp<const SkCapabilities> SkSurface_Raster::onCapabilities() {
     return SkCapabilities::RasterBackend();
 }
 
-///////////////////////////////////////////////////////////////////////////////
+SkRecorder* SkSurface_Raster::onGetBaseRecorder() const {
+    return fRecorder;
+}
 
-sk_sp<SkSurface> SkSurface::MakeRasterDirectReleaseProc(const SkImageInfo& info, void* pixels,
-        size_t rb, void (*releaseProc)(void* pixels, void* context), void* context,
-        const SkSurfaceProps* props) {
+///////////////////////////////////////////////////////////////////////////////
+namespace SkSurfaces {
+sk_sp<SkSurface> WrapPixels(const SkImageInfo& info,
+                            void* pixels,
+                            size_t rowBytes,
+                            PixelsReleaseProc releaseProc,
+                            void* context,
+                            const SkSurfaceProps* props) {
     if (nullptr == releaseProc) {
         context = nullptr;
     }
-    if (!SkSurfaceValidateRasterInfo(info, rb)) {
+    if (!SkSurfaceValidateRasterInfo(info, rowBytes)) {
         return nullptr;
     }
     if (nullptr == pixels) {
         return nullptr;
     }
 
-    return sk_make_sp<SkSurface_Raster>(info, pixels, rb, releaseProc, context, props);
+    return sk_make_sp<SkSurface_Raster>(info, pixels, rowBytes, releaseProc, context, props);
 }
 
-sk_sp<SkSurface> SkSurface::MakeRasterDirect(const SkImageInfo& info, void* pixels, size_t rowBytes,
-                                             const SkSurfaceProps* props) {
-    return MakeRasterDirectReleaseProc(info, pixels, rowBytes, nullptr, nullptr, props);
+sk_sp<SkSurface> WrapPixels(const SkImageInfo& info,
+                            void* pixels,
+                            size_t rowBytes,
+                            const SkSurfaceProps* props) {
+    return WrapPixels(info, pixels, rowBytes, nullptr, nullptr, props);
 }
 
-sk_sp<SkSurface> SkSurface::MakeRaster(const SkImageInfo& info, size_t rowBytes,
-                                       const SkSurfaceProps* props) {
+sk_sp<SkSurface> Raster(const SkImageInfo& info, size_t rowBytes, const SkSurfaceProps* props) {
     if (!SkSurfaceValidateRasterInfo(info)) {
         return nullptr;
     }
@@ -193,7 +226,31 @@ sk_sp<SkSurface> SkSurface::MakeRaster(const SkImageInfo& info, size_t rowBytes,
     return sk_make_sp<SkSurface_Raster>(info, std::move(pr), props);
 }
 
-sk_sp<SkSurface> SkSurface::MakeRasterN32Premul(int width, int height,
-                                                const SkSurfaceProps* surfaceProps) {
-    return MakeRaster(SkImageInfo::MakeN32Premul(width, height), surfaceProps);
+}  // namespace SkSurfaces
+
+namespace skcpu {
+
+sk_sp<SkSurface> Recorder::makeBitmapSurface(const SkImageInfo& imageInfo,
+                                             const SkSurfaceProps* surfaceProps) {
+    return this->makeBitmapSurface(imageInfo, 0, surfaceProps);
 }
+
+sk_sp<SkSurface> Recorder::makeBitmapSurface(const SkImageInfo& imageInfo,
+                                             size_t rowBytes,
+                                             const SkSurfaceProps* surfaceProps) {
+    if (!SkSurfaceValidateRasterInfo(imageInfo)) {
+        return nullptr;
+    }
+
+    sk_sp<SkPixelRef> pr = SkMallocPixelRef::MakeAllocate(imageInfo, rowBytes);
+    if (!pr) {
+        return nullptr;
+    }
+    if (rowBytes) {
+        SkASSERT(pr->rowBytes() == rowBytes);
+    }
+
+    return sk_make_sp<SkSurface_Raster>(asRRI(this), imageInfo, std::move(pr), surfaceProps);
+}
+
+}  // namespace skcpu

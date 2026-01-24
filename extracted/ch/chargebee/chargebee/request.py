@@ -70,9 +70,7 @@ def send(
         params = {}
 
     ser_params = (
-        json.dumps(params)
-        if isJsonRequest
-        else util.serialize(params, None, None, jsonKeys)
+        params if isJsonRequest else util.serialize(params, None, None, jsonKeys)
     )
 
     request_args = {

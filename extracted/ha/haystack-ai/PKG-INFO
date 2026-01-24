@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: haystack-ai
-Version: 2.18.0
+Version: 2.22.0
 Summary: LLM framework to build customizable, production-ready LLM applications. Connect components (models, vector DBs, file converters) to pipelines or agents that can interact with your data.
 Project-URL: CI: GitHub, https://github.com/deepset-ai/haystack/actions
 Project-URL: Docs: RTD, https://haystack.deepset.ai/overview/intro
@@ -18,13 +18,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: docstring-parser
 Requires-Dist: filetype
 Requires-Dist: haystack-experimental
@@ -34,7 +33,7 @@ Requires-Dist: lazy-imports
 Requires-Dist: more-itertools
 Requires-Dist: networkx
 Requires-Dist: numpy
-Requires-Dist: openai>=1.56.1
+Requires-Dist: openai>=1.99.2
 Requires-Dist: posthog!=3.12.0
 Requires-Dist: pydantic
 Requires-Dist: python-dateutil
@@ -46,7 +45,7 @@ Requires-Dist: typing-extensions>=4.7
 Description-Content-Type: text/markdown
 
 <div align="center">
-  <a href="https://haystack.deepset.ai/"><img src="https://raw.githubusercontent.com/deepset-ai/haystack/main/docs/img/banner.png" alt="Green logo of a stylized white 'H' with the text 'Haystack, by deepset.' Abstract green and yellow diagrams in the background."></a>
+  <a href="https://haystack.deepset.ai/"><img src="https://raw.githubusercontent.com/deepset-ai/haystack/main/images/banner.png" alt="Blue banner with the Haystack logo and the text ‘haystack by deepset – The Open Source AI Framework for Production Ready RAG & Agents’ surrounded by abstract icons representing search, documents, agents, pipelines, and cloud systems."></a>
 
 |         |                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -68,8 +67,7 @@ and LLMs into pipelines to build end-to-end NLP applications and solve your use 
 - [Features](#features)
 - [Use Cases](#features)
 - [Hayhooks (REST API Deployment)](#-tip-1)
-- [Haystack Enterprise](#haystack-enterprise-best-practices-and-expert-support)
-- [deepset Studio](#-deepset-studio-your-development-environment-for-haystack)
+- [Haystack Enterprise Starter](#haystack-enterprise-best-practices-and-expert-support)
 - [Telemetry](#telemetry)
 - [🖖 Community](#-community)
 - [Contributing to Haystack](#contributing-to-haystack)
@@ -123,24 +121,14 @@ Some examples of what you can do with Haystack:
 >
 > Would you like to deploy and serve Haystack pipelines as REST APIs yourself? [Hayhooks](https://github.com/deepset-ai/hayhooks) provides a simple way to wrap your pipelines with custom logic and expose them via HTTP endpoints, including OpenAI-compatible chat completion endpoints and compatibility with fully-featured chat interfaces like [open-webui](https://openwebui.com/).
 
-## Haystack Enterprise: Best Practices and Expert Support
+## Haystack Enterprise Starter: Best Practices and Expert Support
 
-Get expert support from the Haystack team, build faster with enterprise-grade templates, and scale securely with deployment guides for cloud and on-prem environments - all with **Haystack Enterprise**. Read more about it our [announcement post](https://haystack.deepset.ai/blog/announcing-haystack-enterprise).
+Get expert support from the Haystack team, build faster with enterprise-grade templates, and scale securely with deployment guides for cloud and on-prem environments - all with **Haystack Enterprise Starter**. Read more about it the [announcement post](https://haystack.deepset.ai/blog/announcing-haystack-enterprise).
 
-👉 [Get Haystack Enterprise](https://www.deepset.ai/products-and-services/haystack-enterprise?utm_source=github.com&utm_medium=referral&utm_campaign=haystack_enterprise) 
+👉 [Get Haystack Enterprise Starter](https://www.deepset.ai/products-and-services/haystack-enterprise?utm_source=github.com&utm_medium=referral&utm_campaign=haystack_enterprise)
 
-## deepset Studio: Your Development Environment for Haystack
-
-Use **deepset Studio** to visually create, deploy, and test your Haystack pipelines. Learn more about it in our [announcement post](https://haystack.deepset.ai/blog/announcing-studio).
-
-![studio](https://github.com/user-attachments/assets/e4f09746-20b5-433e-8261-eca224ac23b3)
-
-👉 [Sign up](https://landing.deepset.ai/deepset-studio-signup)!
-
-> [!TIP]
-><img src="https://github.com/deepset-ai/haystack/raw/main/docs/img/deepset-platform-logo-alternative.jpeg"  width=20%>
 >
-> Are you looking for a managed solution that benefits from Haystack? [deepset AI Platform](https://www.deepset.ai/products-and-services/deepset-ai-platform?utm_campaign=developer-relations&utm_source=haystack&utm_medium=readme) is our fully managed, end-to-end platform to integrate LLMs with your data, which uses Haystack for the LLM pipelines architecture.
+> Are you looking for a managed solution that benefits from Haystack? [Haystack Enterprise Platform](https://www.deepset.ai/products-and-services/deepset-ai-platform?utm_campaign=developer-relations&utm_source=haystack&utm_medium=readme) is a fully managed, end-to-end platform to integrate LLMs with your data, which uses Haystack for the LLM pipelines architecture.
 
 ## Telemetry
 
@@ -159,31 +147,19 @@ We are very open to the community's contributions - be it a quick fix of a typo,
 There are several ways you can contribute to Haystack:
 - Contribute to the main Haystack project
 - Contribute an integration on [haystack-core-integrations](https://github.com/deepset-ai/haystack-core-integrations)
+- Contribute to the documentation in [haystack/docs-website](https://github.com/deepset-ai/haystack/tree/main/docs-website)
 
 > [!TIP]
 >👉 **[Check out the full list of issues that are open to contributions](https://github.com/orgs/deepset-ai/projects/14)**
 
 ## Who Uses Haystack
 
-Here's a list of projects and companies using Haystack. Want to add yours? Open a PR, add it to the list and let the
-world know that you use Haystack!
+Here's a list of projects and companies using Haystack. Are you also using Haystack? Open a PR or [tell us your story](https://forms.gle/Mm3G1aEST3GAH2rn8).
 
--   [Airbus](https://www.airbus.com/en)
--   [Alcatel-Lucent](https://www.al-enterprise.com/)
--   [Apple](https://www.apple.com/)
--   [BetterUp](https://www.betterup.com/)
--   [Databricks](https://www.databricks.com/)
--   [Deepset](https://deepset.ai/)
--   [Etalab](https://www.deepset.ai/blog/improving-on-site-search-for-government-agencies-etalab)
--   [Infineon](https://www.infineon.com/)
--   [Intel](https://github.com/intel/open-domain-question-and-answer#readme)
--   [Intelijus](https://www.intelijus.ai/)
--   [Intel Labs](https://github.com/IntelLabs/fastRAG#readme)
--   [LEGO](https://github.com/larsbaunwall/bricky#readme)
--   [Meta](https://www.meta.com/about)
--   [Netflix](https://netflix.com)
--   [NOS Portugal](https://www.nos.pt/en/welcome)
--   [Nvidia](https://developer.nvidia.com/blog/reducing-development-time-for-intelligent-virtual-assistants-in-contact-centers/)
--   [PostHog](https://github.com/PostHog/max-ai#readme)
--   [Rakuten](https://www.rakuten.com/)
--   [Sooth.ai](https://www.deepset.ai/blog/advanced-neural-search-with-sooth-ai)
+- Tech & AI Innovators: [Apple](https://www.apple.com/), [Meta](https://www.meta.com/about), [Databricks](https://www.databricks.com/), [NVIDIA](https://developer.nvidia.com/blog/reducing-development-time-for-intelligent-virtual-assistants-in-contact-centers/), [PostHog](https://github.com/PostHog/max-ai#readme)
+- Public Sector: [German Federal Ministry of Research, Technology, and Space (BMFTR)](https://www.deepset.ai/case-studies/german-federal-ministry-research-technology-space-bmftr), [PD, Baden-Württemberg State](https://www.pd-g.de/)
+- Enterprise & Telecom: [Alcatel-Lucent](https://www.al-enterprise.com/), [Intel](https://github.com/intel/open-domain-question-and-answer#readme), [NOS Portugal](https://www.nos.pt/en/welcome), [TELUS Agriculture & Consumer Goods](https://www.telus.com/agcg/en)
+- Aerospace & Hardware: [Airbus](https://www.deepset.ai/case-studies/airbus), [Infineon](https://www.infineon.com/), [LEGO](https://github.com/larsbaunwall/bricky#readme)
+- Media & Entertainment: [Netflix](https://netflix.com), [Comcast](https://arxiv.org/html/2405.00801v2), [Zeit Online](https://www.deepset.ai/case-studies/zeit-online), [Rakuten](https://www.rakuten.com/)
+- Legal & Publishing: [Manz](https://www.deepset.ai/case-studies/manz), [Oxford University Press](https://corp.oup.com/)
+- Startups & Research: [YPulse](https://www.deepset.ai/case-studies/ypulse), [BetterUp](https://www.betterup.com/), [Intel Labs](https://github.com/IntelLabs/fastRAG#readme)

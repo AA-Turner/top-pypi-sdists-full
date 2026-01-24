@@ -6,30 +6,31 @@ import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 from pytorch_optimizer.optimizer.galore_utils import GaLoreProjector
 
 SCALE_TYPE = Literal['channel', 'tensor']
 
 
 class ApolloDQN(BaseOptimizer):
-    r"""An Adaptive Parameter-wise Diagonal Quasi-Newton Method for Nonconvex Stochastic Optimization.
+    """An Adaptive Parameter-wise Diagonal Quasi-Newton Method for Nonconvex Stochastic Optimization.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param init_lr: Optional[float]. initial learning rate (default lr / 1000).
-    :param beta: float. coefficient used for computing running averages of gradient.
-    :param rebound: str. rectified bound for diagonal hessian. (constant, belief).
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decay_type: str. type of weight decay. (l2, decoupled, stable).
-    :param warmup_steps: int. number of warmup steps.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        init_lr (Optional[float]): Initial learning rate (default lr / 1000).
+        beta (float): Coefficient used for computing running averages of gradient.
+        rebound (str): Rectified bound for diagonal Hessian. Options: 'constant', 'belief'.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decay_type (str): Type of weight decay. Options: 'l2', 'decoupled', 'stable'.
+        warmup_steps (int): Number of warmup steps.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-2,
         init_lr: Optional[float] = 1e-5,
         beta: float = 0.9,
@@ -53,7 +54,7 @@ class ApolloDQN(BaseOptimizer):
         self.init_lr: float = init_lr if init_lr is not None else lr / 1000.0
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'init_lr': self.init_lr,
             'beta': beta,
@@ -68,7 +69,10 @@ class ApolloDQN(BaseOptimizer):
     def __str__(self) -> str:
         return 'ApolloDQN'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -85,18 +89,15 @@ class ApolloDQN(BaseOptimizer):
                 state['update'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             current_lr: float = (
                 group['lr']
@@ -161,24 +162,25 @@ class ApolloDQN(BaseOptimizer):
 
 
 class APOLLO(BaseOptimizer):
-    r"""SGD-like Memory, AdamW-level Performance.
+    """SGD-like Memory, AdamW-level Performance.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param correct_bias: bool. Whether to correct bias in Adam.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): Whether to use decoupled weight decay as in AdamW.
+        fixed_decay (bool): Apply fixed weight decay instead of adaptive.
+        correct_bias (bool): Whether to correct bias in Adam.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-2,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         scale_type: SCALE_TYPE = 'tensor',
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
@@ -195,7 +197,7 @@ class APOLLO(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'scale_type': scale_type,
@@ -212,7 +214,10 @@ class APOLLO(BaseOptimizer):
     def __str__(self) -> str:
         return 'APOLLO'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -228,18 +233,15 @@ class APOLLO(BaseOptimizer):
                 state['exp_avg_sq'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

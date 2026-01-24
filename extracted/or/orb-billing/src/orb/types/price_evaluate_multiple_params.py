@@ -47,9 +47,23 @@ __all__ = [
     "PriceEvaluateMultipleParams",
     "PriceEvaluation",
     "PriceEvaluationPrice",
+    "PriceEvaluationPriceNewFloatingBulkWithFiltersPrice",
+    "PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfig",
+    "PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfigFilter",
+    "PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfigTier",
+    "PriceEvaluationPriceNewFloatingBulkWithFiltersPriceConversionRateConfig",
     "PriceEvaluationPriceNewFloatingGroupedWithMinMaxThresholdsPrice",
     "PriceEvaluationPriceNewFloatingGroupedWithMinMaxThresholdsPriceGroupedWithMinMaxThresholdsConfig",
     "PriceEvaluationPriceNewFloatingGroupedWithMinMaxThresholdsPriceConversionRateConfig",
+    "PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPrice",
+    "PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPriceCumulativeGroupedAllocationConfig",
+    "PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPriceConversionRateConfig",
+    "PriceEvaluationPriceNewFloatingPercentCompositePrice",
+    "PriceEvaluationPriceNewFloatingPercentCompositePricePercentConfig",
+    "PriceEvaluationPriceNewFloatingPercentCompositePriceConversionRateConfig",
+    "PriceEvaluationPriceNewFloatingEventOutputPrice",
+    "PriceEvaluationPriceNewFloatingEventOutputPriceEventOutputConfig",
+    "PriceEvaluationPriceNewFloatingEventOutputPriceConversionRateConfig",
 ]
 
 
@@ -70,9 +84,118 @@ class PriceEvaluateMultipleParams(TypedDict, total=False):
     """List of prices to evaluate (max 100)"""
 
 
+class PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfigFilter(TypedDict, total=False):
+    """Configuration for a single property filter"""
+
+    property_key: Required[str]
+    """Event property key to filter on"""
+
+    property_value: Required[str]
+    """Event property value to match"""
+
+
+class PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfigTier(TypedDict, total=False):
+    """Configuration for a single bulk pricing tier"""
+
+    unit_amount: Required[str]
+    """Amount per unit"""
+
+    tier_lower_bound: Optional[str]
+    """The lower bound for this tier"""
+
+
+class PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfig(TypedDict, total=False):
+    """Configuration for bulk_with_filters pricing"""
+
+    filters: Required[Iterable[PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfigFilter]]
+    """Property filters to apply (all must match)"""
+
+    tiers: Required[Iterable[PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfigTier]]
+    """Bulk tiers for rating based on total usage volume"""
+
+
+PriceEvaluationPriceNewFloatingBulkWithFiltersPriceConversionRateConfig: TypeAlias = Union[
+    UnitConversionRateConfig, TieredConversionRateConfig
+]
+
+
+class PriceEvaluationPriceNewFloatingBulkWithFiltersPrice(TypedDict, total=False):
+    bulk_with_filters_config: Required[PriceEvaluationPriceNewFloatingBulkWithFiltersPriceBulkWithFiltersConfig]
+    """Configuration for bulk_with_filters pricing"""
+
+    cadence: Required[Literal["annual", "semi_annual", "monthly", "quarterly", "one_time", "custom"]]
+    """The cadence to bill for this price on."""
+
+    currency: Required[str]
+    """An ISO 4217 currency string for which this price is billed in."""
+
+    item_id: Required[str]
+    """The id of the item the price will be associated with."""
+
+    model_type: Required[Literal["bulk_with_filters"]]
+    """The pricing model type"""
+
+    name: Required[str]
+    """The name of the price."""
+
+    billable_metric_id: Optional[str]
+    """The id of the billable metric for the price.
+
+    Only needed if the price is usage-based.
+    """
+
+    billed_in_advance: Optional[bool]
+    """
+    If the Price represents a fixed cost, the price will be billed in-advance if
+    this is true, and in-arrears if this is false.
+    """
+
+    billing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """
+    For custom cadence: specifies the duration of the billing period in days or
+    months.
+    """
+
+    conversion_rate: Optional[float]
+    """The per unit conversion rate of the price currency to the invoicing currency."""
+
+    conversion_rate_config: Optional[PriceEvaluationPriceNewFloatingBulkWithFiltersPriceConversionRateConfig]
+    """The configuration for the rate of the price currency to the invoicing currency."""
+
+    dimensional_price_configuration: Optional[NewDimensionalPriceConfiguration]
+    """For dimensional price: specifies a price group and dimension values"""
+
+    external_price_id: Optional[str]
+    """An alias for the price."""
+
+    fixed_price_quantity: Optional[float]
+    """
+    If the Price represents a fixed cost, this represents the quantity of units
+    applied.
+    """
+
+    invoice_grouping_key: Optional[str]
+    """The property used to group this price on an invoice"""
+
+    invoicing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """Within each billing cycle, specifies the cadence at which invoices are produced.
+
+    If unspecified, a single invoice is produced per billing cycle.
+    """
+
+    metadata: Optional[Dict[str, Optional[str]]]
+    """User-specified key/value pairs for the resource.
+
+    Individual keys can be removed by setting the value to `null`, and the entire
+    metadata mapping can be cleared by setting `metadata` to `null`.
+    """
+
+
 class PriceEvaluationPriceNewFloatingGroupedWithMinMaxThresholdsPriceGroupedWithMinMaxThresholdsConfig(
     TypedDict, total=False
 ):
+    """Configuration for grouped_with_min_max_thresholds pricing"""
+
     grouping_key: Required[str]
     """The event property used to group before applying thresholds"""
 
@@ -167,10 +290,291 @@ class PriceEvaluationPriceNewFloatingGroupedWithMinMaxThresholdsPrice(TypedDict,
     """
 
 
+class PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPriceCumulativeGroupedAllocationConfig(
+    TypedDict, total=False
+):
+    """Configuration for cumulative_grouped_allocation pricing"""
+
+    cumulative_allocation: Required[str]
+    """The overall allocation across all groups"""
+
+    group_allocation: Required[str]
+    """The allocation per individual group"""
+
+    grouping_key: Required[str]
+    """The event property used to group usage before applying allocations"""
+
+    unit_amount: Required[str]
+    """The amount to charge for each unit outside of the allocation"""
+
+
+PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPriceConversionRateConfig: TypeAlias = Union[
+    UnitConversionRateConfig, TieredConversionRateConfig
+]
+
+
+class PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPrice(TypedDict, total=False):
+    cadence: Required[Literal["annual", "semi_annual", "monthly", "quarterly", "one_time", "custom"]]
+    """The cadence to bill for this price on."""
+
+    cumulative_grouped_allocation_config: Required[
+        PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPriceCumulativeGroupedAllocationConfig
+    ]
+    """Configuration for cumulative_grouped_allocation pricing"""
+
+    currency: Required[str]
+    """An ISO 4217 currency string for which this price is billed in."""
+
+    item_id: Required[str]
+    """The id of the item the price will be associated with."""
+
+    model_type: Required[Literal["cumulative_grouped_allocation"]]
+    """The pricing model type"""
+
+    name: Required[str]
+    """The name of the price."""
+
+    billable_metric_id: Optional[str]
+    """The id of the billable metric for the price.
+
+    Only needed if the price is usage-based.
+    """
+
+    billed_in_advance: Optional[bool]
+    """
+    If the Price represents a fixed cost, the price will be billed in-advance if
+    this is true, and in-arrears if this is false.
+    """
+
+    billing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """
+    For custom cadence: specifies the duration of the billing period in days or
+    months.
+    """
+
+    conversion_rate: Optional[float]
+    """The per unit conversion rate of the price currency to the invoicing currency."""
+
+    conversion_rate_config: Optional[
+        PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPriceConversionRateConfig
+    ]
+    """The configuration for the rate of the price currency to the invoicing currency."""
+
+    dimensional_price_configuration: Optional[NewDimensionalPriceConfiguration]
+    """For dimensional price: specifies a price group and dimension values"""
+
+    external_price_id: Optional[str]
+    """An alias for the price."""
+
+    fixed_price_quantity: Optional[float]
+    """
+    If the Price represents a fixed cost, this represents the quantity of units
+    applied.
+    """
+
+    invoice_grouping_key: Optional[str]
+    """The property used to group this price on an invoice"""
+
+    invoicing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """Within each billing cycle, specifies the cadence at which invoices are produced.
+
+    If unspecified, a single invoice is produced per billing cycle.
+    """
+
+    metadata: Optional[Dict[str, Optional[str]]]
+    """User-specified key/value pairs for the resource.
+
+    Individual keys can be removed by setting the value to `null`, and the entire
+    metadata mapping can be cleared by setting `metadata` to `null`.
+    """
+
+
+class PriceEvaluationPriceNewFloatingPercentCompositePricePercentConfig(TypedDict, total=False):
+    """Configuration for percent pricing"""
+
+    percent: Required[float]
+    """What percent of the component subtotals to charge"""
+
+
+PriceEvaluationPriceNewFloatingPercentCompositePriceConversionRateConfig: TypeAlias = Union[
+    UnitConversionRateConfig, TieredConversionRateConfig
+]
+
+
+class PriceEvaluationPriceNewFloatingPercentCompositePrice(TypedDict, total=False):
+    cadence: Required[Literal["annual", "semi_annual", "monthly", "quarterly", "one_time", "custom"]]
+    """The cadence to bill for this price on."""
+
+    currency: Required[str]
+    """An ISO 4217 currency string for which this price is billed in."""
+
+    item_id: Required[str]
+    """The id of the item the price will be associated with."""
+
+    model_type: Required[Literal["percent"]]
+    """The pricing model type"""
+
+    name: Required[str]
+    """The name of the price."""
+
+    percent_config: Required[PriceEvaluationPriceNewFloatingPercentCompositePricePercentConfig]
+    """Configuration for percent pricing"""
+
+    billable_metric_id: Optional[str]
+    """The id of the billable metric for the price.
+
+    Only needed if the price is usage-based.
+    """
+
+    billed_in_advance: Optional[bool]
+    """
+    If the Price represents a fixed cost, the price will be billed in-advance if
+    this is true, and in-arrears if this is false.
+    """
+
+    billing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """
+    For custom cadence: specifies the duration of the billing period in days or
+    months.
+    """
+
+    conversion_rate: Optional[float]
+    """The per unit conversion rate of the price currency to the invoicing currency."""
+
+    conversion_rate_config: Optional[PriceEvaluationPriceNewFloatingPercentCompositePriceConversionRateConfig]
+    """The configuration for the rate of the price currency to the invoicing currency."""
+
+    dimensional_price_configuration: Optional[NewDimensionalPriceConfiguration]
+    """For dimensional price: specifies a price group and dimension values"""
+
+    external_price_id: Optional[str]
+    """An alias for the price."""
+
+    fixed_price_quantity: Optional[float]
+    """
+    If the Price represents a fixed cost, this represents the quantity of units
+    applied.
+    """
+
+    invoice_grouping_key: Optional[str]
+    """The property used to group this price on an invoice"""
+
+    invoicing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """Within each billing cycle, specifies the cadence at which invoices are produced.
+
+    If unspecified, a single invoice is produced per billing cycle.
+    """
+
+    metadata: Optional[Dict[str, Optional[str]]]
+    """User-specified key/value pairs for the resource.
+
+    Individual keys can be removed by setting the value to `null`, and the entire
+    metadata mapping can be cleared by setting `metadata` to `null`.
+    """
+
+
+class PriceEvaluationPriceNewFloatingEventOutputPriceEventOutputConfig(TypedDict, total=False):
+    """Configuration for event_output pricing"""
+
+    unit_rating_key: Required[str]
+    """The key in the event data to extract the unit rate from."""
+
+    default_unit_rate: Optional[str]
+    """
+    If provided, this amount will be used as the unit rate when an event does not
+    have a value for the `unit_rating_key`. If not provided, events missing a unit
+    rate will be ignored.
+    """
+
+    grouping_key: Optional[str]
+    """An optional key in the event data to group by (e.g., event ID).
+
+    All events will also be grouped by their unit rate.
+    """
+
+
+PriceEvaluationPriceNewFloatingEventOutputPriceConversionRateConfig: TypeAlias = Union[
+    UnitConversionRateConfig, TieredConversionRateConfig
+]
+
+
+class PriceEvaluationPriceNewFloatingEventOutputPrice(TypedDict, total=False):
+    cadence: Required[Literal["annual", "semi_annual", "monthly", "quarterly", "one_time", "custom"]]
+    """The cadence to bill for this price on."""
+
+    currency: Required[str]
+    """An ISO 4217 currency string for which this price is billed in."""
+
+    event_output_config: Required[PriceEvaluationPriceNewFloatingEventOutputPriceEventOutputConfig]
+    """Configuration for event_output pricing"""
+
+    item_id: Required[str]
+    """The id of the item the price will be associated with."""
+
+    model_type: Required[Literal["event_output"]]
+    """The pricing model type"""
+
+    name: Required[str]
+    """The name of the price."""
+
+    billable_metric_id: Optional[str]
+    """The id of the billable metric for the price.
+
+    Only needed if the price is usage-based.
+    """
+
+    billed_in_advance: Optional[bool]
+    """
+    If the Price represents a fixed cost, the price will be billed in-advance if
+    this is true, and in-arrears if this is false.
+    """
+
+    billing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """
+    For custom cadence: specifies the duration of the billing period in days or
+    months.
+    """
+
+    conversion_rate: Optional[float]
+    """The per unit conversion rate of the price currency to the invoicing currency."""
+
+    conversion_rate_config: Optional[PriceEvaluationPriceNewFloatingEventOutputPriceConversionRateConfig]
+    """The configuration for the rate of the price currency to the invoicing currency."""
+
+    dimensional_price_configuration: Optional[NewDimensionalPriceConfiguration]
+    """For dimensional price: specifies a price group and dimension values"""
+
+    external_price_id: Optional[str]
+    """An alias for the price."""
+
+    fixed_price_quantity: Optional[float]
+    """
+    If the Price represents a fixed cost, this represents the quantity of units
+    applied.
+    """
+
+    invoice_grouping_key: Optional[str]
+    """The property used to group this price on an invoice"""
+
+    invoicing_cycle_configuration: Optional[NewBillingCycleConfiguration]
+    """Within each billing cycle, specifies the cadence at which invoices are produced.
+
+    If unspecified, a single invoice is produced per billing cycle.
+    """
+
+    metadata: Optional[Dict[str, Optional[str]]]
+    """User-specified key/value pairs for the resource.
+
+    Individual keys can be removed by setting the value to `null`, and the entire
+    metadata mapping can be cleared by setting `metadata` to `null`.
+    """
+
+
 PriceEvaluationPrice: TypeAlias = Union[
     NewFloatingUnitPrice,
     NewFloatingTieredPrice,
     NewFloatingBulkPrice,
+    PriceEvaluationPriceNewFloatingBulkWithFiltersPrice,
     NewFloatingPackagePrice,
     NewFloatingMatrixPrice,
     NewFloatingThresholdTotalAmountPrice,
@@ -194,7 +598,10 @@ PriceEvaluationPrice: TypeAlias = Union[
     NewFloatingScalableMatrixWithUnitPricingPrice,
     NewFloatingScalableMatrixWithTieredPricingPrice,
     NewFloatingCumulativeGroupedBulkPrice,
+    PriceEvaluationPriceNewFloatingCumulativeGroupedAllocationPrice,
     NewFloatingMinimumCompositePrice,
+    PriceEvaluationPriceNewFloatingPercentCompositePrice,
+    PriceEvaluationPriceNewFloatingEventOutputPrice,
 ]
 
 

@@ -17,7 +17,7 @@ def reload_cli():
     importlib.reload(plumbum.cli)
 
 
-@pytest.fixture()
+@pytest.fixture
 def french():
     try:
         locale.setlocale(locale.LC_ALL, "fr_FR.utf-8")
@@ -56,6 +56,6 @@ def test_help_lang(capsys):
 
     _, rc = Simple.run(["foo", "-h"], exit=False)
     assert rc == 0
-    stdout, stderr = capsys.readouterr()
+    stdout, _ = capsys.readouterr()
     assert "Utilisation" in stdout
     assert "Imprime ce message d'aide et sort" in stdout

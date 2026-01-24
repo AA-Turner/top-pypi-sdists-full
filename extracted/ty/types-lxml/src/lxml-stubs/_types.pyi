@@ -1,25 +1,44 @@
-from __future__ import annotations
-
-from _typeshed import SupportsRead, SupportsWrite
-from os import PathLike
-from typing import (
-    Any,
+import sys
+from collections.abc import (
     Callable,
     Collection,
     Iterable,
-    Literal,
     Mapping,
+)
+from os import PathLike
+from typing import (
+    Any,
+    Literal,
     Protocol,
     TypeVar,
+    type_check_only,
 )
 
 from .etree import HTMLParser, QName, XMLParser, _Element, _ElementTree
+
+if sys.version_info >= (3, 14):
+    from io import Reader, Writer
+else:
+    from typing_extensions import Reader, Writer
 
 _KT_co = TypeVar("_KT_co", covariant=True)
 _VT_co = TypeVar("_VT_co", covariant=True)
 
 # Dup but deviate from recent _typeshed
 Unused = Any
+
+@type_check_only
+class SupportsLaxItems(Protocol[_KT_co, _VT_co]):
+    """Relaxed form of SupportsItems
+
+    Original `SupportsItems` from typeshed returns
+    generic set which is compatible with `ItemsView`.
+    However, `_Attrib.items()` returns `list` instead.
+    Here we find a common ground that satisfies both
+    and avoid the mapping invariance culprit.
+    """
+
+    def items(self) -> Collection[tuple[_KT_co, _VT_co]]: ...
 
 # ElementTree API is notable of canonicalizing byte / unicode input data.
 # This type alias should only be used for input arguments, while one would
@@ -41,7 +60,7 @@ mapping keys where unhashable type is not allowed."""
 # only unicode accepted for py3
 _ElemPathArg = str | QName
 
-_AttrMapping = SupportsLaxItems[_AttrNameKey, _AttrVal]  # noqa: F821
+_AttrMapping = SupportsLaxItems[_AttrNameKey, _AttrVal]
 """Attribute dict-like mapping
 
 Used in attrib argument of various factories and methods.
@@ -172,23 +191,11 @@ _ElementOrTree = _ET | _ElementTree[_ET]
 # The basic parsers bundled in lxml.etree
 _DefEtreeParsers = XMLParser[_ET_co] | HTMLParser[_ET_co]
 
-class SupportsLaxItems(Protocol[_KT_co, _VT_co]):
-    """Relaxed form of SupportsItems
-
-    Original `SupportsItems` from typeshed returns
-    generic set which is compatible with `ItemsView`.
-    However, `_Attrib.items()` returns `list` instead.
-    Here we find a common ground that satisfies both
-    and avoid the mapping invariance culprit.
-    """
-
-    def items(self) -> Collection[tuple[_KT_co, _VT_co]]: ...
-
 _FilePath = str | bytes | PathLike[str] | PathLike[bytes]
 # _parseDocument() from parser.pxi
 _FileReadSource = (
     _FilePath
-    | SupportsRead[str]
-    | SupportsRead[bytes]
+    | Reader[str]
+    | Reader[bytes]
 )  # fmt: skip
-_FileWriteSource = _FilePath | SupportsWrite[bytes]
+_FileWriteSource = _FilePath | Writer[bytes]

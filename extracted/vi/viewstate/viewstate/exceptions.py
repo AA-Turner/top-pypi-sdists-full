@@ -1,2 +1,0 @@
-class ViewStateException(Exception):
-    pass

@@ -3,27 +3,29 @@ Data Classes Representing a Dune Query
 """
 
 from __future__ import annotations
+
+import json
 import urllib.parse
 from dataclasses import dataclass
-from typing import Optional, List, Dict, Union, Any
+from typing import Any
 
-from dune_client.types import QueryParameter
+from dune_client.types import QueryParameter, QueryParameters
 
 
 def parse_query_object_or_id(
-    query: Union[QueryBase, str, int],
-) -> tuple[dict[str, Any] | None, int]:
+    query: QueryBase | str | int,
+) -> tuple[QueryParameters | None, int]:
     """
     Users are allowed to pass QueryBase or ID into some functions.
     This method handles both scenarios, returning a pair of the form (params, query_id)
     """
     if isinstance(query, QueryBase):
-        params = {f"params.{p.key}": p.to_dict()["value"] for p in query.parameters()}
-        query_id = query.query_id
-    else:
-        params = None
-        query_id = int(query)
-    return params, query_id
+        params: QueryParameters = {
+            f"params.{p.key}": p.to_dict()["value"] for p in query.parameters()
+        }
+        return params, query.query_id
+
+    return None, int(query)
 
 
 @dataclass
@@ -32,24 +34,30 @@ class QueryBase:
 
     query_id: int
     name: str = "unnamed"
-    params: Optional[List[QueryParameter]] = None
+    params: list[QueryParameter] | None = None
 
     def base_url(self) -> str:
         """Returns a link to query results excluding fixed parameters"""
         return f"https://dune.com/queries/{self.query_id}"
 
-    def parameters(self) -> List[QueryParameter]:
+    def parameters(self) -> list[QueryParameter]:
         """Non-null version of self.params"""
         return self.params or []
 
     def url(self) -> str:
         """Returns a parameterized link to the query"""
         # Include variable parameters in the URL so they are set
-        params = "&".join([f"{p.key}={p.value}" for p in self.parameters()])
-        if params:
-            return "?".join(
-                [self.base_url(), urllib.parse.quote_plus(params, safe="=&?")]
-            )
+        params = []
+        for parameter in self.parameters():
+            value = parameter.to_dict()["value"]
+            if isinstance(value, list):
+                serialized_value = json.dumps(value, separators=(",", ":"))
+            else:
+                serialized_value = value
+            params.append(f"{parameter.key}={serialized_value}")
+        param_string = "&".join(params)
+        if param_string:
+            return "?".join([self.base_url(), urllib.parse.quote_plus(param_string, safe="=&?")])
         return self.base_url()
 
     def __hash__(self) -> int:
@@ -59,15 +67,13 @@ class QueryBase:
         """
         return self.url().__hash__()
 
-    def request_format(self) -> Dict[str, Union[Dict[str, str], str, None]]:
+    def request_format(self) -> dict[str, str | QueryParameters]:
         """Transforms Query objects to params to pass in API"""
-        return {
-            "query_parameters": {p.key: p.to_dict()["value"] for p in self.parameters()}
-        }
+        return {"query_parameters": {p.key: p.to_dict()["value"] for p in self.parameters()}}
 
 
 @dataclass
-class QueryMeta:  # pylint: disable=too-many-instance-attributes
+class QueryMeta:
     """
     Data class containing meta content about the query
     """
@@ -100,9 +106,7 @@ class DuneQuery:
             base=QueryBase(
                 query_id=int(data["query_id"]),
                 name=data["name"],
-                params=[
-                    QueryParameter.from_dict(param) for param in data["parameters"]
-                ],
+                params=[QueryParameter.from_dict(param) for param in data["parameters"]],
             ),
             meta=QueryMeta(
                 description=data["description"],

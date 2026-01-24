@@ -68,6 +68,8 @@ from apache_beam.yaml import json_utils
 from apache_beam.yaml import yaml_utils
 from apache_beam.yaml.yaml_errors import maybe_with_exception_handling_transform_fn
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class NotAvailableWithReason:
   """A False value that provides additional content.
@@ -488,7 +490,7 @@ class YamlProvider(Provider):
     return dict(
         type='object',
         additionalProperties=False,
-        **self._transforms[type]['config_schema'])
+        **self._transforms[type].get('config_schema', {}))
 
   def description(self, type):
     return self._transforms[type].get('description')
@@ -504,8 +506,9 @@ class YamlProvider(Provider):
       yaml_create_transform: Callable[
           [Mapping[str, Any], Iterable[beam.PCollection]], beam.PTransform]
   ) -> beam.PTransform:
-    from apache_beam.yaml.yaml_transform import expand_jinja, preprocess
     from apache_beam.yaml.yaml_transform import SafeLineLoader
+    from apache_beam.yaml.yaml_transform import expand_jinja
+    from apache_beam.yaml.yaml_transform import preprocess
     spec = self._transforms[type]
     try:
       import jsonschema
@@ -759,9 +762,12 @@ def _unify_element_with_schema(element, target_schema):
   elif isinstance(element, dict):
     element_dict = element
   else:
-    # This element is not a row, so it can't be unified with a
-    # row schema.
-    return element
+    # This element is not a row-like object. If the target schema has a single
+    # field, assume this element is the value for that field.
+    if len(target_schema._fields) == 1:
+      return target_schema(**{target_schema._fields[0]: element})
+    else:
+      return element
 
   # Create new element with only the fields that exist in the original
   # element plus None for fields that are expected but missing
@@ -1057,7 +1063,7 @@ class YamlProviders:
            size: 30s
 
     Note that any Yaml transform can have a
-    [windowing parameter](https://github.com/apache/beam/blob/master/sdks/python/apache_beam/yaml/README.md#windowing),
+    [windowing parameter](https://beam.apache.org/documentation/sdks/yaml/#windowing),
     which is applied to its inputs (if any) or outputs (if there are no inputs)
     which means that explicit WindowInto operations are not typically needed.
 
@@ -1319,6 +1325,18 @@ class PypiExpansionService:
         venv_python = os.path.join(venv, 'bin', 'python')
         venv_pip = os.path.join(venv, 'bin', 'pip')
         subprocess.run([venv_python, '-m', 'ensurepip'], check=True)
+        # Issue warning when installing packages from PyPI
+        _LOGGER.warning(
+            " WARNING: Apache Beam is installing Python packages "
+            "from PyPI at runtime.\n"
+            "   This may pose security risks or cause instability due to "
+            "repository availability.\n"
+            "   Packages: %s\n"
+            "   Consider pre-staging dependencies or using a private "
+            "repository mirror.\n"
+            "   For more information, see: "
+            "https://beam.apache.org/documentation/sdks/python-dependencies/",
+            ', '.join(packages))
         subprocess.run([venv_pip, 'install'] + packages, check=True)
         with open(venv + '-requirements.txt', 'w') as fout:
           fout.write('\n'.join(packages))
@@ -1339,6 +1357,18 @@ class PypiExpansionService:
         clonable_venv = cls._create_venv_to_clone(base_python)
         clonevirtualenv.clone_virtualenv(clonable_venv, venv)
         venv_pip = os.path.join(venv, 'bin', 'pip')
+        # Issue warning when installing packages from PyPI
+        _LOGGER.warning(
+            "   WARNING: Apache Beam is installing Python packages "
+            "from PyPI at runtime.\n"
+            "   This may pose security risks or cause instability due to "
+            "repository availability.\n"
+            "   Packages: %s\n"
+            "   Consider pre-staging dependencies or using a private "
+            "repository mirror.\n"
+            "   For more information, see: "
+            "https://beam.apache.org/documentation/sdks/python-dependencies/",
+            ', '.join(packages))
         subprocess.run([venv_pip, 'install'] + packages, check=True)
         with open(venv + '-requirements.txt', 'w') as fout:
           fout.write('\n'.join(packages))
@@ -1600,9 +1630,9 @@ def merge_providers(*provider_sets) -> Mapping[str, Iterable[Provider]]:
 @functools.cache
 def standard_providers():
   from apache_beam.yaml.yaml_combine import create_combine_providers
-  from apache_beam.yaml.yaml_mapping import create_mapping_providers
-  from apache_beam.yaml.yaml_join import create_join_providers
   from apache_beam.yaml.yaml_io import io_providers
+  from apache_beam.yaml.yaml_join import create_join_providers
+  from apache_beam.yaml.yaml_mapping import create_mapping_providers
   from apache_beam.yaml.yaml_specifiable import create_spec_providers
 
   return merge_providers(

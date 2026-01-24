@@ -19,8 +19,17 @@ from pcluster.aws.aws_api import AWSApi, KeyPairInfo
 from pcluster.aws.aws_resources import CapacityReservationInfo
 from pcluster.aws.common import AWSClientError
 from pcluster.config.common import CapacityType
-from pcluster.constants import NVIDIA_OPENRM_UNSUPPORTED_INSTANCE_TYPES, UNSUPPORTED_OSES_FOR_MICRO_NANO
-from pcluster.utils import get_resource_name_from_resource_arn
+from pcluster.constants import (
+    CAPACITY_BLOCK_INACTIVE_STATES,
+    CAPACITY_RESERVATION_OS_MAP,
+    NVIDIA_OPENRM_UNSUPPORTED_INSTANCE_TYPES,
+    SUPPORTED_OSES_FOR_P6E_GB200,
+    ULTRASERVER_CAPACITY_BLOCK_ALLOWED_SIZE_DICT,
+    ULTRASERVER_INSTANCE_PREFIX_LIST,
+    UNSUPPORTED_OSES_FOR_MICRO_NANO,
+    UNSUPPORTED_OSES_FOR_P6E_GB200,
+)
+from pcluster.utils import get_needed_ultraserver_capacity_block_statuses, get_resource_name_from_resource_arn
 from pcluster.validators.common import FailureLevel, Validator
 
 LOGGER = logging.getLogger(__name__)
@@ -195,6 +204,13 @@ class InstanceTypeOSCompatibleValidator(Validator):
                     ),
                     FailureLevel.WARNING,
                 )
+        if os in UNSUPPORTED_OSES_FOR_P6E_GB200:
+            if instance_type.startswith("p6e-gb200"):
+                self._add_failure(
+                    "The instance type {0} is not officially supported with OS {1}."
+                    " Please use one of the following OS: {2}".format(instance_type, os, SUPPORTED_OSES_FOR_P6E_GB200),
+                    FailureLevel.ERROR,
+                )
 
 
 class KeyPairValidator(Validator):
@@ -331,9 +347,18 @@ class CapacityReservationValidator(Validator):
         is_flexible: bool,
         subnet: str,
         capacity_type: CapacityType,
+        os,
     ):
         if capacity_reservation_id:
             capacity_reservation = AWSApi.instance().ec2.describe_capacity_reservations([capacity_reservation_id])[0]
+            cr_platform = capacity_reservation.instance_platform()
+            if CAPACITY_RESERVATION_OS_MAP.get(os) != cr_platform:
+                self._add_failure(
+                    f"Capacity reservation {capacity_reservation_id} has platform {cr_platform},"
+                    f" which is not compatible with the cluster OS {os}. "
+                    f"Please use a reservation with platform {CAPACITY_RESERVATION_OS_MAP.get(os)}.",
+                    FailureLevel.ERROR,
+                )
 
             if not instance_types:
                 # If the instance type doesn't exist, this is an invalid config,
@@ -443,6 +468,124 @@ def get_capacity_reservations_per_az(
     for capacity_reservation in capacity_reservations:
         capacity_reservations_per_az[capacity_reservation.availability_zone()].append(capacity_reservation)
     return capacity_reservations_per_az
+
+
+def get_missed_capacity_block_ids(
+    capacity_block_statuses: List[dict], capacity_reservation_ids: List[str]
+) -> List[str]:
+    """Return capacity reservation IDs that are not found in the capacity block status response."""
+    found_cr_ids = set()
+    for status in capacity_block_statuses:
+        for cr_status in status.get("CapacityReservationStatuses", []):
+            cr_id = cr_status.get("CapacityReservationId")
+            if cr_id:
+                found_cr_ids.add(cr_id)
+    return [cr_id for cr_id in capacity_reservation_ids if cr_id not in found_cr_ids]
+
+
+class CapacityBlockHealthStatusValidator(Validator):
+    """
+    Validate that all provided ultraserver Capacity Blocks are in healthy state.
+
+    This validator is specifically designed for ultraserver instances (e.g., p6e-gb200)
+    that use capacity blocks. It ensures that the capacity blocks are ready for use
+    by checking their health status via the DescribeCapacityBlockStatus API.
+
+    The validator checks two critical conditions:
+      1) InterconnectStatus must be 'ok' - ensures GPU-to-GPU connectivity is functional
+      2) All reserved capacity must be available (TotalInstanceCount == AvailableInstanceCount)
+
+    If any Capacity Block fails these health checks, cluster creation/update will fail
+    to prevent launching instances on impaired infrastructure.
+
+    For scheduled capacity blocks, the validator will issue a warning since health status
+    cannot be checked until the capacity block becomes active.
+    """
+
+    # Set of interconnect statuses that indicate healthy capacity blocks
+    _GOOD_INTERCONNECT = {"ok"}
+
+    def _validate(self, capacity_reservation_ids: List[str]):  # noqa: C901
+        inactive_blocks = []
+        unhealthy_details = []
+
+        # Try to get capacity block status first
+        try:
+            statuses = AWSApi.instance().ec2.describe_capacity_block_status()
+        except AWSClientError as e:
+            self._add_failure(
+                f"Unable to retrieve capacity block statuses: {str(e)}",
+                FailureLevel.ERROR,
+            )
+            return
+        needed_capacity_block_statuses = get_needed_ultraserver_capacity_block_statuses(
+            statuses, capacity_reservation_ids
+        )
+        missed_capacity_block_ids = get_missed_capacity_block_ids(statuses, capacity_reservation_ids)
+        # Check health status for active capacity blocks
+        for status in needed_capacity_block_statuses:
+            cr_id = status.get("CapacityReservationStatuses")[0].get("CapacityReservationId")
+            interconnect = (status.get("InterconnectStatus") or "").lower()
+            good_interconnect = interconnect in self._GOOD_INTERCONNECT
+
+            if not good_interconnect:
+                unhealthy_details.append(f"{cr_id}[InterconnectStatus={status.get('InterconnectStatus')}]")
+
+            # Also check capacity availability using describe_capacity_reservations
+            try:
+                reservations = AWSApi.instance().ec2.describe_capacity_reservations([cr_id])
+                if reservations:
+                    reservation = reservations[0]
+                    total_count = reservation.total_instance_count()
+                    available_count = reservation.available_instance_count()
+
+                    if total_count != available_count:
+                        unhealthy_details.append(
+                            f"{cr_id}[TotalInstanceCount={total_count}, " f"AvailableInstanceCount={available_count}]"
+                        )
+            except AWSClientError:
+                # If we can't get reservation info, it's an error
+                self._add_failure(
+                    f"Unable to retrieve capacity reservation information for {cr_id}.",
+                    FailureLevel.ERROR,
+                )
+
+        for cr_id in missed_capacity_block_ids:
+            # If describe_capacity_block_status fails, check if it's a scheduled capacity block
+            try:
+                reservations = AWSApi.instance().ec2.describe_capacity_reservations([cr_id])
+                if reservations and reservations[0].state().lower() in CAPACITY_BLOCK_INACTIVE_STATES:
+                    inactive_blocks.append(cr_id)
+                else:
+                    # Not in inactive state, so it's a real error
+                    self._add_failure(
+                        f"Unable to retrieve status for Capacity Block {cr_id}. "
+                        f"Please verify the Capacity Block ID is valid and accessible.",
+                        FailureLevel.ERROR,
+                    )
+            except AWSClientError as e:
+                self._add_failure(
+                    f"Unable to retrieve information for Capacity Block {cr_id}: {str(e)}",
+                    FailureLevel.ERROR,
+                )
+
+        # Report inactive capacity blocks as warnings
+        if inactive_blocks:
+            self._add_failure(
+                f"Cannot verify health status for inactive capacity blocks: {', '.join(inactive_blocks)}.",
+                FailureLevel.WARNING,
+            )
+
+        # Report unhealthy capacity blocks as errors
+        if unhealthy_details:
+            self._add_failure(
+                (
+                    "One or more capacity blocks are not healthy or have insufficient capacity: "
+                    + "; ".join(unhealthy_details)
+                    + ". Please ensure each capacity block is healthy and all reserved capacities are available."
+                ),
+                FailureLevel.ERROR,
+            )
 
 
 class CapacityReservationResourceGroupValidator(Validator):
@@ -686,3 +829,35 @@ class PlacementGroupCapacityReservationValidator(Validator):
                         capacity_reservations=capacity_reservations,
                         subnet_id_az_mapping=subnet_id_az_mapping,
                     )
+
+
+class UltraserverCapacityBlockSizeValidator(Validator):
+    """Validate ultraserver capacity block sizes are allowed."""
+
+    def _validate(self, cluster_ultraserver_capacity_block_dict):
+        invalid_capacity_blocks = []
+
+        for ultraserver_instance_prefix in ULTRASERVER_INSTANCE_PREFIX_LIST:
+            allowed_sizes_list = ULTRASERVER_CAPACITY_BLOCK_ALLOWED_SIZE_DICT.get(ultraserver_instance_prefix)
+            capacity_reservation_ids = cluster_ultraserver_capacity_block_dict.get(ultraserver_instance_prefix)
+
+            if capacity_reservation_ids:
+                statuses = AWSApi.instance().ec2.describe_capacity_block_status()
+                needed_capacity_block_statuses = get_needed_ultraserver_capacity_block_statuses(
+                    statuses, capacity_reservation_ids
+                )
+
+                for status in needed_capacity_block_statuses:
+                    size = status.get("TotalCapacity")
+                    if size is not None:
+                        if size not in allowed_sizes_list:
+                            invalid_capacity_blocks.append(
+                                f"{status.get('CapacityBlockId')} (size: {size}, allowed: {allowed_sizes_list})"
+                            )
+
+        # Report invalid capacity blocks as errors
+        if invalid_capacity_blocks:
+            self._add_failure(
+                f"The following capacity blocks have invalid block sizes: {'; '.join(invalid_capacity_blocks)}.",
+                FailureLevel.ERROR,
+            )

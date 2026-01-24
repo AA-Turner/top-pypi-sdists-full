@@ -26,7 +26,7 @@ class GetInvocationResult:
     """
     A collection of values returned by getInvocation.
     """
-    def __init__(__self__, function_name=None, id=None, input=None, qualifier=None, region=None, result=None):
+    def __init__(__self__, function_name=None, id=None, input=None, qualifier=None, region=None, result=None, tenant_id=None):
         if function_name and not isinstance(function_name, str):
             raise TypeError("Expected argument 'function_name' to be a str")
         pulumi.set(__self__, "function_name", function_name)
@@ -45,6 +45,9 @@ class GetInvocationResult:
         if result and not isinstance(result, str):
             raise TypeError("Expected argument 'result' to be a str")
         pulumi.set(__self__, "result", result)
+        if tenant_id and not isinstance(tenant_id, str):
+            raise TypeError("Expected argument 'tenant_id' to be a str")
+        pulumi.set(__self__, "tenant_id", tenant_id)
 
     @_builtins.property
     @pulumi.getter(name="functionName")
@@ -82,6 +85,11 @@ class GetInvocationResult:
         """
         return pulumi.get(self, "result")
 
+    @_builtins.property
+    @pulumi.getter(name="tenantId")
+    def tenant_id(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "tenant_id")
+
 
 class AwaitableGetInvocationResult(GetInvocationResult):
     # pylint: disable=using-constant-test
@@ -94,13 +102,15 @@ class AwaitableGetInvocationResult(GetInvocationResult):
             input=self.input,
             qualifier=self.qualifier,
             region=self.region,
-            result=self.result)
+            result=self.result,
+            tenant_id=self.tenant_id)
 
 
 def get_invocation(function_name: Optional[_builtins.str] = None,
                    input: Optional[_builtins.str] = None,
                    qualifier: Optional[_builtins.str] = None,
                    region: Optional[_builtins.str] = None,
+                   tenant_id: Optional[_builtins.str] = None,
                    opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetInvocationResult:
     """
     Invokes an AWS Lambda Function and returns its results. Use this data source to execute Lambda functions during Pulumi operations and use their results in other resources or outputs.
@@ -113,6 +123,49 @@ def get_invocation(function_name: Optional[_builtins.str] = None,
 
     ## Example Usage
 
+    ### Basic Invocation
+
+    ```python
+    import pulumi
+    import json
+    import pulumi_aws as aws
+    import pulumi_std as std
+
+    example = aws.lambda.get_invocation(function_name=example_aws_lambda_function["functionName"],
+        input=json.dumps({
+            "operation": "getStatus",
+            "id": "123456",
+        }))
+    pulumi.export("result", std.jsondecode(input=example.result).result)
+    ```
+
+    ### Dynamic Resource Configuration
+
+    ```python
+    import pulumi
+    import json
+    import pulumi_aws as aws
+    import pulumi_std as std
+
+    # Get resource configuration from Lambda
+    resource_config = aws.lambda.get_invocation(function_name="resource-config-generator",
+        qualifier="production",
+        input=json.dumps({
+            "environment": environment,
+            "region": current["region"],
+            "service": "api",
+        }))
+    config = std.jsondecode(input=resource_config.result).result
+    # Use dynamic configuration
+    example = aws.elasticache.Cluster("example",
+        cluster_id=config["cache"]["clusterId"],
+        engine=config["cache"]["engine"],
+        node_type=config["cache"]["nodeType"],
+        num_cache_nodes=config["cache"]["nodes"],
+        parameter_group_name=config["cache"]["parameterGroup"],
+        tags=config["tags"])
+    ```
+
 
     :param _builtins.str function_name: Name of the Lambda function.
     :param _builtins.str input: String in JSON format that is passed as payload to the Lambda function.
@@ -120,12 +173,14 @@ def get_invocation(function_name: Optional[_builtins.str] = None,
            The following arguments are optional:
     :param _builtins.str qualifier: Qualifier (a.k.a version) of the Lambda function. Defaults to `$LATEST`.
     :param _builtins.str region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
+    :param _builtins.str tenant_id: Tenant Id to serve invocations from specified tenant.
     """
     __args__ = dict()
     __args__['functionName'] = function_name
     __args__['input'] = input
     __args__['qualifier'] = qualifier
     __args__['region'] = region
+    __args__['tenantId'] = tenant_id
     opts = pulumi.InvokeOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke('aws:lambda/getInvocation:getInvocation', __args__, opts=opts, typ=GetInvocationResult).value
 
@@ -135,11 +190,13 @@ def get_invocation(function_name: Optional[_builtins.str] = None,
         input=pulumi.get(__ret__, 'input'),
         qualifier=pulumi.get(__ret__, 'qualifier'),
         region=pulumi.get(__ret__, 'region'),
-        result=pulumi.get(__ret__, 'result'))
+        result=pulumi.get(__ret__, 'result'),
+        tenant_id=pulumi.get(__ret__, 'tenant_id'))
 def get_invocation_output(function_name: Optional[pulumi.Input[_builtins.str]] = None,
                           input: Optional[pulumi.Input[_builtins.str]] = None,
                           qualifier: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
                           region: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+                          tenant_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
                           opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetInvocationResult]:
     """
     Invokes an AWS Lambda Function and returns its results. Use this data source to execute Lambda functions during Pulumi operations and use their results in other resources or outputs.
@@ -152,6 +209,49 @@ def get_invocation_output(function_name: Optional[pulumi.Input[_builtins.str]] =
 
     ## Example Usage
 
+    ### Basic Invocation
+
+    ```python
+    import pulumi
+    import json
+    import pulumi_aws as aws
+    import pulumi_std as std
+
+    example = aws.lambda.get_invocation(function_name=example_aws_lambda_function["functionName"],
+        input=json.dumps({
+            "operation": "getStatus",
+            "id": "123456",
+        }))
+    pulumi.export("result", std.jsondecode(input=example.result).result)
+    ```
+
+    ### Dynamic Resource Configuration
+
+    ```python
+    import pulumi
+    import json
+    import pulumi_aws as aws
+    import pulumi_std as std
+
+    # Get resource configuration from Lambda
+    resource_config = aws.lambda.get_invocation(function_name="resource-config-generator",
+        qualifier="production",
+        input=json.dumps({
+            "environment": environment,
+            "region": current["region"],
+            "service": "api",
+        }))
+    config = std.jsondecode(input=resource_config.result).result
+    # Use dynamic configuration
+    example = aws.elasticache.Cluster("example",
+        cluster_id=config["cache"]["clusterId"],
+        engine=config["cache"]["engine"],
+        node_type=config["cache"]["nodeType"],
+        num_cache_nodes=config["cache"]["nodes"],
+        parameter_group_name=config["cache"]["parameterGroup"],
+        tags=config["tags"])
+    ```
+
 
     :param _builtins.str function_name: Name of the Lambda function.
     :param _builtins.str input: String in JSON format that is passed as payload to the Lambda function.
@@ -159,12 +259,14 @@ def get_invocation_output(function_name: Optional[pulumi.Input[_builtins.str]] =
            The following arguments are optional:
     :param _builtins.str qualifier: Qualifier (a.k.a version) of the Lambda function. Defaults to `$LATEST`.
     :param _builtins.str region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
+    :param _builtins.str tenant_id: Tenant Id to serve invocations from specified tenant.
     """
     __args__ = dict()
     __args__['functionName'] = function_name
     __args__['input'] = input
     __args__['qualifier'] = qualifier
     __args__['region'] = region
+    __args__['tenantId'] = tenant_id
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('aws:lambda/getInvocation:getInvocation', __args__, opts=opts, typ=GetInvocationResult)
     return __ret__.apply(lambda __response__: GetInvocationResult(
@@ -173,4 +275,5 @@ def get_invocation_output(function_name: Optional[pulumi.Input[_builtins.str]] =
         input=pulumi.get(__response__, 'input'),
         qualifier=pulumi.get(__response__, 'qualifier'),
         region=pulumi.get(__response__, 'region'),
-        result=pulumi.get(__response__, 'result')))
+        result=pulumi.get(__response__, 'result'),
+        tenant_id=pulumi.get(__response__, 'tenant_id')))

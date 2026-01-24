@@ -39,7 +39,7 @@ class SocketioArgs:
         """
         The set of arguments for constructing a Socketio resource.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group where the Web PubSub Service should exist. Changing this forces a new Web PubSub Service to be created.
-        :param pulumi.Input['SocketioSkuArgs'] sku: The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        :param pulumi.Input['SocketioSkuArgs'] sku: One or more `sku` blocks as defined below.
         :param pulumi.Input[_builtins.bool] aad_auth_enabled: Whether Azure Active Directory authentication is enabled. Defaults to `true`.
         :param pulumi.Input['SocketioIdentityArgs'] identity: An `identity` block as defined below.
         :param pulumi.Input[_builtins.bool] live_trace_connectivity_logs_enabled: Whether the connectivity log category for live trace is enabled. Defaults to `true`.
@@ -103,7 +103,7 @@ class SocketioArgs:
     @pulumi.getter
     def sku(self) -> pulumi.Input['SocketioSkuArgs']:
         """
-        The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        One or more `sku` blocks as defined below.
         """
         return pulumi.get(self, "sku")
 
@@ -322,7 +322,7 @@ class _SocketioState:
         :param pulumi.Input[_builtins.str] secondary_connection_string: The secondary connection string for the Web PubSub Service.
         :param pulumi.Input[_builtins.int] server_port: The publicly accessible port for server-side usage of the Web PubSub Service.
         :param pulumi.Input[_builtins.str] service_mode: The service mode of this Web PubSub Service. Defaults to `Default`. Possible values are `Default` and `Serverless`.
-        :param pulumi.Input['SocketioSkuArgs'] sku: The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        :param pulumi.Input['SocketioSkuArgs'] sku: One or more `sku` blocks as defined below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags which should be assigned to the Web PubSub Service.
         :param pulumi.Input[_builtins.bool] tls_client_cert_enabled: Whether the service should request a client certificate during a TLS handshake. Defaults to `false`.
                
@@ -621,7 +621,7 @@ class _SocketioState:
     @pulumi.getter
     def sku(self) -> Optional[pulumi.Input['SocketioSkuArgs']]:
         """
-        The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        One or more `sku` blocks as defined below.
         """
         return pulumi.get(self, "sku")
 
@@ -681,6 +681,29 @@ class Socketio(pulumi.CustomResource):
         """
         Manages a Web PubSub Service for Socket.IO.
 
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_azure as azure
+
+        example = azure.core.ResourceGroup("example",
+            name="example",
+            location="West Europe")
+        example_socketio = azure.webpubsub.Socketio("example",
+            name="example",
+            resource_group_name=example.name,
+            location=example.location,
+            sku="Free_F1"[0])
+        ```
+
+        ## API Providers
+
+        <!-- This section is generated, changes will be overwritten -->
+        This resource uses the following Azure API Providers:
+
+        * `Microsoft.SignalRService` - 2024-03-01
+
         ## Import
 
         Web PubSub Service for Socket.IOs can be imported using the `resource id`, e.g.
@@ -705,7 +728,7 @@ class Socketio(pulumi.CustomResource):
                > **Note:** `public_network_access` cannot be set to `Disabled` when `sku` is `Free_F1`.
         :param pulumi.Input[_builtins.str] resource_group_name: The name of the Resource Group where the Web PubSub Service should exist. Changing this forces a new Web PubSub Service to be created.
         :param pulumi.Input[_builtins.str] service_mode: The service mode of this Web PubSub Service. Defaults to `Default`. Possible values are `Default` and `Serverless`.
-        :param pulumi.Input[Union['SocketioSkuArgs', 'SocketioSkuArgsDict']] sku: The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        :param pulumi.Input[Union['SocketioSkuArgs', 'SocketioSkuArgsDict']] sku: One or more `sku` blocks as defined below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags which should be assigned to the Web PubSub Service.
         :param pulumi.Input[_builtins.bool] tls_client_cert_enabled: Whether the service should request a client certificate during a TLS handshake. Defaults to `false`.
                
@@ -719,6 +742,29 @@ class Socketio(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Manages a Web PubSub Service for Socket.IO.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_azure as azure
+
+        example = azure.core.ResourceGroup("example",
+            name="example",
+            location="West Europe")
+        example_socketio = azure.webpubsub.Socketio("example",
+            name="example",
+            resource_group_name=example.name,
+            location=example.location,
+            sku="Free_F1"[0])
+        ```
+
+        ## API Providers
+
+        <!-- This section is generated, changes will be overwritten -->
+        This resource uses the following Azure API Providers:
+
+        * `Microsoft.SignalRService` - 2024-03-01
 
         ## Import
 
@@ -858,7 +904,7 @@ class Socketio(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] secondary_connection_string: The secondary connection string for the Web PubSub Service.
         :param pulumi.Input[_builtins.int] server_port: The publicly accessible port for server-side usage of the Web PubSub Service.
         :param pulumi.Input[_builtins.str] service_mode: The service mode of this Web PubSub Service. Defaults to `Default`. Possible values are `Default` and `Serverless`.
-        :param pulumi.Input[Union['SocketioSkuArgs', 'SocketioSkuArgsDict']] sku: The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        :param pulumi.Input[Union['SocketioSkuArgs', 'SocketioSkuArgsDict']] sku: One or more `sku` blocks as defined below.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A mapping of tags which should be assigned to the Web PubSub Service.
         :param pulumi.Input[_builtins.bool] tls_client_cert_enabled: Whether the service should request a client certificate during a TLS handshake. Defaults to `false`.
                
@@ -1059,7 +1105,7 @@ class Socketio(pulumi.CustomResource):
     @pulumi.getter
     def sku(self) -> pulumi.Output['outputs.SocketioSku']:
         """
-        The SKU to use for this Web PubSub Service. Possible values are `Free_F1`, `Standard_S1`, `Premium_P1`, and `Premium_P2`.
+        One or more `sku` blocks as defined below.
         """
         return pulumi.get(self, "sku")
 

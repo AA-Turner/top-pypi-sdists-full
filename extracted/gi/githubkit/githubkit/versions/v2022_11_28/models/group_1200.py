@@ -17,16 +17,21 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_1199 import ReposOwnerRepoPagesPostBodyPropSource
 
-class TeamsTeamIdProjectsProjectIdPutBody(GitHubModel):
-    """TeamsTeamIdProjectsProjectIdPutBody"""
 
-    permission: Missing[Literal["read", "write", "admin"]] = Field(
+class ReposOwnerRepoPagesPostBodyAnyof0(GitHubModel):
+    """ReposOwnerRepoPagesPostBodyAnyof0"""
+
+    build_type: Missing[Literal["legacy", "workflow"]] = Field(
         default=UNSET,
-        description="The permission to grant to the team for this project. Default: the team's `permission` attribute will be used to determine what permission to grant the team on this project. Note that, if you choose not to pass any parameters, you'll need to set `Content-Length` to zero when calling this endpoint. For more information, see \"[HTTP method](https://docs.github.com/rest/guides/getting-started-with-the-rest-api#http-method).\"",
+        description='The process in which the Page will be built. Possible values are `"legacy"` and `"workflow"`.',
+    )
+    source: ReposOwnerRepoPagesPostBodyPropSource = Field(
+        description="The source branch and directory used to publish your Pages site."
     )
 
 
-model_rebuild(TeamsTeamIdProjectsProjectIdPutBody)
+model_rebuild(ReposOwnerRepoPagesPostBodyAnyof0)
 
-__all__ = ("TeamsTeamIdProjectsProjectIdPutBody",)
+__all__ = ("ReposOwnerRepoPagesPostBodyAnyof0",)

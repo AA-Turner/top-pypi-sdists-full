@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: invoke
-Version: 2.2.0
+Version: 2.2.1
 Summary: Pythonic task execution
 Home-page: https://pyinvoke.org
 Author: Jeff Forcier
@@ -11,7 +11,6 @@ Project-URL: Source, https://github.com/pyinvoke/invoke
 Project-URL: Issues, https://github.com/pyinvoke/invoke/issues
 Project-URL: Changelog, https://www.pyinvoke.org/changelog.html
 Project-URL: CI, https://app.circleci.com/pipelines/github/pyinvoke/invoke
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -76,5 +75,3 @@ The project maintainer keeps a `roadmap
 For a high level introduction, including example code, please see `our main
 project website <https://pyinvoke.org>`_; or for detailed API docs, see `the
 versioned API website <https://docs.pyinvoke.org>`_.
-
-

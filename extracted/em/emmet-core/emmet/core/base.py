@@ -1,13 +1,12 @@
 """Base emmet model to add default metadata."""
 
-from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, Field, field_validator
+
+from pydantic import BaseModel, Field
 from pymatgen.core import __version__ as pmg_version
 
 from emmet.core import __version__
-from emmet.core.common import convert_datetime
-from emmet.core.utils import utcnow
+from emmet.core.types.typing import NullableDateTimeType
 
 
 class EmmetMeta(BaseModel):
@@ -33,19 +32,13 @@ class EmmetMeta(BaseModel):
         None, description="The database version for the built data."
     )
 
-    build_date: datetime | None = Field(  # type: ignore
-        default_factory=utcnow,
+    build_date: NullableDateTimeType = Field(  # type: ignore
         description="The build date for this document.",
     )
 
     license: Literal["BY-C", "BY-NC"] | None = Field(
         None, description="License for the data entry."
     )
-
-    @field_validator("build_date", mode="before")
-    @classmethod
-    def handle_datetime(cls, v):
-        return convert_datetime(cls, v)
 
 
 class EmmetBaseModel(BaseModel):

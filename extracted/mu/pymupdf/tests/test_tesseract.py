@@ -24,14 +24,18 @@ def test_tesseract():
             tail = 'OCR initialisation failed'
         else:
             tail = 'Tesseract language initialisation failed'
-        e_expected = f'code=3: {tail}'
-        if platform.system() == 'OpenBSD':
-            # 2023-12-12: For some reason the SWIG catch code only catches
-            # the exception as FzErrorBase.
-            e_expected_type = pymupdf.mupdf.FzErrorBase
-            print(f'OpenBSD workaround - expecting FzErrorBase, not FzErrorLibrary.')
+        if os.environ.get('PYODIDE_ROOT'):
+            e_expected = 'code=6: No OCR support in this build'
+            e_expected_type = pymupdf.mupdf.FzErrorUnsupported
         else:
-            e_expected_type = pymupdf.mupdf.FzErrorLibrary
+            e_expected = f'code=3: {tail}'
+            if platform.system() == 'OpenBSD':
+                # 2023-12-12: For some reason the SWIG catch code only catches
+                # the exception as FzErrorBase.
+                e_expected_type = pymupdf.mupdf.FzErrorBase
+                print(f'OpenBSD workaround - expecting FzErrorBase, not FzErrorLibrary.')
+            else:
+                e_expected_type = pymupdf.mupdf.FzErrorLibrary
     else:
         # classic.
         e_expected = 'OCR initialisation failed'
@@ -71,6 +75,10 @@ def test_3842b():
     #
     # Note that Tesseract seems to output its own diagnostics.
     #
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_3842b(): not running on Pyodide - cannot run child processes.')
+        return
+        
     path = os.path.normpath(f'{__file__}/../../tests/resources/test_3842.pdf')
     with pymupdf.open(path) as document:
         page = document[6]
@@ -91,6 +99,10 @@ def test_3842b():
 
 
 def test_3842():
+    if os.environ.get('PYODIDE_ROOT'):
+        print('test_3842(): not running on Pyodide - cannot run child processes.')
+        return
+        
     path = os.path.normpath(f'{__file__}/../../tests/resources/test_3842.pdf')
     with pymupdf.open(path) as document:
         page = document[6]

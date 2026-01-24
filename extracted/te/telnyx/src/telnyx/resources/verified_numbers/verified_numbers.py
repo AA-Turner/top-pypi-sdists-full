@@ -25,9 +25,10 @@ from ..._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from ..._base_client import make_request_options
+from ...pagination import SyncDefaultFlatPagination, AsyncDefaultFlatPagination
+from ..._base_client import AsyncPaginator, make_request_options
+from ...types.verified_number import VerifiedNumber
 from ...types.verified_number_data_wrapper import VerifiedNumberDataWrapper
-from ...types.verified_number_list_response import VerifiedNumberListResponse
 from ...types.verified_number_create_response import VerifiedNumberCreateResponse
 
 __all__ = ["VerifiedNumbersResource", "AsyncVerifiedNumbersResource"]
@@ -62,6 +63,7 @@ class VerifiedNumbersResource(SyncAPIResource):
         *,
         phone_number: str,
         verification_method: Literal["sms", "call"],
+        extension: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -69,11 +71,19 @@ class VerifiedNumbersResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VerifiedNumberCreateResponse:
-        """
-        Initiates phone number verification procedure.
+        """Initiates phone number verification procedure.
+
+        Supports DTMF extension dialing
+        for voice calls to numbers behind IVR systems.
 
         Args:
           verification_method: Verification method.
+
+          extension: Optional DTMF extension sequence to dial after the call is answered. This
+              parameter enables verification of phone numbers behind IVR systems that require
+              extension dialing. Valid characters: digits 0-9, letters A-D, symbols \\** and #.
+              Pauses: w = 0.5 second pause, W = 1 second pause. Maximum length: 50 characters.
+              Only works with 'call' verification method.
 
           extra_headers: Send extra headers
 
@@ -89,6 +99,7 @@ class VerifiedNumbersResource(SyncAPIResource):
                 {
                     "phone_number": phone_number,
                     "verification_method": verification_method,
+                    "extension": extension,
                 },
                 verified_number_create_params.VerifiedNumberCreateParams,
             ),
@@ -136,21 +147,19 @@ class VerifiedNumbersResource(SyncAPIResource):
     def list(
         self,
         *,
-        page: verified_number_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VerifiedNumberListResponse:
+    ) -> SyncDefaultFlatPagination[VerifiedNumber]:
         """
         Gets a paginated list of Verified Numbers.
 
         Args:
-          page: Consolidated page parameter (deepObject style). Use page[size] and page[number]
-              in the query string. Originally: page[size], page[number]
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -159,16 +168,23 @@ class VerifiedNumbersResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/verified_numbers",
+            page=SyncDefaultFlatPagination[VerifiedNumber],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=maybe_transform({"page": page}, verified_number_list_params.VerifiedNumberListParams),
+                query=maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    verified_number_list_params.VerifiedNumberListParams,
+                ),
             ),
-            cast_to=VerifiedNumberListResponse,
+            model=VerifiedNumber,
         )
 
     def delete(
@@ -236,6 +252,7 @@ class AsyncVerifiedNumbersResource(AsyncAPIResource):
         *,
         phone_number: str,
         verification_method: Literal["sms", "call"],
+        extension: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -243,11 +260,19 @@ class AsyncVerifiedNumbersResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VerifiedNumberCreateResponse:
-        """
-        Initiates phone number verification procedure.
+        """Initiates phone number verification procedure.
+
+        Supports DTMF extension dialing
+        for voice calls to numbers behind IVR systems.
 
         Args:
           verification_method: Verification method.
+
+          extension: Optional DTMF extension sequence to dial after the call is answered. This
+              parameter enables verification of phone numbers behind IVR systems that require
+              extension dialing. Valid characters: digits 0-9, letters A-D, symbols \\** and #.
+              Pauses: w = 0.5 second pause, W = 1 second pause. Maximum length: 50 characters.
+              Only works with 'call' verification method.
 
           extra_headers: Send extra headers
 
@@ -263,6 +288,7 @@ class AsyncVerifiedNumbersResource(AsyncAPIResource):
                 {
                     "phone_number": phone_number,
                     "verification_method": verification_method,
+                    "extension": extension,
                 },
                 verified_number_create_params.VerifiedNumberCreateParams,
             ),
@@ -307,24 +333,22 @@ class AsyncVerifiedNumbersResource(AsyncAPIResource):
             cast_to=VerifiedNumberDataWrapper,
         )
 
-    async def list(
+    def list(
         self,
         *,
-        page: verified_number_list_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> VerifiedNumberListResponse:
+    ) -> AsyncPaginator[VerifiedNumber, AsyncDefaultFlatPagination[VerifiedNumber]]:
         """
         Gets a paginated list of Verified Numbers.
 
         Args:
-          page: Consolidated page parameter (deepObject style). Use page[size] and page[number]
-              in the query string. Originally: page[size], page[number]
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -333,16 +357,23 @@ class AsyncVerifiedNumbersResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/verified_numbers",
+            page=AsyncDefaultFlatPagination[VerifiedNumber],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform({"page": page}, verified_number_list_params.VerifiedNumberListParams),
+                query=maybe_transform(
+                    {
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    verified_number_list_params.VerifiedNumberListParams,
+                ),
             ),
-            cast_to=VerifiedNumberListResponse,
+            model=VerifiedNumber,
         )
 
     async def delete(

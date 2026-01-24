@@ -22,6 +22,7 @@ concurrency:
 jobs:
   tox:
     uses: ansible/team-devtools/.github/workflows/tox.yml@main
+    secrets: inherit
     with:
       max_python: "3.13"
       jobs_producing_coverage: 7
@@ -29,23 +30,22 @@ jobs:
         docs
         lint
         pkg
-        pre
-        py-devel
+        devel
 
   smoke-matrix:
     # Uncomment the below line when all tests start passing
     needs: tox
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           ref: ${{github.event.pull_request.head.ref}}
           repository: ${{ github.event.pull_request.head.repo.full_name }}
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6
         with:
-          python-version: "3.11"
+          python-version: "3.14"
 
       - name: Install tox-ansible, includes tox
         run: python3 -m pip install .
@@ -68,13 +68,13 @@ jobs:
     name: ${{ matrix.entry.name }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6
         with:
           # tox-ansible requires python 3.10 but it can be used to test with
           # older versions of python.
@@ -94,6 +94,18 @@ jobs:
       - name: Scaffold an ansible collection using ansible-creator
         working-directory: example
         run: ansible-creator init collection "foo.bar"
+
+      - name: Add sanity ignores for boilerplate tests on older ansible versions
+        working-directory: example
+        run: |
+          mkdir -p tests/sanity
+          # Ignore boilerplate tests for sample_module.py on older ansible versions
+          # These boilerplate imports are Python 2 compatibility requirements that
+          # ansible-creator no longer includes in generated modules
+          for version in 2.16; do
+            echo "plugins/modules/sample_module.py future-import-boilerplate" >> "tests/sanity/ignore-${version}.txt"
+            echo "plugins/modules/sample_module.py metaclass-boilerplate" >> "tests/sanity/ignore-${version}.txt"
+          done
 
       - name: Track files created by ansible-creator
         working-directory: example

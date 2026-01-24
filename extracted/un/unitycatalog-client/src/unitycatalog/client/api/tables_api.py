@@ -16,11 +16,13 @@ from pydantic import validate_call, Field, StrictFloat, StrictStr, StrictInt
 from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
-from pydantic import Field, StrictStr
+from pydantic import Field, StrictBool, StrictStr
 from typing import Any, Optional
 from typing_extensions import Annotated
+from unitycatalog.client.models.create_staging_table import CreateStagingTable
 from unitycatalog.client.models.create_table import CreateTable
 from unitycatalog.client.models.list_tables_response import ListTablesResponse
+from unitycatalog.client.models.staging_table_info import StagingTableInfo
 from unitycatalog.client.models.table_info import TableInfo
 
 from unitycatalog.client.api_client import ApiClient, RequestSerialized
@@ -39,6 +41,279 @@ class TablesApi:
         if api_client is None:
             api_client = ApiClient.get_default()
         self.api_client = api_client
+
+
+    @validate_call
+    async def create_staging_table(
+        self,
+        create_staging_table: Optional[CreateStagingTable] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> StagingTableInfo:
+        """Create a staging table
+
+        Creates a new staging table instance. Staging tables are used during managed table creation. Creating a managed table requires performing two actions – initializing the table data in cloud storage and creating the named table entry in the catalog – and these should appear as an atomic operation to other operations on catalog tables. A staging table is used to allocate storage for the managed table, and the catalog_name.schema_name.name parameters provided in this request are used to initialize any required storage properties and determine the storage URL that should be used for the data contained by this table.  Temporary credentials can be obtained as though the staging table were a regular table to get access to the staging table’s storage. After the table’s data is initialized, the staging table is “promoted” to a managed table by creating a managed table with the same location as the staging table. This allows for the atomic creation of a managed table that already has full data written to its storage location. Note: the name provided must match the name used to initialize the staging table originally.  WARNING: This API is experimental and may change in future versions. 
+
+        :param create_staging_table:
+        :type create_staging_table: CreateStagingTable
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._create_staging_table_serialize(
+            create_staging_table=create_staging_table,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "StagingTableInfo",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    async def create_staging_table_with_http_info(
+        self,
+        create_staging_table: Optional[CreateStagingTable] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[StagingTableInfo]:
+        """Create a staging table
+
+        Creates a new staging table instance. Staging tables are used during managed table creation. Creating a managed table requires performing two actions – initializing the table data in cloud storage and creating the named table entry in the catalog – and these should appear as an atomic operation to other operations on catalog tables. A staging table is used to allocate storage for the managed table, and the catalog_name.schema_name.name parameters provided in this request are used to initialize any required storage properties and determine the storage URL that should be used for the data contained by this table.  Temporary credentials can be obtained as though the staging table were a regular table to get access to the staging table’s storage. After the table’s data is initialized, the staging table is “promoted” to a managed table by creating a managed table with the same location as the staging table. This allows for the atomic creation of a managed table that already has full data written to its storage location. Note: the name provided must match the name used to initialize the staging table originally.  WARNING: This API is experimental and may change in future versions. 
+
+        :param create_staging_table:
+        :type create_staging_table: CreateStagingTable
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._create_staging_table_serialize(
+            create_staging_table=create_staging_table,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "StagingTableInfo",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        await response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    async def create_staging_table_without_preload_content(
+        self,
+        create_staging_table: Optional[CreateStagingTable] = None,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Create a staging table
+
+        Creates a new staging table instance. Staging tables are used during managed table creation. Creating a managed table requires performing two actions – initializing the table data in cloud storage and creating the named table entry in the catalog – and these should appear as an atomic operation to other operations on catalog tables. A staging table is used to allocate storage for the managed table, and the catalog_name.schema_name.name parameters provided in this request are used to initialize any required storage properties and determine the storage URL that should be used for the data contained by this table.  Temporary credentials can be obtained as though the staging table were a regular table to get access to the staging table’s storage. After the table’s data is initialized, the staging table is “promoted” to a managed table by creating a managed table with the same location as the staging table. This allows for the atomic creation of a managed table that already has full data written to its storage location. Note: the name provided must match the name used to initialize the staging table originally.  WARNING: This API is experimental and may change in future versions. 
+
+        :param create_staging_table:
+        :type create_staging_table: CreateStagingTable
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._create_staging_table_serialize(
+            create_staging_table=create_staging_table,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "StagingTableInfo",
+        }
+        response_data = await self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _create_staging_table_serialize(
+        self,
+        create_staging_table,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if create_staging_table is not None:
+            _body_params = create_staging_table
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/staging-tables',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
 
 
     @validate_call
@@ -578,6 +853,8 @@ class TablesApi:
     async def get_table(
         self,
         full_name: Annotated[StrictStr, Field(description="Full name of the table.")],
+        read_streaming_table_as_managed: Annotated[Optional[StrictBool], Field(description="Whether to read Streaming Tables as Managed tables. ")] = None,
+        read_materialized_view_as_managed: Annotated[Optional[StrictBool], Field(description="Whether to read Materialized Views as Managed tables. ")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -597,6 +874,10 @@ class TablesApi:
 
         :param full_name: Full name of the table. (required)
         :type full_name: str
+        :param read_streaming_table_as_managed: Whether to read Streaming Tables as Managed tables. 
+        :type read_streaming_table_as_managed: bool
+        :param read_materialized_view_as_managed: Whether to read Materialized Views as Managed tables. 
+        :type read_materialized_view_as_managed: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -621,6 +902,8 @@ class TablesApi:
 
         _param = self._get_table_serialize(
             full_name=full_name,
+            read_streaming_table_as_managed=read_streaming_table_as_managed,
+            read_materialized_view_as_managed=read_materialized_view_as_managed,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -645,6 +928,8 @@ class TablesApi:
     async def get_table_with_http_info(
         self,
         full_name: Annotated[StrictStr, Field(description="Full name of the table.")],
+        read_streaming_table_as_managed: Annotated[Optional[StrictBool], Field(description="Whether to read Streaming Tables as Managed tables. ")] = None,
+        read_materialized_view_as_managed: Annotated[Optional[StrictBool], Field(description="Whether to read Materialized Views as Managed tables. ")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -664,6 +949,10 @@ class TablesApi:
 
         :param full_name: Full name of the table. (required)
         :type full_name: str
+        :param read_streaming_table_as_managed: Whether to read Streaming Tables as Managed tables. 
+        :type read_streaming_table_as_managed: bool
+        :param read_materialized_view_as_managed: Whether to read Materialized Views as Managed tables. 
+        :type read_materialized_view_as_managed: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -688,6 +977,8 @@ class TablesApi:
 
         _param = self._get_table_serialize(
             full_name=full_name,
+            read_streaming_table_as_managed=read_streaming_table_as_managed,
+            read_materialized_view_as_managed=read_materialized_view_as_managed,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -712,6 +1003,8 @@ class TablesApi:
     async def get_table_without_preload_content(
         self,
         full_name: Annotated[StrictStr, Field(description="Full name of the table.")],
+        read_streaming_table_as_managed: Annotated[Optional[StrictBool], Field(description="Whether to read Streaming Tables as Managed tables. ")] = None,
+        read_materialized_view_as_managed: Annotated[Optional[StrictBool], Field(description="Whether to read Materialized Views as Managed tables. ")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -731,6 +1024,10 @@ class TablesApi:
 
         :param full_name: Full name of the table. (required)
         :type full_name: str
+        :param read_streaming_table_as_managed: Whether to read Streaming Tables as Managed tables. 
+        :type read_streaming_table_as_managed: bool
+        :param read_materialized_view_as_managed: Whether to read Materialized Views as Managed tables. 
+        :type read_materialized_view_as_managed: bool
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -755,6 +1052,8 @@ class TablesApi:
 
         _param = self._get_table_serialize(
             full_name=full_name,
+            read_streaming_table_as_managed=read_streaming_table_as_managed,
+            read_materialized_view_as_managed=read_materialized_view_as_managed,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -774,6 +1073,8 @@ class TablesApi:
     def _get_table_serialize(
         self,
         full_name,
+        read_streaming_table_as_managed,
+        read_materialized_view_as_managed,
         _request_auth,
         _content_type,
         _headers,
@@ -798,6 +1099,14 @@ class TablesApi:
         if full_name is not None:
             _path_params['full_name'] = full_name
         # process the query parameters
+        if read_streaming_table_as_managed is not None:
+            
+            _query_params.append(('read_streaming_table_as_managed', read_streaming_table_as_managed))
+            
+        if read_materialized_view_as_managed is not None:
+            
+            _query_params.append(('read_materialized_view_as_managed', read_materialized_view_as_managed))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter

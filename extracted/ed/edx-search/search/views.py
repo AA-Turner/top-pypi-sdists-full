@@ -11,6 +11,7 @@ from django.views.decorators.http import require_POST
 from eventtracking import tracker as track
 from .api import perform_search, course_discovery_search, course_discovery_filter_fields
 from .initializer import SearchInitializer
+from .utils import normalize_bool
 
 # log appears to be standard name used for logger
 log = logging.getLogger(__name__)
@@ -34,10 +35,11 @@ def _process_pagination_values(request):
     return size, from_, page
 
 
-def _process_field_values(request):
+def _process_field_values(request, is_multivalue=False):
     """ Create separate dictionary of supported filter values provided """
+    get_value = request.POST.getlist if is_multivalue else request.POST.get
     return {
-        field_key: request.POST[field_key]
+        field_key: get_value(field_key)
         for field_key in request.POST
         if field_key in course_discovery_filter_fields()
     }
@@ -138,11 +140,24 @@ def do_search(request, course_id=None):
 
 @require_POST
 def course_discovery(request):
+    """ Legacy single-value search endpoint """
+    return _course_discovery(request, is_multivalue=False)
+
+
+@require_POST
+def course_list_search(request):
+    """ Main endpoint for multi-value faceted search """
+    return _course_discovery(request, is_multivalue=True)
+
+
+@require_POST
+def _course_discovery(request, is_multivalue=False):
     """
     Search for courses
 
     Args:
         request (required) - django request object
+        is_multivalue (optional) - boolean indicating whether to use multi-value faceted search
 
     Returns:
         http json response with the following fields
@@ -167,11 +182,11 @@ def course_discovery(request):
     status_code = 500
 
     search_term = request.POST.get("search_string", None)
-    enable_course_sorting_by_start_date = request.POST.get("enable_course_sorting_by_start_date", False)
+    enable_course_sorting_by_start_date = normalize_bool(request.POST.get("enable_course_sorting_by_start_date", False))
 
     try:
         size, from_, page = _process_pagination_values(request)
-        field_dictionary = _process_field_values(request)
+        field_dictionary = _process_field_values(request, is_multivalue=is_multivalue)
 
         # Analytics - log search request
         track.emit(
@@ -189,6 +204,7 @@ def course_discovery(request):
             from_=from_,
             field_dictionary=field_dictionary,
             enable_course_sorting_by_start_date=enable_course_sorting_by_start_date,
+            is_multivalue=is_multivalue,
         )
 
         # Analytics - log search results before sending to browser

@@ -3,7 +3,7 @@ Type annotations for sso-oidc service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sso_oidc/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -36,11 +37,6 @@ from .type_defs import (
     StartDeviceAuthorizationResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -51,21 +47,21 @@ __all__ = ("SSOOIDCClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AuthorizationPendingException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ExpiredTokenException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidClientException: Type[BotocoreClientError]
-    InvalidClientMetadataException: Type[BotocoreClientError]
-    InvalidGrantException: Type[BotocoreClientError]
-    InvalidRedirectUriException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidRequestRegionException: Type[BotocoreClientError]
-    InvalidScopeException: Type[BotocoreClientError]
-    SlowDownException: Type[BotocoreClientError]
-    UnauthorizedClientException: Type[BotocoreClientError]
-    UnsupportedGrantTypeException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AuthorizationPendingException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ExpiredTokenException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidClientException: type[BotocoreClientError]
+    InvalidClientMetadataException: type[BotocoreClientError]
+    InvalidGrantException: type[BotocoreClientError]
+    InvalidRedirectUriException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidRequestRegionException: type[BotocoreClientError]
+    InvalidScopeException: type[BotocoreClientError]
+    SlowDownException: type[BotocoreClientError]
+    UnauthorizedClientException: type[BotocoreClientError]
+    UnsupportedGrantTypeException: type[BotocoreClientError]
 
 
 class SSOOIDCClient(BaseClient):

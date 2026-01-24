@@ -1,0 +1,43 @@
+Metadata-Version: 2.4
+Name: databricks-mcp
+Version: 0.6.0
+Summary: MCP helpers for Databricks
+Author-email: Databricks <agent-feedback@databricks.com>
+License: Apache-2.0
+Requires-Python: >=3.10
+Requires-Dist: databricks-ai-bridge>=0.4.2
+Requires-Dist: databricks-sdk>=0.49.0
+Requires-Dist: mcp>=1.13.0
+Requires-Dist: mlflow>=3.1
+Description-Content-Type: text/markdown
+
+# Databricks MCP Library
+
+The `databricks-mcp` package provides useful helpers to integrate MCP Servers in Databricks
+
+## Installation
+
+### From PyPI
+```sh
+pip install databricks-mcp
+```
+
+### From Source
+```sh
+pip install git+https://git@github.com/databricks/databricks-ai-bridge.git#subdirectory=databricks_mcp
+```
+
+## Key Features
+
+- **OAuth Provider**: Enables authentication across Databricks Notebooks, Model Serving, and local environments using the Databricks CLI.
+
+---
+
+## Contribution Guide
+We welcome contributions! Please see our [contribution guidelines](https://github.com/databricks/databricks-ai-bridge/tree/main/mcp) for details.
+
+## License
+This project is licensed under the [MIT License](LICENSE).
+
+Thank you for using MCP Servers on Databricks!
+

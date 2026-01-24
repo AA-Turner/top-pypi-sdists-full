@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import collections.abc
 import functools
 import inspect
@@ -14,6 +13,16 @@ from marshmallow.utils import missing
 
 from webargs.multidictproxy import MultiDictProxy
 
+if typing.TYPE_CHECKING:
+    from webargs._types import (
+        ArgMap,
+        ArgMapCallable,
+        AsyncErrorHandler,
+        CallableList,
+        ErrorHandler,
+        ValidateArg,
+    )
+
 logger = logging.getLogger(__name__)
 
 
@@ -25,26 +34,19 @@ __all__ = [
 ]
 
 
+# a type var for library-provided request types
 Request = typing.TypeVar("Request")
-ArgMapCallable = typing.Callable[[Request], ma.Schema]
-ArgMap = typing.Union[
-    ma.Schema, type[ma.Schema], typing.Mapping[str, ma.fields.Field], ArgMapCallable
-]
-
-ValidateArg = typing.Union[None, typing.Callable, typing.Iterable[typing.Callable]]
-CallableList = list[typing.Callable]
-ErrorHandler = typing.Callable[..., typing.NoReturn]
 # generic type var with no particular meaning
 T = typing.TypeVar("T")
 # type var for callables, to make type-preserving decorators
-C = typing.TypeVar("C", bound=typing.Callable)
+C = typing.TypeVar("C", bound=typing.Callable[..., typing.Any])
+
 # type var for multidict proxy classes
 MultiDictProxyT = typing.TypeVar("MultiDictProxyT", bound=MultiDictProxy)
+
 # type var for a callable which is an error handler
 # used to ensure that the error_handler decorator is type preserving
-ErrorHandlerT = typing.TypeVar("ErrorHandlerT", bound=ErrorHandler)
-
-AsyncErrorHandler = typing.Callable[..., typing.Awaitable[typing.NoReturn]]
+ErrorHandlerT = typing.TypeVar("ErrorHandlerT", bound="ErrorHandler")
 
 
 # a value used as the default for arguments, so that when `None` is passed, it
@@ -117,7 +119,7 @@ def parse_json(s: typing.AnyStr, *, encoding: str = "utf-8") -> typing.Any:
 def _ensure_list_of_callables(obj: typing.Any) -> CallableList:
     if obj:
         if isinstance(obj, (list, tuple)):
-            validators = typing.cast(CallableList, list(obj))
+            validators: CallableList = list(obj)
         elif callable(obj):
             validators = [obj]
         else:
@@ -284,8 +286,8 @@ class Parser(typing.Generic[Request]):
         error.messages = {location: error.messages}
         error_handler = self.error_callback or self.handle_error
         # an async error handler was registered, await it
-        if asyncio.iscoroutinefunction(error_handler):
-            async_error_handler = typing.cast(AsyncErrorHandler, error_handler)
+        if inspect.iscoroutinefunction(error_handler):
+            async_error_handler: AsyncErrorHandler = error_handler
             await async_error_handler(
                 error,
                 req,
@@ -312,7 +314,7 @@ class Parser(typing.Generic[Request]):
                 msg = self.DEFAULT_VALIDATION_MESSAGE
                 raise ValidationError(msg, data=data)
 
-    def _get_schema(self, argmap: ArgMap, req: Request) -> ma.Schema:
+    def _get_schema(self, argmap: ArgMap[Request], req: Request) -> ma.Schema:
         """Return a `marshmallow.Schema` for the given argmap and request.
 
         :param argmap: Either a `marshmallow.Schema`, `dict`
@@ -329,7 +331,7 @@ class Parser(typing.Generic[Request]):
             argmap_dict = argmap if isinstance(argmap, dict) else dict(argmap)
             schema = self.schema_class.from_dict(argmap_dict)()
         elif callable(argmap):
-            argmap_callable = typing.cast(ArgMapCallable, argmap)
+            argmap_callable: ArgMapCallable[Request] = argmap  # type: ignore[assignment]
             schema = argmap_callable(req)
         else:
             raise TypeError(f"argmap was of unexpected type {type(argmap)}")
@@ -337,7 +339,7 @@ class Parser(typing.Generic[Request]):
 
     def _prepare_for_parse(
         self,
-        argmap: ArgMap,
+        argmap: ArgMap[Request],
         req: Request | None = None,
         location: str | None = None,
         unknown: str | None = _UNKNOWN_DEFAULT_PARAM,
@@ -392,7 +394,7 @@ class Parser(typing.Generic[Request]):
 
     def parse(
         self,
-        argmap: ArgMap,
+        argmap: ArgMap[Request],
         req: Request | None = None,
         *,
         location: str | None = None,
@@ -451,7 +453,7 @@ class Parser(typing.Generic[Request]):
 
     async def async_parse(
         self,
-        argmap: ArgMap,
+        argmap: ArgMap[Request],
         req: Request | None = None,
         *,
         location: str | None = None,
@@ -536,7 +538,7 @@ class Parser(typing.Generic[Request]):
 
     def use_args(
         self,
-        argmap: ArgMap,
+        argmap: ArgMap[Request],
         req: Request | None = None,
         *,
         location: str | None = None,
@@ -601,7 +603,7 @@ class Parser(typing.Generic[Request]):
                         "decorators, try setting `arg_name` to distinguish usages."
                     )
 
-            if asyncio.iscoroutinefunction(func):
+            if inspect.iscoroutinefunction(func):
 
                 @functools.wraps(func)
                 async def wrapper(
@@ -657,7 +659,7 @@ class Parser(typing.Generic[Request]):
 
     def use_kwargs(
         self,
-        argmap: ArgMap,
+        argmap: ArgMap[Request],
         req: Request | None = None,
         *,
         location: str | None = None,
@@ -691,7 +693,7 @@ class Parser(typing.Generic[Request]):
             error_headers=error_headers,
         )
 
-    def get_default_arg_name(self, location: str, schema: ArgMap) -> str:
+    def get_default_arg_name(self, location: str, schema: ArgMap[Request]) -> str:
         """This method provides the rule by which an argument name is derived for
         :meth:`use_args` if no explicit ``arg_name`` is provided.
 

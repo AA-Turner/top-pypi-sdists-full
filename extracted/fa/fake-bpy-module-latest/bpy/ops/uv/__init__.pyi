@@ -20,8 +20,6 @@ def align(
 ) -> None:
     """Aligns selected UV vertices on a line
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param axis: Axis, Axis to align UV locations on
 
     ALIGN_S
@@ -41,7 +39,6 @@ def align(
 
     ALIGN_Y
     Align Horizontally -- Align UV vertices on a horizontal line.
-        :type axis: typing.Literal['ALIGN_S','ALIGN_T','ALIGN_U','ALIGN_AUTO','ALIGN_X','ALIGN_Y'] | None
         :param position_mode: Position Mode, Method of calculating the alignment position
 
     MEAN
@@ -52,7 +49,6 @@ def align(
 
     MAX
     Maximum -- Align UVs along the maximum position.
-        :type position_mode: typing.Literal['MEAN','MIN','MAX'] | None
     """
 
 def align_rotation(
@@ -66,8 +62,6 @@ def align_rotation(
 ) -> None:
     """Align the UV islands rotation
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param method: Method, Method to calculate rotation angle
 
     AUTO
@@ -78,7 +72,6 @@ def align_rotation(
 
     GEOMETRY
     Geometry -- Align to Geometry axis.
-        :type method: typing.Literal['AUTO','EDGE','GEOMETRY'] | None
         :param axis: Axis, Axis to align to
 
     X
@@ -89,9 +82,7 @@ def align_rotation(
 
     Z
     Z -- Z axis.
-        :type axis: typing.Literal['X','Y','Z'] | None
         :param correct_aspect: Correct Aspect, Take image aspect ratio into account
-        :type correct_aspect: bool | None
     """
 
 def arrange_islands(
@@ -109,8 +100,6 @@ def arrange_islands(
 ) -> None:
     """Arrange selected UV islands on a line
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param initial_position: Initial Position, Initial position to arrange islands from
 
     BOUNDING_BOX
@@ -124,7 +113,6 @@ def arrange_islands(
 
     CURSOR
     2D Cursor -- Initial alignment based on 2D cursor.
-        :type initial_position: typing.Literal['BOUNDING_BOX','UV_GRID','ACTIVE_UDIM','CURSOR'] | None
         :param axis: Axis, Axis to arrange UV islands on
 
     X
@@ -132,7 +120,6 @@ def arrange_islands(
 
     Y
     Y -- Align UV islands along the Y axis.
-        :type axis: typing.Literal['X','Y'] | None
         :param align: Align, Location to align islands on
 
     MIN
@@ -146,7 +133,6 @@ def arrange_islands(
 
     NONE
     None -- Preserve island alignment.
-        :type align: typing.Literal['MIN','MAX','CENTER','NONE'] | None
         :param order: Order, Order of islands
 
     LARGE_TO_SMALL
@@ -157,9 +143,7 @@ def arrange_islands(
 
     Fixed
     Fixed -- Preserve island order.
-        :type order: typing.Literal['LARGE_TO_SMALL','SMALL_TO_LARGE','Fixed'] | None
         :param margin: Margin, Space between islands
-        :type margin: float | None
     """
 
 def average_islands_scale(
@@ -172,12 +156,8 @@ def average_islands_scale(
 ) -> None:
     """Average the size of separate UV islands, based on their area in 3D space
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param scale_uv: Non-Uniform, Scale U and V independently
-    :type scale_uv: bool | None
     :param shear: Shear, Reduce shear within islands
-    :type shear: bool | None
     """
 
 def copy(
@@ -185,11 +165,7 @@ def copy(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy selected UV vertices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy selected UV vertices"""
 
 def copy_mirrored_faces(
     execution_context: int | str | None = None,
@@ -201,12 +177,8 @@ def copy_mirrored_faces(
 ) -> None:
     """Copy mirror UV coordinates on the X axis based on a mirrored mesh
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Axis Direction
-    :type direction: typing.Literal['POSITIVE','NEGATIVE'] | None
     :param precision: Precision, Tolerance for finding vertex duplicates
-    :type precision: int | None
     """
 
 def cube_project(
@@ -221,16 +193,10 @@ def cube_project(
 ) -> None:
     """Project the UV vertices of the mesh over the six faces of a cube
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param cube_size: Cube Size, Size of the cube to project on
-    :type cube_size: float | None
     :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
-    :type correct_aspect: bool | None
     :param clip_to_bounds: Clip to Bounds, Clip UV coordinates to bounds after unwrapping
-    :type clip_to_bounds: bool | None
     :param scale_to_bounds: Scale to Bounds, Scale UV coordinates to bounds after unwrapping
-    :type scale_to_bounds: bool | None
     """
 
 def cursor_set(
@@ -242,10 +208,7 @@ def cursor_set(
 ) -> None:
     """Set 2D cursor location
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param location: Location, Cursor location in normalized (0.0 to 1.0) coordinates
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def custom_region_set(
@@ -261,18 +224,11 @@ def custom_region_set(
 ) -> None:
     """Set the boundaries of the user region
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param xmin: X Min
-    :type xmin: int | None
     :param xmax: X Max
-    :type xmax: int | None
     :param ymin: Y Min
-    :type ymin: int | None
     :param ymax: Y Max
-    :type ymax: int | None
     :param wait_for_input: Wait for Input
-    :type wait_for_input: bool | None
     """
 
 def cylinder_project(
@@ -292,8 +248,6 @@ def cylinder_project(
 ) -> None:
     """Project the UV vertices of the mesh over the curved wall of a cylinder
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param direction: Direction, Direction of the sphere or cylinder
 
     VIEW_ON_EQUATOR
@@ -304,7 +258,6 @@ def cylinder_project(
 
     ALIGN_TO_OBJECT
     Align to Object -- Align according to object transform.
-        :type direction: typing.Literal['VIEW_ON_EQUATOR','VIEW_ON_POLES','ALIGN_TO_OBJECT'] | None
         :param align: Align, How to determine rotation around the pole
 
     POLAR_ZX
@@ -312,7 +265,6 @@ def cylinder_project(
 
     POLAR_ZY
     Polar ZY -- Polar 0 is Y.
-        :type align: typing.Literal['POLAR_ZX','POLAR_ZY'] | None
         :param pole: Pole, How to handle faces at the poles
 
     PINCH
@@ -320,17 +272,11 @@ def cylinder_project(
 
     FAN
     Fan -- UVs are fanned at the poles.
-        :type pole: typing.Literal['PINCH','FAN'] | None
         :param seam: Preserve Seams, Separate projections by islands isolated by seams
-        :type seam: bool | None
         :param radius: Radius, Radius of the sphere or cylinder
-        :type radius: float | None
         :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
-        :type correct_aspect: bool | None
         :param clip_to_bounds: Clip to Bounds, Clip UV coordinates to bounds after unwrapping
-        :type clip_to_bounds: bool | None
         :param scale_to_bounds: Scale to Bounds, Scale UV coordinates to bounds after unwrapping
-        :type scale_to_bounds: bool | None
     """
 
 def export_layout(
@@ -349,12 +295,8 @@ def export_layout(
 ) -> None:
     """Export UV layout to file
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param filepath: filepath
-        :type filepath: str
         :param export_all: All UVs, Export all UVs in this mesh (not just visible ones)
-        :type export_all: bool | None
         :param export_tiles: Export Tiles, Choose whether to export only the [0, 1] range, or all UV tiles
 
     NONE
@@ -365,9 +307,7 @@ def export_layout(
 
     UV
     UVTILE -- Export tiles in the UVTILE numbering scheme: u(u_tile + 1)_v(v_tile + 1).
-        :type export_tiles: typing.Literal['NONE','UDIM','UV'] | None
         :param modified: Modified, Exports UVs from the modified mesh
-        :type modified: bool | None
         :param mode: Format, File format to export the UV layout to
 
     SVG
@@ -378,13 +318,9 @@ def export_layout(
 
     PNG
     PNG Image (.png) -- Export the UV layout to a bitmap image.
-        :type mode: typing.Literal['SVG','EPS','PNG'] | None
         :param size: Size, Dimensions of the exported file
-        :type size: collections.abc.Iterable[int] | None
         :param opacity: Fill Opacity, Set amount of opacity for exported UV layout
-        :type opacity: float | None
         :param check_existing: check_existing
-        :type check_existing: bool | None
     """
 
 def follow_active_quads(
@@ -396,8 +332,6 @@ def follow_active_quads(
 ) -> None:
     """Follow UVs from active quads along continuous face loops
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param mode: Edge Length Mode, Method to space UV edge loops
 
     EVEN
@@ -408,7 +342,6 @@ def follow_active_quads(
 
     LENGTH_AVERAGE
     Length Average -- Average space UVs edge length of each loop.
-        :type mode: typing.Literal['EVEN','LENGTH','LENGTH_AVERAGE'] | None
     """
 
 def hide(
@@ -420,10 +353,7 @@ def hide(
 ) -> None:
     """Hide (un)selected UV vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param unselected: Unselected, Hide unselected rather than selected
-    :type unselected: bool | None
     """
 
 def lightmap_pack(
@@ -439,8 +369,6 @@ def lightmap_pack(
 ) -> None:
     """Pack each faces UVs into the UV bounds
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param PREF_CONTEXT: Selection
 
     SEL_FACES
@@ -448,15 +376,10 @@ def lightmap_pack(
 
     ALL_FACES
     All Faces -- Average space UVs edge length of each loop.
-        :type PREF_CONTEXT: typing.Literal['SEL_FACES','ALL_FACES'] | None
         :param PREF_PACK_IN_ONE: Share Texture Space, Objects share texture space, map all objects into a single UV map
-        :type PREF_PACK_IN_ONE: bool | None
         :param PREF_NEW_UVLAYER: New UV Map, Create a new UV map for every mesh packed
-        :type PREF_NEW_UVLAYER: bool | None
         :param PREF_BOX_DIV: Pack Quality, Quality of the packing. Higher values will be slower but waste less space
-        :type PREF_BOX_DIV: int | None
         :param PREF_MARGIN_DIV: Margin, Size of the margin as a division of the UV
-        :type PREF_MARGIN_DIV: float | None
     """
 
 def mark_seam(
@@ -468,10 +391,7 @@ def mark_seam(
 ) -> None:
     """Mark selected UV edges as seams
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param clear: Clear Seams, Clear instead of marking seams
-    :type clear: bool | None
     """
 
 def minimize_stretch(
@@ -485,14 +405,40 @@ def minimize_stretch(
 ) -> None:
     """Reduce UV stretching by relaxing angles
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param fill_holes: Fill Holes, Virtually fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry
-    :type fill_holes: bool | None
     :param blend: Blend, Blend factor between stretch minimized and original
-    :type blend: float | None
     :param iterations: Iterations, Number of iterations to run, 0 is unlimited when run interactively
-    :type iterations: int | None
+    """
+
+def move_on_axis(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    type: typing.Literal["DYNAMIC", "PIXEL", "UDIM"] | None = "UDIM",
+    axis: typing.Literal["X", "Y"] | None = "X",
+    distance: int | None = 1,
+) -> None:
+    """Move UVs on an axis
+
+        :param type: Type, Move Type
+
+    DYNAMIC
+    Dynamic -- Move by dynamic grid.
+
+    PIXEL
+    Pixel -- Move by pixel.
+
+    UDIM
+    UDIM -- Move by UDIM.
+        :param axis: Axis, Axis to move UVs on
+
+    X
+    X axis -- Move vertices on the X axis.
+
+    Y
+    Y axis -- Move vertices on the Y axis.
+        :param distance: Distance, Distance to move UVs
     """
 
 def pack_islands(
@@ -520,8 +466,6 @@ def pack_islands(
 ) -> None:
     """Transform all islands so that they fill up the UV/UDIM space as much as possible
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param udim_source: Pack to
 
     CLOSEST_UDIM
@@ -535,9 +479,7 @@ def pack_islands(
 
     CUSTOM_REGION
     Custom Region -- Pack islands to custom region.
-        :type udim_source: typing.Literal['CLOSEST_UDIM','ACTIVE_UDIM','ORIGINAL_AABB','CUSTOM_REGION'] | None
         :param rotate: Rotate, Rotate islands to improve layout
-        :type rotate: bool | None
         :param rotate_method: Rotation Method
 
     ANY
@@ -554,11 +496,8 @@ def pack_islands(
 
     AXIS_ALIGNED_Y
     Axis-aligned (Vertical) -- Rotate islands to be aligned vertically.
-        :type rotate_method: typing.Literal['ANY','CARDINAL','AXIS_ALIGNED','AXIS_ALIGNED_X','AXIS_ALIGNED_Y'] | None
         :param scale: Scale, Scale islands to fill unit square
-        :type scale: bool | None
         :param merge_overlap: Merge Overlapping, Overlapping islands stick together
-        :type merge_overlap: bool | None
         :param margin_method: Margin Method
 
     SCALED
@@ -569,11 +508,8 @@ def pack_islands(
 
     FRACTION
     Fraction -- Specify a precise fraction of final UV output.
-        :type margin_method: typing.Literal['SCALED','ADD','FRACTION'] | None
         :param margin: Margin, Space between islands
-        :type margin: float | None
         :param pin: Lock Pinned Islands, Constrain islands containing any pinned UVs
-        :type pin: bool | None
         :param pin_method: Pin Method
 
     SCALE
@@ -587,7 +523,6 @@ def pack_islands(
 
     LOCKED
     All -- Pinned islands are locked in place.
-        :type pin_method: typing.Literal['SCALE','ROTATION','ROTATION_SCALE','LOCKED'] | None
         :param shape_method: Shape Method
 
     CONCAVE
@@ -598,7 +533,6 @@ def pack_islands(
 
     AABB
     Bounding Box -- Uses bounding boxes.
-        :type shape_method: typing.Literal['CONCAVE','CONVEX','AABB'] | None
     """
 
 def paste(
@@ -606,11 +540,7 @@ def paste(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste selected UV vertices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste selected UV vertices"""
 
 def pin(
     execution_context: int | str | None = None,
@@ -622,12 +552,8 @@ def pin(
 ) -> None:
     """Set/clear selected UV vertices as anchored between multiple unwrap operations
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param clear: Clear, Clear pinning for the selection instead of setting it
-    :type clear: bool | None
     :param invert: Invert, Invert pinning for the selection instead of setting it
-    :type invert: bool | None
     """
 
 def project_from_view(
@@ -643,18 +569,11 @@ def project_from_view(
 ) -> None:
     """Project the UV vertices of the mesh as seen in current 3D view
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param orthographic: Orthographic, Use orthographic projection
-    :type orthographic: bool | None
     :param camera_bounds: Camera Bounds, Map UVs to the camera region taking resolution and aspect into account
-    :type camera_bounds: bool | None
     :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
-    :type correct_aspect: bool | None
     :param clip_to_bounds: Clip to Bounds, Clip UV coordinates to bounds after unwrapping
-    :type clip_to_bounds: bool | None
     :param scale_to_bounds: Scale to Bounds, Scale UV coordinates to bounds after unwrapping
-    :type scale_to_bounds: bool | None
     """
 
 def randomize_uv_transform(
@@ -673,24 +592,14 @@ def randomize_uv_transform(
 ) -> None:
     """Randomize the UV islands location, rotation, and scale
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param random_seed: Random Seed, Seed value for the random generator
-    :type random_seed: int | None
     :param use_loc: Randomize Location, Randomize the location values
-    :type use_loc: bool | None
     :param loc: Location, Maximum distance the objects can spread over each axis
-    :type loc: collections.abc.Sequence[float] | mathutils.Vector | None
     :param use_rot: Randomize Rotation, Randomize the rotation value
-    :type use_rot: bool | None
     :param rot: Rotation, Maximum rotation
-    :type rot: float | None
     :param use_scale: Randomize Scale, Randomize the scale values
-    :type use_scale: bool | None
     :param scale_even: Scale Even, Use the same scale value for both axes
-    :type scale_even: bool | None
     :param scale: Scale, Maximum scale randomization over each axis
-    :type scale: collections.abc.Iterable[float] | None
     """
 
 def remove_doubles(
@@ -704,14 +613,9 @@ def remove_doubles(
 ) -> None:
     """Selected UV vertices that are within a radius of each other are welded together
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param threshold: Merge Distance, Maximum distance between welded vertices
-    :type threshold: float | None
     :param use_unselected: Unselected, Merge selected to other unselected vertices
-    :type use_unselected: bool | None
     :param use_shared_vertex: Shared Vertex, Weld UVs based on shared vertices
-    :type use_shared_vertex: bool | None
     """
 
 def reset(
@@ -719,11 +623,7 @@ def reset(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Reset UV projection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Reset UV projection"""
 
 def reveal(
     execution_context: int | str | None = None,
@@ -734,10 +634,7 @@ def reveal(
 ) -> None:
     """Reveal all hidden UV vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param select: Select
-    :type select: bool | None
     """
 
 def rip(
@@ -752,16 +649,10 @@ def rip(
 ) -> None:
     """Rip selected vertices or a selected region
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mirror: Mirror Editing
-    :type mirror: bool | None
     :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :type release_confirm: bool | None
     :param use_accurate: Accurate, Use accurate transformation
-    :type use_accurate: bool | None
     :param location: Location, Mouse location in normalized coordinates, 0.0 to 1.0 is within the image bounds
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def rip_move(
@@ -774,12 +665,8 @@ def rip_move(
 ) -> None:
     """Unstitch UVs and move the result
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param UV_OT_rip: UV Rip, Rip selected vertices or a selected region
-    :type UV_OT_rip: rip | None
     :param TRANSFORM_OT_translate: Move, Move selected items
-    :type TRANSFORM_OT_translate: bpy.ops.transform.translate | None
     """
 
 def seams_from_islands(
@@ -792,12 +679,8 @@ def seams_from_islands(
 ) -> None:
     """Set mesh seams according to island setup in the UV editor
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param mark_seams: Mark Seams, Mark boundary edges as seams
-    :type mark_seams: bool | None
     :param mark_sharp: Mark Sharp, Mark boundary edges as sharp
-    :type mark_sharp: bool | None
     """
 
 def select(
@@ -814,20 +697,12 @@ def select(
 ) -> None:
     """Select UV vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection instead of deselecting everything first
-    :type extend: bool | None
     :param deselect: Deselect, Remove from selection
-    :type deselect: bool | None
     :param toggle: Toggle Selection, Toggle the selection
-    :type toggle: bool | None
     :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :type deselect_all: bool | None
     :param select_passthrough: Only Select Unselected, Ignore the select action when the element is already selected
-    :type select_passthrough: bool | None
     :param location: Location, Mouse location in normalized coordinates, 0.0 to 1.0 is within the image bounds
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def select_all(
@@ -839,8 +714,6 @@ def select_all(
 ) -> None:
     """Change selection of all UV vertices
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param action: Action, Selection action to execute
 
     TOGGLE
@@ -854,7 +727,6 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
-        :type action: typing.Literal['TOGGLE','SELECT','DESELECT','INVERT'] | None
     """
 
 def select_box(
@@ -872,20 +744,12 @@ def select_box(
 ) -> None:
     """Select UV vertices using box selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param pinned: Pinned, Border select pinned UVs only
-        :type pinned: bool | None
         :param xmin: X Min
-        :type xmin: int | None
         :param xmax: X Max
-        :type xmax: int | None
         :param ymin: Y Min
-        :type ymin: int | None
         :param ymax: Y Max
-        :type ymax: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -896,7 +760,6 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_circle(
@@ -912,16 +775,10 @@ def select_circle(
 ) -> None:
     """Select UV vertices using circle selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param x: X
-        :type x: int | None
         :param y: Y
-        :type y: int | None
         :param radius: Radius
-        :type radius: int | None
         :param wait_for_input: Wait for Input
-        :type wait_for_input: bool | None
         :param mode: Mode
 
     SET
@@ -932,7 +789,6 @@ def select_circle(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_edge_ring(
@@ -945,12 +801,8 @@ def select_edge_ring(
 ) -> None:
     """Select an edge ring of connected UV vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection rather than clearing the existing selection
-    :type extend: bool | None
     :param location: Location, Mouse location in normalized coordinates, 0.0 to 1.0 is within the image bounds
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def select_lasso(
@@ -966,16 +818,10 @@ def select_lasso(
 ) -> None:
     """Select UVs using lasso selection
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param path: Path
-        :type path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :type use_smooth_stroke: bool | None
         :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :type smooth_stroke_factor: float | None
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :type smooth_stroke_radius: int | None
         :param mode: Mode
 
     SET
@@ -986,7 +832,6 @@ def select_lasso(
 
     SUB
     Subtract -- Subtract existing selection.
-        :type mode: typing.Literal['SET','ADD','SUB'] | None
     """
 
 def select_less(
@@ -994,22 +839,14 @@ def select_less(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Deselect UV vertices at the boundary of each selection region
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Deselect UV vertices at the boundary of each selection region"""
 
 def select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all UV vertices linked to the active UV map
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all UV vertices linked to the active UV map"""
 
 def select_linked_pick(
     execution_context: int | str | None = None,
@@ -1022,14 +859,9 @@ def select_linked_pick(
 ) -> None:
     """Select all UV vertices linked under the mouse
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection rather than clearing the existing selection
-    :type extend: bool | None
     :param deselect: Deselect, Deselect linked UV vertices rather than selecting them
-    :type deselect: bool | None
     :param location: Location, Mouse location in normalized coordinates, 0.0 to 1.0 is within the image bounds
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def select_loop(
@@ -1042,12 +874,8 @@ def select_loop(
 ) -> None:
     """Select a loop of connected UV vertices
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection rather than clearing the existing selection
-    :type extend: bool | None
     :param location: Location, Mouse location in normalized coordinates, 0.0 to 1.0 is within the image bounds
-    :type location: collections.abc.Sequence[float] | mathutils.Vector | None
     """
 
 def select_mode(
@@ -1059,10 +887,7 @@ def select_mode(
 ) -> None:
     """Change UV selection mode
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.MeshSelectModeUvItems | None
     """
 
 def select_more(
@@ -1070,11 +895,7 @@ def select_more(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select more UV vertices connected to initial selection
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select more UV vertices connected to initial selection"""
 
 def select_overlap(
     execution_context: int | str | None = None,
@@ -1085,10 +906,7 @@ def select_overlap(
 ) -> None:
     """Select all UV faces which overlap each other
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param extend: Extend, Extend selection rather than clearing the existing selection
-    :type extend: bool | None
     """
 
 def select_pinned(
@@ -1096,11 +914,7 @@ def select_pinned(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select all pinned UV vertices
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Select all pinned UV vertices"""
 
 def select_similar(
     execution_context: int | str | None = None,
@@ -1125,8 +939,6 @@ def select_similar(
 ) -> None:
     """Select similar UVs by property types
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     PIN
@@ -1158,11 +970,8 @@ def select_similar(
 
     FACE
     Amount of Faces in Island.
-        :type type: typing.Literal['PIN','LENGTH','LENGTH_3D','AREA','AREA_3D','MATERIAL','OBJECT','SIDES','WINDING','FACE'] | None
         :param compare: Compare
-        :type compare: typing.Literal['EQUAL','GREATER','LESS'] | None
         :param threshold: Threshold
-        :type threshold: float | None
     """
 
 def select_split(
@@ -1170,10 +979,20 @@ def select_split(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Select only entirely selected faces
+    """Select only entirely selected faces"""
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
+def select_tile(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    extend: bool | None = False,
+    tile: collections.abc.Iterable[int] | None = (0, 0),
+) -> None:
+    """Select UVs in specified tile
+
+    :param extend: Extend, Extend the selection
+    :param tile: Tile, Tile location to select UVs
     """
 
 def shortest_path_pick(
@@ -1192,22 +1011,12 @@ def shortest_path_pick(
 ) -> None:
     """Select shortest path between two selections
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings)
-    :type use_face_step: bool | None
     :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance
-    :type use_topology_distance: bool | None
     :param use_fill: Fill Region, Select all paths between the source/destination elements
-    :type use_fill: bool | None
     :param skip: Deselected, Number of deselected elements in the repetitive sequence
-    :type skip: int | None
     :param nth: Selected, Number of selected elements in the repetitive sequence
-    :type nth: int | None
     :param offset: Offset, Offset from the starting point
-    :type offset: int | None
-    :type object_index: int | None
-    :type index: int | None
     """
 
 def shortest_path_select(
@@ -1224,20 +1033,12 @@ def shortest_path_select(
 ) -> None:
     """Selected shortest path between two vertices/edges/faces
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings)
-    :type use_face_step: bool | None
     :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance
-    :type use_topology_distance: bool | None
     :param use_fill: Fill Region, Select all paths between the source/destination elements
-    :type use_fill: bool | None
     :param skip: Deselected, Number of deselected elements in the repetitive sequence
-    :type skip: int | None
     :param nth: Selected, Number of selected elements in the repetitive sequence
-    :type nth: int | None
     :param offset: Offset, Offset from the starting point
-    :type offset: int | None
     """
 
 def smart_project(
@@ -1256,10 +1057,7 @@ def smart_project(
 ) -> None:
     """Projection unwraps the selected faces of mesh objects
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param angle_limit: Angle Limit, Lower for more projection groups, higher for less distortion
-        :type angle_limit: float | None
         :param margin_method: Margin Method
 
     SCALED
@@ -1270,7 +1068,6 @@ def smart_project(
 
     FRACTION
     Fraction -- Specify a precise fraction of final UV output.
-        :type margin_method: typing.Literal['SCALED','ADD','FRACTION'] | None
         :param rotate_method: Rotation Method
 
     AXIS_ALIGNED
@@ -1281,15 +1078,10 @@ def smart_project(
 
     AXIS_ALIGNED_Y
     Axis-aligned (Vertical) -- Rotate islands to be aligned vertically.
-        :type rotate_method: typing.Literal['AXIS_ALIGNED','AXIS_ALIGNED_X','AXIS_ALIGNED_Y'] | None
         :param island_margin: Island Margin, Margin to reduce bleed from adjacent islands
-        :type island_margin: float | None
         :param area_weight: Area Weight, Weight projections vector by faces with larger areas
-        :type area_weight: float | None
         :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
-        :type correct_aspect: bool | None
         :param scale_to_bounds: Scale to Bounds, Scale UV coordinates to bounds after unwrapping
-        :type scale_to_bounds: bool | None
     """
 
 def snap_cursor(
@@ -1301,10 +1093,7 @@ def snap_cursor(
 ) -> None:
     """Snap cursor to target type
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param target: Target, Target to snap the selected UVs to
-    :type target: typing.Literal['PIXELS','SELECTED','ORIGIN'] | None
     """
 
 def snap_selected(
@@ -1317,10 +1106,7 @@ def snap_selected(
 ) -> None:
     """Snap selected UV vertices to target type
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param target: Target, Target to snap the selected UVs to
-    :type target: typing.Literal['PIXELS','CURSOR','CURSOR_OFFSET','ADJACENT_UNSELECTED'] | None
     """
 
 def sphere_project(
@@ -1339,8 +1125,6 @@ def sphere_project(
 ) -> None:
     """Project the UV vertices of the mesh over the curved surface of a sphere
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param direction: Direction, Direction of the sphere or cylinder
 
     VIEW_ON_EQUATOR
@@ -1351,7 +1135,6 @@ def sphere_project(
 
     ALIGN_TO_OBJECT
     Align to Object -- Align according to object transform.
-        :type direction: typing.Literal['VIEW_ON_EQUATOR','VIEW_ON_POLES','ALIGN_TO_OBJECT'] | None
         :param align: Align, How to determine rotation around the pole
 
     POLAR_ZX
@@ -1359,7 +1142,6 @@ def sphere_project(
 
     POLAR_ZY
     Polar ZY -- Polar 0 is Y.
-        :type align: typing.Literal['POLAR_ZX','POLAR_ZY'] | None
         :param pole: Pole, How to handle faces at the poles
 
     PINCH
@@ -1367,15 +1149,10 @@ def sphere_project(
 
     FAN
     Fan -- UVs are fanned at the poles.
-        :type pole: typing.Literal['PINCH','FAN'] | None
         :param seam: Preserve Seams, Separate projections by islands isolated by seams
-        :type seam: bool | None
         :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
-        :type correct_aspect: bool | None
         :param clip_to_bounds: Clip to Bounds, Clip UV coordinates to bounds after unwrapping
-        :type clip_to_bounds: bool | None
         :param scale_to_bounds: Scale to Bounds, Scale UV coordinates to bounds after unwrapping
-        :type scale_to_bounds: bool | None
     """
 
 def stitch(
@@ -1397,30 +1174,17 @@ def stitch(
 ) -> None:
     """Stitch selected UV vertices by proximity
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param use_limit: Use Limit, Stitch UVs within a specified limit distance
-    :type use_limit: bool | None
     :param snap_islands: Snap Islands, Snap islands together (on edge stitch mode, rotates the islands too)
-    :type snap_islands: bool | None
     :param limit: Limit, Limit distance in normalized coordinates
-    :type limit: float | None
     :param static_island: Static Island, Island that stays in place when stitching islands
-    :type static_island: int | None
     :param active_object_index: Active Object, Index of the active object
-    :type active_object_index: int | None
     :param midpoint_snap: Snap at Midpoint, UVs are stitched at midpoint instead of at static island
-    :type midpoint_snap: bool | None
     :param clear_seams: Clear Seams, Clear seams of stitched edges
-    :type clear_seams: bool | None
     :param mode: Operation Mode, Use vertex or edge stitching
-    :type mode: typing.Literal['VERTEX','EDGE'] | None
     :param stored_mode: Stored Operation Mode, Use vertex or edge stitching
-    :type stored_mode: typing.Literal['VERTEX','EDGE'] | None
     :param selection: Selection
-    :type selection: bpy.types.bpy_prop_collection[bpy.types.SelectedUvElement] | None
     :param objects_selection_count: Objects Selection Count
-    :type objects_selection_count: collections.abc.Iterable[int] | None
     """
 
 def unwrap(
@@ -1443,16 +1207,10 @@ def unwrap(
 ) -> None:
     """Unwrap the mesh of the object being edited
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param method: Method, Unwrapping method (Angle Based usually gives better results than Conformal, while being somewhat slower)
-        :type method: typing.Literal['ANGLE_BASED','CONFORMAL','MINIMUM_STRETCH'] | None
         :param fill_holes: Fill Holes, Virtually fill holes in mesh before unwrapping, to better avoid overlaps and preserve symmetry
-        :type fill_holes: bool | None
         :param correct_aspect: Correct Aspect, Map UVs taking aspect ratio of the image associated with the material into account
-        :type correct_aspect: bool | None
         :param use_subsurf_data: Use Subdivision Surface, Map UVs taking vertex position after Subdivision Surface modifier has been applied
-        :type use_subsurf_data: bool | None
         :param margin_method: Margin Method
 
     SCALED
@@ -1463,19 +1221,12 @@ def unwrap(
 
     FRACTION
     Fraction -- Specify a precise fraction of final UV output.
-        :type margin_method: typing.Literal['SCALED','ADD','FRACTION'] | None
         :param margin: Margin, Space between islands
-        :type margin: float | None
         :param no_flip: No Flip, Prevent flipping UVs, flipping may lower distortion depending on the position of pins
-        :type no_flip: bool | None
         :param iterations: Iterations, Number of iterations when "Minimum Stretch" method is used
-        :type iterations: int | None
         :param use_weights: Importance Weights, Whether to take into account per-vertex importance weights
-        :type use_weights: bool | None
         :param weight_group: Weight Group, Vertex group name for importance weights (modulating the deform)
-        :type weight_group: str
         :param weight_factor: Weight Factor, How much influence the weightmap has for weighted parameterization, 0 being no influence
-        :type weight_factor: float | None
     """
 
 def weld(
@@ -1483,8 +1234,4 @@ def weld(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Weld selected UV vertices together
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Weld selected UV vertices together"""

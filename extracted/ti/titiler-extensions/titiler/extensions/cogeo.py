@@ -1,8 +1,9 @@
 """rio-cogeo Extension."""
 
+from typing import Annotated
+
 from attrs import define
 from fastapi import Depends, Query
-from typing_extensions import Annotated
 
 from titiler.core.factory import FactoryExtension, TilerFactory
 from titiler.core.resources.responses import JSONResponse
@@ -12,14 +13,14 @@ try:
     from rio_cogeo.models import Info
 except ImportError:  # pragma: nocover
     cog_info = None  # type: ignore
-    Info = None
+    Info = None  # type: ignore
 
 
 @define
 class cogValidateExtension(FactoryExtension):
     """Add /validate endpoint to a COG TilerFactory."""
 
-    def register(self, factory: TilerFactory):
+    def register(self, factory: TilerFactory):  # type: ignore [override]
         """Register endpoint to the tiler factory."""
 
         assert (

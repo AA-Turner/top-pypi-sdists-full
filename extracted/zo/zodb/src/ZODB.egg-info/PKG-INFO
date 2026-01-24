@@ -1,25 +1,22 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: ZODB
-Version: 6.0.1
-Summary: ZODB, a Python object-oriented database
-Home-page: http://zodb-docs.readthedocs.io
-Author: Jim Fulton
-Author-email: jim@zope.com
-Maintainer: Zope Foundation and Contributors
-Maintainer-email: zodb-dev@zope.dev
-License: ZPL 2.1
-Keywords: database nosql python zope
-Platform: any
+Version: 6.2
+Author-email: Jim Fulton <jim@zope.com>
+Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
+License-Expression: ZPL-2.1
+Project-URL: Documentation, http://zodb-docs.readthedocs.io
+Project-URL: Issues, https://github.com/zopefoundation/ZODB/issues
+Project-URL: Source, https://github.com/zopefoundation/ZODB
+Project-URL: Changelog, https://github.com/zopefoundation/ZODB/blob/master/CHANGES.rst
+Keywords: database,nosql,python,zope
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
@@ -27,7 +24,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Framework :: ZODB
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 License-File: COPYING
@@ -48,21 +45,7 @@ Requires-Dist: ZODB; extra == "docs"
 Requires-Dist: j1m.sphinxautozconfig; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: sphinxcontrib_zopeext; extra == "docs"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Dynamic: license-file
 
 =======================================
 ZODB, a Python object-oriented database
@@ -113,23 +96,42 @@ If you're interested in contributing to ZODB itself, see the
 `developer notes
 <https://github.com/zopefoundation/ZODB/blob/master/DEVELOPERS.rst>`_.
 
-
 ================
  Change History
 ================
 
+6.2 (2026-01-23)
+================
+
+- Move package metadata from setup.py to pyproject.toml.
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
+
+6.1 (2025-10-01)
+================
+
+- Add support for Python 3.13.
+
+- Drop support for Python 3.7 and 3.8.
+
+
 6.0.1 (2025-04-13)
 ==================
 
- - repozo: fix restoring on stdout.
+- repozo: fix restoring on stdout.
 
- - repozo: prevent an incorrect "option ignored" warning when running backup or verify.
+- repozo: prevent an incorrect "option ignored" warning when running backup
+  or verify.
 
- - FileStorage: fix `restore` regression introduced in ZODB 6.0 in `#395
-   <https://github.com/zopefoundation/ZODB/pull/395>`_: when restoring data
-   records with undo the `restore` was no longer emitting backpointers and was
-   emitting duplicate data copies instead. `#409 <https://github.com/zopefoundation/ZODB/pull/409>`_
-   fixes `restore` back to emit data records with backpointers for undo again.
+- FileStorage: fix `restore` regression introduced in ZODB 6.0 in `#395
+  <https://github.com/zopefoundation/ZODB/pull/395>`_: when restoring data
+  records with undo the `restore` was no longer emitting backpointers and was
+  emitting duplicate data copies instead.
+  `#409 <https://github.com/zopefoundation/ZODB/pull/409>`_
+  fixes `restore` back to emit data records with backpointers for undo again.
 
 
 6.0 (2024-03-20)
@@ -141,7 +143,8 @@ If you're interested in contributing to ZODB itself, see the
 
 - Fix sorting issue in ``scripts/space.py``.
 
-- FileStorage: fix a rare data corruption when using restore after multiple undos.
+- FileStorage: fix a rare data corruption when using restore after multiple
+  undos.
   For details see `#395 <https://github.com/zopefoundation/ZODB/pull/395>`_.
 
 - Fix exit code of ``repozo`` script in case of verification error.

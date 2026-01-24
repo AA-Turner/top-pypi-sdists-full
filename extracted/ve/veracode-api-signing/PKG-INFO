@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: veracode-api-signing
-Version: 25.8.0
+Version: 26.1.0
 Summary: Easily sign any request destined for the Veracode API Gateway
 Home-page: https://docs.veracode.com/r/t_install_api_authen
 Author: Veracode
@@ -25,7 +25,7 @@ Requires-Python: >=3.9
 License-File: LICENSE
 Requires-Dist: docopt>=0.6.2
 Requires-Dist: httpie>=3.2.4
-Requires-Dist: pip>=23.3
+Requires-Dist: pip>=25.3
 Requires-Dist: requests>=2.27.1
 Requires-Dist: setuptools>=70.0.0
 Dynamic: author

@@ -1,0 +1,61 @@
+[build-system]
+build-backend = "pdm.pep517.api"
+requires = [
+    "pdm-pep517>=1.0.0",
+]
+
+[project]
+authors = [
+    { name = "Andy Qin", email = "dr.qin@protonmail.com" },
+]
+dependencies = [
+    "madoka>=0.7.1",
+]
+description = "Pond is a high performance object-pooling library for Python."
+name = "pondpond"
+readme = "README.md"
+requires-python = ">=3.8"
+version = "1.4.1"
+
+[project.license]
+file = "LICENSE"
+
+[project.urls]
+Blog = "https://qin.news"
+"Bug Tracker" = "https://github.com/t-baby/pond/issues"
+Homepage = "https://github.com/t-baby/pond"
+
+[project.optional-dependencies]
+
+[tool.pdm.build]
+excludes = [
+    "/tests",
+]
+includes = [
+    "pond/*.py",
+    "pond/*.typed",
+    "pond-stubs/*.pyi",
+]
+source-includes = [
+    "tests/",
+]
+
+[tool.pdm.dev-dependencies]
+dev = [
+    "pytest>=7.2.0",
+    "pytest-ordering>=0.6",
+    "pytest-asyncio>=0.20.1",
+    "pytest-cov>=4.0.0",
+    "black>=22.10.0",
+    "mypy>=0.990",
+    "isort>=5.10.1",
+]
+
+[tool.pdm.scripts.format]
+shell = "black . && isort . && mypy . --config-file mypy.ini"
+
+[tool.pdm.scripts.test]
+shell = "pytest -s ./tests"
+
+[tool.pdm.scripts.stubgen]
+shell = "rm -r ./pond-stubs && stubgen ./pond -o ./out && cp -r ./out/pond ./pond-stubs && rm -r ./out"

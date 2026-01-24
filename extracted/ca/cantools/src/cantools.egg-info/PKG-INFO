@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cantools
-Version: 40.6.0
+Version: 41.0.2
 Summary: CAN BUS tools.
 Author-email: Erik Moqvist <erik.moqvist@gmail.com>
 License: MIT
@@ -9,7 +9,7 @@ Project-URL: documentation, https://cantools.readthedocs.io/
 Project-URL: repository, https://github.com/cantools/cantools
 Keywords: can,can bus,arxml,dbc,kcd,automotive
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: bitstruct>=8.16.1

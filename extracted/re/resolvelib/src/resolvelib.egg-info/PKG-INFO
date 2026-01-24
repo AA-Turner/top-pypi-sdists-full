@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: resolvelib
-Version: 1.2.0
+Version: 1.2.1
 Summary: Resolve abstract dependencies into concrete ones
 Author-email: Tzu-ping Chung <uranusjr@gmail.com>
 License: ISC License

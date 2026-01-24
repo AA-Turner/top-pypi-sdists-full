@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "podman"
 # TODO: remove the line version = ... on podman-py > 5.4.0 releases
 # dynamic = ["version"]
-version = "5.6.0"
+version = "5.7.0"
 description = "Bindings for Podman RESTful API"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -141,19 +141,13 @@ module = [
     "podman.domain.config",
     "podman.domain.containers",
     "podman.domain.containers_create",
-    "podman.domain.containers_run",
     "podman.domain.events",
     "podman.domain.images_build",
     "podman.domain.images_manager",
     "podman.domain.manager",
     "podman.domain.manifests",
-    "podman.domain.networks",
-    "podman.domain.networks_manager",
-    "podman.domain.pods",
     "podman.domain.pods_manager",
     "podman.domain.registry_data",
-    "podman.domain.secrets",
-    "podman.domain.volumes",
     "podman.errors.exceptions"
 ]
 ignore_errors = true

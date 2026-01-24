@@ -5,7 +5,6 @@ import sys
 from enum import (
     Enum,
 )
-from typing import Union
 
 #########################################################################################################################
 # NOTE ON LIBEDIT:
@@ -25,11 +24,11 @@ from typing import Union
 
 # Prefer statically linked gnureadline if installed due to compatibility issues with libedit
 try:
-    import gnureadline as readline  # type: ignore[import]
+    import gnureadline as readline  # type: ignore[import-not-found]
 except ImportError:
     # Note: If this actually fails, you should install gnureadline on Linux/Mac or pyreadline3 on Windows.
     with contextlib.suppress(ImportError):
-        import readline  # type: ignore[no-redef]
+        import readline
 
 
 class RlType(Enum):
@@ -133,7 +132,7 @@ elif 'gnureadline' in sys.modules or 'readline' in sys.modules:
             readline_lib = ctypes.CDLL(readline.__file__)
         except (AttributeError, OSError):  # pragma: no cover
             _rl_warn_reason = (
-                "this application is running in a non-standard Python environment in\n"
+                "this application is running in a non-standard Python environment in "
                 "which GNU readline is not loaded dynamically from a shared library file."
             )
         else:
@@ -144,10 +143,10 @@ elif 'gnureadline' in sys.modules or 'readline' in sys.modules:
 if rl_type == RlType.NONE:  # pragma: no cover
     if not _rl_warn_reason:
         _rl_warn_reason = (
-            "no supported version of readline was found. To resolve this, install\n"
+            "no supported version of readline was found. To resolve this, install "
             "pyreadline3 on Windows or gnureadline on Linux/Mac."
         )
-    rl_warning = "Readline features including tab completion have been disabled because\n" + _rl_warn_reason + '\n\n'
+    rl_warning = f"Readline features including tab completion have been disabled because {_rl_warn_reason}\n\n"
 else:
     rl_warning = ''
 
@@ -191,7 +190,7 @@ def rl_get_prompt() -> str:  # pragma: no cover
         prompt = '' if encoded_prompt is None else encoded_prompt.decode(encoding='utf-8')
 
     elif rl_type == RlType.PYREADLINE:
-        prompt_data: Union[str, bytes] = readline.rl.prompt
+        prompt_data: str | bytes = readline.rl.prompt
         prompt = prompt_data.decode(encoding='utf-8') if isinstance(prompt_data, bytes) else prompt_data
 
     else:
@@ -288,10 +287,15 @@ def rl_in_search_mode() -> bool:  # pragma: no cover
         if not isinstance(readline.rl.mode, EmacsMode):
             return False
 
-        # While in search mode, the current keyevent function is set one of the following.
+        # While in search mode, the current keyevent function is set to one of the following.
         search_funcs = (
             readline.rl.mode._process_incremental_search_keyevent,
             readline.rl.mode._process_non_incremental_search_keyevent,
         )
         return readline.rl.mode.process_keyevent_queue[-1] in search_funcs
     return False
+
+
+__all__ = [
+    'readline',
+]

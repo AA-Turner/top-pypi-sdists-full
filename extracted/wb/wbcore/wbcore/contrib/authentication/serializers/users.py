@@ -60,7 +60,7 @@ class ChangePasswordSerializer(wb_serializers.Serializer):
                 validate_password(new_password)
                 return super().validate(data)
             except serializers.ValidationError as e:
-                raise serializers.ValidationError({"new_password": e, "confirm_password": e})
+                raise serializers.ValidationError({"new_password": e, "confirm_password": e}) from e
 
     class Meta:
         fields = ("current_password", "new_password", "confirm_password")
@@ -336,7 +336,7 @@ class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise exceptions.AuthenticationFailed(
                 self.error_messages["no_active_account"],
                 "no_active_account",
-            )
+            ) from None
         return data
 
 

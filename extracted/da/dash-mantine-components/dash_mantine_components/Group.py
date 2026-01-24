@@ -167,7 +167,7 @@ Keyword arguments:
 - ml (number; optional):
     MarginLeft, theme key: theme.spacing.
 
-- mod (string; optional):
+- mod (string | dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Element modifiers transformed into `data-` attributes, for
     example, `{ 'data-size': 'xl' }`, falsy values are removed.
 
@@ -258,7 +258,7 @@ Keyword arguments:
 
 - wrap (a value equal to: '-moz-initial', 'inherit', 'initial', 'revert', 'revert-layer', 'unset', 'nowrap', 'wrap', 'wrap-reverse'; optional):
     Controls `flex-wrap` CSS property, `'wrap'` by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'Group'
@@ -287,7 +287,7 @@ Keyword arguments:
         visibleFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
-        mod: typing.Optional[typing.Union[str]] = None,
+        mod: typing.Optional[typing.Union[str, typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
         m: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         my: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         mx: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,

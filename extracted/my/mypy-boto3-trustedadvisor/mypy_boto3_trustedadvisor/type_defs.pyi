@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,12 +34,6 @@ from .literals import (
     UpdateRecommendationLifecycleStageType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -107,7 +102,7 @@ class RecommendationResourceExclusionTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -120,12 +115,12 @@ CheckSummaryTypeDef = TypedDict(
     "CheckSummaryTypeDef",
     {
         "arn": str,
-        "awsServices": List[str],
+        "awsServices": list[str],
         "description": str,
         "id": str,
-        "metadata": Dict[str, str],
+        "metadata": dict[str, str],
         "name": str,
-        "pillars": List[RecommendationPillarType],
+        "pillars": list[RecommendationPillarType],
         "source": RecommendationSourceType,
     },
 )
@@ -171,7 +166,7 @@ OrganizationRecommendationResourceSummaryTypeDef = TypedDict(
         "awsResourceId": str,
         "id": str,
         "lastUpdatedAt": datetime,
-        "metadata": Dict[str, str],
+        "metadata": dict[str, str],
         "recommendationArn": str,
         "regionCode": str,
         "status": ResourceStatusType,
@@ -196,7 +191,7 @@ RecommendationResourceSummaryTypeDef = TypedDict(
         "awsResourceId": str,
         "id": str,
         "lastUpdatedAt": datetime,
-        "metadata": Dict[str, str],
+        "metadata": dict[str, str],
         "recommendationArn": str,
         "regionCode": str,
         "status": ResourceStatusType,
@@ -232,18 +227,18 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListOrganizationRecommendationAccountsResponseTypeDef(TypedDict):
-    accountRecommendationLifecycleSummaries: List[AccountRecommendationLifecycleSummaryTypeDef]
+    accountRecommendationLifecycleSummaries: list[AccountRecommendationLifecycleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class BatchUpdateRecommendationResourceExclusionResponseTypeDef(TypedDict):
-    batchUpdateRecommendationResourceExclusionErrors: List[
+    batchUpdateRecommendationResourceExclusionErrors: list[
         UpdateRecommendationResourceExclusionErrorTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListChecksResponseTypeDef(TypedDict):
-    checkSummaries: List[CheckSummaryTypeDef]
+    checkSummaries: list[CheckSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -275,7 +270,7 @@ class ListRecommendationResourcesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListOrganizationRecommendationResourcesResponseTypeDef(TypedDict):
-    organizationRecommendationResourceSummaries: List[
+    organizationRecommendationResourceSummaries: list[
         OrganizationRecommendationResourceSummaryTypeDef
     ]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -341,7 +336,7 @@ ListRecommendationsRequestTypeDef = TypedDict(
 )
 
 class ListRecommendationResourcesResponseTypeDef(TypedDict):
-    recommendationResourceSummaries: List[RecommendationResourceSummaryTypeDef]
+    recommendationResourceSummaries: list[RecommendationResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -354,12 +349,12 @@ OrganizationRecommendationSummaryTypeDef = TypedDict(
         "arn": str,
         "id": str,
         "name": str,
-        "pillars": List[RecommendationPillarType],
+        "pillars": list[RecommendationPillarType],
         "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
         "source": RecommendationSourceType,
         "status": RecommendationStatusType,
         "type": RecommendationTypeType,
-        "awsServices": NotRequired[List[str]],
+        "awsServices": NotRequired[list[str]],
         "checkArn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
@@ -374,12 +369,12 @@ OrganizationRecommendationTypeDef = TypedDict(
         "description": str,
         "id": str,
         "name": str,
-        "pillars": List[RecommendationPillarType],
+        "pillars": list[RecommendationPillarType],
         "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
         "source": RecommendationSourceType,
         "status": RecommendationStatusType,
         "type": RecommendationTypeType,
-        "awsServices": NotRequired[List[str]],
+        "awsServices": NotRequired[list[str]],
         "checkArn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
@@ -399,12 +394,12 @@ RecommendationSummaryTypeDef = TypedDict(
         "arn": str,
         "id": str,
         "name": str,
-        "pillars": List[RecommendationPillarType],
+        "pillars": list[RecommendationPillarType],
         "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
         "source": RecommendationSourceType,
         "status": RecommendationStatusType,
         "type": RecommendationTypeType,
-        "awsServices": NotRequired[List[str]],
+        "awsServices": NotRequired[list[str]],
         "checkArn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
@@ -419,12 +414,12 @@ RecommendationTypeDef = TypedDict(
         "description": str,
         "id": str,
         "name": str,
-        "pillars": List[RecommendationPillarType],
+        "pillars": list[RecommendationPillarType],
         "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
         "source": RecommendationSourceType,
         "status": RecommendationStatusType,
         "type": RecommendationTypeType,
-        "awsServices": NotRequired[List[str]],
+        "awsServices": NotRequired[list[str]],
         "checkArn": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
@@ -440,7 +435,7 @@ RecommendationTypeDef = TypedDict(
 )
 
 class ListOrganizationRecommendationsResponseTypeDef(TypedDict):
-    organizationRecommendationSummaries: List[OrganizationRecommendationSummaryTypeDef]
+    organizationRecommendationSummaries: list[OrganizationRecommendationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -449,7 +444,7 @@ class GetOrganizationRecommendationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListRecommendationsResponseTypeDef(TypedDict):
-    recommendationSummaries: List[RecommendationSummaryTypeDef]
+    recommendationSummaries: list[RecommendationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

@@ -19,41 +19,35 @@ from datarobot._compat import TypedDict
 from datarobot.models.api_object import APIObject
 from datarobot.models.notebooks.enums import ImageLanguage
 
-image_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("default"): t.Bool,
-        t.Key("description"): t.String,
-        t.Key("environment_id"): t.String,
-        t.Key("gpu_optimized"): t.Bool,
-        t.Key("language"): t.Enum(*list(ImageLanguage)),
-        t.Key("language_version"): t.String,
-        t.Key("libraries"): t.List(t.String),
-    }
-).ignore_extra("*")
+image_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("default"): t.Bool,
+    t.Key("description"): t.String,
+    t.Key("environment_id"): t.String,
+    t.Key("gpu_optimized"): t.Bool,
+    t.Key("language"): t.Enum(*list(ImageLanguage)),
+    t.Key("language_version"): t.String,
+    t.Key("libraries"): t.List(t.String),
+}).ignore_extra("*")
 
-machine_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String,
-        t.Key("default"): t.Bool,
-        t.Key("cpu"): t.String,
-        t.Key("cpu_cores"): t.Int,
-        t.Key("ephemeral_storage"): t.String,
-        t.Key("has_gpu"): t.Bool,
-        t.Key("memory"): t.String,
-        t.Key("ram_gb"): t.Int,
-    }
-).ignore_extra("*")
+machine_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String,
+    t.Key("default"): t.Bool,
+    t.Key("cpu"): t.String,
+    t.Key("cpu_cores"): t.Int,
+    t.Key("ephemeral_storage"): t.String,
+    t.Key("has_gpu"): t.Bool,
+    t.Key("memory"): t.String,
+    t.Key("ram_gb"): t.Int,
+}).ignore_extra("*")
 
-notebook_execution_environment_trafaret = t.Dict(
-    {
-        t.Key("image"): image_trafaret,
-        t.Key("machine"): machine_trafaret,
-        t.Key("time_to_live"): t.Int,
-    }
-).ignore_extra("*")
+notebook_execution_environment_trafaret = t.Dict({
+    t.Key("image"): image_trafaret,
+    t.Key("machine"): machine_trafaret,
+    t.Key("time_to_live"): t.Int,
+}).ignore_extra("*")
 
 
 class ExecutionEnvironmentAssignPayload(TypedDict, total=False):

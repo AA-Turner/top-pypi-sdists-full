@@ -9,8 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+import datetime as _dt
+from typing import Union
 
 from pydantic import Field
 
@@ -21,57 +21,31 @@ from githubkit.utils import UNSET
 from .group_0003 import SimpleUser
 
 
-class OrganizationRole(GitHubModel):
-    """Organization Role
+class GistCommit(GitHubModel):
+    """Gist Commit
 
-    Organization roles
+    Gist Commit
     """
 
-    id: int = Field(description="The unique identifier of the role.")
-    name: str = Field(description="The name of the role.")
-    description: Missing[Union[str, None]] = Field(
-        default=UNSET,
-        description="A short description about who this role is for or what permissions it grants.",
-    )
-    base_role: Missing[
-        Union[None, Literal["read", "triage", "write", "maintain", "admin"]]
-    ] = Field(
-        default=UNSET,
-        description="The system role from which this role inherits permissions.",
-    )
-    source: Missing[
-        Union[None, Literal["Organization", "Enterprise", "Predefined"]]
-    ] = Field(
-        default=UNSET,
-        description='Source answers the question, "where did this role come from?"',
-    )
-    permissions: list[str] = Field(
-        description="A list of permissions included in this role."
-    )
-    organization: Union[None, SimpleUser] = Field()
-    created_at: datetime = Field(description="The date and time the role was created.")
-    updated_at: datetime = Field(
-        description="The date and time the role was last updated."
-    )
+    url: str = Field()
+    version: str = Field()
+    user: Union[None, SimpleUser] = Field()
+    change_status: GistCommitPropChangeStatus = Field()
+    committed_at: _dt.datetime = Field()
 
 
-class OrgsOrgOrganizationRolesGetResponse200(GitHubModel):
-    """OrgsOrgOrganizationRolesGetResponse200"""
+class GistCommitPropChangeStatus(GitHubModel):
+    """GistCommitPropChangeStatus"""
 
-    total_count: Missing[int] = Field(
-        default=UNSET,
-        description="The total number of organization roles available to the organization.",
-    )
-    roles: Missing[list[OrganizationRole]] = Field(
-        default=UNSET,
-        description="The list of organization roles available to the organization.",
-    )
+    total: Missing[int] = Field(default=UNSET)
+    additions: Missing[int] = Field(default=UNSET)
+    deletions: Missing[int] = Field(default=UNSET)
 
 
-model_rebuild(OrganizationRole)
-model_rebuild(OrgsOrgOrganizationRolesGetResponse200)
+model_rebuild(GistCommit)
+model_rebuild(GistCommitPropChangeStatus)
 
 __all__ = (
-    "OrganizationRole",
-    "OrgsOrgOrganizationRolesGetResponse200",
+    "GistCommit",
+    "GistCommitPropChangeStatus",
 )

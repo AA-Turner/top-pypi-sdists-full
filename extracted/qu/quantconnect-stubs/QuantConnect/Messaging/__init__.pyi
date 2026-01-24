@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Interfaces
@@ -52,7 +52,11 @@ class StreamingMessageHandler(System.Object, QuantConnect.Interfaces.IMessagingH
         ...
 
     def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """Set the user communication channel"""
+        """
+        Set the user communication channel
+        
+        :param job: 
+        """
         ...
 
     def transmit(self, packet: QuantConnect.Packets.Packet) -> None:
@@ -61,6 +65,46 @@ class StreamingMessageHandler(System.Object, QuantConnect.Interfaces.IMessagingH
         
         :param packet: Packet to transmit
         """
+        ...
+
+
+class Messaging(System.Object, QuantConnect.Interfaces.IMessagingHandler):
+    """Local/desktop implementation of messaging system for Lean Engine."""
+
+    @property
+    def has_subscribers(self) -> bool:
+        """
+        This implementation ignores the has_subscribers flag and
+        instead will always write to the log.
+        """
+        ...
+
+    @has_subscribers.setter
+    def has_subscribers(self, value: bool) -> None:
+        ...
+
+    def dispose(self) -> None:
+        """Dispose of any resources"""
+        ...
+
+    def initialize(self, initialize_parameters: QuantConnect.Interfaces.MessagingHandlerInitializeParameters) -> None:
+        """
+        Initialize the messaging system
+        
+        :param initialize_parameters: The parameters required for initialization
+        """
+        ...
+
+    def send(self, packet: QuantConnect.Packets.Packet) -> None:
+        """Send a generic base packet without processing"""
+        ...
+
+    def send_notification(self, notification: QuantConnect.Notifications.Notification) -> None:
+        """Send any notification with a base type of Notification."""
+        ...
+
+    def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """Set the messaging channel"""
         ...
 
 
@@ -170,7 +214,8 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         """
         Raise a backtest result event safely.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -182,7 +227,8 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         """
         Raise a debug event safely
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -190,7 +236,8 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         """
         Raise a handled error event safely
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -198,7 +245,8 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         """
         Raise a log event safely
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -206,7 +254,8 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         """
         Raise runtime error safely
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -214,7 +263,8 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         """
         Raise a system debug event safely
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -238,50 +288,14 @@ class EventMessagingHandler(System.Object, QuantConnect.Interfaces.IMessagingHan
         ...
 
     def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """Set the user communication channel"""
+        """
+        Set the user communication channel
+        
+        :param job: 
+        """
         ...
 
     def system_debug_event_raised(self, packet: QuantConnect.Packets.SystemDebugPacket) -> None:
-        ...
-
-
-class Messaging(System.Object, QuantConnect.Interfaces.IMessagingHandler):
-    """Local/desktop implementation of messaging system for Lean Engine."""
-
-    @property
-    def has_subscribers(self) -> bool:
-        """
-        This implementation ignores the  flag and
-        instead will always write to the log.
-        """
-        ...
-
-    @has_subscribers.setter
-    def has_subscribers(self, value: bool) -> None:
-        ...
-
-    def dispose(self) -> None:
-        """Dispose of any resources"""
-        ...
-
-    def initialize(self, initialize_parameters: QuantConnect.Interfaces.MessagingHandlerInitializeParameters) -> None:
-        """
-        Initialize the messaging system
-        
-        :param initialize_parameters: The parameters required for initialization
-        """
-        ...
-
-    def send(self, packet: QuantConnect.Packets.Packet) -> None:
-        """Send a generic base packet without processing"""
-        ...
-
-    def send_notification(self, notification: QuantConnect.Notifications.Notification) -> None:
-        """Send any notification with a base type of Notification."""
-        ...
-
-    def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """Set the messaging channel"""
         ...
 
 

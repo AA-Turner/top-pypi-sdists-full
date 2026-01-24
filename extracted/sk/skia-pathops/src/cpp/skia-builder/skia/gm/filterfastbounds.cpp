@@ -77,8 +77,8 @@ static void draw_points(SkCanvas* canvas, const SkRect& r, const SkPaint& p) {
     SkPoint pts0[2] = { { r.fLeft, r.fTop }, { r.fRight, r.fBottom } };
     SkPoint pts1[2] = { { r.fLeft, r.fBottom }, { r.fRight, r.fTop } };
 
-    canvas->drawPoints(SkCanvas::kLines_PointMode, 2, pts0, p);
-    canvas->drawPoints(SkCanvas::kLines_PointMode, 2, pts1, p);
+    canvas->drawPoints(SkCanvas::kLines_PointMode, pts0, p);
+    canvas->drawPoints(SkCanvas::kLines_PointMode, pts1, p);
 }
 
 static void draw_bitmap(SkCanvas* canvas, const SkRect& r, const SkPaint& p) {
@@ -164,9 +164,9 @@ protected:
     inline static constexpr int kNumVertTiles = 7;
     inline static constexpr int kNumXtraCols = 2;
 
-    SkString onShortName() override { return SkString("filterfastbounds"); }
+    SkString getName() const override { return SkString("filterfastbounds"); }
 
-    SkISize onISize() override {
+    SkISize getISize() override {
         return SkISize::Make((std::size(gDrawMthds) + kNumXtraCols) * kTileWidth,
                              kNumVertTiles * kTileHeight);
     }
@@ -256,7 +256,7 @@ protected:
         //-----------
         // Paints with a SkImageSource as a source
 
-        auto surface(SkSurface::MakeRasterN32Premul(10, 10));
+        auto surface(SkSurfaces::Raster(SkImageInfo::MakeN32Premul(10, 10)));
         {
             SkPaint p;
             SkCanvas* temp = surface->getCanvas();
@@ -268,7 +268,8 @@ protected:
         }
 
         sk_sp<SkImage> image(surface->makeImageSnapshot());
-        sk_sp<SkImageFilter> imageSource(SkImageFilters::Image(std::move(image)));
+        sk_sp<SkImageFilter> imageSource(SkImageFilters::Image(std::move(image),
+                                                               SkFilterMode::kLinear));
         TArray<SkPaint> bmsPaints;
         create_paints(&bmsPaints, std::move(imageSource));
 

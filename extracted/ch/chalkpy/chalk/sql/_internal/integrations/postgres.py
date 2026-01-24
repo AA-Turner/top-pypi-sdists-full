@@ -28,6 +28,7 @@ from chalk.sql.protocols import SQLSourceWithTableIngestProtocol
 from chalk.utils.environment_parsing import env_var_bool
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pl_helpers import polars_uses_schema_overrides
 from chalk.utils.tracing import safe_add_metrics, safe_add_tags, safe_trace
 
 if TYPE_CHECKING:
@@ -262,8 +263,11 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
             # pl.read_csv(use_pyarrow=True) has the same performance degradation,
             # UNLESS a `dtypes` arg is provided.
 
-            # 'dtypes' deprecated for 'schema_overrides' in polars 0.20+, but parameter renamed without breaking
-            pl_table = pl.read_csv(buffer, dtypes=parse_dtypes)  # pyright: ignore[reportCallIssue]
+            # 'dtypes' deprecated for 'schema_overrides' in polars 0.20.31+
+            if polars_uses_schema_overrides:
+                pl_table = pl.read_csv(buffer, schema_overrides=parse_dtypes)  # pyright: ignore[reportCallIssue]
+            else:
+                pl_table = pl.read_csv(buffer, dtypes=parse_dtypes)  # pyright: ignore[reportCallIssue]
             if boolean_columns:
                 # DO NOT use map_dict. Causes a segfault when multiple uvicorn workers are handling
                 # requests in parallel.
@@ -498,7 +502,11 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
                 else:
                     parse_dtypes[field.name] = pl.Utf8
 
-            pl_table = pl.read_csv(buffer, dtypes=parse_dtypes)  # pyright: ignore[reportCallIssue]
+            # 'dtypes' deprecated for 'schema_overrides' in polars 0.20.31+
+            if polars_uses_schema_overrides:
+                pl_table = pl.read_csv(buffer, schema_overrides=parse_dtypes)  # pyright: ignore[reportCallIssue]
+            else:
+                pl_table = pl.read_csv(buffer, dtypes=parse_dtypes)  # pyright: ignore[reportCallIssue]
 
             # Convert to arrow and map to expected schema
             arrow_table = pl_table.to_arrow()
@@ -530,6 +538,8 @@ class PostgreSQLSourceImpl(BaseSQLSource, TableIngestMixIn, SQLSourceWithTableIn
         for field in expected_output_schema:
             if field.name in arrow_table.column_names:
                 col = arrow_table.column(field.name)
+                if isinstance(col, pa.ChunkedArray):
+                    col = col.combine_chunks()
                 # Cast to expected type if needed
                 if col.type != field.type:
                     col = pc.cast(col, field.type)

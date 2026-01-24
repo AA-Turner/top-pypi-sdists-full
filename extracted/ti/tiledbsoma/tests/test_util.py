@@ -4,39 +4,82 @@ from somacore import ResultOrder
 from tiledbsoma._util import (
     dense_index_to_shape,
     dense_indices_to_shape,
+    is_relative_uri,
+    make_relative_path,
+    sanitize_key,
     slice_to_numeric_range,
     uri_joinpath,
 )
 
 
-def test_uri_joinpath_file():
+def test_is_relative_uri() -> None:
+    assert is_relative_uri("A")
+    assert is_relative_uri("A/B")
+    assert is_relative_uri("~")
+    assert is_relative_uri("./A/B")
+    assert is_relative_uri("../A/B")
+
+    assert not is_relative_uri("file:///A")  # file: only supports absolute paths
+    assert not is_relative_uri("file://./A")  # file: only supports absolute paths
+
+    assert not is_relative_uri("s3://foo/A")
+    assert not is_relative_uri("gs://foo/A")
+    assert not is_relative_uri("tiledb://foo/")
+
+
+def test_uri_joinpath_posix():
+    # absolute base
     assert uri_joinpath("/A/", "B") == "/A/B"
     assert uri_joinpath("/A/", "/B") == "/B"
     assert uri_joinpath("/A/B", "C") == "/A/B/C"
     assert uri_joinpath("/A/B/", "C") == "/A/B/C"
     assert uri_joinpath("/A/B/", "../C/") == "/A/B/../C"
 
-
-def test_uri_joinpath_s3():
-    assert uri_joinpath("s3://bucket/", "A") == "s3://bucket/A"
-    assert uri_joinpath("s3://bucket/A", "B/") == "s3://bucket/A/B/"
-    assert uri_joinpath("s3://bucket/A/", "B") == "s3://bucket/A/B"
-    assert uri_joinpath("s3://bucket/A/", "B/") == "s3://bucket/A/B/"
-    assert uri_joinpath("s3://bucket/A", "/B/") == "s3://bucket/B/"
-
-    with pytest.raises(ValueError):
-        assert uri_joinpath("s3://A/B/", "../C/")
+    # relative base
+    assert uri_joinpath("A/", "B") == "A/B"
+    assert uri_joinpath("A/", "/B") == "/B"
+    assert uri_joinpath("A/B", "C") == "A/B/C"
+    assert uri_joinpath("A/B/", "C") == "A/B/C"
+    assert uri_joinpath("A/B/", "../C/") == "A/B/../C"
 
 
-def test_uri_joinpath_tiledb():
-    assert uri_joinpath("tiledb://acct/", "A") == "tiledb://acct/A"
-    assert (
-        uri_joinpath("tiledb://acct/s3://bucket/C", "D")
-        == "tiledb://acct/s3://bucket/C/D"
-    )
+@pytest.mark.parametrize("scheme", ["s3", "gs"])
+def test_uri_joinpath_object_store(scheme):
+    assert uri_joinpath(f"{scheme}://bucket/", "A") == f"{scheme}://bucket/A"
+    assert uri_joinpath(f"{scheme}://bucket/A", "B/") == f"{scheme}://bucket/A/B/"
+    assert uri_joinpath(f"{scheme}://bucket/A/", "B") == f"{scheme}://bucket/A/B"
+    assert uri_joinpath(f"{scheme}://bucket/A/", "B/") == f"{scheme}://bucket/A/B/"
+    assert uri_joinpath(f"{scheme}://bucket/A", "/B/") == f"{scheme}://bucket/B/"
 
     with pytest.raises(ValueError):
-        assert uri_joinpath("tiledb://acct/A/", "../B/")
+        assert uri_joinpath(f"{scheme}://A/B/", "../C/")
+
+
+def test_make_relative_path_posix():
+    assert make_relative_path("/A/B/C", "/A/B/") == "C"
+    assert make_relative_path("/A/B/C/", "/A/B/") == "C"
+    assert make_relative_path("/A/B/C", "/A/B") == "C"
+    assert make_relative_path("/A/B/C/", "/A/B") == "C"
+
+    with pytest.raises(ValueError, match="different scheme"):
+        make_relative_path("/A/B/C/", "s3://A/B/")
+    with pytest.raises(ValueError, match="is not in the subpath of"):
+        make_relative_path("A/B/C/", "/A/B/")
+
+
+@pytest.mark.parametrize("scheme", ["s3", "gs"])
+def test_make_relative_path_object_store(scheme):
+    assert make_relative_path(f"{scheme}://A/B/C", f"{scheme}://A/B/") == "C"
+    assert make_relative_path(f"{scheme}://A/B/C/", f"{scheme}://A/B/") == "C"
+    assert make_relative_path(f"{scheme}://A/B/C", f"{scheme}://A/B") == "C"
+    assert make_relative_path(f"{scheme}://A/B/C/", f"{scheme}://A/B") == "C"
+
+    with pytest.raises(ValueError, match="different scheme"):
+        make_relative_path("/A/B/C/", f"{scheme}://A/B/")
+    with pytest.raises(ValueError, match="different scheme"):
+        make_relative_path(f"{scheme}:/A/B/C/", "/A/B/")
+    with pytest.raises(ValueError, match="is not in the subpath of"):
+        make_relative_path(f"{scheme}://A/C/D/", f"{scheme}://A/B/")
 
 
 @pytest.mark.parametrize(
@@ -101,10 +144,7 @@ def test_dense_index_to_shape(io):
     ],
 )
 def test_dense_indices_to_shape(io):
-    assert (
-        dense_indices_to_shape(io["coord"], io["input_shape"], io["result_order"])
-        == io["output_shape"]
-    )
+    assert dense_indices_to_shape(io["coord"], io["input_shape"], io["result_order"]) == io["output_shape"]
 
 
 @pytest.mark.parametrize(
@@ -159,3 +199,68 @@ def test_slice_to_range_bad(start_stop, domain, exc):
     with pytest.raises(exc):
         slc = slice(*start_stop)
         slice_to_numeric_range(slc, domain)
+
+
+@pytest.mark.parametrize(
+    ("key", "sanitized"),
+    (
+        ("<>", "%3C%3E"),
+        ("#%&*", "%23%25%26%2A"),
+        ("CONFIG$", "CONFIG%24"),
+        ("name_with_trailing_space_ ", "name_with_trailing_space_%20"),
+        (" name_with_leading_space", "%20name_with_leading_space"),
+        ("无效的文件名", "%E6%97%A0%E6%95%88%E7%9A%84%E6%96%87%E4%BB%B6%E5%90%8D"),
+        (
+            "path/无效的文件名",
+            "path%2F%E6%97%A0%E6%95%88%E7%9A%84%E6%96%87%E4%BB%B6%E5%90%8D",
+        ),
+        ("path/with/ space-before-filename", "path%2Fwith%2F%20space-before-filename"),
+        ("path/with/space-after-filename ", "path%2Fwith%2Fspace-after-filename%20"),
+        ("%%%%%%%%%%%", "%25%25%25%25%25%25%25%25%25%25%25"),
+        ("valid/path/with/slashes", "valid%2Fpath%2Fwith%2Fslashes"),
+        (
+            "nested/path/with_underscores/with-dashes",
+            "nested%2Fpath%2Fwith_underscores%2Fwith-dashes",
+        ),
+        ("path/with+special-characters!", "path%2Fwith+special-characters!"),
+        ("name%20with%20encoded%20spaces", "name%2520with%2520encoded%2520spaces"),
+        ("name%2Fwith%2Fencoded%2Fslashes", "name%252Fwith%252Fencoded%252Fslashes"),
+        (
+            "path/name%20with%20encoded%20spaces",
+            "path%2Fname%2520with%2520encoded%2520spaces",
+        ),
+        (
+            "path/name%2Fwith%2Fencoded%2Fslashes",
+            "path%2Fname%252Fwith%252Fencoded%252Fslashes",
+        ),
+        (
+            "%20%20%20%20%20%20%20%20%20",
+            "%2520%2520%2520%2520%2520%2520%2520%2520%2520",
+        ),
+        (
+            "/path/with/mixed/slashes\\and\\backslashes",
+            "%2Fpath%2Fwith%2Fmixed%2Fslashes%5Cand%5Cbackslashes",
+        ),
+        (
+            "path//with///multiple////slashes",
+            "path%2F%2Fwith%2F%2F%2Fmultiple%2F%2F%2F%2Fslashes",
+        ),
+        ("/./root_parent", "%2F.%2Froot_parent"),
+        ("path/./dot_as_directory", "path%2F.%2Fdot_as_directory"),
+        ("file.with..dot_segments", "file.with..dot_segments"),
+        ("~/user_home_dir", "~%2Fuser_home_dir"),
+        ("path.with../dot_segments/subdir", "path.with..%2Fdot_segments%2Fsubdir"),
+        ("path/with/.dot-before-filename", "path%2Fwith%2F.dot-before-filename"),
+        ("path/with/dot-after-filename.", "path%2Fwith%2Fdot-after-filename."),
+        ("CON", "CON"),
+        ("~", "~"),
+    ),
+)
+def test_sanitize_paths(key, sanitized):
+    assert sanitized == sanitize_key(key, "tiledbv2")
+
+
+@pytest.mark.parametrize("key", ("..", "."))
+def test_invalid_sanitize_paths(key):
+    with pytest.raises(ValueError):
+        assert sanitize_key(key, "tiledbv2")

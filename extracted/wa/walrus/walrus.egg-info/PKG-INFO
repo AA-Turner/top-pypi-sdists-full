@@ -1,28 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: walrus
-Version: 0.9.5
-Summary: walrus
-Home-page: http://github.com/coleifer/walrus/
-Author: Charles Leifer
-Author-email: coleifer@gmail.com
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
+Version: 0.9.8
+Summary: a set of utilities for working with redis
+Author-email: Charles Leifer <coleifer@gmail.com>
+Project-URL: Repository, https://github.com/coleifer/walrus
+Project-URL: Documentation, https://walrus.readthedocs.io/
+Project-URL: Changelog, https://github.com/coleifer/walrus/blob/master/CHANGELOG.md
 Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: redis
+Dynamic: license-file
 
 ## Walrus
 
@@ -67,7 +57,3 @@ Persistent structures implemented on top of Hashes. Supports secondary indexes t
 ![](http://media.charlesleifer.com/blog/photos/p1420743625.21.png)
 
 Please open a [github issue](https://github.com/coleifer/walrus/issues/new) and I will try my best to fix it!
-
-### Alternative Backends
-
-Walrus also can integrate with the Redis-like databases [rlite](https://github.com/seppo0010/rlite), [ledis](http://ledisdb.io/), and [vedis](http://vedis.symisc.net). Check the [documentation](https://walrus.readthedocs.io/en/latest/alt-backends.html) for more details.

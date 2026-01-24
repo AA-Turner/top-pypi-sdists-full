@@ -5,14 +5,20 @@ use crate::Bool;
 
 #[binrw]
 #[derive(Serialize, Debug)]
-#[br(import(length: u32))]
+#[br(import(length: u32, major: u16))]
 pub enum ActionData {
     #[br(magic = 0u8)]
     Interact {
         player_id: u8,
         action_length: u16,
-        #[br(count = length - 1 - 3)]
-        data: Vec<u8>,
+        target_id: u32,
+        x: f32,
+        y: f32,
+        selected: i16,
+        unknown1: i16,
+        unknown2: [i8; 4],
+        #[br(count = if selected > -1 { selected } else { 0 })]
+        unit_ids: Vec<u32>,
     },
     #[br(magic = 1u8)]
     Stop {
@@ -32,8 +38,14 @@ pub enum ActionData {
     Move {
         player_id: u8,
         action_length: u16,
-        #[br(count = length - 1 - 3)]
-        data: Vec<u8>,
+        unknown1: i32,
+        x: f32,
+        y: f32,
+        selected: i16,
+        unknown2: i16,
+        unknown3: [u8; 4],
+        #[br(count = if selected > -1 { selected } else { 0 })]
+        unit_ids: Vec<u32>,
     },
     #[br(magic = 4u8)]
     Create {
@@ -67,7 +79,7 @@ pub enum ActionData {
     Resign {
         player_id: u8,
         action_length: u16,
-        #[br(count = length - 1 - 3)]
+        #[br(count = action_length)]
         data: Vec<u8>,
     },
     #[br(magic = 15u8)]
@@ -134,12 +146,7 @@ pub enum ActionData {
         data: Vec<u8>,
     },
     #[br(magic = 32u8)]
-    Chapter {
-        player_id: u8,
-        action_length: u16,
-        #[br(count = length - 1 - 3)]
-        data: Vec<u8>,
-    },
+    Chapter { player_id: u8, action_length: u16 },
     #[br(magic = 33u8)]
     DeAttackMove {
         player_id: u8,
@@ -183,7 +190,7 @@ pub enum ActionData {
         data: Vec<u8>,
     },
     #[br(magic = 43u8)]
-    Unknown43 {
+    SwitchAttack {
         player_id: u8,
         action_length: u16,
         #[br(count = length - 1 - 3)]
@@ -221,8 +228,12 @@ pub enum ActionData {
     Research {
         player_id: u8,
         action_length: u16,
-        #[br(count = length - 1 - 3)]
-        data: Vec<u8>,
+        building_id: i32,
+        selected: i16,
+        technology_type: u16,
+        unknown1: [u8; 5],
+        #[br(count = if selected > -1 { selected } else { 0 })]
+        building_ids: Vec<i32>,
     },
     #[br(magic = 102u8)]
     Build {
@@ -233,6 +244,13 @@ pub enum ActionData {
     },
     #[br(magic = 103u8)]
     Game(Game),
+    #[br(magic = 104u8)]
+    Unknown104 {
+        player_id: u8,
+        action_length: u16,
+        #[br(count = length - 1 - 3)]
+        data: Vec<u8>,
+    },
     #[br(magic = 105u8)]
     Wall {
         player_id: u8,
@@ -307,8 +325,18 @@ pub enum ActionData {
     Order {
         player_id: u8,
         action_length: u16,
-        #[br(count = length - 1 - 3)]
-        data: Vec<u8>,
+        selected: i16,
+        unknown1: i16,
+        building_id: i32,
+        unknown2: f32,
+        unknown3: f32,
+        unknown4: i32,
+        unknown5: u32,
+        order_type: OrderType,
+        multiple: u16,
+        unknown7: u16,
+        #[br(count = if selected > -1 { selected } else { 0 })]
+        object_ids: Vec<u32>,
     },
     #[br(magic = 119u8)]
     Queue {
@@ -363,8 +391,15 @@ pub enum ActionData {
     DeQueue {
         player_id: u8,
         action_length: u16,
-        #[br(count = length - 1 - 3)]
-        data: Vec<u8>,
+        selected: u16,
+        unknown1: [u8; 4],
+        building_type: u16,
+        unit_id: u16,
+        amount: u16,
+        #[br(if(major >= 66))]
+        unknown2: u32,
+        #[br(count = selected)]
+        building_ids: Vec<u32>,
     },
     #[br(magic = 130u8)]
     DeUnknown130 {
@@ -412,18 +447,16 @@ pub enum ActionData {
 
 #[binrw]
 #[derive(Serialize, Debug)]
-pub struct Interact {
-    player_id: u8,
-    unknown: u16,
-    target_id: u32,
-    selected: u32,
-    x: f32,
-    y: f32,
-    // "next"/Peek(Bytes(8)),
-    // "flags"/If(lambda ctx: check_flags(ctx.next), Bytes(8)),
-    #[br(count=selected)]
-    unit_ids: Vec<u32>,
+#[brw(repr(u8))]
+pub enum OrderType {
+    Pack = 1,
+    Unpack = 2,
+    Unqueue = 4,
+    UnknownOrder5 = 5,
+    Garrison = 6,
+    UnknownOrder8 = 8,
 }
+
 #[binrw]
 #[derive(Serialize, Debug)]
 pub enum Game {
@@ -530,18 +563,4 @@ pub enum Game {
     //     Padding(9)
     // )),
     // Padding(3)
-}
-
-#[binrw]
-#[derive(Serialize, Debug)]
-pub struct DeQueue {
-    player_id: u8,
-    building_type: u16,
-    selected: u8,
-    unknown: u8,
-    unit_type: u16,
-    queue_amount: u8,
-    unknown2: u8,
-    #[br(count=selected)]
-    building_ids: Vec<u32>,
 }

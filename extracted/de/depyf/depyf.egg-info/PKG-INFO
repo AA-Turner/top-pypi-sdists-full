@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: depyf
-Version: 0.19.0
+Version: 0.20.0
 Summary: Decompile python functions, from bytecode to source code!
 Home-page: https://github.com/thuml/depyf
 Author: Kaichao You

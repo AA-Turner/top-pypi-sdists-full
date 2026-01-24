@@ -241,50 +241,118 @@ class ComputeConfigController(BaseController):
         )
         log.info(f"Successfully archived compute config: {compute_config_name}.")
 
-    def list(
+    def list(  # noqa: PLR0913
         self,
         cluster_compute_name: Optional[str],
         cluster_compute_id: Optional[str],
         include_shared: bool,
-        max_items: int,
+        max_items: Optional[int] = 20,
+        next_token: Optional[str] = None,
+        cloud_id: Optional[str] = None,
+        cloud_name: Optional[str] = None,
+        sort_by: str = "last_modified_at",
+        sort_order: str = "asc",
+        output_json: bool = False,
     ) -> None:
+        """List cluster compute configurations with filtering, sorting, and pagination.
+
+        Args:
+            cluster_compute_name: Filter by compute config name
+            cluster_compute_id: Filter by specific compute config ID
+            include_shared: Include configs shared with the user
+            max_items: Maximum number of items to return
+            next_token: Pagination token for fetching next page
+            cloud_id: Filter by cloud ID
+            cloud_name: Filter by cloud name (will be resolved to cloud_id)
+            sort_by: Field to sort by (name, created_at, last_modified_at)
+            sort_order: Sort order (asc or desc)
+            output_json: Output results in JSON format
+        """
+        # Resolve cloud_name to cloud_id if provided
+        resolved_cloud_id = cloud_id
+        if cloud_name:
+            resolved_cloud_id, cloud_name = get_cloud_id_and_name(
+                api_client=self.api_client, cloud_id=None, cloud_name=cloud_name
+            )
+
         cluster_compute_list = []
+        final_next_token = None
+
         if cluster_compute_id:
+            # Fetch single compute config by ID
             cluster_compute_list = [
                 self.anyscale_api_client.get_cluster_compute(cluster_compute_id).result
             ]
-        elif cluster_compute_name:
-            cluster_compute_list = self.anyscale_api_client.search_cluster_computes(
-                {"name": {"equals": cluster_compute_name}, "paging": {"count": 1}}
-            ).results
         else:
-            creator_id = (
-                self.api_client.get_user_info_api_v2_userinfo_get().result.id
-                if not include_shared
-                else None
-            )
-            resp = self.anyscale_api_client.search_cluster_computes(
-                {"creator_id": creator_id, "paging": {"count": 20}}
-            )
-            cluster_compute_list.extend(resp.results)
-            paging_token = resp.metadata.next_paging_token
-            has_more = (paging_token is not None) and (
-                len(cluster_compute_list) < max_items
-            )
-            while has_more:
-                resp = self.anyscale_api_client.search_cluster_computes(
-                    {
-                        "creator_id": creator_id,
-                        "paging": {"count": 20, "paging_token": paging_token},
-                    }
-                )
-                cluster_compute_list.extend(resp.results)
-                paging_token = resp.metadata.next_paging_token
-                has_more = (paging_token is not None) and (
-                    len(cluster_compute_list) < max_items
-                )
-            cluster_compute_list = cluster_compute_list[:max_items]
+            # Build query with all applicable filters
+            query: Dict[str, Any] = {"paging": {"count": max_items}}
 
+            # Add name filter if specified
+            if cluster_compute_name:
+                query["name"] = {"equals": cluster_compute_name}
+
+            # Add creator_id filter if not including shared configs
+            if not include_shared and not cluster_compute_name:
+                creator_id = (
+                    self.api_client.get_user_info_api_v2_userinfo_get().result.id
+                )
+                query["creator_id"] = creator_id
+
+            # Add cloud filter if specified
+            if resolved_cloud_id:
+                query["cloud_id"] = resolved_cloud_id
+
+            # Add pagination token if provided
+            if next_token:
+                query["paging"]["paging_token"] = next_token
+
+            # SERVER-SIDE SORTING
+            # Map CLI sort parameters to API sort_by_clauses format
+            sort_field_map = {
+                "name": "NAME",
+                "created_at": "CREATED_AT",
+                "last_modified_at": "LAST_MODIFIED_AT",
+            }
+            query["sort_by_clauses"] = [
+                {
+                    "sort_field": sort_field_map.get(sort_by, "LAST_MODIFIED_AT"),
+                    "sort_order": sort_order.upper(),
+                }
+            ]
+
+            # Make single API call with simplified pagination and server-side sorting
+            resp = self.anyscale_api_client.search_cluster_computes(query)
+            cluster_compute_list = resp.results
+            final_next_token = resp.metadata.next_paging_token
+
+        # Output in JSON format if requested
+        if output_json:
+            output_data = {
+                "results": [
+                    {
+                        "id": cc.id,
+                        "name": cc.name,
+                        "cloud_id": cc.config.cloud_id if cc.config else None,
+                        "version": cc.version,
+                        "created_at": cc.created_at.isoformat()
+                        if cc.created_at
+                        else None,
+                        "last_modified_at": cc.last_modified_at.isoformat()
+                        if cc.last_modified_at
+                        else None,
+                        "url": get_endpoint(f"configurations/cluster-computes/{cc.id}"),
+                    }
+                    for cc in cluster_compute_list
+                ],
+                "metadata": {
+                    "count": len(cluster_compute_list),
+                    "next_token": final_next_token,
+                },
+            }
+            print(json.dumps(output_data, indent=2))
+            return
+
+        # Build table for display
         cluster_compute_table = [
             [
                 cluster_compute.id,
@@ -307,12 +375,29 @@ class ComputeConfigController(BaseController):
         )
         print(f"Compute configs:\n{table}")
 
+        # Print pagination info if there are more results
+        if final_next_token:
+            print(
+                f"\nMore results available. Use --next-token '{final_next_token}' to fetch the next page."
+            )
+
     def get(
         self,
         cluster_compute_name: Optional[str],
         cluster_compute_id: Optional[str],
         include_archived: Optional[bool] = False,
+        cloud_id: Optional[str] = None,
+        cloud_name: Optional[str] = None,
     ) -> None:
+        """Get details of a specific cluster compute configuration.
+
+        Args:
+            cluster_compute_name: Name of the compute config
+            cluster_compute_id: ID of the compute config
+            include_archived: Include archived compute configs
+            cloud_id: Filter by cloud ID when resolving by name
+            cloud_name: Filter by cloud name when resolving by name
+        """
         if (
             int(cluster_compute_name is not None) + int(cluster_compute_id is not None)
             != 1
@@ -320,10 +405,24 @@ class ComputeConfigController(BaseController):
             raise click.ClickException(
                 "Please only provide one of `compute-config-name` or `--id`."
             )
+
         if cluster_compute_name:
+            # Resolve cloud_name to cloud_id if provided
+            resolved_cloud_name = cloud_name
+            if cloud_id:
+                # Get cloud name from cloud_id for consistency
+                cloud_id, resolved_cloud_name = get_cloud_id_and_name(
+                    api_client=self.api_client, cloud_id=cloud_id, cloud_name=None
+                )
+
+            # Use cloud_name parameter in get_cluster_compute_from_name
             cluster_compute_id = get_cluster_compute_from_name(
-                cluster_compute_name, self.api_client, include_archived=include_archived
+                cluster_compute_name,
+                self.api_client,
+                include_archived=include_archived,
+                cloud_name=resolved_cloud_name,
             ).id
+
         compute_config: ClusterComputeConfig = self.anyscale_api_client.get_cluster_compute(
             cluster_compute_id
         ).result.config

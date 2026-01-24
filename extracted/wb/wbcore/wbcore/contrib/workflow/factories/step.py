@@ -146,6 +146,7 @@ class EmailStepFactory(StepFactory):
 
     class Meta:
         model = EmailStep
+        skip_postgeneration_save = True
 
 
 class FinishStepFactory(StepFactory):

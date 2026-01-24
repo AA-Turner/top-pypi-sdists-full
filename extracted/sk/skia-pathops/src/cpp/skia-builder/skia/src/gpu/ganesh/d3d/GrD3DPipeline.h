@@ -8,12 +8,15 @@
 #ifndef GrD3DPipeline_DEFINED
 #define GrD3DPipeline_DEFINED
 
-#include "include/gpu/d3d/GrD3DTypes.h"
+#include "include/gpu/ganesh/d3d/GrD3DTypes.h"
 #include "src/gpu/ganesh/GrManagedResource.h"
 
 class GrD3DPipeline : public GrManagedResource {
 public:
     static sk_sp<GrD3DPipeline> Make(gr_cp<ID3D12PipelineState> pipelineState) {
+        if (!pipelineState) {
+            return nullptr;
+        }
         return sk_sp<GrD3DPipeline>(new GrD3DPipeline(std::move(pipelineState)));
     }
 #ifdef SK_TRACE_MANAGED_RESOURCES

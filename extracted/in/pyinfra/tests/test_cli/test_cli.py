@@ -1,7 +1,7 @@
 from os import path
 from unittest import TestCase
 
-from pyinfra_cli.main import _main
+from pyinfra_cli.cli import _main
 
 from ..paramiko_util import PatchSSHTestCase
 from .util import run_cli
@@ -170,6 +170,7 @@ class TestDirectMainExecution(PatchSSHTestCase):
                 ssh_key=None,
                 ssh_key_password=None,
                 ssh_password=None,
+                same_sudo_password=False,
                 sudo=False,
                 sudo_user=None,
                 use_sudo_password=False,

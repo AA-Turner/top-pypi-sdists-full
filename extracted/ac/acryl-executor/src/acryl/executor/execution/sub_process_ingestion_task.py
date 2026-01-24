@@ -25,7 +25,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import IO, Any, Optional
 
+import pydantic
+from datahub.configuration.env_vars import get_debug
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.masking.bootstrap import shutdown_secret_masking
+from datahub.masking.masking_filter import SecretMaskingFilter
+from datahub.masking.secret_registry import SecretRegistry
+from pydantic import Field
 
 from acryl.executor.cloud_utils.cloud_copier import CloudCopier
 from acryl.executor.cloud_utils.cloud_copier_location import CloudCopierLocation
@@ -63,13 +69,29 @@ class SubProcessIngestionTaskConfig(ConfigModel):
     log_dir: str = "/tmp/datahub/logs"
     heartbeat_time_seconds: int = 2
     max_log_lines: int = SubProcessTaskUtil.MAX_LOG_LINES
-    # The following are optional and only used for uploading logs to S3
     cloud_log_bucket: Optional[str] = get_cloud_log_bucket()
     cloud_log_path: Optional[str] = get_cloud_log_path()
 
 
 class SubProcessIngestionTaskArgs(SubProcessRecipeTaskArgs):
-    debug_mode: str = "false"  # Expected values are "true" or "false".
+    debug_mode: str = Field(
+        default="false", alias="debugMode"
+    )  # Expected values are "true" or "false".
+
+    # Security: Hide input values in validation errors to prevent sensitive data exposure.
+    # Ingestion task arguments may contain credentials, connection strings, API keys, and
+    # other secrets that should not be logged to UI or error messages. Only show input
+    # values when DATAHUB_DEBUG is explicitly enabled for troubleshooting purposes.
+    model_config = pydantic.ConfigDict(
+        populate_by_name=True, hide_input_in_errors=not get_debug()
+    )
+
+    @pydantic.field_validator("debug_mode", mode="before")
+    @classmethod
+    def normalize_debug_mode(cls, v: Any) -> str:
+        if isinstance(v, str):
+            return v.lower()
+        return str(v).lower()
 
 
 class SubProcessIngestionTask(Task):
@@ -79,7 +101,7 @@ class SubProcessIngestionTask(Task):
 
     @classmethod
     def create(cls, config: dict, ctx: ExecutorContext) -> "Task":
-        return cls(SubProcessIngestionTaskConfig.parse_obj(config), ctx)
+        return cls(SubProcessIngestionTaskConfig.model_validate(config), ctx)
 
     def __init__(self, config: SubProcessIngestionTaskConfig, ctx: ExecutorContext):
         self.config = config
@@ -169,14 +191,19 @@ class SubProcessIngestionTask(Task):
                 logger.info(f"Created archive: {tar_file}")
                 tars.append(tar_file)
 
+        upload_failed = False
         for tar_to_upload in tars:
             try:
                 relative_path = str(tar_to_upload).replace(artifacts_path, "")
                 cloud_copier.upload(str(tar_to_upload), relative_path)
             except Exception:
                 logger.exception(f"Failed to upload {tar_to_upload} to S3")
+                upload_failed = True
             finally:
                 tar_to_upload.unlink()
+
+        if upload_failed:
+            raise Exception("One or more tar archive uploads failed")
 
     def _setup_directories(self, exec_id: str) -> tuple[str, str, str]:
         """Setup execution directories and return paths."""
@@ -202,11 +229,24 @@ class SubProcessIngestionTask(Task):
         validated_args: SubProcessIngestionTaskArgs,
         exec_out_dir: str,
         artifact_output_dir: str,
+        secret_names: list[str],
     ) -> dict:
         """Prepare environment variables for subprocess."""
         subprocess_env = validated_args.get_combined_env_vars()
+
         subprocess_env["INGESTION_ARTIFACT_DIR"] = f"{artifact_output_dir}/artifacts"
         subprocess_env.setdefault("TMPDIR", exec_out_dir)
+
+        # Enable secret masking in subprocess
+        subprocess_env["DATAHUB_ENABLE_SECRET_MASKING"] = "true"
+
+        # Pass the list of secret names to subprocess for targeted registration
+        if secret_names:
+            subprocess_env["DATAHUB_SECRET_NAMES"] = ",".join(secret_names)
+
+        # Set DATAHUB_DEBUG based on debug_mode to control hide_input_in_errors
+        subprocess_env["DATAHUB_DEBUG"] = validated_args.debug_mode
+
         return subprocess_env
 
     async def _setup_venv(
@@ -261,9 +301,10 @@ class SubProcessIngestionTask(Task):
             return venv_ref
 
         except Exception as e:
-            logger.error(f"Venv setup failed: {e}")
-            shared_logs.append(f"❌ Venv setup failed: {e}\n")
-            raise TaskError(f"Failed to set up virtual environment: {e}") from e
+            error_msg = SubProcessTaskUtil.format_subprocess_error(e)
+            logger.error(f"Venv setup failed: {error_msg}")
+            shared_logs.append(f"❌ Venv setup failed: {error_msg}\n")
+            raise TaskError(f"Failed to set up virtual environment: {error_msg}") from e
 
     async def _create_subprocess(
         self,
@@ -281,8 +322,8 @@ class SubProcessIngestionTask(Task):
             validated_args, plugin, exec_out_dir, shared_logs
         )
 
-        # Now create subprocess with simplified shell script (no log file needed!)
-        command_script = "run_ingest.sh"
+        # Now create subprocess with Python wrapper that enables secret masking
+        command_script = "run_ingest_with_masking.py"
         debug_mode = validated_args.debug_mode
 
         # Log the execution mode
@@ -294,9 +335,13 @@ class SubProcessIngestionTask(Task):
             logger.info(f"Running ingestion with dynamic venv: {venv_ref.venv_loc}")
 
         # Prepare environment with venv information (no log file needed)
+        # Filter out empty string values to prevent them from overriding non-empty system vars
+        filtered_venv_extra = {
+            k: v for k, v in venv_ref.extra_envs().items() if v != ""
+        }
         venv_env = {
-            **subprocess_env,
-            **venv_ref.extra_envs(),
+            **subprocess_env,  # System vars as base
+            **filtered_venv_extra,  # Recipe's extra_env_vars override (non-empty only)
             "VENV_PATH": str(venv_ref.venv_loc),
         }
 
@@ -319,7 +364,7 @@ class SubProcessIngestionTask(Task):
         exec_id = ctx.exec_id  # The unique execution id.
 
         # 0. Validate arguments
-        validated_args = SubProcessIngestionTaskArgs.parse_obj(args)
+        validated_args = SubProcessIngestionTaskArgs.model_validate(args)
 
         # Set debug log level if debug_mode is "true"
         if validated_args.debug_mode == "true":
@@ -337,7 +382,10 @@ class SubProcessIngestionTask(Task):
     ) -> None:
         """Execute the ingestion task with the given arguments."""
         # 1. Resolve the recipe (combine it with others)
-        recipe: dict = SubProcessTaskUtil._resolve_recipe(
+        recipe: dict
+        secret_names: list[str]
+        secrets_to_cleanup: set[str]
+        recipe, secret_names, secrets_to_cleanup = SubProcessTaskUtil._resolve_recipe(
             validated_args.recipe, ctx, self.ctx
         )
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
@@ -352,7 +400,7 @@ class SubProcessIngestionTask(Task):
 
         # 3. Prepare subprocess environment and create subprocess
         subprocess_env = self._prepare_subprocess_environment(
-            validated_args, exec_out_dir, artifact_output_dir
+            validated_args, exec_out_dir, artifact_output_dir, secret_names
         )
         logger.debug(f"Subprocess environment: {subprocess_env}")
         if DATAHUB_CLOUD_LOG_BUCKET_ENV_VAR in subprocess_env:
@@ -397,6 +445,7 @@ class SubProcessIngestionTask(Task):
                 recipe,
                 exec_out_dir,
                 shared_logs,
+                secrets_to_cleanup,
             )
 
     async def _monitor_subprocess(
@@ -608,12 +657,26 @@ class SubProcessIngestionTask(Task):
         recipe: dict,
         exec_out_dir: str,
         shared_logs: LogHolder,
+        secrets_to_cleanup: set[str],
     ) -> None:
         """Handle subprocess completion, including report processing and cleanup."""
 
         if os.path.exists(report_out_file):
             with open(report_out_file) as structured_report_fp:
-                ctx.get_report().set_structured_report(structured_report_fp.read())
+                report_content = structured_report_fp.read()
+                # Mask secrets in structured report before setting it
+                # This catches secrets in error messages from subprocess
+                try:
+                    registry = SecretRegistry.get_instance()
+                    if registry and registry.get_count() > 0:
+                        # Use DataHub's masking to mask the structured report
+                        temp_filter = SecretMaskingFilter(registry)
+                        report_content = temp_filter.mask_text(report_content)
+                except Exception:
+                    # If masking fails, continue with unmasked report
+                    # Better to have the report than to fail completely
+                    logger.warning("Failed to mask structured report, using original")
+                ctx.get_report().set_structured_report(report_content)
 
         try:
             self._upload_logs_to_s3(recipe, ctx, artifact_output_dir)
@@ -628,6 +691,19 @@ class SubProcessIngestionTask(Task):
 
         # Cleanup by removing the recipe file
         SubProcessTaskUtil._remove_directory(exec_out_dir)
+
+        # Cleanup secrets from environment to prevent pollution
+        # Only remove secrets we added, not ones already in environment
+        # This must happen before checking return code to ensure cleanup on both success and failure
+        for secret_name in secrets_to_cleanup:
+            os.environ.pop(secret_name, None)
+
+        # Shutdown DataHub masking framework to clean up resources
+        # This must happen before checking return code to ensure cleanup on both success and failure
+        try:
+            shutdown_secret_masking()
+        except Exception as e:
+            logger.warning(f"Failed to shutdown secret masking: {e}")
 
         return_code = ingest_process.returncode
         if return_code != 0:  # Failed

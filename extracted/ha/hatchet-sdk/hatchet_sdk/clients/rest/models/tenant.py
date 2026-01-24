@@ -23,7 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing_extensions import Self
 
 from hatchet_sdk.clients.rest.models.api_resource_meta import APIResourceMeta
-from hatchet_sdk.clients.rest.models.tenant_ui_version import TenantUIVersion
+from hatchet_sdk.clients.rest.models.tenant_environment import TenantEnvironment
 from hatchet_sdk.clients.rest.models.tenant_version import TenantVersion
 
 
@@ -46,8 +46,8 @@ class Tenant(BaseModel):
         alias="alertMemberEmails",
     )
     version: TenantVersion = Field(description="The version of the tenant.")
-    ui_version: Optional[TenantUIVersion] = Field(
-        default=None, description="The UI of the tenant.", alias="uiVersion"
+    environment: Optional[TenantEnvironment] = Field(
+        default=None, description="The environment type of the tenant."
     )
     __properties: ClassVar[List[str]] = [
         "metadata",
@@ -56,7 +56,7 @@ class Tenant(BaseModel):
         "analyticsOptOut",
         "alertMemberEmails",
         "version",
-        "uiVersion",
+        "environment",
     ]
 
     model_config = ConfigDict(
@@ -122,7 +122,7 @@ class Tenant(BaseModel):
                 "analyticsOptOut": obj.get("analyticsOptOut"),
                 "alertMemberEmails": obj.get("alertMemberEmails"),
                 "version": obj.get("version"),
-                "uiVersion": obj.get("uiVersion"),
+                "environment": obj.get("environment"),
             }
         )
         return _obj

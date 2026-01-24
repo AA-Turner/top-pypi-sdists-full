@@ -1,13 +1,14 @@
 # built-in dependencies
 import os
-from typing import Any, List
+from typing import Any, List, Dict, Tuple, Optional
 
 # 3rd party dependencies
 import cv2
-import numpy as np
+from numpy.typing import NDArray
 
-#project dependencies
+# project dependencies
 from deepface.models.Detector import Detector, FacialAreaRegion
+from deepface.modules.exceptions import UnimplementedError
 
 
 class OpenCvClient(Detector):
@@ -15,10 +16,11 @@ class OpenCvClient(Detector):
     Class to cover common face detection functionalitiy for OpenCv backend
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """OpenCV face detector model initialization"""
         self.model = self.build_model()
 
-    def build_model(self):
+    def build_model(self) -> Dict[str, Any]:
         """
         Build opencv's face and eye detector models
         Returns:
@@ -29,7 +31,7 @@ class OpenCvClient(Detector):
         detector["eye_detector"] = self.__build_cascade("haarcascade_eye")
         return detector
 
-    def detect_faces(self, img: np.ndarray) -> List[FacialAreaRegion]:
+    def detect_faces(self, img: NDArray[Any]) -> List[FacialAreaRegion]:
         """
         Detect and align face with opencv
 
@@ -79,7 +81,9 @@ class OpenCvClient(Detector):
 
         return resp
 
-    def find_eyes(self, img: np.ndarray) -> tuple:
+    def find_eyes(
+        self, img: NDArray[Any]
+    ) -> Tuple[Optional[Tuple[int, int]], Optional[Tuple[int, int]]]:
         """
         Find the left and right eye coordinates of given image
         Args:
@@ -104,8 +108,9 @@ class OpenCvClient(Detector):
 
         # opencv eye detection module is not strong. it might find more than 2 eyes!
         # besides, it returns eyes with different order in each call (issue 435)
-        # this is an important issue because opencv is the default detector and ssd also uses this
-        # find the largest 2 eye. Thanks to @thelostpeace
+        # this is an important issue because opencv is the default detector,
+        # and ssd, some yolo models don't return eye coordinates, uses this function
+        # this is finding the largest 2 eye. Thanks to @thelostpeace
 
         eyes = sorted(eyes, key=lambda v: abs(v[2] * v[3]), reverse=True)
 
@@ -135,7 +140,7 @@ class OpenCvClient(Detector):
             )
         return left_eye, right_eye
 
-    def __build_cascade(self, model_name="haarcascade") -> Any:
+    def __build_cascade(self, model_name: str = "haarcascade") -> Any:
         """
         Build a opencv face&eye detector models
         Returns:
@@ -163,7 +168,7 @@ class OpenCvClient(Detector):
             detector = cv2.CascadeClassifier(eye_detector_path)
 
         else:
-            raise ValueError(f"unimplemented model_name for build_cascade - {model_name}")
+            raise UnimplementedError(f"unimplemented model_name for build_cascade - {model_name}")
 
         return detector
 

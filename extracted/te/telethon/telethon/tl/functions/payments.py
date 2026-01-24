@@ -938,7 +938,7 @@ class GetSavedStarGiftsRequest(TLRequest):
     CONSTRUCTOR_ID = 0xa319e569
     SUBCLASS_OF_ID = 0xd5112897
 
-    def __init__(self, peer: 'TypeInputPeer', offset: str, limit: int, exclude_unsaved: Optional[bool]=None, exclude_saved: Optional[bool]=None, exclude_unlimited: Optional[bool]=None, exclude_unique: Optional[bool]=None, sort_by_value: Optional[bool]=None, exclude_upgradable: Optional[bool]=None, exclude_unupgradable: Optional[bool]=None, collection_id: Optional[int]=None):
+    def __init__(self, peer: 'TypeInputPeer', offset: str, limit: int, exclude_unsaved: Optional[bool]=None, exclude_saved: Optional[bool]=None, exclude_unlimited: Optional[bool]=None, exclude_unique: Optional[bool]=None, sort_by_value: Optional[bool]=None, exclude_upgradable: Optional[bool]=None, exclude_unupgradable: Optional[bool]=None, peer_color_available: Optional[bool]=None, exclude_hosted: Optional[bool]=None, collection_id: Optional[int]=None):
         """
         :returns payments.SavedStarGifts: Instance of SavedStarGifts.
         """
@@ -952,6 +952,8 @@ class GetSavedStarGiftsRequest(TLRequest):
         self.sort_by_value = sort_by_value
         self.exclude_upgradable = exclude_upgradable
         self.exclude_unupgradable = exclude_unupgradable
+        self.peer_color_available = peer_color_available
+        self.exclude_hosted = exclude_hosted
         self.collection_id = collection_id
 
     async def resolve(self, client, utils):
@@ -970,13 +972,15 @@ class GetSavedStarGiftsRequest(TLRequest):
             'sort_by_value': self.sort_by_value,
             'exclude_upgradable': self.exclude_upgradable,
             'exclude_unupgradable': self.exclude_unupgradable,
+            'peer_color_available': self.peer_color_available,
+            'exclude_hosted': self.exclude_hosted,
             'collection_id': self.collection_id
         }
 
     def _bytes(self):
         return b''.join((
             b'i\xe5\x19\xa3',
-            struct.pack('<I', (0 if self.exclude_unsaved is None or self.exclude_unsaved is False else 1) | (0 if self.exclude_saved is None or self.exclude_saved is False else 2) | (0 if self.exclude_unlimited is None or self.exclude_unlimited is False else 4) | (0 if self.exclude_unique is None or self.exclude_unique is False else 16) | (0 if self.sort_by_value is None or self.sort_by_value is False else 32) | (0 if self.exclude_upgradable is None or self.exclude_upgradable is False else 128) | (0 if self.exclude_unupgradable is None or self.exclude_unupgradable is False else 256) | (0 if self.collection_id is None or self.collection_id is False else 64)),
+            struct.pack('<I', (0 if self.exclude_unsaved is None or self.exclude_unsaved is False else 1) | (0 if self.exclude_saved is None or self.exclude_saved is False else 2) | (0 if self.exclude_unlimited is None or self.exclude_unlimited is False else 4) | (0 if self.exclude_unique is None or self.exclude_unique is False else 16) | (0 if self.sort_by_value is None or self.sort_by_value is False else 32) | (0 if self.exclude_upgradable is None or self.exclude_upgradable is False else 128) | (0 if self.exclude_unupgradable is None or self.exclude_unupgradable is False else 256) | (0 if self.peer_color_available is None or self.peer_color_available is False else 512) | (0 if self.exclude_hosted is None or self.exclude_hosted is False else 1024) | (0 if self.collection_id is None or self.collection_id is False else 64)),
             self.peer._bytes(),
             b'' if self.collection_id is None or self.collection_id is False else (struct.pack('<i', self.collection_id)),
             self.serialize_bytes(self.offset),
@@ -994,6 +998,8 @@ class GetSavedStarGiftsRequest(TLRequest):
         _sort_by_value = bool(flags & 32)
         _exclude_upgradable = bool(flags & 128)
         _exclude_unupgradable = bool(flags & 256)
+        _peer_color_available = bool(flags & 512)
+        _exclude_hosted = bool(flags & 1024)
         _peer = reader.tgread_object()
         if flags & 64:
             _collection_id = reader.read_int()
@@ -1001,7 +1007,7 @@ class GetSavedStarGiftsRequest(TLRequest):
             _collection_id = None
         _offset = reader.tgread_string()
         _limit = reader.read_int()
-        return cls(peer=_peer, offset=_offset, limit=_limit, exclude_unsaved=_exclude_unsaved, exclude_saved=_exclude_saved, exclude_unlimited=_exclude_unlimited, exclude_unique=_exclude_unique, sort_by_value=_sort_by_value, exclude_upgradable=_exclude_upgradable, exclude_unupgradable=_exclude_unupgradable, collection_id=_collection_id)
+        return cls(peer=_peer, offset=_offset, limit=_limit, exclude_unsaved=_exclude_unsaved, exclude_saved=_exclude_saved, exclude_unlimited=_exclude_unlimited, exclude_unique=_exclude_unique, sort_by_value=_sort_by_value, exclude_upgradable=_exclude_upgradable, exclude_unupgradable=_exclude_unupgradable, peer_color_available=_peer_color_available, exclude_hosted=_exclude_hosted, collection_id=_collection_id)
 
 
 class GetStarGiftCollectionsRequest(TLRequest):

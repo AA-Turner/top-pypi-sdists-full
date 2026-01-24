@@ -16,7 +16,6 @@ short_description: NTP server.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -143,7 +142,7 @@ EXAMPLES = '''
           authentication: disable
           id: 1
           key: fortinet
-          key-id: 1
+          key_id: 1
           ntpv3: enable
           server: ntp1.fortinet.net
 

@@ -1,3 +1,5 @@
+# pyright: reportPrivateUsage = false
+
 from __future__ import annotations
 
 import abc
@@ -19,7 +21,8 @@ import random
 import re
 import statistics
 import types
-from dataclasses import dataclass
+import typing
+from dataclasses import dataclass, is_dataclass
 from datetime import datetime
 from enum import Enum, IntEnum
 from inspect import Parameter, isclass
@@ -41,13 +44,18 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    ParamSpec,
     Protocol,
     Sequence,
     Set,
     Type,
+    TypeAlias,
     TypeVar,
     Union,
     cast,
+    final,
+    get_args,
+    get_origin,
     overload,
 )
 
@@ -55,11 +63,14 @@ import google.protobuf.message
 import pyarrow
 import pyarrow as pa
 import requests
+from google.protobuf import message_factory
 from google.protobuf.descriptor import Descriptor
 from google.protobuf.internal.python_message import GeneratedProtocolMessageType
-from typing_extensions import ParamSpec, TypeAlias, final, get_args, get_origin
+from pydantic import BaseModel
 
-from chalk._lsp.error_builder import ResolverErrorBuilder, get_resolver_error_builder
+from chalk._lsp._class_finder import get_function_caller_info
+from chalk._lsp.error_builder import FunctionCallErrorBuilder, ResolverErrorBuilder, get_resolver_error_builder
+from chalk.df.LazyFramePlaceholder import LazyFramePlaceholder
 from chalk.features._encoding.protobuf import (
     convert_proto_message_type_to_pyarrow_type,
     serialize_message_file_descriptor,
@@ -103,6 +114,8 @@ if TYPE_CHECKING:
     from pydantic import BaseModel
 
     from chalk.features import Underscore
+    from chalk.features.underscore import UnderscoreAttr, UnderscoreCall, UnderscoreCast, UnderscoreFunction
+    from chalk.ml.model_version import ModelVersion
     from chalk.sql import BaseSQLSourceProtocol, SQLSourceGroup
     from chalk.sql._internal.sql_settings import SQLResolverSettings
     from chalk.sql._internal.sql_source import BaseSQLSource
@@ -544,28 +557,18 @@ class ResolverRegistry:
         short_name = resolver.name
         if short_name in self._short_name_to_resolver:
             if not override and not notebook.is_notebook():
-                if resolver.fqn == self._short_name_to_resolver[short_name]:
-                    # Same resolver was redefined
-                    resolver.lsp_builder.add_diagnostic(
-                        message=f"Duplicate resolver '{resolver.fqn}'. Multiple resolvers cannot have the same name.",
-                        code="71",
-                        label="duplicate name",
-                        range=resolver.lsp_builder.function_name(),
-                        raise_error=ValueError,
-                    )
-                else:
-                    # Same short name was reused
-                    resolver.lsp_builder.add_diagnostic(
-                        message=(
-                            f"Another resolver with the same function name '{resolver.name}' in module "
-                            f"'{self._short_name_to_resolver[short_name].__module__}' exists. "
-                            f"Resolver function names must be unique. Please rename this resolver in module '{resolver.__module__}'."
-                        ),
-                        label="duplicate resolver shortname",
-                        code="71",
-                        range=resolver.lsp_builder.function_name(),
-                        raise_error=None,
-                    )
+                # Same short name was reused
+                resolver.lsp_builder.add_diagnostic(
+                    message=(
+                        f"Another resolver with the same function name '{resolver.name}' in module "
+                        f"'{self._short_name_to_resolver[short_name].__module__}' exists. "
+                        f"Resolver function names must be unique. Please rename this resolver in module '{resolver.__module__}'."
+                    ),
+                    label="duplicate resolver shortname",
+                    code="71",
+                    range=resolver.lsp_builder.function_name(),
+                    raise_error=None,
+                )
                 return
             existing_resolver = self._short_name_to_resolver[short_name]
             # Need to remove the resolver from the typed registry
@@ -638,6 +641,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         output_row_order: Literal["one-to-one"] | None = None,
         venv: str | None = None,
         name: None = None,  # deprecated
+        postprocessing: Underscore | None = None,
     ):
         self._function_definition = ... if function_definition is None else function_definition
         self._function_captured_globals = ... if function_captured_globals is None else function_captured_globals
@@ -681,6 +685,7 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
         self._data_lineage = data_lineage
         self._sql_settings = sql_settings
         self.output_row_order = output_row_order
+        self.postprocessing = postprocessing
         super().__init__()
 
     @property
@@ -838,14 +843,20 @@ class Resolver(ResolverProtocol[P, T], abc.ABC):
                 annotation = None
 
             if annotation is not None:
-                if not isinstance(val, DataFrame):
+                if self.static and type(val).__name__ == "DataFrame" and type(val).__module__ == "chalkdf.dataframe":
+                    # No need to wrap this class in DataFrame.
+                    pass
+                elif self.static and isinstance(val, LazyFramePlaceholder):
+                    # No need to wrap this class in DataFrame.
+                    pass
+                elif not isinstance(val, DataFrame):
                     val = DataFrame(val)
 
                 if time_is_frozen():
                     frozen_filter = Filter(lhs=CHALK_TS_FEATURE, operation="<=", rhs=TimeDelta(hours_ago=0))
                     annotation.filters = (frozen_filter, *annotation.filters)
 
-                if annotation.filters and len(annotation.filters) > 0:
+                if annotation.filters and len(annotation.filters) > 0 and not isinstance(val, LazyFramePlaceholder):
                     try:
                         val = val[annotation.filters]
                         val._materialize()  # pyright: ignore[reportPrivateUsage]
@@ -2816,7 +2827,10 @@ class StreamResolver(Resolver[P, T]):
         autogenerated: bool,
         updates_materialized_aggregations: bool,
         sql_settings: SQLResolverSettings | None,
-        feature_expressions: dict[Feature, Underscore] | None = None,
+        feature_expressions: dict[Feature, Underscore] | None,
+        message_producer_parsed: StreamResolverMessageProducerParsed | None,
+        skip_online: bool = False,
+        skip_offline: bool = False,
     ):
         super().__init__(
             function_definition=function_definition,
@@ -2884,6 +2898,9 @@ class StreamResolver(Resolver[P, T]):
                     self.windowed_pseudofeatures[window_period][o] = windowed_feature
 
         self.feature_expressions: dict[Feature, Underscore] | None = feature_expressions
+        self.message_producer_parsed: StreamResolverMessageProducerParsed | None = message_producer_parsed
+        self.skip_online = skip_online
+        self.skip_offline = skip_offline
 
     @property
     def output_features(self) -> Sequence[Feature]:
@@ -3167,6 +3184,18 @@ def _parse_stream_resolver_output_features(
     return output_features
 
 
+def _is_valid_stream_message_type(typ: Type) -> bool:
+    from chalk.functions.proto import _is_protobuf_message
+
+    if is_pydantic_basemodel(typ):
+        return True
+    if is_dataclass(typ):
+        return True
+    if _is_protobuf_message(typ):
+        return True
+    return False
+
+
 @dataclass(frozen=True)
 class ParseInfo(Generic[T, V]):
     fn: Callable[[T], V]
@@ -3178,18 +3207,16 @@ class ParseInfo(Generic[T, V]):
 
 
 def _validate_parse_function(
-    stream_fn: Callable[P, T],
+    stream_fqn: str,
     parse_fn: Callable[[T], Any],
     globals: dict[str, Any] | None,
     locals: dict[str, Any] | None,
-    params: Sequence[StreamResolverParam],
-    resolver_error_builder: ResolverErrorBuilder,
+    stream_fn_input_type: Type[Any],
     name: str | None,
 ) -> ParseInfo:
     parse_error_builder = get_resolver_error_builder(parse_fn)
     """We need separate error builders for resolver and parse fn: different AST nodes"""
 
-    stream_fqn = get_resolver_fqn(function=stream_fn, name=name)
     parse_fqn = get_resolver_fqn(function=parse_fn, name=name)
     sig = inspect.signature(parse_fn)
     annotation_parser = ResolverAnnotationParser(parse_fn, globals, locals, parse_error_builder)
@@ -3229,18 +3256,14 @@ def _validate_parse_function(
         raise
     else:
         parse_output = return_annotation
-    if not is_pydantic_basemodel(parse_output):
+    if not _is_valid_stream_message_type(parse_output):
         parse_error_builder.add_diagnostic(
-            message=f"Parse function '{parse_fqn}' return annotation must be of type pydantic.BaseModel",
+            message=f"Parse function '{parse_fqn}' return annotation must be either a pydantic BaseModel, decorated with @dataclass, or a protobuf Message type",
             code="101",
             label="invalid parse function return annotation",
             range=parse_error_builder.function_return_annotation(),
             raise_error=TypeError,
         )
-    stream_fn_input_arg = next(
-        param for param in params if isinstance(param, (StreamResolverParamMessage, StreamResolverParamMessageWindow))
-    )
-    stream_fn_input_type = _get_stream_resolver_input_type(stream_fn_input_arg, stream_fqn, resolver_error_builder)
     if parse_output != stream_fn_input_type:
         parse_error_builder.add_diagnostic(
             message=(
@@ -3647,13 +3670,19 @@ def parse_and_register_stream_resolver(
     )
     parse_info = None
     if parse:
+        stream_fqn = get_resolver_fqn(function=fn, name=name)
+        stream_fn_input_arg = next(
+            param
+            for param in params
+            if isinstance(param, (StreamResolverParamMessage, StreamResolverParamMessageWindow))
+        )
+        stream_fn_input_type = _get_stream_resolver_input_type(stream_fn_input_arg, stream_fqn, error_builder)
         parse_info = _validate_parse_function(
-            stream_fn=fn,
+            stream_fqn=stream_fqn,
             parse_fn=parse,
             globals=caller_globals,
             locals=caller_locals,
-            params=params,
-            resolver_error_builder=error_builder,
+            stream_fn_input_type=stream_fn_input_type,
             name=name,
         )
     if keys is not None:
@@ -3676,7 +3705,6 @@ def parse_and_register_stream_resolver(
         params=params,
         output_feature_fqns=output_feature_fqns,
     )
-    # TODO: lazily parse
     parsed = parse_function(
         fn,
         caller_globals,
@@ -3730,9 +3758,46 @@ def parse_and_register_stream_resolver(
         autogenerated=False,
         updates_materialized_aggregations=updates_materialized_aggregations,
         sql_settings=None,
+        feature_expressions=None,
+        message_producer_parsed=None,
     )
     resolver.add_to_registry(override=False)
     return resolver
+
+
+def _validate_message_type(message_type: Type[Any], allow_lists: bool = True) -> str | None:
+    if hasattr(message_type, "__origin__"):
+        assert hasattr(message_type, "__args__")
+        if message_type.__origin__ not in (list, typing.List, typing.Sequence):
+            return "The only generic type supported is list|List|Sequence."
+        if len(message_type.__args__) != 1:
+            return f"Found {len(message_type.__args__)} type parameters for generic type, only one supported."
+        if not allow_lists:
+            return f"Nested lists (e.g. List[List[MessageType]]) not supported."
+        sub_type = message_type.__args__[0]
+        sub_res = _validate_message_type(sub_type, allow_lists=False)
+        if sub_res is not None:
+            sub_res = f"Found type List[T] with invalid T: {sub_res}"
+        return sub_res
+
+    if message_type in (str, bytes):
+        return None
+
+    if inspect.isclass(message_type):  # pyright: ignore[reportUnnecessaryIsInstance]
+        if issubclass(message_type, BaseModel):
+            return None
+        elif issubclass(message_type, google.protobuf.message.Message):
+            return None
+        elif is_dataclass(message_type):
+            return None
+        else:
+            return "Unsupported type (expected str/bytes, a struct type, or a list[struct])"
+    else:
+        return "message type should be a type"
+
+
+def _is_list_message_type(message_type: Type[Any]):
+    return getattr(message_type, "__origin__", None) in (list, typing.List, typing.Sequence)
 
 
 def make_stream_resolver(
@@ -3741,45 +3806,153 @@ def make_stream_resolver(
     source: StreamSource,
     message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
     output_features: "Mapping[FeatureWrapper, Underscore]",
-    parse: Optional[Underscore] = None,
+    parse: Underscore | Callable[[str | bytes], Any] | None = None,
     environment: Optional[Environments] = None,
     machine_type: Optional[MachineType] = None,
     owner: Optional[str] = None,
     doc: str | None = None,
+    sink: Sink | None = None,
+    skip_online: bool = False,
+    skip_offline: bool = False,
 ) -> StreamResolver:
-    """
-    Constructs a streaming resolver that, instead of a python function, defines its output features as column projections on an input message.
-    NOTE: This is an experimental Chalk feature and may not work as expected.
+    """Constructs a streaming resolver that, instead of a Python function,
+    defines its output features as column projections on an input message.
 
-    :param name: The name of the streaming resolver.
-    :param source:
-    :param message_type:
-    :param output_features:
-    :param parse: Converts bytes --> message_type. If it returns None, message is skipped.
-    :param environment:
-    :param machine_type:
-    :param owner:
-    :param doc:
-    :return:
+    Parameters
+    ----------
+    name
+        The name of the streaming resolver.
+    source
+        The streaming source, e.g. `KafkaSource(...)` or `KinesisSource(...)` or `PubSubSource(...)`.
+    message_type
+        The type of message to process.
+    output_features
+        Mapping of output features to their corresponding expressions.
+    parse
+        Converts bytes -> message_type. If it returns `None`, message is skipped.
+    environment
+        Environments are used to trigger behavior in different deployments
+        such as staging, production, and local development.
+    machine_type
+        You can optionally specify that resolvers need to run
+        on a machine other than the default. Must be configured
+        in your deployment.
+    owner
+        Individual or team responsible for this resolver.
+        The Chalk Dashboard will display this field, and alerts
+        can be routed to owners.
+    doc
+        Documentation string for the resolver.
+    sink
+        An optional message producer configuration that specifies where to send messages.
+        Read more at https://docs.chalk.ai/api-docs#Sink
+    skip_online
+        If True, skip online persistence (no writes to Redis/DynamoDB/etc).
+        Results will still be processed but not stored in online stores.
+        Note: Only applies to native streaming. Default: False
+    skip_offline
+        If True, skip offline persistence (no result bus publishing for offline storage).
+        Results will still be processed but not stored in offline stores (S3/BigQuery/etc).
+        Note: Only applies to native streaming. Default: False
+
+    Returns
+    -------
+    StreamResolver
+        A configured stream resolver.
     """
+    from chalk.features.underscore import Underscore
 
     # The function "definition" will be the source code of the invocation, for error reporting / LSP highlighting.
-    caller_source: str | None = None
-    caller_filename: str | None = None
-    caller_lineno: int | None = None
-    current_frame = inspect.currentframe()
-    if current_frame is not None and current_frame.f_back is not None:
-        caller_frame = current_frame.f_back
-        caller_source = inspect.getsource(caller_frame)
-        caller_filename = inspect.getfile(caller_frame)
-        caller_lineno = inspect.getlineno(caller_frame)
+    caller_info = get_function_caller_info(frame_offset=1)
+    caller_source = caller_info.caller_source
+    caller_filename = caller_info.filename
+    caller_lineno = caller_info.lineno
+    error_builder = FunctionCallErrorBuilder(caller_info)
 
-    # TODO validation
-    # 1. Validate name is a valid fqn
-    # 2. Validate output features are valid & all same namespace
-    # 3. Validate message type is supported (some sort of struct or bytes/string)
+    # TODO unify this with the above
+    frame = inspect.currentframe()
+    assert frame is not None
+    caller_frame = frame.f_back
+    assert caller_frame is not None
+    caller_globals = caller_frame.f_globals
+    caller_locals = caller_frame.f_locals
+    del frame
+
+    if not isinstance(source, StreamSource):  # pyright: ignore[reportUnnecessaryIsInstance]
+        error_builder.add_diagnostic(
+            message=(
+                f"Invalid source for stream resolver '{name}': expected KafkaSource, KinesisSource, or PubSubSource, got {type(source).__name__}"
+            ),
+            code="190",
+            label="Invalid stream source",
+            range=error_builder.function_arg_range_by_name("source"),
+        )
+
+    # Validate name is a string
+    if not isinstance(name, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+        error_builder.add_diagnostic(
+            message=f"Stream resolver name must be a string, got {type(name).__name__}",
+            code="191",
+            label="Invalid resolver name type",
+            range=error_builder.function_arg_range_by_name("name"),
+        )
+
+    # Validate name is a valid FQN (basic validation)
+    if isinstance(name, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+        # Check for empty name
+        if not name.strip():
+            error_builder.add_diagnostic(
+                message="Stream resolver name cannot be empty",
+                code="192",
+                label="Empty resolver name",
+                range=error_builder.function_arg_range_by_name("name"),
+            )
+        # Check for dots (not allowed in FQNs)
+        elif "." in name:
+            error_builder.add_diagnostic(
+                message=f"Stream resolver name '{name}' cannot contain dots. Use underscores instead",
+                code="193",
+                label="Invalid resolver name format",
+                range=error_builder.function_arg_range_by_name("name"),
+            )
+
+    # Validate message_type is one of the allowed types
+    message_type_validation_msg = _validate_message_type(message_type)
+    if message_type_validation_msg is not None:
+        error_builder.add_diagnostic(
+            message=f"Invalid message_type for stream resolver '{name}' ({message_type}): {message_type_validation_msg}. Supported message types includes 'str', 'bytes', some struct type (a pydantic BaseModel or dataclass), or a list[T] where T is a string/bytes/struct)",
+            code="195",
+            label="Invalid message type",
+            range=error_builder.function_arg_range_by_name("message_type"),
+        )
+
+    if _is_list_message_type(message_type) and parse is None:
+        error_builder.add_diagnostic(
+            message=(
+                f"Found list message_type without a parse function for stream resolver '{name}' ({message_type}): List message types are only supported if a custom parse function is provided. "
+                f"Otherwise, only struct or bytes/string messages are supported."
+            ),
+            code="196",
+            label="List message type without parse function",
+            range=error_builder.function_arg_range_by_name("message_type"),
+        )
 
     from chalk import Features
+
+    unwrapped_features: list[Feature] = []
+    for f in output_features.keys():
+        if not isinstance(f, FeatureWrapper):  # pyright: ignore[reportUnnecessaryIsInstance]
+            error_builder.add_diagnostic(
+                message=f"Stream resolver output feature '{f}' is not a Feature, got {type(f)} instead",
+                code="194",
+                label="Invalid output feature",
+                range=error_builder.function_arg_range_by_name("output_features"),
+            )
+        unwrapped_features.append(unwrap_feature(f))
+    _validate_output_features(unwrapped_features, error_builder, name)
+    validate_message_attributes(
+        expressions=output_features.values(), message_type=message_type, error_builder=error_builder, name=name
+    )
 
     output_type = Features[tuple(output_features.keys())]
 
@@ -3793,8 +3966,10 @@ def make_stream_resolver(
             f"Stream resolver '{name}' has expression-based parse function so it can't be called directly."
         )
 
+    params = [StreamResolverParamMessage(typ=message_type, name="message")]
+
     parse_info: Optional[ParseInfo] = None
-    if parse is not None:
+    if isinstance(parse, Underscore):
         parse_info = ParseInfo(
             fn=_dummy_parse_fn,
             input_type=bytes,
@@ -3803,6 +3978,27 @@ def make_stream_resolver(
             parse_function_captured_globals=None,
             parse_expression=parse,
         )
+    elif callable(parse):
+        parse_info = _validate_parse_function(
+            name,
+            parse_fn=parse,
+            globals=caller_globals,
+            locals=caller_locals,
+            stream_fn_input_type=message_type,
+            name=name,
+        )
+        if parse_info.input_type != bytes:
+            raise ValueError(
+                f"Native streaming resolvers only support python parse functions with input bytes 'bytes'. Function {parse} has input type {parse_info.input_type}"
+            )
+
+    # Validate and parse sink before creating StreamResolver
+    message_producer_parsed: StreamResolverMessageProducerParsed | None = None
+    if sink is not None:
+        message_producer_parsed = parse_message_producer_with_lsp_errors(
+            sink, error_builder, "sink", message_type, name
+        )
+
     resolver = StreamResolver(
         function_definition=caller_source,
         # No captured globals, the function "definition" is a bunch of static expressions
@@ -3819,13 +4015,12 @@ def make_stream_resolver(
         message=message_type,
         output=output_type,
         signature=StreamResolverSignature(
-            params=[StreamResolverParamMessage(typ=message_type, name="message")],
+            params=params,
             output_feature_fqns={str(x) for x in output_features.keys()},
         ),
         state=None,
         sql_query=None,
         owner=owner,
-        # Note: currently don't support explicit parse functions. May want to allow customers to e.g. preprocess the raw bytes before parsing the proto or something
         parse=parse_info,
         keys=None,
         timestamp=None,
@@ -3835,6 +4030,649 @@ def make_stream_resolver(
         updates_materialized_aggregations=True,
         sql_settings=None,
         feature_expressions={unwrap_feature(x): u for x, u in output_features.items()},
+        message_producer_parsed=message_producer_parsed,
+        skip_online=skip_online,
+        skip_offline=skip_offline,
     )
     resolver.add_to_registry(override=False)
+    return resolver
+
+
+@dataclass
+class Sink:
+    """Sends stream messages to a stream source of your choice.
+
+    Messages are arrow tables serialized in IPC stream format with the specified output columns
+    """
+
+    send_to: StreamSource
+    """The source to send results to"""
+
+    output_features: Iterable[FeatureWrapper | str]
+    """
+    The requested output features. These can include both features returned by the stream resolvers and
+    other features retrievable via online query given the stream resolver outputs as inputs. The message sent to
+    the stream will have these output features as columns
+    """
+
+    format: Literal["json", "ipc_stream"] = "ipc_stream"
+    """Format of messages sent"""
+
+    feature_expressions: Mapping[FeatureWrapper | str, Underscore] | None = None
+
+
+def parse_message_producer_with_lsp_errors(
+    message_producer: Sink,
+    error_builder: FunctionCallErrorBuilder,
+    param_name: str,
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    resolver_name: str,
+) -> StreamResolverMessageProducerParsed | None:
+    """Convert a Sink to StreamResolverMessageProducerParsed with LSP error reporting.
+
+    Args:
+        message_producer: The Sink object to parse
+        error_builder: Error builder for LSP diagnostics
+        param_name: Parameter name for error reporting
+        message_type: Message type for validating feature_expressions
+        resolver_name: Resolver name for error messages
+
+    Returns:
+        StreamResolverMessageProducerParsed if successful, None if validation failed
+    """
+    # Validate send_to is a StreamSource
+    if not isinstance(message_producer.send_to, StreamSource):  # pyright: ignore[reportUnnecessaryIsInstance]
+        error_builder.add_diagnostic(
+            message="Expected a StreamSource for argument 'send_to' on Sink",
+            code="202",
+            label="Invalid send_to type",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+        return None
+
+    # Validate output_features is iterable
+    if not isinstance(
+        message_producer.output_features, collections.abc.Iterable
+    ):  # pyright: ignore[reportUnnecessaryIsInstance]
+        error_builder.add_diagnostic(
+            message="Expected an iterable for argument 'output_features' on Sink",
+            code="203",
+            label="Invalid output_features type",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+        return None
+
+    output_features_list = list(message_producer.output_features)
+    if len(output_features_list) == 0:
+        error_builder.add_diagnostic(
+            message="Expected at least one output feature for Sink",
+            code="204",
+            label="Empty output_features",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+        return None
+
+    # Validate output features (primary key, namespaces, etc.)
+    unwrapped_features: list[Feature] = []
+    for f in output_features_list:
+        if isinstance(f, FeatureWrapper):
+            unwrapped_features.append(unwrap_feature(f))
+        elif isinstance(f, str):  # pyright: ignore[reportUnnecessaryIsInstance]
+            try:
+                # Try to parse as feature FQN
+                feature = Feature.from_root_fqn(f)
+                unwrapped_features.append(feature)
+            except Exception:
+                error_builder.add_diagnostic(
+                    message=f"Invalid feature FQN '{f}' in Sink output_features",
+                    code="206",
+                    label="Invalid feature FQN",
+                    range=error_builder.function_arg_range_by_name(param_name),
+                )
+                return None
+        else:
+            error_builder.add_diagnostic(
+                message=f"Sink output feature '{f}' must be a Feature or string, got {type(f)} instead",
+                code="207",
+                label="Invalid output feature type",
+                range=error_builder.function_arg_range_by_name(param_name),
+            )
+            return None
+
+    # Run the same validation as stream resolvers (primary key, namespace consistency)
+    _validate_output_features(unwrapped_features, error_builder, resolver_name)
+
+    # Validate feature_expressions if present
+    if message_producer.feature_expressions is not None:
+        if not isinstance(
+            message_producer.feature_expressions, collections.abc.Mapping
+        ):  # pyright: ignore[reportUnnecessaryIsInstance]
+            error_builder.add_diagnostic(
+                message="Expected a mapping for argument 'feature_expressions' on Sink",
+                code="205",
+                label="Invalid feature_expressions type",
+                range=error_builder.function_arg_range_by_name(param_name),
+            )
+            return None
+        feature_expressions_dict = {str(k): v for k, v in message_producer.feature_expressions.items()}
+
+        # Validate underscore expressions in feature_expressions
+        validate_message_attributes(
+            expressions=message_producer.feature_expressions.values(),
+            message_type=message_type,
+            error_builder=error_builder,
+            name=resolver_name,
+        )
+    else:
+        feature_expressions_dict = None
+
+    # Validate format is valid
+    if message_producer.format not in ("json", "ipc_stream"):
+        error_builder.add_diagnostic(
+            message=f"Invalid format '{message_producer.format}' on Sink. Must be 'json' or 'ipc_stream'",
+            code="208",
+            label="Invalid format",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+
+    # Create and return the parsed version
+    return StreamResolverMessageProducerParsed(
+        send_to=message_producer.send_to,
+        output_features=[str(f) for f in output_features_list],
+        feature_expressions=feature_expressions_dict,
+        format=message_producer.format,
+    )
+
+
+class StreamResolverMessageProducerParsed:
+    def __init__(
+        self,
+        send_to: StreamSource,
+        output_features: list[str],
+        format: Literal["json", "ipc_stream"],
+        feature_expressions: Mapping[str, Underscore] | None = None,
+    ):
+        super().__init__()
+        self.send_to = send_to
+        self.output_features = output_features
+        self.format = format
+        self.feature_expressions = feature_expressions
+
+
+def _validate_output_features(features: Iterable[Feature], error_builder: FunctionCallErrorBuilder, name: str):
+    found_primary = False
+    namespace = None
+    for feature in features:
+        if feature.primary:
+            found_primary = True
+        if namespace is None:
+            namespace = feature.root_namespace
+        elif namespace != feature.root_namespace:
+            error_builder.add_diagnostic(
+                message=(
+                    f"Stream resolver '{name}' returned features with different namespaces '{namespace}' and '{feature.root_namespace}'. "
+                    "Stream resolvers must return features with the same namespace."
+                ),
+                code="194",
+                label="different namespaces",
+                range=error_builder.function_arg_range_by_name("output_features"),
+                raise_error=TypeError,
+            )
+    if not found_primary:
+        error_builder.add_diagnostic(
+            message=(
+                f"Stream resolver '{name}' did not return a primary key feature. "
+                "Stream resolvers must return a primary key feature."
+            ),
+            code="194",
+            label="missing primary key",
+            range=error_builder.function_arg_range_by_name("output_features"),
+            raise_error=TypeError,
+        )
+
+
+def is_structured_type(
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+) -> bool:
+    """Check if message_type is a structured type (BaseModel/protobuf/dataclass)."""
+    if not inspect.isclass(message_type):  # pyright: ignore[reportUnnecessaryIsInstance]
+        return False
+
+    if hasattr(message_type, "__origin__"):
+        # It's a generic type like List[T]
+        return False
+
+    # Check if it's a Pydantic BaseModel
+    if issubclass(message_type, BaseModel):
+        return True
+
+    # Check if it's a protobuf Message
+    if issubclass(message_type, google.protobuf.message.Message):
+        return True
+
+    # Check if it's a dataclass
+    if is_dataclass(message_type):
+        return True
+
+    return False
+
+
+def get_valid_fields(
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+) -> Set[str]:
+    """Get valid field names for a structured type."""
+    if not inspect.isclass(message_type):  # pyright: ignore[reportUnnecessaryIsInstance]
+        return set()
+
+    # Check if it's a Pydantic BaseModel
+    if issubclass(message_type, BaseModel):
+        return set(message_type.__fields__.keys())
+
+    # Check if it's a protobuf Message
+    if issubclass(message_type, google.protobuf.message.Message):
+        return set(field.name for field in message_type.DESCRIPTOR.fields)
+
+    # Check if it's a dataclass
+    if is_dataclass(message_type):
+        return set(message_type.__dataclass_fields__.keys())
+
+    return set()
+
+
+def get_field_type(parent_type: Type[Any], field_name: str) -> Optional[Type[Any]]:
+    """Get the type of a field from a structured type."""
+    if not inspect.isclass(parent_type):  # pyright: ignore[reportUnnecessaryIsInstance]
+        return None
+
+    # Check if it's a Pydantic BaseModel
+    if issubclass(parent_type, BaseModel):
+        from chalk.utils.pydanticutil.pydantic_compat import get_pydantic_field_type
+
+        return get_pydantic_field_type(parent_type, field_name)
+
+    # Check if it's a protobuf Message
+    if issubclass(parent_type, google.protobuf.message.Message):
+        for field in parent_type.DESCRIPTOR.fields:
+            if field.name == field_name:
+                if field.message_type:
+                    # For nested message fields, get the Python class from the descriptor
+                    return message_factory.GetMessageClass(field.message_type)
+                else:
+                    # For primitive fields, return None since we can't easily convert protobuf field types to Python types
+                    # The validation will still work for nested message fields
+                    return None
+
+    # Check if it's a dataclass
+    if is_dataclass(parent_type):
+        if field_name in parent_type.__dataclass_fields__:
+            field_type = parent_type.__dataclass_fields__[field_name].type
+            # Return the field type if it's a class, otherwise None
+            return field_type if inspect.isclass(field_type) else None
+
+    return None
+
+
+def validate_field_chain(
+    underscore_attr: "UnderscoreAttr",
+    current_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+) -> Optional[Type[Any]]:
+    """Validate a chain of field accesses like _.submessage.id step by step."""
+    from chalk.features.underscore import UnderscoreAttr, UnderscoreRoot
+
+    # Base case: if parent is UnderscoreRoot (_), validate field against current_type
+    if isinstance(underscore_attr._chalk__parent, UnderscoreRoot):
+        if underscore_attr._chalk__attr == "chalk_now":
+            return datetime
+
+        # Check if current_type allows field access
+        if current_type in (str, bytes):
+            error_builder.add_diagnostic(
+                message=f"Stream resolver '{name}' with message_type {current_type.__name__} does not support access to fields. Use chalk functions instead.",
+                code="197",
+                label="Invalid field access on primitive type",
+                range=error_builder.function_arg_range_by_name("output_features"),
+            )
+            return None
+        elif is_structured_type(current_type):
+            valid_fields = get_valid_fields(current_type)
+            if underscore_attr._chalk__attr not in valid_fields:
+                error_builder.add_diagnostic(
+                    message=f"Stream resolver '{name}' field '{underscore_attr._chalk__attr}' does not exist on message_type {current_type.__name__}. Available fields: {sorted(valid_fields)}",
+                    code="198",
+                    label="Invalid field name",
+                    range=error_builder.function_arg_range_by_name("output_features"),
+                )
+                return None
+            else:
+                return get_field_type(current_type, underscore_attr._chalk__attr)
+
+    # Recursive case: get parent's type, then validate current field against it
+    elif isinstance(underscore_attr._chalk__parent, UnderscoreAttr):
+        parent_type = validate_field_chain(underscore_attr._chalk__parent, current_type, error_builder, name)
+        if parent_type is None:
+            return None  # Error already reported in parent validation
+
+        # Now validate current field against the parent's field type
+        if is_structured_type(parent_type):
+            valid_fields = get_valid_fields(parent_type)
+            if underscore_attr._chalk__attr not in valid_fields:
+                error_builder.add_diagnostic(
+                    message=f"Stream resolver '{name}' field '{underscore_attr._chalk__attr}' does not exist on type {parent_type.__name__}. Available fields: {sorted(valid_fields)}",
+                    code="198",
+                    label="Invalid field name",
+                    range=error_builder.function_arg_range_by_name("output_features"),
+                )
+                return None
+            else:
+                return get_field_type(parent_type, underscore_attr._chalk__attr)
+        else:
+            error_builder.add_diagnostic(
+                message=f"Stream resolver '{name}' cannot access field '{underscore_attr._chalk__attr}' on non-structured type",
+                code="199",
+                label="Invalid field access",
+                range=error_builder.function_arg_range_by_name("output_features"),
+            )
+            return None
+
+    return None
+
+
+def validate_function_args(
+    underscore_function: "UnderscoreFunction",
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+) -> None:
+    """Recursively validate all arguments in an UnderscoreFunction."""
+    from chalk.features.underscore import Underscore
+
+    # Validate all positional arguments
+    for arg in underscore_function._chalk__args:
+        if isinstance(arg, Underscore):
+            validate_underscore_expression(arg, message_type, error_builder, name)
+
+    # Validate all keyword arguments
+    for kwarg_value in underscore_function._chalk__kwargs.values():
+        if isinstance(kwarg_value, Underscore):
+            validate_underscore_expression(kwarg_value, message_type, error_builder, name)
+
+
+def validate_underscore_call(
+    underscore_call: "UnderscoreCall",
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+) -> None:
+    """Recursively validate all arguments in an UnderscoreCall (method call like _.field.method())."""
+    from chalk.features.underscore import Underscore, UnderscoreAttr
+
+    # For method calls like _.field.method(), we need to validate the field access
+    # but not the method name itself (since methods like 'cast' can be called on any field)
+    parent = underscore_call._chalk__parent
+    if isinstance(parent, UnderscoreAttr):
+        # The parent is _.field.method - we want to validate _.field, not _.field.method
+        # So we validate the parent's parent instead
+        validate_underscore_expression(parent._chalk__parent, message_type, error_builder, name)
+    else:
+        # For other cases, validate the parent directly
+        validate_underscore_expression(parent, message_type, error_builder, name)
+
+    # Validate all positional arguments
+    for arg in underscore_call._chalk__args:
+        if isinstance(arg, Underscore):
+            validate_underscore_expression(arg, message_type, error_builder, name)
+
+    # Validate all keyword arguments
+    for kwarg_value in underscore_call._chalk__kwargs.values():
+        if isinstance(kwarg_value, Underscore):
+            validate_underscore_expression(kwarg_value, message_type, error_builder, name)
+
+
+def validate_underscore_cast(
+    underscore_cast: "UnderscoreCast",
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+) -> None:
+    """Validate an UnderscoreCast expression (e.g., cast(_.field, str))."""
+    from chalk.features.underscore import Underscore
+
+    # Validate the value being cast
+    if isinstance(underscore_cast._chalk__value, Underscore):  # pyright: ignore[reportUnnecessaryIsInstance]
+        validate_underscore_expression(underscore_cast._chalk__value, message_type, error_builder, name)
+
+    # Note: We don't need to validate the target type (_chalk__to_type) as it's a PyArrow DataType
+
+
+def validate_underscore_expression(
+    expression: "Underscore",
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+) -> None:
+    """Main entry point for validating a single underscore expression."""
+    from chalk.features.underscore import Underscore, UnderscoreAttr, UnderscoreCall, UnderscoreCast, UnderscoreFunction
+
+    # First validate it's an underscore
+    if not isinstance(expression, Underscore):  # pyright: ignore[reportUnnecessaryIsInstance]
+        error_builder.add_diagnostic(
+            message=f"Stream resolver '{name}' output feature expression must be an Underscore, got {type(expression).__name__}",
+            code="196",
+            label="Invalid output expression",
+            range=error_builder.function_arg_range_by_name("output_features"),
+        )
+        return
+
+    # Handle different types of underscore expressions
+    if isinstance(expression, UnderscoreAttr):
+        validate_field_chain(expression, message_type, error_builder, name)
+    elif isinstance(expression, UnderscoreFunction):
+        validate_function_args(expression, message_type, error_builder, name)
+    elif isinstance(expression, UnderscoreCall):
+        validate_underscore_call(expression, message_type, error_builder, name)
+    elif isinstance(expression, UnderscoreCast):
+        validate_underscore_cast(expression, message_type, error_builder, name)
+    else:
+        # Catch-all for any other underscore types
+        error_builder.add_diagnostic(
+            message=f"Stream resolver '{name}' does not support {expression.__name__} expressions",
+            code="201",
+            label="Unsupported underscore expression",
+            range=error_builder.function_arg_range_by_name("output_features"),
+        )
+
+
+def validate_message_attributes(
+    expressions: Iterable[Any],
+    message_type: Type[BaseModel | google.protobuf.message.Message | AnyDataclass | str | bytes],
+    error_builder: FunctionCallErrorBuilder,
+    name: str,
+) -> None:
+    """Validate that all underscore expressions use valid field names for the message_type."""
+    if _is_list_message_type(message_type):
+        message_type = message_type.__args__[0]  # pyright: ignore[reportAttributeAccessIssue]
+    for expression in expressions:
+        validate_underscore_expression(expression, message_type, error_builder, name)
+
+
+def make_model_resolver(
+    name: str,
+    model: "ModelVersion",
+    inputs: Dict[Feature, str] | List[Feature],
+    output: Feature | List[Feature] | Dict[Feature, str],
+    feature_class: Optional[type[Features]] = None,
+    resource_group: Optional[str] = None,
+    resource_hint: Optional[ResourceHint] = None,
+) -> OnlineResolver:
+    """
+    Create an online resolver that runs inference on a model.
+
+    This function provides an imperative API for creating model inference resolvers,
+    as an alternative to using F.inference in feature definitions. It uses the same
+    underlying implementation as F.inference but allows you to create resolvers
+    programmatically.
+
+    Parameters
+    ----------
+    name
+        The name of the resolver
+    model
+        A ModelVersion reference to a deployed model
+    inputs
+        Either a dict mapping Feature objects to model input names (strings), or a list of
+        Feature objects. If a dict, the values represent the model's expected input names
+        (for future use). If a list, the features will be passed as a single DataFrame to
+        the model.
+    output
+        The output feature(s) that will contain the predictions.
+        Can be a single Feature, a list of Features, or a dict mapping Feature objects to
+        model output names (strings) for future use with multi-output models.
+    feature_class
+        Optional feature class to use. If not provided, will be inferred from the inputs.
+    resource_group
+        Optional resource group for the resolver
+    resource_hint
+        Optional resource hint for execution (e.g., CPU/GPU preferences)
+
+    Returns
+    -------
+    OnlineResolver
+        The created resolver
+
+    Examples
+    --------
+    >>> from chalk.features import features, feature
+    >>> from chalk.features.resolver import make_model_resolver
+    >>> from chalk.ml import ModelVersion
+    >>>
+    >>> @features
+    ... class User:
+    ...     id: str = feature(primary=True)
+    ...     age: float
+    ...     income: float
+    ...     risk_score: float
+    ...     credit_score: float
+    >>>
+    >>> # Create a model version reference
+    >>> model = ModelVersion(
+    ...     name="risk_model",
+    ...     version=1,
+    ...     model_type="sklearn",
+    ...     model_encoding="pickle",
+    ...     filename="model.pkl"
+    ... )
+    >>>
+    >>> # Create resolver with single output
+    >>> resolver = make_model_resolver(
+    ...     name="risk_model",
+    ...     model=model,
+    ...     inputs=[User.age, User.income],
+    ...     output=User.risk_score,
+    ... )
+    >>>
+    >>> # Create resolver with multiple outputs (list)
+    >>> resolver = make_model_resolver(
+    ...     name="multi_output_model",
+    ...     model=model,
+    ...     inputs=[User.age, User.income],
+    ...     output=[User.risk_score, User.credit_score],
+    ... )
+    >>>
+    >>> # Create resolver with named inputs and outputs (dict)
+    >>> resolver = make_model_resolver(
+    ...     name="named_model",
+    ...     model=model,
+    ...     inputs={User.age: "age_input", User.income: "income_input"},
+    ...     output={User.risk_score: "risk_output", User.credit_score: "credit_output"},
+    ... )
+    """
+    from chalk.features.inference import build_inference_function
+
+    if isinstance(inputs, dict):
+        input_features_raw = list(inputs.keys())
+    else:
+        input_features_raw = inputs
+
+    input_features = [unwrap_feature(f) for f in input_features_raw]
+
+    if isinstance(output, dict):
+        output_features = [unwrap_feature(f) for f in output.keys()]
+    elif isinstance(output, list):
+        output_features = [unwrap_feature(f) for f in output]
+    else:
+        output_features = [unwrap_feature(output)]
+
+    # If feature_class is not provided, try to infer it from the first input feature
+    if feature_class is None:
+        if not input_features:
+            raise ValueError("Cannot infer feature class: no input features provided and feature_class not specified")
+
+        first_input = input_features[0]
+
+        if hasattr(first_input, "features_cls") and first_input.features_cls is not None:
+            feature_class = first_input.features_cls
+        else:
+            raise ValueError(
+                "Cannot infer feature class from inputs. Please provide feature_class parameter explicitly."
+            )
+
+    pkey = feature_class.__chalk_primary__
+    if pkey is None:
+        raise ValueError(f"Feature class {feature_class} does not have a primary key defined")
+
+    first_output = output_features[0]
+
+    output_namespace = (
+        first_output.namespace
+        if hasattr(first_output, "namespace") and first_output.namespace
+        else feature_class.__name__.lower()
+    )
+
+    # Use the same underlying inference function as F.inference
+    # Pass list of outputs if multiple, single if only one
+    output_for_inference = output_features if len(output_features) > 1 else output_features[0]
+    inference_fn = build_inference_function(model, pkey, output_for_inference)
+
+    if len(output_features) == 1:
+        output_names = output_features[0].name
+    else:
+        output_names = "_".join(f.name for f in output_features)
+
+    resolver = OnlineResolver(
+        function_definition="",
+        filename="",
+        fqn=f"{name}__{output_namespace}_{output_names}",
+        doc=None,
+        inputs=[DataFrame[[pkey, *ensure_tuple(input_features)]]],
+        state=None,
+        output=Features[DataFrame[tuple([*output_features, pkey])]],  # type: ignore[misc]
+        fn=inference_fn,
+        environment=None,
+        machine_type=None,
+        default_args=[None],
+        timeout=None,
+        cron=None,
+        when=None,
+        tags=None,
+        owner=None,
+        resource_hint=resource_hint or model.resource_hint,
+        data_sources=None,
+        is_sql_file_resolver=False,
+        source_line=None,
+        lsp_builder=get_resolver_error_builder(inference_fn),
+        parse=None,
+        static=False,
+        total=False,
+        autogenerated=False,
+        unique_on=None,
+        partitioned_by=None,
+        data_lineage=None,
+        sql_settings=None,
+    )
+
+    # Register the resolver
+    RESOLVER_REGISTRY.add_to_registry(resolver, override=False)
+
     return resolver

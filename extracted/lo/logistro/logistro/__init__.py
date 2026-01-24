@@ -25,7 +25,6 @@ import logging
 from ._api import (
     DEBUG2,
     betterConfig,
-    coerce_logger,
     describe_logging,
     getLogger,
     getPipeLogger,
@@ -34,7 +33,7 @@ from ._api import (
     set_structured,
     structured_formatter,
 )
-from ._args import parser
+from ._args import parsed, parser, remaining_args
 
 CRITICAL = logging.CRITICAL
 """Equal to logging.CRITICAL level."""
@@ -59,12 +58,13 @@ __all__ = [
     "INFO",
     "WARNING",
     "betterConfig",
-    "coerce_logger",
     "describe_logging",
     "getLogger",
     "getPipeLogger",
     "human_formatter",
+    "parsed",
     "parser",
+    "remaining_args",
     "set_human",
     "set_structured",
     "structured_formatter",

@@ -12,7 +12,7 @@ pub mod specs_adapter_tests {
     };
     use std::{fs, path::PathBuf, sync::Arc};
 
-    use crate::utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi};
+    use crate::utils::mock_scrapi::{Endpoint, EndpointStub, Method, MockScrapi, StubData};
 
     #[tokio::test]
     async fn test_data_store_with_streaming() {
@@ -37,24 +37,27 @@ pub mod specs_adapter_tests {
         let _ = adapter.clone().start(&rt).await;
         let _ = mock_listener.wait_for_next_update().await;
         // Use data store
-        let received_update = mock_listener.force_get_most_recent_update();
+        let mut received_update = mock_listener.force_get_most_recent_update();
         assert_eq!(
             received_update.source,
             SpecsSource::Adapter("DataStore".to_string())
         );
         assert_eq!(
-            received_update.data,
-            "init_payload".to_string().into_bytes()
+            received_update.data.read_to_string().unwrap(),
+            "init_payload".to_string()
         ); // examine time
         let _ = adapter.clone().schedule_background_sync(&rt).await;
 
         let _ = mock_listener.wait_for_next_update().await;
-        let received_update_2 = mock_listener.force_get_most_recent_update();
+        let mut received_update_2 = mock_listener.force_get_most_recent_update();
         assert_eq!(
             received_update_2.source,
             SpecsSource::Adapter("GRPC".to_string())
         );
-        assert_eq!(received_update_2.data, "bg_sync_1".to_string().into_bytes());
+        assert_eq!(
+            received_update_2.data.read_to_string().unwrap(),
+            "bg_sync_1".to_string()
+        );
         // examine time
     }
 
@@ -69,7 +72,7 @@ pub mod specs_adapter_tests {
         mock_scrapi
             .stub(EndpointStub {
                 method: Method::GET,
-                response: dcs,
+                response: StubData::String(dcs),
                 ..EndpointStub::with_endpoint(Endpoint::DownloadConfigSpecs)
             })
             .await;
@@ -110,12 +113,15 @@ pub mod specs_adapter_tests {
         adapter.initialize(mock_listener.clone());
         let _ = adapter.clone().start(&rt).await;
         let _ = mock_listener.wait_for_next_update().await;
-        let received_update = mock_listener.force_get_most_recent_update();
+        let mut received_update = mock_listener.force_get_most_recent_update();
         assert_eq!(
             received_update.source,
             SpecsSource::Adapter("GRPC".to_string())
         );
-        assert_eq!(received_update.data, "bg_sync_1".to_string().into_bytes()); // examine time
+        assert_eq!(
+            received_update.data.read_to_string().unwrap(),
+            "bg_sync_1".to_string()
+        ); // examine time
         mock_proxy
             .send_stream_update(Ok(ConfigSpecResponse {
                 spec: "bg_sync_2".to_string(),
@@ -124,12 +130,15 @@ pub mod specs_adapter_tests {
             }))
             .await;
         let _ = mock_listener.wait_for_next_update().await;
-        let received_update_2 = mock_listener.force_get_most_recent_update();
+        let mut received_update_2 = mock_listener.force_get_most_recent_update();
         assert_eq!(
             received_update_2.source,
             SpecsSource::Adapter("GRPC".to_string())
         );
-        assert_eq!(received_update_2.data, "bg_sync_2".to_string().into_bytes()); // examine time
+        assert_eq!(
+            received_update_2.data.read_to_string().unwrap(),
+            "bg_sync_2".to_string()
+        ); // examine time
         mock_proxy.stop().await;
     }
 

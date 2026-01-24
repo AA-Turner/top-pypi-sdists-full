@@ -1,4 +1,6 @@
-from typing import Any, Awaitable, Callable, Mapping, Optional, Union
+import copy
+from collections.abc import Awaitable, Callable, Mapping
+from typing import Any
 
 from fastapi import FastAPI, Request
 from starlette.requests import HTTPConnection
@@ -8,7 +10,7 @@ from taskiq.cli.utils import import_object
 
 def startup_event_generator(
     broker: AsyncBroker,
-    app_or_path: Union[str, FastAPI],
+    app_or_path: str | FastAPI,
 ) -> Callable[[TaskiqState], Awaitable[None]]:
     """
     Generate shutdown event.
@@ -66,7 +68,7 @@ def shutdown_event_generator(
     return shutdown
 
 
-def init(broker: AsyncBroker, app_or_path: Union[str, FastAPI]) -> None:
+def init(broker: AsyncBroker, app_or_path: str | FastAPI) -> None:
     """
     Add taskiq startup events.
 
@@ -94,7 +96,7 @@ def init(broker: AsyncBroker, app_or_path: Union[str, FastAPI]) -> None:
 def populate_dependency_context(
     broker: AsyncBroker,
     app: FastAPI,
-    asgi_state: Optional[Mapping[str, Any]] = None,
+    asgi_state: Mapping[str, Any] | None = None,
 ) -> None:
     """
     Populate dependency context.
@@ -112,10 +114,10 @@ def populate_dependency_context(
     broker.dependency_overrides.update(
         {
             Request: lambda: Request(
-                scope={"app": app, "type": "http", "state": asgi_state},
+                scope={"app": app, "type": "http", "state": copy.copy(asgi_state)},
             ),
             HTTPConnection: lambda: HTTPConnection(
-                scope={"app": app, "type": "http", "state": asgi_state},
+                scope={"app": app, "type": "http", "state": copy.copy(asgi_state)},
             ),
         },
     )

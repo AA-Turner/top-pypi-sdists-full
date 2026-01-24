@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import Field, StrictBool
+from pydantic import ConfigDict, Field, StrictBool
 from typing_extensions import Annotated
 
 from snowflake.core.stream._generated.models.point_of_time import PointOfTime, PointOfTimeModel
@@ -49,7 +49,7 @@ class StreamSourceView(StreamSource):
     point_of_time : PointOfTime, optional
 
     base_tables : list[str], optional
-        List of base tables for the stream
+        List of base tables for the stream — **Read-only:** *any user-provided value will be ignored.*
     """
 
     append_only: Optional[StrictBool] = None
@@ -62,9 +62,10 @@ class StreamSourceView(StreamSource):
 
     __properties = ["src_type", "name", "database_name", "schema_name"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -93,7 +94,7 @@ class StreamSourceView(StreamSource):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of point_of_time
         if self.point_of_time:
@@ -114,9 +115,9 @@ class StreamSourceView(StreamSource):
             return None
 
         if type(obj) is not dict:
-            return StreamSourceView.parse_obj(obj)
+            return StreamSourceView.model_validate(obj)
 
-        _obj = StreamSourceView.parse_obj(
+        _obj = StreamSourceView.model_validate(
             {
                 "name": obj.get("name"),
                 "database_name": obj.get("database_name"),

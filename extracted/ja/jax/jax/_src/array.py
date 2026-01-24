@@ -27,7 +27,6 @@ from jax._src import api
 from jax._src import basearray
 from jax._src import config
 from jax._src import core
-from jax._src import deprecations
 from jax._src import dispatch
 from jax._src import dtypes
 from jax._src import errors
@@ -39,14 +38,13 @@ from jax._src.op_shardings import are_hlo_shardings_equal
 from jax._src.interpreters import mlir
 from jax._src.interpreters import pxla
 from jax._src.layout import AutoLayout, Format, Layout
-from jax._src.lib import jaxlib_extension_version
 from jax._src.lib import _jax
 from jax._src.lib import xla_client as xc
 from jax._src.mesh import empty_concrete_mesh
 from jax._src.sharding import Sharding
 from jax._src.tree_util import broadcast_prefix, tree_flatten, tree_unflatten
 from jax._src.sharding_impls import (
-    PmapSharding, SingleDeviceSharding,
+    PmapSharding, SingleDeviceSharding, NamedSharding,
     device_replica_id_map, hashed_index, num_addressable_indices,
     local_to_global_shape, _internal_use_concrete_mesh)  # pyformat: disable
 from jax._src.typing import ArrayLike, DLDeviceType, DTypeLike, ExtendedDType
@@ -125,16 +123,6 @@ def _reconstruct_array(fun, args, arr_state, aval_state):
   np_value = fun(*args)
   np_value.__setstate__(arr_state)
   jnp_value = api.device_put(np_value)
-  # TODO(slebedev): Remove this branch after December 10th 2024.
-  if "named_shape" in aval_state:
-    deprecations.warn(
-        "jax-aval-named-shape",
-        "Pickled array contains an aval with a named_shape attribute. This is"
-        " deprecated and the code path supporting such avals will be removed."
-        " Please re-pickle the array.",
-        stacklevel=2,
-    )
-    del aval_state["named_shape"]
   jnp_value.aval = jnp_value.aval.update(**aval_state)
   return jnp_value
 
@@ -166,7 +154,7 @@ def _process_has_full_value_in_mcjax(s, shape):
 
 
 def _validate_shape_and_dtype_for_per_device_arrays(
-    arrays: Sequence[ArrayImpl | np.ndarray | literals.LiteralArray],
+    arrays: Sequence[ArrayImpl | np.ndarray | literals.TypedNdArray],
     sharding: Sharding,
     aval: core.ShapedArray,
     expected_shape: Shape,
@@ -296,9 +284,6 @@ class ArrayImpl(basearray.Array):
   def committed(self) -> bool:
     return self._committed
 
-  def __str__(self):
-    return str(self._value)
-
   def __len__(self):
     try:
       return self.shape[0]
@@ -340,11 +325,14 @@ class ArrayImpl(basearray.Array):
     return self._value.tolist()
 
   def __format__(self, format_spec):
-    # Simulates behavior of https://github.com/numpy/numpy/pull/9883
-    if self.ndim == 0:
-      return format(self._value[()], format_spec)
+    if isinstance(self.sharding, NamedSharding) and self.sharding.spec.unreduced:
+      return repr(self)
+    elif (self.is_fully_addressable or self.is_fully_replicated and
+          self.sharding.has_addressable_devices):
+      # Simulates behavior of https://github.com/numpy/numpy/pull/9883
+      return format(self._value if self.ndim else self._value[()], format_spec)
     else:
-      return format(self._value, format_spec)
+      return repr(self)
 
   def __getitem__(self, idx):
     from jax._src.lax import lax  # pytype: disable=import-error
@@ -352,17 +340,11 @@ class ArrayImpl(basearray.Array):
     self._check_if_deleted()
 
     if isinstance(self.sharding, PmapSharding):
-      if config.pmap_no_rank_reduction.value:
-        cidx = idx if isinstance(idx, tuple) else (idx,)
+      cidx = idx if isinstance(idx, tuple) else (idx,)
 
-        padded_cidx = tuple(
-            slice(i, i + 1, None) if isinstance(i, int) else i for i in cidx
-        ) + (slice(None),) * (len(self.shape) - len(cidx))
-      else:
-        if not isinstance(idx, tuple):
-          padded_cidx = (idx,) + (slice(None),) * (len(self.shape) - 1)
-        else:
-          padded_cidx = idx + (slice(None),) * (len(self.shape) - len(idx))
+      padded_cidx = tuple(
+          slice(i, i + 1, None) if isinstance(i, int) else i for i in cidx
+      ) + (slice(None),) * (len(self.shape) - len(cidx))
 
       indices = tuple(self.sharding.devices_indices_map(self.shape).values())
       try:
@@ -373,12 +355,11 @@ class ArrayImpl(basearray.Array):
         out = self._arrays[arr_idx]
         sharding = SingleDeviceSharding(_get_device(out))
 
-        if config.pmap_no_rank_reduction.value:
-          # If cidx was the index of a single shard, then it corresponds to one
-          # shard of the chunked dimension.
-          dims = tuple(i for i, x in enumerate(cidx) if isinstance(x, int))
-          # Squeeze on committed arrays to avoid data movement to shard 0.
-          out = lax.squeeze(out, dimensions=dims)
+        # If cidx was the index of a single shard, then it corresponds to one
+        # shard of the chunked dimension.
+        dims = tuple(i for i, x in enumerate(cidx) if isinstance(x, int))
+        # Squeeze on committed arrays to avoid data movement to shard 0.
+        out = lax.squeeze(out, dimensions=dims)
 
         return ArrayImpl(
             out.aval, sharding, [out], committed=False, _skip_checks=True)
@@ -406,11 +387,13 @@ class ArrayImpl(basearray.Array):
   def __repr__(self):
     prefix = 'Array('
     if self.aval is not None and self.aval.weak_type:
-      dtype_str = f'dtype={self.dtype.name}, weak_type=True)'
+      dtype_str = f'dtype={self.dtype.name}, weak_type=True'
     else:
-      dtype_str = f'dtype={self.dtype.name})'
+      dtype_str = f'dtype={self.dtype.name}'
 
-    if self.is_fully_addressable or self.is_fully_replicated:
+    if isinstance(self.sharding, NamedSharding) and self.sharding.spec.unreduced:
+      return f"Array(shape={self.shape}, {dtype_str}, sharding={self.sharding})"
+    elif self.is_fully_addressable or self.is_fully_replicated:
       line_width = np.get_printoptions()["linewidth"]
       if self.size == 0:
         s = f"[], shape={self.shape}"
@@ -421,11 +404,20 @@ class ArrayImpl(basearray.Array):
                             separator=', ', max_line_width=line_width)
       last_line_len = len(s) - s.rfind('\n') + 1
       sep = ' '
-      if last_line_len + len(dtype_str) + 1 > line_width:
+      if last_line_len + len(dtype_str) + 2 > line_width:
         sep = ' ' * len(prefix)
-      return f"{prefix}{s},{sep}{dtype_str}"
+      return f"{prefix}{s},{sep}{dtype_str})"
     else:
-      return f"{prefix}shape={self.shape}, {dtype_str}"
+      return f"{prefix}shape={self.shape}, {dtype_str})"
+
+  def __str__(self):
+    if isinstance(self.sharding, NamedSharding) and self.sharding.spec.unreduced:
+      return repr(self)
+    elif (self.is_fully_addressable or self.is_fully_replicated and
+          self.sharding.has_addressable_devices):
+      return str(self._value)  # doesn't print Array(...)
+    else:
+      return repr(self)
 
   @property
   def is_fully_addressable(self) -> bool:
@@ -560,7 +552,7 @@ class ArrayImpl(basearray.Array):
     try:
       return Format(Layout.from_pjrt_layout(self._pjrt_layout),
                     self.sharding)
-    except _jax.XlaRuntimeError as e:
+    except _jax.JaxRuntimeError as e:
       msg, *_ = e.args
       if type(msg) is str and msg.startswith("UNIMPLEMENTED"):
         return Format(None, self.sharding)
@@ -690,7 +682,7 @@ def _get_shape_from_index(slc: Index, shape: Shape) -> Shape:
 
 
 def _get_and_check_dtype(
-    arrays: Sequence[basearray.Array | np.ndarray | literals.LiteralArray],
+    arrays: Sequence[basearray.Array | np.ndarray | literals.TypedNdArray],
     dtype: DTypeLike | ExtendedDType | None,
     fname: str,
 ):
@@ -776,7 +768,7 @@ def make_array_from_callback(
 
   def get_data(
       index: Index | None,
-  ) -> ArrayImpl | literals.LiteralArray | np.ndarray:
+  ) -> ArrayImpl | literals.TypedNdArray | np.ndarray:
     # Perhaps cache on index here, then we can unify fully_replicated
     # and non-fully_replicated cases below and become faster for
     # partially replicated cases.
@@ -789,13 +781,11 @@ def make_array_from_callback(
       )
     # Value can be python scalars, resolve it into something with dtype.
     r = dtypes.canonicalize_value(r)
-    if isinstance(r, (literals.LiteralInt, literals.LiteralFloat,
-                      literals.LiteralComplex)):
-      r = literals.LiteralArray(np.asarray(r, dtype=r.dtype), weak_type=False)
+    if isinstance(r, (literals.TypedInt, literals.TypedFloat,
+                      literals.TypedComplex)):
+      r = literals.TypedNdArray(np.asarray(r, dtype=r.dtype), weak_type=False)
     elif isinstance(r, bool):
-      r = literals.LiteralArray(np.asarray(r, dtype=np.bool_), weak_type=False)
-    if jaxlib_extension_version < 372 and isinstance(r, literals.LiteralArray):
-      r = np.asarray(r)
+      r = literals.TypedNdArray(np.asarray(r, dtype=np.bool_), weak_type=False)
     return r
 
   if sharding.is_fully_replicated:
@@ -917,14 +907,14 @@ def make_array_from_process_local_data(
     >>> assert output_global_array.addressable_data(0).shape == per_device_shape
     >>> assert output_global_array.shape == global_shape
 
-  NB: While most shardings are uniform, It is possible to design am exotic
+  NB: While most shardings are uniform, It is possible to design an exotic
   sharding mesh where each process's  devices will be arranged in a non-grid
   like pattern in some dimensions, or for indices to overlap non-trivially.
   Such sharding is called "non-uniform" in those dimensions. In that case,
   the global shape along those directions must match local shape as there is
   no meaningful way to represent all needed
   per-process data in non-overlapping fashion. For example for global_shape 4x4
-  if sharding looks like this:
+  if sharding looks like this::
 
       0123
       2103
@@ -932,7 +922,7 @@ def make_array_from_process_local_data(
       4567
 
   with 4 processes, containing devices (0,1), (2, 3), (4, 5), (6, 7) respectively.
-  Then the data for each host look like
+  Then the data for each host look like::
 
       xx..    ..xx     ....    ....
       .xx.    x..x     ....    ....
@@ -946,7 +936,7 @@ def make_array_from_process_local_data(
   In this case user must provide global_shape explicitly and for
   local_shape=(2, 4), potentially valid global shapes are (2, 4) and (4, 4).
 
-  On the other hand for sharding:
+  On the other hand for sharding::
 
       0213   x.x.  .x.x.  ....  ....
       0213   x.x.  .x.x.  ....  ....
@@ -1291,9 +1281,12 @@ pxla.shard_arg_handlers[ArrayImpl] = _array_shard_arg
 
 
 def _array_global_result_handler(global_aval, out_sharding, committed):
-  global_aval = core.update_aval_with_sharding(global_aval, out_sharding)
   if global_aval.dtype == dtypes.float0:
-    return lambda _: np.zeros(global_aval.shape, dtypes.float0)
+    def handler(xs):
+      return np.zeros(global_aval.shape, dtypes.float0)
+    phys_aval = core.physical_aval(global_aval)
+    return xc.array_result_handler(phys_aval, out_sharding, committed=committed,
+                                   _skip_checks=True).wrap(handler)
   if dtypes.issubdtype(global_aval.dtype, dtypes.extended):
     return global_aval.dtype._rules.global_sharded_result_handler(
         global_aval, out_sharding, committed)
@@ -1305,7 +1298,11 @@ pxla.global_result_handlers[core.ShapedArray] = _array_global_result_handler
 # Only used for Arrays that come out of pmap.
 def _array_local_result_handler(aval, sharding, indices):
   if aval.dtype == dtypes.float0:
-    return lambda _: np.zeros(aval.shape, dtypes.float0)
+    def handler(xs):
+      return np.zeros(aval.shape, dtypes.float0)
+    phys_aval = core.physical_aval(aval)
+    return xc.array_result_handler(phys_aval, sharding, committed=True,
+                                   _skip_checks=True).wrap(handler)
   if dtypes.issubdtype(aval.dtype, dtypes.extended):
     return aval.dtype._rules.local_sharded_result_handler(
         aval, sharding, indices)
@@ -1334,9 +1331,7 @@ pxla.shard_arg_handlers[core.Token] = _token_shard_arg
 def _token_global_result_handler(global_aval, out_sharding, committed):
   array_handler = _array_global_result_handler(
       core.get_token_aval(), out_sharding, committed)
-
-  def wrapper(*args, **kwargs):
-    out_buf = array_handler(*args, **kwargs)
-    return core.Token(out_buf)
-  return wrapper
+  def wrapper(array):
+    return core.Token(array)
+  return array_handler.wrap(wrapper)  # type: ignore
 pxla.global_result_handlers[core.AbstractToken] = _token_global_result_handler

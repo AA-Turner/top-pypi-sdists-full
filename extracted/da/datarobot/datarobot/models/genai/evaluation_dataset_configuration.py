@@ -18,29 +18,27 @@ import trafaret as t
 from datarobot.models.api_object import APIObject
 from datarobot.utils.pagination import unpaginate
 
-evaluation_dataset_configuration_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("name"): t.String(allow_blank=True),
-        t.Key("size"): t.Int,
-        t.Key("rows_count"): t.Int,
-        t.Key("use_case_id"): t.String,
-        t.Key("playground_id", optional=True): t.Or(t.String, t.Null),
-        t.Key("dataset_id"): t.String,
-        t.Key("dataset_name"): t.String(allow_blank=True),
-        t.Key("prompt_column_name"): t.String,
-        t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("tool_calls_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("agent_goals_column_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("user_name"): t.String(allow_blank=True),
-        t.Key("correctness_enabled", optional=True): t.Or(t.Bool, t.Null),
-        t.Key("creation_user_id"): t.String,
-        t.Key("creation_date"): t.String,
-        t.Key("tenant_id"): t.String,
-        t.Key("execution_status"): t.String,
-        t.Key("error_message", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+evaluation_dataset_configuration_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("name"): t.String(allow_blank=True),
+    t.Key("size"): t.Int,
+    t.Key("rows_count"): t.Int,
+    t.Key("use_case_id"): t.String,
+    t.Key("playground_id", optional=True): t.Or(t.String, t.Null),
+    t.Key("dataset_id"): t.String,
+    t.Key("dataset_name"): t.String(allow_blank=True),
+    t.Key("prompt_column_name"): t.String,
+    t.Key("response_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("tool_calls_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("agent_goals_column_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("user_name"): t.String(allow_blank=True),
+    t.Key("correctness_enabled", optional=True): t.Or(t.Bool, t.Null),
+    t.Key("creation_user_id"): t.String,
+    t.Key("creation_date"): t.String,
+    t.Key("tenant_id"): t.String,
+    t.Key("execution_status"): t.String,
+    t.Key("error_message", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
 class EvaluationDatasetConfiguration(APIObject):

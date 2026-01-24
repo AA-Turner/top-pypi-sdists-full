@@ -28,6 +28,12 @@ __all__ = [
     "CustomConnectionDataUnionMember5Val",
     "CustomConnectionDataUnionMember6",
     "CustomConnectionDataUnionMember6Val",
+    "CustomConnectionDataUnionMember7",
+    "CustomConnectionDataUnionMember7Val",
+    "CustomConnectionDataUnionMember8",
+    "CustomConnectionDataUnionMember8Val",
+    "CustomConnectionDataUnionMember9",
+    "CustomConnectionDataUnionMember9Val",
 ]
 
 
@@ -52,6 +58,13 @@ class ToolExecuteParams(TypedDict, total=False):
     custom_connection_data: CustomConnectionData
     """Custom connection data for tools that support custom connection data"""
 
+    entity_id: str
+    """Deprecated: please use user_id instead.
+
+    Entity identifier for multi-entity connected accounts (e.g. multiple
+    repositories, organizations)
+    """
+
     text: str
     """
     Natural language description of the task to perform (mutually exclusive with
@@ -62,7 +75,7 @@ class ToolExecuteParams(TypedDict, total=False):
     """User id for multi-user connected accounts (e.g. multiple users, organizations)"""
 
     version: str
-    """Tool version to execute (defaults to "latest" if not specified)"""
+    """Tool version to execute (defaults to "00000000_00" if not specified)"""
 
 
 _CustomAuthParamsParameterReservedKeywords = TypedDict(
@@ -83,6 +96,10 @@ class CustomAuthParamsParameter(_CustomAuthParamsParameterReservedKeywords, tota
 
 
 class CustomAuthParams(TypedDict, total=False):
+    """
+    Custom authentication parameters for tools that support parameterized authentication
+    """
+
     base_url: str
     """
     The base URL (root address) what you should use while making http requests to
@@ -101,6 +118,8 @@ class CustomAuthParams(TypedDict, total=False):
 
 
 class CustomConnectionDataUnionMember0ValAuthedUser(TypedDict, total=False):
+    """for slack user scopes"""
+
     access_token: str
 
     scope: str
@@ -189,6 +208,93 @@ class CustomConnectionDataUnionMember0(TypedDict, total=False):
 
 
 class CustomConnectionDataUnionMember1ValTyped(TypedDict, total=False):
+    access_token: Required[str]
+
+    client_id: Required[str]
+    """Dynamically registered client ID"""
+
+    account_id: str
+
+    account_url: str
+
+    api_url: str
+
+    base_url: str
+
+    borneo_dashboard_url: str
+
+    client_id_issued_at: float
+
+    client_secret: str
+    """Dynamically registered client secret"""
+
+    client_secret_expires_at: float
+
+    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
+
+    dc: str
+
+    domain: str
+
+    expires_in: Union[float, str, None]
+
+    extension: str
+
+    form_api_base_url: str
+
+    id_token: str
+
+    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
+
+    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
+
+    long_redirect_url: bool
+    """Whether to return the redirect url without shortening"""
+
+    proxy_password: str
+
+    proxy_username: str
+
+    refresh_token: Optional[str]
+
+    region: str
+
+    scope: Union[str, SequenceNotStr[str], None]
+
+    server_location: str
+
+    shop: str
+
+    site_name: str
+
+    state_prefix: str
+    """The oauth2 state prefix for the connection"""
+
+    subdomain: str
+
+    token_type: str
+
+    version: str
+
+    your_server: str
+
+    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
+
+
+CustomConnectionDataUnionMember1Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember1ValTyped, Dict[str, Optional[object]]
+]
+
+
+class CustomConnectionDataUnionMember1(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal["DCR_OAUTH"], PropertyInfo(alias="authScheme")]]
+
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
+
+    val: Required[CustomConnectionDataUnionMember1Val]
+
+
+class CustomConnectionDataUnionMember2ValTyped(TypedDict, total=False):
     account_id: str
 
     account_url: str
@@ -242,20 +348,20 @@ class CustomConnectionDataUnionMember1ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember1Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember1ValTyped, Dict[str, Optional[object]]
+CustomConnectionDataUnionMember2Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember2ValTyped, Dict[str, Optional[object]]
 ]
 
 
-class CustomConnectionDataUnionMember1(TypedDict, total=False):
+class CustomConnectionDataUnionMember2(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["API_KEY"], PropertyInfo(alias="authScheme")]]
 
     toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
 
-    val: Required[CustomConnectionDataUnionMember1Val]
+    val: Required[CustomConnectionDataUnionMember2Val]
 
 
-class CustomConnectionDataUnionMember2ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember3ValTyped(TypedDict, total=False):
     password: Required[str]
 
     username: Required[str]
@@ -305,20 +411,20 @@ class CustomConnectionDataUnionMember2ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember2Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember2ValTyped, Dict[str, Optional[object]]
+CustomConnectionDataUnionMember3Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember3ValTyped, Dict[str, Optional[object]]
 ]
 
 
-class CustomConnectionDataUnionMember2(TypedDict, total=False):
+class CustomConnectionDataUnionMember3(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["BASIC_WITH_JWT"], PropertyInfo(alias="authScheme")]]
 
     toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
 
-    val: Required[CustomConnectionDataUnionMember2Val]
+    val: Required[CustomConnectionDataUnionMember3Val]
 
 
-class CustomConnectionDataUnionMember3ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember4ValTyped(TypedDict, total=False):
     username: Required[str]
 
     account_id: str
@@ -368,20 +474,20 @@ class CustomConnectionDataUnionMember3ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember3Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember3ValTyped, Dict[str, Optional[object]]
+CustomConnectionDataUnionMember4Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember4ValTyped, Dict[str, Optional[object]]
 ]
 
 
-class CustomConnectionDataUnionMember3(TypedDict, total=False):
+class CustomConnectionDataUnionMember4(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["BASIC"], PropertyInfo(alias="authScheme")]]
 
     toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
 
-    val: Required[CustomConnectionDataUnionMember3Val]
+    val: Required[CustomConnectionDataUnionMember4Val]
 
 
-class CustomConnectionDataUnionMember4ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember5ValTyped(TypedDict, total=False):
     token: Required[str]
 
     account_id: str
@@ -429,20 +535,20 @@ class CustomConnectionDataUnionMember4ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember4Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember4ValTyped, Dict[str, Optional[object]]
+CustomConnectionDataUnionMember5Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember5ValTyped, Dict[str, Optional[object]]
 ]
 
 
-class CustomConnectionDataUnionMember4(TypedDict, total=False):
+class CustomConnectionDataUnionMember5(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["BEARER_TOKEN"], PropertyInfo(alias="authScheme")]]
 
     toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
 
-    val: Required[CustomConnectionDataUnionMember4Val]
+    val: Required[CustomConnectionDataUnionMember5Val]
 
 
-class CustomConnectionDataUnionMember5ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember6ValTyped(TypedDict, total=False):
     oauth_token: Required[str]
 
     oauth_token_secret: Required[str]
@@ -500,20 +606,20 @@ class CustomConnectionDataUnionMember5ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember5Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember5ValTyped, Dict[str, Optional[object]]
+CustomConnectionDataUnionMember6Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember6ValTyped, Dict[str, Optional[object]]
 ]
 
 
-class CustomConnectionDataUnionMember5(TypedDict, total=False):
+class CustomConnectionDataUnionMember6(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["OAUTH1"], PropertyInfo(alias="authScheme")]]
 
     toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
 
-    val: Required[CustomConnectionDataUnionMember5Val]
+    val: Required[CustomConnectionDataUnionMember6Val]
 
 
-class CustomConnectionDataUnionMember6ValTyped(TypedDict, total=False):
+class CustomConnectionDataUnionMember7ValTyped(TypedDict, total=False):
     account_id: str
 
     account_url: str
@@ -559,17 +665,143 @@ class CustomConnectionDataUnionMember6ValTyped(TypedDict, total=False):
     your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
 
 
-CustomConnectionDataUnionMember6Val: TypeAlias = Union[
-    CustomConnectionDataUnionMember6ValTyped, Dict[str, Optional[object]]
+CustomConnectionDataUnionMember7Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember7ValTyped, Dict[str, Optional[object]]
 ]
 
 
-class CustomConnectionDataUnionMember6(TypedDict, total=False):
+class CustomConnectionDataUnionMember7(TypedDict, total=False):
     auth_scheme: Required[Annotated[Literal["NO_AUTH"], PropertyInfo(alias="authScheme")]]
 
     toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
 
-    val: Required[CustomConnectionDataUnionMember6Val]
+    val: Required[CustomConnectionDataUnionMember7Val]
+
+
+class CustomConnectionDataUnionMember8ValTyped(TypedDict, total=False):
+    application_id: Required[str]
+
+    installation_id: Required[str]
+
+    private_key: Required[str]
+
+    account_id: str
+
+    account_url: str
+
+    api_url: str
+
+    base_url: str
+
+    borneo_dashboard_url: str
+
+    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
+
+    dc: str
+
+    domain: str
+
+    extension: str
+
+    form_api_base_url: str
+
+    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
+
+    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
+
+    proxy_password: str
+
+    proxy_username: str
+
+    region: str
+
+    server_location: str
+
+    shop: str
+
+    site_name: str
+
+    subdomain: str
+
+    version: str
+
+    your_server: str
+
+    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
+
+
+CustomConnectionDataUnionMember8Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember8ValTyped, Dict[str, Optional[object]]
+]
+
+
+class CustomConnectionDataUnionMember8(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal["SERVICE_ACCOUNT"], PropertyInfo(alias="authScheme")]]
+
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
+
+    val: Required[CustomConnectionDataUnionMember8Val]
+
+
+class CustomConnectionDataUnionMember9ValTyped(TypedDict, total=False):
+    credentials_json: Required[str]
+
+    account_id: str
+
+    account_url: str
+
+    api_url: str
+
+    base_url: str
+
+    borneo_dashboard_url: str
+
+    companydomain: Annotated[str, PropertyInfo(alias="COMPANYDOMAIN")]
+
+    dc: str
+
+    domain: str
+
+    extension: str
+
+    form_api_base_url: str
+
+    instance_endpoint: Annotated[str, PropertyInfo(alias="instanceEndpoint")]
+
+    instance_name: Annotated[str, PropertyInfo(alias="instanceName")]
+
+    proxy_password: str
+
+    proxy_username: str
+
+    region: str
+
+    server_location: str
+
+    shop: str
+
+    site_name: str
+
+    subdomain: str
+
+    version: str
+
+    your_server: str
+
+    your_domain: Annotated[str, PropertyInfo(alias="your-domain")]
+
+
+CustomConnectionDataUnionMember9Val: TypeAlias = Union[
+    CustomConnectionDataUnionMember9ValTyped, Dict[str, Optional[object]]
+]
+
+
+class CustomConnectionDataUnionMember9(TypedDict, total=False):
+    auth_scheme: Required[Annotated[Literal["GOOGLE_SERVICE_ACCOUNT"], PropertyInfo(alias="authScheme")]]
+
+    toolkit_slug: Required[Annotated[str, PropertyInfo(alias="toolkitSlug")]]
+
+    val: Required[CustomConnectionDataUnionMember9Val]
 
 
 CustomConnectionData: TypeAlias = Union[
@@ -580,4 +812,7 @@ CustomConnectionData: TypeAlias = Union[
     CustomConnectionDataUnionMember4,
     CustomConnectionDataUnionMember5,
     CustomConnectionDataUnionMember6,
+    CustomConnectionDataUnionMember7,
+    CustomConnectionDataUnionMember8,
+    CustomConnectionDataUnionMember9,
 ]

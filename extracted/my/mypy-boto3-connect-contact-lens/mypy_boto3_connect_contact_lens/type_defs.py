@@ -24,11 +24,6 @@ from .literals import (
     SentimentValueType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -70,7 +65,7 @@ class ListRealtimeContactAnalysisSegmentsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -82,7 +77,7 @@ class PostContactSummaryTypeDef(TypedDict):
 
 
 class CategoryDetailsTypeDef(TypedDict):
-    PointsOfInterest: List[PointOfInterestTypeDef]
+    PointsOfInterest: list[PointOfInterestTypeDef]
 
 
 class IssueDetectedTypeDef(TypedDict):
@@ -90,8 +85,8 @@ class IssueDetectedTypeDef(TypedDict):
 
 
 class CategoriesTypeDef(TypedDict):
-    MatchedCategories: List[str]
-    MatchedDetails: Dict[str, CategoryDetailsTypeDef]
+    MatchedCategories: list[str]
+    MatchedDetails: dict[str, CategoryDetailsTypeDef]
 
 
 class TranscriptTypeDef(TypedDict):
@@ -102,7 +97,7 @@ class TranscriptTypeDef(TypedDict):
     BeginOffsetMillis: int
     EndOffsetMillis: int
     Sentiment: NotRequired[SentimentValueType]
-    IssuesDetected: NotRequired[List[IssueDetectedTypeDef]]
+    IssuesDetected: NotRequired[list[IssueDetectedTypeDef]]
 
 
 class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
@@ -112,6 +107,6 @@ class RealtimeContactAnalysisSegmentTypeDef(TypedDict):
 
 
 class ListRealtimeContactAnalysisSegmentsResponseTypeDef(TypedDict):
-    Segments: List[RealtimeContactAnalysisSegmentTypeDef]
+    Segments: list[RealtimeContactAnalysisSegmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

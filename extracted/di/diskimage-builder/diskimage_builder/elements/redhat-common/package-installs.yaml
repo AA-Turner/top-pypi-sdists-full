@@ -1,0 +1,18 @@
+# Install any packages in this file that may not be in the base cloud
+# image but could reasonably be expected
+lsof:
+tcpdump:
+traceroute:
+which:
+gettext:
+    phase: pre-install.d
+ca-certificates:
+
+# selinux-targeted policy and related tools
+selinux-policy:
+selinux-policy-targeted:
+python3-libselinux:
+python3-policycoreutils:
+policycoreutils-python-utils:
+rng-tools:
+passwd:

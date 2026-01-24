@@ -1,20 +1,21 @@
-use pyo3::exceptions::{PyFileNotFoundError, PyUnicodeDecodeError};
+use itertools::Itertools;
+use pyo3::exceptions::{PyFileNotFoundError, PyTypeError, PyUnicodeDecodeError};
 use pyo3::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
+use std::fs::File;
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, LazyLock, Mutex};
 use unindent::unindent;
-use lazy_static::lazy_static;
 
-
-lazy_static! {
-    static ref ENCODING_RE: Regex = Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap();
-}
+static ENCODING_RE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[ \t\f]*#.*?coding[:=][ \t]*([-_.a-zA-Z0-9]+)").unwrap());
 
 pub trait FileSystem: Send + Sync {
-    fn sep(&self) -> String;
+    fn sep(&self) -> &str;
 
     fn join(&self, components: Vec<String>) -> String;
 
@@ -23,22 +24,24 @@ pub trait FileSystem: Send + Sync {
     fn exists(&self, file_name: &str) -> bool;
 
     fn read(&self, file_name: &str) -> PyResult<String>;
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()>;
 }
 
 #[derive(Clone)]
 #[pyclass]
-pub struct RealBasicFileSystem {}
+struct RealBasicFileSystem {}
 
 // Implements a BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem)
 // that actually reads files.
 #[pyclass(name = "RealBasicFileSystem")]
 pub struct PyRealBasicFileSystem {
-    pub inner: RealBasicFileSystem,
+    inner: RealBasicFileSystem,
 }
 
 impl FileSystem for RealBasicFileSystem {
-    fn sep(&self) -> String {
-        std::path::MAIN_SEPARATOR.to_string()
+    fn sep(&self) -> &str {
+        std::path::MAIN_SEPARATOR_STR
     }
 
     fn join(&self, components: Vec<String>) -> String {
@@ -46,7 +49,9 @@ impl FileSystem for RealBasicFileSystem {
         for component in components {
             path.push(component);
         }
-        path.to_str().unwrap().to_string()
+        path.to_str()
+            .expect("Path components should be valid unicode")
+            .to_string()
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
@@ -65,8 +70,12 @@ impl FileSystem for RealBasicFileSystem {
         };
 
         (
-            head.to_str().unwrap().to_string(),
-            tail.to_str().unwrap().to_string(),
+            head.to_str()
+                .expect("Path components should be valid unicode")
+                .to_string(),
+            tail.to_str()
+                .expect("Path components should be valid unicode")
+                .to_string(),
         )
     }
 
@@ -87,17 +96,17 @@ impl FileSystem for RealBasicFileSystem {
         })?;
 
         let s = String::from_utf8_lossy(&bytes);
-        
 
         let mut detected_encoding: Option<String> = None;
 
         // Coding specification needs to be in the first two lines, or it's ignored.
         for line in s.lines().take(2) {
             if let Some(captures) = ENCODING_RE.captures(line)
-                && let Some(encoding_name) = captures.get(1) {
-                    detected_encoding = Some(encoding_name.as_str().to_string());
-                    break;
-                }
+                && let Some(encoding_name) = captures.get(1)
+            {
+                detected_encoding = Some(encoding_name.as_str().to_string());
+                break;
+            }
         }
 
         if let Some(enc_name) = detected_encoding {
@@ -124,6 +133,16 @@ impl FileSystem for RealBasicFileSystem {
             })
         }
     }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        let file_path: PathBuf = file_name.into();
+        if let Some(patent_dir) = file_path.parent() {
+            fs::create_dir_all(patent_dir)?;
+        }
+        File::create(file_path)?
+            .write_all(contents.as_bytes())
+            .map_err(Into::into)
+    }
 }
 
 #[pymethods]
@@ -136,7 +155,7 @@ impl PyRealBasicFileSystem {
     }
 
     #[getter]
-    fn sep(&self) -> String {
+    fn sep(&self) -> &str {
         self.inner.sep()
     }
 
@@ -156,19 +175,23 @@ impl PyRealBasicFileSystem {
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
     }
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
+    }
 }
 
 type FileSystemContents = HashMap<String, String>;
 
 #[derive(Clone)]
-pub struct FakeBasicFileSystem {
-    contents: Box<FileSystemContents>,
+struct FakeBasicFileSystem {
+    contents: Arc<Mutex<FileSystemContents>>,
 }
 
 // Implements BasicFileSystem (defined in grimp.application.ports.filesystem.BasicFileSystem).
 #[pyclass(name = "FakeBasicFileSystem")]
 pub struct PyFakeBasicFileSystem {
-    pub inner: FakeBasicFileSystem,
+    inner: FakeBasicFileSystem,
 }
 
 impl FakeBasicFileSystem {
@@ -185,23 +208,22 @@ impl FakeBasicFileSystem {
             parsed_contents.extend(unindented_map);
         };
         Ok(FakeBasicFileSystem {
-            contents: Box::new(parsed_contents),
+            contents: Arc::new(Mutex::new(parsed_contents)),
         })
     }
 }
 
 impl FileSystem for FakeBasicFileSystem {
-    fn sep(&self) -> String {
-        "/".to_string()
+    fn sep(&self) -> &str {
+        "/"
     }
 
     fn join(&self, components: Vec<String>) -> String {
         let sep = self.sep();
         components
             .into_iter()
-            .map(|c| c.trim_end_matches(&sep).to_string())
-            .collect::<Vec<String>>()
-            .join(&sep)
+            .map(|c| c.trim_end_matches(sep).to_string())
+            .join(sep)
     }
 
     fn split(&self, file_name: &str) -> (String, String) {
@@ -217,21 +239,35 @@ impl FileSystem for FakeBasicFileSystem {
             tail = path.file_name().unwrap_or(OsStr::new(""));
         }
         (
-            head.to_str().unwrap().to_string(),
-            tail.to_str().unwrap().to_string(),
+            head.to_str()
+                .expect("Path components should be valid unicode")
+                .to_string(),
+            tail.to_str()
+                .expect("Path components should be valid unicode")
+                .to_string(),
         )
     }
 
     /// Checks if a file or directory exists within the file system.
     fn exists(&self, file_name: &str) -> bool {
-        self.contents.contains_key(file_name)
+        self.contents.lock().unwrap().contains_key(file_name)
     }
 
     fn read(&self, file_name: &str) -> PyResult<String> {
-        match self.contents.get(file_name) {
-            Some(file_name) => Ok(file_name.clone()),
-            None => Err(PyFileNotFoundError::new_err("")),
+        let contents = self.contents.lock().unwrap();
+        match contents.get(file_name) {
+            Some(file_contents) => Ok(file_contents.clone()),
+            None => Err(PyFileNotFoundError::new_err(format!(
+                "No such file: {file_name}"
+            ))),
         }
+    }
+
+    #[allow(unused_variables)]
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        let mut contents_mut = self.contents.lock().unwrap();
+        contents_mut.insert(file_name.to_string(), contents.to_string());
+        Ok(())
     }
 }
 
@@ -246,7 +282,7 @@ impl PyFakeBasicFileSystem {
     }
 
     #[getter]
-    fn sep(&self) -> String {
+    fn sep(&self) -> &str {
         self.inner.sep()
     }
 
@@ -267,11 +303,15 @@ impl PyFakeBasicFileSystem {
     fn read(&self, file_name: &str) -> PyResult<String> {
         self.inner.read(file_name)
     }
-    
+
+    fn write(&mut self, file_name: &str, contents: &str) -> PyResult<()> {
+        self.inner.write(file_name, contents)
+    }
+
     // Temporary workaround method for Python tests.
     fn convert_to_basic(&self) -> PyResult<Self> {
         Ok(PyFakeBasicFileSystem {
-            inner: self.inner.clone()
+            inner: self.inner.clone(),
         })
     }
 }
@@ -279,41 +319,40 @@ impl PyFakeBasicFileSystem {
 /// Parses an indented string representing a file system structure
 /// into a HashMap where keys are full file paths.
 /// See tests.adaptors.filesystem.FakeFileSystem for the API.
-pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String, String> {
+fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<String, String> {
     let mut file_paths_map: HashMap<String, String> = HashMap::new();
     let mut path_stack: Vec<String> = Vec::new(); // Stores current directory path components
     let mut first_line = true; // Flag to handle the very first path component
-
+    let mut first_line_indent: usize = 0;
     // Normalize newlines and split into lines
     let buffer = file_system_string.replace("\r\n", "\n");
     let lines: Vec<&str> = buffer.split('\n').collect();
 
-    for line_raw in lines.clone() {
+    let first_line_starts_with_slash = lines[0].trim().starts_with('/');
+    for line_raw in lines {
         let line = line_raw.trim_end(); // Remove trailing whitespace
         if line.is_empty() {
             continue; // Skip empty lines
         }
-
-        let current_indent = line.chars().take_while(|&c| c.is_whitespace()).count();
+        let current_indent =
+            line.chars().take_while(|&c| c.is_whitespace()).count() - first_line_indent;
         let trimmed_line = line.trim_start();
 
         // Assuming 4 spaces per indentation level for calculating depth
-        // Adjust this if your indentation standard is different (e.g., 2 spaces, tabs)
         let current_depth = current_indent / 4;
-
         if first_line {
             // The first non-empty line sets the base path.
             // It might be absolute (/a/b/) or relative (a/b/).
             let root_component = trimmed_line.trim_end_matches('/').to_string();
             path_stack.push(root_component);
             first_line = false;
+            first_line_indent = current_indent;
         } else {
             // Adjust the path_stack based on indentation level
             // Pop elements from the stack until we reach the correct parent directory depth
             while path_stack.len() > current_depth {
                 path_stack.pop();
             }
-
             // If the current line is a file, append it to the path for inserting into map,
             // then pop it off so that subsequent siblings are correctly handled.
             // If it's a directory, append it and it stays on the stack for its children.
@@ -331,7 +370,7 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
             let mut joined = path_stack.join("/");
             // If the original root started with a slash, ensure the final path does too.
             // But be careful not to double-slash if a component is e.g. "/root"
-            if lines[0].trim().starts_with('/') && !joined.starts_with('/') {
+            if first_line_starts_with_slash && !joined.starts_with('/') {
                 joined = format!("/{joined}");
             }
             joined
@@ -353,11 +392,32 @@ pub fn parse_indented_file_system_string(file_system_string: &str) -> HashMap<St
     // Edge case: If the very first line was a file and it ended up on the stack, it needs to be processed.
     // This handles single-file inputs like "myfile.txt"
     if !path_stack.is_empty()
-        && !path_stack.last().unwrap().ends_with('/')
+        && !path_stack
+            .last()
+            .expect("path_stack should be non-empty")
+            .ends_with('/')
         && !file_paths_map.contains_key(&path_stack.join("/"))
     {
         file_paths_map.insert(path_stack.join("/"), String::new());
     }
 
     file_paths_map
+}
+
+#[allow(clippy::borrowed_box)]
+pub fn get_file_system_boxed<'py>(
+    file_system: &Bound<'py, PyAny>,
+) -> PyResult<Box<dyn FileSystem + Send + Sync>> {
+    let file_system_boxed: Box<dyn FileSystem + Send + Sync>;
+    if let Ok(py_real) = file_system.extract::<PyRef<PyRealBasicFileSystem>>() {
+        file_system_boxed = Box::new(py_real.inner.clone());
+    } else if let Ok(py_fake) = file_system.extract::<PyRef<PyFakeBasicFileSystem>>() {
+        file_system_boxed = Box::new(py_fake.inner.clone());
+    } else {
+        return Err(PyTypeError::new_err(
+            "file_system must be an instance of RealBasicFileSystem or FakeBasicFileSystem",
+        ));
+    }
+
+    Ok(file_system_boxed)
 }

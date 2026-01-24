@@ -21,7 +21,7 @@ RIGHT = round(210 * 72 / 25.4, 6)
 
 
 @assert_no_logs
-@pytest.mark.parametrize('zoom', (1, 1.5, 0.5))
+@pytest.mark.parametrize('zoom', [1, 1.5, 0.5])
 def test_page_size_zoom(zoom):
     pdf = FakeHTML(string='<style>@page{size:3in 4in').write_pdf(zoom=zoom)
     width, height = int(216 * zoom), int(288 * zoom)
@@ -536,7 +536,8 @@ def test_embed_images_from_pages():
         string='<img src="not-optimized.jpg">').render().pages
     document = Document(
         (page1, page2), metadata=DocumentMetadata(),
-        font_config=FontConfiguration(), url_fetcher=None).write_pdf()
+        font_config=FontConfiguration(), color_profiles={},
+        url_fetcher=None).write_pdf()
     assert document.count(b'/Filter /DCTDecode') == 2
 
 
@@ -696,7 +697,7 @@ def test_annotations():
     assert b'/EmbeddedFiles' not in pdf
 
 
-@pytest.mark.parametrize('style, media, bleed, trim', (
+@pytest.mark.parametrize(('style', 'media', 'bleed', 'trim'), [
     ('bleed: 30pt; size: 10pt',
      [-30, -30, 40, 40],
      [-10, -10, 20, 20],
@@ -705,7 +706,7 @@ def test_annotations():
      [-18, -15, 15, 21],
      [-10, -10, 15, 21],
      [0, 0, 12, 15]),
-))
+])
 @assert_no_logs
 def test_bleed(style, media, bleed, trim):
     pdf = FakeHTML(string='''
@@ -751,3 +752,11 @@ def test_font_descent_ascent():
     ''').write_pdf()
     assert b'/Descent -200' in pdf
     assert b'/Ascent 800' in pdf
+
+
+@assert_no_logs
+def test_pdf_tags_inline_table():
+    # Regression test for #2601.
+    FakeHTML(string='''
+      <html lang="en"><table style="display: inline"><td>abc
+    ''').write_pdf(pdf_tags=True)

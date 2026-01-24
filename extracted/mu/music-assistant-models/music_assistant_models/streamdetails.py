@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
 from typing import Any
 
 from mashumaro import DataClassDictMixin, field_options, pass_through
@@ -11,6 +12,8 @@ from mashumaro import DataClassDictMixin, field_options, pass_through
 from .dsp import DSPDetails
 from .enums import MediaType, StreamType, VolumeNormalizationMode
 from .media_items import AudioFormat
+
+StreamMetadataUpdateCallback = Callable[["StreamDetails", int], Awaitable[None]]
 
 
 @dataclass
@@ -31,7 +34,31 @@ class StreamMetadata(DataClassDictMixin):
     album: str | None = None
     image_url: str | None = None
     duration: int | None = None
+    description: str | None = None
     uri: str | None = None
+    elapsed_time: int | None = None
+    elapsed_time_last_updated: float | None = None  # UTC timestamp
+
+    @property
+    def corrected_elapsed_time(self) -> float | None:
+        """Return the corrected/realtime elapsed time (while playing)."""
+        if self.elapsed_time is None or self.elapsed_time_last_updated is None:
+            return None
+        return self.elapsed_time + (time.time() - self.elapsed_time_last_updated)
+
+
+@dataclass
+class MultiPartPath:
+    """
+    Model for a multipart path.
+
+    Used when a stream is split into multiple parts, e.g. chapters.
+    """
+
+    path: str
+    # use the duration field to specify the duration of this part
+    # for more efficient seeking
+    duration: float | None = None
 
 
 @dataclass(kw_only=True)
@@ -73,14 +100,15 @@ class StreamDetails(DataClassDictMixin):
     # path: url or (local accessible) path to the stream (if not custom stream)
     # this field should be set by the provider when creating the streamdetails
     # unless the stream is a custom stream
-    path: str | None = field(
+    # if the stream consists of multiple parts, this may also be a list of MultiPartPath
+    path: str | list[MultiPartPath] | None = field(
         default=None,
         compare=False,
         metadata=field_options(serialize="omit", deserialize=pass_through),
         repr=False,
     )
     # data: provider specific data (not exposed externally)
-    # this info is for example used to pass slong details to the get_audio_stream
+    # this info is for example used to pass along details to the get_audio_stream
     # this field may be set by the provider when creating the streamdetails
     data: Any = field(
         default=None,
@@ -125,14 +153,26 @@ class StreamDetails(DataClassDictMixin):
         repr=False,
     )
 
-    # enable_cache: bool to indicate that the audio may be temporary cached
-    # this increases performance (especially while seeking) and reduces network
-    # usage for streams that are played multiple times. For some (slow) streams
-    # its even required to prevent buffering issues.
-    # leave/set to None to let the core decide based on the stream type.
-    # True to enforce caching, False to disable caching.
-    enable_cache: bool | None = field(
+    # expiration: time in seconds until the streamdetails expire
+    expiration: int = field(
+        default=600,  # 10 minutes
+        compare=False,
+        metadata=field_options(serialize="omit", deserialize=pass_through),
+        repr=False,
+    )
+
+    # stream metadata update callback
+    # optional (async) callback that will be called to update the stream metadata
+    # it will be passed the streamdetails object and the elapsed time in seconds
+    stream_metadata_update_callback: StreamMetadataUpdateCallback | None = field(
         default=None,
+        compare=False,
+        metadata=field_options(serialize="omit", deserialize=pass_through),
+        repr=False,
+    )
+    # interval in seconds to call the stream metadata update callback
+    stream_metadata_update_interval: int = field(
+        default=5,  # 5 seconds
         compare=False,
         metadata=field_options(serialize="omit", deserialize=pass_through),
         repr=False,
@@ -147,8 +187,6 @@ class StreamDetails(DataClassDictMixin):
     volume_normalization_mode: VolumeNormalizationMode | None = None
     volume_normalization_gain_correct: float | None = None
     target_loudness: float | None = None
-    strip_silence_begin: bool = False
-    strip_silence_end: bool = False
 
     # This contains the DSPDetails of all players in the group.
     # In case of single player playback, dict will contain only one entry.
@@ -185,14 +223,20 @@ class StreamDetails(DataClassDictMixin):
         metadata=field_options(serialize="omit", deserialize=pass_through),
         repr=False,
     )
-    cache: Any = field(
+    buffer: Any = field(  # for in-memory buffering of stream data
         default=None,
         compare=False,
         metadata=field_options(serialize="omit", deserialize=pass_through),
         repr=False,
     )
-    created_at: datetime = field(
-        default_factory=lambda: datetime.now(UTC),
+    created_at: float = field(
+        default_factory=time.time,
+        compare=False,
+        metadata=field_options(serialize="omit", deserialize=pass_through),
+        repr=False,
+    )
+    stream_metadata_last_updated: float | None = field(
+        default=None,
         compare=False,
         metadata=field_options(serialize="omit", deserialize=pass_through),
         repr=False,
@@ -231,11 +275,6 @@ class StreamDetails(DataClassDictMixin):
 
     def __post_serialize__(self, d: dict[Any, Any]) -> dict[Any, Any]:
         """Execute action(s) on serialization."""
-        # TEMP 2025-02-28: convert StreamType.CACHE and StreamType.MULTI_FILE for
-        # backwards compatibility with older client versions
-        # Remove this in a future release (after 2.5 is released)
-        d["stream_type"] = d["stream_type"].replace("cache", "local_file")
-        d["stream_type"] = d["stream_type"].replace("multi_file", "local_file")
         # add alias for stream_title for backwards compatibility
         d["stream_title"] = self.stream_title
         return d

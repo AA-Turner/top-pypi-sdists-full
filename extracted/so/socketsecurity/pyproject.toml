@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "socketsecurity"
-version = "2.2.11"
+version = "2.2.71"
 requires-python = ">= 3.10"
 license = {"file" = "LICENSE"}
 dependencies = [
@@ -16,7 +16,9 @@ dependencies = [
     'GitPython',
     'packaging',
     'python-dotenv',
-    'socketdev>=3.0.6,<4.0.0'
+    "socketdev>=3.0.29,<4.0.0",
+    "bs4>=0.0.2",
+    "markdown>=3.10",
 ]
 readme = "README.md"
 description = "Socket Security CLI for CI/CD"
@@ -159,3 +161,9 @@ docstring-code-line-length = "dynamic"
 
 [tool.hatch.build.targets.wheel]
 include = ["socketsecurity", "LICENSE"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.3.0",
+]
+

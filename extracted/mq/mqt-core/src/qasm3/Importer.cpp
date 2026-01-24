@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -12,9 +12,9 @@
 
 #include "ir/Definitions.hpp"
 #include "ir/QuantumComputation.hpp"
-#include "ir/operations/ClassicControlledOperation.hpp"
 #include "ir/operations/CompoundOperation.hpp"
 #include "ir/operations/Control.hpp"
+#include "ir/operations/IfElseOperation.hpp"
 #include "ir/operations/NonUnitaryOperation.hpp"
 #include "ir/operations/OpType.hpp"
 #include "ir/operations/Operation.hpp"
@@ -702,7 +702,7 @@ Importer::getMcGateDefinition(const std::string& identifier, size_t operandSize,
   std::vector<std::shared_ptr<GateOperand>> operands;
   size_t nTargets = operandSize;
   if (identifier == "mcx_vchain") {
-    nTargets -= (nTargets + 1) / 2 - 2;
+    nTargets -= ((nTargets + 1) / 2) - 2;
   } else if (identifier == "mcx_recursive" && nTargets > 5) {
     nTargets -= 1;
   }
@@ -894,36 +894,31 @@ void Importer::visitIfStatement(
       translateCondition(ifStatement->condition, ifStatement->debugInfo);
 
   // translate statements in then/else blocks
-  if (!ifStatement->thenStatements.empty()) {
-    auto thenOps = translateBlockOperations(ifStatement->thenStatements);
-    if (std::holds_alternative<std::pair<qc::Bit, bool>>(condition)) {
-      const auto& [bit, val] = std::get<std::pair<qc::Bit, bool>>(condition);
-      qc->emplace_back<qc::ClassicControlledOperation>(std::move(thenOps), bit,
-                                                       val ? 1 : 0);
-    } else {
-      const auto& [creg, comparisonKind, rhs] = std::get<
-          std::tuple<qc::ClassicalRegister, qc::ComparisonKind, uint64_t>>(
-          condition);
-      qc->emplace_back<qc::ClassicControlledOperation>(std::move(thenOps), creg,
-                                                       rhs, comparisonKind);
-    }
+  if (ifStatement->thenStatements.empty() &&
+      ifStatement->elseStatements.empty()) {
+    return;
   }
 
+  std::unique_ptr<qc::Operation> thenOps = nullptr;
+  if (!ifStatement->thenStatements.empty()) {
+    thenOps = translateBlockOperations(ifStatement->thenStatements);
+  }
+
+  std::unique_ptr<qc::Operation> elseOps = nullptr;
   if (!ifStatement->elseStatements.empty()) {
-    auto elseOps = translateBlockOperations(ifStatement->elseStatements);
-    if (std::holds_alternative<std::pair<qc::Bit, bool>>(condition)) {
-      const auto& [bit, val] = std::get<std::pair<qc::Bit, bool>>(condition);
-      qc->emplace_back<qc::ClassicControlledOperation>(std::move(elseOps), bit,
-                                                       val ? 0 : 1);
-    } else {
-      const auto& [creg, comparisonKind, rhs] = std::get<
-          std::tuple<qc::ClassicalRegister, qc::ComparisonKind, uint64_t>>(
-          condition);
-      const auto invertedComparisonKind =
-          qc::getInvertedComparisonKind(comparisonKind);
-      qc->emplace_back<qc::ClassicControlledOperation>(
-          std::move(elseOps), creg, rhs, invertedComparisonKind);
-    }
+    elseOps = translateBlockOperations(ifStatement->elseStatements);
+  }
+
+  if (std::holds_alternative<std::pair<qc::Bit, bool>>(condition)) {
+    const auto& [bit, value] = std::get<std::pair<qc::Bit, bool>>(condition);
+    qc->emplace_back<qc::IfElseOperation>(std::move(thenOps),
+                                          std::move(elseOps), bit, value);
+  } else {
+    const auto& [creg, comparisonKind, value] = std::get<
+        std::tuple<qc::ClassicalRegister, qc::ComparisonKind, uint64_t>>(
+        condition);
+    qc->emplace_back<qc::IfElseOperation>(
+        std::move(thenOps), std::move(elseOps), creg, value, comparisonKind);
   }
 }
 
@@ -940,6 +935,10 @@ std::unique_ptr<qc::Operation> Importer::translateBlockOperations(
 
     auto op = evaluateGateCall(gateCall, gateCall->identifier,
                                gateCall->arguments, gateCall->operands, qregs);
+
+    if (statements.size() == 1) {
+      return op;
+    }
 
     blockOps->emplace_back(std::move(op));
   }

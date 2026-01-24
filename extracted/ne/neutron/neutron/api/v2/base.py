@@ -129,8 +129,8 @@ class Controller:
             self._parent_id_name = None
             parent_part = ''
         self._plugin_handlers = {
-            self.LIST: 'get{}_{}'.format(parent_part, self._collection),
-            self.SHOW: 'get{}_{}'.format(parent_part, self._resource)
+            self.LIST: f'get{parent_part}_{self._collection}',
+            self.SHOW: f'get{parent_part}_{self._resource}'
         }
         for action in [self.CREATE, self.UPDATE, self.DELETE]:
             self._plugin_handlers[action] = '{}{}_{}'.format(
@@ -326,7 +326,7 @@ class Controller:
                     request, obj, parent_id, is_get=True)
                 if policy.check(
                         request.context, self._plugin_handlers[self.SHOW],
-                        obj, plugin=self._plugin, pluralized=self._collection):
+                        obj, pluralized=self._collection):
                     tmp_list.append(obj)
             obj_list = tmp_list
         # Use the first element in the list for discriminating which attributes

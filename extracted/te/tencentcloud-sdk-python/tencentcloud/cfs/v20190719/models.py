@@ -231,6 +231,8 @@ class AutoSnapshotPolicyInfo(AbstractModel):
         :type IntervalDays: int
         :param _CrossRegionsAliveDays: 跨地域复制的快照保留时间，单位天
         :type CrossRegionsAliveDays: int
+        :param _Tags: 快照策略标签
+        :type Tags: list of TagInfo
         """
         self._AutoSnapshotPolicyId = None
         self._PolicyName = None
@@ -248,6 +250,7 @@ class AutoSnapshotPolicyInfo(AbstractModel):
         self._DayOfMonth = None
         self._IntervalDays = None
         self._CrossRegionsAliveDays = None
+        self._Tags = None
 
     @property
     def AutoSnapshotPolicyId(self):
@@ -427,6 +430,17 @@ class AutoSnapshotPolicyInfo(AbstractModel):
     def CrossRegionsAliveDays(self, CrossRegionsAliveDays):
         self._CrossRegionsAliveDays = CrossRegionsAliveDays
 
+    @property
+    def Tags(self):
+        r"""快照策略标签
+        :rtype: list of TagInfo
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
 
     def _deserialize(self, params):
         self._AutoSnapshotPolicyId = params.get("AutoSnapshotPolicyId")
@@ -450,6 +464,12 @@ class AutoSnapshotPolicyInfo(AbstractModel):
         self._DayOfMonth = params.get("DayOfMonth")
         self._IntervalDays = params.get("IntervalDays")
         self._CrossRegionsAliveDays = params.get("CrossRegionsAliveDays")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = TagInfo()
+                obj._deserialize(item)
+                self._Tags.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1130,6 +1150,8 @@ class CreateAutoSnapshotPolicyRequest(AbstractModel):
         :type DayOfMonth: str
         :param _IntervalDays: 间隔天数，与DayOfWeek，DayOfMonth 三者选一
         :type IntervalDays: int
+        :param _ResourceTags: 快照策略标签
+        :type ResourceTags: list of TagInfo
         """
         self._Hour = None
         self._PolicyName = None
@@ -1137,6 +1159,7 @@ class CreateAutoSnapshotPolicyRequest(AbstractModel):
         self._AliveDays = None
         self._DayOfMonth = None
         self._IntervalDays = None
+        self._ResourceTags = None
 
     @property
     def Hour(self):
@@ -1204,6 +1227,17 @@ class CreateAutoSnapshotPolicyRequest(AbstractModel):
     def IntervalDays(self, IntervalDays):
         self._IntervalDays = IntervalDays
 
+    @property
+    def ResourceTags(self):
+        r"""快照策略标签
+        :rtype: list of TagInfo
+        """
+        return self._ResourceTags
+
+    @ResourceTags.setter
+    def ResourceTags(self, ResourceTags):
+        self._ResourceTags = ResourceTags
+
 
     def _deserialize(self, params):
         self._Hour = params.get("Hour")
@@ -1212,6 +1246,12 @@ class CreateAutoSnapshotPolicyRequest(AbstractModel):
         self._AliveDays = params.get("AliveDays")
         self._DayOfMonth = params.get("DayOfMonth")
         self._IntervalDays = params.get("IntervalDays")
+        if params.get("ResourceTags") is not None:
+            self._ResourceTags = []
+            for item in params.get("ResourceTags"):
+                obj = TagInfo()
+                obj._deserialize(item)
+                self._ResourceTags.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2259,6 +2299,16 @@ class CreateDataFlowRequest(AbstractModel):
         :type SecretKey: str
         :param _DataFlowName: 数据流动名称；支持不超过64字符长度，支持中文、数字、_、-
         :type DataFlowName: str
+        :param _AutoRefresh:  0：不开启自动更新  1：开启自动更新
+        :type AutoRefresh: int
+        :param _UserKafkaTopic: KafkaConsumer 消费时使用的Topic参数
+        :type UserKafkaTopic: str
+        :param _ServerAddr: 	服务地址 示例值：kafkaconsumer-ap-beijing.cls.tencentyun.com:9095
+        :type ServerAddr: str
+        :param _UserName: Kafka消费用户名.示例值：name
+        :type UserName: str
+        :param _Password: Kafka消费用户密码。默认${SecretId}#${SecretKey}。
+        :type Password: str
         """
         self._FileSystemId = None
         self._SourceStorageType = None
@@ -2268,6 +2318,11 @@ class CreateDataFlowRequest(AbstractModel):
         self._SecretId = None
         self._SecretKey = None
         self._DataFlowName = None
+        self._AutoRefresh = None
+        self._UserKafkaTopic = None
+        self._ServerAddr = None
+        self._UserName = None
+        self._Password = None
 
     @property
     def FileSystemId(self):
@@ -2357,6 +2412,61 @@ class CreateDataFlowRequest(AbstractModel):
     def DataFlowName(self, DataFlowName):
         self._DataFlowName = DataFlowName
 
+    @property
+    def AutoRefresh(self):
+        r""" 0：不开启自动更新  1：开启自动更新
+        :rtype: int
+        """
+        return self._AutoRefresh
+
+    @AutoRefresh.setter
+    def AutoRefresh(self, AutoRefresh):
+        self._AutoRefresh = AutoRefresh
+
+    @property
+    def UserKafkaTopic(self):
+        r"""KafkaConsumer 消费时使用的Topic参数
+        :rtype: str
+        """
+        return self._UserKafkaTopic
+
+    @UserKafkaTopic.setter
+    def UserKafkaTopic(self, UserKafkaTopic):
+        self._UserKafkaTopic = UserKafkaTopic
+
+    @property
+    def ServerAddr(self):
+        r"""	服务地址 示例值：kafkaconsumer-ap-beijing.cls.tencentyun.com:9095
+        :rtype: str
+        """
+        return self._ServerAddr
+
+    @ServerAddr.setter
+    def ServerAddr(self, ServerAddr):
+        self._ServerAddr = ServerAddr
+
+    @property
+    def UserName(self):
+        r"""Kafka消费用户名.示例值：name
+        :rtype: str
+        """
+        return self._UserName
+
+    @UserName.setter
+    def UserName(self, UserName):
+        self._UserName = UserName
+
+    @property
+    def Password(self):
+        r"""Kafka消费用户密码。默认${SecretId}#${SecretKey}。
+        :rtype: str
+        """
+        return self._Password
+
+    @Password.setter
+    def Password(self, Password):
+        self._Password = Password
+
 
     def _deserialize(self, params):
         self._FileSystemId = params.get("FileSystemId")
@@ -2367,6 +2477,11 @@ class CreateDataFlowRequest(AbstractModel):
         self._SecretId = params.get("SecretId")
         self._SecretKey = params.get("SecretKey")
         self._DataFlowName = params.get("DataFlowName")
+        self._AutoRefresh = params.get("AutoRefresh")
+        self._UserKafkaTopic = params.get("UserKafkaTopic")
+        self._ServerAddr = params.get("ServerAddr")
+        self._UserName = params.get("UserName")
+        self._Password = params.get("Password")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2437,12 +2552,15 @@ class CreateLifecycleDataTaskRequest(AbstractModel):
         :type TaskName: str
         :param _DataFlowId: 数据流动 ID ，该接口可以通过 DescribeDataFlow 查询
         :type DataFlowId: str
+        :param _IsOverwrite: 	 当CFSTurbo内的文件和外置存储存在同名情况时，是否覆盖。  ture：覆盖  false：不覆盖（同时也不会释放热存数据）  为空时，默认为false
+        :type IsOverwrite: bool
         """
         self._FileSystemId = None
         self._Type = None
         self._TaskPath = None
         self._TaskName = None
         self._DataFlowId = None
+        self._IsOverwrite = None
 
     @property
     def FileSystemId(self):
@@ -2499,6 +2617,17 @@ class CreateLifecycleDataTaskRequest(AbstractModel):
     def DataFlowId(self, DataFlowId):
         self._DataFlowId = DataFlowId
 
+    @property
+    def IsOverwrite(self):
+        r"""	 当CFSTurbo内的文件和外置存储存在同名情况时，是否覆盖。  ture：覆盖  false：不覆盖（同时也不会释放热存数据）  为空时，默认为false
+        :rtype: bool
+        """
+        return self._IsOverwrite
+
+    @IsOverwrite.setter
+    def IsOverwrite(self, IsOverwrite):
+        self._IsOverwrite = IsOverwrite
+
 
     def _deserialize(self, params):
         self._FileSystemId = params.get("FileSystemId")
@@ -2506,6 +2635,7 @@ class CreateLifecycleDataTaskRequest(AbstractModel):
         self._TaskPath = params.get("TaskPath")
         self._TaskName = params.get("TaskName")
         self._DataFlowId = params.get("DataFlowId")
+        self._IsOverwrite = params.get("IsOverwrite")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3084,6 +3214,22 @@ deleting：删除中
         :type CreationTime: str
         :param _FileSystemId: 文件系统 ID
         :type FileSystemId: str
+        :param _AutoRefresh: 0：不开启自动更新
+
+1：开启自动更新
+        :type AutoRefresh: int
+        :param _UserKafkaTopic: KafkaConsumer 消费时使用的Topic参数
+        :type UserKafkaTopic: str
+        :param _ServerAddr: 服务地址
+        :type ServerAddr: str
+        :param _UserName: Kafka消费用户名
+        :type UserName: str
+        :param _AutoRefreshStatus: 自动刷新的状态，available：已生效
+pending：配置中
+unavailable：失效
+        :type AutoRefreshStatus: str
+        :param _AutoRefreshTime: 自动刷新开启时间
+        :type AutoRefreshTime: str
         """
         self._DataFlowId = None
         self._DataFlowName = None
@@ -3094,6 +3240,12 @@ deleting：删除中
         self._Status = None
         self._CreationTime = None
         self._FileSystemId = None
+        self._AutoRefresh = None
+        self._UserKafkaTopic = None
+        self._ServerAddr = None
+        self._UserName = None
+        self._AutoRefreshStatus = None
+        self._AutoRefreshTime = None
 
     @property
     def DataFlowId(self):
@@ -3197,6 +3349,76 @@ deleting：删除中
     def FileSystemId(self, FileSystemId):
         self._FileSystemId = FileSystemId
 
+    @property
+    def AutoRefresh(self):
+        r"""0：不开启自动更新
+
+1：开启自动更新
+        :rtype: int
+        """
+        return self._AutoRefresh
+
+    @AutoRefresh.setter
+    def AutoRefresh(self, AutoRefresh):
+        self._AutoRefresh = AutoRefresh
+
+    @property
+    def UserKafkaTopic(self):
+        r"""KafkaConsumer 消费时使用的Topic参数
+        :rtype: str
+        """
+        return self._UserKafkaTopic
+
+    @UserKafkaTopic.setter
+    def UserKafkaTopic(self, UserKafkaTopic):
+        self._UserKafkaTopic = UserKafkaTopic
+
+    @property
+    def ServerAddr(self):
+        r"""服务地址
+        :rtype: str
+        """
+        return self._ServerAddr
+
+    @ServerAddr.setter
+    def ServerAddr(self, ServerAddr):
+        self._ServerAddr = ServerAddr
+
+    @property
+    def UserName(self):
+        r"""Kafka消费用户名
+        :rtype: str
+        """
+        return self._UserName
+
+    @UserName.setter
+    def UserName(self, UserName):
+        self._UserName = UserName
+
+    @property
+    def AutoRefreshStatus(self):
+        r"""自动刷新的状态，available：已生效
+pending：配置中
+unavailable：失效
+        :rtype: str
+        """
+        return self._AutoRefreshStatus
+
+    @AutoRefreshStatus.setter
+    def AutoRefreshStatus(self, AutoRefreshStatus):
+        self._AutoRefreshStatus = AutoRefreshStatus
+
+    @property
+    def AutoRefreshTime(self):
+        r"""自动刷新开启时间
+        :rtype: str
+        """
+        return self._AutoRefreshTime
+
+    @AutoRefreshTime.setter
+    def AutoRefreshTime(self, AutoRefreshTime):
+        self._AutoRefreshTime = AutoRefreshTime
+
 
     def _deserialize(self, params):
         self._DataFlowId = params.get("DataFlowId")
@@ -3208,6 +3430,12 @@ deleting：删除中
         self._Status = params.get("Status")
         self._CreationTime = params.get("CreationTime")
         self._FileSystemId = params.get("FileSystemId")
+        self._AutoRefresh = params.get("AutoRefresh")
+        self._UserKafkaTopic = params.get("UserKafkaTopic")
+        self._ServerAddr = params.get("ServerAddr")
+        self._UserName = params.get("UserName")
+        self._AutoRefreshStatus = params.get("AutoRefreshStatus")
+        self._AutoRefreshTime = params.get("AutoRefreshTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3841,85 +4069,6 @@ class DeleteMigrationTaskRequest(AbstractModel):
 
 class DeleteMigrationTaskResponse(AbstractModel):
     r"""DeleteMigrationTask返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._RequestId = None
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._RequestId = params.get("RequestId")
-
-
-class DeleteMountTargetRequest(AbstractModel):
-    r"""DeleteMountTarget请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _FileSystemId: 文件系统 ID
-        :type FileSystemId: str
-        :param _MountTargetId: 挂载点 ID
-        :type MountTargetId: str
-        """
-        self._FileSystemId = None
-        self._MountTargetId = None
-
-    @property
-    def FileSystemId(self):
-        r"""文件系统 ID
-        :rtype: str
-        """
-        return self._FileSystemId
-
-    @FileSystemId.setter
-    def FileSystemId(self, FileSystemId):
-        self._FileSystemId = FileSystemId
-
-    @property
-    def MountTargetId(self):
-        r"""挂载点 ID
-        :rtype: str
-        """
-        return self._MountTargetId
-
-    @MountTargetId.setter
-    def MountTargetId(self, MountTargetId):
-        self._MountTargetId = MountTargetId
-
-
-    def _deserialize(self, params):
-        self._FileSystemId = params.get("FileSystemId")
-        self._MountTargetId = params.get("MountTargetId")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DeleteMountTargetResponse(AbstractModel):
-    r"""DeleteMountTarget返回参数结构体
 
     """
 
@@ -5350,11 +5499,11 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _StartTime: 开始时间
+        :param _StartTime: 开始时间。须早于 EndTime ，仅支持查询最近3个月内的任务数据。
         :type StartTime: str
-        :param _EndTime: 结束时间
+        :param _EndTime: 结束时间。须晚于 StartTime ，仅支持查询最近3个月内的任务数据。
         :type EndTime: str
-        :param _TaskId: 	任务ID
+        :param _TaskId: 任务ID
         :type TaskId: str
         :param _Offset: Offset 分页码	
         :type Offset: int
@@ -5362,6 +5511,8 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
         :type Limit: int
         :param _Filters: 过滤条件，TaskName，FileSystemId，Type
         :type Filters: list of Filter
+        :param _CfsVersion: 文件系统版本；v3.1: pcfs/hifs v4.0:Turbo
+        :type CfsVersion: str
         """
         self._StartTime = None
         self._EndTime = None
@@ -5369,10 +5520,11 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
         self._Offset = None
         self._Limit = None
         self._Filters = None
+        self._CfsVersion = None
 
     @property
     def StartTime(self):
-        r"""开始时间
+        r"""开始时间。须早于 EndTime ，仅支持查询最近3个月内的任务数据。
         :rtype: str
         """
         return self._StartTime
@@ -5383,7 +5535,7 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
 
     @property
     def EndTime(self):
-        r"""结束时间
+        r"""结束时间。须晚于 StartTime ，仅支持查询最近3个月内的任务数据。
         :rtype: str
         """
         return self._EndTime
@@ -5394,7 +5546,7 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
 
     @property
     def TaskId(self):
-        r"""	任务ID
+        r"""任务ID
         :rtype: str
         """
         return self._TaskId
@@ -5436,6 +5588,17 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
     def Filters(self, Filters):
         self._Filters = Filters
 
+    @property
+    def CfsVersion(self):
+        r"""文件系统版本；v3.1: pcfs/hifs v4.0:Turbo
+        :rtype: str
+        """
+        return self._CfsVersion
+
+    @CfsVersion.setter
+    def CfsVersion(self, CfsVersion):
+        self._CfsVersion = CfsVersion
+
 
     def _deserialize(self, params):
         self._StartTime = params.get("StartTime")
@@ -5449,6 +5612,7 @@ class DescribeLifecycleDataTaskRequest(AbstractModel):
                 obj = Filter()
                 obj._deserialize(item)
                 self._Filters.append(obj)
+        self._CfsVersion = params.get("CfsVersion")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7239,6 +7403,13 @@ running：执行中，finished：已完成
         :type Type: str
         :param _DataFlowId: 数据流动Id
         :type DataFlowId: str
+        :param _IsOverwrite: 当CFSTurbo内的文件和外置存储存在同名情况时，是否覆盖。
+
+ture：覆盖
+
+false：不覆盖（同时也不会释放热存数据）
+为空时，默认为false
+        :type IsOverwrite: bool
         """
         self._TaskId = None
         self._TaskStatus = None
@@ -7258,6 +7429,7 @@ running：执行中，finished：已完成
         self._TaskPath = None
         self._Type = None
         self._DataFlowId = None
+        self._IsOverwrite = None
 
     @property
     def TaskId(self):
@@ -7466,6 +7638,22 @@ running：执行中，finished：已完成
     def DataFlowId(self, DataFlowId):
         self._DataFlowId = DataFlowId
 
+    @property
+    def IsOverwrite(self):
+        r"""当CFSTurbo内的文件和外置存储存在同名情况时，是否覆盖。
+
+ture：覆盖
+
+false：不覆盖（同时也不会释放热存数据）
+为空时，默认为false
+        :rtype: bool
+        """
+        return self._IsOverwrite
+
+    @IsOverwrite.setter
+    def IsOverwrite(self, IsOverwrite):
+        self._IsOverwrite = IsOverwrite
+
 
     def _deserialize(self, params):
         self._TaskId = params.get("TaskId")
@@ -7486,6 +7674,7 @@ running：执行中，finished：已完成
         self._TaskPath = params.get("TaskPath")
         self._Type = params.get("Type")
         self._DataFlowId = params.get("DataFlowId")
+        self._IsOverwrite = params.get("IsOverwrite")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7615,21 +7804,35 @@ class LifecycleRule(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _StorageType: 数据转储后的存储类型
+        :param _StorageType: 数据转储后的存储类型。其中：InfrequentAccess：低频介质存储；ColdStorage：冷存储。
         :type StorageType: str
-        :param _FileType: 数据转储文件类型
+        :param _FileType: 数据转储文件类型。其中，BIG_FILE：超大文件；STD_FILE：普通文件；SMALL_FILE：小文件；ALL：所有文件。
         :type FileType: str
-        :param _Action: 数据转储行为
+        :param _Action: 数据转储行为。其中，Archive：沉降；Noarchive：不沉降。
         :type Action: str
-        :param _Interval: 数据转储触发时间
+        :param _Interval: 数据转储触发时间。由“DEFAULT_ATIME_”与“数字”组成，单位为天。当 Action 为 Noarchive，请保持为空。
 注意：此字段可能返回 null，表示取不到有效值。
         :type Interval: str
-        :param _FileMaxSize: 数据转储文件最大规格
+        :param _FileMaxSize: 数据转储文件最大规格。其数值需使用“数字+单位”格式进行表示，单位支持K（KiB）、M（MiB）、G（GiB）。
 注意：此字段可能返回 null，表示取不到有效值。
         :type FileMaxSize: str
-        :param _FileMinSize: 数据转储文件最小规格
+        :param _FileMinSize: 数据转储文件最小规格。其数值需使用“数字+单位”格式进行表示，单位支持K（KiB）、M（MiB）、G（GiB）。
 注意：此字段可能返回 null，表示取不到有效值。
         :type FileMinSize: str
+        :param _PolicyType: 策略类型
+        :type PolicyType: str
+        :param _ExpireThreshold: 阈值范围[10-90]
+        :type ExpireThreshold: int
+        :param _TargetThreshold: 阈值范围[10-90]
+        :type TargetThreshold: int
+        :param _IsOverwrite: 当CFSTurbo内的文件和外置存储存在同名情况时，是否覆盖。
+
+ture：覆盖
+
+false：不覆盖（同时也不会释放热存数据）
+
+为空时，默认为false
+        :type IsOverwrite: bool
         """
         self._StorageType = None
         self._FileType = None
@@ -7637,10 +7840,14 @@ class LifecycleRule(AbstractModel):
         self._Interval = None
         self._FileMaxSize = None
         self._FileMinSize = None
+        self._PolicyType = None
+        self._ExpireThreshold = None
+        self._TargetThreshold = None
+        self._IsOverwrite = None
 
     @property
     def StorageType(self):
-        r"""数据转储后的存储类型
+        r"""数据转储后的存储类型。其中：InfrequentAccess：低频介质存储；ColdStorage：冷存储。
         :rtype: str
         """
         return self._StorageType
@@ -7651,7 +7858,7 @@ class LifecycleRule(AbstractModel):
 
     @property
     def FileType(self):
-        r"""数据转储文件类型
+        r"""数据转储文件类型。其中，BIG_FILE：超大文件；STD_FILE：普通文件；SMALL_FILE：小文件；ALL：所有文件。
         :rtype: str
         """
         return self._FileType
@@ -7662,7 +7869,7 @@ class LifecycleRule(AbstractModel):
 
     @property
     def Action(self):
-        r"""数据转储行为
+        r"""数据转储行为。其中，Archive：沉降；Noarchive：不沉降。
         :rtype: str
         """
         return self._Action
@@ -7673,7 +7880,7 @@ class LifecycleRule(AbstractModel):
 
     @property
     def Interval(self):
-        r"""数据转储触发时间
+        r"""数据转储触发时间。由“DEFAULT_ATIME_”与“数字”组成，单位为天。当 Action 为 Noarchive，请保持为空。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -7685,7 +7892,7 @@ class LifecycleRule(AbstractModel):
 
     @property
     def FileMaxSize(self):
-        r"""数据转储文件最大规格
+        r"""数据转储文件最大规格。其数值需使用“数字+单位”格式进行表示，单位支持K（KiB）、M（MiB）、G（GiB）。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -7697,7 +7904,7 @@ class LifecycleRule(AbstractModel):
 
     @property
     def FileMinSize(self):
-        r"""数据转储文件最小规格
+        r"""数据转储文件最小规格。其数值需使用“数字+单位”格式进行表示，单位支持K（KiB）、M（MiB）、G（GiB）。
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -7707,6 +7914,56 @@ class LifecycleRule(AbstractModel):
     def FileMinSize(self, FileMinSize):
         self._FileMinSize = FileMinSize
 
+    @property
+    def PolicyType(self):
+        r"""策略类型
+        :rtype: str
+        """
+        return self._PolicyType
+
+    @PolicyType.setter
+    def PolicyType(self, PolicyType):
+        self._PolicyType = PolicyType
+
+    @property
+    def ExpireThreshold(self):
+        r"""阈值范围[10-90]
+        :rtype: int
+        """
+        return self._ExpireThreshold
+
+    @ExpireThreshold.setter
+    def ExpireThreshold(self, ExpireThreshold):
+        self._ExpireThreshold = ExpireThreshold
+
+    @property
+    def TargetThreshold(self):
+        r"""阈值范围[10-90]
+        :rtype: int
+        """
+        return self._TargetThreshold
+
+    @TargetThreshold.setter
+    def TargetThreshold(self, TargetThreshold):
+        self._TargetThreshold = TargetThreshold
+
+    @property
+    def IsOverwrite(self):
+        r"""当CFSTurbo内的文件和外置存储存在同名情况时，是否覆盖。
+
+ture：覆盖
+
+false：不覆盖（同时也不会释放热存数据）
+
+为空时，默认为false
+        :rtype: bool
+        """
+        return self._IsOverwrite
+
+    @IsOverwrite.setter
+    def IsOverwrite(self, IsOverwrite):
+        self._IsOverwrite = IsOverwrite
+
 
     def _deserialize(self, params):
         self._StorageType = params.get("StorageType")
@@ -7715,6 +7972,10 @@ class LifecycleRule(AbstractModel):
         self._Interval = params.get("Interval")
         self._FileMaxSize = params.get("FileMaxSize")
         self._FileMinSize = params.get("FileMinSize")
+        self._PolicyType = params.get("PolicyType")
+        self._ExpireThreshold = params.get("ExpireThreshold")
+        self._TargetThreshold = params.get("TargetThreshold")
+        self._IsOverwrite = params.get("IsOverwrite")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8153,12 +8414,27 @@ class ModifyDataFlowRequest(AbstractModel):
         :type SecretId: str
         :param _SecretKey: 密钥 key
         :type SecretKey: str
+        :param _UserKafkaTopic: KafkaConsumer 消费时使用的Topic参数
+        :type UserKafkaTopic: str
+        :param _ServerAddr: 服务地址
+        :type ServerAddr: str
+        :param _UserName: name
+        :type UserName: str
+        :param _Password: Kafka消费用户密码
+        :type Password: str
+        :param _AutoRefresh: 元数据增量更新开关；1开启，0关闭
+        :type AutoRefresh: int
         """
         self._DataFlowId = None
         self._FileSystemId = None
         self._DataFlowName = None
         self._SecretId = None
         self._SecretKey = None
+        self._UserKafkaTopic = None
+        self._ServerAddr = None
+        self._UserName = None
+        self._Password = None
+        self._AutoRefresh = None
 
     @property
     def DataFlowId(self):
@@ -8215,6 +8491,61 @@ class ModifyDataFlowRequest(AbstractModel):
     def SecretKey(self, SecretKey):
         self._SecretKey = SecretKey
 
+    @property
+    def UserKafkaTopic(self):
+        r"""KafkaConsumer 消费时使用的Topic参数
+        :rtype: str
+        """
+        return self._UserKafkaTopic
+
+    @UserKafkaTopic.setter
+    def UserKafkaTopic(self, UserKafkaTopic):
+        self._UserKafkaTopic = UserKafkaTopic
+
+    @property
+    def ServerAddr(self):
+        r"""服务地址
+        :rtype: str
+        """
+        return self._ServerAddr
+
+    @ServerAddr.setter
+    def ServerAddr(self, ServerAddr):
+        self._ServerAddr = ServerAddr
+
+    @property
+    def UserName(self):
+        r"""name
+        :rtype: str
+        """
+        return self._UserName
+
+    @UserName.setter
+    def UserName(self, UserName):
+        self._UserName = UserName
+
+    @property
+    def Password(self):
+        r"""Kafka消费用户密码
+        :rtype: str
+        """
+        return self._Password
+
+    @Password.setter
+    def Password(self, Password):
+        self._Password = Password
+
+    @property
+    def AutoRefresh(self):
+        r"""元数据增量更新开关；1开启，0关闭
+        :rtype: int
+        """
+        return self._AutoRefresh
+
+    @AutoRefresh.setter
+    def AutoRefresh(self, AutoRefresh):
+        self._AutoRefresh = AutoRefresh
+
 
     def _deserialize(self, params):
         self._DataFlowId = params.get("DataFlowId")
@@ -8222,6 +8553,11 @@ class ModifyDataFlowRequest(AbstractModel):
         self._DataFlowName = params.get("DataFlowName")
         self._SecretId = params.get("SecretId")
         self._SecretKey = params.get("SecretKey")
+        self._UserKafkaTopic = params.get("UserKafkaTopic")
+        self._ServerAddr = params.get("ServerAddr")
+        self._UserName = params.get("UserName")
+        self._Password = params.get("Password")
+        self._AutoRefresh = params.get("AutoRefresh")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9025,9 +9361,12 @@ class PathInfo(AbstractModel):
         :type FileSystemId: str
         :param _Path: 目录绝对路径
         :type Path: str
+        :param _DataFlowId: 数据流动Id
+        :type DataFlowId: str
         """
         self._FileSystemId = None
         self._Path = None
+        self._DataFlowId = None
 
     @property
     def FileSystemId(self):
@@ -9051,10 +9390,22 @@ class PathInfo(AbstractModel):
     def Path(self, Path):
         self._Path = Path
 
+    @property
+    def DataFlowId(self):
+        r"""数据流动Id
+        :rtype: str
+        """
+        return self._DataFlowId
+
+    @DataFlowId.setter
+    def DataFlowId(self, DataFlowId):
+        self._DataFlowId = DataFlowId
+
 
     def _deserialize(self, params):
         self._FileSystemId = params.get("FileSystemId")
         self._Path = params.get("Path")
+        self._DataFlowId = params.get("DataFlowId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10590,7 +10941,7 @@ class UpdateCfsFileSystemSizeLimitRequest(AbstractModel):
         r"""
         :param _FsLimit: 文件系统容量限制大小，输入范围0-1073741824, 单位为GB；其中输入值为0时，表示不限制文件系统容量。
         :type FsLimit: int
-        :param _FileSystemId: 文件系统ID，目前仅支持标准型文件系统。该参数通过查询文件系统列表获取
+        :param _FileSystemId: 文件系统 ID，此功能需要开白使用，请[提交工单](https://console.cloud.tencent.com/workorder/category?from=ticket-tab)进行申请。当前仅支持通用标准型文件系统设置存储容量上限。该参数通过[查询文件系统](https://cloud.tencent.com/document/product/582/38170)获取。
         :type FileSystemId: str
         """
         self._FsLimit = None
@@ -10609,7 +10960,7 @@ class UpdateCfsFileSystemSizeLimitRequest(AbstractModel):
 
     @property
     def FileSystemId(self):
-        r"""文件系统ID，目前仅支持标准型文件系统。该参数通过查询文件系统列表获取
+        r"""文件系统 ID，此功能需要开白使用，请[提交工单](https://console.cloud.tencent.com/workorder/category?from=ticket-tab)进行申请。当前仅支持通用标准型文件系统设置存储容量上限。该参数通过[查询文件系统](https://cloud.tencent.com/document/product/582/38170)获取。
         :rtype: str
         """
         return self._FileSystemId

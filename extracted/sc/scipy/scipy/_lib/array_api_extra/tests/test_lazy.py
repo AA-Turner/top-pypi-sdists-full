@@ -141,7 +141,7 @@ def test_lazy_apply_core_indices(da: ModuleType):
         xp = array_namespace(x)
         return xp.sum(x, axis=0) + x
 
-    x_np = cast(Array, np.arange(15).reshape(5, 3))  # type: ignore[bad-cast]
+    x_np = cast(Array, np.arange(15).reshape(5, 3))  # pyright: ignore[reportInvalidCast]
     expect = da.asarray(f(x_np))
     x_da = da.asarray(x_np).rechunk(3)
 
@@ -187,8 +187,8 @@ def test_lazy_apply_dask_non_numpy_meta(da: ModuleType):
         return x + 1
 
     y = lazy_apply(f, x_da)
-    assert array_namespace(y._meta) is cp  # type: ignore[attr-defined]  # pyright: ignore[reportUnknownArgumentType,reportAttributeAccessIssue]
-    xp_assert_equal(y.compute(), x_cp + 1)  # type: ignore[attr-defined]  # pyright: ignore[reportUnknownArgumentType,reportAttributeAccessIssue]
+    assert array_namespace(y._meta) is cp  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
+    xp_assert_equal(y.compute(), x_cp + 1)  # type: ignore[attr-defined]  # pyright: ignore[reportAttributeAccessIssue]
 
 
 def test_dask_key(da: ModuleType):
@@ -230,7 +230,7 @@ def test_lazy_apply_none_shape_in_args(xp: ModuleType, library: Backend):
     # Single output
     with ctx:
         values = lazy_apply(mxp.unique_values, x, shape=(None,))
-        xp_assert_equal(values, xp.asarray([1, 2]))
+        xp_assert_equal(xp.sort(values), xp.asarray([1, 2]))
 
     with ctx:
         # Multi output
@@ -278,6 +278,9 @@ def test_lazy_apply_none_shape_broadcast(xp: ModuleType):
                     Backend.ARRAY_API_STRICT, reason="device->host copy"
                 ),
                 pytest.mark.skip_xp_backend(Backend.CUPY, reason="device->host copy"),
+                pytest.mark.skip_xp_backend(
+                    Backend.TORCH, reason="materialize 'meta' device"
+                ),
                 pytest.mark.skip_xp_backend(
                     Backend.TORCH_GPU, reason="device->host copy"
                 ),
@@ -393,7 +396,7 @@ def test_lazy_apply_kwargs(xp: ModuleType, library: Backend, as_numpy: bool):
     with numpy arrays, and leave the rest untouched."""
     x = xp.asarray(0)
     expect_cls = np.ndarray if as_numpy or library is Backend.DASK else type(x)
-    actual = check_lazy_apply_kwargs(x, expect_cls, as_numpy)  # pyright: ignore[reportUnknownArgumentType]
+    actual = check_lazy_apply_kwargs(x, expect_cls, as_numpy)
     xp_assert_equal(actual, x + 1)
 
 

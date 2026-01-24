@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: datasette
-Version: 0.65.1
+Version: 0.65.2
 Summary: An open source multi-tool for exploring and publishing data
 Home-page: https://datasette.io/
 Author: Simon Willison
@@ -17,13 +17,13 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Topic :: Database
-Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.9
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: asgiref>=3.2.10
@@ -64,6 +64,18 @@ Requires-Dist: trustme>=0.7; extra == "test"
 Requires-Dist: cogapp>=3.3.0; extra == "test"
 Provides-Extra: rich
 Requires-Dist: rich; extra == "rich"
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <img src="https://datasette.io/static/datasette-logo.svg" alt="Datasette">
 

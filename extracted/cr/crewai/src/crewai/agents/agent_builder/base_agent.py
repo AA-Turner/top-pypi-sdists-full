@@ -1,37 +1,64 @@
-import uuid
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from copy import copy as shallow_copy
 from hashlib import md5
-from typing import Any, TypeVar
+from typing import Any, Literal
+import uuid
 
 from pydantic import (
     UUID4,
     BaseModel,
     Field,
-    InstanceOf,
     PrivateAttr,
     field_validator,
     model_validator,
 )
 from pydantic_core import PydanticCustomError
+from typing_extensions import Self
 
+from crewai.agent.internal.meta import AgentMeta
 from crewai.agents.agent_builder.utilities.base_token_process import TokenProcess
 from crewai.agents.cache.cache_handler import CacheHandler
 from crewai.agents.tools_handler import ToolsHandler
 from crewai.knowledge.knowledge import Knowledge
 from crewai.knowledge.knowledge_config import KnowledgeConfig
 from crewai.knowledge.source.base_knowledge_source import BaseKnowledgeSource
+from crewai.mcp.config import MCPServerConfig
+from crewai.rag.embeddings.types import EmbedderConfig
 from crewai.security.security_config import SecurityConfig
 from crewai.tools.base_tool import BaseTool, Tool
-from crewai.utilities import I18N, Logger, RPMController
 from crewai.utilities.config import process_config
+from crewai.utilities.i18n import I18N, get_i18n
+from crewai.utilities.logger import Logger
+from crewai.utilities.rpm_controller import RPMController
 from crewai.utilities.string_utils import interpolate_only
 
-T = TypeVar("T", bound="BaseAgent")
+
+PlatformApp = Literal[
+    "asana",
+    "box",
+    "clickup",
+    "github",
+    "gmail",
+    "google_calendar",
+    "google_sheets",
+    "hubspot",
+    "jira",
+    "linear",
+    "notion",
+    "salesforce",
+    "shopify",
+    "slack",
+    "stripe",
+    "zendesk",
+]
+
+PlatformAppOrAction = PlatformApp | str
 
 
-class BaseAgent(ABC, BaseModel):
+class BaseAgent(BaseModel, ABC, metaclass=AgentMeta):
     """Abstract Base Class for all third party agents compatible with CrewAI.
 
     Attributes:
@@ -40,34 +67,36 @@ class BaseAgent(ABC, BaseModel):
         goal (str): Objective of the agent.
         backstory (str): Backstory of the agent.
         cache (bool): Whether the agent should use a cache for tool usage.
-        config (Optional[Dict[str, Any]]): Configuration for the agent.
+        config (dict[str, Any] | None): Configuration for the agent.
         verbose (bool): Verbose mode for the Agent Execution.
-        max_rpm (Optional[int]): Maximum number of requests per minute for the agent execution.
+        max_rpm (int | None): Maximum number of requests per minute for the agent execution.
         allow_delegation (bool): Allow delegation of tasks to agents.
-        tools (Optional[List[Any]]): Tools at the agent's disposal.
+        tools (list[Any] | None): Tools at the agent's disposal.
         max_iter (int): Maximum iterations for an agent to execute a task.
-        agent_executor (InstanceOf): An instance of the CrewAgentExecutor class.
+        agent_executor: An instance of the CrewAgentExecutor class.
         llm (Any): Language model that will run the agent.
         crew (Any): Crew to which the agent belongs.
         i18n (I18N): Internationalization settings.
-        cache_handler (InstanceOf[CacheHandler]): An instance of the CacheHandler class.
-        tools_handler (InstanceOf[ToolsHandler]): An instance of the ToolsHandler class.
+        cache_handler ([CacheHandler]): An instance of the CacheHandler class.
+        tools_handler ([ToolsHandler]): An instance of the ToolsHandler class.
         max_tokens: Maximum number of tokens for the agent to generate in a response.
         knowledge_sources: Knowledge sources for the agent.
         knowledge_storage: Custom knowledge storage for the agent.
         security_config: Security configuration for the agent, including fingerprinting.
-
+        apps: List of enterprise applications that the agent can access through CrewAI AMP Tools.
 
     Methods:
-        execute_task(task: Any, context: Optional[str] = None, tools: Optional[List[BaseTool]] = None) -> str:
+        execute_task(task: Any, context: str | None = None, tools: list[BaseTool] | None = None) -> str:
             Abstract method to execute a task.
         create_agent_executor(tools=None) -> None:
             Abstract method to create an agent executor.
-        get_delegation_tools(agents: List["BaseAgent"]):
+        get_delegation_tools(agents: list["BaseAgent"]):
             Abstract method to set the agents task tools for handling delegation and question asking to other agents in crew.
+        get_platform_tools(apps: list[PlatformAppOrAction]):
+            Abstract method to get platform tools for the specified list of applications and/or application/action combinations.
         get_output_converter(llm, model, instructions):
             Abstract method to get the converter class for the agent to create json/pydantic outputs.
-        interpolate_inputs(inputs: Dict[str, Any]) -> None:
+        interpolate_inputs(inputs: dict[str, Any]) -> None:
             Interpolate inputs into the agent description and backstory.
         set_cache_handler(cache_handler: CacheHandler) -> None:
             Set the cache handler for the agent.
@@ -79,7 +108,7 @@ class BaseAgent(ABC, BaseModel):
             Set private attributes.
     """
 
-    __hash__ = object.__hash__  # type: ignore
+    __hash__ = object.__hash__
     _logger: Logger = PrivateAttr(default_factory=lambda: Logger(verbose=False))
     _rpm_controller: RPMController | None = PrivateAttr(default=None)
     _request_within_rpm_limit: Any = PrivateAttr(default=None)
@@ -114,18 +143,20 @@ class BaseAgent(ABC, BaseModel):
     max_iter: int = Field(
         default=25, description="Maximum iterations for an agent to execute a task"
     )
-    agent_executor: InstanceOf = Field(
+    agent_executor: Any = Field(
         default=None, description="An instance of the CrewAgentExecutor class."
     )
     llm: Any = Field(
         default=None, description="Language model that will run the agent."
     )
     crew: Any = Field(default=None, description="Crew to which the agent belongs.")
-    i18n: I18N = Field(default=I18N(), description="Internationalization settings.")
-    cache_handler: InstanceOf[CacheHandler] | None = Field(
+    i18n: I18N = Field(
+        default_factory=get_i18n, description="Internationalization settings."
+    )
+    cache_handler: CacheHandler | None = Field(
         default=None, description="An instance of the CacheHandler class."
     )
-    tools_handler: InstanceOf[ToolsHandler] = Field(
+    tools_handler: ToolsHandler = Field(
         default_factory=ToolsHandler,
         description="An instance of the ToolsHandler class.",
     )
@@ -150,8 +181,8 @@ class BaseAgent(ABC, BaseModel):
         default_factory=SecurityConfig,
         description="Security configuration for the agent, including fingerprinting.",
     )
-    callbacks: list[Callable] = Field(
-        default=[], description="Callbacks to be used for the agent"
+    callbacks: list[Callable[[Any], Any]] = Field(
+        default_factory=list, description="Callbacks to be used for the agent"
     )
     adapted_agent: bool = Field(
         default=False, description="Whether the agent is adapted"
@@ -160,10 +191,18 @@ class BaseAgent(ABC, BaseModel):
         default=None,
         description="Knowledge configuration for the agent such as limits and threshold",
     )
+    apps: list[PlatformAppOrAction] | None = Field(
+        default=None,
+        description="List of applications or application/action combinations that the agent can access through CrewAI Platform. Can contain app names (e.g., 'gmail') or specific actions (e.g., 'gmail/send_email')",
+    )
+    mcps: list[str | MCPServerConfig] | None = Field(
+        default=None,
+        description="List of MCP server references. Supports 'https://server.com/path' for external servers and 'crewai-amp:mcp-name' for AMP marketplace. Use '#tool_name' suffix for specific tools.",
+    )
 
     @model_validator(mode="before")
     @classmethod
-    def process_model_config(cls, values):
+    def process_model_config(cls, values: Any) -> dict[str, Any]:
         return process_config(values, cls)
 
     @field_validator("tools")
@@ -195,8 +234,59 @@ class BaseAgent(ABC, BaseModel):
                 )
         return processed_tools
 
+    @field_validator("apps")
+    @classmethod
+    def validate_apps(
+        cls, apps: list[PlatformAppOrAction] | None
+    ) -> list[PlatformAppOrAction] | None:
+        if not apps:
+            return apps
+
+        validated_apps = []
+        for app in apps:
+            if app.count("/") > 1:
+                raise ValueError(
+                    f"Invalid app format '{app}'. Apps can only have one '/' for app/action format (e.g., 'gmail/send_email')"
+                )
+            validated_apps.append(app)
+
+        return list(set(validated_apps))
+
+    @field_validator("mcps")
+    @classmethod
+    def validate_mcps(
+        cls, mcps: list[str | MCPServerConfig] | None
+    ) -> list[str | MCPServerConfig] | None:
+        """Validate MCP server references and configurations.
+
+        Supports both string references (for backwards compatibility) and
+        structured configuration objects (MCPServerStdio, MCPServerHTTP, MCPServerSSE).
+        """
+        if not mcps:
+            return mcps
+
+        validated_mcps: list[str | MCPServerConfig] = []
+        for mcp in mcps:
+            if isinstance(mcp, str):
+                if mcp.startswith(("https://", "crewai-amp:")):
+                    validated_mcps.append(mcp)
+                else:
+                    raise ValueError(
+                        f"Invalid MCP reference: {mcp}. "
+                        "String references must start with 'https://' or 'crewai-amp:'"
+                    )
+
+            elif isinstance(mcp, (MCPServerConfig)):
+                validated_mcps.append(mcp)
+            else:
+                raise ValueError(
+                    f"Invalid MCP configuration: {type(mcp)}. "
+                    "Must be a string reference or MCPServerConfig instance."
+                )
+        return validated_mcps
+
     @model_validator(mode="after")
-    def validate_and_set_attributes(self):
+    def validate_and_set_attributes(self) -> Self:
         # Validate required fields
         for field in ["role", "goal", "backstory"]:
             if getattr(self, field) is None:
@@ -228,7 +318,7 @@ class BaseAgent(ABC, BaseModel):
             )
 
     @model_validator(mode="after")
-    def set_private_attrs(self):
+    def set_private_attrs(self) -> Self:
         """Set private attributes."""
         self._logger = Logger(verbose=self.verbose)
         if self.max_rpm and not self._rpm_controller:
@@ -240,7 +330,7 @@ class BaseAgent(ABC, BaseModel):
         return self
 
     @property
-    def key(self):
+    def key(self) -> str:
         source = [
             self._original_role or self.role,
             self._original_goal or self.goal,
@@ -258,14 +348,31 @@ class BaseAgent(ABC, BaseModel):
         pass
 
     @abstractmethod
-    def create_agent_executor(self, tools=None) -> None:
+    async def aexecute_task(
+        self,
+        task: Any,
+        context: str | None = None,
+        tools: list[BaseTool] | None = None,
+    ) -> str:
+        """Execute a task asynchronously."""
+
+    @abstractmethod
+    def create_agent_executor(self, tools: list[BaseTool] | None = None) -> None:
         pass
 
     @abstractmethod
-    def get_delegation_tools(self, agents: list["BaseAgent"]) -> list[BaseTool]:
+    def get_delegation_tools(self, agents: list[BaseAgent]) -> list[BaseTool]:
         """Set the task tools that init BaseAgenTools class."""
 
-    def copy(self: T) -> T:  # type: ignore # Signature of "copy" incompatible with supertype "BaseModel"
+    @abstractmethod
+    def get_platform_tools(self, apps: list[PlatformAppOrAction]) -> list[BaseTool]:
+        """Get platform tools for the specified list of applications and/or application/action combinations."""
+
+    @abstractmethod
+    def get_mcp_tools(self, mcps: list[str | MCPServerConfig]) -> list[BaseTool]:
+        """Get MCP tools for the specified list of MCP server references."""
+
+    def copy(self) -> Self:  # type: ignore # Signature of "copy" incompatible with supertype "BaseModel"
         """Create a deep copy of the Agent."""
         exclude = {
             "id",
@@ -281,6 +388,9 @@ class BaseAgent(ABC, BaseModel):
             "knowledge_sources",
             "knowledge_storage",
             "knowledge",
+            "apps",
+            "mcps",
+            "actions",
         }
 
         # Copy llm
@@ -347,7 +457,6 @@ class BaseAgent(ABC, BaseModel):
         if self.cache:
             self.cache_handler = cache_handler
             self.tools_handler.cache = cache_handler
-        self.create_agent_executor()
 
     def set_rpm_controller(self, rpm_controller: RPMController) -> None:
         """Set the rpm controller for the agent.
@@ -357,7 +466,6 @@ class BaseAgent(ABC, BaseModel):
         """
         if not self._rpm_controller:
             self._rpm_controller = rpm_controller
-            self.create_agent_executor()
 
-    def set_knowledge(self, crew_embedder: dict[str, Any] | None = None):
+    def set_knowledge(self, crew_embedder: EmbedderConfig | None = None) -> None:
         pass

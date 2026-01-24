@@ -1,5 +1,3 @@
-from typing import List, Optional, Tuple
-
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +7,7 @@ from clease.evaluate import supports_alpha_cv
 
 
 def plot_fit(
-    evaluate: Evaluate, plot_args: Optional[dict] = None, interactive: bool = False
+    evaluate: Evaluate, plot_args: dict | None = None, interactive: bool = False
 ) -> Figure:
     """
     Figure object calculated (DFT) and predicted energies.
@@ -63,7 +61,7 @@ def plot_fit(
     ax.text(
         0.95,
         0.01,
-        cv_name + f" = {cv:.3f} meV/atom\n" f"RMSE = {rmse:.3f} meV/atom",
+        cv_name + f" = {cv:.3f} meV/atom\nRMSE = {rmse:.3f} meV/atom",
         verticalalignment="bottom",
         horizontalalignment="right",
         transform=ax.transAxes,
@@ -91,7 +89,7 @@ def plot_fit(
 
 
 def plot_fit_residual(
-    evaluate: Evaluate, plot_args: Optional[dict] = None, interactive: bool = False
+    evaluate: Evaluate, plot_args: dict | None = None, interactive: bool = False
 ) -> Figure:
     """
     Figure object subtracted (DFT) and predicted energies.
@@ -153,7 +151,7 @@ def plot_fit_residual(
 
 def plot_eci(
     evaluate: Evaluate,
-    plot_args: Optional[dict] = None,
+    plot_args: dict | None = None,
     ignore_sizes=(),
     interactive: bool = False,
 ) -> Figure:
@@ -238,7 +236,7 @@ def plot_eci(
     return fig
 
 
-def plot_cv(evaluate: Evaluate, plot_args: Optional[dict] = None) -> Figure:
+def plot_cv(evaluate: Evaluate, plot_args: dict | None = None) -> Figure:
     """
     Figure object of CV values according to alpha values
     If the plot_args dictionary contains keys,
@@ -357,7 +355,7 @@ def plot_convex_hull(evaluate: Evaluate, interactive: bool = False) -> Figure:
     return fig
 
 
-def _make_annotations_hull(evaluate: Evaluate) -> Tuple[List[str], List[str]]:
+def _make_annotations_hull(evaluate: Evaluate) -> tuple[list[str], list[str]]:
     """Helper function to make annotations for interactive plots."""
     e_pred = evaluate.get_energy_predict()
     e_dft = evaluate.get_energy_true()
@@ -380,7 +378,7 @@ def _make_annotations_hull(evaluate: Evaluate) -> Tuple[List[str], List[str]]:
     return an_dft, an_ce
 
 
-def _make_annotations_plot_fit(evaluate: Evaluate) -> Tuple[List[str], List[str]]:
+def _make_annotations_plot_fit(evaluate: Evaluate) -> tuple[list[str], list[str]]:
     """Helper function to make annotations for interactive plots."""
     e_pred = evaluate.get_energy_predict()
     e_dft = evaluate.get_energy_true()

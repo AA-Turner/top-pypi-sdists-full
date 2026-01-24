@@ -19,7 +19,7 @@
 
 from time import sleep
 
-import httpretty
+import responses
 from dateutil.relativedelta import relativedelta
 from django.core import mail
 from django.test import TestCase
@@ -71,7 +71,9 @@ class PaymentTest(TestCase):
     def create_trial(self):
         bill = Billing.objects.create(state=Billing.STATE_TRIAL, plan=self.plan_b)
         bill.owners.add(self.user)
-        bill.projects.add(Project.objects.create(name="Project", slug="project"))
+        project = Project.objects.create(name="Project", slug="project")
+        bill.projects.add(project)
+        project.add_user(self.user)
         return bill
 
     def test_create(self) -> None:
@@ -149,32 +151,37 @@ class PaymentTest(TestCase):
         bill_url = reverse("billing")
         create_url = reverse("create-billing")
         pay_url = "http://example.com/payment"
-        params = create_url, {"payment": payment.uuid}
+        pay_params = {"payment": str(payment.uuid)}
         # New should redirect to payment interface
         self.assertRedirects(
-            self.client.get(*params), pay_url, fetch_redirect_response=False
+            self.client.get(create_url, pay_params),
+            pay_url,
+            fetch_redirect_response=False,
         )
         # Pending should redirect to billings
         payment.state = Payment.PENDING
         payment.save()
-        self.assertRedirects(self.client.get(*params), bill_url)
+        self.assertRedirects(self.client.get(create_url, pay_params), bill_url)
         # Accepted should redirect to billings
         payment.state = Payment.ACCEPTED
         payment.save()
-        response = self.client.get(*params, follow=True)
+        response = self.client.get(create_url, pay_params, follow=True)
         bill_url = Billing.objects.get().get_absolute_url()
         self.assertRedirects(response, bill_url)
         # Processed should redirect to billings
         payment.state = Payment.PROCESSED
         payment.save()
-        self.assertRedirects(self.client.get(*params, follow=True), bill_url)
+        self.assertRedirects(
+            self.client.get(create_url, pay_params, follow=True),
+            bill_url,
+        )
         # Rejected should redirect to create
         payment.state = Payment.REJECTED
         payment.save()
-        self.assertRedirects(self.client.get(*params), create_url)
+        self.assertRedirects(self.client.get(create_url, pay_params), create_url)
         # Non existing should redirect to create
         payment.delete()
-        self.assertRedirects(self.client.get(*params), create_url)
+        self.assertRedirects(self.client.get(create_url, pay_params), create_url)
 
     def do_complete(self, **kwargs):
         self.create_payment(**kwargs)
@@ -182,7 +189,7 @@ class PaymentTest(TestCase):
         payment.state = Payment.ACCEPTED
         payment.save()
         response = self.client.get(
-            reverse("create-billing"), {"payment": payment.uuid}, follow=True
+            reverse("create-billing"), {"payment": str(payment.uuid)}, follow=True
         )
         if "billing" in kwargs:
             billing = Billing.objects.get(pk=kwargs["billing"])
@@ -239,7 +246,7 @@ class PaymentTest(TestCase):
         backend.complete(None)
 
         response = self.client.get(
-            reverse("create-billing"), {"payment": payment.uuid}, follow=True
+            reverse("create-billing"), {"payment": str(payment.uuid)}, follow=True
         )
         billing = Billing.objects.all()[0]
         self.assertRedirects(response, billing.get_absolute_url())
@@ -255,18 +262,22 @@ class PaymentTest(TestCase):
 
         return payment, bill, invoices
 
-    def run_recurring(self) -> None:
+    def run_recurring(self, *, add_project: bool = True, add_user: bool = True) -> None:
         # Make sure billing has a project
         bill = Billing.objects.get()
-        bill.projects.add(Project.objects.create(name="Project", slug="project"))
+        project = Project.objects.create(name="Project", slug="project")
+        if add_project:
+            bill.projects.add(project)
+        if add_user:
+            project.add_user(self.user)
         # Invoke recurring payment
-        httpretty.register_uri(httpretty.POST, "http://example.com/payment", body="")
+        responses.add(responses.POST, "http://example.com/payment", body="")
         recurring_payments()
 
     @override_settings(
         PAYMENT_DEBUG=True, PAYMENT_REDIRECT_URL="http://example.com/payment"
     )
-    @httpretty.activate
+    @responses.activate
     def test_recurring(self) -> None:
         """Test recurring payments."""
         payment, bill, invoices = self.prepare_recurring("pay")
@@ -304,7 +315,7 @@ class PaymentTest(TestCase):
         payment, bill, _invoices = self.prepare_recurring("pay")
         self.assertEqual(bill.payment["recurring"], str(payment.pk))
 
-        # Fake payment menthod
+        # Fake payment method
         payment.details["backend"] = "invalid"
         payment.save()
 
@@ -316,10 +327,32 @@ class PaymentTest(TestCase):
         bill = Billing.objects.get(pk=bill.pk)
         self.assertNotIn("recurring", bill.payment)
 
+    @override_settings(PAYMENT_DEBUG=True)
+    def test_recurring_no_project(self) -> None:
+        """Test handling of invalid (removed) method."""
+        payment, bill, _invoices = self.prepare_recurring("pay")
+        self.assertEqual(bill.payment["recurring"], str(payment.pk))
+
+        self.run_recurring(add_project=False)
+
+        # There should be no new payment
+        self.assertFalse(Payment.objects.exclude(pk=payment.pk).exists())
+
+    @override_settings(PAYMENT_DEBUG=True)
+    def test_recurring_no_users(self) -> None:
+        """Test handling of invalid (removed) method."""
+        payment, bill, _invoices = self.prepare_recurring("pay")
+        self.assertEqual(bill.payment["recurring"], str(payment.pk))
+
+        self.run_recurring(add_user=False)
+
+        # There should be no new payment
+        self.assertFalse(Payment.objects.exclude(pk=payment.pk).exists())
+
     @override_settings(
         PAYMENT_DEBUG=True, PAYMENT_REDIRECT_URL="http://example.com/payment"
     )
-    @httpretty.activate
+    @responses.activate
     def test_recurring_one_error(self) -> None:
         """Test handling of single failed recurring payments."""
         payment, bill, invoices = self.prepare_recurring("pay")
@@ -352,7 +385,7 @@ class PaymentTest(TestCase):
         Payment.objects.create(
             repeat=payment, customer=payment.customer, state=Payment.PROCESSED, amount=1
         )
-        # Ensure rest is after procesed one
+        # Ensure rest is after processed one
         sleep(1)
         Payment.objects.create(
             repeat=payment, customer=payment.customer, state=Payment.REJECTED, amount=1

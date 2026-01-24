@@ -142,12 +142,8 @@ static int igraphmodule_clear(PyObject *m) {
   return 0;
 }
 
-static igraph_error_t igraphmodule_igraph_interrupt_hook(void* data) {
-  if (PyErr_CheckSignals()) {
-    IGRAPH_FINALLY_FREE();
-    return IGRAPH_INTERRUPTED;
-  }
-  return IGRAPH_SUCCESS;
+static igraph_bool_t igraphmodule_igraph_interrupt_hook() {
+  return PyErr_CheckSignals();
 }
 
 igraph_error_t igraphmodule_igraph_progress_hook(const char* message, igraph_real_t percent,
@@ -229,6 +225,38 @@ PyObject* igraphmodule_set_status_handler(PyObject* self, PyObject* o) {
   GETSTATE(self)->status_handler = o;
 
   Py_RETURN_NONE;
+}
+
+PyObject* igraphmodule_align_layout(PyObject* self, PyObject* args, PyObject* kwds) {
+  static char* kwlist[] = {"graph", "layout", NULL};
+  PyObject *graph_o, *layout_o;
+  PyObject *res;
+  igraph_t *graph;
+  igraph_matrix_t layout;
+
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO", kwlist, &graph_o, &layout_o)) {
+    return NULL;
+  }
+
+  if (igraphmodule_PyObject_to_igraph_t(graph_o, &graph)) {
+    return NULL;
+  }
+
+  if (igraphmodule_PyObject_to_matrix_t(layout_o, &layout, "layout")) {
+    return NULL;
+  }
+
+  if (igraph_layout_align(graph, &layout)) {
+    igraphmodule_handle_igraph_error();
+    igraph_matrix_destroy(&layout);
+    return NULL;
+  }
+
+  res = igraphmodule_matrix_t_to_PyList(&layout, IGRAPHMODULE_TYPE_FLOAT);
+
+  igraph_matrix_destroy(&layout);
+
+  return res;
 }
 
 PyObject* igraphmodule_convex_hull(PyObject* self, PyObject* args, PyObject* kwds) {
@@ -317,7 +345,7 @@ PyObject* igraphmodule_convex_hull(PyObject* self, PyObject* args, PyObject* kwd
       igraph_matrix_destroy(&mtrx);
       return NULL;
     }
-    if (igraph_convex_hull(&mtrx, &result, 0)) {
+    if (igraph_convex_hull_2d(&mtrx, &result, 0)) {
       igraphmodule_handle_igraph_error();
       igraph_matrix_destroy(&mtrx);
       igraph_vector_int_destroy(&result);
@@ -331,7 +359,7 @@ PyObject* igraphmodule_convex_hull(PyObject* self, PyObject* args, PyObject* kwd
       igraph_matrix_destroy(&mtrx);
       return NULL;
     }
-    if (igraph_convex_hull(&mtrx, 0, &resmat)) {
+    if (igraph_convex_hull_2d(&mtrx, 0, &resmat)) {
       igraphmodule_handle_igraph_error();
       igraph_matrix_destroy(&mtrx);
       igraph_matrix_destroy(&resmat);
@@ -641,7 +669,7 @@ PyObject* igraphmodule_split_join_distance(PyObject *self,
   static char* kwlist[] = { "comm1", "comm2", NULL };
   PyObject *comm1_o, *comm2_o;
   igraph_vector_int_t comm1, comm2;
-  igraph_integer_t distance12, distance21;
+  igraph_int_t distance12, distance21;
 
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO", kwlist,
       &comm1_o, &comm2_o))
@@ -666,7 +694,7 @@ PyObject* igraphmodule_split_join_distance(PyObject *self,
   igraph_vector_int_destroy(&comm1);
   igraph_vector_int_destroy(&comm2);
 
-  /* sizeof(Py_ssize_t) is most likely the same as sizeof(igraph_integer_t),
+  /* sizeof(Py_ssize_t) is most likely the same as sizeof(igraph_int_t),
    * but even if it isn't, we cast explicitly so we are safe */
   return Py_BuildValue("nn", (Py_ssize_t)distance12, (Py_ssize_t)distance21);
 }
@@ -687,7 +715,7 @@ PyObject *igraphmodule_umap_compute_weights(
   PyObject *result_o;
   igraphmodule_GraphObject * graph;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "OO", kwlist, &graph_o, &dist_o))
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O!O", kwlist, igraphmodule_GraphType, &graph_o, &dist_o))
     return NULL;
 
   /* Initialize distances */
@@ -793,6 +821,10 @@ static PyMethodDef igraphmodule_methods[] =
   {"_power_law_fit", (PyCFunction)igraphmodule_power_law_fit,
     METH_VARARGS | METH_KEYWORDS,
     "_power_law_fit(data, xmin=-1, force_continuous=False, p_precision=0.01)\n--\n\n"
+  },
+  {"_align_layout", (PyCFunction)igraphmodule_align_layout,
+    METH_VARARGS | METH_KEYWORDS,
+    "_align_layout(graph, layout)\n--\n\n"
   },
   {"convex_hull", (PyCFunction)igraphmodule_convex_hull,
     METH_VARARGS | METH_KEYWORDS,
@@ -1035,15 +1067,24 @@ PyObject* PyInit__igraph(void)
   PyObject* m;
   static void *PyIGraph_API[PyIGraph_API_pointers];
   PyObject *c_api_object;
+  igraph_error_t retval;
 
   /* Prevent linking 64-bit igraph to 32-bit Python */
-  PY_IGRAPH_ASSERT_AT_BUILD_TIME(sizeof(igraph_integer_t) >= sizeof(Py_ssize_t));
+  PY_IGRAPH_ASSERT_AT_BUILD_TIME(sizeof(igraph_int_t) >= sizeof(Py_ssize_t));
 
   /* Check if the module is already initialized (possibly in another Python
    * interpreter. If so, bail out as we don't support this. */
   if (igraphmodule_initialized) {
     PyErr_SetString(PyExc_RuntimeError, "igraph module is already initialized "
         "in a different Python interpreter");
+    INITERROR;
+  }
+
+  /* Initialize the igraph library */
+  retval = igraph_setup();
+  if (retval != IGRAPH_SUCCESS) {
+    PyErr_Format(PyExc_RuntimeError, "Failed to initialize the C core of "
+        "the igraph library, code: %d", retval);
     INITERROR;
   }
 
@@ -1116,9 +1157,6 @@ PyObject* PyInit__igraph(void)
   PyModule_AddIntConstant(m, "GET_ADJACENCY_UPPER", IGRAPH_GET_ADJACENCY_UPPER);
   PyModule_AddIntConstant(m, "GET_ADJACENCY_LOWER", IGRAPH_GET_ADJACENCY_LOWER);
   PyModule_AddIntConstant(m, "GET_ADJACENCY_BOTH", IGRAPH_GET_ADJACENCY_BOTH);
-
-  PyModule_AddIntConstant(m, "REWIRING_SIMPLE", IGRAPH_REWIRING_SIMPLE);
-  PyModule_AddIntConstant(m, "REWIRING_SIMPLE_LOOPS", IGRAPH_REWIRING_SIMPLE_LOOPS);
 
   PyModule_AddIntConstant(m, "ADJ_DIRECTED", IGRAPH_ADJ_DIRECTED);
   PyModule_AddIntConstant(m, "ADJ_UNDIRECTED", IGRAPH_ADJ_UNDIRECTED);

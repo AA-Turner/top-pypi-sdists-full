@@ -1,7 +1,4 @@
-/*
- * Copyright 2024 IBM Inc. All rights reserved
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef __EXT_HPP__
 #define __EXT_HPP__
@@ -14,6 +11,8 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include "cuda_compat.h"
 
 #define ENV_ENABLE_INIT_LOG "FASTSAFETENSORS_ENABLE_INIT_LOG"
 
@@ -33,8 +32,17 @@ typedef struct CUfileDescr_t {
     const void *fs_ops; /* CUfileFSOps_t */
 } CUfileDescr_t;
 typedef struct CUfileError { CUfileOpError err; } CUfileError_t;
+
+// Define minimal CUDA/HIP types for both platforms to avoid compile-time dependencies
+// We load all GPU functions dynamically at runtime via dlopen()
 typedef enum cudaError { cudaSuccess = 0, cudaErrorMemoryAllocation = 2 } cudaError_t;
+enum cudaDeviceAttr {cudaDevAttrGPUDirectRDMASupported = 116};
+// Platform-specific enum values - CUDA and HIP have different values for HostToDevice
+#ifdef USE_ROCM
+enum cudaMemcpyKind { cudaMemcpyHostToDevice=1, cudaMemcpyDefault = 4 };
+#else
 enum cudaMemcpyKind { cudaMemcpyHostToDevice=2, cudaMemcpyDefault = 4 };
+#endif
 
 
 typedef enum CUfileFeatureFlags {
@@ -61,6 +69,9 @@ typedef struct CUfileDrvProps {
 
 int get_alignment_size();
 void set_debug_log(bool _debug_log);
+void set_gil_release(bool enable);
+bool get_gil_release();
+void init_gil_release_from_env();
 int init_gds();
 int close_gds();
 std::string get_device_pci_bus(int deviceId);
@@ -199,6 +210,8 @@ typedef struct ext_funcs {
     cudaError_t (*cudaDeviceMalloc)(void **, size_t);
     cudaError_t (*cudaDeviceFree)(void *);
     int (*numa_run_on_node)(int);
+    cudaError_t (*cudaDriverGetVersion)(int *);
+    cudaError_t (*cudaDeviceGetAttribute)(int *, enum cudaDeviceAttr, int);
 } ext_funcs_t;
 
 typedef struct cpp_metrics {

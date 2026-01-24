@@ -1,0 +1,389 @@
+Metadata-Version: 2.4
+Name: oarepo
+Version: 14.0.25
+Summary: CESNET, UCT Prague and NTK wrapper around Invenio v3.
+Author-email: "UCT Prague, CESNET z.s.p.o., NTK" <miroslav.simek@cesnet.cz>
+License: MIT
+Project-URL: Homepage, https://github.com/oarepo/oarepo
+Keywords: oarepo,invenio
+Classifier: Development Status :: 3 - Alpha
+Classifier: Environment :: Web Environment
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Python: <3.14,>=3.13
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: aiobotocore==2.26.0
+Requires-Dist: aiohappyeyeballs==2.6.1
+Requires-Dist: aiohttp==3.13.3
+Requires-Dist: aioitertools==0.13.0
+Requires-Dist: aiosignal==1.4.0
+Requires-Dist: alabaster==1.0.0
+Requires-Dist: alembic==1.18.0
+Requires-Dist: amqp==5.3.1
+Requires-Dist: aniso8601==10.0.1
+Requires-Dist: appdirs==1.4.4
+Requires-Dist: arrow==1.4.0
+Requires-Dist: asttokens==3.0.1
+Requires-Dist: attrs==25.4.0
+Requires-Dist: babel==2.17.0
+Requires-Dist: babel-edtf==1.2.1
+Requires-Dist: base32-lib==1.0.2
+Requires-Dist: beautifulsoup4==4.14.3
+Requires-Dist: bibtexparser==1.4.3
+Requires-Dist: billiard==4.2.4
+Requires-Dist: black==25.12.0
+Requires-Dist: bleach==6.3.0
+Requires-Dist: blinker==1.9.0
+Requires-Dist: botocore==1.41.5
+Requires-Dist: build==1.4.0
+Requires-Dist: cachelib==0.13.0
+Requires-Dist: cairocffi==1.7.1
+Requires-Dist: cairosvg==2.8.2
+Requires-Dist: celery==5.4.0
+Requires-Dist: certifi==2026.1.4
+Requires-Dist: cffi==2.0.0
+Requires-Dist: charset-normalizer==3.4.4
+Requires-Dist: check-manifest==0.51
+Requires-Dist: citeproc-py==0.9.0
+Requires-Dist: citeproc-py-styles==0.1.5.45528422
+Requires-Dist: click==8.3.1
+Requires-Dist: click-default-group==1.2.4
+Requires-Dist: click-didyoumean==0.3.1
+Requires-Dist: click-plugins==1.1.1.2
+Requires-Dist: click-repl==0.3.0
+Requires-Dist: commonmark==0.9.1
+Requires-Dist: commonmeta-py==0.180
+Requires-Dist: counter-robots==2025.11
+Requires-Dist: coverage==7.13.1
+Requires-Dist: cryptography==46.0.3
+Requires-Dist: cssselect2==0.8.0
+Requires-Dist: datacite==1.3.1
+Requires-Dist: dateparser==1.2.0
+Requires-Dist: dcxml==0.1.2
+Requires-Dist: decorator==5.2.1
+Requires-Dist: defusedxml==0.7.1
+Requires-Dist: deprecated==1.3.1
+Requires-Dist: dictdiffer==0.9.0
+Requires-Dist: dnspython==2.8.0
+Requires-Dist: docker-services-cli==0.12.1
+Requires-Dist: docutils==0.22.4
+Requires-Dist: dojson==1.7.0
+Requires-Dist: edtf==5.0.0
+Requires-Dist: elementpath==5.1.0
+Requires-Dist: email-validator==2.3.0
+Requires-Dist: events==0.5
+Requires-Dist: executing==2.2.1
+Requires-Dist: faker==40.1.0
+Requires-Dist: fancycompleter==0.11.1
+Requires-Dist: fastjsonschema==2.21.2
+Requires-Dist: flask==3.1.2
+Requires-Dist: flask-alembic==3.1.1
+Requires-Dist: flask-babel==4.0.0
+Requires-Dist: flask-caching==2.3.1
+Requires-Dist: flask-celeryext==0.5.0
+Requires-Dist: flask-collect-invenio==1.4.0
+Requires-Dist: flask-cors==6.0.2
+Requires-Dist: flask-iiif==1.2.1
+Requires-Dist: flask-kvsession-invenio==0.6.4
+Requires-Dist: flask-limiter==2.9.2
+Requires-Dist: flask-login==0.6.3
+Requires-Dist: flask-mail==0.9.1
+Requires-Dist: flask-menu==2.0.0
+Requires-Dist: flask-oauthlib-invenio==1.1.2
+Requires-Dist: flask-principal==0.4.0
+Requires-Dist: flask-resources==1.2.0
+Requires-Dist: flask-restful==0.3.10
+Requires-Dist: flask-security-invenio==3.8.3
+Requires-Dist: flask-shell-ipython==0.5.3
+Requires-Dist: flask-sqlalchemy==3.1.1
+Requires-Dist: flask-talisman==0.8.1
+Requires-Dist: flask-webpackext==2.1.0
+Requires-Dist: flask-wtf==1.2.2
+Requires-Dist: frozenlist==1.8.0
+Requires-Dist: fs==2.4.16
+Requires-Dist: fsspec==2026.1.0
+Requires-Dist: ftfy==6.3.1
+Requires-Dist: furl==2.1.4
+Requires-Dist: future==1.0.0
+Requires-Dist: geojson==3.2.0
+Requires-Dist: github3-py==4.0.1
+Requires-Dist: greenlet==3.3.0
+Requires-Dist: h11==0.16.0
+Requires-Dist: humanize==4.15.0
+Requires-Dist: idna==3.11
+Requires-Dist: idutils==1.5.1
+Requires-Dist: imagesize==1.4.1
+Requires-Dist: importlib-metadata==8.7.1
+Requires-Dist: importlib-resources==6.5.2
+Requires-Dist: infinity==1.5
+Requires-Dist: iniconfig==2.3.0
+Requires-Dist: intervals==0.9.2
+Requires-Dist: invenio-access==4.2.1
+Requires-Dist: invenio-accounts==6.2.2
+Requires-Dist: invenio-administration==4.3.2.47635988
+Requires-Dist: invenio-app==2.3.0
+Requires-Dist: invenio-assets==4.2.1
+Requires-Dist: invenio-audit-logs==0.3.2
+Requires-Dist: invenio-banners==5.2.1
+Requires-Dist: invenio-base==2.4.0
+Requires-Dist: invenio-cache==2.1.0
+Requires-Dist: invenio-celery==2.2.0
+Requires-Dist: invenio-checks==2.0.0
+Requires-Dist: invenio-collections==2.1.0
+Requires-Dist: invenio-communities==21.2.0.8902796
+Requires-Dist: invenio-config==1.1.0
+Requires-Dist: invenio-db==2.1.2
+Requires-Dist: invenio-drafts-resources==7.3.1.76831460
+Requires-Dist: invenio-files-rest==3.4.1
+Requires-Dist: invenio-formatter==3.3.1
+Requires-Dist: invenio-github==4.0.0
+Requires-Dist: invenio-i18n==3.4.3
+Requires-Dist: invenio-indexer==3.1.0
+Requires-Dist: invenio-jobs==6.1.0.57622594
+Requires-Dist: invenio-jsonschemas==2.1.0.14108971
+Requires-Dist: invenio-logging==4.1.1
+Requires-Dist: invenio-mail==2.3.0
+Requires-Dist: invenio-notifications==1.2.3.87836317
+Requires-Dist: invenio-oaiserver==3.7.4.34642440
+Requires-Dist: invenio-oauth2server==3.3.2
+Requires-Dist: invenio-oauthclient==6.1.1
+Requires-Dist: invenio-pages==7.2.1
+Requires-Dist: invenio-pidstore==2.2.2
+Requires-Dist: invenio-previewer==3.5.1
+Requires-Dist: invenio-queues==1.0.2
+Requires-Dist: invenio-records==3.1.1
+Requires-Dist: invenio-records-files==1.2.1
+Requires-Dist: invenio-records-permissions==1.2.1
+Requires-Dist: invenio-records-resources==8.7.1.44682796
+Requires-Dist: invenio-records-rest==3.2.1
+Requires-Dist: invenio-records-ui==2.1.2
+Requires-Dist: invenio-requests==10.5.0.36628667
+Requires-Dist: invenio-rest==2.0.5
+Requires-Dist: invenio-s3==3.0.2
+Requires-Dist: invenio-search==3.1.2.86707846
+Requires-Dist: invenio-search-ui==4.1.5
+Requires-Dist: invenio-sitemap==0.3.0
+Requires-Dist: invenio-stats==5.1.1
+Requires-Dist: invenio-theme==4.5.0
+Requires-Dist: invenio-userprofiles==4.1.1
+Requires-Dist: invenio-users-resources==9.0.3
+Requires-Dist: invenio-vocabularies==9.1.2.64309979
+Requires-Dist: invenio-webhooks==1.1.0
+Requires-Dist: ipython==9.9.0
+Requires-Dist: ipython-pygments-lexers==1.1.1
+Requires-Dist: isal==1.8.0
+Requires-Dist: isbnlib==3.10.14
+Requires-Dist: isort==7.0.0
+Requires-Dist: itsdangerous==2.2.0
+Requires-Dist: jedi==0.19.2
+Requires-Dist: jinja2==3.1.6
+Requires-Dist: jmespath==1.0.1
+Requires-Dist: jsmin==3.0.1
+Requires-Dist: jsonpatch==1.33
+Requires-Dist: jsonpointer==3.0.0
+Requires-Dist: jsonref==1.1.0
+Requires-Dist: jsonresolver==0.4.1
+Requires-Dist: jsonschema==4.26.0
+Requires-Dist: jsonschema-specifications==2025.9.1
+Requires-Dist: jupyter-client==8.8.0
+Requires-Dist: jupyter-core==5.9.1
+Requires-Dist: jupyterlab-pygments==0.3.0
+Requires-Dist: kombu==5.6.2
+Requires-Dist: limits==5.6.0
+Requires-Dist: luqum==1.0.0
+Requires-Dist: lxml==6.0.2
+Requires-Dist: lxml-html-clean==0.4.3
+Requires-Dist: mako==1.3.10
+Requires-Dist: markupsafe==3.0.3
+Requires-Dist: marshmallow==3.26.2
+Requires-Dist: marshmallow-oneofschema==3.2.0
+Requires-Dist: marshmallow-utils==0.13.1
+Requires-Dist: matplotlib-inline==0.2.1
+Requires-Dist: maxminddb==3.0.0
+Requires-Dist: maxminddb-geolite2==2018.703
+Requires-Dist: mistune==3.2.0
+Requires-Dist: msgpack==1.1.2
+Requires-Dist: multidict==6.7.0
+Requires-Dist: mypy-extensions==1.1.0
+Requires-Dist: nameparser==1.1.3
+Requires-Dist: nbclient==0.10.4
+Requires-Dist: nbconvert==7.16.6
+Requires-Dist: nbformat==5.10.4
+Requires-Dist: nh3==0.2.22
+Requires-Dist: oauthlib==3.3.1
+Requires-Dist: opensearch-dsl==2.1.0
+Requires-Dist: opensearch-py==2.8.0
+Requires-Dist: ordered-set==4.1.0
+Requires-Dist: orderedmultidict==1.0.2
+Requires-Dist: orjson==3.11.5
+Requires-Dist: orjsonl==1.0.0
+Requires-Dist: outcome==1.3.0.post0
+Requires-Dist: packaging==25.0
+Requires-Dist: pandocfilters==1.5.1
+Requires-Dist: parso==0.8.5
+Requires-Dist: passlib==1.7.4
+Requires-Dist: pathspec==1.0.3
+Requires-Dist: pdbpp==0.11.7
+Requires-Dist: pexpect==4.9.0
+Requires-Dist: pikepdf==9.11.0
+Requires-Dist: pillow==12.1.0
+Requires-Dist: pip==25.3
+Requires-Dist: platformdirs==4.5.1
+Requires-Dist: pluggy==1.6.0
+Requires-Dist: ply==3.11
+Requires-Dist: polib==1.2.0
+Requires-Dist: prompt-toolkit==3.0.52
+Requires-Dist: propcache==0.4.1
+Requires-Dist: psycopg2-binary==2.9.11
+Requires-Dist: ptyprocess==0.7.0
+Requires-Dist: pure-eval==0.2.3
+Requires-Dist: pycodestyle==2.14.0
+Requires-Dist: pycountry==24.6.1
+Requires-Dist: pycparser==2.23
+Requires-Dist: pydash==6.0.2
+Requires-Dist: pydocstyle==6.3.0
+Requires-Dist: pygments==2.19.2
+Requires-Dist: pyjwt==2.10.1
+Requires-Dist: pymysql==1.1.2
+Requires-Dist: pynpm==0.3.0
+Requires-Dist: pyparsing==3.3.1
+Requires-Dist: pyproject-hooks==1.2.0
+Requires-Dist: pysocks==1.7.1
+Requires-Dist: pytest==8.4.2
+Requires-Dist: pytest-black-ng==0.4.1
+Requires-Dist: pytest-cov==7.0.0
+Requires-Dist: pytest-flask==1.3.0
+Requires-Dist: pytest-github-actions-annotate-failures==0.3.0
+Requires-Dist: pytest-invenio==3.4.2
+Requires-Dist: pytest-isort==4.0.0
+Requires-Dist: pytest-pycodestyle==2.5.0
+Requires-Dist: pytest-pydocstyle==2.4.0
+Requires-Dist: python-dateutil==2.9.0.post0
+Requires-Dist: python-geoip==1.2
+Requires-Dist: python-slugify==8.0.4
+Requires-Dist: pytokens==0.3.0
+Requires-Dist: pytz==2024.1
+Requires-Dist: pywebpack==2.2.1
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: pyzmq==27.1.0
+Requires-Dist: rdflib==7.5.0
+Requires-Dist: redis==7.1.0
+Requires-Dist: referencing==0.37.0
+Requires-Dist: regex==2025.11.3
+Requires-Dist: requests==2.32.5
+Requires-Dist: requests-oauthlib==2.0.0
+Requires-Dist: requests-toolbelt==1.0.0
+Requires-Dist: rich==12.6.0
+Requires-Dist: roman-numerals==4.1.0
+Requires-Dist: rpds-py==0.30.0
+Requires-Dist: s3fs==2026.1.0
+Requires-Dist: selenium==4.39.0
+Requires-Dist: setuptools==80.9.0
+Requires-Dist: simplejson==3.20.2
+Requires-Dist: simplekv==0.14.1
+Requires-Dist: six==1.17.0
+Requires-Dist: sniffio==1.3.1
+Requires-Dist: snowballstemmer==2.2.0
+Requires-Dist: sortedcontainers==2.4.0
+Requires-Dist: soupsieve==2.8.1
+Requires-Dist: sparqlwrapper==2.0.0
+Requires-Dist: speaklater==1.3
+Requires-Dist: sphinx==9.1.0
+Requires-Dist: sphinxcontrib-applehelp==2.0.0
+Requires-Dist: sphinxcontrib-devhelp==2.0.0
+Requires-Dist: sphinxcontrib-htmlhelp==2.1.0
+Requires-Dist: sphinxcontrib-jsmath==1.0.1
+Requires-Dist: sphinxcontrib-qthelp==2.0.0
+Requires-Dist: sphinxcontrib-serializinghtml==2.0.0
+Requires-Dist: sqlalchemy==2.0.45
+Requires-Dist: sqlalchemy-continuum==1.5.2
+Requires-Dist: sqlalchemy-utils==0.41.2
+Requires-Dist: stack-data==0.6.3
+Requires-Dist: text-unidecode==1.3
+Requires-Dist: time-machine==2.19.0
+Requires-Dist: tinycss2==1.4.0
+Requires-Dist: toml==0.10.2
+Requires-Dist: tornado==6.5.4
+Requires-Dist: traitlets==5.14.3
+Requires-Dist: trio==0.32.0
+Requires-Dist: trio-websocket==0.12.2
+Requires-Dist: types-beautifulsoup4==4.12.0.20250516
+Requires-Dist: types-dateparser==1.2.2.20250809
+Requires-Dist: types-html5lib==1.1.11.20251117
+Requires-Dist: types-pyyaml==6.0.12.20250915
+Requires-Dist: types-webencodings==0.5.0.20251108
+Requires-Dist: types-xmltodict==0.15.0.20250907
+Requires-Dist: typing-extensions==4.15.0
+Requires-Dist: tzdata==2025.3
+Requires-Dist: tzlocal==5.3.1
+Requires-Dist: ua-parser==1.0.1
+Requires-Dist: ua-parser-builtins==202601
+Requires-Dist: uritemplate==4.2.0
+Requires-Dist: uritools==6.0.1
+Requires-Dist: urllib3==2.6.3
+Requires-Dist: validators==0.35.0
+Requires-Dist: vine==5.1.0
+Requires-Dist: wand==0.6.13
+Requires-Dist: watchdog==6.0.0
+Requires-Dist: wcwidth==0.2.14
+Requires-Dist: webargs==5.5.3
+Requires-Dist: webencodings==0.5.1
+Requires-Dist: websocket-client==1.9.0
+Requires-Dist: werkzeug==3.1.5
+Requires-Dist: wrapt==1.17.3
+Requires-Dist: wsproto==1.3.2
+Requires-Dist: wtforms==3.2.1
+Requires-Dist: wtforms-alchemy==0.19.1
+Requires-Dist: wtforms-components==0.11.0
+Requires-Dist: xmlschema==4.3.0
+Requires-Dist: xmltodict==0.12.0
+Requires-Dist: xopen==2.0.2
+Requires-Dist: yarl==1.22.0
+Requires-Dist: zipp==3.23.0
+Requires-Dist: zipstream-ng==1.9.0
+Requires-Dist: zlib-ng==1.0.0
+Requires-Dist: zxcvbn==4.5.0
+Requires-Dist: python-dotenv<2,>=1.1.1
+Requires-Dist: marshmallow-i18n-messages<1.0.0,>=0.1.0
+Provides-Extra: rdm
+Requires-Dist: invenio-app-rdm==14.0.0.52787111b3.dev4; extra == "rdm"
+Requires-Dist: invenio-rdm-records==22.7.0.49681047; extra == "rdm"
+Provides-Extra: test
+Requires-Dist: pytest-invenio; extra == "test"
+Provides-Extra: tests
+Requires-Dist: pytest-invenio; extra == "tests"
+Provides-Extra: dev
+Requires-Dist: pytest-invenio; extra == "dev"
+Provides-Extra: devs
+Requires-Dist: pytest-invenio; extra == "devs"
+Provides-Extra: s3
+Dynamic: license-file
+
+CESNET, UCT Prague and NTK wrapper around invenio v3
+====================================================
+
+This meta-package contains a curated and tested set of dependencies on Invenio and OArepo libraries.
+It should be considered as a base building block for creating any OA repository applications.
+
+Translations
+------------
+
+Note for RDM12:
+
+This package also contains translations for all supported invenio languages,
+as downloaded from Transifex server on June 20, 2025. 
+
+If you want to make changes to translations, change them in the collected_translations
+directory (use poedit to make tham as it will compile the .mo files for you).
+If you need to change the javascript translations, add those directly 
+to translation json files. Then create a PR to this repository with the changes.
+
+During merge we'll make sure that these get propagated to RDM13 if approporiate.

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import codecs
 import datetime
-import enum
 import functools
-import json
 import keyword
 import logging
 import operator
@@ -13,11 +11,11 @@ import os.path
 import re
 import sys
 import warnings
-import weakref
-from collections.abc import Iterable, Mapping, MutableSequence
+from collections.abc import Iterable
 from io import StringIO
 from itertools import zip_longest
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger('tatsu')
 logger.setLevel(logging.DEBUG)
@@ -27,7 +25,7 @@ ch.setFormatter(formatter)
 logger.addHandler(ch)
 
 
-ESCAPE_SEQUENCE_RE = re.compile(
+ESCAPE_SEQUENCE_RE: re.Pattern = re.compile(
     r"""
     ( \\U........      # 8-digit Unicode escapes
     | \\u....          # 4-digit Unicode escapes
@@ -40,33 +38,21 @@ ESCAPE_SEQUENCE_RE = re.compile(
 )
 
 
-class AsJSONMixin:
-    def __json__(self, seen=None):
-        return {
-            '__class__': type(self).__name__,
-            **asjson(self._pubdict(), seen=seen),
-        }
-
-    def _pubdict(self):
-        return {
-            name: value
-            for name, value in vars(self).items()
-            if not name.startswith('_')
-        }
-
-
-def program_name():
+def program_name() -> str:
     import __main__ as main
     if package := main.__package__:
         return package
-    return Path(main.__file__).name
+    elif isinstance(main.__file__, str):
+        return Path(main.__file__).name
+    else:
+        return 'unknown'
 
 
-def is_posix():
+def is_posix() -> bool:
     return os.name == 'posix'
 
 
-def _prints(*args, **kwargs):
+def _prints(*args, **kwargs: Any) -> str:
     with StringIO() as f:
         kwargs['file'] = f
         kwargs['end'] = ''
@@ -74,33 +60,33 @@ def _prints(*args, **kwargs):
         return f.getvalue()
 
 
-def info(*args, **kwargs):
+def info(*args: Any, **kwargs: Any) -> None:
     logger.info(_prints(*args, **kwargs))
 
 
-def debug(*args, **kwargs):
+def debug(*args: Any, **kwargs: Any) -> None:
     logger.debug(_prints(*args, **kwargs))
 
 
-def warning(*args, **kwargs):
+def warning(*args: Any, **kwargs: Any) -> None:
     logger.warning(_prints(*args, **kwargs))
 
 
-def error(*args, **kwargs):
+def error(*args: Any, **kwargs: Any) -> None:
     logger.error(_prints(*args, **kwargs))
 
 
-def identity(*args):
+def identity(*args: Any) -> Any:
     if len(args) == 1:
         return args[0]
     return args
 
 
-def is_list(o):
+def is_list(o) -> bool:
     return type(o) is list
 
 
-def to_list(o):
+def to_list(o: Any) -> list[Any]:
     if o is None:
         return []
     elif isinstance(o, list):
@@ -119,13 +105,13 @@ def is_namedtuple(obj) -> bool:
     )
 
 
-def simplify_list(x):
+def simplify_list(x) -> list[Any] | Any:
     if isinstance(x, list) and len(x) == 1:
         return simplify_list(x[0])
     return x
 
 
-def extend_list(x, n, default=None):
+def extend_list(x: list[Any], n: int, default=None) -> None:
     def _null():
         pass
 
@@ -135,25 +121,28 @@ def extend_list(x, n, default=None):
     x.extend(default() for _ in range(missing))
 
 
-def contains_sublist(lst, sublst):
+def contains_sublist(lst: list[Any], sublst: list[Any]) -> bool:
     n = len(sublst)
     return any(sublst == lst[i: i + n] for i in range(1 + len(lst) - n))
 
 
-def join_lists(lists):
+def join_lists(lists: Iterable[list[Any]]) -> list[Any]:
     return functools.reduce(operator.iadd, lists, [])
 
 
-def flatten(o):
-    if not isinstance(o, MutableSequence):
-        yield o
-        return
+def flatten(o: Iterable[Any] | Any) -> list[Any]:
+    def iterate(x: Any) -> Iterable[Any]:
+        if not isinstance(o, list | tuple):
+            yield x
+            return
 
-    for item in o:
-        yield from flatten(item)
+        for item in x:
+            yield from flatten(item)
+
+    return list(iterate(o))
 
 
-def compress_seq(seq):
+def compress_seq(seq: Iterable[Any]) -> list[Any]:
     seen = set()
     result = []
     for x in seq:
@@ -163,7 +152,7 @@ def compress_seq(seq):
     return result
 
 
-def eval_escapes(s):
+def eval_escapes(s: str | bytes) -> str | bytes:
     """
     Given a string, evaluate escape sequences starting with backslashes as
     they would be evaluated in Python source code. For a list of these
@@ -233,93 +222,8 @@ def notnone(value, default=None):
 
 def timestamp():
     return '.'.join(
-        '%2.2d' % t for t in datetime.datetime.utcnow().utctimetuple()[:-2]
+        '%2.2d' % t for t in datetime.datetime.now(datetime.UTC).utctimetuple()[:-2]
     )
-
-
-def asjson(obj, seen=None):  # noqa: PLR0911, PLR0912
-    if obj is None or isinstance(obj, int | float | str | bool):
-        return obj
-
-    if seen is None:
-        seen = set()
-    elif id(obj) in seen:
-        return f'{type(obj).__name__}@{id(obj)}'
-
-    if isinstance(obj, Mapping | AsJSONMixin) or isiter(obj):
-        seen.add(id(obj))
-
-    try:
-        if isinstance(obj, weakref.ReferenceType | weakref.ProxyType):
-            return f'{obj.__class__.__name__}@0x{hex(id(obj)).upper()[2:]}'
-        elif hasattr(obj, '__json__'):
-            return obj.__json__(seen=seen)
-        elif is_namedtuple(obj):
-            return asjson(obj._asdict(), seen=seen)
-        elif isinstance(obj, Mapping):
-            result = {}
-            for k, v in obj.items():
-                try:
-                    result[k] = asjson(v, seen=seen)
-                except TypeError:
-                    debug('Unhashable key?', type(k), str(k))
-                    raise
-            return result
-        elif isiter(obj):
-            return [asjson(e, seen=seen) for e in obj]
-        elif isinstance(obj, enum.Enum):
-            return asjson(obj.value)
-        else:
-            return repr(obj)
-    finally:
-        # NOTE: id()s may be reused
-        #   https://docs.python.org/3/library/functions.html#id
-        seen -= {id(obj)}
-
-
-def minjson(obj, typesfiltered=(str, list, dict)):
-    if isinstance(obj, Mapping):
-        return {
-            name: minjson(value)
-            for name, value in obj.items()
-            if (
-                not name.startswith('_')
-                and value is not None
-                and (value or not isinstance(value, typesfiltered))
-            )
-        }
-    elif isiter(obj):
-        return [minjson(e) for e in obj]
-    else:
-        return obj
-
-
-def plainjson(obj):
-    if isinstance(obj, Mapping):
-        return {
-            name: plainjson(value)
-            for name, value in obj.items()
-            if name not in {'__class__', 'parseinfo'}
-        }
-    elif isinstance(obj, weakref.ReferenceType | weakref.ProxyType):
-        return '@ref'
-    elif isinstance(obj, str) and obj.startswith('@'):
-        return '@ref'
-    elif isiter(obj):
-        return [plainjson(e) for e in obj]
-    else:
-        return obj
-
-
-class FallbackJSONEncoder(json.JSONEncoder):
-    """A JSON Encoder that falls back to repr() for non-JSON-aware objects."""
-
-    def default(self, o):
-        return repr(o)
-
-
-def asjsons(obj):
-    return json.dumps(asjson(obj), indent=2, cls=FallbackJSONEncoder)
 
 
 def prune_dict(d, predicate):
@@ -474,14 +378,14 @@ def try_read(filename):
         filename = str(filename)
     for e in ['utf-16', 'utf-8', 'latin-1', 'cp1252', 'ascii']:
         try:
-            with Path(filename).open(encoding=e) as f:
-                return f.read()
+            return Path(filename).read_text(encoding=e)
         except UnicodeError:
             pass
-    raise UnicodeDecodeError(f"cannot find the encoding for '{filename}'")
+    raise ValueError(f"cannot find the encoding for '{filename}'")
 
 
 def filelist_from_patterns(patterns, ignore=None, base='.', sizesort=False):
+    ignore = ignore or ()
     base = Path(base or '.').expanduser()
 
     filenames = set()
@@ -507,7 +411,7 @@ def filelist_from_patterns(patterns, ignore=None, base='.', sizesort=False):
             return True
 
         return any(
-            any(Path(part).match(ex) for ex in ignore) for part in path.parts
+            any(Path(part).match(ex) for ex in ignore or ()) for part in path.parts
         )
 
     if ignore:
@@ -538,3 +442,11 @@ def short_relative_path(path, base='.'):
         return rel
     else:
         return str(path)
+
+
+def pythonize_name(name: str) -> str:
+    if not name:
+        return name
+    return name[0].lower() + ''.join(
+        '_' + c.lower() if c.isupper() else c for c in name[1:]
+    )

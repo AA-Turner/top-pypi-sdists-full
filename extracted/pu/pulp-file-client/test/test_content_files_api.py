@@ -62,6 +62,13 @@ class TestContentFilesApi(unittest.TestCase):
         """
         pass
 
+    def test_upload(self) -> None:
+        """Test case for upload
+
+        Upload a File synchronously.
+        """
+        pass
+
 
 if __name__ == '__main__':
     unittest.main()

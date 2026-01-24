@@ -242,7 +242,7 @@ namespace Cantera
  * ## YAML Example
  *
  * An example ideal gas phase definition is given in the
- * <a href="../../sphinx/html/yaml/phases.html#ideal-gas">YAML API Reference</a>.
+ * [YAML API Reference](../yaml/phases.html#ideal-gas).
  *
  * @ingroup thermoprops
  */
@@ -289,7 +289,7 @@ public:
      * enthalpies @f$ \hat h^0_k(T) @f$ are computed by the species
      * thermodynamic property manager.
      *
-     * \see MultiSpeciesThermo
+     * @see MultiSpeciesThermo
      */
     double enthalpy_mole() const override {
         return RT() * mean_X(enthalpy_RT_ref());
@@ -308,7 +308,7 @@ public:
     double entropy_mole() const override;
 
     /**
-     * Molar heat capacity at constant pressure. Units: J/kmol/K.
+     * Molar heat capacity at constant pressure and composition [J/kmol/K].
      * For an ideal gas mixture,
      * @f[
      * \hat c_p(t) = \sum_k \hat c^0_{p,k}(T).
@@ -320,7 +320,7 @@ public:
     double cp_mole() const override;
 
     /**
-     * Molar heat capacity at constant volume. Units: J/kmol/K.
+     * Molar heat capacity at constant volume and composition [J/kmol/K].
      * For an ideal gas mixture,
      * @f[ \hat c_v = \hat c_p - \hat R. @f]
      */

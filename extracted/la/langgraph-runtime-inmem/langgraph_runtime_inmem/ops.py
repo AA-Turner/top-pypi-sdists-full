@@ -10,7 +10,7 @@ import typing
 import uuid
 from collections import defaultdict
 from collections.abc import AsyncIterator, Sequence
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal, cast
 from uuid import UUID, uuid4
@@ -141,6 +141,7 @@ class Assistants(Authenticated):
         conn: InMemConnectionProto,
         *,
         graph_id: str | None,
+        name: str | None,
         metadata: MetadataInput,
         limit: int,
         offset: int,
@@ -149,6 +150,8 @@ class Assistants(Authenticated):
         select: list[AssistantSelectField] | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> tuple[AsyncIterator[Assistant], int]:
+        from langgraph_api.graph import assert_graph_exists
+
         metadata = metadata if metadata is not None else {}
         filters = await Assistants.handle_event(
             ctx,
@@ -158,12 +161,16 @@ class Assistants(Authenticated):
             ),
         )
 
+        if graph_id is not None:
+            assert_graph_exists(graph_id)
+
         # Get all assistants and filter them
         assistants = conn.store["assistants"]
         filtered_assistants = [
             assistant
             for assistant in assistants
             if (not graph_id or assistant["graph_id"] == graph_id)
+            and (not name or name.lower() in assistant["name"].lower())
             and (not metadata or is_jsonb_contained(assistant["metadata"], metadata))
             and (not filters or _check_filter_match(assistant["metadata"], filters))
         ]
@@ -248,6 +255,8 @@ class Assistants(Authenticated):
         description: str | None = None,
     ) -> AsyncIterator[Assistant]:
         """Insert an assistant."""
+        from langgraph_api.graph import assert_graph_exists
+
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
         filters = await Assistants.handle_event(
@@ -268,6 +277,8 @@ class Assistants(Authenticated):
                 status_code=400,
                 detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
             )
+
+        assert_graph_exists(graph_id)
 
         # Keep config and context up to date with one another
         if config.get("configurable"):
@@ -358,6 +369,8 @@ class Assistants(Authenticated):
         Returns:
             return the updated assistant model.
         """
+        from langgraph_api.graph import assert_graph_exists
+
         assistant_id = _ensure_uuid(assistant_id)
         metadata = metadata if metadata is not None else {}
         config = config if config is not None else {}
@@ -379,6 +392,9 @@ class Assistants(Authenticated):
                 status_code=400,
                 detail="Cannot specify both configurable and context. Prefer setting context alone. Context was introduced in LangGraph 0.6.0 and is the long term planned replacement for configurable.",
             )
+
+        if graph_id is not None:
+            assert_graph_exists(graph_id)
 
         # Keep config and context up to date with one another
         if config.get("configurable"):
@@ -455,56 +471,85 @@ class Assistants(Authenticated):
 
     @staticmethod
     async def delete(
-        conn: InMemConnectionProto,
+        conn: InMemConnectionProto | None,
         assistant_id: UUID,
         ctx: Auth.types.BaseAuthContext | None = None,
+        *,
+        delete_threads: bool = False,
     ) -> AsyncIterator[UUID]:
         """Delete an assistant by ID."""
-        assistant_id = _ensure_uuid(assistant_id)
-        filters = await Assistants.handle_event(
-            ctx,
-            "delete",
-            Auth.types.AssistantsDelete(
-                assistant_id=assistant_id,
-            ),
-        )
-        assistant = next(
-            (a for a in conn.store["assistants"] if a["assistant_id"] == assistant_id),
-            None,
-        )
+        async with AsyncExitStack() as stack:
+            if conn is None:
+                conn = await stack.enter_async_context(connect())
 
-        if not assistant:
-            raise HTTPException(
-                status_code=404, detail=f"Assistant with ID {assistant_id} not found"
+            assistant_id = _ensure_uuid(assistant_id)
+            filters = await Assistants.handle_event(
+                ctx,
+                "delete",
+                Auth.types.AssistantsDelete(
+                    assistant_id=assistant_id,
+                ),
             )
-        elif filters and not _check_filter_match(assistant["metadata"], filters):
-            raise HTTPException(
-                status_code=404, detail=f"Assistant with ID {assistant_id} not found"
+            assistant = next(
+                (
+                    a
+                    for a in conn.store["assistants"]
+                    if a["assistant_id"] == assistant_id
+                ),
+                None,
             )
 
-        conn.store["assistants"] = [
-            a for a in conn.store["assistants"] if a["assistant_id"] != assistant_id
-        ]
-        # Cascade delete assistant versions, crons, & runs on this assistant
-        conn.store["assistant_versions"] = [
-            v
-            for v in conn.store["assistant_versions"]
-            if v["assistant_id"] != assistant_id
-        ]
-        retained = []
-        for run in conn.store["runs"]:
-            if run["assistant_id"] == assistant_id:
-                res = await Runs.delete(
-                    conn, run["run_id"], thread_id=run["thread_id"], ctx=ctx
+            if not assistant:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Assistant with ID {assistant_id} not found",
                 )
-                await anext(res)
-            else:
-                retained.append(run)
+            elif filters and not _check_filter_match(assistant["metadata"], filters):
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Assistant with ID {assistant_id} not found",
+                )
 
-        async def _yield_deleted():
-            yield assistant_id
+            if delete_threads:
+                threads_to_delete = [
+                    t["thread_id"]
+                    for t in conn.store["threads"]
+                    if t.get("metadata", {}).get("assistant_id") == str(assistant_id)
+                ]
+                for thread_id in threads_to_delete:
+                    try:
+                        async for _ in await Threads.delete(conn, thread_id, ctx=ctx):
+                            pass
+                    except HTTPException:
+                        await logger.awarning(
+                            "Skipping thread deletion during cascade delete (user lacks permission)",
+                            thread_id=thread_id,
+                            assistant_id=assistant_id,
+                        )
 
-        return _yield_deleted()
+            # 3. Cancel in-flight runs AFTER auth validation
+            await Runs.cancel(
+                conn,
+                assistant_id=assistant_id,
+                action="interrupt",
+                ctx=ctx,
+            )
+
+            # 4. Delete assistant
+            conn.store["assistants"] = [
+                a for a in conn.store["assistants"] if a["assistant_id"] != assistant_id
+            ]
+            # Cascade delete assistant versions
+            conn.store["assistant_versions"] = [
+                v
+                for v in conn.store["assistant_versions"]
+                if v["assistant_id"] != assistant_id
+            ]
+
+            async def _yield_deleted():
+                yield assistant_id
+
+            return _yield_deleted()
 
     @staticmethod
     async def set_latest(
@@ -556,6 +601,8 @@ class Assistants(Authenticated):
                 "metadata": version_data["metadata"],
                 "version": version_data["version"],
                 "updated_at": datetime.now(UTC),
+                "name": version_data["name"],
+                "description": version_data["description"],
             }
         )
 
@@ -619,10 +666,13 @@ class Assistants(Authenticated):
         conn: InMemConnectionProto,
         *,
         graph_id: str | None = None,
+        name: str | None = None,
         metadata: MetadataInput = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> int:
         """Get count of assistants."""
+        from langgraph_api.graph import assert_graph_exists
+
         metadata = metadata if metadata is not None else {}
         filters = await Assistants.handle_event(
             ctx,
@@ -632,10 +682,14 @@ class Assistants(Authenticated):
             ),
         )
 
+        if graph_id is not None:
+            assert_graph_exists(graph_id)
+
         count = 0
         for assistant in conn.store["assistants"]:
             if (
                 (not graph_id or assistant["graph_id"] == graph_id)
+                and (not name or name.lower() in assistant["name"].lower())
                 and (
                     not metadata or is_jsonb_contained(assistant["metadata"], metadata)
                 )
@@ -872,8 +926,16 @@ class Threads(Authenticated):
         conn: InMemConnectionProto,
         thread_id: UUID,
         ctx: Auth.types.BaseAuthContext | None = None,
+        include_ttl: bool = False,
     ) -> AsyncIterator[Thread]:
-        """Get a thread by ID."""
+        """Get a thread by ID.
+
+        Args:
+            conn: In-memory connection
+            thread_id: Thread ID
+            ctx: Auth context
+            include_ttl: Not supported in inmem - parameter ignored.
+        """
         matching_thread = await Threads._get(conn, thread_id, ctx)
 
         if not matching_thread:
@@ -1212,6 +1274,48 @@ class Threads(Authenticated):
         return empty_iterator()
 
     @staticmethod
+    async def prune(
+        thread_ids: Sequence[str] | Sequence[UUID],
+        strategy: Literal["delete", "keep_latest"] = "delete",
+        batch_size: int = 100,
+        ctx: Auth.types.BaseAuthContext | None = None,
+    ) -> int:
+        """Prune threads by ID (inmem implementation).
+
+        Args:
+            thread_ids: List of thread IDs to prune
+            strategy: Prune strategy ("delete" supported, "keep_latest" not supported)
+            batch_size: Not used in inmem implementation
+            ctx: Auth context for permission checks
+
+        Returns:
+            Number of threads successfully pruned
+        """
+        if not thread_ids:
+            return 0
+
+        if strategy == "keep_latest":
+            raise HTTPException(
+                status_code=422,
+                detail="keep_latest strategy is not supported in in-memory runtime",
+            )
+
+        pruned = 0
+        async with connect() as conn:
+            for tid in thread_ids:
+                try:
+                    tid_uuid = _ensure_uuid(tid)
+                    iter_result = await Threads.delete(conn, tid_uuid, ctx)
+                    # Consume the iterator to ensure deletion
+                    async for _ in iter_result:
+                        pruned += 1
+                except HTTPException:
+                    # Thread not found or no permission - skip silently
+                    pass
+
+        return pruned
+
+    @staticmethod
     async def _delete_with_run(
         conn: InMemConnectionProto,
         thread_id: UUID,
@@ -1230,13 +1334,23 @@ class Threads(Authenticated):
         """Create a copy of an existing thread."""
         thread_id = _ensure_uuid(thread_id)
         new_thread_id = uuid4()
-        filters = await Threads.handle_event(
+        read_filters = await Threads.handle_event(
             ctx,
             "read",
             Auth.types.ThreadsRead(
+                thread_id=thread_id,
+            ),
+        )
+        # Assert that the user has permissions to create a new thread.
+        # (We don't actually need the filters.)
+        await Threads.handle_event(
+            ctx,
+            "create",
+            Auth.types.ThreadsCreate(
                 thread_id=new_thread_id,
             ),
         )
+
         async with conn.pipeline():
             # Find the original thread in our store
             original_thread = next(
@@ -1245,8 +1359,8 @@ class Threads(Authenticated):
 
             if not original_thread:
                 return _empty_generator()
-            if filters and not _check_filter_match(
-                original_thread["metadata"], filters
+            if read_filters and not _check_filter_match(
+                original_thread["metadata"], read_filters
             ):
                 return _empty_generator()
 
@@ -1367,6 +1481,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=checkpointer,
                     store=(await get_store()),
+                    is_for_execution=False,
                 ) as graph:
                     result = await graph.aget_state(config, subgraphs=subgraphs)
                     if (
@@ -1399,6 +1514,7 @@ class Threads(Authenticated):
             """Add state to a thread."""
             from langgraph_api.graph import get_graph
             from langgraph_api.schema import ThreadUpdateResponse
+            from langgraph_api.state import state_snapshot_to_thread_state
             from langgraph_api.store import get_store
             from langgraph_api.utils import fetchone
 
@@ -1461,6 +1577,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=checkpointer,
                     store=(await get_store()),
+                    is_for_execution=False,
                 ) as graph:
                     update_config = config.copy()
                     update_config["configurable"] = {
@@ -1487,7 +1604,7 @@ class Threads(Authenticated):
                     from langgraph_api.serde import json_dumpb
 
                     event_data = {
-                        "state": state,
+                        "state": state_snapshot_to_thread_state(state),
                         "thread_id": str(thread_id),
                     }
                     await Threads.Stream.publish(
@@ -1563,6 +1680,7 @@ class Threads(Authenticated):
                     thread_config,
                     checkpointer=Checkpointer(),
                     store=(await get_store()),
+                    is_for_execution=False,
                 ) as graph:
                     next_config = await graph.abulk_update_state(
                         config,
@@ -1663,6 +1781,7 @@ class Threads(Authenticated):
                         Checkpointer, conn, unpack_hook=_msgpack_ext_hook_to_json
                     ),
                     store=(await get_store()),
+                    is_for_execution=False,
                 ) as graph:
                     # Convert before parameter if it's a string
                     before_param = (
@@ -1682,7 +1801,9 @@ class Threads(Authenticated):
 
             return []
 
-    class Stream:
+    class Stream(Authenticated):
+        resource = "threads"
+
         @staticmethod
         async def subscribe(
             conn: InMemConnectionProto | AsyncConnectionProto,
@@ -1718,8 +1839,11 @@ class Threads(Authenticated):
             *,
             last_event_id: str | None = None,
             stream_modes: list[ThreadStreamMode],
+            ctx: Auth.types.BaseAuthContext | None = None,
         ) -> AsyncIterator[tuple[bytes, bytes, bytes | None]]:
             """Stream the thread output."""
+            await Threads.Stream.check_thread_stream_auth(thread_id, ctx)
+
             from langgraph_api.utils.stream_codec import (
                 decode_stream_message,
             )
@@ -1871,6 +1995,24 @@ class Threads(Authenticated):
                 str(thread_id), Message(topic=topic, data=payload)
             )
 
+        @staticmethod
+        async def check_thread_stream_auth(
+            thread_id: UUID,
+            ctx: Auth.types.BaseAuthContext | None = None,
+        ) -> None:
+            async with connect() as conn:
+                filters = await Threads.Stream.handle_event(
+                    ctx,
+                    "read",
+                    Auth.types.ThreadsRead(thread_id=thread_id),
+                )
+                if filters:
+                    thread = await Threads._get_with_filters(
+                        cast(InMemConnectionProto, conn), thread_id, filters
+                    )
+                    if not thread:
+                        raise HTTPException(status_code=404, detail="Thread not found")
+
     @staticmethod
     async def count(
         conn: InMemConnectionProto,
@@ -1934,38 +2076,61 @@ class Runs(Authenticated):
         if not pending_runs and not running_runs:
             return {
                 "n_pending": 0,
-                "max_age_secs": None,
-                "med_age_secs": None,
+                "pending_runs_wait_time_max_secs": None,
+                "pending_runs_wait_time_med_secs": None,
+                "pending_unblocked_runs_wait_time_max_secs": None,
                 "n_running": 0,
             }
 
-        # Get all creation timestamps
-        created_times = [run.get("created_at") for run in (pending_runs + running_runs)]
-        created_times = [
-            t for t in created_times if t is not None
-        ]  # Filter out None values
+        now = datetime.now(UTC)
+        pending_waits: list[float] = []
+        for run in pending_runs:
+            created_at = run.get("created_at")
+            if not isinstance(created_at, datetime):
+                continue
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=UTC)
+            pending_waits.append((now - created_at).total_seconds())
 
-        if not created_times:
-            return {
-                "n_pending": len(pending_runs),
-                "n_running": len(running_runs),
-                "max_age_secs": None,
-                "med_age_secs": None,
-            }
+        max_pending_wait = max(pending_waits) if pending_waits else None
+        if pending_waits:
+            sorted_waits = sorted(pending_waits)
+            half = len(sorted_waits) // 2
+            if len(sorted_waits) % 2 == 1:
+                med_pending_wait = sorted_waits[half]
+            else:
+                med_pending_wait = (sorted_waits[half - 1] + sorted_waits[half]) / 2
+        else:
+            med_pending_wait = None
 
-        # Find oldest (max age)
-        oldest_time = min(created_times)  # Earliest timestamp = oldest run
+        # Calculate max wait time for unblocked runs (runs not blocked by another run on the same thread)
+        pending_unblocked_waits: list[float] = []
+        for run in pending_runs:
+            thread_id = run.get("thread_id")
+            # Check if there's a running run on the same thread
+            has_running_on_thread = any(
+                r.get("thread_id") == thread_id and r.get("status") == "running"
+                for r in conn.store["runs"]
+            )
+            if not has_running_on_thread:
+                created_at = run.get("created_at")
+                if not isinstance(created_at, datetime):
+                    continue
+                if created_at.tzinfo is None:
+                    created_at = created_at.replace(tzinfo=UTC)
+                if created_at < now:
+                    pending_unblocked_waits.append((now - created_at).total_seconds())
 
-        # Find median age
-        sorted_times = sorted(created_times)
-        median_idx = len(sorted_times) // 2
-        median_time = sorted_times[median_idx]
+        max_unblocked_wait = (
+            max(pending_unblocked_waits) if pending_unblocked_waits else None
+        )
 
         return {
             "n_pending": len(pending_runs),
             "n_running": len(running_runs),
-            "max_age_secs": oldest_time,
-            "med_age_secs": median_time,
+            "pending_runs_wait_time_max_secs": max_pending_wait,
+            "pending_runs_wait_time_med_secs": med_pending_wait,
+            "pending_unblocked_runs_wait_time_max_secs": max_unblocked_wait,
         }
 
     @staticmethod
@@ -2107,7 +2272,6 @@ class Runs(Authenticated):
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Run]:
         """Create a run."""
-        from langgraph_api.config import FF_RICH_THREADS
         from langgraph_api.schema import Run, Thread
 
         assistant_id = _ensure_uuid(assistant_id)
@@ -2154,49 +2318,35 @@ class Runs(Authenticated):
             # Create new thread
             if thread_id is None:
                 thread_id = uuid4()
-            if FF_RICH_THREADS:
-                thread = Thread(
-                    thread_id=thread_id,
-                    status="busy",
-                    metadata={
-                        "graph_id": assistant["graph_id"],
-                        "assistant_id": str(assistant_id),
-                        **(config.get("metadata") or {}),
-                        **metadata,
+
+            thread = Thread(
+                thread_id=thread_id,
+                status="busy",
+                metadata={
+                    "graph_id": assistant["graph_id"],
+                    "assistant_id": str(assistant_id),
+                    **(config.get("metadata") or {}),
+                    **metadata,
+                },
+                config=Runs._merge_jsonb(
+                    assistant["config"],
+                    config,
+                    {
+                        "configurable": Runs._merge_jsonb(
+                            Runs._get_configurable(assistant["config"]),
+                        )
                     },
-                    config=Runs._merge_jsonb(
-                        assistant["config"],
-                        config,
-                        {
-                            "configurable": Runs._merge_jsonb(
-                                Runs._get_configurable(assistant["config"]),
-                            )
-                        },
-                    ),
-                    created_at=datetime.now(UTC),
-                    updated_at=datetime.now(UTC),
-                    values=b"",
-                )
-            else:
-                thread = Thread(
-                    thread_id=thread_id,
-                    status="idle",
-                    metadata={
-                        "graph_id": assistant["graph_id"],
-                        "assistant_id": str(assistant_id),
-                        **(config.get("metadata") or {}),
-                        **metadata,
-                    },
-                    config={},
-                    created_at=datetime.now(UTC),
-                    updated_at=datetime.now(UTC),
-                    values=b"",
-                )
+                ),
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+                values=b"",
+            )
+
             await logger.ainfo("Creating thread", thread_id=thread_id)
             conn.store["threads"].append(thread)
         elif existing_thread:
             # Update existing thread
-            if FF_RICH_THREADS and existing_thread["status"] != "busy":
+            if existing_thread["status"] != "busy":
                 existing_thread["status"] = "busy"
                 existing_thread["metadata"] = Runs._merge_jsonb(
                     existing_thread["metadata"],
@@ -2381,12 +2531,14 @@ class Runs(Authenticated):
         action: Literal["interrupt", "rollback"] = "interrupt",
         thread_id: UUID | None = None,
         status: Literal["pending", "running", "all"] | None = None,
+        assistant_id: UUID | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> None:
         """
         Cancel runs in memory. Must provide either:
         1) thread_id + run_ids, or
-        2) status in {"pending", "running", "all"}.
+        2) status in {"pending", "running", "all"}, or
+        3) assistant_id (cancels all in-flight runs for that assistant).
 
         Steps:
         - Validate arguments (one usage pattern or the other).
@@ -2397,10 +2549,18 @@ class Runs(Authenticated):
             * If 'pending', set to 'interrupted' or delete (if action='rollback' and not actively queued).
             * If 'running', the worker will pick up the message.
             * Otherwise, log a warning for non-cancelable states.
-        - 404 if no runs are found or authorized.
+        - 404 if no runs are found or authorized (unless assistant_id is provided).
         """
         # 1. Validate arguments
-        if status is not None:
+        if assistant_id is not None:
+            # If assistant_id is set, user must NOT specify other filters
+            if thread_id is not None or run_ids is not None or status is not None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Cannot specify 'thread_id', 'run_ids', or 'status' when using 'assistant_id'",
+                )
+            assistant_id = _ensure_uuid(assistant_id)
+        elif status is not None:
             # If status is set, user must NOT specify thread_id or run_ids
             if thread_id is not None or run_ids is not None:
                 raise HTTPException(
@@ -2412,7 +2572,7 @@ class Runs(Authenticated):
             if thread_id is None or run_ids is None:
                 raise HTTPException(
                     status_code=422,
-                    detail="Must provide either a status or both 'thread_id' and 'run_ids'",
+                    detail="Must provide either a status, an assistant_id, or both 'thread_id' and 'run_ids'",
                 )
 
         # Convert and normalize inputs
@@ -2447,7 +2607,12 @@ class Runs(Authenticated):
             """
             Check whether a run in `conn.store["runs"]` meets the selection criteria.
             """
-            if status_list:
+            if assistant_id is not None:
+                return r["assistant_id"] == assistant_id and r["status"] in (
+                    "pending",
+                    "running",
+                )
+            elif status_list:
                 return r["status"] in status_list
             else:
                 return r["thread_id"] == thread_id and r["run_id"] in run_ids  # type: ignore
@@ -2468,6 +2633,9 @@ class Runs(Authenticated):
             # on thread. If your filters also apply to runs, you might do more checks here.
 
         if not candidate_runs:
+            # When cancelling by assistant_id, it's valid to have no runs
+            if assistant_id is not None:
+                return
             raise HTTPException(status_code=404, detail="No runs found to cancel.")
 
         stream_manager = get_stream_manager()
@@ -2516,6 +2684,9 @@ class Runs(Authenticated):
                 )
 
         if not cancelable_runs:
+            # When cancelling by assistant_id, it's valid to have no cancelable runs
+            if assistant_id is not None:
+                return
             raise HTTPException(
                 status_code=404,
                 detail="No matching runs to cancel. Please verify the thread ID and run IDs are correct, and the runs haven't been deleted or completed.",
@@ -2642,7 +2813,10 @@ class Runs(Authenticated):
                         await Runs.Stream.check_run_stream_auth(run_id, thread_id, ctx)
                     except HTTPException as e:
                         raise WrappedHTTPException(e) from None
-                    run = await Runs.get(conn, run_id, thread_id=thread_id, ctx=ctx)
+                    run_iter = await Runs.get(
+                        conn, run_id, thread_id=thread_id, ctx=ctx
+                    )
+                    run = await anext(run_iter, None)
 
                     for message in get_stream_manager().restore_messages(
                         run_id, thread_id, last_event_id
@@ -2698,7 +2872,13 @@ class Runs(Authenticated):
                                     and mode.startswith("messages")
                                 )
                             ):
-                                yield mode.encode(), payload, id
+                                # We only return a stream ID if the run is resumable
+                                stream_id = (
+                                    id
+                                    if run.get("kwargs", {}).get("resumable")
+                                    else None
+                                )
+                                yield mode.encode(), payload, stream_id
                                 logger.debug(
                                     "Streamed run event",
                                     run_id=str(run_id),
@@ -2820,7 +3000,9 @@ class Crons:
         schedule: str,
         cron_id: UUID | None = None,
         thread_id: UUID | None = None,
+        on_run_completed: Literal["delete", "keep"] | None = None,
         end_time: datetime | None = None,
+        metadata: dict | None = None,
         ctx: Auth.types.BaseAuthContext | None = None,
     ) -> AsyncIterator[Cron]:
         raise NotImplementedError
@@ -2911,19 +3093,154 @@ def _delete_checkpoints_for_thread(
         )
 
 
-def _check_filter_match(metadata: dict, filters: Auth.types.FilterType | None) -> bool:
+def _validate_filter_structure(
+    filters: Auth.types.FilterType | None,
+    nesting_level: int = 0,
+) -> None:
+    """Validate the structure of filter conditions without checking matches.
+
+    Args:
+        filters: The filter conditions to validate
+        nesting_level: Current depth of nested operators (max 2)
+
+    Raises:
+        HTTPException: If the filter structure is invalid
+    """
+    if nesting_level > 2:
+        raise HTTPException(
+            status_code=500,
+            detail="Your auth handler returned a filter with too many nested operators. The maximum depth for nested operators is 2. Please simplify your filter.",
+        )
+
+    if not filters:
+        return
+
+    # Handle $or operator
+    if "$or" in filters:
+        or_groups = filters["$or"]
+        if not isinstance(or_groups, list) or not len(or_groups) >= 2:
+            raise HTTPException(
+                status_code=500,
+                detail="Your auth handler returned a filter with an invalid $or operator. The $or operator must be a list of at least 2 filter objects. Check the filter returned by your auth handler.",
+            )
+
+        # Recursively validate all groups
+        for group in or_groups:
+            _validate_filter_structure(group, nesting_level=nesting_level + 1)
+
+        # Validate remaining filters (implicit AND with the $or)
+        remaining_filters = {k: v for k, v in filters.items() if k != "$or"}
+        if remaining_filters:
+            _validate_filter_structure(
+                remaining_filters, nesting_level=nesting_level + 1
+            )
+
+    # Handle $and operator
+    if "$and" in filters:
+        and_groups = filters["$and"]
+        if not isinstance(and_groups, list) or not len(and_groups) >= 2:
+            raise HTTPException(
+                status_code=500,
+                detail="Your auth handler returned a filter with an invalid $and operator. The $and operator must be a list of at least 2 filter objects. Check the filter returned by your auth handler.",
+            )
+
+        # Recursively validate all groups
+        for group in and_groups:
+            _validate_filter_structure(group, nesting_level=nesting_level + 1)
+
+        # Validate remaining filters (implicit AND with the $and)
+        remaining_filters = {k: v for k, v in filters.items() if k != "$and"}
+        if remaining_filters:
+            _validate_filter_structure(
+                remaining_filters, nesting_level=nesting_level + 1
+            )
+
+
+def _check_filter_match(
+    metadata: dict,
+    filters: Auth.types.FilterType | None,
+    nesting_level: int = 0,
+) -> bool:
     """Check if metadata matches the filter conditions.
 
     Args:
         metadata: The metadata to check
         filters: The filter conditions to apply
+        nesting_level: Current depth of nested operators (max 2)
 
     Returns:
         True if the metadata matches all filter conditions, False otherwise
     """
+    if nesting_level > 2:
+        raise HTTPException(
+            status_code=500,
+            detail="Your auth handler returned a filter with too many nested operators. The maximum depth for nested operators is 2. Please simplify your filter.",
+        )
+
     if not filters:
         return True
 
+    # Handle $or operator
+    if "$or" in filters:
+        or_groups = filters["$or"]
+        if not isinstance(or_groups, list) or not len(or_groups) >= 2:
+            raise HTTPException(
+                status_code=500,
+                detail="Your auth handler returned a filter with an invalid $or operator. The $or operator must be a list of at least 2 filter objects. Check the filter returned by your auth handler.",
+            )
+
+        # Validate all groups first to ensure nesting limits are respected
+        # (even if we short-circuit during matching)
+        for group in or_groups:
+            _validate_filter_structure(group, nesting_level=nesting_level + 1)
+
+        # At least one group must match
+        or_match = False
+        for group in or_groups:
+            if _check_filter_match(metadata, group, nesting_level=nesting_level + 1):
+                or_match = True
+                break
+
+        if not or_match:
+            return False
+
+        # Check remaining filters (implicit AND with the $or)
+        remaining_filters = {k: v for k, v in filters.items() if k != "$or"}
+        if remaining_filters:
+            return _check_filter_match(
+                metadata, remaining_filters, nesting_level=nesting_level + 1
+            )
+        return True
+
+    # Handle $and operator
+    if "$and" in filters:
+        and_groups = filters["$and"]
+        if not isinstance(and_groups, list) or not len(and_groups) >= 2:
+            raise HTTPException(
+                status_code=500,
+                detail="Your auth handler returned a filter with an invalid $and operator. The $and operator must be a list of at least 2 filter objects. Check the filter returned by your auth handler.",
+            )
+
+        # Validate all groups first to ensure nesting limits are respected
+        for group in and_groups:
+            _validate_filter_structure(group, nesting_level=nesting_level + 1)
+
+        # All groups must match
+        for group in and_groups:
+            if not _check_filter_match(
+                metadata, group, nesting_level=nesting_level + 1
+            ):
+                return False
+
+        # Check remaining filters (implicit AND with the $and)
+        remaining_filters = {k: v for k, v in filters.items() if k != "$and"}
+        if remaining_filters:
+            return _check_filter_match(
+                metadata, remaining_filters, nesting_level=nesting_level + 1
+            )
+        return True
+
+    # Regular filter logic (implicit AND)
     for key, value in filters.items():
         if isinstance(value, dict):
             op = next(iter(value))
@@ -2933,11 +3250,18 @@ def _check_filter_match(metadata: dict, filters: Auth.types.FilterType | None) -
                 if key not in metadata or metadata[key] != filter_value:
                     return False
             elif op == "$contains":
-                if (
-                    key not in metadata
-                    or not isinstance(metadata[key], list)
-                    or filter_value not in metadata[key]
-                ):
+                if key not in metadata or not isinstance(metadata[key], list):
+                    return False
+
+                if isinstance(filter_value, list):
+                    # Mimick Postgres containment operator behavior.
+                    # It would be more efficient to use set operations here,
+                    # but we can't assume that elements are hashable.
+                    # The Postgres algorithm is also O(n^2).
+                    for filter_element in filter_value:
+                        if filter_element not in metadata[key]:
+                            return False
+                elif filter_value not in metadata[key]:
                     return False
         else:
             # Direct equality

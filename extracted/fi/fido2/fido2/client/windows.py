@@ -30,7 +30,7 @@ from __future__ import annotations
 import ctypes
 import logging
 from threading import Thread
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence, cast
 
 from ..ctap2 import AssertionResponse
 from ..ctap2.extensions import (
@@ -39,6 +39,7 @@ from ..ctap2.extensions import (
     AuthenticatorExtensionsPRFInputs,
     AuthenticatorExtensionsPRFOutputs,
     CredentialPropertiesOutput,
+    CredProtectExtension,
     HMACGetSecretInput,
     HMACGetSecretOutput,
 )
@@ -198,14 +199,17 @@ class WindowsClient(WebAuthnClient):
         win_extensions = []
         large_blob_support = WebAuthNLargeBlobSupport.NONE
         enable_prf = False
+        hmac_salts = None
         if options.extensions:
             if "credentialProtectionPolicy" in options.extensions:
                 win_extensions.append(
                     WebAuthNExtension(
                         "credProtect",
                         WebAuthNCredProtectExtensionIn(
-                            WebAuthNUserVerification.from_string(
-                                options.extensions["credentialProtectionPolicy"]
+                            WebAuthNUserVerification(
+                                CredProtectExtension.POLICY.str2int(
+                                    options.extensions["credentialProtectionPolicy"]
+                                )
                             ),
                             options.extensions.get(
                                 "enforceCredentialProtectionPolicy", False
@@ -226,11 +230,23 @@ class WindowsClient(WebAuthnClient):
                 )
             if options.extensions.get("minPinLength", True):
                 win_extensions.append(WebAuthNExtension("minPinLength", BOOL(True)))
-            if "prf" in options.extensions:
+            prf = AuthenticatorExtensionsPRFInputs.from_dict(
+                cast(Mapping | None, options.extensions.get("prf"))
+            )
+            if prf:
                 enable_prf = True
                 win_extensions.append(WebAuthNExtension("hmac-secret", BOOL(True)))
+                if prf.eval:
+                    hmac_salts = WebAuthNHmacSecretSalt(prf.eval.first, prf.eval.second)
             elif "hmacCreateSecret" in options.extensions and self._allow_hmac_secret:
                 win_extensions.append(WebAuthNExtension("hmac-secret", BOOL(True)))
+                hmac_get_secret = HMACGetSecretInput.from_dict(
+                    cast(Mapping | None, options.extensions.get("hmacGetSecret"))
+                )
+                if hmac_get_secret:
+                    hmac_salts = WebAuthNHmacSecretSalt(
+                        hmac_get_secret.salt1, hmac_get_secret.salt2
+                    )
 
         if event:
             timer = CancelThread(event)
@@ -268,6 +284,8 @@ class WindowsClient(WebAuthnClient):
                         resident_key == ResidentKeyRequirement.PREFERRED,
                         enable_prf,
                         win_extensions,
+                        hmac_salts,
+                        options.hints,
                     )
                 ),
                 ctypes.byref(attestation_pointer),
@@ -282,21 +300,36 @@ class WindowsClient(WebAuthnClient):
         obj = attestation_pointer.contents
         att_obj = AttestationObject(obj.attestation_object)
 
-        extension_outputs = {}
+        extension_outputs: dict[str, Any] = {}
         if options.extensions:
             extensions_out = att_obj.auth_data.extensions or {}
-            if options.extensions.get("credProps"):
+            if obj.dwVersion >= 4 and options.extensions.get("credProps"):
                 extension_outputs["credProps"] = {"rk": bool(obj.bResidentKey)}
             if "hmac-secret" in extensions_out:
+                if obj.dwVersion >= 7:
+                    secret = obj.pHmacSecret.contents
+                    secrets = (secret.first, secret.second)
+                else:
+                    secrets = None
                 if enable_prf:
                     extension_outputs["prf"] = {
                         "enabled": extensions_out["hmac-secret"]
                     }
+                    if secrets:
+                        results = {"first": secrets[0]}
+                        if secrets[1]:
+                            results["second"] = secrets[1]
+                        extension_outputs["prf"]["results"] = results
                 else:
                     extension_outputs["hmacCreateSecret"] = extensions_out[
                         "hmac-secret"
                     ]
-            if "largeBlob" in options.extensions:
+                    if secrets:
+                        results = {"output1": secrets[0]}
+                        if secrets[1]:
+                            results["output2"] = secrets[1]
+                        extension_outputs["hmacGetSecret"] = results
+            if obj.dwVersion >= 4 and "largeBlob" in options.extensions:
                 extension_outputs["largeBlob"] = {
                     "supported": bool(obj.bLargeBlobSupported)
                 }
@@ -304,7 +337,7 @@ class WindowsClient(WebAuthnClient):
         logger.info("New credential registered")
 
         credential = att_obj.auth_data.credential_data
-        assert credential is not None  # nosec
+        assert credential is not None  # noqa: S101
 
         return RegistrationResponse(
             raw_id=credential.credential_id,
@@ -355,7 +388,7 @@ class WindowsClient(WebAuthnClient):
             if options.extensions.get("getCredBlob"):
                 win_extensions.append(WebAuthNExtension("credBlob", BOOL(True)))
             lg_blob = AuthenticatorExtensionsLargeBlobInputs.from_dict(
-                options.extensions.get("largeBlob")
+                cast(Mapping | None, options.extensions.get("largeBlob"))
             )
             if lg_blob:
                 if lg_blob.read:
@@ -363,8 +396,9 @@ class WindowsClient(WebAuthnClient):
                 else:
                     large_blob = lg_blob.write
                     large_blob_operation = WebAuthNLargeBlobOperation.SET
+
             prf = AuthenticatorExtensionsPRFInputs.from_dict(
-                options.extensions.get("prf")
+                cast(Mapping | None, options.extensions.get("prf"))
             )
             if prf:
                 cred_salts = prf.eval_by_credential or {}
@@ -385,7 +419,7 @@ class WindowsClient(WebAuthnClient):
             elif "hmacGetSecret" in options.extensions and self._allow_hmac_secret:
                 flags |= 0x00100000
                 salts = HMACGetSecretInput.from_dict(
-                    options.extensions["hmacGetSecret"]
+                    cast(Mapping, options.extensions["hmacGetSecret"])
                 )
                 hmac_secret_salts = WebAuthNHmacSecretSaltValues(
                     WebAuthNHmacSecretSalt(salts.salt1, salts.salt2)
@@ -419,6 +453,7 @@ class WindowsClient(WebAuthnClient):
                         flags,
                         u2f_appid,
                         u2f_appid_used,
+                        options.hints,
                     )
                 ),
                 ctypes.byref(assertion_pointer),
@@ -435,11 +470,11 @@ class WindowsClient(WebAuthnClient):
 
         extension_outputs: dict[str, Any] = {}
 
-        if u2f_appid and obj.dwVersion >= 2:
+        if obj.dwVersion >= 2 and u2f_appid:
             extension_outputs["appid"] = bool(u2f_appid_used.value)
 
         if options.extensions:
-            if hmac_secret_salts and obj.dwVersion >= 3:
+            if obj.dwVersion >= 3 and hmac_secret_salts:
                 secret = obj.pHmacSecret.contents
                 if "prf" in options.extensions:
                     result = {"first": secret.first}
@@ -451,7 +486,7 @@ class WindowsClient(WebAuthnClient):
                     if secret.second:
                         result["output2"] = secret.second
                     extension_outputs["hmacGetSecret"] = result
-            if obj.dwCredLargeBlobStatus != 0:
+            if obj.dwVersion >= 2 and obj.dwCredLargeBlobStatus != 0:
                 if options.extensions["largeBlob"].get("read", False):
                     extension_outputs["largeBlob"] = {"blob": obj.cred_large_blob}
                 else:

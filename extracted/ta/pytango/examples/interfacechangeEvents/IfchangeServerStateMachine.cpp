@@ -43,8 +43,7 @@ static const char *RcsId = "$Id:  $";
 //  States  |  Description
 //================================================================
 
-namespace IfchangeServer_ns
-{
+namespace IfchangeServer_ns {
 //=================================================
 //		Attributes Allowed Methods
 //=================================================
@@ -55,8 +54,7 @@ namespace IfchangeServer_ns
  *	Description : Execution allowed for busy attribute
  */
 //--------------------------------------------------------
-bool IfchangeServer::is_busy_allowed(TANGO_UNUSED(Tango::AttReqType type))
-{
+bool IfchangeServer::is_busy_allowed(TANGO_UNUSED(Tango::AttReqType type)) {
     //	Not any excluded states for busy attribute in read access.
     /*----- PROTECTED REGION ID(IfchangeServer::busyStateAllowed_READ) ENABLED START -----*/
 
@@ -70,8 +68,7 @@ bool IfchangeServer::is_busy_allowed(TANGO_UNUSED(Tango::AttReqType type))
  *	Description : Execution allowed for ioattr attribute
  */
 //--------------------------------------------------------
-bool IfchangeServer::is_ioattr_allowed(TANGO_UNUSED(Tango::AttReqType type))
-{
+bool IfchangeServer::is_ioattr_allowed(TANGO_UNUSED(Tango::AttReqType type)) {
     //	Not any excluded states for ioattr attribute in read access.
     /*----- PROTECTED REGION ID(IfchangeServer::ioattrStateAllowed_READ) ENABLED START -----*/
 
@@ -89,8 +86,7 @@ bool IfchangeServer::is_ioattr_allowed(TANGO_UNUSED(Tango::AttReqType type))
  *	Description : Execution allowed for Add_dynamic attribute
  */
 //--------------------------------------------------------
-bool IfchangeServer::is_Add_dynamic_allowed(TANGO_UNUSED(const CORBA::Any &any))
-{
+bool IfchangeServer::is_Add_dynamic_allowed(TANGO_UNUSED(const CORBA::Any &any)) {
     //	Not any excluded states for Add_dynamic command.
     /*----- PROTECTED REGION ID(IfchangeServer::Add_dynamicStateAllowed) ENABLED START -----*/
 
@@ -104,8 +100,7 @@ bool IfchangeServer::is_Add_dynamic_allowed(TANGO_UNUSED(const CORBA::Any &any))
  *	Description : Execution allowed for Delete_Dynamic attribute
  */
 //--------------------------------------------------------
-bool IfchangeServer::is_Delete_Dynamic_allowed(TANGO_UNUSED(const CORBA::Any &any))
-{
+bool IfchangeServer::is_Delete_Dynamic_allowed(TANGO_UNUSED(const CORBA::Any &any)) {
     //	Not any excluded states for Delete_Dynamic command.
     /*----- PROTECTED REGION ID(IfchangeServer::Delete_DynamicStateAllowed) ENABLED START -----*/
 
@@ -119,8 +114,7 @@ bool IfchangeServer::is_Delete_Dynamic_allowed(TANGO_UNUSED(const CORBA::Any &an
  *	Description : Execution allowed for iocmd attribute
  */
 //--------------------------------------------------------
-bool IfchangeServer::is_iocmd_allowed(TANGO_UNUSED(const CORBA::Any &any))
-{
+bool IfchangeServer::is_iocmd_allowed(TANGO_UNUSED(const CORBA::Any &any)) {
     //	Not any excluded states for iocmd command.
     /*----- PROTECTED REGION ID(IfchangeServer::iocmdStateAllowed) ENABLED START -----*/
 

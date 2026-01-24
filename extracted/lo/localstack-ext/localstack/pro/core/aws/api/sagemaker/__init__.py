@@ -1,14 +1,16 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
+AcceleratorPartitionConfigCountInteger = int
 AcceleratorsAmount = int
 Accept = str
 AcceptEula = bool
 AccountId = str
 ActionArn = str
+ActiveClusterOperationCount = int
 AddClusterNodeSpecificationIncrementTargetCountByInteger = int
 AdditionalModelChannelName = str
 AlarmName = str
@@ -97,6 +99,10 @@ ClusterEventMaxResults = int
 ClusterInstanceCount = int
 ClusterInstanceGroupName = str
 ClusterInstanceMemoryAllocationPercentage = int
+ClusterKubernetesLabelKey = str
+ClusterKubernetesLabelValue = str
+ClusterKubernetesTaintKey = str
+ClusterKubernetesTaintValue = str
 ClusterLifeCycleConfigFileName = str
 ClusterName = str
 ClusterNameOrArn = str
@@ -177,7 +183,9 @@ EdgePresetDeploymentArtifact = str
 EdgeVersion = str
 EfsUid = str
 EksClusterArn = str
+EnableCaching = bool
 EnableCapture = bool
+EnableEnhancedMetrics = bool
 EnableInfraCheck = bool
 EnableIotRoleAlias = bool
 EnableRemoteDebug = bool
@@ -192,6 +200,7 @@ EntityDescription = str
 EntityName = str
 EnvironmentKey = str
 EnvironmentValue = str
+EvaluatorArn = str
 EventId = str
 ExcludeFeaturesAttribute = str
 ExitMessage = str
@@ -235,6 +244,7 @@ FrameworkVersion = str
 GenerateCandidateDefinitionsOnly = bool
 GitConfigUrl = str
 Group = str
+GroupNamePattern = str
 GroupingAttributeName = str
 Horovod = bool
 HubArn = str
@@ -244,7 +254,9 @@ HubContentDisplayName = str
 HubContentDocument = str
 HubContentMarkdown = str
 HubContentName = str
+HubContentSearchKeyword = str
 HubContentVersion = str
+HubDataSetArn = str
 HubDescription = str
 HubDisplayName = str
 HubName = str
@@ -327,6 +339,8 @@ ListTagsMaxResults = int
 LocalPath = str
 LongS3Uri = str
 MLFramework = str
+MLflowArn = str
+MajorMinorVersion = str
 ManagedInstanceScalingMaxInstanceCount = int
 ManagedInstanceScalingMinInstanceCount = int
 MaxAutoMLJobRuntimeInSeconds = int
@@ -355,10 +369,20 @@ MemoryInGiBAmount = float
 MemoryInMb = int
 MetadataPropertyValue = str
 MetricName = str
+MetricPublishFrequencyInSeconds = int
 MetricRegex = str
 MetricValue = float
 MinimumInstanceMetadataServiceVersion = str
+MlFlowResourceArn = str
 MlReservationArn = str
+MlflowAppArn = str
+MlflowAppName = str
+MlflowAppUrl = str
+MlflowExperimentEntityName = str
+MlflowExperimentId = str
+MlflowExperimentName = str
+MlflowRunId = str
+MlflowRunName = str
 MlflowVersion = str
 ModelArn = str
 ModelCardArn = str
@@ -412,6 +436,7 @@ ObjectiveStatusCounter = int
 OidcEndpoint = str
 OptimizationContainerImage = str
 OptimizationJobArn = str
+OptimizationJobMaxInstanceCount = int
 OptimizationModelAcceptEula = bool
 OptimizationType = str
 OptimizationVpcSecurityGroupId = str
@@ -468,6 +493,7 @@ QProfileArn = str
 QueryLineageMaxDepth = int
 QueryLineageMaxResults = int
 RandomSeed = int
+RecipeName = str
 RecommendationFailureReason = str
 RecommendationJobArn = str
 RecommendationJobCompilationJobName = str
@@ -514,6 +540,7 @@ ScheduleExpression = str
 Scope = str
 SecretArn = str
 SecurityGroupId = str
+ServerlessJobBaseModelArn = str
 ServerlessMaxConcurrency = int
 ServerlessMemorySizeInMB = int
 ServerlessProvisionedConcurrency = int
@@ -653,6 +680,11 @@ WorkteamArn = str
 WorkteamName = str
 
 
+class AccountDefaultStatus(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
 class ActionStatus(StrEnum):
     Unknown = "Unknown"
     InProgress = "InProgress"
@@ -665,6 +697,10 @@ class ActionStatus(StrEnum):
 class ActivationState(StrEnum):
     Enabled = "Enabled"
     Disabled = "Disabled"
+
+
+class ActiveClusterOperationName(StrEnum):
+    Scaling = "Scaling"
 
 
 class AdditionalS3DataSourceDataType(StrEnum):
@@ -1114,6 +1150,20 @@ class BatchDeleteClusterNodesErrorCode(StrEnum):
     NodeIdInUse = "NodeIdInUse"
 
 
+class BatchRebootClusterNodesErrorCode(StrEnum):
+    InstanceIdNotFound = "InstanceIdNotFound"
+    InvalidInstanceStatus = "InvalidInstanceStatus"
+    InstanceIdInUse = "InstanceIdInUse"
+    InternalServerError = "InternalServerError"
+
+
+class BatchReplaceClusterNodesErrorCode(StrEnum):
+    InstanceIdNotFound = "InstanceIdNotFound"
+    InvalidInstanceStatus = "InvalidInstanceStatus"
+    InstanceIdInUse = "InstanceIdInUse"
+    InternalServerError = "InternalServerError"
+
+
 class BatchStrategy(StrEnum):
     MultiRecord = "MultiRecord"
     SingleRecord = "SingleRecord"
@@ -1260,6 +1310,11 @@ class ClusterAutoScalingStatus(StrEnum):
     Deleting = "Deleting"
 
 
+class ClusterCapacityType(StrEnum):
+    Spot = "Spot"
+    OnDemand = "OnDemand"
+
+
 class ClusterConfigMode(StrEnum):
     Enable = "Enable"
     Disable = "Disable"
@@ -1285,6 +1340,7 @@ class ClusterInstanceType(StrEnum):
     ml_p4d_24xlarge = "ml.p4d.24xlarge"
     ml_p4de_24xlarge = "ml.p4de.24xlarge"
     ml_p5_48xlarge = "ml.p5.48xlarge"
+    ml_p5_4xlarge = "ml.p5.4xlarge"
     ml_p6e_gb200_36xlarge = "ml.p6e-gb200.36xlarge"
     ml_trn1_32xlarge = "ml.trn1.32xlarge"
     ml_trn1n_32xlarge = "ml.trn1n.32xlarge"
@@ -1342,6 +1398,7 @@ class ClusterInstanceType(StrEnum):
     ml_p5e_48xlarge = "ml.p5e.48xlarge"
     ml_p5en_48xlarge = "ml.p5en.48xlarge"
     ml_p6_b200_48xlarge = "ml.p6-b200.48xlarge"
+    ml_trn2_3xlarge = "ml.trn2.3xlarge"
     ml_trn2_48xlarge = "ml.trn2.48xlarge"
     ml_c6i_large = "ml.c6i.large"
     ml_c6i_xlarge = "ml.c6i.xlarge"
@@ -1395,6 +1452,12 @@ class ClusterInstanceType(StrEnum):
     ml_r7i_16xlarge = "ml.r7i.16xlarge"
     ml_r7i_24xlarge = "ml.r7i.24xlarge"
     ml_r7i_48xlarge = "ml.r7i.48xlarge"
+
+
+class ClusterKubernetesTaintEffect(StrEnum):
+    NoSchedule = "NoSchedule"
+    PreferNoSchedule = "PreferNoSchedule"
+    NoExecute = "NoExecute"
 
 
 class ClusterNodeProvisioningMode(StrEnum):
@@ -1475,6 +1538,13 @@ class ContentClassifier(StrEnum):
 class CrossAccountFilterOption(StrEnum):
     SameAccount = "SameAccount"
     CrossAccount = "CrossAccount"
+
+
+class CustomizationTechnique(StrEnum):
+    SFT = "SFT"
+    DPO = "DPO"
+    RLVR = "RLVR"
+    RLAIF = "RLAIF"
 
 
 class DataDistributionType(StrEnum):
@@ -1586,6 +1656,12 @@ class EndpointStatus(StrEnum):
     Deleting = "Deleting"
     Failed = "Failed"
     UpdateRollbackFailed = "UpdateRollbackFailed"
+
+
+class EvaluationType(StrEnum):
+    LLMAJEvaluation = "LLMAJEvaluation"
+    CustomScorerEvaluation = "CustomScorerEvaluation"
+    BenchmarkEvaluation = "BenchmarkEvaluation"
 
 
 class EventSortBy(StrEnum):
@@ -1705,6 +1781,8 @@ class HubContentStatus(StrEnum):
     Deleting = "Deleting"
     ImportFailed = "ImportFailed"
     DeleteFailed = "DeleteFailed"
+    PendingImport = "PendingImport"
+    PendingDelete = "PendingDelete"
 
 
 class HubContentSupportStatus(StrEnum):
@@ -1717,6 +1795,8 @@ class HubContentType(StrEnum):
     Model = "Model"
     Notebook = "Notebook"
     ModelReference = "ModelReference"
+    DataSet = "DataSet"
+    JsonDoc = "JsonDoc"
 
 
 class HubSortBy(StrEnum):
@@ -2161,6 +2241,43 @@ class ListWorkteamsSortByOptions(StrEnum):
     CreateDate = "CreateDate"
 
 
+class MIGProfileType(StrEnum):
+    mig_1g_5gb = "mig-1g.5gb"
+    mig_1g_10gb = "mig-1g.10gb"
+    mig_1g_18gb = "mig-1g.18gb"
+    mig_1g_20gb = "mig-1g.20gb"
+    mig_1g_23gb = "mig-1g.23gb"
+    mig_1g_35gb = "mig-1g.35gb"
+    mig_1g_45gb = "mig-1g.45gb"
+    mig_1g_47gb = "mig-1g.47gb"
+    mig_2g_10gb = "mig-2g.10gb"
+    mig_2g_20gb = "mig-2g.20gb"
+    mig_2g_35gb = "mig-2g.35gb"
+    mig_2g_45gb = "mig-2g.45gb"
+    mig_2g_47gb = "mig-2g.47gb"
+    mig_3g_20gb = "mig-3g.20gb"
+    mig_3g_40gb = "mig-3g.40gb"
+    mig_3g_71gb = "mig-3g.71gb"
+    mig_3g_90gb = "mig-3g.90gb"
+    mig_3g_93gb = "mig-3g.93gb"
+    mig_4g_20gb = "mig-4g.20gb"
+    mig_4g_40gb = "mig-4g.40gb"
+    mig_4g_71gb = "mig-4g.71gb"
+    mig_4g_90gb = "mig-4g.90gb"
+    mig_4g_93gb = "mig-4g.93gb"
+    mig_7g_40gb = "mig-7g.40gb"
+    mig_7g_80gb = "mig-7g.80gb"
+    mig_7g_141gb = "mig-7g.141gb"
+    mig_7g_180gb = "mig-7g.180gb"
+    mig_7g_186gb = "mig-7g.186gb"
+
+
+class MaintenanceStatus(StrEnum):
+    MaintenanceInProgress = "MaintenanceInProgress"
+    MaintenanceComplete = "MaintenanceComplete"
+    MaintenanceFailed = "MaintenanceFailed"
+
+
 class ManagedInstanceScalingStatus(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
@@ -2193,6 +2310,21 @@ class MlTools(StrEnum):
     DeepchecksLLMEvaluation = "DeepchecksLLMEvaluation"
     Fiddler = "Fiddler"
     HyperPodClusters = "HyperPodClusters"
+    RunningInstances = "RunningInstances"
+    Datasets = "Datasets"
+    Evaluators = "Evaluators"
+
+
+class MlflowAppStatus(StrEnum):
+    Creating = "Creating"
+    Created = "Created"
+    CreateFailed = "CreateFailed"
+    Updating = "Updating"
+    Updated = "Updated"
+    UpdateFailed = "UpdateFailed"
+    Deleting = "Deleting"
+    DeleteFailed = "DeleteFailed"
+    Deleted = "Deleted"
 
 
 class ModelApprovalStatus(StrEnum):
@@ -2283,6 +2415,11 @@ class ModelPackageGroupStatus(StrEnum):
     DeleteFailed = "DeleteFailed"
 
 
+class ModelPackageRegistrationType(StrEnum):
+    Logged = "Logged"
+    Registered = "Registered"
+
+
 class ModelPackageSortBy(StrEnum):
     Name = "Name"
     CreationTime = "CreationTime"
@@ -2302,9 +2439,23 @@ class ModelPackageType(StrEnum):
     Both = "Both"
 
 
+class ModelRegistrationMode(StrEnum):
+    AutoModelRegistrationEnabled = "AutoModelRegistrationEnabled"
+    AutoModelRegistrationDisabled = "AutoModelRegistrationDisabled"
+
+
 class ModelSortKey(StrEnum):
     Name = "Name"
     CreationTime = "CreationTime"
+
+
+class ModelSpeculativeDecodingS3DataType(StrEnum):
+    S3Prefix = "S3Prefix"
+    ManifestFile = "ManifestFile"
+
+
+class ModelSpeculativeDecodingTechnique(StrEnum):
+    EAGLE = "EAGLE"
 
 
 class ModelVariantAction(StrEnum):
@@ -2441,6 +2592,8 @@ class OptimizationJobDeploymentInstanceType(StrEnum):
     ml_p4d_24xlarge = "ml.p4d.24xlarge"
     ml_p4de_24xlarge = "ml.p4de.24xlarge"
     ml_p5_48xlarge = "ml.p5.48xlarge"
+    ml_p5e_48xlarge = "ml.p5e.48xlarge"
+    ml_p5en_48xlarge = "ml.p5en.48xlarge"
     ml_g5_xlarge = "ml.g5.xlarge"
     ml_g5_2xlarge = "ml.g5.2xlarge"
     ml_g5_4xlarge = "ml.g5.4xlarge"
@@ -2519,6 +2672,10 @@ class PartnerAppType(StrEnum):
     comet = "comet"
     deepchecks_llm_evaluation = "deepchecks-llm-evaluation"
     fiddler = "fiddler"
+
+
+class Peft(StrEnum):
+    LORA = "LORA"
 
 
 class PipelineExecutionStatus(StrEnum):
@@ -3198,6 +3355,7 @@ class SageMakerImageName(StrEnum):
 class SageMakerResourceName(StrEnum):
     training_job = "training-job"
     hyperpod_cluster = "hyperpod-cluster"
+    endpoint = "endpoint"
 
 
 class SagemakerServicecatalogStatus(StrEnum):
@@ -3252,6 +3410,11 @@ class SecondaryStatus(StrEnum):
     Pending = "Pending"
 
 
+class ServerlessJobType(StrEnum):
+    FineTuning = "FineTuning"
+    Evaluation = "Evaluation"
+
+
 class SharingType(StrEnum):
     Private = "Private"
     Shared = "Shared"
@@ -3260,6 +3423,15 @@ class SharingType(StrEnum):
 class SkipModelValidation(StrEnum):
     All = "All"
     None_ = "None"
+
+
+class SoftwareUpdateStatus(StrEnum):
+    Pending = "Pending"
+    InProgress = "InProgress"
+    Succeeded = "Succeeded"
+    Failed = "Failed"
+    RollbackInProgress = "RollbackInProgress"
+    RollbackComplete = "RollbackComplete"
 
 
 class SortActionsBy(StrEnum):
@@ -3310,6 +3482,12 @@ class SortInferenceExperimentsBy(StrEnum):
 class SortLineageGroupsBy(StrEnum):
     Name = "Name"
     CreationTime = "CreationTime"
+
+
+class SortMlflowAppBy(StrEnum):
+    Name = "Name"
+    CreationTime = "CreationTime"
+    Status = "Status"
 
 
 class SortOrder(StrEnum):
@@ -3707,6 +3885,7 @@ class TrainingJobStatus(StrEnum):
     Failed = "Failed"
     Stopping = "Stopping"
     Stopped = "Stopped"
+    Deleting = "Deleting"
 
 
 class TrainingPlanFilterName(StrEnum):
@@ -3838,6 +4017,14 @@ class TransformInstanceType(StrEnum):
     ml_inf2_8xlarge = "ml.inf2.8xlarge"
     ml_inf2_24xlarge = "ml.inf2.24xlarge"
     ml_inf2_48xlarge = "ml.inf2.48xlarge"
+    ml_g6_xlarge = "ml.g6.xlarge"
+    ml_g6_2xlarge = "ml.g6.2xlarge"
+    ml_g6_4xlarge = "ml.g6.4xlarge"
+    ml_g6_8xlarge = "ml.g6.8xlarge"
+    ml_g6_12xlarge = "ml.g6.12xlarge"
+    ml_g6_16xlarge = "ml.g6.16xlarge"
+    ml_g6_24xlarge = "ml.g6.24xlarge"
+    ml_g6_48xlarge = "ml.g6.48xlarge"
 
 
 class TransformJobStatus(StrEnum):
@@ -3970,12 +4157,19 @@ class ResourceNotFound(ServiceException):
     status_code: int = 400
 
 
+class AcceleratorPartitionConfig(TypedDict, total=False):
+    """Configuration for allocating accelerator partitions."""
+
+    Type: MIGProfileType
+    Count: AcceleratorPartitionConfigCountInteger
+
+
 class ActionSource(TypedDict, total=False):
     """A structure describing the source of an action."""
 
     SourceUri: SourceUri
-    SourceType: Optional[String256]
-    SourceId: Optional[String256]
+    SourceType: String256 | None
+    SourceId: String256 | None
 
 
 Timestamp = datetime
@@ -3988,27 +4182,28 @@ class ActionSummary(TypedDict, total=False):
     artifact.
     """
 
-    ActionArn: Optional[ActionArn]
-    ActionName: Optional[ExperimentEntityName]
-    Source: Optional[ActionSource]
-    ActionType: Optional[String64]
-    Status: Optional[ActionStatus]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    ActionArn: ActionArn | None
+    ActionName: ExperimentEntityName | None
+    Source: ActionSource | None
+    ActionType: String64 | None
+    Status: ActionStatus | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-ActionSummaries = List[ActionSummary]
+ActionSummaries = list[ActionSummary]
+ActiveOperations = dict[ActiveClusterOperationName, ActiveClusterOperationCount]
 
 
 class AddAssociationRequest(ServiceRequest):
     SourceArn: AssociationEntityArn
     DestinationArn: AssociationEntityArn
-    AssociationType: Optional[AssociationEdgeType]
+    AssociationType: AssociationEdgeType | None
 
 
 class AddAssociationResponse(TypedDict, total=False):
-    SourceArn: Optional[AssociationEntityArn]
-    DestinationArn: Optional[AssociationEntityArn]
+    SourceArn: AssociationEntityArn | None
+    DestinationArn: AssociationEntityArn | None
 
 
 class AddClusterNodeSpecification(TypedDict, total=False):
@@ -4018,7 +4213,7 @@ class AddClusterNodeSpecification(TypedDict, total=False):
     IncrementTargetCountBy: AddClusterNodeSpecificationIncrementTargetCountByInteger
 
 
-AddClusterNodeSpecificationList = List[AddClusterNodeSpecification]
+AddClusterNodeSpecificationList = list[AddClusterNodeSpecification]
 
 
 class Tag(TypedDict, total=False):
@@ -4044,7 +4239,7 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class AddTagsInput(ServiceRequest):
@@ -4053,11 +4248,11 @@ class AddTagsInput(ServiceRequest):
 
 
 class AddTagsOutput(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
-AdditionalCodeRepositoryNamesOrUrls = List[CodeRepositoryNameOrUrl]
-EfaEnis = List[String]
+AdditionalCodeRepositoryNamesOrUrls = list[CodeRepositoryNameOrUrl]
+EfaEnis = list[String]
 
 
 class AdditionalEnis(TypedDict, total=False):
@@ -4065,13 +4260,23 @@ class AdditionalEnis(TypedDict, total=False):
     associated with an instance.
     """
 
-    EfaEnis: Optional[EfaEnis]
+    EfaEnis: EfaEnis | None
 
 
-ResponseMIMETypes = List[ResponseMIMEType]
-ContentTypes = List[ContentType]
-RealtimeInferenceInstanceTypes = List[ProductionVariantInstanceType]
-TransformInstanceTypes = List[TransformInstanceType]
+ResponseMIMETypes = list[ResponseMIMEType]
+ContentTypes = list[ContentType]
+RealtimeInferenceInstanceTypes = list[ProductionVariantInstanceType]
+TransformInstanceTypes = list[TransformInstanceType]
+
+
+class BaseModel(TypedDict, total=False):
+    """Identifies the foundation model that was used as the starting point for
+    model customization.
+    """
+
+    HubContentName: HubContentName | None
+    HubContentVersion: HubContentVersion | None
+    RecipeName: RecipeName | None
 
 
 class AdditionalS3DataSource(TypedDict, total=False):
@@ -4081,8 +4286,8 @@ class AdditionalS3DataSource(TypedDict, total=False):
 
     S3DataType: AdditionalS3DataSourceDataType
     S3Uri: S3Uri
-    CompressionType: Optional[CompressionType]
-    ETag: Optional[String]
+    CompressionType: CompressionType | None
+    ETag: String | None
 
 
 class ModelInput(TypedDict, total=False):
@@ -4091,7 +4296,7 @@ class ModelInput(TypedDict, total=False):
     DataInputConfig: DataInputConfig
 
 
-EnvironmentMap = Dict[EnvironmentKey, EnvironmentValue]
+EnvironmentMap = dict[EnvironmentKey, EnvironmentValue]
 
 
 class InferenceHubAccessConfig(TypedDict, total=False):
@@ -4127,11 +4332,11 @@ class S3ModelDataSource(TypedDict, total=False):
     S3Uri: S3ModelUri
     S3DataType: S3ModelDataType
     CompressionType: ModelCompressionType
-    ModelAccessConfig: Optional[ModelAccessConfig]
-    HubAccessConfig: Optional[InferenceHubAccessConfig]
-    ManifestS3Uri: Optional[S3ModelUri]
-    ETag: Optional[String]
-    ManifestEtag: Optional[String]
+    ModelAccessConfig: ModelAccessConfig | None
+    HubAccessConfig: InferenceHubAccessConfig | None
+    ManifestS3Uri: S3ModelUri | None
+    ETag: String | None
+    ManifestEtag: String | None
 
 
 class ModelDataSource(TypedDict, total=False):
@@ -4139,28 +4344,30 @@ class ModelDataSource(TypedDict, total=False):
     must specify one and only one of the available data sources.
     """
 
-    S3DataSource: Optional[S3ModelDataSource]
+    S3DataSource: S3ModelDataSource | None
 
 
 class ModelPackageContainerDefinition(TypedDict, total=False):
     """Describes the Docker container for the model package."""
 
-    ContainerHostname: Optional[ContainerHostname]
-    Image: ContainerImage
-    ImageDigest: Optional[ImageDigest]
-    ModelDataUrl: Optional[Url]
-    ModelDataSource: Optional[ModelDataSource]
-    ProductId: Optional[ProductId]
-    Environment: Optional[EnvironmentMap]
-    ModelInput: Optional[ModelInput]
-    Framework: Optional[String]
-    FrameworkVersion: Optional[ModelPackageFrameworkVersion]
-    NearestModelName: Optional[String]
-    AdditionalS3DataSource: Optional[AdditionalS3DataSource]
-    ModelDataETag: Optional[String]
+    ContainerHostname: ContainerHostname | None
+    Image: ContainerImage | None
+    ImageDigest: ImageDigest | None
+    ModelDataUrl: Url | None
+    ModelDataSource: ModelDataSource | None
+    ProductId: ProductId | None
+    Environment: EnvironmentMap | None
+    ModelInput: ModelInput | None
+    Framework: String | None
+    FrameworkVersion: ModelPackageFrameworkVersion | None
+    NearestModelName: String | None
+    AdditionalS3DataSource: AdditionalS3DataSource | None
+    ModelDataETag: String | None
+    IsCheckpoint: Boolean | None
+    BaseModel: BaseModel | None
 
 
-ModelPackageContainerDefinitionList = List[ModelPackageContainerDefinition]
+ModelPackageContainerDefinitionList = list[ModelPackageContainerDefinition]
 
 
 class AdditionalInferenceSpecificationDefinition(TypedDict, total=False):
@@ -4170,15 +4377,15 @@ class AdditionalInferenceSpecificationDefinition(TypedDict, total=False):
     """
 
     Name: EntityName
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     Containers: ModelPackageContainerDefinitionList
-    SupportedTransformInstanceTypes: Optional[TransformInstanceTypes]
-    SupportedRealtimeInferenceInstanceTypes: Optional[RealtimeInferenceInstanceTypes]
-    SupportedContentTypes: Optional[ContentTypes]
-    SupportedResponseMIMETypes: Optional[ResponseMIMETypes]
+    SupportedTransformInstanceTypes: TransformInstanceTypes | None
+    SupportedRealtimeInferenceInstanceTypes: RealtimeInferenceInstanceTypes | None
+    SupportedContentTypes: ContentTypes | None
+    SupportedResponseMIMETypes: ResponseMIMETypes | None
 
 
-AdditionalInferenceSpecifications = List[AdditionalInferenceSpecificationDefinition]
+AdditionalInferenceSpecifications = list[AdditionalInferenceSpecificationDefinition]
 
 
 class AdditionalModelDataSource(TypedDict, total=False):
@@ -4191,7 +4398,7 @@ class AdditionalModelDataSource(TypedDict, total=False):
     S3DataSource: S3ModelDataSource
 
 
-AdditionalModelDataSources = List[AdditionalModelDataSource]
+AdditionalModelDataSources = list[AdditionalModelDataSource]
 Long = int
 
 
@@ -4202,14 +4409,14 @@ class AgentVersion(TypedDict, total=False):
     AgentCount: Long
 
 
-AgentVersions = List[AgentVersion]
-AggregationTransformations = Dict[TransformationAttributeName, AggregationTransformationValue]
+AgentVersions = list[AgentVersion]
+AggregationTransformations = dict[TransformationAttributeName, AggregationTransformationValue]
 
 
 class Alarm(TypedDict, total=False):
     """An Amazon CloudWatch alarm configured to monitor metrics on an endpoint."""
 
-    AlarmName: Optional[AlarmName]
+    AlarmName: AlarmName | None
 
 
 class AlarmDetails(TypedDict, total=False):
@@ -4218,7 +4425,7 @@ class AlarmDetails(TypedDict, total=False):
     AlarmName: AlarmName
 
 
-AlarmList = List[Alarm]
+AlarmList = list[Alarm]
 
 
 class TrainingRepositoryAuthConfig(TypedDict, total=False):
@@ -4235,11 +4442,11 @@ class TrainingImageConfig(TypedDict, total=False):
     """
 
     TrainingRepositoryAccessMode: TrainingRepositoryAccessMode
-    TrainingRepositoryAuthConfig: Optional[TrainingRepositoryAuthConfig]
+    TrainingRepositoryAuthConfig: TrainingRepositoryAuthConfig | None
 
 
-TrainingContainerArguments = List[TrainingContainerArgument]
-TrainingContainerEntrypoint = List[TrainingContainerEntrypointString]
+TrainingContainerArguments = list[TrainingContainerArgument]
+TrainingContainerEntrypoint = list[TrainingContainerEntrypointString]
 
 
 class MetricDefinition(TypedDict, total=False):
@@ -4257,7 +4464,7 @@ class MetricDefinition(TypedDict, total=False):
     Regex: MetricRegex
 
 
-MetricDefinitionList = List[MetricDefinition]
+MetricDefinitionList = list[MetricDefinition]
 
 
 class AlgorithmSpecification(TypedDict, total=False):
@@ -4279,14 +4486,14 @@ class AlgorithmSpecification(TypedDict, total=False):
     SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/your-algorithms.html>`__.
     """
 
-    TrainingImage: Optional[AlgorithmImage]
-    AlgorithmName: Optional[ArnOrName]
+    TrainingImage: AlgorithmImage | None
+    AlgorithmName: ArnOrName | None
     TrainingInputMode: TrainingInputMode
-    MetricDefinitions: Optional[MetricDefinitionList]
-    EnableSageMakerMetricsTimeSeries: Optional[Boolean]
-    ContainerEntrypoint: Optional[TrainingContainerEntrypoint]
-    ContainerArguments: Optional[TrainingContainerArguments]
-    TrainingImageConfig: Optional[TrainingImageConfig]
+    MetricDefinitions: MetricDefinitionList | None
+    EnableSageMakerMetricsTimeSeries: Boolean | None
+    ContainerEntrypoint: TrainingContainerEntrypoint | None
+    ContainerArguments: TrainingContainerArguments | None
+    TrainingImageConfig: TrainingImageConfig | None
 
 
 class AlgorithmStatusItem(TypedDict, total=False):
@@ -4294,17 +4501,17 @@ class AlgorithmStatusItem(TypedDict, total=False):
 
     Name: EntityName
     Status: DetailedAlgorithmStatus
-    FailureReason: Optional[String]
+    FailureReason: String | None
 
 
-AlgorithmStatusItemList = List[AlgorithmStatusItem]
+AlgorithmStatusItemList = list[AlgorithmStatusItem]
 
 
 class AlgorithmStatusDetails(TypedDict, total=False):
     """Specifies the validation and image scan statuses of the algorithm."""
 
-    ValidationStatuses: Optional[AlgorithmStatusItemList]
-    ImageScanStatuses: Optional[AlgorithmStatusItemList]
+    ValidationStatuses: AlgorithmStatusItemList | None
+    ImageScanStatuses: AlgorithmStatusItemList | None
 
 
 CreationTime = datetime
@@ -4315,12 +4522,12 @@ class AlgorithmSummary(TypedDict, total=False):
 
     AlgorithmName: EntityName
     AlgorithmArn: AlgorithmArn
-    AlgorithmDescription: Optional[EntityDescription]
+    AlgorithmDescription: EntityDescription | None
     CreationTime: CreationTime
     AlgorithmStatus: AlgorithmStatus
 
 
-AlgorithmSummaryList = List[AlgorithmSummary]
+AlgorithmSummaryList = list[AlgorithmSummary]
 
 
 class TransformResources(TypedDict, total=False):
@@ -4330,17 +4537,17 @@ class TransformResources(TypedDict, total=False):
 
     InstanceType: TransformInstanceType
     InstanceCount: TransformInstanceCount
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    TransformAmiVersion: Optional[TransformAmiVersion]
+    VolumeKmsKeyId: KmsKeyId | None
+    TransformAmiVersion: TransformAmiVersion | None
 
 
 class TransformOutput(TypedDict, total=False):
     """Describes the results of a transform job."""
 
     S3OutputPath: S3Uri
-    Accept: Optional[Accept]
-    AssembleWith: Optional[AssemblyType]
-    KmsKeyId: Optional[KmsKeyId]
+    Accept: Accept | None
+    AssembleWith: AssemblyType | None
+    KmsKeyId: KmsKeyId | None
 
 
 class TransformS3DataSource(TypedDict, total=False):
@@ -4362,12 +4569,12 @@ class TransformInput(TypedDict, total=False):
     """
 
     DataSource: TransformDataSource
-    ContentType: Optional[ContentType]
-    CompressionType: Optional[CompressionType]
-    SplitType: Optional[SplitType]
+    ContentType: ContentType | None
+    CompressionType: CompressionType | None
+    SplitType: SplitType | None
 
 
-TransformEnvironmentMap = Dict[TransformEnvironmentKey, TransformEnvironmentValue]
+TransformEnvironmentMap = dict[TransformEnvironmentKey, TransformEnvironmentValue]
 
 
 class TransformJobDefinition(TypedDict, total=False):
@@ -4375,10 +4582,10 @@ class TransformJobDefinition(TypedDict, total=False):
     specification specified in the algorithm.
     """
 
-    MaxConcurrentTransforms: Optional[MaxConcurrentTransforms]
-    MaxPayloadInMB: Optional[MaxPayloadInMB]
-    BatchStrategy: Optional[BatchStrategy]
-    Environment: Optional[TransformEnvironmentMap]
+    MaxConcurrentTransforms: MaxConcurrentTransforms | None
+    MaxPayloadInMB: MaxPayloadInMB | None
+    BatchStrategy: BatchStrategy | None
+    Environment: TransformEnvironmentMap | None
     TransformInput: TransformInput
     TransformOutput: TransformOutput
     TransformResources: TransformResources
@@ -4406,19 +4613,19 @@ class StoppingCondition(TypedDict, total=False):
     maximum runtime is sufficient for the training job to complete.
     """
 
-    MaxRuntimeInSeconds: Optional[MaxRuntimeInSeconds]
-    MaxWaitTimeInSeconds: Optional[MaxWaitTimeInSeconds]
-    MaxPendingTimeInSeconds: Optional[MaxPendingTimeInSeconds]
+    MaxRuntimeInSeconds: MaxRuntimeInSeconds | None
+    MaxWaitTimeInSeconds: MaxWaitTimeInSeconds | None
+    MaxPendingTimeInSeconds: MaxPendingTimeInSeconds | None
 
 
 class PlacementSpecification(TypedDict, total=False):
     """Specifies how instances should be placed on a specific UltraServer."""
 
-    UltraServerId: Optional[String256]
+    UltraServerId: String256 | None
     InstanceCount: TrainingInstanceCount
 
 
-PlacementSpecifications = List[PlacementSpecification]
+PlacementSpecifications = list[PlacementSpecification]
 
 
 class InstancePlacementConfig(TypedDict, total=False):
@@ -4426,8 +4633,8 @@ class InstancePlacementConfig(TypedDict, total=False):
     UltraServers. This is only applicable for UltraServer capacity.
     """
 
-    EnableMultipleJobs: Optional[Boolean]
-    PlacementSpecifications: Optional[PlacementSpecifications]
+    EnableMultipleJobs: Boolean | None
+    PlacementSpecifications: PlacementSpecifications | None
 
 
 class InstanceGroup(TypedDict, total=False):
@@ -4442,7 +4649,7 @@ class InstanceGroup(TypedDict, total=False):
     InstanceGroupName: InstanceGroupName
 
 
-InstanceGroups = List[InstanceGroup]
+InstanceGroups = list[InstanceGroup]
 
 
 class ResourceConfig(TypedDict, total=False):
@@ -4450,14 +4657,14 @@ class ResourceConfig(TypedDict, total=False):
     instances and ML storage volumes, to use for model training.
     """
 
-    InstanceType: Optional[TrainingInstanceType]
-    InstanceCount: Optional[TrainingInstanceCount]
-    VolumeSizeInGB: VolumeSizeInGB
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    KeepAlivePeriodInSeconds: Optional[KeepAlivePeriodInSeconds]
-    InstanceGroups: Optional[InstanceGroups]
-    TrainingPlanArn: Optional[TrainingPlanArn]
-    InstancePlacementConfig: Optional[InstancePlacementConfig]
+    InstanceType: TrainingInstanceType | None
+    InstanceCount: TrainingInstanceCount | None
+    VolumeSizeInGB: OptionalVolumeSizeInGB | None
+    VolumeKmsKeyId: KmsKeyId | None
+    KeepAlivePeriodInSeconds: KeepAlivePeriodInSeconds | None
+    InstanceGroups: InstanceGroups | None
+    TrainingPlanArn: TrainingPlanArn | None
+    InstancePlacementConfig: InstancePlacementConfig | None
 
 
 class OutputDataConfig(TypedDict, total=False):
@@ -4465,9 +4672,9 @@ class OutputDataConfig(TypedDict, total=False):
     artifacts).
     """
 
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
     S3OutputPath: S3Uri
-    CompressionType: Optional[OutputCompressionType]
+    CompressionType: OutputCompressionType | None
 
 
 Seed = int
@@ -4495,6 +4702,12 @@ class ShuffleConfig(TypedDict, total=False):
     Seed: Seed
 
 
+class DatasetSource(TypedDict, total=False):
+    """Specifies a dataset source for a channel."""
+
+    DatasetArn: HubDataSetArn
+
+
 class FileSystemDataSource(TypedDict, total=False):
     """Specifies a file system data source for a channel."""
 
@@ -4516,8 +4729,8 @@ class HubAccessConfig(TypedDict, total=False):
     HubContentArn: HubContentArn
 
 
-InstanceGroupNames = List[InstanceGroupName]
-AttributeNames = List[AttributeName]
+InstanceGroupNames = list[InstanceGroupName]
+AttributeNames = list[AttributeName]
 
 
 class S3DataSource(TypedDict, total=False):
@@ -4529,18 +4742,19 @@ class S3DataSource(TypedDict, total=False):
 
     S3DataType: S3DataType
     S3Uri: S3Uri
-    S3DataDistributionType: Optional[S3DataDistribution]
-    AttributeNames: Optional[AttributeNames]
-    InstanceGroupNames: Optional[InstanceGroupNames]
-    ModelAccessConfig: Optional[ModelAccessConfig]
-    HubAccessConfig: Optional[HubAccessConfig]
+    S3DataDistributionType: S3DataDistribution | None
+    AttributeNames: AttributeNames | None
+    InstanceGroupNames: InstanceGroupNames | None
+    ModelAccessConfig: ModelAccessConfig | None
+    HubAccessConfig: HubAccessConfig | None
 
 
 class DataSource(TypedDict, total=False):
     """Describes the location of the channel data."""
 
-    S3DataSource: Optional[S3DataSource]
-    FileSystemDataSource: Optional[FileSystemDataSource]
+    S3DataSource: S3DataSource | None
+    FileSystemDataSource: FileSystemDataSource | None
+    DatasetSource: DatasetSource | None
 
 
 class Channel(TypedDict, total=False):
@@ -4548,22 +4762,22 @@ class Channel(TypedDict, total=False):
 
     ChannelName: ChannelName
     DataSource: DataSource
-    ContentType: Optional[ContentType]
-    CompressionType: Optional[CompressionType]
-    RecordWrapperType: Optional[RecordWrapper]
-    InputMode: Optional[TrainingInputMode]
-    ShuffleConfig: Optional[ShuffleConfig]
+    ContentType: ContentType | None
+    CompressionType: CompressionType | None
+    RecordWrapperType: RecordWrapper | None
+    InputMode: TrainingInputMode | None
+    ShuffleConfig: ShuffleConfig | None
 
 
-InputDataConfig = List[Channel]
-HyperParameters = Dict[HyperParameterKey, HyperParameterValue]
+InputDataConfig = list[Channel]
+HyperParameters = dict[HyperParameterKey, HyperParameterValue]
 
 
 class TrainingJobDefinition(TypedDict, total=False):
     """Defines the input needed to run a training job using the algorithm."""
 
     TrainingInputMode: TrainingInputMode
-    HyperParameters: Optional[HyperParameters]
+    HyperParameters: HyperParameters | None
     InputDataConfig: InputDataConfig
     OutputDataConfig: OutputDataConfig
     ResourceConfig: ResourceConfig
@@ -4580,10 +4794,10 @@ class AlgorithmValidationProfile(TypedDict, total=False):
 
     ProfileName: EntityName
     TrainingJobDefinition: TrainingJobDefinition
-    TransformJobDefinition: Optional[TransformJobDefinition]
+    TransformJobDefinition: TransformJobDefinition | None
 
 
-AlgorithmValidationProfiles = List[AlgorithmValidationProfile]
+AlgorithmValidationProfiles = list[AlgorithmValidationProfile]
 
 
 class AlgorithmValidationSpecification(TypedDict, total=False):
@@ -4600,8 +4814,8 @@ class AmazonQSettings(TypedDict, total=False):
     the domain.
     """
 
-    Status: Optional[FeatureStatus]
-    QProfileArn: Optional[QProfileArn]
+    Status: FeatureStatus | None
+    QProfileArn: QProfileArn | None
 
 
 class AnnotationConsolidationConfig(TypedDict, total=False):
@@ -4625,37 +4839,37 @@ class ResourceSpec(TypedDict, total=False):
     value.
     """
 
-    SageMakerImageArn: Optional[ImageArn]
-    SageMakerImageVersionArn: Optional[ImageVersionArn]
-    SageMakerImageVersionAlias: Optional[ImageVersionAlias]
-    InstanceType: Optional[AppInstanceType]
-    LifecycleConfigArn: Optional[StudioLifecycleConfigArn]
+    SageMakerImageArn: ImageArn | None
+    SageMakerImageVersionArn: ImageVersionArn | None
+    SageMakerImageVersionAlias: ImageVersionAlias | None
+    InstanceType: AppInstanceType | None
+    LifecycleConfigArn: StudioLifecycleConfigArn | None
 
 
 class AppDetails(TypedDict, total=False):
     """Details about an Amazon SageMaker AI app."""
 
-    DomainId: Optional[DomainId]
-    UserProfileName: Optional[UserProfileName]
-    SpaceName: Optional[SpaceName]
-    AppType: Optional[AppType]
-    AppName: Optional[AppName]
-    Status: Optional[AppStatus]
-    CreationTime: Optional[CreationTime]
-    ResourceSpec: Optional[ResourceSpec]
+    DomainId: DomainId | None
+    UserProfileName: UserProfileName | None
+    SpaceName: SpaceName | None
+    AppType: AppType | None
+    AppName: AppName | None
+    Status: AppStatus | None
+    CreationTime: CreationTime | None
+    ResourceSpec: ResourceSpec | None
 
 
-CustomImageContainerEnvironmentVariables = Dict[NonEmptyString256, String256]
-CustomImageContainerEntrypoint = List[NonEmptyString256]
-CustomImageContainerArguments = List[NonEmptyString64]
+CustomImageContainerEnvironmentVariables = dict[NonEmptyString256, String256]
+CustomImageContainerEntrypoint = list[NonEmptyString256]
+CustomImageContainerArguments = list[NonEmptyString64]
 
 
 class ContainerConfig(TypedDict, total=False):
     """The configuration used to run the application image container."""
 
-    ContainerArguments: Optional[CustomImageContainerArguments]
-    ContainerEntrypoint: Optional[CustomImageContainerEntrypoint]
-    ContainerEnvironmentVariables: Optional[CustomImageContainerEnvironmentVariables]
+    ContainerArguments: CustomImageContainerArguments | None
+    ContainerEntrypoint: CustomImageContainerEntrypoint | None
+    ContainerEnvironmentVariables: CustomImageContainerEnvironmentVariables | None
 
 
 class FileSystemConfig(TypedDict, total=False):
@@ -4663,9 +4877,9 @@ class FileSystemConfig(TypedDict, total=False):
     image.
     """
 
-    MountPath: Optional[MountPath]
-    DefaultUid: Optional[DefaultUid]
-    DefaultGid: Optional[DefaultGid]
+    MountPath: MountPath | None
+    DefaultUid: DefaultUid | None
+    DefaultGid: DefaultGid | None
 
 
 class CodeEditorAppImageConfig(TypedDict, total=False):
@@ -4674,8 +4888,8 @@ class CodeEditorAppImageConfig(TypedDict, total=False):
     supported.
     """
 
-    FileSystemConfig: Optional[FileSystemConfig]
-    ContainerConfig: Optional[ContainerConfig]
+    FileSystemConfig: FileSystemConfig | None
+    ContainerConfig: ContainerConfig | None
 
 
 class JupyterLabAppImageConfig(TypedDict, total=False):
@@ -4684,18 +4898,18 @@ class JupyterLabAppImageConfig(TypedDict, total=False):
     not supported.
     """
 
-    FileSystemConfig: Optional[FileSystemConfig]
-    ContainerConfig: Optional[ContainerConfig]
+    FileSystemConfig: FileSystemConfig | None
+    ContainerConfig: ContainerConfig | None
 
 
 class KernelSpec(TypedDict, total=False):
     """The specification of a Jupyter kernel."""
 
     Name: KernelName
-    DisplayName: Optional[KernelDisplayName]
+    DisplayName: KernelDisplayName | None
 
 
-KernelSpecs = List[KernelSpec]
+KernelSpecs = list[KernelSpec]
 
 
 class KernelGatewayImageConfig(TypedDict, total=False):
@@ -4704,7 +4918,7 @@ class KernelGatewayImageConfig(TypedDict, total=False):
     """
 
     KernelSpecs: KernelSpecs
-    FileSystemConfig: Optional[FileSystemConfig]
+    FileSystemConfig: FileSystemConfig | None
 
 
 class AppImageConfigDetails(TypedDict, total=False):
@@ -4712,25 +4926,25 @@ class AppImageConfigDetails(TypedDict, total=False):
     app.
     """
 
-    AppImageConfigArn: Optional[AppImageConfigArn]
-    AppImageConfigName: Optional[AppImageConfigName]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    KernelGatewayImageConfig: Optional[KernelGatewayImageConfig]
-    JupyterLabAppImageConfig: Optional[JupyterLabAppImageConfig]
-    CodeEditorAppImageConfig: Optional[CodeEditorAppImageConfig]
+    AppImageConfigArn: AppImageConfigArn | None
+    AppImageConfigName: AppImageConfigName | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    KernelGatewayImageConfig: KernelGatewayImageConfig | None
+    JupyterLabAppImageConfig: JupyterLabAppImageConfig | None
+    CodeEditorAppImageConfig: CodeEditorAppImageConfig | None
 
 
-AppImageConfigList = List[AppImageConfigDetails]
+AppImageConfigList = list[AppImageConfigDetails]
 
 
 class IdleSettings(TypedDict, total=False):
     """Settings related to idle shutdown of Studio applications."""
 
-    LifecycleManagement: Optional[LifecycleManagement]
-    IdleTimeoutInMinutes: Optional[IdleTimeoutInMinutes]
-    MinIdleTimeoutInMinutes: Optional[IdleTimeoutInMinutes]
-    MaxIdleTimeoutInMinutes: Optional[IdleTimeoutInMinutes]
+    LifecycleManagement: LifecycleManagement | None
+    IdleTimeoutInMinutes: IdleTimeoutInMinutes | None
+    MinIdleTimeoutInMinutes: IdleTimeoutInMinutes | None
+    MaxIdleTimeoutInMinutes: IdleTimeoutInMinutes | None
 
 
 class AppLifecycleManagement(TypedDict, total=False):
@@ -4738,23 +4952,23 @@ class AppLifecycleManagement(TypedDict, total=False):
     SageMaker Studio applications.
     """
 
-    IdleSettings: Optional[IdleSettings]
+    IdleSettings: IdleSettings | None
 
 
-AppList = List[AppDetails]
-ContainerArguments = List[ContainerArgument]
-ContainerEntrypoint = List[ContainerEntrypointString]
+AppList = list[AppDetails]
+ContainerArguments = list[ContainerArgument]
+ContainerEntrypoint = list[ContainerEntrypointString]
 
 
 class AppSpecification(TypedDict, total=False):
     """Configuration to run a processing job in a specified container image."""
 
     ImageUri: ImageUri
-    ContainerEntrypoint: Optional[ContainerEntrypoint]
-    ContainerArguments: Optional[ContainerArguments]
+    ContainerEntrypoint: ContainerEntrypoint | None
+    ContainerArguments: ContainerArguments | None
 
 
-ArtifactProperties = Dict[StringParameterValue, ArtifactPropertyValue]
+ArtifactProperties = dict[StringParameterValue, ArtifactPropertyValue]
 
 
 class ArtifactSourceType(TypedDict, total=False):
@@ -4764,14 +4978,14 @@ class ArtifactSourceType(TypedDict, total=False):
     Value: String256
 
 
-ArtifactSourceTypes = List[ArtifactSourceType]
+ArtifactSourceTypes = list[ArtifactSourceType]
 
 
 class ArtifactSource(TypedDict, total=False):
     """A structure describing the source of an artifact."""
 
     SourceUri: SourceUri
-    SourceTypes: Optional[ArtifactSourceTypes]
+    SourceTypes: ArtifactSourceTypes | None
 
 
 class ArtifactSummary(TypedDict, total=False):
@@ -4780,15 +4994,16 @@ class ArtifactSummary(TypedDict, total=False):
     model.
     """
 
-    ArtifactArn: Optional[ArtifactArn]
-    ArtifactName: Optional[ExperimentEntityName]
-    Source: Optional[ArtifactSource]
-    ArtifactType: Optional[String256]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    ArtifactArn: ArtifactArn | None
+    ArtifactName: ExperimentEntityName | None
+    Source: ArtifactSource | None
+    ArtifactType: String256 | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-ArtifactSummaries = List[ArtifactSummary]
+ArtifactSummaries = list[ArtifactSummary]
+AssignedGroupPatternsList = list[GroupNamePattern]
 
 
 class AssociateTrialComponentRequest(ServiceRequest):
@@ -4797,8 +5012,20 @@ class AssociateTrialComponentRequest(ServiceRequest):
 
 
 class AssociateTrialComponentResponse(TypedDict, total=False):
-    TrialComponentArn: Optional[TrialComponentArn]
-    TrialArn: Optional[TrialArn]
+    TrialComponentArn: TrialComponentArn | None
+    TrialArn: TrialArn | None
+
+
+class AssociationInfo(TypedDict, total=False):
+    """The data type used to describe the relationship between different
+    sources.
+    """
+
+    SourceArn: String2048
+    DestinationArn: String2048
+
+
+AssociationInfoList = list[AssociationInfo]
 
 
 class IamIdentity(TypedDict, total=False):
@@ -4807,18 +5034,18 @@ class IamIdentity(TypedDict, total=False):
     entities only.
     """
 
-    Arn: Optional[String]
-    PrincipalId: Optional[String]
-    SourceIdentity: Optional[String]
+    Arn: String | None
+    PrincipalId: String | None
+    SourceIdentity: String | None
 
 
 class UserContext(TypedDict, total=False):
     """Information about the user who created or modified a SageMaker resource."""
 
-    UserProfileArn: Optional[String]
-    UserProfileName: Optional[String]
-    DomainId: Optional[String]
-    IamIdentity: Optional[IamIdentity]
+    UserProfileArn: String | None
+    UserProfileName: String | None
+    DomainId: String | None
+    IamIdentity: IamIdentity | None
 
 
 class AssociationSummary(TypedDict, total=False):
@@ -4827,19 +5054,19 @@ class AssociationSummary(TypedDict, total=False):
     would be an association between a training job and a model.
     """
 
-    SourceArn: Optional[AssociationEntityArn]
-    DestinationArn: Optional[AssociationEntityArn]
-    SourceType: Optional[String256]
-    DestinationType: Optional[String256]
-    AssociationType: Optional[AssociationEdgeType]
-    SourceName: Optional[ExperimentEntityName]
-    DestinationName: Optional[ExperimentEntityName]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
+    SourceArn: AssociationEntityArn | None
+    DestinationArn: AssociationEntityArn | None
+    SourceType: String256 | None
+    DestinationType: String256 | None
+    AssociationType: AssociationEdgeType | None
+    SourceName: ExperimentEntityName | None
+    DestinationName: ExperimentEntityName | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
 
 
-AssociationSummaries = List[AssociationSummary]
-AssumableRoleArns = List[RoleArn]
+AssociationSummaries = list[AssociationSummary]
+AssumableRoleArns = list[RoleArn]
 
 
 class AsyncInferenceClientConfig(TypedDict, total=False):
@@ -4847,10 +5074,10 @@ class AsyncInferenceClientConfig(TypedDict, total=False):
     the model container during asynchronous inference.
     """
 
-    MaxConcurrentInvocationsPerInstance: Optional[MaxConcurrentInvocationsPerInstance]
+    MaxConcurrentInvocationsPerInstance: MaxConcurrentInvocationsPerInstance | None
 
 
-AsyncNotificationTopicTypeList = List[AsyncNotificationTopicTypes]
+AsyncNotificationTopicTypeList = list[AsyncNotificationTopicTypes]
 
 
 class AsyncInferenceNotificationConfig(TypedDict, total=False):
@@ -4858,9 +5085,9 @@ class AsyncInferenceNotificationConfig(TypedDict, total=False):
     asynchronous inference.
     """
 
-    SuccessTopic: Optional[SnsTopicArn]
-    ErrorTopic: Optional[SnsTopicArn]
-    IncludeInferenceResponseIn: Optional[AsyncNotificationTopicTypeList]
+    SuccessTopic: SnsTopicArn | None
+    ErrorTopic: SnsTopicArn | None
+    IncludeInferenceResponseIn: AsyncNotificationTopicTypeList | None
 
 
 class AsyncInferenceOutputConfig(TypedDict, total=False):
@@ -4868,10 +5095,10 @@ class AsyncInferenceOutputConfig(TypedDict, total=False):
     outputs.
     """
 
-    KmsKeyId: Optional[KmsKeyId]
-    S3OutputPath: Optional[DestinationS3Uri]
-    NotificationConfig: Optional[AsyncInferenceNotificationConfig]
-    S3FailurePath: Optional[DestinationS3Uri]
+    KmsKeyId: KmsKeyId | None
+    S3OutputPath: DestinationS3Uri | None
+    NotificationConfig: AsyncInferenceNotificationConfig | None
+    S3FailurePath: DestinationS3Uri | None
 
 
 class AsyncInferenceConfig(TypedDict, total=False):
@@ -4879,7 +5106,7 @@ class AsyncInferenceConfig(TypedDict, total=False):
     inference.
     """
 
-    ClientConfig: Optional[AsyncInferenceClientConfig]
+    ClientConfig: AsyncInferenceClientConfig | None
     OutputConfig: AsyncInferenceOutputConfig
 
 
@@ -4889,11 +5116,11 @@ class AthenaDatasetDefinition(TypedDict, total=False):
     Catalog: AthenaCatalog
     Database: AthenaDatabase
     QueryString: AthenaQueryString
-    WorkGroup: Optional[AthenaWorkGroup]
+    WorkGroup: AthenaWorkGroup | None
     OutputS3Uri: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
     OutputFormat: AthenaResultFormat
-    OutputCompression: Optional[AthenaResultCompressionType]
+    OutputCompression: AthenaResultCompressionType | None
 
 
 class AttachClusterNodeVolumeRequest(ServiceRequest):
@@ -4911,7 +5138,7 @@ class AttachClusterNodeVolumeResponse(TypedDict, total=False):
     DeviceName: VolumeDeviceName
 
 
-AuthenticationRequestExtraParams = Dict[
+AuthenticationRequestExtraParams = dict[
     AuthenticationRequestExtraParamsKey, AuthenticationRequestExtraParamsValue
 ]
 
@@ -4921,12 +5148,12 @@ class AuthorizedUrl(TypedDict, total=False):
     downloading hub content artifacts.
     """
 
-    Url: Optional[LongS3Uri]
-    LocalPath: Optional[LocalPath]
+    Url: LongS3Uri | None
+    LocalPath: LocalPath | None
 
 
-AuthorizedUrlConfigs = List[AuthorizedUrl]
-AutoMLAlgorithms = List[AutoMLAlgorithm]
+AuthorizedUrlConfigs = list[AuthorizedUrl]
+AutoMLAlgorithms = list[AutoMLAlgorithm]
 
 
 class AutoMLAlgorithmConfig(TypedDict, total=False):
@@ -4937,7 +5164,7 @@ class AutoMLAlgorithmConfig(TypedDict, total=False):
     AutoMLAlgorithms: AutoMLAlgorithms
 
 
-AutoMLAlgorithmsConfig = List[AutoMLAlgorithmConfig]
+AutoMLAlgorithmsConfig = list[AutoMLAlgorithmConfig]
 
 
 class AutoMLContainerDefinition(TypedDict, total=False):
@@ -4948,38 +5175,38 @@ class AutoMLContainerDefinition(TypedDict, total=False):
 
     Image: ContainerImage
     ModelDataUrl: Url
-    Environment: Optional[EnvironmentMap]
+    Environment: EnvironmentMap | None
 
 
-AutoMLContainerDefinitions = List[AutoMLContainerDefinition]
-AutoMLInferenceContainerDefinitions = Dict[AutoMLProcessingUnit, AutoMLContainerDefinitions]
+AutoMLContainerDefinitions = list[AutoMLContainerDefinition]
+AutoMLInferenceContainerDefinitions = dict[AutoMLProcessingUnit, AutoMLContainerDefinitions]
 
 
 class MetricDatum(TypedDict, total=False):
     """Information about the metric for a candidate produced by an AutoML job."""
 
-    MetricName: Optional[AutoMLMetricEnum]
-    StandardMetricName: Optional[AutoMLMetricExtendedEnum]
-    Value: Optional[Float]
-    Set: Optional[MetricSetSource]
+    MetricName: AutoMLMetricEnum | None
+    StandardMetricName: AutoMLMetricExtendedEnum | None
+    Value: Float | None
+    Set: MetricSetSource | None
 
 
-MetricDataList = List[MetricDatum]
+MetricDataList = list[MetricDatum]
 
 
 class CandidateArtifactLocations(TypedDict, total=False):
     """The location of artifacts for an AutoML candidate job."""
 
     Explainability: ExplainabilityLocation
-    ModelInsights: Optional[ModelInsightsLocation]
-    BacktestResults: Optional[BacktestResultsLocation]
+    ModelInsights: ModelInsightsLocation | None
+    BacktestResults: BacktestResultsLocation | None
 
 
 class CandidateProperties(TypedDict, total=False):
     """The properties of an AutoML candidate job."""
 
-    CandidateArtifactLocations: Optional[CandidateArtifactLocations]
-    CandidateMetrics: Optional[MetricDataList]
+    CandidateArtifactLocations: CandidateArtifactLocations | None
+    CandidateMetrics: MetricDataList | None
 
 
 class AutoMLCandidateStep(TypedDict, total=False):
@@ -4992,16 +5219,16 @@ class AutoMLCandidateStep(TypedDict, total=False):
     CandidateStepName: CandidateStepName
 
 
-CandidateSteps = List[AutoMLCandidateStep]
+CandidateSteps = list[AutoMLCandidateStep]
 
 
 class FinalAutoMLJobObjectiveMetric(TypedDict, total=False):
     """The best candidate result from an AutoML training job."""
 
-    Type: Optional[AutoMLJobObjectiveType]
+    Type: AutoMLJobObjectiveType | None
     MetricName: AutoMLMetricEnum
     Value: MetricValue
-    StandardMetricName: Optional[AutoMLMetricEnum]
+    StandardMetricName: AutoMLMetricEnum | None
 
 
 class AutoMLCandidate(TypedDict, total=False):
@@ -5010,17 +5237,17 @@ class AutoMLCandidate(TypedDict, total=False):
     """
 
     CandidateName: CandidateName
-    FinalAutoMLJobObjectiveMetric: Optional[FinalAutoMLJobObjectiveMetric]
+    FinalAutoMLJobObjectiveMetric: FinalAutoMLJobObjectiveMetric | None
     ObjectiveStatus: ObjectiveStatus
     CandidateSteps: CandidateSteps
     CandidateStatus: CandidateStatus
-    InferenceContainers: Optional[AutoMLContainerDefinitions]
+    InferenceContainers: AutoMLContainerDefinitions | None
     CreationTime: Timestamp
-    EndTime: Optional[Timestamp]
+    EndTime: Timestamp | None
     LastModifiedTime: Timestamp
-    FailureReason: Optional[AutoMLFailureReason]
-    CandidateProperties: Optional[CandidateProperties]
-    InferenceContainerDefinitions: Optional[AutoMLInferenceContainerDefinitions]
+    FailureReason: AutoMLFailureReason | None
+    CandidateProperties: CandidateProperties | None
+    InferenceContainerDefinitions: AutoMLInferenceContainerDefinitions | None
 
 
 class AutoMLCandidateGenerationConfig(TypedDict, total=False):
@@ -5028,11 +5255,11 @@ class AutoMLCandidateGenerationConfig(TypedDict, total=False):
     (optional).
     """
 
-    FeatureSpecificationS3Uri: Optional[S3Uri]
-    AlgorithmsConfig: Optional[AutoMLAlgorithmsConfig]
+    FeatureSpecificationS3Uri: S3Uri | None
+    AlgorithmsConfig: AutoMLAlgorithmsConfig | None
 
 
-AutoMLCandidates = List[AutoMLCandidate]
+AutoMLCandidates = list[AutoMLCandidate]
 
 
 class AutoMLS3DataSource(TypedDict, total=False):
@@ -5058,12 +5285,12 @@ class AutoMLChannel(TypedDict, total=False):
     dataset.
     """
 
-    DataSource: Optional[AutoMLDataSource]
-    CompressionType: Optional[CompressionType]
+    DataSource: AutoMLDataSource | None
+    CompressionType: CompressionType | None
     TargetAttributeName: TargetAttributeName
-    ContentType: Optional[ContentType]
-    ChannelType: Optional[AutoMLChannelType]
-    SampleWeightAttributeName: Optional[SampleWeightAttributeName]
+    ContentType: ContentType | None
+    ChannelType: AutoMLChannelType | None
+    SampleWeightAttributeName: SampleWeightAttributeName | None
 
 
 class EmrServerlessComputeConfig(TypedDict, total=False):
@@ -5083,7 +5310,7 @@ class AutoMLComputeConfig(TypedDict, total=False):
     Specifies the compute configuration for an AutoML job V2.
     """
 
-    EmrServerlessComputeConfig: Optional[EmrServerlessComputeConfig]
+    EmrServerlessComputeConfig: EmrServerlessComputeConfig | None
 
 
 class AutoMLDataSplitConfig(TypedDict, total=False):
@@ -5095,17 +5322,17 @@ class AutoMLDataSplitConfig(TypedDict, total=False):
     be less than 2 GB in size.
     """
 
-    ValidationFraction: Optional[ValidationFraction]
+    ValidationFraction: ValidationFraction | None
 
 
-AutoMLInputDataConfig = List[AutoMLChannel]
+AutoMLInputDataConfig = list[AutoMLChannel]
 
 
 class AutoMLJobArtifacts(TypedDict, total=False):
     """The artifacts that are generated during an AutoML job."""
 
-    CandidateDefinitionNotebookLocation: Optional[CandidateDefinitionNotebookLocation]
-    DataExplorationNotebookLocation: Optional[DataExplorationNotebookLocation]
+    CandidateDefinitionNotebookLocation: CandidateDefinitionNotebookLocation | None
+    DataExplorationNotebookLocation: DataExplorationNotebookLocation | None
 
 
 class AutoMLJobChannel(TypedDict, total=False):
@@ -5114,10 +5341,10 @@ class AutoMLJobChannel(TypedDict, total=False):
     `CreateAutoMLJobV2 <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateAutoMLJobV2.html>`__).
     """
 
-    ChannelType: Optional[AutoMLChannelType]
-    ContentType: Optional[ContentType]
-    CompressionType: Optional[CompressionType]
-    DataSource: Optional[AutoMLDataSource]
+    ChannelType: AutoMLChannelType | None
+    ContentType: ContentType | None
+    CompressionType: CompressionType | None
+    DataSource: AutoMLDataSource | None
 
 
 class AutoMLJobCompletionCriteria(TypedDict, total=False):
@@ -5125,13 +5352,13 @@ class AutoMLJobCompletionCriteria(TypedDict, total=False):
     allowed to generate.
     """
 
-    MaxCandidates: Optional[MaxCandidates]
-    MaxRuntimePerTrainingJobInSeconds: Optional[MaxRuntimePerTrainingJobInSeconds]
-    MaxAutoMLJobRuntimeInSeconds: Optional[MaxAutoMLJobRuntimeInSeconds]
+    MaxCandidates: MaxCandidates | None
+    MaxRuntimePerTrainingJobInSeconds: MaxRuntimePerTrainingJobInSeconds | None
+    MaxAutoMLJobRuntimeInSeconds: MaxAutoMLJobRuntimeInSeconds | None
 
 
-Subnets = List[SubnetId]
-VpcSecurityGroupIds = List[SecurityGroupId]
+Subnets = list[SubnetId]
+VpcSecurityGroupIds = list[SecurityGroupId]
 
 
 class VpcConfig(TypedDict, total=False):
@@ -5149,22 +5376,22 @@ class VpcConfig(TypedDict, total=False):
 class AutoMLSecurityConfig(TypedDict, total=False):
     """Security options."""
 
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    VpcConfig: Optional[VpcConfig]
+    VolumeKmsKeyId: KmsKeyId | None
+    EnableInterContainerTrafficEncryption: Boolean | None
+    VpcConfig: VpcConfig | None
 
 
 class AutoMLJobConfig(TypedDict, total=False):
     """A collection of settings used for an AutoML job."""
 
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
-    SecurityConfig: Optional[AutoMLSecurityConfig]
-    CandidateGenerationConfig: Optional[AutoMLCandidateGenerationConfig]
-    DataSplitConfig: Optional[AutoMLDataSplitConfig]
-    Mode: Optional[AutoMLMode]
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
+    SecurityConfig: AutoMLSecurityConfig | None
+    CandidateGenerationConfig: AutoMLCandidateGenerationConfig | None
+    DataSplitConfig: AutoMLDataSplitConfig | None
+    Mode: AutoMLMode | None
 
 
-AutoMLJobInputDataConfig = List[AutoMLJobChannel]
+AutoMLJobInputDataConfig = list[AutoMLJobChannel]
 
 
 class AutoMLJobObjective(TypedDict, total=False):
@@ -5178,16 +5405,16 @@ class AutoMLJobObjective(TypedDict, total=False):
 class AutoMLJobStepMetadata(TypedDict, total=False):
     """Metadata for an AutoML job step."""
 
-    Arn: Optional[AutoMLJobArn]
+    Arn: AutoMLJobArn | None
 
 
 class AutoMLPartialFailureReason(TypedDict, total=False):
     """The reason for a partial failure of an AutoML job."""
 
-    PartialFailureMessage: Optional[AutoMLFailureReason]
+    PartialFailureMessage: AutoMLFailureReason | None
 
 
-AutoMLPartialFailureReasons = List[AutoMLPartialFailureReason]
+AutoMLPartialFailureReasons = list[AutoMLPartialFailureReason]
 
 
 class AutoMLJobSummary(TypedDict, total=False):
@@ -5198,23 +5425,23 @@ class AutoMLJobSummary(TypedDict, total=False):
     AutoMLJobStatus: AutoMLJobStatus
     AutoMLJobSecondaryStatus: AutoMLJobSecondaryStatus
     CreationTime: Timestamp
-    EndTime: Optional[Timestamp]
+    EndTime: Timestamp | None
     LastModifiedTime: Timestamp
-    FailureReason: Optional[AutoMLFailureReason]
-    PartialFailureReasons: Optional[AutoMLPartialFailureReasons]
+    FailureReason: AutoMLFailureReason | None
+    PartialFailureReasons: AutoMLPartialFailureReasons | None
 
 
-AutoMLJobSummaries = List[AutoMLJobSummary]
+AutoMLJobSummaries = list[AutoMLJobSummary]
 
 
 class AutoMLOutputDataConfig(TypedDict, total=False):
     """The output data configuration."""
 
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
     S3OutputPath: S3Uri
 
 
-TextGenerationHyperParameters = Dict[
+TextGenerationHyperParameters = dict[
     TextGenerationHyperParameterKey, TextGenerationHyperParameterValue
 ]
 
@@ -5229,10 +5456,10 @@ class TextGenerationJobConfig(TypedDict, total=False):
     Regions <https://docs.aws.amazon.com/sagemaker/latest/dg/canvas.html>`__.
     """
 
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
-    BaseModelName: Optional[BaseModelName]
-    TextGenerationHyperParameters: Optional[TextGenerationHyperParameters]
-    ModelAccessConfig: Optional[ModelAccessConfig]
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
+    BaseModelName: BaseModelName | None
+    TextGenerationHyperParameters: TextGenerationHyperParameters | None
+    ModelAccessConfig: ModelAccessConfig | None
 
 
 class CandidateGenerationConfig(TypedDict, total=False):
@@ -5240,7 +5467,7 @@ class CandidateGenerationConfig(TypedDict, total=False):
     generated using an AutoML job V2.
     """
 
-    AlgorithmsConfig: Optional[AutoMLAlgorithmsConfig]
+    AlgorithmsConfig: AutoMLAlgorithmsConfig | None
 
 
 class TabularJobConfig(TypedDict, total=False):
@@ -5248,14 +5475,14 @@ class TabularJobConfig(TypedDict, total=False):
     problem type.
     """
 
-    CandidateGenerationConfig: Optional[CandidateGenerationConfig]
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
-    FeatureSpecificationS3Uri: Optional[S3Uri]
-    Mode: Optional[AutoMLMode]
-    GenerateCandidateDefinitionsOnly: Optional[GenerateCandidateDefinitionsOnly]
-    ProblemType: Optional[ProblemType]
+    CandidateGenerationConfig: CandidateGenerationConfig | None
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
+    FeatureSpecificationS3Uri: S3Uri | None
+    Mode: AutoMLMode | None
+    GenerateCandidateDefinitionsOnly: GenerateCandidateDefinitionsOnly | None
+    ProblemType: ProblemType | None
     TargetAttributeName: TargetAttributeName
-    SampleWeightAttributeName: Optional[SampleWeightAttributeName]
+    SampleWeightAttributeName: SampleWeightAttributeName | None
 
 
 class HolidayConfigAttributes(TypedDict, total=False):
@@ -5264,11 +5491,11 @@ class HolidayConfigAttributes(TypedDict, total=False):
     allows the model to identify patterns associated with specific holidays.
     """
 
-    CountryCode: Optional[CountryCode]
+    CountryCode: CountryCode | None
 
 
-HolidayConfig = List[HolidayConfigAttributes]
-GroupingAttributeNames = List[GroupingAttributeName]
+HolidayConfig = list[HolidayConfigAttributes]
+GroupingAttributeNames = list[GroupingAttributeName]
 
 
 class TimeSeriesConfig(TypedDict, total=False):
@@ -5277,11 +5504,11 @@ class TimeSeriesConfig(TypedDict, total=False):
     TargetAttributeName: TargetAttributeName
     TimestampAttributeName: TimestampAttributeName
     ItemIdentifierAttributeName: ItemIdentifierAttributeName
-    GroupingAttributeNames: Optional[GroupingAttributeNames]
+    GroupingAttributeNames: GroupingAttributeNames | None
 
 
-FillingTransformationMap = Dict[FillingType, FillingTransformationValue]
-FillingTransformations = Dict[TransformationAttributeName, FillingTransformationMap]
+FillingTransformationMap = dict[FillingType, FillingTransformationValue]
+FillingTransformations = dict[TransformationAttributeName, FillingTransformationMap]
 
 
 class TimeSeriesTransformations(TypedDict, total=False):
@@ -5291,11 +5518,11 @@ class TimeSeriesTransformations(TypedDict, total=False):
     aggregate data that does not align with forecast frequency.
     """
 
-    Filling: Optional[FillingTransformations]
-    Aggregation: Optional[AggregationTransformations]
+    Filling: FillingTransformations | None
+    Aggregation: AggregationTransformations | None
 
 
-ForecastQuantiles = List[ForecastQuantile]
+ForecastQuantiles = list[ForecastQuantile]
 
 
 class TimeSeriesForecastingJobConfig(TypedDict, total=False):
@@ -5303,15 +5530,15 @@ class TimeSeriesForecastingJobConfig(TypedDict, total=False):
     forecasting problem type.
     """
 
-    FeatureSpecificationS3Uri: Optional[S3Uri]
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
+    FeatureSpecificationS3Uri: S3Uri | None
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
     ForecastFrequency: ForecastFrequency
     ForecastHorizon: ForecastHorizon
-    ForecastQuantiles: Optional[ForecastQuantiles]
-    Transformations: Optional[TimeSeriesTransformations]
+    ForecastQuantiles: ForecastQuantiles | None
+    Transformations: TimeSeriesTransformations | None
     TimeSeriesConfig: TimeSeriesConfig
-    HolidayConfig: Optional[HolidayConfig]
-    CandidateGenerationConfig: Optional[CandidateGenerationConfig]
+    HolidayConfig: HolidayConfig | None
+    CandidateGenerationConfig: CandidateGenerationConfig | None
 
 
 class TextClassificationJobConfig(TypedDict, total=False):
@@ -5319,7 +5546,7 @@ class TextClassificationJobConfig(TypedDict, total=False):
     classification problem type.
     """
 
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
     ContentColumn: ContentColumn
     TargetLabelColumn: TargetLabelColumn
 
@@ -5329,7 +5556,7 @@ class ImageClassificationJobConfig(TypedDict, total=False):
     classification problem type.
     """
 
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
 
 
 class AutoMLProblemTypeConfig(TypedDict, total=False):
@@ -5338,23 +5565,23 @@ class AutoMLProblemTypeConfig(TypedDict, total=False):
     type.
     """
 
-    ImageClassificationJobConfig: Optional[ImageClassificationJobConfig]
-    TextClassificationJobConfig: Optional[TextClassificationJobConfig]
-    TimeSeriesForecastingJobConfig: Optional[TimeSeriesForecastingJobConfig]
-    TabularJobConfig: Optional[TabularJobConfig]
-    TextGenerationJobConfig: Optional[TextGenerationJobConfig]
+    ImageClassificationJobConfig: ImageClassificationJobConfig | None
+    TextClassificationJobConfig: TextClassificationJobConfig | None
+    TimeSeriesForecastingJobConfig: TimeSeriesForecastingJobConfig | None
+    TabularJobConfig: TabularJobConfig | None
+    TextGenerationJobConfig: TextGenerationJobConfig | None
 
 
 class TextGenerationResolvedAttributes(TypedDict, total=False):
     """The resolved attributes specific to the text generation problem type."""
 
-    BaseModelName: Optional[BaseModelName]
+    BaseModelName: BaseModelName | None
 
 
 class TabularResolvedAttributes(TypedDict, total=False):
     """The resolved attributes specific to the tabular problem type."""
 
-    ProblemType: Optional[ProblemType]
+    ProblemType: ProblemType | None
 
 
 class AutoMLProblemTypeResolvedAttributes(TypedDict, total=False):
@@ -5362,16 +5589,16 @@ class AutoMLProblemTypeResolvedAttributes(TypedDict, total=False):
     V2.
     """
 
-    TabularResolvedAttributes: Optional[TabularResolvedAttributes]
-    TextGenerationResolvedAttributes: Optional[TextGenerationResolvedAttributes]
+    TabularResolvedAttributes: TabularResolvedAttributes | None
+    TextGenerationResolvedAttributes: TextGenerationResolvedAttributes | None
 
 
 class AutoMLResolvedAttributes(TypedDict, total=False):
     """The resolved attributes used to configure an AutoML job V2."""
 
-    AutoMLJobObjective: Optional[AutoMLJobObjective]
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
-    AutoMLProblemTypeResolvedAttributes: Optional[AutoMLProblemTypeResolvedAttributes]
+    AutoMLJobObjective: AutoMLJobObjective | None
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
+    AutoMLProblemTypeResolvedAttributes: AutoMLProblemTypeResolvedAttributes | None
 
 
 class AutoParameter(TypedDict, total=False):
@@ -5385,8 +5612,8 @@ class AutoParameter(TypedDict, total=False):
     ValueHint: ParameterValue
 
 
-AutoParameters = List[AutoParameter]
-AutoRollbackAlarms = List[AlarmDetails]
+AutoParameters = list[AutoParameter]
+AutoRollbackAlarms = list[AlarmDetails]
 
 
 class AutoRollbackConfig(TypedDict, total=False):
@@ -5394,7 +5621,7 @@ class AutoRollbackConfig(TypedDict, total=False):
     failures and recovery.
     """
 
-    Alarms: Optional[AlarmList]
+    Alarms: AlarmList | None
 
 
 class Autotune(TypedDict, total=False):
@@ -5430,6 +5657,18 @@ class Autotune(TypedDict, total=False):
     Mode: AutotuneMode
 
 
+ReleaseNotesList = list[String1024]
+
+
+class AvailableUpgrade(TypedDict, total=False):
+    """Contains information about an available upgrade for a SageMaker Partner
+    AI App, including the version number and release notes.
+    """
+
+    Version: MajorMinorVersion | None
+    ReleaseNotes: ReleaseNotesList | None
+
+
 class BatchAddClusterNodesError(TypedDict, total=False):
     """Information about an error that occurred during the node addition
     operation.
@@ -5438,15 +5677,15 @@ class BatchAddClusterNodesError(TypedDict, total=False):
     InstanceGroupName: InstanceGroupName
     ErrorCode: BatchAddClusterNodesErrorCode
     FailedCount: BatchAddFailureCount
-    Message: Optional[String]
+    Message: String | None
 
 
-BatchAddClusterNodesErrorList = List[BatchAddClusterNodesError]
+BatchAddClusterNodesErrorList = list[BatchAddClusterNodesError]
 
 
 class BatchAddClusterNodesRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    ClientToken: Optional[BatchAddClusterNodesRequestClientTokenString]
+    ClientToken: BatchAddClusterNodesRequestClientTokenString | None
     NodesToAdd: AddClusterNodeSpecificationList
 
 
@@ -5458,7 +5697,7 @@ class NodeAdditionResult(TypedDict, total=False):
     Status: ClusterInstanceStatus
 
 
-NodeAdditionResultList = List[NodeAdditionResult]
+NodeAdditionResultList = list[NodeAdditionResult]
 
 
 class BatchAddClusterNodesResponse(TypedDict, total=False):
@@ -5472,8 +5711,8 @@ class BatchDataCaptureConfig(TypedDict, total=False):
     """
 
     DestinationS3Uri: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
-    GenerateInferenceId: Optional[Boolean]
+    KmsKeyId: KmsKeyId | None
+    GenerateInferenceId: Boolean | None
 
 
 class BatchDeleteClusterNodeLogicalIdsError(TypedDict, total=False):
@@ -5486,7 +5725,7 @@ class BatchDeleteClusterNodeLogicalIdsError(TypedDict, total=False):
     NodeLogicalId: ClusterNodeLogicalId
 
 
-BatchDeleteClusterNodeLogicalIdsErrorList = List[BatchDeleteClusterNodeLogicalIdsError]
+BatchDeleteClusterNodeLogicalIdsErrorList = list[BatchDeleteClusterNodeLogicalIdsError]
 
 
 class BatchDeleteClusterNodesError(TypedDict, total=False):
@@ -5499,22 +5738,22 @@ class BatchDeleteClusterNodesError(TypedDict, total=False):
     NodeId: ClusterNodeId
 
 
-BatchDeleteClusterNodesErrorList = List[BatchDeleteClusterNodesError]
-ClusterNodeLogicalIdList = List[ClusterNodeLogicalId]
-ClusterNodeIds = List[ClusterNodeId]
+BatchDeleteClusterNodesErrorList = list[BatchDeleteClusterNodesError]
+ClusterNodeLogicalIdList = list[ClusterNodeLogicalId]
+ClusterNodeIds = list[ClusterNodeId]
 
 
 class BatchDeleteClusterNodesRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    NodeIds: Optional[ClusterNodeIds]
-    NodeLogicalIds: Optional[ClusterNodeLogicalIdList]
+    NodeIds: ClusterNodeIds | None
+    NodeLogicalIds: ClusterNodeLogicalIdList | None
 
 
 class BatchDeleteClusterNodesResponse(TypedDict, total=False):
-    Failed: Optional[BatchDeleteClusterNodesErrorList]
-    Successful: Optional[ClusterNodeIds]
-    FailedNodeLogicalIds: Optional[BatchDeleteClusterNodeLogicalIdsErrorList]
-    SuccessfulNodeLogicalIds: Optional[ClusterNodeLogicalIdList]
+    Failed: BatchDeleteClusterNodesErrorList | None
+    Successful: ClusterNodeIds | None
+    FailedNodeLogicalIds: BatchDeleteClusterNodeLogicalIdsErrorList | None
+    SuccessfulNodeLogicalIds: ClusterNodeLogicalIdList | None
 
 
 class BatchDescribeModelPackageError(TypedDict, total=False):
@@ -5524,8 +5763,8 @@ class BatchDescribeModelPackageError(TypedDict, total=False):
     ErrorResponse: String
 
 
-BatchDescribeModelPackageErrorMap = Dict[ModelPackageArn, BatchDescribeModelPackageError]
-ModelPackageArnList = List[ModelPackageArn]
+BatchDescribeModelPackageErrorMap = dict[ModelPackageArn, BatchDescribeModelPackageError]
+ModelPackageArnList = list[ModelPackageArn]
 
 
 class BatchDescribeModelPackageInput(ServiceRequest):
@@ -5536,31 +5775,114 @@ class InferenceSpecification(TypedDict, total=False):
     """Defines how to perform inference generation after a training job is run."""
 
     Containers: ModelPackageContainerDefinitionList
-    SupportedTransformInstanceTypes: Optional[TransformInstanceTypes]
-    SupportedRealtimeInferenceInstanceTypes: Optional[RealtimeInferenceInstanceTypes]
-    SupportedContentTypes: Optional[ContentTypes]
-    SupportedResponseMIMETypes: Optional[ResponseMIMETypes]
+    SupportedTransformInstanceTypes: TransformInstanceTypes | None
+    SupportedRealtimeInferenceInstanceTypes: RealtimeInferenceInstanceTypes | None
+    SupportedContentTypes: ContentTypes | None
+    SupportedResponseMIMETypes: ResponseMIMETypes | None
 
 
 class BatchDescribeModelPackageSummary(TypedDict, total=False):
     """Provides summary information about the model package."""
 
     ModelPackageGroupName: EntityName
-    ModelPackageVersion: Optional[ModelPackageVersion]
+    ModelPackageVersion: ModelPackageVersion | None
     ModelPackageArn: ModelPackageArn
-    ModelPackageDescription: Optional[EntityDescription]
+    ModelPackageDescription: EntityDescription | None
     CreationTime: CreationTime
     InferenceSpecification: InferenceSpecification
     ModelPackageStatus: ModelPackageStatus
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
+    ModelApprovalStatus: ModelApprovalStatus | None
+    ModelPackageRegistrationType: ModelPackageRegistrationType | None
 
 
-ModelPackageSummaries = Dict[ModelPackageArn, BatchDescribeModelPackageSummary]
+ModelPackageSummaries = dict[ModelPackageArn, BatchDescribeModelPackageSummary]
 
 
 class BatchDescribeModelPackageOutput(TypedDict, total=False):
-    ModelPackageSummaries: Optional[ModelPackageSummaries]
-    BatchDescribeModelPackageErrorMap: Optional[BatchDescribeModelPackageErrorMap]
+    ModelPackageSummaries: ModelPackageSummaries | None
+    BatchDescribeModelPackageErrorMap: BatchDescribeModelPackageErrorMap | None
+
+
+class BatchRebootClusterNodeLogicalIdsError(TypedDict, total=False):
+    """Represents an error encountered when rebooting a node (identified by its
+    logical node ID) from a SageMaker HyperPod cluster.
+    """
+
+    NodeLogicalId: ClusterNodeLogicalId
+    ErrorCode: BatchRebootClusterNodesErrorCode
+    Message: String
+
+
+BatchRebootClusterNodeLogicalIdsErrors = list[BatchRebootClusterNodeLogicalIdsError]
+
+
+class BatchRebootClusterNodesError(TypedDict, total=False):
+    """Represents an error encountered when rebooting a node from a SageMaker
+    HyperPod cluster.
+    """
+
+    NodeId: ClusterNodeId
+    ErrorCode: BatchRebootClusterNodesErrorCode
+    Message: String
+
+
+BatchRebootClusterNodesErrors = list[BatchRebootClusterNodesError]
+BatchRebootClusterNodesRequestNodeLogicalIdsList = list[ClusterNodeLogicalId]
+BatchRebootClusterNodesRequestNodeIdsList = list[ClusterNodeId]
+
+
+class BatchRebootClusterNodesRequest(ServiceRequest):
+    ClusterName: ClusterNameOrArn
+    NodeIds: BatchRebootClusterNodesRequestNodeIdsList | None
+    NodeLogicalIds: BatchRebootClusterNodesRequestNodeLogicalIdsList | None
+
+
+class BatchRebootClusterNodesResponse(TypedDict, total=False):
+    Successful: ClusterNodeIds | None
+    Failed: BatchRebootClusterNodesErrors | None
+    FailedNodeLogicalIds: BatchRebootClusterNodeLogicalIdsErrors | None
+    SuccessfulNodeLogicalIds: ClusterNodeLogicalIdList | None
+
+
+class BatchReplaceClusterNodeLogicalIdsError(TypedDict, total=False):
+    """Represents an error encountered when replacing a node (identified by its
+    logical node ID) in a SageMaker HyperPod cluster.
+    """
+
+    NodeLogicalId: ClusterNodeLogicalId
+    ErrorCode: BatchReplaceClusterNodesErrorCode
+    Message: String
+
+
+BatchReplaceClusterNodeLogicalIdsErrors = list[BatchReplaceClusterNodeLogicalIdsError]
+
+
+class BatchReplaceClusterNodesError(TypedDict, total=False):
+    """Represents an error encountered when replacing a node in a SageMaker
+    HyperPod cluster.
+    """
+
+    NodeId: ClusterNodeId
+    ErrorCode: BatchReplaceClusterNodesErrorCode
+    Message: String
+
+
+BatchReplaceClusterNodesErrors = list[BatchReplaceClusterNodesError]
+BatchReplaceClusterNodesRequestNodeLogicalIdsList = list[ClusterNodeLogicalId]
+BatchReplaceClusterNodesRequestNodeIdsList = list[ClusterNodeId]
+
+
+class BatchReplaceClusterNodesRequest(ServiceRequest):
+    ClusterName: ClusterNameOrArn
+    NodeIds: BatchReplaceClusterNodesRequestNodeIdsList | None
+    NodeLogicalIds: BatchReplaceClusterNodesRequestNodeLogicalIdsList | None
+
+
+class BatchReplaceClusterNodesResponse(TypedDict, total=False):
+    Successful: ClusterNodeIds | None
+    Failed: BatchReplaceClusterNodesErrors | None
+    FailedNodeLogicalIds: BatchReplaceClusterNodeLogicalIdsErrors | None
+    SuccessfulNodeLogicalIds: ClusterNodeLogicalIdList | None
 
 
 class MonitoringParquetDatasetFormat(TypedDict, total=False):
@@ -5574,21 +5896,21 @@ class MonitoringParquetDatasetFormat(TypedDict, total=False):
 class MonitoringJsonDatasetFormat(TypedDict, total=False):
     """Represents the JSON dataset format used when running a monitoring job."""
 
-    Line: Optional[Boolean]
+    Line: Boolean | None
 
 
 class MonitoringCsvDatasetFormat(TypedDict, total=False):
     """Represents the CSV dataset format used when running a monitoring job."""
 
-    Header: Optional[Boolean]
+    Header: Boolean | None
 
 
 class MonitoringDatasetFormat(TypedDict, total=False):
     """Represents the dataset format used when running a monitoring job."""
 
-    Csv: Optional[MonitoringCsvDatasetFormat]
-    Json: Optional[MonitoringJsonDatasetFormat]
-    Parquet: Optional[MonitoringParquetDatasetFormat]
+    Csv: MonitoringCsvDatasetFormat | None
+    Json: MonitoringJsonDatasetFormat | None
+    Parquet: MonitoringParquetDatasetFormat | None
 
 
 class BatchTransformInput(TypedDict, total=False):
@@ -5597,15 +5919,39 @@ class BatchTransformInput(TypedDict, total=False):
     DataCapturedDestinationS3Uri: DestinationS3Uri
     DatasetFormat: MonitoringDatasetFormat
     LocalPath: ProcessingLocalPath
-    S3InputMode: Optional[ProcessingS3InputMode]
-    S3DataDistributionType: Optional[ProcessingS3DataDistributionType]
-    FeaturesAttribute: Optional[String]
-    InferenceAttribute: Optional[String]
-    ProbabilityAttribute: Optional[String]
-    ProbabilityThresholdAttribute: Optional[ProbabilityThresholdAttribute]
-    StartTimeOffset: Optional[MonitoringTimeOffsetString]
-    EndTimeOffset: Optional[MonitoringTimeOffsetString]
-    ExcludeFeaturesAttribute: Optional[ExcludeFeaturesAttribute]
+    S3InputMode: ProcessingS3InputMode | None
+    S3DataDistributionType: ProcessingS3DataDistributionType | None
+    FeaturesAttribute: String | None
+    InferenceAttribute: String | None
+    ProbabilityAttribute: String | None
+    ProbabilityThresholdAttribute: ProbabilityThresholdAttribute | None
+    StartTimeOffset: MonitoringTimeOffsetString | None
+    EndTimeOffset: MonitoringTimeOffsetString | None
+    ExcludeFeaturesAttribute: ExcludeFeaturesAttribute | None
+
+
+class BedrockCustomModelDeploymentMetadata(TypedDict, total=False):
+    """The metadata of the Amazon Bedrock custom model deployment."""
+
+    Arn: String1024 | None
+
+
+class BedrockCustomModelMetadata(TypedDict, total=False):
+    """The metadata of the Amazon Bedrock custom model."""
+
+    Arn: String1024 | None
+
+
+class BedrockModelImportMetadata(TypedDict, total=False):
+    """The metadata of the Amazon Bedrock model import."""
+
+    Arn: String1024 | None
+
+
+class BedrockProvisionedModelThroughputMetadata(TypedDict, total=False):
+    """The metadata of the Amazon Bedrock provisioned model throughput."""
+
+    Arn: String1024 | None
 
 
 class BestObjectiveNotImproving(TypedDict, total=False):
@@ -5614,23 +5960,26 @@ class BestObjectiveNotImproving(TypedDict, total=False):
     evaluated against an objective function.
     """
 
-    MaxNumberOfTrainingJobsNotImproving: Optional[MaxNumberOfTrainingJobsNotImproving]
+    MaxNumberOfTrainingJobsNotImproving: MaxNumberOfTrainingJobsNotImproving | None
 
 
 class MetricsSource(TypedDict, total=False):
     """Details about the metrics source."""
 
     ContentType: ContentType
-    ContentDigest: Optional[ContentDigest]
+    ContentDigest: ContentDigest | None
     S3Uri: S3Uri
 
 
 class Bias(TypedDict, total=False):
     """Contains bias metrics for a model."""
 
-    Report: Optional[MetricsSource]
-    PreTrainingReport: Optional[MetricsSource]
-    PostTrainingReport: Optional[MetricsSource]
+    Report: MetricsSource | None
+    PreTrainingReport: MetricsSource | None
+    PostTrainingReport: MetricsSource | None
+
+
+BillableTokenCount = int
 
 
 class CapacitySize(TypedDict, total=False):
@@ -5655,8 +6004,8 @@ class TrafficRoutingConfig(TypedDict, total=False):
 
     Type: TrafficRoutingConfigType
     WaitIntervalInSeconds: WaitIntervalInSeconds
-    CanarySize: Optional[CapacitySize]
-    LinearStepSize: Optional[CapacitySize]
+    CanarySize: CapacitySize | None
+    LinearStepSize: CapacitySize | None
 
 
 class BlueGreenUpdatePolicy(TypedDict, total=False):
@@ -5670,14 +6019,14 @@ class BlueGreenUpdatePolicy(TypedDict, total=False):
     """
 
     TrafficRoutingConfiguration: TrafficRoutingConfig
-    TerminationWaitInSeconds: Optional[TerminationWaitInSeconds]
-    MaximumExecutionTimeoutInSeconds: Optional[MaximumExecutionTimeoutInSeconds]
+    TerminationWaitInSeconds: TerminationWaitInSeconds | None
+    MaximumExecutionTimeoutInSeconds: MaximumExecutionTimeoutInSeconds | None
 
 
 class CacheHitResult(TypedDict, total=False):
     """Details on the cache hit of a pipeline execution step."""
 
-    SourcePipelineExecutionArn: Optional[PipelineExecutionArn]
+    SourcePipelineExecutionArn: PipelineExecutionArn | None
 
 
 class OutputParameter(TypedDict, total=False):
@@ -5687,22 +6036,22 @@ class OutputParameter(TypedDict, total=False):
     Value: String1024
 
 
-OutputParameterList = List[OutputParameter]
+OutputParameterList = list[OutputParameter]
 
 
 class CallbackStepMetadata(TypedDict, total=False):
     """Metadata about a callback step."""
 
-    CallbackToken: Optional[CallbackToken]
-    SqsQueueUrl: Optional[String256]
-    OutputParameters: Optional[OutputParameterList]
+    CallbackToken: CallbackToken | None
+    SqsQueueUrl: String256 | None
+    OutputParameters: OutputParameterList | None
 
 
 class EmrServerlessSettings(TypedDict, total=False):
     """The settings for running Amazon EMR Serverless jobs in SageMaker Canvas."""
 
-    ExecutionRoleArn: Optional[RoleArn]
-    Status: Optional[FeatureStatus]
+    ExecutionRoleArn: RoleArn | None
+    Status: FeatureStatus | None
 
 
 class GenerativeAiSettings(TypedDict, total=False):
@@ -5714,7 +6063,7 @@ class GenerativeAiSettings(TypedDict, total=False):
     models <https://docs.aws.amazon.com/sagemaker/latest/dg/canvas-fm-chat.html>`__.
     """
 
-    AmazonBedrockRoleArn: Optional[RoleArn]
+    AmazonBedrockRoleArn: RoleArn | None
 
 
 class KendraSettings(TypedDict, total=False):
@@ -5722,7 +6071,7 @@ class KendraSettings(TypedDict, total=False):
     document querying.
     """
 
-    Status: Optional[FeatureStatus]
+    Status: FeatureStatus | None
 
 
 class DirectDeploySettings(TypedDict, total=False):
@@ -5735,7 +6084,7 @@ class DirectDeploySettings(TypedDict, total=False):
     or user profile's settings in the SageMaker console.
     """
 
-    Status: Optional[FeatureStatus]
+    Status: FeatureStatus | None
 
 
 class IdentityProviderOAuthSetting(TypedDict, total=False):
@@ -5743,46 +6092,46 @@ class IdentityProviderOAuthSetting(TypedDict, total=False):
     OAuth for connecting to an external data source, such as Snowflake.
     """
 
-    DataSourceName: Optional[DataSourceName]
-    Status: Optional[FeatureStatus]
-    SecretArn: Optional[SecretArn]
+    DataSourceName: DataSourceName | None
+    Status: FeatureStatus | None
+    SecretArn: SecretArn | None
 
 
-IdentityProviderOAuthSettings = List[IdentityProviderOAuthSetting]
+IdentityProviderOAuthSettings = list[IdentityProviderOAuthSetting]
 
 
 class WorkspaceSettings(TypedDict, total=False):
     """The workspace settings for the SageMaker Canvas application."""
 
-    S3ArtifactPath: Optional[S3Uri]
-    S3KmsKeyId: Optional[KmsKeyId]
+    S3ArtifactPath: S3Uri | None
+    S3KmsKeyId: KmsKeyId | None
 
 
 class ModelRegisterSettings(TypedDict, total=False):
     """The model registry settings for the SageMaker Canvas application."""
 
-    Status: Optional[FeatureStatus]
-    CrossAccountModelRegisterRoleArn: Optional[RoleArn]
+    Status: FeatureStatus | None
+    CrossAccountModelRegisterRoleArn: RoleArn | None
 
 
 class TimeSeriesForecastingSettings(TypedDict, total=False):
     """Time series forecast settings for the SageMaker Canvas application."""
 
-    Status: Optional[FeatureStatus]
-    AmazonForecastRoleArn: Optional[RoleArn]
+    Status: FeatureStatus | None
+    AmazonForecastRoleArn: RoleArn | None
 
 
 class CanvasAppSettings(TypedDict, total=False):
     """The SageMaker Canvas application settings."""
 
-    TimeSeriesForecastingSettings: Optional[TimeSeriesForecastingSettings]
-    ModelRegisterSettings: Optional[ModelRegisterSettings]
-    WorkspaceSettings: Optional[WorkspaceSettings]
-    IdentityProviderOAuthSettings: Optional[IdentityProviderOAuthSettings]
-    DirectDeploySettings: Optional[DirectDeploySettings]
-    KendraSettings: Optional[KendraSettings]
-    GenerativeAiSettings: Optional[GenerativeAiSettings]
-    EmrServerlessSettings: Optional[EmrServerlessSettings]
+    TimeSeriesForecastingSettings: TimeSeriesForecastingSettings | None
+    ModelRegisterSettings: ModelRegisterSettings | None
+    WorkspaceSettings: WorkspaceSettings | None
+    IdentityProviderOAuthSettings: IdentityProviderOAuthSettings | None
+    DirectDeploySettings: DirectDeploySettings | None
+    KendraSettings: KendraSettings | None
+    GenerativeAiSettings: GenerativeAiSettings | None
+    EmrServerlessSettings: EmrServerlessSettings | None
 
 
 class CapacityReservation(TypedDict, total=False):
@@ -5790,8 +6139,8 @@ class CapacityReservation(TypedDict, total=False):
     instance group.
     """
 
-    Arn: Optional[String]
-    Type: Optional[CapacityReservationType]
+    Arn: String | None
+    Type: CapacityReservationType | None
 
 
 class CapacitySizeConfig(TypedDict, total=False):
@@ -5804,8 +6153,8 @@ class CapacitySizeConfig(TypedDict, total=False):
     Value: NodeUnavailabilityValue
 
 
-JsonContentTypes = List[JsonContentType]
-CsvContentTypes = List[CsvContentType]
+JsonContentTypes = list[JsonContentType]
+CsvContentTypes = list[CsvContentType]
 
 
 class CaptureContentTypeHeader(TypedDict, total=False):
@@ -5814,8 +6163,8 @@ class CaptureContentTypeHeader(TypedDict, total=False):
     capturing the data.
     """
 
-    CsvContentTypes: Optional[CsvContentTypes]
-    JsonContentTypes: Optional[JsonContentTypes]
+    CsvContentTypes: CsvContentTypes | None
+    JsonContentTypes: JsonContentTypes | None
 
 
 class CaptureOption(TypedDict, total=False):
@@ -5824,8 +6173,8 @@ class CaptureOption(TypedDict, total=False):
     CaptureMode: CaptureMode
 
 
-CaptureOptionList = List[CaptureOption]
-CategoricalParameterRangeValues = List[String128]
+CaptureOptionList = list[CaptureOption]
+CategoricalParameterRangeValues = list[String128]
 
 
 class CategoricalParameter(TypedDict, total=False):
@@ -5835,7 +6184,7 @@ class CategoricalParameter(TypedDict, total=False):
     Value: CategoricalParameterRangeValues
 
 
-ParameterValues = List[ParameterValue]
+ParameterValues = list[ParameterValue]
 
 
 class CategoricalParameterRange(TypedDict, total=False):
@@ -5851,8 +6200,8 @@ class CategoricalParameterRangeSpecification(TypedDict, total=False):
     Values: ParameterValues
 
 
-CategoricalParameterRanges = List[CategoricalParameterRange]
-CategoricalParameters = List[CategoricalParameter]
+CategoricalParameterRanges = list[CategoricalParameterRange]
+CategoricalParameters = list[CategoricalParameter]
 
 
 class CfnStackCreateParameter(TypedDict, total=False):
@@ -5861,10 +6210,10 @@ class CfnStackCreateParameter(TypedDict, total=False):
     """
 
     Key: CfnStackParameterKey
-    Value: Optional[CfnStackParameterValue]
+    Value: CfnStackParameterValue | None
 
 
-CfnStackCreateParameters = List[CfnStackCreateParameter]
+CfnStackCreateParameters = list[CfnStackCreateParameter]
 
 
 class CfnCreateTemplateProvider(TypedDict, total=False):
@@ -5874,15 +6223,15 @@ class CfnCreateTemplateProvider(TypedDict, total=False):
 
     TemplateName: CfnTemplateName
     TemplateURL: CfnTemplateURL
-    RoleARN: Optional[RoleArn]
-    Parameters: Optional[CfnStackCreateParameters]
+    RoleARN: RoleArn | None
+    Parameters: CfnStackCreateParameters | None
 
 
 class CfnStackDetail(TypedDict, total=False):
     """Details about the CloudFormation stack."""
 
-    Name: Optional[CfnStackName]
-    Id: Optional[CfnStackId]
+    Name: CfnStackName | None
+    Id: CfnStackId | None
     StatusMessage: CfnStackStatusMessage
 
 
@@ -5892,10 +6241,10 @@ class CfnStackParameter(TypedDict, total=False):
     """
 
     Key: CfnStackParameterKey
-    Value: Optional[CfnStackParameterValue]
+    Value: CfnStackParameterValue | None
 
 
-CfnStackParameters = List[CfnStackParameter]
+CfnStackParameters = list[CfnStackParameter]
 
 
 class CfnStackUpdateParameter(TypedDict, total=False):
@@ -5904,10 +6253,10 @@ class CfnStackUpdateParameter(TypedDict, total=False):
     """
 
     Key: CfnStackParameterKey
-    Value: Optional[CfnStackParameterValue]
+    Value: CfnStackParameterValue | None
 
 
-CfnStackUpdateParameters = List[CfnStackUpdateParameter]
+CfnStackUpdateParameters = list[CfnStackUpdateParameter]
 
 
 class CfnTemplateProviderDetail(TypedDict, total=False):
@@ -5917,9 +6266,9 @@ class CfnTemplateProviderDetail(TypedDict, total=False):
 
     TemplateName: CfnTemplateName
     TemplateURL: CfnTemplateURL
-    RoleARN: Optional[RoleArn]
-    Parameters: Optional[CfnStackParameters]
-    StackDetail: Optional[CfnStackDetail]
+    RoleARN: RoleArn | None
+    Parameters: CfnStackParameters | None
+    StackDetail: CfnStackDetail | None
 
 
 class CfnUpdateTemplateProvider(TypedDict, total=False):
@@ -5929,11 +6278,11 @@ class CfnUpdateTemplateProvider(TypedDict, total=False):
 
     TemplateName: CfnTemplateName
     TemplateURL: CfnTemplateURL
-    Parameters: Optional[CfnStackUpdateParameters]
+    Parameters: CfnStackUpdateParameters | None
 
 
-InputModes = List[TrainingInputMode]
-CompressionTypes = List[CompressionType]
+InputModes = list[TrainingInputMode]
+CompressionTypes = list[CompressionType]
 
 
 class ChannelSpecification(TypedDict, total=False):
@@ -5942,14 +6291,14 @@ class ChannelSpecification(TypedDict, total=False):
     """
 
     Name: ChannelName
-    Description: Optional[EntityDescription]
-    IsRequired: Optional[Boolean]
+    Description: EntityDescription | None
+    IsRequired: Boolean | None
     SupportedContentTypes: ContentTypes
-    SupportedCompressionTypes: Optional[CompressionTypes]
+    SupportedCompressionTypes: CompressionTypes | None
     SupportedInputModes: InputModes
 
 
-ChannelSpecifications = List[ChannelSpecification]
+ChannelSpecifications = list[ChannelSpecification]
 
 
 class CheckpointConfig(TypedDict, total=False):
@@ -5958,10 +6307,10 @@ class CheckpointConfig(TypedDict, total=False):
     """
 
     S3Uri: S3Uri
-    LocalPath: Optional[DirectoryPath]
+    LocalPath: DirectoryPath | None
 
 
-Cidrs = List[Cidr]
+Cidrs = list[Cidr]
 
 
 class ClarifyCheckStepMetadata(TypedDict, total=False):
@@ -5971,14 +6320,14 @@ class ClarifyCheckStepMetadata(TypedDict, total=False):
     in the *Amazon SageMaker Developer Guide*.
     """
 
-    CheckType: Optional[String256]
-    BaselineUsedForDriftCheckConstraints: Optional[String1024]
-    CalculatedBaselineConstraints: Optional[String1024]
-    ModelPackageGroupName: Optional[String256]
-    ViolationReport: Optional[String1024]
-    CheckJobArn: Optional[String256]
-    SkipCheck: Optional[Boolean]
-    RegisterNewBaseline: Optional[Boolean]
+    CheckType: String256 | None
+    BaselineUsedForDriftCheckConstraints: String1024 | None
+    CalculatedBaselineConstraints: String1024 | None
+    ModelPackageGroupName: String256 | None
+    ViolationReport: String1024 | None
+    CheckJobArn: String256 | None
+    SkipCheck: Boolean | None
+    RegisterNewBaseline: Boolean | None
 
 
 class ClarifyTextConfig(TypedDict, total=False):
@@ -6009,47 +6358,47 @@ class ClarifyShapBaselineConfig(TypedDict, total=False):
        baseline.
     """
 
-    MimeType: Optional[ClarifyMimeType]
-    ShapBaseline: Optional[ClarifyShapBaseline]
-    ShapBaselineUri: Optional[Url]
+    MimeType: ClarifyMimeType | None
+    ShapBaseline: ClarifyShapBaseline | None
+    ShapBaselineUri: Url | None
 
 
 class ClarifyShapConfig(TypedDict, total=False):
     """The configuration for SHAP analysis using SageMaker Clarify Explainer."""
 
     ShapBaselineConfig: ClarifyShapBaselineConfig
-    NumberOfSamples: Optional[ClarifyShapNumberOfSamples]
-    UseLogit: Optional[ClarifyShapUseLogit]
-    Seed: Optional[ClarifyShapSeed]
-    TextConfig: Optional[ClarifyTextConfig]
+    NumberOfSamples: ClarifyShapNumberOfSamples | None
+    UseLogit: ClarifyShapUseLogit | None
+    Seed: ClarifyShapSeed | None
+    TextConfig: ClarifyTextConfig | None
 
 
-ClarifyFeatureTypes = List[ClarifyFeatureType]
-ClarifyFeatureHeaders = List[ClarifyHeader]
-ClarifyLabelHeaders = List[ClarifyHeader]
+ClarifyFeatureTypes = list[ClarifyFeatureType]
+ClarifyFeatureHeaders = list[ClarifyHeader]
+ClarifyLabelHeaders = list[ClarifyHeader]
 
 
 class ClarifyInferenceConfig(TypedDict, total=False):
     """The inference configuration parameter for the model container."""
 
-    FeaturesAttribute: Optional[ClarifyFeaturesAttribute]
-    ContentTemplate: Optional[ClarifyContentTemplate]
-    MaxRecordCount: Optional[ClarifyMaxRecordCount]
-    MaxPayloadInMB: Optional[ClarifyMaxPayloadInMB]
-    ProbabilityIndex: Optional[ClarifyProbabilityIndex]
-    LabelIndex: Optional[ClarifyLabelIndex]
-    ProbabilityAttribute: Optional[ClarifyProbabilityAttribute]
-    LabelAttribute: Optional[ClarifyLabelAttribute]
-    LabelHeaders: Optional[ClarifyLabelHeaders]
-    FeatureHeaders: Optional[ClarifyFeatureHeaders]
-    FeatureTypes: Optional[ClarifyFeatureTypes]
+    FeaturesAttribute: ClarifyFeaturesAttribute | None
+    ContentTemplate: ClarifyContentTemplate | None
+    MaxRecordCount: ClarifyMaxRecordCount | None
+    MaxPayloadInMB: ClarifyMaxPayloadInMB | None
+    ProbabilityIndex: ClarifyProbabilityIndex | None
+    LabelIndex: ClarifyLabelIndex | None
+    ProbabilityAttribute: ClarifyProbabilityAttribute | None
+    LabelAttribute: ClarifyLabelAttribute | None
+    LabelHeaders: ClarifyLabelHeaders | None
+    FeatureHeaders: ClarifyFeatureHeaders | None
+    FeatureTypes: ClarifyFeatureTypes | None
 
 
 class ClarifyExplainerConfig(TypedDict, total=False):
     """The configuration parameters for the SageMaker Clarify explainer."""
 
-    EnableExplanations: Optional[ClarifyEnableExplanations]
-    InferenceConfig: Optional[ClarifyInferenceConfig]
+    EnableExplanations: ClarifyEnableExplanations | None
+    InferenceConfig: ClarifyInferenceConfig | None
     ShapConfig: ClarifyShapConfig
 
 
@@ -6057,7 +6406,7 @@ class ClusterAutoScalingConfig(TypedDict, total=False):
     """Specifies the autoscaling configuration for a HyperPod cluster."""
 
     Mode: ClusterAutoScalingMode
-    AutoScalerType: Optional[ClusterAutoScalerType]
+    AutoScalerType: ClusterAutoScalerType | None
 
 
 class ClusterAutoScalingConfigOutput(TypedDict, total=False):
@@ -6066,9 +6415,30 @@ class ClusterAutoScalingConfigOutput(TypedDict, total=False):
     """
 
     Mode: ClusterAutoScalingMode
-    AutoScalerType: Optional[ClusterAutoScalerType]
+    AutoScalerType: ClusterAutoScalerType | None
     Status: ClusterAutoScalingStatus
-    FailureMessage: Optional[String]
+    FailureMessage: String | None
+
+
+class ClusterOnDemandOptions(TypedDict, total=False):
+    """Configuration options specific to On-Demand instances."""
+
+    pass
+
+
+class ClusterSpotOptions(TypedDict, total=False):
+    """Configuration options specific to Spot instances."""
+
+    pass
+
+
+class ClusterCapacityRequirements(TypedDict, total=False):
+    """Defines the instance capacity requirements for an instance group,
+    including configurations for both Spot and On-Demand capacity types.
+    """
+
+    Spot: ClusterSpotOptions | None
+    OnDemand: ClusterOnDemandOptions | None
 
 
 class ClusterEbsVolumeConfig(TypedDict, total=False):
@@ -6079,45 +6449,46 @@ class ClusterEbsVolumeConfig(TypedDict, total=False):
     2024 <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-release-notes.html#sagemaker-hyperpod-release-notes-20240620>`__.
     """
 
-    VolumeSizeInGB: Optional[ClusterEbsVolumeSizeInGB]
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    RootVolume: Optional[Boolean]
+    VolumeSizeInGB: ClusterEbsVolumeSizeInGB | None
+    VolumeKmsKeyId: KmsKeyId | None
+    RootVolume: Boolean | None
 
 
 class InstanceMetadata(TypedDict, total=False):
     """Metadata information about an instance in a HyperPod cluster."""
 
-    CustomerEni: Optional[String]
-    AdditionalEnis: Optional[AdditionalEnis]
-    CapacityReservation: Optional[CapacityReservation]
-    FailureMessage: Optional[String]
-    LcsExecutionState: Optional[String]
-    NodeLogicalId: Optional[ClusterNodeLogicalId]
+    CustomerEni: String | None
+    AdditionalEnis: AdditionalEnis | None
+    CapacityReservation: CapacityReservation | None
+    FailureMessage: String | None
+    LcsExecutionState: String | None
+    NodeLogicalId: ClusterNodeLogicalId | None
 
 
 class InstanceGroupScalingMetadata(TypedDict, total=False):
     """Metadata information about scaling operations for an instance group."""
 
-    InstanceCount: Optional[InstanceCount]
-    TargetCount: Optional[TargetCount]
-    FailureMessage: Optional[String]
+    InstanceCount: InstanceCount | None
+    TargetCount: TargetCount | None
+    MinCount: InstanceCount | None
+    FailureMessage: String | None
 
 
-SecurityGroupIds = List[SecurityGroupId]
+SecurityGroupIds = list[SecurityGroupId]
 
 
 class InstanceGroupMetadata(TypedDict, total=False):
     """Metadata information about an instance group in a HyperPod cluster."""
 
-    FailureMessage: Optional[String]
-    AvailabilityZoneId: Optional[String]
-    CapacityReservation: Optional[CapacityReservation]
-    SubnetId: Optional[String]
-    SecurityGroupIds: Optional[SecurityGroupIds]
-    AmiOverride: Optional[String]
+    FailureMessage: String | None
+    AvailabilityZoneId: String | None
+    CapacityReservation: CapacityReservation | None
+    SubnetId: String | None
+    SecurityGroupIds: SecurityGroupIds | None
+    AmiOverride: String | None
 
 
-EksRoleAccessEntries = List[String]
+EksRoleAccessEntries = list[String]
 
 
 class ClusterMetadata(TypedDict, total=False):
@@ -6125,9 +6496,9 @@ class ClusterMetadata(TypedDict, total=False):
     the cluster level operations, such as creating, updating, and deleting.
     """
 
-    FailureMessage: Optional[String]
-    EksRoleAccessEntries: Optional[EksRoleAccessEntries]
-    SlrAccessEntry: Optional[String]
+    FailureMessage: String | None
+    EksRoleAccessEntries: EksRoleAccessEntries | None
+    SlrAccessEntry: String | None
 
 
 class EventMetadata(TypedDict, total=False):
@@ -6135,16 +6506,16 @@ class EventMetadata(TypedDict, total=False):
     about various resource types.
     """
 
-    Cluster: Optional[ClusterMetadata]
-    InstanceGroup: Optional[InstanceGroupMetadata]
-    InstanceGroupScaling: Optional[InstanceGroupScalingMetadata]
-    Instance: Optional[InstanceMetadata]
+    Cluster: ClusterMetadata | None
+    InstanceGroup: InstanceGroupMetadata | None
+    InstanceGroupScaling: InstanceGroupScalingMetadata | None
+    Instance: InstanceMetadata | None
 
 
 class EventDetails(TypedDict, total=False):
     """Detailed information about a specific event, including event metadata."""
 
-    EventMetadata: Optional[EventMetadata]
+    EventMetadata: EventMetadata | None
 
 
 class ClusterEventDetail(TypedDict, total=False):
@@ -6153,12 +6524,12 @@ class ClusterEventDetail(TypedDict, total=False):
     EventId: EventId
     ClusterArn: ClusterArn
     ClusterName: ClusterName
-    InstanceGroupName: Optional[ClusterInstanceGroupName]
-    InstanceId: Optional[String]
+    InstanceGroupName: ClusterInstanceGroupName | None
+    InstanceId: String | None
     ResourceType: ClusterEventResourceType
     EventTime: Timestamp
-    EventDetails: Optional[EventDetails]
-    Description: Optional[String]
+    EventDetails: EventDetails | None
+    Description: String | None
 
 
 class ClusterEventSummary(TypedDict, total=False):
@@ -6167,29 +6538,52 @@ class ClusterEventSummary(TypedDict, total=False):
     EventId: EventId
     ClusterArn: ClusterArn
     ClusterName: ClusterName
-    InstanceGroupName: Optional[ClusterInstanceGroupName]
-    InstanceId: Optional[String]
+    InstanceGroupName: ClusterInstanceGroupName | None
+    InstanceId: String | None
     ResourceType: ClusterEventResourceType
     EventTime: Timestamp
-    Description: Optional[String]
+    Description: String | None
 
 
-ClusterEventSummaries = List[ClusterEventSummary]
+ClusterEventSummaries = list[ClusterEventSummary]
 
 
 class RollingDeploymentPolicy(TypedDict, total=False):
     """The configurations that SageMaker uses when updating the AMI versions."""
 
     MaximumBatchSize: CapacitySizeConfig
-    RollbackMaximumBatchSize: Optional[CapacitySizeConfig]
+    RollbackMaximumBatchSize: CapacitySizeConfig | None
 
 
 class DeploymentConfiguration(TypedDict, total=False):
     """The configuration to use when updating the AMI versions."""
 
-    RollingUpdatePolicy: Optional[RollingDeploymentPolicy]
-    WaitIntervalInSeconds: Optional[WaitTimeIntervalInSeconds]
-    AutoRollbackConfiguration: Optional[AutoRollbackAlarms]
+    RollingUpdatePolicy: RollingDeploymentPolicy | None
+    WaitIntervalInSeconds: WaitTimeIntervalInSeconds | None
+    AutoRollbackConfiguration: AutoRollbackAlarms | None
+
+
+class ClusterKubernetesTaint(TypedDict, total=False):
+    """A Kubernetes taint that can be applied to cluster nodes."""
+
+    Key: ClusterKubernetesTaintKey
+    Value: ClusterKubernetesTaintValue | None
+    Effect: ClusterKubernetesTaintEffect
+
+
+ClusterKubernetesTaints = list[ClusterKubernetesTaint]
+ClusterKubernetesLabels = dict[ClusterKubernetesLabelKey, ClusterKubernetesLabelValue]
+
+
+class ClusterKubernetesConfigDetails(TypedDict, total=False):
+    """Detailed Kubernetes configuration showing both the current and desired
+    state of labels and taints for cluster nodes.
+    """
+
+    CurrentLabels: ClusterKubernetesLabels | None
+    DesiredLabels: ClusterKubernetesLabels | None
+    CurrentTaints: ClusterKubernetesTaints | None
+    DesiredTaints: ClusterKubernetesTaints | None
 
 
 class ScheduledUpdateConfig(TypedDict, total=False):
@@ -6198,10 +6592,10 @@ class ScheduledUpdateConfig(TypedDict, total=False):
     """
 
     ScheduleExpression: CronScheduleExpression
-    DeploymentConfig: Optional[DeploymentConfiguration]
+    DeploymentConfig: DeploymentConfiguration | None
 
 
-OnStartDeepHealthChecks = List[DeepHealthCheckType]
+OnStartDeepHealthChecks = list[DeepHealthCheckType]
 
 
 class ClusterInstanceStorageConfig(TypedDict, total=False):
@@ -6211,10 +6605,10 @@ class ClusterInstanceStorageConfig(TypedDict, total=False):
     2024 <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-release-notes.html#sagemaker-hyperpod-release-notes-20240620>`__.
     """
 
-    EbsVolumeConfig: Optional[ClusterEbsVolumeConfig]
+    EbsVolumeConfig: ClusterEbsVolumeConfig | None
 
 
-ClusterInstanceStorageConfigs = List[ClusterInstanceStorageConfig]
+ClusterInstanceStorageConfigs = list[ClusterInstanceStorageConfig]
 
 
 class ClusterLifeCycleConfig(TypedDict, total=False):
@@ -6227,46 +6621,65 @@ class ClusterLifeCycleConfig(TypedDict, total=False):
 class ClusterInstanceGroupDetails(TypedDict, total=False):
     """Details of an instance group in a SageMaker HyperPod cluster."""
 
-    CurrentCount: Optional[ClusterNonNegativeInstanceCount]
-    TargetCount: Optional[ClusterInstanceCount]
-    InstanceGroupName: Optional[ClusterInstanceGroupName]
-    InstanceType: Optional[ClusterInstanceType]
-    LifeCycleConfig: Optional[ClusterLifeCycleConfig]
-    ExecutionRole: Optional[RoleArn]
-    ThreadsPerCore: Optional[ClusterThreadsPerCore]
-    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
-    OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
-    Status: Optional[InstanceGroupStatus]
-    TrainingPlanArn: Optional[TrainingPlanArn]
-    TrainingPlanStatus: Optional[InstanceGroupTrainingPlanStatus]
-    OverrideVpcConfig: Optional[VpcConfig]
-    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
-    CurrentImageId: Optional[ImageId]
-    DesiredImageId: Optional[ImageId]
+    CurrentCount: ClusterNonNegativeInstanceCount | None
+    TargetCount: ClusterInstanceCount | None
+    MinCount: ClusterInstanceCount | None
+    InstanceGroupName: ClusterInstanceGroupName | None
+    InstanceType: ClusterInstanceType | None
+    LifeCycleConfig: ClusterLifeCycleConfig | None
+    ExecutionRole: RoleArn | None
+    ThreadsPerCore: ClusterThreadsPerCore | None
+    InstanceStorageConfigs: ClusterInstanceStorageConfigs | None
+    OnStartDeepHealthChecks: OnStartDeepHealthChecks | None
+    Status: InstanceGroupStatus | None
+    TrainingPlanArn: TrainingPlanArn | None
+    TrainingPlanStatus: InstanceGroupTrainingPlanStatus | None
+    OverrideVpcConfig: VpcConfig | None
+    ScheduledUpdateConfig: ScheduledUpdateConfig | None
+    CurrentImageId: ImageId | None
+    DesiredImageId: ImageId | None
+    ActiveOperations: ActiveOperations | None
+    KubernetesConfig: ClusterKubernetesConfigDetails | None
+    CapacityRequirements: ClusterCapacityRequirements | None
+    TargetStateCount: ClusterInstanceCount | None
+    SoftwareUpdateStatus: SoftwareUpdateStatus | None
+    ActiveSoftwareUpdateConfig: DeploymentConfiguration | None
 
 
-ClusterInstanceGroupDetailsList = List[ClusterInstanceGroupDetails]
+ClusterInstanceGroupDetailsList = list[ClusterInstanceGroupDetails]
+
+
+class ClusterKubernetesConfig(TypedDict, total=False):
+    """Kubernetes configuration that specifies labels and taints to be applied
+    to cluster nodes in an instance group.
+    """
+
+    Labels: ClusterKubernetesLabels | None
+    Taints: ClusterKubernetesTaints | None
 
 
 class ClusterInstanceGroupSpecification(TypedDict, total=False):
     """The specifications of an instance group that you need to define."""
 
     InstanceCount: ClusterInstanceCount
+    MinInstanceCount: ClusterInstanceCount | None
     InstanceGroupName: ClusterInstanceGroupName
     InstanceType: ClusterInstanceType
     LifeCycleConfig: ClusterLifeCycleConfig
     ExecutionRole: RoleArn
-    ThreadsPerCore: Optional[ClusterThreadsPerCore]
-    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
-    OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
-    TrainingPlanArn: Optional[TrainingPlanArn]
-    OverrideVpcConfig: Optional[VpcConfig]
-    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
-    ImageId: Optional[ImageId]
+    ThreadsPerCore: ClusterThreadsPerCore | None
+    InstanceStorageConfigs: ClusterInstanceStorageConfigs | None
+    OnStartDeepHealthChecks: OnStartDeepHealthChecks | None
+    TrainingPlanArn: TrainingPlanArn | None
+    OverrideVpcConfig: VpcConfig | None
+    ScheduledUpdateConfig: ScheduledUpdateConfig | None
+    ImageId: ImageId | None
+    KubernetesConfig: ClusterKubernetesConfig | None
+    CapacityRequirements: ClusterCapacityRequirements | None
 
 
-ClusterInstanceGroupSpecifications = List[ClusterInstanceGroupSpecification]
-ClusterInstanceGroupsToDelete = List[ClusterInstanceGroupName]
+ClusterInstanceGroupSpecifications = list[ClusterInstanceGroupSpecification]
+ClusterInstanceGroupsToDelete = list[ClusterInstanceGroupName]
 
 
 class ClusterInstancePlacement(TypedDict, total=False):
@@ -6275,21 +6688,32 @@ class ClusterInstancePlacement(TypedDict, total=False):
     of the Availability Zone.
     """
 
-    AvailabilityZone: Optional[ClusterAvailabilityZone]
-    AvailabilityZoneId: Optional[ClusterAvailabilityZoneId]
+    AvailabilityZone: ClusterAvailabilityZone | None
+    AvailabilityZoneId: ClusterAvailabilityZoneId | None
 
 
 class ClusterInstanceStatusDetails(TypedDict, total=False):
     """Details of an instance in a SageMaker HyperPod cluster."""
 
     Status: ClusterInstanceStatus
-    Message: Optional[String]
+    Message: String | None
+
+
+class ClusterKubernetesConfigNodeDetails(TypedDict, total=False):
+    """Node-specific Kubernetes configuration showing both current and desired
+    state of labels and taints for an individual cluster node.
+    """
+
+    CurrentLabels: ClusterKubernetesLabels | None
+    DesiredLabels: ClusterKubernetesLabels | None
+    CurrentTaints: ClusterKubernetesTaints | None
+    DesiredTaints: ClusterKubernetesTaints | None
 
 
 class UltraServerInfo(TypedDict, total=False):
     """Contains information about the UltraServer object."""
 
-    Id: Optional[String]
+    Id: String | None
 
 
 class ClusterNodeDetails(TypedDict, total=False):
@@ -6297,24 +6721,26 @@ class ClusterNodeDetails(TypedDict, total=False):
     SageMaker HyperPod cluster.
     """
 
-    InstanceGroupName: Optional[ClusterInstanceGroupName]
-    InstanceId: Optional[String]
-    NodeLogicalId: Optional[ClusterNodeLogicalId]
-    InstanceStatus: Optional[ClusterInstanceStatusDetails]
-    InstanceType: Optional[ClusterInstanceType]
-    LaunchTime: Optional[Timestamp]
-    LastSoftwareUpdateTime: Optional[Timestamp]
-    LifeCycleConfig: Optional[ClusterLifeCycleConfig]
-    OverrideVpcConfig: Optional[VpcConfig]
-    ThreadsPerCore: Optional[ClusterThreadsPerCore]
-    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
-    PrivatePrimaryIp: Optional[ClusterPrivatePrimaryIp]
-    PrivatePrimaryIpv6: Optional[ClusterPrivatePrimaryIpv6]
-    PrivateDnsHostname: Optional[ClusterPrivateDnsHostname]
-    Placement: Optional[ClusterInstancePlacement]
-    CurrentImageId: Optional[ImageId]
-    DesiredImageId: Optional[ImageId]
-    UltraServerInfo: Optional[UltraServerInfo]
+    InstanceGroupName: ClusterInstanceGroupName | None
+    InstanceId: String | None
+    NodeLogicalId: ClusterNodeLogicalId | None
+    InstanceStatus: ClusterInstanceStatusDetails | None
+    InstanceType: ClusterInstanceType | None
+    LaunchTime: Timestamp | None
+    LastSoftwareUpdateTime: Timestamp | None
+    LifeCycleConfig: ClusterLifeCycleConfig | None
+    OverrideVpcConfig: VpcConfig | None
+    ThreadsPerCore: ClusterThreadsPerCore | None
+    InstanceStorageConfigs: ClusterInstanceStorageConfigs | None
+    PrivatePrimaryIp: ClusterPrivatePrimaryIp | None
+    PrivatePrimaryIpv6: ClusterPrivatePrimaryIpv6 | None
+    PrivateDnsHostname: ClusterPrivateDnsHostname | None
+    Placement: ClusterInstancePlacement | None
+    CurrentImageId: ImageId | None
+    DesiredImageId: ImageId | None
+    UltraServerInfo: UltraServerInfo | None
+    KubernetesConfig: ClusterKubernetesConfigNodeDetails | None
+    CapacityType: ClusterCapacityType | None
 
 
 class ClusterNodeSummary(TypedDict, total=False):
@@ -6324,15 +6750,16 @@ class ClusterNodeSummary(TypedDict, total=False):
 
     InstanceGroupName: ClusterInstanceGroupName
     InstanceId: String
-    NodeLogicalId: Optional[String]
+    NodeLogicalId: String | None
     InstanceType: ClusterInstanceType
     LaunchTime: Timestamp
-    LastSoftwareUpdateTime: Optional[Timestamp]
+    LastSoftwareUpdateTime: Timestamp | None
     InstanceStatus: ClusterInstanceStatusDetails
-    UltraServerInfo: Optional[UltraServerInfo]
+    UltraServerInfo: UltraServerInfo | None
+    PrivateDnsHostname: ClusterPrivateDnsHostname | None
 
 
-ClusterNodeSummaries = List[ClusterNodeSummary]
+ClusterNodeSummaries = list[ClusterNodeSummary]
 
 
 class ClusterOrchestratorEksConfig(TypedDict, total=False):
@@ -6363,36 +6790,36 @@ class EnvironmentConfigDetails(TypedDict, total=False):
     environment.
     """
 
-    FSxLustreConfig: Optional[FSxLustreConfig]
-    S3OutputPath: Optional[S3Uri]
+    FSxLustreConfig: FSxLustreConfig | None
+    S3OutputPath: S3Uri | None
 
 
 class ClusterRestrictedInstanceGroupDetails(TypedDict, total=False):
     """The instance group details of the restricted instance group (RIG)."""
 
-    CurrentCount: Optional[ClusterNonNegativeInstanceCount]
-    TargetCount: Optional[ClusterInstanceCount]
-    InstanceGroupName: Optional[ClusterInstanceGroupName]
-    InstanceType: Optional[ClusterInstanceType]
-    ExecutionRole: Optional[RoleArn]
-    ThreadsPerCore: Optional[ClusterThreadsPerCore]
-    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
-    OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
-    Status: Optional[InstanceGroupStatus]
-    TrainingPlanArn: Optional[TrainingPlanArn]
-    TrainingPlanStatus: Optional[InstanceGroupTrainingPlanStatus]
-    OverrideVpcConfig: Optional[VpcConfig]
-    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
-    EnvironmentConfig: Optional[EnvironmentConfigDetails]
+    CurrentCount: ClusterNonNegativeInstanceCount | None
+    TargetCount: ClusterInstanceCount | None
+    InstanceGroupName: ClusterInstanceGroupName | None
+    InstanceType: ClusterInstanceType | None
+    ExecutionRole: RoleArn | None
+    ThreadsPerCore: ClusterThreadsPerCore | None
+    InstanceStorageConfigs: ClusterInstanceStorageConfigs | None
+    OnStartDeepHealthChecks: OnStartDeepHealthChecks | None
+    Status: InstanceGroupStatus | None
+    TrainingPlanArn: TrainingPlanArn | None
+    TrainingPlanStatus: InstanceGroupTrainingPlanStatus | None
+    OverrideVpcConfig: VpcConfig | None
+    ScheduledUpdateConfig: ScheduledUpdateConfig | None
+    EnvironmentConfig: EnvironmentConfigDetails | None
 
 
-ClusterRestrictedInstanceGroupDetailsList = List[ClusterRestrictedInstanceGroupDetails]
+ClusterRestrictedInstanceGroupDetailsList = list[ClusterRestrictedInstanceGroupDetails]
 
 
 class EnvironmentConfig(TypedDict, total=False):
     """The configuration for the restricted instance groups (RIG) environment."""
 
-    FSxLustreConfig: Optional[FSxLustreConfig]
+    FSxLustreConfig: FSxLustreConfig | None
 
 
 class ClusterRestrictedInstanceGroupSpecification(TypedDict, total=False):
@@ -6404,16 +6831,16 @@ class ClusterRestrictedInstanceGroupSpecification(TypedDict, total=False):
     InstanceGroupName: ClusterInstanceGroupName
     InstanceType: ClusterInstanceType
     ExecutionRole: RoleArn
-    ThreadsPerCore: Optional[ClusterThreadsPerCore]
-    InstanceStorageConfigs: Optional[ClusterInstanceStorageConfigs]
-    OnStartDeepHealthChecks: Optional[OnStartDeepHealthChecks]
-    TrainingPlanArn: Optional[TrainingPlanArn]
-    OverrideVpcConfig: Optional[VpcConfig]
-    ScheduledUpdateConfig: Optional[ScheduledUpdateConfig]
+    ThreadsPerCore: ClusterThreadsPerCore | None
+    InstanceStorageConfigs: ClusterInstanceStorageConfigs | None
+    OnStartDeepHealthChecks: OnStartDeepHealthChecks | None
+    TrainingPlanArn: TrainingPlanArn | None
+    OverrideVpcConfig: VpcConfig | None
+    ScheduledUpdateConfig: ScheduledUpdateConfig | None
     EnvironmentConfig: EnvironmentConfig
 
 
-ClusterRestrictedInstanceGroupSpecifications = List[ClusterRestrictedInstanceGroupSpecification]
+ClusterRestrictedInstanceGroupSpecifications = list[ClusterRestrictedInstanceGroupSpecification]
 
 
 class ClusterSchedulerConfigSummary(TypedDict, total=False):
@@ -6421,16 +6848,16 @@ class ClusterSchedulerConfigSummary(TypedDict, total=False):
 
     ClusterSchedulerConfigArn: ClusterSchedulerConfigArn
     ClusterSchedulerConfigId: ClusterSchedulerConfigId
-    ClusterSchedulerConfigVersion: Optional[Integer]
+    ClusterSchedulerConfigVersion: Integer | None
     Name: EntityName
     CreationTime: Timestamp
-    LastModifiedTime: Optional[Timestamp]
+    LastModifiedTime: Timestamp | None
     Status: SchedulerResourceStatus
-    ClusterArn: Optional[ClusterArn]
+    ClusterArn: ClusterArn | None
 
 
-ClusterSchedulerConfigSummaryList = List[ClusterSchedulerConfigSummary]
-TrainingPlanArns = List[TrainingPlanArn]
+ClusterSchedulerConfigSummaryList = list[ClusterSchedulerConfigSummary]
+TrainingPlanArns = list[TrainingPlanArn]
 
 
 class ClusterSummary(TypedDict, total=False):
@@ -6440,10 +6867,10 @@ class ClusterSummary(TypedDict, total=False):
     ClusterName: ClusterName
     CreationTime: Timestamp
     ClusterStatus: ClusterStatus
-    TrainingPlanArns: Optional[TrainingPlanArns]
+    TrainingPlanArns: TrainingPlanArns | None
 
 
-ClusterSummaries = List[ClusterSummary]
+ClusterSummaries = list[ClusterSummary]
 
 
 class ClusterTieredStorageConfig(TypedDict, total=False):
@@ -6456,10 +6883,10 @@ class ClusterTieredStorageConfig(TypedDict, total=False):
     """
 
     Mode: ClusterConfigMode
-    InstanceMemoryAllocationPercentage: Optional[ClusterInstanceMemoryAllocationPercentage]
+    InstanceMemoryAllocationPercentage: ClusterInstanceMemoryAllocationPercentage | None
 
 
-LifecycleConfigArns = List[StudioLifecycleConfigArn]
+LifecycleConfigArns = list[StudioLifecycleConfigArn]
 
 
 class CustomImage(TypedDict, total=False):
@@ -6469,11 +6896,11 @@ class CustomImage(TypedDict, total=False):
     """
 
     ImageName: ImageName
-    ImageVersionNumber: Optional[ImageVersionNumber]
+    ImageVersionNumber: ImageVersionNumber | None
     AppImageConfigName: AppImageConfigName
 
 
-CustomImages = List[CustomImage]
+CustomImages = list[CustomImage]
 
 
 class CodeEditorAppSettings(TypedDict, total=False):
@@ -6484,11 +6911,11 @@ class CodeEditorAppSettings(TypedDict, total=False):
     SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/code-editor.html>`__.
     """
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    CustomImages: Optional[CustomImages]
-    LifecycleConfigArns: Optional[LifecycleConfigArns]
-    AppLifecycleManagement: Optional[AppLifecycleManagement]
-    BuiltInLifecycleConfigArn: Optional[StudioLifecycleConfigArn]
+    DefaultResourceSpec: ResourceSpec | None
+    CustomImages: CustomImages | None
+    LifecycleConfigArns: LifecycleConfigArns | None
+    AppLifecycleManagement: AppLifecycleManagement | None
+    BuiltInLifecycleConfigArn: StudioLifecycleConfigArn | None
 
 
 class CodeRepository(TypedDict, total=False):
@@ -6499,7 +6926,7 @@ class CodeRepository(TypedDict, total=False):
     RepositoryUrl: RepositoryUrl
 
 
-CodeRepositories = List[CodeRepository]
+CodeRepositories = list[CodeRepository]
 
 
 class GitConfig(TypedDict, total=False):
@@ -6508,8 +6935,8 @@ class GitConfig(TypedDict, total=False):
     """
 
     RepositoryUrl: GitConfigUrl
-    Branch: Optional[Branch]
-    SecretArn: Optional[SecretArn]
+    Branch: Branch | None
+    SecretArn: SecretArn | None
 
 
 LastModifiedTime = datetime
@@ -6522,10 +6949,10 @@ class CodeRepositorySummary(TypedDict, total=False):
     CodeRepositoryArn: CodeRepositoryArn
     CreationTime: CreationTime
     LastModifiedTime: LastModifiedTime
-    GitConfig: Optional[GitConfig]
+    GitConfig: GitConfig | None
 
 
-CodeRepositorySummaryList = List[CodeRepositorySummary]
+CodeRepositorySummaryList = list[CodeRepositorySummary]
 
 
 class CognitoConfig(TypedDict, total=False):
@@ -6558,10 +6985,10 @@ class VectorConfig(TypedDict, total=False):
 class CollectionConfig(TypedDict, total=False):
     """Configuration for your collection."""
 
-    VectorConfig: Optional[VectorConfig]
+    VectorConfig: VectorConfig | None
 
 
-CollectionParameters = Dict[ConfigKey, ConfigValue]
+CollectionParameters = dict[ConfigKey, ConfigValue]
 
 
 class CollectionConfiguration(TypedDict, total=False):
@@ -6569,11 +6996,11 @@ class CollectionConfiguration(TypedDict, total=False):
     tensor collections.
     """
 
-    CollectionName: Optional[CollectionName]
-    CollectionParameters: Optional[CollectionParameters]
+    CollectionName: CollectionName | None
+    CollectionParameters: CollectionParameters | None
 
 
-CollectionConfigurations = List[CollectionConfiguration]
+CollectionConfigurations = list[CollectionConfiguration]
 
 
 class CompilationJobSummary(TypedDict, total=False):
@@ -6582,24 +7009,24 @@ class CompilationJobSummary(TypedDict, total=False):
     CompilationJobName: EntityName
     CompilationJobArn: CompilationJobArn
     CreationTime: CreationTime
-    CompilationStartTime: Optional[Timestamp]
-    CompilationEndTime: Optional[Timestamp]
-    CompilationTargetDevice: Optional[TargetDevice]
-    CompilationTargetPlatformOs: Optional[TargetPlatformOs]
-    CompilationTargetPlatformArch: Optional[TargetPlatformArch]
-    CompilationTargetPlatformAccelerator: Optional[TargetPlatformAccelerator]
-    LastModifiedTime: Optional[LastModifiedTime]
+    CompilationStartTime: Timestamp | None
+    CompilationEndTime: Timestamp | None
+    CompilationTargetDevice: TargetDevice | None
+    CompilationTargetPlatformOs: TargetPlatformOs | None
+    CompilationTargetPlatformArch: TargetPlatformArch | None
+    CompilationTargetPlatformAccelerator: TargetPlatformAccelerator | None
+    LastModifiedTime: LastModifiedTime | None
     CompilationJobStatus: CompilationJobStatus
 
 
-CompilationJobSummaries = List[CompilationJobSummary]
+CompilationJobSummaries = list[CompilationJobSummary]
 
 
 class ResourceSharingConfig(TypedDict, total=False):
     """Resource sharing configuration."""
 
     Strategy: ResourceSharingStrategy
-    BorrowLimit: Optional[BorrowLimit]
+    BorrowLimit: BorrowLimit | None
 
 
 class ComputeQuotaResourceConfig(TypedDict, total=False):
@@ -6608,13 +7035,14 @@ class ComputeQuotaResourceConfig(TypedDict, total=False):
     """
 
     InstanceType: ClusterInstanceType
-    Count: Optional[InstanceCount]
-    Accelerators: Optional[AcceleratorsAmount]
-    VCpu: Optional[VCpuAmount]
-    MemoryInGiB: Optional[MemoryInGiBAmount]
+    Count: InstanceCount | None
+    Accelerators: AcceleratorsAmount | None
+    VCpu: VCpuAmount | None
+    MemoryInGiB: MemoryInGiBAmount | None
+    AcceleratorPartition: AcceleratorPartitionConfig | None
 
 
-ComputeQuotaResourceConfigList = List[ComputeQuotaResourceConfig]
+ComputeQuotaResourceConfigList = list[ComputeQuotaResourceConfig]
 
 
 class ComputeQuotaConfig(TypedDict, total=False):
@@ -6623,16 +7051,16 @@ class ComputeQuotaConfig(TypedDict, total=False):
     priority tasks.
     """
 
-    ComputeQuotaResources: Optional[ComputeQuotaResourceConfigList]
-    ResourceSharingConfig: Optional[ResourceSharingConfig]
-    PreemptTeamTasks: Optional[PreemptTeamTasks]
+    ComputeQuotaResources: ComputeQuotaResourceConfigList | None
+    ResourceSharingConfig: ResourceSharingConfig | None
+    PreemptTeamTasks: PreemptTeamTasks | None
 
 
 class ComputeQuotaTarget(TypedDict, total=False):
     """The target entity to allocate compute resources to."""
 
     TeamName: ComputeQuotaTargetTeamName
-    FairShareWeight: Optional[FairShareWeight]
+    FairShareWeight: FairShareWeight | None
 
 
 class ComputeQuotaSummary(TypedDict, total=False):
@@ -6641,29 +7069,29 @@ class ComputeQuotaSummary(TypedDict, total=False):
     ComputeQuotaArn: ComputeQuotaArn
     ComputeQuotaId: ComputeQuotaId
     Name: EntityName
-    ComputeQuotaVersion: Optional[Integer]
+    ComputeQuotaVersion: Integer | None
     Status: SchedulerResourceStatus
-    ClusterArn: Optional[ClusterArn]
-    ComputeQuotaConfig: Optional[ComputeQuotaConfig]
+    ClusterArn: ClusterArn | None
+    ComputeQuotaConfig: ComputeQuotaConfig | None
     ComputeQuotaTarget: ComputeQuotaTarget
-    ActivationState: Optional[ActivationState]
+    ActivationState: ActivationState | None
     CreationTime: Timestamp
-    LastModifiedTime: Optional[Timestamp]
+    LastModifiedTime: Timestamp | None
 
 
-ComputeQuotaSummaryList = List[ComputeQuotaSummary]
+ComputeQuotaSummaryList = list[ComputeQuotaSummary]
 
 
 class ConditionStepMetadata(TypedDict, total=False):
     """Metadata for a Condition step."""
 
-    Outcome: Optional[ConditionOutcome]
+    Outcome: ConditionOutcome | None
 
 
 class MultiModelConfig(TypedDict, total=False):
     """Specifies additional configuration for hosting multi-model endpoints."""
 
-    ModelCacheSetting: Optional[ModelCacheSetting]
+    ModelCacheSetting: ModelCacheSetting | None
 
 
 class RepositoryAuthConfig(TypedDict, total=False):
@@ -6684,35 +7112,35 @@ class ImageConfig(TypedDict, total=False):
     """
 
     RepositoryAccessMode: RepositoryAccessMode
-    RepositoryAuthConfig: Optional[RepositoryAuthConfig]
+    RepositoryAuthConfig: RepositoryAuthConfig | None
 
 
 class ContainerDefinition(TypedDict, total=False):
     """Describes the container, as part of model definition."""
 
-    ContainerHostname: Optional[ContainerHostname]
-    Image: Optional[ContainerImage]
-    ImageConfig: Optional[ImageConfig]
-    Mode: Optional[ContainerMode]
-    ModelDataUrl: Optional[Url]
-    ModelDataSource: Optional[ModelDataSource]
-    AdditionalModelDataSources: Optional[AdditionalModelDataSources]
-    Environment: Optional[EnvironmentMap]
-    ModelPackageName: Optional[VersionedArnOrName]
-    InferenceSpecificationName: Optional[InferenceSpecificationName]
-    MultiModelConfig: Optional[MultiModelConfig]
+    ContainerHostname: ContainerHostname | None
+    Image: ContainerImage | None
+    ImageConfig: ImageConfig | None
+    Mode: ContainerMode | None
+    ModelDataUrl: Url | None
+    ModelDataSource: ModelDataSource | None
+    AdditionalModelDataSources: AdditionalModelDataSources | None
+    Environment: EnvironmentMap | None
+    ModelPackageName: VersionedArnOrName | None
+    InferenceSpecificationName: InferenceSpecificationName | None
+    MultiModelConfig: MultiModelConfig | None
 
 
-ContainerDefinitionList = List[ContainerDefinition]
-ContentClassifiers = List[ContentClassifier]
+ContainerDefinitionList = list[ContainerDefinition]
+ContentClassifiers = list[ContentClassifier]
 
 
 class ContextSource(TypedDict, total=False):
     """A structure describing the source of a context."""
 
     SourceUri: SourceUri
-    SourceType: Optional[String256]
-    SourceId: Optional[String256]
+    SourceType: String256 | None
+    SourceId: String256 | None
 
 
 class ContextSummary(TypedDict, total=False):
@@ -6720,15 +7148,15 @@ class ContextSummary(TypedDict, total=False):
     logical grouping of other entities.
     """
 
-    ContextArn: Optional[ContextArn]
-    ContextName: Optional[ContextName]
-    Source: Optional[ContextSource]
-    ContextType: Optional[String256]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    ContextArn: ContextArn | None
+    ContextName: ContextName | None
+    Source: ContextSource | None
+    ContextType: String256 | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-ContextSummaries = List[ContextSummary]
+ContextSummaries = list[ContextSummary]
 
 
 class ContinuousParameterRange(TypedDict, total=False):
@@ -6737,7 +7165,7 @@ class ContinuousParameterRange(TypedDict, total=False):
     Name: ParameterKey
     MinValue: ParameterValue
     MaxValue: ParameterValue
-    ScalingType: Optional[HyperParameterScalingType]
+    ScalingType: HyperParameterScalingType | None
 
 
 class ContinuousParameterRangeSpecification(TypedDict, total=False):
@@ -6747,7 +7175,7 @@ class ContinuousParameterRangeSpecification(TypedDict, total=False):
     MaxValue: ParameterValue
 
 
-ContinuousParameterRanges = List[ContinuousParameterRange]
+ContinuousParameterRanges = list[ContinuousParameterRange]
 
 
 class ConvergenceDetected(TypedDict, total=False):
@@ -6756,34 +7184,34 @@ class ConvergenceDetected(TypedDict, total=False):
     less) against an objective metric.
     """
 
-    CompleteOnConvergence: Optional[CompleteOnConvergence]
+    CompleteOnConvergence: CompleteOnConvergence | None
 
 
 class MetadataProperties(TypedDict, total=False):
     """Metadata properties of the tracking entity, trial, or trial component."""
 
-    CommitId: Optional[MetadataPropertyValue]
-    Repository: Optional[MetadataPropertyValue]
-    GeneratedBy: Optional[MetadataPropertyValue]
-    ProjectId: Optional[MetadataPropertyValue]
+    CommitId: MetadataPropertyValue | None
+    Repository: MetadataPropertyValue | None
+    GeneratedBy: MetadataPropertyValue | None
+    ProjectId: MetadataPropertyValue | None
 
 
-LineageEntityParameters = Dict[StringParameterValue, StringParameterValue]
+LineageEntityParameters = dict[StringParameterValue, StringParameterValue]
 
 
 class CreateActionRequest(ServiceRequest):
     ActionName: ExperimentEntityName
     Source: ActionSource
     ActionType: String256
-    Description: Optional[ExperimentDescription]
-    Status: Optional[ActionStatus]
-    Properties: Optional[LineageEntityParameters]
-    MetadataProperties: Optional[MetadataProperties]
-    Tags: Optional[TagList]
+    Description: ExperimentDescription | None
+    Status: ActionStatus | None
+    Properties: LineageEntityParameters | None
+    MetadataProperties: MetadataProperties | None
+    Tags: TagList | None
 
 
 class CreateActionResponse(TypedDict, total=False):
-    ActionArn: Optional[ActionArn]
+    ActionArn: ActionArn | None
 
 
 class HyperParameterTuningJobObjective(TypedDict, total=False):
@@ -6800,8 +7228,8 @@ class HyperParameterTuningJobObjective(TypedDict, total=False):
     MetricName: MetricName
 
 
-HyperParameterTuningJobObjectives = List[HyperParameterTuningJobObjective]
-TrainingInstanceTypes = List[TrainingInstanceType]
+HyperParameterTuningJobObjectives = list[HyperParameterTuningJobObjective]
+TrainingInstanceTypes = list[TrainingInstanceType]
 
 
 class IntegerParameterRangeSpecification(TypedDict, total=False):
@@ -6816,48 +7244,48 @@ class ParameterRange(TypedDict, total=False):
     hyperparameters to be used by an algorithm.
     """
 
-    IntegerParameterRangeSpecification: Optional[IntegerParameterRangeSpecification]
-    ContinuousParameterRangeSpecification: Optional[ContinuousParameterRangeSpecification]
-    CategoricalParameterRangeSpecification: Optional[CategoricalParameterRangeSpecification]
+    IntegerParameterRangeSpecification: IntegerParameterRangeSpecification | None
+    ContinuousParameterRangeSpecification: ContinuousParameterRangeSpecification | None
+    CategoricalParameterRangeSpecification: CategoricalParameterRangeSpecification | None
 
 
 class HyperParameterSpecification(TypedDict, total=False):
     """Defines a hyperparameter to be used by an algorithm."""
 
     Name: ParameterName
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     Type: ParameterType
-    Range: Optional[ParameterRange]
-    IsTunable: Optional[Boolean]
-    IsRequired: Optional[Boolean]
-    DefaultValue: Optional[HyperParameterValue]
+    Range: ParameterRange | None
+    IsTunable: Boolean | None
+    IsRequired: Boolean | None
+    DefaultValue: HyperParameterValue | None
 
 
-HyperParameterSpecifications = List[HyperParameterSpecification]
+HyperParameterSpecifications = list[HyperParameterSpecification]
 
 
 class TrainingSpecification(TypedDict, total=False):
     """Defines how the algorithm is used for a training job."""
 
     TrainingImage: ContainerImage
-    TrainingImageDigest: Optional[ImageDigest]
-    SupportedHyperParameters: Optional[HyperParameterSpecifications]
+    TrainingImageDigest: ImageDigest | None
+    SupportedHyperParameters: HyperParameterSpecifications | None
     SupportedTrainingInstanceTypes: TrainingInstanceTypes
-    SupportsDistributedTraining: Optional[Boolean]
-    MetricDefinitions: Optional[MetricDefinitionList]
+    SupportsDistributedTraining: Boolean | None
+    MetricDefinitions: MetricDefinitionList | None
     TrainingChannels: ChannelSpecifications
-    SupportedTuningJobObjectiveMetrics: Optional[HyperParameterTuningJobObjectives]
-    AdditionalS3DataSource: Optional[AdditionalS3DataSource]
+    SupportedTuningJobObjectiveMetrics: HyperParameterTuningJobObjectives | None
+    AdditionalS3DataSource: AdditionalS3DataSource | None
 
 
 class CreateAlgorithmInput(ServiceRequest):
     AlgorithmName: EntityName
-    AlgorithmDescription: Optional[EntityDescription]
+    AlgorithmDescription: EntityDescription | None
     TrainingSpecification: TrainingSpecification
-    InferenceSpecification: Optional[InferenceSpecification]
-    ValidationSpecification: Optional[AlgorithmValidationSpecification]
-    CertifyForMarketplace: Optional[CertifyForMarketplace]
-    Tags: Optional[TagList]
+    InferenceSpecification: InferenceSpecification | None
+    ValidationSpecification: AlgorithmValidationSpecification | None
+    CertifyForMarketplace: CertifyForMarketplace | None
+    Tags: TagList | None
 
 
 class CreateAlgorithmOutput(TypedDict, total=False):
@@ -6866,42 +7294,42 @@ class CreateAlgorithmOutput(TypedDict, total=False):
 
 class CreateAppImageConfigRequest(ServiceRequest):
     AppImageConfigName: AppImageConfigName
-    Tags: Optional[TagList]
-    KernelGatewayImageConfig: Optional[KernelGatewayImageConfig]
-    JupyterLabAppImageConfig: Optional[JupyterLabAppImageConfig]
-    CodeEditorAppImageConfig: Optional[CodeEditorAppImageConfig]
+    Tags: TagList | None
+    KernelGatewayImageConfig: KernelGatewayImageConfig | None
+    JupyterLabAppImageConfig: JupyterLabAppImageConfig | None
+    CodeEditorAppImageConfig: CodeEditorAppImageConfig | None
 
 
 class CreateAppImageConfigResponse(TypedDict, total=False):
-    AppImageConfigArn: Optional[AppImageConfigArn]
+    AppImageConfigArn: AppImageConfigArn | None
 
 
 class CreateAppRequest(ServiceRequest):
     DomainId: DomainId
-    UserProfileName: Optional[UserProfileName]
-    SpaceName: Optional[SpaceName]
+    UserProfileName: UserProfileName | None
+    SpaceName: SpaceName | None
     AppType: AppType
     AppName: AppName
-    Tags: Optional[TagList]
-    ResourceSpec: Optional[ResourceSpec]
-    RecoveryMode: Optional[Boolean]
+    Tags: TagList | None
+    ResourceSpec: ResourceSpec | None
+    RecoveryMode: Boolean | None
 
 
 class CreateAppResponse(TypedDict, total=False):
-    AppArn: Optional[AppArn]
+    AppArn: AppArn | None
 
 
 class CreateArtifactRequest(ServiceRequest):
-    ArtifactName: Optional[ExperimentEntityName]
+    ArtifactName: ExperimentEntityName | None
     Source: ArtifactSource
     ArtifactType: String256
-    Properties: Optional[ArtifactProperties]
-    MetadataProperties: Optional[MetadataProperties]
-    Tags: Optional[TagList]
+    Properties: ArtifactProperties | None
+    MetadataProperties: MetadataProperties | None
+    Tags: TagList | None
 
 
 class CreateArtifactResponse(TypedDict, total=False):
-    ArtifactArn: Optional[ArtifactArn]
+    ArtifactArn: ArtifactArn | None
 
 
 class ModelDeployConfig(TypedDict, total=False):
@@ -6909,21 +7337,21 @@ class ModelDeployConfig(TypedDict, total=False):
     Autopilot model deployment.
     """
 
-    AutoGenerateEndpointName: Optional[AutoGenerateEndpointName]
-    EndpointName: Optional[EndpointName]
+    AutoGenerateEndpointName: AutoGenerateEndpointName | None
+    EndpointName: EndpointName | None
 
 
 class CreateAutoMLJobRequest(ServiceRequest):
     AutoMLJobName: AutoMLJobName
     InputDataConfig: AutoMLInputDataConfig
     OutputDataConfig: AutoMLOutputDataConfig
-    ProblemType: Optional[ProblemType]
-    AutoMLJobObjective: Optional[AutoMLJobObjective]
-    AutoMLJobConfig: Optional[AutoMLJobConfig]
+    ProblemType: ProblemType | None
+    AutoMLJobObjective: AutoMLJobObjective | None
+    AutoMLJobConfig: AutoMLJobConfig | None
     RoleArn: RoleArn
-    GenerateCandidateDefinitionsOnly: Optional[GenerateCandidateDefinitionsOnly]
-    Tags: Optional[TagList]
-    ModelDeployConfig: Optional[ModelDeployConfig]
+    GenerateCandidateDefinitionsOnly: GenerateCandidateDefinitionsOnly | None
+    Tags: TagList | None
+    ModelDeployConfig: ModelDeployConfig | None
 
 
 class CreateAutoMLJobResponse(TypedDict, total=False):
@@ -6936,12 +7364,12 @@ class CreateAutoMLJobV2Request(ServiceRequest):
     OutputDataConfig: AutoMLOutputDataConfig
     AutoMLProblemTypeConfig: AutoMLProblemTypeConfig
     RoleArn: RoleArn
-    Tags: Optional[TagList]
-    SecurityConfig: Optional[AutoMLSecurityConfig]
-    AutoMLJobObjective: Optional[AutoMLJobObjective]
-    ModelDeployConfig: Optional[ModelDeployConfig]
-    DataSplitConfig: Optional[AutoMLDataSplitConfig]
-    AutoMLComputeConfig: Optional[AutoMLComputeConfig]
+    Tags: TagList | None
+    SecurityConfig: AutoMLSecurityConfig | None
+    AutoMLJobObjective: AutoMLJobObjective | None
+    ModelDeployConfig: ModelDeployConfig | None
+    DataSplitConfig: AutoMLDataSplitConfig | None
+    AutoMLComputeConfig: AutoMLComputeConfig | None
 
 
 class CreateAutoMLJobV2Response(TypedDict, total=False):
@@ -6950,16 +7378,16 @@ class CreateAutoMLJobV2Response(TypedDict, total=False):
 
 class CreateClusterRequest(ServiceRequest):
     ClusterName: ClusterName
-    InstanceGroups: Optional[ClusterInstanceGroupSpecifications]
-    RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupSpecifications]
-    VpcConfig: Optional[VpcConfig]
-    Tags: Optional[TagList]
-    Orchestrator: Optional[ClusterOrchestrator]
-    NodeRecovery: Optional[ClusterNodeRecovery]
-    TieredStorageConfig: Optional[ClusterTieredStorageConfig]
-    NodeProvisioningMode: Optional[ClusterNodeProvisioningMode]
-    ClusterRole: Optional[RoleArn]
-    AutoScaling: Optional[ClusterAutoScalingConfig]
+    InstanceGroups: ClusterInstanceGroupSpecifications | None
+    RestrictedInstanceGroups: ClusterRestrictedInstanceGroupSpecifications | None
+    VpcConfig: VpcConfig | None
+    Tags: TagList | None
+    Orchestrator: ClusterOrchestrator | None
+    NodeRecovery: ClusterNodeRecovery | None
+    TieredStorageConfig: ClusterTieredStorageConfig | None
+    NodeProvisioningMode: ClusterNodeProvisioningMode | None
+    ClusterRole: RoleArn | None
+    AutoScaling: ClusterAutoScalingConfig | None
 
 
 class CreateClusterResponse(TypedDict, total=False):
@@ -6975,7 +7403,7 @@ class PriorityClass(TypedDict, total=False):
     Weight: PriorityWeight
 
 
-PriorityClassList = List[PriorityClass]
+PriorityClassList = list[PriorityClass]
 
 
 class SchedulerConfig(TypedDict, total=False):
@@ -6984,16 +7412,16 @@ class SchedulerConfig(TypedDict, total=False):
     workloads and distributes idle compute across entities.
     """
 
-    PriorityClasses: Optional[PriorityClassList]
-    FairShare: Optional[FairShare]
+    PriorityClasses: PriorityClassList | None
+    FairShare: FairShare | None
 
 
 class CreateClusterSchedulerConfigRequest(ServiceRequest):
     Name: EntityName
     ClusterArn: ClusterArn
     SchedulerConfig: SchedulerConfig
-    Description: Optional[EntityDescription]
-    Tags: Optional[TagList]
+    Description: EntityDescription | None
+    Tags: TagList | None
 
 
 class CreateClusterSchedulerConfigResponse(TypedDict, total=False):
@@ -7004,15 +7432,15 @@ class CreateClusterSchedulerConfigResponse(TypedDict, total=False):
 class CreateCodeRepositoryInput(ServiceRequest):
     CodeRepositoryName: EntityName
     GitConfig: GitConfig
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateCodeRepositoryOutput(TypedDict, total=False):
     CodeRepositoryArn: CodeRepositoryArn
 
 
-NeoVpcSubnets = List[NeoVpcSubnetId]
-NeoVpcSecurityGroupIds = List[NeoVpcSecurityGroupId]
+NeoVpcSubnets = list[NeoVpcSubnetId]
+NeoVpcSecurityGroupIds = list[NeoVpcSecurityGroupId]
 
 
 class NeoVpcConfig(TypedDict, total=False):
@@ -7037,7 +7465,7 @@ class TargetPlatform(TypedDict, total=False):
 
     Os: TargetPlatformOs
     Arch: TargetPlatformArch
-    Accelerator: Optional[TargetPlatformAccelerator]
+    Accelerator: TargetPlatformAccelerator | None
 
 
 class OutputConfig(TypedDict, total=False):
@@ -7052,10 +7480,10 @@ class OutputConfig(TypedDict, total=False):
     """
 
     S3OutputLocation: S3Uri
-    TargetDevice: Optional[TargetDevice]
-    TargetPlatform: Optional[TargetPlatform]
-    CompilerOptions: Optional[CompilerOptions]
-    KmsKeyId: Optional[KmsKeyId]
+    TargetDevice: TargetDevice | None
+    TargetPlatform: TargetPlatform | None
+    CompilerOptions: CompilerOptions | None
+    KmsKeyId: KmsKeyId | None
 
 
 class InputConfig(TypedDict, total=False):
@@ -7065,20 +7493,20 @@ class InputConfig(TypedDict, total=False):
     """
 
     S3Uri: S3Uri
-    DataInputConfig: Optional[DataInputConfig]
+    DataInputConfig: DataInputConfig | None
     Framework: Framework
-    FrameworkVersion: Optional[FrameworkVersion]
+    FrameworkVersion: FrameworkVersion | None
 
 
 class CreateCompilationJobRequest(ServiceRequest):
     CompilationJobName: EntityName
     RoleArn: RoleArn
-    ModelPackageVersionArn: Optional[ModelPackageArn]
-    InputConfig: Optional[InputConfig]
+    ModelPackageVersionArn: ModelPackageArn | None
+    InputConfig: InputConfig | None
     OutputConfig: OutputConfig
-    VpcConfig: Optional[NeoVpcConfig]
+    VpcConfig: NeoVpcConfig | None
     StoppingCondition: StoppingCondition
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateCompilationJobResponse(TypedDict, total=False):
@@ -7087,12 +7515,12 @@ class CreateCompilationJobResponse(TypedDict, total=False):
 
 class CreateComputeQuotaRequest(ServiceRequest):
     Name: EntityName
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     ClusterArn: ClusterArn
     ComputeQuotaConfig: ComputeQuotaConfig
     ComputeQuotaTarget: ComputeQuotaTarget
-    ActivationState: Optional[ActivationState]
-    Tags: Optional[TagList]
+    ActivationState: ActivationState | None
+    Tags: TagList | None
 
 
 class CreateComputeQuotaResponse(TypedDict, total=False):
@@ -7104,13 +7532,13 @@ class CreateContextRequest(ServiceRequest):
     ContextName: ContextName
     Source: ContextSource
     ContextType: String256
-    Description: Optional[ExperimentDescription]
-    Properties: Optional[LineageEntityParameters]
-    Tags: Optional[TagList]
+    Description: ExperimentDescription | None
+    Properties: LineageEntityParameters | None
+    Tags: TagList | None
 
 
 class CreateContextResponse(TypedDict, total=False):
-    ContextArn: Optional[ContextArn]
+    ContextArn: ContextArn | None
 
 
 class MonitoringStoppingCondition(TypedDict, total=False):
@@ -7124,9 +7552,9 @@ class MonitoringStoppingCondition(TypedDict, total=False):
 class MonitoringNetworkConfig(TypedDict, total=False):
     """The networking configuration for the monitoring job."""
 
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    EnableNetworkIsolation: Optional[Boolean]
-    VpcConfig: Optional[VpcConfig]
+    EnableInterContainerTrafficEncryption: Boolean | None
+    EnableNetworkIsolation: Boolean | None
+    VpcConfig: VpcConfig | None
 
 
 class MonitoringClusterConfig(TypedDict, total=False):
@@ -7135,7 +7563,7 @@ class MonitoringClusterConfig(TypedDict, total=False):
     InstanceCount: ProcessingInstanceCount
     InstanceType: ProcessingInstanceType
     VolumeSizeInGB: ProcessingVolumeSizeInGB
-    VolumeKmsKeyId: Optional[KmsKeyId]
+    VolumeKmsKeyId: KmsKeyId | None
 
 
 class MonitoringResources(TypedDict, total=False):
@@ -7151,7 +7579,7 @@ class MonitoringS3Output(TypedDict, total=False):
 
     S3Uri: MonitoringS3Uri
     LocalPath: ProcessingLocalPath
-    S3UploadMode: Optional[ProcessingS3UploadMode]
+    S3UploadMode: ProcessingS3UploadMode | None
 
 
 class MonitoringOutput(TypedDict, total=False):
@@ -7160,14 +7588,14 @@ class MonitoringOutput(TypedDict, total=False):
     S3Output: MonitoringS3Output
 
 
-MonitoringOutputs = List[MonitoringOutput]
+MonitoringOutputs = list[MonitoringOutput]
 
 
 class MonitoringOutputConfig(TypedDict, total=False):
     """The output configuration for monitoring jobs."""
 
     MonitoringOutputs: MonitoringOutputs
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
 
 
 class EndpointInput(TypedDict, total=False):
@@ -7175,15 +7603,15 @@ class EndpointInput(TypedDict, total=False):
 
     EndpointName: EndpointName
     LocalPath: ProcessingLocalPath
-    S3InputMode: Optional[ProcessingS3InputMode]
-    S3DataDistributionType: Optional[ProcessingS3DataDistributionType]
-    FeaturesAttribute: Optional[String]
-    InferenceAttribute: Optional[String]
-    ProbabilityAttribute: Optional[String]
-    ProbabilityThresholdAttribute: Optional[ProbabilityThresholdAttribute]
-    StartTimeOffset: Optional[MonitoringTimeOffsetString]
-    EndTimeOffset: Optional[MonitoringTimeOffsetString]
-    ExcludeFeaturesAttribute: Optional[ExcludeFeaturesAttribute]
+    S3InputMode: ProcessingS3InputMode | None
+    S3DataDistributionType: ProcessingS3DataDistributionType | None
+    FeaturesAttribute: String | None
+    InferenceAttribute: String | None
+    ProbabilityAttribute: String | None
+    ProbabilityThresholdAttribute: ProbabilityThresholdAttribute | None
+    StartTimeOffset: MonitoringTimeOffsetString | None
+    EndTimeOffset: MonitoringTimeOffsetString | None
+    ExcludeFeaturesAttribute: ExcludeFeaturesAttribute | None
 
 
 class DataQualityJobInput(TypedDict, total=False):
@@ -7191,35 +7619,35 @@ class DataQualityJobInput(TypedDict, total=False):
     supported for input.
     """
 
-    EndpointInput: Optional[EndpointInput]
-    BatchTransformInput: Optional[BatchTransformInput]
+    EndpointInput: EndpointInput | None
+    BatchTransformInput: BatchTransformInput | None
 
 
-MonitoringEnvironmentMap = Dict[ProcessingEnvironmentKey, ProcessingEnvironmentValue]
-MonitoringContainerArguments = List[ContainerArgument]
+MonitoringEnvironmentMap = dict[ProcessingEnvironmentKey, ProcessingEnvironmentValue]
+MonitoringContainerArguments = list[ContainerArgument]
 
 
 class DataQualityAppSpecification(TypedDict, total=False):
     """Information about the container that a data quality monitoring job runs."""
 
     ImageUri: ImageUri
-    ContainerEntrypoint: Optional[ContainerEntrypoint]
-    ContainerArguments: Optional[MonitoringContainerArguments]
-    RecordPreprocessorSourceUri: Optional[S3Uri]
-    PostAnalyticsProcessorSourceUri: Optional[S3Uri]
-    Environment: Optional[MonitoringEnvironmentMap]
+    ContainerEntrypoint: ContainerEntrypoint | None
+    ContainerArguments: MonitoringContainerArguments | None
+    RecordPreprocessorSourceUri: S3Uri | None
+    PostAnalyticsProcessorSourceUri: S3Uri | None
+    Environment: MonitoringEnvironmentMap | None
 
 
 class MonitoringStatisticsResource(TypedDict, total=False):
     """The statistics resource for a monitoring job."""
 
-    S3Uri: Optional[S3Uri]
+    S3Uri: S3Uri | None
 
 
 class MonitoringConstraintsResource(TypedDict, total=False):
     """The constraints resource for a monitoring job."""
 
-    S3Uri: Optional[S3Uri]
+    S3Uri: S3Uri | None
 
 
 class DataQualityBaselineConfig(TypedDict, total=False):
@@ -7228,22 +7656,22 @@ class DataQualityBaselineConfig(TypedDict, total=False):
     job from the series of jobs scheduled to collect data periodically.
     """
 
-    BaseliningJobName: Optional[ProcessingJobName]
-    ConstraintsResource: Optional[MonitoringConstraintsResource]
-    StatisticsResource: Optional[MonitoringStatisticsResource]
+    BaseliningJobName: ProcessingJobName | None
+    ConstraintsResource: MonitoringConstraintsResource | None
+    StatisticsResource: MonitoringStatisticsResource | None
 
 
 class CreateDataQualityJobDefinitionRequest(ServiceRequest):
     JobDefinitionName: MonitoringJobDefinitionName
-    DataQualityBaselineConfig: Optional[DataQualityBaselineConfig]
+    DataQualityBaselineConfig: DataQualityBaselineConfig | None
     DataQualityAppSpecification: DataQualityAppSpecification
     DataQualityJobInput: DataQualityJobInput
     DataQualityJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
-    Tags: Optional[TagList]
+    StoppingCondition: MonitoringStoppingCondition | None
+    Tags: TagList | None
 
 
 class CreateDataQualityJobDefinitionResponse(TypedDict, total=False):
@@ -7254,24 +7682,24 @@ class EdgeOutputConfig(TypedDict, total=False):
     """The output configuration."""
 
     S3OutputLocation: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
-    PresetDeploymentType: Optional[EdgePresetDeploymentType]
-    PresetDeploymentConfig: Optional[String]
+    KmsKeyId: KmsKeyId | None
+    PresetDeploymentType: EdgePresetDeploymentType | None
+    PresetDeploymentConfig: String | None
 
 
 class CreateDeviceFleetRequest(ServiceRequest):
     DeviceFleetName: EntityName
-    RoleArn: Optional[RoleArn]
-    Description: Optional[DeviceFleetDescription]
+    RoleArn: RoleArn | None
+    Description: DeviceFleetDescription | None
     OutputConfig: EdgeOutputConfig
-    Tags: Optional[TagList]
-    EnableIotRoleAlias: Optional[EnableIotRoleAlias]
+    Tags: TagList | None
+    EnableIotRoleAlias: EnableIotRoleAlias | None
 
 
 class S3FileSystemConfig(TypedDict, total=False):
     """Configuration for the custom Amazon S3 file system."""
 
-    MountPath: Optional[String1024]
+    MountPath: String1024 | None
     S3Uri: S3SchemaUri
 
 
@@ -7281,7 +7709,7 @@ class FSxLustreFileSystemConfig(TypedDict, total=False):
     """
 
     FileSystemId: FileSystemId
-    FileSystemPath: Optional[FileSystemPath]
+    FileSystemPath: FileSystemPath | None
 
 
 class EFSFileSystemConfig(TypedDict, total=False):
@@ -7290,7 +7718,7 @@ class EFSFileSystemConfig(TypedDict, total=False):
     """
 
     FileSystemId: FileSystemId
-    FileSystemPath: Optional[FileSystemPath]
+    FileSystemPath: FileSystemPath | None
 
 
 class CustomFileSystemConfig(TypedDict, total=False):
@@ -7299,12 +7727,12 @@ class CustomFileSystemConfig(TypedDict, total=False):
     file system in Amazon SageMaker AI Studio.
     """
 
-    EFSFileSystemConfig: Optional[EFSFileSystemConfig]
-    FSxLustreFileSystemConfig: Optional[FSxLustreFileSystemConfig]
-    S3FileSystemConfig: Optional[S3FileSystemConfig]
+    EFSFileSystemConfig: EFSFileSystemConfig | None
+    FSxLustreFileSystemConfig: FSxLustreFileSystemConfig | None
+    S3FileSystemConfig: S3FileSystemConfig | None
 
 
-CustomFileSystemConfigs = List[CustomFileSystemConfig]
+CustomFileSystemConfigs = list[CustomFileSystemConfig]
 Gid = int
 Uid = int
 
@@ -7330,10 +7758,10 @@ class DefaultEbsStorageSettings(TypedDict, total=False):
 class DefaultSpaceStorageSettings(TypedDict, total=False):
     """The default storage settings for a space."""
 
-    DefaultEbsStorageSettings: Optional[DefaultEbsStorageSettings]
+    DefaultEbsStorageSettings: DefaultEbsStorageSettings | None
 
 
-ExecutionRoleArns = List[RoleArn]
+ExecutionRoleArns = list[RoleArn]
 
 
 class EmrSettings(TypedDict, total=False):
@@ -7344,36 +7772,36 @@ class EmrSettings(TypedDict, total=False):
     Amazon EMR Serverless applications.
     """
 
-    AssumableRoleArns: Optional[AssumableRoleArns]
-    ExecutionRoleArns: Optional[ExecutionRoleArns]
+    AssumableRoleArns: AssumableRoleArns | None
+    ExecutionRoleArns: ExecutionRoleArns | None
 
 
 class JupyterLabAppSettings(TypedDict, total=False):
     """The settings for the JupyterLab application."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    CustomImages: Optional[CustomImages]
-    LifecycleConfigArns: Optional[LifecycleConfigArns]
-    CodeRepositories: Optional[CodeRepositories]
-    AppLifecycleManagement: Optional[AppLifecycleManagement]
-    EmrSettings: Optional[EmrSettings]
-    BuiltInLifecycleConfigArn: Optional[StudioLifecycleConfigArn]
+    DefaultResourceSpec: ResourceSpec | None
+    CustomImages: CustomImages | None
+    LifecycleConfigArns: LifecycleConfigArns | None
+    CodeRepositories: CodeRepositories | None
+    AppLifecycleManagement: AppLifecycleManagement | None
+    EmrSettings: EmrSettings | None
+    BuiltInLifecycleConfigArn: StudioLifecycleConfigArn | None
 
 
 class KernelGatewayAppSettings(TypedDict, total=False):
     """The KernelGateway app settings."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    CustomImages: Optional[CustomImages]
-    LifecycleConfigArns: Optional[LifecycleConfigArns]
+    DefaultResourceSpec: ResourceSpec | None
+    CustomImages: CustomImages | None
+    LifecycleConfigArns: LifecycleConfigArns | None
 
 
 class JupyterServerAppSettings(TypedDict, total=False):
     """The JupyterServer app settings."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    LifecycleConfigArns: Optional[LifecycleConfigArns]
-    CodeRepositories: Optional[CodeRepositories]
+    DefaultResourceSpec: ResourceSpec | None
+    LifecycleConfigArns: LifecycleConfigArns | None
+    CodeRepositories: CodeRepositories | None
 
 
 class DefaultSpaceSettings(TypedDict, total=False):
@@ -7383,14 +7811,14 @@ class DefaultSpaceSettings(TypedDict, total=False):
     them to private spaces.
     """
 
-    ExecutionRole: Optional[RoleArn]
-    SecurityGroups: Optional[SecurityGroupIds]
-    JupyterServerAppSettings: Optional[JupyterServerAppSettings]
-    KernelGatewayAppSettings: Optional[KernelGatewayAppSettings]
-    JupyterLabAppSettings: Optional[JupyterLabAppSettings]
-    SpaceStorageSettings: Optional[DefaultSpaceStorageSettings]
-    CustomPosixUserConfig: Optional[CustomPosixUserConfig]
-    CustomFileSystemConfigs: Optional[CustomFileSystemConfigs]
+    ExecutionRole: RoleArn | None
+    SecurityGroups: SecurityGroupIds | None
+    JupyterServerAppSettings: JupyterServerAppSettings | None
+    KernelGatewayAppSettings: KernelGatewayAppSettings | None
+    JupyterLabAppSettings: JupyterLabAppSettings | None
+    SpaceStorageSettings: DefaultSpaceStorageSettings | None
+    CustomPosixUserConfig: CustomPosixUserConfig | None
+    CustomFileSystemConfigs: CustomFileSystemConfigs | None
 
 
 class UnifiedStudioSettings(TypedDict, total=False):
@@ -7398,25 +7826,25 @@ class UnifiedStudioSettings(TypedDict, total=False):
     in Amazon SageMaker Unified Studio.
     """
 
-    StudioWebPortalAccess: Optional[FeatureStatus]
-    DomainAccountId: Optional[AccountId]
-    DomainRegion: Optional[RegionName]
-    DomainId: Optional[UnifiedStudioDomainId]
-    ProjectId: Optional[UnifiedStudioProjectId]
-    EnvironmentId: Optional[UnifiedStudioEnvironmentId]
-    ProjectS3Path: Optional[S3Uri]
-    SingleSignOnApplicationArn: Optional[SingleSignOnApplicationArn]
+    StudioWebPortalAccess: FeatureStatus | None
+    DomainAccountId: AccountId | None
+    DomainRegion: RegionName | None
+    DomainId: UnifiedStudioDomainId | None
+    ProjectId: UnifiedStudioProjectId | None
+    EnvironmentId: UnifiedStudioEnvironmentId | None
+    ProjectS3Path: S3Uri | None
+    SingleSignOnApplicationArn: SingleSignOnApplicationArn | None
 
 
-VpcOnlyTrustedAccounts = List[AccountId]
+VpcOnlyTrustedAccounts = list[AccountId]
 
 
 class DockerSettings(TypedDict, total=False):
     """A collection of settings that configure the domain's Docker interaction."""
 
-    EnableDockerAccess: Optional[FeatureStatus]
-    VpcOnlyTrustedAccounts: Optional[VpcOnlyTrustedAccounts]
-    RootlessDocker: Optional[FeatureStatus]
+    EnableDockerAccess: FeatureStatus | None
+    VpcOnlyTrustedAccounts: VpcOnlyTrustedAccounts | None
+    RootlessDocker: FeatureStatus | None
 
 
 class TrustedIdentityPropagationSettings(TypedDict, total=False):
@@ -7435,12 +7863,12 @@ class RStudioServerProDomainSettings(TypedDict, total=False):
     """
 
     DomainExecutionRoleArn: RoleArn
-    RStudioConnectUrl: Optional[String]
-    RStudioPackageManagerUrl: Optional[String]
-    DefaultResourceSpec: Optional[ResourceSpec]
+    RStudioConnectUrl: String | None
+    RStudioPackageManagerUrl: String | None
+    DefaultResourceSpec: ResourceSpec | None
 
 
-DomainSecurityGroupIds = List[SecurityGroupId]
+DomainSecurityGroupIds = list[SecurityGroupId]
 
 
 class DomainSettings(TypedDict, total=False):
@@ -7448,17 +7876,17 @@ class DomainSettings(TypedDict, total=False):
     settings are specified through the ``CreateDomain`` API call.
     """
 
-    SecurityGroupIds: Optional[DomainSecurityGroupIds]
-    RStudioServerProDomainSettings: Optional[RStudioServerProDomainSettings]
-    ExecutionRoleIdentityConfig: Optional[ExecutionRoleIdentityConfig]
-    TrustedIdentityPropagationSettings: Optional[TrustedIdentityPropagationSettings]
-    DockerSettings: Optional[DockerSettings]
-    AmazonQSettings: Optional[AmazonQSettings]
-    UnifiedStudioSettings: Optional[UnifiedStudioSettings]
-    IpAddressType: Optional[IPAddressType]
+    SecurityGroupIds: DomainSecurityGroupIds | None
+    RStudioServerProDomainSettings: RStudioServerProDomainSettings | None
+    ExecutionRoleIdentityConfig: ExecutionRoleIdentityConfig | None
+    TrustedIdentityPropagationSettings: TrustedIdentityPropagationSettings | None
+    DockerSettings: DockerSettings | None
+    AmazonQSettings: AmazonQSettings | None
+    UnifiedStudioSettings: UnifiedStudioSettings | None
+    IpAddressType: IPAddressType | None
 
 
-VersionAliasesList = List[ImageVersionAliasPattern]
+VersionAliasesList = list[ImageVersionAliasPattern]
 
 
 class HiddenSageMakerImage(TypedDict, total=False):
@@ -7466,14 +7894,14 @@ class HiddenSageMakerImage(TypedDict, total=False):
     must specify the SageMaker image name and version aliases.
     """
 
-    SageMakerImageName: Optional[SageMakerImageName]
-    VersionAliases: Optional[VersionAliasesList]
+    SageMakerImageName: SageMakerImageName | None
+    VersionAliases: VersionAliasesList | None
 
 
-HiddenSageMakerImageVersionAliasesList = List[HiddenSageMakerImage]
-HiddenInstanceTypesList = List[AppInstanceType]
-HiddenAppTypesList = List[AppType]
-HiddenMlToolsList = List[MlTools]
+HiddenSageMakerImageVersionAliasesList = list[HiddenSageMakerImage]
+HiddenInstanceTypesList = list[AppInstanceType]
+HiddenAppTypesList = list[AppType]
+HiddenMlToolsList = list[MlTools]
 
 
 class StudioWebPortalSettings(TypedDict, total=False):
@@ -7481,17 +7909,17 @@ class StudioWebPortalSettings(TypedDict, total=False):
     take priority over the settings applied on a domain level.
     """
 
-    HiddenMlTools: Optional[HiddenMlToolsList]
-    HiddenAppTypes: Optional[HiddenAppTypesList]
-    HiddenInstanceTypes: Optional[HiddenInstanceTypesList]
-    HiddenSageMakerImageVersionAliases: Optional[HiddenSageMakerImageVersionAliasesList]
+    HiddenMlTools: HiddenMlToolsList | None
+    HiddenAppTypes: HiddenAppTypesList | None
+    HiddenInstanceTypes: HiddenInstanceTypesList | None
+    HiddenSageMakerImageVersionAliases: HiddenSageMakerImageVersionAliasesList | None
 
 
 class RSessionAppSettings(TypedDict, total=False):
     """A collection of settings that apply to an ``RSessionGateway`` app."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    CustomImages: Optional[CustomImages]
+    DefaultResourceSpec: ResourceSpec | None
+    CustomImages: CustomImages | None
 
 
 class RStudioServerProAppSettings(TypedDict, total=False):
@@ -7499,14 +7927,14 @@ class RStudioServerProAppSettings(TypedDict, total=False):
     ``RStudioServerPro`` app.
     """
 
-    AccessStatus: Optional[RStudioServerProAccessStatus]
-    UserGroup: Optional[RStudioServerProUserGroup]
+    AccessStatus: RStudioServerProAccessStatus | None
+    UserGroup: RStudioServerProUserGroup | None
 
 
 class TensorBoardAppSettings(TypedDict, total=False):
     """The TensorBoard app settings."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
+    DefaultResourceSpec: ResourceSpec | None
 
 
 class SharingSettings(TypedDict, total=False):
@@ -7517,9 +7945,9 @@ class SharingSettings(TypedDict, total=False):
     specified, notebook sharing isn't allowed.
     """
 
-    NotebookOutputOption: Optional[NotebookOutputOption]
-    S3OutputPath: Optional[S3Uri]
-    S3KmsKeyId: Optional[KmsKeyId]
+    NotebookOutputOption: NotebookOutputOption | None
+    S3OutputPath: S3Uri | None
+    S3KmsKeyId: KmsKeyId | None
 
 
 class UserSettings(TypedDict, total=False):
@@ -7533,46 +7961,46 @@ class UserSettings(TypedDict, total=False):
     ``CreateDomain``.
     """
 
-    ExecutionRole: Optional[RoleArn]
-    SecurityGroups: Optional[SecurityGroupIds]
-    SharingSettings: Optional[SharingSettings]
-    JupyterServerAppSettings: Optional[JupyterServerAppSettings]
-    KernelGatewayAppSettings: Optional[KernelGatewayAppSettings]
-    TensorBoardAppSettings: Optional[TensorBoardAppSettings]
-    RStudioServerProAppSettings: Optional[RStudioServerProAppSettings]
-    RSessionAppSettings: Optional[RSessionAppSettings]
-    CanvasAppSettings: Optional[CanvasAppSettings]
-    CodeEditorAppSettings: Optional[CodeEditorAppSettings]
-    JupyterLabAppSettings: Optional[JupyterLabAppSettings]
-    SpaceStorageSettings: Optional[DefaultSpaceStorageSettings]
-    DefaultLandingUri: Optional[LandingUri]
-    StudioWebPortal: Optional[StudioWebPortal]
-    CustomPosixUserConfig: Optional[CustomPosixUserConfig]
-    CustomFileSystemConfigs: Optional[CustomFileSystemConfigs]
-    StudioWebPortalSettings: Optional[StudioWebPortalSettings]
-    AutoMountHomeEFS: Optional[AutoMountHomeEFS]
+    ExecutionRole: RoleArn | None
+    SecurityGroups: SecurityGroupIds | None
+    SharingSettings: SharingSettings | None
+    JupyterServerAppSettings: JupyterServerAppSettings | None
+    KernelGatewayAppSettings: KernelGatewayAppSettings | None
+    TensorBoardAppSettings: TensorBoardAppSettings | None
+    RStudioServerProAppSettings: RStudioServerProAppSettings | None
+    RSessionAppSettings: RSessionAppSettings | None
+    CanvasAppSettings: CanvasAppSettings | None
+    CodeEditorAppSettings: CodeEditorAppSettings | None
+    JupyterLabAppSettings: JupyterLabAppSettings | None
+    SpaceStorageSettings: DefaultSpaceStorageSettings | None
+    DefaultLandingUri: LandingUri | None
+    StudioWebPortal: StudioWebPortal | None
+    CustomPosixUserConfig: CustomPosixUserConfig | None
+    CustomFileSystemConfigs: CustomFileSystemConfigs | None
+    StudioWebPortalSettings: StudioWebPortalSettings | None
+    AutoMountHomeEFS: AutoMountHomeEFS | None
 
 
 class CreateDomainRequest(ServiceRequest):
     DomainName: DomainName
     AuthMode: AuthMode
     DefaultUserSettings: UserSettings
-    DomainSettings: Optional[DomainSettings]
-    SubnetIds: Optional[Subnets]
-    VpcId: Optional[VpcId]
-    Tags: Optional[TagList]
-    AppNetworkAccessType: Optional[AppNetworkAccessType]
-    HomeEfsFileSystemKmsKeyId: Optional[KmsKeyId]
-    KmsKeyId: Optional[KmsKeyId]
-    AppSecurityGroupManagement: Optional[AppSecurityGroupManagement]
-    TagPropagation: Optional[TagPropagation]
-    DefaultSpaceSettings: Optional[DefaultSpaceSettings]
+    DomainSettings: DomainSettings | None
+    SubnetIds: Subnets | None
+    VpcId: VpcId | None
+    Tags: TagList | None
+    AppNetworkAccessType: AppNetworkAccessType | None
+    HomeEfsFileSystemKmsKeyId: KmsKeyId | None
+    KmsKeyId: KmsKeyId | None
+    AppSecurityGroupManagement: AppSecurityGroupManagement | None
+    TagPropagation: TagPropagation | None
+    DefaultSpaceSettings: DefaultSpaceSettings | None
 
 
 class CreateDomainResponse(TypedDict, total=False):
-    DomainArn: Optional[DomainArn]
-    DomainId: Optional[DomainId]
-    Url: Optional[String1024]
+    DomainArn: DomainArn | None
+    DomainId: DomainId | None
+    Url: String1024 | None
 
 
 class EdgeDeploymentConfig(TypedDict, total=False):
@@ -7581,16 +8009,16 @@ class EdgeDeploymentConfig(TypedDict, total=False):
     FailureHandlingPolicy: FailureHandlingPolicy
 
 
-DeviceNames = List[DeviceName]
+DeviceNames = list[DeviceName]
 
 
 class DeviceSelectionConfig(TypedDict, total=False):
     """Contains information about the configurations of selected devices."""
 
     DeviceSubsetType: DeviceSubsetType
-    Percentage: Optional[Percentage]
-    DeviceNames: Optional[DeviceNames]
-    DeviceNameContains: Optional[DeviceName]
+    Percentage: Percentage | None
+    DeviceNames: DeviceNames | None
+    DeviceNameContains: DeviceName | None
 
 
 class DeploymentStage(TypedDict, total=False):
@@ -7598,10 +8026,10 @@ class DeploymentStage(TypedDict, total=False):
 
     StageName: EntityName
     DeviceSelectionConfig: DeviceSelectionConfig
-    DeploymentConfig: Optional[EdgeDeploymentConfig]
+    DeploymentConfig: EdgeDeploymentConfig | None
 
 
-DeploymentStages = List[DeploymentStage]
+DeploymentStages = list[DeploymentStage]
 
 
 class EdgeDeploymentModelConfig(TypedDict, total=False):
@@ -7611,15 +8039,15 @@ class EdgeDeploymentModelConfig(TypedDict, total=False):
     EdgePackagingJobName: EntityName
 
 
-EdgeDeploymentModelConfigs = List[EdgeDeploymentModelConfig]
+EdgeDeploymentModelConfigs = list[EdgeDeploymentModelConfig]
 
 
 class CreateEdgeDeploymentPlanRequest(ServiceRequest):
     EdgeDeploymentPlanName: EntityName
     ModelConfigs: EdgeDeploymentModelConfigs
     DeviceFleetName: EntityName
-    Stages: Optional[DeploymentStages]
-    Tags: Optional[TagList]
+    Stages: DeploymentStages | None
+    Tags: TagList | None
 
 
 class CreateEdgeDeploymentPlanResponse(TypedDict, total=False):
@@ -7638,8 +8066,15 @@ class CreateEdgePackagingJobRequest(ServiceRequest):
     ModelVersion: EdgeVersion
     RoleArn: RoleArn
     OutputConfig: EdgeOutputConfig
-    ResourceKey: Optional[KmsKeyId]
-    Tags: Optional[TagList]
+    ResourceKey: KmsKeyId | None
+    Tags: TagList | None
+
+
+class MetricsConfig(TypedDict, total=False):
+    """The configuration for Utilization metrics."""
+
+    EnableEnhancedMetrics: EnableEnhancedMetrics | None
+    MetricPublishFrequencyInSeconds: MetricPublishFrequencyInSeconds | None
 
 
 class ProductionVariantCapacityReservationConfig(TypedDict, total=False):
@@ -7647,8 +8082,8 @@ class ProductionVariantCapacityReservationConfig(TypedDict, total=False):
     SageMaker AI reserves for an endpoint.
     """
 
-    CapacityReservationPreference: Optional[CapacityReservationPreference]
-    MlReservationArn: Optional[MlReservationArn]
+    CapacityReservationPreference: CapacityReservationPreference | None
+    MlReservationArn: MlReservationArn | None
 
 
 class ProductionVariantRoutingConfig(TypedDict, total=False):
@@ -7664,9 +8099,9 @@ class ProductionVariantManagedInstanceScaling(TypedDict, total=False):
     endpoint provisions as it scales up or down to accommodate traffic.
     """
 
-    Status: Optional[ManagedInstanceScalingStatus]
-    MinInstanceCount: Optional[ManagedInstanceScalingMinInstanceCount]
-    MaxInstanceCount: Optional[ManagedInstanceScalingMaxInstanceCount]
+    Status: ManagedInstanceScalingStatus | None
+    MinInstanceCount: ManagedInstanceScalingMinInstanceCount | None
+    MaxInstanceCount: ManagedInstanceScalingMaxInstanceCount | None
 
 
 class ProductionVariantServerlessConfig(TypedDict, total=False):
@@ -7674,7 +8109,7 @@ class ProductionVariantServerlessConfig(TypedDict, total=False):
 
     MemorySizeInMB: ServerlessMemorySizeInMB
     MaxConcurrency: ServerlessMaxConcurrency
-    ProvisionedConcurrency: Optional[ServerlessProvisionedConcurrency]
+    ProvisionedConcurrency: ServerlessProvisionedConcurrency | None
 
 
 class ProductionVariantCoreDumpConfig(TypedDict, total=False):
@@ -7683,7 +8118,7 @@ class ProductionVariantCoreDumpConfig(TypedDict, total=False):
     """
 
     DestinationS3Uri: DestinationS3Uri
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
 
 
 class ProductionVariant(TypedDict, total=False):
@@ -7696,57 +8131,58 @@ class ProductionVariant(TypedDict, total=False):
     """
 
     VariantName: VariantName
-    ModelName: Optional[ModelName]
-    InitialInstanceCount: Optional[InitialTaskCount]
-    InstanceType: Optional[ProductionVariantInstanceType]
-    InitialVariantWeight: Optional[VariantWeight]
-    AcceleratorType: Optional[ProductionVariantAcceleratorType]
-    CoreDumpConfig: Optional[ProductionVariantCoreDumpConfig]
-    ServerlessConfig: Optional[ProductionVariantServerlessConfig]
-    VolumeSizeInGB: Optional[ProductionVariantVolumeSizeInGB]
-    ModelDataDownloadTimeoutInSeconds: Optional[ProductionVariantModelDataDownloadTimeoutInSeconds]
-    ContainerStartupHealthCheckTimeoutInSeconds: Optional[
-        ProductionVariantContainerStartupHealthCheckTimeoutInSeconds
-    ]
-    EnableSSMAccess: Optional[ProductionVariantSSMAccess]
-    ManagedInstanceScaling: Optional[ProductionVariantManagedInstanceScaling]
-    RoutingConfig: Optional[ProductionVariantRoutingConfig]
-    InferenceAmiVersion: Optional[ProductionVariantInferenceAmiVersion]
-    CapacityReservationConfig: Optional[ProductionVariantCapacityReservationConfig]
+    ModelName: ModelName | None
+    InitialInstanceCount: InitialTaskCount | None
+    InstanceType: ProductionVariantInstanceType | None
+    InitialVariantWeight: VariantWeight | None
+    AcceleratorType: ProductionVariantAcceleratorType | None
+    CoreDumpConfig: ProductionVariantCoreDumpConfig | None
+    ServerlessConfig: ProductionVariantServerlessConfig | None
+    VolumeSizeInGB: ProductionVariantVolumeSizeInGB | None
+    ModelDataDownloadTimeoutInSeconds: ProductionVariantModelDataDownloadTimeoutInSeconds | None
+    ContainerStartupHealthCheckTimeoutInSeconds: (
+        ProductionVariantContainerStartupHealthCheckTimeoutInSeconds | None
+    )
+    EnableSSMAccess: ProductionVariantSSMAccess | None
+    ManagedInstanceScaling: ProductionVariantManagedInstanceScaling | None
+    RoutingConfig: ProductionVariantRoutingConfig | None
+    InferenceAmiVersion: ProductionVariantInferenceAmiVersion | None
+    CapacityReservationConfig: ProductionVariantCapacityReservationConfig | None
 
 
-ProductionVariantList = List[ProductionVariant]
+ProductionVariantList = list[ProductionVariant]
 
 
 class ExplainerConfig(TypedDict, total=False):
     """A parameter to activate explainers."""
 
-    ClarifyExplainerConfig: Optional[ClarifyExplainerConfig]
+    ClarifyExplainerConfig: ClarifyExplainerConfig | None
 
 
 class DataCaptureConfig(TypedDict, total=False):
     """Configuration to control how SageMaker AI captures inference data."""
 
-    EnableCapture: Optional[EnableCapture]
+    EnableCapture: EnableCapture | None
     InitialSamplingPercentage: SamplingPercentage
     DestinationS3Uri: DestinationS3Uri
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
     CaptureOptions: CaptureOptionList
-    CaptureContentTypeHeader: Optional[CaptureContentTypeHeader]
+    CaptureContentTypeHeader: CaptureContentTypeHeader | None
 
 
 class CreateEndpointConfigInput(ServiceRequest):
     EndpointConfigName: EndpointConfigName
     ProductionVariants: ProductionVariantList
-    DataCaptureConfig: Optional[DataCaptureConfig]
-    Tags: Optional[TagList]
-    KmsKeyId: Optional[KmsKeyId]
-    AsyncInferenceConfig: Optional[AsyncInferenceConfig]
-    ExplainerConfig: Optional[ExplainerConfig]
-    ShadowProductionVariants: Optional[ProductionVariantList]
-    ExecutionRoleArn: Optional[RoleArn]
-    VpcConfig: Optional[VpcConfig]
-    EnableNetworkIsolation: Optional[Boolean]
+    DataCaptureConfig: DataCaptureConfig | None
+    Tags: TagList | None
+    KmsKeyId: KmsKeyId | None
+    AsyncInferenceConfig: AsyncInferenceConfig | None
+    ExplainerConfig: ExplainerConfig | None
+    ShadowProductionVariants: ProductionVariantList | None
+    ExecutionRoleArn: RoleArn | None
+    VpcConfig: VpcConfig | None
+    EnableNetworkIsolation: Boolean | None
+    MetricsConfig: MetricsConfig | None
 
 
 class CreateEndpointConfigOutput(TypedDict, total=False):
@@ -7760,8 +8196,8 @@ class RollingUpdatePolicy(TypedDict, total=False):
 
     MaximumBatchSize: CapacitySize
     WaitIntervalInSeconds: WaitIntervalInSeconds
-    MaximumExecutionTimeoutInSeconds: Optional[MaximumExecutionTimeoutInSeconds]
-    RollbackMaximumBatchSize: Optional[CapacitySize]
+    MaximumExecutionTimeoutInSeconds: MaximumExecutionTimeoutInSeconds | None
+    RollbackMaximumBatchSize: CapacitySize | None
 
 
 class DeploymentConfig(TypedDict, total=False):
@@ -7769,16 +8205,16 @@ class DeploymentConfig(TypedDict, total=False):
     deployment strategy and rollback configurations.
     """
 
-    BlueGreenUpdatePolicy: Optional[BlueGreenUpdatePolicy]
-    RollingUpdatePolicy: Optional[RollingUpdatePolicy]
-    AutoRollbackConfiguration: Optional[AutoRollbackConfig]
+    BlueGreenUpdatePolicy: BlueGreenUpdatePolicy | None
+    RollingUpdatePolicy: RollingUpdatePolicy | None
+    AutoRollbackConfiguration: AutoRollbackConfig | None
 
 
 class CreateEndpointInput(ServiceRequest):
     EndpointName: EndpointName
     EndpointConfigName: EndpointConfigName
-    DeploymentConfig: Optional[DeploymentConfig]
-    Tags: Optional[TagList]
+    DeploymentConfig: DeploymentConfig | None
+    Tags: TagList | None
 
 
 class CreateEndpointOutput(TypedDict, total=False):
@@ -7787,13 +8223,13 @@ class CreateEndpointOutput(TypedDict, total=False):
 
 class CreateExperimentRequest(ServiceRequest):
     ExperimentName: ExperimentEntityName
-    DisplayName: Optional[ExperimentEntityName]
-    Description: Optional[ExperimentDescription]
-    Tags: Optional[TagList]
+    DisplayName: ExperimentEntityName | None
+    Description: ExperimentDescription | None
+    Tags: TagList | None
 
 
 class CreateExperimentResponse(TypedDict, total=False):
-    ExperimentArn: Optional[ExperimentArn]
+    ExperimentArn: ExperimentArn | None
 
 
 class ThroughputConfig(TypedDict, total=False):
@@ -7815,8 +8251,8 @@ class ThroughputConfig(TypedDict, total=False):
     """
 
     ThroughputMode: ThroughputMode
-    ProvisionedReadCapacityUnits: Optional[CapacityUnit]
-    ProvisionedWriteCapacityUnits: Optional[CapacityUnit]
+    ProvisionedReadCapacityUnits: CapacityUnit | None
+    ProvisionedWriteCapacityUnits: CapacityUnit | None
 
 
 class DataCatalogConfig(TypedDict, total=False):
@@ -7835,8 +8271,8 @@ class S3StorageConfig(TypedDict, total=False):
     """
 
     S3Uri: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
-    ResolvedOutputS3Uri: Optional[S3Uri]
+    KmsKeyId: KmsKeyId | None
+    ResolvedOutputS3Uri: S3Uri | None
 
 
 class OfflineStoreConfig(TypedDict, total=False):
@@ -7851,9 +8287,9 @@ class OfflineStoreConfig(TypedDict, total=False):
     """
 
     S3StorageConfig: S3StorageConfig
-    DisableGlueTableCreation: Optional[Boolean]
-    DataCatalogConfig: Optional[DataCatalogConfig]
-    TableFormat: Optional[TableFormat]
+    DisableGlueTableCreation: Boolean | None
+    DataCatalogConfig: DataCatalogConfig | None
+    TableFormat: TableFormat | None
 
 
 class TtlDuration(TypedDict, total=False):
@@ -7864,14 +8300,14 @@ class TtlDuration(TypedDict, total=False):
     API in the Amazon SageMaker API Reference guide.
     """
 
-    Unit: Optional[TtlDurationUnit]
-    Value: Optional[TtlDurationValue]
+    Unit: TtlDurationUnit | None
+    Value: TtlDurationValue | None
 
 
 class OnlineStoreSecurityConfig(TypedDict, total=False):
     """The security configuration for ``OnlineStore``."""
 
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
 
 
 class OnlineStoreConfig(TypedDict, total=False):
@@ -7883,10 +8319,10 @@ class OnlineStoreConfig(TypedDict, total=False):
     The default value is ``False``.
     """
 
-    SecurityConfig: Optional[OnlineStoreSecurityConfig]
-    EnableOnlineStore: Optional[Boolean]
-    TtlDuration: Optional[TtlDuration]
-    StorageType: Optional[StorageType]
+    SecurityConfig: OnlineStoreSecurityConfig | None
+    EnableOnlineStore: Boolean | None
+    TtlDuration: TtlDuration | None
+    StorageType: StorageType | None
 
 
 class FeatureDefinition(TypedDict, total=False):
@@ -7897,11 +8333,11 @@ class FeatureDefinition(TypedDict, total=False):
 
     FeatureName: FeatureName
     FeatureType: FeatureType
-    CollectionType: Optional[CollectionType]
-    CollectionConfig: Optional[CollectionConfig]
+    CollectionType: CollectionType | None
+    CollectionConfig: CollectionConfig | None
 
 
-FeatureDefinitions = List[FeatureDefinition]
+FeatureDefinitions = list[FeatureDefinition]
 
 
 class CreateFeatureGroupRequest(ServiceRequest):
@@ -7909,12 +8345,12 @@ class CreateFeatureGroupRequest(ServiceRequest):
     RecordIdentifierFeatureName: FeatureName
     EventTimeFeatureName: FeatureName
     FeatureDefinitions: FeatureDefinitions
-    OnlineStoreConfig: Optional[OnlineStoreConfig]
-    OfflineStoreConfig: Optional[OfflineStoreConfig]
-    ThroughputConfig: Optional[ThroughputConfig]
-    RoleArn: Optional[RoleArn]
-    Description: Optional[Description]
-    Tags: Optional[TagList]
+    OnlineStoreConfig: OnlineStoreConfig | None
+    OfflineStoreConfig: OfflineStoreConfig | None
+    ThroughputConfig: ThroughputConfig | None
+    RoleArn: RoleArn | None
+    Description: Description | None
+    Tags: TagList | None
 
 
 class CreateFeatureGroupResponse(TypedDict, total=False):
@@ -7925,15 +8361,15 @@ class FlowDefinitionOutputConfig(TypedDict, total=False):
     """Contains information about where human output will be stored."""
 
     S3OutputPath: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
 
 
 class USD(TypedDict, total=False):
     """Represents an amount of money in United States dollars."""
 
-    Dollars: Optional[Dollars]
-    Cents: Optional[Cents]
-    TenthFractionsOfACent: Optional[TenthFractionsOfACent]
+    Dollars: Dollars | None
+    Cents: Cents | None
+    TenthFractionsOfACent: TenthFractionsOfACent | None
 
 
 class PublicWorkforceTaskPrice(TypedDict, total=False):
@@ -8144,10 +8580,10 @@ class PublicWorkforceTaskPrice(TypedDict, total=False):
     -  0.012
     """
 
-    AmountInUsd: Optional[USD]
+    AmountInUsd: USD | None
 
 
-FlowDefinitionTaskKeywords = List[FlowDefinitionTaskKeyword]
+FlowDefinitionTaskKeywords = list[FlowDefinitionTaskKeyword]
 
 
 class HumanLoopConfig(TypedDict, total=False):
@@ -8158,10 +8594,10 @@ class HumanLoopConfig(TypedDict, total=False):
     TaskTitle: FlowDefinitionTaskTitle
     TaskDescription: FlowDefinitionTaskDescription
     TaskCount: FlowDefinitionTaskCount
-    TaskAvailabilityLifetimeInSeconds: Optional[FlowDefinitionTaskAvailabilityLifetimeInSeconds]
-    TaskTimeLimitInSeconds: Optional[FlowDefinitionTaskTimeLimitInSeconds]
-    TaskKeywords: Optional[FlowDefinitionTaskKeywords]
-    PublicWorkforceTaskPrice: Optional[PublicWorkforceTaskPrice]
+    TaskAvailabilityLifetimeInSeconds: FlowDefinitionTaskAvailabilityLifetimeInSeconds | None
+    TaskTimeLimitInSeconds: FlowDefinitionTaskTimeLimitInSeconds | None
+    TaskKeywords: FlowDefinitionTaskKeywords | None
+    PublicWorkforceTaskPrice: PublicWorkforceTaskPrice | None
 
 
 class HumanLoopActivationConditionsConfig(TypedDict, total=False):
@@ -8193,12 +8629,12 @@ class HumanLoopRequestSource(TypedDict, total=False):
 
 class CreateFlowDefinitionRequest(ServiceRequest):
     FlowDefinitionName: FlowDefinitionName
-    HumanLoopRequestSource: Optional[HumanLoopRequestSource]
-    HumanLoopActivationConfig: Optional[HumanLoopActivationConfig]
-    HumanLoopConfig: Optional[HumanLoopConfig]
+    HumanLoopRequestSource: HumanLoopRequestSource | None
+    HumanLoopActivationConfig: HumanLoopActivationConfig | None
+    HumanLoopConfig: HumanLoopConfig | None
     OutputConfig: FlowDefinitionOutputConfig
     RoleArn: RoleArn
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateFlowDefinitionResponse(TypedDict, total=False):
@@ -8210,31 +8646,31 @@ class PresignedUrlAccessConfig(TypedDict, total=False):
     including license agreement acceptance and URL validation settings.
     """
 
-    AcceptEula: Optional[Boolean]
-    ExpectedS3Url: Optional[S3ModelUri]
+    AcceptEula: Boolean | None
+    ExpectedS3Url: S3ModelUri | None
 
 
 class CreateHubContentPresignedUrlsRequest(ServiceRequest):
     HubName: HubNameOrArn
     HubContentType: HubContentType
     HubContentName: HubContentName
-    HubContentVersion: Optional[HubContentVersion]
-    AccessConfig: Optional[PresignedUrlAccessConfig]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    HubContentVersion: HubContentVersion | None
+    AccessConfig: PresignedUrlAccessConfig | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class CreateHubContentPresignedUrlsResponse(TypedDict, total=False):
     AuthorizedUrlConfigs: AuthorizedUrlConfigs
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class CreateHubContentReferenceRequest(ServiceRequest):
     HubName: HubNameOrArn
     SageMakerPublicHubContentArn: SageMakerPublicHubContentArn
-    HubContentName: Optional[HubContentName]
-    MinVersion: Optional[HubContentVersion]
-    Tags: Optional[TagList]
+    HubContentName: HubContentName | None
+    MinVersion: HubContentVersion | None
+    Tags: TagList | None
 
 
 class CreateHubContentReferenceResponse(TypedDict, total=False):
@@ -8245,19 +8681,19 @@ class CreateHubContentReferenceResponse(TypedDict, total=False):
 class HubS3StorageConfig(TypedDict, total=False):
     """The Amazon S3 storage configuration of a hub."""
 
-    S3OutputPath: Optional[S3OutputPath]
+    S3OutputPath: S3OutputPath | None
 
 
-HubSearchKeywordList = List[HubSearchKeyword]
+HubSearchKeywordList = list[HubSearchKeyword]
 
 
 class CreateHubRequest(ServiceRequest):
     HubName: HubName
     HubDescription: HubDescription
-    HubDisplayName: Optional[HubDisplayName]
-    HubSearchKeywords: Optional[HubSearchKeywordList]
-    S3StorageConfig: Optional[HubS3StorageConfig]
-    Tags: Optional[TagList]
+    HubDisplayName: HubDisplayName | None
+    HubSearchKeywords: HubSearchKeywordList | None
+    S3StorageConfig: HubS3StorageConfig | None
+    Tags: TagList | None
 
 
 class CreateHubResponse(TypedDict, total=False):
@@ -8273,7 +8709,7 @@ class UiTemplate(TypedDict, total=False):
 class CreateHumanTaskUiRequest(ServiceRequest):
     HumanTaskUiName: HumanTaskUiName
     UiTemplate: UiTemplate
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateHumanTaskUiResponse(TypedDict, total=False):
@@ -8285,10 +8721,10 @@ class ParentHyperParameterTuningJob(TypedDict, total=False):
     as a starting point for a new hyperparameter tuning job.
     """
 
-    HyperParameterTuningJobName: Optional[HyperParameterTuningJobName]
+    HyperParameterTuningJobName: HyperParameterTuningJobName | None
 
 
-ParentHyperParameterTuningJobs = List[ParentHyperParameterTuningJob]
+ParentHyperParameterTuningJobs = list[ParentHyperParameterTuningJob]
 
 
 class HyperParameterTuningJobWarmStartConfig(TypedDict, total=False):
@@ -8313,7 +8749,7 @@ class HyperParameterTuningJobWarmStartConfig(TypedDict, total=False):
     WarmStartType: HyperParameterTuningJobWarmStartType
 
 
-HyperParameterTrainingJobEnvironmentMap = Dict[
+HyperParameterTrainingJobEnvironmentMap = dict[
     HyperParameterTrainingJobEnvironmentKey, HyperParameterTrainingJobEnvironmentValue
 ]
 
@@ -8342,7 +8778,7 @@ class HyperParameterTuningInstanceConfig(TypedDict, total=False):
     VolumeSizeInGB: VolumeSizeInGB
 
 
-HyperParameterTuningInstanceConfigs = List[HyperParameterTuningInstanceConfig]
+HyperParameterTuningInstanceConfigs = list[HyperParameterTuningInstanceConfig]
 
 
 class HyperParameterTuningResourceConfig(TypedDict, total=False):
@@ -8360,12 +8796,12 @@ class HyperParameterTuningResourceConfig(TypedDict, total=False):
     clusters between training jobs.
     """
 
-    InstanceType: Optional[TrainingInstanceType]
-    InstanceCount: Optional[TrainingInstanceCount]
-    VolumeSizeInGB: Optional[OptionalVolumeSizeInGB]
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    AllocationStrategy: Optional[HyperParameterTuningAllocationStrategy]
-    InstanceConfigs: Optional[HyperParameterTuningInstanceConfigs]
+    InstanceType: TrainingInstanceType | None
+    InstanceCount: TrainingInstanceCount | None
+    VolumeSizeInGB: OptionalVolumeSizeInGB | None
+    VolumeKmsKeyId: KmsKeyId | None
+    AllocationStrategy: HyperParameterTuningAllocationStrategy | None
+    InstanceConfigs: HyperParameterTuningInstanceConfigs | None
 
 
 class HyperParameterAlgorithmSpecification(TypedDict, total=False):
@@ -8373,10 +8809,10 @@ class HyperParameterAlgorithmSpecification(TypedDict, total=False):
     hyperparameter tuning job launches and the metrics to monitor.
     """
 
-    TrainingImage: Optional[AlgorithmImage]
+    TrainingImage: AlgorithmImage | None
     TrainingInputMode: TrainingInputMode
-    AlgorithmName: Optional[ArnOrName]
-    MetricDefinitions: Optional[MetricDefinitionList]
+    AlgorithmName: ArnOrName | None
+    MetricDefinitions: MetricDefinitionList | None
 
 
 class IntegerParameterRange(TypedDict, total=False):
@@ -8387,10 +8823,10 @@ class IntegerParameterRange(TypedDict, total=False):
     Name: ParameterKey
     MinValue: ParameterValue
     MaxValue: ParameterValue
-    ScalingType: Optional[HyperParameterScalingType]
+    ScalingType: HyperParameterScalingType | None
 
 
-IntegerParameterRanges = List[IntegerParameterRange]
+IntegerParameterRanges = list[IntegerParameterRange]
 
 
 class ParameterRanges(TypedDict, total=False):
@@ -8408,44 +8844,44 @@ class ParameterRanges(TypedDict, total=False):
     maximum number specified.
     """
 
-    IntegerParameterRanges: Optional[IntegerParameterRanges]
-    ContinuousParameterRanges: Optional[ContinuousParameterRanges]
-    CategoricalParameterRanges: Optional[CategoricalParameterRanges]
-    AutoParameters: Optional[AutoParameters]
+    IntegerParameterRanges: IntegerParameterRanges | None
+    ContinuousParameterRanges: ContinuousParameterRanges | None
+    CategoricalParameterRanges: CategoricalParameterRanges | None
+    AutoParameters: AutoParameters | None
 
 
 class HyperParameterTrainingJobDefinition(TypedDict, total=False):
     """Defines the training jobs launched by a hyperparameter tuning job."""
 
-    DefinitionName: Optional[HyperParameterTrainingJobDefinitionName]
-    TuningObjective: Optional[HyperParameterTuningJobObjective]
-    HyperParameterRanges: Optional[ParameterRanges]
-    StaticHyperParameters: Optional[HyperParameters]
+    DefinitionName: HyperParameterTrainingJobDefinitionName | None
+    TuningObjective: HyperParameterTuningJobObjective | None
+    HyperParameterRanges: ParameterRanges | None
+    StaticHyperParameters: HyperParameters | None
     AlgorithmSpecification: HyperParameterAlgorithmSpecification
     RoleArn: RoleArn
-    InputDataConfig: Optional[InputDataConfig]
-    VpcConfig: Optional[VpcConfig]
+    InputDataConfig: InputDataConfig | None
+    VpcConfig: VpcConfig | None
     OutputDataConfig: OutputDataConfig
-    ResourceConfig: Optional[ResourceConfig]
-    HyperParameterTuningResourceConfig: Optional[HyperParameterTuningResourceConfig]
+    ResourceConfig: ResourceConfig | None
+    HyperParameterTuningResourceConfig: HyperParameterTuningResourceConfig | None
     StoppingCondition: StoppingCondition
-    EnableNetworkIsolation: Optional[Boolean]
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    EnableManagedSpotTraining: Optional[Boolean]
-    CheckpointConfig: Optional[CheckpointConfig]
-    RetryStrategy: Optional[RetryStrategy]
-    Environment: Optional[HyperParameterTrainingJobEnvironmentMap]
+    EnableNetworkIsolation: Boolean | None
+    EnableInterContainerTrafficEncryption: Boolean | None
+    EnableManagedSpotTraining: Boolean | None
+    CheckpointConfig: CheckpointConfig | None
+    RetryStrategy: RetryStrategy | None
+    Environment: HyperParameterTrainingJobEnvironmentMap | None
 
 
-HyperParameterTrainingJobDefinitions = List[HyperParameterTrainingJobDefinition]
+HyperParameterTrainingJobDefinitions = list[HyperParameterTrainingJobDefinition]
 
 
 class TuningJobCompletionCriteria(TypedDict, total=False):
     """The job completion criteria."""
 
-    TargetObjectiveMetricValue: Optional[TargetObjectiveMetricValue]
-    BestObjectiveNotImproving: Optional[BestObjectiveNotImproving]
-    ConvergenceDetected: Optional[ConvergenceDetected]
+    TargetObjectiveMetricValue: TargetObjectiveMetricValue | None
+    BestObjectiveNotImproving: BestObjectiveNotImproving | None
+    ConvergenceDetected: ConvergenceDetected | None
 
 
 class ResourceLimits(TypedDict, total=False):
@@ -8453,9 +8889,9 @@ class ResourceLimits(TypedDict, total=False):
     that a hyperparameter tuning job can launch.
     """
 
-    MaxNumberOfTrainingJobs: Optional[MaxNumberOfTrainingJobs]
+    MaxNumberOfTrainingJobs: MaxNumberOfTrainingJobs | None
     MaxParallelTrainingJobs: MaxParallelTrainingJobs
-    MaxRuntimeInSeconds: Optional[HyperParameterTuningMaxRuntimeInSeconds]
+    MaxRuntimeInSeconds: HyperParameterTuningMaxRuntimeInSeconds | None
 
 
 class HyperbandStrategyConfig(TypedDict, total=False):
@@ -8468,8 +8904,8 @@ class HyperbandStrategyConfig(TypedDict, total=False):
     ``HyperParameterTuningJobConfig`` API.
     """
 
-    MinResource: Optional[HyperbandStrategyMinResource]
-    MaxResource: Optional[HyperbandStrategyMaxResource]
+    MinResource: HyperbandStrategyMinResource | None
+    MaxResource: HyperbandStrategyMaxResource | None
 
 
 class HyperParameterTuningJobStrategyConfig(TypedDict, total=False):
@@ -8482,30 +8918,30 @@ class HyperParameterTuningJobStrategyConfig(TypedDict, total=False):
     Works <https://docs.aws.amazon.com/sagemaker/latest/dg/automatic-model-tuning-how-it-works.html>`__.
     """
 
-    HyperbandStrategyConfig: Optional[HyperbandStrategyConfig]
+    HyperbandStrategyConfig: HyperbandStrategyConfig | None
 
 
 class HyperParameterTuningJobConfig(TypedDict, total=False):
     """Configures a hyperparameter tuning job."""
 
     Strategy: HyperParameterTuningJobStrategyType
-    StrategyConfig: Optional[HyperParameterTuningJobStrategyConfig]
-    HyperParameterTuningJobObjective: Optional[HyperParameterTuningJobObjective]
+    StrategyConfig: HyperParameterTuningJobStrategyConfig | None
+    HyperParameterTuningJobObjective: HyperParameterTuningJobObjective | None
     ResourceLimits: ResourceLimits
-    ParameterRanges: Optional[ParameterRanges]
-    TrainingJobEarlyStoppingType: Optional[TrainingJobEarlyStoppingType]
-    TuningJobCompletionCriteria: Optional[TuningJobCompletionCriteria]
-    RandomSeed: Optional[RandomSeed]
+    ParameterRanges: ParameterRanges | None
+    TrainingJobEarlyStoppingType: TrainingJobEarlyStoppingType | None
+    TuningJobCompletionCriteria: TuningJobCompletionCriteria | None
+    RandomSeed: RandomSeed | None
 
 
 class CreateHyperParameterTuningJobRequest(ServiceRequest):
     HyperParameterTuningJobName: HyperParameterTuningJobName
     HyperParameterTuningJobConfig: HyperParameterTuningJobConfig
-    TrainingJobDefinition: Optional[HyperParameterTrainingJobDefinition]
-    TrainingJobDefinitions: Optional[HyperParameterTrainingJobDefinitions]
-    WarmStartConfig: Optional[HyperParameterTuningJobWarmStartConfig]
-    Tags: Optional[TagList]
-    Autotune: Optional[Autotune]
+    TrainingJobDefinition: HyperParameterTrainingJobDefinition | None
+    TrainingJobDefinitions: HyperParameterTrainingJobDefinitions | None
+    WarmStartConfig: HyperParameterTuningJobWarmStartConfig | None
+    Tags: TagList | None
+    Autotune: Autotune | None
 
 
 class CreateHyperParameterTuningJobResponse(TypedDict, total=False):
@@ -8513,36 +8949,36 @@ class CreateHyperParameterTuningJobResponse(TypedDict, total=False):
 
 
 class CreateImageRequest(ServiceRequest):
-    Description: Optional[ImageDescription]
-    DisplayName: Optional[ImageDisplayName]
+    Description: ImageDescription | None
+    DisplayName: ImageDisplayName | None
     ImageName: ImageName
     RoleArn: RoleArn
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateImageResponse(TypedDict, total=False):
-    ImageArn: Optional[ImageArn]
+    ImageArn: ImageArn | None
 
 
-SageMakerImageVersionAliases = List[SageMakerImageVersionAlias]
+SageMakerImageVersionAliases = list[SageMakerImageVersionAlias]
 
 
 class CreateImageVersionRequest(ServiceRequest):
     BaseImage: ImageBaseImage
     ClientToken: ClientToken
     ImageName: ImageName
-    Aliases: Optional[SageMakerImageVersionAliases]
-    VendorGuidance: Optional[VendorGuidance]
-    JobType: Optional[JobType]
-    MLFramework: Optional[MLFramework]
-    ProgrammingLang: Optional[ProgrammingLang]
-    Processor: Optional[Processor]
-    Horovod: Optional[Horovod]
-    ReleaseNotes: Optional[ReleaseNotes]
+    Aliases: SageMakerImageVersionAliases | None
+    VendorGuidance: VendorGuidance | None
+    JobType: JobType | None
+    MLFramework: MLFramework | None
+    ProgrammingLang: ProgrammingLang | None
+    Processor: Processor | None
+    Horovod: Horovod | None
+    ReleaseNotes: ReleaseNotes | None
 
 
 class CreateImageVersionResponse(TypedDict, total=False):
-    ImageVersionArn: Optional[ImageVersionArn]
+    ImageVersionArn: ImageVersionArn | None
 
 
 class InferenceComponentRuntimeConfig(TypedDict, total=False):
@@ -8553,25 +8989,31 @@ class InferenceComponentRuntimeConfig(TypedDict, total=False):
     CopyCount: InferenceComponentCopyCount
 
 
+class InferenceComponentDataCacheConfig(TypedDict, total=False):
+    """Settings that affect how the inference component caches data."""
+
+    EnableCaching: EnableCaching
+
+
 class InferenceComponentComputeResourceRequirements(TypedDict, total=False):
     """Defines the compute resources to allocate to run a model, plus any
     adapter models, that you assign to an inference component. These
     resources include CPU cores, accelerators, and memory.
     """
 
-    NumberOfCpuCoresRequired: Optional[NumberOfCpuCores]
-    NumberOfAcceleratorDevicesRequired: Optional[NumberOfAcceleratorDevices]
+    NumberOfCpuCoresRequired: NumberOfCpuCores | None
+    NumberOfAcceleratorDevicesRequired: NumberOfAcceleratorDevices | None
     MinMemoryRequiredInMb: MemoryInMb
-    MaxMemoryRequiredInMb: Optional[MemoryInMb]
+    MaxMemoryRequiredInMb: MemoryInMb | None
 
 
 class InferenceComponentStartupParameters(TypedDict, total=False):
     """Settings that take effect while the model container starts up."""
 
-    ModelDataDownloadTimeoutInSeconds: Optional[ProductionVariantModelDataDownloadTimeoutInSeconds]
-    ContainerStartupHealthCheckTimeoutInSeconds: Optional[
-        ProductionVariantContainerStartupHealthCheckTimeoutInSeconds
-    ]
+    ModelDataDownloadTimeoutInSeconds: ProductionVariantModelDataDownloadTimeoutInSeconds | None
+    ContainerStartupHealthCheckTimeoutInSeconds: (
+        ProductionVariantContainerStartupHealthCheckTimeoutInSeconds | None
+    )
 
 
 class InferenceComponentContainerSpecification(TypedDict, total=False):
@@ -8579,9 +9021,9 @@ class InferenceComponentContainerSpecification(TypedDict, total=False):
     that you deploy with an inference component.
     """
 
-    Image: Optional[ContainerImage]
-    ArtifactUrl: Optional[Url]
-    Environment: Optional[EnvironmentMap]
+    Image: ContainerImage | None
+    ArtifactUrl: Url | None
+    Environment: EnvironmentMap | None
 
 
 class InferenceComponentSpecification(TypedDict, total=False):
@@ -8589,20 +9031,21 @@ class InferenceComponentSpecification(TypedDict, total=False):
     including the model, container, and compute resources.
     """
 
-    ModelName: Optional[ModelName]
-    Container: Optional[InferenceComponentContainerSpecification]
-    StartupParameters: Optional[InferenceComponentStartupParameters]
-    ComputeResourceRequirements: Optional[InferenceComponentComputeResourceRequirements]
-    BaseInferenceComponentName: Optional[InferenceComponentName]
+    ModelName: ModelName | None
+    Container: InferenceComponentContainerSpecification | None
+    StartupParameters: InferenceComponentStartupParameters | None
+    ComputeResourceRequirements: InferenceComponentComputeResourceRequirements | None
+    BaseInferenceComponentName: InferenceComponentName | None
+    DataCacheConfig: InferenceComponentDataCacheConfig | None
 
 
 class CreateInferenceComponentInput(ServiceRequest):
     InferenceComponentName: InferenceComponentName
     EndpointName: EndpointName
-    VariantName: Optional[VariantName]
+    VariantName: VariantName | None
     Specification: InferenceComponentSpecification
-    RuntimeConfig: Optional[InferenceComponentRuntimeConfig]
-    Tags: Optional[TagList]
+    RuntimeConfig: InferenceComponentRuntimeConfig | None
+    Tags: TagList | None
 
 
 class CreateInferenceComponentOutput(TypedDict, total=False):
@@ -8616,7 +9059,7 @@ class ShadowModelVariantConfig(TypedDict, total=False):
     SamplingPercentage: Percentage
 
 
-ShadowModelVariantConfigList = List[ShadowModelVariantConfig]
+ShadowModelVariantConfigList = list[ShadowModelVariantConfig]
 
 
 class ShadowModeConfig(TypedDict, total=False):
@@ -8637,8 +9080,8 @@ class InferenceExperimentDataStorageConfig(TypedDict, total=False):
     """
 
     Destination: DestinationS3Uri
-    KmsKey: Optional[KmsKeyId]
-    ContentType: Optional[CaptureContentTypeHeader]
+    KmsKey: KmsKeyId | None
+    ContentType: CaptureContentTypeHeader | None
 
 
 class RealTimeInferenceConfig(TypedDict, total=False):
@@ -8667,7 +9110,7 @@ class ModelVariantConfig(TypedDict, total=False):
     InfrastructureConfig: ModelInfrastructureConfig
 
 
-ModelVariantConfigList = List[ModelVariantConfig]
+ModelVariantConfigList = list[ModelVariantConfig]
 
 
 class InferenceExperimentSchedule(TypedDict, total=False):
@@ -8677,22 +9120,22 @@ class InferenceExperimentSchedule(TypedDict, total=False):
     days.
     """
 
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
 
 
 class CreateInferenceExperimentRequest(ServiceRequest):
     Name: InferenceExperimentName
     Type: InferenceExperimentType
-    Schedule: Optional[InferenceExperimentSchedule]
-    Description: Optional[InferenceExperimentDescription]
+    Schedule: InferenceExperimentSchedule | None
+    Description: InferenceExperimentDescription | None
     RoleArn: RoleArn
     EndpointName: EndpointName
     ModelVariants: ModelVariantConfigList
-    DataStorageConfig: Optional[InferenceExperimentDataStorageConfig]
+    DataStorageConfig: InferenceExperimentDataStorageConfig | None
     ShadowModeConfig: ShadowModeConfig
-    KmsKey: Optional[KmsKeyId]
-    Tags: Optional[TagList]
+    KmsKey: KmsKeyId | None
+    Tags: TagList | None
 
 
 class CreateInferenceExperimentResponse(TypedDict, total=False):
@@ -8704,7 +9147,7 @@ class RecommendationJobCompiledOutputConfig(TypedDict, total=False):
     model.
     """
 
-    S3OutputUri: Optional[S3Uri]
+    S3OutputUri: S3Uri | None
 
 
 class RecommendationJobOutputConfig(TypedDict, total=False):
@@ -8712,18 +9155,18 @@ class RecommendationJobOutputConfig(TypedDict, total=False):
     model.
     """
 
-    KmsKeyId: Optional[KmsKeyId]
-    CompiledOutputConfig: Optional[RecommendationJobCompiledOutputConfig]
+    KmsKeyId: KmsKeyId | None
+    CompiledOutputConfig: RecommendationJobCompiledOutputConfig | None
 
 
 class ModelLatencyThreshold(TypedDict, total=False):
     """The model latency threshold."""
 
-    Percentile: Optional[String64]
-    ValueInMilliseconds: Optional[Integer]
+    Percentile: String64 | None
+    ValueInMilliseconds: Integer | None
 
 
-ModelLatencyThresholds = List[ModelLatencyThreshold]
+ModelLatencyThresholds = list[ModelLatencyThreshold]
 
 
 class RecommendationJobStoppingConditions(TypedDict, total=False):
@@ -8731,13 +9174,13 @@ class RecommendationJobStoppingConditions(TypedDict, total=False):
     condition limit, SageMaker ends the job.
     """
 
-    MaxInvocations: Optional[Integer]
-    ModelLatencyThresholds: Optional[ModelLatencyThresholds]
-    FlatInvocations: Optional[FlatInvocations]
+    MaxInvocations: Integer | None
+    ModelLatencyThresholds: ModelLatencyThresholds | None
+    FlatInvocations: FlatInvocations | None
 
 
-RecommendationJobVpcSubnets = List[RecommendationJobVpcSubnetId]
-RecommendationJobVpcSecurityGroupIds = List[RecommendationJobVpcSecurityGroupId]
+RecommendationJobVpcSubnets = list[RecommendationJobVpcSubnetId]
+RecommendationJobVpcSecurityGroupIds = list[RecommendationJobVpcSecurityGroupId]
 
 
 class RecommendationJobVpcConfig(TypedDict, total=False):
@@ -8754,20 +9197,20 @@ class EndpointInfo(TypedDict, total=False):
     Recommender job.
     """
 
-    EndpointName: Optional[EndpointName]
+    EndpointName: EndpointName | None
 
 
-Endpoints = List[EndpointInfo]
-RecommendationJobSupportedResponseMIMETypes = List[RecommendationJobSupportedResponseMIMEType]
-RecommendationJobSupportedInstanceTypes = List[String]
-RecommendationJobSupportedContentTypes = List[RecommendationJobSupportedContentType]
+Endpoints = list[EndpointInfo]
+RecommendationJobSupportedResponseMIMETypes = list[RecommendationJobSupportedResponseMIMEType]
+RecommendationJobSupportedInstanceTypes = list[String]
+RecommendationJobSupportedContentTypes = list[RecommendationJobSupportedContentType]
 
 
 class RecommendationJobPayloadConfig(TypedDict, total=False):
     """The configuration for the payload for a recommendation job."""
 
-    SamplePayloadUrl: Optional[S3Uri]
-    SupportedContentTypes: Optional[RecommendationJobSupportedContentTypes]
+    SamplePayloadUrl: S3Uri | None
+    SupportedContentTypes: RecommendationJobSupportedContentTypes | None
 
 
 class RecommendationJobContainerConfig(TypedDict, total=False):
@@ -8780,34 +9223,34 @@ class RecommendationJobContainerConfig(TypedDict, total=False):
     want to edit them in your model package.
     """
 
-    Domain: Optional[String]
-    Task: Optional[String]
-    Framework: Optional[String]
-    FrameworkVersion: Optional[RecommendationJobFrameworkVersion]
-    PayloadConfig: Optional[RecommendationJobPayloadConfig]
-    NearestModelName: Optional[String]
-    SupportedInstanceTypes: Optional[RecommendationJobSupportedInstanceTypes]
-    SupportedEndpointType: Optional[RecommendationJobSupportedEndpointType]
-    DataInputConfig: Optional[RecommendationJobDataInputConfig]
-    SupportedResponseMIMETypes: Optional[RecommendationJobSupportedResponseMIMETypes]
+    Domain: String | None
+    Task: String | None
+    Framework: String | None
+    FrameworkVersion: RecommendationJobFrameworkVersion | None
+    PayloadConfig: RecommendationJobPayloadConfig | None
+    NearestModelName: String | None
+    SupportedInstanceTypes: RecommendationJobSupportedInstanceTypes | None
+    SupportedEndpointType: RecommendationJobSupportedEndpointType | None
+    DataInputConfig: RecommendationJobDataInputConfig | None
+    SupportedResponseMIMETypes: RecommendationJobSupportedResponseMIMETypes | None
 
 
 class EnvironmentParameterRanges(TypedDict, total=False):
     """Specifies the range of environment parameters"""
 
-    CategoricalParameterRanges: Optional[CategoricalParameters]
+    CategoricalParameterRanges: CategoricalParameters | None
 
 
 class EndpointInputConfiguration(TypedDict, total=False):
     """The endpoint configuration for the load test."""
 
-    InstanceType: Optional[ProductionVariantInstanceType]
-    ServerlessConfig: Optional[ProductionVariantServerlessConfig]
-    InferenceSpecificationName: Optional[InferenceSpecificationName]
-    EnvironmentParameterRanges: Optional[EnvironmentParameterRanges]
+    InstanceType: ProductionVariantInstanceType | None
+    ServerlessConfig: ProductionVariantServerlessConfig | None
+    InferenceSpecificationName: InferenceSpecificationName | None
+    EnvironmentParameterRanges: EnvironmentParameterRanges | None
 
 
-EndpointInputConfigurations = List[EndpointInputConfiguration]
+EndpointInputConfigurations = list[EndpointInputConfiguration]
 
 
 class RecommendationJobResourceLimit(TypedDict, total=False):
@@ -8815,8 +9258,8 @@ class RecommendationJobResourceLimit(TypedDict, total=False):
     maximum number of jobs that can run.
     """
 
-    MaxNumberOfTests: Optional[MaxNumberOfTests]
-    MaxParallelOfTests: Optional[MaxParallelOfTests]
+    MaxNumberOfTests: MaxNumberOfTests | None
+    MaxParallelOfTests: MaxParallelOfTests | None
 
 
 class Stairs(TypedDict, total=False):
@@ -8827,43 +9270,43 @@ class Stairs(TypedDict, total=False):
     Specify either the stairs or phases traffic pattern.
     """
 
-    DurationInSeconds: Optional[TrafficDurationInSeconds]
-    NumberOfSteps: Optional[NumberOfSteps]
-    UsersPerStep: Optional[UsersPerStep]
+    DurationInSeconds: TrafficDurationInSeconds | None
+    NumberOfSteps: NumberOfSteps | None
+    UsersPerStep: UsersPerStep | None
 
 
 class Phase(TypedDict, total=False):
     """Defines the traffic pattern."""
 
-    InitialNumberOfUsers: Optional[InitialNumberOfUsers]
-    SpawnRate: Optional[SpawnRate]
-    DurationInSeconds: Optional[TrafficDurationInSeconds]
+    InitialNumberOfUsers: InitialNumberOfUsers | None
+    SpawnRate: SpawnRate | None
+    DurationInSeconds: TrafficDurationInSeconds | None
 
 
-Phases = List[Phase]
+Phases = list[Phase]
 
 
 class TrafficPattern(TypedDict, total=False):
     """Defines the traffic pattern of the load test."""
 
-    TrafficType: Optional[TrafficType]
-    Phases: Optional[Phases]
-    Stairs: Optional[Stairs]
+    TrafficType: TrafficType | None
+    Phases: Phases | None
+    Stairs: Stairs | None
 
 
 class RecommendationJobInputConfig(TypedDict, total=False):
     """The input configuration of the recommendation job."""
 
-    ModelPackageVersionArn: Optional[ModelPackageArn]
-    ModelName: Optional[ModelName]
-    JobDurationInSeconds: Optional[JobDurationInSeconds]
-    TrafficPattern: Optional[TrafficPattern]
-    ResourceLimit: Optional[RecommendationJobResourceLimit]
-    EndpointConfigurations: Optional[EndpointInputConfigurations]
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    ContainerConfig: Optional[RecommendationJobContainerConfig]
-    Endpoints: Optional[Endpoints]
-    VpcConfig: Optional[RecommendationJobVpcConfig]
+    ModelPackageVersionArn: ModelPackageArn | None
+    ModelName: ModelName | None
+    JobDurationInSeconds: JobDurationInSeconds | None
+    TrafficPattern: TrafficPattern | None
+    ResourceLimit: RecommendationJobResourceLimit | None
+    EndpointConfigurations: EndpointInputConfigurations | None
+    VolumeKmsKeyId: KmsKeyId | None
+    ContainerConfig: RecommendationJobContainerConfig | None
+    Endpoints: Endpoints | None
+    VpcConfig: RecommendationJobVpcConfig | None
 
 
 class CreateInferenceRecommendationsJobRequest(ServiceRequest):
@@ -8871,17 +9314,17 @@ class CreateInferenceRecommendationsJobRequest(ServiceRequest):
     JobType: RecommendationJobType
     RoleArn: RoleArn
     InputConfig: RecommendationJobInputConfig
-    JobDescription: Optional[RecommendationJobDescription]
-    StoppingConditions: Optional[RecommendationJobStoppingConditions]
-    OutputConfig: Optional[RecommendationJobOutputConfig]
-    Tags: Optional[TagList]
+    JobDescription: RecommendationJobDescription | None
+    StoppingConditions: RecommendationJobStoppingConditions | None
+    OutputConfig: RecommendationJobOutputConfig | None
+    Tags: TagList | None
 
 
 class CreateInferenceRecommendationsJobResponse(TypedDict, total=False):
     JobArn: RecommendationJobArn
 
 
-TaskKeywords = List[TaskKeyword]
+TaskKeywords = list[TaskKeyword]
 
 
 class UiConfig(TypedDict, total=False):
@@ -8896,8 +9339,8 @@ class UiConfig(TypedDict, total=False):
     template in Amazon S3.
     """
 
-    UiTemplateS3Uri: Optional[S3Uri]
-    HumanTaskUiArn: Optional[HumanTaskUiArn]
+    UiTemplateS3Uri: S3Uri | None
+    HumanTaskUiArn: HumanTaskUiArn | None
 
 
 class HumanTaskConfig(TypedDict, total=False):
@@ -8905,16 +9348,16 @@ class HumanTaskConfig(TypedDict, total=False):
 
     WorkteamArn: WorkteamArn
     UiConfig: UiConfig
-    PreHumanTaskLambdaArn: Optional[LambdaFunctionArn]
-    TaskKeywords: Optional[TaskKeywords]
+    PreHumanTaskLambdaArn: LambdaFunctionArn | None
+    TaskKeywords: TaskKeywords | None
     TaskTitle: TaskTitle
     TaskDescription: TaskDescription
     NumberOfHumanWorkersPerDataObject: NumberOfHumanWorkersPerDataObject
     TaskTimeLimitInSeconds: TaskTimeLimitInSeconds
-    TaskAvailabilityLifetimeInSeconds: Optional[TaskAvailabilityLifetimeInSeconds]
-    MaxConcurrentTaskCount: Optional[MaxConcurrentTaskCount]
-    AnnotationConsolidationConfig: Optional[AnnotationConsolidationConfig]
-    PublicWorkforceTaskPrice: Optional[PublicWorkforceTaskPrice]
+    TaskAvailabilityLifetimeInSeconds: TaskAvailabilityLifetimeInSeconds | None
+    MaxConcurrentTaskCount: MaxConcurrentTaskCount | None
+    AnnotationConsolidationConfig: AnnotationConsolidationConfig | None
+    PublicWorkforceTaskPrice: PublicWorkforceTaskPrice | None
 
 
 class LabelingJobResourceConfig(TypedDict, total=False):
@@ -8923,8 +9366,8 @@ class LabelingJobResourceConfig(TypedDict, total=False):
     inference.
     """
 
-    VolumeKmsKeyId: Optional[KmsKeyId]
-    VpcConfig: Optional[VpcConfig]
+    VolumeKmsKeyId: KmsKeyId | None
+    VpcConfig: VpcConfig | None
 
 
 class LabelingJobAlgorithmsConfig(TypedDict, total=False):
@@ -8934,8 +9377,8 @@ class LabelingJobAlgorithmsConfig(TypedDict, total=False):
     """
 
     LabelingJobAlgorithmSpecificationArn: LabelingJobAlgorithmSpecificationArn
-    InitialActiveLearningModelArn: Optional[ModelArn]
-    LabelingJobResourceConfig: Optional[LabelingJobResourceConfig]
+    InitialActiveLearningModelArn: ModelArn | None
+    LabelingJobResourceConfig: LabelingJobResourceConfig | None
 
 
 class LabelingJobStoppingConditions(TypedDict, total=False):
@@ -8947,16 +9390,16 @@ class LabelingJobStoppingConditions(TypedDict, total=False):
     message.
     """
 
-    MaxHumanLabeledObjectCount: Optional[MaxHumanLabeledObjectCount]
-    MaxPercentageOfInputDatasetLabeled: Optional[MaxPercentageOfInputDatasetLabeled]
+    MaxHumanLabeledObjectCount: MaxHumanLabeledObjectCount | None
+    MaxPercentageOfInputDatasetLabeled: MaxPercentageOfInputDatasetLabeled | None
 
 
 class LabelingJobOutputConfig(TypedDict, total=False):
     """Output configuration information for a labeling job."""
 
     S3OutputPath: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
-    SnsTopicArn: Optional[SnsTopicArn]
+    KmsKeyId: KmsKeyId | None
+    SnsTopicArn: SnsTopicArn | None
 
 
 class LabelingJobDataAttributes(TypedDict, total=False):
@@ -8964,7 +9407,7 @@ class LabelingJobDataAttributes(TypedDict, total=False):
     the data to be labeled.
     """
 
-    ContentClassifiers: Optional[ContentClassifiers]
+    ContentClassifiers: ContentClassifiers | None
 
 
 class LabelingJobSnsDataSource(TypedDict, total=False):
@@ -8995,15 +9438,15 @@ class LabelingJobDataSource(TypedDict, total=False):
     job.
     """
 
-    S3DataSource: Optional[LabelingJobS3DataSource]
-    SnsDataSource: Optional[LabelingJobSnsDataSource]
+    S3DataSource: LabelingJobS3DataSource | None
+    SnsDataSource: LabelingJobSnsDataSource | None
 
 
 class LabelingJobInputConfig(TypedDict, total=False):
     """Input configuration information for a labeling job."""
 
     DataSource: LabelingJobDataSource
-    DataAttributes: Optional[LabelingJobDataAttributes]
+    DataAttributes: LabelingJobDataAttributes | None
 
 
 class CreateLabelingJobRequest(ServiceRequest):
@@ -9012,43 +9455,61 @@ class CreateLabelingJobRequest(ServiceRequest):
     InputConfig: LabelingJobInputConfig
     OutputConfig: LabelingJobOutputConfig
     RoleArn: RoleArn
-    LabelCategoryConfigS3Uri: Optional[S3Uri]
-    StoppingConditions: Optional[LabelingJobStoppingConditions]
-    LabelingJobAlgorithmsConfig: Optional[LabelingJobAlgorithmsConfig]
+    LabelCategoryConfigS3Uri: S3Uri | None
+    StoppingConditions: LabelingJobStoppingConditions | None
+    LabelingJobAlgorithmsConfig: LabelingJobAlgorithmsConfig | None
     HumanTaskConfig: HumanTaskConfig
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateLabelingJobResponse(TypedDict, total=False):
     LabelingJobArn: LabelingJobArn
 
 
+DefaultDomainIdList = list[DomainId]
+
+
+class CreateMlflowAppRequest(ServiceRequest):
+    Name: MlflowAppName
+    ArtifactStoreUri: S3Uri
+    RoleArn: RoleArn
+    ModelRegistrationMode: ModelRegistrationMode | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    AccountDefaultStatus: AccountDefaultStatus | None
+    DefaultDomainIdList: DefaultDomainIdList | None
+    Tags: TagList | None
+
+
+class CreateMlflowAppResponse(TypedDict, total=False):
+    Arn: MlflowAppArn | None
+
+
 class CreateMlflowTrackingServerRequest(ServiceRequest):
     TrackingServerName: TrackingServerName
     ArtifactStoreUri: S3Uri
-    TrackingServerSize: Optional[TrackingServerSize]
-    MlflowVersion: Optional[MlflowVersion]
+    TrackingServerSize: TrackingServerSize | None
+    MlflowVersion: MlflowVersion | None
     RoleArn: RoleArn
-    AutomaticModelRegistration: Optional[Boolean]
-    WeeklyMaintenanceWindowStart: Optional[WeeklyMaintenanceWindowStart]
-    Tags: Optional[TagList]
+    AutomaticModelRegistration: Boolean | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    Tags: TagList | None
 
 
 class CreateMlflowTrackingServerResponse(TypedDict, total=False):
-    TrackingServerArn: Optional[TrackingServerArn]
+    TrackingServerArn: TrackingServerArn | None
 
 
 class MonitoringGroundTruthS3Input(TypedDict, total=False):
     """The ground truth labels for the dataset used for the monitoring job."""
 
-    S3Uri: Optional[MonitoringS3Uri]
+    S3Uri: MonitoringS3Uri | None
 
 
 class ModelBiasJobInput(TypedDict, total=False):
     """Inputs for the model bias job."""
 
-    EndpointInput: Optional[EndpointInput]
-    BatchTransformInput: Optional[BatchTransformInput]
+    EndpointInput: EndpointInput | None
+    BatchTransformInput: BatchTransformInput | None
     GroundTruthS3Input: MonitoringGroundTruthS3Input
 
 
@@ -9057,27 +9518,27 @@ class ModelBiasAppSpecification(TypedDict, total=False):
 
     ImageUri: ImageUri
     ConfigUri: S3Uri
-    Environment: Optional[MonitoringEnvironmentMap]
+    Environment: MonitoringEnvironmentMap | None
 
 
 class ModelBiasBaselineConfig(TypedDict, total=False):
     """The configuration for a baseline model bias job."""
 
-    BaseliningJobName: Optional[ProcessingJobName]
-    ConstraintsResource: Optional[MonitoringConstraintsResource]
+    BaseliningJobName: ProcessingJobName | None
+    ConstraintsResource: MonitoringConstraintsResource | None
 
 
 class CreateModelBiasJobDefinitionRequest(ServiceRequest):
     JobDefinitionName: MonitoringJobDefinitionName
-    ModelBiasBaselineConfig: Optional[ModelBiasBaselineConfig]
+    ModelBiasBaselineConfig: ModelBiasBaselineConfig | None
     ModelBiasAppSpecification: ModelBiasAppSpecification
     ModelBiasJobInput: ModelBiasJobInput
     ModelBiasJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
-    Tags: Optional[TagList]
+    StoppingCondition: MonitoringStoppingCondition | None
+    Tags: TagList | None
 
 
 class CreateModelBiasJobDefinitionResponse(TypedDict, total=False):
@@ -9092,7 +9553,7 @@ class ModelCardExportOutputConfig(TypedDict, total=False):
 
 class CreateModelCardExportJobRequest(ServiceRequest):
     ModelCardName: ModelCardNameOrArn
-    ModelCardVersion: Optional[Integer]
+    ModelCardVersion: Integer | None
     ModelCardExportJobName: EntityName
     OutputConfig: ModelCardExportOutputConfig
 
@@ -9104,15 +9565,15 @@ class CreateModelCardExportJobResponse(TypedDict, total=False):
 class ModelCardSecurityConfig(TypedDict, total=False):
     """Configure the security settings to protect model card data."""
 
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
 
 
 class CreateModelCardRequest(ServiceRequest):
     ModelCardName: EntityName
-    SecurityConfig: Optional[ModelCardSecurityConfig]
+    SecurityConfig: ModelCardSecurityConfig | None
     Content: ModelCardContent
     ModelCardStatus: ModelCardStatus
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateModelCardResponse(TypedDict, total=False):
@@ -9122,8 +9583,8 @@ class CreateModelCardResponse(TypedDict, total=False):
 class ModelExplainabilityJobInput(TypedDict, total=False):
     """Inputs for the model explainability job."""
 
-    EndpointInput: Optional[EndpointInput]
-    BatchTransformInput: Optional[BatchTransformInput]
+    EndpointInput: EndpointInput | None
+    BatchTransformInput: BatchTransformInput | None
 
 
 class ModelExplainabilityAppSpecification(TypedDict, total=False):
@@ -9133,27 +9594,27 @@ class ModelExplainabilityAppSpecification(TypedDict, total=False):
 
     ImageUri: ImageUri
     ConfigUri: S3Uri
-    Environment: Optional[MonitoringEnvironmentMap]
+    Environment: MonitoringEnvironmentMap | None
 
 
 class ModelExplainabilityBaselineConfig(TypedDict, total=False):
     """The configuration for a baseline model explainability job."""
 
-    BaseliningJobName: Optional[ProcessingJobName]
-    ConstraintsResource: Optional[MonitoringConstraintsResource]
+    BaseliningJobName: ProcessingJobName | None
+    ConstraintsResource: MonitoringConstraintsResource | None
 
 
 class CreateModelExplainabilityJobDefinitionRequest(ServiceRequest):
     JobDefinitionName: MonitoringJobDefinitionName
-    ModelExplainabilityBaselineConfig: Optional[ModelExplainabilityBaselineConfig]
+    ModelExplainabilityBaselineConfig: ModelExplainabilityBaselineConfig | None
     ModelExplainabilityAppSpecification: ModelExplainabilityAppSpecification
     ModelExplainabilityJobInput: ModelExplainabilityJobInput
     ModelExplainabilityJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
-    Tags: Optional[TagList]
+    StoppingCondition: MonitoringStoppingCondition | None
+    Tags: TagList | None
 
 
 class CreateModelExplainabilityJobDefinitionResponse(TypedDict, total=False):
@@ -9170,13 +9631,13 @@ class InferenceExecutionConfig(TypedDict, total=False):
 
 class CreateModelInput(ServiceRequest):
     ModelName: ModelName
-    PrimaryContainer: Optional[ContainerDefinition]
-    Containers: Optional[ContainerDefinitionList]
-    InferenceExecutionConfig: Optional[InferenceExecutionConfig]
-    ExecutionRoleArn: Optional[RoleArn]
-    Tags: Optional[TagList]
-    VpcConfig: Optional[VpcConfig]
-    EnableNetworkIsolation: Optional[Boolean]
+    PrimaryContainer: ContainerDefinition | None
+    Containers: ContainerDefinitionList | None
+    InferenceExecutionConfig: InferenceExecutionConfig | None
+    ExecutionRoleArn: RoleArn | None
+    Tags: TagList | None
+    VpcConfig: VpcConfig | None
+    EnableNetworkIsolation: Boolean | None
 
 
 class CreateModelOutput(TypedDict, total=False):
@@ -9185,8 +9646,8 @@ class CreateModelOutput(TypedDict, total=False):
 
 class CreateModelPackageGroupInput(ServiceRequest):
     ModelPackageGroupName: EntityName
-    ModelPackageGroupDescription: Optional[EntityDescription]
-    Tags: Optional[TagList]
+    ModelPackageGroupDescription: EntityDescription | None
+    Tags: TagList | None
 
 
 class CreateModelPackageGroupOutput(TypedDict, total=False):
@@ -9198,7 +9659,7 @@ class ModelLifeCycle(TypedDict, total=False):
 
     Stage: EntityName
     StageStatus: EntityName
-    StageDescription: Optional[StageDescription]
+    StageDescription: StageDescription | None
 
 
 class ModelPackageModelCard(TypedDict, total=False):
@@ -9216,8 +9677,8 @@ class ModelPackageModelCard(TypedDict, total=False):
     Version <https://docs.aws.amazon.com/sagemaker/latest/dg/model-registry-details.html>`__.
     """
 
-    ModelCardContent: Optional[ModelCardContent]
-    ModelCardStatus: Optional[ModelCardStatus]
+    ModelCardContent: ModelCardContent | None
+    ModelCardStatus: ModelCardStatus | None
 
 
 class ModelPackageSecurityConfig(TypedDict, total=False):
@@ -9234,8 +9695,8 @@ class DriftCheckModelDataQuality(TypedDict, total=False):
     the model monitor is set using the model package.
     """
 
-    Statistics: Optional[MetricsSource]
-    Constraints: Optional[MetricsSource]
+    Statistics: MetricsSource | None
+    Constraints: MetricsSource | None
 
 
 class DriftCheckModelQuality(TypedDict, total=False):
@@ -9243,15 +9704,15 @@ class DriftCheckModelQuality(TypedDict, total=False):
     the model monitor is set using the model package.
     """
 
-    Statistics: Optional[MetricsSource]
-    Constraints: Optional[MetricsSource]
+    Statistics: MetricsSource | None
+    Constraints: MetricsSource | None
 
 
 class FileSource(TypedDict, total=False):
     """Contains details regarding the file source."""
 
-    ContentType: Optional[ContentType]
-    ContentDigest: Optional[ContentDigest]
+    ContentType: ContentType | None
+    ContentDigest: ContentDigest | None
     S3Uri: S3Uri
 
 
@@ -9260,8 +9721,8 @@ class DriftCheckExplainability(TypedDict, total=False):
     when the model monitor is set using the model package.
     """
 
-    Constraints: Optional[MetricsSource]
-    ConfigFile: Optional[FileSource]
+    Constraints: MetricsSource | None
+    ConfigFile: FileSource | None
 
 
 class DriftCheckBias(TypedDict, total=False):
@@ -9269,9 +9730,9 @@ class DriftCheckBias(TypedDict, total=False):
     model monitor is set using the model package.
     """
 
-    ConfigFile: Optional[FileSource]
-    PreTrainingConstraints: Optional[MetricsSource]
-    PostTrainingConstraints: Optional[MetricsSource]
+    ConfigFile: FileSource | None
+    PreTrainingConstraints: MetricsSource | None
+    PostTrainingConstraints: MetricsSource | None
 
 
 class DriftCheckBaselines(TypedDict, total=False):
@@ -9279,42 +9740,42 @@ class DriftCheckBaselines(TypedDict, total=False):
     monitor is set using the model package.
     """
 
-    Bias: Optional[DriftCheckBias]
-    Explainability: Optional[DriftCheckExplainability]
-    ModelQuality: Optional[DriftCheckModelQuality]
-    ModelDataQuality: Optional[DriftCheckModelDataQuality]
+    Bias: DriftCheckBias | None
+    Explainability: DriftCheckExplainability | None
+    ModelQuality: DriftCheckModelQuality | None
+    ModelDataQuality: DriftCheckModelDataQuality | None
 
 
-CustomerMetadataMap = Dict[CustomerMetadataKey, CustomerMetadataValue]
+CustomerMetadataMap = dict[CustomerMetadataKey, CustomerMetadataValue]
 
 
 class Explainability(TypedDict, total=False):
     """Contains explainability metrics for a model."""
 
-    Report: Optional[MetricsSource]
+    Report: MetricsSource | None
 
 
 class ModelDataQuality(TypedDict, total=False):
     """Data quality constraints and statistics for a model."""
 
-    Statistics: Optional[MetricsSource]
-    Constraints: Optional[MetricsSource]
+    Statistics: MetricsSource | None
+    Constraints: MetricsSource | None
 
 
 class ModelQuality(TypedDict, total=False):
     """Model quality statistics and constraints."""
 
-    Statistics: Optional[MetricsSource]
-    Constraints: Optional[MetricsSource]
+    Statistics: MetricsSource | None
+    Constraints: MetricsSource | None
 
 
 class ModelMetrics(TypedDict, total=False):
     """Contains metrics captured from a model."""
 
-    ModelQuality: Optional[ModelQuality]
-    ModelDataQuality: Optional[ModelDataQuality]
-    Bias: Optional[Bias]
-    Explainability: Optional[Explainability]
+    ModelQuality: ModelQuality | None
+    ModelDataQuality: ModelDataQuality | None
+    Bias: Bias | None
+    Explainability: Explainability | None
 
 
 class SourceAlgorithm(TypedDict, total=False):
@@ -9324,13 +9785,13 @@ class SourceAlgorithm(TypedDict, total=False):
     subscribed to.
     """
 
-    ModelDataUrl: Optional[Url]
-    ModelDataSource: Optional[ModelDataSource]
-    ModelDataETag: Optional[String]
+    ModelDataUrl: Url | None
+    ModelDataSource: ModelDataSource | None
+    ModelDataETag: String | None
     AlgorithmName: ArnOrName
 
 
-SourceAlgorithmList = List[SourceAlgorithm]
+SourceAlgorithmList = list[SourceAlgorithm]
 
 
 class SourceAlgorithmSpecification(TypedDict, total=False):
@@ -9351,7 +9812,7 @@ class ModelPackageValidationProfile(TypedDict, total=False):
     TransformJobDefinition: TransformJobDefinition
 
 
-ModelPackageValidationProfiles = List[ModelPackageValidationProfile]
+ModelPackageValidationProfiles = list[ModelPackageValidationProfile]
 
 
 class ModelPackageValidationSpecification(TypedDict, total=False):
@@ -9364,29 +9825,30 @@ class ModelPackageValidationSpecification(TypedDict, total=False):
 
 
 class CreateModelPackageInput(ServiceRequest):
-    ModelPackageName: Optional[EntityName]
-    ModelPackageGroupName: Optional[ArnOrName]
-    ModelPackageDescription: Optional[EntityDescription]
-    InferenceSpecification: Optional[InferenceSpecification]
-    ValidationSpecification: Optional[ModelPackageValidationSpecification]
-    SourceAlgorithmSpecification: Optional[SourceAlgorithmSpecification]
-    CertifyForMarketplace: Optional[CertifyForMarketplace]
-    Tags: Optional[TagList]
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
-    MetadataProperties: Optional[MetadataProperties]
-    ModelMetrics: Optional[ModelMetrics]
-    ClientToken: Optional[ClientToken]
-    Domain: Optional[String]
-    Task: Optional[String]
-    SamplePayloadUrl: Optional[S3Uri]
-    CustomerMetadataProperties: Optional[CustomerMetadataMap]
-    DriftCheckBaselines: Optional[DriftCheckBaselines]
-    AdditionalInferenceSpecifications: Optional[AdditionalInferenceSpecifications]
-    SkipModelValidation: Optional[SkipModelValidation]
-    SourceUri: Optional[ModelPackageSourceUri]
-    SecurityConfig: Optional[ModelPackageSecurityConfig]
-    ModelCard: Optional[ModelPackageModelCard]
-    ModelLifeCycle: Optional[ModelLifeCycle]
+    ModelPackageName: EntityName | None
+    ModelPackageGroupName: ArnOrName | None
+    ModelPackageDescription: EntityDescription | None
+    ModelPackageRegistrationType: ModelPackageRegistrationType | None
+    InferenceSpecification: InferenceSpecification | None
+    ValidationSpecification: ModelPackageValidationSpecification | None
+    SourceAlgorithmSpecification: SourceAlgorithmSpecification | None
+    CertifyForMarketplace: CertifyForMarketplace | None
+    Tags: TagList | None
+    ModelApprovalStatus: ModelApprovalStatus | None
+    MetadataProperties: MetadataProperties | None
+    ModelMetrics: ModelMetrics | None
+    ClientToken: ClientToken | None
+    Domain: String | None
+    Task: String | None
+    SamplePayloadUrl: S3Uri | None
+    CustomerMetadataProperties: CustomerMetadataMap | None
+    DriftCheckBaselines: DriftCheckBaselines | None
+    AdditionalInferenceSpecifications: AdditionalInferenceSpecifications | None
+    SkipModelValidation: SkipModelValidation | None
+    SourceUri: ModelPackageSourceUri | None
+    SecurityConfig: ModelPackageSecurityConfig | None
+    ModelCard: ModelPackageModelCard | None
+    ModelLifeCycle: ModelLifeCycle | None
 
 
 class CreateModelPackageOutput(TypedDict, total=False):
@@ -9398,8 +9860,8 @@ class ModelQualityJobInput(TypedDict, total=False):
     supported for input for model quality monitoring jobs.
     """
 
-    EndpointInput: Optional[EndpointInput]
-    BatchTransformInput: Optional[BatchTransformInput]
+    EndpointInput: EndpointInput | None
+    BatchTransformInput: BatchTransformInput | None
     GroundTruthS3Input: MonitoringGroundTruthS3Input
 
 
@@ -9407,12 +9869,12 @@ class ModelQualityAppSpecification(TypedDict, total=False):
     """Container image configuration object for the monitoring job."""
 
     ImageUri: ImageUri
-    ContainerEntrypoint: Optional[ContainerEntrypoint]
-    ContainerArguments: Optional[MonitoringContainerArguments]
-    RecordPreprocessorSourceUri: Optional[S3Uri]
-    PostAnalyticsProcessorSourceUri: Optional[S3Uri]
-    ProblemType: Optional[MonitoringProblemType]
-    Environment: Optional[MonitoringEnvironmentMap]
+    ContainerEntrypoint: ContainerEntrypoint | None
+    ContainerArguments: MonitoringContainerArguments | None
+    RecordPreprocessorSourceUri: S3Uri | None
+    PostAnalyticsProcessorSourceUri: S3Uri | None
+    ProblemType: MonitoringProblemType | None
+    Environment: MonitoringEnvironmentMap | None
 
 
 class ModelQualityBaselineConfig(TypedDict, total=False):
@@ -9421,21 +9883,21 @@ class ModelQualityBaselineConfig(TypedDict, total=False):
     job from the series of jobs scheduled to collect data periodically.
     """
 
-    BaseliningJobName: Optional[ProcessingJobName]
-    ConstraintsResource: Optional[MonitoringConstraintsResource]
+    BaseliningJobName: ProcessingJobName | None
+    ConstraintsResource: MonitoringConstraintsResource | None
 
 
 class CreateModelQualityJobDefinitionRequest(ServiceRequest):
     JobDefinitionName: MonitoringJobDefinitionName
-    ModelQualityBaselineConfig: Optional[ModelQualityBaselineConfig]
+    ModelQualityBaselineConfig: ModelQualityBaselineConfig | None
     ModelQualityAppSpecification: ModelQualityAppSpecification
     ModelQualityJobInput: ModelQualityJobInput
     ModelQualityJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
-    Tags: Optional[TagList]
+    StoppingCondition: MonitoringStoppingCondition | None
+    Tags: TagList | None
 
 
 class CreateModelQualityJobDefinitionResponse(TypedDict, total=False):
@@ -9449,29 +9911,29 @@ class NetworkConfig(TypedDict, total=False):
     VPC-enabled jobs.
     """
 
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    EnableNetworkIsolation: Optional[Boolean]
-    VpcConfig: Optional[VpcConfig]
+    EnableInterContainerTrafficEncryption: Boolean | None
+    EnableNetworkIsolation: Boolean | None
+    VpcConfig: VpcConfig | None
 
 
 class MonitoringAppSpecification(TypedDict, total=False):
     """Container image configuration object for the monitoring job."""
 
     ImageUri: ImageUri
-    ContainerEntrypoint: Optional[ContainerEntrypoint]
-    ContainerArguments: Optional[MonitoringContainerArguments]
-    RecordPreprocessorSourceUri: Optional[S3Uri]
-    PostAnalyticsProcessorSourceUri: Optional[S3Uri]
+    ContainerEntrypoint: ContainerEntrypoint | None
+    ContainerArguments: MonitoringContainerArguments | None
+    RecordPreprocessorSourceUri: S3Uri | None
+    PostAnalyticsProcessorSourceUri: S3Uri | None
 
 
 class MonitoringInput(TypedDict, total=False):
     """The inputs for a monitoring job."""
 
-    EndpointInput: Optional[EndpointInput]
-    BatchTransformInput: Optional[BatchTransformInput]
+    EndpointInput: EndpointInput | None
+    BatchTransformInput: BatchTransformInput | None
 
 
-MonitoringInputs = List[MonitoringInput]
+MonitoringInputs = list[MonitoringInput]
 
 
 class MonitoringBaselineConfig(TypedDict, total=False):
@@ -9480,22 +9942,22 @@ class MonitoringBaselineConfig(TypedDict, total=False):
     job from the series of jobs scheduled to collect data periodically.
     """
 
-    BaseliningJobName: Optional[ProcessingJobName]
-    ConstraintsResource: Optional[MonitoringConstraintsResource]
-    StatisticsResource: Optional[MonitoringStatisticsResource]
+    BaseliningJobName: ProcessingJobName | None
+    ConstraintsResource: MonitoringConstraintsResource | None
+    StatisticsResource: MonitoringStatisticsResource | None
 
 
 class MonitoringJobDefinition(TypedDict, total=False):
     """Defines the monitoring job."""
 
-    BaselineConfig: Optional[MonitoringBaselineConfig]
+    BaselineConfig: MonitoringBaselineConfig | None
     MonitoringInputs: MonitoringInputs
     MonitoringOutputConfig: MonitoringOutputConfig
     MonitoringResources: MonitoringResources
     MonitoringAppSpecification: MonitoringAppSpecification
-    StoppingCondition: Optional[MonitoringStoppingCondition]
-    Environment: Optional[MonitoringEnvironmentMap]
-    NetworkConfig: Optional[NetworkConfig]
+    StoppingCondition: MonitoringStoppingCondition | None
+    Environment: MonitoringEnvironmentMap | None
+    NetworkConfig: NetworkConfig | None
     RoleArn: RoleArn
 
 
@@ -9503,23 +9965,23 @@ class ScheduleConfig(TypedDict, total=False):
     """Configuration details about the monitoring schedule."""
 
     ScheduleExpression: ScheduleExpression
-    DataAnalysisStartTime: Optional[String]
-    DataAnalysisEndTime: Optional[String]
+    DataAnalysisStartTime: String | None
+    DataAnalysisEndTime: String | None
 
 
 class MonitoringScheduleConfig(TypedDict, total=False):
     """Configures the monitoring schedule and defines the monitoring job."""
 
-    ScheduleConfig: Optional[ScheduleConfig]
-    MonitoringJobDefinition: Optional[MonitoringJobDefinition]
-    MonitoringJobDefinitionName: Optional[MonitoringJobDefinitionName]
-    MonitoringType: Optional[MonitoringType]
+    ScheduleConfig: ScheduleConfig | None
+    MonitoringJobDefinition: MonitoringJobDefinition | None
+    MonitoringJobDefinitionName: MonitoringJobDefinitionName | None
+    MonitoringType: MonitoringType | None
 
 
 class CreateMonitoringScheduleRequest(ServiceRequest):
     MonitoringScheduleName: MonitoringScheduleName
     MonitoringScheduleConfig: MonitoringScheduleConfig
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateMonitoringScheduleResponse(TypedDict, total=False):
@@ -9532,27 +9994,27 @@ class InstanceMetadataServiceConfiguration(TypedDict, total=False):
     MinimumInstanceMetadataServiceVersion: MinimumInstanceMetadataServiceVersion
 
 
-NotebookInstanceAcceleratorTypes = List[NotebookInstanceAcceleratorType]
+NotebookInstanceAcceleratorTypes = list[NotebookInstanceAcceleratorType]
 
 
 class CreateNotebookInstanceInput(ServiceRequest):
     NotebookInstanceName: NotebookInstanceName
     InstanceType: InstanceType
-    SubnetId: Optional[SubnetId]
-    SecurityGroupIds: Optional[SecurityGroupIds]
-    IpAddressType: Optional[IPAddressType]
+    SubnetId: SubnetId | None
+    SecurityGroupIds: SecurityGroupIds | None
+    IpAddressType: IPAddressType | None
     RoleArn: RoleArn
-    KmsKeyId: Optional[KmsKeyId]
-    Tags: Optional[TagList]
-    LifecycleConfigName: Optional[NotebookInstanceLifecycleConfigName]
-    DirectInternetAccess: Optional[DirectInternetAccess]
-    VolumeSizeInGB: Optional[NotebookInstanceVolumeSizeInGB]
-    AcceleratorTypes: Optional[NotebookInstanceAcceleratorTypes]
-    DefaultCodeRepository: Optional[CodeRepositoryNameOrUrl]
-    AdditionalCodeRepositories: Optional[AdditionalCodeRepositoryNamesOrUrls]
-    RootAccess: Optional[RootAccess]
-    PlatformIdentifier: Optional[PlatformIdentifier]
-    InstanceMetadataServiceConfiguration: Optional[InstanceMetadataServiceConfiguration]
+    KmsKeyId: KmsKeyId | None
+    Tags: TagList | None
+    LifecycleConfigName: NotebookInstanceLifecycleConfigName | None
+    DirectInternetAccess: DirectInternetAccess | None
+    VolumeSizeInGB: NotebookInstanceVolumeSizeInGB | None
+    AcceleratorTypes: NotebookInstanceAcceleratorTypes | None
+    DefaultCodeRepository: CodeRepositoryNameOrUrl | None
+    AdditionalCodeRepositories: AdditionalCodeRepositoryNamesOrUrls | None
+    RootAccess: RootAccess | None
+    PlatformIdentifier: PlatformIdentifier | None
+    InstanceMetadataServiceConfiguration: InstanceMetadataServiceConfiguration | None
 
 
 class NotebookInstanceLifecycleHook(TypedDict, total=False):
@@ -9576,29 +10038,29 @@ class NotebookInstanceLifecycleHook(TypedDict, total=False):
     Instance <https://docs.aws.amazon.com/sagemaker/latest/dg/notebook-lifecycle-config.html>`__.
     """
 
-    Content: Optional[NotebookInstanceLifecycleConfigContent]
+    Content: NotebookInstanceLifecycleConfigContent | None
 
 
-NotebookInstanceLifecycleConfigList = List[NotebookInstanceLifecycleHook]
+NotebookInstanceLifecycleConfigList = list[NotebookInstanceLifecycleHook]
 
 
 class CreateNotebookInstanceLifecycleConfigInput(ServiceRequest):
     NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName
-    OnCreate: Optional[NotebookInstanceLifecycleConfigList]
-    OnStart: Optional[NotebookInstanceLifecycleConfigList]
-    Tags: Optional[TagList]
+    OnCreate: NotebookInstanceLifecycleConfigList | None
+    OnStart: NotebookInstanceLifecycleConfigList | None
+    Tags: TagList | None
 
 
 class CreateNotebookInstanceLifecycleConfigOutput(TypedDict, total=False):
-    NotebookInstanceLifecycleConfigArn: Optional[NotebookInstanceLifecycleConfigArn]
+    NotebookInstanceLifecycleConfigArn: NotebookInstanceLifecycleConfigArn | None
 
 
 class CreateNotebookInstanceOutput(TypedDict, total=False):
-    NotebookInstanceArn: Optional[NotebookInstanceArn]
+    NotebookInstanceArn: NotebookInstanceArn | None
 
 
-OptimizationVpcSubnets = List[OptimizationVpcSubnetId]
-OptimizationVpcSecurityGroupIds = List[OptimizationVpcSecurityGroupId]
+OptimizationVpcSubnets = list[OptimizationVpcSubnetId]
+OptimizationVpcSecurityGroupIds = list[OptimizationVpcSecurityGroupId]
 
 
 class OptimizationVpcConfig(TypedDict, total=False):
@@ -9613,16 +10075,43 @@ class OptimizationVpcConfig(TypedDict, total=False):
     Subnets: OptimizationVpcSubnets
 
 
+class OptimizationSageMakerModel(TypedDict, total=False):
+    """A SageMaker model to use as the source or destination for an
+    optimization job.
+    """
+
+    ModelName: ModelName | None
+
+
 class OptimizationJobOutputConfig(TypedDict, total=False):
     """Details for where to store the optimized model that you create with the
     optimization job.
     """
 
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
     S3OutputLocation: S3Uri
+    SageMakerModel: OptimizationSageMakerModel | None
 
 
-OptimizationJobEnvironmentVariables = Dict[NonEmptyString256, String256]
+class ModelSpeculativeDecodingTrainingDataSource(TypedDict, total=False):
+    """Contains information about the training data source for speculative
+    decoding.
+    """
+
+    S3Uri: S3Uri
+    S3DataType: ModelSpeculativeDecodingS3DataType
+
+
+class ModelSpeculativeDecodingConfig(TypedDict, total=False):
+    """Settings for the model speculative decoding technique that's applied by
+    a model optimization job.
+    """
+
+    Technique: ModelSpeculativeDecodingTechnique
+    TrainingDataSource: ModelSpeculativeDecodingTrainingDataSource | None
+
+
+OptimizationJobEnvironmentVariables = dict[NonEmptyString256, String256]
 
 
 class ModelShardingConfig(TypedDict, total=False):
@@ -9630,8 +10119,8 @@ class ModelShardingConfig(TypedDict, total=False):
     optimization job.
     """
 
-    Image: Optional[OptimizationContainerImage]
-    OverrideEnvironment: Optional[OptimizationJobEnvironmentVariables]
+    Image: OptimizationContainerImage | None
+    OverrideEnvironment: OptimizationJobEnvironmentVariables | None
 
 
 class ModelCompilationConfig(TypedDict, total=False):
@@ -9639,8 +10128,8 @@ class ModelCompilationConfig(TypedDict, total=False):
     optimization job.
     """
 
-    Image: Optional[OptimizationContainerImage]
-    OverrideEnvironment: Optional[OptimizationJobEnvironmentVariables]
+    Image: OptimizationContainerImage | None
+    OverrideEnvironment: OptimizationJobEnvironmentVariables | None
 
 
 class ModelQuantizationConfig(TypedDict, total=False):
@@ -9648,8 +10137,8 @@ class ModelQuantizationConfig(TypedDict, total=False):
     optimization job.
     """
 
-    Image: Optional[OptimizationContainerImage]
-    OverrideEnvironment: Optional[OptimizationJobEnvironmentVariables]
+    Image: OptimizationContainerImage | None
+    OverrideEnvironment: OptimizationJobEnvironmentVariables | None
 
 
 class OptimizationConfig(TypedDict, total=False):
@@ -9657,12 +10146,13 @@ class OptimizationConfig(TypedDict, total=False):
     optimization job.
     """
 
-    ModelQuantizationConfig: Optional[ModelQuantizationConfig]
-    ModelCompilationConfig: Optional[ModelCompilationConfig]
-    ModelShardingConfig: Optional[ModelShardingConfig]
+    ModelQuantizationConfig: ModelQuantizationConfig | None
+    ModelCompilationConfig: ModelCompilationConfig | None
+    ModelShardingConfig: ModelShardingConfig | None
+    ModelSpeculativeDecodingConfig: ModelSpeculativeDecodingConfig | None
 
 
-OptimizationConfigs = List[OptimizationConfig]
+OptimizationConfigs = list[OptimizationConfig]
 
 
 class OptimizationModelAccessConfig(TypedDict, total=False):
@@ -9679,14 +10169,15 @@ class OptimizationJobModelSourceS3(TypedDict, total=False):
     optimization job.
     """
 
-    S3Uri: Optional[S3Uri]
-    ModelAccessConfig: Optional[OptimizationModelAccessConfig]
+    S3Uri: S3Uri | None
+    ModelAccessConfig: OptimizationModelAccessConfig | None
 
 
 class OptimizationJobModelSource(TypedDict, total=False):
     """The location of the source model to optimize with an optimization job."""
 
-    S3: Optional[OptimizationJobModelSourceS3]
+    S3: OptimizationJobModelSourceS3 | None
+    SageMakerModel: OptimizationSageMakerModel | None
 
 
 class CreateOptimizationJobRequest(ServiceRequest):
@@ -9694,12 +10185,13 @@ class CreateOptimizationJobRequest(ServiceRequest):
     RoleArn: RoleArn
     ModelSource: OptimizationJobModelSource
     DeploymentInstanceType: OptimizationJobDeploymentInstanceType
-    OptimizationEnvironment: Optional[OptimizationJobEnvironmentVariables]
+    MaxInstanceCount: OptimizationJobMaxInstanceCount | None
+    OptimizationEnvironment: OptimizationJobEnvironmentVariables | None
     OptimizationConfigs: OptimizationConfigs
     OutputConfig: OptimizationJobOutputConfig
     StoppingCondition: StoppingCondition
-    Tags: Optional[TagList]
-    VpcConfig: Optional[OptimizationVpcConfig]
+    Tags: TagList | None
+    VpcConfig: OptimizationVpcConfig | None
 
 
 class CreateOptimizationJobResponse(TypedDict, total=False):
@@ -9708,47 +10200,64 @@ class CreateOptimizationJobResponse(TypedDict, total=False):
 
 class CreatePartnerAppPresignedUrlRequest(ServiceRequest):
     Arn: PartnerAppArn
-    ExpiresInSeconds: Optional[ExpiresInSeconds]
-    SessionExpirationDurationInSeconds: Optional[SessionExpirationDurationInSeconds]
+    ExpiresInSeconds: ExpiresInSeconds | None
+    SessionExpirationDurationInSeconds: SessionExpirationDurationInSeconds | None
 
 
 class CreatePartnerAppPresignedUrlResponse(TypedDict, total=False):
-    Url: Optional[String2048]
+    Url: String2048 | None
 
 
-PartnerAppArguments = Dict[NonEmptyString256, String1024]
-PartnerAppAdminUserList = List[NonEmptyString256]
+GroupPatternsList = list[GroupNamePattern]
+
+
+class RoleGroupAssignment(TypedDict, total=False):
+    """Defines the mapping between an in-app role and the Amazon Web Services
+    IAM Identity Center group patterns that should be assigned to that role
+    within the SageMaker Partner AI App.
+    """
+
+    RoleName: NonEmptyString256
+    GroupPatterns: GroupPatternsList
+
+
+RoleGroupAssignmentsList = list[RoleGroupAssignment]
+PartnerAppArguments = dict[NonEmptyString256, String1024]
+PartnerAppAdminUserList = list[NonEmptyString256]
 
 
 class PartnerAppConfig(TypedDict, total=False):
     """Configuration settings for the SageMaker Partner AI App."""
 
-    AdminUsers: Optional[PartnerAppAdminUserList]
-    Arguments: Optional[PartnerAppArguments]
+    AdminUsers: PartnerAppAdminUserList | None
+    Arguments: PartnerAppArguments | None
+    AssignedGroupPatterns: AssignedGroupPatternsList | None
+    RoleGroupAssignments: RoleGroupAssignmentsList | None
 
 
 class PartnerAppMaintenanceConfig(TypedDict, total=False):
     """Maintenance configuration settings for the SageMaker Partner AI App."""
 
-    MaintenanceWindowStart: Optional[WeeklyScheduleTimeFormat]
+    MaintenanceWindowStart: WeeklyScheduleTimeFormat | None
 
 
 class CreatePartnerAppRequest(ServiceRequest):
     Name: PartnerAppName
     Type: PartnerAppType
     ExecutionRoleArn: RoleArn
-    KmsKeyId: Optional[KmsKeyId]
-    MaintenanceConfig: Optional[PartnerAppMaintenanceConfig]
+    KmsKeyId: KmsKeyId | None
+    MaintenanceConfig: PartnerAppMaintenanceConfig | None
     Tier: NonEmptyString64
-    ApplicationConfig: Optional[PartnerAppConfig]
+    ApplicationConfig: PartnerAppConfig | None
     AuthType: PartnerAppAuthType
-    EnableIamSessionBasedIdentity: Optional[Boolean]
-    ClientToken: Optional[ClientToken]
-    Tags: Optional[TagList]
+    EnableIamSessionBasedIdentity: Boolean | None
+    EnableAutoMinorVersionUpgrade: Boolean | None
+    ClientToken: ClientToken | None
+    Tags: TagList | None
 
 
 class CreatePartnerAppResponse(TypedDict, total=False):
-    Arn: Optional[PartnerAppArn]
+    Arn: PartnerAppArn | None
 
 
 class ParallelismConfiguration(TypedDict, total=False):
@@ -9765,55 +10274,65 @@ class PipelineDefinitionS3Location(TypedDict, total=False):
 
     Bucket: BucketName
     ObjectKey: Key
-    VersionId: Optional[VersionId]
+    VersionId: VersionId | None
 
 
 class CreatePipelineRequest(ServiceRequest):
     PipelineName: PipelineName
-    PipelineDisplayName: Optional[PipelineName]
-    PipelineDefinition: Optional[PipelineDefinition]
-    PipelineDefinitionS3Location: Optional[PipelineDefinitionS3Location]
-    PipelineDescription: Optional[PipelineDescription]
+    PipelineDisplayName: PipelineName | None
+    PipelineDefinition: PipelineDefinition | None
+    PipelineDefinitionS3Location: PipelineDefinitionS3Location | None
+    PipelineDescription: PipelineDescription | None
     ClientRequestToken: IdempotencyToken
     RoleArn: RoleArn
-    Tags: Optional[TagList]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
+    Tags: TagList | None
+    ParallelismConfiguration: ParallelismConfiguration | None
 
 
 class CreatePipelineResponse(TypedDict, total=False):
-    PipelineArn: Optional[PipelineArn]
+    PipelineArn: PipelineArn | None
 
 
 class CreatePresignedDomainUrlRequest(ServiceRequest):
     DomainId: DomainId
     UserProfileName: UserProfileName
-    SessionExpirationDurationInSeconds: Optional[SessionExpirationDurationInSeconds]
-    ExpiresInSeconds: Optional[ExpiresInSeconds]
-    SpaceName: Optional[SpaceName]
-    LandingUri: Optional[LandingUri]
+    SessionExpirationDurationInSeconds: SessionExpirationDurationInSeconds | None
+    ExpiresInSeconds: ExpiresInSeconds | None
+    SpaceName: SpaceName | None
+    LandingUri: LandingUri | None
 
 
 class CreatePresignedDomainUrlResponse(TypedDict, total=False):
-    AuthorizedUrl: Optional[PresignedDomainUrl]
+    AuthorizedUrl: PresignedDomainUrl | None
+
+
+class CreatePresignedMlflowAppUrlRequest(ServiceRequest):
+    Arn: MlflowAppArn
+    ExpiresInSeconds: ExpiresInSeconds | None
+    SessionExpirationDurationInSeconds: SessionExpirationDurationInSeconds | None
+
+
+class CreatePresignedMlflowAppUrlResponse(TypedDict, total=False):
+    AuthorizedUrl: MlflowAppUrl | None
 
 
 class CreatePresignedMlflowTrackingServerUrlRequest(ServiceRequest):
     TrackingServerName: TrackingServerName
-    ExpiresInSeconds: Optional[ExpiresInSeconds]
-    SessionExpirationDurationInSeconds: Optional[SessionExpirationDurationInSeconds]
+    ExpiresInSeconds: ExpiresInSeconds | None
+    SessionExpirationDurationInSeconds: SessionExpirationDurationInSeconds | None
 
 
 class CreatePresignedMlflowTrackingServerUrlResponse(TypedDict, total=False):
-    AuthorizedUrl: Optional[TrackingServerUrl]
+    AuthorizedUrl: TrackingServerUrl | None
 
 
 class CreatePresignedNotebookInstanceUrlInput(ServiceRequest):
     NotebookInstanceName: NotebookInstanceName
-    SessionExpirationDurationInSeconds: Optional[SessionExpirationDurationInSeconds]
+    SessionExpirationDurationInSeconds: SessionExpirationDurationInSeconds | None
 
 
 class CreatePresignedNotebookInstanceUrlOutput(TypedDict, total=False):
-    AuthorizedUrl: Optional[NotebookInstanceUrl]
+    AuthorizedUrl: NotebookInstanceUrl | None
 
 
 class ExperimentConfig(TypedDict, total=False):
@@ -9827,13 +10346,13 @@ class ExperimentConfig(TypedDict, total=False):
     -  `CreateTransformJob <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_CreateTransformJob.html>`__
     """
 
-    ExperimentName: Optional[ExperimentEntityName]
-    TrialName: Optional[ExperimentEntityName]
-    TrialComponentDisplayName: Optional[ExperimentEntityName]
-    RunName: Optional[ExperimentEntityName]
+    ExperimentName: ExperimentEntityName | None
+    TrialName: ExperimentEntityName | None
+    TrialComponentDisplayName: ExperimentEntityName | None
+    RunName: ExperimentEntityName | None
 
 
-ProcessingEnvironmentMap = Dict[ProcessingEnvironmentKey, ProcessingEnvironmentValue]
+ProcessingEnvironmentMap = dict[ProcessingEnvironmentKey, ProcessingEnvironmentValue]
 
 
 class ProcessingStoppingCondition(TypedDict, total=False):
@@ -9851,7 +10370,7 @@ class ProcessingClusterConfig(TypedDict, total=False):
     InstanceCount: ProcessingInstanceCount
     InstanceType: ProcessingInstanceType
     VolumeSizeInGB: ProcessingVolumeSizeInGB
-    VolumeKmsKeyId: Optional[KmsKeyId]
+    VolumeKmsKeyId: KmsKeyId | None
 
 
 class ProcessingResources(TypedDict, total=False):
@@ -9877,7 +10396,7 @@ class ProcessingS3Output(TypedDict, total=False):
     """
 
     S3Uri: S3Uri
-    LocalPath: Optional[ProcessingLocalPath]
+    LocalPath: ProcessingLocalPath | None
     S3UploadMode: ProcessingS3UploadMode
 
 
@@ -9888,19 +10407,19 @@ class ProcessingOutput(TypedDict, total=False):
     """
 
     OutputName: String
-    S3Output: Optional[ProcessingS3Output]
-    FeatureStoreOutput: Optional[ProcessingFeatureStoreOutput]
-    AppManaged: Optional[AppManaged]
+    S3Output: ProcessingS3Output | None
+    FeatureStoreOutput: ProcessingFeatureStoreOutput | None
+    AppManaged: AppManaged | None
 
 
-ProcessingOutputs = List[ProcessingOutput]
+ProcessingOutputs = list[ProcessingOutput]
 
 
 class ProcessingOutputConfig(TypedDict, total=False):
     """Configuration for uploading output from the processing container."""
 
     Outputs: ProcessingOutputs
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
 
 
 class RedshiftDatasetDefinition(TypedDict, total=False):
@@ -9912,9 +10431,9 @@ class RedshiftDatasetDefinition(TypedDict, total=False):
     QueryString: RedshiftQueryString
     ClusterRoleArn: RoleArn
     OutputS3Uri: S3Uri
-    KmsKeyId: Optional[KmsKeyId]
+    KmsKeyId: KmsKeyId | None
     OutputFormat: RedshiftResultFormat
-    OutputCompression: Optional[RedshiftResultCompressionType]
+    OutputCompression: RedshiftResultCompressionType | None
 
 
 class DatasetDefinition(TypedDict, total=False):
@@ -9923,11 +10442,11 @@ class DatasetDefinition(TypedDict, total=False):
     ``RedshiftDatasetDefinition`` types.
     """
 
-    AthenaDatasetDefinition: Optional[AthenaDatasetDefinition]
-    RedshiftDatasetDefinition: Optional[RedshiftDatasetDefinition]
-    LocalPath: Optional[ProcessingLocalPath]
-    DataDistributionType: Optional[DataDistributionType]
-    InputMode: Optional[InputMode]
+    AthenaDatasetDefinition: AthenaDatasetDefinition | None
+    RedshiftDatasetDefinition: RedshiftDatasetDefinition | None
+    LocalPath: ProcessingLocalPath | None
+    DataDistributionType: DataDistributionType | None
+    InputMode: InputMode | None
 
 
 class ProcessingS3Input(TypedDict, total=False):
@@ -9936,11 +10455,11 @@ class ProcessingS3Input(TypedDict, total=False):
     """
 
     S3Uri: S3Uri
-    LocalPath: Optional[ProcessingLocalPath]
+    LocalPath: ProcessingLocalPath | None
     S3DataType: ProcessingS3DataType
-    S3InputMode: Optional[ProcessingS3InputMode]
-    S3DataDistributionType: Optional[ProcessingS3DataDistributionType]
-    S3CompressionType: Optional[ProcessingS3CompressionType]
+    S3InputMode: ProcessingS3InputMode | None
+    S3DataDistributionType: ProcessingS3DataDistributionType | None
+    S3CompressionType: ProcessingS3CompressionType | None
 
 
 class ProcessingInput(TypedDict, total=False):
@@ -9949,26 +10468,26 @@ class ProcessingInput(TypedDict, total=False):
     """
 
     InputName: String
-    AppManaged: Optional[AppManaged]
-    S3Input: Optional[ProcessingS3Input]
-    DatasetDefinition: Optional[DatasetDefinition]
+    AppManaged: AppManaged | None
+    S3Input: ProcessingS3Input | None
+    DatasetDefinition: DatasetDefinition | None
 
 
-ProcessingInputs = List[ProcessingInput]
+ProcessingInputs = list[ProcessingInput]
 
 
 class CreateProcessingJobRequest(ServiceRequest):
-    ProcessingInputs: Optional[ProcessingInputs]
-    ProcessingOutputConfig: Optional[ProcessingOutputConfig]
+    ProcessingInputs: ProcessingInputs | None
+    ProcessingOutputConfig: ProcessingOutputConfig | None
     ProcessingJobName: ProcessingJobName
     ProcessingResources: ProcessingResources
-    StoppingCondition: Optional[ProcessingStoppingCondition]
+    StoppingCondition: ProcessingStoppingCondition | None
     AppSpecification: AppSpecification
-    Environment: Optional[ProcessingEnvironmentMap]
-    NetworkConfig: Optional[NetworkConfig]
+    Environment: ProcessingEnvironmentMap | None
+    NetworkConfig: NetworkConfig | None
     RoleArn: RoleArn
-    Tags: Optional[TagList]
-    ExperimentConfig: Optional[ExperimentConfig]
+    Tags: TagList | None
+    ExperimentConfig: ExperimentConfig | None
 
 
 class CreateProcessingJobResponse(TypedDict, total=False):
@@ -9980,10 +10499,10 @@ class CreateTemplateProvider(TypedDict, total=False):
     template provider can be specified.
     """
 
-    CfnTemplateProvider: Optional[CfnCreateTemplateProvider]
+    CfnTemplateProvider: CfnCreateTemplateProvider | None
 
 
-CreateTemplateProviderList = List[CreateTemplateProvider]
+CreateTemplateProviderList = list[CreateTemplateProvider]
 
 
 class ProvisioningParameter(TypedDict, total=False):
@@ -9992,11 +10511,11 @@ class ProvisioningParameter(TypedDict, total=False):
     Catalog <https://docs.aws.amazon.com/servicecatalog/latest/adminguide/introduction.html>`__.
     """
 
-    Key: Optional[ProvisioningParameterKey]
-    Value: Optional[ProvisioningParameterValue]
+    Key: ProvisioningParameterKey | None
+    Value: ProvisioningParameterValue | None
 
 
-ProvisioningParameters = List[ProvisioningParameter]
+ProvisioningParameters = list[ProvisioningParameter]
 
 
 class ServiceCatalogProvisioningDetails(TypedDict, total=False):
@@ -10007,17 +10526,17 @@ class ServiceCatalogProvisioningDetails(TypedDict, total=False):
     """
 
     ProductId: ServiceCatalogEntityId
-    ProvisioningArtifactId: Optional[ServiceCatalogEntityId]
-    PathId: Optional[ServiceCatalogEntityId]
-    ProvisioningParameters: Optional[ProvisioningParameters]
+    ProvisioningArtifactId: ServiceCatalogEntityId | None
+    PathId: ServiceCatalogEntityId | None
+    ProvisioningParameters: ProvisioningParameters | None
 
 
 class CreateProjectInput(ServiceRequest):
     ProjectName: ProjectEntityName
-    ProjectDescription: Optional[EntityDescription]
-    ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
-    Tags: Optional[TagList]
-    TemplateProviders: Optional[CreateTemplateProviderList]
+    ProjectDescription: EntityDescription | None
+    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetails | None
+    Tags: TagList | None
+    TemplateProviders: CreateTemplateProviderList | None
 
 
 class CreateProjectOutput(TypedDict, total=False):
@@ -10066,12 +10585,12 @@ class CustomFileSystem(TypedDict, total=False):
     file system in Amazon SageMaker AI Studio.
     """
 
-    EFSFileSystem: Optional[EFSFileSystem]
-    FSxLustreFileSystem: Optional[FSxLustreFileSystem]
-    S3FileSystem: Optional[S3FileSystem]
+    EFSFileSystem: EFSFileSystem | None
+    FSxLustreFileSystem: FSxLustreFileSystem | None
+    S3FileSystem: S3FileSystem | None
 
 
-CustomFileSystems = List[CustomFileSystem]
+CustomFileSystems = list[CustomFileSystem]
 
 
 class EbsStorageSettings(TypedDict, total=False):
@@ -10085,13 +10604,13 @@ class EbsStorageSettings(TypedDict, total=False):
 class SpaceStorageSettings(TypedDict, total=False):
     """The storage settings for a space."""
 
-    EbsStorageSettings: Optional[EbsStorageSettings]
+    EbsStorageSettings: EbsStorageSettings | None
 
 
 class SpaceIdleSettings(TypedDict, total=False):
     """Settings related to idle shutdown of Studio applications in a space."""
 
-    IdleTimeoutInMinutes: Optional[IdleTimeoutInMinutes]
+    IdleTimeoutInMinutes: IdleTimeoutInMinutes | None
 
 
 class SpaceAppLifecycleManagement(TypedDict, total=False):
@@ -10099,61 +10618,88 @@ class SpaceAppLifecycleManagement(TypedDict, total=False):
     SageMaker Studio applications in a space.
     """
 
-    IdleSettings: Optional[SpaceIdleSettings]
+    IdleSettings: SpaceIdleSettings | None
 
 
 class SpaceJupyterLabAppSettings(TypedDict, total=False):
     """The settings for the JupyterLab application within a space."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    CodeRepositories: Optional[CodeRepositories]
-    AppLifecycleManagement: Optional[SpaceAppLifecycleManagement]
+    DefaultResourceSpec: ResourceSpec | None
+    CodeRepositories: CodeRepositories | None
+    AppLifecycleManagement: SpaceAppLifecycleManagement | None
 
 
 class SpaceCodeEditorAppSettings(TypedDict, total=False):
     """The application settings for a Code Editor space."""
 
-    DefaultResourceSpec: Optional[ResourceSpec]
-    AppLifecycleManagement: Optional[SpaceAppLifecycleManagement]
+    DefaultResourceSpec: ResourceSpec | None
+    AppLifecycleManagement: SpaceAppLifecycleManagement | None
 
 
 class SpaceSettings(TypedDict, total=False):
     """A collection of space settings."""
 
-    JupyterServerAppSettings: Optional[JupyterServerAppSettings]
-    KernelGatewayAppSettings: Optional[KernelGatewayAppSettings]
-    CodeEditorAppSettings: Optional[SpaceCodeEditorAppSettings]
-    JupyterLabAppSettings: Optional[SpaceJupyterLabAppSettings]
-    AppType: Optional[AppType]
-    SpaceStorageSettings: Optional[SpaceStorageSettings]
-    SpaceManagedResources: Optional[FeatureStatus]
-    CustomFileSystems: Optional[CustomFileSystems]
-    RemoteAccess: Optional[FeatureStatus]
+    JupyterServerAppSettings: JupyterServerAppSettings | None
+    KernelGatewayAppSettings: KernelGatewayAppSettings | None
+    CodeEditorAppSettings: SpaceCodeEditorAppSettings | None
+    JupyterLabAppSettings: SpaceJupyterLabAppSettings | None
+    AppType: AppType | None
+    SpaceStorageSettings: SpaceStorageSettings | None
+    SpaceManagedResources: FeatureStatus | None
+    CustomFileSystems: CustomFileSystems | None
+    RemoteAccess: FeatureStatus | None
 
 
 class CreateSpaceRequest(ServiceRequest):
     DomainId: DomainId
     SpaceName: SpaceName
-    Tags: Optional[TagList]
-    SpaceSettings: Optional[SpaceSettings]
-    OwnershipSettings: Optional[OwnershipSettings]
-    SpaceSharingSettings: Optional[SpaceSharingSettings]
-    SpaceDisplayName: Optional[NonEmptyString64]
+    Tags: TagList | None
+    SpaceSettings: SpaceSettings | None
+    OwnershipSettings: OwnershipSettings | None
+    SpaceSharingSettings: SpaceSharingSettings | None
+    SpaceDisplayName: NonEmptyString64 | None
 
 
 class CreateSpaceResponse(TypedDict, total=False):
-    SpaceArn: Optional[SpaceArn]
+    SpaceArn: SpaceArn | None
 
 
 class CreateStudioLifecycleConfigRequest(ServiceRequest):
     StudioLifecycleConfigName: StudioLifecycleConfigName
     StudioLifecycleConfigContent: StudioLifecycleConfigContent
     StudioLifecycleConfigAppType: StudioLifecycleConfigAppType
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateStudioLifecycleConfigResponse(TypedDict, total=False):
-    StudioLifecycleConfigArn: Optional[StudioLifecycleConfigArn]
+    StudioLifecycleConfigArn: StudioLifecycleConfigArn | None
+
+
+class ModelPackageConfig(TypedDict, total=False):
+    """The configuration for the Model package."""
+
+    ModelPackageGroupArn: ModelPackageGroupArn
+    SourceModelPackageArn: ModelPackageArn | None
+
+
+class MlflowConfig(TypedDict, total=False):
+    """The MLflow configuration using SageMaker managed MLflow."""
+
+    MlflowResourceArn: MlFlowResourceArn
+    MlflowExperimentName: MlflowExperimentName | None
+    MlflowRunName: MlflowRunName | None
+
+
+class ServerlessJobConfig(TypedDict, total=False):
+    """The configuration for the serverless training job."""
+
+    BaseModelArn: ServerlessJobBaseModelArn
+    AcceptEula: AcceptEula | None
+    JobType: ServerlessJobType
+    CustomizationTechnique: CustomizationTechnique | None
+    Peft: Peft | None
+    EvaluationType: EvaluationType | None
+    EvaluatorArn: EvaluatorArn | None
 
 
 class SessionChainingConfig(TypedDict, total=False):
@@ -10165,7 +10711,7 @@ class SessionChainingConfig(TypedDict, total=False):
     training <https://docs.aws.amazon.com/sagemaker/latest/dg/model-access-training-data.html#model-access-training-data-abac>`__.
     """
 
-    EnableSessionTagChaining: Optional[EnableSessionTagChaining]
+    EnableSessionTagChaining: EnableSessionTagChaining | None
 
 
 class InfraCheckConfig(TypedDict, total=False):
@@ -10174,7 +10720,7 @@ class InfraCheckConfig(TypedDict, total=False):
     instance hardware and cluster network connectivity.
     """
 
-    EnableInfraCheck: Optional[EnableInfraCheck]
+    EnableInfraCheck: EnableInfraCheck | None
 
 
 class RemoteDebugConfig(TypedDict, total=False):
@@ -10186,27 +10732,27 @@ class RemoteDebugConfig(TypedDict, total=False):
     debugging <https://docs.aws.amazon.com/sagemaker/latest/dg/train-remote-debugging.html>`__.
     """
 
-    EnableRemoteDebug: Optional[EnableRemoteDebug]
+    EnableRemoteDebug: EnableRemoteDebug | None
 
 
-TrainingEnvironmentMap = Dict[TrainingEnvironmentKey, TrainingEnvironmentValue]
-RuleParameters = Dict[ConfigKey, ConfigValue]
+TrainingEnvironmentMap = dict[TrainingEnvironmentKey, TrainingEnvironmentValue]
+RuleParameters = dict[ConfigKey, ConfigValue]
 
 
 class ProfilerRuleConfiguration(TypedDict, total=False):
     """Configuration information for profiling rules."""
 
     RuleConfigurationName: RuleConfigurationName
-    LocalPath: Optional[DirectoryPath]
-    S3OutputPath: Optional[S3Uri]
+    LocalPath: DirectoryPath | None
+    S3OutputPath: S3Uri | None
     RuleEvaluatorImage: AlgorithmImage
-    InstanceType: Optional[ProcessingInstanceType]
-    VolumeSizeInGB: Optional[OptionalVolumeSizeInGB]
-    RuleParameters: Optional[RuleParameters]
+    InstanceType: ProcessingInstanceType | None
+    VolumeSizeInGB: OptionalVolumeSizeInGB | None
+    RuleParameters: RuleParameters | None
 
 
-ProfilerRuleConfigurations = List[ProfilerRuleConfiguration]
-ProfilingParameters = Dict[ConfigKey, ConfigValue]
+ProfilerRuleConfigurations = list[ProfilerRuleConfiguration]
+ProfilingParameters = dict[ConfigKey, ConfigValue]
 ProfilingIntervalInMilliseconds = int
 
 
@@ -10215,10 +10761,10 @@ class ProfilerConfig(TypedDict, total=False):
     monitoring, framework profiling, and storage paths.
     """
 
-    S3OutputPath: Optional[S3Uri]
-    ProfilingIntervalInMilliseconds: Optional[ProfilingIntervalInMilliseconds]
-    ProfilingParameters: Optional[ProfilingParameters]
-    DisableProfiler: Optional[DisableProfiler]
+    S3OutputPath: S3Uri | None
+    ProfilingIntervalInMilliseconds: ProfilingIntervalInMilliseconds | None
+    ProfilingParameters: ProfilingParameters | None
+    DisableProfiler: DisableProfiler | None
 
 
 class TensorBoardOutputConfig(TypedDict, total=False):
@@ -10226,7 +10772,7 @@ class TensorBoardOutputConfig(TypedDict, total=False):
     TensorBoard output data.
     """
 
-    LocalPath: Optional[DirectoryPath]
+    LocalPath: DirectoryPath | None
     S3OutputPath: S3Uri
 
 
@@ -10239,16 +10785,16 @@ class DebugRuleConfiguration(TypedDict, total=False):
     """
 
     RuleConfigurationName: RuleConfigurationName
-    LocalPath: Optional[DirectoryPath]
-    S3OutputPath: Optional[S3Uri]
+    LocalPath: DirectoryPath | None
+    S3OutputPath: S3Uri | None
     RuleEvaluatorImage: AlgorithmImage
-    InstanceType: Optional[ProcessingInstanceType]
-    VolumeSizeInGB: Optional[OptionalVolumeSizeInGB]
-    RuleParameters: Optional[RuleParameters]
+    InstanceType: ProcessingInstanceType | None
+    VolumeSizeInGB: OptionalVolumeSizeInGB | None
+    RuleParameters: RuleParameters | None
 
 
-DebugRuleConfigurations = List[DebugRuleConfiguration]
-HookParameters = Dict[ConfigKey, ConfigValue]
+DebugRuleConfigurations = list[DebugRuleConfiguration]
+HookParameters = dict[ConfigKey, ConfigValue]
 
 
 class DebugHookConfig(TypedDict, total=False):
@@ -10260,38 +10806,41 @@ class DebugHookConfig(TypedDict, total=False):
     Job <https://docs.aws.amazon.com/sagemaker/latest/dg/debugger-createtrainingjob-api.html>`__.
     """
 
-    LocalPath: Optional[DirectoryPath]
+    LocalPath: DirectoryPath | None
     S3OutputPath: S3Uri
-    HookParameters: Optional[HookParameters]
-    CollectionConfigurations: Optional[CollectionConfigurations]
+    HookParameters: HookParameters | None
+    CollectionConfigurations: CollectionConfigurations | None
 
 
 class CreateTrainingJobRequest(ServiceRequest):
     TrainingJobName: TrainingJobName
-    HyperParameters: Optional[HyperParameters]
-    AlgorithmSpecification: AlgorithmSpecification
+    HyperParameters: HyperParameters | None
+    AlgorithmSpecification: AlgorithmSpecification | None
     RoleArn: RoleArn
-    InputDataConfig: Optional[InputDataConfig]
+    InputDataConfig: InputDataConfig | None
     OutputDataConfig: OutputDataConfig
-    ResourceConfig: ResourceConfig
-    VpcConfig: Optional[VpcConfig]
-    StoppingCondition: StoppingCondition
-    Tags: Optional[TagList]
-    EnableNetworkIsolation: Optional[Boolean]
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    EnableManagedSpotTraining: Optional[Boolean]
-    CheckpointConfig: Optional[CheckpointConfig]
-    DebugHookConfig: Optional[DebugHookConfig]
-    DebugRuleConfigurations: Optional[DebugRuleConfigurations]
-    TensorBoardOutputConfig: Optional[TensorBoardOutputConfig]
-    ExperimentConfig: Optional[ExperimentConfig]
-    ProfilerConfig: Optional[ProfilerConfig]
-    ProfilerRuleConfigurations: Optional[ProfilerRuleConfigurations]
-    Environment: Optional[TrainingEnvironmentMap]
-    RetryStrategy: Optional[RetryStrategy]
-    RemoteDebugConfig: Optional[RemoteDebugConfig]
-    InfraCheckConfig: Optional[InfraCheckConfig]
-    SessionChainingConfig: Optional[SessionChainingConfig]
+    ResourceConfig: ResourceConfig | None
+    VpcConfig: VpcConfig | None
+    StoppingCondition: StoppingCondition | None
+    Tags: TagList | None
+    EnableNetworkIsolation: Boolean | None
+    EnableInterContainerTrafficEncryption: Boolean | None
+    EnableManagedSpotTraining: Boolean | None
+    CheckpointConfig: CheckpointConfig | None
+    DebugHookConfig: DebugHookConfig | None
+    DebugRuleConfigurations: DebugRuleConfigurations | None
+    TensorBoardOutputConfig: TensorBoardOutputConfig | None
+    ExperimentConfig: ExperimentConfig | None
+    ProfilerConfig: ProfilerConfig | None
+    ProfilerRuleConfigurations: ProfilerRuleConfigurations | None
+    Environment: TrainingEnvironmentMap | None
+    RetryStrategy: RetryStrategy | None
+    RemoteDebugConfig: RemoteDebugConfig | None
+    InfraCheckConfig: InfraCheckConfig | None
+    SessionChainingConfig: SessionChainingConfig | None
+    ServerlessJobConfig: ServerlessJobConfig | None
+    MlflowConfig: MlflowConfig | None
+    ModelPackageConfig: ModelPackageConfig | None
 
 
 class CreateTrainingJobResponse(TypedDict, total=False):
@@ -10301,8 +10850,8 @@ class CreateTrainingJobResponse(TypedDict, total=False):
 class CreateTrainingPlanRequest(ServiceRequest):
     TrainingPlanName: TrainingPlanName
     TrainingPlanOfferingId: TrainingPlanOfferingId
-    SpareInstanceCountPerUltraServer: Optional[SpareInstanceCountPerUltraServer]
-    Tags: Optional[TagList]
+    SpareInstanceCountPerUltraServer: SpareInstanceCountPerUltraServer | None
+    Tags: TagList | None
 
 
 class CreateTrainingPlanResponse(TypedDict, total=False):
@@ -10321,9 +10870,9 @@ class DataProcessing(TypedDict, total=False):
     Records <https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform-data-processing.html>`__.
     """
 
-    InputFilter: Optional[JsonPath]
-    OutputFilter: Optional[JsonPath]
-    JoinSource: Optional[JoinSource]
+    InputFilter: JsonPath | None
+    OutputFilter: JsonPath | None
+    JoinSource: JoinSource | None
 
 
 class ModelClientConfig(TypedDict, total=False):
@@ -10331,25 +10880,25 @@ class ModelClientConfig(TypedDict, total=False):
     transform job invocation.
     """
 
-    InvocationsTimeoutInSeconds: Optional[InvocationsTimeoutInSeconds]
-    InvocationsMaxRetries: Optional[InvocationsMaxRetries]
+    InvocationsTimeoutInSeconds: InvocationsTimeoutInSeconds | None
+    InvocationsMaxRetries: InvocationsMaxRetries | None
 
 
 class CreateTransformJobRequest(ServiceRequest):
     TransformJobName: TransformJobName
     ModelName: ModelName
-    MaxConcurrentTransforms: Optional[MaxConcurrentTransforms]
-    ModelClientConfig: Optional[ModelClientConfig]
-    MaxPayloadInMB: Optional[MaxPayloadInMB]
-    BatchStrategy: Optional[BatchStrategy]
-    Environment: Optional[TransformEnvironmentMap]
+    MaxConcurrentTransforms: MaxConcurrentTransforms | None
+    ModelClientConfig: ModelClientConfig | None
+    MaxPayloadInMB: MaxPayloadInMB | None
+    BatchStrategy: BatchStrategy | None
+    Environment: TransformEnvironmentMap | None
     TransformInput: TransformInput
     TransformOutput: TransformOutput
-    DataCaptureConfig: Optional[BatchDataCaptureConfig]
+    DataCaptureConfig: BatchDataCaptureConfig | None
     TransformResources: TransformResources
-    DataProcessing: Optional[DataProcessing]
-    Tags: Optional[TagList]
-    ExperimentConfig: Optional[ExperimentConfig]
+    DataProcessing: DataProcessing | None
+    Tags: TagList | None
+    ExperimentConfig: ExperimentConfig | None
 
 
 class CreateTransformJobResponse(TypedDict, total=False):
@@ -10368,11 +10917,11 @@ class TrialComponentArtifact(TypedDict, total=False):
     metrics, snapshots, logs, and images.
     """
 
-    MediaType: Optional[MediaType]
+    MediaType: MediaType | None
     Value: TrialComponentArtifactValue
 
 
-TrialComponentArtifacts = Dict[TrialComponentKey128, TrialComponentArtifact]
+TrialComponentArtifacts = dict[TrialComponentKey128, TrialComponentArtifact]
 
 
 class TrialComponentParameterValue(TypedDict, total=False):
@@ -10384,72 +10933,72 @@ class TrialComponentParameterValue(TypedDict, total=False):
     request.
     """
 
-    StringValue: Optional[StringParameterValue]
-    NumberValue: Optional[DoubleParameterValue]
+    StringValue: StringParameterValue | None
+    NumberValue: DoubleParameterValue | None
 
 
-TrialComponentParameters = Dict[TrialComponentKey320, TrialComponentParameterValue]
+TrialComponentParameters = dict[TrialComponentKey320, TrialComponentParameterValue]
 
 
 class TrialComponentStatus(TypedDict, total=False):
     """The status of the trial component."""
 
-    PrimaryStatus: Optional[TrialComponentPrimaryStatus]
-    Message: Optional[TrialComponentStatusMessage]
+    PrimaryStatus: TrialComponentPrimaryStatus | None
+    Message: TrialComponentStatusMessage | None
 
 
 class CreateTrialComponentRequest(ServiceRequest):
     TrialComponentName: ExperimentEntityName
-    DisplayName: Optional[ExperimentEntityName]
-    Status: Optional[TrialComponentStatus]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Parameters: Optional[TrialComponentParameters]
-    InputArtifacts: Optional[TrialComponentArtifacts]
-    OutputArtifacts: Optional[TrialComponentArtifacts]
-    MetadataProperties: Optional[MetadataProperties]
-    Tags: Optional[TagList]
+    DisplayName: ExperimentEntityName | None
+    Status: TrialComponentStatus | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Parameters: TrialComponentParameters | None
+    InputArtifacts: TrialComponentArtifacts | None
+    OutputArtifacts: TrialComponentArtifacts | None
+    MetadataProperties: MetadataProperties | None
+    Tags: TagList | None
 
 
 class CreateTrialComponentResponse(TypedDict, total=False):
-    TrialComponentArn: Optional[TrialComponentArn]
+    TrialComponentArn: TrialComponentArn | None
 
 
 class CreateTrialRequest(ServiceRequest):
     TrialName: ExperimentEntityName
-    DisplayName: Optional[ExperimentEntityName]
+    DisplayName: ExperimentEntityName | None
     ExperimentName: ExperimentEntityName
-    MetadataProperties: Optional[MetadataProperties]
-    Tags: Optional[TagList]
+    MetadataProperties: MetadataProperties | None
+    Tags: TagList | None
 
 
 class CreateTrialResponse(TypedDict, total=False):
-    TrialArn: Optional[TrialArn]
+    TrialArn: TrialArn | None
 
 
 class CreateUserProfileRequest(ServiceRequest):
     DomainId: DomainId
     UserProfileName: UserProfileName
-    SingleSignOnUserIdentifier: Optional[SingleSignOnUserIdentifier]
-    SingleSignOnUserValue: Optional[String256]
-    Tags: Optional[TagList]
-    UserSettings: Optional[UserSettings]
+    SingleSignOnUserIdentifier: SingleSignOnUserIdentifier | None
+    SingleSignOnUserValue: String256 | None
+    Tags: TagList | None
+    UserSettings: UserSettings | None
 
 
 class CreateUserProfileResponse(TypedDict, total=False):
-    UserProfileArn: Optional[UserProfileArn]
+    UserProfileArn: UserProfileArn | None
 
 
-WorkforceSubnets = List[WorkforceSubnetId]
-WorkforceSecurityGroupIds = List[WorkforceSecurityGroupId]
+WorkforceSubnets = list[WorkforceSubnetId]
+WorkforceSecurityGroupIds = list[WorkforceSecurityGroupId]
 
 
 class WorkforceVpcConfigRequest(TypedDict, total=False):
     """The VPC object you use to create or update a workforce."""
 
-    VpcId: Optional[WorkforceVpcId]
-    SecurityGroupIds: Optional[WorkforceSecurityGroupIds]
-    Subnets: Optional[WorkforceSubnets]
+    VpcId: WorkforceVpcId | None
+    SecurityGroupIds: WorkforceSecurityGroupIds | None
+    Subnets: WorkforceSubnets | None
 
 
 class SourceIpConfig(TypedDict, total=False):
@@ -10475,18 +11024,18 @@ class OidcConfig(TypedDict, total=False):
     UserInfoEndpoint: OidcEndpoint
     LogoutEndpoint: OidcEndpoint
     JwksUri: OidcEndpoint
-    Scope: Optional[Scope]
-    AuthenticationRequestExtraParams: Optional[AuthenticationRequestExtraParams]
+    Scope: Scope | None
+    AuthenticationRequestExtraParams: AuthenticationRequestExtraParams | None
 
 
 class CreateWorkforceRequest(ServiceRequest):
-    CognitoConfig: Optional[CognitoConfig]
-    OidcConfig: Optional[OidcConfig]
-    SourceIpConfig: Optional[SourceIpConfig]
+    CognitoConfig: CognitoConfig | None
+    OidcConfig: OidcConfig | None
+    SourceIpConfig: SourceIpConfig | None
     WorkforceName: WorkforceName
-    Tags: Optional[TagList]
-    WorkforceVpcConfig: Optional[WorkforceVpcConfigRequest]
-    IpAddressType: Optional[WorkforceIpAddressType]
+    Tags: TagList | None
+    WorkforceVpcConfig: WorkforceVpcConfigRequest | None
+    IpAddressType: WorkforceIpAddressType | None
 
 
 class CreateWorkforceResponse(TypedDict, total=False):
@@ -10498,8 +11047,8 @@ class IamPolicyConstraints(TypedDict, total=False):
     added to the IAM policy.
     """
 
-    SourceIp: Optional[EnabledOrDisabled]
-    VpcSourceIp: Optional[EnabledOrDisabled]
+    SourceIp: EnabledOrDisabled | None
+    VpcSourceIp: EnabledOrDisabled | None
 
 
 class S3Presign(TypedDict, total=False):
@@ -10512,7 +11061,7 @@ class S3Presign(TypedDict, total=False):
     templates <https://docs.aws.amazon.com/sagemaker/latest/dg/a2i-custom-templates.html>`__.
     """
 
-    IamPolicyConstraints: Optional[IamPolicyConstraints]
+    IamPolicyConstraints: IamPolicyConstraints | None
 
 
 class WorkerAccessConfiguration(TypedDict, total=False):
@@ -10522,7 +11071,7 @@ class WorkerAccessConfiguration(TypedDict, total=False):
     presigned URL.
     """
 
-    S3Presign: Optional[S3Presign]
+    S3Presign: S3Presign | None
 
 
 class NotificationConfiguration(TypedDict, total=False):
@@ -10530,10 +11079,10 @@ class NotificationConfiguration(TypedDict, total=False):
     for work teams.
     """
 
-    NotificationTopicArn: Optional[NotificationTopicArn]
+    NotificationTopicArn: NotificationTopicArn | None
 
 
-Groups = List[Group]
+Groups = list[Group]
 
 
 class OidcMemberDefinition(TypedDict, total=False):
@@ -10545,7 +11094,7 @@ class OidcMemberDefinition(TypedDict, total=False):
     team.
     """
 
-    Groups: Optional[Groups]
+    Groups: Groups | None
 
 
 class MemberDefinition(TypedDict, total=False):
@@ -10553,36 +11102,36 @@ class MemberDefinition(TypedDict, total=False):
     of a work team.
     """
 
-    CognitoMemberDefinition: Optional[CognitoMemberDefinition]
-    OidcMemberDefinition: Optional[OidcMemberDefinition]
+    CognitoMemberDefinition: CognitoMemberDefinition | None
+    OidcMemberDefinition: OidcMemberDefinition | None
 
 
-MemberDefinitions = List[MemberDefinition]
+MemberDefinitions = list[MemberDefinition]
 
 
 class CreateWorkteamRequest(ServiceRequest):
     WorkteamName: WorkteamName
-    WorkforceName: Optional[WorkforceName]
+    WorkforceName: WorkforceName | None
     MemberDefinitions: MemberDefinitions
     Description: String200
-    NotificationConfiguration: Optional[NotificationConfiguration]
-    WorkerAccessConfiguration: Optional[WorkerAccessConfiguration]
-    Tags: Optional[TagList]
+    NotificationConfiguration: NotificationConfiguration | None
+    WorkerAccessConfiguration: WorkerAccessConfiguration | None
+    Tags: TagList | None
 
 
 class CreateWorkteamResponse(TypedDict, total=False):
-    WorkteamArn: Optional[WorkteamArn]
+    WorkteamArn: WorkteamArn | None
 
 
-CustomerMetadataKeyList = List[CustomerMetadataKey]
+CustomerMetadataKeyList = list[CustomerMetadataKey]
 
 
 class CustomizedMetricSpecification(TypedDict, total=False):
     """A customized metric."""
 
-    MetricName: Optional[String]
-    Namespace: Optional[String]
-    Statistic: Optional[Statistic]
+    MetricName: String | None
+    Namespace: String | None
+    Statistic: Statistic | None
 
 
 class DataCaptureConfigSummary(TypedDict, total=False):
@@ -10598,14 +11147,14 @@ class DataCaptureConfigSummary(TypedDict, total=False):
 class DebugRuleEvaluationStatus(TypedDict, total=False):
     """Information about the status of the rule evaluation."""
 
-    RuleConfigurationName: Optional[RuleConfigurationName]
-    RuleEvaluationJobArn: Optional[ProcessingJobArn]
-    RuleEvaluationStatus: Optional[RuleEvaluationStatus]
-    StatusDetails: Optional[StatusDetails]
-    LastModifiedTime: Optional[Timestamp]
+    RuleConfigurationName: RuleConfigurationName | None
+    RuleEvaluationJobArn: ProcessingJobArn | None
+    RuleEvaluationStatus: RuleEvaluationStatus | None
+    StatusDetails: StatusDetails | None
+    LastModifiedTime: Timestamp | None
 
 
-DebugRuleEvaluationStatuses = List[DebugRuleEvaluationStatus]
+DebugRuleEvaluationStatuses = list[DebugRuleEvaluationStatus]
 
 
 class DeleteActionRequest(ServiceRequest):
@@ -10613,7 +11162,7 @@ class DeleteActionRequest(ServiceRequest):
 
 
 class DeleteActionResponse(TypedDict, total=False):
-    ActionArn: Optional[ActionArn]
+    ActionArn: ActionArn | None
 
 
 class DeleteAlgorithmInput(ServiceRequest):
@@ -10626,19 +11175,19 @@ class DeleteAppImageConfigRequest(ServiceRequest):
 
 class DeleteAppRequest(ServiceRequest):
     DomainId: DomainId
-    UserProfileName: Optional[UserProfileName]
-    SpaceName: Optional[SpaceName]
+    UserProfileName: UserProfileName | None
+    SpaceName: SpaceName | None
     AppType: AppType
     AppName: AppName
 
 
 class DeleteArtifactRequest(ServiceRequest):
-    ArtifactArn: Optional[ArtifactArn]
-    Source: Optional[ArtifactSource]
+    ArtifactArn: ArtifactArn | None
+    Source: ArtifactSource | None
 
 
 class DeleteArtifactResponse(TypedDict, total=False):
-    ArtifactArn: Optional[ArtifactArn]
+    ArtifactArn: ArtifactArn | None
 
 
 class DeleteAssociationRequest(ServiceRequest):
@@ -10647,8 +11196,8 @@ class DeleteAssociationRequest(ServiceRequest):
 
 
 class DeleteAssociationResponse(TypedDict, total=False):
-    SourceArn: Optional[AssociationEntityArn]
-    DestinationArn: Optional[AssociationEntityArn]
+    SourceArn: AssociationEntityArn | None
+    DestinationArn: AssociationEntityArn | None
 
 
 class DeleteClusterRequest(ServiceRequest):
@@ -10680,7 +11229,7 @@ class DeleteContextRequest(ServiceRequest):
 
 
 class DeleteContextResponse(TypedDict, total=False):
-    ContextArn: Optional[ContextArn]
+    ContextArn: ContextArn | None
 
 
 class DeleteDataQualityJobDefinitionRequest(ServiceRequest):
@@ -10696,12 +11245,12 @@ class RetentionPolicy(TypedDict, total=False):
     volume.
     """
 
-    HomeEfsFileSystem: Optional[RetentionType]
+    HomeEfsFileSystem: RetentionType | None
 
 
 class DeleteDomainRequest(ServiceRequest):
     DomainId: DomainId
-    RetentionPolicy: Optional[RetentionPolicy]
+    RetentionPolicy: RetentionPolicy | None
 
 
 class DeleteEdgeDeploymentPlanRequest(ServiceRequest):
@@ -10726,7 +11275,7 @@ class DeleteExperimentRequest(ServiceRequest):
 
 
 class DeleteExperimentResponse(TypedDict, total=False):
-    ExperimentArn: Optional[ExperimentArn]
+    ExperimentArn: ExperimentArn | None
 
 
 class DeleteFeatureGroupRequest(ServiceRequest):
@@ -10780,8 +11329,8 @@ class DeleteImageResponse(TypedDict, total=False):
 
 class DeleteImageVersionRequest(ServiceRequest):
     ImageName: ImageName
-    Version: Optional[ImageVersionNumber]
-    Alias: Optional[SageMakerImageVersionAlias]
+    Version: ImageVersionNumber | None
+    Alias: SageMakerImageVersionAlias | None
 
 
 class DeleteImageVersionResponse(TypedDict, total=False):
@@ -10800,12 +11349,20 @@ class DeleteInferenceExperimentResponse(TypedDict, total=False):
     InferenceExperimentArn: InferenceExperimentArn
 
 
+class DeleteMlflowAppRequest(ServiceRequest):
+    Arn: MlflowAppArn
+
+
+class DeleteMlflowAppResponse(TypedDict, total=False):
+    Arn: MlflowAppArn | None
+
+
 class DeleteMlflowTrackingServerRequest(ServiceRequest):
     TrackingServerName: TrackingServerName
 
 
 class DeleteMlflowTrackingServerResponse(TypedDict, total=False):
-    TrackingServerArn: Optional[TrackingServerArn]
+    TrackingServerArn: TrackingServerArn | None
 
 
 class DeleteModelBiasJobDefinitionRequest(ServiceRequest):
@@ -10858,11 +11415,11 @@ class DeleteOptimizationJobRequest(ServiceRequest):
 
 class DeletePartnerAppRequest(ServiceRequest):
     Arn: PartnerAppArn
-    ClientToken: Optional[ClientToken]
+    ClientToken: ClientToken | None
 
 
 class DeletePartnerAppResponse(TypedDict, total=False):
-    Arn: Optional[PartnerAppArn]
+    Arn: PartnerAppArn | None
 
 
 class DeletePipelineRequest(ServiceRequest):
@@ -10871,7 +11428,11 @@ class DeletePipelineRequest(ServiceRequest):
 
 
 class DeletePipelineResponse(TypedDict, total=False):
-    PipelineArn: Optional[PipelineArn]
+    PipelineArn: PipelineArn | None
+
+
+class DeleteProcessingJobRequest(ServiceRequest):
+    ProcessingJobName: ProcessingJobName
 
 
 class DeleteProjectInput(ServiceRequest):
@@ -10887,7 +11448,7 @@ class DeleteStudioLifecycleConfigRequest(ServiceRequest):
     StudioLifecycleConfigName: StudioLifecycleConfigName
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class DeleteTagsInput(ServiceRequest):
@@ -10899,12 +11460,16 @@ class DeleteTagsOutput(TypedDict, total=False):
     pass
 
 
+class DeleteTrainingJobRequest(ServiceRequest):
+    TrainingJobName: TrainingJobName
+
+
 class DeleteTrialComponentRequest(ServiceRequest):
     TrialComponentName: ExperimentEntityName
 
 
 class DeleteTrialComponentResponse(TypedDict, total=False):
-    TrialComponentArn: Optional[TrialComponentArn]
+    TrialComponentArn: TrialComponentArn | None
 
 
 class DeleteTrialRequest(ServiceRequest):
@@ -10912,7 +11477,7 @@ class DeleteTrialRequest(ServiceRequest):
 
 
 class DeleteTrialResponse(TypedDict, total=False):
-    TrialArn: Optional[TrialArn]
+    TrialArn: TrialArn | None
 
 
 class DeleteUserProfileRequest(ServiceRequest):
@@ -10951,12 +11516,12 @@ class DeployedImage(TypedDict, total=False):
     in the *Amazon ECR User Guide*.
     """
 
-    SpecifiedImage: Optional[ContainerImage]
-    ResolvedImage: Optional[ContainerImage]
-    ResolutionTime: Optional[Timestamp]
+    SpecifiedImage: ContainerImage | None
+    ResolvedImage: ContainerImage | None
+    ResolutionTime: Timestamp | None
 
 
-DeployedImages = List[DeployedImage]
+DeployedImages = list[DeployedImage]
 
 
 class RealTimeInferenceRecommendation(TypedDict, total=False):
@@ -10964,10 +11529,10 @@ class RealTimeInferenceRecommendation(TypedDict, total=False):
 
     RecommendationId: String
     InstanceType: ProductionVariantInstanceType
-    Environment: Optional[EnvironmentMap]
+    Environment: EnvironmentMap | None
 
 
-RealTimeInferenceRecommendations = List[RealTimeInferenceRecommendation]
+RealTimeInferenceRecommendations = list[RealTimeInferenceRecommendation]
 
 
 class DeploymentRecommendation(TypedDict, total=False):
@@ -10978,7 +11543,7 @@ class DeploymentRecommendation(TypedDict, total=False):
     """
 
     RecommendationStatus: RecommendationStatus
-    RealTimeInferenceRecommendations: Optional[RealTimeInferenceRecommendations]
+    RealTimeInferenceRecommendations: RealTimeInferenceRecommendations | None
 
 
 class EdgeDeploymentStatus(TypedDict, total=False):
@@ -10988,8 +11553,8 @@ class EdgeDeploymentStatus(TypedDict, total=False):
     EdgeDeploymentSuccessInStage: Integer
     EdgeDeploymentPendingInStage: Integer
     EdgeDeploymentFailedInStage: Integer
-    EdgeDeploymentStatusMessage: Optional[String]
-    EdgeDeploymentStageStartTime: Optional[Timestamp]
+    EdgeDeploymentStatusMessage: String | None
+    EdgeDeploymentStageStartTime: Timestamp | None
 
 
 class DeploymentStageStatusSummary(TypedDict, total=False):
@@ -11001,7 +11566,7 @@ class DeploymentStageStatusSummary(TypedDict, total=False):
     DeploymentStatus: EdgeDeploymentStatus
 
 
-DeploymentStageStatusSummaries = List[DeploymentStageStatusSummary]
+DeploymentStageStatusSummaries = list[DeploymentStageStatusSummary]
 
 
 class DeregisterDevicesRequest(ServiceRequest):
@@ -11012,7 +11577,7 @@ class DeregisterDevicesRequest(ServiceRequest):
 class DerivedInformation(TypedDict, total=False):
     """Information that SageMaker Neo automatically derived about the model."""
 
-    DerivedDataInputConfig: Optional[DataInputConfig]
+    DerivedDataInputConfig: DataInputConfig | None
 
 
 class DescribeActionRequest(ServiceRequest):
@@ -11020,19 +11585,19 @@ class DescribeActionRequest(ServiceRequest):
 
 
 class DescribeActionResponse(TypedDict, total=False):
-    ActionName: Optional[ExperimentEntityNameOrArn]
-    ActionArn: Optional[ActionArn]
-    Source: Optional[ActionSource]
-    ActionType: Optional[String256]
-    Description: Optional[ExperimentDescription]
-    Status: Optional[ActionStatus]
-    Properties: Optional[LineageEntityParameters]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    MetadataProperties: Optional[MetadataProperties]
-    LineageGroupArn: Optional[LineageGroupArn]
+    ActionName: ExperimentEntityNameOrArn | None
+    ActionArn: ActionArn | None
+    Source: ActionSource | None
+    ActionType: String256 | None
+    Description: ExperimentDescription | None
+    Status: ActionStatus | None
+    Properties: LineageEntityParameters | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    MetadataProperties: MetadataProperties | None
+    LineageGroupArn: LineageGroupArn | None
 
 
 class DescribeAlgorithmInput(ServiceRequest):
@@ -11042,15 +11607,15 @@ class DescribeAlgorithmInput(ServiceRequest):
 class DescribeAlgorithmOutput(TypedDict, total=False):
     AlgorithmName: EntityName
     AlgorithmArn: AlgorithmArn
-    AlgorithmDescription: Optional[EntityDescription]
+    AlgorithmDescription: EntityDescription | None
     CreationTime: CreationTime
     TrainingSpecification: TrainingSpecification
-    InferenceSpecification: Optional[InferenceSpecification]
-    ValidationSpecification: Optional[AlgorithmValidationSpecification]
+    InferenceSpecification: InferenceSpecification | None
+    ValidationSpecification: AlgorithmValidationSpecification | None
     AlgorithmStatus: AlgorithmStatus
     AlgorithmStatusDetails: AlgorithmStatusDetails
-    ProductId: Optional[ProductId]
-    CertifyForMarketplace: Optional[CertifyForMarketplace]
+    ProductId: ProductId | None
+    CertifyForMarketplace: CertifyForMarketplace | None
 
 
 class DescribeAppImageConfigRequest(ServiceRequest):
@@ -11058,39 +11623,39 @@ class DescribeAppImageConfigRequest(ServiceRequest):
 
 
 class DescribeAppImageConfigResponse(TypedDict, total=False):
-    AppImageConfigArn: Optional[AppImageConfigArn]
-    AppImageConfigName: Optional[AppImageConfigName]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    KernelGatewayImageConfig: Optional[KernelGatewayImageConfig]
-    JupyterLabAppImageConfig: Optional[JupyterLabAppImageConfig]
-    CodeEditorAppImageConfig: Optional[CodeEditorAppImageConfig]
+    AppImageConfigArn: AppImageConfigArn | None
+    AppImageConfigName: AppImageConfigName | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    KernelGatewayImageConfig: KernelGatewayImageConfig | None
+    JupyterLabAppImageConfig: JupyterLabAppImageConfig | None
+    CodeEditorAppImageConfig: CodeEditorAppImageConfig | None
 
 
 class DescribeAppRequest(ServiceRequest):
     DomainId: DomainId
-    UserProfileName: Optional[UserProfileName]
-    SpaceName: Optional[SpaceName]
+    UserProfileName: UserProfileName | None
+    SpaceName: SpaceName | None
     AppType: AppType
     AppName: AppName
 
 
 class DescribeAppResponse(TypedDict, total=False):
-    AppArn: Optional[AppArn]
-    AppType: Optional[AppType]
-    AppName: Optional[AppName]
-    DomainId: Optional[DomainId]
-    UserProfileName: Optional[UserProfileName]
-    SpaceName: Optional[SpaceName]
-    Status: Optional[AppStatus]
-    EffectiveTrustedIdentityPropagationStatus: Optional[FeatureStatus]
-    RecoveryMode: Optional[Boolean]
-    LastHealthCheckTimestamp: Optional[Timestamp]
-    LastUserActivityTimestamp: Optional[Timestamp]
-    CreationTime: Optional[Timestamp]
-    FailureReason: Optional[FailureReason]
-    ResourceSpec: Optional[ResourceSpec]
-    BuiltInLifecycleConfigArn: Optional[StudioLifecycleConfigArn]
+    AppArn: AppArn | None
+    AppType: AppType | None
+    AppName: AppName | None
+    DomainId: DomainId | None
+    UserProfileName: UserProfileName | None
+    SpaceName: SpaceName | None
+    Status: AppStatus | None
+    EffectiveTrustedIdentityPropagationStatus: FeatureStatus | None
+    RecoveryMode: Boolean | None
+    LastHealthCheckTimestamp: Timestamp | None
+    LastUserActivityTimestamp: Timestamp | None
+    CreationTime: Timestamp | None
+    FailureReason: FailureReason | None
+    ResourceSpec: ResourceSpec | None
+    BuiltInLifecycleConfigArn: StudioLifecycleConfigArn | None
 
 
 class DescribeArtifactRequest(ServiceRequest):
@@ -11098,17 +11663,17 @@ class DescribeArtifactRequest(ServiceRequest):
 
 
 class DescribeArtifactResponse(TypedDict, total=False):
-    ArtifactName: Optional[ExperimentEntityNameOrArn]
-    ArtifactArn: Optional[ArtifactArn]
-    Source: Optional[ArtifactSource]
-    ArtifactType: Optional[String256]
-    Properties: Optional[LineageEntityParameters]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    MetadataProperties: Optional[MetadataProperties]
-    LineageGroupArn: Optional[LineageGroupArn]
+    ArtifactName: ExperimentEntityNameOrArn | None
+    ArtifactArn: ArtifactArn | None
+    Source: ArtifactSource | None
+    ArtifactType: String256 | None
+    Properties: LineageEntityParameters | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    MetadataProperties: MetadataProperties | None
+    LineageGroupArn: LineageGroupArn | None
 
 
 class DescribeAutoMLJobRequest(ServiceRequest):
@@ -11118,15 +11683,15 @@ class DescribeAutoMLJobRequest(ServiceRequest):
 class ModelDeployResult(TypedDict, total=False):
     """Provides information about the endpoint of the model deployment."""
 
-    EndpointName: Optional[EndpointName]
+    EndpointName: EndpointName | None
 
 
 class ResolvedAttributes(TypedDict, total=False):
     """The resolved attributes."""
 
-    AutoMLJobObjective: Optional[AutoMLJobObjective]
-    ProblemType: Optional[ProblemType]
-    CompletionCriteria: Optional[AutoMLJobCompletionCriteria]
+    AutoMLJobObjective: AutoMLJobObjective | None
+    ProblemType: ProblemType | None
+    CompletionCriteria: AutoMLJobCompletionCriteria | None
 
 
 class DescribeAutoMLJobResponse(TypedDict, total=False):
@@ -11135,22 +11700,22 @@ class DescribeAutoMLJobResponse(TypedDict, total=False):
     InputDataConfig: AutoMLInputDataConfig
     OutputDataConfig: AutoMLOutputDataConfig
     RoleArn: RoleArn
-    AutoMLJobObjective: Optional[AutoMLJobObjective]
-    ProblemType: Optional[ProblemType]
-    AutoMLJobConfig: Optional[AutoMLJobConfig]
+    AutoMLJobObjective: AutoMLJobObjective | None
+    ProblemType: ProblemType | None
+    AutoMLJobConfig: AutoMLJobConfig | None
     CreationTime: Timestamp
-    EndTime: Optional[Timestamp]
+    EndTime: Timestamp | None
     LastModifiedTime: Timestamp
-    FailureReason: Optional[AutoMLFailureReason]
-    PartialFailureReasons: Optional[AutoMLPartialFailureReasons]
-    BestCandidate: Optional[AutoMLCandidate]
+    FailureReason: AutoMLFailureReason | None
+    PartialFailureReasons: AutoMLPartialFailureReasons | None
+    BestCandidate: AutoMLCandidate | None
     AutoMLJobStatus: AutoMLJobStatus
     AutoMLJobSecondaryStatus: AutoMLJobSecondaryStatus
-    GenerateCandidateDefinitionsOnly: Optional[GenerateCandidateDefinitionsOnly]
-    AutoMLJobArtifacts: Optional[AutoMLJobArtifacts]
-    ResolvedAttributes: Optional[ResolvedAttributes]
-    ModelDeployConfig: Optional[ModelDeployConfig]
-    ModelDeployResult: Optional[ModelDeployResult]
+    GenerateCandidateDefinitionsOnly: GenerateCandidateDefinitionsOnly | None
+    AutoMLJobArtifacts: AutoMLJobArtifacts | None
+    ResolvedAttributes: ResolvedAttributes | None
+    ModelDeployConfig: ModelDeployConfig | None
+    ModelDeployResult: ModelDeployResult | None
 
 
 class DescribeAutoMLJobV2Request(ServiceRequest):
@@ -11163,24 +11728,24 @@ class DescribeAutoMLJobV2Response(TypedDict, total=False):
     AutoMLJobInputDataConfig: AutoMLJobInputDataConfig
     OutputDataConfig: AutoMLOutputDataConfig
     RoleArn: RoleArn
-    AutoMLJobObjective: Optional[AutoMLJobObjective]
-    AutoMLProblemTypeConfig: Optional[AutoMLProblemTypeConfig]
-    AutoMLProblemTypeConfigName: Optional[AutoMLProblemTypeConfigName]
+    AutoMLJobObjective: AutoMLJobObjective | None
+    AutoMLProblemTypeConfig: AutoMLProblemTypeConfig | None
+    AutoMLProblemTypeConfigName: AutoMLProblemTypeConfigName | None
     CreationTime: Timestamp
-    EndTime: Optional[Timestamp]
+    EndTime: Timestamp | None
     LastModifiedTime: Timestamp
-    FailureReason: Optional[AutoMLFailureReason]
-    PartialFailureReasons: Optional[AutoMLPartialFailureReasons]
-    BestCandidate: Optional[AutoMLCandidate]
+    FailureReason: AutoMLFailureReason | None
+    PartialFailureReasons: AutoMLPartialFailureReasons | None
+    BestCandidate: AutoMLCandidate | None
     AutoMLJobStatus: AutoMLJobStatus
     AutoMLJobSecondaryStatus: AutoMLJobSecondaryStatus
-    AutoMLJobArtifacts: Optional[AutoMLJobArtifacts]
-    ResolvedAttributes: Optional[AutoMLResolvedAttributes]
-    ModelDeployConfig: Optional[ModelDeployConfig]
-    ModelDeployResult: Optional[ModelDeployResult]
-    DataSplitConfig: Optional[AutoMLDataSplitConfig]
-    SecurityConfig: Optional[AutoMLSecurityConfig]
-    AutoMLComputeConfig: Optional[AutoMLComputeConfig]
+    AutoMLJobArtifacts: AutoMLJobArtifacts | None
+    ResolvedAttributes: AutoMLResolvedAttributes | None
+    ModelDeployConfig: ModelDeployConfig | None
+    ModelDeployResult: ModelDeployResult | None
+    DataSplitConfig: AutoMLDataSplitConfig | None
+    SecurityConfig: AutoMLSecurityConfig | None
+    AutoMLComputeConfig: AutoMLComputeConfig | None
 
 
 class DescribeClusterEventRequest(ServiceRequest):
@@ -11189,13 +11754,13 @@ class DescribeClusterEventRequest(ServiceRequest):
 
 
 class DescribeClusterEventResponse(TypedDict, total=False):
-    EventDetails: Optional[ClusterEventDetail]
+    EventDetails: ClusterEventDetail | None
 
 
 class DescribeClusterNodeRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    NodeId: Optional[ClusterNodeId]
-    NodeLogicalId: Optional[ClusterNodeLogicalId]
+    NodeId: ClusterNodeId | None
+    NodeLogicalId: ClusterNodeLogicalId | None
 
 
 class DescribeClusterNodeResponse(TypedDict, total=False):
@@ -11208,24 +11773,24 @@ class DescribeClusterRequest(ServiceRequest):
 
 class DescribeClusterResponse(TypedDict, total=False):
     ClusterArn: ClusterArn
-    ClusterName: Optional[ClusterName]
+    ClusterName: ClusterName | None
     ClusterStatus: ClusterStatus
-    CreationTime: Optional[Timestamp]
-    FailureMessage: Optional[String]
+    CreationTime: Timestamp | None
+    FailureMessage: String | None
     InstanceGroups: ClusterInstanceGroupDetailsList
-    RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupDetailsList]
-    VpcConfig: Optional[VpcConfig]
-    Orchestrator: Optional[ClusterOrchestrator]
-    TieredStorageConfig: Optional[ClusterTieredStorageConfig]
-    NodeRecovery: Optional[ClusterNodeRecovery]
-    NodeProvisioningMode: Optional[ClusterNodeProvisioningMode]
-    ClusterRole: Optional[RoleArn]
-    AutoScaling: Optional[ClusterAutoScalingConfigOutput]
+    RestrictedInstanceGroups: ClusterRestrictedInstanceGroupDetailsList | None
+    VpcConfig: VpcConfig | None
+    Orchestrator: ClusterOrchestrator | None
+    TieredStorageConfig: ClusterTieredStorageConfig | None
+    NodeRecovery: ClusterNodeRecovery | None
+    NodeProvisioningMode: ClusterNodeProvisioningMode | None
+    ClusterRole: RoleArn | None
+    AutoScaling: ClusterAutoScalingConfigOutput | None
 
 
 class DescribeClusterSchedulerConfigRequest(ServiceRequest):
     ClusterSchedulerConfigId: ClusterSchedulerConfigId
-    ClusterSchedulerConfigVersion: Optional[Integer]
+    ClusterSchedulerConfigVersion: Integer | None
 
 
 class DescribeClusterSchedulerConfigResponse(TypedDict, total=False):
@@ -11234,14 +11799,14 @@ class DescribeClusterSchedulerConfigResponse(TypedDict, total=False):
     Name: EntityName
     ClusterSchedulerConfigVersion: Integer
     Status: SchedulerResourceStatus
-    FailureReason: Optional[FailureReason]
-    ClusterArn: Optional[ClusterArn]
-    SchedulerConfig: Optional[SchedulerConfig]
-    Description: Optional[EntityDescription]
+    FailureReason: FailureReason | None
+    ClusterArn: ClusterArn | None
+    SchedulerConfig: SchedulerConfig | None
+    Description: EntityDescription | None
     CreationTime: Timestamp
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
 class DescribeCodeRepositoryInput(ServiceRequest):
@@ -11253,7 +11818,7 @@ class DescribeCodeRepositoryOutput(TypedDict, total=False):
     CodeRepositoryArn: CodeRepositoryArn
     CreationTime: CreationTime
     LastModifiedTime: LastModifiedTime
-    GitConfig: Optional[GitConfig]
+    GitConfig: GitConfig | None
 
 
 class DescribeCompilationJobRequest(ServiceRequest):
@@ -11263,7 +11828,7 @@ class DescribeCompilationJobRequest(ServiceRequest):
 class ModelDigests(TypedDict, total=False):
     """Provides information to verify the integrity of stored model artifacts."""
 
-    ArtifactDigest: Optional[ArtifactDigest]
+    ArtifactDigest: ArtifactDigest | None
 
 
 class ModelArtifacts(TypedDict, total=False):
@@ -11285,44 +11850,44 @@ class DescribeCompilationJobResponse(TypedDict, total=False):
     CompilationJobName: EntityName
     CompilationJobArn: CompilationJobArn
     CompilationJobStatus: CompilationJobStatus
-    CompilationStartTime: Optional[Timestamp]
-    CompilationEndTime: Optional[Timestamp]
+    CompilationStartTime: Timestamp | None
+    CompilationEndTime: Timestamp | None
     StoppingCondition: StoppingCondition
-    InferenceImage: Optional[InferenceImage]
-    ModelPackageVersionArn: Optional[ModelPackageArn]
+    InferenceImage: InferenceImage | None
+    ModelPackageVersionArn: ModelPackageArn | None
     CreationTime: CreationTime
     LastModifiedTime: LastModifiedTime
     FailureReason: FailureReason
     ModelArtifacts: ModelArtifacts
-    ModelDigests: Optional[ModelDigests]
+    ModelDigests: ModelDigests | None
     RoleArn: RoleArn
     InputConfig: InputConfig
     OutputConfig: OutputConfig
-    VpcConfig: Optional[NeoVpcConfig]
-    DerivedInformation: Optional[DerivedInformation]
+    VpcConfig: NeoVpcConfig | None
+    DerivedInformation: DerivedInformation | None
 
 
 class DescribeComputeQuotaRequest(ServiceRequest):
     ComputeQuotaId: ComputeQuotaId
-    ComputeQuotaVersion: Optional[Integer]
+    ComputeQuotaVersion: Integer | None
 
 
 class DescribeComputeQuotaResponse(TypedDict, total=False):
     ComputeQuotaArn: ComputeQuotaArn
     ComputeQuotaId: ComputeQuotaId
     Name: EntityName
-    Description: Optional[EntityDescription]
+    Description: EntityDescription | None
     ComputeQuotaVersion: Integer
     Status: SchedulerResourceStatus
-    FailureReason: Optional[FailureReason]
-    ClusterArn: Optional[ClusterArn]
-    ComputeQuotaConfig: Optional[ComputeQuotaConfig]
+    FailureReason: FailureReason | None
+    ClusterArn: ClusterArn | None
+    ComputeQuotaConfig: ComputeQuotaConfig | None
     ComputeQuotaTarget: ComputeQuotaTarget
-    ActivationState: Optional[ActivationState]
+    ActivationState: ActivationState | None
     CreationTime: Timestamp
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
 class DescribeContextRequest(ServiceRequest):
@@ -11330,17 +11895,17 @@ class DescribeContextRequest(ServiceRequest):
 
 
 class DescribeContextResponse(TypedDict, total=False):
-    ContextName: Optional[ContextName]
-    ContextArn: Optional[ContextArn]
-    Source: Optional[ContextSource]
-    ContextType: Optional[String256]
-    Description: Optional[ExperimentDescription]
-    Properties: Optional[LineageEntityParameters]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    LineageGroupArn: Optional[LineageGroupArn]
+    ContextName: ContextName | None
+    ContextArn: ContextArn | None
+    Source: ContextSource | None
+    ContextType: String256 | None
+    Description: ExperimentDescription | None
+    Properties: LineageEntityParameters | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    LineageGroupArn: LineageGroupArn | None
 
 
 class DescribeDataQualityJobDefinitionRequest(ServiceRequest):
@@ -11351,14 +11916,14 @@ class DescribeDataQualityJobDefinitionResponse(TypedDict, total=False):
     JobDefinitionArn: MonitoringJobDefinitionArn
     JobDefinitionName: MonitoringJobDefinitionName
     CreationTime: Timestamp
-    DataQualityBaselineConfig: Optional[DataQualityBaselineConfig]
+    DataQualityBaselineConfig: DataQualityBaselineConfig | None
     DataQualityAppSpecification: DataQualityAppSpecification
     DataQualityJobInput: DataQualityJobInput
     DataQualityJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
+    StoppingCondition: MonitoringStoppingCondition | None
 
 
 class DescribeDeviceFleetRequest(ServiceRequest):
@@ -11369,15 +11934,15 @@ class DescribeDeviceFleetResponse(TypedDict, total=False):
     DeviceFleetName: EntityName
     DeviceFleetArn: DeviceFleetArn
     OutputConfig: EdgeOutputConfig
-    Description: Optional[DeviceFleetDescription]
+    Description: DeviceFleetDescription | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
-    RoleArn: Optional[RoleArn]
-    IotRoleAlias: Optional[IotRoleAlias]
+    RoleArn: RoleArn | None
+    IotRoleAlias: IotRoleAlias | None
 
 
 class DescribeDeviceRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     DeviceName: EntityName
     DeviceFleetName: EntityName
 
@@ -11387,25 +11952,25 @@ class EdgeModel(TypedDict, total=False):
 
     ModelName: EntityName
     ModelVersion: EdgeVersion
-    LatestSampleTime: Optional[Timestamp]
-    LatestInference: Optional[Timestamp]
+    LatestSampleTime: Timestamp | None
+    LatestInference: Timestamp | None
 
 
-EdgeModels = List[EdgeModel]
+EdgeModels = list[EdgeModel]
 
 
 class DescribeDeviceResponse(TypedDict, total=False):
-    DeviceArn: Optional[DeviceArn]
+    DeviceArn: DeviceArn | None
     DeviceName: EntityName
-    Description: Optional[DeviceDescription]
+    Description: DeviceDescription | None
     DeviceFleetName: EntityName
-    IotThingName: Optional[ThingName]
+    IotThingName: ThingName | None
     RegistrationTime: Timestamp
-    LatestHeartbeat: Optional[Timestamp]
-    Models: Optional[EdgeModels]
-    MaxModels: Optional[Integer]
-    NextToken: Optional[NextToken]
-    AgentVersion: Optional[EdgeVersion]
+    LatestHeartbeat: Timestamp | None
+    Models: EdgeModels | None
+    MaxModels: Integer | None
+    NextToken: NextToken | None
+    AgentVersion: EdgeVersion | None
 
 
 class DescribeDomainRequest(ServiceRequest):
@@ -11413,35 +11978,35 @@ class DescribeDomainRequest(ServiceRequest):
 
 
 class DescribeDomainResponse(TypedDict, total=False):
-    DomainArn: Optional[DomainArn]
-    DomainId: Optional[DomainId]
-    DomainName: Optional[DomainName]
-    HomeEfsFileSystemId: Optional[ResourceId]
-    SingleSignOnManagedApplicationInstanceId: Optional[String256]
-    SingleSignOnApplicationArn: Optional[SingleSignOnApplicationArn]
-    Status: Optional[DomainStatus]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
-    FailureReason: Optional[FailureReason]
-    SecurityGroupIdForDomainBoundary: Optional[SecurityGroupId]
-    AuthMode: Optional[AuthMode]
-    DefaultUserSettings: Optional[UserSettings]
-    DomainSettings: Optional[DomainSettings]
-    AppNetworkAccessType: Optional[AppNetworkAccessType]
-    HomeEfsFileSystemKmsKeyId: Optional[KmsKeyId]
-    SubnetIds: Optional[Subnets]
-    Url: Optional[String1024]
-    VpcId: Optional[VpcId]
-    KmsKeyId: Optional[KmsKeyId]
-    AppSecurityGroupManagement: Optional[AppSecurityGroupManagement]
-    TagPropagation: Optional[TagPropagation]
-    DefaultSpaceSettings: Optional[DefaultSpaceSettings]
+    DomainArn: DomainArn | None
+    DomainId: DomainId | None
+    DomainName: DomainName | None
+    HomeEfsFileSystemId: ResourceId | None
+    SingleSignOnManagedApplicationInstanceId: String256 | None
+    SingleSignOnApplicationArn: SingleSignOnApplicationArn | None
+    Status: DomainStatus | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
+    FailureReason: FailureReason | None
+    SecurityGroupIdForDomainBoundary: SecurityGroupId | None
+    AuthMode: AuthMode | None
+    DefaultUserSettings: UserSettings | None
+    DomainSettings: DomainSettings | None
+    AppNetworkAccessType: AppNetworkAccessType | None
+    HomeEfsFileSystemKmsKeyId: KmsKeyId | None
+    SubnetIds: Subnets | None
+    Url: String1024 | None
+    VpcId: VpcId | None
+    KmsKeyId: KmsKeyId | None
+    AppSecurityGroupManagement: AppSecurityGroupManagement | None
+    TagPropagation: TagPropagation | None
+    DefaultSpaceSettings: DefaultSpaceSettings | None
 
 
 class DescribeEdgeDeploymentPlanRequest(ServiceRequest):
     EdgeDeploymentPlanName: EntityName
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[DeploymentStageMaxResults]
+    NextToken: NextToken | None
+    MaxResults: DeploymentStageMaxResults | None
 
 
 class DescribeEdgeDeploymentPlanResponse(TypedDict, total=False):
@@ -11449,13 +12014,13 @@ class DescribeEdgeDeploymentPlanResponse(TypedDict, total=False):
     EdgeDeploymentPlanName: EntityName
     ModelConfigs: EdgeDeploymentModelConfigs
     DeviceFleetName: EntityName
-    EdgeDeploymentSuccess: Optional[Integer]
-    EdgeDeploymentPending: Optional[Integer]
-    EdgeDeploymentFailed: Optional[Integer]
+    EdgeDeploymentSuccess: Integer | None
+    EdgeDeploymentPending: Integer | None
+    EdgeDeploymentFailed: Integer | None
     Stages: DeploymentStageStatusSummaries
-    NextToken: Optional[NextToken]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    NextToken: NextToken | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
 class DescribeEdgePackagingJobRequest(ServiceRequest):
@@ -11466,27 +12031,27 @@ class EdgePresetDeploymentOutput(TypedDict, total=False):
     """The output of a SageMaker Edge Manager deployable resource."""
 
     Type: EdgePresetDeploymentType
-    Artifact: Optional[EdgePresetDeploymentArtifact]
-    Status: Optional[EdgePresetDeploymentStatus]
-    StatusMessage: Optional[String]
+    Artifact: EdgePresetDeploymentArtifact | None
+    Status: EdgePresetDeploymentStatus | None
+    StatusMessage: String | None
 
 
 class DescribeEdgePackagingJobResponse(TypedDict, total=False):
     EdgePackagingJobArn: EdgePackagingJobArn
     EdgePackagingJobName: EntityName
-    CompilationJobName: Optional[EntityName]
-    ModelName: Optional[EntityName]
-    ModelVersion: Optional[EdgeVersion]
-    RoleArn: Optional[RoleArn]
-    OutputConfig: Optional[EdgeOutputConfig]
-    ResourceKey: Optional[KmsKeyId]
+    CompilationJobName: EntityName | None
+    ModelName: EntityName | None
+    ModelVersion: EdgeVersion | None
+    RoleArn: RoleArn | None
+    OutputConfig: EdgeOutputConfig | None
+    ResourceKey: KmsKeyId | None
     EdgePackagingJobStatus: EdgePackagingJobStatus
-    EdgePackagingJobStatusMessage: Optional[String]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    ModelArtifact: Optional[S3Uri]
-    ModelSignature: Optional[String]
-    PresetDeploymentOutput: Optional[EdgePresetDeploymentOutput]
+    EdgePackagingJobStatusMessage: String | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    ModelArtifact: S3Uri | None
+    ModelSignature: String | None
+    PresetDeploymentOutput: EdgePresetDeploymentOutput | None
 
 
 class DescribeEndpointConfigInput(ServiceRequest):
@@ -11497,15 +12062,16 @@ class DescribeEndpointConfigOutput(TypedDict, total=False):
     EndpointConfigName: EndpointConfigName
     EndpointConfigArn: EndpointConfigArn
     ProductionVariants: ProductionVariantList
-    DataCaptureConfig: Optional[DataCaptureConfig]
-    KmsKeyId: Optional[KmsKeyId]
+    DataCaptureConfig: DataCaptureConfig | None
+    KmsKeyId: KmsKeyId | None
     CreationTime: Timestamp
-    AsyncInferenceConfig: Optional[AsyncInferenceConfig]
-    ExplainerConfig: Optional[ExplainerConfig]
-    ShadowProductionVariants: Optional[ProductionVariantList]
-    ExecutionRoleArn: Optional[RoleArn]
-    VpcConfig: Optional[VpcConfig]
-    EnableNetworkIsolation: Optional[Boolean]
+    AsyncInferenceConfig: AsyncInferenceConfig | None
+    ExplainerConfig: ExplainerConfig | None
+    ShadowProductionVariants: ProductionVariantList | None
+    ExecutionRoleArn: RoleArn | None
+    VpcConfig: VpcConfig | None
+    EnableNetworkIsolation: Boolean | None
+    MetricsConfig: MetricsConfig | None
 
 
 class DescribeEndpointInput(ServiceRequest):
@@ -11517,35 +12083,35 @@ class Ec2CapacityReservation(TypedDict, total=False):
     reservation.
     """
 
-    Ec2CapacityReservationId: Optional[Ec2CapacityReservationId]
-    TotalInstanceCount: Optional[TaskCount]
-    AvailableInstanceCount: Optional[TaskCount]
-    UsedByCurrentEndpoint: Optional[TaskCount]
+    Ec2CapacityReservationId: Ec2CapacityReservationId | None
+    TotalInstanceCount: TaskCount | None
+    AvailableInstanceCount: TaskCount | None
+    UsedByCurrentEndpoint: TaskCount | None
 
 
-Ec2CapacityReservationsList = List[Ec2CapacityReservation]
+Ec2CapacityReservationsList = list[Ec2CapacityReservation]
 
 
 class ProductionVariantCapacityReservationSummary(TypedDict, total=False):
     """Details about an ML capacity reservation."""
 
-    MlReservationArn: Optional[MlReservationArn]
-    CapacityReservationPreference: Optional[CapacityReservationPreference]
-    TotalInstanceCount: Optional[TaskCount]
-    AvailableInstanceCount: Optional[TaskCount]
-    UsedByCurrentEndpoint: Optional[TaskCount]
-    Ec2CapacityReservations: Optional[Ec2CapacityReservationsList]
+    MlReservationArn: MlReservationArn | None
+    CapacityReservationPreference: CapacityReservationPreference | None
+    TotalInstanceCount: TaskCount | None
+    AvailableInstanceCount: TaskCount | None
+    UsedByCurrentEndpoint: TaskCount | None
+    Ec2CapacityReservations: Ec2CapacityReservationsList | None
 
 
 class ProductionVariantStatus(TypedDict, total=False):
     """Describes the status of the production variant."""
 
     Status: VariantStatus
-    StatusMessage: Optional[VariantStatusMessage]
-    StartTime: Optional[Timestamp]
+    StatusMessage: VariantStatusMessage | None
+    StartTime: Timestamp | None
 
 
-ProductionVariantStatusList = List[ProductionVariantStatus]
+ProductionVariantStatusList = list[ProductionVariantStatus]
 
 
 class ProductionVariantSummary(TypedDict, total=False):
@@ -11556,20 +12122,20 @@ class ProductionVariantSummary(TypedDict, total=False):
     """
 
     VariantName: VariantName
-    DeployedImages: Optional[DeployedImages]
-    CurrentWeight: Optional[VariantWeight]
-    DesiredWeight: Optional[VariantWeight]
-    CurrentInstanceCount: Optional[TaskCount]
-    DesiredInstanceCount: Optional[TaskCount]
-    VariantStatus: Optional[ProductionVariantStatusList]
-    CurrentServerlessConfig: Optional[ProductionVariantServerlessConfig]
-    DesiredServerlessConfig: Optional[ProductionVariantServerlessConfig]
-    ManagedInstanceScaling: Optional[ProductionVariantManagedInstanceScaling]
-    RoutingConfig: Optional[ProductionVariantRoutingConfig]
-    CapacityReservationConfig: Optional[ProductionVariantCapacityReservationSummary]
+    DeployedImages: DeployedImages | None
+    CurrentWeight: VariantWeight | None
+    DesiredWeight: VariantWeight | None
+    CurrentInstanceCount: TaskCount | None
+    DesiredInstanceCount: TaskCount | None
+    VariantStatus: ProductionVariantStatusList | None
+    CurrentServerlessConfig: ProductionVariantServerlessConfig | None
+    DesiredServerlessConfig: ProductionVariantServerlessConfig | None
+    ManagedInstanceScaling: ProductionVariantManagedInstanceScaling | None
+    RoutingConfig: ProductionVariantRoutingConfig | None
+    CapacityReservationConfig: ProductionVariantCapacityReservationSummary | None
 
 
-ProductionVariantSummaryList = List[ProductionVariantSummary]
+ProductionVariantSummaryList = list[ProductionVariantSummary]
 
 
 class PendingProductionVariantSummary(TypedDict, total=False):
@@ -11583,21 +12149,21 @@ class PendingProductionVariantSummary(TypedDict, total=False):
     """
 
     VariantName: VariantName
-    DeployedImages: Optional[DeployedImages]
-    CurrentWeight: Optional[VariantWeight]
-    DesiredWeight: Optional[VariantWeight]
-    CurrentInstanceCount: Optional[TaskCount]
-    DesiredInstanceCount: Optional[TaskCount]
-    InstanceType: Optional[ProductionVariantInstanceType]
-    AcceleratorType: Optional[ProductionVariantAcceleratorType]
-    VariantStatus: Optional[ProductionVariantStatusList]
-    CurrentServerlessConfig: Optional[ProductionVariantServerlessConfig]
-    DesiredServerlessConfig: Optional[ProductionVariantServerlessConfig]
-    ManagedInstanceScaling: Optional[ProductionVariantManagedInstanceScaling]
-    RoutingConfig: Optional[ProductionVariantRoutingConfig]
+    DeployedImages: DeployedImages | None
+    CurrentWeight: VariantWeight | None
+    DesiredWeight: VariantWeight | None
+    CurrentInstanceCount: TaskCount | None
+    DesiredInstanceCount: TaskCount | None
+    InstanceType: ProductionVariantInstanceType | None
+    AcceleratorType: ProductionVariantAcceleratorType | None
+    VariantStatus: ProductionVariantStatusList | None
+    CurrentServerlessConfig: ProductionVariantServerlessConfig | None
+    DesiredServerlessConfig: ProductionVariantServerlessConfig | None
+    ManagedInstanceScaling: ProductionVariantManagedInstanceScaling | None
+    RoutingConfig: ProductionVariantRoutingConfig | None
 
 
-PendingProductionVariantSummaryList = List[PendingProductionVariantSummary]
+PendingProductionVariantSummaryList = list[PendingProductionVariantSummary]
 
 
 class PendingDeploymentSummary(TypedDict, total=False):
@@ -11606,26 +12172,27 @@ class PendingDeploymentSummary(TypedDict, total=False):
     """
 
     EndpointConfigName: EndpointConfigName
-    ProductionVariants: Optional[PendingProductionVariantSummaryList]
-    StartTime: Optional[Timestamp]
-    ShadowProductionVariants: Optional[PendingProductionVariantSummaryList]
+    ProductionVariants: PendingProductionVariantSummaryList | None
+    StartTime: Timestamp | None
+    ShadowProductionVariants: PendingProductionVariantSummaryList | None
 
 
 class DescribeEndpointOutput(TypedDict, total=False):
     EndpointName: EndpointName
     EndpointArn: EndpointArn
-    EndpointConfigName: Optional[EndpointConfigName]
-    ProductionVariants: Optional[ProductionVariantSummaryList]
-    DataCaptureConfig: Optional[DataCaptureConfigSummary]
+    EndpointConfigName: EndpointConfigName | None
+    ProductionVariants: ProductionVariantSummaryList | None
+    DataCaptureConfig: DataCaptureConfigSummary | None
     EndpointStatus: EndpointStatus
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
-    LastDeploymentConfig: Optional[DeploymentConfig]
-    AsyncInferenceConfig: Optional[AsyncInferenceConfig]
-    PendingDeploymentSummary: Optional[PendingDeploymentSummary]
-    ExplainerConfig: Optional[ExplainerConfig]
-    ShadowProductionVariants: Optional[ProductionVariantSummaryList]
+    LastDeploymentConfig: DeploymentConfig | None
+    AsyncInferenceConfig: AsyncInferenceConfig | None
+    PendingDeploymentSummary: PendingDeploymentSummary | None
+    ExplainerConfig: ExplainerConfig | None
+    ShadowProductionVariants: ProductionVariantSummaryList | None
+    MetricsConfig: MetricsConfig | None
 
 
 class DescribeExperimentRequest(ServiceRequest):
@@ -11636,24 +12203,24 @@ class ExperimentSource(TypedDict, total=False):
     """The source of the experiment."""
 
     SourceArn: ExperimentSourceArn
-    SourceType: Optional[SourceType]
+    SourceType: SourceType | None
 
 
 class DescribeExperimentResponse(TypedDict, total=False):
-    ExperimentName: Optional[ExperimentEntityName]
-    ExperimentArn: Optional[ExperimentArn]
-    DisplayName: Optional[ExperimentEntityName]
-    Source: Optional[ExperimentSource]
-    Description: Optional[ExperimentDescription]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    ExperimentName: ExperimentEntityName | None
+    ExperimentArn: ExperimentArn | None
+    DisplayName: ExperimentEntityName | None
+    Source: ExperimentSource | None
+    Description: ExperimentDescription | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
 class DescribeFeatureGroupRequest(ServiceRequest):
     FeatureGroupName: FeatureGroupNameOrArn
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 OnlineStoreTotalSizeBytes = int
@@ -11663,14 +12230,14 @@ class LastUpdateStatus(TypedDict, total=False):
     """A value that indicates whether the update was successful."""
 
     Status: LastUpdateStatusValue
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
 
 
 class OfflineStoreStatus(TypedDict, total=False):
     """The status of ``OfflineStore``."""
 
     Status: OfflineStoreStatusValue
-    BlockedReason: Optional[BlockedReason]
+    BlockedReason: BlockedReason | None
 
 
 class ThroughputConfigDescription(TypedDict, total=False):
@@ -11692,8 +12259,8 @@ class ThroughputConfigDescription(TypedDict, total=False):
     """
 
     ThroughputMode: ThroughputMode
-    ProvisionedReadCapacityUnits: Optional[CapacityUnit]
-    ProvisionedWriteCapacityUnits: Optional[CapacityUnit]
+    ProvisionedReadCapacityUnits: CapacityUnit | None
+    ProvisionedWriteCapacityUnits: CapacityUnit | None
 
 
 class DescribeFeatureGroupResponse(TypedDict, total=False):
@@ -11703,18 +12270,18 @@ class DescribeFeatureGroupResponse(TypedDict, total=False):
     EventTimeFeatureName: FeatureName
     FeatureDefinitions: FeatureDefinitions
     CreationTime: CreationTime
-    LastModifiedTime: Optional[LastModifiedTime]
-    OnlineStoreConfig: Optional[OnlineStoreConfig]
-    OfflineStoreConfig: Optional[OfflineStoreConfig]
-    ThroughputConfig: Optional[ThroughputConfigDescription]
-    RoleArn: Optional[RoleArn]
-    FeatureGroupStatus: Optional[FeatureGroupStatus]
-    OfflineStoreStatus: Optional[OfflineStoreStatus]
-    LastUpdateStatus: Optional[LastUpdateStatus]
-    FailureReason: Optional[FailureReason]
-    Description: Optional[Description]
+    LastModifiedTime: LastModifiedTime | None
+    OnlineStoreConfig: OnlineStoreConfig | None
+    OfflineStoreConfig: OfflineStoreConfig | None
+    ThroughputConfig: ThroughputConfigDescription | None
+    RoleArn: RoleArn | None
+    FeatureGroupStatus: FeatureGroupStatus | None
+    OfflineStoreStatus: OfflineStoreStatus | None
+    LastUpdateStatus: LastUpdateStatus | None
+    FailureReason: FailureReason | None
+    Description: Description | None
     NextToken: NextToken
-    OnlineStoreTotalSizeBytes: Optional[OnlineStoreTotalSizeBytes]
+    OnlineStoreTotalSizeBytes: OnlineStoreTotalSizeBytes | None
 
 
 class DescribeFeatureMetadataRequest(ServiceRequest):
@@ -11725,11 +12292,11 @@ class DescribeFeatureMetadataRequest(ServiceRequest):
 class FeatureParameter(TypedDict, total=False):
     """A key-value pair that you specify to describe the feature."""
 
-    Key: Optional[FeatureParameterKey]
-    Value: Optional[FeatureParameterValue]
+    Key: FeatureParameterKey | None
+    Value: FeatureParameterValue | None
 
 
-FeatureParameters = List[FeatureParameter]
+FeatureParameters = list[FeatureParameter]
 
 
 class DescribeFeatureMetadataResponse(TypedDict, total=False):
@@ -11739,8 +12306,8 @@ class DescribeFeatureMetadataResponse(TypedDict, total=False):
     FeatureType: FeatureType
     CreationTime: CreationTime
     LastModifiedTime: LastModifiedTime
-    Description: Optional[FeatureDescription]
-    Parameters: Optional[FeatureParameters]
+    Description: FeatureDescription | None
+    Parameters: FeatureParameters | None
 
 
 class DescribeFlowDefinitionRequest(ServiceRequest):
@@ -11752,19 +12319,19 @@ class DescribeFlowDefinitionResponse(TypedDict, total=False):
     FlowDefinitionName: FlowDefinitionName
     FlowDefinitionStatus: FlowDefinitionStatus
     CreationTime: Timestamp
-    HumanLoopRequestSource: Optional[HumanLoopRequestSource]
-    HumanLoopActivationConfig: Optional[HumanLoopActivationConfig]
-    HumanLoopConfig: Optional[HumanLoopConfig]
+    HumanLoopRequestSource: HumanLoopRequestSource | None
+    HumanLoopActivationConfig: HumanLoopActivationConfig | None
+    HumanLoopConfig: HumanLoopConfig | None
     OutputConfig: FlowDefinitionOutputConfig
     RoleArn: RoleArn
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
 
 
 class DescribeHubContentRequest(ServiceRequest):
     HubName: HubNameOrArn
     HubContentType: HubContentType
     HubContentName: HubContentName
-    HubContentVersion: Optional[HubContentVersion]
+    HubContentVersion: HubContentVersion | None
 
 
 class HubContentDependency(TypedDict, total=False):
@@ -11772,12 +12339,12 @@ class HubContentDependency(TypedDict, total=False):
     artifacts, datasets, or notebooks.
     """
 
-    DependencyOriginPath: Optional[DependencyOriginPath]
-    DependencyCopyPath: Optional[DependencyCopyPath]
+    DependencyOriginPath: DependencyOriginPath | None
+    DependencyCopyPath: DependencyCopyPath | None
 
 
-HubContentDependencyList = List[HubContentDependency]
-HubContentSearchKeywordList = List[HubSearchKeyword]
+HubContentDependencyList = list[HubContentDependency]
+HubContentSearchKeywordList = list[HubContentSearchKeyword]
 
 
 class DescribeHubContentResponse(TypedDict, total=False):
@@ -11788,19 +12355,19 @@ class DescribeHubContentResponse(TypedDict, total=False):
     DocumentSchemaVersion: DocumentSchemaVersion
     HubName: HubName
     HubArn: HubArn
-    HubContentDisplayName: Optional[HubContentDisplayName]
-    HubContentDescription: Optional[HubContentDescription]
-    HubContentMarkdown: Optional[HubContentMarkdown]
+    HubContentDisplayName: HubContentDisplayName | None
+    HubContentDescription: HubContentDescription | None
+    HubContentMarkdown: HubContentMarkdown | None
     HubContentDocument: HubContentDocument
-    SageMakerPublicHubContentArn: Optional[SageMakerPublicHubContentArn]
-    ReferenceMinVersion: Optional[ReferenceMinVersion]
-    SupportStatus: Optional[HubContentSupportStatus]
-    HubContentSearchKeywords: Optional[HubContentSearchKeywordList]
-    HubContentDependencies: Optional[HubContentDependencyList]
+    SageMakerPublicHubContentArn: SageMakerPublicHubContentArn | None
+    ReferenceMinVersion: ReferenceMinVersion | None
+    SupportStatus: HubContentSupportStatus | None
+    HubContentSearchKeywords: HubContentSearchKeywordList | None
+    HubContentDependencies: HubContentDependencyList | None
     HubContentStatus: HubContentStatus
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     CreationTime: Timestamp
-    LastModifiedTime: Optional[Timestamp]
+    LastModifiedTime: Timestamp | None
 
 
 class DescribeHubRequest(ServiceRequest):
@@ -11810,12 +12377,12 @@ class DescribeHubRequest(ServiceRequest):
 class DescribeHubResponse(TypedDict, total=False):
     HubName: HubName
     HubArn: HubArn
-    HubDisplayName: Optional[HubDisplayName]
-    HubDescription: Optional[HubDescription]
-    HubSearchKeywords: Optional[HubSearchKeywordList]
-    S3StorageConfig: Optional[HubS3StorageConfig]
+    HubDisplayName: HubDisplayName | None
+    HubDescription: HubDescription | None
+    HubSearchKeywords: HubSearchKeywordList | None
+    S3StorageConfig: HubS3StorageConfig | None
     HubStatus: HubStatus
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
 
@@ -11827,14 +12394,14 @@ class DescribeHumanTaskUiRequest(ServiceRequest):
 class UiTemplateInfo(TypedDict, total=False):
     """Container for user interface template information."""
 
-    Url: Optional[TemplateUrl]
-    ContentSha256: Optional[TemplateContentSha256]
+    Url: TemplateUrl | None
+    ContentSha256: TemplateContentSha256 | None
 
 
 class DescribeHumanTaskUiResponse(TypedDict, total=False):
     HumanTaskUiArn: HumanTaskUiArn
     HumanTaskUiName: HumanTaskUiName
-    HumanTaskUiStatus: Optional[HumanTaskUiStatus]
+    HumanTaskUiStatus: HumanTaskUiStatus | None
     CreationTime: Timestamp
     UiTemplate: UiTemplateInfo
 
@@ -11846,7 +12413,7 @@ class DescribeHyperParameterTuningJobRequest(ServiceRequest):
 class HyperParameterTuningJobConsumedResources(TypedDict, total=False):
     """The total resources consumed by your hyperparameter tuning job."""
 
-    RuntimeInSeconds: Optional[Integer]
+    RuntimeInSeconds: Integer | None
 
 
 class HyperParameterTuningJobCompletionDetails(TypedDict, total=False):
@@ -11854,8 +12421,8 @@ class HyperParameterTuningJobCompletionDetails(TypedDict, total=False):
     completed hyperparameter tuning jobs.
     """
 
-    NumberOfTrainingJobsObjectiveNotImproving: Optional[Integer]
-    ConvergenceDetectedTime: Optional[Timestamp]
+    NumberOfTrainingJobsObjectiveNotImproving: Integer | None
+    ConvergenceDetectedTime: Timestamp | None
 
 
 class FinalHyperParameterTuningJobObjectiveMetric(TypedDict, total=False):
@@ -11865,7 +12432,7 @@ class FinalHyperParameterTuningJobObjectiveMetric(TypedDict, total=False):
     `HyperParameterTuningJobConfig <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_HyperParameterTuningJobConfig.html>`__.
     """
 
-    Type: Optional[HyperParameterTuningJobObjectiveType]
+    Type: HyperParameterTuningJobObjectiveType | None
     MetricName: MetricName
     Value: MetricValue
 
@@ -11873,20 +12440,18 @@ class FinalHyperParameterTuningJobObjectiveMetric(TypedDict, total=False):
 class HyperParameterTrainingJobSummary(TypedDict, total=False):
     """The container for the summary information about a training job."""
 
-    TrainingJobDefinitionName: Optional[HyperParameterTrainingJobDefinitionName]
+    TrainingJobDefinitionName: HyperParameterTrainingJobDefinitionName | None
     TrainingJobName: TrainingJobName
     TrainingJobArn: TrainingJobArn
-    TuningJobName: Optional[HyperParameterTuningJobName]
+    TuningJobName: HyperParameterTuningJobName | None
     CreationTime: Timestamp
-    TrainingStartTime: Optional[Timestamp]
-    TrainingEndTime: Optional[Timestamp]
+    TrainingStartTime: Timestamp | None
+    TrainingEndTime: Timestamp | None
     TrainingJobStatus: TrainingJobStatus
     TunedHyperParameters: HyperParameters
-    FailureReason: Optional[FailureReason]
-    FinalHyperParameterTuningJobObjectiveMetric: Optional[
-        FinalHyperParameterTuningJobObjectiveMetric
-    ]
-    ObjectiveStatus: Optional[ObjectiveStatus]
+    FailureReason: FailureReason | None
+    FinalHyperParameterTuningJobObjectiveMetric: FinalHyperParameterTuningJobObjectiveMetric | None
+    ObjectiveStatus: ObjectiveStatus | None
 
 
 class ObjectiveStatusCounters(TypedDict, total=False):
@@ -11897,9 +12462,9 @@ class ObjectiveStatusCounters(TypedDict, total=False):
     hyperparameter tuning process.
     """
 
-    Succeeded: Optional[ObjectiveStatusCounter]
-    Pending: Optional[ObjectiveStatusCounter]
-    Failed: Optional[ObjectiveStatusCounter]
+    Succeeded: ObjectiveStatusCounter | None
+    Pending: ObjectiveStatusCounter | None
+    Failed: ObjectiveStatusCounter | None
 
 
 class TrainingJobStatusCounters(TypedDict, total=False):
@@ -11907,32 +12472,32 @@ class TrainingJobStatusCounters(TypedDict, total=False):
     categorized by status.
     """
 
-    Completed: Optional[TrainingJobStatusCounter]
-    InProgress: Optional[TrainingJobStatusCounter]
-    RetryableError: Optional[TrainingJobStatusCounter]
-    NonRetryableError: Optional[TrainingJobStatusCounter]
-    Stopped: Optional[TrainingJobStatusCounter]
+    Completed: TrainingJobStatusCounter | None
+    InProgress: TrainingJobStatusCounter | None
+    RetryableError: TrainingJobStatusCounter | None
+    NonRetryableError: TrainingJobStatusCounter | None
+    Stopped: TrainingJobStatusCounter | None
 
 
 class DescribeHyperParameterTuningJobResponse(TypedDict, total=False):
     HyperParameterTuningJobName: HyperParameterTuningJobName
     HyperParameterTuningJobArn: HyperParameterTuningJobArn
     HyperParameterTuningJobConfig: HyperParameterTuningJobConfig
-    TrainingJobDefinition: Optional[HyperParameterTrainingJobDefinition]
-    TrainingJobDefinitions: Optional[HyperParameterTrainingJobDefinitions]
+    TrainingJobDefinition: HyperParameterTrainingJobDefinition | None
+    TrainingJobDefinitions: HyperParameterTrainingJobDefinitions | None
     HyperParameterTuningJobStatus: HyperParameterTuningJobStatus
     CreationTime: Timestamp
-    HyperParameterTuningEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    HyperParameterTuningEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
     TrainingJobStatusCounters: TrainingJobStatusCounters
     ObjectiveStatusCounters: ObjectiveStatusCounters
-    BestTrainingJob: Optional[HyperParameterTrainingJobSummary]
-    OverallBestTrainingJob: Optional[HyperParameterTrainingJobSummary]
-    WarmStartConfig: Optional[HyperParameterTuningJobWarmStartConfig]
-    Autotune: Optional[Autotune]
-    FailureReason: Optional[FailureReason]
-    TuningJobCompletionDetails: Optional[HyperParameterTuningJobCompletionDetails]
-    ConsumedResources: Optional[HyperParameterTuningJobConsumedResources]
+    BestTrainingJob: HyperParameterTrainingJobSummary | None
+    OverallBestTrainingJob: HyperParameterTrainingJobSummary | None
+    WarmStartConfig: HyperParameterTuningJobWarmStartConfig | None
+    Autotune: Autotune | None
+    FailureReason: FailureReason | None
+    TuningJobCompletionDetails: HyperParameterTuningJobCompletionDetails | None
+    ConsumedResources: HyperParameterTuningJobConsumedResources | None
 
 
 class DescribeImageRequest(ServiceRequest):
@@ -11940,40 +12505,40 @@ class DescribeImageRequest(ServiceRequest):
 
 
 class DescribeImageResponse(TypedDict, total=False):
-    CreationTime: Optional[Timestamp]
-    Description: Optional[ImageDescription]
-    DisplayName: Optional[ImageDisplayName]
-    FailureReason: Optional[FailureReason]
-    ImageArn: Optional[ImageArn]
-    ImageName: Optional[ImageName]
-    ImageStatus: Optional[ImageStatus]
-    LastModifiedTime: Optional[Timestamp]
-    RoleArn: Optional[RoleArn]
+    CreationTime: Timestamp | None
+    Description: ImageDescription | None
+    DisplayName: ImageDisplayName | None
+    FailureReason: FailureReason | None
+    ImageArn: ImageArn | None
+    ImageName: ImageName | None
+    ImageStatus: ImageStatus | None
+    LastModifiedTime: Timestamp | None
+    RoleArn: RoleArn | None
 
 
 class DescribeImageVersionRequest(ServiceRequest):
     ImageName: ImageName
-    Version: Optional[ImageVersionNumber]
-    Alias: Optional[SageMakerImageVersionAlias]
+    Version: ImageVersionNumber | None
+    Alias: SageMakerImageVersionAlias | None
 
 
 class DescribeImageVersionResponse(TypedDict, total=False):
-    BaseImage: Optional[ImageBaseImage]
-    ContainerImage: Optional[ImageContainerImage]
-    CreationTime: Optional[Timestamp]
-    FailureReason: Optional[FailureReason]
-    ImageArn: Optional[ImageArn]
-    ImageVersionArn: Optional[ImageVersionArn]
-    ImageVersionStatus: Optional[ImageVersionStatus]
-    LastModifiedTime: Optional[Timestamp]
-    Version: Optional[ImageVersionNumber]
-    VendorGuidance: Optional[VendorGuidance]
-    JobType: Optional[JobType]
-    MLFramework: Optional[MLFramework]
-    ProgrammingLang: Optional[ProgrammingLang]
-    Processor: Optional[Processor]
-    Horovod: Optional[Horovod]
-    ReleaseNotes: Optional[ReleaseNotes]
+    BaseImage: ImageBaseImage | None
+    ContainerImage: ImageContainerImage | None
+    CreationTime: Timestamp | None
+    FailureReason: FailureReason | None
+    ImageArn: ImageArn | None
+    ImageVersionArn: ImageVersionArn | None
+    ImageVersionStatus: ImageVersionStatus | None
+    LastModifiedTime: Timestamp | None
+    Version: ImageVersionNumber | None
+    VendorGuidance: VendorGuidance | None
+    JobType: JobType | None
+    MLFramework: MLFramework | None
+    ProgrammingLang: ProgrammingLang | None
+    Processor: Processor | None
+    Horovod: Horovod | None
+    ReleaseNotes: ReleaseNotes | None
 
 
 class DescribeInferenceComponentInput(ServiceRequest):
@@ -12006,8 +12571,8 @@ class InferenceComponentRollingUpdatePolicy(TypedDict, total=False):
 
     MaximumBatchSize: InferenceComponentCapacitySize
     WaitIntervalInSeconds: WaitIntervalInSeconds
-    MaximumExecutionTimeoutInSeconds: Optional[MaximumExecutionTimeoutInSeconds]
-    RollbackMaximumBatchSize: Optional[InferenceComponentCapacitySize]
+    MaximumExecutionTimeoutInSeconds: MaximumExecutionTimeoutInSeconds | None
+    RollbackMaximumBatchSize: InferenceComponentCapacitySize | None
 
 
 class InferenceComponentDeploymentConfig(TypedDict, total=False):
@@ -12017,7 +12582,7 @@ class InferenceComponentDeploymentConfig(TypedDict, total=False):
     """
 
     RollingUpdatePolicy: InferenceComponentRollingUpdatePolicy
-    AutoRollbackConfiguration: Optional[AutoRollbackConfig]
+    AutoRollbackConfiguration: AutoRollbackConfig | None
 
 
 class InferenceComponentRuntimeConfigSummary(TypedDict, total=False):
@@ -12025,8 +12590,14 @@ class InferenceComponentRuntimeConfigSummary(TypedDict, total=False):
     the inference component.
     """
 
-    DesiredCopyCount: Optional[InferenceComponentCopyCount]
-    CurrentCopyCount: Optional[InferenceComponentCopyCount]
+    DesiredCopyCount: InferenceComponentCopyCount | None
+    CurrentCopyCount: InferenceComponentCopyCount | None
+
+
+class InferenceComponentDataCacheConfigSummary(TypedDict, total=False):
+    """Settings that affect how the inference component caches data."""
+
+    EnableCaching: EnableCaching
 
 
 class InferenceComponentContainerSpecificationSummary(TypedDict, total=False):
@@ -12034,9 +12605,9 @@ class InferenceComponentContainerSpecificationSummary(TypedDict, total=False):
     component.
     """
 
-    DeployedImage: Optional[DeployedImage]
-    ArtifactUrl: Optional[Url]
-    Environment: Optional[EnvironmentMap]
+    DeployedImage: DeployedImage | None
+    ArtifactUrl: Url | None
+    Environment: EnvironmentMap | None
 
 
 class InferenceComponentSpecificationSummary(TypedDict, total=False):
@@ -12044,11 +12615,12 @@ class InferenceComponentSpecificationSummary(TypedDict, total=False):
     component.
     """
 
-    ModelName: Optional[ModelName]
-    Container: Optional[InferenceComponentContainerSpecificationSummary]
-    StartupParameters: Optional[InferenceComponentStartupParameters]
-    ComputeResourceRequirements: Optional[InferenceComponentComputeResourceRequirements]
-    BaseInferenceComponentName: Optional[InferenceComponentName]
+    ModelName: ModelName | None
+    Container: InferenceComponentContainerSpecificationSummary | None
+    StartupParameters: InferenceComponentStartupParameters | None
+    ComputeResourceRequirements: InferenceComponentComputeResourceRequirements | None
+    BaseInferenceComponentName: InferenceComponentName | None
+    DataCacheConfig: InferenceComponentDataCacheConfigSummary | None
 
 
 class DescribeInferenceComponentOutput(TypedDict, total=False):
@@ -12056,14 +12628,14 @@ class DescribeInferenceComponentOutput(TypedDict, total=False):
     InferenceComponentArn: InferenceComponentArn
     EndpointName: EndpointName
     EndpointArn: EndpointArn
-    VariantName: Optional[VariantName]
-    FailureReason: Optional[FailureReason]
-    Specification: Optional[InferenceComponentSpecificationSummary]
-    RuntimeConfig: Optional[InferenceComponentRuntimeConfigSummary]
+    VariantName: VariantName | None
+    FailureReason: FailureReason | None
+    Specification: InferenceComponentSpecificationSummary | None
+    RuntimeConfig: InferenceComponentRuntimeConfigSummary | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
-    InferenceComponentStatus: Optional[InferenceComponentStatus]
-    LastDeploymentConfig: Optional[InferenceComponentDeploymentConfig]
+    InferenceComponentStatus: InferenceComponentStatus | None
+    LastDeploymentConfig: InferenceComponentDeploymentConfig | None
 
 
 class DescribeInferenceExperimentRequest(ServiceRequest):
@@ -12079,35 +12651,35 @@ class ModelVariantConfigSummary(TypedDict, total=False):
     Status: ModelVariantStatus
 
 
-ModelVariantConfigSummaryList = List[ModelVariantConfigSummary]
+ModelVariantConfigSummaryList = list[ModelVariantConfigSummary]
 
 
 class EndpointMetadata(TypedDict, total=False):
     """The metadata of the endpoint."""
 
     EndpointName: EndpointName
-    EndpointConfigName: Optional[EndpointConfigName]
-    EndpointStatus: Optional[EndpointStatus]
-    FailureReason: Optional[FailureReason]
+    EndpointConfigName: EndpointConfigName | None
+    EndpointStatus: EndpointStatus | None
+    FailureReason: FailureReason | None
 
 
 class DescribeInferenceExperimentResponse(TypedDict, total=False):
     Arn: InferenceExperimentArn
     Name: InferenceExperimentName
     Type: InferenceExperimentType
-    Schedule: Optional[InferenceExperimentSchedule]
+    Schedule: InferenceExperimentSchedule | None
     Status: InferenceExperimentStatus
-    StatusReason: Optional[InferenceExperimentStatusReason]
-    Description: Optional[InferenceExperimentDescription]
-    CreationTime: Optional[Timestamp]
-    CompletionTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    RoleArn: Optional[RoleArn]
+    StatusReason: InferenceExperimentStatusReason | None
+    Description: InferenceExperimentDescription | None
+    CreationTime: Timestamp | None
+    CompletionTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    RoleArn: RoleArn | None
     EndpointMetadata: EndpointMetadata
     ModelVariants: ModelVariantConfigSummaryList
-    DataStorageConfig: Optional[InferenceExperimentDataStorageConfig]
-    ShadowModeConfig: Optional[ShadowModeConfig]
-    KmsKey: Optional[KmsKeyId]
+    DataStorageConfig: InferenceExperimentDataStorageConfig | None
+    ShadowModeConfig: ShadowModeConfig | None
+    KmsKey: KmsKeyId | None
 
 
 class DescribeInferenceRecommendationsJobRequest(ServiceRequest):
@@ -12132,7 +12704,7 @@ class EndpointPerformance(TypedDict, total=False):
     EndpointInfo: EndpointInfo
 
 
-EndpointPerformances = List[EndpointPerformance]
+EndpointPerformances = list[EndpointPerformance]
 InvocationStartTime = datetime
 InvocationEndTime = datetime
 
@@ -12147,7 +12719,7 @@ class EnvironmentParameter(TypedDict, total=False):
     Value: String
 
 
-EnvironmentParameters = List[EnvironmentParameter]
+EnvironmentParameters = list[EnvironmentParameter]
 
 
 class ModelConfiguration(TypedDict, total=False):
@@ -12155,9 +12727,9 @@ class ModelConfiguration(TypedDict, total=False):
     environment parameters.
     """
 
-    InferenceSpecificationName: Optional[InferenceSpecificationName]
-    EnvironmentParameters: Optional[EnvironmentParameters]
-    CompilationJobName: Optional[RecommendationJobCompilationJobName]
+    InferenceSpecificationName: InferenceSpecificationName | None
+    EnvironmentParameters: EnvironmentParameters | None
+    CompilationJobName: RecommendationJobCompilationJobName | None
 
 
 class EndpointOutputConfiguration(TypedDict, total=False):
@@ -12167,21 +12739,21 @@ class EndpointOutputConfiguration(TypedDict, total=False):
 
     EndpointName: String
     VariantName: String
-    InstanceType: Optional[ProductionVariantInstanceType]
-    InitialInstanceCount: Optional[InitialInstanceCount]
-    ServerlessConfig: Optional[ProductionVariantServerlessConfig]
+    InstanceType: ProductionVariantInstanceType | None
+    InitialInstanceCount: InitialInstanceCount | None
+    ServerlessConfig: ProductionVariantServerlessConfig | None
 
 
 class RecommendationMetrics(TypedDict, total=False):
     """The metrics of recommendations."""
 
-    CostPerHour: Optional[Float]
-    CostPerInference: Optional[Float]
-    MaxInvocations: Optional[Integer]
-    ModelLatency: Optional[Integer]
-    CpuUtilization: Optional[UtilizationMetric]
-    MemoryUtilization: Optional[UtilizationMetric]
-    ModelSetupTime: Optional[ModelSetupTime]
+    CostPerHour: Float | None
+    CostPerInference: Float | None
+    MaxInvocations: Integer | None
+    ModelLatency: Integer | None
+    CpuUtilization: UtilizationMetric | None
+    MemoryUtilization: UtilizationMetric | None
+    ModelSetupTime: ModelSetupTime | None
 
 
 class InferenceRecommendation(TypedDict, total=False):
@@ -12189,32 +12761,32 @@ class InferenceRecommendation(TypedDict, total=False):
     Recommender.
     """
 
-    RecommendationId: Optional[String]
-    Metrics: Optional[RecommendationMetrics]
+    RecommendationId: String | None
+    Metrics: RecommendationMetrics | None
     EndpointConfiguration: EndpointOutputConfiguration
     ModelConfiguration: ModelConfiguration
-    InvocationEndTime: Optional[InvocationEndTime]
-    InvocationStartTime: Optional[InvocationStartTime]
+    InvocationEndTime: InvocationEndTime | None
+    InvocationStartTime: InvocationStartTime | None
 
 
-InferenceRecommendations = List[InferenceRecommendation]
+InferenceRecommendations = list[InferenceRecommendation]
 
 
 class DescribeInferenceRecommendationsJobResponse(TypedDict, total=False):
     JobName: RecommendationJobName
-    JobDescription: Optional[RecommendationJobDescription]
+    JobDescription: RecommendationJobDescription | None
     JobType: RecommendationJobType
     JobArn: RecommendationJobArn
     RoleArn: RoleArn
     Status: RecommendationJobStatus
     CreationTime: CreationTime
-    CompletionTime: Optional[Timestamp]
+    CompletionTime: Timestamp | None
     LastModifiedTime: LastModifiedTime
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     InputConfig: RecommendationJobInputConfig
-    StoppingConditions: Optional[RecommendationJobStoppingConditions]
-    InferenceRecommendations: Optional[InferenceRecommendations]
-    EndpointPerformances: Optional[EndpointPerformances]
+    StoppingConditions: RecommendationJobStoppingConditions | None
+    InferenceRecommendations: InferenceRecommendations | None
+    EndpointPerformances: EndpointPerformances | None
 
 
 class DescribeLabelingJobRequest(ServiceRequest):
@@ -12225,38 +12797,38 @@ class LabelingJobOutput(TypedDict, total=False):
     """Specifies the location of the output produced by the labeling job."""
 
     OutputDatasetS3Uri: S3Uri
-    FinalActiveLearningModelArn: Optional[ModelArn]
+    FinalActiveLearningModelArn: ModelArn | None
 
 
 class LabelCounters(TypedDict, total=False):
     """Provides a breakdown of the number of objects labeled."""
 
-    TotalLabeled: Optional[LabelCounter]
-    HumanLabeled: Optional[LabelCounter]
-    MachineLabeled: Optional[LabelCounter]
-    FailedNonRetryableError: Optional[LabelCounter]
-    Unlabeled: Optional[LabelCounter]
+    TotalLabeled: LabelCounter | None
+    HumanLabeled: LabelCounter | None
+    MachineLabeled: LabelCounter | None
+    FailedNonRetryableError: LabelCounter | None
+    Unlabeled: LabelCounter | None
 
 
 class DescribeLabelingJobResponse(TypedDict, total=False):
     LabelingJobStatus: LabelingJobStatus
     LabelCounters: LabelCounters
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
     JobReferenceCode: JobReferenceCode
     LabelingJobName: LabelingJobName
     LabelingJobArn: LabelingJobArn
-    LabelAttributeName: Optional[LabelAttributeName]
+    LabelAttributeName: LabelAttributeName | None
     InputConfig: LabelingJobInputConfig
     OutputConfig: LabelingJobOutputConfig
     RoleArn: RoleArn
-    LabelCategoryConfigS3Uri: Optional[S3Uri]
-    StoppingConditions: Optional[LabelingJobStoppingConditions]
-    LabelingJobAlgorithmsConfig: Optional[LabelingJobAlgorithmsConfig]
+    LabelCategoryConfigS3Uri: S3Uri | None
+    StoppingConditions: LabelingJobStoppingConditions | None
+    LabelingJobAlgorithmsConfig: LabelingJobAlgorithmsConfig | None
     HumanTaskConfig: HumanTaskConfig
-    Tags: Optional[TagList]
-    LabelingJobOutput: Optional[LabelingJobOutput]
+    Tags: TagList | None
+    LabelingJobOutput: LabelingJobOutput | None
 
 
 class DescribeLineageGroupRequest(ServiceRequest):
@@ -12264,14 +12836,36 @@ class DescribeLineageGroupRequest(ServiceRequest):
 
 
 class DescribeLineageGroupResponse(TypedDict, total=False):
-    LineageGroupName: Optional[ExperimentEntityName]
-    LineageGroupArn: Optional[LineageGroupArn]
-    DisplayName: Optional[ExperimentEntityName]
-    Description: Optional[ExperimentDescription]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    LineageGroupName: ExperimentEntityName | None
+    LineageGroupArn: LineageGroupArn | None
+    DisplayName: ExperimentEntityName | None
+    Description: ExperimentDescription | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+
+
+class DescribeMlflowAppRequest(ServiceRequest):
+    Arn: MlflowAppArn
+
+
+class DescribeMlflowAppResponse(TypedDict, total=False):
+    Arn: MlflowAppArn | None
+    Name: MlflowAppName | None
+    ArtifactStoreUri: S3Uri | None
+    MlflowVersion: MlflowVersion | None
+    RoleArn: RoleArn | None
+    Status: MlflowAppStatus | None
+    ModelRegistrationMode: ModelRegistrationMode | None
+    AccountDefaultStatus: AccountDefaultStatus | None
+    DefaultDomainIdList: DefaultDomainIdList | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    MaintenanceStatus: MaintenanceStatus | None
 
 
 class DescribeMlflowTrackingServerRequest(ServiceRequest):
@@ -12279,22 +12873,22 @@ class DescribeMlflowTrackingServerRequest(ServiceRequest):
 
 
 class DescribeMlflowTrackingServerResponse(TypedDict, total=False):
-    TrackingServerArn: Optional[TrackingServerArn]
-    TrackingServerName: Optional[TrackingServerName]
-    ArtifactStoreUri: Optional[S3Uri]
-    TrackingServerSize: Optional[TrackingServerSize]
-    MlflowVersion: Optional[MlflowVersion]
-    RoleArn: Optional[RoleArn]
-    TrackingServerStatus: Optional[TrackingServerStatus]
-    TrackingServerMaintenanceStatus: Optional[TrackingServerMaintenanceStatus]
-    IsActive: Optional[IsTrackingServerActive]
-    TrackingServerUrl: Optional[TrackingServerUrl]
-    WeeklyMaintenanceWindowStart: Optional[WeeklyMaintenanceWindowStart]
-    AutomaticModelRegistration: Optional[Boolean]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    TrackingServerArn: TrackingServerArn | None
+    TrackingServerName: TrackingServerName | None
+    ArtifactStoreUri: S3Uri | None
+    TrackingServerSize: TrackingServerSize | None
+    MlflowVersion: MlflowVersion | None
+    RoleArn: RoleArn | None
+    TrackingServerStatus: TrackingServerStatus | None
+    TrackingServerMaintenanceStatus: TrackingServerMaintenanceStatus | None
+    IsActive: IsTrackingServerActive | None
+    TrackingServerUrl: TrackingServerUrl | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    AutomaticModelRegistration: Boolean | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
 class DescribeModelBiasJobDefinitionRequest(ServiceRequest):
@@ -12305,14 +12899,14 @@ class DescribeModelBiasJobDefinitionResponse(TypedDict, total=False):
     JobDefinitionArn: MonitoringJobDefinitionArn
     JobDefinitionName: MonitoringJobDefinitionName
     CreationTime: Timestamp
-    ModelBiasBaselineConfig: Optional[ModelBiasBaselineConfig]
+    ModelBiasBaselineConfig: ModelBiasBaselineConfig | None
     ModelBiasAppSpecification: ModelBiasAppSpecification
     ModelBiasJobInput: ModelBiasJobInput
     ModelBiasJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
+    StoppingCondition: MonitoringStoppingCondition | None
 
 
 class DescribeModelCardExportJobRequest(ServiceRequest):
@@ -12334,13 +12928,13 @@ class DescribeModelCardExportJobResponse(TypedDict, total=False):
     OutputConfig: ModelCardExportOutputConfig
     CreatedAt: Timestamp
     LastModifiedAt: Timestamp
-    FailureReason: Optional[FailureReason]
-    ExportArtifacts: Optional[ModelCardExportArtifacts]
+    FailureReason: FailureReason | None
+    ExportArtifacts: ModelCardExportArtifacts | None
 
 
 class DescribeModelCardRequest(ServiceRequest):
     ModelCardName: ModelCardNameOrArn
-    ModelCardVersion: Optional[Integer]
+    ModelCardVersion: Integer | None
 
 
 class DescribeModelCardResponse(TypedDict, total=False):
@@ -12349,12 +12943,12 @@ class DescribeModelCardResponse(TypedDict, total=False):
     ModelCardVersion: Integer
     Content: ModelCardContent
     ModelCardStatus: ModelCardStatus
-    SecurityConfig: Optional[ModelCardSecurityConfig]
+    SecurityConfig: ModelCardSecurityConfig | None
     CreationTime: Timestamp
     CreatedBy: UserContext
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    ModelCardProcessingStatus: Optional[ModelCardProcessingStatus]
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    ModelCardProcessingStatus: ModelCardProcessingStatus | None
 
 
 class DescribeModelExplainabilityJobDefinitionRequest(ServiceRequest):
@@ -12365,14 +12959,14 @@ class DescribeModelExplainabilityJobDefinitionResponse(TypedDict, total=False):
     JobDefinitionArn: MonitoringJobDefinitionArn
     JobDefinitionName: MonitoringJobDefinitionName
     CreationTime: Timestamp
-    ModelExplainabilityBaselineConfig: Optional[ModelExplainabilityBaselineConfig]
+    ModelExplainabilityBaselineConfig: ModelExplainabilityBaselineConfig | None
     ModelExplainabilityAppSpecification: ModelExplainabilityAppSpecification
     ModelExplainabilityJobInput: ModelExplainabilityJobInput
     ModelExplainabilityJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
+    StoppingCondition: MonitoringStoppingCondition | None
 
 
 class DescribeModelInput(ServiceRequest):
@@ -12381,15 +12975,15 @@ class DescribeModelInput(ServiceRequest):
 
 class DescribeModelOutput(TypedDict, total=False):
     ModelName: ModelName
-    PrimaryContainer: Optional[ContainerDefinition]
-    Containers: Optional[ContainerDefinitionList]
-    InferenceExecutionConfig: Optional[InferenceExecutionConfig]
-    ExecutionRoleArn: Optional[RoleArn]
-    VpcConfig: Optional[VpcConfig]
+    PrimaryContainer: ContainerDefinition | None
+    Containers: ContainerDefinitionList | None
+    InferenceExecutionConfig: InferenceExecutionConfig | None
+    ExecutionRoleArn: RoleArn | None
+    VpcConfig: VpcConfig | None
     CreationTime: Timestamp
     ModelArn: ModelArn
-    EnableNetworkIsolation: Optional[Boolean]
-    DeploymentRecommendation: Optional[DeploymentRecommendation]
+    EnableNetworkIsolation: Boolean | None
+    DeploymentRecommendation: DeploymentRecommendation | None
 
 
 class DescribeModelPackageGroupInput(ServiceRequest):
@@ -12399,7 +12993,7 @@ class DescribeModelPackageGroupInput(ServiceRequest):
 class DescribeModelPackageGroupOutput(TypedDict, total=False):
     ModelPackageGroupName: EntityName
     ModelPackageGroupArn: ModelPackageGroupArn
-    ModelPackageGroupDescription: Optional[EntityDescription]
+    ModelPackageGroupDescription: EntityDescription | None
     CreationTime: CreationTime
     CreatedBy: UserContext
     ModelPackageGroupStatus: ModelPackageGroupStatus
@@ -12414,50 +13008,51 @@ class ModelPackageStatusItem(TypedDict, total=False):
 
     Name: EntityName
     Status: DetailedModelPackageStatus
-    FailureReason: Optional[String]
+    FailureReason: String | None
 
 
-ModelPackageStatusItemList = List[ModelPackageStatusItem]
+ModelPackageStatusItemList = list[ModelPackageStatusItem]
 
 
 class ModelPackageStatusDetails(TypedDict, total=False):
     """Specifies the validation and image scan statuses of the model package."""
 
     ValidationStatuses: ModelPackageStatusItemList
-    ImageScanStatuses: Optional[ModelPackageStatusItemList]
+    ImageScanStatuses: ModelPackageStatusItemList | None
 
 
 class DescribeModelPackageOutput(TypedDict, total=False):
     ModelPackageName: EntityName
-    ModelPackageGroupName: Optional[EntityName]
-    ModelPackageVersion: Optional[ModelPackageVersion]
+    ModelPackageGroupName: EntityName | None
+    ModelPackageVersion: ModelPackageVersion | None
+    ModelPackageRegistrationType: ModelPackageRegistrationType | None
     ModelPackageArn: ModelPackageArn
-    ModelPackageDescription: Optional[EntityDescription]
+    ModelPackageDescription: EntityDescription | None
     CreationTime: CreationTime
-    InferenceSpecification: Optional[InferenceSpecification]
-    SourceAlgorithmSpecification: Optional[SourceAlgorithmSpecification]
-    ValidationSpecification: Optional[ModelPackageValidationSpecification]
+    InferenceSpecification: InferenceSpecification | None
+    SourceAlgorithmSpecification: SourceAlgorithmSpecification | None
+    ValidationSpecification: ModelPackageValidationSpecification | None
     ModelPackageStatus: ModelPackageStatus
     ModelPackageStatusDetails: ModelPackageStatusDetails
-    CertifyForMarketplace: Optional[CertifyForMarketplace]
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
-    CreatedBy: Optional[UserContext]
-    MetadataProperties: Optional[MetadataProperties]
-    ModelMetrics: Optional[ModelMetrics]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    ApprovalDescription: Optional[ApprovalDescription]
-    Domain: Optional[String]
-    Task: Optional[String]
-    SamplePayloadUrl: Optional[String]
-    CustomerMetadataProperties: Optional[CustomerMetadataMap]
-    DriftCheckBaselines: Optional[DriftCheckBaselines]
-    AdditionalInferenceSpecifications: Optional[AdditionalInferenceSpecifications]
-    SkipModelValidation: Optional[SkipModelValidation]
-    SourceUri: Optional[ModelPackageSourceUri]
-    SecurityConfig: Optional[ModelPackageSecurityConfig]
-    ModelCard: Optional[ModelPackageModelCard]
-    ModelLifeCycle: Optional[ModelLifeCycle]
+    CertifyForMarketplace: CertifyForMarketplace | None
+    ModelApprovalStatus: ModelApprovalStatus | None
+    CreatedBy: UserContext | None
+    MetadataProperties: MetadataProperties | None
+    ModelMetrics: ModelMetrics | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    ApprovalDescription: ApprovalDescription | None
+    Domain: String | None
+    Task: String | None
+    SamplePayloadUrl: String | None
+    CustomerMetadataProperties: CustomerMetadataMap | None
+    DriftCheckBaselines: DriftCheckBaselines | None
+    AdditionalInferenceSpecifications: AdditionalInferenceSpecifications | None
+    SkipModelValidation: SkipModelValidation | None
+    SourceUri: ModelPackageSourceUri | None
+    SecurityConfig: ModelPackageSecurityConfig | None
+    ModelCard: ModelPackageModelCard | None
+    ModelLifeCycle: ModelLifeCycle | None
 
 
 class DescribeModelQualityJobDefinitionRequest(ServiceRequest):
@@ -12468,14 +13063,14 @@ class DescribeModelQualityJobDefinitionResponse(TypedDict, total=False):
     JobDefinitionArn: MonitoringJobDefinitionArn
     JobDefinitionName: MonitoringJobDefinitionName
     CreationTime: Timestamp
-    ModelQualityBaselineConfig: Optional[ModelQualityBaselineConfig]
+    ModelQualityBaselineConfig: ModelQualityBaselineConfig | None
     ModelQualityAppSpecification: ModelQualityAppSpecification
     ModelQualityJobInput: ModelQualityJobInput
     ModelQualityJobOutputConfig: MonitoringOutputConfig
     JobResources: MonitoringResources
-    NetworkConfig: Optional[MonitoringNetworkConfig]
+    NetworkConfig: MonitoringNetworkConfig | None
     RoleArn: RoleArn
-    StoppingCondition: Optional[MonitoringStoppingCondition]
+    StoppingCondition: MonitoringStoppingCondition | None
 
 
 class DescribeMonitoringScheduleRequest(ServiceRequest):
@@ -12490,24 +13085,24 @@ class MonitoringExecutionSummary(TypedDict, total=False):
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
     MonitoringExecutionStatus: ExecutionStatus
-    ProcessingJobArn: Optional[ProcessingJobArn]
-    EndpointName: Optional[EndpointName]
-    FailureReason: Optional[FailureReason]
-    MonitoringJobDefinitionName: Optional[MonitoringJobDefinitionName]
-    MonitoringType: Optional[MonitoringType]
+    ProcessingJobArn: ProcessingJobArn | None
+    EndpointName: EndpointName | None
+    FailureReason: FailureReason | None
+    MonitoringJobDefinitionName: MonitoringJobDefinitionName | None
+    MonitoringType: MonitoringType | None
 
 
 class DescribeMonitoringScheduleResponse(TypedDict, total=False):
     MonitoringScheduleArn: MonitoringScheduleArn
     MonitoringScheduleName: MonitoringScheduleName
     MonitoringScheduleStatus: ScheduleStatus
-    MonitoringType: Optional[MonitoringType]
-    FailureReason: Optional[FailureReason]
+    MonitoringType: MonitoringType | None
+    FailureReason: FailureReason | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
     MonitoringScheduleConfig: MonitoringScheduleConfig
-    EndpointName: Optional[EndpointName]
-    LastMonitoringExecutionSummary: Optional[MonitoringExecutionSummary]
+    EndpointName: EndpointName | None
+    LastMonitoringExecutionSummary: MonitoringExecutionSummary | None
 
 
 class DescribeNotebookInstanceInput(ServiceRequest):
@@ -12519,38 +13114,38 @@ class DescribeNotebookInstanceLifecycleConfigInput(ServiceRequest):
 
 
 class DescribeNotebookInstanceLifecycleConfigOutput(TypedDict, total=False):
-    NotebookInstanceLifecycleConfigArn: Optional[NotebookInstanceLifecycleConfigArn]
-    NotebookInstanceLifecycleConfigName: Optional[NotebookInstanceLifecycleConfigName]
-    OnCreate: Optional[NotebookInstanceLifecycleConfigList]
-    OnStart: Optional[NotebookInstanceLifecycleConfigList]
-    LastModifiedTime: Optional[LastModifiedTime]
-    CreationTime: Optional[CreationTime]
+    NotebookInstanceLifecycleConfigArn: NotebookInstanceLifecycleConfigArn | None
+    NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName | None
+    OnCreate: NotebookInstanceLifecycleConfigList | None
+    OnStart: NotebookInstanceLifecycleConfigList | None
+    LastModifiedTime: LastModifiedTime | None
+    CreationTime: CreationTime | None
 
 
 class DescribeNotebookInstanceOutput(TypedDict, total=False):
-    NotebookInstanceArn: Optional[NotebookInstanceArn]
-    NotebookInstanceName: Optional[NotebookInstanceName]
-    NotebookInstanceStatus: Optional[NotebookInstanceStatus]
-    FailureReason: Optional[FailureReason]
-    Url: Optional[NotebookInstanceUrl]
-    InstanceType: Optional[InstanceType]
-    IpAddressType: Optional[IPAddressType]
-    SubnetId: Optional[SubnetId]
-    SecurityGroups: Optional[SecurityGroupIds]
-    RoleArn: Optional[RoleArn]
-    KmsKeyId: Optional[KmsKeyId]
-    NetworkInterfaceId: Optional[NetworkInterfaceId]
-    LastModifiedTime: Optional[LastModifiedTime]
-    CreationTime: Optional[CreationTime]
-    NotebookInstanceLifecycleConfigName: Optional[NotebookInstanceLifecycleConfigName]
-    DirectInternetAccess: Optional[DirectInternetAccess]
-    VolumeSizeInGB: Optional[NotebookInstanceVolumeSizeInGB]
-    AcceleratorTypes: Optional[NotebookInstanceAcceleratorTypes]
-    DefaultCodeRepository: Optional[CodeRepositoryNameOrUrl]
-    AdditionalCodeRepositories: Optional[AdditionalCodeRepositoryNamesOrUrls]
-    RootAccess: Optional[RootAccess]
-    PlatformIdentifier: Optional[PlatformIdentifier]
-    InstanceMetadataServiceConfiguration: Optional[InstanceMetadataServiceConfiguration]
+    NotebookInstanceArn: NotebookInstanceArn | None
+    NotebookInstanceName: NotebookInstanceName | None
+    NotebookInstanceStatus: NotebookInstanceStatus | None
+    FailureReason: FailureReason | None
+    Url: NotebookInstanceUrl | None
+    InstanceType: InstanceType | None
+    IpAddressType: IPAddressType | None
+    SubnetId: SubnetId | None
+    SecurityGroups: SecurityGroupIds | None
+    RoleArn: RoleArn | None
+    KmsKeyId: KmsKeyId | None
+    NetworkInterfaceId: NetworkInterfaceId | None
+    LastModifiedTime: LastModifiedTime | None
+    CreationTime: CreationTime | None
+    NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName | None
+    DirectInternetAccess: DirectInternetAccess | None
+    VolumeSizeInGB: NotebookInstanceVolumeSizeInGB | None
+    AcceleratorTypes: NotebookInstanceAcceleratorTypes | None
+    DefaultCodeRepository: CodeRepositoryNameOrUrl | None
+    AdditionalCodeRepositories: AdditionalCodeRepositoryNamesOrUrls | None
+    RootAccess: RootAccess | None
+    PlatformIdentifier: PlatformIdentifier | None
+    InstanceMetadataServiceConfiguration: InstanceMetadataServiceConfiguration | None
 
 
 class DescribeOptimizationJobRequest(ServiceRequest):
@@ -12560,31 +13155,33 @@ class DescribeOptimizationJobRequest(ServiceRequest):
 class OptimizationOutput(TypedDict, total=False):
     """Output values produced by an optimization job."""
 
-    RecommendedInferenceImage: Optional[OptimizationContainerImage]
+    RecommendedInferenceImage: OptimizationContainerImage | None
 
 
 class DescribeOptimizationJobResponse(TypedDict, total=False):
     OptimizationJobArn: OptimizationJobArn
     OptimizationJobStatus: OptimizationJobStatus
-    OptimizationStartTime: Optional[Timestamp]
-    OptimizationEndTime: Optional[Timestamp]
+    OptimizationStartTime: Timestamp | None
+    OptimizationEndTime: Timestamp | None
     CreationTime: CreationTime
     LastModifiedTime: LastModifiedTime
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     OptimizationJobName: EntityName
     ModelSource: OptimizationJobModelSource
-    OptimizationEnvironment: Optional[OptimizationJobEnvironmentVariables]
+    OptimizationEnvironment: OptimizationJobEnvironmentVariables | None
     DeploymentInstanceType: OptimizationJobDeploymentInstanceType
+    MaxInstanceCount: OptimizationJobMaxInstanceCount | None
     OptimizationConfigs: OptimizationConfigs
     OutputConfig: OptimizationJobOutputConfig
-    OptimizationOutput: Optional[OptimizationOutput]
+    OptimizationOutput: OptimizationOutput | None
     RoleArn: RoleArn
     StoppingCondition: StoppingCondition
-    VpcConfig: Optional[OptimizationVpcConfig]
+    VpcConfig: OptimizationVpcConfig | None
 
 
 class DescribePartnerAppRequest(ServiceRequest):
     Arn: PartnerAppArn
+    IncludeAvailableUpgrade: Boolean | None
 
 
 class ErrorInfo(TypedDict, total=False):
@@ -12592,27 +13189,30 @@ class ErrorInfo(TypedDict, total=False):
     reason for an operation failure.
     """
 
-    Code: Optional[NonEmptyString64]
-    Reason: Optional[NonEmptyString256]
+    Code: NonEmptyString64 | None
+    Reason: NonEmptyString256 | None
 
 
 class DescribePartnerAppResponse(TypedDict, total=False):
-    Arn: Optional[PartnerAppArn]
-    Name: Optional[PartnerAppName]
-    Type: Optional[PartnerAppType]
-    Status: Optional[PartnerAppStatus]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    ExecutionRoleArn: Optional[RoleArn]
-    KmsKeyId: Optional[KmsKeyId]
-    BaseUrl: Optional[String2048]
-    MaintenanceConfig: Optional[PartnerAppMaintenanceConfig]
-    Tier: Optional[NonEmptyString64]
-    Version: Optional[NonEmptyString64]
-    ApplicationConfig: Optional[PartnerAppConfig]
-    AuthType: Optional[PartnerAppAuthType]
-    EnableIamSessionBasedIdentity: Optional[Boolean]
-    Error: Optional[ErrorInfo]
+    Arn: PartnerAppArn | None
+    Name: PartnerAppName | None
+    Type: PartnerAppType | None
+    Status: PartnerAppStatus | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    ExecutionRoleArn: RoleArn | None
+    KmsKeyId: KmsKeyId | None
+    BaseUrl: String2048 | None
+    MaintenanceConfig: PartnerAppMaintenanceConfig | None
+    Tier: NonEmptyString64 | None
+    Version: NonEmptyString64 | None
+    ApplicationConfig: PartnerAppConfig | None
+    AuthType: PartnerAppAuthType | None
+    EnableIamSessionBasedIdentity: Boolean | None
+    Error: ErrorInfo | None
+    EnableAutoMinorVersionUpgrade: Boolean | None
+    CurrentVersionEolDate: Timestamp | None
+    AvailableUpgrade: AvailableUpgrade | None
 
 
 class DescribePipelineDefinitionForExecutionRequest(ServiceRequest):
@@ -12620,12 +13220,19 @@ class DescribePipelineDefinitionForExecutionRequest(ServiceRequest):
 
 
 class DescribePipelineDefinitionForExecutionResponse(TypedDict, total=False):
-    PipelineDefinition: Optional[PipelineDefinition]
-    CreationTime: Optional[Timestamp]
+    PipelineDefinition: PipelineDefinition | None
+    CreationTime: Timestamp | None
 
 
 class DescribePipelineExecutionRequest(ServiceRequest):
     PipelineExecutionArn: PipelineExecutionArn
+
+
+class MLflowConfiguration(TypedDict, total=False):
+    """The MLflow configuration."""
+
+    MlflowResourceArn: MLflowArn | None
+    MlflowExperimentName: MlflowExperimentEntityName | None
 
 
 PipelineVersionId = int
@@ -12637,61 +13244,62 @@ class SelectedStep(TypedDict, total=False):
     StepName: String256
 
 
-SelectedStepList = List[SelectedStep]
+SelectedStepList = list[SelectedStep]
 
 
 class SelectiveExecutionConfig(TypedDict, total=False):
     """The selective execution configuration applied to the pipeline run."""
 
-    SourcePipelineExecutionArn: Optional[PipelineExecutionArn]
+    SourcePipelineExecutionArn: PipelineExecutionArn | None
     SelectedSteps: SelectedStepList
 
 
 class PipelineExperimentConfig(TypedDict, total=False):
     """Specifies the names of the experiment and trial created by a pipeline."""
 
-    ExperimentName: Optional[ExperimentEntityName]
-    TrialName: Optional[ExperimentEntityName]
+    ExperimentName: ExperimentEntityName | None
+    TrialName: ExperimentEntityName | None
 
 
 class DescribePipelineExecutionResponse(TypedDict, total=False):
-    PipelineArn: Optional[PipelineArn]
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
-    PipelineExecutionDisplayName: Optional[PipelineExecutionName]
-    PipelineExecutionStatus: Optional[PipelineExecutionStatus]
-    PipelineExecutionDescription: Optional[PipelineExecutionDescription]
-    PipelineExperimentConfig: Optional[PipelineExperimentConfig]
-    FailureReason: Optional[PipelineExecutionFailureReason]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedBy: Optional[UserContext]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
-    SelectiveExecutionConfig: Optional[SelectiveExecutionConfig]
-    PipelineVersionId: Optional[PipelineVersionId]
+    PipelineArn: PipelineArn | None
+    PipelineExecutionArn: PipelineExecutionArn | None
+    PipelineExecutionDisplayName: PipelineExecutionName | None
+    PipelineExecutionStatus: PipelineExecutionStatus | None
+    PipelineExecutionDescription: PipelineExecutionDescription | None
+    PipelineExperimentConfig: PipelineExperimentConfig | None
+    FailureReason: PipelineExecutionFailureReason | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedBy: UserContext | None
+    ParallelismConfiguration: ParallelismConfiguration | None
+    SelectiveExecutionConfig: SelectiveExecutionConfig | None
+    PipelineVersionId: PipelineVersionId | None
+    MLflowConfig: MLflowConfiguration | None
 
 
 class DescribePipelineRequest(ServiceRequest):
     PipelineName: PipelineNameOrArn
-    PipelineVersionId: Optional[PipelineVersionId]
+    PipelineVersionId: PipelineVersionId | None
 
 
 class DescribePipelineResponse(TypedDict, total=False):
-    PipelineArn: Optional[PipelineArn]
-    PipelineName: Optional[PipelineName]
-    PipelineDisplayName: Optional[PipelineName]
-    PipelineDefinition: Optional[PipelineDefinition]
-    PipelineDescription: Optional[PipelineDescription]
-    RoleArn: Optional[RoleArn]
-    PipelineStatus: Optional[PipelineStatus]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    LastRunTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedBy: Optional[UserContext]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
-    PipelineVersionDisplayName: Optional[PipelineVersionName]
-    PipelineVersionDescription: Optional[PipelineVersionDescription]
+    PipelineArn: PipelineArn | None
+    PipelineName: PipelineName | None
+    PipelineDisplayName: PipelineName | None
+    PipelineDefinition: PipelineDefinition | None
+    PipelineDescription: PipelineDescription | None
+    RoleArn: RoleArn | None
+    PipelineStatus: PipelineStatus | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    LastRunTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedBy: UserContext | None
+    ParallelismConfiguration: ParallelismConfiguration | None
+    PipelineVersionDisplayName: PipelineVersionName | None
+    PipelineVersionDescription: PipelineVersionDescription | None
 
 
 class DescribeProcessingJobRequest(ServiceRequest):
@@ -12699,27 +13307,27 @@ class DescribeProcessingJobRequest(ServiceRequest):
 
 
 class DescribeProcessingJobResponse(TypedDict, total=False):
-    ProcessingInputs: Optional[ProcessingInputs]
-    ProcessingOutputConfig: Optional[ProcessingOutputConfig]
+    ProcessingInputs: ProcessingInputs | None
+    ProcessingOutputConfig: ProcessingOutputConfig | None
     ProcessingJobName: ProcessingJobName
     ProcessingResources: ProcessingResources
-    StoppingCondition: Optional[ProcessingStoppingCondition]
+    StoppingCondition: ProcessingStoppingCondition | None
     AppSpecification: AppSpecification
-    Environment: Optional[ProcessingEnvironmentMap]
-    NetworkConfig: Optional[NetworkConfig]
-    RoleArn: Optional[RoleArn]
-    ExperimentConfig: Optional[ExperimentConfig]
+    Environment: ProcessingEnvironmentMap | None
+    NetworkConfig: NetworkConfig | None
+    RoleArn: RoleArn | None
+    ExperimentConfig: ExperimentConfig | None
     ProcessingJobArn: ProcessingJobArn
     ProcessingJobStatus: ProcessingJobStatus
-    ExitMessage: Optional[ExitMessage]
-    FailureReason: Optional[FailureReason]
-    ProcessingEndTime: Optional[Timestamp]
-    ProcessingStartTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    ExitMessage: ExitMessage | None
+    FailureReason: FailureReason | None
+    ProcessingEndTime: Timestamp | None
+    ProcessingStartTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
     CreationTime: Timestamp
-    MonitoringScheduleArn: Optional[MonitoringScheduleArn]
-    AutoMLJobArn: Optional[AutoMLJobArn]
-    TrainingJobArn: Optional[TrainingJobArn]
+    MonitoringScheduleArn: MonitoringScheduleArn | None
+    AutoMLJobArn: AutoMLJobArn | None
+    TrainingJobArn: TrainingJobArn | None
 
 
 class DescribeProjectInput(ServiceRequest):
@@ -12731,10 +13339,10 @@ class TemplateProviderDetail(TypedDict, total=False):
     provisioning information.
     """
 
-    CfnTemplateProviderDetail: Optional[CfnTemplateProviderDetail]
+    CfnTemplateProviderDetail: CfnTemplateProviderDetail | None
 
 
-TemplateProviderDetailList = List[TemplateProviderDetail]
+TemplateProviderDetailList = list[TemplateProviderDetail]
 
 
 class ServiceCatalogProvisionedProductDetails(TypedDict, total=False):
@@ -12743,23 +13351,23 @@ class ServiceCatalogProvisionedProductDetails(TypedDict, total=False):
     Catalog <https://docs.aws.amazon.com/servicecatalog/latest/adminguide/introduction.html>`__.
     """
 
-    ProvisionedProductId: Optional[ServiceCatalogEntityId]
-    ProvisionedProductStatusMessage: Optional[ProvisionedProductStatusMessage]
+    ProvisionedProductId: ServiceCatalogEntityId | None
+    ProvisionedProductStatusMessage: ProvisionedProductStatusMessage | None
 
 
 class DescribeProjectOutput(TypedDict, total=False):
     ProjectArn: ProjectArn
     ProjectName: ProjectEntityName
     ProjectId: ProjectId
-    ProjectDescription: Optional[EntityDescription]
-    ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
-    ServiceCatalogProvisionedProductDetails: Optional[ServiceCatalogProvisionedProductDetails]
+    ProjectDescription: EntityDescription | None
+    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetails | None
+    ServiceCatalogProvisionedProductDetails: ServiceCatalogProvisionedProductDetails | None
     ProjectStatus: ProjectStatus
-    TemplateProviderDetails: Optional[TemplateProviderDetailList]
-    CreatedBy: Optional[UserContext]
+    TemplateProviderDetails: TemplateProviderDetailList | None
+    CreatedBy: UserContext | None
     CreationTime: Timestamp
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
 class DescribeReservedCapacityRequest(ServiceRequest):
@@ -12771,9 +13379,9 @@ class UltraServerSummary(TypedDict, total=False):
 
     UltraServerType: UltraServerType
     InstanceType: ReservedCapacityInstanceType
-    UltraServerCount: Optional[UltraServerCount]
-    AvailableSpareInstanceCount: Optional[AvailableSpareInstanceCount]
-    UnhealthyInstanceCount: Optional[UnhealthyInstanceCount]
+    UltraServerCount: UltraServerCount | None
+    AvailableSpareInstanceCount: AvailableSpareInstanceCount | None
+    UnhealthyInstanceCount: UnhealthyInstanceCount | None
 
 
 ReservedCapacityDurationMinutes = int
@@ -12782,18 +13390,18 @@ ReservedCapacityDurationHours = int
 
 class DescribeReservedCapacityResponse(TypedDict, total=False):
     ReservedCapacityArn: ReservedCapacityArn
-    ReservedCapacityType: Optional[ReservedCapacityType]
-    Status: Optional[ReservedCapacityStatus]
-    AvailabilityZone: Optional[AvailabilityZone]
-    DurationHours: Optional[ReservedCapacityDurationHours]
-    DurationMinutes: Optional[ReservedCapacityDurationMinutes]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
+    ReservedCapacityType: ReservedCapacityType | None
+    Status: ReservedCapacityStatus | None
+    AvailabilityZone: AvailabilityZone | None
+    DurationHours: ReservedCapacityDurationHours | None
+    DurationMinutes: ReservedCapacityDurationMinutes | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
     InstanceType: ReservedCapacityInstanceType
     TotalInstanceCount: TotalInstanceCount
-    AvailableInstanceCount: Optional[AvailableInstanceCount]
-    InUseInstanceCount: Optional[InUseInstanceCount]
-    UltraServerSummary: Optional[UltraServerSummary]
+    AvailableInstanceCount: AvailableInstanceCount | None
+    InUseInstanceCount: InUseInstanceCount | None
+    UltraServerSummary: UltraServerSummary | None
 
 
 class DescribeSpaceRequest(ServiceRequest):
@@ -12802,19 +13410,19 @@ class DescribeSpaceRequest(ServiceRequest):
 
 
 class DescribeSpaceResponse(TypedDict, total=False):
-    DomainId: Optional[DomainId]
-    SpaceArn: Optional[SpaceArn]
-    SpaceName: Optional[SpaceName]
-    HomeEfsFileSystemUid: Optional[EfsUid]
-    Status: Optional[SpaceStatus]
-    LastModifiedTime: Optional[LastModifiedTime]
-    CreationTime: Optional[CreationTime]
-    FailureReason: Optional[FailureReason]
-    SpaceSettings: Optional[SpaceSettings]
-    OwnershipSettings: Optional[OwnershipSettings]
-    SpaceSharingSettings: Optional[SpaceSharingSettings]
-    SpaceDisplayName: Optional[NonEmptyString64]
-    Url: Optional[String1024]
+    DomainId: DomainId | None
+    SpaceArn: SpaceArn | None
+    SpaceName: SpaceName | None
+    HomeEfsFileSystemUid: EfsUid | None
+    Status: SpaceStatus | None
+    LastModifiedTime: LastModifiedTime | None
+    CreationTime: CreationTime | None
+    FailureReason: FailureReason | None
+    SpaceSettings: SpaceSettings | None
+    OwnershipSettings: OwnershipSettings | None
+    SpaceSharingSettings: SpaceSharingSettings | None
+    SpaceDisplayName: NonEmptyString64 | None
+    Url: String1024 | None
 
 
 class DescribeStudioLifecycleConfigRequest(ServiceRequest):
@@ -12822,12 +13430,12 @@ class DescribeStudioLifecycleConfigRequest(ServiceRequest):
 
 
 class DescribeStudioLifecycleConfigResponse(TypedDict, total=False):
-    StudioLifecycleConfigArn: Optional[StudioLifecycleConfigArn]
-    StudioLifecycleConfigName: Optional[StudioLifecycleConfigName]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    StudioLifecycleConfigContent: Optional[StudioLifecycleConfigContent]
-    StudioLifecycleConfigAppType: Optional[StudioLifecycleConfigAppType]
+    StudioLifecycleConfigArn: StudioLifecycleConfigArn | None
+    StudioLifecycleConfigName: StudioLifecycleConfigName | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    StudioLifecycleConfigContent: StudioLifecycleConfigContent | None
+    StudioLifecycleConfigAppType: StudioLifecycleConfigAppType | None
 
 
 class DescribeSubscribedWorkteamRequest(ServiceRequest):
@@ -12838,10 +13446,10 @@ class SubscribedWorkteam(TypedDict, total=False):
     """Describes a work team of a vendor that does the labelling job."""
 
     WorkteamArn: WorkteamArn
-    MarketplaceTitle: Optional[String200]
-    SellerName: Optional[String]
-    MarketplaceDescription: Optional[String200]
-    ListingId: Optional[String]
+    MarketplaceTitle: String200 | None
+    SellerName: String | None
+    MarketplaceDescription: String200 | None
+    ListingId: String | None
 
 
 class DescribeSubscribedWorkteamResponse(TypedDict, total=False):
@@ -12852,17 +13460,39 @@ class DescribeTrainingJobRequest(ServiceRequest):
     TrainingJobName: TrainingJobName
 
 
+TrainingEpochCount = int
+TrainingEpochIndex = int
+TrainingStepIndex = int
+TotalStepCountPerEpoch = int
+
+
+class TrainingProgressInfo(TypedDict, total=False):
+    """The serverless training job progress information."""
+
+    TotalStepCountPerEpoch: TotalStepCountPerEpoch | None
+    CurrentStep: TrainingStepIndex | None
+    CurrentEpoch: TrainingEpochIndex | None
+    MaxEpoch: TrainingEpochCount | None
+
+
+class MlflowDetails(TypedDict, total=False):
+    """The MLflow details of this job."""
+
+    MlflowExperimentId: MlflowExperimentId | None
+    MlflowRunId: MlflowRunId | None
+
+
 class ProfilerRuleEvaluationStatus(TypedDict, total=False):
     """Information about the status of the rule evaluation."""
 
-    RuleConfigurationName: Optional[RuleConfigurationName]
-    RuleEvaluationJobArn: Optional[ProcessingJobArn]
-    RuleEvaluationStatus: Optional[RuleEvaluationStatus]
-    StatusDetails: Optional[StatusDetails]
-    LastModifiedTime: Optional[Timestamp]
+    RuleConfigurationName: RuleConfigurationName | None
+    RuleEvaluationJobArn: ProcessingJobArn | None
+    RuleEvaluationStatus: RuleEvaluationStatus | None
+    StatusDetails: StatusDetails | None
+    LastModifiedTime: Timestamp | None
 
 
-ProfilerRuleEvaluationStatuses = List[ProfilerRuleEvaluationStatus]
+ProfilerRuleEvaluationStatuses = list[ProfilerRuleEvaluationStatus]
 
 
 class MetricData(TypedDict, total=False):
@@ -12870,12 +13500,12 @@ class MetricData(TypedDict, total=False):
     Amazon CloudWatch.
     """
 
-    MetricName: Optional[MetricName]
-    Value: Optional[Float]
-    Timestamp: Optional[Timestamp]
+    MetricName: MetricName | None
+    Value: Float | None
+    Timestamp: Timestamp | None
 
 
-FinalMetricDataList = List[MetricData]
+FinalMetricDataList = list[MetricData]
 
 
 class SecondaryStatusTransition(TypedDict, total=False):
@@ -12892,65 +13522,72 @@ class SecondaryStatusTransition(TypedDict, total=False):
 
     Status: SecondaryStatus
     StartTime: Timestamp
-    EndTime: Optional[Timestamp]
-    StatusMessage: Optional[StatusMessage]
+    EndTime: Timestamp | None
+    StatusMessage: StatusMessage | None
 
 
-SecondaryStatusTransitions = List[SecondaryStatusTransition]
+SecondaryStatusTransitions = list[SecondaryStatusTransition]
 
 
 class WarmPoolStatus(TypedDict, total=False):
     """Status and billing information about the warm pool."""
 
     Status: WarmPoolResourceStatus
-    ResourceRetainedBillableTimeInSeconds: Optional[ResourceRetainedBillableTimeInSeconds]
-    ReusedByJob: Optional[TrainingJobName]
+    ResourceRetainedBillableTimeInSeconds: ResourceRetainedBillableTimeInSeconds | None
+    ReusedByJob: TrainingJobName | None
 
 
 class DescribeTrainingJobResponse(TypedDict, total=False):
     TrainingJobName: TrainingJobName
     TrainingJobArn: TrainingJobArn
-    TuningJobArn: Optional[HyperParameterTuningJobArn]
-    LabelingJobArn: Optional[LabelingJobArn]
-    AutoMLJobArn: Optional[AutoMLJobArn]
+    TuningJobArn: HyperParameterTuningJobArn | None
+    LabelingJobArn: LabelingJobArn | None
+    AutoMLJobArn: AutoMLJobArn | None
     ModelArtifacts: ModelArtifacts
     TrainingJobStatus: TrainingJobStatus
     SecondaryStatus: SecondaryStatus
-    FailureReason: Optional[FailureReason]
-    HyperParameters: Optional[HyperParameters]
-    AlgorithmSpecification: AlgorithmSpecification
-    RoleArn: Optional[RoleArn]
-    InputDataConfig: Optional[InputDataConfig]
-    OutputDataConfig: Optional[OutputDataConfig]
-    ResourceConfig: ResourceConfig
-    WarmPoolStatus: Optional[WarmPoolStatus]
-    VpcConfig: Optional[VpcConfig]
+    FailureReason: FailureReason | None
+    HyperParameters: HyperParameters | None
+    AlgorithmSpecification: AlgorithmSpecification | None
+    RoleArn: RoleArn | None
+    InputDataConfig: InputDataConfig | None
+    OutputDataConfig: OutputDataConfig | None
+    ResourceConfig: ResourceConfig | None
+    WarmPoolStatus: WarmPoolStatus | None
+    VpcConfig: VpcConfig | None
     StoppingCondition: StoppingCondition
     CreationTime: Timestamp
-    TrainingStartTime: Optional[Timestamp]
-    TrainingEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    SecondaryStatusTransitions: Optional[SecondaryStatusTransitions]
-    FinalMetricDataList: Optional[FinalMetricDataList]
-    EnableNetworkIsolation: Optional[Boolean]
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    EnableManagedSpotTraining: Optional[Boolean]
-    CheckpointConfig: Optional[CheckpointConfig]
-    TrainingTimeInSeconds: Optional[TrainingTimeInSeconds]
-    BillableTimeInSeconds: Optional[BillableTimeInSeconds]
-    DebugHookConfig: Optional[DebugHookConfig]
-    ExperimentConfig: Optional[ExperimentConfig]
-    DebugRuleConfigurations: Optional[DebugRuleConfigurations]
-    TensorBoardOutputConfig: Optional[TensorBoardOutputConfig]
-    DebugRuleEvaluationStatuses: Optional[DebugRuleEvaluationStatuses]
-    ProfilerConfig: Optional[ProfilerConfig]
-    ProfilerRuleConfigurations: Optional[ProfilerRuleConfigurations]
-    ProfilerRuleEvaluationStatuses: Optional[ProfilerRuleEvaluationStatuses]
-    ProfilingStatus: Optional[ProfilingStatus]
-    Environment: Optional[TrainingEnvironmentMap]
-    RetryStrategy: Optional[RetryStrategy]
-    RemoteDebugConfig: Optional[RemoteDebugConfig]
-    InfraCheckConfig: Optional[InfraCheckConfig]
+    TrainingStartTime: Timestamp | None
+    TrainingEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    SecondaryStatusTransitions: SecondaryStatusTransitions | None
+    FinalMetricDataList: FinalMetricDataList | None
+    EnableNetworkIsolation: Boolean | None
+    EnableInterContainerTrafficEncryption: Boolean | None
+    EnableManagedSpotTraining: Boolean | None
+    CheckpointConfig: CheckpointConfig | None
+    TrainingTimeInSeconds: TrainingTimeInSeconds | None
+    BillableTimeInSeconds: BillableTimeInSeconds | None
+    BillableTokenCount: BillableTokenCount | None
+    DebugHookConfig: DebugHookConfig | None
+    ExperimentConfig: ExperimentConfig | None
+    DebugRuleConfigurations: DebugRuleConfigurations | None
+    TensorBoardOutputConfig: TensorBoardOutputConfig | None
+    DebugRuleEvaluationStatuses: DebugRuleEvaluationStatuses | None
+    ProfilerConfig: ProfilerConfig | None
+    ProfilerRuleConfigurations: ProfilerRuleConfigurations | None
+    ProfilerRuleEvaluationStatuses: ProfilerRuleEvaluationStatuses | None
+    ProfilingStatus: ProfilingStatus | None
+    Environment: TrainingEnvironmentMap | None
+    RetryStrategy: RetryStrategy | None
+    RemoteDebugConfig: RemoteDebugConfig | None
+    InfraCheckConfig: InfraCheckConfig | None
+    ServerlessJobConfig: ServerlessJobConfig | None
+    MlflowConfig: MlflowConfig | None
+    ModelPackageConfig: ModelPackageConfig | None
+    MlflowDetails: MlflowDetails | None
+    ProgressInfo: TrainingProgressInfo | None
+    OutputModelPackageArn: ModelPackageArn | None
 
 
 class DescribeTrainingPlanRequest(ServiceRequest):
@@ -12966,21 +13603,21 @@ class ReservedCapacitySummary(TypedDict, total=False):
     """
 
     ReservedCapacityArn: ReservedCapacityArn
-    ReservedCapacityType: Optional[ReservedCapacityType]
-    UltraServerType: Optional[UltraServerType]
-    UltraServerCount: Optional[UltraServerCount]
+    ReservedCapacityType: ReservedCapacityType | None
+    UltraServerType: UltraServerType | None
+    UltraServerCount: UltraServerCount | None
     InstanceType: ReservedCapacityInstanceType
     TotalInstanceCount: TotalInstanceCount
     Status: ReservedCapacityStatus
-    AvailabilityZone: Optional[AvailabilityZone]
-    DurationHours: Optional[ReservedCapacityDurationHours]
-    DurationMinutes: Optional[ReservedCapacityDurationMinutes]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
+    AvailabilityZone: AvailabilityZone | None
+    DurationHours: ReservedCapacityDurationHours | None
+    DurationMinutes: ReservedCapacityDurationMinutes | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
 
 
-ReservedCapacitySummaries = List[ReservedCapacitySummary]
-SageMakerResourceNames = List[SageMakerResourceName]
+ReservedCapacitySummaries = list[ReservedCapacitySummary]
+SageMakerResourceNames = list[SageMakerResourceName]
 TrainingPlanDurationMinutes = int
 TrainingPlanDurationHours = int
 
@@ -12989,21 +13626,21 @@ class DescribeTrainingPlanResponse(TypedDict, total=False):
     TrainingPlanArn: TrainingPlanArn
     TrainingPlanName: TrainingPlanName
     Status: TrainingPlanStatus
-    StatusMessage: Optional[TrainingPlanStatusMessage]
-    DurationHours: Optional[TrainingPlanDurationHours]
-    DurationMinutes: Optional[TrainingPlanDurationMinutes]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    UpfrontFee: Optional[String256]
-    CurrencyCode: Optional[CurrencyCode]
-    TotalInstanceCount: Optional[TotalInstanceCount]
-    AvailableInstanceCount: Optional[AvailableInstanceCount]
-    InUseInstanceCount: Optional[InUseInstanceCount]
-    UnhealthyInstanceCount: Optional[UnhealthyInstanceCount]
-    AvailableSpareInstanceCount: Optional[AvailableSpareInstanceCount]
-    TotalUltraServerCount: Optional[UltraServerCount]
-    TargetResources: Optional[SageMakerResourceNames]
-    ReservedCapacitySummaries: Optional[ReservedCapacitySummaries]
+    StatusMessage: TrainingPlanStatusMessage | None
+    DurationHours: TrainingPlanDurationHours | None
+    DurationMinutes: TrainingPlanDurationMinutes | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    UpfrontFee: String256 | None
+    CurrencyCode: CurrencyCode | None
+    TotalInstanceCount: TotalInstanceCount | None
+    AvailableInstanceCount: AvailableInstanceCount | None
+    InUseInstanceCount: InUseInstanceCount | None
+    UnhealthyInstanceCount: UnhealthyInstanceCount | None
+    AvailableSpareInstanceCount: AvailableSpareInstanceCount | None
+    TotalUltraServerCount: UltraServerCount | None
+    TargetResources: SageMakerResourceNames | None
+    ReservedCapacitySummaries: ReservedCapacitySummaries | None
 
 
 class DescribeTransformJobRequest(ServiceRequest):
@@ -13014,24 +13651,24 @@ class DescribeTransformJobResponse(TypedDict, total=False):
     TransformJobName: TransformJobName
     TransformJobArn: TransformJobArn
     TransformJobStatus: TransformJobStatus
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     ModelName: ModelName
-    MaxConcurrentTransforms: Optional[MaxConcurrentTransforms]
-    ModelClientConfig: Optional[ModelClientConfig]
-    MaxPayloadInMB: Optional[MaxPayloadInMB]
-    BatchStrategy: Optional[BatchStrategy]
-    Environment: Optional[TransformEnvironmentMap]
+    MaxConcurrentTransforms: MaxConcurrentTransforms | None
+    ModelClientConfig: ModelClientConfig | None
+    MaxPayloadInMB: MaxPayloadInMB | None
+    BatchStrategy: BatchStrategy | None
+    Environment: TransformEnvironmentMap | None
     TransformInput: TransformInput
-    TransformOutput: Optional[TransformOutput]
-    DataCaptureConfig: Optional[BatchDataCaptureConfig]
+    TransformOutput: TransformOutput | None
+    DataCaptureConfig: BatchDataCaptureConfig | None
     TransformResources: TransformResources
     CreationTime: Timestamp
-    TransformStartTime: Optional[Timestamp]
-    TransformEndTime: Optional[Timestamp]
-    LabelingJobArn: Optional[LabelingJobArn]
-    AutoMLJobArn: Optional[AutoMLJobArn]
-    DataProcessing: Optional[DataProcessing]
-    ExperimentConfig: Optional[ExperimentConfig]
+    TransformStartTime: Timestamp | None
+    TransformEndTime: Timestamp | None
+    LabelingJobArn: LabelingJobArn | None
+    AutoMLJobArn: AutoMLJobArn | None
+    DataProcessing: DataProcessing | None
+    ExperimentConfig: ExperimentConfig | None
 
 
 class DescribeTrialComponentRequest(ServiceRequest):
@@ -13044,48 +13681,48 @@ class TrialComponentSource(TypedDict, total=False):
     """
 
     SourceArn: TrialComponentSourceArn
-    SourceType: Optional[SourceType]
+    SourceType: SourceType | None
 
 
-TrialComponentSources = List[TrialComponentSource]
+TrialComponentSources = list[TrialComponentSource]
 
 
 class TrialComponentMetricSummary(TypedDict, total=False):
     """A summary of the metrics of a trial component."""
 
-    MetricName: Optional[MetricName]
-    SourceArn: Optional[TrialComponentSourceArn]
-    TimeStamp: Optional[Timestamp]
-    Max: Optional[OptionalDouble]
-    Min: Optional[OptionalDouble]
-    Last: Optional[OptionalDouble]
-    Count: Optional[OptionalInteger]
-    Avg: Optional[OptionalDouble]
-    StdDev: Optional[OptionalDouble]
+    MetricName: MetricName | None
+    SourceArn: TrialComponentSourceArn | None
+    TimeStamp: Timestamp | None
+    Max: OptionalDouble | None
+    Min: OptionalDouble | None
+    Last: OptionalDouble | None
+    Count: OptionalInteger | None
+    Avg: OptionalDouble | None
+    StdDev: OptionalDouble | None
 
 
-TrialComponentMetricSummaries = List[TrialComponentMetricSummary]
+TrialComponentMetricSummaries = list[TrialComponentMetricSummary]
 
 
 class DescribeTrialComponentResponse(TypedDict, total=False):
-    TrialComponentName: Optional[ExperimentEntityName]
-    TrialComponentArn: Optional[TrialComponentArn]
-    DisplayName: Optional[ExperimentEntityName]
-    Source: Optional[TrialComponentSource]
-    Status: Optional[TrialComponentStatus]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    Parameters: Optional[TrialComponentParameters]
-    InputArtifacts: Optional[TrialComponentArtifacts]
-    OutputArtifacts: Optional[TrialComponentArtifacts]
-    MetadataProperties: Optional[MetadataProperties]
-    Metrics: Optional[TrialComponentMetricSummaries]
-    LineageGroupArn: Optional[LineageGroupArn]
-    Sources: Optional[TrialComponentSources]
+    TrialComponentName: ExperimentEntityName | None
+    TrialComponentArn: TrialComponentArn | None
+    DisplayName: ExperimentEntityName | None
+    Source: TrialComponentSource | None
+    Status: TrialComponentStatus | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    Parameters: TrialComponentParameters | None
+    InputArtifacts: TrialComponentArtifacts | None
+    OutputArtifacts: TrialComponentArtifacts | None
+    MetadataProperties: MetadataProperties | None
+    Metrics: TrialComponentMetricSummaries | None
+    LineageGroupArn: LineageGroupArn | None
+    Sources: TrialComponentSources | None
 
 
 class DescribeTrialRequest(ServiceRequest):
@@ -13096,20 +13733,20 @@ class TrialSource(TypedDict, total=False):
     """The source of the trial."""
 
     SourceArn: TrialSourceArn
-    SourceType: Optional[SourceType]
+    SourceType: SourceType | None
 
 
 class DescribeTrialResponse(TypedDict, total=False):
-    TrialName: Optional[ExperimentEntityName]
-    TrialArn: Optional[TrialArn]
-    DisplayName: Optional[ExperimentEntityName]
-    ExperimentName: Optional[ExperimentEntityName]
-    Source: Optional[TrialSource]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    MetadataProperties: Optional[MetadataProperties]
+    TrialName: ExperimentEntityName | None
+    TrialArn: TrialArn | None
+    DisplayName: ExperimentEntityName | None
+    ExperimentName: ExperimentEntityName | None
+    Source: TrialSource | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    MetadataProperties: MetadataProperties | None
 
 
 class DescribeUserProfileRequest(ServiceRequest):
@@ -13118,17 +13755,17 @@ class DescribeUserProfileRequest(ServiceRequest):
 
 
 class DescribeUserProfileResponse(TypedDict, total=False):
-    DomainId: Optional[DomainId]
-    UserProfileArn: Optional[UserProfileArn]
-    UserProfileName: Optional[UserProfileName]
-    HomeEfsFileSystemUid: Optional[EfsUid]
-    Status: Optional[UserProfileStatus]
-    LastModifiedTime: Optional[LastModifiedTime]
-    CreationTime: Optional[CreationTime]
-    FailureReason: Optional[FailureReason]
-    SingleSignOnUserIdentifier: Optional[SingleSignOnUserIdentifier]
-    SingleSignOnUserValue: Optional[String256]
-    UserSettings: Optional[UserSettings]
+    DomainId: DomainId | None
+    UserProfileArn: UserProfileArn | None
+    UserProfileName: UserProfileName | None
+    HomeEfsFileSystemUid: EfsUid | None
+    Status: UserProfileStatus | None
+    LastModifiedTime: LastModifiedTime | None
+    CreationTime: CreationTime | None
+    FailureReason: FailureReason | None
+    SingleSignOnUserIdentifier: SingleSignOnUserIdentifier | None
+    SingleSignOnUserValue: String256 | None
+    UserSettings: UserSettings | None
 
 
 class DescribeWorkforceRequest(ServiceRequest):
@@ -13143,21 +13780,21 @@ class WorkforceVpcConfigResponse(TypedDict, total=False):
     VpcId: WorkforceVpcId
     SecurityGroupIds: WorkforceSecurityGroupIds
     Subnets: WorkforceSubnets
-    VpcEndpointId: Optional[WorkforceVpcEndpointId]
+    VpcEndpointId: WorkforceVpcEndpointId | None
 
 
 class OidcConfigForResponse(TypedDict, total=False):
     """Your OIDC IdP workforce configuration."""
 
-    ClientId: Optional[ClientId]
-    Issuer: Optional[OidcEndpoint]
-    AuthorizationEndpoint: Optional[OidcEndpoint]
-    TokenEndpoint: Optional[OidcEndpoint]
-    UserInfoEndpoint: Optional[OidcEndpoint]
-    LogoutEndpoint: Optional[OidcEndpoint]
-    JwksUri: Optional[OidcEndpoint]
-    Scope: Optional[Scope]
-    AuthenticationRequestExtraParams: Optional[AuthenticationRequestExtraParams]
+    ClientId: ClientId | None
+    Issuer: OidcEndpoint | None
+    AuthorizationEndpoint: OidcEndpoint | None
+    TokenEndpoint: OidcEndpoint | None
+    UserInfoEndpoint: OidcEndpoint | None
+    LogoutEndpoint: OidcEndpoint | None
+    JwksUri: OidcEndpoint | None
+    Scope: Scope | None
+    AuthenticationRequestExtraParams: AuthenticationRequestExtraParams | None
 
 
 class Workforce(TypedDict, total=False):
@@ -13172,16 +13809,16 @@ class Workforce(TypedDict, total=False):
 
     WorkforceName: WorkforceName
     WorkforceArn: WorkforceArn
-    LastUpdatedDate: Optional[Timestamp]
-    SourceIpConfig: Optional[SourceIpConfig]
-    SubDomain: Optional[String]
-    CognitoConfig: Optional[CognitoConfig]
-    OidcConfig: Optional[OidcConfigForResponse]
-    CreateDate: Optional[Timestamp]
-    WorkforceVpcConfig: Optional[WorkforceVpcConfigResponse]
-    Status: Optional[WorkforceStatus]
-    FailureReason: Optional[WorkforceFailureReason]
-    IpAddressType: Optional[WorkforceIpAddressType]
+    LastUpdatedDate: Timestamp | None
+    SourceIpConfig: SourceIpConfig | None
+    SubDomain: String | None
+    CognitoConfig: CognitoConfig | None
+    OidcConfig: OidcConfigForResponse | None
+    CreateDate: Timestamp | None
+    WorkforceVpcConfig: WorkforceVpcConfigResponse | None
+    Status: WorkforceStatus | None
+    FailureReason: WorkforceFailureReason | None
+    IpAddressType: WorkforceIpAddressType | None
 
 
 class DescribeWorkforceResponse(TypedDict, total=False):
@@ -13192,7 +13829,7 @@ class DescribeWorkteamRequest(ServiceRequest):
     WorkteamName: WorkteamName
 
 
-ProductListings = List[String]
+ProductListings = list[String]
 
 
 class Workteam(TypedDict, total=False):
@@ -13201,14 +13838,14 @@ class Workteam(TypedDict, total=False):
     WorkteamName: WorkteamName
     MemberDefinitions: MemberDefinitions
     WorkteamArn: WorkteamArn
-    WorkforceArn: Optional[WorkforceArn]
-    ProductListingIds: Optional[ProductListings]
+    WorkforceArn: WorkforceArn | None
+    ProductListingIds: ProductListings | None
     Description: String200
-    SubDomain: Optional[String]
-    CreateDate: Optional[Timestamp]
-    LastUpdatedDate: Optional[Timestamp]
-    NotificationConfiguration: Optional[NotificationConfiguration]
-    WorkerAccessConfiguration: Optional[WorkerAccessConfiguration]
+    SubDomain: String | None
+    CreateDate: Timestamp | None
+    LastUpdatedDate: Timestamp | None
+    NotificationConfiguration: NotificationConfiguration | None
+    WorkerAccessConfiguration: WorkerAccessConfiguration | None
 
 
 class DescribeWorkteamResponse(TypedDict, total=False):
@@ -13220,20 +13857,20 @@ class ProductionVariantServerlessUpdateConfig(TypedDict, total=False):
     endpoint variant.
     """
 
-    MaxConcurrency: Optional[ServerlessMaxConcurrency]
-    ProvisionedConcurrency: Optional[ServerlessProvisionedConcurrency]
+    MaxConcurrency: ServerlessMaxConcurrency | None
+    ProvisionedConcurrency: ServerlessProvisionedConcurrency | None
 
 
 class DesiredWeightAndCapacity(TypedDict, total=False):
     """Specifies weight and capacity values for a production variant."""
 
     VariantName: VariantName
-    DesiredWeight: Optional[VariantWeight]
-    DesiredInstanceCount: Optional[TaskCount]
-    ServerlessUpdateConfig: Optional[ProductionVariantServerlessUpdateConfig]
+    DesiredWeight: VariantWeight | None
+    DesiredInstanceCount: TaskCount | None
+    ServerlessUpdateConfig: ProductionVariantServerlessUpdateConfig | None
 
 
-DesiredWeightAndCapacityList = List[DesiredWeightAndCapacity]
+DesiredWeightAndCapacityList = list[DesiredWeightAndCapacity]
 
 
 class DetachClusterNodeVolumeRequest(ServiceRequest):
@@ -13255,8 +13892,8 @@ class Device(TypedDict, total=False):
     """Information of a particular device."""
 
     DeviceName: DeviceName
-    Description: Optional[DeviceDescription]
-    IotThingName: Optional[ThingName]
+    Description: DeviceDescription | None
+    IotThingName: ThingName | None
 
 
 class DeviceDeploymentSummary(TypedDict, total=False):
@@ -13265,17 +13902,17 @@ class DeviceDeploymentSummary(TypedDict, total=False):
     EdgeDeploymentPlanArn: EdgeDeploymentPlanArn
     EdgeDeploymentPlanName: EntityName
     StageName: EntityName
-    DeployedStageName: Optional[EntityName]
-    DeviceFleetName: Optional[EntityName]
+    DeployedStageName: EntityName | None
+    DeviceFleetName: EntityName | None
     DeviceName: DeviceName
     DeviceArn: DeviceArn
-    DeviceDeploymentStatus: Optional[DeviceDeploymentStatus]
-    DeviceDeploymentStatusMessage: Optional[String]
-    Description: Optional[DeviceDescription]
-    DeploymentStartTime: Optional[Timestamp]
+    DeviceDeploymentStatus: DeviceDeploymentStatus | None
+    DeviceDeploymentStatusMessage: String | None
+    Description: DeviceDescription | None
+    DeploymentStartTime: Timestamp | None
 
 
-DeviceDeploymentSummaries = List[DeviceDeploymentSummary]
+DeviceDeploymentSummaries = list[DeviceDeploymentSummary]
 
 
 class DeviceFleetSummary(TypedDict, total=False):
@@ -13283,11 +13920,11 @@ class DeviceFleetSummary(TypedDict, total=False):
 
     DeviceFleetArn: DeviceFleetArn
     DeviceFleetName: EntityName
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-DeviceFleetSummaries = List[DeviceFleetSummary]
+DeviceFleetSummaries = list[DeviceFleetSummary]
 
 
 class DeviceStats(TypedDict, total=False):
@@ -13304,7 +13941,7 @@ class EdgeModelSummary(TypedDict, total=False):
     ModelVersion: EdgeVersion
 
 
-EdgeModelSummaries = List[EdgeModelSummary]
+EdgeModelSummaries = list[EdgeModelSummary]
 
 
 class DeviceSummary(TypedDict, total=False):
@@ -13312,17 +13949,17 @@ class DeviceSummary(TypedDict, total=False):
 
     DeviceName: EntityName
     DeviceArn: DeviceArn
-    Description: Optional[DeviceDescription]
-    DeviceFleetName: Optional[EntityName]
-    IotThingName: Optional[ThingName]
-    RegistrationTime: Optional[Timestamp]
-    LatestHeartbeat: Optional[Timestamp]
-    Models: Optional[EdgeModelSummaries]
-    AgentVersion: Optional[EdgeVersion]
+    Description: DeviceDescription | None
+    DeviceFleetName: EntityName | None
+    IotThingName: ThingName | None
+    RegistrationTime: Timestamp | None
+    LatestHeartbeat: Timestamp | None
+    Models: EdgeModelSummaries | None
+    AgentVersion: EdgeVersion | None
 
 
-DeviceSummaries = List[DeviceSummary]
-Devices = List[Device]
+DeviceSummaries = list[DeviceSummary]
+Devices = list[Device]
 
 
 class DisableSagemakerServicecatalogPortfolioInput(ServiceRequest):
@@ -13339,23 +13976,23 @@ class DisassociateTrialComponentRequest(ServiceRequest):
 
 
 class DisassociateTrialComponentResponse(TypedDict, total=False):
-    TrialComponentArn: Optional[TrialComponentArn]
-    TrialArn: Optional[TrialArn]
+    TrialComponentArn: TrialComponentArn | None
+    TrialArn: TrialArn | None
 
 
 class DomainDetails(TypedDict, total=False):
     """The domain's details."""
 
-    DomainArn: Optional[DomainArn]
-    DomainId: Optional[DomainId]
-    DomainName: Optional[DomainName]
-    Status: Optional[DomainStatus]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
-    Url: Optional[String1024]
+    DomainArn: DomainArn | None
+    DomainId: DomainId | None
+    DomainName: DomainName | None
+    Status: DomainStatus | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
+    Url: String1024 | None
 
 
-DomainList = List[DomainDetails]
+DomainList = list[DomainDetails]
 
 
 class RStudioServerProDomainSettingsForUpdate(TypedDict, total=False):
@@ -13364,35 +14001,35 @@ class RStudioServerProDomainSettingsForUpdate(TypedDict, total=False):
     """
 
     DomainExecutionRoleArn: RoleArn
-    DefaultResourceSpec: Optional[ResourceSpec]
-    RStudioConnectUrl: Optional[String]
-    RStudioPackageManagerUrl: Optional[String]
+    DefaultResourceSpec: ResourceSpec | None
+    RStudioConnectUrl: String | None
+    RStudioPackageManagerUrl: String | None
 
 
 class DomainSettingsForUpdate(TypedDict, total=False):
     """A collection of ``Domain`` configuration settings to update."""
 
-    RStudioServerProDomainSettingsForUpdate: Optional[RStudioServerProDomainSettingsForUpdate]
-    ExecutionRoleIdentityConfig: Optional[ExecutionRoleIdentityConfig]
-    SecurityGroupIds: Optional[DomainSecurityGroupIds]
-    TrustedIdentityPropagationSettings: Optional[TrustedIdentityPropagationSettings]
-    DockerSettings: Optional[DockerSettings]
-    AmazonQSettings: Optional[AmazonQSettings]
-    UnifiedStudioSettings: Optional[UnifiedStudioSettings]
-    IpAddressType: Optional[IPAddressType]
+    RStudioServerProDomainSettingsForUpdate: RStudioServerProDomainSettingsForUpdate | None
+    ExecutionRoleIdentityConfig: ExecutionRoleIdentityConfig | None
+    SecurityGroupIds: DomainSecurityGroupIds | None
+    TrustedIdentityPropagationSettings: TrustedIdentityPropagationSettings | None
+    DockerSettings: DockerSettings | None
+    AmazonQSettings: AmazonQSettings | None
+    UnifiedStudioSettings: UnifiedStudioSettings | None
+    IpAddressType: IPAddressType | None
 
 
 class PredefinedMetricSpecification(TypedDict, total=False):
     """A specification for a predefined metric."""
 
-    PredefinedMetricType: Optional[String]
+    PredefinedMetricType: String | None
 
 
 class MetricSpecification(TypedDict, total=False):
     """An object containing information about a metric."""
 
-    Predefined: Optional[PredefinedMetricSpecification]
-    Customized: Optional[CustomizedMetricSpecification]
+    Predefined: PredefinedMetricSpecification | None
+    Customized: CustomizedMetricSpecification | None
 
 
 class TargetTrackingScalingPolicyConfiguration(TypedDict, total=False):
@@ -13405,17 +14042,17 @@ class TargetTrackingScalingPolicyConfiguration(TypedDict, total=False):
     policy type ``TargetTrackingScaling``.
     """
 
-    MetricSpecification: Optional[MetricSpecification]
-    TargetValue: Optional[Double]
+    MetricSpecification: MetricSpecification | None
+    TargetValue: Double | None
 
 
 class ScalingPolicy(TypedDict, total=False):
     """An object containing a recommended scaling policy."""
 
-    TargetTracking: Optional[TargetTrackingScalingPolicyConfiguration]
+    TargetTracking: TargetTrackingScalingPolicyConfiguration | None
 
 
-ScalingPolicies = List[ScalingPolicy]
+ScalingPolicies = list[ScalingPolicy]
 
 
 class DynamicScalingConfiguration(TypedDict, total=False):
@@ -13423,28 +14060,28 @@ class DynamicScalingConfiguration(TypedDict, total=False):
     an autoscaling policy.
     """
 
-    MinCapacity: Optional[Integer]
-    MaxCapacity: Optional[Integer]
-    ScaleInCooldown: Optional[Integer]
-    ScaleOutCooldown: Optional[Integer]
-    ScalingPolicies: Optional[ScalingPolicies]
+    MinCapacity: Integer | None
+    MaxCapacity: Integer | None
+    ScaleInCooldown: Integer | None
+    ScaleOutCooldown: Integer | None
+    ScalingPolicies: ScalingPolicies | None
 
 
 class EMRStepMetadata(TypedDict, total=False):
     """The configurations and outcomes of an Amazon EMR step execution."""
 
-    ClusterId: Optional[String256]
-    StepId: Optional[String256]
-    StepName: Optional[String256]
-    LogFilePath: Optional[String1024]
+    ClusterId: String256 | None
+    StepId: String256 | None
+    StepName: String256 | None
+    LogFilePath: String1024 | None
 
 
 class Edge(TypedDict, total=False):
     """A directed edge connecting two lineage entities."""
 
-    SourceArn: Optional[AssociationEntityArn]
-    DestinationArn: Optional[AssociationEntityArn]
-    AssociationType: Optional[AssociationEdgeType]
+    SourceArn: AssociationEntityArn | None
+    DestinationArn: AssociationEntityArn | None
+    AssociationType: AssociationEdgeType | None
 
 
 class EdgeDeploymentPlanSummary(TypedDict, total=False):
@@ -13456,11 +14093,11 @@ class EdgeDeploymentPlanSummary(TypedDict, total=False):
     EdgeDeploymentSuccess: Integer
     EdgeDeploymentPending: Integer
     EdgeDeploymentFailed: Integer
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-EdgeDeploymentPlanSummaries = List[EdgeDeploymentPlanSummary]
+EdgeDeploymentPlanSummaries = list[EdgeDeploymentPlanSummary]
 
 
 class EdgeModelStat(TypedDict, total=False):
@@ -13474,7 +14111,7 @@ class EdgeModelStat(TypedDict, total=False):
     SamplingDeviceCount: Long
 
 
-EdgeModelStats = List[EdgeModelStat]
+EdgeModelStats = list[EdgeModelStat]
 
 
 class EdgePackagingJobSummary(TypedDict, total=False):
@@ -13483,15 +14120,15 @@ class EdgePackagingJobSummary(TypedDict, total=False):
     EdgePackagingJobArn: EdgePackagingJobArn
     EdgePackagingJobName: EntityName
     EdgePackagingJobStatus: EdgePackagingJobStatus
-    CompilationJobName: Optional[EntityName]
-    ModelName: Optional[EntityName]
-    ModelVersion: Optional[EdgeVersion]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    CompilationJobName: EntityName | None
+    ModelName: EntityName | None
+    ModelVersion: EdgeVersion | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-EdgePackagingJobSummaries = List[EdgePackagingJobSummary]
-Edges = List[Edge]
+EdgePackagingJobSummaries = list[EdgePackagingJobSummary]
+Edges = list[Edge]
 
 
 class EnableSagemakerServicecatalogPortfolioInput(ServiceRequest):
@@ -13508,20 +14145,20 @@ class MonitoringSchedule(TypedDict, total=False):
     Monitor <https://docs.aws.amazon.com/sagemaker/latest/dg/model-monitor.html>`__.
     """
 
-    MonitoringScheduleArn: Optional[MonitoringScheduleArn]
-    MonitoringScheduleName: Optional[MonitoringScheduleName]
-    MonitoringScheduleStatus: Optional[ScheduleStatus]
-    MonitoringType: Optional[MonitoringType]
-    FailureReason: Optional[FailureReason]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    MonitoringScheduleConfig: Optional[MonitoringScheduleConfig]
-    EndpointName: Optional[EndpointName]
-    LastMonitoringExecutionSummary: Optional[MonitoringExecutionSummary]
-    Tags: Optional[TagList]
+    MonitoringScheduleArn: MonitoringScheduleArn | None
+    MonitoringScheduleName: MonitoringScheduleName | None
+    MonitoringScheduleStatus: ScheduleStatus | None
+    MonitoringType: MonitoringType | None
+    FailureReason: FailureReason | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    MonitoringScheduleConfig: MonitoringScheduleConfig | None
+    EndpointName: EndpointName | None
+    LastMonitoringExecutionSummary: MonitoringExecutionSummary | None
+    Tags: TagList | None
 
 
-MonitoringScheduleList = List[MonitoringSchedule]
+MonitoringScheduleList = list[MonitoringSchedule]
 
 
 class Endpoint(TypedDict, total=False):
@@ -13530,21 +14167,21 @@ class Endpoint(TypedDict, total=False):
     EndpointName: EndpointName
     EndpointArn: EndpointArn
     EndpointConfigName: EndpointConfigName
-    ProductionVariants: Optional[ProductionVariantSummaryList]
-    DataCaptureConfig: Optional[DataCaptureConfigSummary]
+    ProductionVariants: ProductionVariantSummaryList | None
+    DataCaptureConfig: DataCaptureConfigSummary | None
     EndpointStatus: EndpointStatus
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
-    MonitoringSchedules: Optional[MonitoringScheduleList]
-    Tags: Optional[TagList]
-    ShadowProductionVariants: Optional[ProductionVariantSummaryList]
+    MonitoringSchedules: MonitoringScheduleList | None
+    Tags: TagList | None
+    ShadowProductionVariants: ProductionVariantSummaryList | None
 
 
 class EndpointConfigStepMetadata(TypedDict, total=False):
     """Metadata for an endpoint configuration step."""
 
-    Arn: Optional[EndpointConfigArn]
+    Arn: EndpointConfigArn | None
 
 
 class EndpointConfigSummary(TypedDict, total=False):
@@ -13555,13 +14192,13 @@ class EndpointConfigSummary(TypedDict, total=False):
     CreationTime: Timestamp
 
 
-EndpointConfigSummaryList = List[EndpointConfigSummary]
+EndpointConfigSummaryList = list[EndpointConfigSummary]
 
 
 class EndpointStepMetadata(TypedDict, total=False):
     """Metadata for an endpoint step."""
 
-    Arn: Optional[EndpointArn]
+    Arn: EndpointArn | None
 
 
 class EndpointSummary(TypedDict, total=False):
@@ -13574,7 +14211,7 @@ class EndpointSummary(TypedDict, total=False):
     EndpointStatus: EndpointStatus
 
 
-EndpointSummaryList = List[EndpointSummary]
+EndpointSummaryList = list[EndpointSummary]
 
 
 class Experiment(TypedDict, total=False):
@@ -13585,16 +14222,16 @@ class Experiment(TypedDict, total=False):
     API.
     """
 
-    ExperimentName: Optional[ExperimentEntityName]
-    ExperimentArn: Optional[ExperimentArn]
-    DisplayName: Optional[ExperimentEntityName]
-    Source: Optional[ExperimentSource]
-    Description: Optional[ExperimentDescription]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    Tags: Optional[TagList]
+    ExperimentName: ExperimentEntityName | None
+    ExperimentArn: ExperimentArn | None
+    DisplayName: ExperimentEntityName | None
+    Source: ExperimentSource | None
+    Description: ExperimentDescription | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    Tags: TagList | None
 
 
 class ExperimentSummary(TypedDict, total=False):
@@ -13604,24 +14241,24 @@ class ExperimentSummary(TypedDict, total=False):
     API and provide the ``ExperimentName``.
     """
 
-    ExperimentArn: Optional[ExperimentArn]
-    ExperimentName: Optional[ExperimentEntityName]
-    DisplayName: Optional[ExperimentEntityName]
-    ExperimentSource: Optional[ExperimentSource]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    ExperimentArn: ExperimentArn | None
+    ExperimentName: ExperimentEntityName | None
+    DisplayName: ExperimentEntityName | None
+    ExperimentSource: ExperimentSource | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-ExperimentSummaries = List[ExperimentSummary]
+ExperimentSummaries = list[ExperimentSummary]
 
 
 class FailStepMetadata(TypedDict, total=False):
     """The container for the metadata for Fail step."""
 
-    ErrorMessage: Optional[String3072]
+    ErrorMessage: String3072 | None
 
 
-FeatureAdditions = List[FeatureDefinition]
+FeatureAdditions = list[FeatureDefinition]
 
 
 class FeatureGroup(TypedDict, total=False):
@@ -13632,22 +14269,22 @@ class FeatureGroup(TypedDict, total=False):
     features and values per features.
     """
 
-    FeatureGroupArn: Optional[FeatureGroupArn]
-    FeatureGroupName: Optional[FeatureGroupName]
-    RecordIdentifierFeatureName: Optional[FeatureName]
-    EventTimeFeatureName: Optional[FeatureName]
-    FeatureDefinitions: Optional[FeatureDefinitions]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
-    OnlineStoreConfig: Optional[OnlineStoreConfig]
-    OfflineStoreConfig: Optional[OfflineStoreConfig]
-    RoleArn: Optional[RoleArn]
-    FeatureGroupStatus: Optional[FeatureGroupStatus]
-    OfflineStoreStatus: Optional[OfflineStoreStatus]
-    LastUpdateStatus: Optional[LastUpdateStatus]
-    FailureReason: Optional[FailureReason]
-    Description: Optional[Description]
-    Tags: Optional[TagList]
+    FeatureGroupArn: FeatureGroupArn | None
+    FeatureGroupName: FeatureGroupName | None
+    RecordIdentifierFeatureName: FeatureName | None
+    EventTimeFeatureName: FeatureName | None
+    FeatureDefinitions: FeatureDefinitions | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
+    OnlineStoreConfig: OnlineStoreConfig | None
+    OfflineStoreConfig: OfflineStoreConfig | None
+    RoleArn: RoleArn | None
+    FeatureGroupStatus: FeatureGroupStatus | None
+    OfflineStoreStatus: OfflineStoreStatus | None
+    LastUpdateStatus: LastUpdateStatus | None
+    FailureReason: FailureReason | None
+    Description: Description | None
+    Tags: TagList | None
 
 
 class FeatureGroupSummary(TypedDict, total=False):
@@ -13659,11 +14296,11 @@ class FeatureGroupSummary(TypedDict, total=False):
     FeatureGroupName: FeatureGroupName
     FeatureGroupArn: FeatureGroupArn
     CreationTime: Timestamp
-    FeatureGroupStatus: Optional[FeatureGroupStatus]
-    OfflineStoreStatus: Optional[OfflineStoreStatus]
+    FeatureGroupStatus: FeatureGroupStatus | None
+    OfflineStoreStatus: OfflineStoreStatus | None
 
 
-FeatureGroupSummaries = List[FeatureGroupSummary]
+FeatureGroupSummaries = list[FeatureGroupSummary]
 
 
 class FeatureMetadata(TypedDict, total=False):
@@ -13671,18 +14308,18 @@ class FeatureMetadata(TypedDict, total=False):
     or metadata that is updated automatically.
     """
 
-    FeatureGroupArn: Optional[FeatureGroupArn]
-    FeatureGroupName: Optional[FeatureGroupName]
-    FeatureName: Optional[FeatureName]
-    FeatureType: Optional[FeatureType]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
-    Description: Optional[FeatureDescription]
-    Parameters: Optional[FeatureParameters]
+    FeatureGroupArn: FeatureGroupArn | None
+    FeatureGroupName: FeatureGroupName | None
+    FeatureName: FeatureName | None
+    FeatureType: FeatureType | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
+    Description: FeatureDescription | None
+    Parameters: FeatureParameters | None
 
 
-FeatureParameterAdditions = List[FeatureParameter]
-FeatureParameterRemovals = List[FeatureParameterKey]
+FeatureParameterAdditions = list[FeatureParameter]
+FeatureParameterRemovals = list[FeatureParameterKey]
 
 
 class Filter(TypedDict, total=False):
@@ -13737,11 +14374,11 @@ class Filter(TypedDict, total=False):
     """
 
     Name: ResourcePropertyName
-    Operator: Optional[Operator]
-    Value: Optional[FilterValue]
+    Operator: Operator | None
+    Value: FilterValue | None
 
 
-FilterList = List[Filter]
+FilterList = list[Filter]
 
 
 class FlowDefinitionSummary(TypedDict, total=False):
@@ -13751,10 +14388,10 @@ class FlowDefinitionSummary(TypedDict, total=False):
     FlowDefinitionArn: FlowDefinitionArn
     FlowDefinitionStatus: FlowDefinitionStatus
     CreationTime: Timestamp
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
 
 
-FlowDefinitionSummaries = List[FlowDefinitionSummary]
+FlowDefinitionSummaries = list[FlowDefinitionSummary]
 
 
 class GetDeviceFleetReportRequest(ServiceRequest):
@@ -13764,12 +14401,12 @@ class GetDeviceFleetReportRequest(ServiceRequest):
 class GetDeviceFleetReportResponse(TypedDict, total=False):
     DeviceFleetArn: DeviceFleetArn
     DeviceFleetName: EntityName
-    OutputConfig: Optional[EdgeOutputConfig]
-    Description: Optional[DeviceFleetDescription]
-    ReportGenerated: Optional[Timestamp]
-    DeviceStats: Optional[DeviceStats]
-    AgentVersions: Optional[AgentVersions]
-    ModelStats: Optional[EdgeModelStats]
+    OutputConfig: EdgeOutputConfig | None
+    Description: DeviceFleetDescription | None
+    ReportGenerated: Timestamp | None
+    DeviceStats: DeviceStats | None
+    AgentVersions: AgentVersions | None
+    ModelStats: EdgeModelStats | None
 
 
 class GetLineageGroupPolicyRequest(ServiceRequest):
@@ -13777,8 +14414,8 @@ class GetLineageGroupPolicyRequest(ServiceRequest):
 
 
 class GetLineageGroupPolicyResponse(TypedDict, total=False):
-    LineageGroupArn: Optional[LineageGroupArn]
-    ResourcePolicy: Optional[ResourcePolicyString]
+    LineageGroupArn: LineageGroupArn | None
+    ResourcePolicy: ResourcePolicyString | None
 
 
 class GetModelPackageGroupPolicyInput(ServiceRequest):
@@ -13794,7 +14431,7 @@ class GetSagemakerServicecatalogPortfolioStatusInput(ServiceRequest):
 
 
 class GetSagemakerServicecatalogPortfolioStatusOutput(TypedDict, total=False):
-    Status: Optional[SagemakerServicecatalogStatus]
+    Status: SagemakerServicecatalogStatus | None
 
 
 class ScalingPolicyObjective(TypedDict, total=False):
@@ -13802,33 +14439,33 @@ class ScalingPolicyObjective(TypedDict, total=False):
     endpoint.
     """
 
-    MinInvocationsPerMinute: Optional[Integer]
-    MaxInvocationsPerMinute: Optional[Integer]
+    MinInvocationsPerMinute: Integer | None
+    MaxInvocationsPerMinute: Integer | None
 
 
 class GetScalingConfigurationRecommendationRequest(ServiceRequest):
     InferenceRecommendationsJobName: RecommendationJobName
-    RecommendationId: Optional[String]
-    EndpointName: Optional[EndpointName]
-    TargetCpuUtilizationPerCore: Optional[UtilizationPercentagePerCore]
-    ScalingPolicyObjective: Optional[ScalingPolicyObjective]
+    RecommendationId: String | None
+    EndpointName: EndpointName | None
+    TargetCpuUtilizationPerCore: UtilizationPercentagePerCore | None
+    ScalingPolicyObjective: ScalingPolicyObjective | None
 
 
 class ScalingPolicyMetric(TypedDict, total=False):
     """The metric for a scaling policy."""
 
-    InvocationsPerInstance: Optional[Integer]
-    ModelLatency: Optional[Integer]
+    InvocationsPerInstance: Integer | None
+    ModelLatency: Integer | None
 
 
 class GetScalingConfigurationRecommendationResponse(TypedDict, total=False):
-    InferenceRecommendationsJobName: Optional[RecommendationJobName]
-    RecommendationId: Optional[String]
-    EndpointName: Optional[EndpointName]
-    TargetCpuUtilizationPerCore: Optional[UtilizationPercentagePerCore]
-    ScalingPolicyObjective: Optional[ScalingPolicyObjective]
-    Metric: Optional[ScalingPolicyMetric]
-    DynamicScalingConfiguration: Optional[DynamicScalingConfiguration]
+    InferenceRecommendationsJobName: RecommendationJobName | None
+    RecommendationId: String | None
+    EndpointName: EndpointName | None
+    TargetCpuUtilizationPerCore: UtilizationPercentagePerCore | None
+    ScalingPolicyObjective: ScalingPolicyObjective | None
+    Metric: ScalingPolicyMetric | None
+    DynamicScalingConfiguration: DynamicScalingConfiguration | None
 
 
 class PropertyNameQuery(TypedDict, total=False):
@@ -13845,12 +14482,12 @@ class SuggestionQuery(TypedDict, total=False):
     request. Limits the property names that are included in the response.
     """
 
-    PropertyNameQuery: Optional[PropertyNameQuery]
+    PropertyNameQuery: PropertyNameQuery | None
 
 
 class GetSearchSuggestionsRequest(ServiceRequest):
     Resource: ResourceType
-    SuggestionQuery: Optional[SuggestionQuery]
+    SuggestionQuery: SuggestionQuery | None
 
 
 class PropertyNameSuggestion(TypedDict, total=False):
@@ -13858,14 +14495,14 @@ class PropertyNameSuggestion(TypedDict, total=False):
     specifies a value in the ``PropertyNameQuery`` field.
     """
 
-    PropertyName: Optional[ResourcePropertyName]
+    PropertyName: ResourcePropertyName | None
 
 
-PropertyNameSuggestionList = List[PropertyNameSuggestion]
+PropertyNameSuggestionList = list[PropertyNameSuggestion]
 
 
 class GetSearchSuggestionsResponse(TypedDict, total=False):
-    PropertyNameSuggestions: Optional[PropertyNameSuggestionList]
+    PropertyNameSuggestions: PropertyNameSuggestionList | None
 
 
 class GitConfigForUpdate(TypedDict, total=False):
@@ -13873,7 +14510,7 @@ class GitConfigForUpdate(TypedDict, total=False):
     is updated.
     """
 
-    SecretArn: Optional[SecretArn]
+    SecretArn: SecretArn | None
 
 
 class HubContentInfo(TypedDict, total=False):
@@ -13881,20 +14518,20 @@ class HubContentInfo(TypedDict, total=False):
 
     HubContentName: HubContentName
     HubContentArn: HubContentArn
-    SageMakerPublicHubContentArn: Optional[SageMakerPublicHubContentArn]
+    SageMakerPublicHubContentArn: SageMakerPublicHubContentArn | None
     HubContentVersion: HubContentVersion
     HubContentType: HubContentType
     DocumentSchemaVersion: DocumentSchemaVersion
-    HubContentDisplayName: Optional[HubContentDisplayName]
-    HubContentDescription: Optional[HubContentDescription]
-    SupportStatus: Optional[HubContentSupportStatus]
-    HubContentSearchKeywords: Optional[HubContentSearchKeywordList]
+    HubContentDisplayName: HubContentDisplayName | None
+    HubContentDescription: HubContentDescription | None
+    SupportStatus: HubContentSupportStatus | None
+    HubContentSearchKeywords: HubContentSearchKeywordList | None
     HubContentStatus: HubContentStatus
     CreationTime: Timestamp
-    OriginalCreationTime: Optional[Timestamp]
+    OriginalCreationTime: Timestamp | None
 
 
-HubContentInfoList = List[HubContentInfo]
+HubContentInfoList = list[HubContentInfo]
 
 
 class HubInfo(TypedDict, total=False):
@@ -13902,15 +14539,15 @@ class HubInfo(TypedDict, total=False):
 
     HubName: HubName
     HubArn: HubArn
-    HubDisplayName: Optional[HubDisplayName]
-    HubDescription: Optional[HubDescription]
-    HubSearchKeywords: Optional[HubSearchKeywordList]
+    HubDisplayName: HubDisplayName | None
+    HubDescription: HubDescription | None
+    HubSearchKeywords: HubSearchKeywordList | None
     HubStatus: HubStatus
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
 
 
-HubInfoList = List[HubInfo]
+HubInfoList = list[HubInfo]
 
 
 class HumanTaskUiSummary(TypedDict, total=False):
@@ -13921,8 +14558,8 @@ class HumanTaskUiSummary(TypedDict, total=False):
     CreationTime: Timestamp
 
 
-HumanTaskUiSummaries = List[HumanTaskUiSummary]
-HyperParameterTrainingJobSummaries = List[HyperParameterTrainingJobSummary]
+HumanTaskUiSummaries = list[HumanTaskUiSummary]
+HyperParameterTrainingJobSummaries = list[HyperParameterTrainingJobSummary]
 
 
 class HyperParameterTuningJobSearchEntity(TypedDict, total=False):
@@ -13931,24 +14568,24 @@ class HyperParameterTuningJobSearchEntity(TypedDict, total=False):
     API containing the properties of a hyperparameter tuning job.
     """
 
-    HyperParameterTuningJobName: Optional[HyperParameterTuningJobName]
-    HyperParameterTuningJobArn: Optional[HyperParameterTuningJobArn]
-    HyperParameterTuningJobConfig: Optional[HyperParameterTuningJobConfig]
-    TrainingJobDefinition: Optional[HyperParameterTrainingJobDefinition]
-    TrainingJobDefinitions: Optional[HyperParameterTrainingJobDefinitions]
-    HyperParameterTuningJobStatus: Optional[HyperParameterTuningJobStatus]
-    CreationTime: Optional[Timestamp]
-    HyperParameterTuningEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    TrainingJobStatusCounters: Optional[TrainingJobStatusCounters]
-    ObjectiveStatusCounters: Optional[ObjectiveStatusCounters]
-    BestTrainingJob: Optional[HyperParameterTrainingJobSummary]
-    OverallBestTrainingJob: Optional[HyperParameterTrainingJobSummary]
-    WarmStartConfig: Optional[HyperParameterTuningJobWarmStartConfig]
-    FailureReason: Optional[FailureReason]
-    TuningJobCompletionDetails: Optional[HyperParameterTuningJobCompletionDetails]
-    ConsumedResources: Optional[HyperParameterTuningJobConsumedResources]
-    Tags: Optional[TagList]
+    HyperParameterTuningJobName: HyperParameterTuningJobName | None
+    HyperParameterTuningJobArn: HyperParameterTuningJobArn | None
+    HyperParameterTuningJobConfig: HyperParameterTuningJobConfig | None
+    TrainingJobDefinition: HyperParameterTrainingJobDefinition | None
+    TrainingJobDefinitions: HyperParameterTrainingJobDefinitions | None
+    HyperParameterTuningJobStatus: HyperParameterTuningJobStatus | None
+    CreationTime: Timestamp | None
+    HyperParameterTuningEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    TrainingJobStatusCounters: TrainingJobStatusCounters | None
+    ObjectiveStatusCounters: ObjectiveStatusCounters | None
+    BestTrainingJob: HyperParameterTrainingJobSummary | None
+    OverallBestTrainingJob: HyperParameterTrainingJobSummary | None
+    WarmStartConfig: HyperParameterTuningJobWarmStartConfig | None
+    FailureReason: FailureReason | None
+    TuningJobCompletionDetails: HyperParameterTuningJobCompletionDetails | None
+    ConsumedResources: HyperParameterTuningJobConsumedResources | None
+    Tags: TagList | None
 
 
 class HyperParameterTuningJobSummary(TypedDict, total=False):
@@ -13959,14 +14596,14 @@ class HyperParameterTuningJobSummary(TypedDict, total=False):
     HyperParameterTuningJobStatus: HyperParameterTuningJobStatus
     Strategy: HyperParameterTuningJobStrategyType
     CreationTime: Timestamp
-    HyperParameterTuningEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    HyperParameterTuningEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
     TrainingJobStatusCounters: TrainingJobStatusCounters
     ObjectiveStatusCounters: ObjectiveStatusCounters
-    ResourceLimits: Optional[ResourceLimits]
+    ResourceLimits: ResourceLimits | None
 
 
-HyperParameterTuningJobSummaries = List[HyperParameterTuningJobSummary]
+HyperParameterTuningJobSummaries = list[HyperParameterTuningJobSummary]
 
 
 class Image(TypedDict, total=False):
@@ -13977,16 +14614,16 @@ class Image(TypedDict, total=False):
     """
 
     CreationTime: Timestamp
-    Description: Optional[ImageDescription]
-    DisplayName: Optional[ImageDisplayName]
-    FailureReason: Optional[FailureReason]
+    Description: ImageDescription | None
+    DisplayName: ImageDisplayName | None
+    FailureReason: FailureReason | None
     ImageArn: ImageArn
     ImageName: ImageName
     ImageStatus: ImageStatus
     LastModifiedTime: Timestamp
 
 
-ImageDeletePropertyList = List[ImageDeleteProperty]
+ImageDeletePropertyList = list[ImageDeleteProperty]
 
 
 class ImageVersion(TypedDict, total=False):
@@ -13995,7 +14632,7 @@ class ImageVersion(TypedDict, total=False):
     """
 
     CreationTime: Timestamp
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
     ImageArn: ImageArn
     ImageVersionArn: ImageVersionArn
     ImageVersionStatus: ImageVersionStatus
@@ -14003,28 +14640,34 @@ class ImageVersion(TypedDict, total=False):
     Version: ImageVersionNumber
 
 
-ImageVersions = List[ImageVersion]
-Images = List[Image]
+ImageVersions = list[ImageVersion]
+Images = list[Image]
 
 
 class ImportHubContentRequest(ServiceRequest):
     HubContentName: HubContentName
-    HubContentVersion: Optional[HubContentVersion]
+    HubContentVersion: HubContentVersion | None
     HubContentType: HubContentType
     DocumentSchemaVersion: DocumentSchemaVersion
     HubName: HubNameOrArn
-    HubContentDisplayName: Optional[HubContentDisplayName]
-    HubContentDescription: Optional[HubContentDescription]
-    HubContentMarkdown: Optional[HubContentMarkdown]
+    HubContentDisplayName: HubContentDisplayName | None
+    HubContentDescription: HubContentDescription | None
+    HubContentMarkdown: HubContentMarkdown | None
     HubContentDocument: HubContentDocument
-    SupportStatus: Optional[HubContentSupportStatus]
-    HubContentSearchKeywords: Optional[HubContentSearchKeywordList]
-    Tags: Optional[TagList]
+    SupportStatus: HubContentSupportStatus | None
+    HubContentSearchKeywords: HubContentSearchKeywordList | None
+    Tags: TagList | None
 
 
 class ImportHubContentResponse(TypedDict, total=False):
     HubArn: HubArn
     HubContentArn: HubContentArn
+
+
+class InferenceComponentMetadata(TypedDict, total=False):
+    """The metadata of the inference component."""
+
+    Arn: String2048 | None
 
 
 class InferenceComponentSummary(TypedDict, total=False):
@@ -14036,11 +14679,11 @@ class InferenceComponentSummary(TypedDict, total=False):
     EndpointArn: EndpointArn
     EndpointName: EndpointName
     VariantName: VariantName
-    InferenceComponentStatus: Optional[InferenceComponentStatus]
+    InferenceComponentStatus: InferenceComponentStatus | None
     LastModifiedTime: Timestamp
 
 
-InferenceComponentSummaryList = List[InferenceComponentSummary]
+InferenceComponentSummaryList = list[InferenceComponentSummary]
 
 
 class InferenceExperimentSummary(TypedDict, total=False):
@@ -14048,17 +14691,17 @@ class InferenceExperimentSummary(TypedDict, total=False):
 
     Name: InferenceExperimentName
     Type: InferenceExperimentType
-    Schedule: Optional[InferenceExperimentSchedule]
+    Schedule: InferenceExperimentSchedule | None
     Status: InferenceExperimentStatus
-    StatusReason: Optional[InferenceExperimentStatusReason]
-    Description: Optional[InferenceExperimentDescription]
+    StatusReason: InferenceExperimentStatusReason | None
+    Description: InferenceExperimentDescription | None
     CreationTime: Timestamp
-    CompletionTime: Optional[Timestamp]
+    CompletionTime: Timestamp | None
     LastModifiedTime: Timestamp
-    RoleArn: Optional[RoleArn]
+    RoleArn: RoleArn | None
 
 
-InferenceExperimentList = List[InferenceExperimentSummary]
+InferenceExperimentList = list[InferenceExperimentSummary]
 
 
 class InferenceRecommendationsJob(TypedDict, total=False):
@@ -14070,25 +14713,25 @@ class InferenceRecommendationsJob(TypedDict, total=False):
     JobArn: RecommendationJobArn
     Status: RecommendationJobStatus
     CreationTime: CreationTime
-    CompletionTime: Optional[Timestamp]
+    CompletionTime: Timestamp | None
     RoleArn: RoleArn
     LastModifiedTime: LastModifiedTime
-    FailureReason: Optional[FailureReason]
-    ModelName: Optional[ModelName]
-    SamplePayloadUrl: Optional[S3Uri]
-    ModelPackageVersionArn: Optional[ModelPackageArn]
+    FailureReason: FailureReason | None
+    ModelName: ModelName | None
+    SamplePayloadUrl: S3Uri | None
+    ModelPackageVersionArn: ModelPackageArn | None
 
 
 class RecommendationJobInferenceBenchmark(TypedDict, total=False):
     """The details for a specific benchmark from an Inference Recommender job."""
 
-    Metrics: Optional[RecommendationMetrics]
-    EndpointMetrics: Optional[InferenceMetrics]
-    EndpointConfiguration: Optional[EndpointOutputConfiguration]
+    Metrics: RecommendationMetrics | None
+    EndpointMetrics: InferenceMetrics | None
+    EndpointConfiguration: EndpointOutputConfiguration | None
     ModelConfiguration: ModelConfiguration
-    FailureReason: Optional[RecommendationFailureReason]
-    InvocationEndTime: Optional[InvocationEndTime]
-    InvocationStartTime: Optional[InvocationStartTime]
+    FailureReason: RecommendationFailureReason | None
+    InvocationEndTime: InvocationEndTime | None
+    InvocationStartTime: InvocationStartTime | None
 
 
 class InferenceRecommendationsJobStep(TypedDict, total=False):
@@ -14100,33 +14743,33 @@ class InferenceRecommendationsJobStep(TypedDict, total=False):
     StepType: RecommendationStepType
     JobName: RecommendationJobName
     Status: RecommendationJobStatus
-    InferenceBenchmark: Optional[RecommendationJobInferenceBenchmark]
+    InferenceBenchmark: RecommendationJobInferenceBenchmark | None
 
 
-InferenceRecommendationsJobSteps = List[InferenceRecommendationsJobStep]
-InferenceRecommendationsJobs = List[InferenceRecommendationsJob]
+InferenceRecommendationsJobSteps = list[InferenceRecommendationsJobStep]
+InferenceRecommendationsJobs = list[InferenceRecommendationsJob]
 
 
 class LabelCountersForWorkteam(TypedDict, total=False):
     """Provides counts for human-labeled tasks in the labeling job."""
 
-    HumanLabeled: Optional[LabelCounter]
-    PendingHuman: Optional[LabelCounter]
-    Total: Optional[LabelCounter]
+    HumanLabeled: LabelCounter | None
+    PendingHuman: LabelCounter | None
+    Total: LabelCounter | None
 
 
 class LabelingJobForWorkteamSummary(TypedDict, total=False):
     """Provides summary information for a work team."""
 
-    LabelingJobName: Optional[LabelingJobName]
+    LabelingJobName: LabelingJobName | None
     JobReferenceCode: JobReferenceCode
     WorkRequesterAccountId: AccountId
     CreationTime: Timestamp
-    LabelCounters: Optional[LabelCountersForWorkteam]
-    NumberOfHumanWorkersPerDataObject: Optional[NumberOfHumanWorkersPerDataObject]
+    LabelCounters: LabelCountersForWorkteam | None
+    NumberOfHumanWorkersPerDataObject: NumberOfHumanWorkersPerDataObject | None
 
 
-LabelingJobForWorkteamSummaryList = List[LabelingJobForWorkteamSummary]
+LabelingJobForWorkteamSummaryList = list[LabelingJobForWorkteamSummary]
 
 
 class LabelingJobSummary(TypedDict, total=False):
@@ -14139,21 +14782,21 @@ class LabelingJobSummary(TypedDict, total=False):
     LabelingJobStatus: LabelingJobStatus
     LabelCounters: LabelCounters
     WorkteamArn: WorkteamArn
-    PreHumanTaskLambdaArn: Optional[LambdaFunctionArn]
-    AnnotationConsolidationLambdaArn: Optional[LambdaFunctionArn]
-    FailureReason: Optional[FailureReason]
-    LabelingJobOutput: Optional[LabelingJobOutput]
-    InputConfig: Optional[LabelingJobInputConfig]
+    PreHumanTaskLambdaArn: LambdaFunctionArn | None
+    AnnotationConsolidationLambdaArn: LambdaFunctionArn | None
+    FailureReason: FailureReason | None
+    LabelingJobOutput: LabelingJobOutput | None
+    InputConfig: LabelingJobInputConfig | None
 
 
-LabelingJobSummaryList = List[LabelingJobSummary]
+LabelingJobSummaryList = list[LabelingJobSummary]
 
 
 class LambdaStepMetadata(TypedDict, total=False):
     """Metadata for a Lambda step."""
 
-    Arn: Optional[String256]
-    OutputParameters: Optional[OutputParameterList]
+    Arn: String256 | None
+    OutputParameters: OutputParameterList | None
 
 
 class LineageGroupSummary(TypedDict, total=False):
@@ -14161,305 +14804,317 @@ class LineageGroupSummary(TypedDict, total=False):
     provides a group of shareable lineage entity resources.
     """
 
-    LineageGroupArn: Optional[LineageGroupArn]
-    LineageGroupName: Optional[ExperimentEntityName]
-    DisplayName: Optional[ExperimentEntityName]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    LineageGroupArn: LineageGroupArn | None
+    LineageGroupName: ExperimentEntityName | None
+    DisplayName: ExperimentEntityName | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-LineageGroupSummaries = List[LineageGroupSummary]
+LineageGroupSummaries = list[LineageGroupSummary]
+MapString2048 = dict[String2048, String2048]
+
+
+class LineageMetadata(TypedDict, total=False):
+    """The metadata that tracks relationships between ML artifacts, actions,
+    and contexts.
+    """
+
+    ActionArns: MapString2048 | None
+    ArtifactArns: MapString2048 | None
+    ContextArns: MapString2048 | None
+    Associations: AssociationInfoList | None
 
 
 class ListActionsRequest(ServiceRequest):
-    SourceUri: Optional[SourceUri]
-    ActionType: Optional[String256]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortActionsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SourceUri: SourceUri | None
+    ActionType: String256 | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortActionsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListActionsResponse(TypedDict, total=False):
-    ActionSummaries: Optional[ActionSummaries]
-    NextToken: Optional[NextToken]
+    ActionSummaries: ActionSummaries | None
+    NextToken: NextToken | None
 
 
 class ListAlgorithmsInput(ServiceRequest):
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[AlgorithmSortBy]
-    SortOrder: Optional[SortOrder]
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    NextToken: NextToken | None
+    SortBy: AlgorithmSortBy | None
+    SortOrder: SortOrder | None
 
 
 class ListAlgorithmsOutput(TypedDict, total=False):
     AlgorithmSummaryList: AlgorithmSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListAliasesRequest(ServiceRequest):
     ImageName: ImageName
-    Alias: Optional[SageMakerImageVersionAlias]
-    Version: Optional[ImageVersionNumber]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    Alias: SageMakerImageVersionAlias | None
+    Version: ImageVersionNumber | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListAliasesResponse(TypedDict, total=False):
-    SageMakerImageVersionAliases: Optional[SageMakerImageVersionAliases]
-    NextToken: Optional[NextToken]
+    SageMakerImageVersionAliases: SageMakerImageVersionAliases | None
+    NextToken: NextToken | None
 
 
 class ListAppImageConfigsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    NameContains: Optional[AppImageConfigName]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    ModifiedTimeBefore: Optional[Timestamp]
-    ModifiedTimeAfter: Optional[Timestamp]
-    SortBy: Optional[AppImageConfigSortKey]
-    SortOrder: Optional[SortOrder]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    NameContains: AppImageConfigName | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    ModifiedTimeBefore: Timestamp | None
+    ModifiedTimeAfter: Timestamp | None
+    SortBy: AppImageConfigSortKey | None
+    SortOrder: SortOrder | None
 
 
 class ListAppImageConfigsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    AppImageConfigs: Optional[AppImageConfigList]
+    NextToken: NextToken | None
+    AppImageConfigs: AppImageConfigList | None
 
 
 class ListAppsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortOrder: Optional[SortOrder]
-    SortBy: Optional[AppSortKey]
-    DomainIdEquals: Optional[DomainId]
-    UserProfileNameEquals: Optional[UserProfileName]
-    SpaceNameEquals: Optional[SpaceName]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortOrder: SortOrder | None
+    SortBy: AppSortKey | None
+    DomainIdEquals: DomainId | None
+    UserProfileNameEquals: UserProfileName | None
+    SpaceNameEquals: SpaceName | None
 
 
 class ListAppsResponse(TypedDict, total=False):
-    Apps: Optional[AppList]
-    NextToken: Optional[NextToken]
+    Apps: AppList | None
+    NextToken: NextToken | None
 
 
 class ListArtifactsRequest(ServiceRequest):
-    SourceUri: Optional[SourceUri]
-    ArtifactType: Optional[String256]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortArtifactsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SourceUri: SourceUri | None
+    ArtifactType: String256 | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortArtifactsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListArtifactsResponse(TypedDict, total=False):
-    ArtifactSummaries: Optional[ArtifactSummaries]
-    NextToken: Optional[NextToken]
+    ArtifactSummaries: ArtifactSummaries | None
+    NextToken: NextToken | None
 
 
 class ListAssociationsRequest(ServiceRequest):
-    SourceArn: Optional[AssociationEntityArn]
-    DestinationArn: Optional[AssociationEntityArn]
-    SourceType: Optional[String256]
-    DestinationType: Optional[String256]
-    AssociationType: Optional[AssociationEdgeType]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortAssociationsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SourceArn: AssociationEntityArn | None
+    DestinationArn: AssociationEntityArn | None
+    SourceType: String256 | None
+    DestinationType: String256 | None
+    AssociationType: AssociationEdgeType | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortAssociationsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListAssociationsResponse(TypedDict, total=False):
-    AssociationSummaries: Optional[AssociationSummaries]
-    NextToken: Optional[NextToken]
+    AssociationSummaries: AssociationSummaries | None
+    NextToken: NextToken | None
 
 
 class ListAutoMLJobsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[AutoMLNameContains]
-    StatusEquals: Optional[AutoMLJobStatus]
-    SortOrder: Optional[AutoMLSortOrder]
-    SortBy: Optional[AutoMLSortBy]
-    MaxResults: Optional[AutoMLMaxResults]
-    NextToken: Optional[NextToken]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: AutoMLNameContains | None
+    StatusEquals: AutoMLJobStatus | None
+    SortOrder: AutoMLSortOrder | None
+    SortBy: AutoMLSortBy | None
+    MaxResults: AutoMLMaxResults | None
+    NextToken: NextToken | None
 
 
 class ListAutoMLJobsResponse(TypedDict, total=False):
     AutoMLJobSummaries: AutoMLJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListCandidatesForAutoMLJobRequest(ServiceRequest):
     AutoMLJobName: AutoMLJobName
-    StatusEquals: Optional[CandidateStatus]
-    CandidateNameEquals: Optional[CandidateName]
-    SortOrder: Optional[AutoMLSortOrder]
-    SortBy: Optional[CandidateSortBy]
-    MaxResults: Optional[AutoMLMaxResultsForTrials]
-    NextToken: Optional[NextToken]
+    StatusEquals: CandidateStatus | None
+    CandidateNameEquals: CandidateName | None
+    SortOrder: AutoMLSortOrder | None
+    SortBy: CandidateSortBy | None
+    MaxResults: AutoMLMaxResultsForTrials | None
+    NextToken: NextToken | None
 
 
 class ListCandidatesForAutoMLJobResponse(TypedDict, total=False):
     Candidates: AutoMLCandidates
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListClusterEventsRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    InstanceGroupName: Optional[ClusterInstanceGroupName]
-    NodeId: Optional[ClusterNodeId]
-    EventTimeAfter: Optional[Timestamp]
-    EventTimeBefore: Optional[Timestamp]
-    SortBy: Optional[EventSortBy]
-    SortOrder: Optional[SortOrder]
-    ResourceType: Optional[ClusterEventResourceType]
-    MaxResults: Optional[ClusterEventMaxResults]
-    NextToken: Optional[NextToken]
+    InstanceGroupName: ClusterInstanceGroupName | None
+    NodeId: ClusterNodeId | None
+    EventTimeAfter: Timestamp | None
+    EventTimeBefore: Timestamp | None
+    SortBy: EventSortBy | None
+    SortOrder: SortOrder | None
+    ResourceType: ClusterEventResourceType | None
+    MaxResults: ClusterEventMaxResults | None
+    NextToken: NextToken | None
 
 
 class ListClusterEventsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    Events: Optional[ClusterEventSummaries]
+    NextToken: NextToken | None
+    Events: ClusterEventSummaries | None
 
 
 class ListClusterNodesRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    InstanceGroupNameContains: Optional[ClusterInstanceGroupName]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ClusterSortBy]
-    SortOrder: Optional[SortOrder]
-    IncludeNodeLogicalIds: Optional[IncludeNodeLogicalIdsBoolean]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    InstanceGroupNameContains: ClusterInstanceGroupName | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    SortBy: ClusterSortBy | None
+    SortOrder: SortOrder | None
+    IncludeNodeLogicalIds: IncludeNodeLogicalIdsBoolean | None
 
 
 class ListClusterNodesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     ClusterNodeSummaries: ClusterNodeSummaries
 
 
 class ListClusterSchedulerConfigsRequest(ServiceRequest):
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    NameContains: Optional[EntityName]
-    ClusterArn: Optional[ClusterArn]
-    Status: Optional[SchedulerResourceStatus]
-    SortBy: Optional[SortClusterSchedulerConfigBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    NameContains: EntityName | None
+    ClusterArn: ClusterArn | None
+    Status: SchedulerResourceStatus | None
+    SortBy: SortClusterSchedulerConfigBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListClusterSchedulerConfigsResponse(TypedDict, total=False):
-    ClusterSchedulerConfigSummaries: Optional[ClusterSchedulerConfigSummaryList]
-    NextToken: Optional[NextToken]
+    ClusterSchedulerConfigSummaries: ClusterSchedulerConfigSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListClustersRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ClusterSortBy]
-    SortOrder: Optional[SortOrder]
-    TrainingPlanArn: Optional[TrainingPlanArn]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    NextToken: NextToken | None
+    SortBy: ClusterSortBy | None
+    SortOrder: SortOrder | None
+    TrainingPlanArn: TrainingPlanArn | None
 
 
 class ListClustersResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     ClusterSummaries: ClusterSummaries
 
 
 class ListCodeRepositoriesInput(ServiceRequest):
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[CodeRepositoryNameContains]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[CodeRepositorySortBy]
-    SortOrder: Optional[CodeRepositorySortOrder]
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NameContains: CodeRepositoryNameContains | None
+    NextToken: NextToken | None
+    SortBy: CodeRepositorySortBy | None
+    SortOrder: CodeRepositorySortOrder | None
 
 
 class ListCodeRepositoriesOutput(TypedDict, total=False):
     CodeRepositorySummaryList: CodeRepositorySummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListCompilationJobsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    LastModifiedTimeAfter: Optional[LastModifiedTime]
-    LastModifiedTimeBefore: Optional[LastModifiedTime]
-    NameContains: Optional[NameContains]
-    StatusEquals: Optional[CompilationJobStatus]
-    SortBy: Optional[ListCompilationJobsSortBy]
-    SortOrder: Optional[SortOrder]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    LastModifiedTimeAfter: LastModifiedTime | None
+    LastModifiedTimeBefore: LastModifiedTime | None
+    NameContains: NameContains | None
+    StatusEquals: CompilationJobStatus | None
+    SortBy: ListCompilationJobsSortBy | None
+    SortOrder: SortOrder | None
 
 
 class ListCompilationJobsResponse(TypedDict, total=False):
     CompilationJobSummaries: CompilationJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListComputeQuotasRequest(ServiceRequest):
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    NameContains: Optional[EntityName]
-    Status: Optional[SchedulerResourceStatus]
-    ClusterArn: Optional[ClusterArn]
-    SortBy: Optional[SortQuotaBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    NameContains: EntityName | None
+    Status: SchedulerResourceStatus | None
+    ClusterArn: ClusterArn | None
+    SortBy: SortQuotaBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListComputeQuotasResponse(TypedDict, total=False):
-    ComputeQuotaSummaries: Optional[ComputeQuotaSummaryList]
-    NextToken: Optional[NextToken]
+    ComputeQuotaSummaries: ComputeQuotaSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListContextsRequest(ServiceRequest):
-    SourceUri: Optional[SourceUri]
-    ContextType: Optional[String256]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortContextsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SourceUri: SourceUri | None
+    ContextType: String256 | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortContextsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListContextsResponse(TypedDict, total=False):
-    ContextSummaries: Optional[ContextSummaries]
-    NextToken: Optional[NextToken]
+    ContextSummaries: ContextSummaries | None
+    NextToken: NextToken | None
 
 
 class ListDataQualityJobDefinitionsRequest(ServiceRequest):
-    EndpointName: Optional[EndpointName]
-    SortBy: Optional[MonitoringJobDefinitionSortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
+    EndpointName: EndpointName | None
+    SortBy: MonitoringJobDefinitionSortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
 
 
 class MonitoringJobDefinitionSummary(TypedDict, total=False):
@@ -14471,468 +15126,500 @@ class MonitoringJobDefinitionSummary(TypedDict, total=False):
     EndpointName: EndpointName
 
 
-MonitoringJobDefinitionSummaryList = List[MonitoringJobDefinitionSummary]
+MonitoringJobDefinitionSummaryList = list[MonitoringJobDefinitionSummary]
 
 
 class ListDataQualityJobDefinitionsResponse(TypedDict, total=False):
     JobDefinitionSummaries: MonitoringJobDefinitionSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListDeviceFleetsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListMaxResults]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[NameContains]
-    SortBy: Optional[ListDeviceFleetsSortBy]
-    SortOrder: Optional[SortOrder]
+    NextToken: NextToken | None
+    MaxResults: ListMaxResults | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: NameContains | None
+    SortBy: ListDeviceFleetsSortBy | None
+    SortOrder: SortOrder | None
 
 
 class ListDeviceFleetsResponse(TypedDict, total=False):
     DeviceFleetSummaries: DeviceFleetSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListDevicesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListMaxResults]
-    LatestHeartbeatAfter: Optional[Timestamp]
-    ModelName: Optional[EntityName]
-    DeviceFleetName: Optional[EntityName]
+    NextToken: NextToken | None
+    MaxResults: ListMaxResults | None
+    LatestHeartbeatAfter: Timestamp | None
+    ModelName: EntityName | None
+    DeviceFleetName: EntityName | None
 
 
 class ListDevicesResponse(TypedDict, total=False):
     DeviceSummaries: DeviceSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListDomainsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListDomainsResponse(TypedDict, total=False):
-    Domains: Optional[DomainList]
-    NextToken: Optional[NextToken]
+    Domains: DomainList | None
+    NextToken: NextToken | None
 
 
 class ListEdgeDeploymentPlansRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListMaxResults]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[NameContains]
-    DeviceFleetNameContains: Optional[NameContains]
-    SortBy: Optional[ListEdgeDeploymentPlansSortBy]
-    SortOrder: Optional[SortOrder]
+    NextToken: NextToken | None
+    MaxResults: ListMaxResults | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: NameContains | None
+    DeviceFleetNameContains: NameContains | None
+    SortBy: ListEdgeDeploymentPlansSortBy | None
+    SortOrder: SortOrder | None
 
 
 class ListEdgeDeploymentPlansResponse(TypedDict, total=False):
     EdgeDeploymentPlanSummaries: EdgeDeploymentPlanSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListEdgePackagingJobsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListMaxResults]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[NameContains]
-    ModelNameContains: Optional[NameContains]
-    StatusEquals: Optional[EdgePackagingJobStatus]
-    SortBy: Optional[ListEdgePackagingJobsSortBy]
-    SortOrder: Optional[SortOrder]
+    NextToken: NextToken | None
+    MaxResults: ListMaxResults | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: NameContains | None
+    ModelNameContains: NameContains | None
+    StatusEquals: EdgePackagingJobStatus | None
+    SortBy: ListEdgePackagingJobsSortBy | None
+    SortOrder: SortOrder | None
 
 
 class ListEdgePackagingJobsResponse(TypedDict, total=False):
     EdgePackagingJobSummaries: EdgePackagingJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListEndpointConfigsInput(ServiceRequest):
-    SortBy: Optional[EndpointConfigSortKey]
-    SortOrder: Optional[OrderKey]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[EndpointConfigNameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
+    SortBy: EndpointConfigSortKey | None
+    SortOrder: OrderKey | None
+    NextToken: PaginationToken | None
+    MaxResults: MaxResults | None
+    NameContains: EndpointConfigNameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
 
 
 class ListEndpointConfigsOutput(TypedDict, total=False):
     EndpointConfigs: EndpointConfigSummaryList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListEndpointsInput(ServiceRequest):
-    SortBy: Optional[EndpointSortKey]
-    SortOrder: Optional[OrderKey]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[EndpointNameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    StatusEquals: Optional[EndpointStatus]
+    SortBy: EndpointSortKey | None
+    SortOrder: OrderKey | None
+    NextToken: PaginationToken | None
+    MaxResults: MaxResults | None
+    NameContains: EndpointNameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    StatusEquals: EndpointStatus | None
 
 
 class ListEndpointsOutput(TypedDict, total=False):
     Endpoints: EndpointSummaryList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListExperimentsRequest(ServiceRequest):
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortExperimentsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortExperimentsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListExperimentsResponse(TypedDict, total=False):
-    ExperimentSummaries: Optional[ExperimentSummaries]
-    NextToken: Optional[NextToken]
+    ExperimentSummaries: ExperimentSummaries | None
+    NextToken: NextToken | None
 
 
 class ListFeatureGroupsRequest(ServiceRequest):
-    NameContains: Optional[FeatureGroupNameContains]
-    FeatureGroupStatusEquals: Optional[FeatureGroupStatus]
-    OfflineStoreStatusEquals: Optional[OfflineStoreStatusValue]
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    SortOrder: Optional[FeatureGroupSortOrder]
-    SortBy: Optional[FeatureGroupSortBy]
-    MaxResults: Optional[FeatureGroupMaxResults]
-    NextToken: Optional[NextToken]
+    NameContains: FeatureGroupNameContains | None
+    FeatureGroupStatusEquals: FeatureGroupStatus | None
+    OfflineStoreStatusEquals: OfflineStoreStatusValue | None
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    SortOrder: FeatureGroupSortOrder | None
+    SortBy: FeatureGroupSortBy | None
+    MaxResults: FeatureGroupMaxResults | None
+    NextToken: NextToken | None
 
 
 class ListFeatureGroupsResponse(TypedDict, total=False):
     FeatureGroupSummaries: FeatureGroupSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListFlowDefinitionsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListFlowDefinitionsResponse(TypedDict, total=False):
     FlowDefinitionSummaries: FlowDefinitionSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListHubContentVersionsRequest(ServiceRequest):
     HubName: HubNameOrArn
     HubContentType: HubContentType
     HubContentName: HubContentName
-    MinVersion: Optional[HubContentVersion]
-    MaxSchemaVersion: Optional[DocumentSchemaVersion]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    SortBy: Optional[HubContentSortBy]
-    SortOrder: Optional[SortOrder]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MinVersion: HubContentVersion | None
+    MaxSchemaVersion: DocumentSchemaVersion | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    SortBy: HubContentSortBy | None
+    SortOrder: SortOrder | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListHubContentVersionsResponse(TypedDict, total=False):
     HubContentSummaries: HubContentInfoList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListHubContentsRequest(ServiceRequest):
     HubName: HubNameOrArn
     HubContentType: HubContentType
-    NameContains: Optional[NameContains]
-    MaxSchemaVersion: Optional[DocumentSchemaVersion]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    SortBy: Optional[HubContentSortBy]
-    SortOrder: Optional[SortOrder]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    NameContains: NameContains | None
+    MaxSchemaVersion: DocumentSchemaVersion | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    SortBy: HubContentSortBy | None
+    SortOrder: SortOrder | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListHubContentsResponse(TypedDict, total=False):
     HubContentSummaries: HubContentInfoList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListHubsRequest(ServiceRequest):
-    NameContains: Optional[NameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    SortBy: Optional[HubSortBy]
-    SortOrder: Optional[SortOrder]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    NameContains: NameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    SortBy: HubSortBy | None
+    SortOrder: SortOrder | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListHubsResponse(TypedDict, total=False):
     HubSummaries: HubInfoList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListHumanTaskUisRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListHumanTaskUisResponse(TypedDict, total=False):
     HumanTaskUiSummaries: HumanTaskUiSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListHyperParameterTuningJobsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortBy: Optional[HyperParameterTuningJobSortByOptions]
-    SortOrder: Optional[SortOrder]
-    NameContains: Optional[NameContains]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    StatusEquals: Optional[HyperParameterTuningJobStatus]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortBy: HyperParameterTuningJobSortByOptions | None
+    SortOrder: SortOrder | None
+    NameContains: NameContains | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    StatusEquals: HyperParameterTuningJobStatus | None
 
 
 class ListHyperParameterTuningJobsResponse(TypedDict, total=False):
     HyperParameterTuningJobSummaries: HyperParameterTuningJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListImageVersionsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
     ImageName: ImageName
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ImageVersionSortBy]
-    SortOrder: Optional[ImageVersionSortOrder]
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    SortBy: ImageVersionSortBy | None
+    SortOrder: ImageVersionSortOrder | None
 
 
 class ListImageVersionsResponse(TypedDict, total=False):
-    ImageVersions: Optional[ImageVersions]
-    NextToken: Optional[NextToken]
+    ImageVersions: ImageVersions | None
+    NextToken: NextToken | None
 
 
 class ListImagesRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[ImageNameContains]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ImageSortBy]
-    SortOrder: Optional[ImageSortOrder]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NameContains: ImageNameContains | None
+    NextToken: NextToken | None
+    SortBy: ImageSortBy | None
+    SortOrder: ImageSortOrder | None
 
 
 class ListImagesResponse(TypedDict, total=False):
-    Images: Optional[Images]
-    NextToken: Optional[NextToken]
+    Images: Images | None
+    NextToken: NextToken | None
 
 
 class ListInferenceComponentsInput(ServiceRequest):
-    SortBy: Optional[InferenceComponentSortKey]
-    SortOrder: Optional[OrderKey]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[InferenceComponentNameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    StatusEquals: Optional[InferenceComponentStatus]
-    EndpointNameEquals: Optional[EndpointName]
-    VariantNameEquals: Optional[VariantName]
+    SortBy: InferenceComponentSortKey | None
+    SortOrder: OrderKey | None
+    NextToken: PaginationToken | None
+    MaxResults: MaxResults | None
+    NameContains: InferenceComponentNameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    StatusEquals: InferenceComponentStatus | None
+    EndpointNameEquals: EndpointName | None
+    VariantNameEquals: VariantName | None
 
 
 class ListInferenceComponentsOutput(TypedDict, total=False):
     InferenceComponents: InferenceComponentSummaryList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListInferenceExperimentsRequest(ServiceRequest):
-    NameContains: Optional[NameContains]
-    Type: Optional[InferenceExperimentType]
-    StatusEquals: Optional[InferenceExperimentStatus]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    SortBy: Optional[SortInferenceExperimentsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NameContains: NameContains | None
+    Type: InferenceExperimentType | None
+    StatusEquals: InferenceExperimentStatus | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    SortBy: SortInferenceExperimentsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListInferenceExperimentsResponse(TypedDict, total=False):
-    InferenceExperiments: Optional[InferenceExperimentList]
-    NextToken: Optional[NextToken]
+    InferenceExperiments: InferenceExperimentList | None
+    NextToken: NextToken | None
 
 
 class ListInferenceRecommendationsJobStepsRequest(ServiceRequest):
     JobName: RecommendationJobName
-    Status: Optional[RecommendationJobStatus]
-    StepType: Optional[RecommendationStepType]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    Status: RecommendationJobStatus | None
+    StepType: RecommendationStepType | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListInferenceRecommendationsJobStepsResponse(TypedDict, total=False):
-    Steps: Optional[InferenceRecommendationsJobSteps]
-    NextToken: Optional[NextToken]
+    Steps: InferenceRecommendationsJobSteps | None
+    NextToken: NextToken | None
 
 
 class ListInferenceRecommendationsJobsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    LastModifiedTimeAfter: Optional[LastModifiedTime]
-    LastModifiedTimeBefore: Optional[LastModifiedTime]
-    NameContains: Optional[NameContains]
-    StatusEquals: Optional[RecommendationJobStatus]
-    SortBy: Optional[ListInferenceRecommendationsJobsSortBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    ModelNameEquals: Optional[ModelName]
-    ModelPackageVersionArnEquals: Optional[ModelPackageArn]
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    LastModifiedTimeAfter: LastModifiedTime | None
+    LastModifiedTimeBefore: LastModifiedTime | None
+    NameContains: NameContains | None
+    StatusEquals: RecommendationJobStatus | None
+    SortBy: ListInferenceRecommendationsJobsSortBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    ModelNameEquals: ModelName | None
+    ModelPackageVersionArnEquals: ModelPackageArn | None
 
 
 class ListInferenceRecommendationsJobsResponse(TypedDict, total=False):
     InferenceRecommendationsJobs: InferenceRecommendationsJobs
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListLabelingJobsForWorkteamRequest(ServiceRequest):
     WorkteamArn: WorkteamArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    JobReferenceCodeContains: Optional[JobReferenceCodeContains]
-    SortBy: Optional[ListLabelingJobsForWorkteamSortByOptions]
-    SortOrder: Optional[SortOrder]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    JobReferenceCodeContains: JobReferenceCodeContains | None
+    SortBy: ListLabelingJobsForWorkteamSortByOptions | None
+    SortOrder: SortOrder | None
 
 
 class ListLabelingJobsForWorkteamResponse(TypedDict, total=False):
     LabelingJobSummaryList: LabelingJobForWorkteamSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListLabelingJobsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    NameContains: Optional[NameContains]
-    SortBy: Optional[SortBy]
-    SortOrder: Optional[SortOrder]
-    StatusEquals: Optional[LabelingJobStatus]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    NameContains: NameContains | None
+    SortBy: SortBy | None
+    SortOrder: SortOrder | None
+    StatusEquals: LabelingJobStatus | None
 
 
 class ListLabelingJobsResponse(TypedDict, total=False):
-    LabelingJobSummaryList: Optional[LabelingJobSummaryList]
-    NextToken: Optional[NextToken]
+    LabelingJobSummaryList: LabelingJobSummaryList | None
+    NextToken: NextToken | None
 
 
-ListLineageEntityParameterKey = List[StringParameterValue]
+ListLineageEntityParameterKey = list[StringParameterValue]
 
 
 class ListLineageGroupsRequest(ServiceRequest):
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortLineageGroupsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortLineageGroupsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListLineageGroupsResponse(TypedDict, total=False):
-    LineageGroupSummaries: Optional[LineageGroupSummaries]
-    NextToken: Optional[NextToken]
+    LineageGroupSummaries: LineageGroupSummaries | None
+    NextToken: NextToken | None
+
+
+class ListMlflowAppsRequest(ServiceRequest):
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    Status: MlflowAppStatus | None
+    MlflowVersion: MlflowVersion | None
+    DefaultForDomainId: String | None
+    AccountDefaultStatus: AccountDefaultStatus | None
+    SortBy: SortMlflowAppBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+
+
+class MlflowAppSummary(TypedDict, total=False):
+    """The summary of the Mlflow App to list."""
+
+    Arn: MlflowAppArn | None
+    Name: MlflowAppName | None
+    Status: MlflowAppStatus | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    MlflowVersion: MlflowVersion | None
+
+
+MlflowAppSummaries = list[MlflowAppSummary]
+
+
+class ListMlflowAppsResponse(TypedDict, total=False):
+    Summaries: MlflowAppSummaries | None
+    NextToken: NextToken | None
 
 
 class ListMlflowTrackingServersRequest(ServiceRequest):
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    TrackingServerStatus: Optional[TrackingServerStatus]
-    MlflowVersion: Optional[MlflowVersion]
-    SortBy: Optional[SortTrackingServerBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    TrackingServerStatus: TrackingServerStatus | None
+    MlflowVersion: MlflowVersion | None
+    SortBy: SortTrackingServerBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class TrackingServerSummary(TypedDict, total=False):
     """The summary of the tracking server to list."""
 
-    TrackingServerArn: Optional[TrackingServerArn]
-    TrackingServerName: Optional[TrackingServerName]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    TrackingServerStatus: Optional[TrackingServerStatus]
-    IsActive: Optional[IsTrackingServerActive]
-    MlflowVersion: Optional[MlflowVersion]
+    TrackingServerArn: TrackingServerArn | None
+    TrackingServerName: TrackingServerName | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    TrackingServerStatus: TrackingServerStatus | None
+    IsActive: IsTrackingServerActive | None
+    MlflowVersion: MlflowVersion | None
 
 
-TrackingServerSummaryList = List[TrackingServerSummary]
+TrackingServerSummaryList = list[TrackingServerSummary]
 
 
 class ListMlflowTrackingServersResponse(TypedDict, total=False):
-    TrackingServerSummaries: Optional[TrackingServerSummaryList]
-    NextToken: Optional[NextToken]
+    TrackingServerSummaries: TrackingServerSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListModelBiasJobDefinitionsRequest(ServiceRequest):
-    EndpointName: Optional[EndpointName]
-    SortBy: Optional[MonitoringJobDefinitionSortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
+    EndpointName: EndpointName | None
+    SortBy: MonitoringJobDefinitionSortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
 
 
 class ListModelBiasJobDefinitionsResponse(TypedDict, total=False):
     JobDefinitionSummaries: MonitoringJobDefinitionSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelCardExportJobsRequest(ServiceRequest):
     ModelCardName: EntityName
-    ModelCardVersion: Optional[Integer]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    ModelCardExportJobNameContains: Optional[EntityName]
-    StatusEquals: Optional[ModelCardExportJobStatus]
-    SortBy: Optional[ModelCardExportJobSortBy]
-    SortOrder: Optional[ModelCardExportJobSortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    ModelCardVersion: Integer | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    ModelCardExportJobNameContains: EntityName | None
+    StatusEquals: ModelCardExportJobStatus | None
+    SortBy: ModelCardExportJobSortBy | None
+    SortOrder: ModelCardExportJobSortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ModelCardExportJobSummary(TypedDict, total=False):
@@ -14947,23 +15634,23 @@ class ModelCardExportJobSummary(TypedDict, total=False):
     LastModifiedAt: Timestamp
 
 
-ModelCardExportJobSummaryList = List[ModelCardExportJobSummary]
+ModelCardExportJobSummaryList = list[ModelCardExportJobSummary]
 
 
 class ListModelCardExportJobsResponse(TypedDict, total=False):
     ModelCardExportJobSummaries: ModelCardExportJobSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelCardVersionsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
     ModelCardName: ModelCardNameOrArn
-    ModelCardStatus: Optional[ModelCardStatus]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ModelCardVersionSortBy]
-    SortOrder: Optional[ModelCardSortOrder]
+    ModelCardStatus: ModelCardStatus | None
+    NextToken: NextToken | None
+    SortBy: ModelCardVersionSortBy | None
+    SortOrder: ModelCardSortOrder | None
 
 
 class ModelCardVersionSummary(TypedDict, total=False):
@@ -14974,26 +15661,26 @@ class ModelCardVersionSummary(TypedDict, total=False):
     ModelCardStatus: ModelCardStatus
     ModelCardVersion: Integer
     CreationTime: Timestamp
-    LastModifiedTime: Optional[Timestamp]
+    LastModifiedTime: Timestamp | None
 
 
-ModelCardVersionSummaryList = List[ModelCardVersionSummary]
+ModelCardVersionSummaryList = list[ModelCardVersionSummary]
 
 
 class ListModelCardVersionsResponse(TypedDict, total=False):
     ModelCardVersionSummaryList: ModelCardVersionSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelCardsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[EntityName]
-    ModelCardStatus: Optional[ModelCardStatus]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ModelCardSortBy]
-    SortOrder: Optional[ModelCardSortOrder]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NameContains: EntityName | None
+    ModelCardStatus: ModelCardStatus | None
+    NextToken: NextToken | None
+    SortBy: ModelCardSortBy | None
+    SortOrder: ModelCardSortOrder | None
 
 
 class ModelCardSummary(TypedDict, total=False):
@@ -15003,31 +15690,31 @@ class ModelCardSummary(TypedDict, total=False):
     ModelCardArn: ModelCardArn
     ModelCardStatus: ModelCardStatus
     CreationTime: Timestamp
-    LastModifiedTime: Optional[Timestamp]
+    LastModifiedTime: Timestamp | None
 
 
-ModelCardSummaryList = List[ModelCardSummary]
+ModelCardSummaryList = list[ModelCardSummary]
 
 
 class ListModelCardsResponse(TypedDict, total=False):
     ModelCardSummaries: ModelCardSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelExplainabilityJobDefinitionsRequest(ServiceRequest):
-    EndpointName: Optional[EndpointName]
-    SortBy: Optional[MonitoringJobDefinitionSortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
+    EndpointName: EndpointName | None
+    SortBy: MonitoringJobDefinitionSortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
 
 
 class ListModelExplainabilityJobDefinitionsResponse(TypedDict, total=False):
     JobDefinitionSummaries: MonitoringJobDefinitionSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ModelMetadataFilter(TypedDict, total=False):
@@ -15039,7 +15726,7 @@ class ModelMetadataFilter(TypedDict, total=False):
     Value: String256
 
 
-ModelMetadataFilters = List[ModelMetadataFilter]
+ModelMetadataFilters = list[ModelMetadataFilter]
 
 
 class ModelMetadataSearchExpression(TypedDict, total=False):
@@ -15048,13 +15735,13 @@ class ModelMetadataSearchExpression(TypedDict, total=False):
     expression's condition are included in the search results
     """
 
-    Filters: Optional[ModelMetadataFilters]
+    Filters: ModelMetadataFilters | None
 
 
 class ListModelMetadataRequest(ServiceRequest):
-    SearchExpression: Optional[ModelMetadataSearchExpression]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SearchExpression: ModelMetadataSearchExpression | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ModelMetadataSummary(TypedDict, total=False):
@@ -15067,23 +15754,23 @@ class ModelMetadataSummary(TypedDict, total=False):
     FrameworkVersion: String
 
 
-ModelMetadataSummaries = List[ModelMetadataSummary]
+ModelMetadataSummaries = list[ModelMetadataSummary]
 
 
 class ListModelMetadataResponse(TypedDict, total=False):
     ModelMetadataSummaries: ModelMetadataSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelPackageGroupsInput(ServiceRequest):
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ModelPackageGroupSortBy]
-    SortOrder: Optional[SortOrder]
-    CrossAccountFilterOption: Optional[CrossAccountFilterOption]
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    NextToken: NextToken | None
+    SortBy: ModelPackageGroupSortBy | None
+    SortOrder: SortOrder | None
+    CrossAccountFilterOption: CrossAccountFilterOption | None
 
 
 class ModelPackageGroupSummary(TypedDict, total=False):
@@ -15091,78 +15778,79 @@ class ModelPackageGroupSummary(TypedDict, total=False):
 
     ModelPackageGroupName: EntityName
     ModelPackageGroupArn: ModelPackageGroupArn
-    ModelPackageGroupDescription: Optional[EntityDescription]
+    ModelPackageGroupDescription: EntityDescription | None
     CreationTime: CreationTime
     ModelPackageGroupStatus: ModelPackageGroupStatus
 
 
-ModelPackageGroupSummaryList = List[ModelPackageGroupSummary]
+ModelPackageGroupSummaryList = list[ModelPackageGroupSummary]
 
 
 class ListModelPackageGroupsOutput(TypedDict, total=False):
     ModelPackageGroupSummaryList: ModelPackageGroupSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelPackagesInput(ServiceRequest):
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
-    ModelPackageGroupName: Optional[ArnOrName]
-    ModelPackageType: Optional[ModelPackageType]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ModelPackageSortBy]
-    SortOrder: Optional[SortOrder]
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    ModelApprovalStatus: ModelApprovalStatus | None
+    ModelPackageGroupName: ArnOrName | None
+    ModelPackageType: ModelPackageType | None
+    NextToken: NextToken | None
+    SortBy: ModelPackageSortBy | None
+    SortOrder: SortOrder | None
 
 
 class ModelPackageSummary(TypedDict, total=False):
     """Provides summary information about a model package."""
 
-    ModelPackageName: Optional[EntityName]
-    ModelPackageGroupName: Optional[EntityName]
-    ModelPackageVersion: Optional[ModelPackageVersion]
+    ModelPackageName: EntityName | None
+    ModelPackageGroupName: EntityName | None
+    ModelPackageVersion: ModelPackageVersion | None
     ModelPackageArn: ModelPackageArn
-    ModelPackageDescription: Optional[EntityDescription]
+    ModelPackageDescription: EntityDescription | None
     CreationTime: CreationTime
     ModelPackageStatus: ModelPackageStatus
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
-    ModelLifeCycle: Optional[ModelLifeCycle]
+    ModelApprovalStatus: ModelApprovalStatus | None
+    ModelLifeCycle: ModelLifeCycle | None
+    ModelPackageRegistrationType: ModelPackageRegistrationType | None
 
 
-ModelPackageSummaryList = List[ModelPackageSummary]
+ModelPackageSummaryList = list[ModelPackageSummary]
 
 
 class ListModelPackagesOutput(TypedDict, total=False):
     ModelPackageSummaryList: ModelPackageSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelQualityJobDefinitionsRequest(ServiceRequest):
-    EndpointName: Optional[EndpointName]
-    SortBy: Optional[MonitoringJobDefinitionSortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
+    EndpointName: EndpointName | None
+    SortBy: MonitoringJobDefinitionSortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
 
 
 class ListModelQualityJobDefinitionsResponse(TypedDict, total=False):
     JobDefinitionSummaries: MonitoringJobDefinitionSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListModelsInput(ServiceRequest):
-    SortBy: Optional[ModelSortKey]
-    SortOrder: Optional[OrderKey]
-    NextToken: Optional[PaginationToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[ModelNameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
+    SortBy: ModelSortKey | None
+    SortOrder: OrderKey | None
+    NextToken: PaginationToken | None
+    MaxResults: MaxResults | None
+    NameContains: ModelNameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
 
 
 class ModelSummary(TypedDict, total=False):
@@ -15173,24 +15861,24 @@ class ModelSummary(TypedDict, total=False):
     CreationTime: Timestamp
 
 
-ModelSummaryList = List[ModelSummary]
+ModelSummaryList = list[ModelSummary]
 
 
 class ListModelsOutput(TypedDict, total=False):
     Models: ModelSummaryList
-    NextToken: Optional[PaginationToken]
+    NextToken: PaginationToken | None
 
 
 class ListMonitoringAlertHistoryRequest(ServiceRequest):
-    MonitoringScheduleName: Optional[MonitoringScheduleName]
-    MonitoringAlertName: Optional[MonitoringAlertName]
-    SortBy: Optional[MonitoringAlertHistorySortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    StatusEquals: Optional[MonitoringAlertStatus]
+    MonitoringScheduleName: MonitoringScheduleName | None
+    MonitoringAlertName: MonitoringAlertName | None
+    SortBy: MonitoringAlertHistorySortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    StatusEquals: MonitoringAlertStatus | None
 
 
 class MonitoringAlertHistorySummary(TypedDict, total=False):
@@ -15202,18 +15890,18 @@ class MonitoringAlertHistorySummary(TypedDict, total=False):
     AlertStatus: MonitoringAlertStatus
 
 
-MonitoringAlertHistoryList = List[MonitoringAlertHistorySummary]
+MonitoringAlertHistoryList = list[MonitoringAlertHistorySummary]
 
 
 class ListMonitoringAlertHistoryResponse(TypedDict, total=False):
-    MonitoringAlertHistory: Optional[MonitoringAlertHistoryList]
-    NextToken: Optional[NextToken]
+    MonitoringAlertHistory: MonitoringAlertHistoryList | None
+    NextToken: NextToken | None
 
 
 class ListMonitoringAlertsRequest(ServiceRequest):
     MonitoringScheduleName: MonitoringScheduleName
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ModelDashboardIndicatorAction(TypedDict, total=False):
@@ -15221,7 +15909,7 @@ class ModelDashboardIndicatorAction(TypedDict, total=False):
     Dashboard when an alert goes into ``InAlert`` status.
     """
 
-    Enabled: Optional[Boolean]
+    Enabled: Boolean | None
 
 
 class MonitoringAlertActions(TypedDict, total=False):
@@ -15229,7 +15917,7 @@ class MonitoringAlertActions(TypedDict, total=False):
     ``InAlert`` status.
     """
 
-    ModelDashboardIndicator: Optional[ModelDashboardIndicatorAction]
+    ModelDashboardIndicator: ModelDashboardIndicatorAction | None
 
 
 class MonitoringAlertSummary(TypedDict, total=False):
@@ -15244,54 +15932,54 @@ class MonitoringAlertSummary(TypedDict, total=False):
     Actions: MonitoringAlertActions
 
 
-MonitoringAlertSummaryList = List[MonitoringAlertSummary]
+MonitoringAlertSummaryList = list[MonitoringAlertSummary]
 
 
 class ListMonitoringAlertsResponse(TypedDict, total=False):
-    MonitoringAlertSummaries: Optional[MonitoringAlertSummaryList]
-    NextToken: Optional[NextToken]
+    MonitoringAlertSummaries: MonitoringAlertSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListMonitoringExecutionsRequest(ServiceRequest):
-    MonitoringScheduleName: Optional[MonitoringScheduleName]
-    EndpointName: Optional[EndpointName]
-    SortBy: Optional[MonitoringExecutionSortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    ScheduledTimeBefore: Optional[Timestamp]
-    ScheduledTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    StatusEquals: Optional[ExecutionStatus]
-    MonitoringJobDefinitionName: Optional[MonitoringJobDefinitionName]
-    MonitoringTypeEquals: Optional[MonitoringType]
+    MonitoringScheduleName: MonitoringScheduleName | None
+    EndpointName: EndpointName | None
+    SortBy: MonitoringExecutionSortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    ScheduledTimeBefore: Timestamp | None
+    ScheduledTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    StatusEquals: ExecutionStatus | None
+    MonitoringJobDefinitionName: MonitoringJobDefinitionName | None
+    MonitoringTypeEquals: MonitoringType | None
 
 
-MonitoringExecutionSummaryList = List[MonitoringExecutionSummary]
+MonitoringExecutionSummaryList = list[MonitoringExecutionSummary]
 
 
 class ListMonitoringExecutionsResponse(TypedDict, total=False):
     MonitoringExecutionSummaries: MonitoringExecutionSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListMonitoringSchedulesRequest(ServiceRequest):
-    EndpointName: Optional[EndpointName]
-    SortBy: Optional[MonitoringScheduleSortKey]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[NameContains]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    StatusEquals: Optional[ScheduleStatus]
-    MonitoringJobDefinitionName: Optional[MonitoringJobDefinitionName]
-    MonitoringTypeEquals: Optional[MonitoringType]
+    EndpointName: EndpointName | None
+    SortBy: MonitoringScheduleSortKey | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    NameContains: NameContains | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    StatusEquals: ScheduleStatus | None
+    MonitoringJobDefinitionName: MonitoringJobDefinitionName | None
+    MonitoringTypeEquals: MonitoringType | None
 
 
 class MonitoringScheduleSummary(TypedDict, total=False):
@@ -15302,29 +15990,29 @@ class MonitoringScheduleSummary(TypedDict, total=False):
     CreationTime: Timestamp
     LastModifiedTime: Timestamp
     MonitoringScheduleStatus: ScheduleStatus
-    EndpointName: Optional[EndpointName]
-    MonitoringJobDefinitionName: Optional[MonitoringJobDefinitionName]
-    MonitoringType: Optional[MonitoringType]
+    EndpointName: EndpointName | None
+    MonitoringJobDefinitionName: MonitoringJobDefinitionName | None
+    MonitoringType: MonitoringType | None
 
 
-MonitoringScheduleSummaryList = List[MonitoringScheduleSummary]
+MonitoringScheduleSummaryList = list[MonitoringScheduleSummary]
 
 
 class ListMonitoringSchedulesResponse(TypedDict, total=False):
     MonitoringScheduleSummaries: MonitoringScheduleSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListNotebookInstanceLifecycleConfigsInput(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortBy: Optional[NotebookInstanceLifecycleConfigSortKey]
-    SortOrder: Optional[NotebookInstanceLifecycleConfigSortOrder]
-    NameContains: Optional[NotebookInstanceLifecycleConfigNameContains]
-    CreationTimeBefore: Optional[CreationTime]
-    CreationTimeAfter: Optional[CreationTime]
-    LastModifiedTimeBefore: Optional[LastModifiedTime]
-    LastModifiedTimeAfter: Optional[LastModifiedTime]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortBy: NotebookInstanceLifecycleConfigSortKey | None
+    SortOrder: NotebookInstanceLifecycleConfigSortOrder | None
+    NameContains: NotebookInstanceLifecycleConfigNameContains | None
+    CreationTimeBefore: CreationTime | None
+    CreationTimeAfter: CreationTime | None
+    LastModifiedTimeBefore: LastModifiedTime | None
+    LastModifiedTimeAfter: LastModifiedTime | None
 
 
 class NotebookInstanceLifecycleConfigSummary(TypedDict, total=False):
@@ -15332,32 +16020,32 @@ class NotebookInstanceLifecycleConfigSummary(TypedDict, total=False):
 
     NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName
     NotebookInstanceLifecycleConfigArn: NotebookInstanceLifecycleConfigArn
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
 
 
-NotebookInstanceLifecycleConfigSummaryList = List[NotebookInstanceLifecycleConfigSummary]
+NotebookInstanceLifecycleConfigSummaryList = list[NotebookInstanceLifecycleConfigSummary]
 
 
 class ListNotebookInstanceLifecycleConfigsOutput(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    NotebookInstanceLifecycleConfigs: Optional[NotebookInstanceLifecycleConfigSummaryList]
+    NextToken: NextToken | None
+    NotebookInstanceLifecycleConfigs: NotebookInstanceLifecycleConfigSummaryList | None
 
 
 class ListNotebookInstancesInput(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortBy: Optional[NotebookInstanceSortKey]
-    SortOrder: Optional[NotebookInstanceSortOrder]
-    NameContains: Optional[NotebookInstanceNameContains]
-    CreationTimeBefore: Optional[CreationTime]
-    CreationTimeAfter: Optional[CreationTime]
-    LastModifiedTimeBefore: Optional[LastModifiedTime]
-    LastModifiedTimeAfter: Optional[LastModifiedTime]
-    StatusEquals: Optional[NotebookInstanceStatus]
-    NotebookInstanceLifecycleConfigNameContains: Optional[NotebookInstanceLifecycleConfigName]
-    DefaultCodeRepositoryContains: Optional[CodeRepositoryContains]
-    AdditionalCodeRepositoryEquals: Optional[CodeRepositoryNameOrUrl]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortBy: NotebookInstanceSortKey | None
+    SortOrder: NotebookInstanceSortOrder | None
+    NameContains: NotebookInstanceNameContains | None
+    CreationTimeBefore: CreationTime | None
+    CreationTimeAfter: CreationTime | None
+    LastModifiedTimeBefore: LastModifiedTime | None
+    LastModifiedTimeAfter: LastModifiedTime | None
+    StatusEquals: NotebookInstanceStatus | None
+    NotebookInstanceLifecycleConfigNameContains: NotebookInstanceLifecycleConfigName | None
+    DefaultCodeRepositoryContains: CodeRepositoryContains | None
+    AdditionalCodeRepositoryEquals: CodeRepositoryNameOrUrl | None
 
 
 class NotebookInstanceSummary(TypedDict, total=False):
@@ -15365,39 +16053,39 @@ class NotebookInstanceSummary(TypedDict, total=False):
 
     NotebookInstanceName: NotebookInstanceName
     NotebookInstanceArn: NotebookInstanceArn
-    NotebookInstanceStatus: Optional[NotebookInstanceStatus]
-    Url: Optional[NotebookInstanceUrl]
-    InstanceType: Optional[InstanceType]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
-    NotebookInstanceLifecycleConfigName: Optional[NotebookInstanceLifecycleConfigName]
-    DefaultCodeRepository: Optional[CodeRepositoryNameOrUrl]
-    AdditionalCodeRepositories: Optional[AdditionalCodeRepositoryNamesOrUrls]
+    NotebookInstanceStatus: NotebookInstanceStatus | None
+    Url: NotebookInstanceUrl | None
+    InstanceType: InstanceType | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
+    NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName | None
+    DefaultCodeRepository: CodeRepositoryNameOrUrl | None
+    AdditionalCodeRepositories: AdditionalCodeRepositoryNamesOrUrls | None
 
 
-NotebookInstanceSummaryList = List[NotebookInstanceSummary]
+NotebookInstanceSummaryList = list[NotebookInstanceSummary]
 
 
 class ListNotebookInstancesOutput(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    NotebookInstances: Optional[NotebookInstanceSummaryList]
+    NextToken: NextToken | None
+    NotebookInstances: NotebookInstanceSummaryList | None
 
 
 class ListOptimizationJobsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    CreationTimeAfter: Optional[CreationTime]
-    CreationTimeBefore: Optional[CreationTime]
-    LastModifiedTimeAfter: Optional[LastModifiedTime]
-    LastModifiedTimeBefore: Optional[LastModifiedTime]
-    OptimizationContains: Optional[NameContains]
-    NameContains: Optional[NameContains]
-    StatusEquals: Optional[OptimizationJobStatus]
-    SortBy: Optional[ListOptimizationJobsSortBy]
-    SortOrder: Optional[SortOrder]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    CreationTimeAfter: CreationTime | None
+    CreationTimeBefore: CreationTime | None
+    LastModifiedTimeAfter: LastModifiedTime | None
+    LastModifiedTimeBefore: LastModifiedTime | None
+    OptimizationContains: NameContains | None
+    NameContains: NameContains | None
+    StatusEquals: OptimizationJobStatus | None
+    SortBy: ListOptimizationJobsSortBy | None
+    SortOrder: SortOrder | None
 
 
-OptimizationTypes = List[OptimizationType]
+OptimizationTypes = list[OptimizationType]
 
 
 class OptimizationJobSummary(TypedDict, total=False):
@@ -15407,24 +16095,25 @@ class OptimizationJobSummary(TypedDict, total=False):
     OptimizationJobArn: OptimizationJobArn
     CreationTime: CreationTime
     OptimizationJobStatus: OptimizationJobStatus
-    OptimizationStartTime: Optional[Timestamp]
-    OptimizationEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[LastModifiedTime]
+    OptimizationStartTime: Timestamp | None
+    OptimizationEndTime: Timestamp | None
+    LastModifiedTime: LastModifiedTime | None
     DeploymentInstanceType: OptimizationJobDeploymentInstanceType
+    MaxInstanceCount: OptimizationJobMaxInstanceCount | None
     OptimizationTypes: OptimizationTypes
 
 
-OptimizationJobSummaries = List[OptimizationJobSummary]
+OptimizationJobSummaries = list[OptimizationJobSummary]
 
 
 class ListOptimizationJobsResponse(TypedDict, total=False):
     OptimizationJobSummaries: OptimizationJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListPartnerAppsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class PartnerAppSummary(TypedDict, total=False):
@@ -15432,32 +16121,32 @@ class PartnerAppSummary(TypedDict, total=False):
     information is used as part of the ``ListPartnerApps`` API response.
     """
 
-    Arn: Optional[PartnerAppArn]
-    Name: Optional[PartnerAppName]
-    Type: Optional[PartnerAppType]
-    Status: Optional[PartnerAppStatus]
-    CreationTime: Optional[Timestamp]
+    Arn: PartnerAppArn | None
+    Name: PartnerAppName | None
+    Type: PartnerAppType | None
+    Status: PartnerAppStatus | None
+    CreationTime: Timestamp | None
 
 
-PartnerAppSummaries = List[PartnerAppSummary]
+PartnerAppSummaries = list[PartnerAppSummary]
 
 
 class ListPartnerAppsResponse(TypedDict, total=False):
-    Summaries: Optional[PartnerAppSummaries]
-    NextToken: Optional[NextToken]
+    Summaries: PartnerAppSummaries | None
+    NextToken: NextToken | None
 
 
 class ListPipelineExecutionStepsRequest(ServiceRequest):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortOrder: Optional[SortOrder]
+    PipelineExecutionArn: PipelineExecutionArn | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortOrder: SortOrder | None
 
 
 class SelectiveExecutionResult(TypedDict, total=False):
     """The ARN from an execution of the current pipeline."""
 
-    SourcePipelineExecutionArn: Optional[PipelineExecutionArn]
+    SourcePipelineExecutionArn: PipelineExecutionArn | None
 
 
 class QualityCheckStepMetadata(TypedDict, total=False):
@@ -15467,132 +16156,138 @@ class QualityCheckStepMetadata(TypedDict, total=False):
     in the *Amazon SageMaker Developer Guide*.
     """
 
-    CheckType: Optional[String256]
-    BaselineUsedForDriftCheckStatistics: Optional[String1024]
-    BaselineUsedForDriftCheckConstraints: Optional[String1024]
-    CalculatedBaselineStatistics: Optional[String1024]
-    CalculatedBaselineConstraints: Optional[String1024]
-    ModelPackageGroupName: Optional[String256]
-    ViolationReport: Optional[String1024]
-    CheckJobArn: Optional[String256]
-    SkipCheck: Optional[Boolean]
-    RegisterNewBaseline: Optional[Boolean]
+    CheckType: String256 | None
+    BaselineUsedForDriftCheckStatistics: String1024 | None
+    BaselineUsedForDriftCheckConstraints: String1024 | None
+    CalculatedBaselineStatistics: String1024 | None
+    CalculatedBaselineConstraints: String1024 | None
+    ModelPackageGroupName: String256 | None
+    ViolationReport: String1024 | None
+    CheckJobArn: String256 | None
+    SkipCheck: Boolean | None
+    RegisterNewBaseline: Boolean | None
 
 
 class RegisterModelStepMetadata(TypedDict, total=False):
     """Metadata for a register model job step."""
 
-    Arn: Optional[String256]
+    Arn: String256 | None
 
 
 class ModelStepMetadata(TypedDict, total=False):
     """Metadata for Model steps."""
 
-    Arn: Optional[String256]
+    Arn: String256 | None
 
 
 class TuningJobStepMetaData(TypedDict, total=False):
     """Metadata for a tuning step."""
 
-    Arn: Optional[HyperParameterTuningJobArn]
+    Arn: HyperParameterTuningJobArn | None
 
 
 class TransformJobStepMetadata(TypedDict, total=False):
     """Metadata for a transform job step."""
 
-    Arn: Optional[TransformJobArn]
+    Arn: TransformJobArn | None
 
 
 class ProcessingJobStepMetadata(TypedDict, total=False):
     """Metadata for a processing job step."""
 
-    Arn: Optional[ProcessingJobArn]
+    Arn: ProcessingJobArn | None
 
 
 class TrainingJobStepMetadata(TypedDict, total=False):
     """Metadata for a training job step."""
 
-    Arn: Optional[TrainingJobArn]
+    Arn: TrainingJobArn | None
 
 
 class PipelineExecutionStepMetadata(TypedDict, total=False):
     """Metadata for a step execution."""
 
-    TrainingJob: Optional[TrainingJobStepMetadata]
-    ProcessingJob: Optional[ProcessingJobStepMetadata]
-    TransformJob: Optional[TransformJobStepMetadata]
-    TuningJob: Optional[TuningJobStepMetaData]
-    Model: Optional[ModelStepMetadata]
-    RegisterModel: Optional[RegisterModelStepMetadata]
-    Condition: Optional[ConditionStepMetadata]
-    Callback: Optional[CallbackStepMetadata]
-    Lambda: Optional[LambdaStepMetadata]
-    EMR: Optional[EMRStepMetadata]
-    QualityCheck: Optional[QualityCheckStepMetadata]
-    ClarifyCheck: Optional[ClarifyCheckStepMetadata]
-    Fail: Optional[FailStepMetadata]
-    AutoMLJob: Optional[AutoMLJobStepMetadata]
-    Endpoint: Optional[EndpointStepMetadata]
-    EndpointConfig: Optional[EndpointConfigStepMetadata]
+    TrainingJob: TrainingJobStepMetadata | None
+    ProcessingJob: ProcessingJobStepMetadata | None
+    TransformJob: TransformJobStepMetadata | None
+    TuningJob: TuningJobStepMetaData | None
+    Model: ModelStepMetadata | None
+    RegisterModel: RegisterModelStepMetadata | None
+    Condition: ConditionStepMetadata | None
+    Callback: CallbackStepMetadata | None
+    Lambda: LambdaStepMetadata | None
+    EMR: EMRStepMetadata | None
+    QualityCheck: QualityCheckStepMetadata | None
+    ClarifyCheck: ClarifyCheckStepMetadata | None
+    Fail: FailStepMetadata | None
+    AutoMLJob: AutoMLJobStepMetadata | None
+    Endpoint: EndpointStepMetadata | None
+    EndpointConfig: EndpointConfigStepMetadata | None
+    BedrockCustomModel: BedrockCustomModelMetadata | None
+    BedrockCustomModelDeployment: BedrockCustomModelDeploymentMetadata | None
+    BedrockProvisionedModelThroughput: BedrockProvisionedModelThroughputMetadata | None
+    BedrockModelImport: BedrockModelImportMetadata | None
+    InferenceComponent: InferenceComponentMetadata | None
+    Lineage: LineageMetadata | None
 
 
 class PipelineExecutionStep(TypedDict, total=False):
     """An execution of a step in a pipeline."""
 
-    StepName: Optional[StepName]
-    StepDisplayName: Optional[StepDisplayName]
-    StepDescription: Optional[StepDescription]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    StepStatus: Optional[StepStatus]
-    CacheHitResult: Optional[CacheHitResult]
-    FailureReason: Optional[FailureReason]
-    Metadata: Optional[PipelineExecutionStepMetadata]
-    AttemptCount: Optional[Integer]
-    SelectiveExecutionResult: Optional[SelectiveExecutionResult]
+    StepName: StepName | None
+    StepDisplayName: StepDisplayName | None
+    StepDescription: StepDescription | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    StepStatus: StepStatus | None
+    CacheHitResult: CacheHitResult | None
+    FailureReason: FailureReason | None
+    Metadata: PipelineExecutionStepMetadata | None
+    AttemptCount: Integer | None
+    SelectiveExecutionResult: SelectiveExecutionResult | None
 
 
-PipelineExecutionStepList = List[PipelineExecutionStep]
+PipelineExecutionStepList = list[PipelineExecutionStep]
 
 
 class ListPipelineExecutionStepsResponse(TypedDict, total=False):
-    PipelineExecutionSteps: Optional[PipelineExecutionStepList]
-    NextToken: Optional[NextToken]
+    PipelineExecutionSteps: PipelineExecutionStepList | None
+    NextToken: NextToken | None
 
 
 class ListPipelineExecutionsRequest(ServiceRequest):
     PipelineName: PipelineNameOrArn
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortPipelineExecutionsBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortPipelineExecutionsBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class PipelineExecutionSummary(TypedDict, total=False):
     """A pipeline execution summary."""
 
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
-    StartTime: Optional[Timestamp]
-    PipelineExecutionStatus: Optional[PipelineExecutionStatus]
-    PipelineExecutionDescription: Optional[PipelineExecutionDescription]
-    PipelineExecutionDisplayName: Optional[PipelineExecutionName]
-    PipelineExecutionFailureReason: Optional[String3072]
+    PipelineExecutionArn: PipelineExecutionArn | None
+    StartTime: Timestamp | None
+    PipelineExecutionStatus: PipelineExecutionStatus | None
+    PipelineExecutionDescription: PipelineExecutionDescription | None
+    PipelineExecutionDisplayName: PipelineExecutionName | None
+    PipelineExecutionFailureReason: String3072 | None
 
 
-PipelineExecutionSummaryList = List[PipelineExecutionSummary]
+PipelineExecutionSummaryList = list[PipelineExecutionSummary]
 
 
 class ListPipelineExecutionsResponse(TypedDict, total=False):
-    PipelineExecutionSummaries: Optional[PipelineExecutionSummaryList]
-    NextToken: Optional[NextToken]
+    PipelineExecutionSummaries: PipelineExecutionSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListPipelineParametersForExecutionRequest(ServiceRequest):
     PipelineExecutionArn: PipelineExecutionArn
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class Parameter(TypedDict, total=False):
@@ -15602,84 +16297,84 @@ class Parameter(TypedDict, total=False):
     Value: String1024
 
 
-ParameterList = List[Parameter]
+ParameterList = list[Parameter]
 
 
 class ListPipelineParametersForExecutionResponse(TypedDict, total=False):
-    PipelineParameters: Optional[ParameterList]
-    NextToken: Optional[NextToken]
+    PipelineParameters: ParameterList | None
+    NextToken: NextToken | None
 
 
 class ListPipelineVersionsRequest(ServiceRequest):
     PipelineName: PipelineNameOrArn
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class PipelineVersionSummary(TypedDict, total=False):
     """The summary of the pipeline version."""
 
-    PipelineArn: Optional[PipelineArn]
-    PipelineVersionId: Optional[PipelineVersionId]
-    CreationTime: Optional[Timestamp]
-    PipelineVersionDescription: Optional[PipelineVersionDescription]
-    PipelineVersionDisplayName: Optional[PipelineVersionName]
-    LastExecutionPipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineArn: PipelineArn | None
+    PipelineVersionId: PipelineVersionId | None
+    CreationTime: Timestamp | None
+    PipelineVersionDescription: PipelineVersionDescription | None
+    PipelineVersionDisplayName: PipelineVersionName | None
+    LastExecutionPipelineExecutionArn: PipelineExecutionArn | None
 
 
-PipelineVersionSummaryList = List[PipelineVersionSummary]
+PipelineVersionSummaryList = list[PipelineVersionSummary]
 
 
 class ListPipelineVersionsResponse(TypedDict, total=False):
-    PipelineVersionSummaries: Optional[PipelineVersionSummaryList]
-    NextToken: Optional[NextToken]
+    PipelineVersionSummaries: PipelineVersionSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListPipelinesRequest(ServiceRequest):
-    PipelineNamePrefix: Optional[PipelineName]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortPipelinesBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    PipelineNamePrefix: PipelineName | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortPipelinesBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class PipelineSummary(TypedDict, total=False):
     """A summary of a pipeline."""
 
-    PipelineArn: Optional[PipelineArn]
-    PipelineName: Optional[PipelineName]
-    PipelineDisplayName: Optional[PipelineName]
-    PipelineDescription: Optional[PipelineDescription]
-    RoleArn: Optional[RoleArn]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    LastExecutionTime: Optional[Timestamp]
+    PipelineArn: PipelineArn | None
+    PipelineName: PipelineName | None
+    PipelineDisplayName: PipelineName | None
+    PipelineDescription: PipelineDescription | None
+    RoleArn: RoleArn | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    LastExecutionTime: Timestamp | None
 
 
-PipelineSummaryList = List[PipelineSummary]
+PipelineSummaryList = list[PipelineSummary]
 
 
 class ListPipelinesResponse(TypedDict, total=False):
-    PipelineSummaries: Optional[PipelineSummaryList]
-    NextToken: Optional[NextToken]
+    PipelineSummaries: PipelineSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListProcessingJobsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[String]
-    StatusEquals: Optional[ProcessingJobStatus]
-    SortBy: Optional[SortBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: String | None
+    StatusEquals: ProcessingJobStatus | None
+    SortBy: SortBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ProcessingJobSummary(TypedDict, total=False):
@@ -15688,58 +16383,58 @@ class ProcessingJobSummary(TypedDict, total=False):
     ProcessingJobName: ProcessingJobName
     ProcessingJobArn: ProcessingJobArn
     CreationTime: Timestamp
-    ProcessingEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    ProcessingEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
     ProcessingJobStatus: ProcessingJobStatus
-    FailureReason: Optional[FailureReason]
-    ExitMessage: Optional[ExitMessage]
+    FailureReason: FailureReason | None
+    ExitMessage: ExitMessage | None
 
 
-ProcessingJobSummaries = List[ProcessingJobSummary]
+ProcessingJobSummaries = list[ProcessingJobSummary]
 
 
 class ListProcessingJobsResponse(TypedDict, total=False):
     ProcessingJobSummaries: ProcessingJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListProjectsInput(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    MaxResults: Optional[MaxResults]
-    NameContains: Optional[ProjectEntityName]
-    NextToken: Optional[NextToken]
-    SortBy: Optional[ProjectSortBy]
-    SortOrder: Optional[ProjectSortOrder]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    MaxResults: MaxResults | None
+    NameContains: ProjectEntityName | None
+    NextToken: NextToken | None
+    SortBy: ProjectSortBy | None
+    SortOrder: ProjectSortOrder | None
 
 
 class ProjectSummary(TypedDict, total=False):
     """Information about a project."""
 
     ProjectName: ProjectEntityName
-    ProjectDescription: Optional[EntityDescription]
+    ProjectDescription: EntityDescription | None
     ProjectArn: ProjectArn
     ProjectId: ProjectId
     CreationTime: Timestamp
     ProjectStatus: ProjectStatus
 
 
-ProjectSummaryList = List[ProjectSummary]
+ProjectSummaryList = list[ProjectSummary]
 
 
 class ListProjectsOutput(TypedDict, total=False):
     ProjectSummaryList: ProjectSummaryList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListResourceCatalogsRequest(ServiceRequest):
-    NameContains: Optional[ResourceCatalogName]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    SortOrder: Optional[ResourceCatalogSortOrder]
-    SortBy: Optional[ResourceCatalogSortBy]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    NameContains: ResourceCatalogName | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    SortOrder: ResourceCatalogSortOrder | None
+    SortBy: ResourceCatalogSortBy | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ResourceCatalog(TypedDict, total=False):
@@ -15757,161 +16452,161 @@ class ResourceCatalog(TypedDict, total=False):
     CreationTime: Timestamp
 
 
-ResourceCatalogList = List[ResourceCatalog]
+ResourceCatalogList = list[ResourceCatalog]
 
 
 class ListResourceCatalogsResponse(TypedDict, total=False):
-    ResourceCatalogs: Optional[ResourceCatalogList]
-    NextToken: Optional[NextToken]
+    ResourceCatalogs: ResourceCatalogList | None
+    NextToken: NextToken | None
 
 
 class ListSpacesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortOrder: Optional[SortOrder]
-    SortBy: Optional[SpaceSortKey]
-    DomainIdEquals: Optional[DomainId]
-    SpaceNameContains: Optional[SpaceName]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortOrder: SortOrder | None
+    SortBy: SpaceSortKey | None
+    DomainIdEquals: DomainId | None
+    SpaceNameContains: SpaceName | None
 
 
 class OwnershipSettingsSummary(TypedDict, total=False):
     """Specifies summary information about the ownership settings."""
 
-    OwnerUserProfileName: Optional[UserProfileName]
+    OwnerUserProfileName: UserProfileName | None
 
 
 class SpaceSharingSettingsSummary(TypedDict, total=False):
     """Specifies summary information about the space sharing settings."""
 
-    SharingType: Optional[SharingType]
+    SharingType: SharingType | None
 
 
 class SpaceSettingsSummary(TypedDict, total=False):
     """Specifies summary information about the space settings."""
 
-    AppType: Optional[AppType]
-    RemoteAccess: Optional[FeatureStatus]
-    SpaceStorageSettings: Optional[SpaceStorageSettings]
+    AppType: AppType | None
+    RemoteAccess: FeatureStatus | None
+    SpaceStorageSettings: SpaceStorageSettings | None
 
 
 class SpaceDetails(TypedDict, total=False):
     """The space's details."""
 
-    DomainId: Optional[DomainId]
-    SpaceName: Optional[SpaceName]
-    Status: Optional[SpaceStatus]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
-    SpaceSettingsSummary: Optional[SpaceSettingsSummary]
-    SpaceSharingSettingsSummary: Optional[SpaceSharingSettingsSummary]
-    OwnershipSettingsSummary: Optional[OwnershipSettingsSummary]
-    SpaceDisplayName: Optional[NonEmptyString64]
+    DomainId: DomainId | None
+    SpaceName: SpaceName | None
+    Status: SpaceStatus | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
+    SpaceSettingsSummary: SpaceSettingsSummary | None
+    SpaceSharingSettingsSummary: SpaceSharingSettingsSummary | None
+    OwnershipSettingsSummary: OwnershipSettingsSummary | None
+    SpaceDisplayName: NonEmptyString64 | None
 
 
-SpaceList = List[SpaceDetails]
+SpaceList = list[SpaceDetails]
 
 
 class ListSpacesResponse(TypedDict, total=False):
-    Spaces: Optional[SpaceList]
-    NextToken: Optional[NextToken]
+    Spaces: SpaceList | None
+    NextToken: NextToken | None
 
 
 class ListStageDevicesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListMaxResults]
+    NextToken: NextToken | None
+    MaxResults: ListMaxResults | None
     EdgeDeploymentPlanName: EntityName
-    ExcludeDevicesDeployedInOtherStage: Optional[Boolean]
+    ExcludeDevicesDeployedInOtherStage: Boolean | None
     StageName: EntityName
 
 
 class ListStageDevicesResponse(TypedDict, total=False):
     DeviceDeploymentSummaries: DeviceDeploymentSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListStudioLifecycleConfigsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    NameContains: Optional[StudioLifecycleConfigName]
-    AppTypeEquals: Optional[StudioLifecycleConfigAppType]
-    CreationTimeBefore: Optional[Timestamp]
-    CreationTimeAfter: Optional[Timestamp]
-    ModifiedTimeBefore: Optional[Timestamp]
-    ModifiedTimeAfter: Optional[Timestamp]
-    SortBy: Optional[StudioLifecycleConfigSortKey]
-    SortOrder: Optional[SortOrder]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    NameContains: StudioLifecycleConfigName | None
+    AppTypeEquals: StudioLifecycleConfigAppType | None
+    CreationTimeBefore: Timestamp | None
+    CreationTimeAfter: Timestamp | None
+    ModifiedTimeBefore: Timestamp | None
+    ModifiedTimeAfter: Timestamp | None
+    SortBy: StudioLifecycleConfigSortKey | None
+    SortOrder: SortOrder | None
 
 
 class StudioLifecycleConfigDetails(TypedDict, total=False):
     """Details of the Amazon SageMaker AI Studio Lifecycle Configuration."""
 
-    StudioLifecycleConfigArn: Optional[StudioLifecycleConfigArn]
-    StudioLifecycleConfigName: Optional[StudioLifecycleConfigName]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    StudioLifecycleConfigAppType: Optional[StudioLifecycleConfigAppType]
+    StudioLifecycleConfigArn: StudioLifecycleConfigArn | None
+    StudioLifecycleConfigName: StudioLifecycleConfigName | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    StudioLifecycleConfigAppType: StudioLifecycleConfigAppType | None
 
 
-StudioLifecycleConfigsList = List[StudioLifecycleConfigDetails]
+StudioLifecycleConfigsList = list[StudioLifecycleConfigDetails]
 
 
 class ListStudioLifecycleConfigsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    StudioLifecycleConfigs: Optional[StudioLifecycleConfigsList]
+    NextToken: NextToken | None
+    StudioLifecycleConfigs: StudioLifecycleConfigsList | None
 
 
 class ListSubscribedWorkteamsRequest(ServiceRequest):
-    NameContains: Optional[WorkteamName]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NameContains: WorkteamName | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-SubscribedWorkteams = List[SubscribedWorkteam]
+SubscribedWorkteams = list[SubscribedWorkteam]
 
 
 class ListSubscribedWorkteamsResponse(TypedDict, total=False):
     SubscribedWorkteams: SubscribedWorkteams
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListTagsInput(ServiceRequest):
     ResourceArn: ResourceArn
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListTagsMaxResults]
+    NextToken: NextToken | None
+    MaxResults: ListTagsMaxResults | None
 
 
 class ListTagsOutput(TypedDict, total=False):
-    Tags: Optional[TagList]
-    NextToken: Optional[NextToken]
+    Tags: TagList | None
+    NextToken: NextToken | None
 
 
 class ListTrainingJobsForHyperParameterTuningJobRequest(ServiceRequest):
     HyperParameterTuningJobName: HyperParameterTuningJobName
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    StatusEquals: Optional[TrainingJobStatus]
-    SortBy: Optional[TrainingJobSortByOptions]
-    SortOrder: Optional[SortOrder]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    StatusEquals: TrainingJobStatus | None
+    SortBy: TrainingJobSortByOptions | None
+    SortOrder: SortOrder | None
 
 
 class ListTrainingJobsForHyperParameterTuningJobResponse(TypedDict, total=False):
     TrainingJobSummaries: HyperParameterTrainingJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListTrainingJobsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[NameContains]
-    StatusEquals: Optional[TrainingJobStatus]
-    SortBy: Optional[SortBy]
-    SortOrder: Optional[SortOrder]
-    WarmPoolStatusEquals: Optional[WarmPoolResourceStatus]
-    TrainingPlanArnEquals: Optional[TrainingPlanArn]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: NameContains | None
+    StatusEquals: TrainingJobStatus | None
+    SortBy: SortBy | None
+    SortOrder: SortOrder | None
+    WarmPoolStatusEquals: WarmPoolResourceStatus | None
+    TrainingPlanArnEquals: TrainingPlanArn | None
 
 
 class TrainingJobSummary(TypedDict, total=False):
@@ -15920,20 +16615,20 @@ class TrainingJobSummary(TypedDict, total=False):
     TrainingJobName: TrainingJobName
     TrainingJobArn: TrainingJobArn
     CreationTime: Timestamp
-    TrainingEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    TrainingEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
     TrainingJobStatus: TrainingJobStatus
-    SecondaryStatus: Optional[SecondaryStatus]
-    WarmPoolStatus: Optional[WarmPoolStatus]
-    TrainingPlanArn: Optional[TrainingPlanArn]
+    SecondaryStatus: SecondaryStatus | None
+    WarmPoolStatus: WarmPoolStatus | None
+    TrainingPlanArn: TrainingPlanArn | None
 
 
-TrainingJobSummaries = List[TrainingJobSummary]
+TrainingJobSummaries = list[TrainingJobSummary]
 
 
 class ListTrainingJobsResponse(TypedDict, total=False):
     TrainingJobSummaries: TrainingJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class TrainingPlanFilter(TypedDict, total=False):
@@ -15948,17 +16643,17 @@ class TrainingPlanFilter(TypedDict, total=False):
     Value: String64
 
 
-TrainingPlanFilters = List[TrainingPlanFilter]
+TrainingPlanFilters = list[TrainingPlanFilter]
 
 
 class ListTrainingPlansRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    StartTimeAfter: Optional[Timestamp]
-    StartTimeBefore: Optional[Timestamp]
-    SortBy: Optional[TrainingPlanSortBy]
-    SortOrder: Optional[TrainingPlanSortOrder]
-    Filters: Optional[TrainingPlanFilters]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    StartTimeAfter: Timestamp | None
+    StartTimeBefore: Timestamp | None
+    SortBy: TrainingPlanSortBy | None
+    SortOrder: TrainingPlanSortOrder | None
+    Filters: TrainingPlanFilters | None
 
 
 class TrainingPlanSummary(TypedDict, total=False):
@@ -15972,40 +16667,40 @@ class TrainingPlanSummary(TypedDict, total=False):
     TrainingPlanArn: TrainingPlanArn
     TrainingPlanName: TrainingPlanName
     Status: TrainingPlanStatus
-    StatusMessage: Optional[TrainingPlanStatusMessage]
-    DurationHours: Optional[TrainingPlanDurationHours]
-    DurationMinutes: Optional[TrainingPlanDurationMinutes]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    UpfrontFee: Optional[String256]
-    CurrencyCode: Optional[CurrencyCode]
-    TotalInstanceCount: Optional[TotalInstanceCount]
-    AvailableInstanceCount: Optional[AvailableInstanceCount]
-    InUseInstanceCount: Optional[InUseInstanceCount]
-    TotalUltraServerCount: Optional[UltraServerCount]
-    TargetResources: Optional[SageMakerResourceNames]
-    ReservedCapacitySummaries: Optional[ReservedCapacitySummaries]
+    StatusMessage: TrainingPlanStatusMessage | None
+    DurationHours: TrainingPlanDurationHours | None
+    DurationMinutes: TrainingPlanDurationMinutes | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    UpfrontFee: String256 | None
+    CurrencyCode: CurrencyCode | None
+    TotalInstanceCount: TotalInstanceCount | None
+    AvailableInstanceCount: AvailableInstanceCount | None
+    InUseInstanceCount: InUseInstanceCount | None
+    TotalUltraServerCount: UltraServerCount | None
+    TargetResources: SageMakerResourceNames | None
+    ReservedCapacitySummaries: ReservedCapacitySummaries | None
 
 
-TrainingPlanSummaries = List[TrainingPlanSummary]
+TrainingPlanSummaries = list[TrainingPlanSummary]
 
 
 class ListTrainingPlansResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     TrainingPlanSummaries: TrainingPlanSummaries
 
 
 class ListTransformJobsRequest(ServiceRequest):
-    CreationTimeAfter: Optional[Timestamp]
-    CreationTimeBefore: Optional[Timestamp]
-    LastModifiedTimeAfter: Optional[Timestamp]
-    LastModifiedTimeBefore: Optional[Timestamp]
-    NameContains: Optional[NameContains]
-    StatusEquals: Optional[TransformJobStatus]
-    SortBy: Optional[SortBy]
-    SortOrder: Optional[SortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    CreationTimeAfter: Timestamp | None
+    CreationTimeBefore: Timestamp | None
+    LastModifiedTimeAfter: Timestamp | None
+    LastModifiedTimeBefore: Timestamp | None
+    NameContains: NameContains | None
+    StatusEquals: TransformJobStatus | None
+    SortBy: SortBy | None
+    SortOrder: SortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class TransformJobSummary(TypedDict, total=False):
@@ -16018,33 +16713,33 @@ class TransformJobSummary(TypedDict, total=False):
     TransformJobName: TransformJobName
     TransformJobArn: TransformJobArn
     CreationTime: Timestamp
-    TransformEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    TransformEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
     TransformJobStatus: TransformJobStatus
-    FailureReason: Optional[FailureReason]
+    FailureReason: FailureReason | None
 
 
-TransformJobSummaries = List[TransformJobSummary]
+TransformJobSummaries = list[TransformJobSummary]
 
 
 class ListTransformJobsResponse(TypedDict, total=False):
     TransformJobSummaries: TransformJobSummaries
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
-ListTrialComponentKey256 = List[TrialComponentKey256]
+ListTrialComponentKey256 = list[TrialComponentKey256]
 
 
 class ListTrialComponentsRequest(ServiceRequest):
-    ExperimentName: Optional[ExperimentEntityName]
-    TrialName: Optional[ExperimentEntityName]
-    SourceArn: Optional[String256]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortTrialComponentsBy]
-    SortOrder: Optional[SortOrder]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    ExperimentName: ExperimentEntityName | None
+    TrialName: ExperimentEntityName | None
+    SourceArn: String256 | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortTrialComponentsBy | None
+    SortOrder: SortOrder | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class TrialComponentSummary(TypedDict, total=False):
@@ -16054,36 +16749,36 @@ class TrialComponentSummary(TypedDict, total=False):
     API and provide the ``TrialComponentName``.
     """
 
-    TrialComponentName: Optional[ExperimentEntityName]
-    TrialComponentArn: Optional[TrialComponentArn]
-    DisplayName: Optional[ExperimentEntityName]
-    TrialComponentSource: Optional[TrialComponentSource]
-    Status: Optional[TrialComponentStatus]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    TrialComponentName: ExperimentEntityName | None
+    TrialComponentArn: TrialComponentArn | None
+    DisplayName: ExperimentEntityName | None
+    TrialComponentSource: TrialComponentSource | None
+    Status: TrialComponentStatus | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
-TrialComponentSummaries = List[TrialComponentSummary]
+TrialComponentSummaries = list[TrialComponentSummary]
 
 
 class ListTrialComponentsResponse(TypedDict, total=False):
-    TrialComponentSummaries: Optional[TrialComponentSummaries]
-    NextToken: Optional[NextToken]
+    TrialComponentSummaries: TrialComponentSummaries | None
+    NextToken: NextToken | None
 
 
 class ListTrialsRequest(ServiceRequest):
-    ExperimentName: Optional[ExperimentEntityName]
-    TrialComponentName: Optional[ExperimentEntityName]
-    CreatedAfter: Optional[Timestamp]
-    CreatedBefore: Optional[Timestamp]
-    SortBy: Optional[SortTrialsBy]
-    SortOrder: Optional[SortOrder]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    ExperimentName: ExperimentEntityName | None
+    TrialComponentName: ExperimentEntityName | None
+    CreatedAfter: Timestamp | None
+    CreatedBefore: Timestamp | None
+    SortBy: SortTrialsBy | None
+    SortOrder: SortOrder | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class TrialSummary(TypedDict, total=False):
@@ -16093,26 +16788,26 @@ class TrialSummary(TypedDict, total=False):
     API and provide the ``TrialName``.
     """
 
-    TrialArn: Optional[TrialArn]
-    TrialName: Optional[ExperimentEntityName]
-    DisplayName: Optional[ExperimentEntityName]
-    TrialSource: Optional[TrialSource]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
+    TrialArn: TrialArn | None
+    TrialName: ExperimentEntityName | None
+    DisplayName: ExperimentEntityName | None
+    TrialSource: TrialSource | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
 
 
-TrialSummaries = List[TrialSummary]
+TrialSummaries = list[TrialSummary]
 
 
 class ListTrialsResponse(TypedDict, total=False):
-    TrialSummaries: Optional[TrialSummaries]
-    NextToken: Optional[NextToken]
+    TrialSummaries: TrialSummaries | None
+    NextToken: NextToken | None
 
 
 class ListUltraServersByReservedCapacityRequest(ServiceRequest):
     ReservedCapacityArn: ReservedCapacityArn
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class UltraServer(TypedDict, total=False):
@@ -16126,79 +16821,79 @@ class UltraServer(TypedDict, total=False):
     AvailabilityZone: AvailabilityZone
     InstanceType: ReservedCapacityInstanceType
     TotalInstanceCount: TotalInstanceCount
-    ConfiguredSpareInstanceCount: Optional[ConfiguredSpareInstanceCount]
-    AvailableInstanceCount: Optional[AvailableInstanceCount]
-    InUseInstanceCount: Optional[InUseInstanceCount]
-    AvailableSpareInstanceCount: Optional[AvailableSpareInstanceCount]
-    UnhealthyInstanceCount: Optional[UnhealthyInstanceCount]
-    HealthStatus: Optional[UltraServerHealthStatus]
+    ConfiguredSpareInstanceCount: ConfiguredSpareInstanceCount | None
+    AvailableInstanceCount: AvailableInstanceCount | None
+    InUseInstanceCount: InUseInstanceCount | None
+    AvailableSpareInstanceCount: AvailableSpareInstanceCount | None
+    UnhealthyInstanceCount: UnhealthyInstanceCount | None
+    HealthStatus: UltraServerHealthStatus | None
 
 
-UltraServers = List[UltraServer]
+UltraServers = list[UltraServer]
 
 
 class ListUltraServersByReservedCapacityResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
     UltraServers: UltraServers
 
 
 class ListUserProfilesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    SortOrder: Optional[SortOrder]
-    SortBy: Optional[UserProfileSortKey]
-    DomainIdEquals: Optional[DomainId]
-    UserProfileNameContains: Optional[UserProfileName]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    SortOrder: SortOrder | None
+    SortBy: UserProfileSortKey | None
+    DomainIdEquals: DomainId | None
+    UserProfileNameContains: UserProfileName | None
 
 
 class UserProfileDetails(TypedDict, total=False):
     """The user profile details."""
 
-    DomainId: Optional[DomainId]
-    UserProfileName: Optional[UserProfileName]
-    Status: Optional[UserProfileStatus]
-    CreationTime: Optional[CreationTime]
-    LastModifiedTime: Optional[LastModifiedTime]
+    DomainId: DomainId | None
+    UserProfileName: UserProfileName | None
+    Status: UserProfileStatus | None
+    CreationTime: CreationTime | None
+    LastModifiedTime: LastModifiedTime | None
 
 
-UserProfileList = List[UserProfileDetails]
+UserProfileList = list[UserProfileDetails]
 
 
 class ListUserProfilesResponse(TypedDict, total=False):
-    UserProfiles: Optional[UserProfileList]
-    NextToken: Optional[NextToken]
+    UserProfiles: UserProfileList | None
+    NextToken: NextToken | None
 
 
 class ListWorkforcesRequest(ServiceRequest):
-    SortBy: Optional[ListWorkforcesSortByOptions]
-    SortOrder: Optional[SortOrder]
-    NameContains: Optional[WorkforceName]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SortBy: ListWorkforcesSortByOptions | None
+    SortOrder: SortOrder | None
+    NameContains: WorkforceName | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-Workforces = List[Workforce]
+Workforces = list[Workforce]
 
 
 class ListWorkforcesResponse(TypedDict, total=False):
     Workforces: Workforces
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListWorkteamsRequest(ServiceRequest):
-    SortBy: Optional[ListWorkteamsSortByOptions]
-    SortOrder: Optional[SortOrder]
-    NameContains: Optional[WorkteamName]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    SortBy: ListWorkteamsSortByOptions | None
+    SortOrder: SortOrder | None
+    NameContains: WorkteamName | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-Workteams = List[Workteam]
+Workteams = list[Workteam]
 
 
 class ListWorkteamsResponse(TypedDict, total=False):
     Workteams: Workteams
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class Model(TypedDict, total=False):
@@ -16207,36 +16902,36 @@ class Model(TypedDict, total=False):
     API.
     """
 
-    ModelName: Optional[ModelName]
-    PrimaryContainer: Optional[ContainerDefinition]
-    Containers: Optional[ContainerDefinitionList]
-    InferenceExecutionConfig: Optional[InferenceExecutionConfig]
-    ExecutionRoleArn: Optional[RoleArn]
-    VpcConfig: Optional[VpcConfig]
-    CreationTime: Optional[Timestamp]
-    ModelArn: Optional[ModelArn]
-    EnableNetworkIsolation: Optional[Boolean]
-    Tags: Optional[TagList]
-    DeploymentRecommendation: Optional[DeploymentRecommendation]
+    ModelName: ModelName | None
+    PrimaryContainer: ContainerDefinition | None
+    Containers: ContainerDefinitionList | None
+    InferenceExecutionConfig: InferenceExecutionConfig | None
+    ExecutionRoleArn: RoleArn | None
+    VpcConfig: VpcConfig | None
+    CreationTime: Timestamp | None
+    ModelArn: ModelArn | None
+    EnableNetworkIsolation: Boolean | None
+    Tags: TagList | None
+    DeploymentRecommendation: DeploymentRecommendation | None
 
 
 class ModelCard(TypedDict, total=False):
     """An Amazon SageMaker Model Card."""
 
-    ModelCardArn: Optional[ModelCardArn]
-    ModelCardName: Optional[EntityName]
-    ModelCardVersion: Optional[Integer]
-    Content: Optional[ModelCardContent]
-    ModelCardStatus: Optional[ModelCardStatus]
-    SecurityConfig: Optional[ModelCardSecurityConfig]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    Tags: Optional[TagList]
-    ModelId: Optional[String]
-    RiskRating: Optional[String]
-    ModelPackageGroupName: Optional[String]
+    ModelCardArn: ModelCardArn | None
+    ModelCardName: EntityName | None
+    ModelCardVersion: Integer | None
+    Content: ModelCardContent | None
+    ModelCardStatus: ModelCardStatus | None
+    SecurityConfig: ModelCardSecurityConfig | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    Tags: TagList | None
+    ModelId: String | None
+    RiskRating: String | None
+    ModelPackageGroupName: String | None
 
 
 class ModelDashboardEndpoint(TypedDict, total=False):
@@ -16251,7 +16946,7 @@ class ModelDashboardEndpoint(TypedDict, total=False):
     EndpointStatus: EndpointStatus
 
 
-ModelDashboardEndpoints = List[ModelDashboardEndpoint]
+ModelDashboardEndpoints = list[ModelDashboardEndpoint]
 
 
 class ModelDashboardModelCard(TypedDict, total=False):
@@ -16259,18 +16954,18 @@ class ModelDashboardModelCard(TypedDict, total=False):
     Dashboard.
     """
 
-    ModelCardArn: Optional[ModelCardArn]
-    ModelCardName: Optional[EntityName]
-    ModelCardVersion: Optional[Integer]
-    ModelCardStatus: Optional[ModelCardStatus]
-    SecurityConfig: Optional[ModelCardSecurityConfig]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    Tags: Optional[TagList]
-    ModelId: Optional[String]
-    RiskRating: Optional[String]
+    ModelCardArn: ModelCardArn | None
+    ModelCardName: EntityName | None
+    ModelCardVersion: Integer | None
+    ModelCardStatus: ModelCardStatus | None
+    SecurityConfig: ModelCardSecurityConfig | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    Tags: TagList | None
+    ModelId: String | None
+    RiskRating: String | None
 
 
 class ModelDashboardMonitoringSchedule(TypedDict, total=False):
@@ -16278,21 +16973,21 @@ class ModelDashboardMonitoringSchedule(TypedDict, total=False):
     Model Dashboard.
     """
 
-    MonitoringScheduleArn: Optional[MonitoringScheduleArn]
-    MonitoringScheduleName: Optional[MonitoringScheduleName]
-    MonitoringScheduleStatus: Optional[ScheduleStatus]
-    MonitoringType: Optional[MonitoringType]
-    FailureReason: Optional[FailureReason]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    MonitoringScheduleConfig: Optional[MonitoringScheduleConfig]
-    EndpointName: Optional[EndpointName]
-    MonitoringAlertSummaries: Optional[MonitoringAlertSummaryList]
-    LastMonitoringExecutionSummary: Optional[MonitoringExecutionSummary]
-    BatchTransformInput: Optional[BatchTransformInput]
+    MonitoringScheduleArn: MonitoringScheduleArn | None
+    MonitoringScheduleName: MonitoringScheduleName | None
+    MonitoringScheduleStatus: ScheduleStatus | None
+    MonitoringType: MonitoringType | None
+    FailureReason: FailureReason | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    MonitoringScheduleConfig: MonitoringScheduleConfig | None
+    EndpointName: EndpointName | None
+    MonitoringAlertSummaries: MonitoringAlertSummaryList | None
+    LastMonitoringExecutionSummary: MonitoringExecutionSummary | None
+    BatchTransformInput: BatchTransformInput | None
 
 
-ModelDashboardMonitoringSchedules = List[ModelDashboardMonitoringSchedule]
+ModelDashboardMonitoringSchedules = list[ModelDashboardMonitoringSchedule]
 
 
 class TransformJob(TypedDict, total=False):
@@ -16301,38 +16996,38 @@ class TransformJob(TypedDict, total=False):
     Transform <https://docs.aws.amazon.com/sagemaker/latest/dg/batch-transform.html>`__.
     """
 
-    TransformJobName: Optional[TransformJobName]
-    TransformJobArn: Optional[TransformJobArn]
-    TransformJobStatus: Optional[TransformJobStatus]
-    FailureReason: Optional[FailureReason]
-    ModelName: Optional[ModelName]
-    MaxConcurrentTransforms: Optional[MaxConcurrentTransforms]
-    ModelClientConfig: Optional[ModelClientConfig]
-    MaxPayloadInMB: Optional[MaxPayloadInMB]
-    BatchStrategy: Optional[BatchStrategy]
-    Environment: Optional[TransformEnvironmentMap]
-    TransformInput: Optional[TransformInput]
-    TransformOutput: Optional[TransformOutput]
-    DataCaptureConfig: Optional[BatchDataCaptureConfig]
-    TransformResources: Optional[TransformResources]
-    CreationTime: Optional[Timestamp]
-    TransformStartTime: Optional[Timestamp]
-    TransformEndTime: Optional[Timestamp]
-    LabelingJobArn: Optional[LabelingJobArn]
-    AutoMLJobArn: Optional[AutoMLJobArn]
-    DataProcessing: Optional[DataProcessing]
-    ExperimentConfig: Optional[ExperimentConfig]
-    Tags: Optional[TagList]
+    TransformJobName: TransformJobName | None
+    TransformJobArn: TransformJobArn | None
+    TransformJobStatus: TransformJobStatus | None
+    FailureReason: FailureReason | None
+    ModelName: ModelName | None
+    MaxConcurrentTransforms: MaxConcurrentTransforms | None
+    ModelClientConfig: ModelClientConfig | None
+    MaxPayloadInMB: MaxPayloadInMB | None
+    BatchStrategy: BatchStrategy | None
+    Environment: TransformEnvironmentMap | None
+    TransformInput: TransformInput | None
+    TransformOutput: TransformOutput | None
+    DataCaptureConfig: BatchDataCaptureConfig | None
+    TransformResources: TransformResources | None
+    CreationTime: Timestamp | None
+    TransformStartTime: Timestamp | None
+    TransformEndTime: Timestamp | None
+    LabelingJobArn: LabelingJobArn | None
+    AutoMLJobArn: AutoMLJobArn | None
+    DataProcessing: DataProcessing | None
+    ExperimentConfig: ExperimentConfig | None
+    Tags: TagList | None
 
 
 class ModelDashboardModel(TypedDict, total=False):
     """A model displayed in the Amazon SageMaker Model Dashboard."""
 
-    Model: Optional[Model]
-    Endpoints: Optional[ModelDashboardEndpoints]
-    LastBatchTransformJob: Optional[TransformJob]
-    MonitoringSchedules: Optional[ModelDashboardMonitoringSchedules]
-    ModelCard: Optional[ModelDashboardModelCard]
+    Model: Model | None
+    Endpoints: ModelDashboardEndpoints | None
+    LastBatchTransformJob: TransformJob | None
+    MonitoringSchedules: ModelDashboardMonitoringSchedules | None
+    ModelCard: ModelDashboardModelCard | None
 
 
 class ModelPackage(TypedDict, total=False):
@@ -16350,52 +17045,53 @@ class ModelPackage(TypedDict, total=False):
     .
     """
 
-    ModelPackageName: Optional[EntityName]
-    ModelPackageGroupName: Optional[EntityName]
-    ModelPackageVersion: Optional[ModelPackageVersion]
-    ModelPackageArn: Optional[ModelPackageArn]
-    ModelPackageDescription: Optional[EntityDescription]
-    CreationTime: Optional[CreationTime]
-    InferenceSpecification: Optional[InferenceSpecification]
-    SourceAlgorithmSpecification: Optional[SourceAlgorithmSpecification]
-    ValidationSpecification: Optional[ModelPackageValidationSpecification]
-    ModelPackageStatus: Optional[ModelPackageStatus]
-    ModelPackageStatusDetails: Optional[ModelPackageStatusDetails]
-    CertifyForMarketplace: Optional[CertifyForMarketplace]
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
-    CreatedBy: Optional[UserContext]
-    MetadataProperties: Optional[MetadataProperties]
-    ModelMetrics: Optional[ModelMetrics]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    ApprovalDescription: Optional[ApprovalDescription]
-    Domain: Optional[String]
-    Task: Optional[String]
-    SamplePayloadUrl: Optional[String]
-    AdditionalInferenceSpecifications: Optional[AdditionalInferenceSpecifications]
-    SourceUri: Optional[ModelPackageSourceUri]
-    SecurityConfig: Optional[ModelPackageSecurityConfig]
-    ModelCard: Optional[ModelPackageModelCard]
-    ModelLifeCycle: Optional[ModelLifeCycle]
-    Tags: Optional[TagList]
-    CustomerMetadataProperties: Optional[CustomerMetadataMap]
-    DriftCheckBaselines: Optional[DriftCheckBaselines]
-    SkipModelValidation: Optional[SkipModelValidation]
+    ModelPackageName: EntityName | None
+    ModelPackageGroupName: EntityName | None
+    ModelPackageVersion: ModelPackageVersion | None
+    ModelPackageRegistrationType: ModelPackageRegistrationType | None
+    ModelPackageArn: ModelPackageArn | None
+    ModelPackageDescription: EntityDescription | None
+    CreationTime: CreationTime | None
+    InferenceSpecification: InferenceSpecification | None
+    SourceAlgorithmSpecification: SourceAlgorithmSpecification | None
+    ValidationSpecification: ModelPackageValidationSpecification | None
+    ModelPackageStatus: ModelPackageStatus | None
+    ModelPackageStatusDetails: ModelPackageStatusDetails | None
+    CertifyForMarketplace: CertifyForMarketplace | None
+    ModelApprovalStatus: ModelApprovalStatus | None
+    CreatedBy: UserContext | None
+    MetadataProperties: MetadataProperties | None
+    ModelMetrics: ModelMetrics | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    ApprovalDescription: ApprovalDescription | None
+    Domain: String | None
+    Task: String | None
+    SamplePayloadUrl: String | None
+    AdditionalInferenceSpecifications: AdditionalInferenceSpecifications | None
+    SourceUri: ModelPackageSourceUri | None
+    SecurityConfig: ModelPackageSecurityConfig | None
+    ModelCard: ModelPackageModelCard | None
+    ModelLifeCycle: ModelLifeCycle | None
+    Tags: TagList | None
+    CustomerMetadataProperties: CustomerMetadataMap | None
+    DriftCheckBaselines: DriftCheckBaselines | None
+    SkipModelValidation: SkipModelValidation | None
 
 
 class ModelPackageGroup(TypedDict, total=False):
     """A group of versioned models in the Model Registry."""
 
-    ModelPackageGroupName: Optional[EntityName]
-    ModelPackageGroupArn: Optional[ModelPackageGroupArn]
-    ModelPackageGroupDescription: Optional[EntityDescription]
-    CreationTime: Optional[CreationTime]
-    CreatedBy: Optional[UserContext]
-    ModelPackageGroupStatus: Optional[ModelPackageGroupStatus]
-    Tags: Optional[TagList]
+    ModelPackageGroupName: EntityName | None
+    ModelPackageGroupArn: ModelPackageGroupArn | None
+    ModelPackageGroupDescription: EntityDescription | None
+    CreationTime: CreationTime | None
+    CreatedBy: UserContext | None
+    ModelPackageGroupStatus: ModelPackageGroupStatus | None
+    Tags: TagList | None
 
 
-ModelVariantActionMap = Dict[ModelVariantName, ModelVariantAction]
+ModelVariantActionMap = dict[ModelVariantName, ModelVariantAction]
 
 
 class NestedFilters(TypedDict, total=False):
@@ -16419,13 +17115,13 @@ class NestedFilters(TypedDict, total=False):
     Filters: FilterList
 
 
-NestedFiltersList = List[NestedFilters]
+NestedFiltersList = list[NestedFilters]
 
 
 class OnlineStoreConfigUpdate(TypedDict, total=False):
     """Updates the feature group online store configuration."""
 
-    TtlDuration: Optional[TtlDuration]
+    TtlDuration: TtlDuration | None
 
 
 class Parent(TypedDict, total=False):
@@ -16434,66 +17130,66 @@ class Parent(TypedDict, total=False):
     A component can be associated with multiple trials.
     """
 
-    TrialName: Optional[ExperimentEntityName]
-    ExperimentName: Optional[ExperimentEntityName]
+    TrialName: ExperimentEntityName | None
+    ExperimentName: ExperimentEntityName | None
 
 
-Parents = List[Parent]
+Parents = list[Parent]
 
 
 class Pipeline(TypedDict, total=False):
     """A SageMaker Model Building Pipeline instance."""
 
-    PipelineArn: Optional[PipelineArn]
-    PipelineName: Optional[PipelineName]
-    PipelineDisplayName: Optional[PipelineName]
-    PipelineDescription: Optional[PipelineDescription]
-    RoleArn: Optional[RoleArn]
-    PipelineStatus: Optional[PipelineStatus]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    LastRunTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedBy: Optional[UserContext]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
-    Tags: Optional[TagList]
+    PipelineArn: PipelineArn | None
+    PipelineName: PipelineName | None
+    PipelineDisplayName: PipelineName | None
+    PipelineDescription: PipelineDescription | None
+    RoleArn: RoleArn | None
+    PipelineStatus: PipelineStatus | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    LastRunTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedBy: UserContext | None
+    ParallelismConfiguration: ParallelismConfiguration | None
+    Tags: TagList | None
 
 
 class PipelineExecution(TypedDict, total=False):
     """An execution of a pipeline."""
 
-    PipelineArn: Optional[PipelineArn]
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
-    PipelineExecutionDisplayName: Optional[PipelineExecutionName]
-    PipelineExecutionStatus: Optional[PipelineExecutionStatus]
-    PipelineExecutionDescription: Optional[PipelineExecutionDescription]
-    PipelineExperimentConfig: Optional[PipelineExperimentConfig]
-    FailureReason: Optional[PipelineExecutionFailureReason]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedBy: Optional[UserContext]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
-    SelectiveExecutionConfig: Optional[SelectiveExecutionConfig]
-    PipelineParameters: Optional[ParameterList]
-    PipelineVersionId: Optional[PipelineVersionId]
-    PipelineVersionDisplayName: Optional[PipelineVersionName]
+    PipelineArn: PipelineArn | None
+    PipelineExecutionArn: PipelineExecutionArn | None
+    PipelineExecutionDisplayName: PipelineExecutionName | None
+    PipelineExecutionStatus: PipelineExecutionStatus | None
+    PipelineExecutionDescription: PipelineExecutionDescription | None
+    PipelineExperimentConfig: PipelineExperimentConfig | None
+    FailureReason: PipelineExecutionFailureReason | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedBy: UserContext | None
+    ParallelismConfiguration: ParallelismConfiguration | None
+    SelectiveExecutionConfig: SelectiveExecutionConfig | None
+    PipelineParameters: ParameterList | None
+    PipelineVersionId: PipelineVersionId | None
+    PipelineVersionDisplayName: PipelineVersionName | None
 
 
 class PipelineVersion(TypedDict, total=False):
     """The version of the pipeline."""
 
-    PipelineArn: Optional[PipelineArn]
-    PipelineVersionId: Optional[PipelineVersionId]
-    PipelineVersionDisplayName: Optional[PipelineVersionName]
-    PipelineVersionDescription: Optional[PipelineVersionDescription]
-    CreationTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedBy: Optional[UserContext]
-    LastExecutedPipelineExecutionArn: Optional[PipelineExecutionArn]
-    LastExecutedPipelineExecutionDisplayName: Optional[PipelineExecutionName]
-    LastExecutedPipelineExecutionStatus: Optional[PipelineExecutionStatus]
+    PipelineArn: PipelineArn | None
+    PipelineVersionId: PipelineVersionId | None
+    PipelineVersionDisplayName: PipelineVersionName | None
+    PipelineVersionDescription: PipelineVersionDescription | None
+    CreationTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedBy: UserContext | None
+    LastExecutedPipelineExecutionArn: PipelineExecutionArn | None
+    LastExecutedPipelineExecutionDisplayName: PipelineExecutionName | None
+    LastExecutedPipelineExecutionStatus: PipelineExecutionStatus | None
 
 
 class ProcessingJob(TypedDict, total=False):
@@ -16502,28 +17198,28 @@ class ProcessingJob(TypedDict, total=False):
     Models <https://docs.aws.amazon.com/sagemaker/latest/dg/processing-job.html>`__.
     """
 
-    ProcessingInputs: Optional[ProcessingInputs]
-    ProcessingOutputConfig: Optional[ProcessingOutputConfig]
-    ProcessingJobName: Optional[ProcessingJobName]
-    ProcessingResources: Optional[ProcessingResources]
-    StoppingCondition: Optional[ProcessingStoppingCondition]
-    AppSpecification: Optional[AppSpecification]
-    Environment: Optional[ProcessingEnvironmentMap]
-    NetworkConfig: Optional[NetworkConfig]
-    RoleArn: Optional[RoleArn]
-    ExperimentConfig: Optional[ExperimentConfig]
-    ProcessingJobArn: Optional[ProcessingJobArn]
-    ProcessingJobStatus: Optional[ProcessingJobStatus]
-    ExitMessage: Optional[ExitMessage]
-    FailureReason: Optional[FailureReason]
-    ProcessingEndTime: Optional[Timestamp]
-    ProcessingStartTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    CreationTime: Optional[Timestamp]
-    MonitoringScheduleArn: Optional[MonitoringScheduleArn]
-    AutoMLJobArn: Optional[AutoMLJobArn]
-    TrainingJobArn: Optional[TrainingJobArn]
-    Tags: Optional[TagList]
+    ProcessingInputs: ProcessingInputs | None
+    ProcessingOutputConfig: ProcessingOutputConfig | None
+    ProcessingJobName: ProcessingJobName | None
+    ProcessingResources: ProcessingResources | None
+    StoppingCondition: ProcessingStoppingCondition | None
+    AppSpecification: AppSpecification | None
+    Environment: ProcessingEnvironmentMap | None
+    NetworkConfig: NetworkConfig | None
+    RoleArn: RoleArn | None
+    ExperimentConfig: ExperimentConfig | None
+    ProcessingJobArn: ProcessingJobArn | None
+    ProcessingJobStatus: ProcessingJobStatus | None
+    ExitMessage: ExitMessage | None
+    FailureReason: FailureReason | None
+    ProcessingEndTime: Timestamp | None
+    ProcessingStartTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    CreationTime: Timestamp | None
+    MonitoringScheduleArn: MonitoringScheduleArn | None
+    AutoMLJobArn: AutoMLJobArn | None
+    TrainingJobArn: TrainingJobArn | None
+    Tags: TagList | None
 
 
 class ProfilerConfigForUpdate(TypedDict, total=False):
@@ -16532,28 +17228,28 @@ class ProfilerConfigForUpdate(TypedDict, total=False):
     storage paths.
     """
 
-    S3OutputPath: Optional[S3Uri]
-    ProfilingIntervalInMilliseconds: Optional[ProfilingIntervalInMilliseconds]
-    ProfilingParameters: Optional[ProfilingParameters]
-    DisableProfiler: Optional[DisableProfiler]
+    S3OutputPath: S3Uri | None
+    ProfilingIntervalInMilliseconds: ProfilingIntervalInMilliseconds | None
+    ProfilingParameters: ProfilingParameters | None
+    DisableProfiler: DisableProfiler | None
 
 
 class Project(TypedDict, total=False):
     """The properties of a project as returned by the Search API."""
 
-    ProjectArn: Optional[ProjectArn]
-    ProjectName: Optional[ProjectEntityName]
-    ProjectId: Optional[ProjectId]
-    ProjectDescription: Optional[EntityDescription]
-    ServiceCatalogProvisioningDetails: Optional[ServiceCatalogProvisioningDetails]
-    ServiceCatalogProvisionedProductDetails: Optional[ServiceCatalogProvisionedProductDetails]
-    ProjectStatus: Optional[ProjectStatus]
-    CreatedBy: Optional[UserContext]
-    CreationTime: Optional[Timestamp]
-    TemplateProviderDetails: Optional[TemplateProviderDetailList]
-    Tags: Optional[TagList]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
+    ProjectArn: ProjectArn | None
+    ProjectName: ProjectEntityName | None
+    ProjectId: ProjectId | None
+    ProjectDescription: EntityDescription | None
+    ServiceCatalogProvisioningDetails: ServiceCatalogProvisioningDetails | None
+    ServiceCatalogProvisionedProductDetails: ServiceCatalogProvisionedProductDetails | None
+    ProjectStatus: ProjectStatus | None
+    CreatedBy: UserContext | None
+    CreationTime: Timestamp | None
+    TemplateProviderDetails: TemplateProviderDetailList | None
+    Tags: TagList | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
 
 
 class PutModelPackageGroupPolicyInput(ServiceRequest):
@@ -16565,9 +17261,9 @@ class PutModelPackageGroupPolicyOutput(TypedDict, total=False):
     ModelPackageGroupArn: ModelPackageGroupArn
 
 
-QueryProperties = Dict[String256, String256]
-QueryLineageTypes = List[LineageType]
-QueryTypes = List[String40]
+QueryProperties = dict[String256, String256]
+QueryLineageTypes = list[LineageType]
+QueryTypes = list[String40]
 
 
 class QueryFilters(TypedDict, total=False):
@@ -16575,49 +17271,49 @@ class QueryFilters(TypedDict, total=False):
     ``StartArn`` (s) returned by the ``QueryLineage`` API action.
     """
 
-    Types: Optional[QueryTypes]
-    LineageTypes: Optional[QueryLineageTypes]
-    CreatedBefore: Optional[Timestamp]
-    CreatedAfter: Optional[Timestamp]
-    ModifiedBefore: Optional[Timestamp]
-    ModifiedAfter: Optional[Timestamp]
-    Properties: Optional[QueryProperties]
+    Types: QueryTypes | None
+    LineageTypes: QueryLineageTypes | None
+    CreatedBefore: Timestamp | None
+    CreatedAfter: Timestamp | None
+    ModifiedBefore: Timestamp | None
+    ModifiedAfter: Timestamp | None
+    Properties: QueryProperties | None
 
 
-QueryLineageStartArns = List[AssociationEntityArn]
+QueryLineageStartArns = list[AssociationEntityArn]
 
 
 class QueryLineageRequest(ServiceRequest):
-    StartArns: Optional[QueryLineageStartArns]
-    Direction: Optional[Direction]
-    IncludeEdges: Optional[Boolean]
-    Filters: Optional[QueryFilters]
-    MaxDepth: Optional[QueryLineageMaxDepth]
-    MaxResults: Optional[QueryLineageMaxResults]
-    NextToken: Optional[String8192]
+    StartArns: QueryLineageStartArns | None
+    Direction: Direction | None
+    IncludeEdges: Boolean | None
+    Filters: QueryFilters | None
+    MaxDepth: QueryLineageMaxDepth | None
+    MaxResults: QueryLineageMaxResults | None
+    NextToken: String8192 | None
 
 
 class Vertex(TypedDict, total=False):
     """A lineage entity connected to the starting entity(ies)."""
 
-    Arn: Optional[AssociationEntityArn]
-    Type: Optional[String40]
-    LineageType: Optional[LineageType]
+    Arn: AssociationEntityArn | None
+    Type: String40 | None
+    LineageType: LineageType | None
 
 
-Vertices = List[Vertex]
+Vertices = list[Vertex]
 
 
 class QueryLineageResponse(TypedDict, total=False):
-    Vertices: Optional[Vertices]
-    Edges: Optional[Edges]
-    NextToken: Optional[String8192]
+    Vertices: Vertices | None
+    Edges: Edges | None
+    NextToken: String8192 | None
 
 
 class RegisterDevicesRequest(ServiceRequest):
     DeviceFleetName: EntityName
     Devices: Devices
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class RemoteDebugConfigForUpdate(TypedDict, total=False):
@@ -16629,7 +17325,7 @@ class RemoteDebugConfigForUpdate(TypedDict, total=False):
     debugging <https://docs.aws.amazon.com/sagemaker/latest/dg/train-remote-debugging.html>`__.
     """
 
-    EnableRemoteDebug: Optional[EnableRemoteDebug]
+    EnableRemoteDebug: EnableRemoteDebug | None
 
 
 class RenderableTask(TypedDict, total=False):
@@ -16639,10 +17335,10 @@ class RenderableTask(TypedDict, total=False):
 
 
 class RenderUiTemplateRequest(ServiceRequest):
-    UiTemplate: Optional[UiTemplate]
+    UiTemplate: UiTemplate | None
     Task: RenderableTask
     RoleArn: RoleArn
-    HumanTaskUiArn: Optional[HumanTaskUiArn]
+    HumanTaskUiArn: HumanTaskUiArn | None
 
 
 class RenderingError(TypedDict, total=False):
@@ -16652,7 +17348,7 @@ class RenderingError(TypedDict, total=False):
     Message: String
 
 
-RenderingErrorList = List[RenderingError]
+RenderingErrorList = list[RenderingError]
 
 
 class RenderUiTemplateResponse(TypedDict, total=False):
@@ -16668,19 +17364,19 @@ class ReservedCapacityOffering(TypedDict, total=False):
     ``CreateTrainingPlan``.
     """
 
-    ReservedCapacityType: Optional[ReservedCapacityType]
-    UltraServerType: Optional[UltraServerType]
-    UltraServerCount: Optional[UltraServerCount]
+    ReservedCapacityType: ReservedCapacityType | None
+    UltraServerType: UltraServerType | None
+    UltraServerCount: UltraServerCount | None
     InstanceType: ReservedCapacityInstanceType
     InstanceCount: ReservedCapacityInstanceCount
-    AvailabilityZone: Optional[AvailabilityZone]
-    DurationHours: Optional[ReservedCapacityDurationHours]
-    DurationMinutes: Optional[ReservedCapacityDurationMinutes]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
+    AvailabilityZone: AvailabilityZone | None
+    DurationHours: ReservedCapacityDurationHours | None
+    DurationMinutes: ReservedCapacityDurationMinutes | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
 
 
-ReservedCapacityOfferings = List[ReservedCapacityOffering]
+ReservedCapacityOfferings = list[ReservedCapacityOffering]
 
 
 class ResourceConfigForUpdate(TypedDict, total=False):
@@ -16694,11 +17390,11 @@ class ResourceConfigForUpdate(TypedDict, total=False):
 class RetryPipelineExecutionRequest(ServiceRequest):
     PipelineExecutionArn: PipelineExecutionArn
     ClientRequestToken: IdempotencyToken
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
+    ParallelismConfiguration: ParallelismConfiguration | None
 
 
 class RetryPipelineExecutionResponse(TypedDict, total=False):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineExecutionArn: PipelineExecutionArn | None
 
 
 class SearchExpression(TypedDict, total=False):
@@ -16725,56 +17421,58 @@ class SearchExpression(TypedDict, total=False):
     -  A Boolean operator: ``And`` or ``Or``.
     """
 
-    Filters: Optional["FilterList"]
-    NestedFilters: Optional["NestedFiltersList"]
-    SubExpressions: Optional["SearchExpressionList"]
-    Operator: Optional["BooleanOperator"]
+    Filters: "FilterList | None"
+    NestedFilters: "NestedFiltersList | None"
+    SubExpressions: "SearchExpressionList | None"
+    Operator: "BooleanOperator | None"
 
 
-SearchExpressionList = List[SearchExpression]
+SearchExpressionList = list[SearchExpression]
 
 
 class TrainingJob(TypedDict, total=False):
     """Contains information about a training job."""
 
-    TrainingJobName: Optional[TrainingJobName]
-    TrainingJobArn: Optional[TrainingJobArn]
-    TuningJobArn: Optional[HyperParameterTuningJobArn]
-    LabelingJobArn: Optional[LabelingJobArn]
-    AutoMLJobArn: Optional[AutoMLJobArn]
-    ModelArtifacts: Optional[ModelArtifacts]
-    TrainingJobStatus: Optional[TrainingJobStatus]
-    SecondaryStatus: Optional[SecondaryStatus]
-    FailureReason: Optional[FailureReason]
-    HyperParameters: Optional[HyperParameters]
-    AlgorithmSpecification: Optional[AlgorithmSpecification]
-    RoleArn: Optional[RoleArn]
-    InputDataConfig: Optional[InputDataConfig]
-    OutputDataConfig: Optional[OutputDataConfig]
-    ResourceConfig: Optional[ResourceConfig]
-    VpcConfig: Optional[VpcConfig]
-    StoppingCondition: Optional[StoppingCondition]
-    CreationTime: Optional[Timestamp]
-    TrainingStartTime: Optional[Timestamp]
-    TrainingEndTime: Optional[Timestamp]
-    LastModifiedTime: Optional[Timestamp]
-    SecondaryStatusTransitions: Optional[SecondaryStatusTransitions]
-    FinalMetricDataList: Optional[FinalMetricDataList]
-    EnableNetworkIsolation: Optional[Boolean]
-    EnableInterContainerTrafficEncryption: Optional[Boolean]
-    EnableManagedSpotTraining: Optional[Boolean]
-    CheckpointConfig: Optional[CheckpointConfig]
-    TrainingTimeInSeconds: Optional[TrainingTimeInSeconds]
-    BillableTimeInSeconds: Optional[BillableTimeInSeconds]
-    DebugHookConfig: Optional[DebugHookConfig]
-    ExperimentConfig: Optional[ExperimentConfig]
-    DebugRuleConfigurations: Optional[DebugRuleConfigurations]
-    TensorBoardOutputConfig: Optional[TensorBoardOutputConfig]
-    DebugRuleEvaluationStatuses: Optional[DebugRuleEvaluationStatuses]
-    ProfilerConfig: Optional[ProfilerConfig]
-    Environment: Optional[TrainingEnvironmentMap]
-    RetryStrategy: Optional[RetryStrategy]
-    Tags: Optional[TagList]
+    TrainingJobName: TrainingJobName | None
+    TrainingJobArn: TrainingJobArn | None
+    TuningJobArn: HyperParameterTuningJobArn | None
+    LabelingJobArn: LabelingJobArn | None
+    AutoMLJobArn: AutoMLJobArn | None
+    ModelArtifacts: ModelArtifacts | None
+    TrainingJobStatus: TrainingJobStatus | None
+    SecondaryStatus: SecondaryStatus | None
+    FailureReason: FailureReason | None
+    HyperParameters: HyperParameters | None
+    AlgorithmSpecification: AlgorithmSpecification | None
+    RoleArn: RoleArn | None
+    InputDataConfig: InputDataConfig | None
+    OutputDataConfig: OutputDataConfig | None
+    ResourceConfig: ResourceConfig | None
+    VpcConfig: VpcConfig | None
+    StoppingCondition: StoppingCondition | None
+    CreationTime: Timestamp | None
+    TrainingStartTime: Timestamp | None
+    TrainingEndTime: Timestamp | None
+    LastModifiedTime: Timestamp | None
+    SecondaryStatusTransitions: SecondaryStatusTransitions | None
+    FinalMetricDataList: FinalMetricDataList | None
+    EnableNetworkIsolation: Boolean | None
+    EnableInterContainerTrafficEncryption: Boolean | None
+    EnableManagedSpotTraining: Boolean | None
+    CheckpointConfig: CheckpointConfig | None
+    TrainingTimeInSeconds: TrainingTimeInSeconds | None
+    BillableTimeInSeconds: BillableTimeInSeconds | None
+    DebugHookConfig: DebugHookConfig | None
+    ExperimentConfig: ExperimentConfig | None
+    DebugRuleConfigurations: DebugRuleConfigurations | None
+    TensorBoardOutputConfig: TensorBoardOutputConfig | None
+    DebugRuleEvaluationStatuses: DebugRuleEvaluationStatuses | None
+    OutputModelPackageArn: ModelPackageArn | None
+    ModelPackageConfig: ModelPackageConfig | None
+    ProfilerConfig: ProfilerConfig | None
+    Environment: TrainingEnvironmentMap | None
+    RetryStrategy: RetryStrategy | None
+    Tags: TagList | None
 
 
 class TrialComponentSourceDetail(TypedDict, total=False):
@@ -16782,10 +17480,10 @@ class TrialComponentSourceDetail(TypedDict, total=False):
     ``ProcessingJob`` or ``TrainingJob`` is returned.
     """
 
-    SourceArn: Optional[TrialComponentSourceArn]
-    TrainingJob: Optional[TrainingJob]
-    ProcessingJob: Optional[ProcessingJob]
-    TransformJob: Optional[TransformJob]
+    SourceArn: TrialComponentSourceArn | None
+    TrainingJob: TrainingJob | None
+    ProcessingJob: ProcessingJob | None
+    TransformJob: TransformJob | None
 
 
 class TrialComponent(TypedDict, total=False):
@@ -16794,40 +17492,40 @@ class TrialComponent(TypedDict, total=False):
     API.
     """
 
-    TrialComponentName: Optional[ExperimentEntityName]
-    DisplayName: Optional[ExperimentEntityName]
-    TrialComponentArn: Optional[TrialComponentArn]
-    Source: Optional[TrialComponentSource]
-    Status: Optional[TrialComponentStatus]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    Parameters: Optional[TrialComponentParameters]
-    InputArtifacts: Optional[TrialComponentArtifacts]
-    OutputArtifacts: Optional[TrialComponentArtifacts]
-    Metrics: Optional[TrialComponentMetricSummaries]
-    MetadataProperties: Optional[MetadataProperties]
-    SourceDetail: Optional[TrialComponentSourceDetail]
-    LineageGroupArn: Optional[LineageGroupArn]
-    Tags: Optional[TagList]
-    Parents: Optional[Parents]
-    RunName: Optional[ExperimentEntityName]
+    TrialComponentName: ExperimentEntityName | None
+    DisplayName: ExperimentEntityName | None
+    TrialComponentArn: TrialComponentArn | None
+    Source: TrialComponentSource | None
+    Status: TrialComponentStatus | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    Parameters: TrialComponentParameters | None
+    InputArtifacts: TrialComponentArtifacts | None
+    OutputArtifacts: TrialComponentArtifacts | None
+    Metrics: TrialComponentMetricSummaries | None
+    MetadataProperties: MetadataProperties | None
+    SourceDetail: TrialComponentSourceDetail | None
+    LineageGroupArn: LineageGroupArn | None
+    Tags: TagList | None
+    Parents: Parents | None
+    RunName: ExperimentEntityName | None
 
 
 class TrialComponentSimpleSummary(TypedDict, total=False):
     """A short summary of a trial component."""
 
-    TrialComponentName: Optional[ExperimentEntityName]
-    TrialComponentArn: Optional[TrialComponentArn]
-    TrialComponentSource: Optional[TrialComponentSource]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
+    TrialComponentName: ExperimentEntityName | None
+    TrialComponentArn: TrialComponentArn | None
+    TrialComponentSource: TrialComponentSource | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
 
 
-TrialComponentSimpleSummaries = List[TrialComponentSimpleSummary]
+TrialComponentSimpleSummaries = list[TrialComponentSimpleSummary]
 
 
 class Trial(TypedDict, total=False):
@@ -16836,18 +17534,18 @@ class Trial(TypedDict, total=False):
     API.
     """
 
-    TrialName: Optional[ExperimentEntityName]
-    TrialArn: Optional[TrialArn]
-    DisplayName: Optional[ExperimentEntityName]
-    ExperimentName: Optional[ExperimentEntityName]
-    Source: Optional[TrialSource]
-    CreationTime: Optional[Timestamp]
-    CreatedBy: Optional[UserContext]
-    LastModifiedTime: Optional[Timestamp]
-    LastModifiedBy: Optional[UserContext]
-    MetadataProperties: Optional[MetadataProperties]
-    Tags: Optional[TagList]
-    TrialComponentSummaries: Optional[TrialComponentSimpleSummaries]
+    TrialName: ExperimentEntityName | None
+    TrialArn: TrialArn | None
+    DisplayName: ExperimentEntityName | None
+    ExperimentName: ExperimentEntityName | None
+    Source: TrialSource | None
+    CreationTime: Timestamp | None
+    CreatedBy: UserContext | None
+    LastModifiedTime: Timestamp | None
+    LastModifiedBy: UserContext | None
+    MetadataProperties: MetadataProperties | None
+    Tags: TagList | None
+    TrialComponentSummaries: TrialComponentSimpleSummaries | None
 
 
 class SearchRecord(TypedDict, total=False):
@@ -16856,22 +17554,22 @@ class SearchRecord(TypedDict, total=False):
     API response.
     """
 
-    TrainingJob: Optional[TrainingJob]
-    Experiment: Optional[Experiment]
-    Trial: Optional[Trial]
-    TrialComponent: Optional[TrialComponent]
-    Endpoint: Optional[Endpoint]
-    ModelPackage: Optional[ModelPackage]
-    ModelPackageGroup: Optional[ModelPackageGroup]
-    Pipeline: Optional[Pipeline]
-    PipelineExecution: Optional[PipelineExecution]
-    PipelineVersion: Optional[PipelineVersion]
-    FeatureGroup: Optional[FeatureGroup]
-    FeatureMetadata: Optional[FeatureMetadata]
-    Project: Optional[Project]
-    HyperParameterTuningJob: Optional[HyperParameterTuningJobSearchEntity]
-    ModelCard: Optional[ModelCard]
-    Model: Optional[ModelDashboardModel]
+    TrainingJob: TrainingJob | None
+    Experiment: Experiment | None
+    Trial: Trial | None
+    TrialComponent: TrialComponent | None
+    Endpoint: Endpoint | None
+    ModelPackage: ModelPackage | None
+    ModelPackageGroup: ModelPackageGroup | None
+    Pipeline: Pipeline | None
+    PipelineExecution: PipelineExecution | None
+    PipelineVersion: PipelineVersion | None
+    FeatureGroup: FeatureGroup | None
+    FeatureMetadata: FeatureMetadata | None
+    Project: Project | None
+    HyperParameterTuningJob: HyperParameterTuningJobSearchEntity | None
+    ModelCard: ModelCard | None
+    Model: ModelDashboardModel | None
 
 
 class VisibilityConditions(TypedDict, total=False):
@@ -16884,22 +17582,22 @@ class VisibilityConditions(TypedDict, total=False):
     search response.
     """
 
-    Key: Optional[VisibilityConditionsKey]
-    Value: Optional[VisibilityConditionsValue]
+    Key: VisibilityConditionsKey | None
+    Value: VisibilityConditionsValue | None
 
 
-VisibilityConditionsList = List[VisibilityConditions]
+VisibilityConditionsList = list[VisibilityConditions]
 
 
 class SearchRequest(ServiceRequest):
     Resource: ResourceType
-    SearchExpression: Optional[SearchExpression]
-    SortBy: Optional[ResourcePropertyName]
-    SortOrder: Optional[SearchSortOrder]
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    CrossAccountFilterOption: Optional[CrossAccountFilterOption]
-    VisibilityConditions: Optional[VisibilityConditionsList]
+    SearchExpression: SearchExpression | None
+    SortBy: ResourcePropertyName | None
+    SortOrder: SearchSortOrder | None
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    CrossAccountFilterOption: CrossAccountFilterOption | None
+    VisibilityConditions: VisibilityConditionsList | None
 
 
 class TotalHits(TypedDict, total=False):
@@ -16912,29 +17610,29 @@ class TotalHits(TypedDict, total=False):
     especially when dealing with large result sets.
     """
 
-    Value: Optional[Long]
-    Relation: Optional[Relation]
+    Value: Long | None
+    Relation: Relation | None
 
 
-SearchResultsList = List[SearchRecord]
+SearchResultsList = list[SearchRecord]
 
 
 class SearchResponse(TypedDict, total=False):
-    Results: Optional[SearchResultsList]
-    NextToken: Optional[NextToken]
-    TotalHits: Optional[TotalHits]
+    Results: SearchResultsList | None
+    NextToken: NextToken | None
+    TotalHits: TotalHits | None
 
 
 TrainingPlanDurationHoursInput = int
 
 
 class SearchTrainingPlanOfferingsRequest(ServiceRequest):
-    InstanceType: Optional[ReservedCapacityInstanceType]
-    InstanceCount: Optional[ReservedCapacityInstanceCount]
-    UltraServerType: Optional[UltraServerType]
-    UltraServerCount: Optional[UltraServerCount]
-    StartTimeAfter: Optional[Timestamp]
-    EndTimeBefore: Optional[Timestamp]
+    InstanceType: ReservedCapacityInstanceType | None
+    InstanceCount: ReservedCapacityInstanceCount | None
+    UltraServerType: UltraServerType | None
+    UltraServerCount: UltraServerCount | None
+    StartTimeAfter: Timestamp | None
+    EndTimeBefore: Timestamp | None
     DurationHours: TrainingPlanDurationHoursInput
     TargetResources: SageMakerResourceNames
 
@@ -16949,16 +17647,16 @@ class TrainingPlanOffering(TypedDict, total=False):
 
     TrainingPlanOfferingId: TrainingPlanOfferingId
     TargetResources: SageMakerResourceNames
-    RequestedStartTimeAfter: Optional[Timestamp]
-    RequestedEndTimeBefore: Optional[Timestamp]
-    DurationHours: Optional[TrainingPlanDurationHours]
-    DurationMinutes: Optional[TrainingPlanDurationMinutes]
-    UpfrontFee: Optional[String256]
-    CurrencyCode: Optional[CurrencyCode]
-    ReservedCapacityOfferings: Optional[ReservedCapacityOfferings]
+    RequestedStartTimeAfter: Timestamp | None
+    RequestedEndTimeBefore: Timestamp | None
+    DurationHours: TrainingPlanDurationHours | None
+    DurationMinutes: TrainingPlanDurationMinutes | None
+    UpfrontFee: String256 | None
+    CurrencyCode: CurrencyCode | None
+    ReservedCapacityOfferings: ReservedCapacityOfferings | None
 
 
-TrainingPlanOfferings = List[TrainingPlanOffering]
+TrainingPlanOfferings = list[TrainingPlanOffering]
 
 
 class SearchTrainingPlanOfferingsResponse(TypedDict, total=False):
@@ -16967,22 +17665,22 @@ class SearchTrainingPlanOfferingsResponse(TypedDict, total=False):
 
 class SendPipelineExecutionStepFailureRequest(ServiceRequest):
     CallbackToken: CallbackToken
-    FailureReason: Optional[String256]
-    ClientRequestToken: Optional[IdempotencyToken]
+    FailureReason: String256 | None
+    ClientRequestToken: IdempotencyToken | None
 
 
 class SendPipelineExecutionStepFailureResponse(TypedDict, total=False):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineExecutionArn: PipelineExecutionArn | None
 
 
 class SendPipelineExecutionStepSuccessRequest(ServiceRequest):
     CallbackToken: CallbackToken
-    OutputParameters: Optional[OutputParameterList]
-    ClientRequestToken: Optional[IdempotencyToken]
+    OutputParameters: OutputParameterList | None
+    ClientRequestToken: IdempotencyToken | None
 
 
 class SendPipelineExecutionStepSuccessResponse(TypedDict, total=False):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineExecutionArn: PipelineExecutionArn | None
 
 
 class ServiceCatalogProvisioningUpdateDetails(TypedDict, total=False):
@@ -16992,8 +17690,8 @@ class ServiceCatalogProvisioningUpdateDetails(TypedDict, total=False):
     Catalog <https://docs.aws.amazon.com/servicecatalog/latest/adminguide/introduction.html>`__.
     """
 
-    ProvisioningArtifactId: Optional[ServiceCatalogEntityId]
-    ProvisioningParameters: Optional[ProvisioningParameters]
+    ProvisioningArtifactId: ServiceCatalogEntityId | None
+    ProvisioningParameters: ProvisioningParameters | None
 
 
 class StartEdgeDeploymentStageRequest(ServiceRequest):
@@ -17014,7 +17712,7 @@ class StartMlflowTrackingServerRequest(ServiceRequest):
 
 
 class StartMlflowTrackingServerResponse(TypedDict, total=False):
-    TrackingServerArn: Optional[TrackingServerArn]
+    TrackingServerArn: TrackingServerArn | None
 
 
 class StartMonitoringScheduleRequest(ServiceRequest):
@@ -17027,17 +17725,18 @@ class StartNotebookInstanceInput(ServiceRequest):
 
 class StartPipelineExecutionRequest(ServiceRequest):
     PipelineName: PipelineNameOrArn
-    PipelineExecutionDisplayName: Optional[PipelineExecutionName]
-    PipelineParameters: Optional[ParameterList]
-    PipelineExecutionDescription: Optional[PipelineExecutionDescription]
+    PipelineExecutionDisplayName: PipelineExecutionName | None
+    PipelineParameters: ParameterList | None
+    PipelineExecutionDescription: PipelineExecutionDescription | None
     ClientRequestToken: IdempotencyToken
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
-    SelectiveExecutionConfig: Optional[SelectiveExecutionConfig]
-    PipelineVersionId: Optional[PipelineVersionId]
+    ParallelismConfiguration: ParallelismConfiguration | None
+    SelectiveExecutionConfig: SelectiveExecutionConfig | None
+    PipelineVersionId: PipelineVersionId | None
+    MlflowExperimentName: MlflowExperimentEntityName | None
 
 
 class StartPipelineExecutionResponse(TypedDict, total=False):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineExecutionArn: PipelineExecutionArn | None
 
 
 class StartSessionRequest(ServiceRequest):
@@ -17045,9 +17744,9 @@ class StartSessionRequest(ServiceRequest):
 
 
 class StartSessionResponse(TypedDict, total=False):
-    SessionId: Optional[SessionId]
-    StreamUrl: Optional[StreamUrl]
-    TokenValue: Optional[TokenValue]
+    SessionId: SessionId | None
+    StreamUrl: StreamUrl | None
+    TokenValue: TokenValue | None
 
 
 class StopAutoMLJobRequest(ServiceRequest):
@@ -17074,9 +17773,9 @@ class StopHyperParameterTuningJobRequest(ServiceRequest):
 class StopInferenceExperimentRequest(ServiceRequest):
     Name: InferenceExperimentName
     ModelVariantActions: ModelVariantActionMap
-    DesiredModelVariants: Optional[ModelVariantConfigList]
-    DesiredState: Optional[InferenceExperimentStopDesiredState]
-    Reason: Optional[InferenceExperimentStatusReason]
+    DesiredModelVariants: ModelVariantConfigList | None
+    DesiredState: InferenceExperimentStopDesiredState | None
+    Reason: InferenceExperimentStatusReason | None
 
 
 class StopInferenceExperimentResponse(TypedDict, total=False):
@@ -17096,7 +17795,7 @@ class StopMlflowTrackingServerRequest(ServiceRequest):
 
 
 class StopMlflowTrackingServerResponse(TypedDict, total=False):
-    TrackingServerArn: Optional[TrackingServerArn]
+    TrackingServerArn: TrackingServerArn | None
 
 
 class StopMonitoringScheduleRequest(ServiceRequest):
@@ -17117,7 +17816,7 @@ class StopPipelineExecutionRequest(ServiceRequest):
 
 
 class StopPipelineExecutionResponse(TypedDict, total=False):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineExecutionArn: PipelineExecutionArn | None
 
 
 class StopProcessingJobRequest(ServiceRequest):
@@ -17139,54 +17838,55 @@ class ThroughputConfigUpdate(TypedDict, total=False):
     to on-demand only once in a 24 hour period.
     """
 
-    ThroughputMode: Optional[ThroughputMode]
-    ProvisionedReadCapacityUnits: Optional[CapacityUnit]
-    ProvisionedWriteCapacityUnits: Optional[CapacityUnit]
+    ThroughputMode: ThroughputMode | None
+    ProvisionedReadCapacityUnits: CapacityUnit | None
+    ProvisionedWriteCapacityUnits: CapacityUnit | None
 
 
 class UpdateActionRequest(ServiceRequest):
     ActionName: ExperimentEntityName
-    Description: Optional[ExperimentDescription]
-    Status: Optional[ActionStatus]
-    Properties: Optional[LineageEntityParameters]
-    PropertiesToRemove: Optional[ListLineageEntityParameterKey]
+    Description: ExperimentDescription | None
+    Status: ActionStatus | None
+    Properties: LineageEntityParameters | None
+    PropertiesToRemove: ListLineageEntityParameterKey | None
 
 
 class UpdateActionResponse(TypedDict, total=False):
-    ActionArn: Optional[ActionArn]
+    ActionArn: ActionArn | None
 
 
 class UpdateAppImageConfigRequest(ServiceRequest):
     AppImageConfigName: AppImageConfigName
-    KernelGatewayImageConfig: Optional[KernelGatewayImageConfig]
-    JupyterLabAppImageConfig: Optional[JupyterLabAppImageConfig]
-    CodeEditorAppImageConfig: Optional[CodeEditorAppImageConfig]
+    KernelGatewayImageConfig: KernelGatewayImageConfig | None
+    JupyterLabAppImageConfig: JupyterLabAppImageConfig | None
+    CodeEditorAppImageConfig: CodeEditorAppImageConfig | None
 
 
 class UpdateAppImageConfigResponse(TypedDict, total=False):
-    AppImageConfigArn: Optional[AppImageConfigArn]
+    AppImageConfigArn: AppImageConfigArn | None
 
 
 class UpdateArtifactRequest(ServiceRequest):
     ArtifactArn: ArtifactArn
-    ArtifactName: Optional[ExperimentEntityName]
-    Properties: Optional[ArtifactProperties]
-    PropertiesToRemove: Optional[ListLineageEntityParameterKey]
+    ArtifactName: ExperimentEntityName | None
+    Properties: ArtifactProperties | None
+    PropertiesToRemove: ListLineageEntityParameterKey | None
 
 
 class UpdateArtifactResponse(TypedDict, total=False):
-    ArtifactArn: Optional[ArtifactArn]
+    ArtifactArn: ArtifactArn | None
 
 
 class UpdateClusterRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    InstanceGroups: Optional[ClusterInstanceGroupSpecifications]
-    RestrictedInstanceGroups: Optional[ClusterRestrictedInstanceGroupSpecifications]
-    TieredStorageConfig: Optional[ClusterTieredStorageConfig]
-    NodeRecovery: Optional[ClusterNodeRecovery]
-    InstanceGroupsToDelete: Optional[ClusterInstanceGroupsToDelete]
-    ClusterRole: Optional[RoleArn]
-    AutoScaling: Optional[ClusterAutoScalingConfig]
+    InstanceGroups: ClusterInstanceGroupSpecifications | None
+    RestrictedInstanceGroups: ClusterRestrictedInstanceGroupSpecifications | None
+    TieredStorageConfig: ClusterTieredStorageConfig | None
+    NodeRecovery: ClusterNodeRecovery | None
+    InstanceGroupsToDelete: ClusterInstanceGroupsToDelete | None
+    NodeProvisioningMode: ClusterNodeProvisioningMode | None
+    ClusterRole: RoleArn | None
+    AutoScaling: ClusterAutoScalingConfig | None
 
 
 class UpdateClusterResponse(TypedDict, total=False):
@@ -17196,8 +17896,8 @@ class UpdateClusterResponse(TypedDict, total=False):
 class UpdateClusterSchedulerConfigRequest(ServiceRequest):
     ClusterSchedulerConfigId: ClusterSchedulerConfigId
     TargetVersion: Integer
-    SchedulerConfig: Optional[SchedulerConfig]
-    Description: Optional[EntityDescription]
+    SchedulerConfig: SchedulerConfig | None
+    Description: EntityDescription | None
 
 
 class UpdateClusterSchedulerConfigResponse(TypedDict, total=False):
@@ -17213,14 +17913,14 @@ class UpdateClusterSoftwareInstanceGroupSpecification(TypedDict, total=False):
     InstanceGroupName: ClusterInstanceGroupName
 
 
-UpdateClusterSoftwareInstanceGroups = List[UpdateClusterSoftwareInstanceGroupSpecification]
+UpdateClusterSoftwareInstanceGroups = list[UpdateClusterSoftwareInstanceGroupSpecification]
 
 
 class UpdateClusterSoftwareRequest(ServiceRequest):
     ClusterName: ClusterNameOrArn
-    InstanceGroups: Optional[UpdateClusterSoftwareInstanceGroups]
-    DeploymentConfig: Optional[DeploymentConfiguration]
-    ImageId: Optional[ImageId]
+    InstanceGroups: UpdateClusterSoftwareInstanceGroups | None
+    DeploymentConfig: DeploymentConfiguration | None
+    ImageId: ImageId | None
 
 
 class UpdateClusterSoftwareResponse(TypedDict, total=False):
@@ -17229,7 +17929,7 @@ class UpdateClusterSoftwareResponse(TypedDict, total=False):
 
 class UpdateCodeRepositoryInput(ServiceRequest):
     CodeRepositoryName: EntityName
-    GitConfig: Optional[GitConfigForUpdate]
+    GitConfig: GitConfigForUpdate | None
 
 
 class UpdateCodeRepositoryOutput(TypedDict, total=False):
@@ -17239,10 +17939,10 @@ class UpdateCodeRepositoryOutput(TypedDict, total=False):
 class UpdateComputeQuotaRequest(ServiceRequest):
     ComputeQuotaId: ComputeQuotaId
     TargetVersion: Integer
-    ComputeQuotaConfig: Optional[ComputeQuotaConfig]
-    ComputeQuotaTarget: Optional[ComputeQuotaTarget]
-    ActivationState: Optional[ActivationState]
-    Description: Optional[EntityDescription]
+    ComputeQuotaConfig: ComputeQuotaConfig | None
+    ComputeQuotaTarget: ComputeQuotaTarget | None
+    ActivationState: ActivationState | None
+    Description: EntityDescription | None
 
 
 class UpdateComputeQuotaResponse(TypedDict, total=False):
@@ -17252,21 +17952,21 @@ class UpdateComputeQuotaResponse(TypedDict, total=False):
 
 class UpdateContextRequest(ServiceRequest):
     ContextName: ContextName
-    Description: Optional[ExperimentDescription]
-    Properties: Optional[LineageEntityParameters]
-    PropertiesToRemove: Optional[ListLineageEntityParameterKey]
+    Description: ExperimentDescription | None
+    Properties: LineageEntityParameters | None
+    PropertiesToRemove: ListLineageEntityParameterKey | None
 
 
 class UpdateContextResponse(TypedDict, total=False):
-    ContextArn: Optional[ContextArn]
+    ContextArn: ContextArn | None
 
 
 class UpdateDeviceFleetRequest(ServiceRequest):
     DeviceFleetName: EntityName
-    RoleArn: Optional[RoleArn]
-    Description: Optional[DeviceFleetDescription]
+    RoleArn: RoleArn | None
+    Description: DeviceFleetDescription | None
     OutputConfig: EdgeOutputConfig
-    EnableIotRoleAlias: Optional[EnableIotRoleAlias]
+    EnableIotRoleAlias: EnableIotRoleAlias | None
 
 
 class UpdateDevicesRequest(ServiceRequest):
@@ -17276,17 +17976,18 @@ class UpdateDevicesRequest(ServiceRequest):
 
 class UpdateDomainRequest(ServiceRequest):
     DomainId: DomainId
-    DefaultUserSettings: Optional[UserSettings]
-    DomainSettingsForUpdate: Optional[DomainSettingsForUpdate]
-    AppSecurityGroupManagement: Optional[AppSecurityGroupManagement]
-    DefaultSpaceSettings: Optional[DefaultSpaceSettings]
-    SubnetIds: Optional[Subnets]
-    AppNetworkAccessType: Optional[AppNetworkAccessType]
-    TagPropagation: Optional[TagPropagation]
+    DefaultUserSettings: UserSettings | None
+    DomainSettingsForUpdate: DomainSettingsForUpdate | None
+    AppSecurityGroupManagement: AppSecurityGroupManagement | None
+    DefaultSpaceSettings: DefaultSpaceSettings | None
+    SubnetIds: Subnets | None
+    AppNetworkAccessType: AppNetworkAccessType | None
+    TagPropagation: TagPropagation | None
+    VpcId: VpcId | None
 
 
 class UpdateDomainResponse(TypedDict, total=False):
-    DomainArn: Optional[DomainArn]
+    DomainArn: DomainArn | None
 
 
 class VariantProperty(TypedDict, total=False):
@@ -17304,16 +18005,16 @@ class VariantProperty(TypedDict, total=False):
     VariantPropertyType: VariantPropertyType
 
 
-VariantPropertyList = List[VariantProperty]
+VariantPropertyList = list[VariantProperty]
 
 
 class UpdateEndpointInput(ServiceRequest):
     EndpointName: EndpointName
     EndpointConfigName: EndpointConfigName
-    RetainAllVariantProperties: Optional[Boolean]
-    ExcludeRetainedVariantProperties: Optional[VariantPropertyList]
-    DeploymentConfig: Optional[DeploymentConfig]
-    RetainDeploymentConfig: Optional[Boolean]
+    RetainAllVariantProperties: Boolean | None
+    ExcludeRetainedVariantProperties: VariantPropertyList | None
+    DeploymentConfig: DeploymentConfig | None
+    RetainDeploymentConfig: Boolean | None
 
 
 class UpdateEndpointOutput(TypedDict, total=False):
@@ -17331,19 +18032,19 @@ class UpdateEndpointWeightsAndCapacitiesOutput(TypedDict, total=False):
 
 class UpdateExperimentRequest(ServiceRequest):
     ExperimentName: ExperimentEntityName
-    DisplayName: Optional[ExperimentEntityName]
-    Description: Optional[ExperimentDescription]
+    DisplayName: ExperimentEntityName | None
+    Description: ExperimentDescription | None
 
 
 class UpdateExperimentResponse(TypedDict, total=False):
-    ExperimentArn: Optional[ExperimentArn]
+    ExperimentArn: ExperimentArn | None
 
 
 class UpdateFeatureGroupRequest(ServiceRequest):
     FeatureGroupName: FeatureGroupNameOrArn
-    FeatureAdditions: Optional[FeatureAdditions]
-    OnlineStoreConfig: Optional[OnlineStoreConfigUpdate]
-    ThroughputConfig: Optional[ThroughputConfigUpdate]
+    FeatureAdditions: FeatureAdditions | None
+    OnlineStoreConfig: OnlineStoreConfigUpdate | None
+    ThroughputConfig: ThroughputConfigUpdate | None
 
 
 class UpdateFeatureGroupResponse(TypedDict, total=False):
@@ -17353,16 +18054,16 @@ class UpdateFeatureGroupResponse(TypedDict, total=False):
 class UpdateFeatureMetadataRequest(ServiceRequest):
     FeatureGroupName: FeatureGroupNameOrArn
     FeatureName: FeatureName
-    Description: Optional[FeatureDescription]
-    ParameterAdditions: Optional[FeatureParameterAdditions]
-    ParameterRemovals: Optional[FeatureParameterRemovals]
+    Description: FeatureDescription | None
+    ParameterAdditions: FeatureParameterAdditions | None
+    ParameterRemovals: FeatureParameterRemovals | None
 
 
 class UpdateHubContentReferenceRequest(ServiceRequest):
     HubName: HubNameOrArn
     HubContentName: HubContentName
     HubContentType: HubContentType
-    MinVersion: Optional[HubContentVersion]
+    MinVersion: HubContentVersion | None
 
 
 class UpdateHubContentReferenceResponse(TypedDict, total=False):
@@ -17375,11 +18076,11 @@ class UpdateHubContentRequest(ServiceRequest):
     HubContentName: HubContentName
     HubContentType: HubContentType
     HubContentVersion: HubContentVersion
-    HubContentDisplayName: Optional[HubContentDisplayName]
-    HubContentDescription: Optional[HubContentDescription]
-    HubContentMarkdown: Optional[HubContentMarkdown]
-    HubContentSearchKeywords: Optional[HubContentSearchKeywordList]
-    SupportStatus: Optional[HubContentSupportStatus]
+    HubContentDisplayName: HubContentDisplayName | None
+    HubContentDescription: HubContentDescription | None
+    HubContentMarkdown: HubContentMarkdown | None
+    HubContentSearchKeywords: HubContentSearchKeywordList | None
+    SupportStatus: HubContentSupportStatus | None
 
 
 class UpdateHubContentResponse(TypedDict, total=False):
@@ -17389,9 +18090,9 @@ class UpdateHubContentResponse(TypedDict, total=False):
 
 class UpdateHubRequest(ServiceRequest):
     HubName: HubNameOrArn
-    HubDescription: Optional[HubDescription]
-    HubDisplayName: Optional[HubDisplayName]
-    HubSearchKeywords: Optional[HubSearchKeywordList]
+    HubDescription: HubDescription | None
+    HubDisplayName: HubDisplayName | None
+    HubSearchKeywords: HubSearchKeywordList | None
 
 
 class UpdateHubResponse(TypedDict, total=False):
@@ -17399,41 +18100,41 @@ class UpdateHubResponse(TypedDict, total=False):
 
 
 class UpdateImageRequest(ServiceRequest):
-    DeleteProperties: Optional[ImageDeletePropertyList]
-    Description: Optional[ImageDescription]
-    DisplayName: Optional[ImageDisplayName]
+    DeleteProperties: ImageDeletePropertyList | None
+    Description: ImageDescription | None
+    DisplayName: ImageDisplayName | None
     ImageName: ImageName
-    RoleArn: Optional[RoleArn]
+    RoleArn: RoleArn | None
 
 
 class UpdateImageResponse(TypedDict, total=False):
-    ImageArn: Optional[ImageArn]
+    ImageArn: ImageArn | None
 
 
 class UpdateImageVersionRequest(ServiceRequest):
     ImageName: ImageName
-    Alias: Optional[SageMakerImageVersionAlias]
-    Version: Optional[ImageVersionNumber]
-    AliasesToAdd: Optional[SageMakerImageVersionAliases]
-    AliasesToDelete: Optional[SageMakerImageVersionAliases]
-    VendorGuidance: Optional[VendorGuidance]
-    JobType: Optional[JobType]
-    MLFramework: Optional[MLFramework]
-    ProgrammingLang: Optional[ProgrammingLang]
-    Processor: Optional[Processor]
-    Horovod: Optional[Horovod]
-    ReleaseNotes: Optional[ReleaseNotes]
+    Alias: SageMakerImageVersionAlias | None
+    Version: ImageVersionNumber | None
+    AliasesToAdd: SageMakerImageVersionAliases | None
+    AliasesToDelete: SageMakerImageVersionAliases | None
+    VendorGuidance: VendorGuidance | None
+    JobType: JobType | None
+    MLFramework: MLFramework | None
+    ProgrammingLang: ProgrammingLang | None
+    Processor: Processor | None
+    Horovod: Horovod | None
+    ReleaseNotes: ReleaseNotes | None
 
 
 class UpdateImageVersionResponse(TypedDict, total=False):
-    ImageVersionArn: Optional[ImageVersionArn]
+    ImageVersionArn: ImageVersionArn | None
 
 
 class UpdateInferenceComponentInput(ServiceRequest):
     InferenceComponentName: InferenceComponentName
-    Specification: Optional[InferenceComponentSpecification]
-    RuntimeConfig: Optional[InferenceComponentRuntimeConfig]
-    DeploymentConfig: Optional[InferenceComponentDeploymentConfig]
+    Specification: InferenceComponentSpecification | None
+    RuntimeConfig: InferenceComponentRuntimeConfig | None
+    DeploymentConfig: InferenceComponentDeploymentConfig | None
 
 
 class UpdateInferenceComponentOutput(TypedDict, total=False):
@@ -17451,33 +18152,47 @@ class UpdateInferenceComponentRuntimeConfigOutput(TypedDict, total=False):
 
 class UpdateInferenceExperimentRequest(ServiceRequest):
     Name: InferenceExperimentName
-    Schedule: Optional[InferenceExperimentSchedule]
-    Description: Optional[InferenceExperimentDescription]
-    ModelVariants: Optional[ModelVariantConfigList]
-    DataStorageConfig: Optional[InferenceExperimentDataStorageConfig]
-    ShadowModeConfig: Optional[ShadowModeConfig]
+    Schedule: InferenceExperimentSchedule | None
+    Description: InferenceExperimentDescription | None
+    ModelVariants: ModelVariantConfigList | None
+    DataStorageConfig: InferenceExperimentDataStorageConfig | None
+    ShadowModeConfig: ShadowModeConfig | None
 
 
 class UpdateInferenceExperimentResponse(TypedDict, total=False):
     InferenceExperimentArn: InferenceExperimentArn
 
 
+class UpdateMlflowAppRequest(ServiceRequest):
+    Arn: MlflowAppArn
+    Name: MlflowAppName | None
+    ArtifactStoreUri: S3Uri | None
+    ModelRegistrationMode: ModelRegistrationMode | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    DefaultDomainIdList: DefaultDomainIdList | None
+    AccountDefaultStatus: AccountDefaultStatus | None
+
+
+class UpdateMlflowAppResponse(TypedDict, total=False):
+    Arn: MlflowAppArn | None
+
+
 class UpdateMlflowTrackingServerRequest(ServiceRequest):
     TrackingServerName: TrackingServerName
-    ArtifactStoreUri: Optional[S3Uri]
-    TrackingServerSize: Optional[TrackingServerSize]
-    AutomaticModelRegistration: Optional[Boolean]
-    WeeklyMaintenanceWindowStart: Optional[WeeklyMaintenanceWindowStart]
+    ArtifactStoreUri: S3Uri | None
+    TrackingServerSize: TrackingServerSize | None
+    AutomaticModelRegistration: Boolean | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
 
 
 class UpdateMlflowTrackingServerResponse(TypedDict, total=False):
-    TrackingServerArn: Optional[TrackingServerArn]
+    TrackingServerArn: TrackingServerArn | None
 
 
 class UpdateModelCardRequest(ServiceRequest):
     ModelCardName: ModelCardNameOrArn
-    Content: Optional[ModelCardContent]
-    ModelCardStatus: Optional[ModelCardStatus]
+    Content: ModelCardContent | None
+    ModelCardStatus: ModelCardStatus | None
 
 
 class UpdateModelCardResponse(TypedDict, total=False):
@@ -17486,16 +18201,17 @@ class UpdateModelCardResponse(TypedDict, total=False):
 
 class UpdateModelPackageInput(ServiceRequest):
     ModelPackageArn: ModelPackageArn
-    ModelApprovalStatus: Optional[ModelApprovalStatus]
-    ApprovalDescription: Optional[ApprovalDescription]
-    CustomerMetadataProperties: Optional[CustomerMetadataMap]
-    CustomerMetadataPropertiesToRemove: Optional[CustomerMetadataKeyList]
-    AdditionalInferenceSpecificationsToAdd: Optional[AdditionalInferenceSpecifications]
-    InferenceSpecification: Optional[InferenceSpecification]
-    SourceUri: Optional[ModelPackageSourceUri]
-    ModelCard: Optional[ModelPackageModelCard]
-    ModelLifeCycle: Optional[ModelLifeCycle]
-    ClientToken: Optional[ClientToken]
+    ModelApprovalStatus: ModelApprovalStatus | None
+    ModelPackageRegistrationType: ModelPackageRegistrationType | None
+    ApprovalDescription: ApprovalDescription | None
+    CustomerMetadataProperties: CustomerMetadataMap | None
+    CustomerMetadataPropertiesToRemove: CustomerMetadataKeyList | None
+    AdditionalInferenceSpecificationsToAdd: AdditionalInferenceSpecifications | None
+    InferenceSpecification: InferenceSpecification | None
+    SourceUri: ModelPackageSourceUri | None
+    ModelCard: ModelPackageModelCard | None
+    ModelLifeCycle: ModelLifeCycle | None
+    ClientToken: ClientToken | None
 
 
 class UpdateModelPackageOutput(TypedDict, total=False):
@@ -17511,7 +18227,7 @@ class UpdateMonitoringAlertRequest(ServiceRequest):
 
 class UpdateMonitoringAlertResponse(TypedDict, total=False):
     MonitoringScheduleArn: MonitoringScheduleArn
-    MonitoringAlertName: Optional[MonitoringAlertName]
+    MonitoringAlertName: MonitoringAlertName | None
 
 
 class UpdateMonitoringScheduleRequest(ServiceRequest):
@@ -17525,26 +18241,27 @@ class UpdateMonitoringScheduleResponse(TypedDict, total=False):
 
 class UpdateNotebookInstanceInput(ServiceRequest):
     NotebookInstanceName: NotebookInstanceName
-    InstanceType: Optional[InstanceType]
-    IpAddressType: Optional[IPAddressType]
-    RoleArn: Optional[RoleArn]
-    LifecycleConfigName: Optional[NotebookInstanceLifecycleConfigName]
-    DisassociateLifecycleConfig: Optional[DisassociateNotebookInstanceLifecycleConfig]
-    VolumeSizeInGB: Optional[NotebookInstanceVolumeSizeInGB]
-    DefaultCodeRepository: Optional[CodeRepositoryNameOrUrl]
-    AdditionalCodeRepositories: Optional[AdditionalCodeRepositoryNamesOrUrls]
-    AcceleratorTypes: Optional[NotebookInstanceAcceleratorTypes]
-    DisassociateAcceleratorTypes: Optional[DisassociateNotebookInstanceAcceleratorTypes]
-    DisassociateDefaultCodeRepository: Optional[DisassociateDefaultCodeRepository]
-    DisassociateAdditionalCodeRepositories: Optional[DisassociateAdditionalCodeRepositories]
-    RootAccess: Optional[RootAccess]
-    InstanceMetadataServiceConfiguration: Optional[InstanceMetadataServiceConfiguration]
+    InstanceType: InstanceType | None
+    IpAddressType: IPAddressType | None
+    PlatformIdentifier: PlatformIdentifier | None
+    RoleArn: RoleArn | None
+    LifecycleConfigName: NotebookInstanceLifecycleConfigName | None
+    DisassociateLifecycleConfig: DisassociateNotebookInstanceLifecycleConfig | None
+    VolumeSizeInGB: NotebookInstanceVolumeSizeInGB | None
+    DefaultCodeRepository: CodeRepositoryNameOrUrl | None
+    AdditionalCodeRepositories: AdditionalCodeRepositoryNamesOrUrls | None
+    AcceleratorTypes: NotebookInstanceAcceleratorTypes | None
+    DisassociateAcceleratorTypes: DisassociateNotebookInstanceAcceleratorTypes | None
+    DisassociateDefaultCodeRepository: DisassociateDefaultCodeRepository | None
+    DisassociateAdditionalCodeRepositories: DisassociateAdditionalCodeRepositories | None
+    RootAccess: RootAccess | None
+    InstanceMetadataServiceConfiguration: InstanceMetadataServiceConfiguration | None
 
 
 class UpdateNotebookInstanceLifecycleConfigInput(ServiceRequest):
     NotebookInstanceLifecycleConfigName: NotebookInstanceLifecycleConfigName
-    OnCreate: Optional[NotebookInstanceLifecycleConfigList]
-    OnStart: Optional[NotebookInstanceLifecycleConfigList]
+    OnCreate: NotebookInstanceLifecycleConfigList | None
+    OnStart: NotebookInstanceLifecycleConfigList | None
 
 
 class UpdateNotebookInstanceLifecycleConfigOutput(TypedDict, total=False):
@@ -17557,54 +18274,56 @@ class UpdateNotebookInstanceOutput(TypedDict, total=False):
 
 class UpdatePartnerAppRequest(ServiceRequest):
     Arn: PartnerAppArn
-    MaintenanceConfig: Optional[PartnerAppMaintenanceConfig]
-    Tier: Optional[NonEmptyString64]
-    ApplicationConfig: Optional[PartnerAppConfig]
-    EnableIamSessionBasedIdentity: Optional[Boolean]
-    ClientToken: Optional[ClientToken]
-    Tags: Optional[TagList]
+    MaintenanceConfig: PartnerAppMaintenanceConfig | None
+    Tier: NonEmptyString64 | None
+    ApplicationConfig: PartnerAppConfig | None
+    EnableIamSessionBasedIdentity: Boolean | None
+    EnableAutoMinorVersionUpgrade: Boolean | None
+    AppVersion: MajorMinorVersion | None
+    ClientToken: ClientToken | None
+    Tags: TagList | None
 
 
 class UpdatePartnerAppResponse(TypedDict, total=False):
-    Arn: Optional[PartnerAppArn]
+    Arn: PartnerAppArn | None
 
 
 class UpdatePipelineExecutionRequest(ServiceRequest):
     PipelineExecutionArn: PipelineExecutionArn
-    PipelineExecutionDescription: Optional[PipelineExecutionDescription]
-    PipelineExecutionDisplayName: Optional[PipelineExecutionName]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
+    PipelineExecutionDescription: PipelineExecutionDescription | None
+    PipelineExecutionDisplayName: PipelineExecutionName | None
+    ParallelismConfiguration: ParallelismConfiguration | None
 
 
 class UpdatePipelineExecutionResponse(TypedDict, total=False):
-    PipelineExecutionArn: Optional[PipelineExecutionArn]
+    PipelineExecutionArn: PipelineExecutionArn | None
 
 
 class UpdatePipelineRequest(ServiceRequest):
     PipelineName: PipelineName
-    PipelineDisplayName: Optional[PipelineName]
-    PipelineDefinition: Optional[PipelineDefinition]
-    PipelineDefinitionS3Location: Optional[PipelineDefinitionS3Location]
-    PipelineDescription: Optional[PipelineDescription]
-    RoleArn: Optional[RoleArn]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
+    PipelineDisplayName: PipelineName | None
+    PipelineDefinition: PipelineDefinition | None
+    PipelineDefinitionS3Location: PipelineDefinitionS3Location | None
+    PipelineDescription: PipelineDescription | None
+    RoleArn: RoleArn | None
+    ParallelismConfiguration: ParallelismConfiguration | None
 
 
 class UpdatePipelineResponse(TypedDict, total=False):
-    PipelineArn: Optional[PipelineArn]
-    PipelineVersionId: Optional[PipelineVersionId]
+    PipelineArn: PipelineArn | None
+    PipelineVersionId: PipelineVersionId | None
 
 
 class UpdatePipelineVersionRequest(ServiceRequest):
     PipelineArn: PipelineArn
     PipelineVersionId: PipelineVersionId
-    PipelineVersionDisplayName: Optional[PipelineVersionName]
-    PipelineVersionDescription: Optional[PipelineVersionDescription]
+    PipelineVersionDisplayName: PipelineVersionName | None
+    PipelineVersionDescription: PipelineVersionDescription | None
 
 
 class UpdatePipelineVersionResponse(TypedDict, total=False):
-    PipelineArn: Optional[PipelineArn]
-    PipelineVersionId: Optional[PipelineVersionId]
+    PipelineArn: PipelineArn | None
+    PipelineVersionId: PipelineVersionId | None
 
 
 class UpdateTemplateProvider(TypedDict, total=False):
@@ -17612,18 +18331,18 @@ class UpdateTemplateProvider(TypedDict, total=False):
     provider in the project.
     """
 
-    CfnTemplateProvider: Optional[CfnUpdateTemplateProvider]
+    CfnTemplateProvider: CfnUpdateTemplateProvider | None
 
 
-UpdateTemplateProviderList = List[UpdateTemplateProvider]
+UpdateTemplateProviderList = list[UpdateTemplateProvider]
 
 
 class UpdateProjectInput(ServiceRequest):
     ProjectName: ProjectEntityName
-    ProjectDescription: Optional[EntityDescription]
-    ServiceCatalogProvisioningUpdateDetails: Optional[ServiceCatalogProvisioningUpdateDetails]
-    Tags: Optional[TagList]
-    TemplateProvidersToUpdate: Optional[UpdateTemplateProviderList]
+    ProjectDescription: EntityDescription | None
+    ServiceCatalogProvisioningUpdateDetails: ServiceCatalogProvisioningUpdateDetails | None
+    Tags: TagList | None
+    TemplateProvidersToUpdate: UpdateTemplateProviderList | None
 
 
 class UpdateProjectOutput(TypedDict, total=False):
@@ -17633,20 +18352,20 @@ class UpdateProjectOutput(TypedDict, total=False):
 class UpdateSpaceRequest(ServiceRequest):
     DomainId: DomainId
     SpaceName: SpaceName
-    SpaceSettings: Optional[SpaceSettings]
-    SpaceDisplayName: Optional[NonEmptyString64]
+    SpaceSettings: SpaceSettings | None
+    SpaceDisplayName: NonEmptyString64 | None
 
 
 class UpdateSpaceResponse(TypedDict, total=False):
-    SpaceArn: Optional[SpaceArn]
+    SpaceArn: SpaceArn | None
 
 
 class UpdateTrainingJobRequest(ServiceRequest):
     TrainingJobName: TrainingJobName
-    ProfilerConfig: Optional[ProfilerConfigForUpdate]
-    ProfilerRuleConfigurations: Optional[ProfilerRuleConfigurations]
-    ResourceConfig: Optional[ResourceConfigForUpdate]
-    RemoteDebugConfig: Optional[RemoteDebugConfigForUpdate]
+    ProfilerConfig: ProfilerConfigForUpdate | None
+    ProfilerRuleConfigurations: ProfilerRuleConfigurations | None
+    ResourceConfig: ResourceConfigForUpdate | None
+    RemoteDebugConfig: RemoteDebugConfigForUpdate | None
 
 
 class UpdateTrainingJobResponse(TypedDict, total=False):
@@ -17655,47 +18374,47 @@ class UpdateTrainingJobResponse(TypedDict, total=False):
 
 class UpdateTrialComponentRequest(ServiceRequest):
     TrialComponentName: ExperimentEntityName
-    DisplayName: Optional[ExperimentEntityName]
-    Status: Optional[TrialComponentStatus]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    Parameters: Optional[TrialComponentParameters]
-    ParametersToRemove: Optional[ListTrialComponentKey256]
-    InputArtifacts: Optional[TrialComponentArtifacts]
-    InputArtifactsToRemove: Optional[ListTrialComponentKey256]
-    OutputArtifacts: Optional[TrialComponentArtifacts]
-    OutputArtifactsToRemove: Optional[ListTrialComponentKey256]
+    DisplayName: ExperimentEntityName | None
+    Status: TrialComponentStatus | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    Parameters: TrialComponentParameters | None
+    ParametersToRemove: ListTrialComponentKey256 | None
+    InputArtifacts: TrialComponentArtifacts | None
+    InputArtifactsToRemove: ListTrialComponentKey256 | None
+    OutputArtifacts: TrialComponentArtifacts | None
+    OutputArtifactsToRemove: ListTrialComponentKey256 | None
 
 
 class UpdateTrialComponentResponse(TypedDict, total=False):
-    TrialComponentArn: Optional[TrialComponentArn]
+    TrialComponentArn: TrialComponentArn | None
 
 
 class UpdateTrialRequest(ServiceRequest):
     TrialName: ExperimentEntityName
-    DisplayName: Optional[ExperimentEntityName]
+    DisplayName: ExperimentEntityName | None
 
 
 class UpdateTrialResponse(TypedDict, total=False):
-    TrialArn: Optional[TrialArn]
+    TrialArn: TrialArn | None
 
 
 class UpdateUserProfileRequest(ServiceRequest):
     DomainId: DomainId
     UserProfileName: UserProfileName
-    UserSettings: Optional[UserSettings]
+    UserSettings: UserSettings | None
 
 
 class UpdateUserProfileResponse(TypedDict, total=False):
-    UserProfileArn: Optional[UserProfileArn]
+    UserProfileArn: UserProfileArn | None
 
 
 class UpdateWorkforceRequest(ServiceRequest):
     WorkforceName: WorkforceName
-    SourceIpConfig: Optional[SourceIpConfig]
-    OidcConfig: Optional[OidcConfig]
-    WorkforceVpcConfig: Optional[WorkforceVpcConfigRequest]
-    IpAddressType: Optional[WorkforceIpAddressType]
+    SourceIpConfig: SourceIpConfig | None
+    OidcConfig: OidcConfig | None
+    WorkforceVpcConfig: WorkforceVpcConfigRequest | None
+    IpAddressType: WorkforceIpAddressType | None
 
 
 class UpdateWorkforceResponse(TypedDict, total=False):
@@ -17704,10 +18423,10 @@ class UpdateWorkforceResponse(TypedDict, total=False):
 
 class UpdateWorkteamRequest(ServiceRequest):
     WorkteamName: WorkteamName
-    MemberDefinitions: Optional[MemberDefinitions]
-    Description: Optional[String200]
-    NotificationConfiguration: Optional[NotificationConfiguration]
-    WorkerAccessConfiguration: Optional[WorkerAccessConfiguration]
+    MemberDefinitions: MemberDefinitions | None
+    Description: String200 | None
+    NotificationConfiguration: NotificationConfiguration | None
+    WorkerAccessConfiguration: WorkerAccessConfiguration | None
 
 
 class UpdateWorkteamResponse(TypedDict, total=False):
@@ -17715,8 +18434,8 @@ class UpdateWorkteamResponse(TypedDict, total=False):
 
 
 class SagemakerApi:
-    service = "sagemaker"
-    version = "2017-07-24"
+    service: str = "sagemaker"
+    version: str = "2017-07-24"
 
     @handler("AddAssociation")
     def add_association(
@@ -17905,6 +18624,89 @@ class SagemakerApi:
 
         :param model_package_arn_list: The list of Amazon Resource Name (ARN) of the model package groups.
         :returns: BatchDescribeModelPackageOutput
+        """
+        raise NotImplementedError
+
+    @handler("BatchRebootClusterNodes")
+    def batch_reboot_cluster_nodes(
+        self,
+        context: RequestContext,
+        cluster_name: ClusterNameOrArn,
+        node_ids: BatchRebootClusterNodesRequestNodeIdsList | None = None,
+        node_logical_ids: BatchRebootClusterNodesRequestNodeLogicalIdsList | None = None,
+        **kwargs,
+    ) -> BatchRebootClusterNodesResponse:
+        """Reboots specific nodes within a SageMaker HyperPod cluster using a soft
+        recovery mechanism. ``BatchRebootClusterNodes`` performs a graceful
+        reboot of the specified nodes by calling the Amazon Elastic Compute
+        Cloud ``RebootInstances`` API, which attempts to cleanly shut down the
+        operating system before restarting the instance.
+
+        This operation is useful for recovering from transient issues or
+        applying certain configuration changes that require a restart.
+
+        -  Rebooting a node may cause temporary service interruption for
+           workloads running on that node. Ensure your workloads can handle node
+           restarts or use appropriate scheduling to minimize impact.
+
+        -  You can reboot up to 25 nodes in a single request.
+
+        -  For SageMaker HyperPod clusters using the Slurm workload manager,
+           ensure rebooting nodes will not disrupt critical cluster operations.
+
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the SageMaker HyperPod cluster
+        containing the nodes to reboot.
+        :param node_ids: A list of EC2 instance IDs to reboot using soft recovery.
+        :param node_logical_ids: A list of logical node IDs to reboot using soft recovery.
+        :returns: BatchRebootClusterNodesResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
+    @handler("BatchReplaceClusterNodes")
+    def batch_replace_cluster_nodes(
+        self,
+        context: RequestContext,
+        cluster_name: ClusterNameOrArn,
+        node_ids: BatchReplaceClusterNodesRequestNodeIdsList | None = None,
+        node_logical_ids: BatchReplaceClusterNodesRequestNodeLogicalIdsList | None = None,
+        **kwargs,
+    ) -> BatchReplaceClusterNodesResponse:
+        """Replaces specific nodes within a SageMaker HyperPod cluster with new
+        hardware. ``BatchReplaceClusterNodes`` terminates the specified
+        instances and provisions new replacement instances with the same
+        configuration but fresh hardware. The Amazon Machine Image (AMI) and
+        instance configuration remain the same.
+
+        This operation is useful for recovering from hardware failures or
+        persistent issues that cannot be resolved through a reboot.
+
+        -  **Data Loss Warning:** Replacing nodes destroys all instance volumes,
+           including both root and secondary volumes. All data stored on these
+           volumes will be permanently lost and cannot be recovered.
+
+        -  To safeguard your work, back up your data to Amazon S3 or an FSx for
+           Lustre file system before invoking the API on a worker node group.
+           This will help prevent any potential data loss from the instance root
+           volume. For more information about backup, see `Use the backup script
+           provided by SageMaker
+           HyperPod <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-operate-cli-command.html#sagemaker-hyperpod-operate-cli-command-update-cluster-software-backup>`__.
+
+        -  If you want to invoke this API on an existing cluster, you'll first
+           need to patch the cluster by running the `UpdateClusterSoftware
+           API <https://docs.aws.amazon.com/sagemaker/latest/APIReference/API_UpdateClusterSoftware.html>`__.
+           For more information about patching a cluster, see `Update the
+           SageMaker HyperPod platform software of a
+           cluster <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-operate-cli-command.html#sagemaker-hyperpod-operate-cli-command-update-cluster-software>`__.
+
+        -  You can replace up to 25 nodes in a single request.
+
+        :param cluster_name: The name or Amazon Resource Name (ARN) of the SageMaker HyperPod cluster
+        containing the nodes to replace.
+        :param node_ids: A list of EC2 instance IDs to replace with new hardware.
+        :param node_logical_ids: A list of logical node IDs to replace with new hardware.
+        :returns: BatchReplaceClusterNodesResponse
+        :raises ResourceNotFound:
         """
         raise NotImplementedError
 
@@ -18256,10 +19058,10 @@ class SagemakerApi:
         auto_scaling: ClusterAutoScalingConfig | None = None,
         **kwargs,
     ) -> CreateClusterResponse:
-        """Creates a SageMaker HyperPod cluster. SageMaker HyperPod is a capability
-        of SageMaker for creating and managing persistent clusters for
-        developing large machine learning models, such as large language models
-        (LLMs) and diffusion models. To learn more, see `Amazon SageMaker
+        """Creates an Amazon SageMaker HyperPod cluster. SageMaker HyperPod is a
+        capability of SageMaker for creating and managing persistent clusters
+        for developing large machine learning models, such as large language
+        models (LLMs) and diffusion models. To learn more, see `Amazon SageMaker
         HyperPod <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod.html>`__
         in the *Amazon SageMaker Developer Guide*.
 
@@ -18818,6 +19620,7 @@ class SagemakerApi:
         execution_role_arn: RoleArn | None = None,
         vpc_config: VpcConfig | None = None,
         enable_network_isolation: Boolean | None = None,
+        metrics_config: MetricsConfig | None = None,
         **kwargs,
     ) -> CreateEndpointConfigOutput:
         """Creates an endpoint configuration that SageMaker hosting services uses
@@ -18879,6 +19682,7 @@ class SagemakerApi:
         :param vpc_config: Specifies an Amazon Virtual Private Cloud (VPC) that your SageMaker
         jobs, hosted models, and compute resources have access to.
         :param enable_network_isolation: Sets whether all model containers deployed to the endpoint are isolated.
+        :param metrics_config: The configuration parameters for utilization metrics.
         :returns: CreateEndpointConfigOutput
         :raises ResourceLimitExceeded:
         """
@@ -19460,6 +20264,42 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("CreateMlflowApp")
+    def create_mlflow_app(
+        self,
+        context: RequestContext,
+        name: MlflowAppName,
+        artifact_store_uri: S3Uri,
+        role_arn: RoleArn,
+        model_registration_mode: ModelRegistrationMode | None = None,
+        weekly_maintenance_window_start: WeeklyMaintenanceWindowStart | None = None,
+        account_default_status: AccountDefaultStatus | None = None,
+        default_domain_id_list: DefaultDomainIdList | None = None,
+        tags: TagList | None = None,
+        **kwargs,
+    ) -> CreateMlflowAppResponse:
+        """Creates an MLflow Tracking Server using a general purpose Amazon S3
+        bucket as the artifact store.
+
+        :param name: A string identifying the MLflow app name.
+        :param artifact_store_uri: The S3 URI for a general purpose bucket to use as the MLflow App
+        artifact store.
+        :param role_arn: The Amazon Resource Name (ARN) for an IAM role in your account that the
+        MLflow App uses to access the artifact store in Amazon S3.
+        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models
+        to the SageMaker Model Registry.
+        :param weekly_maintenance_window_start: The day and time of the week in Coordinated Universal Time (UTC) 24-hour
+        standard time that weekly maintenance updates are scheduled.
+        :param account_default_status: Indicates whether this MLflow app is the default for the entire account.
+        :param default_domain_id_list: List of SageMaker domain IDs for which this MLflow App is used as the
+        default.
+        :param tags: Tags consisting of key-value pairs used to manage metadata for the
+        MLflow App.
+        :returns: CreateMlflowAppResponse
+        :raises ResourceLimitExceeded:
+        """
+        raise NotImplementedError
+
     @handler("CreateMlflowTrackingServer")
     def create_mlflow_tracking_server(
         self,
@@ -19689,6 +20529,7 @@ class SagemakerApi:
         model_package_name: EntityName | None = None,
         model_package_group_name: ArnOrName | None = None,
         model_package_description: EntityDescription | None = None,
+        model_package_registration_type: ModelPackageRegistrationType | None = None,
         inference_specification: InferenceSpecification | None = None,
         validation_specification: ModelPackageValidationSpecification | None = None,
         source_algorithm_specification: SourceAlgorithmSpecification | None = None,
@@ -19734,6 +20575,7 @@ class SagemakerApi:
         :param model_package_group_name: The name or Amazon Resource Name (ARN) of the model package group that
         this model version belongs to.
         :param model_package_description: A description of the model package.
+        :param model_package_registration_type: The package registration type of the model package input.
         :param inference_specification: Specifies details about inference jobs that you can run with models
         based on this model package, including the following information:
 
@@ -19998,6 +20840,7 @@ class SagemakerApi:
         optimization_configs: OptimizationConfigs,
         output_config: OptimizationJobOutputConfig,
         stopping_condition: StoppingCondition,
+        max_instance_count: OptimizationJobMaxInstanceCount | None = None,
         optimization_environment: OptimizationJobEnvironmentVariables | None = None,
         tags: TagList | None = None,
         vpc_config: OptimizationVpcConfig | None = None,
@@ -20024,6 +20867,7 @@ class SagemakerApi:
         :param output_config: Details for where to store the optimized model that you create with the
         optimization job.
         :param stopping_condition: Specifies a limit to how long a job can run.
+        :param max_instance_count: The maximum number of instances to use for the optimization job.
         :param optimization_environment: The environment variables to set in the model container.
         :param tags: A list of key-value pairs associated with the optimization job.
         :param vpc_config: A VPC in Amazon VPC that your optimized model has access to.
@@ -20053,6 +20897,9 @@ class SagemakerApi:
         :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web
         Services IAM session name or the authenticated IAM user as the identity
         of the SageMaker Partner AI App user.
+        :param enable_auto_minor_version_upgrade: When set to ``TRUE``, the SageMaker Partner AI App is automatically
+        upgraded to the latest minor version during the next scheduled
+        maintenance window, if one is available.
         :param client_token: A unique token that guarantees that the call to this API is idempotent.
         :param tags: Each tag consists of a key and an optional value.
         :returns: CreatePartnerAppResponse
@@ -20165,6 +21012,28 @@ class SagemakerApi:
         :param landing_uri: The landing page that the user is directed to when accessing the
         presigned URL.
         :returns: CreatePresignedDomainUrlResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
+    @handler("CreatePresignedMlflowAppUrl")
+    def create_presigned_mlflow_app_url(
+        self,
+        context: RequestContext,
+        arn: MlflowAppArn,
+        expires_in_seconds: ExpiresInSeconds | None = None,
+        session_expiration_duration_in_seconds: SessionExpirationDurationInSeconds | None = None,
+        **kwargs,
+    ) -> CreatePresignedMlflowAppUrlResponse:
+        """Returns a presigned URL that you can use to connect to the MLflow UI
+        attached to your MLflow App. For more information, see `Launch the
+        MLflow UI using a presigned
+        URL <https://docs.aws.amazon.com/sagemaker/latest/dg/mlflow-launch-ui.html>`__.
+
+        :param arn: The ARN of the MLflow App to connect to your MLflow UI.
+        :param expires_in_seconds: The duration in seconds that your presigned URL is valid.
+        :param session_expiration_duration_in_seconds: The duration in seconds that your presigned URL is valid.
+        :returns: CreatePresignedMlflowAppUrlResponse
         :raises ResourceNotFound:
         """
         raise NotImplementedError
@@ -20360,14 +21229,14 @@ class SagemakerApi:
         self,
         context: RequestContext,
         training_job_name: TrainingJobName,
-        algorithm_specification: AlgorithmSpecification,
         role_arn: RoleArn,
         output_data_config: OutputDataConfig,
-        resource_config: ResourceConfig,
-        stopping_condition: StoppingCondition,
         hyper_parameters: HyperParameters | None = None,
+        algorithm_specification: AlgorithmSpecification | None = None,
         input_data_config: InputDataConfig | None = None,
+        resource_config: ResourceConfig | None = None,
         vpc_config: VpcConfig | None = None,
+        stopping_condition: StoppingCondition | None = None,
         tags: TagList | None = None,
         enable_network_isolation: Boolean | None = None,
         enable_inter_container_traffic_encryption: Boolean | None = None,
@@ -20384,6 +21253,9 @@ class SagemakerApi:
         remote_debug_config: RemoteDebugConfig | None = None,
         infra_check_config: InfraCheckConfig | None = None,
         session_chaining_config: SessionChainingConfig | None = None,
+        serverless_job_config: ServerlessJobConfig | None = None,
+        mlflow_config: MlflowConfig | None = None,
+        model_package_config: ModelPackageConfig | None = None,
         **kwargs,
     ) -> CreateTrainingJobResponse:
         """Starts a model training job. After training completes, SageMaker saves
@@ -20455,19 +21327,19 @@ class SagemakerApi:
         Works <https://docs.aws.amazon.com/sagemaker/latest/dg/how-it-works.html>`__.
 
         :param training_job_name: The name of the training job.
-        :param algorithm_specification: The registry path of the Docker image that contains the training
-        algorithm and algorithm-specific metadata, including the input mode.
         :param role_arn: The Amazon Resource Name (ARN) of an IAM role that SageMaker can assume
         to perform tasks on your behalf.
         :param output_data_config: Specifies the path to the S3 location where you want to store model
         artifacts.
+        :param hyper_parameters: Algorithm-specific parameters that influence the quality of the model.
+        :param algorithm_specification: The registry path of the Docker image that contains the training
+        algorithm and algorithm-specific metadata, including the input mode.
+        :param input_data_config: An array of ``Channel`` objects.
         :param resource_config: The resources, including the ML compute instances and ML storage
         volumes, to use for model training.
-        :param stopping_condition: Specifies a limit to how long a model training job can run.
-        :param hyper_parameters: Algorithm-specific parameters that influence the quality of the model.
-        :param input_data_config: An array of ``Channel`` objects.
         :param vpc_config: A
         `VpcConfig <https://docs.
+        :param stopping_condition: Specifies a limit to how long a model training job can run.
         :param tags: An array of key-value pairs.
         :param enable_network_isolation: Isolates the training container.
         :param enable_inter_container_traffic_encryption: To encrypt all communications between ML compute instances in
@@ -20495,6 +21367,9 @@ class SagemakerApi:
         for the training job.
         :param session_chaining_config: Contains information about attribute-based access control (ABAC) for the
         training job.
+        :param serverless_job_config: The configuration for serverless training jobs.
+        :param mlflow_config: The MLflow configuration using SageMaker managed MLflow.
+        :param model_package_config: The configuration for the model package.
         :returns: CreateTrainingJobResponse
         :raises ResourceNotFound:
         :raises ResourceInUse:
@@ -21347,6 +22222,18 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteMlflowApp")
+    def delete_mlflow_app(
+        self, context: RequestContext, arn: MlflowAppArn, **kwargs
+    ) -> DeleteMlflowAppResponse:
+        """Deletes an MLflow App.
+
+        :param arn: The ARN of the MLflow App to delete.
+        :returns: DeleteMlflowAppResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("DeleteMlflowTrackingServer")
     def delete_mlflow_tracking_server(
         self, context: RequestContext, tracking_server_name: TrackingServerName, **kwargs
@@ -21545,6 +22432,23 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("DeleteProcessingJob")
+    def delete_processing_job(
+        self, context: RequestContext, processing_job_name: ProcessingJobName, **kwargs
+    ) -> None:
+        """Deletes a processing job. After Amazon SageMaker deletes a processing
+        job, all of the metadata for the processing job is lost. You can delete
+        only processing jobs that are in a terminal state (``Stopped``,
+        ``Failed``, or ``Completed``). You cannot delete a job that is in the
+        ``InProgress`` or ``Stopping`` state. After deleting the job, you can
+        reuse its name to create another processing job.
+
+        :param processing_job_name: The name of the processing job to delete.
+        :raises ResourceNotFound:
+        :raises ResourceInUse:
+        """
+        raise NotImplementedError
+
     @handler("DeleteProject")
     def delete_project(
         self, context: RequestContext, project_name: ProjectEntityName, **kwargs
@@ -21608,6 +22512,25 @@ class SagemakerApi:
         delete.
         :param tag_keys: An array or one or more tag keys to delete.
         :returns: DeleteTagsOutput
+        """
+        raise NotImplementedError
+
+    @handler("DeleteTrainingJob")
+    def delete_training_job(
+        self, context: RequestContext, training_job_name: TrainingJobName, **kwargs
+    ) -> None:
+        """Deletes a training job. After SageMaker deletes a training job, all of
+        the metadata for the training job is lost. You can delete only training
+        jobs that are in a terminal state (``Stopped``, ``Failed``, or
+        ``Completed``) and don't retain an ``Available`` `managed warm
+        pool <https://docs.aws.amazon.com/sagemaker/latest/dg/train-warm-pools.html>`__.
+        You cannot delete a job that is in the ``InProgress`` or ``Stopping``
+        state. After deleting the job, you can reuse its name to create another
+        training job.
+
+        :param training_job_name: The name of the training job to delete.
+        :raises ResourceNotFound:
+        :raises ResourceInUse:
         """
         raise NotImplementedError
 
@@ -22272,6 +23195,18 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeMlflowApp")
+    def describe_mlflow_app(
+        self, context: RequestContext, arn: MlflowAppArn, **kwargs
+    ) -> DescribeMlflowAppResponse:
+        """Returns information about an MLflow App.
+
+        :param arn: The ARN of the MLflow App for which to get information.
+        :returns: DescribeMlflowAppResponse
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("DescribeMlflowTrackingServer")
     def describe_mlflow_tracking_server(
         self, context: RequestContext, tracking_server_name: TrackingServerName, **kwargs
@@ -22447,11 +23382,17 @@ class SagemakerApi:
 
     @handler("DescribePartnerApp")
     def describe_partner_app(
-        self, context: RequestContext, arn: PartnerAppArn, **kwargs
+        self,
+        context: RequestContext,
+        arn: PartnerAppArn,
+        include_available_upgrade: Boolean | None = None,
+        **kwargs,
     ) -> DescribePartnerAppResponse:
         """Gets information about a SageMaker Partner AI App.
 
         :param arn: The ARN of the SageMaker Partner AI App to describe.
+        :param include_available_upgrade: When set to ``TRUE``, the response includes available upgrade
+        information for the SageMaker Partner AI App.
         :returns: DescribePartnerAppResponse
         :raises ResourceNotFound:
         """
@@ -24278,6 +25219,42 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("ListMlflowApps")
+    def list_mlflow_apps(
+        self,
+        context: RequestContext,
+        created_after: Timestamp | None = None,
+        created_before: Timestamp | None = None,
+        status: MlflowAppStatus | None = None,
+        mlflow_version: MlflowVersion | None = None,
+        default_for_domain_id: String | None = None,
+        account_default_status: AccountDefaultStatus | None = None,
+        sort_by: SortMlflowAppBy | None = None,
+        sort_order: SortOrder | None = None,
+        next_token: NextToken | None = None,
+        max_results: MaxResults | None = None,
+        **kwargs,
+    ) -> ListMlflowAppsResponse:
+        """Lists all MLflow Apps
+
+        :param created_after: Use the ``CreatedAfter`` filter to only list MLflow Apps created after a
+        specific date and time.
+        :param created_before: Use the ``CreatedBefore`` filter to only list MLflow Apps created before
+        a specific date and time.
+        :param status: Filter for Mlflow apps with a specific creation status.
+        :param mlflow_version: Filter for Mlflow Apps with the specified version.
+        :param default_for_domain_id: Filter for MLflow Apps with the specified default SageMaker Domain ID.
+        :param account_default_status: Filter for MLflow Apps with the specified ``AccountDefaultStatus``.
+        :param sort_by: Filter for MLflow Apps sorting by name, creation time, or creation
+        status.
+        :param sort_order: Change the order of the listed MLflow Apps.
+        :param next_token: If the previous response was truncated, use this token in your next
+        request to receive the next set of results.
+        :param max_results: The maximum number of MLflow Apps to list.
+        :returns: ListMlflowAppsResponse
+        """
+        raise NotImplementedError
+
     @handler("ListMlflowTrackingServers")
     def list_mlflow_tracking_servers(
         self,
@@ -25939,6 +26916,7 @@ class SagemakerApi:
         parallelism_configuration: ParallelismConfiguration | None = None,
         selective_execution_config: SelectiveExecutionConfig | None = None,
         pipeline_version_id: PipelineVersionId | None = None,
+        mlflow_experiment_name: MlflowExperimentEntityName | None = None,
         **kwargs,
     ) -> StartPipelineExecutionResponse:
         """Starts a pipeline execution.
@@ -25953,6 +26931,7 @@ class SagemakerApi:
         configuration of the parent pipeline for this specific run.
         :param selective_execution_config: The selective execution configuration applied to the pipeline run.
         :param pipeline_version_id: The ID of the pipeline version to start execution from.
+        :param mlflow_experiment_name: The MLflow experiment name of the start execution.
         :returns: StartPipelineExecutionResponse
         :raises ConflictException:
         :raises ResourceNotFound:
@@ -26322,6 +27301,7 @@ class SagemakerApi:
         tiered_storage_config: ClusterTieredStorageConfig | None = None,
         node_recovery: ClusterNodeRecovery | None = None,
         instance_groups_to_delete: ClusterInstanceGroupsToDelete | None = None,
+        node_provisioning_mode: ClusterNodeProvisioningMode | None = None,
         cluster_role: RoleArn | None = None,
         auto_scaling: ClusterAutoScalingConfig | None = None,
         **kwargs,
@@ -26336,6 +27316,8 @@ class SagemakerApi:
         cluster.
         :param node_recovery: The node recovery mode to be applied to the SageMaker HyperPod cluster.
         :param instance_groups_to_delete: Specify the names of the instance groups to delete.
+        :param node_provisioning_mode: Determines how instance provisioning is handled during cluster
+        operations.
         :param cluster_role: The Amazon Resource Name (ARN) of the IAM role that HyperPod assumes for
         cluster autoscaling operations.
         :param auto_scaling: Updates the autoscaling configuration for the cluster.
@@ -26525,6 +27507,7 @@ class SagemakerApi:
         subnet_ids: Subnets | None = None,
         app_network_access_type: AppNetworkAccessType | None = None,
         tag_propagation: TagPropagation | None = None,
+        vpc_id: VpcId | None = None,
         **kwargs,
     ) -> UpdateDomainResponse:
         """Updates the default settings for new user profiles in the domain.
@@ -26538,6 +27521,7 @@ class SagemakerApi:
         :param subnet_ids: The VPC subnets that Studio uses for communication.
         :param app_network_access_type: Specifies the VPC used for non-EFS traffic.
         :param tag_propagation: Indicates whether custom tag propagation is supported for the domain.
+        :param vpc_id: The identifier for the VPC used by the domain for network communication.
         :returns: UpdateDomainResponse
         :raises ResourceNotFound:
         :raises ResourceInUse:
@@ -26960,6 +27944,36 @@ class SagemakerApi:
         """
         raise NotImplementedError
 
+    @handler("UpdateMlflowApp")
+    def update_mlflow_app(
+        self,
+        context: RequestContext,
+        arn: MlflowAppArn,
+        name: MlflowAppName | None = None,
+        artifact_store_uri: S3Uri | None = None,
+        model_registration_mode: ModelRegistrationMode | None = None,
+        weekly_maintenance_window_start: WeeklyMaintenanceWindowStart | None = None,
+        default_domain_id_list: DefaultDomainIdList | None = None,
+        account_default_status: AccountDefaultStatus | None = None,
+        **kwargs,
+    ) -> UpdateMlflowAppResponse:
+        """Updates an MLflow App.
+
+        :param arn: The ARN of the MLflow App to update.
+        :param name: The name of the MLflow App to update.
+        :param artifact_store_uri: The new S3 URI for the general purpose bucket to use as the artifact
+        store for the MLflow App.
+        :param model_registration_mode: Whether to enable or disable automatic registration of new MLflow models
+        to the SageMaker Model Registry.
+        :param weekly_maintenance_window_start: The new weekly maintenance window start day and time to update.
+        :param default_domain_id_list: List of SageMaker Domain IDs for which this MLflow App is the default.
+        :param account_default_status: Indicates whether this this MLflow App is the default for the account.
+        :returns: UpdateMlflowAppResponse
+        :raises ConflictException:
+        :raises ResourceNotFound:
+        """
+        raise NotImplementedError
+
     @handler("UpdateMlflowTrackingServer")
     def update_mlflow_tracking_server(
         self,
@@ -27017,6 +28031,7 @@ class SagemakerApi:
         context: RequestContext,
         model_package_arn: ModelPackageArn,
         model_approval_status: ModelApprovalStatus | None = None,
+        model_package_registration_type: ModelPackageRegistrationType | None = None,
         approval_description: ApprovalDescription | None = None,
         customer_metadata_properties: CustomerMetadataMap | None = None,
         customer_metadata_properties_to_remove: CustomerMetadataKeyList | None = None,
@@ -27032,6 +28047,7 @@ class SagemakerApi:
 
         :param model_package_arn: The Amazon Resource Name (ARN) of the model package.
         :param model_approval_status: The approval status of the model.
+        :param model_package_registration_type: The package registration type of the model package input.
         :param approval_description: A description for the approval status of the model.
         :param customer_metadata_properties: The metadata properties associated with the model package versions.
         :param customer_metadata_properties_to_remove: The metadata properties associated with the model package versions to
@@ -27102,6 +28118,7 @@ class SagemakerApi:
         notebook_instance_name: NotebookInstanceName,
         instance_type: InstanceType | None = None,
         ip_address_type: IPAddressType | None = None,
+        platform_identifier: PlatformIdentifier | None = None,
         role_arn: RoleArn | None = None,
         lifecycle_config_name: NotebookInstanceLifecycleConfigName | None = None,
         disassociate_lifecycle_config: DisassociateNotebookInstanceLifecycleConfig | None = None,
@@ -27124,6 +28141,7 @@ class SagemakerApi:
         :param notebook_instance_name: The name of the notebook instance to update.
         :param instance_type: The Amazon ML compute instance type.
         :param ip_address_type: The IP address type for the notebook instance.
+        :param platform_identifier: The platform identifier of the notebook instance runtime environment.
         :param role_arn: The Amazon Resource Name (ARN) of the IAM role that SageMaker AI can
         assume to access the notebook instance.
         :param lifecycle_config_name: The name of a lifecycle configuration to associate with the notebook
@@ -27182,6 +28200,8 @@ class SagemakerApi:
         tier: NonEmptyString64 | None = None,
         application_config: PartnerAppConfig | None = None,
         enable_iam_session_based_identity: Boolean | None = None,
+        enable_auto_minor_version_upgrade: Boolean | None = None,
+        app_version: MajorMinorVersion | None = None,
         client_token: ClientToken | None = None,
         tags: TagList | None = None,
         **kwargs,
@@ -27196,6 +28216,10 @@ class SagemakerApi:
         :param enable_iam_session_based_identity: When set to ``TRUE``, the SageMaker Partner AI App sets the Amazon Web
         Services IAM session name or the authenticated IAM user as the identity
         of the SageMaker Partner AI App user.
+        :param enable_auto_minor_version_upgrade: When set to ``TRUE``, the SageMaker Partner AI App is automatically
+        upgraded to the latest minor version during the next scheduled
+        maintenance window, if one is available.
+        :param app_version: The semantic version to upgrade the SageMaker Partner AI App to.
         :param client_token: A unique token that guarantees that the call to this API is idempotent.
         :param tags: Each tag consists of a key and an optional value.
         :returns: UpdatePartnerAppResponse

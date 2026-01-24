@@ -1,18 +1,14 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
-import json
 import logging
 import re
 from importlib import import_module
 from importlib.metadata import metadata
-from pathlib import Path
-from typing import Any, Iterator, Protocol, cast
+from typing import Any, Iterator, Protocol
 
 import numpy as np
-import safetensors
 from joblib import Parallel
-from tokenizers import Tokenizer
 from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
@@ -102,27 +98,3 @@ def setup_logging() -> None:
         datefmt="%Y-%m-%d %H:%M:%S",
         handlers=[RichHandler(rich_tracebacks=True)],
     )
-
-
-def load_local_model(folder: Path) -> tuple[np.ndarray, Tokenizer, dict[str, str]]:
-    """Load a local model."""
-    embeddings_path = folder / "model.safetensors"
-    tokenizer_path = folder / "tokenizer.json"
-    config_path = folder / "config.json"
-
-    opened_tensor_file = cast(SafeOpenProtocol, safetensors.safe_open(embeddings_path, framework="numpy"))
-    embeddings = opened_tensor_file.get_tensor("embeddings")
-
-    if config_path.exists():
-        config = json.load(open(config_path))
-    else:
-        config = {}
-
-    tokenizer: Tokenizer = Tokenizer.from_file(str(tokenizer_path))
-
-    if len(tokenizer.get_vocab()) != len(embeddings):
-        logger.warning(
-            f"Number of tokens does not match number of embeddings: `{len(tokenizer.get_vocab())}` vs `{len(embeddings)}`"
-        )
-
-    return embeddings, tokenizer, config

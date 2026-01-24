@@ -38,18 +38,20 @@ async function saveChartWithQuickchart(chartData, chartLayout, filename) {
 
 /**
  * Function to generate charts from benchmark results
- * 
+ *
  * Graphs that we generate:
  * - VU scaling over time
  * - Requests over time, broken into success and failure by reason
  * - Average run duration over time
- * 
+ *
  * Useful but currently in deployment dashboard:
  * - Connection use over time (postgres, redis)
  * - IOPS over time (postgres, redis)
  * - Workers in use over time
- * 
- * Dashboard: https://smith.langchain.com/o/ebbaf2eb-769b-4505-aca2-d11de10372a4/host/deployments/a23f03ff-6d4d-4efd-8149-bb5a7f3b95cf?tab=2&paginationModel=%7B%22pageIndex%22%3A0%2C%22pageSize%22%3A10%7D#
+ *
+ * Dashboards:
+ * Staging: https://beta.smith.langchain.com/o/8f32dc68-61a1-439c-81d3-33511ef55527/host/deployments/8ced7b1a-275f-48f3-88bf-ae08fdc4b414?tab=2
+ * Prod: https://smith.langchain.com/o/ebbaf2eb-769b-4505-aca2-d11de10372a4/host/deployments/a23f03ff-6d4d-4efd-8149-bb5a7f3b95cf?tab=2&paginationModel=%7B%22pageIndex%22%3A0%2C%22pageSize%22%3A10%7D#
  */
 async function generateCharts(rawDataFile, displayInBrowser = false) {
     console.log("Generating charts for", rawDataFile);
@@ -93,7 +95,7 @@ async function generateCharts(rawDataFile, displayInBrowser = false) {
         for (const [timestamp, values] of Object.entries(timestampBuckets)) {
             const average = values.reduce((sum, val) => sum + val, 0) / values.length;
             const max = Math.max(...values);
-            finalData[metricName].push({ 
+            finalData[metricName].push({
                 timestamp: timestamp,
                 average: average,
                 max: max,
@@ -141,10 +143,10 @@ async function generateCharts(rawDataFile, displayInBrowser = false) {
         title: {
             text: 'Success Rate Over Time',
         },
-        xaxis: { 
+        xaxis: {
             title: 'Time (10 second intervals)',
         },
-        yaxis: { 
+        yaxis: {
             title: 'Call Counts',
         }
         }
@@ -164,10 +166,10 @@ async function generateCharts(rawDataFile, displayInBrowser = false) {
         title: {
             text: 'Run Duration Over Time',
         },
-        xaxis: { 
+        xaxis: {
             title: 'Time (10 second intervals)',
         },
-        yaxis: { 
+        yaxis: {
             title: 'Run Duration (ms)',
         },
         }
@@ -187,10 +189,10 @@ async function generateCharts(rawDataFile, displayInBrowser = false) {
         title: {
             text: 'Concurrent Virtual Users over Time',
         },
-        xaxis: { 
+        xaxis: {
             title: 'Time (10 second intervals)',
         },
-        yaxis: { 
+        yaxis: {
             title: 'VUs (max)',
         },
         }
@@ -213,19 +215,19 @@ async function generateCharts(rawDataFile, displayInBrowser = false) {
         plot(runDurationChart.data, runDurationChart.layout);
         plot(vusChart.data, vusChart.layout);
     }
-    
+
     console.log(`Charts generated: ${vusImagePath}, ${requestsImagePath}, ${runDurationImagePath}`);
 }
 
 // CLI usage
 if (require.main === module) {
   const [,, rawDataFile, displayInBrowser] = process.argv;
-  
+
   if (!rawDataFile) {
     console.error('Usage: node graphs.js <raw-data-file>');
     process.exit(1);
   }
-  
+
   generateCharts(rawDataFile, displayInBrowser)
     .catch(error => {
       console.error('Failed to generate charts:', error);

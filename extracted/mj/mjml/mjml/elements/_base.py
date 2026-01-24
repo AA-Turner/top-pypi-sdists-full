@@ -1,6 +1,6 @@
-
-
-from dotmap import DotMap
+import itertools
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, Optional
 
 from ..core import Component, initComponent
 from ..core.registry import components
@@ -8,15 +8,22 @@ from ..helpers import *
 from ..lib import merge_dicts
 
 
+if TYPE_CHECKING:
+    from mjml._types import Direction
+
+
 __all__ = [
     'BodyComponent',
 ]
 
-class BodyComponent(Component):
-    def render(self):
-        raise NotImplementedError(f'{self.__cls__.__name__} should override ".render()"')
 
-    def getShorthandAttrValue(self, attribute, direction, attr_with_direction=True):
+class BodyComponent(Component):
+    def render(self) -> str:
+        raise NotImplementedError(f'{self.__class__.__name__} should override ".render()"')
+
+    def getShorthandAttrValue(self,
+                              attribute: str, direction: "Direction",
+                              attr_with_direction: bool=True) -> int:
         if attr_with_direction:
             mjAttributeDirection = self.getAttribute(f'{attribute}-{direction}')
         else:
@@ -29,29 +36,28 @@ class BodyComponent(Component):
             return 0
         return shorthandParser(mjAttribute, direction)
 
-    def getShorthandBorderValue(self, direction):
+    def getShorthandBorderValue(self, direction: "Direction") -> int:
         borderDirection = direction and self.getAttribute(f'border-{direction}')
         border = self.getAttribute('border')
         return borderParser(borderDirection or border or '0')
 
-    def getBoxWidths(self):
+    def getBoxWidths(self) -> dict[str, Any]:
         containerWidth = self.context['containerWidth']
         parsedWidth = strip_unit(containerWidth)
         get_padding = lambda d: self.getShorthandAttrValue('padding', d)
         paddings = get_padding('right') + get_padding('left')
         borders = self.getShorthandBorderValue('right') + self.getShorthandBorderValue('left')
 
-        return DotMap({
+        return {
             'totalWidth': parsedWidth,
             'borders'   : borders,
             'paddings'  : paddings,
             'box'       : parsedWidth - paddings - borders,
-        })
+        }
 
     # js: htmlAttributes(attributes)
-    def html_attrs(self, **attrs):
-        def _to_str(kv):
-            key, value = kv
+    def html_attrs(self, **attrs: Any) -> str:
+        def _to_str(key: str, value: Any) -> Optional[str]:
             if key == 'style':
                 value = self.styles(value)
             elif key in ['class_', 'for_']:
@@ -61,46 +67,51 @@ class BodyComponent(Component):
             if value is None:
                 return None
             return f'{key}="{value}"'
-        serialized_attrs = map(_to_str, attrs.items())
+        serialized_attrs = [_to_str(k, v) for k, v in attrs.items()]
         return ' '.join(filter(None, serialized_attrs))
 
     # js: getStyles()
-    def get_styles(self):
+    def get_styles(self) -> dict[str, Any]:
         return {}
 
     # js: styles(styles)
-    def styles(self, key=None):
-        _styles = None
+    def styles(self, key: Optional[str]=None) -> str:
+        _styles: Optional[dict[str, Any]] = None
+
         if key and isinstance(key, str):
             _styles_dict = self.get_styles()
             keys = key.split('.')
             _styles = _styles_dict.get(keys[0])
             if len(keys) > 1:
+                if not _styles:
+                    raise RuntimeError()
                 _styles = _styles.get(keys[1])
             if _styles and not isinstance(_styles, dict):
                 raise ValueError(f'key={key}')
         elif key:
             # predefined dict
             _styles = key
+
         if not _styles:
             _styles = {}
 
-        def serializer(kv):
-            k, v = kv
+        def serializer(k: str, v: Any) -> Optional[str]:
             return f'{k}:{v}' if is_not_empty(v) else None
-        style_attr_strs = filter(None, map(serializer, _styles.items()))
+
+        style_attr_strs = filter(None, itertools.starmap(serializer, _styles.items()))
         style_str = ';'.join(style_attr_strs)
         return style_str
 
-    def renderChildren(self, childrens=None, props=None, renderer=None,
-                       attributes=None, rawXML=False):
+    def renderChildren(self, childrens=None, props=None,
+                       renderer: Optional[Callable[[Component], str]]=None,
+                       attributes=None, rawXML=False) -> str:
         if not props:
             props = {}
         if not renderer:
             renderer = lambda component: component.render()
         if not attributes:
             attributes = {}
-        childrens = childrens or self.props.children
+        childrens = childrens or self.props.get("children")
 
         if rawXML:
             # return childrens.map(child => jsonToXML(child)).join('\n')
@@ -118,8 +129,8 @@ class BodyComponent(Component):
         #  child => !find(rawComponents, c => c.getTagName() === child.tagName),
         #).length
         raw_tag_names = set()
-        for tag_name, component in components.items():
-            if component.isRawElement():
+        for tag_name, component_cls in components.items():
+            if component_cls.isRawElement():
                 raw_tag_names.add(tag_name)
         is_raw_element = lambda c: (c['tagName'] in raw_tag_names)
 

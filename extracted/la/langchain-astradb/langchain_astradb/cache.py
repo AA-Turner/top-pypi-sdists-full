@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 from functools import lru_cache, wraps
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.caches import RETURN_VAL_TYPE, BaseCache
 from langchain_core.language_models.llms import aget_prompts, get_prompts
@@ -23,7 +23,7 @@ from langchain_astradb.utils.astradb import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Generator
+    from collections.abc import Awaitable, Callable, Generator
 
     from astrapy.api_options import APIOptions
     from astrapy.authentication import TokenProvider
@@ -47,10 +47,10 @@ def _dumps_generations(generations: RETURN_VAL_TYPE) -> str:
     """Serialization for generic RETURN_VAL_TYPE, i.e. sequence of `Generation`.
 
     Args:
-        generations (RETURN_VAL_TYPE): A list of language model generations.
+        generations: A list of language model generations.
 
     Returns:
-        str: a single string representing a list of generations.
+        a single string representing a list of generations.
 
     This function (+ its counterpart `_loads_generations`) rely on
     the dumps/loads pair with Reviver, so are able to deal
@@ -71,14 +71,14 @@ def _loads_generations(generations_str: str) -> RETURN_VAL_TYPE | None:
     See `_dumps_generations`, the inverse of this function.
 
     Args:
-        generations_str (str): A string representing a list of generations.
+        generations_str: A string representing a list of generations.
 
     Compatible with the legacy cache-blob format
     Does not raise exceptions for malformed entries, just logs a warning
     and returns none: the caller should be prepared for such a cache miss.
 
     Returns:
-        RETURN_VAL_TYPE: A list of generations.
+        A list of generations.
     """
     try:
         return [loads(_item_str) for _item_str in json.loads(generations_str)]
@@ -122,13 +122,13 @@ class AstraDBCache(BaseCache):
         ext_callers: list[tuple[str | None, str | None] | str | None] | None = None,
         api_options: APIOptions | None = None,
     ):
-        """Cache that uses Astra DB as a backend.
+        """Cache using Astra DB as a backend, using a collection as a key-value store.
 
-        It uses a single collection as a kv store
         The lookup keys, combined in the _id of the documents, are:
-            - prompt, a string
-            - llm_string, a deterministic str representation of the model parameters.
-              (needed to prevent same-prompt-different-model collisions)
+
+        - prompt, a string
+        - llm_string, a deterministic str representation of the model parameters.
+          (needed to prevent same-prompt-different-model collisions)
 
         Args:
             collection_name: name of the Astra DB collection to create/use.
@@ -155,7 +155,7 @@ class AstraDBCache(BaseCache):
                 or just strings if no version info is provided, which, if supplied,
                 becomes the leading part of the User-Agent string in all API requests
                 related to this component.
-            api_options: an instance of ``astrapy.utils.api_options.APIOptions`` that
+            api_options: an instance of `astrapy.utils.api_options.APIOptions` that
                 can be supplied to customize the interaction with the Data API
                 regarding serialization/deserialization, timeouts, custom headers
                 and so on. The provided options are applied on top of settings already
@@ -387,7 +387,7 @@ class AstraDBSemanticCache(BaseCache):
                 or just strings if no version info is provided, which, if supplied,
                 becomes the leading part of the User-Agent string in all API requests
                 related to this component.
-            api_options: an instance of ``astrapy.utils.api_options.APIOptions`` that
+            api_options: an instance of `astrapy.utils.api_options.APIOptions` that
                 can be supplied to customize the interaction with the Data API
                 regarding serialization/deserialization, timeouts, custom headers
                 and so on. The provided options are applied on top of settings already
@@ -503,7 +503,12 @@ class AstraDBSemanticCache(BaseCache):
     ) -> tuple[str, RETURN_VAL_TYPE] | None:
         """Look up based on prompt and llm_string.
 
-        If there are hits, return (document_id, cached_entry) for the top hit
+        Args:
+            prompt: the prompt string to look up
+            llm_string: the str representation of the model parameters
+
+        Returns:
+            If there are hits, (document_id, cached_entry) for the top hit
         """
         self.astra_env.ensure_db_setup()
         prompt_embedding: list[float] = self._get_embedding(text=prompt)
@@ -533,7 +538,12 @@ class AstraDBSemanticCache(BaseCache):
     ) -> tuple[str, RETURN_VAL_TYPE] | None:
         """Look up based on prompt and llm_string.
 
-        If there are hits, return (document_id, cached_entry) for the top hit
+        Args:
+            prompt: the prompt string to look up
+            llm_string: the str representation of the model parameters
+
+        Returns:
+            If there are hits, (document_id, cached_entry) for the top hit
         """
         await self.astra_env.aensure_db_setup()
         prompt_embedding: list[float] = await self._aget_embedding(text=prompt)
@@ -563,7 +573,13 @@ class AstraDBSemanticCache(BaseCache):
     ) -> tuple[str, RETURN_VAL_TYPE] | None:
         """Look up based on prompt and LLM.
 
-        If there are hits, return (document_id, cached_entry) for the top hit
+        Args:
+            prompt: the prompt string to look up
+            llm: the LLM instance whose parameters are used in the lookup
+            stop: optional list of stop words passed to the LLM calls
+
+        Returns:
+            If there are hits, (document_id, cached_entry) for the top hit.
         """
         llm_string = get_prompts(
             {**llm.dict(), "stop": stop},
@@ -576,7 +592,13 @@ class AstraDBSemanticCache(BaseCache):
     ) -> tuple[str, RETURN_VAL_TYPE] | None:
         """Look up based on prompt and LLM.
 
-        If there are hits, return (document_id, cached_entry) for the top hit
+        Args:
+            prompt: the prompt string to look up
+            llm: the LLM instance whose parameters are used in the lookup
+            stop: optional list of stop words passed to the LLM calls
+
+        Returns:
+            If there are hits, (document_id, cached_entry) for the top hit.
         """
         llm_string = (
             await aget_prompts(

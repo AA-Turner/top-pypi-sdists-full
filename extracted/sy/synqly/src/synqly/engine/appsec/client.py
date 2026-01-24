@@ -43,7 +43,6 @@ class AppsecClient:
         *,
         meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         limit: typing.Optional[int] = None,
-        order: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         filter: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -57,16 +56,10 @@ class AppsecClient:
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of applications to return.
-
-        order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Number of applications to return. Defaults to 100 with a maximum of 5000. If a provider has a maximum limit lower than 5000, the provider's maximum limit will be used instead.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -88,7 +81,6 @@ class AppsecClient:
         client.appsec.query_applications(
             meta="string",
             limit=1,
-            order="string",
             filter="string",
             cursor="string",
         )
@@ -99,7 +91,6 @@ class AppsecClient:
             params={
                 "meta": meta,
                 "limit": limit,
-                "order": order,
                 "filter": filter,
                 "cursor": cursor,
             },
@@ -255,7 +246,6 @@ class AppsecClient:
         *,
         meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         limit: typing.Optional[int] = None,
-        order: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         filter: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -271,16 +261,10 @@ class AppsecClient:
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of findings to return.
-
-        order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Number of findings to return. Defaults to 100 with a maximum of 5000. If a provider has a maximum limit lower than 5000, the provider's maximum limit will be used instead.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -303,7 +287,6 @@ class AppsecClient:
             application_id="string",
             meta="string",
             limit=1,
-            order="string",
             filter="string",
             cursor="string",
         )
@@ -314,7 +297,6 @@ class AppsecClient:
             params={
                 "meta": meta,
                 "limit": limit,
-                "order": order,
                 "filter": filter,
                 "cursor": cursor,
             },
@@ -482,11 +464,10 @@ class AppsecClient:
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of findings to return.
+            Number of findings to return. Defaults to 100 with a maximum of 5000. If a provider has a maximum limit lower than 5000, the provider's maximum limit will be used instead.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -861,7 +842,6 @@ class AsyncAppsecClient:
         *,
         meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         limit: typing.Optional[int] = None,
-        order: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         filter: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -875,16 +855,10 @@ class AsyncAppsecClient:
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of applications to return.
-
-        order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Number of applications to return. Defaults to 100 with a maximum of 5000. If a provider has a maximum limit lower than 5000, the provider's maximum limit will be used instead.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -911,7 +885,6 @@ class AsyncAppsecClient:
             await client.appsec.query_applications(
                 meta="string",
                 limit=1,
-                order="string",
                 filter="string",
                 cursor="string",
             )
@@ -925,7 +898,6 @@ class AsyncAppsecClient:
             params={
                 "meta": meta,
                 "limit": limit,
-                "order": order,
                 "filter": filter,
                 "cursor": cursor,
             },
@@ -1081,7 +1053,6 @@ class AsyncAppsecClient:
         *,
         meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         limit: typing.Optional[int] = None,
-        order: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         filter: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
@@ -1097,16 +1068,10 @@ class AsyncAppsecClient:
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of findings to return.
-
-        order : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Select a field to order the results by. Defaults to `name`. To control the direction of the sorting, append
-            `[asc]` or `[desc]` to the field name. For example, `name[asc]` will sort the results by `name` in ascending order.
-            The ordering defaults to `asc` if not specified.
+            Number of findings to return. Defaults to 100 with a maximum of 5000. If a provider has a maximum limit lower than 5000, the provider's maximum limit will be used instead.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -1134,7 +1099,6 @@ class AsyncAppsecClient:
                 application_id="string",
                 meta="string",
                 limit=1,
-                order="string",
                 filter="string",
                 cursor="string",
             )
@@ -1148,7 +1112,6 @@ class AsyncAppsecClient:
             params={
                 "meta": meta,
                 "limit": limit,
-                "order": order,
                 "filter": filter,
                 "cursor": cursor,
             },
@@ -1316,11 +1279,10 @@ class AsyncAppsecClient:
             Add metadata to the response by invoking meta functions. Documentation for meta functions is available at https://docs.synqly.com/api-reference/meta-functions. Not all meta function are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of findings to return.
+            Number of findings to return. Defaults to 100 with a maximum of 5000. If a provider has a maximum limit lower than 5000, the provider's maximum limit will be used instead.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter.
-            If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to our Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         cursor : typing.Optional[str]
             Start search from cursor position.

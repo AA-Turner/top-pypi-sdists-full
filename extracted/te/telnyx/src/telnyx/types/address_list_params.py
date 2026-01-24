@@ -10,7 +10,7 @@ __all__ = [
     "Filter",
     "FilterAddressBook",
     "FilterCustomerReference",
-    "FilterCustomerReferenceUnionMember1",
+    "FilterCustomerReferenceCustomerReferenceMatcher",
     "FilterStreetAddress",
     "Page",
 ]
@@ -58,7 +58,7 @@ class FilterAddressBook(TypedDict, total=False):
     """
 
 
-class FilterCustomerReferenceUnionMember1(TypedDict, total=False):
+class FilterCustomerReferenceCustomerReferenceMatcher(TypedDict, total=False):
     contains: str
     """Partial match for customer_reference. Matching is not case-sensitive."""
 
@@ -66,7 +66,7 @@ class FilterCustomerReferenceUnionMember1(TypedDict, total=False):
     """Exact match for customer_reference."""
 
 
-FilterCustomerReference: TypeAlias = Union[str, FilterCustomerReferenceUnionMember1]
+FilterCustomerReference: TypeAlias = Union[str, FilterCustomerReferenceCustomerReferenceMatcher]
 
 
 class FilterStreetAddress(TypedDict, total=False):
@@ -79,6 +79,11 @@ class FilterStreetAddress(TypedDict, total=False):
 
 
 class Filter(TypedDict, total=False):
+    """Consolidated filter parameter (deepObject style).
+
+    Originally: filter[customer_reference][eq], filter[customer_reference][contains], filter[used_as_emergency], filter[street_address][contains], filter[address_book][eq]
+    """
+
     address_book: FilterAddressBook
 
     customer_reference: FilterCustomerReference
@@ -99,6 +104,11 @@ class Filter(TypedDict, total=False):
 
 
 class Page(TypedDict, total=False):
+    """Consolidated page parameter (deepObject style).
+
+    Originally: page[number], page[size]
+    """
+
     number: int
     """The page number to load"""
 

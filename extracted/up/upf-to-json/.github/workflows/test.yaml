@@ -1,0 +1,21 @@
+name: Tests
+on: [push]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.11'
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Install via pip and try if import works, test UPF conversion
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .[test]
+          pip install pytest
+          python -c 'from upf_to_json import upf_to_json'
+          (
+          cd tests
+          python -m pytest .
+          )

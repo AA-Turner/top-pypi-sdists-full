@@ -30,6 +30,7 @@ dependencies = [
   "typing-extensions>=4.0.0",
   "greenlet",
   "eval-type-backport ; python_full_version < '3.10'",
+  "exceptiongroup ; python_full_version < '3.11'",
 ]
 description = "Ready-to-go SQLAlchemy concoctions."
 keywords = ["sqlalchemy", "alembic", "litestar", "sanic", "fastapi", "flask"]
@@ -44,14 +45,14 @@ maintainers = [
 name = "advanced_alchemy"
 readme = "docs/PYPI_README.md"
 requires-python = ">=3.9"
-version = "1.6.3"
+version = "1.8.2"
 
 [project.urls]
-Changelog = "https://docs.advanced-alchemy.litestar.dev/latest/changelog"
+Changelog = "https://advanced-alchemy.dev/latest/changelog"
 Discord = "https://discord.gg/litestar"
-Documentation = "https://docs.advanced-alchemy.litestar.dev/latest/"
+Documentation = "https://advanced-alchemy.dev/latest/"
 Funding = "https://github.com/sponsors/litestar-org"
-Homepage = "https://docs.advanced-alchemy.litestar.dev/latest/"
+Homepage = "https://advanced-alchemy.dev/latest/"
 Issue = "https://github.com/litestar-org/advanced-alchemy/issues/"
 Source = "https://github.com/litestar-org/advanced-alchemy"
 
@@ -95,6 +96,7 @@ dev = [
   { include-group = "postgres" },
 ]
 doc = [
+  "accessible-pygments>=0.0.5",
   "auto-pytabs[sphinx]>=0.5.0",
   "shibuya",
   "sphinx>=7.0.0; python_version <= \"3.9\"",
@@ -148,6 +150,8 @@ test = [
   "cattrs",
   "dishka ; python_version >= \"3.10\"",
   "pydantic-extra-types",
+  "numpy",
+  "pgvector",
   "rich-click",
   "coverage>=7.6.1",
   "fsspec[s3]",
@@ -170,7 +174,7 @@ test = [
 allow_dirty = true
 commit = false
 commit_args = "--no-verify"
-current_version = "1.6.3"
+current_version = "1.8.2"
 ignore_missing_files = false
 ignore_missing_version = false
 message = "chore(release): bump to v{new_version}"
@@ -346,6 +350,7 @@ classmethod-decorators = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"advanced_alchemy/alembic/templates/*/env.py" = ["INP001"]
 "advanced_alchemy/repository/*.py" = ['C901']
 "advanced_alchemy/service/*.py" = ["PLR0911"]
 "examples/flask.py" = ["ANN"]
@@ -458,6 +463,16 @@ module = [
 ]
 
 [[tool.mypy.overrides]]
+follow_imports = "skip"
+ignore_missing_imports = true
+module = [
+  "pytest",
+  "pytest.*",
+  "_pytest",
+  "_pytest.*",
+]
+
+[[tool.mypy.overrides]]
 module = "advanced_alchemy._serialization"
 warn_unused_ignores = false
 
@@ -501,6 +516,10 @@ module = "examples.flask.*"
 disable_error_code = "unreachable"
 module = "tests.integration.test_repository"
 
+[[tool.mypy.overrides]]
+module = "tests.unit.test_exceptions"
+warn_unreachable = false
+
 
 [tool.pyright]
 disableBytesTypePromotions = true
@@ -517,7 +536,6 @@ pythonVersion = "3.9"
 reportMissingTypeStubs = false
 reportPrivateImportUsage = false
 reportUnknownMemberType = false
-reportUnnecessaryTypeIgnoreComments = true
 reportUnusedFunction = false
 strict = ["advanced_alchemy/**/*"]
 venv = ".venv"
@@ -587,4 +605,4 @@ SQLAlchemyAsyncSlugRepository = "SQLAlchemySyncSlugRepository"
 
 [tool.codespell]
 ignore-words-list = "selectin,fo,froms,notin"
-skip = 'pdm.lock, uv.lock, examples/us_state_lookup.json, docs/_static/favicon.svg, docs/changelog.rst, advanced_alchemy/types/file_object/file.py'
+skip = 'pdm.lock, uv.lock, examples/us_state_lookup.json, docs/_static/favicon.svg, docs/changelog.rst, advanced_alchemy/types/file_object/file.py, docs/_static/syntax-highlighting.css'

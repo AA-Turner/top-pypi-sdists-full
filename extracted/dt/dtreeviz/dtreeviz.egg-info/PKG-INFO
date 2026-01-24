@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dtreeviz
-Version: 2.2.2
+Version: 2.3.2
 Summary: A Python 3 library for sci-kit learn, XGBoost, LightGBM, Spark, and TensorFlow decision tree visualization
 Home-page: https://github.com/parrt/dtreeviz
 Author: Terence Parr, Tudor Lapusan, and Prince Grover
@@ -10,12 +10,43 @@ Keywords: machine-learning data structures trees visualization
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
 Requires-Python: >=3.6
-Provides-Extra: xgboost
-Provides-Extra: pyspark
-Provides-Extra: lightgbm
-Provides-Extra: tensorflow_decision_forests
-Provides-Extra: all
 License-File: LICENSE
+Requires-Dist: graphviz>=0.9
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: scikit-learn
+Requires-Dist: matplotlib
+Requires-Dist: colour
+Provides-Extra: xgboost
+Requires-Dist: xgboost; extra == "xgboost"
+Provides-Extra: pyspark
+Requires-Dist: pyspark; extra == "pyspark"
+Provides-Extra: lightgbm
+Requires-Dist: lightgbm; extra == "lightgbm"
+Provides-Extra: tensorflow-decision-forests
+Requires-Dist: tensorflow_decision_forests; extra == "tensorflow-decision-forests"
+Provides-Extra: ai
+Requires-Dist: langchain-openai; extra == "ai"
+Provides-Extra: all
+Requires-Dist: xgboost; extra == "all"
+Requires-Dist: pyspark; extra == "all"
+Requires-Dist: lightgbm; extra == "all"
+Requires-Dist: tensorflow_decision_forests; extra == "all"
+Requires-Dist: langchain-openai; extra == "all"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 A python library for decision tree visualization and model interpretation.  Decision trees are the fundamental building block of [gradient boosting machines](http://explained.ai/gradient-boosting/index.html) and [Random Forests](https://en.wikipedia.org/wiki/Random_forest)(tm), probably the two most popular machine learning models for structured data.  Visualizing decision trees is a tremendous aid when learning how these models work and when interpreting models. The visualizations are inspired by an educational animation by [R2D3](http://www.r2d3.us/); [A visual introduction to machine learning](http://www.r2d3.us/visual-intro-to-machine-learning-part-1/). Please see [How to visualize decision trees](http://explained.ai/decision-tree-viz/index.html) for deeper discussion of our decision tree visualization library and the visual design decisions we made.
 

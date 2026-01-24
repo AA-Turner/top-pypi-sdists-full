@@ -27,6 +27,7 @@
 
 from itertools import chain
 from json import dumps, loads
+import logging
 import re
 
 import requests
@@ -41,6 +42,7 @@ from ..utils.parse import (
     parse_phone_no,
     validate_regex,
 )
+from ..utils.sanitize import sanitize_payload
 from .base import NotifyBase
 
 GROUP_REGEX = re.compile(r"^\s*(\#|\%35)(?P<group>[a-z0-9_-]+)", re.I)
@@ -100,7 +102,7 @@ class NotifySMSEagle(NotifyBase):
     secure_protocol = "smseagles"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_smseagle"
+    setup_url = "https://appriseit.com/services/smseagle/"
 
     # The path we send our notification to
     notify_path = "/jsonrpc/sms"
@@ -494,12 +496,19 @@ class NotifySMSEagle(NotifyBase):
                 payload["params"][notify_by[category]["target"]] = ",".join(
                     targets[index : index + batch_size]
                 )
-
-                self.logger.debug(
-                    "SMSEagle POST URL:"
-                    f" {notify_url} (cert_verify={self.verify_certificate!r})"
-                )
-                self.logger.debug(f"SMSEagle Payload: {payload!s}")
+                # Some Debug Logging
+                if self.logger.isEnabledFor(logging.DEBUG):
+                    # Due to attachments; output can be quite heavy and io
+                    # intensive.
+                    # To accommodate this, we only show our debug payload
+                    # information if required.
+                    self.logger.debug(
+                        "SMSEagle POST URL:"
+                        f" {notify_url} "
+                        f"(cert_verify={self.verify_certificate!r})"
+                    )
+                    self.logger.debug(
+                        "SMSEagle Payload: %s", sanitize_payload(payload))
 
                 # Always call throttle before any remote server i/o is made
                 self.throttle()

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.753497                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.918180                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -18,6 +18,8 @@ ARGO_EVENTS_WEBHOOK_AUTH: str
 ARGO_EVENTS_WEBHOOK_URL: None
 
 SERVICE_HEADERS: dict
+
+SERVICE_RETRY_COUNT: int
 
 class ArgoEventException(metaflow.exception.MetaflowException, metaclass=type):
     ...

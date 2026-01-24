@@ -186,9 +186,11 @@ class GraphRunnableTask(ConfiguredTask):
                 self._flattened_nodes.append(self.manifest.unit_tests[uid])
             elif uid in self.manifest.exposures:
                 self._flattened_nodes.append(self.manifest.exposures[uid])
+            elif uid in self.manifest.functions:
+                self._flattened_nodes.append(self.manifest.functions[uid])
             else:
                 raise DbtInternalError(
-                    f"Node selection returned {uid}, expected a node, a source, or a unit test"
+                    f"Node selection returned {uid}, expected an exposure, a function, a node, a saved query, a source, or a unit test"
                 )
 
         self.num_nodes = len([n for n in self._flattened_nodes if not n.is_ephemeral_model])
@@ -233,45 +235,31 @@ class GraphRunnableTask(ConfiguredTask):
                     node_info=runner.node.node_info,
                 )
             )
+
+            result = None
+            thread_exception: Optional[Union[KeyboardInterrupt, SystemExit, Exception]] = None
             try:
                 result = runner.run_with_hooks(self.manifest)
             except (KeyboardInterrupt, SystemExit) as exe:
                 result = None
-                thread_exception: Union[KeyboardInterrupt, SystemExit, Exception] = exe
+                thread_exception = exe
                 raise
             except Exception as e:
                 result = None
                 thread_exception = e
             finally:
                 if result is not None:
-                    fire_event(
-                        NodeFinished(
-                            node_info=runner.node.node_info,
-                            run_result=result.to_msg_dict(),
+                    try:
+                        fire_event(
+                            NodeFinished(
+                                node_info=runner.node.node_info,
+                                run_result=result.to_msg_dict(),
+                            )
                         )
-                    )
+                    except Exception as e:
+                        result = self._handle_thread_exception(runner, e)
                 else:
-                    msg = f"Exception on worker thread. {thread_exception}"
-
-                    fire_event(
-                        GenericExceptionOnRun(
-                            unique_id=runner.node.unique_id,
-                            exc=str(thread_exception),
-                            node_info=runner.node.node_info,
-                        )
-                    )
-
-                    result = RunResult(
-                        status=RunStatus.Error,  # type: ignore
-                        timing=[],
-                        thread_id="",
-                        execution_time=0.0,
-                        adapter_response={},
-                        message=msg,
-                        failures=None,
-                        batch_results=None,
-                        node=runner.node,
-                    )
+                    result = self._handle_thread_exception(runner, thread_exception)
 
             # `_event_status` dict is only used for logging.  Make sure
             # it gets deleted when we're done with it
@@ -359,6 +347,32 @@ class GraphRunnableTask(ConfiguredTask):
             runner.do_skip(cause=cause)
         args = [runner]
         self._submit(pool, args, callback)
+
+    def _handle_thread_exception(
+        self,
+        runner: BaseRunner,
+        thread_exception: Optional[Union[KeyboardInterrupt, SystemExit, Exception]],
+    ) -> RunResult:
+        msg = f"Exception on worker thread. {thread_exception}"
+        fire_event(
+            GenericExceptionOnRun(
+                unique_id=runner.node.unique_id,
+                exc=str(thread_exception),
+                node_info=runner.node.node_info,
+            )
+        )
+
+        return RunResult(
+            status=RunStatus.Error,  # type: ignore
+            timing=[],
+            thread_id="",
+            execution_time=0.0,
+            adapter_response={},
+            message=msg,
+            failures=None,
+            batch_results=None,
+            node=runner.node,
+        )
 
     def _handle_result(self, result: RunResult) -> None:
         """Mark the result as completed, insert the `CompileResultNode` into

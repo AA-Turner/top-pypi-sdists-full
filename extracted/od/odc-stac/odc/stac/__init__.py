@@ -1,6 +1,6 @@
 """STAC Item -> ODC Dataset[eo3]."""
 
-from odc.loader._rio import configure_rio, configure_s3_access
+from odc.loader import configure_rio, configure_s3_access
 from odc.loader.types import RasterBandMetadata, RasterLoadParams, RasterSource
 
 from ._mdtools import (
@@ -34,20 +34,13 @@ __all__ = (
     "output_geobox",
 )
 
-_eo3_methods = ["stac2ds", "infer_dc_product"]
-
 
 def __dir__():
-    return [*__all__, *_eo3_methods, "__version__"]
+    return [*__all__, "__version__"]
 
 
 def __getattr__(name):
     # pylint: disable=import-outside-toplevel
-    if name in _eo3_methods:
-        from . import eo3
-
-        return getattr(eo3, name)
-
     if name == "__version__":
         from importlib.metadata import version
 

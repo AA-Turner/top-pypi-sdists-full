@@ -29,6 +29,7 @@ __all__ = (
     "CompressionTypeType",
     "DeviceStatusType",
     "DeviceTypeType",
+    "ExperimentalCapabilitiesEnablementTypeType",
     "HybridJobAdditionalAttributeNameType",
     "InstanceTypeType",
     "JobEventTypeType",
@@ -45,6 +46,8 @@ __all__ = (
     "SearchJobsPaginatorName",
     "SearchQuantumTasksFilterOperatorType",
     "SearchQuantumTasksPaginatorName",
+    "SearchSpendingLimitsFilterOperatorType",
+    "SearchSpendingLimitsPaginatorName",
     "ServiceName",
 )
 
@@ -54,6 +57,7 @@ CancellationStatusType = Literal["CANCELLED", "CANCELLING"]
 CompressionTypeType = Literal["GZIP", "NONE"]
 DeviceStatusType = Literal["OFFLINE", "ONLINE", "RETIRED"]
 DeviceTypeType = Literal["QPU", "SIMULATOR"]
+ExperimentalCapabilitiesEnablementTypeType = Literal["ALL", "NONE"]
 HybridJobAdditionalAttributeNameType = Literal["QueueInfo"]
 InstanceTypeType = Literal[
     "ml.c4.2xlarge",
@@ -123,6 +127,8 @@ SearchJobsFilterOperatorType = Literal["BETWEEN", "CONTAINS", "EQUAL", "GT", "GT
 SearchJobsPaginatorName = Literal["search_jobs"]
 SearchQuantumTasksFilterOperatorType = Literal["BETWEEN", "EQUAL", "GT", "GTE", "LT", "LTE"]
 SearchQuantumTasksPaginatorName = Literal["search_quantum_tasks"]
+SearchSpendingLimitsFilterOperatorType = Literal["EQUAL"]
+SearchSpendingLimitsPaginatorName = Literal["search_spending_limits"]
 BraketServiceName = Literal["braket"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -150,7 +156,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -163,8 +168,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -218,6 +225,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -316,7 +324,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -355,8 +362,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -391,6 +396,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -400,18 +406,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -433,8 +441,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -449,15 +455,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -488,8 +495,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -540,16 +547,9 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["search_devices", "search_jobs", "search_quantum_tasks"]
+PaginatorName = Literal[
+    "search_devices", "search_jobs", "search_quantum_tasks", "search_spending_limits"
+]
 RegionName = Literal["eu-north-1", "eu-west-2", "us-east-1", "us-west-1", "us-west-2"]

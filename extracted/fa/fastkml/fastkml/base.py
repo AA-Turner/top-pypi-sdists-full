@@ -33,9 +33,7 @@ consistent handling of XML operations across the library.
 
 import logging
 from typing import Any
-from typing import Dict
 from typing import Optional
-from typing import Tuple
 from typing import cast
 
 from typing_extensions import Self
@@ -56,13 +54,13 @@ class _XMLObject:
 
     _default_nsid: str = ""
     _node_name: str = ""
-    name_spaces: Dict[str, str]
-    __kwarg_keys: Tuple[str, ...]
+    name_spaces: dict[str, str]
+    __kwarg_keys: tuple[str, ...]
 
     def __init__(
         self,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -134,6 +132,8 @@ class _XMLObject:
         """
         return self.__dict__ == other.__dict__ if type(self) is type(other) else False
 
+    __hash__ = None  # type: ignore[assignment]
+
     def etree_element(
         self,
         precision: Optional[int] = None,
@@ -170,6 +170,33 @@ class _XMLObject:
         element: Element = config.etree.Element(
             f"{self.ns}{self.get_tag_name()}",
         )
+        self.populate_element(element, precision, verbosity)
+        return element
+
+    def populate_element(
+        self,
+        element: Element,
+        precision: Optional[int] = None,
+        verbosity: Verbosity = Verbosity.normal,
+    ) -> None:
+        """
+        Populate an existing XML element with attributes and child elements.
+
+        This method adds the object's attributes and child elements to an existing
+        etree Element, using the registry to determine how each attribute should be
+        serialized. It is used internally by `etree_element` and by helper functions
+        like `xml_subelement` to build XML structures incrementally.
+
+        Parameters
+        ----------
+        element : Element
+            The XML element to populate with this object's data.
+        precision : Optional[int], default=None
+            The precision of the KML object.
+        verbosity : Verbosity, default=Verbosity.normal
+            The verbosity level.
+
+        """
         for item in registry.get(self.__class__):
             item.set_element(
                 obj=self,
@@ -180,7 +207,6 @@ class _XMLObject:
                 verbosity=verbosity,
                 default=item.default,
             )
-        return element
 
     def to_string(
         self,
@@ -213,7 +239,7 @@ class _XMLObject:
         )
         try:
             return cast(
-                str,
+                "str",
                 config.etree.tostring(
                     element,
                     encoding="unicode",
@@ -222,7 +248,7 @@ class _XMLObject:
             )
         except TypeError:
             return cast(
-                str,
+                "str",
                 config.etree.tostring(
                     element,
                     encoding="unicode",
@@ -246,7 +272,7 @@ class _XMLObject:
         """
         return validate(element=self.etree_element())
 
-    def _get_splat(self) -> Dict[str, Any]:
+    def _get_splat(self) -> dict[str, Any]:
         """
         Get the keyword arguments as a dictionary.
 
@@ -276,7 +302,7 @@ class _XMLObject:
         return cls.__name__
 
     @classmethod
-    def _get_ns(cls, ns: Optional[str], name_spaces: Dict[str, str]) -> str:
+    def _get_ns(cls, ns: Optional[str], name_spaces: dict[str, str]) -> str:
         """
         Get the namespace.
 
@@ -300,10 +326,10 @@ class _XMLObject:
         cls,
         *,
         ns: str,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         element: Element,
         strict: bool,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get the keyword arguments for the class constructor.
 
@@ -351,12 +377,12 @@ class _XMLObject:
         """
         name_spaces = name_spaces or {}
         name_spaces = {**config.NAME_SPACES, **name_spaces}
-        kwargs: Dict[str, Any] = {"ns": ns, "name_spaces": name_spaces}
+        kwargs: dict[str, Any] = {"ns": ns, "name_spaces": name_spaces}
         for item in registry.get(cls):
-            for name_space in item.ns_ids:
-                kwarg = item.get_kwarg(
+            if item.custom_get_kwarg is not None:
+                kwarg = item.custom_get_kwarg(
                     element=element,
-                    ns=name_spaces.get(name_space, ""),
+                    ns_ids=item.ns_ids,
                     name_spaces=name_spaces,
                     node_name=item.node_name,
                     kwarg=item.attr_name,
@@ -364,10 +390,23 @@ class _XMLObject:
                     strict=strict,
                 )
                 if kwarg:
-                    kwargs.update(
-                        kwarg,
+                    kwargs.update(kwarg)
+            else:
+                for name_space in item.ns_ids:
+                    kwarg = item.get_kwarg(
+                        element=element,
+                        ns=name_spaces.get(name_space, ""),
+                        name_spaces=name_spaces,
+                        node_name=item.node_name,
+                        kwarg=item.attr_name,
+                        classes=item.classes,
+                        strict=strict,
                     )
-                    break
+                    if kwarg:
+                        kwargs.update(
+                            kwarg,
+                        )
+                        break
         return kwargs
 
     @classmethod
@@ -375,7 +414,7 @@ class _XMLObject:
         cls,
         *,
         ns: str,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         element: Element,
         strict: bool,
     ) -> Self:
@@ -415,7 +454,7 @@ class _XMLObject:
         string: str,
         *,
         ns: Optional[str] = None,
-        name_spaces: Optional[Dict[str, str]] = None,
+        name_spaces: Optional[dict[str, str]] = None,
         strict: bool = True,
     ) -> Self:
         """
@@ -446,7 +485,7 @@ class _XMLObject:
             name_spaces=name_spaces,
             strict=strict,
             element=cast(
-                Element,
+                "Element",
                 config.etree.fromstring(string),
             ),
         )

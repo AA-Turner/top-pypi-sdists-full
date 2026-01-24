@@ -48,7 +48,6 @@ def test_sparse_nd_array_basics(
 
     # Test the various accessors
     with tiledbsoma.SparseNDArray.open(uri) as snda:
-
         assert snda.shape == arg_shape
 
         assert snda.tiledbsoma_has_upgraded_shape
@@ -100,12 +99,11 @@ def test_sparse_nd_array_basics(
             snda.read(coords).tables().concat()
 
     # Test writes out of bounds
-    with tiledbsoma.SparseNDArray.open(uri, "w") as snda:
-        with pytest.raises(tiledbsoma.SOMAError):
-            dikt = {name: [shape + 20] for name, shape in zip(dim_names, arg_shape)}
-            dikt["soma_data"] = [30]
-            table = pa.Table.from_pydict(dikt, schema=snda.schema)
-            snda.write(table)
+    with tiledbsoma.SparseNDArray.open(uri, "w") as snda, pytest.raises(tiledbsoma.SOMAError):
+        dikt = {name: [shape + 20] for name, shape in zip(dim_names, arg_shape)}
+        dikt["soma_data"] = [30]
+        table = pa.Table.from_pydict(dikt, schema=snda.schema)
+        snda.write(table)
 
     with tiledbsoma.SparseNDArray.open(uri) as snda:
         assert snda.shape == arg_shape
@@ -113,10 +111,7 @@ def test_sparse_nd_array_basics(
     with tiledbsoma.SparseNDArray.open(uri) as snda:
         ok, msg = snda.tiledbsoma_upgrade_shape(arg_shape, check_only=True)
         assert not ok
-        assert (
-            msg
-            == "tiledbsoma_can_upgrade_shape: array already has a shape: please use resize"
-        )
+        assert msg == "tiledbsoma_can_upgrade_shape: array already has a shape: please use resize"
 
     # Test resize down
     new_shape = tuple([arg_shape[i] - 50 for i in range(ndim)])
@@ -124,8 +119,7 @@ def test_sparse_nd_array_basics(
         (ok, msg) = snda.resize(new_shape, check_only=True)
         assert not ok
         assert (
-            msg
-            == "[can_resize] index-column name 'soma_dim_0': new upper 49 < old upper 99 (downsize is unsupported)"
+            msg == "[can_resize] index-column name 'soma_dim_0': new upper 49 < old upper 99 (downsize is unsupported)"
         )
         # TODO: check draft spec
         # with pytest.raises(ValueError):
@@ -136,12 +130,11 @@ def test_sparse_nd_array_basics(
         assert snda.shape == arg_shape
 
     # Test writes out of bounds
-    with tiledbsoma.SparseNDArray.open(uri, "w") as snda:
-        with pytest.raises(tiledbsoma.SOMAError):
-            dikt = {name: [shape + 20] for name, shape in zip(dim_names, arg_shape)}
-            dikt["soma_data"] = [30]
-            table = pa.Table.from_pydict(dikt)
-            snda.write(table)
+    with tiledbsoma.SparseNDArray.open(uri, "w") as snda, pytest.raises(tiledbsoma.SOMAError):
+        dikt = {name: [shape + 20] for name, shape in zip(dim_names, arg_shape)}
+        dikt["soma_data"] = [30]
+        table = pa.Table.from_pydict(dikt)
+        snda.write(table)
 
     # Test resize
     new_shape = tuple([arg_shape[i] + 50 for i in range(ndim)])
@@ -173,7 +166,7 @@ def test_sparse_nd_array_basics(
 
         (ok, msg) = snda.resize(new_shape, check_only=True)
         assert ok
-        assert msg == ""
+        assert not msg
 
         too_small = tuple(e - 1 for e in new_shape)
         (ok, msg) = snda.resize(too_small, check_only=True)
@@ -210,10 +203,7 @@ def test_dense_nd_array_basics(tmp_path):
     with tiledbsoma.DenseNDArray.open(uri) as dnda:
         ok, msg = dnda.tiledbsoma_upgrade_shape((600, 700), check_only=True)
         assert not ok
-        assert (
-            msg
-            == "tiledbsoma_can_upgrade_shape: array already has a shape: please use resize"
-        )
+        assert msg == "tiledbsoma_can_upgrade_shape: array already has a shape: please use resize"
 
 
 @pytest.mark.parametrize(
@@ -244,7 +234,7 @@ def test_dataframe_basics(tmp_path, soma_joinid_domain, index_column_names):
             ("mystring", pa.string()),
             ("myint", pa.int16()),
             ("myfloat", pa.float32()),
-        ]
+        ],
     )
 
     data_dict = {
@@ -268,10 +258,7 @@ def test_dataframe_basics(tmp_path, soma_joinid_domain, index_column_names):
     domain = tuple([domain_slots[name] for name in index_column_names])
 
     soma_joinid_coords = data["soma_joinid"]
-    oob_write = any(
-        e.as_py() < soma_joinid_domain[0] or e.as_py() > soma_joinid_domain[1]
-        for e in soma_joinid_coords
-    )
+    oob_write = any(e.as_py() < soma_joinid_domain[0] or e.as_py() > soma_joinid_domain[1] for e in soma_joinid_coords)
     oob_write = oob_write and "soma_joinid" in index_column_names
 
     with tiledbsoma.DataFrame.create(
@@ -306,15 +293,12 @@ def test_dataframe_basics(tmp_path, soma_joinid_domain, index_column_names):
             # TODO: check draft spec
             # with pytest.raises(ValueError):
             assert not ok
-            assert (
-                "tiledbsoma_resize_soma_joinid_shape: new soma_joinid shape 0 < existing shape"
-                in msg
-            )
+            assert "tiledbsoma_resize_soma_joinid_shape: new soma_joinid shape 0 < existing shape" in msg
             with pytest.raises(tiledbsoma.SOMAError):
                 sdf.tiledbsoma_resize_soma_joinid_shape(new_shape)
         else:
             assert ok
-            assert msg == ""
+            assert not msg
             sdf.tiledbsoma_resize_soma_joinid_shape(new_shape)
 
     with tiledbsoma.DataFrame.open(uri) as sdf:
@@ -352,7 +336,7 @@ def test_domain_mods(tmp_path):
             ("myint", pa.int16()),
             ("myfloat", pa.float32()),
             ("mybool", pa.bool_()),  # not supported as an index type
-        ]
+        ],
     )
     index_column_names = ["soma_joinid", "mystring", "myint", "myfloat"]
 
@@ -386,7 +370,7 @@ def test_domain_mods(tmp_path):
         newdomain = [[0, 3], None, [20, 50], [0.0, 6.0]]
         ok, msg = sdf.change_domain(newdomain, check_only=True)
         assert ok
-        assert msg == ""
+        assert not msg
 
     # Shrink
     with tiledbsoma.DataFrame.open(uri, "w") as sdf:
@@ -424,7 +408,7 @@ def test_domain_mods(tmp_path):
         newdomain = [[0, 9], None, [0, 100], [-10.0, 10.0]]
         ok, msg = sdf.change_domain(newdomain, check_only=True)
         assert ok
-        assert msg == ""
+        assert not msg
         sdf.change_domain(newdomain)
 
     # Check for success
@@ -440,13 +424,15 @@ def test_domain_mods(tmp_path):
 def test_canned_experiments(tmp_path, has_shapes):
     uri = tmp_path.as_posix()
 
-    if not has_shapes:
-        tgz = TESTDATA / "pbmc-exp-without-shapes.tgz"
-    else:
-        tgz = TESTDATA / "pbmc-exp-with-shapes.tgz"
+    tgz = TESTDATA / "pbmc-exp-without-shapes.tgz" if not has_shapes else TESTDATA / "pbmc-exp-with-shapes.tgz"
+    if not tgz.exists():
+        raise RuntimeError(f"Missing file '{tgz}'. Try running `make data` from the TileDB-SOMA project root.")
 
     with tarfile.open(tgz) as handle:
-        handle.extractall(uri)
+        if hasattr(tarfile, "data_filter"):
+            handle.extractall(uri, filter="data")
+        else:
+            handle.extractall(uri)
 
     def _assert_huge_domainish(d):
         assert len(d) == 1
@@ -455,9 +441,7 @@ def test_canned_experiments(tmp_path, has_shapes):
         # Exact number depends on tile extent, and is unimportant in any case
         assert d[0][1] > 2**62
 
-    def _check_dataframe(
-        sdf, has_shapes, expected_count, *, count_must_match: bool = True
-    ):
+    def _check_dataframe(sdf, has_shapes, expected_count, *, count_must_match: bool = True):
         if count_must_match:
             # OK match case: 2000 populated rows and shape is 2000.
             # OK mismatch case: 2000 populated rows and a reshape to 3000 has been done.
@@ -483,7 +467,6 @@ def test_canned_experiments(tmp_path, has_shapes):
         _assert_huge_shape(ndarray.maxshape)
 
     with tiledbsoma.Experiment.open(uri) as exp:
-
         _check_dataframe(exp.obs, has_shapes, 2638)
 
         assert "raw" in exp.ms
@@ -517,7 +500,6 @@ def test_canned_experiments(tmp_path, has_shapes):
 
     # Check upgrade_domain for dataframes
     with tiledbsoma.Experiment.open(uri, "w") as exp:
-
         ok, msg = exp.obs.tiledbsoma_upgrade_domain([[10, 4]], check_only=True)
         if has_shapes:
             assert not ok
@@ -532,16 +514,14 @@ def test_canned_experiments(tmp_path, has_shapes):
             assert "dataframe already has a domain" in msg
         else:
             assert ok
-            assert msg == ""
+            assert not msg
 
         with pytest.raises(ValueError):
             exp.obs.tiledbsoma_upgrade_domain([[0, 1, 2]], check_only=True)
 
     # Check dry run of tiledbsoma.io.upgrade_experiment_shapes
     handle = io.StringIO()
-    upgradeable = tiledbsoma.io.upgrade_experiment_shapes(
-        uri, check_only=True, output_handle=handle
-    )
+    upgradeable = tiledbsoma.io.upgrade_experiment_shapes(uri, check_only=True, output_handle=handle)
     handle.seek(0)
     lines = handle.readlines()
     handle.close()
@@ -597,10 +577,7 @@ def test_canned_experiments(tmp_path, has_shapes):
     handle.close()
     body = "\n".join(lines)
     if not has_shapes:
-        assert (
-            "Not OK: can_resize: array currently has no shape: please upgrade the array"
-            in body
-        )
+        assert "Not OK: can_resize: array currently has no shape: please upgrade the array" in body
     else:
         assert (
             "Not OK: [can_resize] index-column name 'soma_dim_1': new upper 13712 < old upper 13713 (downsize is unsupported)"
@@ -618,7 +595,6 @@ def test_canned_experiments(tmp_path, has_shapes):
 
     # Check post-upgrade shapes
     with tiledbsoma.Experiment.open(uri) as exp:
-
         _check_dataframe(exp.obs, True, 2638)
 
         assert "raw" in exp.ms
@@ -700,10 +676,7 @@ def test_canned_experiments(tmp_path, has_shapes):
     dict_output["ms"]["raw"]["var"]["uri"] = "test"
     dict_output["ms"]["raw"]["X"]["data"]["uri"] = "test"
 
-    if has_shapes:
-        var_max_domain_hi = 9223372036854773968
-    else:
-        var_max_domain_hi = 9223372036854773758
+    var_max_domain_hi = 9223372036854773968 if has_shapes else 9223372036854773758
 
     expect = {
         "obs": {
@@ -734,7 +707,7 @@ def test_canned_experiments(tmp_path, has_shapes):
                         "shape": (2639, 1839),
                         "maxshape": (9223372036854773759, 9223372036854773759),
                         "upgraded": True,
-                    }
+                    },
                 },
                 "obsm": {
                     "X_draw_graph_fr": {
@@ -796,7 +769,7 @@ def test_canned_experiments(tmp_path, has_shapes):
                         "shape": (1839, 50),
                         "maxshape": (9223372036854773759, 9223372036854773759),
                         "upgraded": True,
-                    }
+                    },
                 },
             },
             "raw": {
@@ -817,7 +790,7 @@ def test_canned_experiments(tmp_path, has_shapes):
                         "shape": (2639, 13720),
                         "maxshape": (9223372036854773759, 9223372036854773759),
                         "upgraded": True,
-                    }
+                    },
                 },
             },
         },
@@ -856,9 +829,7 @@ def test_get_experiment_shapes_corner_cases(tmp_path, level):
         expect = {}
     elif level == 2:
         expect = {"ms": {}}
-    elif level == 3:
-        expect = {"ms": {"RNA": {}}}
-    elif level == 4:
+    elif level == 3 or level == 4:
         expect = {"ms": {"RNA": {}}}
     assert actual == expect
 
@@ -867,9 +838,14 @@ def test_canned_nonstandard_dataframe_upgrade(tmp_path):
     uri = tmp_path.as_posix()
 
     tgz = TESTDATA / "nonstandard-dataframe-without-shapes.tgz"
+    if not tgz.exists():
+        raise RuntimeError(f"Missing file '{tgz}'. Try running `make data` from the TileDB-SOMA project root.")
 
     with tarfile.open(tgz) as handle:
-        handle.extractall(uri)
+        if hasattr(tarfile, "data_filter"):
+            handle.extractall(uri, filter="data")
+        else:
+            handle.extractall(uri)
 
     # ----------------------------------------------------------------
     # As of tiledbsoma 1.15 we no longer write dataframes/arrays without
@@ -911,7 +887,7 @@ def test_canned_nonstandard_dataframe_upgrade(tmp_path):
         assert sdf.maxdomain == ((0, 2147483646), (-2147483648, 2147481598), ("", ""))
 
     with tiledbsoma.DataFrame.open(uri, "w") as sdf:
-        ok, msg = sdf.tiledbsoma_upgrade_soma_joinid_shape(1, check_only=True)
+        _ = sdf.tiledbsoma_upgrade_soma_joinid_shape(1, check_only=True)
 
         sdf.tiledbsoma_upgrade_soma_joinid_shape(100)
 

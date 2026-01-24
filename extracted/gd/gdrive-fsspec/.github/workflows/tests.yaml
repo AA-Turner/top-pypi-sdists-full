@@ -1,0 +1,61 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    timeout-minutes: 45
+    runs-on: ${{ matrix.os }}
+    environment:
+      name: env1
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        pyv: ["3.13"]
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.pyv }}
+        cache: 'pip'
+
+    - name: install
+      run: |
+        pip install --upgrade pip wheel
+        pip install -e . pytest
+        pip list
+
+    - name: run tests
+      timeout-minutes: 15
+      env:
+        GDRIVE_FSSPEC_DRIVE: gdrivefs-testing
+        GDRIVE_FSSPEC_CREDENTIALS_PATH: ${{ secrets.GDRIVE_FSSPEC_CREDENTIALS_PATH }}
+      run: pytest -vv
+
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@main
+      - uses: actions/setup-python@main
+        with:
+          python-version: "3.11"
+      - uses: pre-commit/action@main

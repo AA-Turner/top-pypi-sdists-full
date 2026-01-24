@@ -3,7 +3,7 @@ Type annotations for elasticbeanstalk service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elasticbeanstalk/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -42,12 +43,6 @@ from .literals import (
     ValidationSeverityType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -207,7 +202,7 @@ class AbortEnvironmentUpdateMessageTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -357,8 +352,8 @@ class PlatformSummaryTypeDef(TypedDict):
     PlatformCategory: NotRequired[str]
     OperatingSystemName: NotRequired[str]
     OperatingSystemVersion: NotRequired[str]
-    SupportedTierList: NotRequired[List[str]]
-    SupportedAddonList: NotRequired[List[str]]
+    SupportedTierList: NotRequired[list[str]]
+    SupportedAddonList: NotRequired[list[str]]
     PlatformLifecycleState: NotRequired[str]
     PlatformVersion: NotRequired[str]
     PlatformBranchName: NotRequired[str]
@@ -557,7 +552,7 @@ class EventDescriptionTypeDef(TypedDict):
 
 class SolutionStackDescriptionTypeDef(TypedDict):
     SolutionStackName: NotRequired[str]
-    PermittedFileTypes: NotRequired[List[str]]
+    PermittedFileTypes: NotRequired[list[str]]
 
 
 class SearchFilterTypeDef(TypedDict):
@@ -571,7 +566,7 @@ class PlatformBranchSummaryTypeDef(TypedDict):
     BranchName: NotRequired[str]
     LifecycleState: NotRequired[str]
     BranchOrder: NotRequired[int]
-    SupportedTierList: NotRequired[List[str]]
+    SupportedTierList: NotRequired[list[str]]
 
 
 PlatformFilterTypeDef = TypedDict(
@@ -708,7 +703,7 @@ class ApplicationVersionLifecycleConfigTypeDef(TypedDict):
 
 class SystemStatusTypeDef(TypedDict):
     CPUUtilization: NotRequired[CPUUtilizationTypeDef]
-    LoadAverage: NotRequired[List[float]]
+    LoadAverage: NotRequired[list[float]]
 
 
 class ConfigurationOptionDescriptionTypeDef(TypedDict):
@@ -718,7 +713,7 @@ class ConfigurationOptionDescriptionTypeDef(TypedDict):
     ChangeSeverity: NotRequired[str]
     UserDefined: NotRequired[bool]
     ValueType: NotRequired[ConfigurationOptionValueTypeType]
-    ValueOptions: NotRequired[List[str]]
+    ValueOptions: NotRequired[list[str]]
     MinValue: NotRequired[int]
     MaxValue: NotRequired[int]
     MaxLength: NotRequired[int]
@@ -735,7 +730,7 @@ class ConfigurationSettingsDescriptionResponseTypeDef(TypedDict):
     DeploymentStatus: ConfigurationDeploymentStatusType
     DateCreated: datetime
     DateUpdated: datetime
-    OptionSettings: List[ConfigurationOptionSettingTypeDef]
+    OptionSettings: list[ConfigurationOptionSettingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -749,7 +744,7 @@ class ConfigurationSettingsDescriptionTypeDef(TypedDict):
     DeploymentStatus: NotRequired[ConfigurationDeploymentStatusType]
     DateCreated: NotRequired[datetime]
     DateUpdated: NotRequired[datetime]
-    OptionSettings: NotRequired[List[ConfigurationOptionSettingTypeDef]]
+    OptionSettings: NotRequired[list[ConfigurationOptionSettingTypeDef]]
 
 
 class ValidateConfigurationSettingsMessageTypeDef(TypedDict):
@@ -760,7 +755,7 @@ class ValidateConfigurationSettingsMessageTypeDef(TypedDict):
 
 
 class ConfigurationSettingsValidationMessagesTypeDef(TypedDict):
-    Messages: List[ValidationMessageTypeDef]
+    Messages: list[ValidationMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -787,7 +782,7 @@ class CreatePlatformVersionRequestTypeDef(TypedDict):
 
 class ResourceTagsDescriptionMessageTypeDef(TypedDict):
     ResourceArn: str
-    ResourceTags: List[TagTypeDef]
+    ResourceTags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -870,7 +865,7 @@ class DeletePlatformVersionResultTypeDef(TypedDict):
 
 
 class ListPlatformVersionsResultTypeDef(TypedDict):
-    PlatformSummaryList: List[PlatformSummaryTypeDef]
+    PlatformSummaryList: list[PlatformSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -888,13 +883,13 @@ class DescribeEnvironmentManagedActionHistoryRequestPaginateTypeDef(TypedDict):
 
 
 class DescribeEnvironmentManagedActionHistoryResultTypeDef(TypedDict):
-    ManagedActionHistoryItems: List[ManagedActionHistoryItemTypeDef]
+    ManagedActionHistoryItems: list[ManagedActionHistoryItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeEnvironmentManagedActionsResultTypeDef(TypedDict):
-    ManagedActions: List[ManagedActionTypeDef]
+    ManagedActions: list[ManagedActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -985,30 +980,30 @@ class DescribeEnvironmentsMessageWaitTypeDef(TypedDict):
 
 
 class RetrieveEnvironmentInfoResultMessageTypeDef(TypedDict):
-    EnvironmentInfo: List[EnvironmentInfoDescriptionTypeDef]
+    EnvironmentInfo: list[EnvironmentInfoDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EnvironmentResourceDescriptionTypeDef(TypedDict):
     EnvironmentName: NotRequired[str]
-    AutoScalingGroups: NotRequired[List[AutoScalingGroupTypeDef]]
-    Instances: NotRequired[List[InstanceTypeDef]]
-    LaunchConfigurations: NotRequired[List[LaunchConfigurationTypeDef]]
-    LaunchTemplates: NotRequired[List[LaunchTemplateTypeDef]]
-    LoadBalancers: NotRequired[List[LoadBalancerTypeDef]]
-    Triggers: NotRequired[List[TriggerTypeDef]]
-    Queues: NotRequired[List[QueueTypeDef]]
+    AutoScalingGroups: NotRequired[list[AutoScalingGroupTypeDef]]
+    Instances: NotRequired[list[InstanceTypeDef]]
+    LaunchConfigurations: NotRequired[list[LaunchConfigurationTypeDef]]
+    LaunchTemplates: NotRequired[list[LaunchTemplateTypeDef]]
+    LoadBalancers: NotRequired[list[LoadBalancerTypeDef]]
+    Triggers: NotRequired[list[TriggerTypeDef]]
+    Queues: NotRequired[list[QueueTypeDef]]
 
 
 class EventDescriptionsMessageTypeDef(TypedDict):
-    Events: List[EventDescriptionTypeDef]
+    Events: list[EventDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListAvailableSolutionStacksResultMessageTypeDef(TypedDict):
-    SolutionStacks: List[str]
-    SolutionStackDetails: List[SolutionStackDescriptionTypeDef]
+    SolutionStacks: list[str]
+    SolutionStackDetails: list[SolutionStackDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1019,7 +1014,7 @@ class ListPlatformBranchesRequestTypeDef(TypedDict):
 
 
 class ListPlatformBranchesResultTypeDef(TypedDict):
-    PlatformBranchSummaryList: List[PlatformBranchSummaryTypeDef]
+    PlatformBranchSummaryList: list[PlatformBranchSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1038,7 +1033,7 @@ class ListPlatformVersionsRequestTypeDef(TypedDict):
 class LoadBalancerDescriptionTypeDef(TypedDict):
     LoadBalancerName: NotRequired[str]
     Domain: NotRequired[str]
-    Listeners: NotRequired[List[ListenerTypeDef]]
+    Listeners: NotRequired[list[ListenerTypeDef]]
 
 
 class PlatformDescriptionTypeDef(TypedDict):
@@ -1055,11 +1050,11 @@ class PlatformDescriptionTypeDef(TypedDict):
     Maintainer: NotRequired[str]
     OperatingSystemName: NotRequired[str]
     OperatingSystemVersion: NotRequired[str]
-    ProgrammingLanguages: NotRequired[List[PlatformProgrammingLanguageTypeDef]]
-    Frameworks: NotRequired[List[PlatformFrameworkTypeDef]]
-    CustomAmiList: NotRequired[List[CustomAmiTypeDef]]
-    SupportedTierList: NotRequired[List[str]]
-    SupportedAddonList: NotRequired[List[str]]
+    ProgrammingLanguages: NotRequired[list[PlatformProgrammingLanguageTypeDef]]
+    Frameworks: NotRequired[list[PlatformFrameworkTypeDef]]
+    CustomAmiList: NotRequired[list[CustomAmiTypeDef]]
+    SupportedTierList: NotRequired[list[str]]
+    SupportedAddonList: NotRequired[list[str]]
     PlatformLifecycleState: NotRequired[str]
     PlatformBranchName: NotRequired[str]
     PlatformBranchLifecycleState: NotRequired[str]
@@ -1078,7 +1073,7 @@ class DescribeEnvironmentHealthResultTypeDef(TypedDict):
     HealthStatus: str
     Status: EnvironmentHealthType
     Color: str
-    Causes: List[str]
+    Causes: list[str]
     ApplicationMetrics: ApplicationMetricsTypeDef
     InstancesHealth: InstanceHealthSummaryTypeDef
     RefreshedAt: datetime
@@ -1091,7 +1086,7 @@ class ApplicationVersionDescriptionMessageTypeDef(TypedDict):
 
 
 class ApplicationVersionDescriptionsMessageTypeDef(TypedDict):
-    ApplicationVersions: List[ApplicationVersionDescriptionTypeDef]
+    ApplicationVersions: list[ApplicationVersionDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1105,7 +1100,7 @@ class SingleInstanceHealthTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     HealthStatus: NotRequired[str]
     Color: NotRequired[str]
-    Causes: NotRequired[List[str]]
+    Causes: NotRequired[list[str]]
     LaunchedAt: NotRequired[datetime]
     ApplicationMetrics: NotRequired[ApplicationMetricsTypeDef]
     System: NotRequired[SystemStatusTypeDef]
@@ -1117,12 +1112,12 @@ class SingleInstanceHealthTypeDef(TypedDict):
 class ConfigurationOptionsDescriptionTypeDef(TypedDict):
     SolutionStackName: str
     PlatformArn: str
-    Options: List[ConfigurationOptionDescriptionTypeDef]
+    Options: list[ConfigurationOptionDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ConfigurationSettingsDescriptionsTypeDef(TypedDict):
-    ConfigurationSettings: List[ConfigurationSettingsDescriptionTypeDef]
+    ConfigurationSettings: list[ConfigurationSettingsDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1151,8 +1146,8 @@ class ApplicationDescriptionTypeDef(TypedDict):
     Description: NotRequired[str]
     DateCreated: NotRequired[datetime]
     DateUpdated: NotRequired[datetime]
-    Versions: NotRequired[List[str]]
-    ConfigurationTemplates: NotRequired[List[str]]
+    Versions: NotRequired[list[str]]
+    ConfigurationTemplates: NotRequired[list[str]]
     ResourceLifecycleConfig: NotRequired[ApplicationResourceLifecycleConfigTypeDef]
 
 
@@ -1175,7 +1170,7 @@ class UpdateApplicationResourceLifecycleMessageTypeDef(TypedDict):
 
 
 class DescribeInstancesHealthResultTypeDef(TypedDict):
-    InstanceHealthList: List[SingleInstanceHealthTypeDef]
+    InstanceHealthList: list[SingleInstanceHealthTypeDef]
     RefreshedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -1200,7 +1195,7 @@ class EnvironmentDescriptionResponseTypeDef(TypedDict):
     HealthStatus: EnvironmentHealthStatusType
     Resources: EnvironmentResourcesDescriptionTypeDef
     Tier: EnvironmentTierTypeDef
-    EnvironmentLinks: List[EnvironmentLinkTypeDef]
+    EnvironmentLinks: list[EnvironmentLinkTypeDef]
     EnvironmentArn: str
     OperationsRole: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1225,7 +1220,7 @@ class EnvironmentDescriptionTypeDef(TypedDict):
     HealthStatus: NotRequired[EnvironmentHealthStatusType]
     Resources: NotRequired[EnvironmentResourcesDescriptionTypeDef]
     Tier: NotRequired[EnvironmentTierTypeDef]
-    EnvironmentLinks: NotRequired[List[EnvironmentLinkTypeDef]]
+    EnvironmentLinks: NotRequired[list[EnvironmentLinkTypeDef]]
     EnvironmentArn: NotRequired[str]
     OperationsRole: NotRequired[str]
 
@@ -1236,11 +1231,11 @@ class ApplicationDescriptionMessageTypeDef(TypedDict):
 
 
 class ApplicationDescriptionsMessageTypeDef(TypedDict):
-    Applications: List[ApplicationDescriptionTypeDef]
+    Applications: list[ApplicationDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class EnvironmentDescriptionsMessageTypeDef(TypedDict):
-    Environments: List[EnvironmentDescriptionTypeDef]
+    Environments: list[EnvironmentDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

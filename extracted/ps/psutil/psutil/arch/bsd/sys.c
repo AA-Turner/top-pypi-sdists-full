@@ -6,13 +6,6 @@
 
 #include <Python.h>
 #include <sys/sysctl.h>
-#include <stdio.h>
-#include <sys/param.h>  // OS version
-#if defined(PSUTIL_FREEBSD) || defined(PSUTIL_NETBSD)
-    #include <utmpx.h>
-#elif defined(PSUTIL_OPENBSD)
-    #include <utmp.h>
-#endif
 
 #include "../../arch/all/init.h"
 
@@ -22,7 +15,7 @@
 PyObject *
 psutil_boot_time(PyObject *self, PyObject *args) {
     // fetch sysctl "kern.boottime"
-    static int request[2] = { CTL_KERN, KERN_BOOTTIME };
+    static int request[2] = {CTL_KERN, KERN_BOOTTIME};
     struct timeval boottime;
 
     if (psutil_sysctl(request, 2, &boottime, sizeof(boottime)) != 0)

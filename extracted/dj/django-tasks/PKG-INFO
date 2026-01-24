@@ -1,19 +1,19 @@
 Metadata-Version: 2.4
 Name: django-tasks
-Version: 0.8.1
+Version: 0.11.0
 Summary: An implementation and backport of background workers and tasks in Django
 Author: Jake Howard
 License-Expression: BSD-3-Clause
 Project-URL: Source, https://github.com/RealOrangeOne/django-tasks
 Project-URL: Issues, https://github.com/RealOrangeOne/django-tasks/issues
 Project-URL: Changelog, https://github.com/RealOrangeOne/django-tasks/releases
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -22,30 +22,21 @@ Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Django>=4.2
 Requires-Dist: typing_extensions
 Requires-Dist: django-stubs-ext
-Provides-Extra: dev
-Requires-Dist: ruff; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Requires-Dist: django-stubs[compatible-mypy]; extra == "dev"
-Requires-Dist: dj-database-url; extra == "dev"
-Requires-Dist: django-tasks[rq]; extra == "dev"
-Requires-Dist: fakeredis; extra == "dev"
-Provides-Extra: mysql
-Requires-Dist: mysqlclient; extra == "mysql"
-Provides-Extra: postgres
-Requires-Dist: psycopg[binary]; extra == "postgres"
 Provides-Extra: rq
 Requires-Dist: django-rq; extra == "rq"
+Requires-Dist: rq>=2.5; extra == "rq"
 Requires-Dist: rq_scheduler; extra == "rq"
 Dynamic: license-file
 
@@ -57,9 +48,9 @@ Dynamic: license-file
 ![PyPI - Status](https://img.shields.io/pypi/status/django-tasks.svg)
 ![PyPI - License](https://img.shields.io/pypi/l/django-tasks.svg)
 
-An implementation and backport of background workers and tasks in Django, as defined in [DEP 0014](https://github.com/django/deps/blob/main/accepted/0014-background-workers.rst).
+An implementation and backport of background workers and tasks in Django. This is the out of tree implementation of `django.tasks`.
 
-**Warning**: This package is under active development, and breaking changes may be released at any time. Be sure to pin to specific versions if you're using this package in a production environment.
+**Note**: Whilst much of `django-tasks` is available in `django` itself as of 6.0, some features of `django-tasks` do not have the same production-grade guarantees. The package is still marked as "beta" to reflect this.
 
 ## Installation
 
@@ -99,8 +90,6 @@ Note: `DatabaseBackend` additionally requires `django_tasks.backends.database` a
 
 ## Usage
 
-**Note**: This documentation is still work-in-progress. Further details can also be found on the [DEP](https://github.com/django/deps/blob/main/accepted/0014-background-workers.rst). [The tests](./tests/tests/) are also a good exhaustive reference.
-
 ### Defining tasks
 
 A task is created with the `task` decorator.
@@ -119,9 +108,6 @@ The task decorator accepts a few arguments to customize the task:
 - `priority`: The priority of the task (between -100 and 100. Larger numbers are higher priority. 0 by default)
 - `queue_name`: Whether to run the task on a specific queue
 - `backend`: Name of the backend for this task to use (as defined in `TASKS`)
-- `enqueue_on_commit`: Whether the task is enqueued when the current transaction commits successfully, or enqueued immediately. By default, this is handled by the backend (see below). `enqueue_on_commit` may not be modified with `.using`.
-
-These attributes (besides `enqueue_on_commit`) can also be modified at run-time with `.using`:
 
 ```python
 modified_task = calculate_meaning_of_life.using(priority=10)
@@ -146,6 +132,11 @@ The task context has the following attributes:
 
 - `task_result`: The running task result
 - `attempt`: The current attempt number for the task
+- `metadata`: A `dict` which can be used to write arbitrary [metadata](#metadata). Keys starting `_django_tasks` should be reserved for backend implementations.
+
+And the following methods:
+
+- `save_metadata` (and `asave_metadata`): Save any modifications to `metadata` to the queue.
 
 This API will be extended with additional features in future.
 
@@ -160,23 +151,6 @@ result = calculate_meaning_of_life.enqueue()
 The returned `TaskResult` can be interrogated to query the current state of the running task, as well as its return value.
 
 If the task takes arguments, these can be passed as-is to `enqueue`.
-
-#### Transactions
-
-By default, tasks are enqueued after the current transaction (if there is one) commits successfully (using Django's `transaction.on_commit` method), rather than enqueueing immediately.
-
-This can be configured using the `ENQUEUE_ON_COMMIT` setting. `True` and `False` force the behaviour.
-
-```python
-TASKS = {
-    "default": {
-        "BACKEND": "django_tasks.backends.immediate.ImmediateBackend",
-        "ENQUEUE_ON_COMMIT": False
-    }
-}
-```
-
-This can also be configured per-task by passing `enqueue_on_commit` to the `task` decorator.
 
 ### Queue names
 
@@ -235,6 +209,25 @@ In `DEBUG`, the worker will automatically reload when code is changed (or by usi
 
 After a while, tasks may start to build up in your database. This can be managed using the `prune_db_task_results` management command, which deletes completed tasks according to the given retention policy. Check the `--help` for the available options.
 
+### Customizing the task id
+
+By default, the database worker uses `uuid.uuid4` to generate a task id. This can be customized using the `id_function` option:
+
+```python
+TASKS = {
+    "default": {
+        "BACKEND": "django_tasks.backends.database.DatabaseBackend",
+        "OPTIONS": {
+            "id_function": "uuid.uuid7"
+        }
+    }
+}
+```
+
+The `id_function` must return a UUID (either `uuid.UUID` or string representation). Additionally, the PostgreSQL-specific [`RandomUUID`](https://docs.djangoproject.com/en/stable/ref/contrib/postgres/functions/#django.contrib.postgres.functions.RandomUUID) or other database expressions are supported on Django 6.0+.
+
+Note: This functionality only exists for the database backend.
+
 ### Retrieving task result
 
 When enqueueing a task, you get a `TaskResult`, however it may be useful to retrieve said result from somewhere else (another request, another task etc). This can be done with `get_result` (or `aget_result`):
@@ -261,16 +254,16 @@ default_task_backend.get_result(result_id)
 If your task returns something, it can be retrieved from the `.return_value` attribute on a `TaskResult`. Accessing this property on an unsuccessful task (ie not `SUCCEEDED`) will raise a `ValueError`.
 
 ```python
-assert result.status == ResultStatus.SUCCEEDED
+assert result.status == TaskResultStatus.SUCCEEDED
 assert result.return_value == 42
 ```
 
 If a result has been updated in the background, you can call `refresh` on it to update its values. Results obtained using `get_result` will always be up-to-date.
 
 ```python
-assert result.status == ResultStatus.READY
+assert result.status == TaskResultStatus.READY
 result.refresh()
-assert result.status == ResultStatus.SUCCEEDED
+assert result.status == TaskResultStatus.SUCCEEDED
 ```
 
 #### Errors
@@ -289,11 +282,19 @@ assert isinstance(result.errors[0].traceback, str)
 
 Note that currently, whilst `.errors` is a list, it will only ever contain a single element.
 
-#### Attempts
+### Attempts
 
 The number of times a task has been run is stored as the `.attempts` attribute. This will currently only ever be 0 or 1.
 
 The date of the last attempt is stored as `.last_attempted_at`.
+
+### Metadata
+
+Attached to a task result is "metadata". This metadata can be used as a space to store other data about a task - especially useful for progress or implementing additional functionality around tasks. Metadata is a dictionary, and must be serializable to JSON.
+
+During a task, metadata can be accessed from `context.metadata`, and `result.metadata` from retrieved results.
+
+Metadata is saved when a task is finished, regardless of whether it succeeded or failed. Additionally, metadata can be saved manually using `context.save_metadata`.
 
 ### Backend introspecting
 
@@ -302,6 +303,7 @@ Because `django-tasks` enables support for multiple different backends, those ba
 - `supports_defer`: Can tasks be enqueued with the `run_after` attribute?
 - `supports_async_task`: Can coroutines be enqueued?
 - `supports_get_result`: Can results be retrieved after the fact (from **any** thread / process)?
+- `supports_priority`: Can tasks be executed in a given priority order?
 
 ```python
 from django_tasks import default_task_backend
@@ -343,7 +345,7 @@ Any queues defined in `QUEUES` must also be defined in `django-rq`'s `RQ_QUEUES`
 To use `rq` with `django-tasks`, a custom `Job` class must be used. This can be passed to the worker using `--job-class`:
 
 ```shell
-./manage.py rqworker --job-class django_tasks.backend.rq.Job
+./manage.py rqworker --job-class django_tasks.backends.rq.Job
 ```
 
 ### Priorities

@@ -10,6 +10,7 @@
 #    License for the specific language governing permissions and limitations
 #    under the License.
 
+from typing import Any
 from unittest import mock
 
 from oslotest import base as test_base
@@ -18,7 +19,6 @@ from oslo_log import helpers
 
 
 class LogHelpersTestCase(test_base.BaseTestCase):
-
     def test_log_decorator(self):
         '''Test that LOG.debug is called with proper arguments.'''
 
@@ -37,10 +37,12 @@ class LogHelpersTestCase(test_base.BaseTestCase):
 
         obj = test_class()
         for method_name in ('test_method', 'test_classmethod'):
-            data = {'caller': helpers._get_full_class_name(test_class),
-                    'method_name': method_name,
-                    'args': args,
-                    'kwargs': kwargs}
+            data = {
+                'caller': helpers._get_full_class_name(test_class),
+                'method_name': method_name,
+                'args': args,
+                'kwargs': kwargs,
+            }
 
             method = getattr(obj, method_name)
             with mock.patch('logging.Logger.debug') as debug:
@@ -60,20 +62,24 @@ class LogHelpersTestCase(test_base.BaseTestCase):
             def test_staticmethod(arg1, arg2, arg3, *args, **kwargs):
                 pass
 
-        data = {'caller': 'static',
-                'method_name': '_static_method',
-                'args': (),
-                'kwargs': {}}
+        data: dict[str, Any] = {
+            'caller': 'static',
+            'method_name': '_static_method',
+            'args': (),
+            'kwargs': {},
+        }
         with mock.patch('logging.Logger.debug') as debug:
             _static_method()
             debug.assert_called_with(mock.ANY, data)
 
         args = tuple(range(6))
         kwargs = {'kwarg1': 6, 'kwarg2': 7}
-        data = {'caller': 'static',
-                'method_name': 'test_staticmethod',
-                'args': args,
-                'kwargs': kwargs}
+        data = {
+            'caller': 'static',
+            'method_name': 'test_staticmethod',
+            'args': args,
+            'kwargs': kwargs,
+        }
         with mock.patch('logging.Logger.debug') as debug:
             test_class.test_staticmethod(*args, **kwargs)
             debug.assert_called_with(mock.ANY, data)

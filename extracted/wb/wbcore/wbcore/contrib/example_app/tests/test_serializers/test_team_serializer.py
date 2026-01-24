@@ -22,12 +22,12 @@ from wbcore.contrib.example_app.serializers import (
 @pytest.mark.django_db
 class TestSportPersonModelSerializer(APITestCase):
     def test_person_serializer(self):
-        person_data: dict = model_to_dict(SportPersonFactory.build(profile=PersonFactory()))
+        person_data: dict = model_to_dict(SportPersonFactory.build(profile=PersonFactory.create()))
         sport_person_serializer = SportPersonModelSerializer(data=person_data)
         self.assertTrue(sport_person_serializer.is_valid())
 
     def test_player_serializer(self):
-        player_data: dict = model_to_dict(PlayerFactory.build(current_team=TeamFactory()))
+        player_data: dict = model_to_dict(PlayerFactory.build(current_team=TeamFactory.create()))
         player_serializer = PlayerModelSerializer(data=player_data)
         self.assertTrue(player_serializer.is_valid())
 
@@ -35,24 +35,24 @@ class TestSportPersonModelSerializer(APITestCase):
 @pytest.mark.django_db
 class TestTeamModelSerializer(APITestCase):
     def test_team_serializer(self):
-        coach = SportPersonFactory()
-        stadium = StadiumFactory()
+        coach = SportPersonFactory.create()
+        stadium = StadiumFactory.create()
 
         team_data: dict = model_to_dict(TeamFactory.build(coach=coach, home_stadium=stadium))
         team_serializer = TeamModelSerializer(data=team_data)
         self.assertTrue(team_serializer.is_valid())
 
     def test_team_exists(self):
-        coach = SportPersonFactory()
-        stadium = StadiumFactory()
-        team = TeamFactory(coach=coach, home_stadium=stadium)
+        coach = SportPersonFactory.create()
+        stadium = StadiumFactory.create()
+        team = TeamFactory.create(coach=coach, home_stadium=stadium)
         new_team_data: dict = model_to_dict(TeamFactory.build(home_stadium=stadium, name=team.name))
         with self.assertRaisesMessage(ValidationError, TeamErrorMessages.team_exists.value):
             team_serializer = TeamModelSerializer(data=new_team_data)
             self.assertFalse(team_serializer.is_valid(raise_exception=True))
 
     def test_team_wrong_date(self):
-        stadium = StadiumFactory()
+        stadium = StadiumFactory.create()
         future_date: date = (datetime.now() + timedelta(days=1)).date()
         team_data: dict = model_to_dict(TeamFactory.build(founded_date=future_date, home_stadium=stadium))
 
@@ -61,8 +61,8 @@ class TestTeamModelSerializer(APITestCase):
             self.assertFalse(team_serializer.is_valid(raise_exception=True))
 
     def test_team_name_placeholder(self):
-        coach = SportPersonFactory()
-        stadium = StadiumFactory()
+        coach = SportPersonFactory.create()
+        stadium = StadiumFactory.create()
         team_data: dict = model_to_dict(TeamFactory.build(home_stadium=stadium, coach=coach))
         team_serializer = TeamModelSerializer(data=team_data)
         self.assertTrue(team_serializer.is_valid())

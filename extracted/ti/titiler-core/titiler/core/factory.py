@@ -5,19 +5,8 @@ import base64
 import logging
 import os
 import warnings
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
-    Literal,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    Type,
-    Union,
-)
+from collections.abc import Callable, Sequence
+from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
 
 import jinja2
@@ -31,22 +20,20 @@ from geojson_pydantic.features import Feature, FeatureCollection
 from morecantile import TileMatrixSet
 from morecantile import tms as morecantile_tms
 from morecantile.defaults import TileMatrixSets
-from morecantile.models import crs_axis_inverted
 from pydantic import Field
 from rio_tiler.colormap import ColorMaps
 from rio_tiler.colormap import cmap as default_cmap
 from rio_tiler.constants import WGS84_CRS
 from rio_tiler.io import BaseReader, MultiBandReader, MultiBaseReader, Reader
-from rio_tiler.models import Bounds, ImageData, Info
+from rio_tiler.models import ImageData, Info
 from rio_tiler.types import ColorMapType
-from rio_tiler.utils import CRS_to_uri, CRS_to_urn
+from rio_tiler.utils import CRS_to_uri
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, Response
 from starlette.routing import Match, NoMatchFound
 from starlette.routing import Route as APIRoute
 from starlette.routing import compile_path, replace_params
 from starlette.templating import Jinja2Templates
-from typing_extensions import Annotated
 
 from titiler.core.algorithm import (
     AlgorithmMetadata,
@@ -93,7 +80,7 @@ from titiler.core.models.responses import (
     StatisticsGeoJSON,
 )
 from titiler.core.resources.enums import ImageType, MediaType
-from titiler.core.resources.responses import GeoJSONResponse, JSONResponse, XMLResponse
+from titiler.core.resources.responses import GeoJSONResponse, JSONResponse
 from titiler.core.routing import EndpointScope
 from titiler.core.telemetry import factory_trace
 from titiler.core.utils import (
@@ -101,15 +88,16 @@ from titiler.core.utils import (
     bounds_to_geometry,
     create_html_response,
     render_image,
+    tms_limits,
 )
 
 jinja2_env = jinja2.Environment(
-    autoescape=jinja2.select_autoescape(["html", "xml"]),
+    autoescape=jinja2.select_autoescape(["html"]),
     loader=jinja2.ChoiceLoader([jinja2.PackageLoader(__package__, "templates")]),
 )
 DEFAULT_TEMPLATES = Jinja2Templates(env=jinja2_env)
 
-img_endpoint_params: Dict[str, Any] = {
+img_endpoint_params: dict[str, Any] = {
     "responses": {
         200: {
             "content": {
@@ -162,16 +150,16 @@ class BaseFactory(metaclass=abc.ABCMeta):
     router_prefix: str = ""
 
     # add dependencies to specific routes
-    route_dependencies: List[Tuple[List[EndpointScope], List[DependsFunc]]] = field(
+    route_dependencies: list[tuple[list[EndpointScope], list[DependsFunc]]] = field(
         factory=list
     )
 
-    extensions: List[FactoryExtension] = field(factory=list)
+    extensions: list[FactoryExtension] = field(factory=list)
 
-    name: Optional[str] = field(default=None)
+    name: str | None = field(default=None)
     operation_prefix: str = field(init=False, default="")
 
-    conforms_to: Set[str] = field(factory=set)
+    conforms_to: set[str] = field(factory=set)
 
     enable_telemetry: bool = field(default=False)
 
@@ -222,8 +210,8 @@ class BaseFactory(metaclass=abc.ABCMeta):
     def add_route_dependencies(
         self,
         *,
-        scopes: List[EndpointScope],
-        dependencies=List[DependsFunc],
+        scopes: list[EndpointScope],
+        dependencies=list[DependsFunc],
     ):
         """Add dependencies to routes.
 
@@ -303,47 +291,47 @@ class TilerFactory(BaseFactory):
     """
 
     # Default reader is set to rio_tiler.io.Reader
-    reader: Type[BaseReader] = Reader
+    reader: type[BaseReader] = Reader
 
     # Reader dependency
-    reader_dependency: Type[DefaultDependency] = DefaultDependency
+    reader_dependency: type[DefaultDependency] = DefaultDependency
 
     # Path Dependency
     path_dependency: Callable[..., Any] = DatasetPathParams
 
     # Indexes/Expression Dependencies
-    layer_dependency: Type[DefaultDependency] = BidxExprParams
+    layer_dependency: type[DefaultDependency] = BidxExprParams
 
     # Rasterio Dataset Options (nodata, unscale, resampling, reproject)
-    dataset_dependency: Type[DefaultDependency] = DatasetParams
+    dataset_dependency: type[DefaultDependency] = DatasetParams
 
     # Tile/Tilejson/WMTS Dependencies
-    tile_dependency: Type[DefaultDependency] = TileParams
+    tile_dependency: type[DefaultDependency] = TileParams
 
     # Statistics/Histogram Dependencies
-    stats_dependency: Type[DefaultDependency] = StatisticsParams
-    histogram_dependency: Type[DefaultDependency] = HistogramParams
+    stats_dependency: type[DefaultDependency] = StatisticsParams
+    histogram_dependency: type[DefaultDependency] = HistogramParams
 
     # Crop/Preview endpoints Dependencies
-    img_preview_dependency: Type[DefaultDependency] = PreviewParams
-    img_part_dependency: Type[DefaultDependency] = PartFeatureParams
+    img_preview_dependency: type[DefaultDependency] = PreviewParams
+    img_part_dependency: type[DefaultDependency] = PartFeatureParams
 
     # Post Processing Dependencies (algorithm)
-    process_dependency: Callable[..., Optional[BaseAlgorithm]] = (
+    process_dependency: Callable[..., BaseAlgorithm | None] = (
         available_algorithms.dependency
     )
 
     # Image rendering Dependencies
-    colormap_dependency: Callable[..., Optional[ColorMapType]] = ColorMapParams
-    render_dependency: Type[DefaultDependency] = ImageRenderingParams
+    colormap_dependency: Callable[..., ColorMapType | None] = ColorMapParams
+    render_dependency: type[DefaultDependency] = ImageRenderingParams
 
     # GDAL ENV dependency
-    environment_dependency: Callable[..., Dict] = field(default=lambda: {})
+    environment_dependency: Callable[..., dict] = field(default=lambda: {})
 
     # TileMatrixSet dependency
     supported_tms: TileMatrixSets = morecantile_tms
 
-    render_func: Callable[..., Tuple[bytes, str]] = render_image
+    render_func: Callable[..., tuple[bytes, str]] = render_image
 
     # Add/Remove some endpoints
     add_preview: bool = True
@@ -351,7 +339,7 @@ class TilerFactory(BaseFactory):
     add_viewer: bool = True
     add_ogc_maps: bool = False
 
-    conforms_to: Set[str] = field(
+    conforms_to: set[str] = field(
         factory=lambda: {
             # https://docs.ogc.org/is/20-057/20-057.html#toc30
             "http://www.opengis.net/spec/ogcapi-tiles-1/1.0/conf/tileset",
@@ -375,15 +363,13 @@ class TilerFactory(BaseFactory):
 
         """
         # Default Routes
-        # (/bounds, /info, /statistics, /tile, /tilejson.json, /WMTSCapabilities.xml and /point)
-        self.bounds()
+        # (/info, /statistics, /tiles, /tilejson.json, and /point)
         self.info()
         self.statistics()
         self.tilesets()
         self.tile()
         if self.add_viewer:
             self.map_viewer()
-        self.wmts()
         self.tilejson()
         self.point()
 
@@ -396,33 +382,6 @@ class TilerFactory(BaseFactory):
 
         if self.add_ogc_maps:
             self.ogc_maps()
-
-    ############################################################################
-    # /bounds
-    ############################################################################
-    def bounds(self):
-        """Register /bounds endpoint."""
-
-        @self.router.get(
-            "/bounds",
-            response_model=Bounds,
-            responses={200: {"description": "Return dataset's bounds."}},
-            operation_id=f"{self.operation_prefix}getBounds",
-        )
-        def bounds(
-            src_path=Depends(self.path_dependency),
-            reader_params=Depends(self.reader_dependency),
-            crs=Depends(CRSParams),
-            env=Depends(self.environment_dependency),
-        ):
-            """Return the bounds of the COG."""
-            with rasterio.Env(**env):
-                with self.reader(src_path, **reader_params.as_dict()) as src_dst:
-                    crs = crs or WGS84_CRS
-                    return {
-                        "bounds": src_dst.get_geographic_bounds(crs),
-                        "crs": CRS_to_uri(crs) or crs.to_wkt(),
-                    }
 
     ############################################################################
     # /info
@@ -543,7 +502,7 @@ class TilerFactory(BaseFactory):
         )
         def geojson_statistics(
             geojson: Annotated[
-                Union[FeatureCollection, Feature],
+                FeatureCollection | Feature,
                 Body(description="GeoJSON Feature or FeatureCollection."),
             ],
             src_path=Depends(self.path_dependency),
@@ -626,7 +585,7 @@ class TilerFactory(BaseFactory):
             crs=Depends(CRSParams),
             env=Depends(self.environment_dependency),
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -652,9 +611,9 @@ class TilerFactory(BaseFactory):
 
             attribution = os.environ.get("TITILER_DEFAULT_ATTRIBUTION")
 
-            tilesets = []
+            tilesets: list[dict[str, Any]] = []
             for tms in self.supported_tms.list():
-                tileset = {
+                tileset: dict[str, Any] = {
                     "title": f"tileset tiled using {tms} TileMatrixSet",
                     "attribution": attribution,
                     "dataType": "map",
@@ -729,7 +688,14 @@ class TilerFactory(BaseFactory):
             response_model=TileSet,
             response_class=JSONResponse,
             response_model_exclude_none=True,
-            responses={200: {"content": {"application/json": {}}}},
+            responses={
+                200: {
+                    "content": {
+                        "application/json": {},
+                        "text/html": {},
+                    }
+                }
+            },
             summary="Retrieve the raster tileset metadata for the specified dataset and tiling scheme (tile matrix set).",
             operation_id=f"{self.operation_prefix}getTileSet",
         )
@@ -745,7 +711,7 @@ class TilerFactory(BaseFactory):
             reader_params=Depends(self.reader_dependency),
             env=Depends(self.environment_dependency),
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -767,22 +733,11 @@ class TilerFactory(BaseFactory):
                         "crs": CRS_to_uri(tms.rasterio_geographic_crs),
                     }
 
-                    tilematrix_limit = []
-                    for zoom in range(minzoom, maxzoom + 1, 1):
-                        matrix = tms.matrix(zoom)
-                        ulTile = tms.tile(bounds[0], bounds[3], int(matrix.id))
-                        lrTile = tms.tile(bounds[2], bounds[1], int(matrix.id))
-                        minx, maxx = (min(ulTile.x, lrTile.x), max(ulTile.x, lrTile.x))
-                        miny, maxy = (min(ulTile.y, lrTile.y), max(ulTile.y, lrTile.y))
-                        tilematrix_limit.append(
-                            {
-                                "tileMatrix": matrix.id,
-                                "minTileRow": max(miny, 0),
-                                "maxTileRow": min(maxy, matrix.matrixHeight),
-                                "minTileCol": max(minx, 0),
-                                "maxTileCol": min(maxx, matrix.matrixWidth),
-                            }
-                        )
+                    tilematrix_limits = tms_limits(
+                        tms,
+                        bounds,
+                        zooms=(minzoom, maxzoom),
+                    )
 
             query_string = (
                 f"?{urlencode(request.query_params._list)}"
@@ -854,7 +809,7 @@ class TilerFactory(BaseFactory):
                     "crs": tms.crs,
                     "boundingBox": collection_bbox,
                     "links": links,
-                    "tileMatrixSetLimits": tilematrix_limit,
+                    "tileMatrixSetLimits": tilematrix_limits,
                     "attribution": os.environ.get("TITILER_DEFAULT_ATTRIBUTION"),
                 }
             )
@@ -937,7 +892,7 @@ class TilerFactory(BaseFactory):
                 ),
             ] = 1,
             format: Annotated[
-                ImageType,
+                ImageType | None,
                 Field(
                     description="Default will be automatically defined if the output image needs a mask (png) or not (jpeg)."
                 ),
@@ -980,7 +935,7 @@ class TilerFactory(BaseFactory):
                 **render_params.as_dict(),
             )
 
-            headers: Dict[str, str] = {}
+            headers: dict[str, str] = {}
             if image.bounds is not None:
                 headers["Content-Bbox"] = ",".join(map(str, image.bounds))
             if uri := CRS_to_uri(image.crs):
@@ -1007,7 +962,7 @@ class TilerFactory(BaseFactory):
                 ),
             ],
             tile_format: Annotated[
-                Optional[ImageType],
+                ImageType | None,
                 Query(
                     description="Default will be automatically defined if the output image needs a mask (png) or not (jpeg).",
                 ),
@@ -1019,11 +974,11 @@ class TilerFactory(BaseFactory):
                 ),
             ] = 1,
             minzoom: Annotated[
-                Optional[int],
+                int | None,
                 Query(description="Overwrite default minzoom."),
             ] = None,
             maxzoom: Annotated[
-                Optional[int],
+                int | None,
                 Query(description="Overwrite default maxzoom."),
             ] = None,
             src_path=Depends(self.path_dependency),
@@ -1096,7 +1051,7 @@ class TilerFactory(BaseFactory):
                 ),
             ],
             tile_format: Annotated[
-                Optional[ImageType],
+                ImageType | None,
                 Query(
                     description="Default will be automatically defined if the output image needs a mask (png) or not (jpeg).",
                 ),
@@ -1108,11 +1063,11 @@ class TilerFactory(BaseFactory):
                 ),
             ] = 1,
             minzoom: Annotated[
-                Optional[int],
+                int | None,
                 Query(description="Overwrite default minzoom."),
             ] = None,
             maxzoom: Annotated[
-                Optional[int],
+                int | None,
                 Query(description="Overwrite default maxzoom."),
             ] = None,
             src_path=Depends(self.path_dependency),
@@ -1146,148 +1101,6 @@ class TilerFactory(BaseFactory):
                     "resolutions": [matrix.cellSize for matrix in tms],
                 },
                 media_type="text/html",
-            )
-
-    def wmts(self):  # noqa: C901
-        """Register /wmts endpoint."""
-
-        @self.router.get(
-            "/{tileMatrixSetId}/WMTSCapabilities.xml",
-            response_class=XMLResponse,
-            operation_id=f"{self.operation_prefix}getWMTS",
-        )
-        def wmts(
-            request: Request,
-            tileMatrixSetId: Annotated[
-                Literal[tuple(self.supported_tms.list())],
-                Path(
-                    description="Identifier selecting one of the TileMatrixSetId supported."
-                ),
-            ],
-            tile_format: Annotated[
-                ImageType,
-                Query(description="Output image type. Default is png."),
-            ] = ImageType.png,
-            tile_scale: Annotated[
-                int,
-                Query(
-                    gt=0, lt=4, description="Tile size scale. 1=256x256, 2=512x512..."
-                ),
-            ] = 1,
-            minzoom: Annotated[
-                Optional[int],
-                Query(description="Overwrite default minzoom."),
-            ] = None,
-            maxzoom: Annotated[
-                Optional[int],
-                Query(description="Overwrite default maxzoom."),
-            ] = None,
-            use_epsg: Annotated[
-                bool,
-                Query(
-                    description="Use EPSG code, not opengis.net, for the ows:SupportedCRS in the TileMatrixSet (set to True to enable ArcMap compatability)"
-                ),
-            ] = False,
-            src_path=Depends(self.path_dependency),
-            reader_params=Depends(self.reader_dependency),
-            tile_params=Depends(self.tile_dependency),
-            layer_params=Depends(self.layer_dependency),
-            dataset_params=Depends(self.dataset_dependency),
-            post_process=Depends(self.process_dependency),
-            colormap=Depends(self.colormap_dependency),
-            render_params=Depends(self.render_dependency),
-            env=Depends(self.environment_dependency),
-        ):
-            """OGC WMTS endpoint."""
-            route_params = {
-                "z": "{TileMatrix}",
-                "x": "{TileCol}",
-                "y": "{TileRow}",
-                "scale": tile_scale,
-                "format": tile_format.value,
-                "tileMatrixSetId": tileMatrixSetId,
-            }
-            tiles_url = self.url_for(request, "tile", **route_params)
-
-            qs_key_to_remove = [
-                "tilematrixsetid",
-                "tile_format",
-                "tile_scale",
-                "minzoom",
-                "maxzoom",
-                "service",
-                "use_epsg",
-                "request",
-            ]
-            qs = [
-                (key, value)
-                for (key, value) in request.query_params._list
-                if key.lower() not in qs_key_to_remove
-            ]
-
-            tms = self.supported_tms.get(tileMatrixSetId)
-            with rasterio.Env(**env):
-                logger.info(f"opening data with reader: {self.reader}")
-                with self.reader(
-                    src_path, tms=tms, **reader_params.as_dict()
-                ) as src_dst:
-                    bounds = src_dst.get_geographic_bounds(tms.rasterio_geographic_crs)
-                    minzoom = minzoom if minzoom is not None else src_dst.minzoom
-                    maxzoom = maxzoom if maxzoom is not None else src_dst.maxzoom
-
-            tileMatrix = []
-            for zoom in range(minzoom, maxzoom + 1):
-                matrix = tms.matrix(zoom)
-                tm = f"""
-                        <TileMatrix>
-                            <ows:Identifier>{matrix.id}</ows:Identifier>
-                            <ScaleDenominator>{matrix.scaleDenominator}</ScaleDenominator>
-                            <TopLeftCorner>{matrix.pointOfOrigin[0]} {matrix.pointOfOrigin[1]}</TopLeftCorner>
-                            <TileWidth>{matrix.tileWidth}</TileWidth>
-                            <TileHeight>{matrix.tileHeight}</TileHeight>
-                            <MatrixWidth>{matrix.matrixWidth}</MatrixWidth>
-                            <MatrixHeight>{matrix.matrixHeight}</MatrixHeight>
-                        </TileMatrix>"""
-                tileMatrix.append(tm)
-
-            if use_epsg:
-                supported_crs = f"EPSG:{tms.crs.to_epsg()}"
-            else:
-                supported_crs = tms.crs.srs
-
-            bbox_crs_type = "WGS84BoundingBox"
-            bbox_crs_uri = "urn:ogc:def:crs:OGC:2:84"
-            if tms.rasterio_geographic_crs != WGS84_CRS:
-                bbox_crs_type = "BoundingBox"
-                bbox_crs_uri = CRS_to_urn(tms.rasterio_geographic_crs)
-                # WGS88BoundingBox is always xy ordered, but BoundingBox must match the CRS order
-                if crs_axis_inverted(tms.geographic_crs):
-                    # match the bounding box coordinate order to the CRS
-                    bounds = [bounds[1], bounds[0], bounds[3], bounds[2]]
-
-            layers = [
-                {
-                    "title": src_path if isinstance(src_path, str) else "TiTiler",
-                    "name": "default",
-                    "tiles_url": tiles_url,
-                    "query_string": urlencode(qs, doseq=True) if qs else None,
-                    "bounds": bounds,
-                },
-            ]
-
-            return self.templates.TemplateResponse(
-                request,
-                name="wmts.xml",
-                context={
-                    "tileMatrixSetId": tms.id,
-                    "tileMatrix": tileMatrix,
-                    "supported_crs": supported_crs,
-                    "bbox_crs_type": bbox_crs_type,
-                    "bbox_crs_uri": bbox_crs_uri,
-                    "layers": layers,
-                    "media_type": tile_format.mediatype,
-                },
-                media_type="application/xml",
             )
 
     ############################################################################
@@ -1329,6 +1142,7 @@ class TilerFactory(BaseFactory):
                 "coordinates": [lon, lat],
                 "values": pts.array.tolist(),
                 "band_names": pts.band_names,
+                "band_descriptions": pts.band_descriptions,
             }
 
     ############################################################################
@@ -1354,7 +1168,7 @@ class TilerFactory(BaseFactory):
         )
         def preview(
             format: Annotated[
-                ImageType,
+                ImageType | None,
                 Field(
                     description="Default will be automatically defined if the output image needs a mask (png) or not (jpeg)."
                 ),
@@ -1392,7 +1206,7 @@ class TilerFactory(BaseFactory):
                 **render_params.as_dict(),
             )
 
-            headers: Dict[str, str] = {}
+            headers: dict[str, str] = {}
             if image.bounds is not None:
                 headers["Content-Bbox"] = ",".join(map(str, image.bounds))
             if uri := CRS_to_uri(image.crs):
@@ -1423,7 +1237,7 @@ class TilerFactory(BaseFactory):
             maxx: Annotated[float, Path(description="Bounding box max X")],
             maxy: Annotated[float, Path(description="Bounding box max Y")],
             format: Annotated[
-                ImageType,
+                ImageType | None,
                 Field(
                     description="Default will be automatically defined if the output image needs a mask (png) or not (jpeg).",
                 ),
@@ -1464,7 +1278,7 @@ class TilerFactory(BaseFactory):
                 **render_params.as_dict(),
             )
 
-            headers: Dict[str, str] = {}
+            headers: dict[str, str] = {}
             if image.bounds is not None:
                 headers["Content-Bbox"] = ",".join(map(str, image.bounds))
             if uri := CRS_to_uri(image.crs):
@@ -1491,7 +1305,7 @@ class TilerFactory(BaseFactory):
         def feature_image(
             geojson: Annotated[Feature, Body(description="GeoJSON Feature.")],
             format: Annotated[
-                ImageType,
+                ImageType | None,
                 Field(
                     description="Default will be automatically defined if the output image needs a mask (png) or not (jpeg)."
                 ),
@@ -1532,7 +1346,7 @@ class TilerFactory(BaseFactory):
                 **render_params.as_dict(),
             )
 
-            headers: Dict[str, str] = {}
+            headers: dict[str, str] = {}
             if image.bounds is not None:
                 headers["Content-Bbox"] = ",".join(map(str, image.bounds))
             if uri := CRS_to_uri(image.crs):
@@ -1579,7 +1393,7 @@ class TilerFactory(BaseFactory):
             colormap=Depends(self.colormap_dependency),
             render_params=Depends(self.render_dependency),
             env=Depends(self.environment_dependency),
-        ):
+        ) -> Response:
             """OGC Maps API."""
             with rasterio.Env(**env):
                 logger.info(f"opening data with reader: {self.reader}")
@@ -1618,7 +1432,7 @@ class TilerFactory(BaseFactory):
                 **render_params.as_dict(),
             )
 
-            headers: Dict[str, str] = {}
+            headers: dict[str, str] = {}
             if image.bounds is not None:
                 headers["Content-Bbox"] = ",".join(map(str, image.bounds))
             if uri := CRS_to_uri(image.crs):
@@ -1642,13 +1456,13 @@ class MultiBaseTilerFactory(TilerFactory):
 
     """
 
-    reader: Type[MultiBaseReader]
+    reader: type[MultiBaseReader]  # type: ignore
 
     # Assets/Indexes/Expression dependency
-    layer_dependency: Type[DefaultDependency] = AssetsBidxExprParams
+    layer_dependency: type[DefaultDependency] = AssetsBidxExprParams
 
     # Assets dependency
-    assets_dependency: Type[DefaultDependency] = AssetsParams
+    assets_dependency: type[DefaultDependency] = AssetsParams
 
     # Overwrite the `/info` endpoint to return the list of assets when no assets is passed.
     def info(self):
@@ -1671,7 +1485,7 @@ class MultiBaseTilerFactory(TilerFactory):
             reader_params=Depends(self.reader_dependency),
             asset_params=Depends(self.assets_dependency),
             env=Depends(self.environment_dependency),
-        ):
+        ) -> MultiBaseInfo:
             """Return dataset's basic info or the list of available assets."""
             with rasterio.Env(**env):
                 logger.info(f"opening data with reader: {self.reader}")
@@ -1697,7 +1511,7 @@ class MultiBaseTilerFactory(TilerFactory):
             asset_params=Depends(self.assets_dependency),
             crs=Depends(CRSParams),
             env=Depends(self.environment_dependency),
-        ):
+        ) -> MultiBaseInfoGeoJSON:
             """Return dataset's basic info as a GeoJSON feature."""
             with rasterio.Env(**env):
                 logger.info(f"opening data with reader: {self.reader}")
@@ -1714,7 +1528,7 @@ class MultiBaseTilerFactory(TilerFactory):
 
         @self.router.get(
             "/assets",
-            response_model=List[str],
+            response_model=list[str],
             responses={200: {"description": "Return a list of supported assets."}},
             operation_id=f"{self.operation_prefix}getAssets",
         )
@@ -1833,7 +1647,7 @@ class MultiBaseTilerFactory(TilerFactory):
         )
         def geojson_statistics(
             geojson: Annotated[
-                Union[FeatureCollection, Feature],
+                FeatureCollection | Feature,
                 Body(description="GeoJSON Feature or FeatureCollection."),
             ],
             src_path=Depends(self.path_dependency),
@@ -1904,13 +1718,13 @@ class MultiBandTilerFactory(TilerFactory):
 
     """
 
-    reader: Type[MultiBandReader]
+    reader: type[MultiBandReader]  # type: ignore
 
     # Assets/Expression dependency
-    layer_dependency: Type[DefaultDependency] = BandsExprParams
+    layer_dependency: type[DefaultDependency] = BandsExprParams
 
     # Bands dependency
-    bands_dependency: Type[DefaultDependency] = BandsParams
+    bands_dependency: type[DefaultDependency] = BandsParams
 
     def info(self):
         """Register /info endpoint."""
@@ -1971,7 +1785,7 @@ class MultiBandTilerFactory(TilerFactory):
 
         @self.router.get(
             "/bands",
-            response_model=List[str],
+            response_model=list[str],
             responses={200: {"description": "Return a list of supported bands."}},
             operation_id=f"{self.operation_prefix}getBands",
         )
@@ -2052,7 +1866,7 @@ class MultiBandTilerFactory(TilerFactory):
         )
         def geojson_statistics(
             geojson: Annotated[
-                Union[FeatureCollection, Feature],
+                FeatureCollection | Feature,
                 Body(description="GeoJSON Feature or FeatureCollection."),
             ],
             src_path=Depends(self.path_dependency),
@@ -2131,7 +1945,7 @@ class TMSFactory(BaseFactory):
         async def tilematrixsets(
             request: Request,
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -2140,9 +1954,10 @@ class TMSFactory(BaseFactory):
             """
             OGC Specification: http://docs.opengeospatial.org/per/19-069.html#_tilematrixsets
             """
+
             data = TileMatrixSetList(
                 tileMatrixSets=[
-                    {
+                    {  # type: ignore
                         "id": tms_id,
                         "links": [
                             {
@@ -2203,7 +2018,7 @@ class TMSFactory(BaseFactory):
                 Path(description="Identifier for a supported TileMatrixSet."),
             ],
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -2246,7 +2061,7 @@ class AlgorithmFactory(BaseFactory):
     # Supported algorithm
     supported_algorithm: Algorithms = available_algorithms
 
-    def _get_algo_metadata(self, algorithm: BaseAlgorithm) -> AlgorithmMetadata:
+    def _get_algo_metadata(self, algorithm: type[BaseAlgorithm]) -> AlgorithmMetadata:
         """Algorithm Metadata"""
         props = algorithm.model_json_schema()["properties"]
 
@@ -2310,7 +2125,7 @@ class AlgorithmFactory(BaseFactory):
         def available_algorithms(
             request: Request,
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -2319,7 +2134,7 @@ class AlgorithmFactory(BaseFactory):
             """Retrieve the list of available Algorithms."""
             data = AlgorithmtList(
                 algorithms=[
-                    {
+                    {  # type: ignore
                         "id": algo_id,
                         "links": [
                             {
@@ -2379,7 +2194,7 @@ class AlgorithmFactory(BaseFactory):
                 Path(description="Algorithm name"),
             ],
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -2419,9 +2234,9 @@ class ColorMapFactory(BaseFactory):
     def _image_from_colormap(
         self,
         cmap,
-        orientation: Optional[Literal["vertical", "horizontal"]] = None,
-        width: Optional[int] = None,
-        height: Optional[int] = None,
+        orientation: Literal["vertical", "horizontal"] | None = None,
+        width: int | None = None,
+        height: int | None = None,
     ) -> ImageData:
         """Create an image from a colormap."""
         orientation = orientation or "horizontal"
@@ -2488,7 +2303,7 @@ class ColorMapFactory(BaseFactory):
         def available_colormaps(
             request: Request,
             f: Annotated[
-                Optional[Literal["html", "json"]],
+                Literal["html", "json"] | None,
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
@@ -2497,7 +2312,7 @@ class ColorMapFactory(BaseFactory):
             """Retrieve the list of available colormaps."""
             data = ColorMapList(
                 colormaps=[
-                    {
+                    {  # type: ignore
                         "id": cmap_name,
                         "links": [
                             {
@@ -2564,7 +2379,7 @@ class ColorMapFactory(BaseFactory):
                 Path(description="ColorMap name"),
             ],
             f: Annotated[
-                Optional[
+                (
                     Literal[
                         "html",
                         "json",
@@ -2578,25 +2393,26 @@ class ColorMapFactory(BaseFactory):
                         "webp",
                         "pngraw",
                     ]
-                ],
+                    | None
+                ),
                 Query(
                     description="Response MediaType. Defaults to endpoint's default or value defined in `accept` header."
                 ),
             ] = None,
             orientation: Annotated[
-                Optional[Literal["vertical", "horizontal"]],
+                Literal["vertical", "horizontal"] | None,
                 Query(
                     description="Image Orientation.",
                 ),
             ] = None,
             height: Annotated[
-                Optional[int],
+                int | None,
                 Query(
                     description="Image Height (default to 20px for horizontal or 256px for vertical).",
                 ),
             ] = None,
             width: Annotated[
-                Optional[int],
+                int | None,
                 Query(
                     description="Image Width (default to 256px for horizontal or 20px for vertical).",
                 ),
@@ -2629,13 +2445,12 @@ class ColorMapFactory(BaseFactory):
                 )
 
             elif output_type == MediaType.html:
-                img = self._image_from_colormap(cmap, orientation="vertical").render(
-                    img_format="PNG", colormap=cmap
-                )
+                img = self._image_from_colormap(cmap, orientation="vertical")
+                content = img.render(img_format="PNG", colormap=cmap)
 
                 return create_html_response(
                     request,
-                    base64.b64encode(img).decode(),
+                    base64.b64encode(content).decode(),
                     title=colorMapId,
                     template_name="colormap",
                     templates=self.templates,

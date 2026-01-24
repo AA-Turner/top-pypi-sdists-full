@@ -10,7 +10,7 @@ import time
 import warnings
 from collections import defaultdict
 from collections.abc import Mapping
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 from localstack import constants
 from localstack.constants import (
@@ -19,6 +19,7 @@ from localstack.constants import (
     DEFAULT_VOLUME_DIR,
     ENV_INTERNAL_TEST_COLLECT_METRIC,
     ENV_INTERNAL_TEST_RUN,
+    ENV_INTERNAL_TEST_STORE_METRICS_IN_LOCALSTACK,
     FALSE_STRINGS,
     LOCALHOST,
     LOCALHOST_IP,
@@ -208,13 +209,13 @@ class Directories:
         return str(self.__dict__)
 
 
-def eval_log_type(env_var_name: str) -> Union[str, bool]:
+def eval_log_type(env_var_name: str) -> str | bool:
     """Get the log type from environment variable"""
     ls_log = os.environ.get(env_var_name, "").lower().strip()
     return ls_log if ls_log in LOG_LEVELS else False
 
 
-def parse_boolean_env(env_var_name: str) -> Optional[bool]:
+def parse_boolean_env(env_var_name: str) -> bool | None:
     """Parse the value of the given env variable and return True/False, or None if it is not a boolean value."""
     value = os.environ.get(env_var_name, "").lower().strip()
     if value in TRUE_STRINGS:
@@ -222,6 +223,11 @@ def parse_boolean_env(env_var_name: str) -> Optional[bool]:
     if value in FALSE_STRINGS:
         return False
     return None
+
+
+def parse_comma_separated_list(env_var_name: str) -> list[str]:
+    """Parse a comma separated list from the given environment variable."""
+    return os.environ.get(env_var_name, "").strip().split(",")
 
 
 def is_env_true(env_var_name: str) -> bool:
@@ -649,7 +655,7 @@ class UniqueHostAndPortList(list[HostAndPort]):
         - Identical identical hosts and ports are de-duped
     """
 
-    def __init__(self, iterable: Union[list[HostAndPort], None] = None):
+    def __init__(self, iterable: list[HostAndPort] | None = None):
         super().__init__(iterable or [])
         self._ensure_unique()
 
@@ -1210,6 +1216,9 @@ CFN_PER_RESOURCE_TIMEOUT = int(os.environ.get("CFN_PER_RESOURCE_TIMEOUT") or 300
 # EXPERIMENTAL
 CFN_IGNORE_UNSUPPORTED_RESOURCE_TYPES = is_env_not_false("CFN_IGNORE_UNSUPPORTED_RESOURCE_TYPES")
 
+# Decrease the waiting time for resource deployment
+CFN_NO_WAIT_ITERATIONS: str | int | None = os.environ.get("CFN_NO_WAIT_ITERATIONS")
+
 # bind address of local DNS server
 DNS_ADDRESS = os.environ.get("DNS_ADDRESS") or "0.0.0.0"
 # port of the local DNS server
@@ -1451,6 +1460,11 @@ def is_collect_metrics_mode() -> bool:
     return is_env_true(ENV_INTERNAL_TEST_COLLECT_METRIC)
 
 
+def store_test_metrics_in_local_filesystem() -> bool:
+    """Returns True if test metrics should be stored in the local filesystem (instead of the system that runs pytest)."""
+    return is_env_true(ENV_INTERNAL_TEST_STORE_METRICS_IN_LOCALSTACK)
+
+
 def collect_config_items() -> list[tuple[str, Any]]:
     """Returns a list of key-value tuples of LocalStack configuration values."""
     none = object()  # sentinel object
@@ -1503,10 +1517,10 @@ def get_protocol() -> str:
 
 
 def external_service_url(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    protocol: Optional[str] = None,
-    subdomains: Optional[str] = None,
+    host: str | None = None,
+    port: int | None = None,
+    protocol: str | None = None,
+    subdomains: str | None = None,
 ) -> str:
     """Returns a service URL (e.g., SQS queue URL) to an external client (e.g., boto3) potentially running on another
     machine than LocalStack. The configurations LOCALSTACK_HOST and USE_SSL can customize these returned URLs.
@@ -1523,10 +1537,10 @@ def external_service_url(
 
 
 def internal_service_url(
-    host: Optional[str] = None,
-    port: Optional[int] = None,
-    protocol: Optional[str] = None,
-    subdomains: Optional[str] = None,
+    host: str | None = None,
+    port: int | None = None,
+    protocol: str | None = None,
+    subdomains: str | None = None,
 ) -> str:
     """Returns a service URL for internal use within LocalStack (i.e., same host).
     The configuration USE_SSL can customize these returned URLs but LOCALSTACK_HOST has no effect.

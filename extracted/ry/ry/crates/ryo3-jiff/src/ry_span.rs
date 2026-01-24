@@ -1,34 +1,25 @@
 use crate::constants::SPAN_PARSER;
-use crate::errors::{map_py_overflow_err, map_py_value_err};
-use crate::into_span_arithmetic::IntoSpanArithmetic;
+use crate::py_temporal_like::PyTermporalTypes;
 use crate::ry_signed_duration::RySignedDuration;
-use crate::span_relative_to::RySpanRelativeTo;
-use crate::{JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyZoned, timespan};
+use crate::{
+    JiffRoundMode, JiffSpan, JiffUnit, RyDate, RyDateTime, RyTime, RyTimestamp, RyZoned, timespan,
+};
 use jiff::{SignedDuration, Span, SpanArithmetic, SpanRelativeTo, SpanRound};
-use pyo3::IntoPyObjectExt;
 use pyo3::prelude::*;
 use pyo3::types::{PyDelta, PyDict, PyFloat, PyInt, PyTuple};
+use pyo3::{BoundObject, IntoPyObjectExt};
+use ryo3_core::{PyAsciiString, map_py_overflow_err, map_py_value_err};
 use ryo3_macro_rules::{any_repr, py_overflow_error, py_type_err, py_value_error};
+use ryo3_std::time::PyDuration;
 use std::fmt::Display;
 use std::hash::{DefaultHasher, Hash, Hasher};
-use std::str::FromStr;
 
 #[cfg_attr(feature = "serde", derive(serde::Serialize))]
 #[cfg_attr(feature = "serde", serde(transparent))]
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "TimeSpan", frozen)]
+#[pyclass(name = "TimeSpan", frozen, immutable_type, from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct RySpan(pub(crate) Span);
-
-impl RySpan {
-    pub(crate) fn assert_non_zero(&self) -> PyResult<()> {
-        if self.0.is_zero() {
-            Err(py_value_error!("Span cannot be zero",))
-        } else {
-            Ok(())
-        }
-    }
-}
 
 impl PartialEq for RySpan {
     fn eq(&self, other: &Self) -> bool {
@@ -83,8 +74,16 @@ impl RySpan {
         )
     }
 
-    fn __str__(&self) -> String {
-        self.0.to_string()
+    #[staticmethod]
+    fn from_isoformat(s: &str) -> PyResult<Self> {
+        crate::constants::SPAN_PARSER
+            .parse_span(s)
+            .map(Self::from)
+            .map_err(map_py_value_err)
+    }
+
+    fn __str__(&self) -> PyAsciiString {
+        self.0.to_string().into()
     }
 
     fn __getnewargs_ex__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyTuple>> {
@@ -103,8 +102,8 @@ impl RySpan {
         }
     }
 
-    #[pyo3(signature = (*, friendly=false))]
-    fn string(&self, friendly: bool) -> String {
+    #[pyo3(signature = (*, friendly=false), name = "to_string")]
+    fn py_to_string(&self, friendly: bool) -> String {
         if friendly {
             format!("{:#}", self.0)
         } else {
@@ -173,15 +172,23 @@ impl RySpan {
             .map_err(map_py_value_err)
     }
 
+    // <UNIFORM>
     #[staticmethod]
     fn from_str(s: &str) -> PyResult<Self> {
-        Span::from_str(s).map(Self::from).map_err(map_py_value_err)
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
     }
 
     #[staticmethod]
-    fn parse(input: &str) -> PyResult<Self> {
-        Self::from_str(input)
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
     }
+
+    fn isoformat(&self) -> PyAsciiString {
+        <Self as crate::isoformat::PyIsoFormat>::isoformat(self)
+    }
+    // </UNIFORM>
 
     #[expect(clippy::too_many_arguments)]
     #[pyo3(signature = (years=None, months=None, weeks=None, days=None, hours=None, minutes=None, seconds=None, milliseconds=None, microseconds=None, nanoseconds=None))]
@@ -222,84 +229,91 @@ impl RySpan {
         )
     }
 
-    fn _years(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (years, /))]
+    fn _years(&self, years: i64) -> PyResult<Self> {
         self.0
-            .try_years(n)
+            .try_years(years)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_years: {e}"))
     }
 
-    fn _months(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (months, /))]
+    fn _months(&self, months: i64) -> PyResult<Self> {
         self.0
-            .try_months(n)
+            .try_months(months)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_months: {e}"))
     }
 
-    fn _weeks(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (weeks, /))]
+    fn _weeks(&self, weeks: i64) -> PyResult<Self> {
         self.0
-            .try_weeks(n)
+            .try_weeks(weeks)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_weeks: {e}"))
     }
 
-    fn _days(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (days, /))]
+    fn _days(&self, days: i64) -> PyResult<Self> {
         self.0
-            .try_days(n)
+            .try_days(days)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_days: {e}"))
     }
 
-    fn _hours(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (hours, /))]
+    fn _hours(&self, hours: i64) -> PyResult<Self> {
         self.0
-            .try_hours(n)
+            .try_hours(hours)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_hours: {e}"))
     }
 
-    fn _minutes(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (minutes, /))]
+    fn _minutes(&self, minutes: i64) -> PyResult<Self> {
         self.0
-            .try_minutes(n)
+            .try_minutes(minutes)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_minutes: {e}"))
     }
 
-    fn _seconds(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (seconds, /))]
+    fn _seconds(&self, seconds: i64) -> PyResult<Self> {
         self.0
-            .try_seconds(n)
+            .try_seconds(seconds)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_seconds: {e}"))
     }
 
-    fn _milliseconds(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (milliseconds, /))]
+    fn _milliseconds(&self, milliseconds: i64) -> PyResult<Self> {
         self.0
-            .try_milliseconds(n)
+            .try_milliseconds(milliseconds)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_milliseconds: {e}"))
     }
 
-    fn _microseconds(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (microseconds, /))]
+    fn _microseconds(&self, microseconds: i64) -> PyResult<Self> {
         self.0
-            .try_microseconds(n)
+            .try_microseconds(microseconds)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_microseconds: {e}"))
     }
 
-    fn _nanoseconds(&self, n: i64) -> PyResult<Self> {
+    #[pyo3(signature = (nanoseconds, /))]
+    fn _nanoseconds(&self, nanoseconds: i64) -> PyResult<Self> {
         self.0
-            .try_nanoseconds(n)
+            .try_nanoseconds(nanoseconds)
             .map(Self::from)
             .map_err(|e| py_overflow_error!("Failed at try_nanoseconds: {e}"))
     }
 
-    fn __repr__(&self) -> String {
-        // parts that we want are the years, months, weeks, days, hours,
-        // minutes, seconds, milliseconds, microseconds, nanoseconds if not
-        // zero in the form of kwargs i guess??? tbd
-        format!("{self}")
+    fn __repr__(&self) -> PyAsciiString {
+        format!("{self}").into()
     }
 
-    fn repr_full(&self) -> String {
+    fn repr_full(&self) -> PyAsciiString {
         format!(
             "TimeSpan(years={}, months={}, weeks={}, days={}, hours={}, minutes={}, seconds={}, milliseconds={}, microseconds={}, nanoseconds={})",
             self.0.get_years(),
@@ -312,7 +326,7 @@ impl RySpan {
             self.0.get_milliseconds(),
             self.0.get_microseconds(),
             self.0.get_nanoseconds()
-        )
+        ) .into()
     }
 
     fn __hash__(&self) -> u64 {
@@ -338,34 +352,18 @@ impl RySpan {
         Ok(dict)
     }
 
-    // TODO fix and allow relative
-    fn total_seconds(&self) -> PyResult<f64> {
-        self.0
-            .total(jiff::SpanTotal::from(jiff::Unit::Second).days_are_24_hours())
-            .map_err(map_py_value_err)
+    fn fieldwise<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        self.to_dict(py)
     }
 
     #[pyo3(signature = (relative = None))]
     #[expect(clippy::wrong_self_convention)]
     fn to_signed_duration(&self, relative: Option<RySpanRelativeTo>) -> PyResult<RySignedDuration> {
         if let Some(r) = relative {
-            match r {
-                RySpanRelativeTo::Zoned(z) => self
-                    .0
-                    .to_duration(&z.0)
-                    .map(RySignedDuration)
-                    .map_err(map_py_value_err),
-                RySpanRelativeTo::Date(d) => self
-                    .0
-                    .to_duration(d.0)
-                    .map(RySignedDuration)
-                    .map_err(map_py_value_err),
-                RySpanRelativeTo::DateTime(dt) => self
-                    .0
-                    .to_duration(dt.0)
-                    .map(RySignedDuration)
-                    .map_err(map_py_value_err),
-            }
+            self.0
+                .to_duration(&r)
+                .map(RySignedDuration)
+                .map_err(map_py_value_err)
         } else {
             let now = jiff::Zoned::now();
             self.0
@@ -376,22 +374,21 @@ impl RySpan {
     }
 
     #[expect(clippy::needless_pass_by_value)]
-    fn __add__(&self, other: IntoSpanArithmetic) -> PyResult<Self> {
-        let span_arithmetic: SpanArithmetic = (&other).into();
-        self.0
-            .checked_add(span_arithmetic)
-            .map(Self::from)
-            .map_err(map_py_overflow_err)
+    fn __add__<'py>(
+        &self,
+        py: Python<'py>,
+        other: SpanAddTarget<'_, 'py>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        other.add_span(py, self)
     }
 
     #[expect(clippy::needless_pass_by_value)]
-    fn add(&self, other: IntoSpanArithmetic) -> PyResult<Self> {
-        let span_arithmetic: SpanArithmetic = (&other).into();
-
-        self.0
-            .checked_add(span_arithmetic)
-            .map(Self::from)
-            .map_err(map_py_overflow_err)
+    fn add<'py>(
+        &self,
+        py: Python<'py>,
+        other: SpanAddTarget<'_, 'py>,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        other.add_span(py, self)
     }
 
     #[expect(clippy::needless_pass_by_value)]
@@ -412,80 +409,61 @@ impl RySpan {
             .map_err(map_py_overflow_err)
     }
 
-    fn __mul__(&self, rhs: i64) -> PyResult<Self> {
+    fn __mul__(&self, other: i64) -> PyResult<Self> {
         self.0
-            .checked_mul(rhs)
+            .checked_mul(other)
             .map(Self::from)
             .map_err(map_py_overflow_err)
     }
 
-    fn mul(&self, rhs: i64) -> PyResult<Self> {
-        self.__mul__(rhs)
+    fn mul(&self, other: i64) -> PyResult<Self> {
+        self.__mul__(other)
     }
 
-    #[pyo3(signature = (other, relative=None, *, days_are_24_hours=None))]
+    #[pyo3(signature = (other, relative=None, *, days_are_24_hours=false))]
     fn compare(
         &self,
         other: &Self,
-        relative: Option<SpanCompareRelative>,
-        days_are_24_hours: Option<bool>,
+        relative: Option<RySpanRelativeTo>,
+        days_are_24_hours: bool,
     ) -> PyResult<i8> {
-        if days_are_24_hours.is_some() && relative.is_some() {
+        if days_are_24_hours && relative.is_some() {
             return Err(py_value_error!(
                 "Cannot provide relative with days_are_24_hours=True",
             ));
         }
         if let Some(r) = relative {
+            let relative_to: jiff::SpanRelativeTo = (&r).into();
+            let r = self
+                .0
+                .compare((&other.0, relative_to))
+                .map_err(map_py_value_err)?;
             match r {
-                SpanCompareRelative::Zoned(z) => {
-                    let r = self.0.compare((&other.0, &z.0)).map_err(map_py_value_err)?;
-                    match r {
-                        std::cmp::Ordering::Less => Ok(-1),
-                        std::cmp::Ordering::Equal => Ok(0),
-                        std::cmp::Ordering::Greater => Ok(1),
-                    }
-                }
-                SpanCompareRelative::Date(d) => {
-                    let r = self.0.compare((&other.0, d.0)).map_err(map_py_value_err)?;
-                    match r {
-                        std::cmp::Ordering::Less => Ok(-1),
-                        std::cmp::Ordering::Equal => Ok(0),
-                        std::cmp::Ordering::Greater => Ok(1),
-                    }
-                }
-                SpanCompareRelative::DateTime(dt) => {
-                    let r = self.0.compare((&other.0, dt.0)).map_err(map_py_value_err)?;
-                    match r {
-                        std::cmp::Ordering::Less => Ok(-1),
-                        std::cmp::Ordering::Equal => Ok(0),
-                        std::cmp::Ordering::Greater => Ok(1),
-                    }
-                }
+                std::cmp::Ordering::Less => Ok(-1),
+                std::cmp::Ordering::Equal => Ok(0),
+                std::cmp::Ordering::Greater => Ok(1),
+            }
+        } else if days_are_24_hours {
+            let span_total = SpanRelativeTo::days_are_24_hours();
+            let r = self
+                .0
+                .compare((&other.0, span_total))
+                .map_err(map_py_value_err)?;
+            match r {
+                std::cmp::Ordering::Less => Ok(-1),
+                std::cmp::Ordering::Equal => Ok(0),
+                std::cmp::Ordering::Greater => Ok(1),
             }
         } else {
-            let days_are_24_hours = days_are_24_hours.unwrap_or(false);
-
-            if days_are_24_hours {
-                let span_total = SpanRelativeTo::days_are_24_hours();
-                let r = self
-                    .0
-                    .compare((&other.0, span_total))
-                    .map_err(map_py_value_err)?;
-                match r {
-                    std::cmp::Ordering::Less => Ok(-1),
-                    std::cmp::Ordering::Equal => Ok(0),
-                    std::cmp::Ordering::Greater => Ok(1),
-                }
-            } else {
-                let r = self.0.compare(other.0).map_err(map_py_value_err)?;
-                match r {
-                    std::cmp::Ordering::Less => Ok(-1),
-                    std::cmp::Ordering::Equal => Ok(0),
-                    std::cmp::Ordering::Greater => Ok(1),
-                }
+            let r = self.0.compare(other.0).map_err(map_py_value_err)?;
+            match r {
+                std::cmp::Ordering::Less => Ok(-1),
+                std::cmp::Ordering::Equal => Ok(0),
+                std::cmp::Ordering::Greater => Ok(1),
             }
         }
     }
+
     // ========================================================================
     // PROPERTIES
     // ========================================================================
@@ -558,80 +536,93 @@ impl RySpan {
     // INSTANCE METHODS
     // ========================================================================
     #[pyo3(
-       signature = (smallest = None, increment = None, *, relative=None, largest = None, mode = None),
+        signature = (
+            smallest=JiffUnit::NANOSECOND,
+            increment=1,
+            *,
+            relative=None,
+            largest=None,
+            mode=JiffRoundMode::HALF_EXPAND,
+            days_are_24_hours=false
+        ),
+        text_signature = "(self, smallest=\"nanosecond\", increment=1, *, relative=None, largest=None, mode=\"half-expand\", days_are_24_hours=False)"
     )]
     fn round(
         &self,
-        smallest: Option<JiffUnit>,
-        increment: Option<i64>,
+        smallest: JiffUnit,
+        increment: i64,
         // kwarg only
-        relative: Option<SpanCompareRelative>,
+        relative: Option<RySpanRelativeTo>,
         largest: Option<JiffUnit>,
-        mode: Option<JiffRoundMode>,
+        mode: JiffRoundMode,
+        days_are_24_hours: bool,
     ) -> PyResult<Self> {
-        if let Some(SpanCompareRelative::Zoned(z)) = relative {
-            let mut span_round: SpanRound = SpanRound::new();
-            if let Some(smallest) = smallest {
-                span_round = span_round.smallest(smallest.0);
-            }
+        // err on both relative and days_are_24_hours provided
+        if relative.is_some() && days_are_24_hours {
+            return Err(py_value_error!(
+                "`relative` and `days_are_24_hours=True` are mutually exclusive",
+            ));
+        }
+        if let Some(relative) = relative {
+            let mut span_round: SpanRound = SpanRound::new()
+                .increment(increment)
+                .smallest(smallest.0)
+                .mode(mode.0);
             if let Some(largest) = largest {
                 span_round = span_round.largest(largest.0);
             }
-            if let Some(mode) = mode {
-                span_round = span_round.mode(mode.0);
-            }
-            if let Some(increment) = increment {
-                span_round = span_round.increment(increment);
-            }
-            span_round = span_round.relative(&z.0);
-            return self
-                .0
+            let rel = jiff::SpanRelativeTo::from(&relative);
+            span_round = span_round.relative(rel);
+            self.0
                 .round(span_round)
                 .map(Self::from)
-                .map_err(map_py_value_err);
-        }
-        let mut span_round: SpanRound = SpanRound::new();
-        if let Some(smallest) = smallest {
-            span_round = span_round.smallest(smallest.0);
-        }
-        if let Some(largest) = largest {
-            span_round = span_round.largest(largest.0);
-        }
-        if let Some(mode) = mode {
-            span_round = span_round.mode(mode.0);
-        }
-        if let Some(increment) = increment {
-            span_round = span_round.increment(increment);
-        }
-        if let Some(relative) = relative {
-            match relative {
-                SpanCompareRelative::Zoned(_z) => {
-                    unreachable!("This should not happen")
-                }
-                SpanCompareRelative::Date(d) => {
-                    span_round = span_round.relative(d.0);
-                }
-                SpanCompareRelative::DateTime(dt) => {
-                    span_round = span_round.relative(dt.0);
-                }
+                .map_err(map_py_value_err)
+        } else if days_are_24_hours {
+            let mut span_round: SpanRound = SpanRound::new()
+                .increment(increment)
+                .smallest(smallest.0)
+                .mode(mode.0)
+                .relative(SpanRelativeTo::days_are_24_hours());
+            if let Some(largest) = largest {
+                span_round = span_round.largest(largest.0);
             }
+            self.0
+                .round(span_round)
+                .map(Self::from)
+                .map_err(map_py_value_err)
+        } else {
+            let mut span_round: SpanRound = SpanRound::new()
+                .increment(increment)
+                .smallest(smallest.0)
+                .mode(mode.0);
+            if let Some(largest) = largest {
+                span_round = span_round.largest(largest.0);
+            }
+            self.0
+                .round(span_round)
+                .map(Self::from)
+                .map_err(map_py_value_err)
         }
-
-        self.0
-            .round(span_round)
-            .map(Self::from)
-            .map_err(map_py_value_err)
     }
 
     fn signum(&self) -> i8 {
         self.0.signum()
     }
 
+    #[pyo3(signature = (relative=None, *, days_are_24_hours=false))]
+    fn total_seconds(
+        &self,
+        relative: Option<RySpanRelativeTo>,
+        days_are_24_hours: bool,
+    ) -> PyResult<f64> {
+        self.total(JiffUnit::SECOND, relative, days_are_24_hours)
+    }
+
     #[pyo3(signature = (unit, relative=None, *, days_are_24_hours=false))]
     fn total(
         &self,
         unit: JiffUnit,
-        relative: Option<SpanCompareRelative>,
+        relative: Option<RySpanRelativeTo>,
         days_are_24_hours: bool,
     ) -> PyResult<f64> {
         // err on both relative and days_are_24_hours provided
@@ -640,18 +631,14 @@ impl RySpan {
                 "Cannot provide relative with days_are_24_hours=True",
             ));
         }
+
         if let Some(r) = relative {
-            match r {
-                SpanCompareRelative::Zoned(z) => {
-                    Ok(self.0.total((unit.0, &z.0)).map_err(map_py_value_err)?)
-                }
-                SpanCompareRelative::Date(d) => {
-                    Ok(self.0.total((unit.0, d.0)).map_err(map_py_value_err)?)
-                }
-                SpanCompareRelative::DateTime(dt) => {
-                    Ok(self.0.total((unit.0, dt.0)).map_err(map_py_value_err)?)
-                }
-            }
+            let relative_to: jiff::SpanRelativeTo = (&r).into();
+            let r = self
+                .0
+                .total((unit.0, relative_to))
+                .map_err(map_py_value_err)?;
+            Ok(r)
         } else if days_are_24_hours {
             let span_total = SpanRelativeTo::days_are_24_hours();
             let a = self
@@ -665,35 +652,30 @@ impl RySpan {
     }
 
     #[staticmethod]
-    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, PyAny>> {
+    fn from_any<'py>(value: &Bound<'py, PyAny>) -> PyResult<Bound<'py, Self>> {
         let py = value.py();
-        if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
+        if let Ok(val) = value.cast_exact::<Self>() {
+            Ok(val.as_borrowed().into_bound())
+        } else if let Ok(pystr) = value.cast::<pyo3::types::PyString>() {
             let s = pystr.extract::<&str>()?;
-            Self::from_str(s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
+            Self::from_str(s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(pybytes) = value.cast::<pyo3::types::PyBytes>() {
             let s = String::from_utf8_lossy(pybytes.as_bytes());
-            Self::from_str(&s).map(|dt| dt.into_bound_py_any(py).map(Bound::into_any))?
-        } else if value.is_exact_instance_of::<Self>() {
-            value.into_bound_py_any(py)
+            Self::from_str(&s).map(|dt| dt.into_pyobject(py))?
         } else if let Ok(v) = value.cast_exact::<PyFloat>() {
             let f = v.extract::<f64>()?;
-            if f.is_nan() || f.is_infinite() {
-                return Err(py_value_error!(
-                    "Cannot convert NaN or infinite float to SignedDuration"
-                ));
-            }
             let sd = RySignedDuration::py_try_from_secs_f64(f)?;
             let span = jiff::Span::try_from(sd.0).map_err(map_py_overflow_err)?;
-            Self::from(span).into_bound_py_any(py)
+            Self::from(span).into_pyobject(py)
         } else if let Ok(v) = value.cast_exact::<PyInt>() {
             let i = v.extract::<i64>()?;
             let sd = SignedDuration::from_secs(i);
             Span::try_from(sd)
                 .map(Self::from)
                 .map_err(map_py_overflow_err)
-                .and_then(|dt| dt.into_bound_py_any(py))
+                .and_then(|dt| dt.into_pyobject(py))
         } else if let Ok(d) = value.extract::<Span>() {
-            Self::from(d).into_bound_py_any(py)
+            Self::from(d).into_pyobject(py)
         } else {
             let valtype = any_repr!(value);
             py_type_err!("TimeSpan conversion error: {valtype}")
@@ -708,7 +690,7 @@ impl RySpan {
     fn _pydantic_validate<'py>(
         value: &Bound<'py, PyAny>,
         _handler: &Bound<'py, PyAny>,
-    ) -> PyResult<Bound<'py, PyAny>> {
+    ) -> PyResult<Bound<'py, Self>> {
         Self::from_any(value).map_err(map_py_value_err)
     }
 
@@ -726,6 +708,9 @@ impl RySpan {
 
 impl Display for RySpan {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // parts that we want are the years, months, weeks, days, hours,
+        // minutes, seconds, milliseconds, microseconds, nanoseconds if not
+        // zero in the form of kwargs i guess??? tbd
         f.write_str("TimeSpan(")?;
         let mut write_sep = false;
 
@@ -819,31 +804,226 @@ impl Display for RySpan {
     }
 }
 
-impl From<Span> for RySpan {
-    fn from(span: Span) -> Self {
-        Self(span)
-    }
+#[derive(Debug, Clone)]
+pub(crate) enum RySpanRelativeTo<'a, 'py> {
+    Zoned(Borrowed<'a, 'py, RyZoned>),
+    Date(Borrowed<'a, 'py, RyDate>),
+    DateTime(Borrowed<'a, 'py, RyDateTime>),
 }
 
-impl From<JiffSpan> for RySpan {
-    fn from(span: JiffSpan) -> Self {
-        Self(span.0)
-    }
-}
-
-impl TryFrom<SignedDuration> for RySpan {
+impl<'a, 'py> FromPyObject<'a, 'py> for RySpanRelativeTo<'a, 'py> {
     type Error = PyErr;
 
-    fn try_from(value: SignedDuration) -> Result<Self, Self::Error> {
-        Span::try_from(value)
-            .map(Self::from)
-            .map_err(map_py_overflow_err)
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(z) = obj.cast_exact::<RyZoned>() {
+            Ok(Self::Zoned(z))
+        } else if let Ok(d) = obj.cast_exact::<RyDate>() {
+            Ok(Self::Date(d))
+        } else if let Ok(dt) = obj.cast_exact::<RyDateTime>() {
+            Ok(Self::DateTime(dt))
+        } else {
+            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
+                "Expected ZonedDateTime, DateTime, or Date",
+            ))
+        }
     }
 }
 
-#[derive(Debug, Clone, FromPyObject)]
-pub(crate) enum SpanCompareRelative {
-    Zoned(RyZoned),
-    Date(RyDate),
-    DateTime(RyDateTime),
+impl<'a, 'py> From<&'a RySpanRelativeTo<'a, 'py>> for jiff::SpanRelativeTo<'a> {
+    fn from(val: &'a RySpanRelativeTo<'a, 'py>) -> Self {
+        match val {
+            RySpanRelativeTo::Zoned(z) => jiff::SpanRelativeTo::from(&z.get().0),
+            RySpanRelativeTo::Date(d) => jiff::SpanRelativeTo::from(d.get().0),
+            RySpanRelativeTo::DateTime(dt) => jiff::SpanRelativeTo::from(dt.get().0),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum SpanLike<'a, 'py> {
+    Duration(Borrowed<'a, 'py, PyDuration>),
+    SignedDuration(Borrowed<'a, 'py, RySignedDuration>),
+    Span(Borrowed<'a, 'py, RySpan>),
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for SpanLike<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(span) = obj.cast_exact::<RySpan>() {
+            Ok(Self::Span(span))
+        } else if let Ok(sdur) = obj.cast_exact::<RySignedDuration>() {
+            Ok(Self::SignedDuration(sdur))
+        } else if let Ok(dur) = obj.cast_exact::<PyDuration>() {
+            Ok(Self::Duration(dur))
+        } else {
+            py_type_err!("Expected TimeSpan, SignedDuration or Duration")
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum IntoSpanArithmetic<'a, 'py> {
+    Uno(SpanLike<'a, 'py>),
+    Dos((SpanLike<'a, 'py>, RySpanRelativeTo<'a, 'py>)),
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for IntoSpanArithmetic<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(tup) = obj.cast_exact::<PyTuple>() {
+            if tup.len() == 2 {
+                let both = tup.extract::<(SpanLike<'a, 'py>, RySpanRelativeTo<'a, 'py>)>()?;
+                Ok(IntoSpanArithmetic::Dos(both))
+            } else {
+                py_type_err!("Expected a tuple of length 2 for Span arithmetic with relative")
+            }
+        } else if let Ok(fromthing) = obj.extract::<SpanLike<'a, 'py>>() {
+            Ok(IntoSpanArithmetic::Uno(fromthing))
+        } else {
+            py_type_err!(
+                "Expected TimeSpan, SignedDuration, datetime.timedelta, or a tuple of length 2 for Span arithmetic with relative",
+            )
+        }
+    }
+}
+
+impl<'a, 'py> From<&'a IntoSpanArithmetic<'a, 'py>> for SpanArithmetic<'a> {
+    fn from(value: &'a IntoSpanArithmetic<'a, 'py>) -> Self {
+        // HERE WE HAVE A TOTAL CLUSTER-FUCK OF MATCHING...
+        // BUT I AM NOT SURE HOW TO GET THIS TO PLAY NICE WITH PYTHON + LIFETIMES
+        // -- update --
+        // SO this is A BIT LESS of a clusterfuck but still pretty cluster-fucky
+        match value {
+            IntoSpanArithmetic::Uno(s) => match s {
+                SpanLike::Span(sp) => SpanArithmetic::from(sp.get().0).days_are_24_hours(),
+                SpanLike::Duration(dur) => SpanArithmetic::from(dur.get().0).days_are_24_hours(),
+                SpanLike::SignedDuration(dur) => {
+                    SpanArithmetic::from(dur.get().0).days_are_24_hours()
+                }
+            },
+            IntoSpanArithmetic::Dos((s, r)) => match s {
+                SpanLike::Span(sp) => match r {
+                    RySpanRelativeTo::Zoned(z) => SpanArithmetic::from((sp.get().0, &z.get().0)),
+                    RySpanRelativeTo::Date(d) => SpanArithmetic::from((sp.get().0, d.get().0)),
+                    RySpanRelativeTo::DateTime(dt) => {
+                        SpanArithmetic::from((sp.get().0, dt.get().0))
+                    }
+                },
+                SpanLike::Duration(dur) => match r {
+                    RySpanRelativeTo::Zoned(z) => SpanArithmetic::from((dur.get().0, &z.get().0)),
+                    RySpanRelativeTo::Date(d) => SpanArithmetic::from((dur.get().0, d.get().0)),
+                    RySpanRelativeTo::DateTime(dt) => {
+                        SpanArithmetic::from((dur.get().0, dt.get().0))
+                    }
+                },
+                SpanLike::SignedDuration(dur) => match r {
+                    RySpanRelativeTo::Zoned(z) => SpanArithmetic::from((dur.get().0, &z.get().0)),
+                    RySpanRelativeTo::Date(d) => SpanArithmetic::from((dur.get().0, d.get().0)),
+                    RySpanRelativeTo::DateTime(dt) => {
+                        SpanArithmetic::from((dur.get().0, dt.get().0))
+                    }
+                },
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub(crate) enum SpanAddTarget<'a, 'py> {
+    Span(IntoSpanArithmetic<'a, 'py>),
+    TemporalType(PyTermporalTypes<'a, 'py>),
+}
+
+impl<'a, 'py> FromPyObject<'a, 'py> for SpanAddTarget<'a, 'py> {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'a, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(temporal_ish) = obj.extract::<PyTermporalTypes<'a, 'py>>() {
+            Ok(Self::TemporalType(temporal_ish))
+        } else if let Ok(span_arith) = obj.extract::<IntoSpanArithmetic<'a, 'py>>() {
+            Ok(Self::Span(span_arith))
+        } else {
+            py_type_err!(
+                "Expected TimeSpan, SignedDuration, datetime.timedelta, a tuple of length 2 for Span arithmetic with relative, or a date/time type",
+            )
+        }
+    }
+}
+
+trait SpanAdd<'a, 'py> {
+    type Target;
+    type Output;
+    fn add_span(&self, py: Python<'py>, span: &RySpan) -> PyResult<Self::Output>;
+}
+
+macro_rules! impl_span_add_for_borrowed {
+    ($ty:ty) => {
+        impl<'a, 'py> SpanAdd<'a, 'py> for Borrowed<'a, 'py, $ty> {
+            type Target = $ty;
+            type Output = Bound<'py, Self::Target>;
+            fn add_span(&self, py: Python<'py>, span: &RySpan) -> PyResult<Self::Output> {
+                self.get()
+                    .0
+                    .checked_add(span.0)
+                    .map(Self::Target::from)
+                    .map_err(map_py_overflow_err)
+                    .map(|r| r.into_pyobject(py))?
+            }
+        }
+    };
+}
+
+impl_span_add_for_borrowed!(RyDate);
+impl_span_add_for_borrowed!(RyDateTime);
+impl_span_add_for_borrowed!(RyTime);
+impl_span_add_for_borrowed!(RyZoned);
+impl_span_add_for_borrowed!(RyTimestamp);
+
+impl<'a, 'py> SpanAdd<'a, 'py> for PyTermporalTypes<'a, 'py> {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+    fn add_span(&self, py: Python<'py>, span: &RySpan) -> PyResult<Self::Output> {
+        match self {
+            Self::Date(date) => date.add_span(py, span).map(Bound::into_any),
+            Self::DateTime(datetime) => datetime.add_span(py, span).map(Bound::into_any),
+            Self::Time(time) => time.add_span(py, span).map(Bound::into_any),
+            Self::Zoned(zoned) => zoned.add_span(py, span).map(Bound::into_any),
+            Self::Timestamp(timestamp) => timestamp.add_span(py, span).map(Bound::into_any),
+        }
+    }
+}
+
+impl<'a, 'py> SpanAdd<'a, 'py> for IntoSpanArithmetic<'a, 'py> {
+    type Target = RySpan;
+    type Output = Bound<'py, Self::Target>;
+    fn add_span(&self, py: Python<'py>, span: &RySpan) -> PyResult<Self::Output> {
+        let span_arithmetic: SpanArithmetic = self.into();
+        span.0
+            .checked_add(span_arithmetic)
+            .map(RySpan::from)
+            .map_err(map_py_overflow_err)?
+            .into_pyobject(py)
+    }
+}
+
+impl<'a, 'py> SpanAdd<'a, 'py> for SpanAddTarget<'a, 'py> {
+    type Target = PyAny;
+    type Output = Bound<'py, PyAny>;
+
+    fn add_span(&self, py: Python<'py>, span: &RySpan) -> PyResult<Self::Output> {
+        match self {
+            Self::Span(span_arithmetic) => {
+                let span_arithmetic: SpanArithmetic = span_arithmetic.into();
+                span.0
+                    .checked_add(span_arithmetic)
+                    .map(RySpan::from)
+                    .map_err(map_py_overflow_err)?
+                    .into_pyobject(py)
+                    .map(Bound::into_any)
+            }
+            Self::TemporalType(temporal_type) => temporal_type.add_span(py, span),
+        }
+    }
 }

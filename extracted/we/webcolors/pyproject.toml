@@ -16,11 +16,11 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
 ]
 name = "webcolors"
@@ -32,8 +32,8 @@ keywords = [
     "web",
 ]
 readme = "README.rst"
-requires-python = ">=3.9"
-version = "24.11.1"
+requires-python = ">=3.10"
+version = "25.10.0"
 
 [project.license]
 text = "BSD-3-Clause"
@@ -44,7 +44,8 @@ Documentation = "https://webcolors.readthedocs.io"
 
 [dependency-groups]
 tests = [
-    "nox",
+    "coverage[toml]",
+    "pytest",
 ]
 
 [tool.bandit]
@@ -54,11 +55,11 @@ skips = [
 
 [tool.black]
 target-version = [
-    "py39",
     "py310",
     "py311",
     "py312",
     "py313",
+    "py314",
 ]
 
 [tool.coverage.paths]
@@ -69,11 +70,16 @@ source = [
 
 [tool.coverage.report]
 fail_under = 100
+omit = [
+    "tests/definitions.py",
+    "tests/full_colors.py",
+]
 
 [tool.coverage.run]
 branch = true
 parallel = true
 source = [
+    "tests",
     "webcolors",
 ]
 
@@ -97,6 +103,7 @@ source-includes = [
     "AUTHORS",
     "CONTRIBUTING.rst",
     "docs/",
+    "Makefile",
     "noxfile.py",
     "pdm.lock",
     "runtests.py",

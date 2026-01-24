@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -222,6 +222,8 @@ class DkimSigningAttributesOrigin(StrEnum):
     AWS_SES_ME_CENTRAL_1 = "AWS_SES_ME_CENTRAL_1"
     AWS_SES_AP_SOUTH_2 = "AWS_SES_AP_SOUTH_2"
     AWS_SES_EU_CENTRAL_2 = "AWS_SES_EU_CENTRAL_2"
+    AWS_SES_AP_SOUTHEAST_5 = "AWS_SES_AP_SOUTHEAST_5"
+    AWS_SES_CA_WEST_1 = "AWS_SES_CA_WEST_1"
 
 
 class DkimSigningKeyLength(StrEnum):
@@ -569,28 +571,28 @@ class TooManyRequestsException(ServiceException):
 class ReviewDetails(TypedDict, total=False):
     """An object that contains information about your account details review."""
 
-    Status: Optional[ReviewStatus]
-    CaseId: Optional[CaseId]
+    Status: ReviewStatus | None
+    CaseId: CaseId | None
 
 
-AdditionalContactEmailAddresses = List[AdditionalContactEmailAddress]
+AdditionalContactEmailAddresses = list[AdditionalContactEmailAddress]
 
 
 class AccountDetails(TypedDict, total=False):
     """An object that contains information about your account details."""
 
-    MailType: Optional[MailType]
-    WebsiteURL: Optional[WebsiteURL]
-    ContactLanguage: Optional[ContactLanguage]
-    UseCaseDescription: Optional[UseCaseDescription]
-    AdditionalContactEmailAddresses: Optional[AdditionalContactEmailAddresses]
-    ReviewDetails: Optional[ReviewDetails]
+    MailType: MailType | None
+    WebsiteURL: WebsiteURL | None
+    ContactLanguage: ContactLanguage | None
+    UseCaseDescription: UseCaseDescription | None
+    AdditionalContactEmailAddresses: AdditionalContactEmailAddresses | None
+    ReviewDetails: ReviewDetails | None
 
 
 class ArchivingOptions(TypedDict, total=False):
     """Used to associate a configuration set with a MailManager archive."""
 
-    ArchiveArn: Optional[ArchiveArn]
+    ArchiveArn: ArchiveArn | None
 
 
 RawAttachmentData = bytes
@@ -600,17 +602,17 @@ class Attachment(TypedDict, total=False):
     """Contains metadata and attachment raw content."""
 
     RawContent: RawAttachmentData
-    ContentDisposition: Optional[AttachmentContentDisposition]
+    ContentDisposition: AttachmentContentDisposition | None
     FileName: AttachmentFileName
-    ContentDescription: Optional[AttachmentContentDescription]
-    ContentId: Optional[AttachmentContentId]
-    ContentTransferEncoding: Optional[AttachmentContentTransferEncoding]
-    ContentType: Optional[AttachmentContentType]
+    ContentDescription: AttachmentContentDescription | None
+    ContentId: AttachmentContentId | None
+    ContentTransferEncoding: AttachmentContentTransferEncoding | None
+    ContentType: AttachmentContentType | None
 
 
-AttachmentList = List[Attachment]
+AttachmentList = list[Attachment]
 Timestamp = datetime
-Dimensions = Dict[MetricDimensionName, MetricDimensionValue]
+Dimensions = dict[MetricDimensionName, MetricDimensionValue]
 
 
 class BatchGetMetricDataQuery(TypedDict, total=False):
@@ -619,12 +621,12 @@ class BatchGetMetricDataQuery(TypedDict, total=False):
     Id: QueryIdentifier
     Namespace: MetricNamespace
     Metric: Metric
-    Dimensions: Optional[Dimensions]
+    Dimensions: Dimensions | None
     StartDate: Timestamp
     EndDate: Timestamp
 
 
-BatchGetMetricDataQueries = List[BatchGetMetricDataQuery]
+BatchGetMetricDataQueries = list[BatchGetMetricDataQuery]
 
 
 class BatchGetMetricDataRequest(ServiceRequest):
@@ -638,33 +640,33 @@ class MetricDataError(TypedDict, total=False):
     data query.
     """
 
-    Id: Optional[QueryIdentifier]
-    Code: Optional[QueryErrorCode]
-    Message: Optional[QueryErrorMessage]
+    Id: QueryIdentifier | None
+    Code: QueryErrorCode | None
+    Message: QueryErrorMessage | None
 
 
-MetricDataErrorList = List[MetricDataError]
+MetricDataErrorList = list[MetricDataError]
 Counter = int
-MetricValueList = List[Counter]
-TimestampList = List[Timestamp]
+MetricValueList = list[Counter]
+TimestampList = list[Timestamp]
 
 
 class MetricDataResult(TypedDict, total=False):
     """The result of a single metric data query."""
 
-    Id: Optional[QueryIdentifier]
-    Timestamps: Optional[TimestampList]
-    Values: Optional[MetricValueList]
+    Id: QueryIdentifier | None
+    Timestamps: TimestampList | None
+    Values: MetricValueList | None
 
 
-MetricDataResultList = List[MetricDataResult]
+MetricDataResultList = list[MetricDataResult]
 
 
 class BatchGetMetricDataResponse(TypedDict, total=False):
     """Represents the result of processing your metric data batch request"""
 
-    Results: Optional[MetricDataResultList]
-    Errors: Optional[MetricDataErrorList]
+    Results: MetricDataResultList | None
+    Errors: MetricDataErrorList | None
 
 
 class BlacklistEntry(TypedDict, total=False):
@@ -673,14 +675,14 @@ class BlacklistEntry(TypedDict, total=False):
     account.
     """
 
-    RblName: Optional[RblName]
-    ListingTime: Optional[Timestamp]
-    Description: Optional[BlacklistingDescription]
+    RblName: RblName | None
+    ListingTime: Timestamp | None
+    Description: BlacklistingDescription | None
 
 
-BlacklistEntries = List[BlacklistEntry]
-BlacklistItemNames = List[BlacklistItemName]
-BlacklistReport = Dict[BlacklistItemName, BlacklistEntries]
+BlacklistEntries = list[BlacklistEntry]
+BlacklistItemNames = list[BlacklistItemName]
+BlacklistReport = dict[BlacklistItemName, BlacklistEntries]
 
 
 class Content(TypedDict, total=False):
@@ -689,22 +691,22 @@ class Content(TypedDict, total=False):
     """
 
     Data: MessageData
-    Charset: Optional[Charset]
+    Charset: Charset | None
 
 
 class Body(TypedDict, total=False):
     """Represents the body of the email message."""
 
-    Text: Optional[Content]
-    Html: Optional[Content]
+    Text: Content | None
+    Html: Content | None
 
 
 class Bounce(TypedDict, total=False):
     """Information about a ``Bounce`` event."""
 
-    BounceType: Optional[BounceType]
-    BounceSubType: Optional[BounceSubType]
-    DiagnosticCode: Optional[DiagnosticCode]
+    BounceType: BounceType | None
+    BounceSubType: BounceSubType | None
+    DiagnosticCode: DiagnosticCode | None
 
 
 class MessageHeader(TypedDict, total=False):
@@ -716,7 +718,7 @@ class MessageHeader(TypedDict, total=False):
     Value: MessageHeaderValue
 
 
-MessageHeaderList = List[MessageHeader]
+MessageHeaderList = list[MessageHeader]
 
 
 class EmailTemplateContent(TypedDict, total=False):
@@ -724,9 +726,9 @@ class EmailTemplateContent(TypedDict, total=False):
     a text-only part.
     """
 
-    Subject: Optional[EmailTemplateSubject]
-    Text: Optional[EmailTemplateText]
-    Html: Optional[EmailTemplateHtml]
+    Subject: EmailTemplateSubject | None
+    Text: EmailTemplateText | None
+    Html: EmailTemplateHtml | None
 
 
 class Template(TypedDict, total=False):
@@ -739,12 +741,12 @@ class Template(TypedDict, total=False):
     template content.
     """
 
-    TemplateName: Optional[EmailTemplateName]
-    TemplateArn: Optional[AmazonResourceName]
-    TemplateContent: Optional[EmailTemplateContent]
-    TemplateData: Optional[EmailTemplateData]
-    Headers: Optional[MessageHeaderList]
-    Attachments: Optional[AttachmentList]
+    TemplateName: EmailTemplateName | None
+    TemplateArn: AmazonResourceName | None
+    TemplateContent: EmailTemplateContent | None
+    TemplateData: EmailTemplateData | None
+    Headers: MessageHeaderList | None
+    Attachments: AttachmentList | None
 
 
 class BulkEmailContent(TypedDict, total=False):
@@ -752,7 +754,7 @@ class BulkEmailContent(TypedDict, total=False):
     template message.
     """
 
-    Template: Optional[Template]
+    Template: Template | None
 
 
 class ReplacementTemplate(TypedDict, total=False):
@@ -760,7 +762,7 @@ class ReplacementTemplate(TypedDict, total=False):
     specific ``BulkEmailEntry``.
     """
 
-    ReplacementTemplateData: Optional[EmailTemplateData]
+    ReplacementTemplateData: EmailTemplateData | None
 
 
 class ReplacementEmailContent(TypedDict, total=False):
@@ -769,7 +771,7 @@ class ReplacementEmailContent(TypedDict, total=False):
     this object.
     """
 
-    ReplacementTemplate: Optional[ReplacementTemplate]
+    ReplacementTemplate: ReplacementTemplate | None
 
 
 class MessageTag(TypedDict, total=False):
@@ -781,8 +783,8 @@ class MessageTag(TypedDict, total=False):
     Value: MessageTagValue
 
 
-MessageTagList = List[MessageTag]
-EmailAddressList = List[EmailAddress]
+MessageTagList = list[MessageTag]
+EmailAddressList = list[EmailAddress]
 
 
 class Destination(TypedDict, total=False):
@@ -798,19 +800,19 @@ class Destination(TypedDict, total=False):
     in `RFC3492 <https://tools.ietf.org/html/rfc3492.html>`__.
     """
 
-    ToAddresses: Optional[EmailAddressList]
-    CcAddresses: Optional[EmailAddressList]
-    BccAddresses: Optional[EmailAddressList]
+    ToAddresses: EmailAddressList | None
+    CcAddresses: EmailAddressList | None
+    BccAddresses: EmailAddressList | None
 
 
 class BulkEmailEntry(TypedDict, total=False):
     Destination: Destination
-    ReplacementTags: Optional[MessageTagList]
-    ReplacementEmailContent: Optional[ReplacementEmailContent]
-    ReplacementHeaders: Optional[MessageHeaderList]
+    ReplacementTags: MessageTagList | None
+    ReplacementEmailContent: ReplacementEmailContent | None
+    ReplacementHeaders: MessageHeaderList | None
 
 
-BulkEmailEntryList = List[BulkEmailEntry]
+BulkEmailEntryList = list[BulkEmailEntry]
 
 
 class BulkEmailEntryResult(TypedDict, total=False):
@@ -818,12 +820,12 @@ class BulkEmailEntryResult(TypedDict, total=False):
     ``BulkEmailEntry``.
     """
 
-    Status: Optional[BulkEmailStatus]
-    Error: Optional[ErrorMessage]
-    MessageId: Optional[OutboundMessageId]
+    Status: BulkEmailStatus | None
+    Error: ErrorMessage | None
+    MessageId: OutboundMessageId | None
 
 
-BulkEmailEntryResultList = List[BulkEmailEntryResult]
+BulkEmailEntryResultList = list[BulkEmailEntryResult]
 
 
 class CancelExportJobRequest(ServiceRequest):
@@ -850,7 +852,7 @@ class CloudWatchDimensionConfiguration(TypedDict, total=False):
     DefaultDimensionValue: DefaultDimensionValue
 
 
-CloudWatchDimensionConfigurations = List[CloudWatchDimensionConfiguration]
+CloudWatchDimensionConfigurations = list[CloudWatchDimensionConfiguration]
 
 
 class CloudWatchDestination(TypedDict, total=False):
@@ -865,11 +867,11 @@ class CloudWatchDestination(TypedDict, total=False):
 class Complaint(TypedDict, total=False):
     """Information about a ``Complaint`` event."""
 
-    ComplaintSubType: Optional[ComplaintSubType]
-    ComplaintFeedbackType: Optional[ComplaintFeedbackType]
+    ComplaintSubType: ComplaintSubType | None
+    ComplaintFeedbackType: ComplaintFeedbackType | None
 
 
-ConfigurationSetNameList = List[ConfigurationSetName]
+ConfigurationSetNameList = list[ConfigurationSetName]
 
 
 class TopicPreference(TypedDict, total=False):
@@ -879,17 +881,17 @@ class TopicPreference(TypedDict, total=False):
     SubscriptionStatus: SubscriptionStatus
 
 
-TopicPreferenceList = List[TopicPreference]
+TopicPreferenceList = list[TopicPreference]
 
 
 class Contact(TypedDict, total=False):
     """A contact is the end-user who is receiving the email."""
 
-    EmailAddress: Optional[EmailAddress]
-    TopicPreferences: Optional[TopicPreferenceList]
-    TopicDefaultPreferences: Optional[TopicPreferenceList]
-    UnsubscribeAll: Optional[UnsubscribeAll]
-    LastUpdatedTimestamp: Optional[Timestamp]
+    EmailAddress: EmailAddress | None
+    TopicPreferences: TopicPreferenceList | None
+    TopicDefaultPreferences: TopicPreferenceList | None
+    UnsubscribeAll: UnsubscribeAll | None
+    LastUpdatedTimestamp: Timestamp | None
 
 
 class ContactList(TypedDict, total=False):
@@ -897,8 +899,8 @@ class ContactList(TypedDict, total=False):
     or topics.
     """
 
-    ContactListName: Optional[ContactListName]
-    LastUpdatedTimestamp: Optional[Timestamp]
+    ContactListName: ContactListName | None
+    LastUpdatedTimestamp: Timestamp | None
 
 
 class ContactListDestination(TypedDict, total=False):
@@ -918,7 +920,7 @@ class PinpointDestination(TypedDict, total=False):
     in the *Amazon Pinpoint User Guide*.
     """
 
-    ApplicationArn: Optional[AmazonResourceName]
+    ApplicationArn: AmazonResourceName | None
 
 
 class EventBridgeDestination(TypedDict, total=False):
@@ -949,7 +951,7 @@ class KinesisFirehoseDestination(TypedDict, total=False):
     DeliveryStreamArn: AmazonResourceName
 
 
-EventTypes = List[EventType]
+EventTypes = list[EventType]
 
 
 class EventDestinationDefinition(TypedDict, total=False):
@@ -959,13 +961,13 @@ class EventDestinationDefinition(TypedDict, total=False):
     types of events that are sent to the event destination.
     """
 
-    Enabled: Optional[Enabled]
-    MatchingEventTypes: Optional[EventTypes]
-    KinesisFirehoseDestination: Optional[KinesisFirehoseDestination]
-    CloudWatchDestination: Optional[CloudWatchDestination]
-    SnsDestination: Optional[SnsDestination]
-    EventBridgeDestination: Optional[EventBridgeDestination]
-    PinpointDestination: Optional[PinpointDestination]
+    Enabled: Enabled | None
+    MatchingEventTypes: EventTypes | None
+    KinesisFirehoseDestination: KinesisFirehoseDestination | None
+    CloudWatchDestination: CloudWatchDestination | None
+    SnsDestination: SnsDestination | None
+    EventBridgeDestination: EventBridgeDestination | None
+    PinpointDestination: PinpointDestination | None
 
 
 class CreateConfigurationSetEventDestinationRequest(ServiceRequest):
@@ -989,7 +991,7 @@ class GuardianOptions(TypedDict, total=False):
     applicable to the Guardian.
     """
 
-    OptimizedSharedDelivery: Optional[FeatureStatus]
+    OptimizedSharedDelivery: FeatureStatus | None
 
 
 class DashboardOptions(TypedDict, total=False):
@@ -997,7 +999,7 @@ class DashboardOptions(TypedDict, total=False):
     applicable to the Dashboard.
     """
 
-    EngagementMetrics: Optional[FeatureStatus]
+    EngagementMetrics: FeatureStatus | None
 
 
 class VdmOptions(TypedDict, total=False):
@@ -1005,11 +1007,11 @@ class VdmOptions(TypedDict, total=False):
     send using the configuration set.
     """
 
-    DashboardOptions: Optional[DashboardOptions]
-    GuardianOptions: Optional[GuardianOptions]
+    DashboardOptions: DashboardOptions | None
+    GuardianOptions: GuardianOptions | None
 
 
-SuppressionListReasons = List[SuppressionListReason]
+SuppressionListReasons = list[SuppressionListReason]
 
 
 class SuppressionOptions(TypedDict, total=False):
@@ -1017,7 +1019,7 @@ class SuppressionOptions(TypedDict, total=False):
     preferences for your account.
     """
 
-    SuppressedReasons: Optional[SuppressionListReasons]
+    SuppressedReasons: SuppressionListReasons | None
 
 
 class Tag(TypedDict, total=False):
@@ -1057,7 +1059,7 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class SendingOptions(TypedDict, total=False):
@@ -1065,7 +1067,7 @@ class SendingOptions(TypedDict, total=False):
     configuration set in the current Amazon Web Services Region.
     """
 
-    SendingEnabled: Optional[Enabled]
+    SendingEnabled: Enabled | None
 
 
 LastFreshStart = datetime
@@ -1077,8 +1079,8 @@ class ReputationOptions(TypedDict, total=False):
     Region.
     """
 
-    ReputationMetricsEnabled: Optional[Enabled]
-    LastFreshStart: Optional[LastFreshStart]
+    ReputationMetricsEnabled: Enabled | None
+    LastFreshStart: LastFreshStart | None
 
 
 MaxDeliverySeconds = int
@@ -1087,9 +1089,9 @@ MaxDeliverySeconds = int
 class DeliveryOptions(TypedDict, total=False):
     """Used to associate a configuration set with a dedicated IP pool."""
 
-    TlsPolicy: Optional[TlsPolicy]
-    SendingPoolName: Optional[PoolName]
-    MaxDeliverySeconds: Optional[MaxDeliverySeconds]
+    TlsPolicy: TlsPolicy | None
+    SendingPoolName: PoolName | None
+    MaxDeliverySeconds: MaxDeliverySeconds | None
 
 
 class TrackingOptions(TypedDict, total=False):
@@ -1105,21 +1107,21 @@ class TrackingOptions(TypedDict, total=False):
     """
 
     CustomRedirectDomain: CustomRedirectDomain
-    HttpsPolicy: Optional[HttpsPolicy]
+    HttpsPolicy: HttpsPolicy | None
 
 
 class CreateConfigurationSetRequest(ServiceRequest):
     """A request to create a configuration set."""
 
     ConfigurationSetName: ConfigurationSetName
-    TrackingOptions: Optional[TrackingOptions]
-    DeliveryOptions: Optional[DeliveryOptions]
-    ReputationOptions: Optional[ReputationOptions]
-    SendingOptions: Optional[SendingOptions]
-    Tags: Optional[TagList]
-    SuppressionOptions: Optional[SuppressionOptions]
-    VdmOptions: Optional[VdmOptions]
-    ArchivingOptions: Optional[ArchivingOptions]
+    TrackingOptions: TrackingOptions | None
+    DeliveryOptions: DeliveryOptions | None
+    ReputationOptions: ReputationOptions | None
+    SendingOptions: SendingOptions | None
+    Tags: TagList | None
+    SuppressionOptions: SuppressionOptions | None
+    VdmOptions: VdmOptions | None
+    ArchivingOptions: ArchivingOptions | None
 
 
 class CreateConfigurationSetResponse(TypedDict, total=False):
@@ -1137,18 +1139,18 @@ class Topic(TypedDict, total=False):
 
     TopicName: TopicName
     DisplayName: DisplayName
-    Description: Optional[Description]
+    Description: Description | None
     DefaultSubscriptionStatus: SubscriptionStatus
 
 
-Topics = List[Topic]
+Topics = list[Topic]
 
 
 class CreateContactListRequest(ServiceRequest):
     ContactListName: ContactListName
-    Topics: Optional[Topics]
-    Description: Optional[Description]
-    Tags: Optional[TagList]
+    Topics: Topics | None
+    Description: Description | None
+    Tags: TagList | None
 
 
 class CreateContactListResponse(TypedDict, total=False):
@@ -1158,9 +1160,9 @@ class CreateContactListResponse(TypedDict, total=False):
 class CreateContactRequest(ServiceRequest):
     ContactListName: ContactListName
     EmailAddress: EmailAddress
-    TopicPreferences: Optional[TopicPreferenceList]
-    UnsubscribeAll: Optional[UnsubscribeAll]
-    AttributesData: Optional[AttributesData]
+    TopicPreferences: TopicPreferenceList | None
+    UnsubscribeAll: UnsubscribeAll | None
+    AttributesData: AttributesData | None
 
 
 class CreateContactResponse(TypedDict, total=False):
@@ -1190,8 +1192,8 @@ class CreateDedicatedIpPoolRequest(ServiceRequest):
     """A request to create a new dedicated IP pool."""
 
     PoolName: PoolName
-    Tags: Optional[TagList]
-    ScalingMode: Optional[ScalingMode]
+    Tags: TagList | None
+    ScalingMode: ScalingMode | None
 
 
 class CreateDedicatedIpPoolResponse(TypedDict, total=False):
@@ -1218,8 +1220,8 @@ class Message(TypedDict, total=False):
 
     Subject: Content
     Body: Body
-    Headers: Optional[MessageHeaderList]
-    Attachments: Optional[AttachmentList]
+    Headers: MessageHeaderList | None
+    Attachments: AttachmentList | None
 
 
 class EmailContent(TypedDict, total=False):
@@ -1232,9 +1234,9 @@ class EmailContent(TypedDict, total=False):
     attachments.
     """
 
-    Simple: Optional[Message]
-    Raw: Optional[RawMessage]
-    Template: Optional[Template]
+    Simple: Message | None
+    Raw: RawMessage | None
+    Template: Template | None
 
 
 class CreateDeliverabilityTestReportRequest(ServiceRequest):
@@ -1250,10 +1252,10 @@ class CreateDeliverabilityTestReportRequest(ServiceRequest):
     test.
     """
 
-    ReportName: Optional[ReportName]
+    ReportName: ReportName | None
     FromEmailAddress: EmailAddress
     Content: EmailContent
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateDeliverabilityTestReportResponse(TypedDict, total=False):
@@ -1289,10 +1291,10 @@ class DkimSigningAttributes(TypedDict, total=False):
     or, for Easy DKIM
     """
 
-    DomainSigningSelector: Optional[Selector]
-    DomainSigningPrivateKey: Optional[PrivateKey]
-    NextSigningKeyLength: Optional[DkimSigningKeyLength]
-    DomainSigningAttributesOrigin: Optional[DkimSigningAttributesOrigin]
+    DomainSigningSelector: Selector | None
+    DomainSigningPrivateKey: PrivateKey | None
+    NextSigningKeyLength: DkimSigningKeyLength | None
+    DomainSigningAttributesOrigin: DkimSigningAttributesOrigin | None
 
 
 class CreateEmailIdentityRequest(ServiceRequest):
@@ -1301,12 +1303,12 @@ class CreateEmailIdentityRequest(ServiceRequest):
     """
 
     EmailIdentity: Identity
-    Tags: Optional[TagList]
-    DkimSigningAttributes: Optional[DkimSigningAttributes]
-    ConfigurationSetName: Optional[ConfigurationSetName]
+    Tags: TagList | None
+    DkimSigningAttributes: DkimSigningAttributes | None
+    ConfigurationSetName: ConfigurationSetName | None
 
 
-DnsTokenList = List[DnsToken]
+DnsTokenList = list[DnsToken]
 
 
 class DkimAttributes(TypedDict, total=False):
@@ -1325,13 +1327,13 @@ class DkimAttributes(TypedDict, total=False):
     you specified in the process of creating the identity
     """
 
-    SigningEnabled: Optional[Enabled]
-    Status: Optional[DkimStatus]
-    Tokens: Optional[DnsTokenList]
-    SigningAttributesOrigin: Optional[DkimSigningAttributesOrigin]
-    NextSigningKeyLength: Optional[DkimSigningKeyLength]
-    CurrentSigningKeyLength: Optional[DkimSigningKeyLength]
-    LastKeyGenerationTimestamp: Optional[Timestamp]
+    SigningEnabled: Enabled | None
+    Status: DkimStatus | None
+    Tokens: DnsTokenList | None
+    SigningAttributesOrigin: DkimSigningAttributesOrigin | None
+    NextSigningKeyLength: DkimSigningKeyLength | None
+    CurrentSigningKeyLength: DkimSigningKeyLength | None
+    LastKeyGenerationTimestamp: Timestamp | None
 
 
 class CreateEmailIdentityResponse(TypedDict, total=False):
@@ -1341,9 +1343,9 @@ class CreateEmailIdentityResponse(TypedDict, total=False):
     If the email identity is an email address, this object is empty.
     """
 
-    IdentityType: Optional[IdentityType]
-    VerifiedForSendingStatus: Optional[Enabled]
-    DkimAttributes: Optional[DkimAttributes]
+    IdentityType: IdentityType | None
+    VerifiedForSendingStatus: Enabled | None
+    DkimAttributes: DkimAttributes | None
 
 
 class CreateEmailTemplateRequest(ServiceRequest):
@@ -1368,14 +1370,14 @@ class ExportDestination(TypedDict, total=False):
     """An object that contains details about the destination of the export job."""
 
     DataFormat: DataFormat
-    S3Url: Optional[S3Url]
+    S3Url: S3Url | None
 
 
-LastEngagementEventList = List[EngagementEventType]
-LastDeliveryEventList = List[DeliveryEventType]
-IspFilterList = List[Isp]
-EmailSubjectFilterList = List[EmailSubject]
-EmailAddressFilterList = List[InsightsEmailAddress]
+LastEngagementEventList = list[EngagementEventType]
+LastDeliveryEventList = list[DeliveryEventType]
+IspFilterList = list[Isp]
+EmailSubjectFilterList = list[EmailSubject]
+EmailAddressFilterList = list[InsightsEmailAddress]
 
 
 class MessageInsightsFilters(TypedDict, total=False):
@@ -1395,12 +1397,12 @@ class MessageInsightsFilters(TypedDict, total=False):
     performed.
     """
 
-    FromEmailAddress: Optional[EmailAddressFilterList]
-    Destination: Optional[EmailAddressFilterList]
-    Subject: Optional[EmailSubjectFilterList]
-    Isp: Optional[IspFilterList]
-    LastDeliveryEvent: Optional[LastDeliveryEventList]
-    LastEngagementEvent: Optional[LastEngagementEventList]
+    FromEmailAddress: EmailAddressFilterList | None
+    Destination: EmailAddressFilterList | None
+    Subject: EmailSubjectFilterList | None
+    Isp: IspFilterList | None
+    LastDeliveryEvent: LastDeliveryEventList | None
+    LastEngagementEvent: LastEngagementEventList | None
 
 
 class MessageInsightsDataSource(TypedDict, total=False):
@@ -1410,9 +1412,9 @@ class MessageInsightsDataSource(TypedDict, total=False):
 
     StartDate: Timestamp
     EndDate: Timestamp
-    Include: Optional[MessageInsightsFilters]
-    Exclude: Optional[MessageInsightsFilters]
-    MaxResults: Optional[MessageInsightsExportMaxResults]
+    Include: MessageInsightsFilters | None
+    Exclude: MessageInsightsFilters | None
+    MaxResults: MessageInsightsExportMaxResults | None
 
 
 class ExportMetric(TypedDict, total=False):
@@ -1420,13 +1422,13 @@ class ExportMetric(TypedDict, total=False):
     ``MetricAggregation``.
     """
 
-    Name: Optional[Metric]
-    Aggregation: Optional[MetricAggregation]
+    Name: Metric | None
+    Aggregation: MetricAggregation | None
 
 
-ExportMetrics = List[ExportMetric]
-ExportDimensionValue = List[MetricDimensionValue]
-ExportDimensions = Dict[MetricDimensionName, ExportDimensionValue]
+ExportMetrics = list[ExportMetric]
+ExportDimensionValue = list[MetricDimensionValue]
+ExportDimensions = dict[MetricDimensionName, ExportDimensionValue]
 
 
 class MetricsDataSource(TypedDict, total=False):
@@ -1447,8 +1449,8 @@ class ExportDataSource(TypedDict, total=False):
     ``MessageInsightsDataSource`` object.
     """
 
-    MetricsDataSource: Optional[MetricsDataSource]
-    MessageInsightsDataSource: Optional[MessageInsightsDataSource]
+    MetricsDataSource: MetricsDataSource | None
+    MessageInsightsDataSource: MessageInsightsDataSource | None
 
 
 class CreateExportJobRequest(ServiceRequest):
@@ -1465,7 +1467,7 @@ class CreateExportJobResponse(TypedDict, total=False):
     request fails.
     """
 
-    JobId: Optional[JobId]
+    JobId: JobId | None
 
 
 class ImportDataSource(TypedDict, total=False):
@@ -1486,8 +1488,8 @@ class ImportDestination(TypedDict, total=False):
     import job is going to target.
     """
 
-    SuppressionListDestination: Optional[SuppressionListDestination]
-    ContactListDestination: Optional[ContactListDestination]
+    SuppressionListDestination: SuppressionListDestination | None
+    ContactListDestination: ContactListDestination | None
 
 
 class CreateImportJobRequest(ServiceRequest):
@@ -1504,7 +1506,7 @@ class CreateImportJobResponse(TypedDict, total=False):
     request fails.
     """
 
-    JobId: Optional[JobId]
+    JobId: JobId | None
 
 
 class RouteDetails(TypedDict, total=False):
@@ -1515,7 +1517,7 @@ class RouteDetails(TypedDict, total=False):
     Region: Region
 
 
-RoutesDetails = List[RouteDetails]
+RoutesDetails = list[RouteDetails]
 
 
 class Details(TypedDict, total=False):
@@ -1533,7 +1535,7 @@ class CreateMultiRegionEndpointRequest(ServiceRequest):
 
     EndpointName: EndpointName
     Details: Details
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateMultiRegionEndpointResponse(TypedDict, total=False):
@@ -1541,8 +1543,8 @@ class CreateMultiRegionEndpointResponse(TypedDict, total=False):
     request fails.
     """
 
-    Status: Optional[Status]
-    EndpointId: Optional[EndpointId]
+    Status: Status | None
+    EndpointId: EndpointId | None
 
 
 class CreateTenantRequest(ServiceRequest):
@@ -1557,7 +1559,7 @@ class CreateTenantRequest(ServiceRequest):
     """
 
     TenantName: TenantName
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateTenantResourceAssociationRequest(ServiceRequest):
@@ -1583,25 +1585,25 @@ class CreateTenantResourceAssociationResponse(TypedDict, total=False):
 class CreateTenantResponse(TypedDict, total=False):
     """Information about a newly created tenant."""
 
-    TenantName: Optional[TenantName]
-    TenantId: Optional[TenantId]
-    TenantArn: Optional[AmazonResourceName]
-    CreatedTimestamp: Optional[Timestamp]
-    Tags: Optional[TagList]
-    SendingStatus: Optional[SendingStatus]
+    TenantName: TenantName | None
+    TenantId: TenantId | None
+    TenantArn: AmazonResourceName | None
+    CreatedTimestamp: Timestamp | None
+    Tags: TagList | None
+    SendingStatus: SendingStatus | None
 
 
 class CustomVerificationEmailTemplateMetadata(TypedDict, total=False):
     """Contains information about a custom verification email template."""
 
-    TemplateName: Optional[EmailTemplateName]
-    FromEmailAddress: Optional[EmailAddress]
-    TemplateSubject: Optional[EmailTemplateSubject]
-    SuccessRedirectionURL: Optional[SuccessRedirectionURL]
-    FailureRedirectionURL: Optional[FailureRedirectionURL]
+    TemplateName: EmailTemplateName | None
+    FromEmailAddress: EmailAddress | None
+    TemplateSubject: EmailTemplateSubject | None
+    SuccessRedirectionURL: SuccessRedirectionURL | None
+    FailureRedirectionURL: FailureRedirectionURL | None
 
 
-CustomVerificationEmailTemplatesList = List[CustomVerificationEmailTemplateMetadata]
+CustomVerificationEmailTemplatesList = list[CustomVerificationEmailTemplateMetadata]
 Volume = int
 
 
@@ -1610,14 +1612,14 @@ class DomainIspPlacement(TypedDict, total=False):
     your email domains to a specific email provider.
     """
 
-    IspName: Optional[IspName]
-    InboxRawCount: Optional[Volume]
-    SpamRawCount: Optional[Volume]
-    InboxPercentage: Optional[Percentage]
-    SpamPercentage: Optional[Percentage]
+    IspName: IspName | None
+    InboxRawCount: Volume | None
+    SpamRawCount: Volume | None
+    InboxPercentage: Percentage | None
+    SpamPercentage: Percentage | None
 
 
-DomainIspPlacements = List[DomainIspPlacement]
+DomainIspPlacements = list[DomainIspPlacement]
 
 
 class VolumeStatistics(TypedDict, total=False):
@@ -1625,10 +1627,10 @@ class VolumeStatistics(TypedDict, total=False):
     delivered to recipients.
     """
 
-    InboxRawCount: Optional[Volume]
-    SpamRawCount: Optional[Volume]
-    ProjectedInbox: Optional[Volume]
-    ProjectedSpam: Optional[Volume]
+    InboxRawCount: Volume | None
+    SpamRawCount: Volume | None
+    ProjectedInbox: Volume | None
+    ProjectedSpam: Volume | None
 
 
 class DailyVolume(TypedDict, total=False):
@@ -1636,12 +1638,12 @@ class DailyVolume(TypedDict, total=False):
     each day of the analysis period.
     """
 
-    StartDate: Optional[Timestamp]
-    VolumeStatistics: Optional[VolumeStatistics]
-    DomainIspPlacements: Optional[DomainIspPlacements]
+    StartDate: Timestamp | None
+    VolumeStatistics: VolumeStatistics | None
+    DomainIspPlacements: DomainIspPlacements | None
 
 
-DailyVolumes = List[DailyVolume]
+DailyVolumes = list[DailyVolume]
 
 
 class DashboardAttributes(TypedDict, total=False):
@@ -1649,7 +1651,7 @@ class DashboardAttributes(TypedDict, total=False):
     applicable to the Dashboard.
     """
 
-    EngagementMetrics: Optional[FeatureStatus]
+    EngagementMetrics: FeatureStatus | None
 
 
 class DedicatedIp(TypedDict, total=False):
@@ -1665,10 +1667,10 @@ class DedicatedIp(TypedDict, total=False):
     Ip: Ip
     WarmupStatus: WarmupStatus
     WarmupPercentage: Percentage100Wrapper
-    PoolName: Optional[PoolName]
+    PoolName: PoolName | None
 
 
-DedicatedIpList = List[DedicatedIp]
+DedicatedIpList = list[DedicatedIp]
 
 
 class DedicatedIpPool(TypedDict, total=False):
@@ -1822,7 +1824,7 @@ class DeleteMultiRegionEndpointResponse(TypedDict, total=False):
     request fails.
     """
 
-    Status: Optional[Status]
+    Status: Status | None
 
 
 class DeleteSuppressedDestinationRequest(ServiceRequest):
@@ -1877,17 +1879,17 @@ class DeliverabilityTestReport(TypedDict, total=False):
     test.
     """
 
-    ReportId: Optional[ReportId]
-    ReportName: Optional[ReportName]
-    Subject: Optional[DeliverabilityTestSubject]
-    FromEmailAddress: Optional[EmailAddress]
-    CreateDate: Optional[Timestamp]
-    DeliverabilityTestStatus: Optional[DeliverabilityTestStatus]
+    ReportId: ReportId | None
+    ReportName: ReportName | None
+    Subject: DeliverabilityTestSubject | None
+    FromEmailAddress: EmailAddress | None
+    CreateDate: Timestamp | None
+    DeliverabilityTestStatus: DeliverabilityTestStatus | None
 
 
-DeliverabilityTestReports = List[DeliverabilityTestReport]
-Esps = List[Esp]
-IpList = List[Ip]
+DeliverabilityTestReports = list[DeliverabilityTestReport]
+Esps = list[Esp]
+IpList = list[Ip]
 
 
 class DomainDeliverabilityCampaign(TypedDict, total=False):
@@ -1897,24 +1899,24 @@ class DomainDeliverabilityCampaign(TypedDict, total=False):
     (``PutDeliverabilityDashboardOption`` operation).
     """
 
-    CampaignId: Optional[CampaignId]
-    ImageUrl: Optional[ImageUrl]
-    Subject: Optional[Subject]
-    FromAddress: Optional[Identity]
-    SendingIps: Optional[IpList]
-    FirstSeenDateTime: Optional[Timestamp]
-    LastSeenDateTime: Optional[Timestamp]
-    InboxCount: Optional[Volume]
-    SpamCount: Optional[Volume]
-    ReadRate: Optional[Percentage]
-    DeleteRate: Optional[Percentage]
-    ReadDeleteRate: Optional[Percentage]
-    ProjectedVolume: Optional[Volume]
-    Esps: Optional[Esps]
+    CampaignId: CampaignId | None
+    ImageUrl: ImageUrl | None
+    Subject: Subject | None
+    FromAddress: Identity | None
+    SendingIps: IpList | None
+    FirstSeenDateTime: Timestamp | None
+    LastSeenDateTime: Timestamp | None
+    InboxCount: Volume | None
+    SpamCount: Volume | None
+    ReadRate: Percentage | None
+    DeleteRate: Percentage | None
+    ReadDeleteRate: Percentage | None
+    ProjectedVolume: Volume | None
+    Esps: Esps | None
 
 
-DomainDeliverabilityCampaignList = List[DomainDeliverabilityCampaign]
-IspNameList = List[IspName]
+DomainDeliverabilityCampaignList = list[DomainDeliverabilityCampaign]
+IspNameList = list[IspName]
 
 
 class InboxPlacementTrackingOption(TypedDict, total=False):
@@ -1924,8 +1926,8 @@ class InboxPlacementTrackingOption(TypedDict, total=False):
     Deliverability dashboard for the domain.
     """
 
-    Global: Optional[Enabled]
-    TrackedIsps: Optional[IspNameList]
+    Global: Enabled | None
+    TrackedIsps: IspNameList | None
 
 
 class DomainDeliverabilityTrackingOption(TypedDict, total=False):
@@ -1936,12 +1938,12 @@ class DomainDeliverabilityTrackingOption(TypedDict, total=False):
     access to reputation, inbox placement, and other metrics for the domain.
     """
 
-    Domain: Optional[Domain]
-    SubscriptionStartDate: Optional[Timestamp]
-    InboxPlacementTrackingOption: Optional[InboxPlacementTrackingOption]
+    Domain: Domain | None
+    SubscriptionStartDate: Timestamp | None
+    InboxPlacementTrackingOption: InboxPlacementTrackingOption | None
 
 
-DomainDeliverabilityTrackingOptions = List[DomainDeliverabilityTrackingOption]
+DomainDeliverabilityTrackingOptions = list[DomainDeliverabilityTrackingOption]
 
 
 class EventDetails(TypedDict, total=False):
@@ -1949,19 +1951,19 @@ class EventDetails(TypedDict, total=False):
     ``Complaint`` object if the event type is ``COMPLAINT``.
     """
 
-    Bounce: Optional[Bounce]
-    Complaint: Optional[Complaint]
+    Bounce: Bounce | None
+    Complaint: Complaint | None
 
 
 class InsightsEvent(TypedDict, total=False):
     """An object containing details about a specific event."""
 
-    Timestamp: Optional[Timestamp]
-    Type: Optional[EventType]
-    Details: Optional[EventDetails]
+    Timestamp: Timestamp | None
+    Type: EventType | None
+    Details: EventDetails | None
 
 
-InsightsEvents = List[InsightsEvent]
+InsightsEvents = list[InsightsEvent]
 
 
 class EmailInsights(TypedDict, total=False):
@@ -1969,22 +1971,22 @@ class EmailInsights(TypedDict, total=False):
     specific email.
     """
 
-    Destination: Optional[InsightsEmailAddress]
-    Isp: Optional[Isp]
-    Events: Optional[InsightsEvents]
+    Destination: InsightsEmailAddress | None
+    Isp: Isp | None
+    Events: InsightsEvents | None
 
 
-EmailInsightsList = List[EmailInsights]
+EmailInsightsList = list[EmailInsights]
 
 
 class EmailTemplateMetadata(TypedDict, total=False):
     """Contains information about an email template."""
 
-    TemplateName: Optional[EmailTemplateName]
-    CreatedTimestamp: Optional[Timestamp]
+    TemplateName: EmailTemplateName | None
+    CreatedTimestamp: Timestamp | None
 
 
-EmailTemplateMetadataList = List[EmailTemplateMetadata]
+EmailTemplateMetadataList = list[EmailTemplateMetadata]
 
 
 class EventDestination(TypedDict, total=False):
@@ -1998,43 +2000,43 @@ class EventDestination(TypedDict, total=False):
     """
 
     Name: EventDestinationName
-    Enabled: Optional[Enabled]
+    Enabled: Enabled | None
     MatchingEventTypes: EventTypes
-    KinesisFirehoseDestination: Optional[KinesisFirehoseDestination]
-    CloudWatchDestination: Optional[CloudWatchDestination]
-    SnsDestination: Optional[SnsDestination]
-    EventBridgeDestination: Optional[EventBridgeDestination]
-    PinpointDestination: Optional[PinpointDestination]
+    KinesisFirehoseDestination: KinesisFirehoseDestination | None
+    CloudWatchDestination: CloudWatchDestination | None
+    SnsDestination: SnsDestination | None
+    EventBridgeDestination: EventBridgeDestination | None
+    PinpointDestination: PinpointDestination | None
 
 
-EventDestinations = List[EventDestination]
+EventDestinations = list[EventDestination]
 
 
 class ExportJobSummary(TypedDict, total=False):
     """A summary of the export job."""
 
-    JobId: Optional[JobId]
-    ExportSourceType: Optional[ExportSourceType]
-    JobStatus: Optional[JobStatus]
-    CreatedTimestamp: Optional[Timestamp]
-    CompletedTimestamp: Optional[Timestamp]
+    JobId: JobId | None
+    ExportSourceType: ExportSourceType | None
+    JobStatus: JobStatus | None
+    CreatedTimestamp: Timestamp | None
+    CompletedTimestamp: Timestamp | None
 
 
-ExportJobSummaryList = List[ExportJobSummary]
+ExportJobSummaryList = list[ExportJobSummary]
 
 
 class ExportStatistics(TypedDict, total=False):
     """Statistics about the execution of an export job."""
 
-    ProcessedRecordsCount: Optional[ProcessedRecordsCount]
-    ExportedRecordsCount: Optional[ExportedRecordsCount]
+    ProcessedRecordsCount: ProcessedRecordsCount | None
+    ExportedRecordsCount: ExportedRecordsCount | None
 
 
 class FailureInfo(TypedDict, total=False):
     """An object that contains the failure details about a job."""
 
-    FailedRecordsS3Url: Optional[FailedRecordsS3Url]
-    ErrorMessage: Optional[ErrorMessage]
+    FailedRecordsS3Url: FailedRecordsS3Url | None
+    ErrorMessage: ErrorMessage | None
 
 
 class GetAccountRequest(ServiceRequest):
@@ -2050,15 +2052,15 @@ class GuardianAttributes(TypedDict, total=False):
     applicable to the Guardian.
     """
 
-    OptimizedSharedDelivery: Optional[FeatureStatus]
+    OptimizedSharedDelivery: FeatureStatus | None
 
 
 class VdmAttributes(TypedDict, total=False):
     """The VDM attributes that apply to your Amazon SES account."""
 
     VdmEnabled: FeatureStatus
-    DashboardAttributes: Optional[DashboardAttributes]
-    GuardianAttributes: Optional[GuardianAttributes]
+    DashboardAttributes: DashboardAttributes | None
+    GuardianAttributes: GuardianAttributes | None
 
 
 class SuppressionAttributes(TypedDict, total=False):
@@ -2066,7 +2068,7 @@ class SuppressionAttributes(TypedDict, total=False):
     preferences for your account in the current Amazon Web Services Region.
     """
 
-    SuppressedReasons: Optional[SuppressionListReasons]
+    SuppressedReasons: SuppressionListReasons | None
 
 
 class SendQuota(TypedDict, total=False):
@@ -2075,9 +2077,9 @@ class SendQuota(TypedDict, total=False):
     Services Region.
     """
 
-    Max24HourSend: Optional[Max24HourSend]
-    MaxSendRate: Optional[MaxSendRate]
-    SentLast24Hours: Optional[SentLast24Hours]
+    Max24HourSend: Max24HourSend | None
+    MaxSendRate: MaxSendRate | None
+    SentLast24Hours: SentLast24Hours | None
 
 
 class GetAccountResponse(TypedDict, total=False):
@@ -2085,14 +2087,14 @@ class GetAccountResponse(TypedDict, total=False):
     SES account in the current Amazon Web Services Region.
     """
 
-    DedicatedIpAutoWarmupEnabled: Optional[Enabled]
-    EnforcementStatus: Optional[GeneralEnforcementStatus]
-    ProductionAccessEnabled: Optional[Enabled]
-    SendQuota: Optional[SendQuota]
-    SendingEnabled: Optional[Enabled]
-    SuppressionAttributes: Optional[SuppressionAttributes]
-    Details: Optional[AccountDetails]
-    VdmAttributes: Optional[VdmAttributes]
+    DedicatedIpAutoWarmupEnabled: Enabled | None
+    EnforcementStatus: GeneralEnforcementStatus | None
+    ProductionAccessEnabled: Enabled | None
+    SendQuota: SendQuota | None
+    SendingEnabled: Enabled | None
+    SuppressionAttributes: SuppressionAttributes | None
+    Details: AccountDetails | None
+    VdmAttributes: VdmAttributes | None
 
 
 class GetBlacklistReportsRequest(ServiceRequest):
@@ -2120,7 +2122,7 @@ class GetConfigurationSetEventDestinationsRequest(ServiceRequest):
 class GetConfigurationSetEventDestinationsResponse(TypedDict, total=False):
     """Information about an event destination for a configuration set."""
 
-    EventDestinations: Optional[EventDestinations]
+    EventDestinations: EventDestinations | None
 
 
 class GetConfigurationSetRequest(ServiceRequest):
@@ -2132,15 +2134,15 @@ class GetConfigurationSetRequest(ServiceRequest):
 class GetConfigurationSetResponse(TypedDict, total=False):
     """Information about a configuration set."""
 
-    ConfigurationSetName: Optional[ConfigurationSetName]
-    TrackingOptions: Optional[TrackingOptions]
-    DeliveryOptions: Optional[DeliveryOptions]
-    ReputationOptions: Optional[ReputationOptions]
-    SendingOptions: Optional[SendingOptions]
-    Tags: Optional[TagList]
-    SuppressionOptions: Optional[SuppressionOptions]
-    VdmOptions: Optional[VdmOptions]
-    ArchivingOptions: Optional[ArchivingOptions]
+    ConfigurationSetName: ConfigurationSetName | None
+    TrackingOptions: TrackingOptions | None
+    DeliveryOptions: DeliveryOptions | None
+    ReputationOptions: ReputationOptions | None
+    SendingOptions: SendingOptions | None
+    Tags: TagList | None
+    SuppressionOptions: SuppressionOptions | None
+    VdmOptions: VdmOptions | None
+    ArchivingOptions: ArchivingOptions | None
 
 
 class GetContactListRequest(ServiceRequest):
@@ -2148,12 +2150,12 @@ class GetContactListRequest(ServiceRequest):
 
 
 class GetContactListResponse(TypedDict, total=False):
-    ContactListName: Optional[ContactListName]
-    Topics: Optional[Topics]
-    Description: Optional[Description]
-    CreatedTimestamp: Optional[Timestamp]
-    LastUpdatedTimestamp: Optional[Timestamp]
-    Tags: Optional[TagList]
+    ContactListName: ContactListName | None
+    Topics: Topics | None
+    Description: Description | None
+    CreatedTimestamp: Timestamp | None
+    LastUpdatedTimestamp: Timestamp | None
+    Tags: TagList | None
 
 
 class GetContactRequest(ServiceRequest):
@@ -2162,14 +2164,14 @@ class GetContactRequest(ServiceRequest):
 
 
 class GetContactResponse(TypedDict, total=False):
-    ContactListName: Optional[ContactListName]
-    EmailAddress: Optional[EmailAddress]
-    TopicPreferences: Optional[TopicPreferenceList]
-    TopicDefaultPreferences: Optional[TopicPreferenceList]
-    UnsubscribeAll: Optional[UnsubscribeAll]
-    AttributesData: Optional[AttributesData]
-    CreatedTimestamp: Optional[Timestamp]
-    LastUpdatedTimestamp: Optional[Timestamp]
+    ContactListName: ContactListName | None
+    EmailAddress: EmailAddress | None
+    TopicPreferences: TopicPreferenceList | None
+    TopicDefaultPreferences: TopicPreferenceList | None
+    UnsubscribeAll: UnsubscribeAll | None
+    AttributesData: AttributesData | None
+    CreatedTimestamp: Timestamp | None
+    LastUpdatedTimestamp: Timestamp | None
 
 
 class GetCustomVerificationEmailTemplateRequest(ServiceRequest):
@@ -2183,12 +2185,12 @@ class GetCustomVerificationEmailTemplateRequest(ServiceRequest):
 class GetCustomVerificationEmailTemplateResponse(TypedDict, total=False):
     """The following elements are returned by the service."""
 
-    TemplateName: Optional[EmailTemplateName]
-    FromEmailAddress: Optional[EmailAddress]
-    TemplateSubject: Optional[EmailTemplateSubject]
-    TemplateContent: Optional[TemplateContent]
-    SuccessRedirectionURL: Optional[SuccessRedirectionURL]
-    FailureRedirectionURL: Optional[FailureRedirectionURL]
+    TemplateName: EmailTemplateName | None
+    FromEmailAddress: EmailAddress | None
+    TemplateSubject: EmailTemplateSubject | None
+    TemplateContent: TemplateContent | None
+    SuccessRedirectionURL: SuccessRedirectionURL | None
+    FailureRedirectionURL: FailureRedirectionURL | None
 
 
 class GetDedicatedIpPoolRequest(ServiceRequest):
@@ -2200,7 +2202,7 @@ class GetDedicatedIpPoolRequest(ServiceRequest):
 class GetDedicatedIpPoolResponse(TypedDict, total=False):
     """The following element is returned by the service."""
 
-    DedicatedIpPool: Optional[DedicatedIpPool]
+    DedicatedIpPool: DedicatedIpPool | None
 
 
 class GetDedicatedIpRequest(ServiceRequest):
@@ -2212,15 +2214,15 @@ class GetDedicatedIpRequest(ServiceRequest):
 class GetDedicatedIpResponse(TypedDict, total=False):
     """Information about a dedicated IP address."""
 
-    DedicatedIp: Optional[DedicatedIp]
+    DedicatedIp: DedicatedIp | None
 
 
 class GetDedicatedIpsRequest(ServiceRequest):
     """A request to obtain more information about dedicated IP pools."""
 
-    PoolName: Optional[PoolName]
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    PoolName: PoolName | None
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class GetDedicatedIpsResponse(TypedDict, total=False):
@@ -2228,8 +2230,8 @@ class GetDedicatedIpsResponse(TypedDict, total=False):
     your Amazon Web Services account.
     """
 
-    DedicatedIps: Optional[DedicatedIpList]
-    NextToken: Optional[NextToken]
+    DedicatedIps: DedicatedIpList | None
+    NextToken: NextToken | None
 
 
 class GetDeliverabilityDashboardOptionsRequest(ServiceRequest):
@@ -2254,10 +2256,10 @@ class GetDeliverabilityDashboardOptionsResponse(TypedDict, total=False):
     """An object that shows the status of the Deliverability dashboard."""
 
     DashboardEnabled: Enabled
-    SubscriptionExpiryDate: Optional[Timestamp]
-    AccountStatus: Optional[DeliverabilityDashboardAccountStatus]
-    ActiveSubscribedDomains: Optional[DomainDeliverabilityTrackingOptions]
-    PendingExpirationSubscribedDomains: Optional[DomainDeliverabilityTrackingOptions]
+    SubscriptionExpiryDate: Timestamp | None
+    AccountStatus: DeliverabilityDashboardAccountStatus | None
+    ActiveSubscribedDomains: DomainDeliverabilityTrackingOptions | None
+    PendingExpirationSubscribedDomains: DomainDeliverabilityTrackingOptions | None
 
 
 class GetDeliverabilityTestReportRequest(ServiceRequest):
@@ -2269,11 +2271,11 @@ class GetDeliverabilityTestReportRequest(ServiceRequest):
 class PlacementStatistics(TypedDict, total=False):
     """An object that contains inbox placement data for an email provider."""
 
-    InboxPercentage: Optional[Percentage]
-    SpamPercentage: Optional[Percentage]
-    MissingPercentage: Optional[Percentage]
-    SpfPercentage: Optional[Percentage]
-    DkimPercentage: Optional[Percentage]
+    InboxPercentage: Percentage | None
+    SpamPercentage: Percentage | None
+    MissingPercentage: Percentage | None
+    SpfPercentage: Percentage | None
+    DkimPercentage: Percentage | None
 
 
 class IspPlacement(TypedDict, total=False):
@@ -2281,11 +2283,11 @@ class IspPlacement(TypedDict, total=False):
     placement test was handled by a certain email provider.
     """
 
-    IspName: Optional[IspName]
-    PlacementStatistics: Optional[PlacementStatistics]
+    IspName: IspName | None
+    PlacementStatistics: PlacementStatistics | None
 
 
-IspPlacements = List[IspPlacement]
+IspPlacements = list[IspPlacement]
 
 
 class GetDeliverabilityTestReportResponse(TypedDict, total=False):
@@ -2294,8 +2296,8 @@ class GetDeliverabilityTestReportResponse(TypedDict, total=False):
     DeliverabilityTestReport: DeliverabilityTestReport
     OverallPlacement: PlacementStatistics
     IspPlacements: IspPlacements
-    Message: Optional[MessageContent]
-    Tags: Optional[TagList]
+    Message: MessageContent | None
+    Tags: TagList | None
 
 
 class GetDomainDeliverabilityCampaignRequest(ServiceRequest):
@@ -2331,9 +2333,9 @@ class OverallVolume(TypedDict, total=False):
     selected domain.
     """
 
-    VolumeStatistics: Optional[VolumeStatistics]
-    ReadRatePercent: Optional[Percentage]
-    DomainIspPlacements: Optional[DomainIspPlacements]
+    VolumeStatistics: VolumeStatistics | None
+    ReadRatePercent: Percentage | None
+    DomainIspPlacements: DomainIspPlacements | None
 
 
 class GetDomainStatisticsReportResponse(TypedDict, total=False):
@@ -2351,13 +2353,13 @@ class GetEmailIdentityPoliciesRequest(ServiceRequest):
     EmailIdentity: Identity
 
 
-PolicyMap = Dict[PolicyName, Policy]
+PolicyMap = dict[PolicyName, Policy]
 
 
 class GetEmailIdentityPoliciesResponse(TypedDict, total=False):
     """Identity policies associated with email identity."""
 
-    Policies: Optional[PolicyMap]
+    Policies: PolicyMap | None
 
 
 class GetEmailIdentityRequest(ServiceRequest):
@@ -2374,9 +2376,9 @@ class SOARecord(TypedDict, total=False):
     record associated with the identity.
     """
 
-    PrimaryNameServer: Optional[PrimaryNameServer]
-    AdminEmail: Optional[AdminEmail]
-    SerialNumber: Optional[SerialNumber]
+    PrimaryNameServer: PrimaryNameServer | None
+    AdminEmail: AdminEmail | None
+    SerialNumber: SerialNumber | None
 
 
 class VerificationInfo(TypedDict, total=False):
@@ -2384,10 +2386,10 @@ class VerificationInfo(TypedDict, total=False):
     status for the identity.
     """
 
-    LastCheckedTimestamp: Optional[Timestamp]
-    LastSuccessTimestamp: Optional[Timestamp]
-    ErrorType: Optional[VerificationError]
-    SOARecord: Optional[SOARecord]
+    LastCheckedTimestamp: Timestamp | None
+    LastSuccessTimestamp: Timestamp | None
+    ErrorType: VerificationError | None
+    SOARecord: SOARecord | None
 
 
 class MailFromAttributes(TypedDict, total=False):
@@ -2401,16 +2403,16 @@ class MailFromAttributes(TypedDict, total=False):
 class GetEmailIdentityResponse(TypedDict, total=False):
     """Details about an email identity."""
 
-    IdentityType: Optional[IdentityType]
-    FeedbackForwardingStatus: Optional[Enabled]
-    VerifiedForSendingStatus: Optional[Enabled]
-    DkimAttributes: Optional[DkimAttributes]
-    MailFromAttributes: Optional[MailFromAttributes]
-    Policies: Optional[PolicyMap]
-    Tags: Optional[TagList]
-    ConfigurationSetName: Optional[ConfigurationSetName]
-    VerificationStatus: Optional[VerificationStatus]
-    VerificationInfo: Optional[VerificationInfo]
+    IdentityType: IdentityType | None
+    FeedbackForwardingStatus: Enabled | None
+    VerifiedForSendingStatus: Enabled | None
+    DkimAttributes: DkimAttributes | None
+    MailFromAttributes: MailFromAttributes | None
+    Policies: PolicyMap | None
+    Tags: TagList | None
+    ConfigurationSetName: ConfigurationSetName | None
+    VerificationStatus: VerificationStatus | None
+    VerificationInfo: VerificationInfo | None
 
 
 class GetEmailTemplateRequest(ServiceRequest):
@@ -2441,15 +2443,15 @@ class GetExportJobResponse(TypedDict, total=False):
     request fails.
     """
 
-    JobId: Optional[JobId]
-    ExportSourceType: Optional[ExportSourceType]
-    JobStatus: Optional[JobStatus]
-    ExportDestination: Optional[ExportDestination]
-    ExportDataSource: Optional[ExportDataSource]
-    CreatedTimestamp: Optional[Timestamp]
-    CompletedTimestamp: Optional[Timestamp]
-    FailureInfo: Optional[FailureInfo]
-    Statistics: Optional[ExportStatistics]
+    JobId: JobId | None
+    ExportSourceType: ExportSourceType | None
+    JobStatus: JobStatus | None
+    ExportDestination: ExportDestination | None
+    ExportDataSource: ExportDataSource | None
+    CreatedTimestamp: Timestamp | None
+    CompletedTimestamp: Timestamp | None
+    FailureInfo: FailureInfo | None
+    Statistics: ExportStatistics | None
 
 
 class GetImportJobRequest(ServiceRequest):
@@ -2465,15 +2467,15 @@ class GetImportJobResponse(TypedDict, total=False):
     request fails.
     """
 
-    JobId: Optional[JobId]
-    ImportDestination: Optional[ImportDestination]
-    ImportDataSource: Optional[ImportDataSource]
-    FailureInfo: Optional[FailureInfo]
-    JobStatus: Optional[JobStatus]
-    CreatedTimestamp: Optional[Timestamp]
-    CompletedTimestamp: Optional[Timestamp]
-    ProcessedRecordsCount: Optional[ProcessedRecordsCount]
-    FailedRecordsCount: Optional[FailedRecordsCount]
+    JobId: JobId | None
+    ImportDestination: ImportDestination | None
+    ImportDataSource: ImportDataSource | None
+    FailureInfo: FailureInfo | None
+    JobStatus: JobStatus | None
+    CreatedTimestamp: Timestamp | None
+    CompletedTimestamp: Timestamp | None
+    ProcessedRecordsCount: ProcessedRecordsCount | None
+    FailedRecordsCount: FailedRecordsCount | None
 
 
 class GetMessageInsightsRequest(ServiceRequest):
@@ -2485,11 +2487,11 @@ class GetMessageInsightsRequest(ServiceRequest):
 class GetMessageInsightsResponse(TypedDict, total=False):
     """Information about a message."""
 
-    MessageId: Optional[OutboundMessageId]
-    FromEmailAddress: Optional[InsightsEmailAddress]
-    Subject: Optional[EmailSubject]
-    EmailTags: Optional[MessageTagList]
-    Insights: Optional[EmailInsightsList]
+    MessageId: OutboundMessageId | None
+    FromEmailAddress: InsightsEmailAddress | None
+    Subject: EmailSubject | None
+    EmailTags: MessageTagList | None
+    Insights: EmailInsightsList | None
 
 
 class GetMultiRegionEndpointRequest(ServiceRequest):
@@ -2506,7 +2508,7 @@ class Route(TypedDict, total=False):
     Region: Region
 
 
-Routes = List[Route]
+Routes = list[Route]
 
 
 class GetMultiRegionEndpointResponse(TypedDict, total=False):
@@ -2514,12 +2516,12 @@ class GetMultiRegionEndpointResponse(TypedDict, total=False):
     request fails.
     """
 
-    EndpointName: Optional[EndpointName]
-    EndpointId: Optional[EndpointId]
-    Routes: Optional[Routes]
-    Status: Optional[Status]
-    CreatedTimestamp: Optional[Timestamp]
-    LastUpdatedTimestamp: Optional[Timestamp]
+    EndpointName: EndpointName | None
+    EndpointId: EndpointId | None
+    Routes: Routes | None
+    Status: Status | None
+    CreatedTimestamp: Timestamp | None
+    LastUpdatedTimestamp: Timestamp | None
 
 
 class GetReputationEntityRequest(ServiceRequest):
@@ -2536,9 +2538,9 @@ class StatusRecord(TypedDict, total=False):
     including the current status, cause description, and timestamp.
     """
 
-    Status: Optional[SendingStatus]
-    Cause: Optional[StatusCause]
-    LastUpdatedTimestamp: Optional[Timestamp]
+    Status: SendingStatus | None
+    Cause: StatusCause | None
+    LastUpdatedTimestamp: Timestamp | None
 
 
 class ReputationEntity(TypedDict, total=False):
@@ -2546,19 +2548,19 @@ class ReputationEntity(TypedDict, total=False):
     its reference, type, policy, status records, and reputation impact.
     """
 
-    ReputationEntityReference: Optional[ReputationEntityReference]
-    ReputationEntityType: Optional[ReputationEntityType]
-    ReputationManagementPolicy: Optional[AmazonResourceName]
-    CustomerManagedStatus: Optional[StatusRecord]
-    AwsSesManagedStatus: Optional[StatusRecord]
-    SendingStatusAggregate: Optional[SendingStatus]
-    ReputationImpact: Optional[RecommendationImpact]
+    ReputationEntityReference: ReputationEntityReference | None
+    ReputationEntityType: ReputationEntityType | None
+    ReputationManagementPolicy: AmazonResourceName | None
+    CustomerManagedStatus: StatusRecord | None
+    AwsSesManagedStatus: StatusRecord | None
+    SendingStatusAggregate: SendingStatus | None
+    ReputationImpact: RecommendationImpact | None
 
 
 class GetReputationEntityResponse(TypedDict, total=False):
     """Information about the requested reputation entity."""
 
-    ReputationEntity: Optional[ReputationEntity]
+    ReputationEntity: ReputationEntity | None
 
 
 class GetSuppressedDestinationRequest(ServiceRequest):
@@ -2574,8 +2576,8 @@ class SuppressedDestinationAttributes(TypedDict, total=False):
     address that is on the suppression list for your account.
     """
 
-    MessageId: Optional[OutboundMessageId]
-    FeedbackId: Optional[FeedbackId]
+    MessageId: OutboundMessageId | None
+    FeedbackId: FeedbackId | None
 
 
 class SuppressedDestination(TypedDict, total=False):
@@ -2586,7 +2588,7 @@ class SuppressedDestination(TypedDict, total=False):
     EmailAddress: EmailAddress
     Reason: SuppressionListReason
     LastUpdateTime: Timestamp
-    Attributes: Optional[SuppressedDestinationAttributes]
+    Attributes: SuppressedDestinationAttributes | None
 
 
 class GetSuppressedDestinationResponse(TypedDict, total=False):
@@ -2604,44 +2606,44 @@ class GetTenantRequest(ServiceRequest):
 class Tenant(TypedDict, total=False):
     """A structure that contains details about a tenant."""
 
-    TenantName: Optional[TenantName]
-    TenantId: Optional[TenantId]
-    TenantArn: Optional[AmazonResourceName]
-    CreatedTimestamp: Optional[Timestamp]
-    Tags: Optional[TagList]
-    SendingStatus: Optional[SendingStatus]
+    TenantName: TenantName | None
+    TenantId: TenantId | None
+    TenantArn: AmazonResourceName | None
+    CreatedTimestamp: Timestamp | None
+    Tags: TagList | None
+    SendingStatus: SendingStatus | None
 
 
 class GetTenantResponse(TypedDict, total=False):
     """Information about a specific tenant."""
 
-    Tenant: Optional[Tenant]
+    Tenant: Tenant | None
 
 
 class IdentityInfo(TypedDict, total=False):
     """Information about an email identity."""
 
-    IdentityType: Optional[IdentityType]
-    IdentityName: Optional[Identity]
-    SendingEnabled: Optional[Enabled]
-    VerificationStatus: Optional[VerificationStatus]
+    IdentityType: IdentityType | None
+    IdentityName: Identity | None
+    SendingEnabled: Enabled | None
+    VerificationStatus: VerificationStatus | None
 
 
-IdentityInfoList = List[IdentityInfo]
+IdentityInfoList = list[IdentityInfo]
 
 
 class ImportJobSummary(TypedDict, total=False):
     """A summary of the import job."""
 
-    JobId: Optional[JobId]
-    ImportDestination: Optional[ImportDestination]
-    JobStatus: Optional[JobStatus]
-    CreatedTimestamp: Optional[Timestamp]
-    ProcessedRecordsCount: Optional[ProcessedRecordsCount]
-    FailedRecordsCount: Optional[FailedRecordsCount]
+    JobId: JobId | None
+    ImportDestination: ImportDestination | None
+    JobStatus: JobStatus | None
+    CreatedTimestamp: Timestamp | None
+    ProcessedRecordsCount: ProcessedRecordsCount | None
+    FailedRecordsCount: FailedRecordsCount | None
 
 
-ImportJobSummaryList = List[ImportJobSummary]
+ImportJobSummaryList = list[ImportJobSummary]
 
 
 class ListConfigurationSetsRequest(ServiceRequest):
@@ -2649,8 +2651,8 @@ class ListConfigurationSetsRequest(ServiceRequest):
     account in the current Amazon Web Services Region.
     """
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListConfigurationSetsResponse(TypedDict, total=False):
@@ -2658,50 +2660,50 @@ class ListConfigurationSetsResponse(TypedDict, total=False):
     Amazon Web Services Region.
     """
 
-    ConfigurationSets: Optional[ConfigurationSetNameList]
-    NextToken: Optional[NextToken]
+    ConfigurationSets: ConfigurationSetNameList | None
+    NextToken: NextToken | None
 
 
 class ListContactListsRequest(ServiceRequest):
-    PageSize: Optional[MaxItems]
-    NextToken: Optional[NextToken]
+    PageSize: MaxItems | None
+    NextToken: NextToken | None
 
 
-ListOfContactLists = List[ContactList]
+ListOfContactLists = list[ContactList]
 
 
 class ListContactListsResponse(TypedDict, total=False):
-    ContactLists: Optional[ListOfContactLists]
-    NextToken: Optional[NextToken]
+    ContactLists: ListOfContactLists | None
+    NextToken: NextToken | None
 
 
 class TopicFilter(TypedDict, total=False):
     """Used for filtering by a specific topic preference."""
 
-    TopicName: Optional[TopicName]
-    UseDefaultIfPreferenceUnavailable: Optional[UseDefaultIfPreferenceUnavailable]
+    TopicName: TopicName | None
+    UseDefaultIfPreferenceUnavailable: UseDefaultIfPreferenceUnavailable | None
 
 
 class ListContactsFilter(TypedDict, total=False):
     """A filter that can be applied to a list of contacts."""
 
-    FilteredStatus: Optional[SubscriptionStatus]
-    TopicFilter: Optional[TopicFilter]
+    FilteredStatus: SubscriptionStatus | None
+    TopicFilter: TopicFilter | None
 
 
 class ListContactsRequest(ServiceRequest):
     ContactListName: ContactListName
-    Filter: Optional[ListContactsFilter]
-    PageSize: Optional[MaxItems]
-    NextToken: Optional[NextToken]
+    Filter: ListContactsFilter | None
+    PageSize: MaxItems | None
+    NextToken: NextToken | None
 
 
-ListOfContacts = List[Contact]
+ListOfContacts = list[Contact]
 
 
 class ListContactsResponse(TypedDict, total=False):
-    Contacts: Optional[ListOfContacts]
-    NextToken: Optional[NextToken]
+    Contacts: ListOfContacts | None
+    NextToken: NextToken | None
 
 
 class ListCustomVerificationEmailTemplatesRequest(ServiceRequest):
@@ -2709,32 +2711,32 @@ class ListCustomVerificationEmailTemplatesRequest(ServiceRequest):
     templates for your account.
     """
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListCustomVerificationEmailTemplatesResponse(TypedDict, total=False):
     """The following elements are returned by the service."""
 
-    CustomVerificationEmailTemplates: Optional[CustomVerificationEmailTemplatesList]
-    NextToken: Optional[NextToken]
+    CustomVerificationEmailTemplates: CustomVerificationEmailTemplatesList | None
+    NextToken: NextToken | None
 
 
 class ListDedicatedIpPoolsRequest(ServiceRequest):
     """A request to obtain a list of dedicated IP pools."""
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
-ListOfDedicatedIpPools = List[PoolName]
+ListOfDedicatedIpPools = list[PoolName]
 
 
 class ListDedicatedIpPoolsResponse(TypedDict, total=False):
     """A list of dedicated IP pools."""
 
-    DedicatedIpPools: Optional[ListOfDedicatedIpPools]
-    NextToken: Optional[NextToken]
+    DedicatedIpPools: ListOfDedicatedIpPools | None
+    NextToken: NextToken | None
 
 
 class ListDeliverabilityTestReportsRequest(ServiceRequest):
@@ -2742,8 +2744,8 @@ class ListDeliverabilityTestReportsRequest(ServiceRequest):
     you've performed.
     """
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListDeliverabilityTestReportsResponse(TypedDict, total=False):
@@ -2752,7 +2754,7 @@ class ListDeliverabilityTestReportsResponse(TypedDict, total=False):
     """
 
     DeliverabilityTestReports: DeliverabilityTestReports
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListDomainDeliverabilityCampaignsRequest(ServiceRequest):
@@ -2764,8 +2766,8 @@ class ListDomainDeliverabilityCampaignsRequest(ServiceRequest):
     StartDate: Timestamp
     EndDate: Timestamp
     SubscribedDomain: Domain
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListDomainDeliverabilityCampaignsResponse(TypedDict, total=False):
@@ -2776,7 +2778,7 @@ class ListDomainDeliverabilityCampaignsResponse(TypedDict, total=False):
     """
 
     DomainDeliverabilityCampaigns: DomainDeliverabilityCampaignList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListEmailIdentitiesRequest(ServiceRequest):
@@ -2786,8 +2788,8 @@ class ListEmailIdentitiesRequest(ServiceRequest):
     were verified in the past, but are no longer verified.
     """
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListEmailIdentitiesResponse(TypedDict, total=False):
@@ -2796,8 +2798,8 @@ class ListEmailIdentitiesResponse(TypedDict, total=False):
     verified.
     """
 
-    EmailIdentities: Optional[IdentityInfoList]
-    NextToken: Optional[NextToken]
+    EmailIdentities: IdentityInfoList | None
+    NextToken: NextToken | None
 
 
 class ListEmailTemplatesRequest(ServiceRequest):
@@ -2807,24 +2809,24 @@ class ListEmailTemplatesRequest(ServiceRequest):
     Guide <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-personalized-email-api.html>`__.
     """
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListEmailTemplatesResponse(TypedDict, total=False):
     """The following elements are returned by the service."""
 
-    TemplatesMetadata: Optional[EmailTemplateMetadataList]
-    NextToken: Optional[NextToken]
+    TemplatesMetadata: EmailTemplateMetadataList | None
+    NextToken: NextToken | None
 
 
 class ListExportJobsRequest(ServiceRequest):
     """Represents a request to list all export jobs with filters."""
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
-    ExportSourceType: Optional[ExportSourceType]
-    JobStatus: Optional[JobStatus]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
+    ExportSourceType: ExportSourceType | None
+    JobStatus: JobStatus | None
 
 
 class ListExportJobsResponse(TypedDict, total=False):
@@ -2832,8 +2834,8 @@ class ListExportJobsResponse(TypedDict, total=False):
     request fails.
     """
 
-    ExportJobs: Optional[ExportJobSummaryList]
-    NextToken: Optional[NextToken]
+    ExportJobs: ExportJobSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListImportJobsRequest(ServiceRequest):
@@ -2841,9 +2843,9 @@ class ListImportJobsRequest(ServiceRequest):
     destination within the specified maximum number of import jobs.
     """
 
-    ImportDestinationType: Optional[ImportDestinationType]
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    ImportDestinationType: ImportDestinationType | None
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class ListImportJobsResponse(TypedDict, total=False):
@@ -2851,8 +2853,8 @@ class ListImportJobsResponse(TypedDict, total=False):
     request fails.
     """
 
-    ImportJobs: Optional[ImportJobSummaryList]
-    NextToken: Optional[NextToken]
+    ImportJobs: ImportJobSummaryList | None
+    NextToken: NextToken | None
 
 
 class ListManagementOptions(TypedDict, total=False):
@@ -2861,7 +2863,7 @@ class ListManagementOptions(TypedDict, total=False):
     """
 
     ContactListName: ContactListName
-    TopicName: Optional[TopicName]
+    TopicName: TopicName | None
 
 
 class ListMultiRegionEndpointsRequest(ServiceRequest):
@@ -2870,11 +2872,11 @@ class ListMultiRegionEndpointsRequest(ServiceRequest):
     operation is executed.
     """
 
-    NextToken: Optional[NextTokenV2]
-    PageSize: Optional[PageSizeV2]
+    NextToken: NextTokenV2 | None
+    PageSize: PageSizeV2 | None
 
 
-Regions = List[Region]
+Regions = list[Region]
 
 
 class MultiRegionEndpoint(TypedDict, total=False):
@@ -2882,25 +2884,25 @@ class MultiRegionEndpoint(TypedDict, total=False):
     properties.
     """
 
-    EndpointName: Optional[EndpointName]
-    Status: Optional[Status]
-    EndpointId: Optional[EndpointId]
-    Regions: Optional[Regions]
-    CreatedTimestamp: Optional[Timestamp]
-    LastUpdatedTimestamp: Optional[Timestamp]
+    EndpointName: EndpointName | None
+    Status: Status | None
+    EndpointId: EndpointId | None
+    Regions: Regions | None
+    CreatedTimestamp: Timestamp | None
+    LastUpdatedTimestamp: Timestamp | None
 
 
-MultiRegionEndpoints = List[MultiRegionEndpoint]
+MultiRegionEndpoints = list[MultiRegionEndpoint]
 
 
 class ListMultiRegionEndpointsResponse(TypedDict, total=False):
     """The following elements are returned by the service."""
 
-    MultiRegionEndpoints: Optional[MultiRegionEndpoints]
-    NextToken: Optional[NextTokenV2]
+    MultiRegionEndpoints: MultiRegionEndpoints | None
+    NextToken: NextTokenV2 | None
 
 
-ListRecommendationsFilter = Dict[ListRecommendationsFilterKey, ListRecommendationFilterValue]
+ListRecommendationsFilter = dict[ListRecommendationsFilterKey, ListRecommendationFilterValue]
 
 
 class ListRecommendationsRequest(ServiceRequest):
@@ -2908,24 +2910,24 @@ class ListRecommendationsRequest(ServiceRequest):
     account.
     """
 
-    Filter: Optional[ListRecommendationsFilter]
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    Filter: ListRecommendationsFilter | None
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class Recommendation(TypedDict, total=False):
     """A recommendation generated for your account."""
 
-    ResourceArn: Optional[AmazonResourceName]
-    Type: Optional[RecommendationType]
-    Description: Optional[RecommendationDescription]
-    Status: Optional[RecommendationStatus]
-    CreatedTimestamp: Optional[Timestamp]
-    LastUpdatedTimestamp: Optional[Timestamp]
-    Impact: Optional[RecommendationImpact]
+    ResourceArn: AmazonResourceName | None
+    Type: RecommendationType | None
+    Description: RecommendationDescription | None
+    Status: RecommendationStatus | None
+    CreatedTimestamp: Timestamp | None
+    LastUpdatedTimestamp: Timestamp | None
+    Impact: RecommendationImpact | None
 
 
-RecommendationsList = List[Recommendation]
+RecommendationsList = list[Recommendation]
 
 
 class ListRecommendationsResponse(TypedDict, total=False):
@@ -2933,11 +2935,11 @@ class ListRecommendationsResponse(TypedDict, total=False):
     recommendations for your account.
     """
 
-    Recommendations: Optional[RecommendationsList]
-    NextToken: Optional[NextToken]
+    Recommendations: RecommendationsList | None
+    NextToken: NextToken | None
 
 
-ReputationEntityFilter = Dict[ReputationEntityFilterKey, ReputationEntityFilterValue]
+ReputationEntityFilter = dict[ReputationEntityFilterKey, ReputationEntityFilterValue]
 
 
 class ListReputationEntitiesRequest(ServiceRequest):
@@ -2945,19 +2947,19 @@ class ListReputationEntitiesRequest(ServiceRequest):
     filtering.
     """
 
-    Filter: Optional[ReputationEntityFilter]
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    Filter: ReputationEntityFilter | None
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
-ReputationEntitiesList = List[ReputationEntity]
+ReputationEntitiesList = list[ReputationEntity]
 
 
 class ListReputationEntitiesResponse(TypedDict, total=False):
     """A list of reputation entities in your account."""
 
-    ReputationEntities: Optional[ReputationEntitiesList]
-    NextToken: Optional[NextToken]
+    ReputationEntities: ReputationEntitiesList | None
+    NextToken: NextToken | None
 
 
 class ListResourceTenantsRequest(ServiceRequest):
@@ -2966,8 +2968,8 @@ class ListResourceTenantsRequest(ServiceRequest):
     """
 
     ResourceArn: AmazonResourceName
-    PageSize: Optional[MaxItems]
-    NextToken: Optional[NextToken]
+    PageSize: MaxItems | None
+    NextToken: NextToken | None
 
 
 class ResourceTenantMetadata(TypedDict, total=False):
@@ -2975,20 +2977,20 @@ class ResourceTenantMetadata(TypedDict, total=False):
     resource.
     """
 
-    TenantName: Optional[TenantName]
-    TenantId: Optional[TenantId]
-    ResourceArn: Optional[AmazonResourceName]
-    AssociatedTimestamp: Optional[Timestamp]
+    TenantName: TenantName | None
+    TenantId: TenantId | None
+    ResourceArn: AmazonResourceName | None
+    AssociatedTimestamp: Timestamp | None
 
 
-ResourceTenantMetadataList = List[ResourceTenantMetadata]
+ResourceTenantMetadataList = list[ResourceTenantMetadata]
 
 
 class ListResourceTenantsResponse(TypedDict, total=False):
     """Information about tenants associated with a specific resource."""
 
-    ResourceTenants: Optional[ResourceTenantMetadataList]
-    NextToken: Optional[NextToken]
+    ResourceTenants: ResourceTenantMetadataList | None
+    NextToken: NextToken | None
 
 
 class ListSuppressedDestinationsRequest(ServiceRequest):
@@ -2996,11 +2998,11 @@ class ListSuppressedDestinationsRequest(ServiceRequest):
     suppression list for your account.
     """
 
-    Reasons: Optional[SuppressionListReasons]
-    StartDate: Optional[Timestamp]
-    EndDate: Optional[Timestamp]
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    Reasons: SuppressionListReasons | None
+    StartDate: Timestamp | None
+    EndDate: Timestamp | None
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class SuppressedDestinationSummary(TypedDict, total=False):
@@ -3011,14 +3013,14 @@ class SuppressedDestinationSummary(TypedDict, total=False):
     LastUpdateTime: Timestamp
 
 
-SuppressedDestinationSummaries = List[SuppressedDestinationSummary]
+SuppressedDestinationSummaries = list[SuppressedDestinationSummary]
 
 
 class ListSuppressedDestinationsResponse(TypedDict, total=False):
     """A list of suppressed email addresses."""
 
-    SuppressedDestinationSummaries: Optional[SuppressedDestinationSummaries]
-    NextToken: Optional[NextToken]
+    SuppressedDestinationSummaries: SuppressedDestinationSummaries | None
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -3029,7 +3031,7 @@ class ListTagsForResourceResponse(TypedDict, total=False):
     Tags: TagList
 
 
-ListTenantResourcesFilter = Dict[ListTenantResourcesFilterKey, ListTenantResourcesFilterValue]
+ListTenantResourcesFilter = dict[ListTenantResourcesFilterKey, ListTenantResourcesFilterValue]
 
 
 class ListTenantResourcesRequest(ServiceRequest):
@@ -3038,9 +3040,9 @@ class ListTenantResourcesRequest(ServiceRequest):
     """
 
     TenantName: TenantName
-    Filter: Optional[ListTenantResourcesFilter]
-    PageSize: Optional[MaxItems]
-    NextToken: Optional[NextToken]
+    Filter: ListTenantResourcesFilter | None
+    PageSize: MaxItems | None
+    NextToken: NextToken | None
 
 
 class TenantResource(TypedDict, total=False):
@@ -3048,18 +3050,18 @@ class TenantResource(TypedDict, total=False):
     tenant.
     """
 
-    ResourceType: Optional[ResourceType]
-    ResourceArn: Optional[AmazonResourceName]
+    ResourceType: ResourceType | None
+    ResourceArn: AmazonResourceName | None
 
 
-TenantResourceList = List[TenantResource]
+TenantResourceList = list[TenantResource]
 
 
 class ListTenantResourcesResponse(TypedDict, total=False):
     """Information about resources associated with a specific tenant."""
 
-    TenantResources: Optional[TenantResourceList]
-    NextToken: Optional[NextToken]
+    TenantResources: TenantResourceList | None
+    NextToken: NextToken | None
 
 
 class ListTenantsRequest(ServiceRequest):
@@ -3067,33 +3069,33 @@ class ListTenantsRequest(ServiceRequest):
     the current Amazon Web Services Region.
     """
 
-    NextToken: Optional[NextToken]
-    PageSize: Optional[MaxItems]
+    NextToken: NextToken | None
+    PageSize: MaxItems | None
 
 
 class TenantInfo(TypedDict, total=False):
     """A structure that contains basic information about a tenant."""
 
-    TenantName: Optional[TenantName]
-    TenantId: Optional[TenantId]
-    TenantArn: Optional[AmazonResourceName]
-    CreatedTimestamp: Optional[Timestamp]
+    TenantName: TenantName | None
+    TenantId: TenantId | None
+    TenantArn: AmazonResourceName | None
+    CreatedTimestamp: Timestamp | None
 
 
-TenantInfoList = List[TenantInfo]
+TenantInfoList = list[TenantInfo]
 
 
 class ListTenantsResponse(TypedDict, total=False):
     """Information about tenants associated with your account."""
 
-    Tenants: Optional[TenantInfoList]
-    NextToken: Optional[NextToken]
+    Tenants: TenantInfoList | None
+    NextToken: NextToken | None
 
 
 class PutAccountDedicatedIpWarmupAttributesRequest(ServiceRequest):
     """A request to enable or disable the automatic IP address warm-up feature."""
 
-    AutoWarmupEnabled: Optional[Enabled]
+    AutoWarmupEnabled: Enabled | None
 
 
 class PutAccountDedicatedIpWarmupAttributesResponse(TypedDict, total=False):
@@ -3109,10 +3111,10 @@ class PutAccountDetailsRequest(ServiceRequest):
 
     MailType: MailType
     WebsiteURL: WebsiteURL
-    ContactLanguage: Optional[ContactLanguage]
-    UseCaseDescription: Optional[UseCaseDescription]
-    AdditionalContactEmailAddresses: Optional[AdditionalContactEmailAddresses]
-    ProductionAccessEnabled: Optional[EnabledWrapper]
+    ContactLanguage: ContactLanguage | None
+    UseCaseDescription: UseCaseDescription | None
+    AdditionalContactEmailAddresses: AdditionalContactEmailAddresses | None
+    ProductionAccessEnabled: EnabledWrapper | None
 
 
 class PutAccountDetailsResponse(TypedDict, total=False):
@@ -3126,7 +3128,7 @@ class PutAccountDetailsResponse(TypedDict, total=False):
 class PutAccountSendingAttributesRequest(ServiceRequest):
     """A request to change the ability of your account to send email."""
 
-    SendingEnabled: Optional[Enabled]
+    SendingEnabled: Enabled | None
 
 
 class PutAccountSendingAttributesResponse(TypedDict, total=False):
@@ -3140,7 +3142,7 @@ class PutAccountSendingAttributesResponse(TypedDict, total=False):
 class PutAccountSuppressionAttributesRequest(ServiceRequest):
     """A request to change your account's suppression preferences."""
 
-    SuppressedReasons: Optional[SuppressionListReasons]
+    SuppressedReasons: SuppressionListReasons | None
 
 
 class PutAccountSuppressionAttributesResponse(TypedDict, total=False):
@@ -3165,7 +3167,7 @@ class PutConfigurationSetArchivingOptionsRequest(ServiceRequest):
     """A request to associate a configuration set with a MailManager archive."""
 
     ConfigurationSetName: ConfigurationSetName
-    ArchiveArn: Optional[ArchiveArn]
+    ArchiveArn: ArchiveArn | None
 
 
 class PutConfigurationSetArchivingOptionsResponse(TypedDict, total=False):
@@ -3180,9 +3182,9 @@ class PutConfigurationSetDeliveryOptionsRequest(ServiceRequest):
     """A request to associate a configuration set with a dedicated IP pool."""
 
     ConfigurationSetName: ConfigurationSetName
-    TlsPolicy: Optional[TlsPolicy]
-    SendingPoolName: Optional[SendingPoolName]
-    MaxDeliverySeconds: Optional[MaxDeliverySeconds]
+    TlsPolicy: TlsPolicy | None
+    SendingPoolName: SendingPoolName | None
+    MaxDeliverySeconds: MaxDeliverySeconds | None
 
 
 class PutConfigurationSetDeliveryOptionsResponse(TypedDict, total=False):
@@ -3199,7 +3201,7 @@ class PutConfigurationSetReputationOptionsRequest(ServiceRequest):
     """
 
     ConfigurationSetName: ConfigurationSetName
-    ReputationMetricsEnabled: Optional[Enabled]
+    ReputationMetricsEnabled: Enabled | None
 
 
 class PutConfigurationSetReputationOptionsResponse(TypedDict, total=False):
@@ -3216,7 +3218,7 @@ class PutConfigurationSetSendingOptionsRequest(ServiceRequest):
     """
 
     ConfigurationSetName: ConfigurationSetName
-    SendingEnabled: Optional[Enabled]
+    SendingEnabled: Enabled | None
 
 
 class PutConfigurationSetSendingOptionsResponse(TypedDict, total=False):
@@ -3233,7 +3235,7 @@ class PutConfigurationSetSuppressionOptionsRequest(ServiceRequest):
     """
 
     ConfigurationSetName: ConfigurationSetName
-    SuppressedReasons: Optional[SuppressionListReasons]
+    SuppressedReasons: SuppressionListReasons | None
 
 
 class PutConfigurationSetSuppressionOptionsResponse(TypedDict, total=False):
@@ -3250,8 +3252,8 @@ class PutConfigurationSetTrackingOptionsRequest(ServiceRequest):
     """
 
     ConfigurationSetName: ConfigurationSetName
-    CustomRedirectDomain: Optional[CustomRedirectDomain]
-    HttpsPolicy: Optional[HttpsPolicy]
+    CustomRedirectDomain: CustomRedirectDomain | None
+    HttpsPolicy: HttpsPolicy | None
 
 
 class PutConfigurationSetTrackingOptionsResponse(TypedDict, total=False):
@@ -3266,7 +3268,7 @@ class PutConfigurationSetVdmOptionsRequest(ServiceRequest):
     """A request to add specific VDM settings to a configuration set."""
 
     ConfigurationSetName: ConfigurationSetName
-    VdmOptions: Optional[VdmOptions]
+    VdmOptions: VdmOptions | None
 
 
 class PutConfigurationSetVdmOptionsResponse(TypedDict, total=False):
@@ -3341,7 +3343,7 @@ class PutDeliverabilityDashboardOptionRequest(ServiceRequest):
     """
 
     DashboardEnabled: Enabled
-    SubscribedDomains: Optional[DomainDeliverabilityTrackingOptions]
+    SubscribedDomains: DomainDeliverabilityTrackingOptions | None
 
 
 class PutDeliverabilityDashboardOptionResponse(TypedDict, total=False):
@@ -3356,7 +3358,7 @@ class PutEmailIdentityConfigurationSetAttributesRequest(ServiceRequest):
     """A request to associate a configuration set with an email identity."""
 
     EmailIdentity: Identity
-    ConfigurationSetName: Optional[ConfigurationSetName]
+    ConfigurationSetName: ConfigurationSetName | None
 
 
 class PutEmailIdentityConfigurationSetAttributesResponse(TypedDict, total=False):
@@ -3373,7 +3375,7 @@ class PutEmailIdentityDkimAttributesRequest(ServiceRequest):
     """
 
     EmailIdentity: Identity
-    SigningEnabled: Optional[Enabled]
+    SigningEnabled: Enabled | None
 
 
 class PutEmailIdentityDkimAttributesResponse(TypedDict, total=False):
@@ -3389,7 +3391,7 @@ class PutEmailIdentityDkimSigningAttributesRequest(ServiceRequest):
 
     EmailIdentity: Identity
     SigningAttributesOrigin: DkimSigningAttributesOrigin
-    SigningAttributes: Optional[DkimSigningAttributes]
+    SigningAttributes: DkimSigningAttributes | None
 
 
 class PutEmailIdentityDkimSigningAttributesResponse(TypedDict, total=False):
@@ -3399,8 +3401,8 @@ class PutEmailIdentityDkimSigningAttributesResponse(TypedDict, total=False):
     The following data is returned in JSON format by the service.
     """
 
-    DkimStatus: Optional[DkimStatus]
-    DkimTokens: Optional[DnsTokenList]
+    DkimStatus: DkimStatus | None
+    DkimTokens: DnsTokenList | None
 
 
 class PutEmailIdentityFeedbackAttributesRequest(ServiceRequest):
@@ -3409,7 +3411,7 @@ class PutEmailIdentityFeedbackAttributesRequest(ServiceRequest):
     """
 
     EmailIdentity: Identity
-    EmailForwardingEnabled: Optional[Enabled]
+    EmailForwardingEnabled: Enabled | None
 
 
 class PutEmailIdentityFeedbackAttributesResponse(TypedDict, total=False):
@@ -3426,8 +3428,8 @@ class PutEmailIdentityMailFromAttributesRequest(ServiceRequest):
     """
 
     EmailIdentity: Identity
-    MailFromDomain: Optional[MailFromDomainName]
-    BehaviorOnMxFailure: Optional[BehaviorOnMxFailure]
+    MailFromDomain: MailFromDomainName | None
+    BehaviorOnMxFailure: BehaviorOnMxFailure | None
 
 
 class PutEmailIdentityMailFromAttributesResponse(TypedDict, total=False):
@@ -3461,17 +3463,17 @@ class SendBulkEmailRequest(ServiceRequest):
     Guide <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-personalized-email-api.html>`__.
     """
 
-    FromEmailAddress: Optional[EmailAddress]
-    FromEmailAddressIdentityArn: Optional[AmazonResourceName]
-    ReplyToAddresses: Optional[EmailAddressList]
-    FeedbackForwardingEmailAddress: Optional[EmailAddress]
-    FeedbackForwardingEmailAddressIdentityArn: Optional[AmazonResourceName]
-    DefaultEmailTags: Optional[MessageTagList]
+    FromEmailAddress: EmailAddress | None
+    FromEmailAddressIdentityArn: AmazonResourceName | None
+    ReplyToAddresses: EmailAddressList | None
+    FeedbackForwardingEmailAddress: EmailAddress | None
+    FeedbackForwardingEmailAddressIdentityArn: AmazonResourceName | None
+    DefaultEmailTags: MessageTagList | None
     DefaultContent: BulkEmailContent
     BulkEmailEntries: BulkEmailEntryList
-    ConfigurationSetName: Optional[ConfigurationSetName]
-    EndpointId: Optional[EndpointId]
-    TenantName: Optional[TenantName]
+    ConfigurationSetName: ConfigurationSetName | None
+    EndpointId: EndpointId | None
+    TenantName: TenantName | None
 
 
 class SendBulkEmailResponse(TypedDict, total=False):
@@ -3487,13 +3489,13 @@ class SendCustomVerificationEmailRequest(ServiceRequest):
 
     EmailAddress: EmailAddress
     TemplateName: EmailTemplateName
-    ConfigurationSetName: Optional[ConfigurationSetName]
+    ConfigurationSetName: ConfigurationSetName | None
 
 
 class SendCustomVerificationEmailResponse(TypedDict, total=False):
     """The following element is returned by the service."""
 
-    MessageId: Optional[OutboundMessageId]
+    MessageId: OutboundMessageId | None
 
 
 class SendEmailRequest(ServiceRequest):
@@ -3502,18 +3504,18 @@ class SendEmailRequest(ServiceRequest):
     Guide <https://docs.aws.amazon.com/ses/latest/DeveloperGuide/send-email-formatted.html>`__.
     """
 
-    FromEmailAddress: Optional[EmailAddress]
-    FromEmailAddressIdentityArn: Optional[AmazonResourceName]
-    Destination: Optional[Destination]
-    ReplyToAddresses: Optional[EmailAddressList]
-    FeedbackForwardingEmailAddress: Optional[EmailAddress]
-    FeedbackForwardingEmailAddressIdentityArn: Optional[AmazonResourceName]
+    FromEmailAddress: EmailAddress | None
+    FromEmailAddressIdentityArn: AmazonResourceName | None
+    Destination: Destination | None
+    ReplyToAddresses: EmailAddressList | None
+    FeedbackForwardingEmailAddress: EmailAddress | None
+    FeedbackForwardingEmailAddressIdentityArn: AmazonResourceName | None
     Content: EmailContent
-    EmailTags: Optional[MessageTagList]
-    ConfigurationSetName: Optional[ConfigurationSetName]
-    EndpointId: Optional[EndpointId]
-    TenantName: Optional[TenantName]
-    ListManagementOptions: Optional[ListManagementOptions]
+    EmailTags: MessageTagList | None
+    ConfigurationSetName: ConfigurationSetName | None
+    EndpointId: EndpointId | None
+    TenantName: TenantName | None
+    ListManagementOptions: ListManagementOptions | None
 
 
 class SendEmailResponse(TypedDict, total=False):
@@ -3521,10 +3523,10 @@ class SendEmailResponse(TypedDict, total=False):
     sending.
     """
 
-    MessageId: Optional[OutboundMessageId]
+    MessageId: OutboundMessageId | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -3580,8 +3582,8 @@ class UpdateConfigurationSetEventDestinationResponse(TypedDict, total=False):
 
 class UpdateContactListRequest(ServiceRequest):
     ContactListName: ContactListName
-    Topics: Optional[Topics]
-    Description: Optional[Description]
+    Topics: Topics | None
+    Description: Description | None
 
 
 class UpdateContactListResponse(TypedDict, total=False):
@@ -3591,9 +3593,9 @@ class UpdateContactListResponse(TypedDict, total=False):
 class UpdateContactRequest(ServiceRequest):
     ContactListName: ContactListName
     EmailAddress: EmailAddress
-    TopicPreferences: Optional[TopicPreferenceList]
-    UnsubscribeAll: Optional[UnsubscribeAll]
-    AttributesData: Optional[AttributesData]
+    TopicPreferences: TopicPreferenceList | None
+    UnsubscribeAll: UnsubscribeAll | None
+    AttributesData: AttributesData | None
 
 
 class UpdateContactResponse(TypedDict, total=False):
@@ -3697,8 +3699,8 @@ class UpdateReputationEntityPolicyResponse(TypedDict, total=False):
 
 
 class Sesv2Api:
-    service = "sesv2"
-    version = "2019-09-27"
+    service: str = "sesv2"
+    version: str = "2019-09-27"
 
     @handler("BatchGetMetricData")
     def batch_get_metric_data(

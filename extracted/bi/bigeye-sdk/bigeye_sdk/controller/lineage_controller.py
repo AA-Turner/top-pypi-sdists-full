@@ -1,7 +1,5 @@
 import logging
-from typing import List, Dict, Tuple, Union, Optional, Set
-
-import typer
+from typing import List, Dict, Tuple, Union, Optional, Set, Any
 
 from bigeye_sdk.model.enums import MatchType
 from bigeye_sdk.functions.search_and_match_functions import wildcard_search, fuzzy_match
@@ -23,23 +21,29 @@ from bigeye_sdk.log import get_logger
 from bigeye_sdk.client.datawatch_client import DatawatchClient
 from bigeye_sdk.model.lineage_facade import SimpleLineageConfigurationFile, SimpleLineageEdgeRequest, \
     LineageColumnOverride, SimpleCustomNode, LineageConfiguration, SimpleLineageNodeRequest
-from bigeye_sdk.model.lineage_graph import LineageGraph, ContainmentNode, IntegrationNode
+from bigeye_sdk.model.lineage_graph import ContainmentNode
 from bigeye_sdk.model.protobuf_enum_facade import SimpleDataNodeType, SimpleCatalogEntityType
 
 log = get_logger(__name__)
 
 
 class LineageController:
-    def __init__(self, client: DatawatchClient):
+    def __init__(self, client: DatawatchClient, sources_ix: Optional[dict] = None):
         self.client = client
-        self.sources_by_name_ix: Dict[str, Source] = self.client.get_sources_by_name()
+        self.sources_by_name_ix: Dict[str, Source] = self.set_source_ix(sources_ix=sources_ix)
         self.edge_requests: List[SimpleLineageEdgeRequest] = []
         self.node_requests: List[SimpleLineageNodeRequest] = []
         self.existing_relations: Dict[int, List[int]] = {}
         self.custom_nodes_ix_by_id: Dict[int, LineageNodeV2] = {}
         self.custom_node_search_cache: Dict[str, List[LineageNodeV2]] = {}
+        self.cache_populated_node_ids: Set[int] = set()  # Track which node IDs have been scanned for cache population
+        self.processed_etl_downstream_pairs: Set[Tuple[int, int]] = set()  # Track (etl_task_id, downstream_table_id) pairs
         self.lineage_node_ix_by_id: Dict[int, ContainmentNode] = {}
         self.catalog_attributes_request_cache: Dict[int, dict] = {}
+
+    def set_source_ix(self, sources_ix: Optional[Dict[Any, Source]] = None):
+        return {s.name: s for s in sources_ix.values()} if sources_ix else self.client.get_sources_by_name()
+
 
     def get_table_by_name(self, entity_name: str) -> Table:
         warehouse, schema, entity_name = fully_qualified_table_to_elements(entity_name)
@@ -282,7 +286,7 @@ class LineageController:
             lineage_search_results = [sr.lineage_node for sr in search_results]
             matching_result = next(
                 (r for r in lineage_search_results if r.node_type == custom_node.node_type
-                 and r.node_name == custom_node.container_name and custom_node.container_name in r.catalog_path.path_parts),
+                 and r.node_name.lower() == custom_node.container_name.lower() and custom_node.container_name in r.catalog_path.path_parts),
                 None
             )
             if matching_result:
@@ -295,7 +299,8 @@ class LineageController:
             lineage_search_results = [sr.lineage_node for sr in search_results]
             matching_result = next(
                 (r for r in lineage_search_results if r.node_type == custom_node.node_type
-                 and r.node_name == custom_node.name and custom_node.container_name in r.catalog_path.path_parts),
+                 and r.node_name.lower() == custom_node.name.lower()
+                 and custom_node.container_name.lower() in [part.lower() for part in r.catalog_path.path_parts]),
                 None
             )
             if matching_result:
@@ -320,22 +325,49 @@ class LineageController:
 
         if custom_container_node:
             custom_node.container_node_id = custom_container_node.id
+            custom_node.container_entity_id = custom_container_node.node_entity_id
         else:
             existing_container = self._search_custom_nodes(custom_node=custom_node, search_for_container=True)
             if existing_container:
                 custom_node.container_node_id = existing_container.id
-                self.custom_node_search_cache.get(custom_node.container_name, []).append(existing_container)
+                custom_node.container_entity_id = existing_container.node_entity_id
+                if custom_node.container_name not in self.custom_node_search_cache:
+                    self.custom_node_search_cache[custom_node.container_name] = []
+                self.custom_node_search_cache[custom_node.container_name].append(existing_container)
                 self.custom_nodes_ix_by_id[custom_node.container_node_id] = existing_container
             # if task does not exist yet, then create new custom node and assign the data node id
             else:
-                new_container = self.client.create_lineage_node(
-                    node_name=custom_node.container_name,
-                    node_container_name=custom_node.container_name,
-                    node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM,
-                    icon_url=custom_node.node_icon_url
-                )
+                # Use custom lineage API if custom IDs are present
+                if custom_node.custom_repository_id and custom_node.custom_node_type_id:
+                    new_container = self.client.create_custom_lineage_node(
+                        node_name=custom_node.container_name,
+                        node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM,
+                        node_container_name=custom_node.container_name,
+                        custom_repository_id=custom_node.custom_repository_id,
+                        custom_node_type_id=custom_node.custom_node_type_id,
+                        icon_url=custom_node.node_icon_url
+                    )
+                else:
+                    new_container = self.client.create_lineage_node(
+                        node_name=custom_node.container_name,
+                        node_container_name=custom_node.container_name,
+                        node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM,
+                        icon_url=custom_node.node_icon_url
+                    )
                 custom_node.container_node_id = new_container.id
+                custom_node.container_entity_id = new_container.node_entity_id
                 self.custom_nodes_ix_by_id[new_container.id] = new_container
+
+        # Set container metadata if provided
+        if custom_node.container_metadata is not None and custom_node.container_entity_id:
+            posted_metadata = self.catalog_attributes_request_cache.get(custom_node.container_entity_id, None)
+            if posted_metadata is None or custom_node.container_metadata != posted_metadata:
+                self.client.set_attributes(
+                    entity_type=SimpleCatalogEntityType.DATA_NODE_ENTITY,
+                    entity_id=custom_node.container_entity_id,
+                    attributes=custom_node.container_metadata
+                )
+                self.catalog_attributes_request_cache[custom_node.container_entity_id] = custom_node.container_metadata
 
         # Custom Node
         existing_custom_node = self.custom_nodes_ix_by_id.get(custom_node.data_node_id, None)
@@ -345,38 +377,57 @@ class LineageController:
                 existing_custom_node = next(
                     (c for c in search_cache_results
                      if c.node_name == custom_node.name and c.node_type == custom_node.node_type
-                     and custom_node.container_name in c.catalog_path.path_parts),
+                     and custom_node.container_name.lower() in [part.lower() for part in c.catalog_path.path_parts]),
                     None
                 )
 
         if existing_custom_node:
             custom_node.data_node_id = existing_custom_node.id
+            custom_node.entity_id = existing_custom_node.node_entity_id
             entity_id = existing_custom_node.node_entity_id
         else:
             log.info(f"Searching for {custom_node.name} in {custom_node.container_name}...")
             existing_custom_node = self._search_custom_nodes(custom_node=custom_node)
             if existing_custom_node:
                 custom_node.data_node_id = existing_custom_node.id
-                self.custom_node_search_cache.get(custom_node.name, []).append(existing_custom_node)
+                custom_node.entity_id = existing_custom_node.node_entity_id
+                if custom_node.name not in self.custom_node_search_cache:
+                    self.custom_node_search_cache[custom_node.name] = []
+                self.custom_node_search_cache[custom_node.name].append(existing_custom_node)
                 self.custom_nodes_ix_by_id[custom_node.data_node_id] = existing_custom_node
                 entity_id = existing_custom_node.node_entity_id
             # if task does not exist yet, then create new custom node and assign the data node id
             else:
-                new_task = self.client.create_lineage_node(
-                    node_name=custom_node.name,
-                    node_container_name=custom_node.container_name,
-                    node_type=custom_node.node_type,
-                    icon_url=custom_node.node_icon_url
-                )
+                # Use custom lineage API if custom IDs are present
+                if custom_node.custom_repository_id and custom_node.custom_node_type_id:
+                    new_task = self.client.create_custom_lineage_node(
+                        node_name=custom_node.name,
+                        node_type=custom_node.node_type,
+                        node_container_name=custom_node.container_name,
+                        custom_repository_id=custom_node.custom_repository_id,
+                        custom_node_type_id=custom_node.custom_node_type_id,
+                        node_container_entity_id=custom_node.container_entity_id,
+                        icon_url=custom_node.node_icon_url
+                    )
+                else:
+                    new_task = self.client.create_lineage_node(
+                        node_name=custom_node.name,
+                        node_container_name=custom_node.container_name,
+                        node_type=custom_node.node_type,
+                        icon_url=custom_node.node_icon_url
+                    )
                 custom_node.data_node_id = new_task.id
+                custom_node.entity_id = new_task.node_entity_id
                 self.custom_nodes_ix_by_id[custom_node.data_node_id] = new_task
                 entity_id = new_task.node_entity_id
-                # Add containment association to container and task
-                self.client.create_lineage_edge(
-                    upstream_data_node_id=custom_node.container_node_id,
-                    downstream_data_node_id=custom_node.data_node_id,
-                    relationship_type=RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
-                )
+                # Add containment association to container and task only for non-custom lineage nodes
+                # (custom lineage API handles containment automatically)
+                if not (custom_node.custom_repository_id and custom_node.custom_node_type_id):
+                    self.client.create_lineage_edge(
+                        upstream_data_node_id=custom_node.container_node_id,
+                        downstream_data_node_id=custom_node.data_node_id,
+                        relationship_type=RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
+                    )
 
         if custom_node.metadata is not None:
             posted_metadata = self.catalog_attributes_request_cache.get(entity_id, None)
@@ -396,29 +447,98 @@ class LineageController:
         count_failed_relations = 0
         count_deleted_relations = 0
 
-        loading_text = "Purging Lineage..." if purge_lineage else "Generating Lineage..."
+        final_edge_requests: List[CreateLineageEdgeV2Request] = []
+        column_to_table_cache: Dict[int, Table] = {}  # Cache mapping column_id -> Table to avoid repeated fetches
 
-        # logging.disable(level=logging.INFO)
-        with typer.progressbar(length=len(self.edge_requests), label=loading_text) as progress:
-            final_edge_requests: List[CreateLineageEdgeV2Request] = []
-            for r in self.edge_requests:
-                try:
-                    if purge_lineage:
-                        "Purging lineage"
-                        # TODO update once this is implemented, this current method will deletes containment relationships
-                        # https://linear.app/torodata/issue/ONE-2510/[feature-request]-delete-all-relationships-for-a-node-id
-                        self.client.delete_lineage_relationship_for_node(data_node_id=r.upstream.data_node_id)
-                        # If etl task and purging, then delete all custom objects nested under the container
-                        if r.etl_task:
-                            custom_node_ids = self._get_custom_node_ids_for_task(r.etl_task)
-                            for ln in custom_node_ids.values():
-                                self.client.delete_lineage_node(node_id=ln.id)
-                        count_deleted_relations += 1
-                    elif not r.etl_task:
-                        existing_relations = self.existing_relations.get(r.upstream.data_node_id, None)
-                        if existing_relations is None or r.downstream.data_node_id not in existing_relations:
+        # Pre-fetch all columns and tables needed for caching to avoid N individual API calls
+        if not purge_lineage:
+            self._prefetch_columns_and_tables(column_to_table_cache)
+
+        for r in self.edge_requests:
+            try:
+                # Validate that upstream and downstream have valid data_node_ids
+                if not r.upstream.data_node_id or r.upstream.data_node_id == 0:
+                    log.warning(f"Skipping edge request: upstream {r.upstream.name} has invalid data_node_id: {r.upstream.data_node_id}")
+                    count_skipped_relations += 1
+                    continue
+                if not r.downstream.data_node_id or r.downstream.data_node_id == 0:
+                    log.warning(f"Skipping edge request: downstream {r.downstream.name} has invalid data_node_id: {r.downstream.data_node_id}")
+                    count_skipped_relations += 1
+                    continue
+
+                if purge_lineage:
+                    "Purging lineage"
+                    # TODO update once this is implemented, this current method will deletes containment relationships
+                    # https://linear.app/torodata/issue/ONE-2510/[feature-request]-delete-all-relationships-for-a-node-id
+                    self.client.delete_lineage_relationship_for_node(data_node_id=r.upstream.data_node_id)
+                    # If etl task and purging, then delete all custom objects nested under the container
+                    if r.etl_task:
+                        custom_node_ids = self._get_custom_node_ids_for_task(r.etl_task)
+                        for ln in custom_node_ids.values():
+                            self.client.delete_lineage_node(node_id=ln.id)
+                    count_deleted_relations += 1
+                elif not r.etl_task:
+                    existing_relations = self.existing_relations.get(r.upstream.data_node_id, None)
+                    if existing_relations is None or r.downstream.data_node_id not in existing_relations:
+                        final_edge_requests.append(CreateLineageEdgeV2Request(
+                            upstream_data_node_id=r.upstream.data_node_id,
+                            downstream_data_node_id=r.downstream.data_node_id,
+                            relationship_type=RelationshipType.RELATIONSHIP_TYPE_LINEAGE
+                        ))
+                        count_successful_relations += 1
+                    else:
+                        "Skipping request because the relationship already exists."
+                        count_skipped_relations += 1
+                elif r.etl_task:
+                    # If etl_task exists, then create a single custom node for etl_task container name
+                    # then for every subproject create a custom node
+                    # then for all output columns create a custom node entry
+                    task = self._get_or_set_custom_node(custom_node=r.etl_task)
+                    self._get_existing_relations_for_nodes([task.data_node_id, r.upstream.data_node_id])
+
+                    # Pre-populate cache with all children of this task to avoid N individual searches
+                    self._update_search_cache_for_node(task.data_node_id, scan_upstream=True)
+
+                    source_to_etl_deps = self.existing_relations.get(r.upstream.data_node_id, None)
+                    etl_downstream_deps = self.existing_relations.get(task.data_node_id, None)
+
+                    if isinstance(r.upstream, TableColumn) or isinstance(r.upstream, SimpleCustomNode):
+                        # new column node - use downstream column name to match ETL task output columns
+                        etl_custom_column_node = SimpleCustomNode(
+                            name=r.downstream.name,
+                            container_name=r.etl_task.name,
+                            container_node_id=task.data_node_id,
+                            node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY
+                        )
+                        etl_column_node = self._get_or_set_custom_node(etl_custom_column_node)
+                        # containment relationship of column node with task
+                        if etl_column_node.data_node_id not in etl_downstream_deps:
+                            final_edge_requests.append(CreateLineageEdgeV2Request(
+                                upstream_data_node_id=task.data_node_id,
+                                downstream_data_node_id=etl_column_node.data_node_id,
+                                relationship_type=RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
+                            ))
+
+                        if source_to_etl_deps is None or etl_column_node.data_node_id not in source_to_etl_deps:
+                            log.info(f"Adding request for {r.upstream.name} to {etl_column_node.container_name} {etl_column_node.name}")
+                            # lineage relationship of column node to upstream dep
                             final_edge_requests.append(CreateLineageEdgeV2Request(
                                 upstream_data_node_id=r.upstream.data_node_id,
+                                downstream_data_node_id=etl_column_node.data_node_id,
+                                relationship_type=RelationshipType.RELATIONSHIP_TYPE_LINEAGE
+                            ))
+                            count_successful_relations += 1
+                        else:
+                            "Skipping request because the relationship already exists."
+                            count_skipped_relations += 1
+
+                        etl_column_downstream_deps = self.existing_relations.get(etl_column_node.data_node_id, None)
+                        if etl_column_downstream_deps is None or r.downstream.data_node_id not in etl_column_downstream_deps:
+                            log.info(
+                                f"Adding request for {etl_column_node.container_name} {etl_column_node.name} to {r.downstream.name}")
+                            # lineage relationship of column node to downstream dep
+                            final_edge_requests.append(CreateLineageEdgeV2Request(
+                                upstream_data_node_id=etl_column_node.data_node_id,
                                 downstream_data_node_id=r.downstream.data_node_id,
                                 relationship_type=RelationshipType.RELATIONSHIP_TYPE_LINEAGE
                             ))
@@ -426,99 +546,109 @@ class LineageController:
                         else:
                             "Skipping request because the relationship already exists."
                             count_skipped_relations += 1
-                    elif r.etl_task:
-                        # If etl_task exists, then create a single custom node for etl_task container name
-                        # then for every subproject create a custom node
-                        # then for all output columns create a custom node entry
-                        task = self._get_or_set_custom_node(custom_node=r.etl_task)
-                        self._get_existing_relations_for_nodes([task.data_node_id, r.upstream.data_node_id])
-                        source_to_etl_deps = self.existing_relations.get(r.upstream.data_node_id, None)
-                        etl_downstream_deps = self.existing_relations.get(task.data_node_id, None)
 
-                        if isinstance(r.upstream, TableColumn) or isinstance(r.upstream, SimpleCustomNode):
-                            # new column node
-                            etl_custom_column_node = SimpleCustomNode(
-                                name=r.upstream.name,
-                                container_name=r.etl_task.name,
-                                container_node_id=task.data_node_id,
-                                node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY
-                            )
-                            etl_column_node = self._get_or_set_custom_node(etl_custom_column_node)
-                            # containment relationship of column node with task
-                            if etl_column_node.data_node_id not in etl_downstream_deps:
-                                final_edge_requests.append(CreateLineageEdgeV2Request(
-                                    upstream_data_node_id=task.data_node_id,
-                                    downstream_data_node_id=etl_column_node.data_node_id,
-                                    relationship_type=RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
-                                ))
-
-                            if source_to_etl_deps is None or etl_column_node.data_node_id not in source_to_etl_deps:
-                                log.info(f"Adding request for {r.upstream.name} to {etl_column_node.container_name} {etl_column_node.name}")
-                                # lineage relationship of column node to upstream dep
-                                final_edge_requests.append(CreateLineageEdgeV2Request(
-                                    upstream_data_node_id=r.upstream.data_node_id,
-                                    downstream_data_node_id=etl_column_node.data_node_id,
-                                    relationship_type=RelationshipType.RELATIONSHIP_TYPE_LINEAGE
-                                ))
-                                count_successful_relations += 1
-                            else:
-                                "Skipping request because the relationship already exists."
-                                count_skipped_relations += 1
-
-                            etl_column_downstream_deps = self.existing_relations.get(etl_column_node.data_node_id, None)
-                            if etl_column_downstream_deps is None or r.downstream.data_node_id not in etl_column_downstream_deps:
-                                log.info(
-                                    f"Adding request for {etl_column_node.container_name} {etl_column_node.name} to {r.downstream.name}")
-                                # lineage relationship of column node to downstream dep
-                                final_edge_requests.append(CreateLineageEdgeV2Request(
-                                    upstream_data_node_id=etl_column_node.data_node_id,
-                                    downstream_data_node_id=r.downstream.data_node_id,
-                                    relationship_type=RelationshipType.RELATIONSHIP_TYPE_LINEAGE
-                                ))
-                                count_successful_relations += 1
-                            else:
-                                "Skipping request because the relationship already exists."
-                                count_skipped_relations += 1
-
+                    # Ensure all downstream table columns have corresponding ETL task columns
+                    # Only process once per (etl_task, downstream_table) pair to avoid duplicates
+                    if isinstance(r.downstream, TableColumn):
+                        # Check cache first to avoid repeated API calls for the same table
+                        if r.downstream.id not in column_to_table_cache:
+                            # Get the table associated with this column
+                            column_with_table = self.client.get_columns(column_ids=[r.downstream.id]).columns[0]
+                            downstream_table = self.client.get_tables_post(
+                                table_ids=[column_with_table.table.id],
+                                include_data_node_ids=True,
+                                ignore_fields=False
+                            ).tables[0]
+                            column_to_table_cache[r.downstream.id] = downstream_table
                         else:
-                            if source_to_etl_deps is None or task.data_node_id not in source_to_etl_deps:
-                                self.create_edges(
-                                    upstream=r.upstream,
-                                    downstream=task,
-                                    node_type=r.node_type
-                                )
-                                count_successful_relations += 1
-                            else:
-                                "Skipping request because the relationship already exists."
-                                count_skipped_relations += 1
+                            downstream_table = column_to_table_cache[r.downstream.id]
 
-                            if etl_downstream_deps is None or r.downstream.data_node_id not in etl_downstream_deps:
-                                self.create_edges(
-                                    upstream=task,
-                                    downstream=r.downstream,
-                                    node_type=r.node_type
+                        etl_downstream_pair = (task.data_node_id, downstream_table.id)
+                        if etl_downstream_pair not in self.processed_etl_downstream_pairs:
+                            self.processed_etl_downstream_pairs.add(etl_downstream_pair)
+                            log.info(f"Ensuring all {len(downstream_table.columns)} columns in {downstream_table.name} have ETL task columns")
+
+                            # Get existing ETL children to avoid unnecessary searches
+                            etl_children_nodes = self.client.get_catalog_entity_children(
+                                node_id=task.data_node_id,
+                                node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM
+                            ).entities
+
+                            for column in downstream_table.columns:
+                                etl_col = next(
+                                    (c for c in etl_children_nodes if c.node_name.lower() == column.name.lower()),
+                                    None
                                 )
-                                count_successful_relations += 1
-                            else:
-                                "Skipping request because the relationship already exists."
-                                count_skipped_relations += 1
+                                if etl_col is None:
+                                    etl_col_node = SimpleCustomNode(
+                                        name=column.name,
+                                        container_name=r.etl_task.name,
+                                        container_node_id=task.data_node_id,
+                                        node_type=DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY
+                                    )
+                                    etl_col = self._get_or_set_custom_node(etl_col_node)
+                                    final_edge_requests.append(CreateLineageEdgeV2Request(
+                                        upstream_data_node_id=task.data_node_id,
+                                        downstream_data_node_id=etl_col.data_node_id,
+                                        relationship_type=RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
+                                    ))
+
+                                final_edge_requests.append(CreateLineageEdgeV2Request(
+                                    upstream_data_node_id=etl_col.data_node_id,
+                                    downstream_data_node_id=column.data_node_id,
+                                    relationship_type=RelationshipType.RELATIONSHIP_TYPE_LINEAGE
+                                ))
+
                     else:
-                        "Skipping request because the relationship already exists."
-                        count_skipped_relations += 1
-                except Exception as e:
-                    log.error(
-                        f"Failed to create relationship between upstream {r.node_type.name}: {r.upstream.name} and "
-                        f"downstream {r.node_type.name}: {r.downstream.name}. Exception {e}"
-                    )
-                    count_failed_relations += 1
+                        if source_to_etl_deps is None or task.data_node_id not in source_to_etl_deps:
+                            self.create_edges(
+                                upstream=r.upstream,
+                                downstream=task,
+                                node_type=r.node_type
+                            )
+                            count_successful_relations += 1
+                        else:
+                            "Skipping request because the relationship already exists."
+                            count_skipped_relations += 1
 
-            # Make the lineage request
-            cleansed_requests = []
-            for r in final_edge_requests:
-                if r.upstream_data_node_id != r.downstream_data_node_id:
-                    cleansed_requests.append(r)
-            self.client.bulk_create_lineage_edges(cleansed_requests)
-            progress.update(1)
+                        if etl_downstream_deps is None or r.downstream.data_node_id not in etl_downstream_deps:
+                            self.create_edges(
+                                upstream=task,
+                                downstream=r.downstream,
+                                node_type=r.node_type
+                            )
+                            count_successful_relations += 1
+                        else:
+                            "Skipping request because the relationship already exists."
+                            count_skipped_relations += 1
+                else:
+                    "Skipping request because the relationship already exists."
+                    count_skipped_relations += 1
+            except Exception as e:
+                log.error(
+                    f"Failed to create relationship between upstream {r.node_type.name}: {r.upstream.name} and "
+                    f"downstream {r.node_type.name}: {r.downstream.name}. Exception {e}"
+                )
+                count_failed_relations += 1
+
+        # Make the lineage request
+        cleansed_requests = []
+        for r in final_edge_requests:
+            if r.upstream_data_node_id != r.downstream_data_node_id:
+                cleansed_requests.append(r)
+
+        # Submit edges in chunks of 100 to avoid overloading the API
+        chunk_size = 100
+        total_requests = len(cleansed_requests)
+        if total_requests > 0:
+            log.info(f"Submitting {total_requests} lineage edges in chunks of {chunk_size}")
+            for i in range(0, total_requests, chunk_size):
+                chunk = cleansed_requests[i:i + chunk_size]
+                log.info(f"Submitting chunk {i // chunk_size + 1}/{(total_requests + chunk_size - 1) // chunk_size} ({len(chunk)} edges)")
+                self.client.bulk_create_lineage_edges(chunk)
+            log.info(f"Successfully submitted all {total_requests} lineage edges")
+        else:
+            log.info("No lineage edges to submit")
 
         # Delete any custom nodes
         if purge_lineage:
@@ -528,54 +658,125 @@ class LineageController:
         logging.disable(level=logging.NOTSET)
 
         log.info(
-            f"\n------------LINEAGE REPORT--------------"
+            f"\n\n------------LINEAGE REPORT--------------"
             f"\nCreated {count_successful_relations} edges."
             f"\nSkipped {count_skipped_relations} edges. "
             f"\nDeleted {count_deleted_relations} edges. "
-            f"\nFailed {count_failed_relations} edges. "
+            f"\nFailed {count_failed_relations} edges. \n"
         )
+
+    def _prefetch_columns_and_tables(self, column_to_table_cache: Dict[int, Table]) -> None:
+        """
+        Pre-fetch all columns and tables needed for processing to avoid N individual API calls.
+        Populates the column_to_table_cache with column_id -> Table mappings.
+        """
+        # Collect all unique column IDs from edge requests where downstream is a TableColumn
+        column_ids = set()
+        for r in self.edge_requests:
+            if isinstance(r.downstream, TableColumn):
+                column_ids.add(r.downstream.id)
+
+        if not column_ids:
+            log.info("No table columns found in edge requests, skipping pre-fetch")
+            return
+
+        log.info(f"Pre-fetching {len(column_ids)} columns and their parent tables to optimize API calls")
+
+        # Batch fetch all columns
+        column_ids_list = list(column_ids)
+        try:
+            columns_response = self.client.get_columns(column_ids=column_ids_list)
+            columns = columns_response.columns
+            log.info(f"Fetched {len(columns)} columns in batch")
+
+            # Extract unique table IDs from the fetched columns
+            table_ids = list(set(col.table.id for col in columns if col.table))
+
+            if not table_ids:
+                log.warning("No table IDs found from fetched columns")
+                return
+
+            # Batch fetch all tables with full details
+            tables_response = self.client.get_tables_post(
+                table_ids=table_ids,
+                include_data_node_ids=True,
+                ignore_fields=False
+            )
+            tables = tables_response.tables
+            log.info(f"Fetched {len(tables)} unique tables in batch")
+
+            # Build table lookup by table_id
+            tables_by_id = {table.id: table for table in tables}
+
+            # Populate the cache: column_id -> Table
+            for col in columns:
+                if col.table and col.table.id in tables_by_id:
+                    column_to_table_cache[col.column.id] = tables_by_id[col.table.id]
+
+            log.info(f"Populated cache with {len(column_to_table_cache)} column-to-table mappings")
+
+        except Exception as e:
+            log.error(f"Failed to pre-fetch columns and tables: {str(e)}")
+            # Continue processing - the main loop will handle individual fetches as fallback
 
     def _get_existing_relations_for_nodes(self, node_ids: List[int]) -> None:
         """Get the existing relations for a schema. This is done at the top level to limit the number of requests
         that we have to make."""
         for nid in node_ids:
+            # Skip invalid node IDs
+            if not nid or nid == 0:
+                continue
             if self.existing_relations.get(nid, None) is None:
-                downstream_nodes = self.client.get_downstream_nodes(node_id=nid)
+                try:
+                    downstream_nodes = self.client.get_downstream_nodes(node_id=nid)
+                except Exception as e:
+                    log.error(f"Failed to get downstream nodes for node_id {nid}: {str(e)}")
+                    continue
+
                 for node in downstream_nodes.nodes.values():
                     # Not sure why but nodes in TableLineageV2Response is a Dict[int, dict].
                     ln_node = LineageNavigationNodeV2Response().from_dict(node)
                     self.existing_relations[ln_node.lineage_node.id] = [d.downstream_id for d in
                                                                         ln_node.downstream_edges]
-                    self.custom_node_search_cache.get(ln_node.lineage_node.node_name, []).append(ln_node.lineage_node)
+                    if ln_node.lineage_node.node_name not in self.custom_node_search_cache:
+                        self.custom_node_search_cache[ln_node.lineage_node.node_name] = []
+                    self.custom_node_search_cache[ln_node.lineage_node.node_name].append(ln_node.lineage_node)
 
     def _update_search_cache_for_node(self, node_id: int, node_name: Optional[str] = None, scan_upstream: bool = False):
-        if node_name is None or self.custom_node_search_cache.get(node_name, None) is None:
-            if scan_upstream:
-                custom_nodes = self.client.get_downstream_nodes(node_id=node_id, depth=1).nodes
-                for node_id, node in custom_nodes.items():
-                    ln_node: LineageNavigationNodeV2Response = LineageNavigationNodeV2Response().from_dict(node)
-                    for up_edge in ln_node.upstream_edges:
-                        if (up_edge.relationship_type == RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
-                                and ln_node.lineage_node.node_type in [DataNodeType.DATA_NODE_TYPE_CUSTOM,
-                                                                       DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY]):
-                            self.custom_nodes_ix_by_id[up_edge.downstream_id] = ln_node.lineage_node
-                            if self.custom_node_search_cache.get(ln_node.lineage_node.node_name, None) is None:
-                                self.custom_node_search_cache[ln_node.lineage_node.node_name] = [ln_node.lineage_node]
-                            else:
-                                self.custom_node_search_cache[ln_node.lineage_node.node_name].append(ln_node.lineage_node)
-            else:
-                custom_nodes = self.client.get_downstream_nodes(node_id=node_id, depth=1).nodes
-                for node_id, node in custom_nodes.items():
-                    ln_node: LineageNavigationNodeV2Response = LineageNavigationNodeV2Response().from_dict(node)
-                    for dn_edge in ln_node.downstream_edges:
-                        if (dn_edge.relationship_type == RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
-                                and ln_node.lineage_node.node_type in [DataNodeType.DATA_NODE_TYPE_CUSTOM,
-                                                                       DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY]):
-                            self.custom_nodes_ix_by_id[dn_edge.upstream_id] = ln_node.lineage_node
-                            if self.custom_node_search_cache.get(ln_node.lineage_node.node_name, None) is None:
-                                self.custom_node_search_cache[ln_node.lineage_node.node_name] = [ln_node.lineage_node]
-                            else:
-                                self.custom_node_search_cache[ln_node.lineage_node.node_name].append(ln_node.lineage_node)
+        # Skip if we've already scanned this node_id
+        if scan_upstream and node_id in self.cache_populated_node_ids:
+            return
+        try:
+            if node_name is None or self.custom_node_search_cache.get(node_name, None) is None:
+                if scan_upstream:
+                    custom_nodes = self.client.get_downstream_nodes(node_id=node_id, depth=1).nodes
+                    self.cache_populated_node_ids.add(node_id)  # Mark this node as scanned
+                    for node_id, node in custom_nodes.items():
+                        ln_node: LineageNavigationNodeV2Response = LineageNavigationNodeV2Response().from_dict(node)
+                        for up_edge in ln_node.upstream_edges:
+                            if (up_edge.relationship_type == RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
+                                    and ln_node.lineage_node.node_type in [DataNodeType.DATA_NODE_TYPE_CUSTOM,
+                                                                           DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY]):
+                                self.custom_nodes_ix_by_id[up_edge.downstream_id] = ln_node.lineage_node
+                                if self.custom_node_search_cache.get(ln_node.lineage_node.node_name, None) is None:
+                                    self.custom_node_search_cache[ln_node.lineage_node.node_name] = [ln_node.lineage_node]
+                                else:
+                                    self.custom_node_search_cache[ln_node.lineage_node.node_name].append(ln_node.lineage_node)
+                else:
+                    custom_nodes = self.client.get_downstream_nodes(node_id=node_id, depth=1).nodes
+                    for node_id, node in custom_nodes.items():
+                        ln_node: LineageNavigationNodeV2Response = LineageNavigationNodeV2Response().from_dict(node)
+                        for dn_edge in ln_node.downstream_edges:
+                            if (dn_edge.relationship_type == RelationshipType.RELATIONSHIP_TYPE_CONTAINMENT
+                                    and ln_node.lineage_node.node_type in [DataNodeType.DATA_NODE_TYPE_CUSTOM,
+                                                                           DataNodeType.DATA_NODE_TYPE_CUSTOM_ENTRY]):
+                                self.custom_nodes_ix_by_id[dn_edge.upstream_id] = ln_node.lineage_node
+                                if self.custom_node_search_cache.get(ln_node.lineage_node.node_name, None) is None:
+                                    self.custom_node_search_cache[ln_node.lineage_node.node_name] = [ln_node.lineage_node]
+                                else:
+                                    self.custom_node_search_cache[ln_node.lineage_node.node_name].append(ln_node.lineage_node)
+        except Exception as e:
+            log.error(f"Failed to update search cache for node {node_id}: {str(e)}")
 
     def _execute_lineage_workflow_from_selectors(self, selectors: List[str]):
         source_ids = []
@@ -602,7 +803,11 @@ class LineageController:
         task = self._search_custom_nodes(custom_node=etl_task)
 
         # Get all downstream nodes from that task container
-        nodes = self.client.get_downstream_nodes(node_id=task.id).nodes
+        try:
+            nodes = self.client.get_downstream_nodes(node_id=task.id).nodes
+        except Exception as e:
+            log.error(f"Failed to get downstream nodes for node_id {task.id}: {str(e)}")
+            return {}
 
         # Loop through all downstream nodes
         node_response = {}
@@ -697,18 +902,20 @@ class LineageController:
 
     def infer_relations_from_database_tables(self,
                                              r: LineageConfiguration,
-                                             process_requests: Optional[bool] = False):
+                                             process_requests: Optional[bool] = False,
+                                             match_by_name: Optional[bool] = True):
         matching_tables: List[Tuple[Table, Table, SimpleCustomNode]] = []
 
         upstream_tables: List[Table] = self.get_tables_from_selector(f'{r.upstream_schema_name}.*')
         downstream_tables: List[Table] = self.get_tables_from_selector(f'{r.downstream_schema_name}.*')
 
-        matching_tables_by_name = self.infer_relationships_from_lists(
-            upstream=upstream_tables,
-            downstream=downstream_tables,
-            task=r.etl_task
-        )
-        matching_tables.extend(matching_tables_by_name)
+        if match_by_name:
+            matching_tables_by_name = self.infer_relationships_from_lists(
+                upstream=upstream_tables,
+                downstream=downstream_tables,
+                task=r.etl_task
+            )
+            matching_tables.extend(matching_tables_by_name)
 
         # index tables by name for reference later
         upstream_tables_ix_by_name: Dict[str, Table] = {t.name: t for t in upstream_tables}
@@ -767,14 +974,17 @@ class LineageController:
                                 )
                             )
 
-        self.infer_column_level_lineage_from_tables(tables=matching_tables, process_requests=process_requests)
+        self.infer_column_level_lineage_from_tables(tables=matching_tables, process_requests=process_requests, match_by_name=match_by_name)
 
     def infer_column_level_lineage_from_file(
-            self, lineage_configuration_file: SimpleLineageConfigurationFile, purge_lineage: bool = False
+            self,
+            lineage_configuration_file: SimpleLineageConfigurationFile,
+            purge_lineage: bool = False,
+            match_by_name: bool = True
     ):
         for r in lineage_configuration_file.relations:
             if not r.has_custom:
-                self.infer_relations_from_database_tables(r)
+                self.infer_relations_from_database_tables(r=r, match_by_name=match_by_name)
             else:
                 if r.etl_task is not None:
                     task = self._get_or_set_custom_node(r.etl_task)
@@ -816,7 +1026,7 @@ class LineageController:
                     if r.has_custom_upstream:
                         upstream_table_custom_node = SimpleCustomNode(
                             name=t_override.upstream_table_name,
-                            container_name=f"{up_database}.{up_schema}",
+                            container_name=up_schema,
                             container_node_id=upstream_schema.data_node_id,
                         )
                         upstream_table = self._get_or_set_custom_node(upstream_table_custom_node)
@@ -840,7 +1050,7 @@ class LineageController:
                     if r.has_custom_downstream:
                         downstream_table_custom_node = SimpleCustomNode(
                             name=t_override.downstream_table_name,
-                            container_name=f"{dn_database}.{dn_schema}",
+                            container_name=dn_schema,
                             container_node_id=downstream_schema.data_node_id
                         )
                         downstream_table = self._get_or_set_custom_node(downstream_table_custom_node)
@@ -925,7 +1135,13 @@ class LineageController:
                             )
                             upstream_column = self._get_or_set_custom_node(upstream_column_custom_node)
                         else:
-                            upstream_column = next(c for c in upstream_table.columns if c.name == col_override.upstream_column_name)
+                            upstream_column = next((c for c in upstream_table.columns if c.name == col_override.upstream_column_name), None)
+                            if upstream_column is None:
+                                log.warning(
+                                    f"Skipping column lineage: Column '{col_override.upstream_column_name}' not found in upstream table '{upstream_table.name}'. "
+                                    f"Available columns: {[c.name for c in upstream_table.columns]}"
+                                )
+                                continue
 
                         # If downstream is custom, find or create the custom downstream column node (convert to custom_entry)
                         if r.has_custom_downstream:
@@ -937,7 +1153,13 @@ class LineageController:
                             )
                             downstream_column = self._get_or_set_custom_node(downstream_column_custom_node)
                         else:
-                            downstream_column = next(c for c in downstream_table.columns if c.name == col_override.downstream_column_name)
+                            downstream_column = next((c for c in downstream_table.columns if c.name == col_override.downstream_column_name), None)
+                            if downstream_column is None:
+                                log.warning(
+                                    f"Skipping column lineage: Column '{col_override.downstream_column_name}' not found in downstream table '{downstream_table.name}'. "
+                                    f"Available columns: {[c.name for c in downstream_table.columns]}"
+                                )
+                                continue
 
                         # Create a lineage edge between the upstream and downstream column nodes
                         self.edge_requests.append(
@@ -965,21 +1187,15 @@ class LineageController:
             self,
             tables: List[Tuple[Union[Table, SimpleCustomNode], Union[Table, SimpleCustomNode], Optional[SimpleCustomNode]]],
             purge_lineage: Optional[bool] = False,
-            process_requests: Optional[bool] = True
+            process_requests: Optional[bool] = True,
+            match_by_name: Optional[bool] = True
     ):
         for upstream, downstream, etl_task in tables:
-            matching_columns: List[
-                Tuple[TableColumn, TableColumn, SimpleCustomNode]] = self.infer_relationships_from_lists(
-                upstream=upstream.columns, downstream=downstream.columns, task=etl_task
-            )
-            if not matching_columns and upstream.data_node_id != downstream.data_node_id:
-                self.edge_requests.append(
-                    SimpleLineageEdgeRequest(
-                        upstream=upstream,
-                        downstream=downstream,
-                        node_type=DataNodeType.DATA_NODE_TYPE_TABLE,
-                        etl_task=etl_task
-                    )
+            matching_columns = []
+            if match_by_name:
+                matching_columns: List[
+                    Tuple[TableColumn, TableColumn, SimpleCustomNode]] = self.infer_relationships_from_lists(
+                    upstream=upstream.columns, downstream=downstream.columns, task=etl_task
                 )
 
             for up_column, down_column, task in matching_columns:

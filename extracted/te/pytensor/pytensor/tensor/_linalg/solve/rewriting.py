@@ -3,9 +3,13 @@ from copy import copy
 
 from pytensor.compile import optdb
 from pytensor.graph import Constant, graph_inputs
-from pytensor.graph.rewriting.basic import copy_stack_trace, in2out, node_rewriter
+from pytensor.graph.rewriting.basic import copy_stack_trace, dfs_rewriter, node_rewriter
 from pytensor.scan.op import Scan
 from pytensor.scan.rewriting import scan_seqopt1
+from pytensor.tensor._linalg.solve.linear_control import (
+    SolveBilinearDiscreteLyapunov,
+    solve_discrete_lyapunov,
+)
 from pytensor.tensor._linalg.solve.tridiagonal import (
     tridiagonal_lu_factor,
     tridiagonal_lu_solve,
@@ -14,19 +18,19 @@ from pytensor.tensor.basic import atleast_Nd
 from pytensor.tensor.blockwise import Blockwise
 from pytensor.tensor.elemwise import DimShuffle
 from pytensor.tensor.rewriting.basic import register_specialize
+from pytensor.tensor.rewriting.blockwise import blockwise_of
 from pytensor.tensor.rewriting.linalg import is_matrix_transpose
 from pytensor.tensor.slinalg import Solve, cho_solve, cholesky, lu_factor, lu_solve
 from pytensor.tensor.variable import TensorVariable
 
 
-def decompose_A(A, assume_a, check_finite, lower):
+def decompose_A(A, assume_a, lower):
     if assume_a == "gen":
-        return lu_factor(A, check_finite=check_finite)
+        return lu_factor(A)
     elif assume_a == "tridiagonal":
-        # We didn't implement check_finite for tridiagonal LU factorization
         return tridiagonal_lu_factor(A)
     elif assume_a == "pos":
-        return cholesky(A, lower=lower, check_finite=check_finite)
+        return cholesky(A, lower=lower)
     else:
         raise NotImplementedError
 
@@ -35,7 +39,6 @@ def solve_decomposed_system(
     A_decomp, b, transposed=False, lower=False, *, core_solve_op: Solve
 ):
     b_ndim = core_solve_op.b_ndim
-    check_finite = core_solve_op.check_finite
     assume_a = core_solve_op.assume_a
 
     if assume_a == "gen":
@@ -44,10 +47,8 @@ def solve_decomposed_system(
             b,
             b_ndim=b_ndim,
             trans=transposed,
-            check_finite=check_finite,
         )
     elif assume_a == "tridiagonal":
-        # We didn't implement check_finite for tridiagonal LU solve
         return tridiagonal_lu_solve(
             A_decomp,
             b,
@@ -60,7 +61,6 @@ def solve_decomposed_system(
             (A_decomp, lower),
             b,
             b_ndim=b_ndim,
-            check_finite=check_finite,
         )
     else:
         raise NotImplementedError
@@ -140,17 +140,8 @@ def _split_decomp_and_solve_steps(
         ):
             return None
 
-    # If any Op had check_finite=True, we also do it for the LU decomposition
-    check_finite_decomp = False
-    for client, _ in A_solve_clients_and_transpose:
-        if client.op.core_op.check_finite:
-            check_finite_decomp = True
-            break
-
     lower = node.op.core_op.lower
-    A_decomp = decompose_A(
-        A, assume_a=assume_a, check_finite=check_finite_decomp, lower=lower
-    )
+    A_decomp = decompose_A(A, assume_a=assume_a, lower=lower)
 
     replacements = {}
     for client, transposed in A_solve_clients_and_transpose:
@@ -189,7 +180,7 @@ def _scan_split_non_sequence_decomposition_and_solve(
                 and isinstance(inner_node.op.core_op, Solve)
                 and inner_node.op.core_op.assume_a in allowed_assume_a
             ):
-                A, b = inner_node.inputs
+                A, _b = inner_node.inputs
                 if all(
                     (isinstance(root_inp, Constant) or (root_inp in non_sequences))
                     for root_inp in graph_inputs([A])
@@ -206,9 +197,9 @@ def _scan_split_non_sequence_decomposition_and_solve(
                         eager=True,
                         allowed_assume_a=allowed_assume_a,
                     )
-                    assert (
-                        isinstance(replace_dict, dict) and len(replace_dict) > 0
-                    ), "Rewrite failed"
+                    assert isinstance(replace_dict, dict) and len(replace_dict) > 0, (
+                        "Rewrite failed"
+                    )
                     new_scan_fgraph.replace_all(replace_dict.items())
                     changed = True
                     break  # Break to start over with a fresh toposort
@@ -227,7 +218,7 @@ def _scan_split_non_sequence_decomposition_and_solve(
 
 
 @register_specialize
-@node_rewriter([Blockwise])
+@node_rewriter([blockwise_of(Solve)])
 def reuse_decomposition_multiple_solves(fgraph, node):
     return _split_decomp_and_solve_steps(
         fgraph, node, eager=False, allowed_assume_a={"gen", "tridiagonal", "pos"}
@@ -243,7 +234,7 @@ def scan_split_non_sequence_decomposition_and_solve(fgraph, node):
 
 scan_seqopt1.register(
     scan_split_non_sequence_decomposition_and_solve.__name__,
-    in2out(scan_split_non_sequence_decomposition_and_solve, ignore_newtrees=True),
+    dfs_rewriter(scan_split_non_sequence_decomposition_and_solve, ignore_newtrees=True),
     "fast_run",
     "scan",
     "scan_pushout",
@@ -260,7 +251,7 @@ def reuse_decomposition_multiple_solves_jax(fgraph, node):
 
 optdb["specialize"].register(
     reuse_decomposition_multiple_solves_jax.__name__,
-    in2out(reuse_decomposition_multiple_solves_jax, ignore_newtrees=True),
+    dfs_rewriter(reuse_decomposition_multiple_solves_jax, ignore_newtrees=True),
     "jax",
     use_db_name_as_tag=False,
 )
@@ -275,8 +266,43 @@ def scan_split_non_sequence_decomposition_and_solve_jax(fgraph, node):
 
 scan_seqopt1.register(
     scan_split_non_sequence_decomposition_and_solve_jax.__name__,
-    in2out(scan_split_non_sequence_decomposition_and_solve_jax, ignore_newtrees=True),
+    dfs_rewriter(
+        scan_split_non_sequence_decomposition_and_solve_jax, ignore_newtrees=True
+    ),
     "jax",
     use_db_name_as_tag=False,
     position=2,
+)
+
+
+def _load_solve_sylvester():
+    # Thin import wrapper to help with testing
+    from jax.scipy.linalg import solve_sylvester
+
+    return solve_sylvester
+
+
+@node_rewriter([SolveBilinearDiscreteLyapunov])
+def jax_bilinear_lyapunov_to_direct(fgraph, node):
+    """
+    Replace SolveBilinearDiscreteLyapunov with a direct computation that is supported by JAX < 0.8
+    """
+    try:
+        _load_solve_sylvester()
+        return None
+
+    except ImportError:
+        # solve_sylvester is only available in jax > 0.8, which is not available on conda-forge.
+        # If it's not available, we can drop back to method="direct"
+        A, B = node.inputs
+        result = solve_discrete_lyapunov(A, B, method="direct")
+
+        return [result]
+
+
+optdb.register(
+    "jax_bilinear_lyapunov_to_direct",
+    dfs_rewriter(jax_bilinear_lyapunov_to_direct),
+    "jax",
+    position=0.9,  # Run before canonicalization
 )

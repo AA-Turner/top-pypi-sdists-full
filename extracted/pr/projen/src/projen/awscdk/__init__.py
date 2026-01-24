@@ -83,6 +83,7 @@ from ..java import (
     ProjenrcOptions as _ProjenrcOptions_65cd3dd8,
 )
 from ..javascript import (
+    AuditOptions as _AuditOptions_429c62df,
     BiomeOptions as _BiomeOptions_452ab984,
     BuildWorkflowOptions as _BuildWorkflowOptions_b756f97f,
     BundlerOptions as _BundlerOptions_d60b85ed,
@@ -107,6 +108,7 @@ from ..python import (
     PytestOptions as _PytestOptions_b400bccc,
     PythonProject as _PythonProject_f6db8592,
     PythonProjectOptions as _PythonProjectOptions_588b0f81,
+    UvOptions as _UvOptions_49201464,
     VenvOptions as _VenvOptions_8ea2b226,
 )
 from ..release import (
@@ -160,7 +162,7 @@ class AutoDiscover(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         edge_lambda_auto_discover: typing.Optional[builtins.bool] = None,
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
@@ -289,7 +291,7 @@ class AwsCdkConstructLibrary(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        catalog: typing.Optional[typing.Union[_Catalog_baa0a70e, typing.Dict[builtins.str, typing.Any]]] = None,
+        catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -306,14 +308,14 @@ class AwsCdkConstructLibrary(
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
-        publish_to_go: typing.Optional[typing.Union[_JsiiGoTarget_921d41d5, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_maven: typing.Optional[typing.Union[_JsiiJavaTarget_1ed05aaa, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_nuget: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_pypi: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_go: typing.Optional[typing.Union["_JsiiGoTarget_921d41d5", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["_JsiiJavaTarget_1ed05aaa", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
@@ -321,75 +323,77 @@ class AwsCdkConstructLibrary(
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -402,7 +406,7 @@ class AwsCdkConstructLibrary(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -413,61 +417,62 @@ class AwsCdkConstructLibrary(
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param edge_lambda_auto_discover: (experimental) Automatically adds an ``cloudfront.experimental.EdgeFunction`` for each ``.edge-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
@@ -522,7 +527,9 @@ class AwsCdkConstructLibrary(
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -536,7 +543,7 @@ class AwsCdkConstructLibrary(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -558,7 +565,7 @@ class AwsCdkConstructLibrary(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -650,6 +657,7 @@ class AwsCdkConstructLibrary(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -711,6 +719,8 @@ class AwsCdkConstructLibrary(
             typescript_version=typescript_version,
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
+            audit_deps=audit_deps,
+            audit_deps_options=audit_deps_options,
             auto_approve_upgrades=auto_approve_upgrades,
             biome=biome,
             biome_options=biome_options,
@@ -839,6 +849,7 @@ class AwsCdkConstructLibrary(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -920,9 +931,9 @@ class AwsCdkDeps(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        dependency_type: _DependencyType_6b786d68,
+        dependency_type: "_DependencyType_6b786d68",
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -1304,9 +1315,9 @@ class AwsCdkDepsJava(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        dependency_type: _DependencyType_6b786d68,
+        dependency_type: "_DependencyType_6b786d68",
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -1371,9 +1382,9 @@ class AwsCdkDepsJs(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        dependency_type: _DependencyType_6b786d68,
+        dependency_type: "_DependencyType_6b786d68",
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -1455,7 +1466,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         cdk_test_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version_pinning: typing.Optional[builtins.bool] = None,
         constructs_version: typing.Optional[builtins.str] = None,
-        dependency_type: _DependencyType_6b786d68,
+        dependency_type: "_DependencyType_6b786d68",
     ) -> None:
         '''
         :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
@@ -1631,7 +1642,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dependency_type(self) -> _DependencyType_6b786d68:
+    def dependency_type(self) -> "_DependencyType_6b786d68":
         '''(experimental) The type of dependency to use for runtime AWS CDK and ``constructs`` modules.
 
         For libraries, use peer dependencies and for apps use runtime dependencies.
@@ -1640,7 +1651,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         '''
         result = self._values.get("dependency_type")
         assert result is not None, "Required property 'dependency_type' is missing"
-        return typing.cast(_DependencyType_6b786d68, result)
+        return typing.cast("_DependencyType_6b786d68", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1666,9 +1677,9 @@ class AwsCdkDepsPy(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        dependency_type: _DependencyType_6b786d68,
+        dependency_type: "_DependencyType_6b786d68",
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -1741,8 +1752,8 @@ class AwsCdkJavaApp(
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -1754,51 +1765,52 @@ class AwsCdkJavaApp(
         cdk_test_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version_pinning: typing.Optional[builtins.bool] = None,
         constructs_version: typing.Optional[builtins.str] = None,
-        compile_options: typing.Optional[typing.Union[_MavenCompileOptions_c5c0ec48, typing.Dict[builtins.str, typing.Any]]] = None,
+        compile_options: typing.Optional[typing.Union["_MavenCompileOptions_c5c0ec48", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         distdir: typing.Optional[builtins.str] = None,
         junit: typing.Optional[builtins.bool] = None,
-        junit_options: typing.Optional[typing.Union[_JunitOptions_e5b597b7, typing.Dict[builtins.str, typing.Any]]] = None,
-        packaging_options: typing.Optional[typing.Union[_MavenPackagingOptions_bc96fb36, typing.Dict[builtins.str, typing.Any]]] = None,
+        junit_options: typing.Optional[typing.Union["_JunitOptions_e5b597b7", typing.Dict[builtins.str, typing.Any]]] = None,
+        packaging_options: typing.Optional[typing.Union["_MavenPackagingOptions_bc96fb36", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_java: typing.Optional[builtins.bool] = None,
-        projenrc_java_options: typing.Optional[typing.Union[_ProjenrcOptions_65cd3dd8, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_java_options: typing.Optional[typing.Union["_ProjenrcOptions_65cd3dd8", typing.Dict[builtins.str, typing.Any]]] = None,
         test_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         artifact_id: builtins.str,
         group_id: builtins.str,
         version: builtins.str,
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
-        parent_pom: typing.Optional[typing.Union[_ParentPom_46a11bd9, typing.Dict[builtins.str, typing.Any]]] = None,
+        parent_pom: typing.Optional[typing.Union["_ParentPom_46a11bd9", typing.Dict[builtins.str, typing.Any]]] = None,
         url: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param main_class: (experimental) The name of the Java class with the static ``main()`` method. This method should call ``app.synth()`` on the CDK app. Default: "org.acme.MyApp"
@@ -1807,7 +1819,7 @@ class AwsCdkJavaApp(
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -1860,6 +1872,7 @@ class AwsCdkJavaApp(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -1928,6 +1941,7 @@ class AwsCdkJavaApp(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -1963,12 +1977,12 @@ class AwsCdkJavaApp(
 
     @builtins.property
     @jsii.member(jsii_name="cdkDeps")
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) CDK dependency management helper class.
 
         :stability: experimental
         '''
-        return typing.cast(AwsCdkDeps, jsii.get(self, "cdkDeps"))
+        return typing.cast("AwsCdkDeps", jsii.get(self, "cdkDeps"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTasks")
@@ -2137,23 +2151,24 @@ class AwsCdkPythonApp(
         pip: typing.Optional[builtins.bool] = None,
         poetry: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_python: typing.Optional[builtins.bool] = None,
-        projenrc_python_options: typing.Optional[typing.Union[_ProjenrcOptions_badb4e51, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_python_options: typing.Optional[typing.Union["_ProjenrcOptions_badb4e51", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcTsOptions_e3a2602d, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcTsOptions_e3a2602d", typing.Dict[builtins.str, typing.Any]]] = None,
         pytest: typing.Optional[builtins.bool] = None,
-        pytest_options: typing.Optional[typing.Union[_PytestOptions_b400bccc, typing.Dict[builtins.str, typing.Any]]] = None,
+        pytest_options: typing.Optional[typing.Union["_PytestOptions_b400bccc", typing.Dict[builtins.str, typing.Any]]] = None,
         sample: typing.Optional[builtins.bool] = None,
         sample_testdir: typing.Optional[builtins.str] = None,
         setuptools: typing.Optional[builtins.bool] = None,
+        uv: typing.Optional[builtins.bool] = None,
         venv: typing.Optional[builtins.bool] = None,
-        venv_options: typing.Optional[typing.Union[_VenvOptions_8ea2b226, typing.Dict[builtins.str, typing.Any]]] = None,
+        venv_options: typing.Optional[typing.Union["_VenvOptions_8ea2b226", typing.Dict[builtins.str, typing.Any]]] = None,
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -2165,22 +2180,22 @@ class AwsCdkPythonApp(
         cdk_test_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version_pinning: typing.Optional[builtins.bool] = None,
         constructs_version: typing.Optional[builtins.str] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -2190,21 +2205,23 @@ class AwsCdkPythonApp(
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[_PoetryPyprojectOptionsWithoutDeps_7947f35b, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["_PoetryPyprojectOptionsWithoutDeps_7947f35b", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["_UvOptions_49201464", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param app_entrypoint: (experimental) The CDK app's entrypoint (relative to the source directory, which is "src" by default). Default: "app.py"
@@ -2225,12 +2242,13 @@ class AwsCdkPythonApp(
         :param sample: (experimental) Include sample code and test if the relevant directories don't exist. Default: true
         :param sample_testdir: (experimental) Location of sample tests. Typically the same directory where project tests will be located. Default: "tests"
         :param setuptools: (experimental) Use setuptools with a setup.py script for packaging and publishing. Default: - true, unless poetry is true, then false
+        :param uv: (experimental) Use uv to manage your project dependencies, virtual environment, and (optional) packaging/publishing. Default: false
         :param venv: (experimental) Use venv to manage a virtual environment for installing dependencies inside. Default: - true, unless poetry is true, then false
         :param venv_options: (experimental) Venv options. Default: - defaults
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -2270,6 +2288,7 @@ class AwsCdkPythonApp(
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
         :param commit_generated: (experimental) Whether to commit the managed files by default. Default: true
@@ -2278,6 +2297,7 @@ class AwsCdkPythonApp(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -2305,6 +2325,7 @@ class AwsCdkPythonApp(
             sample=sample,
             sample_testdir=sample_testdir,
             setuptools=setuptools,
+            uv=uv,
             venv=venv,
             venv_options=venv_options,
             build_command=build_command,
@@ -2350,6 +2371,7 @@ class AwsCdkPythonApp(
             package_name=package_name,
             poetry_options=poetry_options,
             setup_config=setup_config,
+            uv_options=uv_options,
             python_exec=python_exec,
             name=name,
             commit_generated=commit_generated,
@@ -2358,6 +2380,7 @@ class AwsCdkPythonApp(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -2387,11 +2410,11 @@ class AwsCdkPythonApp(
 
     @builtins.property
     @jsii.member(jsii_name="cdkDeps")
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''
         :stability: experimental
         '''
-        return typing.cast(AwsCdkDeps, jsii.get(self, "cdkDeps"))
+        return typing.cast("AwsCdkDeps", jsii.get(self, "cdkDeps"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTasks")
@@ -2460,23 +2483,23 @@ class AwsCdkTypeScriptApp(
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -2490,61 +2513,63 @@ class AwsCdkTypeScriptApp(
         constructs_version: typing.Optional[builtins.str] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -2557,7 +2582,7 @@ class AwsCdkTypeScriptApp(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -2568,61 +2593,62 @@ class AwsCdkTypeScriptApp(
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param app: (experimental) The command line to execute in order to synthesize the CDK application (language specific).
@@ -2654,7 +2680,7 @@ class AwsCdkTypeScriptApp(
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -2669,7 +2695,9 @@ class AwsCdkTypeScriptApp(
         :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -2683,7 +2711,7 @@ class AwsCdkTypeScriptApp(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -2705,7 +2733,7 @@ class AwsCdkTypeScriptApp(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -2797,6 +2825,7 @@ class AwsCdkTypeScriptApp(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -2850,6 +2879,8 @@ class AwsCdkTypeScriptApp(
             constructs_version=constructs_version,
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
+            audit_deps=audit_deps,
+            audit_deps_options=audit_deps_options,
             auto_approve_upgrades=auto_approve_upgrades,
             biome=biome,
             biome_options=biome_options,
@@ -2978,6 +3009,7 @@ class AwsCdkTypeScriptApp(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -3020,11 +3052,11 @@ class AwsCdkTypeScriptApp(
 
     @builtins.property
     @jsii.member(jsii_name="cdkDeps")
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''
         :stability: experimental
         '''
-        return typing.cast(AwsCdkDeps, jsii.get(self, "cdkDeps"))
+        return typing.cast("AwsCdkDeps", jsii.get(self, "cdkDeps"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTasks")
@@ -3057,14 +3089,14 @@ class CdkConfig(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         app: builtins.str,
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -3074,7 +3106,7 @@ class CdkConfig(
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -3133,6 +3165,15 @@ class CdkConfig(
         return typing.cast(builtins.str, jsii.get(self, "cdkout"))
 
     @builtins.property
+    @jsii.member(jsii_name="context")
+    def context(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''(experimental) The context to write to cdk.json.
+
+        :stability: experimental
+        '''
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "context"))
+
+    @builtins.property
     @jsii.member(jsii_name="exclude")
     def exclude(self) -> typing.List[builtins.str]:
         '''(experimental) List of glob patterns to be excluded by CDK.
@@ -3152,12 +3193,12 @@ class CdkConfig(
 
     @builtins.property
     @jsii.member(jsii_name="json")
-    def json(self) -> _JsonFile_fa8164db:
+    def json(self) -> "_JsonFile_fa8164db":
         '''(experimental) Represents the JSON file.
 
         :stability: experimental
         '''
-        return typing.cast(_JsonFile_fa8164db, jsii.get(self, "json"))
+        return typing.cast("_JsonFile_fa8164db", jsii.get(self, "json"))
 
 
 @jsii.data_type(
@@ -3180,8 +3221,8 @@ class CdkConfigCommonOptions:
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -3190,7 +3231,7 @@ class CdkConfigCommonOptions:
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -3260,18 +3301,22 @@ class CdkConfigCommonOptions:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
-    def feature_flags(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Include all feature flags in cdk.json.
+    def feature_flags(self) -> typing.Optional["ICdkFeatureFlags"]:
+        '''(experimental) Feature flags that should be enabled in ``cdk.json``.
 
-        :default: true
+        Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying.
+        Unexpected changes may cause breaking changes in your CDK app.
+        You can overwrite any feature flag by passing it into the context field.
+
+        :default: - no feature flags are enabled by default
 
         :stability: experimental
         '''
         result = self._values.get("feature_flags")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Optional["ICdkFeatureFlags"], result)
 
     @builtins.property
-    def require_approval(self) -> typing.Optional[ApprovalLevel]:
+    def require_approval(self) -> typing.Optional["ApprovalLevel"]:
         '''(experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them.
 
         :default: ApprovalLevel.BROADENING
@@ -3279,7 +3324,7 @@ class CdkConfigCommonOptions:
         :stability: experimental
         '''
         result = self._values.get("require_approval")
-        return typing.cast(typing.Optional[ApprovalLevel], result)
+        return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3336,8 +3381,8 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         app: builtins.str,
@@ -3347,7 +3392,7 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -3421,18 +3466,22 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
-    def feature_flags(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Include all feature flags in cdk.json.
+    def feature_flags(self) -> typing.Optional["ICdkFeatureFlags"]:
+        '''(experimental) Feature flags that should be enabled in ``cdk.json``.
 
-        :default: true
+        Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying.
+        Unexpected changes may cause breaking changes in your CDK app.
+        You can overwrite any feature flag by passing it into the context field.
+
+        :default: - no feature flags are enabled by default
 
         :stability: experimental
         '''
         result = self._values.get("feature_flags")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Optional["ICdkFeatureFlags"], result)
 
     @builtins.property
-    def require_approval(self) -> typing.Optional[ApprovalLevel]:
+    def require_approval(self) -> typing.Optional["ApprovalLevel"]:
         '''(experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them.
 
         :default: ApprovalLevel.BROADENING
@@ -3440,7 +3489,7 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("require_approval")
-        return typing.cast(typing.Optional[ApprovalLevel], result)
+        return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3496,7 +3545,7 @@ class CdkTasks(
     :stability: experimental
     '''
 
-    def __init__(self, project: _Project_57d89203) -> None:
+    def __init__(self, project: "_Project_57d89203") -> None:
         '''
         :param project: -
 
@@ -3509,57 +3558,57 @@ class CdkTasks(
 
     @builtins.property
     @jsii.member(jsii_name="deploy")
-    def deploy(self) -> _Task_9fa875b6:
+    def deploy(self) -> "_Task_9fa875b6":
         '''(experimental) Deploys your app.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "deploy"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "deploy"))
 
     @builtins.property
     @jsii.member(jsii_name="destroy")
-    def destroy(self) -> _Task_9fa875b6:
+    def destroy(self) -> "_Task_9fa875b6":
         '''(experimental) Destroys all the stacks.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "destroy"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "destroy"))
 
     @builtins.property
     @jsii.member(jsii_name="diff")
-    def diff(self) -> _Task_9fa875b6:
+    def diff(self) -> "_Task_9fa875b6":
         '''(experimental) Diff against production.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "diff"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "diff"))
 
     @builtins.property
     @jsii.member(jsii_name="synth")
-    def synth(self) -> _Task_9fa875b6:
+    def synth(self) -> "_Task_9fa875b6":
         '''(experimental) Synthesizes your app.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "synth"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "synth"))
 
     @builtins.property
     @jsii.member(jsii_name="synthSilent")
-    def synth_silent(self) -> _Task_9fa875b6:
+    def synth_silent(self) -> "_Task_9fa875b6":
         '''(experimental) Synthesizes your app and suppresses stdout.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "synthSilent"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "synthSilent"))
 
     @builtins.property
     @jsii.member(jsii_name="watch")
-    def watch(self) -> _Task_9fa875b6:
+    def watch(self) -> "_Task_9fa875b6":
         '''(experimental) Watch task.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "watch"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "watch"))
 
 
 class ConstructLibraryAws(
@@ -3582,7 +3631,7 @@ class ConstructLibraryAws(
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        catalog: typing.Optional[typing.Union[_Catalog_baa0a70e, typing.Dict[builtins.str, typing.Any]]] = None,
+        catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -3599,14 +3648,14 @@ class ConstructLibraryAws(
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
-        publish_to_go: typing.Optional[typing.Union[_JsiiGoTarget_921d41d5, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_maven: typing.Optional[typing.Union[_JsiiJavaTarget_1ed05aaa, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_nuget: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_pypi: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_go: typing.Optional[typing.Union["_JsiiGoTarget_921d41d5", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["_JsiiJavaTarget_1ed05aaa", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
         disable_tsconfig_dev: typing.Optional[builtins.bool] = None,
@@ -3614,75 +3663,77 @@ class ConstructLibraryAws(
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -3695,7 +3746,7 @@ class ConstructLibraryAws(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3706,61 +3757,62 @@ class ConstructLibraryAws(
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param edge_lambda_auto_discover: (experimental) Automatically adds an ``cloudfront.experimental.EdgeFunction`` for each ``.edge-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
@@ -3815,7 +3867,9 @@ class ConstructLibraryAws(
         :param typescript_version: (experimental) TypeScript version to use. NOTE: Typescript is not semantically versioned and should remain on the same minor, so we recommend using a ``~`` dependency (e.g. ``~1.2.3``). Default: "latest"
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -3829,7 +3883,7 @@ class ConstructLibraryAws(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -3851,7 +3905,7 @@ class ConstructLibraryAws(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
@@ -3943,6 +3997,7 @@ class ConstructLibraryAws(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -4004,6 +4059,8 @@ class ConstructLibraryAws(
             typescript_version=typescript_version,
             default_release_branch=default_release_branch,
             artifacts_directory=artifacts_directory,
+            audit_deps=audit_deps,
+            audit_deps_options=audit_deps_options,
             auto_approve_upgrades=auto_approve_upgrades,
             biome=biome,
             biome_options=biome_options,
@@ -4132,6 +4189,7 @@ class ConstructLibraryAws(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -4154,11 +4212,11 @@ class EdgeLambdaAutoDiscover(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         srcdir: builtins.str,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
     ) -> None:
         '''
@@ -4197,7 +4255,7 @@ class EdgeLambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
     def __init__(
         self,
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
         srcdir: builtins.str,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4228,14 +4286,14 @@ class EdgeLambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
             self._values["lambda_options"] = lambda_options
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def tsconfig_path(self) -> builtins.str:
@@ -4278,6 +4336,44 @@ class EdgeLambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
         )
 
 
+@jsii.interface(jsii_type="projen.awscdk.ICdkFeatureFlags")
+class ICdkFeatureFlags(typing_extensions.Protocol):
+    '''
+    :stability: experimental
+
+    :subclassable: Yes
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="flags")
+    def flags(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: experimental
+        '''
+        ...
+
+
+class _ICdkFeatureFlagsProxy:
+    '''
+    :stability: experimental
+
+    :subclassable: Yes
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "projen.awscdk.ICdkFeatureFlags"
+
+    @builtins.property
+    @jsii.member(jsii_name="flags")
+    def flags(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "flags"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ICdkFeatureFlags).__jsii_proxy_class__ = lambda : _ICdkFeatureFlagsProxy
+
+
 class IntegrationTest(
     _IntegrationTestBase_1ddf7a96,
     metaclass=jsii.JSIIMeta,
@@ -4290,9 +4386,9 @@ class IntegrationTest(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         stacks: typing.Optional[typing.Sequence[builtins.str]] = None,
         destroy_after_deploy: typing.Optional[builtins.bool] = None,
         path_metadata: typing.Optional[builtins.bool] = None,
@@ -4329,21 +4425,21 @@ class IntegrationTest(
 
     @builtins.property
     @jsii.member(jsii_name="destroyTask")
-    def destroy_task(self) -> _Task_9fa875b6:
+    def destroy_task(self) -> "_Task_9fa875b6":
         '''(experimental) Destroy the integration test resources.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "destroyTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "destroyTask"))
 
     @builtins.property
     @jsii.member(jsii_name="watchTask")
-    def watch_task(self) -> _Task_9fa875b6:
+    def watch_task(self) -> "_Task_9fa875b6":
         '''(experimental) The watch task.
 
         :stability: experimental
         '''
-        return typing.cast(_Task_9fa875b6, jsii.get(self, "watchTask"))
+        return typing.cast("_Task_9fa875b6", jsii.get(self, "watchTask"))
 
 
 class IntegrationTestAutoDiscover(
@@ -4358,10 +4454,10 @@ class IntegrationTestAutoDiscover(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         integration_test_options: typing.Optional[typing.Union["IntegrationTestCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
         testdir: builtins.str,
     ) -> None:
@@ -4406,7 +4502,7 @@ class IntegrationTestAutoDiscoverOptions(
     def __init__(
         self,
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
         testdir: builtins.str,
         integration_test_options: typing.Optional[typing.Union["IntegrationTestCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4437,14 +4533,14 @@ class IntegrationTestAutoDiscoverOptions(
             self._values["integration_test_options"] = integration_test_options
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def tsconfig_path(self) -> builtins.str:
@@ -4584,7 +4680,7 @@ class IntegrationTestOptions(
         entrypoint: builtins.str,
         tsconfig_path: builtins.str,
         name: typing.Optional[builtins.str] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         stacks: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''(experimental) Options for ``IntegrationTest``.
@@ -4685,14 +4781,14 @@ class IntegrationTestOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def stacks(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4729,11 +4825,11 @@ class LambdaAutoDiscover(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         srcdir: builtins.str,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
     ) -> None:
         '''
@@ -4772,7 +4868,7 @@ class LambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
     def __init__(
         self,
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
         srcdir: builtins.str,
         lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4803,14 +4899,14 @@ class LambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
             self._values["lambda_options"] = lambda_options
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def tsconfig_path(self) -> builtins.str:
@@ -4865,14 +4961,14 @@ class LambdaExtension(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         entrypoint: builtins.str,
         construct_file: typing.Optional[builtins.str] = None,
         construct_name: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
+        bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         compatible_runtimes: typing.Optional[typing.Sequence["LambdaRuntime"]] = None,
     ) -> None:
         '''
@@ -4915,11 +5011,11 @@ class LambdaExtensionAutoDiscover(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
         srcdir: builtins.str,
         lambda_extension_options: typing.Optional[typing.Union["LambdaExtensionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
     ) -> None:
         '''
@@ -4958,7 +5054,7 @@ class LambdaExtensionAutoDiscoverOptions(AutoDiscoverCommonOptions):
     def __init__(
         self,
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
         srcdir: builtins.str,
         lambda_extension_options: typing.Optional[typing.Union["LambdaExtensionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4989,14 +5085,14 @@ class LambdaExtensionAutoDiscoverOptions(AutoDiscoverCommonOptions):
             self._values["lambda_extension_options"] = lambda_extension_options
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def tsconfig_path(self) -> builtins.str:
@@ -5053,7 +5149,7 @@ class LambdaExtensionCommonOptions:
     def __init__(
         self,
         *,
-        bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
+        bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         compatible_runtimes: typing.Optional[typing.Sequence["LambdaRuntime"]] = None,
     ) -> None:
         '''(experimental) Common options for creating lambda extensions.
@@ -5076,7 +5172,7 @@ class LambdaExtensionCommonOptions:
             self._values["compatible_runtimes"] = compatible_runtimes
 
     @builtins.property
-    def bundling_options(self) -> typing.Optional[_BundlingOptions_fc10f395]:
+    def bundling_options(self) -> typing.Optional["_BundlingOptions_fc10f395"]:
         '''(experimental) Bundling options for this AWS Lambda extension.
 
         If not specified the default bundling options specified for the project
@@ -5087,7 +5183,7 @@ class LambdaExtensionCommonOptions:
         :stability: experimental
         '''
         result = self._values.get("bundling_options")
-        return typing.cast(typing.Optional[_BundlingOptions_fc10f395], result)
+        return typing.cast(typing.Optional["_BundlingOptions_fc10f395"], result)
 
     @builtins.property
     def compatible_runtimes(self) -> typing.Optional[typing.List["LambdaRuntime"]]:
@@ -5127,9 +5223,9 @@ class LambdaExtensionOptions(LambdaExtensionCommonOptions):
     def __init__(
         self,
         *,
-        bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
+        bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         compatible_runtimes: typing.Optional[typing.Sequence["LambdaRuntime"]] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         entrypoint: builtins.str,
         construct_file: typing.Optional[builtins.str] = None,
         construct_name: typing.Optional[builtins.str] = None,
@@ -5174,7 +5270,7 @@ class LambdaExtensionOptions(LambdaExtensionCommonOptions):
             self._values["name"] = name
 
     @builtins.property
-    def bundling_options(self) -> typing.Optional[_BundlingOptions_fc10f395]:
+    def bundling_options(self) -> typing.Optional["_BundlingOptions_fc10f395"]:
         '''(experimental) Bundling options for this AWS Lambda extension.
 
         If not specified the default bundling options specified for the project
@@ -5185,7 +5281,7 @@ class LambdaExtensionOptions(LambdaExtensionCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("bundling_options")
-        return typing.cast(typing.Optional[_BundlingOptions_fc10f395], result)
+        return typing.cast(typing.Optional["_BundlingOptions_fc10f395"], result)
 
     @builtins.property
     def compatible_runtimes(self) -> typing.Optional[typing.List["LambdaRuntime"]]:
@@ -5197,14 +5293,14 @@ class LambdaExtensionOptions(LambdaExtensionCommonOptions):
         return typing.cast(typing.Optional[typing.List["LambdaRuntime"]], result)
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def entrypoint(self) -> builtins.str:
@@ -5305,14 +5401,14 @@ class LambdaFunction(
 
     def __init__(
         self,
-        project: _Project_57d89203,
+        project: "_Project_57d89203",
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         entrypoint: builtins.str,
         construct_file: typing.Optional[builtins.str] = None,
         construct_name: typing.Optional[builtins.str] = None,
         aws_sdk_connection_reuse: typing.Optional[builtins.bool] = None,
-        bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
+        bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["LambdaRuntime"] = None,
     ) -> None:
@@ -5326,7 +5422,7 @@ class LambdaFunction(
         :param aws_sdk_connection_reuse: (experimental) Whether to automatically reuse TCP connections when working with the AWS SDK for JavaScript. This sets the ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable to ``1``. Not applicable when ``edgeLambda`` is set to ``true`` because environment variables are not supported in Lambda@Edge. Default: true
         :param bundling_options: (experimental) Bundling options for this AWS Lambda function. If not specified the default bundling options specified for the project ``Bundler`` instance will be used. Default: - defaults
         :param edge_lambda: (experimental) Whether to create a ``cloudfront.experimental.EdgeFunction`` instead of a ``lambda.Function``. Default: false
-        :param runtime: (experimental) The node.js version to target. Default: Runtime.NODEJS_18_X
+        :param runtime: (experimental) The node.js version to target. Default: LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime available in the deployment region, determined at CDK synthesis time.
 
         :stability: experimental
         '''
@@ -5362,7 +5458,7 @@ class LambdaFunctionCommonOptions:
         self,
         *,
         aws_sdk_connection_reuse: typing.Optional[builtins.bool] = None,
-        bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
+        bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["LambdaRuntime"] = None,
     ) -> None:
@@ -5374,7 +5470,7 @@ class LambdaFunctionCommonOptions:
         :param aws_sdk_connection_reuse: (experimental) Whether to automatically reuse TCP connections when working with the AWS SDK for JavaScript. This sets the ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable to ``1``. Not applicable when ``edgeLambda`` is set to ``true`` because environment variables are not supported in Lambda@Edge. Default: true
         :param bundling_options: (experimental) Bundling options for this AWS Lambda function. If not specified the default bundling options specified for the project ``Bundler`` instance will be used. Default: - defaults
         :param edge_lambda: (experimental) Whether to create a ``cloudfront.experimental.EdgeFunction`` instead of a ``lambda.Function``. Default: false
-        :param runtime: (experimental) The node.js version to target. Default: Runtime.NODEJS_18_X
+        :param runtime: (experimental) The node.js version to target. Default: LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime available in the deployment region, determined at CDK synthesis time.
 
         :stability: experimental
         '''
@@ -5415,7 +5511,7 @@ class LambdaFunctionCommonOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def bundling_options(self) -> typing.Optional[_BundlingOptions_fc10f395]:
+    def bundling_options(self) -> typing.Optional["_BundlingOptions_fc10f395"]:
         '''(experimental) Bundling options for this AWS Lambda function.
 
         If not specified the default bundling options specified for the project
@@ -5426,7 +5522,7 @@ class LambdaFunctionCommonOptions:
         :stability: experimental
         '''
         result = self._values.get("bundling_options")
-        return typing.cast(typing.Optional[_BundlingOptions_fc10f395], result)
+        return typing.cast(typing.Optional["_BundlingOptions_fc10f395"], result)
 
     @builtins.property
     def edge_lambda(self) -> typing.Optional[builtins.bool]:
@@ -5443,7 +5539,10 @@ class LambdaFunctionCommonOptions:
     def runtime(self) -> typing.Optional["LambdaRuntime"]:
         '''(experimental) The node.js version to target.
 
-        :default: Runtime.NODEJS_18_X
+        :default:
+
+        LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime
+        available in the deployment region, determined at CDK synthesis time.
 
         :stability: experimental
         '''
@@ -5481,10 +5580,10 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         self,
         *,
         aws_sdk_connection_reuse: typing.Optional[builtins.bool] = None,
-        bundling_options: typing.Optional[typing.Union[_BundlingOptions_fc10f395, typing.Dict[builtins.str, typing.Any]]] = None,
+        bundling_options: typing.Optional[typing.Union["_BundlingOptions_fc10f395", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda: typing.Optional[builtins.bool] = None,
         runtime: typing.Optional["LambdaRuntime"] = None,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         entrypoint: builtins.str,
         construct_file: typing.Optional[builtins.str] = None,
         construct_name: typing.Optional[builtins.str] = None,
@@ -5494,7 +5593,7 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         :param aws_sdk_connection_reuse: (experimental) Whether to automatically reuse TCP connections when working with the AWS SDK for JavaScript. This sets the ``AWS_NODEJS_CONNECTION_REUSE_ENABLED`` environment variable to ``1``. Not applicable when ``edgeLambda`` is set to ``true`` because environment variables are not supported in Lambda@Edge. Default: true
         :param bundling_options: (experimental) Bundling options for this AWS Lambda function. If not specified the default bundling options specified for the project ``Bundler`` instance will be used. Default: - defaults
         :param edge_lambda: (experimental) Whether to create a ``cloudfront.experimental.EdgeFunction`` instead of a ``lambda.Function``. Default: false
-        :param runtime: (experimental) The node.js version to target. Default: Runtime.NODEJS_18_X
+        :param runtime: (experimental) The node.js version to target. Default: LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime available in the deployment region, determined at CDK synthesis time.
         :param cdk_deps: (experimental) AWS CDK dependency manager.
         :param entrypoint: (experimental) A path from the project root directory to a TypeScript file which contains the AWS Lambda handler entrypoint (exports a ``handler`` function). This is relative to the root directory of the project.
         :param construct_file: (experimental) The name of the generated TypeScript source file. This file should also be under the source tree. Default: - The name of the entrypoint file, with the ``-function.ts`` suffix instead of ``.lambda.ts``.
@@ -5550,7 +5649,7 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def bundling_options(self) -> typing.Optional[_BundlingOptions_fc10f395]:
+    def bundling_options(self) -> typing.Optional["_BundlingOptions_fc10f395"]:
         '''(experimental) Bundling options for this AWS Lambda function.
 
         If not specified the default bundling options specified for the project
@@ -5561,7 +5660,7 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         :stability: experimental
         '''
         result = self._values.get("bundling_options")
-        return typing.cast(typing.Optional[_BundlingOptions_fc10f395], result)
+        return typing.cast(typing.Optional["_BundlingOptions_fc10f395"], result)
 
     @builtins.property
     def edge_lambda(self) -> typing.Optional[builtins.bool]:
@@ -5578,7 +5677,10 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
     def runtime(self) -> typing.Optional["LambdaRuntime"]:
         '''(experimental) The node.js version to target.
 
-        :default: Runtime.NODEJS_18_X
+        :default:
+
+        LambdaRuntime.NODEJS_REGIONAL_LATEST - Uses the latest Node.js runtime
+        available in the deployment region, determined at CDK synthesis time.
 
         :stability: experimental
         '''
@@ -5586,14 +5688,14 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         return typing.cast(typing.Optional["LambdaRuntime"], result)
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def entrypoint(self) -> builtins.str:
@@ -5729,11 +5831,11 @@ class LambdaRuntime(metaclass=jsii.JSIIMeta, jsii_type="projen.awscdk.LambdaRunt
     @jsii.python.classproperty
     @jsii.member(jsii_name="NODEJS_18_X")
     def NODEJS_18_X(cls) -> "LambdaRuntime":
-        '''(experimental) Node.js 18.x.
+        '''(deprecated) Node.js 18.x.
 
-        Advanced notice: Node.js 18 runtime will be deprecated on Jul 31, 2025
+        :deprecated: : Node.js 18 runtime has been deprecated on Sep 1, 2025
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("LambdaRuntime", jsii.sget(cls, "NODEJS_18_X"))
 
@@ -5754,6 +5856,31 @@ class LambdaRuntime(metaclass=jsii.JSIIMeta, jsii_type="projen.awscdk.LambdaRunt
         :stability: experimental
         '''
         return typing.cast("LambdaRuntime", jsii.sget(cls, "NODEJS_22_X"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NODEJS_24_X")
+    def NODEJS_24_X(cls) -> "LambdaRuntime":
+        '''(experimental) Node.js 24.x.
+
+        :stability: experimental
+        '''
+        return typing.cast("LambdaRuntime", jsii.sget(cls, "NODEJS_24_X"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NODEJS_REGIONAL_LATEST")
+    def NODEJS_REGIONAL_LATEST(cls) -> "LambdaRuntime":
+        '''(experimental) Use the latest Node.js runtime available in the deployment region.
+
+        This generates code that uses ``determineLatestNodeRuntime()`` at CDK synthesis time,
+        which dynamically selects the latest Node.js runtime available based on regional
+        availability. This eliminates the need to manually update runtime versions and
+        avoids EOL warnings.
+
+        :default: Uses determineLatestNodeRuntime() from aws-cdk-lib
+
+        :stability: experimental
+        '''
+        return typing.cast("LambdaRuntime", jsii.sget(cls, "NODEJS_REGIONAL_LATEST"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultExternals")
@@ -5866,13 +5993,13 @@ class AutoDiscoverOptions(
     def __init__(
         self,
         *,
-        cdk_deps: AwsCdkDeps,
+        cdk_deps: "AwsCdkDeps",
         tsconfig_path: builtins.str,
         srcdir: builtins.str,
-        lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        lambda_extension_options: typing.Optional[typing.Union[LambdaExtensionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        lambda_extension_options: typing.Optional[typing.Union["LambdaExtensionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         testdir: builtins.str,
-        integration_test_options: typing.Optional[typing.Union[IntegrationTestCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        integration_test_options: typing.Optional[typing.Union["IntegrationTestCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         edge_lambda_auto_discover: typing.Optional[builtins.bool] = None,
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
@@ -5935,14 +6062,14 @@ class AutoDiscoverOptions(
             self._values["lambda_extension_auto_discover"] = lambda_extension_auto_discover
 
     @builtins.property
-    def cdk_deps(self) -> AwsCdkDeps:
+    def cdk_deps(self) -> "AwsCdkDeps":
         '''(experimental) AWS CDK dependency manager.
 
         :stability: experimental
         '''
         result = self._values.get("cdk_deps")
         assert result is not None, "Required property 'cdk_deps' is missing"
-        return typing.cast(AwsCdkDeps, result)
+        return typing.cast("AwsCdkDeps", result)
 
     @builtins.property
     def tsconfig_path(self) -> builtins.str:
@@ -5965,22 +6092,24 @@ class AutoDiscoverOptions(
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def lambda_options(self) -> typing.Optional[LambdaFunctionCommonOptions]:
+    def lambda_options(self) -> typing.Optional["LambdaFunctionCommonOptions"]:
         '''(experimental) Options for AWS Lambda functions.
 
         :stability: experimental
         '''
         result = self._values.get("lambda_options")
-        return typing.cast(typing.Optional[LambdaFunctionCommonOptions], result)
+        return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
 
     @builtins.property
-    def lambda_extension_options(self) -> typing.Optional[LambdaExtensionCommonOptions]:
+    def lambda_extension_options(
+        self,
+    ) -> typing.Optional["LambdaExtensionCommonOptions"]:
         '''(experimental) Options for lambda extensions.
 
         :stability: experimental
         '''
         result = self._values.get("lambda_extension_options")
-        return typing.cast(typing.Optional[LambdaExtensionCommonOptions], result)
+        return typing.cast(typing.Optional["LambdaExtensionCommonOptions"], result)
 
     @builtins.property
     def testdir(self) -> builtins.str:
@@ -5993,13 +6122,15 @@ class AutoDiscoverOptions(
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def integration_test_options(self) -> typing.Optional[IntegrationTestCommonOptions]:
+    def integration_test_options(
+        self,
+    ) -> typing.Optional["IntegrationTestCommonOptions"]:
         '''(experimental) Options for integration tests.
 
         :stability: experimental
         '''
         result = self._values.get("integration_test_options")
-        return typing.cast(typing.Optional[IntegrationTestCommonOptions], result)
+        return typing.cast(typing.Optional["IntegrationTestCommonOptions"], result)
 
     @builtins.property
     def edge_lambda_auto_discover(self) -> typing.Optional[builtins.bool]:
@@ -6068,6 +6199,7 @@ class AutoDiscoverOptions(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -6157,6 +6289,8 @@ class AutoDiscoverOptions(
         "workflow_runs_on_group": "workflowRunsOnGroup",
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
+        "audit_deps": "auditDeps",
+        "audit_deps_options": "auditDepsOptions",
         "auto_approve_upgrades": "autoApproveUpgrades",
         "biome": "biome",
         "biome_options": "biomeOptions",
@@ -6257,32 +6391,33 @@ class AwsCdkConstructLibraryOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -6295,7 +6430,7 @@ class AwsCdkConstructLibraryOptions(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -6306,88 +6441,90 @@ class AwsCdkConstructLibraryOptions(
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
@@ -6396,17 +6533,17 @@ class AwsCdkConstructLibraryOptions(
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         author: builtins.str,
         author_address: builtins.str,
@@ -6415,16 +6552,16 @@ class AwsCdkConstructLibraryOptions(
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
-        publish_to_go: typing.Optional[typing.Union[_JsiiGoTarget_921d41d5, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_maven: typing.Optional[typing.Union[_JsiiJavaTarget_1ed05aaa, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_nuget: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_pypi: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_go: typing.Optional[typing.Union["_JsiiGoTarget_921d41d5", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["_JsiiJavaTarget_1ed05aaa", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
-        catalog: typing.Optional[typing.Union[_Catalog_baa0a70e, typing.Dict[builtins.str, typing.Any]]] = None,
+        catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -6439,7 +6576,7 @@ class AwsCdkConstructLibraryOptions(
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
-        lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Options for ``AwsCdkConstructLibrary``.
 
@@ -6450,6 +6587,7 @@ class AwsCdkConstructLibraryOptions(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -6539,7 +6677,9 @@ class AwsCdkConstructLibraryOptions(
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -6553,7 +6693,7 @@ class AwsCdkConstructLibraryOptions(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -6575,7 +6715,7 @@ class AwsCdkConstructLibraryOptions(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
@@ -6661,6 +6801,8 @@ class AwsCdkConstructLibraryOptions(
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(audit_deps_options, dict):
+            audit_deps_options = _AuditOptions_429c62df(**audit_deps_options)
         if isinstance(biome_options, dict):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
@@ -6720,6 +6862,7 @@ class AwsCdkConstructLibraryOptions(
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -6809,6 +6952,8 @@ class AwsCdkConstructLibraryOptions(
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
+            check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
             check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
@@ -6918,6 +7063,8 @@ class AwsCdkConstructLibraryOptions(
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -7094,6 +7241,10 @@ class AwsCdkConstructLibraryOptions(
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if audit_deps is not None:
+            self._values["audit_deps"] = audit_deps
+        if audit_deps_options is not None:
+            self._values["audit_deps_options"] = audit_deps_options
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
         if biome is not None:
@@ -7290,25 +7441,25 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -7316,7 +7467,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -7336,13 +7487,24 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -7369,7 +7531,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -7377,7 +7539,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -7391,7 +7553,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -7399,10 +7561,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -7410,7 +7572,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -7427,7 +7589,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -7438,7 +7600,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -7476,7 +7638,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -7484,7 +7646,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -7511,7 +7673,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -7521,10 +7683,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -7534,10 +7696,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -7545,7 +7707,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -7564,7 +7726,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -7576,7 +7738,7 @@ class AwsCdkConstructLibraryOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -7592,7 +7754,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -7602,7 +7764,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -7741,7 +7903,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[_CodeArtifactOptions_e4782b3e]:
+    def code_artifact_options(self) -> typing.Optional["_CodeArtifactOptions_e4782b3e"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -7751,7 +7913,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[_CodeArtifactOptions_e4782b3e], result)
+        return typing.cast(typing.Optional["_CodeArtifactOptions_e4782b3e"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -7911,7 +8073,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def npm_access(self) -> typing.Optional[_NpmAccess_134fa228]:
+    def npm_access(self) -> typing.Optional["_NpmAccess_134fa228"]:
         '''(experimental) Access level of the npm package.
 
         :default:
@@ -7923,7 +8085,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("npm_access")
-        return typing.cast(typing.Optional[_NpmAccess_134fa228], result)
+        return typing.cast(typing.Optional["_NpmAccess_134fa228"], result)
 
     @builtins.property
     def npm_provenance(self) -> typing.Optional[builtins.bool]:
@@ -7992,7 +8154,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
+    def package_manager(self) -> typing.Optional["_NodePackageManager_3eb53bf6"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
         :default: NodePackageManager.YARN_CLASSIC
@@ -8000,7 +8162,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("package_manager")
-        return typing.cast(typing.Optional[_NodePackageManager_3eb53bf6], result)
+        return typing.cast(typing.Optional["_NodePackageManager_3eb53bf6"], result)
 
     @builtins.property
     def package_name(self) -> typing.Optional[builtins.str]:
@@ -8017,13 +8179,13 @@ class AwsCdkConstructLibraryOptions(
     @builtins.property
     def peer_dependency_options(
         self,
-    ) -> typing.Optional[_PeerDependencyOptions_99d7d493]:
+    ) -> typing.Optional["_PeerDependencyOptions_99d7d493"]:
         '''(experimental) Options for ``peerDeps``.
 
         :stability: experimental
         '''
         result = self._values.get("peer_dependency_options")
-        return typing.cast(typing.Optional[_PeerDependencyOptions_99d7d493], result)
+        return typing.cast(typing.Optional["_PeerDependencyOptions_99d7d493"], result)
 
     @builtins.property
     def peer_deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8084,7 +8246,7 @@ class AwsCdkConstructLibraryOptions(
     @builtins.property
     def scoped_packages_options(
         self,
-    ) -> typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]]:
+    ) -> typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]]:
         '''(experimental) Options for privately hosted scoped packages.
 
         :default: - fetch all scoped packages from the public npm registry
@@ -8092,7 +8254,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("scoped_packages_options")
-        return typing.cast(typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]], result)
+        return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
 
     @builtins.property
     def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -8121,7 +8283,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def yarn_berry_options(self) -> typing.Optional[_YarnBerryOptions_b6942539]:
+    def yarn_berry_options(self) -> typing.Optional["_YarnBerryOptions_b6942539"]:
         '''(experimental) Options for Yarn Berry.
 
         :default: - Yarn Berry v4 with all default options
@@ -8129,7 +8291,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("yarn_berry_options")
-        return typing.cast(typing.Optional[_YarnBerryOptions_b6942539], result)
+        return typing.cast(typing.Optional["_YarnBerryOptions_b6942539"], result)
 
     @builtins.property
     def bump_package(self) -> typing.Optional[builtins.str]:
@@ -8230,7 +8392,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -8238,7 +8400,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -8277,7 +8439,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -8285,12 +8447,12 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -8308,7 +8470,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -8394,7 +8556,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional[_ReleaseTrigger_e4dc221f]:
+    def release_trigger(self) -> typing.Optional["_ReleaseTrigger_e4dc221f"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -8402,7 +8564,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+        return typing.cast(typing.Optional["_ReleaseTrigger_e4dc221f"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -8431,13 +8593,13 @@ class AwsCdkConstructLibraryOptions(
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -8479,7 +8641,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -8487,7 +8649,7 @@ class AwsCdkConstructLibraryOptions(
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def default_release_branch(self) -> builtins.str:
@@ -8513,8 +8675,34 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def audit_deps(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Run security audit on dependencies.
+
+        When enabled, creates an "audit" task that checks for known security vulnerabilities
+        in dependencies. By default, runs during every build and checks for "high" severity
+        vulnerabilities or above in all dependencies (including dev dependencies).
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def audit_deps_options(self) -> typing.Optional["_AuditOptions_429c62df"]:
+        '''(experimental) Security audit options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps_options")
+        return typing.cast(typing.Optional["_AuditOptions_429c62df"], result)
+
+    @builtins.property
     def auto_approve_upgrades(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued).
+        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured).
 
         Throw if set to true but ``autoApproveOptions`` are not defined.
 
@@ -8537,7 +8725,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+    def biome_options(self) -> typing.Optional["_BiomeOptions_452ab984"]:
         '''(experimental) Biome options.
 
         :default: - default options
@@ -8545,7 +8733,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("biome_options")
-        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
+        return typing.cast(typing.Optional["_BiomeOptions_452ab984"], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -8559,16 +8747,18 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def build_workflow_options(self) -> typing.Optional[_BuildWorkflowOptions_b756f97f]:
+    def build_workflow_options(
+        self,
+    ) -> typing.Optional["_BuildWorkflowOptions_b756f97f"]:
         '''(experimental) Options for PR build workflow.
 
         :stability: experimental
         '''
         result = self._values.get("build_workflow_options")
-        return typing.cast(typing.Optional[_BuildWorkflowOptions_b756f97f], result)
+        return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(deprecated) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -8578,19 +8768,19 @@ class AwsCdkConstructLibraryOptions(
         :stability: deprecated
         '''
         result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
-    def bundler_options(self) -> typing.Optional[_BundlerOptions_d60b85ed]:
+    def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
         :stability: experimental
         '''
         result = self._values.get("bundler_options")
-        return typing.cast(typing.Optional[_BundlerOptions_d60b85ed], result)
+        return typing.cast(typing.Optional["_BundlerOptions_d60b85ed"], result)
 
     @builtins.property
-    def check_licenses(self) -> typing.Optional[_LicenseCheckerOptions_80bcd362]:
+    def check_licenses(self) -> typing.Optional["_LicenseCheckerOptions_80bcd362"]:
         '''(experimental) Configure which licenses should be deemed acceptable for use by dependencies.
 
         This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered.
@@ -8600,7 +8790,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("check_licenses")
-        return typing.cast(typing.Optional[_LicenseCheckerOptions_80bcd362], result)
+        return typing.cast(typing.Optional["_LicenseCheckerOptions_80bcd362"], result)
 
     @builtins.property
     def code_cov(self) -> typing.Optional[builtins.bool]:
@@ -8660,7 +8850,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dependabot_options(self) -> typing.Optional[_DependabotOptions_0cedc635]:
+    def dependabot_options(self) -> typing.Optional["_DependabotOptions_0cedc635"]:
         '''(experimental) Options for dependabot.
 
         :default: - default options
@@ -8668,7 +8858,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("dependabot_options")
-        return typing.cast(typing.Optional[_DependabotOptions_0cedc635], result)
+        return typing.cast(typing.Optional["_DependabotOptions_0cedc635"], result)
 
     @builtins.property
     def deps_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -8676,7 +8866,7 @@ class AwsCdkConstructLibraryOptions(
 
         Cannot be used in conjunction with ``dependabot``.
 
-        :default: true
+        :default: - ``true`` for root projects, ``false`` for subprojects
 
         :stability: experimental
         '''
@@ -8686,7 +8876,7 @@ class AwsCdkConstructLibraryOptions(
     @builtins.property
     def deps_upgrade_options(
         self,
-    ) -> typing.Optional[_UpgradeDependenciesOptions_1d8ce4da]:
+    ) -> typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"]:
         '''(experimental) Options for ``UpgradeDependencies``.
 
         :default: - default options
@@ -8694,7 +8884,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("deps_upgrade_options")
-        return typing.cast(typing.Optional[_UpgradeDependenciesOptions_1d8ce4da], result)
+        return typing.cast(typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"], result)
 
     @builtins.property
     def gitignore(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8717,7 +8907,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def jest_options(self) -> typing.Optional[_JestOptions_a085f64e]:
+    def jest_options(self) -> typing.Optional["_JestOptions_a085f64e"]:
         '''(experimental) Jest options.
 
         :default: - default options
@@ -8725,7 +8915,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("jest_options")
-        return typing.cast(typing.Optional[_JestOptions_a085f64e], result)
+        return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -8769,13 +8959,13 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def npm_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .npmignore file.
 
         :stability: experimental
         '''
         result = self._values.get("npm_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
     def package(self) -> typing.Optional[builtins.bool]:
@@ -8800,7 +8990,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def prettier_options(self) -> typing.Optional[_PrettierOptions_41a5f203]:
+    def prettier_options(self) -> typing.Optional["_PrettierOptions_41a5f203"]:
         '''(experimental) Prettier options.
 
         :default: - default options
@@ -8808,7 +8998,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("prettier_options")
-        return typing.cast(typing.Optional[_PrettierOptions_41a5f203], result)
+        return typing.cast(typing.Optional["_PrettierOptions_41a5f203"], result)
 
     @builtins.property
     def projen_dev_dependency(self) -> typing.Optional[builtins.bool]:
@@ -8833,7 +9023,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional[_ProjenrcOptions_179dd39f]:
+    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
         '''(experimental) Options for .projenrc.js.
 
         :default: - default options
@@ -8841,7 +9031,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_179dd39f], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
 
     @builtins.property
     def projen_version(self) -> typing.Optional[builtins.str]:
@@ -8916,7 +9106,7 @@ class AwsCdkConstructLibraryOptions(
     @builtins.property
     def workflow_bootstrap_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Workflow steps to use in order to bootstrap this repo.
 
         :default: "yarn install --frozen-lockfile && yarn projen"
@@ -8924,18 +9114,18 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("workflow_bootstrap_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def workflow_git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) The git identity to use in workflows.
 
-        :default: - GitHub Actions
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("workflow_git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
@@ -9028,7 +9218,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def eslint_options(self) -> typing.Optional[_EslintOptions_824f60bb]:
+    def eslint_options(self) -> typing.Optional["_EslintOptions_824f60bb"]:
         '''(experimental) Eslint options.
 
         :default: - opinionated default options
@@ -9036,7 +9226,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("eslint_options")
-        return typing.cast(typing.Optional[_EslintOptions_824f60bb], result)
+        return typing.cast(typing.Optional["_EslintOptions_824f60bb"], result)
 
     @builtins.property
     def libdir(self) -> typing.Optional[builtins.str]:
@@ -9062,13 +9252,13 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional[_ProjenrcOptions_514ec2ee]:
+    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcOptions_514ec2ee"]:
         '''(experimental) Options for .projenrc.ts.
 
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_514ec2ee], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_514ec2ee"], result)
 
     @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
@@ -9109,7 +9299,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tsconfig(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom TSConfig.
 
         :default: - default options
@@ -9117,10 +9307,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("tsconfig")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
-    def tsconfig_dev(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig_dev(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom tsconfig options for the development tsconfig.json file (used for testing).
 
         :default: - use the production tsconfig options
@@ -9128,7 +9318,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("tsconfig_dev")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
     def tsconfig_dev_file(self) -> typing.Optional[builtins.str]:
@@ -9142,13 +9332,13 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ts_jest_options(self) -> typing.Optional[_TsJestOptions_3c0597c1]:
+    def ts_jest_options(self) -> typing.Optional["_TsJestOptions_3c0597c1"]:
         '''(experimental) Options for ts-jest.
 
         :stability: experimental
         '''
         result = self._values.get("ts_jest_options")
-        return typing.cast(typing.Optional[_TsJestOptions_3c0597c1], result)
+        return typing.cast(typing.Optional["_TsJestOptions_3c0597c1"], result)
 
     @builtins.property
     def typescript_version(self) -> typing.Optional[builtins.str]:
@@ -9248,14 +9438,14 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dotnet(self) -> typing.Optional[_JsiiDotNetTarget_7b5d56c7]:
+    def dotnet(self) -> typing.Optional["_JsiiDotNetTarget_7b5d56c7"]:
         '''
         :deprecated: use ``publishToNuget``
 
         :stability: deprecated
         '''
         result = self._values.get("dotnet")
-        return typing.cast(typing.Optional[_JsiiDotNetTarget_7b5d56c7], result)
+        return typing.cast(typing.Optional["_JsiiDotNetTarget_7b5d56c7"], result)
 
     @builtins.property
     def exclude_typescript(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -9292,7 +9482,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def publish_to_go(self) -> typing.Optional[_JsiiGoTarget_921d41d5]:
+    def publish_to_go(self) -> typing.Optional["_JsiiGoTarget_921d41d5"]:
         '''(experimental) Publish Go bindings to a git repository.
 
         :default: - no publishing
@@ -9300,10 +9490,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("publish_to_go")
-        return typing.cast(typing.Optional[_JsiiGoTarget_921d41d5], result)
+        return typing.cast(typing.Optional["_JsiiGoTarget_921d41d5"], result)
 
     @builtins.property
-    def publish_to_maven(self) -> typing.Optional[_JsiiJavaTarget_1ed05aaa]:
+    def publish_to_maven(self) -> typing.Optional["_JsiiJavaTarget_1ed05aaa"]:
         '''(experimental) Publish to maven.
 
         :default: - no publishing
@@ -9311,10 +9501,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("publish_to_maven")
-        return typing.cast(typing.Optional[_JsiiJavaTarget_1ed05aaa], result)
+        return typing.cast(typing.Optional["_JsiiJavaTarget_1ed05aaa"], result)
 
     @builtins.property
-    def publish_to_nuget(self) -> typing.Optional[_JsiiDotNetTarget_7b5d56c7]:
+    def publish_to_nuget(self) -> typing.Optional["_JsiiDotNetTarget_7b5d56c7"]:
         '''(experimental) Publish to NuGet.
 
         :default: - no publishing
@@ -9322,10 +9512,10 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("publish_to_nuget")
-        return typing.cast(typing.Optional[_JsiiDotNetTarget_7b5d56c7], result)
+        return typing.cast(typing.Optional["_JsiiDotNetTarget_7b5d56c7"], result)
 
     @builtins.property
-    def publish_to_pypi(self) -> typing.Optional[_JsiiPythonTarget_8efe2861]:
+    def publish_to_pypi(self) -> typing.Optional["_JsiiPythonTarget_8efe2861"]:
         '''(experimental) Publish to pypi.
 
         :default: - no publishing
@@ -9333,17 +9523,17 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("publish_to_pypi")
-        return typing.cast(typing.Optional[_JsiiPythonTarget_8efe2861], result)
+        return typing.cast(typing.Optional["_JsiiPythonTarget_8efe2861"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional[_JsiiPythonTarget_8efe2861]:
+    def python(self) -> typing.Optional["_JsiiPythonTarget_8efe2861"]:
         '''
         :deprecated: use ``publishToPyPi``
 
         :stability: deprecated
         '''
         result = self._values.get("python")
-        return typing.cast(typing.Optional[_JsiiPythonTarget_8efe2861], result)
+        return typing.cast(typing.Optional["_JsiiPythonTarget_8efe2861"], result)
 
     @builtins.property
     def rootdir(self) -> typing.Optional[builtins.str]:
@@ -9356,7 +9546,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def catalog(self) -> typing.Optional[_Catalog_baa0a70e]:
+    def catalog(self) -> typing.Optional["_Catalog_baa0a70e"]:
         '''(experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:.
 
         https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION
@@ -9374,7 +9564,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("catalog")
-        return typing.cast(typing.Optional[_Catalog_baa0a70e], result)
+        return typing.cast(typing.Optional["_Catalog_baa0a70e"], result)
 
     @builtins.property
     def cdk_version(self) -> builtins.str:
@@ -9558,7 +9748,7 @@ class AwsCdkConstructLibraryOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def lambda_options(self) -> typing.Optional[LambdaFunctionCommonOptions]:
+    def lambda_options(self) -> typing.Optional["LambdaFunctionCommonOptions"]:
         '''(experimental) Common options for all AWS Lambda functions.
 
         :default: - default options
@@ -9566,7 +9756,7 @@ class AwsCdkConstructLibraryOptions(
         :stability: experimental
         '''
         result = self._values.get("lambda_options")
-        return typing.cast(typing.Optional[LambdaFunctionCommonOptions], result)
+        return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9593,6 +9783,7 @@ class AwsCdkConstructLibraryOptions(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -9662,56 +9853,57 @@ class AwsCdkJavaAppOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         artifact_id: builtins.str,
         group_id: builtins.str,
         version: builtins.str,
         description: typing.Optional[builtins.str] = None,
         packaging: typing.Optional[builtins.str] = None,
-        parent_pom: typing.Optional[typing.Union[_ParentPom_46a11bd9, typing.Dict[builtins.str, typing.Any]]] = None,
+        parent_pom: typing.Optional[typing.Union["_ParentPom_46a11bd9", typing.Dict[builtins.str, typing.Any]]] = None,
         url: typing.Optional[builtins.str] = None,
-        compile_options: typing.Optional[typing.Union[_MavenCompileOptions_c5c0ec48, typing.Dict[builtins.str, typing.Any]]] = None,
+        compile_options: typing.Optional[typing.Union["_MavenCompileOptions_c5c0ec48", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         distdir: typing.Optional[builtins.str] = None,
         junit: typing.Optional[builtins.bool] = None,
-        junit_options: typing.Optional[typing.Union[_JunitOptions_e5b597b7, typing.Dict[builtins.str, typing.Any]]] = None,
-        packaging_options: typing.Optional[typing.Union[_MavenPackagingOptions_bc96fb36, typing.Dict[builtins.str, typing.Any]]] = None,
+        junit_options: typing.Optional[typing.Union["_JunitOptions_e5b597b7", typing.Dict[builtins.str, typing.Any]]] = None,
+        packaging_options: typing.Optional[typing.Union["_MavenPackagingOptions_bc96fb36", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_java: typing.Optional[builtins.bool] = None,
-        projenrc_java_options: typing.Optional[typing.Union[_ProjenrcOptions_65cd3dd8, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_java_options: typing.Optional[typing.Union["_ProjenrcOptions_65cd3dd8", typing.Dict[builtins.str, typing.Any]]] = None,
         test_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         sample: typing.Optional[builtins.bool] = None,
         sample_java_package: typing.Optional[builtins.str] = None,
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -9733,6 +9925,7 @@ class AwsCdkJavaAppOptions(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -9776,7 +9969,7 @@ class AwsCdkJavaAppOptions(
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -9834,6 +10027,7 @@ class AwsCdkJavaAppOptions(
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -9911,6 +10105,8 @@ class AwsCdkJavaAppOptions(
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -10041,25 +10237,25 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -10067,7 +10263,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -10087,13 +10283,24 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -10120,7 +10327,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -10128,7 +10335,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -10142,7 +10349,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -10150,10 +10357,10 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -10161,7 +10368,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -10178,7 +10385,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -10189,7 +10396,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -10227,7 +10434,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -10235,7 +10442,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -10262,7 +10469,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -10272,10 +10479,10 @@ class AwsCdkJavaAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -10285,10 +10492,10 @@ class AwsCdkJavaAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -10296,7 +10503,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -10315,7 +10522,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -10327,7 +10534,7 @@ class AwsCdkJavaAppOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -10343,7 +10550,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -10353,7 +10560,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -10466,7 +10673,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent_pom(self) -> typing.Optional[_ParentPom_46a11bd9]:
+    def parent_pom(self) -> typing.Optional["_ParentPom_46a11bd9"]:
         '''(experimental) A Parent Pom can be used to have a child project inherit properties/plugins/ect in order to reduce duplication and keep standards across a large amount of repos.
 
         :default: undefined
@@ -10475,7 +10682,7 @@ class AwsCdkJavaAppOptions(
         :featured: true
         '''
         result = self._values.get("parent_pom")
-        return typing.cast(typing.Optional[_ParentPom_46a11bd9], result)
+        return typing.cast(typing.Optional["_ParentPom_46a11bd9"], result)
 
     @builtins.property
     def url(self) -> typing.Optional[builtins.str]:
@@ -10493,7 +10700,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def compile_options(self) -> typing.Optional[_MavenCompileOptions_c5c0ec48]:
+    def compile_options(self) -> typing.Optional["_MavenCompileOptions_c5c0ec48"]:
         '''(experimental) Compile options.
 
         :default: - defaults
@@ -10501,7 +10708,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("compile_options")
-        return typing.cast(typing.Optional[_MavenCompileOptions_c5c0ec48], result)
+        return typing.cast(typing.Optional["_MavenCompileOptions_c5c0ec48"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10542,7 +10749,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def junit_options(self) -> typing.Optional[_JunitOptions_e5b597b7]:
+    def junit_options(self) -> typing.Optional["_JunitOptions_e5b597b7"]:
         '''(experimental) junit options.
 
         :default: - defaults
@@ -10550,10 +10757,10 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("junit_options")
-        return typing.cast(typing.Optional[_JunitOptions_e5b597b7], result)
+        return typing.cast(typing.Optional["_JunitOptions_e5b597b7"], result)
 
     @builtins.property
-    def packaging_options(self) -> typing.Optional[_MavenPackagingOptions_bc96fb36]:
+    def packaging_options(self) -> typing.Optional["_MavenPackagingOptions_bc96fb36"]:
         '''(experimental) Packaging options.
 
         :default: - defaults
@@ -10561,7 +10768,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("packaging_options")
-        return typing.cast(typing.Optional[_MavenPackagingOptions_bc96fb36], result)
+        return typing.cast(typing.Optional["_MavenPackagingOptions_bc96fb36"], result)
 
     @builtins.property
     def projenrc_java(self) -> typing.Optional[builtins.bool]:
@@ -10578,7 +10785,7 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_java_options(self) -> typing.Optional[_ProjenrcOptions_65cd3dd8]:
+    def projenrc_java_options(self) -> typing.Optional["_ProjenrcOptions_65cd3dd8"]:
         '''(experimental) Options related to projenrc in java.
 
         :default: - default options
@@ -10586,7 +10793,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_java_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_65cd3dd8], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_65cd3dd8"], result)
 
     @builtins.property
     def test_deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10664,18 +10871,22 @@ class AwsCdkJavaAppOptions(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
-    def feature_flags(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Include all feature flags in cdk.json.
+    def feature_flags(self) -> typing.Optional["ICdkFeatureFlags"]:
+        '''(experimental) Feature flags that should be enabled in ``cdk.json``.
 
-        :default: true
+        Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying.
+        Unexpected changes may cause breaking changes in your CDK app.
+        You can overwrite any feature flag by passing it into the context field.
+
+        :default: - no feature flags are enabled by default
 
         :stability: experimental
         '''
         result = self._values.get("feature_flags")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Optional["ICdkFeatureFlags"], result)
 
     @builtins.property
-    def require_approval(self) -> typing.Optional[ApprovalLevel]:
+    def require_approval(self) -> typing.Optional["ApprovalLevel"]:
         '''(experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them.
 
         :default: ApprovalLevel.BROADENING
@@ -10683,7 +10894,7 @@ class AwsCdkJavaAppOptions(
         :stability: experimental
         '''
         result = self._values.get("require_approval")
-        return typing.cast(typing.Optional[ApprovalLevel], result)
+        return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -10873,6 +11084,7 @@ class AwsCdkJavaAppOptions(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -10905,6 +11117,7 @@ class AwsCdkJavaAppOptions(
         "package_name": "packageName",
         "poetry_options": "poetryOptions",
         "setup_config": "setupConfig",
+        "uv_options": "uvOptions",
         "python_exec": "pythonExec",
         "module_name": "moduleName",
         "deps": "deps",
@@ -10922,6 +11135,7 @@ class AwsCdkJavaAppOptions(
         "sample": "sample",
         "sample_testdir": "sampleTestdir",
         "setuptools": "setuptools",
+        "uv": "uv",
         "venv": "venv",
         "venv_options": "venvOptions",
         "build_command": "buildCommand",
@@ -10954,32 +11168,33 @@ class AwsCdkPythonAppOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         author_email: builtins.str,
         author_name: builtins.str,
@@ -10989,8 +11204,9 @@ class AwsCdkPythonAppOptions(
         homepage: typing.Optional[builtins.str] = None,
         license: typing.Optional[builtins.str] = None,
         package_name: typing.Optional[builtins.str] = None,
-        poetry_options: typing.Optional[typing.Union[_PoetryPyprojectOptionsWithoutDeps_7947f35b, typing.Dict[builtins.str, typing.Any]]] = None,
+        poetry_options: typing.Optional[typing.Union["_PoetryPyprojectOptionsWithoutDeps_7947f35b", typing.Dict[builtins.str, typing.Any]]] = None,
         setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        uv_options: typing.Optional[typing.Union["_UvOptions_49201464", typing.Dict[builtins.str, typing.Any]]] = None,
         python_exec: typing.Optional[builtins.str] = None,
         module_name: builtins.str,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -10998,23 +11214,24 @@ class AwsCdkPythonAppOptions(
         pip: typing.Optional[builtins.bool] = None,
         poetry: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_python: typing.Optional[builtins.bool] = None,
-        projenrc_python_options: typing.Optional[typing.Union[_ProjenrcOptions_badb4e51, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_python_options: typing.Optional[typing.Union["_ProjenrcOptions_badb4e51", typing.Dict[builtins.str, typing.Any]]] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcTsOptions_e3a2602d, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcTsOptions_e3a2602d", typing.Dict[builtins.str, typing.Any]]] = None,
         pytest: typing.Optional[builtins.bool] = None,
-        pytest_options: typing.Optional[typing.Union[_PytestOptions_b400bccc, typing.Dict[builtins.str, typing.Any]]] = None,
+        pytest_options: typing.Optional[typing.Union["_PytestOptions_b400bccc", typing.Dict[builtins.str, typing.Any]]] = None,
         sample: typing.Optional[builtins.bool] = None,
         sample_testdir: typing.Optional[builtins.str] = None,
         setuptools: typing.Optional[builtins.bool] = None,
+        uv: typing.Optional[builtins.bool] = None,
         venv: typing.Optional[builtins.bool] = None,
-        venv_options: typing.Optional[typing.Union[_VenvOptions_8ea2b226, typing.Dict[builtins.str, typing.Any]]] = None,
+        venv_options: typing.Optional[typing.Union["_VenvOptions_8ea2b226", typing.Dict[builtins.str, typing.Any]]] = None,
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -11038,6 +11255,7 @@ class AwsCdkPythonAppOptions(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -11070,6 +11288,7 @@ class AwsCdkPythonAppOptions(
         :param package_name: (experimental) Package name.
         :param poetry_options: (experimental) Additional options to set for poetry if using poetry.
         :param setup_config: (experimental) Additional fields to pass in the setup() function if using setuptools.
+        :param uv_options: (experimental) Additional options to set for uv if using uv.
         :param python_exec: (experimental) Path to the python executable to use. Default: "python"
         :param module_name: (experimental) Name of the python package as used in imports and filenames. Must only consist of alphanumeric characters and underscores. Default: $PYTHON_MODULE_NAME
         :param deps: (experimental) List of runtime dependencies for this project. Dependencies use the format: ``<module>@<semver>`` Additional dependencies can be added via ``project.addDependency()``. Default: []
@@ -11087,12 +11306,13 @@ class AwsCdkPythonAppOptions(
         :param sample: (experimental) Include sample code and test if the relevant directories don't exist. Default: true
         :param sample_testdir: (experimental) Location of sample tests. Typically the same directory where project tests will be located. Default: "tests"
         :param setuptools: (experimental) Use setuptools with a setup.py script for packaging and publishing. Default: - true, unless poetry is true, then false
+        :param uv: (experimental) Use uv to manage your project dependencies, virtual environment, and (optional) packaging/publishing. Default: false
         :param venv: (experimental) Use venv to manage a virtual environment for installing dependencies inside. Default: - true, unless poetry is true, then false
         :param venv_options: (experimental) Venv options. Default: - defaults
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -11134,6 +11354,8 @@ class AwsCdkPythonAppOptions(
             stale_options = _StaleOptions_929db764(**stale_options)
         if isinstance(poetry_options, dict):
             poetry_options = _PoetryPyprojectOptionsWithoutDeps_7947f35b(**poetry_options)
+        if isinstance(uv_options, dict):
+            uv_options = _UvOptions_49201464(**uv_options)
         if isinstance(projenrc_js_options, dict):
             projenrc_js_options = _ProjenrcOptions_179dd39f(**projenrc_js_options)
         if isinstance(projenrc_python_options, dict):
@@ -11153,6 +11375,7 @@ class AwsCdkPythonAppOptions(
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -11185,6 +11408,7 @@ class AwsCdkPythonAppOptions(
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument poetry_options", value=poetry_options, expected_type=type_hints["poetry_options"])
             check_type(argname="argument setup_config", value=setup_config, expected_type=type_hints["setup_config"])
+            check_type(argname="argument uv_options", value=uv_options, expected_type=type_hints["uv_options"])
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
             check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
             check_type(argname="argument deps", value=deps, expected_type=type_hints["deps"])
@@ -11202,6 +11426,7 @@ class AwsCdkPythonAppOptions(
             check_type(argname="argument sample", value=sample, expected_type=type_hints["sample"])
             check_type(argname="argument sample_testdir", value=sample_testdir, expected_type=type_hints["sample_testdir"])
             check_type(argname="argument setuptools", value=setuptools, expected_type=type_hints["setuptools"])
+            check_type(argname="argument uv", value=uv, expected_type=type_hints["uv"])
             check_type(argname="argument venv", value=venv, expected_type=type_hints["venv"])
             check_type(argname="argument venv_options", value=venv_options, expected_type=type_hints["venv_options"])
             check_type(argname="argument build_command", value=build_command, expected_type=type_hints["build_command"])
@@ -11242,6 +11467,8 @@ class AwsCdkPythonAppOptions(
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -11300,6 +11527,8 @@ class AwsCdkPythonAppOptions(
             self._values["poetry_options"] = poetry_options
         if setup_config is not None:
             self._values["setup_config"] = setup_config
+        if uv_options is not None:
+            self._values["uv_options"] = uv_options
         if python_exec is not None:
             self._values["python_exec"] = python_exec
         if deps is not None:
@@ -11332,6 +11561,8 @@ class AwsCdkPythonAppOptions(
             self._values["sample_testdir"] = sample_testdir
         if setuptools is not None:
             self._values["setuptools"] = setuptools
+        if uv is not None:
+            self._values["uv"] = uv
         if venv is not None:
             self._values["venv"] = venv
         if venv_options is not None:
@@ -11396,25 +11627,25 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -11422,7 +11653,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -11442,13 +11673,24 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -11475,7 +11717,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -11483,7 +11725,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -11497,7 +11739,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -11505,10 +11747,10 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -11516,7 +11758,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -11533,7 +11775,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -11544,7 +11786,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -11582,7 +11824,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -11590,7 +11832,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -11617,7 +11859,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -11627,10 +11869,10 @@ class AwsCdkPythonAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -11640,10 +11882,10 @@ class AwsCdkPythonAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -11651,7 +11893,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -11670,7 +11912,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -11682,7 +11924,7 @@ class AwsCdkPythonAppOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -11698,7 +11940,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -11708,7 +11950,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -11810,13 +12052,13 @@ class AwsCdkPythonAppOptions(
     @builtins.property
     def poetry_options(
         self,
-    ) -> typing.Optional[_PoetryPyprojectOptionsWithoutDeps_7947f35b]:
+    ) -> typing.Optional["_PoetryPyprojectOptionsWithoutDeps_7947f35b"]:
         '''(experimental) Additional options to set for poetry if using poetry.
 
         :stability: experimental
         '''
         result = self._values.get("poetry_options")
-        return typing.cast(typing.Optional[_PoetryPyprojectOptionsWithoutDeps_7947f35b], result)
+        return typing.cast(typing.Optional["_PoetryPyprojectOptionsWithoutDeps_7947f35b"], result)
 
     @builtins.property
     def setup_config(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -11826,6 +12068,15 @@ class AwsCdkPythonAppOptions(
         '''
         result = self._values.get("setup_config")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def uv_options(self) -> typing.Optional["_UvOptions_49201464"]:
+        '''(experimental) Additional options to set for uv if using uv.
+
+        :stability: experimental
+        '''
+        result = self._values.get("uv_options")
+        return typing.cast(typing.Optional["_UvOptions_49201464"], result)
 
     @builtins.property
     def python_exec(self) -> typing.Optional[builtins.str]:
@@ -11926,7 +12177,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional[_ProjenrcOptions_179dd39f]:
+    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
         '''(experimental) Options related to projenrc in JavaScript.
 
         :default: - default options
@@ -11934,7 +12185,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_179dd39f], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
 
     @builtins.property
     def projenrc_python(self) -> typing.Optional[builtins.bool]:
@@ -11951,7 +12202,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_python_options(self) -> typing.Optional[_ProjenrcOptions_badb4e51]:
+    def projenrc_python_options(self) -> typing.Optional["_ProjenrcOptions_badb4e51"]:
         '''(experimental) Options related to projenrc in python.
 
         :default: - default options
@@ -11959,7 +12210,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_python_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_badb4e51], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_badb4e51"], result)
 
     @builtins.property
     def projenrc_ts(self) -> typing.Optional[builtins.bool]:
@@ -11976,7 +12227,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional[_ProjenrcTsOptions_e3a2602d]:
+    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcTsOptions_e3a2602d"]:
         '''(experimental) Options related to projenrc in TypeScript.
 
         :default: - default options
@@ -11984,7 +12235,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional[_ProjenrcTsOptions_e3a2602d], result)
+        return typing.cast(typing.Optional["_ProjenrcTsOptions_e3a2602d"], result)
 
     @builtins.property
     def pytest(self) -> typing.Optional[builtins.bool]:
@@ -11999,7 +12250,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def pytest_options(self) -> typing.Optional[_PytestOptions_b400bccc]:
+    def pytest_options(self) -> typing.Optional["_PytestOptions_b400bccc"]:
         '''(experimental) pytest options.
 
         :default: - defaults
@@ -12007,7 +12258,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("pytest_options")
-        return typing.cast(typing.Optional[_PytestOptions_b400bccc], result)
+        return typing.cast(typing.Optional["_PytestOptions_b400bccc"], result)
 
     @builtins.property
     def sample(self) -> typing.Optional[builtins.bool]:
@@ -12046,6 +12297,18 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def uv(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Use uv to manage your project dependencies, virtual environment, and (optional) packaging/publishing.
+
+        :default: false
+
+        :stability: experimental
+        :featured: true
+        '''
+        result = self._values.get("uv")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def venv(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Use venv to manage a virtual environment for installing dependencies inside.
 
@@ -12058,7 +12321,7 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def venv_options(self) -> typing.Optional[_VenvOptions_8ea2b226]:
+    def venv_options(self) -> typing.Optional["_VenvOptions_8ea2b226"]:
         '''(experimental) Venv options.
 
         :default: - defaults
@@ -12066,7 +12329,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("venv_options")
-        return typing.cast(typing.Optional[_VenvOptions_8ea2b226], result)
+        return typing.cast(typing.Optional["_VenvOptions_8ea2b226"], result)
 
     @builtins.property
     def build_command(self) -> typing.Optional[builtins.str]:
@@ -12106,18 +12369,22 @@ class AwsCdkPythonAppOptions(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
-    def feature_flags(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Include all feature flags in cdk.json.
+    def feature_flags(self) -> typing.Optional["ICdkFeatureFlags"]:
+        '''(experimental) Feature flags that should be enabled in ``cdk.json``.
 
-        :default: true
+        Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying.
+        Unexpected changes may cause breaking changes in your CDK app.
+        You can overwrite any feature flag by passing it into the context field.
+
+        :default: - no feature flags are enabled by default
 
         :stability: experimental
         '''
         result = self._values.get("feature_flags")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Optional["ICdkFeatureFlags"], result)
 
     @builtins.property
-    def require_approval(self) -> typing.Optional[ApprovalLevel]:
+    def require_approval(self) -> typing.Optional["ApprovalLevel"]:
         '''(experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them.
 
         :default: ApprovalLevel.BROADENING
@@ -12125,7 +12392,7 @@ class AwsCdkPythonAppOptions(
         :stability: experimental
         '''
         result = self._values.get("require_approval")
-        return typing.cast(typing.Optional[ApprovalLevel], result)
+        return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -12326,6 +12593,7 @@ class AwsCdkPythonAppOptions(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -12415,6 +12683,8 @@ class AwsCdkPythonAppOptions(
         "workflow_runs_on_group": "workflowRunsOnGroup",
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
+        "audit_deps": "auditDeps",
+        "audit_deps_options": "auditDepsOptions",
         "auto_approve_upgrades": "autoApproveUpgrades",
         "biome": "biome",
         "biome_options": "biomeOptions",
@@ -12508,32 +12778,33 @@ class AwsCdkTypeScriptAppOptions(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -12546,7 +12817,7 @@ class AwsCdkTypeScriptAppOptions(
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -12557,88 +12828,90 @@ class AwsCdkTypeScriptAppOptions(
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
@@ -12647,23 +12920,23 @@ class AwsCdkTypeScriptAppOptions(
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         build_command: typing.Optional[builtins.str] = None,
         cdkout: typing.Optional[builtins.str] = None,
         context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        feature_flags: typing.Optional[builtins.bool] = None,
-        require_approval: typing.Optional[ApprovalLevel] = None,
+        feature_flags: typing.Optional["ICdkFeatureFlags"] = None,
+        require_approval: typing.Optional["ApprovalLevel"] = None,
         watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
         watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
         cdk_version: builtins.str,
@@ -12682,7 +12955,7 @@ class AwsCdkTypeScriptAppOptions(
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
-        lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
@@ -12692,6 +12965,7 @@ class AwsCdkTypeScriptAppOptions(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -12781,7 +13055,9 @@ class AwsCdkTypeScriptAppOptions(
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -12795,7 +13071,7 @@ class AwsCdkTypeScriptAppOptions(
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -12817,7 +13093,7 @@ class AwsCdkTypeScriptAppOptions(
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
@@ -12841,7 +13117,7 @@ class AwsCdkTypeScriptAppOptions(
         :param build_command: (experimental) A command to execute before synthesis. This command will be called when running ``cdk synth`` or when ``cdk watch`` identifies a change in your source code before redeployment. Default: - no build command
         :param cdkout: (experimental) cdk.out directory. Default: "cdk.out"
         :param context: (experimental) Additional context to include in ``cdk.json``. Default: - no additional context
-        :param feature_flags: (experimental) Include all feature flags in cdk.json. Default: true
+        :param feature_flags: (experimental) Feature flags that should be enabled in ``cdk.json``. Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying. Unexpected changes may cause breaking changes in your CDK app. You can overwrite any feature flag by passing it into the context field. Default: - no feature flags are enabled by default
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
@@ -12895,6 +13171,8 @@ class AwsCdkTypeScriptAppOptions(
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(audit_deps_options, dict):
+            audit_deps_options = _AuditOptions_429c62df(**audit_deps_options)
         if isinstance(biome_options, dict):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
@@ -12940,6 +13218,7 @@ class AwsCdkTypeScriptAppOptions(
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -13029,6 +13308,8 @@ class AwsCdkTypeScriptAppOptions(
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
+            check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
             check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
@@ -13127,6 +13408,8 @@ class AwsCdkTypeScriptAppOptions(
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -13303,6 +13586,10 @@ class AwsCdkTypeScriptAppOptions(
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if audit_deps is not None:
+            self._values["audit_deps"] = audit_deps
+        if audit_deps_options is not None:
+            self._values["audit_deps_options"] = audit_deps_options
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
         if biome is not None:
@@ -13489,25 +13776,25 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -13515,7 +13802,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -13535,13 +13822,24 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -13568,7 +13866,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -13576,7 +13874,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -13590,7 +13888,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -13598,10 +13896,10 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -13609,7 +13907,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -13626,7 +13924,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -13637,7 +13935,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -13675,7 +13973,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -13683,7 +13981,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -13710,7 +14008,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -13720,10 +14018,10 @@ class AwsCdkTypeScriptAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -13733,10 +14031,10 @@ class AwsCdkTypeScriptAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -13744,7 +14042,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -13763,7 +14061,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -13775,7 +14073,7 @@ class AwsCdkTypeScriptAppOptions(
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -13791,7 +14089,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -13801,7 +14099,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -13940,7 +14238,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[_CodeArtifactOptions_e4782b3e]:
+    def code_artifact_options(self) -> typing.Optional["_CodeArtifactOptions_e4782b3e"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -13950,7 +14248,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[_CodeArtifactOptions_e4782b3e], result)
+        return typing.cast(typing.Optional["_CodeArtifactOptions_e4782b3e"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -14110,7 +14408,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def npm_access(self) -> typing.Optional[_NpmAccess_134fa228]:
+    def npm_access(self) -> typing.Optional["_NpmAccess_134fa228"]:
         '''(experimental) Access level of the npm package.
 
         :default:
@@ -14122,7 +14420,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("npm_access")
-        return typing.cast(typing.Optional[_NpmAccess_134fa228], result)
+        return typing.cast(typing.Optional["_NpmAccess_134fa228"], result)
 
     @builtins.property
     def npm_provenance(self) -> typing.Optional[builtins.bool]:
@@ -14191,7 +14489,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
+    def package_manager(self) -> typing.Optional["_NodePackageManager_3eb53bf6"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
         :default: NodePackageManager.YARN_CLASSIC
@@ -14199,7 +14497,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("package_manager")
-        return typing.cast(typing.Optional[_NodePackageManager_3eb53bf6], result)
+        return typing.cast(typing.Optional["_NodePackageManager_3eb53bf6"], result)
 
     @builtins.property
     def package_name(self) -> typing.Optional[builtins.str]:
@@ -14216,13 +14514,13 @@ class AwsCdkTypeScriptAppOptions(
     @builtins.property
     def peer_dependency_options(
         self,
-    ) -> typing.Optional[_PeerDependencyOptions_99d7d493]:
+    ) -> typing.Optional["_PeerDependencyOptions_99d7d493"]:
         '''(experimental) Options for ``peerDeps``.
 
         :stability: experimental
         '''
         result = self._values.get("peer_dependency_options")
-        return typing.cast(typing.Optional[_PeerDependencyOptions_99d7d493], result)
+        return typing.cast(typing.Optional["_PeerDependencyOptions_99d7d493"], result)
 
     @builtins.property
     def peer_deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -14283,7 +14581,7 @@ class AwsCdkTypeScriptAppOptions(
     @builtins.property
     def scoped_packages_options(
         self,
-    ) -> typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]]:
+    ) -> typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]]:
         '''(experimental) Options for privately hosted scoped packages.
 
         :default: - fetch all scoped packages from the public npm registry
@@ -14291,7 +14589,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("scoped_packages_options")
-        return typing.cast(typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]], result)
+        return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
 
     @builtins.property
     def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -14320,7 +14618,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def yarn_berry_options(self) -> typing.Optional[_YarnBerryOptions_b6942539]:
+    def yarn_berry_options(self) -> typing.Optional["_YarnBerryOptions_b6942539"]:
         '''(experimental) Options for Yarn Berry.
 
         :default: - Yarn Berry v4 with all default options
@@ -14328,7 +14626,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("yarn_berry_options")
-        return typing.cast(typing.Optional[_YarnBerryOptions_b6942539], result)
+        return typing.cast(typing.Optional["_YarnBerryOptions_b6942539"], result)
 
     @builtins.property
     def bump_package(self) -> typing.Optional[builtins.str]:
@@ -14429,7 +14727,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -14437,7 +14735,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -14476,7 +14774,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -14484,12 +14782,12 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -14507,7 +14805,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -14593,7 +14891,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional[_ReleaseTrigger_e4dc221f]:
+    def release_trigger(self) -> typing.Optional["_ReleaseTrigger_e4dc221f"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -14601,7 +14899,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+        return typing.cast(typing.Optional["_ReleaseTrigger_e4dc221f"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -14630,13 +14928,13 @@ class AwsCdkTypeScriptAppOptions(
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -14678,7 +14976,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -14686,7 +14984,7 @@ class AwsCdkTypeScriptAppOptions(
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def default_release_branch(self) -> builtins.str:
@@ -14712,8 +15010,34 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def audit_deps(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Run security audit on dependencies.
+
+        When enabled, creates an "audit" task that checks for known security vulnerabilities
+        in dependencies. By default, runs during every build and checks for "high" severity
+        vulnerabilities or above in all dependencies (including dev dependencies).
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def audit_deps_options(self) -> typing.Optional["_AuditOptions_429c62df"]:
+        '''(experimental) Security audit options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps_options")
+        return typing.cast(typing.Optional["_AuditOptions_429c62df"], result)
+
+    @builtins.property
     def auto_approve_upgrades(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued).
+        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured).
 
         Throw if set to true but ``autoApproveOptions`` are not defined.
 
@@ -14736,7 +15060,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+    def biome_options(self) -> typing.Optional["_BiomeOptions_452ab984"]:
         '''(experimental) Biome options.
 
         :default: - default options
@@ -14744,7 +15068,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("biome_options")
-        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
+        return typing.cast(typing.Optional["_BiomeOptions_452ab984"], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -14758,16 +15082,18 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def build_workflow_options(self) -> typing.Optional[_BuildWorkflowOptions_b756f97f]:
+    def build_workflow_options(
+        self,
+    ) -> typing.Optional["_BuildWorkflowOptions_b756f97f"]:
         '''(experimental) Options for PR build workflow.
 
         :stability: experimental
         '''
         result = self._values.get("build_workflow_options")
-        return typing.cast(typing.Optional[_BuildWorkflowOptions_b756f97f], result)
+        return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(deprecated) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -14777,19 +15103,19 @@ class AwsCdkTypeScriptAppOptions(
         :stability: deprecated
         '''
         result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
-    def bundler_options(self) -> typing.Optional[_BundlerOptions_d60b85ed]:
+    def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
         :stability: experimental
         '''
         result = self._values.get("bundler_options")
-        return typing.cast(typing.Optional[_BundlerOptions_d60b85ed], result)
+        return typing.cast(typing.Optional["_BundlerOptions_d60b85ed"], result)
 
     @builtins.property
-    def check_licenses(self) -> typing.Optional[_LicenseCheckerOptions_80bcd362]:
+    def check_licenses(self) -> typing.Optional["_LicenseCheckerOptions_80bcd362"]:
         '''(experimental) Configure which licenses should be deemed acceptable for use by dependencies.
 
         This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered.
@@ -14799,7 +15125,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("check_licenses")
-        return typing.cast(typing.Optional[_LicenseCheckerOptions_80bcd362], result)
+        return typing.cast(typing.Optional["_LicenseCheckerOptions_80bcd362"], result)
 
     @builtins.property
     def code_cov(self) -> typing.Optional[builtins.bool]:
@@ -14859,7 +15185,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dependabot_options(self) -> typing.Optional[_DependabotOptions_0cedc635]:
+    def dependabot_options(self) -> typing.Optional["_DependabotOptions_0cedc635"]:
         '''(experimental) Options for dependabot.
 
         :default: - default options
@@ -14867,7 +15193,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("dependabot_options")
-        return typing.cast(typing.Optional[_DependabotOptions_0cedc635], result)
+        return typing.cast(typing.Optional["_DependabotOptions_0cedc635"], result)
 
     @builtins.property
     def deps_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -14875,7 +15201,7 @@ class AwsCdkTypeScriptAppOptions(
 
         Cannot be used in conjunction with ``dependabot``.
 
-        :default: true
+        :default: - ``true`` for root projects, ``false`` for subprojects
 
         :stability: experimental
         '''
@@ -14885,7 +15211,7 @@ class AwsCdkTypeScriptAppOptions(
     @builtins.property
     def deps_upgrade_options(
         self,
-    ) -> typing.Optional[_UpgradeDependenciesOptions_1d8ce4da]:
+    ) -> typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"]:
         '''(experimental) Options for ``UpgradeDependencies``.
 
         :default: - default options
@@ -14893,7 +15219,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("deps_upgrade_options")
-        return typing.cast(typing.Optional[_UpgradeDependenciesOptions_1d8ce4da], result)
+        return typing.cast(typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"], result)
 
     @builtins.property
     def gitignore(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -14916,7 +15242,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def jest_options(self) -> typing.Optional[_JestOptions_a085f64e]:
+    def jest_options(self) -> typing.Optional["_JestOptions_a085f64e"]:
         '''(experimental) Jest options.
 
         :default: - default options
@@ -14924,7 +15250,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("jest_options")
-        return typing.cast(typing.Optional[_JestOptions_a085f64e], result)
+        return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -14968,13 +15294,13 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def npm_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .npmignore file.
 
         :stability: experimental
         '''
         result = self._values.get("npm_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
     def package(self) -> typing.Optional[builtins.bool]:
@@ -14999,7 +15325,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def prettier_options(self) -> typing.Optional[_PrettierOptions_41a5f203]:
+    def prettier_options(self) -> typing.Optional["_PrettierOptions_41a5f203"]:
         '''(experimental) Prettier options.
 
         :default: - default options
@@ -15007,7 +15333,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("prettier_options")
-        return typing.cast(typing.Optional[_PrettierOptions_41a5f203], result)
+        return typing.cast(typing.Optional["_PrettierOptions_41a5f203"], result)
 
     @builtins.property
     def projen_dev_dependency(self) -> typing.Optional[builtins.bool]:
@@ -15032,7 +15358,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional[_ProjenrcOptions_179dd39f]:
+    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
         '''(experimental) Options for .projenrc.js.
 
         :default: - default options
@@ -15040,7 +15366,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_179dd39f], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
 
     @builtins.property
     def projen_version(self) -> typing.Optional[builtins.str]:
@@ -15115,7 +15441,7 @@ class AwsCdkTypeScriptAppOptions(
     @builtins.property
     def workflow_bootstrap_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Workflow steps to use in order to bootstrap this repo.
 
         :default: "yarn install --frozen-lockfile && yarn projen"
@@ -15123,18 +15449,18 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("workflow_bootstrap_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def workflow_git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) The git identity to use in workflows.
 
-        :default: - GitHub Actions
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("workflow_git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
@@ -15227,7 +15553,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def eslint_options(self) -> typing.Optional[_EslintOptions_824f60bb]:
+    def eslint_options(self) -> typing.Optional["_EslintOptions_824f60bb"]:
         '''(experimental) Eslint options.
 
         :default: - opinionated default options
@@ -15235,7 +15561,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("eslint_options")
-        return typing.cast(typing.Optional[_EslintOptions_824f60bb], result)
+        return typing.cast(typing.Optional["_EslintOptions_824f60bb"], result)
 
     @builtins.property
     def libdir(self) -> typing.Optional[builtins.str]:
@@ -15261,13 +15587,13 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional[_ProjenrcOptions_514ec2ee]:
+    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcOptions_514ec2ee"]:
         '''(experimental) Options for .projenrc.ts.
 
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_514ec2ee], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_514ec2ee"], result)
 
     @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
@@ -15308,7 +15634,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tsconfig(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom TSConfig.
 
         :default: - default options
@@ -15316,10 +15642,10 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("tsconfig")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
-    def tsconfig_dev(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig_dev(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom tsconfig options for the development tsconfig.json file (used for testing).
 
         :default: - use the production tsconfig options
@@ -15327,7 +15653,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("tsconfig_dev")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
     def tsconfig_dev_file(self) -> typing.Optional[builtins.str]:
@@ -15341,13 +15667,13 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ts_jest_options(self) -> typing.Optional[_TsJestOptions_3c0597c1]:
+    def ts_jest_options(self) -> typing.Optional["_TsJestOptions_3c0597c1"]:
         '''(experimental) Options for ts-jest.
 
         :stability: experimental
         '''
         result = self._values.get("ts_jest_options")
-        return typing.cast(typing.Optional[_TsJestOptions_3c0597c1], result)
+        return typing.cast(typing.Optional["_TsJestOptions_3c0597c1"], result)
 
     @builtins.property
     def typescript_version(self) -> typing.Optional[builtins.str]:
@@ -15401,18 +15727,22 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
-    def feature_flags(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Include all feature flags in cdk.json.
+    def feature_flags(self) -> typing.Optional["ICdkFeatureFlags"]:
+        '''(experimental) Feature flags that should be enabled in ``cdk.json``.
 
-        :default: true
+        Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying.
+        Unexpected changes may cause breaking changes in your CDK app.
+        You can overwrite any feature flag by passing it into the context field.
+
+        :default: - no feature flags are enabled by default
 
         :stability: experimental
         '''
         result = self._values.get("feature_flags")
-        return typing.cast(typing.Optional[builtins.bool], result)
+        return typing.cast(typing.Optional["ICdkFeatureFlags"], result)
 
     @builtins.property
-    def require_approval(self) -> typing.Optional[ApprovalLevel]:
+    def require_approval(self) -> typing.Optional["ApprovalLevel"]:
         '''(experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them.
 
         :default: ApprovalLevel.BROADENING
@@ -15420,7 +15750,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("require_approval")
-        return typing.cast(typing.Optional[ApprovalLevel], result)
+        return typing.cast(typing.Optional["ApprovalLevel"], result)
 
     @builtins.property
     def watch_excludes(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -15646,7 +15976,7 @@ class AwsCdkTypeScriptAppOptions(
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def lambda_options(self) -> typing.Optional[LambdaFunctionCommonOptions]:
+    def lambda_options(self) -> typing.Optional["LambdaFunctionCommonOptions"]:
         '''(experimental) Common options for all AWS Lambda functions.
 
         :default: - default options
@@ -15654,7 +15984,7 @@ class AwsCdkTypeScriptAppOptions(
         :stability: experimental
         '''
         result = self._values.get("lambda_options")
-        return typing.cast(typing.Optional[LambdaFunctionCommonOptions], result)
+        return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -15668,6 +15998,138 @@ class AwsCdkTypeScriptAppOptions(
         )
 
 
+@jsii.implements(ICdkFeatureFlags)
+class CdkFeatureFlags(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.awscdk.CdkFeatureFlags",
+):
+    '''(experimental) CDK feature flags configuration.
+
+    :stability: experimental
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V1")
+    def V1(cls) -> "CdkFeatureFlagsV1":
+        '''(deprecated) CDK V1 feature flags configuration.
+
+        :deprecated: CDK V1 is EOS. Upgrade to CDK V2.
+
+        :stability: deprecated
+        '''
+        return typing.cast("CdkFeatureFlagsV1", jsii.sget(cls, "V1"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="V2")
+    def V2(cls) -> "CdkFeatureFlagsV2":
+        '''(experimental) CDK V2 feature flags configuration.
+
+        :stability: experimental
+        '''
+        return typing.cast("CdkFeatureFlagsV2", jsii.sget(cls, "V2"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flags")
+    def flags(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "flags"))
+
+
+@jsii.implements(ICdkFeatureFlags)
+class CdkFeatureFlagsV1(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.awscdk.CdkFeatureFlagsV1",
+):
+    '''(deprecated) CDK V1 feature flags configuration.
+
+    :deprecated: CDK V1 is EOS. Upgrade to CDK V2.
+
+    :stability: deprecated
+    '''
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ALL")
+    def ALL(cls) -> "CdkFeatureFlagsV1":
+        '''(deprecated) Enable all CDK V1 feature flags.
+
+        :stability: deprecated
+        '''
+        return typing.cast("CdkFeatureFlagsV1", jsii.sget(cls, "ALL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NONE")
+    def NONE(cls) -> "CdkFeatureFlagsV1":
+        '''(deprecated) Disable all feature flags.
+
+        :stability: deprecated
+        '''
+        return typing.cast("CdkFeatureFlagsV1", jsii.sget(cls, "NONE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flags")
+    def flags(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: deprecated
+        '''
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "flags"))
+
+
+@jsii.implements(ICdkFeatureFlags)
+class CdkFeatureFlagsV2(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.awscdk.CdkFeatureFlagsV2",
+):
+    '''(experimental) CDK V2 feature flags configuration.
+
+    :stability: experimental
+    '''
+
+    @jsii.member(jsii_name="fromLocalAwsCdkLib")
+    @builtins.classmethod
+    def from_local_aws_cdk_lib(cls) -> "CdkFeatureFlagsV2":
+        '''(experimental) Attempt to load the feature flags from the ``aws-cdk-lib/recommended-feature-flags.json`` in a locally available npm package. This file is typically only present in AWS CDK TypeScript projects, but can yield more accurate results.
+
+        Falls back to all known feature flags if not found.
+
+        :stability: experimental
+        '''
+        return typing.cast("CdkFeatureFlagsV2", jsii.sinvoke(cls, "fromLocalAwsCdkLib", []))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="ALL")
+    def ALL(cls) -> "CdkFeatureFlagsV2":
+        '''(experimental) Enable all CDK V2 feature flags known to projen.
+
+        These might not include feature flags, if your version of projen isn't up-to-date.
+
+        Make sure to double-check any changes to feature flags in ``cdk.json`` before deploying.
+        Unexpected changes may cause breaking changes in your CDK app.
+        You can overwrite any feature flag by passing it into the context field.
+
+        :stability: experimental
+        '''
+        return typing.cast("CdkFeatureFlagsV2", jsii.sget(cls, "ALL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="NONE")
+    def NONE(cls) -> "CdkFeatureFlagsV2":
+        '''(experimental) Disable all feature flags.
+
+        :stability: experimental
+        '''
+        return typing.cast("CdkFeatureFlagsV2", jsii.sget(cls, "NONE"))
+
+    @builtins.property
+    @jsii.member(jsii_name="flags")
+    def flags(self) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "flags"))
+
+
 @jsii.data_type(
     jsii_type="projen.awscdk.ConstructLibraryAwsOptions",
     jsii_struct_bases=[AwsCdkConstructLibraryOptions],
@@ -15679,6 +16141,7 @@ class AwsCdkTypeScriptAppOptions(
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -15768,6 +16231,8 @@ class AwsCdkTypeScriptAppOptions(
         "workflow_runs_on_group": "workflowRunsOnGroup",
         "default_release_branch": "defaultReleaseBranch",
         "artifacts_directory": "artifactsDirectory",
+        "audit_deps": "auditDeps",
+        "audit_deps_options": "auditDepsOptions",
         "auto_approve_upgrades": "autoApproveUpgrades",
         "biome": "biome",
         "biome_options": "biomeOptions",
@@ -15865,32 +16330,33 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[_GitOptions_a65916a3, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["_GitOptions_a65916a3", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["_LoggerOptions_eb0f6309", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[_Project_57d89203] = None,
+        parent: typing.Optional["_Project_57d89203"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
-        projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_json_options: typing.Optional[typing.Union["_ProjenrcJsonOptions_9c40dd4f", typing.Dict[builtins.str, typing.Any]]] = None,
         renovatebot: typing.Optional[builtins.bool] = None,
-        renovatebot_options: typing.Optional[typing.Union[_RenovatebotOptions_18e6b8a1, typing.Dict[builtins.str, typing.Any]]] = None,
-        auto_approve_options: typing.Optional[typing.Union[_AutoApproveOptions_dac86cbe, typing.Dict[builtins.str, typing.Any]]] = None,
+        renovatebot_options: typing.Optional[typing.Union["_RenovatebotOptions_18e6b8a1", typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_approve_options: typing.Optional[typing.Union["_AutoApproveOptions_dac86cbe", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_merge: typing.Optional[builtins.bool] = None,
-        auto_merge_options: typing.Optional[typing.Union[_AutoMergeOptions_d112cd3c, typing.Dict[builtins.str, typing.Any]]] = None,
+        auto_merge_options: typing.Optional[typing.Union["_AutoMergeOptions_d112cd3c", typing.Dict[builtins.str, typing.Any]]] = None,
         clobber: typing.Optional[builtins.bool] = None,
         dev_container: typing.Optional[builtins.bool] = None,
         github: typing.Optional[builtins.bool] = None,
-        github_options: typing.Optional[typing.Union[_GitHubOptions_21553699, typing.Dict[builtins.str, typing.Any]]] = None,
+        github_options: typing.Optional[typing.Union["_GitHubOptions_21553699", typing.Dict[builtins.str, typing.Any]]] = None,
         gitpod: typing.Optional[builtins.bool] = None,
         mergify: typing.Optional[builtins.bool] = None,
-        mergify_options: typing.Optional[typing.Union[_MergifyOptions_a6faaab3, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_type: typing.Optional[_ProjectType_fd80c725] = None,
-        projen_credentials: typing.Optional[_GithubCredentials_ae257072] = None,
+        mergify_options: typing.Optional[typing.Union["_MergifyOptions_a6faaab3", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_type: typing.Optional["_ProjectType_fd80c725"] = None,
+        projen_credentials: typing.Optional["_GithubCredentials_ae257072"] = None,
         projen_token_secret: typing.Optional[builtins.str] = None,
-        readme: typing.Optional[typing.Union[_SampleReadmeProps_3518b03b, typing.Dict[builtins.str, typing.Any]]] = None,
+        readme: typing.Optional[typing.Union["_SampleReadmeProps_3518b03b", typing.Dict[builtins.str, typing.Any]]] = None,
         stale: typing.Optional[builtins.bool] = None,
-        stale_options: typing.Optional[typing.Union[_StaleOptions_929db764, typing.Dict[builtins.str, typing.Any]]] = None,
+        stale_options: typing.Optional[typing.Union["_StaleOptions_929db764", typing.Dict[builtins.str, typing.Any]]] = None,
         vscode: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
         author_email: typing.Optional[builtins.str] = None,
@@ -15903,7 +16369,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         bugs_url: typing.Optional[builtins.str] = None,
         bundled_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         bun_version: typing.Optional[builtins.str] = None,
-        code_artifact_options: typing.Optional[typing.Union[_CodeArtifactOptions_e4782b3e, typing.Dict[builtins.str, typing.Any]]] = None,
+        code_artifact_options: typing.Optional[typing.Union["_CodeArtifactOptions_e4782b3e", typing.Dict[builtins.str, typing.Any]]] = None,
         deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         description: typing.Optional[builtins.str] = None,
         dev_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -15914,88 +16380,90 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         licensed: typing.Optional[builtins.bool] = None,
         max_node_version: typing.Optional[builtins.str] = None,
         min_node_version: typing.Optional[builtins.str] = None,
-        npm_access: typing.Optional[_NpmAccess_134fa228] = None,
+        npm_access: typing.Optional["_NpmAccess_134fa228"] = None,
         npm_provenance: typing.Optional[builtins.bool] = None,
         npm_registry: typing.Optional[builtins.str] = None,
         npm_registry_url: typing.Optional[builtins.str] = None,
         npm_token_secret: typing.Optional[builtins.str] = None,
         npm_trusted_publishing: typing.Optional[builtins.bool] = None,
-        package_manager: typing.Optional[_NodePackageManager_3eb53bf6] = None,
+        package_manager: typing.Optional["_NodePackageManager_3eb53bf6"] = None,
         package_name: typing.Optional[builtins.str] = None,
-        peer_dependency_options: typing.Optional[typing.Union[_PeerDependencyOptions_99d7d493, typing.Dict[builtins.str, typing.Any]]] = None,
+        peer_dependency_options: typing.Optional[typing.Union["_PeerDependencyOptions_99d7d493", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
-        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union[_ScopedPackagesOptions_52f0a477, typing.Dict[builtins.str, typing.Any]]]] = None,
+        scoped_packages_options: typing.Optional[typing.Sequence[typing.Union["_ScopedPackagesOptions_52f0a477", typing.Dict[builtins.str, typing.Any]]]] = None,
         scripts: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         stability: typing.Optional[builtins.str] = None,
-        yarn_berry_options: typing.Optional[typing.Union[_YarnBerryOptions_b6942539, typing.Dict[builtins.str, typing.Any]]] = None,
+        yarn_berry_options: typing.Optional[typing.Union["_YarnBerryOptions_b6942539", typing.Dict[builtins.str, typing.Any]]] = None,
         bump_package: typing.Optional[builtins.str] = None,
         jsii_release_version: typing.Optional[builtins.str] = None,
         major_version: typing.Optional[jsii.Number] = None,
         min_major_version: typing.Optional[jsii.Number] = None,
         next_version_command: typing.Optional[builtins.str] = None,
         npm_dist_tag: typing.Optional[builtins.str] = None,
-        post_build_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        post_build_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         prerelease: typing.Optional[builtins.str] = None,
         publish_dry_run: typing.Optional[builtins.bool] = None,
         publish_tasks: typing.Optional[builtins.bool] = None,
-        releasable_commits: typing.Optional[_ReleasableCommits_d481ce10] = None,
-        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union[_BranchOptions_13663d08, typing.Dict[builtins.str, typing.Any]]]] = None,
+        releasable_commits: typing.Optional["_ReleasableCommits_d481ce10"] = None,
+        release_branches: typing.Optional[typing.Mapping[builtins.str, typing.Union["_BranchOptions_13663d08", typing.Dict[builtins.str, typing.Any]]]] = None,
         release_environment: typing.Optional[builtins.str] = None,
         release_every_commit: typing.Optional[builtins.bool] = None,
         release_failure_issue: typing.Optional[builtins.bool] = None,
         release_failure_issue_label: typing.Optional[builtins.str] = None,
         release_schedule: typing.Optional[builtins.str] = None,
         release_tag_prefix: typing.Optional[builtins.str] = None,
-        release_trigger: typing.Optional[_ReleaseTrigger_e4dc221f] = None,
+        release_trigger: typing.Optional["_ReleaseTrigger_e4dc221f"] = None,
         release_workflow_env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         release_workflow_name: typing.Optional[builtins.str] = None,
-        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
+        release_workflow_setup_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
         workflow_container_image: typing.Optional[builtins.str] = None,
         workflow_runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
         default_release_branch: builtins.str,
         artifacts_directory: typing.Optional[builtins.str] = None,
+        audit_deps: typing.Optional[builtins.bool] = None,
+        audit_deps_options: typing.Optional[typing.Union["_AuditOptions_429c62df", typing.Dict[builtins.str, typing.Any]]] = None,
         auto_approve_upgrades: typing.Optional[builtins.bool] = None,
         biome: typing.Optional[builtins.bool] = None,
-        biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
+        biome_options: typing.Optional[typing.Union["_BiomeOptions_452ab984", typing.Dict[builtins.str, typing.Any]]] = None,
         build_workflow: typing.Optional[builtins.bool] = None,
-        build_workflow_options: typing.Optional[typing.Union[_BuildWorkflowOptions_b756f97f, typing.Dict[builtins.str, typing.Any]]] = None,
-        build_workflow_triggers: typing.Optional[typing.Union[_Triggers_e9ae7617, typing.Dict[builtins.str, typing.Any]]] = None,
-        bundler_options: typing.Optional[typing.Union[_BundlerOptions_d60b85ed, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_licenses: typing.Optional[typing.Union[_LicenseCheckerOptions_80bcd362, typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_options: typing.Optional[typing.Union["_BuildWorkflowOptions_b756f97f", typing.Dict[builtins.str, typing.Any]]] = None,
+        build_workflow_triggers: typing.Optional[typing.Union["_Triggers_e9ae7617", typing.Dict[builtins.str, typing.Any]]] = None,
+        bundler_options: typing.Optional[typing.Union["_BundlerOptions_d60b85ed", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_licenses: typing.Optional[typing.Union["_LicenseCheckerOptions_80bcd362", typing.Dict[builtins.str, typing.Any]]] = None,
         code_cov: typing.Optional[builtins.bool] = None,
         code_cov_token_secret: typing.Optional[builtins.str] = None,
         copyright_owner: typing.Optional[builtins.str] = None,
         copyright_period: typing.Optional[builtins.str] = None,
         dependabot: typing.Optional[builtins.bool] = None,
-        dependabot_options: typing.Optional[typing.Union[_DependabotOptions_0cedc635, typing.Dict[builtins.str, typing.Any]]] = None,
+        dependabot_options: typing.Optional[typing.Union["_DependabotOptions_0cedc635", typing.Dict[builtins.str, typing.Any]]] = None,
         deps_upgrade: typing.Optional[builtins.bool] = None,
-        deps_upgrade_options: typing.Optional[typing.Union[_UpgradeDependenciesOptions_1d8ce4da, typing.Dict[builtins.str, typing.Any]]] = None,
+        deps_upgrade_options: typing.Optional[typing.Union["_UpgradeDependenciesOptions_1d8ce4da", typing.Dict[builtins.str, typing.Any]]] = None,
         gitignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         jest: typing.Optional[builtins.bool] = None,
-        jest_options: typing.Optional[typing.Union[_JestOptions_a085f64e, typing.Dict[builtins.str, typing.Any]]] = None,
+        jest_options: typing.Optional[typing.Union["_JestOptions_a085f64e", typing.Dict[builtins.str, typing.Any]]] = None,
         mutable_build: typing.Optional[builtins.bool] = None,
         npmignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         npmignore_enabled: typing.Optional[builtins.bool] = None,
-        npm_ignore_options: typing.Optional[typing.Union[_IgnoreFileOptions_86c48b91, typing.Dict[builtins.str, typing.Any]]] = None,
+        npm_ignore_options: typing.Optional[typing.Union["_IgnoreFileOptions_86c48b91", typing.Dict[builtins.str, typing.Any]]] = None,
         package: typing.Optional[builtins.bool] = None,
         prettier: typing.Optional[builtins.bool] = None,
-        prettier_options: typing.Optional[typing.Union[_PrettierOptions_41a5f203, typing.Dict[builtins.str, typing.Any]]] = None,
+        prettier_options: typing.Optional[typing.Union["_PrettierOptions_41a5f203", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_dev_dependency: typing.Optional[builtins.bool] = None,
         projenrc_js: typing.Optional[builtins.bool] = None,
-        projenrc_js_options: typing.Optional[typing.Union[_ProjenrcOptions_179dd39f, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_js_options: typing.Optional[typing.Union["_ProjenrcOptions_179dd39f", typing.Dict[builtins.str, typing.Any]]] = None,
         projen_version: typing.Optional[builtins.str] = None,
         pull_request_template: typing.Optional[builtins.bool] = None,
         pull_request_template_contents: typing.Optional[typing.Sequence[builtins.str]] = None,
         release: typing.Optional[builtins.bool] = None,
         release_to_npm: typing.Optional[builtins.bool] = None,
         release_workflow: typing.Optional[builtins.bool] = None,
-        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union[_JobStep_c3287c05, typing.Dict[builtins.str, typing.Any]]]] = None,
-        workflow_git_identity: typing.Optional[typing.Union[_GitIdentity_6effc3de, typing.Dict[builtins.str, typing.Any]]] = None,
+        workflow_bootstrap_steps: typing.Optional[typing.Sequence[typing.Union["_JobStep_c3287c05", typing.Dict[builtins.str, typing.Any]]]] = None,
+        workflow_git_identity: typing.Optional[typing.Union["_GitIdentity_6effc3de", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_node_version: typing.Optional[builtins.str] = None,
         workflow_package_cache: typing.Optional[builtins.bool] = None,
         disable_tsconfig: typing.Optional[builtins.bool] = None,
@@ -16004,17 +16472,17 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         docs_directory: typing.Optional[builtins.str] = None,
         entrypoint_types: typing.Optional[builtins.str] = None,
         eslint: typing.Optional[builtins.bool] = None,
-        eslint_options: typing.Optional[typing.Union[_EslintOptions_824f60bb, typing.Dict[builtins.str, typing.Any]]] = None,
+        eslint_options: typing.Optional[typing.Union["_EslintOptions_824f60bb", typing.Dict[builtins.str, typing.Any]]] = None,
         libdir: typing.Optional[builtins.str] = None,
         projenrc_ts: typing.Optional[builtins.bool] = None,
-        projenrc_ts_options: typing.Optional[typing.Union[_ProjenrcOptions_514ec2ee, typing.Dict[builtins.str, typing.Any]]] = None,
+        projenrc_ts_options: typing.Optional[typing.Union["_ProjenrcOptions_514ec2ee", typing.Dict[builtins.str, typing.Any]]] = None,
         sample_code: typing.Optional[builtins.bool] = None,
         srcdir: typing.Optional[builtins.str] = None,
         testdir: typing.Optional[builtins.str] = None,
-        tsconfig: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
-        tsconfig_dev: typing.Optional[typing.Union[_TypescriptConfigOptions_8c5492cd, typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
+        tsconfig_dev: typing.Optional[typing.Union["_TypescriptConfigOptions_8c5492cd", typing.Dict[builtins.str, typing.Any]]] = None,
         tsconfig_dev_file: typing.Optional[builtins.str] = None,
-        ts_jest_options: typing.Optional[typing.Union[_TsJestOptions_3c0597c1, typing.Dict[builtins.str, typing.Any]]] = None,
+        ts_jest_options: typing.Optional[typing.Union["_TsJestOptions_3c0597c1", typing.Dict[builtins.str, typing.Any]]] = None,
         typescript_version: typing.Optional[builtins.str] = None,
         author: builtins.str,
         author_address: builtins.str,
@@ -16023,16 +16491,16 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         compat_ignore: typing.Optional[builtins.str] = None,
         compress_assembly: typing.Optional[builtins.bool] = None,
         docgen_file_path: typing.Optional[builtins.str] = None,
-        dotnet: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude_typescript: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsii_version: typing.Optional[builtins.str] = None,
-        publish_to_go: typing.Optional[typing.Union[_JsiiGoTarget_921d41d5, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_maven: typing.Optional[typing.Union[_JsiiJavaTarget_1ed05aaa, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_nuget: typing.Optional[typing.Union[_JsiiDotNetTarget_7b5d56c7, typing.Dict[builtins.str, typing.Any]]] = None,
-        publish_to_pypi: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[_JsiiPythonTarget_8efe2861, typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_go: typing.Optional[typing.Union["_JsiiGoTarget_921d41d5", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_maven: typing.Optional[typing.Union["_JsiiJavaTarget_1ed05aaa", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_nuget: typing.Optional[typing.Union["_JsiiDotNetTarget_7b5d56c7", typing.Dict[builtins.str, typing.Any]]] = None,
+        publish_to_pypi: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["_JsiiPythonTarget_8efe2861", typing.Dict[builtins.str, typing.Any]]] = None,
         rootdir: typing.Optional[builtins.str] = None,
-        catalog: typing.Optional[typing.Union[_Catalog_baa0a70e, typing.Dict[builtins.str, typing.Any]]] = None,
+        catalog: typing.Optional[typing.Union["_Catalog_baa0a70e", typing.Dict[builtins.str, typing.Any]]] = None,
         cdk_version: builtins.str,
         cdk_assert: typing.Optional[builtins.bool] = None,
         cdk_assertions: typing.Optional[builtins.bool] = None,
@@ -16047,7 +16515,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         integration_test_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_auto_discover: typing.Optional[builtins.bool] = None,
         lambda_extension_auto_discover: typing.Optional[builtins.bool] = None,
-        lambda_options: typing.Optional[typing.Union[LambdaFunctionCommonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        lambda_options: typing.Optional[typing.Union["LambdaFunctionCommonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param name: (experimental) This is the name of your project. Default: $BASEDIR
@@ -16057,6 +16525,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -16146,7 +16615,9 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param workflow_runs_on_group: (experimental) Github Runner Group selection options.
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
-        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
+        :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
+        :param audit_deps_options: (experimental) Security audit options. Default: - default options
+        :param auto_approve_upgrades: (experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured). Throw if set to true but ``autoApproveOptions`` are not defined. Default: - true
         :param biome: (experimental) Setup Biome. Default: false
         :param biome_options: (experimental) Biome options. Default: - default options
         :param build_workflow: (experimental) Define a GitHub workflow for building PRs. Default: - true if not a subproject
@@ -16160,7 +16631,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param copyright_period: (experimental) The copyright years to put in the LICENSE file. Default: - current year
         :param dependabot: (experimental) Use dependabot to handle dependency upgrades. Cannot be used in conjunction with ``depsUpgrade``. Default: false
         :param dependabot_options: (experimental) Options for dependabot. Default: - default options
-        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: true
+        :param deps_upgrade: (experimental) Use tasks and github workflows to handle dependency upgrades. Cannot be used in conjunction with ``dependabot``. Default: - ``true`` for root projects, ``false`` for subprojects
         :param deps_upgrade_options: (experimental) Options for ``UpgradeDependencies``. Default: - default options
         :param gitignore: (experimental) Additional entries to .gitignore.
         :param jest: (experimental) Setup jest unit tests. Default: true
@@ -16182,7 +16653,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param release_to_npm: (experimental) Automatically release to npm when new versions are introduced. Default: false
         :param release_workflow: (deprecated) DEPRECATED: renamed to ``release``. Default: - true if not a subproject
         :param workflow_bootstrap_steps: (experimental) Workflow steps to use in order to bootstrap this repo. Default: "yarn install --frozen-lockfile && yarn projen"
-        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - GitHub Actions
+        :param workflow_git_identity: (experimental) The git identity to use in workflows. Default: - default GitHub Actions user
         :param workflow_node_version: (experimental) The node version used in GitHub Actions workflows. Always use this option if your GitHub Actions workflows require a specific to run. Default: - ``minNodeVersion`` if set, otherwise ``lts/*``.
         :param workflow_package_cache: (experimental) Enable Node.js package cache in GitHub workflows. Default: false
         :param disable_tsconfig: (experimental) Do not generate a ``tsconfig.json`` file (used by jsii projects since tsconfig.json is generated by the jsii compiler). Default: false
@@ -16270,6 +16741,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             yarn_berry_options = _YarnBerryOptions_b6942539(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _GroupRunnerOptions_148c59c1(**workflow_runs_on_group)
+        if isinstance(audit_deps_options, dict):
+            audit_deps_options = _AuditOptions_429c62df(**audit_deps_options)
         if isinstance(biome_options, dict):
             biome_options = _BiomeOptions_452ab984(**biome_options)
         if isinstance(build_workflow_options, dict):
@@ -16329,6 +16802,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -16418,6 +16892,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             check_type(argname="argument workflow_runs_on_group", value=workflow_runs_on_group, expected_type=type_hints["workflow_runs_on_group"])
             check_type(argname="argument default_release_branch", value=default_release_branch, expected_type=type_hints["default_release_branch"])
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
+            check_type(argname="argument audit_deps", value=audit_deps, expected_type=type_hints["audit_deps"])
+            check_type(argname="argument audit_deps_options", value=audit_deps_options, expected_type=type_hints["audit_deps_options"])
             check_type(argname="argument auto_approve_upgrades", value=auto_approve_upgrades, expected_type=type_hints["auto_approve_upgrades"])
             check_type(argname="argument biome", value=biome, expected_type=type_hints["biome"])
             check_type(argname="argument biome_options", value=biome_options, expected_type=type_hints["biome_options"])
@@ -16527,6 +17003,8 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -16703,6 +17181,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             self._values["workflow_runs_on_group"] = workflow_runs_on_group
         if artifacts_directory is not None:
             self._values["artifacts_directory"] = artifacts_directory
+        if audit_deps is not None:
+            self._values["audit_deps"] = audit_deps
+        if audit_deps_options is not None:
+            self._values["audit_deps_options"] = audit_deps_options
         if auto_approve_upgrades is not None:
             self._values["auto_approve_upgrades"] = auto_approve_upgrades
         if biome is not None:
@@ -16899,25 +17381,25 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def git_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[_GitOptions_a65916a3]:
+    def git_options(self) -> typing.Optional["_GitOptions_a65916a3"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[_GitOptions_a65916a3], result)
+        return typing.cast(typing.Optional["_GitOptions_a65916a3"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[_LoggerOptions_eb0f6309]:
+    def logging(self) -> typing.Optional["_LoggerOptions_eb0f6309"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -16925,7 +17407,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[_LoggerOptions_eb0f6309], result)
+        return typing.cast(typing.Optional["_LoggerOptions_eb0f6309"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -16945,13 +17427,24 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[_Project_57d89203]:
+    def parent(self) -> typing.Optional["_Project_57d89203"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[_Project_57d89203], result)
+        return typing.cast(typing.Optional["_Project_57d89203"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -16978,7 +17471,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_json_options(self) -> typing.Optional[_ProjenrcJsonOptions_9c40dd4f]:
+    def projenrc_json_options(self) -> typing.Optional["_ProjenrcJsonOptions_9c40dd4f"]:
         '''(experimental) Options for .projenrc.json.
 
         :default: - default options
@@ -16986,7 +17479,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("projenrc_json_options")
-        return typing.cast(typing.Optional[_ProjenrcJsonOptions_9c40dd4f], result)
+        return typing.cast(typing.Optional["_ProjenrcJsonOptions_9c40dd4f"], result)
 
     @builtins.property
     def renovatebot(self) -> typing.Optional[builtins.bool]:
@@ -17000,7 +17493,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def renovatebot_options(self) -> typing.Optional[_RenovatebotOptions_18e6b8a1]:
+    def renovatebot_options(self) -> typing.Optional["_RenovatebotOptions_18e6b8a1"]:
         '''(experimental) Options for renovatebot.
 
         :default: - default options
@@ -17008,10 +17501,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("renovatebot_options")
-        return typing.cast(typing.Optional[_RenovatebotOptions_18e6b8a1], result)
+        return typing.cast(typing.Optional["_RenovatebotOptions_18e6b8a1"], result)
 
     @builtins.property
-    def auto_approve_options(self) -> typing.Optional[_AutoApproveOptions_dac86cbe]:
+    def auto_approve_options(self) -> typing.Optional["_AutoApproveOptions_dac86cbe"]:
         '''(experimental) Enable and configure the 'auto approve' workflow.
 
         :default: - auto approve is disabled
@@ -17019,7 +17512,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("auto_approve_options")
-        return typing.cast(typing.Optional[_AutoApproveOptions_dac86cbe], result)
+        return typing.cast(typing.Optional["_AutoApproveOptions_dac86cbe"], result)
 
     @builtins.property
     def auto_merge(self) -> typing.Optional[builtins.bool]:
@@ -17036,7 +17529,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def auto_merge_options(self) -> typing.Optional[_AutoMergeOptions_d112cd3c]:
+    def auto_merge_options(self) -> typing.Optional["_AutoMergeOptions_d112cd3c"]:
         '''(experimental) Configure options for automatic merging on GitHub.
 
         Has no effect if
@@ -17047,7 +17540,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("auto_merge_options")
-        return typing.cast(typing.Optional[_AutoMergeOptions_d112cd3c], result)
+        return typing.cast(typing.Optional["_AutoMergeOptions_d112cd3c"], result)
 
     @builtins.property
     def clobber(self) -> typing.Optional[builtins.bool]:
@@ -17085,7 +17578,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def github_options(self) -> typing.Optional[_GitHubOptions_21553699]:
+    def github_options(self) -> typing.Optional["_GitHubOptions_21553699"]:
         '''(experimental) Options for GitHub integration.
 
         :default: - see GitHubOptions
@@ -17093,7 +17586,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("github_options")
-        return typing.cast(typing.Optional[_GitHubOptions_21553699], result)
+        return typing.cast(typing.Optional["_GitHubOptions_21553699"], result)
 
     @builtins.property
     def gitpod(self) -> typing.Optional[builtins.bool]:
@@ -17120,7 +17613,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def mergify_options(self) -> typing.Optional[_MergifyOptions_a6faaab3]:
+    def mergify_options(self) -> typing.Optional["_MergifyOptions_a6faaab3"]:
         '''(deprecated) Options for mergify.
 
         :default: - default options
@@ -17130,10 +17623,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: deprecated
         '''
         result = self._values.get("mergify_options")
-        return typing.cast(typing.Optional[_MergifyOptions_a6faaab3], result)
+        return typing.cast(typing.Optional["_MergifyOptions_a6faaab3"], result)
 
     @builtins.property
-    def project_type(self) -> typing.Optional[_ProjectType_fd80c725]:
+    def project_type(self) -> typing.Optional["_ProjectType_fd80c725"]:
         '''(deprecated) Which type of project this is (library/app).
 
         :default: ProjectType.UNKNOWN
@@ -17143,10 +17636,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: deprecated
         '''
         result = self._values.get("project_type")
-        return typing.cast(typing.Optional[_ProjectType_fd80c725], result)
+        return typing.cast(typing.Optional["_ProjectType_fd80c725"], result)
 
     @builtins.property
-    def projen_credentials(self) -> typing.Optional[_GithubCredentials_ae257072]:
+    def projen_credentials(self) -> typing.Optional["_GithubCredentials_ae257072"]:
         '''(experimental) Choose a method of providing GitHub API access for projen workflows.
 
         :default: - use a personal access token named PROJEN_GITHUB_TOKEN
@@ -17154,7 +17647,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("projen_credentials")
-        return typing.cast(typing.Optional[_GithubCredentials_ae257072], result)
+        return typing.cast(typing.Optional["_GithubCredentials_ae257072"], result)
 
     @builtins.property
     def projen_token_secret(self) -> typing.Optional[builtins.str]:
@@ -17173,7 +17666,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def readme(self) -> typing.Optional[_SampleReadmeProps_3518b03b]:
+    def readme(self) -> typing.Optional["_SampleReadmeProps_3518b03b"]:
         '''(experimental) The README setup.
 
         :default: - { filename: 'README.md', contents: '# replace this' }
@@ -17185,7 +17678,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
             "{ filename: 'readme.md', contents: '# title' }"
         '''
         result = self._values.get("readme")
-        return typing.cast(typing.Optional[_SampleReadmeProps_3518b03b], result)
+        return typing.cast(typing.Optional["_SampleReadmeProps_3518b03b"], result)
 
     @builtins.property
     def stale(self) -> typing.Optional[builtins.bool]:
@@ -17201,7 +17694,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def stale_options(self) -> typing.Optional[_StaleOptions_929db764]:
+    def stale_options(self) -> typing.Optional["_StaleOptions_929db764"]:
         '''(experimental) Auto-close stale issues and pull requests.
 
         To disable set ``stale`` to ``false``.
@@ -17211,7 +17704,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("stale_options")
-        return typing.cast(typing.Optional[_StaleOptions_929db764], result)
+        return typing.cast(typing.Optional["_StaleOptions_929db764"], result)
 
     @builtins.property
     def vscode(self) -> typing.Optional[builtins.bool]:
@@ -17350,7 +17843,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def code_artifact_options(self) -> typing.Optional[_CodeArtifactOptions_e4782b3e]:
+    def code_artifact_options(self) -> typing.Optional["_CodeArtifactOptions_e4782b3e"]:
         '''(experimental) Options for npm packages using AWS CodeArtifact.
 
         This is required if publishing packages to, or installing scoped packages from AWS CodeArtifact
@@ -17360,7 +17853,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("code_artifact_options")
-        return typing.cast(typing.Optional[_CodeArtifactOptions_e4782b3e], result)
+        return typing.cast(typing.Optional["_CodeArtifactOptions_e4782b3e"], result)
 
     @builtins.property
     def deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -17520,7 +18013,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def npm_access(self) -> typing.Optional[_NpmAccess_134fa228]:
+    def npm_access(self) -> typing.Optional["_NpmAccess_134fa228"]:
         '''(experimental) Access level of the npm package.
 
         :default:
@@ -17532,7 +18025,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("npm_access")
-        return typing.cast(typing.Optional[_NpmAccess_134fa228], result)
+        return typing.cast(typing.Optional["_NpmAccess_134fa228"], result)
 
     @builtins.property
     def npm_provenance(self) -> typing.Optional[builtins.bool]:
@@ -17601,7 +18094,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def package_manager(self) -> typing.Optional[_NodePackageManager_3eb53bf6]:
+    def package_manager(self) -> typing.Optional["_NodePackageManager_3eb53bf6"]:
         '''(experimental) The Node Package Manager used to execute scripts.
 
         :default: NodePackageManager.YARN_CLASSIC
@@ -17609,7 +18102,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("package_manager")
-        return typing.cast(typing.Optional[_NodePackageManager_3eb53bf6], result)
+        return typing.cast(typing.Optional["_NodePackageManager_3eb53bf6"], result)
 
     @builtins.property
     def package_name(self) -> typing.Optional[builtins.str]:
@@ -17626,13 +18119,13 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     @builtins.property
     def peer_dependency_options(
         self,
-    ) -> typing.Optional[_PeerDependencyOptions_99d7d493]:
+    ) -> typing.Optional["_PeerDependencyOptions_99d7d493"]:
         '''(experimental) Options for ``peerDeps``.
 
         :stability: experimental
         '''
         result = self._values.get("peer_dependency_options")
-        return typing.cast(typing.Optional[_PeerDependencyOptions_99d7d493], result)
+        return typing.cast(typing.Optional["_PeerDependencyOptions_99d7d493"], result)
 
     @builtins.property
     def peer_deps(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -17693,7 +18186,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     @builtins.property
     def scoped_packages_options(
         self,
-    ) -> typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]]:
+    ) -> typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]]:
         '''(experimental) Options for privately hosted scoped packages.
 
         :default: - fetch all scoped packages from the public npm registry
@@ -17701,7 +18194,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("scoped_packages_options")
-        return typing.cast(typing.Optional[typing.List[_ScopedPackagesOptions_52f0a477]], result)
+        return typing.cast(typing.Optional[typing.List["_ScopedPackagesOptions_52f0a477"]], result)
 
     @builtins.property
     def scripts(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -17730,7 +18223,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def yarn_berry_options(self) -> typing.Optional[_YarnBerryOptions_b6942539]:
+    def yarn_berry_options(self) -> typing.Optional["_YarnBerryOptions_b6942539"]:
         '''(experimental) Options for Yarn Berry.
 
         :default: - Yarn Berry v4 with all default options
@@ -17738,7 +18231,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("yarn_berry_options")
-        return typing.cast(typing.Optional[_YarnBerryOptions_b6942539], result)
+        return typing.cast(typing.Optional["_YarnBerryOptions_b6942539"], result)
 
     @builtins.property
     def bump_package(self) -> typing.Optional[builtins.str]:
@@ -17839,7 +18332,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def post_build_steps(self) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    def post_build_steps(self) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Steps to execute after build as part of the release workflow.
 
         :default: []
@@ -17847,7 +18340,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("post_build_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def prerelease(self) -> typing.Optional[builtins.str]:
@@ -17886,7 +18379,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[_ReleasableCommits_d481ce10]:
+    def releasable_commits(self) -> typing.Optional["_ReleasableCommits_d481ce10"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -17894,12 +18387,12 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[_ReleasableCommits_d481ce10], result)
+        return typing.cast(typing.Optional["_ReleasableCommits_d481ce10"], result)
 
     @builtins.property
     def release_branches(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]]:
         '''(experimental) Defines additional release branches.
 
         A workflow will be created for each
@@ -17917,7 +18410,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("release_branches")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, _BranchOptions_13663d08]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "_BranchOptions_13663d08"]], result)
 
     @builtins.property
     def release_environment(self) -> typing.Optional[builtins.str]:
@@ -18003,7 +18496,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def release_trigger(self) -> typing.Optional[_ReleaseTrigger_e4dc221f]:
+    def release_trigger(self) -> typing.Optional["_ReleaseTrigger_e4dc221f"]:
         '''(experimental) The release trigger to use.
 
         :default: - Continuous releases (``ReleaseTrigger.continuous()``)
@@ -18011,7 +18504,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("release_trigger")
-        return typing.cast(typing.Optional[_ReleaseTrigger_e4dc221f], result)
+        return typing.cast(typing.Optional["_ReleaseTrigger_e4dc221f"], result)
 
     @builtins.property
     def release_workflow_env(
@@ -18040,13 +18533,13 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     @builtins.property
     def release_workflow_setup_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) A set of workflow steps to execute in order to setup the workflow container.
 
         :stability: experimental
         '''
         result = self._values.get("release_workflow_setup_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
     def versionrc_options(
@@ -18088,7 +18581,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def workflow_runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def workflow_runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -18096,7 +18589,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("workflow_runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def default_release_branch(self) -> builtins.str:
@@ -18122,8 +18615,34 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def audit_deps(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Run security audit on dependencies.
+
+        When enabled, creates an "audit" task that checks for known security vulnerabilities
+        in dependencies. By default, runs during every build and checks for "high" severity
+        vulnerabilities or above in all dependencies (including dev dependencies).
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def audit_deps_options(self) -> typing.Optional["_AuditOptions_429c62df"]:
+        '''(experimental) Security audit options.
+
+        :default: - default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("audit_deps_options")
+        return typing.cast(typing.Optional["_AuditOptions_429c62df"], result)
+
+    @builtins.property
     def auto_approve_upgrades(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configued).
+        '''(experimental) Automatically approve deps upgrade PRs, allowing them to be merged by mergify (if configured).
 
         Throw if set to true but ``autoApproveOptions`` are not defined.
 
@@ -18146,7 +18665,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def biome_options(self) -> typing.Optional[_BiomeOptions_452ab984]:
+    def biome_options(self) -> typing.Optional["_BiomeOptions_452ab984"]:
         '''(experimental) Biome options.
 
         :default: - default options
@@ -18154,7 +18673,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("biome_options")
-        return typing.cast(typing.Optional[_BiomeOptions_452ab984], result)
+        return typing.cast(typing.Optional["_BiomeOptions_452ab984"], result)
 
     @builtins.property
     def build_workflow(self) -> typing.Optional[builtins.bool]:
@@ -18168,16 +18687,18 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def build_workflow_options(self) -> typing.Optional[_BuildWorkflowOptions_b756f97f]:
+    def build_workflow_options(
+        self,
+    ) -> typing.Optional["_BuildWorkflowOptions_b756f97f"]:
         '''(experimental) Options for PR build workflow.
 
         :stability: experimental
         '''
         result = self._values.get("build_workflow_options")
-        return typing.cast(typing.Optional[_BuildWorkflowOptions_b756f97f], result)
+        return typing.cast(typing.Optional["_BuildWorkflowOptions_b756f97f"], result)
 
     @builtins.property
-    def build_workflow_triggers(self) -> typing.Optional[_Triggers_e9ae7617]:
+    def build_workflow_triggers(self) -> typing.Optional["_Triggers_e9ae7617"]:
         '''(deprecated) Build workflow triggers.
 
         :default: "{ pullRequest: {}, workflowDispatch: {} }"
@@ -18187,19 +18708,19 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: deprecated
         '''
         result = self._values.get("build_workflow_triggers")
-        return typing.cast(typing.Optional[_Triggers_e9ae7617], result)
+        return typing.cast(typing.Optional["_Triggers_e9ae7617"], result)
 
     @builtins.property
-    def bundler_options(self) -> typing.Optional[_BundlerOptions_d60b85ed]:
+    def bundler_options(self) -> typing.Optional["_BundlerOptions_d60b85ed"]:
         '''(experimental) Options for ``Bundler``.
 
         :stability: experimental
         '''
         result = self._values.get("bundler_options")
-        return typing.cast(typing.Optional[_BundlerOptions_d60b85ed], result)
+        return typing.cast(typing.Optional["_BundlerOptions_d60b85ed"], result)
 
     @builtins.property
-    def check_licenses(self) -> typing.Optional[_LicenseCheckerOptions_80bcd362]:
+    def check_licenses(self) -> typing.Optional["_LicenseCheckerOptions_80bcd362"]:
         '''(experimental) Configure which licenses should be deemed acceptable for use by dependencies.
 
         This setting will cause the build to fail, if any prohibited or not allowed licenses ares encountered.
@@ -18209,7 +18730,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("check_licenses")
-        return typing.cast(typing.Optional[_LicenseCheckerOptions_80bcd362], result)
+        return typing.cast(typing.Optional["_LicenseCheckerOptions_80bcd362"], result)
 
     @builtins.property
     def code_cov(self) -> typing.Optional[builtins.bool]:
@@ -18269,7 +18790,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def dependabot_options(self) -> typing.Optional[_DependabotOptions_0cedc635]:
+    def dependabot_options(self) -> typing.Optional["_DependabotOptions_0cedc635"]:
         '''(experimental) Options for dependabot.
 
         :default: - default options
@@ -18277,7 +18798,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("dependabot_options")
-        return typing.cast(typing.Optional[_DependabotOptions_0cedc635], result)
+        return typing.cast(typing.Optional["_DependabotOptions_0cedc635"], result)
 
     @builtins.property
     def deps_upgrade(self) -> typing.Optional[builtins.bool]:
@@ -18285,7 +18806,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
 
         Cannot be used in conjunction with ``dependabot``.
 
-        :default: true
+        :default: - ``true`` for root projects, ``false`` for subprojects
 
         :stability: experimental
         '''
@@ -18295,7 +18816,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     @builtins.property
     def deps_upgrade_options(
         self,
-    ) -> typing.Optional[_UpgradeDependenciesOptions_1d8ce4da]:
+    ) -> typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"]:
         '''(experimental) Options for ``UpgradeDependencies``.
 
         :default: - default options
@@ -18303,7 +18824,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("deps_upgrade_options")
-        return typing.cast(typing.Optional[_UpgradeDependenciesOptions_1d8ce4da], result)
+        return typing.cast(typing.Optional["_UpgradeDependenciesOptions_1d8ce4da"], result)
 
     @builtins.property
     def gitignore(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -18326,7 +18847,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def jest_options(self) -> typing.Optional[_JestOptions_a085f64e]:
+    def jest_options(self) -> typing.Optional["_JestOptions_a085f64e"]:
         '''(experimental) Jest options.
 
         :default: - default options
@@ -18334,7 +18855,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("jest_options")
-        return typing.cast(typing.Optional[_JestOptions_a085f64e], result)
+        return typing.cast(typing.Optional["_JestOptions_a085f64e"], result)
 
     @builtins.property
     def mutable_build(self) -> typing.Optional[builtins.bool]:
@@ -18378,13 +18899,13 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def npm_ignore_options(self) -> typing.Optional[_IgnoreFileOptions_86c48b91]:
+    def npm_ignore_options(self) -> typing.Optional["_IgnoreFileOptions_86c48b91"]:
         '''(experimental) Configuration options for .npmignore file.
 
         :stability: experimental
         '''
         result = self._values.get("npm_ignore_options")
-        return typing.cast(typing.Optional[_IgnoreFileOptions_86c48b91], result)
+        return typing.cast(typing.Optional["_IgnoreFileOptions_86c48b91"], result)
 
     @builtins.property
     def package(self) -> typing.Optional[builtins.bool]:
@@ -18409,7 +18930,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def prettier_options(self) -> typing.Optional[_PrettierOptions_41a5f203]:
+    def prettier_options(self) -> typing.Optional["_PrettierOptions_41a5f203"]:
         '''(experimental) Prettier options.
 
         :default: - default options
@@ -18417,7 +18938,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("prettier_options")
-        return typing.cast(typing.Optional[_PrettierOptions_41a5f203], result)
+        return typing.cast(typing.Optional["_PrettierOptions_41a5f203"], result)
 
     @builtins.property
     def projen_dev_dependency(self) -> typing.Optional[builtins.bool]:
@@ -18442,7 +18963,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_js_options(self) -> typing.Optional[_ProjenrcOptions_179dd39f]:
+    def projenrc_js_options(self) -> typing.Optional["_ProjenrcOptions_179dd39f"]:
         '''(experimental) Options for .projenrc.js.
 
         :default: - default options
@@ -18450,7 +18971,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("projenrc_js_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_179dd39f], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_179dd39f"], result)
 
     @builtins.property
     def projen_version(self) -> typing.Optional[builtins.str]:
@@ -18525,7 +19046,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     @builtins.property
     def workflow_bootstrap_steps(
         self,
-    ) -> typing.Optional[typing.List[_JobStep_c3287c05]]:
+    ) -> typing.Optional[typing.List["_JobStep_c3287c05"]]:
         '''(experimental) Workflow steps to use in order to bootstrap this repo.
 
         :default: "yarn install --frozen-lockfile && yarn projen"
@@ -18533,18 +19054,18 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("workflow_bootstrap_steps")
-        return typing.cast(typing.Optional[typing.List[_JobStep_c3287c05]], result)
+        return typing.cast(typing.Optional[typing.List["_JobStep_c3287c05"]], result)
 
     @builtins.property
-    def workflow_git_identity(self) -> typing.Optional[_GitIdentity_6effc3de]:
+    def workflow_git_identity(self) -> typing.Optional["_GitIdentity_6effc3de"]:
         '''(experimental) The git identity to use in workflows.
 
-        :default: - GitHub Actions
+        :default: - default GitHub Actions user
 
         :stability: experimental
         '''
         result = self._values.get("workflow_git_identity")
-        return typing.cast(typing.Optional[_GitIdentity_6effc3de], result)
+        return typing.cast(typing.Optional["_GitIdentity_6effc3de"], result)
 
     @builtins.property
     def workflow_node_version(self) -> typing.Optional[builtins.str]:
@@ -18637,7 +19158,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def eslint_options(self) -> typing.Optional[_EslintOptions_824f60bb]:
+    def eslint_options(self) -> typing.Optional["_EslintOptions_824f60bb"]:
         '''(experimental) Eslint options.
 
         :default: - opinionated default options
@@ -18645,7 +19166,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("eslint_options")
-        return typing.cast(typing.Optional[_EslintOptions_824f60bb], result)
+        return typing.cast(typing.Optional["_EslintOptions_824f60bb"], result)
 
     @builtins.property
     def libdir(self) -> typing.Optional[builtins.str]:
@@ -18671,13 +19192,13 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def projenrc_ts_options(self) -> typing.Optional[_ProjenrcOptions_514ec2ee]:
+    def projenrc_ts_options(self) -> typing.Optional["_ProjenrcOptions_514ec2ee"]:
         '''(experimental) Options for .projenrc.ts.
 
         :stability: experimental
         '''
         result = self._values.get("projenrc_ts_options")
-        return typing.cast(typing.Optional[_ProjenrcOptions_514ec2ee], result)
+        return typing.cast(typing.Optional["_ProjenrcOptions_514ec2ee"], result)
 
     @builtins.property
     def sample_code(self) -> typing.Optional[builtins.bool]:
@@ -18718,7 +19239,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tsconfig(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom TSConfig.
 
         :default: - default options
@@ -18726,10 +19247,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("tsconfig")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
-    def tsconfig_dev(self) -> typing.Optional[_TypescriptConfigOptions_8c5492cd]:
+    def tsconfig_dev(self) -> typing.Optional["_TypescriptConfigOptions_8c5492cd"]:
         '''(experimental) Custom tsconfig options for the development tsconfig.json file (used for testing).
 
         :default: - use the production tsconfig options
@@ -18737,7 +19258,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("tsconfig_dev")
-        return typing.cast(typing.Optional[_TypescriptConfigOptions_8c5492cd], result)
+        return typing.cast(typing.Optional["_TypescriptConfigOptions_8c5492cd"], result)
 
     @builtins.property
     def tsconfig_dev_file(self) -> typing.Optional[builtins.str]:
@@ -18751,13 +19272,13 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def ts_jest_options(self) -> typing.Optional[_TsJestOptions_3c0597c1]:
+    def ts_jest_options(self) -> typing.Optional["_TsJestOptions_3c0597c1"]:
         '''(experimental) Options for ts-jest.
 
         :stability: experimental
         '''
         result = self._values.get("ts_jest_options")
-        return typing.cast(typing.Optional[_TsJestOptions_3c0597c1], result)
+        return typing.cast(typing.Optional["_TsJestOptions_3c0597c1"], result)
 
     @builtins.property
     def typescript_version(self) -> typing.Optional[builtins.str]:
@@ -18857,14 +19378,14 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def dotnet(self) -> typing.Optional[_JsiiDotNetTarget_7b5d56c7]:
+    def dotnet(self) -> typing.Optional["_JsiiDotNetTarget_7b5d56c7"]:
         '''
         :deprecated: use ``publishToNuget``
 
         :stability: deprecated
         '''
         result = self._values.get("dotnet")
-        return typing.cast(typing.Optional[_JsiiDotNetTarget_7b5d56c7], result)
+        return typing.cast(typing.Optional["_JsiiDotNetTarget_7b5d56c7"], result)
 
     @builtins.property
     def exclude_typescript(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -18901,7 +19422,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def publish_to_go(self) -> typing.Optional[_JsiiGoTarget_921d41d5]:
+    def publish_to_go(self) -> typing.Optional["_JsiiGoTarget_921d41d5"]:
         '''(experimental) Publish Go bindings to a git repository.
 
         :default: - no publishing
@@ -18909,10 +19430,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_to_go")
-        return typing.cast(typing.Optional[_JsiiGoTarget_921d41d5], result)
+        return typing.cast(typing.Optional["_JsiiGoTarget_921d41d5"], result)
 
     @builtins.property
-    def publish_to_maven(self) -> typing.Optional[_JsiiJavaTarget_1ed05aaa]:
+    def publish_to_maven(self) -> typing.Optional["_JsiiJavaTarget_1ed05aaa"]:
         '''(experimental) Publish to maven.
 
         :default: - no publishing
@@ -18920,10 +19441,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_to_maven")
-        return typing.cast(typing.Optional[_JsiiJavaTarget_1ed05aaa], result)
+        return typing.cast(typing.Optional["_JsiiJavaTarget_1ed05aaa"], result)
 
     @builtins.property
-    def publish_to_nuget(self) -> typing.Optional[_JsiiDotNetTarget_7b5d56c7]:
+    def publish_to_nuget(self) -> typing.Optional["_JsiiDotNetTarget_7b5d56c7"]:
         '''(experimental) Publish to NuGet.
 
         :default: - no publishing
@@ -18931,10 +19452,10 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_to_nuget")
-        return typing.cast(typing.Optional[_JsiiDotNetTarget_7b5d56c7], result)
+        return typing.cast(typing.Optional["_JsiiDotNetTarget_7b5d56c7"], result)
 
     @builtins.property
-    def publish_to_pypi(self) -> typing.Optional[_JsiiPythonTarget_8efe2861]:
+    def publish_to_pypi(self) -> typing.Optional["_JsiiPythonTarget_8efe2861"]:
         '''(experimental) Publish to pypi.
 
         :default: - no publishing
@@ -18942,17 +19463,17 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("publish_to_pypi")
-        return typing.cast(typing.Optional[_JsiiPythonTarget_8efe2861], result)
+        return typing.cast(typing.Optional["_JsiiPythonTarget_8efe2861"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional[_JsiiPythonTarget_8efe2861]:
+    def python(self) -> typing.Optional["_JsiiPythonTarget_8efe2861"]:
         '''
         :deprecated: use ``publishToPyPi``
 
         :stability: deprecated
         '''
         result = self._values.get("python")
-        return typing.cast(typing.Optional[_JsiiPythonTarget_8efe2861], result)
+        return typing.cast(typing.Optional["_JsiiPythonTarget_8efe2861"], result)
 
     @builtins.property
     def rootdir(self) -> typing.Optional[builtins.str]:
@@ -18965,7 +19486,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def catalog(self) -> typing.Optional[_Catalog_baa0a70e]:
+    def catalog(self) -> typing.Optional["_Catalog_baa0a70e"]:
         '''(experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:.
 
         https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION
@@ -18983,7 +19504,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("catalog")
-        return typing.cast(typing.Optional[_Catalog_baa0a70e], result)
+        return typing.cast(typing.Optional["_Catalog_baa0a70e"], result)
 
     @builtins.property
     def cdk_version(self) -> builtins.str:
@@ -19167,7 +19688,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def lambda_options(self) -> typing.Optional[LambdaFunctionCommonOptions]:
+    def lambda_options(self) -> typing.Optional["LambdaFunctionCommonOptions"]:
         '''(experimental) Common options for all AWS Lambda functions.
 
         :default: - default options
@@ -19175,7 +19696,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :stability: experimental
         '''
         result = self._values.get("lambda_options")
-        return typing.cast(typing.Optional[LambdaFunctionCommonOptions], result)
+        return typing.cast(typing.Optional["LambdaFunctionCommonOptions"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -19212,11 +19733,15 @@ __all__ = [
     "CdkConfig",
     "CdkConfigCommonOptions",
     "CdkConfigOptions",
+    "CdkFeatureFlags",
+    "CdkFeatureFlagsV1",
+    "CdkFeatureFlagsV2",
     "CdkTasks",
     "ConstructLibraryAws",
     "ConstructLibraryAwsOptions",
     "EdgeLambdaAutoDiscover",
     "EdgeLambdaAutoDiscoverOptions",
+    "ICdkFeatureFlags",
     "IntegrationTest",
     "IntegrationTestAutoDiscover",
     "IntegrationTestAutoDiscoverOptions",
@@ -19417,7 +19942,7 @@ def _typecheckingstub__2193982c803c2bf032d2edee3f43915e940fec35ac37cd9b3e183323b
     build_command: typing.Optional[builtins.str] = None,
     cdkout: typing.Optional[builtins.str] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    feature_flags: typing.Optional[builtins.bool] = None,
+    feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19442,7 +19967,7 @@ def _typecheckingstub__17b71fd85a588dece1cab7a1f10a489c1f99d5cffc9bc94054d085940
     build_command: typing.Optional[builtins.str] = None,
     cdkout: typing.Optional[builtins.str] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    feature_flags: typing.Optional[builtins.bool] = None,
+    feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19455,7 +19980,7 @@ def _typecheckingstub__b4c0c207e869c8418ac98b7fb9e817aeb45676d86479b832ccd72d984
     build_command: typing.Optional[builtins.str] = None,
     cdkout: typing.Optional[builtins.str] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    feature_flags: typing.Optional[builtins.bool] = None,
+    feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19705,6 +20230,7 @@ def _typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19794,6 +20320,8 @@ def _typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    audit_deps: typing.Optional[builtins.bool] = None,
+    audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
     biome: typing.Optional[builtins.bool] = None,
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19896,6 +20424,7 @@ def _typecheckingstub__106ed1d5e4c0173b124a04a202f17277b84ed8b1cd40b215afcfe0850
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19939,7 +20468,7 @@ def _typecheckingstub__106ed1d5e4c0173b124a04a202f17277b84ed8b1cd40b215afcfe0850
     build_command: typing.Optional[builtins.str] = None,
     cdkout: typing.Optional[builtins.str] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    feature_flags: typing.Optional[builtins.bool] = None,
+    feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -19966,6 +20495,7 @@ def _typecheckingstub__e27f38787d25060d19d8209d5a55fd2b531387f6b87a60a7f639bbb7f
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -19998,6 +20528,7 @@ def _typecheckingstub__e27f38787d25060d19d8209d5a55fd2b531387f6b87a60a7f639bbb7f
     package_name: typing.Optional[builtins.str] = None,
     poetry_options: typing.Optional[typing.Union[_PoetryPyprojectOptionsWithoutDeps_7947f35b, typing.Dict[builtins.str, typing.Any]]] = None,
     setup_config: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    uv_options: typing.Optional[typing.Union[_UvOptions_49201464, typing.Dict[builtins.str, typing.Any]]] = None,
     python_exec: typing.Optional[builtins.str] = None,
     module_name: builtins.str,
     deps: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -20015,12 +20546,13 @@ def _typecheckingstub__e27f38787d25060d19d8209d5a55fd2b531387f6b87a60a7f639bbb7f
     sample: typing.Optional[builtins.bool] = None,
     sample_testdir: typing.Optional[builtins.str] = None,
     setuptools: typing.Optional[builtins.bool] = None,
+    uv: typing.Optional[builtins.bool] = None,
     venv: typing.Optional[builtins.bool] = None,
     venv_options: typing.Optional[typing.Union[_VenvOptions_8ea2b226, typing.Dict[builtins.str, typing.Any]]] = None,
     build_command: typing.Optional[builtins.str] = None,
     cdkout: typing.Optional[builtins.str] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    feature_flags: typing.Optional[builtins.bool] = None,
+    feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -20048,6 +20580,7 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -20137,6 +20670,8 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    audit_deps: typing.Optional[builtins.bool] = None,
+    audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
     biome: typing.Optional[builtins.bool] = None,
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -20197,7 +20732,7 @@ def _typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3
     build_command: typing.Optional[builtins.str] = None,
     cdkout: typing.Optional[builtins.str] = None,
     context: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-    feature_flags: typing.Optional[builtins.bool] = None,
+    feature_flags: typing.Optional[ICdkFeatureFlags] = None,
     require_approval: typing.Optional[ApprovalLevel] = None,
     watch_excludes: typing.Optional[typing.Sequence[builtins.str]] = None,
     watch_includes: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -20231,6 +20766,7 @@ def _typecheckingstub__53f11e06b68a1910463459774b89205819af9292d548e5215ddd85989
     logging: typing.Optional[typing.Union[_LoggerOptions_eb0f6309, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[_Project_57d89203] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[_ProjenrcJsonOptions_9c40dd4f, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -20320,6 +20856,8 @@ def _typecheckingstub__53f11e06b68a1910463459774b89205819af9292d548e5215ddd85989
     workflow_runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
     default_release_branch: builtins.str,
     artifacts_directory: typing.Optional[builtins.str] = None,
+    audit_deps: typing.Optional[builtins.bool] = None,
+    audit_deps_options: typing.Optional[typing.Union[_AuditOptions_429c62df, typing.Dict[builtins.str, typing.Any]]] = None,
     auto_approve_upgrades: typing.Optional[builtins.bool] = None,
     biome: typing.Optional[builtins.bool] = None,
     biome_options: typing.Optional[typing.Union[_BiomeOptions_452ab984, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -20412,3 +20950,6 @@ def _typecheckingstub__53f11e06b68a1910463459774b89205819af9292d548e5215ddd85989
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [ICdkFeatureFlags]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

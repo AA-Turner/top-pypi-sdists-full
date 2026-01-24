@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lmdb
-Version: 1.7.3
+Version: 1.7.5
 Summary: Universal Python binding for the LMDB 'Lightning' Database
 Home-page: http://github.com/jnwatson/py-lmdb/
 Author: David Wilson
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Database :: Database Engines/Servers
 Description-Content-Type: text/plain

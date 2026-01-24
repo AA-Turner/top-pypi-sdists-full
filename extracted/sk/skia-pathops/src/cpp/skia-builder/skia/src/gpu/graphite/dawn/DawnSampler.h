@@ -11,7 +11,7 @@
 #include "src/gpu/graphite/Sampler.h"
 
 #include "include/core/SkTileMode.h"
-#include "webgpu/webgpu_cpp.h"
+#include "webgpu/webgpu_cpp.h"  // NO_G3_REWRITE
 
 struct SkSamplingOptions;
 
@@ -21,21 +21,21 @@ class DawnSharedContext;
 
 class DawnSampler : public Sampler {
 public:
-    static sk_sp<DawnSampler> Make(const DawnSharedContext*,
-                                   const SkSamplingOptions& samplingOptions,
-                                   SkTileMode xTileMode,
-                                   SkTileMode yTileMode);
+    static sk_sp<DawnSampler> Make(const DawnSharedContext*, SamplerDesc);
+
     ~DawnSampler() override {}
+
+    SamplerDesc samplerDesc() const { return fSamplerDesc; }
 
     const wgpu::Sampler& dawnSampler() const { return fSampler; }
 
 private:
-    DawnSampler(const DawnSharedContext* sharedContext,
-                wgpu::Sampler sampler);
+    DawnSampler(const DawnSharedContext*, SamplerDesc, wgpu::Sampler);
 
     void freeGpuData() override;
 
     wgpu::Sampler fSampler;
+    SamplerDesc fSamplerDesc;
 };
 
 } // namepsace skgpu::graphite

@@ -502,8 +502,7 @@ Status FlushJob::MemPurge() {
         kMaxSequenceNumber, &job_context_->snapshot_seqs, earliest_snapshot_,
         job_context_->earliest_write_conflict_snapshot,
         job_context_->GetJobSnapshotSequence(), job_context_->snapshot_checker,
-        env, ShouldReportDetailedTime(env, ioptions.stats),
-        true /* internal key corruption is not ok */, range_del_agg.get(),
+        env, ShouldReportDetailedTime(env, ioptions.stats), range_del_agg.get(),
         nullptr, ioptions.allow_data_in_errors,
         ioptions.enforce_single_del_contracts,
         /*manual_compaction_canceled=*/kManualCompactionCanceledFalse,
@@ -1105,13 +1104,13 @@ Status FlushJob::WriteLevel0Table() {
   const uint64_t micros = clock_->NowMicros() - start_micros;
   const uint64_t cpu_micros = clock_->CPUMicros() - start_cpu_micros;
   flush_stats.micros = micros;
-  flush_stats.cpu_micros = cpu_micros;
+  flush_stats.cpu_micros += cpu_micros;
 
   ROCKS_LOG_INFO(db_options_.info_log,
                  "[%s] [JOB %d] Flush lasted %" PRIu64
                  " microseconds, and %" PRIu64 " cpu microseconds.\n",
                  cfd_->GetName().c_str(), job_context_->job_id, micros,
-                 cpu_micros);
+                 flush_stats.cpu_micros);
 
   if (has_output) {
     flush_stats.bytes_written = meta_.fd.GetFileSize();

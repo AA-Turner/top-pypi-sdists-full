@@ -302,6 +302,7 @@ class LinkerVisualisations:
         out_path: str,
         overwrite: bool = False,
         num_example_rows: int = 2,
+        minimum_comparison_vector_count: int = 0,
         return_html_as_string: bool = False,
     ) -> str | None:
         """Generate an interactive html visualization of the linker's predictions and
@@ -310,17 +311,22 @@ class LinkerVisualisations:
 
 
         Args:
-            df_predict (SplinkDataFrame): The outputs of `linker.predict()`
+            df_predict (SplinkDataFrame): The outputs of `linker.inference.predict()`
             out_path (str): The path (including filename) to save the html file to.
             overwrite (bool, optional): Overwrite the html file if it already exists?
                 Defaults to False.
             num_example_rows (int, optional): Number of example rows per comparison
                 vector. Defaults to 2.
+            minimum_comparison_vector_count (int, optional): The minimum number
+                of times that a comparison vector has to occur for it to
+                be included in the dashboard. This can reduce the size of
+                the produced html file by eliminating the rarest comparison
+                vectors. Defaults to 0 (all comparison vectors are included).
             return_html_as_string: If True, return the html as a string
 
         Examples:
             ```py
-            df_predictions = linker.predict()
+            df_predictions = linker.inference.predict()
             linker.visualisations.comparison_viewer_dashboard(
                 df_predictions, "scv.html", True, 2
             )
@@ -340,7 +346,11 @@ class LinkerVisualisations:
         sql = comparison_vector_distribution_sql(self._linker)
         pipeline.enqueue_sql(sql, "__splink__df_comparison_vector_distribution")
 
-        sqls = comparison_viewer_table_sqls(self._linker, num_example_rows)
+        sqls = comparison_viewer_table_sqls(
+            self._linker,
+            num_example_rows,
+            minimum_comparison_vector_count,
+        )
         pipeline.enqueue_list_of_sqls(sqls)
 
         df = self._linker._db_api.sql_pipeline_to_splink_dataframe(pipeline)
@@ -372,9 +382,9 @@ class LinkerVisualisations:
         save to `out_path`.
 
         Args:
-            df_predict (SplinkDataFrame): The outputs of `linker.predict()`
+            df_predict (SplinkDataFrame): The outputs of `linker.inference.predict()`
             df_clustered (SplinkDataFrame): The outputs of
-                `linker.cluster_pairwise_predictions_at_threshold()`
+                `linker.clustering.cluster_pairwise_predictions_at_threshold()`
             out_path (str): The path (including filename) to save the html file to.
             sampling_method (str, optional): `random`, `by_cluster_size` or
                 `lowest_density_clusters_by_size`. Defaults to `random`.
@@ -397,7 +407,7 @@ class LinkerVisualisations:
                 df_p, 0.5
             )
 
-            linker.cluster_studio_dashboard(
+            linker.visualisations.cluster_studio_dashboard(
                 df_p, df_c, [0, 4, 7], "cluster_studio.html"
             )
             ```

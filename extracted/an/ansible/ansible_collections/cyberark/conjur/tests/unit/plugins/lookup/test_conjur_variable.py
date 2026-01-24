@@ -182,7 +182,8 @@ class TestConjurLookup(TestCase):
         self.assertEqual(output, ["conjur_variable"])
 
     def test_run_telemetry_header(self):
-        with patch('builtins.open', mock_open(read_data='1.0.0')), \
+        with patch('os.path.isfile', return_value=True), \
+             patch('builtins.open', mock_open(read_data='1.0.0')), \
              patch('os.path.abspath', return_value='/fake/path/to/collection'), \
              patch('os.path.dirname', return_value='/fake/path/to/plugin'):
             expected_version = '1.0.0'

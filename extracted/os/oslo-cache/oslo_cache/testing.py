@@ -14,9 +14,10 @@
 
 """Items useful for external testing."""
 
-
 import copy
+from typing import TypeVar
 
+from dogpile.cache import api
 from dogpile.cache import proxy
 
 from oslo_cache import core as cache
@@ -30,7 +31,10 @@ __all__ = [
 NO_VALUE = cache.NO_VALUE
 
 
-def _copy_value(value):
+_T = TypeVar('_T')
+
+
+def _copy_value(value: _T) -> _T:
     if value is not NO_VALUE:
         value = copy.deepcopy(value)
     return value
@@ -60,11 +64,13 @@ class CacheIsolatingProxy(proxy.ProxyBackend):
             group='cache',
             backend='dogpile.cache.memory',
             enabled=True,
-            proxies=['oslo_cache.testing.CacheIsolatingProxy'])
+            proxies=['oslo_cache.testing.CacheIsolatingProxy'],
+        )
 
     """
-    def get(self, key):
+
+    def get(self, key: api.KeyType) -> api.BackendFormatted:
         return _copy_value(self.proxied.get(key))
 
-    def set(self, key, value):
+    def set(self, key: api.KeyType, value: api.BackendSetType) -> None:
         self.proxied.set(key, _copy_value(value))

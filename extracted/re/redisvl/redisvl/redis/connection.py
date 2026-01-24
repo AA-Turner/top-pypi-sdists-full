@@ -1,5 +1,6 @@
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union, overload
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 from warnings import warn
 
 from redis import Redis, RedisCluster
@@ -11,25 +12,78 @@ from redis.asyncio.connection import Connection as AsyncConnection
 from redis.asyncio.connection import SSLConnection as AsyncSSLConnection
 from redis.connection import SSLConnection
 from redis.exceptions import ResponseError
+from redis.sentinel import Sentinel
 
 from redisvl import __version__
-from redisvl.exceptions import RedisModuleVersionError
-from redisvl.redis.constants import DEFAULT_REQUIRED_MODULES, REDIS_URL_ENV_VAR
+from redisvl.redis.constants import (
+    REDIS_URL_ENV_VAR,
+    SVS_MIN_REDIS_VERSION,
+    SVS_MIN_SEARCH_VERSION,
+)
 from redisvl.redis.utils import convert_bytes, is_cluster_url
 from redisvl.types import AsyncRedisClient, RedisClient, SyncRedisClient
-from redisvl.utils.utils import deprecated_function
+from redisvl.utils.log import get_logger
+from redisvl.utils.utils import deprecated_argument, deprecated_function
+
+logger = get_logger(__name__)
 
 
-def compare_versions(version1: str, version2: str):
-    """
-    Compare two Redis version strings numerically.
+def _strip_cluster_from_url_and_kwargs(
+    url: str, **kwargs
+) -> Tuple[str, Dict[str, Any]]:
+    """Remove 'cluster' parameter from URL query string and kwargs.
 
-    Parameters:
-    version1 (str): The first version string (e.g., "7.2.4").
-    version2 (str): The second version string (e.g., "6.2.1").
+    AsyncRedisCluster doesn't accept 'cluster' parameter, but it might be
+    present in the URL or kwargs for compatibility with other Redis clients.
+
+    Args:
+        url: Redis URL that might contain cluster parameter
+        **kwargs: Keyword arguments that might contain cluster parameter
 
     Returns:
-    int: -1 if version1 < version2, 0 if version1 == version2, 1 if version1 > version2.
+        Tuple of (cleaned_url, cleaned_kwargs)
+    """
+    # Parse the URL
+    parsed = urlparse(url)
+
+    # Parse query parameters
+    query_params = parse_qs(parsed.query)
+
+    # Remove 'cluster' parameter if present
+    query_params.pop("cluster", None)
+
+    # Reconstruct the query string
+    new_query = urlencode(query_params, doseq=True)
+
+    # Reconstruct the URL
+    cleaned_url = urlunparse(
+        (
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            new_query,
+            parsed.fragment,
+        )
+    )
+
+    # Remove 'cluster' from kwargs if present
+    cleaned_kwargs = kwargs.copy()
+    cleaned_kwargs.pop("cluster", None)
+
+    return cleaned_url, cleaned_kwargs
+
+
+def is_version_gte(version1: str, version2: str) -> bool:
+    """
+    Check if version1 >= version2.
+
+    Parameters:
+        version1 (str): The first version string (e.g., "7.2.4").
+        version2 (str): The second version string (e.g., "6.2.1").
+
+    Returns:
+        bool: True if version1 >= version2, False otherwise.
     """
     v1_parts = list(map(int, version1.split(".")))
     v2_parts = list(map(int, version2.split(".")))
@@ -52,6 +106,64 @@ def compare_versions(version1: str, version2: str):
 def unpack_redis_modules(module_list: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Unpack a list of Redis modules pulled from the MODULES LIST command."""
     return {module["name"]: module["ver"] for module in module_list}
+
+
+def supports_svs(client: SyncRedisClient) -> bool:
+    """Check if Redis server supports SVS-VAMANA.
+
+    Args:
+        client: Sync Redis client instance
+
+    Returns:
+        True if SVS-VAMANA is supported, False otherwise
+    """
+    info = client.info("server")  # type: ignore[union-attr]
+    redis_version = info.get("redis_version", "0.0.0")  # type: ignore[union-attr]
+
+    modules = RedisConnectionFactory.get_modules(client)
+    search_ver = modules.get("search", 0)
+    searchlight_ver = modules.get("searchlight", 0)
+
+    # Check if SVS-VAMANA requirements are met
+    redis_ok = is_version_gte(redis_version, SVS_MIN_REDIS_VERSION)
+
+    # Check either search or searchlight module (only one is typically installed)
+    # RediSearch is the open-source module, SearchLight is the enterprise version
+    modules_ok = (
+        search_ver >= SVS_MIN_SEARCH_VERSION
+        or searchlight_ver >= SVS_MIN_SEARCH_VERSION
+    )
+
+    return redis_ok and modules_ok
+
+
+async def supports_svs_async(client: AsyncRedisClient) -> bool:
+    """Async version of _supports_svs.
+
+    Args:
+        client: Async Redis client instance
+
+    Returns:
+        True if SVS-VAMANA is supported, False otherwise
+    """
+    info = await client.info("server")  # type: ignore[union-attr]
+    redis_version = info.get("redis_version", "0.0.0")  # type: ignore[union-attr]
+
+    modules = await RedisConnectionFactory.get_modules_async(client)
+    search_ver = modules.get("search", 0)
+    searchlight_ver = modules.get("searchlight", 0)
+
+    # Check if SVS-VAMANA requirements are met
+    redis_ok = is_version_gte(redis_version, SVS_MIN_REDIS_VERSION)
+
+    # Check either search or searchlight module (only one is typically installed)
+    # RediSearch is the open-source module, SearchLight is the enterprise version
+    modules_ok = (
+        search_ver >= SVS_MIN_SEARCH_VERSION
+        or searchlight_ver >= SVS_MIN_SEARCH_VERSION
+    )
+
+    return redis_ok and modules_ok
 
 
 def get_address_from_env() -> str:
@@ -86,20 +198,170 @@ def convert_index_info_to_schema(index_info: Dict[str, Any]) -> Dict[str, Any]:
         Dict[str, Any]: Schema dictionary.
     """
     index_name = index_info["index_name"]
-    prefixes = index_info["index_definition"][3][0]
+    prefixes = index_info["index_definition"][3]
+    # Normalize single-element prefix lists to string for backward compatibility
+    if isinstance(prefixes, list) and len(prefixes) == 1:
+        prefixes = prefixes[0]
     storage_type = index_info["index_definition"][1].lower()
+
+    # Parse stopwords if present in FT.INFO output
+    # stopwords_list is only present when explicitly set (STOPWORDS 0 or custom list)
+    # If not present, we use None to indicate default Redis behavior
+    stopwords = None
+    if "stopwords_list" in index_info:
+        # Convert bytes to strings if needed
+        stopwords_list = index_info["stopwords_list"]
+        stopwords = [
+            sw.decode("utf-8") if isinstance(sw, bytes) else sw for sw in stopwords_list
+        ]
 
     index_fields = index_info["attributes"]
 
     def parse_vector_attrs(attrs):
-        vector_attrs = {attrs[i].lower(): attrs[i + 1] for i in range(6, len(attrs), 2)}
-        vector_attrs["dims"] = int(vector_attrs.pop("dim"))
-        vector_attrs["distance_metric"] = vector_attrs.pop("distance_metric").lower()
-        vector_attrs["algorithm"] = vector_attrs.pop("algorithm").lower()
-        vector_attrs["datatype"] = vector_attrs.pop("data_type").lower()
-        return vector_attrs
+        # Parse vector attributes from Redis FT.INFO output
+        # Format varies significantly between Redis versions:
+        # - Redis 6.2.6-v9: [... "VECTOR"] - no params returned by FT.INFO
+        # - Redis 6.2.x: [... "VECTOR", "FLAT", "6", "TYPE", "FLOAT32", "DIM", "3", ...]
+        #   Position 6: algorithm value (e.g., "FLAT" or "HNSW")
+        #   Position 7: param count
+        #   Position 8+: key-value pairs
+        # - Redis 7.x+: [... "VECTOR", "ALGORITHM", "FLAT", "TYPE", "FLOAT32", "DIM", "3", ...]
+        #   Position 6+: all key-value pairs
 
-    def parse_attrs(attrs):
+        # Check if we have any attributes beyond the type declaration
+        if len(attrs) <= 6:
+            # Redis 6.2.6-v9 or similar: no vector params in FT.INFO
+            # Return None to signal we can't parse this field properly
+            return None
+
+        vector_attrs = {}
+        start_pos = 6
+
+        # Detect format: if position 6 looks like an algorithm value (not a key),
+        # we're dealing with the older format
+        if len(attrs) > 6:
+            pos6_str = str(attrs[6]).upper()
+            # Check if position 6 is an algorithm value (FLAT, HNSW) vs a key (ALGORITHM, TYPE, DIM)
+            if pos6_str in ("FLAT", "HNSW"):
+                # Old format (Redis 6.2.x): position 6 is algorithm value, position 7 is param count
+                # Store the algorithm
+                vector_attrs["algorithm"] = pos6_str
+                # Skip to position 8 where key-value pairs start
+                start_pos = 8
+
+        try:
+            for i in range(start_pos, len(attrs), 2):
+                if i + 1 < len(attrs):
+                    key = str(attrs[i]).lower()
+                    vector_attrs[key] = attrs[i + 1]
+        except (IndexError, TypeError, ValueError):
+            # Silently continue - we'll validate required fields below
+            pass
+
+        # Normalize to expected field names
+        normalized = {}
+
+        # Handle dims/dim field - REQUIRED for vector fields
+        if "dim" in vector_attrs:
+            normalized["dims"] = int(vector_attrs.pop("dim"))
+        elif "dims" in vector_attrs:
+            normalized["dims"] = int(vector_attrs["dims"])
+        else:
+            # If dims is missing from normal parsing, try scanning the raw attrs
+            # This handles edge cases where the format is unexpected
+            for i in range(6, len(attrs) - 1):
+                if str(attrs[i]).upper() in ("DIM", "DIMS"):
+                    try:
+                        normalized["dims"] = int(attrs[i + 1])
+                        break
+                    except (ValueError, IndexError):
+                        pass
+
+        # Handle distance_metric field
+        if "distance_metric" in vector_attrs:
+            normalized["distance_metric"] = vector_attrs["distance_metric"].lower()
+        else:
+            # Default to cosine if missing
+            normalized["distance_metric"] = "cosine"
+
+        # Handle algorithm field
+        if "algorithm" in vector_attrs:
+            normalized["algorithm"] = vector_attrs["algorithm"].lower()
+        else:
+            # Default to flat if missing
+            normalized["algorithm"] = "flat"
+
+        # Handle datatype field
+        if "data_type" in vector_attrs:
+            normalized["datatype"] = vector_attrs["data_type"].lower()
+        elif "datatype" in vector_attrs:
+            normalized["datatype"] = vector_attrs["datatype"].lower()
+        elif "type" in vector_attrs:
+            # Sometimes it's just "type" instead of "data_type"
+            normalized["datatype"] = vector_attrs["type"].lower()
+        else:
+            # Default to float32 if missing
+            normalized["datatype"] = "float32"
+
+        # Handle SVS-VAMANA specific parameters
+        # Compression - Redis uses different internal names, so we need to map them
+        if "compression" in vector_attrs:
+            compression_value = vector_attrs["compression"]
+            # Map Redis internal names to our enum values
+            compression_mapping = {
+                "GlobalSQ8": "LVQ4x4",  # Default mapping
+                "GlobalSQ4": "LVQ4",
+                # Add more mappings as we discover them
+            }
+            # Try to map, otherwise use the value as-is
+            normalized["compression"] = compression_mapping.get(
+                compression_value, compression_value
+            )
+
+        # Dimensionality reduction (reduce parameter)
+        if "reduce" in vector_attrs:
+            try:
+                normalized["reduce"] = int(vector_attrs["reduce"])
+            except (ValueError, TypeError):
+                pass
+
+        # Graph parameters
+        if "graph_max_degree" in vector_attrs:
+            try:
+                normalized["graph_max_degree"] = int(vector_attrs["graph_max_degree"])
+            except (ValueError, TypeError):
+                pass
+
+        if "construction_window_size" in vector_attrs:
+            try:
+                normalized["construction_window_size"] = int(
+                    vector_attrs["construction_window_size"]
+                )
+            except (ValueError, TypeError):
+                pass
+
+        if "search_window_size" in vector_attrs:
+            try:
+                normalized["search_window_size"] = int(
+                    vector_attrs["search_window_size"]
+                )
+            except (ValueError, TypeError):
+                pass
+
+        if "epsilon" in vector_attrs:
+            try:
+                normalized["epsilon"] = float(vector_attrs["epsilon"])
+            except (ValueError, TypeError):
+                pass
+
+        # Validate that we have required dims
+        if "dims" not in normalized:
+            # Could not parse dims - this field is not properly supported
+            return None
+
+        return normalized
+
+    def parse_attrs(attrs, field_type=None):
         # 'SORTABLE', 'NOSTEM' don't have corresponding values.
         # Their presence indicates boolean True
         # TODO 'WITHSUFFIXTRIE' is another boolean attr, but is not returned by ft.info
@@ -113,16 +375,22 @@ def convert_index_info_to_schema(index_info: Dict[str, Any]) -> Dict[str, Any]:
             "SORTABLE": "sortable",
             "INDEXMISSING": "index_missing",
             "INDEXEMPTY": "index_empty",
+            "NOINDEX": "no_index",
         }
+
+        # Special handling for UNF:
+        # - For NUMERIC fields, Redis always adds UNF when SORTABLE is present
+        # - For TEXT fields, UNF is only present when explicitly set
+        # We only set unf=True for TEXT fields to avoid false positives
+        if "UNF" in attrs:
+            if field_type == "TEXT":
+                parsed_attrs["unf"] = True
+            attrs.remove("UNF")
 
         for redis_attr, python_attr in boolean_attrs.items():
             if redis_attr in attrs:
                 parsed_attrs[python_attr] = True
                 attrs.remove(redis_attr)
-
-        # Handle UNF which is associated with SORTABLE
-        if "UNF" in attrs:
-            attrs.remove("UNF")  # UNF present on sortable numeric fields only
 
         try:
             # Parse remaining attributes as key-value pairs starting from index 6
@@ -143,50 +411,28 @@ def convert_index_info_to_schema(index_info: Dict[str, Any]) -> Dict[str, Any]:
             field["path"] = field_attrs[1]
         # parse field attrs
         if field_attrs[5] == "VECTOR":
-            field["attrs"] = parse_vector_attrs(field_attrs)
+            attrs = parse_vector_attrs(field_attrs)
+            if attrs is None:
+                # Vector field attributes cannot be parsed on this Redis version
+                # Skip this field - it cannot be properly reconstructed
+                continue
+            field["attrs"] = attrs
         else:
-            field["attrs"] = parse_attrs(field_attrs)
+            field["attrs"] = parse_attrs(field_attrs, field_type=field_attrs[5])
         # append field
         schema_fields.append(field)
 
+    index_dict = {"name": index_name, "prefix": prefixes, "storage_type": storage_type}
+    if stopwords is not None:
+        index_dict["stopwords"] = stopwords
+
     return {
-        "index": {"name": index_name, "prefix": prefixes, "storage_type": storage_type},
+        "index": index_dict,
         "fields": schema_fields,
     }
 
 
-def validate_modules(
-    installed_modules: Dict[str, Any],
-    required_modules: Optional[List[Dict[str, Any]]] = None,
-) -> None:
-    """
-    Validates if required Redis modules are installed.
-
-    Args:
-        installed_modules: List of installed modules.
-        required_modules: List of required modules.
-
-    Raises:
-        RedisModuleVersionError: If required Redis modules are not installed.
-    """
-    required_modules = required_modules or DEFAULT_REQUIRED_MODULES
-
-    for required_module in required_modules:
-        if required_module["name"] in installed_modules:
-            installed_version = installed_modules[required_module["name"]]  # type: ignore
-            if int(installed_version) >= int(required_module["ver"]):  # type: ignore
-                return
-
-    # Build the error message dynamically
-    required_modules_str = " OR ".join(
-        [f'{module["name"]} >= {module["ver"]}' for module in required_modules]
-    )
-    error_message = (
-        f"Required Redis db module {required_modules_str} not installed. "
-        "See Redis Stack docs at https://redis.io/docs/latest/operate/oss_and_stack/install/install-stack/."
-    )
-
-    raise RedisModuleVersionError(error_message)
+T = TypeVar("T", Redis, AsyncRedis)
 
 
 class RedisConnectionFactory:
@@ -232,7 +478,6 @@ class RedisConnectionFactory:
     @staticmethod
     def get_redis_connection(
         redis_url: Optional[str] = None,
-        required_modules: Optional[List[Dict[str, Any]]] = None,
         **kwargs,
     ) -> SyncRedisClient:
         """Creates and returns a synchronous Redis client.
@@ -240,8 +485,6 @@ class RedisConnectionFactory:
         Args:
             url (Optional[str]): The URL of the Redis server. If not provided,
                 the environment variable REDIS_URL is used.
-            required_modules (Optional[List[Dict[str, Any]]]): List of required
-                Redis modules with version requirements.
             **kwargs: Additional keyword arguments to be passed to the Redis
                 client constructor.
 
@@ -251,22 +494,30 @@ class RedisConnectionFactory:
         Raises:
             ValueError: If url is not provided and REDIS_URL environment
                 variable is not set.
-            RedisModuleVersionError: If required Redis modules are not installed.
         """
         url = redis_url or get_address_from_env()
-        if is_cluster_url(url, **kwargs):
+        client: SyncRedisClient
+        if url.startswith("redis+sentinel"):
+            client = RedisConnectionFactory._redis_sentinel_client(url, Redis, **kwargs)
+        elif is_cluster_url(url, **kwargs):
             client = RedisCluster.from_url(url, **kwargs)
         else:
             client = Redis.from_url(url, **kwargs)
-        RedisConnectionFactory.validate_sync_redis(
-            client, required_modules=required_modules
-        )
+        # Module validation removed - operations will fail naturally if modules are missing
+        # Set client library name only
+        _lib_name = make_lib_name(kwargs.get("lib_name"))
+        try:
+            client.client_setinfo("LIB-NAME", _lib_name)
+        except ResponseError:
+            # Fall back to a simple log echo
+            if hasattr(client, "echo"):
+                client.echo(_lib_name)
         return client
 
     @staticmethod
+    @deprecated_argument("url", "redis_url")
     async def _get_aredis_connection(
-        url: Optional[str] = None,
-        required_modules: Optional[List[Dict[str, Any]]] = None,
+        redis_url: Optional[str] = None,
         **kwargs,
     ) -> AsyncRedisClient:
         """Creates and returns an asynchronous Redis client.
@@ -275,10 +526,11 @@ class RedisConnectionFactory:
         only used internally by the library now.
 
         Args:
-            url (Optional[str]): The URL of the Redis server. If not provided,
-                the environment variable REDIS_URL is used.
-            required_modules (Optional[List[Dict[str, Any]]]): List of required
-                Redis modules with version requirements.
+            redis_url (Optional[str]): The URL of the Redis server. If neither
+                `redis_url` nor `url` are provided, the environment variable
+                REDIS_URL is used.
+            url (Optional[str]): Former parameter for the URL of the Redis
+                server. Use `redis_url` instead. (Deprecated)
             **kwargs: Additional keyword arguments to be passed to the async
                 Redis client constructor.
 
@@ -288,30 +540,53 @@ class RedisConnectionFactory:
         Raises:
             ValueError: If url is not provided and REDIS_URL environment
                 variable is not set.
-            RedisModuleVersionError: If required Redis modules are not installed.
         """
-        url = url or get_address_from_env()
+        _deprecated_url = kwargs.pop("url", None)
+        url = _deprecated_url or redis_url or get_address_from_env()
 
-        if is_cluster_url(url, **kwargs):
-            client = AsyncRedisCluster.from_url(url, **kwargs)
+        client: AsyncRedisClient
+        if url.startswith("redis+sentinel"):
+            client = RedisConnectionFactory._redis_sentinel_client(
+                url, AsyncRedis, **kwargs
+            )
+        elif is_cluster_url(url, **kwargs):
+            # Strip 'cluster' parameter as AsyncRedisCluster doesn't accept it
+            cleaned_url, cleaned_kwargs = _strip_cluster_from_url_and_kwargs(
+                url, **kwargs
+            )
+            client = AsyncRedisCluster.from_url(cleaned_url, **cleaned_kwargs)
         else:
-            client = AsyncRedis.from_url(url, **kwargs)
+            # Also strip cluster parameter for AsyncRedis to avoid connection issues
+            cleaned_url, cleaned_kwargs = _strip_cluster_from_url_and_kwargs(
+                url, **kwargs
+            )
+            client = AsyncRedis.from_url(cleaned_url, **cleaned_kwargs)
 
-        await RedisConnectionFactory.validate_async_redis(
-            client, required_modules=required_modules
-        )
+        # Module validation removed - operations will fail naturally if modules are missing
+        # Set client library name only
+        _lib_name = make_lib_name(kwargs.get("lib_name"))
+        try:
+            await client.client_setinfo("LIB-NAME", _lib_name)
+        except ResponseError:
+            # Fall back to a simple log echo
+            if hasattr(client, "echo"):
+                await client.echo(_lib_name)
         return client
 
     @staticmethod
+    @deprecated_argument("url", "redis_url")
     def get_async_redis_connection(
-        url: Optional[str] = None,
+        redis_url: Optional[str] = None,
         **kwargs,
     ) -> AsyncRedisClient:
         """Creates and returns an asynchronous Redis client.
 
         Args:
-            url (Optional[str]): The URL of the Redis server. If not provided,
-                the environment variable REDIS_URL is used.
+            redis_url (Optional[str]): The URL of the Redis server. If neither
+                `redis_url` nor `url` are provided, the environment variable
+                REDIS_URL is used.
+            url (Optional[str]): Former parameter for the URL of the Redis
+                server. Use `redis_url` instead. (Deprecated)
             **kwargs: Additional keyword arguments to be passed to the async
                 Redis client constructor.
 
@@ -326,8 +601,25 @@ class RedisConnectionFactory:
             "get_async_redis_connection will become async in the next major release.",
             DeprecationWarning,
         )
-        url = url or get_address_from_env()
-        return AsyncRedis.from_url(url, **kwargs)
+        _deprecated_url = kwargs.pop("url", None)
+        url = _deprecated_url or redis_url or get_address_from_env()
+
+        if url.startswith("redis+sentinel"):
+            return RedisConnectionFactory._redis_sentinel_client(
+                url, AsyncRedis, **kwargs
+            )
+        elif is_cluster_url(url, **kwargs):
+            # Strip 'cluster' parameter as AsyncRedisCluster doesn't accept it
+            cleaned_url, cleaned_kwargs = _strip_cluster_from_url_and_kwargs(
+                url, **kwargs
+            )
+            return AsyncRedisCluster.from_url(cleaned_url, **cleaned_kwargs)
+        else:
+            # Also strip cluster parameter for AsyncRedis to avoid connection issues
+            cleaned_url, cleaned_kwargs = _strip_cluster_from_url_and_kwargs(
+                url, **kwargs
+            )
+            return AsyncRedis.from_url(cleaned_url, **cleaned_kwargs)
 
     @staticmethod
     def get_redis_cluster_connection(
@@ -345,7 +637,9 @@ class RedisConnectionFactory:
     ) -> AsyncRedisCluster:
         """Creates and returns an asynchronous Redis client for a Redis cluster."""
         url = redis_url or get_address_from_env()
-        return AsyncRedisCluster.from_url(url, **kwargs)
+        # Strip 'cluster' parameter as AsyncRedisCluster doesn't accept it
+        cleaned_url, cleaned_kwargs = _strip_cluster_from_url_and_kwargs(url, **kwargs)
+        return AsyncRedisCluster.from_url(cleaned_url, **cleaned_kwargs)
 
     @staticmethod
     def sync_to_async_redis(
@@ -386,9 +680,12 @@ class RedisConnectionFactory:
     def validate_sync_redis(
         redis_client: SyncRedisClient,
         lib_name: Optional[str] = None,
-        required_modules: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Validates the sync Redis client."""
+        """Validates the sync Redis client.
+
+        Note: Module validation has been removed. This method now only validates
+        the client type and sets the library name.
+        """
         if not issubclass(type(redis_client), (Redis, RedisCluster)):
             raise TypeError(
                 "Invalid Redis client instance. Must be Redis or RedisCluster."
@@ -404,19 +701,18 @@ class RedisConnectionFactory:
             if hasattr(redis_client, "echo"):
                 redis_client.echo(_lib_name)
 
-        # Get list of modules
-        installed_modules = RedisConnectionFactory.get_modules(redis_client)
-
-        # Validate available modules
-        validate_modules(installed_modules, required_modules)
+        # Module validation removed - operations will fail naturally if modules are missing
 
     @staticmethod
     async def validate_async_redis(
         redis_client: AsyncRedisClient,
         lib_name: Optional[str] = None,
-        required_modules: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Validates the async Redis client."""
+        """Validates the async Redis client.
+
+        Note: Module validation has been removed. This method now only validates
+        the client type and sets the library name.
+        """
         if not issubclass(type(redis_client), (AsyncRedis, AsyncRedisCluster)):
             raise TypeError(
                 "Invalid async Redis client instance. Must be async Redis or async RedisCluster."
@@ -427,12 +723,64 @@ class RedisConnectionFactory:
             await redis_client.client_setinfo("LIB-NAME", _lib_name)
         except ResponseError:
             # Fall back to a simple log echo
-            await redis_client.echo(_lib_name)
             if hasattr(redis_client, "echo"):
                 await redis_client.echo(_lib_name)
 
-        # Get list of modules
-        installed_modules = await RedisConnectionFactory.get_modules_async(redis_client)
+        # Module validation removed - operations will fail naturally if modules are missing
 
-        # Validate available modules
-        validate_modules(installed_modules, required_modules)
+    @staticmethod
+    @overload
+    def _redis_sentinel_client(
+        redis_url: str, redis_class: type[Redis], **kwargs: Any
+    ) -> Redis: ...
+
+    @staticmethod
+    @overload
+    def _redis_sentinel_client(
+        redis_url: str, redis_class: type[AsyncRedis], **kwargs: Any
+    ) -> AsyncRedis: ...
+
+    @staticmethod
+    def _redis_sentinel_client(
+        redis_url: str, redis_class: Union[type[Redis], type[AsyncRedis]], **kwargs: Any
+    ) -> Union[Redis, AsyncRedis]:
+        sentinel_list, service_name, db, username, password = (
+            RedisConnectionFactory._parse_sentinel_url(redis_url)
+        )
+
+        sentinel_kwargs = {}
+        if username:
+            sentinel_kwargs["username"] = username
+            kwargs["username"] = username
+        if password:
+            sentinel_kwargs["password"] = password
+            kwargs["password"] = password
+        if db:
+            kwargs["db"] = db
+
+        sentinel = Sentinel(sentinel_list, sentinel_kwargs=sentinel_kwargs, **kwargs)
+        return sentinel.master_for(service_name, redis_class=redis_class, **kwargs)
+
+    @staticmethod
+    def _parse_sentinel_url(url: str) -> tuple:
+        parsed_url = urlparse(url)
+        hosts_part = parsed_url.netloc.split("@")[-1]
+        sentinel_hosts = hosts_part.split(",")
+
+        sentinel_list = []
+        for host in sentinel_hosts:
+            host_parts = host.split(":")
+            if len(host_parts) == 2:
+                sentinel_list.append((host_parts[0], int(host_parts[1])))
+            else:
+                sentinel_list.append((host_parts[0], 26379))
+
+        service_name = "mymaster"
+        db = None
+        if parsed_url.path:
+            path_parts = parsed_url.path.split("/")
+            service_name = path_parts[1] or "mymaster"
+            if len(path_parts) > 2:
+                db = path_parts[2]
+
+        return sentinel_list, service_name, db, parsed_url.username, parsed_url.password

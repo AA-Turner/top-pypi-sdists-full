@@ -29,6 +29,7 @@
         name: column_case_sensitive
         host: '%'
         password: 'msandbox'
+        column_case_sensitive: false
 
     # ================= Reproduce failure =====================================
 
@@ -41,6 +42,7 @@
           - 'column_case_sensitive@%'
         priv:
           'mysql_role_column_case.t1': 'SELECT(a, B, cC, Dd)'
+        column_case_sensitive: false
 
     - name: Mysql_role Column case sensitive | Assert role privileges are all caps
       community.mysql.mysql_query:

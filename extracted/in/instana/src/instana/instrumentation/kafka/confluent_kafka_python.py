@@ -14,14 +14,15 @@ try:
     from instana.log import logger
     from instana.propagators.format import Format
     from instana.singletons import get_tracer
-    from instana.util.traceutils import (
-        get_tracer_tuple,
-        tracing_is_off,
-    )
     from instana.span.span import InstanaSpan
+    from instana.util.traceutils import get_tracer_tuple
 
-    consumer_token = None
-    consumer_span = contextvars.ContextVar("confluent_kafka_consumer_span")
+    consumer_token = contextvars.ContextVar(
+        "confluent_kafka_consumer_token", default=None
+    )
+    consumer_span = contextvars.ContextVar(
+        "confluent_kafka_consumer_span", default=None
+    )
 
     # As confluent_kafka is a wrapper around the C-developed librdkafka
     # (provided automatically via binary wheels), we have to create new classes
@@ -64,21 +65,25 @@ try:
         args: Tuple[int, str, Tuple[Any, ...]],
         kwargs: Dict[str, Any],
     ) -> None:
-        if tracing_is_off():
+        tracer, parent_span, _ = get_tracer_tuple()
+        if not tracer:
             return wrapped(*args, **kwargs)
 
-        tracer, parent_span, _ = get_tracer_tuple()
         parent_context = parent_span.get_span_context() if parent_span else None
+
+        # Get the topic from either args or kwargs
+        topic = args[0] if args else kwargs.get("topic", "")
+
         is_suppressed = tracer.exporter._HostAgent__is_endpoint_ignored(
             "kafka",
             "produce",
-            args[0],
+            topic,
         )
 
         with tracer.start_as_current_span(
             "kafka-producer", span_context=parent_context, kind=SpanKind.PRODUCER
         ) as span:
-            span.set_attribute("kafka.service", args[0])
+            span.set_attribute("kafka.service", topic)
             span.set_attribute("kafka.access", "produce")
 
             # context propagation
@@ -89,6 +94,10 @@ try:
             # dictionary. To maintain compatibility with the headers for the
             # Kafka Python library, we will use a list of tuples.
             headers = args[6] if len(args) > 6 else kwargs.get("headers", [])
+
+            # Initialize headers if it's None
+            if headers is None:
+                headers = []
             suppression_header = {"x_instana_l_s": "0" if is_suppressed else "1"}
             headers.append(suppression_header)
 
@@ -173,24 +182,23 @@ try:
             )  # pragma: no cover
 
     def save_consumer_span_into_context(span: "InstanaSpan") -> None:
-        global consumer_token
         ctx = trace.set_span_in_context(span)
-        consumer_token = context.attach(ctx)
+        token = context.attach(ctx)
+        consumer_token.set(token)
         consumer_span.set(span)
 
     def close_consumer_span(span: "InstanaSpan") -> None:
-        global consumer_token
         if span.is_recording():
             span.end()
             consumer_span.set(None)
-        if consumer_token is not None:
-            context.detach(consumer_token)
-            consumer_token = None
+        token = consumer_token.get(None)
+        if token is not None:
+            context.detach(token)
+            consumer_token.set(None)
 
     def clear_context() -> None:
-        global consumer_token
         context.attach(trace.set_span_in_context(None))
-        consumer_token = None
+        consumer_token.set(None)
         consumer_span.set(None)
 
     def trace_kafka_consume(
@@ -246,7 +254,12 @@ try:
 
         try:
             res = wrapped(*args, **kwargs)
-            create_span("poll", res.topic(), res.headers())
+            if res:
+                create_span("poll", res.topic(), res.headers())
+            else:
+                span = consumer_span.get(None)
+                if span is not None:
+                    close_consumer_span(span)
             return res
         except Exception as exc:
             exception = exc

@@ -2,7 +2,7 @@
 
 [project]
 name = "adaptive-cards-py"
-version = "0.3.1"
+version = "0.4.2"
 description = "Python wrapper library for building beautiful adaptive cards"
 classifiers = [
     "License :: OSI Approved :: MIT License",

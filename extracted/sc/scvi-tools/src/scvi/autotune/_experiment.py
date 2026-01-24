@@ -3,6 +3,7 @@ from __future__ import annotations
 import inspect
 import logging
 from os.path import join
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -14,6 +15,7 @@ from mudata import MuData
 from ray.tune import Tuner
 from ray.util.annotations import PublicAPI
 
+from scvi.data._constants import _SETUP_ARGS_KEY, _SETUP_METHOD_NAME
 from scvi.utils import dependencies, is_package_installed
 
 if TYPE_CHECKING:
@@ -49,7 +51,7 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
 
     @PublicAPI
     class ScibTuneReportCheckpointCallback(TuneReportCheckpointCallback):
-        """Ray based PyTorch Lightning report and checkpoint callback, suited for Scib-Metrics
+        """Ray-based PyTorch Lightning report and checkpoint callback, suited for Scib-Metrics
 
         Saves checkpoints after each validation step. Also reports metrics to Tune,
         which is needed for checkpoint registration.
@@ -69,14 +71,14 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
                 "train_batch_start", or "train_end". Defaults to "validation_end".
             bio_conservation_metrics: Specification of which bio conservation metrics to run.
             batch_correction_metrics: Specification of which batch correction metrics to run.
-            num_rows_to_select: select number of rows to subsample (5000 default).
+            num_rows_to_select: select the number of rows to subsample (5000 default).
                 This is important to save Scib computation time
-            indices_list: If not empty will be used to select the indices to calc the scib metric
+            indices_list: If not empty, will be used to select the indices to calc the scib metric
                 on, otherwise will use the random indices selection in size of scib_subsample_rows
             n_jobs
                 Number of jobs to use for parallelization of neighbor search.
             solver
-                SVD solver to use during PCA. can help stability issues. Choose from: "arpack",
+                SVD solver to use during PCA. it can help stability issues. Choose from: "arpack",
                 "randomized" or "auto"
         """
 
@@ -124,7 +126,7 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
                 if self.metric is None:
                     return
 
-                # we take th pl module from the scib callback
+                # we take the pl module from the scib callback
                 pl_module = trainer.callbacks[0].pl_module
                 if not hasattr(pl_module, f"_{self.stage}_epoch_outputs"):
                     raise ValueError(
@@ -150,19 +152,27 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
                 x = x[rand_idx]
                 z = z[rand_idx]
 
-                # because originally those classes are frozen we cant just set the metric to True
+                # because originally those classes are frozen, we can't just set the metric to True
                 # Need to do it manually unfortunately
-                if self.metric == "silhouette_label":
+                if self.metric == "Isolated labels":
                     self.bio_conservation_metrics = BioConservation(
                         True, False, False, False, False
                     )
                     self.batch_correction_metrics = None
-                elif self.metric == "Leiden NMI" or self.metric == "Leiden ARI":
+                elif (
+                    self.metric == "Leiden NMI"
+                    or self.metric == "Leiden ARI"
+                    or self.metric == "Leiden"
+                ):
                     self.bio_conservation_metrics = BioConservation(
                         False, True, False, False, False
                     )
                     self.batch_correction_metrics = None
-                elif self.metric == "KMeans NMI" or self.metric == "KMeans ARI":
+                elif (
+                    self.metric == "KMeans NMI"
+                    or self.metric == "KMeans ARI"
+                    or self.metric == "KMeans"
+                ):
                     self.bio_conservation_metrics = BioConservation(
                         False, False, True, False, False
                     )
@@ -177,7 +187,7 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
                         False, False, False, False, True
                     )
                     self.batch_correction_metrics = None
-                elif self.metric == "Silhouette batch":
+                elif self.metric == "BRAS":
                     self.bio_conservation_metrics = None
                     self.batch_correction_metrics = BatchCorrection(
                         True, False, False, False, False
@@ -212,7 +222,7 @@ if is_package_installed("ray") and is_package_installed("scib_metrics"):
                     # we run all batch correction and no bio conservation
                     self.bio_conservation_metrics = None
                 elif self.metric == "Bio conservation":
-                    # we run all bio conservation and no batch corredction
+                    # we run all bio conservation and no batch correction
                     self.batch_correction_metrics = None
                 else:
                     # an invalid metric!
@@ -295,7 +305,7 @@ class AutotuneExperiment:
         - ``"memory"``: amount of memory
 
         Passed into :func:`~ray.tune.with_resources`.
-    name
+    experiment_name
         Name of the experiment, used for logging purposes. Defaults to a unique ID.
     logging_dir
         Base directory to store experiment logs. Defaults to :attr:`~scvi.settings.logging_dir`.
@@ -309,16 +319,18 @@ class AutotuneExperiment:
         Used when performing scib-metrics tune, select whether to perform on validation (default)
         or training end.
     scib_subsample_rows
-        Used when performing scib-metrics tune, select number of rows to subsample (100 default).
-        This is important to save computation time
+        Used when performing scib-metrics tune, select the number of rows to subsample
+        (100 default). This is important to save computation time
     scib_indices_list
         If not empty will be used to select the indices to calc the scib metric on, otherwise will
         use the random indices selection in size of scib_subsample_rows
     n_jobs
         Number of jobs to use for parallelization of neighbor search.
     solver
-        SVD solver to use during PCA. can help stability issues. Choose from: "arpack",
+        SVD solver to use during PCA. It can help stability issues. Choose from: "arpack",
         "randomized" or "auto"
+    mudata_file_name
+        name of the mudata file. can be a full path, but will not create folders
 
     Notes
     -----
@@ -341,7 +353,7 @@ class AutotuneExperiment:
         searcher: Literal["hyperopt", "random"] = "hyperopt",
         seed: int | None = None,
         resources: dict[Literal["cpu", "gpu", "memory"], float] | None = None,
-        name: str | None = None,
+        experiment_name: str | None = None,
         logging_dir: str | None = None,
         save_checkpoints: bool = False,
         scheduler_kwargs: dict | None = None,
@@ -351,9 +363,9 @@ class AutotuneExperiment:
         scib_indices_list: list | None = None,
         n_jobs: int = 1,
         solver: str = "arpack",
+        mudata_file_name: str = "mydata.h5mu",
     ) -> None:
         self.model_cls = model_cls
-        self.data = data
         self.metrics = metrics
         self.mode = mode
         self.search_space = search_space
@@ -364,7 +376,7 @@ class AutotuneExperiment:
         self.scheduler = scheduler
         self.searcher = searcher
         self.resources = resources
-        self.name = name
+        self.experiment_name = experiment_name
         self.logging_dir = logging_dir
         self.save_checkpoints = save_checkpoints
         self.scib_stage = scib_stage
@@ -372,6 +384,26 @@ class AutotuneExperiment:
         self.scib_indices_list = scib_indices_list
         self.n_jobs = n_jobs
         self.solver = solver
+        self.mudata_file_name = mudata_file_name
+
+        if type(data).__name__ == "MuData":
+            # save mudata on disk as it can't be pickled by ray
+            mudata_file_path = join(self._logging_dir, mudata_file_name)
+            Path(self._logging_dir).mkdir(parents=True, exist_ok=True)
+            data.write_h5mu(mudata_file_path)
+            self.is_mudata = True
+            # need to forcefully register it
+            data_manager = self.model_cls._get_most_recent_anndata_manager(data, required=True)
+            self._setup_method_name = data_manager._registry.get(
+                _SETUP_METHOD_NAME, "setup_anndata"
+            )
+            self._setup_method_args = data_manager._get_setup_method_args().get(
+                _SETUP_ARGS_KEY, {}
+            )
+            self.data = mudata_file_path  # file will be read from the trainable folder upstream
+        else:
+            self.is_mudata = False
+            self.data = data
 
     @property
     def id(self) -> str:
@@ -400,8 +432,6 @@ class AutotuneExperiment:
 
     @data.setter
     def data(self, value: AnnOrMuData | LightningDataModule) -> None:
-        from scvi.data._constants import _SETUP_ARGS_KEY, _SETUP_METHOD_NAME
-
         if hasattr(self, "_data"):
             raise AttributeError("Cannot reassign `data`")
 
@@ -641,23 +671,23 @@ class AutotuneExperiment:
         self._resources = value or {}
 
     @property
-    def name(self) -> str:
+    def experiment_name(self) -> str:
         """Name of the experiment."""
-        if not hasattr(self, "_name"):
-            raise AttributeError("`name` not yet available.")
-        return self._name
+        if not hasattr(self, "_experiment_name"):
+            raise AttributeError("`experiment_name` not yet available.")
+        return self._experiment_name
 
-    @name.setter
-    def name(self, value: str | None) -> None:
-        if hasattr(self, "_name"):
-            raise AttributeError("Cannot reassign `name`")
+    @experiment_name.setter
+    def experiment_name(self, value: str | None) -> None:
+        if hasattr(self, "_experiment_name"):
+            raise AttributeError("Cannot reassign `experiment_name`")
         elif value is not None and not isinstance(value, str):
-            raise TypeError("`name` must be a string or `None`")
+            raise TypeError("`experiment_name` must be a string or `None`")
 
         if value is None:
             default = f"{self._model_cls.__name__.lower()}_"
             default += self.id
-        self._name = value or default
+        self._experiment_name = value or default
 
     @property
     def logging_dir(self) -> str:
@@ -674,7 +704,7 @@ class AutotuneExperiment:
             raise AttributeError("Cannot reassign `logging_dir`")
         elif value is not None and not isinstance(value, str):
             raise TypeError("`logging_dir` must be a string")
-        self._logging_dir = value or join(settings.logging_dir, self.name)
+        self._logging_dir = value or join(settings.logging_dir, self.experiment_name)
 
     @property
     def metrics_callback(self) -> Callback:
@@ -689,10 +719,9 @@ class AutotuneExperiment:
             (TuneReportCheckpointCallback, Callback),
             {},
         )
+        on = "validation_end" if "validation" in self.metrics else "train_end"
 
-        return callback_cls(
-            metrics=self.metrics, on="validation_end", save_checkpoints=self.save_checkpoints
-        )
+        return callback_cls(metrics=self.metrics, on=on, save_checkpoints=self.save_checkpoints)
 
     @property
     def scib_metrics_callback(self) -> Callback:
@@ -730,12 +759,11 @@ class AutotuneExperiment:
         self._result_grid = value
 
     def __repr__(self) -> str:
-        return f"Experiment {self.name}"
+        return f"Experiment {self.experiment_name}"
 
     def get_tuner(self) -> Tuner:
         """Configure a :class:`~ray.tune.Tuner` from this experiment."""
-        from ray.train import RunConfig
-        from ray.tune import with_parameters, with_resources
+        from ray.tune import RunConfig, with_parameters, with_resources
         from ray.tune.tune_config import TuneConfig
 
         trainable = with_parameters(_trainable, experiment=self)
@@ -747,10 +775,8 @@ class AutotuneExperiment:
             num_samples=self.num_samples,
         )
         run_config = RunConfig(
-            name=self.name,
+            name=self.experiment_name,
             storage_path=self.logging_dir,
-            log_to_file=True,
-            verbose=1,
         )
         return Tuner(
             trainable=trainable,
@@ -772,7 +798,7 @@ def _trainable(
     """Implements a Ray Tune trainable function for an :class:`~scvi.autotune.AutotuneExperiment`.
 
     Setup on the :class:`~anndata.AnnData` or :class:`~mudata.MuData` has to be performed since Ray
-    opens a new process per trial and thus the initial setup on the main process is not
+    opens a new process per trial, and thus the initial setup on the main process is not
     transferred.
 
     Parameters
@@ -790,7 +816,7 @@ def _trainable(
     `documentation <https://docs.ray.io/en/latest/tune/api/trainable.html#function-trainable-api>`_
     for more details.
     """
-    from ray.train import get_context
+    from ray.tune import get_context
     from scib_metrics.benchmark._core import metric_name_cleaner
 
     from scvi import settings
@@ -825,12 +851,19 @@ def _trainable(
     }
 
     settings.seed = experiment.seed
-    if isinstance(experiment.data, AnnData | MuData):
+    if isinstance(experiment.data, AnnData | str):
+        # str means it's the link to the stored mudata (which can't be pickled)
+        if experiment.is_mudata:
+            import muon as mu
+
+            adata_or_mdata = mu.read_h5mu(experiment.data)
+        else:
+            adata_or_mdata = experiment.data
         getattr(experiment.model_cls, experiment.setup_method_name)(
-            experiment.data,
+            adata_or_mdata,
             **experiment.setup_method_args,
         )
-        model = experiment.model_cls(experiment.data, **model_params)
+        model = experiment.model_cls(adata_or_mdata, **model_params)
         model.train(**train_params)
     else:
         model = experiment.model_cls(**model_params)

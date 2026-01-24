@@ -1,155 +1,67 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: exitstatus
-Version: 2.6.0
+Version: 2.7.0
 Summary: POSIX exit status codes
-Home-page: https://github.com/johnthagen/exitstatus
+Keywords: exit,status,POSIX
 Author: John Hagen
-Author-email: johnthagen@gmail.com
-License: MIT
-Keywords: exit status POSIX
+Author-email: John Hagen <johnthagen@gmail.com>
+License-Expression: MIT
+License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-License-File: LICENSE.txt
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/johnthagen/exitstatus
+Project-URL: Repository, https://github.com/johnthagen/exitstatus
+Description-Content-Type: text/markdown
 
-``exitstatus`` - POSIX exit status definitions
-==============================================
+# exitstatus — POSIX exit status definitions
 
-.. image:: https://github.com/johnthagen/exitstatus/workflows/python/badge.svg
-    :target: https://github.com/johnthagen/exitstatus/actions
+[![GitHub Actions][github-actions-badge]](https://github.com/johnthagen/exitstatus/actions)
+[![uv][uv-badge]](https://github.com/astral-sh/uv)
+[![Nox][nox-badge]](https://github.com/wntrblm/nox)
+[![Ruff][ruff-badge]](https://github.com/astral-sh/ruff)
+[![Type checked with mypy][mypy-badge]](https://mypy-lang.org/)
+[![PyPI version](https://img.shields.io/pypi/v/exitstatus.svg)](https://pypi.python.org/pypi/exitstatus/)
+[![PyPI status](https://img.shields.io/pypi/status/exitstatus.svg)](https://pypi.python.org/pypi/exitstatus/)
+[![PyPI pyversions](https://img.shields.io/pypi/pyversions/exitstatus.svg)](https://pypi.python.org/pypi/exitstatus/)
 
-.. image:: https://codeclimate.com/github/johnthagen/exitstatus/badges/gpa.svg
-   :target: https://codeclimate.com/github/johnthagen/exitstatus/
+[github-actions-badge]: https://github.com/johnthagen/exitstatus/actions/workflows/ci.yml/badge.svg
+[uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
+[nox-badge]: https://img.shields.io/badge/%F0%9F%A6%8A-Nox-D85E00.svg
+[ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
+[mypy-badge]: https://www.mypy-lang.org/static/mypy_badge.svg
 
-.. image:: https://codeclimate.com/github/johnthagen/exitstatus/badges/issue_count.svg
-   :target: https://codeclimate.com/github/johnthagen/exitstatus/
-
-.. image:: https://codecov.io/github/johnthagen/exitstatus/coverage.svg
-    :target: https://codecov.io/github/johnthagen/exitstatus/
-
-.. image:: https://img.shields.io/pypi/v/exitstatus.svg
-    :target: https://pypi.python.org/pypi/exitstatus/
-
-.. image:: https://img.shields.io/pypi/status/exitstatus.svg
-    :target: https://pypi.python.org/pypi/exitstatus/
-
-.. image:: https://img.shields.io/pypi/pyversions/exitstatus.svg
-    :target: https://pypi.python.org/pypi/exitstatus/
-
-``exitstatus`` provides expressive, portable definitions for the
-`standard POSIX exit codes <https://www.gnu.org/software/libc/manual/html_node/Exit-Status.html>`__.
+`exitstatus` provides expressive, portable definitions for the
+[standard POSIX exit codes](https://www.gnu.org/software/libc/manual/html_node/Exit-Status.html).
 While Python does provide some Unix-specific exit status codes in the
-`os module <https://docs.python.org/3/library/os.html#os._exit>`__, they are not portable to
+[`os` module](https://docs.python.org/3/library/os.html#os._exit), they are not portable to
 all platforms and are missing the generic failure case.
 
+## Installation
 
-Installation
-------------
+You can add `exitstatus` to your project with `uv` using:
 
-You can install, upgrade, and uninstall ``exitstatus`` with these commands:
+```bash
+uv add exitstatus
+```
 
-.. code:: shell-session
-
-    $ pip install exitstatus
-    $ pip install --upgrade exitstatus
-    $ pip uninstall exitstatus
-
-Usage
------
+## Usage
 
 Exit status codes are defined in a simple to use
-`IntEnum <https://docs.python.org/3/library/enum.html#enum.IntEnum>`__.
+[`IntEnum`](https://docs.python.org/3/library/enum.html#enum.IntEnum).
 
-.. code:: python
+```python
+import sys
+from exitstatus import ExitStatus
 
-    import sys
-    from exitstatus import ExitStatus
-
-    sys.exit(ExitStatus.success)
-
-Releases
---------
-
-2.6.0 (2024-10-26)
-^^^^^^^^^^^^^^^^^^
-
-- Drop support for Python 3.8
-- Add support for Python 3.13
-
-2.5.0 (2024-01-13)
-^^^^^^^^^^^^^^^^^^
-
-- Add support for Python 3.12
-
-2.4.0 (2023-04-30)
-^^^^^^^^^^^^^^^^^^
-
-- Add support for Python 3.11
-
-2.3.0 2022-11-02
-^^^^^^^^^^^^^^^^
-
-- Add ``py.typed`` file to package to support Mypy type checking.
-- Refactor the project into an installable package rather than an installable module.
-- Drop support for Python 3.7
-
-2.2.0 2021-11-06
-^^^^^^^^^^^^^^^^
-
-- Support Python 3.10 and drop 3.6.
-
-2.1.0 2020-12-27
-^^^^^^^^^^^^^^^^
-
-- Drop Python 3.5 and support Python 3.9.
-- Switch to GitHub Actions for CI.
-
-2.0.1 2020-04-26
-^^^^^^^^^^^^^^^^
-
-- Update LICENSE file.
-
-2.0.0 2020-03-29
-^^^^^^^^^^^^^^^^
-
-- Drop Python 2.7 support.
-
-1.4.1 2020-03-29
-^^^^^^^^^^^^^^^^
-
-- Add ``python_requires`` field to ``setup.py``.
-
-1.4.0 2019-12-14
-^^^^^^^^^^^^^^^^
-
-- Drop Python 3.4 and support Python 3.8.
-- Include license file.
-
-1.3.0 - 2018-07-09
-^^^^^^^^^^^^^^^^^^
-
-Drop Python 3.3 and support Python 3.7.
-
-1.2.0 - 2016-12-31
-^^^^^^^^^^^^^^^^^^
-
-Support Python 3.6.
-
-1.1.0 - 2016-10-11
-^^^^^^^^^^^^^^^^^^
-
-Add docstrings and simplify checking for ``enum34`` dependency need.
-
-1.0.0 - 2016-06-10
-^^^^^^^^^^^^^^^^^^
-
-Initial release.
+sys.exit(ExitStatus.success)
+```

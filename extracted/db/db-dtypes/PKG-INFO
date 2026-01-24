@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: db-dtypes
-Version: 1.4.3
+Version: 1.5.0
 Summary: Pandas Data Types for SQL systems (BigQuery, Spanner)
 Home-page: https://github.com/googleapis/python-db-dtypes-pandas
 Author: The db-dtypes Authors
@@ -17,16 +17,30 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Database :: Front-Ends
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: numpy>=1.24.0
+Requires-Dist: numpy<=2.2.6,>=1.24.0; python_version == "3.10"
+Requires-Dist: numpy>=1.24.0; python_version != "3.10"
 Requires-Dist: packaging>=24.2.0
-Requires-Dist: pandas>=1.5.3
+Requires-Dist: pandas<3.0.0,>=1.5.3
 Requires-Dist: pyarrow>=13.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: platform
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Pandas Data Types for SQL systems (BigQuery, Spanner)
 =====================================================

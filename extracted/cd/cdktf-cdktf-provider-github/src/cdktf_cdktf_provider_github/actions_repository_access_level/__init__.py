@@ -1,7 +1,7 @@
 r'''
 # `github_actions_repository_access_level`
 
-Refer to the Terraform Registry for docs: [`github_actions_repository_access_level`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level).
+Refer to the Terraform Registry for docs: [`github_actions_repository_access_level`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionsRepositoryAccessLevel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.actionsRepositoryAccessLevel.ActionsRepositoryAccessLevel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level github_actions_repository_access_level}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level github_actions_repository_access_level}.'''
 
     def __init__(
         self,
@@ -62,13 +62,13 @@ class ActionsRepositoryAccessLevel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level github_actions_repository_access_level} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level github_actions_repository_access_level} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param access_level: Where the actions or reusable workflows of the repository may be used. Possible values are 'none', 'user', 'organization', or 'enterprise'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#access_level ActionsRepositoryAccessLevel#access_level}
-        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#repository ActionsRepositoryAccessLevel#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#id ActionsRepositoryAccessLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param access_level: Where the actions or reusable workflows of the repository may be used. Possible values are 'none', 'user', 'organization', or 'enterprise'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#access_level ActionsRepositoryAccessLevel#access_level}
+        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#repository ActionsRepositoryAccessLevel#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#id ActionsRepositoryAccessLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -109,7 +109,7 @@ class ActionsRepositoryAccessLevel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionsRepositoryAccessLevel to import.
-        :param import_from_id: The id of the existing ActionsRepositoryAccessLevel that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionsRepositoryAccessLevel that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionsRepositoryAccessLevel to import is found.
         '''
         if __debug__:
@@ -228,9 +228,9 @@ class ActionsRepositoryAccessLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param access_level: Where the actions or reusable workflows of the repository may be used. Possible values are 'none', 'user', 'organization', or 'enterprise'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#access_level ActionsRepositoryAccessLevel#access_level}
-        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#repository ActionsRepositoryAccessLevel#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#id ActionsRepositoryAccessLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param access_level: Where the actions or reusable workflows of the repository may be used. Possible values are 'none', 'user', 'organization', or 'enterprise'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#access_level ActionsRepositoryAccessLevel#access_level}
+        :param repository: The GitHub repository. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#repository ActionsRepositoryAccessLevel#repository}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#id ActionsRepositoryAccessLevel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -337,7 +337,7 @@ class ActionsRepositoryAccessLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
         Possible values are 'none', 'user', 'organization', or 'enterprise'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#access_level ActionsRepositoryAccessLevel#access_level}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#access_level ActionsRepositoryAccessLevel#access_level}
         '''
         result = self._values.get("access_level")
         assert result is not None, "Required property 'access_level' is missing"
@@ -347,7 +347,7 @@ class ActionsRepositoryAccessLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
     def repository(self) -> builtins.str:
         '''The GitHub repository.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#repository ActionsRepositoryAccessLevel#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#repository ActionsRepositoryAccessLevel#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
@@ -355,7 +355,7 @@ class ActionsRepositoryAccessLevelConfig(_cdktf_9a9027ec.TerraformMetaArguments)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_repository_access_level#id ActionsRepositoryAccessLevel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_repository_access_level#id ActionsRepositoryAccessLevel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.

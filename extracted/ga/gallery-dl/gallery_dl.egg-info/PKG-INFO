@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gallery_dl
-Version: 1.30.8
+Version: 1.31.3
 Summary: Command-line program to download image galleries and collections from several image hosting sites
 Home-page: https://github.com/mikf/gallery-dl
 Download-URL: https://github.com/mikf/gallery-dl/releases/latest
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -73,7 +74,7 @@ with many `configuration options <https://gdl-org.github.io/docs/configuration.h
 and powerful `filenaming capabilities <https://gdl-org.github.io/docs/formatting.html>`__.
 
 
-|pypi| |build|
+|pypi| |discord| |build|
 
 .. contents::
 
@@ -141,9 +142,9 @@ Standalone Executable
 Prebuilt executable files with a Python interpreter and
 required Python packages included are available for
 
-- `Windows <https://github.com/mikf/gallery-dl/releases/download/v1.30.8/gallery-dl.exe>`__
+- `Windows <https://github.com/mikf/gallery-dl/releases/download/v1.31.3/gallery-dl.exe>`__
   (Requires `Microsoft Visual C++ Redistributable Package (x86) <https://aka.ms/vs/17/release/vc_redist.x86.exe>`__)
-- `Linux   <https://github.com/mikf/gallery-dl/releases/download/v1.30.8/gallery-dl.bin>`__
+- `Linux   <https://github.com/mikf/gallery-dl/releases/download/v1.31.3/gallery-dl.bin>`__
 
 
 Nightly Builds
@@ -223,6 +224,13 @@ Pulling image from `GitHub Container Registry <https://github.com/mikf/gallery-d
 
     docker pull ghcr.io/mikf/gallery-dl
     docker tag ghcr.io/mikf/gallery-dl gallery-dl
+
+Pulling *Nightly Build* images built from the latest commit by using the ``dev`` tag:
+
+.. code:: bash
+
+    docker pull mikf123/gallery-dl:dev
+    docker pull ghcr.io/mikf/gallery-dl:dev
 
 To run the container you will probably want to attach some directories on the host so that the config file and downloads can persist across runs.
 
@@ -545,7 +553,7 @@ To authenticate with a ``mastodon`` instance, run *gallery-dl* with
 .. _Chocolatey: https://chocolatey.org/install
 .. _Scoop:      https://scoop.sh/
 
-.. |pypi| image:: https://img.shields.io/pypi/v/gallery-dl.svg
+.. |pypi| image:: https://img.shields.io/pypi/v/gallery-dl?logo=pypi&label=PyPI
     :target: https://pypi.org/project/gallery-dl/
 
 .. |build| image:: https://github.com/mikf/gallery-dl/workflows/tests/badge.svg
@@ -553,3 +561,6 @@ To authenticate with a ``mastodon`` instance, run *gallery-dl* with
 
 .. |gitter| image:: https://badges.gitter.im/gallery-dl/main.svg
     :target: https://gitter.im/gallery-dl/main
+
+.. |discord| image:: https://img.shields.io/discord/1067148002722062416?logo=discord&label=Discord&color=blue
+    :target: https://discord.gg/rSzQwRvGnE

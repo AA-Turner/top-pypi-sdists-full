@@ -5,16 +5,15 @@ from typing import Optional
 import pytest
 from pytest_httpx import HTTPXMock
 
-from uipath._config import Config
-from uipath._execution_context import ExecutionContext
-from uipath._services import EntitiesService
-from uipath.models.entities import Entity
+from uipath.platform import UiPathApiConfig, UiPathExecutionContext
+from uipath.platform.entities import Entity
+from uipath.platform.entities._entities_service import EntitiesService
 
 
 @pytest.fixture
 def service(
-    config: Config,
-    execution_context: ExecutionContext,
+    config: UiPathApiConfig,
+    execution_context: UiPathExecutionContext,
     monkeypatch: pytest.MonkeyPatch,
 ) -> EntitiesService:
     return EntitiesService(config=config, execution_context=execution_context)
@@ -36,7 +35,7 @@ def record_schema(request):
 @pytest.fixture(params=[True, False], ids=["optional_field", "required_field"])
 def record_schema_optional(request):
     is_optional = request.param
-    field_type = Optional[int] if is_optional else int
+    field_type = Optional[int] | None if is_optional else int
     schema_name = f"RecordSchema{'Optional' if is_optional else 'Required'}"
 
     RecordSchemaOptional = make_dataclass(

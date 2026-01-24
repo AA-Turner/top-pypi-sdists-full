@@ -10,7 +10,9 @@ import mlx.core as mx
 from mlx_lm.generate import generate_step
 from mlx_lm.models.base import create_attention_mask, create_causal_mask
 from mlx_lm.models.cache import (
+    ArraysCache,
     BatchKVCache,
+    BatchRotatingKVCache,
     CacheList,
     ChunkedKVCache,
     KVCache,
@@ -33,6 +35,7 @@ class TestPromptCache(unittest.TestCase):
     def setUpClass(cls):
         cls.test_dir_fid = tempfile.TemporaryDirectory()
         cls.test_dir = cls.test_dir_fid.name
+        cls.model, cls.tokenizer = load(HF_MODEL_PATH)
 
     @classmethod
     def tearDownClass(cls):
@@ -131,7 +134,7 @@ class TestPromptCache(unittest.TestCase):
                 self.assertTrue(mx.array_equal(v, lv))
 
     def test_cache_with_generate(self):
-        model, tokenizer = load(HF_MODEL_PATH)
+        model, tokenizer = self.model, self.tokenizer
         prompt = tokenizer.encode("this is a prompt", return_tensors="mlx")[0]
         results = list(generate_step(prompt, model, max_tokens=4))
         toks, all_logits = zip(*results)
@@ -211,7 +214,7 @@ class TestPromptCache(unittest.TestCase):
         self.assertEqual(num_trimmed, 3)
 
     def test_trim_cache_with_generate(self):
-        model, tokenizer = load(HF_MODEL_PATH)
+        model, tokenizer = self.model, self.tokenizer
         prompt = tokenizer.encode("this is a prompt", return_tensors="mlx")[0]
 
         prompt_cache = make_prompt_cache(model)
@@ -288,7 +291,7 @@ class TestPromptCache(unittest.TestCase):
         self.assertEqual(metadata, loaded_metadata)
 
     def test_cache_to_quantized(self):
-        model, tokenizer = load(HF_MODEL_PATH)
+        model, tokenizer = self.model, self.tokenizer
         prompt = tokenizer.encode("this is a prompt", return_tensors="mlx")[0]
         results = zip(range(4), generate_step(prompt, model))
         toks, all_logits = zip(*(r[1] for r in results))
@@ -324,6 +327,26 @@ class TestPromptCache(unittest.TestCase):
 
         c = CacheList(MambaCache(), KVCache())
         self.assertFalse(c.is_trimmable())
+
+        c1 = CacheList(ArraysCache(size=1), KVCache())
+        c1[0][0] = mx.random.normal(shape=(1, 2, 4, 4))
+        c1[1].update_and_fetch(
+            mx.random.normal(shape=(1, 2, 5, 4)), mx.random.normal(shape=(1, 2, 5, 4))
+        )
+
+        c2 = CacheList(ArraysCache(size=1), KVCache())
+        c2[0][0] = mx.random.normal(shape=(1, 2, 4, 4))
+        c2[1].update_and_fetch(
+            mx.random.normal(shape=(1, 2, 7, 4)), mx.random.normal(shape=(1, 2, 7, 4))
+        )
+
+        merged_cache = CacheList.merge((c1, c2))
+        c1_ex = merged_cache.extract(0)
+        self.assertTrue(mx.array_equal(c1_ex[0][0], c1[0][0]))
+        self.assertTrue(mx.array_equal(c1_ex[1].state[0], c1[1].state[0]))
+        c2_ex = merged_cache.extract(1)
+        self.assertTrue(mx.array_equal(c2_ex[0][0], c2[0][0]))
+        self.assertTrue(mx.array_equal(c2_ex[1].state[0], c2[1].state[0]))
 
     def test_make_mask_with_cache(self):
         # For 1 time step with no cache, don't need a mask
@@ -391,7 +414,7 @@ class TestPromptCache(unittest.TestCase):
         kv = mx.zeros((1, 1, 10, 32))
         cache.update_and_fetch(kv, kv)
         mask = cache.make_mask(3, window_size=5)
-        self.assertEqual(mask.shape, (3, 11))
+        self.assertEqual(mask.shape, (3, 10))
         self.assertTrue(mx.all(mask.sum(axis=-1) == 5))
         for i in range(3):
             s = 11 - 3 + i
@@ -405,7 +428,7 @@ class TestPromptCache(unittest.TestCase):
         self.assertEqual(mask, None)
 
         mask = cache.make_mask(1, window_size=5)
-        self.assertEqual(mask.squeeze(1).tolist(), [True] + [False] * 3 + [True] * 4)
+        self.assertEqual(mask.tolist(), [True] + [False] * 3 + [True] * 4)
         cmask = create_attention_mask(mx.zeros((1, 1, 32)), cache, window_size=5)
         self.assertTrue(mx.array_equal(cmask, mask))
 
@@ -413,9 +436,7 @@ class TestPromptCache(unittest.TestCase):
         cache.update_and_fetch(kv, kv)
 
         mask = cache.make_mask(1, window_size=5)
-        self.assertEqual(
-            mask.squeeze(1).tolist(), [True] * 2 + [False] * 3 + [True] * 3
-        )
+        self.assertEqual(mask.tolist(), [True] * 2 + [False] * 3 + [True] * 3)
         cmask = create_attention_mask(mx.zeros((1, 1, 32)), cache, window_size=5)
         self.assertTrue(mx.array_equal(cmask, mask))
 
@@ -459,6 +480,138 @@ class TestPromptCache(unittest.TestCase):
         self.assertEqual(cache_a.values.shape[0], 5)
         self.assertEqual(cache_a.offset.tolist(), [6, 7, 6, 1, 4])
         self.assertEqual(cache_a.left_padding.tolist(), [2, 1, 2, 7, 4])
+
+    def test_batch_rotating_kv_cache(self):
+        cache = BatchRotatingKVCache(max_size=4, left_padding=[2, 0])
+        mask = cache.make_mask(4)
+        self.assertFalse(mx.any(mask[0, 0, 0, :]))
+        self.assertTrue(
+            mx.array_equal(mask[1, 0, 0, :], mx.array([True, False, False, False]))
+        )
+
+        # Batch update works
+        k, v = mx.zeros((2, 1, 4, 8)), mx.zeros((2, 1, 4, 8))
+        k, v = cache.update_and_fetch(k, v)
+
+        mask = cache.make_mask(4)
+        k, v = mx.zeros((2, 1, 4, 8)), mx.zeros((2, 1, 4, 8))
+        k, v = cache.update_and_fetch(k, v)
+        self.assertEqual(mask.shape[-2:], (4, k.shape[2]))
+        self.assertEqual(
+            mask[0, 0, 0, :].tolist(), [False, True, True, True, False, False, False]
+        )
+
+        # Single query update works
+        cache = BatchRotatingKVCache(max_size=4, left_padding=[2, 0])
+        k, v = mx.zeros((2, 1, 4, 8)), mx.zeros((2, 1, 4, 8))
+        k, v = cache.update_and_fetch(k, v)
+
+        mask = cache.make_mask(1)
+        k, v = mx.zeros((2, 1, 1, 8)), mx.zeros((2, 1, 1, 8))
+
+        k, v = cache.update_and_fetch(k, v)
+        self.assertEqual(mask.shape[-2:], (1, k.shape[2]))
+        self.assertEqual(mask[0, 0, 0].tolist(), [True, False, True, True])
+        self.assertEqual(mask[1, 0, 0].tolist(), [True, True, True, True])
+
+        # Check filtering
+        cache = BatchRotatingKVCache(max_size=4, left_padding=[2, 0, 3])
+        k, v = mx.zeros((3, 1, 3, 8)), mx.zeros((3, 1, 3, 8))
+        cache.update_and_fetch(k, v)
+        cache.filter(mx.array([1]))
+        self.assertEqual(cache.keys.shape, (1, 1, 3, 8))
+
+        # Check extend
+        cache = BatchRotatingKVCache(max_size=4, left_padding=[2, 1])
+        other = BatchRotatingKVCache(max_size=4, left_padding=[2, 2])
+        k, v = mx.zeros((2, 1, 5, 8)), mx.zeros((2, 1, 5, 8))
+        cache.update_and_fetch(k, v)
+        other.update_and_fetch(k, v)
+        k, v = mx.zeros((2, 1, 1, 8)), mx.zeros((2, 1, 1, 8))
+        cache.update_and_fetch(k, v)
+        cache.extend(other)
+
+        # Check mask when going from prompt -> extend -> prompt
+        cache = BatchRotatingKVCache(max_size=8, left_padding=[4])
+        k, v = mx.zeros((1, 1, 8, 8)), mx.zeros((1, 1, 8, 8))
+        cache.update_and_fetch(k, v)
+
+        mask = cache.make_mask(1)
+        self.assertEqual(
+            mask.squeeze().tolist(), [True, False, False, False, True, True, True, True]
+        )
+
+        k, v = mx.zeros((1, 1, 1, 8)), mx.zeros((1, 1, 1, 8))
+        cache.update_and_fetch(k, v)
+
+        mask = cache.make_mask(2)
+        expected = mx.array(
+            [
+                [False, False, False, True, True, True, True, True, False],
+                [False, False, False, True, True, True, True, True, True],
+            ]
+        )
+        self.assertTrue(mx.array_equal(mask.squeeze(), expected))
+
+    def test_save_load_batch_caches(self):
+        cache_file = os.path.join(self.test_dir, "prompt_cache.safetensors")
+
+        cache = [
+            MambaCache(left_padding=[1, 2]),
+            BatchKVCache(left_padding=[1, 2]),
+            BatchRotatingKVCache(max_size=10, left_padding=[1, 2]),
+        ]
+        for c in cache:
+            if isinstance(c, MambaCache):
+                c[0] = mx.random.uniform(shape=(4, 4, 4))
+                c[1] = mx.random.uniform(shape=(4, 4, 4))
+            else:
+                x = mx.random.uniform(shape=(4, 4, 7, 4))
+                y = mx.random.uniform(shape=(4, 4, 7, 4))
+                c.update_and_fetch(x, y)
+
+        save_prompt_cache(cache_file, cache)
+        loaded_cache = load_prompt_cache(cache_file)
+        left_padding = mx.array([1, 2])
+        for c, lc in zip(cache, loaded_cache):
+            self.assertTrue(mx.array_equal(c.left_padding, left_padding))
+
+    def test_rotating_cache_updates(self):
+        cache = RotatingKVCache(max_size=8)
+        k = v = mx.zeros((1, 1, 10, 1))
+        cache.update_and_fetch(k, v)
+
+        for _ in range(3):
+            k = v = mx.zeros((1, 1, 1, 1))
+            cache.update_and_fetch(k, v)
+
+        k = v = mx.zeros((1, 1, 3, 1))
+        k, v = cache.update_and_fetch(k, v)
+        self.assertEqual(k.shape[2], 10)
+        self.assertEqual(v.shape[2], 10)
+
+    def test_merge_with_empty_caches(self):
+        c1 = ArraysCache(2)
+        c2 = ArraysCache(2)
+        c2[0] = mx.zeros((1, 4))
+        c2[1] = mx.zeros((1, 4))
+        c_out = ArraysCache.merge((c1, c2))
+        self.assertEqual(c_out[0].shape, (2, 4))
+        self.assertEqual(c_out[1].shape, (2, 4))
+
+        c1 = KVCache()
+        c2 = KVCache()
+        kv = mx.zeros((1, 4, 4, 4))
+        c2.update_and_fetch(kv, kv)
+        c_out = KVCache.merge((c1, c2))
+        self.assertEqual(c_out.keys.shape, (2, 4, 4, 4))
+
+        c1 = RotatingKVCache(max_size=4)
+        c2 = RotatingKVCache(max_size=4)
+        kv = mx.zeros((1, 4, 4, 4))
+        c2.update_and_fetch(kv, kv)
+        c_out = KVCache.merge((c1, c2))
+        self.assertEqual(c_out.keys.shape, (2, 4, 4, 4))
 
 
 if __name__ == "__main__":

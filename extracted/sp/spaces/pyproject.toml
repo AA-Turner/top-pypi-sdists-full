@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spaces"
-version = "0.41.1"
+version = "0.47.0"
 description = "Utilities for Hugging Face Spaces"
 authors = ["Charles Bensimon <charles@huggingface.co>"]
 readme = "README.md"
@@ -9,7 +9,7 @@ repository = "https://github.com/huggingface/huggingface_hub"
 license = "Apache-2.0"
 
 [tool.poetry.dependencies]
-python = "^3.7" # Actually requires 3.8+ for `import spaces` and 3.9+ for `@spaces.GPU`
+python = ">=3.10,<3.15"
 packaging = "*"
 psutil = ">=2,<6"
 typing-extensions = "^4"
@@ -32,16 +32,18 @@ pynvml = "^11.5.0"
 websockets = "^13.0"
 pytest-asyncio = "^0.21.1"
 pytest-httpx = "^0.27.0"
+pydantic-to-typescript = "^2.0.0"
 
 [tool.poetry.group.test.dependencies]
 diffusers = "*"
 transformers = "*"
 accelerate = "*"
 bitsandbytes = "*"
-torch = "2.8.0"
+torch = "2.9.1"
 torchao = "^0.10.0"
 scipy = "*"
 peft = "*"
+kernels = "^0.10.2"
 
 [tool.pytest.ini_options]
 addopts = "-v"
@@ -54,6 +56,7 @@ omit = [
     "spaces/zero/api.py",
     "spaces/zero/torch/patching_legacy.py",
     "spaces/zero/torch/bitsandbytes_legacy.py",
+    "spaces/_vendor/*",
 ]
 concurrency = ["thread", "multiprocessing"]
 
@@ -87,7 +90,8 @@ shell = """set -e
 
 [tool.pyright]
 include = ["spaces", "tests"]
-pythonVersion = "3.8"
+exclude = ["spaces/_vendor"]
+pythonVersion = "3.10"
 reportPossiblyUnboundVariable = "error"
 reportUnnecessaryComparison = true
 reportPrivateImportUsage = "information"

@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: openssl_publickey
 short_description: Generate an OpenSSL public key from its private key
@@ -189,6 +188,7 @@ import os
 import typing as t
 
 from ansible.module_utils.basic import AnsibleModule
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLBadPassphraseError,
     OpenSSLObjectError,
@@ -210,7 +210,6 @@ from ansible_collections.community.crypto.plugins.module_utils._io import (
     load_file_if_exists,
     write_file,
 )
-
 
 MINIMAL_CRYPTOGRAPHY_VERSION = COLLECTION_MINIMUM_CRYPTOGRAPHY_VERSION
 
@@ -324,9 +323,9 @@ class PublicKey(OpenSSLObject):
             passphrase=self.privatekey_passphrase,
         )
         file_args = module.load_file_common_arguments(module.params)
-        if module.check_file_absent_if_check_mode(file_args["path"]):
-            self.changed = True
-        elif module.set_fs_attributes_if_different(file_args, False):
+        if module.check_file_absent_if_check_mode(
+            file_args["path"]
+        ) or module.set_fs_attributes_if_different(file_args, False):
             self.changed = True
 
     def check(self, module: AnsibleModule, *, perms_required: bool = True) -> bool:

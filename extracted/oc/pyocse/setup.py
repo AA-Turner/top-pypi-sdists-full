@@ -7,7 +7,7 @@ with open("README.md") as fh:
 
 setup(
     name="pyocse",
-    version="0.1.2",
+    version="0.1.3",
     author="Qiang Zhu, Shinnosule Hattori",
     description="Python Organic Crystal Simulation Environment",
     include_package_data=True,
@@ -32,8 +32,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-       #"parmed>=3.4.3",
-       #"openmm>=7.6.0",
        "toml",
        "xmltodict"
     ],

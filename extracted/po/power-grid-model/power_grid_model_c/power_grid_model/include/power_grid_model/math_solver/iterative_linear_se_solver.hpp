@@ -75,12 +75,12 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
     static constexpr Idx bsr_block_size_ = is_symmetric_v<sym> ? 2 : 6;
 
   public:
-    IterativeLinearSESolver(YBus<sym> const& y_bus, std::shared_ptr<MathModelTopology const> topo_ptr)
+    IterativeLinearSESolver(YBus<sym> const& y_bus, MathModelTopology const& topo)
         : n_bus_{y_bus.size()},
-          math_topo_{std::move(topo_ptr)},
+          math_topo_{topo},
           data_gain_(y_bus.nnz_lu()),
           x_rhs_(y_bus.size()),
-          sparse_solver_{y_bus.shared_indptr_lu(), y_bus.shared_indices_lu(), y_bus.shared_diag_lu()},
+          sparse_solver_{y_bus.row_indptr_lu(), y_bus.col_indices_lu(), y_bus.lu_diag()},
           perm_(y_bus.size()) {}
 
     SolverOutput<sym> run_state_estimation(YBus<sym> const& y_bus, StateEstimationInput<sym> const& input,
@@ -97,9 +97,9 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
 
         // preprocess measured value
         sub_timer = Timer{log, LogEvent::preprocess_measured_value};
-        MeasuredValues<sym> const measured_values{y_bus.shared_topology(), input};
+        MeasuredValues<sym> const measured_values{*y_bus.shared_topology(), input};
         auto const observability_result =
-            observability_check(measured_values, y_bus.math_topology(), y_bus.y_bus_structure());
+            observability::observability_check(measured_values, y_bus.math_topology(), y_bus.y_bus_structure());
 
         // prepare matrix
         sub_timer = Timer{log, LogEvent::prepare_matrix_including_prefactorization};
@@ -110,8 +110,9 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
         // initialize voltage with initial angle
         sub_timer = Timer{log, LogEvent::initialize_voltages}; // TODO(mgovers): make scoped subtimers
         RealValue<sym> const mean_angle_shift = measured_values.mean_angle_shift();
+        auto const& topo = math_topo_.get();
         for (Idx bus = 0; bus != n_bus_; ++bus) {
-            output.u[bus] = exp(1.0i * (mean_angle_shift + math_topo_->phase_shift[bus]));
+            output.u[bus] = exp(1.0i * (mean_angle_shift + topo.phase_shift[bus]));
         }
 
         // loop to iterate
@@ -127,7 +128,7 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
             sparse_solver_.solve_with_prefactorized_matrix(data_gain_, perm_, x_rhs_, x_rhs_);
             sub_timer = Timer{log, LogEvent::iterate_unknown};
             max_dev = iterate_unknown(output.u, measured_values.has_angle());
-        };
+        }
 
         // calculate math result
         sub_timer = Timer{log, LogEvent::calculate_math_result};
@@ -155,7 +156,7 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
 
     Idx n_bus_;
     // shared topo data
-    std::shared_ptr<MathModelTopology const> math_topo_;
+    std::reference_wrapper<MathModelTopology const> math_topo_;
 
     // data for gain matrix
     std::vector<ILSEGainBlock<sym>> data_gain_;
@@ -201,7 +202,7 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
                     // shunt
                     if (type == YBusElementType::shunt) {
                         if (measured_value.has_shunt(obj)) {
-                            // G += (-Ys)^H * (variance^-1) * (-Ys)
+                            // G += (-Ys)^H * (variance^-1) * (-Ys) // NOSONAR(S125)
                             auto const& shunt_power = measured_value.shunt_power(obj);
                             auto const current = power_to_global_current_measurement(shunt_power);
                             block.g() += dot(hermitian_transpose(param.shunt_param[obj]),
@@ -217,7 +218,7 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
                             IntS const b0 = std::to_underlying(type) / 2;
                             IntS const b1 = std::to_underlying(type) % 2;
 
-                            // G += Y{side, b0}^H * (variance^-1) * Y{side, b1}
+                            // G += Y{side, b0}^H * (variance^-1) * Y{side, b1} // NOSONAR(S125)
                             block.g() += dot(hermitian_transpose(param.branch_param[obj].value[measured_side * 2 + b0]),
                                              diagonal_inverse(branch_current.variance),
                                              param.branch_param[obj].value[measured_side * 2 + b1]);
@@ -243,7 +244,7 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
                 // fill block with injection measurement
                 // injection measurement exist
                 if (measured_value.has_bus_injection(row)) {
-                    // Q_ij = Y_bus_ij
+                    // Q_ij = Y_bus_ij // NOSONAR(S125)
                     block.q() = y_bus.admittance()[data_idx];
                     // R_ii = -variance, only diagonal
                     if (row == col) {
@@ -359,7 +360,7 @@ template <symmetry_tag sym_type> class IterativeLinearSESolver {
             if (has_angle) {
                 return 1.0;
             }
-            auto const& voltage = x_rhs_[math_topo_->slack_bus].u();
+            auto const& voltage = x_rhs_[math_topo_.get().slack_bus].u();
             auto const& voltage_a = [&voltage]() -> auto const& {
                 if constexpr (is_symmetric_v<sym>) {
                     return voltage;

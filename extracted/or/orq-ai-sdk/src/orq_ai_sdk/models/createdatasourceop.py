@@ -8,9 +8,14 @@ from orq_ai_sdk.types import (
     UNSET,
     UNSET_SENTINEL,
 )
-from orq_ai_sdk.utils import FieldMetadata, PathParamMetadata, RequestMetadata
+from orq_ai_sdk.utils import (
+    FieldMetadata,
+    PathParamMetadata,
+    RequestMetadata,
+    get_discriminator,
+)
 import pydantic
-from pydantic import model_serializer
+from pydantic import Discriminator, Tag, model_serializer
 from typing import Literal, Optional, Union
 from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
 
@@ -39,6 +44,22 @@ class ChunkingConfiguration2(BaseModel):
     chunk_overlap: Optional[float] = 0
     r"""Specifies the number of characters to overlap between consecutive chunks. This overlap helps maintain semantic continuity when splitting large text elements."""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["chunk_max_characters", "chunk_overlap"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 ChunkingConfigurationType = Literal["default",]
 
@@ -62,9 +83,13 @@ ChunkingConfigurationTypedDict = TypeAliasType(
 r"""The chunking configuration settings for the datasource. Defaults to the system's standard chunking configuration if not specified."""
 
 
-ChunkingConfiguration = TypeAliasType(
-    "ChunkingConfiguration", Union[ChunkingConfiguration1, ChunkingConfiguration2]
-)
+ChunkingConfiguration = Annotated[
+    Union[
+        Annotated[ChunkingConfiguration1, Tag("default")],
+        Annotated[ChunkingConfiguration2, Tag("advanced")],
+    ],
+    Discriminator(lambda m: get_discriminator(m, "type", "type")),
+]
 r"""The chunking configuration settings for the datasource. Defaults to the system's standard chunking configuration if not specified."""
 
 
@@ -116,6 +141,33 @@ class ChunkingCleanupOptions(BaseModel):
     clean_whitespaces: Optional[bool] = None
     r"""Trims and normalizes excessive whitespace throughout the text."""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "delete_emails",
+                "delete_credit_cards",
+                "delete_phone_numbers",
+                "clean_bullet_points",
+                "clean_numbered_list",
+                "clean_unicode",
+                "clean_dashes",
+                "clean_whitespaces",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class ChunkingOptionsTypedDict(TypedDict):
     r"""Configuration options specifying how the datasource file is chunked. Required if `file_id` is specified. Defaults to standard chunking options if omitted."""
@@ -134,6 +186,22 @@ class ChunkingOptions(BaseModel):
 
     chunking_cleanup_options: Optional[ChunkingCleanupOptions] = None
     r"""The cleanup options applied to the datasource content. All options are enabled by default to ensure enhanced security and optimal chunk quality. Defaults to system-standard cleanup options if not specified."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["chunking_configuration", "chunking_cleanup_options"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 class CreateDatasourceRequestBodyTypedDict(TypedDict):
@@ -154,6 +222,22 @@ class CreateDatasourceRequestBody(BaseModel):
 
     chunking_options: Optional[ChunkingOptions] = None
     r"""Configuration options specifying how the datasource file is chunked. Required if `file_id` is specified. Defaults to standard chunking options if omitted."""
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["display_name", "file_id", "chunking_options"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 class CreateDatasourceRequestTypedDict(TypedDict):
@@ -198,15 +282,15 @@ class CreateDatasourceResponseBodyTypedDict(TypedDict):
     chunks_count: float
     r"""The number of chunks in the datasource"""
     id: NotRequired[str]
-    r"""The id of the resource"""
+    r"""The unique identifier of the data source"""
     description: NotRequired[str]
     r"""The description of the knowledge base"""
     file_id: NotRequired[Nullable[str]]
     r"""The unique identifier of the file used to create the datasource."""
     created_by_id: NotRequired[Nullable[str]]
-    r"""The id of the resource"""
+    r"""The user ID of the creator of the knowledge base"""
     update_by_id: NotRequired[Nullable[str]]
-    r"""The id of the resource"""
+    r"""The user ID of the last user who updated the knowledge base"""
 
 
 class CreateDatasourceResponseBody(BaseModel):
@@ -230,9 +314,9 @@ class CreateDatasourceResponseBody(BaseModel):
     r"""The number of chunks in the datasource"""
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "01K5SN3DZ2HVR4RJ8F13BBQR82"
+        "01KFN8ZQG3V4G0KD7VM72XZZ86"
     )
-    r"""The id of the resource"""
+    r"""The unique identifier of the data source"""
 
     description: Optional[str] = None
     r"""The description of the knowledge base"""
@@ -241,43 +325,34 @@ class CreateDatasourceResponseBody(BaseModel):
     r"""The unique identifier of the file used to create the datasource."""
 
     created_by_id: OptionalNullable[str] = UNSET
-    r"""The id of the resource"""
+    r"""The user ID of the creator of the knowledge base"""
 
     update_by_id: OptionalNullable[str] = UNSET
-    r"""The id of the resource"""
+    r"""The user ID of the last user who updated the knowledge base"""
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = [
-            "_id",
-            "description",
-            "file_id",
-            "created_by_id",
-            "update_by_id",
-        ]
-        nullable_fields = ["file_id", "created_by_id", "update_by_id"]
-        null_default_fields = []
-
+        optional_fields = set(
+            ["_id", "description", "file_id", "created_by_id", "update_by_id"]
+        )
+        nullable_fields = set(["file_id", "created_by_id", "update_by_id"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m

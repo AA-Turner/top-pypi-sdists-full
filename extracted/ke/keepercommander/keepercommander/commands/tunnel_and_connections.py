@@ -8,22 +8,7 @@
 # Copyright 2023 Keeper Security Inc.
 # Contact: sm@keepersecurity.com
 #
-# RUST WEBRTC LOGGING:
-# - Enhanced logging with initialize_rust_logger() function
-# - Use 'pam tunnel loglevel --trace' to configure session-wide trace logging
-# - IMPORTANT: Rust logger can only be initialized ONCE per process
-# - Loglevel command must be run before any tunnel operations
-# - If loglevel is not set, tunnel start will use default logging
-#
-# USAGE EXAMPLES:
-# - For detailed logging:
-#   pam tunnel loglevel --trace       (configure session)
-#   pam tunnel start RECORD_UID       (start with trace logging)
-#   pam tunnel list                   (list with trace logging)
-# - For normal logging:
-#   pam tunnel start RECORD_UID       (start with default logging)
-# - Alternative: RUST_LOG=trace pam tunnel start RECORD_UID  (environment variable)
-#
+
 import argparse
 import logging
 import os
@@ -33,9 +18,8 @@ from keeper_secrets_manager_core.utils import bytes_to_base64, base64_to_bytes
 from .base import Command, GroupCommand, dump_report_data, RecordMixin
 from .tunnel.port_forward.TunnelGraph import TunnelDAG
 from .tunnel.port_forward.tunnel_helpers import find_open_port, get_config_uid, get_keeper_tokens, \
-    get_or_create_tube_registry, get_gateway_uid_from_record, initialize_rust_logger, RUST_LOGGER_INITIALIZED, \
-    get_rust_logger_state, resolve_record, resolve_pam_config, resolve_folder, remove_field, start_rust_tunnel, \
-    get_tunnel_session, CloseConnectionReasons, create_rust_webrtc_settings
+    get_or_create_tube_registry, get_gateway_uid_from_record, resolve_record, resolve_pam_config, resolve_folder, \
+    remove_field, start_rust_tunnel, get_tunnel_session, CloseConnectionReasons, create_rust_webrtc_settings
 from .. import api, vault, record_management
 from ..display import bcolors
 from ..error import CommandError
@@ -48,7 +32,6 @@ class PAMTunnelCommand(GroupCommand):
 
     def __init__(self):
         super(PAMTunnelCommand, self).__init__()
-        self.register_command('loglevel', PAMTunnelLogLevelCommand(), 'Set logging level for tunnel session', 'g')
         self.register_command('start', PAMTunnelStartCommand(), 'Start Tunnel', 's')
         self.register_command('list', PAMTunnelListCommand(), 'List all Tunnels', 'l')
         self.register_command('stop', PAMTunnelStopCommand(), 'Stop Tunnel to the server', 'x')
@@ -76,54 +59,6 @@ class PAMRbiCommand(GroupCommand):
 
 
 # Individual Commands
-class PAMTunnelLogLevelCommand(Command):
-    pam_cmd_parser = argparse.ArgumentParser(prog='pam tunnel loglevel', 
-                                           description='Set logging level for tunnel session. '
-                                                       'Run this before starting tunnels to configure logging.')
-    pam_cmd_parser.add_argument('--trace', '-t', required=False, dest='trace', action='store_true',
-                                help='Enable detailed WebRTC trace logging for the entire session. '
-                                     'This setting cannot be changed once tunnels are started.')
-
-    def get_parser(self):
-        return PAMTunnelLogLevelCommand.pam_cmd_parser
-
-    def execute(self, params, **kwargs):
-        trace_logging = kwargs.get('trace', False)
-        
-        # Check if logger is already initialized
-        if RUST_LOGGER_INITIALIZED:
-            current_settings = get_rust_logger_state()
-            if current_settings['verbose'] == trace_logging:
-                if trace_logging:
-                    print(f"{bcolors.OKGREEN}Tunnel session is already configured with trace logging enabled.{bcolors.ENDC}")
-                else:
-                    print(f"{bcolors.OKGREEN}Tunnel session is already configured with normal logging.{bcolors.ENDC}")
-            else:
-                if trace_logging:
-                    print(f"{bcolors.FAIL}Cannot enable trace logging - tunnel session already configured with normal logging.{bcolors.ENDC}")
-                    print(f"{bcolors.WARNING}Restart Commander to change logging configuration.{bcolors.ENDC}")
-                else:
-                    print(f"{bcolors.WARNING}Tunnel session is already configured with trace logging enabled.{bcolors.ENDC}")
-                    print(f"{bcolors.OKBLUE}To disable trace logging, restart Commander.{bcolors.ENDC}")
-            return
-        
-        # Initialize the Rust logger for the session
-        debug_level = hasattr(params, 'debug') and params.debug
-        log_level = logging.DEBUG if debug_level else logging.INFO
-        
-        if initialize_rust_logger(logger_name="keeper-pam-webrtc-rs", verbose=trace_logging, level=log_level):
-             if trace_logging:
-                 print(f"{bcolors.OKGREEN}Tunnel session configured with trace logging enabled.{bcolors.ENDC}")
-                 print(f"{bcolors.OKBLUE}Detailed WebRTC logs will be shown for all tunnel operations.{bcolors.ENDC}")
-                 print(f"{bcolors.OKBLUE}Now you can run: pam tunnel start RECORD_UID{bcolors.ENDC}")
-             else:
-                 print(f"{bcolors.OKGREEN}Tunnel session configured with normal logging.{bcolors.ENDC}")
-                 print(f"{bcolors.OKBLUE}Use 'pam tunnel loglevel --trace' for detailed logging.{bcolors.ENDC}")
-                 print(f"{bcolors.OKBLUE}Now you can run: pam tunnel start RECORD_UID{bcolors.ENDC}")
-        else:
-            print(f"{bcolors.FAIL}Failed to configure tunnel session logging.{bcolors.ENDC}")
-
-
 class PAMTunnelListCommand(Command):
     pam_cmd_parser = argparse.ArgumentParser(prog='pam tunnel list')
 
@@ -131,14 +66,8 @@ class PAMTunnelListCommand(Command):
         return PAMTunnelListCommand.pam_cmd_parser
 
     def execute(self, params, **kwargs):
-        # Rust logger should already be initialized by the loglevel command
-        # If not initialized, use default settings
-        if not RUST_LOGGER_INITIALIZED:
-            debug_level = hasattr(params, 'debug') and params.debug
-            log_level = logging.DEBUG if debug_level else logging.INFO
-            initialize_rust_logger(logger_name="keeper-pam-webrtc-rs", verbose=False, level=log_level)
-        
         # Try to get active tunnels from Rust PyTubeRegistry
+        # Logger initialization is handled by get_or_create_tube_registry()
         tube_registry = get_or_create_tube_registry(params)
         if tube_registry:
             if not tube_registry.has_active_tubes():
@@ -146,37 +75,53 @@ class PAMTunnelListCommand(Command):
                 return
 
             table = []
-            headers = ['Tunnel ID', 'Listening On', 'Conversation IDs', 'Status']
+            headers = ['Record', 'Remote Target', 'Local Address', 'Tunnel ID', 'Conversation ID', 'Status']
 
             # Get all tube IDs
             tube_ids = tube_registry.all_tube_ids()
-            
+
             for tube_id in tube_ids:
                 # Get conversation IDs for this tube
                 conversation_ids = tube_registry.get_conversation_ids_by_tube_id(tube_id)
-                
-                # Get listening address from tunnel session
+
+                # Get tunnel session for detailed info
                 tunnel_session = get_tunnel_session(tube_id)
-                if tunnel_session and tunnel_session.host and tunnel_session.port:
-                    listening_on = f"{bcolors.OKGREEN}{tunnel_session.host}:{tunnel_session.port}{bcolors.ENDC}"
+
+                # Record title
+                record_title = tunnel_session.record_title if tunnel_session and tunnel_session.record_title else f"{bcolors.WARNING}unknown{bcolors.ENDC}"
+
+                # Remote target
+                if tunnel_session and tunnel_session.target_host and tunnel_session.target_port:
+                    remote_target = f"{tunnel_session.target_host}:{tunnel_session.target_port}"
                 else:
-                    listening_on = f"{bcolors.WARNING}unknown{bcolors.ENDC}"
-                
-                # Try to get connection state
+                    remote_target = f"{bcolors.WARNING}unknown{bcolors.ENDC}"
+
+                # Local listening address
+                if tunnel_session and tunnel_session.host and tunnel_session.port:
+                    local_addr = f"{bcolors.OKGREEN}{tunnel_session.host}:{tunnel_session.port}{bcolors.ENDC}"
+                else:
+                    local_addr = f"{bcolors.WARNING}unknown{bcolors.ENDC}"
+
+                # Tunnel ID (tube_id) - this is what's needed for stopping
+                tunnel_id = tube_id
+
+                # Conversation ID - WebRTC signaling identifier
+                conv_id = conversation_ids[0] if conversation_ids else (tunnel_session.conversation_id if tunnel_session else 'none')
+
+                # Connection state
                 try:
                     state = tube_registry.get_connection_state(tube_id)
                     status_color = f"{bcolors.OKGREEN}" if state.lower() == "connected" else f"{bcolors.WARNING}"
                     status = f"{status_color}{state}{bcolors.ENDC}"
                 except:
                     status = f"{bcolors.WARNING}unknown{bcolors.ENDC}"
-                
-                # Format conversation IDs for display
-                conv_ids_str = ', '.join(conversation_ids) if conversation_ids else 'none'
-                
+
                 row = [
-                    f"{bcolors.OKBLUE}{tube_id}{bcolors.ENDC}",
-                    listening_on,
-                    conv_ids_str,
+                    record_title,
+                    remote_target,
+                    local_addr,
+                    tunnel_id,
+                    conv_id,
                     status,
                 ]
                 table.append(row)
@@ -191,27 +136,72 @@ class PAMTunnelListCommand(Command):
 
 class PAMTunnelStopCommand(Command):
     pam_cmd_parser = argparse.ArgumentParser(prog='pam tunnel stop')
-    pam_cmd_parser.add_argument('uid', type=str, action='store', help='The Tunnel UID or Record UID')
+    pam_cmd_parser.add_argument('uid', type=str, action='store', nargs='?', help='The Tunnel ID, Conversation ID, or Record UID (omit with --all to stop all tunnels)')
+    pam_cmd_parser.add_argument('--all', dest='stop_all', action='store_true', 
+                                help='Stop all tunnels (if no UID) or all tunnels matching the UID (if UID provided)')
 
     def get_parser(self):
         return PAMTunnelStopCommand.pam_cmd_parser
 
     def execute(self, params, **kwargs):
         uid = kwargs.get('uid')
+        stop_all = kwargs.get('stop_all', False)
+        
+        # Special case: --all with no UID means stop ALL tunnels
+        if stop_all and not uid:
+            return self._stop_all_tunnels(params)
+        
         if not uid:
-            raise CommandError('tunnel stop', '"uid" argument is required')
+            raise CommandError('tunnel stop', '"uid" argument is required (or use --all to stop all tunnels)')
 
         tube_registry = get_or_create_tube_registry(params)
         if not tube_registry:
             raise CommandError('tunnel stop', 'This command requires the Rust WebRTC library')
 
-        # Find matching tubes
+        # Find matching tubes by tunnel ID (tube_id)
         matching_tubes = tube_registry.find_tubes(uid)
         if not matching_tubes and tube_registry.tube_found(uid):
             matching_tubes = [uid]
 
+        # If not found by tunnel ID, try looking up by conversation ID
+        if not matching_tubes:
+            # Try as-is first
+            tube_id = tube_registry.tube_id_from_connection_id(uid)
+            
+            # If not found, try URL-safe base64 conversion
+            if not tube_id:
+                # Convert standard base64 to URL-safe (+ to -, / to _, remove =)
+                url_safe_uid = uid.replace('+', '-').replace('/', '_').rstrip('=')
+                tube_id = tube_registry.tube_id_from_connection_id(url_safe_uid)
+                
+            # If still not found, try the reverse (URL-safe to standard)
+            if not tube_id:
+                # Convert URL-safe to standard base64 (- to +, _ to /)
+                standard_uid = uid.replace('-', '+').replace('_', '/')
+                # Add padding if needed
+                padding_needed = (4 - len(standard_uid) % 4) % 4
+                if padding_needed:
+                    standard_uid += '=' * padding_needed
+                tube_id = tube_registry.tube_id_from_connection_id(standard_uid)
+            
+            if tube_id:
+                matching_tubes = [tube_id]
+
         if not matching_tubes:
             raise CommandError('tunnel stop', f"No active tunnels found matching '{uid}'")
+
+        # Check if multiple tunnels match and --all flag is required
+        if len(matching_tubes) > 1:
+            if not stop_all:
+                print(f"{bcolors.WARNING}Found {len(matching_tubes)} tunnels matching '{uid}':{bcolors.ENDC}")
+                for tube_id in matching_tubes:
+                    print(f"  - {tube_id}")
+                print(f"\n{bcolors.FAIL}Multiple tunnels found. Use --all to stop all of them, or specify a Tunnel ID or Conversation ID to stop a specific tunnel.{bcolors.ENDC}")
+                raise CommandError('tunnel stop', 'Multiple tunnels found - use --all flag or specify exact Tunnel/Conversation ID')
+            else:
+                print(f"{bcolors.WARNING}Stopping {len(matching_tubes)} tunnels matching '{uid}':{bcolors.ENDC}")
+                for tube_id in matching_tubes:
+                    print(f"  - {tube_id}")
 
         # Close all matching tubes
         stopped_count = 0
@@ -225,6 +215,45 @@ class PAMTunnelStopCommand(Command):
 
         if stopped_count == 0:
             raise CommandError('tunnel stop', f"Failed to stop any tunnels matching '{uid}'")
+
+    def _stop_all_tunnels(self, params):
+        """Stop all active tunnels"""
+        tube_registry = get_or_create_tube_registry(params)
+        if not tube_registry:
+            raise CommandError('tunnel stop', 'This command requires the Rust WebRTC library')
+
+        # Get all active tunnel IDs
+        all_tube_ids = tube_registry.all_tube_ids()
+        
+        if not all_tube_ids:
+            print(f"{bcolors.WARNING}No active tunnels to stop.{bcolors.ENDC}")
+            return
+
+        # Confirm with user
+        print(f"{bcolors.WARNING}About to stop {len(all_tube_ids)} active tunnel(s):{bcolors.ENDC}")
+        for tube_id in all_tube_ids:
+            print(f"  - {tube_id}")
+        
+        # Stop all tunnels
+        stopped_count = 0
+        failed_count = 0
+        for tube_id in all_tube_ids:
+            try:
+                tube_registry.close_tube(tube_id, reason=CloseConnectionReasons.Normal)
+                print(f"{bcolors.OKGREEN}Stopped tunnel: {tube_id}{bcolors.ENDC}")
+                stopped_count += 1
+            except Exception as e:
+                print(f"{bcolors.FAIL}Failed to stop tunnel {tube_id}: {e}{bcolors.ENDC}")
+                failed_count += 1
+
+        # Summary
+        if stopped_count > 0:
+            print(f"\n{bcolors.OKGREEN}Successfully stopped {stopped_count} tunnel(s).{bcolors.ENDC}")
+        if failed_count > 0:
+            print(f"{bcolors.FAIL}Failed to stop {failed_count} tunnel(s).{bcolors.ENDC}")
+        
+        if stopped_count == 0:
+            raise CommandError('tunnel stop', 'Failed to stop any tunnels')
 
 
 class PAMTunnelEditCommand(Command):
@@ -294,7 +323,8 @@ class PAMTunnelEditCommand(Command):
 
         encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
         if record_type in "pamNetworkConfiguration pamAwsConfiguration pamAzureConfiguration".split():
-            tmp_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, record_uid, is_config=True)
+            tmp_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, record_uid, is_config=True,
+                                transmission_key=transmission_key)
             tmp_dag.edit_tunneling_config(tunneling=_tunneling)
             tmp_dag.print_tunneling_config(record_uid, None)
         else:
@@ -326,8 +356,10 @@ class PAMTunnelEditCommand(Command):
 
             existing_config_uid = get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid)
 
-            tmp_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid)
-            old_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, existing_config_uid)
+            tmp_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid,
+                                transmission_key=transmission_key)
+            old_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, existing_config_uid,
+                                transmission_key=transmission_key)
 
             if config_uid and existing_config_uid != config_uid:
                 old_dag.remove_from_dag(record_uid)
@@ -413,6 +445,14 @@ class PAMTunnelStartCommand(Command):
                                 type=int, default=0,
                                 help='The port number on which the server will be listening for incoming connections. '
                                      'If not set, random open port on the machine will be used.')
+    pam_cmd_parser.add_argument('--target-host', '-th', required=False, dest='target_host', action='store',
+                                help='Target hostname/IP to tunnel to (required when allowSupplyHost is enabled on the resource)')
+    pam_cmd_parser.add_argument('--target-port', '-tp', required=False, dest='target_port', action='store',
+                                type=int,
+                                help='Target port to tunnel to (required when allowSupplyHost is enabled on the resource)')
+    pam_cmd_parser.add_argument('--no-trickle-ice', '-nti', required=False, dest='no_trickle_ice', action='store_true',
+                                help='Disable trickle ICE for WebRTC connections. By default, trickle ICE is enabled '
+                                     'for real-time candidate exchange.')
 
     def get_parser(self):
         return PAMTunnelStartCommand.pam_cmd_parser
@@ -420,7 +460,6 @@ class PAMTunnelStartCommand(Command):
     def execute(self, params, **kwargs):
         # Python version validation (same as before)
         from_version = [3, 8, 0]   # including
-        to_version = [3, 13, 0]    # excluding
         major_version = sys.version_info.major
         minor_version = sys.version_info.minor
         micro_version = sys.version_info.micro
@@ -429,28 +468,20 @@ class PAMTunnelStartCommand(Command):
             print(f"{bcolors.FAIL}This command requires Python {from_version[0]}.{from_version[1]}.{from_version[2]} or higher. "
                   f"You are using {major_version}.{minor_version}.{micro_version}.{bcolors.ENDC}")
             return
-        if (major_version, minor_version, micro_version) >= (to_version[0], to_version[1], to_version[2]):
-            print(f"{bcolors.FAIL}This command is compatible with Python versions below {to_version[0]}.{to_version[1]}.{to_version[2]} "
-                  f"(Current Python version: {major_version}.{minor_version}.{micro_version}){bcolors.ENDC}")
-            return
 
         # Check for Rust WebRTC library availability
+        # Logger initialization is handled by get_or_create_tube_registry()
         tube_registry = get_or_create_tube_registry(params)
         if not tube_registry:
             print(f"{bcolors.FAIL}This command requires the Rust WebRTC library (keeper_pam_webrtc_rs).{bcolors.ENDC}")
             print(f"{bcolors.OKBLUE}Please ensure the keeper_pam_webrtc_rs module is installed and available.{bcolors.ENDC}")
             return
 
-        # Initialize Rust logger with defaults if not already set by loglevel command
-        if not RUST_LOGGER_INITIALIZED:
-            debug_level = hasattr(params, 'debug') and params.debug
-            log_level = logging.DEBUG if debug_level else logging.INFO
-            initialize_rust_logger(logger_name="keeper-pam-webrtc-rs", verbose=False, level=log_level)
-
         record_uid = kwargs.get('uid')
         host = kwargs.get('host')
         port = kwargs.get('port')
-        
+        no_trickle_ice = kwargs.get('no_trickle_ice', False)
+
         if port is not None and port > 0:
             try:
                 port = find_open_port(tried_ports=[], preferred_port=port, host=host)
@@ -480,19 +511,69 @@ class PAMTunnelStartCommand(Command):
                   f"{bcolors.OKBLUE} 'pam config list'{bcolors.ENDC}.")
             return
 
+        # Check if allow_supply_host is enabled
+        pam_settings_value = pam_settings.get_default_value() if pam_settings else {}
+        allow_supply_host = pam_settings_value.get('allowSupplyHost', False) if isinstance(pam_settings_value, dict) else False
+
         # Get target host and port
-        target = record.get_typed_field('pamHostname')
-        if not target:
-            print(f"{bcolors.FAIL}Hostname not found for record {record_uid}.{bcolors.ENDC}")
-            return
-        target_host = target.get_default_value().get('hostName', None)
-        target_port = target.get_default_value().get('port', None)
-        if not target_host:
-            print(f"{bcolors.FAIL}Host not found for record {record_uid}.{bcolors.ENDC}")
-            return
-        if not target_port:
-            print(f"{bcolors.FAIL}Port not found for record {record_uid}.{bcolors.ENDC}")
-            return
+        if allow_supply_host:
+            # User must supply target host and port via command arguments or interactive prompt
+            target_host = kwargs.get('target_host')
+            target_port = kwargs.get('target_port')
+
+            # If not provided via command line, prompt interactively
+            if not target_host:
+                print(f"{bcolors.WARNING}This resource requires you to supply the target host and port.{bcolors.ENDC}")
+                try:
+                    target_host = input(f"{bcolors.OKBLUE}Enter target hostname or IP address: {bcolors.ENDC}").strip()
+                    if not target_host:
+                        print(f"{bcolors.FAIL}Target host is required.{bcolors.ENDC}")
+                        return
+                except (KeyboardInterrupt, EOFError):
+                    print(f"\n{bcolors.FAIL}Cancelled.{bcolors.ENDC}")
+                    return
+
+            if not target_port:
+                try:
+                    target_port_str = input(f"{bcolors.OKBLUE}Enter target port number: {bcolors.ENDC}").strip()
+                    if not target_port_str:
+                        print(f"{bcolors.FAIL}Target port is required.{bcolors.ENDC}")
+                        return
+                    target_port = int(target_port_str)
+                except (KeyboardInterrupt, EOFError):
+                    print(f"\n{bcolors.FAIL}Cancelled.{bcolors.ENDC}")
+                    return
+                except ValueError:
+                    print(f"{bcolors.FAIL}Invalid target port '{target_port_str}'. Port must be a number.{bcolors.ENDC}")
+                    return
+
+            # Validate target_port is an integer (if provided via kwargs)
+            try:
+                target_port = int(target_port)
+            except (ValueError, TypeError):
+                print(f"{bcolors.FAIL}Invalid target port '{target_port}'. Port must be a number.{bcolors.ENDC}")
+                return
+
+            # Validate port range
+            if not (1 <= target_port <= 65535):
+                print(f"{bcolors.FAIL}Invalid port number {target_port}. Port must be between 1 and 65535.{bcolors.ENDC}")
+                return
+
+            print(f"{bcolors.OKBLUE}Tunneling to user-supplied target: {target_host}:{target_port}{bcolors.ENDC}")
+        else:
+            # Get target from record
+            target = record.get_typed_field('pamHostname')
+            if not target:
+                print(f"{bcolors.FAIL}Hostname not found for record {record_uid}.{bcolors.ENDC}")
+                return
+            target_host = target.get_default_value().get('hostName', None)
+            target_port = pam_settings_value.get("portForward", {}).get("port", target.get_default_value().get('port', None))
+            if not target_host:
+                print(f"{bcolors.FAIL}Host not found for record {record_uid}.{bcolors.ENDC}")
+                return
+            if not target_port:
+                print(f"{bcolors.FAIL}Port not found for record {record_uid}.{bcolors.ENDC}")
+                return
 
         # Check for SOCKS configuration
         allowed_hosts = record.get_typed_field('multiline', 'Allowed Hosts')
@@ -513,9 +594,9 @@ class PAMTunnelStartCommand(Command):
             print(f"{bcolors.FAIL}Gateway not found for record {record_uid}.{bcolors.ENDC}")
             return
 
-        # Use Rust WebRTC implementation with trickle ICE
-        print(f"{bcolors.OKBLUE}Using trickle ICE with HTTP POST sending and WebSocket receiving{bcolors.ENDC}")
-        result = start_rust_tunnel(params, record_uid, gateway_uid, host, port, seed, target_host, target_port, socks)
+        # Use Rust WebRTC implementation with configurable trickle ICE
+        trickle_ice = not no_trickle_ice
+        result = start_rust_tunnel(params, record_uid, gateway_uid, host, port, seed, target_host, target_port, socks, trickle_ice, record.title, allow_supply_host=allow_supply_host)
         
         if result and result.get("success"):
             # The helper will show endpoint table when local socket is actually listening
@@ -565,17 +646,12 @@ class PAMTunnelDiagnoseCommand(Command):
             raise CommandError('pam tunnel diagnose', '"record" parameter is required.')
 
         # Check for Rust WebRTC library availability
+        # Logger initialization is handled by get_or_create_tube_registry()
         tube_registry = get_or_create_tube_registry(params)
         if not tube_registry:
             print(f"{bcolors.FAIL}This command requires the Rust WebRTC library (keeper_pam_webrtc_rs).{bcolors.ENDC}")
             print(f"{bcolors.OKBLUE}Please ensure the keeper_pam_webrtc_rs module is installed and available.{bcolors.ENDC}")
             return 1
-
-        # Initialize Rust logger if not already done
-        if not RUST_LOGGER_INITIALIZED:
-            debug_level = hasattr(params, 'debug') and params.debug
-            log_level = logging.DEBUG if debug_level else logging.INFO
-            initialize_rust_logger(logger_name="keeper-pam-webrtc-rs", verbose=verbose, level=log_level)
 
         # Resolve and validate the record
         api.sync_down(params)
@@ -705,6 +781,8 @@ class PAMConnectionEditCommand(Command):
     parser.add_argument('--connections-override-port', '-cop', required=False, dest='connections_override_port',
                         action='store', help='Port to use for connections. If not provided, '
                         'the port from the record will be used.')
+    parser.add_argument('--key-events', '-k', dest='key_events', choices=choices,
+                        help='Toggle Key Events settings')
     parser.add_argument('--silent', '-s', required=False, dest='silent', action='store_true',
 					help='Silent mode - don\'t print PAM User, PAM Config etc.')
 
@@ -752,7 +830,8 @@ class PAMConnectionEditCommand(Command):
 
         encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
         if record_type in "pamNetworkConfiguration pamAwsConfiguration pamAzureConfiguration".split():
-            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, record_uid, is_config=True)
+            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, record_uid, is_config=True,
+                             transmission_key=transmission_key)
             tdag.edit_tunneling_config(connections=_connections, session_recording=_recording, typescript_recording=_typescript_recording)
             if not kwargs.get("silent", False): tdag.print_tunneling_config(record_uid, None)
         else:
@@ -792,6 +871,8 @@ class PAMConnectionEditCommand(Command):
             else:
                 if not pam_settings.value:
                     pam_settings.value.append({"connection": {}, "portForward": {}})
+                if not pam_settings.value[0]:
+                    pam_settings.value[0] = {"connection": {}, "portForward": {}}
                 if _connections:
                     if connection_override_port:
                         pam_settings.value[0]["connection"]["port"] = connection_override_port
@@ -805,6 +886,34 @@ class PAMConnectionEditCommand(Command):
                 elif protocol or connection_override_port:
                     logging.warning(f'Connection override port and protocol can be set only when connections are enabled '
                             f'with {bcolors.OKGREEN}--connections=on{bcolors.ENDC} option')
+
+            # pam_settings.value already initialized above
+            key_events = kwargs.get('key_events')  # on/off/default
+            if key_events:
+                psv = pam_settings.value[0] if pam_settings and pam_settings.value else {}
+                vcon = psv.get('connection', {}) if isinstance(psv, dict) else {}
+                rik = vcon.get('recordingIncludeKeys') if isinstance(vcon, dict) else None
+                if key_events == 'default':
+                    if rik is not None:
+                        pam_settings.value[0]["connection"].pop('recordingIncludeKeys', None)
+                        dirty = True
+                    else:
+                        logging.debug(f'recordingIncludeKeys is already set to "default" on record={record_uid}')
+                elif key_events == 'on':
+                    if value_to_boolean(key_events) != value_to_boolean(rik):
+                        pam_settings.value[0]["connection"]["recordingIncludeKeys"] = True
+                        dirty = True
+                    else:
+                        logging.debug(f'recordingIncludeKeys is already enabled on record={record_uid}')
+                elif key_events == 'off':
+                    if value_to_boolean(key_events) != value_to_boolean(rik):
+                        pam_settings.value[0]["connection"]["recordingIncludeKeys"] = False
+                        dirty = True
+                    else:
+                        logging.debug(f'recordingIncludeKeys is already disabled on record={record_uid}')
+                else:
+                    logging.debug(f'Unexpected value for --key-events {key_events} (ignored)')
+
             if dirty:
                 record_management.update_record(params, record)
                 api.sync_down(params)
@@ -817,8 +926,10 @@ class PAMConnectionEditCommand(Command):
 
             existing_config_uid = get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid)
 
-            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid)
-            old_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, existing_config_uid)
+            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid,
+                             transmission_key=transmission_key)
+            old_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, existing_config_uid,
+                                transmission_key=transmission_key)
 
             if config_uid and existing_config_uid != config_uid:
                 old_dag.remove_from_dag(record_uid)
@@ -889,19 +1000,57 @@ class PAMConnectionEditCommand(Command):
 class PAMRbiEditCommand(Command):
     choices = ['on', 'off', 'default']
     parser = argparse.ArgumentParser(prog='pam rbi edit')
+
+    # Record and Configuration
     parser.add_argument('--record', '-r', type=str, required=True, dest='record', action='store',
                         help='The record UID or path of the RBI record.')
     parser.add_argument('--configuration', '-c', required=False, dest='config', action='store',
                         help='The PAM Configuration UID or path to use for connections. '
                         'Use command `pam config list` to view available PAM Configurations.')
-    parser.add_argument('--autofill-credentials', '-a', type=str, required=False, dest='autofill', action='store',
-                        help='The record UID or path of the RBI Autofill Credentials record.')
-    parser.add_argument('--key-events', '-k', dest='key_events', choices=choices,
-                        help='Toggle Key Events settings')
+
+    # RBI and Recording Settings
     parser.add_argument('--remote-browser-isolation', '-rbi', dest='rbi', choices=choices,
                         help='Set RBI permissions')
     parser.add_argument('--connections-recording', '-cr', dest='recording', choices=choices,
                         help='Set recording connections permissions for the resource')
+    parser.add_argument('--key-events', '-k', dest='key_events', choices=choices,
+                        help='Toggle Key Events settings')
+
+    # Browser Settings
+    parser.add_argument('--allow-url-navigation', '-nav', dest='allow_url_navigation', choices=choices,
+                        help='Allow navigation via direct URL manipulation (on/off/default)')
+    parser.add_argument('--ignore-server-cert', '-isc', dest='ignore_server_cert', choices=choices,
+                        help='Ignore server certificate errors (on/off/default)')
+
+    # URL Filtering
+    parser.add_argument('--allowed-urls', '-au', dest='allowed_urls', action='append',
+                        help='Allowed URL patterns (can specify multiple times)')
+    parser.add_argument('--allowed-resource-urls', '-aru', dest='allowed_resource_urls', action='append',
+                        help='Allowed resource URL patterns (can specify multiple times)')
+
+    # Autofill Settings
+    parser.add_argument('--autofill-credentials', '-a', type=str, required=False, dest='autofill', action='store',
+                        help='The record UID or path of the RBI Autofill Credentials record.')
+    parser.add_argument('--autofill-targets', '-at', dest='autofill_targets', action='append',
+                        help='Autofill target selectors (can specify multiple times)')
+
+    # Clipboard Settings
+    parser.add_argument('--allow-copy', '-cpy', dest='allow_copy', choices=choices,
+                        help='Allow copying to clipboard (on/off/default)')
+    parser.add_argument('--allow-paste', '-p', dest='allow_paste', choices=choices,
+                        help='Allow pasting from clipboard (on/off/default)')
+
+    # Audio Settings
+    parser.add_argument('--disable-audio', '-da', dest='disable_audio', choices=choices,
+                        help='Disable audio for RBI sessions (on/off/default)')
+    parser.add_argument('--audio-channels', '-ac', dest='audio_channels', type=int,
+                        help='Number of audio channels (e.g., 1 for mono, 2 for stereo)')
+    parser.add_argument('--audio-bit-depth', '-bd', dest='audio_bit_depth', type=int, choices=[8, 16],
+                        help='Audio bit depth (8 or 16)')
+    parser.add_argument('--audio-sample-rate', '-sr', dest='audio_sample_rate', type=int,
+                        help='Audio sample rate in Hz (e.g., 44100, 48000)')
+
+    # Utility
     parser.add_argument('--silent', '-s', required=False, dest='silent', action='store_true',
                         help='Silent mode - don\'t print PAM User, PAM Config etc.')
 
@@ -917,11 +1066,40 @@ class PAMRbiEditCommand(Command):
         recording = kwargs.get('recording')  # on/off/default
         silent = kwargs.get('silent') or False
 
+        # New RBI settings (Phase 1 - KC-1034)
+        allow_url_navigation = kwargs.get('allow_url_navigation')  # on/off/default/None
+        ignore_server_cert = kwargs.get('ignore_server_cert')  # on/off/default/None
+        allowed_urls = kwargs.get('allowed_urls')  # list or None
+        allowed_resource_urls = kwargs.get('allowed_resource_urls')  # list or None
+        autofill_targets = kwargs.get('autofill_targets')  # list or None
+        allow_copy = kwargs.get('allow_copy')  # on/off/default/None
+        allow_paste = kwargs.get('allow_paste')  # on/off/default/None
+        disable_audio = kwargs.get('disable_audio')  # on/off/default/None
+        audio_channels = kwargs.get('audio_channels')  # int or None
+        audio_bit_depth = kwargs.get('audio_bit_depth')  # int or None
+        audio_sample_rate = kwargs.get('audio_sample_rate')  # int or None
+
         if not record_name:
             raise CommandError('pam rbi edit', 'Record parameter is required.')
-        if not (autofill or key_events or config_name or rbi or recording):
-            raise CommandError('pam rbi edit', 'At least one parameter is required (-a -k -c -cr -rbi) '
-                               ' and if the record is not linked to PAM Config -c option is required.')
+
+        # Check if any setting argument is provided
+        has_new_settings = any([
+            allow_url_navigation is not None,
+            ignore_server_cert is not None,
+            allowed_urls is not None,
+            allowed_resource_urls is not None,
+            autofill_targets is not None,
+            allow_copy is not None,
+            allow_paste is not None,
+            disable_audio is not None,
+            audio_channels is not None,
+            audio_bit_depth is not None,
+            audio_sample_rate is not None
+        ])
+
+        if not (autofill or key_events or config_name or rbi or recording or has_new_settings):
+            raise CommandError('pam rbi edit', 'At least one parameter is required. '
+                               'If the record is not linked to PAM Config, -c option is required.')
 
         record = RecordMixin.resolve_single_record(params, record_name)
         if not record:
@@ -1006,6 +1184,119 @@ class PAMRbiEditCommand(Command):
             else:
                 logging.debug(f'Unexpected value for --key-events {key_events} (ignored)')
 
+        # Handle new RBI settings (KC-1034)
+        # Helper function to update connection settings with on/off/default pattern
+        def update_connection_toggle(field_name, setting_value, invert=False):
+            """Update a connection field using on/off/default pattern.
+
+            Args:
+                field_name: The field name in the connection dict
+                setting_value: 'on', 'off', or 'default'
+                invert: If True, 'on' sets False and 'off' sets True (for disableCopy/disablePaste)
+            """
+            nonlocal dirty
+            rbs_fld = record.get_typed_field('pamRemoteBrowserSettings')
+            if rbs_fld and rbs_fld.value and isinstance(rbs_fld.value[0], dict):
+                connection = rbs_fld.value[0].get('connection', {})
+                current_value = connection.get(field_name)
+
+                if setting_value == 'default':
+                    if current_value is not None:
+                        rbs_fld.value[0]['connection'].pop(field_name, None)
+                        dirty = True
+                        logging.debug(f'Removed {field_name} (set to default) on record={record_uid}')
+                    else:
+                        logging.debug(f'{field_name} is already set to default on record={record_uid}')
+                elif setting_value == 'on':
+                    target_value = False if invert else True
+                    if current_value != target_value:
+                        rbs_fld.value[0]['connection'][field_name] = target_value
+                        dirty = True
+                        logging.debug(f'Set {field_name}={target_value} on record={record_uid}')
+                    else:
+                        logging.debug(f'{field_name} is already set to {target_value} on record={record_uid}')
+                elif setting_value == 'off':
+                    target_value = True if invert else False
+                    if current_value != target_value:
+                        rbs_fld.value[0]['connection'][field_name] = target_value
+                        dirty = True
+                        logging.debug(f'Set {field_name}={target_value} on record={record_uid}')
+                    else:
+                        logging.debug(f'{field_name} is already set to {target_value} on record={record_uid}')
+                else:
+                    logging.debug(f'Unexpected value for {field_name}: {setting_value} (ignored)')
+
+        # Helper function for multi-value string fields
+        def update_connection_string(field_name, values):
+            nonlocal dirty
+            rbs_fld = record.get_typed_field('pamRemoteBrowserSettings')
+            if rbs_fld and rbs_fld.value and isinstance(rbs_fld.value[0], dict):
+                connection = rbs_fld.value[0].get('connection', {})
+                new_value = '\n'.join(values) if values else ''
+                if connection.get(field_name) != new_value:
+                    rbs_fld.value[0]['connection'][field_name] = new_value
+                    dirty = True
+                    logging.debug(f'Set {field_name}={new_value!r} on record={record_uid}')
+                else:
+                    logging.debug(f'{field_name} is already set to {new_value!r} on record={record_uid}')
+
+        # Helper function for integer fields
+        def update_connection_int(field_name, value):
+            nonlocal dirty
+            rbs_fld = record.get_typed_field('pamRemoteBrowserSettings')
+            if rbs_fld and rbs_fld.value and isinstance(rbs_fld.value[0], dict):
+                connection = rbs_fld.value[0].get('connection', {})
+                if connection.get(field_name) != value:
+                    rbs_fld.value[0]['connection'][field_name] = value
+                    dirty = True
+                    logging.debug(f'Set {field_name}={value} on record={record_uid}')
+                else:
+                    logging.debug(f'{field_name} is already set to {value} on record={record_uid}')
+
+        # Browser Settings - allowUrlManipulation (on/off/default)
+        if allow_url_navigation:
+            update_connection_toggle('allowUrlManipulation', allow_url_navigation)
+
+        # Browser Settings - ignoreInitialSslCert (on/off/default)
+        if ignore_server_cert:
+            update_connection_toggle('ignoreInitialSslCert', ignore_server_cert)
+
+        # URL Filtering - allowedUrlPatterns (multi-value, joined with newlines)
+        if allowed_urls is not None:
+            update_connection_string('allowedUrlPatterns', allowed_urls)
+
+        # URL Filtering - allowedResourceUrlPatterns (multi-value, joined with newlines)
+        if allowed_resource_urls is not None:
+            update_connection_string('allowedResourceUrlPatterns', allowed_resource_urls)
+
+        # Autofill Targets - autofillConfiguration (multi-value, joined with newlines)
+        if autofill_targets is not None:
+            update_connection_string('autofillConfiguration', autofill_targets)
+
+        # Clipboard Settings - disableCopy (inverted: on -> disableCopy=False, off -> disableCopy=True)
+        if allow_copy:
+            update_connection_toggle('disableCopy', allow_copy, invert=True)
+
+        # Clipboard Settings - disablePaste (inverted: on -> disablePaste=False, off -> disablePaste=True)
+        if allow_paste:
+            update_connection_toggle('disablePaste', allow_paste, invert=True)
+
+        # Audio Settings - disableAudio (on -> disableAudio=True, off -> disableAudio=False)
+        if disable_audio:
+            update_connection_toggle('disableAudio', disable_audio)
+
+        # Audio Settings - audioChannels (integer) - same location as disableAudio (inside connection)
+        if audio_channels is not None:
+            update_connection_int('audioChannels', audio_channels)
+
+        # Audio Settings - audioBps (integer)
+        if audio_bit_depth is not None:
+            update_connection_int('audioBps', audio_bit_depth)
+
+        # Audio Settings - audioSampleRate (integer)
+        if audio_sample_rate is not None:
+            update_connection_int('audioSampleRate', audio_sample_rate)
+
         if dirty:
             record_management.update_record(params, record)
             api.sync_down(params)
@@ -1022,7 +1313,7 @@ class PAMRbiEditCommand(Command):
             return
 
         # resolve PAM Config
-        encrypted_session_token, encrypted_transmission_key, _ = get_keeper_tokens(params)
+        encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
         existing_config_uid = get_config_uid(params, encrypted_session_token, encrypted_transmission_key, record_uid)
         existing_config_uid = str(existing_config_uid) if existing_config_uid else ''
 
@@ -1048,7 +1339,8 @@ class PAMRbiEditCommand(Command):
         if not config_uid:
             raise CommandError('pam rbi edit', f'{bcolors.FAIL}PAM Config record not found.{bcolors.ENDC}')
 
-        tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid)
+        tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, config_uid,
+                         transmission_key=transmission_key)
         if tdag is None or not tdag.linking_dag.has_graph:
             raise CommandError('', f"{bcolors.FAIL}No valid PAM Configuration UID set. "
                                "This must be set or supplied for connections to work. "
@@ -1057,7 +1349,8 @@ class PAMRbiEditCommand(Command):
 
         if config_uid:
             if existing_config_uid and existing_config_uid != config_uid:
-                old_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, existing_config_uid)
+                old_dag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, existing_config_uid,
+                                    transmission_key=transmission_key)
                 old_dag.remove_from_dag(record_uid)
                 logging.debug(f'Updated existing PAM Config UID from: {existing_config_uid} to: {config_uid}')
             tdag.link_resource_to_config(record_uid)
@@ -1242,7 +1535,8 @@ class PAMSplitCommand(Command):
 
         if pam_config_uid:
             encrypted_session_token, encrypted_transmission_key, transmission_key = get_keeper_tokens(params)
-            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, pam_config_uid, True)
+            tdag = TunnelDAG(params, encrypted_session_token, encrypted_transmission_key, pam_config_uid, True,
+                             transmission_key=transmission_key)
             tdag.link_resource_to_config(record_uid)
             tdag.link_user_to_resource(pam_user_uid, record_uid, True, True)
 

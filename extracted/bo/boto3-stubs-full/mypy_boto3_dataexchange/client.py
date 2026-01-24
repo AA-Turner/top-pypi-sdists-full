@@ -3,7 +3,7 @@ Type annotations for dataexchange service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dataexchange/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -102,12 +103,6 @@ from .type_defs import (
     UpdateRevisionResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -118,14 +113,14 @@ __all__ = ("DataExchangeClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceLimitExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceLimitExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class DataExchangeClient(BaseClient):
@@ -445,7 +440,7 @@ class DataExchangeClient(BaseClient):
 
     def send_data_set_notification(
         self, **kwargs: Unpack[SendDataSetNotificationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The type of event associated with the data set.
 
@@ -453,7 +448,7 @@ class DataExchangeClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_dataexchange/client/#send_data_set_notification)
         """
 
-    def start_job(self, **kwargs: Unpack[StartJobRequestTypeDef]) -> Dict[str, Any]:
+    def start_job(self, **kwargs: Unpack[StartJobRequestTypeDef]) -> dict[str, Any]:
         """
         This operation starts a job.
 

@@ -34,7 +34,8 @@ class PulpExport(BaseModel):
     versions: Optional[List[StrictStr]] = Field(default=None, description="List of explicit repo-version hrefs to export (replaces current_version).")
     chunk_size: Optional[Annotated[str, Field(min_length=1, strict=True)]] = Field(default=None, description="Chunk export-tarfile into pieces of chunk_size bytes. Recognizes units of B/KB/MB/GB/TB. A chunk has a maximum size of 1TB.")
     start_versions: Optional[List[StrictStr]] = Field(default=None, description="List of explicit last-exported-repo-version hrefs (replaces last_export).")
-    __properties: ClassVar[List[str]] = ["task", "full", "dry_run", "versions", "chunk_size", "start_versions"]
+    meta: Optional[Dict[str, Any]] = Field(default=None, description="Dictionary of meta information about the export. Stored in the TOC JSON.")
+    __properties: ClassVar[List[str]] = ["task", "full", "dry_run", "versions", "chunk_size", "start_versions", "meta"]
 
     model_config = ConfigDict(
         populate_by_name=True,

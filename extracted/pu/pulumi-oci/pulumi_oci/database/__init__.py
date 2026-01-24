@@ -34,13 +34,17 @@ from .cloud_exadata_infrastructure_configure_exascale_management import *
 from .cloud_vm_cluster import *
 from .cloud_vm_cluster_iorm_config import *
 from .data_guard_association import *
+from .data_patch import *
 from .database import *
+from .database_snapshot_standby import *
 from .database_software_image import *
 from .database_upgrade import *
 from .db_home import *
 from .db_node import *
 from .db_node_console_connection import *
 from .db_node_console_history import *
+from .db_node_snapshot import *
+from .db_node_snapshot_management import *
 from .db_system import *
 from .db_systems_upgrade import *
 from .exadata_infrastructure import *
@@ -90,6 +94,7 @@ from .get_autonomous_database_software_images import *
 from .get_autonomous_database_wallet import *
 from .get_autonomous_databases import *
 from .get_autonomous_databases_clones import *
+from .get_autonomous_databases_estimate_cost_savings import *
 from .get_autonomous_db_preview_versions import *
 from .get_autonomous_db_versions import *
 from .get_autonomous_exadata_infrastructure import *
@@ -128,6 +133,8 @@ from .get_database_software_images import *
 from .get_database_upgrade_history_entries import *
 from .get_database_upgrade_history_entry import *
 from .get_databases import *
+from .get_db_connection_bundle import *
+from .get_db_connection_bundles import *
 from .get_db_home import *
 from .get_db_home_patch_history_entries import *
 from .get_db_home_patches import *
@@ -138,6 +145,8 @@ from .get_db_node_console_connections import *
 from .get_db_node_console_histories import *
 from .get_db_node_console_history import *
 from .get_db_node_console_history_content import *
+from .get_db_node_snapshot import *
+from .get_db_node_snapshots import *
 from .get_db_nodes import *
 from .get_db_server import *
 from .get_db_servers import *

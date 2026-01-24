@@ -1,11 +1,7 @@
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
-from anyscale.client.openapi_client.models.job_queue_sort_directive import (
-    JobQueueSortDirective,
-)
-from anyscale.client.openapi_client.models.session_state import SessionState
 from anyscale.job_queue._private.job_queue_sdk import PrivateJobQueueSDK
 from anyscale.job_queue.models import JobQueueStatus
 
@@ -28,6 +24,7 @@ _LIST_ARG_DOCSTRINGS = {
     "cloud": "Filter by cloud name.",
     "project": "Filter by project name.",
     "cluster_status": "Filter by the state of the associated cluster.",
+    "tags_filter": "Filter by tags. Accepts dict[key] -> List[values] or list['key:value'] entries.",
     "page_size": "Number of items per API request page.",
     "max_items": "Maximum total number of items to return.",
     "sorting_directives": "List of directives to sort the results.",
@@ -58,6 +55,30 @@ _UPDATE_ARG_DOCSTRINGS = {
     "idle_timeout_s": "New idle timeout in seconds.",
 }
 
+_TAGS_ADD_EXAMPLE = """
+import anyscale
+
+anyscale.job_queue.add_tags(job_queue_id="jobq_abc123", tags={"team": "mlops"})
+"""
+
+_TAGS_ADD_ARG_DOCSTRINGS = {
+    "job_queue_id": "ID of the job queue to tag (alternative to name).",
+    "name": "Name of the job queue to tag (alternative to ID).",
+    "tags": "Key/value tags to upsert as a map {key: value}.",
+}
+
+_TAGS_REMOVE_EXAMPLE = """
+import anyscale
+
+anyscale.job_queue.remove_tags(job_queue_id="jobq_abc123", keys=["team"])
+"""
+
+_TAGS_REMOVE_ARG_DOCSTRINGS = {
+    "job_queue_id": "ID of the job queue to modify (alternative to name).",
+    "name": "Name of the job queue to modify (alternative to ID).",
+    "keys": "List of tag keys to remove.",
+}
+
 
 @sdk_command(
     _JOB_QUEUE_SDK_SINGLETON_KEY,
@@ -72,10 +93,11 @@ def list(  # noqa: A001
     creator_id: Optional[str] = None,
     cloud: Optional[str] = None,
     project: Optional[str] = None,
-    cluster_status: Optional[SessionState] = None,
+    cluster_status: Optional[str] = None,
+    tags_filter: Optional[Dict[str, List[str]]] = None,
     page_size: Optional[int] = None,
     max_items: Optional[int] = None,
-    sorting_directives: Optional[List[JobQueueSortDirective]] = None,
+    sorting_directives: Optional[List[str]] = None,
     _private_sdk: Optional[PrivateJobQueueSDK] = None,
 ) -> ResultIterator[JobQueueStatus]:
     """List job queues or fetch a single job queue by ID."""
@@ -86,6 +108,7 @@ def list(  # noqa: A001
         cloud=cloud,
         project=project,
         cluster_status=cluster_status,
+        tags_filter=tags_filter,
         page_size=page_size,
         max_items=max_items,
         sorting_directives=sorting_directives,
@@ -128,3 +151,65 @@ def update(
         max_concurrency=max_concurrency,
         idle_timeout_s=idle_timeout_s,
     )
+
+
+@sdk_command(
+    _JOB_QUEUE_SDK_SINGLETON_KEY,
+    PrivateJobQueueSDK,
+    doc_py_example=_TAGS_ADD_EXAMPLE,
+    arg_docstrings=_TAGS_ADD_ARG_DOCSTRINGS,
+)
+def add_tags(
+    *,
+    job_queue_id: Optional[str] = None,
+    name: Optional[str] = None,
+    tags: Dict[str, str],
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
+):
+    """Upsert tags for a job queue."""
+    return _private_sdk.add_tags(job_queue_id=job_queue_id, name=name, tags=tags)  # type: ignore
+
+
+@sdk_command(
+    _JOB_QUEUE_SDK_SINGLETON_KEY,
+    PrivateJobQueueSDK,
+    doc_py_example=_TAGS_REMOVE_EXAMPLE,
+    arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS,
+)
+def remove_tags(
+    *,
+    job_queue_id: Optional[str] = None,
+    name: Optional[str] = None,
+    keys: List[str],
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
+):
+    """Remove tags by key from a job queue."""
+    return _private_sdk.remove_tags(job_queue_id=job_queue_id, name=name, keys=keys)  # type: ignore
+
+
+_TAGS_LIST_EXAMPLE = """
+import anyscale
+
+tags: dict[str, str] = anyscale.job_queue.list_tags(name="my-queue")
+"""
+
+_TAGS_LIST_ARG_DOCSTRINGS = {
+    "job_queue_id": "ID of the job queue to read tags (alternative to name).",
+    "name": "Name of the job queue to read tags (alternative to ID).",
+}
+
+
+@sdk_command(
+    _JOB_QUEUE_SDK_SINGLETON_KEY,
+    PrivateJobQueueSDK,
+    doc_py_example=_TAGS_LIST_EXAMPLE,
+    arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS,
+)
+def list_tags(
+    *,
+    job_queue_id: Optional[str] = None,
+    name: Optional[str] = None,
+    _private_sdk: Optional[PrivateJobQueueSDK] = None,
+) -> Dict[str, str]:
+    """List tags for a job queue as a key/value mapping."""
+    return _private_sdk.list_tags(job_queue_id=job_queue_id, name=name)  # type: ignore

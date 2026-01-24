@@ -1,12 +1,11 @@
 import inspect
-import json
-import random
 import time
+from collections.abc import Callable, Mapping, Sequence
 from functools import wraps
 from traceback import format_exception
-from typing import Any, Callable, TypeVar
+from typing import Any, TypeVar
 
-from django.utils.crypto import RANDOM_STRING_CHARS
+from django.utils.crypto import get_random_string
 from typing_extensions import ParamSpec
 
 T = TypeVar("T")
@@ -23,11 +22,22 @@ def is_module_level_function(func: Callable) -> bool:
     return True
 
 
-def json_normalize(obj: Any) -> Any:
-    """
-    Round-trip encode object as JSON to normalize types.
-    """
-    return json.loads(json.dumps(obj))
+def normalize_json(obj: Any) -> Any:
+    """Recursively normalize an object into JSON-compatible types."""
+    match obj:
+        case Mapping():
+            return {normalize_json(k): normalize_json(v) for k, v in obj.items()}
+        case bytes():
+            try:
+                return obj.decode("utf-8")
+            except UnicodeDecodeError as e:
+                raise ValueError(f"Unsupported value: {type(obj)}") from e
+        case str() | int() | float() | bool() | None:
+            return obj
+        case Sequence():  # str and bytes were already handled.
+            return [normalize_json(v) for v in obj]
+        case _:  # Other types can't be serialized to JSON
+            raise TypeError(f"Unsupported type: {type(obj)}")
 
 
 def retry(*, retries: int = 3, backoff_delay: float = 0.1) -> Callable:
@@ -61,16 +71,13 @@ def get_module_path(val: Any) -> str:
 
 
 def get_exception_traceback(exc: BaseException) -> str:
-    return "".join(format_exception(type(exc), exc, exc.__traceback__))
+    return "".join(format_exception(exc))
 
 
 def get_random_id() -> str:
     """
-    Return a random string for use as a task or worker id.
+    Return a random string for use as a Task or worker id.
 
     Whilst 64 characters is the max, just use 32 as a sensible middle-ground.
-
-    This should be much faster than Django's `get_random_string`, since
-    it's not cryptographically secure.
     """
-    return "".join(random.choices(RANDOM_STRING_CHARS, k=32))
+    return get_random_string(32)

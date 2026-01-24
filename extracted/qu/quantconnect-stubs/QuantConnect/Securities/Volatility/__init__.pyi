@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -77,7 +77,7 @@ class BaseVolatilityModel(System.Object, QuantConnect.Securities.IVolatilityMode
         """
         Provides access to registered SubscriptionDataConfig
         
-        This property is protected.
+        This codeEntityType is protected.
         """
         ...
 

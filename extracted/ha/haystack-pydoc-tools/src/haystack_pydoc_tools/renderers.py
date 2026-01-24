@@ -27,9 +27,10 @@ hidden: false
 """
 
 DOCUSAURUS_FRONTMATTER = """---
-title: {title}
+title: "{title}"
 id: {id}
-description: {description}
+description: "{description}"
+slug: "/{id}"
 ---
 
 """
@@ -237,21 +238,17 @@ class DocusaurusRenderer(Renderer):
     markdown: MarkdownRenderer = dataclasses.field(default_factory=MarkdownRenderer)
 
     def init(self, context: Context) -> None:
+        # Set fixed header levels for Docusaurus (downgrade all headings by +1)
+        # This ensures Module starts at h2, Class at h3, Method/Function at h4
+        self.markdown.use_fixed_header_levels = True
+        self.markdown.header_level_by_type = {
+            "Module": 2,
+            "Class": 3,
+            "Method": 4,
+            "Function": 4,
+            "Data": 4,
+        }
         self.markdown.init(context)
-        self.version = os.environ.get("PYDOC_TOOLS_HAYSTACK_DOC_VERSION", self._doc_version())
-
-    def _doc_version(self) -> str:
-        """
-        Returns the docs version.
-        """
-        # We're assuming hatch is installed and working
-        res = subprocess.run(["hatch", "version"], capture_output=True, check=True)
-        res.check_returncode()
-        full_version = res.stdout.decode().strip()
-        major, minor = full_version.split(".")[:2]
-        if "rc0" in full_version:
-            return f"v{major}.{minor}-unstable"
-        return f"v{major}.{minor}"
 
     def render(self, modules: t.List[docspec.Module]) -> None:
         if self.markdown.filename is None:

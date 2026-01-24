@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from crawlee._utils.docs import docs_group
 
 from ._playwright_pre_nav_crawling_context import PlaywrightPreNavCrawlingContext
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable
+    from collections.abc import Awaitable, Callable
 
     from playwright.async_api import Response
 
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True)
-@docs_group('Data structures')
+@docs_group('Crawling contexts')
 class PlaywrightCrawlingContext(PlaywrightPreNavCrawlingContext):
     """The crawling context used by the `PlaywrightCrawler`.
 

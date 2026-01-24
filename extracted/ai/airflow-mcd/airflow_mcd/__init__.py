@@ -1,4 +1,8 @@
-import pkg_resources
+try:
+    from importlib.metadata import PackageNotFoundError, version as get_version
+except Exception:  # Python < 3.8 fallback
+    from importlib_metadata import PackageNotFoundError, version as get_version
+from packaging.version import parse as parse_version
 
 
 def get_provider_info():
@@ -12,8 +16,10 @@ def get_provider_info():
             },
             {
                 "hook-class-name": "airflow_mcd.hooks.GatewaySessionHook",
-                "connection-type": "mcd_gateway",
+                "connection-type": "mcd-gateway",  # RFC3986 compliant
             },
+            # Note: mcd_gateway (legacy with underscore) is supported via code for backward compatibility
+            # but not registered here to avoid duplicate entries in the UI dropdown
         ],
         "hook-class-names": [
             "airflow_mcd.hooks.SessionHook",
@@ -25,17 +31,17 @@ def get_provider_info():
 
 def _check_airflow_version():
     try:
-        airflow_dist = pkg_resources.get_distribution("apache-airflow")
-    except pkg_resources.DistributionNotFound:
+        airflow_version_str = get_version("apache-airflow")
+    except PackageNotFoundError:
         raise ImportError(
             "apache-airflow is not installed. Please install a compatible version of Airflow "
             "before using airflow_mcd."
         )
     else:
         # If you still need a minimum version, e.g. >=1.10.14:
-        if pkg_resources.parse_version(airflow_dist.version) < pkg_resources.parse_version("1.10.14"):
+        if parse_version(airflow_version_str) < parse_version("1.10.14"):
             raise RuntimeError(
-                f"Installed apache-airflow=={airflow_dist.version} is too old. "
+                f"Installed apache-airflow=={airflow_version_str} is too old. "
                 "Please upgrade to apache-airflow>=1.10.14."
             )
 

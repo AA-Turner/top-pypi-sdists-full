@@ -1,5 +1,8 @@
-use crate::error::IoError;
-use kornia_image::{Image, ImageSize};
+use crate::{
+    error::IoError, jpeg::read_image_jpeg_rgb8, png::read_image_png_rgb8,
+    tiff::read_image_tiff_rgb8,
+};
+use kornia_image::{allocator::CpuAllocator, Image};
 use std::path::Path;
 
 /// Reads a RGB8 image from the given file path.
@@ -17,16 +20,18 @@ use std::path::Path;
 /// # Example
 ///
 /// ```
-/// use kornia_image::Image;
+/// use kornia_image::{Image, allocator::CpuAllocator};
 /// use kornia_io::functional as F;
 ///
-/// let image: Image<u8, 3> = F::read_image_any_rgb8("../../tests/data/dog.jpeg").unwrap();
+/// let image: Image<u8, 3, CpuAllocator> = F::read_image_any_rgb8("../../tests/data/dog.jpeg").unwrap();
 ///
 /// assert_eq!(image.cols(), 258);
 /// assert_eq!(image.rows(), 195);
 /// assert_eq!(image.num_channels(), 3);
 /// ```
-pub fn read_image_any_rgb8(file_path: impl AsRef<Path>) -> Result<Image<u8, 3>, IoError> {
+pub fn read_image_any_rgb8(
+    file_path: impl AsRef<Path>,
+) -> Result<Image<u8, 3, CpuAllocator>, IoError> {
     let file_path = file_path.as_ref().to_owned();
 
     // verify the file exists
@@ -34,25 +39,18 @@ pub fn read_image_any_rgb8(file_path: impl AsRef<Path>) -> Result<Image<u8, 3>, 
         return Err(IoError::FileDoesNotExist(file_path.to_path_buf()));
     }
 
-    // open the file and map it to memory
-    let jpeg_data = std::fs::read(file_path)?;
-
-    // decode the data directly from memory
-    let img = image::ImageReader::new(std::io::Cursor::new(&jpeg_data))
-        .with_guessed_format()?
-        .decode()?;
-
+    // try to read the image from the file path
     // TODO: handle more image formats
-    // return the image data
-    let image = Image::new(
-        ImageSize {
-            width: img.width() as usize,
-            height: img.height() as usize,
-        },
-        img.to_rgb8().to_vec(),
-    )?;
-
-    Ok(image)
+    if let Some(extension) = file_path.extension() {
+        match extension.to_string_lossy().to_lowercase().as_ref() {
+            "jpeg" | "jpg" => read_image_jpeg_rgb8(file_path),
+            "png" => read_image_png_rgb8(file_path),
+            "tiff" => read_image_tiff_rgb8(file_path),
+            _ => Err(IoError::InvalidFileExtension(file_path)),
+        }
+    } else {
+        Err(IoError::InvalidFileExtension(file_path))
+    }
 }
 
 #[cfg(test)]

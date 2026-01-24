@@ -4,7 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q
 
 from wbcore import filters
-from wbcore.content_type.utils import (
+from wbcore.contrib.content_type.utils import (
     get_ancestors_content_type,
     get_view_content_type_id,
 )
@@ -25,7 +25,7 @@ class TagFilterMixin(filters.FilterSet):
 
 class TagFilterSet(filters.FilterSet):
     content_type = filters.ModelMultipleChoiceFilter(
-        endpoint="wbcore:contenttyperepresentation-list",
+        endpoint="wbcore:content_type:contenttyperepresentation-list",
         value_key="id",
         label_key="{{app_label}} | {{model}}",
         queryset=ContentType.objects.all(),

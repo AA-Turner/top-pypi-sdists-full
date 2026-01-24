@@ -1,8 +1,7 @@
 # Copyright 2025 Daytona Platforms Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-import re
-from typing import List
+from __future__ import annotations
 
 from daytona_api_client_async import CreateVolume, VolumesApi
 from daytona_api_client_async.exceptions import NotFoundException
@@ -16,11 +15,11 @@ class AsyncVolumeService:
     def __init__(self, volumes_api: VolumesApi):
         self.__volumes_api = volumes_api
 
-    async def list(self) -> List[Volume]:
+    async def list(self) -> list[Volume]:
         """List all Volumes.
 
         Returns:
-            List[Volume]: List of all Volumes.
+            list[Volume]: List of all Volumes.
 
         Example:
             ```python
@@ -52,7 +51,7 @@ class AsyncVolumeService:
         try:
             return Volume.from_dto(await self.__volumes_api.get_volume_by_name(name))
         except NotFoundException as e:
-            if create and re.search(r"Volume with name ([\w\-]+) not found", str(e)):
+            if create:
                 return await self.create(name)
             raise e
 

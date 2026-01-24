@@ -1,11 +1,9 @@
 from datetime import date, datetime
 from typing import List
-from unittest.mock import Mock
 
 import pytest
-from pydantic import BaseModel
-
 from crewai.utilities.serialization import to_serializable, to_string
+from pydantic import BaseModel
 
 
 class Address(BaseModel):

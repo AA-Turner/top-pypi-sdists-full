@@ -15,15 +15,29 @@ from .output.table import (
     format_table,
     metadata_column,
 )
-from .resource_helpers import map_resource_published
+from .pagination import normalize_page_args
+from .resource_helpers import map_resource_published, standard_page_fields
+
+page_fields = standard_page_fields
 
 
-def list_ssh_resources(ctx, **kwargs):
+def list_ssh_resources(ctx, get_all=False, limit=None, **kwargs):
     apiclient = context.get_apiclient_from_ctx(ctx)
     update_org_from_input_or_ctx(kwargs, ctx, **kwargs)
     params = strip_none(kwargs)
-    query_results = apiclient.app_services_api.list_ssh_resources(**params)
-    return query_results.ssh_resources
+    params = normalize_page_args(params)
+    if not get_all:
+        if limit is None:
+            limit = 500
+        return apiclient.app_services_api.list_ssh_resources(
+            limit=limit, **params
+        ).ssh_resources
+    return [
+        x
+        for x in apiclient.app_services_api.list_ssh_resources.auto_paging_iter(
+            limit=limit, **params
+        )
+    ]
 
 
 def add_ssh_resource(ctx, port, **kwargs):

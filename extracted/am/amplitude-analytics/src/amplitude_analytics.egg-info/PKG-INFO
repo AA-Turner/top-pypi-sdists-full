@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: amplitude-analytics
-Version: 1.2.0
+Version: 1.2.1
 Summary: The official Amplitude backend Python SDK for server-side instrumentation.
 Home-page: https://github.com/amplitude/Amplitude-Python
 Author: Amplitude Inc.

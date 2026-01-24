@@ -44,37 +44,28 @@ from .common import (
     Gradients,
     Inputs,
 )
-from .torch_attention_compat import is_pt_flash_old
+from .torch_attention_compat import ensure_pt_flash_ok
 
 FLASH_VERSION = "0.0.0"
-VARLEN_LSE_PACKED = False
-pt_flash_is_old = False
 _TRY_PT_FLASH_ATTN = (
     torch.version.hip is None and torch.backends.cuda.is_flash_attention_available()
 )
 _USE_PT_FLASH_ATTN = False
+_flash_attn_cuda = None
 
 
-if importlib.util.find_spec("..._C_flashattention", package=__package__):
-    from ... import _C_flashattention  # type: ignore[attr-defined]
-    from ..._cpp_lib import _build_metadata
-
-    if _build_metadata is not None:
-        FLASH_VERSION = _build_metadata.flash_version.lstrip("v")
-    VARLEN_LSE_PACKED = True
-
-elif importlib.util.find_spec("flash_attn"):
+if importlib.util.find_spec("flash_attn"):
     import flash_attn
     import flash_attn.flash_attn_interface
 
     if hasattr(flash_attn.flash_attn_interface, "flash_attn_cuda"):
-        _C_flashattention = flash_attn.flash_attn_interface.flash_attn_cuda
+        _flash_attn_cuda = flash_attn.flash_attn_interface.flash_attn_cuda
     else:
-        _C_flashattention = flash_attn.flash_attn_interface.flash_attn_gpu
+        _flash_attn_cuda = flash_attn.flash_attn_interface.flash_attn_gpu
 
     FLASH_VERSION = flash_attn.__version__
     FLASH_VER_MIN = parse_version("2.7.1")
-    FLASH_VER_LAST = parse_version("2.8.2")  # last supported, inclusive
+    FLASH_VER_LAST = parse_version("2.8.4")  # last supported, inclusive
     flash_ver_parsed = parse_version(FLASH_VERSION)
     if (
         flash_ver_parsed < FLASH_VER_MIN or flash_ver_parsed > FLASH_VER_LAST
@@ -84,12 +75,10 @@ elif importlib.util.find_spec("flash_attn"):
             f"<={FLASH_VER_LAST} "
             f"but got {FLASH_VERSION}."
         )
-    VARLEN_LSE_PACKED = True
 
 elif _TRY_PT_FLASH_ATTN:
-    pt_flash_is_old = is_pt_flash_old(force=True) is True
+    ensure_pt_flash_ok()
     FLASH_VERSION = torch.nn.attention._get_flash_version()  # type: ignore
-    VARLEN_LSE_PACKED = not pt_flash_is_old
     _USE_PT_FLASH_ATTN = True
 
 
@@ -136,23 +125,14 @@ if FLASH_VERSION != "0.0.0":
                 seqused_k=seqused_k,
                 alibi_slopes=None,  # alibi_slopes
             )
-            if pt_flash_is_old:
-                (
-                    attention,
-                    logsumexp,
-                    philox_seed,
-                    philox_offset,
-                    _,
-                ) = ret
-                rng_state = torch.stack([philox_seed, philox_offset])
-            else:
-                attention, logsumexp, rng_state, _, _ = ret
+            attention, logsumexp, rng_state, _, _ = ret
             return attention, logsumexp, rng_state
         else:
+            assert _flash_attn_cuda is not None
             if cu_seqlens_q is None:
                 assert cu_seqlens_k is None
                 assert seqused_k is None
-                out, softmax_lse, p, rng_state = _C_flashattention.fwd(
+                out, softmax_lse, p, rng_state = _flash_attn_cuda.fwd(
                     query,
                     key,
                     value,
@@ -168,7 +148,7 @@ if FLASH_VERSION != "0.0.0":
                     None,  # rng
                 )
             else:
-                out, softmax_lse, p, rng_state = _C_flashattention.varlen_fwd(
+                out, softmax_lse, p, rng_state = _flash_attn_cuda.varlen_fwd(
                     query,
                     key,
                     value,
@@ -218,10 +198,7 @@ if FLASH_VERSION != "0.0.0":
         else:
             M, H, K = query.shape
             B = cu_seqlens_q.shape[0] - 1
-            if VARLEN_LSE_PACKED:
-                lse_shape = [H, M]
-            else:
-                lse_shape = [B, H, max_seqlen_q]
+            lse_shape = [H, M]
         softmax_lse = torch.empty(lse_shape, device=query.device, dtype=torch.float32)
         rng_state = torch.empty([2], device=query.device, dtype=torch.int64)
         return out, softmax_lse, rng_state
@@ -253,11 +230,7 @@ if FLASH_VERSION != "0.0.0":
         softcap = 0.0
         if _USE_PT_FLASH_ATTN:
             assert softcap == 0.0
-            if rng_state is not None and pt_flash_is_old:
-                rng_state0 = rng_state[0]
-                rng_state1 = rng_state[1]
-            else:
-                rng_state0 = rng_state1 = rng_state
+            rng_state0 = rng_state1 = rng_state
             dq, dk, dv = torch.ops.aten._flash_attention_backward(
                 grad,
                 query,
@@ -278,10 +251,11 @@ if FLASH_VERSION != "0.0.0":
                 window_size_right=window_right,
             )
         else:
+            assert _flash_attn_cuda is not None
             dq, dk, dv = _create_dq_dk_dv(grads_share_storage, query, key, value)
             if cu_seqlens_k is None:
                 assert cu_seqlens_q is None
-                _C_flashattention.bwd(
+                _flash_attn_cuda.bwd(
                     grad,
                     query,
                     key,
@@ -303,7 +277,7 @@ if FLASH_VERSION != "0.0.0":
                     rng_state,
                 )
             else:
-                _C_flashattention.varlen_bwd(
+                _flash_attn_cuda.varlen_bwd(
                     grad,
                     query,
                     key,
@@ -564,7 +538,6 @@ def _post_process_lse(
     lse: torch.Tensor,
     inp: Inputs,
     original_query_shape: Tuple[int, ...],
-    varlen_lse_packed: bool = VARLEN_LSE_PACKED,
 ) -> torch.Tensor:
     # Easy case: no varlen
     if not isinstance(inp.attn_bias, VARLEN_BIASES):
@@ -574,23 +547,11 @@ def _post_process_lse(
         return lse
 
     # Already packed: just bring back the batch dimension
-    if varlen_lse_packed:
-        if len(original_query_shape) == 5:
-            # (1, G, H, total_q)
-            return lse.unflatten(0, original_query_shape[2:4]).unsqueeze(0)
-        # (1, H, total_q)
-        return lse.unsqueeze(0)
-
-    if not inp.is_partial:
-        # (B, H, M)
-        return lse
-
-    # reshape from (B, G*H, max_seqlen) to (1, G*H, B*max_seqlen)
-    # Unfortunately this flatten is not just a view.
-    lse_hkm = lse.permute(1, 0, 2).flatten(start_dim=1)[None]
     if len(original_query_shape) == 5:
-        return lse_hkm.unflatten(1, original_query_shape[2:4])
-    return lse_hkm
+        # (1, G, H, total_q)
+        return lse.unflatten(0, original_query_shape[2:4]).unsqueeze(0)
+    # (1, H, total_q)
+    return lse.unsqueeze(0)
 
 
 @register_operator
@@ -634,7 +595,7 @@ class FwOp(AttentionFwOpBase):
     SUPPORTS_DIFFERENT_VALUE_EMBED = False
     SUPPORTS_BMGHK = True
     SUPPORTS_PARTIAL = True
-    VARLEN_LSE_PACKED = VARLEN_LSE_PACKED
+    VARLEN_LSE_PACKED = True
     NAME = f"fa2F@{FLASH_VERSION}-pt" if _USE_PT_FLASH_ATTN else f"fa2F@{FLASH_VERSION}"
     VERSION = FLASH_VERSION
 
@@ -647,15 +608,6 @@ class FwOp(AttentionFwOpBase):
         _check_strides_for_bmghk(d.key, "key", reasons)
         _check_strides_for_bmghk(d.value, "value", reasons)
 
-        if (
-            d.is_partial
-            and not VARLEN_LSE_PACKED
-            and isinstance(d.attn_bias, VARLEN_BIASES)
-        ):
-            q_seqinfo = d.attn_bias.q_seqinfo
-            if q_seqinfo.min_seqlen != q_seqinfo.max_seqlen:
-                # Flash provides padded LSE which we don't handle.
-                reasons.append("partial attention with heterogeneous queries")
         return reasons
 
     @classmethod
@@ -709,7 +661,7 @@ class FwOp(AttentionFwOpBase):
             rng_state = None
             lse_shape = (
                 [inp.query.shape[2], inp.query.shape[0] * inp.query.shape[1]]
-                if VARLEN_LSE_PACKED and isinstance(inp.attn_bias, VARLEN_BIASES)
+                if isinstance(inp.attn_bias, VARLEN_BIASES)
                 else [inp.query.shape[0], inp.query.shape[2], inp.query.shape[1]]
             )
             if inp.is_partial:
@@ -765,7 +717,7 @@ class BwOp(AttentionBwOpBase):
     SUPPORTS_DIFFERENT_VALUE_EMBED = FwOp.SUPPORTS_DIFFERENT_VALUE_EMBED
     IS_DETERMINISTIC = False
     SUPPORTS_BMGHK = False  # NOTE: Don't forget to update fmha doc when changing this!
-    VARLEN_LSE_PACKED = VARLEN_LSE_PACKED
+    VARLEN_LSE_PACKED = True
     NAME = f"fa2B@{FLASH_VERSION}-pt" if _USE_PT_FLASH_ATTN else f"fa2B@{FLASH_VERSION}"
     VERSION = FLASH_VERSION
 
@@ -805,7 +757,7 @@ class BwOp(AttentionBwOpBase):
         # assert ctx.lse.is_contiguous()
         assert seqused_k is None
         ctx_lse = ctx.lse
-        if isinstance(inp.attn_bias, VARLEN_BIASES) and VARLEN_LSE_PACKED:
+        if isinstance(inp.attn_bias, VARLEN_BIASES):
             assert ctx_lse.shape[0] == 1
             ctx_lse = ctx_lse[0]
         else:

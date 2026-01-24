@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "checkmk-dev-tools"
-version = "0.13.1" # will-be-updated-automatically
+version = "2.0.2" # will-be-updated-automatically
 description = "Checkmk DevOps tools"
 authors = [
     "Frans Fürst <frans.fuerst@checkmk.com>",
@@ -14,7 +14,7 @@ exclude = ["cmk_dev/out"]
 
 [tool.poetry.urls]
 Repository = "https://github.com/Checkmk/checkmk-dev-tools"
-Changelog = "https://github.com/Checkmk/checkmk-dev-tools/blob/release/0.13.1/changelog.md"
+Changelog = "https://github.com/Checkmk/checkmk-dev-tools/blob/release/2.0.2/changelog.md"
 
 [tool.poetry.scripts]
 activity-from-fs = 'cmk_dev.activity_from_fs:main'
@@ -36,10 +36,9 @@ python = "^3.10.4"         # currently lowest supported Python version (CI Build
 python-jenkins = "~=1.8.3" # needed for ci-artifacts
 pydantic = "^2"            # jenkins_utils/*, docker_shaper/*
 rich = "*"                 # activity_from_fs.py, docker_shaper/*
-retry = "*"
 influxdb-client = "^1"     # ci_artifacs.py with InfluxDB
 
-trickkiste = "^0.2.1"
+trickkiste = "^0.3.4"
 # trickkiste  = {path = "../../_HOME/trickkiste", develop = true}
 
 # actual dependencies, but kept back
@@ -76,7 +75,7 @@ requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
 build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py310"
 line-length = 100
 [flake8-annotations]
 suppress-dummy-args = true
@@ -102,7 +101,7 @@ ignore = [
 # "filename" = ["E123"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10.4"
 strict = "True"
 disallow_untyped_defs = "True"
 disallow_any_unimported = "True"

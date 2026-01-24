@@ -2,25 +2,25 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import BaseModel
 
-from uipath._config import Config
-from uipath._execution_context import ExecutionContext
-from uipath._services.llm_gateway_service import (
+from uipath.platform import UiPathApiConfig, UiPathExecutionContext
+from uipath.platform.chat import (
     ChatModels,
     EmbeddingModels,
+    TextEmbedding,
     UiPathOpenAIService,
 )
-from uipath.models.llm_gateway import TextEmbedding
 
 
 class TestOpenAIService:
     @pytest.fixture
     def config(self):
-        return Config(base_url="https://example.com", secret="test_secret")
+        return UiPathApiConfig(base_url="https://example.com", secret="test_secret")
 
     @pytest.fixture
     def execution_context(self):
-        return ExecutionContext()
+        return UiPathExecutionContext()
 
     @pytest.fixture
     def openai_service(self, config, execution_context):
@@ -92,9 +92,6 @@ class TestOpenAIService:
     @pytest.mark.asyncio
     async def test_complex_company_pydantic_model(self, mock_request, llm_service):
         """Test using complex Company Pydantic model as response_format."""
-        from typing import List
-
-        from pydantic import BaseModel
 
         # Define the complex nested models
         class Task(BaseModel):
@@ -105,23 +102,23 @@ class TestOpenAIService:
         class Project(BaseModel):
             project_id: int
             name: str
-            tasks: List[Task]
+            tasks: list[Task]
 
         class Team(BaseModel):
             team_id: int
             team_name: str
-            members: List[str]
-            projects: List[Project]
+            members: list[str]
+            projects: list[Project]
 
         class Department(BaseModel):
             department_id: int
             department_name: str
-            teams: List[Team]
+            teams: list[Team]
 
         class Company(BaseModel):
             company_id: int
             company_name: str
-            departments: List[Department]
+            departments: list[Department]
 
         # Mock response
         mock_response = MagicMock()
@@ -235,7 +232,7 @@ class TestOpenAIService:
 
         result = await llm_service.chat_completions(
             messages=messages,
-            model=ChatModels.gpt_4o_mini_2024_07_18,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
             response_format=Company,  # Pass BaseModel directly instead of dict
             max_tokens=2000,
             temperature=0,
@@ -288,3 +285,100 @@ class TestOpenAIService:
         company_instance = Company.model_validate(response_json)
         assert company_instance.company_name == "FutureTech Ltd"
         assert len(company_instance.departments) >= 2
+
+    @patch.object(UiPathOpenAIService, "request_async")
+    @pytest.mark.asyncio
+    async def test_optional_request_format_model(self, mock_request, llm_service):
+        """Test using complex Company Pydantic model as response_format."""
+
+        class Article(BaseModel):
+            title: str | None = None
+
+        # Mock response
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "id": "chatcmpl-test123",
+            "object": "chat.completion",
+            "created": 1234567890,
+            "model": "gpt-4o-mini-2024-07-18",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "{}",
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 150,
+                "completion_tokens": 300,
+                "total_tokens": 450,
+            },
+        }
+        mock_request.return_value = mock_response
+
+        messages = [
+            {
+                "role": "system",
+                "content": "system-content",
+            },
+            {
+                "role": "user",
+                "content": "user-content",
+            },
+        ]
+
+        result = await llm_service.chat_completions(
+            messages=messages,
+            model=ChatModels.gpt_4_1_mini_2025_04_14,
+            response_format=Article,  # Pass BaseModel directly instead of dict
+            max_tokens=2000,
+            temperature=0,
+        )
+        captured_request = mock_request.call_args[1]["json"]
+        expected_request = {
+            "messages": [
+                {"role": "system", "content": "system-content"},
+                {"role": "user", "content": "user-content"},
+            ],
+            "max_tokens": 2000,
+            "temperature": 0,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "article",
+                    "strict": True,
+                    "schema": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "title": {
+                                "anyOf": [{"type": "string"}, {"type": "null"}],
+                                "default": None,
+                            }
+                        },
+                        "required": ["title"],
+                    },
+                },
+            },
+        }
+
+        # validate the request to LLM gateway
+        assert expected_request == captured_request
+
+        # Validate the response
+        assert result is not None
+        assert len(result.choices) > 0
+        assert result.choices[0].message.content is not None
+
+        # Parse and validate the JSON response
+        response_json = json.loads(result.choices[0].message.content)
+
+        # Validate the structure matches our Company model
+        assert response_json == {}
+
+        # Try to parse it with our Pydantic model to ensure it's completely valid
+        article_instance = Article.model_validate(response_json)
+        assert article_instance.title is None

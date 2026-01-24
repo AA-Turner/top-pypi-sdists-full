@@ -3,7 +3,7 @@ Type annotations for gameliftstreams service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -83,12 +84,6 @@ from .waiter import (
     StreamSessionActiveWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -97,14 +92,14 @@ else:
 __all__ = ("GameLiftStreamsClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class GameLiftStreamsClient(BaseClient):
     """
@@ -179,8 +174,9 @@ class GameLiftStreamsClient(BaseClient):
         self, **kwargs: Unpack[CreateStreamGroupInputTypeDef]
     ) -> CreateStreamGroupOutputTypeDef:
         """
-        Manage how Amazon GameLift Streams streams your applications by using a stream
-        group.
+        Stream groups manage how Amazon GameLift Streams allocates resources and
+        handles concurrent streams, allowing you to effectively manage capacity and
+        costs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/gameliftstreams/client/create_stream_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/client/#create_stream_group)
@@ -232,7 +228,7 @@ class GameLiftStreamsClient(BaseClient):
 
     def export_stream_session_files(
         self, **kwargs: Unpack[ExportStreamSessionFilesInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Export the files that your application modifies or generates in a stream
         session, which can help you debug or verify your application.
@@ -346,7 +342,7 @@ class GameLiftStreamsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/client/#start_stream_session)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags to a Amazon GameLift Streams resource.
 
@@ -364,7 +360,7 @@ class GameLiftStreamsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_gameliftstreams/client/#terminate_stream_session)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a Amazon GameLift Streams resource.
 

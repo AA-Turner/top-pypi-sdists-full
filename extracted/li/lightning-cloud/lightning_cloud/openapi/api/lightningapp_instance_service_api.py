@@ -43,111 +43,6 @@ class LightningappInstanceServiceApi(object):
             api_client = ApiClient()
         self.api_client = api_client
 
-    def lightningapp_instance_service_complete_upload_project_artifact(self, body: 'StorageCompleteBody', project_id: 'str', **kwargs) -> 'V1CompleteUploadProjectArtifactResponse':  # noqa: E501
-        """lightningapp_instance_service_complete_upload_project_artifact  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_complete_upload_project_artifact(body, project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param StorageCompleteBody body: (required)
-        :param str project_id: (required)
-        :return: V1CompleteUploadProjectArtifactResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_complete_upload_project_artifact_with_http_info(body, project_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_complete_upload_project_artifact_with_http_info(body, project_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_complete_upload_project_artifact_with_http_info(self, body: 'StorageCompleteBody', project_id: 'str', **kwargs) -> 'V1CompleteUploadProjectArtifactResponse':  # noqa: E501
-        """lightningapp_instance_service_complete_upload_project_artifact  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_complete_upload_project_artifact_with_http_info(body, project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param StorageCompleteBody body: (required)
-        :param str project_id: (required)
-        :return: V1CompleteUploadProjectArtifactResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['body', 'project_id']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_complete_upload_project_artifact" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'body' is set
-        if ('body' not in params or
-                params['body'] is None):
-            raise ValueError("Missing the required parameter `body` when calling `lightningapp_instance_service_complete_upload_project_artifact`")  # noqa: E501
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_complete_upload_project_artifact`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-
-        query_params = []
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        if 'body' in params:
-            body_params = params['body']
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage/complete', 'POST',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1CompleteUploadProjectArtifactResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
     def lightningapp_instance_service_delete_lightningapp_instance(self, project_id: 'str', id: 'str', **kwargs) -> 'V1DeleteLightningappInstanceResponse':  # noqa: E501
         """lightningapp_instance_service_delete_lightningapp_instance  # noqa: E501
 
@@ -347,107 +242,6 @@ class LightningappInstanceServiceApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='V1DeleteLightningappInstanceArtifactResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def lightningapp_instance_service_delete_project_artifact(self, project_id: 'str', **kwargs) -> 'V1DeleteProjectArtifactResponse':  # noqa: E501
-        """lightningapp_instance_service_delete_project_artifact  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_delete_project_artifact(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str cluster_id:
-        :param str filename:
-        :return: V1DeleteProjectArtifactResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_delete_project_artifact_with_http_info(project_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_delete_project_artifact_with_http_info(project_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_delete_project_artifact_with_http_info(self, project_id: 'str', **kwargs) -> 'V1DeleteProjectArtifactResponse':  # noqa: E501
-        """lightningapp_instance_service_delete_project_artifact  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_delete_project_artifact_with_http_info(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str cluster_id:
-        :param str filename:
-        :return: V1DeleteProjectArtifactResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['project_id', 'cluster_id', 'filename']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_delete_project_artifact" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_delete_project_artifact`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-
-        query_params = []
-        if 'cluster_id' in params:
-            query_params.append(('clusterId', params['cluster_id']))  # noqa: E501
-        if 'filename' in params:
-            query_params.append(('filename', params['filename']))  # noqa: E501
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage', 'DELETE',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1DeleteProjectArtifactResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=params.get('async_req'),
             _return_http_data_only=params.get('_return_http_data_only'),
@@ -1090,232 +884,6 @@ class LightningappInstanceServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def lightningapp_instance_service_get_project_uploads_artifacts_page(self, project_id: 'str', **kwargs) -> 'V1GetArtifactsPageResponse':  # noqa: E501
-        """lightningapp_instance_service_get_project_uploads_artifacts_page  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_get_project_uploads_artifacts_page(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str id:
-        :param str page_number:
-        :param str prefix:
-        :param bool include_download_url:
-        :param str cluster_id:
-        :param bool local_index:
-        :return: V1GetArtifactsPageResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_get_project_uploads_artifacts_page_with_http_info(project_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_get_project_uploads_artifacts_page_with_http_info(project_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_get_project_uploads_artifacts_page_with_http_info(self, project_id: 'str', **kwargs) -> 'V1GetArtifactsPageResponse':  # noqa: E501
-        """lightningapp_instance_service_get_project_uploads_artifacts_page  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_get_project_uploads_artifacts_page_with_http_info(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str id:
-        :param str page_number:
-        :param str prefix:
-        :param bool include_download_url:
-        :param str cluster_id:
-        :param bool local_index:
-        :return: V1GetArtifactsPageResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['project_id', 'id', 'page_number', 'prefix', 'include_download_url', 'cluster_id', 'local_index']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_get_project_uploads_artifacts_page" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_get_project_uploads_artifacts_page`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-
-        query_params = []
-        if 'id' in params:
-            query_params.append(('id', params['id']))  # noqa: E501
-        if 'page_number' in params:
-            query_params.append(('pageNumber', params['page_number']))  # noqa: E501
-        if 'prefix' in params:
-            query_params.append(('prefix', params['prefix']))  # noqa: E501
-        if 'include_download_url' in params:
-            query_params.append(('includeDownloadUrl', params['include_download_url']))  # noqa: E501
-        if 'cluster_id' in params:
-            query_params.append(('clusterId', params['cluster_id']))  # noqa: E501
-        if 'local_index' in params:
-            query_params.append(('localIndex', params['local_index']))  # noqa: E501
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage/uploads/artifacts/page', 'GET',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1GetArtifactsPageResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def lightningapp_instance_service_get_project_uploads_folder_index(self, project_id: 'str', **kwargs) -> 'V1GetFolderIndexResponse':  # noqa: E501
-        """lightningapp_instance_service_get_project_uploads_folder_index  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_get_project_uploads_folder_index(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str id:
-        :param str prefix:
-        :param str cluster_id:
-        :param bool local_index:
-        :return: V1GetFolderIndexResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_get_project_uploads_folder_index_with_http_info(project_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_get_project_uploads_folder_index_with_http_info(project_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_get_project_uploads_folder_index_with_http_info(self, project_id: 'str', **kwargs) -> 'V1GetFolderIndexResponse':  # noqa: E501
-        """lightningapp_instance_service_get_project_uploads_folder_index  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_get_project_uploads_folder_index_with_http_info(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str id:
-        :param str prefix:
-        :param str cluster_id:
-        :param bool local_index:
-        :return: V1GetFolderIndexResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['project_id', 'id', 'prefix', 'cluster_id', 'local_index']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_get_project_uploads_folder_index" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_get_project_uploads_folder_index`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-
-        query_params = []
-        if 'id' in params:
-            query_params.append(('id', params['id']))  # noqa: E501
-        if 'prefix' in params:
-            query_params.append(('prefix', params['prefix']))  # noqa: E501
-        if 'cluster_id' in params:
-            query_params.append(('clusterId', params['cluster_id']))  # noqa: E501
-        if 'local_index' in params:
-            query_params.append(('localIndex', params['local_index']))  # noqa: E501
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage/uploads/folder-index', 'GET',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1GetFolderIndexResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
     def lightningapp_instance_service_list_lightningapp_instance_artifacts(self, project_id: 'str', id: 'str', **kwargs) -> 'V1ListLightningappInstanceArtifactsResponse':  # noqa: E501
         """lightningapp_instance_service_list_lightningapp_instance_artifacts  # noqa: E501
 
@@ -1544,9 +1112,9 @@ class LightningappInstanceServiceApi(object):
 
         :param async_req bool
         :param str project_id: (required)
-        :param str page_token: Pagination.
+        :param str page_token: Pagination
         :param str limit:
-        :param list[str] user_ids: Filters.
+        :param list[str] user_ids: Filters
         :param str cluster_id:
         :param list[str] phase_in:
         :param list[str] phase_not_in:
@@ -1574,9 +1142,9 @@ class LightningappInstanceServiceApi(object):
 
         :param async_req bool
         :param str project_id: (required)
-        :param str page_token: Pagination.
+        :param str page_token: Pagination
         :param str limit:
-        :param list[str] user_ids: Filters.
+        :param list[str] user_ids: Filters
         :param str cluster_id:
         :param list[str] phase_in:
         :param list[str] phase_not_in:
@@ -1659,119 +1227,6 @@ class LightningappInstanceServiceApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='V1ListLightningappInstancesResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def lightningapp_instance_service_list_project_artifacts(self, project_id: 'str', **kwargs) -> 'V1ListProjectArtifactsResponse':  # noqa: E501
-        """lightningapp_instance_service_list_project_artifacts  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_list_project_artifacts(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str cluster_id:
-        :param str page_token:
-        :param str page_size:
-        :param str prefix:
-        :param bool include_download_url:
-        :return: V1ListProjectArtifactsResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_list_project_artifacts_with_http_info(project_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_list_project_artifacts_with_http_info(project_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_list_project_artifacts_with_http_info(self, project_id: 'str', **kwargs) -> 'V1ListProjectArtifactsResponse':  # noqa: E501
-        """lightningapp_instance_service_list_project_artifacts  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_list_project_artifacts_with_http_info(project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param str project_id: (required)
-        :param str cluster_id:
-        :param str page_token:
-        :param str page_size:
-        :param str prefix:
-        :param bool include_download_url:
-        :return: V1ListProjectArtifactsResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['project_id', 'cluster_id', 'page_token', 'page_size', 'prefix', 'include_download_url']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_list_project_artifacts" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_list_project_artifacts`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-
-        query_params = []
-        if 'cluster_id' in params:
-            query_params.append(('clusterId', params['cluster_id']))  # noqa: E501
-        if 'page_token' in params:
-            query_params.append(('pageToken', params['page_token']))  # noqa: E501
-        if 'page_size' in params:
-            query_params.append(('pageSize', params['page_size']))  # noqa: E501
-        if 'prefix' in params:
-            query_params.append(('prefix', params['prefix']))  # noqa: E501
-        if 'include_download_url' in params:
-            query_params.append(('includeDownloadUrl', params['include_download_url']))  # noqa: E501
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage', 'GET',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1ListProjectArtifactsResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=params.get('async_req'),
             _return_http_data_only=params.get('_return_http_data_only'),
@@ -1880,7 +1335,7 @@ class LightningappInstanceServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def lightningapp_instance_service_update_lightningapp_instance(self, body: 'AppinstancesIdBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
+    def lightningapp_instance_service_update_lightningapp_instance(self, body: 'LightningappInstanceServiceUpdateLightningappInstanceBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
         """lightningapp_instance_service_update_lightningapp_instance  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -1889,7 +1344,7 @@ class LightningappInstanceServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param AppinstancesIdBody body: (required)
+        :param LightningappInstanceServiceUpdateLightningappInstanceBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: Externalv1LightningappInstance
@@ -1903,7 +1358,7 @@ class LightningappInstanceServiceApi(object):
             (data) = self.lightningapp_instance_service_update_lightningapp_instance_with_http_info(body, project_id, id, **kwargs)  # noqa: E501
             return data
 
-    def lightningapp_instance_service_update_lightningapp_instance_with_http_info(self, body: 'AppinstancesIdBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
+    def lightningapp_instance_service_update_lightningapp_instance_with_http_info(self, body: 'LightningappInstanceServiceUpdateLightningappInstanceBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
         """lightningapp_instance_service_update_lightningapp_instance  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -1912,7 +1367,7 @@ class LightningappInstanceServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param AppinstancesIdBody body: (required)
+        :param LightningappInstanceServiceUpdateLightningappInstanceBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: Externalv1LightningappInstance
@@ -1993,7 +1448,7 @@ class LightningappInstanceServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def lightningapp_instance_service_update_lightningapp_instance_release(self, body: 'IdReleaseBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
+    def lightningapp_instance_service_update_lightningapp_instance_release(self, body: 'LightningappInstanceServiceUpdateLightningappInstanceReleaseBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
         """lightningapp_instance_service_update_lightningapp_instance_release  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -2002,7 +1457,7 @@ class LightningappInstanceServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param IdReleaseBody body: (required)
+        :param LightningappInstanceServiceUpdateLightningappInstanceReleaseBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: Externalv1LightningappInstance
@@ -2016,7 +1471,7 @@ class LightningappInstanceServiceApi(object):
             (data) = self.lightningapp_instance_service_update_lightningapp_instance_release_with_http_info(body, project_id, id, **kwargs)  # noqa: E501
             return data
 
-    def lightningapp_instance_service_update_lightningapp_instance_release_with_http_info(self, body: 'IdReleaseBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
+    def lightningapp_instance_service_update_lightningapp_instance_release_with_http_info(self, body: 'LightningappInstanceServiceUpdateLightningappInstanceReleaseBody', project_id: 'str', id: 'str', **kwargs) -> 'Externalv1LightningappInstance':  # noqa: E501
         """lightningapp_instance_service_update_lightningapp_instance_release  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -2025,7 +1480,7 @@ class LightningappInstanceServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param IdReleaseBody body: (required)
+        :param LightningappInstanceServiceUpdateLightningappInstanceReleaseBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: Externalv1LightningappInstance
@@ -2106,7 +1561,7 @@ class LightningappInstanceServiceApi(object):
             _request_timeout=params.get('_request_timeout'),
             collection_formats=collection_formats)
 
-    def lightningapp_instance_service_upload_lightningapp_instance_artifact(self, body: 'IdArtifactsBody', project_id: 'str', id: 'str', **kwargs) -> 'V1UploadLightningappInstanceArtifactResponse':  # noqa: E501
+    def lightningapp_instance_service_upload_lightningapp_instance_artifact(self, body: 'LightningappInstanceServiceUploadLightningappInstanceArtifactBody', project_id: 'str', id: 'str', **kwargs) -> 'V1UploadLightningappInstanceArtifactResponse':  # noqa: E501
         """lightningapp_instance_service_upload_lightningapp_instance_artifact  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -2115,7 +1570,7 @@ class LightningappInstanceServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param IdArtifactsBody body: (required)
+        :param LightningappInstanceServiceUploadLightningappInstanceArtifactBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: V1UploadLightningappInstanceArtifactResponse
@@ -2129,7 +1584,7 @@ class LightningappInstanceServiceApi(object):
             (data) = self.lightningapp_instance_service_upload_lightningapp_instance_artifact_with_http_info(body, project_id, id, **kwargs)  # noqa: E501
             return data
 
-    def lightningapp_instance_service_upload_lightningapp_instance_artifact_with_http_info(self, body: 'IdArtifactsBody', project_id: 'str', id: 'str', **kwargs) -> 'V1UploadLightningappInstanceArtifactResponse':  # noqa: E501
+    def lightningapp_instance_service_upload_lightningapp_instance_artifact_with_http_info(self, body: 'LightningappInstanceServiceUploadLightningappInstanceArtifactBody', project_id: 'str', id: 'str', **kwargs) -> 'V1UploadLightningappInstanceArtifactResponse':  # noqa: E501
         """lightningapp_instance_service_upload_lightningapp_instance_artifact  # noqa: E501
 
         This method makes a synchronous HTTP request by default. To make an
@@ -2138,7 +1593,7 @@ class LightningappInstanceServiceApi(object):
         >>> result = thread.get()
 
         :param async_req bool
-        :param IdArtifactsBody body: (required)
+        :param LightningappInstanceServiceUploadLightningappInstanceArtifactBody body: (required)
         :param str project_id: (required)
         :param str id: (required)
         :return: V1UploadLightningappInstanceArtifactResponse
@@ -2212,224 +1667,6 @@ class LightningappInstanceServiceApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='V1UploadLightningappInstanceArtifactResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def lightningapp_instance_service_upload_project_artifact(self, body: 'ProjectIdStorageBody', project_id: 'str', **kwargs) -> 'V1UploadProjectArtifactResponse':  # noqa: E501
-        """lightningapp_instance_service_upload_project_artifact  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_upload_project_artifact(body, project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param ProjectIdStorageBody body: (required)
-        :param str project_id: (required)
-        :return: V1UploadProjectArtifactResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_upload_project_artifact_with_http_info(body, project_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_upload_project_artifact_with_http_info(body, project_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_upload_project_artifact_with_http_info(self, body: 'ProjectIdStorageBody', project_id: 'str', **kwargs) -> 'V1UploadProjectArtifactResponse':  # noqa: E501
-        """lightningapp_instance_service_upload_project_artifact  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_upload_project_artifact_with_http_info(body, project_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param ProjectIdStorageBody body: (required)
-        :param str project_id: (required)
-        :return: V1UploadProjectArtifactResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['body', 'project_id']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_upload_project_artifact" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'body' is set
-        if ('body' not in params or
-                params['body'] is None):
-            raise ValueError("Missing the required parameter `body` when calling `lightningapp_instance_service_upload_project_artifact`")  # noqa: E501
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_upload_project_artifact`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-
-        query_params = []
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        if 'body' in params:
-            body_params = params['body']
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage', 'POST',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1UploadProjectArtifactResponse',  # noqa: E501
-            auth_settings=auth_settings,
-            async_req=params.get('async_req'),
-            _return_http_data_only=params.get('_return_http_data_only'),
-            _preload_content=params.get('_preload_content', True),
-            _request_timeout=params.get('_request_timeout'),
-            collection_formats=collection_formats)
-
-    def lightningapp_instance_service_upload_project_artifact_parts(self, body: 'UploadsUploadIdBody', project_id: 'str', upload_id: 'str', **kwargs) -> 'V1UploadProjectArtifactPartsResponse':  # noqa: E501
-        """lightningapp_instance_service_upload_project_artifact_parts  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_upload_project_artifact_parts(body, project_id, upload_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param UploadsUploadIdBody body: (required)
-        :param str project_id: (required)
-        :param str upload_id: (required)
-        :return: V1UploadProjectArtifactPartsResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-        kwargs['_return_http_data_only'] = True
-        if kwargs.get('async_req'):
-            return self.lightningapp_instance_service_upload_project_artifact_parts_with_http_info(body, project_id, upload_id, **kwargs)  # noqa: E501
-        else:
-            (data) = self.lightningapp_instance_service_upload_project_artifact_parts_with_http_info(body, project_id, upload_id, **kwargs)  # noqa: E501
-            return data
-
-    def lightningapp_instance_service_upload_project_artifact_parts_with_http_info(self, body: 'UploadsUploadIdBody', project_id: 'str', upload_id: 'str', **kwargs) -> 'V1UploadProjectArtifactPartsResponse':  # noqa: E501
-        """lightningapp_instance_service_upload_project_artifact_parts  # noqa: E501
-
-        This method makes a synchronous HTTP request by default. To make an
-        asynchronous HTTP request, please pass async_req=True
-        >>> thread = api.lightningapp_instance_service_upload_project_artifact_parts_with_http_info(body, project_id, upload_id, async_req=True)
-        >>> result = thread.get()
-
-        :param async_req bool
-        :param UploadsUploadIdBody body: (required)
-        :param str project_id: (required)
-        :param str upload_id: (required)
-        :return: V1UploadProjectArtifactPartsResponse
-                 If the method is called asynchronously,
-                 returns the request thread.
-        """
-
-        all_params = ['body', 'project_id', 'upload_id']  # noqa: E501
-        all_params.append('async_req')
-        all_params.append('_return_http_data_only')
-        all_params.append('_preload_content')
-        all_params.append('_request_timeout')
-
-        params = locals()
-        for key, val in six.iteritems(params['kwargs']):
-            if key not in all_params:
-                raise TypeError(
-                    "Got an unexpected keyword argument '%s'"
-                    " to method lightningapp_instance_service_upload_project_artifact_parts" % key
-                )
-            params[key] = val
-        del params['kwargs']
-        # verify the required parameter 'body' is set
-        if ('body' not in params or
-                params['body'] is None):
-            raise ValueError("Missing the required parameter `body` when calling `lightningapp_instance_service_upload_project_artifact_parts`")  # noqa: E501
-        # verify the required parameter 'project_id' is set
-        if ('project_id' not in params or
-                params['project_id'] is None):
-            raise ValueError("Missing the required parameter `project_id` when calling `lightningapp_instance_service_upload_project_artifact_parts`")  # noqa: E501
-        # verify the required parameter 'upload_id' is set
-        if ('upload_id' not in params or
-                params['upload_id'] is None):
-            raise ValueError("Missing the required parameter `upload_id` when calling `lightningapp_instance_service_upload_project_artifact_parts`")  # noqa: E501
-
-        collection_formats = {}
-
-        path_params = {}
-        if 'project_id' in params:
-            path_params['projectId'] = params['project_id']  # noqa: E501
-        if 'upload_id' in params:
-            path_params['uploadId'] = params['upload_id']  # noqa: E501
-
-        query_params = []
-
-        header_params = {}
-
-        form_params = []
-        local_var_files = {}
-
-        body_params = None
-        if 'body' in params:
-            body_params = params['body']
-        # HTTP header `Accept`
-        header_params['Accept'] = self.api_client.select_header_accept(
-            ['application/json'])  # noqa: E501
-
-        # HTTP header `Content-Type`
-        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
-            ['application/json'])  # noqa: E501
-
-        # Authentication setting
-        auth_settings = []  # noqa: E501
-
-        return self.api_client.call_api(
-            '/v1/projects/{projectId}/storage/uploads/{uploadId}', 'POST',
-            path_params,
-            query_params,
-            header_params,
-            body=body_params,
-            post_params=form_params,
-            files=local_var_files,
-            response_type='V1UploadProjectArtifactPartsResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=params.get('async_req'),
             _return_http_data_only=params.get('_return_http_data_only'),

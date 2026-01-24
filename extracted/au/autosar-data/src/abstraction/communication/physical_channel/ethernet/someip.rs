@@ -1,6 +1,7 @@
 use crate::abstraction::communication::{
-    CanCluster, EthernetCluster, EventGroupControlType, FlexrayCluster, ISignalIPdu, PduTriggering,
-    SoConIPduIdentifier, SoConIPduIdentifierIterator, SocketAddress, SocketAddressIterator,
+    CanCluster, EthernetCluster, EventGroupControlType, FlexrayCluster, ISignalIPdu, LinCluster,
+    PduTriggering, SoConIPduIdentifier, SoConIPduIdentifierIterator, SocketAddress,
+    SocketAddressIterator,
 };
 use crate::abstraction::{AutosarAbstractionError, abstraction_err_to_pyerr};
 use crate::{Element, iterator_wrapper};
@@ -31,6 +32,15 @@ impl ServiceInstanceCollectionSet {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -107,10 +117,10 @@ impl ServiceInstanceCollectionSet {
         ServiceInstanceIterator::new(self.0.service_instances().filter_map(|service_instance| {
             match service_instance {
                 autosar_data_abstraction::communication::ServiceInstance::Provided(psi) => {
-                    Python::with_gil(|py| ProvidedServiceInstance(psi).into_py_any(py).ok())
+                    Python::attach(|py| ProvidedServiceInstance(psi).into_py_any(py).ok())
                 }
                 autosar_data_abstraction::communication::ServiceInstance::Consumed(csi) => {
-                    Python::with_gil(|py| ConsumedServiceInstance(csi).into_py_any(py).ok())
+                    Python::attach(|py| ConsumedServiceInstance(csi).into_py_any(py).ok())
                 }
             }
         }))
@@ -121,7 +131,7 @@ impl ServiceInstanceCollectionSet {
 
 iterator_wrapper!(
     ServiceInstanceIterator,
-    PyObject,
+    Py<PyAny>,
     "Union[ProvidedServiceInstance, ConsumedServiceInstance]"
 );
 
@@ -148,6 +158,15 @@ impl ProvidedServiceInstance {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -306,6 +325,15 @@ impl EventHandler {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -414,6 +442,15 @@ impl ConsumedServiceInstance {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -595,6 +632,15 @@ impl ConsumedEventGroup {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -774,6 +820,15 @@ impl PduActivationRoutingGroup {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -869,6 +924,15 @@ impl SomeipSdServerServiceInstanceConfig {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -996,6 +1060,15 @@ impl SomeipSdServerEventGroupTimingConfig {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -1058,6 +1131,15 @@ impl SomeipSdClientServiceInstanceConfig {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -1142,6 +1224,15 @@ impl SomeipSdClientEventGroupTimingConfig {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]
@@ -1370,6 +1461,15 @@ impl SomeipTpConfig {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -1391,9 +1491,9 @@ impl SomeipTpConfig {
 
     /// get the communication cluster of this `SomeipTpConfig`
     #[getter]
-    fn cluster(&self) -> Option<PyObject> {
+    fn cluster(&self) -> Option<Py<PyAny>> {
         let cluster = self.0.cluster()?;
-        Python::with_gil(|py| match cluster {
+        Python::attach(|py| match cluster {
             autosar_data_abstraction::communication::Cluster::Can(can_cluster) => {
                 CanCluster(can_cluster).into_py_any(py).ok()
             }
@@ -1402,6 +1502,9 @@ impl SomeipTpConfig {
             }
             autosar_data_abstraction::communication::Cluster::FlexRay(flexray_cluster) => {
                 FlexrayCluster(flexray_cluster).into_py_any(py).ok()
+            }
+            autosar_data_abstraction::communication::Cluster::Lin(lin_cluster) => {
+                LinCluster(lin_cluster).into_py_any(py).ok()
             }
             _ => None,
         })
@@ -1474,6 +1577,15 @@ impl SomeipTpConnection {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[getter]
@@ -1568,6 +1680,15 @@ impl SomeipTpChannel {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]

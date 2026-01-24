@@ -121,7 +121,7 @@ def _ingest_table(table, sample_ids=None, feature_ids=None, expand=True):
         assigned integer values starting at 0.
     feature_ids : sequence of str, optional
         IDs corresponding to features (columns). If ``None``, extraction from input
-        data will be atttempted. In the case that IDs may not be extracted, they will
+        data will be attempted. In the case that IDs may not be extracted, they will
         be assigned integer values starting at 0.
     expand : bool, optional
         If table has only one dimension and this parameter is True, expand the data to
@@ -181,7 +181,7 @@ def _ingest_table(table, sample_ids=None, feature_ids=None, expand=True):
     elif hasattr(table, "X"):
         adt = get_package("anndata")
         if isinstance(table, adt.AnnData):
-            data = table.X
+            data = np.asarray(table.X)
             samples = table.obs.index
             features = table.var.index
 

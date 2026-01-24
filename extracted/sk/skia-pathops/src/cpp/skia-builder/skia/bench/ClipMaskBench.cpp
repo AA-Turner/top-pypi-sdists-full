@@ -9,6 +9,7 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkImage.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
@@ -25,10 +26,12 @@ public:
     RasterTileBench() : fName("rastertile") {
         int W = 2014 * 20;
         int H = 20;
-        fSurf = SkSurface::MakeRasterN32Premul(W, H);
+        fSurf = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(W, H));
 
-        fPath.moveTo(0, 0);
-        fPath.cubicTo(20, 10, 10, 15, 30, 5);
+        SkPathBuilder builder;
+        builder.moveTo(0, 0);
+        builder.cubicTo(20, 10, 10, 15, 30, 5);
+        fPath = builder.detach();
     }
 
 protected:

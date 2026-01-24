@@ -1,8 +1,14 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable
+from typing import Dict, Union, Optional
 
 import httpx
 
@@ -20,7 +26,7 @@ from ...types import (
     vector_store_search_params,
     vector_store_update_params,
 )
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -31,6 +37,14 @@ from ..._response import (
     async_to_streamed_response_wrapper,
 )
 from ...pagination import SyncOpenAICursorPage, AsyncOpenAICursorPage
+from .file_batches import (
+    FileBatchesResource,
+    AsyncFileBatchesResource,
+    FileBatchesResourceWithRawResponse,
+    AsyncFileBatchesResourceWithRawResponse,
+    FileBatchesResourceWithStreamingResponse,
+    AsyncFileBatchesResourceWithStreamingResponse,
+)
 from ..._base_client import AsyncPaginator, make_request_options
 from ...types.vector_store import VectorStore
 from ...types.vector_store_delete_response import VectorStoreDeleteResponse
@@ -43,6 +57,10 @@ class VectorStoresResource(SyncAPIResource):
     @cached_property
     def files(self) -> FilesResource:
         return FilesResource(self._client)
+
+    @cached_property
+    def file_batches(self) -> FileBatchesResource:
+        return FileBatchesResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> VectorStoresResourceWithRawResponse:
@@ -66,42 +84,25 @@ class VectorStoresResource(SyncAPIResource):
     def create(
         self,
         *,
-        chunking_strategy: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        embedding_dimension: int | NotGiven = NOT_GIVEN,
-        embedding_model: str | NotGiven = NOT_GIVEN,
-        expires_after: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        file_ids: List[str] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        provider_id: str | NotGiven = NOT_GIVEN,
+        chunking_strategy: Optional[vector_store_create_params.ChunkingStrategy] | Omit = omit,
+        expires_after: Optional[Dict[str, object]] | Omit = omit,
+        file_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStore:
         """
         Creates a vector store.
 
+        Generate an OpenAI-compatible vector store with the given parameters.
+
         Args:
-          chunking_strategy: The chunking strategy used to chunk the file(s). If not set, will use the `auto`
-              strategy.
-
-          embedding_dimension: The dimension of the embedding vectors (default: 384).
-
-          embedding_model: The embedding model to use for this vector store.
-
-          expires_after: The expiration policy for a vector store.
-
-          file_ids: A list of File IDs that the vector store should use. Useful for tools like
-              `file_search` that can access files.
-
-          metadata: Set of 16 key-value pairs that can be attached to an object.
-
-          name: A name for the vector store.
-
-          provider_id: The ID of the provider to use for this vector store.
+          chunking_strategy: Automatic chunking strategy for vector store files.
 
           extra_headers: Send extra headers
 
@@ -112,17 +113,14 @@ class VectorStoresResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._post(
-            "/v1/openai/v1/vector_stores",
+            "/v1/vector_stores",
             body=maybe_transform(
                 {
                     "chunking_strategy": chunking_strategy,
-                    "embedding_dimension": embedding_dimension,
-                    "embedding_model": embedding_model,
                     "expires_after": expires_after,
                     "file_ids": file_ids,
                     "metadata": metadata,
                     "name": name,
-                    "provider_id": provider_id,
                 },
                 vector_store_create_params.VectorStoreCreateParams,
             ),
@@ -141,7 +139,7 @@ class VectorStoresResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStore:
         """
         Retrieves a vector store.
@@ -158,7 +156,7 @@ class VectorStoresResource(SyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._get(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}",
+            f"/v1/vector_stores/{vector_store_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -169,26 +167,20 @@ class VectorStoresResource(SyncAPIResource):
         self,
         vector_store_id: str,
         *,
-        expires_after: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        expires_after: Optional[Dict[str, object]] | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStore:
         """
         Updates a vector store.
 
         Args:
-          expires_after: The expiration policy for a vector store.
-
-          metadata: Set of 16 key-value pairs that can be attached to an object.
-
-          name: The name of the vector store.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -200,7 +192,7 @@ class VectorStoresResource(SyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}",
+            f"/v1/vector_stores/{vector_store_id}",
             body=maybe_transform(
                 {
                     "expires_after": expires_after,
@@ -218,34 +210,21 @@ class VectorStoresResource(SyncAPIResource):
     def list(
         self,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: str | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        before: Optional[str] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncOpenAICursorPage[VectorStore]:
-        """Returns a list of vector stores.
+        """
+        Returns a list of vector stores.
 
         Args:
-          after: A cursor for use in pagination.
-
-        `after` is an object ID that defines your place
-              in the list.
-
-          before: A cursor for use in pagination. `before` is an object ID that defines your place
-              in the list.
-
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              100, and the default is 20.
-
-          order: Sort order by the `created_at` timestamp of the objects. `asc` for ascending
-              order and `desc` for descending order.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -255,7 +234,7 @@ class VectorStoresResource(SyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._get_api_list(
-            "/v1/openai/v1/vector_stores",
+            "/v1/vector_stores",
             page=SyncOpenAICursorPage[VectorStore],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -284,7 +263,7 @@ class VectorStoresResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreDeleteResponse:
         """
         Delete a vector store.
@@ -301,7 +280,7 @@ class VectorStoresResource(SyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._delete(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}",
+            f"/v1/vector_stores/{vector_store_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -312,36 +291,27 @@ class VectorStoresResource(SyncAPIResource):
         self,
         vector_store_id: str,
         *,
-        query: Union[str, List[str]],
-        filters: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        max_num_results: int | NotGiven = NOT_GIVEN,
-        ranking_options: vector_store_search_params.RankingOptions | NotGiven = NOT_GIVEN,
-        rewrite_query: bool | NotGiven = NOT_GIVEN,
-        search_mode: str | NotGiven = NOT_GIVEN,
+        query: Union[str, SequenceNotStr[str]],
+        filters: Optional[Dict[str, object]] | Omit = omit,
+        max_num_results: Optional[int] | Omit = omit,
+        ranking_options: Optional[vector_store_search_params.RankingOptions] | Omit = omit,
+        rewrite_query: Optional[bool] | Omit = omit,
+        search_mode: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreSearchResponse:
-        """Search for chunks in a vector store.
+        """
+        Search for chunks in a vector store.
 
-        Searches a vector store for relevant chunks
-        based on a query and optional file attribute filters.
+        Searches a vector store for relevant chunks based on a query and optional file
+        attribute filters.
 
         Args:
-          query: The query string or array for performing the search.
-
-          filters: Filters based on file attributes to narrow the search results.
-
-          max_num_results: Maximum number of results to return (1 to 50 inclusive, default 10).
-
-          ranking_options: Ranking options for fine-tuning the search results.
-
-          rewrite_query: Whether to rewrite the natural language query for vector search (default false)
-
-          search_mode: The search mode to use - "keyword", "vector", or "hybrid" (default "vector")
+          ranking_options: Options for ranking and filtering search results.
 
           extra_headers: Send extra headers
 
@@ -354,7 +324,7 @@ class VectorStoresResource(SyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/search",
+            f"/v1/vector_stores/{vector_store_id}/search",
             body=maybe_transform(
                 {
                     "query": query,
@@ -379,6 +349,10 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         return AsyncFilesResource(self._client)
 
     @cached_property
+    def file_batches(self) -> AsyncFileBatchesResource:
+        return AsyncFileBatchesResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> AsyncVectorStoresResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -400,42 +374,25 @@ class AsyncVectorStoresResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        chunking_strategy: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        embedding_dimension: int | NotGiven = NOT_GIVEN,
-        embedding_model: str | NotGiven = NOT_GIVEN,
-        expires_after: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        file_ids: List[str] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
-        provider_id: str | NotGiven = NOT_GIVEN,
+        chunking_strategy: Optional[vector_store_create_params.ChunkingStrategy] | Omit = omit,
+        expires_after: Optional[Dict[str, object]] | Omit = omit,
+        file_ids: Optional[SequenceNotStr[str]] | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStore:
         """
         Creates a vector store.
 
+        Generate an OpenAI-compatible vector store with the given parameters.
+
         Args:
-          chunking_strategy: The chunking strategy used to chunk the file(s). If not set, will use the `auto`
-              strategy.
-
-          embedding_dimension: The dimension of the embedding vectors (default: 384).
-
-          embedding_model: The embedding model to use for this vector store.
-
-          expires_after: The expiration policy for a vector store.
-
-          file_ids: A list of File IDs that the vector store should use. Useful for tools like
-              `file_search` that can access files.
-
-          metadata: Set of 16 key-value pairs that can be attached to an object.
-
-          name: A name for the vector store.
-
-          provider_id: The ID of the provider to use for this vector store.
+          chunking_strategy: Automatic chunking strategy for vector store files.
 
           extra_headers: Send extra headers
 
@@ -446,17 +403,14 @@ class AsyncVectorStoresResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return await self._post(
-            "/v1/openai/v1/vector_stores",
+            "/v1/vector_stores",
             body=await async_maybe_transform(
                 {
                     "chunking_strategy": chunking_strategy,
-                    "embedding_dimension": embedding_dimension,
-                    "embedding_model": embedding_model,
                     "expires_after": expires_after,
                     "file_ids": file_ids,
                     "metadata": metadata,
                     "name": name,
-                    "provider_id": provider_id,
                 },
                 vector_store_create_params.VectorStoreCreateParams,
             ),
@@ -475,7 +429,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStore:
         """
         Retrieves a vector store.
@@ -492,7 +446,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return await self._get(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}",
+            f"/v1/vector_stores/{vector_store_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -503,26 +457,20 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         self,
         vector_store_id: str,
         *,
-        expires_after: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        name: str | NotGiven = NOT_GIVEN,
+        expires_after: Optional[Dict[str, object]] | Omit = omit,
+        metadata: Optional[Dict[str, object]] | Omit = omit,
+        name: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStore:
         """
         Updates a vector store.
 
         Args:
-          expires_after: The expiration policy for a vector store.
-
-          metadata: Set of 16 key-value pairs that can be attached to an object.
-
-          name: The name of the vector store.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -534,7 +482,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return await self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}",
+            f"/v1/vector_stores/{vector_store_id}",
             body=await async_maybe_transform(
                 {
                     "expires_after": expires_after,
@@ -552,34 +500,21 @@ class AsyncVectorStoresResource(AsyncAPIResource):
     def list(
         self,
         *,
-        after: str | NotGiven = NOT_GIVEN,
-        before: str | NotGiven = NOT_GIVEN,
-        limit: int | NotGiven = NOT_GIVEN,
-        order: str | NotGiven = NOT_GIVEN,
+        after: Optional[str] | Omit = omit,
+        before: Optional[str] | Omit = omit,
+        limit: Optional[int] | Omit = omit,
+        order: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[VectorStore, AsyncOpenAICursorPage[VectorStore]]:
-        """Returns a list of vector stores.
+        """
+        Returns a list of vector stores.
 
         Args:
-          after: A cursor for use in pagination.
-
-        `after` is an object ID that defines your place
-              in the list.
-
-          before: A cursor for use in pagination. `before` is an object ID that defines your place
-              in the list.
-
-          limit: A limit on the number of objects to be returned. Limit can range between 1 and
-              100, and the default is 20.
-
-          order: Sort order by the `created_at` timestamp of the objects. `asc` for ascending
-              order and `desc` for descending order.
-
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -589,7 +524,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
           timeout: Override the client-level default timeout for this request, in seconds
         """
         return self._get_api_list(
-            "/v1/openai/v1/vector_stores",
+            "/v1/vector_stores",
             page=AsyncOpenAICursorPage[VectorStore],
             options=make_request_options(
                 extra_headers=extra_headers,
@@ -618,7 +553,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreDeleteResponse:
         """
         Delete a vector store.
@@ -635,7 +570,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return await self._delete(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}",
+            f"/v1/vector_stores/{vector_store_id}",
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
@@ -646,36 +581,27 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         self,
         vector_store_id: str,
         *,
-        query: Union[str, List[str]],
-        filters: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        max_num_results: int | NotGiven = NOT_GIVEN,
-        ranking_options: vector_store_search_params.RankingOptions | NotGiven = NOT_GIVEN,
-        rewrite_query: bool | NotGiven = NOT_GIVEN,
-        search_mode: str | NotGiven = NOT_GIVEN,
+        query: Union[str, SequenceNotStr[str]],
+        filters: Optional[Dict[str, object]] | Omit = omit,
+        max_num_results: Optional[int] | Omit = omit,
+        ranking_options: Optional[vector_store_search_params.RankingOptions] | Omit = omit,
+        rewrite_query: Optional[bool] | Omit = omit,
+        search_mode: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> VectorStoreSearchResponse:
-        """Search for chunks in a vector store.
+        """
+        Search for chunks in a vector store.
 
-        Searches a vector store for relevant chunks
-        based on a query and optional file attribute filters.
+        Searches a vector store for relevant chunks based on a query and optional file
+        attribute filters.
 
         Args:
-          query: The query string or array for performing the search.
-
-          filters: Filters based on file attributes to narrow the search results.
-
-          max_num_results: Maximum number of results to return (1 to 50 inclusive, default 10).
-
-          ranking_options: Ranking options for fine-tuning the search results.
-
-          rewrite_query: Whether to rewrite the natural language query for vector search (default false)
-
-          search_mode: The search mode to use - "keyword", "vector", or "hybrid" (default "vector")
+          ranking_options: Options for ranking and filtering search results.
 
           extra_headers: Send extra headers
 
@@ -688,7 +614,7 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         if not vector_store_id:
             raise ValueError(f"Expected a non-empty value for `vector_store_id` but received {vector_store_id!r}")
         return await self._post(
-            f"/v1/openai/v1/vector_stores/{vector_store_id}/search",
+            f"/v1/vector_stores/{vector_store_id}/search",
             body=await async_maybe_transform(
                 {
                     "query": query,
@@ -734,6 +660,10 @@ class VectorStoresResourceWithRawResponse:
     def files(self) -> FilesResourceWithRawResponse:
         return FilesResourceWithRawResponse(self._vector_stores.files)
 
+    @cached_property
+    def file_batches(self) -> FileBatchesResourceWithRawResponse:
+        return FileBatchesResourceWithRawResponse(self._vector_stores.file_batches)
+
 
 class AsyncVectorStoresResourceWithRawResponse:
     def __init__(self, vector_stores: AsyncVectorStoresResource) -> None:
@@ -761,6 +691,10 @@ class AsyncVectorStoresResourceWithRawResponse:
     @cached_property
     def files(self) -> AsyncFilesResourceWithRawResponse:
         return AsyncFilesResourceWithRawResponse(self._vector_stores.files)
+
+    @cached_property
+    def file_batches(self) -> AsyncFileBatchesResourceWithRawResponse:
+        return AsyncFileBatchesResourceWithRawResponse(self._vector_stores.file_batches)
 
 
 class VectorStoresResourceWithStreamingResponse:
@@ -790,6 +724,10 @@ class VectorStoresResourceWithStreamingResponse:
     def files(self) -> FilesResourceWithStreamingResponse:
         return FilesResourceWithStreamingResponse(self._vector_stores.files)
 
+    @cached_property
+    def file_batches(self) -> FileBatchesResourceWithStreamingResponse:
+        return FileBatchesResourceWithStreamingResponse(self._vector_stores.file_batches)
+
 
 class AsyncVectorStoresResourceWithStreamingResponse:
     def __init__(self, vector_stores: AsyncVectorStoresResource) -> None:
@@ -817,3 +755,7 @@ class AsyncVectorStoresResourceWithStreamingResponse:
     @cached_property
     def files(self) -> AsyncFilesResourceWithStreamingResponse:
         return AsyncFilesResourceWithStreamingResponse(self._vector_stores.files)
+
+    @cached_property
+    def file_batches(self) -> AsyncFileBatchesResourceWithStreamingResponse:
+        return AsyncFileBatchesResourceWithStreamingResponse(self._vector_stores.file_batches)

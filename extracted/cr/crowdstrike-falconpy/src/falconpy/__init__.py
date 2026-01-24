@@ -110,11 +110,17 @@ from .api_integrations import APIIntegrations
 from .api_complete import APIHarness, APIHarnessV2
 from .aspm import ASPM
 from .cao_hunting import CAOHunting
+from .case_management import CaseManagement
 from .certificate_based_exclusions import CertificateBasedExclusions
 from .cloud_aws_registration import CloudAWSRegistration
 from .cloud_azure_registration import CloudAzureRegistration
+from .cloud_google_cloud_registration import CloudGoogleCloudRegistration
 from .cloud_oci_registration import CloudOCIRegistration
+from .cloud_policies import CloudPolicies
+from .cloud_security import CloudSecurity
 from .cloud_security_assets import CloudSecurityAssets
+from .cloud_security_compliance import CloudSecurityCompliance
+from .cloud_security_detections import CloudSecurityDetections
 from .cloud_snapshots import CloudSnapshots
 from .container_image_compliance import ContainerImageCompliance, ComplianceAssessments
 from .configuration_assessment_evaluation_logic import ConfigurationAssessmentEvaluationLogic
@@ -125,12 +131,14 @@ from .container_images import ContainerImages
 from .container_packages import ContainerPackages
 from .container_vulnerabilities import ContainerVulnerabilities
 from .correlation_rules import CorrelationRules
+from .correlation_rules_admin import CorrelationRulesAdmin
 from .cloud_connect_aws import CloudConnectAWS
 from .content_update_policies import ContentUpdatePolicies
 from .cspm_registration import CSPMRegistration
 from .custom_ioa import CustomIOA
 from .custom_storage import CustomStorage
 from .d4c_registration import D4CRegistration
+from .data_protection_configuration import DataProtectionConfiguration
 from .delivery_settings import DeliverySettings
 from .deployments import Deployments
 from .detects import Detects
@@ -185,6 +193,7 @@ from .real_time_response import RealTimeResponse
 from .recon import Recon
 from .report_executions import ReportExecutions
 from .response_policies import ResponsePolicies
+from .saas_security import SaasSecurity
 from .sample_uploads import SampleUploads
 from .scheduled_reports import ScheduledReports
 from .sensor_download import SensorDownload
@@ -193,6 +202,7 @@ from .sensor_usage import SensorUsage
 from .sensor_visibility_exclusions import SensorVisibilityExclusions
 from .serverless_vulnerabilities import ServerlessVulnerabilities
 from .spotlight_vulnerabilities import SpotlightVulnerabilities
+from .spotlight_vulnerability_metadata import SpotlightVulnerabilityMetadata
 from .spotlight_evaluation_logic import SpotlightEvaluationLogic
 from .tailored_intelligence import TailoredIntelligence
 from .threatgraph import ThreatGraph
@@ -249,7 +259,10 @@ __all__ = [
     "ContainerImageCompliance", "FaaSExecution", "HEC", "IngestBaseURL", "IngestFormat",
     "IngestPayload", "HTTPEventCollector", "IngestConfig", "SessionManager", "TimeUnit",
     "Color", "Indicator", "random_string", "KubernetesContainerCompliance", "find_operation",
-    "InvalidRoute", "InvalidServiceCollection", "InvalidOperationSearch", "ITAutomation", "F4IT"
+    "InvalidRoute", "InvalidServiceCollection", "InvalidOperationSearch", "ITAutomation", "F4IT",
+    "CloudSecurityCompliance", "CaseManagement", "SaasSecurity", "SpotlightVulnerabilityMetadata",
+    "DataProtectionConfiguration", "CorrelationRulesAdmin", "CloudSecurityDetections",
+    "CloudPolicies", "CloudGoogleCloudRegistration", "CloudSecurity"
     ]
 """
 This is free and unencumbered software released into the public domain.

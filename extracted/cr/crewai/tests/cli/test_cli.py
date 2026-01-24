@@ -3,7 +3,6 @@ from unittest import mock
 
 import pytest
 from click.testing import CliRunner
-
 from crewai.cli.cli import (
     deploy_create,
     deploy_list,
@@ -12,8 +11,8 @@ from crewai.cli.cli import (
     deploy_remove,
     deply_status,
     flow_add_crew,
-    reset_memories,
     login,
+    reset_memories,
     test,
     train,
     version,

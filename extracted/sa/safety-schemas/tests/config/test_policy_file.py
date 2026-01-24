@@ -1,11 +1,15 @@
+from dataclasses import astuple
 import datetime
 from glob import glob
 from pathlib import Path
 from pydantic import ValidationError
 
 import pytest
-from safety_schemas.models import ConfigModel, SecurityUpdates, IgnoreCodes
-from safety_schemas.models.base import InstallationAction
+from safety_schemas.models import ConfigModel, SecurityUpdates, IgnoreCodes, InstallationAction, PackageEcosystem
+from safety_schemas.config.schemas.v3_0.main import (
+    DeniedPackageCriteria,
+    parse_duration_to_seconds,
+)
 
 def get_nested_attr(obj, attr_name):
     attrs = attr_name.split('.')
@@ -65,6 +69,18 @@ class TestPolicyFile:
         for key, expected in expected.items():
             assert get_nested_attr(config, key) == expected, f"{key} does not match expected value '{expected}'"
 
+    def _assert_gateway_npmjs(self, config: ConfigModel):
+        self._assert_gateway(config)
+
+        expected_packages_def = {
+            "installation.allow.packages": (PackageEcosystem.npmjs, ["react@19", "@angular/core@18"]),
+            "installation.deny.packages.block.packages": (PackageEcosystem.npmjs, ["react"]),
+            "installation.deny.packages.warn.packages": (PackageEcosystem.npmjs, ["react"]),
+        }
+
+        for key, package_def in expected_packages_def.items():
+            assert astuple(get_nested_attr(config, key)[0]) == package_def, f"{key} does not match expected value '{package_def}'"
+
     @pytest.mark.parametrize("assert_type, policy_file_path", [(Path(file_path).stem.split('-')[0], Path(file_path)) for file_path in glob('tests/config/data/v30/*.yml')])
     def test_policy_file_parsing(self, assert_type: str, policy_file_path: Path):
         FAIL_VALIDATION = ["typo"]
@@ -77,4 +93,58 @@ class TestPolicyFile:
 
             assert_method = getattr(self, f"_assert_{assert_type}")
             assert_method(config)
+
+
+class TestDurationParsing:
+    """Tests for the duration parsing helper function."""
+
+    @pytest.mark.parametrize("duration,expected_seconds", [
+        ("1 day", 86400),
+        ("2 years", 63072000),
+    ])
+    def test_valid_duration_formats(self, duration, expected_seconds):
+        """Test that valid duration formats are parsed correctly."""
+        assert parse_duration_to_seconds(duration) == expected_seconds
+
+
+class TestAgeConstraintValidation:
+    """Tests for the version_age_below <= age_below validation."""
+
+    def test_valid_constraint_version_less_than_age(self):
+        """Test that version_age_below < age_below is valid."""
+        criteria = DeniedPackageCriteria(
+            age_below="3 months",
+            version_age_below="1 month"
+        )
+        assert criteria.age_below == "3 months"
+        assert criteria.version_age_below == "1 month"
+
+    def test_valid_constraint_version_equals_age(self):
+        """Test that version_age_below == age_below is valid."""
+        criteria = DeniedPackageCriteria(
+            age_below="1 month",
+            version_age_below="1 month"
+        )
+        assert criteria.age_below == "1 month"
+        assert criteria.version_age_below == "1 month"
+
+    def test_invalid_constraint_version_greater_than_age(self):
+        """Test that version_age_below > age_below raises ValidationError."""
+        with pytest.raises(ValidationError):
+            DeniedPackageCriteria(
+                age_below="1 month",
+                version_age_below="3 months"
+            )
+
+    def test_only_age_below_specified(self):
+        """Test that only age_below can be specified without version_age_below."""
+        criteria = DeniedPackageCriteria(age_below="3 months")
+        assert criteria.age_below == "3 months"
+        assert criteria.version_age_below is None
+
+    def test_only_version_age_below_specified(self):
+        """Test that only version_age_below can be specified without age_below."""
+        criteria = DeniedPackageCriteria(version_age_below="1 month")
+        assert criteria.version_age_below == "1 month"
+        assert criteria.age_below is None
 

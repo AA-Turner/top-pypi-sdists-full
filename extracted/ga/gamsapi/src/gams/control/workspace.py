@@ -1,8 +1,8 @@
 #
 # GAMS - General Algebraic Modeling System Python API
 #
-# Copyright (c) 2017-2025 GAMS Development Corp. <support@gams.com>
-# Copyright (c) 2017-2025 GAMS Software GmbH <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Development Corp. <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Software GmbH <support@gams.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -505,7 +505,7 @@ class GamsWorkspace(object):
         except:  # we could not derive the version from gamsstmp.txt, try 'gams audit' instead (slow)
             if self._debug >= DebugLevel.Verbose:
                 warn(
-                    f"Unable to read version information from gamsstmp.txt. Switching to 'gams audit' which which might result in decreased performance.",
+                    f"Unable to read version information from gamsstmp.txt. Switching to 'gams audit' which might result in decreased performance.",
                     stacklevel=2,
                 )
             self._version = self._run_gams_audit()

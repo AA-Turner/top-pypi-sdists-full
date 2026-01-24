@@ -126,6 +126,7 @@ class SingleHopQuerySynthesizer(BaseSynthesizer[Scenario]):
             context=reference_context,
             query_length=scenario.length.value,
             query_style=scenario.style.value,
+            llm_context=self.llm_context,
         )
         response = await self.generate_query_reference_prompt.generate(
             data=prompt_input, llm=self.llm, callbacks=callbacks
@@ -134,4 +135,7 @@ class SingleHopQuerySynthesizer(BaseSynthesizer[Scenario]):
             user_input=response.query,
             reference=response.answer,
             reference_contexts=[reference_context],
+            persona_name=getattr(scenario.persona, "name", None),
+            query_style=getattr(scenario.style, "name", None),
+            query_length=getattr(scenario.length, "name", None),
         )

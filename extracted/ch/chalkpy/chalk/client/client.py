@@ -2,10 +2,22 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Callable, Collection, Iterable, List, Literal, Mapping, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Collection,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    TypeAlias,
+    Union,
+)
 
 import requests
-from typing_extensions import TypeAlias
 
 from chalk.client.models import (
     BranchDeployResponse,
@@ -20,6 +32,7 @@ from chalk.client.models import (
     GetIncrementalProgressResponse,
     GetRegisteredModelResponse,
     GetRegisteredModelVersionResponse,
+    ManualTriggerScheduledQueryResponse,
     OfflineQueryInputUri,
     OnlineQuery,
     OnlineQueryContext,
@@ -28,11 +41,13 @@ from chalk.client.models import (
     RegisterModelVersionResponse,
     ResolverRunResponse,
     ResourceRequests,
+    ScheduledQueryRun,
     StreamResolverTestResponse,
     WhoAmIResponse,
 )
 from chalk.client.response import Dataset, OnlineQueryResult
 from chalk.features import DataFrame, Feature
+from chalk.ml.model_file_transfer import SourceConfig
 
 if TYPE_CHECKING:
     import ssl
@@ -46,7 +61,7 @@ if TYPE_CHECKING:
 from chalk.features._encoding.json import FeatureEncodingOptions
 from chalk.features.resolver import Resolver
 from chalk.features.tag import BranchId, DeploymentId, EnvironmentId
-from chalk.ml import ModelEncoding, ModelType
+from chalk.ml import ModelEncoding, ModelRunCriterion, ModelType
 from chalk.parsed.branch_state import BranchGraphSummary
 from chalk.prompts import Prompt
 
@@ -173,6 +188,7 @@ class ChalkClient:
         connect_timeout: Optional[float] = None,
         headers: Mapping[str, str] | None = None,
         query_context: Mapping[str, Union[str, int, float, bool, None]] | str | None = None,
+        trace: bool = False,
     ) -> OnlineQueryResult:
         """Compute features values using online resolvers.
         See https://docs.chalk.ai/docs/query-basics for more information.
@@ -255,6 +271,10 @@ class ChalkClient:
             An immutable context that can be accessed from Python resolvers.
             This context wraps a JSON-compatible dictionary or JSON string with type restrictions.
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
+        trace
+            Force tracing on the query. Requests using `trace=True` will be slower
+            than requests using `trace=False`. Requires datadog tracing to be installed
+            for this to have any effect
 
         Other Parameters
         ----------------
@@ -906,6 +926,8 @@ class ChalkClient:
         max_retries: int | None = None,
         query_name: str | None = None,
         query_name_version: str | None = None,
+        *,
+        input_sql: str | None = None,
     ) -> Dataset:
         """Compute feature values from the offline store or by running offline/online resolvers.
         See `Dataset` for more information.
@@ -926,6 +948,9 @@ class ChalkClient:
             times, the list must match the length of the `input` lists. Each element of input_time corresponds with the
             feature values at the same index of the `input` lists.
             See https://docs.chalk.ai/docs/temporal-consistency for more information.
+        input_sql
+            An alternative to `input`: a ChalkSQL query that returns values
+            to use as inputs.
         output
             The features that you'd like to sample, if they exist.
             If an output feature was never computed for a sample (row) in
@@ -1054,9 +1079,87 @@ class ChalkClient:
         ...         User.email,
         ...         User.name_email_match_score,
         ...     ],
+        ...     run_asynchronously=True,
+        ...     resources={'cpu': '8', 'memory': '15Gi'},
         ...     dataset_name='my_dataset'
         ... )
         >>> df = dataset.get_data_as_pandas()
+        """
+        ...
+
+    def run_scheduled_query(
+        self,
+        name: str,
+        planner_options: Optional[Mapping[str, Any]],
+        incremental_resolvers: Optional[Sequence[str]],
+        max_samples: Optional[int],
+        env_overrides: Optional[Mapping[str, str]],
+    ) -> ManualTriggerScheduledQueryResponse:
+        """
+        Manually trigger a scheduled query request.
+
+        Parameters
+        ----------
+        name
+            The name of the scheduled query to be triggered.
+        incremental_resolvers
+            If set to None, Chalk will incrementalize resolvers in the query's root namespaces.
+            If set to a list of resolvers, this set will be used for incrementalization.
+            Incremental resolvers must return a feature time in its output, and must return a `DataFrame`.
+            Most commonly, this will be the name of a SQL file resolver. Chalk will ingest all new data
+            from these resolvers and propagate changes to values in the root namespace.
+        max_samples
+            The maximum number of samples to compute.
+        env_overrides:
+            A dictionary of environment values to override during this specific triggered query.
+
+        Other Parameters
+        ----------------
+        planner_options
+            A dictionary of options to pass to the planner.
+            These are typically provided by Chalk Support for specific use cases.
+
+        Returns
+        -------
+        ManualTriggerScheduledQueryResponse
+            A response message containing metadata around the triggered run.
+
+        Examples
+        --------
+        >>> from chalk.client.client_grpc import ChalkGRPCClient
+        >>> ChalkGRPCClient().run_scheduled_query(
+        ...     name="my_scheduled_query",
+        ... )
+        """
+        ...
+
+    def get_scheduled_query_run_history(
+        self,
+        name: str,
+        limit: int = 10,
+    ) -> List[ScheduledQueryRun]:
+        """
+        Get the run history for a scheduled query.
+
+        Parameters
+        ----------
+        name
+            The name of the scheduled query.
+        limit
+            The maximum number of runs to return. Defaults to 10.
+
+        Returns
+        -------
+        list[ScheduledQueryRun]
+            A response message containing the list of scheduled query runs.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().get_scheduled_query_run_history(
+        ...     name="my_scheduled_query",
+        ...     limit=20,
+        ... )
         """
         ...
 
@@ -2054,21 +2157,20 @@ class ChalkClient:
         name: str,
         version: Optional[int] = None,
     ) -> Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]:
-        """
-        Retrieve a registered model from the Chalk model registry.
+        """Retrieve a registered model from the Chalk model registry.
 
         Parameters
         ----------
-        name : str
-           Name of the model to retrieve
-        version : int, optional
-           Specific version number to retrieve. If not provided, returns
-           information about all versions of the model
+        name
+            Name of the model to retrieve.
+        version
+            Specific version number to retrieve. If not provided, returns
+            information about all versions of the model.
 
         Returns
         -------
-        GetRegisteredModelResponse or GetRegisteredModelVersionResponse
-           Model information including metadata, versions, and configuration details
+        Union[GetRegisteredModelResponse, GetRegisteredModelVersionResponse]
+            Model information including metadata, versions, and configuration details.
 
         Examples
         --------
@@ -2087,11 +2189,11 @@ class ChalkClient:
         """
         ...
 
-    def register_model(
+    def register_model_namespace(
         self,
         name: str,
         description: str,
-        metadata: Mapping[str, Any],
+        metadata: Optional[Mapping[str, Any]] = None,
     ) -> RegisterModelResponse:
         """
         Register a model in the Chalk model registry.
@@ -2102,7 +2204,7 @@ class ChalkClient:
             Unique name for the model
         description : str
             Description of the model's purpose and functionality
-        metadata : Mapping[str, Any]
+        metadata : Mapping[str, Any], optional
             Additional metadata dictionary containing framework info,
             training details, performance metrics, etc.
 
@@ -2117,7 +2219,7 @@ class ChalkClient:
 
         >>> from chalk.client import ChalkClient
         >>> client = ChalkClient()
-        >>> client.register_model(
+        >>> client.register_model_namespace(
         ...     name="RiskModel",
         ...     description="Credit risk assessment model using transaction history",
         ...     metadata={
@@ -2131,52 +2233,63 @@ class ChalkClient:
     def register_model_version(
         self,
         name: str,
-        model_type: ModelType,
+        model_type: Optional[ModelType] = None,
         model_encoding: Optional[ModelEncoding] = None,
         aliases: Optional[List[str]] = None,
         model: Optional[Any] = None,
+        additional_files: Optional[List[str]] = None,
         model_paths: Optional[List[str]] = None,
-        additional_files: Optional[Mapping[str, str]] = None,
         input_schema: Optional[Any] = None,
         output_schema: Optional[Any] = None,
         metadata: Optional[Mapping[str, Any]] = None,
         input_features: Optional[list[str]] = None,
         output_features: Optional[list[str]] = None,
+        source_config: Optional[SourceConfig] = None,
+        dependencies: Optional[List[str]] = None,
     ) -> RegisterModelVersionResponse:
-        """
-        Register a model in the Chalk model registry.
+        """Register a model in the Chalk model registry.
 
         Parameters
         ----------
-        name : str
-           Unique name for the model
-        aliases : list of str, optional
-           List of version aliases (e.g., ["v1.0", "latest"])
-        model_paths : list of str, optional
-           Paths to model files (for file-based registration)
-        model : object, optional
-           Python model object (for object-based registration)
-        additional_files : list of str, optional
-           Additional files needed for inference (tokenizers, configs, etc.)
-        model_type : ModelType
-           Type of model framework
-        model_encoding : ModelEncoding, optional
-           Serialization format
-        input_schema : pyarrow.DataType
-           PyArrow data type defining the input schema
-        output_schema : pyarrow.DataType
-           PyArrow data type defining the output schema
-        metadata : dict, optional
-           Additional metadata dictionary containing framework info,
-           training details, performance metrics, etc.
-        input_features : FeatureReference, str, optional
+        name
+            Unique name for the model.
+        aliases
+            List of version aliases (e.g., `["v1.0", "latest"]`).
+        model
+            Python model object (for object-based registration).
+        model_paths
+            Paths to model files (for file-based registration).
+        additional_files
+            Additional files needed for inference (tokenizers, configs, etc.)
+        model_type
+            Type of model framework
+        model_encoding
+            Serialization format
+        input_schema
+            Definition of the input schema. Can be:
+            - `dict`: Dictionary mapping column names to dtypes for tabular data
+            - `list`: List of `(shape, dtype)` tuples for tensor data
+        output_schema
+            Definition of the output schema. Can be:
+            - `dict`: Dictionary mapping column names to dtypes for tabular data
+            - `list`: List of `(shape, dtype)` tuples for tensor data
+        metadata
+            Additional metadata dictionary containing framework info,
+            training details, performance metrics, etc.
+        input_features
             The features to be used as inputs to the model.
             For example, `[User.message]`. Features can also be expressed as snakecased strings,
-            e.g. `["user.message"]`
-        output_features : FeatureReference, str, optional
+            e.g. `["user.message"]`.
+        output_features
             The features to be used as outputs to the model.
             For example, `[User.is_spam]`. Features can also be expressed as snakecased strings,
-            e.g. `["user.is_spam"]`
+            e.g. `["user.is_spam"]`.
+        source_config
+            Config to pass credentials to access files from a remote source.
+        dependencies
+            List of package dependencies needed to run this model.
+            e.g. `["torch==2.7.1", "numpy==1.26.4"]`.
+
         Returns
         -------
         ModelVersion
@@ -2188,8 +2301,8 @@ class ChalkClient:
 
         >>> client.register_model_version(
         ...     name="RiskModel",
-        ...     model=trained_sklearn_model,
-        ...     model_type="pytorch",
+        ...     model=trained_pytorch_model,
+        ...     model_type=ModelType.PYTORCH,
         ... )
 
         Register from local files:
@@ -2200,44 +2313,94 @@ class ChalkClient:
         >>> client.register_model_version(
         ...     name="RiskModel",
         ...     model_paths=["./model.pth"],
-        ...     model_type="pytorch",
-        ...     input_schema=pa.large_string(),
-        ...     output_schema=pa.float32()
+        ...     model_type=ModelType.PYTORCH,
+        ...     input_schema={"content": pa.large_string()},
+        ...     output_schema={"prob": pa.float64()},
         ... )
 
         Register from s3 path:
-
         >>> client.register_model_version(
         ...     name="RiskModel",
         ...     model_paths=["s3://my-bucket/path/to/model.pth"],
-        ...     model_type="pytorch",
+        ...     model_type=ModelType.PYTORCH,
+        ... )
+        """
+        ...
+
+    def promote_model_artifact(
+        self,
+        name: str,
+        model_artifact_id: Optional[str] = None,
+        run_id: Optional[str] = None,
+        run_name: Optional[str] = None,
+        criterion: Optional[ModelRunCriterion] = None,
+        aliases: Optional[List[str]] = None,
+    ) -> RegisterModelVersionResponse:
+        """
+        Register a model in the Chalk model registry.
+
+        Parameters
+        ----------
+        name : str
+            Name of the model namespace to promote into.
+        model_artifact_id: str, optional
+            Artifact UUID to promote to a model version.
+        run_id: str, optional
+            run id that produce the artifact to promote.
+        run_name: str, optional
+            run name used in the checkpointer for artifact to promote.
+        criterion: ModelRunCriterion, optional
+            criterion on which to select the artifact from the training run.
+            If none provided, the latest artifact in the run will be selected.
+        aliases: list of str, optional
+            List of version aliases (e.g., ["v1.0", "latest"])
+
+        Example
+        --------
+        Register from Python object:
+
+        >>> client.promote_model_artifact(
+        ...     name="RiskModel",
+        ...     model_artifact_id=model_artifact_id,
+        ...     aliases=["latest"],
         ... )
         """
         ...
 
     def train_model(
         self,
-        train_fn: Callable[[Optional[Mapping[str, Any]]], bool],
-        model_name: str,
-        dataset_name: str,
-        config: Optional[Mapping[str, Any]] = None,
+        experiment_name: str,
+        train_fn: Callable[[], None],
+        config: Optional[Mapping[str, float | str | bool | int]] = None,
+        branch: Optional[Union[BranchId, ellipsis]] = ...,
         resources: Optional[ResourceRequests] = None,
+        env_overrides: Optional[Mapping[str, str]] = None,
+        enable_profiling: bool = False,
+        max_retries: int = 0,
     ) -> CreateModelTrainingJobResponse:
-        """Train a model using a provided training function and dataset.
+        """Train a model using a provided training function.
 
         Parameters
         ----------
-        train_fn
-            A callable training function that takes an optional config dictionary
-            and returns a boolean indicating success.
-        model_name
-            The name of the model to train.
-        dataset_name
-            The name of the dataset to use for training.
-        config
-            Optional configuration dictionary to pass to the training function.
-        resources
+        experiment_name : str
+            The name of the experiment for this training run.
+        train_fn : Callable[[], None]
+            A callable training function.
+        config: Optional[Mapping[str, float | str | bool | int]]
+            Optional configuration parameters for the training job. If this is supplied, then
+            the train_fn must take one argument.
+        branch : Optional[Union[BranchId, ellipsis]]
+            The branch to use for the training job.
+        resources : Optional[ResourceRequests]
             Optional resource requirements for the training job.
+        resource_group : Optional[str]
+            Optional resource group for the training job.
+        env_overrides : Optional[Mapping[str, str]]
+            Optional environment variable overrides.
+        enable_profiling : bool
+            Whether to enable profiling for the training job.
+        max_retries : int
+            Maximum number of retries for the training job.
 
         Returns
         -------
@@ -2247,14 +2410,13 @@ class ChalkClient:
         Examples
         --------
         >>> from chalk.client import ChalkClient
-        >>> def my_training_function(config=None):
+        >>> def my_training_function():
         ...     # Training logic here
         ...     return True
         >>> client = ChalkClient()
         >>> response = client.train_model(
-        ...     train_fn=my_training_function,
-        ...     model_name="my_model",
-        ...     dataset_name="training_data"
+        ...     experiment_name="exp1",
+        ...     train_fn=my_training_function
         ... )
         """
         ...

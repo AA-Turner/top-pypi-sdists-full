@@ -6,10 +6,12 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .dubbing_create_request_mode import DubbingCreateRequestMode
     from .dubbing_list_request_dubbing_status import DubbingListRequestDubbingStatus
     from .dubbing_list_request_filter_by_creator import DubbingListRequestFilterByCreator
     from .dubbing_list_request_order_direction import DubbingListRequestOrderDirection
 _dynamic_imports: typing.Dict[str, str] = {
+    "DubbingCreateRequestMode": ".dubbing_create_request_mode",
     "DubbingListRequestDubbingStatus": ".dubbing_list_request_dubbing_status",
     "DubbingListRequestFilterByCreator": ".dubbing_list_request_filter_by_creator",
     "DubbingListRequestOrderDirection": ".dubbing_list_request_order_direction",
@@ -22,8 +24,10 @@ def __getattr__(attr_name: str) -> typing.Any:
         raise AttributeError(f"No {attr_name} found in _dynamic_imports for module name -> {__name__}")
     try:
         module = import_module(module_name, __package__)
-        result = getattr(module, attr_name)
-        return result
+        if module_name == f".{attr_name}":
+            return module
+        else:
+            return getattr(module, attr_name)
     except ImportError as e:
         raise ImportError(f"Failed to import {attr_name} from {module_name}: {e}") from e
     except AttributeError as e:
@@ -35,4 +39,9 @@ def __dir__():
     return sorted(lazy_attrs)
 
 
-__all__ = ["DubbingListRequestDubbingStatus", "DubbingListRequestFilterByCreator", "DubbingListRequestOrderDirection"]
+__all__ = [
+    "DubbingCreateRequestMode",
+    "DubbingListRequestDubbingStatus",
+    "DubbingListRequestFilterByCreator",
+    "DubbingListRequestOrderDirection",
+]

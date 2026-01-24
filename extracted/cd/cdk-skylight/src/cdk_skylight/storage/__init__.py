@@ -486,3 +486,6 @@ def _typecheckingstub__7ec23e03f5f54f0330e7bc5da6577e64192a5540fcff9711b0a606572
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IFSxWindowsParameters, IFSxWindowsProps]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import typing as t
 import uuid
 
 from globus_sdk import AuthLoginClient, ConfidentialAppAuthClient, GlobusSDKUsageError
-from globus_sdk._types import ScopeCollectionType
 from globus_sdk.gare import GlobusAuthorizationParameters
+from globus_sdk.scopes import Scope
 
 from .app import GlobusApp
 from .authorizer_factory import ClientCredentialsAuthorizerFactory
@@ -59,7 +60,9 @@ class ClientApp(GlobusApp):
         login_client: ConfidentialAppAuthClient | None = None,
         client_id: uuid.UUID | str | None = None,
         client_secret: str | None = None,
-        scope_requirements: dict[str, ScopeCollectionType] | None = None,
+        scope_requirements: (
+            t.Mapping[str, str | Scope | t.Iterable[str | Scope]] | None
+        ) = None,
         config: GlobusAppConfig = DEFAULT_CONFIG,
     ) -> None:
         if config.login_flow_manager is not None:
@@ -119,6 +122,10 @@ class ClientApp(GlobusApp):
             only the required_scopes parameter is used.
         """
         auth_params = self._auth_params_with_required_scopes(auth_params)
+        if not auth_params.required_scopes:
+            raise GlobusSDKUsageError(
+                "A ClientApp cannot get tokens without configured required scopes."
+            )
         token_response = self._login_client.oauth2_client_credentials_tokens(
             requested_scopes=auth_params.required_scopes
         )

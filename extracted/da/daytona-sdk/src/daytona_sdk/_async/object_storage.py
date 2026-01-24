@@ -1,5 +1,6 @@
 # Copyright 2025 Daytona Platforms Inc.
 # SPDX-License-Identifier: Apache-2.0
+from __future__ import annotations
 
 import asyncio
 import hashlib
@@ -12,6 +13,7 @@ import aiofiles.os
 from obstore.store import S3Store
 
 from .._utils.docs_ignore import docs_ignore
+from .._utils.environment import isolated_env
 
 
 class AsyncObjectStorage:
@@ -33,14 +35,15 @@ class AsyncObjectStorage:
         aws_session_token: str,
         bucket_name: str = "daytona-volume-builds",
     ):
-        self.bucket_name = bucket_name
-        self.store = S3Store(
-            bucket=bucket_name,
-            endpoint=endpoint_url,
-            access_key_id=aws_access_key_id,
-            secret_access_key=aws_secret_access_key,
-            token=aws_session_token,
-        )
+        self.bucket_name: str = bucket_name
+        with isolated_env():
+            self.store: S3Store = S3Store(
+                bucket=bucket_name,
+                endpoint=endpoint_url,
+                access_key_id=aws_access_key_id,
+                secret_access_key=aws_secret_access_key,
+                session_token=aws_session_token,
+            )
 
     async def upload(self, path: str, organization_id: str, archive_base_path: str | None = None) -> str:
         """Uploads a file to the object storage service.
@@ -137,7 +140,7 @@ class AsyncObjectStorage:
             bool: True if the object exists, False otherwise.
         """
         try:
-            await self.store.head_async(file_path)
+            _ = await self.store.head_async(file_path)
         except FileNotFoundError:
             return False
         return True
@@ -148,7 +151,7 @@ class AsyncObjectStorage:
         Args:
             s3_key (str): The key to upload the file to.
             source_path (str): The path to the file to upload.
-            archive_base_path (str): The base path to use for the archive.
+            archive_base_path (str | None): The base path to use for the archive.
         """
         source_path = os.path.normpath(source_path)
 
@@ -178,11 +181,8 @@ class AsyncObjectStorage:
             finally:
                 read_file.close()
 
-        await self.store.put_async(s3_key, reader_iter())
+        _ = await self.store.put_async(s3_key, reader_iter())
         await asyncio.to_thread(thread.join)
 
-    # unasync: delete start
-    async def _async_os_walk(self, path):
+    async def _async_os_walk(self, path: str) -> list[tuple[str, list[str], list[str]]]:
         return await asyncio.to_thread(lambda: list(os.walk(path)))
-
-    # unasync: delete end

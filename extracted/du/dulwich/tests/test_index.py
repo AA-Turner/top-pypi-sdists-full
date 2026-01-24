@@ -69,8 +69,9 @@ from dulwich.index import (
     write_index_dict,
 )
 from dulwich.object_store import MemoryObjectStore
-from dulwich.objects import S_IFGITLINK, Blob, Commit, Tree, TreeEntry
+from dulwich.objects import S_IFGITLINK, ZERO_SHA, Blob, Tree, TreeEntry
 from dulwich.repo import Repo
+from dulwich.tests.utils import make_commit
 
 from . import TestCase, skipIf
 
@@ -140,7 +141,7 @@ class SimpleIndexTestCase(IndexTestCase):
         i = self.get_simple_index("index")
         changes = list(i.changes_from_tree(MemoryObjectStore(), None))
         self.assertEqual(1, len(changes))
-        (oldname, newname), (oldmode, newmode), (oldsha, newsha) = changes[0]
+        (_oldname, newname), (_oldmode, _newmode), (_oldsha, newsha) = changes[0]
         self.assertEqual(b"bla", newname)
         self.assertEqual(b"e69de29bb2d1d6434b8b29ae775ad8c2e48c5391", newsha)
 
@@ -705,13 +706,17 @@ class BuildIndexTests(TestCase):
             subtree = Tree()
             subtree[b"a"] = (stat.S_IFREG | 0o644, filea.id)
 
-            c = Commit()
-            c.tree = subtree.id
-            c.committer = c.author = b"Somebody <somebody@example.com>"
-            c.commit_time = c.author_time = 42342
-            c.commit_timezone = c.author_timezone = 0
-            c.parents = []
-            c.message = b"Subcommit"
+            c = make_commit(
+                tree=subtree.id,
+                author=b"Somebody <somebody@example.com>",
+                committer=b"Somebody <somebody@example.com>",
+                author_time=42342,
+                commit_time=42342,
+                author_timezone=0,
+                commit_timezone=0,
+                parents=[],
+                message=b"Subcommit",
+            )
 
             tree = Tree()
             tree[b"c"] = (S_IFGITLINK, c.id)
@@ -745,13 +750,17 @@ class BuildIndexTests(TestCase):
             subtree = Tree()
             subtree[b"a"] = (stat.S_IFREG | 0o644, filea.id)
 
-            c = Commit()
-            c.tree = subtree.id
-            c.committer = c.author = b"Somebody <somebody@example.com>"
-            c.commit_time = c.author_time = 42342
-            c.commit_timezone = c.author_timezone = 0
-            c.parents = []
-            c.message = b"Subcommit"
+            c = make_commit(
+                tree=subtree.id,
+                author=b"Somebody <somebody@example.com>",
+                committer=b"Somebody <somebody@example.com>",
+                author_time=42342,
+                commit_time=42342,
+                author_timezone=0,
+                commit_timezone=0,
+                parents=[],
+                message=b"Subcommit",
+            )
 
             tree = Tree()
             tree[b"c"] = (S_IFGITLINK, c.id)
@@ -853,6 +862,96 @@ class GetUnstagedChangesTests(TestCase):
             changes = get_unstaged_changes(repo.open_index(), repo_dir)
 
             self.assertEqual(list(changes), [b"foo1"])
+
+    def test_get_unstaged_changes_with_preload(self) -> None:
+        """Unit test for get_unstaged_changes with preload_index=True."""
+        repo_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, repo_dir)
+        with Repo.init(repo_dir) as repo:
+            # Create multiple files to test parallel processing
+            files = []
+            for i in range(10):
+                filename = f"foo{i}"
+                fullpath = os.path.join(repo_dir, filename)
+                with open(fullpath, "wb") as f:
+                    f.write(b"origstuff" + str(i).encode())
+                files.append(filename)
+
+            repo.get_worktree().stage(files)
+            repo.get_worktree().commit(
+                b"test status",
+                author=b"author <email>",
+                committer=b"committer <email>",
+            )
+
+            # Modify some files
+            modified_files = [b"foo1", b"foo3", b"foo5", b"foo7"]
+            for filename in modified_files:
+                fullpath = os.path.join(repo_dir, filename.decode())
+                with open(fullpath, "wb") as f:
+                    f.write(b"newstuff")
+                os.utime(fullpath, (0, 0))
+
+            # Test with preload_index=False (serial)
+            changes_serial = list(
+                get_unstaged_changes(repo.open_index(), repo_dir, preload_index=False)
+            )
+            changes_serial.sort()
+
+            # Test with preload_index=True (parallel)
+            changes_parallel = list(
+                get_unstaged_changes(repo.open_index(), repo_dir, preload_index=True)
+            )
+            changes_parallel.sort()
+
+            # Both should return the same results
+            self.assertEqual(changes_serial, changes_parallel)
+            self.assertEqual(changes_serial, sorted(modified_files))
+
+    def test_get_unstaged_changes_nanosecond_precision(self) -> None:
+        """Test that nanosecond precision mtime is used for change detection."""
+        repo_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, repo_dir)
+        with Repo.init(repo_dir) as repo:
+            # Commit a file
+            foo_fullpath = os.path.join(repo_dir, "foo")
+            with open(foo_fullpath, "wb") as f:
+                f.write(b"original content")
+
+            repo.get_worktree().stage(["foo"])
+            repo.get_worktree().commit(
+                message=b"initial commit",
+                committer=b"committer <email>",
+                author=b"author <email>",
+            )
+
+            # Get the current index entry
+            index = repo.open_index()
+            entry = index[b"foo"]
+
+            # Modify the file with the same size but different content
+            # This simulates a very fast change within the same second
+            with open(foo_fullpath, "wb") as f:
+                f.write(b"modified content")
+
+            # Set mtime to match the index entry exactly (same second)
+            # but with different nanoseconds if the filesystem supports it
+            st = os.stat(foo_fullpath)
+            if isinstance(entry.mtime, tuple) and hasattr(st, "st_mtime_ns"):
+                # Set the mtime to the same second as the index entry
+                # but with a slightly different nanosecond value
+                entry_sec = entry.mtime[0]
+                entry_nsec = entry.mtime[1]
+                new_mtime_ns = entry_sec * 1_000_000_000 + entry_nsec + 1000
+                new_mtime = new_mtime_ns / 1_000_000_000
+                os.utime(foo_fullpath, (st.st_atime, new_mtime))
+
+                # The file should be detected as changed due to nanosecond difference
+                changes = list(get_unstaged_changes(repo.open_index(), repo_dir))
+                self.assertEqual(changes, [b"foo"])
+            else:
+                # If nanosecond precision is not available, skip this test
+                self.skipTest("Nanosecond precision not available on this system")
 
     def test_get_unstaged_deleted_changes(self) -> None:
         """Unit test for get_unstaged_changes."""
@@ -1390,9 +1489,10 @@ class TestIndexEntryFromPath(TestCase):
 
         # Create a custom blob filter function
         def filter_blob_callback(blob, path):
-            # Modify blob to make it look changed
-            blob.data = b"modified " + blob.data
-            return blob
+            # Modify blob data to make it look changed
+            result_blob = Blob()
+            result_blob.data = b"modified " + blob.data
+            return result_blob
 
         # Get unstaged changes with blob filter
         changes = list(get_unstaged_changes(index, repo_dir, filter_blob_callback))
@@ -1401,6 +1501,57 @@ class TestIndexEntryFromPath(TestCase):
         self.assertEqual(
             sorted(changes), [b"conflict", b"file1", b"file2", b"file3", b"file4"]
         )
+
+    def test_get_unstaged_changes_with_blob_filter(self) -> None:
+        """Test get_unstaged_changes with filter that expects Blob objects.
+
+        This reproduces issue #2010 where passing blob.data instead of blob
+        to the filter callback causes AttributeError when the callback expects
+        a Blob object (like checkin_normalize does).
+        """
+        repo_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, repo_dir)
+        with Repo.init(repo_dir) as repo:
+            # Create and commit a test file
+            test_file = os.path.join(repo_dir, "test.txt")
+            with open(test_file, "wb") as f:
+                f.write(b"original content")
+
+            repo.get_worktree().stage(["test.txt"])
+            repo.get_worktree().commit(
+                message=b"Initial commit",
+                committer=b"Test <test@example.com>",
+                author=b"Test <test@example.com>",
+            )
+
+            # Create a .gitattributes file
+            gitattributes_file = os.path.join(repo_dir, ".gitattributes")
+            with open(gitattributes_file, "wb") as f:
+                f.write(b"*.txt text\n")
+
+            # Modify the test file
+            with open(test_file, "wb") as f:
+                f.write(b"modified content")
+
+            # Force mtime change to ensure stat doesn't match
+            os.utime(test_file, (0, 0))
+
+            # Create a filter callback that expects Blob objects (like checkin_normalize)
+            def blob_filter_callback(blob: Blob, path: bytes) -> Blob:
+                """Filter that expects a Blob object, not bytes."""
+                # This should receive a Blob object with a .data attribute
+                self.assertIsInstance(blob, Blob)
+                self.assertTrue(hasattr(blob, "data"))
+                # Return the blob unchanged for this test
+                return blob
+
+            # This should not raise AttributeError: 'bytes' object has no attribute 'data'
+            changes = list(
+                get_unstaged_changes(repo.open_index(), repo_dir, blob_filter_callback)
+            )
+
+            # Should detect the change in test.txt
+            self.assertIn(b"test.txt", changes)
 
 
 class TestManyFilesFeature(TestCase):
@@ -1427,7 +1578,7 @@ class TestManyFilesFeature(TestCase):
             uid=1000,
             gid=1000,
             size=5,
-            sha=b"0" * 40,
+            sha=ZERO_SHA,
         )
         index[b"test.txt"] = entry
 
@@ -1456,7 +1607,7 @@ class TestManyFilesFeature(TestCase):
             uid=1000,
             gid=1000,
             size=5,
-            sha=b"0" * 40,
+            sha=ZERO_SHA,
         )
         index[b"test.txt"] = entry
 
@@ -1487,7 +1638,7 @@ class TestManyFilesFeature(TestCase):
                 uid=1000,
                 gid=1000,
                 size=5,
-                sha=b"0" * 40,
+                sha=ZERO_SHA,
                 flags=0,
                 extended_flags=0,
             ),
@@ -1715,7 +1866,7 @@ class TestPathPrefixCompression(TestCase):
                 uid=1000,
                 gid=1000,
                 size=10,
-                sha=b"0" * 40,
+                sha=ZERO_SHA,
             )
             index_v2[path] = entry
         index_v2.write()
@@ -2908,3 +3059,323 @@ class TestUpdateWorkingTree(TestCase):
 
         # file2 should still be a directory
         self.assertTrue(os.path.isdir(file2_path))
+
+    def test_ensure_parent_dir_exists_windows_drive(self):
+        """Test that _ensure_parent_dir_exists handles Windows drive letters correctly."""
+        from dulwich.index import _ensure_parent_dir_exists
+
+        # Create a temporary directory to work with
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Test normal case (creates directory)
+            test_path = os.path.join(tmpdir, "subdir", "file.txt").encode()
+            _ensure_parent_dir_exists(test_path)
+            self.assertTrue(os.path.exists(os.path.dirname(test_path)))
+
+            # Test when parent is a file (should raise error)
+            file_path = os.path.join(tmpdir, "testfile").encode()
+            with open(file_path, "wb") as f:
+                f.write(b"test")
+
+            invalid_path = os.path.join(
+                tmpdir.encode(), b"testfile", b"subdir", b"file.txt"
+            )
+            with self.assertRaisesRegex(
+                OSError, "Cannot create directory, parent path is a file"
+            ):
+                _ensure_parent_dir_exists(invalid_path)
+
+            # Test with nested subdirectories
+            nested_path = os.path.join(tmpdir, "a", "b", "c", "d", "file.txt").encode()
+            _ensure_parent_dir_exists(nested_path)
+            self.assertTrue(os.path.exists(os.path.dirname(nested_path)))
+
+            # Test that various path formats are handled correctly by os.path.dirname
+            # This includes Windows drive letters, UNC paths, etc.
+            # The key is that we're using os.path.dirname which handles these correctly
+            import platform
+
+            if platform.system() == "Windows":
+                # Test Windows-specific paths only on Windows
+                test_cases = [
+                    b"C:\\temp\\test\\file.txt",
+                    b"D:\\file.txt",
+                    b"\\\\server\\share\\folder\\file.txt",
+                ]
+                for path in test_cases:
+                    # Just verify os.path.dirname handles these without errors
+                    parent = os.path.dirname(path)
+                    # We're not creating these directories, just testing the logic doesn't fail
+                    self.assertIsInstance(parent, bytes)
+
+
+class TestSparseIndex(TestCase):
+    """Tests for sparse index support."""
+
+    def test_serialized_index_entry_is_sparse_dir(self):
+        """Test SerializedIndexEntry.is_sparse_dir() method."""
+        from dulwich.index import EXTENDED_FLAG_SKIP_WORKTREE
+
+        # Regular file entry - not sparse
+        regular_entry = SerializedIndexEntry(
+            name=b"file.txt",
+            ctime=0,
+            mtime=0,
+            dev=0,
+            ino=0,
+            mode=0o100644,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"\x00" * 20,
+            flags=0,
+            extended_flags=0,
+        )
+        self.assertFalse(regular_entry.is_sparse_dir())
+
+        # Directory mode but no skip-worktree flag - not sparse
+        dir_entry = SerializedIndexEntry(
+            name=b"dir/",
+            ctime=0,
+            mtime=0,
+            dev=0,
+            ino=0,
+            mode=stat.S_IFDIR,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"\x00" * 20,
+            flags=0,
+            extended_flags=0,
+        )
+        self.assertFalse(dir_entry.is_sparse_dir())
+
+        # Skip-worktree flag but not directory - not sparse
+        skip_file = SerializedIndexEntry(
+            name=b"file.txt",
+            ctime=0,
+            mtime=0,
+            dev=0,
+            ino=0,
+            mode=0o100644,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"\x00" * 20,
+            flags=0,
+            extended_flags=EXTENDED_FLAG_SKIP_WORKTREE,
+        )
+        self.assertFalse(skip_file.is_sparse_dir())
+
+        # Directory mode + skip-worktree + trailing slash - sparse!
+        sparse_dir = SerializedIndexEntry(
+            name=b"sparse_dir/",
+            ctime=0,
+            mtime=0,
+            dev=0,
+            ino=0,
+            mode=stat.S_IFDIR,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"\x00" * 20,
+            flags=0,
+            extended_flags=EXTENDED_FLAG_SKIP_WORKTREE,
+        )
+        self.assertTrue(sparse_dir.is_sparse_dir())
+
+    def test_index_entry_is_sparse_dir(self):
+        """Test IndexEntry.is_sparse_dir() method."""
+        from dulwich.index import EXTENDED_FLAG_SKIP_WORKTREE
+
+        # Regular file - not sparse
+        regular = IndexEntry(
+            ctime=0,
+            mtime=0,
+            dev=0,
+            ino=0,
+            mode=0o100644,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"\x00" * 20,
+            extended_flags=0,
+        )
+        self.assertFalse(regular.is_sparse_dir(b"file.txt"))
+
+        # Sparse directory entry
+        sparse = IndexEntry(
+            ctime=0,
+            mtime=0,
+            dev=0,
+            ino=0,
+            mode=stat.S_IFDIR,
+            uid=0,
+            gid=0,
+            size=0,
+            sha=b"\x00" * 20,
+            extended_flags=EXTENDED_FLAG_SKIP_WORKTREE,
+        )
+        self.assertTrue(sparse.is_sparse_dir(b"dir/"))
+        self.assertFalse(sparse.is_sparse_dir(b"dir"))  # No trailing slash
+
+    def test_sparse_dir_extension(self):
+        """Test SparseDirExtension serialization."""
+        from dulwich.index import SDIR_EXTENSION, SparseDirExtension
+
+        ext = SparseDirExtension()
+        self.assertEqual(ext.signature, SDIR_EXTENSION)
+        self.assertEqual(ext.to_bytes(), b"")
+
+        # Test round-trip
+        ext2 = SparseDirExtension.from_bytes(b"")
+        self.assertEqual(ext2.signature, SDIR_EXTENSION)
+        self.assertEqual(ext2.to_bytes(), b"")
+
+    def test_index_is_sparse(self):
+        """Test Index.is_sparse() method."""
+        from dulwich.index import SparseDirExtension
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = os.path.join(tmpdir, "index")
+            idx = Index(index_path, read=False)
+
+            # Initially not sparse
+            self.assertFalse(idx.is_sparse())
+
+            # Add sparse directory extension
+            idx._extensions.append(SparseDirExtension())
+            self.assertTrue(idx.is_sparse())
+
+    def test_index_expansion(self):
+        """Test Index.ensure_full_index() expands sparse directories."""
+        from dulwich.index import EXTENDED_FLAG_SKIP_WORKTREE, SparseDirExtension
+        from dulwich.object_store import MemoryObjectStore
+        from dulwich.objects import Blob, Tree
+
+        # Create a tree structure
+        store = MemoryObjectStore()
+
+        blob1 = Blob()
+        blob1.data = b"file1"
+        store.add_object(blob1)
+
+        blob2 = Blob()
+        blob2.data = b"file2"
+        store.add_object(blob2)
+
+        subtree = Tree()
+        subtree[b"file1.txt"] = (0o100644, blob1.id)
+        subtree[b"file2.txt"] = (0o100644, blob2.id)
+        store.add_object(subtree)
+
+        # Create an index with a sparse directory entry
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = os.path.join(tmpdir, "index")
+            idx = Index(index_path, read=False)
+
+            # Add sparse directory entry
+            sparse_entry = IndexEntry(
+                ctime=0,
+                mtime=0,
+                dev=0,
+                ino=0,
+                mode=stat.S_IFDIR,
+                uid=0,
+                gid=0,
+                size=0,
+                sha=subtree.id,
+                extended_flags=EXTENDED_FLAG_SKIP_WORKTREE,
+            )
+            idx[b"subdir/"] = sparse_entry
+            idx._extensions.append(SparseDirExtension())
+
+            self.assertTrue(idx.is_sparse())
+            self.assertEqual(len(idx), 1)
+
+            # Expand the index
+            idx.ensure_full_index(store)
+
+            # Should no longer be sparse
+            self.assertFalse(idx.is_sparse())
+
+            # Should have 2 entries now (the files)
+            self.assertEqual(len(idx), 2)
+            self.assertIn(b"subdir/file1.txt", idx)
+            self.assertIn(b"subdir/file2.txt", idx)
+
+            # Entries should point to the correct blobs
+            self.assertEqual(idx[b"subdir/file1.txt"].sha, blob1.id)
+            self.assertEqual(idx[b"subdir/file2.txt"].sha, blob2.id)
+
+    def test_index_collapse(self):
+        """Test Index.convert_to_sparse() collapses directories."""
+        from dulwich.object_store import MemoryObjectStore
+        from dulwich.objects import Blob, Tree
+
+        # Create a tree structure
+        store = MemoryObjectStore()
+
+        blob1 = Blob()
+        blob1.data = b"file1"
+        store.add_object(blob1)
+
+        blob2 = Blob()
+        blob2.data = b"file2"
+        store.add_object(blob2)
+
+        subtree = Tree()
+        subtree[b"file1.txt"] = (0o100644, blob1.id)
+        subtree[b"file2.txt"] = (0o100644, blob2.id)
+        store.add_object(subtree)
+
+        tree = Tree()
+        tree[b"subdir"] = (stat.S_IFDIR, subtree.id)
+        store.add_object(tree)
+
+        # Create an index with full entries
+        with tempfile.TemporaryDirectory() as tmpdir:
+            index_path = os.path.join(tmpdir, "index")
+            idx = Index(index_path, read=False)
+
+            idx[b"subdir/file1.txt"] = IndexEntry(
+                ctime=0,
+                mtime=0,
+                dev=0,
+                ino=0,
+                mode=0o100644,
+                uid=0,
+                gid=0,
+                size=5,
+                sha=blob1.id,
+                extended_flags=0,
+            )
+            idx[b"subdir/file2.txt"] = IndexEntry(
+                ctime=0,
+                mtime=0,
+                dev=0,
+                ino=0,
+                mode=0o100644,
+                uid=0,
+                gid=0,
+                size=5,
+                sha=blob2.id,
+                extended_flags=0,
+            )
+
+            self.assertEqual(len(idx), 2)
+            self.assertFalse(idx.is_sparse())
+
+            # Collapse subdir to sparse
+            idx.convert_to_sparse(store, tree.id, {b"subdir/"})
+
+            # Should now be sparse
+            self.assertTrue(idx.is_sparse())
+
+            # Should have 1 entry (the sparse dir)
+            self.assertEqual(len(idx), 1)
+            self.assertIn(b"subdir/", idx)
+
+            # Entry should be a sparse directory
+            entry = idx[b"subdir/"]
+            self.assertTrue(entry.is_sparse_dir(b"subdir/"))
+            self.assertEqual(entry.sha, subtree.id)

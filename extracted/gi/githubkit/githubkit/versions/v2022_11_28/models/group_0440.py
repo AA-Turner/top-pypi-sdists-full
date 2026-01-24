@@ -9,28 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class KeySimple(GitHubModel):
-    """Key Simple
+class Tag(GitHubModel):
+    """Tag
 
-    Key Simple
+    Tag
     """
 
-    id: int = Field()
-    key: str = Field()
-    created_at: Missing[datetime] = Field(default=UNSET)
-    last_used: Missing[Union[datetime, None]] = Field(default=UNSET)
+    name: str = Field()
+    commit: TagPropCommit = Field()
+    zipball_url: str = Field()
+    tarball_url: str = Field()
+    node_id: str = Field()
 
 
-model_rebuild(KeySimple)
+class TagPropCommit(GitHubModel):
+    """TagPropCommit"""
 
-__all__ = ("KeySimple",)
+    sha: str = Field()
+    url: str = Field()
+
+
+model_rebuild(Tag)
+model_rebuild(TagPropCommit)
+
+__all__ = (
+    "Tag",
+    "TagPropCommit",
+)

@@ -20,39 +20,31 @@ from datarobot.models.api_object import APIObject
 from datarobot.models.genai.insights_configuration import InsightsConfiguration
 from datarobot.utils.pagination import unpaginate
 
-aggregation_value_trafaret = t.Dict(
-    {
-        t.Key("item"): t.String,
-        t.Key("value"): t.Float,
-    }
-).ignore_extra("*")
+aggregation_value_trafaret = t.Dict({
+    t.Key("item"): t.String,
+    t.Key("value"): t.Float,
+}).ignore_extra("*")
 
-evaluation_dataset_metric_aggregation_trafaret = t.Dict(
-    {
-        t.Key("llm_blueprint_id"): t.String,
-        t.Key("evaluation_dataset_configuration_id", optional=True, default=None): t.Or(
-            t.String, t.Null
-        ),
-        t.Key("ootb_dataset_name", optional=True, default=None): t.Or(t.String, t.Null),
-        t.Key("metric_name"): t.String(allow_blank=True),
-        t.Key("dataset_id", optional=True, default=None): t.Or(t.String, t.Null),
-        t.Key("dataset_name", optional=True, default=None): t.Or(
-            t.String(allow_blank=True), t.Null
-        ),
-        t.Key("chat_id"): t.String,
-        t.Key("chat_name"): t.String(allow_blank=True),
-        t.Key(
-            "aggregation_value",
-            optional=True,
-            default=None,
-        ): t.Or(t.Float, t.List(aggregation_value_trafaret), t.Null),
-        t.Key("aggregation_type"): t.Enum(*enum_to_list(AggregationType)),
-        t.Key("creation_date"): t.String,
-        t.Key("creation_user_id"): t.String,
-        t.Key("tenant_id"): t.String,
-        t.Key("custom_model_guard_id", optional=True, default=None): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+evaluation_dataset_metric_aggregation_trafaret = t.Dict({
+    t.Key("llm_blueprint_id"): t.String,
+    t.Key("evaluation_dataset_configuration_id", optional=True, default=None): t.Or(t.String, t.Null),
+    t.Key("ootb_dataset_name", optional=True, default=None): t.Or(t.String, t.Null),
+    t.Key("metric_name"): t.String(allow_blank=True),
+    t.Key("dataset_id", optional=True, default=None): t.Or(t.String, t.Null),
+    t.Key("dataset_name", optional=True, default=None): t.Or(t.String(allow_blank=True), t.Null),
+    t.Key("chat_id"): t.String,
+    t.Key("chat_name"): t.String(allow_blank=True),
+    t.Key(
+        "aggregation_value",
+        optional=True,
+        default=None,
+    ): t.Or(t.Float, t.List(aggregation_value_trafaret), t.Null),
+    t.Key("aggregation_type"): t.Enum(*enum_to_list(AggregationType)),
+    t.Key("creation_date"): t.String,
+    t.Key("creation_user_id"): t.String,
+    t.Key("tenant_id"): t.String,
+    t.Key("custom_model_guard_id", optional=True, default=None): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
 class EvaluationDatasetMetricAggregation(APIObject):
@@ -127,6 +119,9 @@ class EvaluationDatasetMetricAggregation(APIObject):
         self.creation_user_id = creation_user_id
         self.tenant_id = tenant_id
         self.custom_model_guard_id = custom_model_guard_id
+
+    def __repr__(self) -> str:
+        return f"<EvaluationDatasetMetricAggregation {self.metric_name}>: {self.aggregation_value}"
 
     @classmethod
     def create(
@@ -230,9 +225,7 @@ class EvaluationDatasetMetricAggregation(APIObject):
         return [cls.from_server_data(data) for data in r_data]
 
     @classmethod
-    def delete(
-        cls, llm_blueprint_ids: Optional[List[str]] = None, chat_ids: Optional[List[str]] = None
-    ) -> None:
+    def delete(cls, llm_blueprint_ids: Optional[List[str]] = None, chat_ids: Optional[List[str]] = None) -> None:
         """Delete the associated evaluation dataset metric aggregations.  Either llm_blueprint_ids
         or chat_ids must be provided.  If both are provided, only results matching both will be removed.
 

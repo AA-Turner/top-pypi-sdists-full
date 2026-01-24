@@ -1,27 +1,31 @@
+# pylint: disable=cyclic-import, wrong-import-position
+# ruff: noqa: E402
 """
 The seekpath module contains routines to get automatically the
 path in a 3D Brillouin zone to plot band structures.
 
-Author: Giovanni Pizzi, PSI (2016-2023)
+Author: Giovanni Pizzi, PSI (2016-onwards)
+Maintainer: Timo Reents, PSI (2025-onwards)
 
 Licence: MIT License, see LICENSE.txt file
 """
 
-__version__ = "2.1.0"
-__author__ = "Giovanni Pizzi, PSI"
+__version__ = '2.2.0'
+__author__ = 'Giovanni Pizzi, PSI'
+__maintainer__ = 'Timo Reents, PSI'
 __copyright__ = (
-    "Copyright (c), 2016-2023, Giovanni Pizzi, PAUL SCHERRER INSTITUT "
-    "(Laboratory for Materials Simulations), EPFL "
-    "(Theory and Simulation of Materials (THEOS) and National Centre "
-    "for Computational Design and Discovery of Novel Materials "
-    "(NCCR MARVEL)), Switzerland."
+    'Copyright (c), 2016-2026, Giovanni Pizzi, PAUL SCHERRER INSTITUT '
+    '(Laboratory for Materials Simulations), EPFL '
+    '(Theory and Simulation of Materials (THEOS) and National Centre '
+    'for Computational Design and Discovery of Novel Materials '
+    '(NCCR MARVEL)), Switzerland.'
 )
-__credits__ = ["Yoyo Hinuma", "Jae-Mo Lihm"]
-__license__ = "MIT license"
+__credits__ = ['Yoyo Hinuma', 'Jae-Mo Lihm']
+__license__ = 'MIT license'
 __paper__ = (
-    "Y. Hinuma, G. Pizzi, Y. Kumagai, F. Oba, I. Tanaka, "
-    "Band structure diagram paths based on crystallography, "
-    "Comp. Mat. Sci. 128, 140 (2017). DOI: 10.1016/j.commatsci.2016.10.015"
+    'Y. Hinuma, G. Pizzi, Y. Kumagai, F. Oba, I. Tanaka, '
+    'Band structure diagram paths based on crystallography, '
+    'Comp. Mat. Sci. 128, 140 (2017). DOI: 10.1016/j.commatsci.2016.10.015'
 )
 
 
@@ -32,8 +36,6 @@ class SupercellWarning(UserWarning):
     original cell) is requested.
     """
 
-    pass
-
 
 from .getpaths import (
     get_path,
@@ -43,13 +45,16 @@ from .getpaths import (
 )
 
 from .hpkot import EdgeCaseWarning, SymmetryDetectionError
+from .brillouinzone import brillouinzone
+
 
 __all__ = (
-    "get_path",
-    "get_explicit_k_path",
-    "get_path_orig_cell",
-    "get_explicit_k_path_orig_cell",
-    "EdgeCaseWarning",
-    "SymmetryDetectionError",
-    "SupercellWarning",
+    'get_path',
+    'get_explicit_k_path',
+    'get_path_orig_cell',
+    'get_explicit_k_path_orig_cell',
+    'EdgeCaseWarning',
+    'SymmetryDetectionError',
+    'SupercellWarning',
+    'brillouinzone',
 )

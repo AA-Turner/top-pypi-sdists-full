@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: unicrypto
-Version: 0.0.11
+Version: 0.0.12
 Summary: Unified interface for cryptographic libraries
 Home-page: https://github.com/skelsec/unicrypto
 Author: Tamas Jos

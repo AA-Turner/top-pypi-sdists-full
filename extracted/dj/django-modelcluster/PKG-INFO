@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-modelcluster
-Version: 6.4
+Version: 6.4.1
 Summary: Django extension to allow working with 'clusters' of models as a single unit, independently of the database
 Home-page: https://github.com/wagtail/django-modelcluster
 Author: Matthew Westcott
@@ -18,11 +18,25 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Framework :: Django
 Requires-Python: >=3.9
-Provides-Extra: taggit
 License-File: LICENSE
+Requires-Dist: django>=4.2
+Provides-Extra: taggit
+Requires-Dist: django-taggit>=3.1; extra == "taggit"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 django-modelcluster
 ===================

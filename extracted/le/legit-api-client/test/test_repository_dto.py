@@ -61,6 +61,12 @@ class TestRepositoryDto(unittest.TestCase):
                         id = '', 
                         name = '', )
                     ],
+                context_fields = [
+                    legit_api_client.models.repository_context_field_dto.RepositoryContextFieldDto(
+                        factor = null, 
+                        automatic_value = True, 
+                        manual_value = True, )
+                    ],
                 issues_count = 56,
                 lines_count = 56,
                 score = 1.337,

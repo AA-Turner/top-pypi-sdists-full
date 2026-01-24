@@ -1,5 +1,0 @@
----
-features:
-  - |
-    source the shell from the system's ``SHELL`` environment variable,
-    if that's missing fall back to ``/bin/bash`` as the default shell.

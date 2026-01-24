@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: launchable
-Version: 1.112.0
+Version: 1.117.0
 Summary: Launchable CLI
 Home-page: https://launchableinc.com/
 Author: Launchable, Inc.
@@ -14,6 +14,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: click<8.1,>=8.0; python_version == "3.6"
 Requires-Dist: click<8.2,>=8.1; python_version > "3.6"
+Requires-Dist: dataclasses; python_version == "3.6"
 Requires-Dist: requests>=2.25; python_version >= "3.6"
 Requires-Dist: urllib3>=1.26
 Requires-Dist: junitparser>=4.0.0
@@ -26,8 +27,8 @@ Dynamic: license-file
 
 # Usage
 
-See https://www.launchableinc.com/docs/resources/cli-reference/ and
-https://www.launchableinc.com/docs/getting-started/.
+See https://help.launchableinc.com/resources/cli-reference/ and
+https://help.launchableinc.com/getting-started/.
 
 # Development
 
@@ -70,7 +71,16 @@ pipenv install --dev some-what-module
 
 # How to release
 
-Create new release on Github, then Github Actions automatically uploads the
+1. Create a new tag for the next release locally
+
+```sh
+git checkout v1
+git pull
+git tag v1.xx.yy
+git push origin --tags
+```
+
+2. Create new release on Github, then Github Actions automatically uploads the
 module to PyPI.
 
 ## How to update launchable/jar/exe_deploy.jar

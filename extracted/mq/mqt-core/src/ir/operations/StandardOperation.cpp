@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -250,6 +250,29 @@ bool StandardOperation::isGlobal(const size_t nQubits) const {
 /***
  * Public Methods
  ***/
+bool StandardOperation::isClifford() const {
+  switch (type) {
+  case I:
+    return true;
+  case X:
+  case Y:
+  case Z:
+    return (controls.size() <= 1);
+  case H:
+  case S:
+  case Sdg:
+  case SX:
+  case SXdg:
+  case DCX:
+  case SWAP:
+  case iSWAP:
+  case ECR:
+    return !isControlled();
+  default:
+    return false;
+  }
+}
+
 void StandardOperation::dumpOpenQASM(
     std::ostream& of, const QubitIndexToRegisterMap& qubitMap,
     [[maybe_unused]] const BitIndexToRegisterMap& bitMap, size_t indent,
@@ -398,6 +421,9 @@ void StandardOperation::dumpGateType(
   case RZ:
     op << "rz(" << parameter[0] << ")";
     break;
+  case R:
+    op << "r(" << parameter[0] << "," << parameter[1] << ")";
+    break;
   case DCX:
     op << "dcx";
     break;
@@ -430,6 +456,9 @@ void StandardOperation::dumpGateType(
     break;
   case iSWAPdg:
     op << "iswapdg";
+    break;
+  case Bridge:
+    op << "bridge";
     break;
   case Move:
     op << "move";
@@ -574,6 +603,7 @@ void StandardOperation::invert() {
   case RX:
   case RY:
   case RZ:
+  case R:
   case RXX:
   case RYY:
   case RZZ:

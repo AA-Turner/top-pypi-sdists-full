@@ -1,0 +1,45 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pytest-mockito"
+dynamic = ["version"]
+description = "Base fixtures for mockito"
+readme = "README.rst"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+  { name = "herr kaste", email = "herr.kaste@gmail.com" },
+]
+dependencies = [
+  "pytest>=6",
+  "mockito>=1.0.6",
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: POSIX",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: MacOS :: MacOS X",
+  "Topic :: Software Development :: Testing",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Utilities",
+  "Programming Language :: Python",
+]
+
+[project.urls]
+Homepage = "https://github.com/kaste/pytest-mockito"
+
+[project.entry-points.pytest11]
+mockito = "pytest_mockito.plugin"
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.hatch.version]
+source = "vcs"

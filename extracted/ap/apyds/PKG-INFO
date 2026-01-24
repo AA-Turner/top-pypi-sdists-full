@@ -1,0 +1,408 @@
+Metadata-Version: 2.4
+Name: apyds
+Version: 0.0.14
+Summary: A deductive system
+Author-Email: Hao Zhang <hzhangxyz@outlook.com>
+License-Expression: AGPL-3.0-or-later
+Project-URL: Repository, https://github.com/USTC-KnowledgeComputingLab/ds.git
+Requires-Python: <3.15,>=3.11
+Provides-Extra: dev
+Requires-Dist: ruff~=0.14.10; extra == "dev"
+Requires-Dist: pytest~=9.0.2; extra == "dev"
+Requires-Dist: pytest-cov~=7.0.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: mkdocs~=1.6.1; extra == "docs"
+Requires-Dist: mkdocs-material~=9.7.1; extra == "docs"
+Requires-Dist: mike~=2.1.3; extra == "docs"
+Description-Content-Type: text/markdown
+
+# DS - A Deductive System
+
+A deductive system for logical inference, implemented in C++. The library provides bindings for Python (via pybind11) and TypeScript/JavaScript (via Emscripten/WebAssembly).
+
+## Architecture
+
+- **C++ Core**: The core implementation in `src/` and `include/ds/` provides the fundamental data structures and algorithms
+- **Python Bindings**: Built with pybind11, wrapping the C++ core (see `apyds/`)
+- **TypeScript/JavaScript Bindings**: Built with Emscripten, compiling C++ to WebAssembly (see `atsds/`)
+
+## Features
+
+- **Multi-Language Support**: Use the same deductive system in C++, Python, or TypeScript/JavaScript
+- **Logical Terms**: Work with variables, items (constants/functors), and lists
+- **Rule-Based Inference**: Define rules and facts, perform logical deduction
+- **Unification and Matching**: Unify terms and match rules
+- **Search Engine**: Built-in search mechanism for iterative inference
+- **WebAssembly**: Run inference in the browser or Node.js environments
+- **Type-Safe**: Strong typing support in TypeScript and Python
+
+## Installation
+
+### TypeScript/JavaScript (npm)
+
+The TypeScript/JavaScript package wraps the C++ core via WebAssembly.
+
+```bash
+npm install atsds
+```
+
+The package includes WebAssembly binaries and TypeScript type definitions.
+
+### Python (pip)
+
+The Python package wraps the C++ core via pybind11.
+
+```bash
+pip install apyds
+```
+
+Requires Python 3.11-3.14.
+
+### C++ (Core Library)
+
+The C++ library is the core implementation. Both Python and TypeScript bindings are built on top of it.
+
+#### Using vcpkg
+
+Clone the repository and use the overlay port:
+
+```bash
+git clone https://github.com/USTC-KnowledgeComputingLab/ds.git
+vcpkg install ds --overlay-ports=./ds/ports
+```
+
+Add to your `vcpkg.json`:
+
+```json
+{
+  "dependencies": ["ds"]
+}
+```
+
+In your CMakeLists.txt:
+
+```cmake
+find_package(ds CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE ds::ds)
+```
+
+#### Building from Source
+
+```bash
+git clone https://github.com/USTC-KnowledgeComputingLab/ds.git
+cd ds
+cmake -B build
+cmake --build build
+```
+
+Include the headers from `include/ds/` in your C++ project.
+
+## Quick Start
+
+### TypeScript/JavaScript Example
+
+```typescript
+import { Rule, Search } from "atsds";
+
+// Create a search engine
+const search = new Search(1000, 10000);
+
+// Modus ponens: P -> Q, P |- Q
+search.add("(`P -> `Q) `P `Q");
+// Axiom schema 1: p -> (q -> p)
+search.add("(`p -> (`q -> `p))");
+// Axiom schema 2: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+search.add("((`p -> (`q -> `r)) -> ((`p -> `q) -> (`p -> `r)))");
+// Axiom schema 3: (!p -> !q) -> (q -> p)
+search.add("(((! `p) -> (! `q)) -> (`q -> `p))");
+
+// Premise: !!X
+search.add("(! (! X))");
+
+// Target: X (double negation elimination)
+const target = new Rule("X");
+
+// Execute search until target is found
+while (true) {
+    let found = false;
+    search.execute((candidate) => {
+        if (candidate.key() === target.key()) {
+            console.log("Found:", candidate.toString());
+            found = true;
+            return true; // Stop search
+        }
+        return false; // Continue searching
+    });
+    if (found) break;
+}
+```
+
+### Python Example
+
+```python
+import apyds
+
+# Create a search engine
+search = apyds.Search(1000, 10000)
+
+# Modus ponens: P -> Q, P |- Q
+search.add("(`P -> `Q) `P `Q")
+# Axiom schema 1: p -> (q -> p)
+search.add("(`p -> (`q -> `p))")
+# Axiom schema 2: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+search.add("((`p -> (`q -> `r)) -> ((`p -> `q) -> (`p -> `r)))")
+# Axiom schema 3: (!p -> !q) -> (q -> p)
+search.add("(((! `p) -> (! `q)) -> (`q -> `p))")
+
+# Premise: !!X
+search.add("(! (! X))")
+
+# Target: X (double negation elimination)
+target = apyds.Rule("X")
+
+# Execute search until target is found
+while True:
+    found = False
+    def callback(candidate):
+        global found
+        if candidate == target:
+            print("Found:", candidate)
+            found = True
+            return True  # Stop search
+        return False  # Continue searching
+    search.execute(callback)
+    if found:
+        break
+```
+
+### C++ Example
+
+```cpp
+#include <cstdio>
+#include <cstring>
+#include <ds/ds.hh>
+#include <ds/search.hh>
+#include <ds/utility.hh>
+
+int main() {
+    ds::search_t search(1000, 10000);
+    
+    // Modus ponens: P -> Q, P |- Q
+    search.add("(`P -> `Q) `P `Q");
+    // Axiom schema 1: p -> (q -> p)
+    search.add("(`p -> (`q -> `p))");
+    // Axiom schema 2: (p -> (q -> r)) -> ((p -> q) -> (p -> r))
+    search.add("((`p -> (`q -> `r)) -> ((`p -> `q) -> (`p -> `r)))");
+    // Axiom schema 3: (!p -> !q) -> (q -> p)
+    search.add("(((! `p) -> (! `q)) -> (`q -> `p))");
+    
+    // Premise: !!X
+    search.add("(! (! X))");
+    
+    // Target: X (double negation elimination)
+    auto target = ds::text_to_rule("X", 1000);
+    
+    // Execute search until target is found
+    while (true) {
+        bool found = false;
+        search.execute([&](ds::rule_t* candidate) {
+            if (candidate->data_size() == target->data_size() &&
+                memcmp(candidate->head(), target->head(), candidate->data_size()) == 0) {
+                printf("Found: %s", ds::rule_to_text(candidate, 1000).get());
+                found = true;
+                return true; // Stop search
+            }
+            return false; // Continue searching
+        });
+        if (found) break;
+    }
+    
+    return 0;
+}
+```
+
+## Core Concepts
+
+### Terms
+
+Terms are the basic building blocks of the deductive system:
+
+- **Variables**: Prefixed with backtick, e.g., `` `X``, `` `P``, `` `Q``
+- **Items**: Constants or functors, e.g., `a`, `father`, `!`
+- **Lists**: Ordered sequences enclosed in parentheses, e.g., `(a b c)`, `(father john mary)`
+
+### Rules
+
+Rules consist of zero or more premises (above the line) and a conclusion (below the line):
+
+```
+premise1
+premise2
+----------
+conclusion
+```
+
+A fact is a rule without premises:
+
+```
+----------
+(parent john mary)
+```
+
+### Grounding
+
+Grounding substitutes variables with values using a dictionary:
+
+```typescript
+const a = new Term("`a");
+const dict = new Term("((`a b))"); // Substitute `a with b
+const result = a.ground(dict);
+console.log(result.toString()); // "b"
+```
+
+### Matching
+
+Matching unifies the first premise of a rule with a fact to produce a new rule. For example, applying modus ponens to double negation elimination:
+
+```typescript
+// Modus ponens rule: (p -> q), p |- q
+const mp = new Rule("(`p -> `q)\n`p\n`q\n");
+// Double negation elimination axiom: !!x -> x
+const pq = new Rule("((! (! `x)) -> `x)");
+// Match produces: !!x |- x
+console.log(mp.match(pq).toString()); // "(! (! `x))\n----------\n`x\n"
+```
+
+## API Overview
+
+### TypeScript/JavaScript
+
+- `buffer_size(size?: number)`: Get/set buffer size for internal operations
+- `String_`: String wrapper class
+- `Variable`: Logical variable class
+- `Item`: Item (constant/functor) class
+- `List`: List class
+- `Term`: General term class (variable, item, or list)
+- `Rule`: Logical rule class
+- `Search`: Search engine for inference
+
+### Python
+
+- `buffer_size(size: int)`: Set buffer size
+- `scoped_buffer_size(size: int)`: Context manager for temporary buffer size
+- `String`: String wrapper class
+- `Variable`: Logical variable class
+- `Item`: Item (constant/functor) class
+- `List`: List class
+- `Term`: General term class
+- `Rule`: Logical rule class
+- `Search`: Search engine for inference
+
+### C++ (Core)
+
+All classes are in the `ds` namespace:
+
+- `string_t`: String handling
+- `variable_t`: Logical variables
+- `item_t`: Items (constants/functors)
+- `list_t`: Lists
+- `term_t`: General terms
+- `rule_t`: Logical rules
+- `search_t`: Search engine (in `<ds/search.hh>`)
+
+See header files in `include/ds/` for detailed API documentation.
+
+## Building from Source
+
+### Prerequisites
+
+- For TypeScript: Emscripten SDK
+- For Python: Python 3.11-3.14, C++20 compatible compiler, CMake 3.30+
+- For C++: C++20 compatible compiler, CMake 3.30+
+
+### Build All Components
+
+```bash
+# Clone repository
+git clone https://github.com/USTC-KnowledgeComputingLab/ds.git
+cd ds
+
+# Build TypeScript/JavaScript (requires Emscripten)
+npm install
+npm run build
+
+# Build Python package
+uv sync --extra dev
+
+# Build C++ library
+cmake -B build
+cmake --build build
+```
+
+### Running Tests
+
+```bash
+# TypeScript/JavaScript tests
+npm test
+
+# Python tests
+uv run pytest
+
+# C++ tests (if available)
+cd build && ctest
+```
+
+## Examples
+
+Example programs are provided in the `examples/` directory:
+
+- `examples/main.mjs`: TypeScript/JavaScript example
+- `examples/main.py`: Python example
+- `examples/main.cc`: C++ example
+
+Each example demonstrates logical inference using propositional logic axioms.
+
+## Support Packages
+
+- **BNF Conversion Library** ([apyds-bnf](https://pypi.org/project/apyds-bnf/), [atsds-bnf](https://www.npmjs.com/package/atsds-bnf)): Bidirectional conversion between DS syntax formats. See [/bnf](/bnf) for details.
+- **E-Graph Library** ([apyds-egg](https://pypi.org/project/apyds-egg/), [atsds-egg](https://www.npmjs.com/package/atsds-egg)): E-Graph implementation for efficient equality reasoning. See [/egg](/egg) for details.
+
+## Development
+
+### Code Formatting
+
+The project uses code formatting tools for consistency:
+
+- C++: clang-format (`.clang-format` config provided)
+- Python: ruff (configured in `pyproject.toml`)
+- TypeScript: Biome (configured in `biome.json`)
+
+### Pre-commit Hooks
+
+Pre-commit hooks are configured in `.pre-commit-config.yaml`.
+
+## License
+
+This project is licensed under the GNU General Public License v3.0 or later. See [LICENSE.md](LICENSE.md) for details.
+
+## Documentation
+
+For comprehensive documentation including tutorials, API reference, and examples, visit:
+
+- **[DS Documentation](https://ustc-knowledgecomputinglab.github.io/ds)**
+
+## Repository
+
+- **GitHub**: [USTC-KnowledgeComputingLab/ds](https://github.com/USTC-KnowledgeComputingLab/ds)
+- **Documentation**: [ustc-knowledgecomputinglab.github.io/ds](https://ustc-knowledgecomputinglab.github.io/ds)
+- **npm package**: [atsds](https://www.npmjs.com/package/atsds)
+- **PyPI package**: [apyds](https://pypi.org/project/apyds/)
+
+## Author
+
+Hao Zhang <hzhangxyz@outlook.com>
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit issues or pull requests.
+

@@ -27,7 +27,7 @@ import tempfile
 import warnings
 from io import BytesIO
 from typing import NoReturn
-from unittest.mock import patch
+from unittest.mock import MagicMock, Mock, patch
 from urllib.parse import quote as urlquote
 from urllib.parse import urlparse
 
@@ -35,6 +35,7 @@ import dulwich
 from dulwich import client
 from dulwich.bundle import create_bundle_from_repo, write_bundle
 from dulwich.client import (
+    AuthCallbackPoolManager,
     BundleClient,
     FetchPackResult,
     GitProtocolError,
@@ -50,6 +51,7 @@ from dulwich.client import (
     SubprocessSSHVendor,
     TCPGitClient,
     TraditionalGitClient,
+    Urllib3HttpGitClient,
     _extract_symrefs_and_agent,
     _remote_error_from_stderr,
     _win32_url_to_path,
@@ -61,7 +63,8 @@ from dulwich.client import (
     parse_rsync_url,
 )
 from dulwich.config import ConfigDict
-from dulwich.objects import Blob, Commit, Tree
+from dulwich.object_format import DEFAULT_OBJECT_FORMAT
+from dulwich.objects import ZERO_SHA, Blob, Commit, Tree
 from dulwich.pack import pack_objects_to_data, write_pack_data, write_pack_objects
 from dulwich.protocol import DEFAULT_GIT_PROTOCOL_VERSION_FETCH, TCP_GIT_PORT, Protocol
 from dulwich.repo import MemoryRepo, Repo
@@ -178,13 +181,152 @@ class GitClientTests(TestCase):
         )
         self.rin.seek(0)
         ret = self.client.fetch_pack(
-            b"bla", lambda heads, **kwargs: [], None, None, None
+            b"bla", lambda heads, depth=None: [], None, None, None
         )
         self.assertEqual(
             {b"HEAD": b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"}, ret.refs
         )
         self.assertEqual({}, ret.symrefs)
         self.assertEqual(self.rout.getvalue(), b"0000")
+
+    def test_handle_upload_pack_head_deepen_since(self) -> None:
+        # Test that deepen-since command is properly sent
+        from dulwich.client import _handle_upload_pack_head
+
+        self.rin.write(b"0008NAK\n0000")
+        self.rin.seek(0)
+
+        class DummyGraphWalker:
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return None
+
+        proto = Protocol(self.rin.read, self.rout.write)
+        capabilities = [b"shallow", b"deepen-since"]
+        wants = [b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"]
+        graph_walker = DummyGraphWalker()
+
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=capabilities,
+            graph_walker=graph_walker,
+            wants=wants,
+            can_read=None,
+            depth=None,
+            protocol_version=0,
+            shallow_since="2023-01-01T00:00:00Z",
+        )
+
+        # Verify the deepen-since command was sent
+        output = self.rout.getvalue()
+        self.assertIn(b"deepen-since 2023-01-01T00:00:00Z\n", output)
+
+    def test_handle_upload_pack_head_deepen_not(self) -> None:
+        # Test that deepen-not command is properly sent
+        from dulwich.client import _handle_upload_pack_head
+
+        self.rin.write(b"0008NAK\n0000")
+        self.rin.seek(0)
+
+        class DummyGraphWalker:
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return None
+
+        proto = Protocol(self.rin.read, self.rout.write)
+        capabilities = [b"shallow", b"deepen-not"]
+        wants = [b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"]
+        graph_walker = DummyGraphWalker()
+
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=capabilities,
+            graph_walker=graph_walker,
+            wants=wants,
+            can_read=None,
+            depth=None,
+            protocol_version=0,
+            shallow_exclude=["refs/heads/excluded"],
+        )
+
+        # Verify the deepen-not command was sent
+        output = self.rout.getvalue()
+        self.assertIn(b"deepen-not refs/heads/excluded\n", output)
+
+    def test_handle_upload_pack_head_deepen_not_multiple(self) -> None:
+        # Test that multiple deepen-not commands are properly sent
+        from dulwich.client import _handle_upload_pack_head
+
+        self.rin.write(b"0008NAK\n0000")
+        self.rin.seek(0)
+
+        class DummyGraphWalker:
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return None
+
+        proto = Protocol(self.rin.read, self.rout.write)
+        capabilities = [b"shallow", b"deepen-not"]
+        wants = [b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"]
+        graph_walker = DummyGraphWalker()
+
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=capabilities,
+            graph_walker=graph_walker,
+            wants=wants,
+            can_read=None,
+            depth=None,
+            protocol_version=0,
+            shallow_exclude=["refs/heads/excluded1", "refs/heads/excluded2"],
+        )
+
+        # Verify both deepen-not commands were sent
+        output = self.rout.getvalue()
+        self.assertIn(b"deepen-not refs/heads/excluded1\n", output)
+        self.assertIn(b"deepen-not refs/heads/excluded2\n", output)
+
+    def test_handle_upload_pack_head_deepen_since_and_not(self) -> None:
+        # Test that deepen-since and deepen-not can be used together
+        from dulwich.client import _handle_upload_pack_head
+
+        self.rin.write(b"0008NAK\n0000")
+        self.rin.seek(0)
+
+        class DummyGraphWalker:
+            def __iter__(self):
+                return self
+
+            def __next__(self):
+                return None
+
+        proto = Protocol(self.rin.read, self.rout.write)
+        capabilities = [b"shallow", b"deepen-since", b"deepen-not"]
+        wants = [b"55dcc6bf963f922e1ed5c4bbaaefcfacef57b1d7"]
+        graph_walker = DummyGraphWalker()
+
+        _handle_upload_pack_head(
+            proto=proto,
+            capabilities=capabilities,
+            graph_walker=graph_walker,
+            wants=wants,
+            can_read=None,
+            depth=None,
+            protocol_version=0,
+            shallow_since="2023-01-01T00:00:00Z",
+            shallow_exclude=["refs/heads/excluded"],
+        )
+
+        # Verify both deepen-since and deepen-not commands were sent
+        output = self.rout.getvalue()
+        self.assertIn(b"deepen-since 2023-01-01T00:00:00Z\n", output)
+        self.assertIn(b"deepen-not refs/heads/excluded\n", output)
 
     def test_send_pack_no_sideband64k_with_update_ref_error(self) -> None:
         # No side-bank-64k reported by server shouldn't try to parse
@@ -219,7 +361,7 @@ class GitClientTests(TestCase):
                 b"refs/foo/bar": commit.id,
             }
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return pack_objects_to_data(
                 [
                     (commit, None),
@@ -246,7 +388,7 @@ class GitClientTests(TestCase):
         def update_refs(refs):
             return {b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c"}
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return 0, []
 
         self.client.send_pack(b"/", update_refs, generate_pack_data)
@@ -264,9 +406,9 @@ class GitClientTests(TestCase):
         self.rin.seek(0)
 
         def update_refs(refs):
-            return {b"refs/heads/master": b"0" * 40}
+            return {b"refs/heads/master": ZERO_SHA}
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return 0, []
 
         self.client.send_pack(b"/", update_refs, generate_pack_data)
@@ -288,9 +430,9 @@ class GitClientTests(TestCase):
         self.rin.seek(0)
 
         def update_refs(refs):
-            return {b"refs/heads/master": b"0" * 40}
+            return {b"refs/heads/master": ZERO_SHA}
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return 0, []
 
         self.client.send_pack(b"/", update_refs, generate_pack_data)
@@ -317,11 +459,11 @@ class GitClientTests(TestCase):
                 b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
             }
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return 0, []
 
         f = BytesIO()
-        write_pack_objects(f.write, [])
+        write_pack_objects(f.write, [], object_format=DEFAULT_OBJECT_FORMAT)
         self.client.send_pack("/", update_refs, generate_pack_data)
         self.assertEqual(
             self.rout.getvalue(),
@@ -357,7 +499,7 @@ class GitClientTests(TestCase):
                 b"refs/heads/master": b"310ca9477129b8586fa2afc779c1f57cf64bba6c",
             }
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return pack_objects_to_data(
                 [
                     (commit, None),
@@ -367,7 +509,11 @@ class GitClientTests(TestCase):
 
         f = BytesIO()
         count, records = generate_pack_data(None, None)
-        write_pack_data(f.write, records, num_records=count)
+        from dulwich.object_format import DEFAULT_OBJECT_FORMAT
+
+        write_pack_data(
+            f.write, records, num_records=count, object_format=DEFAULT_OBJECT_FORMAT
+        )
         self.client.send_pack(b"/", update_refs, generate_pack_data)
         self.assertEqual(
             self.rout.getvalue(),
@@ -392,9 +538,9 @@ class GitClientTests(TestCase):
         self.rin.seek(0)
 
         def update_refs(refs):
-            return {b"refs/heads/master": b"0" * 40}
+            return {b"refs/heads/master": ZERO_SHA}
 
-        def generate_pack_data(have, want, ofs_delta=False, progress=None):
+        def generate_pack_data(have, want, *, ofs_delta=False, progress=None):
             return 0, []
 
         result = self.client.send_pack(b"/", update_refs, generate_pack_data)
@@ -421,6 +567,20 @@ class TestGetTransportAndPath(TestCase):
         c, path = get_transport_and_path("git://foo.com:1234/bar/baz")
         self.assertIsInstance(c, TCPGitClient)
         self.assertEqual("foo.com", c._host)
+        self.assertEqual(1234, c._port)
+        self.assertEqual("/bar/baz", path)
+
+    def test_tcp_ipv6(self) -> None:
+        c, path = get_transport_and_path("git://[::1]/bar/baz")
+        self.assertIsInstance(c, TCPGitClient)
+        self.assertEqual("::1", c._host)
+        self.assertEqual(TCP_GIT_PORT, c._port)
+        self.assertEqual("/bar/baz", path)
+
+    def test_tcp_ipv6_port(self) -> None:
+        c, path = get_transport_and_path("git://[2001:db8::1]:1234/bar/baz")
+        self.assertIsInstance(c, TCPGitClient)
+        self.assertEqual("2001:db8::1", c._host)
         self.assertEqual(1234, c._port)
         self.assertEqual("/bar/baz", path)
 
@@ -531,25 +691,24 @@ class TestGetTransportAndPath(TestCase):
 
     def test_ssh_with_config(self) -> None:
         # Test that core.sshCommand from config is passed to SSHGitClient
-        from dulwich.config import ConfigDict
 
         config = ConfigDict()
-        c, path = get_transport_and_path(
+        c, _path = get_transport_and_path(
             "ssh://git@github.com/user/repo.git", config=config
         )
         self.assertIsInstance(c, SSHGitClient)
-        self.assertIsNone(c.ssh_command)
+        self.assertEqual(c.ssh_command, "ssh")  # Now defaults to "ssh"
 
         config.set((b"core",), b"sshCommand", b"custom-ssh -o CustomOption=yes")
 
-        c, path = get_transport_and_path(
+        c, _path = get_transport_and_path(
             "ssh://git@github.com/user/repo.git", config=config
         )
         self.assertIsInstance(c, SSHGitClient)
         self.assertEqual("custom-ssh -o CustomOption=yes", c.ssh_command)
 
         # Test rsync-style URL also gets the config
-        c, path = get_transport_and_path("git@github.com:user/repo.git", config=config)
+        c, _path = get_transport_and_path("git@github.com:user/repo.git", config=config)
         self.assertIsInstance(c, SSHGitClient)
         self.assertEqual("custom-ssh -o CustomOption=yes", c.ssh_command)
 
@@ -562,7 +721,7 @@ class TestGetTransportAndPath(TestCase):
     def test_error(self) -> None:
         # Need to use a known urlparse.uses_netloc URL scheme to get the
         # expected parsing of the URL on Python versions less than 2.6.5
-        c, path = get_transport_and_path("prospero://bar/baz")
+        c, _path = get_transport_and_path("prospero://bar/baz")
         self.assertIsInstance(c, SSHGitClient)
 
     def test_http(self) -> None:
@@ -598,8 +757,9 @@ class TestGetTransportAndPath(TestCase):
 
         self.assertIsInstance(c, HttpGitClient)
         self.assertEqual("/jelmer/dulwich", path)
-        self.assertEqual("user", c._username)
-        self.assertEqual("passwd", c._password)
+        # Explicitly provided credentials should override URL credentials
+        self.assertEqual("user2", c._username)
+        self.assertEqual("blah", c._password)
 
     def test_http_no_auth(self) -> None:
         url = "https://github.com/jelmer/dulwich"
@@ -610,6 +770,18 @@ class TestGetTransportAndPath(TestCase):
         self.assertEqual("/jelmer/dulwich", path)
         self.assertIs(None, c._username)
         self.assertIs(None, c._password)
+
+    def test_ssh_with_key_filename_and_ssh_command(self) -> None:
+        # Test that key_filename and ssh_command are passed through to SSHGitClient
+        c, path = get_transport_and_path(
+            "ssh://git@github.com/user/repo.git",
+            key_filename="/path/to/id_rsa",
+            ssh_command="custom-ssh -o StrictHostKeyChecking=no",
+        )
+        self.assertIsInstance(c, SSHGitClient)
+        self.assertEqual("/user/repo.git", path)
+        self.assertEqual("/path/to/id_rsa", c.key_filename)
+        self.assertEqual("custom-ssh -o StrictHostKeyChecking=no", c.ssh_command)
 
 
 class TestGetTransportAndPathFromUrl(TestCase):
@@ -761,12 +933,18 @@ class TestSSHVendor:
         self.protocol_version = protocol_version
 
         class Subprocess:
-            pass
+            def read(self, *args):
+                return None
 
-        Subprocess.read = lambda: None
-        Subprocess.write = lambda: None
-        Subprocess.close = lambda: None
-        Subprocess.can_read = lambda: None
+            def write(self, *args):
+                return None
+
+            def close(self):
+                pass
+
+            def can_read(self):
+                return None
+
         return Subprocess()
 
 
@@ -824,13 +1002,19 @@ class SSHGitClientTests(TestCase):
         client.username = b"username"
         client.port = 1337
 
-        client._connect(b"command", b"/path/to/repo")
-        self.assertEqual(b"username", server.username)
-        self.assertEqual(1337, server.port)
-        self.assertEqual("git-command '/path/to/repo'", server.command)
+        proto, _, _ = client._connect(b"command", b"/path/to/repo")
+        try:
+            self.assertEqual(b"username", server.username)
+            self.assertEqual(1337, server.port)
+            self.assertEqual(b"git-command '/path/to/repo'", server.command)
+        finally:
+            proto.close()
 
-        client._connect(b"relative-command", b"/~/path/to/repo")
-        self.assertEqual("git-relative-command '~/path/to/repo'", server.command)
+        proto, _, _ = client._connect(b"relative-command", b"/~/path/to/repo")
+        try:
+            self.assertEqual(b"git-relative-command '~/path/to/repo'", server.command)
+        finally:
+            proto.close()
 
     def test_ssh_command_precedence(self) -> None:
         self.overrideEnv("GIT_SSH", "/path/to/ssh")
@@ -846,13 +1030,12 @@ class SSHGitClientTests(TestCase):
 
     def test_ssh_command_config(self) -> None:
         # Test core.sshCommand config setting
-        from dulwich.config import ConfigDict
 
-        # No config, no environment - should be None
+        # No config, no environment - should default to "ssh"
         self.overrideEnv("GIT_SSH", None)
         self.overrideEnv("GIT_SSH_COMMAND", None)
         test_client = SSHGitClient("git.samba.org")
-        self.assertIsNone(test_client.ssh_command)
+        self.assertEqual(test_client.ssh_command, "ssh")
 
         # Config with core.sshCommand
         config = ConfigDict()
@@ -870,6 +1053,24 @@ class SSHGitClientTests(TestCase):
         self.overrideEnv("GIT_SSH_COMMAND", "/usr/bin/ssh -v")
         test_client = SSHGitClient("git.samba.org", config=config)
         self.assertEqual(test_client.ssh_command, "/usr/bin/ssh -v")
+
+    def test_ssh_kwargs_passed_to_vendor(self) -> None:
+        # Test that ssh_command and other kwargs are actually passed to the SSH vendor
+        server = self.server
+        client = self.client
+
+        # Set custom ssh_command
+        client.ssh_command = "custom-ssh-wrapper.sh -o Option=Value"
+        client.password = "test-password"
+        client.key_filename = "/path/to/key"
+
+        # Connect and verify all kwargs are passed through
+        proto, _, _ = client._connect(b"upload-pack", b"/path/to/repo")
+        self.addCleanup(proto.close)
+
+        self.assertEqual(server.ssh_command, "custom-ssh-wrapper.sh -o Option=Value")
+        self.assertEqual(server.password, "test-password")
+        self.assertEqual(server.key_filename, "/path/to/key")
 
 
 class ReportStatusParserTests(TestCase):
@@ -926,6 +1127,54 @@ class LocalGitClientTests(TestCase):
         expected[b"refs/remotes/origin/master"] = expected[b"refs/heads/master"]
         self.assertEqual(expected, result_repo.get_refs())
 
+    def test_clone_sha256_local(self) -> None:
+        """Test that cloning a SHA-256 local repo creates a SHA-256 clone."""
+        client = LocalGitClient()
+
+        # Create a SHA-256 source repository
+        source_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, source_path)
+        source_repo = Repo.init(source_path, object_format="sha256")
+
+        # Verify source is SHA-256
+        self.assertEqual("sha256", source_repo.object_format.name)
+        source_repo.close()
+
+        # Clone the repository
+        target_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_path)
+        cloned_repo = client.clone(source_path, target_path, mkdir=False)
+        self.addCleanup(cloned_repo.close)
+
+        # Verify the clone uses SHA-256
+        self.assertEqual("sha256", cloned_repo.object_format.name)
+
+        # Verify the config has the correct objectformat extension
+        config = cloned_repo.get_config()
+        self.assertEqual(b"sha256", config.get((b"extensions",), b"objectformat"))
+
+    def test_clone_sha1_local(self) -> None:
+        """Test that cloning a SHA-1 local repo creates a SHA-1 clone."""
+        client = LocalGitClient()
+
+        # Create a SHA-1 source repository
+        source_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, source_path)
+        source_repo = Repo.init(source_path, object_format="sha1")
+
+        # Verify source is SHA-1
+        self.assertEqual("sha1", source_repo.object_format.name)
+        source_repo.close()
+
+        # Clone the repository
+        target_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_path)
+        cloned_repo = client.clone(source_path, target_path, mkdir=False)
+        self.addCleanup(cloned_repo.close)
+
+        # Verify the clone uses SHA-1
+        self.assertEqual("sha1", cloned_repo.object_format.name)
+
     def test_fetch_empty(self) -> None:
         c = LocalGitClient()
         s = open_repo("a.git")
@@ -933,7 +1182,10 @@ class LocalGitClientTests(TestCase):
         out = BytesIO()
         walker = {}
         ret = c.fetch_pack(
-            s.path, lambda heads, **kwargs: [], graph_walker=walker, pack_data=out.write
+            s.path,
+            lambda heads, depth=None: [],
+            graph_walker=walker,
+            pack_data=out.write,
         )
         self.assertEqual(
             {
@@ -959,7 +1211,7 @@ class LocalGitClientTests(TestCase):
         walker = MemoryRepo().get_graph_walker()
         ret = c.fetch_pack(
             s.path,
-            lambda heads, **kwargs: [b"a90fa2d900a17e99b433217e988c4eb4a2e9a097"],
+            lambda heads, depth=None: [b"a90fa2d900a17e99b433217e988c4eb4a2e9a097"],
             graph_walker=walker,
             pack_data=out.write,
         )
@@ -1005,6 +1257,84 @@ class LocalGitClientTests(TestCase):
         self.assertDictEqual(local.refs.as_dict(), result.refs)
         # Check that symrefs are detected correctly
         self.assertIn(b"HEAD", result.symrefs)
+
+    def test_fetch_object_format_mismatch_sha256_to_sha1(self) -> None:
+        """Test that fetching from SHA-256 to non-empty SHA-1 repository fails."""
+        from dulwich.objects import Blob
+
+        client = LocalGitClient()
+
+        # Create SHA-256 source repository
+        sha256_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, sha256_path)
+        sha256_repo = Repo.init(sha256_path, object_format="sha256")
+        self.addCleanup(sha256_repo.close)
+
+        # Create SHA-1 target repository with an object (so it can't be auto-changed)
+        sha1_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, sha1_path)
+        sha1_repo = Repo.init(sha1_path, object_format="sha1")
+        self.addCleanup(sha1_repo.close)
+
+        # Add an object to make the repo non-empty
+        blob = Blob.from_string(b"test content")
+        sha1_repo.object_store.add_object(blob)
+
+        # Attempt to fetch should raise AssertionError (repo not empty)
+        with self.assertRaises(AssertionError) as cm:
+            client.fetch(sha256_path, sha1_repo)
+
+        self.assertIn("Cannot change object format", str(cm.exception))
+        self.assertIn("already contains objects", str(cm.exception))
+
+    def test_fetch_object_format_mismatch_sha1_to_sha256(self) -> None:
+        """Test that fetching from SHA-1 to non-empty SHA-256 repository fails."""
+        from dulwich.objects import Blob
+
+        client = LocalGitClient()
+
+        # Create SHA-1 source repository
+        sha1_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, sha1_path)
+        sha1_repo = Repo.init(sha1_path, object_format="sha1")
+        self.addCleanup(sha1_repo.close)
+
+        # Create SHA-256 target repository with an object (so it can't be auto-changed)
+        sha256_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, sha256_path)
+        sha256_repo = Repo.init(sha256_path, object_format="sha256")
+        self.addCleanup(sha256_repo.close)
+
+        # Add an object to make the repo non-empty
+        blob = Blob.from_string(b"test content")
+        sha256_repo.object_store.add_object(blob)
+
+        # Attempt to fetch should raise AssertionError (repo not empty)
+        with self.assertRaises(AssertionError) as cm:
+            client.fetch(sha1_path, sha256_repo)
+
+        self.assertIn("Cannot change object format", str(cm.exception))
+        self.assertIn("already contains objects", str(cm.exception))
+
+    def test_fetch_object_format_same(self) -> None:
+        """Test that fetching between repositories with same object format works."""
+        client = LocalGitClient()
+
+        # Create SHA-256 source repository
+        sha256_src = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, sha256_src)
+        src_repo = Repo.init(sha256_src, object_format="sha256")
+        self.addCleanup(src_repo.close)
+
+        # Create SHA-256 target repository
+        sha256_dst = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, sha256_dst)
+        dst_repo = Repo.init(sha256_dst, object_format="sha256")
+        self.addCleanup(dst_repo.close)
+
+        # Fetch should succeed without error
+        result = client.fetch(sha256_src, dst_repo)
+        self.assertIsNotNone(result)
 
     def send_and_verify(self, branch, local, target) -> None:
         """Send branch from local to remote repository and verify it worked."""
@@ -1056,6 +1386,7 @@ class BundleClientTests(TestCase):
 
         # Create bundle
         bundle = create_bundle_from_repo(repo)
+        self.addCleanup(bundle.close)
 
         # Write bundle to file
         bundle_path = os.path.join(self.tempdir, "test.bundle")
@@ -1092,7 +1423,7 @@ class BundleClientTests(TestCase):
 
     def test_fetch_pack(self) -> None:
         """Test fetching pack from bundle."""
-        bundle_path, source_repo = self._create_test_bundle()
+        bundle_path, _source_repo = self._create_test_bundle()
 
         client = BundleClient()
         pack_data = BytesIO()
@@ -1119,10 +1450,11 @@ class BundleClientTests(TestCase):
 
     def test_fetch(self) -> None:
         """Test fetching from bundle into target repo."""
-        bundle_path, source_repo = self._create_test_bundle()
+        bundle_path, _source_repo = self._create_test_bundle()
 
         client = BundleClient()
         target_repo = MemoryRepo()
+        self.addCleanup(target_repo.close)
 
         result = client.fetch(bundle_path, target_repo)
 
@@ -1566,7 +1898,6 @@ class HttpGitClientTests(TestCase):
 
     def test_timeout_from_config(self) -> None:
         """Test that timeout can be configured via git config."""
-        from dulwich.config import ConfigDict
 
         url = "https://github.com/jelmer/dulwich"
         config = ConfigDict()
@@ -1580,7 +1911,6 @@ class HttpGitClientTests(TestCase):
 
     def test_timeout_parameter_precedence(self) -> None:
         """Test that explicit timeout parameter takes precedence over config."""
-        from dulwich.config import ConfigDict
 
         url = "https://github.com/jelmer/dulwich"
         config = ConfigDict()
@@ -1588,6 +1918,309 @@ class HttpGitClientTests(TestCase):
 
         c = HttpGitClient(url, config=config, timeout=15)
         self.assertEqual(c._timeout, 15)
+
+    def test_http_extra_headers_from_config(self) -> None:
+        """Test that http.extraHeader config values are applied."""
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        # Set a single extra header
+        config.set((b"http",), b"extraHeader", b"X-Custom-Header: test-value")
+
+        c = HttpGitClient(url, config=config)
+        # Check that the header was added to the pool manager
+        self.assertIn("X-Custom-Header", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["X-Custom-Header"], "test-value")
+
+    def test_http_multiple_extra_headers_from_config(self) -> None:
+        """Test that multiple http.extraHeader config values are applied."""
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        # Set multiple extra headers
+        config.set((b"http",), b"extraHeader", b"X-Header-1: value1")
+        config.add((b"http",), b"extraHeader", b"X-Header-2: value2")
+        config.add((b"http",), b"extraHeader", b"Authorization: Bearer token123")
+
+        c = HttpGitClient(url, config=config)
+        # Check that all headers were added to the pool manager
+        self.assertIn("X-Header-1", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["X-Header-1"], "value1")
+        self.assertIn("X-Header-2", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["X-Header-2"], "value2")
+        self.assertIn("Authorization", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["Authorization"], "Bearer token123")
+
+    def test_http_extra_headers_per_url_config(self) -> None:
+        """Test that per-URL http.extraHeader config values are applied (issue #882)."""
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        # Set URL-specific extra header
+        config.set(
+            (b"http", b"https://github.com/"),
+            b"extraHeader",
+            b"Authorization: basic token123",
+        )
+
+        c = HttpGitClient(url, config=config)
+        # Check that the header was added to the pool manager
+        self.assertIn("Authorization", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["Authorization"], "basic token123")
+
+    def test_http_extra_headers_url_specificity(self) -> None:
+        """Test that more specific URL configs override less specific ones."""
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        # Set global header
+        config.set((b"http",), b"extraHeader", b"X-Global: global-value")
+        # Set host-specific header (overrides global)
+        config.set(
+            (b"http", b"https://github.com/"), b"extraHeader", b"X-Global: github-value"
+        )
+        config.add(
+            (b"http", b"https://github.com/"),
+            b"extraHeader",
+            b"Authorization: Bearer token123",
+        )
+
+        c = HttpGitClient(url, config=config)
+        # More specific setting should win
+        self.assertEqual(c.pool_manager.headers["X-Global"], "github-value")
+        self.assertEqual(c.pool_manager.headers["Authorization"], "Bearer token123")
+
+    def test_http_extra_headers_multiple_url_configs(self) -> None:
+        """Test that different URLs can have different extra headers."""
+        from dulwich.config import ConfigDict
+
+        config = ConfigDict()
+        # Set different headers for different URLs
+        config.set(
+            (b"http", b"https://github.com/"),
+            b"extraHeader",
+            b"Authorization: Bearer github-token",
+        )
+        config.set(
+            (b"http", b"https://gitlab.com/"),
+            b"extraHeader",
+            b"Authorization: Bearer gitlab-token",
+        )
+
+        # Test GitHub URL
+        c1 = HttpGitClient("https://github.com/user/repo", config=config)
+        self.assertEqual(
+            c1.pool_manager.headers["Authorization"], "Bearer github-token"
+        )
+
+        # Test GitLab URL
+        c2 = HttpGitClient("https://gitlab.com/user/repo", config=config)
+        self.assertEqual(
+            c2.pool_manager.headers["Authorization"], "Bearer gitlab-token"
+        )
+
+    def test_http_extra_headers_no_match(self) -> None:
+        """Test that non-matching URL configs don't apply."""
+        from dulwich.config import ConfigDict
+
+        url = "https://example.com/repo"
+        config = ConfigDict()
+        # Set header only for GitHub
+        config.set(
+            (b"http", b"https://github.com/"),
+            b"extraHeader",
+            b"Authorization: Bearer token123",
+        )
+
+        c = HttpGitClient(url, config=config)
+        # Authorization header should not be present for example.com
+        self.assertNotIn("Authorization", c.pool_manager.headers)
+
+    def test_http_extra_headers_invalid_format(self) -> None:
+        """Test that invalid extra headers trigger warnings."""
+        import logging
+
+        from dulwich.config import ConfigDict
+
+        url = "https://github.com/jelmer/dulwich"
+        config = ConfigDict()
+        # Set valid header
+        config.set((b"http",), b"extraHeader", b"X-Valid: valid-value")
+        # Set invalid headers (no colon-space separator)
+        config.add((b"http",), b"extraHeader", b"X-Invalid-No-Separator")
+        # Set empty header
+        config.add((b"http",), b"extraHeader", b"")
+        # Set another valid header to verify we continue processing
+        config.add((b"http",), b"extraHeader", b"X-Another-Valid: another-value")
+
+        with self.assertLogs("dulwich.client", level=logging.WARNING) as cm:
+            c = HttpGitClient(url, config=config)
+
+        # Check that warnings were logged
+        self.assertEqual(len(cm.output), 2)
+        self.assertIn("missing ': ' separator", cm.output[0])
+        self.assertIn("empty http.extraHeader", cm.output[1])
+
+        # Valid headers should still be applied
+        self.assertIn("X-Valid", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["X-Valid"], "valid-value")
+        self.assertIn("X-Another-Valid", c.pool_manager.headers)
+        self.assertEqual(c.pool_manager.headers["X-Another-Valid"], "another-value")
+        # Invalid header should not be present
+        self.assertNotIn("X-Invalid-No-Separator", c.pool_manager.headers)
+
+    def test_get_url_preserves_credentials_from_url(self) -> None:
+        """Test that credentials from URL are preserved in get_url() (issue #1925)."""
+        # When credentials come from the URL (not passed explicitly),
+        # they should be included in get_url() so they're saved to git config
+        username = "ghp_token123"
+        url = f"https://{username}@github.com/jelmer/dulwich"
+        path = "/jelmer/dulwich"
+
+        c = HttpGitClient.from_parsedurl(urlparse(url))
+        reconstructed_url = c.get_url(path)
+
+        # Credentials should be preserved in the URL
+        self.assertIn(username, reconstructed_url)
+        self.assertEqual(
+            f"https://{username}@github.com/jelmer/dulwich", reconstructed_url
+        )
+
+    def test_get_url_preserves_credentials_with_password_from_url(self) -> None:
+        """Test that username:password from URL are preserved in get_url()."""
+        username = "user"
+        password = "pass"
+        url = f"https://{username}:{password}@github.com/jelmer/dulwich"
+        path = "/jelmer/dulwich"
+
+        c = HttpGitClient.from_parsedurl(urlparse(url))
+        reconstructed_url = c.get_url(path)
+
+        # Both username and password should be preserved
+        self.assertIn(username, reconstructed_url)
+        self.assertIn(password, reconstructed_url)
+        self.assertEqual(
+            f"https://{username}:{password}@github.com/jelmer/dulwich",
+            reconstructed_url,
+        )
+
+    def test_get_url_preserves_special_chars_in_credentials(self) -> None:
+        """Test that special characters in credentials are properly escaped."""
+        # URL-encoded credentials with special characters
+        original_username = "user@domain"
+        original_password = "p@ss:word"
+        quoted_username = urlquote(original_username, safe="")
+        quoted_password = urlquote(original_password, safe="")
+
+        url = f"https://{quoted_username}:{quoted_password}@github.com/jelmer/dulwich"
+        path = "/jelmer/dulwich"
+
+        c = HttpGitClient.from_parsedurl(urlparse(url))
+        reconstructed_url = c.get_url(path)
+
+        # The reconstructed URL should have properly escaped credentials
+        self.assertIn(quoted_username, reconstructed_url)
+        self.assertIn(quoted_password, reconstructed_url)
+        # Verify the URL is valid by parsing it back
+        parsed = urlparse(reconstructed_url)
+        from urllib.parse import unquote
+
+        self.assertEqual(unquote(parsed.username), original_username)
+        self.assertEqual(unquote(parsed.password), original_password)
+
+    def test_get_url_explicit_credentials_not_in_url(self) -> None:
+        """Test that explicitly passed credentials are NOT included in get_url()."""
+        # When credentials are passed explicitly (not from URL),
+        # they should NOT appear in get_url() for security
+        base_url = "https://github.com/jelmer/dulwich"
+        path = "/jelmer/dulwich"
+        username = "explicit_user"
+        password = "explicit_pass"
+
+        c = HttpGitClient(base_url, username=username, password=password)
+        url = c.get_url(path)
+
+        # Credentials should NOT be in the URL
+        self.assertNotIn(username, url)
+        self.assertNotIn(password, url)
+        self.assertEqual("https://github.com/jelmer/dulwich", url)
+
+    def test_pool_manager_parameter(self) -> None:
+        """Test that pool_manager parameter is properly passed through."""
+        import urllib3
+
+        # Create a custom pool manager
+        custom_pool_manager = urllib3.PoolManager()
+
+        # Test with get_transport_and_path_from_url
+        url = "https://github.com/jelmer/dulwich"
+        client, _path = get_transport_and_path_from_url(
+            url, pool_manager=custom_pool_manager
+        )
+
+        # Verify the client is an HTTP client and has our custom pool manager
+        self.assertIsInstance(client, HttpGitClient)
+        self.assertIs(client.pool_manager, custom_pool_manager)
+
+        # Test with get_transport_and_path
+        client2, _path2 = get_transport_and_path(url, pool_manager=custom_pool_manager)
+
+        # Verify the client is an HTTP client and has our custom pool manager
+        self.assertIsInstance(client2, HttpGitClient)
+        self.assertIs(client2.pool_manager, custom_pool_manager)
+
+    def test_urllib3_subclass_support(self) -> None:
+        """Test that subclasses of Urllib3HttpGitClient are properly supported.
+
+        This test verifies that the bug fix for commit d1f41c5c works correctly.
+        Previously, the code used `cls is Urllib3HttpGitClient` which failed for
+        subclasses. Now it uses `issubclass(cls, Urllib3HttpGitClient)` which
+        correctly handles subclasses.
+        """
+
+        # Create a custom subclass of Urllib3HttpGitClient
+        class CustomUrllib3HttpGitClient(Urllib3HttpGitClient):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.custom_attribute = "custom_value"
+
+        # Test with AbstractHttpGitClient.from_parsedurl directly
+        # This is how subclasses use the client
+        from urllib.parse import urlparse
+
+        parsed = urlparse("https://github.com/jelmer/dulwich")
+        config = ConfigDict()
+
+        client = CustomUrllib3HttpGitClient.from_parsedurl(parsed, config=config)
+
+        # Verify the client is our custom subclass
+        self.assertIsInstance(client, CustomUrllib3HttpGitClient)
+        self.assertIsInstance(client, Urllib3HttpGitClient)
+        self.assertEqual("custom_value", client.custom_attribute)
+        # Verify the config was passed through (this was the bug - it wasn't passed to subclasses before)
+        self.assertIsNotNone(client.config)
+
+    def test_auth_callbacks(self) -> None:
+        url = "https://github.com/jelmer/dulwich"
+
+        def auth_callback(url, www_authenticate, attempt):
+            return {"username": "user", "password": "pass"}
+
+        def proxy_auth_callback(url, proxy_authenticate, attempt):
+            return {"username": "proxy_user", "password": "proxy_pass"}
+
+        c = HttpGitClient(
+            url, auth_callback=auth_callback, proxy_auth_callback=proxy_auth_callback
+        )
+
+        # Check that the pool manager is wrapped with AuthCallbackPoolManager
+        self.assertIsInstance(c.pool_manager, AuthCallbackPoolManager)
+        self.assertEqual(c._auth_callback, auth_callback)
+        self.assertEqual(c._proxy_auth_callback, proxy_auth_callback)
 
 
 class TCPGitClientTests(TestCase):
@@ -1608,11 +2241,216 @@ class TCPGitClientTests(TestCase):
         url = c.get_url(path)
         self.assertEqual("git://github.com:9090/jelmer/dulwich", url)
 
+    def test_get_url_with_ipv6(self) -> None:
+        host = "::1"
+        path = "/jelmer/dulwich"
+        c = TCPGitClient(host)
+
+        url = c.get_url(path)
+        self.assertEqual("git://[::1]/jelmer/dulwich", url)
+
+    def test_get_url_with_ipv6_and_port(self) -> None:
+        host = "2001:db8::1"
+        path = "/jelmer/dulwich"
+        port = 9090
+        c = TCPGitClient(host, port=port)
+
+        url = c.get_url(path)
+        self.assertEqual("git://[2001:db8::1]:9090/jelmer/dulwich", url)
+
+    def test_get_url_with_ipv6_default_port(self) -> None:
+        host = "2001:db8::1"
+        path = "/jelmer/dulwich"
+        port = TCP_GIT_PORT  # Default port should not be included in URL
+        c = TCPGitClient(host, port=port)
+
+        url = c.get_url(path)
+        self.assertEqual("git://[2001:db8::1]/jelmer/dulwich", url)
+
+
+class AuthCallbackPoolManagerTest(TestCase):
+    def test_http_auth_callback(self) -> None:
+        # Create a mock pool manager
+        mock_pool_manager = Mock()
+        mock_response = Mock()
+
+        # First request returns 401
+        mock_response.status = 401
+        mock_response.headers = {"WWW-Authenticate": 'Basic realm="test"'}
+
+        # Second request (after auth) returns 200
+        mock_response_success = Mock()
+        mock_response_success.status = 200
+        mock_response_success.headers = {}
+
+        mock_pool_manager.request = MagicMock(
+            side_effect=[mock_response, mock_response_success]
+        )
+
+        # Auth callback that returns credentials
+        def auth_callback(url, www_authenticate, attempt):
+            if attempt == 1:
+                return {"username": "testuser", "password": "testpass"}
+            return None
+
+        # Create the wrapper
+        auth_manager = AuthCallbackPoolManager(
+            mock_pool_manager, auth_callback=auth_callback
+        )
+
+        # Make request
+        result = auth_manager.request("GET", "https://example.com/test")
+
+        # Verify two requests were made
+        self.assertEqual(mock_pool_manager.request.call_count, 2)
+
+        # Verify auth headers were added on second request
+        second_call_kwargs = mock_pool_manager.request.call_args_list[1][1]
+        self.assertIn("headers", second_call_kwargs)
+        # urllib3 returns lowercase header names
+        self.assertIn("authorization", second_call_kwargs["headers"])
+
+        # Result should be the successful response
+        self.assertEqual(result, mock_response_success)
+
+    def test_proxy_auth_callback(self) -> None:
+        # Create a mock pool manager
+        mock_pool_manager = Mock()
+        mock_response = Mock()
+
+        # First request returns 407
+        mock_response.status = 407
+        mock_response.headers = {"Proxy-Authenticate": 'Basic realm="proxy"'}
+
+        # Second request (after auth) returns 200
+        mock_response_success = Mock()
+        mock_response_success.status = 200
+        mock_response_success.headers = {}
+
+        mock_pool_manager.request = MagicMock(
+            side_effect=[mock_response, mock_response_success]
+        )
+
+        # Proxy auth callback that returns credentials
+        def proxy_auth_callback(url, proxy_authenticate, attempt):
+            if attempt == 1:
+                return {"username": "proxyuser", "password": "proxypass"}
+            return None
+
+        # Create the wrapper
+        auth_manager = AuthCallbackPoolManager(
+            mock_pool_manager, proxy_auth_callback=proxy_auth_callback
+        )
+
+        # Make request
+        result = auth_manager.request("GET", "https://example.com/test")
+
+        # Verify two requests were made
+        self.assertEqual(mock_pool_manager.request.call_count, 2)
+
+        # Verify proxy auth headers were added on second request
+        second_call_kwargs = mock_pool_manager.request.call_args_list[1][1]
+        self.assertIn("headers", second_call_kwargs)
+        # urllib3 returns lowercase header names
+        self.assertIn("proxy-authorization", second_call_kwargs["headers"])
+
+        # Result should be the successful response
+        self.assertEqual(result, mock_response_success)
+
+    def test_max_attempts(self) -> None:
+        # Create a mock pool manager that always returns 401
+        mock_pool_manager = Mock()
+        mock_response = Mock()
+        mock_response.status = 401
+        mock_response.headers = {"WWW-Authenticate": 'Basic realm="test"'}
+        mock_pool_manager.request.return_value = mock_response
+
+        # Auth callback that always returns credentials
+        def auth_callback(url, www_authenticate, attempt):
+            return {"username": "user", "password": "pass"}
+
+        # Create the wrapper
+        auth_manager = AuthCallbackPoolManager(
+            mock_pool_manager, auth_callback=auth_callback
+        )
+
+        # Make request
+        result = auth_manager.request("GET", "https://example.com/test")
+
+        # Should have made 3 attempts (initial + 2 retries)
+        self.assertEqual(mock_pool_manager.request.call_count, 3)
+
+        # Result should be the last 401 response
+        self.assertEqual(result.status, 401)
+
 
 class DefaultUrllib3ManagerTest(TestCase):
     def test_no_config(self) -> None:
         manager = default_urllib3_manager(config=None)
         self.assertEqual(manager.connection_pool_kw["cert_reqs"], "CERT_REQUIRED")
+
+    def test_auth_callbacks(self) -> None:
+        def auth_callback(url, www_authenticate, attempt):
+            return {"username": "user", "password": "pass"}
+
+        def proxy_auth_callback(url, proxy_authenticate, attempt):
+            return {"username": "proxy_user", "password": "proxy_pass"}
+
+        manager = default_urllib3_manager(
+            config=None,
+            auth_callback=auth_callback,
+            proxy_auth_callback=proxy_auth_callback,
+        )
+        self.assertIsInstance(manager, AuthCallbackPoolManager)
+        self.assertEqual(manager._auth_callback, auth_callback)
+        self.assertEqual(manager._proxy_auth_callback, proxy_auth_callback)
+
+    def test_proxy_auth_method_unsupported(self) -> None:
+        import os
+
+        # Test with config
+        config = ConfigDict()
+        config.set((b"http",), b"proxy", b"http://user@proxy.example.com:8080")
+        config.set((b"http",), b"proxyAuthMethod", b"digest")
+
+        with self.assertRaises(NotImplementedError) as cm:
+            default_urllib3_manager(config=config)
+
+        self.assertIn("digest", str(cm.exception))
+        self.assertIn("not supported", str(cm.exception))
+
+        # Test with environment variable
+        config = ConfigDict()
+        config.set((b"http",), b"proxy", b"http://user@proxy.example.com:8080")
+
+        old_env = os.environ.get("GIT_HTTP_PROXY_AUTHMETHOD")
+        try:
+            os.environ["GIT_HTTP_PROXY_AUTHMETHOD"] = "ntlm"
+            with self.assertRaises(NotImplementedError) as cm:
+                default_urllib3_manager(config=config)
+
+            self.assertIn("ntlm", str(cm.exception))
+            self.assertIn("not supported", str(cm.exception))
+        finally:
+            if old_env is None:
+                os.environ.pop("GIT_HTTP_PROXY_AUTHMETHOD", None)
+            else:
+                os.environ["GIT_HTTP_PROXY_AUTHMETHOD"] = old_env
+
+    def test_proxy_auth_method_supported(self) -> None:
+        # Test basic auth method
+        config = ConfigDict()
+        config.set((b"http",), b"proxy", b"http://user@proxy.example.com:8080")
+        config.set((b"http",), b"proxyAuthMethod", b"basic")
+
+        # Should not raise
+        manager = default_urllib3_manager(config=config)
+        self.assertIsNotNone(manager)
+
+        # Test anyauth (default)
+        config.set((b"http",), b"proxyAuthMethod", b"anyauth")
+        manager = default_urllib3_manager(config=config)
+        self.assertIsNotNone(manager)
 
     def test_config_no_proxy(self) -> None:
         import urllib3
@@ -1856,7 +2694,6 @@ class DefaultUrllib3ManagerTest(TestCase):
 
     def test_timeout_from_config(self) -> None:
         """Test that timeout can be configured via git config."""
-        from dulwich.config import ConfigDict
 
         config = ConfigDict()
         config.set((b"http",), b"timeout", b"25")
@@ -1866,7 +2703,6 @@ class DefaultUrllib3ManagerTest(TestCase):
 
     def test_timeout_parameter_precedence(self) -> None:
         """Test that explicit timeout parameter takes precedence over config."""
-        from dulwich.config import ConfigDict
 
         config = ConfigDict()
         config.set((b"http",), b"timeout", b"25")
@@ -2181,38 +3017,38 @@ class GitCredentialStoreTests(TestCase):
         os.unlink(cls.fname)
 
     def test_nonmatching_scheme(self) -> None:
-        self.assertEqual(
-            get_credentials_from_store(b"http", b"example.org", fnames=[self.fname]),
-            None,
+        result = list(
+            get_credentials_from_store("http", "example.org", fnames=[self.fname])
         )
+        self.assertEqual(result, [])
 
     def test_nonmatching_hostname(self) -> None:
-        self.assertEqual(
-            get_credentials_from_store(b"https", b"noentry.org", fnames=[self.fname]),
-            None,
+        result = list(
+            get_credentials_from_store("https", "noentry.org", fnames=[self.fname])
         )
+        self.assertEqual(result, [])
 
     def test_match_without_username(self) -> None:
-        self.assertEqual(
-            get_credentials_from_store(b"https", b"example.org", fnames=[self.fname]),
-            (b"user", b"pass"),
+        result = list(
+            get_credentials_from_store("https", "example.org", fnames=[self.fname])
         )
+        self.assertEqual(result, [("user", "pass")])
 
     def test_match_with_matching_username(self) -> None:
-        self.assertEqual(
+        result = list(
             get_credentials_from_store(
-                b"https", b"example.org", b"user", fnames=[self.fname]
-            ),
-            (b"user", b"pass"),
+                "https", "example.org", "user", fnames=[self.fname]
+            )
         )
+        self.assertEqual(result, [("user", "pass")])
 
     def test_no_match_with_nonmatching_username(self) -> None:
-        self.assertEqual(
+        result = list(
             get_credentials_from_store(
-                b"https", b"example.org", b"otheruser", fnames=[self.fname]
-            ),
-            None,
+                "https", "example.org", "otheruser", fnames=[self.fname]
+            )
         )
+        self.assertEqual(result, [])
 
 
 class RemoteErrorFromStderrTests(TestCase):

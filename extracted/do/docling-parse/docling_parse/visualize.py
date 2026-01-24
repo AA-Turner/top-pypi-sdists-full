@@ -2,15 +2,11 @@ import argparse
 import logging
 import os
 from pathlib import Path
+from typing import Optional
 
 from docling_core.types.doc.page import SegmentedPdfPage, TextCellUnit
 
 from docling_parse.pdf_parser import DoclingPdfParser, PdfDocument
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
 
 
 def parse_args():
@@ -103,6 +99,14 @@ def parse_args():
         help="page to be displayed (default: -1 -> all)",
     )
 
+    # Add an argument for the output directory, defaulting to "./tmp"
+    parser.add_argument(
+        "--password",
+        type=str,
+        required=False,
+        help="Optional password for password-protected files",
+    )
+
     # Parse the command-line arguments
     args = parser.parse_args()
 
@@ -125,6 +129,7 @@ def parse_args():
         args.enforce_same_font,
         args.page_boundary,
         args.category,
+        args.password,
     )
 
 
@@ -140,10 +145,13 @@ def visualise_py(
     page_boundary: str = "crop_box",  # media_box
     category: str = "char",  # "both", "sanitized", "original"
     page_num: int = -1,
+    password: Optional[str] = None,
 ):
     parser = DoclingPdfParser(loglevel=log_level)
 
-    pdf_doc: PdfDocument = parser.load(path_or_stream=pdf_path, lazy=True)
+    pdf_doc: PdfDocument = parser.load(
+        path_or_stream=pdf_path, lazy=True, password=password
+    )
 
     page_nos = [page_num]
     if page_num == -1:
@@ -241,6 +249,10 @@ def visualise_py(
 
 
 def main():
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+    )
 
     (
         log_level,
@@ -254,6 +266,7 @@ def main():
         enforce_same_font,
         page_boundary,
         category,
+        password,
     ) = parse_args()
 
     logging.info(f"page_boundary: {page_boundary}")
@@ -269,6 +282,7 @@ def main():
         page_boundary=page_boundary,
         category=category,
         page_num=page_num,
+        password=password,
     )
 
 

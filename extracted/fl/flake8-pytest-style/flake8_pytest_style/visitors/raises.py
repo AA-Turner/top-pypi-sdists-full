@@ -1,6 +1,6 @@
 import ast
 
-from flake8_plugin_utils import Visitor, is_none
+from flake8_plugin_utils import Visitor
 
 from flake8_pytest_style.config import Config
 from flake8_pytest_style.errors import (
@@ -12,6 +12,7 @@ from flake8_pytest_style.utils import (
     get_qualname,
     get_simple_call_args,
     is_empty_string,
+    is_none,
     is_nontrivial_with_statement,
     is_raises_call,
     is_raises_with,
@@ -24,7 +25,7 @@ class RaisesVisitor(Visitor[Config]):
         Checks for violations regarding `pytest.raises` call args (PT010 and PT011).
         """
         args = get_simple_call_args(node)
-        exception = args.get_argument('expected_exception', position=0)
+        exception = args.get_argument("expected_exception", position=0)
         if not exception:
             self.error_from_node(RaisesWithoutException, node)
             return
@@ -32,7 +33,7 @@ class RaisesVisitor(Visitor[Config]):
         exception_name = get_qualname(exception)
         if exception_name not in self.config.raises_require_match_for:
             return
-        match = args.get_argument('match')
+        match = args.get_argument("match")
         if match is None or is_none(match) or is_empty_string(match):
             self.error_from_node(RaisesTooBroad, node, exception=exception_name)
 

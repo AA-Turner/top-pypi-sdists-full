@@ -3,7 +3,7 @@ Type annotations for socialmessaging service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -24,12 +25,6 @@ from botocore.response import StreamingBody
 
 from .literals import RegistrationStatusType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -109,7 +104,7 @@ class WhatsAppSignupCallbackTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -200,7 +195,7 @@ LibraryTemplateButtonListTypeDef = TypedDict(
         "url": NotRequired[str],
         "otpType": NotRequired[str],
         "zeroTapTermsAccepted": NotRequired[bool],
-        "supportedApps": NotRequired[List[Dict[str, str]]],
+        "supportedApps": NotRequired[list[dict[str, str]]],
     },
 )
 
@@ -328,8 +323,10 @@ UpdateWhatsAppMessageTemplateInputTypeDef = TypedDict(
     {
         "id": str,
         "metaTemplateId": str,
+        "parameterFormat": NotRequired[str],
         "templateCategory": NotRequired[str],
         "templateComponents": NotRequired[BlobTypeDef],
+        "ctaUrlLinkTrackingOptedOut": NotRequired[bool],
     },
 )
 CreateWhatsAppMessageTemplateMediaInputTypeDef = TypedDict(
@@ -348,7 +345,7 @@ class GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef(TypedDict):
 class LinkedWhatsAppBusinessAccountIdMetaDataTypeDef(TypedDict):
     accountName: NotRequired[str]
     registrationStatus: NotRequired[RegistrationStatusType]
-    unregisteredWhatsAppPhoneNumbers: NotRequired[List[WhatsAppPhoneNumberDetailTypeDef]]
+    unregisteredWhatsAppPhoneNumbers: NotRequired[list[WhatsAppPhoneNumberDetailTypeDef]]
     wabaId: NotRequired[str]
 
 class GetWhatsAppMessageMediaInputTypeDef(TypedDict):
@@ -377,11 +374,12 @@ class MetaLibraryTemplateDefinitionTypeDef(TypedDict):
     templateCategory: NotRequired[str]
     templateTopic: NotRequired[str]
     templateUseCase: NotRequired[str]
-    templateIndustry: NotRequired[List[str]]
+    templateIndustry: NotRequired[list[str]]
     templateHeader: NotRequired[str]
     templateBody: NotRequired[str]
-    templateButtons: NotRequired[List[LibraryTemplateButtonListTypeDef]]
+    templateButtons: NotRequired[list[LibraryTemplateButtonListTypeDef]]
     templateId: NotRequired[str]
+    templateBodyExampleParams: NotRequired[list[str]]
 
 LinkedWhatsAppBusinessAccountSummaryTypeDef = TypedDict(
     "LinkedWhatsAppBusinessAccountSummaryTypeDef",
@@ -392,7 +390,7 @@ LinkedWhatsAppBusinessAccountSummaryTypeDef = TypedDict(
         "registrationStatus": RegistrationStatusType,
         "linkDate": datetime,
         "wabaName": str,
-        "eventDestinations": List[WhatsAppBusinessAccountEventDestinationTypeDef],
+        "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
     },
 )
 PutWhatsAppBusinessAccountEventDestinationsInputTypeDef = TypedDict(
@@ -411,8 +409,8 @@ LinkedWhatsAppBusinessAccountTypeDef = TypedDict(
         "registrationStatus": RegistrationStatusType,
         "linkDate": datetime,
         "wabaName": str,
-        "eventDestinations": List[WhatsAppBusinessAccountEventDestinationTypeDef],
-        "phoneNumbers": List[WhatsAppPhoneNumberSummaryTypeDef],
+        "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
+        "phoneNumbers": list[WhatsAppPhoneNumberSummaryTypeDef],
     },
 )
 
@@ -437,7 +435,7 @@ ListWhatsAppTemplateLibraryInputPaginateTypeDef = TypedDict(
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     statusCode: int
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceInputTypeDef(TypedDict):
@@ -463,14 +461,14 @@ WabaSetupFinalizationTypeDef = TypedDict(
 )
 
 class ListWhatsAppMessageTemplatesOutputTypeDef(TypedDict):
-    templates: List[TemplateSummaryTypeDef]
+    templates: list[TemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class WhatsAppSignupCallbackResultTypeDef(TypedDict):
     associateInProgressToken: NotRequired[str]
     linkedAccountsWithIncompleteSetup: NotRequired[
-        Dict[str, LinkedWhatsAppBusinessAccountIdMetaDataTypeDef]
+        dict[str, LinkedWhatsAppBusinessAccountIdMetaDataTypeDef]
     ]
 
 CreateWhatsAppMessageTemplateFromLibraryInputTypeDef = TypedDict(
@@ -482,12 +480,12 @@ CreateWhatsAppMessageTemplateFromLibraryInputTypeDef = TypedDict(
 )
 
 class ListWhatsAppTemplateLibraryOutputTypeDef(TypedDict):
-    metaLibraryTemplates: List[MetaLibraryTemplateDefinitionTypeDef]
+    metaLibraryTemplates: list[MetaLibraryTemplateDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListLinkedWhatsAppBusinessAccountsOutputTypeDef(TypedDict):
-    linkedAccounts: List[LinkedWhatsAppBusinessAccountSummaryTypeDef]
+    linkedAccounts: list[LinkedWhatsAppBusinessAccountSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

@@ -38,6 +38,20 @@ For more information, please refer to <https://unlicense.org>
 
 _cao_hunting_endpoints = [
   [
+    "AggregateHuntingGuides",
+    "POST",
+    "/hunting/aggregates/hunting-guides/v1",
+    "Aggregate Hunting Guides",
+    "cao_hunting",
+    [
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
     "AggregateIntelligenceQueries",
     "POST",
     "/hunting/aggregates/intelligence-queries/v1",
@@ -60,7 +74,9 @@ _cao_hunting_endpoints = [
     [
       {
         "type": "string",
-        "description": "The Query Language. Accepted Values:\n\n<li>cql</li><li>snort</li><li>suricata</li><li>yara</li>",
+        "description": "The Query Language. Accepted "
+        "Values:\n\n<li>cql</li><li>snort</li><li>suricata</li><li>yara</li><li>SPL <i>AI translated "
+        "(Beta)</i></li><li>__all__ <i>returns a single archive with queries in all the languages</i></li> ",
         "name": "language",
         "in": "query",
         "required": True
@@ -73,9 +89,30 @@ _cao_hunting_endpoints = [
       },
       {
         "type": "string",
-        "description": "The Archive Type can be one of 'zip' and 'gzip'. Defaults to 'zip'.",
+        "default": "zip",
+        "description": "The Archive Type can be one of 'zip' and 'gzip'",
         "name": "archive_type",
         "in": "query"
+      }
+    ]
+  ],
+  [
+    "GetHuntingGuides",
+    "GET",
+    "/hunting/entities/hunting-guides/v1",
+    "Retrieves a list of Hunting Guides",
+    "cao_hunting",
+    [
+      {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "collectionFormat": "multi",
+        "description": "Hunting Guides IDs",
+        "name": "ids",
+        "in": "query",
+        "required": True
       }
     ]
   ],
@@ -83,7 +120,7 @@ _cao_hunting_endpoints = [
     "GetIntelligenceQueries",
     "GET",
     "/hunting/entities/intelligence-queries/v1",
-    "Retrieves a list of Intelligence queries",
+    "Retrieves the details of a list of Intelligence queries IDs",
     "cao_hunting",
     [
       {
@@ -96,6 +133,56 @@ _cao_hunting_endpoints = [
         "name": "ids",
         "in": "query",
         "required": True
+      },
+      {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "collectionFormat": "multi",
+        "description": "The AI translated language that should be returned if it exists<br>Accepted values "
+        "are: <li>SPL</li><li>\\_\\_all\\_\\_</li>",
+        "name": "include_translated_content",
+        "in": "query"
+      }
+    ]
+  ],
+  [
+    "SearchHuntingGuides",
+    "GET",
+    "/hunting/queries/hunting-guides/v1",
+    "Search for Hunting Guides that match the provided conditions",
+    "cao_hunting",
+    [
+      {
+        "type": "string",
+        "description": "Starting index of result set from which to return IDs.",
+        "name": "offset",
+        "in": "query"
+      },
+      {
+        "type": "integer",
+        "description": "Number of IDs to return.",
+        "name": "limit",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "Order by fields.",
+        "name": "sort",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "FQL query specifying the filter parameters.",
+        "name": "filter",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "Match phrase_prefix query criteria; included fields: _all (all filter string fields indexed).",
+        "name": "q",
+        "in": "query"
       }
     ]
   ],
@@ -103,7 +190,7 @@ _cao_hunting_endpoints = [
     "SearchIntelligenceQueries",
     "GET",
     "/hunting/queries/intelligence-queries/v1",
-    "Search intelligence queries that match the provided conditions",
+    "Search for a list of intelligence queries IDs that match the provided conditions",
     "cao_hunting",
     [
       {

@@ -215,9 +215,14 @@ def sourcelines(thing: object) -> Tuple[str, int, Tuple[str, ...]]:
 
 def frame_summary_for_fn(
     fn: Callable, frames: traceback.StackSummary
-) -> Tuple[str, int]:
+) -> Tuple[Optional[str], int]:
     fn_name = fn.__name__
-    fn_file = cast(str, getsourcefile(fn))
+    try:
+        fn_file = getsourcefile(fn)  # Can return None OR raise TypeError
+    except TypeError:
+        fn_file = None
+    if fn_file is None:
+        return (None, 0)
     for frame in reversed(frames):
         if frame.name == fn_name and samefile(frame.filename, fn_file):
             return (frame.filename, frame.lineno or 1)
@@ -368,7 +373,7 @@ def format_boundargs_as_dictionary(bound_args: BoundArguments) -> str:
 
 def format_boundargs(bound_args: BoundArguments) -> str:
     arg_strings: List[str] = []
-    for (name, param) in bound_args.signature.parameters.items():
+    for name, param in bound_args.signature.parameters.items():
         param_kind = param.kind
         vals = bound_args.arguments.get(name, param.default)
         if param_kind == Parameter.VAR_POSITIONAL:
@@ -503,9 +508,9 @@ class EvalFriendlyReprContext:
             oid = id(obj)
             typ = type(obj)
             if obj in instance_overrides:
-                repr_fn: Callable[
-                    [Any], Union[str, ReferencedIdentifier]
-                ] = instance_overrides[obj]
+                repr_fn: Callable[[Any], Union[str, ReferencedIdentifier]] = (
+                    instance_overrides[obj]
+                )
             elif typ == float:
                 if math.isfinite(obj):
                     repr_fn = repr
@@ -543,7 +548,7 @@ class EvalFriendlyReprContext:
         counts = collections.Counter(re.compile(r"\b_ch_efr_\d+_\b").findall(output))
         assignment_remaps = {}
         nextvarnum = 1
-        for (varname, count) in counts.items():
+        for varname, count in counts.items():
             if count > 1:
                 assignment_remaps[varname + ":="] = f"v{nextvarnum}:="
                 assignment_remaps[varname] = f"v{nextvarnum}"
@@ -625,7 +630,7 @@ class DynamicScopeVar(Generic[_T]):
 
 class AttributeHolder:
     def __init__(self, attrs: Mapping[str, object]):
-        for (k, v) in attrs.items():
+        for k, v in attrs.items():
             self.__dict__[k] = v
 
 

@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -16,30 +16,6 @@ class SafeHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandl
         ...
 
     def __init__(self, owns_handle: bool) -> None:
-        """This method is protected."""
-        ...
-
-
-class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle."""
-        ...
-
-    @overload
-    def __init__(self, existing_handle: System.IntPtr, owns_handle: bool) -> None:
-        """
-        Creates a Microsoft.Win32.SafeHandles.SafeWaitHandle around a wait handle.
-        
-        :param existing_handle: Handle to wrap
-        :param owns_handle: Whether to control the handle lifetime
-        """
-        ...
-
-    def release_handle(self) -> bool:
-        """This method is protected."""
         ...
 
 
@@ -55,33 +31,29 @@ class SafeFileHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInval
         ...
 
     @overload
+    def __init__(self, preexisting_handle: System.IntPtr, owns_handle: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    def release_handle(self) -> bool:
+        ...
+
+
+class SafeWaitHandle(Microsoft.Win32.SafeHandles.SafeHandleZeroOrMinusOneIsInvalid):
+    """This class has no documentation."""
+
+    @overload
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, preexisting_handle: System.IntPtr, owns_handle: bool) -> None:
-        """
-        Creates a Microsoft.Win32.SafeHandles.SafeFileHandle around a file handle.
-        
-        :param preexisting_handle: Handle to wrap
-        :param owns_handle: Whether to control the handle lifetime
-        """
+    def __init__(self, existing_handle: System.IntPtr, owns_handle: bool) -> None:
         ...
 
     def release_handle(self) -> bool:
-        """This method is protected."""
-        ...
-
-
-class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def is_invalid(self) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        """This method is protected."""
         ...
 
 
@@ -93,7 +65,6 @@ class CriticalHandleMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHan
         ...
 
     def __init__(self) -> None:
-        """This method is protected."""
         ...
 
 
@@ -105,7 +76,17 @@ class SafeHandleMinusOneIsInvalid(System.Runtime.InteropServices.SafeHandle, met
         ...
 
     def __init__(self, owns_handle: bool) -> None:
-        """This method is protected."""
+        ...
+
+
+class CriticalHandleZeroOrMinusOneIsInvalid(System.Runtime.InteropServices.CriticalHandle, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def is_invalid(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
         ...
 
 

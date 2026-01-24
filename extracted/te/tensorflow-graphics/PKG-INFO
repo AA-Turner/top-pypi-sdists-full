@@ -1,0 +1,18 @@
+Metadata-Version: 2.1
+Name: tensorflow-graphics
+Version: 2021.12.3
+Summary: A library that contains well defined, reusable and cleanly written graphics related ops and utility functions for TensorFlow.
+Home-page: https://github.com/tensorflow/graphics
+Author: Google LLC
+Author-email: tf-graphics-eng@google.com
+License: Apache 2.0
+Keywords: machine learning,tensorflow,graphics,geometry,3D
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Scientific/Engineering :: Mathematics
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+License-File: LICENSE
+
+UNKNOWN
+

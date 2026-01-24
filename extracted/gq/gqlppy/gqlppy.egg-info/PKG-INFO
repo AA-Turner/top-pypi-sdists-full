@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: gqlppy
+Version: 0.6.0
+Summary: An ISO GQL parser and checker
+Home-page: https://github.com/alexmilowski/gqlppy
+Author: Alex Miłowski
+Author-email: alex@milowski.com
+License: Apache License, Version 2.0, January 2004
+Keywords: graph,graph database,ISO GQL,property graph
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: lark
+Dynamic: license-file
+
+
+ISO GQL Parser and Checker

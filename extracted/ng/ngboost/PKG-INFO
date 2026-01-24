@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: ngboost
-Version: 0.5.6
+Version: 0.5.8
 Summary: Library for probabilistic predictions via gradient boosting.
 License: Apache-2.0
 Author: Stanford ML Group
 Author-email: avati@cs.stanford.edu
-Requires-Python: >=3.9,<3.13
+Requires-Python: >=3.9,<3.14
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
@@ -13,10 +13,13 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Dist: lifelines (>=0.25)
-Requires-Dist: numpy (>=1.21.2)
+Requires-Dist: numpy (>=1.21.2) ; python_version < "3.13"
+Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
 Requires-Dist: scikit-learn (>=1.6,<2.0)
-Requires-Dist: scipy (>=1.7.2)
+Requires-Dist: scipy (>=1.14.1) ; python_version >= "3.13"
+Requires-Dist: scipy (>=1.7.2) ; python_version < "3.13"
 Requires-Dist: tqdm (>=4.3)
 Project-URL: Documentation, https://stanfordmlgroup.github.io/ngboost/intro
 Project-URL: Homepage, https://github.com/stanfordmlgroup/ngboost
@@ -57,14 +60,13 @@ Probabilistic regression example on the Boston housing dataset:
 ```python
 from ngboost import NGBRegressor
 
+from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 
-#Load Boston housing dataset
-data_url = "http://lib.stat.cmu.edu/datasets/boston"
-raw_df = pd.read_csv(data_url, sep=r"\s+", skiprows=22, header=None)
-X = np.hstack([raw_df.values[::2, :], raw_df.values[1::2, :2]])
-Y = raw_df.values[1::2, 2]
+# Load California housing dataset
+cal = fetch_california_housing()
+X, Y = cal.data, cal.target
 
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
 

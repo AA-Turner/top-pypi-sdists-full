@@ -28,7 +28,7 @@ import re
 from functools import partial
 from hashlib import md5
 
-from translate.convert import dtd2po
+from translate.convert import convert, dtd2po
 from translate.storage import factory
 from translate.storage.placeables import StringElem, general
 from translate.storage.placeables import parse as rich_parse
@@ -57,17 +57,18 @@ class podebug:
         rewritestyle=None,
         ignoreoption=None,
         preserveplaceholders=False,
-    ):
+    ) -> None:
         if format is None:
             self.format = ""
         else:
             self.format = format
+        self.rewritestyle = rewritestyle
         self.rewritefunc = getattr(self, f"rewrite_{rewritestyle}", None)
         self.ignorefunc = getattr(self, f"ignore_{ignoreoption}", None)
         self.preserveplaceholders = preserveplaceholders
 
     @staticmethod
-    def apply_to_translatables(string, func):
+    def apply_to_translatables(string, func) -> None:
         """Applies func to all translatable strings in string."""
         string.map(
             lambda e: e.apply_to_strings(func),
@@ -97,7 +98,7 @@ class podebug:
                     lastnode.sub[-1] = lastnode.sub[-1].rstrip("\n")
             except IndexError:
                 pass
-            string.sub.append(append + "\n")
+            string.sub.append(f"{append}\n")
         else:
             string.sub.append(append)
         return string
@@ -182,9 +183,7 @@ class podebug:
 
         return "".join(transformed)
 
-    REWRITE_UNICODE_MAP = (
-        "ȦƁƇḒḖƑƓĦĪĴĶĿḾȠǾƤɊŘŞŦŬṼẆẊẎẐ" + "[\\]^_`" + "ȧƀƈḓḗƒɠħīĵķŀḿƞǿƥɋřşŧŭṽẇẋẏẑ"
-    )
+    REWRITE_UNICODE_MAP = "ȦƁƇḒḖƑƓĦĪĴĶĿḾȠǾƤɊŘŞŦŬṼẆẊẎẐ[\\]^_`ȧƀƈḓḗƒɠħīĵķŀḿƞǿƥɋřşŧŭṽẇẋẏẑ"
 
     def rewrite_unicode(self, string):
         """Convert to Unicode characters that look like the source string."""
@@ -232,12 +231,10 @@ class podebug:
                 return char
             return self.REWRITE_FLIPPED_MAP[loc]
 
-        def transformer(s):
+        def transformer(s) -> str:
             if self.preserveplaceholders:
-                return "\u202e" + self.transform_characters_preserving_placeholders(
-                    s, transpose
-                )
-            return "\u202e" + "".join(transpose(c) for c in s)
+                return f"\u202e{self.transform_characters_preserving_placeholders(s, transpose)}"
+            return f"\u202e{''.join(transpose(c) for c in s)}"
             # To reverse instead of using the RTL override:
             # return ''.join(reversed([transpose(c) for c in s]))
 
@@ -270,7 +267,7 @@ class podebug:
         ]
 
     @staticmethod
-    def ignore_openoffice(unit):
+    def ignore_openoffice(unit) -> bool:
         for location in unit.getlocations():
             if location.startswith("Common.xcu#..Common.View.Localisation"):
                 return True
@@ -284,7 +281,7 @@ class podebug:
         return self.ignore_openoffice(unit)
 
     @staticmethod
-    def ignore_mozilla(unit):
+    def ignore_mozilla(unit) -> bool:
         locations = unit.getlocations()
         if len(locations) == 1 and locations[0].lower().endswith(".accesskey"):
             return True
@@ -306,14 +303,15 @@ class podebug:
         return unit.source == "LTR"
 
     def convertunit(self, unit, prefix):
-        if self.ignorefunc:
-            if self.ignorefunc(unit):
-                return unit
+        if self.ignorefunc and self.ignorefunc(unit):
+            return unit
         if prefix.find("@hash_placeholder@") != -1:
             hashable = unit.getlocations()[0] if unit.getlocations() else unit.source
             prefix = prefix.replace(
                 "@hash_placeholder@",
-                md5(hashable.encode("utf-8")).hexdigest()[: self.hash_len],
+                md5(hashable.encode("utf-8"), usedforsecurity=False).hexdigest()[
+                    : self.hash_len
+                ],
             )
         rich_string = unit.rich_target if unit.istranslated() else unit.rich_source
         if not isinstance(rich_string, StringElem):
@@ -324,6 +322,9 @@ class podebug:
             rewritten = [self.rewritefunc(string) for string in rich_string]
             if rewritten:
                 rich_string = rewritten
+        # Clear fuzzy flag when blanking translations
+        if self.rewritestyle == "blank" and unit.isfuzzy():
+            unit.markfuzzy(False)
         unit.rich_target = add_prefix(prefix, rich_string)
         return unit
 
@@ -372,16 +373,16 @@ class podebug:
 
     @staticmethod
     def shrinkfilename(filename):
-        if filename.startswith("." + os.sep):
-            filename = filename.replace("." + os.sep, "", 1)
+        if filename.startswith(f".{os.sep}"):
+            filename = filename.replace(f".{os.sep}", "", 1)
         dirname = os.path.dirname(filename)
         dirparts = dirname.split(os.sep)
         if not dirparts:
             dirshrunk = ""
         else:
-            dirshrunk = dirparts[0][:4] + "-"
+            dirshrunk = f"{dirparts[0][:4]}-"
             if len(dirparts) > 1:
-                dirshrunk += "".join(dirpart[0] for dirpart in dirparts[1:]) + "-"
+                dirshrunk += f"{''.join(dirpart[0] for dirpart in dirparts[1:])}-"
         baseshrunk = os.path.basename(filename)[:4]
         if "." in baseshrunk:
             baseshrunk = baseshrunk[: baseshrunk.find(".")]
@@ -396,7 +397,7 @@ def convertpo(
     rewritestyle=None,
     ignoreoption=None,
     preserveplaceholders=None,
-):
+) -> int:
     """Reads in inputfile, changes it to have debug strings, writes to outputfile."""
     # note that templatefile is not used, but it is required by the converter...
     inputstore = factory.getobject(inputfile)
@@ -413,9 +414,7 @@ def convertpo(
     return 1
 
 
-def main():
-    from translate.convert import convert
-
+def main() -> None:
     formats = {
         "po": ("po", convertpo),
         "pot": ("po", convertpo),
@@ -435,9 +434,7 @@ def main():
         type="choice",
         choices=podebug.rewritelist(),
         metavar="STYLE",
-        help="the translation rewrite style: {}".format(
-            ", ".join(podebug.rewritelist())
-        ),
+        help=f"the translation rewrite style: {', '.join(podebug.rewritelist())}",
     )
     parser.add_option(
         "",
@@ -446,9 +443,7 @@ def main():
         type="choice",
         choices=podebug.ignorelist(),
         metavar="APPLICATION",
-        help="apply tagging ignore rules for the given application: {}".format(
-            ", ".join(podebug.ignorelist())
-        ),
+        help=f"apply tagging ignore rules for the given application: {', '.join(podebug.ignorelist())}",
     )
     parser.add_option(
         "",

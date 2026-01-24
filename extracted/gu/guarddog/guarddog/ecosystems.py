@@ -6,6 +6,8 @@ class ECOSYSTEM(Enum):
     NPM = "npm"
     GO = "go"
     GITHUB_ACTION = "github-action"
+    EXTENSION = "extension"
+    RUBYGEMS = "rubygems"
 
 
 def get_friendly_name(ecosystem: ECOSYSTEM) -> str:
@@ -18,5 +20,9 @@ def get_friendly_name(ecosystem: ECOSYSTEM) -> str:
             return "go"
         case ECOSYSTEM.GITHUB_ACTION:
             return "GitHub Action"
+        case ECOSYSTEM.EXTENSION:
+            return "Extension"
+        case ECOSYSTEM.RUBYGEMS:
+            return "RubyGems"
         case _:
             return ecosystem.value

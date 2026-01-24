@@ -1,6 +1,7 @@
+from collections.abc import Iterable
 from datetime import datetime
 from enum import StrEnum
-from typing import IO, Iterable, List, Optional, TypedDict, Union
+from typing import IO, TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -559,8 +560,8 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 409
-    ResourceId: Optional[ResourceId]
-    ResourceType: Optional[ResourceType]
+    ResourceId: ResourceId | None
+    ResourceType: ResourceType | None
 
 
 class InternalServerException(ServiceException):
@@ -577,8 +578,8 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 404
-    ResourceId: Optional[ResourceId]
-    ResourceType: Optional[ResourceType]
+    ResourceId: ResourceId | None
+    ResourceType: ResourceType | None
 
 
 class ThrottlingException(ServiceException):
@@ -595,7 +596,7 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceName: Optional[AmazonResourceName]
+    ResourceName: AmazonResourceName | None
 
 
 class ValidationException(ServiceException):
@@ -609,33 +610,33 @@ class ValidationException(ServiceException):
 class SessionKeysAbpV1_0_x(TypedDict, total=False):
     """Session keys for ABP v1.1"""
 
-    NwkSKey: Optional[NwkSKey]
-    AppSKey: Optional[AppSKey]
+    NwkSKey: NwkSKey | None
+    AppSKey: AppSKey | None
 
 
 class AbpV1_0_x(TypedDict, total=False):
     """ABP device object for LoRaWAN specification v1.0.x"""
 
-    DevAddr: Optional[DevAddr]
-    SessionKeys: Optional[SessionKeysAbpV1_0_x]
-    FCntStart: Optional[FCntStart]
+    DevAddr: DevAddr | None
+    SessionKeys: SessionKeysAbpV1_0_x | None
+    FCntStart: FCntStart | None
 
 
 class SessionKeysAbpV1_1(TypedDict, total=False):
     """Session keys for ABP v1.1"""
 
-    FNwkSIntKey: Optional[FNwkSIntKey]
-    SNwkSIntKey: Optional[SNwkSIntKey]
-    NwkSEncKey: Optional[NwkSEncKey]
-    AppSKey: Optional[AppSKey]
+    FNwkSIntKey: FNwkSIntKey | None
+    SNwkSIntKey: SNwkSIntKey | None
+    NwkSEncKey: NwkSEncKey | None
+    AppSKey: AppSKey | None
 
 
 class AbpV1_1(TypedDict, total=False):
     """ABP device object for LoRaWAN specification v1.1"""
 
-    DevAddr: Optional[DevAddr]
-    SessionKeys: Optional[SessionKeysAbpV1_1]
-    FCntStart: Optional[FCntStart]
+    DevAddr: DevAddr | None
+    SessionKeys: SessionKeysAbpV1_1 | None
+    FCntStart: FCntStart | None
 
 
 class Accuracy(TypedDict, total=False):
@@ -646,8 +647,8 @@ class Accuracy(TypedDict, total=False):
     by solver.
     """
 
-    HorizontalAccuracy: Optional[HorizontalAccuracy]
-    VerticalAccuracy: Optional[VerticalAccuracy]
+    HorizontalAccuracy: HorizontalAccuracy | None
+    VerticalAccuracy: VerticalAccuracy | None
 
 
 class ApplicationConfig(TypedDict, total=False):
@@ -655,13 +656,13 @@ class ApplicationConfig(TypedDict, total=False):
     geolocation.
     """
 
-    FPort: Optional[FPort]
-    Type: Optional[ApplicationConfigType]
-    DestinationName: Optional[DestinationName]
+    FPort: FPort | None
+    Type: ApplicationConfigType | None
+    DestinationName: DestinationName | None
 
 
-Applications = List[ApplicationConfig]
-AssistPosition = List[Coordinate]
+Applications = list[ApplicationConfig]
+AssistPosition = list[Coordinate]
 
 
 class Tag(TypedDict, total=False):
@@ -671,25 +672,25 @@ class Tag(TypedDict, total=False):
     Value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class SidewalkAccountInfo(TypedDict, total=False):
     """Information about a Sidewalk account."""
 
-    AmazonId: Optional[AmazonId]
-    AppServerPrivateKey: Optional[AppServerPrivateKey]
+    AmazonId: AmazonId | None
+    AppServerPrivateKey: AppServerPrivateKey | None
 
 
 class AssociateAwsAccountWithPartnerAccountRequest(ServiceRequest):
     Sidewalk: SidewalkAccountInfo
-    ClientRequestToken: Optional[ClientRequestToken]
-    Tags: Optional[TagList]
+    ClientRequestToken: ClientRequestToken | None
+    Tags: TagList | None
 
 
 class AssociateAwsAccountWithPartnerAccountResponse(TypedDict, total=False):
-    Sidewalk: Optional[SidewalkAccountInfo]
-    Arn: Optional[PartnerAccountArn]
+    Sidewalk: SidewalkAccountInfo | None
+    Arn: PartnerAccountArn | None
 
 
 class AssociateMulticastGroupWithFuotaTaskRequest(ServiceRequest):
@@ -734,7 +735,7 @@ class AssociateWirelessGatewayWithCertificateRequest(ServiceRequest):
 
 
 class AssociateWirelessGatewayWithCertificateResponse(TypedDict, total=False):
-    IotCertificateId: Optional[IotCertificateId]
+    IotCertificateId: IotCertificateId | None
 
 
 class AssociateWirelessGatewayWithThingRequest(ServiceRequest):
@@ -746,14 +747,14 @@ class AssociateWirelessGatewayWithThingResponse(TypedDict, total=False):
     pass
 
 
-BeaconingFrequencies = List[BeaconingFrequency]
+BeaconingFrequencies = list[BeaconingFrequency]
 
 
 class Beaconing(TypedDict, total=False):
     """Beaconing parameters for configuring the wireless gateways."""
 
-    DataRate: Optional[BeaconingDataRate]
-    Frequencies: Optional[BeaconingFrequencies]
+    DataRate: BeaconingDataRate | None
+    Frequencies: BeaconingFrequencies | None
 
 
 class CancelMulticastGroupSessionRequest(ServiceRequest):
@@ -769,11 +770,11 @@ class CdmaNmrObj(TypedDict, total=False):
 
     PnOffset: PnOffset
     CdmaChannel: CdmaChannel
-    PilotPower: Optional[PilotPower]
-    BaseStationId: Optional[BaseStationId]
+    PilotPower: PilotPower | None
+    BaseStationId: BaseStationId | None
 
 
-CdmaNmrList = List[CdmaNmrObj]
+CdmaNmrList = list[CdmaNmrObj]
 
 
 class CdmaLocalId(TypedDict, total=False):
@@ -791,15 +792,15 @@ class CdmaObj(TypedDict, total=False):
     SystemId: SystemId
     NetworkId: NetworkId
     BaseStationId: BaseStationId
-    RegistrationZone: Optional[RegistrationZone]
-    CdmaLocalId: Optional[CdmaLocalId]
-    PilotPower: Optional[PilotPower]
-    BaseLat: Optional[BaseLat]
-    BaseLng: Optional[BaseLng]
-    CdmaNmr: Optional[CdmaNmrList]
+    RegistrationZone: RegistrationZone | None
+    CdmaLocalId: CdmaLocalId | None
+    PilotPower: PilotPower | None
+    BaseLat: BaseLat | None
+    BaseLng: BaseLng | None
+    CdmaNmr: CdmaNmrList | None
 
 
-CdmaList = List[CdmaObj]
+CdmaList = list[CdmaObj]
 
 
 class LteNmrObj(TypedDict, total=False):
@@ -807,12 +808,12 @@ class LteNmrObj(TypedDict, total=False):
 
     Pci: PCI
     Earfcn: EARFCN
-    EutranCid: Optional[EutranCid]
-    Rsrp: Optional[RSRP]
-    Rsrq: Optional[RSRQ]
+    EutranCid: EutranCid | None
+    Rsrp: RSRP | None
+    Rsrq: RSRQ | None
 
 
-LteNmrList = List[LteNmrObj]
+LteNmrList = list[LteNmrObj]
 
 
 class LteLocalId(TypedDict, total=False):
@@ -828,16 +829,16 @@ class LteObj(TypedDict, total=False):
     Mcc: MCC
     Mnc: MNC
     EutranCid: EutranCid
-    Tac: Optional[TAC]
-    LteLocalId: Optional[LteLocalId]
-    LteTimingAdvance: Optional[LteTimingAdvance]
-    Rsrp: Optional[RSRP]
-    Rsrq: Optional[RSRQ]
-    NrCapable: Optional[NRCapable]
-    LteNmr: Optional[LteNmrList]
+    Tac: TAC | None
+    LteLocalId: LteLocalId | None
+    LteTimingAdvance: LteTimingAdvance | None
+    Rsrp: RSRP | None
+    Rsrq: RSRQ | None
+    NrCapable: NRCapable | None
+    LteNmr: LteNmrList | None
 
 
-LteList = List[LteObj]
+LteList = list[LteObj]
 
 
 class TdscdmaNmrObj(TypedDict, total=False):
@@ -845,12 +846,12 @@ class TdscdmaNmrObj(TypedDict, total=False):
 
     Uarfcn: UARFCN
     CellParams: CellParams
-    UtranCid: Optional[UtranCid]
-    Rscp: Optional[RSCP]
-    PathLoss: Optional[PathLoss]
+    UtranCid: UtranCid | None
+    Rscp: RSCP | None
+    PathLoss: PathLoss | None
 
 
-TdscdmaNmrList = List[TdscdmaNmrObj]
+TdscdmaNmrList = list[TdscdmaNmrObj]
 
 
 class TdscdmaLocalId(TypedDict, total=False):
@@ -865,16 +866,16 @@ class TdscdmaObj(TypedDict, total=False):
 
     Mcc: MCC
     Mnc: MNC
-    Lac: Optional[LAC]
+    Lac: LAC | None
     UtranCid: UtranCid
-    TdscdmaLocalId: Optional[TdscdmaLocalId]
-    TdscdmaTimingAdvance: Optional[TdscdmaTimingAdvance]
-    Rscp: Optional[RSCP]
-    PathLoss: Optional[PathLoss]
-    TdscdmaNmr: Optional[TdscdmaNmrList]
+    TdscdmaLocalId: TdscdmaLocalId | None
+    TdscdmaTimingAdvance: TdscdmaTimingAdvance | None
+    Rscp: RSCP | None
+    PathLoss: PathLoss | None
+    TdscdmaNmr: TdscdmaNmrList | None
 
 
-TdscdmaList = List[TdscdmaObj]
+TdscdmaList = list[TdscdmaObj]
 
 
 class WcdmaNmrObj(TypedDict, total=False):
@@ -883,11 +884,11 @@ class WcdmaNmrObj(TypedDict, total=False):
     Uarfcndl: UARFCNDL
     Psc: PSC
     UtranCid: UtranCid
-    Rscp: Optional[RSCP]
-    PathLoss: Optional[PathLoss]
+    Rscp: RSCP | None
+    PathLoss: PathLoss | None
 
 
-WcdmaNmrList = List[WcdmaNmrObj]
+WcdmaNmrList = list[WcdmaNmrObj]
 
 
 class WcdmaLocalId(TypedDict, total=False):
@@ -902,15 +903,15 @@ class WcdmaObj(TypedDict, total=False):
 
     Mcc: MCC
     Mnc: MNC
-    Lac: Optional[LAC]
+    Lac: LAC | None
     UtranCid: UtranCid
-    WcdmaLocalId: Optional[WcdmaLocalId]
-    Rscp: Optional[RSCP]
-    PathLoss: Optional[PathLoss]
-    WcdmaNmr: Optional[WcdmaNmrList]
+    WcdmaLocalId: WcdmaLocalId | None
+    Rscp: RSCP | None
+    PathLoss: PathLoss | None
+    WcdmaNmr: WcdmaNmrList | None
 
 
-WcdmaList = List[WcdmaObj]
+WcdmaList = list[WcdmaObj]
 
 
 class GlobalIdentity(TypedDict, total=False):
@@ -925,11 +926,11 @@ class GsmNmrObj(TypedDict, total=False):
 
     Bsic: BSIC
     Bcch: BCCH
-    RxLevel: Optional[RxLevel]
-    GlobalIdentity: Optional[GlobalIdentity]
+    RxLevel: RxLevel | None
+    GlobalIdentity: GlobalIdentity | None
 
 
-GsmNmrList = List[GsmNmrObj]
+GsmNmrList = list[GsmNmrObj]
 
 
 class GsmLocalId(TypedDict, total=False):
@@ -948,23 +949,23 @@ class GsmObj(TypedDict, total=False):
     Mnc: MNC
     Lac: LAC
     GeranCid: GeranCid
-    GsmLocalId: Optional[GsmLocalId]
-    GsmTimingAdvance: Optional[GsmTimingAdvance]
-    RxLevel: Optional[RxLevel]
-    GsmNmr: Optional[GsmNmrList]
+    GsmLocalId: GsmLocalId | None
+    GsmTimingAdvance: GsmTimingAdvance | None
+    RxLevel: RxLevel | None
+    GsmNmr: GsmNmrList | None
 
 
-GsmList = List[GsmObj]
+GsmList = list[GsmObj]
 
 
 class CellTowers(TypedDict, total=False):
     """The cell towers that were used to perform the measurements."""
 
-    Gsm: Optional[GsmList]
-    Wcdma: Optional[WcdmaList]
-    Tdscdma: Optional[TdscdmaList]
-    Lte: Optional[LteList]
-    Cdma: Optional[CdmaList]
+    Gsm: GsmList | None
+    Wcdma: WcdmaList | None
+    Tdscdma: TdscdmaList | None
+    Lte: LteList | None
+    Cdma: CdmaList | None
 
 
 class CertificateList(TypedDict, total=False):
@@ -977,7 +978,7 @@ class CertificateList(TypedDict, total=False):
 class LoRaWANConnectionStatusEventNotificationConfigurations(TypedDict, total=False):
     """Object for LoRaWAN connection status resource type event configuration."""
 
-    GatewayEuiEventTopic: Optional[EventNotificationTopicStatus]
+    GatewayEuiEventTopic: EventNotificationTopicStatus | None
 
 
 class ConnectionStatusEventConfiguration(TypedDict, total=False):
@@ -985,14 +986,14 @@ class ConnectionStatusEventConfiguration(TypedDict, total=False):
     topic.
     """
 
-    LoRaWAN: Optional[LoRaWANConnectionStatusEventNotificationConfigurations]
-    WirelessGatewayIdEventTopic: Optional[EventNotificationTopicStatus]
+    LoRaWAN: LoRaWANConnectionStatusEventNotificationConfigurations | None
+    WirelessGatewayIdEventTopic: EventNotificationTopicStatus | None
 
 
 class LoRaWANConnectionStatusResourceTypeEventConfiguration(TypedDict, total=False):
     """Object for LoRaWAN connection status resource type event configuration."""
 
-    WirelessGatewayEventTopic: Optional[EventNotificationTopicStatus]
+    WirelessGatewayEventTopic: EventNotificationTopicStatus | None
 
 
 class ConnectionStatusResourceTypeEventConfiguration(TypedDict, total=False):
@@ -1000,7 +1001,7 @@ class ConnectionStatusResourceTypeEventConfiguration(TypedDict, total=False):
     or disabling topic.
     """
 
-    LoRaWAN: Optional[LoRaWANConnectionStatusResourceTypeEventConfiguration]
+    LoRaWAN: LoRaWANConnectionStatusResourceTypeEventConfiguration | None
 
 
 Crc = int
@@ -1010,15 +1011,15 @@ class CreateDestinationRequest(ServiceRequest):
     Name: DestinationName
     ExpressionType: ExpressionType
     Expression: Expression
-    Description: Optional[Description]
+    Description: Description | None
     RoleArn: RoleArn
-    Tags: Optional[TagList]
-    ClientRequestToken: Optional[ClientRequestToken]
+    Tags: TagList | None
+    ClientRequestToken: ClientRequestToken | None
 
 
 class CreateDestinationResponse(TypedDict, total=False):
-    Arn: Optional[DestinationArn]
-    Name: Optional[DestinationName]
+    Arn: DestinationArn | None
+    Name: DestinationName | None
 
 
 class SidewalkCreateDeviceProfile(TypedDict, total=False):
@@ -1027,72 +1028,72 @@ class SidewalkCreateDeviceProfile(TypedDict, total=False):
     pass
 
 
-FactoryPresetFreqsList = List[PresetFreq]
+FactoryPresetFreqsList = list[PresetFreq]
 
 
 class LoRaWANDeviceProfile(TypedDict, total=False):
     """LoRaWANDeviceProfile object."""
 
-    SupportsClassB: Optional[SupportsClassB]
-    ClassBTimeout: Optional[ClassBTimeout]
-    PingSlotPeriod: Optional[PingSlotPeriod]
-    PingSlotDr: Optional[PingSlotDr]
-    PingSlotFreq: Optional[PingSlotFreq]
-    SupportsClassC: Optional[SupportsClassC]
-    ClassCTimeout: Optional[ClassCTimeout]
-    MacVersion: Optional[MacVersion]
-    RegParamsRevision: Optional[RegParamsRevision]
-    RxDelay1: Optional[RxDelay1]
-    RxDrOffset1: Optional[RxDrOffset1]
-    RxDataRate2: Optional[RxDataRate2]
-    RxFreq2: Optional[RxFreq2]
-    FactoryPresetFreqsList: Optional[FactoryPresetFreqsList]
-    MaxEirp: Optional[MaxEirp]
-    MaxDutyCycle: Optional[MaxDutyCycle]
-    RfRegion: Optional[RfRegion]
-    SupportsJoin: Optional[SupportsJoin]
-    Supports32BitFCnt: Optional[Supports32BitFCnt]
+    SupportsClassB: SupportsClassB | None
+    ClassBTimeout: ClassBTimeout | None
+    PingSlotPeriod: PingSlotPeriod | None
+    PingSlotDr: PingSlotDr | None
+    PingSlotFreq: PingSlotFreq | None
+    SupportsClassC: SupportsClassC | None
+    ClassCTimeout: ClassCTimeout | None
+    MacVersion: MacVersion | None
+    RegParamsRevision: RegParamsRevision | None
+    RxDelay1: RxDelay1 | None
+    RxDrOffset1: RxDrOffset1 | None
+    RxDataRate2: RxDataRate2 | None
+    RxFreq2: RxFreq2 | None
+    FactoryPresetFreqsList: FactoryPresetFreqsList | None
+    MaxEirp: MaxEirp | None
+    MaxDutyCycle: MaxDutyCycle | None
+    RfRegion: RfRegion | None
+    SupportsJoin: SupportsJoin | None
+    Supports32BitFCnt: Supports32BitFCnt | None
 
 
 class CreateDeviceProfileRequest(ServiceRequest):
-    Name: Optional[DeviceProfileName]
-    LoRaWAN: Optional[LoRaWANDeviceProfile]
-    Tags: Optional[TagList]
-    ClientRequestToken: Optional[ClientRequestToken]
-    Sidewalk: Optional[SidewalkCreateDeviceProfile]
+    Name: DeviceProfileName | None
+    LoRaWAN: LoRaWANDeviceProfile | None
+    Tags: TagList | None
+    ClientRequestToken: ClientRequestToken | None
+    Sidewalk: SidewalkCreateDeviceProfile | None
 
 
 class CreateDeviceProfileResponse(TypedDict, total=False):
-    Arn: Optional[DeviceProfileArn]
-    Id: Optional[DeviceProfileId]
+    Arn: DeviceProfileArn | None
+    Id: DeviceProfileId | None
 
 
 class LoRaWANFuotaTask(TypedDict, total=False):
     """The LoRaWAN information used with a FUOTA task."""
 
-    RfRegion: Optional[SupportedRfRegion]
+    RfRegion: SupportedRfRegion | None
 
 
 class CreateFuotaTaskRequest(ServiceRequest):
-    Name: Optional[FuotaTaskName]
-    Description: Optional[Description]
-    ClientRequestToken: Optional[ClientRequestToken]
-    LoRaWAN: Optional[LoRaWANFuotaTask]
+    Name: FuotaTaskName | None
+    Description: Description | None
+    ClientRequestToken: ClientRequestToken | None
+    LoRaWAN: LoRaWANFuotaTask | None
     FirmwareUpdateImage: FirmwareUpdateImage
     FirmwareUpdateRole: FirmwareUpdateRole
-    Tags: Optional[TagList]
-    RedundancyPercent: Optional[RedundancyPercent]
-    FragmentSizeBytes: Optional[FragmentSizeBytes]
-    FragmentIntervalMS: Optional[FragmentIntervalMS]
-    Descriptor: Optional[FileDescriptor]
+    Tags: TagList | None
+    RedundancyPercent: RedundancyPercent | None
+    FragmentSizeBytes: FragmentSizeBytes | None
+    FragmentIntervalMS: FragmentIntervalMS | None
+    Descriptor: FileDescriptor | None
 
 
 class CreateFuotaTaskResponse(TypedDict, total=False):
-    Arn: Optional[FuotaTaskArn]
-    Id: Optional[FuotaTaskId]
+    Arn: FuotaTaskArn | None
+    Id: FuotaTaskId | None
 
 
-GatewayListMulticast = List[WirelessGatewayId]
+GatewayListMulticast = list[WirelessGatewayId]
 
 
 class ParticipatingGatewaysMulticast(TypedDict, total=False):
@@ -1102,224 +1103,232 @@ class ParticipatingGatewaysMulticast(TypedDict, total=False):
     each message.
     """
 
-    GatewayList: Optional[GatewayListMulticast]
-    TransmissionInterval: Optional[TransmissionIntervalMulticast]
+    GatewayList: GatewayListMulticast | None
+    TransmissionInterval: TransmissionIntervalMulticast | None
 
 
 class LoRaWANMulticast(TypedDict, total=False):
     """The LoRaWAN information that is to be used with the multicast group."""
 
-    RfRegion: Optional[SupportedRfRegion]
-    DlClass: Optional[DlClass]
-    ParticipatingGateways: Optional[ParticipatingGatewaysMulticast]
+    RfRegion: SupportedRfRegion | None
+    DlClass: DlClass | None
+    ParticipatingGateways: ParticipatingGatewaysMulticast | None
 
 
 class CreateMulticastGroupRequest(ServiceRequest):
-    Name: Optional[MulticastGroupName]
-    Description: Optional[Description]
-    ClientRequestToken: Optional[ClientRequestToken]
+    Name: MulticastGroupName | None
+    Description: Description | None
+    ClientRequestToken: ClientRequestToken | None
     LoRaWAN: LoRaWANMulticast
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateMulticastGroupResponse(TypedDict, total=False):
-    Arn: Optional[MulticastGroupArn]
-    Id: Optional[MulticastGroupId]
+    Arn: MulticastGroupArn | None
+    Id: MulticastGroupId | None
 
 
-NetworkAnalyzerMulticastGroupList = List[MulticastGroupId]
-WirelessGatewayList = List[WirelessGatewayId]
-WirelessDeviceList = List[WirelessDeviceId]
+NetworkAnalyzerMulticastGroupList = list[MulticastGroupId]
+WirelessGatewayList = list[WirelessGatewayId]
+WirelessDeviceList = list[WirelessDeviceId]
 
 
 class TraceContent(TypedDict, total=False):
     """Trace content for your wireless devices, gateways, and multicast groups."""
 
-    WirelessDeviceFrameInfo: Optional[WirelessDeviceFrameInfo]
-    LogLevel: Optional[LogLevel]
-    MulticastFrameInfo: Optional[MulticastFrameInfo]
+    WirelessDeviceFrameInfo: WirelessDeviceFrameInfo | None
+    LogLevel: LogLevel | None
+    MulticastFrameInfo: MulticastFrameInfo | None
 
 
 class CreateNetworkAnalyzerConfigurationRequest(ServiceRequest):
     Name: NetworkAnalyzerConfigurationName
-    TraceContent: Optional[TraceContent]
-    WirelessDevices: Optional[WirelessDeviceList]
-    WirelessGateways: Optional[WirelessGatewayList]
-    Description: Optional[Description]
-    Tags: Optional[TagList]
-    ClientRequestToken: Optional[ClientRequestToken]
-    MulticastGroups: Optional[NetworkAnalyzerMulticastGroupList]
+    TraceContent: TraceContent | None
+    WirelessDevices: WirelessDeviceList | None
+    WirelessGateways: WirelessGatewayList | None
+    Description: Description | None
+    Tags: TagList | None
+    ClientRequestToken: ClientRequestToken | None
+    MulticastGroups: NetworkAnalyzerMulticastGroupList | None
 
 
 class CreateNetworkAnalyzerConfigurationResponse(TypedDict, total=False):
-    Arn: Optional[NetworkAnalyzerConfigurationArn]
-    Name: Optional[NetworkAnalyzerConfigurationName]
+    Arn: NetworkAnalyzerConfigurationArn | None
+    Name: NetworkAnalyzerConfigurationName | None
 
 
 class LoRaWANServiceProfile(TypedDict, total=False):
     """LoRaWANServiceProfile object."""
 
-    AddGwMetadata: Optional[AddGwMetadata]
-    DrMin: Optional[DrMinBox]
-    DrMax: Optional[DrMaxBox]
-    PrAllowed: Optional[PrAllowed]
-    RaAllowed: Optional[RaAllowed]
-    TxPowerIndexMin: Optional[TxPowerIndexMin]
-    TxPowerIndexMax: Optional[TxPowerIndexMax]
-    NbTransMin: Optional[NbTransMin]
-    NbTransMax: Optional[NbTransMax]
+    AddGwMetadata: AddGwMetadata | None
+    DrMin: DrMinBox | None
+    DrMax: DrMaxBox | None
+    PrAllowed: PrAllowed | None
+    RaAllowed: RaAllowed | None
+    TxPowerIndexMin: TxPowerIndexMin | None
+    TxPowerIndexMax: TxPowerIndexMax | None
+    NbTransMin: NbTransMin | None
+    NbTransMax: NbTransMax | None
 
 
 class CreateServiceProfileRequest(ServiceRequest):
-    Name: Optional[ServiceProfileName]
-    LoRaWAN: Optional[LoRaWANServiceProfile]
-    Tags: Optional[TagList]
-    ClientRequestToken: Optional[ClientRequestToken]
+    Name: ServiceProfileName | None
+    LoRaWAN: LoRaWANServiceProfile | None
+    Tags: TagList | None
+    ClientRequestToken: ClientRequestToken | None
 
 
 class CreateServiceProfileResponse(TypedDict, total=False):
-    Arn: Optional[ServiceProfileArn]
-    Id: Optional[ServiceProfileId]
+    Arn: ServiceProfileArn | None
+    Id: ServiceProfileId | None
+
+
+class SidewalkPositioning(TypedDict, total=False):
+    """The Positioning object of the Sidewalk device."""
+
+    DestinationName: DestinationName | None
 
 
 class SidewalkCreateWirelessDevice(TypedDict, total=False):
     """Sidewalk object for creating a wireless device."""
 
-    DeviceProfileId: Optional[DeviceProfileId]
+    DeviceProfileId: DeviceProfileId | None
+    Positioning: SidewalkPositioning | None
+    SidewalkManufacturingSn: SidewalkManufacturingSn | None
 
 
 class Positioning(TypedDict, total=False):
     """The FPorts for the position information."""
 
-    ClockSync: Optional[FPort]
-    Stream: Optional[FPort]
-    Gnss: Optional[FPort]
+    ClockSync: FPort | None
+    Stream: FPort | None
+    Gnss: FPort | None
 
 
 class FPorts(TypedDict, total=False):
     """List of FPort assigned for different LoRaWAN application packages to use"""
 
-    Fuota: Optional[FPort]
-    Multicast: Optional[FPort]
-    ClockSync: Optional[FPort]
-    Positioning: Optional[Positioning]
-    Applications: Optional[Applications]
+    Fuota: FPort | None
+    Multicast: FPort | None
+    ClockSync: FPort | None
+    Positioning: Positioning | None
+    Applications: Applications | None
 
 
 class OtaaV1_0_x(TypedDict, total=False):
     """OTAA device object for v1.0.x"""
 
-    AppKey: Optional[AppKey]
-    AppEui: Optional[AppEui]
-    JoinEui: Optional[JoinEui]
-    GenAppKey: Optional[GenAppKey]
+    AppKey: AppKey | None
+    AppEui: AppEui | None
+    JoinEui: JoinEui | None
+    GenAppKey: GenAppKey | None
 
 
 class OtaaV1_1(TypedDict, total=False):
     """OTAA device object for v1.1"""
 
-    AppKey: Optional[AppKey]
-    NwkKey: Optional[NwkKey]
-    JoinEui: Optional[JoinEui]
+    AppKey: AppKey | None
+    NwkKey: NwkKey | None
+    JoinEui: JoinEui | None
 
 
 class LoRaWANDevice(TypedDict, total=False):
     """LoRaWAN object for create functions."""
 
-    DevEui: Optional[DevEui]
-    DeviceProfileId: Optional[DeviceProfileId]
-    ServiceProfileId: Optional[ServiceProfileId]
-    OtaaV1_1: Optional[OtaaV1_1]
-    OtaaV1_0_x: Optional[OtaaV1_0_x]
-    AbpV1_1: Optional[AbpV1_1]
-    AbpV1_0_x: Optional[AbpV1_0_x]
-    FPorts: Optional[FPorts]
+    DevEui: DevEui | None
+    DeviceProfileId: DeviceProfileId | None
+    ServiceProfileId: ServiceProfileId | None
+    OtaaV1_1: OtaaV1_1 | None
+    OtaaV1_0_x: OtaaV1_0_x | None
+    AbpV1_1: AbpV1_1 | None
+    AbpV1_0_x: AbpV1_0_x | None
+    FPorts: FPorts | None
 
 
 class CreateWirelessDeviceRequest(ServiceRequest):
     Type: WirelessDeviceType
-    Name: Optional[WirelessDeviceName]
-    Description: Optional[Description]
+    Name: WirelessDeviceName | None
+    Description: Description | None
     DestinationName: DestinationName
-    ClientRequestToken: Optional[ClientRequestToken]
-    LoRaWAN: Optional[LoRaWANDevice]
-    Tags: Optional[TagList]
-    Positioning: Optional[PositioningConfigStatus]
-    Sidewalk: Optional[SidewalkCreateWirelessDevice]
+    ClientRequestToken: ClientRequestToken | None
+    LoRaWAN: LoRaWANDevice | None
+    Tags: TagList | None
+    Positioning: PositioningConfigStatus | None
+    Sidewalk: SidewalkCreateWirelessDevice | None
 
 
 class CreateWirelessDeviceResponse(TypedDict, total=False):
-    Arn: Optional[WirelessDeviceArn]
-    Id: Optional[WirelessDeviceId]
+    Arn: WirelessDeviceArn | None
+    Id: WirelessDeviceId | None
 
 
-SubBands = List[SubBand]
-NetIdFilters = List[NetId]
-JoinEuiRange = List[JoinEui]
-JoinEuiFilters = List[JoinEuiRange]
+SubBands = list[SubBand]
+NetIdFilters = list[NetId]
+JoinEuiRange = list[JoinEui]
+JoinEuiFilters = list[JoinEuiRange]
 
 
 class LoRaWANGateway(TypedDict, total=False):
     """LoRaWANGateway object."""
 
-    GatewayEui: Optional[GatewayEui]
-    RfRegion: Optional[RfRegion]
-    JoinEuiFilters: Optional[JoinEuiFilters]
-    NetIdFilters: Optional[NetIdFilters]
-    SubBands: Optional[SubBands]
-    Beaconing: Optional[Beaconing]
-    MaxEirp: Optional[GatewayMaxEirp]
+    GatewayEui: GatewayEui | None
+    RfRegion: RfRegion | None
+    JoinEuiFilters: JoinEuiFilters | None
+    NetIdFilters: NetIdFilters | None
+    SubBands: SubBands | None
+    Beaconing: Beaconing | None
+    MaxEirp: GatewayMaxEirp | None
 
 
 class CreateWirelessGatewayRequest(ServiceRequest):
-    Name: Optional[WirelessGatewayName]
-    Description: Optional[Description]
+    Name: WirelessGatewayName | None
+    Description: Description | None
     LoRaWAN: LoRaWANGateway
-    Tags: Optional[TagList]
-    ClientRequestToken: Optional[ClientRequestToken]
+    Tags: TagList | None
+    ClientRequestToken: ClientRequestToken | None
 
 
 class CreateWirelessGatewayResponse(TypedDict, total=False):
-    Arn: Optional[WirelessGatewayArn]
-    Id: Optional[WirelessDeviceId]
+    Arn: WirelessGatewayArn | None
+    Id: WirelessDeviceId | None
 
 
 class LoRaWANGatewayVersion(TypedDict, total=False):
     """LoRaWANGatewayVersion object."""
 
-    PackageVersion: Optional[PackageVersion]
-    Model: Optional[Model]
-    Station: Optional[Station]
+    PackageVersion: PackageVersion | None
+    Model: Model | None
+    Station: Station | None
 
 
 class LoRaWANUpdateGatewayTaskCreate(TypedDict, total=False):
     """LoRaWANUpdateGatewayTaskCreate object."""
 
-    UpdateSignature: Optional[UpdateSignature]
-    SigKeyCrc: Optional[Crc]
-    CurrentVersion: Optional[LoRaWANGatewayVersion]
-    UpdateVersion: Optional[LoRaWANGatewayVersion]
+    UpdateSignature: UpdateSignature | None
+    SigKeyCrc: Crc | None
+    CurrentVersion: LoRaWANGatewayVersion | None
+    UpdateVersion: LoRaWANGatewayVersion | None
 
 
 class UpdateWirelessGatewayTaskCreate(TypedDict, total=False):
     """UpdateWirelessGatewayTaskCreate object."""
 
-    UpdateDataSource: Optional[UpdateDataSource]
-    UpdateDataRole: Optional[UpdateDataSource]
-    LoRaWAN: Optional[LoRaWANUpdateGatewayTaskCreate]
+    UpdateDataSource: UpdateDataSource | None
+    UpdateDataRole: UpdateDataSource | None
+    LoRaWAN: LoRaWANUpdateGatewayTaskCreate | None
 
 
 class CreateWirelessGatewayTaskDefinitionRequest(ServiceRequest):
     AutoCreateTasks: AutoCreateTasks
-    Name: Optional[WirelessGatewayTaskName]
-    Update: Optional[UpdateWirelessGatewayTaskCreate]
-    ClientRequestToken: Optional[ClientRequestToken]
-    Tags: Optional[TagList]
+    Name: WirelessGatewayTaskName | None
+    Update: UpdateWirelessGatewayTaskCreate | None
+    ClientRequestToken: ClientRequestToken | None
+    Tags: TagList | None
 
 
 class CreateWirelessGatewayTaskDefinitionResponse(TypedDict, total=False):
-    Id: Optional[WirelessGatewayTaskDefinitionId]
-    Arn: Optional[WirelessGatewayTaskDefinitionArn]
+    Id: WirelessGatewayTaskDefinitionId | None
+    Arn: WirelessGatewayTaskDefinitionArn | None
 
 
 class CreateWirelessGatewayTaskRequest(ServiceRequest):
@@ -1328,8 +1337,8 @@ class CreateWirelessGatewayTaskRequest(ServiceRequest):
 
 
 class CreateWirelessGatewayTaskResponse(TypedDict, total=False):
-    WirelessGatewayTaskDefinitionId: Optional[WirelessGatewayTaskDefinitionId]
-    Status: Optional[WirelessGatewayTaskStatus]
+    WirelessGatewayTaskDefinitionId: WirelessGatewayTaskDefinitionId | None
+    Status: WirelessGatewayTaskStatus | None
 
 
 CreatedAt = datetime
@@ -1341,13 +1350,13 @@ class DakCertificateMetadata(TypedDict, total=False):
     """The device attestation key (DAK) information."""
 
     CertificateId: DakCertificateId
-    MaxAllowedSignature: Optional[MaxAllowedSignature]
-    FactorySupport: Optional[FactorySupport]
-    ApId: Optional[ApId]
-    DeviceTypeId: Optional[DeviceTypeId]
+    MaxAllowedSignature: MaxAllowedSignature | None
+    FactorySupport: FactorySupport | None
+    ApId: ApId | None
+    DeviceTypeId: DeviceTypeId | None
 
 
-DakCertificateMetadataList = List[DakCertificateMetadata]
+DakCertificateMetadataList = list[DakCertificateMetadata]
 
 
 class DeleteDestinationRequest(ServiceRequest):
@@ -1393,7 +1402,7 @@ class DeleteNetworkAnalyzerConfigurationResponse(TypedDict, total=False):
 class DeleteQueuedMessagesRequest(ServiceRequest):
     Id: WirelessDeviceId
     MessageId: MessageId
-    WirelessDeviceType: Optional[WirelessDeviceType]
+    WirelessDeviceType: WirelessDeviceType | None
 
 
 class DeleteQueuedMessagesResponse(TypedDict, total=False):
@@ -1450,7 +1459,7 @@ class DeleteWirelessGatewayTaskResponse(TypedDict, total=False):
 
 class DeregisterWirelessDeviceRequest(ServiceRequest):
     Identifier: Identifier
-    WirelessDeviceType: Optional[WirelessDeviceType]
+    WirelessDeviceType: WirelessDeviceType | None
 
 
 class DeregisterWirelessDeviceResponse(TypedDict, total=False):
@@ -1460,28 +1469,28 @@ class DeregisterWirelessDeviceResponse(TypedDict, total=False):
 class Destinations(TypedDict, total=False):
     """Describes a destination."""
 
-    Arn: Optional[DestinationArn]
-    Name: Optional[DestinationName]
-    ExpressionType: Optional[ExpressionType]
-    Expression: Optional[Expression]
-    Description: Optional[Description]
-    RoleArn: Optional[RoleArn]
+    Arn: DestinationArn | None
+    Name: DestinationName | None
+    ExpressionType: ExpressionType | None
+    Expression: Expression | None
+    Description: Description | None
+    RoleArn: RoleArn | None
 
 
-DestinationList = List[Destinations]
-DeviceCertificateList = List[CertificateList]
-DeviceCreationFileList = List[DeviceCreationFile]
+DestinationList = list[Destinations]
+DeviceCertificateList = list[CertificateList]
+DeviceCreationFileList = list[DeviceCreationFile]
 
 
 class DeviceProfile(TypedDict, total=False):
     """Describes a device profile."""
 
-    Arn: Optional[DeviceProfileArn]
-    Name: Optional[DeviceProfileName]
-    Id: Optional[DeviceProfileId]
+    Arn: DeviceProfileArn | None
+    Name: DeviceProfileName | None
+    Id: DeviceProfileId | None
 
 
-DeviceProfileList = List[DeviceProfile]
+DeviceProfileList = list[DeviceProfile]
 
 
 class SidewalkEventNotificationConfigurations(TypedDict, total=False):
@@ -1489,7 +1498,7 @@ class SidewalkEventNotificationConfigurations(TypedDict, total=False):
     configuration object for Sidewalk-related event topics.
     """
 
-    AmazonIdEventTopic: Optional[EventNotificationTopicStatus]
+    AmazonIdEventTopic: EventNotificationTopicStatus | None
 
 
 class DeviceRegistrationStateEventConfiguration(TypedDict, total=False):
@@ -1497,8 +1506,8 @@ class DeviceRegistrationStateEventConfiguration(TypedDict, total=False):
     disabling relevant topics.
     """
 
-    Sidewalk: Optional[SidewalkEventNotificationConfigurations]
-    WirelessDeviceIdEventTopic: Optional[EventNotificationTopicStatus]
+    Sidewalk: SidewalkEventNotificationConfigurations | None
+    WirelessDeviceIdEventTopic: EventNotificationTopicStatus | None
 
 
 class SidewalkResourceTypeEventConfiguration(TypedDict, total=False):
@@ -1506,7 +1515,7 @@ class SidewalkResourceTypeEventConfiguration(TypedDict, total=False):
     disabling topic.
     """
 
-    WirelessDeviceEventTopic: Optional[EventNotificationTopicStatus]
+    WirelessDeviceEventTopic: EventNotificationTopicStatus | None
 
 
 class DeviceRegistrationStateResourceTypeEventConfiguration(TypedDict, total=False):
@@ -1514,17 +1523,17 @@ class DeviceRegistrationStateResourceTypeEventConfiguration(TypedDict, total=Fal
     enabling or disabling topic.
     """
 
-    Sidewalk: Optional[SidewalkResourceTypeEventConfiguration]
+    Sidewalk: SidewalkResourceTypeEventConfiguration | None
 
 
 class Dimension(TypedDict, total=False):
     """The required list of dimensions for the metric."""
 
-    name: Optional[DimensionName]
-    value: Optional[DimensionValue]
+    name: DimensionName | None
+    value: DimensionValue | None
 
 
-Dimensions = List[Dimension]
+Dimensions = list[Dimension]
 
 
 class DisassociateAwsAccountFromPartnerAccountRequest(ServiceRequest):
@@ -1596,7 +1605,7 @@ class GatewayListItem(TypedDict, total=False):
     DownlinkFrequency: DownlinkFrequency
 
 
-GatewayList = List[GatewayListItem]
+GatewayList = list[GatewayListItem]
 
 
 class ParticipatingGateways(TypedDict, total=False):
@@ -1612,20 +1621,20 @@ class ParticipatingGateways(TypedDict, total=False):
 class LoRaWANSendDataToDevice(TypedDict, total=False):
     """LoRaWAN router info."""
 
-    FPort: Optional[FPort]
-    ParticipatingGateways: Optional[ParticipatingGateways]
+    FPort: FPort | None
+    ParticipatingGateways: ParticipatingGateways | None
 
 
 class DownlinkQueueMessage(TypedDict, total=False):
     """The message in the downlink queue."""
 
-    MessageId: Optional[MessageId]
-    TransmitMode: Optional[TransmitMode]
-    ReceivedAt: Optional[ISODateTimeString]
-    LoRaWAN: Optional[LoRaWANSendDataToDevice]
+    MessageId: MessageId | None
+    TransmitMode: TransmitMode | None
+    ReceivedAt: ISODateTimeString | None
+    LoRaWAN: LoRaWANSendDataToDevice | None
 
 
-DownlinkQueueMessagesList = List[DownlinkQueueMessage]
+DownlinkQueueMessagesList = list[DownlinkQueueMessage]
 
 
 class MessageDeliveryStatusEventConfiguration(TypedDict, total=False):
@@ -1633,21 +1642,21 @@ class MessageDeliveryStatusEventConfiguration(TypedDict, total=False):
     disabling relevant topics.
     """
 
-    Sidewalk: Optional[SidewalkEventNotificationConfigurations]
-    WirelessDeviceIdEventTopic: Optional[EventNotificationTopicStatus]
+    Sidewalk: SidewalkEventNotificationConfigurations | None
+    WirelessDeviceIdEventTopic: EventNotificationTopicStatus | None
 
 
 class LoRaWANJoinEventNotificationConfigurations(TypedDict, total=False):
     """Object for LoRaWAN join resource type event configuration."""
 
-    DevEuiEventTopic: Optional[EventNotificationTopicStatus]
+    DevEuiEventTopic: EventNotificationTopicStatus | None
 
 
 class JoinEventConfiguration(TypedDict, total=False):
     """Join event configuration object for enabling or disabling topic."""
 
-    LoRaWAN: Optional[LoRaWANJoinEventNotificationConfigurations]
-    WirelessDeviceIdEventTopic: Optional[EventNotificationTopicStatus]
+    LoRaWAN: LoRaWANJoinEventNotificationConfigurations | None
+    WirelessDeviceIdEventTopic: EventNotificationTopicStatus | None
 
 
 class ProximityEventConfiguration(TypedDict, total=False):
@@ -1655,38 +1664,38 @@ class ProximityEventConfiguration(TypedDict, total=False):
     topics.
     """
 
-    Sidewalk: Optional[SidewalkEventNotificationConfigurations]
-    WirelessDeviceIdEventTopic: Optional[EventNotificationTopicStatus]
+    Sidewalk: SidewalkEventNotificationConfigurations | None
+    WirelessDeviceIdEventTopic: EventNotificationTopicStatus | None
 
 
 class EventNotificationItemConfigurations(TypedDict, total=False):
     """Object of all event configurations and the status of the event topics."""
 
-    DeviceRegistrationState: Optional[DeviceRegistrationStateEventConfiguration]
-    Proximity: Optional[ProximityEventConfiguration]
-    Join: Optional[JoinEventConfiguration]
-    ConnectionStatus: Optional[ConnectionStatusEventConfiguration]
-    MessageDeliveryStatus: Optional[MessageDeliveryStatusEventConfiguration]
+    DeviceRegistrationState: DeviceRegistrationStateEventConfiguration | None
+    Proximity: ProximityEventConfiguration | None
+    Join: JoinEventConfiguration | None
+    ConnectionStatus: ConnectionStatusEventConfiguration | None
+    MessageDeliveryStatus: MessageDeliveryStatusEventConfiguration | None
 
 
 class EventConfigurationItem(TypedDict, total=False):
     """Event configuration object for a single resource."""
 
-    Identifier: Optional[Identifier]
-    IdentifierType: Optional[IdentifierType]
-    PartnerType: Optional[EventNotificationPartnerType]
-    Events: Optional[EventNotificationItemConfigurations]
+    Identifier: Identifier | None
+    IdentifierType: IdentifierType | None
+    PartnerType: EventNotificationPartnerType | None
+    Events: EventNotificationItemConfigurations | None
 
 
-EventConfigurationsList = List[EventConfigurationItem]
+EventConfigurationsList = list[EventConfigurationItem]
 
 
 class FuotaTask(TypedDict, total=False):
     """A FUOTA task."""
 
-    Id: Optional[FuotaTaskId]
-    Arn: Optional[FuotaTaskArn]
-    Name: Optional[FuotaTaskName]
+    Id: FuotaTaskId | None
+    Arn: FuotaTaskArn | None
+    Name: FuotaTaskName | None
 
 
 class FuotaTaskEventLogOption(TypedDict, total=False):
@@ -1701,8 +1710,8 @@ class FuotaTaskEventLogOption(TypedDict, total=False):
     LogLevel: LogLevel
 
 
-FuotaTaskEventLogOptionList = List[FuotaTaskEventLogOption]
-FuotaTaskList = List[FuotaTask]
+FuotaTaskEventLogOptionList = list[FuotaTaskEventLogOption]
+FuotaTaskList = list[FuotaTask]
 
 
 class FuotaTaskLogOption(TypedDict, total=False):
@@ -1712,10 +1721,10 @@ class FuotaTaskLogOption(TypedDict, total=False):
 
     Type: FuotaTaskType
     LogLevel: LogLevel
-    Events: Optional[FuotaTaskEventLogOptionList]
+    Events: FuotaTaskEventLogOptionList | None
 
 
-FuotaTaskLogOptionList = List[FuotaTaskLogOption]
+FuotaTaskLogOptionList = list[FuotaTaskLogOption]
 GeoJsonPayload = bytes
 
 
@@ -1724,12 +1733,12 @@ class GetDestinationRequest(ServiceRequest):
 
 
 class GetDestinationResponse(TypedDict, total=False):
-    Arn: Optional[DestinationArn]
-    Name: Optional[DestinationName]
-    Expression: Optional[Expression]
-    ExpressionType: Optional[ExpressionType]
-    Description: Optional[Description]
-    RoleArn: Optional[RoleArn]
+    Arn: DestinationArn | None
+    Name: DestinationName | None
+    Expression: Expression | None
+    ExpressionType: ExpressionType | None
+    Description: Description | None
+    RoleArn: RoleArn | None
 
 
 class GetDeviceProfileRequest(ServiceRequest):
@@ -1739,17 +1748,17 @@ class GetDeviceProfileRequest(ServiceRequest):
 class SidewalkGetDeviceProfile(TypedDict, total=False):
     """Gets information about a Sidewalk device profile."""
 
-    ApplicationServerPublicKey: Optional[ApplicationServerPublicKey]
-    QualificationStatus: Optional[QualificationStatus]
-    DakCertificateMetadata: Optional[DakCertificateMetadataList]
+    ApplicationServerPublicKey: ApplicationServerPublicKey | None
+    QualificationStatus: QualificationStatus | None
+    DakCertificateMetadata: DakCertificateMetadataList | None
 
 
 class GetDeviceProfileResponse(TypedDict, total=False):
-    Arn: Optional[DeviceProfileArn]
-    Name: Optional[DeviceProfileName]
-    Id: Optional[DeviceProfileId]
-    LoRaWAN: Optional[LoRaWANDeviceProfile]
-    Sidewalk: Optional[SidewalkGetDeviceProfile]
+    Arn: DeviceProfileArn | None
+    Name: DeviceProfileName | None
+    Id: DeviceProfileId | None
+    LoRaWAN: LoRaWANDeviceProfile | None
+    Sidewalk: SidewalkGetDeviceProfile | None
 
 
 class GetEventConfigurationByResourceTypesRequest(ServiceRequest):
@@ -1761,13 +1770,13 @@ class MessageDeliveryStatusResourceTypeEventConfiguration(TypedDict, total=False
     enabling or disabling relevant topic.
     """
 
-    Sidewalk: Optional[SidewalkResourceTypeEventConfiguration]
+    Sidewalk: SidewalkResourceTypeEventConfiguration | None
 
 
 class LoRaWANJoinResourceTypeEventConfiguration(TypedDict, total=False):
     """Object for LoRaWAN join resource type event configuration."""
 
-    WirelessDeviceEventTopic: Optional[EventNotificationTopicStatus]
+    WirelessDeviceEventTopic: EventNotificationTopicStatus | None
 
 
 class JoinResourceTypeEventConfiguration(TypedDict, total=False):
@@ -1775,7 +1784,7 @@ class JoinResourceTypeEventConfiguration(TypedDict, total=False):
     topic.
     """
 
-    LoRaWAN: Optional[LoRaWANJoinResourceTypeEventConfiguration]
+    LoRaWAN: LoRaWANJoinResourceTypeEventConfiguration | None
 
 
 class ProximityResourceTypeEventConfiguration(TypedDict, total=False):
@@ -1783,15 +1792,15 @@ class ProximityResourceTypeEventConfiguration(TypedDict, total=False):
     disabling topic.
     """
 
-    Sidewalk: Optional[SidewalkResourceTypeEventConfiguration]
+    Sidewalk: SidewalkResourceTypeEventConfiguration | None
 
 
 class GetEventConfigurationByResourceTypesResponse(TypedDict, total=False):
-    DeviceRegistrationState: Optional[DeviceRegistrationStateResourceTypeEventConfiguration]
-    Proximity: Optional[ProximityResourceTypeEventConfiguration]
-    Join: Optional[JoinResourceTypeEventConfiguration]
-    ConnectionStatus: Optional[ConnectionStatusResourceTypeEventConfiguration]
-    MessageDeliveryStatus: Optional[MessageDeliveryStatusResourceTypeEventConfiguration]
+    DeviceRegistrationState: DeviceRegistrationStateResourceTypeEventConfiguration | None
+    Proximity: ProximityResourceTypeEventConfiguration | None
+    Join: JoinResourceTypeEventConfiguration | None
+    ConnectionStatus: ConnectionStatusResourceTypeEventConfiguration | None
+    MessageDeliveryStatus: MessageDeliveryStatusResourceTypeEventConfiguration | None
 
 
 class GetFuotaTaskRequest(ServiceRequest):
@@ -1804,24 +1813,24 @@ StartTime = datetime
 class LoRaWANFuotaTaskGetInfo(TypedDict, total=False):
     """The LoRaWAN information returned from getting a FUOTA task."""
 
-    RfRegion: Optional[RfRegion]
-    StartTime: Optional[StartTime]
+    RfRegion: RfRegion | None
+    StartTime: StartTime | None
 
 
 class GetFuotaTaskResponse(TypedDict, total=False):
-    Arn: Optional[FuotaTaskArn]
-    Id: Optional[FuotaTaskId]
-    Status: Optional[FuotaTaskStatus]
-    Name: Optional[FuotaTaskName]
-    Description: Optional[Description]
-    LoRaWAN: Optional[LoRaWANFuotaTaskGetInfo]
-    FirmwareUpdateImage: Optional[FirmwareUpdateImage]
-    FirmwareUpdateRole: Optional[FirmwareUpdateRole]
-    CreatedAt: Optional[CreatedAt]
-    RedundancyPercent: Optional[RedundancyPercent]
-    FragmentSizeBytes: Optional[FragmentSizeBytes]
-    FragmentIntervalMS: Optional[FragmentIntervalMS]
-    Descriptor: Optional[FileDescriptor]
+    Arn: FuotaTaskArn | None
+    Id: FuotaTaskId | None
+    Status: FuotaTaskStatus | None
+    Name: FuotaTaskName | None
+    Description: Description | None
+    LoRaWAN: LoRaWANFuotaTaskGetInfo | None
+    FirmwareUpdateImage: FirmwareUpdateImage | None
+    FirmwareUpdateRole: FirmwareUpdateRole | None
+    CreatedAt: CreatedAt | None
+    RedundancyPercent: RedundancyPercent | None
+    FragmentSizeBytes: FragmentSizeBytes | None
+    FragmentIntervalMS: FragmentIntervalMS | None
+    Descriptor: FileDescriptor | None
 
 
 class GetLogLevelsByResourceTypesRequest(ServiceRequest):
@@ -1842,7 +1851,7 @@ class WirelessDeviceEventLogOption(TypedDict, total=False):
     LogLevel: LogLevel
 
 
-WirelessDeviceEventLogOptionList = List[WirelessDeviceEventLogOption]
+WirelessDeviceEventLogOptionList = list[WirelessDeviceEventLogOption]
 
 
 class WirelessDeviceLogOption(TypedDict, total=False):
@@ -1852,10 +1861,10 @@ class WirelessDeviceLogOption(TypedDict, total=False):
 
     Type: WirelessDeviceType
     LogLevel: LogLevel
-    Events: Optional[WirelessDeviceEventLogOptionList]
+    Events: WirelessDeviceEventLogOptionList | None
 
 
-WirelessDeviceLogOptionList = List[WirelessDeviceLogOption]
+WirelessDeviceLogOptionList = list[WirelessDeviceLogOption]
 
 
 class WirelessGatewayEventLogOption(TypedDict, total=False):
@@ -1870,7 +1879,7 @@ class WirelessGatewayEventLogOption(TypedDict, total=False):
     LogLevel: LogLevel
 
 
-WirelessGatewayEventLogOptionList = List[WirelessGatewayEventLogOption]
+WirelessGatewayEventLogOptionList = list[WirelessGatewayEventLogOption]
 
 
 class WirelessGatewayLogOption(TypedDict, total=False):
@@ -1880,17 +1889,17 @@ class WirelessGatewayLogOption(TypedDict, total=False):
 
     Type: WirelessGatewayType
     LogLevel: LogLevel
-    Events: Optional[WirelessGatewayEventLogOptionList]
+    Events: WirelessGatewayEventLogOptionList | None
 
 
-WirelessGatewayLogOptionList = List[WirelessGatewayLogOption]
+WirelessGatewayLogOptionList = list[WirelessGatewayLogOption]
 
 
 class GetLogLevelsByResourceTypesResponse(TypedDict, total=False):
-    DefaultLogLevel: Optional[LogLevel]
-    WirelessGatewayLogOptions: Optional[WirelessGatewayLogOptionList]
-    WirelessDeviceLogOptions: Optional[WirelessDeviceLogOptionList]
-    FuotaTaskLogOptions: Optional[FuotaTaskLogOptionList]
+    DefaultLogLevel: LogLevel | None
+    WirelessGatewayLogOptions: WirelessGatewayLogOptionList | None
+    WirelessDeviceLogOptions: WirelessDeviceLogOptionList | None
+    FuotaTaskLogOptions: FuotaTaskLogOptionList | None
 
 
 class GetMetricConfigurationRequest(ServiceRequest):
@@ -1900,11 +1909,11 @@ class GetMetricConfigurationRequest(ServiceRequest):
 class SummaryMetricConfiguration(TypedDict, total=False):
     """The configuration of summary metrics."""
 
-    Status: Optional[SummaryMetricConfigurationStatus]
+    Status: SummaryMetricConfigurationStatus | None
 
 
 class GetMetricConfigurationResponse(TypedDict, total=False):
-    SummaryMetric: Optional[SummaryMetricConfiguration]
+    SummaryMetric: SummaryMetricConfiguration | None
 
 
 MetricQueryEndTimestamp = datetime
@@ -1914,58 +1923,58 @@ MetricQueryStartTimestamp = datetime
 class SummaryMetricQuery(TypedDict, total=False):
     """The summary metric query object."""
 
-    QueryId: Optional[MetricQueryId]
-    MetricName: Optional[MetricName]
-    Dimensions: Optional[Dimensions]
-    AggregationPeriod: Optional[AggregationPeriod]
-    StartTimestamp: Optional[MetricQueryStartTimestamp]
-    EndTimestamp: Optional[MetricQueryEndTimestamp]
+    QueryId: MetricQueryId | None
+    MetricName: MetricName | None
+    Dimensions: Dimensions | None
+    AggregationPeriod: AggregationPeriod | None
+    StartTimestamp: MetricQueryStartTimestamp | None
+    EndTimestamp: MetricQueryEndTimestamp | None
 
 
-SummaryMetricQueries = List[SummaryMetricQuery]
+SummaryMetricQueries = list[SummaryMetricQuery]
 
 
 class GetMetricsRequest(ServiceRequest):
-    SummaryMetricQueries: Optional[SummaryMetricQueries]
+    SummaryMetricQueries: SummaryMetricQueries | None
 
 
 class MetricQueryValue(TypedDict, total=False):
     """The aggregated values of the metric."""
 
-    Min: Optional[Min]
-    Max: Optional[Max]
-    Sum: Optional[Sum]
-    Avg: Optional[Avg]
-    Std: Optional[Std]
-    P90: Optional[P90]
+    Min: Min | None
+    Max: Max | None
+    Sum: Sum | None
+    Avg: Avg | None
+    Std: Std | None
+    P90: P90 | None
 
 
-MetricQueryValues = List[MetricQueryValue]
+MetricQueryValues = list[MetricQueryValue]
 MetricQueryTimestamp = datetime
-MetricQueryTimestamps = List[MetricQueryTimestamp]
+MetricQueryTimestamps = list[MetricQueryTimestamp]
 
 
 class SummaryMetricQueryResult(TypedDict, total=False):
     """The result of the summary metrics aggregation operation."""
 
-    QueryId: Optional[MetricQueryId]
-    QueryStatus: Optional[MetricQueryStatus]
-    Error: Optional[MetricQueryError]
-    MetricName: Optional[MetricName]
-    Dimensions: Optional[Dimensions]
-    AggregationPeriod: Optional[AggregationPeriod]
-    StartTimestamp: Optional[MetricQueryStartTimestamp]
-    EndTimestamp: Optional[MetricQueryEndTimestamp]
-    Timestamps: Optional[MetricQueryTimestamps]
-    Values: Optional[MetricQueryValues]
-    Unit: Optional[MetricUnit]
+    QueryId: MetricQueryId | None
+    QueryStatus: MetricQueryStatus | None
+    Error: MetricQueryError | None
+    MetricName: MetricName | None
+    Dimensions: Dimensions | None
+    AggregationPeriod: AggregationPeriod | None
+    StartTimestamp: MetricQueryStartTimestamp | None
+    EndTimestamp: MetricQueryEndTimestamp | None
+    Timestamps: MetricQueryTimestamps | None
+    Values: MetricQueryValues | None
+    Unit: MetricUnit | None
 
 
-SummaryMetricQueryResults = List[SummaryMetricQueryResult]
+SummaryMetricQueryResults = list[SummaryMetricQueryResult]
 
 
 class GetMetricsResponse(TypedDict, total=False):
-    SummaryMetricQueryResults: Optional[SummaryMetricQueryResults]
+    SummaryMetricQueryResults: SummaryMetricQueryResults | None
 
 
 class GetMulticastGroupRequest(ServiceRequest):
@@ -1977,21 +1986,21 @@ class LoRaWANMulticastGet(TypedDict, total=False):
     group information.
     """
 
-    RfRegion: Optional[SupportedRfRegion]
-    DlClass: Optional[DlClass]
-    NumberOfDevicesRequested: Optional[NumberOfDevicesRequested]
-    NumberOfDevicesInGroup: Optional[NumberOfDevicesInGroup]
-    ParticipatingGateways: Optional[ParticipatingGatewaysMulticast]
+    RfRegion: SupportedRfRegion | None
+    DlClass: DlClass | None
+    NumberOfDevicesRequested: NumberOfDevicesRequested | None
+    NumberOfDevicesInGroup: NumberOfDevicesInGroup | None
+    ParticipatingGateways: ParticipatingGatewaysMulticast | None
 
 
 class GetMulticastGroupResponse(TypedDict, total=False):
-    Arn: Optional[MulticastGroupArn]
-    Id: Optional[MulticastGroupId]
-    Name: Optional[MulticastGroupName]
-    Description: Optional[Description]
-    Status: Optional[MulticastGroupStatus]
-    LoRaWAN: Optional[LoRaWANMulticastGet]
-    CreatedAt: Optional[CreatedAt]
+    Arn: MulticastGroupArn | None
+    Id: MulticastGroupId | None
+    Name: MulticastGroupName | None
+    Description: Description | None
+    Status: MulticastGroupStatus | None
+    LoRaWAN: LoRaWANMulticastGet | None
+    CreatedAt: CreatedAt | None
 
 
 class GetMulticastGroupSessionRequest(ServiceRequest):
@@ -2004,15 +2013,15 @@ SessionStartTimeTimestamp = datetime
 class LoRaWANMulticastSession(TypedDict, total=False):
     """The LoRaWAN information used with the multicast session."""
 
-    DlDr: Optional[DlDr]
-    DlFreq: Optional[DlFreq]
-    SessionStartTime: Optional[SessionStartTimeTimestamp]
-    SessionTimeout: Optional[SessionTimeout]
-    PingSlotPeriod: Optional[PingSlotPeriod]
+    DlDr: DlDr | None
+    DlFreq: DlFreq | None
+    SessionStartTime: SessionStartTimeTimestamp | None
+    SessionTimeout: SessionTimeout | None
+    PingSlotPeriod: PingSlotPeriod | None
 
 
 class GetMulticastGroupSessionResponse(TypedDict, total=False):
-    LoRaWAN: Optional[LoRaWANMulticastSession]
+    LoRaWAN: LoRaWANMulticastSession | None
 
 
 class GetNetworkAnalyzerConfigurationRequest(ServiceRequest):
@@ -2020,13 +2029,13 @@ class GetNetworkAnalyzerConfigurationRequest(ServiceRequest):
 
 
 class GetNetworkAnalyzerConfigurationResponse(TypedDict, total=False):
-    TraceContent: Optional[TraceContent]
-    WirelessDevices: Optional[WirelessDeviceList]
-    WirelessGateways: Optional[WirelessGatewayList]
-    Description: Optional[Description]
-    Arn: Optional[NetworkAnalyzerConfigurationArn]
-    Name: Optional[NetworkAnalyzerConfigurationName]
-    MulticastGroups: Optional[NetworkAnalyzerMulticastGroupList]
+    TraceContent: TraceContent | None
+    WirelessDevices: WirelessDeviceList | None
+    WirelessGateways: WirelessGatewayList | None
+    Description: Description | None
+    Arn: NetworkAnalyzerConfigurationArn | None
+    Name: NetworkAnalyzerConfigurationName | None
+    MulticastGroups: NetworkAnalyzerMulticastGroupList | None
 
 
 class GetPartnerAccountRequest(ServiceRequest):
@@ -2037,14 +2046,14 @@ class GetPartnerAccountRequest(ServiceRequest):
 class SidewalkAccountInfoWithFingerprint(TypedDict, total=False):
     """Information about a Sidewalk account."""
 
-    AmazonId: Optional[AmazonId]
-    Fingerprint: Optional[Fingerprint]
-    Arn: Optional[PartnerAccountArn]
+    AmazonId: AmazonId | None
+    Fingerprint: Fingerprint | None
+    Arn: PartnerAccountArn | None
 
 
 class GetPartnerAccountResponse(TypedDict, total=False):
-    Sidewalk: Optional[SidewalkAccountInfoWithFingerprint]
-    AccountLinked: Optional[AccountLinked]
+    Sidewalk: SidewalkAccountInfoWithFingerprint | None
+    AccountLinked: AccountLinked | None
 
 
 class GetPositionConfigurationRequest(ServiceRequest):
@@ -2055,32 +2064,32 @@ class GetPositionConfigurationRequest(ServiceRequest):
 class SemtechGnssDetail(TypedDict, total=False):
     """Details of the Semtech GNSS solver object."""
 
-    Provider: Optional[PositionSolverProvider]
-    Type: Optional[PositionSolverType]
-    Status: Optional[PositionConfigurationStatus]
-    Fec: Optional[PositionConfigurationFec]
+    Provider: PositionSolverProvider | None
+    Type: PositionSolverType | None
+    Status: PositionConfigurationStatus | None
+    Fec: PositionConfigurationFec | None
 
 
 class PositionSolverDetails(TypedDict, total=False):
     """The wrapper for position solver details."""
 
-    SemtechGnss: Optional[SemtechGnssDetail]
+    SemtechGnss: SemtechGnssDetail | None
 
 
 class GetPositionConfigurationResponse(TypedDict, total=False):
-    Solvers: Optional[PositionSolverDetails]
-    Destination: Optional[DestinationName]
+    Solvers: PositionSolverDetails | None
+    Destination: DestinationName | None
 
 
 class Gnss(TypedDict, total=False):
     """Global navigation satellite system (GNSS) object used for positioning."""
 
     Payload: GnssNav
-    CaptureTime: Optional[GPST]
-    CaptureTimeAccuracy: Optional[CaptureTimeAccuracy]
-    AssistPosition: Optional[AssistPosition]
-    AssistAltitude: Optional[Coordinate]
-    Use2DSolver: Optional[Use2DSolver]
+    CaptureTime: GPST | None
+    CaptureTimeAccuracy: CaptureTimeAccuracy | None
+    AssistPosition: AssistPosition | None
+    AssistAltitude: Coordinate | None
+    Use2DSolver: Use2DSolver | None
 
 
 class Ip(TypedDict, total=False):
@@ -2096,19 +2105,19 @@ class WiFiAccessPoint(TypedDict, total=False):
     Rss: RSS
 
 
-WiFiAccessPoints = List[WiFiAccessPoint]
+WiFiAccessPoints = list[WiFiAccessPoint]
 
 
 class GetPositionEstimateRequest(ServiceRequest):
-    WiFiAccessPoints: Optional[WiFiAccessPoints]
-    CellTowers: Optional[CellTowers]
-    Ip: Optional[Ip]
-    Gnss: Optional[Gnss]
-    Timestamp: Optional[CreationDate]
+    WiFiAccessPoints: WiFiAccessPoints | None
+    CellTowers: CellTowers | None
+    Ip: Ip | None
+    Gnss: Gnss | None
+    Timestamp: CreationDate | None
 
 
 class GetPositionEstimateResponse(TypedDict, total=False):
-    GeoJsonPayload: Optional[Union[GeoJsonPayload, IO[GeoJsonPayload], Iterable[GeoJsonPayload]]]
+    GeoJsonPayload: GeoJsonPayload | IO[GeoJsonPayload] | Iterable[GeoJsonPayload] | None
 
 
 class GetPositionRequest(ServiceRequest):
@@ -2116,30 +2125,30 @@ class GetPositionRequest(ServiceRequest):
     ResourceType: PositionResourceType
 
 
-PositionCoordinate = List[PositionCoordinateValue]
+PositionCoordinate = list[PositionCoordinateValue]
 
 
 class GetPositionResponse(TypedDict, total=False):
-    Position: Optional[PositionCoordinate]
-    Accuracy: Optional[Accuracy]
-    SolverType: Optional[PositionSolverType]
-    SolverProvider: Optional[PositionSolverProvider]
-    SolverVersion: Optional[PositionSolverVersion]
-    Timestamp: Optional[ISODateTimeString]
+    Position: PositionCoordinate | None
+    Accuracy: Accuracy | None
+    SolverType: PositionSolverType | None
+    SolverProvider: PositionSolverProvider | None
+    SolverVersion: PositionSolverVersion | None
+    Timestamp: ISODateTimeString | None
 
 
 class GetResourceEventConfigurationRequest(ServiceRequest):
     Identifier: Identifier
     IdentifierType: IdentifierType
-    PartnerType: Optional[EventNotificationPartnerType]
+    PartnerType: EventNotificationPartnerType | None
 
 
 class GetResourceEventConfigurationResponse(TypedDict, total=False):
-    DeviceRegistrationState: Optional[DeviceRegistrationStateEventConfiguration]
-    Proximity: Optional[ProximityEventConfiguration]
-    Join: Optional[JoinEventConfiguration]
-    ConnectionStatus: Optional[ConnectionStatusEventConfiguration]
-    MessageDeliveryStatus: Optional[MessageDeliveryStatusEventConfiguration]
+    DeviceRegistrationState: DeviceRegistrationStateEventConfiguration | None
+    Proximity: ProximityEventConfiguration | None
+    Join: JoinEventConfiguration | None
+    ConnectionStatus: ConnectionStatusEventConfiguration | None
+    MessageDeliveryStatus: MessageDeliveryStatusEventConfiguration | None
 
 
 class GetResourceLogLevelRequest(ServiceRequest):
@@ -2148,7 +2157,7 @@ class GetResourceLogLevelRequest(ServiceRequest):
 
 
 class GetResourceLogLevelResponse(TypedDict, total=False):
-    LogLevel: Optional[LogLevel]
+    LogLevel: LogLevel | None
 
 
 class GetResourcePositionRequest(ServiceRequest):
@@ -2157,17 +2166,17 @@ class GetResourcePositionRequest(ServiceRequest):
 
 
 class GetResourcePositionResponse(TypedDict, total=False):
-    GeoJsonPayload: Optional[Union[GeoJsonPayload, IO[GeoJsonPayload], Iterable[GeoJsonPayload]]]
+    GeoJsonPayload: GeoJsonPayload | IO[GeoJsonPayload] | Iterable[GeoJsonPayload] | None
 
 
 class GetServiceEndpointRequest(ServiceRequest):
-    ServiceType: Optional[WirelessGatewayServiceType]
+    ServiceType: WirelessGatewayServiceType | None
 
 
 class GetServiceEndpointResponse(TypedDict, total=False):
-    ServiceType: Optional[WirelessGatewayServiceType]
-    ServiceEndpoint: Optional[EndPoint]
-    ServerTrust: Optional[CertificatePEM]
+    ServiceType: WirelessGatewayServiceType | None
+    ServiceEndpoint: EndPoint | None
+    ServerTrust: CertificatePEM | None
 
 
 class GetServiceProfileRequest(ServiceRequest):
@@ -2177,36 +2186,36 @@ class GetServiceProfileRequest(ServiceRequest):
 class LoRaWANGetServiceProfileInfo(TypedDict, total=False):
     """LoRaWANGetServiceProfileInfo object."""
 
-    UlRate: Optional[UlRate]
-    UlBucketSize: Optional[UlBucketSize]
-    UlRatePolicy: Optional[UlRatePolicy]
-    DlRate: Optional[DlRate]
-    DlBucketSize: Optional[DlBucketSize]
-    DlRatePolicy: Optional[DlRatePolicy]
-    AddGwMetadata: Optional[AddGwMetadata]
-    DevStatusReqFreq: Optional[DevStatusReqFreq]
-    ReportDevStatusBattery: Optional[ReportDevStatusBattery]
-    ReportDevStatusMargin: Optional[ReportDevStatusMargin]
-    DrMin: Optional[DrMin]
-    DrMax: Optional[DrMax]
-    ChannelMask: Optional[ChannelMask]
-    PrAllowed: Optional[PrAllowed]
-    HrAllowed: Optional[HrAllowed]
-    RaAllowed: Optional[RaAllowed]
-    NwkGeoLoc: Optional[NwkGeoLoc]
-    TargetPer: Optional[TargetPer]
-    MinGwDiversity: Optional[MinGwDiversity]
-    TxPowerIndexMin: Optional[TxPowerIndexMin]
-    TxPowerIndexMax: Optional[TxPowerIndexMax]
-    NbTransMin: Optional[NbTransMin]
-    NbTransMax: Optional[NbTransMax]
+    UlRate: UlRate | None
+    UlBucketSize: UlBucketSize | None
+    UlRatePolicy: UlRatePolicy | None
+    DlRate: DlRate | None
+    DlBucketSize: DlBucketSize | None
+    DlRatePolicy: DlRatePolicy | None
+    AddGwMetadata: AddGwMetadata | None
+    DevStatusReqFreq: DevStatusReqFreq | None
+    ReportDevStatusBattery: ReportDevStatusBattery | None
+    ReportDevStatusMargin: ReportDevStatusMargin | None
+    DrMin: DrMin | None
+    DrMax: DrMax | None
+    ChannelMask: ChannelMask | None
+    PrAllowed: PrAllowed | None
+    HrAllowed: HrAllowed | None
+    RaAllowed: RaAllowed | None
+    NwkGeoLoc: NwkGeoLoc | None
+    TargetPer: TargetPer | None
+    MinGwDiversity: MinGwDiversity | None
+    TxPowerIndexMin: TxPowerIndexMin | None
+    TxPowerIndexMax: TxPowerIndexMax | None
+    NbTransMin: NbTransMin | None
+    NbTransMax: NbTransMax | None
 
 
 class GetServiceProfileResponse(TypedDict, total=False):
-    Arn: Optional[ServiceProfileArn]
-    Name: Optional[ServiceProfileName]
-    Id: Optional[ServiceProfileId]
-    LoRaWAN: Optional[LoRaWANGetServiceProfileInfo]
+    Arn: ServiceProfileArn | None
+    Name: ServiceProfileName | None
+    Id: ServiceProfileId | None
+    LoRaWAN: LoRaWANGetServiceProfileInfo | None
 
 
 class GetWirelessDeviceImportTaskRequest(ServiceRequest):
@@ -2221,22 +2230,24 @@ class SidewalkGetStartImportInfo(TypedDict, total=False):
     being onboarded.
     """
 
-    DeviceCreationFileList: Optional[DeviceCreationFileList]
-    Role: Optional[Role]
+    DeviceCreationFileList: DeviceCreationFileList | None
+    Role: Role | None
+    Positioning: SidewalkPositioning | None
 
 
 class GetWirelessDeviceImportTaskResponse(TypedDict, total=False):
-    Id: Optional[ImportTaskId]
-    Arn: Optional[ImportTaskArn]
-    DestinationName: Optional[DestinationName]
-    Sidewalk: Optional[SidewalkGetStartImportInfo]
-    CreationTime: Optional[CreationTime]
-    Status: Optional[ImportTaskStatus]
-    StatusReason: Optional[StatusReason]
-    InitializedImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
-    PendingImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
-    OnboardedImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
-    FailedImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
+    Id: ImportTaskId | None
+    Arn: ImportTaskArn | None
+    DestinationName: DestinationName | None
+    Positioning: PositioningConfigStatus | None
+    Sidewalk: SidewalkGetStartImportInfo | None
+    CreationTime: CreationTime | None
+    Status: ImportTaskStatus | None
+    StatusReason: StatusReason | None
+    InitializedImportedDeviceCount: ImportedWirelessDeviceCount | None
+    PendingImportedDeviceCount: ImportedWirelessDeviceCount | None
+    OnboardedImportedDeviceCount: ImportedWirelessDeviceCount | None
+    FailedImportedDeviceCount: ImportedWirelessDeviceCount | None
 
 
 class GetWirelessDeviceRequest(ServiceRequest):
@@ -2244,34 +2255,35 @@ class GetWirelessDeviceRequest(ServiceRequest):
     IdentifierType: WirelessDeviceIdType
 
 
-PrivateKeysList = List[CertificateList]
+PrivateKeysList = list[CertificateList]
 
 
 class SidewalkDevice(TypedDict, total=False):
     """Sidewalk device object."""
 
-    AmazonId: Optional[AmazonId]
-    SidewalkId: Optional[SidewalkId]
-    SidewalkManufacturingSn: Optional[SidewalkManufacturingSn]
-    DeviceCertificates: Optional[DeviceCertificateList]
-    PrivateKeys: Optional[PrivateKeysList]
-    DeviceProfileId: Optional[DeviceProfileId]
-    CertificateId: Optional[DakCertificateId]
-    Status: Optional[WirelessDeviceSidewalkStatus]
+    AmazonId: AmazonId | None
+    SidewalkId: SidewalkId | None
+    SidewalkManufacturingSn: SidewalkManufacturingSn | None
+    DeviceCertificates: DeviceCertificateList | None
+    PrivateKeys: PrivateKeysList | None
+    DeviceProfileId: DeviceProfileId | None
+    CertificateId: DakCertificateId | None
+    Status: WirelessDeviceSidewalkStatus | None
+    Positioning: SidewalkPositioning | None
 
 
 class GetWirelessDeviceResponse(TypedDict, total=False):
-    Type: Optional[WirelessDeviceType]
-    Name: Optional[WirelessDeviceName]
-    Description: Optional[Description]
-    DestinationName: Optional[DestinationName]
-    Id: Optional[WirelessDeviceId]
-    Arn: Optional[WirelessDeviceArn]
-    ThingName: Optional[ThingName]
-    ThingArn: Optional[ThingArn]
-    LoRaWAN: Optional[LoRaWANDevice]
-    Sidewalk: Optional[SidewalkDevice]
-    Positioning: Optional[PositioningConfigStatus]
+    Type: WirelessDeviceType | None
+    Name: WirelessDeviceName | None
+    Description: Description | None
+    DestinationName: DestinationName | None
+    Id: WirelessDeviceId | None
+    Arn: WirelessDeviceArn | None
+    ThingName: ThingName | None
+    ThingArn: ThingArn | None
+    LoRaWAN: LoRaWANDevice | None
+    Sidewalk: SidewalkDevice | None
+    Positioning: PositioningConfigStatus | None
 
 
 class GetWirelessDeviceStatisticsRequest(ServiceRequest):
@@ -2281,54 +2293,54 @@ class GetWirelessDeviceStatisticsRequest(ServiceRequest):
 class SidewalkDeviceMetadata(TypedDict, total=False):
     """MetaData for Sidewalk device."""
 
-    Rssi: Optional[Integer]
-    BatteryLevel: Optional[BatteryLevel]
-    Event: Optional[Event]
-    DeviceState: Optional[DeviceState]
+    Rssi: Integer | None
+    BatteryLevel: BatteryLevel | None
+    Event: Event | None
+    DeviceState: DeviceState | None
 
 
 class LoRaWANPublicGatewayMetadata(TypedDict, total=False):
     """LoRaWAN public gateway metadata."""
 
-    ProviderNetId: Optional[ProviderNetId]
-    Id: Optional[Id]
-    Rssi: Optional[Double]
-    Snr: Optional[Double]
-    RfRegion: Optional[RfRegion]
-    DlAllowed: Optional[DlAllowed]
+    ProviderNetId: ProviderNetId | None
+    Id: Id | None
+    Rssi: Double | None
+    Snr: Double | None
+    RfRegion: RfRegion | None
+    DlAllowed: DlAllowed | None
 
 
-LoRaWANPublicGatewayMetadataList = List[LoRaWANPublicGatewayMetadata]
+LoRaWANPublicGatewayMetadataList = list[LoRaWANPublicGatewayMetadata]
 
 
 class LoRaWANGatewayMetadata(TypedDict, total=False):
     """LoRaWAN gateway metatdata."""
 
-    GatewayEui: Optional[GatewayEui]
-    Snr: Optional[Double]
-    Rssi: Optional[Double]
+    GatewayEui: GatewayEui | None
+    Snr: Double | None
+    Rssi: Double | None
 
 
-LoRaWANGatewayMetadataList = List[LoRaWANGatewayMetadata]
+LoRaWANGatewayMetadataList = list[LoRaWANGatewayMetadata]
 
 
 class LoRaWANDeviceMetadata(TypedDict, total=False):
     """LoRaWAN device metatdata."""
 
-    DevEui: Optional[DevEui]
-    FPort: Optional[Integer]
-    DataRate: Optional[Integer]
-    Frequency: Optional[Integer]
-    Timestamp: Optional[ISODateTimeString]
-    Gateways: Optional[LoRaWANGatewayMetadataList]
-    PublicGateways: Optional[LoRaWANPublicGatewayMetadataList]
+    DevEui: DevEui | None
+    FPort: Integer | None
+    DataRate: Integer | None
+    Frequency: Integer | None
+    Timestamp: ISODateTimeString | None
+    Gateways: LoRaWANGatewayMetadataList | None
+    PublicGateways: LoRaWANPublicGatewayMetadataList | None
 
 
 class GetWirelessDeviceStatisticsResponse(TypedDict, total=False):
-    WirelessDeviceId: Optional[WirelessDeviceId]
-    LastUplinkReceivedAt: Optional[ISODateTimeString]
-    LoRaWAN: Optional[LoRaWANDeviceMetadata]
-    Sidewalk: Optional[SidewalkDeviceMetadata]
+    WirelessDeviceId: WirelessDeviceId | None
+    LastUplinkReceivedAt: ISODateTimeString | None
+    LoRaWAN: LoRaWANDeviceMetadata | None
+    Sidewalk: SidewalkDeviceMetadata | None
 
 
 class GetWirelessGatewayCertificateRequest(ServiceRequest):
@@ -2336,8 +2348,8 @@ class GetWirelessGatewayCertificateRequest(ServiceRequest):
 
 
 class GetWirelessGatewayCertificateResponse(TypedDict, total=False):
-    IotCertificateId: Optional[IotCertificateId]
-    LoRaWANNetworkServerCertificateId: Optional[IotCertificateId]
+    IotCertificateId: IotCertificateId | None
+    LoRaWANNetworkServerCertificateId: IotCertificateId | None
 
 
 class GetWirelessGatewayFirmwareInformationRequest(ServiceRequest):
@@ -2347,11 +2359,11 @@ class GetWirelessGatewayFirmwareInformationRequest(ServiceRequest):
 class LoRaWANGatewayCurrentVersion(TypedDict, total=False):
     """LoRaWANGatewayCurrentVersion object."""
 
-    CurrentVersion: Optional[LoRaWANGatewayVersion]
+    CurrentVersion: LoRaWANGatewayVersion | None
 
 
 class GetWirelessGatewayFirmwareInformationResponse(TypedDict, total=False):
-    LoRaWAN: Optional[LoRaWANGatewayCurrentVersion]
+    LoRaWAN: LoRaWANGatewayCurrentVersion | None
 
 
 class GetWirelessGatewayRequest(ServiceRequest):
@@ -2360,13 +2372,13 @@ class GetWirelessGatewayRequest(ServiceRequest):
 
 
 class GetWirelessGatewayResponse(TypedDict, total=False):
-    Name: Optional[WirelessGatewayName]
-    Id: Optional[WirelessGatewayId]
-    Description: Optional[Description]
-    LoRaWAN: Optional[LoRaWANGateway]
-    Arn: Optional[WirelessGatewayArn]
-    ThingName: Optional[ThingName]
-    ThingArn: Optional[ThingArn]
+    Name: WirelessGatewayName | None
+    Id: WirelessGatewayId | None
+    Description: Description | None
+    LoRaWAN: LoRaWANGateway | None
+    Arn: WirelessGatewayArn | None
+    ThingName: ThingName | None
+    ThingArn: ThingArn | None
 
 
 class GetWirelessGatewayStatisticsRequest(ServiceRequest):
@@ -2374,9 +2386,9 @@ class GetWirelessGatewayStatisticsRequest(ServiceRequest):
 
 
 class GetWirelessGatewayStatisticsResponse(TypedDict, total=False):
-    WirelessGatewayId: Optional[WirelessGatewayId]
-    LastUplinkReceivedAt: Optional[ISODateTimeString]
-    ConnectionStatus: Optional[ConnectionStatus]
+    WirelessGatewayId: WirelessGatewayId | None
+    LastUplinkReceivedAt: ISODateTimeString | None
+    ConnectionStatus: ConnectionStatus | None
 
 
 class GetWirelessGatewayTaskDefinitionRequest(ServiceRequest):
@@ -2384,10 +2396,10 @@ class GetWirelessGatewayTaskDefinitionRequest(ServiceRequest):
 
 
 class GetWirelessGatewayTaskDefinitionResponse(TypedDict, total=False):
-    AutoCreateTasks: Optional[AutoCreateTasks]
-    Name: Optional[WirelessGatewayTaskName]
-    Update: Optional[UpdateWirelessGatewayTaskCreate]
-    Arn: Optional[WirelessGatewayTaskDefinitionArn]
+    AutoCreateTasks: AutoCreateTasks | None
+    Name: WirelessGatewayTaskName | None
+    Update: UpdateWirelessGatewayTaskCreate | None
+    Arn: WirelessGatewayTaskDefinitionArn | None
 
 
 class GetWirelessGatewayTaskRequest(ServiceRequest):
@@ -2395,11 +2407,11 @@ class GetWirelessGatewayTaskRequest(ServiceRequest):
 
 
 class GetWirelessGatewayTaskResponse(TypedDict, total=False):
-    WirelessGatewayId: Optional[WirelessGatewayId]
-    WirelessGatewayTaskDefinitionId: Optional[WirelessGatewayTaskDefinitionId]
-    LastUplinkReceivedAt: Optional[ISODateTimeString]
-    TaskCreatedAt: Optional[ISODateTimeString]
-    Status: Optional[WirelessGatewayTaskStatus]
+    WirelessGatewayId: WirelessGatewayId | None
+    WirelessGatewayTaskDefinitionId: WirelessGatewayTaskDefinitionId | None
+    LastUplinkReceivedAt: ISODateTimeString | None
+    TaskCreatedAt: ISODateTimeString | None
+    Status: WirelessGatewayTaskStatus | None
 
 
 LastUpdateTime = datetime
@@ -2410,10 +2422,10 @@ class ImportedSidewalkDevice(TypedDict, total=False):
     task.
     """
 
-    SidewalkManufacturingSn: Optional[SidewalkManufacturingSn]
-    OnboardingStatus: Optional[OnboardStatus]
-    OnboardingStatusReason: Optional[OnboardStatusReason]
-    LastUpdateTime: Optional[LastUpdateTime]
+    SidewalkManufacturingSn: SidewalkManufacturingSn | None
+    OnboardingStatus: OnboardStatus | None
+    OnboardingStatusReason: OnboardStatusReason | None
+    LastUpdateTime: LastUpdateTime | None
 
 
 class ImportedWirelessDevice(TypedDict, total=False):
@@ -2421,195 +2433,205 @@ class ImportedWirelessDevice(TypedDict, total=False):
     task.
     """
 
-    Sidewalk: Optional[ImportedSidewalkDevice]
+    Sidewalk: ImportedSidewalkDevice | None
 
 
-ImportedWirelessDeviceList = List[ImportedWirelessDevice]
+ImportedWirelessDeviceList = list[ImportedWirelessDevice]
 
 
 class ListDestinationsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListDestinationsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    DestinationList: Optional[DestinationList]
+    NextToken: NextToken | None
+    DestinationList: DestinationList | None
 
 
 class ListDeviceProfilesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    DeviceProfileType: Optional[DeviceProfileType]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    DeviceProfileType: DeviceProfileType | None
 
 
 class ListDeviceProfilesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    DeviceProfileList: Optional[DeviceProfileList]
+    NextToken: NextToken | None
+    DeviceProfileList: DeviceProfileList | None
 
 
 class ListDevicesForWirelessDeviceImportTaskRequest(ServiceRequest):
     Id: ImportTaskId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    Status: Optional[OnboardStatus]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    Status: OnboardStatus | None
+
+
+class SidewalkListDevicesForImportInfo(TypedDict, total=False):
+    """The Sidewalk-related object containing positioning information used to
+    configure Sidewalk devices during import.
+    """
+
+    Positioning: SidewalkPositioning | None
 
 
 class ListDevicesForWirelessDeviceImportTaskResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    DestinationName: Optional[DestinationName]
-    ImportedWirelessDeviceList: Optional[ImportedWirelessDeviceList]
+    NextToken: NextToken | None
+    DestinationName: DestinationName | None
+    Positioning: PositioningConfigStatus | None
+    Sidewalk: SidewalkListDevicesForImportInfo | None
+    ImportedWirelessDeviceList: ImportedWirelessDeviceList | None
 
 
 class ListEventConfigurationsRequest(ServiceRequest):
     ResourceType: EventNotificationResourceType
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListEventConfigurationsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    EventConfigurationsList: Optional[EventConfigurationsList]
+    NextToken: NextToken | None
+    EventConfigurationsList: EventConfigurationsList | None
 
 
 class ListFuotaTasksRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ListFuotaTasksResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    FuotaTaskList: Optional[FuotaTaskList]
+    NextToken: NextToken | None
+    FuotaTaskList: FuotaTaskList | None
 
 
 class ListMulticastGroupsByFuotaTaskRequest(ServiceRequest):
     Id: FuotaTaskId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class MulticastGroupByFuotaTask(TypedDict, total=False):
     """A multicast group that is associated with a FUOTA task."""
 
-    Id: Optional[MulticastGroupId]
+    Id: MulticastGroupId | None
 
 
-MulticastGroupListByFuotaTask = List[MulticastGroupByFuotaTask]
+MulticastGroupListByFuotaTask = list[MulticastGroupByFuotaTask]
 
 
 class ListMulticastGroupsByFuotaTaskResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    MulticastGroupList: Optional[MulticastGroupListByFuotaTask]
+    NextToken: NextToken | None
+    MulticastGroupList: MulticastGroupListByFuotaTask | None
 
 
 class ListMulticastGroupsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class MulticastGroup(TypedDict, total=False):
     """A multicast group."""
 
-    Id: Optional[MulticastGroupId]
-    Arn: Optional[MulticastGroupArn]
-    Name: Optional[MulticastGroupName]
+    Id: MulticastGroupId | None
+    Arn: MulticastGroupArn | None
+    Name: MulticastGroupName | None
 
 
-MulticastGroupList = List[MulticastGroup]
+MulticastGroupList = list[MulticastGroup]
 
 
 class ListMulticastGroupsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    MulticastGroupList: Optional[MulticastGroupList]
+    NextToken: NextToken | None
+    MulticastGroupList: MulticastGroupList | None
 
 
 class ListNetworkAnalyzerConfigurationsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class NetworkAnalyzerConfigurations(TypedDict, total=False):
     """Network analyzer configurations."""
 
-    Arn: Optional[NetworkAnalyzerConfigurationArn]
-    Name: Optional[NetworkAnalyzerConfigurationName]
+    Arn: NetworkAnalyzerConfigurationArn | None
+    Name: NetworkAnalyzerConfigurationName | None
 
 
-NetworkAnalyzerConfigurationList = List[NetworkAnalyzerConfigurations]
+NetworkAnalyzerConfigurationList = list[NetworkAnalyzerConfigurations]
 
 
 class ListNetworkAnalyzerConfigurationsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    NetworkAnalyzerConfigurationList: Optional[NetworkAnalyzerConfigurationList]
+    NextToken: NextToken | None
+    NetworkAnalyzerConfigurationList: NetworkAnalyzerConfigurationList | None
 
 
 class ListPartnerAccountsRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
-SidewalkAccountList = List[SidewalkAccountInfoWithFingerprint]
+SidewalkAccountList = list[SidewalkAccountInfoWithFingerprint]
 
 
 class ListPartnerAccountsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    Sidewalk: Optional[SidewalkAccountList]
+    NextToken: NextToken | None
+    Sidewalk: SidewalkAccountList | None
 
 
 class ListPositionConfigurationsRequest(ServiceRequest):
-    ResourceType: Optional[PositionResourceType]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    ResourceType: PositionResourceType | None
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class PositionConfigurationItem(TypedDict, total=False):
     """The wrapper for a position configuration."""
 
-    ResourceIdentifier: Optional[PositionResourceIdentifier]
-    ResourceType: Optional[PositionResourceType]
-    Solvers: Optional[PositionSolverDetails]
-    Destination: Optional[DestinationName]
+    ResourceIdentifier: PositionResourceIdentifier | None
+    ResourceType: PositionResourceType | None
+    Solvers: PositionSolverDetails | None
+    Destination: DestinationName | None
 
 
-PositionConfigurationList = List[PositionConfigurationItem]
+PositionConfigurationList = list[PositionConfigurationItem]
 
 
 class ListPositionConfigurationsResponse(TypedDict, total=False):
-    PositionConfigurationList: Optional[PositionConfigurationList]
-    NextToken: Optional[NextToken]
+    PositionConfigurationList: PositionConfigurationList | None
+    NextToken: NextToken | None
 
 
 class ListQueuedMessagesRequest(ServiceRequest):
     Id: WirelessDeviceId
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
-    WirelessDeviceType: Optional[WirelessDeviceType]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
+    WirelessDeviceType: WirelessDeviceType | None
 
 
 class ListQueuedMessagesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    DownlinkQueueMessagesList: Optional[DownlinkQueueMessagesList]
+    NextToken: NextToken | None
+    DownlinkQueueMessagesList: DownlinkQueueMessagesList | None
 
 
 class ListServiceProfilesRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class ServiceProfile(TypedDict, total=False):
     """Information about a service profile."""
 
-    Arn: Optional[ServiceProfileArn]
-    Name: Optional[ServiceProfileName]
-    Id: Optional[ServiceProfileId]
+    Arn: ServiceProfileArn | None
+    Name: ServiceProfileName | None
+    Id: ServiceProfileId | None
 
 
-ServiceProfileList = List[ServiceProfile]
+ServiceProfileList = list[ServiceProfile]
 
 
 class ListServiceProfilesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    ServiceProfileList: Optional[ServiceProfileList]
+    NextToken: NextToken | None
+    ServiceProfileList: ServiceProfileList | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -2617,188 +2639,191 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class ListWirelessDeviceImportTasksRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class WirelessDeviceImportTask(TypedDict, total=False):
     """Information about an import task for wireless devices."""
 
-    Id: Optional[ImportTaskId]
-    Arn: Optional[ImportTaskArn]
-    DestinationName: Optional[DestinationName]
-    Sidewalk: Optional[SidewalkGetStartImportInfo]
-    CreationTime: Optional[CreationTime]
-    Status: Optional[ImportTaskStatus]
-    StatusReason: Optional[StatusReason]
-    InitializedImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
-    PendingImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
-    OnboardedImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
-    FailedImportedDeviceCount: Optional[ImportedWirelessDeviceCount]
+    Id: ImportTaskId | None
+    Arn: ImportTaskArn | None
+    DestinationName: DestinationName | None
+    Positioning: PositioningConfigStatus | None
+    Sidewalk: SidewalkGetStartImportInfo | None
+    CreationTime: CreationTime | None
+    Status: ImportTaskStatus | None
+    StatusReason: StatusReason | None
+    InitializedImportedDeviceCount: ImportedWirelessDeviceCount | None
+    PendingImportedDeviceCount: ImportedWirelessDeviceCount | None
+    OnboardedImportedDeviceCount: ImportedWirelessDeviceCount | None
+    FailedImportedDeviceCount: ImportedWirelessDeviceCount | None
 
 
-WirelessDeviceImportTaskList = List[WirelessDeviceImportTask]
+WirelessDeviceImportTaskList = list[WirelessDeviceImportTask]
 
 
 class ListWirelessDeviceImportTasksResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    WirelessDeviceImportTaskList: Optional[WirelessDeviceImportTaskList]
+    NextToken: NextToken | None
+    WirelessDeviceImportTaskList: WirelessDeviceImportTaskList | None
 
 
 class ListWirelessDevicesRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    DestinationName: Optional[DestinationName]
-    DeviceProfileId: Optional[DeviceProfileId]
-    ServiceProfileId: Optional[ServiceProfileId]
-    WirelessDeviceType: Optional[WirelessDeviceType]
-    FuotaTaskId: Optional[FuotaTaskId]
-    MulticastGroupId: Optional[MulticastGroupId]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    DestinationName: DestinationName | None
+    DeviceProfileId: DeviceProfileId | None
+    ServiceProfileId: ServiceProfileId | None
+    WirelessDeviceType: WirelessDeviceType | None
+    FuotaTaskId: FuotaTaskId | None
+    MulticastGroupId: MulticastGroupId | None
 
 
 class SidewalkListDevice(TypedDict, total=False):
     """Sidewalk object used by list functions."""
 
-    AmazonId: Optional[AmazonId]
-    SidewalkId: Optional[SidewalkId]
-    SidewalkManufacturingSn: Optional[SidewalkManufacturingSn]
-    DeviceCertificates: Optional[DeviceCertificateList]
-    DeviceProfileId: Optional[DeviceProfileId]
-    Status: Optional[WirelessDeviceSidewalkStatus]
+    AmazonId: AmazonId | None
+    SidewalkId: SidewalkId | None
+    SidewalkManufacturingSn: SidewalkManufacturingSn | None
+    DeviceCertificates: DeviceCertificateList | None
+    DeviceProfileId: DeviceProfileId | None
+    Status: WirelessDeviceSidewalkStatus | None
+    Positioning: SidewalkPositioning | None
 
 
 class LoRaWANListDevice(TypedDict, total=False):
     """LoRaWAN object for list functions."""
 
-    DevEui: Optional[DevEui]
+    DevEui: DevEui | None
 
 
 class WirelessDeviceStatistics(TypedDict, total=False):
     """Information about a wireless device's operation."""
 
-    Arn: Optional[WirelessDeviceArn]
-    Id: Optional[WirelessDeviceId]
-    Type: Optional[WirelessDeviceType]
-    Name: Optional[WirelessDeviceName]
-    DestinationName: Optional[DestinationName]
-    LastUplinkReceivedAt: Optional[ISODateTimeString]
-    LoRaWAN: Optional[LoRaWANListDevice]
-    Sidewalk: Optional[SidewalkListDevice]
-    FuotaDeviceStatus: Optional[FuotaDeviceStatus]
-    MulticastDeviceStatus: Optional[MulticastDeviceStatus]
-    McGroupId: Optional[McGroupId]
+    Arn: WirelessDeviceArn | None
+    Id: WirelessDeviceId | None
+    Type: WirelessDeviceType | None
+    Name: WirelessDeviceName | None
+    DestinationName: DestinationName | None
+    LastUplinkReceivedAt: ISODateTimeString | None
+    LoRaWAN: LoRaWANListDevice | None
+    Sidewalk: SidewalkListDevice | None
+    FuotaDeviceStatus: FuotaDeviceStatus | None
+    MulticastDeviceStatus: MulticastDeviceStatus | None
+    McGroupId: McGroupId | None
+    Positioning: PositioningConfigStatus | None
 
 
-WirelessDeviceStatisticsList = List[WirelessDeviceStatistics]
+WirelessDeviceStatisticsList = list[WirelessDeviceStatistics]
 
 
 class ListWirelessDevicesResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    WirelessDeviceList: Optional[WirelessDeviceStatisticsList]
+    NextToken: NextToken | None
+    WirelessDeviceList: WirelessDeviceStatisticsList | None
 
 
 class ListWirelessGatewayTaskDefinitionsRequest(ServiceRequest):
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    TaskDefinitionType: Optional[WirelessGatewayTaskDefinitionType]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    TaskDefinitionType: WirelessGatewayTaskDefinitionType | None
 
 
 class LoRaWANUpdateGatewayTaskEntry(TypedDict, total=False):
     """LoRaWANUpdateGatewayTaskEntry object."""
 
-    CurrentVersion: Optional[LoRaWANGatewayVersion]
-    UpdateVersion: Optional[LoRaWANGatewayVersion]
+    CurrentVersion: LoRaWANGatewayVersion | None
+    UpdateVersion: LoRaWANGatewayVersion | None
 
 
 class UpdateWirelessGatewayTaskEntry(TypedDict, total=False):
     """UpdateWirelessGatewayTaskEntry object."""
 
-    Id: Optional[WirelessGatewayTaskDefinitionId]
-    LoRaWAN: Optional[LoRaWANUpdateGatewayTaskEntry]
-    Arn: Optional[WirelessGatewayTaskDefinitionArn]
+    Id: WirelessGatewayTaskDefinitionId | None
+    LoRaWAN: LoRaWANUpdateGatewayTaskEntry | None
+    Arn: WirelessGatewayTaskDefinitionArn | None
 
 
-WirelessGatewayTaskDefinitionList = List[UpdateWirelessGatewayTaskEntry]
+WirelessGatewayTaskDefinitionList = list[UpdateWirelessGatewayTaskEntry]
 
 
 class ListWirelessGatewayTaskDefinitionsResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    TaskDefinitions: Optional[WirelessGatewayTaskDefinitionList]
+    NextToken: NextToken | None
+    TaskDefinitions: WirelessGatewayTaskDefinitionList | None
 
 
 class ListWirelessGatewaysRequest(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[MaxResults]
+    NextToken: NextToken | None
+    MaxResults: MaxResults | None
 
 
 class WirelessGatewayStatistics(TypedDict, total=False):
     """Information about a wireless gateway's operation."""
 
-    Arn: Optional[WirelessGatewayArn]
-    Id: Optional[WirelessGatewayId]
-    Name: Optional[WirelessGatewayName]
-    Description: Optional[Description]
-    LoRaWAN: Optional[LoRaWANGateway]
-    LastUplinkReceivedAt: Optional[ISODateTimeString]
+    Arn: WirelessGatewayArn | None
+    Id: WirelessGatewayId | None
+    Name: WirelessGatewayName | None
+    Description: Description | None
+    LoRaWAN: LoRaWANGateway | None
+    LastUplinkReceivedAt: ISODateTimeString | None
 
 
-WirelessGatewayStatisticsList = List[WirelessGatewayStatistics]
+WirelessGatewayStatisticsList = list[WirelessGatewayStatistics]
 
 
 class ListWirelessGatewaysResponse(TypedDict, total=False):
-    NextToken: Optional[NextToken]
-    WirelessGatewayList: Optional[WirelessGatewayStatisticsList]
+    NextToken: NextToken | None
+    WirelessGatewayList: WirelessGatewayStatisticsList | None
 
 
 class LoRaWANMulticastMetadata(TypedDict, total=False):
     """The metadata information of the LoRaWAN multicast group."""
 
-    FPort: Optional[FPort]
+    FPort: FPort | None
 
 
 class LoRaWANStartFuotaTask(TypedDict, total=False):
     """The LoRaWAN information used to start a FUOTA task."""
 
-    StartTime: Optional[StartTime]
+    StartTime: StartTime | None
 
 
 class UpdateFPorts(TypedDict, total=False):
     """Object for updating the FPorts information."""
 
-    Positioning: Optional[Positioning]
-    Applications: Optional[Applications]
+    Positioning: Positioning | None
+    Applications: Applications | None
 
 
 class UpdateAbpV1_0_x(TypedDict, total=False):
     """ABP device object for LoRaWAN specification v1.0.x"""
 
-    FCntStart: Optional[FCntStart]
+    FCntStart: FCntStart | None
 
 
 class UpdateAbpV1_1(TypedDict, total=False):
     """ABP device object for LoRaWAN specification v1.1"""
 
-    FCntStart: Optional[FCntStart]
+    FCntStart: FCntStart | None
 
 
 class LoRaWANUpdateDevice(TypedDict, total=False):
     """LoRaWAN object for update functions."""
 
-    DeviceProfileId: Optional[DeviceProfileId]
-    ServiceProfileId: Optional[ServiceProfileId]
-    AbpV1_1: Optional[UpdateAbpV1_1]
-    AbpV1_0_x: Optional[UpdateAbpV1_0_x]
-    FPorts: Optional[UpdateFPorts]
+    DeviceProfileId: DeviceProfileId | None
+    ServiceProfileId: ServiceProfileId | None
+    AbpV1_1: UpdateAbpV1_1 | None
+    AbpV1_0_x: UpdateAbpV1_0_x | None
+    FPorts: UpdateFPorts | None
 
 
 class MulticastWirelessMetadata(TypedDict, total=False):
     """Wireless metadata that is to be sent to multicast group."""
 
-    LoRaWAN: Optional[LoRaWANMulticastMetadata]
+    LoRaWAN: LoRaWANMulticastMetadata | None
 
 
 class SemtechGnssConfiguration(TypedDict, total=False):
@@ -2811,14 +2836,14 @@ class SemtechGnssConfiguration(TypedDict, total=False):
 class PositionSolverConfigurations(TypedDict, total=False):
     """The wrapper for position solver configurations."""
 
-    SemtechGnss: Optional[SemtechGnssConfiguration]
+    SemtechGnss: SemtechGnssConfiguration | None
 
 
 class PutPositionConfigurationRequest(ServiceRequest):
     ResourceIdentifier: PositionResourceIdentifier
     ResourceType: PositionResourceType
-    Solvers: Optional[PositionSolverConfigurations]
-    Destination: Optional[DestinationName]
+    Solvers: PositionSolverConfigurations | None
+    Destination: DestinationName | None
 
 
 class PutPositionConfigurationResponse(TypedDict, total=False):
@@ -2859,33 +2884,33 @@ class SendDataToMulticastGroupRequest(ServiceRequest):
 
 
 class SendDataToMulticastGroupResponse(TypedDict, total=False):
-    MessageId: Optional[MulticastGroupMessageId]
+    MessageId: MulticastGroupMessageId | None
 
 
 class SidewalkSendDataToDevice(TypedDict, total=False):
     """Information about a Sidewalk router."""
 
-    Seq: Optional[Seq]
-    MessageType: Optional[MessageType]
-    AckModeRetryDurationSecs: Optional[AckModeRetryDurationSecs]
+    Seq: Seq | None
+    MessageType: MessageType | None
+    AckModeRetryDurationSecs: AckModeRetryDurationSecs | None
 
 
 class WirelessMetadata(TypedDict, total=False):
     """WirelessMetadata object."""
 
-    LoRaWAN: Optional[LoRaWANSendDataToDevice]
-    Sidewalk: Optional[SidewalkSendDataToDevice]
+    LoRaWAN: LoRaWANSendDataToDevice | None
+    Sidewalk: SidewalkSendDataToDevice | None
 
 
 class SendDataToWirelessDeviceRequest(ServiceRequest):
     Id: WirelessDeviceId
     TransmitMode: TransmitMode
     PayloadData: PayloadData
-    WirelessMetadata: Optional[WirelessMetadata]
+    WirelessMetadata: WirelessMetadata | None
 
 
 class SendDataToWirelessDeviceResponse(TypedDict, total=False):
-    MessageId: Optional[MessageId]
+    MessageId: MessageId | None
 
 
 class SidewalkSingleStartImportInfo(TypedDict, total=False):
@@ -2893,32 +2918,40 @@ class SidewalkSingleStartImportInfo(TypedDict, total=False):
     device.
     """
 
-    SidewalkManufacturingSn: Optional[SidewalkManufacturingSn]
+    SidewalkManufacturingSn: SidewalkManufacturingSn | None
+    Positioning: SidewalkPositioning | None
 
 
 class SidewalkStartImportInfo(TypedDict, total=False):
     """Information about an import task created for bulk provisioning."""
 
-    DeviceCreationFile: Optional[DeviceCreationFile]
-    Role: Optional[Role]
+    DeviceCreationFile: DeviceCreationFile | None
+    Role: Role | None
+    Positioning: SidewalkPositioning | None
 
 
 class SidewalkUpdateAccount(TypedDict, total=False):
     """Sidewalk update."""
 
-    AppServerPrivateKey: Optional[AppServerPrivateKey]
+    AppServerPrivateKey: AppServerPrivateKey | None
 
 
 class SidewalkUpdateImportInfo(TypedDict, total=False):
     """Sidewalk object information for updating an import task."""
 
-    DeviceCreationFile: Optional[DeviceCreationFile]
+    DeviceCreationFile: DeviceCreationFile | None
+
+
+class SidewalkUpdateWirelessDevice(TypedDict, total=False):
+    """Sidewalk object for updating a wireless device."""
+
+    Positioning: SidewalkPositioning | None
 
 
 class StartBulkAssociateWirelessDeviceWithMulticastGroupRequest(ServiceRequest):
     Id: MulticastGroupId
-    QueryString: Optional[QueryString]
-    Tags: Optional[TagList]
+    QueryString: QueryString | None
+    Tags: TagList | None
 
 
 class StartBulkAssociateWirelessDeviceWithMulticastGroupResponse(TypedDict, total=False):
@@ -2927,8 +2960,8 @@ class StartBulkAssociateWirelessDeviceWithMulticastGroupResponse(TypedDict, tota
 
 class StartBulkDisassociateWirelessDeviceFromMulticastGroupRequest(ServiceRequest):
     Id: MulticastGroupId
-    QueryString: Optional[QueryString]
-    Tags: Optional[TagList]
+    QueryString: QueryString | None
+    Tags: TagList | None
 
 
 class StartBulkDisassociateWirelessDeviceFromMulticastGroupResponse(TypedDict, total=False):
@@ -2937,7 +2970,7 @@ class StartBulkDisassociateWirelessDeviceFromMulticastGroupResponse(TypedDict, t
 
 class StartFuotaTaskRequest(ServiceRequest):
     Id: FuotaTaskId
-    LoRaWAN: Optional[LoRaWANStartFuotaTask]
+    LoRaWAN: LoRaWANStartFuotaTask | None
 
 
 class StartFuotaTaskResponse(TypedDict, total=False):
@@ -2955,30 +2988,32 @@ class StartMulticastGroupSessionResponse(TypedDict, total=False):
 
 class StartSingleWirelessDeviceImportTaskRequest(ServiceRequest):
     DestinationName: DestinationName
-    ClientRequestToken: Optional[ClientRequestToken]
-    DeviceName: Optional[DeviceName]
-    Tags: Optional[TagList]
+    ClientRequestToken: ClientRequestToken | None
+    DeviceName: DeviceName | None
+    Tags: TagList | None
+    Positioning: PositioningConfigStatus | None
     Sidewalk: SidewalkSingleStartImportInfo
 
 
 class StartSingleWirelessDeviceImportTaskResponse(TypedDict, total=False):
-    Id: Optional[ImportTaskId]
-    Arn: Optional[ImportTaskArn]
+    Id: ImportTaskId | None
+    Arn: ImportTaskArn | None
 
 
 class StartWirelessDeviceImportTaskRequest(ServiceRequest):
     DestinationName: DestinationName
-    ClientRequestToken: Optional[ClientRequestToken]
-    Tags: Optional[TagList]
+    ClientRequestToken: ClientRequestToken | None
+    Tags: TagList | None
+    Positioning: PositioningConfigStatus | None
     Sidewalk: SidewalkStartImportInfo
 
 
 class StartWirelessDeviceImportTaskResponse(TypedDict, total=False):
-    Id: Optional[ImportTaskId]
-    Arn: Optional[ImportTaskArn]
+    Id: ImportTaskId | None
+    Arn: ImportTaskArn | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -2995,7 +3030,7 @@ class TestWirelessDeviceRequest(ServiceRequest):
 
 
 class TestWirelessDeviceResponse(TypedDict, total=False):
-    Result: Optional[Result]
+    Result: Result | None
 
 
 class UntagResourceRequest(ServiceRequest):
@@ -3009,10 +3044,10 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateDestinationRequest(ServiceRequest):
     Name: DestinationName
-    ExpressionType: Optional[ExpressionType]
-    Expression: Optional[Expression]
-    Description: Optional[Description]
-    RoleArn: Optional[RoleArn]
+    ExpressionType: ExpressionType | None
+    Expression: Expression | None
+    Description: Description | None
+    RoleArn: RoleArn | None
 
 
 class UpdateDestinationResponse(TypedDict, total=False):
@@ -3020,11 +3055,11 @@ class UpdateDestinationResponse(TypedDict, total=False):
 
 
 class UpdateEventConfigurationByResourceTypesRequest(ServiceRequest):
-    DeviceRegistrationState: Optional[DeviceRegistrationStateResourceTypeEventConfiguration]
-    Proximity: Optional[ProximityResourceTypeEventConfiguration]
-    Join: Optional[JoinResourceTypeEventConfiguration]
-    ConnectionStatus: Optional[ConnectionStatusResourceTypeEventConfiguration]
-    MessageDeliveryStatus: Optional[MessageDeliveryStatusResourceTypeEventConfiguration]
+    DeviceRegistrationState: DeviceRegistrationStateResourceTypeEventConfiguration | None
+    Proximity: ProximityResourceTypeEventConfiguration | None
+    Join: JoinResourceTypeEventConfiguration | None
+    ConnectionStatus: ConnectionStatusResourceTypeEventConfiguration | None
+    MessageDeliveryStatus: MessageDeliveryStatusResourceTypeEventConfiguration | None
 
 
 class UpdateEventConfigurationByResourceTypesResponse(TypedDict, total=False):
@@ -3033,15 +3068,15 @@ class UpdateEventConfigurationByResourceTypesResponse(TypedDict, total=False):
 
 class UpdateFuotaTaskRequest(ServiceRequest):
     Id: FuotaTaskId
-    Name: Optional[FuotaTaskName]
-    Description: Optional[Description]
-    LoRaWAN: Optional[LoRaWANFuotaTask]
-    FirmwareUpdateImage: Optional[FirmwareUpdateImage]
-    FirmwareUpdateRole: Optional[FirmwareUpdateRole]
-    RedundancyPercent: Optional[RedundancyPercent]
-    FragmentSizeBytes: Optional[FragmentSizeBytes]
-    FragmentIntervalMS: Optional[FragmentIntervalMS]
-    Descriptor: Optional[FileDescriptor]
+    Name: FuotaTaskName | None
+    Description: Description | None
+    LoRaWAN: LoRaWANFuotaTask | None
+    FirmwareUpdateImage: FirmwareUpdateImage | None
+    FirmwareUpdateRole: FirmwareUpdateRole | None
+    RedundancyPercent: RedundancyPercent | None
+    FragmentSizeBytes: FragmentSizeBytes | None
+    FragmentIntervalMS: FragmentIntervalMS | None
+    Descriptor: FileDescriptor | None
 
 
 class UpdateFuotaTaskResponse(TypedDict, total=False):
@@ -3049,10 +3084,10 @@ class UpdateFuotaTaskResponse(TypedDict, total=False):
 
 
 class UpdateLogLevelsByResourceTypesRequest(ServiceRequest):
-    DefaultLogLevel: Optional[LogLevel]
-    FuotaTaskLogOptions: Optional[FuotaTaskLogOptionList]
-    WirelessDeviceLogOptions: Optional[WirelessDeviceLogOptionList]
-    WirelessGatewayLogOptions: Optional[WirelessGatewayLogOptionList]
+    DefaultLogLevel: LogLevel | None
+    FuotaTaskLogOptions: FuotaTaskLogOptionList | None
+    WirelessDeviceLogOptions: WirelessDeviceLogOptionList | None
+    WirelessGatewayLogOptions: WirelessGatewayLogOptionList | None
 
 
 class UpdateLogLevelsByResourceTypesResponse(TypedDict, total=False):
@@ -3060,7 +3095,7 @@ class UpdateLogLevelsByResourceTypesResponse(TypedDict, total=False):
 
 
 class UpdateMetricConfigurationRequest(ServiceRequest):
-    SummaryMetric: Optional[SummaryMetricConfiguration]
+    SummaryMetric: SummaryMetricConfiguration | None
 
 
 class UpdateMetricConfigurationResponse(TypedDict, total=False):
@@ -3069,9 +3104,9 @@ class UpdateMetricConfigurationResponse(TypedDict, total=False):
 
 class UpdateMulticastGroupRequest(ServiceRequest):
     Id: MulticastGroupId
-    Name: Optional[MulticastGroupName]
-    Description: Optional[Description]
-    LoRaWAN: Optional[LoRaWANMulticast]
+    Name: MulticastGroupName | None
+    Description: Description | None
+    LoRaWAN: LoRaWANMulticast | None
 
 
 class UpdateMulticastGroupResponse(TypedDict, total=False):
@@ -3080,14 +3115,14 @@ class UpdateMulticastGroupResponse(TypedDict, total=False):
 
 class UpdateNetworkAnalyzerConfigurationRequest(ServiceRequest):
     ConfigurationName: NetworkAnalyzerConfigurationName
-    TraceContent: Optional[TraceContent]
-    WirelessDevicesToAdd: Optional[WirelessDeviceList]
-    WirelessDevicesToRemove: Optional[WirelessDeviceList]
-    WirelessGatewaysToAdd: Optional[WirelessGatewayList]
-    WirelessGatewaysToRemove: Optional[WirelessGatewayList]
-    Description: Optional[Description]
-    MulticastGroupsToAdd: Optional[NetworkAnalyzerMulticastGroupList]
-    MulticastGroupsToRemove: Optional[NetworkAnalyzerMulticastGroupList]
+    TraceContent: TraceContent | None
+    WirelessDevicesToAdd: WirelessDeviceList | None
+    WirelessDevicesToRemove: WirelessDeviceList | None
+    WirelessGatewaysToAdd: WirelessGatewayList | None
+    WirelessGatewaysToRemove: WirelessGatewayList | None
+    Description: Description | None
+    MulticastGroupsToAdd: NetworkAnalyzerMulticastGroupList | None
+    MulticastGroupsToRemove: NetworkAnalyzerMulticastGroupList | None
 
 
 class UpdateNetworkAnalyzerConfigurationResponse(TypedDict, total=False):
@@ -3117,12 +3152,12 @@ class UpdatePositionResponse(TypedDict, total=False):
 class UpdateResourceEventConfigurationRequest(ServiceRequest):
     Identifier: Identifier
     IdentifierType: IdentifierType
-    PartnerType: Optional[EventNotificationPartnerType]
-    DeviceRegistrationState: Optional[DeviceRegistrationStateEventConfiguration]
-    Proximity: Optional[ProximityEventConfiguration]
-    Join: Optional[JoinEventConfiguration]
-    ConnectionStatus: Optional[ConnectionStatusEventConfiguration]
-    MessageDeliveryStatus: Optional[MessageDeliveryStatusEventConfiguration]
+    PartnerType: EventNotificationPartnerType | None
+    DeviceRegistrationState: DeviceRegistrationStateEventConfiguration | None
+    Proximity: ProximityEventConfiguration | None
+    Join: JoinEventConfiguration | None
+    ConnectionStatus: ConnectionStatusEventConfiguration | None
+    MessageDeliveryStatus: MessageDeliveryStatusEventConfiguration | None
 
 
 class UpdateResourceEventConfigurationResponse(TypedDict, total=False):
@@ -3130,7 +3165,7 @@ class UpdateResourceEventConfigurationResponse(TypedDict, total=False):
 
 
 class UpdateResourcePositionRequest(ServiceRequest):
-    GeoJsonPayload: Optional[IO[GeoJsonPayload]]
+    GeoJsonPayload: IO[GeoJsonPayload] | None
     ResourceIdentifier: PositionResourceIdentifier
     ResourceType: PositionResourceType
 
@@ -3150,11 +3185,12 @@ class UpdateWirelessDeviceImportTaskResponse(TypedDict, total=False):
 
 class UpdateWirelessDeviceRequest(ServiceRequest):
     Id: WirelessDeviceId
-    DestinationName: Optional[DestinationName]
-    Name: Optional[WirelessDeviceName]
-    Description: Optional[Description]
-    LoRaWAN: Optional[LoRaWANUpdateDevice]
-    Positioning: Optional[PositioningConfigStatus]
+    DestinationName: DestinationName | None
+    Name: WirelessDeviceName | None
+    Description: Description | None
+    LoRaWAN: LoRaWANUpdateDevice | None
+    Positioning: PositioningConfigStatus | None
+    Sidewalk: SidewalkUpdateWirelessDevice | None
 
 
 class UpdateWirelessDeviceResponse(TypedDict, total=False):
@@ -3163,11 +3199,11 @@ class UpdateWirelessDeviceResponse(TypedDict, total=False):
 
 class UpdateWirelessGatewayRequest(ServiceRequest):
     Id: WirelessGatewayId
-    Name: Optional[WirelessGatewayName]
-    Description: Optional[Description]
-    JoinEuiFilters: Optional[JoinEuiFilters]
-    NetIdFilters: Optional[NetIdFilters]
-    MaxEirp: Optional[GatewayMaxEirp]
+    Name: WirelessGatewayName | None
+    Description: Description | None
+    JoinEuiFilters: JoinEuiFilters | None
+    NetIdFilters: NetIdFilters | None
+    MaxEirp: GatewayMaxEirp | None
 
 
 class UpdateWirelessGatewayResponse(TypedDict, total=False):
@@ -3175,8 +3211,8 @@ class UpdateWirelessGatewayResponse(TypedDict, total=False):
 
 
 class IotwirelessApi:
-    service = "iotwireless"
-    version = "2020-11-22"
+    service: str = "iotwireless"
+    version: str = "2020-11-22"
 
     @handler("AssociateAwsAccountWithPartnerAccount")
     def associate_aws_account_with_partner_account(
@@ -3547,8 +3583,8 @@ class IotwirelessApi:
         :param lo_ra_wan: The device configuration information to use to create the wireless
         device.
         :param tags: The tags to attach to the new wireless device.
-        :param positioning: FPort values for the GNSS, stream, and ClockSync functions of the
-        positioning information.
+        :param positioning: The integration status of the Device Location feature for LoRaWAN and
+        Sidewalk devices.
         :param sidewalk: The device configuration information to use to create the Sidewalk
         device.
         :returns: CreateWirelessDeviceResponse
@@ -4230,7 +4266,7 @@ class IotwirelessApi:
 
         This action is no longer supported. Calls to retrieve the position
         information should use the
-        `GetResourcePosition <https://docs.aws.amazon.com/iot-wireless/2020-11-22/apireference/API_GetResourcePosition.html>`__
+        `GetResourcePosition <https://docs.aws.amazon.com/iot-wireless/latest/apireference/API_GetResourcePosition.html>`__
         API operation instead.
 
         :param resource_identifier: Resource identifier used to retrieve the position information.
@@ -4257,7 +4293,7 @@ class IotwirelessApi:
 
         This action is no longer supported. Calls to retrieve the position
         configuration should use the
-        `GetResourcePosition <https://docs.aws.amazon.com/iot-wireless/2020-11-22/apireference/API_GetResourcePosition.html>`__
+        `GetResourcePosition <https://docs.aws.amazon.com/iot-wireless/latest/apireference/API_GetResourcePosition.html>`__
         API operation instead.
 
         :param resource_identifier: Resource identifier used in a position configuration.
@@ -4801,7 +4837,7 @@ class IotwirelessApi:
 
         This action is no longer supported. Calls to retrieve position
         information should use the
-        `GetResourcePosition <https://docs.aws.amazon.com/iot-wireless/2020-11-22/apireference/API_GetResourcePosition.html>`__
+        `GetResourcePosition <https://docs.aws.amazon.com/iot-wireless/latest/apireference/API_GetResourcePosition.html>`__
         API operation instead.
 
         :param resource_type: Resource type for which position configurations are listed.
@@ -4891,7 +4927,8 @@ class IotwirelessApi:
         next_token: NextToken | None = None,
         **kwargs,
     ) -> ListWirelessDeviceImportTasksResponse:
-        """List wireless devices that have been added to an import task.
+        """List of import tasks and summary information of onboarding status of
+        devices in each import task.
 
         :param max_results: The maximum number of results to return in this operation.
         :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
@@ -4927,7 +4964,8 @@ class IotwirelessApi:
         :param next_token: To retrieve the next set of results, the ``nextToken`` value from a
         previous response; otherwise **null** to receive the first set of
         results.
-        :param destination_name: A filter to list only the wireless devices that use this destination.
+        :param destination_name: A filter to list only the wireless devices that use as uplink
+        destination.
         :param device_profile_id: A filter to list only the wireless devices that use this device profile.
         :param service_profile_id: A filter to list only the wireless devices that use this service
         profile.
@@ -5005,7 +5043,7 @@ class IotwirelessApi:
 
         This action is no longer supported. Calls to update the position
         configuration should use the
-        `UpdateResourcePosition <https://docs.aws.amazon.com/iot-wireless/2020-11-22/apireference/API_UpdateResourcePosition.html>`__
+        `UpdateResourcePosition <https://docs.aws.amazon.com/iot-wireless/latest/apireference/API_UpdateResourcePosition.html>`__
         API operation instead.
 
         :param resource_identifier: Resource identifier used to update the position configuration.
@@ -5243,6 +5281,7 @@ class IotwirelessApi:
         client_request_token: ClientRequestToken | None = None,
         device_name: DeviceName | None = None,
         tags: TagList | None = None,
+        positioning: PositioningConfigStatus | None = None,
         **kwargs,
     ) -> StartSingleWirelessDeviceImportTaskResponse:
         """Start import task for a single wireless device.
@@ -5255,6 +5294,8 @@ class IotwirelessApi:
         :param device_name: The name of the wireless device for which an import task is being
         started.
         :param tags: The tag to attach to the specified resource.
+        :param positioning: The integration status of the Device Location feature for Sidewalk
+        devices.
         :returns: StartSingleWirelessDeviceImportTaskResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5273,6 +5314,7 @@ class IotwirelessApi:
         sidewalk: SidewalkStartImportInfo,
         client_request_token: ClientRequestToken | None = None,
         tags: TagList | None = None,
+        positioning: PositioningConfigStatus | None = None,
         **kwargs,
     ) -> StartWirelessDeviceImportTaskResponse:
         """Start import task for provisioning Sidewalk devices in bulk using an S3
@@ -5285,6 +5327,8 @@ class IotwirelessApi:
         to be provisioned in bulk.
         :param client_request_token: Each resource must have a unique client request token.
         :param tags: The tag to attach to the specified resource.
+        :param positioning: The integration status of the Device Location feature for Sidewalk
+        devices.
         :returns: StartWirelessDeviceImportTaskResponse
         :raises ValidationException:
         :raises AccessDeniedException:
@@ -5597,7 +5641,7 @@ class IotwirelessApi:
 
         This action is no longer supported. Calls to update the position
         information should use the
-        `UpdateResourcePosition <https://docs.aws.amazon.com/iot-wireless/2020-11-22/apireference/API_UpdateResourcePosition.html>`__
+        `UpdateResourcePosition <https://docs.aws.amazon.com/iot-wireless/latest/apireference/API_UpdateResourcePosition.html>`__
         API operation instead.
 
         :param resource_identifier: Resource identifier of the resource for which position is updated.
@@ -5686,6 +5730,7 @@ class IotwirelessApi:
         description: Description | None = None,
         lo_ra_wan: LoRaWANUpdateDevice | None = None,
         positioning: PositioningConfigStatus | None = None,
+        sidewalk: SidewalkUpdateWirelessDevice | None = None,
         **kwargs,
     ) -> UpdateWirelessDeviceResponse:
         """Updates properties of a wireless device.
@@ -5695,8 +5740,9 @@ class IotwirelessApi:
         :param name: The new name of the resource.
         :param description: A new description of the resource.
         :param lo_ra_wan: The updated wireless device's configuration.
-        :param positioning: FPort values for the GNSS, stream, and ClockSync functions of the
-        positioning information.
+        :param positioning: The integration status of the Device Location feature for LoRaWAN and
+        Sidewalk devices.
+        :param sidewalk: The updated sidewalk properties.
         :returns: UpdateWirelessDeviceResponse
         :raises ValidationException:
         :raises ResourceNotFoundException:

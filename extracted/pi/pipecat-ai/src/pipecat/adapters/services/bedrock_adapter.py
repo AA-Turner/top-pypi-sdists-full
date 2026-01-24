@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024–2025, Daily
+# Copyright (c) 2024-2026, Daily
 #
 # SPDX-License-Identifier: BSD 2-Clause License
 #
@@ -10,7 +10,7 @@ import base64
 import copy
 import json
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, TypedDict
+from typing import Any, Dict, List, Optional, TypedDict
 
 from loguru import logger
 
@@ -42,6 +42,11 @@ class AWSBedrockLLMAdapter(BaseLLMAdapter[AWSBedrockLLMInvocationParams]):
     into AWS Bedrock's expected tool format for function calling capabilities.
     """
 
+    @property
+    def id_for_llm_specific_messages(self) -> str:
+        """Get the identifier used in LLMSpecificMessage instances for AWS Bedrock."""
+        return "aws"
+
     def get_llm_invocation_params(self, context: LLMContext) -> AWSBedrockLLMInvocationParams:
         """Get AWS Bedrock-specific LLM invocation parameters from a universal LLM context.
 
@@ -51,7 +56,7 @@ class AWSBedrockLLMAdapter(BaseLLMAdapter[AWSBedrockLLMInvocationParams]):
         Returns:
             Dictionary of parameters for invoking AWS Bedrock's LLM API.
         """
-        messages = self._from_universal_context_messages(self._get_messages(context))
+        messages = self._from_universal_context_messages(self.get_messages(context))
         return {
             "system": messages.system,
             "messages": messages.messages,
@@ -75,7 +80,7 @@ class AWSBedrockLLMAdapter(BaseLLMAdapter[AWSBedrockLLMInvocationParams]):
             List of messages in a format ready for logging about AWS Bedrock.
         """
         # Get messages in Anthropic's format
-        messages = self._from_universal_context_messages(self._get_messages(context)).messages
+        messages = self._from_universal_context_messages(self.get_messages(context)).messages
 
         # Sanitize messages for logging
         messages_for_logging = []
@@ -88,9 +93,6 @@ class AWSBedrockLLMAdapter(BaseLLMAdapter[AWSBedrockLLMInvocationParams]):
                             item["image"]["source"]["bytes"] = "..."
             messages_for_logging.append(msg)
         return messages_for_logging
-
-    def _get_messages(self, context: LLMContext) -> List[LLMContextMessage]:
-        return context.get_messages("anthropic")
 
     @dataclass
     class ConvertedMessages:
@@ -105,7 +107,7 @@ class AWSBedrockLLMAdapter(BaseLLMAdapter[AWSBedrockLLMInvocationParams]):
         system = None
         messages = []
 
-        # first, map messages using self._from_universal_context_message(m)
+        # First, map messages using self._from_universal_context_message(m)
         try:
             messages = [self._from_universal_context_message(m) for m in universal_context_messages]
         except Exception as e:
@@ -254,15 +256,23 @@ class AWSBedrockLLMAdapter(BaseLLMAdapter[AWSBedrockLLMInvocationParams]):
                     new_content.append({"text": text_content})
                 # handle image_url -> image conversion
                 if item["type"] == "image_url":
-                    new_item = {
-                        "image": {
-                            "format": "jpeg",
-                            "source": {
-                                "bytes": base64.b64decode(item["image_url"]["url"].split(",")[1])
-                            },
+                    if item["image_url"]["url"].startswith("data:"):
+                        # Extract format from data URL (format: "data:image/jpeg;base64,...")
+                        url = item["image_url"]["url"]
+                        mime_type = url.split(":")[1].split(";")[0]
+                        # Bedrock expects format like "jpeg", "png" etc., not "image/jpeg"
+                        image_format = mime_type.split("/")[1]
+                        new_item = {
+                            "image": {
+                                "format": image_format,
+                                "source": {"bytes": base64.b64decode(url.split(",")[1])},
+                            }
                         }
-                    }
-                    new_content.append(new_item)
+                        new_content.append(new_item)
+                    else:
+                        url = item["image_url"]["url"]
+                        logger.warning(f"Unsupported 'image_url': {url}")
+
             # In the case where there's a single image in the list (like what
             # would result from a UserImageRawFrame), ensure that the image
             # comes before text

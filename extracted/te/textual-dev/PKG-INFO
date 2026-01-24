@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: textual-dev
-Version: 1.7.0
+Version: 1.8.0
 Summary: Development tools for working with Textual
-Home-page: https://github.com/Textualize/textual-dev
 License: MIT
 Author: Will McGugan
 Author-email: will@textualize.io
-Requires-Python: >=3.8.1,<4.0.0
-Classifier: Development Status :: 4 - Beta
+Requires-Python: >=3.9,<4.0
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -20,7 +19,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Dist: aiohttp (>=3.8.1)
 Requires-Dist: click (>=8.1.2)
@@ -28,6 +28,7 @@ Requires-Dist: msgpack (>=1.0.3)
 Requires-Dist: textual (>=0.86.2)
 Requires-Dist: textual_serve (>=1.0.3)
 Requires-Dist: typing-extensions (>=4.4.0,<5.0.0)
+Project-URL: Homepage, https://github.com/Textualize/textual-dev
 Description-Content-Type: text/markdown
 
 # textual-dev

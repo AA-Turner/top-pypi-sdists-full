@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: opensearch-py
-Version: 3.0.0
+Version: 3.1.0
 Summary: Python client for OpenSearch
 Home-page: https://github.com/opensearch-project/opensearch-py
 Author: Aleksei Atavin, Denis Zalevskiy, Rushi Agrawal, Shephali Mittal
@@ -16,14 +16,12 @@ Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8, <4
+Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: NOTICE.txt
@@ -34,6 +32,7 @@ Requires-Dist: requests<3.0.0,>=2.32.0
 Requires-Dist: python-dateutil
 Requires-Dist: certifi>=2024.07.04
 Requires-Dist: Events
+Requires-Dist: opensearch-protobufs==0.19.0
 Provides-Extra: develop
 Requires-Dist: requests<3.0.0,>=2.0.0; extra == "develop"
 Requires-Dist: coverage<8.0.0; extra == "develop"
@@ -54,9 +53,9 @@ Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Requires-Dist: myst_parser; extra == "docs"
 Requires-Dist: sphinx_copybutton; extra == "docs"
-Requires-Dist: aiohttp<4,>=3.9.4; extra == "docs"
+Requires-Dist: aiohttp<4,>=3.12.14; extra == "docs"
 Provides-Extra: async
-Requires-Dist: aiohttp<4,>=3.9.4; extra == "async"
+Requires-Dist: aiohttp<4,>=3.12.14; extra == "async"
 Provides-Extra: kerberos
 Requires-Dist: requests_kerberos; extra == "kerberos"
 Dynamic: author

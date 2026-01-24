@@ -5,7 +5,14 @@
 This is an internal PyTango module.
 """
 
-__all__ = ("Util", "pyutil_init", "EnsureOmniThread", "is_omni_thread")
+__all__ = (
+    "Util",
+    "pyutil_init",
+    "TimedAttrData",
+    "TimedCmdData",
+    "EnsureOmniThread",
+    "is_omni_thread",
+)
 
 __docformat__ = "restructuredtext"
 
@@ -16,6 +23,7 @@ import copy
 
 from argparse import ArgumentParser
 
+from tango import AttrQuality
 from tango._tango import (
     Util,
     Except,
@@ -25,12 +33,78 @@ from tango._tango import (
     is_omni_thread,
     _telemetry,
 )
-from tango.utils import document_method as __document_method
-from tango.utils import document_static_method as __document_static_method
-from tango.utils import PyTangoHelpFormatter
+
+from tango.utils import (
+    PyTangoHelpFormatter,
+    is_non_str_seq,
+    _InterfaceDefinedByIDL,
+    _exception_converter,
+)
 from tango.globals import class_list, cpp_class_list, get_constructed_classes
 
 import collections.abc
+
+
+class TimedAttrData(_InterfaceDefinedByIDL):
+    """This is pure-Python class, which combines both TimedAttrData and AttributeData
+    cppTango classes, for use with Util.fill_attr_polling_buffer
+
+    :param value: value to be inserted in polling history. `Default:` :obj:`None`
+    :type value: any type compatible with the Tango attribute's dtype
+
+    :param quality: quality of value. `Default:` :obj:`tango.AttrQuality.ATTR_VALID`
+    :type quality: :obj:`tango.AttrQuality`
+
+    :param w_value: corresponding written value. Note: should be present only for writable attributes `Default:` :obj:`None`
+    :type w_value: any type compatible with the Tango attribute's dtype
+
+    :param error: if the error reading should be inserted. Note: error has a priority over value! `Default:` :obj:`None`
+    :type error: :obj:`Exception` or :obj:`tango.DevFailed`
+
+    :param time_stamp: value time stamp in seconds passed since epoch. If not provided, the current system time will be used `Default:` :obj:`None`
+    :type time_stamp: :obj:`float`
+    """
+
+    def __init__(
+        self,
+        value=None,
+        quality=AttrQuality.ATTR_VALID,
+        w_value=None,
+        error=None,
+        time_stamp=None,
+    ):
+        self.value = value
+        self.quality = quality
+        self.w_value = w_value
+        self.error = error
+        self.time_stamp = time_stamp
+        self._initialized = True
+
+
+class TimedCmdData(_InterfaceDefinedByIDL):
+    """This is pure-Python class, which mimics the TimedCmdData
+    cppTango class, for use with Util.fill_cmd_polling_buffer
+
+    :param value: value to be inserted in polling history. `Default:` :obj:`None`
+    :type value: any type compatible with the Tango commands's dtype
+
+    :param error: if the error reading should be inserted. Note: error has a priority over value! `Default:` :obj:`None`
+    :type error: :obj:`Exception` or :obj:`tango.DevFailed`
+
+    :param time_stamp: value time stamp in seconds passed since epoch. If not provided, the current system time will be used `Default:` :obj:`None`
+    :type time_stamp: :obj:`float`
+    """
+
+    def __init__(
+        self,
+        value=None,
+        error=None,
+        time_stamp=None,
+    ):
+        self.value = value
+        self.error = error
+        self.time_stamp = time_stamp
+        self._initialized = True
 
 
 def __simplify_device_name(dev_name):
@@ -85,8 +159,8 @@ def __Util__create_device(self, klass_name, device_name, alias=None, cb=None):
         - cb : (callable) a callback that is called AFTER the device is registered
                in the database and BEFORE the init_device for the newly created
                device is called. Typically you may want to put device and/or attribute
-               properties in the database here. The callback must receive a parameter:
-               device name (str). Default value is None meaning no callback
+               properties in the database here. The callback must receive a parameter
+               device_name (str). Default value is None meaning no callback
 
     Return     : None"""
     if cb is not None and not isinstance(cb, collections.abc.Callable):
@@ -217,6 +291,148 @@ def __Util__delete_device(self, klass_name, device_name):
 
     dc = dimpl.get_device_class()
     dc.device_destroyer(device_name)
+
+
+def __check_arg_for_polling_buffer(history_stack, expected_type, parameter_name):
+    # if user gave us just one value - convert it to list
+    if not is_non_str_seq(history_stack):
+        history_stack = [history_stack]
+
+    for v in history_stack:
+        if not isinstance(v, expected_type):
+            raise ValueError(
+                f"{parameter_name} parameter has type {type(v)}, "
+                f"while it must be {expected_type.__name__} object "
+                f"or sequence of {expected_type.__name__} objects"
+            )
+        if isinstance(v.error, Exception):
+            v.error = _exception_converter(v.error)
+        if isinstance(v.error, DevFailed):
+            v.error = v.error.args
+
+    return history_stack
+
+
+def __Util__fill_attr_polling_buffer(self, device, attribute_name, attr_history_stack):
+    """
+    fill_attr_polling_buffer(self, device, attribute_name, attr_history_stack) -> None
+
+        Fill attribute polling buffer with your own data. E.g.:
+
+        .. code-block:: python
+
+            def fill_history():
+                util = Util.instance(False)
+                # note is such case quality will ATTR_VALID, and time_stamp will be time.time()
+                util.fill_attr_polling_buffer(device, attribute_name, TimedAttrData(my_new_value))
+
+        or:
+
+        .. code-block:: python
+
+            def fill_history():
+                util = Util.instance(False)
+
+                data = TimedAttrData(value=my_new_value,
+                                     quality=AttrQuality.ATTR_WARNING,
+                                     w_value=my_new_w_value,
+                                     time_stamp=my_time)
+
+                util.fill_attr_polling_buffer(device, attribute_name, data)
+
+        or:
+
+        .. code-block:: python
+
+            def fill_history():
+                util = Util.instance(False)
+                data = [TimedAttrData(my_new_value),
+                        TimedAttrData(error=RuntimeError("Cannot read value")]
+
+                util.fill_attr_polling_buffer(device, attribute_name, data)
+
+    :param device: the device to fill attribute polling buffer
+    :type device: :obj:`tango.DeviceImpl`
+
+    :param attribute_name: name of the attribute to fill polling buffer
+    :type attribute_name: :obj:`str`
+
+    :param attr_history_stack: data to be inserted.
+    :type attr_history_stack: :obj:`tango.TimedAttrData` or list[:obj:`tango.TimedAttrData`]
+
+    :return: None
+
+    :raises: :obj:`tango.DevFailed`
+
+    .. versionadded:: 10.1.0
+    """
+
+    attr_history_stack = __check_arg_for_polling_buffer(
+        attr_history_stack, TimedAttrData, "attr_history_stack"
+    )
+
+    self._fill_attr_polling_buffer(device, attribute_name, attr_history_stack)
+
+
+def __Util__fill_cmd_polling_buffer(self, device, command_name, cmd_history_stack):
+    """
+    fill_cmd_polling_buffer(self, device, command_name, attr_history_stack) -> None
+
+        Fill attribute polling buffer with your own data. E.g.:
+
+
+        .. code-block:: python
+
+            def fill_history():
+                util = Util.instance(False)
+                # note is such time_stamp will be set to time.time()
+                util.fill_cmd_polling_buffer(device, command_name, TimedCmdData(my_new_value))
+
+        or:
+
+        .. code-block:: python
+
+            def fill_history():
+                util = Util.instance(False)
+
+                data = TimedCmdData(value=my_new_value,
+                                     time_stamp=my_time)
+
+                util.fill_cmd_polling_buffer(device, command_name, data)
+
+        or:
+
+        .. code-block:: python
+
+            def fill_history():
+                util = Util.instance(False)
+                data = [TimedCmdData(my_new_value),
+                        TimedCmdData(error=RuntimeError("Cannot read value")]
+
+                util.fill_cmd_polling_buffer(device, command_name, data)
+
+
+    :param device: the device to fill command polling buffer
+    :type device: :obj:`tango.DeviceImpl`
+
+    :param command_name: name of the command to fill polling buffer
+    :type command_name: :obj:`str`
+
+    :param cmd_history_stack: data to be inserted
+    :type cmd_history_stack: :obj:`tango.TimedCmdData` or list[:obj:`tango.TimedCmdData`]
+
+    :return: None
+
+    :raises: :obj:`tango.DevFailed`
+
+    .. versionadded:: 10.1.0
+    """
+
+    cmd_history_stack = __check_arg_for_polling_buffer(
+        cmd_history_stack, TimedCmdData, "cmd_history_stack"
+    )
+
+    self._fill_cmd_polling_buffer(device, command_name, cmd_history_stack)
 
 
 def parse_args(args):
@@ -483,711 +699,8 @@ def __init_Util():
     Util.get_class_list = __Util__get_class_list
     Util.create_device = __Util__create_device
     Util.delete_device = __Util__delete_device
-
-
-def __doc_Util():
-    Util.__doc__ = """\
-    This class is a used to store TANGO device server process data and to
-    provide the user with a set of utilities method.
-
-    This class is implemented using the singleton design pattern.
-    Therefore a device server process can have only one instance of this
-    class and its constructor is not public. Example::
-
-        util = tango.Util.instance()
-        print(util.get_host_name())
-    """
-
-    def document_method(method_name, desc, append=True):
-        return __document_method(Util, method_name, desc, append)
-
-    def document_static_method(method_name, desc, append=True):
-        return __document_static_method(Util, method_name, desc, append)
-
-    document_static_method(
-        "instance",
-        """
-    instance(exit = True) -> Util
-
-           Static method that gets the singleton object reference.
-           If the class has not been initialised with it's init method,
-           this method prints a message and aborts the device server process.
-
-       :param bool exit: exit or throw DevFailed
-
-       :returns: the tango :class:`Util` object
-       :rtype: :class:`Util`
-
-       :raises: :class:`DevFailed` instead of aborting if exit is set to False
-    """,
-    )
-
-    document_static_method(
-        "init",
-        """
-    init(*args) -> Util
-
-       Static method that creates and gets the singleton object reference.
-       This method returns a reference to the object of the Util class.
-       If the class singleton object has not been created, it will be instantiated
-
-       :param str \\*args: the process commandline arguments
-
-       :return: :class:`Util` the tango Util object
-       :rtype: :class:`Util`
-    """,
-    )
-
-    document_method(
-        "get_device_ior",
-        """
-    get_device_ior(self, device) -> str
-
-        Get the CORBA Interoperable Object Reference (IOR) associated with the device
-
-        :param device: :class:`tango.LatestDeviceImpl` device object
-        :type device: :class:`tango.LatestDeviceImpl`
-
-        :return: the associated CORBA object reference
-        :rtype: str
-    """,
-    )
-
-    document_method(
-        "get_dserver_ior",
-        """
-    get_dserver_ior(self, device_server) -> str
-
-        Get the CORBA Interoperable Object Reference (IOR) associated with the device server
-
-        :param device_server: :class:`DServer` device object
-        :type device_server: :class:`DServer`
-
-        :return: the associated CORBA object reference
-        :rtype: str
-    """,
-    )
-
-    document_method(
-        "set_trace_level",
-        """
-    set_trace_level(self, level) -> None
-
-            Set the process trace level.
-
-        Parameters :
-            - level : (int) the new process level
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "get_trace_level",
-        """
-    get_trace_level(self) -> int
-
-            Get the process trace level.
-
-        Parameters : None
-        Return     : (int) the process trace level.
-    """,
-    )
-
-    document_method(
-        "get_ds_inst_name",
-        """
-    get_ds_inst_name(self) -> str
-
-            Get a COPY of the device server instance name.
-
-        Parameters : None
-        Return     : (str) a COPY of the device server instance name.
-
-        New in PyTango 3.0.4
-    """,
-    )
-
-    document_method(
-        "get_ds_exec_name",
-        """
-    get_ds_exec_name(self) -> str
-
-            Get a COPY of the device server executable name.
-
-        Parameters : None
-        Return     : (str) a COPY of the device server executable name.
-
-        New in PyTango 3.0.4
-    """,
-    )
-
-    document_method(
-        "get_ds_name",
-        """
-    get_ds_name(self) -> str
-
-            Get the device server name.
-            The device server name is the <device server executable name>/<the device server instance name>
-
-        Parameters : None
-        Return     : (str) device server name
-
-        New in PyTango 3.0.4
-    """,
-    )
-
-    document_method(
-        "get_host_name",
-        """
-    get_host_name(self) -> str
-
-            Get the host name where the device server process is running.
-
-        Parameters : None
-        Return     : (str) the host name where the device server process is running
-
-        New in PyTango 3.0.4
-    """,
-    )
-
-    document_method(
-        "get_pid_str",
-        """
-    get_pid_str(self) -> str
-
-            Get the device server process identifier as a string.
-
-        Parameters : None
-        Return     : (str) the device server process identifier as a string
-
-        New in PyTango 3.0.4
-    """,
-    )
-
-    document_method(
-        "get_pid",
-        """
-    get_pid(self) -> TangoSys_Pid
-
-            Get the device server process identifier.
-
-        Parameters : None
-        Return     : (int) the device server process identifier
-    """,
-    )
-
-    document_method(
-        "get_tango_lib_release",
-        """
-    get_tango_lib_release(self) -> int
-
-            Get the TANGO library version number.
-
-        Parameters : None
-        Return     : (int) The Tango library release number coded in
-                     3 digits (for instance 550,551,552,600,....)
-    """,
-    )
-
-    document_method(
-        "get_version_str",
-        """
-    get_version_str(self) -> str
-
-            Get the IDL TANGO version.
-
-        Parameters : None
-        Return     : (str) the IDL TANGO version.
-
-        New in PyTango 3.0.4
-    """,
-    )
-
-    document_method(
-        "get_server_version",
-        """
-    get_server_version(self) -> str
-
-            Get the device server version.
-
-        Parameters : None
-        Return     : (str) the device server version.
-    """,
-    )
-
-    document_method(
-        "set_server_version",
-        """
-    set_server_version(self, vers) -> None
-
-            Set the device server version.
-
-        Parameters :
-            - vers : (str) the device server version
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "set_serial_model",
-        """
-    set_serial_model(self, ser) -> None
-
-            Set the serialization model.
-
-        Parameters :
-            - ser : (SerialModel) the new serialization model. The serialization model must
-                    be one of BY_DEVICE, BY_CLASS, BY_PROCESS or NO_SYNC
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "get_serial_model",
-        """
-    get_serial_model(self) ->SerialModel
-
-            Get the serialization model.
-
-        Parameters : None
-        Return     : (SerialModel) the serialization model
-    """,
-    )
-
-    document_method(
-        "connect_db",
-        """
-    connect_db(self) -> None
-
-            Connect the process to the TANGO database.
-            If the connection to the database failed, a message is
-            displayed on the screen and the process is aborted
-
-        Parameters : None
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "reset_filedatabase",
-        """
-    reset_filedatabase(self) -> None
-
-            Reread the file database.
-
-        Parameters : None
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "unregister_server",
-        """
-    unregister_server(self) -> None
-
-            Unregister a device server process from the TANGO database.
-
-        Parameters : None
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "get_dserver_device",
-        """
-    get_dserver_device(self) -> DServer
-
-            Get a reference to the dserver device attached to the device server process.
-
-        Parameters : None
-        Return     : (DServer) the dserver device attached to the device server process
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "server_init",
-        """
-    server_init(self, with_window = False) -> None
-
-            Initialize all the device server pattern(s) embedded in a device server process.
-
-        Parameters :
-            - with_window : (bool) default value is False
-        Return     : None
-
-        Throws     : DevFailed If the device pattern initialistaion failed
-    """,
-    )
-
-    document_method(
-        "server_run",
-        """
-    server_run(self) -> None
-
-            Run the CORBA event loop.
-            This method runs the CORBA event loop. For UNIX or Linux operating system,
-            this method does not return. For Windows in a non-console mode, this method
-            start a thread which enter the CORBA event loop.
-
-        Parameters : None
-        Return     : None
-    """,
-    )
-
-    # TODO finish documentation
-    document_method(
-        "orb_run",
-        """
-    orb_run(self) -> None
-
-            Run the CORBA event loop directly (EXPERT FEATURE!)
-
-            This method runs the CORBA event loop.  It may be useful if the
-            Util.server_run method needs to be bypassed.  Normally, that method
-            runs the CORBA event loop.
-
-        Parameters : None
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "trigger_cmd_polling",
-        """
-    trigger_cmd_polling(self, dev, name) -> None
-
-            Trigger polling for polled command.
-            This method send the order to the polling thread to poll one object registered
-            with an update period defined as "externally triggerred"
-
-        Parameters :
-            - dev : (DeviceImpl) the TANGO device
-            - name : (str) the command name which must be polled
-        Return     : None
-
-        Throws     : DevFailed If the call failed
-    """,
-    )
-
-    document_method(
-        "trigger_attr_polling",
-        """
-    trigger_attr_polling(self, dev, name) -> None
-
-            Trigger polling for polled attribute.
-            This method send the order to the polling thread to poll one object registered
-            with an update period defined as "externally triggerred"
-
-        Parameters :
-            - dev : (DeviceImpl) the TANGO device
-            - name : (str) the attribute name which must be polled
-        Return     : None
-    """,
-    )
-
-    document_method(
-        "set_polling_threads_pool_size",
-        """
-    set_polling_threads_pool_size(self, thread_nb) -> None
-
-            Set the polling threads pool size.
-
-        Parameters :
-            - thread_nb : (int) the maximun number of threads in the polling threads pool
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_polling_threads_pool_size",
-        """
-    get_polling_threads_pool_size(self) -> int
-
-            Get the polling threads pool size.
-
-        Parameters : None
-        Return     : (int) the maximun number of threads in the polling threads pool
-    """,
-    )
-
-    document_method(
-        "is_svr_starting",
-        """
-    is_svr_starting(self) -> bool
-
-            Check if the device server process is in its starting phase
-
-        Parameters : None
-        Return     : (bool) True if the server is in its starting phase
-
-        New in PyTango 8.0.0
-    """,
-    )
-
-    document_method(
-        "is_svr_shutting_down",
-        """
-    is_svr_shutting_down(self) -> bool
-
-            Check if the device server process is in its shutting down sequence
-
-        Parameters : None
-        Return     : (bool) True if the server is in its shutting down phase.
-
-        New in PyTango 8.0.0
-    """,
-    )
-
-    document_method(
-        "is_device_restarting",
-        """
-    is_device_restarting(self, (str)dev_name) -> bool
-
-            Check if the device is actually restarted by the device server
-            process admin device with its DevRestart command
-
-        Parameters :
-            dev_name : (str) device name
-        Return     : (bool) True if the device is restarting.
-
-        New in PyTango 8.0.0
-    """,
-    )
-
-    document_method(
-        "get_sub_dev_diag",
-        """
-    get_sub_dev_diag(self) -> SubDevDiag
-
-            Get the internal sub device manager
-
-        Parameters : None
-        Return     : (SubDevDiag) the sub device manager
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "reset_filedatabase",
-        """
-    reset_filedatabase(self) -> None
-
-            Reread the file database
-
-        Parameters : None
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_database",
-        """
-    get_database(self) -> Database
-
-            Get a reference to the TANGO database object
-
-        Parameters : None
-        Return     : (Database) the database
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "unregister_server",
-        """
-    unregister_server(self) -> None
-
-            Unregister a device server process from the TANGO database.
-            If the database call fails, a message is displayed on the screen
-            and the process is aborted
-
-        Parameters : None
-        Return     : None
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_device_list_by_class",
-        """
-    get_device_list_by_class(self, class_name) -> sequence<DeviceImpl>
-
-            Get the list of device references for a given TANGO class.
-            Return the list of references for all devices served by one implementation
-            of the TANGO device pattern implemented in the process.
-
-        Parameters :
-            - class_name : (str) The TANGO device class name
-
-        Return     : (sequence<DeviceImpl>) The device reference list
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_device_by_name",
-        """
-    get_device_by_name(self, dev_name) -> DeviceImpl
-
-            Get a device reference from its name
-
-        Parameters :
-            - dev_name : (str) The TANGO device name
-        Return     : (DeviceImpl) The device reference
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_dserver_device",
-        """
-    get_dserver_device(self) -> DServer
-
-            Get a reference to the dserver device attached to the device server process
-
-        Parameters : None
-        Return     : (DServer) A reference to the dserver device
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "get_device_list",
-        """
-    get_device_list(self) -> sequence<DeviceImpl>
-
-            Get device list from name.
-            It is possible to use a wild card ('*') in the name parameter
-            (e.g. "*", "/tango/tangotest/n*", ...)
-
-        Parameters : None
-        Return     : (sequence<DeviceImpl>) the list of device objects
-
-        New in PyTango 7.0.0
-    """,
-    )
-
-    document_method(
-        "server_set_event_loop",
-        """
-    server_set_event_loop(self, event_loop) -> None
-
-        This method registers an event loop function in a Tango server.
-        This function will be called by the process main thread in an infinite loop
-        The process will not use the classical ORB blocking event loop.
-        It is the user responsability to code this function in a way that it implements
-        some kind of blocking in order not to load the computer CPU. The following
-        piece of code is an example of how you can use this feature::
-
-            _LOOP_NB = 1
-            def looping():
-                global _LOOP_NB
-                print "looping", _LOOP_NB
-                time.sleep(0.1)
-                _LOOP_NB += 1
-                return _LOOP_NB > 100
-
-            def main():
-                util = tango.Util(sys.argv)
-
-                # ...
-
-                U = tango.Util.instance()
-                U.server_set_event_loop(looping)
-                U.server_init()
-                U.server_run()
-
-        Parameters : None
-        Return     : None
-
-        New in PyTango 8.1.0
-    """,
-    )
-
-    # TODO finish documentation
-    # document_method("set_interceptors", """
-    # set_interceptors(self) -> None
-    #
-    #     TODO DOCU
-    #
-    # """)
-
-    document_static_method(
-        "set_use_db",
-        """
-    set_use_db(self) -> None
-
-       Set the database use Tango::Util::_UseDb flag.
-       Implemented for device server started without database usage.
-
-       Use with extreme care!
-
-    """,
-    )
-
-    document_method(
-        "server_cleanup",
-        """
-    server_cleanup(self) -> None
-
-        Release device server resources (EXPERT FEATURE!)
-
-        This method cleans up the Tango device server and relinquishes
-        all computer resources before the process exits.  It is
-        unnecessary to call this, unless Util.server_run has been bypassed.
-
-    """,
-    )
-
-    document_method(
-        "is_auto_alarm_on_change_event",
-        """
-    is_auto_alarm_on_change_event(self) -> bool
-
-        Returns True if alarm events are automatically pushed to subscribers when a device
-        pushes a change event, and the attribute quality has changed to or from alarm.
-
-        Can be configured in two ways:
-
-          - via the ``CtrlSystem`` free Tango database property
-            ``AutoAlarmOnChangeEvent`` (set to true or false),
-          - by calling the :meth:`tango.Util.set_auto_alarm_on_change_event`.
-
-        Parameters : None
-        Return     : bool
-
-        .. versionadded:: 10.0.0
-    """,
-    )
-
-    document_method(
-        "set_auto_alarm_on_change_event",
-        """
-    set_auto_alarm_on_change_event(self, bool) -> None
-
-        Toggles if alarm events are automatically pushed - see
-        :meth:`tango.Util.is_auto_alarm_on_change_event`.
-
-        This method takes priority over the value of the free property in the Tango database.
-
-        Parameters : bool
-        Return     : None
-
-        .. versionadded:: 10.0.0
-    """,
-    )
+    Util.fill_attr_polling_buffer = __Util__fill_attr_polling_buffer
+    Util.fill_cmd_polling_buffer = __Util__fill_cmd_polling_buffer
 
 
 #
@@ -1210,66 +723,6 @@ def __init_EnsureOmniThread():
     EnsureOmniThread.__exit__ = __EnsureOmniThread__exit__
 
 
-def __doc_EnsureOmniThread():
-    EnsureOmniThread.__doc__ = """\
-
-    Tango servers and clients that start their own additional threads
-    that will interact with Tango must guard these threads within this
-    Python context.  This is especially important when working with
-    event subscriptions, and pushing events.
-
-    This context handler class ensures a non-omniORB thread will still
-    get a dummy omniORB thread ID - cppTango requires threads to
-    be identifiable in this way.  It should only be acquired once for
-    the lifetime of the thread, and must be released before the thread
-    is cleaned up.
-
-    Here is an example::
-
-        import tango
-        from threading import Thread
-        from time import sleep
-
-
-        def my_thread_run():
-            with tango.EnsureOmniThread():
-                eid = dp.subscribe_event(
-                    "double_scalar", tango.EventType.PERIODIC_EVENT, cb)
-                while running:
-                    print(f"num events stored {len(cb.get_events())}")
-                    sleep(1)
-                dp.unsubscribe_event(eid)
-
-
-        cb = tango.utils.EventCallback()  # print events to stdout
-        dp = tango.DeviceProxy("sys/tg_test/1")
-        dp.poll_attribute("double_scalar", 1000)
-        thread = Thread(target=my_thread_run)
-        running = True
-        thread.start()
-        sleep(5)
-        running = False
-        thread.join()
-
-    .. versionadded:: 9.3.2
-    """
-
-
-def __doc_is_omni_thread():
-    is_omni_thread.__doc__ = """\
-
-    Determines if the calling thread is (or looks like) an omniORB thread.
-    This includes user threads that have a dummy omniORB thread ID, such
-    as that provided by EnsureOmniThread.
-
-        Parameters : None
-
-        Return     : (bool) True if the calling thread is an omnithread.
-
-    New in PyTango 9.3.2
-    """
-
-
 #
 # TraceContextScope context handler
 #
@@ -1290,34 +743,7 @@ def __init_TraceContextScope():
     _telemetry.TraceContextScope.__exit__ = __TraceContextScope__exit__
 
 
-def __doc_TraceContextScope():
-    _telemetry.TraceContextScope.__doc__ = """\
-
-    Internal - for telemetry tracing purposes.
-
-    Used to propagate the Python OpenTelemetry context to the cppTango telemetry context.
-    When the context handler is entered, a new span is created.  During this process, the
-    the current cppTango context is stored before the new span is set as the active scope.
-    When the context handler exists, the span ends and the old context is restored at the
-    C++ level.
-
-    trace_parent and trace_state strings encoded as per the W3C standard: https://www.w3.org/TR/trace-context/
-
-    with tango._telemetry.TraceContextScope(new_span_name, trace_parent, trace_state):
-        x = proxy.read_attribute("foo")
-
-    This is a no-op if telemetry support isn't compiled into cppTango (check tango.constants.TANGO_USE_TELEMETRY)
-
-    .. versionadded:: 10.0.0
-    """
-
-
 def pyutil_init(doc=True):
     __init_Util()
     __init_EnsureOmniThread()
     __init_TraceContextScope()
-    if doc:
-        __doc_Util()
-        __doc_EnsureOmniThread()
-        __doc_is_omni_thread()
-        __doc_TraceContextScope()

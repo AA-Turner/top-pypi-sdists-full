@@ -27,7 +27,7 @@ def dashboard_results(hours: int) -> _TaskCounts:
         my_earliest = events.first_event(earliest=earliest)
         return [my_earliest] if my_earliest else []
 
-    earliest = dt.datetime.utcnow() - dt.timedelta(hours=hours)
+    earliest = dt.datetime.now(dt.timezone.utc) - dt.timedelta(hours=hours)
     earliest_events = []
     succeeded_count = succeeded_tasks.count(earliest=earliest)
     earliest_events += earliest_if_exists(succeeded_tasks, earliest)

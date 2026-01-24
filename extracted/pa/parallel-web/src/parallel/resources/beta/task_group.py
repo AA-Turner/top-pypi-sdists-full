@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Union, Iterable, Optional, cast
+from itertools import chain
 from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import is_given, maybe_transform, strip_not_given, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
@@ -59,13 +60,13 @@ class TaskGroupResource(SyncAPIResource):
     def create(
         self,
         *,
-        metadata: Optional[Dict[str, Union[str, float, bool]]] | NotGiven = NOT_GIVEN,
+        metadata: Optional[Dict[str, Union[str, float, bool]]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TaskGroup:
         """
         Initiates a TaskGroup to group and track multiple runs.
@@ -81,6 +82,7 @@ class TaskGroupResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return self._post(
             "/v1beta/tasks/groups",
             body=maybe_transform({"metadata": metadata}, task_group_create_params.TaskGroupCreateParams),
@@ -99,7 +101,7 @@ class TaskGroupResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TaskGroup:
         """
         Retrieves aggregated status across runs in a TaskGroup.
@@ -115,6 +117,7 @@ class TaskGroupResource(SyncAPIResource):
         """
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return self._get(
             f"/v1beta/tasks/groups/{task_group_id}",
             options=make_request_options(
@@ -128,14 +131,14 @@ class TaskGroupResource(SyncAPIResource):
         task_group_id: str,
         *,
         inputs: Iterable[BetaRunInputParam],
-        default_task_spec: Optional[TaskSpecParam] | NotGiven = NOT_GIVEN,
-        betas: List[ParallelBetaParam] | NotGiven = NOT_GIVEN,
+        default_task_spec: Optional[TaskSpecParam] | Omit = omit,
+        betas: List[ParallelBetaParam] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TaskGroupRunResponse:
         """
         Initiates multiple task runs within a TaskGroup.
@@ -163,9 +166,16 @@ class TaskGroupResource(SyncAPIResource):
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
         extra_headers = {
-            **strip_not_given({"parallel-beta": ",".join(str(e) for e in betas) if is_given(betas) else NOT_GIVEN}),
+            **strip_not_given(
+                {
+                    "parallel-beta": ",".join(chain((str(e) for e in betas), ["search-extract-2025-10-10"]))
+                    if is_given(betas)
+                    else not_given
+                }
+            ),
             **(extra_headers or {}),
         }
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return self._post(
             f"/v1beta/tasks/groups/{task_group_id}/runs",
             body=maybe_transform(
@@ -185,20 +195,20 @@ class TaskGroupResource(SyncAPIResource):
         self,
         task_group_id: str,
         *,
-        last_event_id: Optional[str] | NotGiven = NOT_GIVEN,
-        api_timeout: Optional[float] | NotGiven = NOT_GIVEN,
+        last_event_id: Optional[str] | Omit = omit,
+        api_timeout: Optional[float] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[TaskGroupEventsResponse]:
         """
         Streams events from a TaskGroup: status updates and run completions.
 
-        The connection will remain open for up to 10 minutes as long as at least one run
-        in the TaskGroup is active.
+        The connection will remain open for up to an hour as long as at least one run in
+        the group is still active.
 
         Args:
           extra_headers: Send extra headers
@@ -212,6 +222,7 @@ class TaskGroupResource(SyncAPIResource):
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
         extra_headers = {"Accept": "text/event-stream", **(extra_headers or {})}
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return self._get(
             f"/v1beta/tasks/groups/{task_group_id}/events",
             options=make_request_options(
@@ -238,22 +249,31 @@ class TaskGroupResource(SyncAPIResource):
         self,
         task_group_id: str,
         *,
-        include_input: bool | NotGiven = NOT_GIVEN,
-        include_output: bool | NotGiven = NOT_GIVEN,
-        last_event_id: Optional[str] | NotGiven = NOT_GIVEN,
+        include_input: bool | Omit = omit,
+        include_output: bool | Omit = omit,
+        last_event_id: Optional[str] | Omit = omit,
         status: Optional[
             Literal["queued", "action_required", "running", "completed", "failed", "cancelling", "cancelled"]
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Stream[TaskGroupGetRunsResponse]:
         """
         Retrieves task runs in a TaskGroup and optionally their inputs and outputs.
+
+        All runs within a TaskGroup are returned as a stream. To get the inputs and/or
+        outputs back in the stream, set the corresponding `include_input` and
+        `include_output` parameters to `true`.
+
+        The stream is resumable using the `event_id` as the cursor. To resume a stream,
+        specify the `last_event_id` parameter with the `event_id` of the last event in
+        the stream. The stream will resume from the next event after the
+        `last_event_id`.
 
         Args:
           extra_headers: Send extra headers
@@ -267,6 +287,7 @@ class TaskGroupResource(SyncAPIResource):
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
         extra_headers = {"Accept": "text/event-stream", **(extra_headers or {})}
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return self._get(
             f"/v1beta/tasks/groups/{task_group_id}/runs",
             options=make_request_options(
@@ -315,13 +336,13 @@ class AsyncTaskGroupResource(AsyncAPIResource):
     async def create(
         self,
         *,
-        metadata: Optional[Dict[str, Union[str, float, bool]]] | NotGiven = NOT_GIVEN,
+        metadata: Optional[Dict[str, Union[str, float, bool]]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TaskGroup:
         """
         Initiates a TaskGroup to group and track multiple runs.
@@ -337,6 +358,7 @@ class AsyncTaskGroupResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return await self._post(
             "/v1beta/tasks/groups",
             body=await async_maybe_transform({"metadata": metadata}, task_group_create_params.TaskGroupCreateParams),
@@ -355,7 +377,7 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TaskGroup:
         """
         Retrieves aggregated status across runs in a TaskGroup.
@@ -371,6 +393,7 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         """
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return await self._get(
             f"/v1beta/tasks/groups/{task_group_id}",
             options=make_request_options(
@@ -384,14 +407,14 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         task_group_id: str,
         *,
         inputs: Iterable[BetaRunInputParam],
-        default_task_spec: Optional[TaskSpecParam] | NotGiven = NOT_GIVEN,
-        betas: List[ParallelBetaParam] | NotGiven = NOT_GIVEN,
+        default_task_spec: Optional[TaskSpecParam] | Omit = omit,
+        betas: List[ParallelBetaParam] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> TaskGroupRunResponse:
         """
         Initiates multiple task runs within a TaskGroup.
@@ -419,9 +442,16 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
         extra_headers = {
-            **strip_not_given({"parallel-beta": ",".join(str(e) for e in betas) if is_given(betas) else NOT_GIVEN}),
+            **strip_not_given(
+                {
+                    "parallel-beta": ",".join(chain((str(e) for e in betas), ["search-extract-2025-10-10"]))
+                    if is_given(betas)
+                    else not_given
+                }
+            ),
             **(extra_headers or {}),
         }
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return await self._post(
             f"/v1beta/tasks/groups/{task_group_id}/runs",
             body=await async_maybe_transform(
@@ -441,20 +471,20 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         self,
         task_group_id: str,
         *,
-        last_event_id: Optional[str] | NotGiven = NOT_GIVEN,
-        api_timeout: Optional[float] | NotGiven = NOT_GIVEN,
+        last_event_id: Optional[str] | Omit = omit,
+        api_timeout: Optional[float] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[TaskGroupEventsResponse]:
         """
         Streams events from a TaskGroup: status updates and run completions.
 
-        The connection will remain open for up to 10 minutes as long as at least one run
-        in the TaskGroup is active.
+        The connection will remain open for up to an hour as long as at least one run in
+        the group is still active.
 
         Args:
           extra_headers: Send extra headers
@@ -468,6 +498,7 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
         extra_headers = {"Accept": "text/event-stream", **(extra_headers or {})}
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return await self._get(
             f"/v1beta/tasks/groups/{task_group_id}/events",
             options=make_request_options(
@@ -494,22 +525,31 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         self,
         task_group_id: str,
         *,
-        include_input: bool | NotGiven = NOT_GIVEN,
-        include_output: bool | NotGiven = NOT_GIVEN,
-        last_event_id: Optional[str] | NotGiven = NOT_GIVEN,
+        include_input: bool | Omit = omit,
+        include_output: bool | Omit = omit,
+        last_event_id: Optional[str] | Omit = omit,
         status: Optional[
             Literal["queued", "action_required", "running", "completed", "failed", "cancelling", "cancelled"]
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncStream[TaskGroupGetRunsResponse]:
         """
         Retrieves task runs in a TaskGroup and optionally their inputs and outputs.
+
+        All runs within a TaskGroup are returned as a stream. To get the inputs and/or
+        outputs back in the stream, set the corresponding `include_input` and
+        `include_output` parameters to `true`.
+
+        The stream is resumable using the `event_id` as the cursor. To resume a stream,
+        specify the `last_event_id` parameter with the `event_id` of the last event in
+        the stream. The stream will resume from the next event after the
+        `last_event_id`.
 
         Args:
           extra_headers: Send extra headers
@@ -523,6 +563,7 @@ class AsyncTaskGroupResource(AsyncAPIResource):
         if not task_group_id:
             raise ValueError(f"Expected a non-empty value for `task_group_id` but received {task_group_id!r}")
         extra_headers = {"Accept": "text/event-stream", **(extra_headers or {})}
+        extra_headers = {"parallel-beta": "search-extract-2025-10-10", **(extra_headers or {})}
         return await self._get(
             f"/v1beta/tasks/groups/{task_group_id}/runs",
             options=make_request_options(

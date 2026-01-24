@@ -9,32 +9,46 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+import datetime as _dt
 from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from .group_0003 import SimpleUserType
-from .group_0010 import IntegrationType
-from .group_0078 import TeamType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class ReviewRequestRemovedIssueEventType(TypedDict):
-    """Review Request Removed Issue Event
+class ReactionType(TypedDict):
+    """Reaction
 
-    Review Request Removed Issue Event
+    Reactions to conversations provide a way to help people express their feelings
+    more simply and effectively.
     """
 
     id: int
     node_id: str
-    url: str
-    actor: SimpleUserType
-    event: Literal["review_request_removed"]
-    commit_id: Union[str, None]
-    commit_url: Union[str, None]
+    user: Union[None, SimpleUserType]
+    content: Literal[
+        "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes"
+    ]
+    created_at: _dt.datetime
+
+
+class ReactionTypeForResponse(TypedDict):
+    """Reaction
+
+    Reactions to conversations provide a way to help people express their feelings
+    more simply and effectively.
+    """
+
+    id: int
+    node_id: str
+    user: Union[None, SimpleUserTypeForResponse]
+    content: Literal[
+        "+1", "-1", "laugh", "confused", "heart", "hooray", "rocket", "eyes"
+    ]
     created_at: str
-    performed_via_github_app: Union[None, IntegrationType, None]
-    review_requester: SimpleUserType
-    requested_team: NotRequired[TeamType]
-    requested_reviewer: NotRequired[SimpleUserType]
 
 
-__all__ = ("ReviewRequestRemovedIssueEventType",)
+__all__ = (
+    "ReactionType",
+    "ReactionTypeForResponse",
+)

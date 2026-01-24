@@ -243,7 +243,7 @@ Keyword arguments:
 
 - zIndex (string | number; optional):
     Component `z-index`, by default inherited from the `AppShell`."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'AppShellHeader'

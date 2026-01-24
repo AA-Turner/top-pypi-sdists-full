@@ -108,7 +108,9 @@ def evaluate_type(typ: Any, module: types.ModuleType) -> Any:
         # evaluate data-class field whose type annotation is a string
         return eval(typ, module.__dict__, locals())
     if isinstance(typ, typing.ForwardRef):
-        if sys.version_info >= (3, 13):
+        if sys.version_info >= (3, 14):
+            return typing.evaluate_forward_ref(typ, owner=module)
+        elif sys.version_info >= (3, 13):
             return typ._evaluate(
                 module.__dict__,
                 locals(),
@@ -802,7 +804,7 @@ def create_object(typ: type[T]) -> T:
     if issubclass(typ, Exception):
         # exception types need special treatment
         e = typ.__new__(typ)
-        return typing.cast(T, e)
+        return typing.cast(T, e)  # type: ignore[redundant-cast]
     else:
         return object.__new__(typ)
 
@@ -913,6 +915,7 @@ class RecursiveChecker:
             or typ is datetime.datetime
             or typ is datetime.date
             or typ is datetime.time
+            or typ is datetime.timedelta
             or typ is uuid.UUID
         ):
             return self.pred(typing.cast(type, typ), obj)

@@ -64,6 +64,10 @@ options:
       - Managed Obect ID (MOID) of assigned server.
       - Option can be omitted if user wishes to assign server later.
     type: str
+  adapter_policy:
+    description:
+      - Name of Adapter Policy to associate with this profile.
+    type: str
   bios_policy:
     description:
       - Name of BIOS Policy to associate with this profile.
@@ -160,6 +164,25 @@ options:
     description:
       - Name of Virtual Media Policy to associate with this profile.
     type: str
+  uuid_address_type:
+    description:
+      - UUID address allocation type for the server.
+      - C(pool) to assign UUID from a UUID pool.
+      - C(static) to assign a static UUID address.
+    type: str
+    choices: [pool, static]
+  uuid_pool:
+    description:
+      - Name of the UUID pool to assign UUID from.
+      - Required when C(uuid_address_type) is C(pool).
+    type: str
+  static_uuid_address:
+    description:
+      - Static UUID address to assign to the server.
+      - Must include UUID prefix xxxxxxxx-xxxx-xxxx along with the UUID suffix of format xxxx-xxxxxxxxxxxx.
+      - Example format 550e8400-e29b-41d4-a716-446655440000.
+      - Required when C(uuid_address_type) is C(static).
+    type: str
 author:
   - David Soper (@dsoper2)
   - Sid Nath (@SidNath21)
@@ -187,6 +210,29 @@ EXAMPLES = r'''
     storage_policy: storage
     virtual_media_policy: COS-VM
 
+- name: Configure Server Profile with UUID from Pool
+  cisco.intersight.intersight_server_profile:
+    api_private_key: "{{ api_private_key }}"
+    api_key_id: "{{ api_key_id }}"
+    name: SP-Server2
+    target_platform: FIAttached
+    description: Profile with UUID from pool
+    assigned_server: 5e3b517d6176752d319a9998
+    uuid_address_type: pool
+    uuid_pool: UUID-Pool-01
+    boot_order_policy: COS-Boot
+
+- name: Configure Server Profile with Static UUID
+  cisco.intersight.intersight_server_profile:
+    api_private_key: "{{ api_private_key }}"
+    api_key_id: "{{ api_key_id }}"
+    name: SP-Server3
+    target_platform: Standalone
+    description: Profile with static UUID
+    assigned_server: 5e3b517d6176752d319a9997
+    uuid_address_type: static
+    static_uuid_address: 550e8400-e29b-41d4-a716-446655440000
+
 - name: Delete Server Profile
   cisco.intersight.intersight_server_profile:
     api_private_key: "{{ api_private_key }}"
@@ -196,7 +242,7 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
-api_repsonse:
+api_response:
   description: The API response output returned by the specified resource.
   returned: always
   type: dict
@@ -226,6 +272,7 @@ from ansible_collections.cisco.intersight.plugins.module_utils.intersight import
 
 # When adding new policy parameters, update this dict with their respective resource path
 policy_resource_path = {
+    'adapter_policy': '/adapter/ConfigPolicies',
     'bios_policy': '/bios/Policies',
     'boot_order_policy': '/boot/PrecisionPolicies',
     'certificate_policy': '/certificatemanagement/Policies',
@@ -315,6 +362,7 @@ def main():
         tags=dict(type='list', elements='dict', default=[]),
         description=dict(type='str', aliases=['descr'], default=''),
         assigned_server=dict(type='str'),
+        adapter_policy=dict(type='str'),
         bios_policy=dict(type='str'),
         boot_order_policy=dict(type='str'),
         certificate_policy=dict(type='str'),
@@ -339,19 +387,24 @@ def main():
         thermal_policy=dict(type='str'),
         virtual_kvm_policy=dict(type='str'),
         virtual_media_policy=dict(type='str'),
+        uuid_address_type=dict(type='str', choices=['pool', 'static']),
+        uuid_pool=dict(type='str'),
+        static_uuid_address=dict(type='str'),
     )
 
     module = AnsibleModule(
         argument_spec,
         supports_check_mode=True,
+        required_if=[
+            ['uuid_address_type', 'pool', ['uuid_pool']],
+            ['uuid_address_type', 'static', ['static_uuid_address']],
+        ],
     )
 
     intersight = IntersightModule(module)
     intersight.result['api_response'] = {}
     intersight.result['trace_id'] = ''
-    #
-    # Argument spec above, resource path, and API body should be the only code changed in this module
-    #
+
     resource_path = '/server/Profiles'
     # Define API body used in compares or create
     intersight.api_body = {
@@ -359,9 +412,9 @@ def main():
             'Name': intersight.module.params['organization'],
         },
         'Name': intersight.module.params['name'],
-        'Tags': intersight.module.params['tags'],
-        'Description': intersight.module.params['description'],
+
     }
+    intersight.set_tags_and_description()
     intersight.result['api_response'] = {}
     # Get assigned server information (if defined)
     if intersight.module.params['assigned_server']:
@@ -380,6 +433,23 @@ def main():
         }
     if intersight.module.params['target_platform'] == 'FIAttached':
         intersight.api_body['TargetPlatform'] = intersight.module.params['target_platform']
+    if intersight.module.params.get('uuid_address_type'):
+        intersight.api_body['UuidAddressType'] = intersight.module.params['uuid_address_type'].upper()
+        if intersight.module.params['uuid_address_type'] == 'pool':
+            uuid_pool_moid = intersight.get_moid_by_name(
+                resource_path='/uuidpool/Pools',
+                resource_name=intersight.module.params['uuid_pool']
+            )
+            if not uuid_pool_moid:
+                module.fail_json(msg=f"UUID Pool '{intersight.module.params['uuid_pool']}' not found")
+            intersight.api_body['UuidPool'] = {
+                'Moid': uuid_pool_moid,
+                'ObjectType': 'uuidpool.Pool'
+            }
+            intersight.api_body['StaticUuidAddress'] = ''
+        elif intersight.module.params['uuid_address_type'] == 'static':
+            intersight.api_body['StaticUuidAddress'] = intersight.module.params['static_uuid_address']
+            intersight.api_body['UuidPool'] = None
 
     # Configure the profile
     moid = intersight.configure_policy_or_profile(resource_path=resource_path)

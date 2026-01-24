@@ -106,17 +106,25 @@ class BulkTouchQuerySet(models.QuerySet):
     def touch(self):
         """
         Update the ``timestamp_of_interest`` on all objects of the query.
-
-        Postgres' UPDATE call doesn't support order-by. This can (and does) result in deadlocks in
-        high-concurrency environments, when using touch() on overlapping data sets. In order to
-        prevent this, we choose to SELECT FOR UPDATE with SKIP LOCKS == True, and only update
-        the rows that we were able to get locks on. Since a previously-locked-row implies
-        that updating that row's timestamp-of-interest is the responsibility of whoever currently
-        owns it, this results in correct data, while closing the window on deadlocks.
         """
+
+        # Postgres' UPDATE call doesn't support order-by. This can (and does) result in deadlocks in
+        # high-concurrency environments, when using touch() on overlapping data sets. In order to
+        # prevent this, we choose to SELECT FOR UPDATE with SKIP LOCKS == True, and only update
+        # the rows that we were able to get locks on. Since a previously-locked-row implies
+        # that updating that row's timestamp-of-interest is the responsibility of whoever currently
+        # owns it, this results in correct data, while closing the window on deadlocks.
+        # Django requires "select_for_update" to be used in a transaction even if this is a
+        # singular query.
+        # `no_key` translates to `SELECT ... FOR NO KEY UPDATE` and results in a different type of
+        # lock being used. We don't change any primary/foreign keys.
         with transaction.atomic():
-            sub_q = self.order_by("pk").select_for_update(skip_locked=True)
-            return self.filter(pk__in=sub_q).update(timestamp_of_interest=now())
+            sub_q = (
+                self.filter(timestamp_of_interest__lt=now() - datetime.timedelta(hours=1))
+                .order_by("pk")
+                .select_for_update(skip_locked=True, no_key=True)
+            )
+            self.filter(pk__in=sub_q).update(timestamp_of_interest=now())
 
 
 class QueryMixin:
@@ -390,7 +398,9 @@ class Artifact(HandleTempFilesMixin, BaseModel):
 
     def touch(self):
         """Update timestamp_of_interest."""
-        self.save(update_fields=["timestamp_of_interest"])
+        # Touch via the queryset.
+        # We are not interested in the updated value on the python side anyway.
+        self.__class__.objects.filter(pk=self.pk).touch()
 
 
 class PulpTemporaryFile(HandleTempFilesMixin, BaseModel):
@@ -600,29 +610,33 @@ class Content(MasterModel, QueryMixin):
         instead return a tuple of the unsaved content instance and a dictionary of the content's
         artifacts by their relative paths.
 
-        For example::
-
+        Example:
+            ```python
             if path.isabs(relative_path):
                 raise ValueError(_("Relative path can't start with '/'."))
             return FileContent(relative_path=relative_path, digest=artifact.sha256)
+            ```
 
         Args:
-            artifact (pulpcore.plugin.models.Artifact) An instance of an Artifact
-            relative_path (str): Relative path for the content
+            artifact: An instance of an [pulpcore.plugin.models.Artifact][].
+            relative_path: Relative path for the content
 
         Raises:
             ValueError: If relative_path starts with a '/'.
 
         Returns:
-            An un-saved instance of [pulpcore.plugin.models.Content][] sub-class. Or a
-            tuple of an un-saved instance of [pulpcore.plugin.models.Content][] and a dict
-            of form [relative_path:str, Optional[artifact:`~pulpcore.plugin.models.Artifact`]]
+            Content: An un-saved instance of [pulpcore.plugin.models.Content][] sub-class.
+            ContentAndArtifacts: A tuple of an un-saved instance of
+                [pulpcore.plugin.models.Content][] and a
+                `dict[relative_path:str, Optional[artifact:pulpcore.plugin.models.Artifact]]`
         """
         raise NotImplementedError()
 
     def touch(self):
         """Update timestamp_of_interest."""
-        self.save(update_fields=["timestamp_of_interest"])
+        # Touch via the queryset.
+        # We are not interested in the updated value on the python side anyway.
+        self.__class__.objects.filter(pk=self.pk).touch()
 
 
 class ContentArtifact(BaseModel, QueryMixin):

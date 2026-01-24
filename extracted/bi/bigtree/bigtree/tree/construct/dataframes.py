@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Type, TypeVar
+from typing import Any, TypeVar
 
-from bigtree.node import node
+from bigtree.node import node as _node
 from bigtree.tree.construct.dictionaries import add_dict_to_tree_by_name
 from bigtree.tree.construct.strings import add_path_to_tree
 from bigtree.utils import assertions, common
@@ -32,14 +32,14 @@ __all__ = [
     "polars_to_tree_by_relation",
 ]
 
-T = TypeVar("T", bound=node.Node)
+T = TypeVar("T", bound=_node.Node)
 
 
 def add_dataframe_to_tree_by_path(
     tree: T,
     data: pd.DataFrame,
-    path_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    path_col: str | None = None,
+    attribute_cols: list[str] | None = None,
     sep: str = "/",
     duplicate_name_allowed: bool = True,
 ) -> T:
@@ -65,8 +65,8 @@ def add_dataframe_to_tree_by_path(
 
     Examples:
         >>> import pandas as pd
-        >>> from bigtree import add_dataframe_to_tree_by_path, Node
-        >>> root = Node("a")
+        >>> from bigtree import Node, Tree
+        >>> tree = Tree(Node("a"))
         >>> path_data = pd.DataFrame([
         ...     ["a", 90],
         ...     ["a/b", 65],
@@ -79,8 +79,9 @@ def add_dataframe_to_tree_by_path(
         ... ],
         ...     columns=["PATH", "age"]
         ... )
-        >>> root = add_dataframe_to_tree_by_path(root, path_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree.add_dataframe_by_path(path_data)
+        Node(/a, age=90)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -134,8 +135,8 @@ def add_dataframe_to_tree_by_path(
 def add_dataframe_to_tree_by_name(
     tree: T,
     data: pd.DataFrame,
-    name_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    name_col: str | None = None,
+    attribute_cols: list[str] | None = None,
 ) -> T:
     """Add attributes to existing tree *in-place*. Adds to existing tree from pandas DataFrame.
 
@@ -148,17 +149,19 @@ def add_dataframe_to_tree_by_name(
 
     Examples:
         >>> import pandas as pd
-        >>> from bigtree import add_dataframe_to_tree_by_name, Node
+        >>> from bigtree import Node, Tree
         >>> root = Node("a")
         >>> b = Node("b", parent=root)
+        >>> tree = Tree(root)
         >>> name_data = pd.DataFrame([
         ...     ["a", 90],
         ...     ["b", 65],
         ... ],
         ...     columns=["NAME", "age"]
         ... )
-        >>> root = add_dataframe_to_tree_by_name(root, name_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree.add_dataframe_by_name(name_data)
+        Node(/a, age=90)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         └── b [age=65]
 
@@ -201,8 +204,8 @@ def add_dataframe_to_tree_by_name(
 def add_polars_to_tree_by_path(
     tree: T,
     data: pl.DataFrame,
-    path_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    path_col: str | None = None,
+    attribute_cols: list[str] | None = None,
     sep: str = "/",
     duplicate_name_allowed: bool = True,
 ) -> T:
@@ -228,8 +231,8 @@ def add_polars_to_tree_by_path(
 
     Examples:
         >>> import polars as pl
-        >>> from bigtree import add_polars_to_tree_by_path, Node
-        >>> root = Node("a")
+        >>> from bigtree import Node, Tree
+        >>> tree = Tree(Node("a"))
         >>> path_data = pl.DataFrame([
         ...     ["a", 90],
         ...     ["a/b", 65],
@@ -242,8 +245,9 @@ def add_polars_to_tree_by_path(
         ... ],
         ...     schema=["PATH", "age"]
         ... )
-        >>> root = add_polars_to_tree_by_path(root, path_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree.add_polars_by_path(path_data)
+        Node(/a, age=90)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -299,8 +303,8 @@ def add_polars_to_tree_by_path(
 def add_polars_to_tree_by_name(
     tree: T,
     data: pl.DataFrame,
-    name_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    name_col: str | None = None,
+    attribute_cols: list[str] | None = None,
 ) -> T:
     """Add attributes to existing tree *in-place*. Adds to existing tree from polars DataFrame.
 
@@ -313,15 +317,17 @@ def add_polars_to_tree_by_name(
 
     Examples:
         >>> import polars as pl
-        >>> from bigtree import add_polars_to_tree_by_name, Node
+        >>> from bigtree import Node, Tree
         >>> root = Node("a")
         >>> b = Node("b", parent=root)
+        >>> tree = Tree(root)
         >>> name_data = pl.DataFrame({
         ...     "NAME": ["a", "b"],
         ...     "age": [90, 65],
         ... })
-        >>> root = add_polars_to_tree_by_name(root, name_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree.add_polars_by_name(name_data)
+        Node(/a, age=90)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         └── b [age=65]
 
@@ -363,11 +369,11 @@ def add_polars_to_tree_by_name(
 
 def dataframe_to_tree(
     data: pd.DataFrame,
-    path_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    path_col: str | None = None,
+    attribute_cols: list[str] | None = None,
     sep: str = "/",
     duplicate_name_allowed: bool = True,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = _node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from pandas DataFrame using path, return root of tree.
 
@@ -390,7 +396,7 @@ def dataframe_to_tree(
 
     Examples:
         >>> import pandas as pd
-        >>> from bigtree import dataframe_to_tree
+        >>> from bigtree import Tree
         >>> path_data = pd.DataFrame([
         ...     ["a", 90],
         ...     ["a/b", 65],
@@ -403,8 +409,8 @@ def dataframe_to_tree(
         ... ],
         ...     columns=["PATH", "age"]
         ... )
-        >>> root = dataframe_to_tree(path_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_dataframe(path_data)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -470,13 +476,13 @@ def dataframe_to_tree(
 
 def dataframe_to_tree_by_relation(
     data: pd.DataFrame,
-    child_col: Optional[str] = None,
-    parent_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    child_col: str | None = None,
+    parent_col: str | None = None,
+    attribute_cols: list[str] | None = None,
     allow_duplicates: bool = False,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = _node.Node,  # type: ignore[assignment]
 ) -> T:
-    """Construct tree from pandas DataFrame using parent and child names, return root of tree.
+    """Construct tree from pandas DataFrame using adjacency list (parent and child names), return root of tree.
 
     Root node is inferred when parent name is empty, or when name appears in parent column but not in child column.
 
@@ -492,7 +498,7 @@ def dataframe_to_tree_by_relation(
 
     Examples:
         >>> import pandas as pd
-        >>> from bigtree import dataframe_to_tree_by_relation
+        >>> from bigtree import Tree
         >>> relation_data = pd.DataFrame([
         ...     ["a", None, 90],
         ...     ["b", "a", 65],
@@ -505,8 +511,8 @@ def dataframe_to_tree_by_relation(
         ... ],
         ...     columns=["child", "parent", "age"]
         ... )
-        >>> root = dataframe_to_tree_by_relation(relation_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_dataframe_relation(relation_data)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -553,7 +559,7 @@ def dataframe_to_tree_by_relation(
         )
     root_name = list(root_names)[0]
 
-    def _retrieve_attr(_row: Dict[str, Any]) -> Dict[str, Any]:
+    def _retrieve_attr(_row: dict[str, Any]) -> dict[str, Any]:
         """Retrieve node attributes from dictionary, remove parent and child column from dictionary.
 
         Args:
@@ -594,11 +600,11 @@ def dataframe_to_tree_by_relation(
 
 def polars_to_tree(
     data: pl.DataFrame,
-    path_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    path_col: str | None = None,
+    attribute_cols: list[str] | None = None,
     sep: str = "/",
     duplicate_name_allowed: bool = True,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = _node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from polars DataFrame using path, return root of tree.
 
@@ -621,7 +627,7 @@ def polars_to_tree(
 
     Examples:
         >>> import polars as pl
-        >>> from bigtree import polars_to_tree
+        >>> from bigtree import Tree
         >>> path_data = pl.DataFrame([
         ...     ["a", 90],
         ...     ["a/b", 65],
@@ -634,8 +640,8 @@ def polars_to_tree(
         ... ],
         ...     schema=["PATH", "age"]
         ... )
-        >>> root = polars_to_tree(path_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_polars(path_data)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -702,13 +708,13 @@ def polars_to_tree(
 
 def polars_to_tree_by_relation(
     data: pl.DataFrame,
-    child_col: Optional[str] = None,
-    parent_col: Optional[str] = None,
-    attribute_cols: Optional[List[str]] = None,
+    child_col: str | None = None,
+    parent_col: str | None = None,
+    attribute_cols: list[str] | None = None,
     allow_duplicates: bool = False,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = _node.Node,  # type: ignore[assignment]
 ) -> T:
-    """Construct tree from polars DataFrame using parent and child names, return root of tree.
+    """Construct tree from polars DataFrame using adjacency list (parent and child names), return root of tree.
 
     Root node is inferred when parent name is empty, or when name appears in parent column but not in child column.
 
@@ -724,7 +730,7 @@ def polars_to_tree_by_relation(
 
     Examples:
         >>> import polars as pl
-        >>> from bigtree import polars_to_tree_by_relation
+        >>> from bigtree import Tree
         >>> relation_data = pl.DataFrame([
         ...     ["a", None, 90],
         ...     ["b", "a", 65],
@@ -737,8 +743,8 @@ def polars_to_tree_by_relation(
         ... ],
         ...     schema=["child", "parent", "age"]
         ... )
-        >>> root = polars_to_tree_by_relation(relation_data)
-        >>> root.show(attr_list=["age"])
+        >>> tree = Tree.from_polars_relation(relation_data)
+        >>> tree.show(attr_list=["age"])
         a [age=90]
         ├── b [age=65]
         │   ├── d [age=40]
@@ -785,7 +791,7 @@ def polars_to_tree_by_relation(
         )
     root_name = list(root_names)[0]
 
-    def _retrieve_attr(_row: Dict[str, Any]) -> Dict[str, Any]:
+    def _retrieve_attr(_row: dict[str, Any]) -> dict[str, Any]:
         """Retrieve node attributes from dictionary, remove parent and child column from dictionary.
 
         Args:

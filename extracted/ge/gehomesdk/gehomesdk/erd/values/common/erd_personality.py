@@ -3,6 +3,7 @@ import enum
 @enum.unique
 class ErdPersonality(enum.Enum):
     UNKNOWN = "00"
+    PERSONALITY_DEFAULT = "00000000"
     PERSONALITY_120V_CAFE = "00000001"
     PERSONALITY_120V_MONOGRAM = "00000002"
     PERSONALITY_UNKNOWN03 = "00000003"
@@ -18,3 +19,11 @@ class ErdPersonality(enum.Enum):
     PERSONALITY_UNKNOWN0D = "0000000D"
     PERSONALITY_GAS_120V_GE_PROFILE = "0000000E"
     PERSONALITY_240V_CAFE = "00000010"
+    PERSONALITY_240V_GEOSPRING = "00000015"
+    
+    @classmethod
+    def _missing_(cls, value):
+        if value in ("00000000","09000000"):
+            return cls.PERSONALITY_240V_MONOGRAM
+        # fall back to default behavior -> raises ValueError
+        return super()._missing_(value)

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -32,12 +33,6 @@ from .literals import (
     SanitizationWarningReasonType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -128,7 +123,7 @@ class EngineVersionTypeDef(TypedDict):
 
 class BrokerInstanceTypeDef(TypedDict):
     ConsoleURL: NotRequired[str]
-    Endpoints: NotRequired[List[str]]
+    Endpoints: NotRequired[list[str]]
     IpAddress: NotRequired[str]
 
 class BrokerSummaryTypeDef(TypedDict):
@@ -186,7 +181,7 @@ class WeeklyStartTimeTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -243,7 +238,7 @@ class DescribeBrokerRequestTypeDef(TypedDict):
     BrokerId: str
 
 class LdapServerMetadataOutputTypeDef(TypedDict):
-    Hosts: List[str]
+    Hosts: list[str]
     RoleBase: str
     RoleSearchMatching: str
     ServiceAccountUsername: str
@@ -272,7 +267,7 @@ class DescribeUserRequestTypeDef(TypedDict):
 class UserPendingChangesTypeDef(TypedDict):
     PendingChange: ChangeTypeType
     ConsoleAccess: NotRequired[bool]
-    Groups: NotRequired[List[str]]
+    Groups: NotRequired[list[str]]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -330,20 +325,20 @@ class UpdateUserRequestTypeDef(TypedDict):
     ReplicationUser: NotRequired[bool]
 
 class BrokerInstanceOptionTypeDef(TypedDict):
-    AvailabilityZones: NotRequired[List[AvailabilityZoneTypeDef]]
+    AvailabilityZones: NotRequired[list[AvailabilityZoneTypeDef]]
     EngineType: NotRequired[EngineTypeType]
     HostInstanceType: NotRequired[str]
     StorageType: NotRequired[BrokerStorageTypeType]
-    SupportedDeploymentModes: NotRequired[List[DeploymentModeType]]
-    SupportedEngineVersions: NotRequired[List[str]]
+    SupportedDeploymentModes: NotRequired[list[DeploymentModeType]]
+    SupportedEngineVersions: NotRequired[list[str]]
 
 class BrokerEngineTypeTypeDef(TypedDict):
     EngineType: NotRequired[EngineTypeType]
-    EngineVersions: NotRequired[List[EngineVersionTypeDef]]
+    EngineVersions: NotRequired[list[EngineVersionTypeDef]]
 
 class ConfigurationsTypeDef(TypedDict):
     Current: NotRequired[ConfigurationIdTypeDef]
-    History: NotRequired[List[ConfigurationIdTypeDef]]
+    History: NotRequired[list[ConfigurationIdTypeDef]]
     Pending: NotRequired[ConfigurationIdTypeDef]
 
 class ConfigurationTypeDef(TypedDict):
@@ -356,7 +351,7 @@ class ConfigurationTypeDef(TypedDict):
     Id: str
     LatestRevision: ConfigurationRevisionTypeDef
     Name: str
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class CreateBrokerRequestTypeDef(TypedDict):
     BrokerName: str
@@ -426,7 +421,7 @@ class DescribeConfigurationResponseTypeDef(TypedDict):
     Id: str
     LatestRevision: ConfigurationRevisionTypeDef
     Name: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeConfigurationRevisionResponseTypeDef(TypedDict):
@@ -440,19 +435,19 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBrokersResponseTypeDef(TypedDict):
-    BrokerSummaries: List[BrokerSummaryTypeDef]
+    BrokerSummaries: list[BrokerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListConfigurationRevisionsResponseTypeDef(TypedDict):
     ConfigurationId: str
     MaxResults: int
-    Revisions: List[ConfigurationRevisionTypeDef]
+    Revisions: list[ConfigurationRevisionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListTagsResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PromoteResponseTypeDef(TypedDict):
@@ -466,14 +461,14 @@ class DataReplicationMetadataOutputTypeDef(TypedDict):
 class ListUsersResponseTypeDef(TypedDict):
     BrokerId: str
     MaxResults: int
-    Users: List[UserSummaryTypeDef]
+    Users: list[UserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeUserResponseTypeDef(TypedDict):
     BrokerId: str
     ConsoleAccess: bool
-    Groups: List[str]
+    Groups: list[str]
     Pending: UserPendingChangesTypeDef
     Username: str
     ReplicationUser: bool
@@ -495,23 +490,23 @@ class UpdateConfigurationResponseTypeDef(TypedDict):
     Id: str
     LatestRevision: ConfigurationRevisionTypeDef
     Name: str
-    Warnings: List[SanitizationWarningTypeDef]
+    Warnings: list[SanitizationWarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBrokerInstanceOptionsResponseTypeDef(TypedDict):
-    BrokerInstanceOptions: List[BrokerInstanceOptionTypeDef]
+    BrokerInstanceOptions: list[BrokerInstanceOptionTypeDef]
     MaxResults: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeBrokerEngineTypesResponseTypeDef(TypedDict):
-    BrokerEngineTypes: List[BrokerEngineTypeTypeDef]
+    BrokerEngineTypes: list[BrokerEngineTypeTypeDef]
     MaxResults: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListConfigurationsResponseTypeDef(TypedDict):
-    Configurations: List[ConfigurationTypeDef]
+    Configurations: list[ConfigurationTypeDef]
     MaxResults: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -526,7 +521,7 @@ class UpdateBrokerResponseTypeDef(TypedDict):
     LdapServerMetadata: LdapServerMetadataOutputTypeDef
     Logs: LogsTypeDef
     MaintenanceWindowStartTime: WeeklyStartTimeTypeDef
-    SecurityGroups: List[str]
+    SecurityGroups: list[str]
     DataReplicationMetadata: DataReplicationMetadataOutputTypeDef
     DataReplicationMode: DataReplicationModeType
     PendingDataReplicationMetadata: DataReplicationMetadataOutputTypeDef
@@ -534,12 +529,12 @@ class UpdateBrokerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBrokerResponseTypeDef(TypedDict):
-    ActionsRequired: List[ActionRequiredTypeDef]
+    ActionsRequired: list[ActionRequiredTypeDef]
     AuthenticationStrategy: AuthenticationStrategyType
     AutoMinorVersionUpgrade: bool
     BrokerArn: str
     BrokerId: str
-    BrokerInstances: List[BrokerInstanceTypeDef]
+    BrokerInstances: list[BrokerInstanceTypeDef]
     BrokerName: str
     BrokerState: BrokerStateType
     Configurations: ConfigurationsTypeDef
@@ -556,13 +551,13 @@ class DescribeBrokerResponseTypeDef(TypedDict):
     PendingEngineVersion: str
     PendingHostInstanceType: str
     PendingLdapServerMetadata: LdapServerMetadataOutputTypeDef
-    PendingSecurityGroups: List[str]
+    PendingSecurityGroups: list[str]
     PubliclyAccessible: bool
-    SecurityGroups: List[str]
+    SecurityGroups: list[str]
     StorageType: BrokerStorageTypeType
-    SubnetIds: List[str]
-    Tags: Dict[str, str]
-    Users: List[UserSummaryTypeDef]
+    SubnetIds: list[str]
+    Tags: dict[str, str]
+    Users: list[UserSummaryTypeDef]
     DataReplicationMetadata: DataReplicationMetadataOutputTypeDef
     DataReplicationMode: DataReplicationModeType
     PendingDataReplicationMetadata: DataReplicationMetadataOutputTypeDef

@@ -2,13 +2,13 @@
 # File generated from our OpenAPI spec
 from stripe._api_resource import APIResource
 from stripe._expandable_field import ExpandableField
-from stripe._request_options import RequestOptions
 from stripe._stripe_object import StripeObject
 from typing import ClassVar, List, Optional
-from typing_extensions import Literal, NotRequired, Unpack, TYPE_CHECKING
+from typing_extensions import Literal, Unpack, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stripe._payment_method import PaymentMethod
+    from stripe.params._mandate_retrieve_params import MandateRetrieveParams
 
 
 class Mandate(APIResource["Mandate"]):
@@ -137,6 +137,59 @@ class Mandate(APIResource["Mandate"]):
             PayPal account PayerID. This identifier uniquely identifies the PayPal customer.
             """
 
+        class Payto(StripeObject):
+            amount: Optional[int]
+            """
+            Amount that will be collected. It is required when `amount_type` is `fixed`.
+            """
+            amount_type: Literal["fixed", "maximum"]
+            """
+            The type of amount that will be collected. The amount charged must be exact or up to the value of `amount` param for `fixed` or `maximum` type respectively. Defaults to `maximum`.
+            """
+            end_date: Optional[str]
+            """
+            Date, in YYYY-MM-DD format, after which payments will not be collected. Defaults to no end date.
+            """
+            payment_schedule: Literal[
+                "adhoc",
+                "annual",
+                "daily",
+                "fortnightly",
+                "monthly",
+                "quarterly",
+                "semi_annual",
+                "weekly",
+            ]
+            """
+            The periodicity at which payments will be collected. Defaults to `adhoc`.
+            """
+            payments_per_period: Optional[int]
+            """
+            The number of payments that will be made during a payment period. Defaults to 1 except for when `payment_schedule` is `adhoc`. In that case, it defaults to no limit.
+            """
+            purpose: Optional[
+                Literal[
+                    "dependant_support",
+                    "government",
+                    "loan",
+                    "mortgage",
+                    "other",
+                    "pension",
+                    "personal",
+                    "retail",
+                    "salary",
+                    "tax",
+                    "utility",
+                ]
+            ]
+            """
+            The purpose for which payments are made. Has a default value based on your merchant category code.
+            """
+            start_date: Optional[str]
+            """
+            Date, in YYYY-MM-DD format, from which payments will be collected. Defaults to confirmation time.
+            """
+
         class RevolutPay(StripeObject):
             pass
 
@@ -169,6 +222,7 @@ class Mandate(APIResource["Mandate"]):
         naver_pay: Optional[NaverPay]
         nz_bank_account: Optional[NzBankAccount]
         paypal: Optional[Paypal]
+        payto: Optional[Payto]
         revolut_pay: Optional[RevolutPay]
         sepa_debit: Optional[SepaDebit]
         type: str
@@ -190,6 +244,7 @@ class Mandate(APIResource["Mandate"]):
             "naver_pay": NaverPay,
             "nz_bank_account": NzBankAccount,
             "paypal": Paypal,
+            "payto": Payto,
             "revolut_pay": RevolutPay,
             "sepa_debit": SepaDebit,
             "us_bank_account": UsBankAccount,
@@ -203,12 +258,6 @@ class Mandate(APIResource["Mandate"]):
         currency: str
         """
         The currency of the payment on a single use mandate.
-        """
-
-    class RetrieveParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
         """
 
     customer_acceptance: CustomerAcceptance
@@ -246,7 +295,7 @@ class Mandate(APIResource["Mandate"]):
 
     @classmethod
     def retrieve(
-        cls, id: str, **params: Unpack["Mandate.RetrieveParams"]
+        cls, id: str, **params: Unpack["MandateRetrieveParams"]
     ) -> "Mandate":
         """
         Retrieves a Mandate object.
@@ -257,7 +306,7 @@ class Mandate(APIResource["Mandate"]):
 
     @classmethod
     async def retrieve_async(
-        cls, id: str, **params: Unpack["Mandate.RetrieveParams"]
+        cls, id: str, **params: Unpack["MandateRetrieveParams"]
     ) -> "Mandate":
         """
         Retrieves a Mandate object.

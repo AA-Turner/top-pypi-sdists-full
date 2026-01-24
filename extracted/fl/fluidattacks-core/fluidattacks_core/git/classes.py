@@ -18,7 +18,7 @@ class RebaseResult(NamedTuple):
     rev: str
 
 
-class InvalidParameter(Exception):
+class InvalidParameter(Exception):  # noqa: N818
     """Exception to control empty required parameters."""
 
     def __init__(self, field: str = "") -> None:

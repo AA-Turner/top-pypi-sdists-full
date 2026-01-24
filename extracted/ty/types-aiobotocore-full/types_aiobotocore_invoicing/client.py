@@ -3,7 +3,7 @@ Type annotations for invoicing service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -28,34 +29,46 @@ from botocore.client import ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListInvoiceSummariesPaginator, ListInvoiceUnitsPaginator
+from .paginator import (
+    ListInvoiceSummariesPaginator,
+    ListInvoiceUnitsPaginator,
+    ListProcurementPortalPreferencesPaginator,
+)
 from .type_defs import (
     BatchGetInvoiceProfileRequestTypeDef,
     BatchGetInvoiceProfileResponseTypeDef,
     CreateInvoiceUnitRequestTypeDef,
     CreateInvoiceUnitResponseTypeDef,
+    CreateProcurementPortalPreferenceRequestTypeDef,
+    CreateProcurementPortalPreferenceResponseTypeDef,
     DeleteInvoiceUnitRequestTypeDef,
     DeleteInvoiceUnitResponseTypeDef,
+    DeleteProcurementPortalPreferenceRequestTypeDef,
+    DeleteProcurementPortalPreferenceResponseTypeDef,
+    GetInvoicePDFRequestTypeDef,
+    GetInvoicePDFResponseTypeDef,
     GetInvoiceUnitRequestTypeDef,
     GetInvoiceUnitResponseTypeDef,
+    GetProcurementPortalPreferenceRequestTypeDef,
+    GetProcurementPortalPreferenceResponseTypeDef,
     ListInvoiceSummariesRequestTypeDef,
     ListInvoiceSummariesResponseTypeDef,
     ListInvoiceUnitsRequestTypeDef,
     ListInvoiceUnitsResponseTypeDef,
+    ListProcurementPortalPreferencesRequestTypeDef,
+    ListProcurementPortalPreferencesResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
+    PutProcurementPortalPreferenceRequestTypeDef,
+    PutProcurementPortalPreferenceResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateInvoiceUnitRequestTypeDef,
     UpdateInvoiceUnitResponseTypeDef,
+    UpdateProcurementPortalPreferenceStatusRequestTypeDef,
+    UpdateProcurementPortalPreferenceStatusResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -66,13 +79,14 @@ __all__ = ("InvoicingClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class InvoicingClient(AioBaseClient):
@@ -130,6 +144,17 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#create_invoice_unit)
         """
 
+    async def create_procurement_portal_preference(
+        self, **kwargs: Unpack[CreateProcurementPortalPreferenceRequestTypeDef]
+    ) -> CreateProcurementPortalPreferenceResponseTypeDef:
+        """
+        Creates a procurement portal preference configuration for e-invoice delivery
+        and purchase order retrieval.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/create_procurement_portal_preference.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#create_procurement_portal_preference)
+        """
+
     async def delete_invoice_unit(
         self, **kwargs: Unpack[DeleteInvoiceUnitRequestTypeDef]
     ) -> DeleteInvoiceUnitResponseTypeDef:
@@ -140,6 +165,27 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#delete_invoice_unit)
         """
 
+    async def delete_procurement_portal_preference(
+        self, **kwargs: Unpack[DeleteProcurementPortalPreferenceRequestTypeDef]
+    ) -> DeleteProcurementPortalPreferenceResponseTypeDef:
+        """
+        Deletes an existing procurement portal preference.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/delete_procurement_portal_preference.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#delete_procurement_portal_preference)
+        """
+
+    async def get_invoice_pdf(
+        self, **kwargs: Unpack[GetInvoicePDFRequestTypeDef]
+    ) -> GetInvoicePDFResponseTypeDef:
+        """
+        Returns a URL to download the invoice document and supplemental documents
+        associated with an invoice.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_invoice_pdf.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_invoice_pdf)
+        """
+
     async def get_invoice_unit(
         self, **kwargs: Unpack[GetInvoiceUnitRequestTypeDef]
     ) -> GetInvoiceUnitResponseTypeDef:
@@ -148,6 +194,16 @@ class InvoicingClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_invoice_unit.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_invoice_unit)
+        """
+
+    async def get_procurement_portal_preference(
+        self, **kwargs: Unpack[GetProcurementPortalPreferenceRequestTypeDef]
+    ) -> GetProcurementPortalPreferenceResponseTypeDef:
+        """
+        Retrieves the details of a specific procurement portal preference configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_procurement_portal_preference.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_procurement_portal_preference)
         """
 
     async def list_invoice_summaries(
@@ -171,6 +227,17 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_invoice_units)
         """
 
+    async def list_procurement_portal_preferences(
+        self, **kwargs: Unpack[ListProcurementPortalPreferencesRequestTypeDef]
+    ) -> ListProcurementPortalPreferencesResponseTypeDef:
+        """
+        Retrieves a list of procurement portal preferences associated with the Amazon
+        Web Services account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/list_procurement_portal_preferences.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_procurement_portal_preferences)
+        """
+
     async def list_tags_for_resource(
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
@@ -181,7 +248,17 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#list_tags_for_resource)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def put_procurement_portal_preference(
+        self, **kwargs: Unpack[PutProcurementPortalPreferenceRequestTypeDef]
+    ) -> PutProcurementPortalPreferenceResponseTypeDef:
+        """
+        Updates an existing procurement portal preference configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/put_procurement_portal_preference.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#put_procurement_portal_preference)
+        """
+
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
 
@@ -189,7 +266,7 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource.
 
@@ -206,6 +283,17 @@ class InvoicingClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/update_invoice_unit.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#update_invoice_unit)
+        """
+
+    async def update_procurement_portal_preference_status(
+        self, **kwargs: Unpack[UpdateProcurementPortalPreferenceStatusRequestTypeDef]
+    ) -> UpdateProcurementPortalPreferenceStatusResponseTypeDef:
+        """
+        Updates the status of a procurement portal preference, including the activation
+        state of e-invoice delivery and purchase order retrieval features.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/update_procurement_portal_preference_status.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#update_procurement_portal_preference_status)
         """
 
     @overload  # type: ignore[override]
@@ -230,6 +318,17 @@ class InvoicingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_paginator)
         """
 
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_procurement_portal_preferences"]
+    ) -> ListProcurementPortalPreferencesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_invoicing/client/#get_paginator)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/invoicing.html#Invoicing.Client)
@@ -238,7 +337,7 @@ class InvoicingClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

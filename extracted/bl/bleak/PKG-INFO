@@ -1,24 +1,25 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: bleak
-Version: 1.1.1
+Version: 2.1.1
 Summary: Bluetooth Low Energy platform Agnostic Klient
-License: MIT
+License-Expression: MIT
+License-File: AUTHORS.rst
+License-File: LICENSE
 Author: Henrik Blidh
 Author-email: henrik.blidh@nedomkull.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 4 - Beta
 Classifier: Framework :: AsyncIO
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: Android
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: pythonista
 Requires-Dist: async-timeout (>=3.0.0) ; python_version < "3.11"
 Requires-Dist: bleak-pythonista (>=0.1.1) ; extra == "pythonista"
@@ -31,6 +32,7 @@ Requires-Dist: winrt-Windows.Devices.Bluetooth (>=3.1) ; platform_system == "Win
 Requires-Dist: winrt-Windows.Devices.Bluetooth.Advertisement (>=3.1) ; platform_system == "Windows"
 Requires-Dist: winrt-Windows.Devices.Bluetooth.GenericAttributeProfile (>=3.1) ; platform_system == "Windows"
 Requires-Dist: winrt-Windows.Devices.Enumeration (>=3.1) ; platform_system == "Windows"
+Requires-Dist: winrt-Windows.Devices.Radios (>=3.1) ; platform_system == "Windows"
 Requires-Dist: winrt-Windows.Foundation (>=3.1) ; platform_system == "Windows"
 Requires-Dist: winrt-Windows.Foundation.Collections (>=3.1) ; platform_system == "Windows"
 Requires-Dist: winrt-Windows.Storage.Streams (>=3.1) ; platform_system == "Windows"
@@ -91,7 +93,7 @@ Features
 
 * Supports Windows 10, version 16299 (Fall Creators Update) or greater
 * Supports Linux distributions with BlueZ >= 5.55
-* OS X/macOS support via Core Bluetooth API, from at least OS X version 10.13
+* OS X/macOS support via Core Bluetooth API, from at least OS X version 10.15
 * Android backend compatible with python-for-android
 
 Bleak supports reading, writing and getting notifications from
@@ -128,7 +130,7 @@ Connect to a Bluetooth device and read its model number:
     async def main(address):
         async with BleakClient(address) as client:
             model_number = await client.read_gatt_char(MODEL_NBR_UUID)
-            print("Model Number: {0}".format("".join(map(chr, model_number))))
+            print(f"Model Number: {model_number.decode()}")
 
     asyncio.run(main(address))
 

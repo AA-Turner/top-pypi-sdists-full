@@ -16,11 +16,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from typing import TYPE_CHECKING, Literal
 
-import requests
 from appconf import AppConf
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
@@ -30,10 +30,14 @@ from django.db import models, transaction
 from django.utils.translation import get_language, gettext_lazy, pgettext_lazy
 from django_countries.fields import CountryField
 from vies.models import VATINField
+from weblate.utils.requests import http_request
 from weblate.utils.validators import validate_email
 
 from wlhosted.data import SUPPORTED_LANGUAGES
 from wlhosted.payments.validators import validate_vatin
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 EU_VAT_RATES = {
     "BE": 21,
@@ -143,11 +147,13 @@ class Customer(models.Model):
     note = models.TextField(blank=True, verbose_name="Note")
     created = models.DateTimeField(auto_now_add=True)
 
+    zammad_id = models.IntegerField(default=0)
+
     class Meta:
         verbose_name = "Customer"
         verbose_name_plural = "Customers"
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.name:
             return f"{self.name} ({self.email})"
         return self.email
@@ -212,7 +218,7 @@ class Payment(models.Model):
     CURRENCY_USD = 2
     CURRENCY_CZK = 3
 
-    uuid = Char32UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     amount = models.IntegerField()
     currency = models.IntegerField(
         choices=(
@@ -258,7 +264,7 @@ class Payment(models.Model):
         verbose_name = "Payment"
         verbose_name_plural = "Payments"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"payment:{self.pk}"
 
     @property
@@ -288,7 +294,7 @@ class Payment(models.Model):
         **kwargs,
     ):
         # Check if backend is still valid
-        from wlhosted.payments.backends import get_backend
+        from wlhosted.payments.backends import get_backend  # noqa: PLC0415
 
         try:
             get_backend(self.backend)
@@ -330,7 +336,8 @@ class Payment(models.Model):
 
     def trigger_remotely(self) -> None:
         # Trigger payment processing remotely
-        requests.post(
+        http_request(
+            "POST",
             self.get_payment_url(),
             allow_redirects=False,
             data={"method": self.backend, "secret": settings.PAYMENT_SECRET},
@@ -352,7 +359,7 @@ class PaymentConf(AppConf):
         prefix = "PAYMENT"
 
 
-def get_period_delta(period):
+def get_period_delta(period: Literal["y", "b", "q", "m"]) -> relativedelta:
     if period == "y":
         return relativedelta(years=1) - relativedelta(days=1)
     if period == "b":

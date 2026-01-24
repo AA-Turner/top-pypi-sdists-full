@@ -1,12 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ipinfo
-Version: 5.2.1
+Version: 5.4.0
 Summary: Official Python library for IPInfo
 Home-page: https://github.com/ipinfo/python
 Author: IPinfo
 Author-email: support@ipinfo.io
 License: Apache License 2.0
 License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: cachetools
+Requires-Dist: aiohttp<=4
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 
 The official Python library for IPinfo.

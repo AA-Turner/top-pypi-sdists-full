@@ -43,38 +43,6 @@ bool isSameEnum(const Expression& expr, const Type& enumType) {
     return expr.type->isMatching(enumType);
 }
 
-// This checks whether the two types are essentially the same struct or union type,
-// which is true if they have the same number of fields with the same names and the
-// same field types.
-bool isSameStructUnion(const Type& left, const Type& right) {
-    const Type& lt = left.getCanonicalType();
-    const Type& rt = right.getCanonicalType();
-    if (lt.kind != rt.kind)
-        return false;
-
-    if (lt.kind != SymbolKind::PackedStructType && lt.kind != SymbolKind::PackedUnionType)
-        return false;
-
-    auto lr = lt.as<Scope>().membersOfType<FieldSymbol>();
-    auto rr = rt.as<Scope>().membersOfType<FieldSymbol>();
-
-    auto lit = lr.begin();
-    auto rit = rr.begin();
-    while (lit != lr.end()) {
-        if (rit == rr.end() || lit->name != rit->name)
-            return false;
-
-        auto& lft = lit->getType();
-        auto& rft = rit->getType();
-        if (!lft.isMatching(rft) && !isSameStructUnion(lft, rft))
-            return false;
-
-        ++lit;
-        ++rit;
-    }
-    return rit == rr.end();
-}
-
 bool isUnionMemberType(const Type& left, const Type& right) {
     const Type& lt = left.getCanonicalType();
     const Type& rt = right.getCanonicalType();
@@ -446,6 +414,7 @@ Expression& ConversionExpression::fromSyntax(Compilation& compilation,
     // and passes the type through unchanged.
     if (syntax.signing.kind == TokenKind::ConstKeyword) {
         result->type = operand.type;
+        result->isConstCast = true;
         return *result;
     }
 
@@ -655,31 +624,40 @@ void ConversionExpression::checkImplicitConversions(
     };
 
     // Don't warn about conversions in compound assignment operators.
+    auto& unwrapped = op.unwrapImplicitConversions();
     auto isCompoundAssign = [&] {
-        auto& expr = op.unwrapImplicitConversions();
-        if (expr.kind == ExpressionKind::LValueReference)
+        if (unwrapped.kind == ExpressionKind::LValueReference)
             return true;
 
-        return expr.kind == ExpressionKind::BinaryOp &&
-               expr.as<BinaryExpression>().left().unwrapImplicitConversions().kind ==
+        return unwrapped.kind == ExpressionKind::BinaryOp &&
+               unwrapped.as<BinaryExpression>().left().unwrapImplicitConversions().kind ==
                    ExpressionKind::LValueReference;
     };
     if (isCompoundAssign())
         return;
 
-    const Type& lt = targetType.getCanonicalType();
-    const Type& rt = sourceType.getCanonicalType();
+    // Drill through one-element packed arrays, since they can be treated
+    // as implicitly being their one element.
+    auto unwrapType = [&](const Type& t) -> const Type& {
+        auto& ct = t.getCanonicalType();
+        if (ct.kind == SymbolKind::PackedArrayType && ct.getFixedRange().width() == 1)
+            return *ct.getArrayElementType();
+        return ct;
+    };
+
+    auto& lt = unwrapType(targetType);
+    auto& rt = unwrapType(sourceType);
     if (lt.isIntegral() && rt.isIntegral()) {
         // Warn for conversions between different enums/structs/unions.
         if (isStructUnionEnum(lt) && isStructUnionEnum(rt) && !lt.isMatching(rt)) {
-            if (!isSameStructUnion(lt, rt) && !isUnionMemberType(lt, rt))
+            if (!lt.isIdenticalStructUnion(rt) && !isUnionMemberType(lt, rt))
                 addDiag(diag::ImplicitConvert) << sourceType << targetType;
             return;
         }
 
         // Warn for conversions between packed arrays of differing
         // dimension counts or sizes.
-        if (isMultiDimArray(lt) && isMultiDimArray(rt) && !hasSameDims(lt, rt)) {
+        if ((isMultiDimArray(lt) || isMultiDimArray(rt)) && !hasSameDims(lt, rt)) {
             // Avoid warning for assignments or comparisons with 0 or '0, '1.
             auto isZeroOrUnsized = [](const Expression& e) {
                 auto expr = &e.unwrapImplicitConversions();
@@ -693,9 +671,23 @@ void ConversionExpression::checkImplicitConversions(
                         bool(expr->as<IntegerLiteral>().getValue() == 0));
             };
 
-            if (!isZeroOrUnsized(op) &&
+            auto isAppropriateConcat = [&]() {
+                if (unwrapped.kind == ExpressionKind::Concatenation && isMultiDimArray(lt) &&
+                    lt.getBitWidth() == rt.getBitWidth()) {
+                    auto& elemType = *lt.getArrayElementType();
+                    for (auto subExpr : unwrapped.as<ConcatenationExpression>().operands()) {
+                        if (!hasSameDims(elemType, *subExpr->type))
+                            return false;
+                    }
+                    return true;
+                }
+                return false;
+            };
+
+            if (!isZeroOrUnsized(unwrapped) &&
                 (!parentIsComparison() ||
-                 !isZeroOrUnsized(parentExpr->as<BinaryExpression>().right()))) {
+                 !isZeroOrUnsized(parentExpr->as<BinaryExpression>().right())) &&
+                !isAppropriateConcat()) {
                 addDiag(diag::PackedArrayConv) << sourceType << targetType;
             }
         }
@@ -780,6 +772,11 @@ Expression::EffectiveSign ConversionExpression::getEffectiveSignImpl(bool isForC
     if (isImplicit())
         return operand().getEffectiveSign(isForConversion);
     return type->isSigned() ? EffectiveSign::Signed : EffectiveSign::Unsigned;
+}
+
+bool ConversionExpression::isEquivalentImpl(const ConversionExpression& rhs) const {
+    return conversionKind == rhs.conversionKind && isConstCast == rhs.isConstCast &&
+           operand().isEquivalentTo(rhs.operand());
 }
 
 void ConversionExpression::serializeTo(ASTSerializer& serializer) const {

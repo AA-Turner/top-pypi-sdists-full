@@ -3,7 +3,7 @@ Type annotations for arc-zonal-shift service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_arc_zonal_shift/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -30,12 +31,6 @@ from .literals import (
     ZonalShiftStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -105,7 +100,7 @@ class CancelPracticeRunRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -231,7 +226,7 @@ class GetAutoshiftObserverNotificationStatusResponseTypeDef(TypedDict):
 
 
 class ListAutoshiftsResponseTypeDef(TypedDict):
-    items: List[AutoshiftSummaryTypeDef]
+    items: list[AutoshiftSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -279,11 +274,11 @@ class CreatePracticeRunConfigurationRequestTypeDef(TypedDict):
 
 
 class PracticeRunConfigurationTypeDef(TypedDict):
-    outcomeAlarms: List[ControlConditionTypeDef]
-    blockingAlarms: NotRequired[List[ControlConditionTypeDef]]
-    blockedWindows: NotRequired[List[str]]
-    allowedWindows: NotRequired[List[str]]
-    blockedDates: NotRequired[List[str]]
+    outcomeAlarms: list[ControlConditionTypeDef]
+    blockingAlarms: NotRequired[list[ControlConditionTypeDef]]
+    blockedWindows: NotRequired[list[str]]
+    allowedWindows: NotRequired[list[str]]
+    blockedDates: NotRequired[list[str]]
 
 
 class UpdatePracticeRunConfigurationRequestTypeDef(TypedDict):
@@ -296,12 +291,12 @@ class UpdatePracticeRunConfigurationRequestTypeDef(TypedDict):
 
 
 class ManagedResourceSummaryTypeDef(TypedDict):
-    availabilityZones: List[str]
+    availabilityZones: list[str]
     arn: NotRequired[str]
     name: NotRequired[str]
-    appliedWeights: NotRequired[Dict[str, float]]
-    zonalShifts: NotRequired[List[ZonalShiftInResourceTypeDef]]
-    autoshifts: NotRequired[List[AutoshiftInResourceTypeDef]]
+    appliedWeights: NotRequired[dict[str, float]]
+    zonalShifts: NotRequired[list[ZonalShiftInResourceTypeDef]]
+    autoshifts: NotRequired[list[AutoshiftInResourceTypeDef]]
     zonalAutoshiftStatus: NotRequired[ZonalAutoshiftStatusType]
     practiceRunStatus: NotRequired[ZonalAutoshiftStatusType]
 
@@ -322,7 +317,7 @@ class ListZonalShiftsRequestPaginateTypeDef(TypedDict):
 
 
 class ListZonalShiftsResponseTypeDef(TypedDict):
-    items: List[ZonalShiftSummaryTypeDef]
+    items: list[ZonalShiftSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -338,9 +333,9 @@ class CreatePracticeRunConfigurationResponseTypeDef(TypedDict):
 class GetManagedResourceResponseTypeDef(TypedDict):
     arn: str
     name: str
-    appliedWeights: Dict[str, float]
-    zonalShifts: List[ZonalShiftInResourceTypeDef]
-    autoshifts: List[AutoshiftInResourceTypeDef]
+    appliedWeights: dict[str, float]
+    zonalShifts: list[ZonalShiftInResourceTypeDef]
+    autoshifts: list[AutoshiftInResourceTypeDef]
     practiceRunConfiguration: PracticeRunConfigurationTypeDef
     zonalAutoshiftStatus: ZonalAutoshiftStatusType
     ResponseMetadata: ResponseMetadataTypeDef
@@ -355,6 +350,6 @@ class UpdatePracticeRunConfigurationResponseTypeDef(TypedDict):
 
 
 class ListManagedResourcesResponseTypeDef(TypedDict):
-    items: List[ManagedResourceSummaryTypeDef]
+    items: list[ManagedResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

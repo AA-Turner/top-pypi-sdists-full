@@ -27,11 +27,12 @@ from pytensor.compile.function.types import (
 from pytensor.compile.mode import Mode, register_mode
 from pytensor.compile.ops import OutputGuard, _output_guard
 from pytensor.configdefaults import config
-from pytensor.graph.basic import Variable, io_toposort
+from pytensor.graph.basic import Variable
 from pytensor.graph.destroyhandler import DestroyHandler
 from pytensor.graph.features import AlreadyThere, BadOptimization
 from pytensor.graph.fg import Output
 from pytensor.graph.op import HasInnerGraph, Op
+from pytensor.graph.traversal import io_toposort
 from pytensor.graph.utils import InconsistencyError, MethodNotDefined
 from pytensor.link.basic import Container, LocalLinker
 from pytensor.link.c.op import COp
@@ -1330,7 +1331,11 @@ default_make_thunk = [get_unbound_function(COp.make_thunk)]
 # the external requirements of the .linker attribute of a mode
 # 1) it's a class instance
 # 2) it a has a .clone() method
+# 3) it has required_rewrites and incompatible_rewrites class attributes
 class _DummyLinker:
+    required_rewrites = ()
+    incompatible_rewrites = ()
+
     # This is not a real linker anyway
     def clone(self, allow_gc=None):
         return self

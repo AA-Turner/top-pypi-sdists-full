@@ -18,11 +18,13 @@ T = TypeVar("T", bound="CreateHttpTriggersJsonBodyItemRetry")
 
 @_attrs_define
 class CreateHttpTriggersJsonBodyItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, CreateHttpTriggersJsonBodyItemRetryConstant]):
-        exponential (Union[Unset, CreateHttpTriggersJsonBodyItemRetryExponential]):
-        retry_if (Union[Unset, CreateHttpTriggersJsonBodyItemRetryRetryIf]):
+        constant (Union[Unset, CreateHttpTriggersJsonBodyItemRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, CreateHttpTriggersJsonBodyItemRetryExponential]): Retry with exponential backoff
+            (delay doubles each time)
+        retry_if (Union[Unset, CreateHttpTriggersJsonBodyItemRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "CreateHttpTriggersJsonBodyItemRetryConstant"] = UNSET

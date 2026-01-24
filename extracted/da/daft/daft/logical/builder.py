@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from daft.context import get_context
 from daft.daft import (
@@ -11,6 +11,7 @@ from daft.daft import (
     JoinStrategy,
     JoinType,
     PyDaftExecutionConfig,
+    PyFormatSinkOption,
     ScanOperatorHandle,
     WriteMode,
     logical_plan_table_scan,
@@ -21,14 +22,11 @@ from daft.logical.schema import Schema
 
 if TYPE_CHECKING:
     import pathlib
+    from collections.abc import Callable
 
     from pyiceberg.table import Table as IcebergTable
 
     from daft.io import DataSink
-    from daft.plan_scheduler.physical_plan_scheduler import (
-        AdaptivePhysicalPlanScheduler,
-        PhysicalPlanScheduler,
-    )
     from daft.runners.partitioning import PartitionCacheEntry
 
 
@@ -59,35 +57,6 @@ class LogicalPlanBuilder:
     def __init__(self, builder: _LogicalPlanBuilder) -> None:
         self._builder = builder
 
-    def to_physical_plan_scheduler(self, daft_execution_config: PyDaftExecutionConfig) -> PhysicalPlanScheduler:
-        """Convert the underlying logical plan to a physical plan scheduler.
-
-        physical plan scheduler is used to generate executable tasks for the physical plan.
-
-        This should be called after triggering optimization with self.optimize().
-
-        **Warning**: This function is not part of the stable API and may change
-        without notice. It is intended for internal or experimental use only.
-        """
-        from daft.plan_scheduler.physical_plan_scheduler import PhysicalPlanScheduler
-
-        return PhysicalPlanScheduler.from_logical_plan_builder(
-            self,
-            daft_execution_config,
-        )
-
-    def to_adaptive_physical_plan_scheduler(
-        self, daft_execution_config: PyDaftExecutionConfig
-    ) -> AdaptivePhysicalPlanScheduler:
-        from daft.plan_scheduler.physical_plan_scheduler import (
-            AdaptivePhysicalPlanScheduler,
-        )
-
-        return AdaptivePhysicalPlanScheduler.from_logical_plan_builder(
-            self,
-            daft_execution_config,
-        )
-
     def schema(self) -> Schema:
         """The schema of the current logical plan."""
         pyschema = self._builder.schema()
@@ -112,12 +81,16 @@ class LogicalPlanBuilder:
         else:
             raise ValueError(f"Unknown format: {format}")
 
+    def repr_json(self, include_schema: bool = False) -> str:
+        """Returns the JSON representation of the current underlying logical plan."""
+        return self._builder.repr_json(include_schema)
+
     def __repr__(self) -> str:
         return self._builder.repr_ascii(simple=False)
 
-    def optimize(self) -> LogicalPlanBuilder:
+    def optimize(self, execution_config: PyDaftExecutionConfig) -> LogicalPlanBuilder:
         """Optimize the underlying logical plan."""
-        builder = self._builder.optimize()
+        builder = self._builder.optimize(execution_config)
         return LogicalPlanBuilder(builder)
 
     @classmethod
@@ -148,6 +121,19 @@ class LogicalPlanBuilder:
         scan_operator: ScanOperatorHandle,
     ) -> LogicalPlanBuilder:
         builder = logical_plan_table_scan(scan_operator)
+        return cls(builder)
+
+    @classmethod
+    @_apply_daft_planning_config_to_initializer
+    def from_glob_scan(
+        cls,
+        glob_paths: list[str],
+        io_config: IOConfig | None = None,
+    ) -> LogicalPlanBuilder:
+        builder = _LogicalPlanBuilder.from_glob_scan(
+            glob_paths,
+            io_config,
+        )
         return cls(builder)
 
     def select(
@@ -192,9 +178,9 @@ class LogicalPlanBuilder:
         builder = self._builder.shard(strategy, world_size, rank)
         return LogicalPlanBuilder(builder)
 
-    def explode(self, explode_expressions: list[Expression]) -> LogicalPlanBuilder:
+    def explode(self, explode_expressions: list[Expression], index_column: str | None = None) -> LogicalPlanBuilder:
         explode_pyexprs = [expr._expr for expr in explode_expressions]
-        builder = self._builder.explode(explode_pyexprs)
+        builder = self._builder.explode(explode_pyexprs, index_column)
         return LogicalPlanBuilder(builder)
 
     def unpivot(
@@ -224,8 +210,14 @@ class LogicalPlanBuilder:
         builder = self._builder.distinct(on_pyexprs)
         return LogicalPlanBuilder(builder)
 
-    def sample(self, fraction: float, with_replacement: bool, seed: int | None) -> LogicalPlanBuilder:
-        builder = self._builder.sample(fraction, with_replacement, seed)
+    def sample(
+        self,
+        fraction: float | None = None,
+        size: int | None = None,
+        with_replacement: bool = False,
+        seed: int | None = None,
+    ) -> LogicalPlanBuilder:
+        builder = self._builder.sample(fraction, size, with_replacement, seed)
         return LogicalPlanBuilder(builder)
 
     def sort(
@@ -342,12 +334,19 @@ class LogicalPlanBuilder:
         write_mode: WriteMode,
         file_format: FileFormat,
         io_config: IOConfig,
+        file_format_option: PyFormatSinkOption | None = None,
         partition_cols: list[Expression] | None = None,
         compression: str | None = None,
     ) -> LogicalPlanBuilder:
         part_cols_pyexprs = [expr._expr for expr in partition_cols] if partition_cols is not None else None
         builder = self._builder.table_write(
-            str(root_dir), write_mode, file_format, part_cols_pyexprs, compression, io_config
+            str(root_dir),
+            write_mode,
+            file_format,
+            file_format_option,
+            part_cols_pyexprs,
+            compression,
+            io_config,
         )
         return LogicalPlanBuilder(builder)
 

@@ -294,7 +294,7 @@ class View(
         key = (self.id, model)
         result = self._view_get_cache.get(key)
         if result:
-            return result
+            return result.copy()
         if self.inherit:
             if self.inherit.model == model:
                 return self.inherit.view_get(model=model)
@@ -347,7 +347,7 @@ class View(
                 position = element.get('position', 'inside')
                 new_tree = getattr(cls, '_inherit_apply_%s' % position)(
                     tree, element, target)
-                if new_tree:
+                if new_tree is not None:
                     tree = new_tree
         return tree
 

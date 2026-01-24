@@ -925,10 +925,24 @@ class CreateInstanceResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _InstanceId: 实例id
+        :type InstanceId: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._InstanceId = None
         self._RequestId = None
+
+    @property
+    def InstanceId(self):
+        r"""实例id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
 
     @property
     def RequestId(self):
@@ -943,6 +957,7 @@ class CreateInstanceResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
         self._RequestId = params.get("RequestId")
 
 
@@ -1262,6 +1277,190 @@ class CreateMonitorResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._MonitorId = params.get("MonitorId")
+        self._RequestId = params.get("RequestId")
+
+
+class CreatePackageAndPayRequest(AbstractModel):
+    r"""CreatePackageAndPay请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DealType: 下单类型：CREATE 新购；RENEW 续费；MODIFY 变配
+        :type DealType: str
+        :param _GoodsType: 套餐类型：STANDARD 标准版；ULTIMATE 旗舰版；TASK 任务探测
+        :type GoodsType: str
+        :param _GoodsNum: 商品数量：STANDARD和ULTIMATE固定为1，TASK为任务探测数量。取值范围：1～10000
+        :type GoodsNum: int
+        :param _AutoRenew: 自动续费：1 开启自动续费；2 关闭自动续费
+        :type AutoRenew: int
+        :param _ResourceId: 资源ID，续费和变配的时候需要传
+        :type ResourceId: str
+        :param _TimeSpan: 套餐时长，以月为单位，创建和续费的时候需要传。取值范围：1～120
+        :type TimeSpan: int
+        :param _NewPackageType: 升级的套餐类型，暂时只支持传ULTIMATE，不支持降配
+        :type NewPackageType: str
+        :param _AutoVoucher: 是否自动选择代金券，1 是；0否，默认为0
+        :type AutoVoucher: int
+        """
+        self._DealType = None
+        self._GoodsType = None
+        self._GoodsNum = None
+        self._AutoRenew = None
+        self._ResourceId = None
+        self._TimeSpan = None
+        self._NewPackageType = None
+        self._AutoVoucher = None
+
+    @property
+    def DealType(self):
+        r"""下单类型：CREATE 新购；RENEW 续费；MODIFY 变配
+        :rtype: str
+        """
+        return self._DealType
+
+    @DealType.setter
+    def DealType(self, DealType):
+        self._DealType = DealType
+
+    @property
+    def GoodsType(self):
+        r"""套餐类型：STANDARD 标准版；ULTIMATE 旗舰版；TASK 任务探测
+        :rtype: str
+        """
+        return self._GoodsType
+
+    @GoodsType.setter
+    def GoodsType(self, GoodsType):
+        self._GoodsType = GoodsType
+
+    @property
+    def GoodsNum(self):
+        r"""商品数量：STANDARD和ULTIMATE固定为1，TASK为任务探测数量。取值范围：1～10000
+        :rtype: int
+        """
+        return self._GoodsNum
+
+    @GoodsNum.setter
+    def GoodsNum(self, GoodsNum):
+        self._GoodsNum = GoodsNum
+
+    @property
+    def AutoRenew(self):
+        r"""自动续费：1 开启自动续费；2 关闭自动续费
+        :rtype: int
+        """
+        return self._AutoRenew
+
+    @AutoRenew.setter
+    def AutoRenew(self, AutoRenew):
+        self._AutoRenew = AutoRenew
+
+    @property
+    def ResourceId(self):
+        r"""资源ID，续费和变配的时候需要传
+        :rtype: str
+        """
+        return self._ResourceId
+
+    @ResourceId.setter
+    def ResourceId(self, ResourceId):
+        self._ResourceId = ResourceId
+
+    @property
+    def TimeSpan(self):
+        r"""套餐时长，以月为单位，创建和续费的时候需要传。取值范围：1～120
+        :rtype: int
+        """
+        return self._TimeSpan
+
+    @TimeSpan.setter
+    def TimeSpan(self, TimeSpan):
+        self._TimeSpan = TimeSpan
+
+    @property
+    def NewPackageType(self):
+        r"""升级的套餐类型，暂时只支持传ULTIMATE，不支持降配
+        :rtype: str
+        """
+        return self._NewPackageType
+
+    @NewPackageType.setter
+    def NewPackageType(self, NewPackageType):
+        self._NewPackageType = NewPackageType
+
+    @property
+    def AutoVoucher(self):
+        r"""是否自动选择代金券，1 是；0否，默认为0
+        :rtype: int
+        """
+        return self._AutoVoucher
+
+    @AutoVoucher.setter
+    def AutoVoucher(self, AutoVoucher):
+        self._AutoVoucher = AutoVoucher
+
+
+    def _deserialize(self, params):
+        self._DealType = params.get("DealType")
+        self._GoodsType = params.get("GoodsType")
+        self._GoodsNum = params.get("GoodsNum")
+        self._AutoRenew = params.get("AutoRenew")
+        self._ResourceId = params.get("ResourceId")
+        self._TimeSpan = params.get("TimeSpan")
+        self._NewPackageType = params.get("NewPackageType")
+        self._AutoVoucher = params.get("AutoVoucher")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreatePackageAndPayResponse(AbstractModel):
+    r"""CreatePackageAndPay返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ResourceIds: 资源id列表，目前只会返回一个资源，取第一个值即可
+        :type ResourceIds: list of str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ResourceIds = None
+        self._RequestId = None
+
+    @property
+    def ResourceIds(self):
+        r"""资源id列表，目前只会返回一个资源，取第一个值即可
+        :rtype: list of str
+        """
+        return self._ResourceIds
+
+    @ResourceIds.setter
+    def ResourceIds(self, ResourceIds):
+        self._ResourceIds = ResourceIds
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ResourceIds = params.get("ResourceIds")
         self._RequestId = params.get("RequestId")
 
 
@@ -2261,13 +2460,27 @@ class DescribeDetectTaskPackageListRequest(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _Offset: 偏移量
+        :type Offset: int
         :param _Limit: 每页条数
         :type Limit: int
         :param _Filters: 探测任务过滤条件：ResourceId 探测任务的资源id，PeriodStart 最小过期时间,PeriodEnd 最大过期时间
         :type Filters: list of ResourceFilter
         """
+        self._Offset = None
         self._Limit = None
         self._Filters = None
+
+    @property
+    def Offset(self):
+        r"""偏移量
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
 
     @property
     def Limit(self):
@@ -2293,6 +2506,7 @@ class DescribeDetectTaskPackageListRequest(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
         if params.get("Filters") is not None:
             self._Filters = []
@@ -2516,6 +2730,36 @@ class DescribeInstanceDetailRequest(AbstractModel):
 
     """
 
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例id
+        :type InstanceId: str
+        """
+        self._InstanceId = None
+
+    @property
+    def InstanceId(self):
+        r"""实例id
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
 
 class DescribeInstanceDetailResponse(AbstractModel):
     r"""DescribeInstanceDetail返回参数结构体
@@ -2718,6 +2962,8 @@ class DescribeInstancePackageListRequest(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _Offset: 偏移量
+        :type Offset: int
         :param _Limit: 每页条数
         :type Limit: int
         :param _Filters: InstanceId实例Id，InstanceName实例名称，ResourceId套餐Id，PackageType套餐类型 
@@ -2725,9 +2971,21 @@ class DescribeInstancePackageListRequest(AbstractModel):
         :param _IsUsed: 是否使用：0未使用1已使用
         :type IsUsed: int
         """
+        self._Offset = None
         self._Limit = None
         self._Filters = None
         self._IsUsed = None
+
+    @property
+    def Offset(self):
+        r"""偏移量
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
 
     @property
     def Limit(self):
@@ -2764,6 +3022,7 @@ class DescribeInstancePackageListRequest(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
         if params.get("Filters") is not None:
             self._Filters = []
@@ -2937,11 +3196,14 @@ class DescribeMonitorsRequest(AbstractModel):
         :type Offset: int
         :param _Limit: 分页，当前分页记录数
         :type Limit: int
+        :param _Filters: 查询过滤条件：MonitorName：监控器名称；MonitorId：监控器id
+        :type Filters: list of ResourceFilter
         :param _IsDetectNum: 是否查探测次数0否1是
         :type IsDetectNum: int
         """
         self._Offset = None
         self._Limit = None
+        self._Filters = None
         self._IsDetectNum = None
 
     @property
@@ -2967,6 +3229,17 @@ class DescribeMonitorsRequest(AbstractModel):
         self._Limit = Limit
 
     @property
+    def Filters(self):
+        r"""查询过滤条件：MonitorName：监控器名称；MonitorId：监控器id
+        :rtype: list of ResourceFilter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
     def IsDetectNum(self):
         r"""是否查探测次数0否1是
         :rtype: int
@@ -2981,6 +3254,12 @@ class DescribeMonitorsRequest(AbstractModel):
     def _deserialize(self, params):
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = ResourceFilter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
         self._IsDetectNum = params.get("IsDetectNum")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -5218,10 +5497,24 @@ class ModifyInstanceConfigRequest(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _InstanceId: 实例id	
+        :type InstanceId: str
         :param _InstanceConfig: 实例配置详情
         :type InstanceConfig: :class:`tencentcloud.igtm.v20231024.models.InstanceConfig`
         """
+        self._InstanceId = None
         self._InstanceConfig = None
+
+    @property
+    def InstanceId(self):
+        r"""实例id	
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
 
     @property
     def InstanceConfig(self):
@@ -5236,6 +5529,7 @@ class ModifyInstanceConfigRequest(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
         if params.get("InstanceConfig") is not None:
             self._InstanceConfig = InstanceConfig()
             self._InstanceConfig._deserialize(params.get("InstanceConfig"))
@@ -5625,6 +5919,100 @@ class ModifyMonitorResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._Msg = params.get("Msg")
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyPackageAutoRenewRequest(AbstractModel):
+    r"""ModifyPackageAutoRenew请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ResourceId: 资源ID，续费和变配的时候需要传
+        :type ResourceId: str
+        :param _AutoRenew: 自动续费：1 开启自动续费；2 关闭自动续费
+        :type AutoRenew: int
+        """
+        self._ResourceId = None
+        self._AutoRenew = None
+
+    @property
+    def ResourceId(self):
+        r"""资源ID，续费和变配的时候需要传
+        :rtype: str
+        """
+        return self._ResourceId
+
+    @ResourceId.setter
+    def ResourceId(self, ResourceId):
+        self._ResourceId = ResourceId
+
+    @property
+    def AutoRenew(self):
+        r"""自动续费：1 开启自动续费；2 关闭自动续费
+        :rtype: int
+        """
+        return self._AutoRenew
+
+    @AutoRenew.setter
+    def AutoRenew(self, AutoRenew):
+        self._AutoRenew = AutoRenew
+
+
+    def _deserialize(self, params):
+        self._ResourceId = params.get("ResourceId")
+        self._AutoRenew = params.get("AutoRenew")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyPackageAutoRenewResponse(AbstractModel):
+    r"""ModifyPackageAutoRenew返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ResourceIds: 资源id列表，目前只会返回一个资源，取第一个值即可
+        :type ResourceIds: list of str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ResourceIds = None
+        self._RequestId = None
+
+    @property
+    def ResourceIds(self):
+        r"""资源id列表，目前只会返回一个资源，取第一个值即可
+        :rtype: list of str
+        """
+        return self._ResourceIds
+
+    @ResourceIds.setter
+    def ResourceIds(self, ResourceIds):
+        self._ResourceIds = ResourceIds
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._ResourceIds = params.get("ResourceIds")
         self._RequestId = params.get("RequestId")
 
 

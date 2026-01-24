@@ -3,9 +3,9 @@ from typing import List, Optional
 from unittest import TestCase
 
 from pycarlo.features.metadata import (
-    AllowBlockList,
     FilterEffectType,
     FilterType,
+    MetadataAllowBlockList,
     MetadataFilter,
     MetadataFiltersContainer,
 )
@@ -65,7 +65,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_block_single_dataset(self):
         # excludes only project_1.dataset_2
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_1", dataset="dataset_2", effect=FilterEffectType.BLOCK
@@ -78,7 +78,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_block_multi_datasets(self):
         # excludes project_1.dataset_3 and project_2.dataset_1
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_1", dataset="dataset_3", effect=FilterEffectType.BLOCK
@@ -100,7 +100,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_block_single_project(self):
         # excludes all datasets in project_1
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(project="project_1", effect=FilterEffectType.BLOCK),
             ]
@@ -112,7 +112,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_block_second_project(self):
         # excludes all datasets in project_2
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(project="project_2", effect=FilterEffectType.BLOCK),
             ]
@@ -124,7 +124,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_block_single_project_regexp(self):
         # excludes all datasets in prj_3
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="prj_.*", type=FilterType.REGEXP, effect=FilterEffectType.BLOCK
@@ -138,7 +138,7 @@ class TestDatasetFiltering(TestCase):
         self.assertTrue(limits.is_whole_project_blocked("prj_3"))
 
     def test_block_datasets_prefix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project",
@@ -157,7 +157,7 @@ class TestDatasetFiltering(TestCase):
         self._validate_dataset_prefix(filters)
 
     def test_block_datasets_suffix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -176,7 +176,7 @@ class TestDatasetFiltering(TestCase):
         self._validate_dataset_suffix(filters)
 
     def test_block_datasets_substring(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="prj_3",
@@ -188,7 +188,7 @@ class TestDatasetFiltering(TestCase):
         )
         self._validate_dataset_substring(filters)
 
-    def _validate_dataset_prefix(self, filters: AllowBlockList):
+    def _validate_dataset_prefix(self, filters: MetadataAllowBlockList):
         blocked = [
             DatasetEntry("project", "ds_1"),
             DatasetEntry("project", "ds_2"),
@@ -210,7 +210,7 @@ class TestDatasetFiltering(TestCase):
         self.assertFalse(limits.is_dataset_allowed("prj_3", "ds_1"))
         self.assertFalse(limits.is_dataset_allowed("prj_3", "ds_2"))
 
-    def _validate_dataset_suffix(self, filters: AllowBlockList):
+    def _validate_dataset_suffix(self, filters: MetadataAllowBlockList):
         blocked = list(filter(lambda d: d.dataset.endswith("ds_2"), self.DATASETS_FOR_REGEXP))
         limits = self._validate_blocked_datasets(
             filters=filters, blocked_datasets=blocked, datasets=self.DATASETS_FOR_REGEXP
@@ -226,7 +226,7 @@ class TestDatasetFiltering(TestCase):
         self.assertFalse(limits.is_dataset_allowed("prj_3", "ds_2"))
         self.assertTrue(limits.is_dataset_allowed("prj_3", "ds_3"))
 
-    def _validate_dataset_substring(self, filters: AllowBlockList):
+    def _validate_dataset_substring(self, filters: MetadataAllowBlockList):
         blocked = list(filter(lambda d: "bar" in d.dataset, self.DATASETS_FOR_REGEXP))
         limits = self._validate_blocked_datasets(
             filters=filters, blocked_datasets=blocked, datasets=self.DATASETS_FOR_REGEXP
@@ -252,7 +252,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_allow_single_dataset(self):
         # excludes all datasets in project_1
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", dataset="dataset_4", effect=FilterEffectType.ALLOW
@@ -269,7 +269,7 @@ class TestDatasetFiltering(TestCase):
 
     def test_allow_second_project(self):
         # excludes all datasets in project_1
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(project="project_2", effect=FilterEffectType.ALLOW),
             ],
@@ -282,7 +282,7 @@ class TestDatasetFiltering(TestCase):
         self.assertFalse(limits.is_whole_project_blocked("project_2"))
 
     def test_sql_query_block_single_project(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(project="project_2", effect=FilterEffectType.BLOCK),
             ]
@@ -296,7 +296,7 @@ class TestDatasetFiltering(TestCase):
         self.assertEqual("(NOT(LOWER(database)='project_2'))", conditions)
 
     def test_sql_query_block_project_prefix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="prj_", type=FilterType.PREFIX, effect=FilterEffectType.BLOCK
@@ -312,7 +312,7 @@ class TestDatasetFiltering(TestCase):
         self.assertEqual("(NOT(LOWER(database) LIKE 'prj_%'))", conditions)
 
     def test_sql_query_block_project_dataset_prefix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_name",
@@ -333,7 +333,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_single_dataset(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", dataset="dataset_1", effect=FilterEffectType.BLOCK
@@ -349,7 +349,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_single_project_case_sensitive(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="PROJECT_2", dataset="dataset_1", effect=FilterEffectType.BLOCK
@@ -365,7 +365,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_datasets_regexp(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -384,7 +384,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_datasets_regexp_with_exception(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -408,7 +408,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_project_block_single_dataset(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", dataset="dataset_1", effect=FilterEffectType.BLOCK
@@ -429,7 +429,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_project_block_nothing(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_1", dataset="dataset_2", effect=FilterEffectType.BLOCK
@@ -446,7 +446,7 @@ class TestDatasetFiltering(TestCase):
         self.assertIsNone(conditions)
 
     def test_sql_query_block_multi_datasets(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", dataset="dataset_1", effect=FilterEffectType.BLOCK
@@ -469,7 +469,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_allow_multi_datasets(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", dataset="dataset_1", effect=FilterEffectType.ALLOW
@@ -493,7 +493,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_case_insensitive(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="PROJECT_", effect=FilterEffectType.BLOCK, type=FilterType.PREFIX
@@ -512,7 +512,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_datasets_prefix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -531,7 +531,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_datasets_suffix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -550,7 +550,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_query_block_datasets_suffix_without_project(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(dataset="_2", type=FilterType.SUFFIX, effect=FilterEffectType.BLOCK),
             ]
@@ -562,7 +562,7 @@ class TestDatasetFiltering(TestCase):
         self.assertEqual("(NOT(LOWER(schema) LIKE '%_2'))", conditions)
 
     def test_sql_query_block_datasets_substring(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -581,7 +581,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_sql_block_table_prefix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2",
@@ -604,7 +604,7 @@ class TestDatasetFiltering(TestCase):
         )
 
     def test_whole_project_blocked(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", dataset="dataset_1", effect=FilterEffectType.BLOCK
@@ -619,10 +619,26 @@ class TestDatasetFiltering(TestCase):
         query = limits.get_sql_conditions(
             {"project": "database", "dataset": "schema"}, _redshift_encoder
         )
-        self.assertTrue(query)
+        self.assertEqual(query, "(NOT(LOWER(database)='project_2' AND LOWER(schema)='dataset_1'))")
+
+    def test_no_matching_mappings(self):
+        filters = MetadataAllowBlockList(
+            filters=[
+                MetadataFilter(project="allowed_project", effect=FilterEffectType.ALLOW),
+            ],
+        )
+        limits = MetadataFiltersContainer(metadata_filters=filters)
+        query = limits.get_sql_conditions(
+            {
+                "dataset": "TABLE_SCHEMA",
+                "table_name": "TABLE_NAME",
+            },
+            _redshift_encoder,
+        )
+        self.assertIsNone(query)
 
     def test_case_insensitive_comparison_exact_match(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_2", effect=FilterEffectType.BLOCK, type=FilterType.EXACT_MATCH
@@ -635,7 +651,7 @@ class TestDatasetFiltering(TestCase):
         self.assertFalse(limits.is_whole_project_blocked("PROJECT_3"))
 
     def test_case_insensitive_comparison_prefix(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="project_", effect=FilterEffectType.BLOCK, type=FilterType.PREFIX
@@ -648,7 +664,7 @@ class TestDatasetFiltering(TestCase):
         self.assertFalse(limits.is_whole_project_blocked("OTHER_PROJECT"))
 
     def test_case_insensitive_comparison_regex(self):
-        filters = AllowBlockList(
+        filters = MetadataAllowBlockList(
             filters=[
                 MetadataFilter(
                     project="[a-z]+_[1-9]+", effect=FilterEffectType.BLOCK, type=FilterType.REGEXP
@@ -661,7 +677,10 @@ class TestDatasetFiltering(TestCase):
         self.assertFalse(limits.is_whole_project_blocked("PROJECT_"))
 
     def _validate_allowed_datasets(
-        self, filters: AllowBlockList, expected_datasets: List, datasets: Optional[List] = None
+        self,
+        filters: MetadataAllowBlockList,
+        expected_datasets: List,
+        datasets: Optional[List] = None,
     ) -> MetadataFiltersContainer:
         limits = MetadataFiltersContainer(metadata_filters=filters)
         filtered_datasets = self._filter_datasets(datasets or self.DATASETS, limits)
@@ -669,7 +688,10 @@ class TestDatasetFiltering(TestCase):
         return limits
 
     def _validate_blocked_datasets(
-        self, filters: AllowBlockList, blocked_datasets: List, datasets: Optional[List] = None
+        self,
+        filters: MetadataAllowBlockList,
+        blocked_datasets: List,
+        datasets: Optional[List] = None,
     ) -> MetadataFiltersContainer:
         expected_datasets = list(
             filter(lambda d: d not in blocked_datasets, (datasets or self.DATASETS))

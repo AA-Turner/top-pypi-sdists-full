@@ -5,7 +5,7 @@ authors = [
 ]
 description = 'Snowflake Python API for Resource Management'
 readme = 'README.md'
-requires-python = '>=3.9'
+requires-python = '>=3.10'
 license = {text = 'Apache-2.0'}
 keywords = [
     'Snowflake',
@@ -83,7 +83,7 @@ cleanup = [
 template = 'test'
 
 [[tool.hatch.envs.test_all.matrix]]
-python = ['3.9', '3.10', '3.11']
+python = ['3.10', '3.11', '3.12', '3.13']
 
 [tool.hatch.envs.test_no_snowpark]
 dependencies = [
@@ -114,7 +114,7 @@ check = [
 [tool.hatch.envs.test]
 template = 'test_no_snowpark'
 # Our minimum supported version.
-python = '3.9'
+python = '3.10'
 
 extra-dependencies = [
     'snowflake-snowpark-python>=1.5.0,<2.0.0',
@@ -159,7 +159,6 @@ python = ['3.10']
 
 [tool.hatch.envs.precommit]
 dependencies = [
-    'black',                    # 2023-08-08(bwarsaw): Change to `blue` in followup PR
     'mypy',  # mpyp 1.7.0 was released and broke us.
     'ruff',
     'snowflake-snowpark-python',

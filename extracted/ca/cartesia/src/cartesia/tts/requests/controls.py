@@ -3,9 +3,9 @@
 import typing_extensions
 from .speed import SpeedParams
 import typing
-from ..types.emotion import Emotion
+from ..types.emotion_deprecated import EmotionDeprecated
 
 
 class ControlsParams(typing_extensions.TypedDict):
     speed: SpeedParams
-    emotion: typing.Sequence[Emotion]
+    emotion: typing.Sequence[EmotionDeprecated]

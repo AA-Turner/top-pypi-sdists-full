@@ -3,12 +3,12 @@
 from __future__ import annotations
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class Status(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -41,7 +41,6 @@ class AccountingAccountTypedDict(TypedDict):
     id: NotRequired[str]
     is_payable: NotRequired[bool]
     name: NotRequired[str]
-    parent_account_id: NotRequired[str]
     parent_id: NotRequired[str]
     raw: NotRequired[Dict[str, Any]]
     section: NotRequired[str]
@@ -73,22 +72,72 @@ class AccountingAccount(BaseModel):
 
     name: Optional[str] = None
 
-    parent_account_id: Optional[str] = None
-
     parent_id: Optional[str] = None
 
     raw: Optional[Dict[str, Any]] = None
 
     section: Optional[str] = None
 
-    status: Annotated[Optional[Status], PlainValidator(validate_open_enum(False))] = (
-        None
-    )
+    status: Optional[Status] = None
 
     subgroup: Optional[str] = None
 
     subsection: Optional[str] = None
 
-    type: Annotated[Optional[Type], PlainValidator(validate_open_enum(False))] = None
+    type: Optional[Type] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("status")
+    def serialize_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Status(value)
+            except ValueError:
+                return value
+        return value
+
+    @field_serializer("type")
+    def serialize_type(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.Type(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "balance",
+                "created_at",
+                "currency",
+                "customer_defined_code",
+                "description",
+                "group",
+                "id",
+                "is_payable",
+                "name",
+                "parent_id",
+                "raw",
+                "section",
+                "status",
+                "subgroup",
+                "subsection",
+                "type",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

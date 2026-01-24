@@ -14,23 +14,17 @@ class CreateWorkspaceForkJsonBody:
     Attributes:
         id (str):
         name (str):
-        parent_workspace_id (str):
-        username (Union[Unset, str]):
         color (Union[Unset, str]):
     """
 
     id: str
     name: str
-    parent_workspace_id: str
-    username: Union[Unset, str] = UNSET
     color: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         id = self.id
         name = self.name
-        parent_workspace_id = self.parent_workspace_id
-        username = self.username
         color = self.color
 
         field_dict: Dict[str, Any] = {}
@@ -39,11 +33,8 @@ class CreateWorkspaceForkJsonBody:
             {
                 "id": id,
                 "name": name,
-                "parent_workspace_id": parent_workspace_id,
             }
         )
-        if username is not UNSET:
-            field_dict["username"] = username
         if color is not UNSET:
             field_dict["color"] = color
 
@@ -56,17 +47,11 @@ class CreateWorkspaceForkJsonBody:
 
         name = d.pop("name")
 
-        parent_workspace_id = d.pop("parent_workspace_id")
-
-        username = d.pop("username", UNSET)
-
         color = d.pop("color", UNSET)
 
         create_workspace_fork_json_body = cls(
             id=id,
             name=name,
-            parent_workspace_id=parent_workspace_id,
-            username=username,
             color=color,
         )
 

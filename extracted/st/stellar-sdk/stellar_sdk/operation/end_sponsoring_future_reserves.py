@@ -1,4 +1,4 @@
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..muxed_account import MuxedAccount
@@ -12,11 +12,11 @@ class EndSponsoringFutureReserves(Operation):
     operation on Stellar's network.
 
     Terminates the current is-sponsoring-future-reserves-for relationship in which the source account is sponsored.
-    See `Sponsored Reserves <https://developers.stellar.org/docs/glossary/sponsored-reserves/>`_ for more information.
+    See `Sponsored Reserves <https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves>`_ for more information.
 
     Threshold: Medium
 
-    See `End Sponsoring Future Reserves <https://developers.stellar.org/docs/start/list-of-operations/#end-sponsoring-future-reserves>`_.
+    See `End Sponsoring Future Reserves <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#end-sponsoring-future-reserves>`_.
 
     :param source: The source account for the operation. Defaults to the transaction's source account.
     """
@@ -25,7 +25,7 @@ class EndSponsoringFutureReserves(Operation):
         stellar_xdr.OperationType.END_SPONSORING_FUTURE_RESERVES
     )
 
-    def __init__(self, source: Optional[Union[MuxedAccount, str]] = None) -> None:
+    def __init__(self, source: MuxedAccount | str | None = None) -> None:
         super().__init__(source)
 
     def _to_operation_body(self) -> stellar_xdr.OperationBody:

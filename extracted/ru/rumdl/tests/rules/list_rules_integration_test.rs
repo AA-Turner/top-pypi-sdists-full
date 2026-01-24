@@ -20,7 +20,7 @@ fn test_mixed_unordered_list_style_and_indentation() {
  * Wrong indent 1 space (MD005, MD007 violations)
 * Third item back to asterisk";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // All rules should detect their respective issues
     let md004_result = md004.check(&ctx).unwrap();
@@ -33,7 +33,7 @@ fn test_mixed_unordered_list_style_and_indentation() {
 
     // Test that fixing MD004 doesn't break others
     let md004_fixed = md004.fix(&ctx).unwrap();
-    let ctx_after_md004 = LintContext::new(&md004_fixed, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_after_md004 = LintContext::new(&md004_fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // MD004 issues should be resolved
     let md004_recheck = md004.check(&ctx_after_md004).unwrap();
@@ -64,7 +64,7 @@ fn test_ordered_list_style_and_indentation() {
  2. Wrong indent and number (MD005, MD029 violations)
 4. Fourth item";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Both rules should detect their respective issues
     let md029_result = md029.check(&ctx).unwrap();
@@ -75,7 +75,7 @@ fn test_ordered_list_style_and_indentation() {
 
     // Test that fixing MD029 doesn't break MD005
     let md029_fixed = md029.fix(&ctx).unwrap();
-    let ctx_after_md029 = LintContext::new(&md029_fixed, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_after_md029 = LintContext::new(&md029_fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // MD029 issues should be resolved
     let md029_recheck = md029.check(&ctx_after_md029).unwrap();
@@ -97,16 +97,19 @@ fn test_complex_nested_mixed_lists() {
     let md007 = MD007ULIndent::default();
     let md029 = MD029OrderedListPrefix::default();
 
+    // Note: MD005 groups items by (parent_content_column, is_ordered) to prevent
+    // oscillation with MD007. To trigger MD005, we need inconsistent same-type siblings.
     let content = "\
 * Unordered list item
   1. Ordered nested item
   2. Another ordered nested item
+  4. Wrong number in same list (MD029 violation)
 + Mixed marker style (MD004 violation)
-   * Wrong indent 3 spaces (MD005, MD007 violations)
-  5. Wrong ordered number (MD029 violation)
+  * Bullet at 2 spaces
+   * Wrong indent 3 spaces (MD005 - inconsistent with sibling, MD007 violation)
 * Back to proper unordered";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // All rules should work independently
     let md004_result = md004.check(&ctx).unwrap();
@@ -115,22 +118,25 @@ fn test_complex_nested_mixed_lists() {
     let md029_result = md029.check(&ctx).unwrap();
 
     assert!(!md004_result.is_empty(), "MD004 should detect mixed markers");
-    assert!(!md005_result.is_empty(), "MD005 should detect wrong indentation");
+    assert!(
+        !md005_result.is_empty(),
+        "MD005 should detect inconsistent bullet indentation"
+    );
     assert!(!md007_result.is_empty(), "MD007 should detect wrong nested indentation");
     assert!(!md029_result.is_empty(), "MD029 should detect wrong numbering");
 
     // Apply fixes sequentially and ensure they don't conflict
     let step1 = md004.fix(&ctx).unwrap();
-    let ctx1 = LintContext::new(&step1, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx1 = LintContext::new(&step1, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let step2 = md005.fix(&ctx1).unwrap();
-    let ctx2 = LintContext::new(&step2, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx2 = LintContext::new(&step2, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let step3 = md007.fix(&ctx2).unwrap();
-    let ctx3 = LintContext::new(&step3, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx3 = LintContext::new(&step3, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     let step4 = md029.fix(&ctx3).unwrap();
-    let ctx_final = LintContext::new(&step4, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_final = LintContext::new(&step4, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // After all fixes, all rules should be satisfied
     assert!(
@@ -167,7 +173,7 @@ fn test_deep_nesting_with_multiple_list_types() {
    * Back to second level
 2. Second top level";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // With proper indentation, all rules should pass
     let md005_result = md005.check(&ctx).unwrap();
@@ -205,7 +211,7 @@ fn test_list_rules_with_code_blocks() {
    ```
 3. Third item";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Code blocks should not interfere with list rule detection
     let md005_result = md005.check(&ctx).unwrap();
@@ -234,7 +240,7 @@ fn test_list_rules_with_blockquotes() {
 > * Unordered list in quote
 >   * Nested unordered in quote";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Rules should work correctly within blockquotes
     let md005_result = md005.check(&ctx).unwrap();
@@ -264,7 +270,7 @@ fn test_list_continuation_across_rules() {
   * Nested item
     Nested continuation";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Both rules should handle continuation text correctly
     let md004_result = md004.check(&ctx).unwrap();
@@ -278,7 +284,7 @@ fn test_list_continuation_across_rules() {
 
     // Fix MD004 and ensure continuation text is preserved
     let md004_fixed = md004.fix(&ctx).unwrap();
-    let ctx_fixed = LintContext::new(&md004_fixed, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx_fixed = LintContext::new(&md004_fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Continuation text should still be properly indented
     let md005_after_fix = md005.check(&ctx_fixed).unwrap();
@@ -319,7 +325,7 @@ fn test_empty_lines_between_list_items() {
 
 4. Fourth item";
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Empty lines should not break rule detection
     let md004_result = md004.check(&ctx).unwrap();
@@ -328,13 +334,11 @@ fn test_empty_lines_between_list_items() {
 
     assert!(md004_result.is_empty(), "MD004 should handle empty lines correctly");
     assert!(md005_result.is_empty(), "MD005 should handle empty lines correctly");
-    // MD029 should detect that item 4 starts a new list after the unordered list section
-    assert_eq!(md029_result.len(), 1, "MD029 should detect numbering issue");
-    assert_eq!(md029_result[0].line, 11, "Should detect issue on line 11");
-    assert!(md029_result[0].message.contains("4"), "Should mention actual number 4");
+    // MD029 should correctly recognize that the nested unordered list is part of item 3's content
+    // Therefore item "4." is correctly the 4th item in the sequence
     assert!(
-        md029_result[0].message.contains("1"),
-        "Should mention expected number 1"
+        md029_result.is_empty(),
+        "MD029 should pass - nested list is part of item 3's content"
     );
 }
 
@@ -363,7 +367,7 @@ fn test_performance_with_large_mixed_lists() {
         }
     }
 
-    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(&content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // All rules should handle large structures efficiently
     let start = std::time::Instant::now();

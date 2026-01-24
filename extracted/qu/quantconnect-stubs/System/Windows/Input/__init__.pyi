@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -11,12 +11,11 @@ System_Windows_Input__EventContainer_ReturnType = typing.TypeVar("System_Windows
 
 
 class ICommand(metaclass=abc.ABCMeta):
-    """An interface that allows an application author to define a method to be invoked."""
+    """This class has no documentation."""
 
     @property
     @abc.abstractmethod
     def can_execute_changed(self) -> _EventContainer[typing.Callable[[System.Object, System.EventArgs], typing.Any], typing.Any]:
-        """Raised when the ability of the command to execute has changed."""
         ...
 
     @can_execute_changed.setter
@@ -24,20 +23,9 @@ class ICommand(metaclass=abc.ABCMeta):
         ...
 
     def can_execute(self, parameter: typing.Any) -> bool:
-        """
-        Returns whether the command can be executed.
-        
-        :param parameter: A parameter that may be used in executing the command. This parameter may be ignored by some implementations.
-        :returns: true if the command can be executed with the given parameter and current state. false otherwise.
-        """
         ...
 
     def execute(self, parameter: typing.Any) -> None:
-        """
-        Defines the method that should be executed when the command is executed.
-        
-        :param parameter: A parameter that may be used in executing the command. This parameter may be ignored by some implementations.
-        """
         ...
 
 

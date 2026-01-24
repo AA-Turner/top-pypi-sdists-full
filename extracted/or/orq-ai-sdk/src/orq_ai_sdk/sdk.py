@@ -16,18 +16,25 @@ from typing import Any, Callable, Dict, Optional, TYPE_CHECKING, Union, cast
 import weakref
 
 if TYPE_CHECKING:
-    from orq_ai_sdk.budgets import Budgets
+    from orq_ai_sdk.agents import Agents
     from orq_ai_sdk.chunking import Chunking
     from orq_ai_sdk.contacts import Contacts
+    from orq_ai_sdk.conversations import Conversations
     from orq_ai_sdk.datasets import Datasets
-    from orq_ai_sdk.deployments_sdk import DeploymentsSDK
+    from orq_ai_sdk.deployments import Deployments
     from orq_ai_sdk.evals import Evals
+    from orq_ai_sdk.evaluators import Evaluators
     from orq_ai_sdk.feedback import Feedback
     from orq_ai_sdk.files import Files
+    from orq_ai_sdk.identities import Identities
+    from orq_ai_sdk.internal import Internal
     from orq_ai_sdk.knowledge import Knowledge
+    from orq_ai_sdk.memorystores import MemoryStores
     from orq_ai_sdk.models_ import Models
     from orq_ai_sdk.prompts import Prompts
     from orq_ai_sdk.remoteconfigs import Remoteconfigs
+    from orq_ai_sdk.router import Router
+    from orq_ai_sdk.tools import Tools
 
 
 class Orq(BaseSDK):
@@ -37,29 +44,43 @@ class Orq(BaseSDK):
 
     contacts: "Contacts"
     feedback: "Feedback"
-    deployments: "DeploymentsSDK"
+    evals: "Evals"
+    evaluators: "Evaluators"
+    identities: "Identities"
+    deployments: "Deployments"
+    agents: "Agents"
+    conversations: "Conversations"
+    internal: "Internal"
     files: "Files"
     prompts: "Prompts"
     remoteconfigs: "Remoteconfigs"
     models: "Models"
-    datasets: "Datasets"
+    tools: "Tools"
     knowledge: "Knowledge"
     chunking: "Chunking"
-    evals: "Evals"
-    budgets: "Budgets"
+    memory_stores: "MemoryStores"
+    datasets: "Datasets"
+    router: "Router"
     _sub_sdk_map = {
         "contacts": ("orq_ai_sdk.contacts", "Contacts"),
         "feedback": ("orq_ai_sdk.feedback", "Feedback"),
-        "deployments": ("orq_ai_sdk.deployments_sdk", "DeploymentsSDK"),
+        "evals": ("orq_ai_sdk.evals", "Evals"),
+        "evaluators": ("orq_ai_sdk.evaluators", "Evaluators"),
+        "identities": ("orq_ai_sdk.identities", "Identities"),
+        "deployments": ("orq_ai_sdk.deployments", "Deployments"),
+        "agents": ("orq_ai_sdk.agents", "Agents"),
+        "conversations": ("orq_ai_sdk.conversations", "Conversations"),
+        "internal": ("orq_ai_sdk.internal", "Internal"),
         "files": ("orq_ai_sdk.files", "Files"),
         "prompts": ("orq_ai_sdk.prompts", "Prompts"),
         "remoteconfigs": ("orq_ai_sdk.remoteconfigs", "Remoteconfigs"),
         "models": ("orq_ai_sdk.models_", "Models"),
-        "datasets": ("orq_ai_sdk.datasets", "Datasets"),
+        "tools": ("orq_ai_sdk.tools", "Tools"),
         "knowledge": ("orq_ai_sdk.knowledge", "Knowledge"),
         "chunking": ("orq_ai_sdk.chunking", "Chunking"),
-        "evals": ("orq_ai_sdk.evals", "Evals"),
-        "budgets": ("orq_ai_sdk.budgets", "Budgets"),
+        "memory_stores": ("orq_ai_sdk.memorystores", "MemoryStores"),
+        "datasets": ("orq_ai_sdk.datasets", "Datasets"),
+        "router": ("orq_ai_sdk.router", "Router"),
     }
 
     def __init__(
@@ -91,7 +112,7 @@ class Orq(BaseSDK):
         """
         client_supplied = True
         if client is None:
-            client = httpx.Client()
+            client = httpx.Client(follow_redirects=True)
             client_supplied = False
 
         assert issubclass(
@@ -100,7 +121,7 @@ class Orq(BaseSDK):
 
         async_client_supplied = True
         if async_client is None:
-            async_client = httpx.AsyncClient()
+            async_client = httpx.AsyncClient(follow_redirects=True)
             async_client_supplied = False
 
         if debug_logger is None:

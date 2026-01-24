@@ -1,2 +1,0 @@
-cd ..
-poetry check

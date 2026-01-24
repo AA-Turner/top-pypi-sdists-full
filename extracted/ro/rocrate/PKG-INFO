@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: rocrate
-Version: 0.14.0
+Version: 0.14.2
 Summary: RO-Crate metadata generator/parser
 Home-page: https://github.com/ResearchObject/ro-crate-py/
-Download-URL: https://github.com/researchobject/ro-crate-py/archive/0.14.0.tar.gz
+Download-URL: https://github.com/researchobject/ro-crate-py/archive/0.14.2.tar.gz
 Author: Daniel Bauer, Eli Chadwick, Paul De Geest, Bert Droesbeke, Ignacio Eguinoa, Alban Gaignard, Matthias Hörtenhuber, Sebastiaan Huber, Bruno Kinoshita, Simone Leo, Luca Pireddu, Laura Rodríguez-Navas, Raül Sirvent, Stian Soiland-Reyes, Laurent Thomas
 Author-email: stain@apache.org
 License: Apache-2.0

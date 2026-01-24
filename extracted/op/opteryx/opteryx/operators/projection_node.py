@@ -23,6 +23,8 @@ from . import BasePlanNode
 
 
 class ProjectionNode(BasePlanNode):
+    is_stateless = True
+
     def __init__(self, properties: QueryProperties, **parameters):
         """
         Attribute Projection, remove unwanted columns and performs column renames.
@@ -52,6 +54,8 @@ class ProjectionNode(BasePlanNode):
         return "Projection"
 
     def execute(self, morsel: pyarrow.Table, **kwargs) -> pyarrow.Table:
+        morsel = self.ensure_arrow_table(morsel)
+
         if morsel == EOS:
             yield EOS
             return

@@ -1,35 +1,30 @@
 Metadata-Version: 2.4
 Name: RsInstrument
-Version: 1.102.0
+Version: 1.122.0
 Summary: VISA or Socket Communication Module for Rohde & Schwarz Instruments
-Home-page: https://github.com/Rohde-Schwarz/RsInstrument
 Author: Rohde & Schwarz GmbH & Co. KG
-License: MIT
+Maintainer: Rohde & Schwarz GmbH & Co. KG
+License-Expression: MIT
+Project-URL: Documentation, https://rsinstrument.readthedocs.io/
+Project-URL: Examples, https://github.com/Rohde-Schwarz/Examples/
+Project-URL: Repository, https://github.com/Rohde-Schwarz/RsInstrument
+Keywords: RsInstrument,VISA,RohdeSchwarz
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Operating System :: Microsoft :: Windows
-Classifier: Operating System :: POSIX :: Linux
-Classifier: Operating System :: MacOS :: MacOS X
-Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Topic :: Scientific/Engineering :: Instrument Drivers
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: PyVisa>=1.13.0
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: pyvisa>=1.13.0
+Requires-Dist: typing-extensions>=4.0.0
+Provides-Extra: mcp
+Requires-Dist: mcp; extra == "mcp"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 =============
  RsInstrument
@@ -67,7 +62,7 @@ Check out the full documentation on `ReadTheDocs <https://rsinstrument.readthedo
 Our public `Rohde&Schwarz Github repository <https://github.com/Rohde-Schwarz/Examples/tree/main/Misc/Python/RsInstrument>`_ hosts many examples using this library.
 If you're looking for examples with specific instruments, check out the ones for
 `Oscilloscopes <https://github.com/Rohde-Schwarz/Examples/tree/main/Oscilloscopes/Python/RsInstrument>`_,
-`Powersensors <http     s://github.com/Rohde-Schwarz/Examples/tree/main/Powersensors/Python/RsInstrument>`_,
+`Powersensors <https://github.com/Rohde-Schwarz/Examples/tree/main/Powersensors/Python/RsInstrument>`_,
 `Powersupplies <https://github.com/Rohde-Schwarz/Examples/tree/main/Powersupplies/Python/RsInstrument>`_,
 `Spectrum Analyzers <https://github.com/Rohde-Schwarz/Examples/tree/main/SpectrumAnalyzers/Python/RsInstrument>`_,
 `Vector Network Analyzers <https://github.com/Rohde-Schwarz/Examples/tree/main/VectorNetworkAnalyzers/Python/RsInstrument>`_.
@@ -75,6 +70,33 @@ If you're looking for examples with specific instruments, check out the ones for
 
 Version history:
 ----------------
+
+    Version 1.122.0.120 (08.12.2025)
+        - Added __all__ variable to the package's __init__ file.
+        - Added package trove classifier "Topic :: Scientific/Engineering :: Instrument Drivers".
+
+    Version 1.121.0.119 (14.11.2025)
+        - Changed typing hints alternatives.Example 'int or bool' -> 'int | bool'.
+        - Corrected help texts.
+
+    Version 1.120.1.118 (27.10.2025)
+        - Fixed py.typed file name
+
+    Version 1.120.0.117 (20.10.2025)
+        - Added MCP server support.
+        - Removed support for Python 3.8 and 3.9
+
+    Version 1.110.0.116 (15.10.2025)
+        - Added py.typed file to the top package.
+        - Added optional parameter mixed_mode to the method go_to_local().
+        - Improved help for is_connection_active() method.
+        - Core 1.106.0.
+        - New package build process with pyproject.toml.
+
+    Version 1.102.1.113 (16.07.2025)
+        - Fixed VisaSession's clear_before_read().
+        - Core 1.105.1
+
 
     Version 1.102.0.112 (02.06.2025)
         - Corrected duplicate time-statistics methods from logger.
@@ -225,7 +247,7 @@ Version history:
     Version 1.21.0.78 (15.03.2022)
         - Added logging to UDP port (49200) to integrate with new R&S Instrument Control plugin for Pycharm.
         - Improved documentation for logging and Simulation mode sessions.
-    
+
     Version 1.20.0.76 (19.11.2021)
         - Fixed logging strings when device name was a substring of the resource name.
 
@@ -294,7 +316,7 @@ Version history:
         - Fixed Python 3.8.5+ warnings.
         - Extended documentation, added offline installer.
         - Filled package's __init__ file with the exposed API. This simplifies the import statement.
-	
+
     Version 1.7.0.37 (01.10.2020)
         - Replaced 'import visa' with 'import pyvisa' to remove Python 3.8 pyvisa warnings.
         - Added option to set the termination characters for reading and writing. Until now, it was fixed to '\\n' (Linefeed). Set it in the constructor 'options' string: DriverSetup=(TerminationCharacter = '\\r'). Default value is still '\\n'.

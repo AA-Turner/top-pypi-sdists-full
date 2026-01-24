@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import inspect
 import itertools
-import json
 import os
 import platform
 import sys
@@ -15,16 +14,15 @@ import warnings
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from copy import copy
 from functools import cache
+from importlib import import_module
 from importlib.metadata import PackageNotFoundError, version
 from json import JSONDecodeError
 from math import ceil
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, ForwardRef, Optional, get_args
 from urllib.parse import quote, urljoin
 
 import requests
-from bson import json_util
 from emmet.core.utils import jsanitize
-from monty.json import MontyDecoder
 from pydantic import BaseModel, create_model
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
@@ -33,7 +31,7 @@ from tqdm.auto import tqdm
 from urllib3.util.retry import Retry
 
 from mp_api.client.core.settings import MAPIClientSettings
-from mp_api.client.core.utils import api_sanitize, validate_ids
+from mp_api.client.core.utils import load_json, validate_ids
 
 try:
     import boto3
@@ -50,6 +48,8 @@ except ImportError:
 if TYPE_CHECKING:
     from typing import Any, Callable
 
+    from pydantic.fields import FieldInfo
+
 try:
     __version__ = version("mp_api")
 except PackageNotFoundError:  # pragma: no cover
@@ -58,14 +58,29 @@ except PackageNotFoundError:  # pragma: no cover
 
 SETTINGS = MAPIClientSettings()  # type: ignore
 
-T = TypeVar("T")
+
+class _DictLikeAccess(BaseModel):
+    """Define a pydantic mix-in which permits dict-like access to model fields."""
+
+    def __getitem__(self, item: str) -> Any:
+        """Return `item` if a valid model field, otherwise raise an exception."""
+        if item in self.__class__.model_fields:
+            return getattr(self, item)
+        raise AttributeError(f"{self.__class__.__name__} has no model field `{item}`.")
+
+    def get(self, item: str, default: Any = None) -> Any:
+        """Return a model field `item`, or `default` if it doesn't exist."""
+        try:
+            return self.__getitem__(item)
+        except AttributeError:
+            return default
 
 
-class BaseRester(Generic[T]):
+class BaseRester:
     """Base client class with core stubs."""
 
     suffix: str = ""
-    document_model: BaseModel = None  # type: ignore
+    document_model: type[BaseModel] | None = None
     supports_versions: bool = False
     primary_key: str = "material_id"
 
@@ -133,21 +148,8 @@ class BaseRester(Generic[T]):
         if not self.endpoint.endswith("/"):
             self.endpoint += "/"
 
-        if session:
-            self._session = session
-        else:
-            self._session = None  # type: ignore
-
-        if s3_client:
-            self._s3_client = s3_client
-        else:
-            self._s3_client = None
-
-        self.document_model = (
-            api_sanitize(self.document_model)  # type: ignore
-            if self.document_model is not None
-            else None  # type: ignore
-        )
+        self._session = session
+        self._s3_client = s3_client
 
     @property
     def session(self) -> requests.Session:
@@ -263,11 +265,7 @@ class BaseRester(Generic[T]):
             response = self.session.post(url, json=payload, verify=True, params=params)
 
             if response.status_code == 200:
-                if self.monty_decode:
-                    data = json.loads(response.text, cls=MontyDecoder)
-                else:
-                    data = json.loads(response.text)
-
+                data = load_json(response.text, deser=self.monty_decode)
                 if self.document_model and use_document_model:
                     if isinstance(data["data"], dict):
                         data["data"] = self.document_model.model_validate(data["data"])  # type: ignore
@@ -280,7 +278,7 @@ class BaseRester(Generic[T]):
 
             else:
                 try:
-                    data = json.loads(response.text)["detail"]
+                    data = load_json(response.text)["detail"]
                 except (JSONDecodeError, KeyError):
                     data = f"Response {response.text}"
                 if isinstance(data, str):
@@ -335,11 +333,7 @@ class BaseRester(Generic[T]):
             response = self.session.patch(url, json=payload, verify=True, params=params)
 
             if response.status_code == 200:
-                if self.monty_decode:
-                    data = json.loads(response.text, cls=MontyDecoder)
-                else:
-                    data = json.loads(response.text)
-
+                data = load_json(response.text, deser=self.monty_decode)
                 if self.document_model and use_document_model:
                     if isinstance(data["data"], dict):
                         data["data"] = self.document_model.model_validate(data["data"])  # type: ignore
@@ -352,7 +346,7 @@ class BaseRester(Generic[T]):
 
             else:
                 try:
-                    data = json.loads(response.text)["detail"]
+                    data = load_json(response.text)["detail"]
                 except (JSONDecodeError, KeyError):
                     data = f"Response {response.text}"
                 if isinstance(data, str):
@@ -377,18 +371,24 @@ class BaseRester(Generic[T]):
         self,
         bucket: str,
         key: str,
-        decoder: Callable,
+        decoder: Callable | None = None,
     ) -> tuple[list[dict] | list[bytes], int]:
         """Query and deserialize Materials Project AWS open data s3 buckets.
 
         Args:
             bucket (str): Materials project bucket name
             key (str): Key for file including all prefixes
-            decoder(Callable): Callable used to deserialize data
+            decoder(Callable or None): Callable used to deserialize data.
+                Defaults to mp_api.core.utils.load_json
 
         Returns:
             dict: MontyDecoded data
         """
+        if not decoder:
+
+            def decoder(x):
+                return load_json(x, deser=self.monty_decode)
+
         file = open(
             f"s3://{bucket}/{key}",
             encoding="utf-8",
@@ -439,13 +439,9 @@ class BaseRester(Generic[T]):
         if use_document_model is None:
             use_document_model = self.use_document_model
 
-        if timeout is None:
-            timeout = self.timeout
+        timeout = self.timeout if timeout is None else timeout
 
-        if criteria:
-            criteria = {k: v for k, v in criteria.items() if v is not None}
-        else:
-            criteria = {}
+        criteria = {k: v for k, v in (criteria or {}).items() if v is not None}
 
         # Query s3 if no query is passed and all documents are asked for
         # TODO also skip fields set to same as their default
@@ -520,16 +516,11 @@ class BaseRester(Generic[T]):
                         "Ignoring `fields` argument: All fields are always included when no query is provided."
                     )
 
-                decoder = (
-                    MontyDecoder().decode if self.monty_decode else json_util.loads
-                )
-
                 # Multithreaded function inputs
                 s3_params_list = {
                     key: {
                         "bucket": bucket,
                         "key": key,
-                        "decoder": decoder,
                     }
                     for key in keys
                 }
@@ -602,7 +593,7 @@ class BaseRester(Generic[T]):
             url: url used to make request
             use_document_model: if None, will defer to the self.use_document_model attribute
             parallel_param: parameter to parallelize requests with
-            num_chu: fieldsnky: Maximum number of chunks of data to yield. None will yield all possible.
+            num_chunks: Maximum number of chunks of data to yield. None will yield all possible.
             chunk_size: Number of data entries per chunk.
             timeout: Time in seconds to wait until a request timeout error is thrown
 
@@ -1006,11 +997,7 @@ class BaseRester(Generic[T]):
             )
 
         if response.status_code == 200:
-            if self.monty_decode:
-                data = json.loads(response.text, cls=MontyDecoder)
-            else:
-                data = json.loads(response.text)
-
+            data = load_json(response.text, deser=self.monty_decode)
             # other sub-urls may use different document models
             # the client does not handle this in a particularly smart way currently
             if self.document_model and use_document_model:
@@ -1022,7 +1009,7 @@ class BaseRester(Generic[T]):
 
         else:
             try:
-                data = json.loads(response.text)["detail"]
+                data = load_json(response.text)["detail"]
             except (JSONDecodeError, KeyError):
                 data = f"Response {response.text}"
             if isinstance(data, str):
@@ -1050,10 +1037,8 @@ class BaseRester(Generic[T]):
             (list[MPDataDoc]): List of MPDataDoc objects
 
         """
-        raw_doc_list = [self.document_model.model_validate(d) for d in data]  # type: ignore
-
-        if len(raw_doc_list) > 0:
-            data_model, set_fields, _ = self._generate_returned_model(raw_doc_list[0])
+        if len(data) > 0:
+            data_model, set_fields, _ = self._generate_returned_model(data[0])
 
             data = [
                 data_model(
@@ -1063,19 +1048,39 @@ class BaseRester(Generic[T]):
                         if field in set_fields
                     }
                 )
-                for raw_doc in raw_doc_list
+                for raw_doc in data
             ]
 
         return data
 
-    def _generate_returned_model(self, doc):
+    def _generate_returned_model(
+        self, doc: dict[str, Any]
+    ) -> tuple[BaseModel, list[str], list[str]]:
         model_fields = self.document_model.model_fields
-        set_fields = doc.model_fields_set
+        set_fields = [k for k in doc if k in model_fields]
         unset_fields = [field for field in model_fields if field not in set_fields]
-        include_fields = {
-            name: (model_fields[name].annotation, model_fields[name])
-            for name in set_fields
-        }
+
+        # Update with locals() from external module if needed
+        if any(
+            isinstance(field_meta.annotation, ForwardRef)
+            for field_meta in model_fields.values()
+        ) or any(
+            isinstance(typ, ForwardRef)
+            for field_meta in model_fields.values()
+            for typ in get_args(field_meta.annotation)
+        ):
+            vars(import_module(self.document_model.__module__))
+
+        include_fields: dict[str, tuple[type, FieldInfo]] = {}
+        for name in set_fields:
+            field_copy = model_fields[name]._copy()
+            if not field_copy.default_factory:
+                # Fields with a default_factory cannot also have a default in pydantic>=2.12.3
+                field_copy.default = None
+            include_fields[name] = (
+                Optional[model_fields[name].annotation],
+                field_copy,
+            )
 
         data_model = create_model(  # type: ignore
             "MPDataDoc",
@@ -1083,8 +1088,17 @@ class BaseRester(Generic[T]):
             # TODO fields_not_requested is not the same as unset_fields
             # i.e. field could be requested but not available in the raw doc
             fields_not_requested=(list[str], unset_fields),
-            __base__=self.document_model,
+            __base__=_DictLikeAccess,
+            __doc__=".".join(
+                [
+                    getattr(self.document_model, k, "")
+                    for k in ("__module__", "__name__")
+                ]
+            ),
+            __module__=self.document_model.__module__,
         )
+
+        orig_rester_name = self.document_model.__name__
 
         def new_repr(self) -> str:
             extra = ",\n".join(
@@ -1093,7 +1107,7 @@ class BaseRester(Generic[T]):
                 if n == "fields_not_requested" or n in set_fields
             )
 
-            s = f"\033[4m\033[1m{self.__class__.__name__}<{self.__class__.__base__.__name__}>\033[0;0m\033[0;0m(\n{extra}\n)"  # noqa: E501
+            s = f"\033[4m\033[1m{self.__class__.__name__}<{orig_rester_name}>\033[0;0m\033[0;0m(\n{extra}\n)"  # noqa: E501
             return s
 
         def new_str(self) -> str:
@@ -1135,7 +1149,7 @@ class BaseRester(Generic[T]):
         suburl: str | None = None,
         use_document_model: bool | None = None,
         timeout: int | None = None,
-    ) -> list[T] | list[dict]:
+    ) -> list[BaseModel] | list[dict]:
         """Query the endpoint for a list of documents without associated meta information. Only
         returns a single page of results.
 
@@ -1165,7 +1179,7 @@ class BaseRester(Generic[T]):
         all_fields: bool = True,
         fields: list[str] | None = None,
         **kwargs,
-    ) -> list[T] | list[dict]:
+    ) -> list[BaseModel] | list[dict]:
         """A generic search method to retrieve documents matching specific parameters.
 
         Arguments:
@@ -1200,15 +1214,21 @@ class BaseRester(Generic[T]):
         self,
         document_id: str,
         fields: list[str] | None = None,
-    ) -> T | dict:
+    ) -> BaseModel | dict:
         warnings.warn(
             "get_data_by_id is deprecated and will be removed soon. Please use the search method instead.",
             DeprecationWarning,
             stacklevel=2,
         )
 
-        if self.primary_key in ["material_id", "task_id"]:
-            validate_ids([document_id])
+        if self.primary_key in [
+            "material_id",
+            "task_id",
+            "battery_id",
+            "spectrum_id",
+            "thermo_id",
+        ]:
+            document_id = validate_ids([document_id])[0]
 
         if isinstance(fields, str):  # pragma: no cover
             fields = (fields,)  # type: ignore
@@ -1229,7 +1249,7 @@ class BaseRester(Generic[T]):
         fields=None,
         chunk_size=1000,
         num_chunks=None,
-    ) -> list[T] | list[dict]:
+    ) -> list[BaseModel] | list[dict]:
         """Iterates over pages until all documents are retrieved. Displays
         progress using tqdm. This method is designed to give a common
         implementation for the search_* methods on various endpoints. See

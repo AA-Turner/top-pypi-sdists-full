@@ -1,6 +1,6 @@
 from contextlib import suppress
 from logging import DEBUG, getLogger
-from typing import Any, Optional, Tuple
+from typing import Any
 
 import a_sync
 from a_sync import cgather
@@ -13,11 +13,7 @@ from y.classes.common import ERC20
 from y.constants import usdc
 from y.contracts import Contract, contract_creation_block_async
 from y.datatypes import Address, Block, Pool, UsdPrice
-from y.exceptions import (
-    ContractNotVerified,
-    UnsupportedNetwork,
-    continue_if_call_reverted,
-)
+from y.exceptions import ContractNotVerified, UnsupportedNetwork, continue_if_call_reverted
 from y.networks import Network
 from y.utils.raw_calls import _decimals
 
@@ -49,7 +45,7 @@ class UniswapV1(a_sync.ASyncGenericBase):
 
     @stuck_coro_debugger
     @a_sync.a_sync(ram_cache_maxsize=None)
-    async def get_exchange(self, token_address: Address) -> Optional[Contract]:
+    async def get_exchange(self, token_address: Address) -> Contract | None:
         """
         Get the exchange contract for a given token address.
 
@@ -82,10 +78,10 @@ class UniswapV1(a_sync.ASyncGenericBase):
     async def get_price(
         self,
         token_address: Address,
-        block: Optional[Block],
-        ignore_pools: Tuple[Pool, ...] = (),  # unused
+        block: Block | None,
+        ignore_pools: tuple[Pool, ...] = (),  # unused
         skip_cache: bool = ENVS.SKIP_CACHE,  # unused
-    ) -> Optional[UsdPrice]:
+    ) -> UsdPrice | None:
         """
         Get the price of a token in USD.
 
@@ -135,7 +131,7 @@ class UniswapV1(a_sync.ASyncGenericBase):
     @stuck_coro_debugger
     @a_sync.a_sync(ram_cache_maxsize=100_000, ram_cache_ttl=60 * 60)
     async def check_liquidity(
-        self, token_address: Address, block: Block, ignore_pools: Tuple[Pool, ...] = ()
+        self, token_address: Address, block: Block, ignore_pools: tuple[Pool, ...] = ()
     ) -> int:
         """
         Check the liquidity of a token in its exchange.

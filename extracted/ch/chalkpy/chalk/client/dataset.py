@@ -48,6 +48,7 @@ from chalk.integrations.catalogs.base_catalog import BaseCatalog
 from chalk.utils.df_utils import read_parquet
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pl_helpers import apply_compat, polars_group_by_instead_of_groupby
 from chalk.utils.threading import DEFAULT_IO_EXECUTOR
 
 if TYPE_CHECKING:
@@ -541,14 +542,19 @@ def _extract_df_columns(
             for fqn in unique_features
         ]
 
-        df = df.groupby("pkey").agg(cols)
+        if polars_group_by_instead_of_groupby:
+            df = df.group_by("pkey").agg(cols)
+        else:
+            df = df.groupby("pkey").agg(cols)  # pyright: ignore
         decoded_stmts: List[pl.Expr] = []
         for col in df.columns:
             if col == "pkey":
                 continue
             else:
                 decoded_stmts.append(
-                    pl.col(col).apply(_json_decode, return_dtype=Feature.from_root_fqn(col).converter.polars_dtype)
+                    apply_compat(
+                        pl.col(col), _json_decode, return_dtype=Feature.from_root_fqn(col).converter.polars_dtype
+                    )
                 )
         df = df.select(decoded_stmts)
         # it might be a good idea to remember that we used to rename this __id__ column to the primary key
@@ -560,7 +566,13 @@ def _extract_df_columns(
 
     decoded_stmts: List[pl.Expr] = []
     feature_name_to_metadata = None if column_metadata is None else {x.feature_fqn: x for x in column_metadata}
-    for col, dtype in zip(df.columns, df.dtypes):
+    # Use collect_schema().dtypes() for newer Polars versions to avoid performance warning
+    # Fall back to df.dtypes for older versions
+    try:
+        dtypes = df.collect_schema().dtypes()
+    except AttributeError:
+        dtypes = df.dtypes
+    for col, dtype in zip(df.columns, dtypes):
         if version in (
             DatasetVersion.BIGQUERY_JOB_WITH_B32_ENCODED_COLNAMES,
             DatasetVersion.BIGQUERY_JOB_WITH_B32_ENCODED_COLNAMES_V2,
@@ -571,7 +583,7 @@ def _extract_df_columns(
                 # Assuming that the only datetime column is for timestamps
                 decoded_stmts.append(to_utc(df, col, pl.col(col)))
             else:
-                decoded_stmts.append(pl.col(col).apply(_json_decode, return_dtype=dtype))
+                decoded_stmts.append(apply_compat(pl.col(col), _json_decode, return_dtype=dtype))
         elif version in (DatasetVersion.NATIVE_DTYPES, DatasetVersion.NATIVE_COLUMN_NAMES):
             # We already decoded the column names so matching against the fqn
             if col == CHALK_TS_FEATURE or col == OBSERVED_AT_FEATURE:
@@ -1325,7 +1337,7 @@ class DatasetRevisionImpl(DatasetRevision):
             actual_args: List[Any] = []
             for i, input in enumerate(resolver.inputs):
                 contains_packed_df_name = f"{i}_packed_df" in no_ts_input_df.columns
-                if unwrap_feature(input).is_has_many or contains_packed_df_name:
+                if contains_packed_df_name or unwrap_feature(input).is_has_many:
                     # bogus indexing scheme
                     col_name = (
                         f"{i}_packed_df" if contains_packed_df_name else f"{i}"
@@ -1338,12 +1350,14 @@ class DatasetRevisionImpl(DatasetRevision):
                         actual_args.append(
                             DataFrame(
                                 pl.DataFrame([pl.Series(col_name, [], dtype=raw_input_df.schema[col_name])])
-                                .explode(pl.all())
+                                .explode(col_name)
                                 .unnest(col_name)
                             )
                         )
                     else:
-                        actual_args.append(DataFrame(has_many_input_df.explode(pl.all()).unnest(col_name)))
+                        actual_args.append(
+                            DataFrame(has_many_input_df.explode(has_many_input_df.columns).unnest(col_name))
+                        )
                 else:
                     value = args[i]
                     if isinstance(input, Feature):
@@ -1363,6 +1377,13 @@ This occurred during the actual execution of resolver {resolver.fqn}.
                     )
                     raise e
             print(f"resolver_replay: {resolver.fqn} returned {output}")
+            if isinstance(output, DataFrame):
+                try:
+                    output = output.to_polars().collect().rows(named=True)
+                except Exception as e:
+                    raise RuntimeError(
+                        f'Failed to convert DataFrame output from resolver "{resolver.fqn}" during resolver replay'
+                    ) from e
             output_col.append(output)
         return raw_input_df.with_columns(pl.Series(name="__resolver_replay_output__", values=output_col))
 

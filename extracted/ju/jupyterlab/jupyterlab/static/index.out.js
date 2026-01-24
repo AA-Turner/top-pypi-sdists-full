@@ -4,8 +4,7 @@
  * Distributed under the terms of the Modified BSD License.
  */
 
-import { PageConfig } from '@jupyterlab/coreutils';
-import { PluginRegistry } from '@lumino/coreutils';
+import { PageConfig, JupyterPluginRegistry} from '@jupyterlab/coreutils';
 
 import './style.js';
 
@@ -57,7 +56,7 @@ export async function main() {
      };
   }
 
-  var pluginRegistry = new PluginRegistry();
+  var pluginRegistry = new JupyterPluginRegistry();
   var JupyterLab = require('@jupyterlab/application').JupyterLab;
   var disabled = [];
   var deferred = [];
@@ -279,6 +278,17 @@ export async function main() {
     try {
       let ext = require('@jupyterlab/apputils-extension');
       ext.__scope__ = '@jupyterlab/apputils-extension';
+      for (let plugin of activePlugins(ext)) {
+        register.push(plugin);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  if (!queuedFederated.includes('@jupyterlab/audio-extension')) {
+    try {
+      let ext = require('@jupyterlab/audio-extension');
+      ext.__scope__ = '@jupyterlab/audio-extension';
       for (let plugin of activePlugins(ext)) {
         register.push(plugin);
       }
@@ -741,6 +751,17 @@ export async function main() {
     try {
       let ext = require('@jupyterlab/ui-components-extension');
       ext.__scope__ = '@jupyterlab/ui-components-extension';
+      for (let plugin of activePlugins(ext)) {
+        register.push(plugin);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  if (!queuedFederated.includes('@jupyterlab/video-extension')) {
+    try {
+      let ext = require('@jupyterlab/video-extension');
+      ext.__scope__ = '@jupyterlab/video-extension';
       for (let plugin of activePlugins(ext)) {
         register.push(plugin);
       }

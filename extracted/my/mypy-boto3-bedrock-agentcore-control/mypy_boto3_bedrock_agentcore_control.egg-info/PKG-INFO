@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-bedrock-agentcore-control
-Version: 1.40.35
-Summary: Type annotations for boto3 BedrockAgentCoreControlPlaneFrontingLayer 1.40.35 service generated with mypy-boto3-builder 8.11.0
-Home-page: https://github.com/youtype/mypy_boto3_builder
-Author: Vlad Emelianov
-Author-email: vlad.emelianov.nz@gmail.com
-License: MIT License
+Version: 1.42.25
+Summary: Type annotations for boto3 BedrockAgentCoreControl 1.42.25 service generated with mypy-boto3-builder 8.12.0
+Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Documentation, https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/
 Project-URL: Source, https://github.com/youtype/mypy_boto3_builder
 Project-URL: Tracker, https://github.com/youtype/mypy_boto3_builder/issues
-Keywords: boto3 bedrock-agentcore-control boto3-stubs type-annotations mypy typeshed autocomplete
+Keywords: boto3,bedrock-agentcore-control,boto3-stubs,type-annotations,mypy,typeshed,autocomplete
+Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,23 +25,11 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing-extensions; python_version < "3.12"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <a id="mypy-boto3-bedrock-agentcore-control"></a>
 
@@ -57,7 +43,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 BedrockAgentCoreControlPlaneFrontingLayer 1.40.35](https://pypi.org/project/boto3/)
+[boto3 BedrockAgentCoreControl 1.42.25](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -66,7 +52,7 @@ compatible with [VSCode](https://code.visualstudio.com/),
 [pyright](https://github.com/microsoft/pyright) and other tools.
 
 Generated with
-[mypy-boto3-builder 8.11.0](https://github.com/youtype/mypy_boto3_builder).
+[mypy-boto3-builder 8.12.0](https://github.com/youtype/mypy_boto3_builder).
 
 More information can be found on
 [boto3-stubs](https://pypi.org/project/boto3-stubs/) page and in
@@ -120,9 +106,9 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.40.35' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.25' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
-3. Add `BedrockAgentCoreControlPlaneFrontingLayer` service.
+3. Add `BedrockAgentCoreControl` service.
 4. Use provided commands to install generated packages.
 
 <a id="vscode-extension"></a>
@@ -133,14 +119,13 @@ Add
 [AWS Boto3](https://marketplace.visualstudio.com/items?itemName=Boto3typed.boto3-ide)
 extension to your VSCode and run `AWS boto3: Quick Start` command.
 
-Click `Modify` and select `boto3 common` and
-`BedrockAgentCoreControlPlaneFrontingLayer`.
+Click `Modify` and select `boto3 common` and `BedrockAgentCoreControl`.
 
 <a id="from-pypi-with-pip"></a>
 
 ### From PyPI with pip
 
-Install `boto3-stubs` for `BedrockAgentCoreControlPlaneFrontingLayer` service.
+Install `boto3-stubs` for `BedrockAgentCoreControl` service.
 
 ```bash
 # install with boto3 type annotations
@@ -332,17 +317,15 @@ else:
 
 ### Client annotations
 
-`BedrockAgentCoreControlPlaneFrontingLayerClient` provides annotations for
+`BedrockAgentCoreControlClient` provides annotations for
 `boto3.client("bedrock-agentcore-control")`.
 
 ```python
 from boto3.session import Session
 
-from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlPlaneFrontingLayerClient
+from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlClient
 
-client: BedrockAgentCoreControlPlaneFrontingLayerClient = Session().client(
-    "bedrock-agentcore-control"
-)
+client: BedrockAgentCoreControlClient = Session().client("bedrock-agentcore-control")
 
 # now client usage is checked by mypy and IDE should provide code completion
 ```
@@ -357,7 +340,7 @@ annotations for all paginators.
 ```python
 from boto3.session import Session
 
-from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlPlaneFrontingLayerClient
+from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlClient
 from mypy_boto3_bedrock_agentcore_control.paginator import (
     ListAgentRuntimeEndpointsPaginator,
     ListAgentRuntimeVersionsPaginator,
@@ -365,16 +348,20 @@ from mypy_boto3_bedrock_agentcore_control.paginator import (
     ListApiKeyCredentialProvidersPaginator,
     ListBrowsersPaginator,
     ListCodeInterpretersPaginator,
+    ListEvaluatorsPaginator,
     ListGatewayTargetsPaginator,
     ListGatewaysPaginator,
     ListMemoriesPaginator,
     ListOauth2CredentialProvidersPaginator,
+    ListOnlineEvaluationConfigsPaginator,
+    ListPoliciesPaginator,
+    ListPolicyEnginesPaginator,
+    ListPolicyGenerationAssetsPaginator,
+    ListPolicyGenerationsPaginator,
     ListWorkloadIdentitiesPaginator,
 )
 
-client: BedrockAgentCoreControlPlaneFrontingLayerClient = Session().client(
-    "bedrock-agentcore-control"
-)
+client: BedrockAgentCoreControlClient = Session().client("bedrock-agentcore-control")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
@@ -394,6 +381,7 @@ list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_brow
 list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator(
     "list_code_interpreters"
 )
+list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
 list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator(
     "list_gateway_targets"
 )
@@ -401,6 +389,19 @@ list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gate
 list_memories_paginator: ListMemoriesPaginator = client.get_paginator("list_memories")
 list_oauth2_credential_providers_paginator: ListOauth2CredentialProvidersPaginator = (
     client.get_paginator("list_oauth2_credential_providers")
+)
+list_online_evaluation_configs_paginator: ListOnlineEvaluationConfigsPaginator = (
+    client.get_paginator("list_online_evaluation_configs")
+)
+list_policies_paginator: ListPoliciesPaginator = client.get_paginator("list_policies")
+list_policy_engines_paginator: ListPolicyEnginesPaginator = client.get_paginator(
+    "list_policy_engines"
+)
+list_policy_generation_assets_paginator: ListPolicyGenerationAssetsPaginator = client.get_paginator(
+    "list_policy_generation_assets"
+)
+list_policy_generations_paginator: ListPolicyGenerationsPaginator = client.get_paginator(
+    "list_policy_generations"
 )
 list_workload_identities_paginator: ListWorkloadIdentitiesPaginator = client.get_paginator(
     "list_workload_identities"
@@ -417,16 +418,28 @@ for all waiters.
 ```python
 from boto3.session import Session
 
-from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlPlaneFrontingLayerClient
-from mypy_boto3_bedrock_agentcore_control.waiter import MemoryCreatedWaiter
-
-client: BedrockAgentCoreControlPlaneFrontingLayerClient = Session().client(
-    "bedrock-agentcore-control"
+from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlClient
+from mypy_boto3_bedrock_agentcore_control.waiter import (
+    MemoryCreatedWaiter,
+    PolicyActiveWaiter,
+    PolicyDeletedWaiter,
+    PolicyEngineActiveWaiter,
+    PolicyEngineDeletedWaiter,
+    PolicyGenerationCompletedWaiter,
 )
+
+client: BedrockAgentCoreControlClient = Session().client("bedrock-agentcore-control")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
 memory_created_waiter: MemoryCreatedWaiter = client.get_waiter("memory_created")
+policy_active_waiter: PolicyActiveWaiter = client.get_waiter("policy_active")
+policy_deleted_waiter: PolicyDeletedWaiter = client.get_waiter("policy_deleted")
+policy_engine_active_waiter: PolicyEngineActiveWaiter = client.get_waiter("policy_engine_active")
+policy_engine_deleted_waiter: PolicyEngineDeletedWaiter = client.get_waiter("policy_engine_deleted")
+policy_generation_completed_waiter: PolicyGenerationCompletedWaiter = client.get_waiter(
+    "policy_generation_completed"
+)
 ```
 
 <a id="literals"></a>
@@ -436,15 +449,14 @@ memory_created_waiter: MemoryCreatedWaiter = client.get_waiter("memory_created")
 `mypy_boto3_bedrock_agentcore_control.literals` module contains literals
 extracted from shapes that can be used in user code for type checking.
 
-Full list of `BedrockAgentCoreControlPlaneFrontingLayer` Literals can be found
-in
+Full list of `BedrockAgentCoreControl` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/literals/).
 
 ```python
-from mypy_boto3_bedrock_agentcore_control.literals import AgentRuntimeEndpointStatusType
+from mypy_boto3_bedrock_agentcore_control.literals import AgentManagedRuntimeTypeType
 
 
-def check_value(value: AgentRuntimeEndpointStatusType) -> bool: ...
+def check_value(value: AgentManagedRuntimeTypeType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>
@@ -454,8 +466,7 @@ def check_value(value: AgentRuntimeEndpointStatusType) -> bool: ...
 `mypy_boto3_bedrock_agentcore_control.type_defs` module contains structures and
 shapes assembled to typed dictionaries and unions for additional type checking.
 
-Full list of `BedrockAgentCoreControlPlaneFrontingLayer` TypeDefs can be found
-in
+Full list of `BedrockAgentCoreControl` TypeDefs can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/type_defs/).
 
 ```python

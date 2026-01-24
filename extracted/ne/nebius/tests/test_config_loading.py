@@ -2,6 +2,10 @@
 
 import pytest
 
+from nebius.aio import request
+
+request.DEFAULT_AUTH_TIMEOUT = 5.0
+
 
 def test_load_config_from_home(tmp_path, monkeypatch) -> None:
     from nebius.aio.cli_config import Config
@@ -12,15 +16,13 @@ def test_load_config_from_home(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
         endpoint: my-endpoint.net
         parent-id: project-e00some-id
-"""
-        )
+""")
     # Load the configuration
     config = Config("foo")
     assert config.parent_id == "project-e00some-id"
@@ -30,7 +32,7 @@ profiles:
 async def test_load_config_env_token(tmp_path, monkeypatch) -> None:
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
     from nebius.aio.cli_config import Config
     from nebius.aio.token.static import EnvBearer
 
@@ -41,18 +43,16 @@ async def test_load_config_env_token(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("NEBIUS_IAM_TOKEN", "my-token")
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
         endpoint: my-endpoint.net
         parent-id: project-e00some-id
-"""
-        )
+""")
     # Load the configuration
     config = Config("foo")
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     tok = config.get_credentials(fut)
     assert isinstance(tok, EnvBearer)
     receiver = tok.receiver()
@@ -64,7 +64,7 @@ profiles:
 async def test_load_config_token_file(tmp_path, monkeypatch) -> None:
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
     from nebius.aio.cli_config import Config
     from nebius.aio.token.file import Bearer as FileBearer
 
@@ -75,21 +75,19 @@ async def test_load_config_token_file(tmp_path, monkeypatch) -> None:
     monkeypatch.delenv("NEBIUS_IAM_TOKEN", raising=False)
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
         endpoint: my-endpoint.net
         parent-id: project-e00some-id
         token-file: ~/token.txt
-"""
-        )
+""")
     with open(tmp_path / "token.txt", "w+") as f:
         f.write("my-token")
     # Load the configuration
     config = Config("foo")
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     tok = config.get_credentials(fut)
     assert isinstance(tok, FileBearer)
     receiver = tok.receiver()
@@ -101,7 +99,7 @@ profiles:
 async def test_load_config_no_env(tmp_path, monkeypatch) -> None:
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
     from nebius.aio.cli_config import Config
     from nebius.aio.token.file import Bearer as FileBearer
 
@@ -112,21 +110,19 @@ async def test_load_config_no_env(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("NEBIUS_IAM_TOKEN", "wrong-token")
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
         endpoint: my-endpoint.net
         parent-id: project-e00some-id
         token-file: ~/token.txt
-"""
-        )
+""")
     with open(tmp_path / "token.txt", "w+") as f:
         f.write("my-token")
     # Load the configuration
     config = Config("foo", no_env=True)
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     tok = config.get_credentials(fut)
     assert isinstance(tok, FileBearer)
     receiver = tok.receiver()
@@ -143,8 +139,7 @@ def test_load_config_other_profile(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
@@ -153,8 +148,7 @@ profiles:
     test:
         endpoint: test-endpoint.net
         parent-id: project-e00test-id
-"""
-        )
+""")
     # Load the configuration
     config = Config("foo", profile="test")
     assert config.parent_id == "project-e00test-id"
@@ -169,14 +163,12 @@ def test_load_config_no_project(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
         endpoint: my-endpoint.net
-"""
-        )
+""")
     # Load the configuration
     config = Config("foo")
     try:
@@ -210,21 +202,20 @@ def test_load_config_from_other_place(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
 
     with open(tmp_file, "w+") as f:
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
         endpoint: my-endpoint.net
         parent-id: project-e00some-id
-"""
-        )
+""")
     # Load the configuration
     config = Config("foo", config_file=str(tmp_file))
     assert config.parent_id == "project-e00some-id"
 
 
-def test_load_config_federated_subject_file(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_load_config_federated_subject_file(tmp_path, monkeypatch) -> None:
     from nebius.aio.cli_config import Config
     from nebius.aio.token.federated_credentials import FederatedCredentialsBearer
 
@@ -237,8 +228,7 @@ def test_load_config_federated_subject_file(tmp_path, monkeypatch) -> None:
     actor_file.write_text("actor-token")
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            f"""
+        f.write(f"""
 default: prod
 profiles:
     prod:
@@ -247,20 +237,22 @@ profiles:
         auth-type: service account
         service-account-id: sa-actor
         federated-subject-credentials-file-path: {actor_file}
-"""
-        )
+""")
 
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
 
     config = Config("foo")
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     cred = config.get_credentials(fut)
     assert isinstance(cred, FederatedCredentialsBearer)
 
 
-def test_load_config_service_account_credentials_file(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_load_config_service_account_credentials_file(
+    tmp_path, monkeypatch
+) -> None:
     # create a service account credentials JSON with a PEM private key
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -300,8 +292,7 @@ def test_load_config_service_account_credentials_file(tmp_path, monkeypatch) -> 
     )
 
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            f"""
+        f.write(f"""
 default: prod
 profiles:
     prod:
@@ -309,20 +300,20 @@ profiles:
         parent-id: project-e00some-id
         auth-type: service account
         service-account-credentials-file-path: {cred_file}
-"""
-        )
+""")
 
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
 
     config = Config("foo")
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     cred = config.get_credentials(fut)
     assert isinstance(cred, ServiceAccountBearer)
 
 
-def test_load_config_private_key_file(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_load_config_private_key_file(tmp_path, monkeypatch) -> None:
     # Test private-key-file-path
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -348,8 +339,7 @@ def test_load_config_private_key_file(tmp_path, monkeypatch) -> None:
 
     # first test private-key-file-path
     with open(nebius_dir / "config.yaml", "w+") as f:
-        f.write(
-            f"""
+        f.write(f"""
 default: prod
 profiles:
     prod:
@@ -359,19 +349,19 @@ profiles:
         service-account-id: sa-file
         public-key-id: kid-file
         private-key-file-path: {pem_file}
-"""
-        )
+""")
     config = Config("foo")
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
 
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     cred = config.get_credentials(fut)
     assert isinstance(cred, ServiceAccountBearer)
 
 
-def test_load_config_private_key_inline(tmp_path, monkeypatch) -> None:
+@pytest.mark.asyncio
+async def test_load_config_private_key_inline(tmp_path, monkeypatch) -> None:
     # Test inline private-key branch
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
@@ -398,8 +388,7 @@ def test_load_config_private_key_inline(tmp_path, monkeypatch) -> None:
     with open(nebius_dir / "config.yaml", "w+") as f:
         # indent PEM as YAML literal
         pem_block = "\n".join(["            " + line for line in pem.splitlines()])
-        f.write(
-            """
+        f.write("""
 default: prod
 profiles:
     prod:
@@ -409,14 +398,12 @@ profiles:
         service-account-id: sa-inline
         public-key-id: kid-inline
         private-key: |
-"""
-            + pem_block
-        )
+""" + pem_block)
     config = Config("foo")
     from asyncio import Future
 
-    from nebius.aio.base import ChannelBase
+    from nebius.aio.abc import ClientChannelInterface
 
-    fut = Future[ChannelBase]()
+    fut = Future[ClientChannelInterface]()
     cred = config.get_credentials(fut)
     assert isinstance(cred, ServiceAccountBearer)

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Union, Iterable, Optional
+from typing import Dict, Union, Iterable, Optional
 from datetime import date, datetime
 from typing_extensions import Literal, Required, Annotated, TypedDict
 
@@ -11,7 +11,6 @@ from .._utils import PropertyInfo
 from .external_account_type import ExternalAccountType
 from .shared_params.address_request import AddressRequest
 from .contact_detail_create_request_param import ContactDetailCreateRequestParam
-from .shared_params.child_legal_entity_create import ChildLegalEntityCreate
 from .shared_params.identification_create_request import IdentificationCreateRequest
 from .shared_params.ledger_account_create_request import LedgerAccountCreateRequest
 from .shared_params.legal_entity_compliance_detail import LegalEntityComplianceDetail
@@ -29,8 +28,6 @@ __all__ = [
     "AccountRoutingDetail",
     "LegalEntity",
     "LegalEntityBankSettings",
-    "LegalEntityLegalEntityAssociations",
-    "LegalEntityLegalEntityAssociation",
     "LegalEntityPhoneNumbers",
     "LegalEntityPhoneNumber",
     "LegalEntityWealthAndEmploymentDetails",
@@ -41,9 +38,6 @@ class CounterpartyCreateParams(TypedDict, total=False):
     name: Required[Optional[str]]
     """A human friendly name for this counterparty."""
 
-    query_external_id: Annotated[str, PropertyInfo(alias="external_id")]
-    """An optional user-defined 180 character unique identifier."""
-
     accounting: Accounting
 
     accounts: Iterable[Account]
@@ -52,7 +46,7 @@ class CounterpartyCreateParams(TypedDict, total=False):
     email: Optional[str]
     """The counterparty's email."""
 
-    body_external_id: Annotated[Optional[str], PropertyInfo(alias="external_id")]
+    external_id: Optional[str]
     """An optional user-defined 180 character unique identifier."""
 
     ledger_type: Literal["customer", "vendor"]
@@ -81,7 +75,7 @@ class CounterpartyCreateParams(TypedDict, total=False):
     taxpayer_identifier: str
     """Either a valid SSN or EIN."""
 
-    verification_status: Literal["denied", "needs_approval", "unverified", "verified"]
+    verification_status: str
     """The verification status of the counterparty."""
 
 
@@ -298,30 +292,9 @@ class LegalEntityBankSettings(TypedDict, total=False):
     updated_at: Required[Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]]
 
 
-class LegalEntityLegalEntityAssociation(TypedDict, total=False):
-    relationship_types: Required[List[Literal["authorized_signer", "beneficial_owner", "control_person"]]]
-
-    child_legal_entity: ChildLegalEntityCreate
-    """The child legal entity."""
-
-    child_legal_entity_id: str
-    """The ID of the child legal entity."""
-
-    ownership_percentage: Optional[int]
-    """The child entity's ownership percentage iff they are a beneficial owner."""
-
-    title: Optional[str]
-    """The job title of the child entity at the parent entity."""
-
-
-LegalEntityLegalEntityAssociations = LegalEntityLegalEntityAssociation
-"""This type is deprecated and will be removed in a future release.
-
-Please use LegalEntityLegalEntityAssociation instead.
-"""
-
-
 class LegalEntityPhoneNumber(TypedDict, total=False):
+    """A list of phone numbers in E.164 format."""
+
     phone_number: str
 
 
@@ -500,6 +473,9 @@ class LegalEntity(TypedDict, total=False):
 
     bank_settings: Optional[LegalEntityBankSettings]
 
+    business_description: Optional[str]
+    """A description of the business."""
+
     business_name: Optional[str]
     """The business's legal business name."""
 
@@ -507,6 +483,12 @@ class LegalEntity(TypedDict, total=False):
     """The country of citizenship for an individual."""
 
     compliance_details: Optional[LegalEntityComplianceDetail]
+
+    country_of_incorporation: Optional[str]
+    """
+    The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
+    alpha-3 formats.
+    """
 
     date_formed: Annotated[Union[str, date, None], PropertyInfo(format="iso8601")]
     """A business's formation date (YYYY-MM-DD)."""
@@ -519,6 +501,9 @@ class LegalEntity(TypedDict, total=False):
     email: Optional[str]
     """The entity's primary email."""
 
+    expected_activity_volume: Optional[int]
+    """Monthly expected transaction volume in entity's local currency."""
+
     first_name: Optional[str]
     """An individual's first name."""
 
@@ -528,10 +513,13 @@ class LegalEntity(TypedDict, total=False):
     industry_classifications: Iterable[LegalEntityIndustryClassification]
     """A list of industry classifications for the legal entity."""
 
+    intended_use: Optional[str]
+    """A description of the intended use of the legal entity."""
+
     last_name: Optional[str]
     """An individual's last name."""
 
-    legal_entity_associations: Optional[Iterable[LegalEntityLegalEntityAssociation]]
+    legal_entity_associations: Optional[Iterable["LegalEntityAssociationInlineCreate"]]
     """The legal entity associations and its child legal entities."""
 
     legal_structure: Optional[
@@ -548,6 +536,12 @@ class LegalEntity(TypedDict, total=False):
     middle_name: Optional[str]
     """An individual's middle name."""
 
+    operating_jurisdictions: SequenceNotStr[str]
+    """
+    A list of countries where the business operates (ISO 3166-1 alpha-2 or alpha-3
+    codes).
+    """
+
     phone_numbers: Iterable[LegalEntityPhoneNumber]
 
     politically_exposed_person: Optional[bool]
@@ -559,6 +553,9 @@ class LegalEntity(TypedDict, total=False):
     prefix: Optional[str]
     """An individual's prefix."""
 
+    primary_social_media_sites: SequenceNotStr[str]
+    """A list of primary social media URLs for the business."""
+
     risk_rating: Optional[Literal["low", "medium", "high"]]
     """The risk rating of the legal entity. One of low, medium, high."""
 
@@ -569,3 +566,6 @@ class LegalEntity(TypedDict, total=False):
 
     website: Optional[str]
     """The entity's primary website URL."""
+
+
+from .shared_params.legal_entity_association_inline_create import LegalEntityAssociationInlineCreate

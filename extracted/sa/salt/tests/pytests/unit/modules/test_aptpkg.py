@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import textwrap
+from collections import OrderedDict
 
 import pytest
 
@@ -15,7 +16,6 @@ from salt.exceptions import (
     CommandNotFoundError,
     SaltInvocationError,
 )
-from salt.utils.odict import OrderedDict
 from tests.support.mock import MagicMock, Mock, call, patch
 
 try:
@@ -1573,6 +1573,16 @@ def test_sourceslist_multiple_comps():
             assert source.uri == "http://archive.ubuntu.com/ubuntu/"
             assert source.comps == ["main", "restricted"]
             assert source.dist == "focal-updates"
+
+
+def test_sourceslist_subdirectory_no_exception(fs):
+    fs.create_dir("/etc/apt/sources.list.d/backup.list")
+    fs.create_file(
+        "/etc/apt/sources.list.d/backup/test.list",
+        contents="deb http://archive.ubuntu.com/ubuntu/ focal main",
+    )
+    sources = aptpkg.SourcesList()
+    assert list(sources) == []
 
 
 @pytest.fixture(

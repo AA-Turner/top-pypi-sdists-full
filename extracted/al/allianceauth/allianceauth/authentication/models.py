@@ -97,7 +97,8 @@ class UserProfile(models.Model):
         on_delete=models.SET_DEFAULT,
         default=get_guest_state_pk)
     language = models.CharField(
-        _("Language"), max_length=10,
+        _("Language"),
+        max_length=10,
         choices=Language.choices,
         blank=True,
         default='')
@@ -112,6 +113,12 @@ class UserProfile(models.Model):
         null=True,
         help_text="Bootstrap 5 Themes from https://bootswatch.com/ or Community Apps"
     )
+    minimize_sidebar = models.BooleanField(
+        _("Minimize Sidebar Menu"),
+        default=False,
+        help_text=_("Keep the sidebar menu minimized")
+    )
+
 
     def assign_state(self, state=None, commit=True):
         if not state:

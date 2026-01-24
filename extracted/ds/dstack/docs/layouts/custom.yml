@@ -1,0 +1,98 @@
+definitions:
+  # Site name
+  - &site_name >-
+    {{ config.site_name }}
+
+  # Page title
+  - &page_title >-
+    {%- if layout.title -%}
+      {{ layout.title }}
+    {%- else -%}
+      {{ page.meta.get("title", page.title) }}
+    {%- endif -%}
+
+  - &page_image >-
+    {% if page and page.meta.image %}
+      {{ page.meta.image }}
+    {%- else -%}
+      {{ image.url }}
+    {%- endif -%}
+
+  # Page title with site name
+  - &page_title_with_site_name >-
+    {%- if not page.is_homepage -%}
+      {{ page.meta.get("title", page.title) }} - {{ config.site_name }}
+    {%- else -%}
+      {{ page.meta.get("title", page.title) }}
+    {%- endif -%}
+
+  # Page description
+  - &page_description >-
+    {%- if layout.description -%}
+      {{ layout.description }}
+    {%- else -%}
+      {{ page.meta.get("description", config.site_description) | x }}
+    {%- endif -%}
+
+  # Logo
+  - &logo >-
+    {%- if layout.logo -%}
+      {{ layout.logo }}
+    {%- elif config.theme.logo -%}
+      {{ config.docs_dir }}/{{ config.theme.logo }}
+    {%- endif -%}
+
+  # Logo (icon)
+  - &logo_icon >-
+    {{ config.theme.icon.logo | x }}
+
+size: { width: 1200, height: 630 }
+layers:
+  - background:
+      color: "black"
+  - size: { width: 65, height: 60 }
+    offset: { x: 908, y: 499 }
+    background:
+      image: *logo
+  - size: { width: 360, height: 59 }
+    offset: { x: 975, y: 502 }
+    typography:
+      content: *site_name
+      color: "white"
+  - size: { width: 1000, height: 220 }
+    offset: { x: 80, y: 280 }
+    typography:
+      content: *page_title
+      overflow: shrink
+      align: start
+      color: "white"
+      line:
+        amount: 3
+        height: 1.25
+  - size: { width: 870, height: 64 }
+    offset: { x: 80, y: 498 }
+    typography:
+      content: *page_description
+      align: start
+      color: "white"
+      line:
+        amount: 2
+        height: 1.5
+
+tags:
+
+  # Open Graph
+  og:type: website
+  og:title: *page_title_with_site_name
+  og:description: *page_description
+  og:image: *page_image
+  og:image:type: "{{ image.type }}"
+  og:image:width: "{{ image.width }}"
+  og:image:height: "{{ image.height }}"
+  og:url: "{{ page.canonical_url }}"
+
+  # Twitter
+  twitter:card: summary_large_image
+  twitter.title: *page_title_with_site_name
+  twitter:description: *page_description
+  twitter:image: *page_image

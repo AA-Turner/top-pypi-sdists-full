@@ -99,6 +99,8 @@ class CohereLLMConfigEntry(LLMConfigEntry):
 class CohereClient:
     """Client for Cohere's API."""
 
+    RESPONSE_USAGE_KEYS: list[str] = ["prompt_tokens", "completion_tokens", "total_tokens", "cost", "model"]
+
     def __init__(self, **kwargs: Unpack[CohereEntryDict]):
         """Requires api_key or environment variable to be set
 
@@ -217,16 +219,6 @@ class CohereClient:
         if "top_p" in params:
             cohere_params["p"] = validate_parameter(params, "top_p", (int, float), False, 0.75, (0.01, 0.99), None)
 
-        if "p" in params:
-            warnings.warn(
-                (
-                    "parameter 'p' is deprecated, use 'top_p' instead for consistency with OpenAI API spec. "
-                    "Scheduled for removal in 0.10.0 version."
-                ),
-                DeprecationWarning,
-            )
-            cohere_params["p"] = validate_parameter(params, "p", (int, float), False, 0.75, (0.01, 0.99), None)
-
         if "seed" in params:
             cohere_params["seed"] = validate_parameter(params, "seed", int, True, None, None, None)
 
@@ -260,7 +252,7 @@ class CohereClient:
         cohere_params["messages"] = messages
 
         if "tools" in params:
-            cohere_tool_names = set([tool["function"]["name"] for tool in params["tools"]])
+            cohere_tool_names = {tool["function"]["name"] for tool in params["tools"]}
             cohere_params["tools"] = params["tools"]
 
         # Strip out name
@@ -285,9 +277,9 @@ class CohereClient:
                     ) not in cohere_tool_names:
                         message["role"] = "assistant"
                         message["content"] = f"{message.pop('tool_plan', '')}{str(message['tool_calls'])}"
-                        tool_calls_modified_ids = tool_calls_modified_ids.union(
-                            set([tool_call.get("id") for tool_call in message["tool_calls"]])
-                        )
+                        tool_calls_modified_ids = tool_calls_modified_ids.union({
+                            tool_call.get("id") for tool_call in message["tool_calls"]
+                        })
                         del message["tool_calls"]
                         break
 

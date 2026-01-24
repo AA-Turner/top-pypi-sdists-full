@@ -1,5 +1,10 @@
+from typing import TYPE_CHECKING
+
 from tenacity import retry, stop_after_attempt, retry_if_exception, wait_fixed
 from chromadb.api import ServerAPI
+
+if TYPE_CHECKING:
+    from chromadb.api.models.AttachedFunction import AttachedFunction
 from chromadb.api.collection_configuration import (
     CreateCollectionConfiguration,
     UpdateCollectionConfiguration,
@@ -35,6 +40,8 @@ from chromadb.api.types import (
     Embeddings,
     Metadatas,
     Documents,
+    ReadLevel,
+    Schema,
     URIs,
     Where,
     WhereDocument,
@@ -66,8 +73,10 @@ from typing import (
     Generator,
     List,
     Any,
+    Dict,
     Callable,
     TypeVar,
+    Tuple,
 )
 from overrides import override
 from uuid import UUID, uuid4
@@ -212,6 +221,7 @@ class SegmentAPI(ServerAPI):
     def create_collection(
         self,
         name: str,
+        schema: Optional[Schema] = None,
         configuration: Optional[CreateCollectionConfiguration] = None,
         metadata: Optional[CollectionMetadata] = None,
         get_or_create: bool = False,
@@ -237,6 +247,7 @@ class SegmentAPI(ServerAPI):
             id=id,
             name=name,
             metadata=metadata,
+            serialized_schema=None,
             configuration_json=create_collection_configuration_to_json(
                 configuration or CreateCollectionConfiguration(), metadata
             ),
@@ -249,6 +260,7 @@ class SegmentAPI(ServerAPI):
         coll, created = self._sysdb.create_collection(
             id=model.id,
             name=model.name,
+            schema=schema,
             configuration=configuration or CreateCollectionConfiguration(),
             segments=[],  # Passing empty till backend changes are deployed.
             metadata=model.metadata,
@@ -287,6 +299,7 @@ class SegmentAPI(ServerAPI):
     def get_or_create_collection(
         self,
         name: str,
+        schema: Optional[Schema] = None,
         configuration: Optional[CreateCollectionConfiguration] = None,
         metadata: Optional[CollectionMetadata] = None,
         tenant: str = DEFAULT_TENANT,
@@ -294,6 +307,7 @@ class SegmentAPI(ServerAPI):
     ) -> CollectionModel:
         return self.create_collection(
             name=name,
+            schema=schema,
             metadata=metadata,
             configuration=configuration,
             get_or_create=True,
@@ -420,16 +434,24 @@ class SegmentAPI(ServerAPI):
         )
 
     @override
+    def _get_indexing_status(
+        self,
+        collection_id: UUID,
+        tenant: str = DEFAULT_TENANT,
+        database: str = DEFAULT_DATABASE,
+    ) -> "IndexingStatus":
+        raise NotImplementedError("Indexing status is not implemented for SegmentAPI")
+
+    @override
     def _search(
         self,
         collection_id: UUID,
         searches: List[Search],
         tenant: str = DEFAULT_TENANT,
         database: str = DEFAULT_DATABASE,
+        read_level: ReadLevel = ReadLevel.INDEX_AND_WAL,
     ) -> SearchResult:
-        raise NotImplementedError(
-            "Seach is not implemented for SegmentAPI"
-        )
+        raise NotImplementedError("Search is not implemented for SegmentAPI")
 
     @trace_method("SegmentAPI.delete_collection", OpenTelemetryGranularity.OPERATION)
     @override
@@ -901,6 +923,52 @@ class SegmentAPI(ServerAPI):
     @override
     def get_max_batch_size(self) -> int:
         return self._producer.max_batch_size
+
+    @override
+    def attach_function(
+        self,
+        function_id: str,
+        name: str,
+        input_collection_id: UUID,
+        output_collection: str,
+        params: Optional[Dict[str, Any]] = None,
+        tenant: str = DEFAULT_TENANT,
+        database: str = DEFAULT_DATABASE,
+    ) -> Tuple["AttachedFunction", bool]:
+        """Attached functions are not supported in the Segment API (local embedded mode)."""
+        raise NotImplementedError(
+            "Attached functions are only supported when connecting to a Chroma server via HttpClient. "
+            "The Segment API (embedded mode) does not support attached function operations."
+        )
+
+    @override
+    def get_attached_function(
+        self,
+        name: str,
+        input_collection_id: UUID,
+        tenant: str = DEFAULT_TENANT,
+        database: str = DEFAULT_DATABASE,
+    ) -> "AttachedFunction":
+        """Attached functions are not supported in the Segment API (local embedded mode)."""
+        raise NotImplementedError(
+            "Attached functions are only supported when connecting to a Chroma server via HttpClient. "
+            "The Segment API (embedded mode) does not support attached function operations."
+        )
+
+    @override
+    def detach_function(
+        self,
+        name: str,
+        input_collection_id: UUID,
+        delete_output: bool = False,
+        tenant: str = DEFAULT_TENANT,
+        database: str = DEFAULT_DATABASE,
+    ) -> bool:
+        """Attached functions are not supported in the Segment API (local embedded mode)."""
+        raise NotImplementedError(
+            "Attached functions are only supported when connecting to a Chroma server via HttpClient. "
+            "The Segment API (embedded mode) does not support attached function operations."
+        )
 
     # TODO: This could potentially cause race conditions in a distributed version of the
     # system, since the cache is only local.

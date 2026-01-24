@@ -106,6 +106,7 @@ apprise_url_tests = (
         "json://user@localhost?method=post",
         {
             "instance": NotifyJSON,
+            "force_debug": True,
         },
     ),
     (
@@ -194,7 +195,7 @@ apprise_url_tests = (
         "json://user:pass@localhost:8082",
         {
             "instance": NotifyJSON,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -204,7 +205,7 @@ apprise_url_tests = (
         {
             "instance": NotifyJSON,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -267,6 +268,8 @@ def test_plugin_custom_json_edge_cases(mock_get, mock_post):
     dataset = json.loads(details[1]["data"])
     assert dataset["title"] == "title"
     assert "message" not in dataset
+    # Ensure NotifyType does not leak as an Enum string in JSON
+    assert "NotifyType." not in details[1]["data"]
     assert "msg" in dataset
     # type was set to nothing which implies it should be removed
     assert "type" not in dataset
@@ -296,6 +299,20 @@ def test_plugin_custom_json_edge_cases(mock_get, mock_post):
         "method",
     ):
         assert new_results[k] == results[k]
+
+    mock_get.reset_mock()
+    mock_post.reset_mock()
+
+    results = NotifyJSON.parse_url(
+        "json://localhost:8080/command?:message=msg&method=GET"
+    )
+    instance = NotifyJSON(**results)
+    assert instance.send(title="title", body="body") is True
+    details = mock_get.call_args_list[0]
+    dataset = json.loads(details[1]["data"])
+
+    assert dataset["type"] == NotifyType.INFO.value
+    assert "NotifyType." not in details[1]["data"]
 
 
 @mock.patch("requests.post")

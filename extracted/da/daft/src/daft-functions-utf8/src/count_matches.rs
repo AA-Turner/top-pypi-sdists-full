@@ -10,7 +10,7 @@ use daft_dsl::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct CountMatches;
 
 const WHOLE_WORDS_DEFAULT_VALUE: bool = false;
@@ -123,16 +123,16 @@ fn count_matches_impl(
             Arc::new(Field::new(arr.name(), DataType::UInt64)),
             iter::repeat_n(Some(0), arr.len()),
         )
-        .with_validity(arr.validity().cloned());
+        .with_nulls(arr.nulls().cloned());
     }
 
-    let patterns = patterns.as_arrow().iter().flatten();
+    let patterns = patterns.into_iter().flatten();
     let ac = AhoCorasickBuilder::new()
         .ascii_case_insensitive(!case_sensitive)
         .match_kind(MatchKind::LeftmostLongest)
         .build(patterns)
         .map_err(|e| DaftError::ComputeError(format!("Error creating string automaton: {}", e)))?;
-    let iter = arr.as_arrow().iter().map(|opt| {
+    let iter = arr.into_iter().map(|opt| {
         opt.map(|s| {
             let results = ac.find_iter(s);
             if whole_word {

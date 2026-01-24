@@ -1,6 +1,8 @@
+use std::num::NonZeroUsize;
+
 use serde::Deserialize;
 
-use super::{ChunkCompression, ChunkHashAlgorithm, ChunkUploadCapability};
+use super::{ChunkCompression, ChunkHashAlgorithm};
 
 /// Chunk upload options which are set by the Sentry server.
 #[derive(Debug, Deserialize)]
@@ -17,31 +19,8 @@ pub struct ChunkServerOptions {
     pub max_wait: u64,
     #[expect(dead_code)]
     pub hash_algorithm: ChunkHashAlgorithm,
-    pub chunk_size: u64,
+    pub chunk_size: NonZeroUsize,
     pub concurrency: u8,
     #[serde(default)]
     pub compression: Vec<ChunkCompression>,
-    #[serde(default = "default_chunk_upload_accept")]
-    pub accept: Vec<ChunkUploadCapability>,
-}
-
-impl ChunkServerOptions {
-    /// Returns whether the given capability is accepted by the chunk upload endpoint.
-    pub fn supports(&self, capability: ChunkUploadCapability) -> bool {
-        self.accept.contains(&capability)
-    }
-
-    /// Determines whether we need to strip debug_ids from the requests. We need
-    /// to strip the debug_ids whenever the server does not support chunked
-    /// uploading of PDBs, to maintain backwards compatibility.
-    ///
-    /// See: https://github.com/getsentry/sentry-cli/issues/980
-    /// See: https://github.com/getsentry/sentry-cli/issues/1056
-    pub fn should_strip_debug_ids(&self) -> bool {
-        !self.supports(ChunkUploadCapability::DebugFiles)
-    }
-}
-
-fn default_chunk_upload_accept() -> Vec<ChunkUploadCapability> {
-    vec![ChunkUploadCapability::DebugFiles]
 }

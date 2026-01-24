@@ -1,7 +1,9 @@
 # coding=utf-8
 from .._impl import (
+    persistent_compute_api_AppendOnlyConfig as AppendOnlyConfig,
     persistent_compute_api_AppendResult as AppendResult,
     persistent_compute_api_ClientMessage as ClientMessage,
+    persistent_compute_api_ClientMessageError as ClientMessageError,
     persistent_compute_api_ClientMessageVisitor as ClientMessageVisitor,
     persistent_compute_api_ComputeNodeAppendResponse as ComputeNodeAppendResponse,
     persistent_compute_api_ComputeNodeAppendResponseVisitor as ComputeNodeAppendResponseVisitor,
@@ -15,7 +17,10 @@ from .._impl import (
     persistent_compute_api_Milliseconds as Milliseconds,
     persistent_compute_api_PersistentComputeService as PersistentComputeService,
     persistent_compute_api_Ping as Ping,
+    persistent_compute_api_PollingOnlyComputationType as PollingOnlyComputationType,
     persistent_compute_api_Pong as Pong,
+    persistent_compute_api_ResultConfiguration as ResultConfiguration,
+    persistent_compute_api_ResultConfigurationVisitor as ResultConfigurationVisitor,
     persistent_compute_api_ServerMessage as ServerMessage,
     persistent_compute_api_ServerMessageVisitor as ServerMessageVisitor,
     persistent_compute_api_ShutdownNotice as ShutdownNotice,
@@ -32,12 +37,15 @@ from .._impl import (
     persistent_compute_api_SubscriptionUpdateError as SubscriptionUpdateError,
     persistent_compute_api_SubscriptionUpdateMessage as SubscriptionUpdateMessage,
     persistent_compute_api_SubscriptionUpdateVisitor as SubscriptionUpdateVisitor,
+    persistent_compute_api_UnavailableResultConfigurationReason as UnavailableResultConfigurationReason,
 )
 
 __all__ = [
+    'AppendOnlyConfig',
     'AppendResult',
     'ClientMessage',
     'ClientMessageVisitor',
+    'ClientMessageError',
     'ComputeNodeAppendResponse',
     'ComputeNodeAppendResponseVisitor',
     'FullResult',
@@ -49,7 +57,10 @@ __all__ = [
     'IsEnabledResponse',
     'Milliseconds',
     'Ping',
+    'PollingOnlyComputationType',
     'Pong',
+    'ResultConfiguration',
+    'ResultConfigurationVisitor',
     'ServerMessage',
     'ServerMessageVisitor',
     'ShutdownNotice',
@@ -66,6 +77,7 @@ __all__ = [
     'SubscriptionUpdateVisitor',
     'SubscriptionUpdateError',
     'SubscriptionUpdateMessage',
+    'UnavailableResultConfigurationReason',
     'PersistentComputeService',
 ]
 

@@ -1,37 +1,80 @@
 from importlib.metadata import version as get_version
+import os
+import subprocess
 
 import click
 
 from crewai.cli.add_crew_to_flow import add_crew_to_flow
+from crewai.cli.authentication.main import AuthenticationCommand
 from crewai.cli.config import Settings
 from crewai.cli.create_crew import create_crew
 from crewai.cli.create_flow import create_flow
 from crewai.cli.crew_chat import run_chat
+from crewai.cli.deploy.main import DeployCommand
+from crewai.cli.enterprise.main import EnterpriseConfigureCommand
+from crewai.cli.evaluate_crew import evaluate_crew
+from crewai.cli.install_crew import install_crew
+from crewai.cli.kickoff_flow import kickoff_flow
+from crewai.cli.organization.main import OrganizationCommand
+from crewai.cli.plot_flow import plot_flow
+from crewai.cli.replay_from_task import replay_task_command
+from crewai.cli.reset_memories_command import reset_memories_command
+from crewai.cli.run_crew import run_crew
 from crewai.cli.settings.main import SettingsCommand
+from crewai.cli.tools.main import ToolCommand
+from crewai.cli.train_crew import train_crew
+from crewai.cli.triggers.main import TriggersCommand
+from crewai.cli.update_crew import update_crew
+from crewai.cli.utils import build_env_with_tool_repository_credentials, read_toml
 from crewai.memory.storage.kickoff_task_outputs_storage import (
     KickoffTaskOutputsSQLiteStorage,
 )
-
-from .authentication.main import AuthenticationCommand
-from .deploy.main import DeployCommand
-from .enterprise.main import EnterpriseConfigureCommand
-from .evaluate_crew import evaluate_crew
-from .install_crew import install_crew
-from .kickoff_flow import kickoff_flow
-from .organization.main import OrganizationCommand
-from .plot_flow import plot_flow
-from .replay_from_task import replay_task_command
-from .reset_memories_command import reset_memories_command
-from .run_crew import run_crew
-from .tools.main import ToolCommand
-from .train_crew import train_crew
-from .update_crew import update_crew
 
 
 @click.group()
 @click.version_option(get_version("crewai"))
 def crewai():
     """Top-level command group for crewai."""
+
+
+@crewai.command(
+    name="uv",
+    context_settings=dict(
+        ignore_unknown_options=True,
+    ),
+)
+@click.argument("uv_args", nargs=-1, type=click.UNPROCESSED)
+def uv(uv_args):
+    """A wrapper around uv commands that adds custom tool authentication through env vars."""
+    env = os.environ.copy()
+    try:
+        pyproject_data = read_toml()
+        sources = pyproject_data.get("tool", {}).get("uv", {}).get("sources", {})
+
+        for source_config in sources.values():
+            if isinstance(source_config, dict):
+                index = source_config.get("index")
+                if index:
+                    index_env = build_env_with_tool_repository_credentials(index)
+                    env.update(index_env)
+    except (FileNotFoundError, KeyError) as e:
+        raise SystemExit(
+            "Error. A valid pyproject.toml file is required. Check that a valid pyproject.toml file exists in the current directory."
+        ) from e
+    except Exception as e:
+        raise SystemExit(f"Error: {e}") from e
+
+    try:
+        subprocess.run(  # noqa: S603
+            ["uv", *uv_args],  # noqa: S607
+            capture_output=False,
+            env=env,
+            text=True,
+            check=True,
+        )
+    except subprocess.CalledProcessError as e:
+        click.secho(f"uv command failed with exit code {e.returncode}", fg="red")
+        raise SystemExit(e.returncode) from e
 
 
 @crewai.command()
@@ -228,7 +271,7 @@ def update():
 
 @crewai.command()
 def login():
-    """Sign Up/Login to CrewAI Enterprise."""
+    """Sign Up/Login to CrewAI AMP."""
     Settings().clear_user_settings()
     AuthenticationCommand().login()
 
@@ -237,11 +280,6 @@ def login():
 @crewai.group()
 def deploy():
     """Deploy the Crew CLI group."""
-
-
-@crewai.group()
-def tool():
-    """Tool Repository related commands."""
 
 
 @deploy.command(name="create")
@@ -289,6 +327,11 @@ def deploy_remove(uuid: str | None):
     """Remove a deployment."""
     deploy_cmd = DeployCommand()
     deploy_cmd.remove_crew(uuid=uuid)
+
+
+@crewai.group()
+def tool():
+    """Tool Repository related commands."""
 
 
 @tool.command(name="create")
@@ -349,6 +392,26 @@ def flow_add_crew(crew_name):
     add_crew_to_flow(crew_name)
 
 
+@crewai.group()
+def triggers():
+    """Trigger related commands. Use 'crewai triggers list' to see available triggers, or 'crewai triggers run app_slug/trigger_slug' to execute."""
+
+
+@triggers.command(name="list")
+def triggers_list():
+    """List all available triggers from integrations."""
+    triggers_cmd = TriggersCommand()
+    triggers_cmd.list_triggers()
+
+
+@triggers.command(name="run")
+@click.argument("trigger_path")
+def triggers_run(trigger_path: str):
+    """Execute crew with trigger payload. Format: app_slug/trigger_slug"""
+    triggers_cmd = TriggersCommand()
+    triggers_cmd.execute_with_trigger(trigger_path)
+
+
 @crewai.command()
 def chat():
     """
@@ -397,7 +460,7 @@ def enterprise():
 @enterprise.command("configure")
 @click.argument("enterprise_url")
 def enterprise_configure(enterprise_url: str):
-    """Configure CrewAI Enterprise OAuth2 settings from the provided Enterprise URL."""
+    """Configure CrewAI AMP OAuth2 settings from the provided Enterprise URL."""
     enterprise_command = EnterpriseConfigureCommand()
     enterprise_command.configure(enterprise_url)
 
@@ -428,6 +491,207 @@ def config_reset():
     """Reset all CLI configuration parameters to default values."""
     config_command = SettingsCommand()
     config_command.reset_all_settings()
+
+
+@crewai.group()
+def env():
+    """Environment variable commands."""
+
+
+@env.command("view")
+def env_view():
+    """View tracing-related environment variables."""
+    import os
+    from pathlib import Path
+
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    console = Console()
+
+    # Check for .env file
+    env_file = Path(".env")
+    env_file_exists = env_file.exists()
+
+    # Create table for environment variables
+    table = Table(show_header=True, header_style="bold cyan", expand=True)
+    table.add_column("Environment Variable", style="cyan", width=30)
+    table.add_column("Value", style="white", width=20)
+    table.add_column("Source", style="yellow", width=20)
+
+    # Check CREWAI_TRACING_ENABLED
+    crewai_tracing = os.getenv("CREWAI_TRACING_ENABLED", "")
+    if crewai_tracing:
+        table.add_row(
+            "CREWAI_TRACING_ENABLED",
+            crewai_tracing,
+            "Environment/Shell",
+        )
+    else:
+        table.add_row(
+            "CREWAI_TRACING_ENABLED",
+            "[dim]Not set[/dim]",
+            "[dim]—[/dim]",
+        )
+
+    # Check other related env vars
+    crewai_testing = os.getenv("CREWAI_TESTING", "")
+    if crewai_testing:
+        table.add_row("CREWAI_TESTING", crewai_testing, "Environment/Shell")
+
+    crewai_user_id = os.getenv("CREWAI_USER_ID", "")
+    if crewai_user_id:
+        table.add_row("CREWAI_USER_ID", crewai_user_id, "Environment/Shell")
+
+    crewai_org_id = os.getenv("CREWAI_ORG_ID", "")
+    if crewai_org_id:
+        table.add_row("CREWAI_ORG_ID", crewai_org_id, "Environment/Shell")
+
+    # Check if .env file exists
+    table.add_row(
+        ".env file",
+        "✅ Found" if env_file_exists else "❌ Not found",
+        str(env_file.resolve()) if env_file_exists else "N/A",
+    )
+
+    panel = Panel(
+        table,
+        title="Tracing Environment Variables",
+        border_style="blue",
+        padding=(1, 2),
+    )
+    console.print("\n")
+    console.print(panel)
+
+    # Show helpful message
+    if env_file_exists:
+        console.print(
+            "\n[dim]💡 Tip: To enable tracing via .env, add: CREWAI_TRACING_ENABLED=true[/dim]"
+        )
+    else:
+        console.print(
+            "\n[dim]💡 Tip: Create a .env file in your project root and add: CREWAI_TRACING_ENABLED=true[/dim]"
+        )
+    console.print()
+
+
+@crewai.group()
+def traces():
+    """Trace collection management commands."""
+
+
+@traces.command("enable")
+def traces_enable():
+    """Enable trace collection for crew/flow executions."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    from crewai.events.listeners.tracing.utils import (
+        _load_user_data,
+        _save_user_data,
+    )
+
+    console = Console()
+
+    # Update user data to enable traces
+    user_data = _load_user_data()
+    user_data["trace_consent"] = True
+    user_data["first_execution_done"] = True
+    _save_user_data(user_data)
+
+    panel = Panel(
+        "✅ Trace collection has been enabled!\n\n"
+        "Your crew/flow executions will now send traces to CrewAI+.\n"
+        "Use 'crewai traces disable' to turn off trace collection.",
+        title="Traces Enabled",
+        border_style="green",
+        padding=(1, 2),
+    )
+    console.print(panel)
+
+
+@traces.command("disable")
+def traces_disable():
+    """Disable trace collection for crew/flow executions."""
+    from rich.console import Console
+    from rich.panel import Panel
+
+    from crewai.events.listeners.tracing.utils import (
+        _load_user_data,
+        _save_user_data,
+    )
+
+    console = Console()
+
+    # Update user data to disable traces
+    user_data = _load_user_data()
+    user_data["trace_consent"] = False
+    user_data["first_execution_done"] = True
+    _save_user_data(user_data)
+
+    panel = Panel(
+        "❌ Trace collection has been disabled!\n\n"
+        "Your crew/flow executions will no longer send traces.\n"
+        "Use 'crewai traces enable' to turn trace collection back on.",
+        title="Traces Disabled",
+        border_style="red",
+        padding=(1, 2),
+    )
+    console.print(panel)
+
+
+@traces.command("status")
+def traces_status():
+    """Show current trace collection status."""
+    import os
+
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.table import Table
+
+    from crewai.events.listeners.tracing.utils import (
+        _load_user_data,
+        is_tracing_enabled,
+    )
+
+    console = Console()
+    user_data = _load_user_data()
+
+    table = Table(show_header=False, box=None)
+    table.add_column("Setting", style="cyan")
+    table.add_column("Value", style="white")
+
+    # Check environment variable
+    env_enabled = os.getenv("CREWAI_TRACING_ENABLED", "false")
+    table.add_row("CREWAI_TRACING_ENABLED", env_enabled)
+
+    # Check user consent
+    trace_consent = user_data.get("trace_consent")
+    if trace_consent is True:
+        consent_status = "✅ Enabled (user consented)"
+    elif trace_consent is False:
+        consent_status = "❌ Disabled (user declined)"
+    else:
+        consent_status = "⚪ Not set (first-time user)"
+    table.add_row("User Consent", consent_status)
+
+    # Check overall status
+    if is_tracing_enabled():
+        overall_status = "✅ ENABLED"
+        border_style = "green"
+    else:
+        overall_status = "❌ DISABLED"
+        border_style = "red"
+    table.add_row("Overall Status", overall_status)
+
+    panel = Panel(
+        table,
+        title="Trace Collection Status",
+        border_style=border_style,
+        padding=(1, 2),
+    )
+    console.print(panel)
 
 
 if __name__ == "__main__":

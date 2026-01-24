@@ -55,6 +55,7 @@ from ._compat import (
 from .cols import (
     defaultdict_structure_factory,
     homogenous_tuple_structure_factory,
+    is_abstract_set,
     is_defaultdict,
     is_namedtuple,
     is_sequence,
@@ -228,6 +229,10 @@ class BaseConverter:
         self._unstructure_func.register_func_list(
             [
                 (
+                    lambda t: get_newtype_base(t) is not None,
+                    lambda o: self.unstructure(o, unstructure_as=o.__class__),
+                ),
+                (
                     is_protocol,
                     lambda o: self.unstructure(o, unstructure_as=o.__class__),
                 ),
@@ -277,6 +282,7 @@ class BaseConverter:
                 (is_mutable_sequence, list_structure_factory, "extended"),
                 (is_deque, self._structure_deque),
                 (is_mutable_set, self._structure_set),
+                (is_abstract_set, self._structure_frozenset),
                 (is_frozenset, self._structure_frozenset),
                 (is_tuple, self._structure_tuple),
                 (is_namedtuple, namedtuple_structure_factory, "extended"),

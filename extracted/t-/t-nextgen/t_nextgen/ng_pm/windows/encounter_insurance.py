@@ -19,7 +19,7 @@ class EncounterInsuranceWindow(NextGenWindow):
     """EncounterInsurance class with methods to interact with encounter insurance window."""
 
     @property
-    def window(self):
+    def window(self) -> WindowSpecification:
         """Get Encounter Insurance Window."""
         return self.desktop_app.dialog.child_window(title="frmEncounterPayer", control_type="Window")
 

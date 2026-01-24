@@ -1,9 +1,10 @@
 """Initialize docker containers on a remote node."""
 
 import dataclasses
+import re
 import shlex
 import time
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from sky import sky_logging
 from sky.skylet import constants
@@ -29,10 +30,11 @@ SETUP_ENV_VARS_CMD = (
 # Docker daemon may not be ready when the machine is firstly started. The error
 # message starts with the following string. We should wait for a while and retry
 # the command.
-DOCKER_PERMISSION_DENIED_STR = ('permission denied while trying to connect to '
-                                'the Docker daemon socket')
+DOCKER_PERMISSION_DENIED_STR = ('permission denied while trying to connect to ')
 
 DOCKER_SOCKET_NOT_READY_STR = ('Is the docker daemon running?')
+DOCKER_SOCKET_NOT_READY_STR_2 = (
+    'check if the path is correct and if the daemon is running')
 
 _DOCKER_SOCKET_WAIT_TIMEOUT_SECONDS = 30
 
@@ -46,6 +48,9 @@ INSTALL_AWS_CLI_CMD = (
     '-o "/tmp/awscliv2.zip" && '
     'unzip -q /tmp/awscliv2.zip -d /tmp && sudo /tmp/aws/install '
     '&& rm -rf /tmp/awscliv2.zip /tmp/aws)')
+
+# Pattern to extract SSH user from command output, handling MOTD contamination
+_DOCKER_USER_PATTERN = re.compile(r'SKYPILOT_DOCKER_USER: ([^\s\n]+)')
 
 
 def _extract_region_from_ecr_server(server: str) -> str:
@@ -175,6 +180,17 @@ def _with_interactive(cmd):
     return ['bash', '--login', '-c', '-i', shlex.quote(force_interactive)]
 
 
+def _redact_docker_password(cmd: str) -> str:
+    parts = shlex.split(cmd)
+    for i, part in enumerate(parts):
+        if part.startswith('--password'):
+            if part.startswith('--password='):
+                parts[i] = '--password=<redacted>'
+            elif i + 1 < len(parts):
+                parts[i + 1] = '<redacted>'
+    return ' '.join(parts)
+
+
 # SkyPilot: New class to initialize docker containers on a remote node.
 # Adopted from ray.autoscaler._private.command_runner.DockerCommandRunner.
 class DockerInitializer:
@@ -185,19 +201,23 @@ class DockerInitializer:
         self.docker_config = docker_config
         self.container_name = docker_config['container_name']
         self.runner = runner
-        self.home_dir = None
+        self.home_dir: Optional[str] = None
         self.initialized = False
         # podman is not fully tested yet.
         use_podman = docker_config.get('use_podman', False)
         self.docker_cmd = 'podman' if use_podman else 'docker'
         self.log_path = log_path
 
-    def _run(self,
-             cmd,
-             run_env='host',
-             wait_for_docker_daemon: bool = False,
-             separate_stderr: bool = False,
-             log_err_when_fail: bool = True) -> str:
+    def _run(
+        self,
+        cmd,
+        run_env='host',
+        wait_for_docker_daemon: bool = False,
+        separate_stderr: bool = False,
+        log_err_when_fail: bool = True,
+        flock_name: Optional[str] = None,
+        flock_args: Optional[str] = None,
+    ) -> str:
 
         if run_env == 'docker':
             cmd = self._docker_expand_user(cmd, any_char=True)
@@ -206,10 +226,17 @@ class DockerInitializer:
             # an error: `the input device is not a TTY`, and it works without
             # `-it` flag.
             # TODO(zhwu): ray use the `-it` flag, we need to check why.
-            cmd = (f'{self.docker_cmd} exec {self.container_name} /bin/bash -c'
-                   f' {shlex.quote(cmd)} ')
+            cmd = (f'{self.docker_cmd} exec -u 0 {self.container_name}'
+                   f' /bin/bash -c {shlex.quote(cmd)} ')
 
-        logger.debug(f'+ {cmd}')
+        if flock_name is not None:
+            flock_args = flock_args or ''
+            cmd = (f'flock {flock_args} /tmp/{flock_name} '
+                   f'-c {shlex.quote(cmd)}')
+
+        # Redact the password in the login command.
+        redacted_cmd = _redact_docker_password(cmd)
+        logger.debug(f'+ {redacted_cmd}')
         start = time.time()
         while True:
             rc, stdout, stderr = self.runner.run(
@@ -219,7 +246,8 @@ class DockerInitializer:
                 separate_stderr=separate_stderr,
                 log_path=self.log_path)
             if (DOCKER_PERMISSION_DENIED_STR in stdout + stderr or
-                    DOCKER_SOCKET_NOT_READY_STR in stdout + stderr):
+                    DOCKER_SOCKET_NOT_READY_STR in stdout + stderr or
+                    DOCKER_SOCKET_NOT_READY_STR_2 in stdout + stderr):
                 if wait_for_docker_daemon:
                     if time.time(
                     ) - start > _DOCKER_SOCKET_WAIT_TIMEOUT_SECONDS:
@@ -240,7 +268,7 @@ class DockerInitializer:
             break
         subprocess_utils.handle_returncode(
             rc,
-            cmd,
+            redacted_cmd,
             error_msg='Failed to run docker setup commands.',
             stderr=stdout + stderr,
             # Print out the error message if the command failed.
@@ -259,7 +287,10 @@ class DockerInitializer:
         if self._check_container_exited():
             self.initialized = True
             self._run(f'{self.docker_cmd} start {self.container_name}')
-            self._run('sudo service ssh start', run_env='docker')
+            self._run('sudo service ssh start',
+                      run_env='docker',
+                      flock_name=f'{self.container_name}.sky.lifecycle.lock',
+                      flock_args='-s -w 1')
             return self._run('whoami', run_env='docker')
 
         # SkyPilot: Docker login if user specified a private docker registry.
@@ -358,7 +389,9 @@ class DockerInitializer:
                     self._auto_configure_shm(user_docker_run_options)),
                 self.docker_cmd,
             )
-            self._run(f'{remove_container_cmd}; {start_command}')
+            self._run(f'{remove_container_cmd} && {start_command}',
+                      flock_name=f'{self.container_name}.sky.lifecycle.lock',
+                      flock_args='-x -w 10')
 
         # SkyPilot: Setup Commands.
         # TODO(zhwu): the following setups should be aligned with the kubernetes
@@ -376,14 +409,18 @@ class DockerInitializer:
             'echo "export DEBIAN_FRONTEND=noninteractive" >> ~/.bashrc;',
             run_env='docker')
         # Install dependencies.
-        self._run(
-            'sudo apt-get update; '
+        cmd = (
+            'bash -lc \''
+            'exec 200>/var/tmp/sky_apt.lock; '
+            'flock -x -w 120 200 || exit 1; '
+            'export DEBIAN_FRONTEND=noninteractive; '
+            'apt-get -yq update && '
             # Our mount script will install gcsfuse without fuse package.
             # We need to install fuse package first to enable storage mount.
             # The dpkg option is to suppress the prompt for fuse installation.
-            'sudo apt-get -o DPkg::Options::="--force-confnew" install -y '
-            'rsync curl wget patch openssh-server python3-pip fuse;',
-            run_env='docker')
+            'apt-get -o DPkg::Options::=--force-confnew install -y '
+            'rsync curl wget patch openssh-server python3-pip fuse\'')
+        self._run(cmd, run_env='docker')
 
         # Copy local authorized_keys to docker container.
         # Stop and disable jupyter service. This is to avoid port conflict on
@@ -423,7 +460,16 @@ class DockerInitializer:
             run_env='docker')
 
         # SkyPilot: End of Setup Commands.
-        docker_user = self._run('whoami', run_env='docker')
+        # Pattern matching to prevent MOTD contamination and reliably
+        # parse docker user. Refer to CommandRunner::_get_remote_home_dir.
+        docker_user_output = self._run('echo "SKYPILOT_DOCKER_USER: $(whoami)"',
+                                       run_env='docker')
+        docker_user_match = _DOCKER_USER_PATTERN.search(docker_user_output)
+        if docker_user_match:
+            docker_user = docker_user_match.group(1)
+        else:
+            raise ValueError('Failed to find Docker user identifier: '
+                             f'{docker_user_output}')
         self.initialized = True
         return docker_user
 
@@ -459,9 +505,13 @@ class DockerInitializer:
         user_pos = string.find('~')
         if user_pos > -1:
             if self.home_dir is None:
-                cmd = (f'{self.docker_cmd} exec {self.container_name} '
-                       'printenv HOME')
-                self.home_dir = self._run(cmd, separate_stderr=True)
+                cmd = (f'{self.docker_cmd} exec {self.container_name}'
+                       ' printenv HOME')
+                self.home_dir = self._run(
+                    cmd,
+                    separate_stderr=True,
+                    flock_name=f'{self.container_name}.sky.lifecycle.lock',
+                    flock_args='-s -w 1')
                 # Check for unexpected newline in home directory, which can be
                 # a common issue when the output is mixed with stderr.
                 assert '\n' not in self.home_dir, (

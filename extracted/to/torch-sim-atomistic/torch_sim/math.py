@@ -1,6 +1,6 @@
-"""Mathematical operations and utilities."""
+"""Mathematical operations and utilities. Adapted from https://github.com/abhijeetgangan/torch_matfunc."""
 
-# ruff: noqa: FBT001, FBT002, RUF002, RUF003, RET503
+# ruff: noqa: FBT001, FBT002, RUF002, RUF003
 
 from typing import Any, Final
 
@@ -26,14 +26,10 @@ def torch_divmod(a: torch.Tensor, b: torch.Tensor) -> tuple[torch.Tensor, torch.
     return d, m
 
 
-"""Below code is taken from https://github.com/abhijeetgangan/torch_matfunc"""
-
-
 def expm_frechet(  # noqa: C901
     A: torch.Tensor,
     E: torch.Tensor,
     method: str | None = None,
-    compute_expm: bool = True,
     check_finite: bool = True,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Frechet derivative of the matrix exponential of A in the direction E.
@@ -44,20 +40,15 @@ def expm_frechet(  # noqa: C901
         method: str, optional. Choice of algorithm. Should be one of
             - `SPS` (default)
             - `blockEnlarge`
-        compute_expm: bool, optional. Whether to compute also `expm_A` in addition to
-            `expm_frechet_AE`. Default is True.
         check_finite: bool, optional. Whether to check that the input matrix contains
             only finite numbers. Disabling may give a performance gain, but may result
             in problems (crashes, non-termination) if the inputs do contain
             infinities or NaNs.
 
     Returns:
-        If compute_expm is True:
-            expm_A: ndarray. Matrix exponential of A.
-            expm_frechet_AE: ndarray. Frechet derivative of the matrix exponential of A
-                in the direction E.
-        Otherwise:
-            expm_frechet_AE: ndarray. Frechet derivative of the matrix exponential of A
+        tuple[torch.Tensor, torch.Tensor]: A tuple containing:
+            expm_A: Matrix exponential of A.
+            expm_frechet_AE: Frechet derivative of the matrix exponential of A
                 in the direction E.
     """
     if check_finite:
@@ -87,11 +78,9 @@ def expm_frechet(  # noqa: C901
     elif method == "blockEnlarge":
         expm_A, expm_frechet_AE = expm_frechet_block_enlarge(A, E)
     else:
-        raise ValueError(f"Unknown implementation {method}")
+        raise ValueError(f"Unknown {method=}")
 
-    if compute_expm:
-        return expm_A, expm_frechet_AE
-    return expm_frechet_AE
+    return expm_A, expm_frechet_AE
 
 
 def expm_frechet_block_enlarge(
@@ -428,7 +417,7 @@ def expm_frechet_kronform(
     for i in range(n):
         for j in range(n):
             E = torch.outer(ident[i], ident[j])
-            F = expm_frechet(A, E, method=method, compute_expm=False, check_finite=False)
+            _, F = expm_frechet(A, E, method=method, check_finite=False)
             cols.append(vec(F))
 
     return torch.stack(cols, dim=1)
@@ -504,9 +493,8 @@ class expm(Function):  # noqa: N801
         (A,) = ctx.saved_tensors
 
         # Compute the Frechet derivative in the direction of grad_output
-        return expm_frechet(
-            A, grad_output, method="SPS", compute_expm=False, check_finite=False
-        )
+        _, frechet_deriv = expm_frechet(A, grad_output, method="SPS", check_finite=False)
+        return frechet_deriv
 
 
 def _is_valid_matrix(T: torch.Tensor, n: int = 3) -> bool:
@@ -539,32 +527,30 @@ def _determine_eigenvalue_case(  # noqa: C901
         ValueError: If the eigenvalue structure cannot be determined
     """
     # Get unique values and their counts directly with one call
-    unique_vals, counts = torch.unique(eigenvalues, return_counts=True)
+    uniq_vals, counts = torch.unique(eigenvalues, return_counts=True)
 
     # Use np.isclose to group eigenvalues that are numerically close
     # We can create a mask for each unique value to see if other values are close to it
-    if len(unique_vals) > 1:
+    if len(uniq_vals) > 1:
         # Check if some "unique" values should actually be considered the same
         i = 0
-        while i < len(unique_vals):
+        while i < len(uniq_vals):
             # Find all values close to the current one
-            close_mask = torch.isclose(unique_vals, unique_vals[i], rtol=0, atol=num_tol)
+            close_mask = torch.isclose(uniq_vals, uniq_vals[i], rtol=0, atol=num_tol)
             close_count = torch.sum(close_mask)
 
             if close_count > 1:  # If there are other close values
                 # Merge them (keep the first one, remove the others)
                 counts[i] = torch.sum(counts[close_mask])
-                unique_vals = unique_vals[
-                    ~(close_mask & torch.arange(len(close_mask)) != i)
-                ]
+                uniq_vals = uniq_vals[~(close_mask & torch.arange(len(close_mask)) != i)]
                 counts = counts[~(close_mask & torch.arange(len(counts)) != i)]
             else:
                 i += 1
 
     # Now determine the case based on the number of unique eigenvalues
-    if len(unique_vals) == 1:
+    if len(uniq_vals) == 1:
         # Case 1: All eigenvalues are equal (λ, λ, λ)
-        lambda_val = unique_vals[0]
+        lambda_val = uniq_vals[0]
         Identity = torch.eye(3, dtype=lambda_val.dtype, device=lambda_val.device)
         T_minus_lambdaI = T - lambda_val * Identity
 
@@ -578,14 +564,14 @@ def _determine_eigenvalue_case(  # noqa: C901
 
         return "case1c"  # q(T) = (T - λI)³
 
-    if len(unique_vals) == 2:
+    if len(uniq_vals) == 2:
         # Case 2: Two distinct eigenvalues
         # The counts array already tells us which eigenvalue is repeated
         if counts.max() != 2 or counts.min() != 1:
             raise ValueError("Unexpected eigenvalue pattern for Case 2")
 
-        mu = unique_vals[torch.argmin(counts)]  # The non-repeated eigenvalue
-        lambda_val = unique_vals[torch.argmax(counts)]  # The repeated eigenvalue
+        mu = uniq_vals[torch.argmin(counts)]  # The non-repeated eigenvalue
+        lambda_val = uniq_vals[torch.argmax(counts)]  # The repeated eigenvalue
 
         Identity = torch.eye(3, dtype=lambda_val.dtype, device=lambda_val.device)
         T_minus_muI = T - mu * Identity
@@ -599,21 +585,21 @@ def _determine_eigenvalue_case(  # noqa: C901
             return "case2a"  # q(T) = (T - λI)(T - μI)
         return "case2b"  # q(T) = (T - μI)(T - λI)²
 
-    if len(unique_vals) == 3:
+    if len(uniq_vals) == 3:
         # Case 3: Three distinct eigenvalues (λ, μ, ν)
         return "case3"  # q(T) = (T - λI)(T - μI)(T - νI)
 
     raise ValueError("Could not determine eigenvalue structure")
 
 
-def _matrix_log_case1a(T: torch.Tensor, lambda_val: complex) -> torch.Tensor:
+def _matrix_log_case1a(T: torch.Tensor, lambda_val: torch.Tensor) -> torch.Tensor:
     """Compute log(T) when q(T) = (T - λI).
 
     This is the case where T is a scalar multiple of the identity matrix.
 
     Args:
         T: The matrix whose logarithm is to be computed
-        lambda_val: The eigenvalue of T
+        lambda_val: The eigenvalue of T as a tensor
 
     Returns:
         The logarithm of T, which is log(λ)·I
@@ -624,7 +610,7 @@ def _matrix_log_case1a(T: torch.Tensor, lambda_val: complex) -> torch.Tensor:
 
 
 def _matrix_log_case1b(
-    T: torch.Tensor, lambda_val: complex, num_tol: float = 1e-16
+    T: torch.Tensor, lambda_val: torch.Tensor, num_tol: float = 1e-16
 ) -> torch.Tensor:
     """Compute log(T) when q(T) = (T - λI)².
 
@@ -651,7 +637,7 @@ def _matrix_log_case1b(
 
 
 def _matrix_log_case1c(
-    T: torch.Tensor, lambda_val: complex, num_tol: float = 1e-16
+    T: torch.Tensor, lambda_val: torch.Tensor, num_tol: float = 1e-16
 ) -> torch.Tensor:
     """Compute log(T) when q(T) = (T - λI)³.
 
@@ -683,7 +669,7 @@ def _matrix_log_case1c(
 
 
 def _matrix_log_case2a(
-    T: torch.Tensor, lambda_val: complex, mu: complex, num_tol: float = 1e-16
+    T: torch.Tensor, lambda_val: torch.Tensor, mu: torch.Tensor, num_tol: float = 1e-16
 ) -> torch.Tensor:
     """Compute log(T) when q(T) = (T - λI)(T - μI) with λ≠μ.
 
@@ -721,7 +707,7 @@ def _matrix_log_case2a(
 
 
 def _matrix_log_case2b(
-    T: torch.Tensor, lambda_val: complex, mu: complex, num_tol: float = 1e-16
+    T: torch.Tensor, lambda_val: torch.Tensor, mu: torch.Tensor, num_tol: float = 1e-16
 ) -> torch.Tensor:
     """Compute log(T) when q(T) = (T - μI)(T - λI)² with λ≠μ.
 
@@ -773,7 +759,11 @@ def _matrix_log_case2b(
 
 
 def _matrix_log_case3(
-    T: torch.Tensor, lambda_val: complex, mu: complex, nu: complex, num_tol: float = 1e-16
+    T: torch.Tensor,
+    lambda_val: torch.Tensor,
+    mu: torch.Tensor,
+    nu: torch.Tensor,
+    num_tol: float = 1e-16,
 ) -> torch.Tensor:
     """Compute log(T) when q(T) = (T - λI)(T - μI)(T - νI) with λ≠μ≠ν≠λ.
     This is the case with three distinct eigenvalues.
@@ -876,7 +866,7 @@ def _matrix_log_33(  # noqa: C901
         case = _determine_eigenvalue_case(T, eigenvalues, num_tol)
 
     # Case 1: All eigenvalues are equal (λ, λ, λ)
-    if case in ["case1a", "case1b", "case1c"]:
+    if case in ("case1a", "case1b", "case1c"):
         lambda_val = eigenvalues[0]
 
         # Check for numerical stability
@@ -891,18 +881,18 @@ def _matrix_log_33(  # noqa: C901
             return _matrix_log_case1c(T, lambda_val, num_tol)
 
     # Case 2: Two distinct eigenvalues (μ, λ, λ)
-    elif case in ["case2a", "case2b"]:
+    elif case in ("case2a", "case2b"):
         # Find the unique eigenvalue (μ) and the repeated eigenvalue (λ)
-        unique_vals, counts = torch.unique(
+        uniq_vals, counts = torch.unique(
             torch.round(eigenvalues, decimals=10), return_counts=True
         )
-        if len(unique_vals) != 2 or counts.max() != 2:
+        if len(uniq_vals) != 2 or counts.max() != 2:
             raise ValueError(
                 "Case 2 requires exactly two distinct eigenvalues with one repeated"
             )
 
-        mu = unique_vals[torch.argmin(counts)]  # The non-repeated eigenvalue
-        lambda_val = unique_vals[torch.argmax(counts)]  # The repeated eigenvalue
+        mu = uniq_vals[torch.argmin(counts)]  # The non-repeated eigenvalue
+        lambda_val = uniq_vals[torch.argmax(counts)]  # The repeated eigenvalue
 
         if case == "case2a":
             return _matrix_log_case2a(T, lambda_val, mu, num_tol)
@@ -920,6 +910,9 @@ def _matrix_log_33(  # noqa: C901
     else:
         raise ValueError(f"Unknown eigenvalue {case=}")
 
+    # should never be reached, just for type checker
+    raise RuntimeError("Unexpected code path in _matrix_log_33")
+
 
 def matrix_log_scipy(matrix: torch.Tensor) -> torch.Tensor:
     """Compute the matrix logarithm of a square matrix using scipy.linalg.logm.
@@ -935,9 +928,7 @@ def matrix_log_scipy(matrix: torch.Tensor) -> torch.Tensor:
     import scipy.linalg
 
     # Save original device and dtype
-    device = matrix.device
-    dtype = matrix.dtype
-    requires_grad = matrix.requires_grad
+    device, dtype, requires_grad = matrix.device, matrix.dtype, matrix.requires_grad
 
     # Detach and move to CPU for scipy
     matrix_cpu = matrix.detach().cpu().numpy()
@@ -1016,7 +1007,7 @@ def batched_vdot(
     if batch_indices.min() < 0:
         raise ValueError("batch_indices must be non-negative")
 
-    output = torch.zeros(batch_indices.max() + 1, dtype=x.dtype, device=x.device)
+    output = torch.zeros(int(batch_indices.max()) + 1, dtype=x.dtype, device=x.device)
     output.scatter_add_(dim=0, index=batch_indices, src=(x * y).sum(dim=1))
 
     return output

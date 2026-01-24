@@ -201,8 +201,7 @@ Status BuildTable(
     CompactionIterator c_iter(
         iter, ucmp, &merge, kMaxSequenceNumber, &snapshots, earliest_snapshot,
         earliest_write_conflict_snapshot, job_snapshot, snapshot_checker, env,
-        ShouldReportDetailedTime(env, ioptions.stats),
-        true /* internal key corruption is not ok */, range_del_agg.get(),
+        ShouldReportDetailedTime(env, ioptions.stats), range_del_agg.get(),
         blob_file_builder.get(), ioptions.allow_data_in_errors,
         ioptions.enforce_single_del_contracts,
         /*manual_compaction_canceled=*/kManualCompactionCanceledFalse,
@@ -343,6 +342,9 @@ Status BuildTable(
     if (s.ok() && !empty) {
       if (flush_stats) {
         flush_stats->bytes_written_pre_comp = builder->PreCompressionSize();
+        // Add worker CPU micros here. Caller needs to add CPU micros from
+        // calling thread.
+        flush_stats->cpu_micros += builder->GetWorkerCPUMicros();
       }
       uint64_t file_size = builder->FileSize();
       meta->fd.file_size = file_size;

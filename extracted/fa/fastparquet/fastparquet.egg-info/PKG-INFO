@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fastparquet
-Version: 2024.11.0
+Version: 2025.12.0
 Summary: Python support for Parquet file format
 Home-page: https://github.com/dask/fastparquet/
 Author: Martin Durant
@@ -12,13 +12,13 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE
 Requires-Dist: pandas>=1.5.0
 Requires-Dist: numpy
@@ -27,6 +27,17 @@ Requires-Dist: fsspec
 Requires-Dist: packaging
 Provides-Extra: lzo
 Requires-Dist: python-lzo; extra == "lzo"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 fastparquet
 ===========

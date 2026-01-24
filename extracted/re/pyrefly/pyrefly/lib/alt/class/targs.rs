@@ -29,8 +29,10 @@ use crate::types::callable::ParamList;
 use crate::types::callable::Required;
 use crate::types::class::Class;
 use crate::types::class::ClassType;
+use crate::types::quantified::Quantified;
 use crate::types::quantified::QuantifiedKind;
 use crate::types::tuple::Tuple;
+use crate::types::type_var::PreInferenceVariance;
 use crate::types::typed_dict::TypedDict;
 use crate::types::types::Forall;
 use crate::types::types::Forallable;
@@ -163,13 +165,24 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// specialize(list, [int]) == list[int]
     /// promote(list) == list[Any]
     /// instantiate(list) == list[T]
-    pub fn promote(&self, cls: &Class, range: TextRange) -> Type {
-        let targs = self.create_default_targs(self.get_class_tparams(cls), Some(range));
+    pub fn promote(&self, cls: &Class, range: TextRange, errors: &ErrorCollector) -> Type {
+        let targs = self.create_default_targs(
+            self.get_class_tparams(cls),
+            Some(&|tparam: &TParam| {
+                Self::add_implicit_any_error(
+                    errors,
+                    range,
+                    cls.name().as_str(),
+                    Some(tparam.name().as_str()),
+                );
+            }),
+        );
         self.type_of_instance(cls, targs)
     }
 
-    pub fn promote_forall(&self, forall: Forall<Forallable>, range: TextRange) -> Type {
-        let targs = self.create_default_targs(forall.tparams.dupe(), Some(range));
+    pub fn promote_forall(&self, forall: Forall<Forallable>, _range: TextRange) -> Type {
+        // TODO(grievejia): We probably want to error here as well
+        let targs = self.create_default_targs(forall.tparams.dupe(), None);
         forall.apply_targs(targs)
     }
 
@@ -224,6 +237,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .1
     }
 
+    pub fn instantiate_fresh_tuple(&self) -> Type {
+        let quantified = Quantified::type_var_tuple(Name::new_static("Ts"), self.uniques, None);
+        let tparams = TParams::new(vec![TParam {
+            quantified: quantified.clone(),
+            variance: PreInferenceVariance::Covariant,
+        }]);
+        let tuple_ty = Type::Tuple(Tuple::Unpacked(Box::new((
+            Vec::new(),
+            Type::Quantified(Box::new(quantified)),
+            Vec::new(),
+        ))));
+        self.solver()
+            .fresh_quantified(&tparams, tuple_ty, self.uniques)
+            .1
+    }
+
     pub fn instantiate_fresh_forall(&self, forall: Forall<Forallable>) -> (QuantifiedHandle, Type) {
         self.solver()
             .fresh_quantified(&forall.tparams, forall.body.as_type(), self.uniques)
@@ -263,23 +292,29 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn create_default_targs(
         &self,
         tparams: Arc<TParams>,
-        // Placeholder for strict mode: we want to force callers to pass a range so
-        // that we don't refactor in a way where none is available, but this is unused
-        // because we do not have a strict mode yet.
-        _range: Option<TextRange>,
+        on_fallback_to_gradual: Option<&dyn Fn(&TParam)>,
     ) -> TArgs {
         if tparams.is_empty() {
             TArgs::default()
         } else {
-            // TODO(stroxler): We should error here, but the error needs to be
-            // configurable in the long run, and also suppressed in dependencies
-            // no matter what the configuration is.
-            //
-            // Our plumbing isn't ready for that yet, so for now we are silently
-            // using gradual type arguments.
             let tys = tparams
                 .iter()
-                .map(|x| x.quantified.as_gradual_type())
+                .map(|x| {
+                    // TODO(grievejia): This is actually not a 100% accurate way of detecting graudal fallbacks:
+                    // it will trigger when the tparam doesn't have a default, but won't trigger if
+                    // - The tparam has a default, but that default is another type var without a default.
+                    // - The tparam has a default, but part of that default type requires another fallback (e.g. the
+                    //   default is `list[Foo]`, where `Foo` is a generic class whose tparam doesn't have a default).
+                    //
+                    // To make it 100% accurate, we actually need to hook the callback into `as_graudal_type()`. It's doable
+                    // but could add a lot of complexities so let's keep it as an exercise in the future.
+                    if let Some(f) = on_fallback_to_gradual
+                        && x.quantified.default().is_none()
+                    {
+                        f(x);
+                    }
+                    x.quantified.as_gradual_type()
+                })
                 .collect();
             TArgs::new(tparams, tys)
         }
@@ -439,7 +474,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
                 Type::Unpack(t) => {
                     if !suffix.is_empty() {
-                        middle.push(Type::Tuple(Tuple::Unbounded(Box::new(self.unions(suffix)))));
+                        middle.push(Type::unbounded_tuple(self.unions(suffix)));
                         suffix = Vec::new();
                     } else {
                         middle.push((**t).clone())
@@ -465,8 +500,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
         }
         match middle.as_slice() {
-            [] => Type::tuple(prefix),
-            [middle] => Type::Tuple(Tuple::unpacked(prefix, middle.clone(), suffix)),
+            [] => Type::concrete_tuple(prefix),
+            [middle] => Type::unpacked_tuple(prefix, middle.clone(), suffix),
             // We can't precisely model unpacking two unbounded iterables, so we'll keep any
             // concrete prefix and suffix elements and merge everything in between into an unbounded tuple
             _ => {
@@ -477,11 +512,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                             .unwrap_or(self.stdlib.object().clone().to_type())
                     })
                     .collect();
-                Type::Tuple(Tuple::unpacked(
+                Type::unpacked_tuple(
                     prefix,
-                    Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle_types)))),
+                    Type::unbounded_tuple(self.unions(middle_types)),
                     suffix,
-                ))
+                )
             }
         }
     }

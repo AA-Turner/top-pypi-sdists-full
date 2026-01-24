@@ -240,7 +240,7 @@ BUILTIN_FAMILIES = {
             "params": ["mu", "kappa"],
             "parent": "mu",
         },
-        "link": {"mu": "tan_2", "kappa": "log"},
+        "link": {"mu": "identity", "kappa": "log"},
         "family": VonMises,
         "default_priors": {"kappa": "HalfNormal"},
     },
@@ -306,7 +306,7 @@ def get_builtin_family(name):
     `bambi.families.Likelihood` and the `bambi.priors.Prior` instances that are needed to build
     the family.
 
-    The available built-in families are found in `SETTINGS_FAMILIES`.
+    The available built-in families are found in `BUILTIN_FAMILIES`.
 
     Parameters
     ----------

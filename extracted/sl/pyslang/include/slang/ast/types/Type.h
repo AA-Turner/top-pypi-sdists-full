@@ -15,6 +15,7 @@
 namespace slang::ast {
 
 class Compilation;
+class TypeProvider;
 struct LookupResult;
 enum class RandMode;
 
@@ -269,6 +270,11 @@ public:
     /// extends the given interface class type. Otherwise, returns false.
     bool implements(const Type& ifaceClass) const;
 
+    /// Determines whether the given type is a struct or union type that is
+    /// identical to this one, meaning they have the same fields with the
+    /// same names and types in the same order.
+    bool isIdenticalStructUnion(const Type& rhs) const;
+
     /// Gets a combination of flags for integral types; for non-integral types,
     /// this returns all zeros.
     bitmask<IntegralFlags> getIntegralFlags() const;
@@ -321,12 +327,12 @@ public:
     /// If this is an integral type, returns the same type converted
     /// to a signed integral type (properly descending through sub arrays).
     /// Otherwise returns `*this`.
-    const Type& makeSigned(Compilation& compilation) const;
+    const Type& makeSigned(const TypeProvider& typeProvider) const;
 
     /// If this is an integral type, returns the same type converted
     /// to an unsigned integral type (properly descending through sub arrays).
     /// Otherwise returns `*this`.
-    const Type& makeUnsigned(Compilation& compilation) const;
+    const Type& makeUnsigned(const TypeProvider& typeProvider) const;
 
     /// @returns a human-friendly string representation of the type.
     std::string toString() const;

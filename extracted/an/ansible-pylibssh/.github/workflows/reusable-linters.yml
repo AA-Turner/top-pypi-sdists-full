@@ -6,13 +6,16 @@ on:  # yamllint disable-line rule:truthy
   workflow_call:
 
 env:
-  TOX_VERSION: tox < 4.12
+  TOX_VERSION: tox
 
 jobs:
   linters:
     name: >-
       ${{ matrix.toxenv }}/${{ matrix.python-version }}@${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+
+    timeout-minutes: 2
+
     strategy:
       fail-fast: false
       matrix:
@@ -33,7 +36,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4.1.6
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5.1.0
+      uses: actions/setup-python@v5.3.0
       with:
         python-version: ${{ matrix.python-version }}
     - name: >-
@@ -56,7 +59,7 @@ jobs:
             print(f'py-hash-key={hash}', file=outputs_file)
       shell: python
     - name: Pre-commit cache
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pre-commit
         key: >-
@@ -67,7 +70,7 @@ jobs:
           hashFiles('.pre-commit-config.yaml') }}-${{
           hashFiles('pytest.ini') }}
     - name: Pip cache
-      uses: actions/cache@v4.0.2
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: >-

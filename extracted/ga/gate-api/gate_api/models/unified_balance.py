@@ -428,7 +428,7 @@ class UnifiedBalance(object):
     def iso_balance(self):
         """Gets the iso_balance of this UnifiedBalance.  # noqa: E501
 
-        Isolated margin balance is valid in single-currency margin mode and is 0 in other modes such as cross-currency margin/combined margin mode  # noqa: E501
+        Isolated Margin Balance applies to Single-Currency Margin Mode and Cross-Currency Margin Mode, and is 0 in other modes such as Portfolio Margin Mode.  # noqa: E501
 
         :return: The iso_balance of this UnifiedBalance.  # noqa: E501
         :rtype: str
@@ -439,7 +439,7 @@ class UnifiedBalance(object):
     def iso_balance(self, iso_balance):
         """Sets the iso_balance of this UnifiedBalance.
 
-        Isolated margin balance is valid in single-currency margin mode and is 0 in other modes such as cross-currency margin/combined margin mode  # noqa: E501
+        Isolated Margin Balance applies to Single-Currency Margin Mode and Cross-Currency Margin Mode, and is 0 in other modes such as Portfolio Margin Mode.  # noqa: E501
 
         :param iso_balance: The iso_balance of this UnifiedBalance.  # noqa: E501
         :type: str

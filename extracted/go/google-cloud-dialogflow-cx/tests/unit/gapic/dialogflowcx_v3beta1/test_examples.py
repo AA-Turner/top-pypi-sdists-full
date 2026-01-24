@@ -63,8 +63,10 @@ from google.cloud.dialogflowcx_v3beta1.services.examples import (
     pagers,
     transports,
 )
+from google.cloud.dialogflowcx_v3beta1.types import data_store_connection
 from google.cloud.dialogflowcx_v3beta1.types import example
 from google.cloud.dialogflowcx_v3beta1.types import example as gcdc_example
+from google.cloud.dialogflowcx_v3beta1.types import trace
 
 CRED_INFO_JSON = {
     "credential_source": "/path/to/file",
@@ -150,12 +152,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            ExamplesClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                ExamplesClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert ExamplesClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert ExamplesClient._read_environment_variables() == (False, "never", None)
@@ -180,6 +189,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert ExamplesClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert ExamplesClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert ExamplesClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert ExamplesClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert ExamplesClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert ExamplesClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert ExamplesClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert ExamplesClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert ExamplesClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                ExamplesClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert ExamplesClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert ExamplesClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -538,17 +646,6 @@ def test_examples_client_client_options(client_class, transport_class, transport
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -760,6 +857,119 @@ def test_examples_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -808,18 +1018,6 @@ def test_examples_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1088,7 +1286,7 @@ def test_create_example(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             description="description_value",
             token_count=1193,
-            conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+            conversation_state=trace.OutputState.OUTPUT_STATE_OK,
             language_code="language_code_value",
         )
         response = client.create_example(request)
@@ -1105,7 +1303,7 @@ def test_create_example(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == gcdc_example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -1236,7 +1434,7 @@ async def test_create_example_async(
                 display_name="display_name_value",
                 description="description_value",
                 token_count=1193,
-                conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+                conversation_state=trace.OutputState.OUTPUT_STATE_OK,
                 language_code="language_code_value",
             )
         )
@@ -1254,7 +1452,7 @@ async def test_create_example_async(
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == gcdc_example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -2273,7 +2471,7 @@ def test_get_example(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             description="description_value",
             token_count=1193,
-            conversation_state=example.OutputState.OUTPUT_STATE_OK,
+            conversation_state=trace.OutputState.OUTPUT_STATE_OK,
             language_code="language_code_value",
         )
         response = client.get_example(request)
@@ -2290,7 +2488,7 @@ def test_get_example(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -2421,7 +2619,7 @@ async def test_get_example_async(
                 display_name="display_name_value",
                 description="description_value",
                 token_count=1193,
-                conversation_state=example.OutputState.OUTPUT_STATE_OK,
+                conversation_state=trace.OutputState.OUTPUT_STATE_OK,
                 language_code="language_code_value",
             )
         )
@@ -2439,7 +2637,7 @@ async def test_get_example_async(
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -2612,7 +2810,7 @@ def test_update_example(request_type, transport: str = "grpc"):
             display_name="display_name_value",
             description="description_value",
             token_count=1193,
-            conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+            conversation_state=trace.OutputState.OUTPUT_STATE_OK,
             language_code="language_code_value",
         )
         response = client.update_example(request)
@@ -2629,7 +2827,7 @@ def test_update_example(request_type, transport: str = "grpc"):
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == gcdc_example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -2756,7 +2954,7 @@ async def test_update_example_async(
                 display_name="display_name_value",
                 description="description_value",
                 token_count=1193,
-                conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+                conversation_state=trace.OutputState.OUTPUT_STATE_OK,
                 language_code="language_code_value",
             )
         )
@@ -2774,7 +2972,7 @@ async def test_update_example_async(
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == gcdc_example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -4161,7 +4359,7 @@ async def test_create_example_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 description="description_value",
                 token_count=1193,
-                conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+                conversation_state=trace.OutputState.OUTPUT_STATE_OK,
                 language_code="language_code_value",
             )
         )
@@ -4243,7 +4441,7 @@ async def test_get_example_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 description="description_value",
                 token_count=1193,
-                conversation_state=example.OutputState.OUTPUT_STATE_OK,
+                conversation_state=trace.OutputState.OUTPUT_STATE_OK,
                 language_code="language_code_value",
             )
         )
@@ -4275,7 +4473,7 @@ async def test_update_example_empty_call_grpc_asyncio():
                 display_name="display_name_value",
                 description="description_value",
                 token_count=1193,
-                conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+                conversation_state=trace.OutputState.OUTPUT_STATE_OK,
                 language_code="language_code_value",
             )
         )
@@ -4347,18 +4545,106 @@ def test_create_example_rest_call_success(request_type):
         },
         "playbook_output": {
             "execution_summary": "execution_summary_value",
+            "state": 1,
             "action_parameters": {},
         },
         "actions": [
             {
-                "user_utterance": {"text": "text_value"},
-                "agent_utterance": {"text": "text_value"},
+                "user_utterance": {
+                    "text": "text_value",
+                    "audio_tokens": [1286, 1287],
+                    "audio": b"audio_blob",
+                },
+                "event": {"event": "event_value", "text": "text_value"},
+                "agent_utterance": {"text": "text_value", "require_generation": True},
                 "tool_use": {
                     "tool": "tool_value",
                     "display_name": "display_name_value",
                     "action": "action_value",
                     "input_action_parameters": {},
                     "output_action_parameters": {},
+                    "data_store_tool_trace": {
+                        "data_store_connection_signals": {
+                            "rewriter_model_call_signals": {
+                                "rendered_prompt": "rendered_prompt_value",
+                                "model_output": "model_output_value",
+                                "model": "model_value",
+                            },
+                            "rewritten_query": "rewritten_query_value",
+                            "search_snippets": [
+                                {
+                                    "document_title": "document_title_value",
+                                    "document_uri": "document_uri_value",
+                                    "text": "text_value",
+                                    "metadata": {},
+                                }
+                            ],
+                            "answer_generation_model_call_signals": {
+                                "rendered_prompt": "rendered_prompt_value",
+                                "model_output": "model_output_value",
+                                "model": "model_value",
+                            },
+                            "answer": "answer_value",
+                            "answer_parts": [
+                                {
+                                    "text": "text_value",
+                                    "supporting_indices": [1946, 1947],
+                                }
+                            ],
+                            "cited_snippets": [
+                                {"search_snippet": {}, "snippet_index": 1402}
+                            ],
+                            "grounding_signals": {"decision": 1, "score": 1},
+                            "safety_signals": {
+                                "decision": 1,
+                                "banned_phrase_match": 1,
+                                "matched_banned_phrase": "matched_banned_phrase_value",
+                            },
+                        }
+                    },
+                    "webhook_tool_trace": {
+                        "webhook_tag": "webhook_tag_value",
+                        "webhook_uri": "webhook_uri_value",
+                    },
+                },
+                "llm_call": {
+                    "retrieved_examples": [
+                        {
+                            "example_id": "example_id_value",
+                            "example_display_name": "example_display_name_value",
+                            "retrieval_strategy": 1,
+                            "matched_retrieval_label": "matched_retrieval_label_value",
+                        }
+                    ],
+                    "token_count": {
+                        "total_input_token_count": 2491,
+                        "conversation_context_token_count": 3463,
+                        "example_token_count": 2036,
+                        "total_output_token_count": 2620,
+                    },
+                    "model": "model_value",
+                    "temperature": 0.1198,
+                },
+                "intent_match": {
+                    "matched_intents": [
+                        {
+                            "intent_id": "intent_id_value",
+                            "display_name": "display_name_value",
+                            "score": 0.54,
+                            "generative_fallback": {},
+                        }
+                    ]
+                },
+                "flow_state_update": {
+                    "event_type": "event_type_value",
+                    "page_state": {
+                        "page": "page_value",
+                        "display_name": "display_name_value",
+                        "status": "status_value",
+                    },
+                    "updated_parameters": {},
+                    "destination": "destination_value",
+                    "function_call": {"name": "name_value"},
                 },
                 "playbook_invocation": {
                     "playbook": "playbook_value",
@@ -4374,12 +4660,50 @@ def test_create_example_rest_call_success(request_type):
                     "output_action_parameters": {},
                     "flow_state": 1,
                 },
+                "playbook_transition": {
+                    "playbook": "playbook_value",
+                    "display_name": "display_name_value",
+                    "input_action_parameters": {},
+                },
+                "flow_transition": {
+                    "flow": "flow_value",
+                    "display_name": "display_name_value",
+                    "input_action_parameters": {},
+                },
+                "tts": {},
+                "stt": {},
+                "display_name": "display_name_value",
+                "start_time": {"seconds": 751, "nanos": 543},
+                "complete_time": {},
+                "sub_execution_steps": [
+                    {
+                        "name": "name_value",
+                        "tags": ["tags_value1", "tags_value2"],
+                        "metrics": [
+                            {
+                                "name": "name_value",
+                                "value": {
+                                    "null_value": 0,
+                                    "number_value": 0.1285,
+                                    "string_value": "string_value_value",
+                                    "bool_value": True,
+                                    "struct_value": {},
+                                    "list_value": {"values": {}},
+                                },
+                                "unit": "unit_value",
+                            }
+                        ],
+                        "start_time": {},
+                        "complete_time": {},
+                    }
+                ],
+                "status": {"exception": {"error_message": "error_message_value"}},
             }
         ],
         "display_name": "display_name_value",
         "description": "description_value",
         "token_count": 1193,
-        "create_time": {"seconds": 751, "nanos": 543},
+        "create_time": {},
         "update_time": {},
         "conversation_state": 1,
         "language_code": "language_code_value",
@@ -4461,7 +4785,7 @@ def test_create_example_rest_call_success(request_type):
             display_name="display_name_value",
             description="description_value",
             token_count=1193,
-            conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+            conversation_state=trace.OutputState.OUTPUT_STATE_OK,
             language_code="language_code_value",
         )
 
@@ -4483,7 +4807,7 @@ def test_create_example_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == gcdc_example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -4832,7 +5156,7 @@ def test_get_example_rest_call_success(request_type):
             display_name="display_name_value",
             description="description_value",
             token_count=1193,
-            conversation_state=example.OutputState.OUTPUT_STATE_OK,
+            conversation_state=trace.OutputState.OUTPUT_STATE_OK,
             language_code="language_code_value",
         )
 
@@ -4854,7 +5178,7 @@ def test_get_example_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -4971,18 +5295,106 @@ def test_update_example_rest_call_success(request_type):
         },
         "playbook_output": {
             "execution_summary": "execution_summary_value",
+            "state": 1,
             "action_parameters": {},
         },
         "actions": [
             {
-                "user_utterance": {"text": "text_value"},
-                "agent_utterance": {"text": "text_value"},
+                "user_utterance": {
+                    "text": "text_value",
+                    "audio_tokens": [1286, 1287],
+                    "audio": b"audio_blob",
+                },
+                "event": {"event": "event_value", "text": "text_value"},
+                "agent_utterance": {"text": "text_value", "require_generation": True},
                 "tool_use": {
                     "tool": "tool_value",
                     "display_name": "display_name_value",
                     "action": "action_value",
                     "input_action_parameters": {},
                     "output_action_parameters": {},
+                    "data_store_tool_trace": {
+                        "data_store_connection_signals": {
+                            "rewriter_model_call_signals": {
+                                "rendered_prompt": "rendered_prompt_value",
+                                "model_output": "model_output_value",
+                                "model": "model_value",
+                            },
+                            "rewritten_query": "rewritten_query_value",
+                            "search_snippets": [
+                                {
+                                    "document_title": "document_title_value",
+                                    "document_uri": "document_uri_value",
+                                    "text": "text_value",
+                                    "metadata": {},
+                                }
+                            ],
+                            "answer_generation_model_call_signals": {
+                                "rendered_prompt": "rendered_prompt_value",
+                                "model_output": "model_output_value",
+                                "model": "model_value",
+                            },
+                            "answer": "answer_value",
+                            "answer_parts": [
+                                {
+                                    "text": "text_value",
+                                    "supporting_indices": [1946, 1947],
+                                }
+                            ],
+                            "cited_snippets": [
+                                {"search_snippet": {}, "snippet_index": 1402}
+                            ],
+                            "grounding_signals": {"decision": 1, "score": 1},
+                            "safety_signals": {
+                                "decision": 1,
+                                "banned_phrase_match": 1,
+                                "matched_banned_phrase": "matched_banned_phrase_value",
+                            },
+                        }
+                    },
+                    "webhook_tool_trace": {
+                        "webhook_tag": "webhook_tag_value",
+                        "webhook_uri": "webhook_uri_value",
+                    },
+                },
+                "llm_call": {
+                    "retrieved_examples": [
+                        {
+                            "example_id": "example_id_value",
+                            "example_display_name": "example_display_name_value",
+                            "retrieval_strategy": 1,
+                            "matched_retrieval_label": "matched_retrieval_label_value",
+                        }
+                    ],
+                    "token_count": {
+                        "total_input_token_count": 2491,
+                        "conversation_context_token_count": 3463,
+                        "example_token_count": 2036,
+                        "total_output_token_count": 2620,
+                    },
+                    "model": "model_value",
+                    "temperature": 0.1198,
+                },
+                "intent_match": {
+                    "matched_intents": [
+                        {
+                            "intent_id": "intent_id_value",
+                            "display_name": "display_name_value",
+                            "score": 0.54,
+                            "generative_fallback": {},
+                        }
+                    ]
+                },
+                "flow_state_update": {
+                    "event_type": "event_type_value",
+                    "page_state": {
+                        "page": "page_value",
+                        "display_name": "display_name_value",
+                        "status": "status_value",
+                    },
+                    "updated_parameters": {},
+                    "destination": "destination_value",
+                    "function_call": {"name": "name_value"},
                 },
                 "playbook_invocation": {
                     "playbook": "playbook_value",
@@ -4998,12 +5410,50 @@ def test_update_example_rest_call_success(request_type):
                     "output_action_parameters": {},
                     "flow_state": 1,
                 },
+                "playbook_transition": {
+                    "playbook": "playbook_value",
+                    "display_name": "display_name_value",
+                    "input_action_parameters": {},
+                },
+                "flow_transition": {
+                    "flow": "flow_value",
+                    "display_name": "display_name_value",
+                    "input_action_parameters": {},
+                },
+                "tts": {},
+                "stt": {},
+                "display_name": "display_name_value",
+                "start_time": {"seconds": 751, "nanos": 543},
+                "complete_time": {},
+                "sub_execution_steps": [
+                    {
+                        "name": "name_value",
+                        "tags": ["tags_value1", "tags_value2"],
+                        "metrics": [
+                            {
+                                "name": "name_value",
+                                "value": {
+                                    "null_value": 0,
+                                    "number_value": 0.1285,
+                                    "string_value": "string_value_value",
+                                    "bool_value": True,
+                                    "struct_value": {},
+                                    "list_value": {"values": {}},
+                                },
+                                "unit": "unit_value",
+                            }
+                        ],
+                        "start_time": {},
+                        "complete_time": {},
+                    }
+                ],
+                "status": {"exception": {"error_message": "error_message_value"}},
             }
         ],
         "display_name": "display_name_value",
         "description": "description_value",
         "token_count": 1193,
-        "create_time": {"seconds": 751, "nanos": 543},
+        "create_time": {},
         "update_time": {},
         "conversation_state": 1,
         "language_code": "language_code_value",
@@ -5085,7 +5535,7 @@ def test_update_example_rest_call_success(request_type):
             display_name="display_name_value",
             description="description_value",
             token_count=1193,
-            conversation_state=gcdc_example.OutputState.OUTPUT_STATE_OK,
+            conversation_state=trace.OutputState.OUTPUT_STATE_OK,
             language_code="language_code_value",
         )
 
@@ -5107,7 +5557,7 @@ def test_update_example_rest_call_success(request_type):
     assert response.display_name == "display_name_value"
     assert response.description == "description_value"
     assert response.token_count == 1193
-    assert response.conversation_state == gcdc_example.OutputState.OUTPUT_STATE_OK
+    assert response.conversation_state == trace.OutputState.OUTPUT_STATE_OK
     assert response.language_code == "language_code_value"
 
 
@@ -5937,6 +6387,7 @@ def test_examples_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.ExamplesGrpcTransport, transports.ExamplesGrpcAsyncIOTransport],

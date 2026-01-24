@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -166,8 +166,8 @@ class RestApiClientException(ServiceException):
     code: str = "RestApiClientException"
     sender_fault: bool = True
     status_code: int = 400
-    RestApiStatusCode: Optional[Integer]
-    RestApiResponse: Optional[RestApiResponse]
+    RestApiStatusCode: Integer | None
+    RestApiResponse: RestApiResponse | None
 
 
 class RestApiServerException(ServiceException):
@@ -178,8 +178,8 @@ class RestApiServerException(ServiceException):
     code: str = "RestApiServerException"
     sender_fault: bool = True
     status_code: int = 400
-    RestApiStatusCode: Optional[Integer]
-    RestApiResponse: Optional[RestApiResponse]
+    RestApiStatusCode: Integer | None
+    RestApiResponse: RestApiResponse | None
 
 
 class ValidationException(ServiceException):
@@ -190,7 +190,7 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
-AirflowConfigurationOptions = Dict[ConfigKey, ConfigValue]
+AirflowConfigurationOptions = dict[ConfigKey, ConfigValue]
 
 
 class CreateCliTokenRequest(ServiceRequest):
@@ -198,11 +198,11 @@ class CreateCliTokenRequest(ServiceRequest):
 
 
 class CreateCliTokenResponse(TypedDict, total=False):
-    CliToken: Optional[Token]
-    WebServerHostname: Optional[Hostname]
+    CliToken: Token | None
+    WebServerHostname: Hostname | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class ModuleLoggingConfigurationInput(TypedDict, total=False):
@@ -217,15 +217,15 @@ class ModuleLoggingConfigurationInput(TypedDict, total=False):
 class LoggingConfigurationInput(TypedDict, total=False):
     """Defines the Apache Airflow log types to send to CloudWatch Logs."""
 
-    DagProcessingLogs: Optional[ModuleLoggingConfigurationInput]
-    SchedulerLogs: Optional[ModuleLoggingConfigurationInput]
-    WebserverLogs: Optional[ModuleLoggingConfigurationInput]
-    WorkerLogs: Optional[ModuleLoggingConfigurationInput]
-    TaskLogs: Optional[ModuleLoggingConfigurationInput]
+    DagProcessingLogs: ModuleLoggingConfigurationInput | None
+    SchedulerLogs: ModuleLoggingConfigurationInput | None
+    WebserverLogs: ModuleLoggingConfigurationInput | None
+    WorkerLogs: ModuleLoggingConfigurationInput | None
+    TaskLogs: ModuleLoggingConfigurationInput | None
 
 
-SecurityGroupList = List[SecurityGroupId]
-SubnetList = List[SubnetId]
+SecurityGroupList = list[SecurityGroupId]
+SubnetList = list[SubnetId]
 
 
 class NetworkConfiguration(TypedDict, total=False):
@@ -235,8 +235,8 @@ class NetworkConfiguration(TypedDict, total=False):
     MWAA <https://docs.aws.amazon.com/mwaa/latest/userguide/networking-about.html>`__.
     """
 
-    SubnetIds: Optional[SubnetList]
-    SecurityGroupIds: Optional[SecurityGroupList]
+    SubnetIds: SubnetList | None
+    SecurityGroupIds: SecurityGroupList | None
 
 
 class CreateEnvironmentInput(ServiceRequest):
@@ -252,30 +252,30 @@ class CreateEnvironmentInput(ServiceRequest):
     SourceBucketArn: S3BucketArn
     DagS3Path: RelativePath
     NetworkConfiguration: NetworkConfiguration
-    PluginsS3Path: Optional[RelativePath]
-    PluginsS3ObjectVersion: Optional[S3ObjectVersion]
-    RequirementsS3Path: Optional[RelativePath]
-    RequirementsS3ObjectVersion: Optional[S3ObjectVersion]
-    StartupScriptS3Path: Optional[RelativePath]
-    StartupScriptS3ObjectVersion: Optional[S3ObjectVersion]
-    AirflowConfigurationOptions: Optional[AirflowConfigurationOptions]
-    EnvironmentClass: Optional[EnvironmentClass]
-    MaxWorkers: Optional[MaxWorkers]
-    KmsKey: Optional[KmsKey]
-    AirflowVersion: Optional[AirflowVersion]
-    LoggingConfiguration: Optional[LoggingConfigurationInput]
-    WeeklyMaintenanceWindowStart: Optional[WeeklyMaintenanceWindowStart]
-    Tags: Optional[TagMap]
-    WebserverAccessMode: Optional[WebserverAccessMode]
-    MinWorkers: Optional[MinWorkers]
-    Schedulers: Optional[Schedulers]
-    EndpointManagement: Optional[EndpointManagement]
-    MinWebservers: Optional[MinWebservers]
-    MaxWebservers: Optional[MaxWebservers]
+    PluginsS3Path: RelativePath | None
+    PluginsS3ObjectVersion: S3ObjectVersion | None
+    RequirementsS3Path: RelativePath | None
+    RequirementsS3ObjectVersion: S3ObjectVersion | None
+    StartupScriptS3Path: RelativePath | None
+    StartupScriptS3ObjectVersion: S3ObjectVersion | None
+    AirflowConfigurationOptions: AirflowConfigurationOptions | None
+    EnvironmentClass: EnvironmentClass | None
+    MaxWorkers: MaxWorkers | None
+    KmsKey: KmsKey | None
+    AirflowVersion: AirflowVersion | None
+    LoggingConfiguration: LoggingConfigurationInput | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    Tags: TagMap | None
+    WebserverAccessMode: WebserverAccessMode | None
+    MinWorkers: MinWorkers | None
+    Schedulers: Schedulers | None
+    EndpointManagement: EndpointManagement | None
+    MinWebservers: MinWebservers | None
+    MaxWebservers: MaxWebservers | None
 
 
 class CreateEnvironmentOutput(TypedDict, total=False):
-    Arn: Optional[EnvironmentArn]
+    Arn: EnvironmentArn | None
 
 
 class CreateWebLoginTokenRequest(ServiceRequest):
@@ -283,10 +283,10 @@ class CreateWebLoginTokenRequest(ServiceRequest):
 
 
 class CreateWebLoginTokenResponse(TypedDict, total=False):
-    WebToken: Optional[Token]
-    WebServerHostname: Optional[Hostname]
-    IamIdentity: Optional[IamIdentity]
-    AirflowIdentity: Optional[AirflowIdentity]
+    WebToken: Token | None
+    WebServerHostname: Hostname | None
+    IamIdentity: IamIdentity | None
+    AirflowIdentity: AirflowIdentity | None
 
 
 CreatedAt = datetime
@@ -311,7 +311,7 @@ class Dimension(TypedDict, total=False):
     Value: String
 
 
-Dimensions = List[Dimension]
+Dimensions = list[Dimension]
 
 
 class Document(TypedDict, total=False):
@@ -323,8 +323,8 @@ class UpdateError(TypedDict, total=False):
     environment.
     """
 
-    ErrorCode: Optional[ErrorCode]
-    ErrorMessage: Optional[ErrorMessage]
+    ErrorCode: ErrorCode | None
+    ErrorMessage: ErrorMessage | None
 
 
 UpdateCreatedAt = datetime
@@ -335,11 +335,11 @@ class LastUpdate(TypedDict, total=False):
     errors that were encountered.
     """
 
-    Status: Optional[UpdateStatus]
-    CreatedAt: Optional[UpdateCreatedAt]
-    Error: Optional[UpdateError]
-    Source: Optional[UpdateSource]
-    WorkerReplacementStrategy: Optional[WorkerReplacementStrategy]
+    Status: UpdateStatus | None
+    CreatedAt: UpdateCreatedAt | None
+    Error: UpdateError | None
+    Source: UpdateSource | None
+    WorkerReplacementStrategy: WorkerReplacementStrategy | None
 
 
 class ModuleLoggingConfiguration(TypedDict, total=False):
@@ -347,9 +347,9 @@ class ModuleLoggingConfiguration(TypedDict, total=False):
     ``DagProcessingLogs``).
     """
 
-    Enabled: Optional[LoggingEnabled]
-    LogLevel: Optional[LoggingLevel]
-    CloudWatchLogGroupArn: Optional[CloudWatchLogGroupArn]
+    Enabled: LoggingEnabled | None
+    LogLevel: LoggingLevel | None
+    CloudWatchLogGroupArn: CloudWatchLogGroupArn | None
 
 
 class LoggingConfiguration(TypedDict, total=False):
@@ -357,11 +357,11 @@ class LoggingConfiguration(TypedDict, total=False):
     Logs.
     """
 
-    DagProcessingLogs: Optional[ModuleLoggingConfiguration]
-    SchedulerLogs: Optional[ModuleLoggingConfiguration]
-    WebserverLogs: Optional[ModuleLoggingConfiguration]
-    WorkerLogs: Optional[ModuleLoggingConfiguration]
-    TaskLogs: Optional[ModuleLoggingConfiguration]
+    DagProcessingLogs: ModuleLoggingConfiguration | None
+    SchedulerLogs: ModuleLoggingConfiguration | None
+    WebserverLogs: ModuleLoggingConfiguration | None
+    WorkerLogs: ModuleLoggingConfiguration | None
+    TaskLogs: ModuleLoggingConfiguration | None
 
 
 class Environment(TypedDict, total=False):
@@ -369,43 +369,43 @@ class Environment(TypedDict, total=False):
     environment.
     """
 
-    Name: Optional[EnvironmentName]
-    Status: Optional[EnvironmentStatus]
-    Arn: Optional[EnvironmentArn]
-    CreatedAt: Optional[CreatedAt]
-    WebserverUrl: Optional[WebserverUrl]
-    ExecutionRoleArn: Optional[IamRoleArn]
-    ServiceRoleArn: Optional[IamRoleArn]
-    KmsKey: Optional[KmsKey]
-    AirflowVersion: Optional[AirflowVersion]
-    SourceBucketArn: Optional[S3BucketArn]
-    DagS3Path: Optional[RelativePath]
-    PluginsS3Path: Optional[RelativePath]
-    PluginsS3ObjectVersion: Optional[S3ObjectVersion]
-    RequirementsS3Path: Optional[RelativePath]
-    RequirementsS3ObjectVersion: Optional[S3ObjectVersion]
-    StartupScriptS3Path: Optional[String]
-    StartupScriptS3ObjectVersion: Optional[String]
-    AirflowConfigurationOptions: Optional[AirflowConfigurationOptions]
-    EnvironmentClass: Optional[EnvironmentClass]
-    MaxWorkers: Optional[MaxWorkers]
-    NetworkConfiguration: Optional[NetworkConfiguration]
-    LoggingConfiguration: Optional[LoggingConfiguration]
-    LastUpdate: Optional[LastUpdate]
-    WeeklyMaintenanceWindowStart: Optional[WeeklyMaintenanceWindowStart]
-    Tags: Optional[TagMap]
-    WebserverAccessMode: Optional[WebserverAccessMode]
-    MinWorkers: Optional[MinWorkers]
-    Schedulers: Optional[Schedulers]
-    WebserverVpcEndpointService: Optional[VpcEndpointServiceName]
-    DatabaseVpcEndpointService: Optional[VpcEndpointServiceName]
-    CeleryExecutorQueue: Optional[CeleryExecutorQueue]
-    EndpointManagement: Optional[EndpointManagement]
-    MinWebservers: Optional[MinWebservers]
-    MaxWebservers: Optional[MaxWebservers]
+    Name: EnvironmentName | None
+    Status: EnvironmentStatus | None
+    Arn: EnvironmentArn | None
+    CreatedAt: CreatedAt | None
+    WebserverUrl: WebserverUrl | None
+    ExecutionRoleArn: IamRoleArn | None
+    ServiceRoleArn: IamRoleArn | None
+    KmsKey: KmsKey | None
+    AirflowVersion: AirflowVersion | None
+    SourceBucketArn: S3BucketArn | None
+    DagS3Path: RelativePath | None
+    PluginsS3Path: RelativePath | None
+    PluginsS3ObjectVersion: S3ObjectVersion | None
+    RequirementsS3Path: RelativePath | None
+    RequirementsS3ObjectVersion: S3ObjectVersion | None
+    StartupScriptS3Path: String | None
+    StartupScriptS3ObjectVersion: String | None
+    AirflowConfigurationOptions: AirflowConfigurationOptions | None
+    EnvironmentClass: EnvironmentClass | None
+    MaxWorkers: MaxWorkers | None
+    NetworkConfiguration: NetworkConfiguration | None
+    LoggingConfiguration: LoggingConfiguration | None
+    LastUpdate: LastUpdate | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
+    Tags: TagMap | None
+    WebserverAccessMode: WebserverAccessMode | None
+    MinWorkers: MinWorkers | None
+    Schedulers: Schedulers | None
+    WebserverVpcEndpointService: VpcEndpointServiceName | None
+    DatabaseVpcEndpointService: VpcEndpointServiceName | None
+    CeleryExecutorQueue: CeleryExecutorQueue | None
+    EndpointManagement: EndpointManagement | None
+    MinWebservers: MinWebservers | None
+    MaxWebservers: MaxWebservers | None
 
 
-EnvironmentList = List[EnvironmentName]
+EnvironmentList = list[EnvironmentName]
 
 
 class GetEnvironmentInput(ServiceRequest):
@@ -413,7 +413,7 @@ class GetEnvironmentInput(ServiceRequest):
 
 
 class GetEnvironmentOutput(TypedDict, total=False):
-    Environment: Optional[Environment]
+    Environment: Environment | None
 
 
 class RestApiRequestBody(TypedDict, total=False):
@@ -424,23 +424,23 @@ class InvokeRestApiRequest(ServiceRequest):
     Name: EnvironmentName
     Path: RestApiPath
     Method: RestApiMethod
-    QueryParameters: Optional[Document]
-    Body: Optional[RestApiRequestBody]
+    QueryParameters: Document | None
+    Body: RestApiRequestBody | None
 
 
 class InvokeRestApiResponse(TypedDict, total=False):
-    RestApiStatusCode: Optional[Integer]
-    RestApiResponse: Optional[RestApiResponse]
+    RestApiStatusCode: Integer | None
+    RestApiResponse: RestApiResponse | None
 
 
 class ListEnvironmentsInput(ServiceRequest):
-    NextToken: Optional[NextToken]
-    MaxResults: Optional[ListEnvironmentsInputMaxResultsInteger]
+    NextToken: NextToken | None
+    MaxResults: ListEnvironmentsInputMaxResultsInteger | None
 
 
 class ListEnvironmentsOutput(TypedDict, total=False):
     Environments: EnvironmentList
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListTagsForResourceInput(ServiceRequest):
@@ -448,7 +448,7 @@ class ListTagsForResourceInput(ServiceRequest):
 
 
 class ListTagsForResourceOutput(TypedDict, total=False):
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class StatisticSet(TypedDict, total=False):
@@ -458,10 +458,10 @@ class StatisticSet(TypedDict, total=False):
     CloudWatch <https://docs.aws.amazon.com/mwaa/latest/userguide/cw-metrics.html>`__.
     """
 
-    SampleCount: Optional[Integer]
-    Sum: Optional[Double]
-    Minimum: Optional[Double]
-    Maximum: Optional[Double]
+    SampleCount: Integer | None
+    Sum: Double | None
+    Minimum: Double | None
+    Maximum: Double | None
 
 
 Timestamp = datetime
@@ -476,13 +476,13 @@ class MetricDatum(TypedDict, total=False):
 
     MetricName: String
     Timestamp: Timestamp
-    Dimensions: Optional[Dimensions]
-    Value: Optional[Double]
-    Unit: Optional[Unit]
-    StatisticValues: Optional[StatisticSet]
+    Dimensions: Dimensions | None
+    Value: Double | None
+    Unit: Unit | None
+    StatisticValues: StatisticSet | None
 
 
-MetricData = List[MetricDatum]
+MetricData = list[MetricDatum]
 
 
 class PublishMetricsInput(ServiceRequest):
@@ -494,7 +494,7 @@ class PublishMetricsOutput(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceInput(ServiceRequest):
@@ -527,37 +527,37 @@ class UpdateNetworkConfigurationInput(TypedDict, total=False):
 
 class UpdateEnvironmentInput(ServiceRequest):
     Name: EnvironmentName
-    ExecutionRoleArn: Optional[IamRoleArn]
-    AirflowConfigurationOptions: Optional[AirflowConfigurationOptions]
-    AirflowVersion: Optional[AirflowVersion]
-    DagS3Path: Optional[RelativePath]
-    EnvironmentClass: Optional[EnvironmentClass]
-    LoggingConfiguration: Optional[LoggingConfigurationInput]
-    MaxWorkers: Optional[MaxWorkers]
-    MinWorkers: Optional[MinWorkers]
-    MaxWebservers: Optional[MaxWebservers]
-    MinWebservers: Optional[MinWebservers]
-    WorkerReplacementStrategy: Optional[WorkerReplacementStrategy]
-    NetworkConfiguration: Optional[UpdateNetworkConfigurationInput]
-    PluginsS3Path: Optional[RelativePath]
-    PluginsS3ObjectVersion: Optional[S3ObjectVersion]
-    RequirementsS3Path: Optional[RelativePath]
-    RequirementsS3ObjectVersion: Optional[S3ObjectVersion]
-    Schedulers: Optional[Schedulers]
-    SourceBucketArn: Optional[S3BucketArn]
-    StartupScriptS3Path: Optional[RelativePath]
-    StartupScriptS3ObjectVersion: Optional[S3ObjectVersion]
-    WebserverAccessMode: Optional[WebserverAccessMode]
-    WeeklyMaintenanceWindowStart: Optional[WeeklyMaintenanceWindowStart]
+    ExecutionRoleArn: IamRoleArn | None
+    AirflowConfigurationOptions: AirflowConfigurationOptions | None
+    AirflowVersion: AirflowVersion | None
+    DagS3Path: RelativePath | None
+    EnvironmentClass: EnvironmentClass | None
+    LoggingConfiguration: LoggingConfigurationInput | None
+    MaxWorkers: MaxWorkers | None
+    MinWorkers: MinWorkers | None
+    MaxWebservers: MaxWebservers | None
+    MinWebservers: MinWebservers | None
+    WorkerReplacementStrategy: WorkerReplacementStrategy | None
+    NetworkConfiguration: UpdateNetworkConfigurationInput | None
+    PluginsS3Path: RelativePath | None
+    PluginsS3ObjectVersion: S3ObjectVersion | None
+    RequirementsS3Path: RelativePath | None
+    RequirementsS3ObjectVersion: S3ObjectVersion | None
+    Schedulers: Schedulers | None
+    SourceBucketArn: S3BucketArn | None
+    StartupScriptS3Path: RelativePath | None
+    StartupScriptS3ObjectVersion: S3ObjectVersion | None
+    WebserverAccessMode: WebserverAccessMode | None
+    WeeklyMaintenanceWindowStart: WeeklyMaintenanceWindowStart | None
 
 
 class UpdateEnvironmentOutput(TypedDict, total=False):
-    Arn: Optional[EnvironmentArn]
+    Arn: EnvironmentArn | None
 
 
 class MwaaApi:
-    service = "mwaa"
-    version = "2020-07-01"
+    service: str = "mwaa"
+    version: str = "2020-07-01"
 
     @handler("CreateCliToken")
     def create_cli_token(

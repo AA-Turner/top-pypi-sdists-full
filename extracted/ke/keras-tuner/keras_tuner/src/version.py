@@ -13,5 +13,5 @@
 # limitations under the License.
 
 # Unique source of truth for the version number.
-__version__ = "1.4.7"
+__version__ = "1.4.8"
 

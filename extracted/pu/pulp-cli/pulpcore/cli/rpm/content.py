@@ -62,8 +62,8 @@ def _sha256_callback(ctx: click.Context, param: click.Parameter, value: str) -> 
 
 
 def _sha256_artifact_callback(
-    ctx: click.Context, param: click.Parameter, value: t.Optional[str]
-) -> t.Optional[t.Union[str, PulpEntityContext]]:
+    ctx: click.Context, param: click.Parameter, value: str | None
+) -> str | PulpEntityContext | None:
     # Pass None and "" verbatim
     if value:
         pulp_ctx = ctx.find_object(PulpCLIContext)
@@ -389,16 +389,24 @@ def upload(
                 _("You must specify one (and only one) of --file or --directory.")
             )
 
-        # Sanity: If directory, repository required
+        # Sanity: If using temp repository, both directory and repository are required
         final_dest_repo_ctx = kwargs["repository"]
-        if directory and not final_dest_repo_ctx:
+        if kwargs["use_temp_repository"] and not (directory and final_dest_repo_ctx):
             raise click.ClickException(
-                _("You must specify a --repository to use --directory uploads.")
+                _(
+                    "You must specify both --directory and --repository "
+                    "to use --use-temp-repository."
+                )
             )
 
-        # Sanity: ignore publish|use_temp unless directory has been specified
+        # Sanity: ignore publish|use_temp unless destination-repository has been specified
         use_tmp = final_dest_repo_ctx and kwargs["use_temp_repository"]
-        do_publish = final_dest_repo_ctx and kwargs["publish"]
+        # Publish if autopublish is not enabled on the repository
+        do_publish = (
+            final_dest_repo_ctx
+            and kwargs["publish"]
+            and not final_dest_repo_ctx.entity["autopublish"]
+        )
 
         # Sanity: ignore relative_path if directory specified
         if directory and kwargs["relative_path"]:
@@ -416,10 +424,11 @@ def upload(
             )
         else:
             # Upload a directory-full of RPMs
+            dest_repo_ctx = None
             try:
                 dest_repo_ctx = _determine_upload_repository(final_dest_repo_ctx, pulp_ctx, use_tmp)
                 result = _upload_rpms(entity_ctx, dest_repo_ctx, directory, chunk_size)
-                if use_tmp:
+                if use_tmp and dest_repo_ctx:
                     result = _copy_to_final(dest_repo_ctx, final_dest_repo_ctx, pulp_ctx)
             finally:
                 if use_tmp and dest_repo_ctx:
@@ -454,7 +463,7 @@ def upload(
     pulp_ctx.output_result(result)
 
 
-def _latest_version_number(final_dest_repo_ctx: PulpRpmRepositoryContext) -> t.Optional[int]:
+def _latest_version_number(final_dest_repo_ctx: PulpRpmRepositoryContext) -> int | None:
     if final_dest_repo_ctx:
         repo_result = final_dest_repo_ctx.show()
         version_number = int(repo_result["latest_version_href"].split("/")[-2])
@@ -488,7 +497,7 @@ def _copy_to_final(
 
 def _upload_rpms(
     entity_ctx: PulpContentContext,
-    dest_repo_ctx: PulpRpmRepositoryContext,
+    dest_repo_ctx: PulpRpmRepositoryContext | None,
     directory: t.Any,
     chunk_size: int,
 ) -> t.Any:
@@ -496,15 +505,28 @@ def _upload_rpms(
     rpm_names = glob.glob(rpms_path)
     if not rpm_names:
         raise click.ClickException(_("Directory {} has no .rpm files in it.").format(directory))
-    click.echo(
-        _(
-            "About to upload {} files for {}.".format(
-                len(rpm_names),
-                dest_repo_ctx.entity["name"],
-            )
-        ),
-        err=True,
-    )
+
+    # Build message based on whether we have a repository or not
+    if dest_repo_ctx:
+        click.echo(
+            _(
+                "About to upload {} files for {}.".format(
+                    len(rpm_names),
+                    dest_repo_ctx.entity["name"],
+                )
+            ),
+            err=True,
+        )
+    else:
+        click.echo(
+            _(
+                "About to upload {} files from {}.".format(
+                    len(rpm_names),
+                    directory,
+                )
+            ),
+            err=True,
+        )
     # Upload all *.rpm into the destination
     successful_uploads = 0
     for name in rpm_names:
@@ -525,11 +547,13 @@ def _upload_rpms(
 
 
 def _determine_upload_repository(
-    final_dest_repo_ctx: PulpRpmRepositoryContext, pulp_ctx: PulpCLIContext, use_tmp: bool
-) -> PulpRpmRepositoryContext:
-    if use_tmp:
+    final_dest_repo_ctx: PulpRpmRepositoryContext | None,
+    pulp_ctx: PulpCLIContext,
+    use_tmp: bool,
+) -> PulpRpmRepositoryContext | None:
+    if use_tmp and final_dest_repo_ctx:
         dest_repo_ctx = PulpRpmRepositoryContext(pulp_ctx)
-        body: t.Dict[str, t.Any] = {
+        body: dict[str, t.Any] = {
             "name": f"uploadtmp_{final_dest_repo_ctx.entity['name']}_{uuid4()}",
             "retain_repo_versions": 1,
             "autopublish": False,

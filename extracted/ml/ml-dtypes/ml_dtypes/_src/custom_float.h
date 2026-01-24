@@ -159,6 +159,12 @@ bool CastToCustomFloat(PyObject* arg, T* output) {
     *output = T(f);
     return true;
   }
+  if (PyArray_IsScalar(arg, Integer)) {
+    int64_t i;
+    PyArray_CastScalarToCtype(arg, &i, PyArray_DescrFromType(NPY_INT64));
+    *output = T(i);
+    return true;
+  }
   if (PyArray_IsZeroDim(arg)) {
     Safe_PyObjectPtr ref;
     PyArrayObject* arr = reinterpret_cast<PyArrayObject*>(arg);
@@ -475,32 +481,41 @@ void NPyCustomFloat_CopySwapN(void* dstv, npy_intp dstride, void* srcv,
                 "Not supported");
   char* dst = reinterpret_cast<char*>(dstv);
   char* src = reinterpret_cast<char*>(srcv);
-  if (!src) {
-    return;
-  }
-  if (swap && sizeof(T) == sizeof(int16_t)) {
-    for (npy_intp i = 0; i < n; i++) {
-      char* r = dst + dstride * i;
-      memcpy(r, src + sstride * i, sizeof(T));
-      ByteSwap16(r);
+
+  if (src) {
+    if (swap && sizeof(T) == sizeof(int16_t)) {
+      for (npy_intp i = 0; i < n; i++) {
+        char* r = dst + dstride * i;
+        memcpy(r, src + sstride * i, sizeof(T));
+        ByteSwap16(r);
+      }
+    } else if (dstride == sizeof(T) && sstride == sizeof(T)) {
+      memcpy(dst, src, n * sizeof(T));
+    } else {
+      for (npy_intp i = 0; i < n; i++) {
+        memcpy(dst + dstride * i, src + sstride * i, sizeof(T));
+      }
     }
-  } else if (dstride == sizeof(T) && sstride == sizeof(T)) {
-    memcpy(dst, src, n * sizeof(T));
   } else {
-    for (npy_intp i = 0; i < n; i++) {
-      memcpy(dst + dstride * i, src + sstride * i, sizeof(T));
+    // In-place swap when src is NULL
+    if (swap && sizeof(T) == sizeof(int16_t)) {
+      for (npy_intp i = 0; i < n; i++) {
+        char* r = dst + dstride * i;
+        ByteSwap16(r);
+      }
     }
   }
 }
 
 template <typename T>
 void NPyCustomFloat_CopySwap(void* dst, void* src, int swap, void* arr) {
-  if (!src) {
-    return;
-  }
-  memcpy(dst, src, sizeof(T));
   static_assert(sizeof(T) == sizeof(int16_t) || sizeof(T) == sizeof(int8_t),
                 "Not supported");
+
+  if (src) {
+    memcpy(dst, src, sizeof(T));
+  }
+
   if (swap && sizeof(T) == sizeof(int16_t)) {
     ByteSwap16(dst);
   }

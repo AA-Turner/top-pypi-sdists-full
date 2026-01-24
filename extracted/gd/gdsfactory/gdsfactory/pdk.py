@@ -20,7 +20,6 @@ from gdsfactory.component import Component, ComponentAllAngle
 from gdsfactory.config import CONF
 from gdsfactory.cross_section import CrossSection, Section
 from gdsfactory.cross_section import xsection as cross_section_xsection
-from gdsfactory.generic_tech import get_generic_pdk
 from gdsfactory.read.from_yaml_template import cell_from_yaml_template
 from gdsfactory.serialization import clean_value_json
 from gdsfactory.symbols import floorplan_with_block_letters
@@ -65,7 +64,6 @@ def evanescent_coupler_sample() -> None:
     Args:
       coupler_length: length of coupling (min: 0.0, max: 200.0, um).
     """
-    pass
 
 
 def extract_args_from_docstring(docstring: str) -> dict[str, Any]:
@@ -316,18 +314,19 @@ class Pdk(BaseModel):
     ) -> ComponentFactory | ComponentAllAngleFactory:
         """Returns ComponentFactory from a cell spec."""
         cells_and_containers = self._get_cells_and_containers()
+        settings = kwargs
 
         if callable(cell):
-            return cell
+            cell_func = cell
         elif isinstance(cell, str):
             if cell not in cells_and_containers:
                 matching_cells = [c for c in cells_and_containers if cell in c]
                 raise ValueError(
                     f"{cell!r} from PDK {self.name!r} not in cells: Did you mean {matching_cells}?"
                 )
-            return cells_and_containers[cell]
-        else:
-            for key in cell.keys():
+            cell_func = cells_and_containers[cell]
+        elif isinstance(cell, dict):
+            for key in cell:
                 if key not in component_settings:
                     raise ValueError(
                         f"Invalid setting {key!r} not in {component_settings}"
@@ -337,12 +336,18 @@ class Pdk(BaseModel):
 
             cell_name = cell.get("function")
             if not isinstance(cell_name, str) or cell_name not in cells_and_containers:
-                matching_cells = [c for c in cells_and_containers if c in cell.keys()]
+                matching_cells = [c for c in cells_and_containers if c in cell]
                 raise ValueError(
                     f"{cell!r} from PDK {self.name!r} not in cells: Did you mean {matching_cells}?"
                 )
-            cell = cells_and_containers[cell_name]
-            return partial(cell, **settings)
+            cell_func = cells_and_containers[cell_name]
+        else:
+            raise ValueError(
+                f"Parameter cell must be of type Callable, str or dict. Type {type(cell)} is not supported."
+            )
+        if settings:
+            return partial(cell_func, **settings)
+        return cell_func
 
     def get_component(
         self,
@@ -405,12 +410,12 @@ class Pdk(BaseModel):
 
         if isinstance(component, kf.ProtoTKCell):
             return Component(base=component.base)
-        elif isinstance(component, kf.VKCell):
+        if isinstance(component, kf.VKCell):
             return ComponentAllAngle(base=component.base)
-        elif callable(component):
+        if callable(component):
             _component = component(**kwargs)
             return type(_component)(base=_component.base)  # type: ignore[call-overload,no-any-return]
-        elif isinstance(component, str):
+        if isinstance(component, str):
             if component not in cell_names:
                 substring = component
                 matching_cells: list[str] = []
@@ -425,8 +430,8 @@ class Pdk(BaseModel):
                     f"{component!r} not in PDK {self.name!r}. Did you mean {matching_cells}?"
                 )
             return cells[component](**kwargs)
-        elif isinstance(component, dict):
-            for key in component.keys():
+        if isinstance(component, dict):
+            for key in component:
                 if key not in component_settings:
                     raise ValueError(
                         f"Invalid setting {key!r} not in {component_settings}"
@@ -444,11 +449,10 @@ class Pdk(BaseModel):
                     f"{cell_name!r} from PDK {self.name!r} not in cells: Did you mean {matching_cells}?"
                 )
             return cells[cell_name](**settings)
-        else:
-            raise ValueError(
-                "get_component expects a ComponentSpec (Component, ComponentFactory, "
-                f"string or dict), got {type(component)}"
-            )
+        raise ValueError(
+            "get_component expects a ComponentSpec (Component, ComponentFactory, "
+            f"string or dict), got {type(component)}"
+        )
 
     def get_cross_section(
         self, cross_section: CrossSectionSpec, **kwargs: Any
@@ -461,7 +465,7 @@ class Pdk(BaseModel):
         """
         if callable(cross_section):
             return cross_section(**kwargs)
-        elif isinstance(cross_section, str):
+        if isinstance(cross_section, str):
             if cross_section not in self.cross_sections:
                 cross_sections = list(self.cross_sections.keys())
                 raise ValueError(f"{cross_section!r} not in {cross_sections}")
@@ -470,13 +474,13 @@ class Pdk(BaseModel):
             if xs.name in self.cross_section_default_names:
                 xs._name = self.cross_section_default_names[xs.name]
             return xs
-        elif isinstance(cross_section, dict):
+        if isinstance(cross_section, dict):
             xs_name = cross_section.get("cross_section", None)
             if xs_name is None:
                 raise ValueError("cross_section name is required")
             settings = cross_section.get("settings", {})
             return self.get_cross_section(xs_name, **settings)
-        elif isinstance(cross_section, CrossSection):
+        if isinstance(cross_section, CrossSection):
             if kwargs:
                 warnings.warn(
                     f"{kwargs} ignored for cross_section {cross_section.name!r}",
@@ -484,7 +488,7 @@ class Pdk(BaseModel):
                 )
 
             return cross_section
-        elif isinstance(cross_section, kf.DCrossSection | kf.SymmetricalCrossSection):
+        if isinstance(cross_section, kf.DCrossSection | kf.SymmetricalCrossSection):
             from gdsfactory import kcl
 
             if isinstance(cross_section, kf.DCrossSection):
@@ -502,27 +506,25 @@ class Pdk(BaseModel):
             )
             xs_._name = cross_section_.name
             return xs_
-        else:
-            raise ValueError(
-                "get_cross_section expects a CrossSectionSpec (CrossSection, "
-                f"CrossSectionFactory, Transition, string or dict), got {type(cross_section)}"
-            )
+        raise ValueError(
+            "get_cross_section expects a CrossSectionSpec (CrossSection, "
+            f"CrossSectionFactory, Transition, string or dict), got {type(cross_section)}"
+        )
 
     def get_layer(self, layer: LayerSpec | kf.kdb.LayerInfo) -> LayerEnum | int:
         """Returns layer from a layer spec."""
         if isinstance(layer, LayerEnum | int):
             return layer
-        elif isinstance(layer, tuple | list):
+        if isinstance(layer, tuple | list):
             if len(layer) != 2:
                 raise ValueError(f"{layer!r} needs two integer numbers.")
             return kf.kcl.layout.layer(*layer)
-        elif isinstance(layer, kf.kdb.LayerInfo):
+        if isinstance(layer, kf.kdb.LayerInfo):
             return layer.layer
-        else:
-            if self.layers is None or not hasattr(self.layers, layer):
-                layer_members = self.layers.__members__ if self.layers else {}
-                raise ValueError(f"{layer!r} not in PDK {self.name!r} {layer_members}")
-            return cast(LayerEnum, getattr(self.layers, layer))
+        if self.layers is None or not hasattr(self.layers, layer):
+            layer_members = self.layers.__members__ if self.layers else {}
+            raise ValueError(f"{layer!r} not in PDK {self.name!r} {layer_members}")
+        return cast("LayerEnum", getattr(self.layers, layer))
 
     def get_layer_name(self, layer: LayerSpec) -> str:
         layer_index = self.get_layer(layer)
@@ -602,8 +604,7 @@ class Pdk(BaseModel):
                 },
             )
         xsections = {
-            xs_name: self.get_cross_section(xs_name)
-            for xs_name in self.cross_sections.keys()
+            xs_name: self.get_cross_section(xs_name) for xs_name in self.cross_sections
         }
         xsections_widths = {
             xs_name: dict(width=xsection.width)
@@ -657,23 +658,42 @@ class Pdk(BaseModel):
 
 
 def get_active_pdk(name: str | None = None) -> Pdk:
-    """Returns active PDK.
+    """Return the currently active PDK.
 
-    By default it will return the PDK defined in the name or config file.
-    Otherwise it will return the generic PDK.
+    Resolution order:
+    1. If a PDK is already active, return it.
+    2. Otherwise, try to activate the PDK specified by `name`
+       or by the configuration (CONF.pdk).
+    3. If the name is "generic", activate and return the generic PDK.
+
+    Raises:
+        ValueError: If no PDK can be resolved or activated.
     """
+    from gdsfactory.gpdk import get_generic_pdk
+
     global _ACTIVE_PDK
 
-    if _ACTIVE_PDK is None:
-        name = name or CONF.pdk
-        if name == "generic":
-            return get_generic_pdk()
-        elif name:
-            pdk_module = importlib.import_module(name or CONF.pdk)
-            pdk_module.PDK.activate()
+    if _ACTIVE_PDK is not None:
+        return _ACTIVE_PDK
 
-        else:
-            raise ValueError("no active pdk")
+    pdk_name = name or CONF.pdk
+    if not pdk_name:
+        raise ValueError(
+            "No active PDK. Import and activate a PDK, or activate the generic "
+            "PDK with `gf.gpdk.PDK.activate()`."
+        )
+
+    if pdk_name == "generic":
+        pdk = get_generic_pdk()
+        pdk.activate()
+        return pdk
+
+    try:
+        pdk_module = importlib.import_module(pdk_name)
+        pdk_module.PDK.activate()
+    except ImportError as e:
+        raise ValueError(f"Could not import PDK module '{pdk_name}'.") from e
+
     assert _ACTIVE_PDK is not None, "Could not find active PDK"
     return _ACTIVE_PDK
 

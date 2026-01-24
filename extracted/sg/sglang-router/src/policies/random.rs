@@ -1,8 +1,11 @@
 //! Random load balancing policy
 
-use super::{get_healthy_worker_indices, LoadBalancingPolicy};
-use crate::core::Worker;
+use std::sync::Arc;
+
 use rand::Rng;
+
+use super::{get_healthy_worker_indices, LoadBalancingPolicy, SelectWorkerInfo};
+use crate::core::Worker;
 
 /// Random selection policy
 ///
@@ -19,8 +22,8 @@ impl RandomPolicy {
 impl LoadBalancingPolicy for RandomPolicy {
     fn select_worker(
         &self,
-        workers: &[Box<dyn Worker>],
-        _request_text: Option<&str>,
+        workers: &[Arc<dyn Worker>],
+        _info: &SelectWorkerInfo,
     ) -> Option<usize> {
         let healthy_indices = get_healthy_worker_indices(workers);
 
@@ -28,8 +31,9 @@ impl LoadBalancingPolicy for RandomPolicy {
             return None;
         }
 
-        let mut rng = rand::thread_rng();
-        let random_idx = rng.gen_range(0..healthy_indices.len());
+        let mut rng = rand::rng();
+        let random_idx = rng.random_range(0..healthy_indices.len());
+
         Some(healthy_indices[random_idx])
     }
 
@@ -44,32 +48,35 @@ impl LoadBalancingPolicy for RandomPolicy {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::core::{BasicWorker, WorkerType};
     use std::collections::HashMap;
+
+    use super::*;
+    use crate::core::{BasicWorkerBuilder, WorkerType};
 
     #[test]
     fn test_random_selection() {
         let policy = RandomPolicy::new();
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w3:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w3:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
         ];
 
-        // Test multiple selections to ensure randomness
         let mut counts = HashMap::new();
         for _ in 0..100 {
-            if let Some(idx) = policy.select_worker(&workers, None) {
+            if let Some(idx) = policy.select_worker(&workers, &SelectWorkerInfo::default()) {
                 *counts.entry(idx).or_insert(0) += 1;
             }
         }
@@ -82,15 +89,17 @@ mod tests {
     #[test]
     fn test_random_with_unhealthy_workers() {
         let policy = RandomPolicy::new();
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
         ];
 
         // Mark first worker as unhealthy
@@ -98,19 +107,26 @@ mod tests {
 
         // Should always select the healthy worker (index 1)
         for _ in 0..10 {
-            assert_eq!(policy.select_worker(&workers, None), Some(1));
+            assert_eq!(
+                policy.select_worker(&workers, &SelectWorkerInfo::default()),
+                Some(1)
+            );
         }
     }
 
     #[test]
     fn test_random_no_healthy_workers() {
         let policy = RandomPolicy::new();
-        let workers: Vec<Box<dyn Worker>> = vec![Box::new(BasicWorker::new(
-            "http://w1:8000".to_string(),
-            WorkerType::Regular,
-        ))];
+        let workers: Vec<Arc<dyn Worker>> = vec![Arc::new(
+            BasicWorkerBuilder::new("http://w1:8000")
+                .worker_type(WorkerType::Regular)
+                .build(),
+        )];
 
         workers[0].set_healthy(false);
-        assert_eq!(policy.select_worker(&workers, None), None);
+        assert_eq!(
+            policy.select_worker(&workers, &SelectWorkerInfo::default()),
+            None
+        );
     }
 }

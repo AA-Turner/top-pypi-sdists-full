@@ -5,7 +5,6 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-use crate::test::util::TestEnv;
 use crate::testcase;
 
 testcase!(
@@ -187,7 +186,7 @@ class P1(Protocol):
 class C1:
     @property
     def foo(self) -> int:
-        return 1 
+        return 1
 a: P1 = C1()
 
 class P2(Protocol):
@@ -197,7 +196,7 @@ class P2(Protocol):
 class C2:
     @property
     def foo(self) -> object:
-        return 1 
+        return 1
 b: P2 = C2()  # E: `C2` is not assignable to `P2`
 
 class P3(Protocol):
@@ -210,7 +209,7 @@ class P3(Protocol):
 class C3:
     @property
     def foo(self) -> int:
-        return 1 
+        return 1
     @foo.setter
     def foo(self, val: int) -> None:
         pass
@@ -226,7 +225,7 @@ class P4(Protocol):
 class C4:
     @property
     def foo(self) -> int:
-        return 1 
+        return 1
     @foo.setter
     def foo(self, val: object) -> None:
         pass
@@ -239,7 +238,7 @@ class P5(Protocol):
 class C5:
     @property
     def foo(self) -> int:
-        return 1 
+        return 1
     @foo.setter
     def foo(self, val: object) -> None:
         pass
@@ -305,7 +304,27 @@ from typing import Protocol
 class A(Protocol):
     pass
 a: A = A()  # E: Cannot instantiate `A` because it is a protocol
+
+class B(A):
+    pass
+type_a: type[A] = B
+a = type_a()  # This is OK because it's not a bare class name
     "#,
+);
+
+testcase!(
+    test_protocol_stub_method_instantiation_error,
+    r#"
+from typing import Protocol
+
+class Proto(Protocol):
+    def method(self) -> int: ...
+
+class Concrete(Proto):
+    pass
+
+Concrete()  # E: Cannot instantiate `Concrete`
+"#,
 );
 
 testcase!(
@@ -356,15 +375,17 @@ assert_type(f.x, int)
 );
 
 testcase!(
-    bug = "According to the spec, should complain here specifically about implicit attribute definition in protocols. The current error is too general.",
     test_protocol_with_implicit_attr_assigned_in_method,
-    TestEnv::new().enable_implicitly_defined_attribute_error(),
     r#"
 from typing import Protocol
 class P(Protocol):
     x: int
-    def f(self, y: str):
-        self.y = y  # E: Attribute `y` is implicitly defined by assignment in method `f`, which is not a constructor
+    def __init__(self, x: int, z: str):
+        self.x = x  # ok
+        self.z = z  # E: Instance or class variables within a Protocol class must be explicitly declared within the class body
+    def f(self, x: int, y: str):
+        self.x = x  # ok
+        self.y = y  # E: Instance or class variables within a Protocol class must be explicitly declared within the class body
     "#,
 );
 
@@ -528,10 +549,10 @@ class DataOnlyProtocol(Protocol):
 class Implementation:
     name: str = "test"
     value: int = 42
-    
+
     def process(self) -> None:
         pass
-    
+
     def validate(self) -> bool:
         return True
 
@@ -559,7 +580,7 @@ class RegularClass:
         return 42
 
 # This should also fail
-@runtime_checkable  # E: @runtime_checkable can only be applied to Protocol classes  
+@runtime_checkable  # E: @runtime_checkable can only be applied to Protocol classes
 class AnotherClass:
     x: int = 5
 "#,
@@ -598,6 +619,19 @@ c: C = g  # E: `(x: int) -> int` is not assignable to `C`
 );
 
 testcase!(
+    test_protocol_return_self,
+    r#"
+from typing import Protocol, Self, runtime_checkable
+
+@runtime_checkable
+class CanAddSelf(Protocol):
+    def __add__(self, other: Self, /) -> Self: ...
+
+assert isinstance(42, CanAddSelf)
+    "#,
+);
+
+testcase!(
     test_protocol_self_tvar,
     r#"
 from typing import Protocol
@@ -612,4 +646,204 @@ class C:
 
 x: P = C() # OK
     "#,
+);
+
+testcase!(
+    test_assign_to_type_protocol,
+    r#"
+from typing import Protocol
+
+class CanFly(Protocol):
+    def fly(self) -> None: ...
+
+class A:
+    def __init__(self, wingspan: float) -> None: ...
+    def fly(self) -> None: ...
+
+cls1: type[CanFly] = CanFly # E: `type[CanFly]` is not assignable to `type[CanFly]`
+cls2: type[CanFly] = A      # OK
+    "#,
+);
+
+testcase!(
+    test_runtime_checkable_unsafe_overlap,
+    r#"
+from typing import Protocol, runtime_checkable
+@runtime_checkable
+class UnsafeProtocol(Protocol):
+    def foo(self) -> int: ...
+class No:
+    def foo(self) -> str:
+        return "not an int"
+isinstance(No(), UnsafeProtocol) # E: Runtime checkable protocol `UnsafeProtocol` has an unsafe overlap with type `No`
+issubclass(No, UnsafeProtocol) # E: Runtime checkable protocol `UnsafeProtocol` has an unsafe overlap with type `No`
+    "#,
+);
+
+testcase!(
+    test_runtime_checkable_unsafe_overlap_with_inheritance,
+    r#"
+from typing import Protocol, runtime_checkable
+@runtime_checkable
+class UnsafeProtocol(Protocol):
+    def foo(self) -> int: ...
+@runtime_checkable
+class ChildUnsafeProtocol(UnsafeProtocol, Protocol):
+    def bar(self) -> str: ...
+class No:
+    def foo(self) -> str:
+        return "not an int"
+    def bar(self) -> int:
+        return 42
+isinstance(No(), ChildUnsafeProtocol) # E: Runtime checkable protocol `ChildUnsafeProtocol` has an unsafe overlap with type `No`
+issubclass(No, ChildUnsafeProtocol) # E: Runtime checkable protocol `ChildUnsafeProtocol` has an unsafe overlap with type `No`
+    "#,
+);
+
+testcase!(
+    test_unsafe_overlap_with_abc,
+    r#"
+from collections.abc import Sized
+class X:
+    def __len__(self) -> str:
+        return "42"
+isinstance(X(), Sized) # E: Runtime checkable protocol `Sized` has an unsafe overlap with type `X`
+issubclass(X, Sized) # E: Runtime checkable protocol `Sized` has an unsafe overlap with type `X`
+"#,
+);
+
+testcase!(
+    test_runtime_checkable_generics_no_error,
+    r#"
+from typing import Protocol, runtime_checkable, TypeVar
+T = TypeVar('T')
+@runtime_checkable
+class GenericProtocol(Protocol[T]):
+    def get(self, x: T) -> T: ...
+
+class IntImpl:
+    def get(self, x: int) -> int:
+        return 42
+isinstance(IntImpl(), GenericProtocol)
+issubclass(IntImpl, GenericProtocol)
+"#,
+);
+
+testcase!(
+    test_runtime_checkable_generics_unsafe_overlap_inconsistent_within_method,
+    r#"
+from typing import Protocol, runtime_checkable, TypeVar
+T = TypeVar('T')
+@runtime_checkable
+class GenericProtocol(Protocol[T]):
+    def get(self, x: T) -> T: ...
+
+class IntImpl:
+    def get(self, x: str) -> int:
+        return 42
+isinstance(IntImpl(), GenericProtocol)  # E: Runtime checkable protocol `GenericProtocol` has an unsafe overlap with type `IntImpl`
+issubclass(IntImpl, GenericProtocol)  # E: Runtime checkable protocol `GenericProtocol` has an unsafe overlap with type `IntImpl`
+"#,
+);
+
+testcase!(
+    test_runtime_checkable_generics_unsafe_overlap_inconsistent_across_methods,
+    r#"
+from typing import Protocol, runtime_checkable, TypeVar
+T = TypeVar('T')
+@runtime_checkable
+class GenericProtocol(Protocol[T]):
+    def get(self, x: T) -> T: ...
+    def get2(self, x: T) -> T: ...
+
+class Impl:
+    def get(self, x: str) -> str:
+        return ""
+    def get2(self, x: int) -> int:
+        return 42
+isinstance(Impl(), GenericProtocol)  # E: Runtime checkable protocol `GenericProtocol` has an unsafe overlap with type `Impl`
+issubclass(Impl, GenericProtocol)  # E: Runtime checkable protocol `GenericProtocol` has an unsafe overlap with type `Impl`
+"#,
+);
+
+testcase!(
+    test_protocol_with_uninit_classvar,
+    r#"
+from typing import Protocol, ClassVar, final
+class P(Protocol):
+    x: ClassVar[int]
+
+@final
+class C(P): # E: Final class `C` cannot have unimplemented abstract members: `x`
+    pass
+
+c = C()  # E: Cannot instantiate `C` because the following members are abstract: `x`
+"#,
+);
+
+testcase!(
+    test_check_protocol_upper_bound,
+    r#"
+from typing import Protocol
+class A(Protocol):
+    x: int
+class B:
+    x: int
+class C:
+    pass
+def f[T: A](a: T) -> T:
+    return a
+def g(b: B, c: C):
+    f(b)
+    f(c)  # E: `C` is not assignable to upper bound `A`
+    "#,
+);
+
+// Regression test for https://github.com/facebook/pyrefly/issues/1905
+testcase!(
+    test_functor_protocol_and_impl,
+    r#"
+from typing import Generic, TypeVar, Protocol, Callable
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+class Functor(Protocol[T]):
+    """A Functor protocol - common in functional programming."""
+    def map(self, f: Callable[[T], U]) -> Functor[U]: ...
+
+class Maybe(Generic[T]):
+    """A Maybe/Option type that should implement Functor."""
+    value: T | None
+    def map(self, f: Callable[[T], U]) -> Maybe[U]: ...
+
+def test():
+    m: Maybe[int] = ...  # type: ignore
+    f: Functor[int] = m  # Should work now!
+"#,
+);
+
+// Regression test for a case an early implementation of https://github.com/facebook/pyrefly/issues/1905 got wrong
+testcase!(
+    test_second_order_protocol_subset_failure,
+    r#"
+from typing import Generic, TypeVar, Protocol, Callable
+
+T = TypeVar('T')
+U = TypeVar('U')
+
+class TrickyProtocol(Protocol[T]):
+    def recurse(self, f: Callable[[T], U]) -> "TrickyProtocol[U]": ...
+    def check(self) -> T: ...
+
+class TrickyImpl(Generic[T]):
+    def recurse(self, f: Callable[[T], U]) -> "TrickyImpl[U]": ...
+    def check(self) -> int: ...
+
+def test():
+    t: TrickyImpl[int] = TrickyImpl()
+    # Invalid because p.recurse(lambda i: str(i)).check() returns int, but
+    # it should return `str` if we fully implemented the protocol
+    p: TrickyProtocol[int] = t  # E:
+"#,
 );

@@ -1,23 +1,14 @@
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from enum import Enum
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Generic,
-    List,
-    Optional,
-    Sequence,
-    TypeVar,
-    Union,
-)
+from typing import Any, Generic, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 
 T = TypeVar("T")
 
-Id = Union[str, int]
+Id = str | int
 
 
 # JSON-RPC 2.0 definitions
@@ -30,13 +21,13 @@ class Request(BaseModel, Generic[T]):
     jsonrpc: str = "2.0"
     id: Id
     method: str
-    params: Optional[T] = None
+    params: T | None = None
 
 
 class Error(BaseModel):
     code: int
-    message: Optional[str] = None
-    data: Optional[str] = None
+    message: str | None = None
+    data: str | None = None
 
 
 class Response(BaseModel, Generic[T]):
@@ -47,8 +38,8 @@ class Response(BaseModel, Generic[T]):
 
     jsonrpc: str
     id: Id
-    result: Optional[T] = None
-    error: Optional[Error] = None
+    result: T | None = None
+    error: Error | None = None
 
 
 # get_events
@@ -59,9 +50,9 @@ class EventFilterType(Enum):
 
 
 class EventFilter(BaseModel):
-    event_type: Optional[EventFilterType] = Field(alias="type", default=None)
-    contract_ids: Optional[Sequence[str]] = Field(alias="contractIds", default=None)
-    topics: Optional[Sequence[Sequence[str]]] = None
+    event_type: EventFilterType | None = Field(alias="type", default=None)
+    contract_ids: Sequence[str] | None = Field(alias="contractIds", default=None)
+    topics: Sequence[Sequence[str]] | None = None
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -71,7 +62,7 @@ class EventInfo(BaseModel):
     ledger_close_at: datetime = Field(alias="ledgerClosedAt")
     contract_id: str = Field(alias="contractId")
     id: str = Field(alias="id")
-    topic: List[str] = Field(alias="topic")
+    topic: list[str] = Field(alias="topic")
     value: str = Field(alias="value")
     in_successful_contract_call: bool = Field(
         alias="inSuccessfulContractCall",
@@ -84,39 +75,43 @@ class EventInfo(BaseModel):
 
 
 class PaginationOptions(BaseModel):
-    cursor: Optional[str] = None
-    limit: Optional[int] = None
+    cursor: str | None = None
+    limit: int | None = None
 
 
 class PaginationMixin:
     @model_validator(mode="after")
     def verify_ledger_or_cursor(self) -> Self:
         pagination = getattr(self, "pagination", None)
-        if pagination and (getattr(self, "start_ledger") and pagination.cursor):
-            raise ValueError("start_ledger and cursor cannot both be set")
+        if pagination and pagination.cursor:
+            if getattr(self, "start_ledger", None):
+                raise ValueError("start_ledger and cursor cannot both be set")
+            if getattr(self, "end_ledger", None):
+                raise ValueError("end_ledger and cursor cannot both be set")
         return self
 
 
 class GetEventsRequest(PaginationMixin, BaseModel):
     """Response for JSON-RPC method getEvents.
 
-    See `getEvents documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getEvents>`__ for
+    See `getEvents documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getEvents>`__ for
     more information.
     """
 
-    start_ledger: Optional[int] = Field(alias="startLedger", default=None)
-    pagination: Optional[PaginationOptions] = None
-    filters: Optional[Sequence[EventFilter]] = None
+    start_ledger: int | None = Field(alias="startLedger", default=None)
+    end_ledger: int | None = Field(alias="endLedger", default=None)
+    pagination: PaginationOptions | None = None
+    filters: Sequence[EventFilter] | None = None
 
 
 class GetEventsResponse(BaseModel):
     """Response for JSON-RPC method getEvents.
 
-    See `getEvents documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getEvents>`__ for
+    See `getEvents documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getEvents>`__ for
     more information.
     """
 
-    events: List[EventInfo] = Field(alias="events")
+    events: list[EventInfo] = Field(alias="events")
     latest_ledger: int = Field(alias="latestLedger")
     oldest_ledger: int = Field(alias="oldestLedger")
     latest_Ledger_close_time: int = Field(alias="latestLedgerCloseTime")
@@ -128,7 +123,7 @@ class GetEventsResponse(BaseModel):
 class GetLedgerEntriesRequest(BaseModel):
     """Response for JSON-RPC method getLedgerEntries.
 
-    See `getLedgerEntries documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgerEntries>`__ for
+    See `getLedgerEntries documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries>`__ for
     more information."""
 
     keys: Sequence[str]
@@ -138,16 +133,16 @@ class LedgerEntryResult(BaseModel):
     key: str
     xdr: str
     last_modified_ledger: int = Field(alias="lastModifiedLedgerSeq")
-    live_until_ledger: Optional[int] = Field(alias="liveUntilLedgerSeq", default=None)
+    live_until_ledger: int | None = Field(alias="liveUntilLedgerSeq", default=None)
 
 
 class GetLedgerEntriesResponse(BaseModel):
     """Response for JSON-RPC method getLedgerEntries.
 
-    See `getLedgerEntries documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgerEntries>`__ for
+    See `getLedgerEntries documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgerEntries>`__ for
     more information."""
 
-    entries: Optional[List[LedgerEntryResult]] = None
+    entries: list[LedgerEntryResult] | None = None
     latest_ledger: int = Field(alias="latestLedger")
 
 
@@ -155,10 +150,10 @@ class GetLedgerEntriesResponse(BaseModel):
 class GetNetworkResponse(BaseModel):
     """Response for JSON-RPC method getNetwork.
 
-    See `getNetwork documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getNetwork>`__ for
+    See `getNetwork documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getNetwork>`__ for
     more information."""
 
-    friendbot_url: Optional[str] = Field(alias="friendbotUrl", default=None)
+    friendbot_url: str | None = Field(alias="friendbotUrl", default=None)
     passphrase: str
     protocol_version: int = Field(alias="protocolVersion")
 
@@ -167,7 +162,7 @@ class GetNetworkResponse(BaseModel):
 class GetHealthResponse(BaseModel):
     """Response for JSON-RPC method getHealth.
 
-    See `getHealth documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getHealth>`__ for
+    See `getHealth documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getHealth>`__ for
     more information.
     """
 
@@ -205,15 +200,13 @@ class SimulateTransactionRequest(BaseModel):
         simulation response for invoke host function, could be one of three types: error, success, or
         restore operation needed.
 
-    See `simulateTransaction documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/simulateTransaction>`__ for
+    See `simulateTransaction documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/simulateTransaction>`__ for
     more information.
     """
 
     transaction: str
-    resource_config: Optional[ResourceConfig] = Field(
-        alias="resourceConfig", default=None
-    )
-    auth_mode: Optional[AuthMode] = Field(alias="authMode", default=None)
+    resource_config: ResourceConfig | None = Field(alias="resourceConfig", default=None)
+    auth_mode: AuthMode | None = Field(alias="authMode", default=None)
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -223,14 +216,14 @@ class SimulateTransactionCost(BaseModel):
 
 
 class SimulateTransactionResult(BaseModel):
-    auth: Optional[List[str]] = None
-    events: Optional[List[str]] = None
+    auth: list[str] | None = None
+    events: list[str] | None = None
     footprint: str
     xdr: str
 
 
 class SimulateHostFunctionResult(BaseModel):
-    auth: Optional[List[str]] = None
+    auth: list[str] | None = None
     xdr: str
 
 
@@ -249,30 +242,30 @@ class LedgerEntryChange(BaseModel):
     # LedgerEntryKey in base64
     key: str
     # LedgerEntry XDR in base64
-    before: Optional[str] = None
+    before: str | None = None
     # LedgerEntry XDR in base64
-    after: Optional[str] = None
+    after: str | None = None
 
 
 class SimulateTransactionResponse(BaseModel):
     """Response for JSON-RPC method simulateTransaction.
 
-    See `simulateTransaction documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/simulateTransaction>`__ for
+    See `simulateTransaction documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/simulateTransaction>`__ for
     more information."""
 
-    error: Optional[str] = None
-    transaction_data: Optional[str] = Field(alias="transactionData", default=None)
+    error: str | None = None
+    transaction_data: str | None = Field(alias="transactionData", default=None)
     # SorobanTransactionData XDR in base64
-    min_resource_fee: Optional[int] = Field(alias="minResourceFee", default=None)
-    events: Optional[List[str]] = None
+    min_resource_fee: int | None = Field(alias="minResourceFee", default=None)
+    events: list[str] | None = None
     # DiagnosticEvent XDR in base64
-    results: Optional[List[SimulateHostFunctionResult]] = None
+    results: list[SimulateHostFunctionResult] | None = None
     # the effective cpu and memory cost of the invoked transaction execution.
-    restore_preamble: Optional[RestorePreamble] = Field(
+    restore_preamble: RestorePreamble | None = Field(
         alias="restorePreamble", default=None
     )
     # If present, it indicates how the state (ledger entries) will change as a result of the transaction execution.
-    state_changes: Optional[List[LedgerEntryChange]] = Field(
+    state_changes: list[LedgerEntryChange] | None = Field(
         alias="stateChanges", default=None
     )
     # If present, it indicates that a prior RestoreFootprint is required
@@ -292,29 +285,25 @@ class GetTransactionStatus(Enum):
 class TransactionResponseError(BaseModel):
     code: str
     message: str
-    data: Dict[str, Any]
+    data: dict[str, Any]
 
 
 class GetTransactionRequest(BaseModel):
     """Response for JSON-RPC method getTransaction.
 
-    See `getTransaction documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getTransaction>`__ for
+    See `getTransaction documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getTransaction>`__ for
     more information."""
 
     hash: str
 
 
 class Events(BaseModel):
-    # base64-encoded list of `xdr.DiagnosticEvent`s
-    diagnostic_events_xdr: Optional[List[str]] = Field(
-        alias="diagnosticEventsXdr", default=None
-    )
     # base64-encoded list of `xdr.TransactionEvent`s
-    transaction_events_xdr: Optional[List[str]] = Field(
+    transaction_events_xdr: list[str] | None = Field(
         alias="transactionEventsXdr", default=None
     )
     # base64-encoded list of lists of `xdr.ContractEvent`s, where each element of the list corresponds to the events for that operation in the transaction
-    contract_events_xdr: Optional[List[List[str]]] = Field(
+    contract_events_xdr: list[list[str]] | None = Field(
         alias="contractEventsXdr", default=None
     )
 
@@ -322,7 +311,7 @@ class Events(BaseModel):
 class GetTransactionResponse(BaseModel):
     """Response for JSON-RPC method getTransaction.
 
-    See `getTransaction documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getTransaction>`__ for
+    See `getTransaction documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getTransaction>`__ for
     more information."""
 
     status: GetTransactionStatus
@@ -332,20 +321,24 @@ class GetTransactionResponse(BaseModel):
     oldest_ledger: int = Field(alias="oldestLedger")
     oldest_ledger_close_time: int = Field(alias="oldestLedgerCloseTime")
     # The fields below are only present if Status is not TransactionStatus.NOT_FOUND.
-    application_order: Optional[int] = Field(alias="applicationOrder", default=None)
-    fee_bump: Optional[bool] = Field(alias="feeBump", default=None)
-    envelope_xdr: Optional[str] = Field(
+    application_order: int | None = Field(alias="applicationOrder", default=None)
+    fee_bump: bool | None = Field(alias="feeBump", default=None)
+    envelope_xdr: str | None = Field(
         alias="envelopeXdr", default=None
     )  # stellar_sdk.xdr.TransactionEnvelope
-    result_xdr: Optional[str] = Field(
+    result_xdr: str | None = Field(
         alias="resultXdr", default=None
     )  # stellar_sdk.xdr.TransactionResult
-    result_meta_xdr: Optional[str] = Field(
+    result_meta_xdr: str | None = Field(
         alias="resultMetaXdr", default=None
     )  # stellar_sdk.xdr.TransactionMeta
-    events: Optional[Events] = None
-    ledger: Optional[int] = Field(alias="ledger", default=None)
-    create_at: Optional[int] = Field(alias="createdAt", default=None)
+    diagnostic_events_xdr: list[str] | None = Field(
+        alias="diagnosticEventsXdr",
+        default=None,
+    )  # stellar_sdk.xdr.DiagnosticEvent
+    events: Events | None = None
+    ledger: int | None = Field(alias="ledger", default=None)
+    create_at: int | None = Field(alias="createdAt", default=None)
 
 
 # send_transaction
@@ -363,7 +356,7 @@ class SendTransactionStatus(Enum):
 class SendTransactionRequest(BaseModel):
     """Response for JSON-RPC method sendTransaction.
 
-    See `sendTransaction documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/sendTransaction>`__ for
+    See `sendTransaction documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/sendTransaction>`__ for
     more information."""
 
     transaction: str
@@ -372,13 +365,13 @@ class SendTransactionRequest(BaseModel):
 class SendTransactionResponse(BaseModel):
     """Response for JSON-RPC method sendTransaction.
 
-    See `sendTransaction documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/sendTransaction>`__ for
+    See `sendTransaction documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/sendTransaction>`__ for
     more information."""
 
-    error_result_xdr: Optional[str] = Field(alias="errorResultXdr", default=None)
-    diagnostic_events_xdr: Optional[List[str]] = Field(
+    error_result_xdr: str | None = Field(alias="errorResultXdr", default=None)
+    diagnostic_events_xdr: list[str] | None = Field(
         alias="diagnosticEventsXdr", default=None
-    )
+    )  # stellar_sdk.xdr.DiagnosticEvent
     status: SendTransactionStatus = Field(alias="status")
     hash: str = Field(alias="hash")
     latest_ledger: int = Field(alias="latestLedger")
@@ -389,7 +382,7 @@ class SendTransactionResponse(BaseModel):
 class GetLatestLedgerResponse(BaseModel):
     """Response for JSON-RPC method getLatestLedger.
 
-    See `getLatestLedger documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLatestLedger>`__ for
+    See `getLatestLedger documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLatestLedger>`__ for
     more information."""
 
     id: str
@@ -420,7 +413,7 @@ class FeeDistribution(BaseModel):
 class GetFeeStatsResponse(BaseModel):
     """Response for JSON-RPC method getFeeStats.
 
-    See `getFeeStats documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getFeeStats>`__ for
+    See `getFeeStats documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getFeeStats>`__ for
     more information."""
 
     soroban_inclusion_fee: FeeDistribution = Field(alias="sorobanInclusionFee")
@@ -432,11 +425,11 @@ class GetFeeStatsResponse(BaseModel):
 class GetTransactionsRequest(PaginationMixin, BaseModel):
     """Request for JSON-RPC method getTransactions.
 
-    See `getTransactions documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getTransactions>`__ for
+    See `getTransactions documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getTransactions>`__ for
     more information."""
 
-    start_ledger: Optional[int] = Field(alias="startLedger", default=None)
-    pagination: Optional[PaginationOptions] = None
+    start_ledger: int | None = Field(alias="startLedger", default=None)
+    pagination: PaginationOptions | None = None
 
 
 class Transaction(BaseModel):
@@ -449,22 +442,20 @@ class Transaction(BaseModel):
     result_meta_xdr: str = Field(alias="resultMetaXdr")
     ledger: int
     created_at: int = Field(alias="createdAt")
-    diagnostic_events_xdr: Optional[List[str]] = Field(
+    diagnostic_events_xdr: list[str] | None = Field(
         alias="diagnosticEventsXdr",
         default=None,
-        deprecated=True,
-        description="This field is deprecated and will be removed in the future. Use `events.diagnostic_events_xdr` instead.",
-    )
-    events: Optional[Events] = None
+    )  # stellar_sdk.xdr.DiagnosticEvent
+    events: Events | None = None
 
 
 class GetTransactionsResponse(BaseModel):
     """Response for JSON-RPC method getTransactions.
 
-    See `getTransactions documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getTransactions>`__ for
+    See `getTransactions documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getTransactions>`__ for
     more information."""
 
-    transactions: List[Transaction]
+    transactions: list[Transaction]
     latest_ledger: int = Field(alias="latestLedger")
     latest_ledger_close_timestamp: int = Field(alias="latestLedgerCloseTimestamp")
     oldest_ledger: int = Field(alias="oldestLedger")
@@ -476,7 +467,7 @@ class GetTransactionsResponse(BaseModel):
 class GetVersionInfoResponse(BaseModel):
     """Response for JSON-RPC method getVersionInfo.
 
-    See `getVersionInfo documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getVersionInfo>`__ for
+    See `getVersionInfo documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getVersionInfo>`__ for
     more information."""
 
     version: str
@@ -490,11 +481,11 @@ class GetVersionInfoResponse(BaseModel):
 class GetLedgersRequest(PaginationMixin, BaseModel):
     """Request for JSON-RPC method getLedgers.
 
-    See `getLedgers documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgers>`__ for
+    See `getLedgers documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgers>`__ for
     more information."""
 
-    start_ledger: Optional[int] = Field(alias="startLedger", default=None)
-    pagination: Optional[PaginationOptions] = None
+    start_ledger: int | None = Field(alias="startLedger", default=None)
+    pagination: PaginationOptions | None = None
 
 
 class LedgerInfo(BaseModel):
@@ -510,10 +501,10 @@ class LedgerInfo(BaseModel):
 class GetLedgersResponse(BaseModel):
     """Response for JSON-RPC method getLedgers.
 
-    See `getLedgers documentation <https://developers.stellar.org/docs/data/rpc/api-reference/methods/getLedgers>`__ for
+    See `getLedgers documentation <https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLedgers>`__ for
     more information."""
 
-    ledgers: List[LedgerInfo]
+    ledgers: list[LedgerInfo]
     latest_ledger: int = Field(alias="latestLedger")
     latest_ledger_close_time: int = Field(alias="latestLedgerCloseTime")
     oldest_ledger: int = Field(alias="oldestLedger")
@@ -525,15 +516,15 @@ class SACBalanceEntry(BaseModel):
     amount: int
     authorized: bool
     clawback: bool
-    last_modified_ledger: Optional[int] = Field(default=None)
-    live_until_ledger: Optional[int] = Field(default=None)
+    last_modified_ledger: int | None = Field(default=None)
+    live_until_ledger: int | None = Field(default=None)
 
 
 class GetSACBalanceResponse(BaseModel):
     """Response for :meth:`stellar_sdk.SorobanServer.get_sac_balance` and :meth:`stellar_sdk.SorobanServerAsync.get_sac_balance` methods."""
 
     latest_ledger: int
-    balance_entry: Optional[SACBalanceEntry] = Field(
+    balance_entry: SACBalanceEntry | None = Field(
         description="The balance entry for the account. If there is not a valid balance entry, this will be None."
     )
 

@@ -1,11 +1,12 @@
 import logging
 import warnings
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 from collate_sqllineage import DEFAULT_DIALECT, SQLPARSE_DIALECT
 from collate_sqllineage.core.holders import SQLLineageHolder
 from collate_sqllineage.core.models import Column, Table
 from collate_sqllineage.core.parser.sqlfluff.analyzer import SqlFluffLineageAnalyzer
+from collate_sqllineage.core.parser.sqlglot.analyzer import SqlGlotLineageAnalyzer
 from collate_sqllineage.core.parser.sqlparse.analyzer import SqlParseLineageAnalyzer
 from collate_sqllineage.drawing import draw_lineage_graph
 from collate_sqllineage.io import to_cytoscape
@@ -34,6 +35,13 @@ class LineageRunner(object):
         self,
         sql: str,
         dialect: str = DEFAULT_DIALECT,
+        analyzer: Optional[
+            Union[
+                Type[SqlGlotLineageAnalyzer],
+                Type[SqlFluffLineageAnalyzer],
+                Type[SqlParseLineageAnalyzer],
+            ]
+        ] = None,
         encoding: Optional[str] = None,
         verbose: bool = False,
         draw_options: Optional[Dict[str, Optional[str]]] = None,
@@ -60,6 +68,18 @@ class LineageRunner(object):
         self._evaluated = False
         self._stmt: List[str] = []
         self._dialect = dialect
+
+        self._analyzer: Union[
+            SqlGlotLineageAnalyzer, SqlFluffLineageAnalyzer, SqlParseLineageAnalyzer
+        ]
+        if self._dialect == SQLPARSE_DIALECT or (
+            analyzer is not None and issubclass(analyzer, SqlParseLineageAnalyzer)
+        ):
+            self._analyzer = SqlParseLineageAnalyzer()
+        elif analyzer is not None:
+            self._analyzer = analyzer(self._dialect)
+        else:
+            self._analyzer = SqlGlotLineageAnalyzer(self._dialect)
 
     @lazy_method
     def __str__(self):
@@ -170,14 +190,9 @@ Target Tables:
 
     def _eval(self):
         self._stmt = split(self._sql.strip())
-        analyzer = (
-            SqlParseLineageAnalyzer()
-            if self._dialect == SQLPARSE_DIALECT
-            else SqlFluffLineageAnalyzer(self._dialect)
-        )
-        self._stmt_holders = [analyzer.analyze(stmt) for stmt in self._stmt]
-        if hasattr(analyzer, "parsed_result"):
-            self._parsed_result = analyzer.parsed_result
+        self._stmt_holders = [self._analyzer.analyze(stmt) for stmt in self._stmt]
+        if hasattr(self._analyzer, "parsed_result"):
+            self._parsed_result = self._analyzer.parsed_result
         else:
             self._parsed_result = None
         self._sql_holder = SQLLineageHolder.of(*self._stmt_holders)

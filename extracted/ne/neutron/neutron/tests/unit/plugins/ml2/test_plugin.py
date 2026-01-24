@@ -43,13 +43,13 @@ from neutron_lib.plugins import utils as p_utils
 from oslo_config import cfg
 from oslo_db import exception as db_exc
 from oslo_utils import netutils
+from oslo_utils import timeutils
 from oslo_utils import uuidutils
 import testtools
 import webob
 
 from neutron._i18n import _
 from neutron.agent import rpc as agent_rpc
-from neutron.common import config
 from neutron.common import utils
 from neutron.db import agents_db
 from neutron.db import ipam_pluggable_backend
@@ -65,6 +65,7 @@ from neutron.plugins.ml2.common import constants as ml2_consts
 from neutron.plugins.ml2.common import exceptions as ml2_exc
 from neutron.plugins.ml2 import db as ml2_db
 from neutron.plugins.ml2 import driver_context
+from neutron.plugins.ml2.drivers import type_tunnel
 from neutron.plugins.ml2.drivers import type_vlan
 from neutron.plugins.ml2 import managers
 from neutron.plugins.ml2 import models
@@ -400,7 +401,7 @@ class TestMl2NetworksV2(test_plugin.TestNetworksV2,
                     self.assertEqual(expected, actual)
 
     def _lookup_network_by_segmentation_id(self, seg_id, num_expected_nets):
-        params_str = "{}={}".format(pnet.SEGMENTATION_ID, seg_id)
+        params_str = f"{pnet.SEGMENTATION_ID}={seg_id}"
         net_req = self.new_list_request('networks', None,
                                         params=params_str,
                                         as_admin=True)
@@ -596,6 +597,64 @@ class TestMl2NetworksV2(test_plugin.TestNetworksV2,
             self.assertIn("network", res.json['NeutronError']['message'])
 
 
+class TestMl2AgentNotifications(Ml2PluginV2TestCase):
+
+    class Agent:
+        def __init__(self, agent_dict):
+            for field in agent_dict:
+                setattr(self, field, agent_dict[field])
+
+    def test_delete_agent_notified(self):
+        agent_status = {'agent_type': constants.AGENT_TYPE_OVS,
+                'binary': constants.AGENT_PROCESS_OVS,
+                'host': 'AHOST',
+                'topic': 'N/A',
+                'configurations': {'tunnel_types': ['vxlan'],
+                                   'tunneling_ip': '100.101.2.3'}}
+        agent = self.plugin.create_or_update_agent(self.context,
+                                                   dict(agent_status),
+                                                   timeutils.utcnow())
+        agnt = self.Agent(agent[1])
+        with mock.patch.object(
+                self.plugin.notifier, 'tunnel_delete') as m_t_del:
+            with mock.patch.object(
+                    type_tunnel.EndpointTunnelTypeDriver,
+                    'delete_endpoint') as m_del_ep:
+                self.plugin.delete_agent_notified(
+                    resource='agent', event='after_delete', trigger=None,
+                    payload=events.DBEventPayload(
+                        self.context, states=(agnt,),
+                        resource_id=agent[1]['id']))
+                m_t_del.assert_called_once_with(
+                    context=mock.ANY,
+                    tunnel_ip='100.101.2.3', tunnel_type='vxlan')
+                m_del_ep.assert_called_once_with('100.101.2.3')
+
+    def test_delete_agent_notified_non_ovs(self):
+        agent_status = {'agent_type': constants.AGENT_TYPE_NIC_SWITCH,
+                'binary': constants.AGENT_PROCESS_NIC_SWITCH,
+                'host': 'AHOST',
+                'topic': 'N/A',
+                'configurations': {'tunnel_types': ['vxlan'],
+                                   'tunneling_ip': '100.101.2.3'}}
+        agent = self.plugin.create_or_update_agent(self.context,
+                                                  dict(agent_status),
+                                                  timeutils.utcnow())
+        agnt = self.Agent(agent[1])
+        with mock.patch.object(
+                self.plugin.notifier, 'tunnel_delete') as m_t_del:
+            with mock.patch.object(
+                    type_tunnel.EndpointTunnelTypeDriver,
+                    'delete_endpoint') as m_del_ep:
+                self.plugin.delete_agent_notified(
+                    resource='agent', event='after_delete', trigger=None,
+                    payload=events.DBEventPayload(
+                        self.context, states=(agnt,),
+                        resource_id=agent[1]['id']))
+                m_t_del.assert_not_called()
+                m_del_ep.assert_not_called()
+
+
 class TestMl2NetworksV2AgentMechDrivers(Ml2PluginV2TestCase):
 
     _mechanism_drivers = ['logger', 'test', 'test_with_agent']
@@ -677,11 +736,6 @@ class TestMl2NetworksWithVlanTransparencyBase(TestMl2NetworksV2):
                         [{pnet.NETWORK_TYPE: 'vlan',
                           pnet.PHYSICAL_NETWORK: 'physnet1'}],
                         'vlan_transparent': 'True'}}
-
-    def setUp(self, plugin=None):
-        config.register_common_config_options()
-        cfg.CONF.set_override('vlan_transparent', True)
-        super().setUp(plugin)
 
 
 class TestMl2NetworksWithVlanTransparency(
@@ -1191,9 +1245,9 @@ class TestMl2PortsV2(test_plugin.TestPortsV2, Ml2PluginV2TestCase):
 
     def test_port_after_update_outside_transaction(self):
         self.tx_open = True
-        receive = lambda r, e, t, payload: \
-            setattr(self, 'tx_open',
-                    db_api.is_session_active(payload.context.session))
+        def receive(r, e, t, payload):
+            return setattr(self, 'tx_open',
+                            db_api.is_session_active(payload.context.session))
 
         with self.port() as p:
             registry.subscribe(receive, resources.PORT, events.AFTER_UPDATE)
@@ -1203,9 +1257,9 @@ class TestMl2PortsV2(test_plugin.TestPortsV2, Ml2PluginV2TestCase):
 
     def test_port_after_delete_outside_transaction(self):
         self.tx_open = True
-        receive = lambda r, e, t, payload: \
-            setattr(self, 'tx_open',
-                    db_api.is_session_active(payload.context.session))
+        def receive(r, e, t, payload):
+            return setattr(self, 'tx_open',
+                            db_api.is_session_active(payload.context.session))
 
         with self.port() as p:
             registry.subscribe(receive, resources.PORT, events.AFTER_DELETE)
@@ -1788,9 +1842,10 @@ class TestMl2PortsV2(test_plugin.TestPortsV2, Ml2PluginV2TestCase):
         ctx = context.get_admin_context()
         b_update_events = []
         a_update_events = []
-        b_receiver = lambda r, e, t, payload: b_update_events.append(payload)
-        a_receiver = lambda r, e, t, payload: \
-            a_update_events.append(payload.latest_state)
+        def b_receiver(r, e, t, payload):
+            return b_update_events.append(payload)
+        def a_receiver(r, e, t, payload):
+            return a_update_events.append(payload.latest_state)
 
         registry.subscribe(b_receiver, resources.PORT,
                            events.BEFORE_UPDATE)
@@ -2053,8 +2108,8 @@ class TestMl2PortsV2WithRevisionPlugin(Ml2PluginV2TestCase):
                        **host_arg) as port:
             port = plugin.get_port(ctx, port['port']['id'])
             updated_ports = []
-            receiver = lambda r, e, t, payload: \
-                updated_ports.append(payload.latest_state)
+            def receiver(r, e, t, payload):
+                return updated_ports.append(payload.latest_state)
 
             registry.subscribe(receiver, resources.PORT,
                                events.AFTER_UPDATE)
@@ -2067,8 +2122,8 @@ class TestMl2PortsV2WithRevisionPlugin(Ml2PluginV2TestCase):
     def test_bind_port_bumps_revision(self):
         updated_ports = []
         created_ports = []
-        ureceiver = lambda r, e, t, payload: \
-            updated_ports.append(payload.latest_state)
+        def ureceiver(r, e, t, payload):
+            return updated_ports.append(payload.latest_state)
 
         def creceiver(r, e, t, payload=None):
             created_ports.append(payload.latest_state)
@@ -4037,6 +4092,6 @@ class TestML2Segments(Ml2PluginV2TestCase):
 class TestMl2PluginCallRPCMechanismDrivers(Ml2PluginV2TestCase):
     def test_mech_driver_start_rpc_listeners_called(self):
         with mock.patch.object(mech_test.TestMechanismDriver,
-                        'start_rpc_listeners') as mock_srl:
+                               'start_rpc_listeners') as mock_srl:
             self.plugin.start_rpc_listeners()
             mock_srl.assert_called_once()

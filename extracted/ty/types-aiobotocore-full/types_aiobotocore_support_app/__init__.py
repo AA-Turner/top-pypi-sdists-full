@@ -3,7 +3,7 @@ Main interface for support-app service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_support_app/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

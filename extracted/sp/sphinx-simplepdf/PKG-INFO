@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx-simplepdf
-Version: 1.6.0
+Version: 1.7.0
 Summary: An easy to use PDF Builder for Sphinx with a modern PDF-Theme.
 Home-page: https://sphinx-simplepdf.readthedocs.io
 Download-URL: https://github.com/useblocks/sphinx-simplepdf
@@ -8,7 +8,7 @@ Author: team useblocks
 Author-email: info@useblocks.com
 License: MIT
 Classifier: Framework :: Sphinx
-Classifier: Framework :: Sphinx :: Theme
+Classifier: Framework :: Sphinx :: Extension
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Developers
@@ -18,6 +18,20 @@ Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 License-File: LICENSE
 License-File: AUTHORS.rst
+Requires-Dist: sphinx
+Requires-Dist: weasyprint
+Requires-Dist: libsass
+Requires-Dist: beautifulsoup4
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 Sphinx-SimplePDF
 ================

@@ -13,7 +13,7 @@ except ImportError:
 __all__ = ["FactoryField", "MimesisField"]
 
 
-class FactoryField(declarations.BaseDeclaration):  # type: ignore[misc]
+class FactoryField(declarations.BaseDeclaration):
     """
     Mimesis integration with FactoryBoy starts here.
 
@@ -40,7 +40,7 @@ class FactoryField(declarations.BaseDeclaration):  # type: ignore[misc]
         :param locale: locale to use. This parameter has the highest priority.
         :param kwargs: optional parameters that would be passed to ``Field``.
         """
-        super().__init__()
+        super().__init__()  # type: ignore[no-untyped-call]
         self.locale = locale
         self.kwargs = kwargs
         self.field = field

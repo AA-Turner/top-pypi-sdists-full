@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from functools import wraps
-from typing import Any, Callable
+from typing import Any
 
 import weave
 from weave.integrations.patcher import MultiPatcher, NoOpPatcher, SymbolPatcher
@@ -52,7 +53,10 @@ def get_cerebras_patcher(
     base = settings.op_settings
 
     create_settings = base.model_copy(
-        update={"name": base.name or "cerebras.chat.completions.create"}
+        update={
+            "name": base.name or "cerebras.chat.completions.create",
+            "kind": base.kind or "llm",
+        }
     )
 
     _cerebras_patcher = MultiPatcher(

@@ -5,37 +5,38 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class Prodigy(BaseOptimizer):
-    r"""An Expeditiously Adaptive Parameter-Free Learner.
+    """An Expeditiously Adaptive Parameter-Free Learner.
 
-        Leave LR set to 1 unless you encounter instability.
+    Leave LR set to 1 unless you encounter instability.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. betas.
-    :param beta3: float. coefficients for computing the Prodigy step-size using running averages. If set to None,
-        uses the value of square root of beta2.
-    :param d0: float. initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
-    :param d_coef: float. Coefficient in the expression for the estimate of d.
-    :param growth_rate: float. prevent the D estimate from growing faster than this multiplicative rate.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. use AdamW style weight decay.
-    :param fixed_decay: bool. fix weight decay.
-    :param bias_correction: bool. turn on Adam's bias correction.
-    :param safeguard_warmup: bool. remove lr from the denominator of D estimate to avoid issues during warm-up stage.
-    :param eps: float. term added to the denominator to improve numerical stability. when eps is None, use atan2 rather
-        than epsilon and division for parameter updates.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): learning rate.
+        betas (Betas): betas.
+        beta3 (float): coefficients for computing the Prodigy step-size using running averages. If set to None,
+            uses the value of square root of beta2.
+        d0 (float): initial D estimate for D-adaptation (default 1e-6). Rarely needs changing.
+        d_coef (float): Coefficient in the expression for the estimate of d.
+        growth_rate (float): prevent the D estimate from growing faster than this multiplicative rate.
+        weight_decay (float): weight decay (L2 penalty).
+        weight_decouple (bool): use AdamW style weight decay.
+        fixed_decay (bool): fix weight decay.
+        bias_correction (bool): turn on Adam's bias correction.
+        safeguard_warmup (bool): remove lr from the denominator of D estimate to avoid issues during warm-up stage.
+        eps (float): term added to the denominator to improve numerical stability. when eps is None, use atan2 rather
+            than epsilon and division for parameter updates.
+        maximize (bool): maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1.0,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         beta3: Optional[float] = None,
         d0: float = 1e-6,
         d_coef: float = 1.0,
@@ -56,7 +57,7 @@ class Prodigy(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'beta3': beta3,
@@ -79,7 +80,10 @@ class Prodigy(BaseOptimizer):
     def __str__(self) -> str:
         return 'Prodigy'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -100,8 +104,8 @@ class Prodigy(BaseOptimizer):
                 state['exp_avg_sq'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()

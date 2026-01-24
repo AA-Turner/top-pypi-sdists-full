@@ -90,6 +90,7 @@ cdef extern from "nanoarrow.c":
                                           double value)
     ArrowErrorCode ArrowArrayAppendInt(ArrowArray* arrow_array, int64_t value)
     ArrowErrorCode ArrowArrayAppendNull(ArrowArray* arrow_array, int64_t n)
+    ArrowErrorCode ArrowArrayAppendUInt(ArrowArray * arrow_array, uint64_t n)
     ArrowBuffer* ArrowArrayBuffer(ArrowArray* arrow_array, int64_t i)
     ArrowErrorCode ArrowArrayFinishBuildingDefault(ArrowArray* arrow_array,
                                                    ArrowError* error)
@@ -150,6 +151,7 @@ cdef extern from "nanoarrow.c":
     ArrowErrorCode ArrowSchemaViewInit(ArrowSchemaView* schema_view,
                                        const ArrowSchema* schema,
                                        ArrowError* error)
+    const char* ArrowTypeString(ArrowType type)
 
 cdef int _check_nanoarrow(int code) except -1:
     """
@@ -157,6 +159,8 @@ cdef int _check_nanoarrow(int code) except -1:
     it is not NANOARROW_OK.
     """
     if code != NANOARROW_OK:
+        if code == EOVERFLOW:
+            errors._raise_err(errors.ERR_ARROW_DATA_STRUCTURE_OVERFLOW)
         errors._raise_err(errors.ERR_ARROW_C_API_ERROR, code=code)
 
 

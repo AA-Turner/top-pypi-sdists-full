@@ -16,7 +16,6 @@ short_description: Vpnmgr vpntable
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -474,8 +476,8 @@ EXAMPLES = '''
     - name: Vpnmgr vpntable
       fortinet.fortimanager.fmgr_vpnmgr_vpntable:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -612,6 +614,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'vpnmgr_vpntable': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -633,7 +636,7 @@ def main():
                 },
                 'ike1dpd': {'choices': ['disable', 'enable'], 'type': 'str'},
                 'ike1keylifesec': {'no_log': True, 'type': 'int'},
-                'ike1localid': {'v_range': [['6.0.0', '7.4.6'], ['7.6.0', '']], 'type': 'str'},
+                'ike1localid': {'v_range': [['6.0.0', '7.4.6'], ['7.6.0', '7.6.3']], 'type': 'str'},
                 'ike1mode': {'choices': ['main', 'aggressive'], 'type': 'str'},
                 'ike1natkeepalive': {'type': 'int'},
                 'ike1nattraversal': {'choices': ['disable', 'enable', 'forced'], 'type': 'str'},

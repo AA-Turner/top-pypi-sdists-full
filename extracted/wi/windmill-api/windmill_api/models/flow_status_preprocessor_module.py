@@ -13,6 +13,12 @@ if TYPE_CHECKING:
     from ..models.flow_status_preprocessor_module_agent_actions_item_type_1 import (
         FlowStatusPreprocessorModuleAgentActionsItemType1,
     )
+    from ..models.flow_status_preprocessor_module_agent_actions_item_type_2 import (
+        FlowStatusPreprocessorModuleAgentActionsItemType2,
+    )
+    from ..models.flow_status_preprocessor_module_agent_actions_item_type_3 import (
+        FlowStatusPreprocessorModuleAgentActionsItemType3,
+    )
     from ..models.flow_status_preprocessor_module_approvers_item import FlowStatusPreprocessorModuleApproversItem
     from ..models.flow_status_preprocessor_module_branch_chosen import FlowStatusPreprocessorModuleBranchChosen
     from ..models.flow_status_preprocessor_module_branchall import FlowStatusPreprocessorModuleBranchall
@@ -42,7 +48,8 @@ class FlowStatusPreprocessorModule:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['FlowStatusPreprocessorModuleAgentActionsItemType0',
-            'FlowStatusPreprocessorModuleAgentActionsItemType1']]]):
+            'FlowStatusPreprocessorModuleAgentActionsItemType1', 'FlowStatusPreprocessorModuleAgentActionsItemType2',
+            'FlowStatusPreprocessorModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -64,7 +71,10 @@ class FlowStatusPreprocessorModule:
         Unset,
         List[
             Union[
-                "FlowStatusPreprocessorModuleAgentActionsItemType0", "FlowStatusPreprocessorModuleAgentActionsItemType1"
+                "FlowStatusPreprocessorModuleAgentActionsItemType0",
+                "FlowStatusPreprocessorModuleAgentActionsItemType1",
+                "FlowStatusPreprocessorModuleAgentActionsItemType2",
+                "FlowStatusPreprocessorModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -74,6 +84,12 @@ class FlowStatusPreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.flow_status_preprocessor_module_agent_actions_item_type_0 import (
             FlowStatusPreprocessorModuleAgentActionsItemType0,
+        )
+        from ..models.flow_status_preprocessor_module_agent_actions_item_type_1 import (
+            FlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            FlowStatusPreprocessorModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -126,6 +142,12 @@ class FlowStatusPreprocessorModule:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, FlowStatusPreprocessorModuleAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusPreprocessorModuleAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusPreprocessorModuleAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -184,6 +206,12 @@ class FlowStatusPreprocessorModule:
         )
         from ..models.flow_status_preprocessor_module_agent_actions_item_type_1 import (
             FlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            FlowStatusPreprocessorModuleAgentActionsItemType2,
+        )
+        from ..models.flow_status_preprocessor_module_agent_actions_item_type_3 import (
+            FlowStatusPreprocessorModuleAgentActionsItemType3,
         )
         from ..models.flow_status_preprocessor_module_approvers_item import FlowStatusPreprocessorModuleApproversItem
         from ..models.flow_status_preprocessor_module_branch_chosen import FlowStatusPreprocessorModuleBranchChosen
@@ -254,7 +282,10 @@ class FlowStatusPreprocessorModule:
             def _parse_agent_actions_item(
                 data: object,
             ) -> Union[
-                "FlowStatusPreprocessorModuleAgentActionsItemType0", "FlowStatusPreprocessorModuleAgentActionsItemType1"
+                "FlowStatusPreprocessorModuleAgentActionsItemType0",
+                "FlowStatusPreprocessorModuleAgentActionsItemType1",
+                "FlowStatusPreprocessorModuleAgentActionsItemType2",
+                "FlowStatusPreprocessorModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -264,11 +295,27 @@ class FlowStatusPreprocessorModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = FlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = FlowStatusPreprocessorModuleAgentActionsItemType2.from_dict(data)
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = FlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = FlowStatusPreprocessorModuleAgentActionsItemType3.from_dict(data)
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

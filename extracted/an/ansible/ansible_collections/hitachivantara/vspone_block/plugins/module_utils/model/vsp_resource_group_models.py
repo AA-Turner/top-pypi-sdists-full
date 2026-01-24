@@ -3,8 +3,10 @@ from typing import Optional, List
 
 try:
     from .common_base_models import BaseDataClass, SingleBaseClass
+    from ..common.ansible_common import normalize_ldev_id
 except ImportError:
     from common_base_models import BaseDataClass, SingleBaseClass
+    from common.ansible_common import normalize_ldev_id
 
 
 @dataclass
@@ -57,6 +59,18 @@ class VSPResourceGroupSpec(SingleBaseClass):
     state: Optional[str] = None
     force: Optional[bool] = False
     add_resource_time_out_in_sec: Optional[int] = None
+
+    external_parity_groups: Optional[List[str]] = None
+    start_ldev: Optional[int] = None
+    end_ldev: Optional[int] = None
+
+    def __post_init__(self):
+        if self.start_ldev:
+            self.start_ldev = normalize_ldev_id(self.start_ldev)
+        if self.end_ldev:
+            self.end_ldev = normalize_ldev_id(self.end_ldev)
+        if self.ldevs:
+            self.ldevs = [normalize_ldev_id(ldev) for ldev in self.ldevs]
 
 
 @dataclass
@@ -135,6 +149,7 @@ class DisplayResourceGroup:
     virtualStorageId: int
     ldevs: List[int]
     parityGroups: List[str]
+    externalParityGroups: List[str]
     ports: List[str]
     hostGroups: List[HostGroupInfo]
     nvmSubsystemIds: List[int]
@@ -156,6 +171,7 @@ class DisplayResourceGroup:
         self.virtualStorageId = None
         self.ldevs = None
         self.parityGroups = None
+        self.externalParityGroups = None
         self.ports = None
         self.hostGroups = None
         self.nvmSubsystemIds = None
@@ -177,70 +193,3 @@ class DisplayResourceGroup:
 @dataclass
 class DisplayResourceGroupList(BaseDataClass):
     data: List[DisplayResourceGroup]
-
-
-@dataclass
-class UaigResourceGroupInfo(SingleBaseClass):
-    resourceId: str
-    resourceGroupName: str
-    resourceGroupId: int
-    locked: bool
-    # virtualStorageId: int
-    virtualDeviceId: str
-    virtualDeviceType: str
-    parityGroups: List[str]
-    hostGroups: List[HostGroupInfo]
-    iscsiTargets: List[HostGroupInfo]
-    # nvmSubsystemIds: List[int] = None
-    volumes: List[int]
-    ports: List[str]
-    pools: List[int]
-    metaResourceSerial: str
-    # selfLock: bool = None
-    # lockOwner: str = None
-    # lockHost: str = None
-    # lockSessionId: int = None
-    # virtualStorageDeviceId: str = None
-    # virtualSerialNumber: str = None
-    # virtualModel: str = None
-
-    def __init__(self, **kwargs):
-        self.resourceId = kwargs.get("resourceId")
-        self.resourceGroupName = kwargs.get("resourceGroupName")
-        self.resourceGroupId = kwargs.get("resourceGroupId")
-        self.locked = kwargs.get("locked")
-        self.virtualDeviceId = kwargs.get("virtualDeviceId")
-        self.virtualDeviceType = kwargs.get("virtualDeviceType")
-        self.parityGroups = kwargs.get("parityGroups")
-        self.hostGroups = kwargs.get("hostGroups")
-        self.volumes = kwargs.get("volumes")
-        self.ports = kwargs.get("ports")
-        self.pools = kwargs.get("pools")
-        self.iscsiTargets = kwargs.get("iscsiTargets")
-        self.metaResourceSerial = kwargs.get("metaResourceSerial")
-
-        # self.lockStatus = kwargs.get("lockStatus")
-        # if "selfLock" in kwargs:
-        #     self.selfLock = kwargs.get("selfLock")
-        # if "lockOwner" in kwargs:
-        #     self.selfLock = kwargs.get("lockOwner")
-        # if "lockHost" in kwargs:
-        #     self.lockHost = kwargs.get("lockHost")
-        # if "lockSessionId" in kwargs:
-        #     self.lockSessionId = kwargs.get("lockSessionId")
-        # self.virtualStorageId = kwargs.get("virtualStorageId")
-        # self.ldevIds = kwargs.get("ldevIds")
-        # self.parityGroupIds = kwargs.get("parityGroupIds")
-        # self.externalParityGroupIds = kwargs.get("externalParityGroupIds")
-        # self.portIds = kwargs.get("portIds")
-        # self.hostGroupIds = kwargs.get("hostGroupIds")
-        # if "nvmSubsystemIds" in kwargs:
-        #     self.nvmSubsystemIds = kwargs.get("nvmSubsystemIds")
-
-    def to_dict(self):
-        return asdict(self)
-
-
-@dataclass
-class UaigResourceGroupInfoList(BaseDataClass):
-    data: List[UaigResourceGroupInfo]

@@ -104,6 +104,7 @@ from algoliasearch.ingestion.models import (
     TransformationSortKeys,
     TransformationTry,
     TransformationTryResponse,
+    TransformationType,
     TransformationUpdateResponse,
     TriggerType,
     WatchResponse,
@@ -478,6 +479,10 @@ class IngestionClient:
         """
         Creates a new task.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreate
@@ -517,6 +522,10 @@ class IngestionClient:
         """
         Creates a new task.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreate
@@ -540,6 +549,10 @@ class IngestionClient:
         (Deprecated) create_task_v1
         Creates a new task using the v1 endpoint, please use `createTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreateV1
@@ -582,6 +595,10 @@ class IngestionClient:
         (Deprecated) create_task_v1
         Creates a new task using the v1 endpoint, please use `createTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreateV1
@@ -605,6 +622,10 @@ class IngestionClient:
         """
         Creates a new transformation.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_create: Request body for creating a transformation. (required)
         :type transformation_create: TransformationCreate
@@ -645,6 +666,10 @@ class IngestionClient:
         """
         Creates a new transformation.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_create: Request body for creating a transformation. (required)
         :type transformation_create: TransformationCreate
@@ -1170,6 +1195,10 @@ class IngestionClient:
         """
         Deletes a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -1201,6 +1230,10 @@ class IngestionClient:
         """
         Deletes a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -1221,6 +1254,10 @@ class IngestionClient:
         (Deprecated) delete_task_v1
         Deletes a task by its ID using the v1 endpoint, please use `deleteTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -1255,6 +1292,10 @@ class IngestionClient:
         (Deprecated) delete_task_v1
         Deletes a task by its ID using the v1 endpoint, please use `deleteTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -1274,6 +1315,10 @@ class IngestionClient:
         """
         Deletes a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -1307,6 +1352,10 @@ class IngestionClient:
         """
         Deletes a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -3524,6 +3573,15 @@ class IngestionClient:
             ],
             str,
         ] = None,
+        type: Union[
+            Annotated[
+                Optional[TransformationType],
+                Field(
+                    description="Whether to filter the list of transformations by the type of transformation."
+                ),
+            ],
+            str,
+        ] = None,
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ApiResponse[str]:
         """
@@ -3542,6 +3600,8 @@ class IngestionClient:
         :type sort: TransformationSortKeys
         :param order: Sort order of the response, ascending or descending.
         :type order: OrderKeys
+        :param type: Whether to filter the list of transformations by the type of transformation.
+        :type type: TransformationType
         :param request_options: The request options to send along with the query, they will be merged with the transporter base parameters (headers, query params, timeouts, etc.). (optional)
         :return: Returns the raw algoliasearch 'APIResponse' object.
         """
@@ -3556,6 +3616,8 @@ class IngestionClient:
             _query_parameters["sort"] = sort
         if order is not None:
             _query_parameters["order"] = order
+        if type is not None:
+            _query_parameters["type"] = type
 
         return await self._transporter.request(
             verb=Verb.GET,
@@ -3595,6 +3657,15 @@ class IngestionClient:
             ],
             str,
         ] = None,
+        type: Union[
+            Annotated[
+                Optional[TransformationType],
+                Field(
+                    description="Whether to filter the list of transformations by the type of transformation."
+                ),
+            ],
+            str,
+        ] = None,
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ListTransformationsResponse:
         """
@@ -3613,11 +3684,13 @@ class IngestionClient:
         :type sort: TransformationSortKeys
         :param order: Sort order of the response, ascending or descending.
         :type order: OrderKeys
+        :param type: Whether to filter the list of transformations by the type of transformation.
+        :type type: TransformationType
         :param request_options: The request options to send along with the query, they will be merged with the transporter base parameters (headers, query params, timeouts, etc.). (optional)
         :return: Returns the deserialized response in a 'ListTransformationsResponse' result object.
         """
         resp = await self.list_transformations_with_http_info(
-            items_per_page, page, sort, order, request_options
+            items_per_page, page, sort, order, type, request_options
         )
         return resp.deserialize(ListTransformationsResponse, resp.raw_data)
 
@@ -3643,7 +3716,7 @@ class IngestionClient:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ApiResponse[str]:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
+        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
 
         Required API Key ACLs:
           - addObject
@@ -3721,7 +3794,7 @@ class IngestionClient:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> WatchResponse:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
+        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
 
         Required API Key ACLs:
           - addObject
@@ -3759,7 +3832,7 @@ class IngestionClient:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ApiResponse[str]:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
+        Pushes records through the pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints or the debugger dashboard to see the status of your task. If you want to transform your data before indexing, this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
 
         Required API Key ACLs:
           - addObject
@@ -3828,7 +3901,7 @@ class IngestionClient:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> WatchResponse:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
+        Pushes records through the pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints or the debugger dashboard to see the status of your task. If you want to transform your data before indexing, this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
 
         Required API Key ACLs:
           - addObject
@@ -3860,6 +3933,10 @@ class IngestionClient:
         """
         Fully updates a task by its ID, use partialUpdateTask if you only want to update a subset of fields.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -3904,6 +3981,10 @@ class IngestionClient:
         """
         Fully updates a task by its ID, use partialUpdateTask if you only want to update a subset of fields.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -4955,6 +5036,10 @@ class IngestionClient:
         """
         Partially updates a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -4999,6 +5084,10 @@ class IngestionClient:
         """
         Partially updates a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -5024,6 +5113,10 @@ class IngestionClient:
         (Deprecated) update_task_v1
         Updates a task by its ID using the v1 endpoint, please use `updateTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -5071,6 +5164,10 @@ class IngestionClient:
         (Deprecated) update_task_v1
         Updates a task by its ID using the v1 endpoint, please use `updateTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -5095,6 +5192,10 @@ class IngestionClient:
         """
         Updates a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -5141,6 +5242,10 @@ class IngestionClient:
         """
         Updates a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -5664,6 +5769,10 @@ class IngestionClientSync:
         """
         Creates a new task.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreate
@@ -5703,6 +5812,10 @@ class IngestionClientSync:
         """
         Creates a new task.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreate
@@ -5726,6 +5839,10 @@ class IngestionClientSync:
         (Deprecated) create_task_v1
         Creates a new task using the v1 endpoint, please use `createTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreateV1
@@ -5768,6 +5885,10 @@ class IngestionClientSync:
         (Deprecated) create_task_v1
         Creates a new task using the v1 endpoint, please use `createTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_create: Request body for creating a task. (required)
         :type task_create: TaskCreateV1
@@ -5791,6 +5912,10 @@ class IngestionClientSync:
         """
         Creates a new transformation.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_create: Request body for creating a transformation. (required)
         :type transformation_create: TransformationCreate
@@ -5831,6 +5956,10 @@ class IngestionClientSync:
         """
         Creates a new transformation.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_create: Request body for creating a transformation. (required)
         :type transformation_create: TransformationCreate
@@ -6348,6 +6477,10 @@ class IngestionClientSync:
         """
         Deletes a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -6379,6 +6512,10 @@ class IngestionClientSync:
         """
         Deletes a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -6399,6 +6536,10 @@ class IngestionClientSync:
         (Deprecated) delete_task_v1
         Deletes a task by its ID using the v1 endpoint, please use `deleteTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -6433,6 +6574,10 @@ class IngestionClientSync:
         (Deprecated) delete_task_v1
         Deletes a task by its ID using the v1 endpoint, please use `deleteTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -6452,6 +6597,10 @@ class IngestionClientSync:
         """
         Deletes a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -6485,6 +6634,10 @@ class IngestionClientSync:
         """
         Deletes a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -8700,6 +8853,15 @@ class IngestionClientSync:
             ],
             str,
         ] = None,
+        type: Union[
+            Annotated[
+                Optional[TransformationType],
+                Field(
+                    description="Whether to filter the list of transformations by the type of transformation."
+                ),
+            ],
+            str,
+        ] = None,
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ApiResponse[str]:
         """
@@ -8718,6 +8880,8 @@ class IngestionClientSync:
         :type sort: TransformationSortKeys
         :param order: Sort order of the response, ascending or descending.
         :type order: OrderKeys
+        :param type: Whether to filter the list of transformations by the type of transformation.
+        :type type: TransformationType
         :param request_options: The request options to send along with the query, they will be merged with the transporter base parameters (headers, query params, timeouts, etc.). (optional)
         :return: Returns the raw algoliasearch 'APIResponse' object.
         """
@@ -8732,6 +8896,8 @@ class IngestionClientSync:
             _query_parameters["sort"] = sort
         if order is not None:
             _query_parameters["order"] = order
+        if type is not None:
+            _query_parameters["type"] = type
 
         return self._transporter.request(
             verb=Verb.GET,
@@ -8771,6 +8937,15 @@ class IngestionClientSync:
             ],
             str,
         ] = None,
+        type: Union[
+            Annotated[
+                Optional[TransformationType],
+                Field(
+                    description="Whether to filter the list of transformations by the type of transformation."
+                ),
+            ],
+            str,
+        ] = None,
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ListTransformationsResponse:
         """
@@ -8789,11 +8964,13 @@ class IngestionClientSync:
         :type sort: TransformationSortKeys
         :param order: Sort order of the response, ascending or descending.
         :type order: OrderKeys
+        :param type: Whether to filter the list of transformations by the type of transformation.
+        :type type: TransformationType
         :param request_options: The request options to send along with the query, they will be merged with the transporter base parameters (headers, query params, timeouts, etc.). (optional)
         :return: Returns the deserialized response in a 'ListTransformationsResponse' result object.
         """
         resp = self.list_transformations_with_http_info(
-            items_per_page, page, sort, order, request_options
+            items_per_page, page, sort, order, type, request_options
         )
         return resp.deserialize(ListTransformationsResponse, resp.raw_data)
 
@@ -8819,7 +8996,7 @@ class IngestionClientSync:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ApiResponse[str]:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
+        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
 
         Required API Key ACLs:
           - addObject
@@ -8897,7 +9074,7 @@ class IngestionClientSync:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> WatchResponse:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
+        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data), this is the recommended way of ingesting your records. This method is similar to `pushTask`, but requires an `indexName` instead of a `taskID`. If zero or many tasks are found, an error will be returned.
 
         Required API Key ACLs:
           - addObject
@@ -8935,7 +9112,7 @@ class IngestionClientSync:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> ApiResponse[str]:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
+        Pushes records through the pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints or the debugger dashboard to see the status of your task. If you want to transform your data before indexing, this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
 
         Required API Key ACLs:
           - addObject
@@ -9004,7 +9181,7 @@ class IngestionClientSync:
         request_options: Optional[Union[dict, RequestOptions]] = None,
     ) -> WatchResponse:
         """
-        Pushes records through the Pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints and/or debugger dashboard to see the status of your task. If you want to leverage the [pre-indexing data transformation](https://www.algolia.com/doc/guides/sending-and-managing-data/send-and-update-your-data/how-to/transform-your-data/), this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
+        Pushes records through the pipeline, directly to an index. You can make the call synchronous by providing the `watch` parameter, for asynchronous calls, you can use the observability endpoints or the debugger dashboard to see the status of your task. If you want to transform your data before indexing, this is the recommended way of ingesting your records. This method is similar to `push`, but requires a `taskID` instead of a `indexName`, which is useful when many `destinations` target the same `indexName`.
 
         Required API Key ACLs:
           - addObject
@@ -9036,6 +9213,10 @@ class IngestionClientSync:
         """
         Fully updates a task by its ID, use partialUpdateTask if you only want to update a subset of fields.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -9080,6 +9261,10 @@ class IngestionClientSync:
         """
         Fully updates a task by its ID, use partialUpdateTask if you only want to update a subset of fields.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -10127,6 +10312,10 @@ class IngestionClientSync:
         """
         Partially updates a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -10171,6 +10360,10 @@ class IngestionClientSync:
         """
         Partially updates a task by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -10194,6 +10387,10 @@ class IngestionClientSync:
         (Deprecated) update_task_v1
         Updates a task by its ID using the v1 endpoint, please use `updateTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -10241,6 +10438,10 @@ class IngestionClientSync:
         (Deprecated) update_task_v1
         Updates a task by its ID using the v1 endpoint, please use `updateTask` instead.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param task_id: Unique identifier of a task. (required)
         :type task_id: str
@@ -10263,6 +10464,10 @@ class IngestionClientSync:
         """
         Updates a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str
@@ -10309,6 +10514,10 @@ class IngestionClientSync:
         """
         Updates a transformation by its ID.
 
+        Required API Key ACLs:
+          - addObject
+                  - deleteIndex
+                  - editSettings
 
         :param transformation_id: Unique identifier of a transformation. (required)
         :type transformation_id: str

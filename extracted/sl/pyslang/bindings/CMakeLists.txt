@@ -5,13 +5,13 @@
 
 set(find_pkg_args "")
 if(${CMAKE_VERSION} VERSION_GREATER_EQUAL "3.24.0")
-  set(find_pkg_args "FIND_PACKAGE_ARGS" "2.13.1")
+  set(find_pkg_args "FIND_PACKAGE_ARGS" "3.0")
 endif()
 
 FetchContent_Declare(
   pybind11
   GIT_REPOSITORY https://github.com/pybind/pybind11.git
-  GIT_TAG v2.13.6
+  GIT_TAG v3.0.1
   GIT_SHALLOW ON
   ${find_pkg_args})
 FetchContent_MakeAvailable(pybind11)
@@ -65,3 +65,19 @@ install(
   TARGETS pyslang
   COMPONENT pylib
   DESTINATION .)
+
+# Install py.typed marker file for PEP 561 compliance
+install(
+  FILES ${CMAKE_CURRENT_SOURCE_DIR}/../pyslang/pyslang/py.typed
+        ${CMAKE_CURRENT_SOURCE_DIR}/../pyslang/pyslang/__init__.py
+  COMPONENT pylib
+  DESTINATION .)
+
+# Generate Python stubs as a post-install step
+install(
+  CODE "
+  set(STUBGEN_PYTHON_EXECUTABLE \"${Python_EXECUTABLE}\")
+  set(CMAKE_INSTALL_PREFIX \"${CMAKE_INSTALL_PREFIX}\")
+  include(\"${CMAKE_CURRENT_SOURCE_DIR}/generate_stubs.cmake\")
+"
+  COMPONENT pylib)

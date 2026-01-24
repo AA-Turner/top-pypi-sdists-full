@@ -13,10 +13,6 @@ build-backend = "hatchling.build"
 path = "evo/__init__.py"
 
 
-[tool.magformat]
-formatters = ["yapf"]
-
-
 [project]
 name = "evo"
 description = "Python package for the evaluation of odometry and SLAM"
@@ -32,12 +28,11 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython"
 ]
 keywords = [
@@ -45,7 +40,8 @@ keywords = [
     "vision", "laser", "visual", "robotics"
 ]
 
-requires-python = ">=3.8"
+# Adapt also the extra check in __init__.py when changing this:
+requires-python = ">=3.10"
 
 dependencies = [
     "numpy>=1.18.5",
@@ -60,12 +56,14 @@ dependencies = [
     "pygments",
     "pyyaml",
     "pillow",
-    "rosbags>=0.9.20",
+    "rosbags>=0.11.0",
+    "packaging",
 ]
 
 [project.optional-dependencies]
-gui = ["PyQt5"]
+gui = ["PyQt6"]
 geo = ["contextily"]
+rerun = ["rerun-sdk>=0.24.0"]
 
 
 [project.scripts]
@@ -74,6 +72,46 @@ evo_rpe = "evo.entry_points:rpe"
 evo_traj = "evo.entry_points:traj"
 evo_res = "evo.entry_points:res"
 evo_config = "evo.main_config:main"
-evo_fig = "evo.main_fig:main"
 evo_ipython = "evo.main_ipython:main"
 evo = "evo.main_evo:main"
+
+
+[tool.black]
+line-length = 79
+extend-exclude = "fastentrypoints.py|evo/core/transformations.py|test/tum_benchmark_tools/*"
+
+[tool.mypy]
+ignore_missing_imports = true
+files = ["evo/", "test/", "contrib/", "examples/"]
+exclude = ["test/tum_benchmark_tools/"]
+
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["osx-arm64", "linux-64", "linux-aarch64", "win-64"]
+
+[tool.pixi.pypi-dependencies]
+evo = { path = ".", editable = true }
+
+[tool.pixi.environments]
+default = { solve-group = "default" }
+py-310 = ["py-310"]
+py-314 = ["py-314"]
+
+[tool.pixi.feature.py-310.dependencies]
+python = "~=3.10.0"
+[tool.pixi.feature.py-314.dependencies]
+python = "~=3.14.0"
+
+[tool.pixi.tasks]
+fmt = "black ."
+mypy = "mypy ."
+test = "pytest -sv"
+
+[tool.pixi.dependencies]
+pip = ">=25.3,<26"
+mypy = ">=1.19.1,<2"
+black = ">=25.12.0,<26"
+pytest = ">=9.0.2,<10"
+ipython = ">=8.37.0,<10"
+hatch = ">=1.16.2,<2"

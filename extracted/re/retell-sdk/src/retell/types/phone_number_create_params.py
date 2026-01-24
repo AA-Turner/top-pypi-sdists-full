@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import Optional
 from typing_extensions import Literal, TypedDict
 
+from .._types import SequenceNotStr
+
 __all__ = ["PhoneNumberCreateParams"]
 
 
@@ -34,6 +36,12 @@ class PhoneNumberCreateParams(TypedDict, total=False):
     If not provided, will default to latest version.
     """
 
+    inbound_allowed_countries: Optional[SequenceNotStr[str]]
+    """List of ISO 3166-1 alpha-2 country codes from which inbound calls are allowed.
+
+    If not set or empty, calls from all countries are allowed.
+    """
+
     inbound_webhook_url: Optional[str]
     """
     If set, will send a webhook for inbound calls, where you can to override agent
@@ -60,6 +68,12 @@ class PhoneNumberCreateParams(TypedDict, total=False):
     If not provided, will default to latest version.
     """
 
+    outbound_allowed_countries: Optional[SequenceNotStr[str]]
+    """List of ISO 3166-1 alpha-2 country codes to which outbound calls are allowed.
+
+    If not set or empty, calls to all countries are allowed.
+    """
+
     phone_number: str
     """
     The number you are trying to purchase in E.164 format of the number (+country
@@ -68,3 +82,9 @@ class PhoneNumberCreateParams(TypedDict, total=False):
 
     toll_free: bool
     """Whether to purchase a toll-free number. Toll-free numbers incur higher costs."""
+
+    transport: Optional[str]
+    """Outbound transport protocol to use for the phone number.
+
+    Valid values are "TLS", "TCP" and "UDP". Default is "TCP".
+    """

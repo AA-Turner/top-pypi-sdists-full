@@ -3,6 +3,7 @@ import collections.abc
 import google.protobuf.message
 import modal._object
 import modal._tunnel
+import modal._utils.task_command_router_client
 import modal.app
 import modal.client
 import modal.cloud_bucket_mount
@@ -15,18 +16,17 @@ import modal.mount
 import modal.network_file_system
 import modal.object
 import modal.proxy
-import modal.scheduler_placement
 import modal.secret
 import modal.snapshot
 import modal.stream_type
 import modal.volume
 import modal_proto.api_pb2
 import os
+import pathlib
 import typing
 import typing_extensions
 
 def _validate_exec_args(args: collections.abc.Sequence[str]) -> None: ...
-def _warn_if_invalid_name(name: str) -> None: ...
 
 class DefaultSandboxNameOverride(str):
     """A singleton class that represents the default sandbox name override.
@@ -38,6 +38,36 @@ class DefaultSandboxNameOverride(str):
         ...
 
 _DEFAULT_SANDBOX_NAME_OVERRIDE: DefaultSandboxNameOverride
+
+class SandboxConnectCredentials:
+    """Simple data structure storing credentials for making HTTP connections to a sandbox."""
+
+    url: str
+    token: str
+
+    def __init__(self, url: str, token: str) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
 
 class _Sandbox(modal._object._Object):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
@@ -53,12 +83,15 @@ class _Sandbox(modal._object._Object):
     _task_id: typing.Optional[str]
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
+    _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
 
+    @staticmethod
+    def _default_pty_info() -> modal_proto.api_pb2.PTYInfo: ...
     @staticmethod
     def _new(
         args: collections.abc.Sequence[str],
         image: modal.image._Image,
-        secrets: collections.abc.Sequence[modal.secret._Secret],
+        secrets: collections.abc.Collection[modal.secret._Secret],
         name: typing.Optional[str] = None,
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
@@ -76,15 +109,16 @@ class _Sandbox(modal._object._Object):
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
         ] = {},
+        pty: bool = False,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
+        custom_domain: typing.Optional[str] = None,
     ) -> _Sandbox:
         """mdmd:hidden"""
         ...
@@ -95,7 +129,8 @@ class _Sandbox(modal._object._Object):
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
         image: typing.Optional[modal.image._Image] = None,
-        secrets: collections.abc.Sequence[modal.secret._Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
@@ -111,7 +146,7 @@ class _Sandbox(modal._object._Object):
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
         ] = {},
-        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        pty: bool = False,
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
@@ -119,9 +154,10 @@ class _Sandbox(modal._object._Object):
         verbose: bool = False,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
+        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        custom_domain: typing.Optional[str] = None,
     ) -> _Sandbox:
         """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -144,7 +180,8 @@ class _Sandbox(modal._object._Object):
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
         image: typing.Optional[modal.image._Image] = None,
-        secrets: collections.abc.Sequence[modal.secret._Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         mounts: collections.abc.Sequence[modal.mount._Mount] = (),
         network_file_systems: dict[typing.Union[str, os.PathLike], modal.network_file_system._NetworkFileSystem] = {},
         timeout: int = 300,
@@ -161,17 +198,26 @@ class _Sandbox(modal._object._Object):
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
         ] = {},
-        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        pty: bool = False,
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy._Proxy] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
         _experimental_enable_snapshot: bool = False,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         client: typing.Optional[modal.client._Client] = None,
         verbose: bool = False,
-    ): ...
+        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        custom_domain: typing.Optional[str] = None,
+    ):
+        """Private method used internally.
+
+        This method exposes some internal arguments (currently `mounts`) which are not in the public API.
+        `mounts` is currently only used by modal shell (cli) to provide a function's mounts to the
+        sandbox that runs the shell session.
+        """
+        ...
+
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
     @staticmethod
     async def from_name(
@@ -196,7 +242,11 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def set_tags(self, tags: dict[str, str], *, client: typing.Optional[modal.client._Client] = None):
+    async def get_tags(self) -> dict[str, str]:
+        """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server."""
+        ...
+
+    async def set_tags(self, tags: dict[str, str], *, client: typing.Optional[modal.client._Client] = None) -> None:
         """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`."""
         ...
 
@@ -206,6 +256,18 @@ class _Sandbox(modal._object._Object):
         Returns an [`Image`](https://modal.com/docs/reference/modal.Image) object which
         can be used to spawn a new Sandbox with the same filesystem.
         """
+        ...
+
+    async def _experimental_mount_image(
+        self, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image._Image]
+    ):
+        """Mount an Image at a path in the Sandbox filesystem."""
+        ...
+
+    async def _experimental_snapshot_directory(
+        self, path: typing.Union[pathlib.PurePosixPath, str]
+    ) -> modal.image._Image:
+        """Snapshot local changes to a previously mounted Image, creating a new Image."""
         ...
 
     async def wait(self, raise_on_termination: bool = True):
@@ -221,6 +283,16 @@ class _Sandbox(modal._object._Object):
 
         NOTE: Previous to client [v0.64.153](https://modal.com/docs/reference/changelog#064153-2024-09-30), this
         returned a list of `TunnelData` objects.
+        """
+        ...
+
+    async def create_connect_token(
+        self, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
+    ) -> SandboxConnectCredentials:
+        """[Alpha] Create a token for making HTTP connections to the Sandbox.
+
+        Also accepts an optional user_metadata string or dict to associate with the token. This metadata
+        will be added to the headers by the proxy when forwarding requests to the Sandbox.
         """
         ...
 
@@ -246,34 +318,95 @@ class _Sandbox(modal._object._Object):
         ...
 
     async def _get_task_id(self) -> str: ...
+    async def _get_command_router_client(
+        self, task_id: str
+    ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
     @typing.overload
     async def exec(
         self,
         *args: str,
-        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        secrets: collections.abc.Sequence[modal.secret._Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         text: typing.Literal[True] = True,
         bufsize: typing.Literal[-1, 1] = -1,
+        pty: bool = False,
+        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
     ) -> modal.container_process._ContainerProcess[str]: ...
     @typing.overload
     async def exec(
         self,
         *args: str,
+        stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        timeout: typing.Optional[int] = None,
+        workdir: typing.Optional[str] = None,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        text: typing.Literal[False] = False,
+        bufsize: typing.Literal[-1, 1] = -1,
+        pty: bool = False,
+        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+    ) -> modal.container_process._ContainerProcess[bytes]: ...
+    async def _exec(
+        self,
+        *args: str,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
         timeout: typing.Optional[int] = None,
         workdir: typing.Optional[str] = None,
-        secrets: collections.abc.Sequence[modal.secret._Secret] = (),
-        text: typing.Literal[False] = False,
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
+        text: bool = True,
         bufsize: typing.Literal[-1, 1] = -1,
-        _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-    ) -> modal.container_process._ContainerProcess[bytes]: ...
+    ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
+        """Private method used internally.
+
+        This method exposes some internal arguments (currently `pty_info`) which are not in the public API.
+        """
+        ...
+
+    async def _exec_through_server(
+        self,
+        *args: str,
+        task_id: str,
+        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        timeout: typing.Optional[int] = None,
+        workdir: typing.Optional[str] = None,
+        secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+        text: bool = True,
+        bufsize: typing.Literal[-1, 1] = -1,
+        runtime_debug: bool = False,
+    ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
+        """Execute a command through the Modal server."""
+        ...
+
+    async def _exec_through_command_router(
+        self,
+        *args: str,
+        task_id: str,
+        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        timeout: typing.Optional[int] = None,
+        workdir: typing.Optional[str] = None,
+        secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+        text: bool = True,
+        bufsize: typing.Literal[-1, 1] = -1,
+        runtime_debug: bool = False,
+    ) -> typing.Union[modal.container_process._ContainerProcess[bytes], modal.container_process._ContainerProcess[str]]:
+        """Execute a command through a task command router running on the Modal worker."""
+        ...
+
     async def _experimental_snapshot(self) -> modal.snapshot._SandboxSnapshot: ...
     @staticmethod
     async def _experimental_from_snapshot(
@@ -346,8 +479,6 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
-
 class Sandbox(modal.object.Object):
     """A `Sandbox` object lets you interact with a running sandbox. This API is similar to Python's
     [asyncio.subprocess.Process](https://docs.python.org/3/library/asyncio-subprocess.html#asyncio.subprocess.Process).
@@ -362,16 +493,19 @@ class Sandbox(modal.object.Object):
     _task_id: typing.Optional[str]
     _tunnels: typing.Optional[dict[int, modal._tunnel.Tunnel]]
     _enable_snapshot: bool
+    _command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]
 
     def __init__(self, *args, **kwargs):
         """mdmd:hidden"""
         ...
 
     @staticmethod
+    def _default_pty_info() -> modal_proto.api_pb2.PTYInfo: ...
+    @staticmethod
     def _new(
         args: collections.abc.Sequence[str],
         image: modal.image.Image,
-        secrets: collections.abc.Sequence[modal.secret.Secret],
+        secrets: collections.abc.Collection[modal.secret.Secret],
         name: typing.Optional[str] = None,
         timeout: int = 300,
         idle_timeout: typing.Optional[int] = None,
@@ -388,15 +522,16 @@ class Sandbox(modal.object.Object):
         volumes: dict[
             typing.Union[str, os.PathLike], typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount]
         ] = {},
+        pty: bool = False,
         pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
         proxy: typing.Optional[modal.proxy.Proxy] = None,
         experimental_options: typing.Optional[dict[str, bool]] = None,
-        _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
         enable_snapshot: bool = False,
         verbose: bool = False,
+        custom_domain: typing.Optional[str] = None,
     ) -> Sandbox:
         """mdmd:hidden"""
         ...
@@ -409,7 +544,8 @@ class Sandbox(modal.object.Object):
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
             ] = {},
@@ -427,7 +563,7 @@ class Sandbox(modal.object.Object):
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
             ] = {},
-            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
@@ -435,9 +571,10 @@ class Sandbox(modal.object.Object):
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
-            _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            custom_domain: typing.Optional[str] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -461,7 +598,8 @@ class Sandbox(modal.object.Object):
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
             ] = {},
@@ -479,7 +617,7 @@ class Sandbox(modal.object.Object):
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
             ] = {},
-            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
@@ -487,9 +625,10 @@ class Sandbox(modal.object.Object):
             verbose: bool = False,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
-            _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            custom_domain: typing.Optional[str] = None,
         ) -> Sandbox:
             """Create a new Sandbox to run untrusted, arbitrary code.
 
@@ -506,7 +645,7 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    create: __create_spec
+    create: typing.ClassVar[__create_spec]
 
     class ___create_spec(typing_extensions.Protocol):
         def __call__(
@@ -516,7 +655,8 @@ class Sandbox(modal.object.Object):
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
@@ -535,17 +675,26 @@ class Sandbox(modal.object.Object):
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
             ] = {},
-            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
-            _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
             verbose: bool = False,
-        ): ...
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            custom_domain: typing.Optional[str] = None,
+        ):
+            """Private method used internally.
+
+            This method exposes some internal arguments (currently `mounts`) which are not in the public API.
+            `mounts` is currently only used by modal shell (cli) to provide a function's mounts to the
+            sandbox that runs the shell session.
+            """
+            ...
+
         async def aio(
             self,
             /,
@@ -553,7 +702,8 @@ class Sandbox(modal.object.Object):
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
             image: typing.Optional[modal.image.Image] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             mounts: collections.abc.Sequence[modal.mount.Mount] = (),
             network_file_systems: dict[
                 typing.Union[str, os.PathLike], modal.network_file_system.NetworkFileSystem
@@ -572,19 +722,27 @@ class Sandbox(modal.object.Object):
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
             ] = {},
-            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            pty: bool = False,
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
             proxy: typing.Optional[modal.proxy.Proxy] = None,
             experimental_options: typing.Optional[dict[str, bool]] = None,
             _experimental_enable_snapshot: bool = False,
-            _experimental_scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
             client: typing.Optional[modal.client.Client] = None,
             verbose: bool = False,
-        ): ...
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            custom_domain: typing.Optional[str] = None,
+        ):
+            """Private method used internally.
 
-    _create: ___create_spec
+            This method exposes some internal arguments (currently `mounts`) which are not in the public API.
+            `mounts` is currently only used by modal shell (cli) to provide a function's mounts to the
+            sandbox that runs the shell session.
+            """
+            ...
+
+    _create: typing.ClassVar[___create_spec]
 
     def _hydrate_metadata(self, handle_metadata: typing.Optional[google.protobuf.message.Message]): ...
 
@@ -621,7 +779,7 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    from_name: __from_name_spec
+    from_name: typing.ClassVar[__from_name_spec]
 
     class __from_id_spec(typing_extensions.Protocol):
         def __call__(self, /, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox:
@@ -638,20 +796,31 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    from_id: __from_id_spec
+    from_id: typing.ClassVar[__from_id_spec]
 
-    class __set_tags_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None):
+    class __get_tags_spec(typing_extensions.Protocol):
+        def __call__(self, /) -> dict[str, str]:
+            """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server."""
+            ...
+
+        async def aio(self, /) -> dict[str, str]:
+            """Fetches any tags (key-value pairs) currently attached to this Sandbox from the server."""
+            ...
+
+    get_tags: __get_tags_spec
+
+    class __set_tags_spec(typing_extensions.Protocol):
+        def __call__(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None) -> None:
             """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`."""
             ...
 
-        async def aio(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None):
+        async def aio(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None) -> None:
             """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`."""
             ...
 
-    set_tags: __set_tags_spec[typing_extensions.Self]
+    set_tags: __set_tags_spec
 
-    class __snapshot_filesystem_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __snapshot_filesystem_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: int = 55) -> modal.image.Image:
             """Snapshot the filesystem of the Sandbox.
 
@@ -668,9 +837,35 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    snapshot_filesystem: __snapshot_filesystem_spec[typing_extensions.Self]
+    snapshot_filesystem: __snapshot_filesystem_spec
 
-    class __wait_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___experimental_mount_image_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image.Image]
+        ):
+            """Mount an Image at a path in the Sandbox filesystem."""
+            ...
+
+        async def aio(
+            self, /, path: typing.Union[pathlib.PurePosixPath, str], image: typing.Optional[modal.image.Image]
+        ):
+            """Mount an Image at a path in the Sandbox filesystem."""
+            ...
+
+    _experimental_mount_image: ___experimental_mount_image_spec
+
+    class ___experimental_snapshot_directory_spec(typing_extensions.Protocol):
+        def __call__(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
+            """Snapshot local changes to a previously mounted Image, creating a new Image."""
+            ...
+
+        async def aio(self, /, path: typing.Union[pathlib.PurePosixPath, str]) -> modal.image.Image:
+            """Snapshot local changes to a previously mounted Image, creating a new Image."""
+            ...
+
+    _experimental_snapshot_directory: ___experimental_snapshot_directory_spec
+
+    class __wait_spec(typing_extensions.Protocol):
         def __call__(self, /, raise_on_termination: bool = True):
             """Wait for the Sandbox to finish running."""
             ...
@@ -679,9 +874,9 @@ class Sandbox(modal.object.Object):
             """Wait for the Sandbox to finish running."""
             ...
 
-    wait: __wait_spec[typing_extensions.Self]
+    wait: __wait_spec
 
-    class __tunnels_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __tunnels_spec(typing_extensions.Protocol):
         def __call__(self, /, timeout: int = 50) -> dict[int, modal._tunnel.Tunnel]:
             """Get Tunnel metadata for the sandbox.
 
@@ -706,9 +901,32 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    tunnels: __tunnels_spec[typing_extensions.Self]
+    tunnels: __tunnels_spec
 
-    class __reload_volumes_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __create_connect_token_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
+        ) -> SandboxConnectCredentials:
+            """[Alpha] Create a token for making HTTP connections to the Sandbox.
+
+            Also accepts an optional user_metadata string or dict to associate with the token. This metadata
+            will be added to the headers by the proxy when forwarding requests to the Sandbox.
+            """
+            ...
+
+        async def aio(
+            self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None
+        ) -> SandboxConnectCredentials:
+            """[Alpha] Create a token for making HTTP connections to the Sandbox.
+
+            Also accepts an optional user_metadata string or dict to associate with the token. This metadata
+            will be added to the headers by the proxy when forwarding requests to the Sandbox.
+            """
+            ...
+
+    create_connect_token: __create_connect_token_spec
+
+    class __reload_volumes_spec(typing_extensions.Protocol):
         def __call__(self, /) -> None:
             """Reload all Volumes mounted in the Sandbox.
 
@@ -723,9 +941,9 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    reload_volumes: __reload_volumes_spec[typing_extensions.Self]
+    reload_volumes: __reload_volumes_spec
 
-    class __terminate_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __terminate_spec(typing_extensions.Protocol):
         def __call__(self, /) -> None:
             """Terminate Sandbox execution.
 
@@ -740,9 +958,9 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    terminate: __terminate_spec[typing_extensions.Self]
+    terminate: __terminate_spec
 
-    class __poll_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __poll_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[int]:
             """Check if the Sandbox has finished running.
 
@@ -757,16 +975,97 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    poll: __poll_spec[typing_extensions.Self]
+    poll: __poll_spec
 
-    class ___get_task_id_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___get_task_id_spec(typing_extensions.Protocol):
         def __call__(self, /) -> str: ...
         async def aio(self, /) -> str: ...
 
-    _get_task_id: ___get_task_id_spec[typing_extensions.Self]
+    _get_task_id: ___get_task_id_spec
 
-    class __exec_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___get_command_router_client_spec(typing_extensions.Protocol):
+        def __call__(
+            self, /, task_id: str
+        ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
+        async def aio(
+            self, /, task_id: str
+        ) -> typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient]: ...
+
+    _get_command_router_client: ___get_command_router_client_spec
+
+    class __exec_spec(typing_extensions.Protocol):
         @typing.overload
+        def __call__(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: typing.Literal[True] = True,
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        ) -> modal.container_process.ContainerProcess[str]: ...
+        @typing.overload
+        def __call__(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: typing.Literal[False] = False,
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        ) -> modal.container_process.ContainerProcess[bytes]: ...
+        @typing.overload
+        async def aio(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: typing.Literal[True] = True,
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        ) -> modal.container_process.ContainerProcess[str]: ...
+        @typing.overload
+        async def aio(
+            self,
+            /,
+            *args: str,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: typing.Literal[False] = False,
+            bufsize: typing.Literal[-1, 1] = -1,
+            pty: bool = False,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+        ) -> modal.container_process.ContainerProcess[bytes]: ...
+
+    exec: __exec_spec
+
+    class ___exec_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -776,64 +1075,136 @@ class Sandbox(modal.object.Object):
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
-            text: typing.Literal[True] = True,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
-            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-        ) -> modal.container_process.ContainerProcess[str]: ...
-        @typing.overload
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]:
+            """Private method used internally.
+
+            This method exposes some internal arguments (currently `pty_info`) which are not in the public API.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            *args: str,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+            secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
+            text: bool = True,
+            bufsize: typing.Literal[-1, 1] = -1,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]:
+            """Private method used internally.
+
+            This method exposes some internal arguments (currently `pty_info`) which are not in the public API.
+            """
+            ...
+
+    _exec: ___exec_spec
+
+    class ___exec_through_server_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
             *args: str,
+            task_id: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
-            text: typing.Literal[False] = False,
+            secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+            text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
-            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-        ) -> modal.container_process.ContainerProcess[bytes]: ...
-        @typing.overload
+            runtime_debug: bool = False,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]:
+            """Execute a command through the Modal server."""
+            ...
+
         async def aio(
             self,
             /,
             *args: str,
+            task_id: str,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
-            text: typing.Literal[True] = True,
+            secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+            text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
-            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-        ) -> modal.container_process.ContainerProcess[str]: ...
-        @typing.overload
+            runtime_debug: bool = False,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]:
+            """Execute a command through the Modal server."""
+            ...
+
+    _exec_through_server: ___exec_through_server_spec
+
+    class ___exec_through_command_router_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *args: str,
+            task_id: str,
+            command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+            pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
+            stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+            timeout: typing.Optional[int] = None,
+            workdir: typing.Optional[str] = None,
+            secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+            text: bool = True,
+            bufsize: typing.Literal[-1, 1] = -1,
+            runtime_debug: bool = False,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]:
+            """Execute a command through a task command router running on the Modal worker."""
+            ...
+
         async def aio(
             self,
             /,
             *args: str,
+            task_id: str,
+            command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
             pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
             stdout: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             stderr: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
             timeout: typing.Optional[int] = None,
             workdir: typing.Optional[str] = None,
-            secrets: collections.abc.Sequence[modal.secret.Secret] = (),
-            text: typing.Literal[False] = False,
+            secret_ids: typing.Optional[collections.abc.Collection[str]] = None,
+            text: bool = True,
             bufsize: typing.Literal[-1, 1] = -1,
-            _pty_info: typing.Optional[modal_proto.api_pb2.PTYInfo] = None,
-        ) -> modal.container_process.ContainerProcess[bytes]: ...
+            runtime_debug: bool = False,
+        ) -> typing.Union[
+            modal.container_process.ContainerProcess[bytes], modal.container_process.ContainerProcess[str]
+        ]:
+            """Execute a command through a task command router running on the Modal worker."""
+            ...
 
-    exec: __exec_spec[typing_extensions.Self]
+    _exec_through_command_router: ___exec_through_command_router_spec
 
-    class ___experimental_snapshot_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___experimental_snapshot_spec(typing_extensions.Protocol):
         def __call__(self, /) -> modal.snapshot.SandboxSnapshot: ...
         async def aio(self, /) -> modal.snapshot.SandboxSnapshot: ...
 
-    _experimental_snapshot: ___experimental_snapshot_spec[typing_extensions.Self]
+    _experimental_snapshot: ___experimental_snapshot_spec
 
     class ___experimental_from_snapshot_spec(typing_extensions.Protocol):
         def __call__(
@@ -853,9 +1224,9 @@ class Sandbox(modal.object.Object):
             name: typing.Optional[str] = _DEFAULT_SANDBOX_NAME_OVERRIDE,
         ): ...
 
-    _experimental_from_snapshot: ___experimental_from_snapshot_spec
+    _experimental_from_snapshot: typing.ClassVar[___experimental_from_snapshot_spec]
 
-    class __open_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __open_spec(typing_extensions.Protocol):
         @typing.overload
         def __call__(self, /, path: str, mode: _typeshed.OpenTextMode) -> modal.file_io.FileIO[str]: ...
         @typing.overload
@@ -865,9 +1236,9 @@ class Sandbox(modal.object.Object):
         @typing.overload
         async def aio(self, /, path: str, mode: _typeshed.OpenBinaryMode) -> modal.file_io.FileIO[bytes]: ...
 
-    open: __open_spec[typing_extensions.Self]
+    open: __open_spec
 
-    class __ls_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __ls_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str) -> list[str]:
             """[Alpha] List the contents of a directory in the Sandbox."""
             ...
@@ -876,9 +1247,9 @@ class Sandbox(modal.object.Object):
             """[Alpha] List the contents of a directory in the Sandbox."""
             ...
 
-    ls: __ls_spec[typing_extensions.Self]
+    ls: __ls_spec
 
-    class __mkdir_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __mkdir_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, parents: bool = False) -> None:
             """[Alpha] Create a new directory in the Sandbox."""
             ...
@@ -887,9 +1258,9 @@ class Sandbox(modal.object.Object):
             """[Alpha] Create a new directory in the Sandbox."""
             ...
 
-    mkdir: __mkdir_spec[typing_extensions.Self]
+    mkdir: __mkdir_spec
 
-    class __rm_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __rm_spec(typing_extensions.Protocol):
         def __call__(self, /, path: str, recursive: bool = False) -> None:
             """[Alpha] Remove a file or directory in the Sandbox."""
             ...
@@ -898,9 +1269,9 @@ class Sandbox(modal.object.Object):
             """[Alpha] Remove a file or directory in the Sandbox."""
             ...
 
-    rm: __rm_spec[typing_extensions.Self]
+    rm: __rm_spec
 
-    class __watch_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __watch_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -923,7 +1294,7 @@ class Sandbox(modal.object.Object):
             """[Alpha] Watch a file or directory in the Sandbox for changes."""
             ...
 
-    watch: __watch_spec[typing_extensions.Self]
+    watch: __watch_spec
 
     @property
     def stdout(self) -> modal.io_streams.StreamReader[str]:
@@ -978,6 +1349,6 @@ class Sandbox(modal.object.Object):
             """
             ...
 
-    list: __list_spec
+    list: typing.ClassVar[__list_spec]
 
 _default_image: modal.image._Image

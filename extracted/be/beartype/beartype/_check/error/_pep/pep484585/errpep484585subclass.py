@@ -16,8 +16,8 @@ from beartype.roar import BeartypeCallHintForwardRefException
 from beartype.roar._roarexc import _BeartypeCallHintPepRaiseException
 from beartype._check.error.errcause import ViolationCause
 from beartype._check.metadata.hint.hintsane import HINT_SANE_IGNORABLE
-from beartype._data.hint.datahinttyping import TypeOrTupleTypes
-from beartype._data.hint.pep.sign.datapepsigns import (
+from beartype._data.typing.datatyping import TypeOrTupleTypes
+from beartype._data.hint.sign.datahintsigns import (
     HintSignForwardRef,
     HintSignType,
     HintSignUnion,
@@ -82,7 +82,7 @@ def find_cause_pep484585_subclass(cause: ViolationCause) -> ViolationCause:
     hint_child: TypeOrTupleTypes = hint_child_sane.hint  # type: ignore[assignment]
 
     # Arbitrary object uniquely identifying this superclass.
-    hint_child_sign = get_hint_pep_sign_or_none(hint_child)
+    hint_child_sign = get_hint_pep_sign_or_none(hint_child)  # pyright: ignore
 
     # If this child hint is a forward reference to a superclass...
     if hint_child_sign is HintSignForwardRef:

@@ -286,14 +286,6 @@ projen has an unofficial [VS Code extension](https://marketplace.visualstudio.co
 The projen community can be found within the #projen channel in the [cdk.dev](https://cdk.dev/)
 community Slack workspace.
 
-### Virtual Meetup
-
-* Thursday June 30, 2022
-* 1-2pm America/New_York (EDT)
-* [CFP](https://bit.ly/3NEc0UQ) a Google Form
-* CFP Closes Saturday April 30, 2022
-* Hosted on [Zoom](https://zoom.us/j/92399854777?pwd=OUZybHlobHNoZUs1VVordWhaRTVGdz09#success)
-
 ## Contributions
 
 Contributions of all kinds are welcome! Check out our [contributor's
@@ -304,8 +296,8 @@ For a quick start, check out a development environment:
 ```bash
 $ git clone git@github.com:projen/projen
 $ cd projen
-$ yarn
-$ yarn watch # compile in the background
+$ npm ci
+$ npm run watch # compile in the background
 ```
 
 Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/docs/en/emoji-key)):
@@ -607,6 +599,163 @@ from ._jsii import *
 import constructs as _constructs_77d1e7e8
 
 
+@jsii.enum(jsii_type="projen.AiAgent")
+class AiAgent(enum.Enum):
+    '''(experimental) Supported AI coding assistants and their instruction file locations.
+
+    :stability: experimental
+    '''
+
+    GITHUB_COPILOT = "GITHUB_COPILOT"
+    '''(experimental) GitHub Copilot - .github/copilot-instructions.md.
+
+    :stability: experimental
+    '''
+    CURSOR = "CURSOR"
+    '''(experimental) Cursor IDE - .cursor/rules/project.md.
+
+    :stability: experimental
+    '''
+    CLAUDE = "CLAUDE"
+    '''(experimental) Claude Code - CLAUDE.md.
+
+    :stability: experimental
+    '''
+    AMAZON_Q = "AMAZON_Q"
+    '''(experimental) Amazon Q - .amazonq/rules/project.md.
+
+    :stability: experimental
+    '''
+    KIRO = "KIRO"
+    '''(experimental) Kiro - .kiro/steering/project.md.
+
+    :stability: experimental
+    '''
+    CODEX = "CODEX"
+    '''(experimental) OpenAI Codex - AGENTS.md.
+
+    :stability: experimental
+    '''
+
+
+@jsii.data_type(
+    jsii_type="projen.AiInstructionsOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "agents": "agents",
+        "agent_specific_instructions": "agentSpecificInstructions",
+        "include_default_instructions": "includeDefaultInstructions",
+        "instructions": "instructions",
+    },
+)
+class AiInstructionsOptions:
+    def __init__(
+        self,
+        *,
+        agents: typing.Optional[typing.Sequence["AiAgent"]] = None,
+        agent_specific_instructions: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+        include_default_instructions: typing.Optional[builtins.bool] = None,
+        instructions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Options for configuring AI tool instruction files.
+
+        :param agents: (experimental) Which AI agents to generate instruction files for. Default: - All agents: [AiAgent.GITHUB_COPILOT, AiAgent.CURSOR, AiAgent.CLAUDE, AiAgent.AMAZON_Q, AiAgent.KIRO, AiAgent.CODEX]
+        :param agent_specific_instructions: (experimental) Per-agent custom instructions. Allows different instructions for different AI tools. Default: - no agent specific instructions
+        :param include_default_instructions: (experimental) Include default instructions for projen and general best practices. Default instructions will only be included for agents provided in the ``agents`` option. If ``agents`` is not provided, default instructions will be included for all agents. Default: true
+        :param instructions: (experimental) General instructions applicable to all agents. Default: - no agent specific instructions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bf7714efdf83cf2031e4ef3aa1d0cb9511cb921777751c76a0f501c0c56e247)
+            check_type(argname="argument agents", value=agents, expected_type=type_hints["agents"])
+            check_type(argname="argument agent_specific_instructions", value=agent_specific_instructions, expected_type=type_hints["agent_specific_instructions"])
+            check_type(argname="argument include_default_instructions", value=include_default_instructions, expected_type=type_hints["include_default_instructions"])
+            check_type(argname="argument instructions", value=instructions, expected_type=type_hints["instructions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if agents is not None:
+            self._values["agents"] = agents
+        if agent_specific_instructions is not None:
+            self._values["agent_specific_instructions"] = agent_specific_instructions
+        if include_default_instructions is not None:
+            self._values["include_default_instructions"] = include_default_instructions
+        if instructions is not None:
+            self._values["instructions"] = instructions
+
+    @builtins.property
+    def agents(self) -> typing.Optional[typing.List["AiAgent"]]:
+        '''(experimental) Which AI agents to generate instruction files for.
+
+        :default: - All agents: [AiAgent.GITHUB_COPILOT, AiAgent.CURSOR, AiAgent.CLAUDE, AiAgent.AMAZON_Q, AiAgent.KIRO, AiAgent.CODEX]
+
+        :stability: experimental
+        '''
+        result = self._values.get("agents")
+        return typing.cast(typing.Optional[typing.List["AiAgent"]], result)
+
+    @builtins.property
+    def agent_specific_instructions(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]]:
+        '''(experimental) Per-agent custom instructions.
+
+        Allows different instructions for different AI tools.
+
+        :default: - no agent specific instructions
+
+        :stability: experimental
+
+        Example::
+
+            {
+              [AiAgent.GITHUB_COPILOT]: {
+                instructions: ["Use descriptive commit messages."]
+              },
+              [AiAgent.CURSOR]: {
+                instructions: ["Prefer functional patterns.", "Always add tests."]
+              }
+            }
+        '''
+        result = self._values.get("agent_specific_instructions")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[builtins.str]]], result)
+
+    @builtins.property
+    def include_default_instructions(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Include default instructions for projen and general best practices.
+
+        Default instructions will only be included for agents provided in the ``agents`` option.
+        If ``agents`` is not provided, default instructions will be included for all agents.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("include_default_instructions")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def instructions(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) General instructions applicable to all agents.
+
+        :default: - no agent specific instructions
+
+        :stability: experimental
+        '''
+        result = self._values.get("instructions")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AiInstructionsOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class Component(
     _constructs_77d1e7e8.Construct,
     metaclass=jsii.JSIIMeta,
@@ -619,7 +768,7 @@ class Component(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -1243,7 +1392,7 @@ class DevEnvironmentOptions:
     def __init__(
         self,
         *,
-        docker_image: typing.Optional[DevEnvironmentDockerImage] = None,
+        docker_image: typing.Optional["DevEnvironmentDockerImage"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
         tasks: typing.Optional[typing.Sequence["Task"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1274,13 +1423,13 @@ class DevEnvironmentOptions:
             self._values["vscode_extensions"] = vscode_extensions
 
     @builtins.property
-    def docker_image(self) -> typing.Optional[DevEnvironmentDockerImage]:
+    def docker_image(self) -> typing.Optional["DevEnvironmentDockerImage"]:
         '''(experimental) A Docker image or Dockerfile for the container.
 
         :stability: experimental
         '''
         result = self._values.get("docker_image")
-        return typing.cast(typing.Optional[DevEnvironmentDockerImage], result)
+        return typing.cast(typing.Optional["DevEnvironmentDockerImage"], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2150,7 +2299,7 @@ class DockerComposeServiceDescription:
         entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         image: typing.Optional[builtins.str] = None,
-        image_build: typing.Optional[typing.Union[DockerComposeBuild, typing.Dict[builtins.str, typing.Any]]] = None,
+        image_build: typing.Optional[typing.Union["DockerComposeBuild", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         networks: typing.Optional[typing.Sequence["IDockerComposeNetworkBinding"]] = None,
         platform: typing.Optional[builtins.str] = None,
@@ -2274,7 +2423,7 @@ class DockerComposeServiceDescription:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def image_build(self) -> typing.Optional[DockerComposeBuild]:
+    def image_build(self) -> typing.Optional["DockerComposeBuild"]:
         '''(experimental) Build a docker image.
 
         Note: You must specify either ``imageBuild`` or ``image`` key.
@@ -2283,7 +2432,7 @@ class DockerComposeServiceDescription:
         :stability: experimental
         '''
         result = self._values.get("image_build")
-        return typing.cast(typing.Optional[DockerComposeBuild], result)
+        return typing.cast(typing.Optional["DockerComposeBuild"], result)
 
     @builtins.property
     def labels(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -2378,7 +2527,7 @@ class DockerComposeServicePort:
         self,
         *,
         mode: builtins.str,
-        protocol: DockerComposeProtocol,
+        protocol: "DockerComposeProtocol",
         published: jsii.Number,
         target: jsii.Number,
     ) -> None:
@@ -2415,14 +2564,14 @@ class DockerComposeServicePort:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def protocol(self) -> DockerComposeProtocol:
+    def protocol(self) -> "DockerComposeProtocol":
         '''(experimental) Network protocol.
 
         :stability: experimental
         '''
         result = self._values.get("protocol")
         assert result is not None, "Required property 'protocol' is missing"
-        return typing.cast(DockerComposeProtocol, result)
+        return typing.cast("DockerComposeProtocol", result)
 
     @builtins.property
     def published(self) -> jsii.Number:
@@ -2670,7 +2819,7 @@ class FileBase(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         file_path: builtins.str,
         *,
         committed: typing.Optional[builtins.bool] = None,
@@ -2959,9 +3108,9 @@ class GitAttributesFile(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         *,
-        end_of_line: typing.Optional[EndOfLine] = None,
+        end_of_line: typing.Optional["EndOfLine"] = None,
     ) -> None:
         '''
         :param scope: -
@@ -3044,12 +3193,12 @@ class GitAttributesFile(
 
     @builtins.property
     @jsii.member(jsii_name="endOfLine")
-    def end_of_line(self) -> EndOfLine:
+    def end_of_line(self) -> "EndOfLine":
         '''(experimental) The default end of line character for text files.
 
         :stability: experimental
         '''
-        return typing.cast(EndOfLine, jsii.get(self, "endOfLine"))
+        return typing.cast("EndOfLine", jsii.get(self, "endOfLine"))
 
     @builtins.property
     @jsii.member(jsii_name="hasLfsPatterns")
@@ -3067,7 +3216,7 @@ class GitAttributesFile(
     name_mapping={"end_of_line": "endOfLine"},
 )
 class GitAttributesFileOptions:
-    def __init__(self, *, end_of_line: typing.Optional[EndOfLine] = None) -> None:
+    def __init__(self, *, end_of_line: typing.Optional["EndOfLine"] = None) -> None:
         '''(experimental) Options for ``GitAttributesFile``.
 
         :param end_of_line: (experimental) The default end of line character for text files. endOfLine it's useful to keep the same end of line between Windows and Unix operative systems for git checking/checkout operations. Hence, it can avoid simple repository mutations consisting only of changes in the end of line characters. It will be set in the first line of the .gitattributes file to make it the first match with high priority but it can be overriden in a later line. Can be disabled by setting explicitly: ``{ endOfLine: EndOfLine.NONE }``. Default: EndOfLine.LF
@@ -3082,7 +3231,7 @@ class GitAttributesFileOptions:
             self._values["end_of_line"] = end_of_line
 
     @builtins.property
-    def end_of_line(self) -> typing.Optional[EndOfLine]:
+    def end_of_line(self) -> typing.Optional["EndOfLine"]:
         '''(experimental) The default end of line character for text files.
 
         endOfLine it's useful to keep the same end of line between Windows and Unix operative systems for git checking/checkout operations. Hence, it can avoid simple repository mutations consisting only of changes in the end of line characters. It will be set in the first line of the .gitattributes file to make it the first match with high priority but it can be overriden in a later line. Can be disabled by setting explicitly: ``{ endOfLine: EndOfLine.NONE }``.
@@ -3092,7 +3241,7 @@ class GitAttributesFileOptions:
         :stability: experimental
         '''
         result = self._values.get("end_of_line")
-        return typing.cast(typing.Optional[EndOfLine], result)
+        return typing.cast(typing.Optional["EndOfLine"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3115,7 +3264,7 @@ class GitOptions:
     def __init__(
         self,
         *,
-        end_of_line: typing.Optional[EndOfLine] = None,
+        end_of_line: typing.Optional["EndOfLine"] = None,
         lfs_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''(experimental) Git configuration options.
@@ -3136,7 +3285,7 @@ class GitOptions:
             self._values["lfs_patterns"] = lfs_patterns
 
     @builtins.property
-    def end_of_line(self) -> typing.Optional[EndOfLine]:
+    def end_of_line(self) -> typing.Optional["EndOfLine"]:
         '''(experimental) The default end of line character for text files.
 
         endOfLine it's useful to keep the same end of line between Windows and Unix operative systems for git checking/checkout operations.
@@ -3149,7 +3298,7 @@ class GitOptions:
         :stability: experimental
         '''
         result = self._values.get("end_of_line")
-        return typing.cast(typing.Optional[EndOfLine], result)
+        return typing.cast(typing.Optional["EndOfLine"], result)
 
     @builtins.property
     def lfs_patterns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3286,7 +3435,7 @@ class GitpodOptions(DevEnvironmentOptions):
     def __init__(
         self,
         *,
-        docker_image: typing.Optional[DevEnvironmentDockerImage] = None,
+        docker_image: typing.Optional["DevEnvironmentDockerImage"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
         tasks: typing.Optional[typing.Sequence["Task"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3332,13 +3481,13 @@ class GitpodOptions(DevEnvironmentOptions):
             self._values["prebuilds"] = prebuilds
 
     @builtins.property
-    def docker_image(self) -> typing.Optional[DevEnvironmentDockerImage]:
+    def docker_image(self) -> typing.Optional["DevEnvironmentDockerImage"]:
         '''(experimental) A Docker image or Dockerfile for the container.
 
         :stability: experimental
         '''
         result = self._values.get("docker_image")
-        return typing.cast(typing.Optional[DevEnvironmentDockerImage], result)
+        return typing.cast(typing.Optional["DevEnvironmentDockerImage"], result)
 
     @builtins.property
     def ports(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -3399,7 +3548,7 @@ class GitpodPort:
     def __init__(
         self,
         *,
-        on_open: typing.Optional[GitpodOnOpen] = None,
+        on_open: typing.Optional["GitpodOnOpen"] = None,
         port: typing.Optional[builtins.str] = None,
         visibility: typing.Optional["GitpodPortVisibility"] = None,
     ) -> None:
@@ -3425,7 +3574,7 @@ class GitpodPort:
             self._values["visibility"] = visibility
 
     @builtins.property
-    def on_open(self) -> typing.Optional[GitpodOnOpen]:
+    def on_open(self) -> typing.Optional["GitpodOnOpen"]:
         '''(experimental) What to do when a service on a port is detected.
 
         :default: GitpodOnOpen.NOTIFY
@@ -3433,7 +3582,7 @@ class GitpodPort:
         :stability: experimental
         '''
         result = self._values.get("on_open")
-        return typing.cast(typing.Optional[GitpodOnOpen], result)
+        return typing.cast(typing.Optional["GitpodOnOpen"], result)
 
     @builtins.property
     def port(self) -> typing.Optional[builtins.str]:
@@ -3682,8 +3831,8 @@ class GitpodTask:
         before: typing.Optional[builtins.str] = None,
         init: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        open_in: typing.Optional[GitpodOpenIn] = None,
-        open_mode: typing.Optional[GitpodOpenMode] = None,
+        open_in: typing.Optional["GitpodOpenIn"] = None,
+        open_mode: typing.Optional["GitpodOpenMode"] = None,
         prebuild: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Configure options for a task to be run when opening a Gitpod workspace (e.g. running tests, or starting a dev server).
@@ -3774,7 +3923,7 @@ class GitpodTask:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def open_in(self) -> typing.Optional[GitpodOpenIn]:
+    def open_in(self) -> typing.Optional["GitpodOpenIn"]:
         '''(experimental) You can configure where in the IDE the terminal should be opened.
 
         :default: GitpodOpenIn.BOTTOM
@@ -3782,10 +3931,10 @@ class GitpodTask:
         :stability: experimental
         '''
         result = self._values.get("open_in")
-        return typing.cast(typing.Optional[GitpodOpenIn], result)
+        return typing.cast(typing.Optional["GitpodOpenIn"], result)
 
     @builtins.property
-    def open_mode(self) -> typing.Optional[GitpodOpenMode]:
+    def open_mode(self) -> typing.Optional["GitpodOpenMode"]:
         '''(experimental) You can configure how the terminal should be opened relative to the previous task.
 
         :default: GitpodOpenMode.TAB_AFTER
@@ -3793,7 +3942,7 @@ class GitpodTask:
         :stability: experimental
         '''
         result = self._values.get("open_mode")
-        return typing.cast(typing.Optional[GitpodOpenMode], result)
+        return typing.cast(typing.Optional["GitpodOpenMode"], result)
 
     @builtins.property
     def prebuild(self) -> typing.Optional[builtins.str]:
@@ -3930,7 +4079,7 @@ class IDevEnvironment(typing_extensions.Protocol):
     '''
 
     @jsii.member(jsii_name="addDockerImage")
-    def add_docker_image(self, image: DevEnvironmentDockerImage) -> None:
+    def add_docker_image(self, image: "DevEnvironmentDockerImage") -> None:
         '''(experimental) Add a custom Docker image or Dockerfile for the container.
 
         :param image: The Docker image.
@@ -3979,7 +4128,7 @@ class _IDevEnvironmentProxy:
     __jsii_type__: typing.ClassVar[str] = "projen.IDevEnvironment"
 
     @jsii.member(jsii_name="addDockerImage")
-    def add_docker_image(self, image: DevEnvironmentDockerImage) -> None:
+    def add_docker_image(self, image: "DevEnvironmentDockerImage") -> None:
         '''(experimental) Add a custom Docker image or Dockerfile for the container.
 
         :param image: The Docker image.
@@ -4099,7 +4248,7 @@ class IDockerComposeNetworkConfig(typing_extensions.Protocol):
         driver_opts: typing.Optional[typing.Mapping[typing.Any, typing.Any]] = None,
         external: typing.Optional[builtins.bool] = None,
         internal: typing.Optional[builtins.bool] = None,
-        ipam: typing.Optional[typing.Union[DockerComposeNetworkIpamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        ipam: typing.Optional[typing.Union["DockerComposeNetworkIpamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         overlay: typing.Optional[builtins.bool] = None,
@@ -4142,7 +4291,7 @@ class _IDockerComposeNetworkConfigProxy:
         driver_opts: typing.Optional[typing.Mapping[typing.Any, typing.Any]] = None,
         external: typing.Optional[builtins.bool] = None,
         internal: typing.Optional[builtins.bool] = None,
-        ipam: typing.Optional[typing.Union[DockerComposeNetworkIpamConfig, typing.Dict[builtins.str, typing.Any]]] = None,
+        ipam: typing.Optional[typing.Union["DockerComposeNetworkIpamConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Sequence[builtins.str]] = None,
         name: typing.Optional[builtins.str] = None,
         overlay: typing.Optional[builtins.bool] = None,
@@ -4234,7 +4383,7 @@ class IDockerComposeVolumeBinding(typing_extensions.Protocol):
     def bind(
         self,
         volume_config: "IDockerComposeVolumeConfig",
-    ) -> DockerComposeVolumeMount:
+    ) -> "DockerComposeVolumeMount":
         '''(experimental) Binds the requested volume to the docker-compose volume configuration and provide mounting instructions for synthesis.
 
         :param volume_config: the volume configuration.
@@ -4258,7 +4407,7 @@ class _IDockerComposeVolumeBindingProxy:
     def bind(
         self,
         volume_config: "IDockerComposeVolumeConfig",
-    ) -> DockerComposeVolumeMount:
+    ) -> "DockerComposeVolumeMount":
         '''(experimental) Binds the requested volume to the docker-compose volume configuration and provide mounting instructions for synthesis.
 
         :param volume_config: the volume configuration.
@@ -4270,7 +4419,7 @@ class _IDockerComposeVolumeBindingProxy:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8af3d4004c43777e3011a6152f90de4dca16d54781e5922335decd658cd9f63)
             check_type(argname="argument volume_config", value=volume_config, expected_type=type_hints["volume_config"])
-        return typing.cast(DockerComposeVolumeMount, jsii.invoke(self, "bind", [volume_config]))
+        return typing.cast("DockerComposeVolumeMount", jsii.invoke(self, "bind", [volume_config]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IDockerComposeVolumeBinding).__jsii_proxy_class__ = lambda : _IDockerComposeVolumeBindingProxy
@@ -4541,7 +4690,10 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         return typing.cast(None, jsii.invoke(self, "removePatterns", [*patterns]))
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -5003,7 +5155,7 @@ class License(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.License"):
         jsii.create(self.__class__, self, [project, options])
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, _: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(self, _: "IResolver") -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param _: -
@@ -5143,9 +5295,9 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         *,
-        level: typing.Optional[LogLevel] = None,
+        level: typing.Optional["LogLevel"] = None,
         use_prefix: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
@@ -5202,7 +5354,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         return typing.cast(None, jsii.invoke(self, "info", [*text]))
 
     @jsii.member(jsii_name="log")
-    def log(self, level: LogLevel, *text: typing.Any) -> None:
+    def log(self, level: "LogLevel", *text: typing.Any) -> None:
         '''(experimental) Log a message to stderr with a given logging level.
 
         The message will be
@@ -5255,7 +5407,7 @@ class LoggerOptions:
     def __init__(
         self,
         *,
-        level: typing.Optional[LogLevel] = None,
+        level: typing.Optional["LogLevel"] = None,
         use_prefix: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options for logging utilities.
@@ -5276,7 +5428,7 @@ class LoggerOptions:
             self._values["use_prefix"] = use_prefix
 
     @builtins.property
-    def level(self) -> typing.Optional[LogLevel]:
+    def level(self) -> typing.Optional["LogLevel"]:
         '''(experimental) The logging verbosity.
 
         The levels available (in increasing verbosity) are
@@ -5287,7 +5439,7 @@ class LoggerOptions:
         :stability: experimental
         '''
         result = self._values.get("level")
-        return typing.cast(typing.Optional[LogLevel], result)
+        return typing.cast(typing.Optional["LogLevel"], result)
 
     @builtins.property
     def use_prefix(self) -> typing.Optional[builtins.bool]:
@@ -5424,7 +5576,10 @@ class Makefile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.Makefile"):
         return typing.cast("Makefile", jsii.invoke(self, "addRules", [*rules]))
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -5613,7 +5768,7 @@ class ObjectFile(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         file_path: builtins.str,
         *,
         obj: typing.Any = None,
@@ -5752,7 +5907,7 @@ class ObjectFile(
         return typing.cast(None, jsii.invoke(self, "addToArray", [path, *values]))
 
     @jsii.member(jsii_name="patch")
-    def patch(self, *patches: JsonPatch) -> None:
+    def patch(self, *patches: "JsonPatch") -> None:
         '''(experimental) Applies an RFC 6902 JSON-patch to the synthesized object file. See https://datatracker.ietf.org/doc/html/rfc6902 for more information.
 
         For example, with the following object file Example::
@@ -5788,7 +5943,10 @@ class ObjectFile(
         return typing.cast(None, jsii.invoke(self, "patch", [*patches]))
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -5997,11 +6155,12 @@ class Project(
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
         parent: typing.Optional["Project"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
         projenrc_json_options: typing.Optional[typing.Union["ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6016,6 +6175,7 @@ class Project(
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -6032,6 +6192,7 @@ class Project(
             logging=logging,
             outdir=outdir,
             parent=parent,
+            project_tree=project_tree,
             projen_command=projen_command,
             projenrc_json=projenrc_json,
             projenrc_json_options=projenrc_json_options,
@@ -6057,7 +6218,7 @@ class Project(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, construct: _constructs_77d1e7e8.IConstruct) -> "Project":
+    def of(cls, construct: "_constructs_77d1e7e8.IConstruct") -> "Project":
         '''(experimental) Find the closest ancestor project for given construct.
 
         When given a project, this it the project itself.
@@ -6263,7 +6424,7 @@ class Project(
         return typing.cast(None, jsii.invoke(self, "synth", []))
 
     @jsii.member(jsii_name="tryFindFile")
-    def try_find_file(self, file_path: builtins.str) -> typing.Optional[FileBase]:
+    def try_find_file(self, file_path: builtins.str) -> typing.Optional["FileBase"]:
         '''(experimental) Finds a file at the specified relative path within this project and all its subprojects.
 
         :param file_path: The file path. If this path is relative, it will be resolved from the root of *this* project.
@@ -6275,7 +6436,7 @@ class Project(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f70766139ef881860aaf10aeef6ebdb1465d98e99bad4472ae17e63f34c7fd4f)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(typing.Optional[FileBase], jsii.invoke(self, "tryFindFile", [file_path]))
+        return typing.cast(typing.Optional["FileBase"], jsii.invoke(self, "tryFindFile", [file_path]))
 
     @jsii.member(jsii_name="tryFindJsonFile")
     def try_find_json_file(
@@ -6299,7 +6460,7 @@ class Project(
     def try_find_object_file(
         self,
         file_path: builtins.str,
-    ) -> typing.Optional[ObjectFile]:
+    ) -> typing.Optional["ObjectFile"]:
         '''(experimental) Finds an object file (like JsonFile, YamlFile, etc.) by name.
 
         :param file_path: The file path.
@@ -6309,10 +6470,10 @@ class Project(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fbb95b1525dde337216151338c677538f9fef8920e8ec9c6f33444b7f936f545)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(typing.Optional[ObjectFile], jsii.invoke(self, "tryFindObjectFile", [file_path]))
+        return typing.cast(typing.Optional["ObjectFile"], jsii.invoke(self, "tryFindObjectFile", [file_path]))
 
     @jsii.member(jsii_name="tryRemoveFile")
-    def try_remove_file(self, file_path: builtins.str) -> typing.Optional[FileBase]:
+    def try_remove_file(self, file_path: builtins.str) -> typing.Optional["FileBase"]:
         '''(experimental) Finds a file at the specified relative path within this project and removes it.
 
         :param file_path: The file path. If this path is relative, it will be resolved from the root of *this* project.
@@ -6327,7 +6488,7 @@ class Project(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__16d37a5c5825b9b3d7ff7498ac7929ccb4efdb7a4d051b9f355807df9f244105)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
-        return typing.cast(typing.Optional[FileBase], jsii.invoke(self, "tryRemoveFile", [file_path]))
+        return typing.cast(typing.Optional["FileBase"], jsii.invoke(self, "tryRemoveFile", [file_path]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DEFAULT_TASK")
@@ -6368,21 +6529,21 @@ class Project(
 
     @builtins.property
     @jsii.member(jsii_name="components")
-    def components(self) -> typing.List[Component]:
+    def components(self) -> typing.List["Component"]:
         '''(experimental) Returns all the components within this project.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[Component], jsii.get(self, "components"))
+        return typing.cast(typing.List["Component"], jsii.get(self, "components"))
 
     @builtins.property
     @jsii.member(jsii_name="deps")
-    def deps(self) -> Dependencies:
+    def deps(self) -> "Dependencies":
         '''(experimental) Project dependencies.
 
         :stability: experimental
         '''
-        return typing.cast(Dependencies, jsii.get(self, "deps"))
+        return typing.cast("Dependencies", jsii.get(self, "deps"))
 
     @builtins.property
     @jsii.member(jsii_name="ejected")
@@ -6395,39 +6556,39 @@ class Project(
 
     @builtins.property
     @jsii.member(jsii_name="files")
-    def files(self) -> typing.List[FileBase]:
+    def files(self) -> typing.List["FileBase"]:
         '''(experimental) All files in this project.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[FileBase], jsii.get(self, "files"))
+        return typing.cast(typing.List["FileBase"], jsii.get(self, "files"))
 
     @builtins.property
     @jsii.member(jsii_name="gitattributes")
-    def gitattributes(self) -> GitAttributesFile:
+    def gitattributes(self) -> "GitAttributesFile":
         '''(experimental) The .gitattributes file for this repository.
 
         :stability: experimental
         '''
-        return typing.cast(GitAttributesFile, jsii.get(self, "gitattributes"))
+        return typing.cast("GitAttributesFile", jsii.get(self, "gitattributes"))
 
     @builtins.property
     @jsii.member(jsii_name="gitignore")
-    def gitignore(self) -> IgnoreFile:
+    def gitignore(self) -> "IgnoreFile":
         '''(experimental) .gitignore.
 
         :stability: experimental
         '''
-        return typing.cast(IgnoreFile, jsii.get(self, "gitignore"))
+        return typing.cast("IgnoreFile", jsii.get(self, "gitignore"))
 
     @builtins.property
     @jsii.member(jsii_name="logger")
-    def logger(self) -> Logger:
+    def logger(self) -> "Logger":
         '''(experimental) Logging utilities.
 
         :stability: experimental
         '''
-        return typing.cast(Logger, jsii.get(self, "logger"))
+        return typing.cast("Logger", jsii.get(self, "logger"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -6538,7 +6699,7 @@ class Project(
 
     @builtins.property
     @jsii.member(jsii_name="initProject")
-    def init_project(self) -> typing.Optional[InitProject]:
+    def init_project(self) -> typing.Optional["InitProject"]:
         '''(experimental) The options used when this project is bootstrapped via ``projen new``.
 
         It
@@ -6547,7 +6708,7 @@ class Project(
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[InitProject], jsii.get(self, "initProject"))
+        return typing.cast(typing.Optional["InitProject"], jsii.get(self, "initProject"))
 
     @builtins.property
     @jsii.member(jsii_name="parent")
@@ -6576,7 +6737,7 @@ class ProjectBuild(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Project
     :stability: experimental
     '''
 
-    def __init__(self, project: Project) -> None:
+    def __init__(self, project: "Project") -> None:
         '''
         :param project: -
 
@@ -6655,6 +6816,7 @@ class ProjectBuild(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Project
         "logging": "logging",
         "outdir": "outdir",
         "parent": "parent",
+        "project_tree": "projectTree",
         "projen_command": "projenCommand",
         "projenrc_json": "projenrcJson",
         "projenrc_json_options": "projenrcJsonOptions",
@@ -6668,11 +6830,12 @@ class ProjectOptions:
         *,
         name: builtins.str,
         commit_generated: typing.Optional[builtins.bool] = None,
-        git_ignore_options: typing.Optional[typing.Union[IgnoreFileOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        git_options: typing.Optional[typing.Union[GitOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        logging: typing.Optional[typing.Union[LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        git_ignore_options: typing.Optional[typing.Union["IgnoreFileOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        git_options: typing.Optional[typing.Union["GitOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        logging: typing.Optional[typing.Union["LoggerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         outdir: typing.Optional[builtins.str] = None,
-        parent: typing.Optional[Project] = None,
+        parent: typing.Optional["Project"] = None,
+        project_tree: typing.Optional[builtins.bool] = None,
         projen_command: typing.Optional[builtins.str] = None,
         projenrc_json: typing.Optional[builtins.bool] = None,
         projenrc_json_options: typing.Optional[typing.Union["ProjenrcJsonOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -6688,6 +6851,7 @@ class ProjectOptions:
         :param logging: (experimental) Configure logging options such as verbosity. Default: {}
         :param outdir: (experimental) The root directory of the project. Relative to this directory, all files are synthesized. If this project has a parent, this directory is relative to the parent directory and it cannot be the same as the parent or any of it's other subprojects. Default: "."
         :param parent: (experimental) The parent project, if this project is part of a bigger project.
+        :param project_tree: (experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging. Default: false
         :param projen_command: (experimental) The shell command to use in order to run the projen CLI. Can be used to customize in special environments. Default: "npx projen"
         :param projenrc_json: (experimental) Generate (once) .projenrc.json (in JSON). Set to ``false`` in order to disable .projenrc.json generation. Default: false
         :param projenrc_json_options: (experimental) Options for .projenrc.json. Default: - default options
@@ -6715,6 +6879,7 @@ class ProjectOptions:
             check_type(argname="argument logging", value=logging, expected_type=type_hints["logging"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
+            check_type(argname="argument project_tree", value=project_tree, expected_type=type_hints["project_tree"])
             check_type(argname="argument projen_command", value=projen_command, expected_type=type_hints["projen_command"])
             check_type(argname="argument projenrc_json", value=projenrc_json, expected_type=type_hints["projenrc_json"])
             check_type(argname="argument projenrc_json_options", value=projenrc_json_options, expected_type=type_hints["projenrc_json_options"])
@@ -6735,6 +6900,8 @@ class ProjectOptions:
             self._values["outdir"] = outdir
         if parent is not None:
             self._values["parent"] = parent
+        if project_tree is not None:
+            self._values["project_tree"] = project_tree
         if projen_command is not None:
             self._values["projen_command"] = projen_command
         if projenrc_json is not None:
@@ -6771,25 +6938,25 @@ class ProjectOptions:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def git_ignore_options(self) -> typing.Optional[IgnoreFileOptions]:
+    def git_ignore_options(self) -> typing.Optional["IgnoreFileOptions"]:
         '''(experimental) Configuration options for .gitignore file.
 
         :stability: experimental
         '''
         result = self._values.get("git_ignore_options")
-        return typing.cast(typing.Optional[IgnoreFileOptions], result)
+        return typing.cast(typing.Optional["IgnoreFileOptions"], result)
 
     @builtins.property
-    def git_options(self) -> typing.Optional[GitOptions]:
+    def git_options(self) -> typing.Optional["GitOptions"]:
         '''(experimental) Configuration options for git.
 
         :stability: experimental
         '''
         result = self._values.get("git_options")
-        return typing.cast(typing.Optional[GitOptions], result)
+        return typing.cast(typing.Optional["GitOptions"], result)
 
     @builtins.property
-    def logging(self) -> typing.Optional[LoggerOptions]:
+    def logging(self) -> typing.Optional["LoggerOptions"]:
         '''(experimental) Configure logging options such as verbosity.
 
         :default: {}
@@ -6797,7 +6964,7 @@ class ProjectOptions:
         :stability: experimental
         '''
         result = self._values.get("logging")
-        return typing.cast(typing.Optional[LoggerOptions], result)
+        return typing.cast(typing.Optional["LoggerOptions"], result)
 
     @builtins.property
     def outdir(self) -> typing.Optional[builtins.str]:
@@ -6817,13 +6984,24 @@ class ProjectOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def parent(self) -> typing.Optional[Project]:
+    def parent(self) -> typing.Optional["Project"]:
         '''(experimental) The parent project, if this project is part of a bigger project.
 
         :stability: experimental
         '''
         result = self._values.get("parent")
-        return typing.cast(typing.Optional[Project], result)
+        return typing.cast(typing.Optional["Project"], result)
+
+    @builtins.property
+    def project_tree(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Generate a project tree file (``.projen/tree.json``) that shows all components and their relationships. Useful for understanding your project structure and debugging.
+
+        :default: false
+
+        :stability: experimental
+        '''
+        result = self._values.get("project_tree")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def projen_command(self) -> typing.Optional[builtins.str]:
@@ -6895,11 +7073,18 @@ class ProjectOptions:
 
 
 class ProjectTree(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.ProjectTree"):
-    '''
+    '''(experimental) Generates a ``.projen/tree.json`` file that provides a snapshot of your project's component hierarchy. This file includes metadata about each component such as file paths, types, and the projen version used.
+
+    The tree file is helpful for:
+
+    - Understanding how your project is structured
+    - Debugging component relationships
+    - Verifying which versions synthesized the project
+
     :stability: experimental
     '''
 
-    def __init__(self, project: Project) -> None:
+    def __init__(self, project: "Project") -> None:
         '''
         :param project: -
 
@@ -6969,7 +7154,7 @@ class Projects(metaclass=jsii.JSIIMeta, jsii_type="projen.Projects"):
         dir: builtins.str,
         project_fqn: builtins.str,
         project_options: typing.Mapping[builtins.str, typing.Any],
-        option_hints: typing.Optional[InitProjectOptionHints] = None,
+        option_hints: typing.Optional["InitProjectOptionHints"] = None,
         post: typing.Optional[builtins.bool] = None,
         synth: typing.Optional[builtins.bool] = None,
     ) -> None:
@@ -7019,7 +7204,7 @@ class ProjenrcFile(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -7036,7 +7221,7 @@ class ProjenrcFile(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, project: Project) -> typing.Optional["ProjenrcFile"]:
+    def of(cls, project: "Project") -> typing.Optional["ProjenrcFile"]:
         '''(experimental) Returns the ``Projenrc`` instance associated with a project or ``undefined`` if there is no Projenrc.
 
         :param project: The project.
@@ -7095,7 +7280,7 @@ class ProjenrcJson(
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         *,
         filename: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7327,7 +7512,7 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         *,
         ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
         ignore_projen: typing.Optional[builtins.bool] = None,
@@ -7730,7 +7915,7 @@ class SampleDir(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SampleDir"
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         dir: builtins.str,
         *,
         files: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -7841,7 +8026,7 @@ class SampleFile(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SampleFil
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         file_path: builtins.str,
         *,
         contents: typing.Optional[builtins.str] = None,
@@ -7950,7 +8135,7 @@ class SampleReadme(
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         *,
         contents: typing.Optional[builtins.str] = None,
         filename: typing.Optional[builtins.str] = None,
@@ -8198,7 +8383,7 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         file_path: builtins.str,
         *,
         indent: typing.Optional[jsii.Number] = None,
@@ -9641,7 +9826,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
     :stability: experimental
     '''
 
-    def __init__(self, project: Project) -> None:
+    def __init__(self, project: "Project") -> None:
         '''
         :param project: -
 
@@ -9681,7 +9866,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         description: typing.Optional[builtins.str] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         required_env: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> Task:
+    ) -> "Task":
         '''(experimental) Adds a task to a project.
 
         :param name: The name of the task.
@@ -9712,10 +9897,10 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
             required_env=required_env,
         )
 
-        return typing.cast(Task, jsii.invoke(self, "addTask", [name, options]))
+        return typing.cast("Task", jsii.invoke(self, "addTask", [name, options]))
 
     @jsii.member(jsii_name="removeTask")
-    def remove_task(self, name: builtins.str) -> typing.Optional[Task]:
+    def remove_task(self, name: builtins.str) -> typing.Optional["Task"]:
         '''(experimental) Removes a task from a project.
 
         :param name: The name of the task to remove.
@@ -9727,7 +9912,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c96f29b4423e28b4b65e683fc7e07a1024953e3610bb284fa1a0a90b8c77c07)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast(typing.Optional[Task], jsii.invoke(self, "removeTask", [name]))
+        return typing.cast(typing.Optional["Task"], jsii.invoke(self, "removeTask", [name]))
 
     @jsii.member(jsii_name="synthesize")
     def synthesize(self) -> None:
@@ -9738,7 +9923,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         return typing.cast(None, jsii.invoke(self, "synthesize", []))
 
     @jsii.member(jsii_name="tryFind")
-    def try_find(self, name: builtins.str) -> typing.Optional[Task]:
+    def try_find(self, name: builtins.str) -> typing.Optional["Task"]:
         '''(experimental) Finds a task by name.
 
         Returns ``undefined`` if the task cannot be found.
@@ -9750,16 +9935,16 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3316a1d8c737096e24c835f4cd8318c12ed26e59edc6a48fa5de090d545d802e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-        return typing.cast(typing.Optional[Task], jsii.invoke(self, "tryFind", [name]))
+        return typing.cast(typing.Optional["Task"], jsii.invoke(self, "tryFind", [name]))
 
     @builtins.property
     @jsii.member(jsii_name="all")
-    def all(self) -> typing.List[Task]:
+    def all(self) -> typing.List["Task"]:
         '''(experimental) All tasks.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[Task], jsii.get(self, "all"))
+        return typing.cast(typing.List["Task"], jsii.get(self, "all"))
 
     @builtins.property
     @jsii.member(jsii_name="env")
@@ -9781,7 +9966,7 @@ class TasksManifest:
         self,
         *,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union[TaskSpec, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tasks: typing.Optional[typing.Mapping[builtins.str, typing.Union["TaskSpec", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''(experimental) Schema for ``tasks.json``.
 
@@ -9810,13 +9995,13 @@ class TasksManifest:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def tasks(self) -> typing.Optional[typing.Mapping[builtins.str, TaskSpec]]:
+    def tasks(self) -> typing.Optional[typing.Mapping[builtins.str, "TaskSpec"]]:
         '''(experimental) All tasks available for this project.
 
         :stability: experimental
         '''
         result = self._values.get("tasks")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, TaskSpec]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "TaskSpec"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9862,7 +10047,7 @@ class Testing(metaclass=jsii.JSIIMeta, jsii_type="projen.Testing"):
     @builtins.classmethod
     def synth(
         cls,
-        project: Project,
+        project: "Project",
         *,
         parse_json: typing.Optional[builtins.bool] = None,
     ) -> typing.Mapping[builtins.str, typing.Any]:
@@ -9891,7 +10076,7 @@ class TextFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.TextFile"):
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         file_path: builtins.str,
         *,
         lines: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -9943,7 +10128,7 @@ class TextFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.TextFile"):
         return typing.cast(None, jsii.invoke(self, "addLine", [line]))
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, _: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(self, _: "IResolver") -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param _: -
@@ -10104,7 +10289,7 @@ class TomlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.TomlFile")
 
     def __init__(
         self,
-        project: Project,
+        scope: "_constructs_77d1e7e8.IConstruct",
         file_path: builtins.str,
         *,
         obj: typing.Any = None,
@@ -10116,7 +10301,7 @@ class TomlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.TomlFile")
         readonly: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
-        :param project: -
+        :param scope: -
         :param file_path: -
         :param obj: (experimental) The object that will be serialized. You can modify the object's contents before synthesis. Serialization of the object is similar to JSON.stringify with few enhancements: - values that are functions will be called during synthesis and the result will be serialized - this allow to have lazy values. - ``Set`` will be converted to array - ``Map`` will be converted to a plain object ({ key: value, ... }}) - ``RegExp`` without flags will be converted to string representation of the source Default: {} an empty object (use ``file.obj`` to mutate).
         :param omit_empty: (experimental) Omits empty objects and arrays. Default: false
@@ -10130,7 +10315,7 @@ class TomlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.TomlFile")
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__de7c08620aabeb578ce8c0c54b1073a9df1f34c7815d8ae6fdebff7eb411c3d8)
-            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = TomlFileOptions(
             obj=obj,
@@ -10142,10 +10327,13 @@ class TomlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.TomlFile")
             readonly=readonly,
         )
 
-        jsii.create(self.__class__, self, [project, file_path, options])
+        jsii.create(self.__class__, self, [scope, file_path, options])
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -10327,13 +10515,13 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         *,
         artifacts_directory: builtins.str,
         version_input_file: builtins.str,
         bump_package: typing.Optional[builtins.str] = None,
         next_version_command: typing.Optional[builtins.str] = None,
-        releasable_commits: typing.Optional[ReleasableCommits] = None,
+        releasable_commits: typing.Optional["ReleasableCommits"] = None,
         tag_prefix: typing.Optional[builtins.str] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
@@ -10423,11 +10611,11 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
 
     @builtins.property
     @jsii.member(jsii_name="bumpTask")
-    def bump_task(self) -> Task:
+    def bump_task(self) -> "Task":
         '''
         :stability: experimental
         '''
-        return typing.cast(Task, jsii.get(self, "bumpTask"))
+        return typing.cast("Task", jsii.get(self, "bumpTask"))
 
     @builtins.property
     @jsii.member(jsii_name="changelogFileName")
@@ -10449,11 +10637,11 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
 
     @builtins.property
     @jsii.member(jsii_name="unbumpTask")
-    def unbump_task(self) -> Task:
+    def unbump_task(self) -> "Task":
         '''
         :stability: experimental
         '''
-        return typing.cast(Task, jsii.get(self, "unbumpTask"))
+        return typing.cast("Task", jsii.get(self, "unbumpTask"))
 
     @builtins.property
     @jsii.member(jsii_name="versionFileName")
@@ -10602,7 +10790,7 @@ class VersionOptions:
         version_input_file: builtins.str,
         bump_package: typing.Optional[builtins.str] = None,
         next_version_command: typing.Optional[builtins.str] = None,
-        releasable_commits: typing.Optional[ReleasableCommits] = None,
+        releasable_commits: typing.Optional["ReleasableCommits"] = None,
         tag_prefix: typing.Optional[builtins.str] = None,
         versionrc_options: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
@@ -10707,7 +10895,7 @@ class VersionOptions:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def releasable_commits(self) -> typing.Optional[ReleasableCommits]:
+    def releasable_commits(self) -> typing.Optional["ReleasableCommits"]:
         '''(experimental) Find commits that should be considered releasable Used to decide if a release is required.
 
         :default: ReleasableCommits.everyCommit()
@@ -10715,7 +10903,7 @@ class VersionOptions:
         :stability: experimental
         '''
         result = self._values.get("releasable_commits")
-        return typing.cast(typing.Optional[ReleasableCommits], result)
+        return typing.cast(typing.Optional["ReleasableCommits"], result)
 
     @builtins.property
     def tag_prefix(self) -> typing.Optional[builtins.str]:
@@ -10760,7 +10948,7 @@ class XmlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.XmlFile"):
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         file_path: builtins.str,
         *,
         obj: typing.Any = None,
@@ -10801,7 +10989,10 @@ class XmlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.XmlFile"):
         jsii.create(self.__class__, self, [project, file_path, options])
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -10984,7 +11175,7 @@ class YamlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.YamlFile")
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         file_path: builtins.str,
         *,
         line_width: typing.Optional[jsii.Number] = None,
@@ -11028,7 +11219,10 @@ class YamlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.YamlFile")
         jsii.create(self.__class__, self, [scope, file_path, options])
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -11236,6 +11430,220 @@ class YamlFileOptions(ObjectFileOptions):
         )
 
 
+class AiInstructions(
+    Component,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.AiInstructions",
+):
+    '''(experimental) Generates instruction files for AI coding assistants with projen-specific guidance.
+
+    This component creates configuration files that help AI tools like GitHub Copilot,
+    Cursor IDE, Claude Code, and Amazon Q understand that the project is managed by projen
+    and should follow projen conventions.
+
+    :stability: experimental
+
+    Example::
+
+        const project = new TypeScriptProject({
+          name: "my-project",
+          defaultReleaseBranch: "main",
+        });
+        
+        // Basic usage - generates files for all supported AI agents
+        new AiInstructions(project);
+        
+        // Custom usage - specify which agents and add custom instructions
+        new AiInstructions(project, {
+          agents: [AiAgent.GITHUB_COPILOT, AiAgent.CURSOR],
+          agentSpecificInstructions: {
+            [AiAgent.GITHUB_COPILOT]: ["Always use descriptive commit messages."],
+          },
+        });
+        
+        // Add more instructions after instantiation
+        const ai = new AiInstructions(project);
+        ai.addInstructions("Use functional programming patterns.");
+        ai.addInstructions("Always write comprehensive tests.");
+    '''
+
+    def __init__(
+        self,
+        project: "Project",
+        *,
+        agents: typing.Optional[typing.Sequence["AiAgent"]] = None,
+        agent_specific_instructions: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+        include_default_instructions: typing.Optional[builtins.bool] = None,
+        instructions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param project: -
+        :param agents: (experimental) Which AI agents to generate instruction files for. Default: - All agents: [AiAgent.GITHUB_COPILOT, AiAgent.CURSOR, AiAgent.CLAUDE, AiAgent.AMAZON_Q, AiAgent.KIRO, AiAgent.CODEX]
+        :param agent_specific_instructions: (experimental) Per-agent custom instructions. Allows different instructions for different AI tools. Default: - no agent specific instructions
+        :param include_default_instructions: (experimental) Include default instructions for projen and general best practices. Default instructions will only be included for agents provided in the ``agents`` option. If ``agents`` is not provided, default instructions will be included for all agents. Default: true
+        :param instructions: (experimental) General instructions applicable to all agents. Default: - no agent specific instructions
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ade3e0209730c28511c6c65af7db0ef1d8f6d736618b1a95064af6bf4e829b8)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        options = AiInstructionsOptions(
+            agents=agents,
+            agent_specific_instructions=agent_specific_instructions,
+            include_default_instructions=include_default_instructions,
+            instructions=instructions,
+        )
+
+        jsii.create(self.__class__, self, [project, options])
+
+    @jsii.member(jsii_name="bestPractices")
+    @builtins.classmethod
+    def best_practices(cls, project: "Project") -> builtins.str:
+        '''(experimental) Returns development best practices instructions for AI agents.
+
+        :param project: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9b3a19a4e1f7d40bf00205a6394247af85d2428c672a0ecb7904470daaabda2f)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "bestPractices", [project]))
+
+    @jsii.member(jsii_name="projen")
+    @builtins.classmethod
+    def projen(cls, project: "Project") -> builtins.str:
+        '''(experimental) Returns projen-specific instructions for AI agents.
+
+        :param project: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__065453e2727d00b362bd1cf1f58d194d6c355b2a9c2f575e92c43eb627f6eb89)
+            check_type(argname="argument project", value=project, expected_type=type_hints["project"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "projen", [project]))
+
+    @jsii.member(jsii_name="addAgentSpecificInstructions")
+    def add_agent_specific_instructions(
+        self,
+        agent: "AiAgent",
+        *instructions: builtins.str,
+    ) -> None:
+        '''(experimental) Add instructions for a specific AI agent.
+
+        This can also be used to add instructions for an AI agent that was previously not enabled.
+
+        :param agent: The AI agent to add instructions for.
+        :param instructions: The instruction(s) to add.
+
+        :stability: experimental
+
+        Example::
+
+            aiInstructions.addAgentSpecificInstructions(AiAgent.GITHUB_COPILOT, "Use descriptive commit messages.");
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ff14bf0a463b0f887b122f5949af2eedda259c6426a05e006686653e81b8fc8)
+            check_type(argname="argument agent", value=agent, expected_type=type_hints["agent"])
+            check_type(argname="argument instructions", value=instructions, expected_type=typing.Tuple[type_hints["instructions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addAgentSpecificInstructions", [agent, *instructions]))
+
+    @jsii.member(jsii_name="addInstructions")
+    def add_instructions(self, *instructions: builtins.str) -> None:
+        '''(experimental) Adds instructions that will be included for all selected AI agents.
+
+        :param instructions: The instructions to add.
+
+        :stability: experimental
+
+        Example::
+
+            aiInstructions.addInstructions("Always use TypeScript strict mode.");
+            aiInstructions.addInstructions("Prefer functional programming.", "Avoid mutations.");
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da44882109eef43fd7d698b3f301b9241d695eb97a717ffa73265862f39698ba)
+            check_type(argname="argument instructions", value=instructions, expected_type=typing.Tuple[type_hints["instructions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addInstructions", [*instructions]))
+
+
+class AiInstructionsFile(
+    FileBase,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.AiInstructionsFile",
+):
+    '''
+    :stability: experimental
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        file_path: builtins.str,
+        *,
+        committed: typing.Optional[builtins.bool] = None,
+        edit_gitignore: typing.Optional[builtins.bool] = None,
+        executable: typing.Optional[builtins.bool] = None,
+        marker: typing.Optional[builtins.bool] = None,
+        readonly: typing.Optional[builtins.bool] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param file_path: -
+        :param committed: (experimental) Indicates whether this file should be committed to git or ignored. By default, all generated files are committed and anti-tamper is used to protect against manual modifications. Default: true
+        :param edit_gitignore: (experimental) Update the project's .gitignore file. Default: true
+        :param executable: (experimental) Whether the generated file should be marked as executable. Default: false
+        :param marker: (experimental) Adds the projen marker to the file. Default: - marker will be included as long as the project is not ejected
+        :param readonly: (experimental) Whether the generated file should be readonly. Default: true
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b11da88a3895fa642ead3d82823bc49f77ad84be5d7816af5a52334434c5c79)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
+        options = FileBaseOptions(
+            committed=committed,
+            edit_gitignore=edit_gitignore,
+            executable=executable,
+            marker=marker,
+            readonly=readonly,
+        )
+
+        jsii.create(self.__class__, self, [scope, file_path, options])
+
+    @jsii.member(jsii_name="addInstructions")
+    def add_instructions(self, *instructions: builtins.str) -> None:
+        '''(experimental) Adds instructions to the instruction file.
+
+        :param instructions: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da3f715a19bd0c18e2cc2d3bda06afae637174acbe15ef75ef39bb7c26f0ff90)
+            check_type(argname="argument instructions", value=instructions, expected_type=typing.Tuple[type_hints["instructions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addInstructions", [*instructions]))
+
+    @jsii.member(jsii_name="synthesizeContent")
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
+        '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
+
+        :param resolver: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__af1c3edb2730dd42712c19d9f2ebd48921303c4efd980f8910326afc111d82cc)
+            check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
+        return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
+
+
 @jsii.data_type(
     jsii_type="projen.Dependency",
     jsii_struct_bases=[DependencyCoordinates],
@@ -11252,7 +11660,7 @@ class Dependency(DependencyCoordinates):
         *,
         name: builtins.str,
         version: typing.Optional[builtins.str] = None,
-        type: DependencyType,
+        type: "DependencyType",
         metadata: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''(experimental) Represents a project dependency.
@@ -11304,14 +11712,14 @@ class Dependency(DependencyCoordinates):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def type(self) -> DependencyType:
+    def type(self) -> "DependencyType":
         '''(experimental) Which type of dependency this is (runtime, build-time, etc).
 
         :stability: experimental
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
-        return typing.cast(DependencyType, result)
+        return typing.cast("DependencyType", result)
 
     @builtins.property
     def metadata(self) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
@@ -11351,17 +11759,17 @@ class DockerComposeService(
         service_name: builtins.str,
         *,
         command: typing.Optional[typing.Sequence[builtins.str]] = None,
-        depends_on: typing.Optional[typing.Sequence[IDockerComposeServiceName]] = None,
+        depends_on: typing.Optional[typing.Sequence["IDockerComposeServiceName"]] = None,
         entrypoint: typing.Optional[typing.Sequence[builtins.str]] = None,
         environment: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         image: typing.Optional[builtins.str] = None,
-        image_build: typing.Optional[typing.Union[DockerComposeBuild, typing.Dict[builtins.str, typing.Any]]] = None,
+        image_build: typing.Optional[typing.Union["DockerComposeBuild", typing.Dict[builtins.str, typing.Any]]] = None,
         labels: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        networks: typing.Optional[typing.Sequence[IDockerComposeNetworkBinding]] = None,
+        networks: typing.Optional[typing.Sequence["IDockerComposeNetworkBinding"]] = None,
         platform: typing.Optional[builtins.str] = None,
-        ports: typing.Optional[typing.Sequence[typing.Union[DockerComposeServicePort, typing.Dict[builtins.str, typing.Any]]]] = None,
+        ports: typing.Optional[typing.Sequence[typing.Union["DockerComposeServicePort", typing.Dict[builtins.str, typing.Any]]]] = None,
         privileged: typing.Optional[builtins.bool] = None,
-        volumes: typing.Optional[typing.Sequence[IDockerComposeVolumeBinding]] = None,
+        volumes: typing.Optional[typing.Sequence["IDockerComposeVolumeBinding"]] = None,
     ) -> None:
         '''
         :param service_name: The name of the docker compose service.
@@ -11401,7 +11809,7 @@ class DockerComposeService(
         jsii.create(self.__class__, self, [service_name, service_description])
 
     @jsii.member(jsii_name="addDependsOn")
-    def add_depends_on(self, service_name: IDockerComposeServiceName) -> None:
+    def add_depends_on(self, service_name: "IDockerComposeServiceName") -> None:
         '''(experimental) Make the service depend on another service.
 
         :param service_name: -
@@ -11444,7 +11852,7 @@ class DockerComposeService(
         return typing.cast(None, jsii.invoke(self, "addLabel", [name, value]))
 
     @jsii.member(jsii_name="addNetwork")
-    def add_network(self, network: IDockerComposeNetworkBinding) -> None:
+    def add_network(self, network: "IDockerComposeNetworkBinding") -> None:
         '''(experimental) Add a network to the service.
 
         :param network: -
@@ -11462,7 +11870,7 @@ class DockerComposeService(
         published_port: jsii.Number,
         target_port: jsii.Number,
         *,
-        protocol: typing.Optional[DockerComposeProtocol] = None,
+        protocol: typing.Optional["DockerComposeProtocol"] = None,
     ) -> None:
         '''(experimental) Add a port mapping.
 
@@ -11481,7 +11889,7 @@ class DockerComposeService(
         return typing.cast(None, jsii.invoke(self, "addPort", [published_port, target_port, options]))
 
     @jsii.member(jsii_name="addVolume")
-    def add_volume(self, volume: IDockerComposeVolumeBinding) -> None:
+    def add_volume(self, volume: "IDockerComposeVolumeBinding") -> None:
         '''(experimental) Add a volume to the service.
 
         :param volume: -
@@ -11495,12 +11903,12 @@ class DockerComposeService(
 
     @builtins.property
     @jsii.member(jsii_name="dependsOn")
-    def depends_on(self) -> typing.List[IDockerComposeServiceName]:
+    def depends_on(self) -> typing.List["IDockerComposeServiceName"]:
         '''(experimental) Other services that this service depends on.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[IDockerComposeServiceName], jsii.get(self, "dependsOn"))
+        return typing.cast(typing.List["IDockerComposeServiceName"], jsii.get(self, "dependsOn"))
 
     @builtins.property
     @jsii.member(jsii_name="environment")
@@ -11522,21 +11930,21 @@ class DockerComposeService(
 
     @builtins.property
     @jsii.member(jsii_name="networks")
-    def networks(self) -> typing.List[IDockerComposeNetworkBinding]:
+    def networks(self) -> typing.List["IDockerComposeNetworkBinding"]:
         '''(experimental) Networks mounted in the container.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[IDockerComposeNetworkBinding], jsii.get(self, "networks"))
+        return typing.cast(typing.List["IDockerComposeNetworkBinding"], jsii.get(self, "networks"))
 
     @builtins.property
     @jsii.member(jsii_name="ports")
-    def ports(self) -> typing.List[DockerComposeServicePort]:
+    def ports(self) -> typing.List["DockerComposeServicePort"]:
         '''(experimental) Published ports.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[DockerComposeServicePort], jsii.get(self, "ports"))
+        return typing.cast(typing.List["DockerComposeServicePort"], jsii.get(self, "ports"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceName")
@@ -11549,12 +11957,12 @@ class DockerComposeService(
 
     @builtins.property
     @jsii.member(jsii_name="volumes")
-    def volumes(self) -> typing.List[IDockerComposeVolumeBinding]:
+    def volumes(self) -> typing.List["IDockerComposeVolumeBinding"]:
         '''(experimental) Volumes mounted in the container.
 
         :stability: experimental
         '''
-        return typing.cast(typing.List[IDockerComposeVolumeBinding], jsii.get(self, "volumes"))
+        return typing.cast(typing.List["IDockerComposeVolumeBinding"], jsii.get(self, "volumes"))
 
     @builtins.property
     @jsii.member(jsii_name="command")
@@ -11585,12 +11993,12 @@ class DockerComposeService(
 
     @builtins.property
     @jsii.member(jsii_name="imageBuild")
-    def image_build(self) -> typing.Optional[DockerComposeBuild]:
+    def image_build(self) -> typing.Optional["DockerComposeBuild"]:
         '''(experimental) Docker image build instructions.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[DockerComposeBuild], jsii.get(self, "imageBuild"))
+        return typing.cast(typing.Optional["DockerComposeBuild"], jsii.get(self, "imageBuild"))
 
     @builtins.property
     @jsii.member(jsii_name="platform")
@@ -11620,12 +12028,12 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         *,
-        prebuilds: typing.Optional[typing.Union[GitpodPrebuilds, typing.Dict[builtins.str, typing.Any]]] = None,
-        docker_image: typing.Optional[DevEnvironmentDockerImage] = None,
+        prebuilds: typing.Optional[typing.Union["GitpodPrebuilds", typing.Dict[builtins.str, typing.Any]]] = None,
+        docker_image: typing.Optional["DevEnvironmentDockerImage"] = None,
         ports: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tasks: typing.Optional[typing.Sequence[Task]] = None,
+        tasks: typing.Optional[typing.Sequence["Task"]] = None,
         vscode_extensions: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''
@@ -11659,8 +12067,8 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         before: typing.Optional[builtins.str] = None,
         init: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        open_in: typing.Optional[GitpodOpenIn] = None,
-        open_mode: typing.Optional[GitpodOpenMode] = None,
+        open_in: typing.Optional["GitpodOpenIn"] = None,
+        open_mode: typing.Optional["GitpodOpenMode"] = None,
         prebuild: typing.Optional[builtins.str] = None,
     ) -> None:
         '''(experimental) Add a task with more granular options.
@@ -11691,7 +12099,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         return typing.cast(None, jsii.invoke(self, "addCustomTask", [options]))
 
     @jsii.member(jsii_name="addDockerImage")
-    def add_docker_image(self, image: DevEnvironmentDockerImage) -> None:
+    def add_docker_image(self, image: "DevEnvironmentDockerImage") -> None:
         '''(experimental) Add a custom Docker image or Dockerfile for the container.
 
         :param image: The Docker image.
@@ -11756,7 +12164,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         return typing.cast(None, jsii.invoke(self, "addPrebuilds", [config]))
 
     @jsii.member(jsii_name="addTasks")
-    def add_tasks(self, *tasks: Task) -> None:
+    def add_tasks(self, *tasks: "Task") -> None:
         '''(experimental) Add tasks to run when gitpod starts.
 
         By default, all tasks will be run in parallel. To run tasks in sequence,
@@ -11809,7 +12217,7 @@ class IniFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.IniFile"):
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         file_path: builtins.str,
         *,
         obj: typing.Any = None,
@@ -11850,7 +12258,10 @@ class IniFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.IniFile"):
         jsii.create(self.__class__, self, [project, file_path, options])
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -12033,7 +12444,7 @@ class JsonFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.JsonFile")
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.IConstruct,
+        scope: "_constructs_77d1e7e8.IConstruct",
         file_path: builtins.str,
         *,
         allow_comments: typing.Optional[builtins.bool] = None,
@@ -12080,7 +12491,10 @@ class JsonFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.JsonFile")
         jsii.create(self.__class__, self, [scope, file_path, options])
 
     @jsii.member(jsii_name="synthesizeContent")
-    def _synthesize_content(self, resolver: IResolver) -> typing.Optional[builtins.str]:
+    def _synthesize_content(
+        self,
+        resolver: "IResolver",
+    ) -> typing.Optional[builtins.str]:
         '''(experimental) Implemented by derived classes and returns the contents of the file to emit.
 
         :param resolver: -
@@ -12306,7 +12720,7 @@ class Projenrc(ProjenrcJson, metaclass=jsii.JSIIMeta, jsii_type="projen.Projenrc
 
     def __init__(
         self,
-        project: Project,
+        project: "Project",
         *,
         filename: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -12575,6 +12989,10 @@ class TaskStep(TaskStepOptions):
 
 
 __all__ = [
+    "AiAgent",
+    "AiInstructions",
+    "AiInstructionsFile",
+    "AiInstructionsOptions",
     "Component",
     "CreateProjectOptions",
     "Dependencies",
@@ -12724,6 +13142,16 @@ from . import release
 from . import typescript
 from . import vscode
 from . import web
+
+def _typecheckingstub__5bf7714efdf83cf2031e4ef3aa1d0cb9511cb921777751c76a0f501c0c56e247(
+    *,
+    agents: typing.Optional[typing.Sequence[AiAgent]] = None,
+    agent_specific_instructions: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+    include_default_instructions: typing.Optional[builtins.bool] = None,
+    instructions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
 
 def _typecheckingstub__e4ee40327ed6d04e3e377e300d915d402c50029248a86452fd19fd6372386d4b(
     scope: _constructs_77d1e7e8.IConstruct,
@@ -13660,6 +14088,7 @@ def _typecheckingstub__bef7d6448b98c56283c32249b27775d5b609a52bab9bec1934494e170
     logging: typing.Optional[typing.Union[LoggerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     outdir: typing.Optional[builtins.str] = None,
     parent: typing.Optional[Project] = None,
+    project_tree: typing.Optional[builtins.bool] = None,
     projen_command: typing.Optional[builtins.str] = None,
     projenrc_json: typing.Optional[builtins.bool] = None,
     projenrc_json_options: typing.Optional[typing.Union[ProjenrcJsonOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -14259,7 +14688,7 @@ def _typecheckingstub__ba0f4dd58b9e223b379bf709c046d112cede147b9481878f22a671a9d
     pass
 
 def _typecheckingstub__de7c08620aabeb578ce8c0c54b1073a9df1f34c7815d8ae6fdebff7eb411c3d8(
-    project: Project,
+    scope: _constructs_77d1e7e8.IConstruct,
     file_path: builtins.str,
     *,
     obj: typing.Any = None,
@@ -14402,6 +14831,67 @@ def _typecheckingstub__ca9e5a70f67f8e3db454227249c58dd5464be1446a55fcf3be780621f
     obj: typing.Any = None,
     omit_empty: typing.Optional[builtins.bool] = None,
     line_width: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ade3e0209730c28511c6c65af7db0ef1d8f6d736618b1a95064af6bf4e829b8(
+    project: Project,
+    *,
+    agents: typing.Optional[typing.Sequence[AiAgent]] = None,
+    agent_specific_instructions: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[builtins.str]]] = None,
+    include_default_instructions: typing.Optional[builtins.bool] = None,
+    instructions: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b3a19a4e1f7d40bf00205a6394247af85d2428c672a0ecb7904470daaabda2f(
+    project: Project,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__065453e2727d00b362bd1cf1f58d194d6c355b2a9c2f575e92c43eb627f6eb89(
+    project: Project,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ff14bf0a463b0f887b122f5949af2eedda259c6426a05e006686653e81b8fc8(
+    agent: AiAgent,
+    *instructions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da44882109eef43fd7d698b3f301b9241d695eb97a717ffa73265862f39698ba(
+    *instructions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b11da88a3895fa642ead3d82823bc49f77ad84be5d7816af5a52334434c5c79(
+    scope: _constructs_77d1e7e8.IConstruct,
+    file_path: builtins.str,
+    *,
+    committed: typing.Optional[builtins.bool] = None,
+    edit_gitignore: typing.Optional[builtins.bool] = None,
+    executable: typing.Optional[builtins.bool] = None,
+    marker: typing.Optional[builtins.bool] = None,
+    readonly: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da3f715a19bd0c18e2cc2d3bda06afae637174acbe15ef75ef39bb7c26f0ff90(
+    *instructions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__af1c3edb2730dd42712c19d9f2ebd48921303c4efd980f8910326afc111d82cc(
+    resolver: IResolver,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -14607,3 +15097,6 @@ def _typecheckingstub__6e32d65dbc737f8fd131c5593ecf206bcf2a76757ddb7c5f42945d730
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [ICompareString, IDevEnvironment, IDockerComposeNetworkBinding, IDockerComposeNetworkConfig, IDockerComposeServiceName, IDockerComposeVolumeBinding, IDockerComposeVolumeConfig, IResolvable, IResolver]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

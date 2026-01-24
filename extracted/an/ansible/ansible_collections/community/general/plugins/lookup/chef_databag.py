@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 # Copyright (c) 2016, Josh Bradley <jbradley(at)digitalocean.com>
 # Copyright (c) 2017 Ansible Project
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
-from __future__ import (absolute_import, division, print_function)
-__metaclass__ = type
+from __future__ import annotations
 
 DOCUMENTATION = r"""
 author: Unknown (!UNKNOWN)
@@ -49,8 +47,9 @@ from ansible.parsing.splitter import parse_kv
 
 try:
     import chef
+
     HAS_CHEF = True
-except ImportError as missing_module:
+except ImportError:
     HAS_CHEF = False
 
 
@@ -58,9 +57,9 @@ class LookupModule(LookupBase):
     """
     Chef data bag lookup module
     """
-    def __init__(self, loader=None, templar=None, **kwargs):
 
-        super(LookupModule, self).__init__(loader, templar, **kwargs)
+    def __init__(self, loader=None, templar=None, **kwargs):
+        super().__init__(loader, templar, **kwargs)
 
         # setup vars for data bag name and data bag item
         self.name = None
@@ -78,19 +77,15 @@ class LookupModule(LookupBase):
                     continue
                 parsed = str(arg_raw)
                 setattr(self, arg, parsed)
-            except ValueError:
-                raise AnsibleError(
-                    f"can't parse arg {arg}={arg_raw} as string"
-                )
+            except ValueError as e:
+                raise AnsibleError(f"can't parse arg {arg}={arg_raw} as string") from e
         if args:
-            raise AnsibleError(
-                f"unrecognized arguments to with_sequence: {list(args.keys())!r}"
-            )
+            raise AnsibleError(f"unrecognized arguments to with_sequence: {list(args.keys())!r}")
 
     def run(self, terms, variables=None, **kwargs):
         # Ensure pychef has been loaded
         if not HAS_CHEF:
-            raise AnsibleError('PyChef needed for lookup plugin, try `pip install pychef`')
+            raise AnsibleError("PyChef needed for lookup plugin, try `pip install pychef`")
 
         for term in terms:
             self.parse_kv_args(parse_kv(term))
@@ -98,7 +93,7 @@ class LookupModule(LookupBase):
         api_object = chef.autoconfigure()
 
         if not isinstance(api_object, chef.api.ChefAPI):
-            raise AnsibleError('Unable to connect to Chef Server API.')
+            raise AnsibleError("Unable to connect to Chef Server API.")
 
         data_bag_object = chef.DataBag(self.name)
 

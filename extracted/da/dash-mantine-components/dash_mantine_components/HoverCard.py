@@ -302,7 +302,7 @@ Keyword arguments:
 
 - zIndex (string | number; optional):
     Dropdown `z-index`, `300` by default."""
-    _children_props = ['middlewares.flip.boundary']
+    _children_props: typing.List[str] = ['middlewares.flip.boundary']
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'HoverCard'

@@ -1,5 +1,3 @@
-from typing import Dict, Optional
-
 from ase import Atoms
 
 from clease.settings import ClusterExpansionSettings
@@ -11,8 +9,8 @@ from .clease import Clease
 def attach_calculator(
     settings: ClusterExpansionSettings,
     atoms: Atoms,
-    eci: Optional[Dict[str, float]] = None,
-    num_threads: Optional[int] = None,
+    eci: dict[str, float] | None = None,
+    num_threads: int | None = None,
 ) -> Atoms:
     """Utility function for an efficient initialization of large cells. Will set the atoms
     object as the active template in the settings.
@@ -42,7 +40,7 @@ def attach_calculator(
     return atoms_with_calc
 
 
-def get_ce_energy(settings: ClusterExpansionSettings, atoms: Atoms, eci: Dict[str, float]) -> float:
+def get_ce_energy(settings: ClusterExpansionSettings, atoms: Atoms, eci: dict[str, float]) -> float:
     """Get energy of the ASE Atoms object based on given ECI values.
 
     :param settings: ClusterExpansionSettings object (e.g., CEBulk, CECyrstal)

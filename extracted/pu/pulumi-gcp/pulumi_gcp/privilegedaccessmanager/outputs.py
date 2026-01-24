@@ -16,6 +16,13 @@ from .. import _utilities
 from . import outputs
 
 __all__ = [
+    'SettingsEmailNotificationSettings',
+    'SettingsEmailNotificationSettingsCustomNotificationBehavior',
+    'SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications',
+    'SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications',
+    'SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications',
+    'SettingsEmailNotificationSettingsDisableAllNotifications',
+    'SettingsServiceAccountApproverSettings',
     'EntitlementAdditionalNotificationTargets',
     'EntitlementApprovalWorkflow',
     'EntitlementApprovalWorkflowManualApprovals',
@@ -41,6 +48,427 @@ __all__ = [
     'GetEntitlementRequesterJustificationConfigNotMandatoryResult',
     'GetEntitlementRequesterJustificationConfigUnstructuredResult',
 ]
+
+@pulumi.output_type
+class SettingsEmailNotificationSettings(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "customNotificationBehavior":
+            suggest = "custom_notification_behavior"
+        elif key == "disableAllNotifications":
+            suggest = "disable_all_notifications"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SettingsEmailNotificationSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SettingsEmailNotificationSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SettingsEmailNotificationSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 custom_notification_behavior: Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehavior'] = None,
+                 disable_all_notifications: Optional['outputs.SettingsEmailNotificationSettingsDisableAllNotifications'] = None):
+        """
+        :param 'SettingsEmailNotificationSettingsCustomNotificationBehaviorArgs' custom_notification_behavior: CustomNotificationBehavior provides granular control over email notification delivery. Allows admins to selectively enable/disable notifications for specific events and specific personas.
+               Structure is documented below.
+        :param 'SettingsEmailNotificationSettingsDisableAllNotificationsArgs' disable_all_notifications: This option indicates that all email notifications are disabled.
+        """
+        if custom_notification_behavior is not None:
+            pulumi.set(__self__, "custom_notification_behavior", custom_notification_behavior)
+        if disable_all_notifications is not None:
+            pulumi.set(__self__, "disable_all_notifications", disable_all_notifications)
+
+    @_builtins.property
+    @pulumi.getter(name="customNotificationBehavior")
+    def custom_notification_behavior(self) -> Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehavior']:
+        """
+        CustomNotificationBehavior provides granular control over email notification delivery. Allows admins to selectively enable/disable notifications for specific events and specific personas.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "custom_notification_behavior")
+
+    @_builtins.property
+    @pulumi.getter(name="disableAllNotifications")
+    def disable_all_notifications(self) -> Optional['outputs.SettingsEmailNotificationSettingsDisableAllNotifications']:
+        """
+        This option indicates that all email notifications are disabled.
+        """
+        return pulumi.get(self, "disable_all_notifications")
+
+
+@pulumi.output_type
+class SettingsEmailNotificationSettingsCustomNotificationBehavior(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "adminNotifications":
+            suggest = "admin_notifications"
+        elif key == "approverNotifications":
+            suggest = "approver_notifications"
+        elif key == "requesterNotifications":
+            suggest = "requester_notifications"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SettingsEmailNotificationSettingsCustomNotificationBehavior. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehavior.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehavior.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 admin_notifications: Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications'] = None,
+                 approver_notifications: Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications'] = None,
+                 requester_notifications: Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications'] = None):
+        """
+        :param 'SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotificationsArgs' admin_notifications: Email notifications specific to Requesters.
+               Structure is documented below.
+        :param 'SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotificationsArgs' approver_notifications: Email notifications specific to Approvers.
+               Structure is documented below.
+        :param 'SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotificationsArgs' requester_notifications: Email notifications specific to Requesters.
+               Structure is documented below.
+        """
+        if admin_notifications is not None:
+            pulumi.set(__self__, "admin_notifications", admin_notifications)
+        if approver_notifications is not None:
+            pulumi.set(__self__, "approver_notifications", approver_notifications)
+        if requester_notifications is not None:
+            pulumi.set(__self__, "requester_notifications", requester_notifications)
+
+    @_builtins.property
+    @pulumi.getter(name="adminNotifications")
+    def admin_notifications(self) -> Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications']:
+        """
+        Email notifications specific to Requesters.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "admin_notifications")
+
+    @_builtins.property
+    @pulumi.getter(name="approverNotifications")
+    def approver_notifications(self) -> Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications']:
+        """
+        Email notifications specific to Approvers.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "approver_notifications")
+
+    @_builtins.property
+    @pulumi.getter(name="requesterNotifications")
+    def requester_notifications(self) -> Optional['outputs.SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications']:
+        """
+        Email notifications specific to Requesters.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "requester_notifications")
+
+
+@pulumi.output_type
+class SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "grantActivated":
+            suggest = "grant_activated"
+        elif key == "grantActivationFailed":
+            suggest = "grant_activation_failed"
+        elif key == "grantEnded":
+            suggest = "grant_ended"
+        elif key == "grantExternallyModified":
+            suggest = "grant_externally_modified"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehaviorAdminNotifications.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 grant_activated: Optional[_builtins.str] = None,
+                 grant_activation_failed: Optional[_builtins.str] = None,
+                 grant_ended: Optional[_builtins.str] = None,
+                 grant_externally_modified: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str grant_activated: Notification mode for grant activated.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_activation_failed: Notification mode for grant activation failed.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_ended: Notification mode for grant ended.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_externally_modified: Notification mode for grant externally modified.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        if grant_activated is not None:
+            pulumi.set(__self__, "grant_activated", grant_activated)
+        if grant_activation_failed is not None:
+            pulumi.set(__self__, "grant_activation_failed", grant_activation_failed)
+        if grant_ended is not None:
+            pulumi.set(__self__, "grant_ended", grant_ended)
+        if grant_externally_modified is not None:
+            pulumi.set(__self__, "grant_externally_modified", grant_externally_modified)
+
+    @_builtins.property
+    @pulumi.getter(name="grantActivated")
+    def grant_activated(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant activated.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_activated")
+
+    @_builtins.property
+    @pulumi.getter(name="grantActivationFailed")
+    def grant_activation_failed(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant activation failed.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_activation_failed")
+
+    @_builtins.property
+    @pulumi.getter(name="grantEnded")
+    def grant_ended(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant ended.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_ended")
+
+    @_builtins.property
+    @pulumi.getter(name="grantExternallyModified")
+    def grant_externally_modified(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant externally modified.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_externally_modified")
+
+
+@pulumi.output_type
+class SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "pendingApproval":
+            suggest = "pending_approval"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehaviorApproverNotifications.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 pending_approval: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str pending_approval: Notification mode for pending approval.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        if pending_approval is not None:
+            pulumi.set(__self__, "pending_approval", pending_approval)
+
+    @_builtins.property
+    @pulumi.getter(name="pendingApproval")
+    def pending_approval(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for pending approval.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "pending_approval")
+
+
+@pulumi.output_type
+class SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "entitlementAssigned":
+            suggest = "entitlement_assigned"
+        elif key == "grantActivated":
+            suggest = "grant_activated"
+        elif key == "grantActivationFailed":
+            suggest = "grant_activation_failed"
+        elif key == "grantDenied":
+            suggest = "grant_denied"
+        elif key == "grantEnded":
+            suggest = "grant_ended"
+        elif key == "grantExpired":
+            suggest = "grant_expired"
+        elif key == "grantExternallyModified":
+            suggest = "grant_externally_modified"
+        elif key == "grantRevoked":
+            suggest = "grant_revoked"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        SettingsEmailNotificationSettingsCustomNotificationBehaviorRequesterNotifications.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 entitlement_assigned: Optional[_builtins.str] = None,
+                 grant_activated: Optional[_builtins.str] = None,
+                 grant_activation_failed: Optional[_builtins.str] = None,
+                 grant_denied: Optional[_builtins.str] = None,
+                 grant_ended: Optional[_builtins.str] = None,
+                 grant_expired: Optional[_builtins.str] = None,
+                 grant_externally_modified: Optional[_builtins.str] = None,
+                 grant_revoked: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str entitlement_assigned: Notification mode for entitlement assigned.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_activated: Notification mode for grant activated.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_activation_failed: Notification mode for grant activation failed.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_denied: Notification mode for grant denied.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_ended: Notification mode for grant ended.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_expired: Notification mode for grant expired.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_externally_modified: Notification mode for grant externally modified.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        :param _builtins.str grant_revoked: Notification mode for grant revoked.
+               Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        if entitlement_assigned is not None:
+            pulumi.set(__self__, "entitlement_assigned", entitlement_assigned)
+        if grant_activated is not None:
+            pulumi.set(__self__, "grant_activated", grant_activated)
+        if grant_activation_failed is not None:
+            pulumi.set(__self__, "grant_activation_failed", grant_activation_failed)
+        if grant_denied is not None:
+            pulumi.set(__self__, "grant_denied", grant_denied)
+        if grant_ended is not None:
+            pulumi.set(__self__, "grant_ended", grant_ended)
+        if grant_expired is not None:
+            pulumi.set(__self__, "grant_expired", grant_expired)
+        if grant_externally_modified is not None:
+            pulumi.set(__self__, "grant_externally_modified", grant_externally_modified)
+        if grant_revoked is not None:
+            pulumi.set(__self__, "grant_revoked", grant_revoked)
+
+    @_builtins.property
+    @pulumi.getter(name="entitlementAssigned")
+    def entitlement_assigned(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for entitlement assigned.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "entitlement_assigned")
+
+    @_builtins.property
+    @pulumi.getter(name="grantActivated")
+    def grant_activated(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant activated.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_activated")
+
+    @_builtins.property
+    @pulumi.getter(name="grantActivationFailed")
+    def grant_activation_failed(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant activation failed.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_activation_failed")
+
+    @_builtins.property
+    @pulumi.getter(name="grantDenied")
+    def grant_denied(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant denied.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_denied")
+
+    @_builtins.property
+    @pulumi.getter(name="grantEnded")
+    def grant_ended(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant ended.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_ended")
+
+    @_builtins.property
+    @pulumi.getter(name="grantExpired")
+    def grant_expired(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant expired.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_expired")
+
+    @_builtins.property
+    @pulumi.getter(name="grantExternallyModified")
+    def grant_externally_modified(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant externally modified.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_externally_modified")
+
+    @_builtins.property
+    @pulumi.getter(name="grantRevoked")
+    def grant_revoked(self) -> Optional[_builtins.str]:
+        """
+        Notification mode for grant revoked.
+        Possible values are: `NOTIFICATION_MODE_UNSPECIFIED`, `ENABLED`, `DISABLED`.
+        """
+        return pulumi.get(self, "grant_revoked")
+
+
+@pulumi.output_type
+class SettingsEmailNotificationSettingsDisableAllNotifications(dict):
+    def __init__(__self__):
+        pass
+
+
+@pulumi.output_type
+class SettingsServiceAccountApproverSettings(dict):
+    def __init__(__self__, *,
+                 enabled: Optional[_builtins.bool] = None):
+        """
+        :param _builtins.bool enabled: Indicates whether service account is allowed to grant approvals.
+        """
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[_builtins.bool]:
+        """
+        Indicates whether service account is allowed to grant approvals.
+        """
+        return pulumi.get(self, "enabled")
+
 
 @pulumi.output_type
 class EntitlementAdditionalNotificationTargets(dict):
@@ -164,7 +592,7 @@ class EntitlementApprovalWorkflowManualApprovals(dict):
                  steps: Sequence['outputs.EntitlementApprovalWorkflowManualApprovalsStep'],
                  require_approver_justification: Optional[_builtins.bool] = None):
         """
-        :param Sequence['EntitlementApprovalWorkflowManualApprovalsStepArgs'] steps: List of approval steps in this workflow. These steps would be followed in the specified order sequentially.  1 step is supported for now.
+        :param Sequence['EntitlementApprovalWorkflowManualApprovalsStepArgs'] steps: List of approval steps in this workflow. These steps would be followed in the specified order sequentially.
                Structure is documented below.
         :param _builtins.bool require_approver_justification: Optional. Do the approvers need to provide a justification for their actions?
         """
@@ -176,7 +604,7 @@ class EntitlementApprovalWorkflowManualApprovals(dict):
     @pulumi.getter
     def steps(self) -> Sequence['outputs.EntitlementApprovalWorkflowManualApprovalsStep']:
         """
-        List of approval steps in this workflow. These steps would be followed in the specified order sequentially.  1 step is supported for now.
+        List of approval steps in this workflow. These steps would be followed in the specified order sequentially.
         Structure is documented below.
         """
         return pulumi.get(self, "steps")
@@ -214,7 +642,8 @@ class EntitlementApprovalWorkflowManualApprovalsStep(dict):
     def __init__(__self__, *,
                  approvers: 'outputs.EntitlementApprovalWorkflowManualApprovalsStepApprovers',
                  approvals_needed: Optional[_builtins.int] = None,
-                 approver_email_recipients: Optional[Sequence[_builtins.str]] = None):
+                 approver_email_recipients: Optional[Sequence[_builtins.str]] = None,
+                 id: Optional[_builtins.str] = None):
         """
         :param 'EntitlementApprovalWorkflowManualApprovalsStepApproversArgs' approvers: The potential set of approvers in this step. This list should contain at only one entry.
                Structure is documented below.
@@ -223,12 +652,16 @@ class EntitlementApprovalWorkflowManualApprovalsStep(dict):
                will indefinitely block. Should always be greater than 0. Currently 1 is the only
                supported value.
         :param Sequence[_builtins.str] approver_email_recipients: Optional. Additional email addresses to be notified when a grant is pending approval.
+        :param _builtins.str id: (Output, Beta)
+               Output Only. The ID of the approval step.
         """
         pulumi.set(__self__, "approvers", approvers)
         if approvals_needed is not None:
             pulumi.set(__self__, "approvals_needed", approvals_needed)
         if approver_email_recipients is not None:
             pulumi.set(__self__, "approver_email_recipients", approver_email_recipients)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
 
     @_builtins.property
     @pulumi.getter
@@ -257,6 +690,15 @@ class EntitlementApprovalWorkflowManualApprovalsStep(dict):
         Optional. Additional email addresses to be notified when a grant is pending approval.
         """
         return pulumi.get(self, "approver_email_recipients")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        (Output, Beta)
+        Output Only. The ID of the approval step.
+        """
+        return pulumi.get(self, "id")
 
 
 @pulumi.output_type
@@ -414,15 +856,20 @@ class EntitlementPrivilegedAccessGcpIamAccessRoleBinding(dict):
 
     def __init__(__self__, *,
                  role: _builtins.str,
-                 condition_expression: Optional[_builtins.str] = None):
+                 condition_expression: Optional[_builtins.str] = None,
+                 id: Optional[_builtins.str] = None):
         """
         :param _builtins.str role: IAM role to be granted. https://cloud.google.com/iam/docs/roles-overview.
         :param _builtins.str condition_expression: The expression field of the IAM condition to be associated with the role. If specified, a user with an active grant for this entitlement would be able to access the resource only if this condition evaluates to true for their request.
                https://cloud.google.com/iam/docs/conditions-overview#attributes.
+        :param _builtins.str id: (Output, Beta)
+               Output Only. The ID corresponding to this role binding in the policy binding. This will be unique within an entitlement across time. Gets re-generated each time the entitlement is updated.
         """
         pulumi.set(__self__, "role", role)
         if condition_expression is not None:
             pulumi.set(__self__, "condition_expression", condition_expression)
+        if id is not None:
+            pulumi.set(__self__, "id", id)
 
     @_builtins.property
     @pulumi.getter
@@ -440,6 +887,15 @@ class EntitlementPrivilegedAccessGcpIamAccessRoleBinding(dict):
         https://cloud.google.com/iam/docs/conditions-overview#attributes.
         """
         return pulumi.get(self, "condition_expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> Optional[_builtins.str]:
+        """
+        (Output, Beta)
+        Output Only. The ID corresponding to this role binding in the policy binding. This will be unique within an entitlement across time. Gets re-generated each time the entitlement is updated.
+        """
+        return pulumi.get(self, "id")
 
 
 @pulumi.output_type
@@ -568,7 +1024,7 @@ class GetEntitlementApprovalWorkflowManualApprovalResult(dict):
                  steps: Sequence['outputs.GetEntitlementApprovalWorkflowManualApprovalStepResult']):
         """
         :param _builtins.bool require_approver_justification: Optional. Do the approvers need to provide a justification for their actions?
-        :param Sequence['GetEntitlementApprovalWorkflowManualApprovalStepArgs'] steps: List of approval steps in this workflow. These steps would be followed in the specified order sequentially.  1 step is supported for now.
+        :param Sequence['GetEntitlementApprovalWorkflowManualApprovalStepArgs'] steps: List of approval steps in this workflow. These steps would be followed in the specified order sequentially.
         """
         pulumi.set(__self__, "require_approver_justification", require_approver_justification)
         pulumi.set(__self__, "steps", steps)
@@ -585,7 +1041,7 @@ class GetEntitlementApprovalWorkflowManualApprovalResult(dict):
     @pulumi.getter
     def steps(self) -> Sequence['outputs.GetEntitlementApprovalWorkflowManualApprovalStepResult']:
         """
-        List of approval steps in this workflow. These steps would be followed in the specified order sequentially.  1 step is supported for now.
+        List of approval steps in this workflow. These steps would be followed in the specified order sequentially.
         """
         return pulumi.get(self, "steps")
 
@@ -595,7 +1051,8 @@ class GetEntitlementApprovalWorkflowManualApprovalStepResult(dict):
     def __init__(__self__, *,
                  approvals_needed: _builtins.int,
                  approver_email_recipients: Sequence[_builtins.str],
-                 approvers: Sequence['outputs.GetEntitlementApprovalWorkflowManualApprovalStepApproverResult']):
+                 approvers: Sequence['outputs.GetEntitlementApprovalWorkflowManualApprovalStepApproverResult'],
+                 id: _builtins.str):
         """
         :param _builtins.int approvals_needed: How many users from the above list need to approve.
                If there are not enough distinct users in the list above then the workflow
@@ -603,10 +1060,12 @@ class GetEntitlementApprovalWorkflowManualApprovalStepResult(dict):
                supported value.
         :param Sequence[_builtins.str] approver_email_recipients: Optional. Additional email addresses to be notified when a grant is pending approval.
         :param Sequence['GetEntitlementApprovalWorkflowManualApprovalStepApproverArgs'] approvers: The potential set of approvers in this step. This list should contain at only one entry.
+        :param _builtins.str id: Output Only. The ID of the approval step.
         """
         pulumi.set(__self__, "approvals_needed", approvals_needed)
         pulumi.set(__self__, "approver_email_recipients", approver_email_recipients)
         pulumi.set(__self__, "approvers", approvers)
+        pulumi.set(__self__, "id", id)
 
     @_builtins.property
     @pulumi.getter(name="approvalsNeeded")
@@ -634,6 +1093,14 @@ class GetEntitlementApprovalWorkflowManualApprovalStepResult(dict):
         The potential set of approvers in this step. This list should contain at only one entry.
         """
         return pulumi.get(self, "approvers")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        Output Only. The ID of the approval step.
+        """
+        return pulumi.get(self, "id")
 
 
 @pulumi.output_type
@@ -734,13 +1201,16 @@ class GetEntitlementPrivilegedAccessGcpIamAccessResult(dict):
 class GetEntitlementPrivilegedAccessGcpIamAccessRoleBindingResult(dict):
     def __init__(__self__, *,
                  condition_expression: _builtins.str,
+                 id: _builtins.str,
                  role: _builtins.str):
         """
         :param _builtins.str condition_expression: The expression field of the IAM condition to be associated with the role. If specified, a user with an active grant for this entitlement would be able to access the resource only if this condition evaluates to true for their request.
                https://cloud.google.com/iam/docs/conditions-overview#attributes.
+        :param _builtins.str id: Output Only. The ID corresponding to this role binding in the policy binding. This will be unique within an entitlement across time. Gets re-generated each time the entitlement is updated.
         :param _builtins.str role: IAM role to be granted. https://cloud.google.com/iam/docs/roles-overview.
         """
         pulumi.set(__self__, "condition_expression", condition_expression)
+        pulumi.set(__self__, "id", id)
         pulumi.set(__self__, "role", role)
 
     @_builtins.property
@@ -751,6 +1221,14 @@ class GetEntitlementPrivilegedAccessGcpIamAccessRoleBindingResult(dict):
         https://cloud.google.com/iam/docs/conditions-overview#attributes.
         """
         return pulumi.get(self, "condition_expression")
+
+    @_builtins.property
+    @pulumi.getter
+    def id(self) -> _builtins.str:
+        """
+        Output Only. The ID corresponding to this role binding in the policy binding. This will be unique within an entitlement across time. Gets re-generated each time the entitlement is updated.
+        """
+        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter

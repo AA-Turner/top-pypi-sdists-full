@@ -1,3 +1,4 @@
+# pylint: disable=line-too-long,useless-suppression,too-many-lines
 # coding=utf-8
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
@@ -6,23 +7,26 @@
 # Changes may cause incorrect behavior and will be lost if the code is regenerated.
 # --------------------------------------------------------------------------
 
+from collections.abc import MutableMapping
 import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Literal, Optional, TYPE_CHECKING, Union
 
-import msrest.serialization
+from .._utils import serialization as _serialization
 
-from ._my_sql_management_client_enums import *
+if TYPE_CHECKING:
+    from .. import models as _models
+JSON = MutableMapping[str, Any]
 
 
-class Backup(msrest.serialization.Model):
+class Backup(_serialization.Model):
     """Storage Profile properties of a server.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar backup_retention_days: Backup retention days for the server.
     :vartype backup_retention_days: int
-    :ivar geo_redundant_backup: Whether or not geo redundant backup is enabled. Possible values
-     include: "Enabled", "Disabled".
+    :ivar geo_redundant_backup: Whether or not geo redundant backup is enabled. Known values are:
+     "Enabled" and "Disabled".
     :vartype geo_redundant_backup: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
     :ivar earliest_restore_date: Earliest restore point creation time (ISO8601 format).
@@ -30,37 +34,37 @@ class Backup(msrest.serialization.Model):
     """
 
     _validation = {
-        'earliest_restore_date': {'readonly': True},
+        "earliest_restore_date": {"readonly": True},
     }
 
     _attribute_map = {
-        'backup_retention_days': {'key': 'backupRetentionDays', 'type': 'int'},
-        'geo_redundant_backup': {'key': 'geoRedundantBackup', 'type': 'str'},
-        'earliest_restore_date': {'key': 'earliestRestoreDate', 'type': 'iso-8601'},
+        "backup_retention_days": {"key": "backupRetentionDays", "type": "int"},
+        "geo_redundant_backup": {"key": "geoRedundantBackup", "type": "str"},
+        "earliest_restore_date": {"key": "earliestRestoreDate", "type": "iso-8601"},
     }
 
     def __init__(
         self,
         *,
         backup_retention_days: Optional[int] = None,
-        geo_redundant_backup: Optional[Union[str, "EnableStatusEnum"]] = None,
-        **kwargs
-    ):
+        geo_redundant_backup: Optional[Union[str, "_models.EnableStatusEnum"]] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword backup_retention_days: Backup retention days for the server.
         :paramtype backup_retention_days: int
-        :keyword geo_redundant_backup: Whether or not geo redundant backup is enabled. Possible values
-         include: "Enabled", "Disabled".
+        :keyword geo_redundant_backup: Whether or not geo redundant backup is enabled. Known values
+         are: "Enabled" and "Disabled".
         :paramtype geo_redundant_backup: str or
          ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
         """
-        super(Backup, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.backup_retention_days = backup_retention_days
         self.geo_redundant_backup = geo_redundant_backup
-        self.earliest_restore_date = None
+        self.earliest_restore_date: Optional[datetime.datetime] = None
 
 
-class CapabilitiesListResult(msrest.serialization.Model):
+class CapabilitiesListResult(_serialization.Model):
     """location capability.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -72,27 +76,23 @@ class CapabilitiesListResult(msrest.serialization.Model):
     """
 
     _validation = {
-        'value': {'readonly': True},
-        'next_link': {'readonly': True},
+        "value": {"readonly": True},
+        "next_link": {"readonly": True},
     }
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[CapabilityProperties]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[CapabilityProperties]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(CapabilitiesListResult, self).__init__(**kwargs)
-        self.value = None
-        self.next_link = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.value: Optional[list["_models.CapabilityProperties"]] = None
+        self.next_link: Optional[str] = None
 
 
-class CapabilityProperties(msrest.serialization.Model):
+class CapabilityProperties(_serialization.Model):
     """Location capabilities.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -109,33 +109,32 @@ class CapabilityProperties(msrest.serialization.Model):
     """
 
     _validation = {
-        'zone': {'readonly': True},
-        'supported_ha_mode': {'readonly': True},
-        'supported_geo_backup_regions': {'readonly': True},
-        'supported_flexible_server_editions': {'readonly': True},
+        "zone": {"readonly": True},
+        "supported_ha_mode": {"readonly": True},
+        "supported_geo_backup_regions": {"readonly": True},
+        "supported_flexible_server_editions": {"readonly": True},
     }
 
     _attribute_map = {
-        'zone': {'key': 'zone', 'type': 'str'},
-        'supported_ha_mode': {'key': 'supportedHAMode', 'type': '[str]'},
-        'supported_geo_backup_regions': {'key': 'supportedGeoBackupRegions', 'type': '[str]'},
-        'supported_flexible_server_editions': {'key': 'supportedFlexibleServerEditions', 'type': '[ServerEditionCapability]'},
+        "zone": {"key": "zone", "type": "str"},
+        "supported_ha_mode": {"key": "supportedHAMode", "type": "[str]"},
+        "supported_geo_backup_regions": {"key": "supportedGeoBackupRegions", "type": "[str]"},
+        "supported_flexible_server_editions": {
+            "key": "supportedFlexibleServerEditions",
+            "type": "[ServerEditionCapability]",
+        },
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(CapabilityProperties, self).__init__(**kwargs)
-        self.zone = None
-        self.supported_ha_mode = None
-        self.supported_geo_backup_regions = None
-        self.supported_flexible_server_editions = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.zone: Optional[str] = None
+        self.supported_ha_mode: Optional[list[str]] = None
+        self.supported_geo_backup_regions: Optional[list[str]] = None
+        self.supported_flexible_server_editions: Optional[list["_models.ServerEditionCapability"]] = None
 
 
-class Resource(msrest.serialization.Model):
+class Resource(_serialization.Model):
     """Common fields that are returned in the response for all Azure Resource Manager resources.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -151,31 +150,28 @@ class Resource(msrest.serialization.Model):
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(Resource, self).__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
 
 
 class ProxyResource(Resource):
-    """The resource model definition for a Azure Resource Manager proxy resource. It will not have tags and a location.
+    """The resource model definition for a Azure Resource Manager proxy resource. It will not have
+    tags and a location.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
@@ -188,26 +184,6 @@ class ProxyResource(Resource):
      "Microsoft.Storage/storageAccounts".
     :vartype type: str
     """
-
-    _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-    }
-
-    _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-    }
-
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(ProxyResource, self).__init__(**kwargs)
 
 
 class Configuration(ProxyResource):
@@ -235,80 +211,78 @@ class Configuration(ProxyResource):
     :vartype data_type: str
     :ivar allowed_values: Allowed values of the configuration.
     :vartype allowed_values: str
-    :ivar source: Source of the configuration. Possible values include: "system-default",
+    :ivar source: Source of the configuration. Known values are: "system-default" and
      "user-override".
     :vartype source: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.ConfigurationSource
-    :ivar is_read_only: If is the configuration read only. Possible values include: "True",
-     "False".
+    :ivar is_read_only: If is the configuration read only. Known values are: "True" and "False".
     :vartype is_read_only: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.IsReadOnly
-    :ivar is_config_pending_restart: If is the configuration pending restart or not. Possible
-     values include: "True", "False".
+    :ivar is_config_pending_restart: If is the configuration pending restart or not. Known values
+     are: "True" and "False".
     :vartype is_config_pending_restart: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.IsConfigPendingRestart
-    :ivar is_dynamic_config: If is the configuration dynamic. Possible values include: "True",
-     "False".
+    :ivar is_dynamic_config: If is the configuration dynamic. Known values are: "True" and "False".
     :vartype is_dynamic_config: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.IsDynamicConfig
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-        'system_data': {'readonly': True},
-        'description': {'readonly': True},
-        'default_value': {'readonly': True},
-        'data_type': {'readonly': True},
-        'allowed_values': {'readonly': True},
-        'is_read_only': {'readonly': True},
-        'is_config_pending_restart': {'readonly': True},
-        'is_dynamic_config': {'readonly': True},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
+        "system_data": {"readonly": True},
+        "description": {"readonly": True},
+        "default_value": {"readonly": True},
+        "data_type": {"readonly": True},
+        "allowed_values": {"readonly": True},
+        "is_read_only": {"readonly": True},
+        "is_config_pending_restart": {"readonly": True},
+        "is_dynamic_config": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'system_data': {'key': 'systemData', 'type': 'SystemData'},
-        'value': {'key': 'properties.value', 'type': 'str'},
-        'description': {'key': 'properties.description', 'type': 'str'},
-        'default_value': {'key': 'properties.defaultValue', 'type': 'str'},
-        'data_type': {'key': 'properties.dataType', 'type': 'str'},
-        'allowed_values': {'key': 'properties.allowedValues', 'type': 'str'},
-        'source': {'key': 'properties.source', 'type': 'str'},
-        'is_read_only': {'key': 'properties.isReadOnly', 'type': 'str'},
-        'is_config_pending_restart': {'key': 'properties.isConfigPendingRestart', 'type': 'str'},
-        'is_dynamic_config': {'key': 'properties.isDynamicConfig', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "system_data": {"key": "systemData", "type": "SystemData"},
+        "value": {"key": "properties.value", "type": "str"},
+        "description": {"key": "properties.description", "type": "str"},
+        "default_value": {"key": "properties.defaultValue", "type": "str"},
+        "data_type": {"key": "properties.dataType", "type": "str"},
+        "allowed_values": {"key": "properties.allowedValues", "type": "str"},
+        "source": {"key": "properties.source", "type": "str"},
+        "is_read_only": {"key": "properties.isReadOnly", "type": "str"},
+        "is_config_pending_restart": {"key": "properties.isConfigPendingRestart", "type": "str"},
+        "is_dynamic_config": {"key": "properties.isDynamicConfig", "type": "str"},
     }
 
     def __init__(
         self,
         *,
         value: Optional[str] = None,
-        source: Optional[Union[str, "ConfigurationSource"]] = None,
-        **kwargs
-    ):
+        source: Optional[Union[str, "_models.ConfigurationSource"]] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword value: Value of the configuration.
         :paramtype value: str
-        :keyword source: Source of the configuration. Possible values include: "system-default",
+        :keyword source: Source of the configuration. Known values are: "system-default" and
          "user-override".
         :paramtype source: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.ConfigurationSource
         """
-        super(Configuration, self).__init__(**kwargs)
-        self.system_data = None
+        super().__init__(**kwargs)
+        self.system_data: Optional["_models.SystemData"] = None
         self.value = value
-        self.description = None
-        self.default_value = None
-        self.data_type = None
-        self.allowed_values = None
+        self.description: Optional[str] = None
+        self.default_value: Optional[str] = None
+        self.data_type: Optional[str] = None
+        self.allowed_values: Optional[str] = None
         self.source = source
-        self.is_read_only = None
-        self.is_config_pending_restart = None
-        self.is_dynamic_config = None
+        self.is_read_only: Optional[Union[str, "_models.IsReadOnly"]] = None
+        self.is_config_pending_restart: Optional[Union[str, "_models.IsConfigPendingRestart"]] = None
+        self.is_dynamic_config: Optional[Union[str, "_models.IsDynamicConfig"]] = None
 
 
-class ConfigurationForBatchUpdate(msrest.serialization.Model):
+class ConfigurationForBatchUpdate(_serialization.Model):
     """Represents a Configuration.
 
     :ivar name: Name of the configuration.
@@ -320,19 +294,14 @@ class ConfigurationForBatchUpdate(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'value': {'key': 'properties.value', 'type': 'str'},
-        'source': {'key': 'properties.source', 'type': 'str'},
+        "name": {"key": "name", "type": "str"},
+        "value": {"key": "properties.value", "type": "str"},
+        "source": {"key": "properties.source", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        name: Optional[str] = None,
-        value: Optional[str] = None,
-        source: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, name: Optional[str] = None, value: Optional[str] = None, source: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword name: Name of the configuration.
         :paramtype name: str
@@ -341,13 +310,13 @@ class ConfigurationForBatchUpdate(msrest.serialization.Model):
         :keyword source: Source of the configuration.
         :paramtype source: str
         """
-        super(ConfigurationForBatchUpdate, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.name = name
         self.value = value
         self.source = source
 
 
-class ConfigurationListForBatchUpdate(msrest.serialization.Model):
+class ConfigurationListForBatchUpdate(_serialization.Model):
     """A list of server configurations to update.
 
     :ivar value: The list of server configurations.
@@ -356,25 +325,20 @@ class ConfigurationListForBatchUpdate(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[ConfigurationForBatchUpdate]'},
+        "value": {"key": "value", "type": "[ConfigurationForBatchUpdate]"},
     }
 
-    def __init__(
-        self,
-        *,
-        value: Optional[List["ConfigurationForBatchUpdate"]] = None,
-        **kwargs
-    ):
+    def __init__(self, *, value: Optional[list["_models.ConfigurationForBatchUpdate"]] = None, **kwargs: Any) -> None:
         """
         :keyword value: The list of server configurations.
         :paramtype value:
          list[~azure.mgmt.rdbms.mysql_flexibleservers.models.ConfigurationForBatchUpdate]
         """
-        super(ConfigurationListForBatchUpdate, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
 
 
-class ConfigurationListResult(msrest.serialization.Model):
+class ConfigurationListResult(_serialization.Model):
     """A list of server configurations.
 
     :ivar value: The list of server configurations.
@@ -384,24 +348,20 @@ class ConfigurationListResult(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[Configuration]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[Configuration]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        value: Optional[List["Configuration"]] = None,
-        next_link: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, value: Optional[list["_models.Configuration"]] = None, next_link: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword value: The list of server configurations.
         :paramtype value: list[~azure.mgmt.rdbms.mysql_flexibleservers.models.Configuration]
         :keyword next_link: The link used to get the next page of operations.
         :paramtype next_link: str
         """
-        super(ConfigurationListResult, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
         self.next_link = next_link
 
@@ -428,41 +388,35 @@ class Database(ProxyResource):
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-        'system_data': {'readonly': True},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
+        "system_data": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'system_data': {'key': 'systemData', 'type': 'SystemData'},
-        'charset': {'key': 'properties.charset', 'type': 'str'},
-        'collation': {'key': 'properties.collation', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "system_data": {"key": "systemData", "type": "SystemData"},
+        "charset": {"key": "properties.charset", "type": "str"},
+        "collation": {"key": "properties.collation", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        charset: Optional[str] = None,
-        collation: Optional[str] = None,
-        **kwargs
-    ):
+    def __init__(self, *, charset: Optional[str] = None, collation: Optional[str] = None, **kwargs: Any) -> None:
         """
         :keyword charset: The charset of the database.
         :paramtype charset: str
         :keyword collation: The collation of the database.
         :paramtype collation: str
         """
-        super(Database, self).__init__(**kwargs)
-        self.system_data = None
+        super().__init__(**kwargs)
+        self.system_data: Optional["_models.SystemData"] = None
         self.charset = charset
         self.collation = collation
 
 
-class DatabaseListResult(msrest.serialization.Model):
+class DatabaseListResult(_serialization.Model):
     """A List of databases.
 
     :ivar value: The list of databases housed in a server.
@@ -472,29 +426,25 @@ class DatabaseListResult(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[Database]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[Database]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        value: Optional[List["Database"]] = None,
-        next_link: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, value: Optional[list["_models.Database"]] = None, next_link: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword value: The list of databases housed in a server.
         :paramtype value: list[~azure.mgmt.rdbms.mysql_flexibleservers.models.Database]
         :keyword next_link: The link used to get the next page of operations.
         :paramtype next_link: str
         """
-        super(DatabaseListResult, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
         self.next_link = next_link
 
 
-class DataEncryption(msrest.serialization.Model):
+class DataEncryption(_serialization.Model):
     """The date encryption for cmk.
 
     :ivar primary_user_assigned_identity_id: Primary user identity resource id.
@@ -507,17 +457,17 @@ class DataEncryption(msrest.serialization.Model):
     :ivar geo_backup_key_uri: Geo backup key uri as key vault can't cross region, need cmk in same
      region as geo backup.
     :vartype geo_backup_key_uri: str
-    :ivar type: The key type, AzureKeyVault for enable cmk, SystemManaged for disable cmk. Possible
-     values include: "AzureKeyVault", "SystemManaged".
+    :ivar type: The key type, AzureKeyVault for enable cmk, SystemManaged for disable cmk. Known
+     values are: "AzureKeyVault" and "SystemManaged".
     :vartype type: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.DataEncryptionType
     """
 
     _attribute_map = {
-        'primary_user_assigned_identity_id': {'key': 'primaryUserAssignedIdentityId', 'type': 'str'},
-        'primary_key_uri': {'key': 'primaryKeyUri', 'type': 'str'},
-        'geo_backup_user_assigned_identity_id': {'key': 'geoBackupUserAssignedIdentityId', 'type': 'str'},
-        'geo_backup_key_uri': {'key': 'geoBackupKeyUri', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
+        "primary_user_assigned_identity_id": {"key": "primaryUserAssignedIdentityId", "type": "str"},
+        "primary_key_uri": {"key": "primaryKeyURI", "type": "str"},
+        "geo_backup_user_assigned_identity_id": {"key": "geoBackupUserAssignedIdentityId", "type": "str"},
+        "geo_backup_key_uri": {"key": "geoBackupKeyURI", "type": "str"},
+        "type": {"key": "type", "type": "str"},
     }
 
     def __init__(
@@ -527,9 +477,9 @@ class DataEncryption(msrest.serialization.Model):
         primary_key_uri: Optional[str] = None,
         geo_backup_user_assigned_identity_id: Optional[str] = None,
         geo_backup_key_uri: Optional[str] = None,
-        type: Optional[Union[str, "DataEncryptionType"]] = None,
-        **kwargs
-    ):
+        type: Optional[Union[str, "_models.DataEncryptionType"]] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword primary_user_assigned_identity_id: Primary user identity resource id.
         :paramtype primary_user_assigned_identity_id: str
@@ -541,11 +491,11 @@ class DataEncryption(msrest.serialization.Model):
         :keyword geo_backup_key_uri: Geo backup key uri as key vault can't cross region, need cmk in
          same region as geo backup.
         :paramtype geo_backup_key_uri: str
-        :keyword type: The key type, AzureKeyVault for enable cmk, SystemManaged for disable cmk.
-         Possible values include: "AzureKeyVault", "SystemManaged".
+        :keyword type: The key type, AzureKeyVault for enable cmk, SystemManaged for disable cmk. Known
+         values are: "AzureKeyVault" and "SystemManaged".
         :paramtype type: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.DataEncryptionType
         """
-        super(DataEncryption, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.primary_user_assigned_identity_id = primary_user_assigned_identity_id
         self.primary_key_uri = primary_key_uri
         self.geo_backup_user_assigned_identity_id = geo_backup_user_assigned_identity_id
@@ -553,7 +503,7 @@ class DataEncryption(msrest.serialization.Model):
         self.type = type
 
 
-class DelegatedSubnetUsage(msrest.serialization.Model):
+class DelegatedSubnetUsage(_serialization.Model):
     """Delegated subnet usage data.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -561,31 +511,27 @@ class DelegatedSubnetUsage(msrest.serialization.Model):
     :ivar subnet_name: name of the subnet.
     :vartype subnet_name: str
     :ivar usage: Number of used delegated subnets.
-    :vartype usage: long
+    :vartype usage: int
     """
 
     _validation = {
-        'subnet_name': {'readonly': True},
-        'usage': {'readonly': True},
+        "subnet_name": {"readonly": True},
+        "usage": {"readonly": True},
     }
 
     _attribute_map = {
-        'subnet_name': {'key': 'subnetName', 'type': 'str'},
-        'usage': {'key': 'usage', 'type': 'long'},
+        "subnet_name": {"key": "subnetName", "type": "str"},
+        "usage": {"key": "usage", "type": "int"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(DelegatedSubnetUsage, self).__init__(**kwargs)
-        self.subnet_name = None
-        self.usage = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.subnet_name: Optional[str] = None
+        self.usage: Optional[int] = None
 
 
-class ErrorAdditionalInfo(msrest.serialization.Model):
+class ErrorAdditionalInfo(_serialization.Model):
     """The resource management error additional info.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -593,32 +539,29 @@ class ErrorAdditionalInfo(msrest.serialization.Model):
     :ivar type: The additional info type.
     :vartype type: str
     :ivar info: The additional info.
-    :vartype info: any
+    :vartype info: JSON
     """
 
     _validation = {
-        'type': {'readonly': True},
-        'info': {'readonly': True},
+        "type": {"readonly": True},
+        "info": {"readonly": True},
     }
 
     _attribute_map = {
-        'type': {'key': 'type', 'type': 'str'},
-        'info': {'key': 'info', 'type': 'object'},
+        "type": {"key": "type", "type": "str"},
+        "info": {"key": "info", "type": "object"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(ErrorAdditionalInfo, self).__init__(**kwargs)
-        self.type = None
-        self.info = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.type: Optional[str] = None
+        self.info: Optional[JSON] = None
 
 
-class ErrorResponse(msrest.serialization.Model):
-    """Common error response for all Azure Resource Manager APIs to return error details for failed operations. (This also follows the OData error response format.).
+class ErrorResponse(_serialization.Model):
+    """Common error response for all Azure Resource Manager APIs to return error details for failed
+    operations. (This also follows the OData error response format.).
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
@@ -636,33 +579,29 @@ class ErrorResponse(msrest.serialization.Model):
     """
 
     _validation = {
-        'code': {'readonly': True},
-        'message': {'readonly': True},
-        'target': {'readonly': True},
-        'details': {'readonly': True},
-        'additional_info': {'readonly': True},
+        "code": {"readonly": True},
+        "message": {"readonly": True},
+        "target": {"readonly": True},
+        "details": {"readonly": True},
+        "additional_info": {"readonly": True},
     }
 
     _attribute_map = {
-        'code': {'key': 'code', 'type': 'str'},
-        'message': {'key': 'message', 'type': 'str'},
-        'target': {'key': 'target', 'type': 'str'},
-        'details': {'key': 'details', 'type': '[ErrorResponse]'},
-        'additional_info': {'key': 'additionalInfo', 'type': '[ErrorAdditionalInfo]'},
+        "code": {"key": "code", "type": "str"},
+        "message": {"key": "message", "type": "str"},
+        "target": {"key": "target", "type": "str"},
+        "details": {"key": "details", "type": "[ErrorResponse]"},
+        "additional_info": {"key": "additionalInfo", "type": "[ErrorAdditionalInfo]"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(ErrorResponse, self).__init__(**kwargs)
-        self.code = None
-        self.message = None
-        self.target = None
-        self.details = None
-        self.additional_info = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.code: Optional[str] = None
+        self.message: Optional[str] = None
+        self.target: Optional[str] = None
+        self.details: Optional[list["_models.ErrorResponse"]] = None
+        self.additional_info: Optional[list["_models.ErrorAdditionalInfo"]] = None
 
 
 class FirewallRule(ProxyResource):
@@ -670,7 +609,7 @@ class FirewallRule(ProxyResource):
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. Ex -
      /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
@@ -682,54 +621,54 @@ class FirewallRule(ProxyResource):
     :vartype type: str
     :ivar system_data: The system metadata relating to this resource.
     :vartype system_data: ~azure.mgmt.rdbms.mysql_flexibleservers.models.SystemData
-    :ivar start_ip_address: Required. The start IP address of the server firewall rule. Must be
-     IPv4 format.
+    :ivar start_ip_address: The start IP address of the server firewall rule. Must be IPv4 format.
+     Required.
     :vartype start_ip_address: str
-    :ivar end_ip_address: Required. The end IP address of the server firewall rule. Must be IPv4
-     format.
+    :ivar end_ip_address: The end IP address of the server firewall rule. Must be IPv4 format.
+     Required.
     :vartype end_ip_address: str
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-        'system_data': {'readonly': True},
-        'start_ip_address': {'required': True, 'pattern': r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'},
-        'end_ip_address': {'required': True, 'pattern': r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$'},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
+        "system_data": {"readonly": True},
+        "start_ip_address": {
+            "required": True,
+            "pattern": r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$",
+        },
+        "end_ip_address": {
+            "required": True,
+            "pattern": r"^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$",
+        },
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'system_data': {'key': 'systemData', 'type': 'SystemData'},
-        'start_ip_address': {'key': 'properties.startIpAddress', 'type': 'str'},
-        'end_ip_address': {'key': 'properties.endIpAddress', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "system_data": {"key": "systemData", "type": "SystemData"},
+        "start_ip_address": {"key": "properties.startIpAddress", "type": "str"},
+        "end_ip_address": {"key": "properties.endIpAddress", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        start_ip_address: str,
-        end_ip_address: str,
-        **kwargs
-    ):
+    def __init__(self, *, start_ip_address: str, end_ip_address: str, **kwargs: Any) -> None:
         """
-        :keyword start_ip_address: Required. The start IP address of the server firewall rule. Must be
-         IPv4 format.
+        :keyword start_ip_address: The start IP address of the server firewall rule. Must be IPv4
+         format. Required.
         :paramtype start_ip_address: str
-        :keyword end_ip_address: Required. The end IP address of the server firewall rule. Must be IPv4
-         format.
+        :keyword end_ip_address: The end IP address of the server firewall rule. Must be IPv4 format.
+         Required.
         :paramtype end_ip_address: str
         """
-        super(FirewallRule, self).__init__(**kwargs)
-        self.system_data = None
+        super().__init__(**kwargs)
+        self.system_data: Optional["_models.SystemData"] = None
         self.start_ip_address = start_ip_address
         self.end_ip_address = end_ip_address
 
 
-class FirewallRuleListResult(msrest.serialization.Model):
+class FirewallRuleListResult(_serialization.Model):
     """A list of firewall rules.
 
     :ivar value: The list of firewall rules in a server.
@@ -739,29 +678,25 @@ class FirewallRuleListResult(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[FirewallRule]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[FirewallRule]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        value: Optional[List["FirewallRule"]] = None,
-        next_link: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, value: Optional[list["_models.FirewallRule"]] = None, next_link: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword value: The list of firewall rules in a server.
         :paramtype value: list[~azure.mgmt.rdbms.mysql_flexibleservers.models.FirewallRule]
         :keyword next_link: The link used to get the next page of operations.
         :paramtype next_link: str
         """
-        super(FirewallRuleListResult, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
         self.next_link = next_link
 
 
-class GetPrivateDnsZoneSuffixResponse(msrest.serialization.Model):
+class GetPrivateDnsZoneSuffixResponse(_serialization.Model):
     """The response of get private dns zone suffix.
 
     :ivar private_dns_zone_suffix: Represents the private DNS zone suffix.
@@ -769,69 +704,64 @@ class GetPrivateDnsZoneSuffixResponse(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'private_dns_zone_suffix': {'key': 'privateDnsZoneSuffix', 'type': 'str'},
+        "private_dns_zone_suffix": {"key": "privateDnsZoneSuffix", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        private_dns_zone_suffix: Optional[str] = None,
-        **kwargs
-    ):
+    def __init__(self, *, private_dns_zone_suffix: Optional[str] = None, **kwargs: Any) -> None:
         """
         :keyword private_dns_zone_suffix: Represents the private DNS zone suffix.
         :paramtype private_dns_zone_suffix: str
         """
-        super(GetPrivateDnsZoneSuffixResponse, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.private_dns_zone_suffix = private_dns_zone_suffix
 
 
-class HighAvailability(msrest.serialization.Model):
+class HighAvailability(_serialization.Model):
     """Network related properties of a server.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    :ivar mode: High availability mode for a server. Possible values include: "Disabled",
-     "ZoneRedundant", "SameZone".
+    :ivar mode: High availability mode for a server. Known values are: "Disabled", "ZoneRedundant",
+     and "SameZone".
     :vartype mode: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.HighAvailabilityMode
-    :ivar state: The state of server high availability. Possible values include: "NotEnabled",
-     "CreatingStandby", "Healthy", "FailingOver", "RemovingStandby".
+    :ivar state: The state of server high availability. Known values are: "NotEnabled",
+     "CreatingStandby", "Healthy", "FailingOver", and "RemovingStandby".
     :vartype state: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.HighAvailabilityState
     :ivar standby_availability_zone: Availability zone of the standby server.
     :vartype standby_availability_zone: str
     """
 
     _validation = {
-        'state': {'readonly': True},
+        "state": {"readonly": True},
     }
 
     _attribute_map = {
-        'mode': {'key': 'mode', 'type': 'str'},
-        'state': {'key': 'state', 'type': 'str'},
-        'standby_availability_zone': {'key': 'standbyAvailabilityZone', 'type': 'str'},
+        "mode": {"key": "mode", "type": "str"},
+        "state": {"key": "state", "type": "str"},
+        "standby_availability_zone": {"key": "standbyAvailabilityZone", "type": "str"},
     }
 
     def __init__(
         self,
         *,
-        mode: Optional[Union[str, "HighAvailabilityMode"]] = None,
+        mode: Optional[Union[str, "_models.HighAvailabilityMode"]] = None,
         standby_availability_zone: Optional[str] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
-        :keyword mode: High availability mode for a server. Possible values include: "Disabled",
-         "ZoneRedundant", "SameZone".
+        :keyword mode: High availability mode for a server. Known values are: "Disabled",
+         "ZoneRedundant", and "SameZone".
         :paramtype mode: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.HighAvailabilityMode
         :keyword standby_availability_zone: Availability zone of the standby server.
         :paramtype standby_availability_zone: str
         """
-        super(HighAvailability, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.mode = mode
-        self.state = None
+        self.state: Optional[Union[str, "_models.HighAvailabilityState"]] = None
         self.standby_availability_zone = standby_availability_zone
 
 
-class Identity(msrest.serialization.Model):
+class Identity(_serialization.Model):
     """Properties to configure Identity for Bring your Own Keys.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -840,47 +770,45 @@ class Identity(msrest.serialization.Model):
     :vartype principal_id: str
     :ivar tenant_id: TenantId from the KeyVault.
     :vartype tenant_id: str
-    :ivar type: Type of managed service identity. The only acceptable values to pass in are None
-     and "UserAssigned". The default value is None.
+    :ivar type: Type of managed service identity. Default value is "UserAssigned".
     :vartype type: str
     :ivar user_assigned_identities: Metadata of user assigned identity.
-    :vartype user_assigned_identities: dict[str, any]
+    :vartype user_assigned_identities: dict[str, JSON]
     """
 
     _validation = {
-        'principal_id': {'readonly': True},
-        'tenant_id': {'readonly': True},
+        "principal_id": {"readonly": True},
+        "tenant_id": {"readonly": True},
     }
 
     _attribute_map = {
-        'principal_id': {'key': 'principalId', 'type': 'str'},
-        'tenant_id': {'key': 'tenantId', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'user_assigned_identities': {'key': 'userAssignedIdentities', 'type': '{object}'},
+        "principal_id": {"key": "principalId", "type": "str"},
+        "tenant_id": {"key": "tenantId", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "user_assigned_identities": {"key": "userAssignedIdentities", "type": "{object}"},
     }
 
     def __init__(
         self,
         *,
-        type: Optional[str] = None,
-        user_assigned_identities: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ):
+        type: Optional[Literal["UserAssigned"]] = None,
+        user_assigned_identities: Optional[dict[str, JSON]] = None,
+        **kwargs: Any
+    ) -> None:
         """
-        :keyword type: Type of managed service identity. The only acceptable values to pass in are None
-         and "UserAssigned". The default value is None.
+        :keyword type: Type of managed service identity. Default value is "UserAssigned".
         :paramtype type: str
         :keyword user_assigned_identities: Metadata of user assigned identity.
-        :paramtype user_assigned_identities: dict[str, any]
+        :paramtype user_assigned_identities: dict[str, JSON]
         """
-        super(Identity, self).__init__(**kwargs)
-        self.principal_id = None
-        self.tenant_id = None
+        super().__init__(**kwargs)
+        self.principal_id: Optional[str] = None
+        self.tenant_id: Optional[str] = None
         self.type = type
         self.user_assigned_identities = user_assigned_identities
 
 
-class MaintenanceWindow(msrest.serialization.Model):
+class MaintenanceWindow(_serialization.Model):
     """Maintenance window of a server.
 
     :ivar custom_window: indicates whether custom window is enabled or disabled.
@@ -894,10 +822,10 @@ class MaintenanceWindow(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'custom_window': {'key': 'customWindow', 'type': 'str'},
-        'start_hour': {'key': 'startHour', 'type': 'int'},
-        'start_minute': {'key': 'startMinute', 'type': 'int'},
-        'day_of_week': {'key': 'dayOfWeek', 'type': 'int'},
+        "custom_window": {"key": "customWindow", "type": "str"},
+        "start_hour": {"key": "startHour", "type": "int"},
+        "start_minute": {"key": "startMinute", "type": "int"},
+        "day_of_week": {"key": "dayOfWeek", "type": "int"},
     }
 
     def __init__(
@@ -907,8 +835,8 @@ class MaintenanceWindow(msrest.serialization.Model):
         start_hour: Optional[int] = None,
         start_minute: Optional[int] = None,
         day_of_week: Optional[int] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword custom_window: indicates whether custom window is enabled or disabled.
         :paramtype custom_window: str
@@ -919,14 +847,14 @@ class MaintenanceWindow(msrest.serialization.Model):
         :keyword day_of_week: day of week for maintenance window.
         :paramtype day_of_week: int
         """
-        super(MaintenanceWindow, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.custom_window = custom_window
         self.start_hour = start_hour
         self.start_minute = start_minute
         self.day_of_week = day_of_week
 
 
-class NameAvailability(msrest.serialization.Model):
+class NameAvailability(_serialization.Model):
     """Represents a resource name availability.
 
     :ivar message: Error Message.
@@ -938,9 +866,9 @@ class NameAvailability(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'message': {'key': 'message', 'type': 'str'},
-        'name_available': {'key': 'nameAvailable', 'type': 'bool'},
-        'reason': {'key': 'reason', 'type': 'str'},
+        "message": {"key": "message", "type": "str"},
+        "name_available": {"key": "nameAvailable", "type": "bool"},
+        "reason": {"key": "reason", "type": "str"},
     }
 
     def __init__(
@@ -949,8 +877,8 @@ class NameAvailability(msrest.serialization.Model):
         message: Optional[str] = None,
         name_available: Optional[bool] = None,
         reason: Optional[str] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword message: Error Message.
         :paramtype message: str
@@ -959,57 +887,51 @@ class NameAvailability(msrest.serialization.Model):
         :keyword reason: Reason for name being unavailable.
         :paramtype reason: str
         """
-        super(NameAvailability, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.message = message
         self.name_available = name_available
         self.reason = reason
 
 
-class NameAvailabilityRequest(msrest.serialization.Model):
+class NameAvailabilityRequest(_serialization.Model):
     """Request from client to check resource name availability.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
-    :ivar name: Required. Resource name to verify.
+    :ivar name: Resource name to verify. Required.
     :vartype name: str
     :ivar type: Resource type used for verification.
     :vartype type: str
     """
 
     _validation = {
-        'name': {'required': True},
+        "name": {"required": True},
     }
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        name: str,
-        type: Optional[str] = None,
-        **kwargs
-    ):
+    def __init__(self, *, name: str, type: Optional[str] = None, **kwargs: Any) -> None:
         """
-        :keyword name: Required. Resource name to verify.
+        :keyword name: Resource name to verify. Required.
         :paramtype name: str
         :keyword type: Resource type used for verification.
         :paramtype type: str
         """
-        super(NameAvailabilityRequest, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.name = name
         self.type = type
 
 
-class Network(msrest.serialization.Model):
+class Network(_serialization.Model):
     """Network related properties of a server.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar public_network_access: Whether or not public network access is allowed for this server.
-     Value is 'Disabled' when server has VNet integration. Possible values include: "Enabled",
+     Value is 'Disabled' when server has VNet integration. Known values are: "Enabled" and
      "Disabled".
     :vartype public_network_access: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
@@ -1021,13 +943,13 @@ class Network(msrest.serialization.Model):
     """
 
     _validation = {
-        'public_network_access': {'readonly': True},
+        "public_network_access": {"readonly": True},
     }
 
     _attribute_map = {
-        'public_network_access': {'key': 'publicNetworkAccess', 'type': 'str'},
-        'delegated_subnet_resource_id': {'key': 'delegatedSubnetResourceId', 'type': 'str'},
-        'private_dns_zone_resource_id': {'key': 'privateDnsZoneResourceId', 'type': 'str'},
+        "public_network_access": {"key": "publicNetworkAccess", "type": "str"},
+        "delegated_subnet_resource_id": {"key": "delegatedSubnetResourceId", "type": "str"},
+        "private_dns_zone_resource_id": {"key": "privateDnsZoneResourceId", "type": "str"},
     }
 
     def __init__(
@@ -1035,8 +957,8 @@ class Network(msrest.serialization.Model):
         *,
         delegated_subnet_resource_id: Optional[str] = None,
         private_dns_zone_resource_id: Optional[str] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword delegated_subnet_resource_id: Delegated subnet resource id used to setup vnet for a
          server.
@@ -1044,13 +966,13 @@ class Network(msrest.serialization.Model):
         :keyword private_dns_zone_resource_id: Private DNS zone resource id.
         :paramtype private_dns_zone_resource_id: str
         """
-        super(Network, self).__init__(**kwargs)
-        self.public_network_access = None
+        super().__init__(**kwargs)
+        self.public_network_access: Optional[Union[str, "_models.EnableStatusEnum"]] = None
         self.delegated_subnet_resource_id = delegated_subnet_resource_id
         self.private_dns_zone_resource_id = private_dns_zone_resource_id
 
 
-class Operation(msrest.serialization.Model):
+class Operation(_serialization.Model):
     """REST API operation definition.
 
     :ivar name: The name of the operation being performed on this particular object.
@@ -1060,25 +982,25 @@ class Operation(msrest.serialization.Model):
     :ivar origin: The intended executor of the operation.
     :vartype origin: str
     :ivar properties: Additional descriptions for the operation.
-    :vartype properties: dict[str, any]
+    :vartype properties: dict[str, JSON]
     """
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'display': {'key': 'display', 'type': 'OperationDisplay'},
-        'origin': {'key': 'origin', 'type': 'str'},
-        'properties': {'key': 'properties', 'type': '{object}'},
+        "name": {"key": "name", "type": "str"},
+        "display": {"key": "display", "type": "OperationDisplay"},
+        "origin": {"key": "origin", "type": "str"},
+        "properties": {"key": "properties", "type": "{object}"},
     }
 
     def __init__(
         self,
         *,
         name: Optional[str] = None,
-        display: Optional["OperationDisplay"] = None,
+        display: Optional["_models.OperationDisplay"] = None,
         origin: Optional[str] = None,
-        properties: Optional[Dict[str, Any]] = None,
-        **kwargs
-    ):
+        properties: Optional[dict[str, JSON]] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword name: The name of the operation being performed on this particular object.
         :paramtype name: str
@@ -1087,16 +1009,16 @@ class Operation(msrest.serialization.Model):
         :keyword origin: The intended executor of the operation.
         :paramtype origin: str
         :keyword properties: Additional descriptions for the operation.
-        :paramtype properties: dict[str, any]
+        :paramtype properties: dict[str, JSON]
         """
-        super(Operation, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.name = name
         self.display = display
         self.origin = origin
         self.properties = properties
 
 
-class OperationDisplay(msrest.serialization.Model):
+class OperationDisplay(_serialization.Model):
     """Display metadata associated with the operation.
 
     :ivar provider: Operation resource provider name.
@@ -1110,10 +1032,10 @@ class OperationDisplay(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'provider': {'key': 'provider', 'type': 'str'},
-        'resource': {'key': 'resource', 'type': 'str'},
-        'operation': {'key': 'operation', 'type': 'str'},
-        'description': {'key': 'description', 'type': 'str'},
+        "provider": {"key": "provider", "type": "str"},
+        "resource": {"key": "resource", "type": "str"},
+        "operation": {"key": "operation", "type": "str"},
+        "description": {"key": "description", "type": "str"},
     }
 
     def __init__(
@@ -1123,8 +1045,8 @@ class OperationDisplay(msrest.serialization.Model):
         resource: Optional[str] = None,
         operation: Optional[str] = None,
         description: Optional[str] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword provider: Operation resource provider name.
         :paramtype provider: str
@@ -1135,14 +1057,14 @@ class OperationDisplay(msrest.serialization.Model):
         :keyword description: Operation description.
         :paramtype description: str
         """
-        super(OperationDisplay, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.provider = provider
         self.resource = resource
         self.operation = operation
         self.description = description
 
 
-class OperationListResult(msrest.serialization.Model):
+class OperationListResult(_serialization.Model):
     """A list of resource provider operations.
 
     :ivar value: Collection of available operation details.
@@ -1152,34 +1074,31 @@ class OperationListResult(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[Operation]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[Operation]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        value: Optional[List["Operation"]] = None,
-        next_link: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, value: Optional[list["_models.Operation"]] = None, next_link: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword value: Collection of available operation details.
         :paramtype value: list[~azure.mgmt.rdbms.mysql_flexibleservers.models.Operation]
         :keyword next_link: URL client should use to fetch the next page (per server side paging).
         :paramtype next_link: str
         """
-        super(OperationListResult, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
         self.next_link = next_link
 
 
 class TrackedResource(Resource):
-    """The resource model definition for an Azure Resource Manager tracked top level resource which has 'tags' and a 'location'.
+    """The resource model definition for an Azure Resource Manager tracked top level resource which
+    has 'tags' and a 'location'.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. Ex -
      /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
@@ -1189,41 +1108,35 @@ class TrackedResource(Resource):
     :ivar type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or
      "Microsoft.Storage/storageAccounts".
     :vartype type: str
-    :ivar tags: A set of tags. Resource tags.
+    :ivar tags: Resource tags.
     :vartype tags: dict[str, str]
-    :ivar location: Required. The geo-location where the resource lives.
+    :ivar location: The geo-location where the resource lives. Required.
     :vartype location: str
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-        'location': {'required': True},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
+        "location": {"required": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'tags': {'key': 'tags', 'type': '{str}'},
-        'location': {'key': 'location', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "tags": {"key": "tags", "type": "{str}"},
+        "location": {"key": "location", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        location: str,
-        tags: Optional[Dict[str, str]] = None,
-        **kwargs
-    ):
+    def __init__(self, *, location: str, tags: Optional[dict[str, str]] = None, **kwargs: Any) -> None:
         """
-        :keyword tags: A set of tags. Resource tags.
+        :keyword tags: Resource tags.
         :paramtype tags: dict[str, str]
-        :keyword location: Required. The geo-location where the resource lives.
+        :keyword location: The geo-location where the resource lives. Required.
         :paramtype location: str
         """
-        super(TrackedResource, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.tags = tags
         self.location = location
 
@@ -1233,7 +1146,7 @@ class Server(TrackedResource):
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. Ex -
      /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
@@ -1243,9 +1156,9 @@ class Server(TrackedResource):
     :ivar type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or
      "Microsoft.Storage/storageAccounts".
     :vartype type: str
-    :ivar tags: A set of tags. Resource tags.
+    :ivar tags: Resource tags.
     :vartype tags: dict[str, str]
-    :ivar location: Required. The geo-location where the resource lives.
+    :ivar location: The geo-location where the resource lives. Required.
     :vartype location: str
     :ivar identity: The cmk identity for the server.
     :vartype identity: ~azure.mgmt.rdbms.mysql_flexibleservers.models.Identity
@@ -1259,19 +1172,19 @@ class Server(TrackedResource):
     :ivar administrator_login_password: The password of the administrator login (required for
      server creation).
     :vartype administrator_login_password: str
-    :ivar version: Server version. Possible values include: "5.7", "8.0.21".
+    :ivar version: Server version. Known values are: "5.7" and "8.0.21".
     :vartype version: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.ServerVersion
     :ivar availability_zone: availability Zone information of the server.
     :vartype availability_zone: str
-    :ivar create_mode: The mode to create a new MySQL server. Possible values include: "Default",
-     "PointInTimeRestore", "Replica", "GeoRestore".
+    :ivar create_mode: The mode to create a new MySQL server. Known values are: "Default",
+     "PointInTimeRestore", "Replica", and "GeoRestore".
     :vartype create_mode: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.CreateMode
     :ivar source_server_resource_id: The source MySQL server id.
     :vartype source_server_resource_id: str
     :ivar restore_point_in_time: Restore point creation time (ISO8601 format), specifying the time
      to restore from.
     :vartype restore_point_in_time: ~datetime.datetime
-    :ivar replication_role: The replication role. Possible values include: "None", "Source",
+    :ivar replication_role: The replication role. Known values are: "None", "Source", and
      "Replica".
     :vartype replication_role: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.ReplicationRole
@@ -1279,8 +1192,8 @@ class Server(TrackedResource):
     :vartype replica_capacity: int
     :ivar data_encryption: The Data Encryption for CMK.
     :vartype data_encryption: ~azure.mgmt.rdbms.mysql_flexibleservers.models.DataEncryption
-    :ivar state: The state of a server. Possible values include: "Ready", "Dropping", "Disabled",
-     "Starting", "Stopping", "Stopped", "Updating".
+    :ivar state: The state of a server. Known values are: "Ready", "Dropping", "Disabled",
+     "Starting", "Stopping", "Stopped", and "Updating".
     :vartype state: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.ServerState
     :ivar fully_qualified_domain_name: The fully qualified domain name of a server.
     :vartype fully_qualified_domain_name: str
@@ -1297,71 +1210,71 @@ class Server(TrackedResource):
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-        'location': {'required': True},
-        'system_data': {'readonly': True},
-        'replica_capacity': {'readonly': True, 'minimum': 0},
-        'state': {'readonly': True},
-        'fully_qualified_domain_name': {'readonly': True},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
+        "location": {"required": True},
+        "system_data": {"readonly": True},
+        "replica_capacity": {"readonly": True, "minimum": 0},
+        "state": {"readonly": True},
+        "fully_qualified_domain_name": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'tags': {'key': 'tags', 'type': '{str}'},
-        'location': {'key': 'location', 'type': 'str'},
-        'identity': {'key': 'identity', 'type': 'Identity'},
-        'sku': {'key': 'sku', 'type': 'Sku'},
-        'system_data': {'key': 'systemData', 'type': 'SystemData'},
-        'administrator_login': {'key': 'properties.administratorLogin', 'type': 'str'},
-        'administrator_login_password': {'key': 'properties.administratorLoginPassword', 'type': 'str'},
-        'version': {'key': 'properties.version', 'type': 'str'},
-        'availability_zone': {'key': 'properties.availabilityZone', 'type': 'str'},
-        'create_mode': {'key': 'properties.createMode', 'type': 'str'},
-        'source_server_resource_id': {'key': 'properties.sourceServerResourceId', 'type': 'str'},
-        'restore_point_in_time': {'key': 'properties.restorePointInTime', 'type': 'iso-8601'},
-        'replication_role': {'key': 'properties.replicationRole', 'type': 'str'},
-        'replica_capacity': {'key': 'properties.replicaCapacity', 'type': 'int'},
-        'data_encryption': {'key': 'properties.dataEncryption', 'type': 'DataEncryption'},
-        'state': {'key': 'properties.state', 'type': 'str'},
-        'fully_qualified_domain_name': {'key': 'properties.fullyQualifiedDomainName', 'type': 'str'},
-        'storage': {'key': 'properties.storage', 'type': 'Storage'},
-        'backup': {'key': 'properties.backup', 'type': 'Backup'},
-        'high_availability': {'key': 'properties.highAvailability', 'type': 'HighAvailability'},
-        'network': {'key': 'properties.network', 'type': 'Network'},
-        'maintenance_window': {'key': 'properties.maintenanceWindow', 'type': 'MaintenanceWindow'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "tags": {"key": "tags", "type": "{str}"},
+        "location": {"key": "location", "type": "str"},
+        "identity": {"key": "identity", "type": "Identity"},
+        "sku": {"key": "sku", "type": "Sku"},
+        "system_data": {"key": "systemData", "type": "SystemData"},
+        "administrator_login": {"key": "properties.administratorLogin", "type": "str"},
+        "administrator_login_password": {"key": "properties.administratorLoginPassword", "type": "str"},
+        "version": {"key": "properties.version", "type": "str"},
+        "availability_zone": {"key": "properties.availabilityZone", "type": "str"},
+        "create_mode": {"key": "properties.createMode", "type": "str"},
+        "source_server_resource_id": {"key": "properties.sourceServerResourceId", "type": "str"},
+        "restore_point_in_time": {"key": "properties.restorePointInTime", "type": "iso-8601"},
+        "replication_role": {"key": "properties.replicationRole", "type": "str"},
+        "replica_capacity": {"key": "properties.replicaCapacity", "type": "int"},
+        "data_encryption": {"key": "properties.dataEncryption", "type": "DataEncryption"},
+        "state": {"key": "properties.state", "type": "str"},
+        "fully_qualified_domain_name": {"key": "properties.fullyQualifiedDomainName", "type": "str"},
+        "storage": {"key": "properties.storage", "type": "Storage"},
+        "backup": {"key": "properties.backup", "type": "Backup"},
+        "high_availability": {"key": "properties.highAvailability", "type": "HighAvailability"},
+        "network": {"key": "properties.network", "type": "Network"},
+        "maintenance_window": {"key": "properties.maintenanceWindow", "type": "MaintenanceWindow"},
     }
 
-    def __init__(
+    def __init__(  # pylint: disable=too-many-locals
         self,
         *,
         location: str,
-        tags: Optional[Dict[str, str]] = None,
-        identity: Optional["Identity"] = None,
-        sku: Optional["Sku"] = None,
+        tags: Optional[dict[str, str]] = None,
+        identity: Optional["_models.Identity"] = None,
+        sku: Optional["_models.Sku"] = None,
         administrator_login: Optional[str] = None,
         administrator_login_password: Optional[str] = None,
-        version: Optional[Union[str, "ServerVersion"]] = None,
+        version: Optional[Union[str, "_models.ServerVersion"]] = None,
         availability_zone: Optional[str] = None,
-        create_mode: Optional[Union[str, "CreateMode"]] = None,
+        create_mode: Optional[Union[str, "_models.CreateMode"]] = None,
         source_server_resource_id: Optional[str] = None,
         restore_point_in_time: Optional[datetime.datetime] = None,
-        replication_role: Optional[Union[str, "ReplicationRole"]] = None,
-        data_encryption: Optional["DataEncryption"] = None,
-        storage: Optional["Storage"] = None,
-        backup: Optional["Backup"] = None,
-        high_availability: Optional["HighAvailability"] = None,
-        network: Optional["Network"] = None,
-        maintenance_window: Optional["MaintenanceWindow"] = None,
-        **kwargs
-    ):
+        replication_role: Optional[Union[str, "_models.ReplicationRole"]] = None,
+        data_encryption: Optional["_models.DataEncryption"] = None,
+        storage: Optional["_models.Storage"] = None,
+        backup: Optional["_models.Backup"] = None,
+        high_availability: Optional["_models.HighAvailability"] = None,
+        network: Optional["_models.Network"] = None,
+        maintenance_window: Optional["_models.MaintenanceWindow"] = None,
+        **kwargs: Any
+    ) -> None:
         """
-        :keyword tags: A set of tags. Resource tags.
+        :keyword tags: Resource tags.
         :paramtype tags: dict[str, str]
-        :keyword location: Required. The geo-location where the resource lives.
+        :keyword location: The geo-location where the resource lives. Required.
         :paramtype location: str
         :keyword identity: The cmk identity for the server.
         :paramtype identity: ~azure.mgmt.rdbms.mysql_flexibleservers.models.Identity
@@ -1373,19 +1286,19 @@ class Server(TrackedResource):
         :keyword administrator_login_password: The password of the administrator login (required for
          server creation).
         :paramtype administrator_login_password: str
-        :keyword version: Server version. Possible values include: "5.7", "8.0.21".
+        :keyword version: Server version. Known values are: "5.7" and "8.0.21".
         :paramtype version: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.ServerVersion
         :keyword availability_zone: availability Zone information of the server.
         :paramtype availability_zone: str
-        :keyword create_mode: The mode to create a new MySQL server. Possible values include:
-         "Default", "PointInTimeRestore", "Replica", "GeoRestore".
+        :keyword create_mode: The mode to create a new MySQL server. Known values are: "Default",
+         "PointInTimeRestore", "Replica", and "GeoRestore".
         :paramtype create_mode: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.CreateMode
         :keyword source_server_resource_id: The source MySQL server id.
         :paramtype source_server_resource_id: str
         :keyword restore_point_in_time: Restore point creation time (ISO8601 format), specifying the
          time to restore from.
         :paramtype restore_point_in_time: ~datetime.datetime
-        :keyword replication_role: The replication role. Possible values include: "None", "Source",
+        :keyword replication_role: The replication role. Known values are: "None", "Source", and
          "Replica".
         :paramtype replication_role: str or
          ~azure.mgmt.rdbms.mysql_flexibleservers.models.ReplicationRole
@@ -1402,10 +1315,10 @@ class Server(TrackedResource):
         :keyword maintenance_window: Maintenance window of a server.
         :paramtype maintenance_window: ~azure.mgmt.rdbms.mysql_flexibleservers.models.MaintenanceWindow
         """
-        super(Server, self).__init__(tags=tags, location=location, **kwargs)
+        super().__init__(tags=tags, location=location, **kwargs)
         self.identity = identity
         self.sku = sku
-        self.system_data = None
+        self.system_data: Optional["_models.SystemData"] = None
         self.administrator_login = administrator_login
         self.administrator_login_password = administrator_login_password
         self.version = version
@@ -1414,10 +1327,10 @@ class Server(TrackedResource):
         self.source_server_resource_id = source_server_resource_id
         self.restore_point_in_time = restore_point_in_time
         self.replication_role = replication_role
-        self.replica_capacity = None
+        self.replica_capacity: Optional[int] = None
         self.data_encryption = data_encryption
-        self.state = None
-        self.fully_qualified_domain_name = None
+        self.state: Optional[Union[str, "_models.ServerState"]] = None
+        self.fully_qualified_domain_name: Optional[str] = None
         self.storage = storage
         self.backup = backup
         self.high_availability = high_availability
@@ -1449,20 +1362,20 @@ class ServerBackup(ProxyResource):
     """
 
     _validation = {
-        'id': {'readonly': True},
-        'name': {'readonly': True},
-        'type': {'readonly': True},
-        'system_data': {'readonly': True},
+        "id": {"readonly": True},
+        "name": {"readonly": True},
+        "type": {"readonly": True},
+        "system_data": {"readonly": True},
     }
 
     _attribute_map = {
-        'id': {'key': 'id', 'type': 'str'},
-        'name': {'key': 'name', 'type': 'str'},
-        'type': {'key': 'type', 'type': 'str'},
-        'system_data': {'key': 'systemData', 'type': 'SystemData'},
-        'backup_type': {'key': 'properties.backupType', 'type': 'str'},
-        'completed_time': {'key': 'properties.completedTime', 'type': 'iso-8601'},
-        'source': {'key': 'properties.source', 'type': 'str'},
+        "id": {"key": "id", "type": "str"},
+        "name": {"key": "name", "type": "str"},
+        "type": {"key": "type", "type": "str"},
+        "system_data": {"key": "systemData", "type": "SystemData"},
+        "backup_type": {"key": "properties.backupType", "type": "str"},
+        "completed_time": {"key": "properties.completedTime", "type": "iso-8601"},
+        "source": {"key": "properties.source", "type": "str"},
     }
 
     def __init__(
@@ -1471,8 +1384,8 @@ class ServerBackup(ProxyResource):
         backup_type: Optional[str] = None,
         completed_time: Optional[datetime.datetime] = None,
         source: Optional[str] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword backup_type: Backup type.
         :paramtype backup_type: str
@@ -1481,14 +1394,14 @@ class ServerBackup(ProxyResource):
         :keyword source: Backup source.
         :paramtype source: str
         """
-        super(ServerBackup, self).__init__(**kwargs)
-        self.system_data = None
+        super().__init__(**kwargs)
+        self.system_data: Optional["_models.SystemData"] = None
         self.backup_type = backup_type
         self.completed_time = completed_time
         self.source = source
 
 
-class ServerBackupListResult(msrest.serialization.Model):
+class ServerBackupListResult(_serialization.Model):
     """A list of server backups.
 
     :ivar value: The list of backups of a server.
@@ -1498,29 +1411,25 @@ class ServerBackupListResult(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[ServerBackup]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[ServerBackup]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        value: Optional[List["ServerBackup"]] = None,
-        next_link: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, value: Optional[list["_models.ServerBackup"]] = None, next_link: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword value: The list of backups of a server.
         :paramtype value: list[~azure.mgmt.rdbms.mysql_flexibleservers.models.ServerBackup]
         :keyword next_link: The link used to get the next page of operations.
         :paramtype next_link: str
         """
-        super(ServerBackupListResult, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
         self.next_link = next_link
 
 
-class ServerEditionCapability(msrest.serialization.Model):
+class ServerEditionCapability(_serialization.Model):
     """Server edition capabilities.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1536,37 +1445,33 @@ class ServerEditionCapability(msrest.serialization.Model):
     """
 
     _validation = {
-        'name': {'readonly': True},
-        'supported_storage_editions': {'readonly': True},
-        'supported_server_versions': {'readonly': True},
+        "name": {"readonly": True},
+        "supported_storage_editions": {"readonly": True},
+        "supported_server_versions": {"readonly": True},
     }
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'supported_storage_editions': {'key': 'supportedStorageEditions', 'type': '[StorageEditionCapability]'},
-        'supported_server_versions': {'key': 'supportedServerVersions', 'type': '[ServerVersionCapability]'},
+        "name": {"key": "name", "type": "str"},
+        "supported_storage_editions": {"key": "supportedStorageEditions", "type": "[StorageEditionCapability]"},
+        "supported_server_versions": {"key": "supportedServerVersions", "type": "[ServerVersionCapability]"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(ServerEditionCapability, self).__init__(**kwargs)
-        self.name = None
-        self.supported_storage_editions = None
-        self.supported_server_versions = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.name: Optional[str] = None
+        self.supported_storage_editions: Optional[list["_models.StorageEditionCapability"]] = None
+        self.supported_server_versions: Optional[list["_models.ServerVersionCapability"]] = None
 
 
-class ServerForUpdate(msrest.serialization.Model):
+class ServerForUpdate(_serialization.Model):
     """Parameters allowed to update for a server.
 
     :ivar identity: The cmk identity for the server.
     :vartype identity: ~azure.mgmt.rdbms.mysql_flexibleservers.models.Identity
     :ivar sku: The SKU (pricing tier) of the server.
     :vartype sku: ~azure.mgmt.rdbms.mysql_flexibleservers.models.Sku
-    :ivar tags: A set of tags. Application-specific metadata in the form of key-value pairs.
+    :ivar tags: Application-specific metadata in the form of key-value pairs.
     :vartype tags: dict[str, str]
     :ivar administrator_login_password: The password of the administrator login.
     :vartype administrator_login_password: str
@@ -1578,8 +1483,8 @@ class ServerForUpdate(msrest.serialization.Model):
     :vartype high_availability: ~azure.mgmt.rdbms.mysql_flexibleservers.models.HighAvailability
     :ivar maintenance_window: Maintenance window of a server.
     :vartype maintenance_window: ~azure.mgmt.rdbms.mysql_flexibleservers.models.MaintenanceWindow
-    :ivar replication_role: The replication role of the server. Possible values include: "None",
-     "Source", "Replica".
+    :ivar replication_role: The replication role of the server. Known values are: "None", "Source",
+     and "Replica".
     :vartype replication_role: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.ReplicationRole
     :ivar data_encryption: The Data Encryption for CMK.
@@ -1587,39 +1492,39 @@ class ServerForUpdate(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'identity': {'key': 'identity', 'type': 'Identity'},
-        'sku': {'key': 'sku', 'type': 'Sku'},
-        'tags': {'key': 'tags', 'type': '{str}'},
-        'administrator_login_password': {'key': 'properties.administratorLoginPassword', 'type': 'str'},
-        'storage': {'key': 'properties.storage', 'type': 'Storage'},
-        'backup': {'key': 'properties.backup', 'type': 'Backup'},
-        'high_availability': {'key': 'properties.highAvailability', 'type': 'HighAvailability'},
-        'maintenance_window': {'key': 'properties.maintenanceWindow', 'type': 'MaintenanceWindow'},
-        'replication_role': {'key': 'properties.replicationRole', 'type': 'str'},
-        'data_encryption': {'key': 'properties.dataEncryption', 'type': 'DataEncryption'},
+        "identity": {"key": "identity", "type": "Identity"},
+        "sku": {"key": "sku", "type": "Sku"},
+        "tags": {"key": "tags", "type": "{str}"},
+        "administrator_login_password": {"key": "properties.administratorLoginPassword", "type": "str"},
+        "storage": {"key": "properties.storage", "type": "Storage"},
+        "backup": {"key": "properties.backup", "type": "Backup"},
+        "high_availability": {"key": "properties.highAvailability", "type": "HighAvailability"},
+        "maintenance_window": {"key": "properties.maintenanceWindow", "type": "MaintenanceWindow"},
+        "replication_role": {"key": "properties.replicationRole", "type": "str"},
+        "data_encryption": {"key": "properties.dataEncryption", "type": "DataEncryption"},
     }
 
     def __init__(
         self,
         *,
-        identity: Optional["Identity"] = None,
-        sku: Optional["Sku"] = None,
-        tags: Optional[Dict[str, str]] = None,
+        identity: Optional["_models.Identity"] = None,
+        sku: Optional["_models.Sku"] = None,
+        tags: Optional[dict[str, str]] = None,
         administrator_login_password: Optional[str] = None,
-        storage: Optional["Storage"] = None,
-        backup: Optional["Backup"] = None,
-        high_availability: Optional["HighAvailability"] = None,
-        maintenance_window: Optional["MaintenanceWindow"] = None,
-        replication_role: Optional[Union[str, "ReplicationRole"]] = None,
-        data_encryption: Optional["DataEncryption"] = None,
-        **kwargs
-    ):
+        storage: Optional["_models.Storage"] = None,
+        backup: Optional["_models.Backup"] = None,
+        high_availability: Optional["_models.HighAvailability"] = None,
+        maintenance_window: Optional["_models.MaintenanceWindow"] = None,
+        replication_role: Optional[Union[str, "_models.ReplicationRole"]] = None,
+        data_encryption: Optional["_models.DataEncryption"] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword identity: The cmk identity for the server.
         :paramtype identity: ~azure.mgmt.rdbms.mysql_flexibleservers.models.Identity
         :keyword sku: The SKU (pricing tier) of the server.
         :paramtype sku: ~azure.mgmt.rdbms.mysql_flexibleservers.models.Sku
-        :keyword tags: A set of tags. Application-specific metadata in the form of key-value pairs.
+        :keyword tags: Application-specific metadata in the form of key-value pairs.
         :paramtype tags: dict[str, str]
         :keyword administrator_login_password: The password of the administrator login.
         :paramtype administrator_login_password: str
@@ -1631,14 +1536,14 @@ class ServerForUpdate(msrest.serialization.Model):
         :paramtype high_availability: ~azure.mgmt.rdbms.mysql_flexibleservers.models.HighAvailability
         :keyword maintenance_window: Maintenance window of a server.
         :paramtype maintenance_window: ~azure.mgmt.rdbms.mysql_flexibleservers.models.MaintenanceWindow
-        :keyword replication_role: The replication role of the server. Possible values include: "None",
-         "Source", "Replica".
+        :keyword replication_role: The replication role of the server. Known values are: "None",
+         "Source", and "Replica".
         :paramtype replication_role: str or
          ~azure.mgmt.rdbms.mysql_flexibleservers.models.ReplicationRole
         :keyword data_encryption: The Data Encryption for CMK.
         :paramtype data_encryption: ~azure.mgmt.rdbms.mysql_flexibleservers.models.DataEncryption
         """
-        super(ServerForUpdate, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.identity = identity
         self.sku = sku
         self.tags = tags
@@ -1651,7 +1556,7 @@ class ServerForUpdate(msrest.serialization.Model):
         self.data_encryption = data_encryption
 
 
-class ServerListResult(msrest.serialization.Model):
+class ServerListResult(_serialization.Model):
     """A list of servers.
 
     :ivar value: The list of servers.
@@ -1661,33 +1566,29 @@ class ServerListResult(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'value': {'key': 'value', 'type': '[Server]'},
-        'next_link': {'key': 'nextLink', 'type': 'str'},
+        "value": {"key": "value", "type": "[Server]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
     def __init__(
-        self,
-        *,
-        value: Optional[List["Server"]] = None,
-        next_link: Optional[str] = None,
-        **kwargs
-    ):
+        self, *, value: Optional[list["_models.Server"]] = None, next_link: Optional[str] = None, **kwargs: Any
+    ) -> None:
         """
         :keyword value: The list of servers.
         :paramtype value: list[~azure.mgmt.rdbms.mysql_flexibleservers.models.Server]
         :keyword next_link: The link used to get the next page of operations.
         :paramtype next_link: str
         """
-        super(ServerListResult, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.value = value
         self.next_link = next_link
 
 
-class ServerRestartParameter(msrest.serialization.Model):
+class ServerRestartParameter(_serialization.Model):
     """Server restart parameters.
 
     :ivar restart_with_failover: Whether or not failover to standby server when restarting a server
-     with high availability enabled. Possible values include: "Enabled", "Disabled".
+     with high availability enabled. Known values are: "Enabled" and "Disabled".
     :vartype restart_with_failover: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
     :ivar max_failover_seconds: The maximum allowed failover time in seconds.
@@ -1695,31 +1596,31 @@ class ServerRestartParameter(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'restart_with_failover': {'key': 'restartWithFailover', 'type': 'str'},
-        'max_failover_seconds': {'key': 'maxFailoverSeconds', 'type': 'int'},
+        "restart_with_failover": {"key": "restartWithFailover", "type": "str"},
+        "max_failover_seconds": {"key": "maxFailoverSeconds", "type": "int"},
     }
 
     def __init__(
         self,
         *,
-        restart_with_failover: Optional[Union[str, "EnableStatusEnum"]] = None,
+        restart_with_failover: Optional[Union[str, "_models.EnableStatusEnum"]] = None,
         max_failover_seconds: Optional[int] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword restart_with_failover: Whether or not failover to standby server when restarting a
-         server with high availability enabled. Possible values include: "Enabled", "Disabled".
+         server with high availability enabled. Known values are: "Enabled" and "Disabled".
         :paramtype restart_with_failover: str or
          ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
         :keyword max_failover_seconds: The maximum allowed failover time in seconds.
         :paramtype max_failover_seconds: int
         """
-        super(ServerRestartParameter, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.restart_with_failover = restart_with_failover
         self.max_failover_seconds = max_failover_seconds
 
 
-class ServerVersionCapability(msrest.serialization.Model):
+class ServerVersionCapability(_serialization.Model):
     """Server version capabilities.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1731,68 +1632,58 @@ class ServerVersionCapability(msrest.serialization.Model):
     """
 
     _validation = {
-        'name': {'readonly': True},
-        'supported_skus': {'readonly': True},
+        "name": {"readonly": True},
+        "supported_skus": {"readonly": True},
     }
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'supported_skus': {'key': 'supportedSkus', 'type': '[SkuCapability]'},
+        "name": {"key": "name", "type": "str"},
+        "supported_skus": {"key": "supportedSkus", "type": "[SkuCapability]"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(ServerVersionCapability, self).__init__(**kwargs)
-        self.name = None
-        self.supported_skus = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.name: Optional[str] = None
+        self.supported_skus: Optional[list["_models.SkuCapability"]] = None
 
 
-class Sku(msrest.serialization.Model):
+class Sku(_serialization.Model):
     """Billing information related properties of a server.
 
-    All required parameters must be populated in order to send to Azure.
+    All required parameters must be populated in order to send to server.
 
-    :ivar name: Required. The name of the sku, e.g. Standard_D32s_v3.
+    :ivar name: The name of the sku, e.g. Standard_D32s_v3. Required.
     :vartype name: str
-    :ivar tier: Required. The tier of the particular SKU, e.g. GeneralPurpose. Possible values
-     include: "Burstable", "GeneralPurpose", "MemoryOptimized".
+    :ivar tier: The tier of the particular SKU, e.g. GeneralPurpose. Required. Known values are:
+     "Burstable", "GeneralPurpose", and "MemoryOptimized".
     :vartype tier: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.SkuTier
     """
 
     _validation = {
-        'name': {'required': True},
-        'tier': {'required': True},
+        "name": {"required": True},
+        "tier": {"required": True},
     }
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'tier': {'key': 'tier', 'type': 'str'},
+        "name": {"key": "name", "type": "str"},
+        "tier": {"key": "tier", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        name: str,
-        tier: Union[str, "SkuTier"],
-        **kwargs
-    ):
+    def __init__(self, *, name: str, tier: Union[str, "_models.SkuTier"], **kwargs: Any) -> None:
         """
-        :keyword name: Required. The name of the sku, e.g. Standard_D32s_v3.
+        :keyword name: The name of the sku, e.g. Standard_D32s_v3. Required.
         :paramtype name: str
-        :keyword tier: Required. The tier of the particular SKU, e.g. GeneralPurpose. Possible values
-         include: "Burstable", "GeneralPurpose", "MemoryOptimized".
+        :keyword tier: The tier of the particular SKU, e.g. GeneralPurpose. Required. Known values are:
+         "Burstable", "GeneralPurpose", and "MemoryOptimized".
         :paramtype tier: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.SkuTier
         """
-        super(Sku, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.name = name
         self.tier = tier
 
 
-class SkuCapability(msrest.serialization.Model):
+class SkuCapability(_serialization.Model):
     """Sku capability.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1800,41 +1691,37 @@ class SkuCapability(msrest.serialization.Model):
     :ivar name: vCore name.
     :vartype name: str
     :ivar v_cores: supported vCores.
-    :vartype v_cores: long
+    :vartype v_cores: int
     :ivar supported_iops: supported IOPS.
-    :vartype supported_iops: long
+    :vartype supported_iops: int
     :ivar supported_memory_per_v_core_mb: supported memory per vCore in MB.
-    :vartype supported_memory_per_v_core_mb: long
+    :vartype supported_memory_per_v_core_mb: int
     """
 
     _validation = {
-        'name': {'readonly': True},
-        'v_cores': {'readonly': True},
-        'supported_iops': {'readonly': True},
-        'supported_memory_per_v_core_mb': {'readonly': True},
+        "name": {"readonly": True},
+        "v_cores": {"readonly": True},
+        "supported_iops": {"readonly": True},
+        "supported_memory_per_v_core_mb": {"readonly": True},
     }
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'v_cores': {'key': 'vCores', 'type': 'long'},
-        'supported_iops': {'key': 'supportedIops', 'type': 'long'},
-        'supported_memory_per_v_core_mb': {'key': 'supportedMemoryPerVCoreMB', 'type': 'long'},
+        "name": {"key": "name", "type": "str"},
+        "v_cores": {"key": "vCores", "type": "int"},
+        "supported_iops": {"key": "supportedIops", "type": "int"},
+        "supported_memory_per_v_core_mb": {"key": "supportedMemoryPerVCoreMB", "type": "int"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(SkuCapability, self).__init__(**kwargs)
-        self.name = None
-        self.v_cores = None
-        self.supported_iops = None
-        self.supported_memory_per_v_core_mb = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.name: Optional[str] = None
+        self.v_cores: Optional[int] = None
+        self.supported_iops: Optional[int] = None
+        self.supported_memory_per_v_core_mb: Optional[int] = None
 
 
-class Storage(msrest.serialization.Model):
+class Storage(_serialization.Model):
     """Storage Profile properties of a server.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1843,22 +1730,21 @@ class Storage(msrest.serialization.Model):
     :vartype storage_size_gb: int
     :ivar iops: Storage IOPS for a server.
     :vartype iops: int
-    :ivar auto_grow: Enable Storage Auto Grow or not. Possible values include: "Enabled",
-     "Disabled".
+    :ivar auto_grow: Enable Storage Auto Grow or not. Known values are: "Enabled" and "Disabled".
     :vartype auto_grow: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
     :ivar storage_sku: The sku name of the server storage.
     :vartype storage_sku: str
     """
 
     _validation = {
-        'storage_sku': {'readonly': True},
+        "storage_sku": {"readonly": True},
     }
 
     _attribute_map = {
-        'storage_size_gb': {'key': 'storageSizeGB', 'type': 'int'},
-        'iops': {'key': 'iops', 'type': 'int'},
-        'auto_grow': {'key': 'autoGrow', 'type': 'str'},
-        'storage_sku': {'key': 'storageSku', 'type': 'str'},
+        "storage_size_gb": {"key": "storageSizeGB", "type": "int"},
+        "iops": {"key": "iops", "type": "int"},
+        "auto_grow": {"key": "autoGrow", "type": "str"},
+        "storage_sku": {"key": "storageSku", "type": "str"},
     }
 
     def __init__(
@@ -1866,26 +1752,26 @@ class Storage(msrest.serialization.Model):
         *,
         storage_size_gb: Optional[int] = None,
         iops: Optional[int] = None,
-        auto_grow: Optional[Union[str, "EnableStatusEnum"]] = None,
-        **kwargs
-    ):
+        auto_grow: Optional[Union[str, "_models.EnableStatusEnum"]] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword storage_size_gb: Max storage size allowed for a server.
         :paramtype storage_size_gb: int
         :keyword iops: Storage IOPS for a server.
         :paramtype iops: int
-        :keyword auto_grow: Enable Storage Auto Grow or not. Possible values include: "Enabled",
+        :keyword auto_grow: Enable Storage Auto Grow or not. Known values are: "Enabled" and
          "Disabled".
         :paramtype auto_grow: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.EnableStatusEnum
         """
-        super(Storage, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.storage_size_gb = storage_size_gb
         self.iops = iops
         self.auto_grow = auto_grow
-        self.storage_sku = None
+        self.storage_sku: Optional[str] = None
 
 
-class StorageEditionCapability(msrest.serialization.Model):
+class StorageEditionCapability(_serialization.Model):
     """storage edition capability.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -1893,59 +1779,55 @@ class StorageEditionCapability(msrest.serialization.Model):
     :ivar name: storage edition name.
     :vartype name: str
     :ivar min_storage_size: The minimal supported storage size.
-    :vartype min_storage_size: long
+    :vartype min_storage_size: int
     :ivar max_storage_size: The maximum supported storage size.
-    :vartype max_storage_size: long
+    :vartype max_storage_size: int
     :ivar min_backup_retention_days: Minimal backup retention days.
-    :vartype min_backup_retention_days: long
+    :vartype min_backup_retention_days: int
     :ivar max_backup_retention_days: Maximum backup retention days.
-    :vartype max_backup_retention_days: long
+    :vartype max_backup_retention_days: int
     """
 
     _validation = {
-        'name': {'readonly': True},
-        'min_storage_size': {'readonly': True},
-        'max_storage_size': {'readonly': True},
-        'min_backup_retention_days': {'readonly': True},
-        'max_backup_retention_days': {'readonly': True},
+        "name": {"readonly": True},
+        "min_storage_size": {"readonly": True},
+        "max_storage_size": {"readonly": True},
+        "min_backup_retention_days": {"readonly": True},
+        "max_backup_retention_days": {"readonly": True},
     }
 
     _attribute_map = {
-        'name': {'key': 'name', 'type': 'str'},
-        'min_storage_size': {'key': 'minStorageSize', 'type': 'long'},
-        'max_storage_size': {'key': 'maxStorageSize', 'type': 'long'},
-        'min_backup_retention_days': {'key': 'minBackupRetentionDays', 'type': 'long'},
-        'max_backup_retention_days': {'key': 'maxBackupRetentionDays', 'type': 'long'},
+        "name": {"key": "name", "type": "str"},
+        "min_storage_size": {"key": "minStorageSize", "type": "int"},
+        "max_storage_size": {"key": "maxStorageSize", "type": "int"},
+        "min_backup_retention_days": {"key": "minBackupRetentionDays", "type": "int"},
+        "max_backup_retention_days": {"key": "maxBackupRetentionDays", "type": "int"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(StorageEditionCapability, self).__init__(**kwargs)
-        self.name = None
-        self.min_storage_size = None
-        self.max_storage_size = None
-        self.min_backup_retention_days = None
-        self.max_backup_retention_days = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.name: Optional[str] = None
+        self.min_storage_size: Optional[int] = None
+        self.max_storage_size: Optional[int] = None
+        self.min_backup_retention_days: Optional[int] = None
+        self.max_backup_retention_days: Optional[int] = None
 
 
-class SystemData(msrest.serialization.Model):
+class SystemData(_serialization.Model):
     """Metadata pertaining to creation and last modification of the resource.
 
     :ivar created_by: The identity that created the resource.
     :vartype created_by: str
-    :ivar created_by_type: The type of identity that created the resource. Possible values include:
-     "User", "Application", "ManagedIdentity", "Key".
+    :ivar created_by_type: The type of identity that created the resource. Known values are:
+     "User", "Application", "ManagedIdentity", and "Key".
     :vartype created_by_type: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.CreatedByType
     :ivar created_at: The timestamp of resource creation (UTC).
     :vartype created_at: ~datetime.datetime
     :ivar last_modified_by: The identity that last modified the resource.
     :vartype last_modified_by: str
-    :ivar last_modified_by_type: The type of identity that last modified the resource. Possible
-     values include: "User", "Application", "ManagedIdentity", "Key".
+    :ivar last_modified_by_type: The type of identity that last modified the resource. Known values
+     are: "User", "Application", "ManagedIdentity", and "Key".
     :vartype last_modified_by_type: str or
      ~azure.mgmt.rdbms.mysql_flexibleservers.models.CreatedByType
     :ivar last_modified_at: The timestamp of resource last modification (UTC).
@@ -1953,43 +1835,43 @@ class SystemData(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'created_by': {'key': 'createdBy', 'type': 'str'},
-        'created_by_type': {'key': 'createdByType', 'type': 'str'},
-        'created_at': {'key': 'createdAt', 'type': 'iso-8601'},
-        'last_modified_by': {'key': 'lastModifiedBy', 'type': 'str'},
-        'last_modified_by_type': {'key': 'lastModifiedByType', 'type': 'str'},
-        'last_modified_at': {'key': 'lastModifiedAt', 'type': 'iso-8601'},
+        "created_by": {"key": "createdBy", "type": "str"},
+        "created_by_type": {"key": "createdByType", "type": "str"},
+        "created_at": {"key": "createdAt", "type": "iso-8601"},
+        "last_modified_by": {"key": "lastModifiedBy", "type": "str"},
+        "last_modified_by_type": {"key": "lastModifiedByType", "type": "str"},
+        "last_modified_at": {"key": "lastModifiedAt", "type": "iso-8601"},
     }
 
     def __init__(
         self,
         *,
         created_by: Optional[str] = None,
-        created_by_type: Optional[Union[str, "CreatedByType"]] = None,
+        created_by_type: Optional[Union[str, "_models.CreatedByType"]] = None,
         created_at: Optional[datetime.datetime] = None,
         last_modified_by: Optional[str] = None,
-        last_modified_by_type: Optional[Union[str, "CreatedByType"]] = None,
+        last_modified_by_type: Optional[Union[str, "_models.CreatedByType"]] = None,
         last_modified_at: Optional[datetime.datetime] = None,
-        **kwargs
-    ):
+        **kwargs: Any
+    ) -> None:
         """
         :keyword created_by: The identity that created the resource.
         :paramtype created_by: str
-        :keyword created_by_type: The type of identity that created the resource. Possible values
-         include: "User", "Application", "ManagedIdentity", "Key".
+        :keyword created_by_type: The type of identity that created the resource. Known values are:
+         "User", "Application", "ManagedIdentity", and "Key".
         :paramtype created_by_type: str or ~azure.mgmt.rdbms.mysql_flexibleservers.models.CreatedByType
         :keyword created_at: The timestamp of resource creation (UTC).
         :paramtype created_at: ~datetime.datetime
         :keyword last_modified_by: The identity that last modified the resource.
         :paramtype last_modified_by: str
-        :keyword last_modified_by_type: The type of identity that last modified the resource. Possible
-         values include: "User", "Application", "ManagedIdentity", "Key".
+        :keyword last_modified_by_type: The type of identity that last modified the resource. Known
+         values are: "User", "Application", "ManagedIdentity", and "Key".
         :paramtype last_modified_by_type: str or
          ~azure.mgmt.rdbms.mysql_flexibleservers.models.CreatedByType
         :keyword last_modified_at: The timestamp of resource last modification (UTC).
         :paramtype last_modified_at: ~datetime.datetime
         """
-        super(SystemData, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.created_by = created_by
         self.created_by_type = created_by_type
         self.created_at = created_at
@@ -1998,7 +1880,7 @@ class SystemData(msrest.serialization.Model):
         self.last_modified_at = last_modified_at
 
 
-class UserAssignedIdentity(msrest.serialization.Model):
+class UserAssignedIdentity(_serialization.Model):
     """Metadata of user assigned identity.
 
     Variables are only populated by the server, and will be ignored when sending a request.
@@ -2010,27 +1892,23 @@ class UserAssignedIdentity(msrest.serialization.Model):
     """
 
     _validation = {
-        'principal_id': {'readonly': True},
-        'client_id': {'readonly': True},
+        "principal_id": {"readonly": True},
+        "client_id": {"readonly": True},
     }
 
     _attribute_map = {
-        'principal_id': {'key': 'principalId', 'type': 'str'},
-        'client_id': {'key': 'clientId', 'type': 'str'},
+        "principal_id": {"key": "principalId", "type": "str"},
+        "client_id": {"key": "clientId", "type": "str"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(UserAssignedIdentity, self).__init__(**kwargs)
-        self.principal_id = None
-        self.client_id = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.principal_id: Optional[str] = None
+        self.client_id: Optional[str] = None
 
 
-class VirtualNetworkSubnetUsageParameter(msrest.serialization.Model):
+class VirtualNetworkSubnetUsageParameter(_serialization.Model):
     """Virtual network subnet usage parameter.
 
     :ivar virtual_network_resource_id: Virtual network resource id.
@@ -2038,46 +1916,47 @@ class VirtualNetworkSubnetUsageParameter(msrest.serialization.Model):
     """
 
     _attribute_map = {
-        'virtual_network_resource_id': {'key': 'virtualNetworkResourceId', 'type': 'str'},
+        "virtual_network_resource_id": {"key": "virtualNetworkResourceId", "type": "str"},
     }
 
-    def __init__(
-        self,
-        *,
-        virtual_network_resource_id: Optional[str] = None,
-        **kwargs
-    ):
+    def __init__(self, *, virtual_network_resource_id: Optional[str] = None, **kwargs: Any) -> None:
         """
         :keyword virtual_network_resource_id: Virtual network resource id.
         :paramtype virtual_network_resource_id: str
         """
-        super(VirtualNetworkSubnetUsageParameter, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.virtual_network_resource_id = virtual_network_resource_id
 
 
-class VirtualNetworkSubnetUsageResult(msrest.serialization.Model):
+class VirtualNetworkSubnetUsageResult(_serialization.Model):
     """Virtual network subnet usage data.
 
     Variables are only populated by the server, and will be ignored when sending a request.
 
+    :ivar location: The location name.
+    :vartype location: str
+    :ivar subscription_id: The subscription id.
+    :vartype subscription_id: str
     :ivar delegated_subnets_usage: A list of delegated subnet usage.
     :vartype delegated_subnets_usage:
      list[~azure.mgmt.rdbms.mysql_flexibleservers.models.DelegatedSubnetUsage]
     """
 
     _validation = {
-        'delegated_subnets_usage': {'readonly': True},
+        "location": {"readonly": True},
+        "subscription_id": {"readonly": True},
+        "delegated_subnets_usage": {"readonly": True},
     }
 
     _attribute_map = {
-        'delegated_subnets_usage': {'key': 'delegatedSubnetsUsage', 'type': '[DelegatedSubnetUsage]'},
+        "location": {"key": "location", "type": "str"},
+        "subscription_id": {"key": "subscriptionId", "type": "str"},
+        "delegated_subnets_usage": {"key": "delegatedSubnetsUsage", "type": "[DelegatedSubnetUsage]"},
     }
 
-    def __init__(
-        self,
-        **kwargs
-    ):
-        """
-        """
-        super(VirtualNetworkSubnetUsageResult, self).__init__(**kwargs)
-        self.delegated_subnets_usage = None
+    def __init__(self, **kwargs: Any) -> None:
+        """ """
+        super().__init__(**kwargs)
+        self.location: Optional[str] = None
+        self.subscription_id: Optional[str] = None
+        self.delegated_subnets_usage: Optional[list["_models.DelegatedSubnetUsage"]] = None

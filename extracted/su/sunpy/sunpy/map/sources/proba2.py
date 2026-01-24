@@ -1,8 +1,4 @@
 """PROBA2 Map subclass definitions"""
-
-__author__ = "Keith Hughitt"
-__email__ = "keith.hughitt@nasa.gov"
-
 from sunpy.map import GenericMap
 
 __all__ = ['SWAPMap']
@@ -21,8 +17,20 @@ class SWAPMap(GenericMap):
 
     References
     ----------
-    * `Proba2 SWAP Science Center <http://proba2.sidc.be/about/SWAP/>`__
-    * `Fits headers reference <http://proba2.oma.be/data/SWAP/level0>`__
+    * `Proba2 SWAP Science Center <https://proba2.sidc.be/index.php>`__
+    * `Fits headers reference <https://proba2.sidc.be/data/SWAP/level0>`__
+
+    Examples
+    --------
+    .. plot::
+        :include-source:
+        :context: reset
+
+        import sunpy.map
+        import astropy.units as u
+        from sunpy.data.sample import SWAP_LEVEL1_IMAGE
+        swap_map = sunpy.map.Map(SWAP_LEVEL1_IMAGE)
+        swap_map.plot(clip_interval=(1, 99)*u.percent)
     """
 
     def __init__(self, data, header, **kwargs):

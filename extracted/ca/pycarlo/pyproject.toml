@@ -6,6 +6,7 @@ exclude = [
   "**/.*",
   "examples/",
   "pycarlo/lib/schema.py",
+  "tests/data/schema_original.py",
   "venv/",
 ]
 reportMissingParameterType = true
@@ -26,6 +27,7 @@ exclude = [
   "/pycarlo.egg-info",
   "/venv",
   "pycarlo/lib/schema.py",
+  "tests/data/schema_original.py",
 ]
 line-length = 100
 target-version = "py39"

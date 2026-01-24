@@ -47,14 +47,12 @@ class TEXTURE_UL_texpaintslots(_bpy_types.UIList):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_item(
@@ -89,14 +87,12 @@ class VIEW3D_MT_brush_context_menu(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -114,14 +110,12 @@ class VIEW3D_MT_tools_projectpaint_stencil(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -139,14 +133,12 @@ class VIEW3D_MT_tools_projectpaint_uvlayer(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -171,14 +163,12 @@ class VIEW3D_PT_curves_sculpt_symmetry_for_topbar(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_gpencil_brush_presets(_bpy_types.Panel, bl_ui.utils.PresetPanel):
@@ -197,14 +187,12 @@ class VIEW3D_PT_gpencil_brush_presets(_bpy_types.Panel, bl_ui.utils.PresetPanel)
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_mask(_bpy_types.Panel):
@@ -219,14 +207,12 @@ class VIEW3D_PT_mask(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -247,14 +233,12 @@ class VIEW3D_PT_sculpt_symmetry_for_topbar(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_slots_color_attributes(_bpy_types.Panel):
@@ -269,14 +253,12 @@ class VIEW3D_PT_slots_color_attributes(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -306,14 +288,12 @@ class VIEW3D_PT_slots_paint_canvas(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_header(self, context) -> None:
@@ -356,14 +336,12 @@ class VIEW3D_PT_slots_projectpaint(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw_header(self, context) -> None:
@@ -404,14 +382,12 @@ class VIEW3D_PT_slots_vertex_groups(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -440,14 +416,12 @@ class VIEW3D_PT_stencil_projectpaint(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -482,14 +456,12 @@ class VIEW3D_PT_tools_armatureedit_options(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -515,14 +487,12 @@ class VIEW3D_PT_tools_brush_clone(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_display(
@@ -543,14 +513,12 @@ class VIEW3D_PT_tools_brush_display(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_falloff(
@@ -570,14 +538,12 @@ class VIEW3D_PT_tools_brush_falloff(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_falloff_frontface(View3DPaintPanel, _bpy_types.Panel):
@@ -595,14 +561,12 @@ class VIEW3D_PT_tools_brush_falloff_frontface(View3DPaintPanel, _bpy_types.Panel
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -639,14 +603,12 @@ class VIEW3D_PT_tools_brush_falloff_normal(View3DPaintPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -685,14 +647,12 @@ class VIEW3D_PT_tools_brush_select(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_stroke(
@@ -713,14 +673,12 @@ class VIEW3D_PT_tools_brush_stroke(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_stroke_smooth_stroke(
@@ -740,14 +698,12 @@ class VIEW3D_PT_tools_brush_stroke_smooth_stroke(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_swatches(
@@ -767,14 +723,12 @@ class VIEW3D_PT_tools_brush_swatches(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_grease_pencil_brush_vertex_color(View3DPanel, _bpy_types.Panel):
@@ -790,14 +744,12 @@ class VIEW3D_PT_tools_grease_pencil_brush_vertex_color(View3DPanel, _bpy_types.P
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -827,14 +779,12 @@ class VIEW3D_PT_tools_grease_pencil_brush_vertex_palette(View3DPanel, _bpy_types
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -871,14 +821,12 @@ class VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -904,14 +852,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_advanced(View3DPanel, _bpy_types.Pa
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -941,14 +887,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_eraser(View3DPanel, _bpy_types.Pane
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -982,14 +926,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_fill_advanced(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1019,14 +961,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_gap_closure(View3DPanel, _bpy_types
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1056,14 +996,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_mix_palette(View3DPanel, _bpy_types
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1092,14 +1030,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_mixcolor(View3DPanel, _bpy_types.Pa
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1132,14 +1068,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_post_processing(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1176,14 +1110,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_random(View3DPanel, _bpy_types.Pane
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1223,14 +1155,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_select(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_grease_pencil_vertex_paint_select(
@@ -1251,14 +1181,12 @@ class VIEW3D_PT_tools_grease_pencil_vertex_paint_select(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_grease_pencil_weight_paint_select(
@@ -1279,14 +1207,12 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_select(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_imagepaint_options(View3DPaintPanel, _bpy_types.Panel):
@@ -1303,14 +1229,12 @@ class VIEW3D_PT_tools_imagepaint_options(View3DPaintPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1339,14 +1263,12 @@ class VIEW3D_PT_tools_imagepaint_options_cavity(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1372,20 +1294,19 @@ class VIEW3D_PT_tools_mask_texture(
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
+    bl_ui_units_x: typing.Any
     id_data: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1416,14 +1337,12 @@ class VIEW3D_PT_tools_meshedit_options(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -1446,14 +1365,12 @@ class VIEW3D_PT_tools_meshedit_options_transform(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1483,14 +1400,12 @@ class VIEW3D_PT_tools_meshedit_options_uvs(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1512,14 +1427,12 @@ class VIEW3D_PT_tools_object_options(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1542,14 +1455,12 @@ class VIEW3D_PT_tools_object_options_transform(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1574,14 +1485,12 @@ class VIEW3D_PT_tools_particlemode_options(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1605,14 +1514,12 @@ class VIEW3D_PT_tools_particlemode_options_display(View3DPanel, _bpy_types.Panel
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1637,14 +1544,12 @@ class VIEW3D_PT_tools_particlemode_options_shapecut(View3DPanel, _bpy_types.Pane
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1666,14 +1571,12 @@ class VIEW3D_PT_tools_posemode_options(View3DPanel, _bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1693,14 +1596,12 @@ class VIEW3D_PT_tools_vertexpaint_symmetry_for_topbar(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_weightpaint_symmetry_for_topbar(_bpy_types.Panel):
@@ -1714,14 +1615,12 @@ class VIEW3D_PT_tools_weightpaint_symmetry_for_topbar(_bpy_types.Panel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_grease_pencil_v3_brush_settings(
@@ -1740,14 +1639,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_settings(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1777,14 +1674,12 @@ class VIEW3D_PT_tools_grease_pencil_vertex_paint_settings(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1809,14 +1704,12 @@ class VIEW3D_PT_tools_grease_pencil_weight_options(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1840,14 +1733,12 @@ class VIEW3D_PT_tools_grease_pencil_weight_paint_settings(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1870,14 +1761,12 @@ class VIEW3D_PT_curves_sculpt_symmetry(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1927,14 +1816,12 @@ class VIEW3D_PT_sculpt_dyntopo(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -1971,14 +1858,12 @@ class VIEW3D_PT_sculpt_options(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2008,14 +1893,12 @@ class VIEW3D_PT_sculpt_options_gravity(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2045,14 +1928,12 @@ class VIEW3D_PT_sculpt_symmetry(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2083,14 +1964,12 @@ class VIEW3D_PT_sculpt_voxel_remesh(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2120,14 +1999,12 @@ class VIEW3D_PT_tools_brush_color(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2152,20 +2029,19 @@ class VIEW3D_PT_tools_brush_texture(_bpy_types.Panel, View3DPaintPanel):
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
+    bl_ui_units_x: typing.Any
     id_data: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2199,14 +2075,12 @@ class VIEW3D_PT_tools_grease_pencil_brush_vertex_falloff(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -2235,14 +2109,12 @@ class VIEW3D_PT_tools_grease_pencil_brush_weight_falloff(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -2267,14 +2139,12 @@ class VIEW3D_PT_tools_imagepaint_options_external(_bpy_types.Panel, View3DPaintP
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2297,14 +2167,12 @@ class VIEW3D_PT_tools_imagepaint_symmetry(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2324,7 +2192,6 @@ class VIEW3D_PT_tools_particlemode(_bpy_types.Panel, View3DPaintPanel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
-    bl_options: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
@@ -2334,14 +2201,12 @@ class VIEW3D_PT_tools_particlemode(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2371,14 +2236,12 @@ class VIEW3D_PT_tools_vertexpaint_options(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -2408,14 +2271,12 @@ class VIEW3D_PT_tools_vertexpaint_symmetry(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2444,14 +2305,12 @@ class VIEW3D_PT_tools_weight_gradient(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2481,14 +2340,12 @@ class VIEW3D_PT_tools_weightpaint_options(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2511,14 +2368,12 @@ class VIEW3D_PT_tools_weightpaint_symmetry(_bpy_types.Panel, View3DPaintPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2566,14 +2421,12 @@ class VIEW3D_PT_tools_grease_pencil_paint_appearance(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_grease_pencil_sculpt_appearance(
@@ -2595,14 +2448,12 @@ class VIEW3D_PT_tools_grease_pencil_sculpt_appearance(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     @classmethod
@@ -2627,14 +2478,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_stabilizer(_bpy_types.Panel, View3D
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2672,14 +2521,12 @@ class VIEW3D_PT_tools_grease_pencil_v3_brush_stroke(_bpy_types.Panel, View3DPane
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -2714,14 +2561,12 @@ class VIEW3D_PT_tools_grease_pencil_vertex_appearance(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_grease_pencil_weight_appearance(
@@ -2743,14 +2588,12 @@ class VIEW3D_PT_tools_grease_pencil_weight_appearance(
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
 class VIEW3D_PT_tools_brush_settings(_bpy_types.Panel, View3DPaintBrushPanel):
@@ -2766,14 +2609,12 @@ class VIEW3D_PT_tools_brush_settings(_bpy_types.Panel, View3DPaintBrushPanel):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -2805,14 +2646,12 @@ class VIEW3D_PT_tools_brush_settings_advanced(_bpy_types.Panel, View3DPaintBrush
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

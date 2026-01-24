@@ -531,9 +531,10 @@ class GenerativeServiceRestTransport(_BaseGenerativeServiceRestTransport):
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
 
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is ignored if ``channel`` is provided.
+                This argument is ignored if ``channel`` is provided. This argument will be
+                removed in the next major version of this library.
             scopes (Optional(Sequence[str])): A list of scopes. This argument is
                 ignored if ``channel`` is provided.
             client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -1279,13 +1280,13 @@ class GenerativeServiceRestTransport(_BaseGenerativeServiceRestTransport):
                 candidate in ``finish_reason`` and in
                 ``safety_ratings``. The API:
 
-                -  Returns either all requested candidates or none of
-                   them
-                -  Returns no candidates at all only if there was
-                   something wrong with the prompt (check
-                   ``prompt_feedback``)
-                -  Reports feedback on each candidate in
-                   ``finish_reason`` and ``safety_ratings``.
+                - Returns either all requested candidates or none of
+                  them
+                - Returns no candidates at all only if there was
+                  something wrong with the prompt (check
+                  ``prompt_feedback``)
+                - Reports feedback on each candidate in
+                  ``finish_reason`` and ``safety_ratings``.
 
             """
 
@@ -1452,13 +1453,13 @@ class GenerativeServiceRestTransport(_BaseGenerativeServiceRestTransport):
                 candidate in ``finish_reason`` and in
                 ``safety_ratings``. The API:
 
-                -  Returns either all requested candidates or none of
-                   them
-                -  Returns no candidates at all only if there was
-                   something wrong with the prompt (check
-                   ``prompt_feedback``)
-                -  Reports feedback on each candidate in
-                   ``finish_reason`` and ``safety_ratings``.
+                - Returns either all requested candidates or none of
+                  them
+                - Returns no candidates at all only if there was
+                  something wrong with the prompt (check
+                  ``prompt_feedback``)
+                - Reports feedback on each candidate in
+                  ``finish_reason`` and ``safety_ratings``.
 
             """
 
@@ -1537,6 +1538,22 @@ class GenerativeServiceRestTransport(_BaseGenerativeServiceRestTransport):
             resp, _ = self._interceptor.post_stream_generate_content_with_metadata(
                 resp, response_metadata
             )
+            if CLIENT_LOGGING_SUPPORTED and _LOGGER.isEnabledFor(
+                logging.DEBUG
+            ):  # pragma: NO COVER
+                http_response = {
+                    "headers": dict(response.headers),
+                    "status": response.status_code,
+                }
+                _LOGGER.debug(
+                    "Received response for google.ai.generativelanguage_v1alpha.GenerativeServiceClient.stream_generate_content",
+                    extra={
+                        "serviceName": "google.ai.generativelanguage.v1alpha.GenerativeService",
+                        "rpcName": "StreamGenerateContent",
+                        "metadata": http_response["headers"],
+                        "httpResponse": http_response,
+                    },
+                )
             return resp
 
     @property

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from textwrap import dedent
-from typing import TYPE_CHECKING, Callable, List
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -10,6 +10,7 @@ from tox.config.loader.ini.factor import filter_for_env, find_envs
 from tox.config.source.ini_section import IniSection
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from configparser import ConfigParser
 
     from tests.conftest import ToxIniCreator
@@ -140,7 +141,7 @@ def test_factor_config(tox_ini_conf: ToxIniCreator) -> None:
     assert list(config) == ["py36-django15", "py36-django16", "py37-django15", "py37-django16"]
     for env in config.core["env_list"]:
         env_config = config.get_env(env)
-        env_config.add_config(keys="deps-x", of_type=List[str], default=[], desc="deps")
+        env_config.add_config(keys="deps-x", of_type=list[str], default=[], desc="deps")
         deps = env_config["deps-x"]
         assert "pytest" in deps
         if "py36" in env:
@@ -272,6 +273,40 @@ def test_ini_loader_raw_with_factors(
     assert outcome == result
 
 
+def test_generative_ranges_in_deps(tox_ini_conf: ToxIniCreator) -> None:
+    config = tox_ini_conf(
+        """
+        [testenv]
+        deps-x =
+            py{310-314}: black
+        """,
+    )
+    assert list(config) == ["py310", "py311", "py312", "py313", "py314"]
+
+
+def test_generative_ranges_in_deps_with_mixed_approach(tox_ini_conf: ToxIniCreator) -> None:
+    config = tox_ini_conf(
+        """
+        [testenv]
+        deps-x =
+            py3{10-14}: black
+        """,
+    )
+    assert list(config) == ["py310", "py311", "py312", "py313", "py314"]
+
+
+def test_generative_ranges_in_setenv(tox_ini_conf: ToxIniCreator) -> None:
+    config = tox_ini_conf(
+        """
+        [testenv]
+        setenv =
+            foo{1,2}: FOO=bar
+            foo{3-5}: FOO=baz
+        """,
+    )
+    assert list(config) == ["foo1", "foo2", "foo3", "foo4", "foo5"]
+
+
 def test_generative_section_name_with_ranges(tox_ini_conf: ToxIniCreator) -> None:
     config = tox_ini_conf(
         """
@@ -296,12 +331,12 @@ def test_generative_section_name(tox_ini_conf: ToxIniCreator) -> None:
     assert list(config) == ["py311-black", "py311-lint", "py310-black", "py310-lint"]
 
     env_config = config.get_env("py311-black")
-    env_config.add_config(keys="deps-x", of_type=List[str], default=[], desc="deps")
+    env_config.add_config(keys="deps-x", of_type=list[str], default=[], desc="deps")
     deps = env_config["deps-x"]
     assert deps == ["black"]
 
     env_config = config.get_env("py311-lint")
-    env_config.add_config(keys="deps-x", of_type=List[str], default=[], desc="deps")
+    env_config.add_config(keys="deps-x", of_type=list[str], default=[], desc="deps")
     deps = env_config["deps-x"]
     assert deps == ["flake8"]
 

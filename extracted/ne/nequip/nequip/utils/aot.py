@@ -8,7 +8,11 @@ from nequip.data._key_registry import get_dynamic_shapes
 from .fx import nequip_make_fx
 from .compile import prepare_model_for_compile
 from .versions import check_pt2_compile_compatibility
-from .dtype import test_model_output_similarity_by_dtype, _pt2_compile_error_message
+from .versions.torch_versions import _TORCH_GE_2_8
+from .dtype import (
+    test_model_output_similarity_by_dtype,
+    _pt2_compile_error_message,
+)
 
 from typing import List, Dict, Union, Any
 
@@ -22,6 +26,7 @@ def aot_export_model(
     batch_map: Dict[str, torch.export.dynamic_shapes.Dim],
     output_path: str,
     inductor_configs: Dict[str, Any] = {},
+    constant_fold: bool = False,
     seed: int = 1,
 ) -> str:
     # === torch version check ===
@@ -33,19 +38,23 @@ def aot_export_model(
     # === preprocess `inductor_configs` ===
     inductor_configs = inductor_configs.copy()
 
-    # NOTE: fails for torch 2.7 in general
-    # see https://github.com/pytorch/pytorch/issues/152067
-    # NOTE: fails for torch 2.8 on Allegro models, but not NequIP models
-    # TODO: figure out offending op and open PyTorch issue (low priority)
-    # for now we just comment out the previous implementation
+    # === constant folding ===
+    if constant_fold:
+        # NOTE: fails for torch 2.7 in general
+        # see https://github.com/pytorch/pytorch/issues/152067
+        # NOTE: fails for torch 2.8 on Allegro models, but not NequIP models
 
-    # unless users explicitly set it, we always default aoti constant folding to True
-    # if torch >= 2.8
-    # if (
-    #    _TORCH_GE_2_8
-    #    and "aot_inductor.use_runtime_constant_folding" not in inductor_configs
-    # ):
-    #    inductor_configs["aot_inductor.use_runtime_constant_folding"] = True
+        # version guard: constant folding requires PyTorch 2.8+
+        assert _TORCH_GE_2_8, (
+            f"constant_fold requires PyTorch 2.8 or later, but {torch.__version__} found."
+        )
+        # check for conflicts with inductor_configs
+        if "aot_inductor.use_runtime_constant_folding" in inductor_configs:
+            raise ValueError(
+                "`constant_fold=True` conflicts with 'aot_inductor.use_runtime_constant_folding' in inductor_configs. Please remove the config entry and use constant_fold argument instead."
+            )
+        # set the config
+        inductor_configs["aot_inductor.use_runtime_constant_folding"] = True
 
     # === preprocess model and make_fx ===
     model_to_trace = ListInputOutputWrapper(model, input_fields, output_fields)

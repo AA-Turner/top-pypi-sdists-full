@@ -2,10 +2,9 @@ r"""Contain torch-based data loaders and savers."""
 
 from __future__ import annotations
 
-__all__ = ["TorchLoader", "TorchSaver", "get_loader_mapping", "load_torch", "save_torch"]
+__all__ = ["TorchLoader", "TorchSaver", "load_torch", "save_torch"]
 
-from typing import TYPE_CHECKING, Any
-from unittest.mock import Mock
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from coola import objects_are_equal
 from coola.utils import check_torch, is_torch_available
@@ -16,34 +15,34 @@ from iden.io.base import BaseFileSaver, BaseLoader
 if is_torch_available():
     import torch
 else:  # pragma: no cover
-    torch = Mock()
+    from coola.utils.fallback.torch import torch
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+T = TypeVar("T")
 
-class TorchLoader(BaseLoader[Any]):
+
+class TorchLoader(BaseLoader[T]):
     r"""Implement a data loader to load data in a PyTorch file.
 
     Args:
         **kwargs: Additional arguments passed to ``torch.load``.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import save_torch, TorchLoader
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.pt")
+        ...     save_torch({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = TorchLoader().load(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import save_torch, TorchLoader
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.pt")
-    ...     save_torch({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = TorchLoader().load(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -54,36 +53,34 @@ class TorchLoader(BaseLoader[Any]):
         return f"{self.__class__.__qualname__}({repr_mapping_line(self._kwargs)})"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:
-        if not isinstance(other, self.__class__):
+        if type(other) is not type(self):
             return False
         return objects_are_equal(self._kwargs, other._kwargs, equal_nan=equal_nan)
 
-    def load(self, path: Path) -> Any:
+    def load(self, path: Path) -> T:
         return torch.load(path, **self._kwargs)
 
 
-class TorchSaver(BaseFileSaver[Any]):
+class TorchSaver(BaseFileSaver[T]):
     r"""Implement a file saver to save data with a PyTorch file.
 
     Args:
         **kwargs: Additional arguments passed to ``torch.save``.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import TorchSaver, TorchLoader
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.pt")
+        ...     TorchSaver().save({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = TorchLoader().load(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import TorchSaver, TorchLoader
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.pt")
-    ...     TorchSaver().save({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = TorchLoader().load(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
 
     def __init__(self, **kwargs: Any) -> None:
@@ -94,11 +91,11 @@ class TorchSaver(BaseFileSaver[Any]):
         return f"{self.__class__.__qualname__}({repr_mapping_line(self._kwargs)})"
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:
-        if not isinstance(other, self.__class__):
+        if type(other) is not type(self):
             return False
         return objects_are_equal(self._kwargs, other._kwargs, equal_nan=equal_nan)
 
-    def _save_file(self, to_save: Any, path: Path) -> None:
+    def _save_file(self, to_save: T, path: Path) -> None:
         torch.save(to_save, path, **self._kwargs)
 
 
@@ -112,22 +109,20 @@ def load_torch(path: Path, **kwargs: Any) -> Any:
     Returns:
         The data from the PyTorch file.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import save_torch, load_torch
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.pt")
+        ...     save_torch({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = load_torch(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import save_torch, load_torch
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.pt")
-    ...     save_torch({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = load_torch(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
     return TorchLoader(**kwargs).load(path)
 
@@ -149,42 +144,19 @@ def save_torch(to_save: Any, path: Path, *, exist_ok: bool = False, **kwargs: An
     Raises:
         FileExistsError: if the file already exists.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.io import save_torch, load_torch
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     path = Path(tmpdir).joinpath("data.pt")
+        ...     save_torch({"key1": [1, 2, 3], "key2": "abc"}, path)
+        ...     data = load_torch(path)
+        ...     data
+        ...
+        {'key1': [1, 2, 3], 'key2': 'abc'}
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.io import save_torch, load_torch
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     path = Path(tmpdir).joinpath("data.pt")
-    ...     save_torch({"key1": [1, 2, 3], "key2": "abc"}, path)
-    ...     data = load_torch(path)
-    ...     data
-    ...
-    {'key1': [1, 2, 3], 'key2': 'abc'}
-
-    ```
+        ```
     """
     TorchSaver(**kwargs).save(to_save, path, exist_ok=exist_ok)
-
-
-def get_loader_mapping() -> dict[str, BaseLoader]:
-    r"""Get a default mapping between the file extensions and loaders.
-
-    Returns:
-        The mapping between the file extensions and loaders.
-
-    Example usage:
-
-    ```pycon
-
-    >>> from iden.io.torch import get_loader_mapping
-    >>> get_loader_mapping()
-    {'pt': TorchLoader()}
-
-    ```
-    """
-    if not is_torch_available():
-        return {}
-    return {"pt": TorchLoader()}

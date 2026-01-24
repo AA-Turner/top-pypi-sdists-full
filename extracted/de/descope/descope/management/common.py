@@ -1,5 +1,63 @@
 from enum import Enum
-from typing import List, Optional
+from typing import Dict, List, Optional, Any
+
+
+class SessionExpirationUnit(Enum):
+    MINUTES = "minutes"
+    HOURS = "hours"
+    DAYS = "days"
+    WEEKS = "weeks"
+
+
+class TenantAuthType(Enum):
+    NONE = "none"
+    SAML = "saml"
+    OIDC = "oidc"
+
+
+class SSOSetupSuiteSettingsDisabledFeatures:
+    def __init__(
+        self,
+        saml: bool = False,
+        oidc: bool = False,
+        scim: bool = False,
+        sso_domains: bool = False,
+        group_mapping: bool = False,
+    ):
+        self.saml = saml
+        self.oidc = oidc
+        self.scim = scim
+        self.sso_domains = sso_domains
+        self.group_mapping = group_mapping
+
+    def to_dict(self) -> Dict[str, bool]:
+        return {
+            "saml": self.saml,
+            "oidc": self.oidc,
+            "scim": self.scim,
+            "ssoDomains": self.sso_domains,
+            "groupMapping": self.group_mapping,
+        }
+
+
+class SSOSetupSuiteSettings:
+    def __init__(
+        self,
+        enabled: bool,
+        style_id: Optional[str] = None,
+        disabled_features: Optional[SSOSetupSuiteSettingsDisabledFeatures] = None,
+    ):
+        self.enabled = enabled
+        self.style_id = style_id
+        self.disabled_features = disabled_features
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {"enabled": self.enabled}
+        if self.style_id is not None:
+            result["styleId"] = self.style_id
+        if self.disabled_features is not None:
+            result["disabledFeatures"] = self.disabled_features.to_dict()
+        return result
 
 
 class AccessType(Enum):
@@ -35,6 +93,7 @@ class MgmtV1:
     tenant_update_path = "/v1/mgmt/tenant/update"
     tenant_delete_path = "/v1/mgmt/tenant/delete"
     tenant_load_path = "/v1/mgmt/tenant"
+    tenant_settings_path = "/v1/mgmt/tenant/settings"
     tenant_load_all_path = "/v1/mgmt/tenant/all"
     tenant_search_all_path = "/v1/mgmt/tenant/search"
 
@@ -61,6 +120,8 @@ class MgmtV1:
     outbound_application_fetch_tenant_token_path = (
         "/v1/mgmt/outbound/app/tenant/token/latest"
     )
+    outbound_application_delete_user_tokens_path = "/v1/mgmt/outbound/user/tokens"
+    outbound_application_delete_token_path = "/v1/mgmt/outbound/token"
 
     # user
     user_create_path = "/v1/mgmt/user/create"
@@ -68,10 +129,12 @@ class MgmtV1:
     user_create_batch_path = "/v1/mgmt/user/create/batch"
     user_update_path = "/v1/mgmt/user/update"
     user_patch_path = "/v1/mgmt/user/patch"
+    user_patch_batch_path = "/v1/mgmt/user/patch/batch"
     user_delete_path = "/v1/mgmt/user/delete"
     user_logout_path = "/v1/mgmt/user/logout"
     user_delete_all_test_users_path = "/v1/mgmt/user/test/delete/all"
     user_load_path = "/v1/mgmt/user"
+    users_load_path = "/v1/mgmt/users/load"
     users_search_path = "/v2/mgmt/user/search"
     test_users_search_path = "/v2/mgmt/user/search/test"
     user_get_provider_token = "/v1/mgmt/user/provider/token"
@@ -116,6 +179,7 @@ class MgmtV1:
     sso_settings_path = "/v1/mgmt/sso/settings"
     sso_metadata_path = "/v1/mgmt/sso/metadata"
     sso_mapping_path = "/v1/mgmt/sso/mapping"
+    sso_recalculate_mappings_path = "/v1/mgmt/sso/recalculate-mappings"
     sso_load_settings_path = "/v2/mgmt/sso/settings"  # v2 only
     sso_configure_oidc_settings = "/v1/mgmt/sso/oidc"
     sso_configure_saml_settings = "/v1/mgmt/sso/saml"
@@ -148,6 +212,9 @@ class MgmtV1:
     flow_delete_path = "/v1/mgmt/flow/delete"
     flow_import_path = "/v1/mgmt/flow/import"
     flow_export_path = "/v1/mgmt/flow/export"
+    flow_run_path = "/v1/mgmt/flow/run"
+    flow_async_run_path = "/v1/mgmt/flow/async/run"
+    flow_async_result_path = "/v1/mgmt/flow/async/result"
 
     # theme
     theme_import_path = "/v1/mgmt/theme/import"
@@ -197,6 +264,20 @@ class MgmtV1:
     project_import = "/v1/mgmt/project/import"
     project_list_projects = "/v1/mgmt/projects/list"
 
+    # Descoper
+    descoper_create_path = "/v1/mgmt/descoper"
+    descoper_update_path = "/v1/mgmt/descoper"
+    descoper_load_path = "/v1/mgmt/descoper"
+    descoper_delete_path = "/v1/mgmt/descoper"
+    descoper_list_path = "/v1/mgmt/descoper/list"
+
+    # management key
+    mgmt_key_create_path = "/v1/mgmt/managementkey"
+    mgmt_key_update_path = "/v1/mgmt/managementkey"
+    mgmt_key_load_path = "/v1/mgmt/managementkey"
+    mgmt_key_delete_path = "/v1/mgmt/managementkey/delete"
+    mgmt_key_search_path = "/v1/mgmt/managementkey/search"
+
 
 class MgmtSignUpOptions:
     def __init__(
@@ -206,6 +287,42 @@ class MgmtSignUpOptions:
     ):
         self.custom_claims = custom_claims
         self.refresh_duration = refresh_duration
+
+
+class FlowRunOptions:
+    """
+    Options for running a flow.
+    """
+
+    def __init__(
+        self,
+        flow_input: Optional[Dict[str, Any]] = None,
+        preview: Optional[bool] = None,
+        tenant: Optional[str] = None,
+    ):
+        self.flow_input = flow_input
+        self.preview = preview
+        self.tenant = tenant
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
+        if self.flow_input is not None:
+            result["input"] = self.flow_input
+        if self.preview is not None:
+            result["preview"] = self.preview
+        if self.tenant is not None:
+            result["tenant"] = self.tenant
+        return result
+
+    @staticmethod
+    def from_dict(options: Optional[dict]) -> Optional["FlowRunOptions"]:
+        if options is None:
+            return None
+        return FlowRunOptions(
+            flow_input=options.get("input"),
+            preview=options.get("preview"),
+            tenant=options.get("tenant"),
+        )
 
 
 class MgmtLoginOptions:
@@ -407,3 +524,179 @@ def sort_to_dict(sort: List[Sort]) -> list:
                 }
             )
     return sort_list
+
+
+class DescoperRole(Enum):
+    """Represents a Descoper role."""
+
+    ADMIN = "admin"
+    DEVELOPER = "developer"
+    SUPPORT = "support"
+    AUDITOR = "auditor"
+
+
+class DescoperAttributes:
+    """
+    Represents Descoper attributes, such as name and email/phone.
+    """
+
+    def __init__(
+        self,
+        display_name: Optional[str] = None,
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+    ):
+        self.display_name = display_name
+        self.email = email
+        self.phone = phone
+
+    def to_dict(self) -> dict:
+        return {
+            "displayName": self.display_name,
+            "email": self.email,
+            "phone": self.phone,
+        }
+
+
+class DescoperTagRole:
+    """
+    Represents a Descoper tags to role mapping.
+    """
+
+    def __init__(
+        self,
+        tags: Optional[List[str]] = None,
+        role: Optional[DescoperRole] = None,
+    ):
+        self.tags = tags if tags is not None else []
+        self.role = role
+
+    def to_dict(self) -> dict:
+        return {
+            "tags": self.tags,
+            "role": self.role.value if self.role else None,
+        }
+
+
+class DescoperProjectRole:
+    """
+    Represents a Descoper projects to role mapping.
+    """
+
+    def __init__(
+        self,
+        project_ids: Optional[List[str]] = None,
+        role: Optional[DescoperRole] = None,
+    ):
+        self.project_ids = project_ids if project_ids is not None else []
+        self.role = role
+
+    def to_dict(self) -> dict:
+        return {
+            "projectIds": self.project_ids,
+            "role": self.role.value if self.role else None,
+        }
+
+
+class DescoperRBAC:
+    """
+    Represents Descoper RBAC configuration.
+    """
+
+    def __init__(
+        self,
+        is_company_admin: bool = False,
+        tags: Optional[List[DescoperTagRole]] = None,
+        projects: Optional[List[DescoperProjectRole]] = None,
+    ):
+        self.is_company_admin = is_company_admin
+        self.tags = tags if tags is not None else []
+        self.projects = projects if projects is not None else []
+
+    def to_dict(self) -> dict:
+        return {
+            "isCompanyAdmin": self.is_company_admin,
+            "tags": [t.to_dict() for t in self.tags],
+            "projects": [p.to_dict() for p in self.projects],
+        }
+
+
+class DescoperCreate:
+    """
+    Represents a Descoper to be created.
+    """
+
+    def __init__(
+        self,
+        login_id: str,
+        attributes: Optional[DescoperAttributes] = None,
+        send_invite: bool = False,
+        rbac: Optional[DescoperRBAC] = None,
+    ):
+        self.login_id = login_id
+        self.attributes = attributes
+        self.send_invite = send_invite
+        self.rbac = rbac
+
+    def to_dict(self) -> dict:
+        return {
+            "loginId": self.login_id,
+            "attributes": self.attributes.to_dict() if self.attributes else None,
+            "sendInvite": self.send_invite,
+            "rbac": self.rbac.to_dict() if self.rbac else None,
+        }
+
+
+def descopers_to_dict(descopers: List[DescoperCreate]) -> list:
+    return [d.to_dict() for d in descopers]
+
+
+class MgmtKeyStatus(Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+
+
+class MgmtKeyProjectRole:
+    def __init__(self, project_ids: List[str], roles: List[str]):
+        self.project_ids = project_ids
+        self.roles = roles
+
+    def to_dict(self) -> dict:
+        return {
+            "projectIds": self.project_ids,
+            "roles": self.roles,
+        }
+
+
+class MgmtKeyTagRole:
+    def __init__(self, tags: List[str], roles: List[str]):
+        self.tags = tags
+        self.roles = roles
+
+    def to_dict(self) -> dict:
+        return {
+            "tags": self.tags,
+            "roles": self.roles,
+        }
+
+
+class MgmtKeyReBac:
+    def __init__(
+        self,
+        company_roles: Optional[List[str]] = None,
+        project_roles: Optional[List[MgmtKeyProjectRole]] = None,
+        tag_roles: Optional[List[MgmtKeyTagRole]] = None,
+    ):
+        self.company_roles = company_roles
+        self.project_roles = project_roles
+        self.tag_roles = tag_roles
+
+    def to_dict(self) -> dict:
+        res: dict = {}
+        if self.company_roles is not None:
+            res["companyRoles"] = self.company_roles
+        if self.project_roles is not None:
+            res["projectRoles"] = [pr.to_dict() for pr in self.project_roles]
+        if self.tag_roles is not None:
+            res["tagRoles"] = [tr.to_dict() for tr in self.tag_roles]
+        return res

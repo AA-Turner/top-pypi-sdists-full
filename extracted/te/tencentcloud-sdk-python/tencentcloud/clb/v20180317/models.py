@@ -18,219 +18,6 @@ import warnings
 from tencentcloud.common.abstract_model import AbstractModel
 
 
-class AddCustomizedConfigRequest(AbstractModel):
-    r"""AddCustomizedConfig请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _ConfigName: 配置名字
-        :type ConfigName: str
-        :param _ConfigType: 配置类型，取值范围["CLB", "SERVER", "LOCATION"]，分别表示CLB配置，server配置，location配置。
-        :type ConfigType: str
-        :param _ConfigContent: 配置内容
-        :type ConfigContent: str
-        :param _Tags: 标签
-        :type Tags: list of TagInfo
-        """
-        self._ConfigName = None
-        self._ConfigType = None
-        self._ConfigContent = None
-        self._Tags = None
-
-    @property
-    def ConfigName(self):
-        r"""配置名字
-        :rtype: str
-        """
-        return self._ConfigName
-
-    @ConfigName.setter
-    def ConfigName(self, ConfigName):
-        self._ConfigName = ConfigName
-
-    @property
-    def ConfigType(self):
-        r"""配置类型，取值范围["CLB", "SERVER", "LOCATION"]，分别表示CLB配置，server配置，location配置。
-        :rtype: str
-        """
-        return self._ConfigType
-
-    @ConfigType.setter
-    def ConfigType(self, ConfigType):
-        self._ConfigType = ConfigType
-
-    @property
-    def ConfigContent(self):
-        r"""配置内容
-        :rtype: str
-        """
-        return self._ConfigContent
-
-    @ConfigContent.setter
-    def ConfigContent(self, ConfigContent):
-        self._ConfigContent = ConfigContent
-
-    @property
-    def Tags(self):
-        r"""标签
-        :rtype: list of TagInfo
-        """
-        return self._Tags
-
-    @Tags.setter
-    def Tags(self, Tags):
-        self._Tags = Tags
-
-
-    def _deserialize(self, params):
-        self._ConfigName = params.get("ConfigName")
-        self._ConfigType = params.get("ConfigType")
-        self._ConfigContent = params.get("ConfigContent")
-        if params.get("Tags") is not None:
-            self._Tags = []
-            for item in params.get("Tags"):
-                obj = TagInfo()
-                obj._deserialize(item)
-                self._Tags.append(obj)
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class AddCustomizedConfigResponse(AbstractModel):
-    r"""AddCustomizedConfig返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _ConfigId: 配置ID
-        :type ConfigId: str
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._ConfigId = None
-        self._RequestId = None
-
-    @property
-    def ConfigId(self):
-        r"""配置ID
-        :rtype: str
-        """
-        return self._ConfigId
-
-    @ConfigId.setter
-    def ConfigId(self, ConfigId):
-        self._ConfigId = ConfigId
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._ConfigId = params.get("ConfigId")
-        self._RequestId = params.get("RequestId")
-
-
-class AssociateCustomizedConfigRequest(AbstractModel):
-    r"""AssociateCustomizedConfig请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _UconfigId: 配置ID
-        :type UconfigId: str
-        :param _BindList: 关联的server或location
-        :type BindList: list of BindItem
-        """
-        self._UconfigId = None
-        self._BindList = None
-
-    @property
-    def UconfigId(self):
-        r"""配置ID
-        :rtype: str
-        """
-        return self._UconfigId
-
-    @UconfigId.setter
-    def UconfigId(self, UconfigId):
-        self._UconfigId = UconfigId
-
-    @property
-    def BindList(self):
-        r"""关联的server或location
-        :rtype: list of BindItem
-        """
-        return self._BindList
-
-    @BindList.setter
-    def BindList(self, BindList):
-        self._BindList = BindList
-
-
-    def _deserialize(self, params):
-        self._UconfigId = params.get("UconfigId")
-        if params.get("BindList") is not None:
-            self._BindList = []
-            for item in params.get("BindList"):
-                obj = BindItem()
-                obj._deserialize(item)
-                self._BindList.append(obj)
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class AssociateCustomizedConfigResponse(AbstractModel):
-    r"""AssociateCustomizedConfig返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._RequestId = None
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._RequestId = params.get("RequestId")
-
-
 class AssociateTargetGroupsRequest(AbstractModel):
     r"""AssociateTargetGroups请求参数结构体
 
@@ -620,6 +407,76 @@ class AutoRewriteResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class AvailableZoneAffinityInfo(AbstractModel):
+    r"""可用区转发亲和信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Enable: 是否开启可用区转发亲和。true：开启可用区转发亲和；false：开启可用区转发亲和。
+        :type Enable: bool
+        :param _ExitRatio: 可用区转发亲和失效阈值，当可用区内后端服务健康比例小于该阈值时，负载均衡会退出可用区转发亲和，转为全可用区转发。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ExitRatio: int
+        :param _ReentryRatio: 可用区转发亲和的重新生效阈值，当处于全可用区转发，且负载均衡可用区内的后端服务健康比例大于等于该阈值时，负载均衡会重新进入可用区转发亲和。
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ReentryRatio: int
+        """
+        self._Enable = None
+        self._ExitRatio = None
+        self._ReentryRatio = None
+
+    @property
+    def Enable(self):
+        r"""是否开启可用区转发亲和。true：开启可用区转发亲和；false：开启可用区转发亲和。
+        :rtype: bool
+        """
+        return self._Enable
+
+    @Enable.setter
+    def Enable(self, Enable):
+        self._Enable = Enable
+
+    @property
+    def ExitRatio(self):
+        r"""可用区转发亲和失效阈值，当可用区内后端服务健康比例小于该阈值时，负载均衡会退出可用区转发亲和，转为全可用区转发。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ExitRatio
+
+    @ExitRatio.setter
+    def ExitRatio(self, ExitRatio):
+        self._ExitRatio = ExitRatio
+
+    @property
+    def ReentryRatio(self):
+        r"""可用区转发亲和的重新生效阈值，当处于全可用区转发，且负载均衡可用区内的后端服务健康比例大于等于该阈值时，负载均衡会重新进入可用区转发亲和。
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._ReentryRatio
+
+    @ReentryRatio.setter
+    def ReentryRatio(self, ReentryRatio):
+        self._ReentryRatio = ReentryRatio
+
+
+    def _deserialize(self, params):
+        self._Enable = params.get("Enable")
+        self._ExitRatio = params.get("ExitRatio")
+        self._ReentryRatio = params.get("ReentryRatio")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class Backend(AbstractModel):
     r"""监听器绑定的后端服务的详细信息
 
@@ -650,6 +507,9 @@ class Backend(AbstractModel):
         :type EniId: str
         :param _Tag: 标签。
         :type Tag: str
+        :param _Zone: 后端服务所在的可用区，如ap-guangzhou-1
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Zone: str
         """
         self._Type = None
         self._InstanceId = None
@@ -661,6 +521,7 @@ class Backend(AbstractModel):
         self._RegisteredTime = None
         self._EniId = None
         self._Tag = None
+        self._Zone = None
 
     @property
     def Type(self):
@@ -775,6 +636,18 @@ class Backend(AbstractModel):
     def Tag(self, Tag):
         self._Tag = Tag
 
+    @property
+    def Zone(self):
+        r"""后端服务所在的可用区，如ap-guangzhou-1
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Zone
+
+    @Zone.setter
+    def Zone(self, Zone):
+        self._Zone = Zone
+
 
     def _deserialize(self, params):
         self._Type = params.get("Type")
@@ -787,6 +660,7 @@ class Backend(AbstractModel):
         self._RegisteredTime = params.get("RegisteredTime")
         self._EniId = params.get("EniId")
         self._Tag = params.get("Tag")
+        self._Zone = params.get("Zone")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1535,87 +1409,6 @@ class BindDetailItem(AbstractModel):
         self._Vport = params.get("Vport")
         self._Url = params.get("Url")
         self._UconfigId = params.get("UconfigId")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class BindItem(AbstractModel):
-    r"""配置绑定关系
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _LoadBalancerId: 配置绑定的CLB ID
-        :type LoadBalancerId: str
-        :param _ListenerId: 配置绑定的监听器ID
-        :type ListenerId: str
-        :param _Domain: 配置绑定的域名
-        :type Domain: str
-        :param _LocationId: 配置绑定的规则
-        :type LocationId: str
-        """
-        self._LoadBalancerId = None
-        self._ListenerId = None
-        self._Domain = None
-        self._LocationId = None
-
-    @property
-    def LoadBalancerId(self):
-        r"""配置绑定的CLB ID
-        :rtype: str
-        """
-        return self._LoadBalancerId
-
-    @LoadBalancerId.setter
-    def LoadBalancerId(self, LoadBalancerId):
-        self._LoadBalancerId = LoadBalancerId
-
-    @property
-    def ListenerId(self):
-        r"""配置绑定的监听器ID
-        :rtype: str
-        """
-        return self._ListenerId
-
-    @ListenerId.setter
-    def ListenerId(self, ListenerId):
-        self._ListenerId = ListenerId
-
-    @property
-    def Domain(self):
-        r"""配置绑定的域名
-        :rtype: str
-        """
-        return self._Domain
-
-    @Domain.setter
-    def Domain(self, Domain):
-        self._Domain = Domain
-
-    @property
-    def LocationId(self):
-        r"""配置绑定的规则
-        :rtype: str
-        """
-        return self._LocationId
-
-    @LocationId.setter
-    def LocationId(self, LocationId):
-        self._LocationId = LocationId
-
-
-    def _deserialize(self, params):
-        self._LoadBalancerId = params.get("LoadBalancerId")
-        self._ListenerId = params.get("ListenerId")
-        self._Domain = params.get("Domain")
-        self._LocationId = params.get("LocationId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3990,64 +3783,64 @@ class CreateListenerRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _LoadBalancerId: 负载均衡实例 ID，可以通过 [DescribeLoadBalancers](https://cloud.tencent.com/document/product/214/30685) 接口获取。
+        :param _LoadBalancerId: <p>负载均衡实例 ID，可以通过 <a href="https://cloud.tencent.com/document/product/214/30685">DescribeLoadBalancers</a> 接口获取。</p>
         :type LoadBalancerId: str
-        :param _Ports: 要将监听器创建到哪些端口，每个端口对应一个新的监听器。
-端口范围：1~65535
+        :param _Ports: <p>要将监听器创建到哪些端口，每个端口对应一个新的监听器。端口范围：1~65535</p>
         :type Ports: list of int
-        :param _Protocol: 监听器协议： TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC。
+        :param _Protocol: <p>监听器协议： TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC。</p>
         :type Protocol: str
-        :param _ListenerNames: 要创建的监听器名称列表，名称与Ports数组按序一一对应，如不需立即命名，则无需提供此参数。
+        :param _ListenerNames: <p>要创建的监听器名称列表，名称与Ports数组按序一一对应，如不需立即命名，则无需提供此参数。</p>
         :type ListenerNames: list of str
-        :param _HealthCheck: 健康检查相关参数，此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。
+        :param _HealthCheck: <p>健康检查相关参数，此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。</p>
         :type HealthCheck: :class:`tencentcloud.clb.v20180317.models.HealthCheck`
-        :param _Certificate: 证书相关信息。参数限制如下：
-<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li>
-<li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数MultiCertInfo至少需要传一个， 但不能同时传入。</li>
+        :param _Certificate: <p>证书相关信息。参数限制如下：<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li><li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数MultiCertInfo至少需要传一个， 但不能同时传入。</li></p>
         :type Certificate: :class:`tencentcloud.clb.v20180317.models.CertificateInput`
-        :param _SessionExpireTime: 会话保持时间，单位：秒。可选值：30~3600，默认为0，默认不开启。此参数仅适用于TCP/UDP监听器。
+        :param _SessionExpireTime: <p>会话保持时间，单位：秒。可选值：30~3600，默认为0，默认不开启。此参数仅适用于TCP/UDP监听器。</p>
         :type SessionExpireTime: int
-        :param _Scheduler: 监听器转发的方式。可选值：WRR（按权重轮询）、LEAST_CONN（按最小连接数）
-默认为 WRR。此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。
+        :param _Scheduler: <p>监听器转发的方式。可选值：WRR（按权重轮询）、LEAST_CONN（按最小连接数）默认为 WRR。此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。</p>
         :type Scheduler: str
-        :param _SniSwitch: 是否开启SNI特性，此参数仅适用于HTTPS监听器。0表示未开启，1表示开启。
+        :param _SniSwitch: <p>是否开启SNI特性，此参数仅适用于HTTPS监听器。0表示未开启，1表示开启。</p>
         :type SniSwitch: int
-        :param _TargetType: 后端目标类型，NODE表示绑定普通节点，TARGETGROUP表示绑定目标组。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。
+        :param _TargetType: <p>后端目标类型，NODE表示绑定普通节点，TARGETGROUP表示绑定目标组。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。</p>
         :type TargetType: str
-        :param _SessionType: 会话保持类型。不传或传NORMAL表示默认会话保持类型。QUIC_CID 表示根据Quic Connection ID做会话保持。QUIC_CID只支持UDP协议。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。（若选择QUIC_CID，则Protocol必须为UDP，Scheduler必须为WRR，同时只支持ipv4）
+        :param _SessionType: <p>会话保持类型。不传或传NORMAL表示默认会话保持类型。QUIC_CID 表示根据Quic Connection ID做会话保持。QUIC_CID只支持UDP协议。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。（若选择QUIC_CID，则Protocol必须为UDP，Scheduler必须为WRR，同时只支持ipv4）</p>
         :type SessionType: str
-        :param _KeepaliveEnable: 是否开启长连接，此参数仅适用于HTTP/HTTPS监听器，0:关闭；1:开启， 默认关闭。
-若后端服务对连接数上限有限制，则建议谨慎开启。此功能目前处于内测中，如需使用，请提交 [内测申请](https://cloud.tencent.com/apply/p/tsodp6qm21)。
+        :param _KeepaliveEnable: <p>是否开启长连接，此参数仅适用于HTTP/HTTPS监听器，0:关闭；1:开启， 默认关闭。若后端服务对连接数上限有限制，则建议谨慎开启。此功能目前处于内测中，如需使用，请提交 <a href="https://cloud.tencent.com/apply/p/tsodp6qm21">内测申请</a>。</p>
         :type KeepaliveEnable: int
-        :param _EndPort: 创建端口段监听器时必须传入此参数，用以标识结束端口。同时，入参Ports只允许传入一个成员，用以标识开始端口。【如果您需要体验端口段功能，请通过 [工单申请](https://console.cloud.tencent.com/workorder/category)】。
+        :param _EndPort: <p>创建端口段监听器时必须传入此参数，用以标识结束端口。同时，入参Ports只允许传入一个成员，用以标识开始端口。【如果您需要体验端口段功能，请通过 <a href="https://console.cloud.tencent.com/workorder/category">工单申请</a>】。</p>
         :type EndPort: int
-        :param _DeregisterTargetRst: 解绑后端目标时，是否发RST给两端（客户端和服务器），此参数仅适用于TCP监听器。
+        :param _DeregisterTargetRst: <p>重新调度功能，解绑后端服务开关，打开此开关，当解绑后端服务时触发重新调度。仅TCP/UDP监听器支持。</p>
         :type DeregisterTargetRst: bool
-        :param _MultiCertInfo: 证书信息，支持同时传入不同算法类型的多本服务端证书，参数限制如下：
-<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li>
-<li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数Certificate至少需要传一个， 但不能同时传入。</li>
+        :param _MultiCertInfo: <p>证书信息，支持同时传入不同算法类型的多本服务端证书，参数限制如下：<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li><li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数Certificate至少需要传一个， 但不能同时传入。</li></p>
         :type MultiCertInfo: :class:`tencentcloud.clb.v20180317.models.MultiCertInfo`
-        :param _MaxConn: 监听器最大连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。
+        :param _MaxConn: <p>监听器最大连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。</p>
         :type MaxConn: int
-        :param _MaxCps: 监听器最大新增连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。
+        :param _MaxCps: <p>监听器最大新增连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。</p>
         :type MaxCps: int
-        :param _IdleConnectTimeout: 空闲连接超时时间，此参数仅适用于TCP/UDP监听器，单位：秒。默认值：TCP监听器默认值为900s，UDP监听器默认值为300s。取值范围：共享型实例和独占型实例支持：10-900，性能容量型实例支持：10-1980。如需设置超过取值范围的值请通过 [工单申请](https://console.cloud.tencent.com/workorder/category)。
+        :param _IdleConnectTimeout: <p>空闲连接超时时间，此参数仅适用于TCP/UDP监听器，单位：秒。默认值：TCP监听器默认值为900s，UDP监听器默认值为300s。取值范围：共享型实例和独占型实例支持：10-900，性能容量型实例支持：10-1980。如需设置超过取值范围的值请通过 <a href="https://console.cloud.tencent.com/workorder/category">工单申请</a>。</p>
         :type IdleConnectTimeout: int
-        :param _ProxyProtocol: TCP_SSL和QUIC是否支持PP
+        :param _ProxyProtocol: <p>TCP_SSL和QUIC是否支持PP</p>
         :type ProxyProtocol: bool
-        :param _SnatEnable: 是否开启SNAT，True（开启）、False（关闭）。
-默认为关闭。
+        :param _SnatEnable: <p>是否开启SNAT（源IP替换），True（开启）、False（关闭）。默认为关闭。注意：SnatEnable开启时会替换客户端源IP，此时<code>透传客户端源IP</code>选项关闭，反之亦然。</p>
         :type SnatEnable: bool
-        :param _FullEndPorts: 全端口段监听器的结束端口，端口范围：2 - 65535
+        :param _FullEndPorts: <p>全端口段监听器的结束端口，端口范围：2 - 65535</p>
         :type FullEndPorts: list of int
-        :param _H2cSwitch: 内网http监听器开启h2c开关，True（开启）、False（关闭）。
-默认为关闭。
+        :param _H2cSwitch: <p>内网http监听器开启h2c开关，True（开启）、False（关闭）。默认为关闭。</p>
         :type H2cSwitch: bool
-        :param _SslCloseSwitch: TCP_SSL监听器支持关闭SSL后仍然支持混绑，此参数为关闭开关。True（关闭）、False（开启）.
-默认为关闭。
+        :param _SslCloseSwitch: <p>控制 TCP_SSL 类型的监听器是否移除 SSL 加密层。开启后，监听器将作为普通 TCP 协议运行。 可选值：- True： 关闭 SSL 功能（协议降级为纯文本 TCP）。- False（默认）： 保持 SSL 功能开启。</p>
         :type SslCloseSwitch: bool
-        :param _DataCompressMode: 数据压缩模式。可选值：transparent（透传模式）、compatibility（兼容模式）
+        :param _DataCompressMode: <p>数据压缩模式。可选值：transparent（透传模式）、compatibility（兼容模式）</p>
         :type DataCompressMode: str
+        :param _RescheduleTargetZeroWeight: <p>重新调度功能，权重调为0开关，打开此开关，后端服务器权重调为0时触发重新调度。仅TCP/UDP监听器支持。</p>
+        :type RescheduleTargetZeroWeight: bool
+        :param _RescheduleUnhealthy: <p>重新调度功能，健康检查异常开关，打开此开关，后端服务器健康检查异常时触发重新调度。仅TCP/UDP监听器支持。</p>
+        :type RescheduleUnhealthy: bool
+        :param _RescheduleExpandTarget: <p>重新调度功能，扩容后端服务开关，打开此开关，后端服务器增加或者减少时触发重新调度。仅TCP/UDP监听器支持。</p>
+        :type RescheduleExpandTarget: bool
+        :param _RescheduleStartTime: <p>重新调度触发开始时间，取值0~3600s。仅TCP/UDP监听器支持。</p>
+        :type RescheduleStartTime: int
+        :param _RescheduleInterval: <p>重新调度触发持续时间，取值0~3600s。仅TCP/UDP监听器支持。</p>
+        :type RescheduleInterval: int
         """
         self._LoadBalancerId = None
         self._Ports = None
@@ -4073,10 +3866,15 @@ class CreateListenerRequest(AbstractModel):
         self._H2cSwitch = None
         self._SslCloseSwitch = None
         self._DataCompressMode = None
+        self._RescheduleTargetZeroWeight = None
+        self._RescheduleUnhealthy = None
+        self._RescheduleExpandTarget = None
+        self._RescheduleStartTime = None
+        self._RescheduleInterval = None
 
     @property
     def LoadBalancerId(self):
-        r"""负载均衡实例 ID，可以通过 [DescribeLoadBalancers](https://cloud.tencent.com/document/product/214/30685) 接口获取。
+        r"""<p>负载均衡实例 ID，可以通过 <a href="https://cloud.tencent.com/document/product/214/30685">DescribeLoadBalancers</a> 接口获取。</p>
         :rtype: str
         """
         return self._LoadBalancerId
@@ -4087,8 +3885,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def Ports(self):
-        r"""要将监听器创建到哪些端口，每个端口对应一个新的监听器。
-端口范围：1~65535
+        r"""<p>要将监听器创建到哪些端口，每个端口对应一个新的监听器。端口范围：1~65535</p>
         :rtype: list of int
         """
         return self._Ports
@@ -4099,7 +3896,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def Protocol(self):
-        r"""监听器协议： TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC。
+        r"""<p>监听器协议： TCP | UDP | HTTP | HTTPS | TCP_SSL | QUIC。</p>
         :rtype: str
         """
         return self._Protocol
@@ -4110,7 +3907,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def ListenerNames(self):
-        r"""要创建的监听器名称列表，名称与Ports数组按序一一对应，如不需立即命名，则无需提供此参数。
+        r"""<p>要创建的监听器名称列表，名称与Ports数组按序一一对应，如不需立即命名，则无需提供此参数。</p>
         :rtype: list of str
         """
         return self._ListenerNames
@@ -4121,7 +3918,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def HealthCheck(self):
-        r"""健康检查相关参数，此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。
+        r"""<p>健康检查相关参数，此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。</p>
         :rtype: :class:`tencentcloud.clb.v20180317.models.HealthCheck`
         """
         return self._HealthCheck
@@ -4132,9 +3929,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def Certificate(self):
-        r"""证书相关信息。参数限制如下：
-<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li>
-<li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数MultiCertInfo至少需要传一个， 但不能同时传入。</li>
+        r"""<p>证书相关信息。参数限制如下：<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li><li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数MultiCertInfo至少需要传一个， 但不能同时传入。</li></p>
         :rtype: :class:`tencentcloud.clb.v20180317.models.CertificateInput`
         """
         return self._Certificate
@@ -4145,7 +3940,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def SessionExpireTime(self):
-        r"""会话保持时间，单位：秒。可选值：30~3600，默认为0，默认不开启。此参数仅适用于TCP/UDP监听器。
+        r"""<p>会话保持时间，单位：秒。可选值：30~3600，默认为0，默认不开启。此参数仅适用于TCP/UDP监听器。</p>
         :rtype: int
         """
         return self._SessionExpireTime
@@ -4156,8 +3951,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def Scheduler(self):
-        r"""监听器转发的方式。可选值：WRR（按权重轮询）、LEAST_CONN（按最小连接数）
-默认为 WRR。此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。
+        r"""<p>监听器转发的方式。可选值：WRR（按权重轮询）、LEAST_CONN（按最小连接数）默认为 WRR。此参数仅适用于TCP/UDP/TCP_SSL/QUIC监听器。</p>
         :rtype: str
         """
         return self._Scheduler
@@ -4168,7 +3962,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def SniSwitch(self):
-        r"""是否开启SNI特性，此参数仅适用于HTTPS监听器。0表示未开启，1表示开启。
+        r"""<p>是否开启SNI特性，此参数仅适用于HTTPS监听器。0表示未开启，1表示开启。</p>
         :rtype: int
         """
         return self._SniSwitch
@@ -4179,7 +3973,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def TargetType(self):
-        r"""后端目标类型，NODE表示绑定普通节点，TARGETGROUP表示绑定目标组。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。
+        r"""<p>后端目标类型，NODE表示绑定普通节点，TARGETGROUP表示绑定目标组。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。</p>
         :rtype: str
         """
         return self._TargetType
@@ -4190,7 +3984,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def SessionType(self):
-        r"""会话保持类型。不传或传NORMAL表示默认会话保持类型。QUIC_CID 表示根据Quic Connection ID做会话保持。QUIC_CID只支持UDP协议。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。（若选择QUIC_CID，则Protocol必须为UDP，Scheduler必须为WRR，同时只支持ipv4）
+        r"""<p>会话保持类型。不传或传NORMAL表示默认会话保持类型。QUIC_CID 表示根据Quic Connection ID做会话保持。QUIC_CID只支持UDP协议。此参数仅适用于TCP/UDP监听器。七层监听器应在转发规则中设置。（若选择QUIC_CID，则Protocol必须为UDP，Scheduler必须为WRR，同时只支持ipv4）</p>
         :rtype: str
         """
         return self._SessionType
@@ -4201,8 +3995,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def KeepaliveEnable(self):
-        r"""是否开启长连接，此参数仅适用于HTTP/HTTPS监听器，0:关闭；1:开启， 默认关闭。
-若后端服务对连接数上限有限制，则建议谨慎开启。此功能目前处于内测中，如需使用，请提交 [内测申请](https://cloud.tencent.com/apply/p/tsodp6qm21)。
+        r"""<p>是否开启长连接，此参数仅适用于HTTP/HTTPS监听器，0:关闭；1:开启， 默认关闭。若后端服务对连接数上限有限制，则建议谨慎开启。此功能目前处于内测中，如需使用，请提交 <a href="https://cloud.tencent.com/apply/p/tsodp6qm21">内测申请</a>。</p>
         :rtype: int
         """
         return self._KeepaliveEnable
@@ -4213,7 +4006,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def EndPort(self):
-        r"""创建端口段监听器时必须传入此参数，用以标识结束端口。同时，入参Ports只允许传入一个成员，用以标识开始端口。【如果您需要体验端口段功能，请通过 [工单申请](https://console.cloud.tencent.com/workorder/category)】。
+        r"""<p>创建端口段监听器时必须传入此参数，用以标识结束端口。同时，入参Ports只允许传入一个成员，用以标识开始端口。【如果您需要体验端口段功能，请通过 <a href="https://console.cloud.tencent.com/workorder/category">工单申请</a>】。</p>
         :rtype: int
         """
         return self._EndPort
@@ -4224,7 +4017,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def DeregisterTargetRst(self):
-        r"""解绑后端目标时，是否发RST给两端（客户端和服务器），此参数仅适用于TCP监听器。
+        r"""<p>重新调度功能，解绑后端服务开关，打开此开关，当解绑后端服务时触发重新调度。仅TCP/UDP监听器支持。</p>
         :rtype: bool
         """
         return self._DeregisterTargetRst
@@ -4235,9 +4028,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def MultiCertInfo(self):
-        r"""证书信息，支持同时传入不同算法类型的多本服务端证书，参数限制如下：
-<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li>
-<li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数Certificate至少需要传一个， 但不能同时传入。</li>
+        r"""<p>证书信息，支持同时传入不同算法类型的多本服务端证书，参数限制如下：<li>此参数仅适用于TCP_SSL监听器和未开启SNI特性的HTTPS监听器。</li><li>创建TCP_SSL监听器和未开启SNI特性的HTTPS监听器时，此参数和参数Certificate至少需要传一个， 但不能同时传入。</li></p>
         :rtype: :class:`tencentcloud.clb.v20180317.models.MultiCertInfo`
         """
         return self._MultiCertInfo
@@ -4248,7 +4039,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def MaxConn(self):
-        r"""监听器最大连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。
+        r"""<p>监听器最大连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。</p>
         :rtype: int
         """
         return self._MaxConn
@@ -4259,7 +4050,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def MaxCps(self):
-        r"""监听器最大新增连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。
+        r"""<p>监听器最大新增连接数，当前仅性能容量型实例且仅TCP/UDP/TCP_SSL/QUIC监听器支持，不传或者传-1表示监听器维度不限速。基础网络实例不支持该参数。</p>
         :rtype: int
         """
         return self._MaxCps
@@ -4270,7 +4061,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def IdleConnectTimeout(self):
-        r"""空闲连接超时时间，此参数仅适用于TCP/UDP监听器，单位：秒。默认值：TCP监听器默认值为900s，UDP监听器默认值为300s。取值范围：共享型实例和独占型实例支持：10-900，性能容量型实例支持：10-1980。如需设置超过取值范围的值请通过 [工单申请](https://console.cloud.tencent.com/workorder/category)。
+        r"""<p>空闲连接超时时间，此参数仅适用于TCP/UDP监听器，单位：秒。默认值：TCP监听器默认值为900s，UDP监听器默认值为300s。取值范围：共享型实例和独占型实例支持：10-900，性能容量型实例支持：10-1980。如需设置超过取值范围的值请通过 <a href="https://console.cloud.tencent.com/workorder/category">工单申请</a>。</p>
         :rtype: int
         """
         return self._IdleConnectTimeout
@@ -4281,7 +4072,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def ProxyProtocol(self):
-        r"""TCP_SSL和QUIC是否支持PP
+        r"""<p>TCP_SSL和QUIC是否支持PP</p>
         :rtype: bool
         """
         return self._ProxyProtocol
@@ -4292,8 +4083,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def SnatEnable(self):
-        r"""是否开启SNAT，True（开启）、False（关闭）。
-默认为关闭。
+        r"""<p>是否开启SNAT（源IP替换），True（开启）、False（关闭）。默认为关闭。注意：SnatEnable开启时会替换客户端源IP，此时<code>透传客户端源IP</code>选项关闭，反之亦然。</p>
         :rtype: bool
         """
         return self._SnatEnable
@@ -4304,7 +4094,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def FullEndPorts(self):
-        r"""全端口段监听器的结束端口，端口范围：2 - 65535
+        r"""<p>全端口段监听器的结束端口，端口范围：2 - 65535</p>
         :rtype: list of int
         """
         return self._FullEndPorts
@@ -4315,8 +4105,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def H2cSwitch(self):
-        r"""内网http监听器开启h2c开关，True（开启）、False（关闭）。
-默认为关闭。
+        r"""<p>内网http监听器开启h2c开关，True（开启）、False（关闭）。默认为关闭。</p>
         :rtype: bool
         """
         return self._H2cSwitch
@@ -4327,8 +4116,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def SslCloseSwitch(self):
-        r"""TCP_SSL监听器支持关闭SSL后仍然支持混绑，此参数为关闭开关。True（关闭）、False（开启）.
-默认为关闭。
+        r"""<p>控制 TCP_SSL 类型的监听器是否移除 SSL 加密层。开启后，监听器将作为普通 TCP 协议运行。 可选值：- True： 关闭 SSL 功能（协议降级为纯文本 TCP）。- False（默认）： 保持 SSL 功能开启。</p>
         :rtype: bool
         """
         return self._SslCloseSwitch
@@ -4339,7 +4127,7 @@ class CreateListenerRequest(AbstractModel):
 
     @property
     def DataCompressMode(self):
-        r"""数据压缩模式。可选值：transparent（透传模式）、compatibility（兼容模式）
+        r"""<p>数据压缩模式。可选值：transparent（透传模式）、compatibility（兼容模式）</p>
         :rtype: str
         """
         return self._DataCompressMode
@@ -4347,6 +4135,61 @@ class CreateListenerRequest(AbstractModel):
     @DataCompressMode.setter
     def DataCompressMode(self, DataCompressMode):
         self._DataCompressMode = DataCompressMode
+
+    @property
+    def RescheduleTargetZeroWeight(self):
+        r"""<p>重新调度功能，权重调为0开关，打开此开关，后端服务器权重调为0时触发重新调度。仅TCP/UDP监听器支持。</p>
+        :rtype: bool
+        """
+        return self._RescheduleTargetZeroWeight
+
+    @RescheduleTargetZeroWeight.setter
+    def RescheduleTargetZeroWeight(self, RescheduleTargetZeroWeight):
+        self._RescheduleTargetZeroWeight = RescheduleTargetZeroWeight
+
+    @property
+    def RescheduleUnhealthy(self):
+        r"""<p>重新调度功能，健康检查异常开关，打开此开关，后端服务器健康检查异常时触发重新调度。仅TCP/UDP监听器支持。</p>
+        :rtype: bool
+        """
+        return self._RescheduleUnhealthy
+
+    @RescheduleUnhealthy.setter
+    def RescheduleUnhealthy(self, RescheduleUnhealthy):
+        self._RescheduleUnhealthy = RescheduleUnhealthy
+
+    @property
+    def RescheduleExpandTarget(self):
+        r"""<p>重新调度功能，扩容后端服务开关，打开此开关，后端服务器增加或者减少时触发重新调度。仅TCP/UDP监听器支持。</p>
+        :rtype: bool
+        """
+        return self._RescheduleExpandTarget
+
+    @RescheduleExpandTarget.setter
+    def RescheduleExpandTarget(self, RescheduleExpandTarget):
+        self._RescheduleExpandTarget = RescheduleExpandTarget
+
+    @property
+    def RescheduleStartTime(self):
+        r"""<p>重新调度触发开始时间，取值0~3600s。仅TCP/UDP监听器支持。</p>
+        :rtype: int
+        """
+        return self._RescheduleStartTime
+
+    @RescheduleStartTime.setter
+    def RescheduleStartTime(self, RescheduleStartTime):
+        self._RescheduleStartTime = RescheduleStartTime
+
+    @property
+    def RescheduleInterval(self):
+        r"""<p>重新调度触发持续时间，取值0~3600s。仅TCP/UDP监听器支持。</p>
+        :rtype: int
+        """
+        return self._RescheduleInterval
+
+    @RescheduleInterval.setter
+    def RescheduleInterval(self, RescheduleInterval):
+        self._RescheduleInterval = RescheduleInterval
 
 
     def _deserialize(self, params):
@@ -4380,6 +4223,11 @@ class CreateListenerRequest(AbstractModel):
         self._H2cSwitch = params.get("H2cSwitch")
         self._SslCloseSwitch = params.get("SslCloseSwitch")
         self._DataCompressMode = params.get("DataCompressMode")
+        self._RescheduleTargetZeroWeight = params.get("RescheduleTargetZeroWeight")
+        self._RescheduleUnhealthy = params.get("RescheduleUnhealthy")
+        self._RescheduleExpandTarget = params.get("RescheduleExpandTarget")
+        self._RescheduleStartTime = params.get("RescheduleStartTime")
+        self._RescheduleInterval = params.get("RescheduleInterval")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -4397,7 +4245,7 @@ class CreateListenerResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ListenerIds: 创建的监听器的唯一标识数组。
+        :param _ListenerIds: <p>创建的监听器的唯一标识数组。</p>
         :type ListenerIds: list of str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
@@ -4407,7 +4255,7 @@ class CreateListenerResponse(AbstractModel):
 
     @property
     def ListenerIds(self):
-        r"""创建的监听器的唯一标识数组。
+        r"""<p>创建的监听器的唯一标识数组。</p>
         :rtype: list of str
         """
         return self._ListenerIds
@@ -4456,7 +4304,7 @@ OPEN：公网属性， INTERNAL：内网属性。
         :type ProjectId: int
         :param _AddressIPVersion: 仅适用于公网负载均衡。IP版本，可取值：IPV4、IPV6、IPv6FullChain，不区分大小写，默认值 IPV4。说明：取值为IPV6表示为IPV6 NAT64版本；取值为IPv6FullChain，表示为IPv6版本。
         :type AddressIPVersion: str
-        :param _Number: 创建负载均衡的个数，默认值 1。创建个数不能超过帐号所能创建的最大值，默认创建最大值为20。
+        :param _Number: 创建负载均衡的个数，默认值 1。创建个数不能超过账号所能创建的最大值，默认创建最大值为20。
         :type Number: int
         :param _MasterZoneId: 仅适用于公网且IP版本为IPv4的负载均衡。设置跨可用区容灾时的主可用区ID， 可用区 ID 和名称均支持，例如 100001 或 ap-guangzhou-1
 注：主可用区是需要承载流量的可用区，备可用区默认不承载流量，主可用区不可用时才使用备可用区。
@@ -4622,7 +4470,7 @@ OPEN：公网属性， INTERNAL：内网属性。
 
     @property
     def Number(self):
-        r"""创建负载均衡的个数，默认值 1。创建个数不能超过帐号所能创建的最大值，默认创建最大值为20。
+        r"""创建负载均衡的个数，默认值 1。创建个数不能超过账号所能创建的最大值，默认创建最大值为20。
         :rtype: int
         """
         return self._Number
@@ -5800,70 +5648,6 @@ class CrossTargets(AbstractModel):
         
 
 
-class DeleteCustomizedConfigRequest(AbstractModel):
-    r"""DeleteCustomizedConfig请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _UconfigIdList: 删除的配置ID列表
-        :type UconfigIdList: list of str
-        """
-        self._UconfigIdList = None
-
-    @property
-    def UconfigIdList(self):
-        r"""删除的配置ID列表
-        :rtype: list of str
-        """
-        return self._UconfigIdList
-
-    @UconfigIdList.setter
-    def UconfigIdList(self, UconfigIdList):
-        self._UconfigIdList = UconfigIdList
-
-
-    def _deserialize(self, params):
-        self._UconfigIdList = params.get("UconfigIdList")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DeleteCustomizedConfigResponse(AbstractModel):
-    r"""DeleteCustomizedConfig返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._RequestId = None
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._RequestId = params.get("RequestId")
-
-
 class DeleteListenerRequest(AbstractModel):
     r"""DeleteListener请求参数结构体
 
@@ -6031,9 +5815,9 @@ class DeleteLoadBalancerRequest(AbstractModel):
         r"""
         :param _LoadBalancerIds: 要删除的负载均衡实例 ID 数组，可以通过 [DescribeLoadBalancers](https://cloud.tencent.com/document/product/214/30685) 接口获取，数组大小最大支持20。
         :type LoadBalancerIds: list of str
-        :param _ForceDelete: 是否强制删除clb。True表示强制删除，False表示不是强制删除，需要做拦截校验。
-默认为 False。
-以下几种情况会默认拦截删除操作，如果确认强制删除则需要传强制校验参数ForceDelete为True。
+        :param _ForceDelete: 是否强制删除clb。true表示强制删除，false表示不是强制删除，需要做拦截校验。
+默认为false。
+以下几种情况会默认拦截删除操作，如果触发情况1、2但确认强制删除则需要传强制校验参数ForceDelete为true。
 1、删除后端绑定大于等于 20 个 RS 的实例时。
 2、删除后端有 RS 且 5 分钟 内“出/入带宽”峰值取大 > 10Mbps 的实例时。
 3、单地域内 5 分钟 内删除大于等于 30 个实例时。
@@ -6055,9 +5839,9 @@ class DeleteLoadBalancerRequest(AbstractModel):
 
     @property
     def ForceDelete(self):
-        r"""是否强制删除clb。True表示强制删除，False表示不是强制删除，需要做拦截校验。
-默认为 False。
-以下几种情况会默认拦截删除操作，如果确认强制删除则需要传强制校验参数ForceDelete为True。
+        r"""是否强制删除clb。true表示强制删除，false表示不是强制删除，需要做拦截校验。
+默认为false。
+以下几种情况会默认拦截删除操作，如果触发情况1、2但确认强制删除则需要传强制校验参数ForceDelete为true。
 1、删除后端绑定大于等于 20 个 RS 的实例时。
 2、删除后端有 RS 且 5 分钟 内“出/入带宽”峰值取大 > 10Mbps 的实例时。
 3、单地域内 5 分钟 内删除大于等于 30 个实例时。
@@ -10238,6 +10022,105 @@ class DescribeRewriteResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeTargetGroupInstanceStatusRequest(AbstractModel):
+    r"""DescribeTargetGroupInstanceStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetGroupId: 目标组唯一id
+        :type TargetGroupId: str
+        :param _TargetGroupInstanceIps: 目标组绑定的后端服务ip列表
+        :type TargetGroupInstanceIps: list of str
+        """
+        self._TargetGroupId = None
+        self._TargetGroupInstanceIps = None
+
+    @property
+    def TargetGroupId(self):
+        r"""目标组唯一id
+        :rtype: str
+        """
+        return self._TargetGroupId
+
+    @TargetGroupId.setter
+    def TargetGroupId(self, TargetGroupId):
+        self._TargetGroupId = TargetGroupId
+
+    @property
+    def TargetGroupInstanceIps(self):
+        r"""目标组绑定的后端服务ip列表
+        :rtype: list of str
+        """
+        return self._TargetGroupInstanceIps
+
+    @TargetGroupInstanceIps.setter
+    def TargetGroupInstanceIps(self, TargetGroupInstanceIps):
+        self._TargetGroupInstanceIps = TargetGroupInstanceIps
+
+
+    def _deserialize(self, params):
+        self._TargetGroupId = params.get("TargetGroupId")
+        self._TargetGroupInstanceIps = params.get("TargetGroupInstanceIps")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeTargetGroupInstanceStatusResponse(AbstractModel):
+    r"""DescribeTargetGroupInstanceStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TargetGroupInstanceSet: 健康检查后端rs状态列表
+        :type TargetGroupInstanceSet: list of TargetGroupInstanceStatus
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._TargetGroupInstanceSet = None
+        self._RequestId = None
+
+    @property
+    def TargetGroupInstanceSet(self):
+        r"""健康检查后端rs状态列表
+        :rtype: list of TargetGroupInstanceStatus
+        """
+        return self._TargetGroupInstanceSet
+
+    @TargetGroupInstanceSet.setter
+    def TargetGroupInstanceSet(self, TargetGroupInstanceSet):
+        self._TargetGroupInstanceSet = TargetGroupInstanceSet
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("TargetGroupInstanceSet") is not None:
+            self._TargetGroupInstanceSet = []
+            for item in params.get("TargetGroupInstanceSet"):
+                obj = TargetGroupInstanceStatus()
+                obj._deserialize(item)
+                self._TargetGroupInstanceSet.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeTargetGroupInstancesRequest(AbstractModel):
     r"""DescribeTargetGroupInstances请求参数结构体
 
@@ -11081,90 +10964,6 @@ class DescribeTaskStatusResponse(AbstractModel):
         self._Status = params.get("Status")
         self._LoadBalancerIds = params.get("LoadBalancerIds")
         self._Message = params.get("Message")
-        self._RequestId = params.get("RequestId")
-
-
-class DisassociateCustomizedConfigRequest(AbstractModel):
-    r"""DisassociateCustomizedConfig请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _UconfigId: 配置ID
-        :type UconfigId: str
-        :param _BindList: 解绑的列表
-        :type BindList: list of BindItem
-        """
-        self._UconfigId = None
-        self._BindList = None
-
-    @property
-    def UconfigId(self):
-        r"""配置ID
-        :rtype: str
-        """
-        return self._UconfigId
-
-    @UconfigId.setter
-    def UconfigId(self, UconfigId):
-        self._UconfigId = UconfigId
-
-    @property
-    def BindList(self):
-        r"""解绑的列表
-        :rtype: list of BindItem
-        """
-        return self._BindList
-
-    @BindList.setter
-    def BindList(self, BindList):
-        self._BindList = BindList
-
-
-    def _deserialize(self, params):
-        self._UconfigId = params.get("UconfigId")
-        if params.get("BindList") is not None:
-            self._BindList = []
-            for item in params.get("BindList"):
-                obj = BindItem()
-                obj._deserialize(item)
-                self._BindList.append(obj)
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class DisassociateCustomizedConfigResponse(AbstractModel):
-    r"""DisassociateCustomizedConfig返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._RequestId = None
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
 
 
@@ -13145,7 +12944,7 @@ class Listener(AbstractModel):
         :type KeepaliveEnable: int
         :param _Toa: 仅支持Nat64 CLB TCP监听器
         :type Toa: bool
-        :param _DeregisterTargetRst: 解绑后端目标时，是否发RST给客户端，（此参数仅对于TCP监听器有意义）。
+        :param _DeregisterTargetRst: 重新调度功能，解绑后端服务开关，打开此开关，当解绑后端服务时触发重新调度。仅TCP/UDP监听器支持。
         :type DeregisterTargetRst: bool
         :param _AttrFlags: 监听器的属性
         :type AttrFlags: list of str
@@ -13159,10 +12958,12 @@ class Listener(AbstractModel):
         :param _IdleConnectTimeout: 空闲连接超时时间，仅支持TCP监听器。默认值:900；共享型实例和独占型实例取值范围：300～900，性能容量型实例取值范围:300～1980。
 注意：此字段可能返回 null，表示取不到有效值。
         :type IdleConnectTimeout: int
-        :param _RescheduleInterval: 调度时间。触发强制重新调度后，长连接将会在设置的调度时间内断开并完成重新分配
+        :param _RescheduleInterval: 重新调度触发持续时间，取值0~3600s。仅TCP/UDP监听器支持。触发重新调度后，长连接将会在设置的调度时间内断开并完成重新分配。
         :type RescheduleInterval: int
         :param _DataCompressMode: 数据压缩模式
         :type DataCompressMode: str
+        :param _RescheduleStartTime: 重新调度启动时间，配置了重新调度启动时间后，会在启动时间到达时触发重新调度。
+        :type RescheduleStartTime: int
         """
         self._ListenerId = None
         self._Protocol = None
@@ -13189,6 +12990,7 @@ class Listener(AbstractModel):
         self._IdleConnectTimeout = None
         self._RescheduleInterval = None
         self._DataCompressMode = None
+        self._RescheduleStartTime = None
 
     @property
     def ListenerId(self):
@@ -13387,7 +13189,7 @@ class Listener(AbstractModel):
 
     @property
     def DeregisterTargetRst(self):
-        r"""解绑后端目标时，是否发RST给客户端，（此参数仅对于TCP监听器有意义）。
+        r"""重新调度功能，解绑后端服务开关，打开此开关，当解绑后端服务时触发重新调度。仅TCP/UDP监听器支持。
         :rtype: bool
         """
         return self._DeregisterTargetRst
@@ -13455,7 +13257,7 @@ class Listener(AbstractModel):
 
     @property
     def RescheduleInterval(self):
-        r"""调度时间。触发强制重新调度后，长连接将会在设置的调度时间内断开并完成重新分配
+        r"""重新调度触发持续时间，取值0~3600s。仅TCP/UDP监听器支持。触发重新调度后，长连接将会在设置的调度时间内断开并完成重新分配。
         :rtype: int
         """
         return self._RescheduleInterval
@@ -13474,6 +13276,17 @@ class Listener(AbstractModel):
     @DataCompressMode.setter
     def DataCompressMode(self, DataCompressMode):
         self._DataCompressMode = DataCompressMode
+
+    @property
+    def RescheduleStartTime(self):
+        r"""重新调度启动时间，配置了重新调度启动时间后，会在启动时间到达时触发重新调度。
+        :rtype: int
+        """
+        return self._RescheduleStartTime
+
+    @RescheduleStartTime.setter
+    def RescheduleStartTime(self, RescheduleStartTime):
+        self._RescheduleStartTime = RescheduleStartTime
 
 
     def _deserialize(self, params):
@@ -13518,6 +13331,7 @@ class Listener(AbstractModel):
         self._IdleConnectTimeout = params.get("IdleConnectTimeout")
         self._RescheduleInterval = params.get("RescheduleInterval")
         self._DataCompressMode = params.get("DataCompressMode")
+        self._RescheduleStartTime = params.get("RescheduleStartTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -14051,6 +13865,8 @@ ToaClean: TOA（TCP Option Address）清理，清除TCP选项中的地址信息�
         :type TargetCount: int
         :param _AssociateEndpoint: 负载均衡实例关联的Endpoint id。
         :type AssociateEndpoint: str
+        :param _AvailableZoneAffinityInfo: 可用区转发亲和信息
+        :type AvailableZoneAffinityInfo: :class:`tencentcloud.clb.v20180317.models.AvailableZoneAffinityInfo`
         """
         self._LoadBalancerId = None
         self._LoadBalancerName = None
@@ -14110,6 +13926,7 @@ ToaClean: TOA（TCP Option Address）清理，清除TCP选项中的地址信息�
         self._Exclusive = None
         self._TargetCount = None
         self._AssociateEndpoint = None
+        self._AvailableZoneAffinityInfo = None
 
     @property
     def LoadBalancerId(self):
@@ -14806,6 +14623,17 @@ ToaClean: TOA（TCP Option Address）清理，清除TCP选项中的地址信息�
     def AssociateEndpoint(self, AssociateEndpoint):
         self._AssociateEndpoint = AssociateEndpoint
 
+    @property
+    def AvailableZoneAffinityInfo(self):
+        r"""可用区转发亲和信息
+        :rtype: :class:`tencentcloud.clb.v20180317.models.AvailableZoneAffinityInfo`
+        """
+        return self._AvailableZoneAffinityInfo
+
+    @AvailableZoneAffinityInfo.setter
+    def AvailableZoneAffinityInfo(self, AvailableZoneAffinityInfo):
+        self._AvailableZoneAffinityInfo = AvailableZoneAffinityInfo
+
 
     def _deserialize(self, params):
         self._LoadBalancerId = params.get("LoadBalancerId")
@@ -14893,6 +14721,9 @@ ToaClean: TOA（TCP Option Address）清理，清除TCP选项中的地址信息�
         self._Exclusive = params.get("Exclusive")
         self._TargetCount = params.get("TargetCount")
         self._AssociateEndpoint = params.get("AssociateEndpoint")
+        if params.get("AvailableZoneAffinityInfo") is not None:
+            self._AvailableZoneAffinityInfo = AvailableZoneAffinityInfo()
+            self._AvailableZoneAffinityInfo._deserialize(params.get("AvailableZoneAffinityInfo"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -15035,6 +14866,9 @@ Public：公网属性，Private：内网属性；对于内网属性的负载均�
         :param _Exclusive: 0：表示非独占型实例，1：表示独占型态实例。
 注意：此字段可能返回 null，表示取不到有效值。
         :type Exclusive: int
+        :param _AvailableZoneAffinityInfo: 可用区转发亲和信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AvailableZoneAffinityInfo: :class:`tencentcloud.clb.v20180317.models.AvailableZoneAffinityInfo`
         """
         self._LoadBalancerId = None
         self._LoadBalancerName = None
@@ -15078,6 +14912,7 @@ Public：公网属性，Private：内网属性；对于内网属性的负载均�
         self._AttributeFlags = None
         self._SlaType = None
         self._Exclusive = None
+        self._AvailableZoneAffinityInfo = None
 
     @property
     def LoadBalancerId(self):
@@ -15582,6 +15417,18 @@ Public：公网属性，Private：内网属性；对于内网属性的负载均�
     def Exclusive(self, Exclusive):
         self._Exclusive = Exclusive
 
+    @property
+    def AvailableZoneAffinityInfo(self):
+        r"""可用区转发亲和信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.clb.v20180317.models.AvailableZoneAffinityInfo`
+        """
+        return self._AvailableZoneAffinityInfo
+
+    @AvailableZoneAffinityInfo.setter
+    def AvailableZoneAffinityInfo(self, AvailableZoneAffinityInfo):
+        self._AvailableZoneAffinityInfo = AvailableZoneAffinityInfo
+
 
     def _deserialize(self, params):
         self._LoadBalancerId = params.get("LoadBalancerId")
@@ -15637,6 +15484,9 @@ Public：公网属性，Private：内网属性；对于内网属性的负载均�
         self._AttributeFlags = params.get("AttributeFlags")
         self._SlaType = params.get("SlaType")
         self._Exclusive = params.get("Exclusive")
+        if params.get("AvailableZoneAffinityInfo") is not None:
+            self._AvailableZoneAffinityInfo = AvailableZoneAffinityInfo()
+            self._AvailableZoneAffinityInfo._deserialize(params.get("AvailableZoneAffinityInfo"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16190,100 +16040,6 @@ class ModifyBlockIPListResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
-class ModifyCustomizedConfigRequest(AbstractModel):
-    r"""ModifyCustomizedConfig请求参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _ConfigName: 配置名字
-        :type ConfigName: str
-        :param _UconfigId: 配置ID
-        :type UconfigId: str
-        :param _ConfigContent: 配置内容
-        :type ConfigContent: str
-        """
-        self._ConfigName = None
-        self._UconfigId = None
-        self._ConfigContent = None
-
-    @property
-    def ConfigName(self):
-        r"""配置名字
-        :rtype: str
-        """
-        return self._ConfigName
-
-    @ConfigName.setter
-    def ConfigName(self, ConfigName):
-        self._ConfigName = ConfigName
-
-    @property
-    def UconfigId(self):
-        r"""配置ID
-        :rtype: str
-        """
-        return self._UconfigId
-
-    @UconfigId.setter
-    def UconfigId(self, UconfigId):
-        self._UconfigId = UconfigId
-
-    @property
-    def ConfigContent(self):
-        r"""配置内容
-        :rtype: str
-        """
-        return self._ConfigContent
-
-    @ConfigContent.setter
-    def ConfigContent(self, ConfigContent):
-        self._ConfigContent = ConfigContent
-
-
-    def _deserialize(self, params):
-        self._ConfigName = params.get("ConfigName")
-        self._UconfigId = params.get("UconfigId")
-        self._ConfigContent = params.get("ConfigContent")
-        memeber_set = set(params.keys())
-        for name, value in vars(self).items():
-            property_name = name[1:]
-            if property_name in memeber_set:
-                memeber_set.remove(property_name)
-        if len(memeber_set) > 0:
-            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
-        
-
-
-class ModifyCustomizedConfigResponse(AbstractModel):
-    r"""ModifyCustomizedConfig返回参数结构体
-
-    """
-
-    def __init__(self):
-        r"""
-        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :type RequestId: str
-        """
-        self._RequestId = None
-
-    @property
-    def RequestId(self):
-        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
-        :rtype: str
-        """
-        return self._RequestId
-
-    @RequestId.setter
-    def RequestId(self, RequestId):
-        self._RequestId = RequestId
-
-
-    def _deserialize(self, params):
-        self._RequestId = params.get("RequestId")
-
-
 class ModifyDomainAttributesRequest(AbstractModel):
     r"""ModifyDomainAttributes请求参数结构体
 
@@ -16792,9 +16548,7 @@ class ModifyListenerRequest(AbstractModel):
 默认值0表示不开启，1表示开启。
 若后端服务对连接数上限有限制，则建议谨慎开启。此功能目前处于内测中，如需使用，请提交 [内测申请](https://cloud.tencent.com/apply/p/tsodp6qm21)。
         :type KeepaliveEnable: int
-        :param _DeregisterTargetRst: 解绑后端目标时，是否发RST给客户端，此参数仅适用于TCP监听器。
-True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
-不传则表示不修改。
+        :param _DeregisterTargetRst: 重新调度功能，解绑后端服务开关，打开此开关，当解绑后端服务时触发重新调度。仅TCP/UDP监听器支持。
         :type DeregisterTargetRst: bool
         :param _SessionType: 会话保持类型。NORMAL表示默认会话保持类型。QUIC_CID表示根据Quic Connection ID做会话保持。QUIC_CID只支持UDP协议。
 使用场景：适用于TCP/UDP/TCP_SSL/QUIC监听器。
@@ -16812,11 +16566,20 @@ True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
         :type IdleConnectTimeout: int
         :param _ProxyProtocol: TCP_SSL和QUIC是否支持PP
         :type ProxyProtocol: bool
-        :param _SnatEnable: 是否开启SNAT， True 表示开启 SNAT，False 表示不开启 SNAT。
-不传则表示不修改。
+        :param _SnatEnable: 是否开启SNAT（源IP替换），True（开启）、False（关闭）。默认为关闭。注意：SnatEnable开启时会替换客户端源IP，此时`透传客户端源IP`选项关闭，反之亦然。
         :type SnatEnable: bool
         :param _DataCompressMode: 数据压缩模式
         :type DataCompressMode: str
+        :param _RescheduleTargetZeroWeight: 重新调度功能，权重调为0开关，打开此开关，后端服务器权重调为0时触发重新调度。仅TCP/UDP监听器支持。
+        :type RescheduleTargetZeroWeight: bool
+        :param _RescheduleUnhealthy: 重新调度功能，健康检查异常开关，打开此开关，后端服务器健康检查异常时触发重新调度。仅TCP/UDP监听器支持。 
+        :type RescheduleUnhealthy: bool
+        :param _RescheduleExpandTarget: 重新调度功能，扩容后端服务开关，打开此开关，后端服务器增加或者减少时触发重新调度。仅TCP/UDP监听器支持。
+        :type RescheduleExpandTarget: bool
+        :param _RescheduleStartTime: 重新调度触发开始时间，取值0~3600s。仅TCP/UDP监听器支持。
+        :type RescheduleStartTime: int
+        :param _RescheduleInterval: 重新调度触发持续时间，取值0~3600s。仅TCP/UDP监听器支持。
+        :type RescheduleInterval: int
         """
         self._LoadBalancerId = None
         self._ListenerId = None
@@ -16837,6 +16600,11 @@ True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
         self._ProxyProtocol = None
         self._SnatEnable = None
         self._DataCompressMode = None
+        self._RescheduleTargetZeroWeight = None
+        self._RescheduleUnhealthy = None
+        self._RescheduleExpandTarget = None
+        self._RescheduleStartTime = None
+        self._RescheduleInterval = None
 
     @property
     def LoadBalancerId(self):
@@ -16954,9 +16722,7 @@ True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
 
     @property
     def DeregisterTargetRst(self):
-        r"""解绑后端目标时，是否发RST给客户端，此参数仅适用于TCP监听器。
-True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
-不传则表示不修改。
+        r"""重新调度功能，解绑后端服务开关，打开此开关，当解绑后端服务时触发重新调度。仅TCP/UDP监听器支持。
         :rtype: bool
         """
         return self._DeregisterTargetRst
@@ -17037,8 +16803,7 @@ True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
 
     @property
     def SnatEnable(self):
-        r"""是否开启SNAT， True 表示开启 SNAT，False 表示不开启 SNAT。
-不传则表示不修改。
+        r"""是否开启SNAT（源IP替换），True（开启）、False（关闭）。默认为关闭。注意：SnatEnable开启时会替换客户端源IP，此时`透传客户端源IP`选项关闭，反之亦然。
         :rtype: bool
         """
         return self._SnatEnable
@@ -17057,6 +16822,61 @@ True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
     @DataCompressMode.setter
     def DataCompressMode(self, DataCompressMode):
         self._DataCompressMode = DataCompressMode
+
+    @property
+    def RescheduleTargetZeroWeight(self):
+        r"""重新调度功能，权重调为0开关，打开此开关，后端服务器权重调为0时触发重新调度。仅TCP/UDP监听器支持。
+        :rtype: bool
+        """
+        return self._RescheduleTargetZeroWeight
+
+    @RescheduleTargetZeroWeight.setter
+    def RescheduleTargetZeroWeight(self, RescheduleTargetZeroWeight):
+        self._RescheduleTargetZeroWeight = RescheduleTargetZeroWeight
+
+    @property
+    def RescheduleUnhealthy(self):
+        r"""重新调度功能，健康检查异常开关，打开此开关，后端服务器健康检查异常时触发重新调度。仅TCP/UDP监听器支持。 
+        :rtype: bool
+        """
+        return self._RescheduleUnhealthy
+
+    @RescheduleUnhealthy.setter
+    def RescheduleUnhealthy(self, RescheduleUnhealthy):
+        self._RescheduleUnhealthy = RescheduleUnhealthy
+
+    @property
+    def RescheduleExpandTarget(self):
+        r"""重新调度功能，扩容后端服务开关，打开此开关，后端服务器增加或者减少时触发重新调度。仅TCP/UDP监听器支持。
+        :rtype: bool
+        """
+        return self._RescheduleExpandTarget
+
+    @RescheduleExpandTarget.setter
+    def RescheduleExpandTarget(self, RescheduleExpandTarget):
+        self._RescheduleExpandTarget = RescheduleExpandTarget
+
+    @property
+    def RescheduleStartTime(self):
+        r"""重新调度触发开始时间，取值0~3600s。仅TCP/UDP监听器支持。
+        :rtype: int
+        """
+        return self._RescheduleStartTime
+
+    @RescheduleStartTime.setter
+    def RescheduleStartTime(self, RescheduleStartTime):
+        self._RescheduleStartTime = RescheduleStartTime
+
+    @property
+    def RescheduleInterval(self):
+        r"""重新调度触发持续时间，取值0~3600s。仅TCP/UDP监听器支持。
+        :rtype: int
+        """
+        return self._RescheduleInterval
+
+    @RescheduleInterval.setter
+    def RescheduleInterval(self, RescheduleInterval):
+        self._RescheduleInterval = RescheduleInterval
 
 
     def _deserialize(self, params):
@@ -17085,6 +16905,11 @@ True表示发送 RST 给客户端，False表示不发送 RST 给客户端。
         self._ProxyProtocol = params.get("ProxyProtocol")
         self._SnatEnable = params.get("SnatEnable")
         self._DataCompressMode = params.get("DataCompressMode")
+        self._RescheduleTargetZeroWeight = params.get("RescheduleTargetZeroWeight")
+        self._RescheduleUnhealthy = params.get("RescheduleUnhealthy")
+        self._RescheduleExpandTarget = params.get("RescheduleExpandTarget")
+        self._RescheduleStartTime = params.get("RescheduleStartTime")
+        self._RescheduleInterval = params.get("RescheduleInterval")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17130,26 +16955,25 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _LoadBalancerId: 负载均衡的唯一ID，可以通过 [DescribeLoadBalancers](https://cloud.tencent.com/document/product/214/30685) 接口获取。
+        :param _LoadBalancerId: <p>负载均衡的唯一ID，可以通过 <a href="https://cloud.tencent.com/document/product/214/30685">DescribeLoadBalancers</a> 接口获取。</p>
         :type LoadBalancerId: str
-        :param _LoadBalancerName: 负载均衡实例名称，规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。
+        :param _LoadBalancerName: <p>负载均衡实例名称，规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。</p>
         :type LoadBalancerName: str
-        :param _TargetRegionInfo: 设置负载均衡跨地域绑定1.0的后端服务信息
+        :param _TargetRegionInfo: <p>设置负载均衡跨地域绑定1.0的后端服务信息</p>
         :type TargetRegionInfo: :class:`tencentcloud.clb.v20180317.models.TargetRegionInfo`
-        :param _InternetChargeInfo: 网络计费相关参数
+        :param _InternetChargeInfo: <p>网络计费相关参数</p>
         :type InternetChargeInfo: :class:`tencentcloud.clb.v20180317.models.InternetAccessible`
-        :param _LoadBalancerPassToTarget: Target是否放通来自CLB的流量。
-开启放通（true）：只验证CLB上的安全组；
-不开启放通（false）：需同时验证CLB和后端实例上的安全组。
-不填则不修改。
+        :param _LoadBalancerPassToTarget: <p>Target是否放通来自CLB的流量。开启放通（true）：只验证CLB上的安全组；不开启放通（false）：需同时验证CLB和后端实例上的安全组。不填则不修改。</p>
         :type LoadBalancerPassToTarget: bool
-        :param _SnatPro: 是否开启跨地域绑定2.0功能。不填则不修改。
+        :param _SwitchFlag: <p>不同计费模式之间的切换：0表示不切换，1表示预付费和后付费切换，2表示后付费之间切换。默认值：0</p>
+        :type SwitchFlag: int
+        :param _SnatPro: <p>是否开启跨地域绑定2.0功能。不填则不修改。</p>
         :type SnatPro: bool
-        :param _DeleteProtect: 是否开启删除保护，不填则不修改。
+        :param _DeleteProtect: <p>是否开启删除保护，不填则不修改。</p>
         :type DeleteProtect: bool
-        :param _ModifyClassicDomain: 将负载均衡二级域名由mycloud.com改为tencentclb.com，子域名也会变换，修改后mycloud.com域名将失效。不填则不修改。
+        :param _ModifyClassicDomain: <p>将负载均衡二级域名由mycloud.com改为tencentclb.com，子域名也会变换，修改后mycloud.com域名将失效。不填则不修改。</p>
         :type ModifyClassicDomain: bool
-        :param _AssociateEndpoint: 关联的终端节点Id，可通过[DescribeVpcEndPoint](https://cloud.tencent.com/document/product/215/54679)接口查询。传空字符串代表解除关联。
+        :param _AssociateEndpoint: <p>关联的终端节点Id，可通过<a href="https://cloud.tencent.com/document/product/215/54679">DescribeVpcEndPoint</a>接口查询。传空字符串代表解除关联。</p>
         :type AssociateEndpoint: str
         """
         self._LoadBalancerId = None
@@ -17157,6 +16981,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
         self._TargetRegionInfo = None
         self._InternetChargeInfo = None
         self._LoadBalancerPassToTarget = None
+        self._SwitchFlag = None
         self._SnatPro = None
         self._DeleteProtect = None
         self._ModifyClassicDomain = None
@@ -17164,7 +16989,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def LoadBalancerId(self):
-        r"""负载均衡的唯一ID，可以通过 [DescribeLoadBalancers](https://cloud.tencent.com/document/product/214/30685) 接口获取。
+        r"""<p>负载均衡的唯一ID，可以通过 <a href="https://cloud.tencent.com/document/product/214/30685">DescribeLoadBalancers</a> 接口获取。</p>
         :rtype: str
         """
         return self._LoadBalancerId
@@ -17175,7 +17000,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def LoadBalancerName(self):
-        r"""负载均衡实例名称，规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。
+        r"""<p>负载均衡实例名称，规则：1-60 个英文、汉字、数字、连接线“-”或下划线“_”。</p>
         :rtype: str
         """
         return self._LoadBalancerName
@@ -17186,7 +17011,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def TargetRegionInfo(self):
-        r"""设置负载均衡跨地域绑定1.0的后端服务信息
+        r"""<p>设置负载均衡跨地域绑定1.0的后端服务信息</p>
         :rtype: :class:`tencentcloud.clb.v20180317.models.TargetRegionInfo`
         """
         return self._TargetRegionInfo
@@ -17197,7 +17022,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def InternetChargeInfo(self):
-        r"""网络计费相关参数
+        r"""<p>网络计费相关参数</p>
         :rtype: :class:`tencentcloud.clb.v20180317.models.InternetAccessible`
         """
         return self._InternetChargeInfo
@@ -17208,10 +17033,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def LoadBalancerPassToTarget(self):
-        r"""Target是否放通来自CLB的流量。
-开启放通（true）：只验证CLB上的安全组；
-不开启放通（false）：需同时验证CLB和后端实例上的安全组。
-不填则不修改。
+        r"""<p>Target是否放通来自CLB的流量。开启放通（true）：只验证CLB上的安全组；不开启放通（false）：需同时验证CLB和后端实例上的安全组。不填则不修改。</p>
         :rtype: bool
         """
         return self._LoadBalancerPassToTarget
@@ -17221,8 +17043,19 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
         self._LoadBalancerPassToTarget = LoadBalancerPassToTarget
 
     @property
+    def SwitchFlag(self):
+        r"""<p>不同计费模式之间的切换：0表示不切换，1表示预付费和后付费切换，2表示后付费之间切换。默认值：0</p>
+        :rtype: int
+        """
+        return self._SwitchFlag
+
+    @SwitchFlag.setter
+    def SwitchFlag(self, SwitchFlag):
+        self._SwitchFlag = SwitchFlag
+
+    @property
     def SnatPro(self):
-        r"""是否开启跨地域绑定2.0功能。不填则不修改。
+        r"""<p>是否开启跨地域绑定2.0功能。不填则不修改。</p>
         :rtype: bool
         """
         return self._SnatPro
@@ -17233,7 +17066,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def DeleteProtect(self):
-        r"""是否开启删除保护，不填则不修改。
+        r"""<p>是否开启删除保护，不填则不修改。</p>
         :rtype: bool
         """
         return self._DeleteProtect
@@ -17244,7 +17077,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def ModifyClassicDomain(self):
-        r"""将负载均衡二级域名由mycloud.com改为tencentclb.com，子域名也会变换，修改后mycloud.com域名将失效。不填则不修改。
+        r"""<p>将负载均衡二级域名由mycloud.com改为tencentclb.com，子域名也会变换，修改后mycloud.com域名将失效。不填则不修改。</p>
         :rtype: bool
         """
         return self._ModifyClassicDomain
@@ -17255,7 +17088,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
 
     @property
     def AssociateEndpoint(self):
-        r"""关联的终端节点Id，可通过[DescribeVpcEndPoint](https://cloud.tencent.com/document/product/215/54679)接口查询。传空字符串代表解除关联。
+        r"""<p>关联的终端节点Id，可通过<a href="https://cloud.tencent.com/document/product/215/54679">DescribeVpcEndPoint</a>接口查询。传空字符串代表解除关联。</p>
         :rtype: str
         """
         return self._AssociateEndpoint
@@ -17275,6 +17108,7 @@ class ModifyLoadBalancerAttributesRequest(AbstractModel):
             self._InternetChargeInfo = InternetAccessible()
             self._InternetChargeInfo._deserialize(params.get("InternetChargeInfo"))
         self._LoadBalancerPassToTarget = params.get("LoadBalancerPassToTarget")
+        self._SwitchFlag = params.get("SwitchFlag")
         self._SnatPro = params.get("SnatPro")
         self._DeleteProtect = params.get("DeleteProtect")
         self._ModifyClassicDomain = params.get("ModifyClassicDomain")
@@ -17296,7 +17130,7 @@ class ModifyLoadBalancerAttributesResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _DealName: 切换负载均衡计费方式时，可用此参数查询切换任务是否成功。
+        :param _DealName: <p>切换负载均衡计费方式时，可用此参数查询切换任务是否成功。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :type DealName: str
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
@@ -17307,7 +17141,7 @@ class ModifyLoadBalancerAttributesResponse(AbstractModel):
 
     @property
     def DealName(self):
-        r"""切换负载均衡计费方式时，可用此参数查询切换任务是否成功。
+        r"""<p>切换负载均衡计费方式时，可用此参数查询切换任务是否成功。</p>
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: str
         """
@@ -17611,6 +17445,8 @@ class ModifyRuleRequest(AbstractModel):
         :type TrpcFunc: str
         :param _OAuth: OAuth配置信息。
         :type OAuth: :class:`tencentcloud.clb.v20180317.models.OAuth`
+        :param _CookieName: 自定义cookie名
+        :type CookieName: str
         """
         self._LoadBalancerId = None
         self._ListenerId = None
@@ -17623,6 +17459,7 @@ class ModifyRuleRequest(AbstractModel):
         self._TrpcCallee = None
         self._TrpcFunc = None
         self._OAuth = None
+        self._CookieName = None
 
     @property
     def LoadBalancerId(self):
@@ -17747,6 +17584,17 @@ class ModifyRuleRequest(AbstractModel):
     def OAuth(self, OAuth):
         self._OAuth = OAuth
 
+    @property
+    def CookieName(self):
+        r"""自定义cookie名
+        :rtype: str
+        """
+        return self._CookieName
+
+    @CookieName.setter
+    def CookieName(self, CookieName):
+        self._CookieName = CookieName
+
 
     def _deserialize(self, params):
         self._LoadBalancerId = params.get("LoadBalancerId")
@@ -17764,6 +17612,7 @@ class ModifyRuleRequest(AbstractModel):
         if params.get("OAuth") is not None:
             self._OAuth = OAuth()
             self._OAuth._deserialize(params.get("OAuth"))
+        self._CookieName = params.get("CookieName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -17809,23 +17658,24 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _TargetGroupId: 目标组的ID。
+        :param _TargetGroupId: <p>目标组的ID。</p>
         :type TargetGroupId: str
-        :param _TargetGroupName: 目标组的新名称。
+        :param _TargetGroupName: <p>目标组的新名称。</p>
         :type TargetGroupName: str
-        :param _Port: 目标组的新默认端口。全监听目标组不支持此参数。
+        :param _Port: <p>目标组的新默认端口。全监听目标组不支持此参数。</p>
         :type Port: int
-        :param _ScheduleAlgorithm: 调度算法，仅V2新版目标组，且后端转发协议为(HTTP|HTTPS|GRPC)时该参数有效。可选值：
-<ur><li>WRR:按权重轮询。</li><li>LEAST_CONN:最小连接数。</li><li>IP_HASH:按IP哈希。</li><li>默认为 WRR。</li><ur>
+        :param _ScheduleAlgorithm: <p>调度算法，仅V2新版目标组，且后端转发协议为(HTTP|HTTPS|GRPC)时该参数有效。可选值：<ur><li>WRR:按权重轮询。</li><li>LEAST_CONN:最小连接数。</li><li>IP_HASH:按IP哈希。</li><li>默认为 WRR。</li><ur></p>
         :type ScheduleAlgorithm: str
-        :param _HealthCheck: 健康检查详情。
+        :param _HealthCheck: <p>健康检查详情。</p>
         :type HealthCheck: :class:`tencentcloud.clb.v20180317.models.TargetGroupHealthCheck`
-        :param _Weight: 后端服务默认权重, 其中：<ul><li>取值范围[0, 100]</li><li>设置该值后，添加后端服务到目标组时， 若后端服务不单独设置权重， 则使用这里的默认权重。 </li><li>v1目标组类型不支持设置Weight参数。</li> </ul>
+        :param _Weight: <p>后端服务默认权重, 其中：<ul><li>取值范围[0, 100]</li><li>设置该值后，添加后端服务到目标组时， 若后端服务不单独设置权重， 则使用这里的默认权重。 </li><li>v1目标组类型不支持设置Weight参数。</li> </ul></p>
         :type Weight: int
-        :param _KeepaliveEnable: 是否开启长连接，此参数仅适用于HTTP/HTTPS目标组，true:关闭；false:开启， 默认关闭。
+        :param _KeepaliveEnable: <p>是否开启长连接，此参数仅适用于HTTP/HTTPS目标组，true:关闭；false:开启， 默认关闭。</p>
         :type KeepaliveEnable: bool
-        :param _SessionExpireTime: 会话保持时间，单位：秒。可选值：30~3600，默认 0，表示不开启。TCP/UDP目标组不支持该参数。
+        :param _SessionExpireTime: <p>会话保持时间，单位：秒。可选值：30~3600，默认 0，表示不开启。TCP/UDP目标组不支持该参数。</p>
         :type SessionExpireTime: int
+        :param _SnatEnable: <p>是否开启SNAT（源IP替换），True（开启）、False（关闭）。默认为关闭。注意：SnatEnable开启时会替换客户端源IP，此时<code>透传客户端源IP</code>选项关闭，反之亦然。</p>
+        :type SnatEnable: bool
         """
         self._TargetGroupId = None
         self._TargetGroupName = None
@@ -17835,10 +17685,11 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
         self._Weight = None
         self._KeepaliveEnable = None
         self._SessionExpireTime = None
+        self._SnatEnable = None
 
     @property
     def TargetGroupId(self):
-        r"""目标组的ID。
+        r"""<p>目标组的ID。</p>
         :rtype: str
         """
         return self._TargetGroupId
@@ -17849,7 +17700,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def TargetGroupName(self):
-        r"""目标组的新名称。
+        r"""<p>目标组的新名称。</p>
         :rtype: str
         """
         return self._TargetGroupName
@@ -17860,7 +17711,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def Port(self):
-        r"""目标组的新默认端口。全监听目标组不支持此参数。
+        r"""<p>目标组的新默认端口。全监听目标组不支持此参数。</p>
         :rtype: int
         """
         return self._Port
@@ -17871,8 +17722,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def ScheduleAlgorithm(self):
-        r"""调度算法，仅V2新版目标组，且后端转发协议为(HTTP|HTTPS|GRPC)时该参数有效。可选值：
-<ur><li>WRR:按权重轮询。</li><li>LEAST_CONN:最小连接数。</li><li>IP_HASH:按IP哈希。</li><li>默认为 WRR。</li><ur>
+        r"""<p>调度算法，仅V2新版目标组，且后端转发协议为(HTTP|HTTPS|GRPC)时该参数有效。可选值：<ur><li>WRR:按权重轮询。</li><li>LEAST_CONN:最小连接数。</li><li>IP_HASH:按IP哈希。</li><li>默认为 WRR。</li><ur></p>
         :rtype: str
         """
         return self._ScheduleAlgorithm
@@ -17883,7 +17733,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def HealthCheck(self):
-        r"""健康检查详情。
+        r"""<p>健康检查详情。</p>
         :rtype: :class:`tencentcloud.clb.v20180317.models.TargetGroupHealthCheck`
         """
         return self._HealthCheck
@@ -17894,7 +17744,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def Weight(self):
-        r"""后端服务默认权重, 其中：<ul><li>取值范围[0, 100]</li><li>设置该值后，添加后端服务到目标组时， 若后端服务不单独设置权重， 则使用这里的默认权重。 </li><li>v1目标组类型不支持设置Weight参数。</li> </ul>
+        r"""<p>后端服务默认权重, 其中：<ul><li>取值范围[0, 100]</li><li>设置该值后，添加后端服务到目标组时， 若后端服务不单独设置权重， 则使用这里的默认权重。 </li><li>v1目标组类型不支持设置Weight参数。</li> </ul></p>
         :rtype: int
         """
         return self._Weight
@@ -17905,7 +17755,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def KeepaliveEnable(self):
-        r"""是否开启长连接，此参数仅适用于HTTP/HTTPS目标组，true:关闭；false:开启， 默认关闭。
+        r"""<p>是否开启长连接，此参数仅适用于HTTP/HTTPS目标组，true:关闭；false:开启， 默认关闭。</p>
         :rtype: bool
         """
         return self._KeepaliveEnable
@@ -17916,7 +17766,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
 
     @property
     def SessionExpireTime(self):
-        r"""会话保持时间，单位：秒。可选值：30~3600，默认 0，表示不开启。TCP/UDP目标组不支持该参数。
+        r"""<p>会话保持时间，单位：秒。可选值：30~3600，默认 0，表示不开启。TCP/UDP目标组不支持该参数。</p>
         :rtype: int
         """
         return self._SessionExpireTime
@@ -17924,6 +17774,17 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
     @SessionExpireTime.setter
     def SessionExpireTime(self, SessionExpireTime):
         self._SessionExpireTime = SessionExpireTime
+
+    @property
+    def SnatEnable(self):
+        r"""<p>是否开启SNAT（源IP替换），True（开启）、False（关闭）。默认为关闭。注意：SnatEnable开启时会替换客户端源IP，此时<code>透传客户端源IP</code>选项关闭，反之亦然。</p>
+        :rtype: bool
+        """
+        return self._SnatEnable
+
+    @SnatEnable.setter
+    def SnatEnable(self, SnatEnable):
+        self._SnatEnable = SnatEnable
 
 
     def _deserialize(self, params):
@@ -17937,6 +17798,7 @@ class ModifyTargetGroupAttributeRequest(AbstractModel):
         self._Weight = params.get("Weight")
         self._KeepaliveEnable = params.get("KeepaliveEnable")
         self._SessionExpireTime = params.get("SessionExpireTime")
+        self._SnatEnable = params.get("SnatEnable")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -19211,6 +19073,102 @@ class RegisterTargetsWithClassicalLBResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class RenewLoadBalancersRequest(AbstractModel):
+    r"""RenewLoadBalancers请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _LoadBalancerIds: 负载均衡实例唯一ID数组，最多支持20个。
+        :type LoadBalancerIds: list of str
+        :param _LBChargePrepaid: 负载均衡实例的预付费相关属性。
+        :type LBChargePrepaid: :class:`tencentcloud.clb.v20180317.models.LBChargePrepaid`
+        """
+        self._LoadBalancerIds = None
+        self._LBChargePrepaid = None
+
+    @property
+    def LoadBalancerIds(self):
+        r"""负载均衡实例唯一ID数组，最多支持20个。
+        :rtype: list of str
+        """
+        return self._LoadBalancerIds
+
+    @LoadBalancerIds.setter
+    def LoadBalancerIds(self, LoadBalancerIds):
+        self._LoadBalancerIds = LoadBalancerIds
+
+    @property
+    def LBChargePrepaid(self):
+        r"""负载均衡实例的预付费相关属性。
+        :rtype: :class:`tencentcloud.clb.v20180317.models.LBChargePrepaid`
+        """
+        return self._LBChargePrepaid
+
+    @LBChargePrepaid.setter
+    def LBChargePrepaid(self, LBChargePrepaid):
+        self._LBChargePrepaid = LBChargePrepaid
+
+
+    def _deserialize(self, params):
+        self._LoadBalancerIds = params.get("LoadBalancerIds")
+        if params.get("LBChargePrepaid") is not None:
+            self._LBChargePrepaid = LBChargePrepaid()
+            self._LBChargePrepaid._deserialize(params.get("LBChargePrepaid"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class RenewLoadBalancersResponse(AbstractModel):
+    r"""RenewLoadBalancers返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DealName: 订单号。
+        :type DealName: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._DealName = None
+        self._RequestId = None
+
+    @property
+    def DealName(self):
+        r"""订单号。
+        :rtype: str
+        """
+        return self._DealName
+
+    @DealName.setter
+    def DealName(self, DealName):
+        self._DealName = DealName
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._DealName = params.get("DealName")
+        self._RequestId = params.get("RequestId")
+
+
 class ReplaceCertForLoadBalancersRequest(AbstractModel):
     r"""ReplaceCertForLoadBalancers请求参数结构体
 
@@ -19637,13 +19595,13 @@ class RsTagRule(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ListenerId: 负载均衡监听器 ID。
+        :param _ListenerId: <p>负载均衡监听器 ID。</p>
         :type ListenerId: str
-        :param _Targets: 要修改标签的后端机器列表。
+        :param _Targets: <p>要修改标签的后端机器列表。</p>
         :type Targets: list of Target
-        :param _LocationId: 转发规则的ID，七层规则时需要此参数，4层规则不需要。
+        :param _LocationId: <p>转发规则的ID，七层规则时需要此参数，4层规则不需要。</p>
         :type LocationId: str
-        :param _Tag: 后端服务修改后的标签。此参数的优先级低于前述[Target](https://cloud.tencent.com/document/api/214/30694#Target)中的Tag参数，即最终的标签以Target中的Tag参数值为准，仅当Target中的Tag参数为空时，才以RsTagRule中的Tag参数为准。
+        :param _Tag: <p>后端服务修改后的标签。此参数的优先级低于前述<a href="https://cloud.tencent.com/document/api/214/30694#Target">Target</a>中的Tag参数，即最终的标签以Target中的Tag参数值为准，仅当Target中的Tag参数为空时，才以RsTagRule中的Tag参数为准。</p>
         :type Tag: str
         """
         self._ListenerId = None
@@ -19653,7 +19611,7 @@ class RsTagRule(AbstractModel):
 
     @property
     def ListenerId(self):
-        r"""负载均衡监听器 ID。
+        r"""<p>负载均衡监听器 ID。</p>
         :rtype: str
         """
         return self._ListenerId
@@ -19664,7 +19622,7 @@ class RsTagRule(AbstractModel):
 
     @property
     def Targets(self):
-        r"""要修改标签的后端机器列表。
+        r"""<p>要修改标签的后端机器列表。</p>
         :rtype: list of Target
         """
         return self._Targets
@@ -19675,7 +19633,7 @@ class RsTagRule(AbstractModel):
 
     @property
     def LocationId(self):
-        r"""转发规则的ID，七层规则时需要此参数，4层规则不需要。
+        r"""<p>转发规则的ID，七层规则时需要此参数，4层规则不需要。</p>
         :rtype: str
         """
         return self._LocationId
@@ -19686,7 +19644,7 @@ class RsTagRule(AbstractModel):
 
     @property
     def Tag(self):
-        r"""后端服务修改后的标签。此参数的优先级低于前述[Target](https://cloud.tencent.com/document/api/214/30694#Target)中的Tag参数，即最终的标签以Target中的Tag参数值为准，仅当Target中的Tag参数为空时，才以RsTagRule中的Tag参数为准。
+        r"""<p>后端服务修改后的标签。此参数的优先级低于前述<a href="https://cloud.tencent.com/document/api/214/30694#Target">Target</a>中的Tag参数，即最终的标签以Target中的Tag参数值为准，仅当Target中的Tag参数为空时，才以RsTagRule中的Tag参数为准。</p>
         :rtype: str
         """
         return self._Tag
@@ -19983,6 +19941,8 @@ class RuleInput(AbstractModel):
         :type Domains: list of str
         :param _MultiCertInfo: 证书信息，支持同时传入不同算法类型的多本服务端证书；此参数和Certificate不能同时传入。
         :type MultiCertInfo: :class:`tencentcloud.clb.v20180317.models.MultiCertInfo`
+        :param _CookieName: 自定义cookie名
+        :type CookieName: str
         """
         self._Url = None
         self._Domain = None
@@ -19999,6 +19959,7 @@ class RuleInput(AbstractModel):
         self._Quic = None
         self._Domains = None
         self._MultiCertInfo = None
+        self._CookieName = None
 
     @property
     def Url(self):
@@ -20166,6 +20127,17 @@ class RuleInput(AbstractModel):
     def MultiCertInfo(self, MultiCertInfo):
         self._MultiCertInfo = MultiCertInfo
 
+    @property
+    def CookieName(self):
+        r"""自定义cookie名
+        :rtype: str
+        """
+        return self._CookieName
+
+    @CookieName.setter
+    def CookieName(self, CookieName):
+        self._CookieName = CookieName
+
 
     def _deserialize(self, params):
         self._Url = params.get("Url")
@@ -20189,6 +20161,7 @@ class RuleInput(AbstractModel):
         if params.get("MultiCertInfo") is not None:
             self._MultiCertInfo = MultiCertInfo()
             self._MultiCertInfo._deserialize(params.get("MultiCertInfo"))
+        self._CookieName = params.get("CookieName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20258,6 +20231,8 @@ WRR、LEAST_CONN、IP_HASH分别表示按权重轮询、最小连接数、IP Has
         :type TargetGroupList: list of BasicTargetGroupInfo
         :param _OAuth: OAuth配置状态信息。
         :type OAuth: :class:`tencentcloud.clb.v20180317.models.OAuth`
+        :param _CookieName: 自定义cookie名。
+        :type CookieName: str
         """
         self._LocationId = None
         self._Domain = None
@@ -20283,6 +20258,7 @@ WRR、LEAST_CONN、IP_HASH分别表示按权重轮询、最小连接数、IP Has
         self._Domains = None
         self._TargetGroupList = None
         self._OAuth = None
+        self._CookieName = None
 
     @property
     def LocationId(self):
@@ -20552,6 +20528,17 @@ WRR、LEAST_CONN、IP_HASH分别表示按权重轮询、最小连接数、IP Has
     def OAuth(self, OAuth):
         self._OAuth = OAuth
 
+    @property
+    def CookieName(self):
+        r"""自定义cookie名。
+        :rtype: str
+        """
+        return self._CookieName
+
+    @CookieName.setter
+    def CookieName(self, CookieName):
+        self._CookieName = CookieName
+
 
     def _deserialize(self, params):
         self._LocationId = params.get("LocationId")
@@ -20593,6 +20580,7 @@ WRR、LEAST_CONN、IP_HASH分别表示按权重轮询、最小连接数、IP Has
         if params.get("OAuth") is not None:
             self._OAuth = OAuth()
             self._OAuth._deserialize(params.get("OAuth"))
+        self._CookieName = params.get("CookieName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -22686,6 +22674,112 @@ v2目标组需要配置权重，调用CreateTargetGroup接口创建目标组时�
         self._Port = params.get("Port")
         self._Weight = params.get("Weight")
         self._NewPort = params.get("NewPort")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class TargetGroupInstanceStatus(AbstractModel):
+    r"""用于目标组后端rs健康检查状态。
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceIp: 后端rs的IP
+        :type InstanceIp: str
+        :param _Status: 健康检查状态，参数值及含义如下：
+● on：表示探测中。
+● off：表示健康检查关闭。
+● health：表示健康。
+● unhealth：表示异常。
+        :type Status: str
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _Port: 端口
+        :type Port: int
+        :param _EniId: 网卡ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EniId: str
+        """
+        self._InstanceIp = None
+        self._Status = None
+        self._InstanceId = None
+        self._Port = None
+        self._EniId = None
+
+    @property
+    def InstanceIp(self):
+        r"""后端rs的IP
+        :rtype: str
+        """
+        return self._InstanceIp
+
+    @InstanceIp.setter
+    def InstanceIp(self, InstanceIp):
+        self._InstanceIp = InstanceIp
+
+    @property
+    def Status(self):
+        r"""健康检查状态，参数值及含义如下：
+● on：表示探测中。
+● off：表示健康检查关闭。
+● health：表示健康。
+● unhealth：表示异常。
+        :rtype: str
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Port(self):
+        r"""端口
+        :rtype: int
+        """
+        return self._Port
+
+    @Port.setter
+    def Port(self, Port):
+        self._Port = Port
+
+    @property
+    def EniId(self):
+        r"""网卡ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._EniId
+
+    @EniId.setter
+    def EniId(self, EniId):
+        self._EniId = EniId
+
+
+    def _deserialize(self, params):
+        self._InstanceIp = params.get("InstanceIp")
+        self._Status = params.get("Status")
+        self._InstanceId = params.get("InstanceId")
+        self._Port = params.get("Port")
+        self._EniId = params.get("EniId")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

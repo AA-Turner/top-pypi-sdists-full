@@ -3,7 +3,7 @@ Type annotations for finspace-data service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_finspace_data/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Union
 
 from .literals import (
@@ -36,12 +37,6 @@ from .literals import (
     UserTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -154,7 +149,7 @@ class AssociateUserToPermissionGroupRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -221,7 +216,7 @@ class CredentialsTypeDef(TypedDict):
 class DataViewDestinationTypeParamsOutputTypeDef(TypedDict):
     destinationType: str
     s3DestinationExportFileFormat: NotRequired[ExportFileFormatType]
-    s3DestinationExportFileFormatOptions: NotRequired[Dict[str, str]]
+    s3DestinationExportFileFormatOptions: NotRequired[dict[str, str]]
 
 
 class DataViewDestinationTypeParamsTypeDef(TypedDict):
@@ -293,7 +288,7 @@ class PermissionGroupTypeDef(TypedDict):
     permissionGroupId: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    applicationPermissions: NotRequired[List[ApplicationPermissionType]]
+    applicationPermissions: NotRequired[list[ApplicationPermissionType]]
     createTime: NotRequired[int]
     lastModifiedTime: NotRequired[int]
     membershipStatus: NotRequired[PermissionGroupMembershipStatusType]
@@ -555,8 +550,8 @@ class ChangesetSummaryTypeDef(TypedDict):
     changesetArn: NotRequired[str]
     datasetId: NotRequired[str]
     changeType: NotRequired[ChangeTypeType]
-    sourceParams: NotRequired[Dict[str, str]]
-    formatParams: NotRequired[Dict[str, str]]
+    sourceParams: NotRequired[dict[str, str]]
+    formatParams: NotRequired[dict[str, str]]
     createTime: NotRequired[int]
     status: NotRequired[IngestionStatusType]
     errorInfo: NotRequired[ChangesetErrorInfoTypeDef]
@@ -571,8 +566,8 @@ class GetChangesetResponseTypeDef(TypedDict):
     changesetArn: str
     datasetId: str
     changeType: ChangeTypeType
-    sourceParams: Dict[str, str]
-    formatParams: Dict[str, str]
+    sourceParams: dict[str, str]
+    formatParams: dict[str, str]
     createTime: int
     status: IngestionStatusType
     errorInfo: ChangesetErrorInfoTypeDef
@@ -584,8 +579,8 @@ class GetChangesetResponseTypeDef(TypedDict):
 
 
 class SchemaDefinitionOutputTypeDef(TypedDict):
-    columns: NotRequired[List[ColumnDefinitionTypeDef]]
-    primaryKeyColumns: NotRequired[List[str]]
+    columns: NotRequired[list[ColumnDefinitionTypeDef]]
+    primaryKeyColumns: NotRequired[list[str]]
 
 
 class SchemaDefinitionTypeDef(TypedDict):
@@ -609,8 +604,8 @@ class DataViewSummaryTypeDef(TypedDict):
     dataViewArn: NotRequired[str]
     datasetId: NotRequired[str]
     asOfTimestamp: NotRequired[int]
-    partitionColumns: NotRequired[List[str]]
-    sortColumns: NotRequired[List[str]]
+    partitionColumns: NotRequired[list[str]]
+    sortColumns: NotRequired[list[str]]
     status: NotRequired[DataViewStatusType]
     errorInfo: NotRequired[DataViewErrorInfoTypeDef]
     destinationTypeProperties: NotRequired[DataViewDestinationTypeParamsOutputTypeDef]
@@ -621,13 +616,13 @@ class DataViewSummaryTypeDef(TypedDict):
 
 class GetDataViewResponseTypeDef(TypedDict):
     autoUpdate: bool
-    partitionColumns: List[str]
+    partitionColumns: list[str]
     datasetId: str
     asOfTimestamp: int
     errorInfo: DataViewErrorInfoTypeDef
     lastModifiedTime: int
     createTime: int
-    sortColumns: List[str]
+    sortColumns: list[str]
     dataViewId: str
     dataViewArn: str
     destinationTypeParams: DataViewDestinationTypeParamsOutputTypeDef
@@ -647,7 +642,7 @@ class GetPermissionGroupResponseTypeDef(TypedDict):
 
 
 class ListPermissionGroupsResponseTypeDef(TypedDict):
-    permissionGroups: List[PermissionGroupTypeDef]
+    permissionGroups: list[PermissionGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -675,19 +670,19 @@ class ListUsersRequestPaginateTypeDef(TypedDict):
 
 
 class ListPermissionGroupsByUserResponseTypeDef(TypedDict):
-    permissionGroups: List[PermissionGroupByUserTypeDef]
+    permissionGroups: list[PermissionGroupByUserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListUsersByPermissionGroupResponseTypeDef(TypedDict):
-    users: List[UserByPermissionGroupTypeDef]
+    users: list[UserByPermissionGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListUsersResponseTypeDef(TypedDict):
-    users: List[UserTypeDef]
+    users: list[UserTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -698,7 +693,7 @@ class PermissionGroupParamsTypeDef(TypedDict):
 
 
 class ListChangesetsResponseTypeDef(TypedDict):
-    changesets: List[ChangesetSummaryTypeDef]
+    changesets: list[ChangesetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -722,7 +717,7 @@ class CreateDataViewRequestTypeDef(TypedDict):
 
 
 class ListDataViewsResponseTypeDef(TypedDict):
-    dataViews: List[DataViewSummaryTypeDef]
+    dataViews: list[DataViewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -758,7 +753,7 @@ SchemaUnionUnionTypeDef = Union[SchemaUnionTypeDef, SchemaUnionOutputTypeDef]
 
 
 class ListDatasetsResponseTypeDef(TypedDict):
-    datasets: List[DatasetTypeDef]
+    datasets: list[DatasetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

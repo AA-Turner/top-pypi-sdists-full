@@ -8,6 +8,7 @@ from dateutil.parser import isoparse
 from ..models.list_sqs_triggers_response_200_item_aws_auth_resource_type import (
     ListSqsTriggersResponse200ItemAwsAuthResourceType,
 )
+from ..models.list_sqs_triggers_response_200_item_mode import ListSqsTriggersResponse200ItemMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -28,7 +29,6 @@ class ListSqsTriggersResponse200Item:
         queue_url (str):
         aws_auth_resource_type (ListSqsTriggersResponse200ItemAwsAuthResourceType):
         aws_resource_path (str):
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -37,6 +37,7 @@ class ListSqsTriggersResponse200Item:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (ListSqsTriggersResponse200ItemMode): job trigger mode
         message_attributes (Union[Unset, List[str]]):
         server_id (Union[Unset, str]):
         last_server_ping (Union[Unset, datetime.datetime]):
@@ -44,13 +45,12 @@ class ListSqsTriggersResponse200Item:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, ListSqsTriggersResponse200ItemErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, ListSqsTriggersResponse200ItemRetry]):
+        retry (Union[Unset, ListSqsTriggersResponse200ItemRetry]): Retry configuration for failed module executions
     """
 
     queue_url: str
     aws_auth_resource_type: ListSqsTriggersResponse200ItemAwsAuthResourceType
     aws_resource_path: str
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -59,6 +59,7 @@ class ListSqsTriggersResponse200Item:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: ListSqsTriggersResponse200ItemMode
     message_attributes: Union[Unset, List[str]] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -73,7 +74,6 @@ class ListSqsTriggersResponse200Item:
         aws_auth_resource_type = self.aws_auth_resource_type.value
 
         aws_resource_path = self.aws_resource_path
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -84,6 +84,8 @@ class ListSqsTriggersResponse200Item:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         message_attributes: Union[Unset, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
             message_attributes = self.message_attributes
@@ -110,7 +112,6 @@ class ListSqsTriggersResponse200Item:
                 "queue_url": queue_url,
                 "aws_auth_resource_type": aws_auth_resource_type,
                 "aws_resource_path": aws_resource_path,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -119,6 +120,7 @@ class ListSqsTriggersResponse200Item:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if message_attributes is not UNSET:
@@ -153,8 +155,6 @@ class ListSqsTriggersResponse200Item:
 
         aws_resource_path = d.pop("aws_resource_path")
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -170,6 +170,8 @@ class ListSqsTriggersResponse200Item:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = ListSqsTriggersResponse200ItemMode(d.pop("mode"))
 
         message_attributes = cast(List[str], d.pop("message_attributes", UNSET))
 
@@ -204,7 +206,6 @@ class ListSqsTriggersResponse200Item:
             queue_url=queue_url,
             aws_auth_resource_type=aws_auth_resource_type,
             aws_resource_path=aws_resource_path,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -213,6 +214,7 @@ class ListSqsTriggersResponse200Item:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             message_attributes=message_attributes,
             server_id=server_id,
             last_server_ping=last_server_ping,

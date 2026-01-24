@@ -47,7 +47,7 @@ class Config(BaseModel):
         res = raise_for_status(
             client.get(
                 "/tables/management/configuration/download",
-                params=dict(hash=self.config_hash, sanitized=sanitized),
+                params={"hash": self.config_hash, "sanitized": sanitized},
             )
         )
         self.text = res.text
@@ -67,7 +67,7 @@ class DeviceConfigs(BaseModel):
             results: dict: {sn: [Config, Config]}
         """
         if device or sn:
-            filters = dict(sn=["eq", sn]) if sn else dict(hostname=["ieq", device])
+            filters = {"sn": ["eq", sn]} if sn else {"hostname": ["ieq", device]}
             res = self.client.fetch_all(
                 "tables/management/configuration",
                 sort={"order": "desc", "column": "lastChangeAt"},
@@ -110,7 +110,7 @@ class DeviceConfigs(BaseModel):
             "tables/addressing/managed-devs",
             columns=["ip", "hostname", "sn"],
             reports="/technology/addressing/managed-ip",
-            filters=dict(ip=["eq", ip]),
+            filters={"ip": ["eq", ip]},
         )
         if len(res) == 1 and not log:
             return {"hostname": res[0]["hostname"], "sn": res[0]["sn"]}
@@ -118,7 +118,7 @@ class DeviceConfigs(BaseModel):
             res = self.client.inventory.devices.all(
                 columns=["hostname", "taskKey", "sn"],
                 snapshot_id=snapshot_id,
-                filters=dict(sn=["eq", res[0]["sn"]]),
+                filters={"sn": ["eq", res[0]["sn"]]},
             )
             return {"hostname": res[0]["hostname"], "taskKey": res[0]["taskKey"], "sn": res[0]["sn"]}
         elif len(res) > 1:
@@ -170,7 +170,7 @@ class DeviceConfigs(BaseModel):
         res = raise_for_status(
             self.client.get(
                 "/tables/management/configuration/download",
-                params=dict(hash=cfg.config_hash, sanitized=sanitized),
+                params={"hash": cfg.config_hash, "sanitized": sanitized},
             )
         )
         cfg.text = res.text
@@ -199,7 +199,7 @@ class DeviceConfigs(BaseModel):
         except AddressValueError:
             res = self.client.inventory.devices.all(
                 columns=["hostname", "taskKey", "sn"],
-                filters=dict(hostname=["ieq", device]),
+                filters={"hostname": ["ieq", device]},
                 snapshot_id=snapshot_id,
             )
             if len(res) == 1:

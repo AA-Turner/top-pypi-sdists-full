@@ -3,7 +3,7 @@ Type annotations for iam service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -67,10 +67,13 @@ __all__ = (
     "ListUsersPaginatorName",
     "ListVirtualMFADevicesPaginatorName",
     "PaginatorName",
+    "PermissionCheckResultTypeType",
+    "PermissionCheckStatusTypeType",
     "PermissionsBoundaryAttachmentTypeType",
     "PolicyEvaluationDecisionTypeType",
     "PolicyExistsWaiterName",
     "PolicyOwnerEntityTypeType",
+    "PolicyParameterTypeEnumType",
     "PolicyScopeTypeType",
     "PolicySourceTypeType",
     "PolicyTypeType",
@@ -83,8 +86,10 @@ __all__ = (
     "SimulateCustomPolicyPaginatorName",
     "SimulatePrincipalPolicyPaginatorName",
     "SortKeyTypeType",
+    "StateTypeType",
     "StatusTypeType",
     "SummaryKeyTypeType",
+    "SummaryStateTypeType",
     "UserExistsWaiterName",
     "WaiterName",
 )
@@ -145,10 +150,13 @@ ListUserPoliciesPaginatorName = Literal["list_user_policies"]
 ListUserTagsPaginatorName = Literal["list_user_tags"]
 ListUsersPaginatorName = Literal["list_users"]
 ListVirtualMFADevicesPaginatorName = Literal["list_virtual_mfa_devices"]
+PermissionCheckResultTypeType = Literal["ALLOWED", "DENIED", "UNSURE"]
+PermissionCheckStatusTypeType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 PermissionsBoundaryAttachmentTypeType = Literal["PermissionsBoundaryPolicy"]
 PolicyEvaluationDecisionTypeType = Literal["allowed", "explicitDeny", "implicitDeny"]
 PolicyExistsWaiterName = Literal["policy_exists"]
 PolicyOwnerEntityTypeType = Literal["GROUP", "ROLE", "USER"]
+PolicyParameterTypeEnumType = Literal["string", "stringList"]
 PolicyScopeTypeType = Literal["AWS", "All", "Local"]
 PolicySourceTypeType = Literal[
     "aws-managed", "group", "none", "resource", "role", "user", "user-managed"
@@ -166,6 +174,9 @@ SortKeyTypeType = Literal[
     "SERVICE_NAMESPACE_ASCENDING",
     "SERVICE_NAMESPACE_DESCENDING",
 ]
+StateTypeType = Literal[
+    "ACCEPTED", "ASSIGNED", "EXPIRED", "FINALIZED", "PENDING_APPROVAL", "REJECTED", "UNASSIGNED"
+]
 StatusTypeType = Literal["Active", "Expired", "Inactive"]
 SummaryKeyTypeType = Literal[
     "AccessKeysPerUserQuota",
@@ -173,6 +184,7 @@ SummaryKeyTypeType = Literal[
     "AccountMFAEnabled",
     "AccountPasswordPresent",
     "AccountSigningCertificatesPresent",
+    "AssumeRolePolicySizeQuota",
     "AttachedPoliciesPerGroupQuota",
     "AttachedPoliciesPerRoleQuota",
     "AttachedPoliciesPerUserQuota",
@@ -181,6 +193,8 @@ SummaryKeyTypeType = Literal[
     "Groups",
     "GroupsPerUserQuota",
     "GroupsQuota",
+    "InstanceProfiles",
+    "InstanceProfilesQuota",
     "MFADevices",
     "MFADevicesInUse",
     "Policies",
@@ -188,6 +202,10 @@ SummaryKeyTypeType = Literal[
     "PolicySizeQuota",
     "PolicyVersionsInUse",
     "PolicyVersionsInUseQuota",
+    "Providers",
+    "RolePolicySizeQuota",
+    "Roles",
+    "RolesQuota",
     "ServerCertificates",
     "ServerCertificatesQuota",
     "SigningCertificatesPerUserQuota",
@@ -196,6 +214,7 @@ SummaryKeyTypeType = Literal[
     "UsersQuota",
     "VersionsPerPolicyQuota",
 ]
+SummaryStateTypeType = Literal["AVAILABLE", "FAILED", "NOT_AVAILABLE", "NOT_SUPPORTED"]
 UserExistsWaiterName = Literal["user_exists"]
 IAMServiceName = Literal["iam"]
 ServiceName = Literal[
@@ -224,7 +243,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -294,6 +312,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -339,7 +358,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -392,7 +410,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -431,8 +448,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -467,6 +482,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -476,6 +492,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -486,6 +503,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -507,8 +527,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -523,15 +541,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -562,6 +581,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -602,6 +622,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

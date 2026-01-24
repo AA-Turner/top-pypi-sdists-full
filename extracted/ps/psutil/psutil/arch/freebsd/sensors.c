@@ -42,7 +42,7 @@ error:
     if (errno == ENOENT)
         PyErr_SetString(PyExc_NotImplementedError, "no battery");
     else
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
     return NULL;
 }
 
@@ -56,15 +56,15 @@ psutil_sensors_cpu_temperature(PyObject *self, PyObject *args) {
     char sensor[26];
     size_t size = sizeof(current);
 
-    if (! PyArg_ParseTuple(args, "i", &core))
+    if (!PyArg_ParseTuple(args, "i", &core))
         return NULL;
-    sprintf(sensor, "dev.cpu.%d.temperature", core);
+    str_format(sensor, sizeof(sensor), "dev.cpu.%d.temperature", core);
     if (psutil_sysctlbyname(sensor, &current, size) != 0)
         goto error;
     current = DECIKELVIN_2_CELSIUS(current);
 
     // Return -273 in case of failure.
-    sprintf(sensor, "dev.cpu.%d.coretemp.tjmax", core);
+    str_format(sensor, sizeof(sensor), "dev.cpu.%d.coretemp.tjmax", core);
     if (psutil_sysctlbyname(sensor, &tjmax, size) != 0)
         tjmax = 0;
     tjmax = DECIKELVIN_2_CELSIUS(tjmax);
@@ -75,6 +75,6 @@ error:
     if (errno == ENOENT)
         PyErr_SetString(PyExc_NotImplementedError, "no temperature sensors");
     else
-        PyErr_SetFromErrno(PyExc_OSError);
+        psutil_oserror();
     return NULL;
 }

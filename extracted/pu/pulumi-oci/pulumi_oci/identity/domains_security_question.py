@@ -1043,9 +1043,34 @@ class DomainsSecurityQuestion(pulumi.CustomResource):
                  type: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        This resource provides the Security Question resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a security question.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_security_question = oci.identity.DomainsSecurityQuestion("test_security_question",
+            active=security_question_active,
+            idcs_endpoint=test_domain["url"],
+            question_texts=[{
+                "locale": "en",
+                "value": security_question_question_text_value,
+                "default": True,
+            }],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:SecurityQuestion"],
+            type="custom",
+            attribute_sets=["all"],
+            attributes="",
+            authorization=security_question_authorization,
+            external_id="externalId",
+            id=security_question_id,
+            ocid=security_question_ocid,
+            resource_type_schema_version=security_question_resource_type_schema_version,
+            tags=[{
+                "key": security_question_tags_key,
+                "value": security_question_tags_value,
+            }])
+        ```
 
         ## Import
 
@@ -1151,9 +1176,34 @@ class DomainsSecurityQuestion(pulumi.CustomResource):
                  args: DomainsSecurityQuestionArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the Security Question resource in Oracle Cloud Infrastructure Identity Domains service.
+        ## Example Usage
 
-        Create a security question.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
+
+        test_security_question = oci.identity.DomainsSecurityQuestion("test_security_question",
+            active=security_question_active,
+            idcs_endpoint=test_domain["url"],
+            question_texts=[{
+                "locale": "en",
+                "value": security_question_question_text_value,
+                "default": True,
+            }],
+            schemas=["urn:ietf:params:scim:schemas:oracle:idcs:SecurityQuestion"],
+            type="custom",
+            attribute_sets=["all"],
+            attributes="",
+            authorization=security_question_authorization,
+            external_id="externalId",
+            id=security_question_id,
+            ocid=security_question_ocid,
+            resource_type_schema_version=security_question_resource_type_schema_version,
+            tags=[{
+                "key": security_question_tags_key,
+                "value": security_question_tags_value,
+            }])
+        ```
 
         ## Import
 

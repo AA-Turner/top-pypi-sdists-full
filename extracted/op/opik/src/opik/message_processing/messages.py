@@ -1,9 +1,10 @@
 import dataclasses
 import datetime
 from dataclasses import field
-from typing import Optional, Any, Dict, List, Union, Literal
+from typing import Optional, Any, Dict, List, Union, Literal, Set
 
 from . import arguments_utils
+from .preprocessing import constants
 from ..rest_api.types import span_write, trace_write
 from ..types import SpanType, ErrorInfoDict, LLMProvider, AttachmentEntityType
 
@@ -11,6 +12,7 @@ from ..types import SpanType, ErrorInfoDict, LLMProvider, AttachmentEntityType
 @dataclasses.dataclass
 class BaseMessage:
     delivery_time: float = field(init=False, default=0.0)
+    delivery_attempts: int = field(init=False, default=1)
 
     def as_payload_dict(self) -> Dict[str, Any]:
         # we are not using dataclasses.as_dict() here
@@ -18,6 +20,10 @@ class BaseMessage:
         data = {**self.__dict__}
         if "delivery_time" in data:
             data.pop("delivery_time")
+        if "delivery_attempts" in data:
+            data.pop("delivery_attempts")
+        if constants.MARKER_ATTRIBUTE_NAME in data:
+            data.pop(constants.MARKER_ATTRIBUTE_NAME)
         return data
 
 
@@ -47,6 +53,10 @@ class CreateTraceMessage(BaseMessage):
         data["id"] = data.pop("trace_id")
         return data
 
+    @staticmethod
+    def fields_to_anonymize() -> Set[str]:
+        return {"input", "output", "metadata"}
+
 
 @dataclasses.dataclass
 class UpdateTraceMessage(BaseMessage):
@@ -74,6 +84,10 @@ class UpdateTraceMessage(BaseMessage):
         data = super().as_payload_dict()
         data["id"] = data.pop("trace_id")
         return data
+
+    @staticmethod
+    def fields_to_anonymize() -> Set[str]:
+        return {"input", "output", "metadata"}
 
 
 @dataclasses.dataclass
@@ -109,6 +123,10 @@ class CreateSpanMessage(BaseMessage):
         data["total_estimated_cost"] = data.pop("total_cost")
         return data
 
+    @staticmethod
+    def fields_to_anonymize() -> Set[str]:
+        return {"input", "output", "metadata"}
+
 
 @dataclasses.dataclass
 class UpdateSpanMessage(BaseMessage):
@@ -140,6 +158,10 @@ class UpdateSpanMessage(BaseMessage):
         data["id"] = data.pop("span_id")
         data["total_estimated_cost"] = data.pop("total_cost")
         return data
+
+    @staticmethod
+    def fields_to_anonymize() -> Set[str]:
+        return {"input", "output", "metadata"}
 
 
 @dataclasses.dataclass
@@ -197,10 +219,18 @@ class AddThreadsFeedbackScoresBatchMessage(BaseMessage):
 class CreateSpansBatchMessage(BaseMessage):
     batch: List[span_write.SpanWrite]
 
+    @staticmethod
+    def fields_to_anonymize() -> Set[str]:
+        return {"input", "output", "metadata"}
+
 
 @dataclasses.dataclass
 class CreateTraceBatchMessage(BaseMessage):
     batch: List[trace_write.TraceWrite]
+
+    @staticmethod
+    def fields_to_anonymize() -> Set[str]:
+        return {"input", "output", "metadata"}
 
 
 @dataclasses.dataclass
@@ -231,6 +261,25 @@ class GuardrailBatchMessage(BaseMessage):
 
 
 @dataclasses.dataclass
+class ExperimentItemMessage(BaseMessage):
+    """
+    There is no handler for that in the message processor, it exists
+    only as an item of CreateExperimentItemsBatchMessage
+    """
+
+    id: str
+    experiment_id: str
+    trace_id: str
+    dataset_item_id: str
+
+
+@dataclasses.dataclass
+class CreateExperimentItemsBatchMessage(BaseMessage):
+    batch: List[ExperimentItemMessage]
+    supports_batching: bool = True
+
+
+@dataclasses.dataclass
 class CreateAttachmentMessage(BaseMessage):
     file_path: str
     file_name: str
@@ -239,3 +288,9 @@ class CreateAttachmentMessage(BaseMessage):
     entity_id: str
     project_name: str
     encoded_url_override: str
+    delete_after_upload: bool = False
+
+
+@dataclasses.dataclass
+class AttachmentSupportingMessage(BaseMessage):
+    original_message: BaseMessage

@@ -95,7 +95,7 @@ class CRS:
 
     __slots__ = ("_crs", "_epsg", "_str")
 
-    def __init__(self, crs_spec: Any):
+    def __init__(self, crs_spec: Any) -> None:
         """
         Construct CRS object from *something*.
 
@@ -122,8 +122,8 @@ class CRS:
     def __getstate__(self):
         return {"crs_str": self._str}
 
-    def __setstate__(self, state):
-        self.__init__(state["crs_str"])
+    def __setstate__(self, state) -> None:
+        self._crs, self._str, self._epsg = _make_crs(state["crs_str"])
 
     def to_wkt(self, pretty: bool = False, version: Optional[WktVersion] = None) -> str:
         """
@@ -298,8 +298,23 @@ class CRS:
         )
         return self._str
 
+    def transformer(self, other: "SomeCRS", always_xy: bool = True) -> Transformer:
+        """Construct :py:class:`pyproj.Transformer`.
+
+        Direction is from ``self`` to ``other``.
+
+        :param other:
+              Destination CRS
+
+        :param always_xy:
+              If true, the transform method will accept as input and return as output coordinates
+              using the traditional GIS order, that is longitude, latitude for geographic CRS and
+              easting, northing for most projected CRS.
+        """
+        return _make_crs_transform(self.proj, norm_crs(other).proj, always_xy=always_xy)
+
     def transformer_to_crs(
-        self, other: "CRS", always_xy: bool = True
+        self, other: "SomeCRS", always_xy: bool = True
     ) -> Callable[[Any, Any], Tuple[Any, Any]]:
         """
         Build coordinate transformer to other projection.
@@ -316,9 +331,7 @@ class CRS:
               using the traditional GIS order, that is longitude, latitude for geographic CRS and
               easting, northing for most projected CRS.
         """
-
-        # pylint: disable=protected-access
-        tr = _make_crs_transform(self._crs, other._crs, always_xy=always_xy)
+        tr = self.transformer(other, always_xy=always_xy)
 
         def result(x, y, **kw):
             rx, ry = tr.transform(x, y, **kw)  # pylint: disable=unpacking-non-sequence

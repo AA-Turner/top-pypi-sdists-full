@@ -7,9 +7,12 @@ from typing import Optional, List, Dict
 import requests
 from airflow.exceptions import AirflowNotFoundException
 try:
-    from airflow.hooks.base import BaseHook  # Airflow 2+
+    from airflow.sdk.bases.hook import BaseHook  # Airflow 3.0+
 except ImportError:
-    from airflow.hooks.base_hook import BaseHook  # Airflow 1
+    try:
+        from airflow.hooks.base import BaseHook  # Airflow 2+
+    except ImportError:
+        from airflow.hooks.base_hook import BaseHook  # Airflow 1
 from dataclasses_json import dataclass_json
 from pycarlo.common.retries import ExponentialBackoff
 from pycarlo.core import Session, Client, Mutation

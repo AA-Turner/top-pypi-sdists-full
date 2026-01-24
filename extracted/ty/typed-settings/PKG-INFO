@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: typed-settings
-Version: 25.0.0
+Version: 25.3.0
 Summary: Typed settings based on attrs classes
 Project-URL: Homepage, https://gitlab.com/sscherfke/typed-settings
 Project-URL: Documentation, https://typed-settings.readthedocs.io
@@ -18,16 +18,16 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: exceptiongroup>=1.3.0; python_version < '3.11'
 Requires-Dist: tomli>=2; python_version < '3.11'
 Provides-Extra: all
@@ -36,20 +36,24 @@ Requires-Dist: cattrs>=24.1; extra == 'all'
 Requires-Dist: click-option-group; extra == 'all'
 Requires-Dist: click>=7; extra == 'all'
 Requires-Dist: jinja2; extra == 'all'
-Requires-Dist: pydantic>=2; extra == 'all'
+Requires-Dist: pydantic>=2.12.0a1; (python_version >= '3.14') and extra == 'all'
+Requires-Dist: pydantic>=2; (python_version < '3.14') and extra == 'all'
 Provides-Extra: attrs
 Requires-Dist: attrs>=23.1; extra == 'attrs'
 Provides-Extra: cattrs
 Requires-Dist: cattrs>=24.1; extra == 'cattrs'
 Provides-Extra: click
 Requires-Dist: click>=7; extra == 'click'
+Provides-Extra: dotenv
+Requires-Dist: python-dotenv; extra == 'dotenv'
 Provides-Extra: jinja
 Requires-Dist: jinja2; extra == 'jinja'
 Provides-Extra: option-groups
 Requires-Dist: click-option-group; extra == 'option-groups'
 Requires-Dist: click>=7; extra == 'option-groups'
 Provides-Extra: pydantic
-Requires-Dist: pydantic>=2; extra == 'pydantic'
+Requires-Dist: pydantic>=2.12.0a1; (python_version >= '3.14') and extra == 'pydantic'
+Requires-Dist: pydantic>=2; (python_version < '3.14') and extra == 'pydantic'
 Description-Content-Type: text/markdown
 
 # Typed Settings
@@ -122,6 +126,7 @@ Available features:
 - `typed-settings[cattrs]`: Enable usage of the powerful and fast **cattrs** converter.
 - `typed-settings[click]`: Enable support for **Click** options.
 - `typed-settings[option-groups]`: Enable support for **Click** and **Click option groups**.
+- `typed-settings[dotenv]`: Enable support for reading `.env` files via **python-dotenv**.
 - `typed-settings[jinja]`: Enable support for value interpolation with **Jinja** templates.
 - `typed-settings[all]`: Install all optional requirements.
 

@@ -12,24 +12,22 @@ from __future__ import annotations
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class ActionsHostedRunnerMachineSpec(GitHubModel):
-    """Github-owned VM details.
+class ActionsCacheRetentionLimitForEnterprise(GitHubModel):
+    """Actions cache retention limit for an enterprise
 
-    Provides details of a particular machine spec.
+    GitHub Actions cache retention policy for an enterprise.
     """
 
-    id: str = Field(
-        description="The ID used for the `size` parameter when creating a new runner."
-    )
-    cpu_cores: int = Field(description="The number of cores.")
-    memory_gb: int = Field(description="The available RAM for the machine spec.")
-    storage_gb: int = Field(
-        description="The available SSD storage for the machine spec."
+    max_cache_retention_days: Missing[int] = Field(
+        default=UNSET,
+        description="For repositories & organizations in an enterprise, the maximum duration, in days, for which caches in a repository may be retained.",
     )
 
 
-model_rebuild(ActionsHostedRunnerMachineSpec)
+model_rebuild(ActionsCacheRetentionLimitForEnterprise)
 
-__all__ = ("ActionsHostedRunnerMachineSpec",)
+__all__ = ("ActionsCacheRetentionLimitForEnterprise",)

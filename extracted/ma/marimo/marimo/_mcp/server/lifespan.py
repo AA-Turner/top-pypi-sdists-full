@@ -1,13 +1,17 @@
-# Copyright 2025 Marimo. All rights reserved.
-import contextlib
-from collections.abc import AsyncIterator
+# Copyright 2026 Marimo. All rights reserved.
+from __future__ import annotations
 
-from starlette.applications import Starlette
+import contextlib
+from typing import TYPE_CHECKING
 
 from marimo._loggers import marimo_logger
-from marimo._mcp.server.main import setup_mcp_server
 
 LOGGER = marimo_logger()
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
+    from starlette.applications import Starlette
 
 
 @contextlib.asynccontextmanager
@@ -15,11 +19,15 @@ async def mcp_server_lifespan(app: Starlette) -> AsyncIterator[None]:
     """Lifespan for MCP server functionality (exposing marimo as MCP server)."""
 
     try:
-        session_manager = setup_mcp_server(app)
+        mcp_app = app.state.mcp
+        if mcp_app is None:
+            LOGGER.warning("MCP server not found in app state")
+            yield
+            return
 
-        async with session_manager.run():
+        # Session manager owns request lifecycle during app run
+        async with mcp_app.session_manager.run():
             LOGGER.info("MCP server session manager started")
-            # Session manager owns request lifecycle during app run
             yield
 
     except ImportError as e:
@@ -28,4 +36,5 @@ async def mcp_server_lifespan(app: Starlette) -> AsyncIterator[None]:
         return
     except Exception as e:
         LOGGER.error(f"Failed to start MCP server: {e}")
-        raise
+        yield
+        return

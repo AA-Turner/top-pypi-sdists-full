@@ -6,9 +6,10 @@ use chroma_config::assignment::assignment_policy::AssignmentPolicy;
 use chroma_log::{CollectionInfo, CollectionRecord, Log};
 use chroma_memberlist::memberlist_provider::Memberlist;
 use chroma_sysdb::{GetCollectionsOptions, SysDb};
-use chroma_types::CollectionUuid;
+use chroma_types::{CollectionUuid, JobId};
 use figment::providers::Env;
 use figment::Figment;
+use opentelemetry::metrics::Counter;
 use serde::Deserialize;
 use uuid::Uuid;
 
@@ -17,47 +18,24 @@ use crate::compactor::types::CompactionJob;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SchedulerMetrics {
-    dead_jobs_count: opentelemetry::metrics::Gauge<u64>,
+    job_failure_count: Counter<u64>,
 }
 
 impl Default for SchedulerMetrics {
     fn default() -> Self {
         let meter = opentelemetry::global::meter("chroma_compactor");
-        let dead_jobs_count = meter
-            .u64_gauge("compactor_dead_jobs_count")
-            .with_description("Number of collections with failed jobs")
+        let job_failure_count = meter
+            .u64_counter("compactor_job_failure_count")
+            .with_description("Number of compaction job failures")
             .build();
 
-        Self { dead_jobs_count }
+        Self { job_failure_count }
     }
 }
 
 impl SchedulerMetrics {
-    fn update_dead_jobs_count(&self, count: usize) {
-        // Create a callback that will be called when metrics are collected
-        self.dead_jobs_count.record(count.try_into().unwrap(), &[]);
-    }
-}
-
-#[derive(Debug)]
-struct FailedJob {
-    failure_count: u8,
-}
-
-impl FailedJob {
-    fn new() -> Self {
-        Self { failure_count: 1 }
-    }
-
-    fn increment_failure(&mut self, max_failure_count: u8) {
-        if self.failure_count >= max_failure_count {
-            return;
-        }
-        self.failure_count += 1;
-    }
-
-    fn failure_count(&self) -> u8 {
-        self.failure_count
+    fn increment_job_failure_count(&self) {
+        self.job_failure_count.add(1, &[]);
     }
 }
 
@@ -91,11 +69,9 @@ pub(crate) struct Scheduler {
     disabled_collections: HashSet<CollectionUuid>,
     deleted_collections: HashSet<CollectionUuid>,
     collections_needing_repair: HashMap<CollectionUuid, i64>,
-    in_progress_jobs: HashMap<CollectionUuid, InProgressJob>,
+    in_progress_jobs: HashMap<JobId, InProgressJob>,
     job_expiry_seconds: u64,
-    failing_jobs: HashMap<CollectionUuid, FailedJob>,
-    dead_jobs: HashSet<CollectionUuid>,
-    max_failure_count: u8,
+    max_failure_count: i32,
     metrics: SchedulerMetrics,
 }
 
@@ -116,7 +92,7 @@ impl Scheduler {
         assignment_policy: Box<dyn AssignmentPolicy>,
         disabled_collections: HashSet<CollectionUuid>,
         job_expiry_seconds: u64,
-        max_failure_count: u8,
+        max_failure_count: i32,
     ) -> Scheduler {
         Scheduler {
             my_member_id: my_ip,
@@ -134,9 +110,7 @@ impl Scheduler {
             collections_needing_repair: HashMap::new(),
             in_progress_jobs: HashMap::new(),
             job_expiry_seconds,
-            failing_jobs: HashMap::new(),
             max_failure_count,
-            dead_jobs: HashSet::new(),
             metrics: SchedulerMetrics::default(),
         }
     }
@@ -189,10 +163,9 @@ impl Scheduler {
             if self
                 .disabled_collections
                 .contains(&collection_info.collection_id)
-                || self.dead_jobs.contains(&collection_info.collection_id)
             {
                 tracing::info!(
-                    "Ignoring collection: {:?} because it disabled for compaction",
+                    "Ignoring collection: {:?} because it is disabled for compaction",
                     collection_info.collection_id
                 );
                 continue;
@@ -211,6 +184,17 @@ impl Scheduler {
                     if collection.is_empty() {
                         self.deleted_collections
                             .insert(collection_info.collection_id);
+                        continue;
+                    }
+
+                    // Skip collections that have failed too many times
+                    if collection[0].compaction_failure_count >= self.max_failure_count {
+                        tracing::info!(
+                            "Ignoring collection {:?} - too many compaction failures ({}/{})",
+                            collection_info.collection_id,
+                            collection[0].compaction_failure_count,
+                            self.max_failure_count
+                        );
                         continue;
                     }
 
@@ -310,7 +294,7 @@ impl Scheduler {
         self.job_queue.clear();
         let mut scheduled_collections = Vec::new();
         for record in collection_records {
-            if self.is_job_in_progress(&record.collection_id) {
+            if self.is_job_in_progress(&record.collection_id).await {
                 tracing::info!(
                     "Compaction for {} is already in progress, skipping",
                     record.collection_id
@@ -358,14 +342,14 @@ impl Scheduler {
         }
     }
 
-    fn is_job_in_progress(&mut self, collection_id: &CollectionUuid) -> bool {
-        match self.in_progress_jobs.get(collection_id) {
+    async fn is_job_in_progress(&mut self, collection_id: &CollectionUuid) -> bool {
+        match self.in_progress_jobs.get(&(*collection_id).into()) {
             Some(job) if job.is_expired() => {
                 tracing::info!(
                     "Compaction for {} is expired, removing from dedup set.",
                     collection_id
                 );
-                self.fail_collection(*collection_id);
+                self.fail_job((*collection_id).into()).await;
                 false
             }
             Some(_) => true,
@@ -374,62 +358,46 @@ impl Scheduler {
     }
 
     fn add_in_progress(&mut self, collection_id: CollectionUuid) {
-        self.in_progress_jobs
-            .insert(collection_id, InProgressJob::new(self.job_expiry_seconds));
+        self.in_progress_jobs.insert(
+            collection_id.into(),
+            InProgressJob::new(self.job_expiry_seconds),
+        );
     }
 
-    pub(crate) fn succeed_collection(&mut self, collection_id: CollectionUuid) {
-        if self.in_progress_jobs.remove(&collection_id).is_none() {
+    pub(crate) fn succeed_job(&mut self, job_id: JobId) {
+        if self.in_progress_jobs.remove(&job_id).is_none() {
             tracing::warn!(
                 "Expired compaction for {} just successfully finished.",
-                collection_id
+                job_id
             );
-            return;
         }
-        self.failing_jobs.remove(&collection_id);
     }
 
-    pub(crate) fn fail_collection(&mut self, collection_id: CollectionUuid) {
-        if self.in_progress_jobs.remove(&collection_id).is_none() {
+    /// Marks a job as failed and persists the failure count to sysdb.
+    pub(crate) async fn fail_job(&mut self, job_id: JobId) {
+        if self.in_progress_jobs.remove(&job_id).is_none() {
             tracing::warn!(
                 "Expired compaction for {} just unsuccessfully finished.",
-                collection_id
+                job_id
             );
-            return;
         }
-        match self.failing_jobs.get_mut(&collection_id) {
-            Some(failed_job) => {
-                failed_job.increment_failure(self.max_failure_count);
-                tracing::warn!(
-                    "Job for collection {} failed {}/{} times",
-                    collection_id,
-                    failed_job.failure_count(),
-                    self.max_failure_count
-                );
 
-                if failed_job.failure_count() >= self.max_failure_count {
-                    tracing::warn!(
-                        "Job for collection {} failed {} times, moving this to dead jobs",
-                        collection_id,
-                        failed_job.failure_count()
-                    );
-                    self.kill_collection(collection_id);
-                }
-            }
-            None => {
-                self.failing_jobs.insert(collection_id, FailedJob::new());
-                tracing::warn!(
-                    "Job for collection {} failed for the first time",
-                    collection_id
-                );
-            }
+        // Record the failure in metrics
+        self.metrics.increment_job_failure_count();
+
+        // Increment failure count in sysdb for persistent tracking across nodes
+        let collection_id = CollectionUuid(job_id.0);
+        if let Err(e) = self
+            .sysdb
+            .increment_compaction_failure_count(collection_id)
+            .await
+        {
+            tracing::warn!(
+                "Failed to increment compaction failure count in sysdb for {}: {:?}.",
+                job_id,
+                e
+            );
         }
-    }
-
-    pub(crate) fn kill_collection(&mut self, collection_id: CollectionUuid) {
-        self.failing_jobs.remove(&collection_id);
-        self.dead_jobs.insert(collection_id);
-        self.metrics.update_dead_jobs_count(self.dead_jobs.len());
     }
 
     pub(crate) fn recompute_disabled_collections(&mut self) {
@@ -459,10 +427,12 @@ impl Scheduler {
     pub(crate) async fn schedule(&mut self) {
         // For now, we clear the job queue every time, assuming we will not have any pending jobs running
         self.job_queue.clear();
+
         if self.memberlist.is_none() || self.memberlist.as_ref().unwrap().is_empty() {
             tracing::error!("Memberlist is not set or empty. Cannot schedule compaction jobs.");
             return;
         }
+
         // Recompute disabled list.
         self.recompute_disabled_collections();
         let collections = self.get_collections_with_new_data().await;
@@ -499,7 +469,7 @@ mod tests {
     use chroma_types::{Collection, LogRecord, Operation, OperationRecord};
 
     #[tokio::test]
-    async fn test_scheduler() {
+    async fn test_k8s_integration_scheduler() {
         let mut log = Log::InMemory(InMemoryLog::new());
         let in_memory_log = match log {
             Log::InMemory(ref mut in_memory_log) => in_memory_log,
@@ -627,7 +597,7 @@ mod tests {
         // Scheduler ignores collection that failed to fetch last compaction time
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].collection_id, collection_uuid_1,);
-        scheduler.succeed_collection(collection_uuid_1);
+        scheduler.succeed_job(collection_uuid_1.into());
 
         // Add last compaction time for tenant_2
         match sysdb {
@@ -644,8 +614,8 @@ mod tests {
         assert_eq!(jobs.len(), 2);
         assert_eq!(jobs[0].collection_id, collection_uuid_2,);
         assert_eq!(jobs[1].collection_id, collection_uuid_1,);
-        scheduler.succeed_collection(collection_uuid_1);
-        scheduler.succeed_collection(collection_uuid_2);
+        scheduler.succeed_job(collection_uuid_1.into());
+        scheduler.succeed_job(collection_uuid_2.into());
 
         // Set disable list.
         std::env::set_var(
@@ -657,7 +627,7 @@ mod tests {
         let jobs = jobs.collect::<Vec<&CompactionJob>>();
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].collection_id, collection_uuid_2,);
-        scheduler.succeed_collection(collection_uuid_2);
+        scheduler.succeed_job(collection_uuid_2.into());
         std::env::set_var(
             "CHROMA_COMPACTION_SERVICE__COMPACTOR__DISABLED_COLLECTIONS",
             "[]",
@@ -676,8 +646,8 @@ mod tests {
         let jobs = jobs.collect::<Vec<&CompactionJob>>();
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].collection_id, collection_uuid_1,);
-        scheduler.succeed_collection(collection_uuid_1);
-        scheduler.succeed_collection(collection_uuid_2);
+        scheduler.succeed_job(collection_uuid_1.into());
+        scheduler.succeed_job(collection_uuid_2.into());
         std::env::set_var(
             "CHROMA_COMPACTION_SERVICE.COMPACTOR.DISABLED_COLLECTIONS",
             "[]",
@@ -699,11 +669,12 @@ mod tests {
         scheduler.schedule().await;
         let jobs = scheduler.get_jobs();
         assert_eq!(jobs.count(), 1);
-        scheduler.succeed_collection(collection_uuid_2);
+        scheduler.succeed_job(collection_uuid_2.into());
 
         let members = vec![member_1.clone()];
         scheduler.set_memberlist(members);
-        // Test dead jobs
+        // Test that collections with too many failures are skipped
+        // Failure count is now tracked in sysdb via compaction_failure_count
         std::env::set_var(
             "CHROMA_COMPACTION_SERVICE.COMPACTOR.DISABLED_COLLECTIONS",
             "[]",
@@ -714,20 +685,21 @@ mod tests {
             let jobs = scheduler.get_jobs();
             let jobs = jobs.collect::<Vec<&CompactionJob>>();
             assert_eq!(jobs.len(), 2);
-            scheduler.fail_collection(collection_uuid_1);
-            scheduler.succeed_collection(collection_uuid_2);
+            scheduler.fail_job(collection_uuid_1.into()).await;
+            scheduler.succeed_job(collection_uuid_2.into());
         }
         scheduler.schedule().await;
         let jobs = scheduler.get_jobs();
         let jobs = jobs.collect::<Vec<&CompactionJob>>();
+        // After max_failure_count failures, collection_uuid_1 should be skipped
         assert_eq!(jobs.len(), 1);
         assert_eq!(jobs[0].collection_id, collection_uuid_2);
-        scheduler.succeed_collection(collection_uuid_2);
+        scheduler.succeed_job(collection_uuid_2.into());
     }
 
     #[tokio::test]
     #[should_panic(expected = "is less than offset")]
-    async fn test_scheduler_panic() {
+    async fn test_k8s_integration_scheduler_panic() {
         let mut log = Log::InMemory(InMemoryLog::new());
         let in_memory_log = match log {
             Log::InMemory(ref mut in_memory_log) => in_memory_log,

@@ -1,35 +1,30 @@
+import threading
 from typing import Any, ClassVar
 
 from rich.console import Console
 from rich.live import Live
 from rich.panel import Panel
-from rich.syntax import Syntax
 from rich.text import Text
-from rich.tree import Tree
 
 
 class ConsoleFormatter:
-    current_crew_tree: Tree | None = None
-    current_task_branch: Tree | None = None
-    current_agent_branch: Tree | None = None
-    current_tool_branch: Tree | None = None
-    current_flow_tree: Tree | None = None
-    current_method_branch: Tree | None = None
-    current_lite_agent_branch: Tree | None = None
     tool_usage_counts: ClassVar[dict[str, int]] = {}
-    current_reasoning_branch: Tree | None = None  # Track reasoning status
-    _live_paused: bool = False
-    current_llm_tool_tree: Tree | None = None
+
+    current_a2a_turn_count: int = 0
+    _pending_a2a_message: str | None = None
+    _pending_a2a_agent_role: str | None = None
+    _pending_a2a_turn_number: int | None = None
+    _current_a2a_agent_name: str | None = None
+
+    crew_completion_printed: ClassVar[threading.Event] = threading.Event()
 
     def __init__(self, verbose: bool = False):
         self.console = Console(width=None)
         self.verbose = verbose
-        # Live instance to dynamically update a Tree renderable (e.g. the Crew tree)
-        # When multiple Tree objects are printed sequentially we reuse this Live
-        # instance so the previous render is replaced instead of writing a new one.
-        # Once any non-Tree renderable is printed we stop the Live session so the
-        # final Tree persists on the terminal.
-        self._live: Live | None = None
+        self._streaming_live: Live | None = None
+        self._is_streaming: bool = False
+        self._just_streamed_final_answer: bool = False
+        self._last_stream_call_type: Any = None
 
     def create_panel(self, content: Text, title: str, style: str = "blue") -> Panel:
         """Create a standardized panel with consistent styling."""
@@ -40,106 +35,85 @@ class ConsoleFormatter:
             padding=(1, 2),
         )
 
+    def _show_tracing_disabled_message_if_needed(self) -> None:
+        """Show tracing disabled message if tracing is not enabled."""
+        from crewai.events.listeners.tracing.utils import (
+            has_user_declined_tracing,
+            is_tracing_enabled_in_context,
+        )
+
+        if not is_tracing_enabled_in_context():
+            if has_user_declined_tracing():
+                message = """Info: Tracing is disabled.
+
+To enable tracing, do any one of these:
+• Set tracing=True in your Crew/Flow code
+• Set CREWAI_TRACING_ENABLED=true in your project's .env file
+• Run: crewai traces enable"""
+            else:
+                message = """Info: Tracing is disabled.
+
+To enable tracing, do any one of these:
+• Set tracing=True in your Crew/Flow code
+• Set CREWAI_TRACING_ENABLED=true in your project's .env file
+• Run: crewai traces enable"""
+
+            panel = Panel(
+                message,
+                title="Tracing Status",
+                border_style="blue",
+                padding=(1, 2),
+            )
+            self.console.print(panel)
+
     def create_status_content(
         self,
         title: str,
         name: str,
         status_style: str = "blue",
         tool_args: dict[str, Any] | str = "",
-        **fields,
+        **fields: Any,
     ) -> Text:
         """Create standardized status content with consistent formatting."""
         content = Text()
         content.append(f"{title}\n", style=f"{status_style} bold")
-        content.append("Name: ", style="white")
+        content.append("Name: \n", style="white")
         content.append(f"{name}\n", style=status_style)
 
         for label, value in fields.items():
-            content.append(f"{label}: ", style="white")
+            content.append(f"{label}: \n", style="white")
             content.append(
                 f"{value}\n", style=fields.get(f"{label}_style", status_style)
             )
-        content.append("Tool Args: ", style="white")
-        content.append(f"{tool_args}\n", style=status_style)
+        if tool_args:
+            content.append("Tool Args: \n", style="white")
+            content.append(f"{tool_args}\n", style=status_style)
 
         return content
 
-    def update_tree_label(
-        self,
-        tree: Tree,
-        prefix: str,
-        name: str,
-        style: str = "blue",
-        status: str | None = None,
-    ) -> None:
-        """Update tree label with consistent formatting."""
-        label = Text()
-        label.append(f"{prefix} ", style=f"{style} bold")
-        label.append(name, style=style)
-        if status:
-            label.append("\nStatus: ", style="white")
-            label.append(status, style=f"{style} bold")
-        tree.label = label
-
-    def add_tree_node(self, parent: Tree, text: str, style: str = "yellow") -> Tree:
-        """Add a node to the tree with consistent styling."""
-        return parent.add(Text(text, style=style))
-
-    def print(self, *args, **kwargs) -> None:
-        """Custom print that replaces consecutive Tree renders.
-
-        * If the argument is a single ``Tree`` instance, we either start a
-          ``Live`` session (first tree) or update the existing one (subsequent
-          trees). This results in the tree being rendered in-place instead of
-          being appended repeatedly to the log.
-
-        * A blank call (no positional arguments) is ignored while a Live
-          session is active so it does not prematurely terminate the tree
-          rendering.
-
-        * Any other renderable will terminate the Live session (if one is
-          active) so the last tree stays on screen and the new content is
-          printed normally.
-        """
-
-        # Case 1: updating / starting live Tree rendering
-        if len(args) == 1 and isinstance(args[0], Tree):
-            tree = args[0]
-
-            if not self._live:
-                # Start a new Live session for the first tree
-                self._live = Live(tree, console=self.console, refresh_per_second=4)
-                self._live.start()
-            else:
-                # Update existing Live session
-                self._live.update(tree, refresh=True)
-            return  # Nothing else to do
-
-        # Case 2: blank line while a live session is running - ignore so we
-        # don't break the in-place rendering behaviour
-        if len(args) == 0 and self._live:
+    def print(self, *args: Any, **kwargs: Any) -> None:
+        """Print to console. Simplified to only handle panel-based output."""
+        # Skip blank lines during streaming
+        if len(args) == 0 and self._is_streaming:
             return
-
-        # Case 3: printing something other than a Tree → terminate live session
-        if self._live:
-            self._live.stop()
-            self._live = None
-
-        # Finally, pass through to the regular Console.print implementation
         self.console.print(*args, **kwargs)
 
     def pause_live_updates(self) -> None:
-        """Pause Live session updates to allow for human input without interference."""
-        if not self._live_paused:
-            if self._live:
-                self._live.stop()
-                self._live = None
-            self._live_paused = True
+        """Pause Live session updates to allow for human input without interference.
+
+        This stops any active streaming Live session to prevent console refresh
+        interference during HITL (Human-in-the-Loop) user input.
+        """
+        if self._streaming_live:
+            self._streaming_live.stop()
+            self._streaming_live = None
 
     def resume_live_updates(self) -> None:
-        """Resume Live session updates after human input is complete."""
-        if self._live_paused:
-            self._live_paused = False
+        """Resume Live session updates after human input is complete.
+
+        New streaming sessions will be created on-demand when needed.
+        This method exists for API compatibility with HITL callers.
+        """
 
     def print_panel(
         self, content: Text, title: str, style: str = "blue", is_flow: bool = False
@@ -154,37 +128,29 @@ class ConsoleFormatter:
                 self.print(panel)
                 self.print()
 
-    def update_crew_tree(
+    def handle_crew_status(
         self,
-        tree: Tree | None,
         crew_name: str,
         source_id: str,
         status: str = "completed",
         final_string_output: str = "",
     ) -> None:
-        """Handle crew tree updates with consistent formatting."""
-        if not self.verbose or tree is None:
+        """Handle crew completion/failure with panel display."""
+        if not self.verbose:
             return
 
         if status == "completed":
-            prefix, style = "✅ Crew:", "green"
+            style = "green"
             title = "Crew Completion"
             content_title = "Crew Execution Completed"
         elif status == "failed":
-            prefix, style = "❌ Crew:", "red"
+            style = "red"
             title = "Crew Failure"
             content_title = "Crew Execution Failed"
         else:
-            prefix, style = "🚀 Crew:", "cyan"
+            style = "cyan"
             title = "Crew Execution"
             content_title = "Crew Execution Started"
-
-        self.update_tree_label(
-            tree,
-            prefix,
-            crew_name or "Crew",
-            style,
-        )
 
         content = self.create_status_content(
             content_title,
@@ -192,18 +158,26 @@ class ConsoleFormatter:
             style,
             ID=source_id,
         )
-        content.append(f"Final Output: {final_string_output}\n", style="white")
+
+        if status == "failed" and final_string_output:
+            content.append("Error:\n", style="white bold")
+            content.append(f"{final_string_output}\n", style="red")
+        elif final_string_output:
+            content.append(f"Final Output: {final_string_output}\n", style="white")
 
         self.print_panel(content, title, style)
 
-    def create_crew_tree(self, crew_name: str, source_id: str) -> Tree | None:
-        """Create and initialize a new crew tree with initial status."""
-        if not self.verbose:
-            return None
+        if status in ["completed", "failed"]:
+            self.crew_completion_printed.set()
+            self._show_tracing_disabled_message_if_needed()
 
-        tree = Tree(
-            Text("🚀 Crew: ", style="cyan bold") + Text(crew_name, style="cyan")
-        )
+    def handle_crew_started(self, crew_name: str, source_id: str) -> None:
+        """Show crew started panel."""
+        if not self.verbose:
+            return
+
+        # Reset the crew completion event for this new crew execution
+        ConsoleFormatter.crew_completion_printed.clear()
 
         content = self.create_status_content(
             "Crew Execution Started",
@@ -212,642 +186,320 @@ class ConsoleFormatter:
             ID=source_id,
         )
 
-        self.print_panel(content, "Crew Execution Started", "cyan")
+        self.print_panel(content, "🚀 Crew Execution Started", "cyan")
 
-        # Set the current_crew_tree attribute directly
-        self.current_crew_tree = tree
-
-        return tree
-
-    def create_task_branch(
-        self, crew_tree: Tree | None, task_id: str, task_name: str | None = None
-    ) -> Tree | None:
-        """Create and initialize a task branch."""
+    def handle_task_started(self, task_id: str, task_name: str | None = None) -> None:
+        """Show task started panel."""
         if not self.verbose:
-            return None
+            return
 
-        task_content = Text()
+        content = Text()
+        display_name = task_name if task_name else task_id
 
-        # Display task name if available, otherwise just the ID
-        if task_name:
-            task_content.append("📋 Task: ", style="yellow bold")
-            task_content.append(f"{task_name}", style="yellow bold")
-            task_content.append(f" (ID: {task_id})", style="yellow dim")
-        else:
-            task_content.append(f"📋 Task: {task_id}", style="yellow bold")
+        content.append("Task Started\n", style="yellow bold")
+        content.append("Name: ", style="white")
+        content.append(f"{display_name}\n", style="yellow")
+        content.append("ID: ", style="white")
+        content.append(f"{task_id}\n", style="yellow ")
 
-        task_content.append("\nStatus: ", style="white")
-        task_content.append("Executing Task...", style="yellow dim")
+        self.print_panel(content, "📋 Task Started", "yellow")
 
-        task_branch = None
-        if crew_tree:
-            task_branch = crew_tree.add(task_content)
-            self.print(crew_tree)
-        else:
-            self.print_panel(task_content, "Task Started", "yellow")
-
-        self.print()
-
-        # Set the current_task_branch attribute directly
-        self.current_task_branch = task_branch
-
-        return task_branch
-
-    def update_task_status(
+    def handle_task_status(
         self,
-        crew_tree: Tree | None,
         task_id: str,
         agent_role: str,
         status: str = "completed",
         task_name: str | None = None,
     ) -> None:
-        """Update task status in the tree."""
-        if not self.verbose or crew_tree is None:
+        """Show task completion/failure panel."""
+        if not self.verbose:
             return
 
         if status == "completed":
             style = "green"
-            status_text = "✅ Completed"
-            panel_title = "Task Completion"
+            panel_title = "📋 Task Completion"
         else:
             style = "red"
-            status_text = "❌ Failed"
-            panel_title = "Task Failure"
+            panel_title = "📋 Task Failure"
 
-        # Update tree label
-        for branch in crew_tree.children:
-            if str(task_id) in str(branch.label):
-                # Build label without introducing stray blank lines
-                task_content = Text()
-                # First line: Task ID/name
-                if task_name:
-                    task_content.append("📋 Task: ", style=f"{style} bold")
-                    task_content.append(f"{task_name}", style=f"{style} bold")
-                    task_content.append(f" (ID: {task_id})", style=f"{style} dim")
-                else:
-                    task_content.append(f"📋 Task: {task_id}", style=f"{style} bold")
-
-                # Second line: Assigned to
-                task_content.append("\nAssigned to: ", style="white")
-                task_content.append(agent_role, style=style)
-
-                # Third line: Status
-                task_content.append("\nStatus: ", style="white")
-                task_content.append(status_text, style=f"{style} bold")
-                branch.label = task_content
-                self.print(crew_tree)
-                break
-
-        # Show status panel
         display_name = task_name if task_name else str(task_id)
         content = self.create_status_content(
             f"Task {status.title()}", display_name, style, Agent=agent_role
         )
         self.print_panel(content, panel_title, style)
 
-    def create_agent_branch(
-        self, task_branch: Tree | None, agent_role: str, crew_tree: Tree | None
-    ) -> Tree | None:
-        """Create and initialize an agent branch."""
-        if not self.verbose or not task_branch or not crew_tree:
-            return None
-
-        # Instead of creating a separate Agent node, we treat the task branch
-        # itself as the logical agent branch so that Reasoning/Tool nodes are
-        # nested under the task without an extra visual level.
-
-        # Store the task branch as the current_agent_branch for future nesting.
-        self.current_agent_branch = task_branch
-
-        # No additional tree modification needed; return the task branch so
-        # caller logic remains unchanged.
-        return task_branch
-
-    def update_agent_status(
-        self,
-        agent_branch: Tree | None,
-        agent_role: str,
-        crew_tree: Tree | None,
-        status: str = "completed",
-    ) -> None:
-        """Update agent status in the tree."""
-        # We no longer render a separate agent branch, so this method simply
-        # updates the stored branch reference (already the task branch) without
-        # altering the tree. Keeping it a no-op avoids duplicate status lines.
-        return
-
-    def create_flow_tree(self, flow_name: str, flow_id: str) -> Tree | None:
-        """Create and initialize a flow tree."""
+    def handle_flow_created(self, flow_name: str, flow_id: str) -> None:
+        """Show flow started panel."""
         content = self.create_status_content(
             "Starting Flow Execution", flow_name, "blue", ID=flow_id
         )
-        self.print_panel(content, "Flow Execution", "blue", is_flow=True)
+        self.print_panel(content, "🌊 Flow Execution", "blue", is_flow=True)
 
-        # Create initial tree with flow ID
-        flow_label = Text()
-        flow_label.append("🌊 Flow: ", style="blue bold")
-        flow_label.append(flow_name, style="blue")
-        flow_label.append("\nID: ", style="white")
-        flow_label.append(flow_id, style="blue")
+    def handle_flow_started(self, flow_name: str, flow_id: str) -> None:
+        """Show flow started panel."""
+        content = Text()
+        content.append("Flow Started\n", style="blue bold")
+        content.append("Name: ", style="white")
+        content.append(f"{flow_name}\n", style="blue")
+        content.append("ID: ", style="white")
+        content.append(f"{flow_id}\n", style="blue")
 
-        flow_tree = Tree(flow_label)
-        self.add_tree_node(flow_tree, "✨ Created", "blue")
-        self.add_tree_node(flow_tree, "✅ Initialization Complete", "green")
+        self.print_panel(content, "🌊 Flow Started", "blue", is_flow=True)
 
-        return flow_tree
-
-    def start_flow(self, flow_name: str, flow_id: str) -> Tree | None:
-        """Initialize a flow execution tree."""
-        flow_tree = Tree("")
-        flow_label = Text()
-        flow_label.append("🌊 Flow: ", style="blue bold")
-        flow_label.append(flow_name, style="blue")
-        flow_label.append("\nID: ", style="white")
-        flow_label.append(flow_id, style="blue")
-        flow_tree.label = flow_label
-
-        self.add_tree_node(flow_tree, "🧠 Starting Flow...", "yellow")
-
-        self.print(flow_tree)
-        self.print()
-
-        self.current_flow_tree = flow_tree
-        return flow_tree
-
-    def update_flow_status(
+    def handle_flow_status(
         self,
-        flow_tree: Tree | None,
         flow_name: str,
         flow_id: str,
         status: str = "completed",
     ) -> None:
-        """Update flow status in the tree."""
-        if flow_tree is None:
-            return
-
-        # Update main flow label
-        self.update_tree_label(
-            flow_tree,
-            "✅ Flow Finished:" if status == "completed" else "❌ Flow Failed:",
-            flow_name,
-            "green" if status == "completed" else "red",
-        )
-
-        # Update initialization node status
-        for child in flow_tree.children:
-            if "Starting Flow" in str(child.label):
-                child.label = Text(
-                    (
-                        "✅ Flow Completed"
-                        if status == "completed"
-                        else "❌ Flow Failed"
-                    ),
-                    style="green" if status == "completed" else "red",
-                )
-                break
+        """Show flow status panel."""
+        if status == "completed":
+            style = "green"
+            content_text = "Flow Execution Completed"
+            panel_title = "✅ Flow Completion"
+        elif status == "paused":
+            style = "cyan"
+            content_text = "Flow Paused - Waiting for Feedback"
+            panel_title = "⏳ Flow Paused"
+        else:
+            style = "red"
+            content_text = "Flow Execution Failed"
+            panel_title = "❌ Flow Failure"
 
         content = self.create_status_content(
-            (
-                "Flow Execution Completed"
-                if status == "completed"
-                else "Flow Execution Failed"
-            ),
+            content_text,
             flow_name,
-            "green" if status == "completed" else "red",
+            style,
             ID=flow_id,
         )
-        self.print(flow_tree)
-        self.print_panel(
-            content, "Flow Completion", "green" if status == "completed" else "red"
-        )
+        self.print_panel(content, panel_title, style, is_flow=True)
 
-    def update_method_status(
+    def handle_method_status(
         self,
-        method_branch: Tree | None,
-        flow_tree: Tree | None,
         method_name: str,
         status: str = "running",
-    ) -> Tree | None:
-        """Update method status in the flow tree."""
-        if not flow_tree:
-            return None
+    ) -> None:
+        """Show method status panel."""
+        if not self.verbose:
+            return
 
         if status == "running":
-            prefix, style = "🔄 Running:", "yellow"
+            style = "yellow"
+            panel_title = "🔄 Flow Method Running"
         elif status == "completed":
-            prefix, style = "✅ Completed:", "green"
-            # Update initialization node when a method completes successfully
-            for child in flow_tree.children:
-                if "Starting Flow" in str(child.label):
-                    child.label = Text("Flow Method Step", style="white")
-                    break
+            style = "green"
+            panel_title = "✅ Flow Method Completed"
+        elif status == "paused":
+            style = "cyan"
+            panel_title = "⏳ Flow Method Paused"
         else:
-            prefix, style = "❌ Failed:", "red"
-            # Update initialization node on failure
-            for child in flow_tree.children:
-                if "Starting Flow" in str(child.label):
-                    child.label = Text("❌ Flow Step Failed", style="red")
-                    break
+            style = "red"
+            panel_title = "❌ Flow Method Failed"
 
-        if not method_branch:
-            # Find or create method branch
-            for branch in flow_tree.children:
-                if method_name in str(branch.label):
-                    method_branch = branch
-                    break
-            if not method_branch:
-                method_branch = flow_tree.add("")
+        content = Text()
+        content.append(f"Method: {method_name}\n", style=f"{style} bold")
+        content.append("Status: ", style="white")
+        content.append(f"{status.title()}\n", style=style)
 
-        method_branch.label = Text(prefix, style=f"{style} bold") + Text(
-            f" {method_name}", style=style
-        )
-
-        self.print(flow_tree)
-        self.print()
-        return method_branch
-
-    def get_llm_tree(self, tool_name: str):
-        text = Text()
-        text.append(f"🔧 Using {tool_name} from LLM available_function", style="yellow")
-
-        tree = self.current_flow_tree or self.current_crew_tree
-
-        if tree:
-            tree.add(text)
-
-        return tree or Tree(text)
+        self.print_panel(content, panel_title, style, is_flow=True)
 
     def handle_llm_tool_usage_started(
         self,
         tool_name: str,
         tool_args: dict[str, Any] | str,
-    ):
-        # Create status content for the tool usage
+    ) -> None:
+        """Handle LLM tool usage started with panel display."""
         content = self.create_status_content(
             "Tool Usage Started", tool_name, Status="In Progress", tool_args=tool_args
         )
-
-        # Create and print the panel
-        self.print_panel(content, "Tool Usage", "green")
-        self.print()
-
-        # Still return the tree for compatibility with existing code
-        return self.get_llm_tree(tool_name)
+        self.print_panel(content, "🔧 LLM Tool Usage", "yellow")
 
     def handle_llm_tool_usage_finished(
         self,
         tool_name: str,
-    ):
-        tree = self.get_llm_tree(tool_name)
-        self.add_tree_node(tree, "✅ Tool Usage Completed", "green")
-        self.print(tree)
-        self.print()
+    ) -> None:
+        """Handle LLM tool usage finished with panel display."""
+        content = Text()
+        content.append("Tool Usage Completed\n", style="green bold")
+        content.append("Tool: ", style="white")
+        content.append(f"{tool_name}\n", style="green")
+
+        self.print_panel(content, "✅ LLM Tool Completed", "green")
 
     def handle_llm_tool_usage_error(
         self,
         tool_name: str,
         error: str,
-    ):
-        tree = self.get_llm_tree(tool_name)
-        self.add_tree_node(tree, "❌ Tool Usage Failed", "red")
-        self.print(tree)
-        self.print()
-
+    ) -> None:
+        """Handle LLM tool usage error with panel display."""
         error_content = self.create_status_content(
             "Tool Usage Failed", tool_name, "red", Error=error
         )
-        self.print_panel(error_content, "Tool Error", "red")
+        self.print_panel(error_content, "❌ LLM Tool Error", "red")
 
     def handle_tool_usage_started(
         self,
-        agent_branch: Tree | None,
         tool_name: str,
-        crew_tree: Tree | None,
         tool_args: dict[str, Any] | str = "",
-    ) -> Tree | None:
-        """Handle tool usage started event."""
+        run_attempts: int | None = None,
+    ) -> None:
+        """Handle tool usage started event with panel display."""
         if not self.verbose:
-            return None
-
-        # Parent for tool usage: LiteAgent > Agent > Task
-        branch_to_use = (
-            self.current_lite_agent_branch or agent_branch or self.current_task_branch
-        )
-
-        # Render full crew tree when available for consistent live updates
-        tree_to_use = self.current_crew_tree or crew_tree or branch_to_use
-
-        if branch_to_use is None or tree_to_use is None:
-            # If we don't have a valid branch, default to crew_tree if provided
-            if crew_tree is not None:
-                branch_to_use = tree_to_use = crew_tree
-            else:
-                return None
+            return
 
         # Update tool usage count
         self.tool_usage_counts[tool_name] = self.tool_usage_counts.get(tool_name, 0) + 1
+        iteration = self.tool_usage_counts[tool_name]
 
-        # Find or create tool node
-        tool_branch = self.current_tool_branch
-        if tool_branch is None:
-            tool_branch = branch_to_use.add("")
-            self.current_tool_branch = tool_branch
+        content = Text()
+        content.append("Tool: ", style="white")
+        content.append(f"{tool_name}\n", style="yellow bold")
 
-        # Update label with current count
-        self.update_tree_label(
-            tool_branch,
-            "🔧",
-            f"Using {tool_name} ({self.tool_usage_counts[tool_name]})",
-            "yellow",
-        )
+        if tool_args:
+            content.append("Args: ", style="white")
+            args_str = (
+                str(tool_args)[:200] + "..."
+                if len(str(tool_args)) > 200
+                else str(tool_args)
+            )
+            content.append(f"{args_str}\n", style="yellow ")
 
-        # Print updated tree immediately
-        self.print(tree_to_use)
-        self.print()
-
-        return tool_branch
-
-    def handle_tool_usage_finished(
-        self,
-        tool_branch: Tree | None,
-        tool_name: str,
-        crew_tree: Tree | None,
-    ) -> None:
-        """Handle tool usage finished event."""
-        if not self.verbose or tool_branch is None:
-            return
-
-        # Decide which tree to render: prefer full crew tree, else parent branch
-        tree_to_use = self.current_crew_tree or crew_tree or self.current_task_branch
-        if tree_to_use is None:
-            return
-
-        # Update the existing tool node's label
-        self.update_tree_label(
-            tool_branch,
-            "🔧",
-            f"Used {tool_name} ({self.tool_usage_counts[tool_name]})",
-            "green",
-        )
-
-        # Clear the current tool branch as we're done with it
-        self.current_tool_branch = None
-
-        # Only print if we have a valid tree and the tool node is still in it
-        if isinstance(tree_to_use, Tree) and tool_branch in tree_to_use.children:
-            self.print(tree_to_use)
-            self.print()
+        self.print_panel(content, f"🔧 Tool Execution Started (#{iteration})", "yellow")
 
     def handle_tool_usage_error(
         self,
-        tool_branch: Tree | None,
         tool_name: str,
         error: str,
-        crew_tree: Tree | None,
+        run_attempts: int | None = None,
     ) -> None:
-        """Handle tool usage error event."""
+        """Handle tool usage error event with panel display."""
         if not self.verbose:
             return
 
-        # Decide which tree to render: prefer full crew tree, else parent branch
-        tree_to_use = self.current_crew_tree or crew_tree or self.current_task_branch
+        iteration = self.tool_usage_counts.get(tool_name, 1)
 
-        if tool_branch:
-            self.update_tree_label(
-                tool_branch,
-                "🔧 Failed",
-                f"{tool_name} ({self.tool_usage_counts[tool_name]})",
-                "red",
-            )
-            if tree_to_use:
-                self.print(tree_to_use)
-                self.print()
+        content = Text()
+        content.append("Tool Failed\n", style="red bold")
+        content.append("Tool: ", style="white")
+        content.append(f"{tool_name}\n", style="red bold")
+        content.append("Iteration: ", style="white")
+        content.append(f"{iteration}\n", style="red")
+        if run_attempts is not None:
+            content.append("Attempt: ", style="white")
+            content.append(f"{run_attempts}\n", style="red")
+        content.append("Error: ", style="white")
+        content.append(f"{error}\n", style="red")
 
-        # Show error panel
-        error_content = self.create_status_content(
-            "Tool Usage Failed", tool_name, "red", Error=error
-        )
-        self.print_panel(error_content, "Tool Error", "red")
+        self.print_panel(content, f"🔧 Tool Error (#{iteration})", "red")
 
-    def handle_llm_call_started(
-        self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
-    ) -> Tree | None:
-        """Handle LLM call started event."""
-        if not self.verbose:
-            return None
-
-        # Parent for tool usage: LiteAgent > Agent > Task
-        branch_to_use = (
-            self.current_lite_agent_branch or agent_branch or self.current_task_branch
-        )
-
-        # Render full crew tree when available for consistent live updates
-        tree_to_use = self.current_crew_tree or crew_tree or branch_to_use
-
-        if branch_to_use is None or tree_to_use is None:
-            # If we don't have a valid branch, default to crew_tree if provided
-            if crew_tree is not None:
-                branch_to_use = tree_to_use = crew_tree
-            else:
-                return None
-
-        # Only add thinking status if we don't have a current tool branch
-        # or if the current tool branch is not a thinking node
-        should_add_thinking = self.current_tool_branch is None or "Thinking" not in str(
-            self.current_tool_branch.label
-        )
-
-        if should_add_thinking:
-            tool_branch = branch_to_use.add("")
-            self.update_tree_label(tool_branch, "🧠", "Thinking...", "blue")
-            self.current_tool_branch = tool_branch
-            self.print(tree_to_use)
-            self.print()
-            return tool_branch
-
-        # Return the existing tool branch if it's already a thinking node
-        return self.current_tool_branch
-
-    def handle_llm_call_completed(
-        self,
-        tool_branch: Tree | None,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
-    ) -> None:
-        """Handle LLM call completed event."""
+    def handle_llm_call_failed(self, error: str) -> None:
+        """Handle LLM call failed event with panel display."""
         if not self.verbose:
             return
 
-        # Decide which tree to render: prefer full crew tree, else parent branch
-        tree_to_use = self.current_crew_tree or crew_tree or self.current_task_branch
-        if tree_to_use is None:
-            return
-
-        # Try to remove the thinking status node - first try the provided tool_branch
-        thinking_branch_to_remove = None
-        removed = False
-
-        # Method 1: Use the provided tool_branch if it's a thinking node
-        if tool_branch is not None and "Thinking" in str(tool_branch.label):
-            thinking_branch_to_remove = tool_branch
-
-        # Method 2: Fallback - search for any thinking node if tool_branch is None or not thinking
-        if thinking_branch_to_remove is None:
-            parents = [
-                self.current_lite_agent_branch,
-                self.current_agent_branch,
-                self.current_task_branch,
-                tree_to_use,
-            ]
-            for parent in parents:
-                if isinstance(parent, Tree):
-                    for child in parent.children:
-                        if "Thinking" in str(child.label):
-                            thinking_branch_to_remove = child
-                            break
-                    if thinking_branch_to_remove:
-                        break
-
-        # Remove the thinking node if found
-        if thinking_branch_to_remove:
-            parents = [
-                self.current_lite_agent_branch,
-                self.current_agent_branch,
-                self.current_task_branch,
-                tree_to_use,
-            ]
-            for parent in parents:
-                if (
-                    isinstance(parent, Tree)
-                    and thinking_branch_to_remove in parent.children
-                ):
-                    parent.children.remove(thinking_branch_to_remove)
-                    removed = True
-                    break
-
-            # Clear pointer if we just removed the current_tool_branch
-            if self.current_tool_branch is thinking_branch_to_remove:
-                self.current_tool_branch = None
-
-            if removed:
-                self.print(tree_to_use)
-                self.print()
-
-    def handle_llm_call_failed(
-        self, tool_branch: Tree | None, error: str, crew_tree: Tree | None
-    ) -> None:
-        """Handle LLM call failed event."""
-        if not self.verbose:
-            return
-
-        # Decide which tree to render: prefer full crew tree, else parent branch
-        tree_to_use = self.current_crew_tree or crew_tree or self.current_task_branch
-
-        # Find the thinking branch to update (similar to completion logic)
-        thinking_branch_to_update = None
-
-        # Method 1: Use the provided tool_branch if it's a thinking node
-        if tool_branch is not None and "Thinking" in str(tool_branch.label):
-            thinking_branch_to_update = tool_branch
-
-        # Method 2: Fallback - search for any thinking node if tool_branch is None or not thinking
-        if thinking_branch_to_update is None:
-            parents = [
-                self.current_lite_agent_branch,
-                self.current_agent_branch,
-                self.current_task_branch,
-                tree_to_use,
-            ]
-            for parent in parents:
-                if isinstance(parent, Tree):
-                    for child in parent.children:
-                        if "Thinking" in str(child.label):
-                            thinking_branch_to_update = child
-                            break
-                    if thinking_branch_to_update:
-                        break
-
-        # Update the thinking branch to show failure
-        if thinking_branch_to_update:
-            thinking_branch_to_update.label = Text("❌ LLM Failed", style="red bold")
-            # Clear the current_tool_branch reference
-            if self.current_tool_branch is thinking_branch_to_update:
-                self.current_tool_branch = None
-            if tree_to_use:
-                self.print(tree_to_use)
-                self.print()
-
-        # Show error panel
         error_content = Text()
-        error_content.append("❌ LLM Call Failed\n", style="red bold")
+        error_content.append("LLM Call Failed\n", style="red bold")
         error_content.append("Error: ", style="white")
         error_content.append(str(error), style="red")
 
-        self.print_panel(error_content, "LLM Error", "red")
+        self.print_panel(error_content, "❌ LLM Error", "red")
 
-    def handle_crew_test_started(
-        self, crew_name: str, source_id: str, n_iterations: int
-    ) -> Tree | None:
-        """Handle crew test started event."""
-        if not self.verbose:
-            return None
-
-        # Create initial panel
-        content = Text()
-        content.append("🧪 Starting Crew Test\n\n", style="blue bold")
-        content.append("Crew: ", style="white")
-        content.append(f"{crew_name}\n", style="blue")
-        content.append("ID: ", style="white")
-        content.append(str(source_id), style="blue")
-        content.append("\nIterations: ", style="white")
-        content.append(str(n_iterations), style="yellow")
-
-        self.print()
-        self.print_panel(content, "Test Execution", "blue")
-        self.print()
-
-        # Create and display the test tree
-        test_label = Text()
-        test_label.append("🧪 Test: ", style="blue bold")
-        test_label.append(crew_name or "Crew", style="blue")
-        test_label.append("\nStatus: ", style="white")
-        test_label.append("In Progress", style="yellow")
-
-        test_tree = Tree(test_label)
-        self.add_tree_node(test_tree, "🔄 Running tests...", "yellow")
-
-        self.print(test_tree)
-        self.print()
-        return test_tree
-
-    def handle_crew_test_completed(
-        self, flow_tree: Tree | None, crew_name: str
+    def handle_llm_stream_chunk(
+        self,
+        accumulated_text: str,
+        call_type: Any = None,
     ) -> None:
-        """Handle crew test completed event."""
+        """Handle LLM stream chunk event - display streaming text in a panel.
+
+        Args:
+            chunk: The new chunk of text received.
+            accumulated_text: All text accumulated so far.
+            crew_tree: Unused (kept for API compatibility).
+            call_type: The type of LLM call (LLM_CALL or TOOL_CALL).
+        """
         if not self.verbose:
             return
 
-        if flow_tree:
-            # Update test tree label to show completion
-            test_label = Text()
-            test_label.append("✅ Test: ", style="green bold")
-            test_label.append(crew_name or "Crew", style="green")
-            test_label.append("\nStatus: ", style="white")
-            test_label.append("Completed", style="green bold")
-            flow_tree.label = test_label
+        self._is_streaming = True
+        self._last_stream_call_type = call_type
 
-            # Update the running tests node
-            for child in flow_tree.children:
-                if "Running tests" in str(child.label):
-                    child.label = Text("✅ Tests completed successfully", style="green")
-                    break
+        display_text = accumulated_text
+        max_lines = 20
+        lines = display_text.split("\n")
+        if len(lines) > max_lines:
+            display_text = "\n".join(lines[-max_lines:])
+            display_text = "...\n" + display_text
 
-            self.print(flow_tree)
-            self.print()
+        content = Text()
 
-        # Create completion panel
+        from crewai.events.types.llm_events import LLMCallType
+
+        if call_type == LLMCallType.TOOL_CALL:
+            content.append(display_text, style="yellow")
+            title = "🔧 Tool Arguments"
+            border_style = "yellow"
+        else:
+            content.append(display_text, style="bright_green")
+            title = "✅ Agent Final Answer"
+            border_style = "green"
+
+        streaming_panel = Panel(
+            content,
+            title=title,
+            border_style=border_style,
+            padding=(1, 2),
+        )
+
+        if not self._streaming_live:
+            self._streaming_live = Live(
+                streaming_panel, console=self.console, refresh_per_second=10
+            )
+            self._streaming_live.start()
+        else:
+            self._streaming_live.update(streaming_panel, refresh=True)
+
+    def handle_llm_stream_completed(self) -> None:
+        """Handle completion of LLM streaming - stop the streaming live display."""
+        self._is_streaming = False
+
+        from crewai.events.types.llm_events import LLMCallType
+
+        if self._last_stream_call_type == LLMCallType.LLM_CALL:
+            self._just_streamed_final_answer = True
+        else:
+            self._just_streamed_final_answer = False
+
+        self._last_stream_call_type = None
+
+        if self._streaming_live:
+            self._streaming_live.stop()
+            self._streaming_live = None
+
+    def handle_crew_test_started(
+        self, crew_name: str, source_id: str, n_iterations: int
+    ) -> None:
+        """Handle crew test started event with panel display."""
+        if not self.verbose:
+            return
+
+        content = Text()
+        content.append("Starting Crew Test\n", style="blue bold")
+        content.append("Crew: ", style="white")
+        content.append(f"{crew_name}\n", style="blue")
+        content.append("ID: ", style="white")
+        content.append(f"{source_id}\n", style="blue")
+        content.append("Iterations: ", style="white")
+        content.append(f"{n_iterations}\n", style="yellow")
+        content.append("Status: ", style="white")
+        content.append("Running...", style="yellow")
+
+        self.print_panel(content, "🧪 Test Execution Started", "blue")
+
+    def handle_crew_test_completed(self, crew_name: str) -> None:
+        """Handle crew test completed event with panel display."""
+        if not self.verbose:
+            return
+
         completion_content = Text()
         completion_content.append("Test Execution Completed\n", style="green bold")
         completion_content.append("Crew: ", style="white")
@@ -913,68 +565,50 @@ class ConsoleFormatter:
         self.print_panel(failure_content, "Test Failure", "red")
         self.print()
 
-    def create_lite_agent_branch(self, lite_agent_role: str) -> Tree | None:
-        """Create and initialize a lite agent branch."""
+    def create_lite_agent_branch(self, lite_agent_role: str) -> None:
+        """Show lite agent started panel."""
         if not self.verbose:
-            return None
+            return
 
-        # Create initial tree for LiteAgent if it doesn't exist
-        if not self.current_lite_agent_branch:
-            lite_agent_label = Text()
-            lite_agent_label.append("🤖 LiteAgent: ", style="cyan bold")
-            lite_agent_label.append(lite_agent_role, style="cyan")
-            lite_agent_label.append("\nStatus: ", style="white")
-            lite_agent_label.append("In Progress", style="yellow")
+        content = Text()
+        content.append("LiteAgent Started\n", style="cyan bold")
+        content.append("Role: ", style="white")
+        content.append(f"{lite_agent_role}\n", style="cyan")
+        content.append("Status: ", style="white")
+        content.append("In Progress\n", style="yellow")
 
-            lite_agent_tree = Tree(lite_agent_label)
-            self.current_lite_agent_branch = lite_agent_tree
-            self.print(lite_agent_tree)
-            self.print()
-
-        return self.current_lite_agent_branch
+        self.print_panel(content, "🤖 LiteAgent Started", "cyan")
 
     def update_lite_agent_status(
         self,
-        lite_agent_branch: Tree | None,
         lite_agent_role: str,
         status: str = "completed",
         **fields: dict[str, Any],
     ) -> None:
-        """Update lite agent status in the tree."""
-        if not self.verbose or lite_agent_branch is None:
+        """Show lite agent status panel."""
+        if not self.verbose:
             return
 
-        # Determine style based on status
         if status == "completed":
-            prefix, style = "✅ LiteAgent:", "green"
-            status_text = "Completed"
-            title = "LiteAgent Completion"
+            style = "green"
+            title = "✅ LiteAgent Completed"
         elif status == "failed":
-            prefix, style = "❌ LiteAgent:", "red"
-            status_text = "Failed"
-            title = "LiteAgent Error"
+            style = "red"
+            title = "❌ LiteAgent Failed"
         else:
-            prefix, style = "🤖 LiteAgent:", "yellow"
-            status_text = "In Progress"
-            title = "LiteAgent Status"
+            style = "yellow"
+            title = "🤖 LiteAgent Status"
 
-        # Update the tree label
-        lite_agent_label = Text()
-        lite_agent_label.append(f"{prefix} ", style=f"{style} bold")
-        lite_agent_label.append(lite_agent_role, style=style)
-        lite_agent_label.append("\nStatus: ", style="white")
-        lite_agent_label.append(status_text, style=f"{style} bold")
-        lite_agent_branch.label = lite_agent_label
+        content = Text()
+        content.append(f"LiteAgent {status.title()}\n", style=f"{style} bold")
+        content.append("Role: ", style="white")
+        content.append(f"{lite_agent_role}\n", style=style)
 
-        self.print(lite_agent_branch)
-        self.print()
+        for field_name, field_value in fields.items():
+            content.append(f"{field_name}: ", style="white")
+            content.append(f"{field_value}\n", style=style)
 
-        # Show status panel if additional fields are provided
-        if fields:
-            content = self.create_status_content(
-                f"LiteAgent {status.title()}", lite_agent_role, style, **fields
-            )
-            self.print_panel(content, title, style)
+        self.print_panel(content, title, style)
 
     def handle_lite_agent_execution(
         self,
@@ -983,346 +617,174 @@ class ConsoleFormatter:
         error: Any = None,
         **fields: dict[str, Any],
     ) -> None:
-        """Handle lite agent execution events with consistent formatting."""
+        """Handle lite agent execution events with panel display."""
         if not self.verbose:
             return
 
         if status == "started":
-            # Create or get the LiteAgent branch
-            lite_agent_branch = self.create_lite_agent_branch(lite_agent_role)
-            if lite_agent_branch and fields:
-                # Show initial status panel
+            self.create_lite_agent_branch(lite_agent_role)
+            if fields:
                 content = self.create_status_content(
                     "LiteAgent Session Started", lite_agent_role, "cyan", **fields
                 )
-                self.print_panel(content, "LiteAgent Started", "cyan")
+                self.print_panel(content, "🤖 LiteAgent Started", "cyan")
         else:
-            # Update existing LiteAgent branch
             if error:
                 fields["Error"] = error
-            self.update_lite_agent_status(
-                self.current_lite_agent_branch, lite_agent_role, status, **fields
-            )
+            self.update_lite_agent_status(lite_agent_role, status, **fields)
 
     def handle_knowledge_retrieval_started(
         self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
-    ) -> Tree | None:
-        """Handle knowledge retrieval started event."""
+    ) -> None:
+        """Handle knowledge retrieval started event with panel display."""
         if not self.verbose:
-            return None
+            return
 
-        branch_to_use = agent_branch or self.current_lite_agent_branch
-        tree_to_use = branch_to_use or crew_tree
+        content = Text()
+        content.append("Knowledge Retrieval Started\n", style="blue bold")
+        content.append("Status: ", style="white")
+        content.append("Retrieving...\n", style="blue")
 
-        if branch_to_use is None or tree_to_use is None:
-            # If we don't have a valid branch, default to crew_tree if provided
-            if crew_tree is not None:
-                branch_to_use = tree_to_use = crew_tree
-            else:
-                return None
-
-        knowledge_branch = branch_to_use.add("")
-        self.update_tree_label(
-            knowledge_branch, "🔍", "Knowledge Retrieval Started", "blue"
-        )
-
-        self.print(tree_to_use)
-        self.print()
-        return knowledge_branch
+        self.print_panel(content, "🔍 Knowledge Retrieval", "blue")
 
     def handle_knowledge_retrieval_completed(
         self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
         retrieved_knowledge: Any,
+        search_query: str,
     ) -> None:
-        """Handle knowledge retrieval completed event."""
+        """Handle knowledge retrieval completed event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-        tree_to_use = branch_to_use or crew_tree
-
-        if branch_to_use is None and tree_to_use is not None:
-            branch_to_use = tree_to_use
-
-        if branch_to_use is None or tree_to_use is None:
-            if retrieved_knowledge:
-                knowledge_text = str(retrieved_knowledge)
-                if len(knowledge_text) > 500:
-                    knowledge_text = knowledge_text[:497] + "..."
-
-                knowledge_panel = Panel(
-                    Text(knowledge_text, style="white"),
-                    title="📚 Retrieved Knowledge",
-                    border_style="green",
-                    padding=(1, 2),
-                )
-                self.print(knowledge_panel)
-                self.print()
-            return
-
-        knowledge_branch_found = False
-        for child in branch_to_use.children:
-            if "Knowledge Retrieval Started" in str(child.label):
-                self.update_tree_label(
-                    child, "✅", "Knowledge Retrieval Completed", "green"
-                )
-                knowledge_branch_found = True
-                break
-
-        if not knowledge_branch_found:
-            for child in branch_to_use.children:
-                if (
-                    "Knowledge Retrieval" in str(child.label)
-                    and "Started" not in str(child.label)
-                    and "Completed" not in str(child.label)
-                ):
-                    self.update_tree_label(
-                        child, "✅", "Knowledge Retrieval Completed", "green"
-                    )
-                    knowledge_branch_found = True
-                    break
-
-        if not knowledge_branch_found:
-            knowledge_branch = branch_to_use.add("")
-            self.update_tree_label(
-                knowledge_branch, "✅", "Knowledge Retrieval Completed", "green"
-            )
-
-        self.print(tree_to_use)
-
+        content = Text()
+        content.append("Search Query:\n", style="white")
+        content.append(f"{search_query}\n", style="green")
+        content.append("Knowledge Retrieved: \n", style="white")
         if retrieved_knowledge:
             knowledge_text = str(retrieved_knowledge)
             if len(knowledge_text) > 500:
                 knowledge_text = knowledge_text[:497] + "..."
+            content.append(f"{knowledge_text}\n", style="green ")
+        else:
+            content.append("No knowledge retrieved\n", style="yellow")
 
-            knowledge_panel = Panel(
-                Text(knowledge_text, style="white"),
-                title="📚 Retrieved Knowledge",
-                border_style="green",
-                padding=(1, 2),
-            )
-            self.print(knowledge_panel)
-
-        self.print()
+        self.print_panel(content, "📚 Knowledge Retrieved", "green")
 
     def handle_knowledge_query_started(
         self,
-        agent_branch: Tree | None,
         task_prompt: str,
-        crew_tree: Tree | None,
     ) -> None:
-        """Handle knowledge query generated event."""
+        """Handle knowledge query started event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-        tree_to_use = branch_to_use or crew_tree
-        if branch_to_use is None or tree_to_use is None:
-            return
-
-        query_branch = branch_to_use.add("")
-        self.update_tree_label(
-            query_branch, "🔎", f"Query: {task_prompt[:50]}...", "yellow"
+        content = Text()
+        content.append("Knowledge Query Started\n", style="yellow bold")
+        content.append("Query: ", style="white")
+        query_preview = (
+            task_prompt[:100] + "..." if len(task_prompt) > 100 else task_prompt
         )
+        content.append(f"{query_preview}\n", style="yellow")
 
-        self.print(tree_to_use)
-        self.print()
+        self.print_panel(content, "🔎 Knowledge Query", "yellow")
 
     def handle_knowledge_query_failed(
         self,
-        agent_branch: Tree | None,
         error: str,
-        crew_tree: Tree | None,
     ) -> None:
-        """Handle knowledge query failed event."""
+        """Handle knowledge query failed event with panel display."""
         if not self.verbose:
             return
 
-        tree_to_use = self.current_lite_agent_branch or crew_tree
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-
-        if branch_to_use and tree_to_use:
-            query_branch = branch_to_use.add("")
-            self.update_tree_label(query_branch, "❌", "Knowledge Query Failed", "red")
-            self.print(tree_to_use)
-            self.print()
-
-        # Show error panel
         error_content = self.create_status_content(
             "Knowledge Query Failed", "Query Error", "red", Error=error
         )
-        self.print_panel(error_content, "Knowledge Error", "red")
+        self.print_panel(error_content, "❌ Knowledge Error", "red")
 
-    def handle_knowledge_query_completed(
-        self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
-    ) -> None:
-        """Handle knowledge query completed event."""
+    def handle_knowledge_query_completed(self) -> None:
+        """Handle knowledge query completed event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-        tree_to_use = branch_to_use or crew_tree
+        content = Text()
+        content.append("Knowledge Query Completed\n", style="green bold")
 
-        if branch_to_use is None or tree_to_use is None:
-            return
-
-        query_branch = branch_to_use.add("")
-        self.update_tree_label(query_branch, "✅", "Knowledge Query Completed", "green")
-
-        self.print(tree_to_use)
-        self.print()
+        self.print_panel(content, "✅ Knowledge Query Complete", "green")
 
     def handle_knowledge_search_query_failed(
         self,
-        agent_branch: Tree | None,
         error: str,
-        crew_tree: Tree | None,
     ) -> None:
-        """Handle knowledge search query failed event."""
+        """Handle knowledge search query failed event with panel display."""
         if not self.verbose:
             return
 
-        tree_to_use = self.current_lite_agent_branch or crew_tree
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-
-        if branch_to_use and tree_to_use:
-            query_branch = branch_to_use.add("")
-            self.update_tree_label(query_branch, "❌", "Knowledge Search Failed", "red")
-            self.print(tree_to_use)
-            self.print()
-
-        # Show error panel
         error_content = self.create_status_content(
             "Knowledge Search Failed", "Search Error", "red", Error=error
         )
-        self.print_panel(error_content, "Search Error", "red")
+        self.print_panel(error_content, "❌ Search Error", "red")
 
     # ----------- AGENT REASONING EVENTS -----------
 
     def handle_reasoning_started(
         self,
-        agent_branch: Tree | None,
         attempt: int,
-        crew_tree: Tree | None,
-    ) -> Tree | None:
-        """Handle agent reasoning started (or refinement) event."""
+    ) -> None:
+        """Handle agent reasoning started event with panel display."""
         if not self.verbose:
-            return None
+            return
 
-        # Prefer LiteAgent > Agent > Task branch as the parent for reasoning
-        branch_to_use = (
-            self.current_lite_agent_branch or agent_branch or self.current_task_branch
+        content = Text()
+        content.append("Reasoning Started\n", style="blue bold")
+        content.append("Attempt: ", style="white")
+        content.append(f"{attempt}\n", style="blue")
+        content.append("Status: ", style="white")
+        content.append("Thinking...\n", style="blue")
+
+        panel_title = (
+            f"🧠 Reasoning (Attempt #{attempt})" if attempt > 1 else "🧠 Reasoning"
         )
-
-        # We always want to render the full crew tree when possible so the
-        # Live view updates coherently. Fallbacks: crew tree → branch itself.
-        tree_to_use = self.current_crew_tree or crew_tree or branch_to_use
-
-        if branch_to_use is None:
-            # Nothing to attach to, abort
-            return None
-
-        # Reuse existing reasoning branch if present
-        reasoning_branch = self.current_reasoning_branch
-        if reasoning_branch is None:
-            reasoning_branch = branch_to_use.add("")
-            self.current_reasoning_branch = reasoning_branch
-
-        # Build label text depending on attempt
-        status_text = (
-            f"Reasoning (Attempt {attempt})" if attempt > 1 else "Reasoning..."
-        )
-        self.update_tree_label(reasoning_branch, "🧠", status_text, "blue")
-
-        self.print(tree_to_use)
-        self.print()
-
-        return reasoning_branch
+        self.print_panel(content, panel_title, "blue")
 
     def handle_reasoning_completed(
         self,
         plan: str,
         ready: bool,
-        crew_tree: Tree | None,
     ) -> None:
-        """Handle agent reasoning completed event."""
+        """Handle agent reasoning completed event with panel display."""
         if not self.verbose:
             return
 
-        reasoning_branch = self.current_reasoning_branch
-        tree_to_use = (
-            self.current_crew_tree
-            or self.current_lite_agent_branch
-            or self.current_task_branch
-            or crew_tree
-        )
-
         style = "green" if ready else "yellow"
-        status_text = (
-            "Reasoning Completed" if ready else "Reasoning Completed (Not Ready)"
-        )
+        status_text = "Ready" if ready else "Not Ready"
 
-        if reasoning_branch is not None:
-            self.update_tree_label(reasoning_branch, "✅", status_text, style)
+        content = Text()
+        content.append("Reasoning Completed\n", style=f"{style} bold")
+        content.append("Status: ", style="white")
+        content.append(f"{status_text}\n", style=style)
 
-        if tree_to_use is not None:
-            self.print(tree_to_use)
-
-        # Show plan in a panel (trim very long plans)
         if plan:
-            plan_panel = Panel(
-                Text(plan, style="white"),
-                title="🧠 Reasoning Plan",
-                border_style=style,
-                padding=(1, 2),
-            )
-            self.print(plan_panel)
+            plan_preview = plan[:500] + "..." if len(plan) > 500 else plan
+            content.append("Plan: ", style="white")
+            content.append(f"{plan_preview}\n", style=style)
 
-        self.print()
-
-        # Clear stored branch after completion
-        self.current_reasoning_branch = None
+        self.print_panel(content, "✅ Reasoning Complete", style)
 
     def handle_reasoning_failed(
         self,
         error: str,
-        crew_tree: Tree | None,
     ) -> None:
-        """Handle agent reasoning failure event."""
+        """Handle agent reasoning failure event with panel display."""
         if not self.verbose:
             return
 
-        reasoning_branch = self.current_reasoning_branch
-        tree_to_use = (
-            self.current_crew_tree
-            or self.current_lite_agent_branch
-            or self.current_task_branch
-            or crew_tree
-        )
-
-        if reasoning_branch is not None:
-            self.update_tree_label(reasoning_branch, "❌", "Reasoning Failed", "red")
-
-        if tree_to_use is not None:
-            self.print(tree_to_use)
-
-        # Error panel
         error_content = self.create_status_content(
             "Reasoning Failed",
             "Error",
             "red",
             Error=error,
         )
-        self.print_panel(error_content, "Reasoning Error", "red")
-
-        # Clear stored branch after failure
-        self.current_reasoning_branch = None
+        self.print_panel(error_content, "❌ Reasoning Error", "red")
 
     # ----------- AGENT LOGGING EVENTS -----------
 
@@ -1368,74 +830,12 @@ class ConsoleFormatter:
             return
 
         import json
-        import re
 
         from crewai.agents.parser import AgentAction, AgentFinish
 
         agent_role = agent_role.partition("\n")[0]
 
         if isinstance(formatted_answer, AgentAction):
-            thought = re.sub(r"\n+", "\n", formatted_answer.thought)
-            formatted_json = json.dumps(
-                formatted_answer.tool_input,
-                indent=2,
-                ensure_ascii=False,
-            )
-
-            # Create content for the action panel
-            content = Text()
-            content.append("Agent: ", style="white")
-            content.append(f"{agent_role}\n\n", style="bright_green bold")
-
-            if thought and thought != "":
-                content.append("Thought: ", style="white")
-                content.append(f"{thought}\n\n", style="bright_green")
-
-            content.append("Using Tool: ", style="white")
-            content.append(f"{formatted_answer.tool}\n\n", style="bright_green bold")
-
-            content.append("Tool Input:\n", style="white")
-
-            # Create a syntax-highlighted JSON code block
-            json_syntax = Syntax(
-                formatted_json,
-                "json",
-                theme="monokai",
-                line_numbers=False,
-                background_color="default",
-                word_wrap=True,
-            )
-
-            content.append("\n")
-
-            # Create separate panels for better organization
-            main_content = Text()
-            main_content.append("Agent: ", style="white")
-            main_content.append(f"{agent_role}\n\n", style="bright_green bold")
-
-            if thought and thought != "":
-                main_content.append("Thought: ", style="white")
-                main_content.append(f"{thought}\n\n", style="bright_green")
-
-            main_content.append("Using Tool: ", style="white")
-            main_content.append(f"{formatted_answer.tool}", style="bright_green bold")
-
-            # Create the main action panel
-            action_panel = Panel(
-                main_content,
-                title="🔧 Agent Tool Execution",
-                border_style="magenta",
-                padding=(1, 2),
-            )
-
-            # Create the JSON input panel
-            input_panel = Panel(
-                json_syntax,
-                title="Tool Input",
-                border_style="blue",
-                padding=(1, 2),
-            )
-
             # Create tool output content with better formatting
             output_text = str(formatted_answer.result)
             if len(output_text) > 2000:
@@ -1449,269 +849,151 @@ class ConsoleFormatter:
             )
 
             # Print all panels
-            self.print(action_panel)
-            self.print(input_panel)
             self.print(output_panel)
             self.print()
 
         elif isinstance(formatted_answer, AgentFinish):
-            # Create content for the finish panel
-            content = Text()
-            content.append("Agent: ", style="white")
-            content.append(f"{agent_role}\n\n", style="bright_green bold")
-            content.append("Final Answer:\n", style="white")
-            content.append(f"{formatted_answer.output}", style="bright_green")
+            if self._just_streamed_final_answer:
+                self._just_streamed_final_answer = False
+                return
 
-            # Create and display the finish panel
-            finish_panel = Panel(
-                content,
-                title="✅ Agent Final Answer",
-                border_style="green",
-                padding=(1, 2),
-            )
-            self.print(finish_panel)
-            self.print()
+            is_a2a_delegation = False
+            try:
+                output_data = json.loads(formatted_answer.output)
+                if isinstance(output_data, dict):
+                    if output_data.get("is_a2a") is True:
+                        is_a2a_delegation = True
+                    elif "output" in output_data:
+                        nested_output = output_data["output"]
+                        if (
+                            isinstance(nested_output, dict)
+                            and nested_output.get("is_a2a") is True
+                        ):
+                            is_a2a_delegation = True
+            except (json.JSONDecodeError, TypeError, ValueError):
+                pass
 
-    def handle_memory_retrieval_started(
-        self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
-    ) -> Tree | None:
+            if not is_a2a_delegation:
+                content = Text()
+                content.append("Agent: ", style="white")
+                content.append(f"{agent_role}\n\n", style="bright_green bold")
+                content.append("Final Answer:\n", style="white")
+                content.append(f"{formatted_answer.output}", style="bright_green")
+
+                finish_panel = Panel(
+                    content,
+                    title="✅ Agent Final Answer",
+                    border_style="green",
+                    padding=(1, 2),
+                )
+                self.print(finish_panel)
+                self.print()
+
+    def handle_memory_retrieval_started(self) -> None:
+        """Handle memory retrieval started event with panel display."""
         if not self.verbose:
-            return None
+            return
 
-        branch_to_use = agent_branch or self.current_lite_agent_branch
-        tree_to_use = branch_to_use or crew_tree
+        content = Text()
+        content.append("Memory Retrieval Started\n", style="blue bold")
+        content.append("Status: ", style="white")
+        content.append("Retrieving...\n", style="blue")
 
-        if branch_to_use is None or tree_to_use is None:
-            if crew_tree is not None:
-                branch_to_use = tree_to_use = crew_tree
-            else:
-                return None
-
-        memory_branch = branch_to_use.add("")
-        self.update_tree_label(memory_branch, "🧠", "Memory Retrieval Started", "blue")
-
-        self.print(tree_to_use)
-        self.print()
-        return memory_branch
+        self.print_panel(content, "🧠 Memory Retrieval", "blue")
 
     def handle_memory_retrieval_completed(
         self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
         memory_content: str,
         retrieval_time_ms: float,
     ) -> None:
+        """Handle memory retrieval completed event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-        tree_to_use = branch_to_use or crew_tree
-
-        if branch_to_use is None and tree_to_use is not None:
-            branch_to_use = tree_to_use
-
-        def add_panel():
-            memory_text = str(memory_content)
-            if len(memory_text) > 500:
-                memory_text = memory_text[:497] + "..."
-
-            memory_panel = Panel(
-                Text(memory_text, style="white"),
-                title="🧠 Retrieved Memory",
-                subtitle=f"Retrieval Time: {retrieval_time_ms:.2f}ms",
-                border_style="green",
-                padding=(1, 2),
-            )
-            self.print(memory_panel)
-            self.print()
-
-        if branch_to_use is None or tree_to_use is None:
-            add_panel()
-            return
-
-        memory_branch_found = False
-        for child in branch_to_use.children:
-            if "Memory Retrieval Started" in str(child.label):
-                self.update_tree_label(
-                    child, "✅", "Memory Retrieval Completed", "green"
-                )
-                memory_branch_found = True
-                break
-
-        if not memory_branch_found:
-            for child in branch_to_use.children:
-                if (
-                    "Memory Retrieval" in str(child.label)
-                    and "Started" not in str(child.label)
-                    and "Completed" not in str(child.label)
-                ):
-                    self.update_tree_label(
-                        child, "✅", "Memory Retrieval Completed", "green"
-                    )
-                    memory_branch_found = True
-                    break
-
-        if not memory_branch_found:
-            memory_branch = branch_to_use.add("")
-            self.update_tree_label(
-                memory_branch, "✅", "Memory Retrieval Completed", "green"
-            )
-
-        self.print(tree_to_use)
+        content = Text()
+        content.append("Memory Retrieval Completed\n", style="green bold")
+        content.append("Time: ", style="white")
+        content.append(f"{retrieval_time_ms:.2f}ms\n", style="green")
 
         if memory_content:
-            add_panel()
+            memory_text = str(memory_content)
 
-    def handle_memory_query_completed(
-        self,
-        agent_branch: Tree | None,
-        source_type: str,
-        query_time_ms: float,
-        crew_tree: Tree | None,
-    ) -> None:
-        if not self.verbose:
-            return
+            content.append("Content: \n", style="white")
+            content.append(f"{memory_text}\n", style="green ")
 
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-        tree_to_use = branch_to_use or crew_tree
-
-        if branch_to_use is None and tree_to_use is not None:
-            branch_to_use = tree_to_use
-
-        if branch_to_use is None:
-            return
-
-        memory_type = source_type.replace("_", " ").title()
-
-        for child in branch_to_use.children:
-            if "Memory Retrieval" in str(child.label):
-                for inner_child in child.children:
-                    sources_branch = inner_child
-                    if "Sources Used" in str(inner_child.label):
-                        sources_branch.add(f"✅ {memory_type} ({query_time_ms:.2f}ms)")
-                        break
-                else:
-                    sources_branch = child.add("Sources Used")
-                    sources_branch.add(f"✅ {memory_type} ({query_time_ms:.2f}ms)")
-                    break
+        self.print_panel(content, "🧠 Memory Retrieved", "green")
 
     def handle_memory_query_failed(
         self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
         error: str,
         source_type: str,
     ) -> None:
+        """Handle memory query failed event with panel display."""
         if not self.verbose:
-            return
-
-        branch_to_use = self.current_lite_agent_branch or agent_branch
-        tree_to_use = branch_to_use or crew_tree
-
-        if branch_to_use is None and tree_to_use is not None:
-            branch_to_use = tree_to_use
-
-        if branch_to_use is None:
             return
 
         memory_type = source_type.replace("_", " ").title()
 
-        for child in branch_to_use.children:
-            if "Memory Retrieval" in str(child.label):
-                for inner_child in child.children:
-                    sources_branch = inner_child
-                    if "Sources Used" in str(inner_child.label):
-                        sources_branch.add(f"❌ {memory_type} - Error: {error}")
-                        break
-                else:
-                    sources_branch = child.add("🧠 Sources Used")
-                    sources_branch.add(f"❌ {memory_type} - Error: {error}")
-                    break
+        content = Text()
+        content.append("Memory Query Failed\n", style="red bold")
+        content.append("Source: ", style="white")
+        content.append(f"{memory_type}\n", style="red")
+        content.append("Error: ", style="white")
+        content.append(f"{error}\n", style="red")
 
-    def handle_memory_save_started(
-        self, agent_branch: Tree | None, crew_tree: Tree | None
-    ) -> None:
+        self.print_panel(content, "❌ Memory Query Error", "red")
+
+    def handle_memory_save_started(self) -> None:
+        """Handle memory save started event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = agent_branch or self.current_lite_agent_branch
-        tree_to_use = branch_to_use or crew_tree
+        content = Text()
+        content.append("Memory Save Started\n", style="blue bold")
+        content.append("Status: ", style="white")
+        content.append("Saving...\n", style="blue")
 
-        if tree_to_use is None:
-            return
-
-        for child in tree_to_use.children:
-            if "Memory Update" in str(child.label):
-                break
-        else:
-            memory_branch = tree_to_use.add("")
-            self.update_tree_label(
-                memory_branch, "🧠", "Memory Update Overall", "white"
-            )
-
-        self.print(tree_to_use)
-        self.print()
+        self.print_panel(content, "🧠 Memory Save", "blue")
 
     def handle_memory_save_completed(
         self,
-        agent_branch: Tree | None,
-        crew_tree: Tree | None,
         save_time_ms: float,
         source_type: str,
     ) -> None:
+        """Handle memory save completed event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = agent_branch or self.current_lite_agent_branch
-        tree_to_use = branch_to_use or crew_tree
-
-        if tree_to_use is None:
-            return
-
         memory_type = source_type.replace("_", " ").title()
-        content = f"✅ {memory_type} Memory Saved ({save_time_ms:.2f}ms)"
 
-        for child in tree_to_use.children:
-            if "Memory Update" in str(child.label):
-                child.add(content)
-                break
-        else:
-            memory_branch = tree_to_use.add("")
-            memory_branch.add(content)
+        content = Text()
+        content.append("Memory Save Completed\n", style="green bold")
+        content.append("Source: ", style="white")
+        content.append(f"{memory_type}\n", style="green")
+        content.append("Time: ", style="white")
+        content.append(f"{save_time_ms:.2f}ms\n", style="green")
 
-        self.print(tree_to_use)
-        self.print()
+        self.print_panel(content, "✅ Memory Saved", "green")
 
     def handle_memory_save_failed(
         self,
-        agent_branch: Tree | None,
         error: str,
         source_type: str,
-        crew_tree: Tree | None,
     ) -> None:
+        """Handle memory save failed event with panel display."""
         if not self.verbose:
             return
 
-        branch_to_use = agent_branch or self.current_lite_agent_branch
-        tree_to_use = branch_to_use or crew_tree
-
-        if branch_to_use is None or tree_to_use is None:
-            return
-
         memory_type = source_type.replace("_", " ").title()
-        content = f"❌ {memory_type} Memory Save Failed"
-        for child in branch_to_use.children:
-            if "Memory Update" in str(child.label):
-                child.add(content)
-                break
-        else:
-            memory_branch = branch_to_use.add("")
-            memory_branch.add(content)
 
-        self.print(tree_to_use)
-        self.print()
+        content = Text()
+        content.append("Memory Save Failed\n", style="red bold")
+        content.append("Source: ", style="white")
+        content.append(f"{memory_type}\n", style="red")
+        content.append("Error: ", style="white")
+        content.append(f"{error}\n", style="red")
+
+        self.print_panel(content, "❌ Memory Save Error", "red")
 
     def handle_guardrail_started(
         self,
@@ -1770,3 +1052,413 @@ class ConsoleFormatter:
                 Attempts=f"{retry_count + 1}",
             )
             self.print_panel(content, "🛡️ Guardrail Failed", "red")
+
+    def handle_a2a_delegation_started(
+        self,
+        endpoint: str,
+        task_description: str,
+        agent_id: str,
+        is_multiturn: bool = False,
+        turn_number: int = 1,
+    ) -> None:
+        """Handle A2A delegation started event with panel display."""
+        if is_multiturn:
+            self.current_a2a_turn_count = turn_number
+
+        content = Text()
+        content.append("A2A Delegation Started\n", style="cyan bold")
+        content.append("Agent ID: ", style="white")
+        content.append(f"{agent_id}\n", style="cyan")
+        content.append("Endpoint: ", style="white")
+        content.append(f"{endpoint}\n", style="cyan")
+        if is_multiturn:
+            content.append("Turn: ", style="white")
+            content.append(f"{turn_number}\n", style="cyan")
+        content.append("Task: ", style="white")
+        task_preview = (
+            task_description[:200] + "..."
+            if len(task_description) > 200
+            else task_description
+        )
+        content.append(f"{task_preview}\n", style="cyan")
+
+        self.print_panel(content, "🔗 A2A Delegation", "cyan")
+        return
+
+    def handle_a2a_delegation_completed(
+        self,
+        status: str,
+        result: str | None = None,
+        error: str | None = None,
+        is_multiturn: bool = False,
+    ) -> None:
+        """Handle A2A delegation completed event with panel display."""
+        if is_multiturn:
+            if status in ["completed", "failed"]:
+                self.current_a2a_turn_count = 0
+
+        if status == "completed" and result:
+            content = Text()
+            content.append("A2A Delegation Completed\n", style="green bold")
+            content.append("Result: ", style="white")
+            result_preview = result[:500] + "..." if len(result) > 500 else result
+            content.append(f"{result_preview}\n", style="green")
+
+            self.print_panel(content, "✅ A2A Success", "green")
+        elif status == "input_required" and error:
+            content = Text()
+            content.append("A2A Response Received\n", style="cyan bold")
+            content.append("Message: ", style="white")
+            response_preview = error[:500] + "..." if len(error) > 500 else error
+            content.append(f"{response_preview}\n", style="cyan")
+
+            self.print_panel(content, "💬 A2A Response", "cyan")
+        elif status == "failed":
+            content = Text()
+            content.append("A2A Delegation Failed\n", style="red bold")
+            if error:
+                content.append("Error: ", style="white")
+                content.append(f"{error}\n", style="red")
+
+            self.print_panel(content, "❌ A2A Failed", "red")
+        else:
+            content = Text()
+            content.append(f"A2A Delegation {status.title()}\n", style="yellow bold")
+            if error:
+                content.append("Message: ", style="white")
+                content.append(f"{error}\n", style="yellow")
+
+            self.print_panel(content, "⚠️ A2A Status", "yellow")
+
+    def handle_a2a_conversation_started(
+        self,
+        agent_id: str,
+        endpoint: str,
+    ) -> None:
+        """Handle A2A conversation started event with panel display."""
+        content = Text()
+        content.append("A2A Conversation Started\n", style="cyan bold")
+        content.append("Agent ID: ", style="white")
+        content.append(f"{agent_id}\n", style="cyan")
+        content.append("Endpoint: ", style="white")
+        content.append(f"{endpoint}\n", style="cyan ")
+
+        self.print_panel(content, "💬 A2A Conversation", "cyan")
+
+    def handle_a2a_message_sent(
+        self,
+        message: str,
+        turn_number: int,
+        agent_role: str | None = None,
+    ) -> None:
+        """Handle A2A message sent event - store for display with response."""
+        self._pending_a2a_message = message
+        self._pending_a2a_agent_role = agent_role
+        self._pending_a2a_turn_number = turn_number
+
+    def handle_a2a_response_received(
+        self,
+        response: str,
+        turn_number: int,
+        status: str,
+        agent_role: str | None = None,
+    ) -> None:
+        """Handle A2A response received event with panel display."""
+        crewai_agent_role = self._pending_a2a_agent_role or agent_role or "User"
+        message_content = self._pending_a2a_message or ""
+
+        # Determine status styling
+        if status == "completed":
+            style = "green"
+            status_indicator = "✓"
+        elif status == "input_required":
+            style = "yellow"
+            status_indicator = "❓"
+        elif status == "failed":
+            style = "red"
+            status_indicator = "✗"
+        elif status == "auth_required":
+            style = "magenta"
+            status_indicator = "🔒"
+        elif status == "canceled":
+            style = ""
+            status_indicator = "⊘"
+        else:
+            style = "cyan"
+            status_indicator = ""
+
+        content = Text()
+        content.append(f"A2A Turn {turn_number}\n", style="cyan bold")
+        content.append("Status: ", style="white")
+        content.append(f"{status_indicator} {status}\n", style=style)
+
+        if message_content:
+            content.append(f"{crewai_agent_role}: ", style="blue bold")
+            msg_preview = (
+                message_content[:200] + "..."
+                if len(message_content) > 200
+                else message_content
+            )
+            content.append(f"{msg_preview}\n", style="blue")
+
+        content.append(
+            f"{self._current_a2a_agent_name or 'A2A Agent'}: ", style=f"{style} bold"
+        )
+        response_preview = response[:200] + "..." if len(response) > 200 else response
+        content.append(f"{response_preview}\n", style=style)
+
+        self.print_panel(content, f"💬 A2A Turn #{turn_number}", style)
+
+        # Clear pending state
+        self._pending_a2a_message = None
+        self._pending_a2a_agent_role = None
+        self._pending_a2a_turn_number = None
+
+    def handle_a2a_conversation_completed(
+        self,
+        status: str,
+        final_result: str | None,
+        error: str | None,
+        total_turns: int,
+    ) -> None:
+        """Handle A2A conversation completed event with panel display."""
+        if status == "completed":
+            content = Text()
+            content.append("A2A Conversation Completed\n", style="green bold")
+            content.append("Total Turns: ", style="white")
+            content.append(f"{total_turns}\n", style="green")
+            if final_result:
+                content.append("Result: ", style="white")
+                result_preview = (
+                    final_result[:500] + "..."
+                    if len(final_result) > 500
+                    else final_result
+                )
+                content.append(f"{result_preview}\n", style="green")
+
+            self.print_panel(content, "✅ A2A Complete", "green")
+        elif status == "failed":
+            content = Text()
+            content.append("A2A Conversation Failed\n", style="red bold")
+            content.append("Total Turns: ", style="white")
+            content.append(f"{total_turns}\n", style="red")
+            if error:
+                content.append("Error: ", style="white")
+                content.append(f"{error}\n", style="red")
+
+            self.print_panel(content, "❌ A2A Failed", "red")
+
+        # Reset state
+        self.current_a2a_turn_count = 0
+        self._pending_a2a_message = None
+        self._pending_a2a_agent_role = None
+        self._pending_a2a_turn_number = None
+
+    # ----------- MCP EVENTS -----------
+
+    def handle_mcp_connection_started(
+        self,
+        server_name: str,
+        server_url: str | None = None,
+        transport_type: str | None = None,
+        is_reconnect: bool = False,
+        connect_timeout: int | None = None,
+    ) -> None:
+        """Handle MCP connection started event."""
+        if not self.verbose:
+            return
+
+        content = Text()
+        reconnect_text = " (Reconnecting)" if is_reconnect else ""
+        content.append(f"MCP Connection Started{reconnect_text}\n\n", style="cyan bold")
+
+        if server_url:
+            content.append("URL: ", style="white")
+            content.append(f"{server_url}\n", style="cyan ")
+
+        if transport_type:
+            content.append("Transport: ", style="white")
+            content.append(f"{transport_type}\n", style="cyan")
+
+        if connect_timeout:
+            content.append("Timeout: ", style="white")
+            content.append(f"{connect_timeout}s\n", style="cyan")
+
+        panel = self.create_panel(content, "🔌 MCP Connection", "cyan")
+        self.print(panel)
+        self.print()
+
+    def handle_mcp_connection_completed(
+        self,
+        server_name: str,
+        server_url: str | None = None,
+        transport_type: str | None = None,
+        connection_duration_ms: float | None = None,
+        is_reconnect: bool = False,
+    ) -> None:
+        """Handle MCP connection completed event."""
+        if not self.verbose:
+            return
+
+        content = Text()
+        reconnect_text = " (Reconnected)" if is_reconnect else ""
+        content.append(
+            f"MCP Connection Completed{reconnect_text}\n\n", style="green bold"
+        )
+        content.append("Server: ", style="white")
+        content.append(f"{server_name}\n", style="green")
+
+        if server_url:
+            content.append("URL: ", style="white")
+            content.append(f"{server_url}\n", style="green ")
+
+        if transport_type:
+            content.append("Transport: ", style="white")
+            content.append(f"{transport_type}\n", style="green")
+
+        if connection_duration_ms is not None:
+            content.append("Duration: ", style="white")
+            content.append(f"{connection_duration_ms:.2f}ms\n", style="green")
+
+        panel = self.create_panel(content, "✅ MCP Connected", "green")
+        self.print(panel)
+        self.print()
+
+    def handle_mcp_connection_failed(
+        self,
+        server_name: str,
+        server_url: str | None = None,
+        transport_type: str | None = None,
+        error: str = "",
+        error_type: str | None = None,
+    ) -> None:
+        """Handle MCP connection failed event."""
+        if not self.verbose:
+            return
+
+        content = Text()
+        content.append("MCP Connection Failed\n\n", style="red bold")
+        content.append("Server: ", style="white")
+        content.append(f"{server_name}\n", style="red")
+
+        if server_url:
+            content.append("URL: ", style="white")
+            content.append(f"{server_url}\n", style="red ")
+
+        if transport_type:
+            content.append("Transport: ", style="white")
+            content.append(f"{transport_type}\n", style="red")
+
+        if error_type:
+            content.append("Error Type: ", style="white")
+            content.append(f"{error_type}\n", style="red")
+
+        if error:
+            content.append("\nError: ", style="white bold")
+            error_preview = error[:500] + "..." if len(error) > 500 else error
+            content.append(f"{error_preview}\n", style="red")
+
+        panel = self.create_panel(content, "❌ MCP Connection Failed", "red")
+        self.print(panel)
+        self.print()
+
+    def handle_mcp_tool_execution_started(
+        self,
+        server_name: str,
+        tool_name: str,
+        tool_args: dict[str, Any] | None = None,
+    ) -> None:
+        """Handle MCP tool execution started event."""
+        if not self.verbose:
+            return
+
+        content = self.create_status_content(
+            "MCP Tool Started",
+            tool_name,
+            "yellow",
+            tool_args=tool_args or {},
+            Server=server_name,
+        )
+
+        panel = self.create_panel(content, "🔧 MCP Tool Started", "yellow")
+        self.print(panel)
+        self.print()
+
+    def handle_mcp_tool_execution_failed(
+        self,
+        server_name: str,
+        tool_name: str,
+        tool_args: dict[str, Any] | None = None,
+        error: str = "",
+        error_type: str | None = None,
+    ) -> None:
+        """Handle MCP tool execution failed event."""
+        if not self.verbose:
+            return
+
+        content = self.create_status_content(
+            "MCP Tool Execution Failed",
+            tool_name,
+            "red",
+            tool_args=tool_args or {},
+            Server=server_name,
+        )
+
+        if error_type:
+            content.append("Error Type: ", style="white")
+            content.append(f"{error_type}\n", style="red")
+
+        if error:
+            content.append("\nError: ", style="white bold")
+            error_preview = error[:500] + "..." if len(error) > 500 else error
+            content.append(f"{error_preview}\n", style="red")
+
+        panel = self.create_panel(content, "❌ MCP Tool Failed", "red")
+        self.print(panel)
+        self.print()
+
+    def handle_a2a_polling_started(
+        self,
+        task_id: str,
+        polling_interval: float,
+        endpoint: str,
+    ) -> None:
+        """Handle A2A polling started event with panel display."""
+        content = Text()
+        content.append("A2A Polling Started\n", style="cyan bold")
+        content.append("Task ID: ", style="white")
+        content.append(f"{task_id[:8]}...\n", style="cyan")
+        content.append("Interval: ", style="white")
+        content.append(f"{polling_interval}s\n", style="cyan")
+
+        self.print_panel(content, "⏳ A2A Polling", "cyan")
+
+    def handle_a2a_polling_status(
+        self,
+        task_id: str,
+        state: str,
+        elapsed_seconds: float,
+        poll_count: int,
+    ) -> None:
+        """Handle A2A polling status event with panel display."""
+        if state == "completed":
+            style = "green"
+            status_indicator = "✓"
+        elif state == "failed":
+            style = "red"
+            status_indicator = "✗"
+        elif state == "working":
+            style = "yellow"
+            status_indicator = "⋯"
+        else:
+            style = "cyan"
+            status_indicator = "•"
+
+        content = Text()
+        content.append(f"Poll #{poll_count}\n", style=f"{style} bold")
+        content.append("Status: ", style="white")
+        content.append(f"{status_indicator} {state}\n", style=style)
+        content.append("Elapsed: ", style="white")
+        content.append(f"{elapsed_seconds:.1f}s\n", style=style)
+
+        self.print_panel(content, f"📊 A2A Poll #{poll_count}", style)

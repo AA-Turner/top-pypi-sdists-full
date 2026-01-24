@@ -59,13 +59,12 @@ class IndicesClient(NamespacedClient):
         :arg index: The name of the index to scope the operation.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -99,7 +98,7 @@ class IndicesClient(NamespacedClient):
         Performs the refresh operation in one or more indexes.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -113,15 +112,14 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -153,7 +151,7 @@ class IndicesClient(NamespacedClient):
         Performs the flush operation on one or more indexes.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases to flush. Supports wildcards (`*`). To flush all data streams
             and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -167,17 +165,16 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg force: If `true`, the request forces a flush even if there
             are no changes to commit to the index.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -213,24 +210,23 @@ class IndicesClient(NamespacedClient):
         Creates an index with optional settings and mappings.
 
 
-        :arg index: Name of the index you wish to create.
+        :arg index: The name of the index you wish to create.
         :arg body: The configuration for the index (`settings` and
             `mappings`)
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -283,17 +279,16 @@ class IndicesClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -347,7 +342,7 @@ class IndicesClient(NamespacedClient):
         Returns information about one or more indexes.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             index aliases used to limit the request. Wildcard expressions (*) are
             supported.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -365,14 +360,13 @@ class IndicesClient(NamespacedClient):
             determines whether wildcard expressions match hidden data streams.
             Supports comma-separated values, such as `open,hidden`. Valid choices
             are all, closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: If `true`, returns settings in flat format.
             Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, requests that target a
             missing index return an error. Default is false.
         :arg include_defaults: If `true`, return all default settings in
@@ -384,7 +378,7 @@ class IndicesClient(NamespacedClient):
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -423,7 +417,7 @@ class IndicesClient(NamespacedClient):
         Opens an index.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). By default,
             you must explicitly name the indexes you using to limit the request. To
             limit a request using `_all`, `*`, or other wildcard expressions, change
@@ -443,19 +437,18 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -503,8 +496,8 @@ class IndicesClient(NamespacedClient):
         Closes an index.
 
 
-        :arg index: Comma-separated list or wildcard expression of index
-            names used to limit the request.
+        :arg index: A comma-separated list or wildcard expression of
+            index names used to limit the request.
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
             missing or closed indexes. This behavior applies even if the request
@@ -518,19 +511,18 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -573,7 +565,7 @@ class IndicesClient(NamespacedClient):
         Deletes an index.
 
 
-        :arg index: Comma-separated list of indexes to delete. You
+        :arg index: A comma-separated list of indexes to delete. You
             cannot specify index aliases. By default, this parameter does not
             support wildcards (`*`) or `_all`. To use wildcards or `_all`, set the
             `action.destructive_requires_name` cluster setting to `false`.
@@ -590,19 +582,18 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -642,7 +633,7 @@ class IndicesClient(NamespacedClient):
         Returns information about whether a particular index exists.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases. Supports wildcards (`*`).
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
@@ -657,21 +648,20 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: If `true`, returns settings in flat format.
             Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index. Default is false.
         :arg include_defaults: If `true`, return all default settings in
             the response. Default is false.
         :arg local: If `true`, the request retrieves information from
             the local node only. Default is false.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -725,19 +715,18 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -785,7 +774,7 @@ class IndicesClient(NamespacedClient):
         Returns mappings for one or more indexes.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -801,12 +790,11 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg local: If `true`, the request retrieves information from
@@ -815,7 +803,7 @@ class IndicesClient(NamespacedClient):
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -848,9 +836,9 @@ class IndicesClient(NamespacedClient):
         Returns mapping for one or more fields.
 
 
-        :arg fields: Comma-separated list or wildcard expression of
+        :arg fields: A comma-separated list or wildcard expression of
             fields used to limit returned information.
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -864,19 +852,18 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg include_defaults: If `true`, return all default settings in
             the response.
         :arg local: If `true`, the request retrieves information from
             the local node only. Default is false.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -914,10 +901,10 @@ class IndicesClient(NamespacedClient):
         Returns information about whether a particular alias exists.
 
 
-        :arg name: Comma-separated list of aliases to check. Supports
+        :arg name: A comma-separated list of aliases to check. Supports
             wildcards (`*`).
-        :arg index: Comma-separated list of data streams or indexes used
-            to limit the request. Supports wildcards (`*`). To target all data
+        :arg index: A comma-separated list of data streams or indexes
+            used to limit the request. Supports wildcards (`*`). To target all data
             streams and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
@@ -930,18 +917,17 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, requests that include a
             missing data stream or index in the target indexes or data streams
             return an error.
         :arg local: If `true`, the request retrieves information from
             the local node only. Default is false.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -976,12 +962,12 @@ class IndicesClient(NamespacedClient):
         Returns an alias.
 
 
-        :arg index: Comma-separated list of data streams or indexes used
-            to limit the request. Supports wildcards (`*`). To target all data
+        :arg index: A comma-separated list of data streams or indexes
+            used to limit the request. Supports wildcards (`*`). To target all data
             streams and indexes, omit this parameter or use `*` or `_all`.
-        :arg name: Comma-separated list of aliases to retrieve. Supports
-            wildcards (`*`). To retrieve all aliases, omit this parameter or use `*`
-            or `_all`.
+        :arg name: A comma-separated list of aliases to retrieve.
+            Supports wildcards (`*`). To retrieve all aliases, omit this parameter
+            or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
             missing or closed indexes. This behavior applies even if the request
@@ -993,17 +979,16 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg local: If `true`, the request retrieves information from
             the local node only. Default is false.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1038,17 +1023,16 @@ class IndicesClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1085,25 +1069,24 @@ class IndicesClient(NamespacedClient):
         Deletes an alias.
 
 
-        :arg index: Comma-separated list of data streams or indexes used
-            to limit the request. Supports wildcards (`*`).
-        :arg name: Comma-separated list of aliases to remove. Supports
+        :arg index: A comma-separated list of data streams or indexes
+            used to limit the request. Supports wildcards (`*`).
+        :arg name: A comma-separated list of aliases to remove. Supports
             wildcards (`*`). To remove all aliases, use `*` or `_all`.
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1150,12 +1133,11 @@ class IndicesClient(NamespacedClient):
             existing index templates. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
@@ -1164,7 +1146,7 @@ class IndicesClient(NamespacedClient):
             index matches multiple templates.  Templates with lower 'order' values
             are merged first. Templates with higher 'order' values are merged later,
             overriding templates with lower values.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1208,20 +1190,19 @@ class IndicesClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: Return settings in flat format. Default is
             false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg local: Return local information, do not retrieve the state
             from cluster-manager node. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Explicit operation timeout for
             connection to cluster-manager node
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1255,29 +1236,28 @@ class IndicesClient(NamespacedClient):
         Returns an index template.
 
 
-        :arg name: Comma-separated list of index template names used to
-            limit the request. Wildcard (`*`) expressions are supported. To return
-            all index templates, omit this parameter or use a value of `_all` or
-            `*`.
+        :arg name: A comma-separated list of index template names used
+            to limit the request. Wildcard (`*`) expressions are supported. To
+            return all index templates, omit this parameter or use a value of `_all`
+            or `*`.
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: If `true`, returns settings in flat format.
             Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg local: If `true`, the request retrieves information from
             the local node only. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1313,17 +1293,16 @@ class IndicesClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1365,10 +1344,10 @@ class IndicesClient(NamespacedClient):
         Returns settings for one or more indexes.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
-        :arg name: Comma-separated list or wildcard expression of
+        :arg name: A comma-separated list or wildcard expression of
             settings to retrieve.
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
@@ -1385,14 +1364,13 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid choices are all, closed,
             hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: If `true`, returns settings in flat format.
             Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg include_defaults: If `true`, return all default settings in
@@ -1404,7 +1382,7 @@ class IndicesClient(NamespacedClient):
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1440,7 +1418,7 @@ class IndicesClient(NamespacedClient):
         Updates the index settings.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -1458,14 +1436,13 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid choices are all, closed,
             hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: If `true`, returns settings in flat format.
             Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: Whether specified concrete indexes
             should be ignored when unavailable (missing or closed).
         :arg master_timeout (Deprecated: To promote inclusive language,
@@ -1474,7 +1451,7 @@ class IndicesClient(NamespacedClient):
             timeout expires, the request fails and returns an error.
         :arg preserve_existing: If `true`, existing index settings
             remain unchanged. Default is false.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1525,7 +1502,7 @@ class IndicesClient(NamespacedClient):
             empty string to perform the operation on all indexes
         :arg metric: Limit the information returned the specific
             metrics.
-        :arg completion_fields: Comma-separated list or wildcard
+        :arg completion_fields: A comma-separated list or wildcard
             expressions of fields to include in field data and suggest statistics.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
@@ -1534,20 +1511,19 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid choices are all, closed,
             hidden, none, open.
-        :arg fielddata_fields: Comma-separated list or wildcard
+        :arg fielddata_fields: A comma-separated list or wildcard
             expressions of fields to include in field data statistics.
-        :arg fields: Comma-separated list or wildcard expressions of
+        :arg fields: A comma-separated list or wildcard expressions of
             fields to include in the statistics.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg forbid_closed_indices: If `true`, statistics are not
             collected from closed indexes. Default is True.
-        :arg groups: Comma-separated list of search groups to include in
-            the search statistics.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg groups: A comma-separated list of search groups to include
+            in the search statistics.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg include_segment_file_sizes: If `true`, the call reports the
             aggregated disk usage of each one of the Lucene index files (only
             applies if segment stats are requested). Default is false.
@@ -1557,7 +1533,7 @@ class IndicesClient(NamespacedClient):
         :arg level: Indicates whether statistics are aggregated at the
             cluster, index, or shard level. Valid choices are cluster, indices,
             shards.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1588,7 +1564,7 @@ class IndicesClient(NamespacedClient):
         Provides low-level information about segments in a Lucene index.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg allow_no_indices: If `false`, the request returns an error
@@ -1602,15 +1578,14 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1653,7 +1628,7 @@ class IndicesClient(NamespacedClient):
 
 
         :arg body: The query definition specified with the Query DSL
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases to search. Supports wildcards (`*`). To search all data streams
             or indexes, omit this parameter or use `*` or `_all`.
         :arg all_shards: If `true`, the validation is executed on all
@@ -1681,17 +1656,16 @@ class IndicesClient(NamespacedClient):
             `open`, `closed`, `hidden`, `none`.
         :arg explain: If `true`, the response returns detailed
             information if an error has occurred.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
         :arg lenient: If `true`, format-based query failures (such as
             providing text to a numeric field) in the query string will be ignored.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg q: Query in the Lucene query string syntax.
         :arg rewrite: If `true`, returns a more detailed explanation
@@ -1733,8 +1707,8 @@ class IndicesClient(NamespacedClient):
         Clears all or specific caches for one or more indexes.
 
 
-        :arg index: Comma-separated list of indexes; use `_all` or empty
-            string to perform the operation on all indexes.
+        :arg index: A comma-separated list of indexes; use `_all` or
+            empty string to perform the operation on all indexes.
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
             missing or closed indexes. This behavior applies even if the request
@@ -1748,19 +1722,18 @@ class IndicesClient(NamespacedClient):
             `open`, `closed`, `hidden`, `none`.
         :arg fielddata: If `true`, clears the fields cache. Use the
             `fields` parameter to clear the cache of specific fields only.
-        :arg fields: Comma-separated list of field names used to limit
+        :arg fields: A comma-separated list of field names used to limit
             the `fielddata` parameter.
         :arg file: If `true`, clears the unused entries from the file
             cache on nodes with the Search role. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `false`, the request returns an
             error if it targets a missing or closed index.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg query: If `true`, clears the query cache.
         :arg request: If `true`, clears the request cache.
@@ -1791,7 +1764,7 @@ class IndicesClient(NamespacedClient):
         Returns information about ongoing index shard recoveries.
 
 
-        :arg index: Comma-separated list of data streams, indexes, and
+        :arg index: A comma-separated list of data streams, indexes, and
             aliases used to limit the request. Supports wildcards (`*`). To target
             all data streams and indexes, omit this parameter or use `*` or `_all`.
         :arg active_only: If `true`, the response only includes ongoing
@@ -1800,13 +1773,12 @@ class IndicesClient(NamespacedClient):
             information about shard recoveries. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1838,8 +1810,8 @@ class IndicesClient(NamespacedClient):
         The `_upgrade` API is no longer useful and will be removed.
 
 
-        :arg index: Comma-separated list of indexes; use `_all` or empty
-            string to perform the operation on all indexes.
+        :arg index: A comma-separated list of indexes; use `_all` or
+            empty string to perform the operation on all indexes.
         :arg allow_no_indices: Whether to ignore if a wildcard indexes
             expression resolves into no concrete indexes. (This includes `_all`
             string or when no indexes have been specified).
@@ -1848,17 +1820,16 @@ class IndicesClient(NamespacedClient):
         :arg expand_wildcards: Whether to expand wildcard expression to
             concrete indexes that are open, closed or both. Valid choices are all,
             closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: Whether specified concrete indexes
             should be ignored when unavailable (missing or closed).
         :arg only_ancient_segments: If `true`, only ancient (an older
             Lucene major release) segments will be upgraded.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1890,8 +1861,8 @@ class IndicesClient(NamespacedClient):
         The `_upgrade` API is no longer useful and will be removed.
 
 
-        :arg index: Comma-separated list of indexes; use `_all` or empty
-            string to perform the operation on all indexes.
+        :arg index: A comma-separated list of indexes; use `_all` or
+            empty string to perform the operation on all indexes.
         :arg allow_no_indices: Whether to ignore if a wildcard indexes
             expression resolves into no concrete indexes. (This includes `_all`
             string or when no indexes have been specified).
@@ -1900,15 +1871,14 @@ class IndicesClient(NamespacedClient):
         :arg expand_wildcards: Whether to expand wildcard expression to
             concrete indexes that are open, closed or both. Valid choices are all,
             closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: Whether specified concrete indexes
             should be ignored when unavailable (missing or closed).
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -1939,32 +1909,32 @@ class IndicesClient(NamespacedClient):
         Provides store information for shard copies of indexes.
 
 
-        :arg index: List of data streams, indexes, and aliases used to
-            limit the request.
+        :arg index: Limits health reporting to a specific source. Can be
+            a single source or a comma-separated list of sources (comprised of data
+            streams, indexes, and aliases).
         :arg allow_no_indices: If `false`, the request returns an error
             if any wildcard expression, index alias, or `_all` value targets only
             missing or closed indexes. This behavior applies even if the request
-            targets other open indexes.
+            targets other open indexes. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
         :arg expand_wildcards: Type of index that wildcard patterns can
             match. If the request can target data streams, this argument determines
             whether wildcard expressions match hidden data streams. Valid choices
             are all, closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: If `true`, missing or closed indexes
-            are not included in the response.
-        :arg pretty: Whether to pretty format the returned JSON
+            are not included in the response. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
-        :arg status: List of shard health statuses used to limit the
-            request.
+        :arg status: A list of shard health statuses used to limit the
+            request. Default is ['yellow', 'red'].
         """
         return self.transport.perform_request(
             "GET", _make_path(index, "_shard_stores"), params=params, headers=headers
@@ -2006,14 +1976,13 @@ class IndicesClient(NamespacedClient):
         :arg expand_wildcards: Whether to expand wildcard expression to
             concrete indexes that are open, closed or both. Valid choices are all,
             closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flush: Specify whether the index should be flushed after
             performing the operation. Default is True.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: Whether specified concrete indexes
             should be ignored when unavailable (missing or closed)
         :arg max_num_segments: The number of larger segments into which
@@ -2022,7 +1991,7 @@ class IndicesClient(NamespacedClient):
             as necessary.
         :arg only_expunge_deletes: Specify whether the operation should
             only expunge deleted documents
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg primary_only: Specify whether the operation should only
             perform on primary shards. Defaults to false. Default is false.
@@ -2072,17 +2041,16 @@ class IndicesClient(NamespacedClient):
             source index. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2148,17 +2116,16 @@ class IndicesClient(NamespacedClient):
             source index. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2215,8 +2182,8 @@ class IndicesClient(NamespacedClient):
         :arg alias: Name of the data stream or index alias to roll over.
         :arg body: The conditions that needs to be met for executing
             rollover
-        :arg new_index: Name of the index to create. Supports date math.
-            Data streams do not support this parameter.
+        :arg new_index: The name of the index to create. Supports date
+            math. Data streams do not support this parameter.
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg dry_run: If `true`, checks whether the current index
@@ -2224,17 +2191,16 @@ class IndicesClient(NamespacedClient):
             Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2279,13 +2245,12 @@ class IndicesClient(NamespacedClient):
         :arg body: The data stream definition
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2313,17 +2278,16 @@ class IndicesClient(NamespacedClient):
         Deletes a data stream.
 
 
-        :arg name: Comma-separated list of data streams to delete.
+        :arg name: A comma-separated list of data streams to delete.
             Wildcard (`*`) expressions are supported.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2356,23 +2320,22 @@ class IndicesClient(NamespacedClient):
         Deletes an index template.
 
 
-        :arg name: Name of the index template to delete. Wildcard (*)
-            expressions are supported.
+        :arg name: The name of the index template to delete. Wildcard
+            (*) expressions are supported.
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2412,27 +2375,26 @@ class IndicesClient(NamespacedClient):
         Returns information about whether a particular index template exists.
 
 
-        :arg name: Name of the index template to check existence of.
+        :arg name: The name of the index template to check existence of.
             Wildcard (*) expressions are supported.
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: Return settings in flat format. Default is
             false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg local: Return local information, do not retrieve the state
             from cluster-manager node. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2466,20 +2428,19 @@ class IndicesClient(NamespacedClient):
         Returns an index template.
 
 
-        :arg name: Name of the index template to retrieve. Wildcard (*)
-            expressions are supported.
+        :arg name: The name of the index template to retrieve. Wildcard
+            (*) expressions are supported.
         :arg cluster_manager_timeout: Operation timeout for connection
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
         :arg flat_settings: If `true`, returns settings in flat format.
             Default is false.
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg local: If `true`, the request retrieves information from
             the local node only. Defaults to false, which means information is
             retrieved from the cluster-manager node. Default is false.
@@ -2487,7 +2448,7 @@ class IndicesClient(NamespacedClient):
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2529,16 +2490,15 @@ class IndicesClient(NamespacedClient):
             existing index templates. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Operation timeout for
             connection to cluster-manager node.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2584,17 +2544,16 @@ class IndicesClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2622,18 +2581,17 @@ class IndicesClient(NamespacedClient):
         Returns data streams.
 
 
-        :arg name: Comma-separated list of data stream names used to
+        :arg name: A comma-separated list of data stream names used to
             limit the request. Wildcard (`*`) expressions are supported. If omitted,
             all data streams are returned.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2665,7 +2623,7 @@ class IndicesClient(NamespacedClient):
         Simulate resolving the given template name or body.
 
 
-        :arg name: Name of the index template to simulate. To test a
+        :arg name: The name of the index template to simulate. To test a
             template configuration before you add it to the cluster, omit this
             parameter and specify the template configuration in the request body.
         :arg cause: User defined reason for dry-run creating the new
@@ -2679,17 +2637,16 @@ class IndicesClient(NamespacedClient):
             only used for the simulation. Default is false.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2726,13 +2683,12 @@ class IndicesClient(NamespacedClient):
             whether wildcard expressions match hidden data streams. Supports comma-
             separated values, such as `open,hidden`. Valid values are: `all`,
             `open`, `closed`, `hidden`, `none`.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2782,18 +2738,17 @@ class IndicesClient(NamespacedClient):
         :arg expand_wildcards: Whether to expand wildcard expression to
             concrete indexes that are open, closed or both. Valid choices are all,
             closed, hidden, none, open.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg ignore_unavailable: Whether specified concrete indexes
             should be ignored when unavailable (missing or closed).
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Specify timeout for connection
             to cluster manager.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2819,18 +2774,17 @@ class IndicesClient(NamespacedClient):
         Provides statistics on operations happening in a data stream.
 
 
-        :arg name: Comma-separated list of data streams used to limit
+        :arg name: A comma-separated list of data streams used to limit
             the request. Wildcard expressions (`*`) are supported. To target all
             data streams in a cluster, omit this parameter or use `*`.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.
@@ -2867,7 +2821,7 @@ class IndicesClient(NamespacedClient):
 
         :arg body: The settings for the alias, such as `routing` or
             `filter`
-        :arg index: Comma-separated list of data streams or indexes to
+        :arg index: A comma-separated list of data streams or indexes to
             add. Supports wildcards (`*`). Wildcard patterns that match both data
             streams and indexes return an error.
         :arg name: Alias to update. If the alias doesn't exist, the
@@ -2876,17 +2830,16 @@ class IndicesClient(NamespacedClient):
             to cluster-manager node.
         :arg error_trace: Whether to include the stack trace of returned
             errors. Default is false.
-        :arg filter_path: Used to reduce the response. This parameter
-            takes a comma-separated list of filters. It supports using wildcards to
-            match any field or part of a field’s name. You can also exclude fields
-            with "-".
-        :arg human: Whether to return human readable values for
-            statistics. Default is True.
+        :arg filter_path: A comma-separated list of filters used to
+            filter the response. Use wildcards to match any field or part of a
+            field's name. To exclude fields, use `-`.
+        :arg human: Whether to return human-readable values for
+            statistics. Default is false.
         :arg master_timeout (Deprecated: To promote inclusive language,
             use `cluster_manager_timeout` instead.): Period to wait for a connection
             to the cluster-manager node. If no response is received before the
             timeout expires, the request fails and returns an error.
-        :arg pretty: Whether to pretty format the returned JSON
+        :arg pretty: Whether to pretty-format the returned JSON
             response. Default is false.
         :arg source: The URL-encoded request definition. Useful for
             libraries that do not accept a request body for non-POST requests.

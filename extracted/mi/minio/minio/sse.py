@@ -28,13 +28,12 @@ from __future__ import absolute_import, annotations
 
 import base64
 import json
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from typing import Any, cast
 
 
-class Sse:
+class Sse(ABC):
     """Server-side encryption base class."""
-    __metaclass__ = ABCMeta
 
     @abstractmethod
     def headers(self) -> dict[str, str]:
@@ -55,7 +54,8 @@ class SseCustomerKey(Sse):
     def __init__(self, key: bytes):
         if len(key) != 32:
             raise ValueError(
-                "SSE-C keys need to be 256 bit base64 encoded",
+                "SSE-C keys must be exactly 256 bits (32 bytes) long. "
+                "Pass raw bytes, not the base64 encoded value.",
             )
         b64key = base64.b64encode(key).decode()
         from .helpers import \

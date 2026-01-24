@@ -9,7 +9,6 @@ from collections.abc import Iterable, Iterator
 from doctest import ELLIPSIS
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Union
 
 import pytest
 import sybil
@@ -25,6 +24,15 @@ import sybil.region
 import sybil.typing
 
 
+@pytest.fixture(autouse=True)
+def _unset_force_color(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Unset "FORCE_COLOR" or the tests using Argparse will fail in CI from Python 3.14
+    upwards.
+    """
+    monkeypatch.delenv("FORCE_COLOR", raising=False)
+
+
 class CodeFileParser(sybil.parsers.myst.CodeBlockParser):
     """
     Parser for included/referenced files.
@@ -34,10 +42,10 @@ class CodeFileParser(sybil.parsers.myst.CodeBlockParser):
 
     def __init__(
         self,
-        language: Optional[str] = None,
+        language: str | None = None,
         *,
-        ext: Optional[str] = None,
-        fallback_evaluator: Optional[sybil.typing.Evaluator] = None,
+        ext: str | None = None,
+        fallback_evaluator: sybil.typing.Evaluator | None = None,
         doctest_optionflags: int = 0,
     ) -> None:
         super().__init__(language=language)  # type: ignore[arg-type]
@@ -49,7 +57,7 @@ class CodeFileParser(sybil.parsers.myst.CodeBlockParser):
         self.evaluator = fallback_evaluator
 
         # Allow doctests in normal "```python" blocks
-        self.doctest_parser: Optional[sybil.parsers.abstract.DocTestStringParser] = None
+        self.doctest_parser: sybil.parsers.abstract.DocTestStringParser | None = None
         if language == "python":
             self.doctest_parser = sybil.parsers.abstract.DocTestStringParser(
                 sybil.evaluators.doctest.DocTestEvaluator(doctest_optionflags)
@@ -87,7 +95,7 @@ class ConsoleCodeBlockParser(sybil.parsers.myst.CodeBlockParser):
     def evaluate(self, example: sybil.Example) -> None:
         cmds, output = self._get_commands(example)
 
-        expected: Union[str, re.Pattern]
+        expected: str | re.Pattern
         if "..." in output:
             output = re.escape(output).replace("\\.\\.\\.", ".*")
             expected = re.compile(f"^{output}$", flags=re.DOTALL)

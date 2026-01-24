@@ -17,6 +17,7 @@
 System-level utilities and helper functions.
 """
 
+from collections.abc import Callable, Iterable
 import functools
 import logging
 import multiprocessing
@@ -27,6 +28,7 @@ import signal
 import subprocess
 import sys
 import time
+from typing import Any, Literal, overload, TYPE_CHECKING
 
 import enum
 from oslo_utils import encodeutils
@@ -35,32 +37,40 @@ from oslo_utils import timeutils
 
 from oslo_concurrency._i18n import _
 
+if TYPE_CHECKING:
+    import paramiko.client
+
 
 LOG = logging.getLogger(__name__)
 
 
 class InvalidArgumentError(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message: object = None) -> None:
         super().__init__(message)
 
 
 class UnknownArgumentError(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message: object = None) -> None:
         super().__init__(message)
 
 
 class ProcessExecutionError(Exception):
-    def __init__(self, stdout=None, stderr=None, exit_code=None, cmd=None,
-                 description=None):
-        super().__init__(
-            stdout, stderr, exit_code, cmd, description)
+    def __init__(
+        self,
+        stdout: str | None = None,
+        stderr: str | None = None,
+        exit_code: str | int | None = None,
+        cmd: list[str] | str | None = None,
+        description: str | None = None,
+    ):
+        super().__init__(stdout, stderr, exit_code, cmd, description)
         self.exit_code = exit_code
         self.stderr = stderr
         self.stdout = stdout
         self.cmd = cmd
         self.description = description
 
-    def __str__(self):
+    def __str__(self) -> str:
         description = self.description
         if description is None:
             description = _("Unexpected error while running command.")
@@ -69,24 +79,28 @@ class ProcessExecutionError(Exception):
         if exit_code is None:
             exit_code = '-'
 
-        message = _('%(description)s\n'
-                    'Command: %(cmd)s\n'
-                    'Exit code: %(exit_code)s\n'
-                    'Stdout: %(stdout)r\n'
-                    'Stderr: %(stderr)r') % {'description': description,
-                                             'cmd': self.cmd,
-                                             'exit_code': exit_code,
-                                             'stdout': self.stdout,
-                                             'stderr': self.stderr}
+        message = _(
+            '%(description)s\n'
+            'Command: %(cmd)s\n'
+            'Exit code: %(exit_code)s\n'
+            'Stdout: %(stdout)r\n'
+            'Stderr: %(stderr)r'
+        ) % {
+            'description': description,
+            'cmd': self.cmd,
+            'exit_code': exit_code,
+            'stdout': self.stdout,
+            'stderr': self.stderr,
+        }
         return message
 
 
 class NoRootWrapSpecified(Exception):
-    def __init__(self, message=None):
+    def __init__(self, message: object = None) -> None:
         super().__init__(message)
 
 
-def _subprocess_setup(on_preexec_fn):
+def _subprocess_setup(on_preexec_fn: Callable[..., Any] | None) -> None:
     # Python installs a SIGPIPE handler by default. This is usually not what
     # non-Python subprocesses expect.
     signal.signal(signal.SIGPIPE, signal.SIG_DFL)
@@ -149,60 +163,86 @@ class ProcessLimits:
         "stack_size": "--stack",
     }
 
-    def __init__(self, **kw):
-        for limit in self._LIMITS:
-            setattr(self, limit, kw.pop(limit, None))
+    def __init__(
+        self,
+        *,
+        address_space: int | None = None,
+        core_file_size: int | None = None,
+        cpu_time: int | None = None,
+        data_size: int | None = None,
+        file_size: int | None = None,
+        memory_locked: int | None = None,
+        number_files: int | None = None,
+        number_processes: int | None = None,
+        resident_set_size: int | None = None,
+        stack_size: int | None = None,
+    ):
+        self.address_space = address_space
+        self.core_file_size = core_file_size
+        self.cpu_time = cpu_time
+        self.data_size = data_size
+        self.file_size = file_size
+        self.memory_locked = memory_locked
+        self.number_files = number_files
+        self.number_processes = number_processes
+        self.resident_set_size = resident_set_size
+        self.stack_size = stack_size
 
-        if kw:
-            raise ValueError("invalid limits: %s"
-                             % ', '.join(sorted(kw.keys())))
-
-    def prlimit_args(self):
+    def prlimit_args(self) -> list[str]:
         """Create a list of arguments for the prlimit command line."""
         args = []
         for limit in self._LIMITS:
             val = getattr(self, limit)
             if val is not None:
-                args.append("{}={}".format(self._LIMITS[limit], val))
+                args.append(f"{self._LIMITS[limit]}={val}")
         return args
 
 
-def execute(*cmd, **kwargs):
+def execute(
+    *cmd: str,
+    cwd: str | None = None,
+    process_input: str | bytes | None = None,
+    env_variables: dict[str, str] | None = None,
+    check_exit_code: bool | int | Iterable[int] | None = 0,
+    delay_on_retry: bool = True,
+    attempts: int = 1,
+    run_as_root: bool = False,
+    root_helper: str = '',
+    shell: bool = False,
+    loglevel: int = logging.DEBUG,
+    log_errors: LogErrors = LogErrors.DEFAULT,
+    binary: bool = False,
+    on_execute: Callable[..., Any] | None = None,
+    on_completion: Callable[..., Any] | None = None,
+    preexec_fn: Callable[..., Any] | None = None,
+    prlimit: ProcessLimits | None = None,
+    python_exec: str | None = None,
+    timeout: int | None = None,
+) -> tuple[str, str] | tuple[bytes, bytes]:
     """Helper method to shell out and execute a command through subprocess.
 
     Allows optional retry.
 
     :param cmd:             Passed to subprocess.Popen.
-    :type cmd:              string
     :param cwd:             Set the current working directory
-    :type cwd:              string
     :param process_input:   Send to opened process.
-    :type process_input:    string or bytes
     :param env_variables:   Environment variables and their values that
                             will be set for the process.
-    :type env_variables:    dict
     :param check_exit_code: Single bool, int, or list of allowed exit
                             codes.  Defaults to [0].  Raise
                             :class:`ProcessExecutionError` unless
                             program exits with one of these code.
-    :type check_exit_code:  boolean, int, or [int]
     :param delay_on_retry:  True | False. Defaults to True. If set to True,
                             wait a short amount of time before retrying.
-    :type delay_on_retry:   boolean
     :param attempts:        How many times to retry cmd.
-    :type attempts:         int
     :param run_as_root:     True | False. Defaults to False. If set to True,
                             the command is prefixed by the command specified
                             in the root_helper kwarg.
-    :type run_as_root:      boolean
     :param root_helper:     command to prefix to commands called with
                             run_as_root=True
-    :type root_helper:      string
     :param shell:           whether or not there should be a shell used to
                             execute this command. Defaults to false.
-    :type shell:            boolean
     :param loglevel:        log level for execute commands.
-    :type loglevel:         int.  (Should be logging.DEBUG or logging.INFO)
     :param log_errors:      Should stdout and stderr be logged on error?
                             Possible values are
                             :py:attr:`~.LogErrors.DEFAULT`,
@@ -213,39 +253,31 @@ def execute(*cmd, **kwargs):
                             are **only** relevant when multiple attempts of
                             command execution are requested using the
                             ``attempts`` parameter.
-    :type log_errors:       :py:class:`~.LogErrors`
     :param binary:          On Python 3, return stdout and stderr as bytes if
                             binary is True, as Unicode otherwise.
-    :type binary:           boolean
     :param on_execute:      This function will be called upon process creation
                             with the object as a argument.  The Purpose of this
                             is to allow the caller of `processutils.execute` to
                             track process creation asynchronously.
-    :type on_execute:       function(:class:`subprocess.Popen`)
     :param on_completion:   This function will be called upon process
                             completion with the object as a argument.  The
                             Purpose of this is to allow the caller of
                             `processutils.execute` to track process completion
                             asynchronously.
-    :type on_completion:    function(:class:`subprocess.Popen`)
     :param preexec_fn:      This function will be called
                             in the child process just before the child
                             is executed. WARNING: On windows, we silently
                             drop this preexec_fn as it is not supported by
                             subprocess.Popen on windows (throws a
                             ValueError)
-    :type preexec_fn:       function()
     :param prlimit:         Set resource limits on the child process. See
                             below for a detailed description.
-    :type prlimit:          :class:`ProcessLimits`
     :param python_exec:     The python executable to use for enforcing
                             prlimits. If this is not set or is None, it will
                             default to use sys.executable.
-    :type python_exec:      string
     :param timeout:         Timeout (in seconds) to wait for the process
                             termination. If timeout is reached,
                             :class:`subprocess.TimeoutExpired` is raised.
-    :type timeout:          int
     :returns:               (stdout, stderr) from process execution
     :raises:                :class:`UnknownArgumentError` on
                             receiving unknown arguments
@@ -278,65 +310,52 @@ def execute(*cmd, **kwargs):
        Added *preexec_fn* optional parameter.
     """
 
-    cwd = kwargs.pop('cwd', None)
-    process_input = kwargs.pop('process_input', None)
     if process_input is not None:
         process_input = encodeutils.to_utf8(process_input)
-    env_variables = kwargs.pop('env_variables', None)
-    check_exit_code = kwargs.pop('check_exit_code', [0])
+
+    if python_exec is None:
+        python_exec = sys.executable
+
     ignore_exit_code = False
-    delay_on_retry = kwargs.pop('delay_on_retry', True)
-    attempts = kwargs.pop('attempts', 1)
-    run_as_root = kwargs.pop('run_as_root', False)
-    root_helper = kwargs.pop('root_helper', '')
-    shell = kwargs.pop('shell', False)
-    loglevel = kwargs.pop('loglevel', logging.DEBUG)
-    log_errors = kwargs.pop('log_errors', None)
-    if log_errors is None:
-        log_errors = LogErrors.DEFAULT
-    binary = kwargs.pop('binary', False)
-    on_execute = kwargs.pop('on_execute', None)
-    on_completion = kwargs.pop('on_completion', None)
-    preexec_fn = kwargs.pop('preexec_fn', None)
-    prlimit = kwargs.pop('prlimit', None)
-    python_exec = kwargs.pop('python_exec', None) or sys.executable
-    timeout = kwargs.pop('timeout', None)
 
     if isinstance(check_exit_code, bool):
         ignore_exit_code = not check_exit_code
         check_exit_code = [0]
     elif isinstance(check_exit_code, int):
         check_exit_code = [check_exit_code]
-
-    if kwargs:
-        raise UnknownArgumentError(_('Got unknown keyword args: %r') % kwargs)
+    elif check_exit_code is None:
+        check_exit_code = [0]
 
     if isinstance(log_errors, int):
         log_errors = LogErrors(log_errors)
     if not isinstance(log_errors, LogErrors):
-        raise InvalidArgumentError(_('Got invalid arg log_errors: %r') %
-                                   log_errors)
+        raise InvalidArgumentError(
+            _('Got invalid arg log_errors: %r') % log_errors
+        )
 
     if run_as_root and hasattr(os, 'geteuid') and os.geteuid() != 0:
         if not root_helper:
             raise NoRootWrapSpecified(
-                message=_('Command requested root, but did not '
-                          'specify a root helper.'))
+                message=_(
+                    'Command requested root, but did not '
+                    'specify a root helper.'
+                )
+            )
         if shell:
             # root helper has to be injected into the command string
-            cmd = [' '.join((root_helper, cmd[0]))] + list(cmd[1:])
+            cmd = (' '.join((root_helper, cmd[0])),) + cmd[1:]
         else:
             # root helper has to be tokenized into argument list
-            cmd = shlex.split(root_helper) + list(cmd)
+            cmd = tuple(shlex.split(root_helper)) + cmd
 
-    cmd = [str(c) for c in cmd]
+    cmd = tuple(str(c) for c in cmd)
 
     if prlimit:
         args = [python_exec, '-m', 'oslo_concurrency.prlimit']
         args.extend(prlimit.prlimit_args())
         args.append('--')
         args.extend(cmd)
-        cmd = args
+        cmd = tuple(args)
 
     sanitized_cmd = strutils.mask_password(' '.join(cmd))
 
@@ -347,19 +366,22 @@ def execute(*cmd, **kwargs):
 
         try:
             LOG.log(loglevel, _('Running cmd (subprocess): %s'), sanitized_cmd)
-            _PIPE = subprocess.PIPE  # pylint: disable=E1101
+            _PIPE = subprocess.PIPE
 
             on_preexec_fn = functools.partial(_subprocess_setup, preexec_fn)
 
-            obj = subprocess.Popen(cmd,
-                                   stdin=_PIPE,
-                                   stdout=_PIPE,
-                                   stderr=_PIPE,
-                                   close_fds=True,
-                                   preexec_fn=on_preexec_fn,
-                                   shell=shell,
-                                   cwd=cwd,
-                                   env=env_variables)  # nosec:B602
+            # we're okay with opening the user-provided command here
+            obj = subprocess.Popen(  # noqa: S603
+                cmd,
+                stdin=_PIPE,
+                stdout=_PIPE,
+                stderr=_PIPE,
+                close_fds=True,
+                preexec_fn=on_preexec_fn,
+                shell=shell,
+                cwd=cwd,
+                env=env_variables,
+            )
 
             if on_execute:
                 on_execute(obj)
@@ -367,67 +389,92 @@ def execute(*cmd, **kwargs):
             try:
                 result = obj.communicate(process_input, timeout=timeout)
 
-                obj.stdin.close()  # pylint: disable=E1101
-                _returncode = obj.returncode  # pylint: disable=E1101
-                LOG.log(loglevel, 'CMD "%s" returned: %s in %0.3fs',
-                        sanitized_cmd, _returncode, watch.elapsed())
+                if obj.stdin:
+                    obj.stdin.close()
+
+                _returncode = obj.returncode
+                LOG.log(
+                    loglevel,
+                    'CMD "%s" returned: %s in %0.3fs',
+                    sanitized_cmd,
+                    _returncode,
+                    watch.elapsed(),
+                )
             except subprocess.TimeoutExpired:
-                LOG.log(loglevel, 'CMD "%s" reached timeout in %0.3fs',
-                        sanitized_cmd, watch.elapsed())
+                LOG.log(
+                    loglevel,
+                    'CMD "%s" reached timeout in %0.3fs',
+                    sanitized_cmd,
+                    watch.elapsed(),
+                )
                 raise
             finally:
                 if on_completion:
                     on_completion(obj)
 
             if not ignore_exit_code and _returncode not in check_exit_code:
-                (stdout, stderr) = result
-                stdout = os.fsdecode(stdout)
-                stderr = os.fsdecode(stderr)
+                _stdout, _stderr = result
+                stdout = os.fsdecode(_stdout)
+                stderr = os.fsdecode(_stderr)
                 sanitized_stdout = strutils.mask_password(stdout)
                 sanitized_stderr = strutils.mask_password(stderr)
-                raise ProcessExecutionError(exit_code=_returncode,
-                                            stdout=sanitized_stdout,
-                                            stderr=sanitized_stderr,
-                                            cmd=sanitized_cmd)
+                raise ProcessExecutionError(
+                    exit_code=_returncode,
+                    stdout=sanitized_stdout,
+                    stderr=sanitized_stderr,
+                    cmd=sanitized_cmd,
+                )
+
             if not binary and result is not None:
-                (stdout, stderr) = result
+                _stdout, _stderr = result
                 # Decode from the locale using using the surrogateescape error
                 # handler (decoding cannot fail)
-                stdout = os.fsdecode(stdout)
-                stderr = os.fsdecode(stderr)
+                stdout = os.fsdecode(_stdout)
+                stderr = os.fsdecode(_stderr)
                 return (stdout, stderr)
             else:
                 return result
-
         except (ProcessExecutionError, OSError) as err:
             # if we want to always log the errors or if this is
             # the final attempt that failed and we want to log that.
             if log_errors == LOG_ALL_ERRORS or (
-                    log_errors == LOG_FINAL_ERROR and not attempts):
+                log_errors == LOG_FINAL_ERROR and not attempts
+            ):
                 if isinstance(err, ProcessExecutionError):
-                    format = _('%(desc)r\ncommand: %(cmd)r\n'
-                               'exit code: %(code)r\nstdout: %(stdout)r\n'
-                               'stderr: %(stderr)r')
-                    LOG.log(loglevel, format, {"desc": err.description,
-                                               "cmd": err.cmd,
-                                               "code": err.exit_code,
-                                               "stdout": err.stdout,
-                                               "stderr": err.stderr})
+                    format = _(
+                        '%(desc)r\ncommand: %(cmd)r\n'
+                        'exit code: %(code)r\nstdout: %(stdout)r\n'
+                        'stderr: %(stderr)r'
+                    )
+                    LOG.log(
+                        loglevel,
+                        format,
+                        {
+                            "desc": err.description,
+                            "cmd": err.cmd,
+                            "code": err.exit_code,
+                            "stdout": err.stdout,
+                            "stderr": err.stderr,
+                        },
+                    )
                 else:
-                    format = _('Got an OSError\ncommand: %(cmd)r\n'
-                               'errno: %(errno)r')
-                    LOG.log(loglevel, format, {"cmd": sanitized_cmd,
-                                               "errno": err.errno})
+                    format = _(
+                        'Got an OSError\ncommand: %(cmd)r\nerrno: %(errno)r'
+                    )
+                    LOG.log(
+                        loglevel,
+                        format,
+                        {"cmd": sanitized_cmd, "errno": err.errno},
+                    )
 
             if not attempts:
-                LOG.log(loglevel, _('%r failed. Not Retrying.'),
-                        sanitized_cmd)
+                LOG.log(loglevel, _('%r failed. Not Retrying.'), sanitized_cmd)
                 raise
             else:
-                LOG.log(loglevel, _('%r failed. Retrying.'),
-                        sanitized_cmd)
+                LOG.log(loglevel, _('%r failed. Retrying.'), sanitized_cmd)
                 if delay_on_retry:
-                    time.sleep(random.randint(20, 200) / 100.0)
+                    # we're not using this for cryptographic purposes
+                    time.sleep(random.randint(20, 200) / 100.0)  # noqa: S311
         finally:
             # NOTE(termie): this appears to be necessary to let the subprocess
             #               call clean something up in between calls, without
@@ -438,8 +485,32 @@ def execute(*cmd, **kwargs):
             #               won't hurt anything in the stdlib case anyway.
             time.sleep(0)
 
+    # This should never be reached, but mypy requires a return statement
+    raise RuntimeError("Unexpected exit from retry loop")
 
-def trycmd(*args, **kwargs):
+
+def trycmd(
+    *cmd: str,
+    cwd: str | None = None,
+    process_input: str | bytes | None = None,
+    env_variables: dict[str, str] | None = None,
+    check_exit_code: bool | int | Iterable[int] | None = 0,
+    delay_on_retry: bool = True,
+    attempts: int = 1,
+    run_as_root: bool = False,
+    root_helper: str = '',
+    shell: bool = False,
+    loglevel: int = logging.DEBUG,
+    log_errors: LogErrors = LogErrors.DEFAULT,
+    binary: bool = False,
+    on_execute: Callable[..., Any] | None = None,
+    on_completion: Callable[..., Any] | None = None,
+    preexec_fn: Callable[..., Any] | None = None,
+    prlimit: ProcessLimits | None = None,
+    python_exec: str | None = None,
+    timeout: int | None = None,
+    discard_warnings: bool = False,
+) -> tuple[str | bytes, str | bytes]:
     """A wrapper around execute() to more easily handle warnings and errors.
 
     Returns an (out, err) tuple of strings containing the output of
@@ -448,14 +519,30 @@ def trycmd(*args, **kwargs):
 
     :param discard_warnings:  True | False. Defaults to False. If set to True,
                               then for succeeding commands, stderr is cleared
-    :type discard_warnings:   boolean
     :returns:                 (out, err) from process execution
-
     """
-    discard_warnings = kwargs.pop('discard_warnings', False)
-
     try:
-        out, err = execute(*args, **kwargs)
+        out, err = execute(
+            *cmd,
+            cwd=cwd,
+            process_input=process_input,
+            env_variables=env_variables,
+            check_exit_code=check_exit_code,
+            delay_on_retry=delay_on_retry,
+            attempts=attempts,
+            run_as_root=run_as_root,
+            root_helper=root_helper,
+            shell=shell,
+            loglevel=loglevel,
+            log_errors=log_errors,
+            binary=binary,
+            on_execute=on_execute,
+            on_completion=on_completion,
+            preexec_fn=preexec_fn,
+            prlimit=prlimit,
+            python_exec=python_exec,
+            timeout=timeout,
+        )
         failed = False
     except ProcessExecutionError as exn:
         out, err = '', str(exn)
@@ -468,10 +555,55 @@ def trycmd(*args, **kwargs):
     return out, err
 
 
-def ssh_execute(ssh, cmd, process_input=None,
-                addl_env=None, check_exit_code=True,
-                binary=False, timeout=None,
-                sanitize_stdout=True):
+@overload
+def ssh_execute(
+    ssh: 'paramiko.client.SSHClient',
+    cmd: str,
+    process_input: bytes | None = None,
+    addl_env: Any = None,
+    check_exit_code: bool = True,
+    binary: Literal[True] = True,
+    timeout: int | None = None,
+    sanitize_stdout: bool = True,
+) -> tuple[bytes, bytes]: ...
+
+
+@overload
+def ssh_execute(
+    ssh: 'paramiko.client.SSHClient',
+    cmd: str,
+    process_input: bytes | None = None,
+    addl_env: Any = None,
+    check_exit_code: bool = True,
+    binary: Literal[False] = False,
+    timeout: int | None = None,
+    sanitize_stdout: bool = True,
+) -> tuple[str, str]: ...
+
+
+@overload
+def ssh_execute(
+    ssh: 'paramiko.client.SSHClient',
+    cmd: str,
+    process_input: bytes | None = None,
+    addl_env: Any = None,
+    check_exit_code: bool = True,
+    binary: bool = False,
+    timeout: int | None = None,
+    sanitize_stdout: bool = True,
+) -> tuple[str, str] | tuple[bytes, bytes]: ...
+
+
+def ssh_execute(
+    ssh: 'paramiko.client.SSHClient',
+    cmd: str,
+    process_input: bytes | None = None,
+    addl_env: Any = None,
+    check_exit_code: bool = True,
+    binary: bool = False,
+    timeout: int | None = None,
+    sanitize_stdout: bool = True,
+) -> tuple[str, str] | tuple[bytes, bytes]:
     """Run a command through SSH.
 
     :param ssh:             An SSH Connection object.
@@ -498,13 +630,14 @@ def ssh_execute(ssh, cmd, process_input=None,
         raise InvalidArgumentError(_('process_input not supported over SSH'))
 
     stdin_stream, stdout_stream, stderr_stream = ssh.exec_command(
-        cmd, timeout=timeout)
+        cmd, timeout=timeout
+    )
     channel = stdout_stream.channel
 
     # NOTE(justinsb): This seems suspicious...
     # ...other SSH clients have buffering issues with this approach
-    stdout = stdout_stream.read()
-    stderr = stderr_stream.read()
+    _stdout = stdout_stream.read()
+    _stderr = stderr_stream.read()
 
     stdin_stream.close()
 
@@ -513,8 +646,8 @@ def ssh_execute(ssh, cmd, process_input=None,
     # Decode from the locale using using the surrogateescape error handler
     # (decoding cannot fail). Decode even if binary is True because
     # mask_password() requires Unicode on Python 3
-    stdout = os.fsdecode(stdout)
-    stderr = os.fsdecode(stderr)
+    stdout = os.fsdecode(_stdout)
+    stderr = os.fsdecode(_stderr)
 
     if sanitize_stdout:
         stdout = strutils.mask_password(stdout)
@@ -523,27 +656,28 @@ def ssh_execute(ssh, cmd, process_input=None,
 
     # exit_status == -1 if no exit code was returned
     if exit_status != -1:
-        LOG.debug('Result was %s' % exit_status)
+        LOG.debug('Result was %d', exit_status)
         if check_exit_code and exit_status != 0:
             # In case of errors in command run, due to poor implementation of
             # command executable program, there might be chance that it leaks
             # sensitive information like password to stdout. In such cases
             # stdout needs to be sanitized even though sanitize_stdout=False.
             stdout = strutils.mask_password(stdout)
-            raise ProcessExecutionError(exit_code=exit_status,
-                                        stdout=stdout,
-                                        stderr=stderr,
-                                        cmd=sanitized_cmd)
+            raise ProcessExecutionError(
+                exit_code=exit_status,
+                stdout=stdout,
+                stderr=stderr,
+                cmd=sanitized_cmd,
+            )
 
     if binary:
         # fsencode() is the reverse operation of fsdecode()
-        stdout = os.fsencode(stdout)
-        stderr = os.fsencode(stderr)
+        return (os.fsencode(stdout), os.fsencode(stderr))
+    else:
+        return (stdout, stderr)
 
-    return (stdout, stderr)
 
-
-def get_worker_count():
+def get_worker_count() -> int:
     """Utility to get the default worker count.
 
     :returns: The number of CPUs if that can be determined, else a default

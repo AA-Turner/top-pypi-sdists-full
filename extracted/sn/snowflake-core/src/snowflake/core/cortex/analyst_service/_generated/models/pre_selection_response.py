@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, List, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.cortex.analyst_service._generated.models.table_columns import TableColumns, TableColumnsModel
 from snowflake.core.cortex.analyst_service._generated.models.warning import Warning, WarningModel
@@ -36,6 +36,9 @@ class PreSelectionResponse(BaseModel):
     tables : list[TableColumns], optional
 
     warnings : list[Warning], optional
+
+    experimental : str, optional
+        JSON serialized string of experimental API fields (undocumented).
     """
 
     request_id: Optional[StrictStr] = None
@@ -44,11 +47,14 @@ class PreSelectionResponse(BaseModel):
 
     warnings: Optional[List[Warning]] = None
 
-    __properties = ["request_id", "tables", "warnings"]
+    experimental: Optional[StrictStr] = None
 
-    class Config:  # noqa: D106
-        populate_by_name = True
-        validate_assignment = True
+    __properties = ["request_id", "tables", "warnings", "experimental"]
+
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -73,7 +79,7 @@ class PreSelectionResponse(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of each item in tables (list)
         _items = []
@@ -104,9 +110,9 @@ class PreSelectionResponse(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return PreSelectionResponse.parse_obj(obj)
+            return PreSelectionResponse.model_validate(obj)
 
-        _obj = PreSelectionResponse.parse_obj(
+        _obj = PreSelectionResponse.model_validate(
             {
                 "request_id": obj.get("request_id"),
                 "tables": [TableColumns.from_dict(_item) for _item in obj.get("tables")]
@@ -115,6 +121,7 @@ class PreSelectionResponse(BaseModel):
                 "warnings": [Warning.from_dict(_item) for _item in obj.get("warnings")]
                 if obj.get("warnings") is not None
                 else None,
+                "experimental": obj.get("experimental"),
             }
         )
 
@@ -127,6 +134,7 @@ class PreSelectionResponseModel:
         request_id: Optional[str] = None,
         tables: Optional[list[TableColumns]] = None,
         warnings: Optional[list[Warning]] = None,
+        experimental: Optional[str] = None,
     ):
         """A model object representing the PreSelectionResponse resource.
 
@@ -139,12 +147,16 @@ class PreSelectionResponseModel:
         tables : list[TableColumns], optional
 
         warnings : list[Warning], optional
+
+        experimental : str, optional
+            JSON serialized string of experimental API fields (undocumented).
         """
         self.request_id = request_id
         self.tables = tables
         self.warnings = warnings
+        self.experimental = experimental
 
-    __properties = ["request_id", "tables", "warnings"]
+    __properties = ["request_id", "tables", "warnings", "experimental"]
 
     def __repr__(self) -> str:
         return repr(self._to_model())
@@ -154,6 +166,7 @@ class PreSelectionResponseModel:
             request_id=self.request_id,
             tables=[x._to_model() for x in self.tables] if self.tables is not None else None,
             warnings=[x._to_model() for x in self.warnings] if self.warnings is not None else None,
+            experimental=self.experimental,
         )
 
     @classmethod
@@ -162,6 +175,7 @@ class PreSelectionResponseModel:
             request_id=model.request_id,
             tables=[TableColumnsModel._from_model(x) for x in model.tables] if model.tables else None,
             warnings=[WarningModel._from_model(x) for x in model.warnings] if model.warnings else None,
+            experimental=model.experimental,
         )
 
     def to_dict(self):

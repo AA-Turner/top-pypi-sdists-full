@@ -18,7 +18,7 @@ def _read_parquet_with_metadata(path: str, T: float) -> pd.DataFrame:
 
     Returns
     -------
-    DataFrame
+    :class:`pandas.DataFrame`
     """
     df = pd.read_parquet(path)
     if "temperature" not in df.attrs:
@@ -37,7 +37,7 @@ def _read_parquet_with_metadata(path: str, T: float) -> pd.DataFrame:
     return df
 
 
-def extract_u_nk(path, T):
+def extract_u_nk(path: str, T: float) -> pd.DataFrame:
     r"""Return reduced potentials `u_nk` (unit: kT) from a pandas parquet file.
 
     The parquet file should be serialised from the dataframe output
@@ -53,7 +53,7 @@ def extract_u_nk(path, T):
 
     Returns
     -------
-    u_nk : DataFrame
+    u_nk : :class:`pandas.DataFrame`
         Potential energy for each alchemical state (k) for each frame (n).
 
 
@@ -86,7 +86,7 @@ def extract_u_nk(path, T):
 
 
 @_init_attrs
-def extract_dHdl(path, T):
+def extract_dHdl(path: str, T: float) -> pd.DataFrame:
     r"""Return gradients `dH/dl` (unit: kT) from a pandas parquet file.
 
     The parquet file should be serialised from the dataframe output
@@ -102,7 +102,7 @@ def extract_dHdl(path, T):
 
     Returns
     -------
-    dH/dl : DataFrame
+    dH/dl : :class:`pandas.DataFrame`
         dH/dl as a function of time for this lambda window.
 
     Note

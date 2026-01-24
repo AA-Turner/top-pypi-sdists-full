@@ -2950,6 +2950,142 @@ Note: Up to 20 ports can be input for each rule.
         
 
 
+class ApplyFreeCertificateRequest(AbstractModel):
+    r"""ApplyFreeCertificate request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: Site ID.
+        :type ZoneId: str
+        :param _Domain: Specifies the target domain name for free certificate application.
+        :type Domain: str
+        :param _VerificationMethod: Specifies the verification method for applying for a free certificate. for detailed verification methods, refer to the [free certificate application documentation](https://www.tencentcloud.com/document/product/1552/90437?from_cn_redirect=1). valid values:.
+<li>http_challenge: specifies the file validation mode for http access. verifies by getting file information from the specified URL of the access domain to complete free certificate application.</li>
+<li>dns_challenge: specifies the dns delegation verification method. verifies the free certificate application by adding the designated host record pointing to EdgeOne.</li>
+
+Note: after triggering this api, you need to complete the verification content configuration based on the returned verification information. once configured, you must also verify by calling the <a href = 'https://www.tencentcloud.com/document/product/1552/124806?from_cn_redirect=1'>check free certificate application result</a> api. after verification passes, the application succeeds. once the application is successful, you can call the <a href = 'https://www.tencentcloud.com/document/product/1552/80764?from_cn_redirect=1'>configure domain name certificate</a> API to deploy a free certificate for the current domain name.
+        :type VerificationMethod: str
+        """
+        self._ZoneId = None
+        self._Domain = None
+        self._VerificationMethod = None
+
+    @property
+    def ZoneId(self):
+        r"""Site ID.
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Domain(self):
+        r"""Specifies the target domain name for free certificate application.
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+    @property
+    def VerificationMethod(self):
+        r"""Specifies the verification method for applying for a free certificate. for detailed verification methods, refer to the [free certificate application documentation](https://www.tencentcloud.com/document/product/1552/90437?from_cn_redirect=1). valid values:.
+<li>http_challenge: specifies the file validation mode for http access. verifies by getting file information from the specified URL of the access domain to complete free certificate application.</li>
+<li>dns_challenge: specifies the dns delegation verification method. verifies the free certificate application by adding the designated host record pointing to EdgeOne.</li>
+
+Note: after triggering this api, you need to complete the verification content configuration based on the returned verification information. once configured, you must also verify by calling the <a href = 'https://www.tencentcloud.com/document/product/1552/124806?from_cn_redirect=1'>check free certificate application result</a> api. after verification passes, the application succeeds. once the application is successful, you can call the <a href = 'https://www.tencentcloud.com/document/product/1552/80764?from_cn_redirect=1'>configure domain name certificate</a> API to deploy a free certificate for the current domain name.
+        :rtype: str
+        """
+        return self._VerificationMethod
+
+    @VerificationMethod.setter
+    def VerificationMethod(self, VerificationMethod):
+        self._VerificationMethod = VerificationMethod
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Domain = params.get("Domain")
+        self._VerificationMethod = params.get("VerificationMethod")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApplyFreeCertificateResponse(AbstractModel):
+    r"""ApplyFreeCertificate response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _DnsVerification: Specifies the verification information for free certificate application when VerificationMethod is dns_challenge.
+        :type DnsVerification: :class:`tencentcloud.teo.v20220901.models.DnsVerification`
+        :param _FileVerification: Specifies the verification information related to the free certificate application for the domain name when VerificationMethod is http_challenge.
+        :type FileVerification: :class:`tencentcloud.teo.v20220901.models.FileVerification`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._DnsVerification = None
+        self._FileVerification = None
+        self._RequestId = None
+
+    @property
+    def DnsVerification(self):
+        r"""Specifies the verification information for free certificate application when VerificationMethod is dns_challenge.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.DnsVerification`
+        """
+        return self._DnsVerification
+
+    @DnsVerification.setter
+    def DnsVerification(self, DnsVerification):
+        self._DnsVerification = DnsVerification
+
+    @property
+    def FileVerification(self):
+        r"""Specifies the verification information related to the free certificate application for the domain name when VerificationMethod is http_challenge.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.FileVerification`
+        """
+        return self._FileVerification
+
+    @FileVerification.setter
+    def FileVerification(self, FileVerification):
+        self._FileVerification = FileVerification
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("DnsVerification") is not None:
+            self._DnsVerification = DnsVerification()
+            self._DnsVerification._deserialize(params.get("DnsVerification"))
+        if params.get("FileVerification") is not None:
+            self._FileVerification = FileVerification()
+            self._FileVerification._deserialize(params.get("FileVerification"))
+        self._RequestId = params.get("RequestId")
+
+
 class AscriptionInfo(AbstractModel):
     r"""The site ownership information
 
@@ -6200,6 +6336,132 @@ class CheckCnameStatusResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CheckFreeCertificateVerificationRequest(AbstractModel):
+    r"""CheckFreeCertificateVerification request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: Zone ID.
+        :type ZoneId: str
+        :param _Domain: Acceleration domain name, that domain name used when [applying for free certificate](https://www.tencentcloud.com/document/product/1552/124807?from_cn_redirect=1).
+        :type Domain: str
+        """
+        self._ZoneId = None
+        self._Domain = None
+
+    @property
+    def ZoneId(self):
+        r"""Zone ID.
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def Domain(self):
+        r"""Acceleration domain name, that domain name used when [applying for free certificate](https://www.tencentcloud.com/document/product/1552/124807?from_cn_redirect=1).
+        :rtype: str
+        """
+        return self._Domain
+
+    @Domain.setter
+    def Domain(self, Domain):
+        self._Domain = Domain
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._Domain = params.get("Domain")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CheckFreeCertificateVerificationResponse(AbstractModel):
+    r"""CheckFreeCertificateVerification response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CommonName: Specifies the domain name to which the certificate is issued when the free certificate application succeeds.
+Note: only one free certificate can be applied for a domain name. if a wildcard certificate has been applied for the domain name, its subdomains will use the wildcard certificate.
+        :type CommonName: str
+        :param _SignatureAlgorithm: Specifies the signature algorithm used by the certificate when the free certificate application succeeds. currently only support RSA 2048.
+        :type SignatureAlgorithm: str
+        :param _ExpireTime: Expiration time of the certificate when the free certificate application is successful. the time is in coordinated universal time (UTC), following the ISO 8601 standard date and time format.
+        :type ExpireTime: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._CommonName = None
+        self._SignatureAlgorithm = None
+        self._ExpireTime = None
+        self._RequestId = None
+
+    @property
+    def CommonName(self):
+        r"""Specifies the domain name to which the certificate is issued when the free certificate application succeeds.
+Note: only one free certificate can be applied for a domain name. if a wildcard certificate has been applied for the domain name, its subdomains will use the wildcard certificate.
+        :rtype: str
+        """
+        return self._CommonName
+
+    @CommonName.setter
+    def CommonName(self, CommonName):
+        self._CommonName = CommonName
+
+    @property
+    def SignatureAlgorithm(self):
+        r"""Specifies the signature algorithm used by the certificate when the free certificate application succeeds. currently only support RSA 2048.
+        :rtype: str
+        """
+        return self._SignatureAlgorithm
+
+    @SignatureAlgorithm.setter
+    def SignatureAlgorithm(self, SignatureAlgorithm):
+        self._SignatureAlgorithm = SignatureAlgorithm
+
+    @property
+    def ExpireTime(self):
+        r"""Expiration time of the certificate when the free certificate application is successful. the time is in coordinated universal time (UTC), following the ISO 8601 standard date and time format.
+        :rtype: str
+        """
+        return self._ExpireTime
+
+    @ExpireTime.setter
+    def ExpireTime(self, ExpireTime):
+        self._ExpireTime = ExpireTime
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._CommonName = params.get("CommonName")
+        self._SignatureAlgorithm = params.get("SignatureAlgorithm")
+        self._ExpireTime = params.get("ExpireTime")
+        self._RequestId = params.get("RequestId")
+
+
 class CheckRegionHealthStatus(AbstractModel):
     r"""Health status of origin servers in each health check region.
 
@@ -7275,6 +7537,100 @@ class ConfigGroupVersionInfo(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class ConfirmMultiPathGatewayOriginACLRequest(AbstractModel):
+    r"""ConfirmMultiPathGatewayOriginACL request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: Zone ID.
+        :type ZoneId: str
+        :param _GatewayId: Gateway ID.
+        :type GatewayId: str
+        :param _OriginACLVersion: Describes the version number of the origin server IP.
+        :type OriginACLVersion: int
+        """
+        self._ZoneId = None
+        self._GatewayId = None
+        self._OriginACLVersion = None
+
+    @property
+    def ZoneId(self):
+        r"""Zone ID.
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def GatewayId(self):
+        r"""Gateway ID.
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def OriginACLVersion(self):
+        r"""Describes the version number of the origin server IP.
+        :rtype: int
+        """
+        return self._OriginACLVersion
+
+    @OriginACLVersion.setter
+    def OriginACLVersion(self, OriginACLVersion):
+        self._OriginACLVersion = OriginACLVersion
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._GatewayId = params.get("GatewayId")
+        self._OriginACLVersion = params.get("OriginACLVersion")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ConfirmMultiPathGatewayOriginACLResponse(AbstractModel):
+    r"""ConfirmMultiPathGatewayOriginACL response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
 
 
 class ConfirmOriginACLUpdateRequest(AbstractModel):
@@ -17256,29 +17612,30 @@ class DescribeBillingDataRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _StartTime: The start time.
+        :param _StartTime: The start time. Data will be returned according to the timezone of the input timestamp.
         :type StartTime: str
-        :param _EndTime: End time. the query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days.
+        :param _EndTime: The end time. The query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days. The timezone of the end timestamp must be consistent with the start timestamp, and data will be returned according to the timezone of the input timestamps.
         :type EndTime: str
-        :param _ZoneIds: Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. querying account-level data requires permissions for all site resources in this api.
+        :param _ZoneIds: Site ID set. This parameter is required. A maximum of 100 site ids can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. Querying account-level data requires permissions for all site resources in this API.
         :type ZoneIds: list of str
-        :param _MetricName: Metric list. values as follows:.
-<b>l4/l7 acceleration traffic:</b><li>acc_flux: specifies content acceleration traffic in bytes.</li><li>smt_flux: specifies smart acceleration traffic in bytes.</li><li>l4_flux: specifies layer 4 acceleration traffic in bytes.</li><li>sec_flux: specifies independent protection traffic in bytes.</li><li>zxctg_flux: specifies network optimization traffic in the chinese mainland in bytes.</li><br><b>l4/l7 acceleration bandwidth:</b><li>acc_bandwidth: specifies content acceleration bandwidth in bps.</li><li>smt_bandwidth: specifies intelligent acceleration bandwidth in bps.</li><li>l4_bandwidth: specifies layer 4 acceleration bandwidth in bps.</li><li>sec_bandwidth: specifies exclusive protection bandwidth in bps.</li><li>zxctg_bandwidth: specifies network optimization bandwidth in the chinese mainland in bps.</li><br><b>HTTP/HTTPS security requests:</b><li>sec_request_clean: specifies HTTP/HTTPS requests by count.</li><br><b>vas usage:</b><li>smt_request_clean: specifies intelligent acceleration requests by count.</li><li>quic_request: specifies quic requests by count.</li><li>bot_request_clean: specifies bot requests by count.</li><li>cls_count: specifies the number of real-time log pushes by count.</li><li>ddos_bandwidth: specifies elastic ddos protection bandwidth in bps.</li><br><b>edge computing usage:</b><li>edgefunction_request: specifies the number of edge function requests by count.</li><li>edgefunction_cpu_time: specifies edge function cpu processing time in milliseconds.</li>.
-<b>Media processing usage:</b> <li>total_transcode: all specification audio, video jit transcoding, repackaging duration, in seconds;</li> <li>remux: repackaging duration, in seconds;</li> <li>transcode_audio: audio transcoding duration, in seconds;</li> <li>transcode_H264_SD: H.264 encoded standard-definition video (short side ≤ 480 px) duration, in seconds;</li> <li>transcode_H264_HD: H.264 encoded high-definition video (short side ≤ 720 px) duration, in seconds;</li> <li>transcode_H264_FHD: H.264 encoded full HD video (short side ≤ 1080 px) duration, in seconds;</li> <li>transcode_H264_2K: H.264 encoded 2K video (short side ≤ 1440 px) duration, in seconds.</li>.
+        :param _MetricName: Metric list. Values as follows:.
+<b>L4/L7 acceleration traffic:</b><li>acc_flux: specifies content acceleration traffic in bytes.</li><li>smt_flux: specifies smart acceleration traffic in bytes.</li><li>l4_flux: specifies layer 4 acceleration traffic in bytes.</li><li>sec_flux: specifies independent protection traffic in bytes.</li><li>zxctg_flux: specifies network optimization traffic in the chinese mainland in bytes.</li><br><b>L4/L7 acceleration bandwidth:</b><li>acc_bandwidth: specifies content acceleration bandwidth in bps.</li><li>smt_bandwidth: specifies intelligent acceleration bandwidth in bps.</li><li>l4_bandwidth: specifies layer 4 acceleration bandwidth in bps.</li><li>sec_bandwidth: specifies exclusive protection bandwidth in bps.</li><li>zxctg_bandwidth: specifies network optimization bandwidth in the chinese mainland in bps.</li><br><b>HTTP/HTTPS security requests:</b><li>sec_request_clean: specifies HTTP/HTTPS requests by count.</li><br><b>Value-added service usage:</b><li>smt_request_clean: specifies intelligent acceleration requests by count.</li><li>quic_request: specifies quic requests by count.</li><li>bot_request_clean: specifies bot requests by count.</li><li>cls_count: specifies the number of real-time log pushes by count.</li><li>ddos_bandwidth: specifies elastic ddos protection bandwidth in bps.</li><br><b>Edge computing usage:</b><li>edgefunction_request: specifies the number of edge function requests by count.</li><li>edgefunction_cpu_time: specifies edge function cpu processing time in milliseconds.</li>
+<b>Media processing usage:</b> <li>total_transcode: all specification audio, video jit transcoding, repackaging duration, in seconds;</li> <li>remux: repackaging duration, in seconds;</li> <li>transcode_audio: audio transcoding duration, in seconds;</li> <li>transcode_H264_SD: H.264 encoded standard-definition video (short side less than or equal to 480 px) duration, in seconds;</li> <li>transcode_H264_HD: H.264 encoded high-definition video (short side less than or equal to 720 px) duration, in seconds;</li> <li>transcode_H264_FHD: H.264 encoded full HD video (short side less than or equal to 1080 px) duration, in seconds;</li> <li>transcode_H264_2K: H.264 encoded 2K video (short side less than or equal to 1440 px) duration, in seconds.</li>
         :type MetricName: str
         :param _Interval: Time granularity of the query. Valid values:
 <li>5min: 5 minutes;</li>
 <li>hour: 1 hour;</li>
 <li>day: 1 day.</li>
         :type Interval: str
-        :param _Filters: Filter criteria. the detailed values of filter criteria are as follows:.
-<li>host: specifies the domain name to filter by. example value: test.example.com.<br></li>.
-<li>proxy-id: specifies the l4 proxy instance id for filtering. example value: sid-2rugn89bkla9.</li>.
+        :param _Filters: Filter criteria. The detailed values of filter criteria are as follows:
+<li>host: Specifies the domain name to filter by. Example value: test.example.com<br></li>
+<li>proxy-id: Specifies the L4 proxy instance ID for filtering. Example value: sid-2rugn89bkla9.</li>
 <li>region-id: Filter by billing region. Options:<br>  CH: Chinese mainland<br>  AF: Africa<br>  AS1: Asia-Pacific Region 1<br>  AS2: Asia-Pacific Region 2<br>  AS3: Asia-Pacific Region 3<br>  EU: Europe<br>  MidEast: Middle East<br>  NA: North America<br>  SA: South America</li>
 
-Specifies that `BillingDataFilter` with the same `Type` have an "or" relationship with each other, while those with different `Type` have an "and" relationship between them.
+Note: `BillingDataFilter` with the same `Type` have an "or" relationship with each other, while those with different `Type` have an "and" relationship between them.
         :type Filters: list of BillingDataFilter
-        :param _GroupBy: Grouping aggregate dimension. a maximum of two dimensions can be grouped simultaneously. values are as follows: <li>zone-id: group by site id. if the content identifier functionality is used, priority is given to grouping by content identifier;<br></li> <li>host: group by domain name;<br></li> <li>proxy-id: group by layer 4 proxy instance id;<br></li> <li>region-id: group by billing region.</li>.
+        :param _GroupBy: Aggregation dimensions for grouping. You are allowed to group by up to two dimensions at the same time. Valid values are as follows:<li>zone-id: Group by zone ID. If the content identifier feature is used, it will take precedence and group by content identifier first;<br></li> <li>host: Group by domain name;<br></li> <li>proxy-id: Group by L4 proxy instance ID;<br></li> <li>region-id: Group by billing region.</li>
+Note: The output parameter's default maximum value for the number of groups is 200. If you encounter an error related to this limit, you should reduce the number of groups in the final output by narrowing down the query scope using `ZoneIds.N` or `Filters.N` parameters, or by decreasing the number of dimensions specified in the `GroupBy.N` parameter.
         :type GroupBy: list of str
         """
         self._StartTime = None
@@ -17291,7 +17648,7 @@ Specifies that `BillingDataFilter` with the same `Type` have an "or" relationshi
 
     @property
     def StartTime(self):
-        r"""The start time.
+        r"""The start time. Data will be returned according to the timezone of the input timestamp.
         :rtype: str
         """
         return self._StartTime
@@ -17302,7 +17659,7 @@ Specifies that `BillingDataFilter` with the same `Type` have an "or" relationshi
 
     @property
     def EndTime(self):
-        r"""End time. the query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days.
+        r"""The end time. The query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days. The timezone of the end timestamp must be consistent with the start timestamp, and data will be returned according to the timezone of the input timestamps.
         :rtype: str
         """
         return self._EndTime
@@ -17313,7 +17670,7 @@ Specifies that `BillingDataFilter` with the same `Type` have an "or" relationshi
 
     @property
     def ZoneIds(self):
-        r"""Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. querying account-level data requires permissions for all site resources in this api.
+        r"""Site ID set. This parameter is required. A maximum of 100 site ids can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. Querying account-level data requires permissions for all site resources in this API.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -17324,9 +17681,9 @@ Specifies that `BillingDataFilter` with the same `Type` have an "or" relationshi
 
     @property
     def MetricName(self):
-        r"""Metric list. values as follows:.
-<b>l4/l7 acceleration traffic:</b><li>acc_flux: specifies content acceleration traffic in bytes.</li><li>smt_flux: specifies smart acceleration traffic in bytes.</li><li>l4_flux: specifies layer 4 acceleration traffic in bytes.</li><li>sec_flux: specifies independent protection traffic in bytes.</li><li>zxctg_flux: specifies network optimization traffic in the chinese mainland in bytes.</li><br><b>l4/l7 acceleration bandwidth:</b><li>acc_bandwidth: specifies content acceleration bandwidth in bps.</li><li>smt_bandwidth: specifies intelligent acceleration bandwidth in bps.</li><li>l4_bandwidth: specifies layer 4 acceleration bandwidth in bps.</li><li>sec_bandwidth: specifies exclusive protection bandwidth in bps.</li><li>zxctg_bandwidth: specifies network optimization bandwidth in the chinese mainland in bps.</li><br><b>HTTP/HTTPS security requests:</b><li>sec_request_clean: specifies HTTP/HTTPS requests by count.</li><br><b>vas usage:</b><li>smt_request_clean: specifies intelligent acceleration requests by count.</li><li>quic_request: specifies quic requests by count.</li><li>bot_request_clean: specifies bot requests by count.</li><li>cls_count: specifies the number of real-time log pushes by count.</li><li>ddos_bandwidth: specifies elastic ddos protection bandwidth in bps.</li><br><b>edge computing usage:</b><li>edgefunction_request: specifies the number of edge function requests by count.</li><li>edgefunction_cpu_time: specifies edge function cpu processing time in milliseconds.</li>.
-<b>Media processing usage:</b> <li>total_transcode: all specification audio, video jit transcoding, repackaging duration, in seconds;</li> <li>remux: repackaging duration, in seconds;</li> <li>transcode_audio: audio transcoding duration, in seconds;</li> <li>transcode_H264_SD: H.264 encoded standard-definition video (short side ≤ 480 px) duration, in seconds;</li> <li>transcode_H264_HD: H.264 encoded high-definition video (short side ≤ 720 px) duration, in seconds;</li> <li>transcode_H264_FHD: H.264 encoded full HD video (short side ≤ 1080 px) duration, in seconds;</li> <li>transcode_H264_2K: H.264 encoded 2K video (short side ≤ 1440 px) duration, in seconds.</li>.
+        r"""Metric list. Values as follows:.
+<b>L4/L7 acceleration traffic:</b><li>acc_flux: specifies content acceleration traffic in bytes.</li><li>smt_flux: specifies smart acceleration traffic in bytes.</li><li>l4_flux: specifies layer 4 acceleration traffic in bytes.</li><li>sec_flux: specifies independent protection traffic in bytes.</li><li>zxctg_flux: specifies network optimization traffic in the chinese mainland in bytes.</li><br><b>L4/L7 acceleration bandwidth:</b><li>acc_bandwidth: specifies content acceleration bandwidth in bps.</li><li>smt_bandwidth: specifies intelligent acceleration bandwidth in bps.</li><li>l4_bandwidth: specifies layer 4 acceleration bandwidth in bps.</li><li>sec_bandwidth: specifies exclusive protection bandwidth in bps.</li><li>zxctg_bandwidth: specifies network optimization bandwidth in the chinese mainland in bps.</li><br><b>HTTP/HTTPS security requests:</b><li>sec_request_clean: specifies HTTP/HTTPS requests by count.</li><br><b>Value-added service usage:</b><li>smt_request_clean: specifies intelligent acceleration requests by count.</li><li>quic_request: specifies quic requests by count.</li><li>bot_request_clean: specifies bot requests by count.</li><li>cls_count: specifies the number of real-time log pushes by count.</li><li>ddos_bandwidth: specifies elastic ddos protection bandwidth in bps.</li><br><b>Edge computing usage:</b><li>edgefunction_request: specifies the number of edge function requests by count.</li><li>edgefunction_cpu_time: specifies edge function cpu processing time in milliseconds.</li>
+<b>Media processing usage:</b> <li>total_transcode: all specification audio, video jit transcoding, repackaging duration, in seconds;</li> <li>remux: repackaging duration, in seconds;</li> <li>transcode_audio: audio transcoding duration, in seconds;</li> <li>transcode_H264_SD: H.264 encoded standard-definition video (short side less than or equal to 480 px) duration, in seconds;</li> <li>transcode_H264_HD: H.264 encoded high-definition video (short side less than or equal to 720 px) duration, in seconds;</li> <li>transcode_H264_FHD: H.264 encoded full HD video (short side less than or equal to 1080 px) duration, in seconds;</li> <li>transcode_H264_2K: H.264 encoded 2K video (short side less than or equal to 1440 px) duration, in seconds.</li>
         :rtype: str
         """
         return self._MetricName
@@ -17351,12 +17708,12 @@ Specifies that `BillingDataFilter` with the same `Type` have an "or" relationshi
 
     @property
     def Filters(self):
-        r"""Filter criteria. the detailed values of filter criteria are as follows:.
-<li>host: specifies the domain name to filter by. example value: test.example.com.<br></li>.
-<li>proxy-id: specifies the l4 proxy instance id for filtering. example value: sid-2rugn89bkla9.</li>.
+        r"""Filter criteria. The detailed values of filter criteria are as follows:
+<li>host: Specifies the domain name to filter by. Example value: test.example.com<br></li>
+<li>proxy-id: Specifies the L4 proxy instance ID for filtering. Example value: sid-2rugn89bkla9.</li>
 <li>region-id: Filter by billing region. Options:<br>  CH: Chinese mainland<br>  AF: Africa<br>  AS1: Asia-Pacific Region 1<br>  AS2: Asia-Pacific Region 2<br>  AS3: Asia-Pacific Region 3<br>  EU: Europe<br>  MidEast: Middle East<br>  NA: North America<br>  SA: South America</li>
 
-Specifies that `BillingDataFilter` with the same `Type` have an "or" relationship with each other, while those with different `Type` have an "and" relationship between them.
+Note: `BillingDataFilter` with the same `Type` have an "or" relationship with each other, while those with different `Type` have an "and" relationship between them.
         :rtype: list of BillingDataFilter
         """
         return self._Filters
@@ -17367,7 +17724,8 @@ Specifies that `BillingDataFilter` with the same `Type` have an "or" relationshi
 
     @property
     def GroupBy(self):
-        r"""Grouping aggregate dimension. a maximum of two dimensions can be grouped simultaneously. values are as follows: <li>zone-id: group by site id. if the content identifier functionality is used, priority is given to grouping by content identifier;<br></li> <li>host: group by domain name;<br></li> <li>proxy-id: group by layer 4 proxy instance id;<br></li> <li>region-id: group by billing region.</li>.
+        r"""Aggregation dimensions for grouping. You are allowed to group by up to two dimensions at the same time. Valid values are as follows:<li>zone-id: Group by zone ID. If the content identifier feature is used, it will take precedence and group by content identifier first;<br></li> <li>host: Group by domain name;<br></li> <li>proxy-id: Group by L4 proxy instance ID;<br></li> <li>region-id: Group by billing region.</li>
+Note: The output parameter's default maximum value for the number of groups is 200. If you encounter an error related to this limit, you should reduce the number of groups in the final output by narrowing down the query scope using `ZoneIds.N` or `Filters.N` parameters, or by decreasing the number of dimensions specified in the `GroupBy.N` parameter.
         :rtype: list of str
         """
         return self._GroupBy
@@ -18143,7 +18501,7 @@ class DescribeDDoSAttackDataRequest(AbstractModel):
 <li>`ddos_attackBandwidth`: Time-series data of attack bandwidth;</li>
 <li>`ddos_attackPackageRate`: Time-series data of attack packet rate.</li>
         :type MetricNames: list of str
-        :param _ZoneIds: Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        :param _ZoneIds: Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). A maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :type ZoneIds: list of str
         :param _PolicyIds: IDs of DDoS policies to be queried. All policies will be selected if this field is not specified.
         :type PolicyIds: list of int
@@ -18206,7 +18564,7 @@ class DescribeDDoSAttackDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        r"""Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). A maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -18352,7 +18710,7 @@ class DescribeDDoSAttackEventRequest(AbstractModel):
         :type EndTime: str
         :param _PolicyIds: List of DDoS policy IDs. All policies are selected if this field is not specified.
         :type PolicyIds: list of int
-        :param _ZoneIds: Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        :param _ZoneIds: Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). A maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :type ZoneIds: list of str
         :param _Limit: Limit on paginated queries. Default value: 20. Maximum value: 1000.
         :type Limit: int
@@ -18420,7 +18778,7 @@ class DescribeDDoSAttackEventRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        r"""Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). A maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -18608,7 +18966,7 @@ class DescribeDDoSAttackTopDataRequest(AbstractModel):
 <li>`ddos_attackFlux_sip`: Rank attacker IPs by the number of attacks.</li>
 <li>`ddos_attackFlux_sregion`: Rank attacker regions by the number of attacks.</li>
         :type MetricName: str
-        :param _ZoneIds: Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        :param _ZoneIds: Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). A maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :type ZoneIds: list of str
         :param _PolicyIds: The list of DDoS policy IDs to be specified. All policies will be selected if this field is not specified.
         :type PolicyIds: list of int
@@ -18683,7 +19041,7 @@ class DescribeDDoSAttackTopDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        r"""Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). A maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -21256,6 +21614,102 @@ class DescribeMultiPathGatewayLineResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeMultiPathGatewayOriginACLRequest(AbstractModel):
+    r"""DescribeMultiPathGatewayOriginACL request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: Zone ID.
+        :type ZoneId: str
+        :param _GatewayId: Gateway ID.
+        :type GatewayId: str
+        """
+        self._ZoneId = None
+        self._GatewayId = None
+
+    @property
+    def ZoneId(self):
+        r"""Zone ID.
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def GatewayId(self):
+        r"""Gateway ID.
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._GatewayId = params.get("GatewayId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeMultiPathGatewayOriginACLResponse(AbstractModel):
+    r"""DescribeMultiPathGatewayOriginACL response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MultiPathGatewayOriginACLInfo: Describes the binding relationship between the multi-channel gateway instance and the origin IP ranges.
+        :type MultiPathGatewayOriginACLInfo: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayOriginACLInfo`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._MultiPathGatewayOriginACLInfo = None
+        self._RequestId = None
+
+    @property
+    def MultiPathGatewayOriginACLInfo(self):
+        r"""Describes the binding relationship between the multi-channel gateway instance and the origin IP ranges.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayOriginACLInfo`
+        """
+        return self._MultiPathGatewayOriginACLInfo
+
+    @MultiPathGatewayOriginACLInfo.setter
+    def MultiPathGatewayOriginACLInfo(self, MultiPathGatewayOriginACLInfo):
+        self._MultiPathGatewayOriginACLInfo = MultiPathGatewayOriginACLInfo
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("MultiPathGatewayOriginACLInfo") is not None:
+            self._MultiPathGatewayOriginACLInfo = MultiPathGatewayOriginACLInfo()
+            self._MultiPathGatewayOriginACLInfo._deserialize(params.get("MultiPathGatewayOriginACLInfo"))
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeMultiPathGatewayRegionsRequest(AbstractModel):
     r"""DescribeMultiPathGatewayRegions request structure.
 
@@ -22607,7 +23061,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ZoneId: Site ID. This parameter is required.
+        :param _ZoneId: Site ID.The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980)
         :type ZoneId: str
         :param _StartTime: Start time of the query. Either time or job-id is required.
         :type StartTime: str
@@ -22617,7 +23071,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
         :type Offset: int
         :param _Limit: Number limit of paginated query. Default value: 20. Maximum value: 1000.
         :type Limit: int
-        :param _Filters: Filter criteria. The maximum number of Filters.Values is 20. The detailed filter criteria are as follows: <li>job-id: Filter by task ID in the format like 1379afjk91u32h. Multiple values and fuzzy queries are not supported.</li><li>target: Filter by target resource information in the format like http://www.qq.com/1.txt. Multiple values and fuzzy queries are not supported.</li><li>domains: Filter by domain name in the format like www.qq.com. Fuzzy queries are not supported.</li><li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>??processing: processing<br>??success: successful<br>??failed: failed<br>??timeout: timed out<br>??invalid: invalid, that is, the response status code of the origin server is not 2xx. Please check the origin server service.</li>
+        :param _Filters: Filter criteria. The maximum number of Filters.Values is 20. The detailed filter criteria are as follows: <li>job-id: Filter by task ID in the format like 1379afjk91u32h. Multiple values and fuzzy queries are not supported.</li><li>target: Filter by target resource information in the format like http://www.qq.com/1.txt. Multiple values and fuzzy queries are not supported.</li><li>domains: Filter by domain name in the format like www.qq.com. Fuzzy queries are not supported.</li><li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>processing: processing<br>success: successful<br>failed: failed<br>timeout: timed out<br>invalid: invalid, that is, the response status code of the origin server is not 2xx. Please check the origin server service.<br>canceled: Canceled
         :type Filters: list of AdvancedFilter
         """
         self._ZoneId = None
@@ -22629,7 +23083,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
 
     @property
     def ZoneId(self):
-        r"""Site ID. This parameter is required.
+        r"""Site ID.The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980)
         :rtype: str
         """
         return self._ZoneId
@@ -22684,7 +23138,7 @@ class DescribePrefetchTasksRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""Filter criteria. The maximum number of Filters.Values is 20. The detailed filter criteria are as follows: <li>job-id: Filter by task ID in the format like 1379afjk91u32h. Multiple values and fuzzy queries are not supported.</li><li>target: Filter by target resource information in the format like http://www.qq.com/1.txt. Multiple values and fuzzy queries are not supported.</li><li>domains: Filter by domain name in the format like www.qq.com. Fuzzy queries are not supported.</li><li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>??processing: processing<br>??success: successful<br>??failed: failed<br>??timeout: timed out<br>??invalid: invalid, that is, the response status code of the origin server is not 2xx. Please check the origin server service.</li>
+        r"""Filter criteria. The maximum number of Filters.Values is 20. The detailed filter criteria are as follows: <li>job-id: Filter by task ID in the format like 1379afjk91u32h. Multiple values and fuzzy queries are not supported.</li><li>target: Filter by target resource information in the format like http://www.qq.com/1.txt. Multiple values and fuzzy queries are not supported.</li><li>domains: Filter by domain name in the format like www.qq.com. Fuzzy queries are not supported.</li><li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>processing: processing<br>success: successful<br>failed: failed<br>timeout: timed out<br>invalid: invalid, that is, the response status code of the origin server is not 2xx. Please check the origin server service.<br>canceled: Canceled
         :rtype: list of AdvancedFilter
         """
         return self._Filters
@@ -22786,7 +23240,7 @@ class DescribePurgeTasksRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ZoneId: Site ID. This parameter is required.
+        :param _ZoneId: Site ID. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980)
         :type ZoneId: str
         :param _StartTime: Start time of the query. Either time or job-id is required.
         :type StartTime: str
@@ -22800,8 +23254,8 @@ class DescribePurgeTasksRequest(AbstractModel):
 <li>job-id: Filter by task ID in the format like 1379afjk91u32h. Multiple values and fuzzy queries are not supported.</li>
 <li>target: Filter by target resource information in the format like http://www.qq.com/1.txt or tag1. Multiple values are not supported yet. Fuzzy queries are supported.</li>
 <li>domains: Filter by domain name in the format like www.qq.com. Fuzzy queries are not supported.</li>
-<li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>?? processing: processing<br>?? success: successful<br>?? failed: failed<br>?? timeout: timed out</li>
-<li>type: Filter by cache clearance type. Multiple values and fuzzy queries are not supported yet. Options: <br>?? purge_url: URL<br>?? purge_prefix: prefix<br>?? purge_all: all cached content<br>?? purge_host: Hostname<br>?? purge_cache_tag: CacheTag</li>
+<li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>processing: processing<br>success: successful<br>failed: failed<br>timeout: timed out<br>canceled: Canceled</li>
+<li>type: Filter by cache clearance type. Multiple values and fuzzy queries are not supported yet. Options: <br>purge_url: URL<br>purge_prefix: prefix<br>purge_all: all cached content<br>purge_host: Hostname<br>purge_cache_tag: CacheTag</li>
         :type Filters: list of AdvancedFilter
         """
         self._ZoneId = None
@@ -22813,7 +23267,7 @@ class DescribePurgeTasksRequest(AbstractModel):
 
     @property
     def ZoneId(self):
-        r"""Site ID. This parameter is required.
+        r"""Site ID. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980)
         :rtype: str
         """
         return self._ZoneId
@@ -22872,8 +23326,8 @@ class DescribePurgeTasksRequest(AbstractModel):
 <li>job-id: Filter by task ID in the format like 1379afjk91u32h. Multiple values and fuzzy queries are not supported.</li>
 <li>target: Filter by target resource information in the format like http://www.qq.com/1.txt or tag1. Multiple values are not supported yet. Fuzzy queries are supported.</li>
 <li>domains: Filter by domain name in the format like www.qq.com. Fuzzy queries are not supported.</li>
-<li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>?? processing: processing<br>?? success: successful<br>?? failed: failed<br>?? timeout: timed out</li>
-<li>type: Filter by cache clearance type. Multiple values and fuzzy queries are not supported yet. Options: <br>?? purge_url: URL<br>?? purge_prefix: prefix<br>?? purge_all: all cached content<br>?? purge_host: Hostname<br>?? purge_cache_tag: CacheTag</li>
+<li>statuses: Filter by task status. Fuzzy queries are not supported. Options:<br>processing: processing<br>success: successful<br>failed: failed<br>timeout: timed out<br>canceled: Canceled</li>
+<li>type: Filter by cache clearance type. Multiple values and fuzzy queries are not supported yet. Options: <br>purge_url: URL<br>purge_prefix: prefix<br>purge_all: all cached content<br>purge_host: Hostname<br>purge_cache_tag: CacheTag</li>
         :rtype: list of AdvancedFilter
         """
         return self._Filters
@@ -24443,7 +24897,7 @@ class DescribeTimingL4DataRequest(AbstractModel):
 <Li>l4Flow_inBandwidth: inbound peak bandwidth.</li>
 <Li>l4Flow_outBandwidth: outbound peak bandwidth.</li>
         :type MetricNames: list of str
-        :param _ZoneIds: Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        :param _ZoneIds: Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :type ZoneIds: list of str
         :param _ProxyIds: List of L4 proxy IDs. All L4 proxies will be selected if this field is not specified.
         :type ProxyIds: list of str
@@ -24511,7 +24965,7 @@ class DescribeTimingL4DataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""Site ID set. this parameter is required. a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
+        r"""Site ID set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980). a maximum of 100 site ids can be imported. use `*` to query data for all sites under the tencent cloud root account. to query account-level data, you must have resource permissions for all sites in this api.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -24675,7 +25129,7 @@ class DescribeTimingL7AnalysisDataRequest(AbstractModel):
         :param _MetricNames: Metric list. Valid values:
 <Li>l7Flow_outFlux: L7 EdgeOne response traffic. Unit: byte;</li><Li>l7Flow_inFlux: L7 client request traffic. Unit: byte;</li><Li>l7Flow_flux: L7 total traffic (including EdgeOne response traffic and client request traffic). Unit: byte;</li><Li>l7Flow_outBandwidth: L7 EdgeOne response bandwidth. Unit: bps;</li><Li>l7Flow_inBandwidth: L7 client request bandwidth. Unit: bps;</li><Li>l7Flow_bandwidth: L7 total bandwidth (including EdgeOne response bandwidth and client request bandwidth). Unit: bps;</li><Li>l7Flow_request: L7 request count. Unit: times;</li><Li>l7Flow_avgResponseTime: Average L7 edge response time. Unit: ms (milliseconds);</li><Li>l7Flow_avgFirstByteResponseTime: Average L7 edge first byte response time. Unit: ms.</li>
         :type MetricNames: list of str
-        :param _ZoneIds: Site ID list. This parameter is required. A maximum of 100 site IDs can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. To query account-level data, you must have resource permissions for all sites in this API.
+        :param _ZoneIds: Site ID set. this parameter will change from option to required after may 30, 2024. for details, see the notice: [tencent cloud EdgeOne API change notification](https://www.tencentcloud.com/document/product/1145/59980). a maximum of 100 site ids can be imported. use `*` to query all site data under the tencent cloud root account. querying account-level data requires all resource permissions for all sites in this interface.
         :type ZoneIds: list of str
         :param _Interval: Query period granularity. Valid values:
 <li>min: 1 minute;</li>
@@ -24683,10 +25137,10 @@ class DescribeTimingL7AnalysisDataRequest(AbstractModel):
 <li>hour: 1 hour;</li>
 <li>day: 1 day.</li>If this parameter is not filled in, the granularity will be automatically calculated based on the interval between the start time and end time. Specifically, data will be queried with a granularity of min, 5min, hour, and day respectively when the period is no more than 2 hours, no more than 2 days, no more than 7 days, and over 7 days.
         :type Interval: str
-        :param _Filters: Filtering conditions used when querying data. Refer to the [Filtering Conditions for Analytics](https://www.tencentcloud.com/document/product/1145/56985) document for the available filters applicable to L7 client traffic, bandwidth and requests.  
-To restrict results by zone or content identifier, input the corresponding values via the `ZoneIds.N` parameter.
+        :param _Filters: Filter criteria used when filtering data. valid values refer to the available filter options for L7 access traffic, bandwidth, and request count in the [metric analysis filtering condition description](https://www.tencentcloud.com/document/product/1145/56985#1aaf1150-55a4-4b4d-b103-3a8317ac7945).
+If needed, limit the site or content identifier by importing the corresponding value in the `ZoneIds.N` parameter.
         :type Filters: list of QueryCondition
-        :param _Area: Data region. This parameter is deprecated. Please filter data by client region in `Filters.country`.
+        :param _Area: Data ownership region. this parameter is deprecated. please filter data by client region in `Filters.country`.
         :type Area: str
         """
         self._StartTime = None
@@ -24733,7 +25187,7 @@ To restrict results by zone or content identifier, input the corresponding value
 
     @property
     def ZoneIds(self):
-        r"""Site ID list. This parameter is required. A maximum of 100 site IDs can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. To query account-level data, you must have resource permissions for all sites in this API.
+        r"""Site ID set. this parameter will change from option to required after may 30, 2024. for details, see the notice: [tencent cloud EdgeOne API change notification](https://www.tencentcloud.com/document/product/1145/59980). a maximum of 100 site ids can be imported. use `*` to query all site data under the tencent cloud root account. querying account-level data requires all resource permissions for all sites in this interface.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -24759,8 +25213,8 @@ To restrict results by zone or content identifier, input the corresponding value
 
     @property
     def Filters(self):
-        r"""Filtering conditions used when querying data. Refer to the [Filtering Conditions for Analytics](https://www.tencentcloud.com/document/product/1145/56985) document for the available filters applicable to L7 client traffic, bandwidth and requests.  
-To restrict results by zone or content identifier, input the corresponding values via the `ZoneIds.N` parameter.
+        r"""Filter criteria used when filtering data. valid values refer to the available filter options for L7 access traffic, bandwidth, and request count in the [metric analysis filtering condition description](https://www.tencentcloud.com/document/product/1145/56985#1aaf1150-55a4-4b4d-b103-3a8317ac7945).
+If needed, limit the site or content identifier by importing the corresponding value in the `ZoneIds.N` parameter.
         :rtype: list of QueryCondition
         """
         return self._Filters
@@ -24771,7 +25225,7 @@ To restrict results by zone or content identifier, input the corresponding value
 
     @property
     def Area(self):
-        r"""Data region. This parameter is deprecated. Please filter data by client region in `Filters.country`.
+        r"""Data ownership region. this parameter is deprecated. please filter data by client region in `Filters.country`.
         :rtype: str
         """
         return self._Area
@@ -25099,6 +25553,201 @@ Note: This field may return null, indicating that no valid values can be obtaine
         self._RequestId = params.get("RequestId")
 
 
+class DescribeTimingL7OriginPullDataRequest(AbstractModel):
+    r"""DescribeTimingL7OriginPullData request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StartTime: Start time.
+        :type StartTime: str
+        :param _EndTime: End time. The query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days.
+        :type EndTime: str
+        :param _MetricNames: Metric list. Valid values:.
+<li>l7Flow_outFlux_hy: specifies the request traffic from the EdgeOne node to the origin server. Unit: byte.</li>
+<li>l7Flow_outBandwidth_hy: specifies the request bandwidth from EdgeOne node to origin server. Unit: bps.</li>
+<li>l7Flow_request_hy: specifies the request count from EdgeOne node to origin server. Unit: times.</li>
+<li>l7Flow_inFlux_hy: specifies the response traffic from the origin server to the EdgeOne node. Unit: byte.</li>
+<li>l7Flow_inBandwidth_hy: specifies the response bandwidth from the origin server to the EdgeOne node. Unit: bps.</li>
+
+        :type MetricNames: list of str
+        :param _ZoneIds: Site ID set. This parameter is required. A maximum of 100 zone-ids can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. Querying account-level data requires permissions for all site resources in this interface.
+        :type ZoneIds: list of str
+        :param _Interval: Time granularity of the query. Valid values:
+<Li>min: 1 minute.</li><Li>5min: 5 minutes;</li><Li>hour: 1 hour;</li><li>day: 1 day.</li>If this parameter is not input, the granularity will be automatically calculated based on the interval between the start time and end time. Specifically, data will be queried with a granularity of min, 5min, hour, and day respectively when the period is no more than 2 hours, no more than 2 days, no more than 7 days, and over 7 days.
+        :type Interval: str
+        :param _Filters: Filter conditions. Details:
+<li>domain: specifies the domain name in client requests. When the domain is onboarded via a wildcard, the recorded value is the wildcard domain itself, not the specific subdomain.</li>
+        :type Filters: list of QueryCondition
+        """
+        self._StartTime = None
+        self._EndTime = None
+        self._MetricNames = None
+        self._ZoneIds = None
+        self._Interval = None
+        self._Filters = None
+
+    @property
+    def StartTime(self):
+        r"""Start time.
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""End time. The query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days.
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def MetricNames(self):
+        r"""Metric list. Valid values:.
+<li>l7Flow_outFlux_hy: specifies the request traffic from the EdgeOne node to the origin server. Unit: byte.</li>
+<li>l7Flow_outBandwidth_hy: specifies the request bandwidth from EdgeOne node to origin server. Unit: bps.</li>
+<li>l7Flow_request_hy: specifies the request count from EdgeOne node to origin server. Unit: times.</li>
+<li>l7Flow_inFlux_hy: specifies the response traffic from the origin server to the EdgeOne node. Unit: byte.</li>
+<li>l7Flow_inBandwidth_hy: specifies the response bandwidth from the origin server to the EdgeOne node. Unit: bps.</li>
+
+        :rtype: list of str
+        """
+        return self._MetricNames
+
+    @MetricNames.setter
+    def MetricNames(self, MetricNames):
+        self._MetricNames = MetricNames
+
+    @property
+    def ZoneIds(self):
+        r"""Site ID set. This parameter is required. A maximum of 100 zone-ids can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. Querying account-level data requires permissions for all site resources in this interface.
+        :rtype: list of str
+        """
+        return self._ZoneIds
+
+    @ZoneIds.setter
+    def ZoneIds(self, ZoneIds):
+        self._ZoneIds = ZoneIds
+
+    @property
+    def Interval(self):
+        r"""Time granularity of the query. Valid values:
+<Li>min: 1 minute.</li><Li>5min: 5 minutes;</li><Li>hour: 1 hour;</li><li>day: 1 day.</li>If this parameter is not input, the granularity will be automatically calculated based on the interval between the start time and end time. Specifically, data will be queried with a granularity of min, 5min, hour, and day respectively when the period is no more than 2 hours, no more than 2 days, no more than 7 days, and over 7 days.
+        :rtype: str
+        """
+        return self._Interval
+
+    @Interval.setter
+    def Interval(self, Interval):
+        self._Interval = Interval
+
+    @property
+    def Filters(self):
+        r"""Filter conditions. Details:
+<li>domain: specifies the domain name in client requests. When the domain is onboarded via a wildcard, the recorded value is the wildcard domain itself, not the specific subdomain.</li>
+        :rtype: list of QueryCondition
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+
+    def _deserialize(self, params):
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._MetricNames = params.get("MetricNames")
+        self._ZoneIds = params.get("ZoneIds")
+        self._Interval = params.get("Interval")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = QueryCondition()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeTimingL7OriginPullDataResponse(AbstractModel):
+    r"""DescribeTimingL7OriginPullData response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TotalCount: Total number of entries in the query result.
+        :type TotalCount: int
+        :param _TimingDataRecords: Time series data list for origin-pull data.
+        :type TimingDataRecords: list of TimingDataRecord
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TotalCount = None
+        self._TimingDataRecords = None
+        self._RequestId = None
+
+    @property
+    def TotalCount(self):
+        r"""Total number of entries in the query result.
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def TimingDataRecords(self):
+        r"""Time series data list for origin-pull data.
+        :rtype: list of TimingDataRecord
+        """
+        return self._TimingDataRecords
+
+    @TimingDataRecords.setter
+    def TimingDataRecords(self, TimingDataRecords):
+        self._TimingDataRecords = TimingDataRecords
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TotalCount = params.get("TotalCount")
+        if params.get("TimingDataRecords") is not None:
+            self._TimingDataRecords = []
+            for item in params.get("TimingDataRecords"):
+                obj = TimingDataRecord()
+                obj._deserialize(item)
+                self._TimingDataRecords.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeTopL7AnalysisDataRequest(AbstractModel):
     r"""DescribeTopL7AnalysisData request structure.
 
@@ -25111,40 +25760,41 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
         :param _EndTime: End time. The query time range (`EndTime` - `StartTime`) must be less than or equal to 31 days.
         :type EndTime: str
         :param _MetricName: Queried metric. Valid values:
-<li> l7Flow_outFlux_country: L7 EdgeOne response traffic aggregated by the country/region dimension;</li>
-<li> l7Flow_outFlux_province: L7 EdgeOne response traffic aggregated by the dimension of provinces in chinese mainland;</li>
-<li> l7Flow_outFlux_statusCode: L7 EdgeOne response traffic aggregated by the status code dimension;</li>
-<li> l7Flow_outFlux_domain: L7 EdgeOne response traffic aggregated by the domain name dimension;</li>
-<li>l7Flow_outFlux_url: L7 EdgeOne response traffic aggregated by url path dimension.</li>
-<li> l7Flow_outFlux_resourceType: L7 EdgeOne response traffic aggregated by the resource type dimension;</li>
-<li> l7Flow_outFlux_sip: L7 EdgeOne response traffic aggregated by the client IP dimension;</li>
-<li>l7Flow_outFlux_referers: L7 EdgeOne response traffic aggregated by referer dimension.</li>
-<li> l7Flow_outFlux_ua_device: L7 EdgeOne response traffic aggregated by the device type dimension;</li>
-<li> l7Flow_outFlux_ua_browser: L7 EdgeOne response traffic aggregated by the browser type dimension;</li>
-<li> l7Flow_outFlux_ua_os: L7 EdgeOne response traffic aggregated by the operating system type dimension;</li>
-<li> l7Flow_outFlux_ua: L7 EdgeOne response traffic aggregated by the User-Agent dimension;</li>
-<li> l7Flow_request_country: L7 request count aggregated by the country/region dimension;</li>
-<li> l7Flow_request_province: L7 request count aggregated by the dimension of provinces in the chinese mainland;</li>
-<li> l7Flow_request_statusCode: L7 request count aggregated by the status code dimension;</li>
-<li> l7Flow_request_domain: L7 request count aggregated by the domain name dimension;</li>
-<li>l7Flow_request_url: L7 request count aggregated by url Path dimension.</li>
-<li> l7Flow_request_resourceType: L7 request count aggregated by resource type dimension;</li>
-<li> l7Flow_request_sip: L7 request count aggregated by the client IP dimension;</li>
-<li>l7Flow_request_referer: L7 request count aggregated by referer dimension.</li>
-<li> l7Flow_request_ua_device: L7 request count aggregated by the device type dimension;</li>
-<li> l7Flow_request_ua_browser: L7 request count aggregated by the browser type dimension;</li>
-<li> l7Flow_request_ua_os: L7 request count aggregated by the operating system type dimension.</li>
-<li> l7Flow_request_ua: L7 request count aggregated by the User-Agent dimension.</li>
+<li> l7Flow_outFlux_country: specifies the l7 EdgeOne response traffic metric counted by the country/region dimension.</li>
+<li> l7Flow_outFlux_province: specifies the l7 EdgeOne response traffic metric counted by the dimension of provinces in chinese mainland.</li>
+<li> l7Flow_outFlux_statusCode: specifies the l7 EdgeOne response traffic metric by status code dimension.</li>
+<li> l7Flow_outFlux_domain: specifies the l7 EdgeOne response traffic metric counted by domain name dimension.</li>
+<li>l7Flow_outFlux_url: specifies the l7 EdgeOne response traffic metric counted by url Path dimension.</li>
+<li> l7Flow_outFlux_resourceType: specifies the l7 EdgeOne response traffic metric counted by resource type dimension.</li>
+<li> l7Flow_outFlux_sip: specifies the l7 EdgeOne response traffic metric counted by the client IP dimension.</li>
+<li>l7Flow_outFlux_referers: specifies the l7 EdgeOne response traffic statistics by Referer dimension.</li>
+<li> l7Flow_outFlux_ua_device: specifies the l7 EdgeOne response traffic metric counted by device type dimension.</li>
+<li> l7Flow_outFlux_ua_browser: specifies the l7 EdgeOne response traffic metric by browser type dimension.</li>
+<li> l7Flow_outFlux_ua_os: specifies the l7 EdgeOne response traffic metric counted by the operating system type dimension.</li>
+<li> l7Flow_outFlux_ua: specifies the l7 EdgeOne response traffic metric by User-Agent dimension statistics.</li>
+<li> l7Flow_request_country: specifies the l7 access request count metric by country/region dimension.</li>
+<li> l7Flow_request_province: specifies the l7 access request count metric by province in the chinese mainland.</li>
+<li> l7Flow_request_statusCode: specifies the l7 access request count metric by status code dimension.</li>
+<li> l7Flow_request_domain: specifies the l7 access request count metric counted by the domain name dimension.</li>
+<li> l7Flow_request_url: specifies the l7 access request count metric counted by url Path dimension. </li>
+<li> l7Flow_request_resourceType: specifies the l7 access request count metric counted by the resource type dimension.</li>
+<li> l7Flow_request_sip: specifies the l7 access request count metric counted by the client IP dimension.</li>
+<li>l7Flow_request_referers: specifies l7 access request count metrics by referer dimension.</li>
+<li> l7Flow_request_ua_device: specifies the l7 access request count metric by device type dimension.</li>
+<li> l7Flow_request_ua_browser: specifies the l7 access request count metric by browser type dimension.</li>
+<li> l7Flow_request_ua_os: specifies the l7 access request count metric counted by the operating system type dimension.</li>
+<li> l7Flow_request_ua: l7 access request count metric counted by the User-Agent dimension.</li>
         :type MetricName: str
-        :param _ZoneIds: Site ID list. This parameter is required. A maximum of 100 site IDs can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. To query account-level data, you must have resource permissions for all sites in this API.
+        :param _ZoneIds: Site ID set. this parameter will change from option to required after may 30, 2024. for details, see the notice: [tencent cloud EdgeOne API change notification](https://www.tencentcloud.com/document/product/1552/104902?from_cn_redirect=1). a maximum of 100 site ids can be imported. use `*` to query all site data under the tencent cloud root account. querying account-level data requires all resource permissions for all sites in this interface.
         :type ZoneIds: list of str
         :param _Limit: Indicates the top N data to be queried. The maximum value is 1000. If this parameter is not input, the default value is 10, indicating querying the top 10 data.
         :type Limit: int
-        :param _Filters: Filtering conditions used when querying data. Refer to the [Filtering Conditions for Analytics](https://www.tencentcloud.com/document/product/1145/56985) document for the available filters applicable to L7 client traffic, bandwidth and requests.  
+        :param _Filters: Filter criteria used when filtering data. valid values refer to the available filter options for L7 access traffic, bandwidth, and request count in the [metric analysis filtering condition description](https://www.tencentcloud.com/document/product/1145/56985).
+If needed, limit the site or content identifier by importing the corresponding value in the `ZoneIds.N` parameter.
         :type Filters: list of QueryCondition
-        :param _Interval: Query time granularity. This parameter is deprecated.
+        :param _Interval: Query time granularity. this parameter is invalid. to be deprecated.
         :type Interval: str
-        :param _Area: Data region. This parameter is deprecated. Please filter data by client region in `Filters.country`.
+        :param _Area: Data ownership region. this parameter is deprecated. please filter data by client region in `Filters.country`.
         :type Area: str
         """
         self._StartTime = None
@@ -25181,30 +25831,30 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
     @property
     def MetricName(self):
         r"""Queried metric. Valid values:
-<li> l7Flow_outFlux_country: L7 EdgeOne response traffic aggregated by the country/region dimension;</li>
-<li> l7Flow_outFlux_province: L7 EdgeOne response traffic aggregated by the dimension of provinces in chinese mainland;</li>
-<li> l7Flow_outFlux_statusCode: L7 EdgeOne response traffic aggregated by the status code dimension;</li>
-<li> l7Flow_outFlux_domain: L7 EdgeOne response traffic aggregated by the domain name dimension;</li>
-<li>l7Flow_outFlux_url: L7 EdgeOne response traffic aggregated by url path dimension.</li>
-<li> l7Flow_outFlux_resourceType: L7 EdgeOne response traffic aggregated by the resource type dimension;</li>
-<li> l7Flow_outFlux_sip: L7 EdgeOne response traffic aggregated by the client IP dimension;</li>
-<li>l7Flow_outFlux_referers: L7 EdgeOne response traffic aggregated by referer dimension.</li>
-<li> l7Flow_outFlux_ua_device: L7 EdgeOne response traffic aggregated by the device type dimension;</li>
-<li> l7Flow_outFlux_ua_browser: L7 EdgeOne response traffic aggregated by the browser type dimension;</li>
-<li> l7Flow_outFlux_ua_os: L7 EdgeOne response traffic aggregated by the operating system type dimension;</li>
-<li> l7Flow_outFlux_ua: L7 EdgeOne response traffic aggregated by the User-Agent dimension;</li>
-<li> l7Flow_request_country: L7 request count aggregated by the country/region dimension;</li>
-<li> l7Flow_request_province: L7 request count aggregated by the dimension of provinces in the chinese mainland;</li>
-<li> l7Flow_request_statusCode: L7 request count aggregated by the status code dimension;</li>
-<li> l7Flow_request_domain: L7 request count aggregated by the domain name dimension;</li>
-<li>l7Flow_request_url: L7 request count aggregated by url Path dimension.</li>
-<li> l7Flow_request_resourceType: L7 request count aggregated by resource type dimension;</li>
-<li> l7Flow_request_sip: L7 request count aggregated by the client IP dimension;</li>
-<li>l7Flow_request_referer: L7 request count aggregated by referer dimension.</li>
-<li> l7Flow_request_ua_device: L7 request count aggregated by the device type dimension;</li>
-<li> l7Flow_request_ua_browser: L7 request count aggregated by the browser type dimension;</li>
-<li> l7Flow_request_ua_os: L7 request count aggregated by the operating system type dimension.</li>
-<li> l7Flow_request_ua: L7 request count aggregated by the User-Agent dimension.</li>
+<li> l7Flow_outFlux_country: specifies the l7 EdgeOne response traffic metric counted by the country/region dimension.</li>
+<li> l7Flow_outFlux_province: specifies the l7 EdgeOne response traffic metric counted by the dimension of provinces in chinese mainland.</li>
+<li> l7Flow_outFlux_statusCode: specifies the l7 EdgeOne response traffic metric by status code dimension.</li>
+<li> l7Flow_outFlux_domain: specifies the l7 EdgeOne response traffic metric counted by domain name dimension.</li>
+<li>l7Flow_outFlux_url: specifies the l7 EdgeOne response traffic metric counted by url Path dimension.</li>
+<li> l7Flow_outFlux_resourceType: specifies the l7 EdgeOne response traffic metric counted by resource type dimension.</li>
+<li> l7Flow_outFlux_sip: specifies the l7 EdgeOne response traffic metric counted by the client IP dimension.</li>
+<li>l7Flow_outFlux_referers: specifies the l7 EdgeOne response traffic statistics by Referer dimension.</li>
+<li> l7Flow_outFlux_ua_device: specifies the l7 EdgeOne response traffic metric counted by device type dimension.</li>
+<li> l7Flow_outFlux_ua_browser: specifies the l7 EdgeOne response traffic metric by browser type dimension.</li>
+<li> l7Flow_outFlux_ua_os: specifies the l7 EdgeOne response traffic metric counted by the operating system type dimension.</li>
+<li> l7Flow_outFlux_ua: specifies the l7 EdgeOne response traffic metric by User-Agent dimension statistics.</li>
+<li> l7Flow_request_country: specifies the l7 access request count metric by country/region dimension.</li>
+<li> l7Flow_request_province: specifies the l7 access request count metric by province in the chinese mainland.</li>
+<li> l7Flow_request_statusCode: specifies the l7 access request count metric by status code dimension.</li>
+<li> l7Flow_request_domain: specifies the l7 access request count metric counted by the domain name dimension.</li>
+<li> l7Flow_request_url: specifies the l7 access request count metric counted by url Path dimension. </li>
+<li> l7Flow_request_resourceType: specifies the l7 access request count metric counted by the resource type dimension.</li>
+<li> l7Flow_request_sip: specifies the l7 access request count metric counted by the client IP dimension.</li>
+<li>l7Flow_request_referers: specifies l7 access request count metrics by referer dimension.</li>
+<li> l7Flow_request_ua_device: specifies the l7 access request count metric by device type dimension.</li>
+<li> l7Flow_request_ua_browser: specifies the l7 access request count metric by browser type dimension.</li>
+<li> l7Flow_request_ua_os: specifies the l7 access request count metric counted by the operating system type dimension.</li>
+<li> l7Flow_request_ua: l7 access request count metric counted by the User-Agent dimension.</li>
         :rtype: str
         """
         return self._MetricName
@@ -25215,7 +25865,7 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""Site ID list. This parameter is required. A maximum of 100 site IDs can be imported. Use `*` to query data for all sites under the Tencent Cloud root account. To query account-level data, you must have resource permissions for all sites in this API.
+        r"""Site ID set. this parameter will change from option to required after may 30, 2024. for details, see the notice: [tencent cloud EdgeOne API change notification](https://www.tencentcloud.com/document/product/1552/104902?from_cn_redirect=1). a maximum of 100 site ids can be imported. use `*` to query all site data under the tencent cloud root account. querying account-level data requires all resource permissions for all sites in this interface.
         :rtype: list of str
         """
         return self._ZoneIds
@@ -25237,7 +25887,8 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""Filtering conditions used when querying data. Refer to the [Filtering Conditions for Analytics](https://www.tencentcloud.com/document/product/1145/56985) document for the available filters applicable to L7 client traffic, bandwidth and requests.  
+        r"""Filter criteria used when filtering data. valid values refer to the available filter options for L7 access traffic, bandwidth, and request count in the [metric analysis filtering condition description](https://www.tencentcloud.com/document/product/1145/56985).
+If needed, limit the site or content identifier by importing the corresponding value in the `ZoneIds.N` parameter.
         :rtype: list of QueryCondition
         """
         return self._Filters
@@ -25248,7 +25899,7 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 
     @property
     def Interval(self):
-        r"""Query time granularity. This parameter is deprecated.
+        r"""Query time granularity. this parameter is invalid. to be deprecated.
         :rtype: str
         """
         return self._Interval
@@ -25259,7 +25910,7 @@ class DescribeTopL7AnalysisDataRequest(AbstractModel):
 
     @property
     def Area(self):
-        r"""Data region. This parameter is deprecated. Please filter data by client region in `Filters.country`.
+        r"""Data ownership region. this parameter is deprecated. please filter data by client region in `Filters.country`.
         :rtype: str
         """
         return self._Area
@@ -27391,7 +28042,7 @@ class DnsRecord(AbstractModel):
 
 
 class DnsVerification(AbstractModel):
-    r"""
+    r"""Information required for DNS resolution verification when applying for a free certificate in CNAME mode integration to verify ownership of a site or domain name.
 
     """
 
@@ -27522,7 +28173,7 @@ class DownloadL4LogsRequest(AbstractModel):
         :type StartTime: str
         :param _EndTime: The end time.
         :type EndTime: str
-        :param _ZoneIds: ZoneId set. This parameter is required.
+        :param _ZoneIds: ZoneId set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980).
         :type ZoneIds: list of str
         :param _ProxyIds: List of L4 proxy instance IDs.
         :type ProxyIds: list of str
@@ -27562,7 +28213,7 @@ class DownloadL4LogsRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""ZoneId set. This parameter is required.
+        r"""ZoneId set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980).
         :rtype: list of str
         """
         return self._ZoneIds
@@ -27696,7 +28347,7 @@ class DownloadL7LogsRequest(AbstractModel):
         :type StartTime: str
         :param _EndTime: The end time.
         :type EndTime: str
-        :param _ZoneIds: ZoneId set. This parameter is required.
+        :param _ZoneIds: ZoneId set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980).
         :type ZoneIds: list of str
         :param _Domains: List of subdomain names to be queried. All subdomain names will be selected if this field is not specified.
         :type Domains: list of str
@@ -27736,7 +28387,7 @@ class DownloadL7LogsRequest(AbstractModel):
 
     @property
     def ZoneIds(self):
-        r"""ZoneId set. This parameter is required.
+        r"""ZoneId set. The parameter will change from optional to mandatory after May 30, 2024.Refer to [Cloud API Change Notification](https://www.tencentcloud.com/document/product/1145/59980).
         :rtype: list of str
         """
         return self._ZoneIds
@@ -29380,13 +30031,13 @@ class FileAscriptionInfo(AbstractModel):
 
 
 class FileVerification(AbstractModel):
-    r"""Information required for verifying via a file. It's applicable to sites connected via CNAMEs.
+    r"""Information required for HTTP access verification file when applying for a free certificate in CNAME mode integration to verify ownership of a site or domain name.
 
     """
 
     def __init__(self):
         r"""
-        :param _Path: EdgeOne obtains the file verification information in the format of "Scheme + Host + URL Path", (e.g. https://www.example.com/.well-known/teo-verification/z12h416twn.txt). This field is the URL path section of the URL you need to create.
+        :param _Path: EdgeOne backend server will get file verification information via http://{Host}{URL Path} (for example http://www.example.com/.well-known/teo-verification/z12h416twn.txt). among them, this field specifies the URL Path part you need to create, and Host indicates the current accelerated domain.
         :type Path: str
         :param _Content: Content of the verification file. The contents of this field need to be filled into the text file returned by `Path`.
         :type Content: str
@@ -29396,7 +30047,7 @@ class FileVerification(AbstractModel):
 
     @property
     def Path(self):
-        r"""EdgeOne obtains the file verification information in the format of "Scheme + Host + URL Path", (e.g. https://www.example.com/.well-known/teo-verification/z12h416twn.txt). This field is the URL path section of the URL you need to create.
+        r"""EdgeOne backend server will get file verification information via http://{Host}{URL Path} (for example http://www.example.com/.well-known/teo-verification/z12h416twn.txt). among them, this field specifies the URL Path part you need to create, and Host indicates the current accelerated domain.
         :rtype: str
         """
         return self._Path
@@ -31322,10 +31973,10 @@ class Https(AbstractModel):
 
 <li>off: Disable.</li>
         :type OcspStapling: str
-        :param _TlsVersion: Tls version settings, valid values:.
-<Li>`TLSv1`: tlsv1 version;</li>.
-<li>`TLSV1.1`: TLSV1.1 version;</li>.
-<li>TLSV1.2: specifies the TLSV1.2 version.</li>.
+        :param _TlsVersion: Tls version settings. valid values:.
+<Li>TLSv1: specifies the tlsv1 version.</li>.
+<Li>TLSv1.1: specifies the tlsv1.1 version.</li>.
+<Li>TLSv1.2: specifies the tlsv1.2 version.</li>.
 <Li>TLSv1.3: specifies the tlsv1.3 version. consecutive versions must be enabled when modifying.</li>.
         :type TlsVersion: list of str
         :param _Hsts: HSTS Configuration
@@ -31382,10 +32033,10 @@ Note: This field may return null, indicating that no valid values can be obtaine
 
     @property
     def TlsVersion(self):
-        r"""Tls version settings, valid values:.
-<Li>`TLSv1`: tlsv1 version;</li>.
-<li>`TLSV1.1`: TLSV1.1 version;</li>.
-<li>TLSV1.2: specifies the TLSV1.2 version.</li>.
+        r"""Tls version settings. valid values:.
+<Li>TLSv1: specifies the tlsv1 version.</li>.
+<Li>TLSv1.1: specifies the tlsv1.1 version.</li>.
+<Li>TLSv1.2: specifies the tlsv1.2 version.</li>.
 <Li>TLSv1.3: specifies the tlsv1.3 version. consecutive versions must be enabled when modifying.</li>.
         :rtype: list of str
         """
@@ -34686,8 +35337,8 @@ class MaxAge(AbstractModel):
 <li>`on`: Follow the origin server and ignore the field MaxAgeTime;</li>
 <li>`off`: Do not follow the origin server and apply the field MaxAgeTime.</li>
         :type FollowOrigin: str
-        :param _MaxAgeTime: Specifies the maximum amount of time (in seconds). The maximum value is 365 days.
-Note: The value `0` means not to cache.
+        :param _MaxAgeTime: MaxAge specifies the time setting in seconds. value range: 0–315360000.
+Specifies the time when the cache is disabled if set to 0.
         :type MaxAgeTime: int
         """
         self._FollowOrigin = None
@@ -34708,8 +35359,8 @@ Note: The value `0` means not to cache.
 
     @property
     def MaxAgeTime(self):
-        r"""Specifies the maximum amount of time (in seconds). The maximum value is 365 days.
-Note: The value `0` means not to cache.
+        r"""MaxAge specifies the time setting in seconds. value range: 0–315360000.
+Specifies the time when the cache is disabled if set to 0.
         :rtype: int
         """
         return self._MaxAgeTime
@@ -36815,10 +37466,15 @@ class ModifyHostsCertificateRequest(AbstractModel):
         :type ZoneId: str
         :param _Hosts: Domain names that you need to modify the certificate configuration
         :type Hosts: list of str
-        :param _Mode: Certificate configuration mode. Values:
-<li>`disable`: (Default) Do not configure the certificate</li>
-<li>`eofreecert`: Use a free certificate provided by EdgeOne</li>
-<li>`sslcert`: Configure an SSL certificate.</li>
+        :param _Mode: Configures the server certificate mode. valid values:.
+
+- disable: without configuring server certificate.
+- eofreecert: specifies to apply for a free certificate through automatic validation and deploy it. for verification methods, see [free certificate application supported verification methods](https://www.tencentcloud.com/document/product/1552/90437?from_cn_redirect=1).
+    - In ns or DNSPod hosting access mode, free certificates can only be applied for via automatic validation.
+    - When a free certificate application fails, it can cause deployment failure. you can obtain the failure reason through the <a href = 'https://www.tencentcloud.com/document/product/1552/124806?from_cn_redirect=1)'>check free certificate application result</a> .
+- eofreecert_manual: specifies the deployment of free certificates applied through DNS delegation verification or file verification. before deploying a free certificate, you need to trigger the [apply for free certificate](https://www.tencentcloud.com/document/product/1552/124807?from_cn_redirect=1)) api to apply for a free certificate. once the application is successful, you can use this enumeration value to deploy the free certificate.
+Note: when deploying a free certificate, ensure a successful application for a free certificate already exists. you can check whether a successful application for a free certificate already exists through the <a href = 'https://www.tencentcloud.com/document/product/1552/124806?from_cn_redirect=1)'>check free certificate application result</a> api.
+- sslcert: specifies the configuration of the managed service side certificate.
         :type Mode: str
         :param _ServerCertInfo: SSL certificate configuration. This parameter is effective only when the mode is sslcert. You only need to provide the CertId of the corresponding certificate. You can check the CertId from the [SSL Certificate List](https://console.cloud.tencent.com/ssl).
         :type ServerCertInfo: list of ServerCertInfo
@@ -36829,7 +37485,7 @@ Default value: `none`.
         :type ApplyType: str
         :param _ClientCertInfo: In the mutual authentication scenario, this field represents the client's CA certificate, which is deployed inside the EO node and used for the client to authenticate the EO node. By default, it is disabled. If it is left blank, it indicates retaining the original configuration.
         :type ClientCertInfo: :class:`tencentcloud.teo.v20220901.models.MutualTLS`
-        :param _UpstreamCertInfo: Configures the certificate presented by the EO node during origin-pull for mutual TLS authentication. Disabled by default; leaving the field blank will retain the current configuration. This feature is currently in beta testing. please [contact us](https://cloud.tencent.com/online-service) to request access.
+        :param _UpstreamCertInfo: Specifies the certificate carried during EO node origin-pull for origin-pull mutual authentication handshake, off by default. leave blank to indicate retaining the original configuration. this configuration is currently in closed beta testing for the allowlist feature. if you need to use it, please contact us (https://www.tencentcloud.com/online?from_cn_redirect=1-service).
         :type UpstreamCertInfo: :class:`tencentcloud.teo.v20220901.models.UpstreamCertInfo`
         """
         self._ZoneId = None
@@ -36864,10 +37520,15 @@ Default value: `none`.
 
     @property
     def Mode(self):
-        r"""Certificate configuration mode. Values:
-<li>`disable`: (Default) Do not configure the certificate</li>
-<li>`eofreecert`: Use a free certificate provided by EdgeOne</li>
-<li>`sslcert`: Configure an SSL certificate.</li>
+        r"""Configures the server certificate mode. valid values:.
+
+- disable: without configuring server certificate.
+- eofreecert: specifies to apply for a free certificate through automatic validation and deploy it. for verification methods, see [free certificate application supported verification methods](https://www.tencentcloud.com/document/product/1552/90437?from_cn_redirect=1).
+    - In ns or DNSPod hosting access mode, free certificates can only be applied for via automatic validation.
+    - When a free certificate application fails, it can cause deployment failure. you can obtain the failure reason through the <a href = 'https://www.tencentcloud.com/document/product/1552/124806?from_cn_redirect=1)'>check free certificate application result</a> .
+- eofreecert_manual: specifies the deployment of free certificates applied through DNS delegation verification or file verification. before deploying a free certificate, you need to trigger the [apply for free certificate](https://www.tencentcloud.com/document/product/1552/124807?from_cn_redirect=1)) api to apply for a free certificate. once the application is successful, you can use this enumeration value to deploy the free certificate.
+Note: when deploying a free certificate, ensure a successful application for a free certificate already exists. you can check whether a successful application for a free certificate already exists through the <a href = 'https://www.tencentcloud.com/document/product/1552/124806?from_cn_redirect=1)'>check free certificate application result</a> api.
+- sslcert: specifies the configuration of the managed service side certificate.
         :rtype: str
         """
         return self._Mode
@@ -36918,7 +37579,7 @@ Default value: `none`.
 
     @property
     def UpstreamCertInfo(self):
-        r"""Configures the certificate presented by the EO node during origin-pull for mutual TLS authentication. Disabled by default; leaving the field blank will retain the current configuration. This feature is currently in beta testing. please [contact us](https://cloud.tencent.com/online-service) to request access.
+        r"""Specifies the certificate carried during EO node origin-pull for origin-pull mutual authentication handshake, off by default. leave blank to indicate retaining the original configuration. this configuration is currently in closed beta testing for the allowlist feature. if you need to use it, please contact us (https://www.tencentcloud.com/online?from_cn_redirect=1-service).
         :rtype: :class:`tencentcloud.teo.v20220901.models.UpstreamCertInfo`
         """
         return self._UpstreamCertInfo
@@ -38159,6 +38820,100 @@ class ModifyMultiPathGatewaySecretKeyRequest(AbstractModel):
 
 class ModifyMultiPathGatewaySecretKeyResponse(AbstractModel):
     r"""ModifyMultiPathGatewaySecretKey response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyMultiPathGatewayStatusRequest(AbstractModel):
+    r"""ModifyMultiPathGatewayStatus request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _GatewayId: Gateway ID.
+        :type GatewayId: str
+        :param _ZoneId: Zone ID.
+        :type ZoneId: str
+        :param _GatewayStatus: Modifies the enabled/disabled status of the gateway. valid values: <li> offline: disabled;</li> <li> online: enabled.</li>.
+        :type GatewayStatus: str
+        """
+        self._GatewayId = None
+        self._ZoneId = None
+        self._GatewayStatus = None
+
+    @property
+    def GatewayId(self):
+        r"""Gateway ID.
+        :rtype: str
+        """
+        return self._GatewayId
+
+    @GatewayId.setter
+    def GatewayId(self, GatewayId):
+        self._GatewayId = GatewayId
+
+    @property
+    def ZoneId(self):
+        r"""Zone ID.
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def GatewayStatus(self):
+        r"""Modifies the enabled/disabled status of the gateway. valid values: <li> offline: disabled;</li> <li> online: enabled.</li>.
+        :rtype: str
+        """
+        return self._GatewayStatus
+
+    @GatewayStatus.setter
+    def GatewayStatus(self, GatewayStatus):
+        self._GatewayStatus = GatewayStatus
+
+
+    def _deserialize(self, params):
+        self._GatewayId = params.get("GatewayId")
+        self._ZoneId = params.get("ZoneId")
+        self._GatewayStatus = params.get("GatewayStatus")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyMultiPathGatewayStatusResponse(AbstractModel):
+    r"""ModifyMultiPathGatewayStatus response structure.
 
     """
 
@@ -40064,6 +40819,8 @@ The original configuration will apply if it is not specified.
         :param _Grpc: Configuration of gRPC support. 
 The original configuration will apply if it is not specified.
         :type Grpc: :class:`tencentcloud.teo.v20220901.models.Grpc`
+        :param _NetworkErrorLogging: Network Error Logging configuration. The original configuration will apply if it is not specified.
+        :type NetworkErrorLogging: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
         :param _ImageOptimize: Image optimization. 
 It is disabled if this parameter is not specified.
         :type ImageOptimize: :class:`tencentcloud.teo.v20220901.models.ImageOptimize`
@@ -40091,6 +40848,7 @@ It is disabled if this parameter is not specified.
         self._Ipv6 = None
         self._ClientIpCountry = None
         self._Grpc = None
+        self._NetworkErrorLogging = None
         self._ImageOptimize = None
         self._StandardDebug = None
         self._JITVideoProcess = None
@@ -40323,6 +41081,17 @@ The original configuration will apply if it is not specified.
         self._Grpc = Grpc
 
     @property
+    def NetworkErrorLogging(self):
+        r"""Network Error Logging configuration. The original configuration will apply if it is not specified.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
+        """
+        return self._NetworkErrorLogging
+
+    @NetworkErrorLogging.setter
+    def NetworkErrorLogging(self, NetworkErrorLogging):
+        self._NetworkErrorLogging = NetworkErrorLogging
+
+    @property
     def ImageOptimize(self):
         r"""Image optimization. 
 It is disabled if this parameter is not specified.
@@ -40413,6 +41182,9 @@ It is disabled if this parameter is not specified.
         if params.get("Grpc") is not None:
             self._Grpc = Grpc()
             self._Grpc._deserialize(params.get("Grpc"))
+        if params.get("NetworkErrorLogging") is not None:
+            self._NetworkErrorLogging = NetworkErrorLogging()
+            self._NetworkErrorLogging._deserialize(params.get("NetworkErrorLogging"))
         if params.get("ImageOptimize") is not None:
             self._ImageOptimize = ImageOptimize()
             self._ImageOptimize._deserialize(params.get("ImageOptimize"))
@@ -40701,6 +41473,80 @@ class MultiPathGateway(AbstractModel):
         
 
 
+class MultiPathGatewayCurrentOriginACL(AbstractModel):
+    r"""Describes the currently effective IP range for origin servers.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EntireAddresses: Describes the IP range details for origin servers.
+        :type EntireAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _Version: Specifies the version number.
+        :type Version: int
+        :param _IsPlaned: This parameter records whether "i have updated to the latest origin IP range" is completed before taking effect. valid values:.
+<li>true: confirms the update to the latest origin IP is completed.</li>.
+<li>false: indicates the update to the latest origin IP is not completed.</li>.
+Note: when false is returned for this parameter, please confirm in time whether your origin server firewall configuration has been updated to the latest IP range to avoid origin-pull failure.
+        :type IsPlaned: str
+        """
+        self._EntireAddresses = None
+        self._Version = None
+        self._IsPlaned = None
+
+    @property
+    def EntireAddresses(self):
+        r"""Describes the IP range details for origin servers.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._EntireAddresses
+
+    @EntireAddresses.setter
+    def EntireAddresses(self, EntireAddresses):
+        self._EntireAddresses = EntireAddresses
+
+    @property
+    def Version(self):
+        r"""Specifies the version number.
+        :rtype: int
+        """
+        return self._Version
+
+    @Version.setter
+    def Version(self, Version):
+        self._Version = Version
+
+    @property
+    def IsPlaned(self):
+        r"""This parameter records whether "i have updated to the latest origin IP range" is completed before taking effect. valid values:.
+<li>true: confirms the update to the latest origin IP is completed.</li>.
+<li>false: indicates the update to the latest origin IP is not completed.</li>.
+Note: when false is returned for this parameter, please confirm in time whether your origin server firewall configuration has been updated to the latest IP range to avoid origin-pull failure.
+        :rtype: str
+        """
+        return self._IsPlaned
+
+    @IsPlaned.setter
+    def IsPlaned(self, IsPlaned):
+        self._IsPlaned = IsPlaned
+
+
+    def _deserialize(self, params):
+        if params.get("EntireAddresses") is not None:
+            self._EntireAddresses = Addresses()
+            self._EntireAddresses._deserialize(params.get("EntireAddresses"))
+        self._Version = params.get("Version")
+        self._IsPlaned = params.get("IsPlaned")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class MultiPathGatewayLine(AbstractModel):
     r"""Multi-Channel security gateway line information.
 
@@ -40809,6 +41655,165 @@ class MultiPathGatewayLine(AbstractModel):
         
 
 
+class MultiPathGatewayNextOriginACL(AbstractModel):
+    r"""When the origin IP range is updated, this field will be returned with the next version's effective origin IP range, including a comparison with the currently effective origin IP range.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Version: Specifies the version number.
+        :type Version: int
+        :param _EntireAddresses: Describes the IP range details for origin servers.
+        :type EntireAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _AddedAddresses: The latest origin IP range newly added compared with the origin IP range in MultiPathGatewayCurrentOrginACL.
+        :type AddedAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _RemovedAddresses: Specifies the latest IP address range removed from the origin IP range in MultiPathGatewayCurrentOrginACL compared with the original.
+        :type RemovedAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        :param _NoChangeAddresses: The latest origin IP range unchanged compared with the origin IP range in MultiPathGatewayCurrentOrginACL.
+        :type NoChangeAddresses: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        self._Version = None
+        self._EntireAddresses = None
+        self._AddedAddresses = None
+        self._RemovedAddresses = None
+        self._NoChangeAddresses = None
+
+    @property
+    def Version(self):
+        r"""Specifies the version number.
+        :rtype: int
+        """
+        return self._Version
+
+    @Version.setter
+    def Version(self, Version):
+        self._Version = Version
+
+    @property
+    def EntireAddresses(self):
+        r"""Describes the IP range details for origin servers.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._EntireAddresses
+
+    @EntireAddresses.setter
+    def EntireAddresses(self, EntireAddresses):
+        self._EntireAddresses = EntireAddresses
+
+    @property
+    def AddedAddresses(self):
+        r"""The latest origin IP range newly added compared with the origin IP range in MultiPathGatewayCurrentOrginACL.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._AddedAddresses
+
+    @AddedAddresses.setter
+    def AddedAddresses(self, AddedAddresses):
+        self._AddedAddresses = AddedAddresses
+
+    @property
+    def RemovedAddresses(self):
+        r"""Specifies the latest IP address range removed from the origin IP range in MultiPathGatewayCurrentOrginACL compared with the original.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._RemovedAddresses
+
+    @RemovedAddresses.setter
+    def RemovedAddresses(self, RemovedAddresses):
+        self._RemovedAddresses = RemovedAddresses
+
+    @property
+    def NoChangeAddresses(self):
+        r"""The latest origin IP range unchanged compared with the origin IP range in MultiPathGatewayCurrentOrginACL.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.Addresses`
+        """
+        return self._NoChangeAddresses
+
+    @NoChangeAddresses.setter
+    def NoChangeAddresses(self, NoChangeAddresses):
+        self._NoChangeAddresses = NoChangeAddresses
+
+
+    def _deserialize(self, params):
+        self._Version = params.get("Version")
+        if params.get("EntireAddresses") is not None:
+            self._EntireAddresses = Addresses()
+            self._EntireAddresses._deserialize(params.get("EntireAddresses"))
+        if params.get("AddedAddresses") is not None:
+            self._AddedAddresses = Addresses()
+            self._AddedAddresses._deserialize(params.get("AddedAddresses"))
+        if params.get("RemovedAddresses") is not None:
+            self._RemovedAddresses = Addresses()
+            self._RemovedAddresses._deserialize(params.get("RemovedAddresses"))
+        if params.get("NoChangeAddresses") is not None:
+            self._NoChangeAddresses = Addresses()
+            self._NoChangeAddresses._deserialize(params.get("NoChangeAddresses"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MultiPathGatewayOriginACLInfo(AbstractModel):
+    r"""Multi-Channel gateway example instance binding relationship with origin IP ranges and origin IP range details.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MultiPathGatewayCurrentOriginACL: Describes the currently effective IP range for origin servers.
+        :type MultiPathGatewayCurrentOriginACL: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayCurrentOriginACL`
+        :param _MultiPathGatewayNextOriginACL: When the origin IP range is updated, this field will be returned with the next version's effective origin IP range, including a comparison with the current origin IP range. this field is empty if not updated.
+        :type MultiPathGatewayNextOriginACL: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayNextOriginACL`
+        """
+        self._MultiPathGatewayCurrentOriginACL = None
+        self._MultiPathGatewayNextOriginACL = None
+
+    @property
+    def MultiPathGatewayCurrentOriginACL(self):
+        r"""Describes the currently effective IP range for origin servers.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayCurrentOriginACL`
+        """
+        return self._MultiPathGatewayCurrentOriginACL
+
+    @MultiPathGatewayCurrentOriginACL.setter
+    def MultiPathGatewayCurrentOriginACL(self, MultiPathGatewayCurrentOriginACL):
+        self._MultiPathGatewayCurrentOriginACL = MultiPathGatewayCurrentOriginACL
+
+    @property
+    def MultiPathGatewayNextOriginACL(self):
+        r"""When the origin IP range is updated, this field will be returned with the next version's effective origin IP range, including a comparison with the current origin IP range. this field is empty if not updated.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.MultiPathGatewayNextOriginACL`
+        """
+        return self._MultiPathGatewayNextOriginACL
+
+    @MultiPathGatewayNextOriginACL.setter
+    def MultiPathGatewayNextOriginACL(self, MultiPathGatewayNextOriginACL):
+        self._MultiPathGatewayNextOriginACL = MultiPathGatewayNextOriginACL
+
+
+    def _deserialize(self, params):
+        if params.get("MultiPathGatewayCurrentOriginACL") is not None:
+            self._MultiPathGatewayCurrentOriginACL = MultiPathGatewayCurrentOriginACL()
+            self._MultiPathGatewayCurrentOriginACL._deserialize(params.get("MultiPathGatewayCurrentOriginACL"))
+        if params.get("MultiPathGatewayNextOriginACL") is not None:
+            self._MultiPathGatewayNextOriginACL = MultiPathGatewayNextOriginACL()
+            self._MultiPathGatewayNextOriginACL._deserialize(params.get("MultiPathGatewayNextOriginACL"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class MutualTLS(AbstractModel):
     r"""HTTPS Mutual authentication.
 
@@ -40857,6 +41862,86 @@ Note: When using MutualTLS as an input parameter in ModifyHostsCertificate, you 
                 obj = CertificateInfo()
                 obj._deserialize(item)
                 self._CertInfos.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NetworkErrorLogging(AbstractModel):
+    r"""Network Error Logging configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Specifies whether the Network Error Logging configuration is enabled. Valid values:.
+<li>`on`: Enable;</li>
+<li>`off`: Disable.</li>
+        :type Switch: str
+        """
+        self._Switch = None
+
+    @property
+    def Switch(self):
+        r"""Specifies whether the Network Error Logging configuration is enabled. Valid values:.
+<li>`on`: Enable;</li>
+<li>`off`: Disable.</li>
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class NetworkErrorLoggingParameters(AbstractModel):
+    r"""Network Error Logging configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Switch: Specifies whether Network Error Logging configuration is enabled. Valid values:
+<li>`on`: Enable;</li>
+<li>`off`: Disable.</li>
+        :type Switch: str
+        """
+        self._Switch = None
+
+    @property
+    def Switch(self):
+        r"""Specifies whether Network Error Logging configuration is enabled. Valid values:
+<li>`on`: Enable;</li>
+<li>`off`: Disable.</li>
+        :rtype: str
+        """
+        return self._Switch
+
+    @Switch.setter
+    def Switch(self, Switch):
+        self._Switch = Switch
+
+
+    def _deserialize(self, params):
+        self._Switch = params.get("Switch")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -42811,6 +43896,42 @@ Note: This field may return `null`, indicating that no valid values can be obtai
         
 
 
+class OriginPullProtocolParameters(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Protocol: 
+        :type Protocol: str
+        """
+        self._Protocol = None
+
+    @property
+    def Protocol(self):
+        r"""
+        :rtype: str
+        """
+        return self._Protocol
+
+    @Protocol.setter
+    def Protocol(self, Protocol):
+        self._Protocol = Protocol
+
+
+    def _deserialize(self, params):
+        self._Protocol = params.get("Protocol")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class OriginRecord(AbstractModel):
     r"""Origin group record
 
@@ -43644,7 +44765,7 @@ class PostMaxSize(AbstractModel):
 <li>`on`: Enable;</li>
 <li>`off`: Disable.</li>
         :type Switch: str
-        :param _MaxSize: Maximum limit. value range between 1MB and 500MB. byte.
+        :param _MaxSize: Specifies the maximum limit. this field is valid only when Switch is on. value range: 1MB to 800MB. unit: byte.
         :type MaxSize: int
         """
         self._Switch = None
@@ -43665,7 +44786,7 @@ class PostMaxSize(AbstractModel):
 
     @property
     def MaxSize(self):
-        r"""Maximum limit. value range between 1MB and 500MB. byte.
+        r"""Specifies the maximum limit. this field is valid only when Switch is on. value range: 1MB to 800MB. unit: byte.
         :rtype: int
         """
         return self._MaxSize
@@ -43697,7 +44818,7 @@ class PostMaxSizeParameters(AbstractModel):
         r"""
         :param _Switch: Whether to enable post request file upload limit, in bytes (default limit: 32 * 2<sup>20</sup> bytes). valid values: <li>`on`: enable limit;</li><li>`off`: disable limit.</li>.
         :type Switch: str
-        :param _MaxSize: Maximum size of the file uploaded for streaming via a post request, in bytes. value range: 1 * 2<sup>20</sup> bytes to 500 * 2<sup>20</sup> bytes.
+        :param _MaxSize: Specifies the maximum limit for file streaming transmission in POST request upload. this field is valid only when Switch is on. value range: 1MB to 800MB. unit: byte.
         :type MaxSize: int
         """
         self._Switch = None
@@ -43716,7 +44837,7 @@ class PostMaxSizeParameters(AbstractModel):
 
     @property
     def MaxSize(self):
-        r"""Maximum size of the file uploaded for streaming via a post request, in bytes. value range: 1 * 2<sup>20</sup> bytes to 500 * 2<sup>20</sup> bytes.
+        r"""Specifies the maximum limit for file streaming transmission in POST request upload. this field is valid only when Switch is on. value range: 1MB to 800MB. unit: byte.
         :rtype: int
         """
         return self._MaxSize
@@ -46976,6 +48097,8 @@ Note: this field may return null, which indicates a failure to obtain a valid va
         :param _ForceRedirectHTTPSParameters: Force https redirect configuration parameter. this parameter is required when the name is set to forceredirecthttps.
 Note: this field may return null, which indicates a failure to obtain a valid value.
         :type ForceRedirectHTTPSParameters: :class:`tencentcloud.teo.v20220901.models.ForceRedirectHTTPSParameters`
+        :param _OriginPullProtocolParameters: 
+        :type OriginPullProtocolParameters: :class:`tencentcloud.teo.v20220901.models.OriginPullProtocolParameters`
         :param _CompressionParameters: Intelligent compression configuration. this parameter is required when name is set to compression.
 Note: this field may return null, which indicates a failure to obtain a valid value.
         :type CompressionParameters: :class:`tencentcloud.teo.v20220901.models.CompressionParameters`
@@ -47051,6 +48174,7 @@ Note: This field may return null, which indicates a failure to obtain a valid va
         self._UpstreamHTTP2Parameters = None
         self._HostHeaderParameters = None
         self._ForceRedirectHTTPSParameters = None
+        self._OriginPullProtocolParameters = None
         self._CompressionParameters = None
         self._HSTSParameters = None
         self._ClientIPHeaderParameters = None
@@ -47309,6 +48433,17 @@ Note: this field may return null, which indicates a failure to obtain a valid va
     @ForceRedirectHTTPSParameters.setter
     def ForceRedirectHTTPSParameters(self, ForceRedirectHTTPSParameters):
         self._ForceRedirectHTTPSParameters = ForceRedirectHTTPSParameters
+
+    @property
+    def OriginPullProtocolParameters(self):
+        r"""
+        :rtype: :class:`tencentcloud.teo.v20220901.models.OriginPullProtocolParameters`
+        """
+        return self._OriginPullProtocolParameters
+
+    @OriginPullProtocolParameters.setter
+    def OriginPullProtocolParameters(self, OriginPullProtocolParameters):
+        self._OriginPullProtocolParameters = OriginPullProtocolParameters
 
     @property
     def CompressionParameters(self):
@@ -47589,6 +48724,9 @@ Note: This field may return null, which indicates a failure to obtain a valid va
         if params.get("ForceRedirectHTTPSParameters") is not None:
             self._ForceRedirectHTTPSParameters = ForceRedirectHTTPSParameters()
             self._ForceRedirectHTTPSParameters._deserialize(params.get("ForceRedirectHTTPSParameters"))
+        if params.get("OriginPullProtocolParameters") is not None:
+            self._OriginPullProtocolParameters = OriginPullProtocolParameters()
+            self._OriginPullProtocolParameters._deserialize(params.get("OriginPullProtocolParameters"))
         if params.get("CompressionParameters") is not None:
             self._CompressionParameters = CompressionParameters()
             self._CompressionParameters._deserialize(params.get("CompressionParameters"))
@@ -50782,7 +51920,7 @@ class Task(AbstractModel):
 <li>accessDenied: specifies access denied.</li>.
 <li>originPullFailed: specifies the origin-pull failure.</li>.
         :type FailType: str
-        :param _FailMessage: Failure description for refresh and preheating.
+        :param _FailMessage: Description of the reason for cache purge or warm cache failure.
         :type FailMessage: str
         """
         self._JobId = None
@@ -50897,7 +52035,7 @@ class Task(AbstractModel):
 
     @property
     def FailMessage(self):
-        r"""Failure description for refresh and preheating.
+        r"""Description of the reason for cache purge or warm cache failure.
         :rtype: str
         """
         return self._FailMessage
@@ -53343,6 +54481,9 @@ Note: this field may return null, which indicates a failure to obtain a valid va
         :param _Grpc: Configuration of grpc support.
 Note: this field may return null, which indicates a failure to obtain a valid value.
         :type Grpc: :class:`tencentcloud.teo.v20220901.models.GrpcParameters`
+        :param _NetworkErrorLogging: Network Error Logging configuration.
+Note: This field may return null, which indicates a failure to obtain a valid value.
+        :type NetworkErrorLogging: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLoggingParameters`
         :param _AccelerateMainland: Accelerate optimization and configuration in mainland china.
 Note: this field may return null, which indicates a failure to obtain a valid value.
         :type AccelerateMainland: :class:`tencentcloud.teo.v20220901.models.AccelerateMainlandParameters`
@@ -53371,6 +54512,7 @@ Note: this field may return null, which indicates a failure to obtain a valid va
         self._ClientIPHeader = None
         self._ClientIPCountry = None
         self._Grpc = None
+        self._NetworkErrorLogging = None
         self._AccelerateMainland = None
         self._StandardDebug = None
 
@@ -53619,6 +54761,18 @@ Note: this field may return null, which indicates a failure to obtain a valid va
         self._Grpc = Grpc
 
     @property
+    def NetworkErrorLogging(self):
+        r"""Network Error Logging configuration.
+Note: This field may return null, which indicates a failure to obtain a valid value.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLoggingParameters`
+        """
+        return self._NetworkErrorLogging
+
+    @NetworkErrorLogging.setter
+    def NetworkErrorLogging(self, NetworkErrorLogging):
+        self._NetworkErrorLogging = NetworkErrorLogging
+
+    @property
     def AccelerateMainland(self):
         r"""Accelerate optimization and configuration in mainland china.
 Note: this field may return null, which indicates a failure to obtain a valid value.
@@ -53705,6 +54859,9 @@ Note: this field may return null, which indicates a failure to obtain a valid va
         if params.get("Grpc") is not None:
             self._Grpc = GrpcParameters()
             self._Grpc._deserialize(params.get("Grpc"))
+        if params.get("NetworkErrorLogging") is not None:
+            self._NetworkErrorLogging = NetworkErrorLoggingParameters()
+            self._NetworkErrorLogging._deserialize(params.get("NetworkErrorLogging"))
         if params.get("AccelerateMainland") is not None:
             self._AccelerateMainland = AccelerateMainlandParameters()
             self._AccelerateMainland._deserialize(params.get("AccelerateMainland"))
@@ -53911,6 +55068,9 @@ Note: This field may return `null`, indicating that no valid value can be obtain
         :param _Grpc: Configuration of gRPC support
 Note: This field may return `null`, indicating that no valid value can be obtained.
         :type Grpc: :class:`tencentcloud.teo.v20220901.models.Grpc`
+        :param _NetworkErrorLogging: Network Error Logging configuration.
+Note: This field may return `null`, indicating that no valid value can be obtained.
+        :type NetworkErrorLogging: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
         :param _ImageOptimize: Image optimization configuration. 
 Note: This field may return `null`, indicating that no valid value was found.
         :type ImageOptimize: :class:`tencentcloud.teo.v20220901.models.ImageOptimize`
@@ -53944,6 +55104,7 @@ Note: This field may return null, which indicates a failure to obtain a valid va
         self._Https = None
         self._ClientIpCountry = None
         self._Grpc = None
+        self._NetworkErrorLogging = None
         self._ImageOptimize = None
         self._AccelerateMainland = None
         self._StandardDebug = None
@@ -54190,6 +55351,18 @@ Note: This field may return `null`, indicating that no valid value can be obtain
         self._Grpc = Grpc
 
     @property
+    def NetworkErrorLogging(self):
+        r"""Network Error Logging configuration.
+Note: This field may return `null`, indicating that no valid value can be obtained.
+        :rtype: :class:`tencentcloud.teo.v20220901.models.NetworkErrorLogging`
+        """
+        return self._NetworkErrorLogging
+
+    @NetworkErrorLogging.setter
+    def NetworkErrorLogging(self, NetworkErrorLogging):
+        self._NetworkErrorLogging = NetworkErrorLogging
+
+    @property
     def ImageOptimize(self):
         r"""Image optimization configuration. 
 Note: This field may return `null`, indicating that no valid value was found.
@@ -54295,6 +55468,9 @@ Note: This field may return null, which indicates a failure to obtain a valid va
         if params.get("Grpc") is not None:
             self._Grpc = Grpc()
             self._Grpc._deserialize(params.get("Grpc"))
+        if params.get("NetworkErrorLogging") is not None:
+            self._NetworkErrorLogging = NetworkErrorLogging()
+            self._NetworkErrorLogging._deserialize(params.get("NetworkErrorLogging"))
         if params.get("ImageOptimize") is not None:
             self._ImageOptimize = ImageOptimize()
             self._ImageOptimize._deserialize(params.get("ImageOptimize"))

@@ -3811,27 +3811,36 @@ class CreateScheduledActionRequest(AbstractModel):
         :type AutoScalingGroupId: str
         :param _ScheduledActionName: Scheduled task name, which can only contain letters, numbers, underscores, hyphens ("-"), and decimal points with a maximum length of 60 bytes and must be unique in an auto scaling group.
         :type ScheduledActionName: str
-        :param _MaxSize: The maximum number of instances set for the auto scaling group when the scheduled task is triggered.
-        :type MaxSize: int
         :param _MinSize: The minimum number of instances set for the auto scaling group when the scheduled task is triggered.
         :type MinSize: int
-        :param _DesiredCapacity: The desired number of instances set for the auto scaling group when the scheduled task is triggered.
-        :type DesiredCapacity: int
         :param _StartTime: Initial triggered time of the scheduled task. The value is in `Beijing time` (UTC+8) in the format of `YYYY-MM-DDThh:mm:ss+08:00` according to the `ISO8601` standard.
         :type StartTime: str
+        :param _DesiredCapacity: The desired number of instances set for the auto scaling group when the scheduled task is triggered.
+        :type DesiredCapacity: int
+        :param _MaxSize: The maximum number of instances set for the auto scaling group when the scheduled task is triggered.
+        :type MaxSize: int
         :param _EndTime: End time of the scheduled task. The value is in `Beijing time` (UTC+8) in the format of `YYYY-MM-DDThh:mm:ss+08:00` according to the `ISO8601` standard. <br><br>This parameter and `Recurrence` need to be specified at the same time. After the end time, the scheduled task will no longer take effect.
         :type EndTime: str
         :param _Recurrence: The repeating mode of a scheduled task follows the standard Cron format. the [Recurrence parameter limits](https://intl.cloud.tencent.com/document/product/377/88119?from_cn_redirect=1) in a scheduled task consist of 5 fields separated by spaces, with the structure: minute, hour, date, month, week. this parameter must be simultaneously specified with `EndTime`.
         :type Recurrence: str
+        :param _DisableUpdateDesiredCapacity: Disable update DesiredCapacity Indicates the DesiredCapacity is updated normally during scheduled task triggering.
+
+Specifies whether the scheduled task triggers proactive modification of the DesiredCapacity when the value is True. DesiredCapacity may be modified by the minSize and maxSize mechanism.
+The following cases assume that DisableUpdateDesiredCapacity is True:
+- When scheduled task triggered, the original DesiredCapacity is 5. The scheduled task changes the minSize to 10, the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 5 is less than minSize 10, so the final new DesiredCapacity is 10.
+- When scheduled task triggered, the original DesiredCapacity is 25. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 25 is greater than the maxSize 20, so the final new DesiredCapacity is 20.
+- When scheduled task triggered, the original DesiredCapacity is 13. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect, and the DesiredCapacity is still 13.
+        :type DisableUpdateDesiredCapacity: bool
         """
         self._AutoScalingGroupId = None
         self._ScheduledActionName = None
-        self._MaxSize = None
         self._MinSize = None
-        self._DesiredCapacity = None
         self._StartTime = None
+        self._DesiredCapacity = None
+        self._MaxSize = None
         self._EndTime = None
         self._Recurrence = None
+        self._DisableUpdateDesiredCapacity = None
 
     @property
     def AutoScalingGroupId(self):
@@ -3858,17 +3867,6 @@ class CreateScheduledActionRequest(AbstractModel):
         self._ScheduledActionName = ScheduledActionName
 
     @property
-    def MaxSize(self):
-        r"""The maximum number of instances set for the auto scaling group when the scheduled task is triggered.
-        :rtype: int
-        """
-        return self._MaxSize
-
-    @MaxSize.setter
-    def MaxSize(self, MaxSize):
-        self._MaxSize = MaxSize
-
-    @property
     def MinSize(self):
         r"""The minimum number of instances set for the auto scaling group when the scheduled task is triggered.
         :rtype: int
@@ -3878,6 +3876,17 @@ class CreateScheduledActionRequest(AbstractModel):
     @MinSize.setter
     def MinSize(self, MinSize):
         self._MinSize = MinSize
+
+    @property
+    def StartTime(self):
+        r"""Initial triggered time of the scheduled task. The value is in `Beijing time` (UTC+8) in the format of `YYYY-MM-DDThh:mm:ss+08:00` according to the `ISO8601` standard.
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
 
     @property
     def DesiredCapacity(self):
@@ -3891,15 +3900,15 @@ class CreateScheduledActionRequest(AbstractModel):
         self._DesiredCapacity = DesiredCapacity
 
     @property
-    def StartTime(self):
-        r"""Initial triggered time of the scheduled task. The value is in `Beijing time` (UTC+8) in the format of `YYYY-MM-DDThh:mm:ss+08:00` according to the `ISO8601` standard.
-        :rtype: str
+    def MaxSize(self):
+        r"""The maximum number of instances set for the auto scaling group when the scheduled task is triggered.
+        :rtype: int
         """
-        return self._StartTime
+        return self._MaxSize
 
-    @StartTime.setter
-    def StartTime(self, StartTime):
-        self._StartTime = StartTime
+    @MaxSize.setter
+    def MaxSize(self, MaxSize):
+        self._MaxSize = MaxSize
 
     @property
     def EndTime(self):
@@ -3923,16 +3932,34 @@ class CreateScheduledActionRequest(AbstractModel):
     def Recurrence(self, Recurrence):
         self._Recurrence = Recurrence
 
+    @property
+    def DisableUpdateDesiredCapacity(self):
+        r"""Disable update DesiredCapacity Indicates the DesiredCapacity is updated normally during scheduled task triggering.
+
+Specifies whether the scheduled task triggers proactive modification of the DesiredCapacity when the value is True. DesiredCapacity may be modified by the minSize and maxSize mechanism.
+The following cases assume that DisableUpdateDesiredCapacity is True:
+- When scheduled task triggered, the original DesiredCapacity is 5. The scheduled task changes the minSize to 10, the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 5 is less than minSize 10, so the final new DesiredCapacity is 10.
+- When scheduled task triggered, the original DesiredCapacity is 25. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 25 is greater than the maxSize 20, so the final new DesiredCapacity is 20.
+- When scheduled task triggered, the original DesiredCapacity is 13. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect, and the DesiredCapacity is still 13.
+        :rtype: bool
+        """
+        return self._DisableUpdateDesiredCapacity
+
+    @DisableUpdateDesiredCapacity.setter
+    def DisableUpdateDesiredCapacity(self, DisableUpdateDesiredCapacity):
+        self._DisableUpdateDesiredCapacity = DisableUpdateDesiredCapacity
+
 
     def _deserialize(self, params):
         self._AutoScalingGroupId = params.get("AutoScalingGroupId")
         self._ScheduledActionName = params.get("ScheduledActionName")
-        self._MaxSize = params.get("MaxSize")
         self._MinSize = params.get("MinSize")
-        self._DesiredCapacity = params.get("DesiredCapacity")
         self._StartTime = params.get("StartTime")
+        self._DesiredCapacity = params.get("DesiredCapacity")
+        self._MaxSize = params.get("MaxSize")
         self._EndTime = params.get("EndTime")
         self._Recurrence = params.get("Recurrence")
+        self._DisableUpdateDesiredCapacity = params.get("DisableUpdateDesiredCapacity")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7954,26 +7981,42 @@ class InstanceMarketOptionsRequest(AbstractModel):
 
 
 class InstanceNameIndexSettings(AbstractModel):
-    r"""Instance name sequencing settings.
+    r"""Instance name index settings.
 
     """
 
     def __init__(self):
         r"""
-        :param _Enabled: Whether to enable instance creation sequencing, which is disabled by default. Valid values: <li>TRUE: Indicates that instance creation sequencing is enabled. <li>FALSE: Indicates that instance creation sequencing is disabled.
-Note: This field may return null, indicating that no valid value can be obtained.
+        :param _Enabled: Whether to enable instance name index. Default value: false. Value range:.
+
+**true**: indicates that instance name index is enabled.
+**false**: indicates that instance name index is disabled.
+Note: This field may return null, indicating that no valid values can be obtained.
         :type Enabled: bool
-        :param _BeginIndex: Initial sequence number, with a value range of [0, 99,999,999]. When the sequence number exceeds this range after incrementing, scale-out activities will fail. <li>Upon the first enabling of instance name sequencing: The default value is 0. <li>Upon the enabling of instance name sequencing (not for the first time): If this parameter is not specified, the historical sequence number will be carried forward. Lowering the initial sequence number may result in duplicate instance name sequences within the scaling group.
-Note: This field may return null, indicating that no valid value can be obtained.
+        :param _BeginIndex: Begin index number. Value range: [0, 99999999].
+
+Indicates that the scale out activity will be failed when the index out of range. 
+If not specified, carries forward historical index number or 0.
+Lowering the index sequence number may lead to instance name duplication within the group.
+Note: This field may return null, indicating that no valid values can be obtained.
         :type BeginIndex: int
+        :param _IndexLength: Instance name index number digits, defaults to 0, means no specified digit count. Value range: 0-8, maximum is integer 8. when using values 1-8, the system checks whether the index number exceeds the maximum digit for this digit count.
+
+If set to 3, index number is in the format: 000, 001, 002 ... 010, 011 ... 100 ... 999. The maximum is 999. 
+Assuming set to 0, the index number is 0, 1, 2 ... 10, 11 ... 100 ... 1000 ...10000 ... 99999999. Max number is 99999999.
+        :type IndexLength: int
         """
         self._Enabled = None
         self._BeginIndex = None
+        self._IndexLength = None
 
     @property
     def Enabled(self):
-        r"""Whether to enable instance creation sequencing, which is disabled by default. Valid values: <li>TRUE: Indicates that instance creation sequencing is enabled. <li>FALSE: Indicates that instance creation sequencing is disabled.
-Note: This field may return null, indicating that no valid value can be obtained.
+        r"""Whether to enable instance name index. Default value: false. Value range:.
+
+**true**: indicates that instance name index is enabled.
+**false**: indicates that instance name index is disabled.
+Note: This field may return null, indicating that no valid values can be obtained.
         :rtype: bool
         """
         return self._Enabled
@@ -7984,8 +8027,12 @@ Note: This field may return null, indicating that no valid value can be obtained
 
     @property
     def BeginIndex(self):
-        r"""Initial sequence number, with a value range of [0, 99,999,999]. When the sequence number exceeds this range after incrementing, scale-out activities will fail. <li>Upon the first enabling of instance name sequencing: The default value is 0. <li>Upon the enabling of instance name sequencing (not for the first time): If this parameter is not specified, the historical sequence number will be carried forward. Lowering the initial sequence number may result in duplicate instance name sequences within the scaling group.
-Note: This field may return null, indicating that no valid value can be obtained.
+        r"""Begin index number. Value range: [0, 99999999].
+
+Indicates that the scale out activity will be failed when the index out of range. 
+If not specified, carries forward historical index number or 0.
+Lowering the index sequence number may lead to instance name duplication within the group.
+Note: This field may return null, indicating that no valid values can be obtained.
         :rtype: int
         """
         return self._BeginIndex
@@ -7994,10 +8041,25 @@ Note: This field may return null, indicating that no valid value can be obtained
     def BeginIndex(self, BeginIndex):
         self._BeginIndex = BeginIndex
 
+    @property
+    def IndexLength(self):
+        r"""Instance name index number digits, defaults to 0, means no specified digit count. Value range: 0-8, maximum is integer 8. when using values 1-8, the system checks whether the index number exceeds the maximum digit for this digit count.
+
+If set to 3, index number is in the format: 000, 001, 002 ... 010, 011 ... 100 ... 999. The maximum is 999. 
+Assuming set to 0, the index number is 0, 1, 2 ... 10, 11 ... 100 ... 1000 ...10000 ... 99999999. Max number is 99999999.
+        :rtype: int
+        """
+        return self._IndexLength
+
+    @IndexLength.setter
+    def IndexLength(self, IndexLength):
+        self._IndexLength = IndexLength
+
 
     def _deserialize(self, params):
         self._Enabled = params.get("Enabled")
         self._BeginIndex = params.get("BeginIndex")
+        self._IndexLength = params.get("IndexLength")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11629,6 +11691,14 @@ class ModifyScheduledActionRequest(AbstractModel):
         :type EndTime: str
         :param _Recurrence: The repeating mode of the scheduled task. follows the standard Cron format. the Recurrence parameter limits (https://intl.cloud.tencent.com/document/product/377/88119?from_cn_redirect=1) consist of 5 fields separated by space, with the structure: minute, hr, date, month, week. this parameter must be simultaneously specified with `EndTime`.
         :type Recurrence: str
+        :param _DisableUpdateDesiredCapacity: Disable update DesiredCapacity Indicates the DesiredCapacity is updated normally during scheduled task triggering.
+
+Specifies whether the scheduled task triggers proactive modification of the DesiredCapacity when the value is True. DesiredCapacity may be modified by the minSize and maxSize mechanism.
+The following cases assume that DisableUpdateDesiredCapacity is True:
+- When scheduled task triggered, the original DesiredCapacity is 5. The scheduled task changes the minSize to 10, the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 5 is less than minSize 10, so the final new DesiredCapacity is 10.
+- When scheduled task triggered, the original DesiredCapacity is 25. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 25 is greater than the maxSize 20, so the final new DesiredCapacity is 20.
+- When scheduled task triggered, the original DesiredCapacity is 13. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect, and the DesiredCapacity is still 13.
+        :type DisableUpdateDesiredCapacity: bool
         """
         self._ScheduledActionId = None
         self._ScheduledActionName = None
@@ -11638,6 +11708,7 @@ class ModifyScheduledActionRequest(AbstractModel):
         self._StartTime = None
         self._EndTime = None
         self._Recurrence = None
+        self._DisableUpdateDesiredCapacity = None
 
     @property
     def ScheduledActionId(self):
@@ -11727,6 +11798,23 @@ class ModifyScheduledActionRequest(AbstractModel):
     def Recurrence(self, Recurrence):
         self._Recurrence = Recurrence
 
+    @property
+    def DisableUpdateDesiredCapacity(self):
+        r"""Disable update DesiredCapacity Indicates the DesiredCapacity is updated normally during scheduled task triggering.
+
+Specifies whether the scheduled task triggers proactive modification of the DesiredCapacity when the value is True. DesiredCapacity may be modified by the minSize and maxSize mechanism.
+The following cases assume that DisableUpdateDesiredCapacity is True:
+- When scheduled task triggered, the original DesiredCapacity is 5. The scheduled task changes the minSize to 10, the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 5 is less than minSize 10, so the final new DesiredCapacity is 10.
+- When scheduled task triggered, the original DesiredCapacity is 25. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 25 is greater than the maxSize 20, so the final new DesiredCapacity is 20.
+- When scheduled task triggered, the original DesiredCapacity is 13. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect, and the DesiredCapacity is still 13.
+        :rtype: bool
+        """
+        return self._DisableUpdateDesiredCapacity
+
+    @DisableUpdateDesiredCapacity.setter
+    def DisableUpdateDesiredCapacity(self, DisableUpdateDesiredCapacity):
+        self._DisableUpdateDesiredCapacity = DisableUpdateDesiredCapacity
+
 
     def _deserialize(self, params):
         self._ScheduledActionId = params.get("ScheduledActionId")
@@ -11737,6 +11825,7 @@ class ModifyScheduledActionRequest(AbstractModel):
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
         self._Recurrence = params.get("Recurrence")
+        self._DisableUpdateDesiredCapacity = params.get("DisableUpdateDesiredCapacity")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13405,6 +13494,14 @@ class ScheduledAction(AbstractModel):
 <li>CRONTAB: repeated execution.</li>
 <li>ONCE: single execution.</li>
         :type ScheduledType: str
+        :param _DisableUpdateDesiredCapacity: Disable update DesiredCapacity Indicates the DesiredCapacity is updated normally during scheduled task triggering.
+
+Specifies whether the scheduled task triggers proactive modification of the DesiredCapacity when the value is True. DesiredCapacity may be modified by the minSize and maxSize mechanism.
+The following cases assume that DisableUpdateDesiredCapacity is True:
+- When scheduled task triggered, the original DesiredCapacity is 5. The scheduled task changes the minSize to 10, the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 5 is less than minSize 10, so the final new DesiredCapacity is 10.
+- When scheduled task triggered, the original DesiredCapacity is 25. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 25 is greater than the maxSize 20, so the final new DesiredCapacity is 20.
+- When scheduled task triggered, the original DesiredCapacity is 13. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect, and the DesiredCapacity is still 13.
+        :type DisableUpdateDesiredCapacity: bool
         """
         self._ScheduledActionId = None
         self._ScheduledActionName = None
@@ -13417,6 +13514,7 @@ class ScheduledAction(AbstractModel):
         self._MinSize = None
         self._CreatedTime = None
         self._ScheduledType = None
+        self._DisableUpdateDesiredCapacity = None
 
     @property
     def ScheduledActionId(self):
@@ -13541,6 +13639,23 @@ class ScheduledAction(AbstractModel):
     def ScheduledType(self, ScheduledType):
         self._ScheduledType = ScheduledType
 
+    @property
+    def DisableUpdateDesiredCapacity(self):
+        r"""Disable update DesiredCapacity Indicates the DesiredCapacity is updated normally during scheduled task triggering.
+
+Specifies whether the scheduled task triggers proactive modification of the DesiredCapacity when the value is True. DesiredCapacity may be modified by the minSize and maxSize mechanism.
+The following cases assume that DisableUpdateDesiredCapacity is True:
+- When scheduled task triggered, the original DesiredCapacity is 5. The scheduled task changes the minSize to 10, the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 5 is less than minSize 10, so the final new DesiredCapacity is 10.
+- When scheduled task triggered, the original DesiredCapacity is 25. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect. However, the original DesiredCapacity 25 is greater than the maxSize 20, so the final new DesiredCapacity is 20.
+- When scheduled task triggered, the original DesiredCapacity is 13. The scheduled task changes the minSize to 10 and the maxSize to 20, and the DesiredCapacity to 15. Since the DesiredCapacity update is disabled, 15 does not take effect, and the DesiredCapacity is still 13.
+        :rtype: bool
+        """
+        return self._DisableUpdateDesiredCapacity
+
+    @DisableUpdateDesiredCapacity.setter
+    def DisableUpdateDesiredCapacity(self, DisableUpdateDesiredCapacity):
+        self._DisableUpdateDesiredCapacity = DisableUpdateDesiredCapacity
+
 
     def _deserialize(self, params):
         self._ScheduledActionId = params.get("ScheduledActionId")
@@ -13554,6 +13669,7 @@ class ScheduledAction(AbstractModel):
         self._MinSize = params.get("MinSize")
         self._CreatedTime = params.get("CreatedTime")
         self._ScheduledType = params.get("ScheduledType")
+        self._DisableUpdateDesiredCapacity = params.get("DisableUpdateDesiredCapacity")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -13591,6 +13707,8 @@ Default value: RECREATE.
 <Li>True: when modifying the maximum or minimum value, if a conflict exists with the current expected value, synchronously adjust the expected value. for example, if the input minimum value is 2 while the current expected value is 1, the expected value will be synchronously adjusted to 2.</li>.
 <Li>False: if a conflict exists between the current expected value when modifying the maximum or minimum value, an error message indicates it is not allowed to be modified.</li>.
         :type DesiredCapacitySyncWithMaxMinSize: bool
+        :param _PriorityScaleInUnhealthy: Scaling in unhealthy instances first. If enabled, preferentially selects unhealthy instances during scale in. Default value: False.
+        :type PriorityScaleInUnhealthy: bool
         """
         self._ReplaceMonitorUnhealthy = None
         self._ScalingMode = None
@@ -13598,6 +13716,7 @@ Default value: RECREATE.
         self._ReplaceMode = None
         self._AutoUpdateInstanceTags = None
         self._DesiredCapacitySyncWithMaxMinSize = None
+        self._PriorityScaleInUnhealthy = None
 
     @property
     def ReplaceMonitorUnhealthy(self):
@@ -13673,6 +13792,17 @@ Default value: RECREATE.
     def DesiredCapacitySyncWithMaxMinSize(self, DesiredCapacitySyncWithMaxMinSize):
         self._DesiredCapacitySyncWithMaxMinSize = DesiredCapacitySyncWithMaxMinSize
 
+    @property
+    def PriorityScaleInUnhealthy(self):
+        r"""Scaling in unhealthy instances first. If enabled, preferentially selects unhealthy instances during scale in. Default value: False.
+        :rtype: bool
+        """
+        return self._PriorityScaleInUnhealthy
+
+    @PriorityScaleInUnhealthy.setter
+    def PriorityScaleInUnhealthy(self, PriorityScaleInUnhealthy):
+        self._PriorityScaleInUnhealthy = PriorityScaleInUnhealthy
+
 
     def _deserialize(self, params):
         self._ReplaceMonitorUnhealthy = params.get("ReplaceMonitorUnhealthy")
@@ -13681,6 +13811,7 @@ Default value: RECREATE.
         self._ReplaceMode = params.get("ReplaceMode")
         self._AutoUpdateInstanceTags = params.get("AutoUpdateInstanceTags")
         self._DesiredCapacitySyncWithMaxMinSize = params.get("DesiredCapacitySyncWithMaxMinSize")
+        self._PriorityScaleInUnhealthy = params.get("PriorityScaleInUnhealthy")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

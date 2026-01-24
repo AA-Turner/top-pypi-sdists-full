@@ -1,31 +1,20 @@
-from typing import Any, Generic, Union, Optional, Callable, cast
+from typing import Any, Generic, Sequence, overload, Literal, cast
 from datetime import datetime, timezone
 
-from pydantic import ValidationError
 from sqlalchemy import (
-    Insert,
-    Result,
-    and_,
     select,
     update,
     delete,
     func,
-    inspect,
-    asc,
-    desc,
-    or_,
     column,
-    not_,
-    Column,
 )
-from sqlalchemy.exc import ArgumentError, MultipleResultsFound, NoResultFound
+from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.sql import Join
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm.util import AliasedClass
-from sqlalchemy.sql.elements import BinaryExpression, ColumnElement
+from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.selectable import Select
-from sqlalchemy.dialects import postgresql, sqlite, mysql
 
 from fastcrud.types import (
     CreateSchemaType,
@@ -36,20 +25,46 @@ from fastcrud.types import (
     UpdateSchemaType,
     GetMultiResponseModel,
     GetMultiResponseDict,
+    UpsertMultiResponseModel,
+    UpsertMultiResponseDict,
 )
 
-from .helper import (
-    _extract_matching_columns_from_schema,
-    _auto_detect_join_condition,
-    _nest_join_data,
-    _nest_multi_join_data,
-    _handle_null_primary_key_multi_join,
+from ..core import (
+    extract_matching_columns_from_schema,
+    auto_detect_join_condition,
+    build_relationship_joins_config,
     JoinConfig,
+    CountConfig,
+    get_primary_key_names,
+    get_primary_key_columns,
+    FilterProcessor,
+    FilterCallable,
+    SQLQueryBuilder,
+    format_multi_response,
+    process_joined_data,
+    build_joined_query,
+    execute_joined_query,
+    format_joined_response,
+    split_join_configs,
+    fetch_and_merge_one_to_many,
 )
 
-from ..endpoint.helper import _get_primary_keys
-
-FilterCallable = Callable[[Column[Any]], Callable[..., ColumnElement[bool]]]
+from .validation import (
+    validate_update_delete_operation,
+    validate_pagination_params,
+    validate_joined_query_params,
+)
+from .data_preparation import prepare_update_data
+from .execution import (
+    execute_update_and_return_response,
+    handle_joined_filters_delegation,
+)
+from ..core.protocols import CRUDInstance
+from .database_specific import (
+    upsert_multi_postgresql,
+    upsert_multi_sqlite,
+    upsert_multi_mysql,
+)
 
 
 class FastCRUD(
@@ -73,6 +88,8 @@ class FastCRUD(
         is_deleted_column: Optional column name to use for indicating a soft delete. Defaults to `"is_deleted"`.
         deleted_at_column: Optional column name to use for storing the timestamp of a soft delete. Defaults to `"deleted_at"`.
         updated_at_column: Optional column name to use for storing the timestamp of an update. Defaults to `"updated_at"`.
+        custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
+            values are callables that take a column and return a filter function.
 
     Methods:
         create:
@@ -456,30 +473,6 @@ class FastCRUD(
         ```
     """
 
-    _SUPPORTED_FILTERS = {
-        "eq": lambda column: column.__eq__,
-        "gt": lambda column: column.__gt__,
-        "lt": lambda column: column.__lt__,
-        "gte": lambda column: column.__ge__,
-        "lte": lambda column: column.__le__,
-        "ne": lambda column: column.__ne__,
-        "is": lambda column: column.is_,
-        "is_not": lambda column: column.is_not,
-        "like": lambda column: column.like,
-        "notlike": lambda column: column.notlike,
-        "ilike": lambda column: column.ilike,
-        "notilike": lambda column: column.notilike,
-        "startswith": lambda column: column.startswith,
-        "endswith": lambda column: column.endswith,
-        "contains": lambda column: column.contains,
-        "match": lambda column: column.match,
-        "between": lambda column: column.between,
-        "in": lambda column: column.in_,
-        "not_in": lambda column: column.not_in,
-        "or": lambda column: column.or_,
-        "not": lambda column: column.not_,
-    }
-
     def __init__(
         self,
         model: type[ModelType],
@@ -487,6 +480,7 @@ class FastCRUD(
         deleted_at_column: str = "deleted_at",
         updated_at_column: str = "updated_at",
         multi_response_key: str = "data",
+        custom_filters: dict[str, FilterCallable] | None = None,
     ) -> None:
         self.model = model
         self.model_col_names = [col.key for col in model.__table__.columns]
@@ -494,297 +488,63 @@ class FastCRUD(
         self.deleted_at_column = deleted_at_column
         self.updated_at_column = updated_at_column
         self.multi_response_key = multi_response_key
-        self._primary_keys = _get_primary_keys(self.model)
+        self.custom_filters = custom_filters
+        self._primary_keys = get_primary_key_columns(self.model)
+        self._filter_processor = FilterProcessor(self.model, custom_filters)
+        self._query_builder = SQLQueryBuilder(self.model)
 
-    def _get_sqlalchemy_filter(
+    @overload
+    async def create(
         self,
-        operator: str,
-        value: Any,
-    ) -> Optional[FilterCallable]:
-        if operator in {"in", "not_in", "between"}:
-            if not isinstance(value, (tuple, list, set)):
-                raise ValueError(f"<{operator}> filter must be tuple, list or set")
-        return cast(Optional[FilterCallable], self._SUPPORTED_FILTERS.get(operator))
+        db: AsyncSession,
+        object: CreateSchemaType,
+        *,
+        commit: bool = True,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+    ) -> SelectSchemaType: ...
 
-    def _parse_filters(
-        self, model: Optional[Union[type[ModelType], AliasedClass]] = None, **kwargs
-    ) -> list[ColumnElement]:
-        """Parse and convert filter arguments into SQLAlchemy filter conditions.
-
-        Args:
-            model: The model to apply filters to. Defaults to self.model
-            **kwargs: Filter arguments in the format field_name__operator=value
-
-        Returns:
-            List of SQLAlchemy filter conditions
-        """
-        model = model or self.model
-        filters = []
-
-        if "_or" in kwargs:
-            filters.extend(self._handle_multi_field_or_filter(model, kwargs.pop("_or")))
-
-        for key, value in kwargs.items():
-            if "__" not in key:
-                filters.extend(self._handle_simple_filter(model, key, value))
-                continue
-
-            field_name, operator = key.rsplit("__", 1)
-            model_column = self._get_column(model, field_name)
-
-            if operator == "or":
-                filters.extend(self._handle_or_filter(model_column, value))
-            elif operator == "not":
-                filters.extend(self._handle_not_filter(model_column, value))
-            else:
-                filters.extend(
-                    self._handle_standard_filter(model_column, operator, value)
-                )
-
-        return filters
-
-    def _handle_simple_filter(
-        self, model: Union[type[ModelType], AliasedClass], key: str, value: Any
-    ) -> list[ColumnElement]:
-        """Handle simple equality filters (e.g., name='John')."""
-        col = getattr(model, key, None)
-        return [col == value] if col is not None else []
-
-    def _handle_or_filter(self, col: Column, value: dict) -> list[ColumnElement]:
-        """Handle OR conditions (e.g., age__or={'gt': 18, 'lt': 65})."""
-        if not isinstance(value, dict):  # pragma: no cover
-            raise ValueError("OR filter value must be a dictionary")
-
-        or_conditions = []
-        for or_op, or_value in value.items():
-            sqlalchemy_filter = self._get_sqlalchemy_filter(or_op, or_value)
-            if sqlalchemy_filter:
-                condition = (
-                    sqlalchemy_filter(col)(*or_value)
-                    if or_op == "between"
-                    else sqlalchemy_filter(col)(or_value)
-                )
-                or_conditions.append(condition)
-
-        return [or_(*or_conditions)] if or_conditions else []
-
-    def _handle_not_filter(self, col: Column, value: dict) -> list[ColumnElement[bool]]:
-        """Handle NOT conditions (e.g., age__not={'eq': 20, 'between': (30, 40)})."""
-        if not isinstance(value, dict):  # pragma: no cover
-            raise ValueError("NOT filter value must be a dictionary")
-
-        not_conditions = []
-        for not_op, not_value in value.items():
-            sqlalchemy_filter = self._get_sqlalchemy_filter(not_op, not_value)
-            if sqlalchemy_filter is None:  # pragma: no cover
-                continue
-
-            condition = (
-                sqlalchemy_filter(col)(*not_value)
-                if not_op == "between"
-                else sqlalchemy_filter(col)(not_value)
-            )
-            not_conditions.append(condition)
-
-        return (
-            [and_(*(not_(cond) for cond in not_conditions))] if not_conditions else []
-        )
-
-    def _handle_standard_filter(
-        self, col: Column[Any], operator: str, value: Any
-    ) -> list[ColumnElement[bool]]:
-        """Handle standard comparison operators (e.g., age__gt=18)."""
-        sqlalchemy_filter = self._get_sqlalchemy_filter(operator, value)
-        if sqlalchemy_filter is None:  # pragma: no cover
-            return []
-
-        condition = (
-            sqlalchemy_filter(col)(*value)
-            if operator == "between"
-            else sqlalchemy_filter(col)(value)
-        )
-        return [condition]
-
-    def _handle_multi_field_or_filter(
-        self, model: Union[type[ModelType], AliasedClass], value: dict
-    ) -> list[ColumnElement]:
-        """Handle OR conditions across multiple fields.
-
-        This method allows for OR conditions between different fields, such as:
-        _or={'name__ilike': '%keyword%', 'email__ilike': '%keyword%'}
-
-        Args:
-            model: The model to apply filters to
-            value: Dictionary of field conditions in the format {'field_name__operator': value}
-
-        Returns:
-            List containing a single SQLAlchemy OR condition combining all specified filters
-        """
-        if not isinstance(value, dict):  # pragma: no cover
-            raise ValueError("Multi-field OR filter value must be a dictionary")
-
-        or_conditions = []
-
-        for field_condition, condition_value in value.items():
-            if "__" not in field_condition:
-                col = getattr(model, field_condition, None)
-                if col is not None:
-                    or_conditions.append(col == condition_value)
-                continue
-
-            field_name, operator = field_condition.rsplit("__", 1)
-            try:
-                model_column = self._get_column(model, field_name)
-
-                sqlalchemy_filter = self._get_sqlalchemy_filter(
-                    operator, condition_value
-                )
-                if sqlalchemy_filter:
-                    condition = (
-                        sqlalchemy_filter(model_column)(*condition_value)
-                        if operator == "between"
-                        else sqlalchemy_filter(model_column)(condition_value)
-                    )
-                    or_conditions.append(condition)
-            except ValueError:
-                # TODO: log warning
-                continue
-
-        return [or_(*or_conditions)] if or_conditions else []
-
-    def _get_column(
-        self, model: Union[type[ModelType], AliasedClass], field_name: str
-    ) -> Column[Any]:
-        """Get column from model, raising ValueError if not found."""
-        model_column = getattr(model, field_name, None)
-        if model_column is None:
-            raise ValueError(f"Invalid filter column: {field_name}")
-        return cast(Column[Any], model_column)
-
-    def _apply_sorting(
+    @overload
+    async def create(
         self,
-        stmt: Select,
-        sort_columns: Union[str, list[str]],
-        sort_orders: Optional[Union[str, list[str]]] = None,
-    ) -> Select:
-        """
-        Apply sorting to a SQLAlchemy query based on specified column names and sort orders.
+        db: AsyncSession,
+        object: CreateSchemaType,
+        *,
+        commit: bool = True,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+    ) -> None: ...
 
-        Args:
-            stmt: The SQLAlchemy `Select` statement to which sorting will be applied.
-            sort_columns: A single column name or a list of column names on which to apply sorting.
-            sort_orders: A single sort order (`"asc"` or `"desc"`) or a list of sort orders corresponding
-                to the columns in `sort_columns`. If not provided, defaults to `"asc"` for each column.
-
-        Raises:
-            ValueError: Raised if sort orders are provided without corresponding sort columns,
-                or if an invalid sort order is provided (not `"asc"` or `"desc"`).
-            ArgumentError: Raised if an invalid column name is provided that does not exist in the model.
-
-        Returns:
-            The modified `Select` statement with sorting applied.
-
-        Examples:
-            Applying ascending sort on a single column:
-            >>> stmt = _apply_sorting(stmt, 'name')
-
-            Applying descending sort on a single column:
-            >>> stmt = _apply_sorting(stmt, 'age', 'desc')
-
-            Applying mixed sort orders on multiple columns:
-            >>> stmt = _apply_sorting(stmt, ['name', 'age'], ['asc', 'desc'])
-
-            Applying ascending sort on multiple columns:
-            >>> stmt = _apply_sorting(stmt, ['name', 'age'])
-
-        Note:
-            This method modifies the passed `Select` statement in-place by applying the `order_by` clause
-            based on the provided column names and sort orders.
-        """
-        if sort_orders and not sort_columns:
-            raise ValueError("Sort orders provided without corresponding sort columns.")
-
-        if sort_columns:
-            if not isinstance(sort_columns, list):
-                sort_columns = [sort_columns]
-
-            if sort_orders:
-                if not isinstance(sort_orders, list):
-                    sort_orders = [sort_orders] * len(sort_columns)
-                if len(sort_columns) != len(sort_orders):
-                    raise ValueError(
-                        "The length of sort_columns and sort_orders must match."
-                    )
-
-                for idx, order in enumerate(sort_orders):
-                    if order not in ["asc", "desc"]:
-                        raise ValueError(
-                            f"Invalid sort order: {order}. Only 'asc' or 'desc' are allowed."
-                        )
-
-            validated_sort_orders = (
-                ["asc"] * len(sort_columns) if not sort_orders else sort_orders
-            )
-
-            for idx, column_name in enumerate(sort_columns):
-                column = getattr(self.model, column_name, None)
-                if not column:
-                    raise ArgumentError(f"Invalid column name: {column_name}")
-
-                order = validated_sort_orders[idx]
-                stmt = stmt.order_by(asc(column) if order == "asc" else desc(column))
-
-        return stmt
-
-    def _prepare_and_apply_joins(
+    @overload
+    async def create(
         self,
-        stmt: Select,
-        joins_config: list[JoinConfig],
-        use_temporary_prefix: bool = False,
-    ):
-        """
-        Applies joins to the given SQL statement based on a list of `JoinConfig` objects.
+        db: AsyncSession,
+        object: CreateSchemaType,
+        *,
+        commit: bool = True,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+    ) -> dict[str, Any]: ...
 
-        Args:
-            stmt: The initial SQL statement.
-            joins_config: Configurations for all joins.
-            use_temporary_prefix: Whether to use or not an additional prefix for joins. Default `False`.
-
-        Returns:
-            The modified SQL statement with joins applied.
-        """
-        for join in joins_config:
-            model = join.alias or join.model
-            join_select = _extract_matching_columns_from_schema(
-                model,
-                join.schema_to_select,
-                join.join_prefix,
-                join.alias,
-                use_temporary_prefix,
-            )
-            joined_model_filters = self._parse_filters(
-                model=model, **(join.filters or {})
-            )
-
-            if join.join_type == "left":
-                stmt = stmt.outerjoin(model, join.join_on).add_columns(*join_select)
-            elif join.join_type == "inner":
-                stmt = stmt.join(model, join.join_on).add_columns(*join_select)
-            else:  # pragma: no cover
-                raise ValueError(f"Unsupported join type: {join.join_type}.")
-            if joined_model_filters:
-                stmt = stmt.filter(*joined_model_filters)
-
-        return stmt
+    @overload
+    async def create(
+        self,
+        db: AsyncSession,
+        object: CreateSchemaType,
+        *,
+        commit: bool = True,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+    ) -> None | SelectSchemaType | dict[str, Any]: ...
 
     async def create(
         self,
         db: AsyncSession,
         object: CreateSchemaType,
         commit: bool = True,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict, None]:
+    ) -> None | SelectSchemaType | dict[str, Any]:
         """
         Create a new record in the database.
 
@@ -796,7 +556,10 @@ class FastCRUD(
             return_as_model: If `True`, returns data as an instance of `schema_to_select`.
 
         Returns:
-            The created database object, or a Pydantic model if `schema_to_select` is provided.
+            The created database record or None:
+            - When `schema_to_select` is None: `None` (v0.20.0 behavior)
+            - When `return_as_model=True` and `schema_to_select` is provided: `SelectSchemaType`
+            - When `return_as_model=False` and `schema_to_select` is provided: `Dict[str, Any]`
         """
         if return_as_model and not schema_to_select:
             raise ValueError(
@@ -814,25 +577,21 @@ class FastCRUD(
             await db.flush()
             await db.refresh(db_object)
 
-        if schema_to_select:
-            if not self._primary_keys:
-                raise ValueError("Cannot fetch created record without a primary key.")
+        if not schema_to_select:
+            return None
 
-            pks = {pk.name: getattr(db_object, pk.name) for pk in self._primary_keys}
-            return await self.get(
-                db=db,
-                schema_to_select=schema_to_select,
-                return_as_model=return_as_model,
-                **pks,
-            )
-
-        return db_object
+        data_dict = {
+            col.key: getattr(db_object, col.key) for col in db_object.__table__.columns
+        }
+        if not return_as_model:
+            return data_dict
+        return schema_to_select(**data_dict)
 
     async def select(
         self,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        sort_columns: Optional[Union[str, list[str]]] = None,
-        sort_orders: Optional[Union[str, list[str]]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
         **kwargs: Any,
     ) -> Select:
         """
@@ -883,24 +642,68 @@ class FastCRUD(
             This method does not execute the generated SQL statement.
             Use `db.execute(stmt)` to run the query and fetch results.
         """
-        to_select = _extract_matching_columns_from_schema(
+        to_select = extract_matching_columns_from_schema(
             model=self.model, schema=schema_to_select
         )
-        filters = self._parse_filters(**kwargs)
+        filters = self._filter_processor.parse_filters(**kwargs)
         stmt = select(*to_select).filter(*filters)
 
         if sort_columns:
-            stmt = self._apply_sorting(stmt, sort_columns, sort_orders)
+            stmt = self._query_builder.apply_sorting(stmt, sort_columns, sort_orders)
         return stmt
+
+    @overload
+    async def get(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> SelectSchemaType | None: ...
+
+    @overload
+    async def get(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def get(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def get(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | SelectSchemaType | None: ...
 
     async def get(
         self,
         db: AsyncSession,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         one_or_none: bool = False,
         **kwargs: Any,
-    ) -> Optional[Union[dict, SelectSchemaType]]:
+    ) -> dict[str, Any] | SelectSchemaType | None:
         """
         Fetches a single record based on specified filters.
 
@@ -919,7 +722,10 @@ class FastCRUD(
             ValueError: If `return_as_model` is `True` but `schema_to_select` is not provided.
 
         Returns:
-            A dictionary or a Pydantic model instance of the fetched database row, or `None` if no match is found.
+            A dictionary or a Pydantic model instance of the fetched database row, or `None` if no match is found:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `Optional[SelectSchemaType]`
+            - When `return_as_model=False`: `Optional[Dict[str, Any]]`
 
         Examples:
             Fetch a user by ID:
@@ -949,7 +755,7 @@ class FastCRUD(
         stmt = await self.select(schema_to_select=schema_to_select, **kwargs)
 
         db_row = await db.execute(stmt)
-        result: Optional[Row] = db_row.one_or_none() if one_or_none else db_row.first()
+        result: Row | None = db_row.one_or_none() if one_or_none else db_row.first()
         if result is None:
             return None
         out: dict = dict(result._mapping)
@@ -964,13 +770,53 @@ class FastCRUD(
     def _get_pk_dict(self, instance):
         return {pk.name: getattr(instance, pk.name) for pk in self._primary_keys}
 
+    @overload
     async def upsert(
         self,
         db: AsyncSession,
-        instance: Union[UpdateSchemaType, CreateSchemaType],
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        instance: UpdateSchemaType | CreateSchemaType,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+    ) -> SelectSchemaType | None: ...
+
+    @overload
+    async def upsert(
+        self,
+        db: AsyncSession,
+        instance: UpdateSchemaType | CreateSchemaType,
+        *,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def upsert(
+        self,
+        db: AsyncSession,
+        instance: UpdateSchemaType | CreateSchemaType,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def upsert(
+        self,
+        db: AsyncSession,
+        instance: UpdateSchemaType | CreateSchemaType,
+        *,
+        schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
-    ) -> Union[SelectSchemaType, dict[str, Any], None]:
+    ) -> SelectSchemaType | dict[str, Any] | None: ...
+
+    async def upsert(
+        self,
+        db: AsyncSession,
+        instance: UpdateSchemaType | CreateSchemaType,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+    ) -> SelectSchemaType | dict[str, Any] | None:
         """Update the instance or create it if it doesn't exists.
 
         Note: This method will perform two transactions to the database (get and create or update).
@@ -982,7 +828,10 @@ class FastCRUD(
             return_as_model: If `True`, converts the fetched data to Pydantic models based on `schema_to_select`. Defaults to `False`.
 
         Returns:
-            The created or updated instance
+            The created or updated instance:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `SelectSchemaType`
+            - When `return_as_model=False`: `Dict[str, Any]`
         """
         _pks = self._get_pk_dict(instance)
         schema_to_select = schema_to_select or type(instance)  # type: ignore
@@ -993,9 +842,11 @@ class FastCRUD(
             **_pks,
         )
         if db_instance is None:
-            db_instance = await self.create(db, instance)  # type: ignore
-            db_instance = schema_to_select.model_validate(  # type: ignore
-                db_instance, from_attributes=True
+            db_instance = await self.create(
+                db,
+                instance,  # type: ignore
+                schema_to_select=schema_to_select,  # type: ignore
+                return_as_model=return_as_model,
             )
         else:
             await self.update(db, instance)  # type: ignore
@@ -1008,17 +859,75 @@ class FastCRUD(
 
         return db_instance
 
+    @overload
     async def upsert_multi(
         self,
         db: AsyncSession,
-        instances: list[Union[UpdateSchemaType, CreateSchemaType]],
+        instances: list[UpdateSchemaType | CreateSchemaType],
+        *,
         commit: bool = False,
-        return_columns: Optional[list[str]] = None,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        return_as_model: bool = False,
-        update_override: Optional[dict[str, Any]] = None,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        update_override: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> UpsertMultiResponseModel[SelectSchemaType] | None: ...
+
+    @overload
+    async def upsert_multi(
+        self,
+        db: AsyncSession,
+        instances: list[UpdateSchemaType | CreateSchemaType],
+        *,
+        commit: bool = False,
+        return_columns: list[str] | None = None,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+        update_override: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> UpsertMultiResponseDict | None: ...
+
+    @overload
+    async def upsert_multi(
+        self,
+        db: AsyncSession,
+        instances: list[UpdateSchemaType | CreateSchemaType],
+        *,
+        commit: bool = False,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        update_override: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> UpsertMultiResponseDict | None: ...
+
+    @overload
+    async def upsert_multi(
+        self,
+        db: AsyncSession,
+        instances: list[UpdateSchemaType | CreateSchemaType],
+        *,
+        commit: bool = False,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        update_override: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> (
+        UpsertMultiResponseDict | UpsertMultiResponseModel[SelectSchemaType] | None
+    ): ...
+
+    async def upsert_multi(
+        self,
+        db: AsyncSession,
+        instances: list[UpdateSchemaType | CreateSchemaType],
+        commit: bool = False,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        update_override: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> UpsertMultiResponseDict | UpsertMultiResponseModel[SelectSchemaType] | None:
         """
         Upsert multiple records in the database. The underlying implementation varies based on the database dialect.
 
@@ -1033,7 +942,14 @@ class FastCRUD(
             **kwargs: Filters to identify the record(s) to update on conflict, supporting advanced comparison operators for refined querying.
 
         Returns:
-            The updated record(s) as a dictionary or Pydantic model instance or None, depending on the value of `return_as_model` and `return_columns`.
+            The upserted records as a dictionary containing the operation results:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `UpsertMultiResponseModel[SelectSchemaType]`
+              (`Dict[str, List[SelectSchemaType]]`)
+            - When `return_as_model=False`: `UpsertMultiResponseDict`
+              (`Dict[str, List[Dict[str, Any]]]`)
+
+            The dictionary contains keys like "updated" and "created" with lists of corresponding records.
 
         Raises:
             ValueError: If the MySQL dialect is used with filters, return_columns, schema_to_select, or return_as_model.
@@ -1041,15 +957,23 @@ class FastCRUD(
         """
         if update_override is None:
             update_override = {}
-        filters = self._parse_filters(**kwargs)
+        filters = self._filter_processor.parse_filters(**kwargs)
 
         if db.bind.dialect.name == "postgresql":
-            statement, params = await self._upsert_multi_postgresql(
-                instances, filters, update_override
+            statement, params = await upsert_multi_postgresql(
+                self.model,
+                [pk.name for pk in self._primary_keys],
+                instances,
+                filters,
+                update_override,
             )
         elif db.bind.dialect.name == "sqlite":
-            statement, params = await self._upsert_multi_sqlite(
-                instances, filters, update_override
+            statement, params = await upsert_multi_sqlite(
+                self.model,
+                [pk.name for pk in self._primary_keys],
+                instances,
+                filters,
+                update_override,
             )
         elif db.bind.dialect.name in ["mysql", "mariadb"]:
             if filters:
@@ -1060,8 +984,11 @@ class FastCRUD(
                 raise ValueError(
                     "MySQL does not support the returning clause for insert operations."
                 )
-            statement, params = await self._upsert_multi_mysql(
-                instances, update_override
+            statement, params = await upsert_multi_mysql(
+                self.model,
+                instances,
+                update_override,
+                self.deleted_at_column,
             )
         else:  # pragma: no cover
             raise NotImplementedError(
@@ -1076,81 +1003,16 @@ class FastCRUD(
             db_row = await db.execute(statement, params)
             if commit:
                 await db.commit()
-            return self._as_multi_response(
-                db_row,
-                schema_to_select=schema_to_select,
-                return_as_model=return_as_model,
+            rows_data = [dict(row) for row in db_row.mappings()]
+            formatted_data = format_multi_response(
+                rows_data, schema_to_select, return_as_model
             )
+            return {"data": formatted_data}
 
         await db.execute(statement, params)
         if commit:
             await db.commit()
         return None
-
-    async def _upsert_multi_postgresql(
-        self,
-        instances: list[Union[UpdateSchemaType, CreateSchemaType]],
-        filters: list[ColumnElement],
-        update_set_override: dict[str, Any],
-    ) -> tuple[Insert, list[dict]]:
-        statement = postgresql.insert(self.model)
-        statement = statement.on_conflict_do_update(
-            index_elements=self._primary_keys,
-            set_={
-                column.name: getattr(statement.excluded, column.name)
-                for column in self.model.__table__.columns
-                if not column.primary_key and not column.unique
-            }
-            | update_set_override,
-            where=and_(*filters) if filters else None,
-        )
-        params = [
-            self.model(**instance.model_dump()).__dict__ for instance in instances
-        ]
-        return statement, params
-
-    async def _upsert_multi_sqlite(
-        self,
-        instances: list[Union[UpdateSchemaType, CreateSchemaType]],
-        filters: list[ColumnElement],
-        update_set_override: dict[str, Any],
-    ) -> tuple[Insert, list[dict]]:
-        statement = sqlite.insert(self.model)
-        statement = statement.on_conflict_do_update(
-            index_elements=self._primary_keys,
-            set_={
-                column.name: getattr(statement.excluded, column.name)
-                for column in self.model.__table__.columns
-                if not column.primary_key and not column.unique
-            }
-            | update_set_override,
-            where=and_(*filters) if filters else None,
-        )
-        params = [
-            self.model(**instance.model_dump()).__dict__ for instance in instances
-        ]
-        return statement, params
-
-    async def _upsert_multi_mysql(
-        self,
-        instances: list[Union[UpdateSchemaType, CreateSchemaType]],
-        update_set_override: dict[str, Any],
-    ) -> tuple[Insert, list[dict]]:
-        statement = mysql.insert(self.model)
-        statement = statement.on_duplicate_key_update(
-            {
-                column.name: getattr(statement.inserted, column.name)
-                for column in self.model.__table__.columns
-                if not column.primary_key
-                and not column.unique
-                and column.name != self.deleted_at_column
-            }
-            | update_set_override,
-        )
-        params = [
-            self.model(**instance.model_dump()).__dict__ for instance in instances
-        ]
-        return statement, params
 
     async def exists(self, db: AsyncSession, **kwargs: Any) -> bool:
         """
@@ -1190,7 +1052,7 @@ class FastCRUD(
             exists = await user_crud.exists(db, username__ne='admin')
             ```
         """
-        filters = self._parse_filters(**kwargs)
+        filters = self._filter_processor.parse_filters(**kwargs)
         stmt = select(self.model).filter(*filters).limit(1)
 
         result = await db.execute(stmt)
@@ -1199,7 +1061,8 @@ class FastCRUD(
     async def count(
         self,
         db: AsyncSession,
-        joins_config: Optional[list[JoinConfig]] = None,
+        joins_config: list[JoinConfig] | None = None,
+        distinct_on_primary: bool = False,
         **kwargs: Any,
     ) -> int:
         """
@@ -1212,6 +1075,9 @@ class FastCRUD(
         Args:
             db: The database session to use for the operation.
             joins_config: Optional configuration for applying joins in the count query.
+            distinct_on_primary: If True, counts only distinct base model rows when using joins.
+                This is particularly useful for one-to-many relationships to avoid inflated counts
+                from multiple joined rows per base row. Defaults to False.
             **kwargs: Filters to apply for the count, including field names for equality checks or with comparison operators for advanced queries.
 
         Returns:
@@ -1274,10 +1140,10 @@ class FastCRUD(
             count = await project_crud.count(db, joins_config=joins_config)
             ```
         """
-        primary_filters = self._parse_filters(**kwargs)
+        primary_filters = self._filter_processor.parse_filters(**kwargs)
 
         if joins_config is not None:
-            primary_keys = [p.name for p in _get_primary_keys(self.model)]
+            primary_keys = list(get_primary_key_names(self.model))
             if not any(primary_keys):  # pragma: no cover
                 raise ValueError(
                     f"The model '{self.model.__name__}' does not have a primary key defined, which is required for counting with joins."
@@ -1286,51 +1152,101 @@ class FastCRUD(
                 getattr(self.model, pk).label(f"distinct_{pk}") for pk in primary_keys
             ]
             base_query = select(*to_select)
+            base_query = self._query_builder.prepare_joins(
+                base_query, joins_config, select_joined_columns=False
+            )
+            base_query = self._query_builder.apply_filters(base_query, primary_filters)
 
-            for join in joins_config:
-                join_model = join.alias or join.model
-                join_filters = (
-                    self._parse_filters(model=join_model, **join.filters)
-                    if join.filters
-                    else []
-                )
-
-                if join.join_type == "inner":
-                    base_query = base_query.join(join_model, join.join_on)
-                else:
-                    base_query = base_query.outerjoin(join_model, join.join_on)
-
-                if join_filters:
-                    base_query = base_query.where(*join_filters)
-
-            if primary_filters:
-                base_query = base_query.where(*primary_filters)
-
-            subquery = base_query.subquery()
-            count_query = select(func.count()).select_from(subquery)
+            if distinct_on_primary:
+                base_query = base_query.distinct()
+                subquery = base_query.subquery()
+                count_query = select(func.count()).select_from(subquery)
+            else:
+                count_query = select(func.count()).select_from(base_query.subquery())
         else:
             count_query = select(func.count()).select_from(self.model)
-            if primary_filters:
-                count_query = count_query.where(*primary_filters)
+            count_query = self._query_builder.apply_filters(
+                count_query, primary_filters
+            )
 
-        total_count: Optional[int] = await db.scalar(count_query)
+        total_count: int | None = await db.scalar(count_query)
         if total_count is None:
             raise ValueError("Could not find the count.")
 
         return total_count
 
+    @overload
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        *,
+        offset: int = 0,
+        limit: int | None = 100,
+        schema_to_select: type[SelectSchemaType],
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_as_model: Literal[True],
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+
+    @overload
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        *,
+        offset: int = 0,
+        limit: int | None = 100,
+        schema_to_select: None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_as_model: Literal[False] = False,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        *,
+        offset: int = 0,
+        limit: int | None = 100,
+        schema_to_select: type[SelectSchemaType],
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_as_model: Literal[False] = False,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi(
+        self,
+        db: AsyncSession,
+        *,
+        offset: int = 0,
+        limit: int | None = 100,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_as_model: bool = False,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict: ...
+
     async def get_multi(
         self,
         db: AsyncSession,
         offset: int = 0,
-        limit: Optional[int] = 100,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        sort_columns: Optional[Union[str, list[str]]] = None,
-        sort_orders: Optional[Union[str, list[str]]] = None,
+        limit: int | None = 100,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
         return_as_model: bool = False,
         return_total_count: bool = True,
         **kwargs: Any,
-    ) -> Union[GetMultiResponseModel[SelectSchemaType], GetMultiResponseDict]:
+    ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict:
         """
         Fetches multiple records based on filters, supporting sorting, pagination.
 
@@ -1428,8 +1344,25 @@ class FastCRUD(
             )
             ```
         """
-        if (limit is not None and limit < 0) or offset < 0:
-            raise ValueError("Limit and offset must be non-negative.")
+        validate_pagination_params(offset, limit)
+        regular_filters, joined_filters_info = (
+            self._filter_processor.separate_joined_filters(**kwargs)
+        )
+
+        if joined_filters_info:
+            return await handle_joined_filters_delegation(
+                crud_instance=cast(CRUDInstance, self),
+                joined_filters_info=joined_filters_info,
+                db=db,
+                offset=offset,
+                limit=limit,
+                schema_to_select=schema_to_select,
+                sort_columns=sort_columns,
+                sort_orders=sort_orders,
+                return_as_model=return_as_model,
+                return_total_count=return_total_count,
+                **regular_filters,
+            )
 
         stmt = await self.select(
             schema_to_select=schema_to_select,
@@ -1438,51 +1371,156 @@ class FastCRUD(
             **kwargs,
         )
 
-        if offset:
-            stmt = stmt.offset(offset)
-        if limit is not None:
-            stmt = stmt.limit(limit)
-
+        stmt = self._query_builder.apply_pagination(stmt, offset, limit)
         result = await db.execute(stmt)
         data = [dict(row) for row in result.mappings()]
+        formatted_data = format_multi_response(data, schema_to_select, return_as_model)
 
-        response: dict[str, Any] = {self.multi_response_key: data}
-
+        response: dict[str, Any] = {self.multi_response_key: formatted_data}
         if return_total_count:
             total_count = await self.count(db=db, **kwargs)
             response["total_count"] = total_count
 
-        if return_as_model:
-            if not schema_to_select:
-                raise ValueError(
-                    "schema_to_select must be provided when return_as_model is True."
-                )
-            try:
-                model_data = [schema_to_select(**row) for row in data]
-                response[self.multi_response_key] = model_data
-            except ValidationError as e:
-                raise ValueError(
-                    f"Data validation error for schema {schema_to_select.__name__}: {e}"
-                )
+        return cast(
+            GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict,
+            response,
+        )
 
-        return response
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> SelectSchemaType | None: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: None = None,
+        return_as_model: bool = False,
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        join_model: ModelType | None = None,
+        join_on: Join | BinaryExpression | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass | None = None,
+        join_filters: dict | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        nest_joins: bool = False,
+        relationship_type: str | None = None,
+        **kwargs: Any,
+    ) -> SelectSchemaType | None: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+        join_model: ModelType | None = None,
+        join_on: Join | BinaryExpression | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass | None = None,
+        join_filters: dict | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        nest_joins: bool = False,
+        relationship_type: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        join_model: ModelType | None = None,
+        join_on: Join | BinaryExpression | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass | None = None,
+        join_filters: dict | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        nest_joins: bool = False,
+        relationship_type: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        join_model: ModelType | None = None,
+        join_on: Join | BinaryExpression | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass | None = None,
+        join_filters: dict | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        nest_joins: bool = False,
+        relationship_type: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any] | SelectSchemaType | None: ...
 
     async def get_joined(
         self,
         db: AsyncSession,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        join_model: Optional[ModelType] = None,
-        join_on: Optional[Union[Join, BinaryExpression]] = None,
-        join_prefix: Optional[str] = None,
-        join_schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        join_model: ModelType | None = None,
+        join_on: Join | BinaryExpression | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
         join_type: str = "left",
-        alias: Optional[AliasedClass] = None,
-        join_filters: Optional[dict] = None,
-        joins_config: Optional[list[JoinConfig]] = None,
+        alias: AliasedClass | None = None,
+        join_filters: dict | None = None,
+        joins_config: list[JoinConfig] | None = None,
         nest_joins: bool = False,
-        relationship_type: Optional[str] = None,
+        relationship_type: str | None = None,
+        auto_detect_relationships: bool | Sequence[str] = False,
+        include_one_to_many: bool = False,
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | SelectSchemaType | None:
         """
         Fetches a single record with one or multiple joins on other models. If `join_on` is not provided, the method attempts
         to automatically detect the join condition using foreign key relationships. For multiple joins, use `joins_config` to
@@ -1493,6 +1531,7 @@ class FastCRUD(
         Args:
             db: The SQLAlchemy async session.
             schema_to_select: Pydantic schema for selecting specific columns from the primary model. Required if `return_as_model` is True.
+            return_as_model: If `True`, returns data as a Pydantic model instance based on `schema_to_select`. Defaults to `False`.
             join_model: The model to join with.
             join_on: SQLAlchemy Join object for specifying the `ON` clause of the join. If `None`, the join condition is auto-detected based on foreign keys.
             join_prefix: Optional prefix to be added to all columns of the joined model. If `None`, no prefix is added.
@@ -1503,10 +1542,15 @@ class FastCRUD(
             joins_config: A list of `JoinConfig` instances, each specifying a model to join with, join condition, optional prefix for column names, schema for selecting specific columns, and the type of join. This parameter enables support for multiple joins.
             nest_joins: If `True`, nested data structures will be returned where joined model data are nested under the `join_prefix` as a dictionary.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
+            auto_detect_relationships: Automatically detect and join SQLAlchemy relationships. Can be `True` (all relationships), `False` (none), or a list of relationship names to include selectively (e.g., `["tier", "department"]`). Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get()` if no relationships exist. Defaults to `False`.
+            include_one_to_many: When using `auto_detect_relationships=True`, whether to include one-to-many relationships. Defaults to `False` for safety since one-to-many JOINs can return unbounded data. Set to `True` to include all relationship types. This is ignored when specific relationship names are provided.
             **kwargs: Filters to apply to the primary model query, supporting advanced comparison operators for refined searching.
 
         Returns:
-            A dictionary representing the joined record, or `None` if no record matches the criteria.
+            A dictionary or Pydantic model instance representing the joined record, or `None` if no record matches the criteria:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `Optional[SelectSchemaType]`
+            - When `return_as_model=False`: `Optional[Dict[str, Any]]`
 
         Raises:
             ValueError: If both single join parameters and `joins_config` are used simultaneously.
@@ -1720,28 +1764,77 @@ class FastCRUD(
             )
             # Expect 'result' to have 'posts' as a nested list of dictionaries
             ```
+
+            Example using auto-detection to automatically join all relationships:
+
+            ```python
+            # Automatically detect and join all relationships defined on the User model
+            user = await user_crud.get_joined(
+                db=session,
+                schema_to_select=ReadUserSchema,
+                auto_detect_relationships=True,
+                nest_joins=True,
+                id=1,
+            )
+            # All defined relationships (tier, department, etc.) are automatically joined
+            ```
         """
-        if joins_config and (
+        if auto_detect_relationships:
+            if (
+                joins_config
+                or join_model
+                or join_on
+                or join_prefix
+                or join_schema_to_select
+                or alias
+            ):
+                raise ValueError(
+                    "Cannot use auto_detect_relationships with manual join parameters. "
+                    "Use auto_detect_relationships with only db, schema_to_select, nest_joins, and **kwargs."
+                )
+
+            relationship_names: list[str] | None = None
+            if auto_detect_relationships is not True:
+                relationship_names = list(auto_detect_relationships)
+            joins_config = build_relationship_joins_config(
+                self.model,
+                relationship_names,
+                include_one_to_many=include_one_to_many,
+            )
+
+            if not joins_config:
+                return await self.get(
+                    db=db,
+                    schema_to_select=schema_to_select,
+                    return_as_model=return_as_model,
+                    **kwargs,
+                )
+
+        elif joins_config and (
             join_model or join_prefix or join_on or join_schema_to_select or alias
         ):
             raise ValueError(
                 "Cannot use both single join parameters and joins_config simultaneously."
             )
-        elif not joins_config and not join_model:
-            raise ValueError("You need one of join_model or joins_config.")
+        elif not joins_config and not join_model and not auto_detect_relationships:
+            raise ValueError(
+                "You need one of join_model, joins_config, or auto_detect_relationships."
+            )
 
-        primary_select = _extract_matching_columns_from_schema(
+        primary_select = extract_matching_columns_from_schema(
             model=self.model,
             schema=schema_to_select,
         )
-        stmt: Select = select(*primary_select).select_from(self.model)
+        stmt = self._query_builder.build_base_select(primary_select)
 
         join_definitions = joins_config if joins_config else []
         if join_model:
             join_definitions.append(
                 JoinConfig(
                     model=join_model,
-                    join_on=join_on,
+                    join_on=join_on
+                    if join_on is not None
+                    else auto_detect_join_condition(self.model, join_model),
                     join_prefix=join_prefix,
                     schema_to_select=join_schema_to_select,
                     join_type=join_type,
@@ -1751,15 +1844,19 @@ class FastCRUD(
                 )
             )
 
-        stmt = self._prepare_and_apply_joins(
-            stmt=stmt, joins_config=join_definitions, use_temporary_prefix=nest_joins
+        regular_joins, one_to_many_with_limits = split_join_configs(join_definitions)
+        stmt = self._query_builder.prepare_joins(
+            stmt=stmt, joins_config=regular_joins, use_temporary_prefix=nest_joins
         )
-        primary_filters = self._parse_filters(**kwargs)
-        if primary_filters:
-            stmt = stmt.filter(*primary_filters)
+        primary_filters = self._filter_processor.parse_filters(**kwargs)
+        stmt = self._query_builder.apply_filters(stmt, primary_filters)
 
         db_rows = await db.execute(stmt)
-        if any(join.relationship_type == "one-to-many" for join in join_definitions):
+        has_regular_one_to_many = any(
+            join.relationship_type == "one-to-many" for join in regular_joins
+        )
+
+        if has_regular_one_to_many:
             if nest_joins is False:  # pragma: no cover
                 raise ValueError(
                     "Cannot use one-to-many relationship with nest_joins=False"
@@ -1773,42 +1870,215 @@ class FastCRUD(
             else:
                 data_list = []
 
-        if data_list:
-            if nest_joins:
-                nested_data: dict = {}
-                for data in data_list:
-                    nested_data = _nest_join_data(
-                        data,
-                        join_definitions,
-                        nested_data=nested_data,
-                    )
-                return nested_data
-            return data_list[0]
+        processed_data = process_joined_data(
+            data_list, regular_joins, nest_joins, self.model
+        )
+        if one_to_many_with_limits and processed_data:
+            pk_names = get_primary_key_names(self.model)
+            pk_name = pk_names[0] if pk_names else "id"
 
-        return None
+            results_list = [processed_data] if processed_data else []
+            merged_results = await fetch_and_merge_one_to_many(
+                db=db,
+                primary_model=self.model,
+                main_results=results_list,
+                one_to_many_configs=one_to_many_with_limits,
+                pk_column_name=pk_name,
+            )
+            processed_data = merged_results[0] if merged_results else None
+
+        if processed_data is None or not return_as_model:
+            return processed_data
+
+        if not schema_to_select:
+            raise ValueError(
+                "schema_to_select must be provided when return_as_model is True."
+            )
+
+        return schema_to_select(**processed_data)
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: None = None,
+        return_as_model: bool = False,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        join_model: type[ModelType] | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass[Any] | None = None,
+        join_filters: dict | None = None,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        counts_config: list[CountConfig] | None = None,
+        return_total_count: bool = True,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+        join_model: type[ModelType] | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass[Any] | None = None,
+        join_filters: dict | None = None,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        counts_config: list[CountConfig] | None = None,
+        return_total_count: bool = True,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        join_model: type[ModelType] | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass[Any] | None = None,
+        join_filters: dict | None = None,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        counts_config: list[CountConfig] | None = None,
+        return_total_count: bool = True,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        join_model: type[ModelType] | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
+        join_type: str = "left",
+        alias: AliasedClass[Any] | None = None,
+        join_filters: dict | None = None,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        counts_config: list[CountConfig] | None = None,
+        return_total_count: bool = True,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict: ...
 
     async def get_multi_joined(
         self,
         db: AsyncSession,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        join_model: Optional[type[ModelType]] = None,
-        join_on: Optional[Any] = None,
-        join_prefix: Optional[str] = None,
-        join_schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        join_model: type[ModelType] | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: type[SelectSchemaType] | None = None,
         join_type: str = "left",
-        alias: Optional[AliasedClass[Any]] = None,
-        join_filters: Optional[dict] = None,
+        alias: AliasedClass[Any] | None = None,
+        join_filters: dict | None = None,
         nest_joins: bool = False,
         offset: int = 0,
-        limit: Optional[int] = 100,
-        sort_columns: Optional[Union[str, list[str]]] = None,
-        sort_orders: Optional[Union[str, list[str]]] = None,
-        return_as_model: bool = False,
-        joins_config: Optional[list[JoinConfig]] = None,
+        limit: int | None = 100,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[JoinConfig] | None = None,
+        counts_config: list[CountConfig] | None = None,
         return_total_count: bool = True,
-        relationship_type: Optional[str] = None,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        auto_detect_relationships: bool | Sequence[str] = False,
+        include_one_to_many: bool = False,
         **kwargs: Any,
-    ) -> dict[str, Any]:
+    ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict:
         """
         Fetch multiple records with a join on another model, allowing for pagination, optional sorting, and model conversion.
 
@@ -1831,12 +2101,21 @@ class FastCRUD(
             sort_orders: A single sort order (`"asc"` or `"desc"`) or a list of sort orders corresponding to the columns in `sort_columns`. If not provided, defaults to `"asc"` for each column.
             return_as_model: If `True`, converts the fetched data to Pydantic models based on `schema_to_select`. Defaults to `False`.
             joins_config: List of `JoinConfig` instances for specifying multiple joins. Each instance defines a model to join with, join condition, optional prefix for column names, schema for selecting specific columns, and join type.
+            counts_config: List of `CountConfig` instances for counting related objects. Each instance defines a model to count, join condition, and optional alias for the count column. Useful for many-to-many relationships.
             return_total_count: If `True`, also returns the total count of rows with the selected filters. Useful for pagination.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
+            nested_schema_to_select: A dictionary mapping join prefixes to their corresponding Pydantic schemas for nested data conversion. If not provided, schemas are auto-detected from `joins_config`.
+            auto_detect_relationships: Automatically detect and join SQLAlchemy relationships. Can be `True` (all relationships), `False` (none), or a list of relationship names to include selectively (e.g., `["tier", "department"]`). Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get_multi()` if no relationships exist. Defaults to `False`.
+            include_one_to_many: When using `auto_detect_relationships=True`, whether to include one-to-many relationships. Defaults to `False` for safety since one-to-many JOINs can return unbounded data. Set to `True` to include all relationship types. This is ignored when specific relationship names are provided.
             **kwargs: Filters to apply to the primary query, including advanced comparison operators for refined searching.
 
         Returns:
-            A dictionary containing the fetched rows under `"data"` key and total count under `"total_count"`.
+            A dictionary containing the fetched rows under `"data"` key and total count under `"total_count"`:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]`
+              (`Dict[str, Union[List[SelectSchemaType], int]]`)
+            - When `return_as_model=False`: `GetMultiResponseDict`
+              (`Dict[str, Union[List[Dict[str, Any]], int]]`)
 
         Raises:
             ValueError: If either `limit` or `offset` are negative, or if `schema_to_select` is required but not provided or invalid.
@@ -2079,135 +2358,225 @@ class FastCRUD(
             )
             # Expect 'posts' to be nested as a list of dictionaries under each user
             ```
+
+            Example using counts_config to count related objects (e.g., many-to-many relationships):
+
+            ```python
+            from fastcrud import FastCRUD, CountConfig
+
+            search_crud = FastCRUD(Search)
+
+            # Count videos for each search through a many-to-many relationship
+            results = await search_crud.get_multi_joined(
+                db=session,
+                counts_config=[
+                    CountConfig(
+                        model=Video,
+                        join_on=(Video.id == VideoSearchAssociation.video_id)
+                               & (VideoSearchAssociation.search_id == Search.id),
+                        alias='videos_count'
+                    )
+                ],
+            )
+            # Results will include 'videos_count' field for each search
+            # Example result:
+            # {
+            #     "data": [
+            #         {"id": 1, "term": "cats", "videos_count": 5},
+            #         {"id": 2, "term": "dogs", "videos_count": 3},
+            #         {"id": 3, "term": "birds", "videos_count": 0}
+            #     ],
+            #     "total_count": 3
+            # }
+            ```
+
+            Example using auto-detection to automatically join all relationships:
+
+            ```python
+            # Automatically detect and join all relationships defined on the User model
+            users = await user_crud.get_multi_joined(
+                db=session,
+                schema_to_select=ReadUserSchema,
+                auto_detect_relationships=True,
+                nest_joins=True,
+                offset=0,
+                limit=10,
+            )
+            # All defined relationships (tier, department, etc.) are automatically joined
+            ```
         """
-        if joins_config and (
-            join_model
-            or join_prefix
-            or join_on
-            or join_schema_to_select
-            or alias
-            or relationship_type
-        ):
-            raise ValueError(
-                "Cannot use both single join parameters and joins_config simultaneously."
+        if auto_detect_relationships:
+            if (
+                joins_config
+                or join_model
+                or join_on
+                or join_prefix
+                or join_schema_to_select
+                or alias
+            ):
+                raise ValueError(
+                    "Cannot use auto_detect_relationships with manual join parameters. "
+                    "Use auto_detect_relationships with only db, schema_to_select, nest_joins, "
+                    "offset, limit, sort_columns, sort_orders, and **kwargs."
+                )
+            relationship_names: list[str] | None = None
+            if auto_detect_relationships is not True:
+                relationship_names = list(auto_detect_relationships)
+            joins_config = build_relationship_joins_config(
+                self.model,
+                relationship_names,
+                include_one_to_many=include_one_to_many,
             )
-        elif not joins_config and not join_model:
-            raise ValueError("You need one of join_model or joins_config.")
 
-        if (limit is not None and limit < 0) or offset < 0:
-            raise ValueError("Limit and offset must be non-negative.")
-
-        if relationship_type is None:
-            relationship_type = "one-to-one"
-
-        primary_select = _extract_matching_columns_from_schema(
-            model=self.model, schema=schema_to_select
-        )
-        stmt: Select = select(*primary_select)
-
-        join_definitions = joins_config if joins_config else []
-        if join_model:
-            try:
-                join_definitions.append(
-                    JoinConfig(
-                        model=join_model,
-                        join_on=join_on
-                        if join_on is not None
-                        else _auto_detect_join_condition(self.model, join_model),
-                        join_prefix=join_prefix,
-                        schema_to_select=join_schema_to_select,
-                        join_type=join_type,
-                        alias=alias,
-                        filters=join_filters,
-                        relationship_type=relationship_type,
-                    )
-                )
-            except ValueError as e:  # pragma: no cover
-                raise ValueError(f"Could not configure join: {str(e)}")
-
-        stmt = self._prepare_and_apply_joins(
-            stmt=stmt, joins_config=join_definitions, use_temporary_prefix=nest_joins
-        )
-
-        primary_filters = self._parse_filters(**kwargs)
-        if primary_filters:
-            stmt = stmt.filter(*primary_filters)
-
-        if sort_columns:
-            stmt = self._apply_sorting(stmt, sort_columns, sort_orders)
-
-        if offset:
-            stmt = stmt.offset(offset)
-        if limit is not None:
-            stmt = stmt.limit(limit)
-
-        result = await db.execute(stmt)
-        data: list[Union[dict, SelectSchemaType]] = []
-
-        for row in result.mappings().all():
-            row_dict = dict(row)
-
-            if nest_joins:
-                row_dict = _nest_join_data(
-                    data=row_dict,
-                    join_definitions=join_definitions,
+            if not joins_config:
+                return await self.get_multi(
+                    db=db,
+                    schema_to_select=schema_to_select,
+                    return_as_model=return_as_model,
+                    offset=offset,
+                    limit=limit,
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
+                    return_total_count=return_total_count,
+                    **kwargs,
                 )
 
-            if return_as_model:
-                if schema_to_select is None:
-                    raise ValueError(
-                        "schema_to_select must be provided when return_as_model is True."
-                    )
-                try:
-                    model_instance = schema_to_select(**row_dict)
-                    data.append(model_instance)
-                except ValidationError as e:
-                    raise ValueError(
-                        f"Data validation error for schema {schema_to_select.__name__}: {e}"
-                    )
-            else:
-                data.append(row_dict)
+        config = validate_joined_query_params(
+            primary_model=self.model,
+            joins_config=joins_config,
+            join_model=join_model,
+            join_prefix=join_prefix,
+            join_on=join_on,
+            join_schema_to_select=join_schema_to_select,
+            alias=alias,
+            relationship_type=relationship_type,
+            join_type=join_type,
+            join_filters=join_filters,
+            counts_config=counts_config,
+            limit=limit,
+            offset=offset,
+        )
 
-        if nest_joins and any(
-            join.relationship_type == "one-to-many" for join in join_definitions
-        ):
-            nested_data = _nest_multi_join_data(
-                base_primary_key=self._primary_keys[0].name,  # type: ignore[misc]
-                data=data,
-                joins_config=join_definitions,
+        original_join_definitions = config["join_definitions"]
+        regular_joins, one_to_many_with_limits = split_join_configs(
+            original_join_definitions
+        )
+
+        main_query_config = {**config, "join_definitions": regular_joins}
+
+        stmt = build_joined_query(
+            model=self.model,
+            query_builder=self._query_builder,
+            filter_processor=self._filter_processor,
+            config=main_query_config,
+            schema_to_select=schema_to_select,
+            nest_joins=nest_joins,
+            **kwargs,
+        )
+        raw_data = await execute_joined_query(
+            db=db,
+            stmt=stmt,
+            query_builder=self._query_builder,
+            limit=limit,
+            offset=offset,
+            sort_columns=sort_columns,
+            sort_orders=sort_orders,
+        )
+
+        if one_to_many_with_limits and raw_data:
+            pk_names = get_primary_key_names(self.model)
+            pk_name = pk_names[0] if pk_names else "id"
+
+            raw_data = await fetch_and_merge_one_to_many(
+                db=db,
+                primary_model=self.model,
+                main_results=raw_data,
+                one_to_many_configs=one_to_many_with_limits,
+                pk_column_name=pk_name,
+            )
+
+        return cast(
+            GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict,
+            await format_joined_response(
+                primary_model=self.model,
+                raw_data=raw_data,
+                config=config,
+                schema_to_select=schema_to_select,
                 return_as_model=return_as_model,
-                schema_to_select=schema_to_select if return_as_model else None,
-                nested_schema_to_select={
-                    (
-                        join.join_prefix.rstrip("_")
-                        if join.join_prefix
-                        else join.model.__tablename__
-                    ): join.schema_to_select
-                    for join in join_definitions
-                    if join.schema_to_select
-                },
-            )
-        else:
-            nested_data = _handle_null_primary_key_multi_join(data, join_definitions)
+                nest_joins=nest_joins,
+                return_total_count=return_total_count,
+                db=db,
+                nested_schema_to_select=nested_schema_to_select,
+                count_func=self.count if return_total_count else None,
+                **kwargs,
+            ),
+        )
 
-        response: dict[str, Any] = {"data": nested_data}
+    @overload
+    async def get_multi_by_cursor(
+        self,
+        db: AsyncSession,
+        *,
+        cursor: Any = None,
+        limit: int = 100,
+        schema_to_select: type[SelectSchemaType],
+        sort_column: str = "id",
+        sort_order: str = "asc",
+        return_as_model: Literal[True],
+        **kwargs: Any,
+    ) -> dict[str, list[SelectSchemaType] | Any]: ...
 
-        if return_total_count:
-            total_count: int = await self.count(
-                db=db, joins_config=join_definitions, **kwargs
-            )
-            response["total_count"] = total_count
+    @overload
+    async def get_multi_by_cursor(
+        self,
+        db: AsyncSession,
+        *,
+        cursor: Any = None,
+        limit: int = 100,
+        schema_to_select: None = None,
+        sort_column: str = "id",
+        sort_order: str = "asc",
+        return_as_model: Literal[False] = False,
+        **kwargs: Any,
+    ) -> dict[str, list[dict[str, Any]] | Any]: ...
 
-        return response
+    @overload
+    async def get_multi_by_cursor(
+        self,
+        db: AsyncSession,
+        *,
+        cursor: Any = None,
+        limit: int = 100,
+        schema_to_select: type[SelectSchemaType],
+        sort_column: str = "id",
+        sort_order: str = "asc",
+        return_as_model: Literal[False] = False,
+        **kwargs: Any,
+    ) -> dict[str, list[dict[str, Any]] | Any]: ...
+
+    @overload
+    async def get_multi_by_cursor(
+        self,
+        db: AsyncSession,
+        *,
+        cursor: Any = None,
+        limit: int = 100,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        sort_column: str = "id",
+        sort_order: str = "asc",
+        return_as_model: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, list[dict[str, Any] | SelectSchemaType] | Any]: ...
 
     async def get_multi_by_cursor(
         self,
         db: AsyncSession,
         cursor: Any = None,
         limit: int = 100,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
         sort_column: str = "id",
         sort_order: str = "asc",
+        return_as_model: bool = False,
         **kwargs: Any,
     ) -> dict[str, Any]:
         """
@@ -2219,13 +2588,17 @@ class FastCRUD(
             db: The SQLAlchemy async session.
             cursor: The cursor value to start fetching records from. Defaults to `None`.
             limit: Maximum number of rows to fetch.
-            schema_to_select: Pydantic schema for selecting specific columns.
+            schema_to_select: Pydantic schema for selecting specific columns. Required if `return_as_model` is True.
             sort_column: Column name to use for sorting and cursor pagination.
             sort_order: Sorting direction, either `"asc"` or `"desc"`.
+            return_as_model: If `True`, converts the fetched data to Pydantic models based on `schema_to_select`. Defaults to `False`.
             **kwargs: Filters to apply to the query, including advanced comparison operators for detailed querying.
 
         Returns:
-            A dictionary containing the fetched rows under `"data"` key and the next cursor value under `"next_cursor"`.
+            A dictionary containing the fetched rows under `"data"` key and the next cursor value under `"next_cursor"`:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `Dict[str, Union[List[SelectSchemaType], Any]]`
+            - When `return_as_model=False`: `Dict[str, Union[List[Dict[str, Any]], Any]]`
 
         Examples:
             Fetch the first set of records (e.g., the first page in an infinite scrolling scenario):
@@ -2247,25 +2620,42 @@ class FastCRUD(
             )
             ```
 
-            Fetch records with age greater than 30 using cursor-based pagination:
+            Fetch records as Pydantic models with cursor pagination:
 
             ```python
+            # Returns typed Pydantic models
             first_page = await user_crud.get_multi_by_cursor(
                 db,
+                schema_to_select=ReadUserSchema,
+                return_as_model=True,
                 limit=10,
-                sort_column='age',
-                sort_order='asc',
+                sort_column='registration_date',
+                age__gt=30,
             )
             ```
 
             Fetch records excluding a specific username using cursor-based pagination:
 
             ```python
+            result = await user_crud.get_multi_by_cursor(
                 db,
                 limit=10,
                 sort_column='username',
                 sort_order='asc',
                 username__ne='admin',
+            )
+            ```
+
+            Fetch records as Pydantic model instances using cursor-based pagination:
+
+            ```python
+            result = await user_crud.get_multi_by_cursor(
+                db,
+                limit=10,
+                schema_to_select=ReadUserSchema,
+                return_as_model=True,
+                sort_column='created_at',
+                sort_order='desc',
             )
             ```
 
@@ -2279,37 +2669,100 @@ class FastCRUD(
         stmt = await self.select(schema_to_select=schema_to_select, **kwargs)
 
         if cursor:
+            cursor_filter = []
             if sort_order == "asc":
-                stmt = stmt.filter(getattr(self.model, sort_column) > cursor)
+                cursor_filter = self._filter_processor.parse_filters(
+                    **{f"{sort_column}__gt": cursor}
+                )
             else:
-                stmt = stmt.filter(getattr(self.model, sort_column) < cursor)
+                cursor_filter = self._filter_processor.parse_filters(
+                    **{f"{sort_column}__lt": cursor}
+                )
+            stmt = self._query_builder.apply_filters(stmt, cursor_filter)
 
-        stmt = stmt.order_by(
-            asc(getattr(self.model, sort_column))
-            if sort_order == "asc"
-            else desc(getattr(self.model, sort_column))
-        )
-        stmt = stmt.limit(limit)
+        stmt = self._query_builder.apply_sorting(stmt, sort_column, sort_order)
+        stmt = self._query_builder.apply_pagination(stmt, 0, limit)
 
         result = await db.execute(stmt)
         data = [dict(row) for row in result.mappings()]
-
         next_cursor = data[-1][sort_column] if len(data) == limit else None
 
-        return {"data": data, "next_cursor": next_cursor}
+        formatted_data = format_multi_response(data, schema_to_select, return_as_model)
+
+        return {"data": formatted_data, "next_cursor": next_cursor}
+
+    @overload
+    async def update(
+        self,
+        db: AsyncSession,
+        object: UpdateSchemaType | dict[str, Any],
+        *,
+        allow_multiple: bool = False,
+        commit: bool = True,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> SelectSchemaType | None: ...
+
+    @overload
+    async def update(
+        self,
+        db: AsyncSession,
+        object: UpdateSchemaType | dict[str, Any],
+        *,
+        allow_multiple: bool = False,
+        commit: bool = True,
+        return_columns: list[str] | None = None,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def update(
+        self,
+        db: AsyncSession,
+        object: UpdateSchemaType | dict[str, Any],
+        *,
+        allow_multiple: bool = False,
+        commit: bool = True,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | None: ...
+
+    @overload
+    async def update(
+        self,
+        db: AsyncSession,
+        object: UpdateSchemaType | dict[str, Any],
+        *,
+        allow_multiple: bool = False,
+        commit: bool = True,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
+        return_as_model: bool = False,
+        one_or_none: bool = False,
+        **kwargs: Any,
+    ) -> dict[str, Any] | SelectSchemaType | None: ...
 
     async def update(
         self,
         db: AsyncSession,
-        object: Union[UpdateSchemaType, dict[str, Any]],
+        object: UpdateSchemaType | dict[str, Any],
         allow_multiple: bool = False,
         commit: bool = True,
-        return_columns: Optional[list[str]] = None,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        return_columns: list[str] | None = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
         one_or_none: bool = False,
         **kwargs: Any,
-    ) -> Optional[Union[dict, SelectSchemaType]]:
+    ) -> dict | SelectSchemaType | None:
         """
         Updates an existing record or multiple records in the database based on specified filters. This method allows for precise targeting of records to update.
 
@@ -2327,7 +2780,10 @@ class FastCRUD(
             **kwargs: Filters to identify the record(s) to update, supporting advanced comparison operators for refined querying.
 
         Returns:
-            The updated record(s) as a dictionary or Pydantic model instance or `None`, depending on the value of `return_as_model` and `return_columns`.
+            The updated record(s) as a dictionary or Pydantic model instance or `None`:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `Optional[SelectSchemaType]`
+            - When `return_as_model=False`: `Optional[Dict[str, Any]]`
 
         Raises:
             MultipleResultsFound: If `allow_multiple` is `False` and more than one record matches the filters.
@@ -2386,103 +2842,36 @@ class FastCRUD(
             )
             ```
         """
-        total_count = await self.count(db, **kwargs)
-        if total_count == 0:
-            raise NoResultFound("No record found to update.")
-        if not allow_multiple and total_count > 1:
-            raise MultipleResultsFound(
-                f"Expected exactly one record to update, found {total_count}."
-            )
+        await validate_update_delete_operation(
+            self.count, db, allow_multiple, "update", **kwargs
+        )
+        update_data = prepare_update_data(
+            object, self.model_col_names, self.updated_at_column, self.model
+        )
 
-        if isinstance(object, dict):
-            update_data = object
-        else:
-            update_data = object.model_dump(exclude_unset=True)
-
-        updated_at_col = getattr(self.model, self.updated_at_column, None)
-        if updated_at_col:
-            update_data[self.updated_at_column] = datetime.now(timezone.utc)
-
-        update_data_keys = set(update_data.keys())
-        model_columns = {_column.name for _column in inspect(self.model).c}
-        extra_fields = update_data_keys - model_columns
-        if extra_fields:
-            raise ValueError(f"Extra fields provided: {extra_fields}")
-
-        filters = self._parse_filters(**kwargs)
+        filters = self._filter_processor.parse_filters(**kwargs)
         stmt = update(self.model).filter(*filters).values(update_data)
 
         if return_as_model:
             return_columns = self.model_col_names
 
-        if return_columns:
-            stmt = stmt.returning(*[column(name) for name in return_columns])
-            db_row = await db.execute(stmt)
-            if commit:
-                await db.commit()
-            if allow_multiple:
-                return self._as_multi_response(
-                    db_row,
-                    schema_to_select=schema_to_select,
-                    return_as_model=return_as_model,
-                )
-            return self._as_single_response(
-                db_row,
-                schema_to_select=schema_to_select,
-                return_as_model=return_as_model,
-                one_or_none=one_or_none,
-            )
-
-        await db.execute(stmt)
-        if commit:
-            await db.commit()
-        return None
-
-    def _as_single_response(
-        self,
-        db_row: Result,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        return_as_model: bool = False,
-        one_or_none: bool = False,
-    ) -> Optional[Union[dict, SelectSchemaType]]:
-        if not (result := db_row.one_or_none() if one_or_none else db_row.first()):
-            return None
-
-        out = dict(result._mapping)
-        if not return_as_model:
-            return out
-        if not schema_to_select:  # pragma: no cover
-            raise ValueError(
-                "schema_to_select must be provided when return_as_model is True."
-            )
-        return schema_to_select(**out)
-
-    def _as_multi_response(
-        self,
-        db_row: Result,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        return_as_model: bool = False,
-    ) -> dict:
-        data = [dict(row) for row in db_row.mappings()]
-
-        if not return_as_model:
-            return {"data": data}
-
-        if not schema_to_select:  # pragma: no cover
-            raise ValueError("schema_to_select required when return_as_model is True")
-
-        try:
-            return {"data": [schema_to_select(**row) for row in data]}
-        except ValidationError as e:  # pragma: no cover
-            raise ValueError(
-                f"Schema validation error ({schema_to_select.__name__}): {e}"
-            )
+        return await execute_update_and_return_response(
+            db=db,
+            stmt=stmt,
+            commit=commit,
+            return_columns=return_columns,
+            schema_to_select=schema_to_select,
+            return_as_model=return_as_model,
+            allow_multiple=allow_multiple,
+            one_or_none=one_or_none,
+        )
 
     async def db_delete(
         self,
         db: AsyncSession,
         allow_multiple: bool = False,
         commit: bool = True,
+        filters: DeleteSchemaType | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -2494,19 +2883,28 @@ class FastCRUD(
             db: The database session to use for the operation.
             allow_multiple: If `True`, allows deleting multiple records that match the filters. If `False`, raises an error if more than one record matches the filters.
             commit: If `True`, commits the transaction immediately. Default is `True`.
-            **kwargs: Filters to identify the record(s) to delete, including advanced comparison operators for detailed querying.
+            filters: Optional Pydantic schema instance containing filters to identify the record(s) to delete.
+            **kwargs: Additional filters to identify the record(s) to delete, including advanced comparison operators for detailed querying.
 
         Returns:
             None
 
         Raises:
+            ValueError: If no filters are provided (to prevent accidental deletion of all records).
             MultipleResultsFound: If `allow_multiple` is `False` and more than one record matches the filters.
 
         Examples:
-            Delete a user based on their ID:
+            Delete a user based on their ID using kwargs:
 
             ```python
             await user_crud.db_delete(db, id=1)
+            ```
+
+            Delete a user using a Pydantic schema:
+
+            ```python
+            delete_filters = DeleteUserSchema(id=1)
+            await user_crud.db_delete(db, filters=delete_filters)
             ```
 
             Delete users older than 30 years and allow deletion of multiple records:
@@ -2528,14 +2926,39 @@ class FastCRUD(
                 username='unique_username',
             )
             ```
+
+            Combine schema filters with kwargs:
+
+            ```python
+            delete_filters = DeleteUserSchema(status='inactive')
+            await user_crud.db_delete(
+                db,
+                filters=delete_filters,
+                allow_multiple=True,
+                created_at__lt=datetime(2020, 1, 1),
+            )
+            ```
         """
-        if not allow_multiple and (total_count := await self.count(db, **kwargs)) > 1:
+        combined_filters = {}
+        if filters:
+            combined_filters.update(filters.model_dump(exclude_unset=True))
+        combined_filters.update(kwargs)
+
+        if not combined_filters:
+            raise ValueError(
+                "No filters provided. To prevent accidental deletion of all records, at least one filter must be specified."
+            )
+
+        if (
+            not allow_multiple
+            and (total_count := await self.count(db, **combined_filters)) > 1
+        ):
             raise MultipleResultsFound(
                 f"Expected exactly one record to delete, found {total_count}."
             )
 
-        filters = self._parse_filters(**kwargs)
-        stmt = delete(self.model).filter(*filters)
+        parsed_filters = self._filter_processor.parse_filters(**combined_filters)
+        stmt = delete(self.model).filter(*parsed_filters)
         await db.execute(stmt)
         if commit:
             await db.commit()
@@ -2543,9 +2966,10 @@ class FastCRUD(
     async def delete(
         self,
         db: AsyncSession,
-        db_row: Optional[Row] = None,
+        db_row: Row | None = None,
         allow_multiple: bool = False,
         commit: bool = True,
+        filters: DeleteSchemaType | None = None,
         **kwargs: Any,
     ) -> None:
         """
@@ -2558,9 +2982,11 @@ class FastCRUD(
             db_row: Optional existing database row to delete. If provided, the method will attempt to delete this specific row, ignoring other filters.
             allow_multiple: If `True`, allows deleting multiple records that match the filters. If `False`, raises an error if more than one record matches the filters.
             commit: If `True`, commits the transaction immediately. Default is `True`.
-            **kwargs: Filters to identify the record(s) to delete, supporting advanced comparison operators for refined querying.
+            filters: Optional Pydantic schema instance containing filters to identify the record(s) to delete.
+            **kwargs: Additional filters to identify the record(s) to delete, supporting advanced comparison operators for refined querying.
 
         Raises:
+            ValueError: If no filters are provided and db_row is None (to prevent accidental deletion of all records).
             MultipleResultsFound: If `allow_multiple` is `False` and more than one record matches the filters.
             NoResultFound: If no record matches the filters.
 
@@ -2568,10 +2994,17 @@ class FastCRUD(
             None
 
         Examples:
-            Soft delete a specific user by ID:
+            Soft delete a specific user by ID using kwargs:
 
             ```python
             await user_crud.delete(db, id=1)
+            ```
+
+            Soft delete a user using a Pydantic schema:
+
+            ```python
+            delete_filters = DeleteUserSchema(id=1)
+            await user_crud.delete(db, filters=delete_filters)
             ```
 
             Soft delete users with account registration dates before 2020, allowing deletion of multiple records:
@@ -2593,8 +3026,24 @@ class FastCRUD(
                 email='unique@example.com',
             )
             ```
+
+            Combine schema filters with kwargs:
+
+            ```python
+            delete_filters = DeleteUserSchema(status='inactive')
+            await user_crud.delete(
+                db,
+                filters=delete_filters,
+                allow_multiple=True,
+                last_login__lt=datetime(2023, 1, 1),
+            )
+            ```
         """
-        filters = self._parse_filters(**kwargs)
+        combined_filters = {}
+        if filters:
+            combined_filters.update(filters.model_dump(exclude_unset=True))
+        combined_filters.update(kwargs)
+
         if db_row:
             has_soft_delete = hasattr(db_row, self.is_deleted_column) and hasattr(
                 db_row, self.deleted_at_column
@@ -2608,26 +3057,31 @@ class FastCRUD(
                 await db.commit()
             return
 
-        total_count = await self.count(db, **kwargs)
-        if total_count == 0:
-            raise NoResultFound("No record found to delete.")
-        if not allow_multiple and total_count > 1:
-            raise MultipleResultsFound(
-                f"Expected exactly one record to delete, found {total_count}."
+        if not combined_filters:
+            raise ValueError(
+                "No filters provided. To prevent accidental deletion of all records, at least one filter must be specified."
             )
 
-        update_values: dict[str, Union[bool, datetime]] = {}
+        await validate_update_delete_operation(
+            self.count, db, allow_multiple, "delete", **combined_filters
+        )
+
+        parsed_filters = self._filter_processor.parse_filters(**combined_filters)
+
+        update_values: dict[str, bool | datetime] = {}
         if self.deleted_at_column in self.model_col_names:
             update_values[self.deleted_at_column] = datetime.now(timezone.utc)
         if self.is_deleted_column in self.model_col_names:
             update_values[self.is_deleted_column] = True
 
         if update_values:
-            update_stmt = update(self.model).filter(*filters).values(**update_values)
+            update_stmt = (
+                update(self.model).filter(*parsed_filters).values(**update_values)
+            )
             await db.execute(update_stmt)
 
         else:
-            delete_stmt = self.model.__table__.delete().where(*filters)
+            delete_stmt = self.model.__table__.delete().where(*parsed_filters)
             await db.execute(delete_stmt)
         if commit:
             await db.commit()

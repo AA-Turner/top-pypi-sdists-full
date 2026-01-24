@@ -19,9 +19,11 @@
 #include "include/private/base/SkDebug.h"
 #include "include/private/base/SkMalloc.h"
 #include "src/core/SkAdvancedTypefaceMetrics.h" // IWYU pragma: keep
+#include "src/core/SkFontPriv.h"
 #include "src/core/SkScalerContext.h"
 #include "tests/Test.h"
 #include "tools/flags/CommandLineFlags.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <cstddef>
 #include <cstdint>
@@ -35,32 +37,30 @@ class SkFontDescriptor;
 DECLARE_bool(verboseFontMgr)
 
 DEF_TEST(FontMgr_Font, reporter) {
-    SkFont font(nullptr, 24);
+    SkFont font(ToolUtils::DefaultTypeface(), 24);
 
-    //REPORTER_ASSERT(reporter, SkTypeface::GetDefaultTypeface() == font.getTypeface());
     REPORTER_ASSERT(reporter, 24 == font.getSize());
     REPORTER_ASSERT(reporter, 1 == font.getScaleX());
     REPORTER_ASSERT(reporter, 0 == font.getSkewX());
 
-    uint16_t glyphs[5];
+    SkGlyphID glyphs[5];
     sk_bzero(glyphs, sizeof(glyphs));
 
     // Check that no glyphs are copied with insufficient storage.
-    int count = font.textToGlyphs("Hello", 5, SkTextEncoding::kUTF8, glyphs, 2);
+    size_t count = font.textToGlyphs("Hello", 5, SkTextEncoding::kUTF8, {glyphs, 2});
     REPORTER_ASSERT(reporter, 5 == count);
     for (const auto glyph : glyphs) { REPORTER_ASSERT(reporter, glyph == 0); }
 
-    SkAssertResult(font.textToGlyphs("Hello", 5, SkTextEncoding::kUTF8, glyphs,
-                                     std::size(glyphs)) == count);
+    SkAssertResult(font.textToGlyphs("Hello", 5, SkTextEncoding::kUTF8, glyphs) == count);
 
-    for (int i = 0; i < count; ++i) {
+    for (size_t i = 0; i < count; ++i) {
         REPORTER_ASSERT(reporter, 0 != glyphs[i]);
     }
     REPORTER_ASSERT(reporter, glyphs[0] != glyphs[1]); // 'h' != 'e'
     REPORTER_ASSERT(reporter, glyphs[2] == glyphs[3]); // 'l' == 'l'
 
     const SkFont newFont(font.makeWithSize(36));
-    REPORTER_ASSERT(reporter, font.getTypefaceOrDefault() == newFont.getTypefaceOrDefault());
+    REPORTER_ASSERT(reporter, font.getTypeface() == newFont.getTypeface());
     REPORTER_ASSERT(reporter, 36 == newFont.getSize());   // double check we haven't changed
     REPORTER_ASSERT(reporter, 24 == font.getSize());   // double check we haven't changed
 }
@@ -76,14 +76,14 @@ DEF_TEST(FontMgr_AliasNames, reporter) {
     };
 
     for (size_t i = 0; i < std::size(inNames); ++i) {
-        sk_sp<SkTypeface> first(SkTypeface::MakeFromName(inNames[i], SkFontStyle()));
+        sk_sp<SkTypeface> first(ToolUtils::CreateTestTypeface(inNames[i], SkFontStyle()));
         if (nullptr == first.get()) {
             continue;
         }
         SkString firstName;
         first->getFamilyName(&firstName);
         for (int j = 0; j < 10; ++j) {
-            sk_sp<SkTypeface> face(SkTypeface::MakeFromName(inNames[i], SkFontStyle()));
+            sk_sp<SkTypeface> face(ToolUtils::CreateTestTypeface(inNames[i], SkFontStyle()));
 
             SkString name;
             face->getFamilyName(&name);
@@ -95,7 +95,7 @@ DEF_TEST(FontMgr_AliasNames, reporter) {
 }
 
 DEF_TEST(FontMgr_Iter, reporter) {
-    sk_sp<SkFontMgr> fm(SkFontMgr::RefDefault());
+    sk_sp<SkFontMgr> fm(ToolUtils::TestFontMgr());
     int count = fm->countFamilies();
 
     for (int i = 0; i < count; ++i) {
@@ -116,24 +116,43 @@ DEF_TEST(FontMgr_Iter, reporter) {
             set->getStyle(j, &fs, &sname);
 
             if (FLAGS_verboseFontMgr) {
-                SkDebugf("\t[%d] %s [%3d %d %d]\n", j, sname.c_str(),
+                SkDebugf("\t[%d] \"%s\" [%3d %d %d]\n", j, sname.c_str(),
                          fs.weight(), fs.width(), fs.slant());
             }
 
             sk_sp<SkTypeface> face1(set->createTypeface(j));
             if (!face1) {
-                REPORTER_ASSERT(reporter, face1.get());
+                REPORTER_ASSERT(reporter, face1.get(),
+                                "Could not create %s %s.", fname.c_str(), sname.c_str());
                 continue;
             }
             SkString name1;
             face1->getFamilyName(&name1);
             SkFontStyle s1 = face1->fontStyle();
 
+            sk_sp<SkTypeface::LocalizedStrings> otherNames(face1->createFamilyNameIterator());
+            SkTypeface::LocalizedString otherName;
+            while (otherNames->next(&otherName)) {
+                if (FLAGS_verboseFontMgr) {
+                    SkDebugf("\t\"%s\" aka \"%s\"\n", name1.c_str(), otherName.fString.c_str());
+                }
+            }
+
+            SkString resource1;
+            face1->getResourceName(&resource1);
+            if (FLAGS_verboseFontMgr) {
+                SkDebugf("\t\"%s\" from resource \"%s\"\n", name1.c_str(), resource1.c_str());
+            }
+
             // Note that fs != s1 is fine, though probably rare.
 
             sk_sp<SkTypeface> face2(fm->matchFamilyStyle(name1.c_str(), s1));
             if (!face2) {
-                REPORTER_ASSERT(reporter, face2.get());
+                // Some fonts cannot be looked up by name on our test machines
+                if (name1.equals("Noto Emoji") || name1.equals("Noto Sans Phags Pa")) {
+                    continue;
+                }
+                REPORTER_ASSERT(reporter, face2.get(), "Could not find %s", name1.c_str());
                 continue;
             }
             SkString name2;
@@ -141,25 +160,22 @@ DEF_TEST(FontMgr_Iter, reporter) {
 
             REPORTER_ASSERT(reporter, name1 == name2, "%s == %s", name1.c_str(), name2.c_str());
 
-            // TODO: This should work, but Mac matches the wrong font sometimes.
-            if ((false)) {
-                SkFontStyle s2 = face2->fontStyle();
-                REPORTER_ASSERT(reporter, s1 == s2, "%s [%3d %d %d] != %s [%3d %d %d]",
-                                name1.c_str(), s1.weight(), s1.width(), s1.slant(),
-                                name2.c_str(), s2.weight(), s2.width(), s2.slant());
-            }
+            SkFontStyle s2 = face2->fontStyle();
+            REPORTER_ASSERT(reporter, s1 == s2, "%s [%3d %d %d] != %s [%3d %d %d]",
+                            name1.c_str(), s1.weight(), s1.width(), s1.slant(),
+                            name2.c_str(), s2.weight(), s2.width(), s2.slant());
         }
     }
 }
 
 DEF_TEST(FontMgr_Match, reporter) {
-    sk_sp<SkFontMgr> fm(SkFontMgr::RefDefault());
+    sk_sp<SkFontMgr> fm(ToolUtils::TestFontMgr());
     sk_sp<SkFontStyleSet> styleSet(fm->matchFamily(nullptr));
     REPORTER_ASSERT(reporter, styleSet);
 }
 
 DEF_TEST(FontMgr_MatchFamilyStyle, reporter) {
-    sk_sp<SkFontMgr> fm(SkFontMgr::RefDefault());
+    sk_sp<SkFontMgr> fm(ToolUtils::TestFontMgr());
 
     sk_sp<SkFontStyleSet> styleSet(fm->matchFamily("Non Existing Family Name"));
     REPORTER_ASSERT(reporter, styleSet);
@@ -168,6 +184,12 @@ DEF_TEST(FontMgr_MatchFamilyStyle, reporter) {
     using FS = SkFontStyle;
     sk_sp<SkTypeface> typeface(fm->matchFamilyStyle("Non Existing Family Name", FS::Normal()));
     REPORTER_ASSERT(reporter, !typeface);
+
+    // Test a long name with many interesting case folding code points.
+    using FS = SkFontStyle;
+    sk_sp<SkTypeface> typeface1(fm->matchFamilyStyle("ῢ ΰ ῤ ῦ ῧ Ῠ Ῡ Ὺ Ύ Ῥ ῲ ῳ ῴ ῶ ῷ Ὸ Ό Ὼ Ώ ῼ",
+                                                     FS::Normal()));
+    REPORTER_ASSERT(reporter, !typeface1);
 
     // TODO: enable after determining if a default font should be required.
     if ((false)) {
@@ -190,20 +212,19 @@ DEF_TEST(FontMgr_MatchStyleCSS3, reporter) {
         std::unique_ptr<SkScalerContext> onCreateScalerContext(
             const SkScalerContextEffects& effects, const SkDescriptor* desc) const override
         {
-            return SkScalerContext::MakeEmpty(
-                    sk_ref_sp(const_cast<TestTypeface*>(this)), effects, desc);
+            return SkScalerContext::MakeEmpty(*const_cast<TestTypeface*>(this), effects, desc);
         }
         void onFilterRec(SkScalerContextRec*) const override { }
         std::unique_ptr<SkAdvancedTypefaceMetrics> onGetAdvancedMetrics() const override {
             return nullptr;
         }
         void onGetFontDescriptor(SkFontDescriptor*, bool*) const override { }
-        void onCharsToGlyphs(const SkUnichar* chars, int count, SkGlyphID glyphs[]) const override {
-            sk_bzero(glyphs, count * sizeof(glyphs[0]));
+        void onCharsToGlyphs(SkSpan<const SkUnichar>, SkSpan<SkGlyphID> glyphs) const override {
+            sk_bzero(glyphs.data(), glyphs.size_bytes());
         }
         int onCountGlyphs() const override { return 0; }
         void getPostScriptGlyphNames(SkString*) const override {}
-        void getGlyphToUnicodeMap(SkUnichar*) const override {}
+        void getGlyphToUnicodeMap(SkSpan<SkUnichar>) const override {}
         int onGetUPEM() const override { return 0; }
         class EmptyLocalizedStrings : public SkTypeface::LocalizedStrings {
         public:
@@ -218,17 +239,15 @@ DEF_TEST(FontMgr_MatchStyleCSS3, reporter) {
         }
         bool onGlyphMaskNeedsCurrentColor() const override { return false; }
         int onGetVariationDesignPosition(
-                SkFontArguments::VariationPosition::Coordinate coordinates[],
-                int coordinateCount) const override
+                             SkSpan<SkFontArguments::VariationPosition::Coordinate>) const override
         {
             return 0;
         }
-        int onGetVariationDesignParameters(SkFontParameters::Variation::Axis parameters[],
-                                           int parameterCount) const override
+        int onGetVariationDesignParameters(SkSpan<SkFontParameters::Variation::Axis>) const override
         {
             return -1;
         }
-        int onGetTableTags(SkFontTableTag tags[]) const override { return 0; }
+        int onGetTableTags(SkSpan<SkFontTableTag>) const override { return 0; }
         size_t onGetTableData(SkFontTableTag, size_t, size_t, void*) const override {
             return 0;
         }
@@ -243,13 +262,13 @@ DEF_TEST(FontMgr_MatchStyleCSS3, reporter) {
                 *style = fStyles[index];
             }
         }
-        SkTypeface* createTypeface(int index) override {
+        sk_sp<SkTypeface> createTypeface(int index) override {
             if (index < 0 || this->count() <= index) {
-                return new TestTypeface(invalidFontStyle);
+                return sk_sp<SkTypeface>(new TestTypeface(invalidFontStyle));
             }
-            return new TestTypeface(fStyles[index]);
+            return sk_sp<SkTypeface>(new TestTypeface(fStyles[index]));
         }
-        SkTypeface* matchStyle(const SkFontStyle& pattern) override {
+        sk_sp<SkTypeface> matchStyle(const SkFontStyle& pattern) override {
             return this->matchStyleCSS3(pattern);
         }
     private:
@@ -794,12 +813,12 @@ DEF_TEST(FontMgr_MatchStyleCSS3, reporter) {
 }
 
 DEF_TEST(FontMgr_MatchCharacter, reporter) {
-    sk_sp<SkFontMgr> fm(SkFontMgr::RefDefault());
+    sk_sp<SkFontMgr> fm(ToolUtils::TestFontMgr());
     // 0xD800 <= codepoint <= 0xDFFF || 0x10FFFF < codepoint are invalid
-    SkSafeUnref(fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0x0));
-    SkSafeUnref(fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0xD800));
-    SkSafeUnref(fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0xDFFF));
-    SkSafeUnref(fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0x110000));
-    SkSafeUnref(fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0x1FFFFF));
-    SkSafeUnref(fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, -1));
+    fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0x0);
+    fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0xD800);
+    fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0xDFFF);
+    fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0x110000);
+    fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, 0x1FFFFF);
+    fm->matchFamilyStyleCharacter("Blah", SkFontStyle::Normal(), nullptr, 0, -1);
 }

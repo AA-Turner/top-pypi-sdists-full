@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -53,12 +54,6 @@ from .type_defs import (
     UpdateApplicationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -69,19 +64,19 @@ __all__ = ("KinesisAnalyticsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    CodeValidationException: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    InvalidApplicationConfigurationException: Type[BotocoreClientError]
-    InvalidArgumentException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceProvisionedThroughputExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
-    UnableToDetectSchemaException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CodeValidationException: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    InvalidApplicationConfigurationException: type[BotocoreClientError]
+    InvalidArgumentException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceProvisionedThroughputExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
+    UnableToDetectSchemaException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 
 class KinesisAnalyticsClient(BaseClient):
@@ -121,7 +116,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def add_application_cloud_watch_logging_option(
         self, **kwargs: Unpack[AddApplicationCloudWatchLoggingOptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -132,7 +127,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def add_application_input(
         self, **kwargs: Unpack[AddApplicationInputRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -143,7 +138,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def add_application_input_processing_configuration(
         self, **kwargs: Unpack[AddApplicationInputProcessingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -154,7 +149,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def add_application_output(
         self, **kwargs: Unpack[AddApplicationOutputRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -165,7 +160,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def add_application_reference_data_source(
         self, **kwargs: Unpack[AddApplicationReferenceDataSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -187,7 +182,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def delete_application(
         self, **kwargs: Unpack[DeleteApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -198,7 +193,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def delete_application_cloud_watch_logging_option(
         self, **kwargs: Unpack[DeleteApplicationCloudWatchLoggingOptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -209,7 +204,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def delete_application_input_processing_configuration(
         self, **kwargs: Unpack[DeleteApplicationInputProcessingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -220,7 +215,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def delete_application_output(
         self, **kwargs: Unpack[DeleteApplicationOutputRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -231,7 +226,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def delete_application_reference_data_source(
         self, **kwargs: Unpack[DeleteApplicationReferenceDataSourceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -283,7 +278,7 @@ class KinesisAnalyticsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalytics/client/#list_tags_for_resource)
         """
 
-    def start_application(self, **kwargs: Unpack[StartApplicationRequestTypeDef]) -> Dict[str, Any]:
+    def start_application(self, **kwargs: Unpack[StartApplicationRequestTypeDef]) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -292,7 +287,7 @@ class KinesisAnalyticsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalytics/client/#start_application)
         """
 
-    def stop_application(self, **kwargs: Unpack[StopApplicationRequestTypeDef]) -> Dict[str, Any]:
+    def stop_application(self, **kwargs: Unpack[StopApplicationRequestTypeDef]) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.
@@ -301,7 +296,7 @@ class KinesisAnalyticsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalytics/client/#stop_application)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more key-value tags to a Kinesis Analytics application.
 
@@ -309,7 +304,7 @@ class KinesisAnalyticsClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesisanalytics/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from a Kinesis Analytics application.
 
@@ -319,7 +314,7 @@ class KinesisAnalyticsClient(BaseClient):
 
     def update_application(
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This documentation is for version 1 of the Amazon Kinesis Data Analytics API,
         which only supports SQL applications.

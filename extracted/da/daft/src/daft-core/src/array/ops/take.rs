@@ -1,69 +1,36 @@
-use std::sync::Arc;
-
-use arrow2::types::Index;
+use arrow::{array::NullBufferBuilder, buffer::NullBuffer};
 use common_error::DaftResult;
+use daft_arrow::types::Index;
 
-use super::as_arrow::AsArrow;
 use crate::{
     array::{
         growable::{Growable, GrowableArray},
         prelude::*,
     },
-    datatypes::{FileArray, IntervalArray, prelude::*},
+    datatypes::{FileArray, prelude::*},
+    file::DaftMediaType,
 };
 
 impl<T> DataArray<T>
 where
-    T: DaftNumericType,
+    T: DaftPhysicalType,
 {
-    pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-    where
-        I: DaftIntegerType,
-        <I as DaftNumericType>::Native: arrow2::types::Index,
-    {
-        let result = arrow2::compute::take::take(self.data(), idx.as_arrow())?;
-        Self::try_from((self.field.clone(), result))
+    pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
+        let result = arrow::compute::take(self.to_arrow().as_ref(), idx.to_arrow().as_ref(), None)?;
+        Self::from_arrow(self.field.clone(), result)
     }
-}
-
-// Default implementations of take op for DataArray and LogicalArray.
-macro_rules! impl_dataarray_take {
-    ($ArrayT:ty) => {
-        impl $ArrayT {
-            pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-            where
-                I: DaftIntegerType,
-                <I as DaftNumericType>::Native: arrow2::types::Index,
-            {
-                let result = arrow2::compute::take::take(self.data(), idx.as_arrow())?;
-                Self::try_from((self.field.clone(), result))
-            }
-        }
-    };
 }
 
 macro_rules! impl_logicalarray_take {
     ($ArrayT:ty) => {
         impl $ArrayT {
-            pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-            where
-                I: DaftIntegerType,
-                <I as DaftNumericType>::Native: arrow2::types::Index,
-            {
+            pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
                 let new_array = self.physical.take(idx)?;
                 Ok(Self::new(self.field.clone(), new_array))
             }
         }
     };
 }
-
-impl_dataarray_take!(Utf8Array);
-impl_dataarray_take!(BooleanArray);
-impl_dataarray_take!(BinaryArray);
-impl_dataarray_take!(NullArray);
-impl_dataarray_take!(ExtensionArray);
-impl_dataarray_take!(IntervalArray);
-impl_dataarray_take!(Decimal128Array);
 
 impl_logicalarray_take!(DateArray);
 impl_logicalarray_take!(TimeArray);
@@ -77,190 +44,124 @@ impl_logicalarray_take!(SparseTensorArray);
 impl_logicalarray_take!(FixedShapeSparseTensorArray);
 impl_logicalarray_take!(FixedShapeTensorArray);
 impl_logicalarray_take!(MapArray);
-impl_logicalarray_take!(FileArray);
-
-impl FixedSizeBinaryArray {
-    pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-    where
-        I: DaftIntegerType,
-        <I as DaftNumericType>::Native: arrow2::types::Index,
-    {
-        let mut growable = Self::make_growable(
-            self.name(),
-            self.data_type(),
-            vec![self],
-            idx.data().null_count() > 0,
-            idx.len(),
-        );
-
-        for i in idx {
-            match i {
-                None => {
-                    growable.add_nulls(1);
-                }
-                Some(i) => {
-                    growable.extend(0, i.to_usize(), 1);
-                }
-            }
-        }
-
-        Ok(growable.build()?.downcast::<Self>()?.clone())
-    }
-}
-
-#[cfg(feature = "python")]
-impl crate::datatypes::PythonArray {
-    pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-    where
-        I: DaftIntegerType,
-        <I as DaftNumericType>::Native: arrow2::types::Index,
-    {
-        use arrow2::array::Array;
-        use pyo3::prelude::*;
-
-        use crate::array::pseudo_arrow::PseudoArrowArray;
-
-        let indices = idx.as_arrow();
-
-        let old_values = self.as_arrow().values();
-
-        // Execute take on the data values, ignoring validity.
-        let new_values: Vec<Arc<PyObject>> = {
-            let py_none = Arc::new(Python::with_gil(|py: Python| py.None()));
-
-            indices
-                .iter()
-                .map(|maybe_idx| match maybe_idx {
-                    Some(idx) => old_values[arrow2::types::Index::to_usize(idx)].clone(),
-                    None => py_none.clone(),
-                })
-                .collect()
-        };
-
-        // Execute take on the validity bitmap using arrow2::compute.
-        let new_validity = {
-            self.as_arrow()
-                .validity()
-                .map(|old_validity| {
-                    let old_validity_array = {
-                        &arrow2::array::BooleanArray::new(
-                            arrow2::datatypes::DataType::Boolean,
-                            old_validity.clone(),
-                            None,
-                        )
-                    };
-                    arrow2::compute::take::take(old_validity_array, indices)
-                })
-                .transpose()?
-                .map(|new_validity_dynarray| {
-                    let new_validity_iter = new_validity_dynarray
-                        .as_any()
-                        .downcast_ref::<arrow2::array::BooleanArray>()
-                        .unwrap()
-                        .iter();
-                    arrow2::bitmap::Bitmap::from_iter(
-                        new_validity_iter.map(|valid| valid.unwrap_or(false)),
-                    )
-                })
-        };
-
-        let arrow_array: Box<dyn arrow2::array::Array> =
-            Box::new(PseudoArrowArray::new(new_values.into(), new_validity));
-
-        Self::new(self.field().clone().into(), arrow_array)
-    }
-}
 
 impl FixedSizeListArray {
-    pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-    where
-        I: DaftIntegerType,
-        <I as DaftNumericType>::Native: arrow2::types::Index,
-    {
-        let mut growable = Self::make_growable(
-            self.name(),
-            self.data_type(),
-            vec![self],
-            idx.data().null_count() > 0,
-            idx.len(),
-        );
+    pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
+        let fixed_size = self.fixed_element_len();
+        let mut child_indices = Vec::with_capacity(idx.len() * fixed_size);
+        let mut nulls_builder = NullBufferBuilder::new(idx.len());
 
         for i in idx {
             match i {
                 None => {
-                    growable.add_nulls(1);
+                    nulls_builder.append_null();
+                    child_indices.extend(std::iter::repeat_n(0, fixed_size));
                 }
                 Some(i) => {
-                    growable.extend(0, i.to_usize(), 1);
+                    let i = i.to_usize();
+                    nulls_builder.append(self.is_valid(i));
+                    let start = i * fixed_size;
+                    child_indices.extend(start..start + fixed_size);
                 }
             }
         }
 
-        Ok(growable.build()?.downcast::<Self>()?.clone())
+        let child_idx = UInt64Array::from_iter_values(child_indices.into_iter().map(|i| i as u64));
+        let new_child = self.flat_child.take(&child_idx)?;
+
+        Ok(Self::new(
+            self.field.clone(),
+            new_child,
+            nulls_builder.finish(),
+        ))
     }
 }
 
 impl ListArray {
-    pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-    where
-        I: DaftIntegerType,
-        <I as DaftNumericType>::Native: arrow2::types::Index,
-    {
-        let child_capacity = idx
-            .as_arrow()
-            .iter()
-            .map(|idx| match idx {
-                None => 0,
-                Some(idx) => {
-                    let (start, end) = self.offsets().start_end(idx.to_usize());
-                    end - start
-                }
-            })
-            .sum();
-        let mut growable = <Self as GrowableArray>::GrowableType::new(
-            self.name(),
-            self.data_type(),
-            vec![self],
-            idx.data().null_count() > 0,
-            idx.len(),
-            child_capacity,
-        );
+    pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
+        let mut new_offsets = Vec::with_capacity(idx.len() + 1);
+        new_offsets.push(0i64);
+
+        let mut child_indices = Vec::new();
+        let mut nulls_builder = NullBufferBuilder::new(idx.len());
 
         for i in idx {
             match i {
                 None => {
-                    growable.add_nulls(1);
+                    nulls_builder.append_null();
+                    new_offsets.push(*new_offsets.last().unwrap());
                 }
                 Some(i) => {
-                    growable.extend(0, i.to_usize(), 1);
+                    let (start, end) = self.offsets().start_end(i.to_usize());
+                    child_indices.extend(start..end);
+                    new_offsets.push(*new_offsets.last().unwrap() + (end - start) as i64);
+                    nulls_builder.append(self.is_valid(i.to_usize()));
                 }
             }
         }
+        let nulls = nulls_builder.finish();
 
-        Ok(growable.build()?.downcast::<Self>()?.clone())
+        let child_idx = UInt64Array::from_iter_values(child_indices.into_iter().map(|i| i as u64));
+        let new_child = self.flat_child.take(&child_idx)?;
+
+        Ok(Self::new(
+            self.field.clone(),
+            new_child,
+            new_offsets.try_into()?,
+            nulls,
+        ))
     }
 }
-
 impl StructArray {
-    pub fn take<I>(&self, idx: &DataArray<I>) -> DaftResult<Self>
-    where
-        I: DaftIntegerType,
-        <I as DaftNumericType>::Native: arrow2::types::Index,
-    {
-        let idx_as_u64 = idx.cast(&DataType::UInt64)?;
-        let taken_validity = self.validity().map(|v| {
-            arrow2::bitmap::Bitmap::from_iter(idx.into_iter().map(|i| match i {
+    pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
+        let nulls = self.nulls().map(|v| {
+            NullBuffer::from_iter(idx.into_iter().map(|i| match i {
                 None => false,
-                Some(i) => v.get_bit(i.to_usize()),
+                Some(i) => v.is_valid(i.to_usize()),
             }))
         });
         Ok(Self::new(
             self.field.clone(),
             self.children
                 .iter()
-                .map(|c| c.take(&idx_as_u64))
+                .map(|c| c.take(idx))
                 .collect::<DaftResult<Vec<_>>>()?,
-            taken_validity,
+            nulls,
         ))
+    }
+}
+impl<T> FileArray<T>
+where
+    T: DaftMediaType,
+{
+    pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
+        let new_array = self.physical.take(idx)?;
+        Ok(Self::new(self.field.clone(), new_array))
+    }
+}
+
+#[cfg(feature = "python")]
+impl PythonArray {
+    pub fn take(&self, idx: &UInt64Array) -> DaftResult<Self> {
+        let mut growable = Self::make_growable(
+            self.name(),
+            self.data_type(),
+            vec![self],
+            idx.data().null_count() > 0,
+            idx.len(),
+        );
+
+        for i in idx {
+            match i {
+                None => {
+                    growable.add_nulls(1);
+                }
+                Some(i) => {
+                    growable.extend(0, i.to_usize(), 1);
+                }
+            }
+        }
+
+        Ok(growable.build()?.downcast::<Self>()?.clone())
     }
 }

@@ -1,9 +1,8 @@
 import logging
-from typing import AsyncIterator, Optional
+from collections.abc import AsyncIterator
 
 import a_sync
 import dank_mids
-from y import time
 from async_lru import alru_cache
 from brownie import ZERO_ADDRESS
 from brownie.network.event import _EventItem
@@ -11,7 +10,7 @@ from multicall import Call
 from web3.exceptions import ContractLogicError
 
 from y import ENVIRONMENT_VARIABLES as ENVS
-from y import convert
+from y import convert, time
 from y._decorators import stuck_coro_debugger
 from y.classes.common import ERC20
 from y.constants import CHAINID
@@ -175,6 +174,11 @@ FEEDS = {
         "0x4200000000000000000000000000000000000006": "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",  # weth -> ETH
         "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb": "0x591e79239a7d679378eC8c847e5038150364C78F",  # dai -> DAI
     },
+    Network.Katana: {
+        # https://docs.chain.link/data-feeds/price-feeds/addresses?page=1&network=katana&testnetPage=1&search=
+        "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62": "0x7BdBDB772f4a073BadD676A567C6ED82049a8eEE",  # WETH -> ETH
+        "0x0913DA6Da4b42f538B445599b46Bb4622342Cf52": "0x41DdB7F8F5e1b2bD28193B84C1C36Be698dEd162",  # WBTC -> BTC
+    },
 }.get(CHAINID, {})
 
 ONE_DAY = 24 * 60 * 60
@@ -203,7 +207,6 @@ class Feed:
         "latest_answer",
         "latest_timestamp",
         "start_block",
-        "_stale_thru_block",
     )
 
     def __init__(
@@ -220,7 +223,6 @@ class Feed:
         # we could make less calls by using latestRoundData but then we have to repeatedly decode a bunch of useless data
         self.latest_answer = Call(self.address, "latestAnswer()(int256)").coroutine
         self.latest_timestamp = Call(self.address, "latestTimestamp()(uint256)").coroutine
-        self._stale_thru_block = None
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} address={self.address} asset={self.asset}>"
@@ -235,12 +237,12 @@ class Feed:
 
     # @a_sync.future(cache_type='memory')
     @alru_cache(maxsize=None)
-    async def scale(self) -> Optional[int]:
+    async def scale(self) -> int | None:
         return await (10 ** a_sync.ASyncFuture(self.decimals()))
 
     # @a_sync.future
     @stuck_coro_debugger
-    async def get_price(self, block: int) -> Optional[UsdPrice]:
+    async def get_price(self, block: int) -> UsdPrice | None:
         """Get the price of the asset at a specific block.
 
         If the feed is stale, returns None.
@@ -259,10 +261,6 @@ class Feed:
         See Also:
             - :func:`~y.prices.chainlink.Chainlink.get_price`
         """
-        if self._stale_thru_block and self._stale_thru_block > block:
-            logger.debug("%s is stale, must fetch price from elsewhere", self)
-            return None
-
         try:
             updated_at = await self.latest_timestamp(block_id=block)
         except ContractLogicError:
@@ -272,8 +270,6 @@ class Feed:
             # if 24h have passed since last feed update, we can't trust it
             # NOTE: is there a way to tell on chain if a feed is retired? I haven't yet seen one go stale and come back
             logger.debug("%s is stale, must fetch price from elsewhere", self)
-            if self._stale_thru_block is None or block > self._stale_thru_block:
-                self._stale_thru_block = block
             return None
 
         latest_answer = await self.latest_answer(block_id=block)
@@ -385,7 +381,7 @@ class Chainlink(a_sync.ASyncGenericBase):
                 yield feed
 
     @a_sync_ttl_cache
-    async def get_feed(self, asset: Address) -> Optional[Feed]:
+    async def get_feed(self, asset: Address) -> Feed | None:
         """Get the feed for a specific asset.
 
         The method converts the supplied asset address to an instance of :class:`~y.classes.common.ERC20`
@@ -438,9 +434,7 @@ class Chainlink(a_sync.ASyncGenericBase):
 
     # @a_sync.future
     @stuck_coro_debugger
-    async def get_price(
-        self, asset: AnyAddressType, block: Optional[Block] = None
-    ) -> Optional[UsdPrice]:
+    async def get_price(self, asset: AnyAddressType, block: Block | None = None) -> UsdPrice | None:
         """Get the price of an asset at a specific block.
 
         If the block is not specified, the latest block is used.
@@ -469,7 +463,7 @@ class Chainlink(a_sync.ASyncGenericBase):
         return await self._get_price(str(asset), block)  # force to string for cache key
 
     @alru_cache(maxsize=1000, ttl=ENVS.CACHE_TTL)
-    async def _get_price(self, asset: Address, block: Block) -> Optional[UsdPrice]:
+    async def _get_price(self, asset: Address, block: Block) -> UsdPrice | None:
         asset = convert.to_address(asset)
         if asset == ZERO_ADDRESS:
             return None

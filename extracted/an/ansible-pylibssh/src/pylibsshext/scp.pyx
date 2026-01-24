@@ -24,7 +24,7 @@ from pylibsshext.errors cimport LibsshSCPException
 from pylibsshext.session cimport get_libssh_session
 
 
-SCP_MAX_CHUNK = 65536
+SCP_MAX_CHUNK = 65_536  # 64kB
 
 
 cdef class SCP:
@@ -74,15 +74,25 @@ cdef class SCP:
                 )
 
             try:
+                # Read buffer
+                read_buffer_size = min(file_size, SCP_MAX_CHUNK)
+
                 # Begin to send to the file
                 rc = libssh.ssh_scp_push_file(scp, filename_b, file_size, file_mode)
                 if rc != libssh.SSH_OK:
                     raise LibsshSCPException("Can't open remote file: %s" % self._get_ssh_error_str())
 
-                # Write to the open file
-                rc = libssh.ssh_scp_write(scp, PyBytes_AS_STRING(f.read()), file_size)
-                if rc != libssh.SSH_OK:
-                    raise LibsshSCPException("Can't write to remote file: %s" % self._get_ssh_error_str())
+                remaining_bytes_to_read = file_size
+                while remaining_bytes_to_read > 0:
+                    # Read the chunk from local file
+                    read_bytes = min(remaining_bytes_to_read, read_buffer_size)
+                    read_buffer = f.read(read_bytes)
+
+                    # Write to the open file
+                    rc = libssh.ssh_scp_write(scp, PyBytes_AS_STRING(read_buffer), read_bytes)
+                    if rc != libssh.SSH_OK:
+                        raise LibsshSCPException("Can't write to remote file: %s" % self._get_ssh_error_str())
+                    remaining_bytes_to_read -= read_bytes
             finally:
                 libssh.ssh_scp_close(scp)
                 libssh.ssh_scp_free(scp)

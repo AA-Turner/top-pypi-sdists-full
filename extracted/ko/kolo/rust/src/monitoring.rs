@@ -1,12 +1,13 @@
 use hashbrown::HashMap;
 use pyo3::intern;
 use pyo3::prelude::*;
-use pyo3::sync::GILProtected;
+use pyo3::sync::MutexExt;
 use pyo3::types::PyBytes;
 use pyo3::types::PyCode;
 use pyo3::types::PyDict;
 use std::borrow::Cow;
 use std::cell::RefCell;
+use std::sync::Mutex;
 use thread_local::ThreadLocal;
 
 use super::config;
@@ -62,15 +63,15 @@ pub struct KoloMonitor {
     one_trace_per_test: bool,
     omit_return_locals: bool,
     sqlite_busy_timeout: usize,
-    trace_id: GILProtected<RefCell<String>>,
+    trace_id: Mutex<String>,
     trace_name: Option<String>,
     include_frames: filters::Finders,
     ignore_frames: filters::Finders,
-    default_include_frames: GILProtected<RefCell<HashMap<String, Vec<PluginProcessor>>>>,
+    default_include_frames: Mutex<HashMap<String, Vec<PluginProcessor>>>,
     #[pyo3(get)]
     line_events: bool,
-    frames_by_thread: GILProtected<RefCell<HashMap<String, Vec<SerializedFrame>>>>,
-    threads: GILProtected<RefCell<HashMap<String, Py<PyAny>>>>,
+    frames_by_thread: Mutex<HashMap<String, Vec<SerializedFrame>>>,
+    threads: Mutex<HashMap<String, Py<PyAny>>>,
     current_thread_id: String,
     lightweight_repr: bool,
     call_frames: ThreadLocal<RefCell<utils::CallFrames>>,
@@ -91,7 +92,7 @@ impl KoloMonitor {
         let py = config_dict.py();
         let config = config::Config::new(config_dict)?;
 
-        let sys = PyModule::import_bound(py, "sys")?;
+        let sys = PyModule::import(py, "sys")?;
         let monitoring = sys.getattr("monitoring")?;
         let disable = monitoring.getattr("DISABLE")?.unbind();
         let tool_id = monitoring.getattr("PROFILER_ID")?.extract()?;
@@ -115,14 +116,14 @@ impl KoloMonitor {
             one_trace_per_test,
             omit_return_locals,
             sqlite_busy_timeout,
-            trace_id: GILProtected::new(utils::trace_id().into()),
+            trace_id: Mutex::new(utils::trace_id()),
             trace_name,
             include_frames: filters::load_filters(&filters, "include_frames")?,
             ignore_frames: filters::load_filters(&filters, "ignore_frames")?,
-            default_include_frames: GILProtected::new(plugins.into()),
+            default_include_frames: Mutex::new(plugins),
             line_events,
-            frames_by_thread: GILProtected::new(HashMap::new().into()),
-            threads: GILProtected::new(HashMap::new().into()),
+            frames_by_thread: Mutex::new(HashMap::new()),
+            threads: Mutex::new(HashMap::new()),
             current_thread_id: utils::get_current_thread_id(py).unwrap(),
             lightweight_repr,
             call_frames: ThreadLocal::new(),
@@ -141,13 +142,13 @@ impl KoloMonitor {
         filename: &str,
         arg: utils::Arg,
     ) -> Result<Option<(String, SerializedFrame)>, PyErr> {
-        let sys = PyModule::import_bound(py, "sys")?;
+        let sys = PyModule::import(py, "sys")?;
         let frame = sys.call_method1("_getframe", (0,))?;
         let arg = arg.into_inner(py);
         if !processor.matches_frame(py, &frame, event, &arg, filename)? {
             return Ok(None);
         }
-        let frame = frame.downcast()?;
+        let frame = frame.cast()?;
         let call_frames = self.call_frames.get_or_default().borrow().get_bound(py);
         processor.process(py, frame, event, &arg, call_frames, self.lightweight_repr)
     }
@@ -174,7 +175,7 @@ impl KoloMonitor {
 
         let mut frames = vec![];
         let mut frame_types = vec![];
-        let default_include_frames = self.default_include_frames.get(py).borrow();
+        let default_include_frames = self.default_include_frames.lock_py_attached(py).expect("default_include_frames mutex poisoned");
         if let Some(processors) = default_include_frames.get(&name.to_string()) {
             for processor in processors.iter() {
                 if let Some((frame_type, frame_data)) =
@@ -216,7 +217,7 @@ impl KoloMonitor {
         event: Event,
         arg: utils::Arg,
     ) -> Result<SerializedFrame, PyErr> {
-        let sys = PyModule::import_bound(py, "sys")?;
+        let sys = PyModule::import(py, "sys")?;
         let frame = sys.call_method1("_getframe", (0,))?;
         let pyframe_id = frame.as_ptr() as usize;
         let frame_id = self
@@ -224,7 +225,7 @@ impl KoloMonitor {
             .get_or_default()
             .borrow_mut()
             .get_or_set(event, pyframe_id);
-        let pyframe = frame.downcast()?;
+        let pyframe = frame.cast()?;
         let user_code_call_site = self
             .call_frames
             .get_or_default()
@@ -251,7 +252,7 @@ impl KoloMonitor {
         instruction_offset: usize,
     ) -> Result<Option<Py<PyAny>>, PyErr> {
         let py = code.py();
-        let kolo_monitoring = PyModule::import_bound(py, "kolo.monitoring")?;
+        let kolo_monitoring = PyModule::import(py, "kolo.monitoring")?;
         let instruction = kolo_monitoring
             .call_method1(intern!(py, "get_instruction"), (code, instruction_offset))?;
         if instruction.is_none() {
@@ -298,7 +299,7 @@ impl KoloMonitor {
         opname: Opname,
     ) -> Result<(), PyErr> {
         let py = instruction.py();
-        let sys = PyModule::import_bound(py, "sys")?;
+        let sys = PyModule::import(py, "sys")?;
         let frame = sys.call_method1("_getframe", (0,))?;
         let pyframe_id = frame.as_ptr() as usize;
         let frame_id = self
@@ -306,7 +307,7 @@ impl KoloMonitor {
             .get_or_default()
             .borrow()
             .get_option(pyframe_id);
-        let pyframe = frame.downcast()?;
+        let pyframe = frame.cast()?;
 
         let variable = instruction.getattr(intern!(py, "argval"))?.extract()?;
         let lineno = frame.getattr(intern!(py, "f_lineno"))?.extract()?;
@@ -339,7 +340,7 @@ impl KoloMonitor {
         let mut frames = vec![instruction_data
             .line_frame_data
             .write_msgpack((&variable, assign), self.lightweight_repr)?];
-        self.push_frame_data(py, &mut frames);
+        self.push_frame_data(py, &mut frames)?;
         Ok(())
     }
 
@@ -350,8 +351,8 @@ impl KoloMonitor {
     }
 
     fn build_trace_inner(&self, py: Python) -> Result<Py<PyBytes>, PyErr> {
-        let frames_by_thread = self.frames_by_thread.get(py).take();
-        let trace_id = self.trace_id.get(py).borrow().clone();
+        let frames_by_thread = std::mem::take(&mut *self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned"));
+        let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
 
         // Extract trace name if one wasn't explicitly set
         let trace_name = if self.trace_name.is_none() {
@@ -363,13 +364,14 @@ impl KoloMonitor {
         utils::build_trace(
             py,
             frames_by_thread,
-            self.threads.get(py).take(),
+            std::mem::take(&mut *self.threads.lock_py_attached(py).expect("mutex poisoned")),
             &trace_id,
             trace_name,
             &self.source,
             self.current_thread_id.clone(),
             self.timestamp,
             &self.config,
+            true, // use_monitoring
         )
     }
 
@@ -383,12 +385,12 @@ impl KoloMonitor {
             for (index, frame_type) in frame_types.iter().enumerate() {
                 if frame_type.as_str() == "start_test" {
                     frames.drain(..index);
-                    self.start_test(py)
+                    self.start_test(py)?
                 }
             }
         }
 
-        self.push_frame_data(py, frames);
+        self.push_frame_data(py, frames)?;
         Ok(())
     }
 
@@ -404,13 +406,13 @@ impl KoloMonitor {
             for (index, frame_type) in frame_types.iter().enumerate() {
                 if frame_type.as_str() == "end_test" {
                     let mut before: Vec<SerializedFrame> = frames.drain(..index + 1).collect();
-                    self.push_frame_data(py, &mut before);
+                    self.push_frame_data(py, &mut before)?;
                     self.save(py)?;
                 }
             }
         }
 
-        self.push_frame_data(py, frames);
+        self.push_frame_data(py, frames)?;
         Ok(())
     }
 
@@ -418,30 +420,31 @@ impl KoloMonitor {
         &self,
         py: Python,
         frames: &mut Vec<SerializedFrame>,
-    ) {
-        let threading = PyModule::import_bound(py, "threading").expect("Failed to import threading module");
+    ) -> PyResult<()> {
+        let threading = PyModule::import(py, "threading").expect("Failed to import threading module");
         let current_thread = threading.call_method0("current_thread").expect("Failed to get current_thread");
         let thread_id = utils::get_thread_id(&current_thread, py).unwrap();
 
-        self.threads.get(py).borrow_mut().entry(thread_id.clone()).or_insert_with(|| current_thread.into());
+        self.threads.lock_py_attached(py).expect("mutex poisoned").entry(thread_id.clone()).or_insert_with(|| current_thread.into());
 
         self.frames_by_thread
-            .get(py)
-            .borrow_mut()
+            .lock_py_attached(py).expect("mutex poisoned")
             .entry(thread_id)
             .or_insert_with(Vec::new)
             .append(frames);
+        Ok(())
     }
 
-    fn start_test(&self, py: Python) {
+    fn start_test(&self, py: Python) -> PyResult<()> {
         // Set a new `self.trace_id`.
         let trace_id = utils::trace_id();
-        let mut self_trace_id = self.trace_id.get(py).borrow_mut();
+        let mut self_trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned");
         *self_trace_id = trace_id;
 
         // Clear `frames_by_thread` of earlier frames.
-        let mut frames_by_thread = self.frames_by_thread.get(py).borrow_mut();
+        let mut frames_by_thread = self.frames_by_thread.lock_py_attached(py).expect("mutex poisoned");
         *frames_by_thread = HashMap::new();
+        Ok(())
     }
 
     /// Check if we should exclude the current frame from the trace using Kolo's builtin filters.
@@ -469,10 +472,10 @@ impl KoloMonitor {
     }
 
     fn log_error(&self, py: Python, err: PyErr) {
-        let logging = PyModule::import_bound(py, "logging").unwrap();
+        let logging = PyModule::import(py, "logging").unwrap();
         let logger = logging.call_method1("getLogger", ("kolo",)).unwrap();
 
-        let kwargs = PyDict::new_bound(py);
+        let kwargs = PyDict::new(py);
         kwargs.set_item("exc_info", err).unwrap();
 
         logger
@@ -494,14 +497,19 @@ impl KoloMonitor {
 
 #[pymethods]
 impl KoloMonitor {
+    #[getter]
+    fn trace_id(&self, py: Python) -> PyResult<String> {
+        Ok(self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone())
+    }
+
     fn save(&self, py: Python) -> Result<(), PyErr> {
         let trace = self.build_trace_inner(py)?;
-        let kwargs = PyDict::new_bound(py);
+        let kwargs = PyDict::new(py);
         kwargs.set_item("timeout", self.sqlite_busy_timeout)?;
         kwargs.set_item("msgpack", trace)?;
 
-        let trace_id = self.trace_id.get(py).borrow().clone();
-        let db = PyModule::import_bound(py, "kolo.db")?;
+        let trace_id = self.trace_id.lock_py_attached(py).expect("mutex poisoned").clone();
+        let db = PyModule::import(py, "kolo.db")?;
         let save = db.getattr(intern!(py, "save_trace_in_sqlite"))?;
         save.call((&self.db_path, &trace_id), Some(&kwargs))?;
         Ok(())

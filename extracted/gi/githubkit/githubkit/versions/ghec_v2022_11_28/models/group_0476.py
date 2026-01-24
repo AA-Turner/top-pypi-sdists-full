@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -17,39 +17,27 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0474 import UserEmailsResponseItems, UserNameResponse
-from .group_0475 import UserRoleItems
+from .group_0130 import RepositoryRuleUpdatePropParameters
 
 
-class UserResponse(GitHubModel):
-    """UserResponse"""
+class RepositoryRuleDetailedOneof1(GitHubModel):
+    """RepositoryRuleDetailedOneof1"""
 
-    schemas: list[Literal["urn:ietf:params:scim:schemas:core:2.0:User"]] = Field(
-        description="The URIs that are used to indicate the namespaces of the SCIM schemas."
-    )
-    external_id: Missing[Union[str, None]] = Field(
+    type: Literal["update"] = Field()
+    parameters: Missing[RepositoryRuleUpdatePropParameters] = Field(default=UNSET)
+    ruleset_source_type: Missing[Literal["Repository", "Organization"]] = Field(
         default=UNSET,
-        alias="externalId",
-        description="A unique identifier for the resource as defined by the provisioning client.",
+        description="The type of source for the ruleset that includes this rule.",
     )
-    active: bool = Field(description="Whether the user active in the IdP.")
-    user_name: Missing[str] = Field(
-        default=UNSET, alias="userName", description="The username for the user."
-    )
-    name: Missing[UserNameResponse] = Field(default=UNSET)
-    display_name: Missing[Union[str, None]] = Field(
+    ruleset_source: Missing[str] = Field(
         default=UNSET,
-        alias="displayName",
-        description="A human-readable name for the user.",
+        description="The name of the source of the ruleset that includes this rule.",
     )
-    emails: list[UserEmailsResponseItems] = Field(
-        description="The emails for the user."
-    )
-    roles: Missing[list[UserRoleItems]] = Field(
-        default=UNSET, description="The roles assigned to the user."
+    ruleset_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the ruleset that includes this rule."
     )
 
 
-model_rebuild(UserResponse)
+model_rebuild(RepositoryRuleDetailedOneof1)
 
-__all__ = ("UserResponse",)
+__all__ = ("RepositoryRuleDetailedOneof1",)

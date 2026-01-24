@@ -17,10 +17,12 @@ from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as chalk_dot_aggregate_do
 from chalk._gen.chalk.aggregate.v1 import timeseries_pb2 as chalk_dot_aggregate_dot_v1_dot_timeseries__pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as chalk_dot_auth_dot_v1_dot_audit__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
+from chalk._gen.chalk.common.v1 import chalk_error_pb2 as chalk_dot_common_dot_v1_dot_chalk__error__pb2
+from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/aggregate/v1/service.proto\x12\x12\x63halk.aggregate.v1\x1a!chalk/aggregate/v1/backfill.proto\x1a#chalk/aggregate/v1/timeseries.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto"g\n\x1cPlanAggregateBackfillRequest\x12G\n\x06params\x18\x01 \x01(\x0b\x32/.chalk.aggregate.v1.AggregateBackfillUserParamsR\x06params"\x8f\x02\n\x1dPlanAggregateBackfillResponse\x12M\n\x08\x65stimate\x18\x02 \x01(\x0b\x32\x31.chalk.aggregate.v1.AggregateBackfillCostEstimateR\x08\x65stimate\x12\x16\n\x06\x65rrors\x18\x04 \x03(\tR\x06\x65rrors\x12S\n\tbackfills\x18\x06 \x03(\x0b\x32\x35.chalk.aggregate.v1.AggregateBackfillWithCostEstimateR\tbackfills\x12\x32\n\x15\x61ggregate_backfill_id\x18\x07 \x01(\tR\x13\x61ggregateBackfillId"9\n\x14GetAggregatesRequest\x12!\n\x0c\x66or_features\x18\x01 \x03(\tR\x0b\x66orFeatures"p\n\x15GetAggregatesResponse\x12?\n\x06series\x18\x01 \x03(\x0b\x32\'.chalk.aggregate.v1.AggregateTimeSeriesR\x06series\x12\x16\n\x06\x65rrors\x18\x02 \x03(\tR\x06\x65rrors"\x7f\n\x1fGetAggregateBackfillJobsRequest\x12\x14\n\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n\x06\x63ursor\x18\x02 \x01(\tR\x06\x63ursor\x12 \n\tplan_hash\x18\x03 \x01(\tH\x00R\x08planHash\x88\x01\x01\x42\x0c\n\n_plan_hash"x\n GetAggregateBackfillJobsResponse\x12<\n\x04jobs\x18\x01 \x03(\x0b\x32(.chalk.aggregate.v1.AggregateBackfillJobR\x04jobs\x12\x16\n\x06\x63ursor\x18\x02 \x01(\tR\x06\x63ursor"T\n\x1eGetAggregateBackfillJobRequest\x12\x32\n\x15\x61ggregate_backfill_id\x18\x01 \x01(\tR\x13\x61ggregateBackfillId"]\n\x1fGetAggregateBackfillJobResponse\x12:\n\x03job\x18\x01 \x01(\x0b\x32(.chalk.aggregate.v1.AggregateBackfillJobR\x03job"\x7f\n\x1fGetCronAggregateBackfillRequest\x12?\n\x1a\x63ron_aggregate_backfill_id\x18\x01 \x01(\tB\x02\x18\x01R\x17\x63ronAggregateBackfillId\x12\x1b\n\tplan_hash\x18\x02 \x01(\tR\x08planHash"\x85\x01\n GetCronAggregateBackfillResponse\x12\x61\n\x17\x63ron_aggregate_backfill\x18\x01 \x01(\x0b\x32).chalk.aggregate.v1.CronAggregateBackfillR\x15\x63ronAggregateBackfill"(\n&GetActiveCronAggregateBackfillsRequest"\xd0\x01\n"CronAggregateBackfillWithLatestRun\x12\x61\n\x17\x63ron_aggregate_backfill\x18\x01 \x01(\x0b\x32).chalk.aggregate.v1.CronAggregateBackfillR\x15\x63ronAggregateBackfill\x12G\n\nlatest_job\x18\x02 \x01(\x0b\x32(.chalk.aggregate.v1.AggregateBackfillJobR\tlatestJob"\x9b\x01\n\'GetActiveCronAggregateBackfillsResponse\x12p\n\x18\x63ron_aggregate_backfills\x18\x01 \x03(\x0b\x32\x36.chalk.aggregate.v1.CronAggregateBackfillWithLatestRunR\x16\x63ronAggregateBackfills2\xe5\x06\n\x10\x41ggregateService\x12\x8a\x01\n\x15PlanAggregateBackfill\x12\x30.chalk.aggregate.v1.PlanAggregateBackfillRequest\x1a\x31.chalk.aggregate.v1.PlanAggregateBackfillResponse"\x0c\x90\x02\x01\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12r\n\rGetAggregates\x12(.chalk.aggregate.v1.GetAggregatesRequest\x1a).chalk.aggregate.v1.GetAggregatesResponse"\x0c\x90\x02\x01\x80}\x0b\x8a\xd3\x0e\x02\x08\x02\x12\x8d\x01\n\x18GetAggregateBackfillJobs\x12\x33.chalk.aggregate.v1.GetAggregateBackfillJobsRequest\x1a\x34.chalk.aggregate.v1.GetAggregateBackfillJobsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8a\x01\n\x17GetAggregateBackfillJob\x12\x32.chalk.aggregate.v1.GetAggregateBackfillJobRequest\x1a\x33.chalk.aggregate.v1.GetAggregateBackfillJobResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8d\x01\n\x18GetCronAggregateBackfill\x12\x33.chalk.aggregate.v1.GetCronAggregateBackfillRequest\x1a\x34.chalk.aggregate.v1.GetCronAggregateBackfillResponse"\x06\x90\x02\x01\x80}\x0b\x12\xa2\x01\n\x1fGetActiveCronAggregateBackfills\x12:.chalk.aggregate.v1.GetActiveCronAggregateBackfillsRequest\x1a;.chalk.aggregate.v1.GetActiveCronAggregateBackfillsResponse"\x06\x90\x02\x01\x80}\x0b\x42\xaa\x01\n\x16\x63om.chalk.aggregate.v1B\x0cServiceProtoP\x01Z\x18\x61ggregate/v1;aggregatev1\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Aggregate.V1\xca\x02\x12\x43halk\\Aggregate\\V1\xe2\x02\x1e\x43halk\\Aggregate\\V1\\GPBMetadata\xea\x02\x14\x43halk::Aggregate::V1b\x06proto3'
+    b'\n chalk/aggregate/v1/service.proto\x12\x12\x63halk.aggregate.v1\x1a!chalk/aggregate/v1/backfill.proto\x1a#chalk/aggregate/v1/timeseries.proto\x1a\x19\x63halk/auth/v1/audit.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a!chalk/common/v1/chalk_error.proto\x1a\x1fgoogle/protobuf/timestamp.proto"g\n\x1cPlanAggregateBackfillRequest\x12G\n\x06params\x18\x01 \x01(\x0b\x32/.chalk.aggregate.v1.AggregateBackfillUserParamsR\x06params"\x8f\x02\n\x1dPlanAggregateBackfillResponse\x12M\n\x08\x65stimate\x18\x02 \x01(\x0b\x32\x31.chalk.aggregate.v1.AggregateBackfillCostEstimateR\x08\x65stimate\x12\x16\n\x06\x65rrors\x18\x04 \x03(\tR\x06\x65rrors\x12S\n\tbackfills\x18\x06 \x03(\x0b\x32\x35.chalk.aggregate.v1.AggregateBackfillWithCostEstimateR\tbackfills\x12\x32\n\x15\x61ggregate_backfill_id\x18\x07 \x01(\tR\x13\x61ggregateBackfillId"9\n\x14GetAggregatesRequest\x12!\n\x0c\x66or_features\x18\x01 \x03(\tR\x0b\x66orFeatures"p\n\x15GetAggregatesResponse\x12?\n\x06series\x18\x01 \x03(\x0b\x32\'.chalk.aggregate.v1.AggregateTimeSeriesR\x06series\x12\x16\n\x06\x65rrors\x18\x02 \x03(\tR\x06\x65rrors"\x7f\n\x1fGetAggregateBackfillJobsRequest\x12\x14\n\x05limit\x18\x01 \x01(\x05R\x05limit\x12\x16\n\x06\x63ursor\x18\x02 \x01(\tR\x06\x63ursor\x12 \n\tplan_hash\x18\x03 \x01(\tH\x00R\x08planHash\x88\x01\x01\x42\x0c\n\n_plan_hash"x\n GetAggregateBackfillJobsResponse\x12<\n\x04jobs\x18\x01 \x03(\x0b\x32(.chalk.aggregate.v1.AggregateBackfillJobR\x04jobs\x12\x16\n\x06\x63ursor\x18\x02 \x01(\tR\x06\x63ursor"T\n\x1eGetAggregateBackfillJobRequest\x12\x32\n\x15\x61ggregate_backfill_id\x18\x01 \x01(\tR\x13\x61ggregateBackfillId"]\n\x1fGetAggregateBackfillJobResponse\x12:\n\x03job\x18\x01 \x01(\x0b\x32(.chalk.aggregate.v1.AggregateBackfillJobR\x03job"\x7f\n\x1fGetCronAggregateBackfillRequest\x12?\n\x1a\x63ron_aggregate_backfill_id\x18\x01 \x01(\tB\x02\x18\x01R\x17\x63ronAggregateBackfillId\x12\x1b\n\tplan_hash\x18\x02 \x01(\tR\x08planHash"\x85\x01\n GetCronAggregateBackfillResponse\x12\x61\n\x17\x63ron_aggregate_backfill\x18\x01 \x01(\x0b\x32).chalk.aggregate.v1.CronAggregateBackfillR\x15\x63ronAggregateBackfill"(\n&GetActiveCronAggregateBackfillsRequest"\xd0\x01\n"CronAggregateBackfillWithLatestRun\x12\x61\n\x17\x63ron_aggregate_backfill\x18\x01 \x01(\x0b\x32).chalk.aggregate.v1.CronAggregateBackfillR\x15\x63ronAggregateBackfill\x12G\n\nlatest_job\x18\x02 \x01(\x0b\x32(.chalk.aggregate.v1.AggregateBackfillJobR\tlatestJob"\x9b\x01\n\'GetActiveCronAggregateBackfillsResponse\x12p\n\x18\x63ron_aggregate_backfills\x18\x01 \x03(\x0b\x32\x36.chalk.aggregate.v1.CronAggregateBackfillWithLatestRunR\x16\x63ronAggregateBackfills"\x8d\x04\n!CreateAggregateBackfillJobRequest\x12\x1a\n\x08\x66\x65\x61tures\x18\x01 \x03(\tR\x08\x66\x65\x61tures\x12@\n\x0blower_bound\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x00R\nlowerBound\x88\x01\x01\x12@\n\x0bupper_bound\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\nupperBound\x88\x01\x01\x12\x1f\n\x08resolver\x18\x04 \x01(\tH\x02R\x08resolver\x88\x01\x01\x12*\n\x0e\x62ucket_feature\x18\x05 \x01(\tH\x03R\rbucketFeature\x88\x01\x01\x12)\n\x10\x65nable_profiling\x18\x06 \x01(\x08R\x0f\x65nableProfiling\x12\x37\n\x15\x61ggregate_backfill_id\x18\x07 \x01(\tH\x04R\x13\x61ggregateBackfillId\x88\x01\x01\x12*\n\x0eresource_group\x18\x08 \x01(\tH\x05R\rresourceGroup\x88\x01\x01\x42\x0e\n\x0c_lower_boundB\x0e\n\x0c_upper_boundB\x0b\n\t_resolverB\x11\n\x0f_bucket_featureB\x18\n\x16_aggregate_backfill_idB\x11\n\x0f_resource_group"\x8c\x01\n"CreateAggregateBackfillJobResponse\x12\x15\n\x06job_id\x18\x01 \x01(\tR\x05jobId\x12\x1a\n\x08\x66\x65\x61tures\x18\x02 \x03(\tR\x08\x66\x65\x61tures\x12\x33\n\x06\x65rrors\x18\x03 \x03(\x0b\x32\x1b.chalk.common.v1.ChalkErrorR\x06\x65rrors2\xf8\x07\n\x10\x41ggregateService\x12\x8a\x01\n\x15PlanAggregateBackfill\x12\x30.chalk.aggregate.v1.PlanAggregateBackfillRequest\x1a\x31.chalk.aggregate.v1.PlanAggregateBackfillResponse"\x0c\x90\x02\x01\x80}\x0c\x8a\xd3\x0e\x02\x08\x02\x12r\n\rGetAggregates\x12(.chalk.aggregate.v1.GetAggregatesRequest\x1a).chalk.aggregate.v1.GetAggregatesResponse"\x0c\x90\x02\x01\x80}\x0b\x8a\xd3\x0e\x02\x08\x02\x12\x8d\x01\n\x18GetAggregateBackfillJobs\x12\x33.chalk.aggregate.v1.GetAggregateBackfillJobsRequest\x1a\x34.chalk.aggregate.v1.GetAggregateBackfillJobsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8a\x01\n\x17GetAggregateBackfillJob\x12\x32.chalk.aggregate.v1.GetAggregateBackfillJobRequest\x1a\x33.chalk.aggregate.v1.GetAggregateBackfillJobResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8d\x01\n\x18GetCronAggregateBackfill\x12\x33.chalk.aggregate.v1.GetCronAggregateBackfillRequest\x1a\x34.chalk.aggregate.v1.GetCronAggregateBackfillResponse"\x06\x90\x02\x01\x80}\x0b\x12\xa2\x01\n\x1fGetActiveCronAggregateBackfills\x12:.chalk.aggregate.v1.GetActiveCronAggregateBackfillsRequest\x1a;.chalk.aggregate.v1.GetActiveCronAggregateBackfillsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x90\x01\n\x1a\x43reateAggregateBackfillJob\x12\x35.chalk.aggregate.v1.CreateAggregateBackfillJobRequest\x1a\x36.chalk.aggregate.v1.CreateAggregateBackfillJobResponse"\x03\x80}\x04\x42\xaa\x01\n\x16\x63om.chalk.aggregate.v1B\x0cServiceProtoP\x01Z\x18\x61ggregate/v1;aggregatev1\xa2\x02\x03\x43\x41X\xaa\x02\x12\x43halk.Aggregate.V1\xca\x02\x12\x43halk\\Aggregate\\V1\xe2\x02\x1e\x43halk\\Aggregate\\V1\\GPBMetadata\xea\x02\x14\x43halk::Aggregate::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -59,32 +61,38 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_AGGREGATESERVICE"].methods_by_name[
         "GetActiveCronAggregateBackfills"
     ]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_PLANAGGREGATEBACKFILLREQUEST"]._serialized_start = 188
-    _globals["_PLANAGGREGATEBACKFILLREQUEST"]._serialized_end = 291
-    _globals["_PLANAGGREGATEBACKFILLRESPONSE"]._serialized_start = 294
-    _globals["_PLANAGGREGATEBACKFILLRESPONSE"]._serialized_end = 565
-    _globals["_GETAGGREGATESREQUEST"]._serialized_start = 567
-    _globals["_GETAGGREGATESREQUEST"]._serialized_end = 624
-    _globals["_GETAGGREGATESRESPONSE"]._serialized_start = 626
-    _globals["_GETAGGREGATESRESPONSE"]._serialized_end = 738
-    _globals["_GETAGGREGATEBACKFILLJOBSREQUEST"]._serialized_start = 740
-    _globals["_GETAGGREGATEBACKFILLJOBSREQUEST"]._serialized_end = 867
-    _globals["_GETAGGREGATEBACKFILLJOBSRESPONSE"]._serialized_start = 869
-    _globals["_GETAGGREGATEBACKFILLJOBSRESPONSE"]._serialized_end = 989
-    _globals["_GETAGGREGATEBACKFILLJOBREQUEST"]._serialized_start = 991
-    _globals["_GETAGGREGATEBACKFILLJOBREQUEST"]._serialized_end = 1075
-    _globals["_GETAGGREGATEBACKFILLJOBRESPONSE"]._serialized_start = 1077
-    _globals["_GETAGGREGATEBACKFILLJOBRESPONSE"]._serialized_end = 1170
-    _globals["_GETCRONAGGREGATEBACKFILLREQUEST"]._serialized_start = 1172
-    _globals["_GETCRONAGGREGATEBACKFILLREQUEST"]._serialized_end = 1299
-    _globals["_GETCRONAGGREGATEBACKFILLRESPONSE"]._serialized_start = 1302
-    _globals["_GETCRONAGGREGATEBACKFILLRESPONSE"]._serialized_end = 1435
-    _globals["_GETACTIVECRONAGGREGATEBACKFILLSREQUEST"]._serialized_start = 1437
-    _globals["_GETACTIVECRONAGGREGATEBACKFILLSREQUEST"]._serialized_end = 1477
-    _globals["_CRONAGGREGATEBACKFILLWITHLATESTRUN"]._serialized_start = 1480
-    _globals["_CRONAGGREGATEBACKFILLWITHLATESTRUN"]._serialized_end = 1688
-    _globals["_GETACTIVECRONAGGREGATEBACKFILLSRESPONSE"]._serialized_start = 1691
-    _globals["_GETACTIVECRONAGGREGATEBACKFILLSRESPONSE"]._serialized_end = 1846
-    _globals["_AGGREGATESERVICE"]._serialized_start = 1849
-    _globals["_AGGREGATESERVICE"]._serialized_end = 2718
+    _globals["_AGGREGATESERVICE"].methods_by_name["CreateAggregateBackfillJob"]._options = None
+    _globals["_AGGREGATESERVICE"].methods_by_name["CreateAggregateBackfillJob"]._serialized_options = b"\200}\004"
+    _globals["_PLANAGGREGATEBACKFILLREQUEST"]._serialized_start = 256
+    _globals["_PLANAGGREGATEBACKFILLREQUEST"]._serialized_end = 359
+    _globals["_PLANAGGREGATEBACKFILLRESPONSE"]._serialized_start = 362
+    _globals["_PLANAGGREGATEBACKFILLRESPONSE"]._serialized_end = 633
+    _globals["_GETAGGREGATESREQUEST"]._serialized_start = 635
+    _globals["_GETAGGREGATESREQUEST"]._serialized_end = 692
+    _globals["_GETAGGREGATESRESPONSE"]._serialized_start = 694
+    _globals["_GETAGGREGATESRESPONSE"]._serialized_end = 806
+    _globals["_GETAGGREGATEBACKFILLJOBSREQUEST"]._serialized_start = 808
+    _globals["_GETAGGREGATEBACKFILLJOBSREQUEST"]._serialized_end = 935
+    _globals["_GETAGGREGATEBACKFILLJOBSRESPONSE"]._serialized_start = 937
+    _globals["_GETAGGREGATEBACKFILLJOBSRESPONSE"]._serialized_end = 1057
+    _globals["_GETAGGREGATEBACKFILLJOBREQUEST"]._serialized_start = 1059
+    _globals["_GETAGGREGATEBACKFILLJOBREQUEST"]._serialized_end = 1143
+    _globals["_GETAGGREGATEBACKFILLJOBRESPONSE"]._serialized_start = 1145
+    _globals["_GETAGGREGATEBACKFILLJOBRESPONSE"]._serialized_end = 1238
+    _globals["_GETCRONAGGREGATEBACKFILLREQUEST"]._serialized_start = 1240
+    _globals["_GETCRONAGGREGATEBACKFILLREQUEST"]._serialized_end = 1367
+    _globals["_GETCRONAGGREGATEBACKFILLRESPONSE"]._serialized_start = 1370
+    _globals["_GETCRONAGGREGATEBACKFILLRESPONSE"]._serialized_end = 1503
+    _globals["_GETACTIVECRONAGGREGATEBACKFILLSREQUEST"]._serialized_start = 1505
+    _globals["_GETACTIVECRONAGGREGATEBACKFILLSREQUEST"]._serialized_end = 1545
+    _globals["_CRONAGGREGATEBACKFILLWITHLATESTRUN"]._serialized_start = 1548
+    _globals["_CRONAGGREGATEBACKFILLWITHLATESTRUN"]._serialized_end = 1756
+    _globals["_GETACTIVECRONAGGREGATEBACKFILLSRESPONSE"]._serialized_start = 1759
+    _globals["_GETACTIVECRONAGGREGATEBACKFILLSRESPONSE"]._serialized_end = 1914
+    _globals["_CREATEAGGREGATEBACKFILLJOBREQUEST"]._serialized_start = 1917
+    _globals["_CREATEAGGREGATEBACKFILLJOBREQUEST"]._serialized_end = 2442
+    _globals["_CREATEAGGREGATEBACKFILLJOBRESPONSE"]._serialized_start = 2445
+    _globals["_CREATEAGGREGATEBACKFILLJOBRESPONSE"]._serialized_end = 2585
+    _globals["_AGGREGATESERVICE"]._serialized_start = 2588
+    _globals["_AGGREGATESERVICE"]._serialized_end = 3604
 # @@protoc_insertion_point(module_scope)

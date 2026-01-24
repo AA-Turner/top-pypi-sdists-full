@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -24,13 +25,17 @@ from botocore.response import StreamingBody
 
 from .literals import (
     AuthenticationTypeType,
+    CategoryType,
+    ColorThemeType,
     EnabledTypeType,
     EventType,
     FolderStructureType,
     IdentityProviderTypeType,
     InstanceTypeType,
+    LocaleType,
     LogFileFormatType,
     MaxDisplayResolutionType,
+    MimeTypeType,
     PortalStatusType,
     SessionSortByType,
     SessionStatusType,
@@ -39,12 +44,6 @@ from .literals import (
     VisualModeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -69,6 +68,9 @@ __all__ = (
     "AssociateUserSettingsRequestTypeDef",
     "AssociateUserSettingsResponseTypeDef",
     "BlobTypeDef",
+    "BrandingConfigurationCreateInputTypeDef",
+    "BrandingConfigurationTypeDef",
+    "BrandingConfigurationUpdateInputTypeDef",
     "BrowserSettingsSummaryTypeDef",
     "BrowserSettingsTypeDef",
     "CertificateSummaryTypeDef",
@@ -148,8 +150,10 @@ __all__ = (
     "GetUserAccessLoggingSettingsResponseTypeDef",
     "GetUserSettingsRequestTypeDef",
     "GetUserSettingsResponseTypeDef",
+    "IconImageInputTypeDef",
     "IdentityProviderSummaryTypeDef",
     "IdentityProviderTypeDef",
+    "ImageMetadataTypeDef",
     "InlineRedactionConfigurationOutputTypeDef",
     "InlineRedactionConfigurationTypeDef",
     "InlineRedactionConfigurationUnionTypeDef",
@@ -187,6 +191,7 @@ __all__ = (
     "ListUserAccessLoggingSettingsResponseTypeDef",
     "ListUserSettingsRequestTypeDef",
     "ListUserSettingsResponseTypeDef",
+    "LocalizedBrandingStringsTypeDef",
     "LogConfigurationTypeDef",
     "NetworkSettingsSummaryTypeDef",
     "NetworkSettingsTypeDef",
@@ -232,6 +237,10 @@ __all__ = (
     "UserAccessLoggingSettingsTypeDef",
     "UserSettingsSummaryTypeDef",
     "UserSettingsTypeDef",
+    "WallpaperImageInputTypeDef",
+    "WebContentFilteringPolicyOutputTypeDef",
+    "WebContentFilteringPolicyTypeDef",
+    "WebContentFilteringPolicyUnionTypeDef",
 )
 
 
@@ -243,7 +252,7 @@ class AssociateBrowserSettingsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -286,16 +295,31 @@ class AssociateUserSettingsRequestTypeDef(TypedDict):
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
+class LocalizedBrandingStringsTypeDef(TypedDict):
+    browserTabTitle: str
+    welcomeText: str
+    loginTitle: NotRequired[str]
+    loginDescription: NotRequired[str]
+    loginButtonText: NotRequired[str]
+    contactLink: NotRequired[str]
+    contactButtonText: NotRequired[str]
+    loadingText: NotRequired[str]
+
+
+class ImageMetadataTypeDef(TypedDict):
+    mimeType: MimeTypeType
+    fileExtension: str
+    lastUploadTimestamp: datetime
+
+
 class BrowserSettingsSummaryTypeDef(TypedDict):
     browserSettingsArn: str
 
 
-class BrowserSettingsTypeDef(TypedDict):
-    browserSettingsArn: str
-    associatedPortalArns: NotRequired[List[str]]
-    browserPolicy: NotRequired[str]
-    customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Dict[str, str]]
+class WebContentFilteringPolicyOutputTypeDef(TypedDict):
+    blockedCategories: NotRequired[list[CategoryType]]
+    allowedUrls: NotRequired[list[str]]
+    blockedUrls: NotRequired[list[str]]
 
 
 class CertificateSummaryTypeDef(TypedDict):
@@ -420,8 +444,8 @@ class DisassociateUserSettingsRequestTypeDef(TypedDict):
 EventFilterOutputTypeDef = TypedDict(
     "EventFilterOutputTypeDef",
     {
-        "all": NotRequired[Dict[str, Any]],
-        "include": NotRequired[List[EventType]],
+        "all": NotRequired[dict[str, Any]],
+        "include": NotRequired[list[EventType]],
     },
 )
 EventFilterTypeDef = TypedDict(
@@ -454,7 +478,7 @@ class IdentityProviderTypeDef(TypedDict):
     identityProviderArn: str
     identityProviderName: NotRequired[str]
     identityProviderType: NotRequired[IdentityProviderTypeType]
-    identityProviderDetails: NotRequired[Dict[str, str]]
+    identityProviderDetails: NotRequired[dict[str, str]]
 
 
 class GetIpAccessSettingsRequestTypeDef(TypedDict):
@@ -467,10 +491,10 @@ class GetNetworkSettingsRequestTypeDef(TypedDict):
 
 class NetworkSettingsTypeDef(TypedDict):
     networkSettingsArn: str
-    associatedPortalArns: NotRequired[List[str]]
+    associatedPortalArns: NotRequired[list[str]]
     vpcId: NotRequired[str]
-    subnetIds: NotRequired[List[str]]
-    securityGroupIds: NotRequired[List[str]]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
 
 
 class GetPortalRequestTypeDef(TypedDict):
@@ -496,7 +520,7 @@ class PortalTypeDef(TypedDict):
     authenticationType: NotRequired[AuthenticationTypeType]
     ipAccessSettingsArn: NotRequired[str]
     customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Dict[str, str]]
+    additionalEncryptionContext: NotRequired[dict[str, str]]
     instanceType: NotRequired[InstanceTypeType]
     maxConcurrentSessions: NotRequired[int]
 
@@ -518,7 +542,7 @@ class SessionTypeDef(TypedDict):
     portalArn: NotRequired[str]
     sessionId: NotRequired[str]
     username: NotRequired[str]
-    clientIpAddresses: NotRequired[List[str]]
+    clientIpAddresses: NotRequired[list[str]]
     status: NotRequired[SessionStatusType]
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
@@ -535,7 +559,7 @@ class GetTrustStoreRequestTypeDef(TypedDict):
 
 class TrustStoreTypeDef(TypedDict):
     trustStoreArn: str
-    associatedPortalArns: NotRequired[List[str]]
+    associatedPortalArns: NotRequired[list[str]]
 
 
 class GetUserAccessLoggingSettingsRequestTypeDef(TypedDict):
@@ -544,7 +568,7 @@ class GetUserAccessLoggingSettingsRequestTypeDef(TypedDict):
 
 class UserAccessLoggingSettingsTypeDef(TypedDict):
     userAccessLoggingSettingsArn: str
-    associatedPortalArns: NotRequired[List[str]]
+    associatedPortalArns: NotRequired[list[str]]
     kinesisStreamArn: NotRequired[str]
 
 
@@ -702,7 +726,7 @@ class S3LogConfigurationTypeDef(TypedDict):
 class ToolbarConfigurationOutputTypeDef(TypedDict):
     toolbarType: NotRequired[ToolbarTypeType]
     visualMode: NotRequired[VisualModeType]
-    hiddenToolbarItems: NotRequired[List[ToolbarItemType]]
+    hiddenToolbarItems: NotRequired[list[ToolbarItemType]]
     maxDisplayResolution: NotRequired[MaxDisplayResolutionType]
 
 
@@ -716,12 +740,6 @@ class ToolbarConfigurationTypeDef(TypedDict):
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
-
-
-class UpdateBrowserSettingsRequestTypeDef(TypedDict):
-    browserSettingsArn: str
-    browserPolicy: NotRequired[str]
-    clientToken: NotRequired[str]
 
 
 class UpdateIdentityProviderRequestTypeDef(TypedDict):
@@ -752,6 +770,12 @@ class UpdateUserAccessLoggingSettingsRequestTypeDef(TypedDict):
     userAccessLoggingSettingsArn: str
     kinesisStreamArn: NotRequired[str]
     clientToken: NotRequired[str]
+
+
+class WebContentFilteringPolicyTypeDef(TypedDict):
+    blockedCategories: NotRequired[Sequence[CategoryType]]
+    allowedUrls: NotRequired[Sequence[str]]
+    blockedUrls: NotRequired[Sequence[str]]
 
 
 class AssociateBrowserSettingsResponseTypeDef(TypedDict):
@@ -864,6 +888,11 @@ class UpdateTrustStoreResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class IconImageInputTypeDef(TypedDict):
+    blob: NotRequired[BlobTypeDef]
+    s3Uri: NotRequired[str]
+
+
 class UpdateTrustStoreRequestTypeDef(TypedDict):
     trustStoreArn: str
     certificatesToAdd: NotRequired[Sequence[BlobTypeDef]]
@@ -871,24 +900,37 @@ class UpdateTrustStoreRequestTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class WallpaperImageInputTypeDef(TypedDict):
+    blob: NotRequired[BlobTypeDef]
+    s3Uri: NotRequired[str]
+
+
+class BrandingConfigurationTypeDef(TypedDict):
+    logo: ImageMetadataTypeDef
+    wallpaper: ImageMetadataTypeDef
+    favicon: ImageMetadataTypeDef
+    localizedStrings: dict[LocaleType, LocalizedBrandingStringsTypeDef]
+    colorTheme: ColorThemeType
+    termsOfService: NotRequired[str]
+
+
 class ListBrowserSettingsResponseTypeDef(TypedDict):
-    browserSettings: List[BrowserSettingsSummaryTypeDef]
+    browserSettings: list[BrowserSettingsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
-class GetBrowserSettingsResponseTypeDef(TypedDict):
-    browserSettings: BrowserSettingsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateBrowserSettingsResponseTypeDef(TypedDict):
-    browserSettings: BrowserSettingsTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class BrowserSettingsTypeDef(TypedDict):
+    browserSettingsArn: str
+    associatedPortalArns: NotRequired[list[str]]
+    browserPolicy: NotRequired[str]
+    customerManagedKey: NotRequired[str]
+    additionalEncryptionContext: NotRequired[dict[str, str]]
+    webContentFilteringPolicy: NotRequired[WebContentFilteringPolicyOutputTypeDef]
 
 
 class ListTrustStoreCertificatesResponseTypeDef(TypedDict):
-    certificateList: List[CertificateSummaryTypeDef]
+    certificateList: list[CertificateSummaryTypeDef]
     trustStoreArn: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -901,21 +943,13 @@ class GetTrustStoreCertificateResponseTypeDef(TypedDict):
 
 
 class CookieSynchronizationConfigurationOutputTypeDef(TypedDict):
-    allowlist: List[CookieSpecificationTypeDef]
-    blocklist: NotRequired[List[CookieSpecificationTypeDef]]
+    allowlist: list[CookieSpecificationTypeDef]
+    blocklist: NotRequired[list[CookieSpecificationTypeDef]]
 
 
 class CookieSynchronizationConfigurationTypeDef(TypedDict):
     allowlist: Sequence[CookieSpecificationTypeDef]
     blocklist: NotRequired[Sequence[CookieSpecificationTypeDef]]
-
-
-class CreateBrowserSettingsRequestTypeDef(TypedDict):
-    browserPolicy: str
-    tags: NotRequired[Sequence[TagTypeDef]]
-    customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Mapping[str, str]]
-    clientToken: NotRequired[str]
 
 
 class CreateIdentityProviderRequestTypeDef(TypedDict):
@@ -959,7 +993,7 @@ class CreateUserAccessLoggingSettingsRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -981,13 +1015,13 @@ class CreateIpAccessSettingsRequestTypeDef(TypedDict):
 
 class IpAccessSettingsTypeDef(TypedDict):
     ipAccessSettingsArn: str
-    associatedPortalArns: NotRequired[List[str]]
-    ipRules: NotRequired[List[IpRuleTypeDef]]
+    associatedPortalArns: NotRequired[list[str]]
+    ipRules: NotRequired[list[IpRuleTypeDef]]
     displayName: NotRequired[str]
     description: NotRequired[str]
     creationDate: NotRequired[datetime]
     customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Dict[str, str]]
+    additionalEncryptionContext: NotRequired[dict[str, str]]
 
 
 class UpdateIpAccessSettingsRequestTypeDef(TypedDict):
@@ -999,7 +1033,7 @@ class UpdateIpAccessSettingsRequestTypeDef(TypedDict):
 
 
 class ListDataProtectionSettingsResponseTypeDef(TypedDict):
-    dataProtectionSettings: List[DataProtectionSettingsSummaryTypeDef]
+    dataProtectionSettings: list[DataProtectionSettingsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1058,7 +1092,7 @@ class UpdateUserAccessLoggingSettingsResponseTypeDef(TypedDict):
 
 
 class ListIdentityProvidersResponseTypeDef(TypedDict):
-    identityProviders: List[IdentityProviderSummaryTypeDef]
+    identityProviders: list[IdentityProviderSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1067,8 +1101,8 @@ class InlineRedactionPatternOutputTypeDef(TypedDict):
     redactionPlaceHolder: RedactionPlaceHolderTypeDef
     builtInPatternId: NotRequired[str]
     customPattern: NotRequired[CustomPatternTypeDef]
-    enforcedUrls: NotRequired[List[str]]
-    exemptUrls: NotRequired[List[str]]
+    enforcedUrls: NotRequired[list[str]]
+    exemptUrls: NotRequired[list[str]]
     confidenceLevel: NotRequired[int]
 
 
@@ -1082,7 +1116,7 @@ class InlineRedactionPatternTypeDef(TypedDict):
 
 
 class ListIpAccessSettingsResponseTypeDef(TypedDict):
-    ipAccessSettings: List[IpAccessSettingsSummaryTypeDef]
+    ipAccessSettings: list[IpAccessSettingsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1105,31 +1139,31 @@ class ListSessionsRequestPaginateTypeDef(TypedDict):
 
 
 class ListNetworkSettingsResponseTypeDef(TypedDict):
-    networkSettings: List[NetworkSettingsSummaryTypeDef]
+    networkSettings: list[NetworkSettingsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPortalsResponseTypeDef(TypedDict):
-    portals: List[PortalSummaryTypeDef]
+    portals: list[PortalSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSessionsResponseTypeDef(TypedDict):
-    sessions: List[SessionSummaryTypeDef]
+    sessions: list[SessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTrustStoresResponseTypeDef(TypedDict):
-    trustStores: List[TrustStoreSummaryTypeDef]
+    trustStores: list[TrustStoreSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListUserAccessLoggingSettingsResponseTypeDef(TypedDict):
-    userAccessLoggingSettings: List[UserAccessLoggingSettingsSummaryTypeDef]
+    userAccessLoggingSettings: list[UserAccessLoggingSettingsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1141,6 +1175,37 @@ class LogConfigurationTypeDef(TypedDict):
 ToolbarConfigurationUnionTypeDef = Union[
     ToolbarConfigurationTypeDef, ToolbarConfigurationOutputTypeDef
 ]
+WebContentFilteringPolicyUnionTypeDef = Union[
+    WebContentFilteringPolicyTypeDef, WebContentFilteringPolicyOutputTypeDef
+]
+
+
+class BrandingConfigurationCreateInputTypeDef(TypedDict):
+    logo: IconImageInputTypeDef
+    wallpaper: WallpaperImageInputTypeDef
+    favicon: IconImageInputTypeDef
+    localizedStrings: Mapping[LocaleType, LocalizedBrandingStringsTypeDef]
+    colorTheme: ColorThemeType
+    termsOfService: NotRequired[str]
+
+
+class BrandingConfigurationUpdateInputTypeDef(TypedDict):
+    logo: NotRequired[IconImageInputTypeDef]
+    wallpaper: NotRequired[WallpaperImageInputTypeDef]
+    favicon: NotRequired[IconImageInputTypeDef]
+    localizedStrings: NotRequired[Mapping[LocaleType, LocalizedBrandingStringsTypeDef]]
+    colorTheme: NotRequired[ColorThemeType]
+    termsOfService: NotRequired[str]
+
+
+class GetBrowserSettingsResponseTypeDef(TypedDict):
+    browserSettings: BrowserSettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateBrowserSettingsResponseTypeDef(TypedDict):
+    browserSettings: BrowserSettingsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UserSettingsSummaryTypeDef(TypedDict):
@@ -1155,11 +1220,13 @@ class UserSettingsSummaryTypeDef(TypedDict):
     cookieSynchronizationConfiguration: NotRequired[CookieSynchronizationConfigurationOutputTypeDef]
     deepLinkAllowed: NotRequired[EnabledTypeType]
     toolbarConfiguration: NotRequired[ToolbarConfigurationOutputTypeDef]
+    brandingConfiguration: NotRequired[BrandingConfigurationTypeDef]
+    webAuthnAllowed: NotRequired[EnabledTypeType]
 
 
 class UserSettingsTypeDef(TypedDict):
     userSettingsArn: str
-    associatedPortalArns: NotRequired[List[str]]
+    associatedPortalArns: NotRequired[list[str]]
     copyAllowed: NotRequired[EnabledTypeType]
     pasteAllowed: NotRequired[EnabledTypeType]
     downloadAllowed: NotRequired[EnabledTypeType]
@@ -1169,9 +1236,11 @@ class UserSettingsTypeDef(TypedDict):
     idleDisconnectTimeoutInMinutes: NotRequired[int]
     cookieSynchronizationConfiguration: NotRequired[CookieSynchronizationConfigurationOutputTypeDef]
     customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Dict[str, str]]
+    additionalEncryptionContext: NotRequired[dict[str, str]]
     deepLinkAllowed: NotRequired[EnabledTypeType]
     toolbarConfiguration: NotRequired[ToolbarConfigurationOutputTypeDef]
+    brandingConfiguration: NotRequired[BrandingConfigurationTypeDef]
+    webAuthnAllowed: NotRequired[EnabledTypeType]
 
 
 CookieSynchronizationConfigurationUnionTypeDef = Union[
@@ -1190,9 +1259,9 @@ class UpdateIpAccessSettingsResponseTypeDef(TypedDict):
 
 
 class InlineRedactionConfigurationOutputTypeDef(TypedDict):
-    inlineRedactionPatterns: List[InlineRedactionPatternOutputTypeDef]
-    globalEnforcedUrls: NotRequired[List[str]]
-    globalExemptUrls: NotRequired[List[str]]
+    inlineRedactionPatterns: list[InlineRedactionPatternOutputTypeDef]
+    globalEnforcedUrls: NotRequired[list[str]]
+    globalExemptUrls: NotRequired[list[str]]
     globalConfidenceLevel: NotRequired[int]
 
 
@@ -1225,8 +1294,8 @@ class SessionLoggerTypeDef(TypedDict):
     eventFilter: NotRequired[EventFilterOutputTypeDef]
     logConfiguration: NotRequired[LogConfigurationTypeDef]
     customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Dict[str, str]]
-    associatedPortalArns: NotRequired[List[str]]
+    additionalEncryptionContext: NotRequired[dict[str, str]]
+    associatedPortalArns: NotRequired[list[str]]
     displayName: NotRequired[str]
     creationDate: NotRequired[datetime]
 
@@ -1238,8 +1307,24 @@ class UpdateSessionLoggerRequestTypeDef(TypedDict):
     displayName: NotRequired[str]
 
 
+class CreateBrowserSettingsRequestTypeDef(TypedDict):
+    tags: NotRequired[Sequence[TagTypeDef]]
+    customerManagedKey: NotRequired[str]
+    additionalEncryptionContext: NotRequired[Mapping[str, str]]
+    browserPolicy: NotRequired[str]
+    clientToken: NotRequired[str]
+    webContentFilteringPolicy: NotRequired[WebContentFilteringPolicyUnionTypeDef]
+
+
+class UpdateBrowserSettingsRequestTypeDef(TypedDict):
+    browserSettingsArn: str
+    browserPolicy: NotRequired[str]
+    clientToken: NotRequired[str]
+    webContentFilteringPolicy: NotRequired[WebContentFilteringPolicyUnionTypeDef]
+
+
 class ListUserSettingsResponseTypeDef(TypedDict):
-    userSettings: List[UserSettingsSummaryTypeDef]
+    userSettings: list[UserSettingsSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1269,6 +1354,8 @@ class CreateUserSettingsRequestTypeDef(TypedDict):
     additionalEncryptionContext: NotRequired[Mapping[str, str]]
     deepLinkAllowed: NotRequired[EnabledTypeType]
     toolbarConfiguration: NotRequired[ToolbarConfigurationUnionTypeDef]
+    brandingConfigurationInput: NotRequired[BrandingConfigurationCreateInputTypeDef]
+    webAuthnAllowed: NotRequired[EnabledTypeType]
 
 
 class UpdateUserSettingsRequestTypeDef(TypedDict):
@@ -1284,17 +1371,19 @@ class UpdateUserSettingsRequestTypeDef(TypedDict):
     cookieSynchronizationConfiguration: NotRequired[CookieSynchronizationConfigurationUnionTypeDef]
     deepLinkAllowed: NotRequired[EnabledTypeType]
     toolbarConfiguration: NotRequired[ToolbarConfigurationUnionTypeDef]
+    brandingConfigurationInput: NotRequired[BrandingConfigurationUpdateInputTypeDef]
+    webAuthnAllowed: NotRequired[EnabledTypeType]
 
 
 class DataProtectionSettingsTypeDef(TypedDict):
     dataProtectionSettingsArn: str
     inlineRedactionConfiguration: NotRequired[InlineRedactionConfigurationOutputTypeDef]
-    associatedPortalArns: NotRequired[List[str]]
+    associatedPortalArns: NotRequired[list[str]]
     displayName: NotRequired[str]
     description: NotRequired[str]
     creationDate: NotRequired[datetime]
     customerManagedKey: NotRequired[str]
-    additionalEncryptionContext: NotRequired[Dict[str, str]]
+    additionalEncryptionContext: NotRequired[dict[str, str]]
 
 
 InlineRedactionConfigurationUnionTypeDef = Union[
@@ -1303,7 +1392,7 @@ InlineRedactionConfigurationUnionTypeDef = Union[
 
 
 class ListSessionLoggersResponseTypeDef(TypedDict):
-    sessionLoggers: List[SessionLoggerSummaryTypeDef]
+    sessionLoggers: list[SessionLoggerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

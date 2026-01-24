@@ -25,9 +25,11 @@ class AdCreativeDestinationSpec(
 
     class Field(AbstractObject.Field):
         destination_type = 'destination_type'
+        website = 'website'
 
     _field_types = {
         'destination_type': 'string',
+        'website': 'Object',
     }
     @classmethod
     def _get_field_enum_info(cls):

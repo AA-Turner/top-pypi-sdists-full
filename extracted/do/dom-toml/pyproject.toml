@@ -3,8 +3,8 @@ requires = [ "flit-core<4,>=3.2",]
 build-backend = "flit_core.buildapi"
 
 [project]
-name = "dom_toml"
-version = "2.1.0"
+name = "dom-toml"
+version = "2.3.0"
 description = "Dom's tools for Tom's Obvious, Minimal Language."
 readme = "README.rst"
 requires-python = ">=3.7"
@@ -44,10 +44,9 @@ Homepage = "https://github.com/domdfcoding/dom_toml"
 "Source Code" = "https://github.com/domdfcoding/dom_toml"
 Documentation = "https://dom-toml.readthedocs.io/en/latest"
 
-[tool.mkrecipe]
-conda-channels = [ "conda-forge", "domdfcoding",]
-extras = "all"
-license-key = "MIT"
+[project.optional-dependencies]
+config = [ "attrs>=23.1.0", "tomli-w>=1.0.0", "typing-extensions>=4.7.1",]
+all = [ "attrs>=23.1.0", "tomli-w>=1.0.0", "typing-extensions>=4.7.1",]
 
 [tool.sphinx-pyproject]
 github_username = "domdfcoding"
@@ -138,9 +137,10 @@ python-versions = [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13",]
 python-implementations = [ "CPython", "PyPy",]
 platforms = [ "Windows", "macOS", "Linux",]
 license-key = "MIT"
+package = "dom_toml"
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 namespace_packages = true
 check_untyped_defs = true
 warn_unused_ignores = true

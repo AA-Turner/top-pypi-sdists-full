@@ -3,7 +3,7 @@ Type annotations for ivs service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ivs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -37,12 +38,6 @@ from .literals import (
     TranscodePresetType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -175,7 +170,7 @@ class BatchGetChannelRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -187,7 +182,7 @@ class BatchGetStreamKeyRequestTypeDef(TypedDict):
 class StreamKeyTypeDef(TypedDict):
     arn: NotRequired[str]
     channelArn: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     value: NotRequired[str]
 
 
@@ -215,7 +210,7 @@ ChannelSummaryTypeDef = TypedDict(
         "playbackRestrictionPolicyArn": NotRequired[str],
         "preset": NotRequired[TranscodePresetType],
         "recordingConfigurationArn": NotRequired[str],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "type": NotRequired[ChannelTypeType],
     },
 )
@@ -241,12 +236,12 @@ class CreatePlaybackRestrictionPolicyRequestTypeDef(TypedDict):
 
 
 class PlaybackRestrictionPolicyTypeDef(TypedDict):
-    allowedCountries: List[str]
-    allowedOrigins: List[str]
+    allowedCountries: list[str]
+    allowedOrigins: list[str]
     arn: str
     enableStrictOriginEnforcement: NotRequired[bool]
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class CreateStreamKeyRequestTypeDef(TypedDict):
@@ -290,7 +285,7 @@ class PlaybackKeyPairTypeDef(TypedDict):
     arn: NotRequired[str]
     fingerprint: NotRequired[str]
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class GetPlaybackRestrictionPolicyRequestTypeDef(TypedDict):
@@ -366,7 +361,7 @@ class ListPlaybackKeyPairsRequestTypeDef(TypedDict):
 class PlaybackKeyPairSummaryTypeDef(TypedDict):
     arn: NotRequired[str]
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListPlaybackRestrictionPoliciesRequestTypeDef(TypedDict):
@@ -375,12 +370,12 @@ class ListPlaybackRestrictionPoliciesRequestTypeDef(TypedDict):
 
 
 class PlaybackRestrictionPolicySummaryTypeDef(TypedDict):
-    allowedCountries: List[str]
-    allowedOrigins: List[str]
+    allowedCountries: list[str]
+    allowedOrigins: list[str]
     arn: str
     enableStrictOriginEnforcement: NotRequired[bool]
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListRecordingConfigurationsRequestTypeDef(TypedDict):
@@ -397,7 +392,7 @@ class ListStreamKeysRequestTypeDef(TypedDict):
 class StreamKeySummaryTypeDef(TypedDict):
     arn: NotRequired[str]
     channelArn: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ListStreamSessionsRequestTypeDef(TypedDict):
@@ -437,13 +432,13 @@ class PutMetadataRequestTypeDef(TypedDict):
 
 class RenditionConfigurationOutputTypeDef(TypedDict):
     renditionSelection: NotRequired[RenditionConfigurationRenditionSelectionType]
-    renditions: NotRequired[List[RenditionConfigurationRenditionType]]
+    renditions: NotRequired[list[RenditionConfigurationRenditionType]]
 
 
 class ThumbnailConfigurationOutputTypeDef(TypedDict):
     recordingMode: NotRequired[RecordingModeType]
     resolution: NotRequired[ThumbnailConfigurationResolutionType]
-    storage: NotRequired[List[ThumbnailConfigurationStorageType]]
+    storage: NotRequired[list[ThumbnailConfigurationStorageType]]
     targetIntervalSeconds: NotRequired[int]
 
 
@@ -503,13 +498,13 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class BatchGetStreamKeyResponseTypeDef(TypedDict):
-    errors: List[BatchErrorTypeDef]
-    streamKeys: List[StreamKeyTypeDef]
+    errors: list[BatchErrorTypeDef]
+    streamKeys: list[StreamKeyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -524,7 +519,7 @@ class GetStreamKeyResponseTypeDef(TypedDict):
 
 
 class BatchStartViewerSessionRevocationResponseTypeDef(TypedDict):
-    errors: List[BatchStartViewerSessionRevocationErrorTypeDef]
+    errors: list[BatchStartViewerSessionRevocationErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -533,7 +528,7 @@ class BatchStartViewerSessionRevocationRequestTypeDef(TypedDict):
 
 
 class ListChannelsResponseTypeDef(TypedDict):
-    channels: List[ChannelSummaryTypeDef]
+    channels: list[ChannelSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -586,7 +581,7 @@ ChannelTypeDef = TypedDict(
         "preset": NotRequired[TranscodePresetType],
         "recordingConfigurationArn": NotRequired[str],
         "srt": NotRequired[SrtTypeDef],
-        "tags": NotRequired[Dict[str, str]],
+        "tags": NotRequired[dict[str, str]],
         "type": NotRequired[ChannelTypeType],
     },
 )
@@ -632,8 +627,8 @@ class IngestConfigurationTypeDef(TypedDict):
 
 
 class IngestConfigurationsTypeDef(TypedDict):
-    audioConfigurations: List[AudioConfigurationTypeDef]
-    videoConfigurations: List[VideoConfigurationTypeDef]
+    audioConfigurations: list[AudioConfigurationTypeDef]
+    videoConfigurations: list[VideoConfigurationTypeDef]
 
 
 class ListChannelsRequestPaginateTypeDef(TypedDict):
@@ -657,25 +652,25 @@ class ListStreamKeysRequestPaginateTypeDef(TypedDict):
 
 
 class ListPlaybackKeyPairsResponseTypeDef(TypedDict):
-    keyPairs: List[PlaybackKeyPairSummaryTypeDef]
+    keyPairs: list[PlaybackKeyPairSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPlaybackRestrictionPoliciesResponseTypeDef(TypedDict):
-    playbackRestrictionPolicies: List[PlaybackRestrictionPolicySummaryTypeDef]
+    playbackRestrictionPolicies: list[PlaybackRestrictionPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStreamKeysResponseTypeDef(TypedDict):
-    streamKeys: List[StreamKeySummaryTypeDef]
+    streamKeys: list[StreamKeySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListStreamSessionsResponseTypeDef(TypedDict):
-    streamSessions: List[StreamSessionSummaryTypeDef]
+    streamSessions: list[StreamSessionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -692,7 +687,7 @@ class ListStreamsRequestTypeDef(TypedDict):
 
 
 class ListStreamsResponseTypeDef(TypedDict):
-    streams: List[StreamSummaryTypeDef]
+    streams: list[StreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -706,8 +701,8 @@ ThumbnailConfigurationUnionTypeDef = Union[
 
 
 class BatchGetChannelResponseTypeDef(TypedDict):
-    channels: List[ChannelTypeDef]
-    errors: List[BatchErrorTypeDef]
+    channels: list[ChannelTypeDef]
+    errors: list[BatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -732,7 +727,7 @@ class RecordingConfigurationSummaryTypeDef(TypedDict):
     destinationConfiguration: DestinationConfigurationTypeDef
     state: RecordingConfigurationStateType
     name: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class RecordingConfigurationTypeDef(TypedDict):
@@ -742,7 +737,7 @@ class RecordingConfigurationTypeDef(TypedDict):
     name: NotRequired[str]
     recordingReconnectWindowSeconds: NotRequired[int]
     renditionConfiguration: NotRequired[RenditionConfigurationOutputTypeDef]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     thumbnailConfiguration: NotRequired[ThumbnailConfigurationOutputTypeDef]
 
 
@@ -756,7 +751,7 @@ class CreateRecordingConfigurationRequestTypeDef(TypedDict):
 
 
 class ListRecordingConfigurationsResponseTypeDef(TypedDict):
-    recordingConfigurations: List[RecordingConfigurationSummaryTypeDef]
+    recordingConfigurations: list[RecordingConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -779,7 +774,7 @@ class StreamSessionTypeDef(TypedDict):
     recordingConfiguration: NotRequired[RecordingConfigurationTypeDef]
     startTime: NotRequired[datetime]
     streamId: NotRequired[str]
-    truncatedEvents: NotRequired[List[StreamEventTypeDef]]
+    truncatedEvents: NotRequired[list[StreamEventTypeDef]]
 
 
 class GetStreamSessionResponseTypeDef(TypedDict):

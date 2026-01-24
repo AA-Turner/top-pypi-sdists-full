@@ -17,15 +17,19 @@ name: nox
 
 jobs:
   nox:
-    runs-on: ubuntu-latest
-    name: "Run extra sanity tests"
-    steps:
-      - name: Check out collection
-        uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Run nox
-        uses: ansible-community/antsibull-nox@main
+    uses: ansible-community/antsibull-nox/.github/workflows/reusable-nox-run.yml@main
+    with:
+      session-name: Run extra sanity tests
+      change-detection-in-prs: true
 
   ansible-test:
     uses: ansible-community/antsibull-nox/.github/workflows/reusable-nox-matrix.yml@main
+    with:
+      change-detection-in-prs: true
+      upload-codecov: true
+      upload-codecov-pr: false
+      upload-codecov-push: false
+      upload-codecov-schedule: true
+      max-ansible-core: "2.17"
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

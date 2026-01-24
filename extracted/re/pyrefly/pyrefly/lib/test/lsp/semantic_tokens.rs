@@ -7,18 +7,39 @@
 
 use pretty_assertions::assert_eq;
 
+use crate::state::require::Require;
 use crate::state::semantic_tokens::SemanticTokensLegends;
 use crate::test::util::mk_multi_file_state_assert_no_errors;
 
+fn utf16_to_byte_index(line: &str, utf16_offset: usize) -> usize {
+    if utf16_offset == 0 {
+        return 0;
+    }
+    let mut seen = 0;
+    for (byte_idx, ch) in line.char_indices() {
+        if seen == utf16_offset {
+            return byte_idx;
+        }
+        seen += ch.len_utf16();
+        if seen == utf16_offset {
+            return byte_idx + ch.len_utf8();
+        }
+    }
+    line.len()
+}
+
 fn assert_full_semantic_tokens(files: &[(&'static str, &str)], expected: &str) {
-    let (handles, state) = mk_multi_file_state_assert_no_errors(files);
+    let (handles, state) = mk_multi_file_state_assert_no_errors(files, Require::indexing());
     let mut report = String::new();
     for (name, code) in files {
         report.push_str("# ");
         report.push_str(name);
         report.push_str(".py\n");
         let handle = handles.get(name).unwrap();
-        let tokens = state.transaction().semantic_tokens(handle, None).unwrap();
+        let tokens = state
+            .transaction()
+            .semantic_tokens(handle, None, None)
+            .unwrap();
 
         let mut start_line: usize = 0;
         let mut start_col: usize = 0;
@@ -31,14 +52,19 @@ fn assert_full_semantic_tokens(files: &[(&'static str, &str)], expected: &str) {
             };
             start_line += token.delta_line as usize;
             let line = code.lines().nth(start_line).unwrap();
-            let end = start_col + token.length as usize;
-            let text = if line.len() >= end {
-                &line[start_col..end].to_owned()
+            let token_length = token.length as usize;
+            let end_utf16 = start_col + token_length;
+            let line_utf16_len = line.encode_utf16().count();
+            let text = if end_utf16 <= line_utf16_len {
+                let start_byte = utf16_to_byte_index(line, start_col);
+                let end_byte = utf16_to_byte_index(line, end_utf16);
+                line[start_byte..end_byte].to_owned()
             } else {
-                &format!(
+                let start_byte = utf16_to_byte_index(line, start_col.min(line_utf16_len));
+                format!(
                     "{}... (continues {} characters)",
-                    &line[start_col..],
-                    end - line.len()
+                    &line[start_byte..],
+                    end_utf16 - line_utf16_len
                 )
             };
             report.push_str(&format!(
@@ -141,7 +167,7 @@ line: 3, column: 6, length: 3, text: Foo
 token-type: class
 
 line: 4, column: 6, length: 3, text: bar
-token-type: function
+token-type: method
 
 line: 4, column: 10, length: 4, text: self
 token-type: parameter
@@ -169,6 +195,47 @@ token-type: class
 
 line: 12, column: 13, length: 3, text: bar
 token-type: method
+"#,
+    );
+}
+
+#[test]
+fn deprecated_token_for_disabled_branch() {
+    let code = r#"
+import sys
+
+if sys.version_info < (3, 9):
+    class Legacy:
+        value = 1
+else:
+    class Modern:
+        value = 2
+"#;
+
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 7, length: 3, text: sys
+token-type: namespace
+
+line: 3, column: 3, length: 3, text: sys
+token-type: namespace
+
+line: 3, column: 7, length: 12, text: version_info
+token-type: property
+
+line: 4, column: 10, length: 6, text: Legacy
+token-type: class
+
+line: 5, column: 8, length: 5, text: value
+token-type: variable
+
+line: 7, column: 10, length: 6, text: Modern
+token-type: class
+
+line: 8, column: 8, length: 5, text: value
+token-type: variable
 "#,
     );
 }
@@ -239,7 +306,7 @@ line: 1, column: 6, length: 4, text: Test
 token-type: class
 
 line: 2, column: 8, length: 3, text: foo
-token-type: function
+token-type: method
 
 line: 2, column: 12, length: 4, text: self
 token-type: parameter
@@ -248,7 +315,7 @@ line: 2, column: 21, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]
 
 line: 3, column: 8, length: 3, text: bar
-token-type: function
+token-type: method
 
 line: 3, column: 12, length: 4, text: self
 token-type: parameter
@@ -261,6 +328,9 @@ token-type: class, token-modifiers: [defaultLibrary]
 
 line: 3, column: 29, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]
+
+line: 4, column: 4, length: 1, text: x
+token-type: variable
 
 line: 4, column: 7, length: 3, text: int
 token-type: class, token-modifiers: [defaultLibrary]
@@ -302,7 +372,7 @@ token-type: property
 fn type_alias_test() {
     let code = r#"
 type A = int
-def foo(v: A) -> int: 
+def foo(v: A) -> int:
   return 3
 
 type A2 = A
@@ -376,9 +446,55 @@ token-type: method
 }
 
 #[test]
+fn with_name_test() {
+    let code = r#"
+with open("foo.txt") as f1, open("bar.txt") as f2:
+    pass
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 5, length: 4, text: open
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 1, column: 24, length: 2, text: f1
+token-type: variable
+
+line: 1, column: 28, length: 4, text: open
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 1, column: 47, length: 2, text: f2
+token-type: variable
+"#,
+    );
+}
+
+#[test]
+fn exception_handler_name_test() {
+    let code = r#"
+try:
+    pass
+except Exception as e:
+    pass
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 3, column: 7, length: 9, text: Exception
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 20, length: 1, text: e
+token-type: variable
+"#,
+    );
+}
+
+#[test]
 fn type_param_test() {
     let code = r#"
-def foo[T](v: T) -> T: 
+def foo[T](v: T) -> T:
   return v
 "#;
     assert_full_semantic_tokens(
@@ -493,7 +609,7 @@ line: 1, column: 6, length: 3, text: Foo
 token-type: class
 
 line: 2, column: 8, length: 3, text: foo
-token-type: function
+token-type: method
 
 line: 2, column: 12, length: 4, text: self
 token-type: parameter
@@ -539,6 +655,352 @@ fn assignment_first_line() {
 # main.py
 line: 0, column: 0, length: 3, text: foo
 token-type: variable
+"#,
+    );
+}
+
+// todo(kylei): should be 3 semantic tokens (including after reassignment) #1033
+#[test]
+fn reassignment() {
+    let code = r#"
+foo = 3
+foo += 1
+foo"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 0, length: 3, text: foo
+token-type: variable
+
+line: 2, column: 0, length: 3, text: foo
+token-type: variable"#,
+    );
+}
+
+#[test]
+fn unassigned_attribute() {
+    let code = r#"
+class Test:
+    x: int
+    x: int = 5"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 6, length: 4, text: Test
+token-type: class
+
+line: 2, column: 4, length: 1, text: x
+token-type: variable
+
+line: 2, column: 7, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 4, length: 1, text: x
+token-type: variable
+
+line: 3, column: 7, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]"#,
+    );
+}
+
+#[test]
+fn nested_class() {
+    let code = r#"
+from typing import SupportsFloat
+class Test:
+    class nested: pass
+Test.nested"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+    # main.py
+line: 1, column: 5, length: 6, text: typing
+token-type: namespace
+
+line: 1, column: 19, length: 13, text: SupportsFloat
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 2, column: 6, length: 4, text: Test
+token-type: class
+
+line: 3, column: 10, length: 6, text: nested
+token-type: class
+
+line: 4, column: 0, length: 4, text: Test
+token-type: class
+
+line: 4, column: 5, length: 6, text: nested
+token-type: class"#,
+    );
+}
+
+#[test]
+fn module_dot_access() {
+    let code = r#"
+import typing
+from typing import SupportsFloat
+typing.SupportsFloat
+SupportsFloat"#;
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+    # main.py
+line: 1, column: 7, length: 6, text: typing
+token-type: namespace, token-modifiers: [defaultLibrary]
+
+line: 2, column: 5, length: 6, text: typing
+token-type: namespace
+
+line: 2, column: 19, length: 13, text: SupportsFloat
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 3, column: 0, length: 6, text: typing
+token-type: namespace, token-modifiers: [defaultLibrary]
+
+line: 3, column: 7, length: 13, text: SupportsFloat
+token-type: class
+
+line: 4, column: 0, length: 13, text: SupportsFloat
+token-type: class, token-modifiers: [defaultLibrary]"#,
+    );
+}
+
+#[test]
+fn module_overloaded_function_dot_access() {
+    let lib = r#"
+from typing import overload
+
+@overload
+def foo(a: str) -> None: ...
+@overload
+def foo(a: int) -> None: ...
+def foo(a: str | int) -> None: ...
+"#;
+    let code = r#"
+import lib
+lib.foo
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code), ("lib", lib)],
+        r#"
+# main.py
+line: 1, column: 7, length: 3, text: lib
+token-type: namespace
+
+line: 2, column: 0, length: 3, text: lib
+token-type: namespace
+
+line: 2, column: 4, length: 3, text: foo
+token-type: function
+
+
+# lib.py
+line: 1, column: 5, length: 6, text: typing
+token-type: namespace
+
+line: 1, column: 19, length: 8, text: overload
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 3, column: 1, length: 8, text: overload
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 4, column: 4, length: 3, text: foo
+token-type: function
+
+line: 4, column: 8, length: 1, text: a
+token-type: parameter
+
+line: 4, column: 11, length: 3, text: str
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 5, column: 1, length: 8, text: overload
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 6, column: 4, length: 3, text: foo
+token-type: function
+
+line: 6, column: 8, length: 1, text: a
+token-type: parameter
+
+line: 6, column: 11, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 7, column: 4, length: 3, text: foo
+token-type: function
+
+line: 7, column: 8, length: 1, text: a
+token-type: parameter
+
+line: 7, column: 11, length: 3, text: str
+token-type: class, token-modifiers: [defaultLibrary]
+
+line: 7, column: 17, length: 3, text: int
+token-type: class, token-modifiers: [defaultLibrary]
+"#,
+    );
+}
+
+#[test]
+fn highlights_multibyte_identifiers() {
+    let code = r#"
+名字 = "值"
+print(名字)
+"#;
+
+    // NOTE: The identifier "名字" is 2 characters long
+    assert_full_semantic_tokens(
+        &[("main", code)],
+        r#"
+# main.py
+line: 1, column: 0, length: 2, text: 名字
+token-type: variable, token-modifiers: [readonly]
+
+line: 2, column: 0, length: 5, text: print
+token-type: function, token-modifiers: [defaultLibrary]
+
+line: 2, column: 6, length: 2, text: 名字
+token-type: variable, token-modifiers: [readonly]
+"#,
+    );
+}
+
+#[test]
+fn import_with_same_name_alias_test() {
+    let lib = r#"
+def func():
+    pass
+"#;
+    let code = r#"
+from lib import func as func
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code), ("lib", lib)],
+        r#"
+# main.py
+line: 1, column: 5, length: 3, text: lib
+token-type: namespace
+
+line: 1, column: 16, length: 4, text: func
+token-type: namespace
+
+line: 1, column: 24, length: 4, text: func
+token-type: function
+
+
+# lib.py
+line: 1, column: 4, length: 4, text: func
+token-type: function
+"#,
+    );
+}
+
+#[test]
+fn import_with_renamed_alias_test() {
+    let foo = r#"
+def bar():
+    pass
+"#;
+    let code = r#"
+from foo import bar as baz
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code), ("foo", foo)],
+        r#"
+# main.py
+line: 1, column: 5, length: 3, text: foo
+token-type: namespace
+
+line: 1, column: 16, length: 3, text: bar
+token-type: namespace
+
+line: 1, column: 23, length: 3, text: baz
+token-type: function
+
+
+# foo.py
+line: 1, column: 4, length: 3, text: bar
+token-type: function
+"#,
+    );
+}
+
+#[test]
+fn submodule_attribute_namespace() {
+    let mymod_init = r#"# mymod/__init__.py
+def version() -> str: ...
+"#;
+    let mymod_submod_init = r#"# mymod/submod/__init__.py
+class Foo: ...
+"#;
+    let code = r#"
+import mymod.submod
+mymod.submod.Foo
+"#;
+    assert_full_semantic_tokens(
+        &[
+            ("main", code),
+            ("mymod", mymod_init),
+            ("mymod.submod", mymod_submod_init),
+        ],
+        r#"
+# main.py
+line: 1, column: 7, length: 12, text: mymod.submod
+token-type: namespace
+
+line: 2, column: 0, length: 5, text: mymod
+token-type: namespace
+
+line: 2, column: 6, length: 6, text: submod
+token-type: namespace
+
+line: 2, column: 13, length: 3, text: Foo
+token-type: class
+
+
+# mymod.py
+line: 1, column: 4, length: 7, text: version
+token-type: function
+
+line: 1, column: 17, length: 3, text: str
+token-type: class, token-modifiers: [defaultLibrary]
+
+
+# mymod.submod.py
+line: 1, column: 6, length: 3, text: Foo
+token-type: class
+"#,
+    );
+}
+
+#[test]
+fn submodule_attribute_namespace_when_intermediate_module_missing() {
+    // Only mymod.submod exists, not mymod itself
+    let mymod_submod_init = r#"# mymod/submod/__init__.py
+class Foo: ...
+"#;
+    let code = r#"
+import mymod.submod
+mymod.submod.Foo
+"#;
+    assert_full_semantic_tokens(
+        &[("main", code), ("mymod.submod", mymod_submod_init)],
+        r#"
+# main.py
+line: 1, column: 7, length: 12, text: mymod.submod
+token-type: namespace
+
+line: 2, column: 6, length: 6, text: submod
+token-type: namespace
+
+line: 2, column: 13, length: 3, text: Foo
+token-type: class
+
+
+# mymod.submod.py
+line: 1, column: 6, length: 3, text: Foo
+token-type: class
 "#,
     );
 }

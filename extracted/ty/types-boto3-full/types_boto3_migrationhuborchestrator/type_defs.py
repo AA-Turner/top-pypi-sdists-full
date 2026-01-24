@@ -3,7 +3,7 @@ Type annotations for migrationhuborchestrator service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_migrationhuborchestrator/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,12 +34,6 @@ from .literals import (
     TemplateStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -142,7 +137,7 @@ __all__ = (
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -150,8 +145,8 @@ class ResponseMetadataTypeDef(TypedDict):
 class StepInputOutputTypeDef(TypedDict):
     integerValue: NotRequired[int]
     stringValue: NotRequired[str]
-    listOfStringsValue: NotRequired[List[str]]
-    mapOfStringValue: NotRequired[Dict[str, str]]
+    listOfStringsValue: NotRequired[list[str]]
+    mapOfStringValue: NotRequired[dict[str, str]]
 
 
 class TemplateSourceTypeDef(TypedDict):
@@ -340,8 +335,8 @@ TemplateStepGroupSummaryTypeDef = TypedDict(
     {
         "id": NotRequired[str],
         "name": NotRequired[str],
-        "previous": NotRequired[List[str]],
-        "next": NotRequired[List[str]],
+        "previous": NotRequired[list[str]],
+        "next": NotRequired[list[str]],
     },
 )
 
@@ -363,8 +358,8 @@ TemplateStepSummaryTypeDef = TypedDict(
         "stepActionType": NotRequired[StepActionTypeType],
         "targetType": NotRequired[TargetTypeType],
         "owner": NotRequired[OwnerType],
-        "previous": NotRequired[List[str]],
-        "next": NotRequired[List[str]],
+        "previous": NotRequired[list[str]],
+        "next": NotRequired[list[str]],
     },
 )
 
@@ -382,8 +377,8 @@ WorkflowStepGroupSummaryTypeDef = TypedDict(
         "name": NotRequired[str],
         "owner": NotRequired[OwnerType],
         "status": NotRequired[StepGroupStatusType],
-        "previous": NotRequired[List[str]],
-        "next": NotRequired[List[str]],
+        "previous": NotRequired[list[str]],
+        "next": NotRequired[list[str]],
     },
 )
 
@@ -402,8 +397,8 @@ WorkflowStepSummaryTypeDef = TypedDict(
         "name": NotRequired[str],
         "stepActionType": NotRequired[StepActionTypeType],
         "owner": NotRequired[OwnerType],
-        "previous": NotRequired[List[str]],
-        "next": NotRequired[List[str]],
+        "previous": NotRequired[list[str]],
+        "next": NotRequired[list[str]],
         "status": NotRequired[StepStatusType],
         "statusMessage": NotRequired[str],
         "noOfSrvCompleted": NotRequired[int],
@@ -491,7 +486,7 @@ UpdateWorkflowStepGroupRequestTypeDef = TypedDict(
 class WorkflowStepOutputUnionOutputTypeDef(TypedDict):
     integerValue: NotRequired[int]
     stringValue: NotRequired[str]
-    listOfStringValue: NotRequired[List[str]]
+    listOfStringValue: NotRequired[list[str]]
 
 
 class WorkflowStepOutputUnionTypeDef(TypedDict):
@@ -503,7 +498,7 @@ class WorkflowStepOutputUnionTypeDef(TypedDict):
 class CreateTemplateResponseTypeDef(TypedDict):
     templateId: str
     templateArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -529,7 +524,7 @@ DeleteMigrationWorkflowResponseTypeDef = TypedDict(
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -570,7 +565,7 @@ StopMigrationWorkflowResponseTypeDef = TypedDict(
 class UpdateTemplateResponseTypeDef(TypedDict):
     templateId: str
     templateArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -593,11 +588,11 @@ CreateMigrationWorkflowResponseTypeDef = TypedDict(
         "description": str,
         "templateId": str,
         "adsApplicationConfigurationId": str,
-        "workflowInputs": Dict[str, StepInputOutputTypeDef],
-        "stepTargets": List[str],
+        "workflowInputs": dict[str, StepInputOutputTypeDef],
+        "stepTargets": list[str],
         "status": MigrationWorkflowStatusEnumType,
         "creationTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -610,12 +605,12 @@ UpdateMigrationWorkflowResponseTypeDef = TypedDict(
         "description": str,
         "templateId": str,
         "adsApplicationConfigurationId": str,
-        "workflowInputs": Dict[str, StepInputOutputTypeDef],
-        "stepTargets": List[str],
+        "workflowInputs": dict[str, StepInputOutputTypeDef],
+        "stepTargets": list[str],
         "status": MigrationWorkflowStatusEnumType,
         "creationTime": datetime,
         "lastModifiedTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -636,9 +631,9 @@ CreateWorkflowStepGroupResponseTypeDef = TypedDict(
         "name": str,
         "id": str,
         "description": str,
-        "tools": List[ToolTypeDef],
-        "next": List[str],
-        "previous": List[str],
+        "tools": list[ToolTypeDef],
+        "next": list[str],
+        "previous": list[str],
         "creationTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -660,11 +655,11 @@ GetMigrationWorkflowResponseTypeDef = TypedDict(
         "lastStopTime": datetime,
         "lastModifiedTime": datetime,
         "endTime": datetime,
-        "tools": List[ToolTypeDef],
+        "tools": list[ToolTypeDef],
         "totalSteps": int,
         "completedSteps": int,
-        "workflowInputs": Dict[str, StepInputOutputTypeDef],
-        "tags": Dict[str, str],
+        "workflowInputs": dict[str, StepInputOutputTypeDef],
+        "tags": dict[str, str],
         "workflowBucket": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -679,9 +674,9 @@ GetTemplateStepGroupResponseTypeDef = TypedDict(
         "status": StepGroupStatusType,
         "creationTime": datetime,
         "lastModifiedTime": datetime,
-        "tools": List[ToolTypeDef],
-        "previous": List[str],
-        "next": List[str],
+        "tools": list[ToolTypeDef],
+        "previous": list[str],
+        "next": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -697,9 +692,9 @@ GetWorkflowStepGroupResponseTypeDef = TypedDict(
         "creationTime": datetime,
         "lastModifiedTime": datetime,
         "endTime": datetime,
-        "tools": List[ToolTypeDef],
-        "previous": List[str],
-        "next": List[str],
+        "tools": list[ToolTypeDef],
+        "previous": list[str],
+        "next": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -710,9 +705,9 @@ UpdateWorkflowStepGroupResponseTypeDef = TypedDict(
         "name": str,
         "id": str,
         "description": str,
-        "tools": List[ToolTypeDef],
-        "next": List[str],
-        "previous": List[str],
+        "tools": list[ToolTypeDef],
+        "next": list[str],
+        "previous": list[str],
         "lastModifiedTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -724,14 +719,14 @@ GetMigrationWorkflowTemplateResponseTypeDef = TypedDict(
         "templateArn": str,
         "name": str,
         "description": str,
-        "inputs": List[TemplateInputTypeDef],
-        "tools": List[ToolTypeDef],
+        "inputs": list[TemplateInputTypeDef],
+        "tools": list[ToolTypeDef],
         "creationTime": datetime,
         "owner": str,
         "status": TemplateStatusType,
         "statusMessage": str,
         "templateClass": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -777,43 +772,43 @@ class ListWorkflowStepsRequestPaginateTypeDef(TypedDict):
 
 
 class ListMigrationWorkflowTemplatesResponseTypeDef(TypedDict):
-    templateSummary: List[TemplateSummaryTypeDef]
+    templateSummary: list[TemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListMigrationWorkflowsResponseTypeDef(TypedDict):
-    migrationWorkflowSummary: List[MigrationWorkflowSummaryTypeDef]
+    migrationWorkflowSummary: list[MigrationWorkflowSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListPluginsResponseTypeDef(TypedDict):
-    plugins: List[PluginSummaryTypeDef]
+    plugins: list[PluginSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTemplateStepGroupsResponseTypeDef(TypedDict):
-    templateStepGroupSummary: List[TemplateStepGroupSummaryTypeDef]
+    templateStepGroupSummary: list[TemplateStepGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTemplateStepsResponseTypeDef(TypedDict):
-    templateStepSummaryList: List[TemplateStepSummaryTypeDef]
+    templateStepSummaryList: list[TemplateStepSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkflowStepGroupsResponseTypeDef(TypedDict):
-    workflowStepGroupsSummary: List[WorkflowStepGroupSummaryTypeDef]
+    workflowStepGroupsSummary: list[WorkflowStepGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkflowStepsResponseTypeDef(TypedDict):
-    workflowStepsSummary: List[WorkflowStepSummaryTypeDef]
+    workflowStepsSummary: list[WorkflowStepSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -857,9 +852,9 @@ GetTemplateStepResponseTypeDef = TypedDict(
         "description": str,
         "stepActionType": StepActionTypeType,
         "creationTime": str,
-        "previous": List[str],
-        "next": List[str],
-        "outputs": List[StepOutputTypeDef],
+        "previous": list[str],
+        "next": list[str],
+        "outputs": list[StepOutputTypeDef],
         "stepAutomationConfiguration": StepAutomationConfigurationTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -897,10 +892,10 @@ GetWorkflowStepResponseTypeDef = TypedDict(
         "stepActionType": StepActionTypeType,
         "owner": OwnerType,
         "workflowStepAutomationConfiguration": WorkflowStepAutomationConfigurationTypeDef,
-        "stepTarget": List[str],
-        "outputs": List[WorkflowStepExtraTypeDef],
-        "previous": List[str],
-        "next": List[str],
+        "stepTarget": list[str],
+        "outputs": list[WorkflowStepExtraTypeDef],
+        "previous": list[str],
+        "next": list[str],
         "status": StepStatusType,
         "statusMessage": str,
         "scriptOutputLocation": str,

@@ -5,6 +5,7 @@ from typing import Any
 
 from django.apps import AppConfig
 from django.template import Template
+from django.template.library import InclusionNode
 from django.template.loader_tags import IncludeNode
 from django.utils.autoreload import file_changed, trigger_reload
 
@@ -19,9 +20,11 @@ class ComponentsConfig(AppConfig):
         from django_components.autodiscovery import autodiscover, import_libraries
         from django_components.component_registry import registry
         from django_components.components.dynamic import DynamicComponent
+        from django_components.components.error_fallback import ErrorFallback
         from django_components.extension import extensions
         from django_components.util.django_monkeypatch import (
             monkeypatch_include_node,
+            monkeypatch_inclusion_node,
             monkeypatch_template_cls,
             monkeypatch_template_proxy_cls,
         )
@@ -31,6 +34,8 @@ class ComponentsConfig(AppConfig):
         #       See https://github.com/django-components/django-components/discussions/819
         monkeypatch_template_cls(Template)
         monkeypatch_include_node(IncludeNode)
+        # Fixes https://github.com/django-components/django-components/pull/1390
+        monkeypatch_inclusion_node(InclusionNode)
 
         # This makes django-components work with django-template-partials
         # NOTE: Delete when Django 5.2 reaches end of life
@@ -66,6 +71,7 @@ class ComponentsConfig(AppConfig):
 
         # Register the dynamic component under the name as given in settings
         registry.register(app_settings.DYNAMIC_COMPONENT_NAME, DynamicComponent)
+        registry.register("error_fallback", ErrorFallback)
 
         # Let extensions process any components which may have been created before the app was ready
         extensions._init_app()

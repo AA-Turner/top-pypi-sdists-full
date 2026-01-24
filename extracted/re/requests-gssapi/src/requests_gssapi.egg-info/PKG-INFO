@@ -1,36 +1,20 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: requests-gssapi
-Version: 1.3.0
+Version: 1.4.0
 Summary: A GSSAPI authentication handler for python-requests
 Author: Ian Cordasco, Cory Benfield, Michael Komitee
 Author-email: Robbie Harwood <rharwood@redhat.com>
-License: ISC License
-        
-        Copyright (c) 2012-2017 Kenneth Reitz
-        Copyright (c) 2017 the python-requests-gssapi contributors
-        Copyright (c) 2017 Red Hat, Inc.
-        
-        Permission to use, copy, modify and/or distribute this software for any
-        purpose with or without fee is hereby granted, provided that the above
-        copyright notice and this permission notice appear in all copies.
-        
-        THE SOFTWARE IS PROVIDED "AS-IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
-        WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
-        MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
-        ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
-        WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
-        ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
-        OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
-        
+License-Expression: ISC
 Project-URL: homepage, https://github.com/pythongssapi/requests-gssapi
-Keywords: ansible,debug,lsp,dap
-Classifier: License :: OSI Approved :: ISC License (ISCL)
+Keywords: gssapi,requests,auth
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -42,6 +26,7 @@ Requires-Dist: black==24.2.0; extra == "dev"
 Requires-Dist: isort==5.13.2; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: tox>=4.0.0; extra == "dev"
+Dynamic: license-file
 
 requests GSSAPI authentication library
 ===============================================
@@ -286,3 +271,26 @@ If you are having difficulty we suggest you configure logging. Issues with the
 underlying GSSAPI libraries will be made apparent. Additionally, copious debug
 information is made available which may assist in troubleshooting if you
 increase your log level all the way up to debug.
+
+Channel Bindings
+----------------
+
+Optional simplified support for channel bindings is available, but limited to
+the ``tls-server-end-point`` bindings type (manual construction of different
+channel bindings can be achieved using the raw API). When requesting this kind
+of bindings python-cryptography must be available as request-gssapi will try
+to import its x509 module to process the peer certificate.
+
+.. code-block:: python
+
+    >>> import requests
+    >>> from requests_gssapi import HTTPSPNEGOAuth
+    >>> gssapi_auth = HTTPSPNEGOAuth(channel_bindings='tls-server-end-point')
+    >>> r = requests.get("https://windows.example.org/wsman", auth=gssapi_auth)
+    ...
+
+It should be noted that this will not work for connections that are closed on
+the initial authentication failure. If the connection is closed, the peer
+certificate may be purged from internal data structures and is not available
+to extract the ``tls-server-end-point`` value required to complete
+authentication.

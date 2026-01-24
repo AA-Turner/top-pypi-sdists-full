@@ -1,0 +1,447 @@
+import collections.abc
+from collections.abc import Hashable, Iterable, Sequence, Sized
+from pathlib import Path
+from typing import Any, final
+
+from cognite.client.data_classes.capabilities import Capability, DataModelInstancesAcl
+from cognite.client.data_classes.data_modeling import NodeApplyResultList, NodeId
+from cognite.client.exceptions import CogniteAPIError
+from cognite.client.utils.useful_types import SequenceNotStr
+
+from cognite_toolkit._cdf_tk.client.resource_classes.identifiers import ExternalId
+from cognite_toolkit._cdf_tk.client.resource_classes.infield import (
+    InFieldCDMLocationConfig,
+    InfieldLocationConfig,
+    InfieldLocationConfigList,
+)
+from cognite_toolkit._cdf_tk.client.resource_classes.instance_api import InstanceResult, TypedNodeIdentifier
+from cognite_toolkit._cdf_tk.client.resource_classes.legacy.apm_config_v1 import (
+    APMConfig,
+    APMConfigList,
+    APMConfigWrite,
+)
+from cognite_toolkit._cdf_tk.constants import BUILD_FOLDER_ENCODING
+from cognite_toolkit._cdf_tk.cruds._base_cruds import ResourceCRUD
+from cognite_toolkit._cdf_tk.resource_classes import (
+    InFieldCDMLocationConfigYAML,
+    InfieldLocationConfigYAML,
+    InfieldV1YAML,
+)
+from cognite_toolkit._cdf_tk.utils import quote_int_value_by_key_in_yaml, safe_read
+from cognite_toolkit._cdf_tk.utils.cdf import iterate_instances
+from cognite_toolkit._cdf_tk.utils.diff_list import diff_list_hashable, diff_list_identifiable, hash_dict
+
+from .auth import GroupAllScopedCRUD
+from .classic import AssetCRUD
+from .data_organization import DataSetsCRUD
+from .datamodel import SpaceCRUD
+from .group_scoped import GroupResourceScopedCRUD
+
+
+@final
+class InfieldV1CRUD(ResourceCRUD[str, APMConfigWrite, APMConfig]):
+    folder_name = "cdf_applications"
+    resource_cls = APMConfig
+    resource_write_cls = APMConfigWrite
+    kind = "InfieldV1"
+    yaml_cls = InfieldV1YAML
+    dependencies = frozenset({DataSetsCRUD, AssetCRUD, SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+    _root_location_filters: tuple[str, ...] = ("general", "assets", "files", "timeseries")
+    _group_keys: tuple[str, ...] = ("templateAdmins", "checklistAdmins")
+
+    @property
+    def display_name(self) -> str:
+        return "infield configs"
+
+    @classmethod
+    def get_id(cls, item: APMConfig | APMConfigWrite | dict) -> str:
+        if isinstance(item, dict):
+            return item["externalId"]
+        if not item.external_id:
+            raise KeyError("APMConfig must have external_id")
+        return item.external_id
+
+    @classmethod
+    def dump_id(cls, id: str) -> dict[str, Any]:
+        return {"externalId": id}
+
+    @classmethod
+    def get_required_capability(
+        cls, items: collections.abc.Sequence[APMConfigWrite] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items and items is not None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID([APMConfig.space]))
+
+    def prerequisite_warning(self) -> str | None:
+        views = self.client.data_modeling.views.retrieve(APMConfig.view_id)
+        if len(views) > 0:
+            return None
+        return (
+            f"{self.display_name} requires the {APMConfig.view_id!r} to be deployed. "
+            f"Install the infield options with cdf modules init/add to deploy it."
+        )
+
+    def create(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=False
+        )
+        return result.nodes
+
+    def retrieve(self, ids: SequenceNotStr[str]) -> APMConfigList:
+        result = self.client.data_modeling.instances.retrieve(
+            nodes=self._as_node_ids(ids), sources=APMConfig.view_id
+        ).nodes
+        return APMConfigList.from_nodes(result)
+
+    def update(self, items: Sequence[APMConfigWrite]) -> NodeApplyResultList:
+        result = self.client.data_modeling.instances.apply(
+            nodes=[item.as_node() for item in items], auto_create_direct_relations=True, replace=True
+        )
+        return result.nodes
+
+    def delete(self, ids: SequenceNotStr[str]) -> int:
+        try:
+            deleted = self.client.data_modeling.instances.delete(nodes=self._as_node_ids(ids))
+        except CogniteAPIError as e:
+            if "not exist" in e.message and "space" in e.message.lower():
+                return 0
+            raise e
+        return len(deleted.nodes)
+
+    @staticmethod
+    def _as_node_ids(ids: SequenceNotStr[str]) -> list[NodeId]:
+        return [NodeId(APMConfig.space, id) for id in ids]
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[APMConfig]:
+        for node in iterate_instances(
+            self.client, space=space, instance_type="node", source=APMConfig.view_id, console=self.console
+        ):
+            yield APMConfig.from_node(node)
+
+    @classmethod
+    def get_dependent_items(cls, item: dict) -> Iterable[tuple[type[ResourceCRUD], Hashable]]:
+        if isinstance(app_data_space_id := item.get("appDataSpaceId"), str):
+            yield SpaceCRUD, app_data_space_id
+        if isinstance(customer_data_space_id := item.get("customerDataSpaceId"), str):
+            yield SpaceCRUD, customer_data_space_id
+        for config in cls._get_root_location_configurations(item) or []:
+            if isinstance(asset_external_id := config.get("assetExternalId"), str):
+                yield AssetCRUD, ExternalId(external_id=asset_external_id)
+            if isinstance(data_set_external_id := config.get("dataSetExternalId"), str):
+                yield DataSetsCRUD, data_set_external_id
+            if isinstance(app_data_instance_space := config.get("appDataInstanceSpace"), str):
+                yield SpaceCRUD, app_data_instance_space
+            if isinstance(source_data_instance_space := config.get("sourceDataInstanceSpace"), str):
+                yield SpaceCRUD, source_data_instance_space
+            for key in cls._group_keys:
+                for group in config.get(key, []):
+                    if isinstance(group, str):
+                        yield GroupResourceScopedCRUD, group
+            data_filters = config.get("dataFilters")
+            if not isinstance(data_filters, dict):
+                continue
+            for key in cls._root_location_filters:
+                filter_ = data_filters.get(key)
+                if not isinstance(filter_, dict):
+                    continue
+                for data_set_external_id in filter_.get("dataSetExternalIds", []):
+                    if isinstance(data_set_external_id, str):
+                        yield DataSetsCRUD, data_set_external_id
+                for asset_external_id in filter_.get("assetSubtreeExternalIds", []):
+                    if isinstance(asset_external_id, str):
+                        yield AssetCRUD, ExternalId(external_id=asset_external_id)
+                if app_data_instance_space := filter_.get("appDataInstanceSpace"):
+                    if isinstance(app_data_instance_space, str):
+                        yield SpaceCRUD, app_data_instance_space
+
+    def safe_read(self, filepath: Path | str) -> str:
+        # The customerDataSpaceVersion is a string, but the user often writes it as an int.
+        # YAML will then parse it as an int, for example, `3_0_2` will be parsed as `302`.
+        # This is technically a user mistake, as you should quote the version in the YAML file.
+        # However, we do not want to put this burden on the user (knowing the intricate workings of YAML),
+        # so we fix it here.
+        return quote_int_value_by_key_in_yaml(
+            safe_read(filepath, encoding=BUILD_FOLDER_ENCODING), key="customerDataSpaceVersion"
+        )
+
+    def load_resource(self, resource: dict[str, Any], is_dry_run: bool = False) -> APMConfigWrite:
+        root_location_configurations = self._get_root_location_configurations(resource)
+        for config in root_location_configurations or []:
+            if not isinstance(config, dict):
+                continue
+            if ds_external_id := config.pop("dataSetExternalId", None):
+                config["dataSetId"] = self.client.lookup.data_sets.id(ds_external_id, is_dry_run)
+            data_filters = config.get("dataFilters")
+            if not isinstance(data_filters, dict):
+                continue
+            for key in self._root_location_filters:
+                filter_ = data_filters.get(key)
+                if not isinstance(filter_, dict):
+                    continue
+                if ds_external_ids := filter_.pop("dataSetExternalIds", None):
+                    filter_["dataSetIds"] = self.client.lookup.data_sets.id(ds_external_ids, is_dry_run)
+        return APMConfigWrite._load(resource)
+
+    def dump_resource(self, resource: APMConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+
+        for config in self._get_root_location_configurations(dumped) or []:
+            if not isinstance(config, dict):
+                continue
+            if data_set_id := config.pop("dataSetId", None):
+                config["dataSetExternalId"] = self.client.lookup.data_sets.external_id(data_set_id)
+            data_filters = config.get("dataFilters")
+            if not isinstance(data_filters, dict):
+                continue
+            for key in self._root_location_filters:
+                filter_ = data_filters.get(key)
+                if not isinstance(filter_, dict):
+                    continue
+                if data_set_ids := filter_.pop("dataSetIds", None):
+                    filter_["dataSetExternalIds"] = self.client.lookup.data_sets.external_id(data_set_ids)
+        return dumped
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("featureConfiguration", "rootLocationConfigurations"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        if not (len(json_path) >= 3 and json_path[:2] == ("featureConfiguration", "rootLocationConfigurations")):
+            return super().diff_list(local, cdf, json_path)
+
+        if len(json_path) == 4 and json_path[-1] in self._group_keys:
+            return diff_list_hashable(local, cdf)
+        if len(json_path) == 5 and json_path[-1] in ("fullWeightModels", "lightWeightModels"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        if len(json_path) == 6 and json_path[-2] == "dataFilters" and json_path[-1] in self._root_location_filters:
+            return diff_list_hashable(local, cdf)
+        if len(json_path) == 7 and "observations" in json_path and json_path[-1] in ("type", "priority"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        return super().diff_list(local, cdf, json_path)
+
+    @staticmethod
+    def _get_root_location_configurations(resource: dict[str, Any]) -> list | None:
+        feature_configuration = resource.get("featureConfiguration")
+        if not isinstance(feature_configuration, dict):
+            return None
+        return feature_configuration.get("rootLocationConfigurations")
+
+
+@final
+class InFieldLocationConfigCRUD(ResourceCRUD[TypedNodeIdentifier, InfieldLocationConfig, InfieldLocationConfig]):
+    folder_name = "cdf_applications"
+    resource_cls = InfieldLocationConfig
+    resource_write_cls = InfieldLocationConfig
+    kind = "InFieldLocationConfig"
+    yaml_cls = InfieldLocationConfigYAML
+    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "infield location configs"
+
+    @classmethod
+    def get_id(cls, item: InfieldLocationConfig | dict) -> TypedNodeIdentifier:
+        if isinstance(item, dict):
+            return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return TypedNodeIdentifier(space=item.space, external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
+        return {
+            "space": id.space,
+            "externalId": id.external_id,
+        }
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[InfieldLocationConfig] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items or items is None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        instance_spaces = sorted({item.space for item in items})
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    def dump_resource(self, resource: InfieldLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.dump()
+        local = local or {}
+        dumped.pop("instanceType", None)
+        if isinstance(cdf_dec := dumped.get("dataExplorationConfig"), dict):
+            cdf_dec.pop("instanceType", None)
+            if isinstance(local_dec := local.get("dataExplorationConfig"), dict):
+                if "space" in cdf_dec and "space" not in local_dec:
+                    # Default space is used for the data exploration config if not specified locally.
+                    cdf_dec.pop("space")
+                if "externalId" in cdf_dec and "externalId" not in local_dec:
+                    # Default externalId is used for the data exploration config if not specified locally.
+                    cdf_dec.pop("externalId")
+
+        return dumped
+
+    def create(self, items: Sequence[InfieldLocationConfig]) -> list[InstanceResult]:
+        created = self.client.infield.config.apply(items)
+        config_ids = {config.as_id() for config in items}
+        # We filter out all the data exploration configs that were created along with the infield location configs
+        # as we only want to count the infield location configs here.
+        return [res for res in created if res.as_id() in config_ids]
+
+    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> InfieldLocationConfigList:
+        return InfieldLocationConfigList(self.client.infield.config.retrieve(list(ids)))
+
+    def update(self, items: Sequence[InfieldLocationConfig]) -> Sized:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+        # We must retrieve the full resource to get hte DataExplorationConfig linked resource deleted as well.
+        retrieved = self.retrieve(list(ids))
+        # Then, we pass the entire resource to the delete method, which will delete both the InfieldLocationConfig
+        # and the linked DataExplorationConfig.
+        _ = self.client.infield.config.delete(retrieved)
+        return len(retrieved)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[InfieldLocationConfig]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("accessManagement", "templateAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("accessManagement", "checklistAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataFilters", "general", "spaces"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataExplorationConfig", "documents", "supportedFormats"):
+            return diff_list_hashable(local, cdf)
+        return super().diff_list(local, cdf, json_path)
+
+
+@final
+class InFieldCDMLocationConfigCRUD(
+    ResourceCRUD[TypedNodeIdentifier, InFieldCDMLocationConfig, InFieldCDMLocationConfig]
+):
+    folder_name = "cdf_applications"
+    resource_cls = InFieldCDMLocationConfig
+    resource_write_cls = InFieldCDMLocationConfig
+    kind = "InFieldCDMLocationConfig"
+    yaml_cls = InFieldCDMLocationConfigYAML
+    dependencies = frozenset({SpaceCRUD, GroupAllScopedCRUD, GroupResourceScopedCRUD})
+    _doc_url = "Instances/operation/applyNodeAndEdges"
+
+    @property
+    def display_name(self) -> str:
+        return "infield CDM location configs"
+
+    @classmethod
+    def get_id(cls, item: InFieldCDMLocationConfig | dict) -> TypedNodeIdentifier:
+        if isinstance(item, dict):
+            return TypedNodeIdentifier(space=item["space"], external_id=item["externalId"])
+        return TypedNodeIdentifier(space=item.space, external_id=item.external_id)
+
+    @classmethod
+    def dump_id(cls, id: TypedNodeIdentifier) -> dict[str, Any]:
+        return {
+            "space": id.space,
+            "externalId": id.external_id,
+        }
+
+    @classmethod
+    def get_required_capability(
+        cls, items: Sequence[InFieldCDMLocationConfig] | None, read_only: bool
+    ) -> Capability | list[Capability]:
+        if not items or items is None:
+            return []
+
+        actions = (
+            [DataModelInstancesAcl.Action.Read]
+            if read_only
+            else [DataModelInstancesAcl.Action.Read, DataModelInstancesAcl.Action.Write]
+        )
+        instance_spaces = sorted({item.space for item in items})
+
+        return DataModelInstancesAcl(actions, DataModelInstancesAcl.Scope.SpaceID(instance_spaces))
+
+    def dump_resource(self, resource: InFieldCDMLocationConfig, local: dict[str, Any] | None = None) -> dict[str, Any]:
+        dumped = resource.as_write().dump()
+        local = local or {}
+        if "existingVersion" not in local:
+            # Existing version is typically not set when creating nodes, but we get it back
+            # when we retrieve the node from the server.
+            dumped.pop("existingVersion", None)
+        dumped.pop("instanceType", None)
+        return dumped
+
+    def create(self, items: Sequence[InFieldCDMLocationConfig]) -> list[InstanceResult]:
+        return self.client.infield.cdm_config.apply(items)
+
+    def retrieve(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> list[InFieldCDMLocationConfig]:
+        return self.client.infield.cdm_config.retrieve(list(ids))
+
+    def update(self, items: Sequence[InFieldCDMLocationConfig]) -> Sized:
+        return self.create(items)
+
+    def delete(self, ids: SequenceNotStr[TypedNodeIdentifier]) -> int:
+        # We must retrieve the full resource to delete it.
+        retrieved = self.retrieve(list(ids))
+        _ = self.client.infield.cdm_config.delete(retrieved)
+        return len(retrieved)
+
+    def _iterate(
+        self,
+        data_set_external_id: str | None = None,
+        space: str | None = None,
+        parent_ids: list[Hashable] | None = None,
+    ) -> Iterable[InFieldCDMLocationConfig]:
+        raise NotImplementedError(f"Iteration over {self.display_name} is not supported.")
+
+    def diff_list(
+        self, local: list[Any], cdf: list[Any], json_path: tuple[str | int, ...]
+    ) -> tuple[dict[int, int], list[int]]:
+        if json_path == ("accessManagement", "templateAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("accessManagement", "checklistAdmins"):
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("disciplines",):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif len(json_path) == 3 and json_path[0] == "dataFilters" and json_path[2] == "instanceSpaces":
+            # Handles dataFilters.<entity>.instanceSpaces (e.g., files, assets, operations, timeSeries, etc.)
+            return diff_list_hashable(local, cdf)
+        elif json_path == ("dataExplorationConfig", "filters"):
+            return diff_list_identifiable(local, cdf, get_identifier=hash_dict)
+        elif len(json_path) == 4 and json_path[:2] == ("dataExplorationConfig", "filters") and json_path[3] == "values":
+            # Handles dataExplorationConfig.filters[i].values
+            return diff_list_hashable(local, cdf)
+
+        return super().diff_list(local, cdf, json_path)

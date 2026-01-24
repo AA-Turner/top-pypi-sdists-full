@@ -38,7 +38,7 @@ def test_build(app: SphinxTestApp) -> None:
     assert 'api.h' in c_undoc
     assert ' * Py_SphinxTest' in c_undoc
 
-    undoc_py, undoc_c, py_undocumented, py_documented = pickle.loads(
+    undoc_py, undoc_c, _py_undocumented, _py_documented = pickle.loads(
         (app.outdir / 'undoc.pickle').read_bytes()
     )
     assert len(undoc_c) == 1
@@ -117,7 +117,7 @@ def test_show_missing_items(app: SphinxTestApp) -> None:
     'coverage', testroot='root', confoverrides={'coverage_show_missing_items': True}
 )
 def test_show_missing_items_quiet(app: SphinxTestApp) -> None:
-    app.quiet = True
+    app.config._verbosity = -1  # mimics status=None / app.quiet = True
     app.build(force_all=True)
 
     assert (

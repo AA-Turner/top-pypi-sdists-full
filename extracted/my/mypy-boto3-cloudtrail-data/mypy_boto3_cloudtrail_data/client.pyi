@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -27,11 +28,6 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .type_defs import PutAuditEventsRequestTypeDef, PutAuditEventsResponseTypeDef
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -40,13 +36,13 @@ else:
 __all__ = ("CloudTrailDataServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    ChannelInsufficientPermission: Type[BotocoreClientError]
-    ChannelNotFound: Type[BotocoreClientError]
-    ChannelUnsupportedSchema: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    DuplicatedAuditEventId: Type[BotocoreClientError]
-    InvalidChannelARN: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
+    ChannelInsufficientPermission: type[BotocoreClientError]
+    ChannelNotFound: type[BotocoreClientError]
+    ChannelUnsupportedSchema: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    DuplicatedAuditEventId: type[BotocoreClientError]
+    InvalidChannelARN: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
 
 class CloudTrailDataServiceClient(BaseClient):
     """

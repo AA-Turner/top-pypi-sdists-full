@@ -1,15 +1,19 @@
 import json
 import logging
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, AsyncIterator, Iterator, Literal, Union
 
 from langchain_core.callbacks import (
     AsyncCallbackManagerForLLMRun,
     CallbackManagerForLLMRun,
 )
 from langchain_core.language_models import LanguageModelInput
-from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.language_models.chat_models import (
+    agenerate_from_stream,
+    generate_from_stream,
+)
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage
 from langchain_core.messages.ai import UsageMetadata
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_openai.chat_models import AzureChatOpenAI
 from pydantic import BaseModel
@@ -25,37 +29,118 @@ class UiPathAzureChatOpenAI(UiPathRequestMixin, AzureChatOpenAI):
 
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         if "tools" in kwargs and not kwargs["tools"]:
             del kwargs["tools"]
+
+        if self.streaming:
+            stream_iter = self._stream(
+                messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return generate_from_stream(stream_iter)
+
         payload = self._get_request_payload(messages, stop=stop, **kwargs)
         response = self._call(self.url, payload, self.auth_headers)
         return self._create_chat_result(response)
 
     async def _agenerate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         if "tools" in kwargs and not kwargs["tools"]:
             del kwargs["tools"]
+
+        if self.streaming:
+            stream_iter = self._astream(
+                messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return await agenerate_from_stream(stream_iter)
+
         payload = self._get_request_payload(messages, stop=stop, **kwargs)
         response = await self._acall(self.url, payload, self.auth_headers)
         return self._create_chat_result(response)
 
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        if "tools" in kwargs and not kwargs["tools"]:
+            del kwargs["tools"]
+        kwargs["stream"] = True
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+
+        default_chunk_class = AIMessageChunk
+
+        for chunk in self._stream_request(self.url, payload, self.auth_headers):
+            if self.logger:
+                self.logger.debug(f"[Stream] Got chunk from _stream_request: {chunk}")
+            generation_chunk = self._convert_chunk(
+                chunk, default_chunk_class, include_tool_calls=True
+            )
+            if generation_chunk is None:
+                if self.logger:
+                    self.logger.debug("[Stream] Skipping None generation_chunk")
+                continue
+
+            if self.logger:
+                self.logger.debug(
+                    f"[Stream] Yielding generation_chunk: {generation_chunk}"
+                )
+
+            if run_manager:
+                run_manager.on_llm_new_token(
+                    generation_chunk.text,
+                    chunk=generation_chunk,
+                )
+
+            yield generation_chunk
+
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        if "tools" in kwargs and not kwargs["tools"]:
+            del kwargs["tools"]
+        kwargs["stream"] = True
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+
+        default_chunk_class = AIMessageChunk
+
+        async for chunk in self._astream_request(self.url, payload, self.auth_headers):
+            generation_chunk = self._convert_chunk(
+                chunk, default_chunk_class, include_tool_calls=True
+            )
+            if generation_chunk is None:
+                continue
+
+            if run_manager:
+                await run_manager.on_llm_new_token(
+                    generation_chunk.text,
+                    chunk=generation_chunk,
+                )
+
+            yield generation_chunk
+
     def with_structured_output(
         self,
-        schema: Optional[Any] = None,
+        schema: Any = None,
         *,
         method: Literal["function_calling", "json_mode", "json_schema"] = "json_schema",
         include_raw: bool = False,
-        strict: Optional[bool] = None,
+        strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, Any]:
         """Model wrapper that returns outputs formatted to match the given schema."""
@@ -86,8 +171,8 @@ class UiPathChat(UiPathRequestMixin, AzureChatOpenAI):
 
     def _create_chat_result(
         self,
-        response: Union[Dict[str, Any], BaseModel],
-        generation_info: Optional[Dict[Any, Any]] = None,
+        response: Union[dict[str, Any], BaseModel],
+        generation_info: dict[Any, Any] | None = None,
     ) -> ChatResult:
         if not isinstance(response, dict):
             response = response.model_dump()
@@ -128,9 +213,9 @@ class UiPathChat(UiPathRequestMixin, AzureChatOpenAI):
         self,
         input_: LanguageModelInput,
         *,
-        stop: Optional[List[str]] = None,
+        stop: list[str] | None = None,
         **kwargs: Any,
-    ) -> Dict[Any, Any]:
+    ) -> dict[Any, Any]:
         payload = super()._get_request_payload(input_, stop=stop, **kwargs)
         # hacks to make the request work with uipath normalized
         for message in payload["messages"]:
@@ -149,11 +234,40 @@ class UiPathChat(UiPathRequestMixin, AzureChatOpenAI):
                 }
         return payload
 
+    def _normalize_tool_choice(self, kwargs: dict[str, Any]) -> None:
+        """Normalize tool_choice for UiPath Gateway compatibility.
+
+        Converts LangChain tool_choice formats to UiPath Gateway format:
+        - String "required" -> {"type": "required"}
+        - String "auto" -> {"type": "auto"}
+        - Dict with function -> {"type": "tool", "name": "function_name"}
+        """
+        if "tool_choice" in kwargs:
+            tool_choice = kwargs["tool_choice"]
+
+            if isinstance(tool_choice, str):
+                if tool_choice in ("required", "auto", "none"):
+                    logger.debug(
+                        f"Converting tool_choice from '{tool_choice}' to {{'type': '{tool_choice}'}}"
+                    )
+                    kwargs["tool_choice"] = {"type": tool_choice}
+            elif (
+                isinstance(tool_choice, dict) and tool_choice.get("type") == "function"
+            ):
+                function_name = tool_choice["function"]["name"]
+                logger.debug(
+                    f"Converting tool_choice from function '{function_name}' to tool format"
+                )
+                kwargs["tool_choice"] = {
+                    "type": "tool",
+                    "name": function_name,
+                }
+
     def _generate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[CallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         """Override the _generate method to implement the chat model logic.
@@ -173,21 +287,23 @@ class UiPathChat(UiPathRequestMixin, AzureChatOpenAI):
         """
         if kwargs.get("tools"):
             kwargs["tools"] = [tool["function"] for tool in kwargs["tools"]]
-        if "tool_choice" in kwargs and kwargs["tool_choice"]["type"] == "function":
-            kwargs["tool_choice"] = {
-                "type": "tool",
-                "name": kwargs["tool_choice"]["function"]["name"],
-            }
-        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+        self._normalize_tool_choice(kwargs)
 
+        if self.streaming:
+            stream_iter = self._stream(
+                messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return generate_from_stream(stream_iter)
+
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
         response = self._call(self.url, payload, self.auth_headers)
         return self._create_chat_result(response)
 
     async def _agenerate(
         self,
-        messages: List[BaseMessage],
-        stop: Optional[List[str]] = None,
-        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
         """Override the _generate method to implement the chat model logic.
@@ -207,25 +323,122 @@ class UiPathChat(UiPathRequestMixin, AzureChatOpenAI):
         """
         if kwargs.get("tools"):
             kwargs["tools"] = [tool["function"] for tool in kwargs["tools"]]
-        if "tool_choice" in kwargs and kwargs["tool_choice"]["type"] == "function":
-            kwargs["tool_choice"] = {
-                "type": "tool",
-                "name": kwargs["tool_choice"]["function"]["name"],
-            }
-        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+        self._normalize_tool_choice(kwargs)
 
+        if self.streaming:
+            stream_iter = self._astream(
+                messages, stop=stop, run_manager=run_manager, **kwargs
+            )
+            return await agenerate_from_stream(stream_iter)
+
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
         response = await self._acall(self.url, payload, self.auth_headers)
         return self._create_chat_result(response)
 
+    def _stream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: CallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> Iterator[ChatGenerationChunk]:
+        """Stream the LLM on a given prompt.
+
+        Args:
+            messages: the prompt composed of a list of messages.
+            stop: a list of strings on which the model should stop generating.
+            run_manager: A run manager with callbacks for the LLM.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            An iterator of ChatGenerationChunk objects.
+        """
+        if kwargs.get("tools"):
+            kwargs["tools"] = [tool["function"] for tool in kwargs["tools"]]
+        self._normalize_tool_choice(kwargs)
+        kwargs["stream"] = True
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+
+        default_chunk_class = AIMessageChunk
+
+        for chunk in self._stream_request(self.url, payload, self.auth_headers):
+            if self.logger:
+                self.logger.debug(f"[Stream] Got chunk from _stream_request: {chunk}")
+            generation_chunk = self._convert_chunk(
+                chunk, default_chunk_class, include_tool_calls=True
+            )
+            if generation_chunk is None:
+                if self.logger:
+                    self.logger.debug("[Stream] Skipping None generation_chunk")
+                continue
+
+            if self.logger:
+                self.logger.debug(
+                    f"[Stream] Yielding generation_chunk: {generation_chunk}"
+                )
+
+            if run_manager:
+                run_manager.on_llm_new_token(
+                    generation_chunk.text,
+                    chunk=generation_chunk,
+                )
+
+            yield generation_chunk
+
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """Async stream the LLM on a given prompt.
+
+        Args:
+            messages: the prompt composed of a list of messages.
+            stop: a list of strings on which the model should stop generating.
+            run_manager: A run manager with callbacks for the LLM.
+            **kwargs: Additional keyword arguments.
+
+        Returns:
+            An async iterator of ChatGenerationChunk objects.
+        """
+        if kwargs.get("tools"):
+            kwargs["tools"] = [tool["function"] for tool in kwargs["tools"]]
+        self._normalize_tool_choice(kwargs)
+        kwargs["stream"] = True
+        payload = self._get_request_payload(messages, stop=stop, **kwargs)
+
+        # Update headers to enable streaming
+        headers = {**self.auth_headers}
+        headers["X-UiPath-Streaming-Enabled"] = "true"
+
+        default_chunk_class = AIMessageChunk
+
+        async for chunk in self._astream_request(self.url, payload, headers):
+            generation_chunk = self._convert_chunk(
+                chunk, default_chunk_class, include_tool_calls=True
+            )
+            if generation_chunk is None:
+                continue
+
+            if run_manager:
+                await run_manager.on_llm_new_token(
+                    generation_chunk.text,
+                    chunk=generation_chunk,
+                )
+
+            yield generation_chunk
+
     def with_structured_output(
         self,
-        schema: Optional[Any] = None,
+        schema: Any = None,
         *,
         method: Literal[
             "function_calling", "json_mode", "json_schema"
         ] = "function_calling",
         include_raw: bool = False,
-        strict: Optional[bool] = None,
+        strict: bool | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, Any]:
         """Model wrapper that returns outputs formatted to match the given schema."""

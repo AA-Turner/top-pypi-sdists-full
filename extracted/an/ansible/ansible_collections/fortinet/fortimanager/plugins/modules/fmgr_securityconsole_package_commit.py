@@ -16,7 +16,6 @@ short_description: Install policies to device from preview cache.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -104,8 +103,8 @@ EXAMPLES = '''
     - name: Install policies to device from preview cache.
       fortinet.fortimanager.fmgr_securityconsole_package_commit:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         securityconsole_package_commit:
@@ -175,7 +174,7 @@ def main():
             'options': {
                 'adom': {'type': 'str'},
                 'scope': {'type': 'list', 'options': {'name': {'type': 'str'}, 'vdom': {'type': 'str'}}, 'elements': 'dict'},
-                'flags': {'v_range': [['7.4.6', '7.4.7'], ['7.6.2', '']], 'type': 'list', 'choices': ['auto_lock_ws'], 'elements': 'str'}
+                'flags': {'v_range': [['7.4.6', '7.4.8'], ['7.6.2', '']], 'type': 'list', 'choices': ['auto_lock_ws'], 'elements': 'str'}
             }
         }
     }

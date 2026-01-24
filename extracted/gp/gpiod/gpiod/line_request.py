@@ -3,12 +3,12 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Optional, Union, cast
 
 from . import _ext
-from ._internal import poll_fd
+from ._internal import config_iter, poll_fd
 from .exception import RequestReleasedError
-from .line import Value
 from .line_settings import LineSettings, _line_settings_to_ext
 
 if TYPE_CHECKING:
@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from .edge_event import EdgeEvent
+    from .line import Value
 
 
 __all__ = ["LineRequest"]
@@ -36,7 +37,6 @@ class LineRequest:
         self._chip_name: str
         self._offsets: list[int]
         self._name_map: dict[str, int]
-        self._offset_map: dict[int, str]
         self._lines: list[Union[int, str]]
 
     def __bool__(self) -> bool:
@@ -76,7 +76,7 @@ class LineRequest:
         not be used after a call to this method.
         """
         self._check_released()
-        cast(_ext.Request, self._req).release()
+        cast("_ext.Request", self._req).release()
         self._req = None
 
     def get_value(self, line: Union[int, str]) -> Value:
@@ -95,12 +95,9 @@ class LineRequest:
     def _line_to_offset(self, line: Union[int, str]) -> int:
         if isinstance(line, int):
             return line
-        else:
-            _line: Union[int, None]
-            if (_line := self._name_map.get(line)) is None:
-                raise ValueError(f"unknown line name: {line}")
-            else:
-                return _line
+        if (_line := self._name_map.get(line)) is None:
+            raise ValueError(f"unknown line name: {line}")
+        return _line
 
     def get_values(
         self, lines: Optional[Iterable[Union[int, str]]] = None
@@ -122,9 +119,9 @@ class LineRequest:
 
         offsets = [self._line_to_offset(line) for line in lines]
 
-        buf = cast(list[Value], [None] * len(offsets))
+        buf = cast("list[Value]", [None] * len(offsets))
 
-        cast(_ext.Request, self._req).get_values(offsets, buf)
+        cast("_ext.Request", self._req).get_values(offsets, buf)
         return buf
 
     def set_value(self, line: Union[int, str], value: Value) -> None:
@@ -151,7 +148,7 @@ class LineRequest:
 
         mapped = {self._line_to_offset(line): value for line, value in values.items()}
 
-        cast(_ext.Request, self._req).set_values(mapped)
+        cast("_ext.Request", self._req).set_values(mapped)
 
     def reconfigure_lines(
         self,
@@ -174,19 +171,30 @@ class LineRequest:
         line_cfg = _ext.LineConfig()
         line_settings = {}
 
-        for lines, settings in config.items():
-            if isinstance(lines, int) or isinstance(lines, str):
-                lines = [lines]
-
-            for line in lines:
+        for line, settings in config_iter(config):
+            try:
                 offset = self._line_to_offset(line)
-                line_settings[offset] = settings
+                if offset in self.offsets:
+                    line_settings[offset] = settings
+                else:
+                    warnings.warn(
+                        f"Line offset '{offset}' was not included in original request.",
+                        stacklevel=2,
+                    )
+            except ValueError:
+                # _line_to_offset will raise a ValueError when it encounters
+                # an unrecognized line name. Ignore these like we do offsets
+                # that were not in the original request.
+                warnings.warn(
+                    f"Line name '{line}' was not included in original request.",
+                    stacklevel=2,
+                )
 
         for offset in self.offsets:
             settings = line_settings.get(offset) or LineSettings()
             line_cfg.add_line_settings([offset], _line_settings_to_ext(settings))
 
-        cast(_ext.Request, self._req).reconfigure_lines(line_cfg)
+        cast("_ext.Request", self._req).reconfigure_lines(line_cfg)
 
     def wait_edge_events(
         self, timeout: Optional[Union[timedelta, float]] = None
@@ -220,7 +228,7 @@ class LineRequest:
         """
         self._check_released()
 
-        return cast(_ext.Request, self._req).read_edge_events(max_events)
+        return cast("_ext.Request", self._req).read_edge_events(max_events)
 
     def fileno(self) -> int:
         """
@@ -276,4 +284,4 @@ class LineRequest:
         File descriptor associated with this request.
         """
         self._check_released()
-        return cast(_ext.Request, self._req).fd
+        return cast("_ext.Request", self._req).fd

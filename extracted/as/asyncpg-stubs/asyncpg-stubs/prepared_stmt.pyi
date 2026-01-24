@@ -1,11 +1,11 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import Any, Generic
 from typing_extensions import TypeVar
 
 from . import connection as _connection, connresource, cursor, types
-from .protocol import protocol as _cprotocol
+from .protocol import Record, protocol as _cprotocol
 
-_Record = TypeVar('_Record', bound=_cprotocol.Record, default=_cprotocol.Record)
+_Record = TypeVar('_Record', bound=Record, default=Record)
 
 class PreparedStatement(connresource.ConnectionResource, Generic[_Record]):
     __slots__ = ('_state', '_query', '_last_status')
@@ -40,11 +40,11 @@ class PreparedStatement(connresource.ConnectionResource, Generic[_Record]):
         self, *args: object, timeout: float | None = ...
     ) -> _Record | None: ...
     async def fetchmany(
-        self, query: str, args: Iterable[Any], *, timeout: float | None = None
+        self, args: Iterable[Sequence[object]], *, timeout: float | None = None
     ) -> list[_Record]: ...
     async def executemany(
         self,
-        args: Iterable[object],
+        args: Iterable[Sequence[object]],
         *,
         timeout: float | None = ...,
     ) -> None: ...

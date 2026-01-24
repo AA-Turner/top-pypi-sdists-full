@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Union
 
 from ase import Atoms
 
@@ -14,7 +13,7 @@ class BarrierModel(ABC):
     Base barrier model class
     """
 
-    def __call__(self, system: Union[Atoms, MCEvaluator], system_changes: SystemChanges) -> float:
+    def __call__(self, system: Atoms | MCEvaluator, system_changes: SystemChanges) -> float:
         """Get the height of the barrier"""
         # Ensure we have a valid evaluator object
         evaluator = construct_evaluator(system)
@@ -57,7 +56,7 @@ class BEPBarrier(BarrierModel):
 
     def __init__(
         self,
-        dilute_barrier: Dict[str, float],
+        dilute_barrier: dict[str, float],
         alpha: float = 0.5,
     ):
         super().__init__()

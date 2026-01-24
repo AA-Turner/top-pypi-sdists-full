@@ -33,7 +33,8 @@ class SecretsDataDto(BaseModel):
     validity_status: Optional[SecretIssueValidityStatus] = Field(default=None, description="Status of the secret validity", alias="validityStatus")
     validity_check_time: Optional[datetime] = Field(default=None, description="Timestamp when the validity was last checked", alias="validityCheckTime")
     verified_validation_url: Optional[StrictStr] = Field(default=None, description="URL used to verify the validity of the secret", alias="verifiedValidationUrl")
-    __properties: ClassVar[List[str]] = ["aiValidationResult", "validityStatus", "validityCheckTime", "verifiedValidationUrl"]
+    commit_author_names: Optional[List[StrictStr]] = Field(default=None, description="Names of commit authors who committed this secret", alias="commitAuthorNames")
+    __properties: ClassVar[List[str]] = ["aiValidationResult", "validityStatus", "validityCheckTime", "verifiedValidationUrl", "commitAuthorNames"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,6 +90,11 @@ class SecretsDataDto(BaseModel):
         if self.verified_validation_url is None and "verified_validation_url" in self.model_fields_set:
             _dict['verifiedValidationUrl'] = None
 
+        # set to None if commit_author_names (nullable) is None
+        # and model_fields_set contains the field
+        if self.commit_author_names is None and "commit_author_names" in self.model_fields_set:
+            _dict['commitAuthorNames'] = None
+
         return _dict
 
     @classmethod
@@ -104,7 +110,8 @@ class SecretsDataDto(BaseModel):
             "aiValidationResult": obj.get("aiValidationResult"),
             "validityStatus": obj.get("validityStatus"),
             "validityCheckTime": obj.get("validityCheckTime"),
-            "verifiedValidationUrl": obj.get("verifiedValidationUrl")
+            "verifiedValidationUrl": obj.get("verifiedValidationUrl"),
+            "commitAuthorNames": obj.get("commitAuthorNames")
         })
         return _obj
 

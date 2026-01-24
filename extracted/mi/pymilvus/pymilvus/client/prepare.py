@@ -4,14 +4,23 @@ import json
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
 
 import numpy as np
-import ujson
+import orjson
 
 from pymilvus.exceptions import DataNotMatchException, ExceptionsMessage, ParamError
+from pymilvus.grpc_gen import common_pb2
 from pymilvus.grpc_gen import common_pb2 as common_types
 from pymilvus.grpc_gen import milvus_pb2 as milvus_types
 from pymilvus.grpc_gen import schema_pb2 as schema_types
-from pymilvus.orm.schema import CollectionSchema, FieldSchema, Function
+from pymilvus.orm.schema import (
+    CollectionSchema,
+    FieldSchema,
+    Function,
+    FunctionScore,
+    Highlighter,
+    isVectorDataType,
+)
 from pymilvus.orm.types import infer_dtype_by_scalar_data
+from pymilvus.settings import Config
 
 from . import __version__, blob, check, entity_helper, ts_utils, utils
 from .abstract import BaseRanker
@@ -23,6 +32,7 @@ from .constants import (
     GROUP_BY_FIELD,
     GROUP_SIZE,
     HINTS,
+    IS_EMBEDDING_LIST,
     ITER_SEARCH_BATCH_SIZE_KEY,
     ITER_SEARCH_ID_KEY,
     ITER_SEARCH_LAST_BOUND_KEY,
@@ -36,6 +46,7 @@ from .constants import (
     STRICT_CAST,
     STRICT_GROUP_SIZE,
 )
+from .entity_helper import convert_to_array, convert_to_array_of_vector
 from .types import (
     DataType,
     PlaceholderType,
@@ -133,6 +144,7 @@ class Prepare:
             autoID=fields.auto_id,
             description=coll_description,
             enable_dynamic_field=fields.enable_dynamic_field,
+            enable_namespace=fields.enable_namespace,
         )
         for f in fields.fields:
             field_schema = schema_types.FieldSchema(
@@ -152,23 +164,86 @@ class Prepare:
             for k, v in f.params.items():
                 kv_pair = common_types.KeyValuePair(
                     key=str(k) if k != "mmap_enabled" else "mmap.enabled",
-                    value=ujson.dumps(v) if not isinstance(v, str) else str(v),
+                    value=(
+                        orjson.dumps(v).decode(Config.EncodeProtocol)
+                        if not isinstance(v, str)
+                        else str(v)
+                    ),
                 )
                 field_schema.type_params.append(kv_pair)
 
             schema.fields.append(field_schema)
 
-        for f in fields.functions:
-            function_schema = schema_types.FunctionSchema(
-                name=f.name,
-                description=f.description,
-                type=f.type,
-                input_field_names=f.input_field_names,
-                output_field_names=f.output_field_names,
+        for struct in fields.struct_fields:
+            # Validate that max_capacity is set
+            if struct.max_capacity is None:
+                raise ParamError(message=f"max_capacity not set for struct field: {struct.name}")
+
+            struct_schema = schema_types.StructArrayFieldSchema(
+                name=struct.name,
+                fields=[],
+                description=struct.description,
             )
-            for k, v in f.params.items():
-                kv_pair = common_types.KeyValuePair(key=str(k), value=str(v))
-                function_schema.params.append(kv_pair)
+
+            if struct.params:
+                for k, v in struct.params.items():
+                    kv_pair = common_types.KeyValuePair(
+                        key=str(k) if k != "mmap_enabled" else "mmap.enabled",
+                        value=(
+                            orjson.dumps(v).decode(Config.EncodeProtocol)
+                            if not isinstance(v, str)
+                            else str(v)
+                        ),
+                    )
+                    struct_schema.type_params.append(kv_pair)
+
+            for f in struct.fields:
+                # Convert struct field types to backend representation
+                # As struct itself only support array type, so all it's fields are array type
+                # internally
+                # So we need to convert the fields to array types
+                actual_dtype = f.dtype
+                actual_element_type = None
+
+                # Convert to appropriate array type
+                if isVectorDataType(f.dtype):
+                    actual_dtype = DataType._ARRAY_OF_VECTOR
+                    actual_element_type = f.dtype
+                else:
+                    actual_dtype = DataType.ARRAY
+                    actual_element_type = f.dtype
+
+                field_schema = schema_types.FieldSchema(
+                    name=f.name,
+                    data_type=actual_dtype,
+                    description=f.description,
+                    is_primary_key=f.is_primary,
+                    default_value=f.default_value,
+                    nullable=f.nullable,
+                    autoID=f.auto_id,
+                    is_partition_key=f.is_partition_key,
+                    is_dynamic=f.is_dynamic,
+                    element_type=actual_element_type,
+                    is_clustering_key=f.is_clustering_key,
+                    is_function_output=f.is_function_output,
+                )
+
+                # Copy field params and add max_capacity from struct_schema
+                field_params = dict(f.params) if f.params else {}
+                # max_capacity is required for struct fields
+                field_params["max_capacity"] = struct.max_capacity
+
+                for k, v in field_params.items():
+                    kv_pair = common_types.KeyValuePair(
+                        key=str(k) if k != "mmap_enabled" else "mmap.enabled", value=json.dumps(v)
+                    )
+                    field_schema.type_params.append(kv_pair)
+                struct_schema.fields.append(field_schema)
+
+            schema.struct_array_fields.append(struct_schema)
+
+        for f in fields.functions:
+            function_schema = cls.convert_function_to_function_schema(f)
             schema.functions.append(function_schema)
 
         return schema
@@ -262,11 +337,16 @@ class Prepare:
         if "enable_dynamic_field" in fields:
             enable_dynamic_field = fields["enable_dynamic_field"]
 
+        enable_namespace = kwargs.get("enable_namespace", False)
+        if "enable_namespace" in fields:
+            enable_namespace = fields["enable_namespace"]
+
         schema = schema_types.CollectionSchema(
             name=collection_name,
             autoID=False,
             description=fields.get("description", ""),
             enable_dynamic_field=enable_dynamic_field,
+            enable_namespace=enable_namespace,
         )
 
         primary_field, auto_id_field = None, None
@@ -280,6 +360,34 @@ class Prepare:
     @classmethod
     def drop_collection_request(cls, collection_name: str) -> milvus_types.DropCollectionRequest:
         return milvus_types.DropCollectionRequest(collection_name=collection_name)
+
+    @classmethod
+    def drop_collection_function_request(
+        cls, collection_name: str, function_name: str
+    ) -> milvus_types.DropCollectionFunctionRequest:
+        return milvus_types.DropCollectionFunctionRequest(
+            collection_name=collection_name, function_name=function_name
+        )
+
+    @classmethod
+    def add_collection_function_request(
+        cls, collection_name: str, f: Function
+    ) -> milvus_types.AddCollectionFunctionRequest:
+        function_schema = cls.convert_function_to_function_schema(f)
+        return milvus_types.AddCollectionFunctionRequest(
+            collection_name=collection_name, functionSchema=function_schema
+        )
+
+    @classmethod
+    def alter_collection_function_request(
+        cls, collection_name: str, function_name: str, f: Function
+    ) -> milvus_types.AlterCollectionFunctionRequest:
+        function_schema = cls.convert_function_to_function_schema(f)
+        return milvus_types.AlterCollectionFunctionRequest(
+            collection_name=collection_name,
+            function_name=function_name,
+            functionSchema=function_schema,
+        )
 
     @classmethod
     def add_collection_field_request(
@@ -445,21 +553,215 @@ class Prepare:
         return len([field for field in fields_info if Prepare._is_input_field(field, is_upsert)])
 
     @staticmethod
+    def _process_struct_field(
+        field_name: str,
+        values: Any,
+        struct_info: Dict,
+        struct_sub_field_info: Dict,
+        struct_sub_fields_data: Dict,
+    ):
+        """Process a single struct field's data.
+
+        Args:
+            field_name: Name of the struct field
+            values: List of struct values
+            struct_info: Info about the struct field
+            struct_sub_field_info: Two-level dict [struct_name][field_name] -> field info
+            struct_sub_fields_data: Two-level dict [struct_name][field_name] -> FieldData
+        """
+        # Convert numpy ndarray to list if needed
+        if isinstance(values, np.ndarray):
+            values = values.tolist()
+
+        if not isinstance(values, list):
+            msg = f"Field '{field_name}': Expected list, got {type(values).__name__}"
+            raise TypeError(msg)
+
+        # Get expected fields for this specific struct
+        expected_fields = {field["name"] for field in struct_info["fields"]}
+
+        # Handle empty array - create empty data structures
+        if not values:
+            # Get relevant field info and data for this struct
+            relevant_field_info = struct_sub_field_info[field_name]
+            relevant_fields_data = struct_sub_fields_data[field_name]
+            Prepare._add_empty_struct_data(relevant_field_info, relevant_fields_data)
+            return
+
+        # Validate and collect values
+        field_values = Prepare._validate_and_collect_struct_values(
+            values, expected_fields, field_name
+        )
+
+        # Process collected values using the struct-specific sub-dictionaries
+        relevant_field_info = struct_sub_field_info[field_name]
+        relevant_fields_data = struct_sub_fields_data[field_name]
+        Prepare._process_struct_values(field_values, relevant_field_info, relevant_fields_data)
+
+    @staticmethod
+    def _add_empty_struct_data(struct_field_info: Dict, struct_sub_fields_data: Dict):
+        """Add empty data for struct fields."""
+        for field_name, field_info in struct_field_info.items():
+            field_data = struct_sub_fields_data[field_name]
+
+            if field_info["type"] == DataType.ARRAY:
+                field_data.scalars.array_data.data.append(convert_to_array([], field_info))
+            elif field_info["type"] == DataType._ARRAY_OF_VECTOR:
+                field_data.vectors.vector_array.dim = Prepare._get_dim_value(field_info)
+                field_data.vectors.vector_array.data.append(
+                    convert_to_array_of_vector([], field_info)
+                )
+
+    @staticmethod
+    def _validate_and_collect_struct_values(
+        values: List, expected_fields: set, struct_field_name: str = ""
+    ) -> Dict[str, List]:
+        """Validate struct items and collect field values."""
+        field_values = {field: [] for field in expected_fields}
+        field_prefix = f"Field '{struct_field_name}': " if struct_field_name else ""
+
+        for idx, struct_item in enumerate(values):
+            if not isinstance(struct_item, dict):
+                msg = f"{field_prefix}Element at index {idx} must be dict, got {type(struct_item).__name__}"
+                raise TypeError(msg)
+
+            # Validate fields
+            actual_fields = set(struct_item.keys())
+            missing_fields = expected_fields - actual_fields
+            extra_fields = actual_fields - expected_fields
+
+            if missing_fields:
+                msg = f"{field_prefix}Element at index {idx} missing required fields: {missing_fields}"
+                raise ValueError(msg)
+            if extra_fields:
+                msg = f"{field_prefix}Element at index {idx} has unexpected fields: {extra_fields}"
+                raise ValueError(msg)
+
+            # Collect values
+            for field_name in expected_fields:
+                value = struct_item[field_name]
+                if value is None:
+                    msg = f"{field_prefix}Field '{field_name}' in element at index {idx} cannot be None"
+                    raise ValueError(msg)
+                field_values[field_name].append(value)
+
+        return field_values
+
+    @staticmethod
+    def _process_struct_values(
+        field_values: Dict[str, List], struct_field_info: Dict, struct_sub_fields_data: Dict
+    ):
+        """Process collected struct field values."""
+        for field_name, values in field_values.items():
+            field_data = struct_sub_fields_data[field_name]
+            field_info = struct_field_info[field_name]
+
+            if field_info["type"] == DataType.ARRAY:
+                field_data.scalars.array_data.data.append(convert_to_array(values, field_info))
+            elif field_info["type"] == DataType._ARRAY_OF_VECTOR:
+                field_data.vectors.vector_array.dim = Prepare._get_dim_value(field_info)
+                field_data.vectors.vector_array.data.append(
+                    convert_to_array_of_vector(values, field_info)
+                )
+            else:
+                raise ParamError(message=f"Unsupported data type: {field_info['type']}")
+
+    @staticmethod
+    def _get_dim_value(field_info: Dict) -> int:
+        """Extract dimension value from field info."""
+        dim_value = field_info.get("params", {}).get("dim", 0)
+        return int(dim_value) if isinstance(dim_value, str) else dim_value
+
+    @staticmethod
+    def _setup_struct_data_structures(struct_fields_info: Optional[List[Dict]]):
+        """Setup common data structures for struct field processing.
+
+        Returns:
+            Tuple containing:
+            - struct_fields_data: Dict of FieldData for struct fields
+            - struct_info_map: Dict mapping struct field names to their info
+            - struct_sub_fields_data: Two-level Dict of FieldData for
+                sub-fields [struct_name][field_name]
+            - struct_sub_field_info: Two-level Dict mapping sub-field names
+                to their info [struct_name][field_name]
+            - input_struct_field_info: List of struct fields info
+        """
+        struct_fields_data = {}
+        struct_info_map = {}
+        struct_sub_fields_data = {}
+        struct_sub_field_info = {}
+        input_struct_field_info = []
+
+        if struct_fields_info:
+            struct_fields_data = {
+                field["name"]: schema_types.FieldData(field_name=field["name"], type=field["type"])
+                for field in struct_fields_info
+            }
+            input_struct_field_info = list(struct_fields_info)
+            struct_info_map = {struct["name"]: struct for struct in struct_fields_info}
+
+            # Use two-level maps to avoid overwrite when different structs have fields
+            # with same name
+            # First level: struct name, Second level: field name
+            for struct_field_info in struct_fields_info:
+                struct_name = struct_field_info["name"]
+                struct_sub_fields_data[struct_name] = {}
+                struct_sub_field_info[struct_name] = {}
+
+                for field in struct_field_info["fields"]:
+                    field_name = field["name"]
+                    field_data = schema_types.FieldData(field_name=field_name, type=field["type"])
+                    # Set dim for ARRAY_OF_VECTOR types
+                    if field["type"] == DataType._ARRAY_OF_VECTOR:
+                        field_data.vectors.dim = Prepare._get_dim_value(field)
+                    struct_sub_fields_data[struct_name][field_name] = field_data
+                    struct_sub_field_info[struct_name][field_name] = field
+
+        return (
+            struct_fields_data,
+            struct_info_map,
+            struct_sub_fields_data,
+            struct_sub_field_info,
+            input_struct_field_info,
+        )
+
+    @staticmethod
     def _parse_row_request(
         request: Union[milvus_types.InsertRequest, milvus_types.UpsertRequest],
         fields_info: List[Dict],
+        struct_fields_info: List[Dict],
         enable_dynamic: bool,
         entities: List,
     ):
         input_fields_info = [
             field for field in fields_info if Prepare._is_input_field(field, is_upsert=False)
         ]
+        # check if pk exists in entities
+        primary_field_info = next(
+            (field for field in fields_info if field.get("is_primary", False)), None
+        )
+        if (
+            primary_field_info
+            and primary_field_info.get("auto_id", False)
+            and entities
+            and primary_field_info["name"] in entities[0]
+        ):
+            input_fields_info.append(primary_field_info)
+
         function_output_field_names = Prepare._function_output_field_names(fields_info)
         fields_data = {
             field["name"]: schema_types.FieldData(field_name=field["name"], type=field["type"])
             for field in input_fields_info
         }
         field_info_map = {field["name"]: field for field in input_fields_info}
+
+        (
+            struct_fields_data,
+            struct_info_map,
+            struct_sub_fields_data,
+            struct_sub_field_info,
+            input_struct_field_info,
+        ) = Prepare._setup_struct_data_structures(struct_fields_info)
 
         if enable_dynamic:
             d_field = schema_types.FieldData(
@@ -474,7 +776,7 @@ class Prepare:
                     msg = f"expected Dict, got '{type(entity).__name__}'"
                     raise TypeError(msg)
                 for k, v in entity.items():
-                    if k not in fields_data:
+                    if k not in fields_data and k not in struct_fields_data:
                         if k in function_output_field_names:
                             raise DataNotMatchException(
                                 message=ExceptionsMessage.InsertUnexpectedFunctionOutputField % k
@@ -492,6 +794,21 @@ class Prepare:
                         ):
                             field_data.valid_data.append(v is not None)
                         entity_helper.pack_field_value_to_field_data(v, field_data, field_info)
+                    elif k in struct_fields_data:
+                        # Array of structs format
+                        try:
+                            Prepare._process_struct_field(
+                                k,
+                                v,
+                                struct_info_map[k],
+                                struct_sub_field_info,
+                                struct_sub_fields_data,
+                            )
+                        except (TypeError, ValueError) as e:
+                            raise DataNotMatchException(
+                                message=f"{ExceptionsMessage.FieldDataInconsistent % (k, 'struct array', type(v))} Detail: {e!s}"
+                            ) from e
+
                 for field in input_fields_info:
                     key = field["name"]
                     if key in entity:
@@ -506,7 +823,9 @@ class Prepare:
                             message=ExceptionsMessage.InsertMissedField % key
                         )
                 json_dict = {
-                    k: v for k, v in entity.items() if k not in fields_data and enable_dynamic
+                    k: v
+                    for k, v in entity.items()
+                    if k not in fields_data and k not in struct_fields_data and enable_dynamic
                 }
 
                 if enable_dynamic:
@@ -516,12 +835,26 @@ class Prepare:
         except (TypeError, ValueError) as e:
             raise DataNotMatchException(message=ExceptionsMessage.DataTypeInconsistent) from e
 
+        # reconstruct the struct array fields data
+        for struct in input_struct_field_info:
+            struct_name = struct["name"]
+            struct_field_data = struct_fields_data[struct_name]
+            for field_info in struct["fields"]:
+                # Use two-level map to get the correct sub-field data
+                field_name = field_info["name"]
+                struct_field_data.struct_arrays.fields.append(
+                    struct_sub_fields_data[struct_name][field_name]
+                )
+
         request.fields_data.extend(fields_data.values())
+        request.fields_data.extend(struct_fields_data.values())
 
-        expected_num_input_fields = len(input_fields_info) + (1 if enable_dynamic else 0)
+        expected_num_input_fields = (
+            len(input_fields_info) + len(input_struct_field_info) + (1 if enable_dynamic else 0)
+        )
 
-        if len(fields_data) != expected_num_input_fields:
-            msg = f"{ExceptionsMessage.FieldsNumInconsistent}, expected {expected_num_input_fields} fields, got {len(fields_data)}"
+        if len(request.fields_data) != expected_num_input_fields:
+            msg = f"{ExceptionsMessage.FieldsNumInconsistent}, expected {expected_num_input_fields} fields, got {len(request.fields_data)}"
             raise ParamError(message=msg)
 
         return request
@@ -530,10 +863,15 @@ class Prepare:
     def _parse_upsert_row_request(
         request: Union[milvus_types.InsertRequest, milvus_types.UpsertRequest],
         fields_info: List[Dict],
+        struct_fields_info: List[Dict],
         enable_dynamic: bool,
         entities: List,
         partial_update: bool = False,
     ):
+        # For partial update, struct fields are not supported
+        if partial_update and struct_fields_info:
+            raise ParamError(message="Struct fields are not supported in partial update")
+
         input_fields_info = [
             field for field in fields_info if Prepare._is_input_field(field, is_upsert=True)
         ]
@@ -544,6 +882,22 @@ class Prepare:
         }
         field_info_map = {field["name"]: field for field in input_fields_info}
         field_len = {field["name"]: 0 for field in input_fields_info}
+
+        # Use common struct data setup (only if not partial update)
+        if partial_update:
+            struct_fields_data = {}
+            struct_info_map = {}
+            struct_sub_fields_data = {}
+            struct_sub_field_info = {}
+            input_struct_field_info = []
+        else:
+            (
+                struct_fields_data,
+                struct_info_map,
+                struct_sub_fields_data,
+                struct_sub_field_info,
+                input_struct_field_info,
+            ) = Prepare._setup_struct_data_structures(struct_fields_info)
 
         if enable_dynamic:
             d_field = schema_types.FieldData(
@@ -559,7 +913,7 @@ class Prepare:
                     msg = f"expected Dict, got '{type(entity).__name__}'"
                     raise TypeError(msg)
                 for k, v in entity.items():
-                    if k not in fields_data:
+                    if k not in fields_data and k not in struct_fields_data:
                         if k in function_output_field_names:
                             raise DataNotMatchException(
                                 message=ExceptionsMessage.InsertUnexpectedFunctionOutputField % k
@@ -578,6 +932,20 @@ class Prepare:
                             field_data.valid_data.append(v is not None)
                         entity_helper.pack_field_value_to_field_data(v, field_data, field_info)
                         field_len[k] += 1
+                    elif k in struct_fields_data:
+                        # Handle struct field (array of structs)
+                        try:
+                            Prepare._process_struct_field(
+                                k,
+                                v,
+                                struct_info_map[k],
+                                struct_sub_field_info,
+                                struct_sub_fields_data,
+                            )
+                        except (TypeError, ValueError) as e:
+                            raise DataNotMatchException(
+                                message=f"{ExceptionsMessage.FieldDataInconsistent % (k, 'struct array', type(v))} Detail: {e!s}"
+                            ) from e
                 for field in input_fields_info:
                     key = field["name"]
                     if key in entity:
@@ -598,7 +966,9 @@ class Prepare:
                             message=ExceptionsMessage.InsertMissedField % key
                         )
                 json_dict = {
-                    k: v for k, v in entity.items() if k not in fields_data and enable_dynamic
+                    k: v
+                    for k, v in entity.items()
+                    if k not in fields_data and k not in struct_fields_data and enable_dynamic
                 }
 
                 if enable_dynamic:
@@ -622,6 +992,19 @@ class Prepare:
         fields_data = {k: v for k, v in fields_data.items() if field_len[k] > 0}
         request.fields_data.extend(fields_data.values())
 
+        if struct_fields_data:
+            # reconstruct the struct array fields data (same as in insert)
+            for struct in input_struct_field_info:
+                struct_name = struct["name"]
+                struct_field_data = struct_fields_data[struct_name]
+                for field_info in struct["fields"]:
+                    # Use two-level map to get the correct sub-field data
+                    field_name = field_info["name"]
+                    struct_field_data.struct_arrays.fields.append(
+                        struct_sub_fields_data[struct_name][field_name]
+                    )
+            request.fields_data.extend(struct_fields_data.values())
+
         for _, field in enumerate(input_fields_info):
             is_dynamic = False
             field_name = field["name"]
@@ -635,10 +1018,14 @@ class Prepare:
                         message=f"dynamic field enabled, {field_name} shouldn't in entities[{j}]"
                     )
 
-        expected_num_input_fields = len(input_fields_info) + (1 if enable_dynamic else 0)
+        # Include struct fields in expected count (if not partial update)
+        struct_field_count = len(input_struct_field_info) if not partial_update else 0
+        expected_num_input_fields = (
+            len(input_fields_info) + struct_field_count + (1 if enable_dynamic else 0)
+        )
 
-        if not partial_update and len(fields_data) != expected_num_input_fields:
-            msg = f"{ExceptionsMessage.FieldsNumInconsistent}, expected {expected_num_input_fields} fields, got {len(fields_data)}"
+        if not partial_update and len(request.fields_data) != expected_num_input_fields:
+            msg = f"{ExceptionsMessage.FieldsNumInconsistent}, expected {expected_num_input_fields} fields, got {len(request.fields_data)}"
             raise ParamError(message=msg)
 
         return request
@@ -650,8 +1037,10 @@ class Prepare:
         entities: List,
         partition_name: str,
         fields_info: Dict,
+        struct_fields_info: Optional[Dict] = None,
         schema_timestamp: int = 0,
         enable_dynamic: bool = False,
+        namespace: Optional[str] = None,
     ):
         if not fields_info:
             raise ParamError(message="Missing collection meta to validate entities")
@@ -663,9 +1052,12 @@ class Prepare:
             partition_name=p_name,
             num_rows=len(entities),
             schema_timestamp=schema_timestamp,
+            namespace=namespace,
         )
 
-        return cls._parse_row_request(request, fields_info, enable_dynamic, entities)
+        return cls._parse_row_request(
+            request, fields_info, struct_fields_info, enable_dynamic, entities
+        )
 
     @classmethod
     def row_upsert_param(
@@ -674,6 +1066,7 @@ class Prepare:
         entities: List,
         partition_name: str,
         fields_info: Any,
+        struct_fields_info: Any = None,
         enable_dynamic: bool = False,
         schema_timestamp: int = 0,
         partial_update: bool = False,
@@ -692,7 +1085,7 @@ class Prepare:
         )
 
         return cls._parse_upsert_row_request(
-            request, fields_info, enable_dynamic, entities, partial_update
+            request, fields_info, struct_fields_info, enable_dynamic, entities, partial_update
         )
 
     @staticmethod
@@ -860,7 +1253,7 @@ class Prepare:
         )
 
     @classmethod
-    def _prepare_placeholder_str(cls, data: Any):
+    def _prepare_placeholder_str(cls, data: Any, is_embedding_list: bool = False):
         # sparse vector
         if entity_helper.entity_is_sparse_matrix(data):
             pl_type = PlaceholderType.SparseFloatVector
@@ -870,16 +1263,32 @@ class Prepare:
             dtype = data[0].dtype
 
             if dtype == "bfloat16":
-                pl_type = PlaceholderType.BFLOAT16_VECTOR
+                pl_type = (
+                    PlaceholderType.BFLOAT16_VECTOR
+                    if not is_embedding_list
+                    else PlaceholderType.EmbListBFloat16Vector
+                )
                 pl_values = (array.tobytes() for array in data)
             elif dtype == "float16":
-                pl_type = PlaceholderType.FLOAT16_VECTOR
+                pl_type = (
+                    PlaceholderType.FLOAT16_VECTOR
+                    if not is_embedding_list
+                    else PlaceholderType.EmbListFloat16Vector
+                )
                 pl_values = (array.tobytes() for array in data)
             elif dtype in ("float32", "float64"):
-                pl_type = PlaceholderType.FloatVector
+                pl_type = (
+                    PlaceholderType.FloatVector
+                    if not is_embedding_list
+                    else PlaceholderType.EmbListFloatVector
+                )
                 pl_values = (blob.vector_float_to_bytes(entity) for entity in data)
             elif dtype == "int8":
-                pl_type = PlaceholderType.Int8Vector
+                pl_type = (
+                    PlaceholderType.Int8Vector
+                    if not is_embedding_list
+                    else PlaceholderType.EmbListInt8Vector
+                )
                 pl_values = (array.tobytes() for array in data)
 
             elif dtype == "byte":
@@ -980,15 +1389,17 @@ class Prepare:
     def search_requests_with_expr(
         cls,
         collection_name: str,
-        data: Union[List, utils.SparseMatrixInputType],
         anns_field: str,
         param: Dict,
         limit: int,
+        data: Optional[Union[List[List[float]], utils.SparseMatrixInputType]] = None,
+        ids: Optional[Union[List[int], List[str], str, int]] = None,
         expr: Optional[str] = None,
         partition_names: Optional[List[str]] = None,
         output_fields: Optional[List[str]] = None,
         round_decimal: int = -1,
-        ranker: Optional[Function] = None,
+        ranker: Optional[Union[Function, FunctionScore]] = None,
+        highlighter: Optional[Highlighter] = None,
         **kwargs,
     ) -> milvus_types.SearchRequest:
         use_default_consistency = ts_utils.construct_guarantee_ts(collection_name, kwargs)
@@ -1101,39 +1512,86 @@ class Prepare:
         if param.get("analyzer_name") is not None:
             search_params["analyzer_name"] = param["analyzer_name"]
 
+        if kwargs.get("timezone") is not None:
+            search_params["timezone"] = kwargs["timezone"]
+
+        if kwargs.get("time_fields") is not None:
+            search_params["time_fields"] = kwargs["time_fields"]
+
         search_params["params"] = get_params(param)
 
         req_params = [
             common_types.KeyValuePair(key=str(key), value=utils.dumps(value))
             for key, value in search_params.items()
         ]
-        nq = entity_helper.get_input_num_rows(data)
-        plg_str = cls._prepare_placeholder_str(data)
 
-        request = milvus_types.SearchRequest(
-            collection_name=collection_name,
-            partition_names=partition_names,
-            output_fields=output_fields,
-            guarantee_timestamp=kwargs.get("guarantee_timestamp", 0),
-            use_default_consistency=use_default_consistency,
-            consistency_level=kwargs.get("consistency_level", 0),
-            nq=nq,
-            placeholder_group=plg_str,
-            dsl_type=common_types.DslType.BoolExprV1,
-            search_params=req_params,
-            expr_template_values=cls.prepare_expression_template(
-                {} if kwargs.get("expr_params") is None else kwargs.get("expr_params")
+        expr_params = kwargs.get("expr_params")
+        request_kwargs = {
+            "collection_name": collection_name,
+            "partition_names": partition_names,
+            "output_fields": output_fields,
+            "guarantee_timestamp": kwargs.get("guarantee_timestamp", 0),
+            "use_default_consistency": use_default_consistency,
+            "consistency_level": kwargs.get("consistency_level", 0),
+            "dsl_type": common_types.DslType.BoolExprV1,
+            "search_params": req_params,
+            "expr_template_values": cls.prepare_expression_template(
+                {} if expr_params is None else expr_params
             ),
-        )
+            "namespace": kwargs.get("namespace"),
+        }
+
+        is_embedding_list = kwargs.get(IS_EMBEDDING_LIST, False)
+        if data is not None:
+            request_kwargs.update(
+                nq=entity_helper.get_input_num_rows(data),
+                placeholder_group=cls._prepare_placeholder_str(data, is_embedding_list),
+            )
+        elif ids is not None:
+            request_kwargs.update(
+                nq=len(ids),
+                ids=cls._build_ids_proto(ids),
+            )
+        else:
+            err_msg = "Either data or ids must be provided"
+            raise ValueError(err_msg)
+
+        request = milvus_types.SearchRequest(**request_kwargs)
+
         if expr is not None:
             request.dsl = expr
 
-        if ranker is not None and not isinstance(ranker, Function):
-            raise ParamError(message="The search ranker must be a Function.")
         if isinstance(ranker, Function):
             request.function_score.CopyFrom(Prepare.ranker_to_function_score(ranker))
+        elif isinstance(ranker, FunctionScore):
+            request.function_score.CopyFrom(Prepare.function_score_schema(ranker))
+        elif ranker is not None:
+            raise ParamError(message="The search ranker must be a Function or FunctionScore.")
+
+        if highlighter is not None:
+            request.highlighter.CopyFrom(Prepare.highlighter_schema(highlighter))
 
         return request
+
+    @staticmethod
+    def _build_ids_proto(ids: List[Union[int, np.integer, str]]) -> schema_types.IDs:
+        if not ids:
+            raise ParamError(message="ids must not be empty")
+
+        first = ids[0]
+
+        if isinstance(first, (bool, np.bool_)):
+            raise ParamError(message="ids must not contain boolean values")
+
+        if isinstance(first, (int, np.integer)):
+            return schema_types.IDs(
+                int_id=schema_types.LongArray(data=[int(value) for value in ids])
+            )
+
+        if isinstance(first, str):
+            return schema_types.IDs(str_id=schema_types.StringArray(data=list(ids)))
+
+        raise ParamError(message=f"Unsupported id type: {type(first)}")
 
     @classmethod
     def hybrid_search_request_with_ranker(
@@ -1165,6 +1623,7 @@ class Prepare:
             guarantee_timestamp=kwargs.get("guarantee_timestamp", 0),
             use_default_consistency=use_default_consistency,
             consistency_level=kwargs.get("consistency_level", 0),
+            namespace=kwargs.get("namespace"),
         )
 
         request.rank_params.extend(
@@ -1213,6 +1672,54 @@ class Prepare:
         if isinstance(rerank, Function):
             request.function_score.CopyFrom(Prepare.ranker_to_function_score(rerank))
         return request
+
+    @staticmethod
+    def common_kv_value(v: Any) -> str:
+        if isinstance(v, (dict, list)):
+            return json.dumps(v)
+        return str(v)
+
+    @staticmethod
+    def highlighter_schema(highlighter: Highlighter) -> common_types.Highlighter:
+        return common_types.Highlighter(
+            type=highlighter.type,
+            params=[
+                common_types.KeyValuePair(key=str(k), value=Prepare.common_kv_value(v))
+                for k, v in highlighter.params.items()
+            ],
+        )
+
+    @staticmethod
+    def function_score_schema(function_score: FunctionScore) -> schema_types.FunctionScore:
+        functions = [
+            schema_types.FunctionSchema(
+                name=ranker.name,
+                type=ranker.type,
+                description=ranker.description,
+                input_field_names=ranker.input_field_names,
+                params=(
+                    [
+                        common_types.KeyValuePair(key=str(k), value=Prepare.common_kv_value(v))
+                        for k, v in ranker.params.items()
+                    ]
+                    if ranker.params
+                    else []
+                ),
+            )
+            for ranker in function_score.functions
+        ]
+
+        return schema_types.FunctionScore(
+            functions=functions,
+            params=(
+                [
+                    common_types.KeyValuePair(key=str(k), value=Prepare.common_kv_value(v))
+                    for k, v in function_score.params.items()
+                ]
+                if function_score.params
+                else []
+            ),
+        )
 
     @staticmethod
     def ranker_to_function_score(ranker: Function) -> schema_types.FunctionScore:
@@ -1266,7 +1773,7 @@ class Prepare:
             for tk, tv in params.items():
                 if tk == "dim" and (not tv or not isinstance(tv, int)):
                     raise ParamError(message="dim must be of int!")
-                if tv:
+                if tv is not None:
                     kv_pair = common_types.KeyValuePair(key=str(tk), value=utils.dumps(tv))
                     index_params.extra_params.append(kv_pair)
 
@@ -1487,6 +1994,7 @@ class Prepare:
             use_default_consistency=use_default_consistency,
             consistency_level=kwargs.get("consistency_level", 0),
             expr_template_values=cls.prepare_expression_template(kwargs.get("expr_params", {})),
+            namespace=kwargs.get("namespace"),
         )
         collection_id = kwargs.get(COLLECTION_ID)
         if collection_id is not None:
@@ -1501,6 +2009,14 @@ class Prepare:
         offset = kwargs.get("offset")
         if offset is not None:
             req.query_params.append(common_types.KeyValuePair(key="offset", value=str(offset)))
+
+        timezone = kwargs.get("timezone")
+        if timezone is not None:
+            req.query_params.append(common_types.KeyValuePair(key="timezone", value=timezone))
+
+        timefileds = kwargs.get("time_fields")
+        if timefileds is not None:
+            req.query_params.append(common_types.KeyValuePair(key="time_fields", value=timefileds))
 
         ignore_growing = kwargs.get("ignore_growing", False)
         stop_reduce_for_best = kwargs.get(REDUCE_STOP_FOR_BEST, False)
@@ -1535,17 +2051,23 @@ class Prepare:
 
     @classmethod
     def manual_compaction(
-        cls, collection_name: str, is_clustering: bool, collection_id: Optional[int] = None
+        cls,
+        collection_name: str,
+        is_clustering: bool,
+        is_l0: bool,
+        collection_id: Optional[int] = None,
     ):
         if is_clustering is None or not isinstance(is_clustering, bool):
             raise ParamError(message=f"is_clustering value {is_clustering} is illegal")
+        if is_l0 is None or not isinstance(is_l0, bool):
+            raise ParamError(message=f"is_l0 value {is_l0} is illegal")
 
         request = milvus_types.ManualCompactionRequest()
         if collection_id is not None:
             request.collectionID = collection_id
         request.collection_name = collection_name
         request.majorCompaction = is_clustering
-
+        request.l0Compaction = is_l0
         return request
 
     @classmethod
@@ -1912,7 +2434,7 @@ class Prepare:
 
         if analyzer_params is not None:
             if isinstance(analyzer_params, dict):
-                req.analyzer_params = ujson.dumps(analyzer_params)
+                req.analyzer_params = orjson.dumps(analyzer_params).decode(Config.EncodeProtocol)
             else:
                 req.analyzer_params = analyzer_params
 
@@ -1928,3 +2450,78 @@ class Prepare:
             else:
                 req.analyzer_names.extend(analyzer_names)
         return req
+
+    @classmethod
+    def update_replicate_configuration_request(
+        cls,
+        clusters: Optional[List[Dict]] = None,
+        cross_cluster_topology: Optional[List[Dict]] = None,
+    ):
+        # Validate input parameters
+        if clusters is None and cross_cluster_topology is None:
+            msg = "Either 'clusters' or 'cross_cluster_topology' must be provided"
+            raise ParamError(message=msg)
+
+        # Build ReplicateConfiguration from simplified parameters
+        replicate_configuration = common_pb2.ReplicateConfiguration()
+
+        # Add clusters
+        if clusters is not None:
+            for cluster_config in clusters:
+                cluster = common_pb2.MilvusCluster()
+
+                if "cluster_id" not in cluster_config:
+                    msg = "cluster_id is required for each cluster"
+                    raise ParamError(message=msg)
+                cluster.cluster_id = cluster_config["cluster_id"]
+
+                if "connection_param" not in cluster_config:
+                    msg = "connection_param is required for each cluster"
+                    raise ParamError(message=msg)
+                conn_param = cluster_config["connection_param"]
+                if "uri" not in conn_param:
+                    msg = "uri is required in connection_param"
+                    raise ParamError(message=msg)
+
+                cluster.connection_param.uri = conn_param["uri"]
+                cluster.connection_param.token = conn_param.get("token", "")
+
+                if "pchannels" in cluster_config:
+                    cluster.pchannels.extend(cluster_config["pchannels"])
+
+                replicate_configuration.clusters.append(cluster)
+
+        # Add cross-cluster topology
+        if cross_cluster_topology is not None:
+            for topology_config in cross_cluster_topology:
+                topology = common_pb2.CrossClusterTopology()
+
+                if "source_cluster_id" not in topology_config:
+                    msg = "source_cluster_id is required for each topology"
+                    raise ParamError(message=msg)
+                topology.source_cluster_id = topology_config["source_cluster_id"]
+
+                if "target_cluster_id" not in topology_config:
+                    msg = "target_cluster_id is required for each topology"
+                    raise ParamError(message=msg)
+                topology.target_cluster_id = topology_config["target_cluster_id"]
+
+                replicate_configuration.cross_cluster_topology.append(topology)
+
+        return milvus_types.UpdateReplicateConfigurationRequest(
+            replicate_configuration=replicate_configuration
+        )
+
+    @staticmethod
+    def convert_function_to_function_schema(f: Function) -> schema_types.FunctionSchema:
+        function_schema = schema_types.FunctionSchema(
+            name=f.name,
+            description=f.description,
+            type=f.type,
+            input_field_names=f.input_field_names,
+            output_field_names=f.output_field_names,
+        )
+        for k, v in f.params.items():
+            kv_pair = common_types.KeyValuePair(key=str(k), value=str(v))
+            function_schema.params.append(kv_pair)
+        return function_schema

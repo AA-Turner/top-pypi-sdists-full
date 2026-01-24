@@ -21,22 +21,34 @@ short_description: Look up Azure service principal attributes.
 description:
   - Describes object id of your Azure service principal account.
 options:
-  azure_client_id:
-    description: azure service principal client id.
-  azure_secret:
-    description: azure service principal secret
-  azure_tenant:
-    description: azure tenant
-  azure_cloud_environment:
-    description: azure cloud environment
+  client_id:
+    aliases:
+      - azure_client_id
+  secret:
+    aliases:
+      - azure_secret
+  tenant:
+    aliases:
+      - azure_tenant
+  cloud_environment:
+    aliases:
+      - azure_cloud_environment
+notes:
+    - If MSI is not enabled on ansible host, it's required to provide a valid service principal which has access to the key vault.
+    - To authenticate via service principal, pass client_id, secret and tenant or set environment variables
+      AZURE_CLIENT_ID, AZURE_CLIENT_SECRET and AZURE_TENANT_ID.
+    - Authentication via C(az login) is also supported.
+
+extends_documentation_fragment:
+    - azure.azcollection.azure_plugin
 """
 
 EXAMPLES = """
 set_fact:
   object_id: "{{ lookup('azure_service_principal_attribute',
-                         azure_client_id=azure_client_id,
-                         azure_secret=azure_secret,
-                         azure_tenant=azure_secret) }}"
+                         client_id=azure_client_id,
+                         secret=azure_secret,
+                         tenant=azure_secret) }}"
 """
 
 RETURN = """
@@ -45,13 +57,12 @@ _raw:
     Returns object id of service principal.
 """
 
+from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common import AzureRMAuth
 from ansible.errors import AnsibleError
 from ansible.plugins.lookup import LookupBase
 from ansible.module_utils._text import to_native
 
 try:
-    from azure.cli.core import cloud as azure_cloud
-    from azure.identity._credentials.client_secret import ClientSecretCredential
     import asyncio
     from msgraph import GraphServiceClient
     from msgraph.generated.service_principals.service_principals_request_builder import ServicePrincipalsRequestBuilder
@@ -64,27 +75,31 @@ class LookupModule(LookupBase):
 
         self.set_options(direct=kwargs)
 
-        credentials = {}
-        credentials['azure_client_id'] = self.get_option('azure_client_id', None)
-        credentials['azure_secret'] = self.get_option('azure_secret', None)
-        credentials['azure_tenant'] = self.get_option('azure_tenant', 'common')
+        auth_source = self.get_option('auth_source')
+        client_id = self.get_option('client_id')
+        secret = self.get_option('secret')
+        tenant = self.get_option('tenant')
 
-        if credentials['azure_client_id'] is None or credentials['azure_secret'] is None:
-            raise AnsibleError("Must specify azure_client_id and azure_secret")
+        # If auth_source is auto but no client_id or secret passed in switch to cli
+        if auth_source == 'auto':
+            if any(v is None for v in [client_id, secret, tenant]):
+                auth_source = 'cli'
 
-        _cloud_environment = azure_cloud.AZURE_PUBLIC_CLOUD
-        if self.get_option('azure_cloud_environment', None) is not None:
-            _cloud_environment = azure_cloud.get_cloud_from_metadata_endpoint(credentials['azure_cloud_environment'])
+        auth_options = dict(
+            auth_source=auth_source,
+            client_id=client_id,
+            secret=secret,
+            tenant=tenant,
+            cloud_environment=self.get_option('cloud_environment'),
+            is_ad_resource=True
+        )
+
+        azure_auth = AzureRMAuth(**auth_options)
 
         try:
-            azure_credential_track2 = ClientSecretCredential(client_id=credentials['azure_client_id'],
-                                                             client_secret=credentials['azure_secret'],
-                                                             tenant_id=credentials['azure_tenant'],
-                                                             authority=_cloud_environment.endpoints.active_directory)
+            client = GraphServiceClient(azure_auth.azure_credential_track2)
 
-            client = GraphServiceClient(azure_credential_track2)
-
-            response = asyncio.get_event_loop().run_until_complete(self.get_service_principals(client, credentials['azure_client_id']))
+            response = asyncio.get_event_loop().run_until_complete(self.get_service_principals(client, azure_auth.credentials['client_id']))
             if not response:
                 return []
             return list(response.value)[0].id.split(',')

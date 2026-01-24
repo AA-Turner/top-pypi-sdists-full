@@ -1,1 +1,0 @@
-from a_sync.async_property.cached import async_cached_property

@@ -12,7 +12,7 @@ import labelme.utils
 # - [opt] Store paths instead of creating new ones at each paint.
 
 
-class Shape(object):
+class Shape:
     # Render handles as squares
     P_SQUARE = 0
 
@@ -28,15 +28,18 @@ class Shape(object):
     PEN_WIDTH = 2
 
     # The following class variables influence the drawing of all shape objects.
-    line_color = None
-    fill_color = None
-    select_line_color = None
-    select_fill_color = None
-    vertex_fill_color = None
-    hvertex_fill_color = None
+    line_color: QtGui.QColor = QtGui.QColor(0, 255, 0, 128)
+    fill_color: QtGui.QColor = QtGui.QColor(0, 0, 0, 64)
+    vertex_fill_color: QtGui.QColor = QtGui.QColor(0, 255, 0, 255)
+    select_line_color: QtGui.QColor = QtGui.QColor(255, 255, 255, 255)
+    select_fill_color: QtGui.QColor = QtGui.QColor(0, 255, 0, 64)
+    hvertex_fill_color: QtGui.QColor = QtGui.QColor(255, 255, 255, 255)
+
     point_type = P_ROUND
     point_size = 8
     scale = 1.0
+
+    _current_vertex_fill_color: QtGui.QColor
 
     def __init__(
         self,
@@ -112,7 +115,7 @@ class Shape(object):
             "points",
             "mask",
         ]:
-            raise ValueError("Unexpected shape_type: {}".format(value))
+            raise ValueError(f"Unexpected shape_type: {value}")
         self._shape_type = value
 
     def close(self):
@@ -139,23 +142,20 @@ class Shape(object):
         self.points.insert(i, point)
         self.point_labels.insert(i, label)
 
-    def removePoint(self, i):
+    def canRemovePoint(self) -> bool:
         if not self.canAddPoint():
-            logger.warning(
-                "Cannot remove point from: shape_type=%r",
-                self.shape_type,
-            )
-            return
+            return False
 
         if self.shape_type == "polygon" and len(self.points) <= 3:
-            logger.warning(
-                "Cannot remove point from: shape_type=%r, len(points)=%d",
-                self.shape_type,
-                len(self.points),
-            )
-            return
+            return False
 
         if self.shape_type == "linestrip" and len(self.points) <= 2:
+            return False
+
+        return True
+
+    def removePoint(self, i: int):
+        if not self.canRemovePoint():
             logger.warning(
                 "Cannot remove point from: shape_type=%r, len(points)=%d",
                 self.shape_type,
@@ -185,16 +185,16 @@ class Shape(object):
         if self.mask is not None:
             image_to_draw = np.zeros(self.mask.shape + (4,), dtype=np.uint8)
             fill_color = (
-                self.select_fill_color.getRgb()  # type: ignore[attr-defined]
+                self.select_fill_color.getRgb()
                 if self.selected
-                else self.fill_color.getRgb()  # type: ignore[attr-defined]
+                else self.fill_color.getRgb()
             )
             image_to_draw[self.mask] = fill_color
             qimage = QtGui.QImage.fromData(labelme.utils.img_arr_to_data(image_to_draw))
             qimage = qimage.scaled(
                 qimage.size() * self.scale,
-                QtCore.Qt.IgnoreAspectRatio,  # type: ignore[attr-defined]
-                QtCore.Qt.SmoothTransformation,  # type: ignore[attr-defined]
+                QtCore.Qt.IgnoreAspectRatio,
+                QtCore.Qt.SmoothTransformation,
             )
 
             painter.drawImage(self._scale_point(point=self.points[0]), qimage)
@@ -267,8 +267,13 @@ class Shape(object):
             painter.drawPath(line_path)
             if vrtx_path.length() > 0:
                 painter.drawPath(vrtx_path)
-                painter.fillPath(vrtx_path, self._vertex_fill_color)  # type: ignore[has-type]
-            if self.fill and self.mask is None:
+                painter.fillPath(vrtx_path, self._current_vertex_fill_color)
+            if self.fill and self.shape_type not in [
+                "line",
+                "linestrip",
+                "points",
+                "mask",
+            ]:
                 color = self.select_fill_color if self.selected else self.fill_color
                 painter.fillPath(line_path, color)
 
@@ -285,9 +290,9 @@ class Shape(object):
             size, shape = self._highlightSettings[self._highlightMode]
             d *= size  # type: ignore[assignment]
         if self._highlightIndex is not None:
-            self._vertex_fill_color = self.hvertex_fill_color
+            self._current_vertex_fill_color = self.hvertex_fill_color
         else:
-            self._vertex_fill_color = self.vertex_fill_color
+            self._current_vertex_fill_color = self.vertex_fill_color
         if shape == self.P_SQUARE:
             path.addRect(point.x() - d / 2, point.y() - d / 2, d, d)
         elif shape == self.P_ROUND:
@@ -323,7 +328,9 @@ class Shape(object):
                 post_i = i
         return post_i
 
-    def containsPoint(self, point):
+    def containsPoint(self, point) -> bool:
+        if self.shape_type in ["line", "linestrip", "points"]:
+            return False
         if self.mask is not None:
             y = np.clip(
                 int(round(point.y() - self.points[0].y())),

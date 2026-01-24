@@ -1,5 +1,6 @@
 from typing import Optional
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
 from anyscale.image._private.image_sdk import PrivateImageSDK
 from anyscale.image.models import ImageBuild
@@ -76,6 +77,59 @@ def get(*, name: str, _private_sdk: Optional[PrivateImageSDK] = None) -> ImageBu
     return _private_sdk.get(name)  # type: ignore
 
 
+_LIST_EXAMPLE = """
+import anyscale
+
+for image in anyscale.image.list(max_items=5):
+    print(image.name, image.latest_build_revision)
+"""
+
+_LIST_ARG_DOCSTRINGS = {
+    "image_id": "If provided, returns just the image with this ID wrapped in a one-page iterator.",
+    "name": "Substring to match against the image name.",
+    "image_name": "Substring to match against the resolved image URI (BYOD images only).",
+    "project": "Name of the project that owns the image.",
+    "creator_id": "Filter images by the creator user ID.",
+    "include_archived": "Include archived images (default: False).",
+    "include_anonymous": "Include anonymous (workspace-scoped) images (default: False).",
+    "max_items": "Maximum total number of items to yield (default: iterate all).",
+    "page_size": "Number of items to fetch per API request (default: API default).",
+}
+
+
+@sdk_command(
+    _IMAGE_SDK_SINGLETON_KEY,
+    PrivateImageSDK,
+    doc_py_example=_LIST_EXAMPLE,
+    arg_docstrings=_LIST_ARG_DOCSTRINGS,
+)
+def list(  # noqa: A001
+    *,
+    image_id: Optional[str] = None,
+    name: Optional[str] = None,
+    image_name: Optional[str] = None,
+    project: Optional[str] = None,
+    creator_id: Optional[str] = None,
+    include_archived: bool = False,
+    include_anonymous: bool = False,
+    max_items: Optional[int] = None,
+    page_size: Optional[int] = None,
+    _private_sdk: Optional[PrivateImageSDK] = None,
+) -> ResultIterator[ImageBuild]:
+    """List images or fetch a single image by ID."""
+    return _private_sdk.list(  # type: ignore
+        image_id=image_id,
+        name=name,
+        image_name=image_name,
+        project=project,
+        creator_id=creator_id,
+        include_archived=include_archived,
+        include_anonymous=include_anonymous,
+        max_items=max_items,
+        page_size=page_size,
+    )
+
+
 _REGISTER_EXAMPLE = """
 import anyscale
 
@@ -115,3 +169,29 @@ def register(
         ray_version=ray_version,
         name=name,
     )
+
+
+_ARCHIVE_EXAMPLE = """
+import anyscale
+
+anyscale.image.archive(name="my-old-image")
+"""
+
+_ARCHIVE_ARG_DOCSTRINGS = {
+    "name": "Name of the image to archive. Can include an optional version tag (e.g., 'name:version').",
+}
+
+
+@sdk_command(
+    _IMAGE_SDK_SINGLETON_KEY,
+    PrivateImageSDK,
+    doc_py_example=_ARCHIVE_EXAMPLE,
+    arg_docstrings=_ARCHIVE_ARG_DOCSTRINGS,
+)
+def archive(name: str, *, _private_sdk: Optional[PrivateImageSDK] = None,) -> None:
+    """Archive an image and all of its versions.
+
+    Once archived, the image name will no longer be usable in the organization.
+    Archived images can still be viewed using `include_archived=True` in list().
+    """
+    return _private_sdk.archive(name=name)  # type: ignore

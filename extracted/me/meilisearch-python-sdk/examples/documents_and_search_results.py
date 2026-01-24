@@ -15,7 +15,11 @@ class ModifyDocumentPlugin:
     PRE_EVENT = True  # Specifies the plugin should be run before adding documents
 
     def run_document_plugin(
-        self, event: Event, *, documents: Sequence[JsonMapping], **kwargs: Any
+        self,
+        event: Event,
+        *,
+        documents: Sequence[JsonMapping],
+        **kwargs: Any,  # noqa: ANN401
     ) -> Sequence[JsonMapping]:
         updated = []
         for i, document in enumerate(documents):
@@ -34,7 +38,11 @@ class FilterSearchResultsPlugin:
     PRE_EVENT = False
 
     def run_post_search_plugin(
-        self, event: Event, *, search_results: SearchResults, **kwargs: Any
+        self,
+        event: Event,
+        *,
+        search_results: SearchResults,
+        **kwargs: Any,  # noqa: ANN401
     ) -> SearchResults:
         filtered_hits = []
         for hit in search_results.hits:
@@ -50,17 +58,17 @@ def main() -> int:
     with open("../datasets/small_movies.json") as f:
         documents = json.load(f)
 
-    client = Client("http://127.0.0.1:7700", "masterKey")
-    plugins = IndexPlugins(
-        add_documents_plugins=(ModifyDocumentPlugin(),),
-        update_documents_plugins=(ModifyDocumentPlugin(),),
-        search_plugins=(FilterSearchResultsPlugin(),),
-    )
-    index = client.create_index("movies", primary_key="id", plugins=plugins)
-    task = index.add_documents(documents)
-    client.wait_for_task(task.task_uid)
-    result = index.search("cars")
-    print(result)  # noqa: T201
+    with Client("http://127.0.0.1:7700", "masterKey") as client:
+        plugins = IndexPlugins(
+            add_documents_plugins=(ModifyDocumentPlugin(),),
+            update_documents_plugins=(ModifyDocumentPlugin(),),
+            search_plugins=(FilterSearchResultsPlugin(),),
+        )
+        index = client.create_index("movies", primary_key="id", plugins=plugins)
+        task = index.add_documents(documents)
+        client.wait_for_task(task.task_uid)
+        result = index.search("cars")
+        print(result)  # noqa: T201
 
     return 0
 

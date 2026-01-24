@@ -521,7 +521,7 @@ class SimpleLDAPObject:
         The method returns a tuple of the form (result_type,
         result_data).  The result_type is one of the constants RES_*.
 
-        See search() for a description of the search result's
+        See search_ext() for a description of the search result's
         result_data, otherwise the result_data is normally meaningless.
 
         The result() method will block for timeout seconds, or
@@ -588,7 +588,7 @@ class SimpleLDAPObject:
         values are stored in a list as dictionary value.
 
         The DN in dn is extracted using the underlying ldap_get_dn(),
-        which may raise an exception of the DN is malformed.
+        which may raise an exception if the DN is malformed.
 
         If attrsonly is non-zero, the values of attrs will be
         meaningless (they are not transmitted in the result).
@@ -820,8 +820,7 @@ class SimpleLDAPObject:
 class ReconnectLDAPObject(SimpleLDAPObject):
   """
   :py:class:`SimpleLDAPObject` subclass whose synchronous request methods
-  automatically reconnect and re-try in case of server failure
-  (:exc:`ldap.SERVER_DOWN`).
+  automatically reconnect and re-try in case of server failure.
 
   The first arguments are same as for the :py:func:`~ldap.initialize()`
   function.
@@ -833,6 +832,10 @@ class ReconnectLDAPObject(SimpleLDAPObject):
   * retry_delay: specifies the time in seconds between reconnect attempts.
 
   This class also implements the pickle protocol.
+
+  .. versionadded:: 3.4.5
+    The exceptions :py:exc:`ldap.SERVER_DOWN`, :py:exc:`ldap.UNAVAILABLE`, :py:exc:`ldap.CONNECT_ERROR` and
+    :py:exc:`ldap.TIMEOUT` (configurable via :py:attr:`_reconnect_exceptions`) now trigger a reconnect.
   """
 
   __transient_attrs__ = {
@@ -842,6 +845,7 @@ class ReconnectLDAPObject(SimpleLDAPObject):
     '_reconnect_lock',
     '_last_bind',
   }
+  _reconnect_exceptions = (ldap.SERVER_DOWN, ldap.UNAVAILABLE, ldap.CONNECT_ERROR, ldap.TIMEOUT)
 
   def __init__(
     self,uri,
@@ -970,7 +974,7 @@ class ReconnectLDAPObject(SimpleLDAPObject):
     self.reconnect(self._uri,retry_max=self._retry_max,retry_delay=self._retry_delay,force=False)
     try:
       return func(self,*args,**kwargs)
-    except ldap.SERVER_DOWN:
+    except self._reconnect_exceptions:
       # Try to reconnect
       self.reconnect(self._uri,retry_max=self._retry_max,retry_delay=self._retry_delay,force=True)
       # Re-try last operation

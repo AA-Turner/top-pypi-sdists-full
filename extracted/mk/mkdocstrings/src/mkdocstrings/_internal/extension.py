@@ -26,7 +26,6 @@ import re
 from functools import partial
 from inspect import signature
 from typing import TYPE_CHECKING, Any
-from warnings import warn
 from xml.etree.ElementTree import Element
 
 import yaml
@@ -35,6 +34,7 @@ from markdown.blockprocessors import BlockProcessor
 from markdown.extensions import Extension
 from markdown.treeprocessors import Treeprocessor
 from mkdocs.exceptions import PluginError
+from mkdocs_autorefs import AutorefsConfig, AutorefsExtension, AutorefsPlugin
 
 from mkdocstrings._internal.handlers.base import BaseHandler, CollectionError, CollectorItem, Handlers
 from mkdocstrings._internal.loggers import get_logger
@@ -43,7 +43,6 @@ if TYPE_CHECKING:
     from collections.abc import MutableSequence
 
     from markdown import Markdown
-    from mkdocs_autorefs import AutorefsPlugin
 
 
 _logger = get_logger("mkdocstrings")
@@ -172,19 +171,7 @@ class AutoDocProcessor(BlockProcessor):
             # Heading level obtained from Markdown (`##`) takes precedence.
             local_options["heading_level"] = heading_level
 
-        # YORE: Bump 1: Replace block with line 2.
-        if handler.get_options.__func__ is not BaseHandler.get_options:  # type: ignore[attr-defined]
-            options = handler.get_options(local_options)
-        else:
-            warn(
-                "mkdocstrings v1 will start using your handler's `get_options` method to build options "
-                "instead of merging the global and local options (dictionaries). ",
-                DeprecationWarning,
-                stacklevel=1,
-            )
-            handler_config = self._handlers.get_handler_config(handler_name)
-            global_options = handler_config.get("options", {})
-            options = {**global_options, **local_options}
+        options = handler.get_options(local_options)
 
         _logger.debug("Collecting data")
         try:
@@ -266,23 +253,7 @@ class AutoDocProcessor(BlockProcessor):
             # Register all identifiers for this object
             # both in the autorefs plugin and in the inventory.
             aliases: tuple[str, ...]
-            # YORE: Bump 1: Replace block with line 16.
-            if hasattr(handler, "get_anchors"):
-                warn(
-                    "The `get_anchors` method is deprecated. "
-                    "Declare a `get_aliases` method instead, accepting a string (identifier) "
-                    "instead of a collected object.",
-                    DeprecationWarning,
-                    stacklevel=1,
-                )
-                try:
-                    data_object = handler.collect(rendered_id, getattr(handler, "fallback_config", {}))
-                except CollectionError:
-                    aliases = ()
-                else:
-                    aliases = handler.get_anchors(data_object)
-            else:
-                aliases = handler.get_aliases(rendered_id)
+            aliases = handler.get_aliases(rendered_id)
 
             for alias in aliases:
                 if alias != rendered_id:
@@ -345,17 +316,26 @@ class MkdocstringsExtension(Extension):
     It cannot work outside of `mkdocstrings`.
     """
 
-    def __init__(self, handlers: Handlers, autorefs: AutorefsPlugin, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        handlers: Handlers,
+        autorefs: AutorefsPlugin,
+        *,
+        autorefs_extension: bool = False,
+        **kwargs: Any,
+    ) -> None:
         """Initialize the object.
 
         Arguments:
             handlers: The handlers container.
             autorefs: The autorefs plugin instance.
+            autorefs_extension: Whether the autorefs extension must be registered.
             **kwargs: Keyword arguments used by `markdown.extensions.Extension`.
         """
         super().__init__(**kwargs)
         self._handlers = handlers
         self._autorefs = autorefs
+        self._autorefs_extension = autorefs_extension
 
     def extendMarkdown(self, md: Markdown) -> None:  # noqa: N802 (casing: parent method's name)
         """Register the extension.
@@ -365,6 +345,12 @@ class MkdocstringsExtension(Extension):
         Arguments:
             md: A `markdown.Markdown` instance.
         """
+        md.registerExtension(self)
+
+        # Zensical integration: get the current page from the Zensical-specific preprocessor.
+        if "zensical_current_page" in md.preprocessors:
+            self._autorefs.current_page = md.preprocessors["zensical_current_page"]  # type: ignore[assignment]
+
         md.parser.blockprocessors.register(
             AutoDocProcessor(md, handlers=self._handlers, autorefs=self._autorefs),
             "mkdocstrings",
@@ -380,3 +366,97 @@ class MkdocstringsExtension(Extension):
             "mkdocstrings_post_toc_labels",
             priority=4,  # Right after 'toc'.
         )
+
+        if self._autorefs_extension:
+            AutorefsExtension(self._autorefs).extendMarkdown(md)
+
+
+# -----------------------------------------------------------------------------
+# The following is only used by Zensical. The goal is to provide temporary
+# compatibility for users migrating from MkDocs (and Material for MkDocs)
+# to Zensical. When detecting the use of the mkdocstrings plugin in mkdocs.yml,
+# Zensical will add the mkdocstrings extension to its Markdown extensions.
+
+_default_config: dict[str, Any] = {
+    "default_handler": "python",
+    "handlers": {},
+    "custom_templates": None,
+    "locale": "en",
+    "enable_inventory": True,
+    "enabled": True,
+}
+
+
+def _split_configs(markdown_extensions: list[str | dict]) -> tuple[list[str | Extension], dict[str, Any]]:
+    # Split markdown extensions and their configs from mkdocs.yml
+    mdx: list[str] = []
+    mdx_config: dict[str, Any] = {}
+    for item in markdown_extensions:
+        if isinstance(item, str):
+            mdx.append(item)
+        elif isinstance(item, dict):
+            for key, value in item.items():
+                mdx.append(key)
+                mdx_config[key] = value
+                break  # Only one item per dict
+    return mdx, mdx_config  # type: ignore[return-value]
+
+
+class _ToolConfig:
+    def __init__(self, config_file_path: str | None = None) -> None:
+        self.config_file_path = config_file_path
+
+
+def makeExtension(  # noqa: N802
+    *,
+    default_handler: str | None = None,
+    inventory_project: str | None = None,
+    inventory_version: str | None = None,
+    handlers: dict[str, dict] | None = None,
+    custom_templates: str | None = None,
+    markdown_extensions: list[str | dict] | None = None,
+    locale: str | None = None,
+    config_file_path: str | None = None,
+) -> MkdocstringsExtension:
+    """Create the extension instance.
+
+    We only support this function being used by Zensical.
+    Consider this function private API.
+    """
+    mdx, mdx_config = _split_configs(markdown_extensions or [])
+    tool_config = _ToolConfig(config_file_path=config_file_path)
+
+    autorefs = AutorefsPlugin()
+    autorefs.config = AutorefsConfig()
+    autorefs.config.resolve_closest = True
+    autorefs.config.link_titles = "auto"
+    autorefs.config.strip_title_tags = "auto"
+    autorefs.scan_toc = True
+    autorefs._link_titles = "external"
+    autorefs._strip_title_tags = False
+
+    mdx.append(AutorefsExtension(autorefs))
+
+    handlers_instance = Handlers(
+        theme="material",
+        default=default_handler or _default_config["default_handler"],
+        inventory_project=inventory_project or "Project",
+        inventory_version=inventory_version or "0.0.0",
+        handlers_config=handlers or _default_config["handlers"],
+        custom_templates=custom_templates or _default_config["custom_templates"],
+        mdx=mdx,
+        mdx_config=mdx_config,
+        locale=locale or _default_config["locale"],
+        tool_config=tool_config,
+    )
+
+    handlers_instance._download_inventories()
+    register = autorefs.register_url
+    for identifier, url in handlers_instance._yield_inventory_items():
+        register(identifier, url)
+
+    return MkdocstringsExtension(
+        handlers=handlers_instance,
+        autorefs=autorefs,
+        autorefs_extension=True,
+    )

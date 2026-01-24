@@ -5,15 +5,17 @@ from importlib.metadata import entry_points
 from itertools import chain
 import sys
 import typing as t
+from typing import Protocol  # noqa:F401
 
 from ddtrace.internal import forksafe
 from ddtrace.internal.logger import get_logger
+from ddtrace.internal.settings._core import DDConfig
 from ddtrace.internal.telemetry import report_configuration
 from ddtrace.internal.telemetry import telemetry_writer
 from ddtrace.internal.uwsgi import check_uwsgi
+from ddtrace.internal.uwsgi import uWSGIConfigDeprecationWarning
 from ddtrace.internal.uwsgi import uWSGIConfigError
 from ddtrace.internal.uwsgi import uWSGIMasterProcess
-from ddtrace.settings._core import DDConfig
 
 
 log = get_logger(__name__)
@@ -30,29 +32,18 @@ else:
         return [ep for _, eps in entry_points().items() for ep in eps if ep.group == "ddtrace.products"]
 
 
-try:
-    from typing import Protocol  # noqa:F401
-except ImportError:
-    from typing_extensions import Protocol  # type: ignore[assignment]
-
-
 class Product(Protocol):
     requires: t.List[str]
 
-    def post_preload(self) -> None:
-        ...
+    def post_preload(self) -> None: ...
 
-    def start(self) -> None:
-        ...
+    def start(self) -> None: ...
 
-    def restart(self, join: bool = False) -> None:
-        ...
+    def restart(self, join: bool = False) -> None: ...
 
-    def stop(self, join: bool = False) -> None:
-        ...
+    def stop(self, join: bool = False) -> None: ...
 
-    def at_exit(self, join: bool = False) -> None:
-        ...
+    def at_exit(self, join: bool = False) -> None: ...
 
 
 class ProductManager:
@@ -229,6 +220,11 @@ class ProductManager:
 
         except uWSGIConfigError:
             log.error("uWSGI configuration error", exc_info=True)
+
+        except uWSGIConfigDeprecationWarning:
+            log.warning("uWSGI configuration deprecation warning", exc_info=True)
+            self._do_products()
+
         except Exception:
             log.exception("Failed to check uWSGI configuration")
 

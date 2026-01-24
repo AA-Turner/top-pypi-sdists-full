@@ -40,6 +40,45 @@ def test_something():
         ),
         report=snapshot(
             """\
+FAIL: your snapshot is missing 2 values.
+If you just created this value with --inline-snapshot=create, the value is now \n\
+created and you can ignore this message.
+FAIL: some snapshots in this test have incorrect values.
+If you just created this value with --inline-snapshot=create, the value is now \n\
+created and you can ignore this message.
+
+
+═══════════════════════════════ inline-snapshot ════════════════════════════════
+------------------------------- Create snapshots -------------------------------
++-------------------------- tests/test_something.py ---------------------------+
+| @@ -1,6 +1,6 @@                                                              |
+|                                                                              |
+|  from inline_snapshot import snapshot                                        |
+|                                                                              |
+|  def test_something():                                                       |
+| -    assert 1==snapshot()                                                    |
+| +    assert 1==snapshot(1)                                                   |
+|      assert 1==snapshot(2)                                                   |
+| -    assert list(range(20)) == snapshot()                                    |
+| +    assert list(range(20)) == snapshot([0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ,8 ,9 ,10    |
+| ,11 ,12 ,13 ,14 ,15 ,16 ,17 ,18 ,19 ])                                       |
++------------------------------------------------------------------------------+
+These changes will be applied, because you used create
+
+-------------------------------- Fix snapshots ---------------------------------
++-------------------------- tests/test_something.py ---------------------------+
+| @@ -2,5 +2,5 @@                                                              |
+|                                                                              |
+|                                                                              |
+|  def test_something():                                                       |
+|      assert 1==snapshot(1)                                                   |
+| -    assert 1==snapshot(2)                                                   |
+| +    assert 1==snapshot(1)                                                   |
+|      assert list(range(20)) == snapshot([0 ,1 ,2 ,3 ,4 ,5 ,6 ,7 ,8 ,9 ,10    |
+| ,11 ,12 ,13 ,14 ,15 ,16 ,17 ,18 ,19 ])                                       |
++------------------------------------------------------------------------------+
+These changes will be applied, because you used fix
+
 ----------------------------------- Problems -----------------------------------
 black could not format your code, which might be caused by this issue:
     https://github.com/15r10nk/inline-snapshot/issues/138
@@ -71,12 +110,12 @@ def test_format_command():
     Example(
         {
             "fmt_cmd.py": """\
-from sys import stdin
+from sys import stdin,stdout
 import re
 
 text=stdin.read()
 text=re.sub("#.*","",text)
-print(text)
+stdout.buffer.write(text.encode("utf-8"))
 """,
             "pyproject.toml": f"""\
 [tool.inline-snapshot]
@@ -98,7 +137,6 @@ from inline_snapshot import snapshot
 
 def test_a():
     assert "5" == snapshot('5')
-
 """
             }
         ),
@@ -125,14 +163,18 @@ def test_format_command_fail():
 
     Example(
         {
-            "fmt_cmd.py": """
+            "fmt_cmd_good.py": """
 import sys
-print("some problem")
+sys.stdout.buffer.write(sys.stdin.buffer.read())
+""",
+            "fmt_cmd_bad.py": """
+import sys
+sys.stdout.buffer.write(b"some_problem\\n")
 sys.exit(1)
 """,
             "pyproject.toml": f"""\
 [tool.inline-snapshot]
-format-command="{executable} fmt_cmd.py {{filename}}"
+format-command="{executable} fmt_cmd_bad.py {{filename}} | {executable} fmt_cmd_good.py"
 """,
             "tests/test_a.py": """
 from inline_snapshot import snapshot
@@ -170,12 +212,12 @@ def test_a():
 +------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 These changes will be applied, because you used fix
 ----------------------------------------------------------------------------------------------- Problems -----------------------------------------------------------------------------------------------
-The format_command '/.../python fmt_cmd.py /.../test_a.py' caused the following error:
-some problem\
+The format_command '/.../python fmt_cmd_bad.py /.../test_a.py | /.../python fmt_cmd_good.py' caused the following error:
+some_problem\
 """
             )
         ),
-        returncode=1,
+        returncode=snapshot(1),
     )
 
 
@@ -207,6 +249,24 @@ def test_a():
         ),
         report=snapshot(
             """\
+FAIL: some snapshots in this test have incorrect values.
+If you just created this value with --inline-snapshot=create, the value is now \n\
+created and you can ignore this message.
+
+
+═══════════════════════════════ inline-snapshot ════════════════════════════════
+-------------------------------- Fix snapshots ---------------------------------
++--------------------------------- test_a.py ----------------------------------+
+| @@ -2,4 +2,4 @@                                                              |
+|                                                                              |
+|  from inline_snapshot import snapshot                                        |
+|                                                                              |
+|  def test_a():                                                               |
+| -    assert "5" ==            snapshot('''3''')                              |
+| +    assert "5" ==            snapshot('5')                                  |
++------------------------------------------------------------------------------+
+These changes will be applied, because you used fix
+
 ----------------------------------- Problems -----------------------------------
 inline-snapshot is not able to format your code.
 This issue can be solved by:
@@ -254,3 +314,31 @@ def test_a():
         ),
         returncode=1,
     )
+
+
+def test_black_does_not_trim_spaces():
+    # https://github.com/15r10nk/inline-snapshot/issues/301
+
+    Example(
+        {
+            "test_a.py": """\
+from inline_snapshot import snapshot
+
+def test_a():
+    assert " a " == snapshot("")
+""",
+        }
+    ).run_pytest(
+        ["--inline-snapshot=fix"],
+        changed_files=snapshot(
+            {
+                "test_a.py": """\
+from inline_snapshot import snapshot
+
+def test_a():
+    assert " a " == snapshot(" a ")
+"""
+            }
+        ),
+        returncode=1,
+    ).run_inline()

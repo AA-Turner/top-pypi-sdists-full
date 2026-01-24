@@ -6,12 +6,20 @@ from __future__ import annotations
 import dataclasses
 import itertools
 from functools import partial
-from typing import Any, Callable, Dict, List, Set, Tuple, TypeVar, Union
+from typing import Any, Callable, Generic, TypeVar, Union
 
-from typing_extensions import get_args
+from typing_extensions import Annotated
 
-from . import _arguments, _fields, _parsers, _resolver, _singleton, _strings
-from .conf import _markers
+from . import _arguments, _parsers, _resolver, _singleton, _strings
+from .conf import _confstruct, _markers
+from .constructors._primitive_spec import UnsupportedTypeAnnotationError
+
+T = TypeVar("T")
+
+
+@dataclasses.dataclass(frozen=True)
+class DummyWrapper(Generic[T]):
+    __tyro_dummy_inner__: Annotated[T, _confstruct.arg(name="")]
 
 
 @dataclasses.dataclass(frozen=True)
@@ -20,19 +28,16 @@ class InstantiationError(Exception):
     the CLI are invalid."""
 
     message: str
-    arg: Union[_arguments.ArgumentDefinition, str]
-
-
-T = TypeVar("T")
+    arg: _arguments.ArgumentDefinition | str
 
 
 def callable_with_args(
     f: Callable[..., T],
     parser_definition: _parsers.ParserSpecification,
-    default_instance: Union[T, _singleton.NonpropagatingMissingType],
-    value_from_prefixed_field_name: Dict[str, Any],
+    default_instance: T | _singleton.NonpropagatingMissingType,
+    value_from_prefixed_field_name: dict[str | None, Any],
     field_name_prefix: str,
-) -> Tuple[Callable[[], T], Set[str]]:
+) -> tuple[Callable[[], T], set[str]]:
     """Populate `f` with arguments specified by a dictionary of values from argparse.
 
     Returns a partialed version of `f` with arguments populated, and a set of
@@ -43,9 +48,13 @@ def callable_with_args(
     functions passed to `tyro`.
     """
 
-    positional_args: List[Any] = []
-    kwargs: Dict[str, Any] = {}
-    consumed_keywords: Set[str] = set()
+    # If we' returning the default: unwrap any dummy wrappers.
+    while isinstance(default_instance, DummyWrapper):
+        default_instance = default_instance.__tyro_dummy_inner__
+
+    positional_args: list[Any] = []
+    kwargs: dict[str, Any] = {}
+    consumed_keywords: set[str] = set()
 
     def get_value_from_arg(
         prefixed_field_name: str, arg: _arguments.ArgumentDefinition
@@ -63,16 +72,20 @@ def callable_with_args(
         if prefixed_field_name not in value_from_prefixed_field_name:
             # When would the value not be found?
             # 1. If the argument is suppressed
-            # 2. If we have `tyro.conf.ConsolidateSubcommandArgs` for one of the
-            #    contained subparsers or nested dataclasses
+            # 2. If we have `tyro.conf.CascadeSubcommandArgs` at parser level
+            # 3. If the argument has the CascadeSubcommandArgs marker
             assert (
-                arg.is_suppressed() or parser_definition.consolidate_subcommand_args
-            ), "Field value is unexpectedly missing. This is likely a bug in tyro."
+                arg.is_suppressed()
+                or (_markers.CascadeSubcommandArgs in parser_definition.markers)
+                or (_markers.CascadeSubcommandArgs in arg.field.markers)
+            ), (
+                f"Field value for {arg.lowered.name_or_flags} is unexpectedly missing. This is likely a bug in tyro."
+            )
             return arg.field.default, False
         else:
             return value_from_prefixed_field_name[prefixed_field_name], True
 
-    arg_from_prefixed_field_name: Dict[str, _arguments.ArgumentDefinition] = {}
+    arg_from_prefixed_field_name: dict[str, _arguments.ArgumentDefinition] = {}
     for arg in parser_definition.args:
         arg_from_prefixed_field_name[
             _strings.make_field_name([arg.intern_prefix, arg.field.intern_name])
@@ -99,7 +112,7 @@ def callable_with_args(
                 value, value_found = get_value_from_arg(name_maybe_prefixed, arg)
                 should_cast = False
 
-                if value in _fields.MISSING_AND_MISSING_NONPROP:
+                if _singleton.is_missing(value):
                     value = arg.field.default
 
                     # Consider a function with a positional sequence argument:
@@ -110,8 +123,8 @@ def callable_with_args(
                     # as empty input for x. But the argparse default will be a MISSING
                     # value, and the field default will be inspect.Parameter.empty.
                     if (
-                        value in _fields.MISSING_AND_MISSING_NONPROP
-                        and arg.field.is_positional()
+                        _singleton.is_missing(value)
+                        and arg.is_positional()
                         # nargs="?" is currently only used for optional positional
                         # arguments when the underlying nargs for the primitive
                         # constructor is 1. Logic for this is in _arguments.py.
@@ -139,12 +152,12 @@ def callable_with_args(
                             arg,
                         )
             else:
-                assert arg.field.default not in _fields.MISSING_AND_MISSING_NONPROP
+                assert not _singleton.is_missing(arg.field.default)
                 value = arg.field.default
                 parsed_value = value_from_prefixed_field_name.get(
                     prefixed_field_name, _singleton.MISSING_NONPROP
                 )
-                if parsed_value not in _fields.MISSING_AND_MISSING_NONPROP:
+                if not _singleton.is_missing(parsed_value):
                     raise InstantiationError(
                         f"{'/'.join(arg.lowered.name_or_flags)} was passed in, but"
                         " is a fixed argument that cannot be parsed",
@@ -174,27 +187,32 @@ def callable_with_args(
             if subparser_dest in value_from_prefixed_field_name:
                 subparser_name = value_from_prefixed_field_name[subparser_dest]
             else:
-                assert (
-                    subparser_def.default_instance
-                    not in _fields.MISSING_AND_MISSING_NONPROP
+                assert not _singleton.is_missing(subparser_def.default_instance), (
+                    f"{subparser_dest} missing, but no default instance set. {value_from_prefixed_field_name.keys()=}"
                 )
                 subparser_name = None
 
             if subparser_name is None:
                 # No subparser selected -- this should only happen when we have a
                 # default/default_factory set.
-                assert (
-                    type(None) in get_args(field_type)
-                    or subparser_def.default_instance is not None
-                )
+                # This assert is wrong because `type(None)` can be in an `Annotated metadata.
+                # assert (
+                #     type(None) in get_args(field_type)
+                #     or subparser_def.default_instance is not None
+                # )
                 value = subparser_def.default_instance
             else:
                 chosen_f = subparser_def.options[
                     list(subparser_def.parser_from_name.keys()).index(subparser_name)
                 ]
+                evaluated = subparser_def.parser_from_name[subparser_name].evaluate()
+                # Error should have been caught earlier.
+                assert not isinstance(evaluated, UnsupportedTypeAnnotationError), (
+                    "Unexpected UnsupportedTypeAnnotationError in backend"
+                )
                 get_value, consumed_keywords_child = callable_with_args(
                     chosen_f,
-                    subparser_def.parser_from_name[subparser_name],
+                    evaluated,
                     (
                         field.default
                         if type(field.default) is chosen_f
@@ -210,16 +228,24 @@ def callable_with_args(
         if value is _singleton.EXCLUDE_FROM_CALL:
             continue
 
-        if _markers._UnpackArgsCall in field.markers:
+        if field.call_mode == "unpack_args":
             if len(positional_args) == 0 and len(kwargs) > 0:
                 positional_args.extend(kwargs.values())
                 kwargs.clear()
-            assert isinstance(value, tuple)
-            positional_args.extend(value)
-        elif _markers._UnpackKwargsCall in field.markers:
-            assert isinstance(value, dict)
-            kwargs.update(value)
-        elif field.is_positional_call():
+            # Handle missing value for *args - track it for _OPTIONAL_GROUP logic.
+            if _singleton.is_missing(value):
+                positional_args.append(value)
+            else:
+                assert isinstance(value, tuple)
+                positional_args.extend(value)
+        elif field.call_mode == "unpack_kwargs":
+            # Handle missing value for **kwargs - track it for _OPTIONAL_GROUP logic.
+            if _singleton.is_missing(value):
+                kwargs[field.call_argname] = value
+            else:
+                assert isinstance(value, dict)
+                kwargs.update(value)
+        elif field.call_mode == "positional":
             assert len(kwargs) == 0
             positional_args.append(value)
         else:
@@ -227,7 +253,7 @@ def callable_with_args(
 
     # Logic for _markers._OPTIONAL_GROUP.
     is_missing_list = [
-        any(v is m for m in _fields.MISSING_AND_MISSING_NONPROP)
+        _singleton.is_missing(v)
         for v in itertools.chain(positional_args, kwargs.values())
     ]
     if any(is_missing_list):
@@ -237,9 +263,9 @@ def callable_with_args(
 
         message = "either all arguments must be provided or none of them."
         if len(kwargs) > 0:
-            missing_args: List[str] = []
+            missing_args: list[str] = []
             for k, v in kwargs.items():
-                if v not in _fields.MISSING_AND_MISSING_NONPROP:
+                if not _singleton.is_missing(v):
                     break
 
                 # Argument is missing.
@@ -278,15 +304,19 @@ def callable_with_args(
             assert len(positional_args) == 0
             return lambda: kwargs, consumed_keywords  # type: ignore
     else:
-        if field_name_prefix == "":
-            # Don't catch any errors for the "root" field. If main() in tyro.cli(main)
-            # raises a ValueError, this shouldn't be caught.
+        if parser_definition.extern_prefix == "":
+            # Don't catch any errors for the "root" field. If main() in
+            # tyro.cli(main) raises a ValueError, this shouldn't be caught.
+            #
+            # Important: we'll unwrap `DummyWrapper` in _cli.py. We could also
+            # add an inner function here, but that would make stack traces
+            # messier.
             return partial(unwrapped_f, *positional_args, **kwargs), consumed_keywords  # type: ignore
         else:
             # Try to catch ValueErrors raised by field constructors.
             def with_instantiation_error():
                 try:
-                    return unwrapped_f(*positional_args, **kwargs)
+                    out = unwrapped_f(*positional_args, **kwargs)
                 # If unwrapped_f raises a ValueError, wrap the message with a more informative
                 # InstantiationError if possible.
                 except ValueError as e:
@@ -294,5 +324,8 @@ def callable_with_args(
                         e.args[0],
                         field_name_prefix,
                     )
+                while isinstance(out, DummyWrapper):
+                    out = out.__tyro_dummy_inner__
+                return out
 
             return with_instantiation_error, consumed_keywords  # type: ignore

@@ -1,0 +1,128 @@
+[project]
+name = "nitypes"
+description = "Data types for NI Python APIs"
+license = "MIT"
+keywords = ["nitypes"]
+version = "1.0.1"
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Manufacturing",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["dependencies"]
+readme = "README.md"
+authors = [{name = "NI", email = "opensource@ni.com"}]
+maintainers = [{name = "Brad Keryan", email = "brad.keryan@ni.com"}]
+requires-python = '>=3.9,<4.0'
+
+[project.urls]
+repository = "https://github.com/ni/nitypes-python"
+documentation = "https://nitypes.readthedocs.io/"
+
+[tool.poetry]
+packages = [{ include = "nitypes", from = "src" }]
+requires-poetry = '>=2.1,<3.0'
+
+[tool.poetry.dependencies]
+# NumPy 2.0.x is the last version that supports Python 3.9, but it crashes with Python 3.13.
+numpy = [
+  { version = ">=1.22", python = ">=3.9,<3.13" },
+  { version = ">=2.1", python = "^3.13" }
+]
+hightime = { version = ">=0.2.2", allow-prereleases = true }
+typing-extensions = ">=4.13.2"
+
+[tool.poetry.group.dev.dependencies]
+# Specify additional NumPy version constraints to speed up locking and test with binary wheels that support PyPy.
+numpy = [
+  { version = ">=1.22", python = ">=3.9,<3.12", markers = "implementation_name != 'pypy'" },
+  { version = ">=1.26", python = ">=3.12,<3.13", markers = "implementation_name != 'pypy'" },
+  { version = ">=2.1", python = "^3.13", markers = "implementation_name != 'pypy'" },
+  { version = ">=2.1", python = ">=3.10,<3.11", markers = "implementation_name == 'pypy'" },
+  { version = ">=2.3", python = "^3.11", markers = "implementation_name == 'pypy'" },
+]
+
+[tool.poetry.group.lint.dependencies]
+bandit = { version = ">=1.7", extras = ["toml"] }
+ni-python-styleguide = ">=0.4.1"
+mypy = ">=1.18.1"
+pyright = { version = ">=1.1.400", extras = ["nodejs"] }
+
+[tool.poetry.group.test.dependencies]
+pytest = ">=7.2"
+pytest-benchmark = ">=5.1"
+pytest-cov = ">=4.0"
+pytest-doctestplus = ">=1.4"
+pytest-mock = ">=3.0"
+# Uncomment to use an unreleased version of hightime for testing.
+# hightime = { git = "https://github.com/ni/hightime.git" }
+tomlkit = ">=0.11.0"
+tzlocal = ">=5.0"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+# The latest Sphinx requires a recent Python version.
+Sphinx = [
+  { version = ">=7.4", python = ">=3.9,<3.10" },
+  { version = ">=8.1", python = ">=3.10,<3.11" },
+  { version = ">=8.2", python = "^3.11" },
+]
+sphinx-rtd-theme = ">=1.0.0"
+sphinx-autoapi = ">=1.8.4"
+m2r2 = ">=0.3.2"
+toml = ">=0.10.2"
+tomlkit = ">=0.11.0"
+
+[tool.ni-python-styleguide]
+extend_exclude = "docs"
+application-import-names = "nitypes,tests"
+
+[tool.black]
+line-length = 100
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules --doctest-plus --strict-markers"
+filterwarnings = [
+  "error::DeprecationWarning",
+  "error::PendingDeprecationWarning",
+]
+# Exclude tests/benchmark by default.
+testpaths = ["src/nitypes", "tests/acceptance", "tests/unit"]
+
+[build-system]
+requires = ["poetry-core>=2.1.0,<3.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+files = "examples/,scripts/,src/,tests/"
+namespace_packages = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = [
+  # https://github.com/ionelmc/pytest-benchmark/issues/212 - Add type annotations
+  "pytest_benchmark.*",
+]
+ignore_missing_imports = true
+
+[tool.bandit]
+skips = [
+  "B101", # assert_used
+]
+
+[tool.pyright]
+include = ["examples/", "scripts/", "src/", "tests/"]

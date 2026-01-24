@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Generic, List, Set
+from typing import Generic
 
 from jsonschema import Draft7Validator, SchemaError
 
@@ -31,6 +31,7 @@ from mistral_common.protocol.instruct.tool_calls import (
     Tool,
     ToolCall,
 )
+from mistral_common.tokens.tokenizers.base import TokenizerVersion
 
 
 class ValidationMode(Enum):
@@ -72,7 +73,7 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
         """
         self._mode = mode
 
-    def validate_messages(self, messages: List[UATS], continue_final_message: bool) -> None:
+    def validate_messages(self, messages: list[UATS], continue_final_message: bool) -> None:
         r"""Validates the list of messages.
 
         Args:
@@ -132,7 +133,7 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
                 "or contain underscores and dashes, with a maximum length of 64."
             )
 
-    def _validate_tools(self, tools: List[Tool]) -> None:
+    def _validate_tools(self, tools: list[Tool]) -> None:
         """
         Checks:
         - That the tool schemas are valid
@@ -212,7 +213,7 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
                 raise InvalidAssistantMessageException("Assistant message with prefix True must be last message")
             # note : we already validate that assistant message has content 3 lines up.
 
-    def _validate_tool_calls_followed_by_tool_messages(self, messages: List[UATS]) -> None:
+    def _validate_tool_calls_followed_by_tool_messages(self, messages: list[UATS]) -> None:
         """
         Checks:
         - That the number of tool calls and tool messages are the same
@@ -244,7 +245,7 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
         elif expected_tool_messages < 0 and self._mode == ValidationMode.finetuning:
             raise InvalidMessageStructureException("More tool responses than tool calls")
 
-    def _validate_message_order(self, messages: List[UATS]) -> None:
+    def _validate_message_order(self, messages: list[UATS]) -> None:
         """
         Validates the order of the messages, for example user -> assistant -> user -> assistant -> ...
         """
@@ -293,7 +294,7 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
                     f"True but got {last_message_role}"
                 )
 
-    def _validate_message_list_structure(self, messages: List[UATS], continue_final_message: bool) -> None:
+    def _validate_message_list_structure(self, messages: list[UATS], continue_final_message: bool) -> None:
         """
         Validates the structure of the list of messages
 
@@ -315,7 +316,7 @@ class MistralRequestValidator(Generic[UserMessageType, AssistantMessageType, Too
         self._validate_message_order(messages)
         self._validate_tool_calls_followed_by_tool_messages(messages)
 
-    def _validate_message_list_content(self, messages: List[UATS]) -> None:
+    def _validate_message_list_content(self, messages: list[UATS]) -> None:
         """
         Validates the content of the messages
         """
@@ -405,7 +406,7 @@ class MistralRequestValidatorV5(MistralRequestValidatorV3):
 
 
 class MistralRequestValidatorV13(MistralRequestValidatorV5):
-    def _validate_tool_calls_followed_by_tool_messages(self, messages: List[UATS]) -> None:
+    def _validate_tool_calls_followed_by_tool_messages(self, messages: list[UATS]) -> None:
         """
         Checks:
         - That the number and ids of tool calls and tool messages are the same
@@ -413,8 +414,8 @@ class MistralRequestValidatorV13(MistralRequestValidatorV5):
         - That tool calls have distinct ids for a given assistant message
         """
         prev_role = None
-        expected_tool_ids: Set[str] = set()
-        observed_tool_ids: Set[str] = set()
+        expected_tool_ids: set[str] = set()
+        observed_tool_ids: set[str] = set()
         for message in messages:
             if prev_role is None:
                 prev_role = message.role
@@ -451,3 +452,19 @@ class MistralRequestValidatorV13(MistralRequestValidatorV5):
             raise InvalidMessageStructureException("Not the same number of function calls and responses")
         elif len(expected_tool_ids) < len(observed_tool_ids) and self._mode == ValidationMode.finetuning:
             raise InvalidMessageStructureException("More tool responses than tool calls")
+
+
+def get_validator(version: TokenizerVersion, mode: ValidationMode) -> MistralRequestValidator:
+    validator: MistralRequestValidator
+    if version <= TokenizerVersion.v2:
+        validator = MistralRequestValidator(mode=mode)
+    elif version <= TokenizerVersion.v3:
+        validator = MistralRequestValidatorV3(mode=mode)
+    elif version <= TokenizerVersion.v7:
+        validator = MistralRequestValidatorV5(mode=mode)
+    elif version <= TokenizerVersion.v13:
+        validator = MistralRequestValidatorV13(mode=mode)
+    else:
+        raise ValueError(f"Unsupported tokenizer version: {version}")
+
+    return validator

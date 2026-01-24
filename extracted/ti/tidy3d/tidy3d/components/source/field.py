@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pydantic
@@ -12,11 +12,14 @@ from tidy3d.components.base import Tidy3dBaseModel, cached_property, skip_if_fie
 from tidy3d.components.data.dataset import FieldDataset
 from tidy3d.components.data.validators import validate_can_interpolate, validate_no_nans
 from tidy3d.components.mode_spec import ModeSpec
+from tidy3d.components.source.frame import PECFrame
 from tidy3d.components.types import TYPE_TAG_STR, Ax, Axis, Coordinate, Direction
+from tidy3d.components.types.mode_spec import ModeSpecType
 from tidy3d.components.validators import (
     assert_plane,
     assert_single_freq_in_range,
     assert_volumetric,
+    warn_backward_waist_distance,
     warn_if_dataset_none,
 )
 from tidy3d.constants import GLANCING_CUTOFF, MICROMETER, RADIAN, inf
@@ -103,7 +106,9 @@ class BroadbandSource(Source, ABC):
     @cached_property
     def frequency_grid(self) -> np.ndarray:
         """A Chebyshev grid used to approximate frequency dependence."""
-        freq_min, freq_max = self.source_time.frequency_range(num_fwidth=CHEB_GRID_WIDTH)
+        if self.num_freqs == 1:
+            return np.array([self.source_time._freq0])
+        freq_min, freq_max = self.source_time.frequency_range_sigma(sigma=CHEB_GRID_WIDTH)
         return self._chebyshev_freq_grid(freq_min, freq_max)
 
     def _chebyshev_freq_grid(self, freq_min, freq_max):
@@ -388,10 +393,11 @@ class ModeSource(DirectionalSource, PlanarSource, BroadbandSource):
         * `Prelude to Integrated Photonics Simulation: Mode Injection <https://www.flexcompute.com/fdtd101/Lecture-4-Prelude-to-Integrated-Photonics-Simulation-Mode-Injection/>`_
     """
 
-    mode_spec: ModeSpec = pydantic.Field(
+    mode_spec: ModeSpecType = pydantic.Field(
         ModeSpec(),
         title="Mode Specification",
         description="Parameters to feed to mode solver which determine modes measured by monitor.",
+        discriminator=TYPE_TAG_STR,
     )
 
     mode_index: pydantic.NonNegativeInt = pydantic.Field(
@@ -401,6 +407,14 @@ class ModeSource(DirectionalSource, PlanarSource, BroadbandSource):
         " Specifies which mode to inject using this source. "
         "If larger than ``mode_spec.num_modes``, "
         "``num_modes`` in the solver will be set to ``mode_index + 1``.",
+    )
+
+    frame: Optional[PECFrame] = pydantic.Field(
+        None,
+        title="Source Frame",
+        description="Add a thin frame around the source during the FDTD run to improve "
+        "the injection quality. The frame is positioned along the primal grid lines "
+        "so that it aligns with the boundaries of the mode solver used to obtain the source profile.",
     )
 
     @cached_property
@@ -505,11 +519,13 @@ class PlaneWave(AngledFieldSource, PlanarSource, BroadbandSource):
     @cached_property
     def frequency_grid(self) -> np.ndarray:
         """A Chebyshev grid used to approximate frequency dependence."""
-        freq_min, freq_max = self.source_time.frequency_range(num_fwidth=CHEB_GRID_WIDTH)
+        if self.num_freqs == 1:
+            return np.array([self.source_time._freq0])
+        freq_min, freq_max = self.source_time.frequency_range_sigma(sigma=CHEB_GRID_WIDTH)
         if not self._is_fixed_angle:
             # For frequency-dependent angles (constat in-plane k), truncate minimum frequency at
             # the critical frequency of glancing incidence
-            f_crit = self.source_time.freq0 * np.sin(self.angle_theta)
+            f_crit = self.source_time._freq0 * np.sin(self.angle_theta)
             freq_min = max(freq_min, f_crit * CRITICAL_FREQUENCY_FACTOR)
         return self._chebyshev_freq_grid(freq_min, freq_max)
 
@@ -518,8 +534,8 @@ class PlaneWave(AngledFieldSource, PlanarSource, BroadbandSource):
         the source frequency range is entirely below ``f_crit * CRITICAL_FREQUENCY_FACTOR."""
         if self._is_fixed_angle or self.num_freqs == 1:
             return
-        freq_min, freq_max = self.source_time.frequency_range(num_fwidth=CHEB_GRID_WIDTH)
-        f_crit = self.source_time.freq0 * np.sin(self.angle_theta)
+        freq_min, freq_max = self.source_time.frequency_range_sigma(sigma=CHEB_GRID_WIDTH)
+        f_crit = self.source_time._freq0 * np.sin(self.angle_theta)
         if f_crit * CRITICAL_FREQUENCY_FACTOR > freq_max:
             raise SetupError(
                 "Broadband plane wave source defined with a bandwidth too close to the critical "
@@ -544,7 +560,7 @@ class GaussianBeam(AngledFieldSource, PlanarSource, BroadbandSource):
 
     Notes
     --------
-    If one wants the focus 'in front' of the source, a negative value of ``beam_distance`` is needed.
+    If one wants the focus 'in front' of the source, a negative value of ``waist_distance`` is needed.
 
     .. image:: ../../_static/img/beam_waist.png
         :width: 30%
@@ -587,6 +603,7 @@ class GaussianBeam(AngledFieldSource, PlanarSource, BroadbandSource):
         ge=1,
         le=20,
     )
+    _backward_waist_warning = warn_backward_waist_distance("waist_distance")
 
 
 class AstigmaticGaussianBeam(AngledFieldSource, PlanarSource, BroadbandSource):
@@ -647,6 +664,7 @@ class AstigmaticGaussianBeam(AngledFieldSource, PlanarSource, BroadbandSource):
         ge=1,
         le=20,
     )
+    _backward_waist_warning = warn_backward_waist_distance("waist_distances")
 
 
 class TFSF(AngledFieldSource, VolumeSource, BroadbandSource):
@@ -710,7 +728,7 @@ class TFSF(AngledFieldSource, VolumeSource, BroadbandSource):
         y: Optional[float] = None,
         z: Optional[float] = None,
         ax: Ax = None,
-        **patch_kwargs,
+        **patch_kwargs: Any,
     ) -> Ax:
         # call Source.plot but with the base of the arrow centered on the injection plane
         patch_kwargs["arrow_base"] = self.injection_plane_center

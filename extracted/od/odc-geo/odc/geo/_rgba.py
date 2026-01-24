@@ -12,7 +12,7 @@ from .types import Nodata
 # pylint: disable=import-outside-toplevel
 
 
-def is_rgb(x: xr.DataArray):
+def is_rgb(x: xr.DataArray) -> bool:
     """
     Check if array is RGB(A).
     """
@@ -157,7 +157,7 @@ def to_rgba(
         data = _np_to_rgba(r, g, b, nodata, vmin, vmax)
 
     coords = dict(_b.coords.items())
-    coords.update(band=xr.DataArray(data=["r", "g", "b", "a"], dims=("band",)))
+    coords.update(band=xr.DataArray(data=["r", "g", "b", "a"], dims=("band",)))  # type: ignore
 
     rgba = xr.DataArray(data, coords=coords, dims=dims)
     return rgba
@@ -177,7 +177,7 @@ def _matplotlib_colorize(
     vmin=None,
     vmax=None,
     nodata: Nodata = None,
-    robust=False,
+    robust: bool = False,
 ):
     from matplotlib import colormaps
     from matplotlib.colors import Normalize

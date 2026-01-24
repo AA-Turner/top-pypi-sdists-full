@@ -17,10 +17,13 @@
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSurface.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/gpu/ganesh/GrDirectContextPriv.h"
+#include "src/gpu/ganesh/GrUtil.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
 
@@ -73,15 +76,23 @@ static void check_pixels(skiatest::Reporter* reporter, const SkBitmap& bitmap,
 static void run_test(skiatest::Reporter* reporter,
                      GrDirectContext* context,
                      GrSurfaceOrigin origin) {
-    auto beTexture = context->createBackendTexture(8, 8, kRGBA_8888_SkColorType, GrMipmapped::kNo,
-                                                   GrRenderable::kYes, GrProtected::kNo);
+    using namespace skgpu;
+
+    Protected isProtected = Protected(context->priv().caps()->supportsProtectedContent());
+
+    auto beTexture = context->createBackendTexture(8,
+                                                   8,
+                                                   kRGBA_8888_SkColorType,
+                                                   Mipmapped::kNo,
+                                                   GrRenderable::kYes,
+                                                   isProtected);
     REPORTER_ASSERT(reporter, beTexture.isValid());
     if (!beTexture.isValid()) {
         return;
     }
 
-    auto surface = SkSurface::MakeFromBackendTexture(context, beTexture, origin, 0,
-                                                     kRGBA_8888_SkColorType, nullptr, nullptr);
+    auto surface = SkSurfaces::WrapBackendTexture(
+            context, beTexture, origin, 0, kRGBA_8888_SkColorType, nullptr, nullptr);
     REPORTER_ASSERT(reporter, surface);
     if (!surface) {
         return;

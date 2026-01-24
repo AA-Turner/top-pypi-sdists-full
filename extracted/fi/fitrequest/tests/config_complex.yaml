@@ -1,0 +1,27 @@
+---
+class_name: RestApiClient
+client_name: rest_api
+class_docstring: 'Awesome class generated with fitrequest.'
+
+base_url: "https://test.skillcorner.fr"
+method_docstring: "Calling endpoint: {endpoint}"
+
+method_config_list:
+  - base_name: "items"
+    endpoint: "/items/"
+    add_async_method: true
+    response_model: "Item"
+    params_model: "Params"
+    json_path: "[*].items"
+
+  - name: "get_item"
+    endpoint: "/items/{item_id}"
+    response_model: "Item"
+    params_model: ["lang", "resp_format"]
+    decorators: ["retry(max_retries=3, on_status='500-600')"]
+
+  - name: "get_item_details"
+    endpoint: "/items/{item_id}/details/{detail_id}"
+    response_model: "ItemDetails"
+    params_model: ["lang", "resp_format"]
+    decorators: ["retry(max_retries=2, on_status='507')"]

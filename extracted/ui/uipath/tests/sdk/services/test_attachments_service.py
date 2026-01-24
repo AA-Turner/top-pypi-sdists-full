@@ -2,15 +2,16 @@ import json
 import os
 import shutil
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, Generator, Tuple
+from typing import TYPE_CHECKING, Any, Generator, Tuple
 
 import pytest
 from pytest_httpx import HTTPXMock
 
-from uipath._config import Config
-from uipath._execution_context import ExecutionContext
-from uipath._services.attachments_service import AttachmentsService
 from uipath._utils.constants import HEADER_USER_AGENT, TEMP_ATTACHMENTS_FOLDER
+from uipath.platform import UiPathApiConfig, UiPathExecutionContext
+from uipath.platform.attachments import Attachment
+from uipath.platform.attachments.attachments import AttachmentMode
+from uipath.platform.orchestrator._attachments_service import AttachmentsService
 
 if TYPE_CHECKING:
     from _pytest.monkeypatch import MonkeyPatch
@@ -18,15 +19,15 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def service(
-    config: Config,
-    execution_context: ExecutionContext,
+    config: UiPathApiConfig,
+    execution_context: UiPathExecutionContext,
     monkeypatch: "MonkeyPatch",
 ) -> AttachmentsService:
     """Fixture that provides a configured AttachmentsService instance for testing.
 
     Args:
         config: The Config fixture with test configuration settings.
-        execution_context: The ExecutionContext fixture with test execution context.
+        execution_context: The UiPathExecutionContext fixture with test execution context.
         monkeypatch: PyTest MonkeyPatch fixture for environment modification.
 
     Returns:
@@ -107,7 +108,7 @@ def local_attachment_file(
 
 
 @pytest.fixture
-def blob_uri_response() -> Dict[str, Any]:
+def blob_uri_response() -> dict[str, Any]:
     """Provides a mock response for blob access requests.
 
     Returns:
@@ -139,7 +140,7 @@ class TestAttachmentsService:
         tenant: str,
         version: str,
         temp_file: Tuple[str, str, str],
-        blob_uri_response: Dict[str, Any],
+        blob_uri_response: dict[str, Any],
     ) -> None:
         """Test uploading an attachment from a file path.
 
@@ -215,7 +216,7 @@ class TestAttachmentsService:
         org: str,
         tenant: str,
         version: str,
-        blob_uri_response: Dict[str, Any],
+        blob_uri_response: dict[str, Any],
     ) -> None:
         """Test uploading an attachment with in-memory content.
 
@@ -310,7 +311,7 @@ class TestAttachmentsService:
         base_url: str,
         org: str,
         tenant: str,
-        blob_uri_response: Dict[str, Any],
+        blob_uri_response: dict[str, Any],
     ) -> None:
         """Test asynchronously uploading an attachment with in-memory content.
 
@@ -376,7 +377,7 @@ class TestAttachmentsService:
         tenant: str,
         version: str,
         tmp_path: Any,
-        blob_uri_response: Dict[str, Any],
+        blob_uri_response: dict[str, Any],
     ) -> None:
         """Test downloading an attachment.
 
@@ -456,7 +457,7 @@ class TestAttachmentsService:
         tenant: str,
         version: str,
         tmp_path: Any,
-        blob_uri_response: Dict[str, Any],
+        blob_uri_response: dict[str, Any],
     ) -> None:
         """Test asynchronously downloading an attachment.
 
@@ -889,3 +890,304 @@ class TestAttachmentsService:
             match=f"Attachment with key {attachment_id} not found in UiPath or local storage",
         ):
             await service.delete_async(key=attachment_id)
+
+    def test_open_read_mode(
+        self,
+        httpx_mock: HTTPXMock,
+        service: AttachmentsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        version: str,
+        blob_uri_response: dict[str, Any],
+    ) -> None:
+        """Test opening an attachment in READ mode.
+
+        Args:
+            httpx_mock: HTTPXMock fixture for mocking HTTP requests.
+            service: AttachmentsService fixture.
+            base_url: Base URL fixture for the API endpoint.
+            org: Organization fixture for the API path.
+            tenant: Tenant fixture for the API path.
+            version: Version fixture for the user agent header.
+            blob_uri_response: Mock response fixture for blob operations.
+        """
+        # Arrange
+        attachment_key = uuid.UUID("12345678-1234-1234-1234-123456789012")
+        file_content = b"Test file content for reading"
+        attachment = Attachment(  # type: ignore[call-arg]
+            ID=attachment_key,
+            FullName="test_file.txt",
+            MimeType="text/plain",
+        )
+
+        # Mock the get attachment endpoint
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments({attachment_key})",
+            method="GET",
+            status_code=200,
+            json=blob_uri_response,
+        )
+
+        # Mock the blob download
+        httpx_mock.add_response(
+            url=blob_uri_response["BlobFileAccess"]["Uri"],
+            method="GET",
+            status_code=200,
+            content=file_content,
+        )
+
+        # Act & Assert
+        with service.open(attachment=attachment, mode=AttachmentMode.READ) as (
+            resource,
+            response,
+        ):
+            assert resource.id == uuid.UUID(blob_uri_response["Id"])
+            assert response.status_code == 200
+            content = response.read()
+            assert content == file_content
+
+        # Verify the requests
+        requests = httpx_mock.get_requests()
+        assert requests is not None
+        assert len(requests) == 2
+
+        # Check the first request to get the attachment metadata
+        get_request = requests[0]
+        assert get_request is not None
+        assert get_request.method == "GET"
+        assert (
+            get_request.url
+            == f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments({attachment_key})"
+        )
+        assert HEADER_USER_AGENT in get_request.headers
+
+        # Check the second request to stream the content
+        stream_request = requests[1]
+        assert stream_request is not None
+        assert stream_request.method == "GET"
+        assert stream_request.url == blob_uri_response["BlobFileAccess"]["Uri"]
+
+    def test_open_write_mode(
+        self,
+        httpx_mock: HTTPXMock,
+        service: AttachmentsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        version: str,
+        blob_uri_response: dict[str, Any],
+    ) -> None:
+        """Test opening an attachment in WRITE mode.
+
+        Args:
+            httpx_mock: HTTPXMock fixture for mocking HTTP requests.
+            service: AttachmentsService fixture.
+            base_url: Base URL fixture for the API endpoint.
+            org: Organization fixture for the API path.
+            tenant: Tenant fixture for the API path.
+            version: Version fixture for the user agent header.
+            blob_uri_response: Mock response fixture for blob operations.
+        """
+        # Arrange
+        file_name = "test_write_file.txt"
+        file_content = b"Content to write"
+        attachment = Attachment(  # type: ignore[call-arg]
+            FullName=file_name,
+            MimeType="text/plain",
+        )
+
+        # Mock the create attachment endpoint
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments",
+            method="POST",
+            status_code=200,
+            json=blob_uri_response,
+        )
+
+        # Mock the blob upload
+        httpx_mock.add_response(
+            url=blob_uri_response["BlobFileAccess"]["Uri"],
+            method="PUT",
+            status_code=201,
+        )
+
+        # Act & Assert
+        with service.open(
+            attachment=attachment, mode=AttachmentMode.WRITE, content=file_content
+        ) as (resource, response):
+            assert resource.id == uuid.UUID(blob_uri_response["Id"])
+            assert response.status_code == 201
+
+        # Verify the requests
+        requests = httpx_mock.get_requests()
+        assert requests is not None
+        assert len(requests) == 2
+
+        # Check the first request to create the attachment
+        create_request = requests[0]
+        assert create_request is not None
+        assert create_request.method == "POST"
+        assert (
+            create_request.url
+            == f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments"
+        )
+        assert json.loads(create_request.content) == {"Name": file_name}
+        assert HEADER_USER_AGENT in create_request.headers
+
+        # Check the second request to upload the content
+        upload_request = requests[1]
+        assert upload_request is not None
+        assert upload_request.method == "PUT"
+        assert upload_request.url == blob_uri_response["BlobFileAccess"]["Uri"]
+
+    @pytest.mark.asyncio
+    async def test_open_async_read_mode(
+        self,
+        httpx_mock: HTTPXMock,
+        service: AttachmentsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        version: str,
+        blob_uri_response: dict[str, Any],
+    ) -> None:
+        """Test asynchronously opening an attachment in READ mode.
+
+        Args:
+            httpx_mock: HTTPXMock fixture for mocking HTTP requests.
+            service: AttachmentsService fixture.
+            base_url: Base URL fixture for the API endpoint.
+            org: Organization fixture for the API path.
+            tenant: Tenant fixture for the API path.
+            version: Version fixture for the user agent header.
+            blob_uri_response: Mock response fixture for blob operations.
+        """
+        # Arrange
+        attachment_key = uuid.UUID("12345678-1234-1234-1234-123456789012")
+        file_content = b"Test file content for async reading"
+        attachment = Attachment(  # type: ignore[call-arg]
+            ID=attachment_key,
+            FullName="test_file_async.txt",
+            MimeType="text/plain",
+        )
+
+        # Mock the get attachment endpoint
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments({attachment_key})",
+            method="GET",
+            status_code=200,
+            json=blob_uri_response,
+        )
+
+        # Mock the blob download
+        httpx_mock.add_response(
+            url=blob_uri_response["BlobFileAccess"]["Uri"],
+            method="GET",
+            status_code=200,
+            content=file_content,
+        )
+
+        # Act & Assert
+        async with service.open_async(
+            attachment=attachment, mode=AttachmentMode.READ
+        ) as (resource, response):
+            assert resource.id == uuid.UUID(blob_uri_response["Id"])
+            assert response.status_code == 200
+            content = await response.aread()
+            assert content == file_content
+
+        # Verify the requests
+        requests = httpx_mock.get_requests()
+        assert requests is not None
+        assert len(requests) == 2
+
+        # Check the first request to get the attachment metadata
+        get_request = requests[0]
+        assert get_request is not None
+        assert get_request.method == "GET"
+        assert (
+            get_request.url
+            == f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments({attachment_key})"
+        )
+        assert HEADER_USER_AGENT in get_request.headers
+
+        # Check the second request to stream the content
+        stream_request = requests[1]
+        assert stream_request is not None
+        assert stream_request.method == "GET"
+        assert stream_request.url == blob_uri_response["BlobFileAccess"]["Uri"]
+
+    @pytest.mark.asyncio
+    async def test_open_async_write_mode(
+        self,
+        httpx_mock: HTTPXMock,
+        service: AttachmentsService,
+        base_url: str,
+        org: str,
+        tenant: str,
+        version: str,
+        blob_uri_response: dict[str, Any],
+    ) -> None:
+        """Test asynchronously opening an attachment in WRITE mode.
+
+        Args:
+            httpx_mock: HTTPXMock fixture for mocking HTTP requests.
+            service: AttachmentsService fixture.
+            base_url: Base URL fixture for the API endpoint.
+            org: Organization fixture for the API path.
+            tenant: Tenant fixture for the API path.
+            version: Version fixture for the user agent header.
+            blob_uri_response: Mock response fixture for blob operations.
+        """
+        # Arrange
+        file_name = "test_write_file_async.txt"
+        file_content = b"Content to write async"
+        attachment = Attachment(  # type: ignore[call-arg]
+            FullName=file_name,
+            MimeType="text/plain",
+        )
+
+        # Mock the create attachment endpoint
+        httpx_mock.add_response(
+            url=f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments",
+            method="POST",
+            status_code=200,
+            json=blob_uri_response,
+        )
+
+        # Mock the blob upload
+        httpx_mock.add_response(
+            url=blob_uri_response["BlobFileAccess"]["Uri"],
+            method="PUT",
+            status_code=201,
+        )
+
+        # Act & Assert
+        async with service.open_async(
+            attachment=attachment, mode=AttachmentMode.WRITE, content=file_content
+        ) as (resource, response):
+            assert resource.id == uuid.UUID(blob_uri_response["Id"])
+            assert response.status_code == 201
+
+        # Verify the requests
+        requests = httpx_mock.get_requests()
+        assert requests is not None
+        assert len(requests) == 2
+
+        # Check the first request to create the attachment
+        create_request = requests[0]
+        assert create_request is not None
+        assert create_request.method == "POST"
+        assert (
+            create_request.url
+            == f"{base_url}{org}{tenant}/orchestrator_/odata/Attachments"
+        )
+        assert json.loads(create_request.content) == {"Name": file_name}
+        assert HEADER_USER_AGENT in create_request.headers
+
+        # Check the second request to upload the content
+        upload_request = requests[1]
+        assert upload_request is not None
+        assert upload_request.method == "PUT"
+        assert upload_request.url == blob_uri_response["BlobFileAccess"]["Uri"]

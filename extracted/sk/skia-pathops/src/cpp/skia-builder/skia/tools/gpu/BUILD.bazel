@@ -1,64 +1,44 @@
-load("//bazel:skia_rules.bzl", "exports_files_legacy", "select_multi", "skia_cc_library")
+load("//bazel:skia_rules.bzl", "skia_cc_library")
+
+package(
+    default_applicable_licenses = ["//:license"],
+)
 
 licenses(["notice"])
 
-exports_files_legacy()
-
+# GPU utilities shared by Graphite and Ganesh testing
 skia_cc_library(
-    name = "utils",
+    name = "shared_utils",
     testonly = True,
     srcs = [
         "BackendSurfaceFactory.cpp",
         "BackendSurfaceFactory.h",
         "BackendTextureImageFactory.cpp",
         "BackendTextureImageFactory.h",
-        "FenceSync.h",
+        "CompressedTexture.cpp",
+        "ContextType.cpp",
         "FlushFinishTracker.cpp",
         "FlushFinishTracker.h",
-        "GrContextFactory.cpp",
-        "GrTest.cpp",
         "ManagedBackendTexture.cpp",
         "ManagedBackendTexture.h",
-        "MemoryCache.cpp",
-        "MemoryCache.h",
-        "GpuTimer.h",
-        "ProxyUtils.cpp",
-        "ProxyUtils.h",
-        "TestContext.cpp",
-        "TestContext.h",
-        "TestOps.cpp",
-        "TestOps.h",
-        "YUVUtils.cpp",
-        "YUVUtils.h",
-        "//tools/gpu/mock:private_hdrs",
-        "//tools/gpu/mock:srcs",
-    ] + select_multi({
-        "//src/gpu:gl_backend": [
-            "//tools/gpu/gl:private_hdrs",
-            "//tools/gpu/gl:srcs",
-        ],
-        "//src/gpu:vulkan_backend": [
-            "//tools/gpu/vk:private_hdrs",
-            "//tools/gpu/vk:srcs",
-        ],
-        "//src/gpu:dawn_backend": [
-            "//tools/gpu/dawn:private_hdrs",
-            "//tools/gpu/dawn:srcs",
-        ],
-        # TODO(kjlubick) Handle other backends
-    }),
+    ],
     hdrs = [
-        "GrContextFactory.h",
+        "CompressedTexture.h",
+        "ContextType.h",
+        "ProtectedUtils.h",
     ],
     visibility = [
+        "//bench:__subpackages__",
         "//modules/skottie:__pkg__",
-        "//tests:__pkg__",
+        "//tools:__subpackages__",
+        "//tools/ganesh:__subpackages__",
     ],
-    deps = ["//:skia_internal"] + select_multi({
-        "//src/gpu:gl_backend": ["//tools/gpu/gl:deps"],
-        "//src/gpu:dawn_backend": ["//tools/gpu/dawn:deps"],
-    }) + select({
-        "@platforms//os:macos": ["//tools:autorelease_pool_objc"],
-        "//conditions:default": ["//tools:autorelease_pool"],
-    }),
+    deps = [
+        "//:core",
+        "//src/base",
+        "//src/core:core_priv",
+        # Currently the cpp/h files in this target are not cleanly separated into pure shared,
+        # ganesh, and graphite pieces. So we still rely on Ganesh macros and includes.
+        "//src/gpu/ganesh:ganesh_TEST_UTIL",
+    ],
 )

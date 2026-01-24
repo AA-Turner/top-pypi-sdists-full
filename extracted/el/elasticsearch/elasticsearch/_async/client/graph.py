@@ -47,8 +47,8 @@ class GraphClient(NamespacedClient):
         """
         .. raw:: html
 
-          <p>Explore graph analytics.
-          Extract and summarize information about the documents and terms in an Elasticsearch data stream or index.
+          <p>Explore graph analytics.</p>
+          <p>Extract and summarize information about the documents and terms in an Elasticsearch data stream or index.
           The easiest way to understand the behavior of this API is to use the Graph UI to explore connections.
           An initial request to the <code>_explore</code> API contains a seed query that identifies the documents of interest and specifies the fields that define the vertices and connections you want to include in the graph.
           Subsequent requests enable you to spider out from one more vertices of interest.
@@ -97,11 +97,7 @@ class GraphClient(NamespacedClient):
                 __body["query"] = query
             if vertices is not None:
                 __body["vertices"] = vertices
-        if not __body:
-            __body = None  # type: ignore[assignment]
-        __headers = {"accept": "application/json"}
-        if __body is not None:
-            __headers["content-type"] = "application/json"
+        __headers = {"accept": "application/json", "content-type": "application/json"}
         return await self.perform_request(  # type: ignore[return-value]
             "POST",
             __path,

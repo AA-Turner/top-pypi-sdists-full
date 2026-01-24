@@ -9,14 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing import Literal
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0155 import (
+    RepositoryRuleMaxFileSizePropParametersType,
+    RepositoryRuleMaxFileSizePropParametersTypeForResponse,
+)
 
 
-class RulesetVersionWithStateAllof1PropStateType(TypedDict):
-    """RulesetVersionWithStateAllof1PropState
+class RepositoryRuleMaxFileSizeType(TypedDict):
+    """max_file_size
 
-    The state of the ruleset version
+    Prevent commits with individual files that exceed the specified limit from being
+    pushed to the commit graph.
     """
 
+    type: Literal["max_file_size"]
+    parameters: NotRequired[RepositoryRuleMaxFileSizePropParametersType]
 
-__all__ = ("RulesetVersionWithStateAllof1PropStateType",)
+
+class RepositoryRuleMaxFileSizeTypeForResponse(TypedDict):
+    """max_file_size
+
+    Prevent commits with individual files that exceed the specified limit from being
+    pushed to the commit graph.
+    """
+
+    type: Literal["max_file_size"]
+    parameters: NotRequired[RepositoryRuleMaxFileSizePropParametersTypeForResponse]
+
+
+__all__ = (
+    "RepositoryRuleMaxFileSizeType",
+    "RepositoryRuleMaxFileSizeTypeForResponse",
+)

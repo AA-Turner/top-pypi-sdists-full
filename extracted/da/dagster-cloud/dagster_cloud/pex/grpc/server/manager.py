@@ -16,17 +16,16 @@ from dagster._utils.error import SerializableErrorInfo, serializable_error_info_
 from dagster_cloud_cli.core.workspace import CodeLocationDeployData, PexMetadata
 from dagster_shared import seven
 from dagster_shared.ipc import open_ipc_subprocess
-from pydantic import BaseModel, Extra
+from pydantic import BaseModel
 
+from dagster_cloud.pex.grpc.server.registry import PexS3Registry
+from dagster_cloud.pex.grpc.types import PexServerHandle
 from dagster_cloud.workspace.user_code_launcher.utils import get_grpc_server_env
-
-from ..types import PexServerHandle
-from .registry import PexS3Registry
 
 logger = logging.getLogger("dagster.multipex")
 
 
-class PexProcessEntry(BaseModel, frozen=True, extra=Extra.forbid, arbitrary_types_allowed=True):
+class PexProcessEntry(BaseModel, frozen=True, extra="forbid", arbitrary_types_allowed=True):
     pex_server_handle: PexServerHandle
     grpc_server_process: subprocess.Popen
     grpc_client: DagsterGrpcClient
@@ -34,7 +33,7 @@ class PexProcessEntry(BaseModel, frozen=True, extra=Extra.forbid, arbitrary_type
     heartbeat_thread: threading.Thread
 
 
-class PexErrorEntry(BaseModel, frozen=True, extra=Extra.forbid, arbitrary_types_allowed=True):
+class PexErrorEntry(BaseModel, frozen=True, extra="forbid", arbitrary_types_allowed=True):
     pex_server_handle: PexServerHandle
     error: SerializableErrorInfo
 
@@ -401,7 +400,9 @@ class MultiPexManager(AbstractContextManager):
             # - ensure that resources for servers starting up or shutting down are not removed
             # - important to do this while holding the lock to avoid race conditions
             running_server_ids = {
-                proc.pex_server_handle.get_id() for proc in self._pex_servers.values()
+                proc.pex_server_handle.get_id()
+                for proc in self._pex_servers.values()
+                if isinstance(proc, PexProcessEntry)
             }
             in_use_handle_ids = self._pending_startup_pex_servers.union(
                 self._pending_shutdown_pex_servers

@@ -3,15 +3,15 @@
 
 from functools import singledispatch
 from llvmlite import ir
-from numba.core import types
+from numba.cuda import types
 from numba.cuda import cgutils
-from numba.core.errors import NumbaWarning
-from numba.core.imputils import Registry
+from numba.cuda.core.errors import NumbaWarning
+from numba.cuda.core.imputils import Registry
 from numba.cuda import nvvmutils
-from numba.cuda.types import Dim3
+from numba.cuda.types.ext_types import Dim3, Bfloat16
 from warnings import warn
 
-registry = Registry()
+registry = Registry("printimpl")
 lower = registry.lower
 
 voidptr = ir.PointerType(ir.IntType(8))
@@ -32,6 +32,26 @@ def print_item(ty, context, builder, val):
     )
 
 
+@print_item.register(types.Tuple)
+@print_item.register(types.UniTuple)
+def tuple_print_impl(ty, context, builder, val):
+    formats = []
+    values = []
+
+    for i, argtyp in enumerate(ty.types):
+        argval = builder.extract_value(val, i)
+        argfmt, argvals = print_item(argtyp, context, builder, argval)
+        formats.append(argfmt)
+        values.extend(argvals)
+
+    if len(formats) == 1:
+        base = "({},)"
+    else:
+        base = "({})"
+    rawfmt = base.format(", ".join(formats))
+    return rawfmt, values
+
+
 @print_item.register(types.Integer)
 @print_item.register(types.IntegerLiteral)
 def int_print_impl(ty, context, builder, val):
@@ -49,6 +69,17 @@ def int_print_impl(ty, context, builder, val):
 def real_print_impl(ty, context, builder, val):
     lld = context.cast(builder, val, ty, types.float64)
     return "%f", [lld]
+
+
+@print_item.register(Bfloat16)
+def bfloat16_print_impl(ty, context, builder, val):
+    # Hand rolled bfloat16 -> float32 -> double conversion with zero-ext
+    bits32 = builder.zext(val, ir.IntType(32))
+    shift = builder.shl(bits32, ir.Constant(ir.IntType(32), 16))
+    f32 = builder.bitcast(shift, ir.FloatType())
+    # printf("%f") expects a double; promote to f64 to match vararg expectation
+    f64 = builder.fpext(f32, ir.DoubleType())
+    return "%f", [f64]
 
 
 @print_item.register(types.StringLiteral)

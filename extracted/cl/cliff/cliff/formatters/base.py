@@ -18,6 +18,9 @@ import collections.abc
 import typing as ty
 
 
+FormatterT = ty.TypeVar('FormatterT', bound='Formatter')
+
+
 class Formatter(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_argument_group(self, parser: argparse.ArgumentParser) -> None:
@@ -28,7 +31,7 @@ class Formatter(metaclass=abc.ABCMeta):
 
 
 class ListFormatter(Formatter, metaclass=abc.ABCMeta):
-    """Base class for formatters that know how to deal with multiple objects."""
+    """Base class for formatters that know how to deal with many objects."""
 
     @abc.abstractmethod
     def emit_list(

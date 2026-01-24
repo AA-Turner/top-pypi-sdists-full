@@ -28,7 +28,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 include(gitversion)
 get_git_version(SLANG_VERSION_PATCH SLANG_VERSION_HASH)
 
-set(SLANG_VERSION_MAJOR 9)
+set(SLANG_VERSION_MAJOR 10)
 set(SLANG_VERSION_MINOR 0)
 set(SLANG_VERSION_STRING
     "${SLANG_VERSION_MAJOR}.${SLANG_VERSION_MINOR}.${SLANG_VERSION_PATCH}")
@@ -146,6 +146,11 @@ endif()
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   add_compile_options(/utf-8 /bigobj /permissive-)
+endif()
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # GCC enables this busted warning by default
+  add_compile_options("-Wno-stringop-overflow")
 endif()
 
 if(CMAKE_SYSTEM_NAME MATCHES "WASI")

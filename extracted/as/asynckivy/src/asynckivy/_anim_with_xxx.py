@@ -28,6 +28,9 @@ async def anim_with_dt(*, step=0):
                 break
 
     .. versionadded:: 0.6.1
+
+    .. deprecated:: 0.9.1
+        This will be removed in version 0.10.0. Use :func:`asynckivy.sleep_freq` instead.
     '''
     async with repeat_sleeping(step=step) as sleep:
         while True:
@@ -53,6 +56,9 @@ async def anim_with_et(*, step=0):
             print(et)
 
     .. versionadded:: 0.6.1
+
+    .. deprecated:: 0.9.1
+        This will be removed in version 0.10.0. Use :func:`asynckivy.sleep_freq` instead.
     '''
     et = 0.
     async with repeat_sleeping(step=step) as sleep:
@@ -71,6 +77,9 @@ async def anim_with_dt_et(*, step=0):
             ...
 
     .. versionadded:: 0.6.1
+
+    .. deprecated:: 0.9.1
+        This will be removed in version 0.10.0. Use :func:`asynckivy.sleep_freq` instead.
     '''
     et = 0.
     async with repeat_sleeping(step=step) as sleep:
@@ -93,10 +102,13 @@ async def anim_with_ratio(*, base, step=0):
 
     .. code-block::
 
-        base = 3
-        async for et in anim_with_et():
-            p = et / base
-            print(p)
+        async with sleep_freq() as sleep:
+            base = 3
+            total_elapsed_time = 0.
+            while True:
+                total_elapsed_time += await sleep()
+                p = total_elapsed_time / base
+                print(p)
 
     Use :class:`kivy.animation.AnimationTransition` for non-linear curves.
 
@@ -138,6 +150,9 @@ async def anim_with_dt_et_ratio(*, base, step=0):
     .. versionchanged:: 0.7.0
         The ``duration`` parameter was replaced with ``base``.
         The loop no longer ends on its own.
+
+    .. deprecated:: 0.9.1
+        This will be removed in version 0.10.0. Use :func:`asynckivy.sleep_freq` instead.
     '''
     async with repeat_sleeping(step=step) as sleep:
         et = 0.

@@ -16,6 +16,7 @@
 
 import contextlib
 import copy
+from etils import epath
 import pickle
 import sys
 
@@ -631,8 +632,11 @@ class MuJoCoBindingsTest(parameterized.TestCase):
     self.assertEqual(self.data.efc_J.shape, (nj,))
     self.assertEqual(self.data.efc_KBIP.shape, (nefc, 4))
 
-    expected_error = 'insufficient arena memory available'
-    with self.assertRaisesWithLiteralMatch(mujoco.FatalError, expected_error):
+    expected_error = (
+        r'Insufficient arena memory, currently allocated memory=' +
+        r'"[0-9]+[A-Z]?". Increase using <size memory="X"/>.'
+    )
+    with self.assertRaisesRegex(mujoco.FatalError, expected_error):
       mujoco._functions._realloc_con_efc(self.data, 100000000, 100000000)
     self.assertEmpty(self.data.contact)
     self.assertEmpty(self.data.efc_id)
@@ -802,6 +806,13 @@ class MuJoCoBindingsTest(parameterized.TestCase):
     # Expect next states to be equal.
     np.testing.assert_array_equal(state1a, state1b)
 
+    # Test mj_copyState
+    data2 = mujoco.MjData(self.model)
+    mujoco.mj_copyState(self.model, self.data, data2, sig)
+    state1c = np.empty(size, np.float64)
+    mujoco.mj_getState(self.model, data2, state1c, sig)
+    np.testing.assert_array_equal(state1a, state1c)
+
   def test_mj_setKeyframe(self):  # pylint: disable=invalid-name
     mujoco.mj_step(self.model, self.data)
 
@@ -946,7 +957,7 @@ Euler integrator, semi-implicit in velocity.
     self.assertEqual(mujoco.mjtEnableBit.mjENBL_OVERRIDE, 1 << 0)
     self.assertEqual(mujoco.mjtEnableBit.mjENBL_ENERGY, 1 << 1)
     self.assertEqual(mujoco.mjtEnableBit.mjENBL_FWDINV, 1 << 2)
-    self.assertEqual(mujoco.mjtEnableBit.mjNENABLE, 5)
+    self.assertEqual(mujoco.mjtEnableBit.mjNENABLE, 6)
     self.assertEqual(mujoco.mjtGeom.mjGEOM_PLANE, 0)
     self.assertEqual(mujoco.mjtGeom.mjGEOM_HFIELD, 1)
     self.assertEqual(mujoco.mjtGeom.mjGEOM_SPHERE, 2)
@@ -1657,6 +1668,16 @@ Euler integrator, semi-implicit in velocity.
   def test_texture_size(self):
     model = mujoco.MjModel.from_xml_string(TEST_XML_TEXTURE)
     self.assertEqual(model.tex('tex').data.shape, (512, 512, 3))
+
+  def test_xml_dependencies(self):
+    model_path = str(epath.resource_path("mujoco") / "testdata" / "msh.xml")
+    msh_path =str(epath.resource_path("mujoco") / "testdata" / "abdomen_1_body.msh")
+
+    model_path = model_path.replace('\\', '/')
+    msh_path = msh_path.replace('\\', '/')
+    dependencies = mujoco.mju_getXMLDependencies(model_path)
+    self.assertIn(model_path, dependencies)
+    self.assertIn(msh_path, dependencies)
 
   def _assert_attributes_equal(self, actual_obj, expected_obj, attr_to_compare):
     for name in attr_to_compare:

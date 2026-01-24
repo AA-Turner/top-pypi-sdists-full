@@ -1,29 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nbstripout
-Version: 0.8.1
+Version: 0.9.0
 Summary: Strips outputs from Jupyter and IPython notebooks
-Home-page: https://github.com/kynan/nbstripout
-Author: Florian Rathgeber
-Author-email: florian.rathgeber@gmail.com
-License: License :: OSI Approved :: MIT License
+Author-email: Florian Rathgeber <florian.rathgeber@gmail.com>
+Maintainer-email: Florian Rathgeber <florian.rathgeber@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://pypi.org/project/nbstripout
+Project-URL: Repository, https://github.com/kynan/nbstripout
+Keywords: jupyter,notebook,ipython,git,filter,hooks
 Classifier: Development Status :: 4 - Beta
-Classifier: Environment :: Other Environment
+Classifier: Environment :: Console
 Classifier: Framework :: IPython
+Classifier: Framework :: Jupyter
 Classifier: Intended Audience :: Developers
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Version Control
-Provides: nbstripout
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: nbformat
+Dynamic: license-file
 
+<!-- markdownlint-disable MD030 -->
+<!-- markdownlint-disable MD041 -->
 [![tests](https://github.com/kynan/nbstripout/actions/workflows/tests.yml/badge.svg)](https://github.com/kynan/nbstripout/actions/workflows/tests.yml)
 [![downloads](https://img.shields.io/pypi/dm/nbstripout)](https://pypi.org/project/nbstripout)
 [![PyPI version](https://img.shields.io/pypi/v/nbstripout)](https://pypi.org/project/nbstripout)
@@ -241,29 +249,73 @@ Note that you need to uninstall with the same flags:
 
 `nbstripout` can be used to rewrite an existing Git repository using
 [`git filter-repo`](https://github.com/newren/git-filter-repo) to strip output
-from existing notebooks. This invocation operates on all ipynb files in the repo:
+from existing notebooks. This invocation operates on all `.ipynb` files in the repo:
 
-```sh
-    #!/usr/bin/env bash
-    # get lint-history with callback from https://github.com/newren/git-filter-repo/pull/542
-    ./lint-history.py --relevant 'return filename.endswith(b".ipynb")' --callback '
-    import json, warnings, nbformat
-    from nbstripout import strip_output
-    from nbformat.reader import NotJSONError
+```bash
+#!/bin/bash
+git-filter-repo \
+--file-info-callback "
+if filename.endswith(b'.ipynb'):
+    print(f'\nProcessing {filename.decode()}')
+    
+    import copy
+    
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            notebook = nbformat.reads(blob.data, as_version=nbformat.NO_CONVERT)
-        # customize to your needs
-        strip_output(notebook, keep_output=False, keep_count=False, keep_id=False, extra_keys=["metadata.widgets","metadata.execution","cell.attachments"], drop_empty_cells=True,  drop_tagged_cells=[],strip_init_cells=False, max_size=0)
-        old_len = len(blob.data)
-        blob.data = (nbformat.writes(notebook) + "\n").encode("utf-8")
-        if old_len != len(blob.data):
-            print(change.blob_id, change.filename, old_len, len(blob.data))
-    except NotJSONError as e:
-         print("ERROR", type(e), change.blob_id, change.filename)
-    '
+        import nbformat
+        from nbstripout import strip_output
+        
+        # Get the file contents using the blob_id
+        contents = value.get_contents_by_identifier(blob_id)
+
+        nb = nbformat.reads(contents.decode('utf-8'), as_version=nbformat.NO_CONVERT)
+        nb_original = copy.deepcopy(nb)
+
+        # Customize parameters as needed:
+        nb_stripped = strip_output(
+            nb,
+            keep_output=False,
+            keep_count=False,
+            keep_id=False,
+            extra_keys=[
+                'metadata.signature',
+                'metadata.widgets', 
+                'cell.metadata.collapsed',
+                'cell.metadata.ExecuteTime',
+                'cell.metadata.execution',
+                'cell.metadata.heading_collapsed',
+                'cell.metadata.hidden',
+                'cell.metadata.scrolled'
+            ],
+            drop_empty_cells=False,
+            drop_tagged_cells=[],
+            strip_init_cells=False,
+            max_size=0
+        )
+        
+        if nb_original != nb_stripped:
+            # Convert cleaned notebook back to bytes
+            new_contents = nbformat.writes(nb_stripped).encode('utf-8')
+            
+            print(f'  → Cleaned {filename.decode()}: {len(contents)} → {len(new_contents)} bytes')
+            
+            new_blob_id = value.insert_file_with_contents(new_contents)
+            return (filename, mode, new_blob_id)
+        else:
+            print(f'  → No changes needed for {filename.decode()}')
+    except Exception as e:
+        print(f'Error processing {filename.decode()}: {e}')
+        import traceback
+        traceback.print_exc()
+        # Return unchanged file on error
+        return (filename, mode, blob_id)
+# Return unchanged file if it's not a notebook
+return (filename, mode, blob_id)
+"
 ```
+
+> [!WARNING]
+>
+> This will affect the history of the repository, so use with caution!
 
 ### Removing empty cells
 
@@ -305,9 +357,35 @@ Do not strip the output, only metadata:
 
     nbstripout --keep-output
 
+#### Output Types
+
+When keeping the output, drop a specific
+[`output_type`](https://ipython.readthedocs.io/en/3.x/notebook/nbformat.html#code-cell-outputs),
+like `error` or `stream`
+
+    nbstripout --drop-output-type error stream
+
+Drop all output except specific output types:
+
+    nbstripout --keep-output-type execute_result
+
+_**Note: `--keep-output-type` will override `--max-size` for outputs that match.**_
+
+For stripping certain outputs that have names (like `stream` which can be
+`stderr` or `stdout`) you can use a colon to specify the name. The following
+would strip all `stderr` output.
+
+    nbstripout --drop-output-type stream:stderr
+
+`stream:stdout` would strip all `stdout` output, including print statements.
+
+#### Cell IDs
+
 Do not reassign the cell ids to be sequential (which is the default behavior):
 
     nbstripout --keep-id
+
+#### Keeping Output on Specific Cells
 
 To mark special cells so that the output is not stripped, you can either:
 
@@ -473,11 +551,21 @@ to the `.pre-commit-config.yaml` in your repository:
 
     repos:
     - repo: https://github.com/kynan/nbstripout
-      rev: 0.8.1
+      rev: 0.9.0
       hooks:
         - id: nbstripout
 
 Then run `pre-commit install` to activate the hook.
+
+When passing parameters to the hook, be aware that arguments with spaces such as
+`--extra-keys` need to be quoted as a whole:
+
+    repos:
+    - repo: https://github.com/kynan/nbstripout
+      rev: 0.9.0
+      hooks:
+        - id: nbstripout
+          args: ['--extra-keys=metadata.celltoolbar cell.metadata.heading_collapsed']
 
 > [!WARNING]
 >
@@ -486,6 +574,119 @@ Then run `pre-commit install` to activate the hook.
 >
 > In its regular mode, `nbstripout` acts as a filter and only modifies what git
 > gets to see for committing or diffing. The working copy stays intact.
+
+## Guard PRs with a GitHub Action 
+
+`nbstripout` offers a re-usable GitHub action that verifies notebooks are properly stripped of output before merging. This is useful for enforcing clean notebooks in your CI/CD pipeline without modifying local files.
+
+### Basic usage
+
+```yaml
+name: Check Notebooks Output
+
+on:
+  pull_request:
+    paths:
+      - '**.ipynb'
+  push:
+    branches:
+      - main
+    paths:
+      - '**.ipynb'
+  workflow_dispatch:
+
+jobs:
+  check-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+      
+      - name: Check notebooks are stripped
+        uses: kynan/nbstripout@main
+        with:
+          paths: '**/*.ipynb'
+```
+
+### Action inputs
+
+All inputs are optional and have sensible defaults:
+
+| Input | Description | Default |
+|-------|-------------|---------|
+| `python-version` | Python version to use (supports versions, ranges, or "3.x") | `'3.x'` |
+| `paths` | Space-separated list of paths to check (supports wildcards) | `'**/*.ipynb'` |
+| `extra-keys` | Extra metadata keys to strip (space-separated) | `''` |
+| `keep-output` | Keep output in notebooks | `'false'` |
+| `keep-count` | Keep execution counts | `'false'` |
+| `strip-init-cells` | Strip init cells | `'false'` |
+
+### Usage examples
+
+#### Check specific paths
+
+```yaml
+- name: Check notebooks are stripped
+  uses: kynan/nbstripout@main
+  with:
+    paths: 'notebooks/*.ipynb examples/*.ipynb'
+```
+
+#### Strip extra metadata keys
+
+```yaml
+- name: Check notebooks are stripped
+  uses: kynan/nbstripout@main
+  with:
+    extra-keys: 'metadata.celltoolbar cell.metadata.heading_collapsed'
+```
+
+#### Keep execution counts
+
+```yaml
+- name: Check notebooks are stripped
+  uses: kynan/nbstripout@main
+  with:
+    keep-count: 'true'
+```
+
+#### Use specific Python version
+
+```yaml
+- name: Check notebooks are stripped
+  uses: kynan/nbstripout@main
+  with:
+    python-version: '3.11'
+```
+
+#### Combine multiple options
+
+```yaml
+- name: Check notebooks are stripped
+  uses: kynan/nbstripout@main
+  with:
+    paths: 'notebooks/**/*.ipynb'
+    keep-count: 'true'
+    extra-keys: 'metadata.widgets cell.metadata.tags'
+```
+
+### How it works
+
+The action runs `nbstripout --verify` on the specified notebooks, which performs a dry-run check without modifying files. If any notebook would be modified by stripping, the action fails and reports which files need to be cleaned.
+
+This approach ensures that:
+- Notebooks in pull requests are properly stripped before merging
+- The check is non-destructive (doesn't modify your working copy)
+- Developers are notified when they forgot to strip output
+- Your Git history stays clean without large diffs from notebook outputs
+
+### Combining with pre-commit hooks
+
+For the best developer experience, use both:
+1. **Git filter or pre-commit hook** (local): Automatically strips output before committing
+2. **GitHub Action** (CI): Guards against accidentally pushed non-stripped notebooks
+
+This provides defense in depth and catches cases where local filters weren't installed.
 
 ## Troubleshooting
 

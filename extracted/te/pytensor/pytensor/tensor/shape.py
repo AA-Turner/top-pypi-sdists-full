@@ -2,20 +2,21 @@ import warnings
 from collections.abc import Sequence
 from numbers import Number
 from textwrap import dedent
+from types import EllipsisType
 from typing import TYPE_CHECKING, Union, cast
 from typing import cast as typing_cast
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_tuple
 
 import pytensor
-from pytensor.gradient import DisconnectedType
+from pytensor.gradient import disconnected_type
 from pytensor.graph import Op
 from pytensor.graph.basic import Apply, Variable
 from pytensor.graph.replace import _vectorize_node
 from pytensor.graph.type import HasShape
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
-from pytensor.npy_2_compat import normalize_axis_tuple
 from pytensor.tensor import _get_vector_length, as_tensor_variable, get_vector_length
 from pytensor.tensor import basic as ptb
 from pytensor.tensor.exceptions import NotScalarConstantError
@@ -27,7 +28,7 @@ from pytensor.tensor.variable import TensorConstant, TensorVariable
 if TYPE_CHECKING:
     from pytensor.tensor import TensorLike
 
-ShapeValueType = None | np.integer | int | Variable
+ShapeValueType = None | EllipsisType | np.integer | int | Variable
 
 
 def register_shape_c_code(type, code, version=()):
@@ -102,7 +103,7 @@ class Shape(COp):
         # the elements of the tensor variable do not participate
         # in the computation of the shape, so they are not really
         # part of the graph
-        return [pytensor.gradient.DisconnectedType()()]
+        return [disconnected_type()]
 
     def R_op(self, inputs, eval_points):
         return [None]
@@ -408,7 +409,9 @@ class SpecifyShape(COp):
 
         shape = tuple(
             NoneConst
-            if (s is None or NoneConst.equals(s))
+            if (
+                s is None or (isinstance(s, Variable) and isinstance(s.type, NoneTypeT))
+            )
             else ptb.as_tensor_variable(s, ndim=0)
             for s in shape
         )
@@ -469,10 +472,11 @@ class SpecifyShape(COp):
         return [[True], *[[False]] * len(node.inputs[1:])]
 
     def grad(self, inp, grads):
-        x, *shape = inp
+        _x, *shape = inp
         (gz,) = grads
-        return [specify_shape(gz, shape)] + [
-            pytensor.gradient.DisconnectedType()() for _ in range(len(shape))
+        return [
+            specify_shape(gz, shape),
+            *(disconnected_type() for _ in range(len(shape))),
         ]
 
     def R_op(self, inputs, eval_points):
@@ -506,7 +510,7 @@ class SpecifyShape(COp):
         for i, (shp_name, shp) in enumerate(
             zip(shape_names, node.inputs[1:], strict=True)
         ):
-            if NoneConst.equals(shp):
+            if isinstance(shp.type, NoneTypeT):
                 continue
             code += dedent(
                 f"""
@@ -547,26 +551,37 @@ def specify_shape(
 
     If a dimension's shape value is ``None``, the size of that dimension is not
     considered fixed/static at runtime.
+
+    A single ``Ellipsis`` can be used to imply multiple ``None`` specified dimensions
     """
+    x = as_tensor_variable(x)  # type: ignore[arg-type]
 
     if not isinstance(shape, tuple | list):
         shape = (shape,)
 
     # If shape is a symbolic 1d vector of fixed length, we separate the items into a
     # tuple with one entry per shape dimension
-    if len(shape) == 1 and shape[0] is not None:
-        shape_vector = ptb.as_tensor_variable(shape[0])
+    if len(shape) == 1 and shape[0] not in (None, Ellipsis):
+        shape_vector = ptb.as_tensor_variable(shape[0])  # type: ignore[arg-type]
         if shape_vector.ndim == 1:
             try:
                 shape = tuple(shape_vector)
             except ValueError:
                 raise ValueError("Shape vector must have fixed dimensions")
 
+    if Ellipsis in shape:
+        ellipsis_pos = shape.index(Ellipsis)
+        implied_none = x.type.ndim - (len(shape) - 1)
+        shape = (
+            *shape[:ellipsis_pos],
+            *((None,) * implied_none),
+            *shape[ellipsis_pos + 1 :],
+        )
+        if Ellipsis in shape[ellipsis_pos + 1 :]:
+            raise ValueError("Multiple Ellipsis in specify_shape")
+
     # If the specified shape is already encoded in the input static shape, do nothing
     # This ignores PyTensor constants in shape
-    x = ptb.as_tensor_variable(x)  # type: ignore[arg-type,unused-ignore]
-    # The above is a type error in Python 3.9 but not 3.12.
-    # Thus we need to ignore unused-ignore on 3.12.
     new_shape_info = any(
         s != xts for (s, xts) in zip(shape, x.type.shape, strict=False) if s is not None
     )
@@ -594,7 +609,10 @@ def _vectorize_specify_shape(op, node, x, *shape):
     if any(
         as_tensor_variable(dim).type.ndim != 0
         for dim in shape
-        if not (NoneConst.equals(dim) or dim is None)
+        if not (
+            (isinstance(dim, Variable) and isinstance(dim.type, NoneTypeT))
+            or dim is None
+        )
     ):
         raise NotImplementedError(
             "It is not possible to vectorize the shape argument of SpecifyShape"
@@ -706,9 +724,9 @@ class Reshape(COp):
         return [[True], [False]]
 
     def grad(self, inp, grads):
-        x, shp = inp
+        x, _shp = inp
         (g_out,) = grads
-        return [reshape(g_out, shape(x), ndim=x.ndim), DisconnectedType()()]
+        return [reshape(g_out, shape(x), ndim=x.ndim), disconnected_type()]
 
     def R_op(self, inputs, eval_points):
         if eval_points[0] is None:

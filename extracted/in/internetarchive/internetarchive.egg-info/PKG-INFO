@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: internetarchive
-Version: 5.5.1
+Version: 5.7.1
 Summary: A Python interface to archive.org.
 Home-page: https://github.com/jjjake/internetarchive
 Author: Jacob M. Johnson
@@ -30,9 +30,9 @@ Requires-Dist: pre-commit; extra == "all"
 Requires-Dist: pytest; extra == "all"
 Requires-Dist: safety; extra == "all"
 Requires-Dist: setuptools; extra == "all"
-Requires-Dist: pytest==7.1.2; extra == "all"
+Requires-Dist: pytest==8.4.2; extra == "all"
 Requires-Dist: responses==0.20.0; extra == "all"
-Requires-Dist: ruff==0.8.5; extra == "all"
+Requires-Dist: ruff==0.14.1; extra == "all"
 Requires-Dist: tqdm-stubs>=0.2.0; extra == "all"
 Requires-Dist: types-colorama; extra == "all"
 Requires-Dist: types-jsonpatch>=0.1.0a0; extra == "all"
@@ -54,9 +54,9 @@ Requires-Dist: docutils<0.18; extra == "docs"
 Requires-Dist: sphinx==4.5.0; extra == "docs"
 Requires-Dist: sphinx-autodoc-typehints==1.18.1; extra == "docs"
 Provides-Extra: test
-Requires-Dist: pytest==7.1.2; extra == "test"
+Requires-Dist: pytest==8.4.2; extra == "test"
 Requires-Dist: responses==0.20.0; extra == "test"
-Requires-Dist: ruff==0.8.5; extra == "test"
+Requires-Dist: ruff==0.14.1; extra == "test"
 Provides-Extra: types
 Requires-Dist: tqdm-stubs>=0.2.0; extra == "types"
 Requires-Dist: types-colorama; extra == "types"
@@ -95,7 +95,7 @@ Please report all bugs and issues on `Github <https://github.com/jjjake/internet
 SECURITY NOTICE
 _______________
 
-**Please upgrade to v5.4.2+ immediately.** Versions <=5.4.1 contain a critical directory traversal vulnerability in the `File.download()` method. [See the changelog for details](https://github.com/jjjake/internetarchive/blob/master/HISTORY.rst). Thank you to Pengo Wray for their contributions in identifying and resolving this issue.
+**Please upgrade to v5.4.2+ immediately.** Versions <=5.4.1 contain a critical directory traversal vulnerability in the ``File.download()`` method. `See the changelog for details <https://github.com/jjjake/internetarchive/blob/master/HISTORY.rst>`_. Thank you to Pengo Wray for their contributions in identifying and resolving this issue.
 
 Installation
 ------------
@@ -114,6 +114,14 @@ Binaries of the command-line tool are also available:
     $ chmod +x ia
     $ ./ia --help
 
+Unsupported Installation Methods
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+**This library must only be installed via** `one of the supported methods <https://archive.org/developers/internetarchive/installation.html>`_ **(i.e.** ``pip``, ``pipx``, **or from source).**
+
+Installation via third-party package managers like Homebrew, MacPorts, or Linux system packages (apt, yum, etc.) is **not supported**. These versions are often severely outdated, incompatible, and broken.
+
+If you have installed this software via Homebrew, please uninstall it (`brew uninstall internetarchive`) and use a supported method.
 
 Documentation
 -------------

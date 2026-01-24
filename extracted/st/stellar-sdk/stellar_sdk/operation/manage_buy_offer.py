@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import ClassVar, Optional, Union
+from typing import ClassVar
 
 from .. import xdr as stellar_xdr
 from ..asset import Asset
@@ -26,7 +26,7 @@ class ManageBuyOffer(Operation):
 
     Threshold: Medium
 
-    See `Manage Buy Offer <https://developers.stellar.org/docs/start/list-of-operations/#manage-buy-offer>`_ for more information.
+    See `Manage Buy Offer <https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#manage-buy-offer>`_ for more information.
 
     :param selling: What you're selling.
     :param buying: What you're buying.
@@ -46,10 +46,10 @@ class ManageBuyOffer(Operation):
         self,
         selling: Asset,
         buying: Asset,
-        amount: Union[str, Decimal],
-        price: Union[Price, str, Decimal],
+        amount: str | Decimal,
+        price: Price | str | Decimal,
         offer_id: int = 0,
-        source: Optional[Union[MuxedAccount, str]] = None,
+        source: MuxedAccount | str | None = None,
     ) -> None:
         super().__init__(source)
         if not isinstance(price, Price):

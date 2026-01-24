@@ -25,6 +25,7 @@ import os
 import pickle
 import random
 import re
+import sys
 import typing
 import unittest
 from functools import reduce
@@ -47,6 +48,7 @@ from apache_beam.io.iobase import Read
 from apache_beam.metrics import Metrics
 from apache_beam.metrics.metric import MetricsFilter
 from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.options.pipeline_options import StandardOptions
 from apache_beam.options.pipeline_options import StreamingOptions
 from apache_beam.options.pipeline_options import TypeOptions
 from apache_beam.portability import common_urns
@@ -61,6 +63,9 @@ from apache_beam.transforms import window
 from apache_beam.transforms.display import DisplayData
 from apache_beam.transforms.display import DisplayDataItem
 from apache_beam.transforms.ptransform import PTransform
+from apache_beam.transforms.trigger import AccumulationMode
+from apache_beam.transforms.trigger import AfterProcessingTime
+from apache_beam.transforms.trigger import _AfterSynchronizedProcessingTime
 from apache_beam.transforms.window import TimestampedValue
 from apache_beam.typehints import with_input_types
 from apache_beam.typehints import with_output_types
@@ -510,6 +515,21 @@ class PTransformTest(unittest.TestCase):
       with TestPipeline(options=test_options) as pipeline:
         pipeline | TestStream() | beam.GroupByKey()
 
+  def test_group_by_key_trigger(self):
+    options = PipelineOptions(['--allow_unsafe_triggers'])
+    options.view_as(StandardOptions).streaming = True
+    with TestPipeline(runner='BundleBasedDirectRunner',
+                      options=options) as pipeline:
+      pcoll = pipeline | 'Start' >> beam.Create([(0, 0)])
+      triggered = pcoll | 'Trigger' >> beam.WindowInto(
+          window.GlobalWindows(),
+          trigger=AfterProcessingTime(1),
+          accumulation_mode=AccumulationMode.DISCARDING)
+      output = triggered | 'Gbk' >> beam.GroupByKey()
+      self.assertTrue(
+          isinstance(
+              output.windowing.triggerfn, _AfterSynchronizedProcessingTime))
+
   def test_group_by_key_unsafe_trigger(self):
     test_options = PipelineOptions()
     test_options.view_as(TypeOptions).allow_unsafe_triggers = False
@@ -728,6 +748,7 @@ class PTransformTest(unittest.TestCase):
       param(compat_version="2.66.0"),
   ])
   @pytest.mark.it_validatesrunner
+  @pytest.mark.uses_dill
   def test_group_by_key_importable_special_types(self, compat_version):
     def generate(_):
       for _ in range(100):
@@ -735,6 +756,7 @@ class PTransformTest(unittest.TestCase):
 
     pipeline = TestPipeline(is_integration_test=True)
     if compat_version:
+      pytest.importorskip("dill")
       pipeline.get_pipeline_options().view_as(
           StreamingOptions).update_compatibility_version = compat_version
     with pipeline as p:
@@ -1379,6 +1401,105 @@ class PTransformTypeCheckTestCase(TypeHintTestCase):
 
     assert_that(d, equal_to([6, 7, 8]))
     self.p.run()
+
+  def test_child_with_both_input_and_output_hints_binds_typevars_correctly(
+      self):
+    """
+    When a child transform has both input and output type hints with type
+    variables, those variables bind correctly from the actual input data.
+    
+    Example: Child with .with_input_types(Tuple[K, V])
+    .with_output_types(Tuple[K, V]) receiving Tuple['a', 'hello'] will bind
+    K=str, V=str correctly.
+    """
+    K = typehints.TypeVariable('K')
+    V = typehints.TypeVariable('V')
+
+    @typehints.with_input_types(typehints.Tuple[K, V])
+    @typehints.with_output_types(typehints.Tuple[K, V])
+    class TransformWithoutChildHints(beam.PTransform):
+      class MyDoFn(beam.DoFn):
+        def process(self, element):
+          k, v = element
+          yield (k, v.upper())
+
+      def expand(self, pcoll):
+        return (
+            pcoll
+            | beam.ParDo(self.MyDoFn()).with_input_types(
+                tuple[K, V]).with_output_types(tuple[K, V]))
+
+    with TestPipeline() as p:
+      result = (
+          p
+          | beam.Create([('a', 'hello'), ('b', 'world')])
+          | TransformWithoutChildHints())
+
+      self.assertEqual(result.element_type, typehints.Tuple[str, str])
+
+  def test_child_without_input_hints_fails_to_bind_typevars(self):
+    """
+    When a child transform lacks input type hints, type variables in its output
+    hints cannot bind and default to Any, even when parent composite has
+    decorated type hints.
+    
+    This test demonstrates the current limitation: without explicit input hints
+    on the child, the type variable K in .with_output_types(Tuple[K, str])
+    remains unbound, resulting in Tuple[Any, str] instead of the expected
+    Tuple[str, str].
+    """
+    K = typehints.TypeVariable('K')
+
+    @typehints.with_input_types(typehints.Tuple[K, str])
+    @typehints.with_output_types(typehints.Tuple[K, str])
+    class TransformWithoutChildHints(beam.PTransform):
+      class MyDoFn(beam.DoFn):
+        def process(self, element):
+          k, v = element
+          yield (k, v.upper())
+
+      def expand(self, pcoll):
+        return (
+            pcoll
+            | beam.ParDo(self.MyDoFn()).with_output_types(tuple[K, str]))
+
+    with TestPipeline() as p:
+      result = (
+          p
+          | beam.Create([('a', 'hello'), ('b', 'world')])
+          | TransformWithoutChildHints())
+
+      self.assertEqual(result.element_type, typehints.Tuple[typehints.Any, str])
+
+  def test_child_without_output_hints_infers_partial_types_from_dofn(self):
+    """
+    When a child transform has input hints but no output hints, type inference
+    from the DoFn's process method produces partially inferred types.
+    
+    Type inference is able to infer the first element of the tuple as str, but
+    not the v.upper() and falls back to any.
+    """
+    K = typehints.TypeVariable('K')
+    V = typehints.TypeVariable('V')
+
+    @typehints.with_input_types(typehints.Tuple[K, V])
+    @typehints.with_output_types(typehints.Tuple[K, V])
+    class TransformWithoutChildHints(beam.PTransform):
+      class MyDoFn(beam.DoFn):
+        def process(self, element):
+          k, v = element
+          yield (k, v.upper())
+
+      def expand(self, pcoll):
+        return (pcoll | beam.ParDo(self.MyDoFn()).with_input_types(tuple[K, V]))
+
+    with TestPipeline() as p:
+      result = (
+          p
+          | beam.Create([('a', 'hello'), ('b', 'world')])
+          | TransformWithoutChildHints())
+
+      self.assertEqual(result.element_type, typehints.Tuple[str, typing.Any])
 
   def test_do_fn_pipeline_pipeline_type_check_violated(self):
     @with_input_types(str, str)
@@ -2887,6 +3008,37 @@ class DeadLettersTest(unittest.TestCase):
                 threshold=0.5,
                 threshold_windowing=window.FixedWindows(10),
                 use_subprocess=self.use_subprocess))
+
+
+class PTransformTypeAliasTest(unittest.TestCase):
+  @unittest.skipIf(sys.version_info < (3, 12), "Python 3.12 required")
+  def test_type_alias_statement_supported_in_with_output_types(self):
+    ns = {}
+    exec("type InputType = tuple[int, ...]", ns)  # pylint: disable=exec-used
+    InputType = ns["InputType"]
+
+    def print_element(element: InputType) -> InputType:
+      return element
+
+    with beam.Pipeline() as p:
+      _ = (
+          p
+          | beam.Create([(1, 2)])
+          | beam.Map(lambda x: x)
+          | beam.Map(print_element))
+
+  @unittest.skipIf(sys.version_info < (3, 12), "Python 3.12 required")
+  def test_type_alias_supported_in_ptransform_with_output_types(self):
+    ns = {}
+    exec("type OutputType = tuple[int, int]", ns)  # pylint: disable=exec-used
+    OutputType = ns["OutputType"]
+
+    with beam.Pipeline() as p:
+      _ = (
+          p
+          | beam.Create([(1, 2)])
+          | beam.Map(lambda x: x)
+          | beam.Map(lambda x: x).with_output_types(OutputType))
 
 
 class TestPTransformFn(TypeHintTestCase):

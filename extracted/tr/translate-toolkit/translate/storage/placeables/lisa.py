@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, see <http://www.gnu.org/licenses/>.
 
+from copy import copy
+
 from lxml import etree
 
 from translate.misc.xml_helpers import normalize_xml_space
@@ -138,10 +140,8 @@ def placeable_as_dom_node(placeable, tagname):
 def unknown_placeable_as_dom_node(placeable):
     assert type(placeable) is xliff.UnknownXML
 
-    from copy import copy
-
     node = copy(placeable.xml_node)
-    for i in range(len(node)):
+    for _i in range(len(node)):
         del node[0]
     node.tail = None
     node.text = None

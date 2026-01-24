@@ -5,6 +5,7 @@ import collections.abc
 import enum
 import modal._functions
 import modal._utils.async_utils
+import modal._utils.grpc_utils
 import modal.client
 import modal.functions
 import modal.retries
@@ -18,31 +19,29 @@ class _SynchronizedQueue:
     async def put(self, item): ...
     async def get(self): ...
 
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
-
 class SynchronizedQueue:
     """mdmd:hidden"""
     def __init__(self, /, *args, **kwargs):
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
-    class __init_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __init_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    init: __init_spec[typing_extensions.Self]
+    init: __init_spec
 
-    class __put_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __put_spec(typing_extensions.Protocol):
         def __call__(self, /, item): ...
         async def aio(self, /, item): ...
 
-    put: __put_spec[typing_extensions.Self]
+    put: __put_spec
 
-    class __get_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __get_spec(typing_extensions.Protocol):
         def __call__(self, /): ...
         async def aio(self, /): ...
 
-    get: __get_spec[typing_extensions.Self]
+    get: __get_spec
 
 class _OutputValue:
     """_OutputValue(value: Any)"""
@@ -96,15 +95,8 @@ class InputPumper:
         ...
 
     def pump_inputs(self): ...
-    async def _send_inputs(
-        self,
-        fn: modal.client.UnaryUnaryWrapper,
-        request: typing.Union[
-            modal_proto.api_pb2.FunctionPutInputsRequest, modal_proto.api_pb2.FunctionRetryInputsRequest
-        ],
-    ) -> typing.Union[
-        modal_proto.api_pb2.FunctionPutInputsResponse, modal_proto.api_pb2.FunctionRetryInputsResponse
-    ]: ...
+    @property
+    def _function_inputs_retry(self) -> modal._utils.grpc_utils.Retry: ...
 
 class SyncInputPumper(InputPumper):
     """Reads inputs from a queue of FunctionPutInputsItems, and sends them to the server."""

@@ -786,9 +786,17 @@ public:
 
   /**
    *  @brief An event signalling that the current layer has changed
+   *
+   *  The event is emitted when the user changes the current layer.
    */
   tl::event<const lay::LayerPropertiesConstIterator &> current_layer_changed_event;
 
+  /**
+   *  @brief An event signalling that the selected layers have changed
+   *
+   *  The event is emitted when the user changes the selection.
+   */
+  tl::Event selected_layers_changed_event;
 
   /**
    *  @brief An event signalling that the visibility of some cells has changed
@@ -1113,6 +1121,19 @@ public:
   bool cell_box_visible () const
   {
     return m_cell_box_visible;
+  }
+
+  /**
+   *  @brief Visibility of ghost cells
+   */
+  void ghost_cells_visible (bool vis);
+
+  /**
+   *  @brief Visibility of ghost cells
+   */
+  bool ghost_cells_visible () const
+  {
+    return m_ghost_cells_visible;
   }
 
   /**
@@ -2152,6 +2173,12 @@ public:
   virtual void set_active_cellview_index (int index);
 
   /**
+   *  @brief Select a certain cellview for the active one
+   *  This version does not emit any events while changing the cellview index
+   */
+  void set_active_cellview_index_silent (int index);
+
+  /**
    *  @brief An event triggered if the active cellview changes
    *  This event is triggered after the active cellview changed.
    */
@@ -2794,6 +2821,11 @@ public:
    */
   void current_layer_changed_slot (const lay::LayerPropertiesConstIterator &iter);
 
+  /**
+   *  @brief Called when the layer selection changed
+   */
+  void selected_layers_changed_slot ();
+
   //  zoom slots
   void zoom_fit ();
   void zoom_fit_sel ();
@@ -2910,6 +2942,7 @@ private:
   unsigned int m_box_font;
   int m_min_size_for_label;
   bool m_cell_box_visible;
+  bool m_ghost_cells_visible;
 
   tl::Color m_marker_color;
   int m_marker_line_width;

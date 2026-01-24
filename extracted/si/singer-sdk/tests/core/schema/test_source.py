@@ -45,8 +45,8 @@ def resolved_user_schema() -> dict[str, t.Any]:
         "type": "object",
         "properties": {
             "id": {"type": "string"},
-            "name": {"type": "string"},
-            "email": {"type": "string", "format": "email"},
+            "name": {"type": ["string", "null"]},
+            "email": {"type": ["string", "null"], "format": "email"},
         },
         "required": ["id", "name"],
     }
@@ -268,10 +268,31 @@ class TestOpenAPISchema:
     @pytest.mark.parametrize(
         "url,headers",
         [
-            ("https://api.example.com/openapi", {"content-type": "application/json"}),
-            ("https://api.example.com/openapi", {"content-type": "application/yaml"}),
-            ("https://api.example.com/openapi.yaml", {}),
-            ("https://api.example.com/openapi.yml", {"content-type": "text/plain"}),
+            pytest.param(
+                "https://api.example.com/openapi",
+                {"content-type": "application/json"},
+                id="application/json",
+            ),
+            pytest.param(
+                "https://api.example.com/openapi",
+                {"content-type": "application/json; charset=utf-8"},
+                id="application/json; charset=utf-8",
+            ),
+            pytest.param(
+                "https://api.example.com/openapi",
+                {"content-type": "application/yaml"},
+                id="application/yaml",
+            ),
+            pytest.param(
+                "https://api.example.com/openapi.yaml",
+                {},
+                id="no content-type",
+            ),
+            pytest.param(
+                "https://api.example.com/openapi.yml",
+                {"content-type": "text/plain"},
+                id="text/plain",
+            ),
         ],
     )
     @patch("requests.get")
@@ -286,7 +307,7 @@ class TestOpenAPISchema:
         response = requests.Response()
         response._content = (
             json.dumps(openapi_spec).encode("utf-8")
-            if headers.get("content-type") == "application/json"
+            if "application/json" in headers.get("content-type", "")
             else yaml.dump(openapi_spec).encode("utf-8")
         )
         response.status_code = 200
@@ -389,7 +410,7 @@ class TestOpenAPISchema:
         openapi_file.write_text(content)
 
         source = OpenAPISchema(openapi_file)
-        result = source.get_schema("User")
+        result = source.get_schema("User", key_properties=("id",))
         assert result == resolved_user_schema
 
     def test_openapi_unknown_spec(
@@ -454,7 +475,7 @@ class TestOpenAPISchema:
         path.write_text(json.dumps(openapi_spec))
 
         source = OpenAPISchema(path)
-        result = source.get_schema("User")
+        result = source.get_schema("User", key_properties=("id",))
         assert result == resolved_user_schema
 
     def test_openapi_schema_with_unknown_file_type(
@@ -547,11 +568,11 @@ class TestCustomOpenAPISchema:
         expected_schema = {
             "type": "array",
             "items": {
-                "type": "object",
+                "type": ["object", "null"],
                 "properties": {
-                    "id": {"type": "string"},
-                    "name": {"type": "string"},
-                    "email": {"type": "string", "format": "email"},
+                    "id": {"type": ["string", "null"]},
+                    "name": {"type": ["string", "null"]},
+                    "email": {"type": ["string", "null"], "format": "email"},
                 },
                 "required": ["id", "name"],
             },
@@ -609,6 +630,7 @@ class TestStreamSchemaDescriptor:
         class FooStream:
             name = "foo"
             schema: t.ClassVar[StreamSchema] = StreamSchema(schema_source)
+            primary_keys = ("id",)
 
         stream = FooStream()
         assert stream.schema == foo_schema
@@ -623,6 +645,7 @@ class TestStreamSchemaDescriptor:
         class BarStream:
             name = "bar"
             schema: t.ClassVar[StreamSchema] = StreamSchema(schema_source, key="foo")
+            primary_keys = ("id",)
 
         stream = BarStream()
         assert stream.schema == foo_schema
@@ -636,6 +659,7 @@ class TestStreamSchemaDescriptor:
         class BarStream:
             name = "bar"
             schema: t.ClassVar[StreamSchema] = StreamSchema(schema_source)
+            primary_keys = ("id",)
 
         stream = BarStream()
         with pytest.raises(
@@ -644,3 +668,197 @@ class TestStreamSchemaDescriptor:
         ) as exc:
             _ = stream.schema
         assert isinstance(exc.value.__cause__, FileNotFoundError)
+
+
+class TestOpenAPISchemaNormalization:
+    """Test OpenAPI schema normalization functionality."""
+
+    @pytest.fixture
+    def openapi(self) -> dict[str, t.Any]:
+        """OpenAPI 3.0 spec with nullable attributes."""
+        return {
+            "openapi": "3.0.0",
+            "info": {"title": "Test API", "version": "1.0.0"},
+            "components": {
+                "schemas": {
+                    "User": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string"},
+                            "name": {"type": "string", "nullable": True},
+                            "email": {"type": "string", "nullable": True},
+                            "age": {"type": "integer", "nullable": True},
+                        },
+                        "required": ["id"],
+                    },
+                    "Product": {
+                        "type": "object",
+                        "properties": {
+                            "sku": {"type": "string"},
+                            "title": {"type": "string", "nullable": True},
+                            "tags": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "nullable": True,
+                            },
+                        },
+                    },
+                    "SimpleOneOf": {
+                        "oneOf": [{"type": "string"}],
+                    },
+                    "NestedOneOf": {
+                        "type": "object",
+                        "properties": {
+                            "value": {
+                                "oneOf": [{"type": "integer", "nullable": True}],
+                            },
+                        },
+                    },
+                    "AllOfNoElements": {
+                        "allOf": [],
+                    },
+                    "AllOfSingleElement": {
+                        "allOf": [{"type": "string"}],
+                    },
+                    "AllOfSchemas": {
+                        "allOf": [
+                            {
+                                "properties": {
+                                    "references": {
+                                        "additionalProperties": {"type": "string"},
+                                        "type": "object",
+                                    }
+                                },
+                                "type": "object",
+                            },
+                            {
+                                "properties": {
+                                    "created": {"type": "string"},
+                                    "name": {"type": "string"},
+                                }
+                            },
+                        ],
+                        "required": ["created", "name"],
+                        "type": "object",
+                    },
+                    "Status": {
+                        "type": "string",
+                        "enum": ["active", "inactive", "pending"],
+                    },
+                    "Priority": {
+                        "type": "integer",
+                        "enum": [1, 2, 3, 4, 5],
+                    },
+                }
+            },
+        }
+
+    def test_normalize(
+        self,
+        tmp_path: Path,
+        openapi: dict[str, t.Any],
+        subtests: pytest.Subtests,
+    ):
+        """Test that nullable attributes are converted to type arrays."""
+        openapi_file = tmp_path / "openapi.json"
+        openapi_file.write_text(json.dumps(openapi))
+
+        source = OpenAPISchema(openapi_file)
+        schema = source.get_schema("User")
+
+        # Apply normalization without key properties
+        normalized = source.preprocess_schema(schema)
+
+        with subtests.test("nullable is handled"):
+            # Check that nullable properties have type arrays
+            assert normalized["properties"]["name"]["type"] == ["string", "null"]
+            assert normalized["properties"]["email"]["type"] == ["string", "null"]
+            assert normalized["properties"]["age"]["type"] == ["integer", "null"]
+
+            # nullable attribute is removed
+            assert "nullable" not in normalized["properties"]["name"]
+
+        with subtests.test("oneOf is handled"):
+            # Test simple oneOf
+            schema = source.get_schema("SimpleOneOf")
+            normalized = source.preprocess_schema(schema)
+            assert normalized == {"type": "string"}
+            assert "oneOf" not in normalized
+
+            # Test nested oneOf with nullable
+            schema = source.get_schema("NestedOneOf")
+            normalized = source.preprocess_schema(schema)
+            assert "oneOf" not in normalized["properties"]["value"]
+            assert normalized["properties"]["value"]["type"] == ["integer", "null"]
+
+        with subtests.test("allOf with no elements"):
+            schema = source.get_schema("AllOfNoElements")
+            normalized = source.preprocess_schema(schema)
+            assert normalized == {}
+            assert "allOf" not in normalized
+
+        with subtests.test("allOf with a single element"):
+            schema = source.get_schema("AllOfSingleElement")
+            normalized = source.preprocess_schema(schema)
+            assert normalized == {"type": "string"}
+            assert "allOf" not in normalized
+
+        with subtests.test("simple allOf is handled my merging schemas"):
+            schema = source.get_schema("AllOfSchemas")
+            normalized = source.preprocess_schema(schema)
+            assert normalized == {
+                "type": ["object", "null"],
+                "properties": {
+                    "references": {
+                        "type": ["object", "null"],
+                        "additionalProperties": {"type": "string"},
+                    },
+                    "created": {"type": ["string", "null"]},
+                    "name": {"type": ["string", "null"]},
+                },
+            }
+            assert "allOf" not in normalized
+
+        with subtests.test("enum is handled"):
+            # Test string enum
+            schema = source.get_schema("Status")
+            normalized = source.preprocess_schema(schema)
+            assert "enum" not in normalized
+            assert normalized["type"] == "string"
+
+            # Test integer enum
+            schema = source.get_schema("Priority")
+            normalized = source.preprocess_schema(schema)
+            assert "enum" not in normalized
+            assert normalized["type"] == "integer"
+
+        with subtests.test("arrays are handled"):
+            schema = source.get_schema("Product")
+            normalized = source.preprocess_schema(schema)
+
+            # Check that the array itself can be nullable
+            assert normalized["properties"]["tags"]["type"] == ["array", "null"]
+
+    def test_normalize_properties_with_no_type(self, tmp_path: Path):
+        """Test that properties with no type are handled."""
+        schema = {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "anyOf": [
+                        {"type": "string"},
+                        {"type": "null"},
+                    ],
+                },
+            },
+        }
+        openapi_file = tmp_path / "openapi.json"
+        openapi_file.write_text(json.dumps(schema))
+        source = OpenAPISchema(openapi_file)
+        normalized = source.preprocess_schema(schema)
+        assert "type" not in normalized["properties"]["id"]
+        assert "nullable" not in normalized["properties"]["id"]
+        assert normalized["properties"]["id"]["anyOf"] == [
+            {"type": "string"},
+            {"type": "null"},
+        ]

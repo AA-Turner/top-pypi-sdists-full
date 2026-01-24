@@ -46,7 +46,7 @@ class QinqExtensionTestCase(test_db_base_plugin_v2.TestNetworksV2):
 
     def test_create_network_with_qinq_attr(self):
         arg_list = (
-            qinq_apidef.QINQ_FIELD),
+            qinq_apidef.QINQ_FIELD,)
         net_kwargs = {
             qinq_apidef.QINQ_FIELD: True
         }
@@ -60,7 +60,7 @@ class QinqExtensionTestCase(test_db_base_plugin_v2.TestNetworksV2):
 
     def test_create_network_with_bad_qinq_attr(self):
         arg_list = (
-            qinq_apidef.QINQ_FIELD),
+            qinq_apidef.QINQ_FIELD,)
         net_kwargs = {
             qinq_apidef.QINQ_FIELD: 'this is not boolean value',
         }
@@ -74,7 +74,7 @@ class QinqExtensionTestCase(test_db_base_plugin_v2.TestNetworksV2):
 
     def test_network_update_with_qinq_exception(self):
         arg_list = (
-            qinq_apidef.QINQ_FIELD),
+            qinq_apidef.QINQ_FIELD,)
         net_kwargs = {
             qinq_apidef.QINQ_FIELD: False,
         }
@@ -102,10 +102,10 @@ class QinqExtensionTestCase(test_db_base_plugin_v2.TestNetworksV2):
             with testlib_api.ExpectedException(
                     web_exc.HTTPClientError) as ctx_manager:
                 with self.network(name='net1', as_admin=True,
-                                arg_list=arg_list, **net_kwargs):
+                                  arg_list=arg_list, **net_kwargs):
                     pass
             self.assertEqual(web_exc.HTTPBadRequest.code,
-                            ctx_manager.exception.code)
+                             ctx_manager.exception.code)
             return
 
         # In any other case it should work fine

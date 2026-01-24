@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinx_rtd_theme
-Version: 3.0.2
+Version: 3.1.0
 Summary: Read the Docs theme for Sphinx
 Home-page: https://github.com/readthedocs/sphinx_rtd_theme
 Author: Dave Snider, Read the Docs, Inc. & contributors
@@ -23,12 +23,22 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Documentation
 Requires-Python: >=3.8
-Provides-Extra: dev
 License-File: LICENSE
+Requires-Dist: sphinx<10,>=6
+Requires-Dist: docutils<0.23,>0.18
+Requires-Dist: sphinxcontrib-jquery<5,>=4
+Provides-Extra: dev
+Requires-Dist: transifex-client; extra == "dev"
+Requires-Dist: bump2version; extra == "dev"
+Requires-Dist: wheel; extra == "dev"
+Requires-Dist: twine; extra == "dev"
+Dynamic: license-file
 
 **************************
 Read the Docs Sphinx Theme

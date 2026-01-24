@@ -3,11 +3,21 @@
 //! This module implements text wrapping/reflow functionality that preserves
 //! Markdown elements like links, emphasis, code spans, etc.
 
+use crate::utils::element_cache::ElementCache;
+use crate::utils::is_definition_list_item;
 use crate::utils::regex_cache::{
     DISPLAY_MATH_REGEX, EMOJI_SHORTCODE_REGEX, FOOTNOTE_REF_REGEX, HTML_ENTITY_REGEX, HTML_TAG_PATTERN,
-    INLINE_IMAGE_FANCY_REGEX, INLINE_LINK_FANCY_REGEX, INLINE_MATH_REGEX, REF_IMAGE_REGEX, REF_LINK_REGEX,
-    SHORTCUT_REF_REGEX, STRIKETHROUGH_FANCY_REGEX, WIKI_LINK_REGEX,
+    HUGO_SHORTCODE_REGEX, INLINE_IMAGE_FANCY_REGEX, INLINE_LINK_FANCY_REGEX, INLINE_MATH_REGEX,
+    LINKED_IMAGE_INLINE_INLINE, LINKED_IMAGE_INLINE_REF, LINKED_IMAGE_REF_INLINE, LINKED_IMAGE_REF_REF,
+    REF_IMAGE_REGEX, REF_LINK_REGEX, SHORTCUT_REF_REGEX, WIKI_LINK_REGEX,
 };
+use crate::utils::sentence_utils::{
+    get_abbreviations, is_cjk_char, is_cjk_sentence_ending, is_closing_quote, is_opening_quote,
+    text_ends_with_abbreviation,
+};
+use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
+use std::collections::HashSet;
+
 /// Options for reflowing text
 #[derive(Clone)]
 pub struct ReflowOptions {
@@ -19,6 +29,10 @@ pub struct ReflowOptions {
     pub preserve_breaks: bool,
     /// Whether to enforce one sentence per line
     pub sentence_per_line: bool,
+    /// Custom abbreviations for sentence detection
+    /// Periods are optional - both "Dr" and "Dr." work the same
+    /// Custom abbreviations are always added to the built-in defaults
+    pub abbreviations: Option<Vec<String>>,
 }
 
 impl Default for ReflowOptions {
@@ -28,59 +42,169 @@ impl Default for ReflowOptions {
             break_on_sentences: true,
             preserve_breaks: false,
             sentence_per_line: false,
+            abbreviations: None,
         }
     }
 }
 
 /// Detect if a character position is a sentence boundary
 /// Based on the approach from github.com/JoshuaKGoldberg/sentences-per-line
-fn is_sentence_boundary(text: &str, pos: usize) -> bool {
+/// Supports both ASCII punctuation (. ! ?) and CJK punctuation (。 ！ ？)
+fn is_sentence_boundary(text: &str, pos: usize, abbreviations: &HashSet<String>) -> bool {
     let chars: Vec<char> = text.chars().collect();
 
-    if pos + 2 >= chars.len() {
+    if pos + 1 >= chars.len() {
         return false;
     }
 
-    // Check for sentence-ending punctuation
     let c = chars[pos];
+    let next_char = chars[pos + 1];
+
+    // Check for CJK sentence-ending punctuation (。, ！, ？)
+    // CJK punctuation doesn't require space or uppercase after it
+    if is_cjk_sentence_ending(c) {
+        // Skip any trailing emphasis/strikethrough markers
+        let mut after_punct_pos = pos + 1;
+        while after_punct_pos < chars.len()
+            && (chars[after_punct_pos] == '*' || chars[after_punct_pos] == '_' || chars[after_punct_pos] == '~')
+        {
+            after_punct_pos += 1;
+        }
+
+        // Skip whitespace
+        while after_punct_pos < chars.len() && chars[after_punct_pos].is_whitespace() {
+            after_punct_pos += 1;
+        }
+
+        // Check if we have more content (any non-whitespace)
+        if after_punct_pos >= chars.len() {
+            return false;
+        }
+
+        // Skip leading emphasis/strikethrough markers
+        while after_punct_pos < chars.len()
+            && (chars[after_punct_pos] == '*' || chars[after_punct_pos] == '_' || chars[after_punct_pos] == '~')
+        {
+            after_punct_pos += 1;
+        }
+
+        if after_punct_pos >= chars.len() {
+            return false;
+        }
+
+        // For CJK, we accept any character as the start of the next sentence
+        // (no uppercase requirement, since CJK doesn't have case)
+        return true;
+    }
+
+    // Check for ASCII sentence-ending punctuation
     if c != '.' && c != '!' && c != '?' {
         return false;
     }
 
-    // Must be followed by a space
-    if chars[pos + 1] != ' ' {
+    // Must be followed by space, closing quote, or emphasis/strikethrough marker followed by space
+    let (_space_pos, after_space_pos) = if next_char == ' ' {
+        // Normal case: punctuation followed by space
+        (pos + 1, pos + 2)
+    } else if is_closing_quote(next_char) && pos + 2 < chars.len() {
+        // Sentence ends with quote - check what follows the quote
+        if chars[pos + 2] == ' ' {
+            // Just quote followed by space: 'sentence." '
+            (pos + 2, pos + 3)
+        } else if (chars[pos + 2] == '*' || chars[pos + 2] == '_') && pos + 3 < chars.len() && chars[pos + 3] == ' ' {
+            // Quote followed by emphasis: 'sentence."* '
+            (pos + 3, pos + 4)
+        } else if (chars[pos + 2] == '*' || chars[pos + 2] == '_')
+            && pos + 4 < chars.len()
+            && chars[pos + 3] == chars[pos + 2]
+            && chars[pos + 4] == ' '
+        {
+            // Quote followed by bold: 'sentence."** '
+            (pos + 4, pos + 5)
+        } else {
+            return false;
+        }
+    } else if (next_char == '*' || next_char == '_') && pos + 2 < chars.len() && chars[pos + 2] == ' ' {
+        // Sentence ends with emphasis: "sentence.* " or "sentence._ "
+        (pos + 2, pos + 3)
+    } else if (next_char == '*' || next_char == '_')
+        && pos + 3 < chars.len()
+        && chars[pos + 2] == next_char
+        && chars[pos + 3] == ' '
+    {
+        // Sentence ends with bold: "sentence.** " or "sentence.__ "
+        (pos + 3, pos + 4)
+    } else if next_char == '~' && pos + 3 < chars.len() && chars[pos + 2] == '~' && chars[pos + 3] == ' ' {
+        // Sentence ends with strikethrough: "sentence.~~ "
+        (pos + 3, pos + 4)
+    } else {
+        return false;
+    };
+
+    // Skip all whitespace after the space to find the start of the next sentence
+    let mut next_char_pos = after_space_pos;
+    while next_char_pos < chars.len() && chars[next_char_pos].is_whitespace() {
+        next_char_pos += 1;
+    }
+
+    // Check if we reached the end of the string
+    if next_char_pos >= chars.len() {
         return false;
     }
 
-    // Next character after space must be uppercase (new sentence indicator)
-    if !chars[pos + 2].is_uppercase() {
+    // Skip leading emphasis/strikethrough markers and opening quotes to find the actual first letter
+    let mut first_letter_pos = next_char_pos;
+    while first_letter_pos < chars.len()
+        && (chars[first_letter_pos] == '*'
+            || chars[first_letter_pos] == '_'
+            || chars[first_letter_pos] == '~'
+            || is_opening_quote(chars[first_letter_pos]))
+    {
+        first_letter_pos += 1;
+    }
+
+    // Check if we reached the end after skipping emphasis
+    if first_letter_pos >= chars.len() {
         return false;
     }
 
-    // Look back to check for common abbreviations
-    if pos > 0 {
-        // Abbreviation list similar to sentences-per-line
-        let prev_word = &text[..pos];
-        let ignored_words = [
-            "ie", "i.e", "eg", "e.g", "etc", "ex", "vs", "Mr", "Mrs", "Dr", "Ms", "Prof", "Sr", "Jr",
-        ];
-        for word in &ignored_words {
-            if prev_word.to_lowercase().ends_with(&word.to_lowercase()) {
-                return false;
-            }
+    // First character of next sentence must be uppercase or CJK
+    let first_char = chars[first_letter_pos];
+    if !first_char.is_uppercase() && !is_cjk_char(first_char) {
+        return false;
+    }
+
+    // Look back to check for common abbreviations (only applies to periods)
+    if pos > 0 && c == '.' {
+        // Check if the text up to and including this period ends with an abbreviation
+        // Note: text[..=pos] includes the character at pos (the period)
+        if text_ends_with_abbreviation(&text[..=pos], abbreviations) {
+            return false;
         }
 
         // Check for decimal numbers (e.g., "3.14")
-        if pos > 0 && chars[pos - 1].is_numeric() && pos + 2 < chars.len() && chars[pos + 2].is_numeric() {
+        // Make sure to check if first_letter_pos is within bounds
+        if chars[pos - 1].is_numeric() && first_letter_pos < chars.len() && chars[first_letter_pos].is_numeric() {
             return false;
         }
     }
-
     true
 }
 
 /// Split text into sentences
 pub fn split_into_sentences(text: &str) -> Vec<String> {
+    split_into_sentences_custom(text, &None)
+}
+
+/// Split text into sentences with custom abbreviations
+pub fn split_into_sentences_custom(text: &str, custom_abbreviations: &Option<Vec<String>>) -> Vec<String> {
+    let abbreviations = get_abbreviations(custom_abbreviations);
+    split_into_sentences_with_set(text, &abbreviations)
+}
+
+/// Internal function to split text into sentences with a pre-computed abbreviations set
+/// Use this when calling multiple times in a loop to avoid repeatedly computing the set
+fn split_into_sentences_with_set(text: &str, abbreviations: &HashSet<String>) -> Vec<String> {
     let mut sentences = Vec::new();
     let mut current_sentence = String::new();
     let mut chars = text.chars().peekable();
@@ -89,8 +213,18 @@ pub fn split_into_sentences(text: &str) -> Vec<String> {
     while let Some(c) = chars.next() {
         current_sentence.push(c);
 
-        if is_sentence_boundary(text, pos) {
-            // Include the space after sentence if it exists
+        if is_sentence_boundary(text, pos, abbreviations) {
+            // Consume any trailing emphasis/strikethrough markers and quotes (they belong to the current sentence)
+            while let Some(&next) = chars.peek() {
+                if next == '*' || next == '_' || next == '~' || is_closing_quote(next) {
+                    current_sentence.push(chars.next().unwrap());
+                    pos += 1;
+                } else {
+                    break;
+                }
+            }
+
+            // Consume the space after the sentence
             if chars.peek() == Some(&' ') {
                 chars.next();
                 pos += 1;
@@ -107,7 +241,6 @@ pub fn split_into_sentences(text: &str) -> Vec<String> {
     if !current_sentence.trim().is_empty() {
         sentences.push(current_sentence.trim().to_string());
     }
-
     sentences
 }
 
@@ -163,16 +296,57 @@ fn is_numbered_list_item(line: &str) -> bool {
     false
 }
 
-/// Reflow a single line of markdown text to fit within the specified line length
+/// Check if a line ends with a hard break (either two spaces or backslash)
+///
+/// CommonMark supports two formats for hard line breaks:
+/// 1. Two or more trailing spaces
+/// 2. A backslash at the end of the line
+fn has_hard_break(line: &str) -> bool {
+    let line = line.strip_suffix('\r').unwrap_or(line);
+    line.ends_with("  ") || line.ends_with('\\')
+}
+
+/// Trim trailing whitespace while preserving hard breaks (two trailing spaces or backslash)
+///
+/// Hard breaks in Markdown can be indicated by:
+/// 1. Two trailing spaces before a newline (traditional)
+/// 2. A backslash at the end of the line (mdformat style)
+fn trim_preserving_hard_break(s: &str) -> String {
+    // Strip trailing \r from CRLF line endings first to handle Windows files
+    let s = s.strip_suffix('\r').unwrap_or(s);
+
+    // Check for backslash hard break (mdformat style)
+    if s.ends_with('\\') {
+        // Preserve the backslash exactly as-is
+        return s.to_string();
+    }
+
+    // Check if there are at least 2 trailing spaces (traditional hard break)
+    if s.ends_with("  ") {
+        // Find the position where non-space content ends
+        let content_end = s.trim_end().len();
+        if content_end == 0 {
+            // String is all whitespace
+            return String::new();
+        }
+        // Preserve exactly 2 trailing spaces for hard break
+        format!("{}  ", &s[..content_end])
+    } else {
+        // No hard break, just trim all trailing whitespace
+        s.trim_end().to_string()
+    }
+}
+
 pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
     // For sentence-per-line mode, always process regardless of length
     if options.sentence_per_line {
         let elements = parse_markdown_elements(line);
-        return reflow_elements_sentence_per_line(&elements);
+        return reflow_elements_sentence_per_line(&elements, &options.abbreviations);
     }
 
-    // Quick check: if line is already short enough, return as-is
-    if line.chars().count() <= options.line_length {
+    // Quick check: if line is already short enough or no wrapping requested, return as-is
+    // line_length = 0 means no wrapping (unlimited line length)
+    if options.line_length == 0 || line.chars().count() <= options.line_length {
         return vec![line.to_string()];
     }
 
@@ -181,6 +355,24 @@ pub fn reflow_line(line: &str, options: &ReflowOptions) -> Vec<String> {
 
     // Reflow the elements into lines
     reflow_elements(&elements, options)
+}
+
+/// Image source in a linked image structure
+#[derive(Debug, Clone)]
+enum LinkedImageSource {
+    /// Inline image URL: ![alt](url)
+    Inline(String),
+    /// Reference image: ![alt][ref]
+    Reference(String),
+}
+
+/// Link target in a linked image structure
+#[derive(Debug, Clone)]
+enum LinkedImageTarget {
+    /// Inline link URL: ](url)
+    Inline(String),
+    /// Reference link: ][ref]
+    Reference(String),
 }
 
 /// Represents a piece of content in the markdown
@@ -202,6 +394,16 @@ enum Element {
     ReferenceImage { alt: String, reference: String },
     /// A complete markdown empty reference image ![alt][]
     EmptyReferenceImage { alt: String },
+    /// A clickable image badge in any of 4 forms:
+    /// - [![alt](img-url)](link-url)
+    /// - [![alt][img-ref]](link-url)
+    /// - [![alt](img-url)][link-ref]
+    /// - [![alt][img-ref]][link-ref]
+    LinkedImage {
+        alt: String,
+        img_source: LinkedImageSource,
+        link_target: LinkedImageTarget,
+    },
     /// Footnote reference [^note]
     FootnoteReference { note: String },
     /// Strikethrough text ~~text~~
@@ -218,12 +420,22 @@ enum Element {
     HtmlTag(String),
     /// HTML entity &nbsp; or &#123;
     HtmlEntity(String),
+    /// Hugo/Go template shortcode {{< ... >}} or {{% ... %}}
+    HugoShortcode(String),
     /// Inline code `code`
     Code(String),
-    /// Bold text **text**
-    Bold(String),
-    /// Italic text *text*
-    Italic(String),
+    /// Bold text **text** or __text__
+    Bold {
+        content: String,
+        /// True if underscore markers (__), false for asterisks (**)
+        underscore: bool,
+    },
+    /// Italic text *text* or _text_
+    Italic {
+        content: String,
+        /// True if underscore marker (_), false for asterisk (*)
+        underscore: bool,
+    },
 }
 
 impl std::fmt::Display for Element {
@@ -237,6 +449,22 @@ impl std::fmt::Display for Element {
             Element::InlineImage { alt, url } => write!(f, "![{alt}]({url})"),
             Element::ReferenceImage { alt, reference } => write!(f, "![{alt}][{reference}]"),
             Element::EmptyReferenceImage { alt } => write!(f, "![{alt}][]"),
+            Element::LinkedImage {
+                alt,
+                img_source,
+                link_target,
+            } => {
+                // Build the image part: ![alt](url) or ![alt][ref]
+                let img_part = match img_source {
+                    LinkedImageSource::Inline(url) => format!("![{alt}]({url})"),
+                    LinkedImageSource::Reference(r) => format!("![{alt}][{r}]"),
+                };
+                // Build the link part: (url) or [ref]
+                match link_target {
+                    LinkedImageTarget::Inline(url) => write!(f, "[{img_part}]({url})"),
+                    LinkedImageTarget::Reference(r) => write!(f, "[{img_part}][{r}]"),
+                }
+            }
             Element::FootnoteReference { note } => write!(f, "[^{note}]"),
             Element::Strikethrough(s) => write!(f, "~~{s}~~"),
             Element::WikiLink(s) => write!(f, "[[{s}]]"),
@@ -245,9 +473,22 @@ impl std::fmt::Display for Element {
             Element::EmojiShortcode(s) => write!(f, ":{s}:"),
             Element::HtmlTag(s) => write!(f, "{s}"),
             Element::HtmlEntity(s) => write!(f, "{s}"),
+            Element::HugoShortcode(s) => write!(f, "{s}"),
             Element::Code(s) => write!(f, "`{s}`"),
-            Element::Bold(s) => write!(f, "**{s}**"),
-            Element::Italic(s) => write!(f, "*{s}*"),
+            Element::Bold { content, underscore } => {
+                if *underscore {
+                    write!(f, "__{content}__")
+                } else {
+                    write!(f, "**{content}**")
+                }
+            }
+            Element::Italic { content, underscore } => {
+                if *underscore {
+                    write!(f, "_{content}_")
+                } else {
+                    write!(f, "*{content}*")
+                }
+            }
         }
     }
 }
@@ -263,6 +504,26 @@ impl Element {
             Element::InlineImage { alt, url } => alt.chars().count() + url.chars().count() + 5, // ![alt](url)
             Element::ReferenceImage { alt, reference } => alt.chars().count() + reference.chars().count() + 5, // ![alt][ref]
             Element::EmptyReferenceImage { alt } => alt.chars().count() + 5, // ![alt][]
+            Element::LinkedImage {
+                alt,
+                img_source,
+                link_target,
+            } => {
+                // Calculate length based on variant
+                // Base: [ + ![alt] + ] = 4 chars for outer brackets and !
+                let alt_len = alt.chars().count();
+                let img_len = match img_source {
+                    LinkedImageSource::Inline(url) => url.chars().count() + 2, // (url)
+                    LinkedImageSource::Reference(r) => r.chars().count() + 2,  // [ref]
+                };
+                let link_len = match link_target {
+                    LinkedImageTarget::Inline(url) => url.chars().count() + 2, // (url)
+                    LinkedImageTarget::Reference(r) => r.chars().count() + 2,  // [ref]
+                };
+                // [![alt](img)](link) = [ + ! + [ + alt + ] + (img) + ] + (link)
+                //                     = 1 + 1 + 1 + alt + 1 + img_len + 1 + link_len = 5 + alt + img + link
+                5 + alt_len + img_len + link_len
+            }
             Element::FootnoteReference { note } => note.chars().count() + 3, // [^note]
             Element::Strikethrough(s) => s.chars().count() + 4,              // ~~text~~
             Element::WikiLink(s) => s.chars().count() + 4,                   // [[wiki]]
@@ -271,30 +532,190 @@ impl Element {
             Element::EmojiShortcode(s) => s.chars().count() + 2,             // :emoji:
             Element::HtmlTag(s) => s.chars().count(),                        // <tag> - already includes brackets
             Element::HtmlEntity(s) => s.chars().count(),                     // &nbsp; - already complete
+            Element::HugoShortcode(s) => s.chars().count(),                  // {{< ... >}} - already complete
             Element::Code(s) => s.chars().count() + 2,                       // `code`
-            Element::Bold(s) => s.chars().count() + 4,                       // **text**
-            Element::Italic(s) => s.chars().count() + 2,                     // *text*
+            Element::Bold { content, .. } => content.chars().count() + 4,    // **text** or __text__
+            Element::Italic { content, .. } => content.chars().count() + 2,  // *text* or _text_
         }
     }
+}
+
+/// An emphasis or formatting span parsed by pulldown-cmark
+#[derive(Debug, Clone)]
+struct EmphasisSpan {
+    /// Byte offset where the emphasis starts (including markers)
+    start: usize,
+    /// Byte offset where the emphasis ends (after closing markers)
+    end: usize,
+    /// The content inside the emphasis markers
+    content: String,
+    /// Whether this is strong (bold) emphasis
+    is_strong: bool,
+    /// Whether this is strikethrough (~~text~~)
+    is_strikethrough: bool,
+    /// Whether the original used underscore markers (for emphasis only)
+    uses_underscore: bool,
+}
+
+/// Extract emphasis and strikethrough spans from text using pulldown-cmark
+///
+/// This provides CommonMark-compliant emphasis parsing, correctly handling:
+/// - Nested emphasis like `*text **bold** more*`
+/// - Left/right flanking delimiter rules
+/// - Underscore vs asterisk markers
+/// - GFM strikethrough (~~text~~)
+///
+/// Returns spans sorted by start position.
+fn extract_emphasis_spans(text: &str) -> Vec<EmphasisSpan> {
+    let mut spans = Vec::new();
+    let mut options = Options::empty();
+    options.insert(Options::ENABLE_STRIKETHROUGH);
+
+    // Stacks to track nested formatting with their start positions
+    let mut emphasis_stack: Vec<(usize, bool)> = Vec::new(); // (start_byte, uses_underscore)
+    let mut strong_stack: Vec<(usize, bool)> = Vec::new();
+    let mut strikethrough_stack: Vec<usize> = Vec::new();
+
+    let parser = Parser::new_ext(text, options).into_offset_iter();
+
+    for (event, range) in parser {
+        match event {
+            Event::Start(Tag::Emphasis) => {
+                // Check if this uses underscore by looking at the original text
+                let uses_underscore = text.get(range.start..range.start + 1) == Some("_");
+                emphasis_stack.push((range.start, uses_underscore));
+            }
+            Event::End(TagEnd::Emphasis) => {
+                if let Some((start_byte, uses_underscore)) = emphasis_stack.pop() {
+                    // Extract content between the markers (1 char marker on each side)
+                    let content_start = start_byte + 1;
+                    let content_end = range.end - 1;
+                    if content_end > content_start
+                        && let Some(content) = text.get(content_start..content_end)
+                    {
+                        spans.push(EmphasisSpan {
+                            start: start_byte,
+                            end: range.end,
+                            content: content.to_string(),
+                            is_strong: false,
+                            is_strikethrough: false,
+                            uses_underscore,
+                        });
+                    }
+                }
+            }
+            Event::Start(Tag::Strong) => {
+                // Check if this uses underscore by looking at the original text
+                let uses_underscore = text.get(range.start..range.start + 2) == Some("__");
+                strong_stack.push((range.start, uses_underscore));
+            }
+            Event::End(TagEnd::Strong) => {
+                if let Some((start_byte, uses_underscore)) = strong_stack.pop() {
+                    // Extract content between the markers (2 char marker on each side)
+                    let content_start = start_byte + 2;
+                    let content_end = range.end - 2;
+                    if content_end > content_start
+                        && let Some(content) = text.get(content_start..content_end)
+                    {
+                        spans.push(EmphasisSpan {
+                            start: start_byte,
+                            end: range.end,
+                            content: content.to_string(),
+                            is_strong: true,
+                            is_strikethrough: false,
+                            uses_underscore,
+                        });
+                    }
+                }
+            }
+            Event::Start(Tag::Strikethrough) => {
+                strikethrough_stack.push(range.start);
+            }
+            Event::End(TagEnd::Strikethrough) => {
+                if let Some(start_byte) = strikethrough_stack.pop() {
+                    // Extract content between the ~~ markers (2 char marker on each side)
+                    let content_start = start_byte + 2;
+                    let content_end = range.end - 2;
+                    if content_end > content_start
+                        && let Some(content) = text.get(content_start..content_end)
+                    {
+                        spans.push(EmphasisSpan {
+                            start: start_byte,
+                            end: range.end,
+                            content: content.to_string(),
+                            is_strong: false,
+                            is_strikethrough: true,
+                            uses_underscore: false,
+                        });
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Sort by start position
+    spans.sort_by_key(|s| s.start);
+    spans
 }
 
 /// Parse markdown elements from text preserving the raw syntax
 ///
 /// Detection order is critical:
-/// 1. Inline links [text](url) - must be detected first to avoid conflicts
-/// 2. Reference links [text][ref] - detected before shortcut references
-/// 3. Empty reference links [text][] - a special case of reference links
-/// 4. Shortcut reference links [ref] - detected last to avoid false positives
-/// 5. Other elements (code, bold, italic) - processed normally
+/// 1. Linked images [![alt](img)](link) - must be detected first as atomic units
+/// 2. Inline images ![alt](url) - before links to handle ! prefix
+/// 3. Reference images ![alt][ref] - before reference links
+/// 4. Inline links [text](url) - before reference links
+/// 5. Reference links [text][ref] - before shortcut references
+/// 6. Shortcut reference links [ref] - detected last to avoid false positives
+/// 7. Other elements (code, bold, italic, etc.) - processed normally
 fn parse_markdown_elements(text: &str) -> Vec<Element> {
     let mut elements = Vec::new();
     let mut remaining = text;
 
+    // Pre-extract emphasis spans using pulldown-cmark for CommonMark-compliant parsing
+    let emphasis_spans = extract_emphasis_spans(text);
+
     while !remaining.is_empty() {
+        // Calculate current byte offset in original text
+        let current_offset = text.len() - remaining.len();
         // Find the earliest occurrence of any markdown pattern
         let mut earliest_match: Option<(usize, &str, fancy_regex::Match)> = None;
 
-        // Check for images first (they start with ! so should be detected before links)
+        // Check for linked images FIRST (all 4 variants)
+        // Quick literal check: only run expensive regexes if we might have a linked image
+        // Pattern starts with "[!" so check for that first
+        if remaining.contains("[!") {
+            // Pattern 1: [![alt](img)](link) - inline image in inline link
+            if let Ok(Some(m)) = LINKED_IMAGE_INLINE_INLINE.find(remaining)
+                && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+            {
+                earliest_match = Some((m.start(), "linked_image_ii", m));
+            }
+
+            // Pattern 2: [![alt][ref]](link) - reference image in inline link
+            if let Ok(Some(m)) = LINKED_IMAGE_REF_INLINE.find(remaining)
+                && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+            {
+                earliest_match = Some((m.start(), "linked_image_ri", m));
+            }
+
+            // Pattern 3: [![alt](img)][ref] - inline image in reference link
+            if let Ok(Some(m)) = LINKED_IMAGE_INLINE_REF.find(remaining)
+                && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+            {
+                earliest_match = Some((m.start(), "linked_image_ir", m));
+            }
+
+            // Pattern 4: [![alt][ref]][ref] - reference image in reference link
+            if let Ok(Some(m)) = LINKED_IMAGE_REF_REF.find(remaining)
+                && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+            {
+                earliest_match = Some((m.start(), "linked_image_rr", m));
+            }
+        }
+
+        // Check for images (they start with ! so should be detected before links)
         // Inline images - ![alt](url)
         if let Ok(Some(m)) = INLINE_IMAGE_FANCY_REGEX.find(remaining)
             && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
@@ -359,12 +780,7 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
             earliest_match = Some((m.start(), "inline_math", m));
         }
 
-        // Check for strikethrough - ~~text~~
-        if let Ok(Some(m)) = STRIKETHROUGH_FANCY_REGEX.find(remaining)
-            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
-        {
-            earliest_match = Some((m.start(), "strikethrough", m));
-        }
+        // Note: Strikethrough is now handled by pulldown-cmark in extract_emphasis_spans
 
         // Check for emoji shortcodes - :emoji:
         if let Ok(Some(m)) = EMOJI_SHORTCODE_REGEX.find(remaining)
@@ -380,35 +796,57 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
             earliest_match = Some((m.start(), "html_entity", m));
         }
 
+        // Check for Hugo shortcodes - {{< ... >}} or {{% ... %}}
+        // Must be checked before other patterns to avoid false sentence breaks
+        if let Ok(Some(m)) = HUGO_SHORTCODE_REGEX.find(remaining)
+            && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
+        {
+            earliest_match = Some((m.start(), "hugo_shortcode", m));
+        }
+
         // Check for HTML tags - <tag> </tag> <tag/>
+        // But exclude autolinks like <https://...> or <mailto:...>
         if let Ok(Some(m)) = HTML_TAG_PATTERN.find(remaining)
             && earliest_match.as_ref().is_none_or(|(start, _, _)| m.start() < *start)
         {
-            earliest_match = Some((m.start(), "html_tag", m));
+            // Check if this is an autolink (starts with protocol or mailto:)
+            let matched_text = &remaining[m.start()..m.end()];
+            let is_autolink = matched_text.starts_with("<http://")
+                || matched_text.starts_with("<https://")
+                || matched_text.starts_with("<mailto:")
+                || matched_text.starts_with("<ftp://")
+                || matched_text.starts_with("<ftps://");
+
+            if !is_autolink {
+                earliest_match = Some((m.start(), "html_tag", m));
+            }
         }
 
         // Find earliest non-link special characters
         let mut next_special = remaining.len();
         let mut special_type = "";
+        let mut pulldown_emphasis: Option<&EmphasisSpan> = None;
 
+        // Check for code spans (not handled by pulldown-cmark in this context)
         if let Some(pos) = remaining.find('`')
             && pos < next_special
         {
             next_special = pos;
             special_type = "code";
         }
-        if let Some(pos) = remaining.find("**")
-            && pos < next_special
-        {
-            next_special = pos;
-            special_type = "bold";
-        }
-        if let Some(pos) = remaining.find('*')
-            && pos < next_special
-            && !remaining[pos..].starts_with("**")
-        {
-            next_special = pos;
-            special_type = "italic";
+
+        // Check for emphasis using pulldown-cmark's pre-extracted spans
+        // Find the earliest emphasis span that starts within remaining text
+        for span in &emphasis_spans {
+            if span.start >= current_offset && span.start < current_offset + remaining.len() {
+                let pos_in_remaining = span.start - current_offset;
+                if pos_in_remaining < next_special {
+                    next_special = pos_in_remaining;
+                    special_type = "pulldown_emphasis";
+                    pulldown_emphasis = Some(span);
+                }
+                break; // Spans are sorted by start position, so first match is earliest
+            }
         }
 
         // Determine which pattern to process first
@@ -428,6 +866,74 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
 
             // Process the matched pattern
             match pattern_type {
+                // Pattern 1: [![alt](img)](link) - inline image in inline link
+                "linked_image_ii" => {
+                    if let Ok(Some(caps)) = LINKED_IMAGE_INLINE_INLINE.captures(remaining) {
+                        let alt = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                        let img_url = caps.get(2).map(|m| m.as_str()).unwrap_or("");
+                        let link_url = caps.get(3).map(|m| m.as_str()).unwrap_or("");
+                        elements.push(Element::LinkedImage {
+                            alt: alt.to_string(),
+                            img_source: LinkedImageSource::Inline(img_url.to_string()),
+                            link_target: LinkedImageTarget::Inline(link_url.to_string()),
+                        });
+                        remaining = &remaining[match_obj.end()..];
+                    } else {
+                        elements.push(Element::Text("[".to_string()));
+                        remaining = &remaining[1..];
+                    }
+                }
+                // Pattern 2: [![alt][ref]](link) - reference image in inline link
+                "linked_image_ri" => {
+                    if let Ok(Some(caps)) = LINKED_IMAGE_REF_INLINE.captures(remaining) {
+                        let alt = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                        let img_ref = caps.get(2).map(|m| m.as_str()).unwrap_or("");
+                        let link_url = caps.get(3).map(|m| m.as_str()).unwrap_or("");
+                        elements.push(Element::LinkedImage {
+                            alt: alt.to_string(),
+                            img_source: LinkedImageSource::Reference(img_ref.to_string()),
+                            link_target: LinkedImageTarget::Inline(link_url.to_string()),
+                        });
+                        remaining = &remaining[match_obj.end()..];
+                    } else {
+                        elements.push(Element::Text("[".to_string()));
+                        remaining = &remaining[1..];
+                    }
+                }
+                // Pattern 3: [![alt](img)][ref] - inline image in reference link
+                "linked_image_ir" => {
+                    if let Ok(Some(caps)) = LINKED_IMAGE_INLINE_REF.captures(remaining) {
+                        let alt = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                        let img_url = caps.get(2).map(|m| m.as_str()).unwrap_or("");
+                        let link_ref = caps.get(3).map(|m| m.as_str()).unwrap_or("");
+                        elements.push(Element::LinkedImage {
+                            alt: alt.to_string(),
+                            img_source: LinkedImageSource::Inline(img_url.to_string()),
+                            link_target: LinkedImageTarget::Reference(link_ref.to_string()),
+                        });
+                        remaining = &remaining[match_obj.end()..];
+                    } else {
+                        elements.push(Element::Text("[".to_string()));
+                        remaining = &remaining[1..];
+                    }
+                }
+                // Pattern 4: [![alt][ref]][ref] - reference image in reference link
+                "linked_image_rr" => {
+                    if let Ok(Some(caps)) = LINKED_IMAGE_REF_REF.captures(remaining) {
+                        let alt = caps.get(1).map(|m| m.as_str()).unwrap_or("");
+                        let img_ref = caps.get(2).map(|m| m.as_str()).unwrap_or("");
+                        let link_ref = caps.get(3).map(|m| m.as_str()).unwrap_or("");
+                        elements.push(Element::LinkedImage {
+                            alt: alt.to_string(),
+                            img_source: LinkedImageSource::Reference(img_ref.to_string()),
+                            link_target: LinkedImageTarget::Reference(link_ref.to_string()),
+                        });
+                        remaining = &remaining[match_obj.end()..];
+                    } else {
+                        elements.push(Element::Text("[".to_string()));
+                        remaining = &remaining[1..];
+                    }
+                }
                 "inline_image" => {
                     if let Ok(Some(caps)) = INLINE_IMAGE_FANCY_REGEX.captures(remaining) {
                         let alt = caps.get(1).map(|m| m.as_str()).unwrap_or("");
@@ -551,16 +1057,7 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                         remaining = &remaining[1..];
                     }
                 }
-                "strikethrough" => {
-                    if let Ok(Some(caps)) = STRIKETHROUGH_FANCY_REGEX.captures(remaining) {
-                        let text = caps.get(1).map(|m| m.as_str()).unwrap_or("");
-                        elements.push(Element::Strikethrough(text.to_string()));
-                        remaining = &remaining[match_obj.end()..];
-                    } else {
-                        elements.push(Element::Text("~~".to_string()));
-                        remaining = &remaining[2..];
-                    }
-                }
+                // Note: "strikethrough" case removed - now handled by pulldown-cmark
                 "emoji" => {
                     if let Ok(Some(caps)) = EMOJI_SHORTCODE_REGEX.captures(remaining) {
                         let emoji = caps.get(1).map(|m| m.as_str()).unwrap_or("");
@@ -574,6 +1071,11 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                 "html_entity" => {
                     // HTML entities are captured whole
                     elements.push(Element::HtmlEntity(remaining[..match_obj.end()].to_string()));
+                    remaining = &remaining[match_obj.end()..];
+                }
+                "hugo_shortcode" => {
+                    // Hugo shortcodes are atomic elements - preserve them exactly
+                    elements.push(Element::HugoShortcode(remaining[..match_obj.end()].to_string()));
                     remaining = &remaining[match_obj.end()..];
                 }
                 "html_tag" => {
@@ -610,27 +1112,27 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
                         break;
                     }
                 }
-                "bold" => {
-                    // Check for bold text
-                    if let Some(bold_end) = remaining[2..].find("**") {
-                        let bold_text = &remaining[2..2 + bold_end];
-                        elements.push(Element::Bold(bold_text.to_string()));
-                        remaining = &remaining[2 + bold_end + 2..];
+                "pulldown_emphasis" => {
+                    // Use pre-extracted emphasis/strikethrough span from pulldown-cmark
+                    if let Some(span) = pulldown_emphasis {
+                        let span_len = span.end - span.start;
+                        if span.is_strikethrough {
+                            elements.push(Element::Strikethrough(span.content.clone()));
+                        } else if span.is_strong {
+                            elements.push(Element::Bold {
+                                content: span.content.clone(),
+                                underscore: span.uses_underscore,
+                            });
+                        } else {
+                            elements.push(Element::Italic {
+                                content: span.content.clone(),
+                                underscore: span.uses_underscore,
+                            });
+                        }
+                        remaining = &remaining[span_len..];
                     } else {
-                        // No closing **, treat as text
-                        elements.push(Element::Text("**".to_string()));
-                        remaining = &remaining[2..];
-                    }
-                }
-                "italic" => {
-                    // Check for italic text
-                    if let Some(italic_end) = remaining[1..].find('*') {
-                        let italic_text = &remaining[1..1 + italic_end];
-                        elements.push(Element::Italic(italic_text.to_string()));
-                        remaining = &remaining[1 + italic_end + 1..];
-                    } else {
-                        // No closing *, treat as text
-                        elements.push(Element::Text("*".to_string()));
+                        // Fallback - shouldn't happen
+                        elements.push(Element::Text(remaining[..1].to_string()));
                         remaining = &remaining[1..];
                     }
                 }
@@ -647,39 +1149,84 @@ fn parse_markdown_elements(text: &str) -> Vec<Element> {
 }
 
 /// Reflow elements for sentence-per-line mode
-fn reflow_elements_sentence_per_line(elements: &[Element]) -> Vec<String> {
+fn reflow_elements_sentence_per_line(elements: &[Element], custom_abbreviations: &Option<Vec<String>>) -> Vec<String> {
+    let abbreviations = get_abbreviations(custom_abbreviations);
     let mut lines = Vec::new();
     let mut current_line = String::new();
 
-    for element in elements {
+    for element in elements.iter() {
         let element_str = format!("{element}");
 
         // For text elements, split into sentences
         if let Element::Text(text) = element {
             // Simply append text - it already has correct spacing from tokenization
             let combined = format!("{current_line}{text}");
-            let sentences = split_into_sentences(&combined);
+            // Use the pre-computed abbreviations set to avoid redundant computation
+            let sentences = split_into_sentences_with_set(&combined, &abbreviations);
 
             if sentences.len() > 1 {
                 // We found sentence boundaries
                 for (i, sentence) in sentences.iter().enumerate() {
                     if i == 0 {
                         // First sentence might continue from previous elements
-                        lines.push(sentence.to_string());
+                        // But check if it ends with an abbreviation
+                        let trimmed = sentence.trim();
+
+                        if text_ends_with_abbreviation(trimmed, &abbreviations) {
+                            // Don't emit yet - this sentence ends with abbreviation, continue accumulating
+                            current_line = sentence.to_string();
+                        } else {
+                            // Normal case - emit the first sentence
+                            lines.push(sentence.to_string());
+                            current_line.clear();
+                        }
                     } else if i == sentences.len() - 1 {
-                        // Last sentence might continue to next elements
-                        current_line = sentence.to_string();
+                        // Last sentence: check if it's complete or incomplete
+                        let trimmed = sentence.trim();
+                        let ends_with_sentence_punct =
+                            trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?');
+
+                        if ends_with_sentence_punct && !text_ends_with_abbreviation(trimmed, &abbreviations) {
+                            // Complete sentence - emit it immediately
+                            lines.push(sentence.to_string());
+                            current_line.clear();
+                        } else {
+                            // Incomplete sentence - save for next iteration
+                            current_line = sentence.to_string();
+                        }
                     } else {
                         // Complete sentences in the middle
                         lines.push(sentence.to_string());
                     }
                 }
             } else {
-                // No sentence boundary found, continue accumulating
-                current_line = combined;
+                // Single sentence - check if it's complete
+                let trimmed = combined.trim();
+                let ends_with_sentence_punct =
+                    trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?');
+
+                if ends_with_sentence_punct && !text_ends_with_abbreviation(trimmed, &abbreviations) {
+                    // Complete single sentence - emit it
+                    lines.push(trimmed.to_string());
+                    current_line.clear();
+                } else {
+                    // Incomplete sentence - continue accumulating
+                    current_line = combined;
+                }
             }
+        } else if let Element::Italic { content, underscore } = element {
+            // Handle italic elements - may contain multiple sentences that need continuation
+            let marker = if *underscore { "_" } else { "*" };
+            handle_emphasis_sentence_split(content, marker, &abbreviations, &mut current_line, &mut lines);
+        } else if let Element::Bold { content, underscore } = element {
+            // Handle bold elements - may contain multiple sentences that need continuation
+            let marker = if *underscore { "__" } else { "**" };
+            handle_emphasis_sentence_split(content, marker, &abbreviations, &mut current_line, &mut lines);
+        } else if let Element::Strikethrough(content) = element {
+            // Handle strikethrough elements - may contain multiple sentences that need continuation
+            handle_emphasis_sentence_split(content, "~~", &abbreviations, &mut current_line, &mut lines);
         } else {
-            // Non-text elements (Code, Bold, Italic, etc.)
+            // Non-text, non-emphasis elements (Code, Links, etc.)
             // Add space before element if needed (unless it's after an opening paren/bracket)
             if !current_line.is_empty()
                 && !current_line.ends_with(' ')
@@ -696,8 +1243,92 @@ fn reflow_elements_sentence_per_line(elements: &[Element]) -> Vec<String> {
     if !current_line.is_empty() {
         lines.push(current_line.trim().to_string());
     }
-
     lines
+}
+
+/// Handle splitting emphasis content at sentence boundaries while preserving markers
+fn handle_emphasis_sentence_split(
+    content: &str,
+    marker: &str,
+    abbreviations: &HashSet<String>,
+    current_line: &mut String,
+    lines: &mut Vec<String>,
+) {
+    // Split the emphasis content into sentences
+    let sentences = split_into_sentences_with_set(content, abbreviations);
+
+    if sentences.len() <= 1 {
+        // Single sentence or no boundaries - treat as atomic
+        if !current_line.is_empty()
+            && !current_line.ends_with(' ')
+            && !current_line.ends_with('(')
+            && !current_line.ends_with('[')
+        {
+            current_line.push(' ');
+        }
+        current_line.push_str(marker);
+        current_line.push_str(content);
+        current_line.push_str(marker);
+
+        // Check if the emphasis content ends with sentence punctuation - if so, emit
+        let trimmed = content.trim();
+        let ends_with_punct = trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?');
+        if ends_with_punct && !text_ends_with_abbreviation(trimmed, abbreviations) {
+            lines.push(current_line.clone());
+            current_line.clear();
+        }
+    } else {
+        // Multiple sentences - each gets its own emphasis markers
+        for (i, sentence) in sentences.iter().enumerate() {
+            let trimmed = sentence.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+
+            if i == 0 {
+                // First sentence: combine with current_line and emit
+                if !current_line.is_empty()
+                    && !current_line.ends_with(' ')
+                    && !current_line.ends_with('(')
+                    && !current_line.ends_with('[')
+                {
+                    current_line.push(' ');
+                }
+                current_line.push_str(marker);
+                current_line.push_str(trimmed);
+                current_line.push_str(marker);
+
+                // Check if this is a complete sentence
+                let ends_with_punct = trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?');
+                if ends_with_punct && !text_ends_with_abbreviation(trimmed, abbreviations) {
+                    lines.push(current_line.clone());
+                    current_line.clear();
+                }
+            } else if i == sentences.len() - 1 {
+                // Last sentence: check if complete
+                let ends_with_punct = trimmed.ends_with('.') || trimmed.ends_with('!') || trimmed.ends_with('?');
+
+                let mut line = String::new();
+                line.push_str(marker);
+                line.push_str(trimmed);
+                line.push_str(marker);
+
+                if ends_with_punct && !text_ends_with_abbreviation(trimmed, abbreviations) {
+                    lines.push(line);
+                } else {
+                    // Incomplete - keep in current_line for potential continuation
+                    *current_line = line;
+                }
+            } else {
+                // Middle sentences: emit with markers
+                let mut line = String::new();
+                line.push_str(marker);
+                line.push_str(trimmed);
+                line.push_str(marker);
+                lines.push(line);
+            }
+        }
+    }
 }
 
 /// Reflow elements into lines that fit within the line length
@@ -712,19 +1343,28 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
 
         // For text elements that might need breaking
         if let Element::Text(text) = element {
+            // Check if original text had leading whitespace
+            let has_leading_space = text.starts_with(char::is_whitespace);
             // If this is a text element, always process it word by word
             let words: Vec<&str> = text.split_whitespace().collect();
 
-            for word in words {
+            for (i, word) in words.iter().enumerate() {
                 let word_len = word.chars().count();
-                if current_length > 0 && current_length + 1 + word_len > options.line_length {
-                    // Start a new line
+                // Check if this "word" is just punctuation that should stay attached
+                let is_trailing_punct = word
+                    .chars()
+                    .all(|c| matches!(c, ',' | '.' | ':' | ';' | '!' | '?' | ')' | ']' | '}'));
+
+                if current_length > 0 && current_length + 1 + word_len > options.line_length && !is_trailing_punct {
+                    // Start a new line (but never for trailing punctuation)
                     lines.push(current_line.trim().to_string());
                     current_line = word.to_string();
                     current_length = word_len;
                 } else {
                     // Add word to current line
-                    if current_length > 0 {
+                    // Only add space if: we have content AND (this isn't the first word OR original had leading space)
+                    // AND this isn't trailing punctuation (which attaches directly)
+                    if current_length > 0 && (i > 0 || has_leading_space) && !is_trailing_punct {
                         current_line.push(' ');
                         current_length += 1;
                     }
@@ -742,7 +1382,10 @@ fn reflow_elements(elements: &[Element], options: &ReflowOptions) -> Vec<String>
                 current_length = element_len;
             } else {
                 // Add element to current line
-                if current_length > 0 {
+                // Don't add space if the current line ends with an opening bracket/paren
+                let ends_with_opener =
+                    current_line.ends_with('(') || current_line.ends_with('[') || current_line.ends_with('{');
+                if current_length > 0 && !ends_with_opener {
                     current_line.push(' ');
                     current_length += 1;
                 }
@@ -800,15 +1443,15 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
             continue;
         }
 
-        // Preserve indented code blocks (4+ spaces or 1+ tab)
-        if line.starts_with("    ") || line.starts_with("\t") {
+        // Preserve indented code blocks (4+ columns accounting for tab expansion)
+        if ElementCache::calculate_indentation_width_default(line) >= 4 {
             // Collect all consecutive indented lines
             result.push(line.to_string());
             i += 1;
             while i < lines.len() {
                 let next_line = lines[i];
                 // Continue if next line is also indented or empty (empty lines in code blocks are ok)
-                if next_line.starts_with("    ") || next_line.starts_with("\t") || next_line.trim().is_empty() {
+                if ElementCache::calculate_indentation_width_default(next_line) >= 4 || next_line.trim().is_empty() {
                     result.push(next_line.to_string());
                     i += 1;
                 } else {
@@ -820,7 +1463,10 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
 
         // Preserve block quotes (but reflow their content)
         if trimmed.starts_with('>') {
-            let quote_prefix = line[0..line.find('>').unwrap() + 1].to_string();
+            // find() returns byte position which is correct for str slicing
+            // The unwrap is safe because we already verified trimmed starts with '>'
+            let gt_pos = line.find('>').expect("'>' must exist since trimmed.starts_with('>')");
+            let quote_prefix = line[0..gt_pos + 1].to_string();
             let quote_content = &line[quote_prefix.len()..].trim_start();
 
             let reflowed = reflow_line(quote_content, options);
@@ -839,9 +1485,14 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
         }
 
         // Preserve lists (but not horizontal rules)
-        if (trimmed.starts_with('-') && !is_horizontal_rule(trimmed))
-            || (trimmed.starts_with('*') && !is_horizontal_rule(trimmed))
-            || trimmed.starts_with('+')
+        // A valid unordered list marker must be followed by a space (or be alone on line)
+        // This prevents emphasis markers like "*text*" from being parsed as list items
+        let is_unordered_list = |s: &str, marker: char| -> bool {
+            s.starts_with(marker) && !is_horizontal_rule(s) && (s.len() == 1 || s.chars().nth(1) == Some(' '))
+        };
+        if is_unordered_list(trimmed, '-')
+            || is_unordered_list(trimmed, '*')
+            || is_unordered_list(trimmed, '+')
             || is_numbered_list_item(trimmed)
         {
             // Find the list marker and preserve indentation
@@ -859,7 +1510,9 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                     marker_end = indent + period_pos + 1; // Include the period
                     content_start = marker_end;
                     // Skip any spaces after the period to find content start
-                    while content_start < line.len() && line.chars().nth(content_start) == Some(' ') {
+                    // Use byte-based check since content_start is a byte index
+                    // This is safe because space is ASCII (single byte)
+                    while content_start < line.len() && line.as_bytes().get(content_start) == Some(&b' ') {
                         content_start += 1;
                     }
                 }
@@ -868,7 +1521,9 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                 marker_end = indent + 1; // Just the marker character
                 content_start = marker_end;
                 // Skip any spaces after the marker
-                while content_start < line.len() && line.chars().nth(content_start) == Some(' ') {
+                // Use byte-based check since content_start is a byte index
+                // This is safe because space is ASCII (single byte)
+                while content_start < line.len() && line.as_bytes().get(content_start) == Some(&b' ') {
                     content_start += 1;
                 }
             }
@@ -876,7 +1531,8 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
             let marker = &line[indent..marker_end];
 
             // Collect all content for this list item (including continuation lines)
-            let mut list_content = vec![line[content_start..].to_string()];
+            // Preserve hard breaks (2 trailing spaces) while trimming excessive whitespace
+            let mut list_content = vec![trim_preserving_hard_break(&line[content_start..])];
             i += 1;
 
             // Collect continuation lines (indented lines that are part of this list item)
@@ -900,6 +1556,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                     || (next_trimmed.starts_with('+')
                         && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
                     || is_numbered_list_item(next_trimmed)
+                    || is_definition_list_item(next_trimmed)
                 {
                     break;
                 }
@@ -907,9 +1564,10 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                 // Check if this line is indented (continuation of list item)
                 let next_indent = next_line.len() - next_line.trim_start().len();
                 if next_indent >= content_start {
-                    // This is a continuation line - add its content (trim only leading space)
-                    // We need to preserve trailing spaces for hard breaks
-                    list_content.push(next_line.trim_start().to_string());
+                    // This is a continuation line - add its content
+                    // Preserve hard breaks while trimming excessive whitespace
+                    let trimmed_start = next_line.trim_start();
+                    list_content.push(trim_preserving_hard_break(trimmed_start));
                     i += 1;
                 } else {
                     // Not indented enough, not part of this list item
@@ -917,11 +1575,20 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                 }
             }
 
-            // Join all the content with spaces (if preserve_breaks is false)
+            // Join content, but respect hard breaks (lines ending with 2 spaces or backslash)
+            // Hard breaks should prevent joining with the next line
             let combined_content = if options.preserve_breaks {
                 list_content[0].clone()
             } else {
-                list_content.join(" ")
+                // Check if any lines have hard breaks - if so, preserve the structure
+                let has_hard_breaks = list_content.iter().any(|line| has_hard_break(line));
+                if has_hard_breaks {
+                    // Don't join lines with hard breaks - keep them separate with newlines
+                    list_content.join("\n")
+                } else {
+                    // No hard breaks, safe to join with spaces
+                    list_content.join(" ")
+                }
             };
 
             // Calculate the proper indentation for continuation lines
@@ -951,7 +1618,7 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
         }
 
         // Preserve tables
-        if trimmed.contains('|') {
+        if crate::utils::table_utils::TableUtils::is_potential_table_row(line) {
             result.push(line.to_string());
             i += 1;
             continue;
@@ -959,6 +1626,13 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
 
         // Preserve reference definitions
         if trimmed.starts_with('[') && line.contains("]:") {
+            result.push(line.to_string());
+            i += 1;
+            continue;
+        }
+
+        // Preserve definition list items (extended markdown)
+        if is_definition_list_item(trimmed) {
             result.push(line.to_string());
             i += 1;
             continue;
@@ -1007,17 +1681,25 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
         // If preserve_breaks is true, treat each line separately
         if options.preserve_breaks {
             // Don't collect consecutive lines - just reflow this single line
-            let has_hard_break = line.ends_with("  ");
+            let hard_break_type = if line.strip_suffix('\r').unwrap_or(line).ends_with('\\') {
+                Some("\\")
+            } else if line.ends_with("  ") {
+                Some("  ")
+            } else {
+                None
+            };
             let reflowed = reflow_line(line, options);
 
-            // Preserve hard breaks (two trailing spaces)
-            if has_hard_break && !reflowed.is_empty() {
-                let mut reflowed_with_break = reflowed;
-                let last_idx = reflowed_with_break.len() - 1;
-                if !reflowed_with_break[last_idx].ends_with("  ") {
-                    reflowed_with_break[last_idx].push_str("  ");
+            // Preserve hard breaks (two trailing spaces or backslash)
+            if let Some(break_marker) = hard_break_type {
+                if !reflowed.is_empty() {
+                    let mut reflowed_with_break = reflowed;
+                    let last_idx = reflowed_with_break.len() - 1;
+                    if !has_hard_break(&reflowed_with_break[last_idx]) {
+                        reflowed_with_break[last_idx].push_str(break_marker);
+                    }
+                    result.extend(reflowed_with_break);
                 }
-                result.extend(reflowed_with_break);
             } else {
                 result.extend(reflowed);
             }
@@ -1050,13 +1732,44 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                     || (next_trimmed.starts_with('+')
                         && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
                     || is_numbered_list_item(next_trimmed)
+                    || is_definition_list_item(next_trimmed)
                 {
                     break;
                 }
 
-                // Check if previous line ends with hard break (two spaces)
-                if prev_line.ends_with("  ") {
-                    // Start a new part after hard break
+                // Check if previous line ends with hard break (two spaces or backslash)
+                // or is a complete sentence in sentence_per_line mode
+                let prev_trimmed = prev_line.trim();
+                let abbreviations = get_abbreviations(&options.abbreviations);
+                let ends_with_sentence = (prev_trimmed.ends_with('.')
+                    || prev_trimmed.ends_with('!')
+                    || prev_trimmed.ends_with('?')
+                    || prev_trimmed.ends_with(".*")
+                    || prev_trimmed.ends_with("!*")
+                    || prev_trimmed.ends_with("?*")
+                    || prev_trimmed.ends_with("._")
+                    || prev_trimmed.ends_with("!_")
+                    || prev_trimmed.ends_with("?_")
+                    // Quote-terminated sentences (straight and curly quotes)
+                    || prev_trimmed.ends_with(".\"")
+                    || prev_trimmed.ends_with("!\"")
+                    || prev_trimmed.ends_with("?\"")
+                    || prev_trimmed.ends_with(".'")
+                    || prev_trimmed.ends_with("!'")
+                    || prev_trimmed.ends_with("?'")
+                    || prev_trimmed.ends_with(".\u{201D}")
+                    || prev_trimmed.ends_with("!\u{201D}")
+                    || prev_trimmed.ends_with("?\u{201D}")
+                    || prev_trimmed.ends_with(".\u{2019}")
+                    || prev_trimmed.ends_with("!\u{2019}")
+                    || prev_trimmed.ends_with("?\u{2019}"))
+                    && !text_ends_with_abbreviation(
+                        prev_trimmed.trim_end_matches(['*', '_', '"', '\'', '\u{201D}', '\u{2019}']),
+                        &abbreviations,
+                    );
+
+                if has_hard_break(prev_line) || (options.sentence_per_line && ends_with_sentence) {
+                    // Start a new part after hard break or complete sentence
                     paragraph_parts.push(current_part.join(" "));
                     current_part = vec![next_line];
                 } else {
@@ -1080,10 +1793,12 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
                 let reflowed = reflow_line(part, options);
                 result.extend(reflowed);
 
-                // Preserve hard break by ensuring last line of part ends with two spaces
-                if j < paragraph_parts.len() - 1 && !result.is_empty() {
+                // Preserve hard break by ensuring last line of part ends with hard break marker
+                // Use two spaces as the default hard break format for reflows
+                // But don't add hard breaks in sentence_per_line mode - lines are already separate
+                if j < paragraph_parts.len() - 1 && !result.is_empty() && !options.sentence_per_line {
                     let last_idx = result.len() - 1;
-                    if !result[last_idx].ends_with("  ") {
+                    if !has_hard_break(&result[last_idx]) {
                         result[last_idx].push_str("  ");
                     }
                 }
@@ -1100,479 +1815,224 @@ pub fn reflow_markdown(content: &str, options: &ReflowOptions) -> String {
     }
 }
 
+/// Information about a reflowed paragraph
+#[derive(Debug, Clone)]
+pub struct ParagraphReflow {
+    /// Starting byte offset of the paragraph in the original content
+    pub start_byte: usize,
+    /// Ending byte offset of the paragraph in the original content
+    pub end_byte: usize,
+    /// The reflowed text for this paragraph
+    pub reflowed_text: String,
+}
+
+/// Reflow a single paragraph at the specified line number
+///
+/// This function finds the paragraph containing the given line number,
+/// reflows it according to the specified line length, and returns
+/// information about the paragraph location and its reflowed text.
+///
+/// # Arguments
+///
+/// * `content` - The full document content
+/// * `line_number` - The 1-based line number within the paragraph to reflow
+/// * `line_length` - The target line length for reflowing
+///
+/// # Returns
+///
+/// Returns `Some(ParagraphReflow)` if a paragraph was found and reflowed,
+/// or `None` if the line number is out of bounds or the content at that
+/// line shouldn't be reflowed (e.g., code blocks, headings, etc.)
+pub fn reflow_paragraph_at_line(content: &str, line_number: usize, line_length: usize) -> Option<ParagraphReflow> {
+    if line_number == 0 {
+        return None;
+    }
+
+    let lines: Vec<&str> = content.lines().collect();
+
+    // Check if line number is valid (1-based)
+    if line_number > lines.len() {
+        return None;
+    }
+
+    let target_idx = line_number - 1; // Convert to 0-based
+    let target_line = lines[target_idx];
+    let trimmed = target_line.trim();
+
+    // Don't reflow special blocks
+    if trimmed.is_empty()
+        || trimmed.starts_with('#')
+        || trimmed.starts_with("```")
+        || trimmed.starts_with("~~~")
+        || ElementCache::calculate_indentation_width_default(target_line) >= 4
+        || trimmed.starts_with('>')
+        || crate::utils::table_utils::TableUtils::is_potential_table_row(target_line) // Tables
+        || (trimmed.starts_with('[') && target_line.contains("]:")) // Reference definitions
+        || is_horizontal_rule(trimmed)
+        || ((trimmed.starts_with('-') || trimmed.starts_with('*') || trimmed.starts_with('+'))
+            && !is_horizontal_rule(trimmed)
+            && (trimmed.len() == 1 || trimmed.chars().nth(1) == Some(' ')))
+        || is_numbered_list_item(trimmed)
+        || is_definition_list_item(trimmed)
+    {
+        return None;
+    }
+
+    // Find paragraph start - scan backward until blank line or special block
+    let mut para_start = target_idx;
+    while para_start > 0 {
+        let prev_idx = para_start - 1;
+        let prev_line = lines[prev_idx];
+        let prev_trimmed = prev_line.trim();
+
+        // Stop at blank line or special blocks
+        if prev_trimmed.is_empty()
+            || prev_trimmed.starts_with('#')
+            || prev_trimmed.starts_with("```")
+            || prev_trimmed.starts_with("~~~")
+            || ElementCache::calculate_indentation_width_default(prev_line) >= 4
+            || prev_trimmed.starts_with('>')
+            || crate::utils::table_utils::TableUtils::is_potential_table_row(prev_line)
+            || (prev_trimmed.starts_with('[') && prev_line.contains("]:"))
+            || is_horizontal_rule(prev_trimmed)
+            || ((prev_trimmed.starts_with('-') || prev_trimmed.starts_with('*') || prev_trimmed.starts_with('+'))
+                && !is_horizontal_rule(prev_trimmed)
+                && (prev_trimmed.len() == 1 || prev_trimmed.chars().nth(1) == Some(' ')))
+            || is_numbered_list_item(prev_trimmed)
+            || is_definition_list_item(prev_trimmed)
+        {
+            break;
+        }
+
+        para_start = prev_idx;
+    }
+
+    // Find paragraph end - scan forward until blank line or special block
+    let mut para_end = target_idx;
+    while para_end + 1 < lines.len() {
+        let next_idx = para_end + 1;
+        let next_line = lines[next_idx];
+        let next_trimmed = next_line.trim();
+
+        // Stop at blank line or special blocks
+        if next_trimmed.is_empty()
+            || next_trimmed.starts_with('#')
+            || next_trimmed.starts_with("```")
+            || next_trimmed.starts_with("~~~")
+            || ElementCache::calculate_indentation_width_default(next_line) >= 4
+            || next_trimmed.starts_with('>')
+            || crate::utils::table_utils::TableUtils::is_potential_table_row(next_line)
+            || (next_trimmed.starts_with('[') && next_line.contains("]:"))
+            || is_horizontal_rule(next_trimmed)
+            || ((next_trimmed.starts_with('-') || next_trimmed.starts_with('*') || next_trimmed.starts_with('+'))
+                && !is_horizontal_rule(next_trimmed)
+                && (next_trimmed.len() == 1 || next_trimmed.chars().nth(1) == Some(' ')))
+            || is_numbered_list_item(next_trimmed)
+            || is_definition_list_item(next_trimmed)
+        {
+            break;
+        }
+
+        para_end = next_idx;
+    }
+
+    // Extract paragraph lines
+    let paragraph_lines = &lines[para_start..=para_end];
+
+    // Calculate byte offsets
+    let mut start_byte = 0;
+    for line in lines.iter().take(para_start) {
+        start_byte += line.len() + 1; // +1 for newline
+    }
+
+    let mut end_byte = start_byte;
+    for line in paragraph_lines.iter() {
+        end_byte += line.len() + 1; // +1 for newline
+    }
+
+    // Track whether the byte range includes a trailing newline
+    // (it doesn't if this is the last line and the file doesn't end with newline)
+    let includes_trailing_newline = para_end != lines.len() - 1 || content.ends_with('\n');
+
+    // Adjust end_byte if the last line doesn't have a newline
+    if !includes_trailing_newline {
+        end_byte -= 1;
+    }
+
+    // Join paragraph lines and reflow
+    let paragraph_text = paragraph_lines.join("\n");
+
+    // Create reflow options
+    let options = ReflowOptions {
+        line_length,
+        break_on_sentences: true,
+        preserve_breaks: false,
+        sentence_per_line: false,
+        abbreviations: None,
+    };
+
+    // Reflow the paragraph using reflow_markdown to handle it properly
+    let reflowed = reflow_markdown(&paragraph_text, &options);
+
+    // Ensure reflowed text matches whether the byte range includes a trailing newline
+    // This is critical: if the range includes a newline, the replacement must too,
+    // otherwise the next line will get appended to the reflowed paragraph
+    let reflowed_text = if includes_trailing_newline {
+        // Range includes newline - ensure reflowed text has one
+        if reflowed.ends_with('\n') {
+            reflowed
+        } else {
+            format!("{reflowed}\n")
+        }
+    } else {
+        // Range doesn't include newline - ensure reflowed text doesn't have one
+        if reflowed.ends_with('\n') {
+            reflowed.trim_end_matches('\n').to_string()
+        } else {
+            reflowed
+        }
+    };
+
+    Some(ParagraphReflow {
+        start_byte,
+        end_byte,
+        reflowed_text,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Unit test for private helper function text_ends_with_abbreviation()
+    ///
+    /// This test stays inline because it tests a private function.
+    /// All other tests (public API, integration tests) are in tests/utils/text_reflow_test.rs
     #[test]
-    fn test_reflow_simple_text() {
-        let options = ReflowOptions {
-            line_length: 20,
-            ..Default::default()
-        };
+    fn test_helper_function_text_ends_with_abbreviation() {
+        // Test the helper function directly
+        let abbreviations = get_abbreviations(&None);
 
-        let input = "This is a very long line that needs to be wrapped";
-        let result = reflow_line(input, &options);
+        // True cases - built-in abbreviations (titles and i.e./e.g.)
+        assert!(text_ends_with_abbreviation("Dr.", &abbreviations));
+        assert!(text_ends_with_abbreviation("word Dr.", &abbreviations));
+        assert!(text_ends_with_abbreviation("e.g.", &abbreviations));
+        assert!(text_ends_with_abbreviation("i.e.", &abbreviations));
+        assert!(text_ends_with_abbreviation("Mr.", &abbreviations));
+        assert!(text_ends_with_abbreviation("Mrs.", &abbreviations));
+        assert!(text_ends_with_abbreviation("Ms.", &abbreviations));
+        assert!(text_ends_with_abbreviation("Prof.", &abbreviations));
 
-        assert_eq!(result.len(), 3);
-        assert!(result[0].chars().count() <= 20);
-        assert!(result[1].chars().count() <= 20);
-        assert!(result[2].chars().count() <= 20);
-    }
-
-    #[test]
-    fn test_preserve_inline_code() {
-        let options = ReflowOptions {
-            line_length: 30,
-            ..Default::default()
-        };
-
-        let result = reflow_line("This line has `inline code` that should be preserved", &options);
-        // Verify inline code is not broken
-        let joined = result.join(" ");
-        assert!(joined.contains("`inline code`"));
-    }
-
-    #[test]
-    fn test_preserve_links() {
-        let options = ReflowOptions {
-            line_length: 40,
-            ..Default::default()
-        };
-
-        let text = "Check out [this link](https://example.com/very/long/url) for more info";
-        let result = reflow_line(text, &options);
-
-        // Verify link is preserved intact
-        let joined = result.join(" ");
-        assert!(joined.contains("[this link](https://example.com/very/long/url)"));
-    }
-
-    #[test]
-    fn test_reference_link_patterns_fixed() {
-        let options = ReflowOptions {
-            line_length: 30,
-            break_on_sentences: true,
-            preserve_breaks: false,
-            sentence_per_line: false,
-        };
-
-        // Test cases that verify reference links are preserved as atomic units
-        let test_cases = vec![
-            // Reference link: [text][ref] - should be preserved intact
-            ("Check out [text][ref] for details", vec!["[text][ref]"]),
-            // Empty reference: [text][] - should be preserved intact
-            ("See [text][] for info", vec!["[text][]"]),
-            // Shortcut reference: [homepage] - should be preserved intact
-            ("Visit [homepage] today", vec!["[homepage]"]),
-            // Multiple reference links in one line
-            (
-                "Links: [first][ref1] and [second][ref2] here",
-                vec!["[first][ref1]", "[second][ref2]"],
-            ),
-            // Mixed inline and reference links
-            (
-                "See [inline](url) and [reference][ref] links",
-                vec!["[inline](url)", "[reference][ref]"],
-            ),
-        ];
-
-        for (input, expected_patterns) in test_cases {
-            println!("\nTesting: {input}");
-            let result = reflow_line(input, &options);
-            let joined = result.join(" ");
-            println!("Result:  {joined}");
-
-            // Verify all expected patterns are preserved
-            for expected_pattern in expected_patterns {
-                assert!(
-                    joined.contains(expected_pattern),
-                    "Expected '{expected_pattern}' to be preserved in '{input}', but got '{joined}'"
-                );
-            }
-
-            // Verify no broken patterns exist (spaces inside brackets)
-            assert!(
-                !joined.contains("[ ") || !joined.contains("] ["),
-                "Detected broken reference link pattern with spaces inside brackets in '{joined}'"
-            );
-        }
-    }
-
-    #[test]
-    fn test_sentence_detection_basic() {
-        // Test basic sentence detection
-        assert!(is_sentence_boundary("Hello. World", 5));
-        assert!(is_sentence_boundary("Test! Another", 4));
-        assert!(is_sentence_boundary("Question? Answer", 8));
-
-        // Test non-boundaries
-        assert!(!is_sentence_boundary("Hello world", 5));
-        assert!(!is_sentence_boundary("Test.com", 4));
-        assert!(!is_sentence_boundary("3.14 pi", 1));
-    }
-
-    #[test]
-    fn test_sentence_detection_abbreviations() {
-        // Common abbreviations should not be treated as sentence boundaries
-        assert!(!is_sentence_boundary("Mr. Smith", 2));
-        assert!(!is_sentence_boundary("Dr. Jones", 2));
-        assert!(!is_sentence_boundary("e.g. example", 3));
-        assert!(!is_sentence_boundary("i.e. that is", 3));
-        assert!(!is_sentence_boundary("etc. items", 3));
-
-        // But sentence after abbreviation should be a boundary
-        assert!(is_sentence_boundary("Mr. Smith arrived. Next sentence.", 17));
-    }
-
-    #[test]
-    fn test_split_into_sentences() {
-        let text = "First sentence. Second sentence. Third one!";
-        let sentences = split_into_sentences(text);
-        assert_eq!(sentences.len(), 3);
-        assert_eq!(sentences[0], "First sentence.");
-        assert_eq!(sentences[1], "Second sentence.");
-        assert_eq!(sentences[2], "Third one!");
-
-        // Test with abbreviations
-        let text2 = "Mr. Smith met Dr. Jones.";
-        let sentences2 = split_into_sentences(text2);
-        assert_eq!(sentences2.len(), 1);
-        assert_eq!(sentences2[0], "Mr. Smith met Dr. Jones.");
-
-        // Test single sentence
-        let text3 = "This is a single sentence.";
-        let sentences3 = split_into_sentences(text3);
-        assert_eq!(sentences3.len(), 1);
-        assert_eq!(sentences3[0], "This is a single sentence.");
-    }
-
-    #[test]
-    fn test_sentence_per_line_reflow() {
-        let options = ReflowOptions {
-            line_length: 80,
-            break_on_sentences: true,
-            preserve_breaks: false,
-            sentence_per_line: true,
-        };
-
-        // Test basic sentence splitting
-        let input = "First sentence. Second sentence. Third sentence.";
-        let result = reflow_line(input, &options);
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0], "First sentence.");
-        assert_eq!(result[1], "Second sentence.");
-        assert_eq!(result[2], "Third sentence.");
-
-        // Test with markdown elements
-        let input2 = "This has **bold**. And [a link](url).";
-        let result2 = reflow_line(input2, &options);
-        assert_eq!(result2.len(), 2);
-        assert_eq!(result2[0], "This has **bold**.");
-        assert_eq!(result2[1], "And [a link](url).");
-    }
-
-    #[test]
-    fn test_sentence_per_line_with_backticks() {
-        let options = ReflowOptions {
-            line_length: 80,
-            break_on_sentences: true,
-            preserve_breaks: false,
-            sentence_per_line: true,
-        };
-
-        let input = "This sentence has `code` in it. And this has `more code` too.";
-        let result = reflow_line(input, &options);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], "This sentence has `code` in it.");
-        assert_eq!(result[1], "And this has `more code` too.");
-    }
-
-    #[test]
-    fn test_sentence_per_line_with_backticks_in_parens() {
-        let options = ReflowOptions {
-            line_length: 80,
-            break_on_sentences: true,
-            preserve_breaks: false,
-            sentence_per_line: true,
-        };
-
-        let input = "Configure in (`.rumdl.toml` or `pyproject.toml`). Next sentence.";
-        let result = reflow_line(input, &options);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0], "Configure in (`.rumdl.toml` or `pyproject.toml`).");
-        assert_eq!(result[1], "Next sentence.");
-    }
-
-    #[test]
-    fn test_sentence_per_line_with_questions_exclamations() {
-        let options = ReflowOptions {
-            line_length: 80,
-            break_on_sentences: true,
-            preserve_breaks: false,
-            sentence_per_line: true,
-        };
-
-        let input = "Is this a question? Yes it is! And a statement.";
-        let result = reflow_line(input, &options);
-        assert_eq!(result.len(), 3);
-        assert_eq!(result[0], "Is this a question?");
-        assert_eq!(result[1], "Yes it is!");
-        assert_eq!(result[2], "And a statement.");
-    }
-
-    #[test]
-    fn test_reference_link_edge_cases() {
-        let options = ReflowOptions {
-            line_length: 40,
-            break_on_sentences: true,
-            preserve_breaks: false,
-            sentence_per_line: false,
-        };
-
-        // Test cases for edge cases and potential conflicts
-        let test_cases = vec![
-            // Escaped brackets should be treated as regular text
-            ("Text with \\[escaped\\] brackets", vec!["\\[escaped\\]"]),
-            // Nested brackets in reference links
-            (
-                "Link [text with [nested] content][ref]",
-                vec!["[text with [nested] content][ref]"],
-            ),
-            // Reference link followed by inline link
-            (
-                "First [ref][link] then [inline](url)",
-                vec!["[ref][link]", "[inline](url)"],
-            ),
-            // Shortcut reference that might conflict with other patterns
-            ("Array [0] and reference [link] here", vec!["[0]", "[link]"]),
-            // Empty reference with complex text
-            (
-                "Complex [text with *emphasis*][] reference",
-                vec!["[text with *emphasis*][]"],
-            ),
-        ];
-
-        for (input, expected_patterns) in test_cases {
-            println!("\nTesting edge case: {input}");
-            let result = reflow_line(input, &options);
-            let joined = result.join(" ");
-            println!("Result: {joined}");
-
-            // Verify all expected patterns are preserved
-            for expected_pattern in expected_patterns {
-                assert!(
-                    joined.contains(expected_pattern),
-                    "Expected '{expected_pattern}' to be preserved in '{input}', but got '{joined}'"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_reflow_with_emphasis() {
-        let options = ReflowOptions {
-            line_length: 25,
-            ..Default::default()
-        };
-
-        let result = reflow_line("This is *emphasized* and **strong** text that needs wrapping", &options);
-
-        // Verify emphasis markers are preserved
-        let joined = result.join(" ");
-        assert!(joined.contains("*emphasized*"));
-        assert!(joined.contains("**strong**"));
-    }
-
-    #[test]
-    fn test_image_patterns_preserved() {
-        let options = ReflowOptions {
-            line_length: 30,
-            ..Default::default()
-        };
-
-        // Test cases for image patterns
-        let test_cases = vec![
-            // Inline image
-            (
-                "Check out ![alt text](image.png) for details",
-                vec!["![alt text](image.png)"],
-            ),
-            // Reference image
-            ("See ![image][ref] for info", vec!["![image][ref]"]),
-            // Empty reference image
-            ("Visit ![homepage][] today", vec!["![homepage][]"]),
-            // Multiple images
-            (
-                "Images: ![first](a.png) and ![second][ref2]",
-                vec!["![first](a.png)", "![second][ref2]"],
-            ),
-        ];
-
-        for (input, expected_patterns) in test_cases {
-            println!("\nTesting: {input}");
-            let result = reflow_line(input, &options);
-            let joined = result.join(" ");
-            println!("Result:  {joined}");
-
-            for expected_pattern in expected_patterns {
-                assert!(
-                    joined.contains(expected_pattern),
-                    "Expected '{expected_pattern}' to be preserved in '{input}', but got '{joined}'"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_extended_markdown_patterns() {
-        let options = ReflowOptions {
-            line_length: 40,
-            ..Default::default()
-        };
-
-        let test_cases = vec![
-            // Strikethrough
-            ("Text with ~~strikethrough~~ preserved", vec!["~~strikethrough~~"]),
-            // Wiki links
-            (
-                "Check [[wiki link]] and [[page|display]]",
-                vec!["[[wiki link]]", "[[page|display]]"],
-            ),
-            // Math
-            (
-                "Inline $x^2 + y^2$ and display $$\\int f(x) dx$$",
-                vec!["$x^2 + y^2$", "$$\\int f(x) dx$$"],
-            ),
-            // Emoji
-            ("Use :smile: and :heart: emojis", vec![":smile:", ":heart:"]),
-            // HTML tags
-            (
-                "Text with <span>tag</span> and <br/>",
-                vec!["<span>", "</span>", "<br/>"],
-            ),
-            // HTML entities
-            ("Non-breaking&nbsp;space and em&mdash;dash", vec!["&nbsp;", "&mdash;"]),
-        ];
-
-        for (input, expected_patterns) in test_cases {
-            let result = reflow_line(input, &options);
-            let joined = result.join(" ");
-
-            for pattern in expected_patterns {
-                assert!(
-                    joined.contains(pattern),
-                    "Expected '{pattern}' to be preserved in '{input}', but got '{joined}'"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_complex_mixed_patterns() {
-        let options = ReflowOptions {
-            line_length: 50,
-            ..Default::default()
-        };
-
-        // Test that multiple pattern types work together
-        let input = "Line with **bold**, `code`, [link](url), ![image](img), ~~strike~~, $math$, :emoji:, and <tag> all together";
-        let result = reflow_line(input, &options);
-        let joined = result.join(" ");
-
-        // All patterns should be preserved
-        assert!(joined.contains("**bold**"));
-        assert!(joined.contains("`code`"));
-        assert!(joined.contains("[link](url)"));
-        assert!(joined.contains("![image](img)"));
-        assert!(joined.contains("~~strike~~"));
-        assert!(joined.contains("$math$"));
-        assert!(joined.contains(":emoji:"));
-        assert!(joined.contains("<tag>"));
-    }
-
-    #[test]
-    fn test_footnote_patterns_preserved() {
-        let options = ReflowOptions {
-            line_length: 40,
-            ..Default::default()
-        };
-
-        let test_cases = vec![
-            // Single footnote
-            ("This has a footnote[^1] reference", vec!["[^1]"]),
-            // Multiple footnotes
-            ("Text with [^first] and [^second] notes", vec!["[^first]", "[^second]"]),
-            // Long footnote name
-            ("Reference to [^long-footnote-name] here", vec!["[^long-footnote-name]"]),
-        ];
-
-        for (input, expected_patterns) in test_cases {
-            let result = reflow_line(input, &options);
-            let joined = result.join(" ");
-
-            for expected_pattern in expected_patterns {
-                assert!(
-                    joined.contains(expected_pattern),
-                    "Expected '{expected_pattern}' to be preserved in '{input}', but got '{joined}'"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn test_reflow_markdown_numbered_lists() {
-        // Test for issue #83: numbered lists with proper formatting
-        let options = ReflowOptions {
-            line_length: 50,
-            ..Default::default()
-        };
-
-        let content = r#"1. List `manifest` to find the manifest with the largest ID. Say it's `00000000000000000002.manifest` in this example.
-2. Short item
-3. Another long item that definitely exceeds the fifty character limit and needs wrapping"#;
-
-        let result = reflow_markdown(content, &options);
-
-        // Define exact expected output
-        let expected = r#"1. List `manifest` to find the manifest with the
-   largest ID. Say it's
-   `00000000000000000002.manifest` in this
-   example.
-2. Short item
-3. Another long item that definitely exceeds the
-   fifty character limit and needs wrapping"#;
-
-        assert_eq!(
-            result, expected,
-            "Numbered lists should be reflowed with proper markers and indentation.\nExpected:\n{expected}\nGot:\n{result}"
-        );
-    }
-
-    #[test]
-    fn test_reflow_markdown_bullet_lists() {
-        let options = ReflowOptions {
-            line_length: 40,
-            ..Default::default()
-        };
-
-        let content = r#"- First bullet point with a very long line that needs wrapping
-* Second bullet using asterisk
-+ Third bullet using plus sign
-- Short one"#;
-
-        let result = reflow_markdown(content, &options);
-
-        // Define exact expected output - each bullet type preserved with proper indentation
-        let expected = r#"- First bullet point with a very long
-  line that needs wrapping
-* Second bullet using asterisk
-+ Third bullet using plus sign
-- Short one"#;
-
-        assert_eq!(
-            result, expected,
-            "Bullet lists should preserve markers and indent continuations with 2 spaces.\nExpected:\n{expected}\nGot:\n{result}"
-        );
+        // False cases - NOT in built-in list (etc doesn't always have period)
+        assert!(!text_ends_with_abbreviation("etc.", &abbreviations));
+        assert!(!text_ends_with_abbreviation("paradigms.", &abbreviations));
+        assert!(!text_ends_with_abbreviation("programs.", &abbreviations));
+        assert!(!text_ends_with_abbreviation("items.", &abbreviations));
+        assert!(!text_ends_with_abbreviation("systems.", &abbreviations));
+        assert!(!text_ends_with_abbreviation("Dr?", &abbreviations)); // question mark, not period
+        assert!(!text_ends_with_abbreviation("Mr!", &abbreviations)); // exclamation, not period
+        assert!(!text_ends_with_abbreviation("paradigms?", &abbreviations)); // question mark
+        assert!(!text_ends_with_abbreviation("word", &abbreviations)); // no punctuation
+        assert!(!text_ends_with_abbreviation("", &abbreviations)); // empty string
     }
 }

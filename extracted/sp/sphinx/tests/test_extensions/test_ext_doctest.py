@@ -11,7 +11,7 @@ from docutils import nodes
 from packaging.specifiers import InvalidSpecifier
 from packaging.version import InvalidVersion
 
-from sphinx.ext.doctest import is_allowed_version
+from sphinx.ext.doctest import DocTestBuilder, is_allowed_version
 
 if TYPE_CHECKING:
     from sphinx.testing.util import SphinxTestApp
@@ -74,12 +74,12 @@ def test_is_allowed_version() -> None:
         is_allowed_version('>3.4', 'Sphinx')
 
 
-def cleanup_call():
+def cleanup_call() -> None:
     global cleanup_called  # NoQA: PLW0603
     cleanup_called += 1
 
 
-recorded_calls: Counter[tuple[str, str, int]] = Counter()
+recorded_calls: Counter[tuple[str, str, bool]] = Counter()
 
 
 @pytest.mark.sphinx('doctest', testroot='ext-doctest-skipif')
@@ -125,16 +125,17 @@ def test_skipif(app: SphinxTestApp) -> None:
     }
 
 
-def record(directive, part, should_skip):
+def record(directive: str, part: str, should_skip: bool) -> str:
     recorded_calls[directive, part, should_skip] += 1
     return f'Recorded {directive} {part} {should_skip}'
 
 
 @pytest.mark.sphinx('doctest', testroot='ext-doctest-with-autodoc')
-def test_reporting_with_autodoc(app, capfd):
+def test_reporting_with_autodoc(app: SphinxTestApp) -> None:
     # Patch builder to get a copy of the output
-    written = []
-    app.builder._warn_out = written.append
+    written: list[str] = []
+    assert isinstance(app.builder, DocTestBuilder)
+    app.builder._warn_out = written.append  # type: ignore[method-assign]
     app.build(force_all=True)
 
     failures = [
@@ -147,3 +148,56 @@ def test_reporting_with_autodoc(app, capfd):
     assert 'File "dir/bar.py", line ?, in default' in failures
     assert 'File "foo.py", line ?, in default' in failures
     assert 'File "index.rst", line 4, in default' in failures
+
+
+@pytest.mark.sphinx('doctest', testroot='ext-doctest-fail-fast')
+@pytest.mark.parametrize('fail_fast', [False, True, None])
+def test_fail_fast(app: SphinxTestApp, fail_fast: bool | None) -> None:
+    if fail_fast is not None:
+        app.config.doctest_fail_fast = fail_fast
+    # Patch builder to get a copy of the output
+    written: list[str] = []
+    assert isinstance(app.builder, DocTestBuilder)
+    app.builder._out = written.append  # type: ignore[method-assign]
+    app.build(force_all=True)
+    assert app.statuscode
+
+    written = ''.join(written).split('\n')
+    if fail_fast:
+        assert written[10] == 'Doctest summary (exiting after first failed test)'
+        assert written[13] == '    1 failure in tests'
+    else:
+        assert written[10] == 'Doctest summary'
+        assert written[13] == '    2 failures in tests'
+
+
+@pytest.mark.sphinx('doctest', testroot='ext-doctest-with-autodoc')
+@pytest.mark.parametrize(
+    ('test_doctest_blocks', 'group_name'),
+    [
+        (None, 'default'),
+        ('CustomGroupName', 'CustomGroupName'),
+    ],
+)
+def test_doctest_block_group_name(
+    app: SphinxTestApp, test_doctest_blocks: str | None, group_name: str
+) -> None:
+    if test_doctest_blocks is not None:
+        app.config.doctest_test_doctest_blocks = test_doctest_blocks
+
+    # Patch builder to get a copy of the output
+    written: list[str] = []
+    assert isinstance(app.builder, DocTestBuilder)
+    app.builder._warn_out = written.append  # type: ignore[method-assign]
+    app.build(force_all=True)
+
+    failures = [
+        line.replace(os.sep, '/')
+        for line in '\n'.join(written).splitlines()
+        if line.startswith('File')
+    ]
+
+    assert f'File "dir/inner.rst", line 1, in {group_name}' in failures
+    assert f'File "dir/bar.py", line ?, in {group_name}' in failures
+    assert f'File "foo.py", line ?, in {group_name}' in failures
+    assert f'File "index.rst", line 4, in {group_name}' in failures

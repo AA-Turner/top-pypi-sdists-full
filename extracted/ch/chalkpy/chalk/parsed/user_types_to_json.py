@@ -1,10 +1,11 @@
 import dataclasses
 import json
 import traceback
+from collections import defaultdict
 from pathlib import Path
 from typing import List, Union
 
-from chalk._lsp.error_builder import LSPErrorBuilder
+from chalk._lsp.error_builder import LSPErrorBuilder, build_diagnostic_from_message
 from chalk._monitoring.Chart import Chart
 from chalk._monitoring.gql_conversion import convert_chart
 from chalk._version import __version__
@@ -17,6 +18,7 @@ from chalk.parsed._graph_validation import validate_graph
 from chalk.parsed.duplicate_input_gql import (
     ChalkPYInfo,
     CreateChartGQL,
+    DiagnosticGQL,
     EnvironmentSettingsGQL,
     FeatureClassGQL,
     FeatureSettings,
@@ -39,6 +41,7 @@ from chalk.parsed.json_conversions import convert_type_to_gql, gather_cdc_source
 from chalk.queries.named_query import NAMED_QUERY_REGISTRY
 from chalk.queries.scheduled_query import CRON_QUERY_REGISTRY
 from chalk.sql._internal.sql_source import BaseSQLSource
+from chalk.stores.online_store_config import ONLINE_STORE_CONFIG_REGISTRY
 from chalk.utils import paths
 from chalk.utils.paths import get_directory_root
 
@@ -107,6 +110,22 @@ def project_settings_to_gql(config: ProjectSettings) -> ProjectSettingsGQL:
 
 
 def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGraphGQL:
+    # Validate registries BEFORE conversion to catch errors early
+    # This ensures parity with Proto validation path
+    from chalk.parsed.validation_from_registries import validate_all_from_registries
+
+    try:
+        validate_all_from_registries(
+            features_registry=FeatureSetBase.registry,
+            resolver_registry=RESOLVER_REGISTRY,
+        )
+    except Exception as e:
+        # If validation fails, add to failed but continue
+        # to allow other validation to complete
+        if not LSPErrorBuilder.promote_exception(e):
+            # Not an LSP error, so log it as a failed import
+            failed.append(build_failed_import(e, "validation"))
+
     features = []
     feature_classes: list[FeatureClassGQL] = []
     for x in FeatureSetBase.registry.values():
@@ -165,21 +184,69 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
             except Exception as e:
                 failed.append(build_failed_import(e, f"cron query '{cron_query.name}'"))
 
+    code_object_diagnostics: dict[str, List[DiagnosticGQL]] = defaultdict(list)
+
     named_queries: list[UpsertNamedQueryGQL] = []
     for named_query in NAMED_QUERY_REGISTRY.values():
         if named_query.filename is None or _is_relative_to(Path(named_query.filename), scope_to):
-            try:
-                named_queries.append(convert_type_to_gql(named_query, path_prefix=path_prefix_to_remove))
-            except Exception as e:
-                failed.append(build_failed_import(e, f"named query '{named_query.name}'"))
+            # only try to convert if there are no errors
+            if not named_query.errors:
+                try:
+                    named_queries.append(convert_type_to_gql(named_query, path_prefix=path_prefix_to_remove))
+                except Exception as e:
+                    failed.append(build_failed_import(e, f"named query '{named_query.name}'"))
+
+            # named_query.errors can go from empty to non-empty after conversion
+            if named_query.errors:
+                code_object_diagnostics[named_query.filename or ""].extend(
+                    [
+                        build_diagnostic_from_message(
+                            code=named_query.code or "",
+                            source_line_start=named_query.source_line_start or 0,
+                            source_line_end=named_query.source_line_end or 0,
+                            message=error,
+                        )
+                        for error in named_query.errors
+                    ]
+                )
 
     model_references: list[UpsertModelReferenceGQL] = []
-    for model_reference in MODEL_REFERENCE_REGISTRY.values():
-        if model_reference.filename is None or _is_relative_to(Path(model_reference.filename), scope_to):
-            try:
-                model_references.append(convert_type_to_gql(model_reference, path_prefix=path_prefix_to_remove))
-            except Exception as e:
-                failed.append(build_failed_import(e, f"model reference '{model_reference.name}'"))
+    for mr in MODEL_REFERENCE_REGISTRY.values():
+        if mr.filename is None or _is_relative_to(Path(mr.filename), scope_to):
+            # similar logic to named_queries above
+            if not mr.errors:
+                try:
+                    model_references.append(convert_type_to_gql(mr, path_prefix=path_prefix_to_remove))
+                except Exception as e:
+                    failed.append(build_failed_import(e, f"model reference '{mr.name}'"))
+
+            if mr.errors:
+                code_object_diagnostics[mr.filename or ""].extend(
+                    [
+                        build_diagnostic_from_message(
+                            code=mr.code or "",
+                            source_line_start=mr.source_line_start or 0,
+                            source_line_end=mr.source_line_end or 0,
+                            message=error,
+                        )
+                        for error in mr.errors
+                    ]
+                )
+
+    # online store configs
+    for osc in ONLINE_STORE_CONFIG_REGISTRY.values():
+        if osc.errors:
+            code_object_diagnostics[osc.filename or ""].extend(
+                [
+                    build_diagnostic_from_message(
+                        code=osc.code or "",
+                        source_line_start=osc.source_line_start or 0,
+                        source_line_end=osc.source_line_end or 0,
+                        message=error,
+                    )
+                    for error in osc.errors
+                ]
+            )
 
     charts: list[CreateChartGQL] = []
     for chart in Chart.registry:
@@ -223,7 +290,13 @@ def get_registered_types(scope_to: Path, failed: List[FailedImport]) -> UpsertGr
     lsp = get_lsp_gql()
     if LSPErrorBuilder.lsp:
         try:
-            lsp.diagnostics = CHALK_IMPORTER.supplement_diagnostics(failed_imports=failed, diagnostics=lsp.diagnostics)
+            lsp.diagnostics = CHALK_IMPORTER.supplement_diagnostics(
+                failed_imports=failed,
+                diagnostics=lsp.diagnostics,
+                additional_diagnostics=[
+                    PublishDiagnosticsParams(uri=key, diagnostics=val) for key, val in code_object_diagnostics.items()
+                ],
+            )
         except Exception as e:
             if len(lsp.diagnostics) == 0 and len(failed) == 0:
                 raise e

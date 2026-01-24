@@ -16,6 +16,7 @@ from docutils.parsers.rst import Directive
 
 from antsibull_docutils.rst_code_finder import (
     CodeBlockInfo,
+    _find_col_offset,
     _find_in_code,
     _find_indent,
     _find_offset,
@@ -127,9 +128,9 @@ Test
    |   A test                     |
    +------------------------------+
    | .. code::                    |
-   |   :caption: bla              |
+   |    :caption: bla             |
    |                              |
-   |   Another test               |
+   |    Another test              |
    +------------------------------+
 
 3. Here is a CSV table:
@@ -161,27 +162,27 @@ Test
         [
             CodeBlockInfo(
                 language=None,
-                row_offset=4,
-                col_offset=0,
-                position_exact=False,
+                row_offset=3,
+                col_offset=5,
+                position_exact=True,
                 directly_replacable_in_content=False,
                 content="foo\n\n  bar\n",
                 attributes={},
             ),
             CodeBlockInfo(
                 language="python",
-                row_offset=6,
-                col_offset=0,
-                position_exact=False,
+                row_offset=5,
+                col_offset=26,
+                position_exact=True,
                 directly_replacable_in_content=False,
                 content="def foo(bar):\n    return bar + 1\n",
                 attributes={},
             ),
             CodeBlockInfo(
                 language="c++",
-                row_offset=17,
-                col_offset=0,
-                position_exact=False,
+                row_offset=16,
+                col_offset=26,
+                position_exact=True,
                 directly_replacable_in_content=False,
                 content="template<typename T>\nstd::vector<T> create()\n{ return {}; }\n",
                 attributes={},
@@ -206,18 +207,18 @@ Test
             ),
             CodeBlockInfo(
                 language=None,
-                row_offset=35,
-                col_offset=3,
-                position_exact=False,
+                row_offset=34,
+                col_offset=7,
+                position_exact=True,
                 directly_replacable_in_content=False,
                 content="A test\n",
                 attributes={},
             ),
             CodeBlockInfo(
                 language=None,
-                row_offset=40,
-                col_offset=3,
-                position_exact=False,
+                row_offset=39,
+                col_offset=8,
+                position_exact=True,
                 directly_replacable_in_content=False,
                 content="Another test\n",
                 attributes={},
@@ -226,7 +227,7 @@ Test
                 language=None,
                 row_offset=49,
                 col_offset=7,
-                position_exact=False,
+                position_exact=True,
                 directly_replacable_in_content=False,
                 content="foo\nbar 1!\n",
                 attributes={},
@@ -325,7 +326,9 @@ Some invalid `markup <foo>
             position_exact=False,
             directly_replacable_in_content=False,
             content="\n",
-            attributes={"antsibull-other-bar": "bam"},
+            attributes={
+                "antsibull-other-bar": "bam",
+            },
         ),
         CodeBlockInfo(
             language=None,
@@ -343,6 +346,62 @@ Some invalid `markup <foo>
         (12, 0, "bazbam", False),
         (24, 0, "def foo():\n  pass", False),
     ]
+
+
+def test__find_col_offset() -> None:
+    document_content_lines = """
+    foo       foo foo  foo
+      bar       bar bar  bar foo
+                               bar
+    baz       baz baz  baz
+""".lstrip(
+        "\n"
+    ).splitlines()
+    content = """
+foo
+  bar
+
+baz
+""".lstrip(
+        "\n"
+    )
+    content_2 = """
+foo
+  bar
+""".lstrip(
+        "\n"
+    )
+
+    assert _find_col_offset(
+        0, content, document_content_lines=document_content_lines
+    ) == [4, 14, 23]
+    assert _find_col_offset(
+        0, content_2, document_content_lines=document_content_lines
+    ) == [4, 14, 23]
+    assert _find_col_offset(
+        1, content_2, document_content_lines=document_content_lines
+    ) == [29]
+    assert _find_col_offset(
+        1, "bar", document_content_lines=document_content_lines
+    ) == [6, 16, 20, 25]
+    assert _find_col_offset(
+        2, "bar", document_content_lines=document_content_lines
+    ) == [31]
+
+    # Code block does not fit.
+    assert (
+        _find_col_offset(1, content, document_content_lines=document_content_lines)
+        == []
+    )
+
+    # No first candidates
+    assert (
+        _find_col_offset(0, "bar", document_content_lines=document_content_lines) == []
+    )
+    assert (
+        _find_col_offset(2, content, document_content_lines=document_content_lines)
+        == []
+    )
 
 
 FIND_INDENT: list[tuple[str, int | None]] = [
@@ -378,13 +437,16 @@ def test__find_indent(source: str, expected_indent: int | None) -> None:
     assert indent == expected_indent
 
 
-FIND_OFFSET: list[tuple[int | None, int | None, str, str, int, int, bool]] = [
+FIND_OFFSET: list[
+    tuple[int | None, int | None, str, str | None, str, int, int, bool]
+] = [
     (
         2,
         None,
         r"""Foo
  Bar
 """,
+        None,
         r"""
 .. code-block::
     :foo: bar
@@ -404,6 +466,7 @@ Afterwards.
         r"""Foo
  Bar
 """,
+        None,
         r"""
    .. code-block::
        :foo: bar
@@ -423,6 +486,7 @@ Afterwards.
         r"""Foo
  Bar
 """,
+        None,
         r"""
 +-----------------+
 | .. code-block:: |
@@ -443,6 +507,7 @@ Afterwards.
 
  Bar
 """,
+        None,
         r"""
 +-----------------+
 | .. code-block:: |
@@ -463,6 +528,7 @@ Afterwards.
         r"""Foo
  Bar
 """,
+        None,
         r"""
 .. code-block::
         """,
@@ -474,13 +540,14 @@ Afterwards.
 
 
 @pytest.mark.parametrize(
-    "lineno, content_offset, content, document_content, expected_line, expected_col, expected_position_exact",
+    "lineno, content_offset, content, block_text, document_content, expected_line, expected_col, expected_position_exact",
     FIND_OFFSET,
 )
 def test__find_offset(
     lineno: int | None,
     content_offset: int | None,
     content: str,
+    block_text: str | None,
     document_content: str,
     expected_line: int,
     expected_col: int,
@@ -490,6 +557,7 @@ def test__find_offset(
         lineno,
         content_offset,
         content,
+        block_text,
         document_content_lines=document_content.splitlines(),
     )
     print(line, col, position_exact)

@@ -1,0 +1,17 @@
+# -- code scanning -------------------
+
+include:
+  # Dependency scanning | https://computing.docs.ligo.org/guide/gitlab/components/python/dependency-scanning/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/dependency-scanning@~latest
+
+  # Lint | https://computing.docs.ligo.org/guide/gitlab/components/python/ruff/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/ruff@~latest
+
+  # SAST | https://git.ligo.org/help/user/application_security/sast/gitlab_advanced_sast.html
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/sast/sast@~latest
+    inputs:
+      run_advanced_sast: true
+
+# tell SAST jobs not to wait for build jobs
+.sast-analyzer:
+  needs: []

@@ -3,7 +3,7 @@ Type annotations for acm-pca service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_acm_pca/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -80,7 +80,16 @@ ExtendedKeyUsageTypeType = Literal[
 ]
 FailureReasonType = Literal["OTHER", "REQUEST_TIMED_OUT", "UNSUPPORTED_ALGORITHM"]
 KeyAlgorithmType = Literal[
-    "EC_prime256v1", "EC_secp384r1", "EC_secp521r1", "RSA_2048", "RSA_3072", "RSA_4096", "SM2"
+    "EC_prime256v1",
+    "EC_secp384r1",
+    "EC_secp521r1",
+    "ML_DSA_44",
+    "ML_DSA_65",
+    "ML_DSA_87",
+    "RSA_2048",
+    "RSA_3072",
+    "RSA_4096",
+    "SM2",
 ]
 KeyStorageSecurityStandardType = Literal[
     "CCPC_LEVEL_1_OR_HIGHER", "FIPS_140_2_LEVEL_2_OR_HIGHER", "FIPS_140_2_LEVEL_3_OR_HIGHER"
@@ -102,6 +111,9 @@ RevocationReasonType = Literal[
 ]
 S3ObjectAclType = Literal["BUCKET_OWNER_FULL_CONTROL", "PUBLIC_READ"]
 SigningAlgorithmType = Literal[
+    "ML_DSA_44",
+    "ML_DSA_65",
+    "ML_DSA_87",
     "SHA256WITHECDSA",
     "SHA256WITHRSA",
     "SHA384WITHECDSA",
@@ -138,7 +150,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -208,6 +219,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -253,7 +265,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -306,7 +317,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -345,8 +355,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -381,6 +389,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -390,6 +399,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -400,6 +410,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -421,8 +434,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -437,15 +448,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -476,6 +488,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -516,6 +529,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

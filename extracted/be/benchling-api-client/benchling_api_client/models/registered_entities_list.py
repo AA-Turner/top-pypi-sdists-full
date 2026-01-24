@@ -8,7 +8,9 @@ from ..models.custom_entity_with_entity_type import CustomEntityWithEntityType
 from ..models.dna_oligo_with_entity_type import DnaOligoWithEntityType
 from ..models.dna_sequence_with_entity_type import DnaSequenceWithEntityType
 from ..models.mixture_with_entity_type import MixtureWithEntityType
+from ..models.molecule_with_entity_type import MoleculeWithEntityType
 from ..models.rna_oligo_with_entity_type import RnaOligoWithEntityType
+from ..models.rna_sequence_with_entity_type import RnaSequenceWithEntityType
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="RegisteredEntitiesList")
@@ -23,11 +25,13 @@ class RegisteredEntitiesList:
         List[
             Union[
                 DnaSequenceWithEntityType,
-                CustomEntityWithEntityType,
+                RnaSequenceWithEntityType,
                 AaSequenceWithEntityType,
                 MixtureWithEntityType,
                 DnaOligoWithEntityType,
                 RnaOligoWithEntityType,
+                MoleculeWithEntityType,
+                CustomEntityWithEntityType,
                 UnknownType,
             ]
         ],
@@ -50,7 +54,7 @@ class RegisteredEntitiesList:
                 elif isinstance(entities_item_data, DnaSequenceWithEntityType):
                     entities_item = entities_item_data.to_dict()
 
-                elif isinstance(entities_item_data, CustomEntityWithEntityType):
+                elif isinstance(entities_item_data, RnaSequenceWithEntityType):
                     entities_item = entities_item_data.to_dict()
 
                 elif isinstance(entities_item_data, AaSequenceWithEntityType):
@@ -60,6 +64,12 @@ class RegisteredEntitiesList:
                     entities_item = entities_item_data.to_dict()
 
                 elif isinstance(entities_item_data, DnaOligoWithEntityType):
+                    entities_item = entities_item_data.to_dict()
+
+                elif isinstance(entities_item_data, RnaOligoWithEntityType):
+                    entities_item = entities_item_data.to_dict()
+
+                elif isinstance(entities_item_data, MoleculeWithEntityType):
                     entities_item = entities_item_data.to_dict()
 
                 else:
@@ -84,11 +94,13 @@ class RegisteredEntitiesList:
             List[
                 Union[
                     DnaSequenceWithEntityType,
-                    CustomEntityWithEntityType,
+                    RnaSequenceWithEntityType,
                     AaSequenceWithEntityType,
                     MixtureWithEntityType,
                     DnaOligoWithEntityType,
                     RnaOligoWithEntityType,
+                    MoleculeWithEntityType,
+                    CustomEntityWithEntityType,
                     UnknownType,
                 ]
             ],
@@ -101,96 +113,135 @@ class RegisteredEntitiesList:
                     data: Union[Dict[str, Any]]
                 ) -> Union[
                     DnaSequenceWithEntityType,
-                    CustomEntityWithEntityType,
+                    RnaSequenceWithEntityType,
                     AaSequenceWithEntityType,
                     MixtureWithEntityType,
                     DnaOligoWithEntityType,
                     RnaOligoWithEntityType,
+                    MoleculeWithEntityType,
+                    CustomEntityWithEntityType,
                     UnknownType,
                 ]:
                     entities_item: Union[
                         DnaSequenceWithEntityType,
-                        CustomEntityWithEntityType,
+                        RnaSequenceWithEntityType,
                         AaSequenceWithEntityType,
                         MixtureWithEntityType,
                         DnaOligoWithEntityType,
                         RnaOligoWithEntityType,
+                        MoleculeWithEntityType,
+                        CustomEntityWithEntityType,
                         UnknownType,
                     ]
                     discriminator_value: str = cast(str, data.get("entityType"))
                     if discriminator_value is not None:
+                        entity: Union[
+                            DnaSequenceWithEntityType,
+                            RnaSequenceWithEntityType,
+                            AaSequenceWithEntityType,
+                            MixtureWithEntityType,
+                            DnaOligoWithEntityType,
+                            RnaOligoWithEntityType,
+                            MoleculeWithEntityType,
+                            CustomEntityWithEntityType,
+                            UnknownType,
+                        ]
                         if discriminator_value == "aa_sequence":
-                            entities_item = AaSequenceWithEntityType.from_dict(data, strict=False)
+                            entity = AaSequenceWithEntityType.from_dict(data, strict=False)
 
-                            return entities_item
+                            return entity
                         if discriminator_value == "custom_entity":
-                            entities_item = CustomEntityWithEntityType.from_dict(data, strict=False)
+                            entity = CustomEntityWithEntityType.from_dict(data, strict=False)
 
-                            return entities_item
+                            return entity
                         if discriminator_value == "dna_oligo":
-                            entities_item = DnaOligoWithEntityType.from_dict(data, strict=False)
+                            entity = DnaOligoWithEntityType.from_dict(data, strict=False)
 
-                            return entities_item
+                            return entity
                         if discriminator_value == "dna_sequence":
-                            entities_item = DnaSequenceWithEntityType.from_dict(data, strict=False)
+                            entity = DnaSequenceWithEntityType.from_dict(data, strict=False)
 
-                            return entities_item
+                            return entity
                         if discriminator_value == "mixture":
-                            entities_item = MixtureWithEntityType.from_dict(data, strict=False)
+                            entity = MixtureWithEntityType.from_dict(data, strict=False)
 
-                            return entities_item
+                            return entity
+                        if discriminator_value == "molecule":
+                            entity = MoleculeWithEntityType.from_dict(data, strict=False)
+
+                            return entity
                         if discriminator_value == "rna_oligo":
-                            entities_item = RnaOligoWithEntityType.from_dict(data, strict=False)
+                            entity = RnaOligoWithEntityType.from_dict(data, strict=False)
 
-                            return entities_item
+                            return entity
+                        if discriminator_value == "rna_sequence":
+                            entity = RnaSequenceWithEntityType.from_dict(data, strict=False)
+
+                            return entity
 
                         return UnknownType(value=data)
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
-                        entities_item = DnaSequenceWithEntityType.from_dict(data, strict=True)
+                        entity = DnaSequenceWithEntityType.from_dict(data, strict=True)
 
-                        return entities_item
+                        return entity
                     except:  # noqa: E722
                         pass
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
-                        entities_item = CustomEntityWithEntityType.from_dict(data, strict=True)
+                        entity = RnaSequenceWithEntityType.from_dict(data, strict=True)
 
-                        return entities_item
+                        return entity
                     except:  # noqa: E722
                         pass
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
-                        entities_item = AaSequenceWithEntityType.from_dict(data, strict=True)
+                        entity = AaSequenceWithEntityType.from_dict(data, strict=True)
 
-                        return entities_item
+                        return entity
                     except:  # noqa: E722
                         pass
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
-                        entities_item = MixtureWithEntityType.from_dict(data, strict=True)
+                        entity = MixtureWithEntityType.from_dict(data, strict=True)
 
-                        return entities_item
+                        return entity
                     except:  # noqa: E722
                         pass
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
-                        entities_item = DnaOligoWithEntityType.from_dict(data, strict=True)
+                        entity = DnaOligoWithEntityType.from_dict(data, strict=True)
 
-                        return entities_item
+                        return entity
                     except:  # noqa: E722
                         pass
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
-                        entities_item = RnaOligoWithEntityType.from_dict(data, strict=True)
+                        entity = RnaOligoWithEntityType.from_dict(data, strict=True)
 
-                        return entities_item
+                        return entity
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        entity = MoleculeWithEntityType.from_dict(data, strict=True)
+
+                        return entity
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        entity = CustomEntityWithEntityType.from_dict(data, strict=True)
+
+                        return entity
                     except:  # noqa: E722
                         pass
                     return UnknownType(data)
@@ -212,11 +263,13 @@ class RegisteredEntitiesList:
                     List[
                         Union[
                             DnaSequenceWithEntityType,
-                            CustomEntityWithEntityType,
+                            RnaSequenceWithEntityType,
                             AaSequenceWithEntityType,
                             MixtureWithEntityType,
                             DnaOligoWithEntityType,
                             RnaOligoWithEntityType,
+                            MoleculeWithEntityType,
+                            CustomEntityWithEntityType,
                             UnknownType,
                         ]
                     ],
@@ -256,11 +309,13 @@ class RegisteredEntitiesList:
     ) -> List[
         Union[
             DnaSequenceWithEntityType,
-            CustomEntityWithEntityType,
+            RnaSequenceWithEntityType,
             AaSequenceWithEntityType,
             MixtureWithEntityType,
             DnaOligoWithEntityType,
             RnaOligoWithEntityType,
+            MoleculeWithEntityType,
+            CustomEntityWithEntityType,
             UnknownType,
         ]
     ]:
@@ -274,11 +329,13 @@ class RegisteredEntitiesList:
         value: List[
             Union[
                 DnaSequenceWithEntityType,
-                CustomEntityWithEntityType,
+                RnaSequenceWithEntityType,
                 AaSequenceWithEntityType,
                 MixtureWithEntityType,
                 DnaOligoWithEntityType,
                 RnaOligoWithEntityType,
+                MoleculeWithEntityType,
+                CustomEntityWithEntityType,
                 UnknownType,
             ]
         ],

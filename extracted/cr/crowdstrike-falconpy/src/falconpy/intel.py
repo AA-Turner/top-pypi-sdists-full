@@ -133,7 +133,7 @@ class Intel(ServiceClass):
                   kill_chains           threat_types
                   labels                type
                   labels.created_on     vulnerabilities
-                  labels.last_valid_on
+                  labels.last_valid_on  reports.slug
         include_deleted -- include both published and deleted indicators.
                            Boolean, defaults to False.
         include_relations -- include related indicators. Boolean, defaults to True.
@@ -191,7 +191,7 @@ class Intel(ServiceClass):
                   name                                type.name
                   name.raw                            type.slug
                   short_description                   url
-                  slug
+                  slug                                summary
         limit -- The maximum number of reports to return. [integer, 1-5000]
         offset -- The integer offset to start retrieving records from.
         parameters - full parameters payload, not required if using other keywords.
@@ -684,7 +684,7 @@ class Intel(ServiceClass):
                   kill_chains           threat_types
                   labels                type
                   labels.created_on     vulnerabilities
-                  labels.last_valid_on
+                  labels.last_valid_on  reports.slug
         include_deleted -- include both published and deleted indicators.
                            Boolean, defaults to False.
         include_relations -- include related indicators. Boolean, defaults to True.
@@ -802,7 +802,7 @@ class Intel(ServiceClass):
                   name                                type.name
                   name.raw                            type.slug
                   short_description                   url
-                  slug
+                  slug                                summary
         limit -- The maximum number of reports to return. [integer, 1-5000]
         offset -- The integer offset to start retrieving records from.
         parameters - full parameters payload, not required if using other keywords.

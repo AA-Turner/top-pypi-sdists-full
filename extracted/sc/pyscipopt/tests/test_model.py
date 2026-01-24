@@ -2,7 +2,7 @@ import pytest
 import os
 import itertools
 
-from pyscipopt import Model, SCIP_STAGE, SCIP_PARAMSETTING, quicksum
+from pyscipopt import Model, SCIP_STAGE, SCIP_PARAMSETTING, SCIP_BRANCHDIR, quicksum
 from helpers.utils import random_mip_1
 
 def test_model():
@@ -147,7 +147,6 @@ def test_multiple_cons_names():
     assert all([c.name.startswith(name + "_") for c in conss])
     assert conss == m.getConss()
     assert m.getNConss() == 5
-
 
 def test_multiple_cons_params():
     """Test if setting the remaining parameters works as expected"""
@@ -302,8 +301,7 @@ def test_getObjective():
     m.addVar(obj=3, name="x2")
 
     assert str(m.getObjective()) == "Expr({Term(x1): 2.0, Term(x2): 3.0})"
-    
-    
+
 def test_getTreesizeEstimation():
     m = Model()
 
@@ -528,3 +526,41 @@ def test_comparisons():
     assert not model.isNegative(0.)
 
     assert model.isHugeValue(inf)
+
+def test_getVarPseudocostScore():
+    m = Model()
+
+    m.addVar("x", vtype='B', obj=1.0)
+    m.addVar("y", vtype='B', obj=2.0)
+
+    m.setPresolve(SCIP_PARAMSETTING.OFF)
+    m.presolve()
+
+    var = m.getVars(transformed=True)[0]
+
+    p = m.getVarPseudocostScore(var, 1)
+    assert m.isEQ(p, 1)
+
+    p = m.getVarPseudocostScore(var, 0.5)
+    assert m.isEQ(p, 0.25)
+
+def test_getVarPseudocost():
+    m = Model()
+
+    m.addVar("x", vtype='B', obj=1.0)
+    m.addVar("y", vtype='B', obj=2.0)
+
+    m.setPresolve(SCIP_PARAMSETTING.OFF)
+    m.presolve()
+
+    var = m.getVars(transformed=True)[0]
+
+    p = m.getVarPseudocost(var, SCIP_BRANCHDIR.UPWARDS)
+    assert m.isEQ(p, 1)
+
+    m.optimize()
+    m.updateVarPseudocost(var, 1, 12, 1)
+    p = m.getVarPseudocost(var, SCIP_BRANCHDIR.UPWARDS)
+
+    # Not exactly 12 because the new value is a weighted sum of all the updates
+    assert m.isEQ(p, 12.0001)

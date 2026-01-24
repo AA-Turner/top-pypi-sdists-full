@@ -13,13 +13,13 @@ def __getattr__(name: str):
         f"Please update your imports to use 'instructor.core.patch.{name}' instead:\n"
         "  from instructor.core.patch import patch, apatch",
         DeprecationWarning,
-        stacklevel=2
+        stacklevel=2,
     )
-    
+
     from .core import patch as core_patch
-    
+
     # Try to get the attribute from the core.patch module
     if hasattr(core_patch, name):
         return getattr(core_patch, name)
-    
+
     raise AttributeError(f"module '{__name__}' has no attribute '{name}'")

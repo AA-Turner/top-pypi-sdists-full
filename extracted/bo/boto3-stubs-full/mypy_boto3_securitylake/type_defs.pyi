@@ -3,7 +3,7 @@ Type annotations for securitylake service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securitylake/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -29,12 +30,6 @@ from .literals import (
     SubscriberStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -144,7 +139,7 @@ class AwsLogSourceResourceTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -186,7 +181,7 @@ class DataLakeLifecycleTransitionTypeDef(TypedDict):
     storageClass: NotRequired[str]
 
 class DataLakeReplicationConfigurationOutputTypeDef(TypedDict):
-    regions: NotRequired[List[str]]
+    regions: NotRequired[list[str]]
     roleArn: NotRequired[str]
 
 class DataLakeReplicationConfigurationTypeDef(TypedDict):
@@ -269,14 +264,14 @@ class DeleteAwsLogSourceRequestTypeDef(TypedDict):
 
 class DataLakeAutoEnableNewAccountConfigurationOutputTypeDef(TypedDict):
     region: str
-    sources: List[AwsLogSourceResourceTypeDef]
+    sources: list[AwsLogSourceResourceTypeDef]
 
 class DataLakeAutoEnableNewAccountConfigurationTypeDef(TypedDict):
     region: str
     sources: Sequence[AwsLogSourceResourceTypeDef]
 
 class CreateAwsLogSourceResponseTypeDef(TypedDict):
-    failed: List[str]
+    failed: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateSubscriberNotificationResponseTypeDef(TypedDict):
@@ -284,7 +279,7 @@ class CreateSubscriberNotificationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteAwsLogSourceResponseTypeDef(TypedDict):
-    failed: List[str]
+    failed: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetDataLakeExceptionSubscriptionResponseTypeDef(TypedDict):
@@ -298,7 +293,7 @@ class UpdateSubscriberNotificationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -316,13 +311,13 @@ class CustomLogSourceResourceTypeDef(TypedDict):
     sourceVersion: NotRequired[str]
 
 class ListDataLakeExceptionsResponseTypeDef(TypedDict):
-    exceptions: List[DataLakeExceptionTypeDef]
+    exceptions: list[DataLakeExceptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class DataLakeLifecycleConfigurationOutputTypeDef(TypedDict):
     expiration: NotRequired[DataLakeLifecycleExpirationTypeDef]
-    transitions: NotRequired[List[DataLakeLifecycleTransitionTypeDef]]
+    transitions: NotRequired[list[DataLakeLifecycleTransitionTypeDef]]
 
 class DataLakeLifecycleConfigurationTypeDef(TypedDict):
     expiration: NotRequired[DataLakeLifecycleExpirationTypeDef]
@@ -334,9 +329,9 @@ DataLakeReplicationConfigurationUnionTypeDef = Union[
 
 class DataLakeSourceTypeDef(TypedDict):
     account: NotRequired[str]
-    eventClasses: NotRequired[List[str]]
+    eventClasses: NotRequired[list[str]]
     sourceName: NotRequired[str]
-    sourceStatuses: NotRequired[List[DataLakeSourceStatusTypeDef]]
+    sourceStatuses: NotRequired[list[DataLakeSourceStatusTypeDef]]
 
 class DataLakeUpdateStatusTypeDef(TypedDict):
     exception: NotRequired[DataLakeUpdateExceptionTypeDef]
@@ -359,7 +354,7 @@ class NotificationConfigurationTypeDef(TypedDict):
     sqsNotificationConfiguration: NotRequired[Mapping[str, Any]]
 
 class GetDataLakeOrganizationConfigurationResponseTypeDef(TypedDict):
-    autoEnableNewAccount: List[DataLakeAutoEnableNewAccountConfigurationOutputTypeDef]
+    autoEnableNewAccount: list[DataLakeAutoEnableNewAccountConfigurationOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 DataLakeAutoEnableNewAccountConfigurationUnionTypeDef = Union[
@@ -387,7 +382,7 @@ DataLakeLifecycleConfigurationUnionTypeDef = Union[
 
 class GetDataLakeSourcesResponseTypeDef(TypedDict):
     dataLakeArn: str
-    dataLakeSources: List[DataLakeSourceTypeDef]
+    dataLakeSources: list[DataLakeSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -443,15 +438,15 @@ class ListLogSourcesRequestTypeDef(TypedDict):
 class LogSourceTypeDef(TypedDict):
     account: NotRequired[str]
     region: NotRequired[str]
-    sources: NotRequired[List[LogSourceResourceTypeDef]]
+    sources: NotRequired[list[LogSourceResourceTypeDef]]
 
 class SubscriberResourceTypeDef(TypedDict):
-    sources: List[LogSourceResourceTypeDef]
+    sources: list[LogSourceResourceTypeDef]
     subscriberArn: str
     subscriberId: str
     subscriberIdentity: AwsIdentityTypeDef
     subscriberName: str
-    accessTypes: NotRequired[List[AccessTypeType]]
+    accessTypes: NotRequired[list[AccessTypeType]]
     createdAt: NotRequired[datetime]
     resourceShareArn: NotRequired[str]
     resourceShareName: NotRequired[str]
@@ -476,19 +471,19 @@ class DataLakeConfigurationTypeDef(TypedDict):
     replicationConfiguration: NotRequired[DataLakeReplicationConfigurationUnionTypeDef]
 
 class CreateDataLakeResponseTypeDef(TypedDict):
-    dataLakes: List[DataLakeResourceTypeDef]
+    dataLakes: list[DataLakeResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListDataLakesResponseTypeDef(TypedDict):
-    dataLakes: List[DataLakeResourceTypeDef]
+    dataLakes: list[DataLakeResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateDataLakeResponseTypeDef(TypedDict):
-    dataLakes: List[DataLakeResourceTypeDef]
+    dataLakes: list[DataLakeResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLogSourcesResponseTypeDef(TypedDict):
-    sources: List[LogSourceTypeDef]
+    sources: list[LogSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -501,7 +496,7 @@ class GetSubscriberResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSubscribersResponseTypeDef(TypedDict):
-    subscribers: List[SubscriberResourceTypeDef]
+    subscribers: list[SubscriberResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

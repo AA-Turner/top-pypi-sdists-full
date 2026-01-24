@@ -54,14 +54,27 @@ MODEL_ENCODING_PROTOBUF: ModelEncoding
 MODEL_ENCODING_CBM: ModelEncoding
 MODEL_ENCODING_SAFETENSORS: ModelEncoding
 
+class TensorDimension(_message.Message):
+    __slots__ = ("fixed", "named")
+    FIXED_FIELD_NUMBER: _ClassVar[int]
+    NAMED_FIELD_NUMBER: _ClassVar[int]
+    fixed: int
+    named: str
+    def __init__(self, fixed: _Optional[int] = ..., named: _Optional[str] = ...) -> None: ...
+
 class TensorSpec(_message.Message):
-    __slots__ = ("dtype", "shape")
+    __slots__ = ("dtype", "shape", "name")
     DTYPE_FIELD_NUMBER: _ClassVar[int]
     SHAPE_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
     dtype: _arrow_pb2.ArrowType
-    shape: _containers.RepeatedScalarFieldContainer[int]
+    shape: _containers.RepeatedCompositeFieldContainer[TensorDimension]
+    name: str
     def __init__(
-        self, dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ..., shape: _Optional[_Iterable[int]] = ...
+        self,
+        dtype: _Optional[_Union[_arrow_pb2.ArrowType, _Mapping]] = ...,
+        shape: _Optional[_Iterable[_Union[TensorDimension, _Mapping]]] = ...,
+        name: _Optional[str] = ...,
     ) -> None: ...
 
 class TabularSpec(_message.Message):
@@ -128,31 +141,39 @@ class ModelArtifactSpec(_message.Message):
         "additional_files",
         "model_type",
         "model_encoding",
+        "model_class",
         "model_signature",
         "input_features",
         "output_features",
+        "python_dependencies",
     )
     MODEL_FILES_FIELD_NUMBER: _ClassVar[int]
     ADDITIONAL_FILES_FIELD_NUMBER: _ClassVar[int]
     MODEL_TYPE_FIELD_NUMBER: _ClassVar[int]
     MODEL_ENCODING_FIELD_NUMBER: _ClassVar[int]
+    MODEL_CLASS_FIELD_NUMBER: _ClassVar[int]
     MODEL_SIGNATURE_FIELD_NUMBER: _ClassVar[int]
     INPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     OUTPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    PYTHON_DEPENDENCIES_FIELD_NUMBER: _ClassVar[int]
     model_files: _containers.RepeatedCompositeFieldContainer[ModelFile]
     additional_files: _containers.RepeatedCompositeFieldContainer[ModelFile]
     model_type: ModelType
     model_encoding: ModelEncoding
+    model_class: str
     model_signature: ModelSignature
     input_features: _containers.RepeatedScalarFieldContainer[str]
     output_features: _containers.RepeatedScalarFieldContainer[str]
+    python_dependencies: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         model_files: _Optional[_Iterable[_Union[ModelFile, _Mapping]]] = ...,
         additional_files: _Optional[_Iterable[_Union[ModelFile, _Mapping]]] = ...,
         model_type: _Optional[_Union[ModelType, str]] = ...,
         model_encoding: _Optional[_Union[ModelEncoding, str]] = ...,
+        model_class: _Optional[str] = ...,
         model_signature: _Optional[_Union[ModelSignature, _Mapping]] = ...,
         input_features: _Optional[_Iterable[str]] = ...,
         output_features: _Optional[_Iterable[str]] = ...,
+        python_dependencies: _Optional[_Iterable[str]] = ...,
     ) -> None: ...

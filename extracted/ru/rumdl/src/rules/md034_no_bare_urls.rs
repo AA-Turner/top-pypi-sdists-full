@@ -1,67 +1,39 @@
 /// Rule MD034: No unformatted URLs
 ///
 /// See [docs/md034.md](../../docs/md034.md) for full documentation, configuration, and examples.
-use crate::rule::{
-    AstExtensions, Fix, LintError, LintResult, LintWarning, MarkdownAst, MaybeAst, Rule, RuleCategory, Severity,
+use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, RuleCategory, Severity};
+use crate::utils::range_utils::{LineIndex, calculate_url_range};
+use crate::utils::regex_cache::{
+    EMAIL_PATTERN, URL_IPV6_STR, URL_QUICK_CHECK_STR, URL_STANDARD_STR, URL_WWW_STR, XMPP_URI_STR,
+    get_cached_fancy_regex, get_cached_regex,
 };
-use crate::utils::range_utils::calculate_url_range;
-use crate::utils::regex_cache::EMAIL_PATTERN;
 
+use crate::filtered_lines::FilteredLinesExt;
 use crate::lint_context::LintContext;
-use fancy_regex::Regex as FancyRegex;
-use lazy_static::lazy_static;
-use markdown::mdast::Node;
-use regex::Regex;
 
-lazy_static! {
-    // Simple pattern to quickly check if a line might contain a URL or email
-    static ref URL_QUICK_CHECK: Regex = Regex::new(r#"(?:https?|ftps?)://|@"#).unwrap();
+// MD034-specific patterns for markdown constructs
+// Core URL patterns (URL_QUICK_CHECK_STR, URL_STANDARD_STR, etc.) are imported from regex_cache
+const CUSTOM_PROTOCOL_PATTERN_STR: &str = r#"(?:grpc|ws|wss|ssh|git|svn|file|data|javascript|vscode|chrome|about|slack|discord|matrix|irc|redis|mongodb|postgresql|mysql|kafka|nats|amqp|mqtt|custom|app|api|service)://"#;
+const MARKDOWN_LINK_PATTERN_STR: &str = r#"\[(?:[^\[\]]|\[[^\]]*\])*\]\(([^)\s]+)(?:\s+(?:\"[^\"]*\"|\'[^\']*\'))?\)"#;
+const MARKDOWN_EMPTY_LINK_PATTERN_STR: &str = r#"\[(?:[^\[\]]|\[[^\]]*\])*\]\(\)"#;
+const MARKDOWN_EMPTY_REF_PATTERN_STR: &str = r#"\[(?:[^\[\]]|\[[^\]]*\])*\]\[\]"#;
+// Pattern for links in angle brackets - excludes HTTP(S), FTP(S), XMPP URIs, and emails
+const ANGLE_LINK_PATTERN_STR: &str =
+    r#"<((?:https?|ftps?)://(?:\[[0-9a-fA-F:]+(?:%[a-zA-Z0-9]+)?\]|[^>]+)|xmpp:[^>]+|[^@\s]+@[^@\s]+\.[^@\s>]+)>"#;
+const BADGE_LINK_LINE_STR: &str = r#"^\s*\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)\s*$"#;
+const MARKDOWN_IMAGE_PATTERN_STR: &str = r#"!\s*\[([^\]]*)\]\s*\(([^)\s]+)(?:\s+(?:\"[^\"]*\"|\'[^\']*\'))?\)"#;
+// Reference definition pattern - matches [label]: URL with optional title
+const REFERENCE_DEF_RE_STR: &str = r"^\s*\[[^\]]+\]:\s*(?:<|(?:https?|ftps?)://)";
+const MULTILINE_LINK_CONTINUATION_STR: &str = r#"^[^\[]*\]\(.*\)"#;
+// Pattern to match shortcut/collapsed reference links: [text] or [text][]
+const SHORTCUT_REF_PATTERN_STR: &str = r#"\[([^\[\]]+)\](?!\s*[\[(])"#;
 
-    // Use fancy-regex for look-behind/look-ahead
-    // Updated to support IPv6 addresses in square brackets
-    static ref URL_REGEX: FancyRegex = FancyRegex::new(r#"(?<![\w\[\(\<])((?:https?|ftps?)://(?:\[[0-9a-fA-F:%]+\]|[^\s<>\[\]()\\'\"]+)(?::\d+)?(?:/[^\s<>\[\]()\\'\"]*)?(?:\?[^\s<>\[\]()\\'\"]*)?(?:#[^\s<>\[\]()\\'\"]*)?)"#).unwrap();
-    static ref URL_FIX_REGEX: FancyRegex = FancyRegex::new(r#"(?<![\w\[\(\<])((?:https?|ftps?)://(?:\[[0-9a-fA-F:%]+\]|[^\s<>\[\]()\\'\"]+)(?::\d+)?(?:/[^\s<>\[\]()\\'\"]*)?(?:\?[^\s<>\[\]()\\'\"]*)?(?:#[^\s<>\[\]()\\'\"]*)?)"#).unwrap();
-
-    // Pattern to detect custom protocol patterns that shouldn't be flagged
-    // These are commonly used in documentation but aren't actual browsable URLs
-    static ref CUSTOM_PROTOCOL_PATTERN: Regex = Regex::new(r#"(?:grpc|ws|wss|ssh|git|svn|file|data|javascript|vscode|chrome|about|slack|discord|matrix|irc|redis|mongodb|postgresql|mysql|kafka|nats|amqp|mqtt|custom|app|api|service)://"#).unwrap();
-
-    // Pattern to match markdown link format - capture destination in Group 1
-    // Updated to handle nested brackets in badge links like [![badge](img)](link)
-    static ref MARKDOWN_LINK_PATTERN: Regex = Regex::new(r#"\[(?:[^\[\]]|\[[^\]]*\])*\]\(([^)\s]+)(?:\s+(?:\"[^\"]*\"|\'[^\']*\'))?\)"#).unwrap();
-
-    // Pattern to match angle bracket link format (URLs and emails)
-    // Updated to support IPv6 addresses
-    static ref ANGLE_LINK_PATTERN: Regex = Regex::new(r#"<((?:https?|ftps?)://(?:\[[0-9a-fA-F:]+(?:%[a-zA-Z0-9]+)?\]|[^>]+)|[^@\s]+@[^@\s]+\.[^@\s>]+)>"#).unwrap();
-
-    // Add regex to identify lines containing only a badge link
-    static ref BADGE_LINK_LINE: Regex = Regex::new(r#"^\s*\[!\[[^\]]*\]\([^)]*\)\]\([^)]*\)\s*$"#).unwrap();
-
-    // Add pattern to check if link text is *only* an image
-    static ref IMAGE_ONLY_LINK_TEXT_PATTERN: Regex = Regex::new(r#"^!\s*\[[^\]]*\]\s*\([^)]*\)$"#).unwrap();
-
-    // Captures full image in 0, alt text in 1, src in 2
-    static ref MARKDOWN_IMAGE_PATTERN: Regex = Regex::new(r#"!\s*\[([^\]]*)\]\s*\(([^)\s]+)(?:\s+(?:\"[^\"]*\"|\'[^\']*\'))?\)"#).unwrap();
-
-    // Add a simple regex for candidate URLs (no look-behind/look-ahead)
-    // Updated to match markdownlint's behavior: URLs can have domains without dots
-    // Handles URL components properly: scheme://domain[:port][/path][?query][#fragment]
-    // Will post-process to remove trailing sentence punctuation
-    // Now supports IPv6 addresses in square brackets
-    // Note: We need two separate patterns - one for IPv6 and one for regular URLs
-    // Updated to avoid matching partial IPv6 patterns (e.g., "https://::1]" without opening bracket)
-    static ref SIMPLE_URL_REGEX: Regex = Regex::new(r#"(https?|ftps?)://(?:\[[0-9a-fA-F:%.]+\](?::\d+)?|[^\s<>\[\]()\\'\"`:\]]+(?::\d+)?)(?:/[^\s<>\[\]()\\'\"`]*)?(?:\?[^\s<>\[\]()\\'\"`]*)?(?:#[^\s<>\[\]()\\'\"`]*)?"#).unwrap();
-
-    // Special pattern just for IPv6 URLs to handle them separately
-    // Note: This is permissive to match markdownlint behavior, allowing technically invalid IPv6 for examples
-    static ref IPV6_URL_REGEX: Regex = Regex::new(r#"(https?|ftps?)://\[[0-9a-fA-F:%.\-a-zA-Z]+\](?::\d+)?(?:/[^\s<>\[\]()\\'\"`]*)?(?:\?[^\s<>\[\]()\\'\"`]*)?(?:#[^\s<>\[\]()\\'\"`]*)?"#).unwrap();
-
-    // Add regex for reference definitions
-    // Updated to support IPv6 addresses
-    static ref REFERENCE_DEF_RE: Regex = Regex::new(r"^\s*\[[^\]]+\]:\s*(?:https?|ftps?)://\S+$").unwrap();
-
-    // Pattern to match HTML comments
-    static ref HTML_COMMENT_PATTERN: Regex = Regex::new(r#"<!--[\s\S]*?-->"#).unwrap();
+/// Reusable buffers for check_line to reduce allocations
+#[derive(Default)]
+struct LineCheckBuffers {
+    markdown_link_ranges: Vec<(usize, usize)>,
+    image_ranges: Vec<(usize, usize)>,
+    urls_found: Vec<(usize, usize, String)>,
 }
 
 #[derive(Default, Clone)]
@@ -69,535 +41,417 @@ pub struct MD034NoBareUrls;
 
 impl MD034NoBareUrls {
     #[inline]
-    pub fn should_skip(&self, content: &str) -> bool {
-        // Skip if content has no URLs and no email addresses
-        // Fast byte scanning for common URL/email indicators
+    pub fn should_skip_content(&self, content: &str) -> bool {
+        // Skip if content has no URLs, XMPP URIs, or email addresses
+        // Fast byte scanning for common URL/email/xmpp indicators
         let bytes = content.as_bytes();
-        !bytes.contains(&b':') && !bytes.contains(&b'@')
+        let has_colon = bytes.contains(&b':');
+        let has_at = bytes.contains(&b'@');
+        let has_www = content.contains("www.");
+        !has_colon && !has_at && !has_www
     }
 
     /// Remove trailing punctuation that is likely sentence punctuation, not part of the URL
     fn trim_trailing_punctuation<'a>(&self, url: &'a str) -> &'a str {
-        let trailing_punct = ['.', ',', ';', ':', '!', '?'];
-        let mut end = url.len();
+        let mut trimmed = url;
 
-        // Remove trailing punctuation characters
-        while end > 0 {
-            // Get the last character of the current substring safely
-            let current_url = &url[..end];
-            if let Some((last_char_pos, last_char)) = current_url.char_indices().next_back() {
-                if trailing_punct.contains(&last_char) {
-                    end = last_char_pos;
-                } else {
+        // Check for balanced parentheses - if we have unmatched closing parens, they're likely punctuation
+        let open_parens = url.chars().filter(|&c| c == '(').count();
+        let close_parens = url.chars().filter(|&c| c == ')').count();
+
+        if close_parens > open_parens {
+            // Find the last balanced closing paren position
+            let mut balance = 0;
+            let mut last_balanced_pos = url.len();
+
+            for (byte_idx, c) in url.char_indices() {
+                if c == '(' {
+                    balance += 1;
+                } else if c == ')' {
+                    balance -= 1;
+                    if balance < 0 {
+                        // Found an unmatched closing paren
+                        last_balanced_pos = byte_idx;
+                        break;
+                    }
+                }
+            }
+
+            trimmed = &trimmed[..last_balanced_pos];
+        }
+
+        // Trim specific punctuation only if not followed by more URL-like chars
+        while let Some(last_char) = trimmed.chars().last() {
+            if matches!(last_char, '.' | ',' | ';' | ':' | '!' | '?') {
+                // Check if this looks like it could be part of the URL
+                // For ':' specifically, keep it if followed by digits (port number)
+                if last_char == ':' && trimmed.len() > 1 {
+                    // Don't trim
                     break;
                 }
+                trimmed = &trimmed[..trimmed.len() - 1];
             } else {
                 break;
             }
         }
 
-        &url[..end]
+        trimmed
     }
 
-    /// AST-based bare URL detection: only flag URLs in text nodes not inside links/images/code/html
-    fn find_bare_urls_in_ast(
+    /// Check if line is inside a reference definition
+    fn is_reference_definition(&self, line: &str) -> bool {
+        get_cached_regex(REFERENCE_DEF_RE_STR)
+            .map(|re| re.is_match(line))
+            .unwrap_or(false)
+    }
+
+    fn check_line(
         &self,
-        node: &Node,
-        parent_is_link_or_image: bool,
-        _content: &str,
-        warnings: &mut Vec<LintWarning>,
+        line: &str,
         ctx: &LintContext,
-    ) {
-        use markdown::mdast::Node::*;
-        match node {
-            Text(text) if !parent_is_link_or_image => {
-                let text_str = &text.value;
+        line_number: usize,
+        code_spans: &[crate::lint_context::CodeSpan],
+        buffers: &mut LineCheckBuffers,
+        line_index: &LineIndex,
+    ) -> Vec<LintWarning> {
+        let mut warnings = Vec::new();
 
-                // Check for URLs
-                for url_match in SIMPLE_URL_REGEX.find_iter(text_str) {
-                    let url_start = url_match.start();
-                    let mut url_end = url_match.end();
+        // Skip reference definitions
+        if self.is_reference_definition(line) {
+            return warnings;
+        }
 
-                    // Trim trailing punctuation that's likely sentence punctuation
-                    let raw_url = &text_str[url_start..url_end];
-                    let trimmed_url = self.trim_trailing_punctuation(raw_url);
-                    url_end = url_start + trimmed_url.len();
+        // Skip lines inside HTML blocks - URLs in HTML attributes should not be linted
+        if ctx.line_info(line_number).is_some_and(|info| info.in_html_block) {
+            return warnings;
+        }
 
-                    // Skip if URL became empty after trimming
-                    if url_end <= url_start {
+        // Skip lines that are continuations of multiline markdown links
+        // Pattern: text](url) without a leading [
+        if let Ok(re) = get_cached_regex(MULTILINE_LINK_CONTINUATION_STR)
+            && re.is_match(line)
+        {
+            return warnings;
+        }
+
+        // Quick check - does this line potentially have a URL or email?
+        let has_quick_check = get_cached_regex(URL_QUICK_CHECK_STR)
+            .map(|re| re.is_match(line))
+            .unwrap_or(false);
+        let has_www = line.contains("www.");
+        let has_at = line.contains('@');
+
+        if !has_quick_check && !has_at && !has_www {
+            return warnings;
+        }
+
+        // Clear and reuse buffers instead of allocating new ones
+        buffers.markdown_link_ranges.clear();
+        if let Ok(re) = get_cached_regex(MARKDOWN_LINK_PATTERN_STR) {
+            for cap in re.captures_iter(line) {
+                if let Some(mat) = cap.get(0) {
+                    buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+                }
+            }
+        }
+
+        // Also include empty link patterns like [text]() and [text][]
+        if let Ok(re) = get_cached_regex(MARKDOWN_EMPTY_LINK_PATTERN_STR) {
+            for mat in re.find_iter(line) {
+                buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+        }
+
+        if let Ok(re) = get_cached_regex(MARKDOWN_EMPTY_REF_PATTERN_STR) {
+            for mat in re.find_iter(line) {
+                buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+        }
+
+        // Also exclude shortcut reference links like [URL] - even if no definition exists,
+        // the brackets indicate user intent to use markdown formatting
+        // Uses fancy_regex for negative lookahead support
+        if let Ok(re) = get_cached_fancy_regex(SHORTCUT_REF_PATTERN_STR) {
+            for mat in re.find_iter(line).flatten() {
+                buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+            }
+        }
+
+        if let Ok(re) = get_cached_regex(ANGLE_LINK_PATTERN_STR) {
+            for cap in re.captures_iter(line) {
+                if let Some(mat) = cap.get(0) {
+                    buffers.markdown_link_ranges.push((mat.start(), mat.end()));
+                }
+            }
+        }
+
+        // Find all markdown images for exclusion
+        buffers.image_ranges.clear();
+        if let Ok(re) = get_cached_regex(MARKDOWN_IMAGE_PATTERN_STR) {
+            for cap in re.captures_iter(line) {
+                if let Some(mat) = cap.get(0) {
+                    buffers.image_ranges.push((mat.start(), mat.end()));
+                }
+            }
+        }
+
+        // Check if this line contains only a badge link (common pattern)
+        let is_badge_line = get_cached_regex(BADGE_LINK_LINE_STR)
+            .map(|re| re.is_match(line))
+            .unwrap_or(false);
+
+        if is_badge_line {
+            return warnings;
+        }
+
+        // Find bare URLs
+        buffers.urls_found.clear();
+
+        // First, find IPv6 URLs (they need special handling)
+        if let Ok(re) = get_cached_regex(URL_IPV6_STR) {
+            for mat in re.find_iter(line) {
+                let url_str = mat.as_str();
+                buffers.urls_found.push((mat.start(), mat.end(), url_str.to_string()));
+            }
+        }
+
+        // Then find regular URLs
+        if let Ok(re) = get_cached_regex(URL_STANDARD_STR) {
+            for mat in re.find_iter(line) {
+                let url_str = mat.as_str();
+
+                // Skip if it's an IPv6 URL (already handled)
+                if url_str.contains("://[") {
+                    continue;
+                }
+
+                // Skip malformed IPv6-like URLs
+                // Check for IPv6-like patterns that are malformed
+                if let Some(host_start) = url_str.find("://") {
+                    let after_protocol = &url_str[host_start + 3..];
+                    // If it looks like IPv6 (has :: or multiple :) but no brackets, skip if followed by ]
+                    if after_protocol.contains("::") || after_protocol.chars().filter(|&c| c == ':').count() > 1 {
+                        // Check if the next character after our match is ]
+                        if let Some(char_after) = line.chars().nth(mat.end())
+                            && char_after == ']'
+                        {
+                            // This is likely a malformed IPv6 URL like "https://::1]:8080"
+                            continue;
+                        }
+                    }
+                }
+
+                buffers.urls_found.push((mat.start(), mat.end(), url_str.to_string()));
+            }
+        }
+
+        // Find www URLs without protocol (e.g., www.example.com)
+        if let Ok(re) = get_cached_regex(URL_WWW_STR) {
+            for mat in re.find_iter(line) {
+                let url_str = mat.as_str();
+                let start_pos = mat.start();
+                let end_pos = mat.end();
+
+                // Skip if preceded by / or @ (likely part of a full URL)
+                if start_pos > 0 {
+                    let prev_char = line.as_bytes().get(start_pos - 1).copied();
+                    if prev_char == Some(b'/') || prev_char == Some(b'@') {
+                        continue;
+                    }
+                }
+
+                // Skip if inside angle brackets (autolink syntax like <www.example.com>)
+                if start_pos > 0 && end_pos < line.len() {
+                    let prev_char = line.as_bytes().get(start_pos - 1).copied();
+                    let next_char = line.as_bytes().get(end_pos).copied();
+                    if prev_char == Some(b'<') && next_char == Some(b'>') {
+                        continue;
+                    }
+                }
+
+                buffers.urls_found.push((start_pos, end_pos, url_str.to_string()));
+            }
+        }
+
+        // Find XMPP URIs (GFM extended autolinks: xmpp:user@domain/resource)
+        if let Ok(re) = get_cached_regex(XMPP_URI_STR) {
+            for mat in re.find_iter(line) {
+                let uri_str = mat.as_str();
+                let start_pos = mat.start();
+                let end_pos = mat.end();
+
+                // Skip if inside angle brackets (already properly formatted: <xmpp:user@domain>)
+                if start_pos > 0 && end_pos < line.len() {
+                    let prev_char = line.as_bytes().get(start_pos - 1).copied();
+                    let next_char = line.as_bytes().get(end_pos).copied();
+                    if prev_char == Some(b'<') && next_char == Some(b'>') {
+                        continue;
+                    }
+                }
+
+                buffers.urls_found.push((start_pos, end_pos, uri_str.to_string()));
+            }
+        }
+
+        // Process found URLs
+        for &(start, _end, ref url_str) in buffers.urls_found.iter() {
+            // Skip custom protocols
+            if get_cached_regex(CUSTOM_PROTOCOL_PATTERN_STR)
+                .map(|re| re.is_match(url_str))
+                .unwrap_or(false)
+            {
+                continue;
+            }
+
+            // Check if this URL is inside a markdown link, angle bracket, or image
+            // We check if the URL starts within a construct, not if it's entirely contained.
+            // This handles cases where URL detection may include trailing characters
+            // that extend past the construct boundary (e.g., parentheses).
+            let mut is_inside_construct = false;
+            for &(link_start, link_end) in buffers.markdown_link_ranges.iter() {
+                if start >= link_start && start < link_end {
+                    is_inside_construct = true;
+                    break;
+                }
+            }
+
+            for &(img_start, img_end) in buffers.image_ranges.iter() {
+                if start >= img_start && start < img_end {
+                    is_inside_construct = true;
+                    break;
+                }
+            }
+
+            if is_inside_construct {
+                continue;
+            }
+
+            // Calculate absolute byte position for context-aware checks
+            let line_start_byte = line_index.get_line_start_byte(line_number).unwrap_or(0);
+            let absolute_pos = line_start_byte + start;
+
+            // Check if URL is inside an HTML tag (handles multiline tags correctly)
+            if ctx.is_in_html_tag(absolute_pos) {
+                continue;
+            }
+
+            // Check if we're inside an HTML comment
+            if ctx.is_in_html_comment(absolute_pos) {
+                continue;
+            }
+
+            // Check if we're inside a Hugo/Quarto shortcode
+            if ctx.is_in_shortcode(absolute_pos) {
+                continue;
+            }
+
+            // Clean up the URL by removing trailing punctuation
+            let trimmed_url = self.trim_trailing_punctuation(url_str);
+
+            // Only report if we have a valid URL after trimming
+            if !trimmed_url.is_empty() && trimmed_url != "//" {
+                let trimmed_len = trimmed_url.len();
+                let (start_line, start_col, end_line, end_col) =
+                    calculate_url_range(line_number, line, start, trimmed_len);
+
+                // For www URLs without protocol, add https:// prefix in the fix
+                let replacement = if trimmed_url.starts_with("www.") {
+                    format!("<https://{trimmed_url}>")
+                } else {
+                    format!("<{trimmed_url}>")
+                };
+
+                warnings.push(LintWarning {
+                    rule_name: Some("MD034".to_string()),
+                    line: start_line,
+                    column: start_col,
+                    end_line,
+                    end_column: end_col,
+                    message: format!("URL without angle brackets or link formatting: '{trimmed_url}'"),
+                    severity: Severity::Warning,
+                    fix: Some(Fix {
+                        range: {
+                            let line_start_byte = line_index.get_line_start_byte(line_number).unwrap_or(0);
+                            (line_start_byte + start)..(line_start_byte + start + trimmed_len)
+                        },
+                        replacement,
+                    }),
+                });
+            }
+        }
+
+        // Check for bare email addresses
+        for cap in EMAIL_PATTERN.captures_iter(line) {
+            if let Some(mat) = cap.get(0) {
+                let email = mat.as_str();
+                let start = mat.start();
+                let end = mat.end();
+
+                // Skip if email is part of an XMPP URI (xmpp:user@domain)
+                // Check character boundary to avoid panics with multi-byte UTF-8
+                if start >= 5 && line.is_char_boundary(start - 5) && &line[start - 5..start] == "xmpp:" {
+                    continue;
+                }
+
+                // Check if email is inside angle brackets or markdown link
+                let mut is_inside_construct = false;
+                for &(link_start, link_end) in buffers.markdown_link_ranges.iter() {
+                    if start >= link_start && end <= link_end {
+                        is_inside_construct = true;
+                        break;
+                    }
+                }
+
+                if !is_inside_construct {
+                    // Calculate absolute byte position for context-aware checks
+                    let line_start_byte = line_index.get_line_start_byte(line_number).unwrap_or(0);
+                    let absolute_pos = line_start_byte + start;
+
+                    // Check if email is inside an HTML tag (handles multiline tags)
+                    if ctx.is_in_html_tag(absolute_pos) {
                         continue;
                     }
 
-                    let before = if url_start == 0 {
-                        None
-                    } else {
-                        text_str.get(url_start - 1..url_start)
-                    };
-                    let after = text_str.get(url_end..url_end + 1);
-                    let is_valid_boundary = before
-                        .is_none_or(|c| !c.chars().next().unwrap().is_alphanumeric() && c != "_")
-                        && after.is_none_or(|c| !c.chars().next().unwrap().is_alphanumeric() && c != "_");
-                    if !is_valid_boundary {
-                        continue;
-                    }
-                    if let Some(pos) = &text.position {
-                        let offset = pos.start.offset + url_start;
-                        let (line, column) = ctx.offset_to_line_col(offset);
-                        let url_text = &text_str[url_start..url_end];
+                    // Check if email is inside a code span
+                    let is_in_code_span = code_spans
+                        .iter()
+                        .any(|span| span.line == line_number && start >= span.start_col && start < span.end_col);
+
+                    if !is_in_code_span {
+                        let email_len = end - start;
                         let (start_line, start_col, end_line, end_col) =
-                            (line, column, line, column + url_text.chars().count());
+                            calculate_url_range(line_number, line, start, email_len);
+
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some("MD034".to_string()),
                             line: start_line,
                             column: start_col,
                             end_line,
                             end_column: end_col,
-                            message: "URL without angle brackets or link formatting".to_string(),
+                            message: format!("Email address without angle brackets or link formatting: '{email}'"),
                             severity: Severity::Warning,
                             fix: Some(Fix {
-                                range: offset..(offset + url_text.len()),
-                                replacement: format!("<{url_text}>"),
+                                range: (line_start_byte + start)..(line_start_byte + end),
+                                replacement: format!("<{email}>"),
                             }),
                         });
-                    }
-                }
-
-                // Check for email addresses
-                for email_match in EMAIL_PATTERN.find_iter(text_str) {
-                    let email_start = email_match.start();
-                    let email_end = email_match.end();
-                    let before = if email_start == 0 {
-                        None
-                    } else {
-                        text_str.get(email_start - 1..email_start)
-                    };
-                    let after = text_str.get(email_end..email_end + 1);
-                    let is_valid_boundary = before
-                        .is_none_or(|c| !c.chars().next().unwrap().is_alphanumeric() && c != "_" && c != ".")
-                        && after.is_none_or(|c| !c.chars().next().unwrap().is_alphanumeric() && c != "_" && c != ".");
-                    if !is_valid_boundary {
-                        continue;
-                    }
-                    if let Some(pos) = &text.position {
-                        let offset = pos.start.offset + email_start;
-                        let (line, column) = ctx.offset_to_line_col(offset);
-                        let email_text = &text_str[email_start..email_end];
-                        let (start_line, start_col, end_line, end_col) =
-                            (line, column, line, column + email_text.chars().count());
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
-                            line: start_line,
-                            column: start_col,
-                            end_line,
-                            end_column: end_col,
-                            message: "Email address without angle brackets or link formatting (wrap like: <email>)"
-                                .to_string(),
-                            severity: Severity::Warning,
-                            fix: Some(Fix {
-                                range: offset..(offset + email_text.len()),
-                                replacement: format!("<{email_text}>"),
-                            }),
-                        });
-                    }
-                }
-            }
-            Link(link) => {
-                for child in &link.children {
-                    self.find_bare_urls_in_ast(child, true, _content, warnings, ctx);
-                }
-            }
-            Image(image) => {
-                // Only check alt text for bare URLs (rare, but possible)
-                let alt_str = &image.alt;
-                for url_match in SIMPLE_URL_REGEX.find_iter(alt_str) {
-                    let url_start = url_match.start();
-                    let mut url_end = url_match.end();
-
-                    // Trim trailing punctuation that's likely sentence punctuation
-                    let raw_url = &alt_str[url_start..url_end];
-                    let trimmed_url = self.trim_trailing_punctuation(raw_url);
-                    url_end = url_start + trimmed_url.len();
-
-                    // Skip if URL became empty after trimming
-                    if url_end <= url_start {
-                        continue;
-                    }
-
-                    let before = if url_start == 0 {
-                        None
-                    } else {
-                        alt_str.get(url_start - 1..url_start)
-                    };
-                    let after = alt_str.get(url_end..url_end + 1);
-                    let is_valid_boundary = before
-                        .is_none_or(|c| !c.chars().next().unwrap().is_alphanumeric() && c != "_")
-                        && after.is_none_or(|c| !c.chars().next().unwrap().is_alphanumeric() && c != "_");
-                    if !is_valid_boundary {
-                        continue;
-                    }
-                    if let Some(pos) = &image.position {
-                        let offset = pos.start.offset + url_start;
-                        let (line, column) = ctx.offset_to_line_col(offset);
-                        let url_text = &alt_str[url_start..url_end];
-                        let (start_line, start_col, end_line, end_col) =
-                            (line, column, line, column + url_text.chars().count());
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
-                            line: start_line,
-                            column: start_col,
-                            end_line,
-                            end_column: end_col,
-                            message: "URL without angle brackets or link formatting".to_string(),
-                            severity: Severity::Warning,
-                            fix: Some(Fix {
-                                range: offset..(offset + url_text.len()),
-                                replacement: format!("<{url_text}>"),
-                            }),
-                        });
-                    }
-                }
-            }
-            Code(_) | InlineCode(_) | Html(_) => {
-                // Skip code and HTML nodes
-            }
-            _ => {
-                if let Some(children) = node.children() {
-                    for child in children {
-                        self.find_bare_urls_in_ast(child, false, _content, warnings, ctx);
                     }
                 }
             }
         }
-    }
 
-    /// AST-based check method for MD034
-    pub fn check_ast(&self, ctx: &LintContext, ast: &Node) -> LintResult {
-        let mut warnings = Vec::new();
-        self.find_bare_urls_in_ast(ast, false, ctx.content, &mut warnings, ctx);
-        Ok(warnings)
+        warnings
     }
 }
 
 impl Rule for MD034NoBareUrls {
+    #[inline]
     fn name(&self) -> &'static str {
         "MD034"
     }
 
-    fn description(&self) -> &'static str {
-        "URL without angle brackets or link formatting"
-    }
-
-    fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
-        // Use line-based detection to properly distinguish between bare URLs and autolinks
-        // AST-based approach doesn't work because CommonMark parser converts bare URLs to links
-        let content = ctx.content;
-
-        // Fast path: Early return for empty content
-        if content.is_empty() || self.should_skip(content) {
-            return Ok(Vec::new());
-        }
-        let mut warnings = Vec::new();
-
-        // First, find all markdown link ranges across the entire content
-        let mut excluded_ranges: Vec<(usize, usize)> = Vec::new();
-
-        // Markdown links: [text](url) - exclude both destination and entire link text
-        for cap in MARKDOWN_LINK_PATTERN.captures_iter(content) {
-            if let Some(dest) = cap.get(1) {
-                excluded_ranges.push((dest.start(), dest.end()));
-            }
-            // Also exclude the entire link to handle URLs in link text
-            if let Some(full_match) = cap.get(0) {
-                excluded_ranges.push((full_match.start(), full_match.end()));
-            }
-        }
-
-        // Markdown images: ![alt](url)
-        for cap in MARKDOWN_IMAGE_PATTERN.captures_iter(content) {
-            if let Some(dest) = cap.get(2) {
-                excluded_ranges.push((dest.start(), dest.end()));
-            }
-        }
-
-        // Angle-bracket links: <url>
-        for cap in ANGLE_LINK_PATTERN.captures_iter(content) {
-            if let Some(m) = cap.get(1) {
-                excluded_ranges.push((m.start(), m.end()));
-            }
-        }
-
-        // HTML tags: exclude everything inside them
-        for html_tag in ctx.html_tags().iter() {
-            excluded_ranges.push((html_tag.byte_offset, html_tag.byte_end));
-        }
-
-        // HTML comments: <!-- url -->
-        for cap in HTML_COMMENT_PATTERN.captures_iter(content) {
-            if let Some(comment) = cap.get(0) {
-                excluded_ranges.push((comment.start(), comment.end()));
-            }
-        }
-
-        // Sort and merge overlapping ranges
-        excluded_ranges.sort_by_key(|r| r.0);
-        let mut merged: Vec<(usize, usize)> = Vec::new();
-        for (start, end) in excluded_ranges {
-            if let Some((_, last_end)) = merged.last_mut()
-                && *last_end >= start
-            {
-                *last_end = (*last_end).max(end);
-                continue;
-            }
-            merged.push((start, end));
-        }
-
-        // Now find all URLs and emails in the content and check if they're excluded
-        // We'll combine URL and email detection for efficiency
-        let mut all_matches: Vec<(usize, usize, bool)> = Vec::new(); // (start, end, is_email)
-
-        // Early exit if no potential URLs/emails based on quick check
-        if !content.contains("://") && !content.contains('@') {
-            return Ok(warnings);
-        }
-
-        // Pre-filter lines that might contain URLs or emails
-        let mut candidate_lines = Vec::new();
-        for (line_idx, line_info) in ctx.lines.iter().enumerate() {
-            // Skip lines in code blocks
-            if line_info.in_code_block {
-                continue;
-            }
-
-            let line_content = &line_info.content;
-            let bytes = line_content.as_bytes();
-
-            // Fast byte-level check for potential URLs/emails
-            let has_url = bytes.contains(&b':') && line_content.contains("://");
-            let has_email = bytes.contains(&b'@');
-
-            if has_url || has_email {
-                candidate_lines.push(line_idx);
-            }
-        }
-
-        // Process only candidate lines
-        for &line_idx in &candidate_lines {
-            let line_info = &ctx.lines[line_idx];
-            let line_content = &line_info.content;
-
-            // Check for URLs in this line
-            for url_match in SIMPLE_URL_REGEX.find_iter(line_content) {
-                let start_in_line = url_match.start();
-                let end_in_line = url_match.end();
-                let matched_str = &line_content[start_in_line..end_in_line];
-
-                // Skip invalid IPv6 patterns
-                if matched_str.contains("::") && !matched_str.contains('[') && matched_str.contains(']') {
-                    continue;
-                }
-
-                // Skip custom protocols that aren't standard web protocols
-                // Check if there's a custom protocol pattern before this match
-                if start_in_line > 0 {
-                    // Look back to see if this is part of a custom protocol URL
-                    let prefix_start = start_in_line.saturating_sub(20); // Look back up to 20 chars
-
-                    // Ensure we're on a character boundary
-                    let prefix_start = if prefix_start == 0 {
-                        0
-                    } else {
-                        // Find the nearest character boundary at or after prefix_start
-                        let mut adjusted_start = prefix_start;
-                        while adjusted_start < start_in_line && !line_content.is_char_boundary(adjusted_start) {
-                            adjusted_start += 1;
-                        }
-                        adjusted_start
-                    };
-
-                    let prefix = &line_content[prefix_start..start_in_line];
-                    if CUSTOM_PROTOCOL_PATTERN.is_match(prefix) {
-                        continue;
-                    }
-                }
-
-                let global_start = line_info.byte_offset + start_in_line;
-                let global_end = line_info.byte_offset + end_in_line;
-                all_matches.push((global_start, global_end, false));
-            }
-
-            // Check for IPv6 URLs
-            for url_match in IPV6_URL_REGEX.find_iter(line_content) {
-                let global_start = line_info.byte_offset + url_match.start();
-                let global_end = line_info.byte_offset + url_match.end();
-
-                // Remove any overlapping regular URL matches
-                all_matches.retain(|(start, end, _)| !(*start < global_end && *end > global_start));
-
-                all_matches.push((global_start, global_end, false));
-            }
-
-            // Check for emails in this line
-            for email_match in EMAIL_PATTERN.find_iter(line_content) {
-                let global_start = line_info.byte_offset + email_match.start();
-                let global_end = line_info.byte_offset + email_match.end();
-                all_matches.push((global_start, global_end, true));
-            }
-        }
-
-        // Process all matches
-        for (match_start, match_end_orig, is_email) in all_matches {
-            let mut match_end = match_end_orig;
-
-            // For URLs, trim trailing punctuation
-            if !is_email {
-                let raw_url = &content[match_start..match_end];
-                let trimmed_url = self.trim_trailing_punctuation(raw_url);
-                match_end = match_start + trimmed_url.len();
-            }
-
-            // Skip if became empty after trimming
-            if match_end <= match_start {
-                continue;
-            }
-
-            // Manual boundary check: not part of a larger word
-            // Use bytes for ASCII checks (more efficient)
-            let bytes = content.as_bytes();
-            let before_byte = if match_start == 0 {
-                None
-            } else {
-                bytes.get(match_start - 1).copied()
-            };
-            let after_byte = bytes.get(match_end).copied();
-
-            let is_valid_boundary = if is_email {
-                before_byte.is_none_or(|b| !b.is_ascii_alphanumeric() && b != b'_' && b != b'.')
-                    && after_byte.is_none_or(|b| !b.is_ascii_alphanumeric() && b != b'_' && b != b'.')
-            } else {
-                before_byte.is_none_or(|b| !b.is_ascii_alphanumeric() && b != b'_')
-                    && after_byte.is_none_or(|b| !b.is_ascii_alphanumeric() && b != b'_')
-            };
-
-            if !is_valid_boundary {
-                continue;
-            }
-
-            // Skip if this is within any skip context (code blocks, MkDocs snippets, etc.)
-            if crate::utils::skip_context::is_in_skip_context(ctx, match_start) {
-                continue;
-            }
-
-            // Skip if within any excluded range (link/image dest/HTML comment)
-            let in_any_range = merged.iter().any(|(start, end)| {
-                // For HTML comments and other exclusions, check if URL overlaps the range
-                (match_start >= *start && match_start < *end)
-                    || (match_end > *start && match_end <= *end)
-                    || (match_start < *start && match_end > *end)
-            });
-            if in_any_range {
-                continue;
-            }
-
-            // Get line information efficiently
-            let (line_num, col_num) = ctx.offset_to_line_col(match_start);
-
-            // Skip reference definitions for URLs
-            if !is_email
-                && let Some(line_info) = ctx.line_info(line_num)
-                && REFERENCE_DEF_RE.is_match(&line_info.content)
-            {
-                continue;
-            }
-
-            let matched_text = &content[match_start..match_end];
-            let line_info = ctx.line_info(line_num).unwrap();
-            let (start_line, start_col, end_line, end_col) =
-                calculate_url_range(line_num, &line_info.content, col_num - 1, matched_text.len());
-
-            let message = if is_email {
-                "Email address without angle brackets or link formatting".to_string()
-            } else {
-                "URL without angle brackets or link formatting".to_string()
-            };
-
-            warnings.push(LintWarning {
-                rule_name: Some(self.name()),
-                line: start_line,
-                column: start_col,
-                end_line,
-                end_column: end_col,
-                message,
-                severity: Severity::Warning,
-                fix: Some(Fix {
-                    range: match_start..match_end,
-                    replacement: format!("<{matched_text}>"),
-                }),
-            });
-        }
-
-        Ok(warnings)
-    }
-
-    fn check_with_ast(&self, ctx: &LintContext, ast: &MarkdownAst) -> LintResult {
-        // Use AST-based detection for better accuracy
-        let mut warnings = Vec::new();
-        self.find_bare_urls_in_ast(ast, false, ctx.content, &mut warnings, ctx);
-        Ok(warnings)
-    }
-
-    fn uses_ast(&self) -> bool {
-        // AST-based approach doesn't work because CommonMark parser converts bare URLs to links
-        // Use document structure approach instead
-        false
-    }
-
-    fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
-        let content = ctx.content;
-        if self.should_skip(content) {
-            return Ok(content.to_string());
-        }
-
-        // Get all warnings first - only fix URLs that are actually flagged
-        let warnings = self.check(ctx)?;
-        if warnings.is_empty() {
-            return Ok(content.to_string());
-        }
-
-        // Sort warnings by byte offset in reverse order (rightmost first) to avoid offset issues
-        let mut sorted_warnings = warnings.clone();
-        sorted_warnings.sort_by_key(|w| std::cmp::Reverse(w.fix.as_ref().map(|f| f.range.start).unwrap_or(0)));
-
-        let mut result = content.to_string();
-        for warning in sorted_warnings {
-            if let Some(fix) = &warning.fix {
-                let start = fix.range.start;
-                let end = fix.range.end;
-
-                if start <= result.len() && end <= result.len() && start < end {
-                    result.replace_range(start..end, &fix.replacement);
-                }
-            }
-        }
-
-        Ok(result)
-    }
-
-    /// Get the category of this rule for selective processing
-    fn category(&self) -> RuleCategory {
-        RuleCategory::Link
-    }
-
-    /// Check if this rule should be skipped based on content
-    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        self.should_skip(ctx.content)
-    }
-
     fn as_any(&self) -> &dyn std::any::Any {
         self
-    }
-
-    fn as_maybe_ast(&self) -> Option<&dyn MaybeAst> {
-        Some(self)
     }
 
     fn from_config(_config: &crate::config::Config) -> Box<dyn Rule>
@@ -606,142 +460,92 @@ impl Rule for MD034NoBareUrls {
     {
         Box::new(MD034NoBareUrls)
     }
-}
 
-impl AstExtensions for MD034NoBareUrls {
-    fn has_relevant_ast_elements(&self, ctx: &LintContext, ast: &MarkdownAst) -> bool {
-        // Check if AST contains text nodes (where bare URLs would be)
-        use crate::utils::ast_utils::ast_contains_node_type;
-        !self.should_skip(ctx.content) && ast_contains_node_type(ast, "text")
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::lint_context::LintContext;
-
-    #[test]
-    fn test_url_quick_check() {
-        assert!(URL_QUICK_CHECK.is_match("This is a URL: https://example.com"));
-        assert!(!URL_QUICK_CHECK.is_match("This has no URL"));
+    #[inline]
+    fn category(&self) -> RuleCategory {
+        RuleCategory::Link
     }
 
-    #[test]
-    fn test_multiple_badges_and_links_on_one_line() {
-        let rule = MD034NoBareUrls;
-        let content = "# [React](https://react.dev/) \
-&middot; [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/facebook/react/blob/main/LICENSE) \
-[![npm version](https://img.shields.io/npm/v/react.svg?style=flat)](https://www.npmjs.com/package/react) \
-[![(Runtime) Build and Test](https://github.com/facebook/react/actions/workflows/runtime_build_and_test.yml/badge.svg)](https://github.com/facebook/react/actions/workflows/runtime_build_and_test.yml) \
-[![(Compiler) TypeScript](https://github.com/facebook/react/actions/workflows/compiler_typescript.yml/badge.svg?branch=main)](https://github.com/facebook/react/actions/workflows/compiler_typescript.yml) \
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://legacy.reactjs.org/docs/how-to-contribute.html#your-first-pull-request)";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
-        let result = rule.check(&ctx).unwrap();
-        if !result.is_empty() {
-            log::debug!("MD034 warnings: {result:#?}");
-        }
-        assert!(
-            result.is_empty(),
-            "Multiple badges and links on one line should not be flagged as bare URLs"
-        );
+    fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        !ctx.likely_has_links_or_images() && self.should_skip_content(ctx.content)
     }
 
-    #[test]
-    fn test_bare_urls() {
-        let rule = MD034NoBareUrls;
-        let content = "This is a bare URL: https://example.com/foobar";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
-        let result = rule.check(&ctx).unwrap();
-        assert_eq!(result.len(), 1, "Bare URLs should be flagged");
-        assert_eq!(result[0].line, 1);
-        assert_eq!(result[0].column, 21);
+    #[inline]
+    fn description(&self) -> &'static str {
+        "No bare URLs - wrap URLs in angle brackets"
     }
 
-    #[test]
-    fn test_md034_performance_baseline() {
-        use std::time::Instant;
+    fn check(&self, ctx: &LintContext) -> LintResult {
+        let mut warnings = Vec::new();
+        let content = ctx.content;
 
-        // Generate test content with various URL patterns
-        let mut content = String::with_capacity(50_000);
-
-        // Add content with bare URLs (should be detected)
-        for i in 0..250 {
-            content.push_str(&format!("Line {i} with bare URL https://example{i}.com/path\n"));
+        // Quick skip for content without URLs
+        if self.should_skip_content(content) {
+            return Ok(warnings);
         }
 
-        // Add content with proper markdown links (should not be detected)
-        for i in 0..250 {
-            content.push_str(&format!(
-                "Line {} with [proper link](https://example{}.com/path)\n",
-                i + 250,
-                i
-            ));
+        // Create LineIndex for correct byte position calculations across all line ending types
+        let line_index = &ctx.line_index;
+
+        // Get code spans for exclusion
+        let code_spans = ctx.code_spans();
+
+        // Allocate reusable buffers once instead of per-line to reduce allocations
+        let mut buffers = LineCheckBuffers::default();
+
+        // Iterate over content lines, automatically skipping front matter and code blocks
+        // This uses the filtered iterator API which centralizes the skip logic
+        for line in ctx.filtered_lines().skip_front_matter().skip_code_blocks() {
+            let mut line_warnings =
+                self.check_line(line.content, ctx, line.line_num, &code_spans, &mut buffers, line_index);
+
+            // Filter out warnings that are inside code spans
+            line_warnings.retain(|warning| {
+                // Check if the URL is inside a code span
+                !code_spans.iter().any(|span| {
+                    span.line == warning.line &&
+                    warning.column > 0 && // column is 1-indexed
+                    (warning.column - 1) >= span.start_col &&
+                    (warning.column - 1) < span.end_col
+                })
+            });
+
+            // Filter out warnings where the URL is inside a parsed link
+            // This handles cases like [text]( https://url ) where the URL has leading whitespace
+            // pulldown-cmark correctly parses these as valid links even though our regex misses them
+            line_warnings.retain(|warning| {
+                if let Some(fix) = &warning.fix {
+                    // Check if the fix range falls inside any parsed link's byte range
+                    !ctx.links
+                        .iter()
+                        .any(|link| fix.range.start >= link.byte_offset && fix.range.end <= link.byte_end)
+                } else {
+                    true
+                }
+            });
+
+            warnings.extend(line_warnings);
         }
 
-        // Add content with no URLs (should be fast)
-        for i in 0..500 {
-            content.push_str(&format!("Line {} with no URLs, just regular text content\n", i + 500));
+        Ok(warnings)
+    }
+
+    fn fix(&self, ctx: &LintContext) -> Result<String, LintError> {
+        let mut content = ctx.content.to_string();
+        let mut warnings = self.check(ctx)?;
+
+        // Sort warnings by position to ensure consistent fix application
+        warnings.sort_by_key(|w| w.fix.as_ref().map(|f| f.range.start).unwrap_or(0));
+
+        // Apply fixes in reverse order to maintain positions
+        for warning in warnings.iter().rev() {
+            if let Some(fix) = &warning.fix {
+                let start = fix.range.start;
+                let end = fix.range.end;
+                content.replace_range(start..end, &fix.replacement);
+            }
         }
 
-        // Add content with emails
-        for i in 0..100 {
-            content.push_str(&format!("Contact user{i}@example{i}.com for more info\n"));
-        }
-
-        println!(
-            "MD034 Performance Test - Content: {} bytes, {} lines",
-            content.len(),
-            content.lines().count()
-        );
-
-        let rule = MD034NoBareUrls;
-        let ctx = LintContext::new(&content, crate::config::MarkdownFlavor::Standard);
-
-        // Warm up
-        let _ = rule.check(&ctx).unwrap();
-
-        // Measure check performance (more runs for accuracy)
-        let mut total_duration = std::time::Duration::ZERO;
-        let runs = 10;
-        let mut warnings_count = 0;
-
-        for _ in 0..runs {
-            let start = Instant::now();
-            let warnings = rule.check(&ctx).unwrap();
-            total_duration += start.elapsed();
-            warnings_count = warnings.len();
-        }
-
-        let avg_check_duration = total_duration / runs;
-
-        println!("MD034 Optimized Performance:");
-        println!(
-            "- Average check time: {:?} ({:.2} ms)",
-            avg_check_duration,
-            avg_check_duration.as_secs_f64() * 1000.0
-        );
-        println!("- Found {warnings_count} warnings");
-        println!(
-            "- Lines per second: {:.0}",
-            content.lines().count() as f64 / avg_check_duration.as_secs_f64()
-        );
-        println!(
-            "- Microseconds per line: {:.2}",
-            avg_check_duration.as_micros() as f64 / content.lines().count() as f64
-        );
-
-        // Performance assertion - should complete reasonably fast
-        // Note: In debug builds this may take longer, so we use a higher threshold
-        let max_duration_ms = if cfg!(debug_assertions) { 1000 } else { 100 };
-        assert!(
-            avg_check_duration.as_millis() < max_duration_ms,
-            "MD034 check should complete in under {}ms, took {}ms",
-            max_duration_ms,
-            avg_check_duration.as_millis()
-        );
-
-        // Verify we're finding the expected number of warnings
-        assert_eq!(warnings_count, 350, "Should find 250 URLs + 100 emails = 350 warnings");
+        Ok(content)
     }
 }

@@ -24,6 +24,7 @@ if sys.version_info < (3, 11):
 SRR = {
     # common responses
     'empty_good': ({'data': []}, None),
+    'version_114': ({'data': {'productVersion': '11.4.0-20200721.1338.d3969b3'}}, None),
     'end_of_sequence': (None, 'Unexpected call to send_request'),
     'generic_error': (None, 'Expected error'),
     'org_compliance_global': ({'data': {}}, None),
@@ -69,6 +70,8 @@ SRR = {
         },
         None
     ),
+    'org_grid_federation_connections': ({'data': []}, None),
+    'org_ilm': ({'data': []}, None),
     'versions': ({'data': [2, 3]}, None),
 }
 
@@ -161,6 +164,22 @@ class TestMyModule(unittest.TestCase):
             'gather_subset': ['org_users_info', 'org/users/root'],
         })
 
+    def set_args_run_sg_gather_facts_for_org_grid_federation_connections_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['org_grid_federation_connections_info'],
+        })
+
+    def set_args_run_sg_gather_facts_for_org_ilm_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['org_ilm_info'],
+        })
+
     def test_module_fail_when_required_args_missing(self):
         ''' required arguments are reported as errors '''
         with pytest.raises(AnsibleFailJson) as exc:
@@ -171,8 +190,12 @@ class TestMyModule(unittest.TestCase):
             % exc.value.args[0]['msg']
         )
 
-    def test_module_pass_when_required_args_present(self):
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_module_pass_when_required_args_present(self, mock_request):
         ''' required arguments are reported as errors '''
+        mock_request.side_effect = [
+            SRR['version_114'],
+        ]
         with pytest.raises(AnsibleExitJson) as exc:
             set_module_args(self.set_default_args_pass_check())
             sg_org_info_module()
@@ -183,8 +206,12 @@ class TestMyModule(unittest.TestCase):
         )
         assert exc.value.args[0]['changed']
 
-    def test_module_pass_when_optional_args_present(self):
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_module_pass_when_optional_args_present(self, mock_request):
         ''' Optional arguments are reported as pass '''
+        mock_request.side_effect = [
+            SRR['version_114'],
+        ]
         with pytest.raises(AnsibleExitJson) as exc:
             set_module_args(self.set_default_optional_args_pass_check())
             sg_org_info_module()
@@ -198,7 +225,6 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_run_sg_gather_facts_for_all_info_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_all_info())
-        my_obj = sg_org_info_module()
         gather_subset = [
             'org/compliance-global',
             'org/config',
@@ -213,9 +239,12 @@ class TestMyModule(unittest.TestCase):
             'org/usage',
             'org/users',
             'org/users/root',
+            'org/grid-federation-connections',
+            'org/ilm-policy-tags',
             'versions',
         ]
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['org_compliance_global'],
             SRR['org_config'],
             SRR['org_config_product_version'],
@@ -230,8 +259,11 @@ class TestMyModule(unittest.TestCase):
             SRR['org_users'],
             SRR['org_users_root'],
             SRR['versions'],
+            SRR['org_grid_federation_connections'],
+            SRR['org_ilm'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_org_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_run_sg_gather_facts_for_all_info_pass: %s' % repr(exc.value.args))
@@ -240,12 +272,13 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_run_sg_gather_facts_for_org_users_info_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_org_users_info())
-        my_obj = sg_org_info_module()
         gather_subset = ['org/users']
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['org_users'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_org_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_run_sg_gather_facts_for_org_users_info_pass: %s' % repr(exc.value.args))
@@ -254,14 +287,45 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_run_sg_gather_facts_for_org_users_and_org_users_root_info_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_org_users_and_org_users_root_info())
-        my_obj = sg_org_info_module()
         gather_subset = ['org/users', 'org/users/root']
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['org_users'],
             SRR['org_users_root'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_org_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_run_sg_gather_facts_for_org_users_and_org_users_root_info_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_run_sg_gather_facts_for_org_grid_federation_connections_info_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_org_grid_federation_connections_info())
+        gather_subset = ['org/grid-federation-connections']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['org_grid_federation_connections'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_org_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_run_sg_gather_facts_for_org_grid_federation_connections_info_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_run_sg_gather_facts_for_org_ilm_info_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_org_ilm_info())
+        gather_subset = ['org/ilm-policy-tags']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['org_ilm'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_org_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_run_sg_gather_facts_for_org_ilm_info_pass: %s' % repr(exc.value.args))
         assert set(exc.value.args[0]['sg_info']) == set(gather_subset)

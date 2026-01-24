@@ -69,12 +69,14 @@ class Fidelity(BaseModel):
         fidelity (float): The measured fidelity value
         standardError (Optional[float]): The expected error value reported
             on the measurement
+        median (Optional[float]): Median of fidelity values
         unit (FidelityUnit): The expected unit for the fidelity
     """
 
     fidelityType: Optional[FidelityType]
     fidelity: confloat(ge=0, le=1)
     standardError: Optional[confloat(ge=0, le=1)] = None
+    median: Optional[confloat(ge=0, le=1)] = None
     unit: FidelityUnit
 
 
@@ -109,7 +111,7 @@ class StandardizedGateModelQpuDeviceProperties(BraketSchemaBase):
     Braket standarized gate model device qpu properties for the given quantum hardware
 
     Attributes:
-        oneQubitProperties (dict[str, OneQubitProperties]): Dictionary mapping specific qubit
+        oneQubitProperties (Dict[str, OneQubitProperties]): Dictionary mapping specific qubit
             identifiers (ex: '1') to their calibration property sets, including fidelity measurements.
         T1 (Optional[Duration]): The T1 time of the device.
         T2 (Optional[Duration]): The T2 time of the device.
@@ -118,6 +120,7 @@ class StandardizedGateModelQpuDeviceProperties(BraketSchemaBase):
         SingleQubitGateDuration (Optional[Duration]): The typical duration of a single-qubit gate operation.
         TwoQubitGateFidelity (Optional[list[Fidelity]]): The fidelity of two-qubit gate operation.
         TwoQubitGateDuration (Optional[Duration]): The typical duration of a two-qubit gate operation.
+        ActiveResetDuration (Optional[Duration]): Fixed duration to active reset a qubit.
     Examples:
         >>> import json
         >>> valid_input = {
@@ -185,6 +188,7 @@ class StandardizedGateModelQpuDeviceProperties(BraketSchemaBase):
         ...         },
         ...         "fidelity": 0.9950,
         ...         "standardError": 0.0010,
+        ...         "median": 0.005,
         ...         "unit": "fraction"
         ...     }],
         ...     "twoQubitGateFidelity": [{
@@ -199,6 +203,11 @@ class StandardizedGateModelQpuDeviceProperties(BraketSchemaBase):
         ...     "twoQubitGateDuration": {
         ...         "value": 0.000200,
         ...         "standardError": 0.000010,
+        ...         "unit": "s"
+        ...     },
+        ...     "activeResetDuration": {
+        ...         "value": 0.000100,
+        ...         "standardError": 0.000005,
         ...         "unit": "s"
         ...     },
         ...     "updatedAt": "2025-02-22T12:29:03Z"
@@ -219,4 +228,5 @@ class StandardizedGateModelQpuDeviceProperties(BraketSchemaBase):
     singleQubitFidelity: Optional[list[Fidelity]]
     twoQubitGateFidelity: Optional[list[Fidelity]]
     twoQubitGateDuration: Optional[Duration]
+    activeResetDuration: Optional[Duration]
     updatedAt: Optional[datetime]

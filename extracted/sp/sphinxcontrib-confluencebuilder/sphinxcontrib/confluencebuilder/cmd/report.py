@@ -16,7 +16,9 @@ from sphinxcontrib.confluencebuilder.config.exceptions import ConfluenceConfigEr
 from sphinxcontrib.confluencebuilder.logger import ConfluenceLogger as logger
 from sphinxcontrib.confluencebuilder.publisher import ConfluencePublisher
 from sphinxcontrib.confluencebuilder.reportbuilder import ConfluenceReportBuilder
+from sphinxcontrib.confluencebuilder.std.confluence import API_CLOUD_ENDPOINT
 from sphinxcontrib.confluencebuilder.util import ConfluenceUtil
+from sphinxcontrib.confluencebuilder.util import detect_cloud
 from sphinxcontrib.confluencebuilder.util import temp_dir
 from urllib.parse import urlparse
 from urllib3 import __version__ as urllib3_version
@@ -174,7 +176,14 @@ def report_main(args_parser):
             info += ' connected: no\n'
             rv = 1
 
-        if session:
+        # skip any manifest check for modern api cloud endpoint; not sure if
+        # there is a metadata-providing endpoint at this time
+        if session and publisher.rest.url.startswith(API_CLOUD_ENDPOINT):
+            if base_url.startswith(API_CLOUD_ENDPOINT):
+                info += '  endpoint: set\n'
+            else:
+                info += '  endpoint: resolved\n'
+        elif session:
             try:
                 # fetch
                 print('fetching confluence instance information...')
@@ -237,7 +246,6 @@ def report_main(args_parser):
         sensitive_config('confluence_jira_servers')
         sensitive_config('confluence_mentions')
         sensitive_config('confluence_parent_page')
-        sensitive_config('confluence_parent_page_id_check')
         sensitive_config('confluence_proxy')
         sensitive_config('confluence_publish_root')
         sensitive_config('confluence_server_auth')
@@ -255,21 +263,14 @@ def report_main(args_parser):
             else:
                 value = '(set; no scheme)'
 
-            if parsed.netloc and parsed.netloc.endswith('atlassian.net'):
+            if detect_cloud(value):
                 value += ' (cloud)'
 
             config['confluence_server_url'] = value
 
         # remove space key, but track casing
-        space_cfgs = [
-            'confluence_space_key',
-            'confluence_space_name',  # deprecated
-        ]
-        for space_cfg in space_cfgs:
-            if space_cfg not in config:
-                continue
-
-            value = config[space_cfg]
+        if 'confluence_space_key' in config:
+            value = config['confluence_space_key']
             if value.startswith('~'):
                 value = '(set; user)'
             elif value.isupper():
@@ -278,7 +279,7 @@ def report_main(args_parser):
                 value = '(set; lower)'
             else:
                 value = '(set; mixed)'
-            config[space_cfg] = value
+            config['confluence_space_key'] = value
 
     print()
     print('Confluence builder report has been generated.')

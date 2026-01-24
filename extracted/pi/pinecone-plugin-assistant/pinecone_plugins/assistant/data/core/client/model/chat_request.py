@@ -62,14 +62,6 @@ class ChatRequest(ModelNormal):
     """
 
     allowed_values = {
-        ('model',): {
-            'GPT-4O': "gpt-4o",
-            'GPT-4.1': "gpt-4.1",
-            'O4-MINI': "o4-mini",
-            'CLAUDE-3-5-SONNET': "claude-3-5-sonnet",
-            'CLAUDE-3-7-SONNET': "claude-3-7-sonnet",
-            'GEMINI-2.5-PRO': "gemini-2.5-pro",
-        },
     }
 
     validations = {

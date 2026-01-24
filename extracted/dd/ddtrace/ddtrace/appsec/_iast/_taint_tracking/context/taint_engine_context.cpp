@@ -22,7 +22,8 @@
 //
 #include "taint_engine_context.h"
 #include "taint_tracking/tainted_object.h"
-#include <cstdint>
+#include "utils/string_utils.h"
+#include <Python.h>
 #include <cstdlib>
 #include <initializer_list>
 
@@ -32,38 +33,6 @@ namespace {
 static constexpr size_t DEFAULT_CAPACITY = 2; // safe default per guidance
 static constexpr size_t MIN_CAPACITY = 1;
 static constexpr size_t MAX_CAPACITY = 1024; // reasonable upper bound
-}
-
-// AIDEV-NOTE: Return the first taint map found when scanning a list of candidate PyObjects.
-// The map must exist and be non-empty to be considered valid.
-TaintedObjectMapTypePtr
-TaintEngineContext::get_tainted_object_map_from_list_of_pyobjects(std::initializer_list<PyObject*> objects)
-{
-    for (auto* obj : objects) {
-        if (!obj) {
-            continue;
-        }
-        auto map = get_tainted_object_map(obj);
-        if (map && !map->empty()) {
-            return map;
-        }
-    }
-    return nullptr;
-}
-
-TaintedObjectMapTypePtr
-TaintEngineContext::get_tainted_object_map_from_list_of_pyobjects(const std::vector<PyObject*>& objects)
-{
-    for (auto* obj : objects) {
-        if (!obj) {
-            continue;
-        }
-        auto map = get_tainted_object_map(obj);
-        if (map && !map->empty()) {
-            return map;
-        }
-    }
-    return nullptr;
 }
 
 size_t
@@ -90,6 +59,15 @@ TaintEngineContext::TaintEngineContext()
 {
 }
 
+// Lifecycle guard. Prevent access during interpreter/module teardown.
+std::atomic<bool> TaintEngineContext::shutting_down{ false };
+
+void
+TaintEngineContext::set_shutting_down(bool v)
+{
+    shutting_down.store(v, std::memory_order_release);
+}
+
 std::optional<size_t>
 TaintEngineContext::start_request_context()
 {
@@ -100,17 +78,23 @@ TaintEngineContext::start_request_context()
             return i;
         }
     }
-    // Saturated
-    return -1;
+    return std::nullopt;
 }
 
 void
 TaintEngineContext::finish_request_context(size_t ctx_id)
 {
-    if (request_context_slots[ctx_id]) {
-        request_context_slots[ctx_id]->clear();
+    const auto cap = request_context_slots.size();
+    if (ctx_id >= cap) {
+        return;
     }
-    request_context_slots[ctx_id] = nullptr;
+
+    auto& slot = request_context_slots[ctx_id];
+    if (!slot) {
+        return;
+    }
+    slot->clear();
+    slot = nullptr;
 }
 
 void
@@ -124,16 +108,149 @@ TaintEngineContext::clear_all_request_context_slots()
     }
 }
 
-TaintedObjectMapTypePtr
-TaintEngineContext::get_tainted_object_map(PyObject* tainted_object)
+void
+TaintEngineContext::clear_tainted_object_map()
 {
+    request_context_slots.clear();
+}
+
+TaintedObjectMapTypePtr
+TaintEngineContext::get_tainted_object_map(PyObject* obj)
+{
+    if (!obj) {
+        return nullptr;
+    }
+
+    // 1) Direct text objects
+    if (is_text(obj)) {
+        auto map = get_tainted_object_map_from_pyobject(obj);
+        if (map && !map->empty()) {
+            return map;
+        }
+        return nullptr;
+    }
+
+    // 2) Containers: list or tuple -> iterate each element
+    if (PyList_Check(obj)) {
+        const Py_ssize_t n = PyList_GET_SIZE(obj);
+        for (Py_ssize_t i = 0; i < n; ++i) {
+            PyObject* item = PyList_GET_ITEM(obj, i); // borrowed ref
+            if (!item) {
+                continue;
+            }
+            auto map = get_tainted_object_map_from_pyobject(item);
+            if (map && !map->empty()) {
+                return map;
+            }
+        }
+        return nullptr;
+    }
+    if (PyTuple_Check(obj)) {
+        const Py_ssize_t n = PyTuple_GET_SIZE(obj);
+        for (Py_ssize_t i = 0; i < n; ++i) {
+            PyObject* item = PyTuple_GET_ITEM(obj, i); // borrowed ref
+            if (!item) {
+                continue;
+            }
+            auto map = get_tainted_object_map_from_pyobject(item);
+            if (map && !map->empty()) {
+                return map;
+            }
+        }
+        return nullptr;
+    }
+
+    // 3) Dictionaries: iterate over values
+    if (PyDict_Check(obj)) {
+        PyObject *key, *value;
+        Py_ssize_t pos = 0;
+        while (PyDict_Next(obj, &pos, &key, &value)) { // borrowed refs
+            if (!value) {
+                continue;
+            }
+            auto map = get_tainted_object_map_from_pyobject(value);
+            if (map && !map->empty()) {
+                return map;
+            }
+        }
+        return nullptr;
+    }
+    auto map = get_tainted_object_map_from_pyobject(obj);
+    if (map) {
+        return map;
+    }
+
+    return nullptr;
+}
+
+TaintedObjectMapTypePtr
+TaintEngineContext::get_tainted_object_map_from_pyobject(PyObject* tainted_object)
+{
+    if (shutting_down.load(std::memory_order_acquire)) {
+        return nullptr;
+    }
     for (const auto& context_map : request_context_slots) {
         if (!context_map) {
             continue;
         }
+
         const auto& to_initial = get_tainted_object(tainted_object, context_map);
         if (to_initial && !to_initial->get_ranges().empty()) {
             return context_map;
+        }
+    }
+    return nullptr;
+}
+
+TaintedObjectMapTypePtr
+TaintEngineContext::get_tainted_object_map_from_list_of_pyobjects(const std::vector<PyObject*>& objects)
+{
+    for (auto* obj : objects) {
+        if (!obj) {
+            continue;
+        }
+        if (auto map = get_tainted_object_map(obj); map && !map->empty()) {
+            return map;
+        }
+    }
+    return nullptr;
+}
+
+TaintedObjectMapTypePtr
+TaintEngineContext::get_tainted_object_map_from_ranges(const TaintRangeRefs& ranges)
+{
+    if (ranges.empty()) {
+        return nullptr;
+    }
+
+    for (const auto& context_map : request_context_slots) {
+        if (!context_map) {
+            continue;
+        }
+
+        // Iterate over all tainted objects in this context map
+        for (const auto& kv : *context_map) {
+            const auto& tainted_obj = kv.second.second;
+            if (!tainted_obj) {
+                continue;
+            }
+
+            const auto& obj_ranges = tainted_obj->get_ranges();
+            if (obj_ranges.empty()) {
+                continue;
+            }
+
+            // Check if any of the input ranges matches by pointer identity
+            for (const auto& needle : ranges) {
+                if (!needle) {
+                    continue;
+                }
+                for (const auto& r : obj_ranges) {
+                    if (r == needle) {
+                        return context_map;
+                    }
+                }
+            }
         }
     }
     return nullptr;
@@ -181,24 +298,73 @@ TaintEngineContext::debug_num_tainted_objects(size_t ctx_id)
     return 0;
 }
 
+TaintedObjectMapTypePtr
+TaintEngineContext::get_tainted_object_map_by_ctx_id(size_t ctx_id)
+{
+    const auto cap = request_context_slots.size();
+    if (ctx_id >= cap) {
+        return nullptr;
+    }
+    return request_context_slots[ctx_id];
+}
+
 void
 pyexport_taint_engine_context(py::module& m)
 {
-    m.def("finish_request_context", [](size_t ctx_id) { taint_engine_context->finish_request_context(ctx_id); });
-    m.def("start_request_context", [] { return taint_engine_context->start_request_context(); });
-    m.def("clear_all_request_context_slots", [] { return taint_engine_context->clear_all_request_context_slots(); });
-    m.def("get_tainted_object_map_by_ctx_id",
-          [](size_t ctx_id) { return taint_engine_context->get_tainted_object_map_by_ctx_id(ctx_id) != nullptr; });
+    m.def("finish_request_context", [](size_t ctx_id) {
+        if (!taint_engine_context)
+            return;
+        taint_engine_context->finish_request_context(ctx_id);
+    });
+
+    m.def("start_request_context", []() -> std::optional<size_t> {
+        if (!taint_engine_context)
+            return std::nullopt;
+        return taint_engine_context->start_request_context();
+    });
+
+    m.def("clear_all_request_context_slots", [] {
+        if (!taint_engine_context)
+            return;
+        taint_engine_context->clear_all_request_context_slots();
+    });
+
+    m.def("get_tainted_object_map_by_ctx_id", [](size_t ctx_id) {
+        if (!taint_engine_context)
+            return false;
+        return taint_engine_context->get_tainted_object_map_by_ctx_id(ctx_id) != nullptr;
+    });
+
     m.def("is_in_taint_map", [](py::object tainted_obj) {
+        if (!taint_engine_context)
+            return false;
         auto map_ptr = taint_engine_context->get_tainted_object_map(tainted_obj.ptr());
         return map_ptr != nullptr;
     });
-    m.def("debug_context_array_size", [] { return taint_engine_context->debug_context_array_size(); });
 
-    m.def("debug_taint_map", [](size_t ctx_id) { return taint_engine_context->debug_taint_map(ctx_id); });
+    m.def("debug_context_array_size", [] {
+        if (!taint_engine_context)
+            return static_cast<size_t>(0);
+        return taint_engine_context->debug_context_array_size();
+    });
 
-    m.def("debug_debug_num_tainted_objects",
-          [](size_t ctx_id) { return taint_engine_context->debug_num_tainted_objects(ctx_id); });
+    m.def("debug_context_array_free_slots_number", [] {
+        if (!taint_engine_context)
+            return static_cast<size_t>(0);
+        return taint_engine_context->debug_context_array_free_slots_number();
+    });
+
+    m.def("debug_taint_map", [](size_t ctx_id) {
+        if (!taint_engine_context)
+            return std::string("");
+        return taint_engine_context->debug_taint_map(ctx_id);
+    });
+
+    m.def("debug_num_tainted_objects", [](size_t ctx_id) -> int {
+        if (!taint_engine_context)
+            return 0;
+        return taint_engine_context->debug_num_tainted_objects(ctx_id);
+    });
 }
 
 std::unique_ptr<TaintEngineContext> taint_engine_context;

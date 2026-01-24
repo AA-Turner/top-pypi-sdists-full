@@ -1,0 +1,118 @@
+# Python CircleCI 2.0 configuration file
+#
+# Check https://circleci.com/docs/2.0/language-python/ for more details
+#
+version: 2
+jobs:
+  build_docs:
+    docker:
+      - image: texlive/texlive
+
+    working_directory: ~/checkout
+
+    environment:
+      PIP_INSTALL: python -m pip install --progress-bar off --upgrade
+      SPHINX: python -m sphinx -W --keep-going --color
+
+    steps:
+      - checkout
+
+      - store_artifacts:
+          name: Uploading overview page
+          path: .circleci/artifacts.html
+          destination: artifacts.html
+
+      - run:
+          name: Installing apt Packages
+          command: |
+            apt-get -y update
+            apt-get install -y --no-install-recommends python3-venv librsvg2-bin binutils pandoc
+
+      - restore_cache:
+          keys:
+            - v1-deps-{{ .Branch }}-{{ checksum "doc/requirements.txt" }}
+            # fallbacks
+            - v1-deps-{{ .Branch }}-
+            - v1-deps-
+
+      - run:
+          name: Set up venv
+          command: |
+            python3 -m venv .venv
+            echo "source .venv/bin/activate" >> $BASH_ENV
+
+      - run:
+          name: Installing Sphinx
+          # See https://github.com/sphinx-doc/sphinx/issues/12331
+          command: |
+            $PIP_INSTALL "sphinx !=7.3.0, != 7.3.1, != 7.3.2, != 7.3.3, != 7.3.4, != 7.3.5, != 7.3.6, != 7.3.7"
+
+      - run:
+          name: Installing nbsphinx
+          command: |
+            $PIP_INSTALL .
+
+      - run:
+          name: Installing doc Dependencies
+          command: |
+            $PIP_INSTALL -r doc/requirements.txt
+
+      - save_cache:
+          paths:
+            - ~/.cache/pip
+          key: v1-deps-{{ .Branch }}-{{ checksum "doc/requirements.txt" }}
+
+      - run:
+          name: Show pandoc version
+          command: |
+            pandoc --version
+
+      - run:
+          name: Building HTML
+          command: |
+            $SPHINX -d build/doctrees doc build/html -b html
+
+      - store_artifacts:
+          name: Uploading HTML files
+          path: build/html
+          destination: html
+
+      - run:
+          name: Building LaTeX
+          command: |
+            $SPHINX -d build/doctrees doc build/latex -b latex
+
+      - run:
+          name: Building PDF
+          command: |
+            cd build/latex
+            latexmk -pdflua
+
+      - store_artifacts:
+          name: Uploading PDF file
+          path: build/latex/nbsphinx.pdf
+          destination: nbsphinx.pdf
+
+      - run:
+          name: Building LaTeX document with nbsphinx docs as chapter
+          # NB: There is a warning about :footcite:, so we are not using "-W"
+          command: |
+            cd include-in-latex
+            python -m sphinx --color ../doc _build -c . -b latex
+
+      - run:
+          name: Building PDF of above
+          command: |
+            cd include-in-latex
+            latexmk
+
+      - store_artifacts:
+          name: Uploading another PDF file
+          path: include-in-latex/my-latex-document.pdf
+          destination: my-latex-document.pdf
+
+workflows:
+  version: 2
+  build-me-my-docs:
+    jobs:
+      - build_docs

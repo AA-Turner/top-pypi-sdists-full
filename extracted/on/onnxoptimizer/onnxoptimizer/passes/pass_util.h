@@ -1,6 +1,6 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
+// SPDX-FileCopyrightText: ONNX Project Contributors
+//
+// SPDX-License-Identifier: Apache-2.0
 
 // ATTENTION: The code in this file is highly EXPERIMENTAL.
 // Adventurous users should note that the APIs will probably change.
@@ -114,8 +114,8 @@ bool CheckKind(const Node* n, const Sym1& s1, const Which& which,
          CheckKind(n->input(which)->node(), s2, args...);
 }
 
-template <typename T>
-T AddYIfNegative(T x, T y) {
+template <typename T1, typename T2>
+T1 AddYIfNegative(T1 x, T2 y) {
   return x < 0 ? x + y : x;
 }
 
@@ -138,7 +138,7 @@ bool IsConstantTensor(const Node* n, const W& which_input,
 inline const Tensor* FetchConstantTensor(const Value* v) {
   const uint32_t kind = v->node()->kind();
   auto* graph = v->owningGraph();
-  if (kind == kConstant) {
+  if (kind == kConstant && v->node()->hasAttribute(kvalue)) {
     return &v->node()->t(kvalue);
   } else if (graph->is_constant_initializer(v)) {
     return &*graph->getInitializer(v->uniqueName());
@@ -359,11 +359,11 @@ Node* PrevNode(Node* n, T which, U which1, Args... args) {
 }
 
 template <typename T>
-bool IsIntersection(const std::vector<T>& v1, const std::vector<T>& v2) {
+bool HasIntersection(std::vector<T> v1, std::vector<T> v2) {
   std::vector<T> intersect;
-  std::set<T> s1(v1.begin(), v1.end());
-  std::set<T> s2(v2.begin(), v2.end());
-  std::set_intersection(s1.begin(), s1.end(), s2.begin(), s2.end(),
+  std::sort(v1.begin(), v1.end());
+  std::sort(v2.begin(), v2.end());
+  std::set_intersection(v1.begin(), v1.end(), v2.begin(), v2.end(),
                         std::back_inserter(intersect));
   return !intersect.empty();
 }

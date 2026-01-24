@@ -21,7 +21,7 @@ from ..Const import (
     filenamePatterns,
     filenameRegexes,
     linkbaseRefTypes,
-    qnDomainItemTypes,
+    qnDomainItemTypesBefore2023,
 )
 from ..Util import isExtension
 
@@ -111,7 +111,7 @@ def checkFilingDTS(
                         val.modelXbrl.error("ESEF.3.4.3.extensionTaxonomyDimensionNotAssignedDefaultMemberInDedicatedPlaceholder",
                             _("Each dimension in an issuer specific extension taxonomy MUST be assigned to a default member in the ELR with role URI http://www.esma.europa.eu/xbrl/role/core/ifrs-dim_role-990000 defined in esef_cor.xsd schema file. %(qname)s"),
                             modelObject=modelConcept, qname=modelConcept.qname)
-                    if modelConcept.isDomainMember and modelConcept in val.domainMembers and modelConcept.typeQname not in qnDomainItemTypes:
+                    if modelConcept.isDomainMember and modelConcept in val.domainMembers and modelConcept.typeQname not in qnDomainItemTypesBefore2023:
                         domainMembersWrongType.append(modelConcept)
                     if modelConcept.isPrimaryItem and not modelConcept.isAbstract:
                         if modelConcept not in val.primaryItems:
@@ -348,6 +348,11 @@ def checkFilingDTS(
             val.modelXbrl.error("ESEF.3.1.1.linkbasesNotSeparateFiles",
                 _("Each linkbase type MUST be provided in a separate linkbase file, found: %(linkbasesFound)s."),
                 modelObject=modelDocument.xmlRootElement, linkbasesFound=", ".join(sorted(linkbasesFound)))
+            # As per ESEF conformance test case TC2_invalid, also output an extensionTaxonomyWrongFilesStructure error
+            val.modelXbrl.error("ESEF.3.1.1.extensionTaxonomyWrongFilesStructure",
+                                _("Each linkbase type MUST be provided in a separate linkbase file, please check file %(documentName)s."),
+                                modelObject=modelDocument.xmlRootElement,
+                                documentName=modelDocument.basename)
 
         # check for any prohibiting dimensionArc's
         for prohibitingArcElt in modelDocument.xmlRootElement.iterdescendants(tag="{http://www.xbrl.org/2003/linkbase}definitionArc"):

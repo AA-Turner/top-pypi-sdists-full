@@ -5,6 +5,7 @@ import random
 
 from abc import abstractmethod
 from dataclasses import dataclass
+from functools import wraps
 from typing import Any
 from typing import Dict
 from typing import List
@@ -14,7 +15,9 @@ from typing import Tuple
 import numpy as np
 import torch
 import torch.nn as nn
+import transformers
 
+from packaging import version
 from tokenizers import AddedToken
 from tokenizers import Tokenizer
 from tokenizers.models import BPE
@@ -55,6 +58,19 @@ def set_seed(seed=42):
 
     # Python hash seed
     os.environ["PYTHONHASHSEED"] = str(seed)
+
+
+def require_deterministic(test_case):
+    @wraps(test_case)
+    def wrapper(*args, **kwargs):
+        original_state = torch.are_deterministic_algorithms_enabled()
+        try:
+            torch.use_deterministic_algorithms(True)
+            return test_case(*args, **kwargs)
+        finally:
+            torch.use_deterministic_algorithms(original_state)
+
+    return wrapper
 
 
 @torch.no_grad
@@ -149,18 +165,20 @@ class MiniModelConfig:
 
 def simple_collate_fn(data: List[Dict[str, Any]]):
     """A basic collate function to use for DataLoader"""
+    batch = {}
 
     input_ids = torch.stack([torch.tensor(item["input_ids"]) for item in data])
     attention_mask = torch.stack([torch.tensor(item["attention_mask"]) for item in data])
     labels = input_ids.clone()
+    batch["input_ids"] = input_ids
+    batch["attention_mask"] = attention_mask
+    batch["labels"] = labels
+    if version.parse("4.54.1") <= version.parse(transformers.__version__):
+        shift_labels = nn.functional.pad(labels, (0, 1), value=-100)
+        shift_labels = shift_labels[..., 1:].contiguous()
+        batch["shift_labels"] = shift_labels
 
-    return BatchEncoding(
-        {
-            "input_ids": input_ids,
-            "attention_mask": attention_mask,
-            "labels": labels,
-        }
-    )
+    return BatchEncoding(batch)
 
 
 def multimodal_collate_fn(data: List[Dict[str, Any]]):
@@ -174,6 +192,10 @@ def multimodal_collate_fn(data: List[Dict[str, Any]]):
 
     labels = input_ids.clone()
     batch["labels"] = labels
+    if version.parse("4.54.1") <= version.parse(transformers.__version__):
+        shift_labels = nn.functional.pad(labels, (0, 1), value=-100)
+        shift_labels = shift_labels[..., 1:].contiguous()
+        batch["shift_labels"] = shift_labels
 
     # Collate all other keys, e.g. pixel_values, attention_mask, image_grid_thw, etc
     for key in keys:
@@ -482,6 +504,28 @@ def revert_liger_kernel_to_qwen2_5_vl(model_config: MiniModelConfig):
     print("Liger kernel patches have been reverted.")
 
 
+def revert_liger_kernel_to_qwen3_vl(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Qwen3-VL.
+    """
+    from transformers.models.qwen3_vl import modeling_qwen3_vl
+
+    importlib.reload(modeling_qwen3_vl)
+    model_config.model_class = modeling_qwen3_vl.Qwen3VLForConditionalGeneration
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_qwen3_vl_moe(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Qwen3-VL-MoE.
+    """
+    from transformers.models.qwen3_vl_moe import modeling_qwen3_vl_moe
+
+    importlib.reload(modeling_qwen3_vl_moe)
+    model_config.model_class = modeling_qwen3_vl_moe.Qwen3VLMoeForConditionalGeneration
+    print("Liger kernel patches have been reverted.")
+
+
 def revert_liger_kernel_to_phi3(model_config: MiniModelConfig):
     """
     Revert all Liger kernel patches applied to Phi3.
@@ -503,6 +547,18 @@ def revert_liger_kernel_to_olmo2(model_config: MiniModelConfig):
 
     importlib.reload(modeling_olmo2)
     model_config.model_class = modeling_olmo2.Olmo2ForCausalLM
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_olmo3(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Olmo3.
+    """
+
+    from transformers.models.olmo3 import modeling_olmo3
+
+    importlib.reload(modeling_olmo3)
+    model_config.model_class = modeling_olmo3.Olmo3ForCausalLM
     print("Liger kernel patches have been reverted.")
 
 
@@ -530,6 +586,18 @@ def revert_liger_kernel_to_glm4v(model_config: MiniModelConfig):
     print("Liger kernel patches have been reverted.")
 
 
+def revert_liger_kernel_to_glm4v_moe(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Glm4v_MoE.
+    """
+
+    from transformers.models.glm4v_moe import modeling_glm4v_moe
+
+    importlib.reload(modeling_glm4v_moe)
+    model_config.model_class = modeling_glm4v_moe.Glm4vMoeForConditionalGeneration
+    print("Liger kernel patches have been reverted.")
+
+
 def revert_liger_kernel_to_llava(model_config: MiniModelConfig):
     """
     Revert all Liger kernel patches applied to llava.
@@ -544,6 +612,88 @@ def revert_liger_kernel_to_llava(model_config: MiniModelConfig):
     importlib.reload(modeling_llama)
 
     model_config.model_class = modeling_llava.LlavaForConditionalGeneration
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_internvl(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to InternVL.
+    """
+    import torch.nn as nn
+
+    from transformers.models.internvl import modeling_internvl
+    from transformers.models.qwen2 import modeling_qwen2
+
+    importlib.reload(nn)
+    importlib.reload(modeling_internvl)
+    importlib.reload(modeling_qwen2)
+
+    model_config.model_class = modeling_internvl.InternVLForConditionalGeneration
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_smolvlm2(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to SmolVLM2.
+    """
+    import torch.nn as nn
+
+    from transformers.models.llama import modeling_llama
+    from transformers.models.smolvlm import modeling_smolvlm
+
+    importlib.reload(nn)
+    importlib.reload(modeling_smolvlm)
+    importlib.reload(modeling_llama)
+
+    model_config.model_class = modeling_smolvlm.SmolVLMForConditionalGeneration
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_falcon_h1(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to FalconH1.
+    """
+
+    from transformers.models.falcon_h1 import modeling_falcon_h1
+
+    importlib.reload(modeling_falcon_h1)
+    model_config.model_class = modeling_falcon_h1.FalconH1ForCausalLM
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_qwen3_next(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Qwen3Next.
+    """
+
+    from transformers.models.qwen3_next import modeling_qwen3_next
+
+    importlib.reload(modeling_qwen3_next)
+    model_config.model_class = modeling_qwen3_next.Qwen3NextForCausalLM
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_hunyuan_v1(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Hunyuanv1.
+    """
+    from transformers.models.hunyuan_v1_dense import modeling_hunyuan_v1_dense
+
+    importlib.reload(modeling_hunyuan_v1_dense)
+    model_config.model_class = modeling_hunyuan_v1_dense.HunYuanDenseV1ForCausalLM
+
+    print("Liger kernel patches have been reverted.")
+
+
+def revert_liger_kernel_to_hunyuan_v1_moe(model_config: MiniModelConfig):
+    """
+    Revert all Liger kernel patches applied to Hunyuanv1 MoE.
+    """
+    from transformers.models.hunyuan_v1_moe import modeling_hunyuan_v1_moe
+
+    importlib.reload(modeling_hunyuan_v1_moe)
+    model_config.model_class = modeling_hunyuan_v1_moe.HunYuanMoEV1ForCausalLM
+
     print("Liger kernel patches have been reverted.")
 
 

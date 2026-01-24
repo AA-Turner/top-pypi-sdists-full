@@ -59,7 +59,7 @@ class NotifyLine(NotifyBase):
     notify_url = "https://api.line.me/v2/bot/message/push"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_line"
+    setup_url = "https://appriseit.com/services/line/"
 
     # We don't support titles for Line notifications
     title_maxlen = 0
@@ -212,7 +212,8 @@ class NotifyLine(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

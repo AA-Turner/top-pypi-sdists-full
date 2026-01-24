@@ -375,63 +375,91 @@ class DatatypeSegment(BaseSegment):
     """
 
     type = "data_type"
-    match_grammar = OneOf(
-        # numeric types
-        "SMALLINT",
-        "INT2",
-        "INTEGER",
-        "INT",
-        "INT4",
-        "BIGINT",
-        "INT8",
-        "REAL",
-        "FLOAT4",
-        Sequence("DOUBLE", "PRECISION"),
-        "FLOAT8",
-        "FLOAT",
-        # numeric types [precision ["," scale])]
-        Sequence(
-            OneOf("DECIMAL", "NUMERIC"),
-            Ref("BracketedArguments", optional=True),
-        ),
-        # character types
+    match_grammar = Sequence(
         OneOf(
+            # numeric types
+            "SMALLINT",
+            "INT2",
+            "INTEGER",
+            "INT",
+            "INT4",
+            "BIGINT",
+            "INT8",
+            "REAL",
+            "FLOAT4",
+            Sequence("DOUBLE", "PRECISION"),
+            "FLOAT8",
+            "FLOAT",
+            # numeric types [precision ["," scale])]
+            Sequence(
+                OneOf("DECIMAL", "NUMERIC"),
+                Ref("BracketedArguments", optional=True),
+            ),
+            # character types
+            OneOf(
+                Sequence(
+                    OneOf(
+                        "CHAR",
+                        "CHARACTER",
+                        "NCHAR",
+                        "VARCHAR",
+                        Sequence("CHARACTER", "VARYING"),
+                        "NVARCHAR",
+                    ),
+                    Ref("BracketedArguments", optional=True),
+                ),
+                "BPCHAR",
+                "TEXT",
+            ),
+            Ref("DateTimeTypeIdentifier"),
+            # INTERVAL is a data type *only* for conversion operations
+            "INTERVAL",
+            # boolean types
+            OneOf("BOOLEAN", "BOOL"),
+            # hllsketch type
+            "HLLSKETCH",
+            # super type
+            "SUPER",
+            # spatial data
+            "GEOMETRY",
+            "GEOGRAPHY",
+            # binary type
             Sequence(
                 OneOf(
-                    "CHAR",
-                    "CHARACTER",
-                    "NCHAR",
-                    "VARCHAR",
-                    Sequence("CHARACTER", "VARYING"),
-                    "NVARCHAR",
+                    "VARBYTE",
+                    "VARBINARY",
+                    Sequence("BINARY", "VARYING"),
                 ),
                 Ref("BracketedArguments", optional=True),
             ),
-            "BPCHAR",
-            "TEXT",
+            "ANYELEMENT",
+            # postgresql system types
+            # object identifier types
+            # https://www.postgresql.org/docs/current/datatype-oid.html
+            "OID",
+            "REGPROC",
+            "REGPROCEDURE",
+            "REGCLASS",
+            "REGTYPE",
+            "REGOPER",
+            "REGOPERATOR",
+            "CID",
+            "TID",
+            "XID",
+            # character types
+            # https://www.postgresql.org/docs/current/datatype-character.html
+            "NAME",
+            # access control types
+            # https://www.postgresql.org/docs/current/ddl-priv.html
+            "ACLITEM",
+            # quoted types
+            Ref("QuotedIdentifierSegment"),
         ),
-        Ref("DateTimeTypeIdentifier"),
-        # INTERVAL is a data type *only* for conversion operations
-        "INTERVAL",
-        # boolean types
-        OneOf("BOOLEAN", "BOOL"),
-        # hllsketch type
-        "HLLSKETCH",
-        # super type
-        "SUPER",
-        # spatial data
-        "GEOMETRY",
-        "GEOGRAPHY",
-        # binary type
-        Sequence(
-            OneOf(
-                "VARBYTE",
-                "VARBINARY",
-                Sequence("BINARY", "VARYING"),
-            ),
-            Ref("BracketedArguments", optional=True),
+        # array types
+        AnyNumberOf(
+            Bracketed(Ref("ExpressionSegment", optional=True), bracket_type="square"),
+            optional=True,
         ),
-        "ANYELEMENT",
     )
 
 

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -66,12 +67,6 @@ from .type_defs import (
 )
 from .waiter import JobCompleteWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -82,14 +77,14 @@ __all__ = ("ElasticTranscoderClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    IncompatibleVersionException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IncompatibleVersionException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class ElasticTranscoderClient(BaseClient):
@@ -127,7 +122,7 @@ class ElasticTranscoderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elastictranscoder/client/#generate_presigned_url)
         """
 
-    def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> Dict[str, Any]:
+    def cancel_job(self, **kwargs: Unpack[CancelJobRequestTypeDef]) -> dict[str, Any]:
         """
         The CancelJob operation cancels an unfinished job.
 
@@ -164,7 +159,7 @@ class ElasticTranscoderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elastictranscoder/client/#create_preset)
         """
 
-    def delete_pipeline(self, **kwargs: Unpack[DeletePipelineRequestTypeDef]) -> Dict[str, Any]:
+    def delete_pipeline(self, **kwargs: Unpack[DeletePipelineRequestTypeDef]) -> dict[str, Any]:
         """
         The DeletePipeline operation removes a pipeline.
 
@@ -172,7 +167,7 @@ class ElasticTranscoderClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elastictranscoder/client/#delete_pipeline)
         """
 
-    def delete_preset(self, **kwargs: Unpack[DeletePresetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_preset(self, **kwargs: Unpack[DeletePresetRequestTypeDef]) -> dict[str, Any]:
         """
         The DeletePreset operation removes a preset that you've added in an AWS region.
 

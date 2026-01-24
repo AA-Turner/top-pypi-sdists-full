@@ -21,13 +21,15 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: GIS",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "esda>=2.4",
-    "libpysal>=4.8",
-    "mapclassify>=2.5",
-    "quantecon>=0.7",
-    "scipy>=1.8",
+    "esda>=2.7, <2.9",
+    "libpysal>=4.12",
+    "mapclassify>=2.7",
+    "quantecon>=0.8",
+    "scipy>=1.12",
+    "seaborn",
+    "matplotlib",
 ]
 
 [project.urls]
@@ -49,11 +51,9 @@ docs = [
 tests = [
     "codecov",
     "ipywidgets",
-    "matplotlib",
     "pytest",
     "pytest-cov",
     "pytest-xdist",
-    "splot",
 ]
 
 [tool.setuptools.packages.find]
@@ -85,7 +85,6 @@ exclude = ["giddy/tests/*", "docs/*"]
 "giddy/{ergodic,markov,sequence}.py" = [
     "E501",     # Line too long
 ]
-
 
 [tool.coverage.run]
 source = ["./giddy"]

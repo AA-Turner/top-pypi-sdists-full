@@ -9,19 +9,53 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import TypedDict
+import datetime as _dt
+from typing import Literal, Union
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0236 import MinimalRepositoryType, MinimalRepositoryTypeForResponse
 
 
-class TeamMembershipType(TypedDict):
-    """Team Membership
+class PackageType(TypedDict):
+    """Package
 
-    Team Membership
+    A software package
     """
 
+    id: int
+    name: str
+    package_type: Literal["npm", "maven", "rubygems", "docker", "nuget", "container"]
     url: str
-    role: Literal["member", "maintainer"]
-    state: Literal["active", "pending"]
+    html_url: str
+    version_count: int
+    visibility: Literal["private", "public"]
+    owner: NotRequired[Union[None, SimpleUserType]]
+    repository: NotRequired[Union[None, MinimalRepositoryType]]
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
 
 
-__all__ = ("TeamMembershipType",)
+class PackageTypeForResponse(TypedDict):
+    """Package
+
+    A software package
+    """
+
+    id: int
+    name: str
+    package_type: Literal["npm", "maven", "rubygems", "docker", "nuget", "container"]
+    url: str
+    html_url: str
+    version_count: int
+    visibility: Literal["private", "public"]
+    owner: NotRequired[Union[None, SimpleUserTypeForResponse]]
+    repository: NotRequired[Union[None, MinimalRepositoryTypeForResponse]]
+    created_at: str
+    updated_at: str
+
+
+__all__ = (
+    "PackageType",
+    "PackageTypeForResponse",
+)

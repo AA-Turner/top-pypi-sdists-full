@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iso-week-date"
-version = "2.1.0"
+version = "2.2.2"
 description = "Toolkit to work with str representing ISO Week date format"
 
 license = {file = "LICENSE"}
@@ -19,11 +19,14 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 2 - Beta",
+    # "Programming Language :: Python :: Free Threading :: 3 - Stable",
+    # "Programming Language :: Python :: Free Threading :: 4 - Resilient",
     "License :: OSI Approved :: MIT License",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
-    "Development Status :: 4 - Beta",
-    # "Development Status :: 5 - Production/Stable",
+    "Development Status :: 5 - Production/Stable",
 ]
 
 [project.urls]
@@ -38,12 +41,15 @@ pydantic = ["pydantic>=2.4.0"]
 all = ["iso-week-date[pandas,polars,pydantic]"]
 
 [dependency-groups]
-lint = ["ruff>=0.11.0"]
+lint = ["ruff>=0.12.0"]
 tests = [
     "pytest",
     "pytest-cov",
     "pytest-env",
+    "pytest-run-parallel",
     "coverage",
+    "covdefaults",
+    "typing_extensions",
 ]
 
 extra = [
@@ -62,6 +68,8 @@ docs = [
 
 typing = [
     "mypy",
+    "pyright",
+    "ty",
     "pandas-stubs",
     "typing-extensions>=4.4.0; python_version < '3.11'",
 ]
@@ -70,7 +78,7 @@ slotscheck = [
     "slotscheck>=0.19.1",
 ]
 
-dev = [
+local-dev = [
     "iso-week-date[pandas,polars,pydantic]",
     {include-group = "docs"},
     {include-group = "extra"},
@@ -104,12 +112,14 @@ explicit-preview-rules = true
 
 select = ["ALL"]
 ignore = [
-    "D100",  # Checks for undocumented public module definitions.
-    "D104",  # Checks for undocumented public package definitions.
-    "D107",  # Checks for public __init__ method definitions that are missing docstrings.
-    "RET505",  # Checks for else statements with a return statement in the preceding if block.
-    "DTZ",
-    "COM812",
+  "D100",  # Checks for undocumented public module definitions.
+  "D104",  # Checks for undocumented public package definitions.
+  "D107",  # Checks for public __init__ method definitions that are missing docstrings.
+  "RET505",  # Checks for else statements with a return statement in the preceding if block.
+  "DTZ",
+  "COM812",
+  "TD003",
+  "FIX002"
 ]
 
 extend-safe-fixes = [
@@ -127,7 +137,6 @@ extend-select = [
 "tests/*" = ["ANN", "D", "S101", "PT006", "PT007", "FBT001", "SLF001"]
 
 [tool.ruff.lint.isort]
-force-single-line = true
 required-imports = ["from __future__ import annotations"]
 
 [tool.ruff.lint.pydocstyle]
@@ -150,7 +159,7 @@ ignore-private = true
 ignore-magic = true
 ignore-property-decorators = true
 ignore-overloaded-functions = true
-fail-under = 95
+fail-under = 85
 verbose = 2 # 0 (minimal output), 1 (-v), 2 (-vv)
 
 [tool.mypy]
@@ -167,6 +176,7 @@ strict = true
 
 [tool.pytest.ini_options]
 markers = [
+  "freethreaded: marks tests that checks for thread safety (deselect with '-m \"not freethreaded\"')",
   "pandas: marks tests that require pandas as a dependency (deselect with '-m \"not pandas\"')",
   "polars: marks tests that require polars as a dependency (deselect with '-m \"not polars\"')",
   "pydantic: marks tests that require pydantic as a dependency (deselect with '-m \"not pydantic\"')",
@@ -178,6 +188,7 @@ env = [
 
 [tool.coverage.run]
 source = ["iso_week_date/"]
+plugins = ["covdefaults"]
 
 [tool.coverage.report]
 exclude_also = [
@@ -185,3 +196,6 @@ exclude_also = [
   "@abstractmethod",
   "if .* parse_version",
 ]
+
+[tool.ty.rules]
+invalid-super-argument = "ignore"

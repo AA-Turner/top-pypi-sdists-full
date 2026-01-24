@@ -4,8 +4,12 @@ export HOME=/root
 cd $HOME
 export PATH=/root/bin:$PATH
 export PULL_SECRET=/root/openshift_pull.json
+{% if disconnected_fqdn != None %}
+REGISTRY={{ disconnected_fqdn }}
+{% else %}
 IP=$(ip -o addr show eth0 | grep -v '169.254\|fe80::' | tail -1 | awk '{print $4}' | cut -d'/' -f1)
 REGISTRY=$(echo $IP | sed 's/\./-/g' | sed 's/:/-/g').sslip.io
+{% endif %}
 
 # Add extra registry keys
 curl -Lo /etc/pki/rpm-gpg/RPM-GPG-KEY-redhat-isv https://www.redhat.com/security/data/55A34A82.txt
@@ -57,7 +61,7 @@ podman login -u "$RHN_USER" -p "$RHN_PASSWORD" registry.redhat.io
 
 which oc-mirror >/dev/null 2>&1
 if [ "$?" != "0" ] ; then
-  OPENSHIFT_TAG=4.19
+  OPENSHIFT_TAG=4.20
   curl -Ls https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable-$OPENSHIFT_TAG/oc-mirror.tar.gz | tar xvz -C /usr/bin
   chmod +x /usr/bin/oc-mirror
 fi

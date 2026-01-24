@@ -27,17 +27,24 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: Free Threading :: 4 - Resilient",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
-    "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: iOS",
+    "Operating System :: Android",
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     "Topic :: Utilities",
 ]
-dependencies = ["typing-extensions >= 4.6.0"]
+dependencies = [
+    "typing-extensions >= 4.6.0",
+    "typing-extensions >= 4.12.0; python_version >= '3.13'",
+]
 dynamic = ["version"]
 
 [project.urls]
@@ -65,6 +72,13 @@ test = [
     "pytest-cov",
     "covdefaults",
     "rich",
+    # Pin to minimum for compatibility test
+    "typing-extensions == 4.6.0; python_version < '3.13' and platform_system == 'Linux'",
+    "typing-extensions == 4.6.0; python_version < '3.13' and platform_system == 'Darwin'",
+    "typing-extensions == 4.6.0; python_version < '3.13' and platform_system == 'Windows'",
+    "typing-extensions == 4.12.0; python_version >= '3.13' and platform_system == 'Linux'",
+    "typing-extensions == 4.12.0; python_version >= '3.13' and platform_system == 'Darwin'",
+    "typing-extensions == 4.12.0; python_version >= '3.13' and platform_system == 'Windows'",
 ]
 docs = [
     "sphinx",
@@ -90,14 +104,15 @@ include = ["optree", "optree.*"]
 optree = ["*.so", "*.pyd", "*.pyi", "*.typed"]
 
 # Wheel builder ################################################################
-# Reference: https://cibuildwheel.readthedocs.io
+# Reference: https://cibuildwheel.pypa.io
 [tool.cibuildwheel]
 archs = ["native"]
 enable = ["pypy", "cpython-freethreading"]
 skip = "*musllinux*"
 build-frontend = "build"
-environment = { PYTHONUNBUFFERED = "1" }
+environment = { PYTHONDEVMODE = "1", PYTHONUNBUFFERED = "1" }
 environment-pass = [
+    "CMAKE_MINIMUM_VERSION",
     "CMAKE_CXX_STANDARD",
     "OPTREE_CXX_WERROR",
     "_GLIBCXX_USE_CXX11_ABI",
@@ -106,22 +121,34 @@ environment-pass = [
     "CLICOLOR_FORCE",
 ]
 xbuild-tools = ["cmake"]
+before-build = "env -0 | sort -z | tr '\\0' '\\n'"
+windows.before-build = "set"
 test-extras = ["test"]
-test-command = '''make -C "{project}" test PYTHON=python PYTESTOPTS="--no-cov --quiet --exitfirst"'''
+test-sources = ["pyproject.toml", "tests"]
+test-command = [
+    '''python -m pytest --version''',
+    '''python -Walways -Werror -c "import optree"''',
+    '''python -Walways -Werror -c "import rich, optree._C; rich.inspect(optree._C, value=True, methods=True)"''',
+    '''python -m pytest -Walways --color=yes --showlocals --no-cov --exitfirst tests''',
+]
+
+[tool.cibuildwheel.android]
+environment = { PYTHONDEVMODE = "1", PYTHONUNBUFFERED = "1", ANDROID_API_LEVEL = "24" }
+test-command = '''python -m pytest -Walways --color=yes --showlocals --no-cov --exitfirst tests'''
+
+[tool.cibuildwheel.ios]
+environment = { PYTHONDEVMODE = "1", PYTHONUNBUFFERED = "1", CMAKE_SYSTEM_NAME = "iOS" }
+test-command = '''python -m pytest -Walways --color=yes --showlocals --no-cov --exitfirst tests'''
 
 [[tool.cibuildwheel.overrides]]
 select = "*iphoneos*"
 inherit.environment = "append"
-environment = { CMAKE_SYSTEM_NAME = "iOS", CMAKE_OSX_SYSROOT = "iphoneos" }
-test-sources = ["pyproject.toml", "tests"]
-test-command = '''python -m pytest --showlocals --no-cov --exitfirst tests'''
+environment = { CMAKE_OSX_SYSROOT = "iphoneos" }
 
 [[tool.cibuildwheel.overrides]]
 select = "*iphonesimulator*"
 inherit.environment = "append"
-environment = { CMAKE_SYSTEM_NAME = "iOS", CMAKE_OSX_SYSROOT = "iphonesimulator" }
-test-sources = ["pyproject.toml", "tests"]
-test-command = '''python -m pytest --showlocals --no-cov --exitfirst tests'''
+environment = { CMAKE_OSX_SYSROOT = "iphonesimulator" }
 
 # Linter tools #################################################################
 

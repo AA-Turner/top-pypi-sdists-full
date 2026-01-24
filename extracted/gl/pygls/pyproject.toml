@@ -1,76 +1,74 @@
-[tool.poetry]
+[project]
 name = "pygls"
-version = "1.3.1"
+version = "2.0.0"
 description = "A pythonic generic language server (pronounced like 'pie glass')"
-authors = ["Open Law Library <info@openlawlib.org>"]
-maintainers = [
-    "Tom BH <tom@tombh.co.uk>",
-    "Alex Carney <alcarneyme@gmail.com>",
-]
 repository = "https://github.com/openlawlibrary/pygls"
-documentation = "https://pygls.readthedocs.io/en/latest"
-license = "Apache-2.0"
+authors = [
+  { name = "Open Law Library", email = "info@openlawlib.org"}
+]
+maintainers = [
+  { name = "Tom BH", email = "tom@tombh.co.uk" },
+  { name = "Alex Carney", email = "alcarneyme@gmail.com"}
+]
 readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "attrs>=24.3.0",
+    "cattrs>=23.1.2",
+    "lsprotocol==2025.0.0",
+]
+[project.optional-dependencies]
+ws = [
+  "websockets>=13.0"
+]
 
-# You may want to use the Poetry "Up" plugin to automatically update all dependencies to
-# their latest major versions. But bear in mind that this is a library, so the non-development
-# dependency versions will be forced on downstream users. Therefore the very latest versions
-# may be too restrictive.
-# See https://github.com/MousaZeidBaker/poetry-plugin-up
-[tool.poetry.dependencies]
-python = ">=3.8"
-cattrs = ">=23.1.2"
-lsprotocol = "2023.0.1"
-websockets = { version = ">=11.0.3", optional = true }
-
-[tool.poetry.extras]
-ws = ["websockets"]
-
-[tool.poetry.group.dev.dependencies]
-# Replaces (amongst many other things) flake8 and bandit
-ruff = ">=0.1.6"
-# TODO `poethepoet>=0.20` needs python 3.8
-poethepoet = ">=0.24.4"
-mypy = ">=1.7.1"
-# TODO `black>=23` needs python 3.8
-black = ">=23.11.0"
-
-[tool.poetry.group.test.dependencies]
-# Note: `coverage` requires that your Python was built with system `sqlite` development files
-coverage = { version = ">=7.3.2", extras = ["toml"] }
-pytest = ">=7.4.3"
-pytest-asyncio = ">=0.21.0"
-
-[tool.poetry.group.docs.dependencies]
-# TODO `sphinx>=7.26` needs python 3.9
-sphinx = ">=7.1.2"
-sphinx-rtd-theme = ">=1.3.0"
-
-[tool.poetry.group.pyodide.dependencies]
-selenium = "^4.15.2"
+[dependency-groups]
+dev = [
+    "poethepoet>=0.35.0",
+    "ruff>=0.1.6",
+    "mypy>=1.7.1",
+    "black~=24.4.1",
+    "requests>=2.32.4",
+]
+test = [
+    "coverage[toml]>=7.3.2",
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=6.2.1",
+]
+docs = [
+    "furo>=2024.8.6",
+    "myst-parser>=2.0",
+    "sphinx>=7.1.2",
+    "sphinx-design>=0.5.0",
+]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "e2e: tests that run a language server in a subprocess",
+]
+
+[tool.poe]
+executor.type = "uv"
 
 [tool.poe.tasks]
-test-pyodide = "python tests/pyodide_testrunner/run.py"
+test-pyodide = "pytest tests/e2e --lsp-runtime pyodide"
 ruff = "ruff check ."
 mypy = "mypy -p pygls"
-check_generated_client = "python scripts/check_client_is_uptodate.py"
+check_generated_code = "python scripts/check_generated_code_is_uptodate.py"
 check_commit_style = "npx commitlint --from origin/main --to HEAD --verbose --config commitlintrc.yaml"
-generate_client = "python scripts/generate_client.py --output pygls/lsp/client.py"
+generate_code = "python scripts/generate_code.py pygls/lsp"
 generate_contributors_md = "python scripts/generate_contributors_md.py"
 black_check = "black --check ."
-poetry_lock_check = "poetry check"
+uv_lock_check = "uv lock --check"
 
 [tool.poe.tasks.test]
-env = { COVERAGE_PROCESS_START = "pyproject.toml" }
 sequence = [
-     { cmd = "python -c 'import pathlib,sys; pathlib.Path(f\"{sys.path[-1]}/cov.pth\").write_text(\"import coverage; coverage.process_startup()\");'"},
-     { cmd = "coverage erase" },
-     { cmd = "coverage run -m pytest" },
-     { cmd = "coverage combine" },
-     { cmd = "coverage report" },
+     { cmd = "pytest --cov" },
+     { cmd = "pytest tests/e2e --lsp-transport tcp" },
+     { cmd = "pytest tests/e2e --lsp-transport websockets" },
 ]
 ignore_fail = "return_non_zero"
 
@@ -78,10 +76,10 @@ ignore_fail = "return_non_zero"
 sequence = [
     "ruff",
     "mypy",
-    "check_generated_client",
+    "check_generated_code",
     "check_commit_style",
     "black_check",
-    "poetry_lock_check"
+    "uv_lock_check"
 ]
 ignore_fail = "return_non_zero"
 
@@ -95,7 +93,7 @@ line-length = 120
 
 [tool.black]
 line-length = 88
-extend-exclude = "pygls/lsp/client.py"
+extend-exclude = "pygls/lsp/_base_.*.py|pygls/lsp/_capabilities.py"
 
 [tool.coverage.run]
 parallel = true
@@ -105,6 +103,10 @@ source_pkgs = ["pygls"]
 show_missing = true
 skip_covered = true
 sort = "Cover"
+
+[tool.esbonio.sphinx]
+pythonCommand = ["uv", "run", "--group", "docs", "python"]
+buildCommand = ["sphinx-build", "-M", "html", "docs/source", "${defaultBuildDir}"]
 
 [tool.mypy]
 check_untyped_defs = true

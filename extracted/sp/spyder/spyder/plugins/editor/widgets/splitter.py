@@ -16,7 +16,7 @@ import logging
 
 # Third party imports
 import qstylizer.style
-from qtpy import PYQT5, PYQT6
+from qtpy import PYSIDE2
 from qtpy.QtCore import QByteArray, Qt, Slot
 from qtpy.QtWidgets import QSplitter
 
@@ -24,8 +24,8 @@ from qtpy.QtWidgets import QSplitter
 from spyder.api.widgets.mixins import SpyderWidgetMixin
 from spyder.config.base import running_under_pytest
 from spyder.plugins.editor.widgets.editorstack.editorstack import EditorStack
-from spyder.py3compat import qbytearray_to_str
 from spyder.utils.palette import SpyderPalette
+from spyder.utils.qthelpers import qbytearray_to_str
 
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class EditorSplitter(QSplitter, SpyderWidgetMixin):
                         Defaults to main_widget.unregister_editorstack() to
                         unregister the EditorStack with the EditorMainWidget.
         """
-        if PYQT5 or PYQT6:
+        if not PYSIDE2:
             super().__init__(parent, class_parent=main_widget)
         else:
             QSplitter.__init__(self, parent)
@@ -219,8 +219,11 @@ class EditorSplitter(QSplitter, SpyderWidgetMixin):
                           for finfo in editorstack.data]
                 cfname = editorstack.get_current_filename()
             splitsettings.append((orientation == Qt.Vertical, cfname, clines))
-        return dict(hexstate=qbytearray_to_str(self.saveState()),
-                    sizes=self.sizes(), splitsettings=splitsettings)
+        return dict(
+            hexstate=qbytearray_to_str(self.saveState()),
+            sizes=self.sizes(),
+            splitsettings=splitsettings,
+        )
 
     def set_layout_settings(self, settings, dont_goto=None):
         """Restore layout state for the splitter panels.

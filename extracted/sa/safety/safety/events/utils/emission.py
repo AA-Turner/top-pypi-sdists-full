@@ -16,6 +16,8 @@ from typing import (
 )
 import uuid
 
+from safety.utils.pyapp_utils import get_path, get_env
+
 from safety_schemas.models.events import Event, EventType
 from safety_schemas.models.events.types import ToolType
 from safety_schemas.models.events.payloads import (
@@ -68,6 +70,7 @@ if TYPE_CHECKING:
     from safety.models import SafetyCLI, ToolResult
     from safety.cli_util import CustomContext
     from safety.init.types import FirewallConfigStatus
+    from safety.tool.environment_diff import PackageLocation
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +135,7 @@ def emit_firewall_disabled(
 
 
 def status_to_tool_status(status: "FirewallConfigStatus") -> List[ToolStatus]:
+    filtered_path = get_path()
     tools = []
     for tool_type, configs in status.items():
         alias_config = (
@@ -142,13 +146,13 @@ def status_to_tool_status(status: "FirewallConfigStatus") -> List[ToolStatus]:
         )
 
         tool = tool_type.value
-        command_path = shutil.which(tool)
+        command_path = shutil.which(tool, path=filtered_path)
         reachable = False
         version = "unknown"
 
         if command_path:
             args = [command_path, "--version"]
-            result = subprocess.run(args, capture_output=True, text=True)
+            result = subprocess.run(args, capture_output=True, text=True, env=get_env())
 
             if result.returncode == 0:
                 output = result.stdout
@@ -195,13 +199,19 @@ def emit_diff_operations(
     event_bus: "EventBus",
     ctx: "CustomContext",
     *,
-    added: Dict[str, str],
-    removed: Dict[str, str],
-    updated: Dict[str, Tuple[str, str]],
+    added: Dict["PackageLocation", str],
+    removed: Dict["PackageLocation", str],
+    updated: Dict["PackageLocation", Tuple[str, str]],
+    tool_path: Optional[str],
     by_tool: ToolType,
 ):
     obj: "SafetyCLI" = ctx.obj
     correlation_id = obj.correlation_id
+
+    kwargs = {
+        "tool_path": tool_path,
+        "tool": by_tool,
+    }
 
     if (added or removed or updated) and not correlation_id:
         correlation_id = obj.correlation_id = str(uuid.uuid4())
@@ -214,35 +224,42 @@ def emit_diff_operations(
         )
         event_bus.emit(event)
 
-    for package_name, version in added.items():
+    for package, version in added.items():
         emit_package_event(
             event_bus,
             correlation_id,
             PackageInstalledPayload(
-                package_name=package_name, version=version, tool=by_tool
+                package_name=package.name,
+                location=package.location,
+                version=version,
+                **kwargs,
             ),
             EventType.PACKAGE_INSTALLED,
         )
 
-    for package_name, version in removed.items():
+    for package, version in removed.items():
         emit_package_event(
             event_bus,
             correlation_id,
             PackageUninstalledPayload(
-                package_name=package_name, version=version, tool=by_tool
+                package_name=package.name,
+                location=package.location,
+                version=version,
+                **kwargs,
             ),
             EventType.PACKAGE_UNINSTALLED,
         )
 
-    for package_name, (previous_version, current_version) in updated.items():
+    for package, (previous_version, current_version) in updated.items():
         emit_package_event(
             event_bus,
             correlation_id,
             PackageUpdatedPayload(
-                package_name=package_name,
+                package_name=package.name,
+                location=package.location,
                 previous_version=previous_version,
                 current_version=current_version,
-                tool=by_tool,
+                **kwargs,
             ),
             EventType.PACKAGE_UPDATED,
         )
@@ -261,6 +278,7 @@ def emit_tool_command_executed(
 
     payload = ToolCommandExecutedPayload(
         tool=tool,
+        tool_path=result.tool_path,
         raw_command=[clean_parameter("", arg) for arg in process.args],
         duration_ms=result.duration_ms,
         status=ProcessStatus(

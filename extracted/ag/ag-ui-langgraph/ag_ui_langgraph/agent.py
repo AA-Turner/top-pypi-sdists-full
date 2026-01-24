@@ -4,7 +4,13 @@ from typing import Optional, List, Any, Union, AsyncGenerator, Generator, Litera
 import inspect
 
 from langgraph.graph.state import CompiledStateGraph
-from langchain.schema import BaseMessage, SystemMessage
+
+try:
+    from langchain.schema import BaseMessage, SystemMessage, ToolMessage
+except ImportError:
+    # Langchain >= 1.0.0
+    from langchain_core.messages import BaseMessage, SystemMessage, ToolMessage
+    
 from langchain_core.runnables import RunnableConfig, ensure_config
 from langchain_core.messages import HumanMessage
 from langgraph.types import Command
@@ -52,6 +58,7 @@ from ag_ui.core import (
     ToolCallArgsEvent,
     ToolCallEndEvent,
     ToolCallStartEvent,
+    ToolCallResultEvent,
     ThinkingTextMessageStartEvent,
     ThinkingTextMessageContentEvent,
     ThinkingTextMessageEndEvent,
@@ -228,7 +235,7 @@ class LangGraphAgent:
                 CustomEvent(
                     type=EventType.CUSTOM,
                     name=LangGraphEventTypes.OnInterrupt.value,
-                    value=json.dumps(interrupt.value, default=json_safe_stringify) if not isinstance(interrupt.value, str) else interrupt.value,
+                    value=dump_json_safe(interrupt.value),
                     raw_event=interrupt,
                 )
             )
@@ -304,7 +311,7 @@ class LangGraphAgent:
                     CustomEvent(
                         type=EventType.CUSTOM,
                         name=LangGraphEventTypes.OnInterrupt.value,
-                        value=json.dumps(interrupt.value) if not isinstance(interrupt.value, str) else interrupt.value,
+                        value=dump_json_safe(interrupt.value),
                         raw_event=interrupt,
                     )
                 )
@@ -323,6 +330,11 @@ class LangGraphAgent:
             await self.graph.aupdate_state(config, state, as_node=self.active_run.get("node_name"))
 
         if resume_input:
+            if isinstance(resume_input, str):
+                try:
+                    resume_input = json.loads(resume_input)
+                except json.JSONDecodeError:
+                    pass  # Keep as string if not valid JSON
             stream_input = Command(resume=resume_input)
         else:
             payload_input = get_stream_payload_input(
@@ -651,7 +663,13 @@ class LangGraphAgent:
                     )
                 )
                 yield self._dispatch_event(
-                    ToolCallArgsEvent(type=EventType.TOOL_CALL_ARGS, tool_call_id=event["data"]["id"], delta=event["data"]["args"], raw_event=event)
+                    ToolCallArgsEvent(
+                        type=EventType.TOOL_CALL_ARGS,
+                        tool_call_id=event["data"]["id"],
+                        delta=event["data"]["args"] if isinstance(event["data"]["args"], str) else json.dumps(
+                            event["data"]["args"]),
+                        raw_event=event
+                    )
                 )
                 yield self._dispatch_event(
                     ToolCallEndEvent(type=EventType.TOOL_CALL_END, tool_call_id=event["data"]["id"], raw_event=event)
@@ -668,31 +686,85 @@ class LangGraphAgent:
             )
 
         elif event_type == LangGraphEventTypes.OnToolEnd:
-            if self.active_run["has_function_streaming"]:
-                return
             tool_call_output = event["data"]["output"]
-            yield self._dispatch_event(
-                ToolCallStartEvent(
-                    type=EventType.TOOL_CALL_START,
-                    tool_call_id=tool_call_output.tool_call_id,
-                    tool_call_name=tool_call_output.name,
-                    parent_message_id=tool_call_output.id,
-                    raw_event=event,
+
+            if isinstance(tool_call_output, Command):
+                # Extract ToolMessages from Command.update
+                messages = tool_call_output.update.get('messages', [])
+                tool_messages = [m for m in messages if isinstance(m, ToolMessage)]
+
+                # Process each tool message
+                for tool_msg in tool_messages:
+                    if not self.active_run["has_function_streaming"]:
+                        yield self._dispatch_event(
+                            ToolCallStartEvent(
+                                type=EventType.TOOL_CALL_START,
+                                tool_call_id=tool_msg.tool_call_id,
+                                tool_call_name=tool_msg.name,
+                                parent_message_id=tool_msg.id,
+                                raw_event=event,
+                            )
+                        )
+                        yield self._dispatch_event(
+                            ToolCallArgsEvent(
+                                type=EventType.TOOL_CALL_ARGS,
+                                tool_call_id=tool_msg.tool_call_id,
+                                delta=json.dumps(event["data"].get("input", {})),
+                                raw_event=event
+                            )
+                        )
+                        yield self._dispatch_event(
+                            ToolCallEndEvent(
+                                type=EventType.TOOL_CALL_END,
+                                tool_call_id=tool_msg.tool_call_id,
+                                raw_event=event
+                            )
+                        )
+
+                    yield self._dispatch_event(
+                        ToolCallResultEvent(
+                            type=EventType.TOOL_CALL_RESULT,
+                            tool_call_id=tool_msg.tool_call_id,
+                            message_id=str(uuid.uuid4()),
+                            content=tool_msg.content,
+                            role="tool"
+                        )
+                    )
+                return
+
+            if not self.active_run["has_function_streaming"]:
+                yield self._dispatch_event(
+                    ToolCallStartEvent(
+                        type=EventType.TOOL_CALL_START,
+                        tool_call_id=tool_call_output.tool_call_id,
+                        tool_call_name=tool_call_output.name,
+                        parent_message_id=tool_call_output.id,
+                        raw_event=event,
+                    )
                 )
-            )
-            yield self._dispatch_event(
-                ToolCallArgsEvent(
-                    type=EventType.TOOL_CALL_ARGS,
-                    tool_call_id=tool_call_output.tool_call_id,
-                    delta=json.dumps(event["data"]["input"]),
-                    raw_event=event
+                yield self._dispatch_event(
+                    ToolCallArgsEvent(
+                        type=EventType.TOOL_CALL_ARGS,
+                        tool_call_id=tool_call_output.tool_call_id,
+                        delta=dump_json_safe(event["data"]["input"]),
+                        raw_event=event
+                    )
                 )
-            )
+                yield self._dispatch_event(
+                    ToolCallEndEvent(
+                        type=EventType.TOOL_CALL_END,
+                        tool_call_id=tool_call_output.tool_call_id,
+                        raw_event=event
+                    )
+                )
+
             yield self._dispatch_event(
-                ToolCallEndEvent(
-                    type=EventType.TOOL_CALL_END,
+                ToolCallResultEvent(
+                    type=EventType.TOOL_CALL_RESULT,
                     tool_call_id=tool_call_output.tool_call_id,
-                    raw_event=event
+                    message_id=str(uuid.uuid4()),
+                    content=dump_json_safe(tool_call_output.content),
+                    role="tool"
                 )
             )
 
@@ -850,3 +922,7 @@ class LangGraphAgent:
             kwargs.update(fork)
 
         return kwargs
+
+
+def dump_json_safe(value):
+    return json.dumps(value, default=json_safe_stringify) if not isinstance(value, str) else value

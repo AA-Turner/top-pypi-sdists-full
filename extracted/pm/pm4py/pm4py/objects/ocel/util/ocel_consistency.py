@@ -51,6 +51,7 @@ def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
     object_id_col = ocel.object_id_column
     event_activity = ocel.event_activity
     object_type_col = ocel.object_type_column
+    qualifier_col = ocel.qualifier
 
     # Define fields to process for each dataframe
     fields = {
@@ -87,6 +88,8 @@ def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
             valid_rows = ~df[valid_columns].isna().any(axis=1)
             df = df.loc[valid_rows]
 
+        df = df.copy()
+
         # Convert columns to string type
         for col in valid_columns:
             df[col] = df[col].astype(str)
@@ -118,5 +121,8 @@ def apply(ocel: OCEL, parameters: Optional[Dict[Any, Any]] = None) -> OCEL:
         num_obj_ids = objects_df[object_id_col].nunique()
         if num_obj_ids < len(objects_df):
             warnings.warn("The object identifiers in the OCEL are not unique!")
+
+    ocel.relations[qualifier_col] = ocel.relations[qualifier_col].fillna("")
+    ocel.o2o[qualifier_col] = ocel.o2o[qualifier_col].fillna("")
 
     return ocel

@@ -1,19 +1,17 @@
 Metadata-Version: 2.4
 Name: caldav
-Version: 2.0.1
+Version: 2.2.3
 Summary: CalDAV (RFC4791) client library
 Project-URL: Repository, https://github.com/python-caldav/caldav
 Project-URL: Issues, https://github.com/python-caldav/caldav/issues
 Project-URL: Documentation, https://caldav.readthedocs.io/
 Project-URL: Changelog, https://github.com/python-caldav/caldav/blob/master/CHANGELOG.md
 Author-email: Cyril Robert <cyril@hippie.io>, Tobias Brox <caldav@plann.no>
-License: GPL
+License-Expression: GPL-3.0-or-later OR Apache-2.0
 License-File: COPYING.APACHE
 License-File: COPYING.GPL
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: License :: OSI Approved :: GNU General Public License (GPL)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.9
@@ -21,12 +19,15 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business :: Scheduling
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Requires-Dist: dnspython
+Requires-Dist: icalendar-searcher<2,>=1.0.0
 Requires-Dist: icalendar>6.0.0
 Requires-Dist: lxml
+Requires-Dist: niquests
 Requires-Dist: recurring-ical-events>=2.0.0
-Requires-Dist: requests
 Requires-Dist: typing-extensions; python_version < '3.11'
 Provides-Extra: test
 Requires-Dist: coverage; extra == 'test'
@@ -37,7 +38,7 @@ Requires-Dist: pytest; extra == 'test'
 Requires-Dist: radicale; extra == 'test'
 Requires-Dist: tzlocal; extra == 'test'
 Requires-Dist: vobject; extra == 'test'
-Requires-Dist: xandikos; extra == 'test'
+Requires-Dist: xandikos>=0.2.12; extra == 'test'
 Description-Content-Type: text/markdown
 
 # caldav
@@ -51,13 +52,10 @@ Features:
  * search events by dates
  * etc.
 
-See the file [examples/basic_usage_examples.py](examples/basic_usage_examples.py) to get started.
+The documentation was freshed up a bit as of version 2.0, and is available at https://caldav.readthedocs.io/
 
-Links:
-
- * [Pypi](https://pypi.org/project/caldav)
- * [Documentation](docs/source/index.rst) - should be automatically mirrored on https://caldav.readthedocs.io/en/latest/
+The package is published at [Pypi](https://pypi.org/project/caldav)
 
 Licences:
 
-Caldav is dual-licensed under the [GNU GENERAL PUBLIC LICENSE Version 3](COPYING.GPL) and the [Apache License 2.0](COPYING.APACHE).
+Caldav is dual-licensed under the [GNU GENERAL PUBLIC LICENSE Version 3](COPYING.GPL) or the [Apache License 2.0](COPYING.APACHE).

@@ -4,7 +4,10 @@ Support Authentication from IMH using JWT token and pre-shared key.
 Requires package pyjwt
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
+from typing import Any
 
 import jwt
 
@@ -59,7 +62,7 @@ class ExactTargetOAuth2(BaseOAuth2):
             raise AuthFailed(self, error)
 
     def do_auth(self, token, *args, **kwargs):
-        dummy, secret = self.get_key_and_secret()
+        _key, secret = self.get_key_and_secret()
         try:  # Decode the token, using the Application Signature from settings
             decoded = jwt.decode(token, secret, algorithms=["HS256"])
         except jwt.DecodeError:  # Wrong signature, fail authentication
@@ -74,7 +77,14 @@ class ExactTargetOAuth2(BaseOAuth2):
             raise AuthFailed(self, "Authentication Failed")
         return self.do_auth(token, *args, **kwargs)
 
-    def extra_data(self, user, uid, response, details=None, *args, **kwargs):
+    def extra_data(
+        self,
+        user,
+        uid: str,
+        response: dict[str, Any],
+        details: dict[str, Any],
+        pipeline_kwargs: dict[str, Any],
+    ) -> dict[str, Any]:
         """Load extra details from the JWT token"""
         data = {
             "id": details.get("id"),

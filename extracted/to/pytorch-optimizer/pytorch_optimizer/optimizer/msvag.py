@@ -2,21 +2,22 @@ import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class MSVAG(BaseOptimizer):
-    r"""Dissecting Adam: The Sign, Magnitude and Variance of Stochastic Gradients.
+    """Dissecting Adam: The Sign, Magnitude and Variance of Stochastic Gradients.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param beta: float. Moving average (momentum) constant (scalar tensor or float value).
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        beta (float): Moving average (momentum) constant (scalar tensor or float value).
+        maximize (bool): Maximize the objective with respect to the params, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-2,
         beta: float = 0.9,
         maximize: bool = False,
@@ -27,14 +28,17 @@ class MSVAG(BaseOptimizer):
 
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'lr': lr, 'beta': beta}
+        defaults: Defaults = {'lr': lr, 'beta': beta}
 
         super().__init__(params, defaults)
 
     def __str__(self) -> str:
         return 'MSVAG'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -58,18 +62,15 @@ class MSVAG(BaseOptimizer):
         return min(rho, 0.9999)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta: float = group['beta']
             beta_power: float = beta ** group['step']

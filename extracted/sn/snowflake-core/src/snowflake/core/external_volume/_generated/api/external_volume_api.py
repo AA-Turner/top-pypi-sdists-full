@@ -380,7 +380,7 @@ class ExternalVolumeApi:
         # process the body parameter
         _body_params = None
 
-        if _params["external_volume"]:
+        if _params["external_volume"] is not None:
             _body_params = _params["external_volume"]
 
         # set the HTTP header `Accept`

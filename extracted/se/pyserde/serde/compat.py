@@ -10,17 +10,27 @@ import functools
 import ipaddress
 import itertools
 import pathlib
-import sys
 import types
 import uuid
 import typing
-from collections import defaultdict
-from collections.abc import Iterator
+import typing_extensions
+from collections import defaultdict, deque, Counter
+from collections.abc import Iterator, Sequence, MutableSequence
+from collections.abc import Mapping, MutableMapping, Set, MutableSet
 from dataclasses import is_dataclass
 from typing import TypeVar, Generic, Any, ClassVar, Optional, NewType, Union, Hashable, Callable
 
 import typing_inspect
-from typing_extensions import TypeGuard, ParamSpec, TypeAliasType
+from typing_extensions import TypeGuard, ParamSpec
+
+# `typing_extensions.TypeAliasType` isn't always an alias to `typing.TypeAliasType`
+# depending on certain versions of `typing_extensions` and python.
+_PEP695_TYPES: tuple[type, ...]
+if hasattr(typing, "TypeAliasType"):
+    _PEP695_TYPES = (typing_extensions.TypeAliasType, typing.TypeAliasType)
+else:
+    _PEP695_TYPES = (typing_extensions.TypeAliasType,)
+
 
 # Lazy SQLAlchemy imports to improve startup time
 
@@ -32,7 +42,7 @@ def _is_sqlalchemy_inspectable(subject: Any) -> bool:
     return is_sqlalchemy_inspectable(subject)
 
 
-def get_np_origin(tp: type[Any]) -> Optional[Any]:
+def get_np_origin(tp: type[Any]) -> Any | None:
     return None
 
 
@@ -126,7 +136,7 @@ def cache(f: Callable[P, T]) -> Callable[P, T]:
 
 
 @cache
-def get_origin(typ: Any) -> Optional[Any]:
+def get_origin(typ: Any) -> Any | None:
     """
     Provide `get_origin` that works in all python versions.
     """
@@ -201,6 +211,20 @@ def typename(typ: Any, with_typing_module: bool = False) -> str:
             return f"{mod}dict[{kt}, {vt}]"
         else:
             return f"{mod}dict"
+    elif is_deque(typ):
+        args = type_args(typ)
+        if args:
+            et = thisfunc(args[0])
+            return f"deque[{et}]"
+        else:
+            return "deque"
+    elif is_counter(typ):
+        args = type_args(typ)
+        if args:
+            et = thisfunc(args[0])
+            return f"Counter[{et}]"
+        else:
+            return "Counter"
     elif is_tuple(typ):
         args = type_args(typ)
         if args:
@@ -232,7 +256,7 @@ def typename(typ: Any, with_typing_module: bool = False) -> str:
         if inner:
             return typename(inner)
 
-        name: Optional[str] = getattr(typ, "_name", None)
+        name: str | None = getattr(typ, "_name", None)
         if name:
             return name
         else:
@@ -255,13 +279,15 @@ def type_args(typ: Any) -> tuple[type[Any], ...]:
     Wrapper to suppress type error for accessing private members.
     """
     try:
-        args: tuple[type[Any, ...]] = typ.__args__  # type: ignore
-        if args is None:
-            return ()
-        else:
-            return args
+        args: tuple[type[Any, ...]] | None = typ.__args__  # type: ignore
     except AttributeError:
         return get_args(typ)
+
+    # Some typing objects expose __args__ as a member_descriptor (e.g. typing.Union),
+    # which isn't iterable. Fall back to typing.get_args in that case.
+    if isinstance(args, tuple):
+        return args
+    return get_args(typ)
 
 
 def union_args(typ: Any) -> tuple[type[Any], ...]:
@@ -349,6 +375,16 @@ def iter_types(cls: type[Any]) -> list[type[Any]]:
             args = type_args(cls)
             if args:
                 recursive(args[0])
+        elif is_deque(cls):
+            lst.add(deque)
+            args = type_args(cls)
+            if args:
+                recursive(args[0])
+        elif is_counter(cls):
+            lst.add(Counter)
+            args = type_args(cls)
+            if args:
+                recursive(args[0])
         elif is_tuple(cls):
             lst.add(tuple)
             for arg in type_args(cls):
@@ -395,7 +431,7 @@ def iter_unions(cls: TypeLike) -> list[TypeLike]:
             args = type_args(cls)
             if args:
                 recursive(args[0])
-        elif is_list(cls) or is_set(cls):
+        elif is_list(cls) or is_set(cls) or is_deque(cls) or is_counter(cls):
             args = type_args(cls)
             if args:
                 recursive(args[0])
@@ -417,9 +453,10 @@ def iter_literals(cls: type[Any]) -> list[TypeLike]:
     Iterate over all literals that are used in the dataclass
     """
     lst: set[Union[type[Any], Any]] = set()
+    stack: list[TypeLike] = []  # To prevent infinite recursion
 
     def recursive(cls: Union[type[Any], Any]) -> None:
-        if cls in lst:
+        if cls in stack:
             return
 
         if is_literal(cls):
@@ -428,15 +465,16 @@ def iter_literals(cls: type[Any]) -> list[TypeLike]:
             for arg in type_args(cls):
                 recursive(arg)
         if is_dataclass(cls):
-            lst.add(cls)
+            stack.append(cls)
             if isinstance(cls, type):
                 for f in dataclass_fields(cls):
                     recursive(f.type)
+            stack.pop()
         elif is_opt(cls):
             args = type_args(cls)
             if args:
                 recursive(args[0])
-        elif is_list(cls) or is_set(cls):
+        elif is_list(cls) or is_set(cls) or is_deque(cls) or is_counter(cls):
             args = type_args(cls)
             if args:
                 recursive(args[0])
@@ -469,13 +507,12 @@ def is_union(typ: Any) -> bool:
     except Exception:
         pass
 
-    # Python 3.10 Union operator e.g. str | int
-    if sys.version_info[:2] >= (3, 10):
-        try:
-            if isinstance(typ, types.UnionType):
-                return True
-        except Exception:
-            pass
+    # Python 3.10+ Union operator e.g. str | int
+    try:
+        if isinstance(typ, types.UnionType):
+            return True
+    except Exception:
+        pass
 
     # typing.Union
     return typing_inspect.is_union_type(typ)  # type: ignore
@@ -494,14 +531,13 @@ def is_opt(typ: Any) -> bool:
     False
     """
 
-    # Python 3.10 Union operator e.g. str | None
+    # Python 3.10+ Union operator e.g. str | None
     is_union_type = False
-    if sys.version_info[:2] >= (3, 10):
-        try:
-            if isinstance(typ, types.UnionType):
-                is_union_type = True
-        except Exception:
-            pass
+    try:
+        if isinstance(typ, types.UnionType):
+            is_union_type = True
+    except Exception:
+        pass
 
     # typing.Optional
     is_typing_union = typing_inspect.is_optional_type(typ)
@@ -554,30 +590,50 @@ def is_opt_dataclass(typ: Any) -> bool:
 @cache
 def is_list(typ: type[Any]) -> bool:
     """
-    Test if the type is `list`.
+    Test if the type is `list`, `collections.abc.Sequence`, or `collections.abc.MutableSequence`.
 
     >>> is_list(list[int])
     True
     >>> is_list(list)
     True
+    >>> is_list(Sequence[int])
+    True
+    >>> is_list(Sequence)
+    True
+    >>> is_list(MutableSequence[int])
+    True
+    >>> is_list(MutableSequence)
+    True
     """
-    try:
-        return issubclass(get_origin(typ), list)  # type: ignore
-    except TypeError:
-        return typ is list
+    origin = get_origin(typ)
+    if origin is None:
+        return typ in (list, Sequence, MutableSequence)
+    return origin in (list, Sequence, MutableSequence)
 
 
 @cache
 def is_bare_list(typ: type[Any]) -> bool:
     """
-    Test if the type is `list` without type args.
+    Test if the type is `list`/`collections.abc.Sequence`/`collections.abc.MutableSequence`
+    without type args.
 
     >>> is_bare_list(list[int])
     False
     >>> is_bare_list(list)
     True
+    >>> is_bare_list(Sequence[int])
+    False
+    >>> is_bare_list(Sequence)
+    True
+    >>> is_bare_list(MutableSequence[int])
+    False
+    >>> is_bare_list(MutableSequence)
+    True
     """
-    return typ is list
+    origin = get_origin(typ)
+    if origin in (list, Sequence, MutableSequence):
+        return not type_args(typ)
+    return typ in (list, Sequence, MutableSequence)
 
 
 @cache
@@ -624,7 +680,7 @@ def is_variable_tuple(typ: type[Any]) -> bool:
 @cache
 def is_set(typ: type[Any]) -> bool:
     """
-    Test if the type is `set` or `frozenset`.
+    Test if the type is set-like.
 
     >>> is_set(set[int])
     True
@@ -632,24 +688,41 @@ def is_set(typ: type[Any]) -> bool:
     True
     >>> is_set(frozenset[int])
     True
+    >>> from collections.abc import Set, MutableSet
+    >>> is_set(Set[int])
+    True
+    >>> is_set(Set)
+    True
+    >>> is_set(MutableSet[int])
+    True
+    >>> is_set(MutableSet)
+    True
     """
     try:
-        return issubclass(get_origin(typ), (set, frozenset))  # type: ignore
+        return issubclass(get_origin(typ), (set, frozenset, Set, MutableSet))  # type: ignore[arg-type]
     except TypeError:
-        return typ in (set, frozenset)
+        return typ in (set, frozenset, Set, MutableSet)
 
 
 @cache
 def is_bare_set(typ: type[Any]) -> bool:
     """
-    Test if the type is `set` without type args.
+    Test if the type is `set`/`frozenset`/`Set`/`MutableSet` without type args.
 
     >>> is_bare_set(set[int])
     False
     >>> is_bare_set(set)
     True
+    >>> from collections.abc import Set, MutableSet
+    >>> is_bare_set(Set)
+    True
+    >>> is_bare_set(MutableSet)
+    True
     """
-    return typ in (set, frozenset)
+    origin = get_origin(typ)
+    if origin in (set, frozenset, Set, MutableSet):
+        return not type_args(typ)
+    return typ in (set, frozenset, Set, MutableSet)
 
 
 @cache
@@ -671,7 +744,7 @@ def is_frozen_set(typ: type[Any]) -> bool:
 @cache
 def is_dict(typ: type[Any]) -> bool:
     """
-    Test if the type is dict.
+    Test if the type is dict-like.
 
     >>> is_dict(dict[int, int])
     True
@@ -679,24 +752,44 @@ def is_dict(typ: type[Any]) -> bool:
     True
     >>> is_dict(defaultdict[int, int])
     True
+    >>> from collections.abc import Mapping, MutableMapping
+    >>> is_dict(Mapping[str, int])
+    True
+    >>> is_dict(Mapping)
+    True
+    >>> is_dict(MutableMapping[str, int])
+    True
+    >>> is_dict(MutableMapping)
+    True
     """
     try:
-        return issubclass(get_origin(typ), (dict, defaultdict))  # type: ignore
+        return issubclass(
+            get_origin(typ), (dict, defaultdict, Mapping, MutableMapping)  # type: ignore[arg-type]
+        )
     except TypeError:
-        return typ in (dict, defaultdict)
+        return typ in (dict, defaultdict, Mapping, MutableMapping)
 
 
 @cache
+@cache
 def is_bare_dict(typ: type[Any]) -> bool:
     """
-    Test if the type is `dict` without type args.
+    Test if the type is `dict`/`Mapping`/`MutableMapping` without type args.
 
     >>> is_bare_dict(dict[int, str])
     False
     >>> is_bare_dict(dict)
     True
+    >>> from collections.abc import Mapping, MutableMapping
+    >>> is_bare_dict(Mapping)
+    True
+    >>> is_bare_dict(MutableMapping)
+    True
     """
-    return typ is dict
+    origin = get_origin(typ)
+    if origin in (dict, Mapping, MutableMapping):
+        return not type_args(typ)
+    return typ in (dict, Mapping, MutableMapping)
 
 
 @cache
@@ -713,6 +806,74 @@ def is_default_dict(typ: type[Any]) -> bool:
         return issubclass(get_origin(typ), defaultdict)  # type: ignore
     except TypeError:
         return typ is defaultdict
+
+
+@cache
+def is_deque(typ: type[Any]) -> bool:
+    """
+    Test if the type is `collections.deque`.
+
+    >>> is_deque(deque[int])
+    True
+    >>> is_deque(deque)
+    True
+    >>> is_deque(list[int])
+    False
+    """
+    try:
+        return issubclass(get_origin(typ), deque)  # type: ignore
+    except TypeError:
+        return typ is deque
+
+
+@cache
+def is_bare_deque(typ: type[Any]) -> bool:
+    """
+    Test if the type is `collections.deque` without type args.
+
+    >>> is_bare_deque(deque[int])
+    False
+    >>> is_bare_deque(deque)
+    True
+    """
+    origin = get_origin(typ)
+    if origin is deque:
+        return not type_args(typ)
+    return typ is deque
+
+
+@cache
+def is_counter(typ: type[Any]) -> bool:
+    """
+    Test if the type is `collections.Counter`.
+
+    >>> is_counter(Counter[str])
+    True
+    >>> is_counter(Counter)
+    True
+    >>> is_counter(dict[str, int])
+    False
+    """
+    try:
+        return issubclass(get_origin(typ), Counter)  # type: ignore
+    except TypeError:
+        return typ is Counter
+
+
+@cache
+def is_bare_counter(typ: type[Any]) -> bool:
+    """
+    Test if the type is `collections.Counter` without type args.
+
+    >>> is_bare_counter(Counter[str])
+    False
+    >>> is_bare_counter(Counter)
+    True
+    """
+    origin = get_origin(typ)
+    if origin is Counter:
+        return not type_args(typ)
+    return typ is Counter
 
 
 @cache
@@ -758,7 +919,7 @@ def is_primitive_subclass(typ: type[Any]) -> bool:
 
 
 @cache
-def is_primitive(typ: Union[type[Any], NewType]) -> bool:
+def is_primitive(typ: type[Any] | NewType) -> bool:
     """
     Test if the type is primitive.
 
@@ -776,7 +937,7 @@ def is_primitive(typ: Union[type[Any], NewType]) -> bool:
 
 
 @cache
-def is_new_type_primitive(typ: Union[type[Any], NewType]) -> bool:
+def is_new_type_primitive(typ: type[Any] | NewType) -> bool:
     """
     Test if the type is a NewType of primitives.
     """
@@ -840,11 +1001,11 @@ def is_literal(typ: type[Any]) -> bool:
 
 
 @cache
-def is_any(typ: type[Any]) -> bool:
+def is_any(typ: Any) -> bool:
     """
     Test if the type is `typing.Any`.
     """
-    return typ is Any  # type: ignore
+    return typ is Any
 
 
 @cache
@@ -859,7 +1020,7 @@ def is_str_serializable(typ: type[Any]) -> bool:
 
 def is_datetime(
     typ: type[Any],
-) -> TypeGuard[Union[datetime.date, datetime.time, datetime.datetime]]:
+) -> TypeGuard[datetime.date | datetime.time | datetime.datetime]:
     """
     Test if the type is any of the datetime types..
     """
@@ -882,11 +1043,11 @@ def is_pep695_type_alias(typ: Any) -> bool:
     """
     Test if the type is of PEP695 type alias.
     """
-    return isinstance(typ, TypeAliasType)
+    return isinstance(typ, _PEP695_TYPES)
 
 
 @cache
-def get_type_var_names(cls: type[Any]) -> Optional[list[str]]:
+def get_type_var_names(cls: type[Any]) -> list[str] | None:
     """
     Get type argument names of a generic class.
 
@@ -941,8 +1102,8 @@ def find_generic_arg(cls: type[Any], field: TypeVar) -> int:
 
 def get_generic_arg(
     typ: Any,
-    maybe_generic_type_vars: Optional[list[str]],
-    variable_type_args: Optional[list[str]],
+    maybe_generic_type_vars: list[str] | None,
+    variable_type_args: list[str] | None,
     index: int,
 ) -> Any:
     """

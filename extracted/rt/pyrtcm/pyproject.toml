@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta:__legacy__"
 [project]
 name = "pyrtcm"
 dynamic = ["version"]
-authors = [{ name = "semuadmin", email = "semuadmin@semuconsulting.com" }]
-maintainers = [{ name = "semuadmin", email = "semuadmin@semuconsulting.com" }]
+authors = [{ name = "Steve Smith", email = "semuadmin@semuconsulting.com" }]
+maintainers = [{ name = "Steve Smith", email = "semuadmin@semuconsulting.com" }]
 description = "RTCM3 protocol parser"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Operating System :: OS Independent",
     "Development Status :: 5 - Production/Stable",
@@ -23,17 +23,17 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: End Users/Desktop",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Utilities",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Scientific/Engineering :: GIS",
 ]
 
-dependencies = []
+dependencies = ["pynmeagps >= 1.0.56"]
 
 [project.urls]
 homepage = "https://github.com/semuconsulting/pyrtcm"
@@ -43,6 +43,7 @@ changelog = "https://github.com/semuconsulting/pyrtcm/blob/master/RELEASE_NOTES.
 
 [dependency-groups]
 build = [
+    "awscli",
     "build",
     "packaging>=24.2",
     "pip",
@@ -67,10 +68,10 @@ deploy = [{ include-group = "build" }, { include-group = "test" }]
 version = { attr = "pyrtcm._version.__version__" }
 
 [tool.black]
-target-version = ['py39']
+target-version = ['py310']
 
 [tool.isort]
-py_version = 39
+py_version = 310
 profile = "black"
 
 [tool.bandit]
@@ -81,7 +82,7 @@ skips = []
 jobs = 0
 reports = "y"
 recursive = "y"
-py-version = "3.9"
+py-version = "3.10"
 fail-under = "9.8"
 fail-on = "E,F"
 clear-cache-post-run = "y"
@@ -98,7 +99,7 @@ disable = """
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "--cov --cov-report html --cov-fail-under 98"
+addopts = "--cov --cov-report html --cov-fail-under 99"
 pythonpath = ["src"]
 
 [tool.coverage.run]
@@ -108,7 +109,7 @@ source = ["src"]
 source = ["src"]
 
 [tool.coverage.report]
-fail_under = 15
+fail_under = 99
 
 [tool.coverage.html]
 directory = "htmlcov"

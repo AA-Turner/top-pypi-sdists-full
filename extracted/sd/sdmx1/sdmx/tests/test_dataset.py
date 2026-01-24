@@ -1,5 +1,6 @@
 import pandas as pd
 import pandas.testing as pdt
+import pytest
 
 import sdmx
 from sdmx import message
@@ -135,16 +136,17 @@ class TestGenericSeriesDataSet(DataMessageTest):
         # Number of attributes available
         assert len(set(s3.columns) - {"value"}) == 7
 
-        # Access an attribute of the first value.
-        # NB that this uses…
-        # 1. the *pandas* attribute access shorthand, NOT DictLike:
-        #    "s3.iloc[0]" is a single row of s3, i.e. a pd.Series; and
-        #    ".OBS_STATUS" accesses the ps.Series element associated with that
-        #    key in the index
-        # 2. the AttributeValue.__eq__() comparison operator;
-        #    s3.iloc[0].OBS_STATUS is a full AttributeValue, rather than a str.
+        # Access an attribute of the first value
+        #
+        # NB this uses the *pandas* attribute access shorthand, NOT DictLike:
+        # "s3.iloc[0]" is a single row of s3, i.e. a pd.Series; and ".OBS_STATUS"
+        # accesses the series element associated with that key in the index.
         assert s3.iloc[0].OBS_STATUS == "A"
-        assert s3.iloc[0].OBS_STATUS.value_for == "OBS_STATUS"  # consistency!
+
+        # Prior to khaeru/sdmx#243, the pandas object contains an AttributeValue object.
+        # Now it contains only its value.
+        with pytest.raises(AttributeError):
+            assert s3.iloc[0].OBS_STATUS.value_for == "OBS_STATUS"
 
     def test_write2pandas(self, msg):
         df = sdmx.to_pandas(msg, attributes="")
@@ -218,9 +220,7 @@ class TestGenericSeriesData_SiblingGroup_TS(DataMessageTest):
         # GroupKeys can be retrieved from keys of DataSet.group
         g2_key, g2 = list(data.group.items())[2]
         assert g2_key.CURRENCY == "JPY"
-        assert g2[0].attrib.TITLE == (
-            "ECB reference exchange rate, Japanese " "yen/Euro"
-        )
+        assert g2[0].attrib.TITLE == ("ECB reference exchange rate, Japanese yen/Euro")
 
         # Check group attributes of a series
         s = list(data.series)[0]
@@ -241,7 +241,7 @@ class TestGenericSeriesData_RateGroup_TS(DataMessageTest):
         g2_key, g2 = list(data.group.items())[2]
         assert g2_key.CURRENCY == "GBP"
         assert g2_key.attrib.TITLE == (
-            "ECB reference exchange rate, U.K. " "Pound sterling /Euro"
+            "ECB reference exchange rate, U.K. Pound sterling /Euro"
         )
         # Check group attributes of a series
         s = list(data.series)[0]

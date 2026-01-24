@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class ActivateAccount(BaseModel):
@@ -25,7 +26,8 @@ class ActivateAccount(BaseModel):
     """
 
     account_id: StrictStr = Field(
-        description="The unique identifier for the account in the third-party system that should be activated"
+        description="The unique identifier for the account in the third-party system that should be activated",
+        json_schema_extra={"x-semantic": "account-id"},
     )
     __properties: ClassVar[List[str]] = ["account_id"]
     model_config = ConfigDict(
@@ -71,3 +73,6 @@ class ActivateAccount(BaseModel):
             return cls.model_validate(obj)
         _obj = cls.model_validate({"account_id": obj.get("account_id")})
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

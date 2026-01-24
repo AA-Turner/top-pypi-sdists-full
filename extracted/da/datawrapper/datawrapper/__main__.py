@@ -1,9 +1,11 @@
 """A lightweight Python wrapper for the Datawrapper API."""
+
 from __future__ import annotations
 
 import json
 import logging
 import os
+import warnings
 from io import StringIO
 from pathlib import Path
 from typing import Any
@@ -12,7 +14,7 @@ import pandas as pd
 import requests as r
 from IPython.display import IFrame, Image
 
-from .exceptions import FailedRequest, InvalidRequest
+from .exceptions import FailedRequestError, InvalidRequestError, RateLimitError
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,9 @@ class Datawrapper:
     )  #: The endpoint for login tokens
     _OEMBED_URL = _BASE_URL + "/v3/oembed"  #: The endpoint for oembed methods
     _RIVER_URL = _BASE_URL + "/v3/river"  #: The endpoint for river methods
-    _TEAMS_URL = _BASE_URL + "/v3/teams"  #: The endpoint for team methods
+    _WORKSPACES_URL = (
+        _BASE_URL + "/v3/workspaces"
+    )  #: The endpoint for workspace methods
     _THEMES_URL = _BASE_URL + "/v3/themes"  #: The endpoint for theme methods
     _USERS_URL = _BASE_URL + "/v3/users"  #: The endpoint for user methods
 
@@ -62,13 +66,28 @@ class Datawrapper:
         """
 
         self._access_token = access_token
-        self._auth_header = {"Authorization": f"Bearer {access_token}"}
+
+    def _get_auth_header(self) -> dict:
+        """Get the authentication header for the Datawrapper API.
+
+        Returns
+        -------
+        dict
+            The authentication header for the Datawrapper API.
+        """
+        return {"Authorization": f"Bearer {self._access_token}"}
 
     #
     # Web request methods
     #
 
-    def delete(self, url: str, timeout: int = 15) -> bool:
+    def delete(
+        self,
+        url: str,
+        timeout: int = 15,
+        data: dict | None = None,
+        extra_headers: dict | None = None,
+    ) -> bool:
         """Make a DELETE request to the Datawrapper API.
 
         Parameters
@@ -77,6 +96,10 @@ class Datawrapper:
             The URL to request.
         timeout : int, optional
             The timeout for the request in seconds, by default 15
+        data : dict, optional
+            A dictionary of data to pass to the request, by default None
+        extra_headers : dict, optional
+            A dictionary of extra headers to pass to the request, by default None
 
         Returns
         -------
@@ -84,20 +107,30 @@ class Datawrapper:
             Whether the request was successful.
         """
         # Set the headers
-        headers = self._auth_header
+        headers = self._get_auth_header()
         headers["accept"] = "*/*"
 
+        # Add extra headers if provided
+        if extra_headers:
+            headers.update(extra_headers)
+
+        # Set kwargs
+        kwargs = {"headers": headers, "timeout": timeout}
+
+        # Add data if provided
+        if data:
+            kwargs["json"] = data
+
         # Make the request
-        response = r.delete(url, headers=headers)
+        response = r.delete(url, **kwargs)  # type: ignore[arg-type]
 
         # Handle the response
         if response.ok:
             return True
-        else:
-            logger.error(
-                f"Delete request failed with status code {response.status_code}."
-            )
-            raise FailedRequest(response)
+        logger.error(f"Delete request failed with status code {response.status_code}.")
+        if response.status_code == 429:
+            raise RateLimitError(response)
+        raise FailedRequestError(response)
 
     def get(self, url: str, params: dict | None = None, timeout: int = 15) -> Any:
         """Make a GET request to the Datawrapper API.
@@ -117,7 +150,7 @@ class Datawrapper:
             An object containing the response from the API.
         """
         # Set headers
-        headers = self._auth_header
+        headers = self._get_auth_header()
         headers["accept"] = "*/*"
 
         # Make the request
@@ -134,15 +167,15 @@ class Datawrapper:
             if "json" in response.headers["content-type"]:
                 return response.json()
             # If it's a csv, read the text into a dataframe
-            elif "text/csv" in response.headers["content-type"]:
+            if "text/csv" in response.headers["content-type"]:
                 return pd.read_csv(StringIO(response.text))
             # Otherwise just return the content
-            else:
-                return response.content
+            return response.content
         # If not, raise an exception
-        else:
-            logger.error(f"Get request failed with status code {response.status_code}.")
-            raise FailedRequest(response)
+        logger.error(f"Get request failed with status code {response.status_code}.")
+        if response.status_code == 429:
+            raise RateLimitError(response)
+        raise FailedRequestError(response)
 
     def patch(
         self,
@@ -170,7 +203,7 @@ class Datawrapper:
             A dictionary containing the response from the API.
         """
         # Set headers
-        headers = self._auth_header
+        headers = self._get_auth_header()
         headers["accept"] = "*/*"
         headers["content-type"] = "application/json"
 
@@ -186,18 +219,17 @@ class Datawrapper:
             kwargs["data"] = json.dumps(data)
 
         # Make the request
-        response = r.patch(url, **kwargs)
+        response = r.patch(url, **kwargs)  # type: ignore[arg-type]
 
         # Check if the request was successful
         if response.ok:
             # Return the data as json
             return response.json()
         # If not, raise an exception
-        else:
-            logger.error(
-                f"Patch request failed with status code {response.status_code}."
-            )
-            raise FailedRequest(response)
+        logger.error(f"Patch request failed with status code {response.status_code}.")
+        if response.status_code == 429:
+            raise RateLimitError(response)
+        raise FailedRequestError(response)
 
     def post(
         self,
@@ -226,7 +258,7 @@ class Datawrapper:
             successful but did not return any data.
         """
         # Set headers
-        headers = self._auth_header
+        headers = self._get_auth_header()
         headers["accept"] = "*/*"
 
         # Add extra headers if provided
@@ -241,26 +273,24 @@ class Datawrapper:
             kwargs["data"] = json.dumps(data)
 
         # Make the request
-        response = r.post(url, **kwargs)
+        response = r.post(url, **kwargs)  # type: ignore[arg-type]
 
         # Check if the request was successful
         if response.ok:
             # Return the data as json
             if response.text:
                 return response.json()
-            else:
-                return True
+            return True
         # If not, raise an exception
-        else:
-            logger.error(
-                f"Post request failed with status code {response.status_code}."
-            )
-            raise FailedRequest(response)
+        logger.error(f"Post request failed with status code {response.status_code}.")
+        if response.status_code == 429:
+            raise RateLimitError(response)
+        raise FailedRequestError(response)
 
     def put(
         self,
         url: str,
-        data: dict | None = None,
+        data: dict | bytes | None = None,
         timeout: int = 15,
         extra_headers: dict | None = None,
         dump_data: bool = True,
@@ -271,8 +301,8 @@ class Datawrapper:
         ----------
         url : str
             The URL to request.
-        data : dict
-            A dictionary of data to pass to the request, by default None
+        data : dict | bytes
+            A dictionary of data to pass to the request, or raw bytes when dump_data is False, by default None
         timeout : int, optional
             The timeout for the request in seconds, by default 15
         extra_headers : dict, optional
@@ -286,7 +316,7 @@ class Datawrapper:
             Whether the request was successful.
         """
         # Set headers
-        headers = self._auth_header
+        headers = self._get_auth_header()
         headers["accept"] = "*/*"
 
         # Add extra headers if provided
@@ -304,14 +334,15 @@ class Datawrapper:
                 kwargs["data"] = data
 
         # Make the request
-        response = r.put(url, **kwargs)
+        response = r.put(url, **kwargs)  # type: ignore[arg-type]
 
         # Handle the response
         if response.ok:
             return True
-        else:
-            logger.error(f"Put request failed with status code {response.status_code}.")
-            raise FailedRequest(response)
+        logger.error(f"Put request failed with status code {response.status_code}.")
+        if response.status_code == 429:
+            raise RateLimitError(response)
+        raise FailedRequestError(response)
 
     #
     # Login token actions
@@ -618,6 +649,10 @@ class Datawrapper:
     def get_chart(self, chart_id: str) -> dict:
         """Retrieve information of a specific chart, table or map.
 
+        .. deprecated::
+            Use the chart factory function instead to get typed chart instances.
+            This method will be removed in a future version.
+
         Parameters
         ----------
         chart_id : str
@@ -628,6 +663,13 @@ class Datawrapper:
         dict
             A dictionary containing the information of the chart, table, or map.
         """
+        warnings.warn(
+            "get_chart() is deprecated and will be removed in a future version. "
+            "Use the chart factory function instead to get typed chart instances. "
+            "Example: import datawrapper as dw; chart = dw.get_chart(chart_id='abc123')",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         return self.get(f"{self._CHARTS_URL}/{chart_id}")
 
     def chart_properties(self, chart_id: str) -> dict:
@@ -655,6 +697,10 @@ class Datawrapper:
         metadata: dict | None = None,
     ) -> dict:
         """Creates a new Datawrapper chart, table or map.
+
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
 
         Parameters
         ----------
@@ -687,6 +733,14 @@ class Datawrapper:
         dict
             A dictionary containing the created chart's information.
         """
+        warnings.warn(
+            "create_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart(title='My Chart', data=df).create()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         # Set chart properties
         _query: dict[str, Any] = {"title": title, "type": chart_type}
         if theme:
@@ -735,6 +789,10 @@ class Datawrapper:
     ) -> dict:
         """Updates a chart's title, theme, type, language, folder or organization.
 
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
+
         Parameters
         ----------
         chart_id: str
@@ -768,9 +826,17 @@ class Datawrapper:
 
         Raises
         ------
-        InvalidRequest
+        InvalidRequestError
             If no updates are submitted.
         """
+        warnings.warn(
+            "update_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart.get(chart_id='abc123'); chart.title = 'New Title'; chart.update()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         # Load the query with the provided parameters
         _query: dict[str, Any] = {}
         if title:
@@ -796,7 +862,7 @@ class Datawrapper:
         if not _query and data is None:
             msg = "No updates submitted."
             logger.error(msg)
-            raise InvalidRequest(msg)
+            raise InvalidRequestError(msg)
 
         # Update the chart
         if _query:
@@ -838,6 +904,7 @@ class Datawrapper:
         number_append: str | None = None,
         number_format: str | None = None,
         number_divisor: int | None = None,
+        hide_title: bool = False,
     ) -> dict:
         """Update a chart's description attributes
 
@@ -865,6 +932,8 @@ class Datawrapper:
             The format number
         number_divisor : str, optional
             A multiplier or divisor for the numbers
+        hide_title : bool
+            Whether or not to hide the chart title
 
         Returns
         -------
@@ -873,11 +942,11 @@ class Datawrapper:
 
         Raises
         ------
-        InvalidRequest
+        InvalidRequestError
             If no updates are submitted.
         """
         # Load the query with the provided parameters
-        _query: dict[str, Any] = {}
+        _query: dict[str, Any] = {"hide-title": hide_title}
         if source_name:
             _query["source-name"] = source_name
         if source_url:
@@ -901,13 +970,17 @@ class Datawrapper:
         if not _query:
             msg = "No updates submitted."
             logger.error(msg)
-            raise InvalidRequest(msg)
+            raise InvalidRequestError(msg)
 
         # Update the chart using the update_chart method
         return self.update_chart(chart_id, metadata={"describe": _query})
 
     def delete_chart(self, chart_id: str) -> bool:
         """Deletes a chart, table or map.
+
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
 
         Parameters
         ----------
@@ -919,6 +992,14 @@ class Datawrapper:
         bool
             True if the chart was deleted successfully.
         """
+        warnings.warn(
+            "delete_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart.get(chart_id='abc123'); chart.delete()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         return self.delete(f"{self._CHARTS_URL}/{chart_id}")
 
     def display_chart(self, chart_id: str) -> IFrame:
@@ -943,6 +1024,10 @@ class Datawrapper:
     def copy_chart(self, chart_id: str) -> dict:
         """Copy one of your charts, tables, or maps and create a new editable copy.
 
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
+
         Parameters
         ----------
         chart_id : str
@@ -953,6 +1038,14 @@ class Datawrapper:
         dict
             A dictionary containing the information of the chart, table, or map.
         """
+        warnings.warn(
+            "copy_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart.get(chart_id='abc123'); duplicate = chart.duplicate()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         response = self.post(f"{self._CHARTS_URL}/{chart_id}/copy")
         assert isinstance(response, dict)
         return response
@@ -960,6 +1053,10 @@ class Datawrapper:
     def fork_chart(self, chart_id: str) -> dict:
         """Fork a chart, table, or map and create an editable copy.
 
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
+
         Parameters
         ----------
         chart_id : str
@@ -970,16 +1067,24 @@ class Datawrapper:
         dict
             A dictionary containing the information of the chart, table, or map.
         """
+        warnings.warn(
+            "fork_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart.get(chart_id='abc123'); fork = chart.fork()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         response = self.post(f"{self._CHARTS_URL}/{chart_id}/fork")
         assert isinstance(response, dict)
         return response
 
-    def move_chart(self, chart_id: int, folder_id: int) -> dict:
+    def move_chart(self, chart_id: str, folder_id: int) -> dict:
         """Moves a chart, table, or map to a specified folder.
 
         Parameters
         ----------
-        chart_id : int
+        chart_id : str
             ID of chart, table, or map.
         folder_id : int
             ID of folder to move visualization to.
@@ -991,6 +1096,10 @@ class Datawrapper:
 
     def publish_chart(self, chart_id: str, display: bool = False) -> dict | IFrame:
         """Publishes a chart, table or map.
+
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
 
         Parameters
         ----------
@@ -1005,6 +1114,14 @@ class Datawrapper:
             Either a dictionary containing the published chart's information or an IFrame
             object displaying the chart.
         """
+        warnings.warn(
+            "publish_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart.get(chart_id='abc123'); chart.publish()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         obj = self.post(f"{self._CHARTS_URL}/{chart_id}/publish")
         assert isinstance(obj, dict)
         if display:
@@ -1012,8 +1129,7 @@ class Datawrapper:
             width = obj["data"]["metadata"]["publish"]["embed-width"]
             height = obj["data"]["metadata"]["publish"]["embed-height"]
             return IFrame(src, width=width, height=height)
-        else:
-            return obj
+        return obj
 
     def export_chart(
         self,
@@ -1021,16 +1137,28 @@ class Datawrapper:
         unit: str = "px",
         mode: str = "rgb",
         width: int = 400,
+        height: int | str | None = None,
         plain: bool = False,
         zoom: int = 2,
         scale: int = 1,
         border_width: int = 20,
+        border_color: str | None = None,
         transparent: bool = False,
+        download: bool = False,
+        full_vector: bool = False,
+        ligatures: bool = True,
+        logo: str = "auto",
+        logo_id: str | None = None,
+        dark: bool = False,
         output: str = "png",
         filepath: str = "./image.png",
         display: bool = False,
     ) -> Path | Image:
         """Exports a chart, table, or map.
+
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
 
         Parameters
         ----------
@@ -1044,7 +1172,9 @@ class Datawrapper:
             by default "rgb"
         width : int, optional
             Width of visualization. If not specified, it takes the chart width,
-            by default None
+            by default 400
+        height : int | str, optional
+            Height of visualization. Can be a number or "auto", by default None
         plain : bool, optional
             Defines if only the visualization should be exported (True), or if it should
              include header and footer as well (False), by default False
@@ -1053,9 +1183,24 @@ class Datawrapper:
         scale : int, optional
             Defines the multiplier for the pdf size, by default 1
         border_width : int, optional
-            Margin arouund the visualization, by default 20
+            Margin around the visualization, by default 20
+        border_color : str, optional
+            Color of the border around the visualization, by default None
         transparent : bool, optional
-            Set to `True` to export your visualization with a transparent background.
+            Set to `True` to export your visualization with a transparent background,
+            by default False
+        download : bool, optional
+            Whether to trigger a download, by default False
+        full_vector : bool, optional
+            Export as full vector graphic (for supported formats), by default False
+        ligatures : bool, optional
+            Enable typographic ligatures, by default True
+        logo : str, optional
+            Logo display setting. One of "auto", "on", or "off", by default "auto"
+        logo_id : str, optional
+            Custom logo ID to use, by default None
+        dark : bool, optional
+            Export in dark mode, by default False
         output : str, optional
             One of png, pdf, or svg, by default "png"
         filepath : str, optional
@@ -1069,6 +1214,14 @@ class Datawrapper:
         Path | Image
             The file path to the exported image or an Image object displaying the image.
         """
+        warnings.warn(
+            "export_chart() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart.get(chart_id='abc123'); png_data = chart.export_png(); Path('chart.png').write_bytes(png_data)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         _query = {
             "unit": unit,
             "mode": mode,
@@ -1077,8 +1230,21 @@ class Datawrapper:
             "zoom": zoom,
             "scale": scale,
             "borderWidth": border_width,
-            "transparent": transparent,
+            "transparent": json.dumps(transparent),
+            "download": json.dumps(download),
+            "fullVector": json.dumps(full_vector),
+            "ligatures": json.dumps(ligatures),
+            "logo": logo,
+            "dark": json.dumps(dark),
         }
+
+        # Add optional parameters only if provided
+        if height is not None:
+            _query["height"] = height
+        if border_color is not None:
+            _query["borderColor"] = border_color
+        if logo_id is not None:
+            _query["logoId"] = logo_id
 
         content = self.get(
             f"{self._CHARTS_URL}/{chart_id}/export/{output}", params=_query
@@ -1096,9 +1262,8 @@ class Datawrapper:
         if display:
             return Image(_filepath)
         # Otherwise return the file path
-        else:
-            logger.debug(f"File exported at {_filepath}")
-            return _filepath
+        logger.debug(f"File exported at {_filepath}")
+        return _filepath
 
     def get_chart_display_urls(self, chart_id: str) -> list[dict]:
         """Get the URLs for the published chart, table or map.
@@ -1168,6 +1333,10 @@ class Datawrapper:
     def add_data(self, chart_id: str, data: pd.DataFrame | str) -> bool:
         """Add data to a specified chart.
 
+        .. deprecated::
+            Use the object-oriented chart classes instead (e.g., BarChart, LineChart).
+            This method will be removed in a future version.
+
         Parameters
         ----------
         chart_id : str
@@ -1181,6 +1350,14 @@ class Datawrapper:
         bool
             True if the data was added successfully.
         """
+        warnings.warn(
+            "add_data() is deprecated and will be removed in a future version. "
+            "Use the object-oriented chart classes instead. "
+            "Example: chart = BarChart(title='My Chart', data=df).create() or chart.data = df; chart.update()",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
         # If data is a pandas dataframe, convert to csv
         if isinstance(data, pd.DataFrame):
             _data = data.to_csv(index=False, encoding="utf-8")
@@ -1367,7 +1544,7 @@ class Datawrapper:
         bool
             True if the folder was deleted successfully.
         """
-        return self.delete(f"{self._FOLDERS_URL }/{folder_id}")
+        return self.delete(f"{self._FOLDERS_URL}/{folder_id}")
 
     #
     # "Me" methods
@@ -1654,7 +1831,6 @@ class Datawrapper:
         self,
         chart_id: str,
         description: str,
-        attribution: int,
         byline: str,
         tags: list[str],
         forkable: bool,
@@ -1667,8 +1843,6 @@ class Datawrapper:
             ID of River chart to update.
         description : str
             Description of the River chart.
-        attribution : int
-            Attribution of the River chart.
         byline : str
             Byline of the River chart.
         tags : list[str]
@@ -1683,7 +1857,6 @@ class Datawrapper:
         """
         _query: dict = {
             "description": description,
-            "attribution": attribution,
             "byline": byline,
             "tags": tags,
             "forkable": json.dumps(forkable),
@@ -1730,10 +1903,10 @@ class Datawrapper:
         )
 
     #
-    # Team methods
+    # Workspace methods
     #
 
-    def get_teams(
+    def get_workspaces(
         self,
         search: str | None = None,
         order: str = "ASC",
@@ -1741,25 +1914,25 @@ class Datawrapper:
         limit: int = 100,
         offset: int = 0,
     ) -> dict:
-        """Get a list of teams in your Datawrapper account.
+        """Get a list of workspaces in your Datawrapper account.
 
         Parameters
         ----------
         search : str, optional
-            Search for teams with a specific name, by default no search filter is applied.
+            Search for a workspace name or slug including this term, by default None
         order : str, optional
             Result order (ascending or descending), by default "ASC." Supply "DESC" for descending order.
         order_by : str, optional
-            Attribute to order by. By default "name"
+            Attribute to order by. One of "name", "slug", or "created_at". By default "name"
         limit : int, optional
             Maximum items to fetch, by default 100. Useful for pagination.
         offset : int, optional
-            Offset for pagination, by default 0.
+            Number of items to skip, by default 0. Useful for pagination.
 
         Returns
         -------
         dict
-            A dictionary containing the teams in your Datawrapper account.
+            A dictionary containing the workspaces in your Datawrapper account.
         """
         _query: dict = {}
         if search:
@@ -1773,44 +1946,294 @@ class Datawrapper:
         if offset:
             _query["offset"] = offset
 
-        return self.get(self._TEAMS_URL, params=_query)
+        return self.get(self._WORKSPACES_URL, params=_query)
 
-    def create_team(
-        self,
-        name: str,
-        default_theme: str | None = None,
-    ) -> dict:
-        """Create a new team.
+    def get_workspace(self, workspace_slug: str) -> dict:
+        """Get an existing workspace by its slug.
 
         Parameters
         ----------
-        name : str
-            Name of the team.
-        default_theme : str, optional
-            Default theme of charts made by the team, optional.
+        workspace_slug : str
+            Slug of workspace to get.
 
         Returns
         -------
         dict
-            A dictionary containing the team's information.
+            A dictionary containing the workspace's information.
+        """
+        return self.get(f"{self._WORKSPACES_URL}/{workspace_slug}")
+
+    def create_workspace(
+        self,
+        name: str,
+        slug: str | None = None,
+    ) -> dict:
+        """Create a new workspace.
+
+        Parameters
+        ----------
+        name : str
+            Name of the workspace to be created (2-100 characters).
+        slug : str, optional
+            Slug for the workspace (2-100 characters). If not provided,
+            will be auto-generated from the name.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the workspace's information.
         """
         _query: dict = {"name": name}
-        if default_theme:
-            _query["defaultTheme"] = default_theme
+        if slug:
+            _query["slug"] = slug
 
         response = self.post(
-            self._TEAMS_URL,
+            self._WORKSPACES_URL,
             data=_query,
             extra_headers={"content-type": "application/json"},
         )
         assert isinstance(response, dict)
         return response
 
-    def get_team(self, team_id: str) -> dict:
-        """Get an existing team.
+    def update_workspace(
+        self,
+        workspace_slug: str,
+        name: str | None = None,
+        slug: str | None = None,
+        settings: dict | None = None,
+        secrets: dict | None = None,
+        color: str | None = None,
+    ) -> dict:
+        """Update an existing workspace.
 
         Parameters
         ----------
+        workspace_slug : str
+            Slug of workspace to update.
+        name : str, optional
+            New name for the workspace.
+        slug : str, optional
+            New slug for the workspace.
+        settings : dict, optional
+            Settings object for the workspace.
+        secrets : dict, optional
+            Secrets object for the workspace.
+        color : str, optional
+            Color for the workspace.
+
+        Returns
+        -------
+        dict
+            A dictionary with the workspace's updated metadata.
+
+        Raises
+        ------
+        Exception
+            If no parameters are supplied to update the workspace.
+        """
+        _query: dict = {}
+        if name:
+            _query["name"] = name
+        if slug:
+            _query["slug"] = slug
+        if settings:
+            _query["settings"] = settings
+        if secrets:
+            _query["secrets"] = secrets
+        if color:
+            _query["color"] = color
+
+        if not _query:
+            msg = "No parameters were supplied to update the workspace."
+            logger.error(msg)
+            raise Exception(msg)
+
+        return self.patch(
+            f"{self._WORKSPACES_URL}/{workspace_slug}",
+            data=_query,
+        )
+
+    def delete_workspace(self, workspace_slug: str) -> bool:
+        """Delete an existing workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace to delete.
+
+        Returns
+        -------
+        bool
+            True if the workspace was deleted successfully.
+        """
+        return self.delete(f"{self._WORKSPACES_URL}/{workspace_slug}")
+
+    def get_workspace_members(
+        self,
+        workspace_slug: str,
+        search: str | None = None,
+        order: str = "ASC",
+        order_by: str = "name",
+        limit: int = 100,
+        offset: int = 0,
+        role: str | None = None,
+        include_invites: bool = False,
+    ) -> dict:
+        """Get a list of members in a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace to get members for.
+        search : str, optional
+            Search for a user email or name including this term.
+        order : str, optional
+            Result order (ascending or descending), by default "ASC."
+        order_by : str, optional
+            Attribute to order by. One of "name", "visCount", "lastSeen", or "role". By default "name"
+        limit : int, optional
+            Maximum items to fetch, by default 100. Useful for pagination.
+        offset : int, optional
+            Number of items to skip, by default 0. Useful for pagination.
+        role : str, optional
+            Filter by workspace role. One of "member", "manager", or "admin".
+        include_invites : bool, optional
+            Include pending invites, by default False.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the members in the workspace.
+        """
+        _query: dict = {}
+        if search:
+            _query["search"] = search
+        if order:
+            _query["order"] = order
+        if order_by:
+            _query["orderBy"] = order_by
+        if limit:
+            _query["limit"] = limit
+        if offset:
+            _query["offset"] = offset
+        if role:
+            _query["role"] = role
+        if include_invites:
+            _query["includeInvites"] = include_invites
+
+        return self.get(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/members", params=_query
+        )
+
+    def update_workspace_members(
+        self,
+        workspace_slug: str,
+        member_ids: list[int],
+        role: str,
+    ) -> dict:
+        """Update workspace members' roles.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace to update members for.
+        member_ids : list[int]
+            Array of member user IDs to update.
+        role : str
+            New role to assign to the members. One of "member", "manager", or "admin".
+
+        Returns
+        -------
+        bool
+            True if the workspace members were updated successfully.
+        """
+        _query = {
+            "memberIds": member_ids,
+            "role": role,
+        }
+
+        return self.patch(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/members",
+            data=_query,
+        )
+
+    def remove_workspace_members(
+        self,
+        workspace_slug: str,
+        member_ids: list[int],
+    ) -> bool:
+        """Remove members from a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace to remove members from.
+        member_ids : list[int]
+            Array of member user IDs to remove.
+
+        Returns
+        -------
+        bool
+            True if the members were removed successfully.
+        """
+        return self.delete(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/members",
+            data={"memberIds": member_ids},
+            extra_headers={"content-type": "application/json"},
+        )
+
+    def get_workspace_teams(
+        self,
+        workspace_slug: str,
+        search: str | None = None,
+        order: str = "ASC",
+        order_by: str = "name",
+        limit: int = 100,
+        offset: int = 0,
+    ) -> dict:
+        """Get a list of teams in a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace to get teams for.
+        search : str, optional
+            Search for a team name or id including this term.
+        order : str, optional
+            Result order (ascending or descending), by default "ASC."
+        order_by : str, optional
+            Attribute to order by. One of "name" or "createdAt". By default "name"
+        limit : int, optional
+            Maximum items to fetch, by default 100. Useful for pagination.
+        offset : int, optional
+            Number of items to skip, by default 0. Useful for pagination.
+
+        Returns
+        -------
+        dict
+            A dictionary containing the teams in the workspace.
+        """
+        _query: dict = {}
+        if search:
+            _query["search"] = search
+        if order:
+            _query["order"] = order
+        if order_by:
+            _query["orderBy"] = order_by
+        if limit:
+            _query["limit"] = limit
+        if offset:
+            _query["offset"] = offset
+
+        return self.get(f"{self._WORKSPACES_URL}/{workspace_slug}/teams", params=_query)
+
+    def get_workspace_team(self, workspace_slug: str, team_id: str) -> dict:
+        """Get a team within a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
         team_id : str
             ID of team to get.
 
@@ -1819,38 +2242,179 @@ class Datawrapper:
         dict
             A dictionary containing the team's information.
         """
-        return self.get(self._TEAMS_URL + f"/{team_id}")
+        return self.get(f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}")
 
-    def get_team_members(
+    def create_workspace_team(
         self,
+        workspace_slug: str,
+        name: str,
+        is_private: bool = False,
+        icon: str | None = None,
+    ) -> dict:
+        """Create a new team in a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace to create team in.
+        name : str
+            Name of the team to be created.
+        is_private : bool, optional
+            Whether the team should be private, by default False.
+        icon : str, optional
+            Icon for the team (one of 183 available icons).
+
+        Returns
+        -------
+        dict
+            A dictionary containing the team's information.
+        """
+        _query: dict = {"name": name, "isPrivate": is_private}
+        if icon:
+            _query["icon"] = icon
+
+        response = self.post(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams",
+            data=_query,
+            extra_headers={"content-type": "application/json"},
+        )
+        assert isinstance(response, dict)
+        return response
+
+    def update_workspace_team(
+        self,
+        workspace_slug: str,
+        team_id: str,
+        name: str | None = None,
+        is_private: bool | None = None,
+        settings: dict | None = None,
+        secrets: dict | None = None,
+        icon: str | None = None,
+    ) -> dict:
+        """Update a team within a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
+        team_id : str
+            ID of team to update.
+        name : str, optional
+            New name for the team.
+        is_private : bool, optional
+            Whether the team should be private.
+        settings : dict, optional
+            Settings object for the team.
+        secrets : dict, optional
+            Secrets object for the team.
+        icon : str, optional
+            Icon for the team.
+
+        Returns
+        -------
+        dict
+            A dictionary with the team's updated metadata.
+
+        Raises
+        ------
+        Exception
+            If no parameters are supplied to update the team.
+        """
+        _query: dict = {}
+        if name:
+            _query["name"] = name
+        if is_private is not None:
+            _query["isPrivate"] = is_private
+        if settings:
+            _query["settings"] = settings
+        if secrets:
+            _query["secrets"] = secrets
+        if icon:
+            _query["icon"] = icon
+
+        if not _query:
+            msg = "No parameters were supplied to update the team."
+            logger.error(msg)
+            raise Exception(msg)
+
+        return self.patch(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}",
+            data=_query,
+        )
+
+    def delete_workspace_team(
+        self,
+        workspace_slug: str,
+        team_id: str,
+        migration_team_id: str | None = None,
+    ) -> bool:
+        """Delete a team within a workspace.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
+        team_id : str
+            ID of team to delete.
+        migration_team_id : str, optional
+            Target team ID for migrating team content. If not provided,
+            content will be migrated to the user's archive.
+
+        Returns
+        -------
+        bool
+            True if the team was deleted successfully.
+        """
+        _data = {}
+        if migration_team_id:
+            _data["migrationTeamId"] = migration_team_id
+
+        return self.delete(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}",
+            data=_data if _data else None,
+            extra_headers={"content-type": "application/json"} if _data else None,
+        )
+
+    def get_workspace_team_members(
+        self,
+        workspace_slug: str,
         team_id: str,
         search: str | None = None,
         order: str = "ASC",
         order_by: str = "name",
         limit: int = 100,
         offset: int = 0,
+        role: str | None = None,
+        include_invites: bool = False,
     ) -> dict:
-        """Get a list of members in a team.
+        """Get a list of members in a workspace team.
 
         Parameters
         ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
         team_id : str
             ID of team to get members for.
         search : str, optional
-            Search for members with a specific name, by default no search filter is applied.
+            Search for a user email or name including this term.
         order : str, optional
-            Result order (ascending or descending), by default "ASC." Supply "DESC" for descending order.
+            Result order (ascending or descending), by default "ASC."
         order_by : str, optional
-            Attribute to order by. By default "name"
+            Attribute to order by. One of "name", "visCount", "lastSeen",
+            "workspaceRole", or "role". By default "name"
         limit : int, optional
             Maximum items to fetch, by default 100. Useful for pagination.
         offset : int, optional
-            Offset for pagination, by default 0.
+            Number of items to skip, by default 0. Useful for pagination.
+        role : str, optional
+            Filter by team role. One of "manager" or "member".
+        include_invites : bool, optional
+            Include pending invites for this team, by default False.
 
         Returns
         -------
         dict
-            A dictionary containing the members in the team.
+            A dictionary containing the members in the workspace team.
         """
         _query: dict = {}
         if search:
@@ -1863,164 +2427,118 @@ class Datawrapper:
             _query["limit"] = limit
         if offset:
             _query["offset"] = offset
+        if role:
+            _query["role"] = role
+        if include_invites:
+            _query["includeInvites"] = include_invites
 
-        return self.get(f"{self._TEAMS_URL}/{team_id}/members", params=_query)
+        return self.get(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}/members",
+            params=_query,
+        )
 
-    def update_team(
+    def add_workspace_team_members(
         self,
+        workspace_slug: str,
         team_id: str,
-        name: str | None = None,
-        default_theme: str | None = None,
-    ) -> dict:
-        """Update an existing team.
+        user_ids: list[int],
+        role: str = "member",
+    ) -> bool:
+        """Add one or multiple users to a workspace team.
 
         Parameters
         ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
         team_id : str
-            ID of team to update.
-        name : str, optional
-            Name to change the team to.
-        default_theme : str, optional
-            Default theme of charts made by the team.
+            ID of team to add users to.
+        user_ids : list[int]
+            Array of user IDs to add to the team.
+        role : str, optional
+            Role to assign to the users in the team. One of "manager" or "member".
+            By default "member".
 
         Returns
         -------
-        dict
-            A dictionary with the team's updated metadata
+        bool
+            True if the users were added successfully.
         """
-        _query = {}
-        if name:
-            _query["name"] = name
-        if default_theme:
-            _query["defaultTheme"] = default_theme
+        _query = {
+            "userIds": user_ids,
+            "role": role,
+        }
 
-        if not _query:
-            msg = "No parameters were supplied to update the team."
-            logger.error(msg)
-            raise Exception(msg)
+        response = self.post(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}/members",
+            data=_query,
+            extra_headers={"content-type": "application/json"},
+        )
+        assert isinstance(response, bool)
+        return response
+
+    def update_workspace_team_members(
+        self,
+        workspace_slug: str,
+        team_id: str,
+        member_ids: list[int],
+        role: str = "member",
+    ) -> dict:
+        """Modify the role of users in a workspace team.
+
+        Parameters
+        ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
+        team_id : str
+            ID of team to update members in.
+        member_ids : list[int]
+            IDs of the users to modify in the team.
+        role : str, optional
+            Role to assign to the users in the team. One of "manager" or "member".
+            By default "member".
+
+        Returns
+        -------
+        bool
+            True if the members were updated successfully.
+        """
+        _query = {
+            "memberIds": member_ids,
+            "role": role,
+        }
 
         return self.patch(
-            f"{self._TEAMS_URL}/{team_id}",
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}/members",
             data=_query,
         )
 
-    def update_team_member(self, team_id: str, user_id: str, role: str) -> bool:
-        """Update a team member's role.
+    def remove_workspace_team_members(
+        self,
+        workspace_slug: str,
+        team_id: str,
+        member_ids: list[int],
+    ) -> bool:
+        """Remove multiple users from a workspace team.
 
         Parameters
         ----------
+        workspace_slug : str
+            Slug of workspace the team belongs to.
         team_id : str
-            ID of team to update.
-        user_id : str
-            ID of user to update.
-        role : str
-            Role to assign to user. One of owner, admin, or member.
+            ID of team to remove users from.
+        member_ids : list[int]
+            IDs of the users to remove from the team.
 
         Returns
         -------
         bool
-            True if the team member was updated successfully.
+            True if the members were removed successfully.
         """
-        return self.put(
-            f"{self._TEAMS_URL}/{team_id}/members/{user_id}/status",
-            data={"status": role},
+        return self.delete(
+            f"{self._WORKSPACES_URL}/{workspace_slug}/teams/{team_id}/members",
+            data={"memberIds": member_ids},
             extra_headers={"content-type": "application/json"},
         )
-
-    def delete_team(self, team_id: str) -> bool:
-        """Delete an existing team.
-
-        Parameters
-        ----------
-        team_id : str
-            ID of team to delete.
-
-        Returns
-        -------
-        bool
-            True if team was deleted successfully.
-        """
-        return self.delete(f"{self._TEAMS_URL}/{team_id}")
-
-    def remove_team_member(self, team_id: str, user_id: str) -> bool:
-        """Remove a member from a team.
-
-        Parameters
-        ----------
-        team_id : str
-            ID of team to remove member from.
-        user_id : str
-            ID of user to remove from team.
-
-        Returns
-        -------
-        bool
-            True if the member was removed successfully.
-        """
-        return self.delete(f"{self._TEAMS_URL}/{team_id}/members/{user_id}")
-
-    def send_invite(self, team_id: str, email: str, role: str) -> bool:
-        """Invite a user to a team.
-
-        Requires scope team:write.
-
-        Parameters
-        ----------
-        team_id : str
-            ID of team to invite user to.
-        email : str
-            Email of user to invite.
-        role : str
-            Role to assign to user. One of owner, admin, or member.
-
-        Returns
-        -------
-        dict
-            A dictionary containing the invitation's information.
-        """
-        response = self.post(
-            f"{self._TEAMS_URL}/{team_id}/invites",
-            data={"email": email, "role": role},
-            extra_headers={"content-type": "application/json"},
-        )
-        assert isinstance(response, bool)
-        return response
-
-    def accept_invite(self, team_id: str, invite_token: str) -> bool:
-        """Accept an invitation to a team.
-
-        Parameters
-        ----------
-        team_id : str
-            ID of team to accept invitation to.
-        invite_token : str
-            Token of invitation to accept.
-
-        Returns
-        -------
-        bool
-            True if the invitation was accepted successfully.
-        """
-        response = self.post(f"{self._TEAMS_URL}/{team_id}/invites/{invite_token}")
-        assert isinstance(response, bool)
-        return response
-
-    def reject_invite(self, team_id: str, invite_token: str) -> bool:
-        """Reject an invitation to a team.
-
-        Parameters
-        ----------
-        team_id : str
-            ID of team to accept invitation to.
-        invite_token : str
-            Token of invitation to accept.
-
-        Returns
-        -------
-        bool
-            True if the invitation was rejected successfully.
-        """
-        return self.delete(f"{self._TEAMS_URL}/{team_id}/invites/{invite_token}")
 
     #
     # User methods

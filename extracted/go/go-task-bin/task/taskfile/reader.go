@@ -3,13 +3,14 @@ package taskfile
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/dominikbraun/graph"
+	"go.yaml.in/yaml/v4"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/yaml.v3"
 
 	"github.com/go-task/task/v3/errors"
 	"github.com/go-task/task/v3/internal/env"
@@ -43,6 +44,7 @@ type (
 		insecure            bool
 		download            bool
 		offline             bool
+		trustedHosts        []string
 		tempDir             string
 		cacheExpiryDuration time.Duration
 		debugFunc           DebugFunc
@@ -59,6 +61,7 @@ func NewReader(opts ...ReaderOption) *Reader {
 		insecure:            false,
 		download:            false,
 		offline:             false,
+		trustedHosts:        nil,
 		tempDir:             os.TempDir(),
 		cacheExpiryDuration: 0,
 		debugFunc:           nil,
@@ -117,6 +120,20 @@ type offlineOption struct {
 
 func (o *offlineOption) ApplyToReader(r *Reader) {
 	r.offline = o.offline
+}
+
+// WithTrustedHosts configures the [Reader] with a list of trusted hosts for remote
+// Taskfiles. Hosts in this list will not prompt for user confirmation.
+func WithTrustedHosts(trustedHosts []string) ReaderOption {
+	return &trustedHostsOption{trustedHosts: trustedHosts}
+}
+
+type trustedHostsOption struct {
+	trustedHosts []string
+}
+
+func (o *trustedHostsOption) ApplyToReader(r *Reader) {
+	r.trustedHosts = o.trustedHosts
 }
 
 // WithTempDir sets the temporary directory that will be used by the [Reader].
@@ -187,9 +204,15 @@ func (o *promptFuncOption) ApplyToReader(r *Reader) {
 // building an [ast.TaskfileGraph] as it goes. If any errors occur, they will be
 // returned immediately.
 func (r *Reader) Read(ctx context.Context, node Node) (*ast.TaskfileGraph, error) {
+	// Clean up git cache after reading all taskfiles
+	defer func() {
+		_ = CleanGitCache()
+	}()
+
 	if err := r.include(ctx, node); err != nil {
 		return nil, err
 	}
+
 	return r.graph, nil
 }
 
@@ -204,6 +227,28 @@ func (r *Reader) promptf(format string, a ...any) error {
 		return r.promptFunc(fmt.Sprintf(format, a...))
 	}
 	return nil
+}
+
+// isTrusted checks if a URI's host matches any of the trusted hosts patterns.
+func (r *Reader) isTrusted(uri string) bool {
+	if len(r.trustedHosts) == 0 {
+		return false
+	}
+
+	// Parse the URI to extract the host
+	parsedURL, err := url.Parse(uri)
+	if err != nil {
+		return false
+	}
+	host := parsedURL.Host
+
+	// Check against each trusted pattern (exact match including port if provided)
+	for _, pattern := range r.trustedHosts {
+		if host == pattern {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *Reader) include(ctx context.Context, node Node) error {
@@ -459,9 +504,9 @@ func (r *Reader) readRemoteNodeContent(ctx context.Context, node RemoteNode) ([]
 
 	// If there is no manual checksum pin, run the automatic checks
 	if node.Checksum() == "" {
-		// Prompt the user if required
+		// Prompt the user if required (unless host is trusted)
 		prompt := cache.ChecksumPrompt(checksum)
-		if prompt != "" {
+		if prompt != "" && !r.isTrusted(node.Location()) {
 			if err := func() error {
 				r.promptMutex.Lock()
 				defer r.promptMutex.Unlock()

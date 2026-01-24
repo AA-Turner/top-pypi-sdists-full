@@ -17,13 +17,8 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping
-else:
-    from typing import Dict, List, Mapping
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -53,7 +48,7 @@ class QueryForecastRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -65,7 +60,7 @@ class QueryWhatIfForecastRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 class ForecastTypeDef(TypedDict):
-    Predictions: NotRequired[Dict[str, List[DataPointTypeDef]]]
+    Predictions: NotRequired[dict[str, list[DataPointTypeDef]]]
 
 class QueryForecastResponseTypeDef(TypedDict):
     Forecast: ForecastTypeDef

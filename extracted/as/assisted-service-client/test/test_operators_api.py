@@ -39,7 +39,7 @@ class TestOperatorsApi(unittest.TestCase):
     def test_v2_list_bundles(self):
         """Test case for v2_list_bundles
 
-        Get list of avaliable bundles  # noqa: E501
+        Get list of available bundles  # noqa: E501
         """
         pass
 

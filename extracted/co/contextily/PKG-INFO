@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: contextily
-Version: 1.6.2
+Version: 1.7.0
 Summary: Context geo-tiles in Python
 Author-email: Dani Arribas-Bel <daniel.arribas.bel@gmail.com>
 Maintainer: contextily contributors
@@ -9,8 +9,13 @@ Project-URL: Home, https://github.com/geopandas/contextily
 Project-URL: Repository, https://github.com/geopandas/contextily
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Matplotlib
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: geopy
@@ -21,10 +26,11 @@ Requires-Dist: rasterio
 Requires-Dist: requests
 Requires-Dist: joblib
 Requires-Dist: xyzservices
+Dynamic: license-file
 
 # `contextily`: context geo tiles in Python
 
-`contextily` is a small Python 3 (3.9 and above) package to retrieve tile maps from the
+`contextily` is a small Python 3 (3.10 and above) package to retrieve tile maps from the
 internet. It can add those tiles as basemap to matplotlib figures or write tile
 maps to disk into geospatial raster files. Bounding boxes can be passed in both
 WGS84 (`EPSG:4326`) and Spheric Mercator (`EPSG:3857`). See the notebook
@@ -57,7 +63,7 @@ package. This includes some popular tile maps, such as:
 
 ## Installation
 
-**Python 3 only** (3.9 and above)
+**Python 3 only** (3.10 and above)
 
 [Latest released version](https://github.com/geopandas/contextily/releases/), using pip:
 

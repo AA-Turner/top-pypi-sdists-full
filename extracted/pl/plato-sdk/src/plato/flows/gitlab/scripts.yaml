@@ -1,0 +1,110 @@
+flows:
+- name: login
+  description: Standard login flow for GitLab CE
+  steps:
+  - description: Screenshot before login (initial page)
+    filename: 01_before_login.png
+    type: screenshot
+  - description: Wait for GitLab page to fully load
+    duration: 5000
+    type: wait
+  - description: Wait for username field
+    selector: 'input[data-testid="username-field"], input[name="user[login]"], #user_login'
+    timeout: 30000
+    type: wait_for_selector
+  - description: Verify username field is visible
+    selector: 'input[data-testid="username-field"], input[name="user[login]"], #user_login'
+    type: verify
+    verify_type: element_visible
+  - description: Fill username field
+    selector: 'input[data-testid="username-field"], input[name="user[login]"], #user_login'
+    type: fill
+    value: root
+  - description: Wait for password field
+    selector: 'input[data-testid="password-field"], input[name="user[password]"],
+      #user_password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Verify password field is visible
+    selector: 'input[data-testid="password-field"], input[name="user[password]"],
+      #user_password'
+    type: verify
+    verify_type: element_visible
+  - description: Fill password field
+    selector: 'input[data-testid="password-field"], input[name="user[password]"],
+      #user_password'
+    type: fill
+    value: supersecure
+  - description: Screenshot after credentials entered, before submission
+    filename: 02_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[data-testid="sign-in-button"], input[data-testid="sign-in-button"],
+      button[type="submit"], input[type="submit"]
+    type: click
+  - description: Wait for login to process
+    duration: 5000
+    type: wait
+  - description: Screenshot after login attempt
+    filename: 03_after_login.png
+    type: screenshot
+  - description: Wait for dashboard to load
+    duration: 3000
+    type: wait
+  - description: Verify no login errors are displayed
+    error_selectors:
+    - .alert-danger
+    - .flash-alert
+    - .gl-alert-danger
+    - '[data-testid="alert-danger"]'
+    - .invalid-feedback
+    type: verify_no_errors
+  - description: Verify GitLab main interface elements are present (sidebar or dashboard)
+    selector: '[data-testid="super-sidebar"], .navbar-gitlab, .header-main, .nav-sidebar,
+      .dashboard-shortcuts'
+    type: verify
+    verify_type: element_exists
+- name: incorrect_login
+  description: Verify login fails with incorrect password
+  steps:
+  - description: Screenshot before incorrect login attempt
+    filename: 01_before_incorrect_login.png
+    type: screenshot
+  - description: Wait for page to fully load
+    duration: 3000
+    type: wait
+  - description: Wait for username/email field
+    selector: 'input[data-testid="username-field"], input[name="user[login]"], #user_login'
+    timeout: 15000
+    type: wait_for_selector
+  - description: Fill username/email field with valid username
+    selector: 'input[data-testid="username-field"], input[name="user[login]"], #user_login'
+    type: fill
+    value: root
+  - description: Wait for password field
+    selector: 'input[data-testid="password-field"], input[name="user[password]"],
+      #user_password'
+    timeout: 5000
+    type: wait_for_selector
+  - description: Fill password field with incorrect password
+    selector: 'input[data-testid="password-field"], input[name="user[password]"],
+      #user_password'
+    type: fill
+    value: wrongpassword
+  - description: Screenshot after entering incorrect credentials
+    filename: 02_incorrect_credentials_entered.png
+    type: screenshot
+  - description: Click login submit button
+    selector: button[data-testid="sign-in-button"], input[data-testid="sign-in-button"],
+      button[type="submit"], input[type="submit"]
+    type: click
+  - description: Wait for login attempt to process
+    duration: 3000
+    type: wait
+  - description: Screenshot after incorrect login attempt
+    filename: 03_after_incorrect_login.png
+    type: screenshot
+  - description: Verify error message is displayed
+    selector: .flash-alert, .alert-danger, .gl-alert-danger
+    type: verify
+    verify_type: element_exists

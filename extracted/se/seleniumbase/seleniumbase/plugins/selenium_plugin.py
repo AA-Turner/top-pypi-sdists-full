@@ -1,9 +1,11 @@
 """Selenium Plugin for SeleniumBase tests that run with pynose / nosetests"""
+import os
 import sys
 from contextlib import suppress
 from nose.plugins import Plugin
 from seleniumbase import config as sb_config
 from seleniumbase.config import settings
+from seleniumbase.core import detect_b_ver
 from seleniumbase.core import proxy_helper
 from seleniumbase.fixtures import constants
 from seleniumbase.fixtures import shared_utils
@@ -16,6 +18,11 @@ class SeleniumBrowser(Plugin):
     --edge  (Shortcut for "--browser=edge".)
     --firefox  (Shortcut for "--browser=firefox".)
     --safari  (Shortcut for "--browser=safari".)
+    --opera  (Shortcut for "--browser=opera".)
+    --brave  (Shortcut for "--browser=brave".)
+    --comet  (Shortcut for "--browser=comet".)
+    --atlas  (Shortcut for "--browser=atlas".)
+    --use-chromium  (Shortcut for using base `Chromium`)
     --cft  (Shortcut for using `Chrome for Testing`)
     --chs  (Shortcut for using `Chrome-Headless-Shell`)
     --user-data-dir=DIR  (Set the Chrome user data directory to use.)
@@ -145,6 +152,41 @@ class SeleniumBrowser(Plugin):
             dest="use_safari",
             default=False,
             help="""Shortcut for --browser=safari""",
+        )
+        parser.addoption(
+            "--opera",
+            action="store_true",
+            dest="use_opera",
+            default=False,
+            help="""Shortcut for --browser=opera""",
+        )
+        parser.addoption(
+            "--brave",
+            action="store_true",
+            dest="use_brave",
+            default=False,
+            help="""Shortcut for --browser=brave""",
+        )
+        parser.addoption(
+            "--comet",
+            action="store_true",
+            dest="use_comet",
+            default=False,
+            help="""Shortcut for --browser=comet""",
+        )
+        parser.addoption(
+            "--atlas",
+            action="store_true",
+            dest="use_atlas",
+            default=False,
+            help="""Shortcut for --browser=atlas""",
+        )
+        parser.addoption(
+            "--use-chromium",
+            action="store_true",
+            dest="use_chromium",
+            default=False,
+            help="""Shortcut for using base `Chromium`""",
         )
         parser.addoption(
             "--cft",
@@ -333,7 +375,7 @@ class SeleniumBrowser(Plugin):
             help="""Designates the three device metrics of the mobile
                     emulator: CSS Width, CSS Height, and Pixel-Ratio.
                     Format: A comma-separated string with the 3 values.
-                    Examples: "375,734,5" or "411,731,3" or "390,715,3"
+                    Examples: "375,734,5" or "412,732,3" or "390,715,3"
                     Default: None. (Will use default values if None)""",
         )
         parser.addoption(
@@ -1057,6 +1099,11 @@ class SeleniumBrowser(Plugin):
         browser_set = None
         browser_text = None
         browser_list = []
+        # Check if binary-location in options
+        bin_loc_in_options = False
+        for arg in sys_argv:
+            if arg in ["--binary-location", "--binary_location", "--bl"]:
+                bin_loc_in_options = True
         if "--browser=chrome" in sys_argv or "--browser chrome" in sys_argv:
             browser_changes += 1
             browser_set = "chrome"
@@ -1081,6 +1128,46 @@ class SeleniumBrowser(Plugin):
             browser_changes += 1
             browser_set = "remote"
             browser_list.append("--browser=remote")
+        if "--browser=opera" in sys_argv or "--browser opera" in sys_argv:
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("opera")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_set = "opera"
+                    sb_config._browser_shortcut = "opera"
+                    sb_config._cdp_browser = "opera"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--browser=opera")
+        if "--browser=brave" in sys_argv or "--browser brave" in sys_argv:
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("brave")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_set = "brave"
+                    sb_config._browser_shortcut = "brave"
+                    sb_config._cdp_browser = "brave"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--browser=brave")
+        if "--browser=comet" in sys_argv or "--browser comet" in sys_argv:
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("comet")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_set = "comet"
+                    sb_config._browser_shortcut = "comet"
+                    sb_config._cdp_browser = "comet"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--browser=comet")
+        if "--browser=atlas" in sys_argv or "--browser atlas" in sys_argv:
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("atlas")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_set = "atlas"
+                    sb_config._browser_shortcut = "atlas"
+                    sb_config._cdp_browser = "atlas"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--browser=atlas")
         browser_text = browser_set
         if "--chrome" in sys_argv and not browser_set == "chrome":
             browser_changes += 1
@@ -1107,6 +1194,46 @@ class SeleniumBrowser(Plugin):
             browser_text = "safari"
             sb_config._browser_shortcut = "safari"
             browser_list.append("--safari")
+        if "--opera" in sys_argv and not browser_set == "opera":
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("opera")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_text = "opera"
+                    sb_config._browser_shortcut = "opera"
+                    sb_config._cdp_browser = "opera"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--opera")
+        if "--brave" in sys_argv and not browser_set == "brave":
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("brave")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_text = "brave"
+                    sb_config._browser_shortcut = "brave"
+                    sb_config._cdp_browser = "brave"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--brave")
+        if "--comet" in sys_argv and not browser_set == "comet":
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("comet")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_text = "comet"
+                    sb_config._browser_shortcut = "comet"
+                    sb_config._cdp_browser = "comet"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--comet")
+        if "--atlas" in sys_argv and not browser_set == "atlas":
+            if not bin_loc_in_options:
+                bin_loc = detect_b_ver.get_binary_location("atlas")
+                if os.path.exists(bin_loc):
+                    browser_changes += 1
+                    browser_text = "atlas"
+                    sb_config._browser_shortcut = "atlas"
+                    sb_config._cdp_browser = "atlas"
+                    sb_config._cdp_bin_loc = bin_loc
+                    browser_list.append("--atlas")
         if browser_changes > 1:
             message = "\n\n  TOO MANY browser types were entered!"
             message += "\n  There were %s found:\n  >  %s" % (
@@ -1118,9 +1245,11 @@ class SeleniumBrowser(Plugin):
             raise Exception(message)
         if browser_text:
             browser = browser_text
-        if self.options.recorder_mode and browser not in ["chrome", "edge"]:
+        if self.options.recorder_mode and browser not in [
+            "chrome", "edge", "opera", "brave", "comet", "atlas", "chromium"
+        ]:
             message = (
-                "\n\n  Recorder Mode ONLY supports Chrome and Edge!"
+                "\n\n  Recorder Mode ONLY supports Chromium browsers!"
                 '\n  (Your browser choice was: "%s")\n' % browser
             )
             raise Exception(message)
@@ -1219,7 +1348,11 @@ class SeleniumBrowser(Plugin):
         test.test.extension_dir = self.options.extension_dir
         test.test.disable_features = self.options.disable_features
         test.test.binary_location = self.options.binary_location
-        if self.options.use_cft and not test.test.binary_location:
+        if getattr(sb_config, "_cdp_bin_loc", None):
+            test.test.binary_location = sb_config._cdp_bin_loc
+        if self.options.use_chromium and not test.test.binary_location:
+            test.test.binary_location = "_chromium_"
+        elif self.options.use_cft and not test.test.binary_location:
             test.test.binary_location = "cft"
         elif self.options.use_chs and not test.test.binary_location:
             test.test.binary_location = "chs"
@@ -1232,6 +1365,10 @@ class SeleniumBrowser(Plugin):
             test.test.headless = True
             test.test.headless1 = False
             test.test.headless2 = False
+        if test.test.browser in constants.ChromiumSubs.chromium_subs:
+            if not sb_config.binary_location:
+                test.test.browser = "chrome"  # Still uses chromedriver
+                sb_config._browser_shortcut = test.test.browser
         test.test.driver_version = self.options.driver_version
         test.test.page_load_strategy = self.options.page_load_strategy
         test.test.chromium_arg = self.options.chromium_arg
@@ -1390,10 +1527,7 @@ class SeleniumBrowser(Plugin):
 
     def finalize(self, result):
         """This runs after all tests have completed with nosetests."""
-        if (
-            (hasattr(sb_config, "multi_proxy") and not sb_config.multi_proxy)
-            or not hasattr(sb_config, "multi_proxy")
-        ):
+        if not getattr(sb_config, "multi_proxy", None):
             proxy_helper.remove_proxy_zip_if_present()
 
     def afterTest(self, test):
@@ -1411,8 +1545,7 @@ class SeleniumBrowser(Plugin):
             pass
         with suppress(Exception):
             if (
-                hasattr(self, "_xvfb_display")
-                and self._xvfb_display
+                getattr(self, "_xvfb_display", None)
                 and hasattr(self._xvfb_display, "stop")
             ):
                 self.headless_active = False
@@ -1420,8 +1553,7 @@ class SeleniumBrowser(Plugin):
                 self._xvfb_display.stop()
                 self._xvfb_display = None
             if (
-                hasattr(sb_config, "_virtual_display")
-                and sb_config._virtual_display
+                getattr(sb_config, "_virtual_display", None)
                 and hasattr(sb_config._virtual_display, "stop")
             ):
                 sb_config._virtual_display.stop()

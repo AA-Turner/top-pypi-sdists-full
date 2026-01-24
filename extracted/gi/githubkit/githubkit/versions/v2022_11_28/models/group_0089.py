@@ -9,30 +9,33 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
+from .group_0034 import SimpleRepository
 
-class RunnerApplication(GitHubModel):
-    """Runner Application
 
-    Runner Application
+class DependabotRepositoryAccessDetails(GitHubModel):
+    """Dependabot Repository Access Details
+
+    Information about repositories that Dependabot is able to access in an
+    organization
     """
 
-    os: str = Field()
-    architecture: str = Field()
-    download_url: str = Field()
-    filename: str = Field()
-    temp_download_token: Missing[str] = Field(
+    default_level: Missing[Union[None, Literal["public", "internal"]]] = Field(
         default=UNSET,
-        description="A short lived bearer token used to download the runner, if needed.",
+        description="The default repository access level for Dependabot updates.",
     )
-    sha256_checksum: Missing[str] = Field(default=UNSET)
+    accessible_repositories: Missing[list[Union[None, SimpleRepository]]] = Field(
+        default=UNSET
+    )
 
 
-model_rebuild(RunnerApplication)
+model_rebuild(DependabotRepositoryAccessDetails)
 
-__all__ = ("RunnerApplication",)
+__all__ = ("DependabotRepositoryAccessDetails",)

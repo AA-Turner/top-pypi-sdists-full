@@ -1,7 +1,7 @@
 r'''
 # `github_actions_organization_secret`
 
-Refer to the Terraform Registry for docs: [`github_actions_organization_secret`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret).
+Refer to the Terraform Registry for docs: [`github_actions_organization_secret`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ActionsOrganizationSecret(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.actionsOrganizationSecret.ActionsOrganizationSecret",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret github_actions_organization_secret}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret github_actions_organization_secret}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class ActionsOrganizationSecret(
         *,
         secret_name: builtins.str,
         visibility: builtins.str,
+        destroy_on_drift: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         encrypted_value: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         plaintext_value: typing.Optional[builtins.str] = None,
@@ -65,16 +66,17 @@ class ActionsOrganizationSecret(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret github_actions_organization_secret} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret github_actions_organization_secret} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param secret_name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#secret_name ActionsOrganizationSecret#secret_name}
-        :param visibility: Configures the access that repositories have to the organization secret. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#visibility ActionsOrganizationSecret#visibility}
-        :param encrypted_value: Encrypted value of the secret using the GitHub public key in Base64 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#encrypted_value ActionsOrganizationSecret#encrypted_value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#id ActionsOrganizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param plaintext_value: Plaintext value of the secret to be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#plaintext_value ActionsOrganizationSecret#plaintext_value}
-        :param selected_repository_ids: An array of repository ids that can access the organization secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#selected_repository_ids ActionsOrganizationSecret#selected_repository_ids}
+        :param secret_name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#secret_name ActionsOrganizationSecret#secret_name}
+        :param visibility: Configures the access that repositories have to the organization secret. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#visibility ActionsOrganizationSecret#visibility}
+        :param destroy_on_drift: Boolean indicating whether to recreate the secret if it's modified outside of Terraform. When ``true`` (default), Terraform will delete and recreate the secret if it detects external changes. When ``false``, Terraform will acknowledge external changes but not recreate the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#destroy_on_drift ActionsOrganizationSecret#destroy_on_drift}
+        :param encrypted_value: Encrypted value of the secret using the GitHub public key in Base64 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#encrypted_value ActionsOrganizationSecret#encrypted_value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#id ActionsOrganizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param plaintext_value: Plaintext value of the secret to be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#plaintext_value ActionsOrganizationSecret#plaintext_value}
+        :param selected_repository_ids: An array of repository ids that can access the organization secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#selected_repository_ids ActionsOrganizationSecret#selected_repository_ids}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -90,6 +92,7 @@ class ActionsOrganizationSecret(
         config = ActionsOrganizationSecretConfig(
             secret_name=secret_name,
             visibility=visibility,
+            destroy_on_drift=destroy_on_drift,
             encrypted_value=encrypted_value,
             id=id,
             plaintext_value=plaintext_value,
@@ -118,7 +121,7 @@ class ActionsOrganizationSecret(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ActionsOrganizationSecret to import.
-        :param import_from_id: The id of the existing ActionsOrganizationSecret that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ActionsOrganizationSecret that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ActionsOrganizationSecret to import is found.
         '''
         if __debug__:
@@ -128,6 +131,10 @@ class ActionsOrganizationSecret(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetDestroyOnDrift")
+    def reset_destroy_on_drift(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDestroyOnDrift", []))
 
     @jsii.member(jsii_name="resetEncryptedValue")
     def reset_encrypted_value(self) -> None:
@@ -169,6 +176,13 @@ class ActionsOrganizationSecret(
         return typing.cast(builtins.str, jsii.get(self, "updatedAt"))
 
     @builtins.property
+    @jsii.member(jsii_name="destroyOnDriftInput")
+    def destroy_on_drift_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "destroyOnDriftInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="encryptedValueInput")
     def encrypted_value_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "encryptedValueInput"))
@@ -199,6 +213,23 @@ class ActionsOrganizationSecret(
     @jsii.member(jsii_name="visibilityInput")
     def visibility_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "visibilityInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="destroyOnDrift")
+    def destroy_on_drift(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "destroyOnDrift"))
+
+    @destroy_on_drift.setter
+    def destroy_on_drift(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0065270697a9677d0a6f6d33ab1856647ad49e5d10abd0211d960a4135d4ab1d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destroyOnDrift", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="encryptedValue")
@@ -286,6 +317,7 @@ class ActionsOrganizationSecret(
         "provisioners": "provisioners",
         "secret_name": "secretName",
         "visibility": "visibility",
+        "destroy_on_drift": "destroyOnDrift",
         "encrypted_value": "encryptedValue",
         "id": "id",
         "plaintext_value": "plaintextValue",
@@ -305,6 +337,7 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         secret_name: builtins.str,
         visibility: builtins.str,
+        destroy_on_drift: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         encrypted_value: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         plaintext_value: typing.Optional[builtins.str] = None,
@@ -318,12 +351,13 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param secret_name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#secret_name ActionsOrganizationSecret#secret_name}
-        :param visibility: Configures the access that repositories have to the organization secret. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#visibility ActionsOrganizationSecret#visibility}
-        :param encrypted_value: Encrypted value of the secret using the GitHub public key in Base64 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#encrypted_value ActionsOrganizationSecret#encrypted_value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#id ActionsOrganizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param plaintext_value: Plaintext value of the secret to be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#plaintext_value ActionsOrganizationSecret#plaintext_value}
-        :param selected_repository_ids: An array of repository ids that can access the organization secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#selected_repository_ids ActionsOrganizationSecret#selected_repository_ids}
+        :param secret_name: Name of the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#secret_name ActionsOrganizationSecret#secret_name}
+        :param visibility: Configures the access that repositories have to the organization secret. Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#visibility ActionsOrganizationSecret#visibility}
+        :param destroy_on_drift: Boolean indicating whether to recreate the secret if it's modified outside of Terraform. When ``true`` (default), Terraform will delete and recreate the secret if it detects external changes. When ``false``, Terraform will acknowledge external changes but not recreate the secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#destroy_on_drift ActionsOrganizationSecret#destroy_on_drift}
+        :param encrypted_value: Encrypted value of the secret using the GitHub public key in Base64 format. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#encrypted_value ActionsOrganizationSecret#encrypted_value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#id ActionsOrganizationSecret#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param plaintext_value: Plaintext value of the secret to be encrypted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#plaintext_value ActionsOrganizationSecret#plaintext_value}
+        :param selected_repository_ids: An array of repository ids that can access the organization secret. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#selected_repository_ids ActionsOrganizationSecret#selected_repository_ids}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -338,6 +372,7 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument secret_name", value=secret_name, expected_type=type_hints["secret_name"])
             check_type(argname="argument visibility", value=visibility, expected_type=type_hints["visibility"])
+            check_type(argname="argument destroy_on_drift", value=destroy_on_drift, expected_type=type_hints["destroy_on_drift"])
             check_type(argname="argument encrypted_value", value=encrypted_value, expected_type=type_hints["encrypted_value"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument plaintext_value", value=plaintext_value, expected_type=type_hints["plaintext_value"])
@@ -360,6 +395,8 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if destroy_on_drift is not None:
+            self._values["destroy_on_drift"] = destroy_on_drift
         if encrypted_value is not None:
             self._values["encrypted_value"] = encrypted_value
         if id is not None:
@@ -437,7 +474,7 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def secret_name(self) -> builtins.str:
         '''Name of the secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#secret_name ActionsOrganizationSecret#secret_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#secret_name ActionsOrganizationSecret#secret_name}
         '''
         result = self._values.get("secret_name")
         assert result is not None, "Required property 'secret_name' is missing"
@@ -449,24 +486,37 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Must be one of 'all', 'private', or 'selected'. 'selected_repository_ids' is required if set to 'selected'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#visibility ActionsOrganizationSecret#visibility}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#visibility ActionsOrganizationSecret#visibility}
         '''
         result = self._values.get("visibility")
         assert result is not None, "Required property 'visibility' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def destroy_on_drift(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Boolean indicating whether to recreate the secret if it's modified outside of Terraform.
+
+        When ``true`` (default), Terraform will delete and recreate the secret if it detects external changes. When ``false``, Terraform will acknowledge external changes but not recreate the secret.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#destroy_on_drift ActionsOrganizationSecret#destroy_on_drift}
+        '''
+        result = self._values.get("destroy_on_drift")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
     def encrypted_value(self) -> typing.Optional[builtins.str]:
         '''Encrypted value of the secret using the GitHub public key in Base64 format.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#encrypted_value ActionsOrganizationSecret#encrypted_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#encrypted_value ActionsOrganizationSecret#encrypted_value}
         '''
         result = self._values.get("encrypted_value")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#id ActionsOrganizationSecret#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#id ActionsOrganizationSecret#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -478,7 +528,7 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def plaintext_value(self) -> typing.Optional[builtins.str]:
         '''Plaintext value of the secret to be encrypted.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#plaintext_value ActionsOrganizationSecret#plaintext_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#plaintext_value ActionsOrganizationSecret#plaintext_value}
         '''
         result = self._values.get("plaintext_value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -487,7 +537,7 @@ class ActionsOrganizationSecretConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def selected_repository_ids(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''An array of repository ids that can access the organization secret.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/actions_organization_secret#selected_repository_ids ActionsOrganizationSecret#selected_repository_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/actions_organization_secret#selected_repository_ids ActionsOrganizationSecret#selected_repository_ids}
         '''
         result = self._values.get("selected_repository_ids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -517,6 +567,7 @@ def _typecheckingstub__7773251e66c29ee287af7ba6530644936ff7820cb2ba605bc23558746
     *,
     secret_name: builtins.str,
     visibility: builtins.str,
+    destroy_on_drift: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     encrypted_value: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     plaintext_value: typing.Optional[builtins.str] = None,
@@ -537,6 +588,12 @@ def _typecheckingstub__df72695d569784b81fb7546d4918b2380ef09d030a9680e683ffabfba
     import_to_id: builtins.str,
     import_from_id: builtins.str,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0065270697a9677d0a6f6d33ab1856647ad49e5d10abd0211d960a4135d4ab1d(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -588,6 +645,7 @@ def _typecheckingstub__61a92dbecb12ddac5f022538fb9bb4c7fb09a7cf3e6abee0b3abdd9c8
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     secret_name: builtins.str,
     visibility: builtins.str,
+    destroy_on_drift: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     encrypted_value: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     plaintext_value: typing.Optional[builtins.str] = None,

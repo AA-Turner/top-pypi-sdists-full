@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TypeVar
+from typing import Any, TypeVar
 
 from bigtree.node import node
 from bigtree.utils import common
@@ -16,14 +16,14 @@ T = TypeVar("T", bound=node.Node)
 
 def tree_to_dict(
     tree: T,
-    name_key: Optional[str] = "name",
-    parent_key: Optional[str] = None,
-    attr_dict: Optional[Dict[str, str]] = None,
+    name_key: str | None = "name",
+    parent_key: str | None = None,
+    attr_dict: dict[str, str] | None = None,
     all_attrs: bool = False,
     max_depth: int = 0,
     skip_depth: int = 0,
     leaf_only: bool = False,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export tree to dictionary.
 
     All descendants from `tree` will be exported, `tree` can be the root node or child node of tree.
@@ -31,18 +31,20 @@ def tree_to_dict(
     Exported dictionary will have key as node path, and node attributes as a nested dictionary.
 
     Examples:
-        >>> from bigtree import Node, tree_to_dict
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> tree_to_dict(root, name_key="name", parent_key="parent", attr_dict={"age": "person age"})
+        >>> tree = Tree(root)
+        >>> tree.to_dict(name_key="name", parent_key="parent", attr_dict={"age": "person age"})
         {'/a': {'name': 'a', 'parent': None, 'person age': 90}, '/a/b': {'name': 'b', 'parent': 'a', 'person age': 65}, '/a/b/d': {'name': 'd', 'parent': 'b', 'person age': 40}, '/a/b/e': {'name': 'e', 'parent': 'b', 'person age': 35}, '/a/c': {'name': 'c', 'parent': 'a', 'person age': 60}}
 
         For a subset of a tree
 
-        >>> tree_to_dict(c, name_key="name", parent_key="parent", attr_dict={"age": "person age"})
+        >>> c_tree = Tree(c)
+        >>> c_tree.to_dict(name_key="name", parent_key="parent", attr_dict={"age": "person age"})
         {'/a/c': {'name': 'c', 'parent': 'a', 'person age': 60}}
 
     Args:
@@ -91,10 +93,10 @@ def tree_to_nested_dict(
     tree: T,
     name_key: str = "name",
     child_key: str = "children",
-    attr_dict: Optional[Dict[str, str]] = None,
+    attr_dict: dict[str, str] | None = None,
     all_attrs: bool = False,
     max_depth: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export tree to nested dictionary.
 
     All descendants from `tree` will be exported, `tree` can be the root node or child node of tree.
@@ -102,13 +104,14 @@ def tree_to_nested_dict(
     Exported dictionary will have key as node attribute names, and children as a nested recursive dictionary.
 
     Examples:
-        >>> from bigtree import Node, tree_to_nested_dict
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> tree_to_nested_dict(root, all_attrs=True)
+        >>> tree = Tree(root)
+        >>> tree.to_nested_dict(all_attrs=True)
         {'name': 'a', 'age': 90, 'children': [{'name': 'b', 'age': 65, 'children': [{'name': 'd', 'age': 40}, {'name': 'e', 'age': 35}]}, {'name': 'c', 'age': 60}]}
 
     Args:
@@ -122,9 +125,9 @@ def tree_to_nested_dict(
     Returns:
         Dictionary containing tree information
     """
-    data_dict: Dict[str, List[Dict[str, Any]]] = {}
+    data_dict: dict[str, list[dict[str, Any]]] = {}
 
-    def _recursive_append(_node: T, parent_dict: Dict[str, Any]) -> None:
+    def _recursive_append(_node: T, parent_dict: dict[str, Any]) -> None:
         """Recursively iterate through node and its children to export to nested dictionary.
 
         Args:
@@ -150,11 +153,11 @@ def tree_to_nested_dict(
 
 def tree_to_nested_dict_key(
     tree: T,
-    child_key: Optional[str] = "children",
-    attr_dict: Optional[Dict[str, str]] = None,
+    child_key: str | None = "children",
+    attr_dict: dict[str, str] | None = None,
     all_attrs: bool = False,
     max_depth: int = 0,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Export tree to nested dictionary, where the keys are node names.
 
     All descendants from `tree` will be exported, `tree` can be the root node or child node of tree.
@@ -163,16 +166,17 @@ def tree_to_nested_dict_key(
     If child_key is None, the children key is nested recursive dictionary of node names (there will be no attributes).
 
     Examples:
-        >>> from bigtree import Node, tree_to_nested_dict_key
+        >>> from bigtree import Node, Tree
         >>> root = Node("a", age=90)
         >>> b = Node("b", age=65, parent=root)
         >>> c = Node("c", age=60, parent=root)
         >>> d = Node("d", age=40, parent=b)
         >>> e = Node("e", age=35, parent=b)
-        >>> tree_to_nested_dict_key(root, all_attrs=True)
+        >>> tree = Tree(root)
+        >>> tree.to_nested_dict_key(all_attrs=True)
         {'a': {'age': 90, 'children': {'b': {'age': 65, 'children': {'d': {'age': 40}, 'e': {'age': 35}}}, 'c': {'age': 60}}}}
 
-        >>> tree_to_nested_dict_key(root, child_key=None)
+        >>> tree.to_nested_dict_key(child_key=None)
         {'a': {'b': {'d': {}, 'e': {}}, 'c': {}}}
 
     Args:
@@ -185,9 +189,9 @@ def tree_to_nested_dict_key(
     Returns:
         Dictionary containing tree information
     """
-    data_dict: Dict[str, Dict[str, Any]] = {}
+    data_dict: dict[str, dict[str, Any]] = {}
 
-    def _recursive_append(_node: T, parent_dict: Dict[str, Any]) -> None:
+    def _recursive_append(_node: T, parent_dict: dict[str, Any]) -> None:
         """Recursively iterate through node and its children to export to nested dictionary.
 
         Args:

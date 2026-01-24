@@ -12,7 +12,7 @@ understood and used by both programmers and non-programmers.
 """
 
 # MIT License {{{1
-# Copyright (c) 2020-2024 Ken and Kale Kundert
+# Copyright (c) 2020-2025 Ken and Kale Kundert
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -47,13 +47,14 @@ from inform import (
     Info,
 )
 import collections.abc
+import io
 import re
 import unicodedata
 
 
 # Utility functions {{{1
-# convert_returns {{{2
-def convert_returns(text):
+# convert_line_terminators {{{2
+def convert_line_terminators(text):
     return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
@@ -338,6 +339,11 @@ class Lines:
         for lineno, line in enumerate(self.lines):
             key = None
             value = None
+            try:
+                # decode to utf8 if a byte string or binary file is given
+                line = line.decode('utf8')
+            except AttributeError:
+                pass
             line = line.rstrip("\n")
 
             # compute indentation
@@ -440,7 +446,9 @@ class Lines:
             )
 
     # still_within_key() {{{3
-    def still_within_key(self, depth):
+    def still_within_key(self, line, depth):
+        if not self.next_line:
+            report("indented value must follow multi-line key", line)
         return (
             self.next_line.kind == "key item" and
             self.next_line.depth == depth
@@ -911,9 +919,8 @@ class NestedTextLoader:
                     self.values, self.keymap = None, None
                 else:
                     self.values, self.keymap = self._read_value(0, ())
-                return
 
-            if top in ["dict", dict]:
+            elif top in ["dict", dict]:
                 if next_is in ["dict item", "key item", "inline dict"]:
                     self.values, self.keymap = self._read_value(0, ())
                 elif next_is is None:
@@ -923,9 +930,8 @@ class NestedTextLoader:
                         "content must start with key or brace ({{).",
                         lines.get_next()
                     )
-                return
 
-            if top in ["list", list]:
+            elif top in ["list", list]:
                 if next_is in ["list item", "inline list"]:
                     self.values, self.keymap = self._read_value(0, ())
                 elif next_is is None:
@@ -935,9 +941,8 @@ class NestedTextLoader:
                         "content must start with dash (-) or bracket ([).",
                         lines.get_next(),
                     )
-                return
 
-            if top in ["str", str]:
+            elif top in ["str", str]:
                 if next_is == "string item":
                     self.values, self.keymap = self._read_value(0, ())
                 elif next_is is None:
@@ -947,9 +952,12 @@ class NestedTextLoader:
                         "content must start with greater-than sign (>).",
                         lines.get_next(),
                     )
-                return
 
-            raise NotImplementedError(top)
+            else:
+                raise NotImplementedError(top)  # pragma: no cover
+
+            if lines.type_of_next():
+                report('extra content', lines.get_next())
 
     # get_decoded() {{{3
     def get_decoded(self):
@@ -1099,7 +1107,7 @@ class NestedTextLoader:
     def _read_key(self, line, depth):
         lines = self.lines
         data = [line.value]
-        while lines.still_within_key(depth):
+        while lines.still_within_key(line, depth):
             line = lines.get_next()
             data.append(line.value)
         return "\n".join(data)
@@ -1320,9 +1328,11 @@ def loads(
     '''
 
     # code {{{3
-    lines = convert_returns(content).split("\n")
+    if isinstance(content, bytes):
+        content = content.decode('utf-8-sig', errors='strict')
+    f = io.StringIO(content, newline=None)
     loader = NestedTextLoader(
-        lines, top, source, on_dup, keymap, normalize_key, dialect
+        f, top, source, on_dup, keymap, normalize_key, dialect
     )
     return loader.get_decoded()
 
@@ -1407,7 +1417,7 @@ def load(
     # code {{{3
     # Do not invoke the read method as that would read in the entire contents of
     # the file, possibly consuming a lot of memory. Instead pass the file
-    # pointer into _read_all(), it will iterate through the lines, discarding
+    # pointer into loader, it will iterate through the lines, discarding
     # them once they are no longer needed, which reduces the memory usage.
 
     if isinstance(f, collections.abc.Iterator):
@@ -1423,7 +1433,7 @@ def load(
                 source = '<stdin>'
             else:
                 source = str(f)
-        with open(f, encoding="utf-8") as fp:
+        with open(f, encoding="utf-8-sig") as fp:
             loader = NestedTextLoader(
                 fp, top, source, on_dup, keymap, normalize_key, dialect
             )
@@ -1527,7 +1537,7 @@ class NestedTextDumper:
             raise NestedTextError(
                 key, template="keys must be strings.", culprit=keys
             ) from None
-        return convert_returns(key)
+        return convert_line_terminators(key)
 
     # render_dict_item {{{3
     def render_dict_item(self, key, value, keys, values):
@@ -1546,7 +1556,7 @@ class NestedTextDumper:
                 return key + self.render_value(value, keys, values)
             if is_str(value):
                 # force use of multiline value with multiline keys
-                value = convert_returns(value)
+                value = convert_line_terminators(value)
             else:
                 value = self.render_value(value, keys, values)
             return key + "\n" + add_leader(value, self.indent*" " + "> ")
@@ -1622,7 +1632,7 @@ class NestedTextDumper:
             raise NotSuitableForInline from None
         return value
 
-    # render content {{{3
+    # render value {{{3
     def render_value(self, obj, keys, values):
         level = len(keys)
         error = None
@@ -1674,7 +1684,7 @@ class NestedTextDumper:
                 content = "\n".join(content)
 
         elif self.is_a_str(obj):
-            text = convert_returns(obj)
+            text = convert_line_terminators(obj)
             if "\n" in text or level == 0:
                 content = add_leader(text, "> ")
                 need_indented_block = True
@@ -2197,16 +2207,21 @@ def dump(obj, dest, **kwargs):
 
     try:
         dest.write(content + "\n")
-    except AttributeError:
+    except (AttributeError, TypeError) as e:
         # Avoid nested try-except blocks, since they lead to chained exceptions
         # (e.g. if the file isn’t found, etc.) that unnecessarily complicate the
         # stack trace.
-        pass
+        exception = e
     else:
         return
 
-    with open(dest, "w", encoding="utf-8") as f:
-        f.write(content + "\n")
+    if isinstance(exception, TypeError):
+        # file may be binary, encode in utf8 and try again
+        dest.write((content + "\n").encode('utf8'))
+    else:
+        # dest is a file name rather than a file pointer
+        with open(dest, "w", encoding="utf-8") as f:
+            f.write(content + "\n")
 
 
 # NestedText Utilities {{{1
@@ -2538,8 +2553,13 @@ def get_keys(keys, keymap, *, original=True, strict=True, sep=None):
             their original form if *original* is true,  The missing keys are
             always returned as given.
 
+        sep:
+            A join string.  If given the keys are interleaved with *sep* and
+            joined into a string before being returned.
+
     Returns:
-        A tuple containing the desired keys.
+        A tuple containing the desired keys if *sep* is not given.
+        A string formed by joining the keys with *sep* if *sep* is given.
 
     Examples:
 
@@ -2641,7 +2661,10 @@ def get_value(data, keys):
 
     # code {{{3
     for key in keys:
-        data = data[key]
+        try:
+            data = data[key]
+        except TypeError:
+            raise KeyError(key)
     return data
 
 

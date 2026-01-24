@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: preshed
-Version: 3.0.10
+Version: 3.0.12
 Summary: Cython hash table that trusts the keys are pre-hashed
 Home-page: https://github.com/explosion/preshed
 Author: Explosion
@@ -21,8 +21,10 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
-Requires-Python: >=3.6,<3.14
+Requires-Python: >=3.6,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cymem<2.1.0,>=2.0.2

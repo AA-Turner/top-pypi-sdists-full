@@ -17,6 +17,7 @@ from sempy_labs._helper_functions import (
     resolve_lakehouse_id,
     _validate_weight,
     _get_url_prefix,
+    get_pbi_token_headers,
 )
 from sempy_labs._list_functions import list_relationships
 from sempy_labs._refresh_semantic_model import refresh_semantic_model
@@ -120,19 +121,19 @@ class TOMWrapper:
             self._tom_server.Connect(connection_str)
         # Service Principal Authentication for Power BI via token provider
         else:
+            from functools import partial
             from sempy.fabric._client._utils import _build_adomd_connection_string
             import Microsoft.AnalysisServices.Tabular as TOM
             from Microsoft.AnalysisServices import AccessToken
-            from sempy.fabric._token_provider import (
-                create_on_access_token_expired_callback,
-                ConstantTokenProvider,
-            )
+            from sempy.fabric._client._utils import refresh_tom_access_token
+            from sempy.fabric._credentials import ConstantTokenCredential
             from System import Func
 
             token = self._token_provider(audience="pbi")
+
             self._tom_server = TOM.Server()
-            get_access_token = create_on_access_token_expired_callback(
-                ConstantTokenProvider(token)
+            get_access_token = partial(
+                refresh_tom_access_token, credential=ConstantTokenCredential(token)
             )
             self._tom_server.AccessToken = get_access_token(None)
             self._tom_server.OnAccessTokenExpired = Func[AccessToken, AccessToken](
@@ -151,7 +152,12 @@ class TOMWrapper:
 
         self._table_map = {}
         self._column_map = {}
-        self._compat_level = self.model.Model.Database.CompatibilityLevel
+        self._compat_level = self.model.Database.CompatibilityLevel
+
+        # Max compat level
+        s = self.model.Server.SupportedCompatibilityLevels
+        nums = [int(x) for x in s.split(",") if x.strip() != "1000000"]
+        self._max_compat_level = max(nums)
 
         # Minimum campat level for lineage tags is 1540 (https://learn.microsoft.com/dotnet/api/microsoft.analysisservices.tabular.table.lineagetag?view=analysisservices-dotnet#microsoft-analysisservices-tabular-table-lineagetag)
         if self._compat_level >= 1540:
@@ -239,6 +245,22 @@ class TOMWrapper:
         for t in self.model.Tables:
             if t.CalculationGroup is not None:
                 yield t
+
+    def all_functions(self):
+        """
+        Outputs a list of all user-defined functions in the semantic model.
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+        Iterator[Microsoft.AnalysisServices.Tabular.Function]
+            All user-defined functions within the semantic model.
+        """
+
+        for f in self.model.Functions:
+            yield f
 
     def all_measures(self):
         """
@@ -758,6 +780,60 @@ class TOMWrapper:
         if description is not None:
             obj.Description = description
         self.model.Roles.Add(obj)
+
+    def set_compatibility_level(self, compatibility_level: int):
+        """
+        Sets compatibility level of the semantic model
+
+        Parameters
+        ----------
+        compatibility_level : int
+            The compatibility level to set the for the semantic model.
+        """
+        import Microsoft.AnalysisServices.Tabular as TOM
+
+        if compatibility_level < 1500 or compatibility_level > self._max_compat_level:
+            raise ValueError(
+                f"{icons.red_dot} Compatibility level must be between 1500 and {self._max_compat_level}."
+            )
+        if self._compat_level > compatibility_level:
+            print(
+                f"{icons.warning} Compatibility level can only be increased, not decreased."
+            )
+            return
+
+        self.model.Database.CompatibilityLevel = compatibility_level
+        bim = TOM.JsonScripter.ScriptCreateOrReplace(self.model.Database)
+        fabric.execute_tmsl(script=bim, workspace=self._workspace_id)
+
+    def set_user_defined_function(self, name: str, expression: str):
+        """
+        Sets the definition of a `user-defined <https://learn.microsoft.com/en-us/dax/best-practices/dax-user-defined-functions#using-model-explorer>_` function within the semantic model. This function requires that the compatibility level is at least 1702.
+
+        Parameters
+        ----------
+        name : str
+            Name of the user-defined function.
+        expression : str
+            The DAX expression for the user-defined function.
+        """
+        import Microsoft.AnalysisServices.Tabular as TOM
+
+        if self._compat_level < 1702:
+            raise ValueError(
+                f"{icons.warning} User-defined functions require a compatibility level of at least 1702. The current compatibility level is {self._compat_level}. Use the 'tom.set_compatibility_level' function to change the compatibility level."
+            )
+
+        existing = [f.Name for f in self.model.Functions]
+
+        if name in existing:
+            self.model.Functions[name].Expression = expression
+        else:
+            obj = TOM.Function()
+            obj.Name = name
+            obj.Expression = expression
+            obj.LineageTag = generate_guid()
+            self.model.Functions.Add(obj)
 
     def set_rls(self, role_name: str, table_name: str, filter_expression: str):
         """
@@ -1908,6 +1984,8 @@ class TOMWrapper:
             object.Parent.CalculationItems.Remove(object.Name)
         elif objType == TOM.ObjectType.TablePermission:
             object.Parent.TablePermissions.Remove(object.Name)
+        elif objType == TOM.ObjectType.Function:
+            object.Parent.Functions.Remove(object.Name)
 
     def used_in_relationships(self, object: Union["TOM.Table", "TOM.Column"]):
         """
@@ -4583,7 +4661,7 @@ class TOMWrapper:
     def generate_measure_descriptions(
         self,
         measure_name: Optional[str | List[str]] = None,
-        max_batch_size: Optional[int] = 5,
+        max_batch_size: Optional[int] = 1,
     ) -> pd.DataFrame:
         """
         Auto-generates descriptions for measures using an LLM. This function requires a paid F-sku (Fabric) of F64 or higher.
@@ -4595,19 +4673,19 @@ class TOMWrapper:
         measure_name : str | List[str], default=None
             The measure name (or a list of measure names).
             Defaults to None which generates descriptions for all measures in the semantic model.
-        max_batch_size : int, default=5
-            Sets the max batch size for each API call.
+        max_batch_size : int, default=1
+            Sets the max batch size for each API call. This parameter has been decomissioned.
 
         Returns
         -------
         pandas.DataFrame
             A pandas dataframe showing the updated measure(s) and their new description(s).
         """
-        import notebookutils
 
         icons.sll_tags.append("GenerateMeasureDescriptions")
 
         prefix = _get_url_prefix()
+        headers = get_pbi_token_headers()
 
         df = pd.DataFrame(
             columns=["Table Name", "Measure Name", "Expression", "Description"]
@@ -4621,48 +4699,33 @@ class TOMWrapper:
         if isinstance(measure_name, str):
             measure_name = [measure_name]
 
-        if len(measure_name) > max_batch_size:
-            measure_lists = [
-                measure_name[i : i + max_batch_size]
-                for i in range(0, len(measure_name), max_batch_size)
-            ]
-        else:
-            measure_lists = [measure_name]
-
-        # Each API call can have a max of 5 measures
-        for measure_list in measure_lists:
-            payload = {
-                "scenarioDefinition": {
-                    "generateModelItemDescriptions": {
-                        "modelItems": [],
-                    },
+        payload = {
+            "scenarioDefinition": {
+                "generateModelItemDescriptions": {
+                    "modelItems": [],
                 },
-                "workspaceId": self._workspace_id,
-                "artifactInfo": {"artifactType": "SemanticModel"},
-            }
-            for m_name in measure_list:
-                expr, t_name = next(
-                    (ms.Expression, ms.Parent.Name)
-                    for ms in self.all_measures()
-                    if ms.Name == m_name
-                )
-                if t_name is None:
-                    raise ValueError(
-                        f"{icons.red_dot} The '{m_name}' measure does not exist in the '{self._dataset_name}' semantic model within the '{self._workspace_name}' workspace."
-                    )
+            },
+            "workspaceId": self._workspace_id,
+            "artifactInfo": {"artifactType": "SemanticModel"},
+        }
 
-                new_item = {
-                    "urn": m_name,
+        for m in measure_name:
+            (table_name, expr) = next(
+                (ms.Parent.Name, ms.Expression)
+                for ms in self.all_measures()
+                if ms.Name == m
+            )
+            payload["scenarioDefinition"]["generateModelItemDescriptions"][
+                "modelItems"
+            ].append(
+                {
+                    "urn": m,
                     "type": 1,
-                    "name": m_name,
+                    "name": m,
                     "expression": expr,
                 }
-                payload["scenarioDefinition"]["generateModelItemDescriptions"][
-                    "modelItems"
-                ].append(new_item)
+            )
 
-            token = notebookutils.credentials.getToken("pbi")
-            headers = {"Authorization": f"Bearer {token}"}
             response = requests.post(
                 f"{prefix}/explore/v202304/nl2nl/completions",
                 headers=headers,
@@ -4698,41 +4761,6 @@ class TOMWrapper:
 
         return df
 
-        # def process_measure(m):
-        #     table_name = m.Parent.Name
-        #     m_name = m.Name
-        #     m_name_fixed = "1"
-        #     expr = m.Expression
-        #     if measure_name is None or m_name in measure_name:
-        #         payload = {
-        #             "scenarioDefinition": {
-        #                 "generateModelItemDescriptions": {
-        #                     "modelItems": [
-        #                         {
-        #                             "urn": f"modelobject://Table/{table_name}/Measure/{m_name_fixed}",
-        #                             "type": 1,
-        #                             "name": m_name,
-        #                             "expression": expr,
-        #                         }
-        #                     ]
-        #                 }
-        #             },
-        #             "workspaceId": workspace_id,
-        #             "artifactInfo": {"artifactType": "SemanticModel"},
-        #         }
-
-        #         response = client.post(
-        #             "/explore/v202304/nl2nl/completions", json=payload
-        #         )
-        #         if response.status_code != 200:
-        #             raise FabricHTTPException(response)
-
-        #         desc = response.json()["modelItems"][0]["description"]
-        #         m.Description = desc
-
-        # with concurrent.futures.ThreadPoolExecutor() as executor:
-        #     executor.map(process_measure, self.all_measures())
-
     def set_value_filter_behavior(self, value_filter_behavior: str = "Automatic"):
         """
         Sets the `Value Filter Behavior <https://learn.microsoft.com/power-bi/transform-model/value-filter-behavior>`_ property for the semantic model.
@@ -4749,8 +4777,8 @@ class TOMWrapper:
         value_filter_behavior = value_filter_behavior.capitalize()
         min_compat = 1606
 
-        if self.model.Model.Database.CompatibilityLevel < min_compat:
-            self.model.Model.Database.CompatibilityLevel = min_compat
+        if self.model.Database.CompatibilityLevel < min_compat:
+            self.model.Database.CompatibilityLevel = min_compat
 
         self.model.ValueFilterBehavior = System.Enum.Parse(
             TOM.ValueFilterBehaviorType, value_filter_behavior
@@ -4904,12 +4932,7 @@ class TOMWrapper:
         import Microsoft.AnalysisServices.Tabular as TOM
         from sempy_labs._model_dependencies import get_model_calc_dependencies
 
-        fabric.refresh_tom_cache(workspace=self._workspace_id)
-        dfP = fabric.list_perspectives(
-            dataset=self._dataset_id, workspace=self._workspace_id
-        )
-        dfP = dfP[dfP["Perspective Name"] == perspective_name]
-        if dfP.empty:
+        if not any(p.Name == perspective_name for p in self.model.Perspectives):
             raise ValueError(
                 f"{icons.red_dot} The '{perspective_name}' is not a valid perspective in the '{self._dataset_name}' semantic model within the '{self._workspace_name}' workspace."
             )
@@ -5826,7 +5849,7 @@ class TOMWrapper:
 
             html = """
             <span style="font-family: Segoe UI, Arial, sans-serif; color: #cccccc;">
-                CODE BEAUTIFIED WITH 
+                CODE BEAUTIFIED WITH
             </span>
             <a href="https://www.daxformatter.com" target="_blank" style="font-family: Segoe UI, Arial, sans-serif; color: #ff5a5a; font-weight: bold; text-decoration: none;">
                 DAX FORMATTER
@@ -5840,7 +5863,7 @@ class TOMWrapper:
             import Microsoft.AnalysisServices.Tabular as TOM
 
             # ChangedProperty logic (min compat level is 1567) https://learn.microsoft.com/dotnet/api/microsoft.analysisservices.tabular.changedproperty?view=analysisservices-dotnet
-            if self.model.Model.Database.CompatibilityLevel >= 1567:
+            if self.model.Database.CompatibilityLevel >= 1567:
                 for t in self.model.Tables:
                     if any(
                         p.SourceType == TOM.PartitionSourceType.Entity

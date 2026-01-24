@@ -5,12 +5,12 @@ since your modifications would be overwritten.
 """
 
 
-from keras_tuner.src.engine.hyperparameters import deserialize
-from keras_tuner.src.engine.hyperparameters import serialize
-from keras_tuner.src.engine.hyperparameters.hp_types.boolean_hp import Boolean
-from keras_tuner.src.engine.hyperparameters.hp_types.choice_hp import Choice
-from keras_tuner.src.engine.hyperparameters.hp_types.fixed_hp import Fixed
-from keras_tuner.src.engine.hyperparameters.hp_types.float_hp import Float
-from keras_tuner.src.engine.hyperparameters.hp_types.int_hp import Int
-from keras_tuner.src.engine.hyperparameters.hyperparameter import HyperParameter
-from keras_tuner.src.engine.hyperparameters.hyperparameters import HyperParameters
+from keras_tuner.src.engine.hyperparameters import deserialize as deserialize
+from keras_tuner.src.engine.hyperparameters import serialize as serialize
+from keras_tuner.src.engine.hyperparameters.hp_types.boolean_hp import Boolean as Boolean
+from keras_tuner.src.engine.hyperparameters.hp_types.choice_hp import Choice as Choice
+from keras_tuner.src.engine.hyperparameters.hp_types.fixed_hp import Fixed as Fixed
+from keras_tuner.src.engine.hyperparameters.hp_types.float_hp import Float as Float
+from keras_tuner.src.engine.hyperparameters.hp_types.int_hp import Int as Int
+from keras_tuner.src.engine.hyperparameters.hyperparameter import HyperParameter as HyperParameter
+from keras_tuner.src.engine.hyperparameters.hyperparameters import HyperParameters as HyperParameters

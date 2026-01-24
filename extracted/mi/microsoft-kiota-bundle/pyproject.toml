@@ -1,0 +1,60 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "microsoft-kiota-bundle"
+version = "1.9.8"
+description = "Bundle package for kiota generated libraries in Python"
+authors = ["Microsoft <graphtooling+python@microsoft.com>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["kiota", "openAPI", "Microsoft", "Graph"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+]
+homepage = "https://github.com/microsoft/kiota#readme"
+repository = "https://github.com/microsoft/kiota-python"
+documentation = "https://learn.microsoft.com/openapi/kiota/"
+packages = [{include = "kiota_bundle"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+microsoft-kiota-abstractions = { version = "1.9.8"}
+microsoft-kiota-http = { version = "1.9.8"}
+microsoft-kiota-serialization-json = { version = "1.9.8"}
+microsoft-kiota-serialization-form = { version = "1.9.8"}
+microsoft-kiota-serialization-text = { version = "1.9.8"}
+microsoft-kiota-serialization-multipart = { version = "1.9.8"}
+
+[tool.poetry.group.dev.dependencies]
+yapf = "^0.40.2"
+isort = "^5.13.2"
+pylint = "^3.2.7"
+mypy = "^1.11.2"
+pytest = "^8.3.2"
+pytest-asyncio = "^0.24.0"
+poetry-plugin-mono-repo-deps = "^0.2.1"
+
+[mypy]
+warn_unused_configs = true
+files = "kiota_bundle"
+
+[tool.yapf]
+based_on_style = "pep8"
+dedent_closing_brackets = true
+each_dict_entry_on_separate_line = true
+column_limit = 100
+
+[tool.isort]
+profile = "hug"
+
+[tool.poetry-monorepo.deps]
+enabled = true
+commands = ["build", "export", "publish"]

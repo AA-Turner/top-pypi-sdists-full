@@ -150,11 +150,18 @@ from .providers import (
     AsyncProviders,
 )
 
+from .guardrails import (
+    Guardrails,
+    AsyncGuardrails,
+)
+
 from .main_realtime import (
     MainRealtime,
     AsyncMainRealtime,
     ClientSecrets,
     AsyncClientSecrets,
+    Calls,
+    AsyncCalls,
 )
 
 from .conversations import (
@@ -162,6 +169,17 @@ from .conversations import (
     AsyncConversations,
     ConversationsItems,
     AsyncConversationsItems,
+)
+
+from .videos import Videos, AsyncVideos
+
+from .chatkit import (
+    ChatKit,
+    AsyncChatKit,
+    ChatKitSessions,
+    AsyncChatKitSessions,
+    ChatKitThreads,
+    AsyncChatKitThreads,
 )
 
 __all__ = [
@@ -296,6 +314,8 @@ __all__ = [
     "AsyncIntegrationsModels",
     "Providers",
     "AsyncProviders",
+    "Guardrails",
+    "AsyncGuardrails",
     "Webhooks",
     "AsyncWebhooks",
     "MainRealtime",
@@ -306,4 +326,14 @@ __all__ = [
     "AsyncConversations",
     "ConversationsItems",
     "AsyncConversationsItems",
+    "Videos",
+    "AsyncVideos",
+    "ChatKit",
+    "AsyncChatKit",
+    "ChatKitSessions",
+    "AsyncChatKitSessions",
+    "ChatKitThreads",
+    "AsyncChatKitThreads",
+    "Calls",
+    "AsyncCalls",
 ]

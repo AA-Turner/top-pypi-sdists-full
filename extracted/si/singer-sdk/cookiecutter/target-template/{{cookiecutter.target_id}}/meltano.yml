@@ -1,9 +1,7 @@
-version: 1
 send_anonymous_usage_stats: true
 project_id: "{{cookiecutter.target_id}}"
 default_environment: test
-venv:
-  backend: uv
+requires_meltano: ">=4.0"
 environments:
 - name: test
 plugins:
@@ -24,6 +22,7 @@ plugins:
     - about
     - stream-maps
     - schema-flattening
+    - structured-logging
 
     # TODO: Declare settings and their types here:
     settings:

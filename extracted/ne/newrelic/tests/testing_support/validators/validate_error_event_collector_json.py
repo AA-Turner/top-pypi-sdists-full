@@ -45,15 +45,14 @@ def validate_error_event_collector_json(num_errors=1):
 
             sampling_info = decoded_json[1]
 
-            harvest_config = instance.settings.event_harvest_config
-            reservoir_size = harvest_config.harvest_limits.error_event_data
+            reservoir_size = instance.settings.event_harvest_config.harvest_limits.error_event_data
 
             assert sampling_info["reservoir_size"] == reservoir_size
             assert sampling_info["events_seen"] == num_errors
 
             error_events = decoded_json[2]
 
-            assert len(error_events) == num_errors
+            assert len(error_events) == num_errors, f"Expected: {num_errors}, Got: {len(error_events)}"
             for event in error_events:
                 # event is an array containing intrinsics, user-attributes,
                 # and agent-attributes

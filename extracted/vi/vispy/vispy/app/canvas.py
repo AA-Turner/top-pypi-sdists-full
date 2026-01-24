@@ -2,7 +2,7 @@
 # Copyright (c) Vispy Development Team. All Rights Reserved.
 # Distributed under the (new) BSD License. See LICENSE.txt for more info.
 
-from __future__ import division, print_function
+from __future__ import annotations, division, print_function
 
 import sys
 import numpy as np
@@ -48,6 +48,13 @@ class Canvas(object):
         Whether to create the widget immediately. Default True.
     vsync : bool
         Enable vertical synchronization.
+        Note for some backends
+        (ex. `Qt-based backends <https://doc.qt.io/qt-6/qsurfaceformat.html#setSwapInterval>`_)
+        and some platforms this setting may not work as expected. Some GPU
+        drivers may require modifying vsync settings at a system or driver
+        level (ex. NVIDIA control panel). See documentation for the specific
+        backend engine and your system's GPU in the case of unexpected
+        behavior.
     resizable : bool
         Allow the window to be resized.
     decorate : bool
@@ -632,9 +639,7 @@ class MouseEvent(Event):
         Event.__init__(self, type, **kwargs)
         self._pos = np.array([0, 0]) if (pos is None) else np.array(pos)
         self._button = int(button) if (button is not None) else None
-        # Explicitly add button to buttons if newly pressed, check #2344 for more reference
-        newly_pressed_buttons = [button] if button is not None and type == 'mouse_press' else []
-        self._buttons = [] if (buttons is None) else buttons + newly_pressed_buttons
+        self._buttons = [] if (buttons is None) else buttons
         self._modifiers = tuple(modifiers or ())
         self._delta = np.zeros(2) if (delta is None) else np.array(delta)
         self._last_event = last_event
@@ -646,11 +651,11 @@ class MouseEvent(Event):
         return self._pos
 
     @property
-    def button(self):
+    def button(self) -> int | None:
         return self._button
 
     @property
-    def buttons(self):
+    def buttons(self) -> list[int]:
         return self._buttons
 
     @property

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-multiapi-storage
-Version: 1.5.0
+Version: 1.6.0
 Summary: Microsoft Azure Storage Client Library for Python with multi API version support.
 Home-page: https://github.com/Azure/azure-multiapi-storage-python
 Author: Microsoft Corporation
@@ -53,6 +53,10 @@ Handles multi-API versions of Azure Storage Data Plane originally from https://g
 
 Change Log
 ----------
+1.6.0
+++++++
+* fileshare: Support v2025-07-05(12.22.0) and remove v2025-05-05
+
 1.5.0
 ++++++
 * packaging: Remove unused import, cleanup build pipeline

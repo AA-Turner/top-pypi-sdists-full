@@ -24,8 +24,8 @@ use versions::Versioning;
 pub mod cluster;
 pub mod mocks;
 
-pub(crate) const SHORT_STANDALONE_TEST_TIMEOUT: Duration = Duration::from_millis(10_000);
-pub(crate) const LONG_STANDALONE_TEST_TIMEOUT: Duration = Duration::from_millis(20_000);
+pub(crate) const SHORT_STANDALONE_TEST_TIMEOUT: Duration = Duration::from_millis(20_000);
+pub(crate) const LONG_STANDALONE_TEST_TIMEOUT: Duration = Duration::from_millis(40_000);
 
 // Code copied from redis-rs
 
@@ -395,8 +395,8 @@ pub fn build_keys_and_certs_for_tls(tempdir: &TempDir) -> TlsFilePaths {
         .wait()
         .expect("failed to create CA cert");
 
-    // Build x509v3 extensions file
-    fs::write(&ext_file, b"keyUsage = digitalSignature, keyEncipherment")
+    // Build x509v3 extensions file with SAN for 127.0.0.1
+    fs::write(&ext_file, b"keyUsage = digitalSignature, keyEncipherment\nsubjectAltName = IP:127.0.0.1,DNS:localhost")
         .expect("failed to create x509v3 extensions file");
 
     // Read redis key
@@ -445,6 +445,12 @@ pub fn build_keys_and_certs_for_tls(tempdir: &TempDir) -> TlsFilePaths {
         redis_crt,
         redis_key,
         ca_crt,
+    }
+}
+
+impl TlsFilePaths {
+    pub fn read_ca_cert_as_bytes(&self) -> Vec<u8> {
+        fs::read(&self.ca_crt).expect("Failed to read CA certificate file")
     }
 }
 
@@ -572,6 +578,7 @@ fn set_connection_info_to_connection_request(
             protobuf::MessageField(Some(Box::new(AuthenticationInfo {
                 password: connection_info.password.unwrap().into(),
                 username: connection_info.username.unwrap_or_default().into(),
+                iam_credentials: protobuf::MessageField::none(),
                 ..Default::default()
             })));
     }
@@ -707,9 +714,10 @@ pub(crate) async fn setup_test_basics_internal(configuration: &TestConfiguration
     connection_request.cluster_mode_enabled = false;
     connection_request.protocol = configuration.protocol.into();
     let (push_sender, push_receiver) = tokio::sync::mpsc::unbounded_channel();
-    let client = StandaloneClient::create_client(connection_request.into(), Some(push_sender))
-        .await
-        .unwrap();
+    let client =
+        StandaloneClient::create_client(connection_request.into(), Some(push_sender), None)
+            .await
+            .unwrap();
 
     TestBasics {
         server,

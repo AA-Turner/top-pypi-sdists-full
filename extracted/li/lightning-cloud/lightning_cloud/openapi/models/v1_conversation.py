@@ -43,8 +43,11 @@ class V1Conversation(object):
     swagger_types = {
         'assistant_id': 'str',
         'created_at': 'datetime',
+        'goal': 'str',
         'id': 'str',
+        'like': 'V1LikeStatus',
         'messages': 'list[V1Message]',
+        'name': 'str',
         'project_id': 'str',
         'title': 'str',
         'updated_at': 'datetime',
@@ -54,20 +57,26 @@ class V1Conversation(object):
     attribute_map = {
         'assistant_id': 'assistantId',
         'created_at': 'createdAt',
+        'goal': 'goal',
         'id': 'id',
+        'like': 'like',
         'messages': 'messages',
+        'name': 'name',
         'project_id': 'projectId',
         'title': 'title',
         'updated_at': 'updatedAt',
         'user_id': 'userId'
     }
 
-    def __init__(self, assistant_id: 'str' =None, created_at: 'datetime' =None, id: 'str' =None, messages: 'list[V1Message]' =None, project_id: 'str' =None, title: 'str' =None, updated_at: 'datetime' =None, user_id: 'str' =None):  # noqa: E501
+    def __init__(self, assistant_id: 'str' =None, created_at: 'datetime' =None, goal: 'str' =None, id: 'str' =None, like: 'V1LikeStatus' =None, messages: 'list[V1Message]' =None, name: 'str' =None, project_id: 'str' =None, title: 'str' =None, updated_at: 'datetime' =None, user_id: 'str' =None):  # noqa: E501
         """V1Conversation - a model defined in Swagger"""  # noqa: E501
         self._assistant_id = None
         self._created_at = None
+        self._goal = None
         self._id = None
+        self._like = None
         self._messages = None
+        self._name = None
         self._project_id = None
         self._title = None
         self._updated_at = None
@@ -77,10 +86,16 @@ class V1Conversation(object):
             self.assistant_id = assistant_id
         if created_at is not None:
             self.created_at = created_at
+        if goal is not None:
+            self.goal = goal
         if id is not None:
             self.id = id
+        if like is not None:
+            self.like = like
         if messages is not None:
             self.messages = messages
+        if name is not None:
+            self.name = name
         if project_id is not None:
             self.project_id = project_id
         if title is not None:
@@ -133,6 +148,27 @@ class V1Conversation(object):
         self._created_at = created_at
 
     @property
+    def goal(self) -> 'str':
+        """Gets the goal of this V1Conversation.  # noqa: E501
+
+
+        :return: The goal of this V1Conversation.  # noqa: E501
+        :rtype: str
+        """
+        return self._goal
+
+    @goal.setter
+    def goal(self, goal: 'str'):
+        """Sets the goal of this V1Conversation.
+
+
+        :param goal: The goal of this V1Conversation.  # noqa: E501
+        :type: str
+        """
+
+        self._goal = goal
+
+    @property
     def id(self) -> 'str':
         """Gets the id of this V1Conversation.  # noqa: E501
 
@@ -154,6 +190,27 @@ class V1Conversation(object):
         self._id = id
 
     @property
+    def like(self) -> 'V1LikeStatus':
+        """Gets the like of this V1Conversation.  # noqa: E501
+
+
+        :return: The like of this V1Conversation.  # noqa: E501
+        :rtype: V1LikeStatus
+        """
+        return self._like
+
+    @like.setter
+    def like(self, like: 'V1LikeStatus'):
+        """Sets the like of this V1Conversation.
+
+
+        :param like: The like of this V1Conversation.  # noqa: E501
+        :type: V1LikeStatus
+        """
+
+        self._like = like
+
+    @property
     def messages(self) -> 'list[V1Message]':
         """Gets the messages of this V1Conversation.  # noqa: E501
 
@@ -173,6 +230,27 @@ class V1Conversation(object):
         """
 
         self._messages = messages
+
+    @property
+    def name(self) -> 'str':
+        """Gets the name of this V1Conversation.  # noqa: E501
+
+
+        :return: The name of this V1Conversation.  # noqa: E501
+        :rtype: str
+        """
+        return self._name
+
+    @name.setter
+    def name(self, name: 'str'):
+        """Sets the name of this V1Conversation.
+
+
+        :param name: The name of this V1Conversation.  # noqa: E501
+        :type: str
+        """
+
+        self._name = name
 
     @property
     def project_id(self) -> 'str':

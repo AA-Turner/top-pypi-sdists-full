@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import os
 from contextlib import redirect_stderr
-from typing import IO, TYPE_CHECKING, Any, Literal, Optional, Union, cast
+from typing import IO, TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from argparse import ArgumentParser
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Iterator, Mapping, Sequence
 
     from ..env.manager import EnvVarsManager
     from ..io import PoeIO
@@ -15,7 +15,7 @@ from ..exceptions import ConfigValidationError, ExecutionError
 from ..options import PoeOptions
 
 ArgParams = dict[str, Any]
-ArgsDef = Union[list[str], list[ArgParams], dict[str, ArgParams]]
+ArgsDef = list[str] | list[ArgParams] | dict[str, ArgParams]
 
 arg_types: dict[str, type] = {
     "string": str,
@@ -26,20 +26,20 @@ arg_types: dict[str, type] = {
 
 
 class ArgSpec(PoeOptions):
-    # ruff: noqa: UP007
-    default: Optional[Union[str, int, float, bool]] = None
+    default: str | int | float | bool | None = None
     help: str = ""
     name: str
     options: Sequence[str]
-    # ruff: noqa: UP007
-    positional: Union[bool, str] = False
+    positional: bool | str = False
     required: bool = False
     type: Literal["string", "float", "integer", "boolean"] = "string"
-    # ruff: noqa: UP007
-    multiple: Union[bool, int] = False
+    multiple: bool | int = False
+    choices: Sequence[str] | Sequence[float] | Sequence[int] | None = None
 
     @classmethod
-    def normalize(cls, args_def: ArgsDef, strict: bool = True):
+    def normalize(
+        cls, source: Mapping[str, Any] | list[Mapping[str, Any]], strict: bool = True
+    ):
         """
         Because arguments can be declared with different structures
         (i.e. dict or list), this function normalizes the input into a list of
@@ -48,8 +48,8 @@ class ArgSpec(PoeOptions):
         This is also where we do any validation that requires access to the raw
         config.
         """
-        if isinstance(args_def, list):
-            for item in args_def:
+        if isinstance(source, list):
+            for item in source:
                 if isinstance(item, str):
                     yield {"name": item, "options": (f"--{item}",)}
                 elif isinstance(item, dict):
@@ -63,8 +63,8 @@ class ArgSpec(PoeOptions):
                         "expected"
                     )
 
-        elif isinstance(args_def, dict):
-            for name, params in args_def.items():
+        elif isinstance(source, dict):
+            for name, params in source.items():
                 if not isinstance(params, dict):
                     raise ConfigValidationError(
                         f"Invalid configuration for arg {name!r}, expected dict"
@@ -84,16 +84,16 @@ class ArgSpec(PoeOptions):
         cls,
         source: Mapping[str, Any] | list,
         strict: bool = True,
-        extra_keys: Sequence[str] = tuple(),
-    ):
+        extra_keys: Sequence[str] = (),
+    ) -> Iterator[ArgSpec]:
         """
         Override parse function to perform validations that require considering all
         argument declarations at once.
         """
         try:
-            result = tuple(super().parse(source, strict, extra_keys))
+            result: tuple[ArgSpec] = tuple(super().parse(source, strict, extra_keys))  # type: ignore[assignment]
         except ConfigValidationError as error:
-            PoeTaskArgs._enrich_config_error(error, cast(ArgsDef, source))
+            PoeTaskArgs._enrich_config_error(error, cast("ArgsDef", source))
             raise
 
         if strict:
@@ -190,6 +190,31 @@ class ArgSpec(PoeOptions):
                 "Argument with type 'boolean' may not declare option 'multiple'"
             )
 
+        # Ensure choices are compatible with type
+        if self.choices is not None:
+            arg_type = arg_types.get(self.type, str)
+            for choice in self.choices:
+                if not isinstance(choice, arg_type) or isinstance(choice, bool):
+                    raise ConfigValidationError(
+                        f"Argument {self.name!r} has invalid choice value {choice!r} "
+                        f"that does not match type the configured {self.type!r}. "
+                        "(maybe update the type option on the argument?)"
+                    )
+            if (
+                self.default is not None
+                and (not isinstance(self.default, str) or "${" not in self.default)
+                and self.default not in self.choices
+            ):
+                raise ConfigValidationError(
+                    f"Argument {self.name!r} has default value {self.default!r} that "
+                    f"is not included in the configured choices {self.choices!r}"
+                )
+            if self.type == "boolean":
+                raise ConfigValidationError(
+                    f"Argument {self.name!r} with type 'boolean' may not declare "
+                    f"option 'choices'"
+                )
+
 
 class PoeTaskArgs:
     _args: tuple[ArgSpec, ...]
@@ -199,7 +224,7 @@ class PoeTaskArgs:
         self._args = self._parse_args_def(args_def)
         self._io = io
 
-    def _parse_args_def(self, args_def: ArgsDef):
+    def _parse_args_def(self, args_def: ArgsDef) -> tuple[ArgSpec, ...]:
         try:
             return tuple(ArgSpec.parse(args_def))
         except ConfigValidationError as error:
@@ -213,16 +238,24 @@ class PoeTaskArgs:
         if args_def is None:
             return []
 
-        def format_default(arg) -> str:
-            default = arg.get("default")
-            if default:
-                return f"[default: {default}]"
+        def format_arg_details(arg) -> str:
+            parts: list[str] = []
+            if default := arg.get("default"):
+                parts.append(f"default: {default}")
+            if choices := arg.get("choices"):
+                parts.append(f"choices: {', '.join(map(repr, choices))}")
+            if parts:
+                return f"[{'; '.join(parts)}]"
             return ""
 
         try:
             return [
-                (arg["options"], arg.get("help", ""), format_default(arg))
-                for arg in ArgSpec.normalize(args_def, strict=False)
+                (
+                    cast("tuple[str, ...]", arg["options"]),
+                    str(arg.get("help", "")),
+                    format_arg_details(arg),
+                )
+                for arg in ArgSpec.normalize(args_def, strict=False)  # type: ignore[arg-type]
             ]
         except ConfigValidationError as error:
             if suppress_errors:
@@ -294,6 +327,9 @@ class PoeTaskArgs:
             result["dest"] = arg.name
             result["required"] = required
 
+        if arg.choices is not None:
+            result["choices"] = arg.choices
+
         if arg_type == "boolean":
             result["action"] = "store_false" if default else "store_true"
         else:
@@ -305,7 +341,7 @@ class PoeTaskArgs:
         error_stream = (
             self._io.error_output
             if self._io.verbosity > -3
-            else cast(IO[str], os.devnull)
+            else cast("IO[str]", os.devnull)
         )
         with redirect_stderr(error_stream):
             try:

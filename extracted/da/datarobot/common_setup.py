@@ -69,6 +69,8 @@ Extra
     This can be used in DataRobot Custom Applications and on its own.
 - `auth-authlib` (requires Python 3.9+): OAuth2 authentication handling via Authlib.
     This can be used in DataRobot Custom Applications and on its own.
+- `core` (requires Python 3.8+): Platform library functions to improve building with DataRobot.
+    This can be used in DataRobot Custom Applications, Custom Models, and Agent Workflows.
 
 You can install these optional groups by specifying them in the pip command, for example:
 
@@ -119,6 +121,7 @@ with open("datarobot/_version.py") as fd:
 if not version:
     raise RuntimeError("Cannot find version information")
 
+# TODO replace with astral ty
 _mypy_require = [
     "mypy==1.16.0",
     "types-PyYAML==6.0.12",
@@ -148,17 +151,20 @@ authlib_require = ["authlib>=1.6.0"] + auth_require
 auth_lint_require = authlib_require + ["respx"]
 auth_test_require = auth_lint_require
 
+core_require = [
+    "pydantic-settings>=2.2.0",
+    "pydantic>=2.2.0",
+]
+
 lint_require = (
     [
-        "black==24.4.2",
-        "black[jupyter]==24.4.2",
-        "ruff>=0.12.7",
-        "pylint==2.15.0",
+        "ruff>=0.14.1",
     ]
     + _mypy_require
     + images_require
     + databricks_require
     + auth_lint_require
+    + core_require
 )
 
 tests_require = (
@@ -189,7 +195,7 @@ docs_require = [
     "myst-parser==4.0.0",
 ]
 
-dev_require = tests_require + lint_require + images_require + docs_require
+dev_require = tests_require + lint_require + images_require + docs_require + core_require
 
 example_require = [
     "jupyter<=5.0",
@@ -200,6 +206,7 @@ example_require = [
     "wordcloud<=1.3.1",
     "colour<=0.1.4",
 ]
+
 
 release_require = ["zest.releaser[recommended]==6.22.0"]
 
@@ -234,6 +241,8 @@ common_setup_kwargs = dict(
         "urllib3>=1.23",
         "typing-extensions>=4.3.0,<5",
         "strenum>=0.4.15",
+        "pytz>=2020.1",
+        "python-dateutil>=2.8.2",
     ],
     extras_require={
         "dev": dev_require,
@@ -246,5 +255,6 @@ common_setup_kwargs = dict(
         "databricks": databricks_require,
         "auth": auth_require,
         "auth-authlib": authlib_require,
+        "core": core_require,
     },
 )

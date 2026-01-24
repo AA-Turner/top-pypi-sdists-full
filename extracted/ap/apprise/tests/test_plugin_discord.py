@@ -88,7 +88,7 @@ apprise_url_tests = (
     ),
     # test image= field
     (
-        "discord://{}/{}?format=markdown&footer=Yes&image=Yes".format(
+        "discord://{}/{}?format=markdown&footer=Yes&image=Yes&ping=Joe".format(
             "i" * 24, "t" * 64
         ),
         {
@@ -165,6 +165,34 @@ apprise_url_tests = (
             "requests_response_code": requests.codes.no_content,
         },
     ),
+    (
+        "discord://{}/{}?flags=1".format(
+            "i" * 24, "t" * 64
+        ),
+        {
+            "instance": NotifyDiscord,
+            "requests_response_code": requests.codes.no_content,
+        },
+    ),
+    (
+        "discord://{}/{}?flags=-1".format(
+            "i" * 24, "t" * 64
+        ),
+        {
+            # invalid flags specified (variation 1)
+            "instance": TypeError,
+        },
+    ),
+    (
+        "discord://{}/{}?flags=invalid".format(
+            "i" * 24, "t" * 64
+        ),
+        {
+            # invalid flags specified (variation 2)
+            "instance": TypeError,
+        },
+    ),
+
     # different format support
     (
         "discord://{}/{}?format=markdown".format("i" * 24, "t" * 64),
@@ -243,7 +271,7 @@ apprise_url_tests = (
         "discord://{}/{}/".format("a" * 24, "b" * 64),
         {
             "instance": NotifyDiscord,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -253,7 +281,7 @@ apprise_url_tests = (
         {
             "instance": NotifyDiscord,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -364,17 +392,112 @@ def test_plugin_discord_notifications(mock_post):
 
     payload = loads(details[1]["data"])
 
+    # text mode does not ping unless ping is explicitly set to someone
+    assert "allow_mentions" not in payload
+
+    # Reset our object
+    mock_post.reset_mock()
+
+    # Test our header parsing when not lead with a header
+    body = """ """
+
+    results = NotifyDiscord.parse_url(
+        # & -> %26 for role otherwise & separates our URL from further parsing
+        f"discord://{webhook_id}/{webhook_token}/?ping=@joe,<@321>,<@%26654>"
+    )
+
+    assert isinstance(results, dict)
+    assert results["user"] is None
+    assert results["webhook_id"] == webhook_id
+    assert results["webhook_token"] == webhook_token
+    assert results["password"] is None
+    assert results["port"] is None
+    assert results["host"] == webhook_id
+    assert results["fullpath"] == f"/{webhook_token}/"
+    assert results["path"] == f"/{webhook_token}/"
+    assert results["query"] is None
+    assert results["schema"] == "discord"
+    assert results["url"] == f"discord://{webhook_id}/{webhook_token}/"
+    instance = NotifyDiscord(**results)
+    assert isinstance(instance, NotifyDiscord)
+
+    response = instance.send(body=body)
+    assert response is True
+    assert mock_post.call_count == 1
+
+    details = mock_post.call_args_list[0]
+    assert (
+        details[0][0]
+        == f"https://discord.com/api/webhooks/{webhook_id}/{webhook_token}"
+    )
+
+    payload = loads(details[1]["data"])
+
+    assert "allow_mentions" in payload
+    assert len(payload["allow_mentions"]["users"]) == 1
+    assert "321" in payload["allow_mentions"]["users"]
+    assert "<@321>" in payload["content"]
+    assert len(payload["allow_mentions"]["roles"]) == 1
+    assert "654" in payload["allow_mentions"]["roles"]
+    assert "<@&654>" in payload["content"]
+    assert len(payload["allow_mentions"]["parse"]) == 1
+    assert "joe" in payload["allow_mentions"]["parse"]
+    assert "@joe" in payload["content"]
+
+    # Reset our object
+    mock_post.reset_mock()
+
+    # Test our body in text mode, with ping=set
+    body = """
+    # Heading
+    @everyone and @admin, wake and meet our new user <@123>; <@&456>"
+    """
+
+    results = NotifyDiscord.parse_url(
+        # & -> %26 for role otherwise & separates our URL from further parsing
+        f"discord://{webhook_id}/{webhook_token}/?ping=@joe,<@321>,<@%26654>"
+        "&format=text"
+    )
+
+    assert isinstance(results, dict)
+    assert results["user"] is None
+    assert results["webhook_id"] == webhook_id
+    assert results["webhook_token"] == webhook_token
+    assert results["password"] is None
+    assert results["port"] is None
+    assert results["host"] == webhook_id
+    assert results["fullpath"] == f"/{webhook_token}/"
+    assert results["path"] == f"/{webhook_token}/"
+    assert results["query"] is None
+    assert results["schema"] == "discord"
+    assert results["url"] == f"discord://{webhook_id}/{webhook_token}/"
+
+    instance = NotifyDiscord(**results)
+    assert isinstance(instance, NotifyDiscord)
+
+    response = instance.send(body=body)
+    assert response is True
+    assert mock_post.call_count == 1
+
+    details = mock_post.call_args_list[0]
+    assert (
+        details[0][0]
+        == f"https://discord.com/api/webhooks/{webhook_id}/{webhook_token}"
+    )
+
+    payload = loads(details[1]["data"])
+
+    # Payload only includes elements on ping= line with text mode
     assert "allow_mentions" in payload
     assert "users" in payload["allow_mentions"]
     assert len(payload["allow_mentions"]["users"]) == 1
-    assert "123" in payload["allow_mentions"]["users"]
+    assert "321" in payload["allow_mentions"]["users"]
     assert "roles" in payload["allow_mentions"]
     assert len(payload["allow_mentions"]["roles"]) == 1
-    assert "456" in payload["allow_mentions"]["roles"]
+    assert "654" in payload["allow_mentions"]["roles"]
     assert "parse" in payload["allow_mentions"]
-    assert len(payload["allow_mentions"]["parse"]) == 2
-    assert "everyone" in payload["allow_mentions"]["parse"]
-    assert "admin" in payload["allow_mentions"]["parse"]
+    assert len(payload["allow_mentions"]["parse"]) == 1
+    assert "joe" in payload["allow_mentions"]["parse"]
 
 
 @mock.patch("requests.post")
@@ -806,7 +929,7 @@ def test_plugin_discord_markdown_extra(mock_post):
     # Reset our apprise object
     a = Apprise()
 
-    # We want to further test our markdown support to accomodate bug rased on
+    # We want to further test our markdown support to accommodate bug rased on
     # 2022.10.25; see https://github.com/caronc/apprise/issues/717
     assert (
         a.add(
@@ -846,10 +969,12 @@ def test_plugin_discord_attachments(mock_post):
     # Prepare a good response
     response = mock.Mock()
     response.status_code = requests.codes.ok
+    response.content = b""
 
     # Prepare a bad response
     bad_response = mock.Mock()
     bad_response.status_code = requests.codes.internal_server_error
+    bad_response.content = b""
 
     # Prepare Mock return object
     mock_post.return_value = response
@@ -943,8 +1068,130 @@ def test_plugin_discord_attachments(mock_post):
 
     # handle a bad response
     bad_response = mock.Mock()
+    bad_response.content = b""
+    bad_response.headers = {}
     bad_response.status_code = requests.codes.internal_server_error
     mock_post.side_effect = [response, bad_response]
 
     # We'll fail now because of an internal exception
     assert obj.send(body="test", attach=attach) is False
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_markdown_fields_batches_exactly(mock_post):
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    response = mock.Mock()
+    response.status_code = requests.codes.ok
+    response.content = ""
+    response.headers = {}
+    mock_post.return_value = response
+
+    # Force tiny batches
+    NotifyDiscord.discord_max_fields = 1
+
+    body = "# H1\nv1\n# H2\nv2\n# H3\nv3\n"
+    obj = Apprise.instantiate(
+        f"discord://{webhook_id}/{webhook_token}/?format=markdown&fields=yes"
+    )
+    assert isinstance(obj, NotifyDiscord)
+
+    assert obj.send(body=body) is True
+
+    # H1, H2, H3 => 3 fields => 3 posts (since max_fields=1)
+    assert mock_post.call_count == 3
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_markdown_ping_is_additive(mock_post):
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+
+    body = "Body pings <@111> and <@&222> @everyone"
+    results = NotifyDiscord.parse_url(
+        f"discord://{webhook_id}/{webhook_token}/"
+        "?format=markdown"
+        "&ping=<@333>,<@%26444>,@joe"
+    )
+    obj = NotifyDiscord(**results)
+
+    assert obj.send(body=body) is True
+    assert mock_post.call_count == 1
+
+    payload = loads(mock_post.call_args_list[0][1]["data"])
+
+    assert "allow_mentions" in payload
+    # union
+    assert set(payload["allow_mentions"]["users"]) == {"111", "333"}
+    assert set(payload["allow_mentions"]["roles"]) == {"222", "444"}
+    assert set(payload["allow_mentions"]["parse"]) == {"everyone", "joe"}
+    assert payload["content"].startswith("👉 ")
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_html_ping_is_exclusive(mock_post):
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+
+    body = "Body includes <@111> <@&222> @everyone but must be ignored"
+    results = NotifyDiscord.parse_url(
+        f"discord://{webhook_id}/{webhook_token}/"
+        "?format=html"
+        "&ping=<@333>,<@%26444>,@joe"
+    )
+    obj = NotifyDiscord(**results)
+
+    assert obj.send(body=body) is True
+    payload = loads(mock_post.call_args_list[0][1]["data"])
+
+    assert set(payload["allow_mentions"]["users"]) == {"333"}
+    assert set(payload["allow_mentions"]["roles"]) == {"444"}
+    assert set(payload["allow_mentions"]["parse"]) == {"joe"}
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_markdown_no_mentions_has_no_allow_mentions(mock_post):
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    mock_post.return_value = requests.Request()
+    mock_post.return_value.status_code = requests.codes.ok
+
+    results = NotifyDiscord.parse_url(
+        f"discord://{webhook_id}/{webhook_token}/?format=markdown"
+    )
+    obj = NotifyDiscord(**results)
+
+    assert obj.send(body="Hello world") is True
+    payload = loads(mock_post.call_args_list[0][1]["data"])
+
+    assert "allow_mentions" not in payload
+    assert "content" not in payload
+
+
+@mock.patch("requests.post")
+def test_plugin_discord_markdown_single_field_posts_once(mock_post):
+    webhook_id = "A" * 24
+    webhook_token = "B" * 64
+
+    response = mock.Mock()
+    response.status_code = requests.codes.ok
+    response.content = ""
+    response.headers = {}
+    mock_post.return_value = response
+
+    NotifyDiscord.discord_max_fields = 10
+
+    body = "# H1\nv1\n"
+    obj = Apprise.instantiate(
+        f"discord://{webhook_id}/{webhook_token}/?format=markdown&fields=yes"
+    )
+    assert obj.send(body=body) is True
+    assert mock_post.call_count == 1

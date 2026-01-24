@@ -6,8 +6,8 @@
 NOTE: The EOS command `show logging` does not support JSON output format.
 """
 
-# Mypy does not understand AntaTest.Input typing
-# mypy: disable-error-code=attr-defined
+# Pyright does not understand AntaTest.Input typing
+# pyright: reportAttributeAccessIssue=false
 from __future__ import annotations
 
 import re
@@ -421,6 +421,8 @@ class VerifyLoggingErrors(AntaTest):
     ```yaml
     anta.tests.logging:
       - VerifyLoggingErrors:
+          last_number_time_units: 10
+          time_unit: hours
     ```
     """
 
@@ -516,7 +518,7 @@ class VerifyLoggingEntries(AntaTest):
     def test(self) -> None:
         """Main test function for VerifyLoggingEntries."""
         self.result.is_success()
-        for command_output, logging_entry in zip(self.instance_commands, self.inputs.logging_entries):
+        for command_output, logging_entry in zip(self.instance_commands, self.inputs.logging_entries, strict=False):
             output = command_output.text_output
             log_history_depth = command_output.params.log_history_depth
             patterns_to_check = logging_entry.regex_match if isinstance(logging_entry.regex_match, list) else [logging_entry.regex_match]

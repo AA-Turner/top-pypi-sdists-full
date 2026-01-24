@@ -1,8 +1,8 @@
 import logging
+import os
 from pathlib import Path
 import json
 from http import HTTPStatus
-from typing import Optional
 
 import requests
 from oauth2_client.credentials_manager import CredentialManager, ServiceInformation
@@ -18,7 +18,7 @@ from cloudfoundry_client.v2.entities import EntityManager as EntityManagerV2
 from cloudfoundry_client.v2.events import EventManager
 from cloudfoundry_client.v2.jobs import JobManager as JobManagerV2
 from cloudfoundry_client.v2.resources import ResourceManager
-from cloudfoundry_client.v2.routes import RouteManager
+from cloudfoundry_client.v2.routes import RouteManager as RouteManagerV2
 from cloudfoundry_client.v2.service_bindings import ServiceBindingManager
 from cloudfoundry_client.v2.service_brokers import ServiceBrokerManager as ServiceBrokerManagerV2
 from cloudfoundry_client.v2.service_instances import ServiceInstanceManager as ServiceInstanceManagerV2
@@ -28,14 +28,18 @@ from cloudfoundry_client.v2.service_plans import ServicePlanManager as ServicePl
 from cloudfoundry_client.v2.spaces import SpaceManager as SpaceManagerV2
 
 from cloudfoundry_client.v3.apps import AppManager
+from cloudfoundry_client.v3.audit_events import AuditEventManager
 from cloudfoundry_client.v3.buildpacks import BuildpackManager
 from cloudfoundry_client.v3.domains import DomainManager
+from cloudfoundry_client.v3.droplets import DropletManager
 from cloudfoundry_client.v3.feature_flags import FeatureFlagManager
 from cloudfoundry_client.v3.isolation_segments import IsolationSegmentManager
 from cloudfoundry_client.v3.organization_quotas import OrganizationQuotaManager
+from cloudfoundry_client.v3.packages import PackageManager
 from cloudfoundry_client.v3.processes import ProcessManager
 from cloudfoundry_client.v3.organizations import OrganizationManager
 from cloudfoundry_client.v3.roles import RoleManager
+from cloudfoundry_client.v3.routes import RouteManager
 from cloudfoundry_client.v3.security_groups import SecurityGroupManager
 from cloudfoundry_client.v3.service_brokers import ServiceBrokerManager
 from cloudfoundry_client.v3.service_credential_bindings import ServiceCredentialBindingManager
@@ -43,8 +47,10 @@ from cloudfoundry_client.v3.service_instances import ServiceInstanceManager
 from cloudfoundry_client.v3.service_offerings import ServiceOfferingsManager
 from cloudfoundry_client.v3.service_plans import ServicePlanManager
 from cloudfoundry_client.v3.spaces import SpaceManager
+from cloudfoundry_client.v3.stacks import StackMananager
 from cloudfoundry_client.v3.tasks import TaskManager
 from cloudfoundry_client.v3.jobs import JobManager
+from cloudfoundry_client.v3.users import UserManager
 
 _logger = logging.getLogger(__name__)
 
@@ -56,8 +62,8 @@ class Info:
         api_v3_url: str,
         authorization_endpoint: str,
         api_endpoint: str,
-        doppler_endpoint: Optional[str],
-        log_stream_endpoint: Optional[str],
+        doppler_endpoint: str | None,
+        log_stream_endpoint: str | None,
     ):
         self._api_v2_url = api_v2_url
         self._api_v3_url = api_v3_url
@@ -67,11 +73,11 @@ class Info:
         self.log_stream_endpoint = log_stream_endpoint
 
     @property
-    def api_v2_url(self) -> Optional[str]:
+    def api_v2_url(self) -> str | None:
         return self._api_v2_url
 
     @property
-    def api_v3_url(self) -> Optional[str]:
+    def api_v3_url(self) -> str | None:
         return self._api_v3_url
 
 
@@ -96,7 +102,7 @@ class V2(object):
         self.event = EventManager(target_endpoint, credential_manager)
         self.organizations = EntityManagerV2(target_endpoint, credential_manager, "/v2/organizations")
         self.private_domains = EntityManagerV2(target_endpoint, credential_manager, "/v2/private_domains")
-        self.routes = RouteManager(target_endpoint, credential_manager)
+        self.routes = RouteManagerV2(target_endpoint, credential_manager)
         self.services = EntityManagerV2(target_endpoint, credential_manager, "/v2/services")
         self.shared_domains = EntityManagerV2(target_endpoint, credential_manager, "/v2/shared_domains")
         self.spaces = SpaceManagerV2(target_endpoint, credential_manager)
@@ -114,15 +120,19 @@ class V3(object):
     def __init__(self, cloud_controller_v3_url: str, credential_manager: "CloudFoundryClient"):
         target_endpoint = cloud_controller_v3_url.removesuffix("/v3")
         self.apps = AppManager(target_endpoint, credential_manager)
+        self.audit_events = AuditEventManager(target_endpoint, credential_manager)
         self.buildpacks = BuildpackManager(target_endpoint, credential_manager)
         self.domains = DomainManager(target_endpoint, credential_manager)
+        self.droplets = DropletManager(target_endpoint, credential_manager)
         self.feature_flags = FeatureFlagManager(target_endpoint, credential_manager)
         self.isolation_segments = IsolationSegmentManager(target_endpoint, credential_manager)
         self.jobs = JobManager(target_endpoint, credential_manager)
         self.organizations = OrganizationManager(target_endpoint, credential_manager)
         self.organization_quotas = OrganizationQuotaManager(target_endpoint, credential_manager)
+        self.packages = PackageManager(target_endpoint, credential_manager)
         self.processes = ProcessManager(target_endpoint, credential_manager)
         self.roles = RoleManager(target_endpoint, credential_manager)
+        self.routes = RouteManager(target_endpoint, credential_manager)
         self.security_groups = SecurityGroupManager(target_endpoint, credential_manager)
         self.service_brokers = ServiceBrokerManager(target_endpoint, credential_manager)
         self.service_credential_bindings = ServiceCredentialBindingManager(target_endpoint, credential_manager)
@@ -130,7 +140,9 @@ class V3(object):
         self.service_offerings = ServiceOfferingsManager(target_endpoint, credential_manager)
         self.service_plans = ServicePlanManager(target_endpoint, credential_manager)
         self.spaces = SpaceManager(target_endpoint, credential_manager)
+        self.stacks = StackMananager(target_endpoint, credential_manager)
         self.tasks = TaskManager(target_endpoint, credential_manager)
+        self.users = UserManager(target_endpoint, credential_manager)
 
 
 class CloudFoundryClient(CredentialManager):
@@ -161,7 +173,7 @@ class CloudFoundryClient(CredentialManager):
         service_information = ServiceInformation(
             None, "%s/oauth/token" % info.authorization_endpoint, client_id, client_secret, [], verify
         )
-        super(CloudFoundryClient, self).__init__(
+        super().__init__(
             service_information,
             proxies=proxy,
             user_agent=kwargs.get("user_agent", "cf-python-client")
@@ -226,7 +238,7 @@ class CloudFoundryClient(CredentialManager):
         else:
             return self._rlpgateway
 
-    def _get_info(self, target_endpoint: str, proxy: Optional[dict] = None, verify: bool = True) -> Info:
+    def _get_info(self, target_endpoint: str, proxy: dict | None = None, verify: bool = True) -> Info:
         root_response = CloudFoundryClient._check_response(
             requests.get("%s/" % target_endpoint, proxies=proxy if proxy is not None else dict(http="", https=""), verify=verify)
         )
@@ -247,8 +259,22 @@ class CloudFoundryClient(CredentialManager):
         )
 
     @staticmethod
-    def build_from_cf_config(config_path: Optional[str] = None, **kwargs) -> 'CloudFoundryClient':
-        config = Path(config_path) if config_path else Path.home() / '.cf/config.json'
+    def build_from_cf_config(config_path: str | None = None, **kwargs) -> 'CloudFoundryClient':
+        cf_home = "CF_HOME"
+        config_file = "config.json"
+        config_dir = ".cf"
+        # handles config path provided or defaults to CF_HOME or HOME
+        if config_path is not None:
+            config = Path(config_path)
+            if config.is_dir():
+                if config.name == config_dir:
+                    config = config / config_file
+                else:
+                    config = config / config_dir / config_file
+        elif os.environ.get(cf_home):
+            config = Path(os.environ.get(cf_home)) / config_dir / config_file
+        else:
+            config = Path.home() / config_dir / config_file
         try:
             with open(config) as f:
                 cf_config = json.load(f)
@@ -297,7 +323,7 @@ class CloudFoundryClient(CredentialManager):
             raise AttributeError("type '%s' has no attribute '%s'" % (type(self).__name__, item))
 
     def _grant_password_request(self, login: str, password: str) -> dict:
-        request = super(CloudFoundryClient, self)._grant_password_request(login, password)
+        request = super()._grant_password_request(login, password)
         if self.token_format is not None:
             request["token_format"] = self.token_format
         if self.login_hint is not None:
@@ -305,7 +331,7 @@ class CloudFoundryClient(CredentialManager):
         return request
 
     def _grant_refresh_token_request(self, refresh_token: str) -> dict:
-        request = super(CloudFoundryClient, self)._grant_refresh_token_request(refresh_token)
+        request = super()._grant_refresh_token_request(refresh_token)
         if self.token_format is not None:
             request["token_format"] = self.token_format
         return request
@@ -318,28 +344,28 @@ class CloudFoundryClient(CredentialManager):
             client_secret=self.service_information.client_secret,
         )
 
-    def get(self, url: str, params: Optional[dict] = None, **kwargs) -> Response:
-        response = super(CloudFoundryClient, self).get(url, params, **kwargs)
+    def get(self, url: str, params: dict | None = None, **kwargs) -> Response:
+        response = super().get(url, params, **kwargs)
         CloudFoundryClient._log_request("GET", url, response)
         return CloudFoundryClient._check_response(response)
 
     def post(self, url: str, data=None, json=None, **kwargs) -> Response:
-        response = super(CloudFoundryClient, self).post(url, data, json, **kwargs)
+        response = super().post(url, data, json, **kwargs)
         CloudFoundryClient._log_request("POST", url, response)
         return CloudFoundryClient._check_response(response)
 
     def put(self, url: str, data=None, json=None, **kwargs) -> Response:
-        response = super(CloudFoundryClient, self).put(url, data, json, **kwargs)
+        response = super().put(url, data, json, **kwargs)
         CloudFoundryClient._log_request("PUT", url, response)
         return CloudFoundryClient._check_response(response)
 
     def patch(self, url: str, data=None, json=None, **kwargs) -> Response:
-        response = super(CloudFoundryClient, self).patch(url, data, json, **kwargs)
+        response = super().patch(url, data, json, **kwargs)
         CloudFoundryClient._log_request("PATCH", url, response)
         return CloudFoundryClient._check_response(response)
 
     def delete(self, url: str, **kwargs) -> Response:
-        response = super(CloudFoundryClient, self).delete(url, **kwargs)
+        response = super().delete(url, **kwargs)
         CloudFoundryClient._log_request("DELETE", url, response)
         return CloudFoundryClient._check_response(response)
 

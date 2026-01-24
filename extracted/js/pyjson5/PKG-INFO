@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: pyjson5
-Version: 1.6.9
+Version: 2.0.0
 Summary: JSON5 serializer and parser for Python 3 written in Cython.
 Home-page: https://github.com/Kijewski/pyjson5
 Author: René Kijewski
 Author-email: pypi.org@k6i.de
 Maintainer: René Kijewski
 Maintainer-email: pypi.org@k6i.de
-License: MIT OR Apache-2.0
 Project-URL: Changelog, https://github.com/Kijewski/pyjson5/blob/main/CHANGELOG.md
 Project-URL: Code, https://github.com/Kijewski/pyjson5
 Project-URL: Documentation, https://pyjson5.readthedocs.io/
@@ -23,17 +22,17 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: JavaScript
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Text Processing :: General
-Requires-Python: ~=3.7
+Requires-Python: ~=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE.MIT
 License-File: LICENSE.Apache

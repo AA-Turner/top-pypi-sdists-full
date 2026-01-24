@@ -1,7 +1,7 @@
 import os
 
-from opentracing.scope_managers.asyncio import AsyncioScopeManager
 import pytest
+import pytest_asyncio
 
 from ddtrace._trace.sampler import RateSampler
 from ddtrace.constants import _SAMPLING_PRIORITY_KEY
@@ -12,13 +12,16 @@ from ddtrace.contrib.internal.aiohttp.middlewares import CONFIG_KEY
 from ddtrace.contrib.internal.aiohttp.middlewares import trace_app
 from ddtrace.contrib.internal.aiohttp.middlewares import trace_middleware
 from ddtrace.ext import http
-from tests.opentracer.utils import init_tracer
+from ddtrace.internal.utils.version import parse_version
 from tests.tracer.utils_inferred_spans.test_helpers import assert_web_and_inferred_aws_api_gateway_span_data
 from tests.utils import assert_span_http_status_code
 from tests.utils import override_global_config
 
 from .app.web import noop_middleware
 from .app.web import setup_app
+
+
+PYTEST_ASYNCIO_VERSION = parse_version(pytest_asyncio.__version__)
 
 
 async def test_handler(app_tracer, aiohttp_client):
@@ -48,6 +51,7 @@ async def test_handler(app_tracer, aiohttp_client):
     assert span.get_tag("span.kind") == "server"
 
 
+@pytest.mark.skipif(PYTEST_ASYNCIO_VERSION >= (1, 0), reason="'loop' fixture removed")
 @pytest.mark.parametrize("schema_version", [None, "v0", "v1"])
 def test_service_operation_schema(ddtrace_run_python_code_in_subprocess, schema_version):
     """
@@ -93,9 +97,7 @@ def test(app_tracer, loop, aiohttp_client):
 if __name__ == "__main__":
     import sys
     sys.exit(pytest.main(["-x", __file__]))
-    """.format(
-        expected_service_name, expected_span_name
-    )
+    """.format(expected_service_name, expected_span_name)
     env = os.environ.copy()
     if schema_version:
         env["DD_TRACE_SPAN_ATTRIBUTE_SCHEMA"] = schema_version
@@ -113,7 +115,7 @@ if __name__ == "__main__":
         ("foo=bar&foo=baz&x=y", True),
     ),
 )
-async def test_param_handler(app_tracer, aiohttp_client, loop, query_string, trace_query_string):
+async def test_param_handler(app_tracer, aiohttp_client, query_string, trace_query_string):
     app, tracer = app_tracer
     if trace_query_string:
         app[CONFIG_KEY]["trace_query_string"] = True
@@ -262,7 +264,7 @@ async def test_coroutine_chaining(app_tracer, aiohttp_client):
     assert root.get_tag("span.kind") == "server"
 
 
-async def test_static_handler(app_tracer, aiohttp_client, loop):
+async def test_static_handler(app_tracer, aiohttp_client):
     app, tracer = app_tracer
     client = await aiohttp_client(app)
     # it should create a trace with multiple spans
@@ -539,22 +541,6 @@ async def test_parenting_200_dd(app_tracer, aiohttp_client):
     _assert_200_parenting(client, traces)
 
 
-async def test_parenting_200_ot(app_tracer, aiohttp_client):
-    """OpenTracing version of test_handler."""
-    app, tracer = app_tracer
-    client = await aiohttp_client(app)
-    ot_tracer = init_tracer("aiohttp_svc", tracer, scope_manager=AsyncioScopeManager())
-
-    with ot_tracer.start_active_span("aiohttp_op"):
-        request = await client.request("GET", "/")
-        assert 200 == request.status
-        text = await request.text()
-
-    assert "What's tracing?" == text
-    traces = tracer.pop_traces()
-    _assert_200_parenting(client, traces)
-
-
 @pytest.mark.parametrize(
     "test_app",
     [
@@ -633,7 +619,7 @@ async def test_inferred_spans_api_gateway(app_tracer, aiohttp_client, test_app, 
                 api_gateway_resource="GET /",
                 method="GET",
                 status_code=str(test_app["status_code"]),
-                url="local/",
+                url="https://local/",
                 start=1736973768,
                 is_distributed=test_headers["type"] == "distributed",
                 distributed_trace_id=1,

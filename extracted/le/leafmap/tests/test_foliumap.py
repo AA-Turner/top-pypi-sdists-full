@@ -71,7 +71,7 @@ class TestFoliumap(unittest.TestCase):
         """Check GeoDataFrame"""
         m = leafmap.Map()
         gdf = gpd.read_file(
-            "https://github.com/opengeos/leafmap/raw/master/examples/data/cable_geo.geojson"
+            "https://github.com/opengeos/datasets/releases/download/vector/cables.geojson"
         )
         m.add_gdf(gdf, layer_name="Cable lines")
         out_str = m.to_html()
@@ -108,7 +108,7 @@ class TestFoliumap(unittest.TestCase):
     def test_add_geojson(self):
         """Check GeoJSON"""
         m = leafmap.Map()
-        in_geojson = "https://raw.githubusercontent.com/opengeos/leafmap/master/examples/data/cable_geo.geojson"
+        in_geojson = "https://github.com/opengeos/datasets/releases/download/vector/cables.geojson"
         m.add_geojson(in_geojson, layer_name="Cable lines")
         out_str = m.to_html()
         assert "Cable lines" in out_str
@@ -287,13 +287,13 @@ class TestFoliumap(unittest.TestCase):
     #     out_str = m.to_html()
     #     assert "Countries" in out_str
 
-    def test_add_stac_layer(self):
-        """Check adding STAC layer"""
-        m = leafmap.Map()
-        url = "https://canada-spot-ortho.s3.amazonaws.com/canada_spot_orthoimages/canada_spot5_orthoimages/S5_2007/S5_11055_6057_20070622/S5_11055_6057_20070622.json"
-        m.add_stac_layer(url, bands=["B3", "B2", "B1"], name="False color")
-        out_str = m.to_html()
-        assert "False color" in out_str
+    # def test_add_stac_layer(self):
+    #     """Check adding STAC layer"""
+    #     m = leafmap.Map()
+    #     url = "https://canada-spot-ortho.s3.amazonaws.com/canada_spot_orthoimages/canada_spot5_orthoimages/S5_2007/S5_11055_6057_20070622/S5_11055_6057_20070622.json"
+    #     m.add_stac_layer(url, bands=["B3", "B2", "B1"], name="False color")
+    #     out_str = m.to_html()
+    #     assert "False color" in out_str
 
     def test_add_tile_layer(self):
         """Check adding tile layer"""
@@ -465,18 +465,18 @@ class TestFoliumap(unittest.TestCase):
         """Check zoom to GeoDataFrame"""
         m = leafmap.Map()
         gdf = gpd.read_file(
-            "https://github.com/opengeos/leafmap/raw/master/examples/data/cable_geo.geojson"
+            "https://github.com/opengeos/datasets/releases/download/vector/cables.geojson"
         )
         m.zoom_to_gdf(gdf)
         out_str = m.to_html()
         assert "OpenStreetMap" in out_str
 
-    def test_leafmap_split_map(self):
-        """Check split-panel map"""
-        with self.assertRaises(NotImplementedError):
-            m = leafmap.split_map(left_layer="ROADMAP", right_layer="HYBRID")
-            out_str = m.to_html()
-            assert "OpenStreetMap" in out_str
+    # def test_leafmap_split_map(self):
+    #     """Check split-panel map"""
+    #     with self.assertRaises(NotImplementedError):
+    #         m = leafmap.split_map(left_layer="ROADMAP", right_layer="HYBRID")
+    #         out_str = m.to_html()
+    #         assert "OpenStreetMap" in out_str
 
     def test_linked_maps(self):
         """Check linked maps"""

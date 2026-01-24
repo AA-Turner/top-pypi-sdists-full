@@ -1,8 +1,15 @@
 """unit tests for esi decorators"""
 
 import logging
-from unittest.mock import patch, Mock
+import os
 
+from time import time
+from unittest.mock import MagicMock, patch, Mock
+
+from celery import Celery
+from celery.contrib.testing.worker import start_worker
+from celery.exceptions import Retry
+from django.core.cache import cache
 from django.contrib.auth.models import User
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.sessions.middleware import SessionMiddleware
@@ -10,10 +17,15 @@ from django.http import HttpResponse
 from django.test import TestCase, RequestFactory
 
 from . import _generate_token, _store_as_Token
+from ..rate_limiting import ESIRateLimitBucket, ESIRateLimits
+from ..exceptions import ESIBucketLimitException, ESIErrorLimitException
 from ..decorators import (
-    _check_callback, tokens_required, token_required, single_use_token
+    _check_callback, esi_rate_limiter_bucketed, rate_limit_retry_task, tokens_required, token_required, single_use_token, wait_for_esi_errorlimit_reset
 )
 from ..models import Token, CallbackRedirect
+SPEC_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "test_openapi.json"
+)
 
 
 logger = logging.getLogger(__name__)
@@ -516,3 +528,108 @@ class TestSingleUseTokenRequired(TestCase):
             response,
             self.token
         )
+
+
+class TestESIRateLimitDecorator(TestCase):
+
+    def setUp(self):
+        self.bucket = ESIRateLimitBucket(
+            "test-bucket",
+            1,
+            5
+        )
+        cache.clear()
+
+    def test_raise(self):
+        @esi_rate_limiter_bucketed(bucket=self.bucket)
+        def my_func():
+            return "Pass"
+
+        _t = time()
+        my_func()
+        self.assertLess(time() - _t, 1)
+        _t = time()
+        with self.assertRaises(ESIBucketLimitException):
+            my_func()
+
+    def test_sleep(self):
+        @esi_rate_limiter_bucketed(bucket=self.bucket, raise_on_limit=False)
+        def my_func():
+            return "Pass"
+
+        _t = time()
+        my_func()
+        self.assertLess(time() - _t, 1)
+        _t = time()
+        my_func()
+        duration = time() - _t
+        self.assertGreater(duration, 5)
+
+
+class TestESIErrorLimitDecorator(TestCase):
+
+    def setUp(self):
+        cache.clear()
+
+    def test_sleep(self):
+        @wait_for_esi_errorlimit_reset()
+        def my_func():
+            return "Pass"
+
+        _t = time()
+        my_func()
+        self.assertLess(time() - _t, 1)
+        cache.set("esi_error_limit_reset", 5, timeout=5)
+        _t = time()
+        my_func()
+        duration = time() - _t
+        self.assertGreater(duration, 5)
+
+class TestESIErrorLimitDecorator(TestCase):
+    def setUp(self):
+        self.celery_app = Celery("mysite", broker_url="memory://localhost/")
+        self.celery_app.conf.update(CELERY_ALWAYS_EAGER=True, CELERY_EAGER_PROPAGATES_EXCEPTIONS=True)
+        self.celery_app.config_from_object("django.conf:settings")
+
+
+    def test_no_limit_bucket(self):
+        @self.celery_app.task(bind=True)
+        @rate_limit_retry_task
+        def _task(self):
+            bucket = ESIRateLimitBucket(
+                "test",
+                1,
+                5
+            )
+            raise ESIBucketLimitException(
+                bucket=bucket,
+                reset=2
+            )
+
+        with start_worker(
+            self.celery_app,
+            pool="solo",
+            loglevel="info",
+            perform_ping_check=False,
+            shutdown_timeout=30
+        ):
+            with self.assertRaises(Retry):
+                _task.delay()
+
+    def test_error_global(self):
+        @self.celery_app.task(bind=True)
+        @rate_limit_retry_task
+        def _task(self):
+            raise ESIErrorLimitException(
+                reset=2
+            )
+
+        with start_worker(
+            self.celery_app,
+            pool="solo",
+            loglevel="info",
+            perform_ping_check=False,
+            shutdown_timeout=30
+        ):
+            with self.assertRaises(Retry):
+                _task.delay()

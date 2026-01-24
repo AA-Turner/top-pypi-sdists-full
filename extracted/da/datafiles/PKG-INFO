@@ -1,12 +1,13 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: datafiles
-Version: 2.3.4
+Version: 2.4
 Summary: File-based ORM for dataclasses.
 License: MIT
+License-File: LICENSE.md
 Keywords: dataclasses,serialization,type-annotations,object-relational mapping,YAML,JSON,JSON5,TOML
 Author: Jace Browning
 Author-email: jacebrowning@gmail.com
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -14,20 +15,21 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Software Development
 Classifier: Topic :: Utilities
-Requires-Dist: cached_property (>=1.5,<2.0)
+Requires-Dist: cached_property (>=1.5,<3.0)
 Requires-Dist: classproperties (>=0.2,<0.3)
 Requires-Dist: json-five (>=1.1.2,<2.0.0)
 Requires-Dist: minilog (>=2.3,<3.0)
 Requires-Dist: parse (>=1.12,<2.0)
-Requires-Dist: ruamel.yaml (>=0.18.10,<0.19.0)
-Requires-Dist: tomlkit (>=0.10.1,<0.11.0)
+Requires-Dist: ruamel.yaml (>=0.18.10,<0.20.0)
+Requires-Dist: tomlkit (>=0.10.1,<0.15.0)
 Project-URL: Documentation, https://datafiles.readthedocs.io
 Project-URL: Homepage, https://pypi.org/project/datafiles
 Project-URL: Repository, https://github.com/jacebrowning/datafiles

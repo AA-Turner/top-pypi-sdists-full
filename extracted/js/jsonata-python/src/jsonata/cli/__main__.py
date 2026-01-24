@@ -32,9 +32,9 @@ from jsonata import functions, jexception, jsonata, timebox
 def get_options(argv: Optional[list[str]] = None) -> argparse.ArgumentParser:
     """Parses command-line arguments.
     """
-    parser = argparse.ArgumentParser(prog="jsonata.cli", description="Pure Python JSONata CLI")
+    parser = argparse.ArgumentParser(prog="jsonata", description="Pure Python JSONata CLI")
     parser.add_argument(
-        "-v", "--version", action='version', version='%(prog)s 0.6.0')
+        "-v", "--version", action='version', version='%(prog)s 0.6.1')
 
     parser.add_argument(
         "-e", "--expression", metavar="<file>",

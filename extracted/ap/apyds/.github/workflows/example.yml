@@ -1,0 +1,88 @@
+name: examples
+permissions:
+  contents: read
+
+on:
+  - pull_request
+  - push
+
+env:
+  EM_CACHE_FOLDER: 'emsdk-cache'
+
+jobs:
+  cxx:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev
+
+      - name: mkdir
+        run: mkdir ${{runner.workspace}}/build
+
+      - name: configure
+        run: cmake -S ${{github.workspace}} -B ${{runner.workspace}}/build
+
+      - name: build
+        run: cmake --build ${{runner.workspace}}/build --target main
+
+      - name: run
+        run: ${{runner.workspace}}/build/main
+
+  python:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13', '3.14']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+
+      - name: build
+        run: uv sync --locked
+
+      - name: run
+        run: uv run python examples/main.py
+
+  javascript:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22', '24']
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - uses: actions/cache@v5
+        with:
+          path: ${{ env.EM_CACHE_FOLDER }}
+          key: example-em-cache-${{ runner.os }}-${{ matrix.node-version }}
+
+      - uses: pyodide/setup-emsdk@v15
+        with:
+          actions-cache-folder: ${{ env.EM_CACHE_FOLDER }}
+
+      - name: dependencies
+        run: npm ci
+
+      - name: build
+        run: npm run build
+
+      - name: run
+        run: node dist/example.mjs

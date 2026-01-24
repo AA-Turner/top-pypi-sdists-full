@@ -18,6 +18,7 @@ class TeamFactory(CompanyFactory):
 
     class Meta:
         model = Team
+        skip_postgeneration_save = True
 
 
 class TeamResultsFactory(factory.django.DjangoModelFactory):

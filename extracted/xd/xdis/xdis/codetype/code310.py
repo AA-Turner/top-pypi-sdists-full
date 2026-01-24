@@ -96,30 +96,30 @@ class Code310(Code38):
         co_linetable,
         co_freevars,
         co_cellvars,
-    ):
+    ) -> None:
         # Keyword argument parameters in the call below is more robust.
         # Since things change around, robustness is good.
         self.co_argcount = co_argcount
-        self.co_kwonlyargcount = co_kwonlyargcount
-        self.co_nlocals = co_nlocals
-        self.co_stacksize = co_stacksize
-        self.co_flags = co_flags
+        self.co_cellvars = co_cellvars
         self.co_code = co_code
         self.co_consts = co_consts
-        self.co_names = co_names
-        self.co_varnames = co_varnames
         self.co_filename = co_filename
-        self.co_name = co_name
         self.co_firstlineno = co_firstlineno
-        self.co_linetable = co_linetable
+        self.co_flags = co_flags
         self.co_freevars = co_freevars
-        self.co_cellvars = co_cellvars
+        self.co_kwonlyargcount = co_kwonlyargcount
+        self.co_linetable = co_linetable
+        self.co_name = co_name
+        self.co_names = co_names
+        self.co_nlocals = co_nlocals
         self.co_posonlyargcount = co_posonlyargcount
+        self.co_stacksize = co_stacksize
+        self.co_varnames = co_varnames
         self.fieldtypes = Code310FieldTypes
         if type(self) is Code310:
             self.check()
 
-    def check(self):
+    def check(self) -> None:
         for field, fieldtype in self.fieldtypes.items():
             val = getattr(self, field)
             if isinstance(fieldtype, tuple):
@@ -132,6 +132,11 @@ class Code310(Code38):
                     )
                 )
             else:
+                if field == "co_exceptiontable":
+                    # This happens in PyPy 3.11. It doesn't have a co_exceptiontable
+                    # field, although CPython 3.11 does. And magically this code
+                    # gets called in creating the PyPy code object.
+                    continue
                 assert isinstance(val, fieldtype), (
                     "%s should have type %s; is type %s" % (field, fieldtype, type(val))
                 )
@@ -195,7 +200,7 @@ class Code310(Code38):
 
             yield start_offset, end_offset, display_line
 
-    def encode_lineno_tab(self):
+    def encode_lineno_tab(self) -> None:
         """
         Convert a list of (offset, line_number) encoding of
         co_linetable into the compacted 3.10-encoded format described

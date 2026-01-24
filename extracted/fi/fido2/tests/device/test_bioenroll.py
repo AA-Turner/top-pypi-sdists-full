@@ -13,7 +13,8 @@ from . import TEST_PIN, CliInteraction
 def preconditions(dev_manager):
     if not BioEnrollment.is_supported(dev_manager.info):
         pytest.skip("BioEnrollment not supported by authenticator")
-    assert dev_manager.info.options["uv"] is False
+    if dev_manager.info.options["uv"]:
+        pytest.skip("UV already configured")
 
 
 def get_bio(ctap2, pin_protocol=None, permissions=ClientPin.PERMISSION.BIO_ENROLL):
@@ -77,19 +78,21 @@ def test_enroll_use_delete(device, ctap2, pin_protocol, printer):
         user_interaction=CliInteraction(printer, "WrongPin"),
     )
 
-    # Allow multiple attempts
-    for _ in range(3):
-        try:
-            result = client.make_credential(create_options.public_key)
-            break
-        except ClientError as e:
-            if e.cause.code == CtapError.ERR.UV_INVALID:
-                continue
-            raise
+    try:
+        # Allow multiple attempts
+        for _ in range(3):
+            try:
+                result = client.make_credential(create_options.public_key)
+                break
+            except ClientError as e:
+                if e.cause.code == CtapError.ERR.UV_INVALID:
+                    continue
+                raise
 
-    server.register_complete(state, result)
+        server.register_complete(state, result)
 
-    # Delete fingerprint
-    bio = get_bio(ctap2, pin_protocol)
-    bio.remove_enrollment(template_id)
-    assert len(bio.enumerate_enrollments()) == 0
+    finally:
+        # Delete fingerprint
+        bio = get_bio(ctap2, pin_protocol)
+        bio.remove_enrollment(template_id)
+        assert len(bio.enumerate_enrollments()) == 0

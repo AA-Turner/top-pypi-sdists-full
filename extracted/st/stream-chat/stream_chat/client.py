@@ -2,14 +2,28 @@ import datetime
 import json
 import sys
 import warnings
-from typing import Any, Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Union,
+    cast,
+)
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
+
+if TYPE_CHECKING:
+    from stream_chat.channel_batch_updater import ChannelBatchUpdater
 
 from stream_chat.campaign import Campaign
 from stream_chat.segment import Segment
 from stream_chat.types.base import SortParam
 from stream_chat.types.campaign import CampaignData, QueryCampaignsOptions
+from stream_chat.types.channel_batch import ChannelsBatchOptions
 from stream_chat.types.draft import QueryDraftsFilter, QueryDraftsOptions
 from stream_chat.types.segment import (
     QuerySegmentsOptions,
@@ -84,6 +98,10 @@ class StreamChat(StreamChatInterface):
         data: Any = None,
     ) -> StreamResponse:
         params = params or {}
+        # Convert boolean values to lowercase strings for consistency with async implementation
+        params = {
+            k: str(v).lower() if isinstance(v, bool) else v for k, v in params.items()
+        }
         data = data or {}
         serialized = None
         default_params = self.get_default_params()
@@ -94,7 +112,9 @@ class StreamChat(StreamChatInterface):
 
         url = f"{self.base_url}/{relative_url}"
 
-        if method.__name__ in ["post", "put", "patch"]:
+        if method.__name__ in ["post", "put", "patch"] or (
+            method.__name__ == "delete" and data
+        ):
             serialized = json.dumps(data)
 
         response = method(
@@ -119,8 +139,10 @@ class StreamChat(StreamChatInterface):
     def get(self, relative_url: str, params: Dict = None) -> StreamResponse:
         return self._make_request(self.session.get, relative_url, params, None)
 
-    def delete(self, relative_url: str, params: Dict = None) -> StreamResponse:
-        return self._make_request(self.session.delete, relative_url, params, None)
+    def delete(
+        self, relative_url: str, params: Dict = None, data: Any = None
+    ) -> StreamResponse:
+        return self._make_request(self.session.delete, relative_url, params, data)
 
     def patch(
         self, relative_url: str, params: Dict = None, data: Any = None
@@ -342,8 +364,24 @@ class StreamChat(StreamChatInterface):
         data.update(options)
         return self.put(f"messages/{message_id}", data=data)
 
-    def delete_message(self, message_id: str, **options: Any) -> StreamResponse:
-        return self.delete(f"messages/{message_id}", options)
+    def delete_message(
+        self,
+        message_id: str,
+        delete_for_me: bool = False,
+        deleted_by: str = None,
+        **options: Any,
+    ) -> StreamResponse:
+        if delete_for_me and not deleted_by:
+            raise ValueError("deleted_by is required when delete_for_me is True")
+
+        params = options.copy()
+        if delete_for_me:
+            # Send in body with acting user for server-side auth compatibility
+            body = {"delete_for_me": True, "user": {"id": deleted_by}}
+            return self.delete(f"messages/{message_id}", None, body)
+        if deleted_by:
+            params["deleted_by"] = deleted_by
+        return self.delete(f"messages/{message_id}", params)
 
     def undelete_message(self, message_id: str, user_id: str) -> StreamResponse:
         return self.post(
@@ -895,7 +933,7 @@ class StreamChat(StreamChatInterface):
         :return: API response with reminders
         """
         params = options.copy()
-        params["filter_conditions"] = filter_conditions or {}
+        params["filter"] = filter_conditions or {}
         params["sort"] = sort or [{"field": "remind_at", "direction": 1}]
         params["user_id"] = user_id
         return self.post("reminders/query", data=params)
@@ -915,3 +953,71 @@ class StreamChat(StreamChatInterface):
             data.update(cast(dict, options))
         params = {"user_id": user_id, **options}
         return self.put("users/live_locations", data=data, params=params)
+
+    def mark_delivered(self, data: Dict[str, Any]) -> Optional[StreamResponse]:
+        """
+        Send the mark delivered event for this user, only works if the `delivery_receipts` setting is enabled
+
+        :param data: MarkDeliveredOptions containing latest_delivered_messages and other optional fields
+        :return: The server response or None if delivery receipts are disabled
+        """
+        # Validate required fields
+        if not data.get("latest_delivered_messages"):
+            raise ValueError("latest_delivered_messages must not be empty")
+
+        # Ensure either user or user_id is provided
+        if not data.get("user") and not data.get("user_id"):
+            raise ValueError("either user or user_id must be provided")
+
+        # Extract user_id from data
+        user_id = data.get("user_id") or data.get("user", {}).get("id")
+        if not user_id:
+            raise ValueError("user_id must be provided")
+
+        params = {"user_id": user_id}
+        return self.post("channels/delivered", data=data, params=params)
+
+    def mark_delivered_simple(
+        self, user_id: str, message_id: str, channel_cid: str
+    ) -> Optional[StreamResponse]:
+        """
+        Convenience method to mark a message as delivered for a specific user.
+
+        :param user_id: The user ID
+        :param message_id: The message ID
+        :param channel_cid: The channel CID (channel_type:channel_id)
+        :return: The server response or None if delivery receipts are disabled
+        """
+        if not user_id:
+            raise ValueError("user ID must not be empty")
+        if not message_id:
+            raise ValueError("message ID must not be empty")
+        if not channel_cid:
+            raise ValueError("channel CID must not be empty")
+        data = {
+            "latest_delivered_messages": [{"cid": channel_cid, "id": message_id}],
+            "user_id": user_id,
+        }
+        return self.mark_delivered(data=data)
+
+    def update_channels_batch(self, options: ChannelsBatchOptions) -> StreamResponse:
+        """
+        Updates channels in batch based on the provided options.
+
+        :param options: ChannelsBatchOptions containing operation, filter, and operation-specific data.
+        :return: StreamResponse containing task_id.
+        """
+        if options is None:
+            raise ValueError("options must not be None")
+
+        return self.put("channels/batch", data=options)
+
+    def channel_batch_updater(self) -> "ChannelBatchUpdater":
+        """
+        Returns a ChannelBatchUpdater instance for batch channel operations.
+
+        :return: ChannelBatchUpdater instance.
+        """
+        from stream_chat.channel_batch_updater import ChannelBatchUpdater
+
+        return ChannelBatchUpdater(self)

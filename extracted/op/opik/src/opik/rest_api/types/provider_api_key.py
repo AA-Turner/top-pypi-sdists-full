@@ -13,6 +13,11 @@ class ProviderApiKey(UniversalBaseModel):
     provider: ProviderApiKeyProvider
     api_key: typing.Optional[str] = None
     name: typing.Optional[str] = None
+    provider_name: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Provider name - required for custom LLM and Bedrock providers to uniquely identify them (e.g., 'ollama', 'vllm', 'Bedrock us-east-1'). Must not be blank for custom and Bedrock providers. Should not be set for standard providers (OpenAI, Anthropic, etc.). This requirement is conditional and validation is enforced programmatically.
+    """
+
     headers: typing.Optional[typing.Dict[str, str]] = None
     configuration: typing.Optional[typing.Dict[str, str]] = None
     base_url: typing.Optional[str] = None
@@ -20,6 +25,10 @@ class ProviderApiKey(UniversalBaseModel):
     created_by: typing.Optional[str] = None
     last_updated_at: typing.Optional[dt.datetime] = None
     last_updated_by: typing.Optional[str] = None
+    read_only: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    If true, this provider is system-managed and cannot be edited or deleted
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

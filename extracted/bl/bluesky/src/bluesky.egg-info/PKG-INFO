@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky
-Version: 1.14.4
+Version: 1.14.6
 Summary: Experiment specification & orchestration.
 Author: danielballan
 License: BSD 3-Clause License
@@ -45,7 +45,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE_README
 Requires-Dist: cycler
-Requires-Dist: event-model>=1.19.8
+Requires-Dist: event-model>=1.23.1
 Requires-Dist: historydict
 Requires-Dist: msgpack
 Requires-Dist: msgpack-numpy

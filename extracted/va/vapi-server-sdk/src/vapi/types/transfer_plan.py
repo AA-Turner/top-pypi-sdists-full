@@ -9,6 +9,7 @@ from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .summary_plan import SummaryPlan
 from .transfer_fallback_plan import TransferFallbackPlan
+from .transfer_plan_context_engineering_plan import TransferPlanContextEngineeringPlan
 from .transfer_plan_message import TransferPlanMessage
 from .transfer_plan_mode import TransferPlanMode
 
@@ -56,6 +57,17 @@ class TransferPlan(UncheckedBaseModel):
     - 'dial': Uses SIP DIAL to transfer the call
     """
 
+    dial_timeout: typing_extensions.Annotated[typing.Optional[float], FieldMetadata(alias="dialTimeout")] = (
+        pydantic.Field(default=None)
+    )
+    """
+    This sets the timeout for the dial operation in seconds. This is the duration the call will ring before timing out.
+    
+    Only applicable when `sipVerb='dial'`. Not applicable for SIP REFER or BYE.
+    
+    @default 60
+    """
+
     hold_audio_url: typing_extensions.Annotated[typing.Optional[str], FieldMetadata(alias="holdAudioUrl")] = (
         pydantic.Field(default=None)
     )
@@ -82,6 +94,20 @@ class TransferPlan(UncheckedBaseModel):
     - Used when transferring calls to play hold audio for the destination party.
     - Must be a publicly accessible URL to an audio file.
     - Supported formats: MP3 and WAV.
+    """
+
+    context_engineering_plan: typing_extensions.Annotated[
+        typing.Optional[TransferPlanContextEngineeringPlan], FieldMetadata(alias="contextEngineeringPlan")
+    ] = pydantic.Field(default=None)
+    """
+    This is the plan for manipulating the message context before initiating the warm transfer.
+    Usage:
+    - Used only when `mode` is `warm-transfer-experimental`.
+    - These messages will automatically be added to the transferAssistant's system message.
+    - If 'none', we will not add any transcript to the transferAssistant's system message.
+    - If you want to provide your own messages, use transferAssistant.model.messages instead.
+    
+    @default { type: 'all' }
     """
 
     twiml: typing.Optional[str] = pydantic.Field(default=None)

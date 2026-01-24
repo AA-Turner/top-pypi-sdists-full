@@ -16,9 +16,11 @@ T = TypeVar("T", bound="RunFlowPreviewJsonBodyValueFailureModuleSuspendResumeFor
 
 @_attrs_define
 class RunFlowPreviewJsonBodyValueFailureModuleSuspendResumeForm:
-    """
+    """Form schema for collecting input when resuming
+
     Attributes:
-        schema (Union[Unset, RunFlowPreviewJsonBodyValueFailureModuleSuspendResumeFormSchema]):
+        schema (Union[Unset, RunFlowPreviewJsonBodyValueFailureModuleSuspendResumeFormSchema]): JSON Schema for the
+            resume form
     """
 
     schema: Union[Unset, "RunFlowPreviewJsonBodyValueFailureModuleSuspendResumeFormSchema"] = UNSET

@@ -165,10 +165,13 @@ def model_value_to_python(value: z3.ExprRef) -> object:
         if value.num_args() == 1:
             ret.append(model_value_to_python(value.arg(0)))
         return ret
-    elif z3.is_int(value):
-        return value.as_long()
     elif z3.is_fp(value):
         return parse_smtlib_literal(value.sexpr())
+    elif hasattr(value, "py_value"):
+        # TODO: how many other cases could be handled with py_value nowadays?
+        return value.py_value()
+    elif z3.is_int(value):  # catch for older z3 versions that don't have py_value
+        return value.as_long()
     else:
         return ast.literal_eval(repr(value))
 
@@ -293,6 +296,16 @@ class NodeLike:
     def stats(self) -> StateSpaceCounter:
         raise NotImplementedError
 
+    children_fields: Tuple[str, ...] = ()
+
+    def replace_child(self, current_child, replacement_child: "NodeLike") -> None:
+        for child_field in self.children_fields:
+            child = getattr(self, child_field)
+            if child is current_child:
+                setattr(self, child_field, replacement_child)
+                return
+        raise CrossHairInternal(f"Child {current_child} not found in {self}")
+
 
 class SearchTreeNode(NodeLike):
     """A node in the execution path tree."""
@@ -329,9 +342,6 @@ class NodeStem(NodeLike):
     def __init__(self, parent: SearchTreeNode, parent_attr_name: str):
         self.parent = parent
         self.parent_attr_name = parent_attr_name
-
-    def grow(self, node: SearchTreeNode):
-        setattr(self.parent, self.parent_attr_name, node)
 
     def is_exhausted(self) -> bool:
         return False
@@ -409,6 +419,8 @@ class SinglePathNode(SearchTreeNode):
     def stats(self) -> StateSpaceCounter:
         return self.child.stats()
 
+    children_fields = ("child",)
+
 
 class BranchCounter:
     __slots__ = ["pos_ct", "neg_ct"]
@@ -470,6 +482,8 @@ class BinaryPathNode(SearchTreeNode):
 
     def stats(self) -> StateSpaceCounter:
         return self._stats
+
+    children_fields = ("negative", "positive")
 
 
 class RandomizedBinaryPathNode(BinaryPathNode):
@@ -794,7 +808,7 @@ class StateSpace:
 
     def grow_into(self, node: _N) -> _N:
         assert isinstance(self._search_position, NodeStem)
-        self._search_position.grow(node)
+        self._search_position.parent.replace_child(self._search_position, node)
         node.iteration = self._root.iteration
         self._search_position = node
         return node
@@ -948,7 +962,7 @@ class StateSpace:
         else:
             raise exc
 
-    def find_model_value(self, expr: z3.ExprRef) -> Any:
+    def find_model_value(self, expr: z3.ExprRef, choice_conformity=1.0) -> Any:
         with NoTracing():
             while True:
                 if isinstance(self._search_position, NodeStem):
@@ -966,7 +980,9 @@ class StateSpace:
                     debug("  Traceback: ", ch_stack())
                     debug(" *** End Not Deterministic Debug *** ")
                     raise NotDeterministic
-                (chosen, _, next_node) = node.choose(self, probability_true=1.0)
+                (chosen, _, next_node) = node.choose(
+                    self, probability_true=choice_conformity
+                )
                 self.choices_made.append(node)
                 self._search_position = next_node
                 if chosen:
@@ -1018,7 +1034,7 @@ class StateSpace:
     ) -> object:
         with NoTracing():
             # TODO: needs more testing
-            for (curref, curtyp, curval) in self.heaps[snapshot]:
+            for curref, curtyp, curval in self.heaps[snapshot]:
 
                 # TODO: using unify() is almost certainly wrong; just because the types
                 # have some instances in common does not mean that `curval` actually
@@ -1137,20 +1153,43 @@ class StateSpace:
             # Give ourselves a time extension for deferred assumptions and
             # (likely) counterexample generation to follow.
             self.extend_timeouts(constant_factor=4.0, smt_multiple=2.0)
+            self.is_detached = True
+            if isinstance(
+                currently_handling,
+                (NotDeterministic, UnknownSatisfiability, PathTimeout),
+            ):
+                # These exceptions can happen at any time; we may not be at a stem node.
+                node = DetachedPathNode()
+                self.choices_made.append(node)
+                self._search_position = node.child
+                return
             for description, checker in self._deferred_assumptions:
                 with ResumedTracing():
                     check_ret = checker()
                 if not prefer_true(check_ret):
+                    node = self.grow_into(DetachedPathNode())
+                    self.choices_made.append(node)
+                    self._search_position = node.child
                     raise IgnoreAttempt("deferred assumption failed: " + description)
-            self.is_detached = True
             if not isinstance(self._search_position, NodeStem):
+                # Nondeterminism detected
+                # We'll just overwrite the prior path with this one.
+                # (note that this might leave some stats in the parents
+                # that is no longer justified by the leaves?)
+                if isinstance(self._search_position, DetachedPathNode):
+                    return
+                previous_node = self._search_position
+                node = DetachedPathNode()
+                if self.choices_made:
+                    self.choices_made[-1].replace_child(previous_node, node)
+                self.choices_made.append(node)
+                self._search_position = node.child
                 self.raise_not_deterministic(
-                    self._search_position,
-                    f"Expect to detach path at a stem node, not at this node: {self._search_position}",
+                    previous_node,
+                    f"Expect to detach path at a stem node, not at this node: {previous_node}",
                     currently_handling=currently_handling,
                 )
             node = self.grow_into(DetachedPathNode())
-            assert isinstance(node.child, NodeStem)
             self.choices_made.append(node)
             self._search_position = node.child
             debug("Detached from search tree")

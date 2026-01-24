@@ -18,19 +18,15 @@ def abspath(
 
         :param start: Relative to this path,
     when not set the current filename is used.
-        :type start: bytes | str | None
         :param library: The library this path is from. This is only included for
     convenience, when the library is not None its path replaces start.
-        :type library: bpy.types.Library | None
         :return: The absolute path.
-        :rtype: str
     """
 
 def basename(path) -> str:
     """Equivalent to os.path.basename, but skips a "//" prefix.Use for Windows compatibility.
 
     :return: The base name of the given path.
-    :rtype: str
     """
 
 def clean_name(name: bytes | str, *, replace: str = "_") -> str:
@@ -40,11 +36,8 @@ def clean_name(name: bytes | str, *, replace: str = "_") -> str:
     or the replace argument if defined.
 
         :param name: The path name.
-        :type name: bytes | str
         :param replace: The replacement for non-valid characters.
-        :type replace: str
         :return: The cleaned name.
-        :rtype: str
     """
 
 def display_name(name: str, *, has_ext: bool = True, title_case: bool = True) -> str:
@@ -52,13 +45,9 @@ def display_name(name: str, *, has_ext: bool = True, title_case: bool = True) ->
     Intended for use with filenames and module names.
 
         :param name: The name to be used for displaying the user interface.
-        :type name: str
         :param has_ext: Remove file extension from name.
-        :type has_ext: bool
         :param title_case: Convert lowercase names to title case.
-        :type title_case: bool
         :return: The display string.
-        :rtype: str
     """
 
 def display_name_from_filepath(name: str) -> str:
@@ -66,9 +55,7 @@ def display_name_from_filepath(name: str) -> str:
     ensured to be utf8 compatible.
 
         :param name: The file path to convert.
-        :type name: str
         :return: The display name.
-        :rtype: str
     """
 
 def display_name_to_filepath(name: str) -> str:
@@ -76,23 +63,17 @@ def display_name_to_filepath(name: str) -> str:
     which arent supported in a filepath.
 
         :param name: The display name to convert.
-        :type name: str
         :return: The file path.
-        :rtype: str
     """
 
 def ensure_ext(filepath: str, ext: str, *, case_sensitive: bool = False) -> str:
     """Return the path with the extension added if it is not already set.
 
         :param filepath: The file path.
-        :type filepath: str
         :param ext: The extension to check for, can be a compound extension. Should
     start with a dot, such as .blend or .tar.gz.
-        :type ext: str
         :param case_sensitive: Check for matching case when comparing extensions.
-        :type case_sensitive: bool
         :return: The file path with the given extension.
-        :rtype: str
     """
 
 def is_subdir(path: bytes | str, directory) -> bool:
@@ -100,9 +81,7 @@ def is_subdir(path: bytes | str, directory) -> bool:
     Both paths must be absolute.
 
         :param path: An absolute path.
-        :type path: bytes | str
         :return: Whether or not the path is a subdirectory.
-        :rtype: bool
     """
 
 def module_names(
@@ -111,22 +90,16 @@ def module_names(
     """Return a list of modules which can be imported from path.
 
     :param path: a directory to scan.
-    :type path: str
     :param recursive: Also return submodule names for packages.
-    :type recursive: bool
     :param package: Optional string, used as the prefix for module names (without the trailing ".").
-    :type package: str
     :return: a list of string pairs (module_name, module_file).
-    :rtype: list[tuple[str, str]]
     """
 
 def native_pathsep(path: str) -> str:
     """Replace the path separator with the systems native os.sep.
 
     :param path: The path to replace.
-    :type path: str
     :return: The path with system native separators.
-    :rtype: str
     """
 
 def reduce_dirs(dirs: collections.abc.Sequence[str]) -> list[str]:
@@ -135,21 +108,16 @@ def reduce_dirs(dirs: collections.abc.Sequence[str]) -> list[str]:
     (Useful for recursive path searching).
 
         :param dirs: Sequence of directory paths.
-        :type dirs: collections.abc.Sequence[str]
         :return: A unique list of paths.
-        :rtype: list[str]
     """
 
 def relpath(path: bytes | str, *, start: bytes | str | None = None) -> str:
     """Returns the path relative to the current blend file using the "//" prefix.
 
         :param path: An absolute path.
-        :type path: bytes | str
         :param start: Relative to this path,
     when not set the current filename is used.
-        :type start: bytes | str | None
         :return: The relative path.
-        :rtype: str
     """
 
 def resolve_ncase(path: str) -> str:
@@ -157,7 +125,5 @@ def resolve_ncase(path: str) -> str:
     returning a string with the path if found else return the original path.
 
         :param path: The path name to resolve.
-        :type path: str
         :return: The resolved path.
-        :rtype: str
     """

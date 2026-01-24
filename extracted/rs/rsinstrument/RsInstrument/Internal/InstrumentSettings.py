@@ -91,7 +91,7 @@ class InstrumentSettings(object):
 		self.open_timeout = 0
 		self.exclusive_lock = False
 		self.vxi_capable = True
-		self.scpi_quotes: str or None = None
+		self.scpi_quotes: str | None = None
 
 		self.cmd_idn = '*IDN?'
 		self.first_cmds = ''
@@ -192,7 +192,7 @@ class InstrumentSettings(object):
 
 		return value
 
-	def apply_option_settings(self, text: str or None) -> None:
+	def apply_option_settings(self, text: str | None) -> None:
 		"""Takes options from the settings dictionary and applies them to the InstrumentSettings class properties."""
 		if not text:
 			return

@@ -1,14 +1,22 @@
 import logging
+import time
+from collections.abc import Callable
 from functools import wraps
-from typing import Union
+from typing import Any
 
-from .models import Token, CallbackRedirect
+from celery import Task
 
+from django.core.cache import cache
+
+from esi.exceptions import ESIBucketLimitException, ESIErrorLimitException
+from esi.rate_limiting import ESIRateLimitBucket, ESIRateLimits
+
+from .models import CallbackRedirect, Token
 
 logger = logging.getLogger(__name__)
 
 
-def _check_callback(request) -> Union[Token, None]:
+def _check_callback(request) -> Token | None:
     # ensure session installed in database
     if not request.session.exists(request.session.session_key):
         logger.debug("Creating new session for %s", request.user)
@@ -221,3 +229,68 @@ def single_use_token(scopes='', new=False):
         return _wrapped_view
 
     return decorator
+
+
+def wait_for_esi_errorlimit_reset(cache_key="esi_error_limit_reset", poll_interval=1) -> Callable[..., Callable[..., Any]]:
+    """
+    Decorator to apply a polling sleep while the ESI Server/Client is in an Error Limit state
+    The preferred non-blocking method is to retry your tasks after the limit reset time has passed
+
+    Args:
+        cache_key (str, optional):  NOT USUALLY CHANGED. Defaults to "esi_error_limit_reset".
+        poll_interval (int, optional): Interval in seconds to poll redis. Defaults to 1.
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            reset = cache.get(cache_key)
+            if reset is not None:
+                logger.error(f"ESI Error Limited, waiting {reset}s before retrying...")
+                while cache.get(cache_key):
+                    time.sleep(poll_interval)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def esi_rate_limiter_bucketed(bucket: ESIRateLimitBucket, raise_on_limit: bool = True):
+    """
+    Decorator for custom manual rate limits on some endpoints to apply a polling sleep while the bucket is exhausted.
+    MARKET_DATA_HISTORY
+    CHARACTER_CORPORATION_HISTORY
+    The preferred non-blocking method is to retry your tasks after the limit reset time has passed
+
+
+    Args:
+        bucket (ESIRateLimitBucket): The Bucket to rate limit against
+        raise_on_limit (bool, optional): Whether to raise an Exception when the limit is reached. Defaults to True.
+    """
+    # TODO Investigate esi cache hits.
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ESIRateLimits.check_decr_bucket(bucket, raise_on_limit)
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
+
+def rate_limit_retry_task(func):
+    """
+    Retry celery task on ESI rate limit exhaustion.
+    """
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except (ESIBucketLimitException, ESIErrorLimitException) as ex:
+            context: Task = args[0]
+            if isinstance(context, Task):
+                # Cool down for a window duration.
+                # If we start tracking requests on our end we can math this better.
+                context.retry(countdown=ex.reset)
+            else:
+                logger.error(
+                    f"{ex.bucket} Exhausted. Unable to retry Task first arg is not a Task instance."
+                )
+                raise ex
+    return wrapper

@@ -13,18 +13,24 @@ from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 
+from .group_0258 import SimpleCommit
 
-class WebhookCheckRunCreatedFormEncoded(GitHubModel):
-    """Check Run Created Event
 
-    The check_run.created webhook encoded with URL encoding
+class MergeGroup(GitHubModel):
+    """Merge Group
+
+    A group of pull requests that the merge queue has grouped together to be merged.
     """
 
-    payload: str = Field(
-        description="A URL-encoded string of the check_run.created JSON payload. The decoded payload is a JSON object."
+    head_sha: str = Field(description="The SHA of the merge group.")
+    head_ref: str = Field(description="The full ref of the merge group.")
+    base_sha: str = Field(description="The SHA of the merge group's parent commit.")
+    base_ref: str = Field(
+        description="The full ref of the branch the merge group will be merged into."
     )
+    head_commit: SimpleCommit = Field(title="Simple Commit", description="A commit.")
 
 
-model_rebuild(WebhookCheckRunCreatedFormEncoded)
+model_rebuild(MergeGroup)
 
-__all__ = ("WebhookCheckRunCreatedFormEncoded",)
+__all__ = ("MergeGroup",)

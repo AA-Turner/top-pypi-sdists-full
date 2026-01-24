@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-bootstrap3
-Version: 25.2
+Version: 26.1
 Summary: Bootstrap 3 for Django
 Keywords: django,bootstrap,bootstrap3
 Author: Dylan Verheul
@@ -12,20 +12,20 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Utilities
 Requires-Dist: django>=4.2
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/zostera/django-bootstrap3/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://django-bootstrap3.readthedocs.io/
 Project-URL: Homepage, https://github.com/zostera/django-bootstrap3
@@ -35,7 +35,7 @@ Description-Content-Type: text/markdown
 
 # django-bootstrap3
 
-[![CI](https://github.com/zostera/django-bootstrap3/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/zostera/django-bootstrap3/actions?workflow=test)
+[![CI](https://github.com/zostera/django-bootstrap3/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/zostera/django-bootstrap3/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/zostera/django-bootstrap3/badge.svg?branch=main)](https://coveralls.io/github/zostera/django-bootstrap3?branch=main)
 [![Latest PyPI version](https://img.shields.io/pypi/v/django-bootstrap3.svg)](https://pypi.python.org/pypi/django-bootstrap3)
 

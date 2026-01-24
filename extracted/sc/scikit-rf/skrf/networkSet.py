@@ -461,7 +461,7 @@ class NetworkSet:
         """
         Dynamically add a property to this class (NetworkSet).
 
-        this is mostly used internally to genrate all of the classes
+        this is mostly used internally to generate all of the classes
         properties.
 
         Parameters
@@ -591,7 +591,7 @@ class NetworkSet:
 
     def copy(self) -> NetworkSet:
         """
-        Copie each network of the network set.
+        Copy each network of the network set.
 
         Return
         ------
@@ -640,7 +640,7 @@ class NetworkSet:
         else:
             return sorted_ns
 
-    def rand(self, n: int = 1):
+    def rand(self, n: int = 1, rng: None | np.random.Generator = None):
         """
         Return `n` random samples from this NetworkSet.
 
@@ -648,9 +648,15 @@ class NetworkSet:
         ----------
         n : int
             number of samples to return (default is 1)
+        rng : :class:`numpy.random.Generator` or None
+            override the global :mod:`numpy` random number generator,
+            useful for multi-threaded programs since
+            :func:`skrf.mathFunctions.set_rand_rng` is not thread-safe.
 
         """
-        idx = np.random.default_rng().randint(0,len(self), n)
+        if rng is None:
+            rng = mf.rand_rng()
+        idx = rng.randint(0,len(self), n)
         out = [self.ntwk_set[k] for k in idx]
 
         if n ==1:
@@ -689,9 +695,8 @@ class NetworkSet:
         """
         Return a scalar ndarray representing `param` data vs freq and element idx.
 
-        output is a 3d array with axes  (freq, ns_index, port/ri)
-
-        ports is a flattened re/im components of port index (`len = 2*nports**2`)
+        Output is a 3d array with axes  (freq, ns_index, port/ri).
+        ports is a flattened re/im components of port index (`len = 2*nports**2`).
 
         Parameter
         ---------
@@ -1150,7 +1155,7 @@ class NetworkSet:
         Returns
         -------
         values : dict or None.
-            Dictionnary of all parameters names and their values (into a list).
+            Dictionary of all parameters names and their values (into a list).
             Return None if no parameters are defined in the NetworkSet.
 
         """
@@ -1172,7 +1177,7 @@ class NetworkSet:
         Returns
         -------
         data_types : dict or None.
-            Dictionnary of the (guessed) type of each parameters.
+            Dictionary of the (guessed) type of each parameters.
             Return None if no parameters are defined in the NetworkSet.
 
         """
@@ -1348,7 +1353,7 @@ class NetworkSet:
         x : float
             Point to evaluate the interpolated network at
         sub_params : dict, optional
-            Dictionnary of parameter/values to filter the NetworkSet,
+            Dictionary of parameter/values to filter the NetworkSet,
             if necessary to avoid an ambiguity.
             Default is empty dict.
         interp_kind: str

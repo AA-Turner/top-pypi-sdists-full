@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -69,12 +70,6 @@ from .literals import (
     TransitionStorageClassType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -90,6 +85,7 @@ __all__ = (
     "ActivityMetricsTypeDef",
     "AdvancedCostOptimizationMetricsTypeDef",
     "AdvancedDataProtectionMetricsTypeDef",
+    "AdvancedPerformanceMetricsTypeDef",
     "AssociateAccessGrantsIdentityCenterRequestTypeDef",
     "AsyncErrorDetailsTypeDef",
     "AsyncOperationTypeDef",
@@ -400,6 +396,8 @@ __all__ = (
     "StorageLensDataExportEncryptionTypeDef",
     "StorageLensDataExportOutputTypeDef",
     "StorageLensDataExportTypeDef",
+    "StorageLensExpandedPrefixesDataExportOutputTypeDef",
+    "StorageLensExpandedPrefixesDataExportTypeDef",
     "StorageLensGroupAndOperatorOutputTypeDef",
     "StorageLensGroupAndOperatorTypeDef",
     "StorageLensGroupFilterOutputTypeDef",
@@ -413,6 +411,8 @@ __all__ = (
     "StorageLensGroupOutputTypeDef",
     "StorageLensGroupTypeDef",
     "StorageLensGroupUnionTypeDef",
+    "StorageLensTableDestinationOutputTypeDef",
+    "StorageLensTableDestinationTypeDef",
     "StorageLensTagTypeDef",
     "SubmitMultiRegionAccessPointRoutesRequestTypeDef",
     "TagResourceRequestTypeDef",
@@ -455,6 +455,9 @@ class AdvancedCostOptimizationMetricsTypeDef(TypedDict):
 class AdvancedDataProtectionMetricsTypeDef(TypedDict):
     IsEnabled: NotRequired[bool]
 
+class AdvancedPerformanceMetricsTypeDef(TypedDict):
+    IsEnabled: NotRequired[bool]
+
 class DetailedStatusCodesMetricsTypeDef(TypedDict):
     IsEnabled: NotRequired[bool]
 
@@ -493,7 +496,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -629,8 +632,8 @@ class EstablishedMultiRegionAccessPointPolicyTypeDef(TypedDict):
     Policy: NotRequired[str]
 
 class ExcludeOutputTypeDef(TypedDict):
-    Buckets: NotRequired[List[str]]
-    Regions: NotRequired[List[str]]
+    Buckets: NotRequired[list[str]]
+    Regions: NotRequired[list[str]]
 
 class ExcludeTypeDef(TypedDict):
     Buckets: NotRequired[Sequence[str]]
@@ -696,8 +699,8 @@ class GetAccessPointScopeRequestTypeDef(TypedDict):
     Name: str
 
 class ScopeOutputTypeDef(TypedDict):
-    Prefixes: NotRequired[List[str]]
-    Permissions: NotRequired[List[ScopePermissionType]]
+    Prefixes: NotRequired[list[str]]
+    Permissions: NotRequired[list[ScopePermissionType]]
 
 class GetBucketLifecycleConfigurationRequestTypeDef(TypedDict):
     AccountId: str
@@ -776,8 +779,8 @@ class GetStorageLensGroupRequestTypeDef(TypedDict):
     AccountId: str
 
 class IncludeOutputTypeDef(TypedDict):
-    Buckets: NotRequired[List[str]]
-    Regions: NotRequired[List[str]]
+    Buckets: NotRequired[list[str]]
+    Regions: NotRequired[list[str]]
 
 class IncludeTypeDef(TypedDict):
     Buckets: NotRequired[Sequence[str]]
@@ -788,9 +791,9 @@ class JobFailureTypeDef(TypedDict):
     FailureReason: NotRequired[str]
 
 class KeyNameConstraintOutputTypeDef(TypedDict):
-    MatchAnyPrefix: NotRequired[List[str]]
-    MatchAnySuffix: NotRequired[List[str]]
-    MatchAnySubstring: NotRequired[List[str]]
+    MatchAnyPrefix: NotRequired[list[str]]
+    MatchAnySuffix: NotRequired[list[str]]
+    MatchAnySubstring: NotRequired[list[str]]
 
 class KeyNameConstraintTypeDef(TypedDict):
     MatchAnyPrefix: NotRequired[Sequence[str]]
@@ -806,7 +809,7 @@ class JobManifestLocationTypeDef(TypedDict):
 
 class JobManifestSpecOutputTypeDef(TypedDict):
     Format: JobManifestFormatType
-    Fields: NotRequired[List[JobManifestFieldNameType]]
+    Fields: NotRequired[list[JobManifestFieldNameType]]
 
 class JobManifestSpecTypeDef(TypedDict):
     Format: JobManifestFormatType
@@ -815,7 +818,7 @@ class JobManifestSpecTypeDef(TypedDict):
 class LambdaInvokeOperationOutputTypeDef(TypedDict):
     FunctionArn: NotRequired[str]
     InvocationSchemaVersion: NotRequired[str]
-    UserArguments: NotRequired[Dict[str, str]]
+    UserArguments: NotRequired[dict[str, str]]
 
 class S3ComputeObjectChecksumOperationTypeDef(TypedDict):
     ChecksumAlgorithm: NotRequired[ComputeObjectChecksumAlgorithmType]
@@ -1039,7 +1042,7 @@ class S3ObjectMetadataOutputTypeDef(TypedDict):
     ContentDisposition: NotRequired[str]
     ContentEncoding: NotRequired[str]
     ContentLanguage: NotRequired[str]
-    UserMetadata: NotRequired[Dict[str, str]]
+    UserMetadata: NotRequired[dict[str, str]]
     ContentLength: NotRequired[int]
     ContentMD5: NotRequired[str]
     ContentType: NotRequired[str]
@@ -1073,8 +1076,8 @@ class StorageLensAwsOrgTypeDef(TypedDict):
     Arn: str
 
 class StorageLensGroupLevelSelectionCriteriaOutputTypeDef(TypedDict):
-    Include: NotRequired[List[str]]
-    Exclude: NotRequired[List[str]]
+    Include: NotRequired[list[str]]
+    Exclude: NotRequired[list[str]]
 
 class StorageLensGroupLevelSelectionCriteriaTypeDef(TypedDict):
     Include: NotRequired[Sequence[str]]
@@ -1280,7 +1283,7 @@ class GetBucketVersioningResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResultTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutAccessGrantsInstanceResourcePolicyResultTypeDef(TypedDict):
@@ -1338,7 +1341,7 @@ class GetAccessPointResultTypeDef(TypedDict):
     CreationDate: datetime
     Alias: str
     AccessPointArn: str
-    Endpoints: Dict[str, str]
+    Endpoints: dict[str, str]
     BucketAccountId: str
     DataSourceId: str
     DataSourceType: str
@@ -1365,16 +1368,16 @@ class CreateBucketRequestTypeDef(TypedDict):
     OutpostId: NotRequired[str]
 
 class GetBucketTaggingResultTypeDef(TypedDict):
-    TagSet: List[S3TagTypeDef]
+    TagSet: list[S3TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetJobTaggingResultTypeDef(TypedDict):
-    Tags: List[S3TagTypeDef]
+    Tags: list[S3TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class LifecycleRuleAndOperatorOutputTypeDef(TypedDict):
     Prefix: NotRequired[str]
-    Tags: NotRequired[List[S3TagTypeDef]]
+    Tags: NotRequired[list[S3TagTypeDef]]
     ObjectSizeGreaterThan: NotRequired[int]
     ObjectSizeLessThan: NotRequired[int]
 
@@ -1391,14 +1394,14 @@ class PutJobTaggingRequestTypeDef(TypedDict):
 
 class ReplicationRuleAndOperatorOutputTypeDef(TypedDict):
     Prefix: NotRequired[str]
-    Tags: NotRequired[List[S3TagTypeDef]]
+    Tags: NotRequired[list[S3TagTypeDef]]
 
 class ReplicationRuleAndOperatorTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Tags: NotRequired[Sequence[S3TagTypeDef]]
 
 class S3SetObjectTaggingOperationOutputTypeDef(TypedDict):
-    TagSet: NotRequired[List[S3TagTypeDef]]
+    TagSet: NotRequired[list[S3TagTypeDef]]
 
 class S3SetObjectTaggingOperationTypeDef(TypedDict):
     TagSet: NotRequired[Sequence[S3TagTypeDef]]
@@ -1408,7 +1411,7 @@ class TaggingTypeDef(TypedDict):
 
 class CreateMultiRegionAccessPointInputOutputTypeDef(TypedDict):
     Name: str
-    Regions: List[RegionTypeDef]
+    Regions: list[RegionTypeDef]
     PublicAccessBlock: NotRequired[PublicAccessBlockConfigurationTypeDef]
 
 class CreateMultiRegionAccessPointInputTypeDef(TypedDict):
@@ -1423,7 +1426,7 @@ class GetDataAccessResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GeneratedManifestEncryptionOutputTypeDef(TypedDict):
-    SSES3: NotRequired[Dict[str, Any]]
+    SSES3: NotRequired[dict[str, Any]]
     SSEKMS: NotRequired[SSEKMSEncryptionTypeDef]
 
 class GeneratedManifestEncryptionTypeDef(TypedDict):
@@ -1448,7 +1451,7 @@ class GetAccessPointScopeResultTypeDef(TypedDict):
 
 class GetMultiRegionAccessPointRoutesResultTypeDef(TypedDict):
     Mrap: str
-    Routes: List[MultiRegionAccessPointRouteTypeDef]
+    Routes: list[MultiRegionAccessPointRouteTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SubmitMultiRegionAccessPointRoutesRequestTypeDef(TypedDict):
@@ -1457,7 +1460,7 @@ class SubmitMultiRegionAccessPointRoutesRequestTypeDef(TypedDict):
     RouteUpdates: Sequence[MultiRegionAccessPointRouteTypeDef]
 
 class GetStorageLensConfigurationTaggingResultTypeDef(TypedDict):
-    Tags: List[StorageLensTagTypeDef]
+    Tags: list[StorageLensTagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutStorageLensConfigurationTaggingRequestTypeDef(TypedDict):
@@ -1511,12 +1514,12 @@ class JobProgressSummaryTypeDef(TypedDict):
     Timers: NotRequired[JobTimersTypeDef]
 
 class ListAccessGrantsInstancesResultTypeDef(TypedDict):
-    AccessGrantsInstancesList: List[ListAccessGrantsInstanceEntryTypeDef]
+    AccessGrantsInstancesList: list[ListAccessGrantsInstanceEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAccessGrantsLocationsResultTypeDef(TypedDict):
-    AccessGrantsLocationsList: List[ListAccessGrantsLocationsEntryTypeDef]
+    AccessGrantsLocationsList: list[ListAccessGrantsLocationsEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1536,29 +1539,29 @@ class ListCallerAccessGrantsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCallerAccessGrantsResultTypeDef(TypedDict):
-    CallerAccessGrantsList: List[ListCallerAccessGrantsEntryTypeDef]
+    CallerAccessGrantsList: list[ListCallerAccessGrantsEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRegionalBucketsResultTypeDef(TypedDict):
-    RegionalBucketList: List[RegionalBucketTypeDef]
+    RegionalBucketList: list[RegionalBucketTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListStorageLensConfigurationsResultTypeDef(TypedDict):
-    StorageLensConfigurationList: List[ListStorageLensConfigurationEntryTypeDef]
+    StorageLensConfigurationList: list[ListStorageLensConfigurationEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListStorageLensGroupsResultTypeDef(TypedDict):
-    StorageLensGroupList: List[ListStorageLensGroupEntryTypeDef]
+    StorageLensGroupList: list[ListStorageLensGroupEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class StorageLensGroupAndOperatorOutputTypeDef(TypedDict):
-    MatchAnyPrefix: NotRequired[List[str]]
-    MatchAnySuffix: NotRequired[List[str]]
-    MatchAnyTag: NotRequired[List[S3TagTypeDef]]
+    MatchAnyPrefix: NotRequired[list[str]]
+    MatchAnySuffix: NotRequired[list[str]]
+    MatchAnyTag: NotRequired[list[S3TagTypeDef]]
     MatchObjectAge: NotRequired[MatchObjectAgeTypeDef]
     MatchObjectSize: NotRequired[MatchObjectSizeTypeDef]
 
@@ -1570,9 +1573,9 @@ class StorageLensGroupAndOperatorTypeDef(TypedDict):
     MatchObjectSize: NotRequired[MatchObjectSizeTypeDef]
 
 class StorageLensGroupOrOperatorOutputTypeDef(TypedDict):
-    MatchAnyPrefix: NotRequired[List[str]]
-    MatchAnySuffix: NotRequired[List[str]]
-    MatchAnyTag: NotRequired[List[S3TagTypeDef]]
+    MatchAnyPrefix: NotRequired[list[str]]
+    MatchAnySuffix: NotRequired[list[str]]
+    MatchAnyTag: NotRequired[list[S3TagTypeDef]]
     MatchObjectAge: NotRequired[MatchObjectAgeTypeDef]
     MatchObjectSize: NotRequired[MatchObjectSizeTypeDef]
 
@@ -1596,7 +1599,7 @@ class MultiRegionAccessPointPolicyDocumentTypeDef(TypedDict):
     Proposed: NotRequired[ProposedMultiRegionAccessPointPolicyTypeDef]
 
 class MultiRegionAccessPointsAsyncResponseTypeDef(TypedDict):
-    Regions: NotRequired[List[MultiRegionAccessPointRegionalResponseTypeDef]]
+    Regions: NotRequired[list[MultiRegionAccessPointRegionalResponseTypeDef]]
 
 class MultiRegionAccessPointReportTypeDef(TypedDict):
     Name: NotRequired[str]
@@ -1604,14 +1607,14 @@ class MultiRegionAccessPointReportTypeDef(TypedDict):
     CreatedAt: NotRequired[datetime]
     PublicAccessBlock: NotRequired[PublicAccessBlockConfigurationTypeDef]
     Status: NotRequired[MultiRegionAccessPointStatusType]
-    Regions: NotRequired[List[RegionReportTypeDef]]
+    Regions: NotRequired[list[RegionReportTypeDef]]
 
 class ObjectEncryptionFilterOutputTypeDef(TypedDict):
-    SSES3: NotRequired[Dict[str, Any]]
+    SSES3: NotRequired[dict[str, Any]]
     SSEKMS: NotRequired[SSEKMSFilterTypeDef]
     DSSEKMS: NotRequired[DSSEKMSFilterTypeDef]
-    SSEC: NotRequired[Dict[str, Any]]
-    NOTSSE: NotRequired[Dict[str, Any]]
+    SSEC: NotRequired[dict[str, Any]]
+    NOTSSE: NotRequired[dict[str, Any]]
 
 class ObjectEncryptionFilterTypeDef(TypedDict):
     SSES3: NotRequired[Mapping[str, Any]]
@@ -1642,7 +1645,7 @@ class S3SetObjectRetentionOperationOutputTypeDef(TypedDict):
     BypassGovernanceRetention: NotRequired[bool]
 
 class StorageLensDataExportEncryptionOutputTypeDef(TypedDict):
-    SSES3: NotRequired[Dict[str, Any]]
+    SSES3: NotRequired[dict[str, Any]]
     SSEKMS: NotRequired[SSEKMSTypeDef]
 
 class StorageLensDataExportEncryptionTypeDef(TypedDict):
@@ -1662,17 +1665,17 @@ class StorageLensGroupLevelTypeDef(TypedDict):
     SelectionCriteria: NotRequired[StorageLensGroupLevelSelectionCriteriaTypeDef]
 
 class ListAccessPointsForDirectoryBucketsResultTypeDef(TypedDict):
-    AccessPointList: List[AccessPointTypeDef]
+    AccessPointList: list[AccessPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAccessPointsResultTypeDef(TypedDict):
-    AccessPointList: List[AccessPointTypeDef]
+    AccessPointList: list[AccessPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ObjectLambdaTransformationConfigurationOutputTypeDef(TypedDict):
-    Actions: List[ObjectLambdaTransformationConfigurationActionType]
+    Actions: list[ObjectLambdaTransformationConfigurationActionType]
     ContentTransformation: ObjectLambdaContentTransformationTypeDef
 
 class ObjectLambdaTransformationConfigurationTypeDef(TypedDict):
@@ -1680,12 +1683,12 @@ class ObjectLambdaTransformationConfigurationTypeDef(TypedDict):
     ContentTransformation: ObjectLambdaContentTransformationTypeDef
 
 class ListAccessGrantsResultTypeDef(TypedDict):
-    AccessGrantsList: List[ListAccessGrantEntryTypeDef]
+    AccessGrantsList: list[ListAccessGrantEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListAccessPointsForObjectLambdaResultTypeDef(TypedDict):
-    ObjectLambdaAccessPointList: List[ObjectLambdaAccessPointTypeDef]
+    ObjectLambdaAccessPointList: list[ObjectLambdaAccessPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1760,9 +1763,9 @@ class JobListDescriptorTypeDef(TypedDict):
     ProgressSummary: NotRequired[JobProgressSummaryTypeDef]
 
 class StorageLensGroupFilterOutputTypeDef(TypedDict):
-    MatchAnyPrefix: NotRequired[List[str]]
-    MatchAnySuffix: NotRequired[List[str]]
-    MatchAnyTag: NotRequired[List[S3TagTypeDef]]
+    MatchAnyPrefix: NotRequired[list[str]]
+    MatchAnySuffix: NotRequired[list[str]]
+    MatchAnyTag: NotRequired[list[S3TagTypeDef]]
     MatchObjectAge: NotRequired[MatchObjectAgeTypeDef]
     MatchObjectSize: NotRequired[MatchObjectSizeTypeDef]
     And: NotRequired[StorageLensGroupAndOperatorOutputTypeDef]
@@ -1799,7 +1802,7 @@ class GetMultiRegionAccessPointResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListMultiRegionAccessPointsResultTypeDef(TypedDict):
-    AccessPoints: List[MultiRegionAccessPointReportTypeDef]
+    AccessPoints: list[MultiRegionAccessPointReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1807,12 +1810,12 @@ class JobManifestGeneratorFilterOutputTypeDef(TypedDict):
     EligibleForReplication: NotRequired[bool]
     CreatedAfter: NotRequired[datetime]
     CreatedBefore: NotRequired[datetime]
-    ObjectReplicationStatuses: NotRequired[List[ReplicationStatusType]]
+    ObjectReplicationStatuses: NotRequired[list[ReplicationStatusType]]
     KeyNameConstraint: NotRequired[KeyNameConstraintOutputTypeDef]
     ObjectSizeGreaterThanBytes: NotRequired[int]
     ObjectSizeLessThanBytes: NotRequired[int]
-    MatchAnyStorageClass: NotRequired[List[S3StorageClassType]]
-    MatchAnyObjectEncryption: NotRequired[List[ObjectEncryptionFilterOutputTypeDef]]
+    MatchAnyStorageClass: NotRequired[list[S3StorageClassType]]
+    MatchAnyObjectEncryption: NotRequired[list[ObjectEncryptionFilterOutputTypeDef]]
 
 class JobManifestGeneratorFilterTypeDef(TypedDict):
     EligibleForReplication: NotRequired[bool]
@@ -1830,7 +1833,7 @@ class PrefixLevelTypeDef(TypedDict):
 
 class S3AccessControlListOutputTypeDef(TypedDict):
     Owner: S3ObjectOwnerTypeDef
-    Grants: NotRequired[List[S3GrantTypeDef]]
+    Grants: NotRequired[list[S3GrantTypeDef]]
 
 class S3AccessControlListTypeDef(TypedDict):
     Owner: S3ObjectOwnerTypeDef
@@ -1839,11 +1842,11 @@ class S3AccessControlListTypeDef(TypedDict):
 class S3CopyObjectOperationOutputTypeDef(TypedDict):
     TargetResource: NotRequired[str]
     CannedAccessControlList: NotRequired[S3CannedAccessControlListType]
-    AccessControlGrants: NotRequired[List[S3GrantTypeDef]]
+    AccessControlGrants: NotRequired[list[S3GrantTypeDef]]
     MetadataDirective: NotRequired[S3MetadataDirectiveType]
     ModifiedSinceConstraint: NotRequired[datetime]
     NewObjectMetadata: NotRequired[S3ObjectMetadataOutputTypeDef]
-    NewObjectTagging: NotRequired[List[S3TagTypeDef]]
+    NewObjectTagging: NotRequired[list[S3TagTypeDef]]
     RedirectLocation: NotRequired[str]
     RequesterPays: NotRequired[bool]
     StorageClass: NotRequired[S3StorageClassType]
@@ -1884,12 +1887,20 @@ class S3BucketDestinationOutputTypeDef(TypedDict):
     Prefix: NotRequired[str]
     Encryption: NotRequired[StorageLensDataExportEncryptionOutputTypeDef]
 
+class StorageLensTableDestinationOutputTypeDef(TypedDict):
+    IsEnabled: bool
+    Encryption: NotRequired[StorageLensDataExportEncryptionOutputTypeDef]
+
 class S3BucketDestinationTypeDef(TypedDict):
     Format: FormatType
     OutputSchemaVersion: Literal["V_1"]
     AccountId: str
     Arn: str
     Prefix: NotRequired[str]
+    Encryption: NotRequired[StorageLensDataExportEncryptionTypeDef]
+
+class StorageLensTableDestinationTypeDef(TypedDict):
+    IsEnabled: bool
     Encryption: NotRequired[StorageLensDataExportEncryptionTypeDef]
 
 class CreateAccessPointRequestTypeDef(TypedDict):
@@ -1909,9 +1920,9 @@ class PutAccessPointScopeRequestTypeDef(TypedDict):
 
 class ObjectLambdaConfigurationOutputTypeDef(TypedDict):
     SupportingAccessPoint: str
-    TransformationConfigurations: List[ObjectLambdaTransformationConfigurationOutputTypeDef]
+    TransformationConfigurations: list[ObjectLambdaTransformationConfigurationOutputTypeDef]
     CloudWatchMetricsEnabled: NotRequired[bool]
-    AllowedFeatures: NotRequired[List[ObjectLambdaAllowedFeatureType]]
+    AllowedFeatures: NotRequired[list[ObjectLambdaAllowedFeatureType]]
 
 class ObjectLambdaConfigurationTypeDef(TypedDict):
     SupportingAccessPoint: str
@@ -1924,8 +1935,8 @@ class LifecycleRuleOutputTypeDef(TypedDict):
     Expiration: NotRequired[LifecycleExpirationOutputTypeDef]
     ID: NotRequired[str]
     Filter: NotRequired[LifecycleRuleFilterOutputTypeDef]
-    Transitions: NotRequired[List[TransitionOutputTypeDef]]
-    NoncurrentVersionTransitions: NotRequired[List[NoncurrentVersionTransitionTypeDef]]
+    Transitions: NotRequired[list[TransitionOutputTypeDef]]
+    NoncurrentVersionTransitions: NotRequired[list[NoncurrentVersionTransitionTypeDef]]
     NoncurrentVersionExpiration: NotRequired[NoncurrentVersionExpirationTypeDef]
     AbortIncompleteMultipartUpload: NotRequired[AbortIncompleteMultipartUploadTypeDef]
 
@@ -1942,7 +1953,7 @@ class CreateMultiRegionAccessPointRequestTypeDef(TypedDict):
     Details: CreateMultiRegionAccessPointInputUnionTypeDef
 
 class ListJobsResultTypeDef(TypedDict):
-    Jobs: List[JobListDescriptorTypeDef]
+    Jobs: list[JobListDescriptorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -2008,6 +2019,7 @@ class BucketLevelTypeDef(TypedDict):
     AdvancedCostOptimizationMetrics: NotRequired[AdvancedCostOptimizationMetricsTypeDef]
     AdvancedDataProtectionMetrics: NotRequired[AdvancedDataProtectionMetricsTypeDef]
     DetailedStatusCodesMetrics: NotRequired[DetailedStatusCodesMetricsTypeDef]
+    AdvancedPerformanceMetrics: NotRequired[AdvancedPerformanceMetricsTypeDef]
 
 class S3AccessControlPolicyOutputTypeDef(TypedDict):
     AccessControlList: NotRequired[S3AccessControlListOutputTypeDef]
@@ -2020,10 +2032,20 @@ class S3AccessControlPolicyTypeDef(TypedDict):
 class StorageLensDataExportOutputTypeDef(TypedDict):
     S3BucketDestination: NotRequired[S3BucketDestinationOutputTypeDef]
     CloudWatchMetrics: NotRequired[CloudWatchMetricsTypeDef]
+    StorageLensTableDestination: NotRequired[StorageLensTableDestinationOutputTypeDef]
+
+class StorageLensExpandedPrefixesDataExportOutputTypeDef(TypedDict):
+    S3BucketDestination: NotRequired[S3BucketDestinationOutputTypeDef]
+    StorageLensTableDestination: NotRequired[StorageLensTableDestinationOutputTypeDef]
 
 class StorageLensDataExportTypeDef(TypedDict):
     S3BucketDestination: NotRequired[S3BucketDestinationTypeDef]
     CloudWatchMetrics: NotRequired[CloudWatchMetricsTypeDef]
+    StorageLensTableDestination: NotRequired[StorageLensTableDestinationTypeDef]
+
+class StorageLensExpandedPrefixesDataExportTypeDef(TypedDict):
+    S3BucketDestination: NotRequired[S3BucketDestinationTypeDef]
+    StorageLensTableDestination: NotRequired[StorageLensTableDestinationTypeDef]
 
 class GetAccessPointConfigurationForObjectLambdaResultTypeDef(TypedDict):
     Configuration: ObjectLambdaConfigurationOutputTypeDef
@@ -2034,7 +2056,7 @@ ObjectLambdaConfigurationUnionTypeDef = Union[
 ]
 
 class GetBucketLifecycleConfigurationResultTypeDef(TypedDict):
-    Rules: List[LifecycleRuleOutputTypeDef]
+    Rules: list[LifecycleRuleOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 LifecycleRuleFilterUnionTypeDef = Union[
@@ -2049,7 +2071,7 @@ StorageLensGroupUnionTypeDef = Union[StorageLensGroupTypeDef, StorageLensGroupOu
 
 class ReplicationConfigurationOutputTypeDef(TypedDict):
     Role: str
-    Rules: List[ReplicationRuleOutputTypeDef]
+    Rules: list[ReplicationRuleOutputTypeDef]
 
 class ReplicationConfigurationTypeDef(TypedDict):
     Role: str
@@ -2071,6 +2093,7 @@ class AccountLevelOutputTypeDef(TypedDict):
     AdvancedCostOptimizationMetrics: NotRequired[AdvancedCostOptimizationMetricsTypeDef]
     AdvancedDataProtectionMetrics: NotRequired[AdvancedDataProtectionMetricsTypeDef]
     DetailedStatusCodesMetrics: NotRequired[DetailedStatusCodesMetricsTypeDef]
+    AdvancedPerformanceMetrics: NotRequired[AdvancedPerformanceMetricsTypeDef]
     StorageLensGroupLevel: NotRequired[StorageLensGroupLevelOutputTypeDef]
 
 class AccountLevelTypeDef(TypedDict):
@@ -2079,6 +2102,7 @@ class AccountLevelTypeDef(TypedDict):
     AdvancedCostOptimizationMetrics: NotRequired[AdvancedCostOptimizationMetricsTypeDef]
     AdvancedDataProtectionMetrics: NotRequired[AdvancedDataProtectionMetricsTypeDef]
     DetailedStatusCodesMetrics: NotRequired[DetailedStatusCodesMetricsTypeDef]
+    AdvancedPerformanceMetrics: NotRequired[AdvancedPerformanceMetricsTypeDef]
     StorageLensGroupLevel: NotRequired[StorageLensGroupLevelTypeDef]
 
 class S3SetObjectAclOperationOutputTypeDef(TypedDict):
@@ -2135,8 +2159,10 @@ class StorageLensConfigurationOutputTypeDef(TypedDict):
     Include: NotRequired[IncludeOutputTypeDef]
     Exclude: NotRequired[ExcludeOutputTypeDef]
     DataExport: NotRequired[StorageLensDataExportOutputTypeDef]
+    ExpandedPrefixesDataExport: NotRequired[StorageLensExpandedPrefixesDataExportOutputTypeDef]
     AwsOrg: NotRequired[StorageLensAwsOrgTypeDef]
     StorageLensArn: NotRequired[str]
+    PrefixDelimiter: NotRequired[str]
 
 class StorageLensConfigurationTypeDef(TypedDict):
     Id: str
@@ -2145,19 +2171,21 @@ class StorageLensConfigurationTypeDef(TypedDict):
     Include: NotRequired[IncludeTypeDef]
     Exclude: NotRequired[ExcludeTypeDef]
     DataExport: NotRequired[StorageLensDataExportTypeDef]
+    ExpandedPrefixesDataExport: NotRequired[StorageLensExpandedPrefixesDataExportTypeDef]
     AwsOrg: NotRequired[StorageLensAwsOrgTypeDef]
     StorageLensArn: NotRequired[str]
+    PrefixDelimiter: NotRequired[str]
 
 class JobOperationOutputTypeDef(TypedDict):
     LambdaInvoke: NotRequired[LambdaInvokeOperationOutputTypeDef]
     S3PutObjectCopy: NotRequired[S3CopyObjectOperationOutputTypeDef]
     S3PutObjectAcl: NotRequired[S3SetObjectAclOperationOutputTypeDef]
     S3PutObjectTagging: NotRequired[S3SetObjectTaggingOperationOutputTypeDef]
-    S3DeleteObjectTagging: NotRequired[Dict[str, Any]]
+    S3DeleteObjectTagging: NotRequired[dict[str, Any]]
     S3InitiateRestoreObject: NotRequired[S3InitiateRestoreObjectOperationTypeDef]
     S3PutObjectLegalHold: NotRequired[S3SetObjectLegalHoldOperationTypeDef]
     S3PutObjectRetention: NotRequired[S3SetObjectRetentionOperationOutputTypeDef]
-    S3ReplicateObject: NotRequired[Dict[str, Any]]
+    S3ReplicateObject: NotRequired[dict[str, Any]]
     S3ComputeObjectChecksum: NotRequired[S3ComputeObjectChecksumOperationTypeDef]
 
 class JobOperationTypeDef(TypedDict):
@@ -2198,7 +2226,7 @@ class JobDescriptorTypeDef(TypedDict):
     Priority: NotRequired[int]
     ProgressSummary: NotRequired[JobProgressSummaryTypeDef]
     StatusUpdateReason: NotRequired[str]
-    FailureReasons: NotRequired[List[JobFailureTypeDef]]
+    FailureReasons: NotRequired[list[JobFailureTypeDef]]
     Report: NotRequired[JobReportTypeDef]
     CreationTime: NotRequired[datetime]
     TerminationDate: NotRequired[datetime]

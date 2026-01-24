@@ -3,7 +3,7 @@ Type annotations for amp service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_amp.client import PrometheusServiceClient
     from types_aiobotocore_amp.paginator import (
+        ListAnomalyDetectorsPaginator,
         ListRuleGroupsNamespacesPaginator,
         ListScrapersPaginator,
         ListWorkspacesPaginator,
@@ -21,6 +22,7 @@ Usage::
     with session.create_client("amp") as client:
         client: PrometheusServiceClient
 
+        list_anomaly_detectors_paginator: ListAnomalyDetectorsPaginator = client.get_paginator("list_anomaly_detectors")
         list_rule_groups_namespaces_paginator: ListRuleGroupsNamespacesPaginator = client.get_paginator("list_rule_groups_namespaces")
         list_scrapers_paginator: ListScrapersPaginator = client.get_paginator("list_scrapers")
         list_workspaces_paginator: ListWorkspacesPaginator = client.get_paginator("list_workspaces")
@@ -35,6 +37,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    ListAnomalyDetectorsRequestPaginateTypeDef,
+    ListAnomalyDetectorsResponseTypeDef,
     ListRuleGroupsNamespacesRequestPaginateTypeDef,
     ListRuleGroupsNamespacesResponseTypeDef,
     ListScrapersRequestPaginateTypeDef,
@@ -48,7 +52,30 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListRuleGroupsNamespacesPaginator", "ListScrapersPaginator", "ListWorkspacesPaginator")
+__all__ = (
+    "ListAnomalyDetectorsPaginator",
+    "ListRuleGroupsNamespacesPaginator",
+    "ListScrapersPaginator",
+    "ListWorkspacesPaginator",
+)
+
+if TYPE_CHECKING:
+    _ListAnomalyDetectorsPaginatorBase = AioPaginator[ListAnomalyDetectorsResponseTypeDef]
+else:
+    _ListAnomalyDetectorsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListAnomalyDetectorsPaginator(_ListAnomalyDetectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/paginator/ListAnomalyDetectors.html#PrometheusService.Paginator.ListAnomalyDetectors)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/paginators/#listanomalydetectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAnomalyDetectorsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListAnomalyDetectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/amp/paginator/ListAnomalyDetectors.html#PrometheusService.Paginator.ListAnomalyDetectors.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_amp/paginators/#listanomalydetectorspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListRuleGroupsNamespacesPaginatorBase = AioPaginator[ListRuleGroupsNamespacesResponseTypeDef]

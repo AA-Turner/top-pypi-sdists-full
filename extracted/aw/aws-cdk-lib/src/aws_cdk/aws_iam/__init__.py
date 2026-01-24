@@ -720,7 +720,7 @@ The following examples defines an OpenID Connect provider. Two client IDs
 (audiences) are will be able to send authentication requests to
 [https://openid/connect](https://openid/connect).
 
-It is recommended to use the new `OidcProviderNative` which native CloudFormation resource `AWS::IAM::OIDCProvider` over the old `OpenIdConnectProvider` which uses a custom resource.
+The older `OpenIdConnectProvider` is still supported, but for new stacks, it is recommended to use the new `OidcProviderNative` which uses the native CloudFormation resource `AWS::IAM::OIDCProvider` over the old `OpenIdConnectProvider` which uses a custom resource. While `OidcProviderNative` does not provide new features compared to `OpenIdConnectProvider`, it offers a simpler implementation using native CloudFormation resources instead of custom resources.
 
 ```python
 native_provider = iam.OidcProviderNative(self, "MyProvider",
@@ -1029,6 +1029,41 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
+from ..interfaces import IEnvironmentAware as _IEnvironmentAware_f39049ee
+from ..interfaces.aws_iam import (
+    AccessKeyReference as _AccessKeyReference_2bdfd122,
+    GroupPolicyReference as _GroupPolicyReference_d179b98e,
+    GroupReference as _GroupReference_cd6b1d81,
+    IAccessKeyRef as _IAccessKeyRef_e97ef40a,
+    IGroupPolicyRef as _IGroupPolicyRef_35f73c8c,
+    IGroupRef as _IGroupRef_aeb1d9f6,
+    IInstanceProfileRef as _IInstanceProfileRef_d6832c90,
+    IManagedPolicyRef as _IManagedPolicyRef_a7a65687,
+    IOIDCProviderRef as _IOIDCProviderRef_a866c7c8,
+    IPolicyRef as _IPolicyRef_5e74a0ba,
+    IRolePolicyRef as _IRolePolicyRef_26b13525,
+    IRoleRef as _IRoleRef_8400221f,
+    ISAMLProviderRef as _ISAMLProviderRef_6e369856,
+    IServerCertificateRef as _IServerCertificateRef_005ddfcc,
+    IServiceLinkedRoleRef as _IServiceLinkedRoleRef_ba92e11b,
+    IUserPolicyRef as _IUserPolicyRef_e6abac3e,
+    IUserRef as _IUserRef_b0ccca76,
+    IUserToGroupAdditionRef as _IUserToGroupAdditionRef_e1276f9a,
+    IVirtualMFADeviceRef as _IVirtualMFADeviceRef_fec1f13e,
+    InstanceProfileReference as _InstanceProfileReference_5eee4bbb,
+    ManagedPolicyReference as _ManagedPolicyReference_078bf7cb,
+    OIDCProviderReference as _OIDCProviderReference_9a12fabd,
+    PolicyReference as _PolicyReference_b83371a5,
+    RolePolicyReference as _RolePolicyReference_0cf19357,
+    RoleReference as _RoleReference_447077bb,
+    SAMLProviderReference as _SAMLProviderReference_08e1fac1,
+    ServerCertificateReference as _ServerCertificateReference_0e96ef93,
+    ServiceLinkedRoleReference as _ServiceLinkedRoleReference_863fd3da,
+    UserPolicyReference as _UserPolicyReference_4aa6daa0,
+    UserReference as _UserReference_6bf884c6,
+    UserToGroupAdditionReference as _UserToGroupAdditionReference_94731a73,
+    VirtualMFADeviceReference as _VirtualMFADeviceReference_dd7d7c2b,
+)
 
 
 @jsii.data_type(
@@ -1122,55 +1157,6 @@ class AccessKeyProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.AccessKeyReference",
-    jsii_struct_bases=[],
-    name_mapping={"access_key_id": "accessKeyId"},
-)
-class AccessKeyReference:
-    def __init__(self, *, access_key_id: builtins.str) -> None:
-        '''A reference to a AccessKey resource.
-
-        :param access_key_id: The Id of the AccessKey resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            access_key_reference = iam.AccessKeyReference(
-                access_key_id="accessKeyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79222c12fb837cf58786d79a342dcff38b0a198d03fc34ff365a16f09e81cbb9)
-            check_type(argname="argument access_key_id", value=access_key_id, expected_type=type_hints["access_key_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "access_key_id": access_key_id,
-        }
-
-    @builtins.property
-    def access_key_id(self) -> builtins.str:
-        '''The Id of the AccessKey resource.'''
-        result = self._values.get("access_key_id")
-        assert result is not None, "Required property 'access_key_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AccessKeyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.enum(jsii_type="aws-cdk-lib.aws_iam.AccessKeyStatus")
 class AccessKeyStatus(enum.Enum):
     '''Valid statuses for an IAM Access Key.'''
@@ -1202,7 +1188,7 @@ class AddToPrincipalPolicyResult:
         self,
         *,
         statement_added: builtins.bool,
-        policy_dependable: typing.Optional[_constructs_77d1e7e8.IDependable] = None,
+        policy_dependable: typing.Optional["_constructs_77d1e7e8.IDependable"] = None,
     ) -> None:
         '''Result of calling ``addToPrincipalPolicy``.
 
@@ -1245,13 +1231,13 @@ class AddToPrincipalPolicyResult:
         return typing.cast(builtins.bool, result)
 
     @builtins.property
-    def policy_dependable(self) -> typing.Optional[_constructs_77d1e7e8.IDependable]:
+    def policy_dependable(self) -> typing.Optional["_constructs_77d1e7e8.IDependable"]:
         '''Dependable which allows depending on the policy change being applied.
 
         :default: - Required if ``statementAdded`` is true.
         '''
         result = self._values.get("policy_dependable")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.IDependable], result)
+        return typing.cast(typing.Optional["_constructs_77d1e7e8.IDependable"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1278,7 +1264,7 @@ class AddToResourcePolicyResult:
         self,
         *,
         statement_added: builtins.bool,
-        policy_dependable: typing.Optional[_constructs_77d1e7e8.IDependable] = None,
+        policy_dependable: typing.Optional["_constructs_77d1e7e8.IDependable"] = None,
     ) -> None:
         '''Result of calling addToResourcePolicy.
 
@@ -1317,7 +1303,7 @@ class AddToResourcePolicyResult:
         return typing.cast(builtins.bool, result)
 
     @builtins.property
-    def policy_dependable(self) -> typing.Optional[_constructs_77d1e7e8.IDependable]:
+    def policy_dependable(self) -> typing.Optional["_constructs_77d1e7e8.IDependable"]:
         '''Dependable which allows depending on the policy change being applied.
 
         :default:
@@ -1326,7 +1312,7 @@ class AddToResourcePolicyResult:
         Otherwise, no dependable.
         '''
         result = self._values.get("policy_dependable")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.IDependable], result)
+        return typing.cast(typing.Optional["_constructs_77d1e7e8.IDependable"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1338,6 +1324,178 @@ class AddToResourcePolicyResult:
         return "AddToResourcePolicyResult(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IAccessKeyRef_e97ef40a)
+class CfnAccessKey(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnAccessKey",
+):
+    '''Creates a new AWS secret access key and corresponding AWS access key ID for the specified user.
+
+    The default status for new keys is ``Active`` .
+
+    For information about quotas on the number of keys you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+    .. epigraph::
+
+       To ensure the security of your AWS account , the secret access key is accessible only during key and user creation. You must save the key (for example, in a text file) if you want to be able to access it again. If a secret key is lost, you can rotate access keys by increasing the value of the ``serial`` property.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-accesskey.html
+    :cloudformationResource: AWS::IAM::AccessKey
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_access_key = iam.CfnAccessKey(self, "MyCfnAccessKey",
+            user_name="userName",
+        
+            # the properties below are optional
+            serial=123,
+            status="status"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        user_name: builtins.str,
+        serial: typing.Optional[jsii.Number] = None,
+        status: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::AccessKey``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param user_name: The name of the IAM user that the new key will belong to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param serial: This value is specific to CloudFormation and can only be *incremented* . Incrementing this value notifies CloudFormation that you want to rotate your access key. When you update your stack, CloudFormation will replace the existing access key with a new key.
+        :param status: The status of the access key. ``Active`` means that the key is valid for API calls, while ``Inactive`` means it is not.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d6875d360f4b68d81822160010f3dcab4fad75219310207a67ebdbd76b5d610)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAccessKeyProps(user_name=user_name, serial=serial, status=status)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnAccessKey")
+    @builtins.classmethod
+    def is_cfn_access_key(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAccessKey.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44af7447864a754d9df484db5d272901a378e9dd7da128a28741b73a5d53eb4a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccessKey", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab5857eebc55e10a0edcb4b0c6f013af1342700cb0a55e89483e6f8b6d574741)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessKeyRef")
+    def access_key_ref(self) -> "_AccessKeyReference_2bdfd122":
+        '''A reference to a AccessKey resource.'''
+        return typing.cast("_AccessKeyReference_2bdfd122", jsii.get(self, "accessKeyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID for this access key.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSecretAccessKey")
+    def attr_secret_access_key(self) -> builtins.str:
+        '''Returns the secret access key for the specified AWS::IAM::AccessKey resource.
+
+        For example: wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY.
+
+        :cloudformationAttribute: SecretAccessKey
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSecretAccessKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userName")
+    def user_name(self) -> builtins.str:
+        '''The name of the IAM user that the new key will belong to.'''
+        return typing.cast(builtins.str, jsii.get(self, "userName"))
+
+    @user_name.setter
+    def user_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3405535e039979434b63eda6cd780e7a68f3036e83c19773aa4cce38e62cfcc0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serial")
+    def serial(self) -> typing.Optional[jsii.Number]:
+        '''This value is specific to CloudFormation and can only be *incremented* .'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "serial"))
+
+    @serial.setter
+    def serial(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de65be3bea4fb6cb4947339490001a6cb74c0e6991d864cd5de95395f19d977b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serial", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> typing.Optional[builtins.str]:
+        '''The status of the access key.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
+
+    @status.setter
+    def status(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c8207c22274bc6fabc3862c3b573f9d71344e354dbd17a00318aa43fa18cb7d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1435,6 +1593,448 @@ class CfnAccessKeyProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IGroupRef_aeb1d9f6)
+class CfnGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnGroup",
+):
+    '''Creates a new group.
+
+    For information about the number of groups you can create, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-group.html
+    :cloudformationResource: AWS::IAM::Group
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_group = iam.CfnGroup(self, "MyCfnGroup",
+            group_name="groupName",
+            managed_policy_arns=["managedPolicyArns"],
+            path="path",
+            policies=[iam.CfnGroup.PolicyProperty(
+                policy_document=policy_document,
+                policy_name="policyName"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        group_name: typing.Optional[builtins.str] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        path: typing.Optional[builtins.str] = None,
+        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::Group``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param group_name: The name of the group to create. Do not include the path in this value. The group name must be unique within the account. Group names are not distinguished by case. For example, you cannot create groups named both "ADMINS" and "admins". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the group name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param managed_policy_arns: The Amazon Resource Name (ARN) of the IAM policy you want to attach. For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+        :param path: The path to the group. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
+        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM group. To view AWS::IAM::Group snippets, see `Declaring an IAM Group Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-group>`_ . .. epigraph:: The name of each inline policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a group, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645df50b18)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGroupProps(
+            group_name=group_name,
+            managed_policy_arns=managed_policy_arns,
+            path=path,
+            policies=policies,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForGroup")
+    @builtins.classmethod
+    def arn_for_group(cls, resource: "_IGroupRef_aeb1d9f6") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3980f39025e91ce99b498701692fb8425cc9af4321db09d71dbd3368a8936555)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForGroup", [resource]))
+
+    @jsii.member(jsii_name="isCfnGroup")
+    @builtins.classmethod
+    def is_cfn_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__109520d0ac5eced5701e6bfb840752f4a4c55e5408f1fc48af017b584d08be03)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89278b67425b9a0f94f61235c7282945d071b501bc7b15f85a485662ff826258)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::Group`` resource.
+
+        For example: ``arn:aws:iam::123456789012:group/mystack-mygroup-1DZETITOWEKVO`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> "_GroupReference_cd6b1d81":
+        '''A reference to a Group resource.'''
+        return typing.cast("_GroupReference_cd6b1d81", jsii.get(self, "groupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the group to create.
+
+        Do not include the path in this value.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupName"))
+
+    @group_name.setter
+    def group_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01be7e8dfd9fda0df1899d3026531e8a38a22b7e1f2d6027c883cf4d505c3d51)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyArns")
+    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The Amazon Resource Name (ARN) of the IAM policy you want to attach.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "managedPolicyArns"))
+
+    @managed_policy_arns.setter
+    def managed_policy_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a267baaf187cde3f3930ebef9cdd1a754591f3f54b47d9729cc1d9bb3a93458)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path to the group.
+
+        For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094d07e4ca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policies")
+    def policies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]]:
+        '''Adds or updates an inline policy document that is embedded in the specified IAM group.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]], jsii.get(self, "policies"))
+
+    @policies.setter
+    def policies(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iam.CfnGroup.PolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "policy_document": "policyDocument",
+            "policy_name": "policyName",
+        },
+    )
+    class PolicyProperty:
+        def __init__(
+            self,
+            *,
+            policy_document: typing.Any,
+            policy_name: builtins.str,
+        ) -> None:
+            '''Contains information about an attached policy.
+
+            An attached policy is a managed policy that has been attached to a user, group, or role.
+
+            For more information about managed policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+            :param policy_document: The policy document.
+            :param policy_name: The friendly name (not ARN) identifying the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group-policy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iam as iam
+                
+                # policy_document: Any
+                
+                policy_property = iam.CfnGroup.PolicyProperty(
+                    policy_document=policy_document,
+                    policy_name="policyName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5381732fad8dcd5499b3b303273fdd9097ec896987b47080216d0c734f18d9a8)
+                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+                check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "policy_document": policy_document,
+                "policy_name": policy_name,
+            }
+
+        @builtins.property
+        def policy_document(self) -> typing.Any:
+            '''The policy document.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group-policy.html#cfn-iam-group-policy-policydocument
+            '''
+            result = self._values.get("policy_document")
+            assert result is not None, "Required property 'policy_document' is missing"
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def policy_name(self) -> builtins.str:
+            '''The friendly name (not ARN) identifying the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group-policy.html#cfn-iam-group-policy-policyname
+            '''
+            result = self._values.get("policy_name")
+            assert result is not None, "Required property 'policy_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, _IGroupPolicyRef_35f73c8c)
+class CfnGroupPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnGroupPolicy",
+):
+    '''Adds or updates an inline policy document that is embedded in the specified IAM group.
+
+    A group can also have managed policies attached to it. To attach a managed policy to a group, use ```AWS::IAM::Group`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group.html>`_ . To create a new managed policy, use ```AWS::IAM::ManagedPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html>`_ . For information about policies, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+    For information about the maximum number of inline policies that you can embed in a group, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-grouppolicy.html
+    :cloudformationResource: AWS::IAM::GroupPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_group_policy = iam.CfnGroupPolicy(self, "MyCfnGroupPolicy",
+            group_name="groupName",
+            policy_name="policyName",
+        
+            # the properties below are optional
+            policy_document=policy_document
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        group_name: builtins.str,
+        policy_name: builtins.str,
+        policy_document: typing.Any = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::GroupPolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param group_name: The name of the group to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-.
+        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f890caaa5f6b29722a17bf5c714640d202cb740a7f07aec5a5ced9b53eed348)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGroupPolicyProps(
+            group_name=group_name,
+            policy_name=policy_name,
+            policy_document=policy_document,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnGroupPolicy")
+    @builtins.classmethod
+    def is_cfn_group_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGroupPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2b1f15a5e63e650cc6c55b8ec0153a01c2d4b292546026f27c56c750c214ff39)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroupPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef5341af0b1e6f12f150e9d4694149341aec7aa000971cb5f25b0b9672a631cd)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupPolicyRef")
+    def group_policy_ref(self) -> "_GroupPolicyReference_d179b98e":
+        '''A reference to a GroupPolicy resource.'''
+        return typing.cast("_GroupPolicyReference_d179b98e", jsii.get(self, "groupPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> builtins.str:
+        '''The name of the group to associate the policy with.'''
+        return typing.cast(builtins.str, jsii.get(self, "groupName"))
+
+    @group_name.setter
+    def group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4ecf7a44c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy document.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @policy_name.setter
+    def policy_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.CfnGroupPolicyProps",
     jsii_struct_bases=[],
@@ -1456,7 +2056,7 @@ class CfnGroupPolicyProps:
 
         :param group_name: The name of the group to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-.
         :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-grouppolicy.html
         :exampleMetadata: fixture=_generated
@@ -1517,7 +2117,7 @@ class CfnGroupPolicyProps:
     def policy_document(self) -> typing.Any:
         '''The policy document.
 
-        You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
+        You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
 
         The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following:
 
@@ -1557,13 +2157,13 @@ class CfnGroupProps:
         self,
         *,
         group_name: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
         path: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGroup``.
 
-        :param group_name: The name of the group to create. Do not include the path in this value. The group name must be unique within the account. Group names are not distinguished by case. For example, you cannot create groups named both "ADMINS" and "admins". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the group name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param group_name: The name of the group to create. Do not include the path in this value. The group name must be unique within the account. Group names are not distinguished by case. For example, you cannot create groups named both "ADMINS" and "admins". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the group name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
         :param managed_policy_arns: The Amazon Resource Name (ARN) of the IAM policy you want to attach. For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
         :param path: The path to the group. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
         :param policies: Adds or updates an inline policy document that is embedded in the specified IAM group. To view AWS::IAM::Group snippets, see `Declaring an IAM Group Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-group>`_ . .. epigraph:: The name of each inline policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a group, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
@@ -1609,12 +2209,12 @@ class CfnGroupProps:
     def group_name(self) -> typing.Optional[builtins.str]:
         '''The name of the group to create. Do not include the path in this value.
 
-        The group name must be unique within the account. Group names are not distinguished by case. For example, you cannot create groups named both "ADMINS" and "admins". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the group name.
+        The group name must be unique within the account. Group names are not distinguished by case. For example, you cannot create groups named both "ADMINS" and "admins". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the group name.
         .. epigraph::
 
            If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
 
-        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
+        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
         .. epigraph::
 
            Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
@@ -1625,7 +2225,9 @@ class CfnGroupProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+    def managed_policy_arns(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]]:
         '''The Amazon Resource Name (ARN) of the IAM policy you want to attach.
 
         For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
@@ -1633,7 +2235,7 @@ class CfnGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-group.html#cfn-iam-group-managedpolicyarns
         '''
         result = self._values.get("managed_policy_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -1651,7 +2253,7 @@ class CfnGroupProps:
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM group.
 
         To view AWS::IAM::Group snippets, see `Declaring an IAM Group Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-group>`_ .
@@ -1664,7 +2266,7 @@ class CfnGroupProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-group.html#cfn-iam-group-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.PolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGroup.PolicyProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1676,6 +2278,182 @@ class CfnGroupProps:
         return "CfnGroupProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IInstanceProfileRef_d6832c90)
+class CfnInstanceProfile(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnInstanceProfile",
+):
+    '''Creates a new instance profile. For information about instance profiles, see `Using instance profiles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html>`_ .
+
+    For information about the number of instance profiles you can create, see `IAM object quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-instanceprofile.html
+    :cloudformationResource: AWS::IAM::InstanceProfile
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_instance_profile = iam.CfnInstanceProfile(self, "MyCfnInstanceProfile",
+            roles=["roles"],
+        
+            # the properties below are optional
+            instance_profile_name="instanceProfileName",
+            path="path"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        roles: typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]],
+        instance_profile_name: typing.Optional[builtins.str] = None,
+        path: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::InstanceProfile``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param roles: The name of the role to associate with the instance profile. Only one role can be assigned to an EC2 instance at a time, and all applications on the instance share the same role and permissions.
+        :param instance_profile_name: The name of the instance profile to create. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param path: The path to the instance profile. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c7f7b0b4)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnInstanceProfileProps(
+            roles=roles, instance_profile_name=instance_profile_name, path=path
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForInstanceProfile")
+    @builtins.classmethod
+    def arn_for_instance_profile(
+        cls,
+        resource: "_IInstanceProfileRef_d6832c90",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__511cf624861b94d053cb656d41bfb85226b39bae88821676b01740944f0811d9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInstanceProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnInstanceProfile")
+    @builtins.classmethod
+    def is_cfn_instance_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInstanceProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b593290cbc770e9142ad849fa0c3ac70ba9811f3da5475a95ec1753ed5e44a52)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstanceProfile", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7ea1d50531a33bafd660573c8a2e3a8e5e0215acf7462185f0959ea67f61bee5)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the instance profile. For example:.
+
+        ``{"Fn::GetAtt" : ["MyProfile", "Arn"] }``
+
+        This returns a value such as ``arn:aws:iam::1234567890:instance-profile/MyProfile-ASDNSDLKJ`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceProfileRef")
+    def instance_profile_ref(self) -> "_InstanceProfileReference_5eee4bbb":
+        '''A reference to a InstanceProfile resource.'''
+        return typing.cast("_InstanceProfileReference_5eee4bbb", jsii.get(self, "instanceProfileRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roles")
+    def roles(self) -> typing.List[builtins.str]:
+        '''The name of the role to associate with the instance profile.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "roles"))
+
+    @roles.setter
+    def roles(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__785f95fb95c2bbe41d514dea64d18cfcbfa66bffbfa2d083ae501bdd37a0fe4f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceProfileName")
+    def instance_profile_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the instance profile to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceProfileName"))
+
+    @instance_profile_name.setter
+    def instance_profile_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94d5332482fea97767ec730f2c1930a5e4ec68efce72124dd1cfd7a7c5f40bba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "instanceProfileName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path to the instance profile.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed43f11cf4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -1691,7 +2469,7 @@ class CfnInstanceProfileProps:
     def __init__(
         self,
         *,
-        roles: typing.Sequence[builtins.str],
+        roles: typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]],
         instance_profile_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -1732,7 +2510,7 @@ class CfnInstanceProfileProps:
             self._values["path"] = path
 
     @builtins.property
-    def roles(self) -> typing.List[builtins.str]:
+    def roles(self) -> typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]:
         '''The name of the role to associate with the instance profile.
 
         Only one role can be assigned to an EC2 instance at a time, and all applications on the instance share the same role and permissions.
@@ -1741,7 +2519,7 @@ class CfnInstanceProfileProps:
         '''
         result = self._values.get("roles")
         assert result is not None, "Required property 'roles' is missing"
-        return typing.cast(typing.List[builtins.str], result)
+        return typing.cast(typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]], result)
 
     @builtins.property
     def instance_profile_name(self) -> typing.Optional[builtins.str]:
@@ -1781,6 +2559,313 @@ class CfnInstanceProfileProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IManagedPolicyRef_a7a65687)
+class CfnManagedPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnManagedPolicy",
+):
+    '''Creates a new managed policy for your AWS account .
+
+    This operation creates a policy version with a version identifier of ``v1`` and sets v1 as the policy's default version. For more information about policy versions, see `Versioning for managed policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-versions.html>`_ in the *IAM User Guide* .
+
+    As a best practice, you can validate your IAM policies. To learn more, see `Validating IAM policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_policy-validator.html>`_ in the *IAM User Guide* .
+
+    For more information about managed policies in general, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html
+    :cloudformationResource: AWS::IAM::ManagedPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_managed_policy = iam.CfnManagedPolicy(self, "MyCfnManagedPolicy",
+            policy_document=policy_document,
+        
+            # the properties below are optional
+            description="description",
+            groups=["groups"],
+            managed_policy_name="managedPolicyName",
+            path="path",
+            roles=["roles"],
+            users=["users"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_document: typing.Any,
+        description: typing.Optional[builtins.str] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
+        managed_policy_name: typing.Optional[builtins.str] = None,
+        path: typing.Optional[builtins.str] = None,
+        roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]]] = None,
+        users: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::ManagedPolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: The JSON policy document that you want to use as the content for the new policy. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The maximum length of the policy document that you can pass in this operation, including whitespace, is listed below. To view the maximum character counts of a managed policy with no whitespaces, see `IAM and AWS STS character quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-quotas-entity-length>`_ . To learn more about JSON policy grammar, see `Grammar of the IAM JSON policy language <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_grammar.html>`_ in the *IAM User Guide* . The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param description: A friendly description of the policy. Typically used to store information about the permissions defined in the policy. For example, "Grants access to production DynamoDB tables." The policy description is immutable. After a value is assigned, it cannot be changed.
+        :param groups: The name (friendly name, not ARN) of the group to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param managed_policy_name: The friendly name of the policy. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param path: The path for the policy. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use an asterisk (*) in the path name. Default: - "/"
+        :param roles: The name (friendly name, not ARN) of the role to attach the policy to. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+        :param users: The name (friendly name, not ARN) of the IAM user to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9962df64)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnManagedPolicyProps(
+            policy_document=policy_document,
+            description=description,
+            groups=groups,
+            managed_policy_name=managed_policy_name,
+            path=path,
+            roles=roles,
+            users=users,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnManagedPolicy")
+    @builtins.classmethod
+    def is_cfn_managed_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnManagedPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ddaff230cd62363f571d1c69690fe7f8e88bd1b1eefa314ac6a2020c1a9d9a8c)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnManagedPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__49691612ad6d051c64843fc36b88e2a32e132ab38af6120ecf52699776f24808)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAttachmentCount")
+    def attr_attachment_count(self) -> jsii.Number:
+        '''The number of principal entities (users, groups, and roles) that the policy is attached to.
+
+        :cloudformationAttribute: AttachmentCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrAttachmentCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreateDate")
+    def attr_create_date(self) -> builtins.str:
+        '''The date and time, in `ISO 8601 date-time format <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ , when the policy was created.
+
+        :cloudformationAttribute: CreateDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreateDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrDefaultVersionId")
+    def attr_default_version_id(self) -> builtins.str:
+        '''The identifier for the version of the policy that is set as the default (operative) version.
+
+        For more information about policy versions, see `Versioning for managed policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-versions.html>`_ in the *IAM User Guide* .
+
+        :cloudformationAttribute: DefaultVersionId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrDefaultVersionId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrIsAttachable")
+    def attr_is_attachable(self) -> "_IResolvable_da3f097b":
+        '''Specifies whether the policy can be attached to an IAM user, group, or role.
+
+        :cloudformationAttribute: IsAttachable
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrIsAttachable"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPermissionsBoundaryUsageCount")
+    def attr_permissions_boundary_usage_count(self) -> jsii.Number:
+        '''The number of entities (users and roles) for which the policy is used as the permissions boundary.
+
+        For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
+
+        :cloudformationAttribute: PermissionsBoundaryUsageCount
+        '''
+        return typing.cast(jsii.Number, jsii.get(self, "attrPermissionsBoundaryUsageCount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyArn")
+    def attr_policy_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the managed policy that you want information about.
+
+        For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+
+        :cloudformationAttribute: PolicyArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrPolicyId")
+    def attr_policy_id(self) -> builtins.str:
+        '''The stable and unique string identifying the policy.
+
+        For more information about IDs, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
+
+        :cloudformationAttribute: PolicyId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrUpdateDate")
+    def attr_update_date(self) -> builtins.str:
+        '''The date and time, in `ISO 8601 date-time format <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ , when the policy was last updated.
+
+        When a policy has only one version, this field contains the date and time when the policy was created. When a policy has more than one version, this field contains the date and time when the most recent policy version was created.
+
+        :cloudformationAttribute: UpdateDate
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrUpdateDate"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyRef")
+    def managed_policy_ref(self) -> "_ManagedPolicyReference_078bf7cb":
+        '''A reference to a ManagedPolicy resource.'''
+        return typing.cast("_ManagedPolicyReference_078bf7cb", jsii.get(self, "managedPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The JSON policy document that you want to use as the content for the new policy.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__57f5af0ac55173154c340115659691a27fc295c9250c8d5ca198109f64466ee8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A friendly description of the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cc04fd5744afbd3cf5d35eec5e89c42dc47f150557ef85988e2e74ea873c422)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="groups")
+    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name (friendly name, not ARN) of the group to attach the policy to.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groups"))
+
+    @groups.setter
+    def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc185a3adf8688a003c343f2c7f2d2213871db292b02bf41ab584d89834d560d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyName")
+    def managed_policy_name(self) -> typing.Optional[builtins.str]:
+        '''The friendly name of the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "managedPolicyName"))
+
+    @managed_policy_name.setter
+    def managed_policy_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad4dd76c35346216139c78ee6af3ca0521328f8eeab6374f6ea5d0c3af2b9886)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedPolicyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path for the policy.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55edad48d274800976c6721903c6c5c63dd8559011473654245716943a0e2895)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roles")
+    def roles(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name (friendly name, not ARN) of the role to attach the policy to.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "roles"))
+
+    @roles.setter
+    def roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1de9b6a5aa5082e09fb07840ea3cdfca3eb8553aa46fd492dbb181b5362f13b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="users")
+    def users(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name (friendly name, not ARN) of the IAM user to attach the policy to.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "users"))
+
+    @users.setter
+    def users(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4ad59cd00d0e0ac909d310dbcbbd6e052d1f131f984c456d7dec6c6d0f890843)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.CfnManagedPolicyProps",
     jsii_struct_bases=[],
@@ -1800,20 +2885,20 @@ class CfnManagedPolicyProps:
         *,
         policy_document: typing.Any,
         description: typing.Optional[builtins.str] = None,
-        groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
         managed_policy_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        users: typing.Optional[typing.Sequence[builtins.str]] = None,
+        roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IRoleRef_8400221f"]]] = None,
+        users: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnManagedPolicy``.
 
-        :param policy_document: The JSON policy document that you want to use as the content for the new policy. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The maximum length of the policy document that you can pass in this operation, including whitespace, is listed below. To view the maximum character counts of a managed policy with no whitespaces, see `IAM and AWS STS character quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-quotas-entity-length>`_ . To learn more about JSON policy grammar, see `Grammar of the IAM JSON policy language <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_grammar.html>`_ in the *IAM User Guide* . The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param policy_document: The JSON policy document that you want to use as the content for the new policy. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The maximum length of the policy document that you can pass in this operation, including whitespace, is listed below. To view the maximum character counts of a managed policy with no whitespaces, see `IAM and AWS STS character quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-quotas-entity-length>`_ . To learn more about JSON policy grammar, see `Grammar of the IAM JSON policy language <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_grammar.html>`_ in the *IAM User Guide* . The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
         :param description: A friendly description of the policy. Typically used to store information about the permissions defined in the policy. For example, "Grants access to production DynamoDB tables." The policy description is immutable. After a value is assigned, it cannot be changed.
         :param groups: The name (friendly name, not ARN) of the group to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param managed_policy_name: The friendly name of the policy. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param managed_policy_name: The friendly name of the policy. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
         :param path: The path for the policy. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use an asterisk (*) in the path name. Default: - "/"
-        :param roles: The name (friendly name, not ARN) of the role to attach the policy to. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+        :param roles: The name (friendly name, not ARN) of the role to attach the policy to. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
         :param users: The name (friendly name, not ARN) of the IAM user to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html
@@ -1868,7 +2953,7 @@ class CfnManagedPolicyProps:
     def policy_document(self) -> typing.Any:
         '''The JSON policy document that you want to use as the content for the new policy.
 
-        You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
+        You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
 
         The maximum length of the policy document that you can pass in this operation, including whitespace, is listed below. To view the maximum character counts of a managed policy with no whitespaces, see `IAM and AWS STS character quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-quotas-entity-length>`_ .
 
@@ -1900,7 +2985,9 @@ class CfnManagedPolicyProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
+    def groups(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]]:
         '''The name (friendly name, not ARN) of the group to attach the policy to.
 
         This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
@@ -1908,7 +2995,7 @@ class CfnManagedPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html#cfn-iam-managedpolicy-groups
         '''
         result = self._values.get("groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]], result)
 
     @builtins.property
     def managed_policy_name(self) -> typing.Optional[builtins.str]:
@@ -1918,7 +3005,7 @@ class CfnManagedPolicyProps:
 
            If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
 
-        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
+        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
         .. epigraph::
 
            Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
@@ -1949,21 +3036,25 @@ class CfnManagedPolicyProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def roles(self) -> typing.Optional[typing.List[builtins.str]]:
+    def roles(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]]:
         '''The name (friendly name, not ARN) of the role to attach the policy to.
 
         This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         .. epigraph::
 
-           If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+           If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html#cfn-iam-managedpolicy-roles
         '''
         result = self._values.get("roles")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IRoleRef_8400221f"]]], result)
 
     @builtins.property
-    def users(self) -> typing.Optional[typing.List[builtins.str]]:
+    def users(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]]:
         '''The name (friendly name, not ARN) of the IAM user to attach the policy to.
 
         This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
@@ -1971,7 +3062,7 @@ class CfnManagedPolicyProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html#cfn-iam-managedpolicy-users
         '''
         result = self._values.get("users")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IUserRef_b0ccca76"]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1983,6 +3074,228 @@ class CfnManagedPolicyProps:
         return "CfnManagedPolicyProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IOIDCProviderRef_a866c7c8, _ITaggable_36806126)
+class CfnOIDCProvider(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnOIDCProvider",
+):
+    '''Creates or updates an IAM entity to describe an identity provider (IdP) that supports `OpenID Connect (OIDC) <https://docs.aws.amazon.com/http://openid.net/connect/>`_ .
+
+    The OIDC provider that you create with this operation can be used as a principal in a role's trust policy. Such a policy establishes a trust relationship between AWS and the OIDC provider.
+
+    When you create the IAM OIDC provider, you specify the following:
+
+    - The URL of the OIDC identity provider (IdP) to trust
+    - A list of client IDs (also known as audiences) that identify the application or applications that are allowed to authenticate using the OIDC provider
+    - A list of tags that are attached to the specified IAM OIDC provider
+    - A list of thumbprints of one or more server certificates that the IdP uses
+
+    You get all of this information from the OIDC IdP that you want to use to access AWS .
+
+    When you update the IAM OIDC provider, you specify the following:
+
+    - The URL of the OIDC identity provider (IdP) to trust
+    - A list of client IDs (also known as audiences) that replaces the existing list of client IDs associated with the OIDC IdP
+    - A list of tags that replaces the existing list of tags attached to the specified IAM OIDC provider
+    - A list of thumbprints that replaces the existing list of server certificates thumbprints that the IdP uses
+
+    .. epigraph::
+
+       The trust for the OIDC provider is derived from the IAM provider that this operation creates. Therefore, it is best to limit access to the `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ operation to highly privileged users.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-oidcprovider.html
+    :cloudformationResource: AWS::IAM::OIDCProvider
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_oIDCProvider = iam.CfnOIDCProvider(self, "MyCfnOIDCProvider",
+            client_id_list=["clientIdList"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            thumbprint_list=["thumbprintList"],
+            url="url"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+        url: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::OIDCProvider``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param client_id_list: A list of client IDs (also known as audiences) that are associated with the specified IAM OIDC provider resource object. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ .
+        :param tags: A list of tags that are attached to the specified IAM OIDC provider. The returned list of tags is sorted by tag key. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
+        :param thumbprint_list: A list of certificate thumbprints that are associated with the specified IAM OIDC provider resource object. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ . This property is optional. If it is not included, IAM will retrieve and use the top intermediate certificate authority (CA) thumbprint of the OpenID Connect identity provider server certificate.
+        :param url: The URL that the IAM OIDC provider resource object is associated with. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140ceabaf1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnOIDCProviderProps(
+            client_id_list=client_id_list,
+            tags=tags,
+            thumbprint_list=thumbprint_list,
+            url=url,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForOIDCProvider")
+    @builtins.classmethod
+    def arn_for_oidc_provider(
+        cls,
+        resource: "_IOIDCProviderRef_a866c7c8",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fab4fe6f3e4db72e34d9bb9535a6cd4366d92f1c50e499ef665ae1a82c7cc813)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOIDCProvider", [resource]))
+
+    @jsii.member(jsii_name="isCfnOIDCProvider")
+    @builtins.classmethod
+    def is_cfn_oidc_provider(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOIDCProvider.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f5057f964f9bab1fcc32fce6ba173b262ffb5b477e91cae47ca4b093e0a2465)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOIDCProvider", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4dae706f759e2af37c98017ae788d704bf61cf6db2c64c99cf832bc287eb6389)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::OIDCProvider`` resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="oidcProviderRef")
+    def oidc_provider_ref(self) -> "_OIDCProviderReference_9a12fabd":
+        '''A reference to a OIDCProvider resource.'''
+        return typing.cast("_OIDCProviderReference_9a12fabd", jsii.get(self, "oidcProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clientIdList")
+    def client_id_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of client IDs (also known as audiences) that are associated with the specified IAM OIDC provider resource object.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "clientIdList"))
+
+    @client_id_list.setter
+    def client_id_list(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3fabe5e02)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clientIdList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that are attached to the specified IAM OIDC provider.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="thumbprintList")
+    def thumbprint_list(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of certificate thumbprints that are associated with the specified IAM OIDC provider resource object.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "thumbprintList"))
+
+    @thumbprint_list.setter
+    def thumbprint_list(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa3ed6dd0ef0854d834aaa2a169f05db6443763c0d3f9c4bd58c44fcdac5c427)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "thumbprintList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="url")
+    def url(self) -> typing.Optional[builtins.str]:
+        '''The URL that the IAM OIDC provider resource object is associated with.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "url"))
+
+    @url.setter
+    def url(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e667481e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "url", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2000,7 +3313,7 @@ class CfnOIDCProviderProps:
         self,
         *,
         client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
         url: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -2016,6 +3329,7 @@ class CfnOIDCProviderProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
@@ -2058,7 +3372,7 @@ class CfnOIDCProviderProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that are attached to the specified IAM OIDC provider.
 
         The returned list of tags is sorted by tag key. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -2066,7 +3380,7 @@ class CfnOIDCProviderProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-oidcprovider.html#cfn-iam-oidcprovider-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def thumbprint_list(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -2104,6 +3418,217 @@ class CfnOIDCProviderProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IPolicyRef_5e74a0ba)
+class CfnPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnPolicy",
+):
+    '''Adds or updates an inline policy document that is embedded in the specified IAM group, user or role.
+
+    An IAM user can also have a managed policy attached to it. For information about policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+    The Groups, Roles, and Users properties are optional. However, you must specify at least one of these properties.
+
+    For information about policy documents, see `Creating IAM policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html>`_ in the *IAM User Guide* .
+
+    For information about limits on the number of inline policies that you can embed in an identity, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
+    .. epigraph::
+
+       This resource does not support `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ . The following inline policy resource types support drift detection:
+
+       - ```AWS::IAM::GroupPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-grouppolicy.html>`_
+       - ```AWS::IAM::RolePolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-rolepolicy.html>`_
+       - ```AWS::IAM::UserPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-userpolicy.html>`_
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html
+    :cloudformationResource: AWS::IAM::Policy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_policy = iam.CfnPolicy(self, "MyCfnPolicy",
+            policy_document=policy_document,
+            policy_name="policyName",
+        
+            # the properties below are optional
+            groups=["groups"],
+            roles=["roles"],
+            users=["users"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_document: typing.Any,
+        policy_name: builtins.str,
+        groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+        roles: typing.Optional[typing.Sequence[builtins.str]] = None,
+        users: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::Policy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param groups: The name of the group to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-.
+        :param roles: The name of the role to associate the policy with. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+        :param users: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cb67178fe7e1b31e1be07438cbe12957995260af0ad90c58a3ab490fe6dfe65e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnPolicyProps(
+            policy_document=policy_document,
+            policy_name=policy_name,
+            groups=groups,
+            roles=roles,
+            users=users,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnPolicy")
+    @builtins.classmethod
+    def is_cfn_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ee23fc195087e9166c203ff6e5a0a6d7f961f5dee39d0ea4ad91b3bea8f9a36)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85f1de37bbcdfc836c215c1a1844169c37747c39945f4381b39bfd452963ff73)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The stable and unique string identifying the policy.
+
+        For more information about IDs, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "_PolicyReference_b83371a5":
+        '''A reference to a Policy resource.'''
+        return typing.cast("_PolicyReference_b83371a5", jsii.get(self, "policyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__06044458de4bf8f3f6bd0026d2e0c44680c55d70af59396fc7616d84dab9d26d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy document.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @policy_name.setter
+    def policy_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ecc19153b06dcc252bfb1ae6146652d56fcd1825369497489a00194a960696d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="groups")
+    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of the group to associate the policy with.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groups"))
+
+    @groups.setter
+    def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1cb77529b0bb4edf27e46d46d8fcaedafea19611a49ee1c83bfdd3a98234745e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roles")
+    def roles(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of the role to associate the policy with.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "roles"))
+
+    @roles.setter
+    def roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87a89a5b9d5419ceb30e8217d4489eae0857ac493147f2a7af32a527ec688a14)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="users")
+    def users(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The name of the user to associate the policy with.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "users"))
+
+    @users.setter
+    def users(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c25ce8e0b5d932098589ac1c033a96eed27019fa02e7aea82f7eaacbdd509100)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.CfnPolicyProps",
     jsii_struct_bases=[],
@@ -2127,10 +3652,10 @@ class CfnPolicyProps:
     ) -> None:
         '''Properties for defining a ``CfnPolicy``.
 
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
         :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         :param groups: The name of the group to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-.
-        :param roles: The name of the role to associate the policy with. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+        :param roles: The name of the role to associate the policy with. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
         :param users: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html
@@ -2176,7 +3701,7 @@ class CfnPolicyProps:
     def policy_document(self) -> typing.Any:
         '''The policy document.
 
-        You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
+        You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
 
         The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following:
 
@@ -2220,7 +3745,7 @@ class CfnPolicyProps:
         This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         .. epigraph::
 
-           If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+           If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html#cfn-iam-policy-roles
         '''
@@ -2250,6 +3775,560 @@ class CfnPolicyProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IRoleRef_8400221f, _ITaggable_36806126)
+class CfnRole(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnRole",
+):
+    '''Creates a new role for your AWS account .
+
+    For more information about roles, see `IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html>`_ in the *IAM User Guide* . For information about quotas for role names and the number of roles you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
+    :cloudformationResource: AWS::IAM::Role
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # assume_role_policy_document: Any
+        # policy_document: Any
+        
+        cfn_role = iam.CfnRole(self, "MyCfnRole",
+            assume_role_policy_document=assume_role_policy_document,
+        
+            # the properties below are optional
+            description="description",
+            managed_policy_arns=["managedPolicyArns"],
+            max_session_duration=123,
+            path="path",
+            permissions_boundary="permissionsBoundary",
+            policies=[iam.CfnRole.PolicyProperty(
+                policy_document=policy_document,
+                policy_name="policyName"
+            )],
+            role_name="roleName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        assume_role_policy_document: typing.Any,
+        description: typing.Optional[builtins.str] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        max_session_duration: typing.Optional[jsii.Number] = None,
+        path: typing.Optional[builtins.str] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
+        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        role_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::Role``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param assume_role_policy_document: The trust policy that is associated with this role. Trust policies define which entities can assume the role. You can associate only one trust policy with a role. For an example of a policy that can be used to assume a role, see `Template Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#aws-resource-iam-role--examples>`_ . For more information about the elements that you can use in an IAM policy, see `IAM Policy Elements Reference <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html>`_ in the *IAM User Guide* .
+        :param description: A description of the role that you provide.
+        :param managed_policy_arns: A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the role. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+        :param max_session_duration: The maximum session duration (in seconds) that you want to set for the specified role. If you do not specify a value for this setting, the default value of one hour is applied. This setting can have a value from 1 hour to 12 hours. Anyone who assumes the role from the AWS CLI or API can use the ``DurationSeconds`` API parameter or the ``duration-seconds`` AWS CLI parameter to request a longer session. The ``MaxSessionDuration`` setting determines the maximum duration that can be requested using the ``DurationSeconds`` parameter. If users don't specify a value for the ``DurationSeconds`` parameter, their security credentials are valid for one hour by default. This applies when you use the ``AssumeRole*`` API operations or the ``assume-role*`` AWS CLI operations but does not apply when you use those operations to create a console URL. For more information, see `Using IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html>`_ in the *IAM User Guide* .
+        :param path: The path to the role. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. Default: - "/"
+        :param permissions_boundary: The ARN of the policy used to set the permissions boundary for the role. For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
+        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM role. When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role. You can update a role's trust policy later. For more information about IAM roles, go to `Using Roles to Delegate Permissions and Federate Identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ . A role can also have an attached managed policy. For information about policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* . For information about limits on the number of inline policies that you can embed with a role, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* . .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+        :param role_name: A name for the IAM role, up to 64 characters in length. For valid values, see the ``RoleName`` parameter for the ```CreateRole`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html>`_ action in the *IAM User Guide* . This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The role name must be unique within the account. Role names are not distinguished by case. For example, you cannot create roles named both "Role1" and "role1". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the role name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param tags: A list of tags that are attached to the role. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7c6fab32)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRoleProps(
+            assume_role_policy_document=assume_role_policy_document,
+            description=description,
+            managed_policy_arns=managed_policy_arns,
+            max_session_duration=max_session_duration,
+            path=path,
+            permissions_boundary=permissions_boundary,
+            policies=policies,
+            role_name=role_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForRole")
+    @builtins.classmethod
+    def arn_for_role(cls, resource: "_IRoleRef_8400221f") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aed7930ffdab40f4113234c4ce249e72c7b8fb0328ee2238e91d57b3368ac29b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForRole", [resource]))
+
+    @jsii.member(jsii_name="isCfnRole")
+    @builtins.classmethod
+    def is_cfn_role(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRole.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ff3f97b4de0b51871305eb5dbe778f76bd225254ccf6a281eb5ad37441bd9365)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRole", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c17ebfb69a2f5ed9dd9290d6026b842dd5e032f3f0f7aa29ccc996da3be8aa3)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the role. For example:.
+
+        ``{"Fn::GetAtt" : ["MyRole", "Arn"] }``
+
+        This will return a value such as ``arn:aws:iam::1234567890:role/MyRole-AJJHDSKSDF`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRoleId")
+    def attr_role_id(self) -> builtins.str:
+        '''Returns the stable and unique string identifying the role. For example, ``AIDAJQABLZS4A3QDU576Q`` .
+
+        For more information about IDs, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html>`_ in the *IAM User Guide* .
+
+        :cloudformationAttribute: RoleId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRoleId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="roleRef")
+    def role_ref(self) -> "_RoleReference_447077bb":
+        '''A reference to a Role resource.'''
+        return typing.cast("_RoleReference_447077bb", jsii.get(self, "roleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="assumeRolePolicyDocument")
+    def assume_role_policy_document(self) -> typing.Any:
+        '''The trust policy that is associated with this role.'''
+        return typing.cast(typing.Any, jsii.get(self, "assumeRolePolicyDocument"))
+
+    @assume_role_policy_document.setter
+    def assume_role_policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f64edf2fd513d8eaa71e570374ea6368333dca94e9bcd75c06e0cd57bf703237)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "assumeRolePolicyDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A description of the role that you provide.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3c2a9dbc73d67aad806d2048aa4381abc22ed38266fbe7ad4d0f9363cfdac4a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyArns")
+    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the role.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "managedPolicyArns"))
+
+    @managed_policy_arns.setter
+    def managed_policy_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__84c396c36f658a4080b46dfbbcb0f9163ca138b4afaf4da438a00378beffede7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="maxSessionDuration")
+    def max_session_duration(self) -> typing.Optional[jsii.Number]:
+        '''The maximum session duration (in seconds) that you want to set for the specified role.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxSessionDuration"))
+
+    @max_session_duration.setter
+    def max_session_duration(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6431acc0b99ad558bc7b549bbfe3e581f937dce92da78253920c201c8cc22e0a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxSessionDuration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path to the role.
+
+        For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1d420d46f77d7cfcfcd09009a0f2eadf9ebada83d085948137f30c8ee4abdd4b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionsBoundary")
+    def permissions_boundary(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the policy used to set the permissions boundary for the role.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "permissionsBoundary"))
+
+    @permissions_boundary.setter
+    def permissions_boundary(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f02795db1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permissionsBoundary", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policies")
+    def policies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]]:
+        '''Adds or updates an inline policy document that is embedded in the specified IAM role.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]], jsii.get(self, "policies"))
+
+    @policies.setter
+    def policies(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleName")
+    def role_name(self) -> typing.Optional[builtins.str]:
+        '''A name for the IAM role, up to 64 characters in length.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleName"))
+
+    @role_name.setter
+    def role_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cff795bef)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that are attached to the role.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iam.CfnRole.PolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "policy_document": "policyDocument",
+            "policy_name": "policyName",
+        },
+    )
+    class PolicyProperty:
+        def __init__(
+            self,
+            *,
+            policy_document: typing.Any,
+            policy_name: builtins.str,
+        ) -> None:
+            '''Contains information about an attached policy.
+
+            An attached policy is a managed policy that has been attached to a user, group, or role.
+
+            For more information about managed policies, refer to `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+            :param policy_document: The entire contents of the policy that defines permissions. For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
+            :param policy_name: The friendly name (not ARN) identifying the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-role-policy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iam as iam
+                
+                # policy_document: Any
+                
+                policy_property = iam.CfnRole.PolicyProperty(
+                    policy_document=policy_document,
+                    policy_name="policyName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e339dba71f34d8ac881f4a2583a5b3e824a8bb93f479517aebabc1977c8c2ba1)
+                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+                check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "policy_document": policy_document,
+                "policy_name": policy_name,
+            }
+
+        @builtins.property
+        def policy_document(self) -> typing.Any:
+            '''The entire contents of the policy that defines permissions.
+
+            For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-role-policy.html#cfn-iam-role-policy-policydocument
+            '''
+            result = self._values.get("policy_document")
+            assert result is not None, "Required property 'policy_document' is missing"
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def policy_name(self) -> builtins.str:
+            '''The friendly name (not ARN) identifying the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-role-policy.html#cfn-iam-role-policy-policyname
+            '''
+            result = self._values.get("policy_name")
+            assert result is not None, "Required property 'policy_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, _IRolePolicyRef_26b13525)
+class CfnRolePolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnRolePolicy",
+):
+    '''Adds or updates an inline policy document that is embedded in the specified IAM role.
+
+    When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role, using ```CreateRole`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html>`_ . You can update a role's trust policy using ```UpdateAssumeRolePolicy`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateAssumeRolePolicy.html>`_ . For information about roles, see `IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ in the *IAM User Guide* .
+
+    A role can also have a managed policy attached to it. To attach a managed policy to a role, use ```AWS::IAM::Role`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html>`_ . To create a new managed policy, use ```AWS::IAM::ManagedPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html>`_ . For information about policies, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+    For information about the maximum number of inline policies that you can embed with a role, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-rolepolicy.html
+    :cloudformationResource: AWS::IAM::RolePolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_role_policy = iam.CfnRolePolicy(self, "MyCfnRolePolicy",
+            policy_name="policyName",
+            role_name="roleName",
+        
+            # the properties below are optional
+            policy_document=policy_document
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_name: builtins.str,
+        role_name: builtins.str,
+        policy_document: typing.Any = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::RolePolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param role_name: The name of the role to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f1532590762c98b830f41db58b5d7333f7f995a90f128be89292c180ecefabf3)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnRolePolicyProps(
+            policy_name=policy_name,
+            role_name=role_name,
+            policy_document=policy_document,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnRolePolicy")
+    @builtins.classmethod
+    def is_cfn_role_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnRolePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8728946f5288abc0306a5d628f001064b1d982cebea9643c6ac987974a032a61)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnRolePolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843c350641)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="rolePolicyRef")
+    def role_policy_ref(self) -> "_RolePolicyReference_0cf19357":
+        '''A reference to a RolePolicy resource.'''
+        return typing.cast("_RolePolicyReference_0cf19357", jsii.get(self, "rolePolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy document.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @policy_name.setter
+    def policy_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleName")
+    def role_name(self) -> builtins.str:
+        '''The name of the role to associate the policy with.'''
+        return typing.cast(builtins.str, jsii.get(self, "roleName"))
+
+    @role_name.setter
+    def role_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.CfnRolePolicyProps",
     jsii_struct_bases=[],
@@ -2271,7 +4350,7 @@ class CfnRolePolicyProps:
 
         :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         :param role_name: The name of the role to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-rolepolicy.html
         :exampleMetadata: fixture=_generated
@@ -2332,7 +4411,7 @@ class CfnRolePolicyProps:
     def policy_document(self) -> typing.Any:
         '''The policy document.
 
-        You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
+        You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
 
         The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following:
 
@@ -2378,13 +4457,13 @@ class CfnRoleProps:
         *,
         assume_role_policy_document: typing.Any,
         description: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
         max_session_duration: typing.Optional[jsii.Number] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
+        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRole``.
 
@@ -2394,8 +4473,8 @@ class CfnRoleProps:
         :param max_session_duration: The maximum session duration (in seconds) that you want to set for the specified role. If you do not specify a value for this setting, the default value of one hour is applied. This setting can have a value from 1 hour to 12 hours. Anyone who assumes the role from the AWS CLI or API can use the ``DurationSeconds`` API parameter or the ``duration-seconds`` AWS CLI parameter to request a longer session. The ``MaxSessionDuration`` setting determines the maximum duration that can be requested using the ``DurationSeconds`` parameter. If users don't specify a value for the ``DurationSeconds`` parameter, their security credentials are valid for one hour by default. This applies when you use the ``AssumeRole*`` API operations or the ``assume-role*`` AWS CLI operations but does not apply when you use those operations to create a console URL. For more information, see `Using IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html>`_ in the *IAM User Guide* .
         :param path: The path to the role. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. Default: - "/"
         :param permissions_boundary: The ARN of the policy used to set the permissions boundary for the role. For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
-        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM role. When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role. You can update a role's trust policy later. For more information about IAM roles, go to `Using Roles to Delegate Permissions and Federate Identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ . A role can also have an attached managed policy. For information about policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* . For information about limits on the number of inline policies that you can embed with a role, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* . .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
-        :param role_name: A name for the IAM role, up to 64 characters in length. For valid values, see the ``RoleName`` parameter for the ```CreateRole`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html>`_ action in the *IAM User Guide* . This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The role name must be unique within the account. Role names are not distinguished by case. For example, you cannot create roles named both "Role1" and "role1". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the role name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM role. When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role. You can update a role's trust policy later. For more information about IAM roles, go to `Using Roles to Delegate Permissions and Federate Identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ . A role can also have an attached managed policy. For information about policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* . For information about limits on the number of inline policies that you can embed with a role, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* . .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+        :param role_name: A name for the IAM role, up to 64 characters in length. For valid values, see the ``RoleName`` parameter for the ```CreateRole`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html>`_ action in the *IAM User Guide* . This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The role name must be unique within the account. Role names are not distinguished by case. For example, you cannot create roles named both "Role1" and "role1". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the role name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
         :param tags: A list of tags that are attached to the role. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
@@ -2403,6 +4482,7 @@ class CfnRoleProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
@@ -2483,7 +4563,9 @@ class CfnRoleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+    def managed_policy_arns(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]]:
         '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the role.
 
         For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
@@ -2491,7 +4573,7 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-managedpolicyarns
         '''
         result = self._values.get("managed_policy_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]], result)
 
     @builtins.property
     def max_session_duration(self) -> typing.Optional[jsii.Number]:
@@ -2522,7 +4604,9 @@ class CfnRoleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions_boundary(self) -> typing.Optional[builtins.str]:
+    def permissions_boundary(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]:
         '''The ARN of the policy used to set the permissions boundary for the role.
 
         For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
@@ -2530,12 +4614,12 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-permissionsboundary
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]], result)
 
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRole.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM role.
 
         When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role. You can update a role's trust policy later. For more information about IAM roles, go to `Using Roles to Delegate Permissions and Federate Identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ .
@@ -2545,12 +4629,12 @@ class CfnRoleProps:
         For information about limits on the number of inline policies that you can embed with a role, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
         .. epigraph::
 
-           If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
+           If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRole.PolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnRole.PolicyProperty"]]]], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
@@ -2560,9 +4644,9 @@ class CfnRoleProps:
 
         This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The role name must be unique within the account. Role names are not distinguished by case. For example, you cannot create roles named both "Role1" and "role1".
 
-        If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the role name.
+        If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the role name.
 
-        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
+        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
         .. epigraph::
 
            Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
@@ -2573,7 +4657,7 @@ class CfnRoleProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that are attached to the role.
 
         For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -2581,7 +4665,7 @@ class CfnRoleProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#cfn-iam-role-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2593,6 +4677,348 @@ class CfnRoleProps:
         return "CfnRoleProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISAMLProviderRef_6e369856, _ITaggable_36806126)
+class CfnSAMLProvider(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnSAMLProvider",
+):
+    '''Creates an IAM resource that describes an identity provider (IdP) that supports SAML 2.0.
+
+    The SAML provider resource that you create with this operation can be used as a principal in an IAM role's trust policy. Such a policy can enable federated users who sign in using the SAML IdP to assume the role. You can create an IAM role that supports Web-based single sign-on (SSO) to the AWS Management Console or one that supports API access to AWS .
+
+    When you create the SAML provider resource, you upload a SAML metadata document that you get from your IdP. That document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that the IdP sends. You must generate the metadata document using the identity management software that is used as your organization's IdP.
+    .. epigraph::
+
+       This operation requires `Signature Version 4 <https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html>`_ .
+
+    For more information, see `Enabling SAML 2.0 federated users to access the AWS Management Console <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_enable-console-saml.html>`_ and `About SAML 2.0-based federation <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_saml.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-samlprovider.html
+    :cloudformationResource: AWS::IAM::SAMLProvider
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_sAMLProvider = iam.CfnSAMLProvider(self, "MyCfnSAMLProvider",
+            add_private_key="addPrivateKey",
+            assertion_encryption_mode="assertionEncryptionMode",
+            name="name",
+            private_key_list=[iam.CfnSAMLProvider.SAMLPrivateKeyProperty(
+                key_id="keyId",
+                timestamp="timestamp"
+            )],
+            remove_private_key="removePrivateKey",
+            saml_metadata_document="samlMetadataDocument",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        add_private_key: typing.Optional[builtins.str] = None,
+        assertion_encryption_mode: typing.Optional[builtins.str] = None,
+        name: typing.Optional[builtins.str] = None,
+        private_key_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        remove_private_key: typing.Optional[builtins.str] = None,
+        saml_metadata_document: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::SAMLProvider``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param add_private_key: Specifies the new private key from your external identity provider. The private key must be a .pem file that uses AES-GCM or AES-CBC encryption algorithm to decrypt SAML assertions.
+        :param assertion_encryption_mode: Specifies the encryption setting for the SAML provider.
+        :param name: The name of the provider to create. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param private_key_list: The private key metadata for the SAML provider.
+        :param remove_private_key: The Key ID of the private key to remove.
+        :param saml_metadata_document: An XML document generated by an identity provider (IdP) that supports SAML 2.0. The document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that are received from the IdP. You must generate the metadata document using the identity management software that is used as your organization's IdP. For more information, see `About SAML 2.0-based federation <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_saml.html>`_ in the *IAM User Guide*
+        :param tags: A list of tags that you want to attach to the new IAM SAML provider. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d1f3f009)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnSAMLProviderProps(
+            add_private_key=add_private_key,
+            assertion_encryption_mode=assertion_encryption_mode,
+            name=name,
+            private_key_list=private_key_list,
+            remove_private_key=remove_private_key,
+            saml_metadata_document=saml_metadata_document,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForSAMLProvider")
+    @builtins.classmethod
+    def arn_for_saml_provider(
+        cls,
+        resource: "_ISAMLProviderRef_6e369856",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1f1e65df7127c08c1603f184585a56d767362a3b5afeaa5a74ddaabf619b5da)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSAMLProvider", [resource]))
+
+    @jsii.member(jsii_name="isCfnSAMLProvider")
+    @builtins.classmethod
+    def is_cfn_saml_provider(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSAMLProvider.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc9dc8f4401f1aaf9a9981044bc588dc6bdc25dc997eeedb4fa39af1ecd2529f)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSAMLProvider", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aa493901e136133decf51345379fd4b5dd35432e35f354e5dd453eb7daa8245b)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::SAMLProvider`` resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSamlProviderUuid")
+    def attr_saml_provider_uuid(self) -> builtins.str:
+        '''The unique identifier assigned to the SAML provider.
+
+        :cloudformationAttribute: SamlProviderUUID
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSamlProviderUuid"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="samlProviderRef")
+    def saml_provider_ref(self) -> "_SAMLProviderReference_08e1fac1":
+        '''A reference to a SAMLProvider resource.'''
+        return typing.cast("_SAMLProviderReference_08e1fac1", jsii.get(self, "samlProviderRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="addPrivateKey")
+    def add_private_key(self) -> typing.Optional[builtins.str]:
+        '''Specifies the new private key from your external identity provider.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "addPrivateKey"))
+
+    @add_private_key.setter
+    def add_private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8eda0b212280ae29b138f852bf55874f8617cd18d7ed484f68edc38bffe20894)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "addPrivateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="assertionEncryptionMode")
+    def assertion_encryption_mode(self) -> typing.Optional[builtins.str]:
+        '''Specifies the encryption setting for the SAML provider.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "assertionEncryptionMode"))
+
+    @assertion_encryption_mode.setter
+    def assertion_encryption_mode(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b22ac38ad8a3fd6af168b0c9077c481244d37477d750cb3920773c2aa0381628)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "assertionEncryptionMode", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> typing.Optional[builtins.str]:
+        '''The name of the provider to create.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c3269877e220a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateKeyList")
+    def private_key_list(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
+        '''The private key metadata for the SAML provider.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], jsii.get(self, "privateKeyList"))
+
+    @private_key_list.setter
+    def private_key_list(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateKeyList", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="removePrivateKey")
+    def remove_private_key(self) -> typing.Optional[builtins.str]:
+        '''The Key ID of the private key to remove.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "removePrivateKey"))
+
+    @remove_private_key.setter
+    def remove_private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ee9b5a78619fab076894e18105c29d8554950dedb6d0b06ebdb5bdcf17266e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "removePrivateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="samlMetadataDocument")
+    def saml_metadata_document(self) -> typing.Optional[builtins.str]:
+        '''An XML document generated by an identity provider (IdP) that supports SAML 2.0. The document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that are received from the IdP. You must generate the metadata document using the identity management software that is used as your organization's IdP.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "samlMetadataDocument"))
+
+    @saml_metadata_document.setter
+    def saml_metadata_document(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe0e0d57c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "samlMetadataDocument", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the new IAM SAML provider.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iam.CfnSAMLProvider.SAMLPrivateKeyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key_id": "keyId", "timestamp": "timestamp"},
+    )
+    class SAMLPrivateKeyProperty:
+        def __init__(self, *, key_id: builtins.str, timestamp: builtins.str) -> None:
+            '''Contains the private keys for the SAML provider.
+
+            This data type is used as a response element in the `GetSAMLProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetSAMLProvider.html>`_ operation.
+
+            :param key_id: The unique identifier for the SAML private key.
+            :param timestamp: The date and time, in `ISO 8601 date-time <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ format, when the private key was uploaded.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-samlprovider-samlprivatekey.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iam as iam
+                
+                s_aMLPrivate_key_property = iam.CfnSAMLProvider.SAMLPrivateKeyProperty(
+                    key_id="keyId",
+                    timestamp="timestamp"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e7b8165114a2decbdfd66da703311b43a9b1c50edd7d65c71d2b8484a52e4f02)
+                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
+                check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key_id": key_id,
+                "timestamp": timestamp,
+            }
+
+        @builtins.property
+        def key_id(self) -> builtins.str:
+            '''The unique identifier for the SAML private key.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-samlprovider-samlprivatekey.html#cfn-iam-samlprovider-samlprivatekey-keyid
+            '''
+            result = self._values.get("key_id")
+            assert result is not None, "Required property 'key_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def timestamp(self) -> builtins.str:
+            '''The date and time, in `ISO 8601 date-time <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ format, when the private key was uploaded.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-samlprovider-samlprivatekey.html#cfn-iam-samlprovider-samlprivatekey-timestamp
+            '''
+            result = self._values.get("timestamp")
+            assert result is not None, "Required property 'timestamp' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SAMLPrivateKeyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -2615,10 +5041,10 @@ class CfnSAMLProviderProps:
         add_private_key: typing.Optional[builtins.str] = None,
         assertion_encryption_mode: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
-        private_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        private_key_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         remove_private_key: typing.Optional[builtins.str] = None,
         saml_metadata_document: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnSAMLProvider``.
 
@@ -2635,6 +5061,7 @@ class CfnSAMLProviderProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
@@ -2714,13 +5141,13 @@ class CfnSAMLProviderProps:
     @builtins.property
     def private_key_list(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
         '''The private key metadata for the SAML provider.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-samlprovider.html#cfn-iam-samlprovider-privatekeylist
         '''
         result = self._values.get("private_key_list")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], result)
 
     @builtins.property
     def remove_private_key(self) -> typing.Optional[builtins.str]:
@@ -2743,7 +5170,7 @@ class CfnSAMLProviderProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the new IAM SAML provider.
 
         Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -2754,7 +5181,7 @@ class CfnSAMLProviderProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-samlprovider.html#cfn-iam-samlprovider-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2766,6 +5193,248 @@ class CfnSAMLProviderProps:
         return "CfnSAMLProviderProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IServerCertificateRef_005ddfcc, _ITaggable_36806126)
+class CfnServerCertificate(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnServerCertificate",
+):
+    '''Uploads a server certificate entity for the AWS account .
+
+    The server certificate entity includes a public key certificate, a private key, and an optional certificate chain, which should all be PEM-encoded.
+
+    We recommend that you use `Certificate Manager <https://docs.aws.amazon.com/acm/>`_ to provision, manage, and deploy your server certificates. With ACM you can request a certificate, deploy it to AWS resources, and let ACM handle certificate renewals for you. Certificates provided by ACM are free. For more information about using ACM, see the `Certificate Manager User Guide <https://docs.aws.amazon.com/acm/latest/userguide/>`_ .
+
+    For more information about working with server certificates, see `Working with server certificates <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_server-certs.html>`_ in the *IAM User Guide* . This topic includes a list of AWS services that can use the server certificates that you manage with IAM.
+
+    For information about the number of server certificates you can upload, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+    .. epigraph::
+
+       Because the body of the public key certificate, private key, and the certificate chain can be large, you should use POST rather than GET when calling ``UploadServerCertificate`` . For information about setting up signatures and authorization through the API, see `Signing AWS API requests <https://docs.aws.amazon.com/general/latest/gr/signing_aws_api_requests.html>`_ in the *AWS General Reference* . For general information about using the Query API with IAM, see `Calling the API by making HTTP query requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/programming.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-servercertificate.html
+    :cloudformationResource: AWS::IAM::ServerCertificate
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_server_certificate = iam.CfnServerCertificate(self, "MyCfnServerCertificate",
+            certificate_body="certificateBody",
+            certificate_chain="certificateChain",
+            path="path",
+            private_key="privateKey",
+            server_certificate_name="serverCertificateName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        certificate_body: typing.Optional[builtins.str] = None,
+        certificate_chain: typing.Optional[builtins.str] = None,
+        path: typing.Optional[builtins.str] = None,
+        private_key: typing.Optional[builtins.str] = None,
+        server_certificate_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::ServerCertificate``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param certificate_body: The contents of the public key certificate.
+        :param certificate_chain: The contents of the public key certificate chain.
+        :param path: The path for the server certificate. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: If you are uploading a server certificate specifically for use with Amazon CloudFront distributions, you must specify a path using the ``path`` parameter. The path must begin with ``/cloudfront`` and must include a trailing slash (for example, ``/cloudfront/test/`` ).
+        :param private_key: The contents of the private key in PEM-encoded format. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param server_certificate_name: The name for the server certificate. Do not include the path in this value. The name of the certificate cannot contain any spaces. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param tags: A list of tags that are attached to the server certificate. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e76e4b5b)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServerCertificateProps(
+            certificate_body=certificate_body,
+            certificate_chain=certificate_chain,
+            path=path,
+            private_key=private_key,
+            server_certificate_name=server_certificate_name,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForServerCertificate")
+    @builtins.classmethod
+    def arn_for_server_certificate(
+        cls,
+        resource: "_IServerCertificateRef_005ddfcc",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bdc593551fa8cc6ccbfd2bc0375f5568203a3f854d4f715a6b618e4b88274326)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForServerCertificate", [resource]))
+
+    @jsii.member(jsii_name="isCfnServerCertificate")
+    @builtins.classmethod
+    def is_cfn_server_certificate(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnServerCertificate.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3287a2c8df8f2cca57e9ef3ac067d25816a83b556c24ac1057b3b2ae573636bd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServerCertificate", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a54a0dba3e2e40002701a3afd9e2e4bf8ce9a72d2137a4aaa4aa728c81f007a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::ServerCertificate`` resource.
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serverCertificateRef")
+    def server_certificate_ref(self) -> "_ServerCertificateReference_0e96ef93":
+        '''A reference to a ServerCertificate resource.'''
+        return typing.cast("_ServerCertificateReference_0e96ef93", jsii.get(self, "serverCertificateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateBody")
+    def certificate_body(self) -> typing.Optional[builtins.str]:
+        '''The contents of the public key certificate.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateBody"))
+
+    @certificate_body.setter
+    def certificate_body(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87c7211629136fb42c02f367b9448da78ab4e5abfd4d9e04ab0caad5325bb2b2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateBody", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="certificateChain")
+    def certificate_chain(self) -> typing.Optional[builtins.str]:
+        '''The contents of the public key certificate chain.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateChain"))
+
+    @certificate_chain.setter
+    def certificate_chain(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e4ff303b49caa7890566d08d6a2a60ec1a95e65e81edd71a7aa6f85f708e4fdd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "certificateChain", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path for the server certificate.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__77ad8bd4800869c88771ef98910278fbbe26e1520e96f812fdbc0837580817e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="privateKey")
+    def private_key(self) -> typing.Optional[builtins.str]:
+        '''The contents of the private key in PEM-encoded format.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
+
+    @private_key.setter
+    def private_key(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a4203fd09b7317247f69586ca724e62c2ea809be65e02471885451dfe4324b20)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="serverCertificateName")
+    def server_certificate_name(self) -> typing.Optional[builtins.str]:
+        '''The name for the server certificate.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serverCertificateName"))
+
+    @server_certificate_name.setter
+    def server_certificate_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e609428f5648)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "serverCertificateName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that are attached to the server certificate.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -2789,7 +5458,7 @@ class CfnServerCertificateProps:
         path: typing.Optional[builtins.str] = None,
         private_key: typing.Optional[builtins.str] = None,
         server_certificate_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnServerCertificate``.
 
@@ -2805,6 +5474,7 @@ class CfnServerCertificateProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
@@ -2906,7 +5576,7 @@ class CfnServerCertificateProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that are attached to the server certificate.
 
         For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -2914,7 +5584,7 @@ class CfnServerCertificateProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-servercertificate.html#cfn-iam-servercertificate-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2926,6 +5596,162 @@ class CfnServerCertificateProps:
         return "CfnServerCertificateProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IServiceLinkedRoleRef_ba92e11b)
+class CfnServiceLinkedRole(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnServiceLinkedRole",
+):
+    '''Creates an IAM role that is linked to a specific AWS service.
+
+    The service controls the attached policies and when the role can be deleted. This helps ensure that the service is not broken by an unexpectedly changed or deleted role, which could put your AWS resources into an unknown state. Allowing the service to control the role helps improve service stability and proper cleanup when a service and its role are no longer needed. For more information, see `Using service-linked roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/using-service-linked-roles.html>`_ in the *IAM User Guide* .
+
+    To attach a policy to this service-linked role, you must make the request using the AWS service that depends on this role.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-servicelinkedrole.html
+    :cloudformationResource: AWS::IAM::ServiceLinkedRole
+    :exampleMetadata: infused
+
+    Example::
+
+        slr = iam.CfnServiceLinkedRole(self, "ElasticSLR",
+            aws_service_name="es.amazonaws.com"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        aws_service_name: typing.Optional[builtins.str] = None,
+        custom_suffix: typing.Optional[builtins.str] = None,
+        description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::ServiceLinkedRole``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param aws_service_name: The service principal for the AWS service to which this role is attached. You use a string similar to a URL but without the http:// in front. For example: ``elasticbeanstalk.amazonaws.com`` . Service principals are unique and case-sensitive. To find the exact service principal for your service-linked role, see `AWS services that work with IAM <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-services-that-work-with-iam.html>`_ in the *IAM User Guide* . Look for the services that have *Yes* in the *Service-Linked Role* column. Choose the *Yes* link to view the service-linked role documentation for that service.
+        :param custom_suffix: A string that you provide, which is combined with the service-provided prefix to form the complete role name. If you make multiple requests for the same service, then you must supply a different ``CustomSuffix`` for each request. Otherwise the request fails with a duplicate role name error. For example, you could add ``-1`` or ``-debug`` to the suffix. Some services do not support the ``CustomSuffix`` parameter. If you provide an optional suffix and the operation fails, try the operation again without the suffix.
+        :param description: The description of the role.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d428bb539fd6df78e6e28b0695f366af555fe1f958879857ee30c8067e2af789)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnServiceLinkedRoleProps(
+            aws_service_name=aws_service_name,
+            custom_suffix=custom_suffix,
+            description=description,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnServiceLinkedRole")
+    @builtins.classmethod
+    def is_cfn_service_linked_role(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnServiceLinkedRole.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e15cbef59f1c57bd0a07b6dc7673834547880709ca660f114c9b692de877ffc)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnServiceLinkedRole", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f0f81638df3b5467a6f2750e681e60bb99239f2a978002ef69aae000229a742)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrRoleName")
+    def attr_role_name(self) -> builtins.str:
+        '''Returns the friendly name that identifies the role.
+
+        For example, ``AWSServiceRoleForAutoScaling`` or ``AWSServiceRoleForAutoScaling_TestSuffix`` if a ``CustomSuffix`` is specified.
+
+        :cloudformationAttribute: RoleName
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrRoleName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="serviceLinkedRoleRef")
+    def service_linked_role_ref(self) -> "_ServiceLinkedRoleReference_863fd3da":
+        '''A reference to a ServiceLinkedRole resource.'''
+        return typing.cast("_ServiceLinkedRoleReference_863fd3da", jsii.get(self, "serviceLinkedRoleRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="awsServiceName")
+    def aws_service_name(self) -> typing.Optional[builtins.str]:
+        '''The service principal for the AWS service to which this role is attached.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "awsServiceName"))
+
+    @aws_service_name.setter
+    def aws_service_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__894356a5067d4595c32429fb905a7c37dbca2ce428fa3c0743817d563a07b673)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "awsServiceName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="customSuffix")
+    def custom_suffix(self) -> typing.Optional[builtins.str]:
+        '''A string that you provide, which is combined with the service-provided prefix to form the complete role name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customSuffix"))
+
+    @custom_suffix.setter
+    def custom_suffix(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__73b7c9779d86988f0dcb8c2282ce3fb8bd23b1db482b7081dbf555457bc45bdc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "customSuffix", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the role.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__796fb2b9a69a72a7ee224d68a6ba88159e7107645a0f704a025f9b8bf7b3d6ce)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -3020,6 +5846,615 @@ class CfnServiceLinkedRoleProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IUserRef_b0ccca76, _ITaggable_36806126)
+class CfnUser(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnUser",
+):
+    '''Creates a new IAM user for your AWS account .
+
+    For information about quotas for the number of IAM users you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html
+    :cloudformationResource: AWS::IAM::User
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_user = iam.CfnUser(self, "MyCfnUser",
+            groups=["groups"],
+            login_profile=iam.CfnUser.LoginProfileProperty(
+                password="password",
+        
+                # the properties below are optional
+                password_reset_required=False
+            ),
+            managed_policy_arns=["managedPolicyArns"],
+            path="path",
+            permissions_boundary="permissionsBoundary",
+            policies=[iam.CfnUser.PolicyProperty(
+                policy_document=policy_document,
+                policy_name="policyName"
+            )],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            user_name="userName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
+        login_profile: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
+        path: typing.Optional[builtins.str] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
+        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        user_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::User``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param groups: A list of group names to which you want to add the user.
+        :param login_profile: Creates a password for the specified IAM user. A password allows an IAM user to access AWS services through the AWS Management Console . You can use the AWS CLI , the AWS API, or the *Users* page in the IAM console to create a password for any IAM user. Use `ChangePassword <https://docs.aws.amazon.com/IAM/latest/APIReference/API_ChangePassword.html>`_ to update your own existing password in the *My Security Credentials* page in the AWS Management Console . For more information about managing passwords, see `Managing passwords <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_ManagingLogins.html>`_ in the *IAM User Guide* .
+        :param managed_policy_arns: A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the user. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
+        :param path: The path for the user name. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
+        :param permissions_boundary: The ARN of the managed policy that is used to set the permissions boundary for the user. A permissions boundary policy defines the maximum permissions that identity-based policies can grant to an entity, but does not grant permissions. Permissions boundaries do not define the maximum permissions that a resource-based policy can grant to an entity. To learn more, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* . For more information about policy types, see `Policy types <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policy-types>`_ in the *IAM User Guide* .
+        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM user. To view AWS::IAM::User snippets, see `Declaring an IAM User Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-user>`_ . .. epigraph:: The name of each policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a user, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
+        :param tags: A list of tags that you want to attach to the new user. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
+        :param user_name: The name of the user to create. Do not include the path in this value. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The user name must be unique within the account. User names are not distinguished by case. For example, you cannot create users named both "John" and "john". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the user name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4ca523687)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserProps(
+            groups=groups,
+            login_profile=login_profile,
+            managed_policy_arns=managed_policy_arns,
+            path=path,
+            permissions_boundary=permissions_boundary,
+            policies=policies,
+            tags=tags,
+            user_name=user_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForUser")
+    @builtins.classmethod
+    def arn_for_user(cls, resource: "_IUserRef_b0ccca76") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53586ff3825069b3269d54a7efd5838a24c958e3815fb51409e5578af38ed8a2)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForUser", [resource]))
+
+    @jsii.member(jsii_name="isCfnUser")
+    @builtins.classmethod
+    def is_cfn_user(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUser.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__39d477467a398dca23b6324aaa1b79887f96a2ebb288e56f19f2715de1901378)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUser", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e0ee3dc7778b587a3d4c4511b986f6fc1c9c865253acfb48b0df1fe42cd5f082)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::User`` resource.
+
+        For example: ``arn:aws:iam::123456789012:user/mystack-myuser-1CCXAFG2H2U4D`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userRef")
+    def user_ref(self) -> "_UserReference_6bf884c6":
+        '''A reference to a User resource.'''
+        return typing.cast("_UserReference_6bf884c6", jsii.get(self, "userRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groups")
+    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of group names to which you want to add the user.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groups"))
+
+    @groups.setter
+    def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d43257f1398)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="loginProfile")
+    def login_profile(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]]:
+        '''Creates a password for the specified IAM user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]], jsii.get(self, "loginProfile"))
+
+    @login_profile.setter
+    def login_profile(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "loginProfile", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyArns")
+    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the user.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "managedPolicyArns"))
+
+    @managed_policy_arns.setter
+    def managed_policy_arns(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d9bc7aa1272c0c2d7eca931089eb5238a71667de1dd61a5e39d1bb0d80b06ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path for the user name.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8b45a0c327fbd95f77396687ff75f3c61c77223d854a371180accaa05cec25e6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="permissionsBoundary")
+    def permissions_boundary(self) -> typing.Optional[builtins.str]:
+        '''The ARN of the managed policy that is used to set the permissions boundary for the user.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "permissionsBoundary"))
+
+    @permissions_boundary.setter
+    def permissions_boundary(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c5312027885dc7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "permissionsBoundary", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policies")
+    def policies(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]]:
+        '''Adds or updates an inline policy document that is embedded in the specified IAM user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]], jsii.get(self, "policies"))
+
+    @policies.setter
+    def policies(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the new user.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userName")
+    def user_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the user to create.
+
+        Do not include the path in this value.
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "userName"))
+
+    @user_name.setter
+    def user_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611efe7c1f3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iam.CfnUser.LoginProfileProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "password": "password",
+            "password_reset_required": "passwordResetRequired",
+        },
+    )
+    class LoginProfileProperty:
+        def __init__(
+            self,
+            *,
+            password: builtins.str,
+            password_reset_required: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''Creates a password for the specified user, giving the user the ability to access AWS services through the AWS Management Console .
+
+            For more information about managing passwords, see `Managing Passwords <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_ManagingLogins.html>`_ in the *IAM User Guide* .
+
+            :param password: The user's password.
+            :param password_reset_required: Specifies whether the user is required to set a new password on next sign-in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iam as iam
+                
+                login_profile_property = iam.CfnUser.LoginProfileProperty(
+                    password="password",
+                
+                    # the properties below are optional
+                    password_reset_required=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a)
+                check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+                check_type(argname="argument password_reset_required", value=password_reset_required, expected_type=type_hints["password_reset_required"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "password": password,
+            }
+            if password_reset_required is not None:
+                self._values["password_reset_required"] = password_reset_required
+
+        @builtins.property
+        def password(self) -> builtins.str:
+            '''The user's password.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html#cfn-iam-user-loginprofile-password
+            '''
+            result = self._values.get("password")
+            assert result is not None, "Required property 'password' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def password_reset_required(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specifies whether the user is required to set a new password on next sign-in.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html#cfn-iam-user-loginprofile-passwordresetrequired
+            '''
+            result = self._values.get("password_reset_required")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "LoginProfileProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_iam.CfnUser.PolicyProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "policy_document": "policyDocument",
+            "policy_name": "policyName",
+        },
+    )
+    class PolicyProperty:
+        def __init__(
+            self,
+            *,
+            policy_document: typing.Any,
+            policy_name: builtins.str,
+        ) -> None:
+            '''Contains information about an attached policy.
+
+            An attached policy is a managed policy that has been attached to a user, group, or role.
+
+            For more information about managed policies, refer to `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+            :param policy_document: The entire contents of the policy that defines permissions. For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
+            :param policy_name: The friendly name (not ARN) identifying the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-policy.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_iam as iam
+                
+                # policy_document: Any
+                
+                policy_property = iam.CfnUser.PolicyProperty(
+                    policy_document=policy_document,
+                    policy_name="policyName"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e10d289e0033a52d00a2a3cfb4f5dd68a85b62b072e59b08358dbe810503669c)
+                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
+                check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "policy_document": policy_document,
+                "policy_name": policy_name,
+            }
+
+        @builtins.property
+        def policy_document(self) -> typing.Any:
+            '''The entire contents of the policy that defines permissions.
+
+            For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-policy.html#cfn-iam-user-policy-policydocument
+            '''
+            result = self._values.get("policy_document")
+            assert result is not None, "Required property 'policy_document' is missing"
+            return typing.cast(typing.Any, result)
+
+        @builtins.property
+        def policy_name(self) -> builtins.str:
+            '''The friendly name (not ARN) identifying the policy.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-policy.html#cfn-iam-user-policy-policyname
+            '''
+            result = self._values.get("policy_name")
+            assert result is not None, "Required property 'policy_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PolicyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.implements(_IInspectable_c2943556, _IUserPolicyRef_e6abac3e)
+class CfnUserPolicy(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnUserPolicy",
+):
+    '''Adds or updates an inline policy document that is embedded in the specified IAM user.
+
+    An IAM user can also have a managed policy attached to it. To attach a managed policy to a user, use ```AWS::IAM::User`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user.html>`_ . To create a new managed policy, use ```AWS::IAM::ManagedPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html>`_ . For information about policies, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
+
+    For information about the maximum number of inline policies that you can embed in a user, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-userpolicy.html
+    :cloudformationResource: AWS::IAM::UserPolicy
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        # policy_document: Any
+        
+        cfn_user_policy = iam.CfnUserPolicy(self, "MyCfnUserPolicy",
+            policy_name="policyName",
+            user_name="userName",
+        
+            # the properties below are optional
+            policy_document=policy_document
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        policy_name: builtins.str,
+        user_name: builtins.str,
+        policy_document: typing.Any = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::UserPolicy``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param user_name: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b09938208fba24d256ecd68450b14a065d6488754943e666f9c0528cd0571773)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserPolicyProps(
+            policy_name=policy_name,
+            user_name=user_name,
+            policy_document=policy_document,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnUserPolicy")
+    @builtins.classmethod
+    def is_cfn_user_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50148d4dcf0c6b86c32afab139135ccee1e0f58e20fc54e8b91ef9b40bc88560)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserPolicy", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae995e3d0)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userPolicyRef")
+    def user_policy_ref(self) -> "_UserPolicyReference_4aa6daa0":
+        '''A reference to a UserPolicy resource.'''
+        return typing.cast("_UserPolicyReference_4aa6daa0", jsii.get(self, "userPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of the policy document.'''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @policy_name.setter
+    def policy_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="userName")
+    def user_name(self) -> builtins.str:
+        '''The name of the user to associate the policy with.'''
+        return typing.cast(builtins.str, jsii.get(self, "userName"))
+
+    @user_name.setter
+    def user_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="policyDocument")
+    def policy_document(self) -> typing.Any:
+        '''The policy document.'''
+        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
+
+    @policy_document.setter
+    def policy_document(self, value: typing.Any) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.CfnUserPolicyProps",
     jsii_struct_bases=[],
@@ -3041,7 +6476,7 @@ class CfnUserPolicyProps:
 
         :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
         :param user_name: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
+        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-userpolicy.html
         :exampleMetadata: fixture=_generated
@@ -3102,7 +6537,7 @@ class CfnUserPolicyProps:
     def policy_document(self) -> typing.Any:
         '''The policy document.
 
-        You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
+        You must provide policies in JSON format in IAM. However, for CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. CloudFormation always converts a YAML policy to JSON format before submitting it to IAM.
 
         The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following:
 
@@ -3145,13 +6580,13 @@ class CfnUserProps:
     def __init__(
         self,
         *,
-        groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]] = None,
+        login_profile: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        permissions_boundary: typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]] = None,
+        policies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnUser``.
@@ -3163,13 +6598,14 @@ class CfnUserProps:
         :param permissions_boundary: The ARN of the managed policy that is used to set the permissions boundary for the user. A permissions boundary policy defines the maximum permissions that identity-based policies can grant to an entity, but does not grant permissions. Permissions boundaries do not define the maximum permissions that a resource-based policy can grant to an entity. To learn more, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* . For more information about policy types, see `Policy types <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policy-types>`_ in the *IAM User Guide* .
         :param policies: Adds or updates an inline policy document that is embedded in the specified IAM user. To view AWS::IAM::User snippets, see `Declaring an IAM User Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-user>`_ . .. epigraph:: The name of each policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a user, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
         :param tags: A list of tags that you want to attach to the new user. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
-        :param user_name: The name of the user to create. Do not include the path in this value. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The user name must be unique within the account. User names are not distinguished by case. For example, you cannot create users named both "John" and "john". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the user name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
+        :param user_name: The name of the user to create. Do not include the path in this value. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The user name must be unique within the account. User names are not distinguished by case. For example, you cannot create users named both "John" and "john". If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the user name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html
         :exampleMetadata: fixture=_generated
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
@@ -3227,18 +6663,20 @@ class CfnUserProps:
             self._values["user_name"] = user_name
 
     @builtins.property
-    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
+    def groups(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]]:
         '''A list of group names to which you want to add the user.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-groups
         '''
         result = self._values.get("groups")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IGroupRef_aeb1d9f6"]]], result)
 
     @builtins.property
     def login_profile(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.LoginProfileProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]]:
         '''Creates a password for the specified IAM user.
 
         A password allows an IAM user to access AWS services through the AWS Management Console .
@@ -3250,10 +6688,12 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-loginprofile
         '''
         result = self._values.get("login_profile")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.LoginProfileProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.LoginProfileProperty"]], result)
 
     @builtins.property
-    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+    def managed_policy_arns(
+        self,
+    ) -> typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]]:
         '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the user.
 
         For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
@@ -3261,7 +6701,7 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-managedpolicyarns
         '''
         result = self._values.get("managed_policy_arns")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+        return typing.cast(typing.Optional[typing.List[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -3279,7 +6719,9 @@ class CfnUserProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions_boundary(self) -> typing.Optional[builtins.str]:
+    def permissions_boundary(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]]:
         '''The ARN of the managed policy that is used to set the permissions boundary for the user.
 
         A permissions boundary policy defines the maximum permissions that identity-based policies can grant to an entity, but does not grant permissions. Permissions boundaries do not define the maximum permissions that a resource-based policy can grant to an entity. To learn more, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
@@ -3289,12 +6731,12 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-permissionsboundary
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IManagedPolicyRef_a7a65687"]], result)
 
     @builtins.property
     def policies(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.PolicyProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]]:
         '''Adds or updates an inline policy document that is embedded in the specified IAM user.
 
         To view AWS::IAM::User snippets, see `Declaring an IAM User Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-user>`_ .
@@ -3307,10 +6749,10 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-policies
         '''
         result = self._values.get("policies")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.PolicyProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PolicyProperty"]]]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the new user.
 
         Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -3321,7 +6763,7 @@ class CfnUserProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html#cfn-iam-user-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def user_name(self) -> typing.Optional[builtins.str]:
@@ -3329,9 +6771,9 @@ class CfnUserProps:
 
         This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The user name must be unique within the account. User names are not distinguished by case. For example, you cannot create users named both "John" and "john".
 
-        If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the user name.
+        If you don't specify a name, CloudFormation generates a unique physical ID and uses that ID for the user name.
 
-        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
+        If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ .
         .. epigraph::
 
            Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
@@ -3351,6 +6793,144 @@ class CfnUserProps:
         return "CfnUserProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.implements(_IInspectable_c2943556, _IUserToGroupAdditionRef_e1276f9a)
+class CfnUserToGroupAddition(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnUserToGroupAddition",
+):
+    '''Adds the specified user to the specified group.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-usertogroupaddition.html
+    :cloudformationResource: AWS::IAM::UserToGroupAddition
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_user_to_group_addition = iam.CfnUserToGroupAddition(self, "MyCfnUserToGroupAddition",
+            group_name="groupName",
+            users=["users"]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        group_name: builtins.str,
+        users: typing.Sequence[builtins.str],
+    ) -> None:
+        '''Create a new ``AWS::IAM::UserToGroupAddition``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param group_name: The name of the group to update. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        :param users: A list of the names of the users that you want to add to the group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cff069f9e69e3551ebb007914281abb14f05e8d822825ab91577ecf95414ffb)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnUserToGroupAdditionProps(group_name=group_name, users=users)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnUserToGroupAddition")
+    @builtins.classmethod
+    def is_cfn_user_to_group_addition(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnUserToGroupAddition.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ad9fff616a1b1f3024a67ea7adb60a1ee244e8400579a12825ab7e5c6bd17771)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnUserToGroupAddition", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__34d58a01767f256628192ca708cd20a48bd1b0ad6795595846565c2c84e235e8)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The stable and unique string identifying the group.
+
+        For more information about IDs, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="userToGroupAdditionRef")
+    def user_to_group_addition_ref(self) -> "_UserToGroupAdditionReference_94731a73":
+        '''A reference to a UserToGroupAddition resource.'''
+        return typing.cast("_UserToGroupAdditionReference_94731a73", jsii.get(self, "userToGroupAdditionRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupName")
+    def group_name(self) -> builtins.str:
+        '''The name of the group to update.'''
+        return typing.cast(builtins.str, jsii.get(self, "groupName"))
+
+    @group_name.setter
+    def group_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80988c0737b217a15fbc51dd191617d213752314ac76d041cba72fa2fbca3c04)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="users")
+    def users(self) -> typing.List[builtins.str]:
+        '''A list of the names of the users that you want to add to the group.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "users"))
+
+    @users.setter
+    def users(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9633608428e6d8df416ba93dfbf3f5248605fc8d2d8dc1be95067a291eb4223e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -3427,6 +7007,198 @@ class CfnUserToGroupAdditionProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IVirtualMFADeviceRef_fec1f13e, _ITaggable_36806126)
+class CfnVirtualMFADevice(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.CfnVirtualMFADevice",
+):
+    '''Creates a new virtual MFA device for the AWS account .
+
+    After creating the virtual MFA, use `EnableMFADevice <https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html>`_ to attach the MFA device to an IAM user. For more information about creating and working with virtual MFA devices, see `Using a virtual MFA device <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_VirtualMFA.html>`_ in the *IAM User Guide* .
+
+    For information about the maximum number of MFA devices you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
+    .. epigraph::
+
+       The seed information contained in the QR code and the Base32 string should be treated like any other secret access information. In other words, protect the seed information as you would your AWS access keys or your passwords. After you provision your virtual device, you should ensure that the information is destroyed following secure procedures.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-virtualmfadevice.html
+    :cloudformationResource: AWS::IAM::VirtualMFADevice
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        cfn_virtual_mFADevice = iam.CfnVirtualMFADevice(self, "MyCfnVirtualMFADevice",
+            users=["users"],
+        
+            # the properties below are optional
+            path="path",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            virtual_mfa_device_name="virtualMfaDeviceName"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        users: typing.Sequence[builtins.str],
+        path: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        virtual_mfa_device_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::IAM::VirtualMFADevice``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param users: The IAM user associated with this virtual MFA device.
+        :param path: The path for the virtual MFA device. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
+        :param tags: A list of tags that you want to attach to the new IAM virtual MFA device. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
+        :param virtual_mfa_device_name: The name of the virtual MFA device, which must be unique. Use with path to uniquely identify a virtual MFA device. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc49399a99)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnVirtualMFADeviceProps(
+            users=users,
+            path=path,
+            tags=tags,
+            virtual_mfa_device_name=virtual_mfa_device_name,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnVirtualMFADevice")
+    @builtins.classmethod
+    def is_cfn_virtual_mfa_device(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVirtualMFADevice.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__484a1c7065ccbe3212fb35fb07f8f11e400d775147f533660fc3ebc70c5b8802)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVirtualMFADevice", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__95acd7cc3c337be75e6e1344aafe2900ca56480c92605d270e827237b04933d9)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrSerialNumber")
+    def attr_serial_number(self) -> builtins.str:
+        '''Returns the serial number for the specified ``AWS::IAM::VirtualMFADevice`` resource.
+
+        :cloudformationAttribute: SerialNumber
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSerialNumber"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="virtualMfaDeviceRef")
+    def virtual_mfa_device_ref(self) -> "_VirtualMFADeviceReference_dd7d7c2b":
+        '''A reference to a VirtualMFADevice resource.'''
+        return typing.cast("_VirtualMFADeviceReference_dd7d7c2b", jsii.get(self, "virtualMfaDeviceRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="users")
+    def users(self) -> typing.List[builtins.str]:
+        '''The IAM user associated with this virtual MFA device.'''
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "users"))
+
+    @users.setter
+    def users(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__62933eb2630cbda8cd521b55437211294e28433e9f2916bffa9f4987d4a9aa8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> typing.Optional[builtins.str]:
+        '''The path for the virtual MFA device.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
+
+    @path.setter
+    def path(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75e1d03c8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the new IAM virtual MFA device.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="virtualMfaDeviceName")
+    def virtual_mfa_device_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the virtual MFA device, which must be unique.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "virtualMfaDeviceName"))
+
+    @virtual_mfa_device_name.setter
+    def virtual_mfa_device_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b5456135f25b9d08fb97dae8235054f6111c0d6ff6cb6ca028c6c552d38b10cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "virtualMfaDeviceName", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.CfnVirtualMFADeviceProps",
     jsii_struct_bases=[],
@@ -3443,7 +7215,7 @@ class CfnVirtualMFADeviceProps:
         *,
         users: typing.Sequence[builtins.str],
         path: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         virtual_mfa_device_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVirtualMFADevice``.
@@ -3458,6 +7230,7 @@ class CfnVirtualMFADeviceProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_iam as iam
@@ -3516,7 +7289,7 @@ class CfnVirtualMFADeviceProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the new IAM virtual MFA device.
 
         Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
@@ -3527,7 +7300,7 @@ class CfnVirtualMFADeviceProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-virtualmfadevice.html#cfn-iam-virtualmfadevice-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def virtual_mfa_device_name(self) -> typing.Optional[builtins.str]:
@@ -3735,7 +7508,7 @@ class CompositeDependable(
         composite_dependable = iam.CompositeDependable(dependable)
     '''
 
-    def __init__(self, *dependables: _constructs_77d1e7e8.IDependable) -> None:
+    def __init__(self, *dependables: "_constructs_77d1e7e8.IDependable") -> None:
         '''
         :param dependables: -
         '''
@@ -3854,20 +7627,35 @@ class Effect(enum.Enum):
 
     Example::
 
-        # books: apigateway.Resource
-        # iam_user: iam.User
+        from aws_cdk.aws_apigatewayv2_authorizers import WebSocketIamAuthorizer
+        from aws_cdk.aws_apigatewayv2_integrations import WebSocketLambdaIntegration
+        
+        # This function handles your connect route
+        # connect_handler: lambda.Function
         
         
-        get_books = books.add_method("GET", apigateway.HttpIntegration("http://amazon.com"),
-            authorization_type=apigateway.AuthorizationType.IAM
+        web_socket_api = apigwv2.WebSocketApi(self, "WebSocketApi")
+        
+        web_socket_api.add_route("$connect",
+            integration=WebSocketLambdaIntegration("Integration", connect_handler),
+            authorizer=WebSocketIamAuthorizer()
         )
         
-        iam_user.attach_inline_policy(iam.Policy(self, "AllowBooks",
+        # Create an IAM user (identity)
+        user = iam.User(self, "User")
+        
+        web_socket_arn = Stack.of(self).format_arn(
+            service="execute-api",
+            resource=web_socket_api.api_id
+        )
+        
+        # Grant access to the IAM user
+        user.attach_inline_policy(iam.Policy(self, "AllowInvoke",
             statements=[
                 iam.PolicyStatement(
                     actions=["execute-api:Invoke"],
                     effect=iam.Effect.ALLOW,
-                    resources=[get_books.method_arn]
+                    resources=[web_socket_arn]
                 )
             ]
         ))
@@ -4109,7 +7897,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         cls,
         *,
         statement: "PolicyStatement",
-        resource: "IResourceWithPolicy",
+        resource: "IResourceWithPolicyV2",
         resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         actions: typing.Sequence[builtins.str],
         grantee: "IGrantable",
@@ -4136,7 +7924,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         from the provided statement, depending on the resource's implementation of
         addToResourcePolicy.
 
-        :param statement: The policy statement to add to the resource's policy. This statement will be passed to the resource's addToResourcePolicy method. The actual handling of the statement depends on the specific IResourceWithPolicy implementation.
+        :param statement: The policy statement to add to the resource's policy. This statement will be passed to the resource's addToResourcePolicy method. The actual handling of the statement depends on the specific IResourceWithPolicyV2 implementation.
         :param resource: The resource with a resource policy. The statement will be added to the resource policy if it couldn't be added to the principal policy.
         :param resource_self_arns: When referring to the resource in a resource policy, use this as ARN. (Depending on the resource type, this needs to be '*' in a resource policy). Default: Same as regular resource ARNs
         :param actions: The actions to grant.
@@ -4189,7 +7977,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
     def add_to_principal(
         cls,
         *,
-        scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
         actions: typing.Sequence[builtins.str],
         grantee: "IGrantable",
         resource_arns: typing.Sequence[builtins.str],
@@ -4200,7 +7988,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         Absence of a principal leads to a warning, but failing to add
         the permissions to a present principal is not an error.
 
-        :param scope: Construct to report warnings on in case grant could not be registered. Default: - the construct in which this construct is defined
+        :param scope: (deprecated) Construct to report warnings on in case grant could not be registered. Default: - the construct in which this construct is defined
         :param actions: The actions to grant.
         :param grantee: The principal to grant to. Default: if principal is undefined, no work is done.
         :param resource_arns: The resource ARNs to grant to.
@@ -4221,7 +8009,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
     def add_to_principal_and_resource(
         cls,
         *,
-        resource: "IResourceWithPolicy",
+        resource: "IResourceWithPolicyV2",
         resource_policy_principal: typing.Optional["IPrincipal"] = None,
         resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         actions: typing.Sequence[builtins.str],
@@ -4262,7 +8050,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
     def add_to_principal_or_resource(
         cls,
         *,
-        resource: "IResourceWithPolicy",
+        resource: "IResourceWithPolicyV2",
         resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
         actions: typing.Sequence[builtins.str],
         grantee: "IGrantable",
@@ -4318,7 +8106,7 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
         return typing.cast("Grant", jsii.sinvoke(cls, "drop", [grantee, _intent]))
 
     @jsii.member(jsii_name="applyBefore")
-    def apply_before(self, *constructs: _constructs_77d1e7e8.IConstruct) -> None:
+    def apply_before(self, *constructs: "_constructs_77d1e7e8.IConstruct") -> None:
         '''Make sure this grant is applied before the given constructs are deployed.
 
         The same as construct.node.addDependency(grant), but slightly nicer to read.
@@ -4388,6 +8176,59 @@ class Grant(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.Grant"):
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_iam.GrantOnKeyResult",
+    jsii_struct_bases=[],
+    name_mapping={"grant": "grant"},
+)
+class GrantOnKeyResult:
+    def __init__(self, *, grant: typing.Optional["Grant"] = None) -> None:
+        '''Result of a call to grantOnKey().
+
+        :param grant: The Grant object, if a grant was created. Default: No grant
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_iam as iam
+            
+            # grant: iam.Grant
+            
+            grant_on_key_result = iam.GrantOnKeyResult(
+                grant=grant
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d966b064e777c60501cf45b81c5f2072ab9bfb4b7def5ee0ad6a6e273fe0630)
+            check_type(argname="argument grant", value=grant, expected_type=type_hints["grant"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if grant is not None:
+            self._values["grant"] = grant
+
+    @builtins.property
+    def grant(self) -> typing.Optional["Grant"]:
+        '''The Grant object, if a grant was created.
+
+        :default: No grant
+        '''
+        result = self._values.get("grant")
+        return typing.cast(typing.Optional["Grant"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "GrantOnKeyResult(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.GrantOnPrincipalAndResourceOptions",
     jsii_struct_bases=[CommonGrantOptions],
     name_mapping={
@@ -4408,7 +8249,7 @@ class GrantOnPrincipalAndResourceOptions(CommonGrantOptions):
         grantee: "IGrantable",
         resource_arns: typing.Sequence[builtins.str],
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-        resource: "IResourceWithPolicy",
+        resource: "IResourceWithPolicyV2",
         resource_policy_principal: typing.Optional["IPrincipal"] = None,
         resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
@@ -4433,12 +8274,12 @@ class GrantOnPrincipalAndResourceOptions(CommonGrantOptions):
             # conditions: Any
             # grantable: iam.IGrantable
             # principal: iam.IPrincipal
-            # resource_with_policy: iam.IResourceWithPolicy
+            # resource_with_policy_v2: iam.IResourceWithPolicyV2
             
             grant_on_principal_and_resource_options = iam.GrantOnPrincipalAndResourceOptions(
                 actions=["actions"],
                 grantee=grantable,
-                resource=resource_with_policy,
+                resource=resource_with_policy_v2,
                 resource_arns=["resourceArns"],
             
                 # the properties below are optional
@@ -4509,14 +8350,14 @@ class GrantOnPrincipalAndResourceOptions(CommonGrantOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def resource(self) -> "IResourceWithPolicy":
+    def resource(self) -> "IResourceWithPolicyV2":
         '''The resource with a resource policy.
 
         The statement will always be added to the resource policy.
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("IResourceWithPolicy", result)
+        return typing.cast("IResourceWithPolicyV2", result)
 
     @builtins.property
     def resource_policy_principal(self) -> typing.Optional["IPrincipal"]:
@@ -4569,7 +8410,7 @@ class GrantOnPrincipalOptions(CommonGrantOptions):
         grantee: "IGrantable",
         resource_arns: typing.Sequence[builtins.str],
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-        scope: typing.Optional[_constructs_77d1e7e8.IConstruct] = None,
+        scope: typing.Optional["_constructs_77d1e7e8.IConstruct"] = None,
     ) -> None:
         '''Options for a grant operation that only applies to principals.
 
@@ -4577,7 +8418,7 @@ class GrantOnPrincipalOptions(CommonGrantOptions):
         :param grantee: The principal to grant to. Default: if principal is undefined, no work is done.
         :param resource_arns: The resource ARNs to grant to.
         :param conditions: Any conditions to attach to the grant. Default: - No conditions
-        :param scope: Construct to report warnings on in case grant could not be registered. Default: - the construct in which this construct is defined
+        :param scope: (deprecated) Construct to report warnings on in case grant could not be registered. Default: - the construct in which this construct is defined
 
         :exampleMetadata: fixture=_generated
 
@@ -4659,13 +8500,17 @@ class GrantOnPrincipalOptions(CommonGrantOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def scope(self) -> typing.Optional[_constructs_77d1e7e8.IConstruct]:
-        '''Construct to report warnings on in case grant could not be registered.
+    def scope(self) -> typing.Optional["_constructs_77d1e7e8.IConstruct"]:
+        '''(deprecated) Construct to report warnings on in case grant could not be registered.
 
         :default: - the construct in which this construct is defined
+
+        :deprecated: The scope argument is currently unused.
+
+        :stability: deprecated
         '''
         result = self._values.get("scope")
-        return typing.cast(typing.Optional[_constructs_77d1e7e8.IConstruct], result)
+        return typing.cast(typing.Optional["_constructs_77d1e7e8.IConstruct"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4699,7 +8544,7 @@ class GrantWithResourceOptions(CommonGrantOptions):
         grantee: "IGrantable",
         resource_arns: typing.Sequence[builtins.str],
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-        resource: "IResourceWithPolicy",
+        resource: "IResourceWithPolicyV2",
         resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
         '''Options for a grant operation.
@@ -4721,12 +8566,12 @@ class GrantWithResourceOptions(CommonGrantOptions):
             
             # conditions: Any
             # grantable: iam.IGrantable
-            # resource_with_policy: iam.IResourceWithPolicy
+            # resource_with_policy_v2: iam.IResourceWithPolicyV2
             
             grant_with_resource_options = iam.GrantWithResourceOptions(
                 actions=["actions"],
                 grantee=grantable,
-                resource=resource_with_policy,
+                resource=resource_with_policy_v2,
                 resource_arns=["resourceArns"],
             
                 # the properties below are optional
@@ -4793,7 +8638,7 @@ class GrantWithResourceOptions(CommonGrantOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def resource(self) -> "IResourceWithPolicy":
+    def resource(self) -> "IResourceWithPolicyV2":
         '''The resource with a resource policy.
 
         The statement will be added to the resource policy if it couldn't be
@@ -4801,7 +8646,7 @@ class GrantWithResourceOptions(CommonGrantOptions):
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast("IResourceWithPolicy", result)
+        return typing.cast("IResourceWithPolicyV2", result)
 
     @builtins.property
     def resource_self_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -4826,64 +8671,55 @@ class GrantWithResourceOptions(CommonGrantOptions):
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.GroupPolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"group_name": "groupName", "policy_name": "policyName"},
-)
-class GroupPolicyReference:
-    def __init__(self, *, group_name: builtins.str, policy_name: builtins.str) -> None:
-        '''A reference to a GroupPolicy resource.
+class GrantableResources(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.GrantableResources",
+):
+    '''Utility methods to check for specific types of grantable resources.
 
-        :param group_name: The GroupName of the GroupPolicy resource.
-        :param policy_name: The PolicyName of the GroupPolicy resource.
+    :exampleMetadata: fixture=_generated
 
-        :exampleMetadata: fixture=_generated
+    Example::
 
-        Example::
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        grantable_resources = iam.GrantableResources()
+    '''
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            group_policy_reference = iam.GroupPolicyReference(
-                group_name="groupName",
-                policy_name="policyName"
-            )
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="isEncryptedResource")
+    @builtins.classmethod
+    def is_encrypted_resource(
+        cls,
+        resource: "_constructs_77d1e7e8.IConstruct",
+    ) -> builtins.bool:
+        '''Whether this resource holds data that can be encrypted using a KMS key.
+
+        :param resource: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6444257f273f4e56fa47be2acb2c3a0d80350db81fe412f4e0d2a00b89a77953)
-            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "group_name": group_name,
-            "policy_name": policy_name,
-        }
+            type_hints = typing.get_type_hints(_typecheckingstub__5dd532720c67899493c38541d1d1385824a8c552f89bc513c1e00d86714b7a75)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isEncryptedResource", [resource]))
 
-    @builtins.property
-    def group_name(self) -> builtins.str:
-        '''The GroupName of the GroupPolicy resource.'''
-        result = self._values.get("group_name")
-        assert result is not None, "Required property 'group_name' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="isResourceWithPolicy")
+    @builtins.classmethod
+    def is_resource_with_policy(
+        cls,
+        resource: "_IEnvironmentAware_f39049ee",
+    ) -> builtins.bool:
+        '''Whether this resource admits a resource policy.
 
-    @builtins.property
-    def policy_name(self) -> builtins.str:
-        '''The PolicyName of the GroupPolicy resource.'''
-        result = self._values.get("policy_name")
-        assert result is not None, "Required property 'policy_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "GroupPolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6abc7b14c1bac1d5c3ea94fff54da43a5f9d27cb6330751d69f1723006eac104)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isResourceWithPolicy", [resource]))
 
 
 @jsii.data_type(
@@ -4993,104 +8829,119 @@ class GroupProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.GroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"group_arn": "groupArn", "group_name": "groupName"},
-)
-class GroupReference:
-    def __init__(self, *, group_arn: builtins.str, group_name: builtins.str) -> None:
-        '''A reference to a Group resource.
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IAccessKey")
+class IAccessKey(
+    _IResource_c80c4260,
+    _IAccessKeyRef_e97ef40a,
+    typing_extensions.Protocol,
+):
+    '''Represents an IAM Access Key.
 
-        :param group_arn: The ARN of the Group resource.
-        :param group_name: The GroupName of the Group resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            group_reference = iam.GroupReference(
-                group_arn="groupArn",
-                group_name="groupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2740009e6e979272eadb3fa6ac234d0c26e8189f26597592ee07cd26fd4ce718)
-            check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
-            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "group_arn": group_arn,
-            "group_name": group_name,
-        }
-
-    @builtins.property
-    def group_arn(self) -> builtins.str:
-        '''The ARN of the Group resource.'''
-        result = self._values.get("group_arn")
-        assert result is not None, "Required property 'group_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def group_name(self) -> builtins.str:
-        '''The GroupName of the Group resource.'''
-        result = self._values.get("group_name")
-        assert result is not None, "Required property 'group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "GroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IAccessKeyRef")
-class IAccessKeyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a AccessKey.
-
-    :stability: experimental
+    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="accessKeyRef")
-    def access_key_ref(self) -> AccessKeyReference:
-        '''(experimental) A reference to a AccessKey resource.
+    @jsii.member(jsii_name="accessKeyId")
+    def access_key_id(self) -> builtins.str:
+        '''The Access Key ID.
 
-        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="secretAccessKey")
+    def secret_access_key(self) -> "_SecretValue_3dd0ddae":
+        '''The Secret Access Key.
+
+        :attribute: true
         '''
         ...
 
 
-class _IAccessKeyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+class _IAccessKeyProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IAccessKeyRef_e97ef40a), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a AccessKey.
+    '''Represents an IAM Access Key.
 
-    :stability: experimental
+    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IAccessKeyRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IAccessKey"
 
     @builtins.property
-    @jsii.member(jsii_name="accessKeyRef")
-    def access_key_ref(self) -> AccessKeyReference:
-        '''(experimental) A reference to a AccessKey resource.
+    @jsii.member(jsii_name="accessKeyId")
+    def access_key_id(self) -> builtins.str:
+        '''The Access Key ID.
 
-        :stability: experimental
+        :attribute: true
         '''
-        return typing.cast(AccessKeyReference, jsii.get(self, "accessKeyRef"))
+        return typing.cast(builtins.str, jsii.get(self, "accessKeyId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="secretAccessKey")
+    def secret_access_key(self) -> "_SecretValue_3dd0ddae":
+        '''The Secret Access Key.
+
+        :attribute: true
+        '''
+        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretAccessKey"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAccessKeyRef).__jsii_proxy_class__ = lambda : _IAccessKeyRefProxy
+typing.cast(typing.Any, IAccessKey).__jsii_proxy_class__ = lambda : _IAccessKeyProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IEncryptedResource")
+class IEncryptedResource(_IResource_c80c4260, typing_extensions.Protocol):
+    '''A resource that contains data that can be encrypted, using a KMS key.
+
+    [awslint:interface-extends-ref]
+    '''
+
+    @jsii.member(jsii_name="grantOnKey")
+    def grant_on_key(
+        self,
+        grantee: "IGrantable",
+        *actions: builtins.str,
+    ) -> "GrantOnKeyResult":
+        '''Gives permissions to a grantable entity to perform actions on the encryption key.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        ...
+
+
+class _IEncryptedResourceProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+):
+    '''A resource that contains data that can be encrypted, using a KMS key.
+
+    [awslint:interface-extends-ref]
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IEncryptedResource"
+
+    @jsii.member(jsii_name="grantOnKey")
+    def grant_on_key(
+        self,
+        grantee: "IGrantable",
+        *actions: builtins.str,
+    ) -> "GrantOnKeyResult":
+        '''Gives permissions to a grantable entity to perform actions on the encryption key.
+
+        :param grantee: -
+        :param actions: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__31391fca81b6f55a5127b16e129f61e26bf7e16d7075081f448434495d73fe70)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("GrantOnKeyResult", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEncryptedResource).__jsii_proxy_class__ = lambda : _IEncryptedResourceProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IGrantable")
@@ -5119,208 +8970,115 @@ class _IGrantableProxy:
 typing.cast(typing.Any, IGrantable).__jsii_proxy_class__ = lambda : _IGrantableProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IGroupPolicyRef")
-class IGroupPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a GroupPolicy.
-
-    :stability: experimental
-    '''
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IInstanceProfile")
+class IInstanceProfile(
+    _IResource_c80c4260,
+    _IInstanceProfileRef_d6832c90,
+    typing_extensions.Protocol,
+):
+    '''Represents an IAM Instance Profile.'''
 
     @builtins.property
-    @jsii.member(jsii_name="groupPolicyRef")
-    def group_policy_ref(self) -> GroupPolicyReference:
-        '''(experimental) A reference to a GroupPolicy resource.
+    @jsii.member(jsii_name="instanceProfileArn")
+    def instance_profile_arn(self) -> builtins.str:
+        '''The InstanceProfile's ARN.
 
-        :stability: experimental
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceProfileName")
+    def instance_profile_name(self) -> builtins.str:
+        '''The InstanceProfile's name.
+
+        :attribute: true
+        '''
+        ...
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["IRole"]:
+        '''The role associated with the InstanceProfile.'''
+        ...
+
+
+class _IInstanceProfileProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IInstanceProfileRef_d6832c90), # type: ignore[misc]
+):
+    '''Represents an IAM Instance Profile.'''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IInstanceProfile"
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceProfileArn")
+    def instance_profile_arn(self) -> builtins.str:
+        '''The InstanceProfile's ARN.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "instanceProfileArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="instanceProfileName")
+    def instance_profile_name(self) -> builtins.str:
+        '''The InstanceProfile's name.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "instanceProfileName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["IRole"]:
+        '''The role associated with the InstanceProfile.'''
+        return typing.cast(typing.Optional["IRole"], jsii.get(self, "role"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IInstanceProfile).__jsii_proxy_class__ = lambda : _IInstanceProfileProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IManagedPolicy")
+class IManagedPolicy(_IManagedPolicyRef_a7a65687, typing_extensions.Protocol):
+    '''A managed policy.'''
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyArn")
+    def managed_policy_arn(self) -> builtins.str:
+        '''The ARN of the managed policy.
+
+        :attribute: true
         '''
         ...
 
 
-class _IGroupPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+class _IManagedPolicyProxy(
+    jsii.proxy_for(_IManagedPolicyRef_a7a65687), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a GroupPolicy.
+    '''A managed policy.'''
 
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IGroupPolicyRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IManagedPolicy"
 
     @builtins.property
-    @jsii.member(jsii_name="groupPolicyRef")
-    def group_policy_ref(self) -> GroupPolicyReference:
-        '''(experimental) A reference to a GroupPolicy resource.
+    @jsii.member(jsii_name="managedPolicyArn")
+    def managed_policy_arn(self) -> builtins.str:
+        '''The ARN of the managed policy.
 
-        :stability: experimental
+        :attribute: true
         '''
-        return typing.cast(GroupPolicyReference, jsii.get(self, "groupPolicyRef"))
+        return typing.cast(builtins.str, jsii.get(self, "managedPolicyArn"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IGroupPolicyRef).__jsii_proxy_class__ = lambda : _IGroupPolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IGroupRef")
-class IGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Group.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
-        '''(experimental) A reference to a Group resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Group.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
-        '''(experimental) A reference to a Group resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IInstanceProfileRef")
-class IInstanceProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "InstanceProfileReference":
-        '''(experimental) A reference to a InstanceProfile resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IInstanceProfileRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IInstanceProfileRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "InstanceProfileReference":
-        '''(experimental) A reference to a InstanceProfile resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("InstanceProfileReference", jsii.get(self, "instanceProfileRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInstanceProfileRef).__jsii_proxy_class__ = lambda : _IInstanceProfileRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IManagedPolicyRef")
-class IManagedPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ManagedPolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyRef")
-    def managed_policy_ref(self) -> "ManagedPolicyReference":
-        '''(experimental) A reference to a ManagedPolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IManagedPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ManagedPolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IManagedPolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyRef")
-    def managed_policy_ref(self) -> "ManagedPolicyReference":
-        '''(experimental) A reference to a ManagedPolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ManagedPolicyReference", jsii.get(self, "managedPolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IManagedPolicyRef).__jsii_proxy_class__ = lambda : _IManagedPolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IOIDCProviderRef")
-class IOIDCProviderRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a OIDCProvider.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> "OIDCProviderReference":
-        '''(experimental) A reference to a OIDCProvider resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IOIDCProviderRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a OIDCProvider.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IOIDCProviderRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> "OIDCProviderReference":
-        '''(experimental) A reference to a OIDCProvider resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("OIDCProviderReference", jsii.get(self, "oidcProviderRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IOIDCProviderRef).__jsii_proxy_class__ = lambda : _IOIDCProviderRefProxy
+typing.cast(typing.Any, IManagedPolicy).__jsii_proxy_class__ = lambda : _IManagedPolicyProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IOidcProvider")
-class IOidcProvider(_IResource_c80c4260, IOIDCProviderRef, typing_extensions.Protocol):
+class IOidcProvider(
+    _IResource_c80c4260,
+    _IOIDCProviderRef_a866c7c8,
+    typing_extensions.Protocol,
+):
     '''Represents an IAM OpenID Connect provider.'''
 
     @builtins.property
@@ -5344,7 +9102,7 @@ class IOidcProvider(_IResource_c80c4260, IOIDCProviderRef, typing_extensions.Pro
 
 class _IOidcProviderProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(IOIDCProviderRef), # type: ignore[misc]
+    jsii.proxy_for(_IOIDCProviderRef_a866c7c8), # type: ignore[misc]
 ):
     '''Represents an IAM OpenID Connect provider.'''
 
@@ -5375,7 +9133,7 @@ typing.cast(typing.Any, IOidcProvider).__jsii_proxy_class__ = lambda : _IOidcPro
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IOpenIdConnectProvider")
 class IOpenIdConnectProvider(
     _IResource_c80c4260,
-    IOIDCProviderRef,
+    _IOIDCProviderRef_a866c7c8,
     typing_extensions.Protocol,
 ):
     '''Represents an IAM OpenID Connect provider.'''
@@ -5395,7 +9153,7 @@ class IOpenIdConnectProvider(
 
 class _IOpenIdConnectProviderProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(IOIDCProviderRef), # type: ignore[misc]
+    jsii.proxy_for(_IOIDCProviderRef_a866c7c8), # type: ignore[misc]
 ):
     '''Represents an IAM OpenID Connect provider.'''
 
@@ -5417,44 +9175,45 @@ class _IOpenIdConnectProviderProxy(
 typing.cast(typing.Any, IOpenIdConnectProvider).__jsii_proxy_class__ = lambda : _IOpenIdConnectProviderProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IPolicyRef")
-class IPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Policy.
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IPolicy")
+class IPolicy(_IResource_c80c4260, _IPolicyRef_5e74a0ba, typing_extensions.Protocol):
+    '''Represents an IAM Policy.
 
-    :stability: experimental
+    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html
     '''
 
     @builtins.property
-    @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "PolicyReference":
-        '''(experimental) A reference to a Policy resource.
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of this policy.
 
-        :stability: experimental
+        :attribute: true
         '''
         ...
 
 
-class _IPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+class _IPolicyProxy(
+    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+    jsii.proxy_for(_IPolicyRef_5e74a0ba), # type: ignore[misc]
 ):
-    '''(experimental) Indicates that this resource can be referenced as a Policy.
+    '''Represents an IAM Policy.
 
-    :stability: experimental
+    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IPolicyRef"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IPolicy"
 
     @builtins.property
-    @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "PolicyReference":
-        '''(experimental) A reference to a Policy resource.
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of this policy.
 
-        :stability: experimental
+        :attribute: true
         '''
-        return typing.cast("PolicyReference", jsii.get(self, "policyRef"))
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefProxy
+typing.cast(typing.Any, IPolicy).__jsii_proxy_class__ = lambda : _IPolicyProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IPrincipal")
@@ -5504,7 +9263,7 @@ class IPrincipal(IGrantable, typing_extensions.Protocol):
     def add_to_principal_policy(
         self,
         statement: "PolicyStatement",
-    ) -> AddToPrincipalPolicyResult:
+    ) -> "AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -5562,7 +9321,7 @@ class _IPrincipalProxy(
     def add_to_principal_policy(
         self,
         statement: "PolicyStatement",
-    ) -> AddToPrincipalPolicyResult:
+    ) -> "AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -5570,21 +9329,21 @@ class _IPrincipalProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c10aadcc3756f5f6d5486d7ecd5cabd7845be5964af1722a9d4962d586babd4)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPrincipal).__jsii_proxy_class__ = lambda : _IPrincipalProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourceWithPolicy")
-class IResourceWithPolicy(_IResource_c80c4260, typing_extensions.Protocol):
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourceWithPolicyV2")
+class IResourceWithPolicyV2(_IEnvironmentAware_f39049ee, typing_extensions.Protocol):
     '''A resource with a resource policy that can be added to.'''
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
         statement: "PolicyStatement",
-    ) -> AddToResourcePolicyResult:
+    ) -> "AddToResourcePolicyResult":
         '''Add a statement to the resource's resource policy.
 
         :param statement: -
@@ -5592,153 +9351,37 @@ class IResourceWithPolicy(_IResource_c80c4260, typing_extensions.Protocol):
         ...
 
 
-class _IResourceWithPolicyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
+class _IResourceWithPolicyV2Proxy(
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
 ):
     '''A resource with a resource policy that can be added to.'''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IResourceWithPolicy"
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IResourceWithPolicyV2"
 
     @jsii.member(jsii_name="addToResourcePolicy")
     def add_to_resource_policy(
         self,
         statement: "PolicyStatement",
-    ) -> AddToResourcePolicyResult:
+    ) -> "AddToResourcePolicyResult":
         '''Add a statement to the resource's resource policy.
 
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc0b619bfbc345bc9140fcc58d59f27472a211b09306f5c2e6b0147efcef6b18)
+            type_hints = typing.get_type_hints(_typecheckingstub__d0411047245e16030f540e191ce067fdd2216fb84afd5f47032486efe2dddfda)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToResourcePolicyResult, jsii.invoke(self, "addToResourcePolicy", [statement]))
+        return typing.cast("AddToResourcePolicyResult", jsii.invoke(self, "addToResourcePolicy", [statement]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourceWithPolicy).__jsii_proxy_class__ = lambda : _IResourceWithPolicyProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IRolePolicyRef")
-class IRolePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a RolePolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="rolePolicyRef")
-    def role_policy_ref(self) -> "RolePolicyReference":
-        '''(experimental) A reference to a RolePolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRolePolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a RolePolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IRolePolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="rolePolicyRef")
-    def role_policy_ref(self) -> "RolePolicyReference":
-        '''(experimental) A reference to a RolePolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RolePolicyReference", jsii.get(self, "rolePolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRolePolicyRef).__jsii_proxy_class__ = lambda : _IRolePolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IRoleRef")
-class IRoleRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Role.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> "RoleReference":
-        '''(experimental) A reference to a Role resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IRoleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Role.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IRoleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> "RoleReference":
-        '''(experimental) A reference to a Role resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("RoleReference", jsii.get(self, "roleRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IRoleRef).__jsii_proxy_class__ = lambda : _IRoleRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.ISAMLProviderRef")
-class ISAMLProviderRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a SAMLProvider.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="samlProviderRef")
-    def saml_provider_ref(self) -> "SAMLProviderReference":
-        '''(experimental) A reference to a SAMLProvider resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISAMLProviderRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SAMLProvider.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.ISAMLProviderRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="samlProviderRef")
-    def saml_provider_ref(self) -> "SAMLProviderReference":
-        '''(experimental) A reference to a SAMLProvider resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SAMLProviderReference", jsii.get(self, "samlProviderRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISAMLProviderRef).__jsii_proxy_class__ = lambda : _ISAMLProviderRefProxy
+typing.cast(typing.Any, IResourceWithPolicyV2).__jsii_proxy_class__ = lambda : _IResourceWithPolicyV2Proxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.ISamlProvider")
-class ISamlProvider(_IResource_c80c4260, ISAMLProviderRef, typing_extensions.Protocol):
+class ISamlProvider(
+    _IResource_c80c4260,
+    _ISAMLProviderRef_6e369856,
+    typing_extensions.Protocol,
+):
     '''A SAML provider.'''
 
     @builtins.property
@@ -5753,7 +9396,7 @@ class ISamlProvider(_IResource_c80c4260, ISAMLProviderRef, typing_extensions.Pro
 
 class _ISamlProviderProxy(
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(ISAMLProviderRef), # type: ignore[misc]
+    jsii.proxy_for(_ISAMLProviderRef_6e369856), # type: ignore[misc]
 ):
     '''A SAML provider.'''
 
@@ -5772,253 +9415,169 @@ class _ISamlProviderProxy(
 typing.cast(typing.Any, ISamlProvider).__jsii_proxy_class__ = lambda : _ISamlProviderProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IServerCertificateRef")
-class IServerCertificateRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
+@jsii.implements(IInstanceProfile)
+class InstanceProfile(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.InstanceProfile",
 ):
-    '''(experimental) Indicates that this resource can be referenced as a ServerCertificate.
+    '''IAM Instance Profile.
 
-    :stability: experimental
+    :exampleMetadata: infused
+
+    Example::
+
+        # vpc: ec2.Vpc
+        
+        
+        role = iam.Role(self, "Role",
+            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com")
+        )
+        instance_profile = iam.InstanceProfile(self, "InstanceProfile",
+            role=role
+        )
+        
+        template = ec2.LaunchTemplate(self, "LaunchTemplate",
+            launch_template_name="MyTemplateV1",
+            version_description="This is my v1 template",
+            machine_image=ec2.MachineImage.latest_amazon_linux2023(),
+            security_group=ec2.SecurityGroup(self, "LaunchTemplateSG",
+                vpc=vpc
+            ),
+            instance_profile=instance_profile
+        )
     '''
 
-    @builtins.property
-    @jsii.member(jsii_name="serverCertificateRef")
-    def server_certificate_ref(self) -> "ServerCertificateReference":
-        '''(experimental) A reference to a ServerCertificate resource.
-
-        :stability: experimental
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instance_profile_name: typing.Optional[builtins.str] = None,
+        path: typing.Optional[builtins.str] = None,
+        role: typing.Optional["IRole"] = None,
+    ) -> None:
         '''
-        ...
-
-
-class _IServerCertificateRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ServerCertificate.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IServerCertificateRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="serverCertificateRef")
-    def server_certificate_ref(self) -> "ServerCertificateReference":
-        '''(experimental) A reference to a ServerCertificate resource.
-
-        :stability: experimental
+        :param scope: -
+        :param id: -
+        :param instance_profile_name: The name of the InstanceProfile to create. Default: - generated by CloudFormation
+        :param path: The path to the InstanceProfile. Default: /
+        :param role: An IAM role to associate with the instance profile that is used by EC2 instances. The role must be assumable by the service principal ``ec2.amazonaws.com``: Default: - a role will be automatically created, it can be accessed via the ``role`` property
         '''
-        return typing.cast("ServerCertificateReference", jsii.get(self, "serverCertificateRef"))
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47902e96d39fe1f772c15032b60b34efd5f4ebb64e4f7d08d924c04ab8393203)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = InstanceProfileProps(
+            instance_profile_name=instance_profile_name, path=path, role=role
+        )
 
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IServerCertificateRef).__jsii_proxy_class__ = lambda : _IServerCertificateRefProxy
+        jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="fromInstanceProfileArn")
+    @builtins.classmethod
+    def from_instance_profile_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        instance_profile_arn: builtins.str,
+    ) -> "IInstanceProfile":
+        '''Import an existing InstanceProfile from an InstanceProfile ARN.
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IServiceLinkedRoleRef")
-class IServiceLinkedRoleRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a ServiceLinkedRole.
+        If the ARN comes from a Token, the InstanceProfile cannot have a path; if so, any attempt
+        to reference its instanceProfileName will fail.
 
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceLinkedRoleRef")
-    def service_linked_role_ref(self) -> "ServiceLinkedRoleReference":
-        '''(experimental) A reference to a ServiceLinkedRole resource.
-
-        :stability: experimental
+        :param scope: construct scope.
+        :param id: construct id.
+        :param instance_profile_arn: the ARN of the exiting InstanceProfile to import.
         '''
-        ...
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c5f92c9eb36073e3604dae6b3449d6b3ce102597766d24026143d8edc87c0a1)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
+        return typing.cast("IInstanceProfile", jsii.sinvoke(cls, "fromInstanceProfileArn", [scope, id, instance_profile_arn]))
 
+    @jsii.member(jsii_name="fromInstanceProfileAttributes")
+    @builtins.classmethod
+    def from_instance_profile_attributes(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        instance_profile_arn: builtins.str,
+        role: typing.Optional["IRole"] = None,
+    ) -> "IInstanceProfile":
+        '''Import an existing InstanceProfile from given InstanceProfile attributes.
 
-class _IServiceLinkedRoleRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ServiceLinkedRole.
+        If the ARN comes from a Token, the InstanceProfile cannot have a path; if so, any attempt
+        to reference its instanceProfileName will fail.
 
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IServiceLinkedRoleRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="serviceLinkedRoleRef")
-    def service_linked_role_ref(self) -> "ServiceLinkedRoleReference":
-        '''(experimental) A reference to a ServiceLinkedRole resource.
-
-        :stability: experimental
+        :param scope: construct scope.
+        :param id: construct id.
+        :param instance_profile_arn: The ARN of the InstanceProfile. Format: arn::iam:::instance-profile/
+        :param role: The role associated with the InstanceProfile. Default: - no role
         '''
-        return typing.cast("ServiceLinkedRoleReference", jsii.get(self, "serviceLinkedRoleRef"))
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b4829ea04dde958ee082c71fd13dbdde279a49cce33d5b0cd09b7c5dc1a90e0a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        attrs = InstanceProfileAttributes(
+            instance_profile_arn=instance_profile_arn, role=role
+        )
 
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IServiceLinkedRoleRef).__jsii_proxy_class__ = lambda : _IServiceLinkedRoleRefProxy
+        return typing.cast("IInstanceProfile", jsii.sinvoke(cls, "fromInstanceProfileAttributes", [scope, id, attrs]))
 
+    @jsii.member(jsii_name="fromInstanceProfileName")
+    @builtins.classmethod
+    def from_instance_profile_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        instance_profile_name: builtins.str,
+    ) -> "IInstanceProfile":
+        '''Import an existing InstanceProfile from an InstanceProfile name.
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IUserPolicyRef")
-class IUserPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a UserPolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="userPolicyRef")
-    def user_policy_ref(self) -> "UserPolicyReference":
-        '''(experimental) A reference to a UserPolicy resource.
-
-        :stability: experimental
+        :param scope: construct scope.
+        :param id: construct id.
+        :param instance_profile_name: the name of the existing InstanceProfile to import.
         '''
-        ...
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7870e30876638f54c4d41cd7645fabe3356a94b6ede305036ccf59d622f572e)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
+        return typing.cast("IInstanceProfile", jsii.sinvoke(cls, "fromInstanceProfileName", [scope, id, instance_profile_name]))
 
-
-class _IUserPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a UserPolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IUserPolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="userPolicyRef")
-    def user_policy_ref(self) -> "UserPolicyReference":
-        '''(experimental) A reference to a UserPolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("UserPolicyReference", jsii.get(self, "userPolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IUserPolicyRef).__jsii_proxy_class__ = lambda : _IUserPolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IUserRef")
-class IUserRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a User.
-
-    :stability: experimental
-    '''
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
-    @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "UserReference":
-        '''(experimental) A reference to a User resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IUserRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a User.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IUserRef"
+    @jsii.member(jsii_name="instanceProfileArn")
+    def instance_profile_arn(self) -> builtins.str:
+        '''Returns the ARN of this InstanceProfile.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceProfileArn"))
 
     @builtins.property
-    @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> "UserReference":
-        '''(experimental) A reference to a User resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("UserReference", jsii.get(self, "userRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IUserRef).__jsii_proxy_class__ = lambda : _IUserRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IUserToGroupAdditionRef")
-class IUserToGroupAdditionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a UserToGroupAddition.
-
-    :stability: experimental
-    '''
+    @jsii.member(jsii_name="instanceProfileName")
+    def instance_profile_name(self) -> builtins.str:
+        '''Returns the name of this InstanceProfile.'''
+        return typing.cast(builtins.str, jsii.get(self, "instanceProfileName"))
 
     @builtins.property
-    @jsii.member(jsii_name="userToGroupAdditionRef")
-    def user_to_group_addition_ref(self) -> "UserToGroupAdditionReference":
-        '''(experimental) A reference to a UserToGroupAddition resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IUserToGroupAdditionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a UserToGroupAddition.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IUserToGroupAdditionRef"
+    @jsii.member(jsii_name="instanceProfileRef")
+    def instance_profile_ref(self) -> "_InstanceProfileReference_5eee4bbb":
+        '''A reference to a InstanceProfile resource.'''
+        return typing.cast("_InstanceProfileReference_5eee4bbb", jsii.get(self, "instanceProfileRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="userToGroupAdditionRef")
-    def user_to_group_addition_ref(self) -> "UserToGroupAdditionReference":
-        '''(experimental) A reference to a UserToGroupAddition resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("UserToGroupAdditionReference", jsii.get(self, "userToGroupAdditionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IUserToGroupAdditionRef).__jsii_proxy_class__ = lambda : _IUserToGroupAdditionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IVirtualMFADeviceRef")
-class IVirtualMFADeviceRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a VirtualMFADevice.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="virtualMfaDeviceRef")
-    def virtual_mfa_device_ref(self) -> "VirtualMFADeviceReference":
-        '''(experimental) A reference to a VirtualMFADevice resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IVirtualMFADeviceRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a VirtualMFADevice.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IVirtualMFADeviceRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="virtualMfaDeviceRef")
-    def virtual_mfa_device_ref(self) -> "VirtualMFADeviceReference":
-        '''(experimental) A reference to a VirtualMFADevice resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("VirtualMFADeviceReference", jsii.get(self, "virtualMfaDeviceRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVirtualMFADeviceRef).__jsii_proxy_class__ = lambda : _IVirtualMFADeviceRefProxy
+    @jsii.member(jsii_name="role")
+    def role(self) -> typing.Optional["IRole"]:
+        '''Returns the role associated with this InstanceProfile.'''
+        return typing.cast(typing.Optional["IRole"], jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -6119,14 +9678,24 @@ class InstanceProfileProps:
 
         Example::
 
+            # vpc: ec2.Vpc
+            
+            
             role = iam.Role(self, "Role",
                 assumed_by=iam.ServicePrincipal("ec2.amazonaws.com")
             )
-            
             instance_profile = iam.InstanceProfile(self, "InstanceProfile",
-                role=role,
-                instance_profile_name="MyInstanceProfile",
-                path="/sample/path/"
+                role=role
+            )
+            
+            template = ec2.LaunchTemplate(self, "LaunchTemplate",
+                launch_template_name="MyTemplateV1",
+                version_description="This is my v1 template",
+                machine_image=ec2.MachineImage.latest_amazon_linux2023(),
+                security_group=ec2.SecurityGroup(self, "LaunchTemplateSG",
+                    vpc=vpc
+                ),
+                instance_profile=instance_profile
             )
         '''
         if __debug__:
@@ -6189,72 +9758,264 @@ class InstanceProfileProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.InstanceProfileReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "instance_profile_arn": "instanceProfileArn",
-        "instance_profile_name": "instanceProfileName",
-    },
-)
-class InstanceProfileReference:
+@jsii.implements(IManagedPolicy, IGrantable)
+class ManagedPolicy(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.ManagedPolicy",
+):
+    '''Managed policy.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # build: gamelift.Build
+        
+        role = iam.Role(self, "Role",
+            assumed_by=iam.CompositePrincipal(iam.ServicePrincipal("gamelift.amazonaws.com"))
+        )
+        role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("CloudWatchAgentServerPolicy"))
+        
+        fleet = gamelift.BuildFleet(self, "Game server fleet",
+            fleet_name="test-fleet",
+            content=build,
+            instance_type=ec2.InstanceType.of(ec2.InstanceClass.C5, ec2.InstanceSize.LARGE),
+            runtime_configuration=gamelift.RuntimeConfiguration(
+                server_processes=[gamelift.ServerProcess(
+                    launch_path="/local/game/GameLiftExampleServer.x86_64"
+                )]
+            ),
+            role=role
+        )
+        
+        # Actions can also be grantted through dedicated method
+        fleet.grant(role, "gamelift:ListFleets")
+    '''
+
     def __init__(
         self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
         *,
-        instance_profile_arn: builtins.str,
-        instance_profile_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        document: typing.Optional["PolicyDocument"] = None,
+        groups: typing.Optional[typing.Sequence["_IGroupRef_aeb1d9f6"]] = None,
+        managed_policy_name: typing.Optional[builtins.str] = None,
+        path: typing.Optional[builtins.str] = None,
+        roles: typing.Optional[typing.Sequence["IRole"]] = None,
+        statements: typing.Optional[typing.Sequence["PolicyStatement"]] = None,
+        users: typing.Optional[typing.Sequence["IUser"]] = None,
     ) -> None:
-        '''A reference to a InstanceProfile resource.
-
-        :param instance_profile_arn: The ARN of the InstanceProfile resource.
-        :param instance_profile_name: The InstanceProfileName of the InstanceProfile resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            instance_profile_reference = iam.InstanceProfileReference(
-                instance_profile_arn="instanceProfileArn",
-                instance_profile_name="instanceProfileName"
-            )
+        '''
+        :param scope: -
+        :param id: -
+        :param description: A description of the managed policy. Typically used to store information about the permissions defined in the policy. For example, "Grants access to production DynamoDB tables." The policy description is immutable. After a value is assigned, it cannot be changed. Default: - empty
+        :param document: Initial PolicyDocument to use for this ManagedPolicy. If omited, any ``PolicyStatement`` provided in the ``statements`` property will be applied against the empty default ``PolicyDocument``. Default: - An empty policy.
+        :param groups: Groups to attach this policy to. You can also use ``attachToGroup(group)`` to attach this policy to a group. Default: - No groups.
+        :param managed_policy_name: The name of the managed policy. If you specify multiple policies for an entity, specify unique names. For example, if you specify a list of policies for an IAM role, each policy must have a unique name. Default: - A name is automatically generated.
+        :param path: The path for the policy. This parameter allows (through its regex pattern) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! (\\u0021) through the DEL character (\\u007F), including most punctuation characters, digits, and upper and lowercased letters. For more information about paths, see IAM Identifiers in the IAM User Guide. Default: - "/"
+        :param roles: Roles to attach this policy to. You can also use ``attachToRole(role)`` to attach this policy to a role. Default: - No roles.
+        :param statements: Initial set of permissions to add to this policy document. You can also use ``addPermission(statement)`` to add permissions later. Default: - No statements.
+        :param users: Users to attach this policy to. You can also use ``attachToUser(user)`` to attach this policy to a user. Default: - No users.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79ff1cfdbc8a26d6762ca3d359f96df95d6751186fa61d7fb0f0b8f3dd92708e)
-            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
-            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_profile_arn": instance_profile_arn,
-            "instance_profile_name": instance_profile_name,
-        }
-
-    @builtins.property
-    def instance_profile_arn(self) -> builtins.str:
-        '''The ARN of the InstanceProfile resource.'''
-        result = self._values.get("instance_profile_arn")
-        assert result is not None, "Required property 'instance_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def instance_profile_name(self) -> builtins.str:
-        '''The InstanceProfileName of the InstanceProfile resource.'''
-        result = self._values.get("instance_profile_name")
-        assert result is not None, "Required property 'instance_profile_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InstanceProfileReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
+            type_hints = typing.get_type_hints(_typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81e573c2d)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = ManagedPolicyProps(
+            description=description,
+            document=document,
+            groups=groups,
+            managed_policy_name=managed_policy_name,
+            path=path,
+            roles=roles,
+            statements=statements,
+            users=users,
         )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromAwsManagedPolicyName")
+    @builtins.classmethod
+    def from_aws_managed_policy_name(
+        cls,
+        managed_policy_name: builtins.str,
+    ) -> "IManagedPolicy":
+        '''Import a managed policy from one of the policies that AWS manages.
+
+        For this managed policy, you only need to know the name to be able to use it.
+
+        Some managed policy names start with "service-role/", some start with
+        "job-function/", and some don't start with anything. Include the
+        prefix when constructing this object.
+
+        :param managed_policy_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__04dc3b9def232bf73e8992c95959e8ca96d18af4cafb5db34a590a221cb825ca)
+            check_type(argname="argument managed_policy_name", value=managed_policy_name, expected_type=type_hints["managed_policy_name"])
+        return typing.cast("IManagedPolicy", jsii.sinvoke(cls, "fromAwsManagedPolicyName", [managed_policy_name]))
+
+    @jsii.member(jsii_name="fromManagedPolicyArn")
+    @builtins.classmethod
+    def from_managed_policy_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        managed_policy_arn: builtins.str,
+    ) -> "IManagedPolicy":
+        '''Import an external managed policy by ARN.
+
+        For this managed policy, you only need to know the ARN to be able to use it.
+        This can be useful if you got the ARN from a CloudFormation Export.
+
+        If the imported Managed Policy ARN is a Token (such as a
+        ``CfnParameter.valueAsString`` or a ``Fn.importValue()``) *and* the referenced
+        managed policy has a ``path`` (like ``arn:...:policy/AdminPolicy/AdminAllow``), the
+        ``managedPolicyName`` property will not resolve to the correct value. Instead it
+        will resolve to the first path component. We unfortunately cannot express
+        the correct calculation of the full path name as a CloudFormation
+        expression. In this scenario the Managed Policy ARN should be supplied without the
+        ``path`` in order to resolve the correct managed policy resource.
+
+        :param scope: construct scope.
+        :param id: construct id.
+        :param managed_policy_arn: the ARN of the managed policy to import.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0b433b3584cc62234ee457168b3f3d2db5b0b227fe9dc2240edd9ce3eecb779a)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument managed_policy_arn", value=managed_policy_arn, expected_type=type_hints["managed_policy_arn"])
+        return typing.cast("IManagedPolicy", jsii.sinvoke(cls, "fromManagedPolicyArn", [scope, id, managed_policy_arn]))
+
+    @jsii.member(jsii_name="fromManagedPolicyName")
+    @builtins.classmethod
+    def from_managed_policy_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        managed_policy_name: builtins.str,
+    ) -> "IManagedPolicy":
+        '''Import a customer managed policy from the managedPolicyName.
+
+        For this managed policy, you only need to know the name to be able to use it.
+
+        :param scope: -
+        :param id: -
+        :param managed_policy_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__324e775a0f29673011a6cd38f79e52c1bb0c3c5c895f02fcfd38496e4fe98322)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument managed_policy_name", value=managed_policy_name, expected_type=type_hints["managed_policy_name"])
+        return typing.cast("IManagedPolicy", jsii.sinvoke(cls, "fromManagedPolicyName", [scope, id, managed_policy_name]))
+
+    @jsii.member(jsii_name="addStatements")
+    def add_statements(self, *statement: "PolicyStatement") -> None:
+        '''Adds a statement to the policy document.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf5441cdcef)
+            check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
+
+    @jsii.member(jsii_name="attachToGroup")
+    def attach_to_group(self, group: "_IGroupRef_aeb1d9f6") -> None:
+        '''Attaches this policy to a group.
+
+        :param group: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e)
+            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
+        return typing.cast(None, jsii.invoke(self, "attachToGroup", [group]))
+
+    @jsii.member(jsii_name="attachToRole")
+    def attach_to_role(self, role: "IRole") -> None:
+        '''Attaches this policy to a role.
+
+        :param role: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45bef91c9)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+        return typing.cast(None, jsii.invoke(self, "attachToRole", [role]))
+
+    @jsii.member(jsii_name="attachToUser")
+    def attach_to_user(self, user: "_IUserRef_b0ccca76") -> None:
+        '''Attaches this policy to a user.
+
+        :param user: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d)
+            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+        return typing.cast(None, jsii.invoke(self, "attachToUser", [user]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> builtins.str:
+        '''The description of this policy.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "description"))
+
+    @builtins.property
+    @jsii.member(jsii_name="document")
+    def document(self) -> "PolicyDocument":
+        '''The policy document.'''
+        return typing.cast("PolicyDocument", jsii.get(self, "document"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "IPrincipal":
+        '''The principal to grant permissions to.'''
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyArn")
+    def managed_policy_arn(self) -> builtins.str:
+        '''Returns the ARN of this managed policy.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "managedPolicyArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyName")
+    def managed_policy_name(self) -> builtins.str:
+        '''The name of this policy.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "managedPolicyName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="managedPolicyRef")
+    def managed_policy_ref(self) -> "_ManagedPolicyReference_078bf7cb":
+        '''A reference to a ManagedPolicy resource.'''
+        return typing.cast("_ManagedPolicyReference_078bf7cb", jsii.get(self, "managedPolicyRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="path")
+    def path(self) -> builtins.str:
+        '''The path of this policy.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "path"))
 
 
 @jsii.data_type(
@@ -6277,7 +10038,7 @@ class ManagedPolicyProps:
         *,
         description: typing.Optional[builtins.str] = None,
         document: typing.Optional["PolicyDocument"] = None,
-        groups: typing.Optional[typing.Sequence[IGroupRef]] = None,
+        groups: typing.Optional[typing.Sequence["_IGroupRef_aeb1d9f6"]] = None,
         managed_policy_name: typing.Optional[builtins.str] = None,
         path: typing.Optional[builtins.str] = None,
         roles: typing.Optional[typing.Sequence["IRole"]] = None,
@@ -6389,7 +10150,7 @@ class ManagedPolicyProps:
         return typing.cast(typing.Optional["PolicyDocument"], result)
 
     @builtins.property
-    def groups(self) -> typing.Optional[typing.List[IGroupRef]]:
+    def groups(self) -> typing.Optional[typing.List["_IGroupRef_aeb1d9f6"]]:
         '''Groups to attach this policy to.
 
         You can also use ``attachToGroup(group)`` to attach this policy to a group.
@@ -6397,7 +10158,7 @@ class ManagedPolicyProps:
         :default: - No groups.
         '''
         result = self._values.get("groups")
-        return typing.cast(typing.Optional[typing.List[IGroupRef]], result)
+        return typing.cast(typing.Optional[typing.List["_IGroupRef_aeb1d9f6"]], result)
 
     @builtins.property
     def managed_policy_name(self) -> typing.Optional[builtins.str]:
@@ -6473,104 +10234,6 @@ class ManagedPolicyProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.ManagedPolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_arn": "policyArn"},
-)
-class ManagedPolicyReference:
-    def __init__(self, *, policy_arn: builtins.str) -> None:
-        '''A reference to a ManagedPolicy resource.
-
-        :param policy_arn: The PolicyArn of the ManagedPolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            managed_policy_reference = iam.ManagedPolicyReference(
-                policy_arn="policyArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__35d26acb92c4f6f71803a661d182745f7e7415d39180bf394ffcd8097cff25c4)
-            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_arn": policy_arn,
-        }
-
-    @builtins.property
-    def policy_arn(self) -> builtins.str:
-        '''The PolicyArn of the ManagedPolicy resource.'''
-        result = self._values.get("policy_arn")
-        assert result is not None, "Required property 'policy_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ManagedPolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.OIDCProviderReference",
-    jsii_struct_bases=[],
-    name_mapping={"oidc_provider_arn": "oidcProviderArn"},
-)
-class OIDCProviderReference:
-    def __init__(self, *, oidc_provider_arn: builtins.str) -> None:
-        '''A reference to a OIDCProvider resource.
-
-        :param oidc_provider_arn: The Arn of the OIDCProvider resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            o_iDCProvider_reference = iam.OIDCProviderReference(
-                oidc_provider_arn="oidcProviderArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5d460e9758fb6d4467c838e6b15ddc6509080a95fd584461a4f6d82cfb0359a)
-            check_type(argname="argument oidc_provider_arn", value=oidc_provider_arn, expected_type=type_hints["oidc_provider_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "oidc_provider_arn": oidc_provider_arn,
-        }
-
-    @builtins.property
-    def oidc_provider_arn(self) -> builtins.str:
-        '''The Arn of the OIDCProvider resource.'''
-        result = self._values.get("oidc_provider_arn")
-        assert result is not None, "Required property 'oidc_provider_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OIDCProviderReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 @jsii.implements(IOidcProvider)
 class OidcProviderNative(
     _Resource_45bc6135,
@@ -6600,7 +10263,7 @@ class OidcProviderNative(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         url: builtins.str,
@@ -6634,10 +10297,10 @@ class OidcProviderNative(
     @builtins.classmethod
     def from_oidc_provider_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         oidc_provider_arn: builtins.str,
-    ) -> IOidcProvider:
+    ) -> "IOidcProvider":
         '''Imports an Open ID connect provider from an ARN.
 
         :param scope: The definition scope.
@@ -6649,7 +10312,7 @@ class OidcProviderNative(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument oidc_provider_arn", value=oidc_provider_arn, expected_type=type_hints["oidc_provider_arn"])
-        return typing.cast(IOidcProvider, jsii.sinvoke(cls, "fromOidcProviderArn", [scope, id, oidc_provider_arn]))
+        return typing.cast("IOidcProvider", jsii.sinvoke(cls, "fromOidcProviderArn", [scope, id, oidc_provider_arn]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -6677,9 +10340,9 @@ class OidcProviderNative(
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> OIDCProviderReference:
+    def oidc_provider_ref(self) -> "_OIDCProviderReference_9a12fabd":
         '''A reference to a OIDCProvider resource.'''
-        return typing.cast(OIDCProviderReference, jsii.get(self, "oidcProviderRef"))
+        return typing.cast("_OIDCProviderReference_9a12fabd", jsii.get(self, "oidcProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderThumbprints")
@@ -6882,7 +10545,7 @@ class OpenIdConnectProvider(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         url: builtins.str,
@@ -6911,10 +10574,10 @@ class OpenIdConnectProvider(
     @builtins.classmethod
     def from_open_id_connect_provider_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         open_id_connect_provider_arn: builtins.str,
-    ) -> IOpenIdConnectProvider:
+    ) -> "IOpenIdConnectProvider":
         '''Imports an Open ID connect provider from an ARN.
 
         :param scope: The definition scope.
@@ -6926,7 +10589,7 @@ class OpenIdConnectProvider(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument open_id_connect_provider_arn", value=open_id_connect_provider_arn, expected_type=type_hints["open_id_connect_provider_arn"])
-        return typing.cast(IOpenIdConnectProvider, jsii.sinvoke(cls, "fromOpenIdConnectProviderArn", [scope, id, open_id_connect_provider_arn]))
+        return typing.cast("IOpenIdConnectProvider", jsii.sinvoke(cls, "fromOpenIdConnectProviderArn", [scope, id, open_id_connect_provider_arn]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -6936,9 +10599,9 @@ class OpenIdConnectProvider(
 
     @builtins.property
     @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> OIDCProviderReference:
+    def oidc_provider_ref(self) -> "_OIDCProviderReference_9a12fabd":
         '''A reference to a OIDCProvider resource.'''
-        return typing.cast(OIDCProviderReference, jsii.get(self, "oidcProviderRef"))
+        return typing.cast("_OIDCProviderReference_9a12fabd", jsii.get(self, "oidcProviderRef"))
 
     @builtins.property
     @jsii.member(jsii_name="openIdConnectProviderArn")
@@ -7104,7 +10767,7 @@ class PermissionsBoundary(
 
     @jsii.member(jsii_name="of")
     @builtins.classmethod
-    def of(cls, scope: _constructs_77d1e7e8.IConstruct) -> "PermissionsBoundary":
+    def of(cls, scope: "_constructs_77d1e7e8.IConstruct") -> "PermissionsBoundary":
         '''Access the Permissions Boundaries of a construct tree.
 
         :param scope: -
@@ -7133,6 +10796,175 @@ class PermissionsBoundary(
     def clear(self) -> None:
         '''Remove previously applied Permissions Boundaries.'''
         return typing.cast(None, jsii.invoke(self, "clear", []))
+
+
+@jsii.implements(IPolicy, IGrantable)
+class Policy(
+    _Resource_45bc6135,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.Policy",
+):
+    '''The AWS::IAM::Policy resource associates an `inline <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#inline>`_ IAM policy with IAM users, roles, or groups. For more information about IAM policies, see `Overview of IAM Policies <http://docs.aws.amazon.com/IAM/latest/UserGuide/policies_overview.html>`_ in the IAM User Guide guide.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        # post_auth_fn: lambda.Function
+        
+        
+        userpool = cognito.UserPool(self, "myuserpool",
+            lambda_triggers=cognito.UserPoolTriggers(
+                post_authentication=post_auth_fn
+            )
+        )
+        
+        # provide permissions to describe the user pool scoped to the ARN the user pool
+        post_auth_fn.role.attach_inline_policy(iam.Policy(self, "userpool-policy",
+            statements=[iam.PolicyStatement(
+                actions=["cognito-idp:DescribeUserPool"],
+                resources=[userpool.user_pool_arn]
+            )]
+        ))
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        document: typing.Optional["PolicyDocument"] = None,
+        force: typing.Optional[builtins.bool] = None,
+        groups: typing.Optional[typing.Sequence["IGroup"]] = None,
+        policy_name: typing.Optional[builtins.str] = None,
+        roles: typing.Optional[typing.Sequence["IRole"]] = None,
+        statements: typing.Optional[typing.Sequence["PolicyStatement"]] = None,
+        users: typing.Optional[typing.Sequence["IUser"]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param document: Initial PolicyDocument to use for this Policy. If omited, any ``PolicyStatement`` provided in the ``statements`` property will be applied against the empty default ``PolicyDocument``. Default: - An empty policy.
+        :param force: Force creation of an ``AWS::IAM::Policy``. Unless set to ``true``, this ``Policy`` construct will not materialize to an ``AWS::IAM::Policy`` CloudFormation resource in case it would have no effect (for example, if it remains unattached to an IAM identity or if it has no statements). This is generally desired behavior, since it prevents creating invalid--and hence undeployable--CloudFormation templates. In cases where you know the policy must be created and it is actually an error if no statements have been added to it or it remains unattached to an IAM identity, you can set this to ``true``. Default: false
+        :param groups: Groups to attach this policy to. You can also use ``attachToGroup(group)`` to attach this policy to a group. Default: - No groups.
+        :param policy_name: The name of the policy. If you specify multiple policies for an entity, specify unique names. For example, if you specify a list of policies for an IAM role, each policy must have a unique name. Default: - Uses the logical ID of the policy resource, which is ensured to be unique within the stack.
+        :param roles: Roles to attach this policy to. You can also use ``attachToRole(role)`` to attach this policy to a role. Default: - No roles.
+        :param statements: Initial set of permissions to add to this policy document. You can also use ``addStatements(...statement)`` to add permissions later. Default: - No statements.
+        :param users: Users to attach this policy to. You can also use ``attachToUser(user)`` to attach this policy to a user. Default: - No users.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bf4aaba2f6acb5486adaf871c56e1317b1a2931936b56a78bf4633c14caba596)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = PolicyProps(
+            document=document,
+            force=force,
+            groups=groups,
+            policy_name=policy_name,
+            roles=roles,
+            statements=statements,
+            users=users,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="fromPolicyName")
+    @builtins.classmethod
+    def from_policy_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        policy_name: builtins.str,
+    ) -> "IPolicy":
+        '''Import a policy in this app based on its name.
+
+        :param scope: -
+        :param id: -
+        :param policy_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__11207539a0ef88ae02fb600ab0862501107d998ae3be0f5a08a9fc0466cc0948)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
+        return typing.cast("IPolicy", jsii.sinvoke(cls, "fromPolicyName", [scope, id, policy_name]))
+
+    @jsii.member(jsii_name="addStatements")
+    def add_statements(self, *statement: "PolicyStatement") -> None:
+        '''Adds a statement to the policy document.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__510252a6b115bef4c94f6ab3c402eb29a1b2012a86045ddad51b4825713e0799)
+            check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
+
+    @jsii.member(jsii_name="attachToGroup")
+    def attach_to_group(self, group: "IGroup") -> None:
+        '''Attaches this policy to a group.
+
+        :param group: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8d09ae4b9f8a7c9ca0442c9a4b6f69bce78f42c194de9b535704dc9718516fea)
+            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
+        return typing.cast(None, jsii.invoke(self, "attachToGroup", [group]))
+
+    @jsii.member(jsii_name="attachToRole")
+    def attach_to_role(self, role: "IRole") -> None:
+        '''Attaches this policy to a role.
+
+        :param role: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__010ce98a5e97a30c0c893a505506c652f5ecdb76ee983e02c498a174717f3e82)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+        return typing.cast(None, jsii.invoke(self, "attachToRole", [role]))
+
+    @jsii.member(jsii_name="attachToUser")
+    def attach_to_user(self, user: "IUser") -> None:
+        '''Attaches this policy to a user.
+
+        :param user: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__87f9ba31abd317367c4b853073e8d4e30843f460c3420b69165c6082b01547ae)
+            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
+        return typing.cast(None, jsii.invoke(self, "attachToUser", [user]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="document")
+    def document(self) -> "PolicyDocument":
+        '''The policy document.'''
+        return typing.cast("PolicyDocument", jsii.get(self, "document"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grantPrincipal")
+    def grant_principal(self) -> "IPrincipal":
+        '''The principal to grant permissions to.'''
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyName")
+    def policy_name(self) -> builtins.str:
+        '''The name of this policy.
+
+        :attribute: true
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="policyRef")
+    def policy_ref(self) -> "_PolicyReference_b83371a5":
+        '''A reference to a Policy resource.'''
+        return typing.cast("_PolicyReference_b83371a5", jsii.get(self, "policyRef"))
 
 
 @jsii.implements(_IResolvable_da3f097b)
@@ -7213,7 +11045,7 @@ class PolicyDocument(
         return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
 
     @jsii.member(jsii_name="resolve")
-    def resolve(self, context: _IResolveContext_b2df1921) -> typing.Any:
+    def resolve(self, context: "_IResolveContext_b2df1921") -> typing.Any:
         '''Produce the Token's value at resolution time.
 
         :param context: -
@@ -7319,26 +11151,22 @@ class PolicyDocumentProps:
 
         Example::
 
-            import aws_cdk.aws_iam as iam
-            
-            
-            my_file_system_policy = iam.PolicyDocument(
-                statements=[iam.PolicyStatement(
-                    actions=["elasticfilesystem:ClientWrite", "elasticfilesystem:ClientMount"
-                    ],
-                    principals=[iam.AccountRootPrincipal()],
-                    resources=["*"],
-                    conditions={
-                        "Bool": {
-                            "elasticfilesystem:AccessedViaMountTarget": "true"
-                        }
-                    }
-                )]
+            topic = sns.Topic(self, "Topic")
+            policy_document = iam.PolicyDocument(
+                assign_sids=True,
+                statements=[
+                    iam.PolicyStatement(
+                        actions=["sns:Publish"],
+                        principals=[iam.ServicePrincipal("s3.amazonaws.com")],
+                        resources=[topic.topic_arn]
+                    )
+                ]
             )
             
-            file_system = efs.FileSystem(self, "MyEfsFileSystem",
-                vpc=ec2.Vpc(self, "VPC"),
-                file_system_policy=my_file_system_policy
+            topic_policy = sns.TopicPolicy(self, "Policy",
+                topics=[topic],
+                policy_document=policy_document,
+                enforce_sSL=True
             )
         '''
         if __debug__:
@@ -7421,7 +11249,7 @@ class PolicyProps:
     def __init__(
         self,
         *,
-        document: typing.Optional[PolicyDocument] = None,
+        document: typing.Optional["PolicyDocument"] = None,
         force: typing.Optional[builtins.bool] = None,
         groups: typing.Optional[typing.Sequence["IGroup"]] = None,
         policy_name: typing.Optional[builtins.str] = None,
@@ -7487,7 +11315,7 @@ class PolicyProps:
             self._values["users"] = users
 
     @builtins.property
-    def document(self) -> typing.Optional[PolicyDocument]:
+    def document(self) -> typing.Optional["PolicyDocument"]:
         '''Initial PolicyDocument to use for this Policy.
 
         If omited, any
@@ -7497,7 +11325,7 @@ class PolicyProps:
         :default: - An empty policy.
         '''
         result = self._values.get("document")
-        return typing.cast(typing.Optional[PolicyDocument], result)
+        return typing.cast(typing.Optional["PolicyDocument"], result)
 
     @builtins.property
     def force(self) -> typing.Optional[builtins.bool]:
@@ -7590,55 +11418,6 @@ class PolicyProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.PolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_id": "policyId"},
-)
-class PolicyReference:
-    def __init__(self, *, policy_id: builtins.str) -> None:
-        '''A reference to a Policy resource.
-
-        :param policy_id: The Id of the Policy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            policy_reference = iam.PolicyReference(
-                policy_id="policyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3a516d467a76a134bcfc4e6a62971d6a30525edb6bd45c51452b5ca901f3e62)
-            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_id": policy_id,
-        }
-
-    @builtins.property
-    def policy_id(self) -> builtins.str:
-        '''The Id of the Policy resource.'''
-        result = self._values.get("policy_id")
-        assert result is not None, "Required property 'policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
 class PolicyStatement(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_iam.PolicyStatement",
@@ -7671,11 +11450,11 @@ class PolicyStatement(
         *,
         actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        effect: typing.Optional[Effect] = None,
+        effect: typing.Optional["Effect"] = None,
         not_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        not_principals: typing.Optional[typing.Sequence[IPrincipal]] = None,
+        not_principals: typing.Optional[typing.Sequence["IPrincipal"]] = None,
         not_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        principals: typing.Optional[typing.Sequence[IPrincipal]] = None,
+        principals: typing.Optional[typing.Sequence["IPrincipal"]] = None,
         resources: typing.Optional[typing.Sequence[builtins.str]] = None,
         sid: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -7875,7 +11654,7 @@ class PolicyStatement(
         return typing.cast(None, jsii.invoke(self, "addNotActions", [*not_actions]))
 
     @jsii.member(jsii_name="addNotPrincipals")
-    def add_not_principals(self, *not_principals: IPrincipal) -> None:
+    def add_not_principals(self, *not_principals: "IPrincipal") -> None:
         '''Specify principals that is not allowed or denied access to the "NotPrincipal" section of a policy statement.
 
         :param not_principals: IAM principals that will be denied access.
@@ -7903,7 +11682,7 @@ class PolicyStatement(
         return typing.cast(None, jsii.invoke(self, "addNotResources", [*arns]))
 
     @jsii.member(jsii_name="addPrincipals")
-    def add_principals(self, *principals: IPrincipal) -> None:
+    def add_principals(self, *principals: "IPrincipal") -> None:
         '''Adds principals to the "Principal" section of a policy statement.
 
         :param principals: IAM principals that will be added.
@@ -7985,11 +11764,11 @@ class PolicyStatement(
         *,
         actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        effect: typing.Optional[Effect] = None,
+        effect: typing.Optional["Effect"] = None,
         not_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        not_principals: typing.Optional[typing.Sequence[IPrincipal]] = None,
+        not_principals: typing.Optional[typing.Sequence["IPrincipal"]] = None,
         not_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        principals: typing.Optional[typing.Sequence[IPrincipal]] = None,
+        principals: typing.Optional[typing.Sequence["IPrincipal"]] = None,
         resources: typing.Optional[typing.Sequence[builtins.str]] = None,
         sid: typing.Optional[builtins.str] = None,
     ) -> "PolicyStatement":
@@ -8123,9 +11902,9 @@ class PolicyStatement(
 
     @builtins.property
     @jsii.member(jsii_name="notPrincipals")
-    def not_principals(self) -> typing.List[IPrincipal]:
+    def not_principals(self) -> typing.List["IPrincipal"]:
         '''The NotPrincipals added to this statement.'''
-        return typing.cast(typing.List[IPrincipal], jsii.get(self, "notPrincipals"))
+        return typing.cast(typing.List["IPrincipal"], jsii.get(self, "notPrincipals"))
 
     @builtins.property
     @jsii.member(jsii_name="notResources")
@@ -8135,9 +11914,9 @@ class PolicyStatement(
 
     @builtins.property
     @jsii.member(jsii_name="principals")
-    def principals(self) -> typing.List[IPrincipal]:
+    def principals(self) -> typing.List["IPrincipal"]:
         '''The Principals added to this statement.'''
-        return typing.cast(typing.List[IPrincipal], jsii.get(self, "principals"))
+        return typing.cast(typing.List["IPrincipal"], jsii.get(self, "principals"))
 
     @builtins.property
     @jsii.member(jsii_name="resources")
@@ -8147,12 +11926,12 @@ class PolicyStatement(
 
     @builtins.property
     @jsii.member(jsii_name="effect")
-    def effect(self) -> Effect:
+    def effect(self) -> "Effect":
         '''Whether to allow or deny the actions in this statement Set effect for this statement.'''
-        return typing.cast(Effect, jsii.get(self, "effect"))
+        return typing.cast("Effect", jsii.get(self, "effect"))
 
     @effect.setter
-    def effect(self, value: Effect) -> None:
+    def effect(self, value: "Effect") -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0938212412c89f00c92be30674976489815687ff4590eef7d1e3a8d2b3605ff1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8193,11 +11972,11 @@ class PolicyStatementProps:
         *,
         actions: typing.Optional[typing.Sequence[builtins.str]] = None,
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
-        effect: typing.Optional[Effect] = None,
+        effect: typing.Optional["Effect"] = None,
         not_actions: typing.Optional[typing.Sequence[builtins.str]] = None,
-        not_principals: typing.Optional[typing.Sequence[IPrincipal]] = None,
+        not_principals: typing.Optional[typing.Sequence["IPrincipal"]] = None,
         not_resources: typing.Optional[typing.Sequence[builtins.str]] = None,
-        principals: typing.Optional[typing.Sequence[IPrincipal]] = None,
+        principals: typing.Optional[typing.Sequence["IPrincipal"]] = None,
         resources: typing.Optional[typing.Sequence[builtins.str]] = None,
         sid: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -8213,24 +11992,34 @@ class PolicyStatementProps:
         :param resources: Resource ARNs to add to the statement. Default: - no resources
         :param sid: The Sid (statement ID) is an optional identifier that you provide for the policy statement. You can assign a Sid value to each statement in a statement array. In services that let you specify an ID element, such as SQS and SNS, the Sid value is just a sub-ID of the policy document's ID. In IAM, the Sid value must be unique within a JSON policy. Default: - no sid
 
-        :exampleMetadata: infused
+        :exampleMetadata: lit=aws-ec2/test/integ.vpc-endpoint.lit.ts infused
 
         Example::
 
-            access_logs_bucket = s3.Bucket(self, "AccessLogsBucket",
-                object_ownership=s3.ObjectOwnership.BUCKET_OWNER_ENFORCED
+            # Add gateway endpoints when creating the VPC
+            vpc = ec2.Vpc(self, "MyVpc",
+                gateway_endpoints={
+                    "S3": cdk.aws_ec2.GatewayVpcEndpointOptions(
+                        service=ec2.GatewayVpcEndpointAwsService.S3
+                    )
+                }
             )
             
-            access_logs_bucket.add_to_resource_policy(
-                iam.PolicyStatement(
-                    actions=["s3:*"],
-                    resources=[access_logs_bucket.bucket_arn, access_logs_bucket.arn_for_objects("*")],
-                    principals=[iam.AnyPrincipal()]
-                ))
+            # Alternatively gateway endpoints can be added on the VPC
+            dynamo_db_endpoint = vpc.add_gateway_endpoint("DynamoDbEndpoint",
+                service=ec2.GatewayVpcEndpointAwsService.DYNAMODB
+            )
             
-            bucket = s3.Bucket(self, "MyBucket",
-                server_access_logs_bucket=access_logs_bucket,
-                server_access_logs_prefix="logs"
+            # This allows to customize the endpoint policy
+            dynamo_db_endpoint.add_to_policy(
+                iam.PolicyStatement( # Restrict to listing and describing tables
+                    principals=[iam.AnyPrincipal()],
+                    actions=["dynamodb:DescribeTable", "dynamodb:ListTables"],
+                    resources=["*"]))
+            
+            # Add an interface endpoint
+            vpc.add_interface_endpoint("EcrDockerEndpoint",
+                service=ec2.InterfaceVpcEndpointAwsService.ECR_DOCKER
             )
         '''
         if __debug__:
@@ -8283,13 +12072,13 @@ class PolicyStatementProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
-    def effect(self) -> typing.Optional[Effect]:
+    def effect(self) -> typing.Optional["Effect"]:
         '''Whether to allow or deny the actions in this statement.
 
         :default: Effect.ALLOW
         '''
         result = self._values.get("effect")
-        return typing.cast(typing.Optional[Effect], result)
+        return typing.cast(typing.Optional["Effect"], result)
 
     @builtins.property
     def not_actions(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8301,13 +12090,13 @@ class PolicyStatementProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def not_principals(self) -> typing.Optional[typing.List[IPrincipal]]:
+    def not_principals(self) -> typing.Optional[typing.List["IPrincipal"]]:
         '''List of not principals to add to the statement.
 
         :default: - no not principals
         '''
         result = self._values.get("not_principals")
-        return typing.cast(typing.Optional[typing.List[IPrincipal]], result)
+        return typing.cast(typing.Optional[typing.List["IPrincipal"]], result)
 
     @builtins.property
     def not_resources(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8319,13 +12108,13 @@ class PolicyStatementProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def principals(self) -> typing.Optional[typing.List[IPrincipal]]:
+    def principals(self) -> typing.Optional[typing.List["IPrincipal"]]:
         '''List of principals to add to the statement.
 
         :default: - no principals
         '''
         result = self._values.get("principals")
-        return typing.cast(typing.Optional[typing.List[IPrincipal]], result)
+        return typing.cast(typing.Optional[typing.List["IPrincipal"]], result)
 
     @builtins.property
     def resources(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -8427,6 +12216,58 @@ class PrincipalPolicyFragment(
     def principal_json(self) -> typing.Mapping[builtins.str, typing.List[builtins.str]]:
         '''JSON of the "Principal" section in a policy statement.'''
         return typing.cast(typing.Mapping[builtins.str, typing.List[builtins.str]], jsii.get(self, "principalJson"))
+
+
+class RoleGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.RoleGrants"):
+    '''Collection of grant methods for a IRoleRef.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        from aws_cdk.interfaces import aws_iam as interfaces_iam
+        
+        # role_ref: interfaces_iam.IRoleRef
+        
+        role_grants = iam.RoleGrants.from_role(role_ref)
+    '''
+
+    @jsii.member(jsii_name="fromRole")
+    @builtins.classmethod
+    def from_role(cls, role: "_IRoleRef_8400221f") -> "RoleGrants":
+        '''Creates grants for IRoleRef.
+
+        :param role: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dffa67cf033b90d54f11e95ec0b1a8cd60db661c810a4fd24dc03933a21d5c87)
+            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+        return typing.cast("RoleGrants", jsii.sinvoke(cls, "fromRole", [role]))
+
+    @jsii.member(jsii_name="assumeRole")
+    def assume_role(self, identity: "IPrincipal") -> "Grant":
+        '''Grant permissions to the given principal to assume this role.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0e43e158983e4dd015aa840081e69baed377aba2f7fd40438b55ae1fb555e272)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast("Grant", jsii.invoke(self, "assumeRole", [identity]))
+
+    @jsii.member(jsii_name="passRole")
+    def pass_role(self, identity: "IPrincipal") -> "Grant":
+        '''Grant permissions to the given principal to pass this role.
+
+        :param identity: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__557aabeb0c114b0578fa478004131fa9486a9be7effa997358f0dbebe32cf40c)
+            check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
+        return typing.cast("Grant", jsii.invoke(self, "passRole", [identity]))
 
 
 @jsii.data_type(
@@ -8543,66 +12384,6 @@ class RoleLookupOptions(FromRoleArnOptions):
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.RolePolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_name": "policyName", "role_name": "roleName"},
-)
-class RolePolicyReference:
-    def __init__(self, *, policy_name: builtins.str, role_name: builtins.str) -> None:
-        '''A reference to a RolePolicy resource.
-
-        :param policy_name: The PolicyName of the RolePolicy resource.
-        :param role_name: The RoleName of the RolePolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            role_policy_reference = iam.RolePolicyReference(
-                policy_name="policyName",
-                role_name="roleName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ef186097b47196c3c0db80b64773778d51b2df8d2e1e7510f072b7e0aa66db8)
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_name": policy_name,
-            "role_name": role_name,
-        }
-
-    @builtins.property
-    def policy_name(self) -> builtins.str:
-        '''The PolicyName of the RolePolicy resource.'''
-        result = self._values.get("policy_name")
-        assert result is not None, "Required property 'policy_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_name(self) -> builtins.str:
-        '''The RoleName of the RolePolicy resource.'''
-        result = self._values.get("role_name")
-        assert result is not None, "Required property 'role_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RolePolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.RoleProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -8621,12 +12402,12 @@ class RoleProps:
     def __init__(
         self,
         *,
-        assumed_by: IPrincipal,
+        assumed_by: "IPrincipal",
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
@@ -8647,21 +12428,19 @@ class RoleProps:
 
         Example::
 
-            lambda_role = iam.Role(self, "Role",
-                assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
-                description="Example role..."
+            # vpc: ec2.Vpc
+            
+            
+            log_group = logs.LogGroup(self, "MyCustomLogGroup")
+            
+            role = iam.Role(self, "MyCustomRole",
+                assumed_by=iam.ServicePrincipal("vpc-flow-logs.amazonaws.com")
             )
             
-            stream = kinesis.Stream(self, "MyEncryptedStream",
-                encryption=kinesis.StreamEncryption.KMS
+            ec2.FlowLog(self, "FlowLog",
+                resource_type=ec2.FlowLogResourceType.from_vpc(vpc),
+                destination=ec2.FlowLogDestination.to_cloud_watch_logs(log_group, role)
             )
-            stream_consumer = kinesis.StreamConsumer(self, "MyStreamConsumer",
-                stream_consumer_name="MyStreamConsumer",
-                stream=stream
-            )
-            
-            # give lambda permissions to read stream via the stream consumer
-            stream_consumer.grant_read(lambda_role)
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9c9223cb9fa6dff45ee4fd7013629ab18542c2499a83f542c5405968fad2287c)
@@ -8695,7 +12474,7 @@ class RoleProps:
             self._values["role_name"] = role_name
 
     @builtins.property
-    def assumed_by(self) -> IPrincipal:
+    def assumed_by(self) -> "IPrincipal":
         '''The IAM principal (i.e. ``new ServicePrincipal('sns.amazonaws.com')``) which can assume this role.
 
         You can later modify the assume role policy document by accessing it via
@@ -8703,7 +12482,7 @@ class RoleProps:
         '''
         result = self._values.get("assumed_by")
         assert result is not None, "Required property 'assumed_by' is missing"
-        return typing.cast(IPrincipal, result)
+        return typing.cast("IPrincipal", result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -8731,7 +12510,7 @@ class RoleProps:
     @builtins.property
     def inline_policies(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, PolicyDocument]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]]:
         '''A list of named policies to inline into this role.
 
         These policies will be
@@ -8742,7 +12521,7 @@ class RoleProps:
         :default: - No policy is inlined in the Role resource.
         '''
         result = self._values.get("inline_policies")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, PolicyDocument]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]], result)
 
     @builtins.property
     def managed_policies(self) -> typing.Optional[typing.List["IManagedPolicy"]]:
@@ -8757,7 +12536,7 @@ class RoleProps:
         return typing.cast(typing.Optional[typing.List["IManagedPolicy"]], result)
 
     @builtins.property
-    def max_session_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_session_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum session duration that you want to set for the specified role.
 
         This setting can have a value from 1 hour (3600sec) to 12 (43200sec) hours.
@@ -8778,7 +12557,7 @@ class RoleProps:
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html
         '''
         result = self._values.get("max_session_duration")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -8840,115 +12619,6 @@ class RoleProps:
 
     def __repr__(self) -> str:
         return "RoleProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.RoleReference",
-    jsii_struct_bases=[],
-    name_mapping={"role_arn": "roleArn", "role_name": "roleName"},
-)
-class RoleReference:
-    def __init__(self, *, role_arn: builtins.str, role_name: builtins.str) -> None:
-        '''A reference to a Role resource.
-
-        :param role_arn: The ARN of the Role resource.
-        :param role_name: The RoleName of the Role resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            role_reference = iam.RoleReference(
-                role_arn="roleArn",
-                role_name="roleName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__444521ea5fa1710b9cbbf5568ad90c8cd3cf1cc3eba92d7f58d8ca95e4f69dee)
-            check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
-            check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "role_arn": role_arn,
-            "role_name": role_name,
-        }
-
-    @builtins.property
-    def role_arn(self) -> builtins.str:
-        '''The ARN of the Role resource.'''
-        result = self._values.get("role_arn")
-        assert result is not None, "Required property 'role_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def role_name(self) -> builtins.str:
-        '''The RoleName of the Role resource.'''
-        result = self._values.get("role_name")
-        assert result is not None, "Required property 'role_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "RoleReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.SAMLProviderReference",
-    jsii_struct_bases=[],
-    name_mapping={"saml_provider_arn": "samlProviderArn"},
-)
-class SAMLProviderReference:
-    def __init__(self, *, saml_provider_arn: builtins.str) -> None:
-        '''A reference to a SAMLProvider resource.
-
-        :param saml_provider_arn: The Arn of the SAMLProvider resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            s_aMLProvider_reference = iam.SAMLProviderReference(
-                saml_provider_arn="samlProviderArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d67d67e52b9debe4a64ab6c3de63eae069bbcf59ded7e4e39dd16d1476a809d9)
-            check_type(argname="argument saml_provider_arn", value=saml_provider_arn, expected_type=type_hints["saml_provider_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "saml_provider_arn": saml_provider_arn,
-        }
-
-    @builtins.property
-    def saml_provider_arn(self) -> builtins.str:
-        '''The Arn of the SAMLProvider resource.'''
-        result = self._values.get("saml_provider_arn")
-        assert result is not None, "Required property 'saml_provider_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SAMLProviderReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9041,10 +12711,10 @@ class SamlProvider(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        metadata_document: SamlMetadataDocument,
+        metadata_document: "SamlMetadataDocument",
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -9065,10 +12735,10 @@ class SamlProvider(
     @builtins.classmethod
     def from_saml_provider_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         saml_provider_arn: builtins.str,
-    ) -> ISamlProvider:
+    ) -> "ISamlProvider":
         '''Import an existing provider.
 
         :param scope: -
@@ -9080,7 +12750,7 @@ class SamlProvider(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument saml_provider_arn", value=saml_provider_arn, expected_type=type_hints["saml_provider_arn"])
-        return typing.cast(ISamlProvider, jsii.sinvoke(cls, "fromSamlProviderArn", [scope, id, saml_provider_arn]))
+        return typing.cast("ISamlProvider", jsii.sinvoke(cls, "fromSamlProviderArn", [scope, id, saml_provider_arn]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -9096,9 +12766,9 @@ class SamlProvider(
 
     @builtins.property
     @jsii.member(jsii_name="samlProviderRef")
-    def saml_provider_ref(self) -> SAMLProviderReference:
+    def saml_provider_ref(self) -> "_SAMLProviderReference_08e1fac1":
         '''A reference to a SAMLProvider resource.'''
-        return typing.cast(SAMLProviderReference, jsii.get(self, "samlProviderRef"))
+        return typing.cast("_SAMLProviderReference_08e1fac1", jsii.get(self, "samlProviderRef"))
 
 
 @jsii.data_type(
@@ -9110,7 +12780,7 @@ class SamlProviderProps:
     def __init__(
         self,
         *,
-        metadata_document: SamlMetadataDocument,
+        metadata_document: "SamlMetadataDocument",
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for a SAML provider.
@@ -9140,11 +12810,11 @@ class SamlProviderProps:
             self._values["name"] = name
 
     @builtins.property
-    def metadata_document(self) -> SamlMetadataDocument:
+    def metadata_document(self) -> "SamlMetadataDocument":
         '''An XML document generated by an identity provider (IdP) that supports SAML 2.0. The document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that are received from the IdP. You must generate the metadata document using the identity management software that is used as your organization's IdP.'''
         result = self._values.get("metadata_document")
         assert result is not None, "Required property 'metadata_document' is missing"
-        return typing.cast(SamlMetadataDocument, result)
+        return typing.cast("SamlMetadataDocument", result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
@@ -9169,123 +12839,6 @@ class SamlProviderProps:
 
     def __repr__(self) -> str:
         return "SamlProviderProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.ServerCertificateReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "server_certificate_arn": "serverCertificateArn",
-        "server_certificate_name": "serverCertificateName",
-    },
-)
-class ServerCertificateReference:
-    def __init__(
-        self,
-        *,
-        server_certificate_arn: builtins.str,
-        server_certificate_name: builtins.str,
-    ) -> None:
-        '''A reference to a ServerCertificate resource.
-
-        :param server_certificate_arn: The ARN of the ServerCertificate resource.
-        :param server_certificate_name: The ServerCertificateName of the ServerCertificate resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            server_certificate_reference = iam.ServerCertificateReference(
-                server_certificate_arn="serverCertificateArn",
-                server_certificate_name="serverCertificateName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__073e1ae15a5ad6258b21b8250874f8b21ed4fb59125cc41b9246c13b24a0ba54)
-            check_type(argname="argument server_certificate_arn", value=server_certificate_arn, expected_type=type_hints["server_certificate_arn"])
-            check_type(argname="argument server_certificate_name", value=server_certificate_name, expected_type=type_hints["server_certificate_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "server_certificate_arn": server_certificate_arn,
-            "server_certificate_name": server_certificate_name,
-        }
-
-    @builtins.property
-    def server_certificate_arn(self) -> builtins.str:
-        '''The ARN of the ServerCertificate resource.'''
-        result = self._values.get("server_certificate_arn")
-        assert result is not None, "Required property 'server_certificate_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def server_certificate_name(self) -> builtins.str:
-        '''The ServerCertificateName of the ServerCertificate resource.'''
-        result = self._values.get("server_certificate_name")
-        assert result is not None, "Required property 'server_certificate_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ServerCertificateReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.ServiceLinkedRoleReference",
-    jsii_struct_bases=[],
-    name_mapping={"role_name": "roleName"},
-)
-class ServiceLinkedRoleReference:
-    def __init__(self, *, role_name: builtins.str) -> None:
-        '''A reference to a ServiceLinkedRole resource.
-
-        :param role_name: The RoleName of the ServiceLinkedRole resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            service_linked_role_reference = iam.ServiceLinkedRoleReference(
-                role_name="roleName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c63d4f6d4ae20fa32b9f61558c489c10d6c2baf9bbbe91f3886c7589602c75ac)
-            check_type(argname="argument role_name", value=role_name, expected_type=type_hints["role_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "role_name": role_name,
-        }
-
-    @builtins.property
-    def role_name(self) -> builtins.str:
-        '''The RoleName of the ServiceLinkedRole resource.'''
-        result = self._values.get("role_name")
-        assert result is not None, "Required property 'role_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ServiceLinkedRoleReference(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -9412,7 +12965,7 @@ class UnknownPrincipal(
         )
     '''
 
-    def __init__(self, *, resource: _constructs_77d1e7e8.IConstruct) -> None:
+    def __init__(self, *, resource: "_constructs_77d1e7e8.IConstruct") -> None:
         '''
         :param resource: The resource the role proxy is for.
         '''
@@ -9421,7 +12974,7 @@ class UnknownPrincipal(
         jsii.create(self.__class__, self, [props])
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -9434,8 +12987,8 @@ class UnknownPrincipal(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -9443,7 +12996,7 @@ class UnknownPrincipal(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2eafec25f04d3417a92e78ef10e9bfbbdf9bad8c39e6cf6cafe9a65939952296)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @builtins.property
     @jsii.member(jsii_name="assumeRoleAction")
@@ -9453,15 +13006,15 @@ class UnknownPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
+    def grant_principal(self) -> "IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 @jsii.data_type(
@@ -9470,7 +13023,7 @@ class UnknownPrincipal(
     name_mapping={"resource": "resource"},
 )
 class UnknownPrincipalProps:
-    def __init__(self, *, resource: _constructs_77d1e7e8.IConstruct) -> None:
+    def __init__(self, *, resource: "_constructs_77d1e7e8.IConstruct") -> None:
         '''Properties for an UnknownPrincipal.
 
         :param resource: The resource the role proxy is for.
@@ -9498,11 +13051,11 @@ class UnknownPrincipalProps:
         }
 
     @builtins.property
-    def resource(self) -> _constructs_77d1e7e8.IConstruct:
+    def resource(self) -> "_constructs_77d1e7e8.IConstruct":
         '''The resource the role proxy is for.'''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(_constructs_77d1e7e8.IConstruct, result)
+        return typing.cast("_constructs_77d1e7e8.IConstruct", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9565,66 +13118,6 @@ class UserAttributes:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.UserPolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_name": "policyName", "user_name": "userName"},
-)
-class UserPolicyReference:
-    def __init__(self, *, policy_name: builtins.str, user_name: builtins.str) -> None:
-        '''A reference to a UserPolicy resource.
-
-        :param policy_name: The PolicyName of the UserPolicy resource.
-        :param user_name: The UserName of the UserPolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            user_policy_reference = iam.UserPolicyReference(
-                policy_name="policyName",
-                user_name="userName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__866446aa42a57999c0f1a23207218f7e5c5e8546e2541bb67e791f488d58ff89)
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_name": policy_name,
-            "user_name": user_name,
-        }
-
-    @builtins.property
-    def policy_name(self) -> builtins.str:
-        '''The PolicyName of the UserPolicy resource.'''
-        result = self._values.get("policy_name")
-        assert result is not None, "Required property 'policy_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''The UserName of the UserPolicy resource.'''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "UserPolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.UserProps",
     jsii_struct_bases=[],
     name_mapping={
@@ -9643,7 +13136,7 @@ class UserProps:
         *,
         groups: typing.Optional[typing.Sequence["IGroup"]] = None,
         managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
-        password: typing.Optional[_SecretValue_3dd0ddae] = None,
+        password: typing.Optional["_SecretValue_3dd0ddae"] = None,
         password_reset_required: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
         permissions_boundary: typing.Optional["IManagedPolicy"] = None,
@@ -9720,7 +13213,7 @@ class UserProps:
         return typing.cast(typing.Optional[typing.List["IManagedPolicy"]], result)
 
     @builtins.property
-    def password(self) -> typing.Optional[_SecretValue_3dd0ddae]:
+    def password(self) -> typing.Optional["_SecretValue_3dd0ddae"]:
         '''The password for the user. This is required so the user can access the AWS Management Console.
 
         You can use ``SecretValue.unsafePlainText`` to specify a password in plain text or
@@ -9730,7 +13223,7 @@ class UserProps:
         :default: - User won't be able to access the management console without a password.
         '''
         result = self._values.get("password")
-        return typing.cast(typing.Optional[_SecretValue_3dd0ddae], result)
+        return typing.cast(typing.Optional["_SecretValue_3dd0ddae"], result)
 
     @builtins.property
     def password_reset_required(self) -> typing.Optional[builtins.bool]:
@@ -9807,164 +13300,6 @@ class UserProps:
 
 
 @jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.UserReference",
-    jsii_struct_bases=[],
-    name_mapping={"user_arn": "userArn", "user_name": "userName"},
-)
-class UserReference:
-    def __init__(self, *, user_arn: builtins.str, user_name: builtins.str) -> None:
-        '''A reference to a User resource.
-
-        :param user_arn: The ARN of the User resource.
-        :param user_name: The UserName of the User resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            user_reference = iam.UserReference(
-                user_arn="userArn",
-                user_name="userName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e735db93dd845c3789478a3e9d585faa013252f78a6b33568ee8fd8dda2114ec)
-            check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
-            check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "user_arn": user_arn,
-            "user_name": user_name,
-        }
-
-    @builtins.property
-    def user_arn(self) -> builtins.str:
-        '''The ARN of the User resource.'''
-        result = self._values.get("user_arn")
-        assert result is not None, "Required property 'user_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def user_name(self) -> builtins.str:
-        '''The UserName of the User resource.'''
-        result = self._values.get("user_name")
-        assert result is not None, "Required property 'user_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "UserReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.UserToGroupAdditionReference",
-    jsii_struct_bases=[],
-    name_mapping={"user_to_group_addition_id": "userToGroupAdditionId"},
-)
-class UserToGroupAdditionReference:
-    def __init__(self, *, user_to_group_addition_id: builtins.str) -> None:
-        '''A reference to a UserToGroupAddition resource.
-
-        :param user_to_group_addition_id: The Id of the UserToGroupAddition resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            user_to_group_addition_reference = iam.UserToGroupAdditionReference(
-                user_to_group_addition_id="userToGroupAdditionId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2b4b7088269b3c899652c93c66a183190dd431eb4a948d6d8ebeead60abd993)
-            check_type(argname="argument user_to_group_addition_id", value=user_to_group_addition_id, expected_type=type_hints["user_to_group_addition_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "user_to_group_addition_id": user_to_group_addition_id,
-        }
-
-    @builtins.property
-    def user_to_group_addition_id(self) -> builtins.str:
-        '''The Id of the UserToGroupAddition resource.'''
-        result = self._values.get("user_to_group_addition_id")
-        assert result is not None, "Required property 'user_to_group_addition_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "UserToGroupAdditionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_iam.VirtualMFADeviceReference",
-    jsii_struct_bases=[],
-    name_mapping={"serial_number": "serialNumber"},
-)
-class VirtualMFADeviceReference:
-    def __init__(self, *, serial_number: builtins.str) -> None:
-        '''A reference to a VirtualMFADevice resource.
-
-        :param serial_number: The SerialNumber of the VirtualMFADevice resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_iam as iam
-            
-            virtual_mFADevice_reference = iam.VirtualMFADeviceReference(
-                serial_number="serialNumber"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc236d0b2faa4c00baf1b34fdc67dfd03ed101ecbf4ee382dd6b4c42585dda8c)
-            check_type(argname="argument serial_number", value=serial_number, expected_type=type_hints["serial_number"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "serial_number": serial_number,
-        }
-
-    @builtins.property
-    def serial_number(self) -> builtins.str:
-        '''The SerialNumber of the VirtualMFADevice resource.'''
-        result = self._values.get("serial_number")
-        assert result is not None, "Required property 'serial_number' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VirtualMFADeviceReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
     jsii_type="aws-cdk-lib.aws_iam.WithoutPolicyUpdatesOptions",
     jsii_struct_bases=[],
     name_mapping={"add_grants_to_resources": "addGrantsToResources"},
@@ -10024,3464 +13359,73 @@ class WithoutPolicyUpdatesOptions:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, IAccessKeyRef)
-class CfnAccessKey(
-    _CfnResource_9df397a6,
+@jsii.implements(IAccessKey)
+class AccessKey(
+    _Resource_45bc6135,
     metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnAccessKey",
+    jsii_type="aws-cdk-lib.aws_iam.AccessKey",
 ):
-    '''Creates a new AWS secret access key and corresponding AWS access key ID for the specified user.
+    '''Define a new IAM Access Key.
 
-    The default status for new keys is ``Active`` .
-
-    For information about quotas on the number of keys you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-    .. epigraph::
-
-       To ensure the security of your AWS account , the secret access key is accessible only during key and user creation. You must save the key (for example, in a text file) if you want to be able to access it again. If a secret key is lost, you can rotate access keys by increasing the value of the ``serial`` property.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-accesskey.html
-    :cloudformationResource: AWS::IAM::AccessKey
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_access_key = iam.CfnAccessKey(self, "MyCfnAccessKey",
-            user_name="userName",
-        
-            # the properties below are optional
-            serial=123,
-            status="status"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        user_name: builtins.str,
-        serial: typing.Optional[jsii.Number] = None,
-        status: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param user_name: The name of the IAM user that the new key will belong to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param serial: This value is specific to CloudFormation and can only be *incremented* . Incrementing this value notifies CloudFormation that you want to rotate your access key. When you update your stack, CloudFormation will replace the existing access key with a new key.
-        :param status: The status of the access key. ``Active`` means that the key is valid for API calls, while ``Inactive`` means it is not.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d6875d360f4b68d81822160010f3dcab4fad75219310207a67ebdbd76b5d610)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAccessKeyProps(user_name=user_name, serial=serial, status=status)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab5857eebc55e10a0edcb4b0c6f013af1342700cb0a55e89483e6f8b6d574741)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accessKeyRef")
-    def access_key_ref(self) -> AccessKeyReference:
-        '''A reference to a AccessKey resource.'''
-        return typing.cast(AccessKeyReference, jsii.get(self, "accessKeyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ID for this access key.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrSecretAccessKey")
-    def attr_secret_access_key(self) -> builtins.str:
-        '''Returns the secret access key for the specified AWS::IAM::AccessKey resource.
-
-        For example: wJalrXUtnFEMI/K7MDENG/bPxRfiCYzEXAMPLEKEY.
-
-        :cloudformationAttribute: SecretAccessKey
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrSecretAccessKey"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="userName")
-    def user_name(self) -> builtins.str:
-        '''The name of the IAM user that the new key will belong to.'''
-        return typing.cast(builtins.str, jsii.get(self, "userName"))
-
-    @user_name.setter
-    def user_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3405535e039979434b63eda6cd780e7a68f3036e83c19773aa4cce38e62cfcc0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="serial")
-    def serial(self) -> typing.Optional[jsii.Number]:
-        '''This value is specific to CloudFormation and can only be *incremented* .'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "serial"))
-
-    @serial.setter
-    def serial(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de65be3bea4fb6cb4947339490001a6cb74c0e6991d864cd5de95395f19d977b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serial", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="status")
-    def status(self) -> typing.Optional[builtins.str]:
-        '''The status of the access key.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "status"))
-
-    @status.setter
-    def status(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c8207c22274bc6fabc3862c3b573f9d71344e354dbd17a00318aa43fa18cb7d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "status", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IGroupRef)
-class CfnGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnGroup",
-):
-    '''Creates a new group.
-
-    For information about the number of groups you can create, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-group.html
-    :cloudformationResource: AWS::IAM::Group
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_group = iam.CfnGroup(self, "MyCfnGroup",
-            group_name="groupName",
-            managed_policy_arns=["managedPolicyArns"],
-            path="path",
-            policies=[iam.CfnGroup.PolicyProperty(
-                policy_document=policy_document,
-                policy_name="policyName"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        group_name: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        path: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnGroup.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param group_name: The name of the group to create. Do not include the path in this value. The group name must be unique within the account. Group names are not distinguished by case. For example, you cannot create groups named both "ADMINS" and "admins". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the group name. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
-        :param managed_policy_arns: The Amazon Resource Name (ARN) of the IAM policy you want to attach. For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-        :param path: The path to the group. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
-        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM group. To view AWS::IAM::Group snippets, see `Declaring an IAM Group Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-group>`_ . .. epigraph:: The name of each inline policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a group, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645df50b18)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnGroupProps(
-            group_name=group_name,
-            managed_policy_arns=managed_policy_arns,
-            path=path,
-            policies=policies,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89278b67425b9a0f94f61235c7282945d071b501bc7b15f85a485662ff826258)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::Group`` resource.
-
-        For example: ``arn:aws:iam::123456789012:group/mystack-mygroup-1DZETITOWEKVO`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
-        '''A reference to a Group resource.'''
-        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groupName")
-    def group_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the group to create.
-
-        Do not include the path in this value.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "groupName"))
-
-    @group_name.setter
-    def group_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01be7e8dfd9fda0df1899d3026531e8a38a22b7e1f2d6027c883cf4d505c3d51)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyArns")
-    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The Amazon Resource Name (ARN) of the IAM policy you want to attach.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "managedPolicyArns"))
-
-    @managed_policy_arns.setter
-    def managed_policy_arns(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a267baaf187cde3f3930ebef9cdd1a754591f3f54b47d9729cc1d9bb3a93458)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path to the group.
-
-        For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094d07e4ca)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policies")
-    def policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.PolicyProperty"]]]]:
-        '''Adds or updates an inline policy document that is embedded in the specified IAM group.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.PolicyProperty"]]]], jsii.get(self, "policies"))
-
-    @policies.setter
-    def policies(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnGroup.PolicyProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_iam.CfnGroup.PolicyProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "policy_document": "policyDocument",
-            "policy_name": "policyName",
-        },
-    )
-    class PolicyProperty:
-        def __init__(
-            self,
-            *,
-            policy_document: typing.Any,
-            policy_name: builtins.str,
-        ) -> None:
-            '''Contains information about an attached policy.
-
-            An attached policy is a managed policy that has been attached to a user, group, or role.
-
-            For more information about managed policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-            :param policy_document: The policy document.
-            :param policy_name: The friendly name (not ARN) identifying the policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group-policy.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_iam as iam
-                
-                # policy_document: Any
-                
-                policy_property = iam.CfnGroup.PolicyProperty(
-                    policy_document=policy_document,
-                    policy_name="policyName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__5381732fad8dcd5499b3b303273fdd9097ec896987b47080216d0c734f18d9a8)
-                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-                check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "policy_document": policy_document,
-                "policy_name": policy_name,
-            }
-
-        @builtins.property
-        def policy_document(self) -> typing.Any:
-            '''The policy document.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group-policy.html#cfn-iam-group-policy-policydocument
-            '''
-            result = self._values.get("policy_document")
-            assert result is not None, "Required property 'policy_document' is missing"
-            return typing.cast(typing.Any, result)
-
-        @builtins.property
-        def policy_name(self) -> builtins.str:
-            '''The friendly name (not ARN) identifying the policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group-policy.html#cfn-iam-group-policy-policyname
-            '''
-            result = self._values.get("policy_name")
-            assert result is not None, "Required property 'policy_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PolicyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IGroupPolicyRef)
-class CfnGroupPolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnGroupPolicy",
-):
-    '''Adds or updates an inline policy document that is embedded in the specified IAM group.
-
-    A group can also have managed policies attached to it. To attach a managed policy to a group, use ```AWS::IAM::Group`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-group.html>`_ . To create a new managed policy, use ```AWS::IAM::ManagedPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html>`_ . For information about policies, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-    For information about the maximum number of inline policies that you can embed in a group, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-grouppolicy.html
-    :cloudformationResource: AWS::IAM::GroupPolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_group_policy = iam.CfnGroupPolicy(self, "MyCfnGroupPolicy",
-            group_name="groupName",
-            policy_name="policyName",
-        
-            # the properties below are optional
-            policy_document=policy_document
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        group_name: builtins.str,
-        policy_name: builtins.str,
-        policy_document: typing.Any = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param group_name: The name of the group to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-.
-        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f890caaa5f6b29722a17bf5c714640d202cb740a7f07aec5a5ced9b53eed348)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnGroupPolicyProps(
-            group_name=group_name,
-            policy_name=policy_name,
-            policy_document=policy_document,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef5341af0b1e6f12f150e9d4694149341aec7aa000971cb5f25b0b9672a631cd)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groupPolicyRef")
-    def group_policy_ref(self) -> GroupPolicyReference:
-        '''A reference to a GroupPolicy resource.'''
-        return typing.cast(GroupPolicyReference, jsii.get(self, "groupPolicyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groupName")
-    def group_name(self) -> builtins.str:
-        '''The name of the group to associate the policy with.'''
-        return typing.cast(builtins.str, jsii.get(self, "groupName"))
-
-    @group_name.setter
-    def group_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4ecf7a44c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of the policy document.'''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
-
-    @policy_name.setter
-    def policy_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The policy document.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IInstanceProfileRef)
-class CfnInstanceProfile(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnInstanceProfile",
-):
-    '''Creates a new instance profile. For information about instance profiles, see `Using instance profiles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use_switch-role-ec2_instance-profiles.html>`_ .
-
-    For information about the number of instance profiles you can create, see `IAM object quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-instanceprofile.html
-    :cloudformationResource: AWS::IAM::InstanceProfile
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_instance_profile = iam.CfnInstanceProfile(self, "MyCfnInstanceProfile",
-            roles=["roles"],
-        
-            # the properties below are optional
-            instance_profile_name="instanceProfileName",
-            path="path"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        roles: typing.Sequence[builtins.str],
-        instance_profile_name: typing.Optional[builtins.str] = None,
-        path: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param roles: The name of the role to associate with the instance profile. Only one role can be assigned to an EC2 instance at a time, and all applications on the instance share the same role and permissions.
-        :param instance_profile_name: The name of the instance profile to create. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param path: The path to the instance profile. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c7f7b0b4)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnInstanceProfileProps(
-            roles=roles, instance_profile_name=instance_profile_name, path=path
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7ea1d50531a33bafd660573c8a2e3a8e5e0215acf7462185f0959ea67f61bee5)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the instance profile. For example:.
-
-        ``{"Fn::GetAtt" : ["MyProfile", "Arn"] }``
-
-        This returns a value such as ``arn:aws:iam::1234567890:instance-profile/MyProfile-ASDNSDLKJ`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> InstanceProfileReference:
-        '''A reference to a InstanceProfile resource.'''
-        return typing.cast(InstanceProfileReference, jsii.get(self, "instanceProfileRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="roles")
-    def roles(self) -> typing.List[builtins.str]:
-        '''The name of the role to associate with the instance profile.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "roles"))
-
-    @roles.setter
-    def roles(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__785f95fb95c2bbe41d514dea64d18cfcbfa66bffbfa2d083ae501bdd37a0fe4f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileName")
-    def instance_profile_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the instance profile to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "instanceProfileName"))
-
-    @instance_profile_name.setter
-    def instance_profile_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94d5332482fea97767ec730f2c1930a5e4ec68efce72124dd1cfd7a7c5f40bba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "instanceProfileName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path to the instance profile.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed43f11cf4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IManagedPolicyRef)
-class CfnManagedPolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnManagedPolicy",
-):
-    '''Creates a new managed policy for your AWS account .
-
-    This operation creates a policy version with a version identifier of ``v1`` and sets v1 as the policy's default version. For more information about policy versions, see `Versioning for managed policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-versions.html>`_ in the *IAM User Guide* .
-
-    As a best practice, you can validate your IAM policies. To learn more, see `Validating IAM policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_policy-validator.html>`_ in the *IAM User Guide* .
-
-    For more information about managed policies in general, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html
-    :cloudformationResource: AWS::IAM::ManagedPolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_managed_policy = iam.CfnManagedPolicy(self, "MyCfnManagedPolicy",
-            policy_document=policy_document,
-        
-            # the properties below are optional
-            description="description",
-            groups=["groups"],
-            managed_policy_name="managedPolicyName",
-            path="path",
-            roles=["roles"],
-            users=["users"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_document: typing.Any,
-        description: typing.Optional[builtins.str] = None,
-        groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        managed_policy_name: typing.Optional[builtins.str] = None,
-        path: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        users: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_document: The JSON policy document that you want to use as the content for the new policy. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The maximum length of the policy document that you can pass in this operation, including whitespace, is listed below. To view the maximum character counts of a managed policy with no whitespaces, see `IAM and AWS STS character quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html#reference_iam-quotas-entity-length>`_ . To learn more about JSON policy grammar, see `Grammar of the IAM JSON policy language <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_grammar.html>`_ in the *IAM User Guide* . The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
-        :param description: A friendly description of the policy. Typically used to store information about the permissions defined in the policy. For example, "Grants access to production DynamoDB tables." The policy description is immutable. After a value is assigned, it cannot be changed.
-        :param groups: The name (friendly name, not ARN) of the group to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param managed_policy_name: The friendly name of the policy. .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
-        :param path: The path for the policy. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: You cannot use an asterisk (*) in the path name. Default: - "/"
-        :param roles: The name (friendly name, not ARN) of the role to attach the policy to. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
-        :param users: The name (friendly name, not ARN) of the IAM user to attach the policy to. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9962df64)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnManagedPolicyProps(
-            policy_document=policy_document,
-            description=description,
-            groups=groups,
-            managed_policy_name=managed_policy_name,
-            path=path,
-            roles=roles,
-            users=users,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__49691612ad6d051c64843fc36b88e2a32e132ab38af6120ecf52699776f24808)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAttachmentCount")
-    def attr_attachment_count(self) -> jsii.Number:
-        '''The number of principal entities (users, groups, and roles) that the policy is attached to.
-
-        :cloudformationAttribute: AttachmentCount
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrAttachmentCount"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCreateDate")
-    def attr_create_date(self) -> builtins.str:
-        '''The date and time, in `ISO 8601 date-time format <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ , when the policy was created.
-
-        :cloudformationAttribute: CreateDate
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCreateDate"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrDefaultVersionId")
-    def attr_default_version_id(self) -> builtins.str:
-        '''The identifier for the version of the policy that is set as the default (operative) version.
-
-        For more information about policy versions, see `Versioning for managed policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-versions.html>`_ in the *IAM User Guide* .
-
-        :cloudformationAttribute: DefaultVersionId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrDefaultVersionId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrIsAttachable")
-    def attr_is_attachable(self) -> _IResolvable_da3f097b:
-        '''Specifies whether the policy can be attached to an IAM user, group, or role.
-
-        :cloudformationAttribute: IsAttachable
-        '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrIsAttachable"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPermissionsBoundaryUsageCount")
-    def attr_permissions_boundary_usage_count(self) -> jsii.Number:
-        '''The number of entities (users and roles) for which the policy is used as the permissions boundary.
-
-        For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
-
-        :cloudformationAttribute: PermissionsBoundaryUsageCount
-        '''
-        return typing.cast(jsii.Number, jsii.get(self, "attrPermissionsBoundaryUsageCount"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPolicyArn")
-    def attr_policy_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the managed policy that you want information about.
-
-        For more information about ARNs, see `Amazon Resource Names (ARNs) <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-
-        :cloudformationAttribute: PolicyArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrPolicyArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrPolicyId")
-    def attr_policy_id(self) -> builtins.str:
-        '''The stable and unique string identifying the policy.
-
-        For more information about IDs, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
-
-        :cloudformationAttribute: PolicyId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrPolicyId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrUpdateDate")
-    def attr_update_date(self) -> builtins.str:
-        '''The date and time, in `ISO 8601 date-time format <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ , when the policy was last updated.
-
-        When a policy has only one version, this field contains the date and time when the policy was created. When a policy has more than one version, this field contains the date and time when the most recent policy version was created.
-
-        :cloudformationAttribute: UpdateDate
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrUpdateDate"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyRef")
-    def managed_policy_ref(self) -> ManagedPolicyReference:
-        '''A reference to a ManagedPolicy resource.'''
-        return typing.cast(ManagedPolicyReference, jsii.get(self, "managedPolicyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The JSON policy document that you want to use as the content for the new policy.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57f5af0ac55173154c340115659691a27fc295c9250c8d5ca198109f64466ee8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A friendly description of the policy.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cc04fd5744afbd3cf5d35eec5e89c42dc47f150557ef85988e2e74ea873c422)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="groups")
-    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name (friendly name, not ARN) of the group to attach the policy to.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groups"))
-
-    @groups.setter
-    def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc185a3adf8688a003c343f2c7f2d2213871db292b02bf41ab584d89834d560d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyName")
-    def managed_policy_name(self) -> typing.Optional[builtins.str]:
-        '''The friendly name of the policy.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "managedPolicyName"))
-
-    @managed_policy_name.setter
-    def managed_policy_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad4dd76c35346216139c78ee6af3ca0521328f8eeab6374f6ea5d0c3af2b9886)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedPolicyName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path for the policy.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55edad48d274800976c6721903c6c5c63dd8559011473654245716943a0e2895)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roles")
-    def roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name (friendly name, not ARN) of the role to attach the policy to.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "roles"))
-
-    @roles.setter
-    def roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1de9b6a5aa5082e09fb07840ea3cdfca3eb8553aa46fd492dbb181b5362f13b9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="users")
-    def users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name (friendly name, not ARN) of the IAM user to attach the policy to.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "users"))
-
-    @users.setter
-    def users(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4ad59cd00d0e0ac909d310dbcbbd6e052d1f131f984c456d7dec6c6d0f890843)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IOIDCProviderRef, _ITaggable_36806126)
-class CfnOIDCProvider(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnOIDCProvider",
-):
-    '''Creates or updates an IAM entity to describe an identity provider (IdP) that supports `OpenID Connect (OIDC) <https://docs.aws.amazon.com/http://openid.net/connect/>`_ .
-
-    The OIDC provider that you create with this operation can be used as a principal in a role's trust policy. Such a policy establishes a trust relationship between AWS and the OIDC provider.
-
-    When you create the IAM OIDC provider, you specify the following:
-
-    - The URL of the OIDC identity provider (IdP) to trust
-    - A list of client IDs (also known as audiences) that identify the application or applications that are allowed to authenticate using the OIDC provider
-    - A list of tags that are attached to the specified IAM OIDC provider
-    - A list of thumbprints of one or more server certificates that the IdP uses
-
-    You get all of this information from the OIDC IdP that you want to use to access AWS .
-
-    When you update the IAM OIDC provider, you specify the following:
-
-    - The URL of the OIDC identity provider (IdP) to trust
-    - A list of client IDs (also known as audiences) that replaces the existing list of client IDs associated with the OIDC IdP
-    - A list of tags that replaces the existing list of tags attached to the specified IAM OIDC provider
-    - A list of thumbprints that replaces the existing list of server certificates thumbprints that the IdP uses
-
-    .. epigraph::
-
-       The trust for the OIDC provider is derived from the IAM provider that this operation creates. Therefore, it is best to limit access to the `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ operation to highly privileged users.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-oidcprovider.html
-    :cloudformationResource: AWS::IAM::OIDCProvider
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_oIDCProvider = iam.CfnOIDCProvider(self, "MyCfnOIDCProvider",
-            client_id_list=["clientIdList"],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            thumbprint_list=["thumbprintList"],
-            url="url"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-        url: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param client_id_list: A list of client IDs (also known as audiences) that are associated with the specified IAM OIDC provider resource object. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ .
-        :param tags: A list of tags that are attached to the specified IAM OIDC provider. The returned list of tags is sorted by tag key. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
-        :param thumbprint_list: A list of certificate thumbprints that are associated with the specified IAM OIDC provider resource object. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ . This property is optional. If it is not included, IAM will retrieve and use the top intermediate certificate authority (CA) thumbprint of the OpenID Connect identity provider server certificate.
-        :param url: The URL that the IAM OIDC provider resource object is associated with. For more information, see `CreateOpenIDConnectProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateOpenIDConnectProvider.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140ceabaf1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnOIDCProviderProps(
-            client_id_list=client_id_list,
-            tags=tags,
-            thumbprint_list=thumbprint_list,
-            url=url,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dae706f759e2af37c98017ae788d704bf61cf6db2c64c99cf832bc287eb6389)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::OIDCProvider`` resource.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="oidcProviderRef")
-    def oidc_provider_ref(self) -> OIDCProviderReference:
-        '''A reference to a OIDCProvider resource.'''
-        return typing.cast(OIDCProviderReference, jsii.get(self, "oidcProviderRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="clientIdList")
-    def client_id_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of client IDs (also known as audiences) that are associated with the specified IAM OIDC provider resource object.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "clientIdList"))
-
-    @client_id_list.setter
-    def client_id_list(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3fabe5e02)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "clientIdList", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that are attached to the specified IAM OIDC provider.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="thumbprintList")
-    def thumbprint_list(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of certificate thumbprints that are associated with the specified IAM OIDC provider resource object.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "thumbprintList"))
-
-    @thumbprint_list.setter
-    def thumbprint_list(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa3ed6dd0ef0854d834aaa2a169f05db6443763c0d3f9c4bd58c44fcdac5c427)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "thumbprintList", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="url")
-    def url(self) -> typing.Optional[builtins.str]:
-        '''The URL that the IAM OIDC provider resource object is associated with.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "url"))
-
-    @url.setter
-    def url(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e667481e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "url", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IPolicyRef)
-class CfnPolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnPolicy",
-):
-    '''Adds or updates an inline policy document that is embedded in the specified IAM group, user or role.
-
-    An IAM user can also have a managed policy attached to it. For information about policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-    The Groups, Roles, and Users properties are optional. However, you must specify at least one of these properties.
-
-    For information about policy documents see `Creating IAM policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_create.html>`_ in the *IAM User Guide* .
-
-    For information about limits on the number of inline policies that you can embed in an identity, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
-    .. epigraph::
-
-       This resource does not support `drift detection <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-cfn-stack-drift.html>`_ . The following inline policy resource types support drift detection:
-
-       - ```AWS::IAM::GroupPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-grouppolicy.html>`_
-       - ```AWS::IAM::RolePolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-rolepolicy.html>`_
-       - ```AWS::IAM::UserPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-userpolicy.html>`_
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-policy.html
-    :cloudformationResource: AWS::IAM::Policy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_policy = iam.CfnPolicy(self, "MyCfnPolicy",
-            policy_document=policy_document,
-            policy_name="policyName",
-        
-            # the properties below are optional
-            groups=["groups"],
-            roles=["roles"],
-            users=["users"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_document: typing.Any,
-        policy_name: builtins.str,
-        groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-        users: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
-        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param groups: The name of the group to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-.
-        :param roles: The name of the role to associate the policy with. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@- .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
-        :param users: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb67178fe7e1b31e1be07438cbe12957995260af0ad90c58a3ab490fe6dfe65e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnPolicyProps(
-            policy_document=policy_document,
-            policy_name=policy_name,
-            groups=groups,
-            roles=roles,
-            users=users,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85f1de37bbcdfc836c215c1a1844169c37747c39945f4381b39bfd452963ff73)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The stable and unique string identifying the policy.
-
-        For more information about IDs, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> PolicyReference:
-        '''A reference to a Policy resource.'''
-        return typing.cast(PolicyReference, jsii.get(self, "policyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The policy document.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06044458de4bf8f3f6bd0026d2e0c44680c55d70af59396fc7616d84dab9d26d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of the policy document.'''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
-
-    @policy_name.setter
-    def policy_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc19153b06dcc252bfb1ae6146652d56fcd1825369497489a00194a960696d5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="groups")
-    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of the group to associate the policy with.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groups"))
-
-    @groups.setter
-    def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1cb77529b0bb4edf27e46d46d8fcaedafea19611a49ee1c83bfdd3a98234745e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roles")
-    def roles(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of the role to associate the policy with.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "roles"))
-
-    @roles.setter
-    def roles(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87a89a5b9d5419ceb30e8217d4489eae0857ac493147f2a7af32a527ec688a14)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roles", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="users")
-    def users(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The name of the user to associate the policy with.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "users"))
-
-    @users.setter
-    def users(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c25ce8e0b5d932098589ac1c033a96eed27019fa02e7aea82f7eaacbdd509100)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IRoleRef, _ITaggable_36806126)
-class CfnRole(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnRole",
-):
-    '''Creates a new role for your AWS account .
-
-    For more information about roles, see `IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html>`_ in the *IAM User Guide* . For information about quotas for role names and the number of roles you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html
-    :cloudformationResource: AWS::IAM::Role
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # assume_role_policy_document: Any
-        # policy_document: Any
-        
-        cfn_role = iam.CfnRole(self, "MyCfnRole",
-            assume_role_policy_document=assume_role_policy_document,
-        
-            # the properties below are optional
-            description="description",
-            managed_policy_arns=["managedPolicyArns"],
-            max_session_duration=123,
-            path="path",
-            permissions_boundary="permissionsBoundary",
-            policies=[iam.CfnRole.PolicyProperty(
-                policy_document=policy_document,
-                policy_name="policyName"
-            )],
-            role_name="roleName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        assume_role_policy_document: typing.Any,
-        description: typing.Optional[builtins.str] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        max_session_duration: typing.Optional[jsii.Number] = None,
-        path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnRole.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param assume_role_policy_document: The trust policy that is associated with this role. Trust policies define which entities can assume the role. You can associate only one trust policy with a role. For an example of a policy that can be used to assume a role, see `Template Examples <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html#aws-resource-iam-role--examples>`_ . For more information about the elements that you can use in an IAM policy, see `IAM Policy Elements Reference <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_elements.html>`_ in the *IAM User Guide* .
-        :param description: A description of the role that you provide.
-        :param managed_policy_arns: A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the role. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-        :param max_session_duration: The maximum session duration (in seconds) that you want to set for the specified role. If you do not specify a value for this setting, the default value of one hour is applied. This setting can have a value from 1 hour to 12 hours. Anyone who assumes the role from the AWS CLI or API can use the ``DurationSeconds`` API parameter or the ``duration-seconds`` AWS CLI parameter to request a longer session. The ``MaxSessionDuration`` setting determines the maximum duration that can be requested using the ``DurationSeconds`` parameter. If users don't specify a value for the ``DurationSeconds`` parameter, their security credentials are valid for one hour by default. This applies when you use the ``AssumeRole*`` API operations or the ``assume-role*`` AWS CLI operations but does not apply when you use those operations to create a console URL. For more information, see `Using IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html>`_ in the *IAM User Guide* .
-        :param path: The path to the role. For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. Default: - "/"
-        :param permissions_boundary: The ARN of the policy used to set the permissions boundary for the role. For more information about permissions boundaries, see `Permissions boundaries for IAM identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* .
-        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM role. When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role. You can update a role's trust policy later. For more information about IAM roles, go to `Using Roles to Delegate Permissions and Federate Identities <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ . A role can also have an attached managed policy. For information about policies, see `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* . For information about limits on the number of inline policies that you can embed with a role, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* . .. epigraph:: If an external policy (such as ``AWS::IAM::Policy`` or ``AWS::IAM::ManagedPolicy`` ) has a ``Ref`` to a role and if a resource (such as ``AWS::ECS::Service`` ) also has a ``Ref`` to the same role, add a ``DependsOn`` attribute to the resource to make the resource depend on the external policy. This dependency ensures that the role's policy is available throughout the resource's lifecycle. For example, when you delete a stack with an ``AWS::ECS::Service`` resource, the ``DependsOn`` attribute ensures that AWS CloudFormation deletes the ``AWS::ECS::Service`` resource before deleting its role's policy.
-        :param role_name: A name for the IAM role, up to 64 characters in length. For valid values, see the ``RoleName`` parameter for the ```CreateRole`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html>`_ action in the *IAM User Guide* . This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The role name must be unique within the account. Role names are not distinguished by case. For example, you cannot create roles named both "Role1" and "role1". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the role name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
-        :param tags: A list of tags that are attached to the role. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7c6fab32)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRoleProps(
-            assume_role_policy_document=assume_role_policy_document,
-            description=description,
-            managed_policy_arns=managed_policy_arns,
-            max_session_duration=max_session_duration,
-            path=path,
-            permissions_boundary=permissions_boundary,
-            policies=policies,
-            role_name=role_name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c17ebfb69a2f5ed9dd9290d6026b842dd5e032f3f0f7aa29ccc996da3be8aa3)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the role. For example:.
-
-        ``{"Fn::GetAtt" : ["MyRole", "Arn"] }``
-
-        This will return a value such as ``arn:aws:iam::1234567890:role/MyRole-AJJHDSKSDF`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrRoleId")
-    def attr_role_id(self) -> builtins.str:
-        '''Returns the stable and unique string identifying the role. For example, ``AIDAJQABLZS4A3QDU576Q`` .
-
-        For more information about IDs, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_identifiers.html>`_ in the *IAM User Guide* .
-
-        :cloudformationAttribute: RoleId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRoleId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> RoleReference:
-        '''A reference to a Role resource.'''
-        return typing.cast(RoleReference, jsii.get(self, "roleRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="assumeRolePolicyDocument")
-    def assume_role_policy_document(self) -> typing.Any:
-        '''The trust policy that is associated with this role.'''
-        return typing.cast(typing.Any, jsii.get(self, "assumeRolePolicyDocument"))
-
-    @assume_role_policy_document.setter
-    def assume_role_policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64edf2fd513d8eaa71e570374ea6368333dca94e9bcd75c06e0cd57bf703237)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assumeRolePolicyDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A description of the role that you provide.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c2a9dbc73d67aad806d2048aa4381abc22ed38266fbe7ad4d0f9363cfdac4a7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyArns")
-    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the role.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "managedPolicyArns"))
-
-    @managed_policy_arns.setter
-    def managed_policy_arns(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__84c396c36f658a4080b46dfbbcb0f9163ca138b4afaf4da438a00378beffede7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="maxSessionDuration")
-    def max_session_duration(self) -> typing.Optional[jsii.Number]:
-        '''The maximum session duration (in seconds) that you want to set for the specified role.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxSessionDuration"))
-
-    @max_session_duration.setter
-    def max_session_duration(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6431acc0b99ad558bc7b549bbfe3e581f937dce92da78253920c201c8cc22e0a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "maxSessionDuration", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path to the role.
-
-        For more information about paths, see `IAM Identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d420d46f77d7cfcfcd09009a0f2eadf9ebada83d085948137f30c8ee4abdd4b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionsBoundary")
-    def permissions_boundary(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the policy used to set the permissions boundary for the role.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "permissionsBoundary"))
-
-    @permissions_boundary.setter
-    def permissions_boundary(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f02795db1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionsBoundary", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policies")
-    def policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRole.PolicyProperty"]]]]:
-        '''Adds or updates an inline policy document that is embedded in the specified IAM role.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRole.PolicyProperty"]]]], jsii.get(self, "policies"))
-
-    @policies.setter
-    def policies(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnRole.PolicyProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleName")
-    def role_name(self) -> typing.Optional[builtins.str]:
-        '''A name for the IAM role, up to 64 characters in length.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleName"))
-
-    @role_name.setter
-    def role_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cff795bef)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that are attached to the role.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_iam.CfnRole.PolicyProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "policy_document": "policyDocument",
-            "policy_name": "policyName",
-        },
-    )
-    class PolicyProperty:
-        def __init__(
-            self,
-            *,
-            policy_document: typing.Any,
-            policy_name: builtins.str,
-        ) -> None:
-            '''Contains information about an attached policy.
-
-            An attached policy is a managed policy that has been attached to a user, group, or role.
-
-            For more information about managed policies, refer to `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-            :param policy_document: The entire contents of the policy that defines permissions. For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
-            :param policy_name: The friendly name (not ARN) identifying the policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-role-policy.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_iam as iam
-                
-                # policy_document: Any
-                
-                policy_property = iam.CfnRole.PolicyProperty(
-                    policy_document=policy_document,
-                    policy_name="policyName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e339dba71f34d8ac881f4a2583a5b3e824a8bb93f479517aebabc1977c8c2ba1)
-                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-                check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "policy_document": policy_document,
-                "policy_name": policy_name,
-            }
-
-        @builtins.property
-        def policy_document(self) -> typing.Any:
-            '''The entire contents of the policy that defines permissions.
-
-            For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-role-policy.html#cfn-iam-role-policy-policydocument
-            '''
-            result = self._values.get("policy_document")
-            assert result is not None, "Required property 'policy_document' is missing"
-            return typing.cast(typing.Any, result)
-
-        @builtins.property
-        def policy_name(self) -> builtins.str:
-            '''The friendly name (not ARN) identifying the policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-role-policy.html#cfn-iam-role-policy-policyname
-            '''
-            result = self._values.get("policy_name")
-            assert result is not None, "Required property 'policy_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PolicyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IRolePolicyRef)
-class CfnRolePolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnRolePolicy",
-):
-    '''Adds or updates an inline policy document that is embedded in the specified IAM role.
-
-    When you embed an inline policy in a role, the inline policy is used as part of the role's access (permissions) policy. The role's trust policy is created at the same time as the role, using ```CreateRole`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_CreateRole.html>`_ . You can update a role's trust policy using ```UpdateAssumeRolePolicy`` <https://docs.aws.amazon.com/IAM/latest/APIReference/API_UpdateAssumeRolePolicy.html>`_ . For information about roles, see `IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/roles-toplevel.html>`_ in the *IAM User Guide* .
-
-    A role can also have a managed policy attached to it. To attach a managed policy to a role, use ```AWS::IAM::Role`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-role.html>`_ . To create a new managed policy, use ```AWS::IAM::ManagedPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html>`_ . For information about policies, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-    For information about the maximum number of inline policies that you can embed with a role, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-rolepolicy.html
-    :cloudformationResource: AWS::IAM::RolePolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_role_policy = iam.CfnRolePolicy(self, "MyCfnRolePolicy",
-            policy_name="policyName",
-            role_name="roleName",
-        
-            # the properties below are optional
-            policy_document=policy_document
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_name: builtins.str,
-        role_name: builtins.str,
-        policy_document: typing.Any = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param role_name: The name of the role to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1532590762c98b830f41db58b5d7333f7f995a90f128be89292c180ecefabf3)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnRolePolicyProps(
-            policy_name=policy_name,
-            role_name=role_name,
-            policy_document=policy_document,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843c350641)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="rolePolicyRef")
-    def role_policy_ref(self) -> RolePolicyReference:
-        '''A reference to a RolePolicy resource.'''
-        return typing.cast(RolePolicyReference, jsii.get(self, "rolePolicyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of the policy document.'''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
-
-    @policy_name.setter
-    def policy_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleName")
-    def role_name(self) -> builtins.str:
-        '''The name of the role to associate the policy with.'''
-        return typing.cast(builtins.str, jsii.get(self, "roleName"))
-
-    @role_name.setter
-    def role_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The policy document.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, ISAMLProviderRef, _ITaggable_36806126)
-class CfnSAMLProvider(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnSAMLProvider",
-):
-    '''Creates an IAM resource that describes an identity provider (IdP) that supports SAML 2.0.
-
-    The SAML provider resource that you create with this operation can be used as a principal in an IAM role's trust policy. Such a policy can enable federated users who sign in using the SAML IdP to assume the role. You can create an IAM role that supports Web-based single sign-on (SSO) to the AWS Management Console or one that supports API access to AWS .
-
-    When you create the SAML provider resource, you upload a SAML metadata document that you get from your IdP. That document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that the IdP sends. You must generate the metadata document using the identity management software that is used as your organization's IdP.
-    .. epigraph::
-
-       This operation requires `Signature Version 4 <https://docs.aws.amazon.com/general/latest/gr/signature-version-4.html>`_ .
-
-    For more information, see `Enabling SAML 2.0 federated users to access the AWS Management Console <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_enable-console-saml.html>`_ and `About SAML 2.0-based federation <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_saml.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-samlprovider.html
-    :cloudformationResource: AWS::IAM::SAMLProvider
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_sAMLProvider = iam.CfnSAMLProvider(self, "MyCfnSAMLProvider",
-            add_private_key="addPrivateKey",
-            assertion_encryption_mode="assertionEncryptionMode",
-            name="name",
-            private_key_list=[iam.CfnSAMLProvider.SAMLPrivateKeyProperty(
-                key_id="keyId",
-                timestamp="timestamp"
-            )],
-            remove_private_key="removePrivateKey",
-            saml_metadata_document="samlMetadataDocument",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        add_private_key: typing.Optional[builtins.str] = None,
-        assertion_encryption_mode: typing.Optional[builtins.str] = None,
-        name: typing.Optional[builtins.str] = None,
-        private_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSAMLProvider.SAMLPrivateKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        remove_private_key: typing.Optional[builtins.str] = None,
-        saml_metadata_document: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param add_private_key: Specifies the new private key from your external identity provider. The private key must be a .pem file that uses AES-GCM or AES-CBC encryption algorithm to decrypt SAML assertions.
-        :param assertion_encryption_mode: Specifies the encryption setting for the SAML provider.
-        :param name: The name of the provider to create. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param private_key_list: The private key metadata for the SAML provider.
-        :param remove_private_key: The Key ID of the private key to remove.
-        :param saml_metadata_document: An XML document generated by an identity provider (IdP) that supports SAML 2.0. The document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that are received from the IdP. You must generate the metadata document using the identity management software that is used as your organization's IdP. For more information, see `About SAML 2.0-based federation <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_providers_saml.html>`_ in the *IAM User Guide*
-        :param tags: A list of tags that you want to attach to the new IAM SAML provider. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d1f3f009)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnSAMLProviderProps(
-            add_private_key=add_private_key,
-            assertion_encryption_mode=assertion_encryption_mode,
-            name=name,
-            private_key_list=private_key_list,
-            remove_private_key=remove_private_key,
-            saml_metadata_document=saml_metadata_document,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aa493901e136133decf51345379fd4b5dd35432e35f354e5dd453eb7daa8245b)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::SAMLProvider`` resource.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrSamlProviderUuid")
-    def attr_saml_provider_uuid(self) -> builtins.str:
-        '''The unique identifier assigned to the SAML provider.
-
-        :cloudformationAttribute: SamlProviderUUID
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrSamlProviderUuid"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="samlProviderRef")
-    def saml_provider_ref(self) -> SAMLProviderReference:
-        '''A reference to a SAMLProvider resource.'''
-        return typing.cast(SAMLProviderReference, jsii.get(self, "samlProviderRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="addPrivateKey")
-    def add_private_key(self) -> typing.Optional[builtins.str]:
-        '''Specifies the new private key from your external identity provider.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "addPrivateKey"))
-
-    @add_private_key.setter
-    def add_private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8eda0b212280ae29b138f852bf55874f8617cd18d7ed484f68edc38bffe20894)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "addPrivateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="assertionEncryptionMode")
-    def assertion_encryption_mode(self) -> typing.Optional[builtins.str]:
-        '''Specifies the encryption setting for the SAML provider.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "assertionEncryptionMode"))
-
-    @assertion_encryption_mode.setter
-    def assertion_encryption_mode(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b22ac38ad8a3fd6af168b0c9077c481244d37477d750cb3920773c2aa0381628)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "assertionEncryptionMode", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> typing.Optional[builtins.str]:
-        '''The name of the provider to create.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c3269877e220a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="privateKeyList")
-    def private_key_list(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]]:
-        '''The private key metadata for the SAML provider.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]], jsii.get(self, "privateKeyList"))
-
-    @private_key_list.setter
-    def private_key_list(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSAMLProvider.SAMLPrivateKeyProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateKeyList", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="removePrivateKey")
-    def remove_private_key(self) -> typing.Optional[builtins.str]:
-        '''The Key ID of the private key to remove.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "removePrivateKey"))
-
-    @remove_private_key.setter
-    def remove_private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ee9b5a78619fab076894e18105c29d8554950dedb6d0b06ebdb5bdcf17266e1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "removePrivateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="samlMetadataDocument")
-    def saml_metadata_document(self) -> typing.Optional[builtins.str]:
-        '''An XML document generated by an identity provider (IdP) that supports SAML 2.0. The document includes the issuer's name, expiration information, and keys that can be used to validate the SAML authentication response (assertions) that are received from the IdP. You must generate the metadata document using the identity management software that is used as your organization's IdP.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "samlMetadataDocument"))
-
-    @saml_metadata_document.setter
-    def saml_metadata_document(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe0e0d57c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "samlMetadataDocument", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the new IAM SAML provider.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_iam.CfnSAMLProvider.SAMLPrivateKeyProperty",
-        jsii_struct_bases=[],
-        name_mapping={"key_id": "keyId", "timestamp": "timestamp"},
-    )
-    class SAMLPrivateKeyProperty:
-        def __init__(self, *, key_id: builtins.str, timestamp: builtins.str) -> None:
-            '''Contains the private keys for the SAML provider.
-
-            This data type is used as a response element in the `GetSAMLProvider <https://docs.aws.amazon.com/IAM/latest/APIReference/API_GetSAMLProvider.html>`_ operation.
-
-            :param key_id: The unique identifier for the SAML private key.
-            :param timestamp: The date and time, in `ISO 8601 date-time <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ format, when the private key was uploaded.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-samlprovider-samlprivatekey.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_iam as iam
-                
-                s_aMLPrivate_key_property = iam.CfnSAMLProvider.SAMLPrivateKeyProperty(
-                    key_id="keyId",
-                    timestamp="timestamp"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e7b8165114a2decbdfd66da703311b43a9b1c50edd7d65c71d2b8484a52e4f02)
-                check_type(argname="argument key_id", value=key_id, expected_type=type_hints["key_id"])
-                check_type(argname="argument timestamp", value=timestamp, expected_type=type_hints["timestamp"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "key_id": key_id,
-                "timestamp": timestamp,
-            }
-
-        @builtins.property
-        def key_id(self) -> builtins.str:
-            '''The unique identifier for the SAML private key.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-samlprovider-samlprivatekey.html#cfn-iam-samlprovider-samlprivatekey-keyid
-            '''
-            result = self._values.get("key_id")
-            assert result is not None, "Required property 'key_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def timestamp(self) -> builtins.str:
-            '''The date and time, in `ISO 8601 date-time <https://docs.aws.amazon.com/http://www.iso.org/iso/iso8601>`_ format, when the private key was uploaded.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-samlprovider-samlprivatekey.html#cfn-iam-samlprovider-samlprivatekey-timestamp
-            '''
-            result = self._values.get("timestamp")
-            assert result is not None, "Required property 'timestamp' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "SAMLPrivateKeyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IServerCertificateRef, _ITaggable_36806126)
-class CfnServerCertificate(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnServerCertificate",
-):
-    '''Uploads a server certificate entity for the AWS account .
-
-    The server certificate entity includes a public key certificate, a private key, and an optional certificate chain, which should all be PEM-encoded.
-
-    We recommend that you use `AWS Certificate Manager <https://docs.aws.amazon.com/acm/>`_ to provision, manage, and deploy your server certificates. With ACM you can request a certificate, deploy it to AWS resources, and let ACM handle certificate renewals for you. Certificates provided by ACM are free. For more information about using ACM, see the `AWS Certificate Manager User Guide <https://docs.aws.amazon.com/acm/latest/userguide/>`_ .
-
-    For more information about working with server certificates, see `Working with server certificates <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_server-certs.html>`_ in the *IAM User Guide* . This topic includes a list of AWS services that can use the server certificates that you manage with IAM.
-
-    For information about the number of server certificates you can upload, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-    .. epigraph::
-
-       Because the body of the public key certificate, private key, and the certificate chain can be large, you should use POST rather than GET when calling ``UploadServerCertificate`` . For information about setting up signatures and authorization through the API, see `Signing AWS API requests <https://docs.aws.amazon.com/general/latest/gr/signing_aws_api_requests.html>`_ in the *AWS General Reference* . For general information about using the Query API with IAM, see `Calling the API by making HTTP query requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/programming.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-servercertificate.html
-    :cloudformationResource: AWS::IAM::ServerCertificate
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_server_certificate = iam.CfnServerCertificate(self, "MyCfnServerCertificate",
-            certificate_body="certificateBody",
-            certificate_chain="certificateChain",
-            path="path",
-            private_key="privateKey",
-            server_certificate_name="serverCertificateName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        certificate_body: typing.Optional[builtins.str] = None,
-        certificate_chain: typing.Optional[builtins.str] = None,
-        path: typing.Optional[builtins.str] = None,
-        private_key: typing.Optional[builtins.str] = None,
-        server_certificate_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param certificate_body: The contents of the public key certificate.
-        :param certificate_chain: The contents of the public key certificate chain.
-        :param path: The path for the server certificate. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters. .. epigraph:: If you are uploading a server certificate specifically for use with Amazon CloudFront distributions, you must specify a path using the ``path`` parameter. The path must begin with ``/cloudfront`` and must include a trailing slash (for example, ``/cloudfront/test/`` ).
-        :param private_key: The contents of the private key in PEM-encoded format. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
-        :param server_certificate_name: The name for the server certificate. Do not include the path in this value. The name of the certificate cannot contain any spaces. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param tags: A list of tags that are attached to the server certificate. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e76e4b5b)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnServerCertificateProps(
-            certificate_body=certificate_body,
-            certificate_chain=certificate_chain,
-            path=path,
-            private_key=private_key,
-            server_certificate_name=server_certificate_name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a54a0dba3e2e40002701a3afd9e2e4bf8ce9a72d2137a4aaa4aa728c81f007a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::ServerCertificate`` resource.
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="serverCertificateRef")
-    def server_certificate_ref(self) -> ServerCertificateReference:
-        '''A reference to a ServerCertificate resource.'''
-        return typing.cast(ServerCertificateReference, jsii.get(self, "serverCertificateRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateBody")
-    def certificate_body(self) -> typing.Optional[builtins.str]:
-        '''The contents of the public key certificate.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateBody"))
-
-    @certificate_body.setter
-    def certificate_body(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87c7211629136fb42c02f367b9448da78ab4e5abfd4d9e04ab0caad5325bb2b2)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateBody", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="certificateChain")
-    def certificate_chain(self) -> typing.Optional[builtins.str]:
-        '''The contents of the public key certificate chain.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "certificateChain"))
-
-    @certificate_chain.setter
-    def certificate_chain(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4ff303b49caa7890566d08d6a2a60ec1a95e65e81edd71a7aa6f85f708e4fdd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "certificateChain", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path for the server certificate.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77ad8bd4800869c88771ef98910278fbbe26e1520e96f812fdbc0837580817e8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="privateKey")
-    def private_key(self) -> typing.Optional[builtins.str]:
-        '''The contents of the private key in PEM-encoded format.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "privateKey"))
-
-    @private_key.setter
-    def private_key(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4203fd09b7317247f69586ca724e62c2ea809be65e02471885451dfe4324b20)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "privateKey", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="serverCertificateName")
-    def server_certificate_name(self) -> typing.Optional[builtins.str]:
-        '''The name for the server certificate.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "serverCertificateName"))
-
-    @server_certificate_name.setter
-    def server_certificate_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e609428f5648)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "serverCertificateName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that are attached to the server certificate.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IServiceLinkedRoleRef)
-class CfnServiceLinkedRole(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnServiceLinkedRole",
-):
-    '''Creates an IAM role that is linked to a specific AWS service.
-
-    The service controls the attached policies and when the role can be deleted. This helps ensure that the service is not broken by an unexpectedly changed or deleted role, which could put your AWS resources into an unknown state. Allowing the service to control the role helps improve service stability and proper cleanup when a service and its role are no longer needed. For more information, see `Using service-linked roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/using-service-linked-roles.html>`_ in the *IAM User Guide* .
-
-    To attach a policy to this service-linked role, you must make the request using the AWS service that depends on this role.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-servicelinkedrole.html
-    :cloudformationResource: AWS::IAM::ServiceLinkedRole
     :exampleMetadata: infused
 
     Example::
 
-        slr = iam.CfnServiceLinkedRole(self, "ElasticSLR",
-            aws_service_name="es.amazonaws.com"
+        # Creates a new IAM user, access and secret keys, and stores the secret access key in a Secret.
+        user = iam.User(self, "User")
+        access_key = iam.AccessKey(self, "AccessKey", user=user)
+        secret = secretsmanager.Secret(self, "Secret",
+            secret_string_value=access_key.secret_access_key
         )
     '''
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        aws_service_name: typing.Optional[builtins.str] = None,
-        custom_suffix: typing.Optional[builtins.str] = None,
-        description: typing.Optional[builtins.str] = None,
+        user: "IUser",
+        serial: typing.Optional[jsii.Number] = None,
+        status: typing.Optional["AccessKeyStatus"] = None,
     ) -> None:
         '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param aws_service_name: The service principal for the AWS service to which this role is attached. You use a string similar to a URL but without the http:// in front. For example: ``elasticbeanstalk.amazonaws.com`` . Service principals are unique and case-sensitive. To find the exact service principal for your service-linked role, see `AWS services that work with IAM <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_aws-services-that-work-with-iam.html>`_ in the *IAM User Guide* . Look for the services that have *Yes* in the *Service-Linked Role* column. Choose the *Yes* link to view the service-linked role documentation for that service.
-        :param custom_suffix: A string that you provide, which is combined with the service-provided prefix to form the complete role name. If you make multiple requests for the same service, then you must supply a different ``CustomSuffix`` for each request. Otherwise the request fails with a duplicate role name error. For example, you could add ``-1`` or ``-debug`` to the suffix. Some services do not support the ``CustomSuffix`` parameter. If you provide an optional suffix and the operation fails, try the operation again without the suffix.
-        :param description: The description of the role.
+        :param scope: -
+        :param id: -
+        :param user: The IAM user this key will belong to. Changing this value will result in the access key being deleted and a new access key (with a different ID and secret value) being assigned to the new user.
+        :param serial: A CloudFormation-specific value that signifies the access key should be replaced/rotated. This value can only be incremented. Incrementing this value will cause CloudFormation to replace the Access Key resource. Default: - No serial value
+        :param status: The status of the access key. An Active access key is allowed to be used to make API calls; An Inactive key cannot. Default: - The access key is active
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d428bb539fd6df78e6e28b0695f366af555fe1f958879857ee30c8067e2af789)
+            type_hints = typing.get_type_hints(_typecheckingstub__604f514db426465dbc092293e7b2e46f5358ddb17770a96f51ef7e6a5f6d15f4)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnServiceLinkedRoleProps(
-            aws_service_name=aws_service_name,
-            custom_suffix=custom_suffix,
-            description=description,
-        )
+        props = AccessKeyProps(user=user, serial=serial, status=status)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f0f81638df3b5467a6f2750e681e60bb99239f2a978002ef69aae000229a742)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
     @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrRoleName")
-    def attr_role_name(self) -> builtins.str:
-        '''Returns the friendly name that identifies the role.
-
-        For example, ``AWSServiceRoleForAutoScaling`` or ``AWSServiceRoleForAutoScaling_TestSuffix`` if a ``CustomSuffix`` is specified.
-
-        :cloudformationAttribute: RoleName
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrRoleName"))
+    @jsii.member(jsii_name="accessKeyId")
+    def access_key_id(self) -> builtins.str:
+        '''The Access Key ID.'''
+        return typing.cast(builtins.str, jsii.get(self, "accessKeyId"))
 
     @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+    @jsii.member(jsii_name="accessKeyRef")
+    def access_key_ref(self) -> "_AccessKeyReference_2bdfd122":
+        '''A reference to a AccessKey resource.'''
+        return typing.cast("_AccessKeyReference_2bdfd122", jsii.get(self, "accessKeyRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="serviceLinkedRoleRef")
-    def service_linked_role_ref(self) -> ServiceLinkedRoleReference:
-        '''A reference to a ServiceLinkedRole resource.'''
-        return typing.cast(ServiceLinkedRoleReference, jsii.get(self, "serviceLinkedRoleRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="awsServiceName")
-    def aws_service_name(self) -> typing.Optional[builtins.str]:
-        '''The service principal for the AWS service to which this role is attached.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "awsServiceName"))
-
-    @aws_service_name.setter
-    def aws_service_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__894356a5067d4595c32429fb905a7c37dbca2ce428fa3c0743817d563a07b673)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "awsServiceName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="customSuffix")
-    def custom_suffix(self) -> typing.Optional[builtins.str]:
-        '''A string that you provide, which is combined with the service-provided prefix to form the complete role name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "customSuffix"))
-
-    @custom_suffix.setter
-    def custom_suffix(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73b7c9779d86988f0dcb8c2282ce3fb8bd23b1db482b7081dbf555457bc45bdc)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "customSuffix", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the role.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
-
-    @description.setter
-    def description(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__796fb2b9a69a72a7ee224d68a6ba88159e7107645a0f704a025f9b8bf7b3d6ce)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IUserRef, _ITaggable_36806126)
-class CfnUser(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnUser",
-):
-    '''Creates a new IAM user for your AWS account .
-
-    For information about quotas for the number of IAM users you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-user.html
-    :cloudformationResource: AWS::IAM::User
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_user = iam.CfnUser(self, "MyCfnUser",
-            groups=["groups"],
-            login_profile=iam.CfnUser.LoginProfileProperty(
-                password="password",
-        
-                # the properties below are optional
-                password_reset_required=False
-            ),
-            managed_policy_arns=["managedPolicyArns"],
-            path="path",
-            permissions_boundary="permissionsBoundary",
-            policies=[iam.CfnUser.PolicyProperty(
-                policy_document=policy_document,
-                policy_name="policyName"
-            )],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            user_name="userName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-        login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.LoginProfileProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[builtins.str] = None,
-        policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnUser.PolicyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        user_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param groups: A list of group names to which you want to add the user.
-        :param login_profile: Creates a password for the specified IAM user. A password allows an IAM user to access AWS services through the AWS Management Console . You can use the AWS CLI , the AWS API, or the *Users* page in the IAM console to create a password for any IAM user. Use `ChangePassword <https://docs.aws.amazon.com/IAM/latest/APIReference/API_ChangePassword.html>`_ to update your own existing password in the *My Security Credentials* page in the AWS Management Console . For more information about managing passwords, see `Managing passwords <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_ManagingLogins.html>`_ in the *IAM User Guide* .
-        :param managed_policy_arns: A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the user. For more information about ARNs, see `Amazon Resource Names (ARNs) and AWS Service Namespaces <https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html>`_ in the *AWS General Reference* .
-        :param path: The path for the user name. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
-        :param permissions_boundary: The ARN of the managed policy that is used to set the permissions boundary for the user. A permissions boundary policy defines the maximum permissions that identity-based policies can grant to an entity, but does not grant permissions. Permissions boundaries do not define the maximum permissions that a resource-based policy can grant to an entity. To learn more, see `Permissions boundaries for IAM entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html>`_ in the *IAM User Guide* . For more information about policy types, see `Policy types <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policy-types>`_ in the *IAM User Guide* .
-        :param policies: Adds or updates an inline policy document that is embedded in the specified IAM user. To view AWS::IAM::User snippets, see `Declaring an IAM User Resource <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/quickref-iam.html#scenario-iam-user>`_ . .. epigraph:: The name of each policy for a role, user, or group must be unique. If you don't choose unique names, updates to the IAM identity will fail. For information about limits on the number of inline policies that you can embed in a user, see `Limitations on IAM Entities <https://docs.aws.amazon.com/IAM/latest/UserGuide/LimitationsOnEntities.html>`_ in the *IAM User Guide* .
-        :param tags: A list of tags that you want to attach to the new user. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
-        :param user_name: The name of the user to create. Do not include the path in this value. This parameter allows (per its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-. The user name must be unique within the account. User names are not distinguished by case. For example, you cannot create users named both "John" and "john". If you don't specify a name, AWS CloudFormation generates a unique physical ID and uses that ID for the user name. If you specify a name, you must specify the ``CAPABILITY_NAMED_IAM`` value to acknowledge your template's capabilities. For more information, see `Acknowledging IAM Resources in AWS CloudFormation Templates <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/using-iam-template.html#using-iam-capabilities>`_ . .. epigraph:: Naming an IAM resource can cause an unrecoverable error if you reuse the same template in multiple Regions. To prevent this, we recommend using ``Fn::Join`` and ``AWS::Region`` to create a Region-specific name, as in the following example: ``{"Fn::Join": ["", [{"Ref": "AWS::Region"}, {"Ref": "MyResourceName"}]]}`` .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4ca523687)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnUserProps(
-            groups=groups,
-            login_profile=login_profile,
-            managed_policy_arns=managed_policy_arns,
-            path=path,
-            permissions_boundary=permissions_boundary,
-            policies=policies,
-            tags=tags,
-            user_name=user_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0ee3dc7778b587a3d4c4511b986f6fc1c9c865253acfb48b0df1fe42cd5f082)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) for the specified ``AWS::IAM::User`` resource.
-
-        For example: ``arn:aws:iam::123456789012:user/mystack-myuser-1CCXAFG2H2U4D`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> UserReference:
-        '''A reference to a User resource.'''
-        return typing.cast(UserReference, jsii.get(self, "userRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groups")
-    def groups(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of group names to which you want to add the user.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "groups"))
-
-    @groups.setter
-    def groups(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d43257f1398)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="loginProfile")
-    def login_profile(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.LoginProfileProperty"]]:
-        '''Creates a password for the specified IAM user.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.LoginProfileProperty"]], jsii.get(self, "loginProfile"))
-
-    @login_profile.setter
-    def login_profile(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnUser.LoginProfileProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "loginProfile", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyArns")
-    def managed_policy_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Amazon Resource Names (ARNs) of the IAM managed policies that you want to attach to the user.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "managedPolicyArns"))
-
-    @managed_policy_arns.setter
-    def managed_policy_arns(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d9bc7aa1272c0c2d7eca931089eb5238a71667de1dd61a5e39d1bb0d80b06ac)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "managedPolicyArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path for the user name.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b45a0c327fbd95f77396687ff75f3c61c77223d854a371180accaa05cec25e6)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="permissionsBoundary")
-    def permissions_boundary(self) -> typing.Optional[builtins.str]:
-        '''The ARN of the managed policy that is used to set the permissions boundary for the user.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "permissionsBoundary"))
-
-    @permissions_boundary.setter
-    def permissions_boundary(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c5312027885dc7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "permissionsBoundary", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policies")
-    def policies(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.PolicyProperty"]]]]:
-        '''Adds or updates an inline policy document that is embedded in the specified IAM user.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.PolicyProperty"]]]], jsii.get(self, "policies"))
-
-    @policies.setter
-    def policies(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnUser.PolicyProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policies", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the new user.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="userName")
-    def user_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the user to create.
-
-        Do not include the path in this value.
-        '''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "userName"))
-
-    @user_name.setter
-    def user_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611efe7c1f3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_iam.CfnUser.LoginProfileProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "password": "password",
-            "password_reset_required": "passwordResetRequired",
-        },
-    )
-    class LoginProfileProperty:
-        def __init__(
-            self,
-            *,
-            password: builtins.str,
-            password_reset_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        ) -> None:
-            '''Creates a password for the specified user, giving the user the ability to access AWS services through the AWS Management Console .
-
-            For more information about managing passwords, see `Managing Passwords <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_ManagingLogins.html>`_ in the *IAM User Guide* .
-
-            :param password: The user's password.
-            :param password_reset_required: Specifies whether the user is required to set a new password on next sign-in.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_iam as iam
-                
-                login_profile_property = iam.CfnUser.LoginProfileProperty(
-                    password="password",
-                
-                    # the properties below are optional
-                    password_reset_required=False
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a)
-                check_type(argname="argument password", value=password, expected_type=type_hints["password"])
-                check_type(argname="argument password_reset_required", value=password_reset_required, expected_type=type_hints["password_reset_required"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "password": password,
-            }
-            if password_reset_required is not None:
-                self._values["password_reset_required"] = password_reset_required
-
-        @builtins.property
-        def password(self) -> builtins.str:
-            '''The user's password.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html#cfn-iam-user-loginprofile-password
-            '''
-            result = self._values.get("password")
-            assert result is not None, "Required property 'password' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def password_reset_required(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether the user is required to set a new password on next sign-in.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-loginprofile.html#cfn-iam-user-loginprofile-passwordresetrequired
-            '''
-            result = self._values.get("password_reset_required")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "LoginProfileProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_iam.CfnUser.PolicyProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "policy_document": "policyDocument",
-            "policy_name": "policyName",
-        },
-    )
-    class PolicyProperty:
-        def __init__(
-            self,
-            *,
-            policy_document: typing.Any,
-            policy_name: builtins.str,
-        ) -> None:
-            '''Contains information about an attached policy.
-
-            An attached policy is a managed policy that has been attached to a user, group, or role.
-
-            For more information about managed policies, refer to `Managed Policies and Inline Policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-            :param policy_document: The entire contents of the policy that defines permissions. For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
-            :param policy_name: The friendly name (not ARN) identifying the policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-policy.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_iam as iam
-                
-                # policy_document: Any
-                
-                policy_property = iam.CfnUser.PolicyProperty(
-                    policy_document=policy_document,
-                    policy_name="policyName"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e10d289e0033a52d00a2a3cfb4f5dd68a85b62b072e59b08358dbe810503669c)
-                check_type(argname="argument policy_document", value=policy_document, expected_type=type_hints["policy_document"])
-                check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "policy_document": policy_document,
-                "policy_name": policy_name,
-            }
-
-        @builtins.property
-        def policy_document(self) -> typing.Any:
-            '''The entire contents of the policy that defines permissions.
-
-            For more information, see `Overview of JSON policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#access_policies-json>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-policy.html#cfn-iam-user-policy-policydocument
-            '''
-            result = self._values.get("policy_document")
-            assert result is not None, "Required property 'policy_document' is missing"
-            return typing.cast(typing.Any, result)
-
-        @builtins.property
-        def policy_name(self) -> builtins.str:
-            '''The friendly name (not ARN) identifying the policy.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user-policy.html#cfn-iam-user-policy-policyname
-            '''
-            result = self._values.get("policy_name")
-            assert result is not None, "Required property 'policy_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "PolicyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IUserPolicyRef)
-class CfnUserPolicy(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnUserPolicy",
-):
-    '''Adds or updates an inline policy document that is embedded in the specified IAM user.
-
-    An IAM user can also have a managed policy attached to it. To attach a managed policy to a user, use ```AWS::IAM::User`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iam-user.html>`_ . To create a new managed policy, use ```AWS::IAM::ManagedPolicy`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-managedpolicy.html>`_ . For information about policies, see `Managed policies and inline policies <https://docs.aws.amazon.com/IAM/latest/UserGuide/policies-managed-vs-inline.html>`_ in the *IAM User Guide* .
-
-    For information about the maximum number of inline policies that you can embed in a user, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-userpolicy.html
-    :cloudformationResource: AWS::IAM::UserPolicy
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        # policy_document: Any
-        
-        cfn_user_policy = iam.CfnUserPolicy(self, "MyCfnUserPolicy",
-            policy_name="policyName",
-            user_name="userName",
-        
-            # the properties below are optional
-            policy_document=policy_document
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        policy_name: builtins.str,
-        user_name: builtins.str,
-        policy_document: typing.Any = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param policy_name: The name of the policy document. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param user_name: The name of the user to associate the policy with. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param policy_document: The policy document. You must provide policies in JSON format in IAM. However, for AWS CloudFormation templates formatted in YAML, you can provide the policy in JSON or YAML format. AWS CloudFormation always converts a YAML policy to JSON format before submitting it to IAM. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ used to validate this parameter is a string of characters consisting of the following: - Any printable ASCII character ranging from the space character ( ``\\u0020`` ) through the end of the ASCII character range - The printable characters in the Basic Latin and Latin-1 Supplement character set (through ``\\u00FF`` ) - The special characters tab ( ``\\u0009`` ), line feed ( ``\\u000A`` ), and carriage return ( ``\\u000D`` )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b09938208fba24d256ecd68450b14a065d6488754943e666f9c0528cd0571773)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnUserPolicyProps(
-            policy_name=policy_name,
-            user_name=user_name,
-            policy_document=policy_document,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae995e3d0)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="userPolicyRef")
-    def user_policy_ref(self) -> UserPolicyReference:
-        '''A reference to a UserPolicy resource.'''
-        return typing.cast(UserPolicyReference, jsii.get(self, "userPolicyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of the policy document.'''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
-
-    @policy_name.setter
-    def policy_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="userName")
-    def user_name(self) -> builtins.str:
-        '''The name of the user to associate the policy with.'''
-        return typing.cast(builtins.str, jsii.get(self, "userName"))
-
-    @user_name.setter
-    def user_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "userName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="policyDocument")
-    def policy_document(self) -> typing.Any:
-        '''The policy document.'''
-        return typing.cast(typing.Any, jsii.get(self, "policyDocument"))
-
-    @policy_document.setter
-    def policy_document(self, value: typing.Any) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "policyDocument", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IUserToGroupAdditionRef)
-class CfnUserToGroupAddition(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnUserToGroupAddition",
-):
-    '''Adds the specified user to the specified group.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-usertogroupaddition.html
-    :cloudformationResource: AWS::IAM::UserToGroupAddition
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_user_to_group_addition = iam.CfnUserToGroupAddition(self, "MyCfnUserToGroupAddition",
-            group_name="groupName",
-            users=["users"]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        group_name: builtins.str,
-        users: typing.Sequence[builtins.str],
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param group_name: The name of the group to update. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        :param users: A list of the names of the users that you want to add to the group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cff069f9e69e3551ebb007914281abb14f05e8d822825ab91577ecf95414ffb)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnUserToGroupAdditionProps(group_name=group_name, users=users)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34d58a01767f256628192ca708cd20a48bd1b0ad6795595846565c2c84e235e8)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The stable and unique string identifying the group.
-
-        For more information about IDs, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* .
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="userToGroupAdditionRef")
-    def user_to_group_addition_ref(self) -> UserToGroupAdditionReference:
-        '''A reference to a UserToGroupAddition resource.'''
-        return typing.cast(UserToGroupAdditionReference, jsii.get(self, "userToGroupAdditionRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groupName")
-    def group_name(self) -> builtins.str:
-        '''The name of the group to update.'''
-        return typing.cast(builtins.str, jsii.get(self, "groupName"))
-
-    @group_name.setter
-    def group_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80988c0737b217a15fbc51dd191617d213752314ac76d041cba72fa2fbca3c04)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "groupName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="users")
-    def users(self) -> typing.List[builtins.str]:
-        '''A list of the names of the users that you want to add to the group.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "users"))
-
-    @users.setter
-    def users(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9633608428e6d8df416ba93dfbf3f5248605fc8d2d8dc1be95067a291eb4223e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IVirtualMFADeviceRef, _ITaggable_36806126)
-class CfnVirtualMFADevice(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.CfnVirtualMFADevice",
-):
-    '''Creates a new virtual MFA device for the AWS account .
-
-    After creating the virtual MFA, use `EnableMFADevice <https://docs.aws.amazon.com/IAM/latest/APIReference/API_EnableMFADevice.html>`_ to attach the MFA device to an IAM user. For more information about creating and working with virtual MFA devices, see `Using a virtual MFA device <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_VirtualMFA.html>`_ in the *IAM User Guide* .
-
-    For information about the maximum number of MFA devices you can create, see `IAM and AWS STS quotas <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_iam-quotas.html>`_ in the *IAM User Guide* .
-    .. epigraph::
-
-       The seed information contained in the QR code and the Base32 string should be treated like any other secret access information. In other words, protect the seed information as you would your AWS access keys or your passwords. After you provision your virtual device, you should ensure that the information is destroyed following secure procedures.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iam-virtualmfadevice.html
-    :cloudformationResource: AWS::IAM::VirtualMFADevice
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_iam as iam
-        
-        cfn_virtual_mFADevice = iam.CfnVirtualMFADevice(self, "MyCfnVirtualMFADevice",
-            users=["users"],
-        
-            # the properties below are optional
-            path="path",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            virtual_mfa_device_name="virtualMfaDeviceName"
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        users: typing.Sequence[builtins.str],
-        path: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        virtual_mfa_device_name: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param users: The IAM user associated with this virtual MFA device.
-        :param path: The path for the virtual MFA device. For more information about paths, see `IAM identifiers <https://docs.aws.amazon.com/IAM/latest/UserGuide/Using_Identifiers.html>`_ in the *IAM User Guide* . This parameter is optional. If it is not included, it defaults to a slash (/). This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! ( ``\\u0021`` ) through the DEL character ( ``\\u007F`` ), including most punctuation characters, digits, and upper and lowercased letters.
-        :param tags: A list of tags that you want to attach to the new IAM virtual MFA device. Each tag consists of a key name and an associated value. For more information about tagging, see `Tagging IAM resources <https://docs.aws.amazon.com/IAM/latest/UserGuide/id_tags.html>`_ in the *IAM User Guide* . .. epigraph:: If any one of the tags is invalid or if you exceed the allowed maximum number of tags, then the entire request fails and the resource is not created.
-        :param virtual_mfa_device_name: The name of the virtual MFA device, which must be unique. Use with path to uniquely identify a virtual MFA device. This parameter allows (through its `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ ) a string of characters consisting of upper and lowercase alphanumeric characters with no spaces. You can also include any of the following characters: _+=,.@-
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc49399a99)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnVirtualMFADeviceProps(
-            users=users,
-            path=path,
-            tags=tags,
-            virtual_mfa_device_name=virtual_mfa_device_name,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95acd7cc3c337be75e6e1344aafe2900ca56480c92605d270e827237b04933d9)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrSerialNumber")
-    def attr_serial_number(self) -> builtins.str:
-        '''Returns the serial number for the specified ``AWS::IAM::VirtualMFADevice`` resource.
-
-        :cloudformationAttribute: SerialNumber
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrSerialNumber"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="virtualMfaDeviceRef")
-    def virtual_mfa_device_ref(self) -> VirtualMFADeviceReference:
-        '''A reference to a VirtualMFADevice resource.'''
-        return typing.cast(VirtualMFADeviceReference, jsii.get(self, "virtualMfaDeviceRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="users")
-    def users(self) -> typing.List[builtins.str]:
-        '''The IAM user associated with this virtual MFA device.'''
-        return typing.cast(typing.List[builtins.str], jsii.get(self, "users"))
-
-    @users.setter
-    def users(self, value: typing.List[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62933eb2630cbda8cd521b55437211294e28433e9f2916bffa9f4987d4a9aa8c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "users", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> typing.Optional[builtins.str]:
-        '''The path for the virtual MFA device.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "path"))
-
-    @path.setter
-    def path(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75e1d03c8)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "path", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the new IAM virtual MFA device.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="virtualMfaDeviceName")
-    def virtual_mfa_device_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the virtual MFA device, which must be unique.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "virtualMfaDeviceName"))
-
-    @virtual_mfa_device_name.setter
-    def virtual_mfa_device_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b5456135f25b9d08fb97dae8235054f6111c0d6ff6cb6ca028c6c552d38b10cd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "virtualMfaDeviceName", value) # pyright: ignore[reportArgumentType]
+    @jsii.member(jsii_name="secretAccessKey")
+    def secret_access_key(self) -> "_SecretValue_3dd0ddae":
+        '''The Secret Access Key.'''
+        return typing.cast("_SecretValue_3dd0ddae", jsii.get(self, "secretAccessKey"))
 
 
 @jsii.data_type(
@@ -13502,12 +13446,12 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         self,
         *,
         actions: typing.Sequence[builtins.str],
-        grantee: IGrantable,
+        grantee: "IGrantable",
         resource_arns: typing.Sequence[builtins.str],
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-        resource: IResourceWithPolicy,
+        resource: "IResourceWithPolicyV2",
         resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        statement: PolicyStatement,
+        statement: "PolicyStatement",
     ) -> None:
         '''Options for a grant operation that directly adds a policy statement to a resource.
 
@@ -13521,7 +13465,7 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         :param conditions: Any conditions to attach to the grant. Default: - No conditions
         :param resource: The resource with a resource policy. The statement will be added to the resource policy if it couldn't be added to the principal policy.
         :param resource_self_arns: When referring to the resource in a resource policy, use this as ARN. (Depending on the resource type, this needs to be '*' in a resource policy). Default: Same as regular resource ARNs
-        :param statement: The policy statement to add to the resource's policy. This statement will be passed to the resource's addToResourcePolicy method. The actual handling of the statement depends on the specific IResourceWithPolicy implementation.
+        :param statement: The policy statement to add to the resource's policy. This statement will be passed to the resource's addToResourcePolicy method. The actual handling of the statement depends on the specific IResourceWithPolicyV2 implementation.
 
         :exampleMetadata: infused
 
@@ -13580,14 +13524,14 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         return typing.cast(typing.List[builtins.str], result)
 
     @builtins.property
-    def grantee(self) -> IGrantable:
+    def grantee(self) -> "IGrantable":
         '''The principal to grant to.
 
         :default: if principal is undefined, no work is done.
         '''
         result = self._values.get("grantee")
         assert result is not None, "Required property 'grantee' is missing"
-        return typing.cast(IGrantable, result)
+        return typing.cast("IGrantable", result)
 
     @builtins.property
     def resource_arns(self) -> typing.List[builtins.str]:
@@ -13608,7 +13552,7 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]], result)
 
     @builtins.property
-    def resource(self) -> IResourceWithPolicy:
+    def resource(self) -> "IResourceWithPolicyV2":
         '''The resource with a resource policy.
 
         The statement will be added to the resource policy if it couldn't be
@@ -13616,7 +13560,7 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         '''
         result = self._values.get("resource")
         assert result is not None, "Required property 'resource' is missing"
-        return typing.cast(IResourceWithPolicy, result)
+        return typing.cast("IResourceWithPolicyV2", result)
 
     @builtins.property
     def resource_self_arns(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -13630,16 +13574,16 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def statement(self) -> PolicyStatement:
+    def statement(self) -> "PolicyStatement":
         '''The policy statement to add to the resource's policy.
 
         This statement will be passed to the resource's addToResourcePolicy method.
-        The actual handling of the statement depends on the specific IResourceWithPolicy
+        The actual handling of the statement depends on the specific IResourceWithPolicyV2
         implementation.
         '''
         result = self._values.get("statement")
         assert result is not None, "Required property 'statement' is missing"
-        return typing.cast(PolicyStatement, result)
+        return typing.cast("PolicyStatement", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -13651,65 +13595,6 @@ class GrantPolicyWithResourceOptions(GrantWithResourceOptions):
         return "GrantPolicyWithResourceOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IAccessKey")
-class IAccessKey(_IResource_c80c4260, IAccessKeyRef, typing_extensions.Protocol):
-    '''Represents an IAM Access Key.
-
-    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="accessKeyId")
-    def access_key_id(self) -> builtins.str:
-        '''The Access Key ID.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="secretAccessKey")
-    def secret_access_key(self) -> _SecretValue_3dd0ddae:
-        '''The Secret Access Key.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IAccessKeyProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(IAccessKeyRef), # type: ignore[misc]
-):
-    '''Represents an IAM Access Key.
-
-    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_access-keys.html
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IAccessKey"
-
-    @builtins.property
-    @jsii.member(jsii_name="accessKeyId")
-    def access_key_id(self) -> builtins.str:
-        '''The Access Key ID.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "accessKeyId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="secretAccessKey")
-    def secret_access_key(self) -> _SecretValue_3dd0ddae:
-        '''The Secret Access Key.
-
-        :attribute: true
-        '''
-        return typing.cast(_SecretValue_3dd0ddae, jsii.get(self, "secretAccessKey"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAccessKey).__jsii_proxy_class__ = lambda : _IAccessKeyProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IAssumeRolePrincipal")
@@ -13724,7 +13609,7 @@ class IAssumeRolePrincipal(IPrincipal, typing_extensions.Protocol):
     '''
 
     @jsii.member(jsii_name="addToAssumeRolePolicy")
-    def add_to_assume_role_policy(self, document: PolicyDocument) -> None:
+    def add_to_assume_role_policy(self, document: "PolicyDocument") -> None:
         '''Add the principal to the AssumeRolePolicyDocument.
 
         Add the statements to the AssumeRolePolicyDocument necessary to give this principal
@@ -13750,7 +13635,7 @@ class _IAssumeRolePrincipalProxy(
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IAssumeRolePrincipal"
 
     @jsii.member(jsii_name="addToAssumeRolePolicy")
-    def add_to_assume_role_policy(self, document: PolicyDocument) -> None:
+    def add_to_assume_role_policy(self, document: "PolicyDocument") -> None:
         '''Add the principal to the AssumeRolePolicyDocument.
 
         Add the statements to the AssumeRolePolicyDocument necessary to give this principal
@@ -13803,7 +13688,10 @@ typing.cast(typing.Any, IComparablePrincipal).__jsii_proxy_class__ = lambda : _I
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IIdentity")
 class IIdentity(IPrincipal, _IResource_c80c4260, typing_extensions.Protocol):
-    '''A construct that represents an IAM principal, such as a user, group or role.'''
+    '''A construct that represents an IAM principal, such as a user, group or role.
+
+    [awslint:interface-extends-ref]
+    '''
 
     @jsii.member(jsii_name="addManagedPolicy")
     def add_managed_policy(self, policy: "IManagedPolicy") -> None:
@@ -13828,7 +13716,10 @@ class _IIdentityProxy(
     jsii.proxy_for(IPrincipal), # type: ignore[misc]
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
 ):
-    '''A construct that represents an IAM principal, such as a user, group or role.'''
+    '''A construct that represents an IAM principal, such as a user, group or role.
+
+    [awslint:interface-extends-ref]
+    '''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IIdentity"
 
@@ -13860,152 +13751,48 @@ class _IIdentityProxy(
 typing.cast(typing.Any, IIdentity).__jsii_proxy_class__ = lambda : _IIdentityProxy
 
 
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IInstanceProfile")
-class IInstanceProfile(
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourceWithPolicy")
+class IResourceWithPolicy(
+    IResourceWithPolicyV2,
     _IResource_c80c4260,
-    IInstanceProfileRef,
     typing_extensions.Protocol,
 ):
-    '''Represents an IAM Instance Profile.'''
+    '''(deprecated) A resource with a resource policy that can be added to.
 
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileArn")
-    def instance_profile_arn(self) -> builtins.str:
-        '''The InstanceProfile's ARN.
+    This interface is maintained for backwards compatibility, but should
+    not be used in new code. Prefer ``IResourceWithPolicyV2`` instead.
 
-        :attribute: true
-        '''
-        ...
+    :deprecated: Implement ``IResourceWithPolicyV2`` instead.
 
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileName")
-    def instance_profile_name(self) -> builtins.str:
-        '''The InstanceProfile's name.
-
-        :attribute: true
-        '''
-        ...
-
-    @builtins.property
-    @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["IRole"]:
-        '''The role associated with the InstanceProfile.'''
-        ...
-
-
-class _IInstanceProfileProxy(
-    jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(IInstanceProfileRef), # type: ignore[misc]
-):
-    '''Represents an IAM Instance Profile.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IInstanceProfile"
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileArn")
-    def instance_profile_arn(self) -> builtins.str:
-        '''The InstanceProfile's ARN.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "instanceProfileArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileName")
-    def instance_profile_name(self) -> builtins.str:
-        '''The InstanceProfile's name.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "instanceProfileName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional["IRole"]:
-        '''The role associated with the InstanceProfile.'''
-        return typing.cast(typing.Optional["IRole"], jsii.get(self, "role"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInstanceProfile).__jsii_proxy_class__ = lambda : _IInstanceProfileProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IManagedPolicy")
-class IManagedPolicy(IManagedPolicyRef, typing_extensions.Protocol):
-    '''A managed policy.'''
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyArn")
-    def managed_policy_arn(self) -> builtins.str:
-        '''The ARN of the managed policy.
-
-        :attribute: true
-        '''
-        ...
-
-
-class _IManagedPolicyProxy(
-    jsii.proxy_for(IManagedPolicyRef), # type: ignore[misc]
-):
-    '''A managed policy.'''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IManagedPolicy"
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyArn")
-    def managed_policy_arn(self) -> builtins.str:
-        '''The ARN of the managed policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "managedPolicyArn"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IManagedPolicy).__jsii_proxy_class__ = lambda : _IManagedPolicyProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IPolicy")
-class IPolicy(_IResource_c80c4260, IPolicyRef, typing_extensions.Protocol):
-    '''Represents an IAM Policy.
-
-    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html
+    :stability: deprecated
     '''
 
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of this policy.
-
-        :attribute: true
-        '''
-        ...
+    pass
 
 
-class _IPolicyProxy(
+class _IResourceWithPolicyProxy(
+    jsii.proxy_for(IResourceWithPolicyV2), # type: ignore[misc]
     jsii.proxy_for(_IResource_c80c4260), # type: ignore[misc]
-    jsii.proxy_for(IPolicyRef), # type: ignore[misc]
 ):
-    '''Represents an IAM Policy.
+    '''(deprecated) A resource with a resource policy that can be added to.
 
-    :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_manage.html
+    This interface is maintained for backwards compatibility, but should
+    not be used in new code. Prefer ``IResourceWithPolicyV2`` instead.
+
+    :deprecated: Implement ``IResourceWithPolicyV2`` instead.
+
+    :stability: deprecated
     '''
 
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IPolicy"
-
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of this policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IResourceWithPolicy"
+    pass
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPolicy).__jsii_proxy_class__ = lambda : _IPolicyProxy
+typing.cast(typing.Any, IResourceWithPolicy).__jsii_proxy_class__ = lambda : _IResourceWithPolicyProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IRole")
-class IRole(IIdentity, IRoleRef, typing_extensions.Protocol):
+class IRole(IIdentity, _IRoleRef_8400221f, typing_extensions.Protocol):
     '''A Role object.'''
 
     @builtins.property
@@ -14027,7 +13814,7 @@ class IRole(IIdentity, IRoleRef, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grant")
-    def grant(self, grantee: IPrincipal, *actions: builtins.str) -> Grant:
+    def grant(self, grantee: "IPrincipal", *actions: builtins.str) -> "Grant":
         '''Grant the actions defined in actions to the identity Principal on this resource.
 
         :param grantee: -
@@ -14036,7 +13823,7 @@ class IRole(IIdentity, IRoleRef, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantAssumeRole")
-    def grant_assume_role(self, grantee: IPrincipal) -> Grant:
+    def grant_assume_role(self, grantee: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to assume this role.
 
         :param grantee: -
@@ -14044,7 +13831,7 @@ class IRole(IIdentity, IRoleRef, typing_extensions.Protocol):
         ...
 
     @jsii.member(jsii_name="grantPassRole")
-    def grant_pass_role(self, grantee: IPrincipal) -> Grant:
+    def grant_pass_role(self, grantee: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to pass this role.
 
         :param grantee: -
@@ -14054,7 +13841,7 @@ class IRole(IIdentity, IRoleRef, typing_extensions.Protocol):
 
 class _IRoleProxy(
     jsii.proxy_for(IIdentity), # type: ignore[misc]
-    jsii.proxy_for(IRoleRef), # type: ignore[misc]
+    jsii.proxy_for(_IRoleRef_8400221f), # type: ignore[misc]
 ):
     '''A Role object.'''
 
@@ -14079,7 +13866,7 @@ class _IRoleProxy(
         return typing.cast(builtins.str, jsii.get(self, "roleName"))
 
     @jsii.member(jsii_name="grant")
-    def grant(self, grantee: IPrincipal, *actions: builtins.str) -> Grant:
+    def grant(self, grantee: "IPrincipal", *actions: builtins.str) -> "Grant":
         '''Grant the actions defined in actions to the identity Principal on this resource.
 
         :param grantee: -
@@ -14089,10 +13876,10 @@ class _IRoleProxy(
             type_hints = typing.get_type_hints(_typecheckingstub__67e856ddb493b4542dc716dcab0126ed6ac149cd365202cb608c313320eb7b58)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(Grant, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantAssumeRole")
-    def grant_assume_role(self, grantee: IPrincipal) -> Grant:
+    def grant_assume_role(self, grantee: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to assume this role.
 
         :param grantee: -
@@ -14100,10 +13887,10 @@ class _IRoleProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b0b3c996a892c638167074eb637574936aa29a63e5e76ed7d460ff90993815e6)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(Grant, jsii.invoke(self, "grantAssumeRole", [grantee]))
+        return typing.cast("Grant", jsii.invoke(self, "grantAssumeRole", [grantee]))
 
     @jsii.member(jsii_name="grantPassRole")
-    def grant_pass_role(self, grantee: IPrincipal) -> Grant:
+    def grant_pass_role(self, grantee: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to pass this role.
 
         :param grantee: -
@@ -14111,14 +13898,14 @@ class _IRoleProxy(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a259325b943101480d852a30d681aee828d57198b8501de84e4d9963505af62)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
-        return typing.cast(Grant, jsii.invoke(self, "grantPassRole", [grantee]))
+        return typing.cast("Grant", jsii.invoke(self, "grantPassRole", [grantee]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IRole).__jsii_proxy_class__ = lambda : _IRoleProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IUser")
-class IUser(IIdentity, IUserRef, typing_extensions.Protocol):
+class IUser(IIdentity, _IUserRef_b0ccca76, typing_extensions.Protocol):
     '''Represents an IAM user.
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_users.html
@@ -14153,7 +13940,7 @@ class IUser(IIdentity, IUserRef, typing_extensions.Protocol):
 
 class _IUserProxy(
     jsii.proxy_for(IIdentity), # type: ignore[misc]
-    jsii.proxy_for(IUserRef), # type: ignore[misc]
+    jsii.proxy_for(_IUserRef_b0ccca76), # type: ignore[misc]
 ):
     '''Represents an IAM user.
 
@@ -14193,160 +13980,6 @@ class _IUserProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IUser).__jsii_proxy_class__ = lambda : _IUserProxy
-
-
-@jsii.implements(IInstanceProfile)
-class InstanceProfile(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.InstanceProfile",
-):
-    '''IAM Instance Profile.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        role = iam.Role(self, "Role",
-            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com")
-        )
-        
-        instance_profile = iam.InstanceProfile.from_instance_profile_attributes(self, "ImportedInstanceProfile",
-            instance_profile_arn="arn:aws:iam::account-id:instance-profile/MyInstanceProfile",
-            role=role
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        instance_profile_name: typing.Optional[builtins.str] = None,
-        path: typing.Optional[builtins.str] = None,
-        role: typing.Optional[IRole] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param instance_profile_name: The name of the InstanceProfile to create. Default: - generated by CloudFormation
-        :param path: The path to the InstanceProfile. Default: /
-        :param role: An IAM role to associate with the instance profile that is used by EC2 instances. The role must be assumable by the service principal ``ec2.amazonaws.com``: Default: - a role will be automatically created, it can be accessed via the ``role`` property
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47902e96d39fe1f772c15032b60b34efd5f4ebb64e4f7d08d924c04ab8393203)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = InstanceProfileProps(
-            instance_profile_name=instance_profile_name, path=path, role=role
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromInstanceProfileArn")
-    @builtins.classmethod
-    def from_instance_profile_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        instance_profile_arn: builtins.str,
-    ) -> IInstanceProfile:
-        '''Import an existing InstanceProfile from an InstanceProfile ARN.
-
-        If the ARN comes from a Token, the InstanceProfile cannot have a path; if so, any attempt
-        to reference its instanceProfileName will fail.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        :param instance_profile_arn: the ARN of the exiting InstanceProfile to import.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c5f92c9eb36073e3604dae6b3449d6b3ce102597766d24026143d8edc87c0a1)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
-        return typing.cast(IInstanceProfile, jsii.sinvoke(cls, "fromInstanceProfileArn", [scope, id, instance_profile_arn]))
-
-    @jsii.member(jsii_name="fromInstanceProfileAttributes")
-    @builtins.classmethod
-    def from_instance_profile_attributes(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        instance_profile_arn: builtins.str,
-        role: typing.Optional[IRole] = None,
-    ) -> IInstanceProfile:
-        '''Import an existing InstanceProfile from given InstanceProfile attributes.
-
-        If the ARN comes from a Token, the InstanceProfile cannot have a path; if so, any attempt
-        to reference its instanceProfileName will fail.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        :param instance_profile_arn: The ARN of the InstanceProfile. Format: arn::iam:::instance-profile/
-        :param role: The role associated with the InstanceProfile. Default: - no role
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4829ea04dde958ee082c71fd13dbdde279a49cce33d5b0cd09b7c5dc1a90e0a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        attrs = InstanceProfileAttributes(
-            instance_profile_arn=instance_profile_arn, role=role
-        )
-
-        return typing.cast(IInstanceProfile, jsii.sinvoke(cls, "fromInstanceProfileAttributes", [scope, id, attrs]))
-
-    @jsii.member(jsii_name="fromInstanceProfileName")
-    @builtins.classmethod
-    def from_instance_profile_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        instance_profile_name: builtins.str,
-    ) -> IInstanceProfile:
-        '''Import an existing InstanceProfile from an InstanceProfile name.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        :param instance_profile_name: the name of the existing InstanceProfile to import.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7870e30876638f54c4d41cd7645fabe3356a94b6ede305036ccf59d622f572e)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument instance_profile_name", value=instance_profile_name, expected_type=type_hints["instance_profile_name"])
-        return typing.cast(IInstanceProfile, jsii.sinvoke(cls, "fromInstanceProfileName", [scope, id, instance_profile_name]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileArn")
-    def instance_profile_arn(self) -> builtins.str:
-        '''Returns the ARN of this InstanceProfile.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceProfileArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileName")
-    def instance_profile_name(self) -> builtins.str:
-        '''Returns the name of this InstanceProfile.'''
-        return typing.cast(builtins.str, jsii.get(self, "instanceProfileName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> InstanceProfileReference:
-        '''A reference to a InstanceProfile resource.'''
-        return typing.cast(InstanceProfileReference, jsii.get(self, "instanceProfileRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional[IRole]:
-        '''Returns the role associated with this InstanceProfile.'''
-        return typing.cast(typing.Optional[IRole], jsii.get(self, "role"))
 
 
 @jsii.implements(IRole)
@@ -14396,17 +14029,17 @@ class LazyRole(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        assumed_by: IPrincipal,
+        assumed_by: "IPrincipal",
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
-        managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-        max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
+        managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
+        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -14441,7 +14074,7 @@ class LazyRole(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="addManagedPolicy")
-    def add_managed_policy(self, policy: IManagedPolicy) -> None:
+    def add_managed_policy(self, policy: "IManagedPolicy") -> None:
         '''Attaches a managed policy to this role.
 
         :param policy: The managed policy to attach.
@@ -14452,7 +14085,7 @@ class LazyRole(
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -14465,8 +14098,8 @@ class LazyRole(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Adds a permission to the role's default policy document.
 
         If there is no default policy attached to this role, it will be created.
@@ -14476,7 +14109,7 @@ class LazyRole(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__360ff356db658c7d68d451f8da5ae3d55112b9a2f638786bc4cdaea9658802b8)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="attachInlinePolicy")
     def attach_inline_policy(self, policy: "Policy") -> None:
@@ -14490,7 +14123,7 @@ class LazyRole(
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
     @jsii.member(jsii_name="grant")
-    def grant(self, identity: IPrincipal, *actions: builtins.str) -> Grant:
+    def grant(self, identity: "IPrincipal", *actions: builtins.str) -> "Grant":
         '''Grant the actions defined in actions to the identity Principal on this resource.
 
         :param identity: -
@@ -14500,10 +14133,10 @@ class LazyRole(
             type_hints = typing.get_type_hints(_typecheckingstub__31e7156ac8208f98f3be102fb3156e3f6bcdf5fe871d6df26b60c2e9cf69336f)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(Grant, jsii.invoke(self, "grant", [identity, *actions]))
+        return typing.cast("Grant", jsii.invoke(self, "grant", [identity, *actions]))
 
     @jsii.member(jsii_name="grantAssumeRole")
-    def grant_assume_role(self, identity: IPrincipal) -> Grant:
+    def grant_assume_role(self, identity: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to assume this role.
 
         :param identity: -
@@ -14511,10 +14144,10 @@ class LazyRole(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d09b1058d1d2350165fea6b922b2c0fe02ec3216af993738db1f47c4932c55f)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(Grant, jsii.invoke(self, "grantAssumeRole", [identity]))
+        return typing.cast("Grant", jsii.invoke(self, "grantAssumeRole", [identity]))
 
     @jsii.member(jsii_name="grantPassRole")
-    def grant_pass_role(self, identity: IPrincipal) -> Grant:
+    def grant_pass_role(self, identity: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to pass this role.
 
         :param identity: -
@@ -14522,7 +14155,7 @@ class LazyRole(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6367cadac69d2b22537737f04814197b71e654eb8d432cbd5b41e484577f1446)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(Grant, jsii.invoke(self, "grantPassRole", [identity]))
+        return typing.cast("Grant", jsii.invoke(self, "grantPassRole", [identity]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -14538,15 +14171,15 @@ class LazyRole(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
+    def grant_principal(self) -> "IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -14571,9 +14204,9 @@ class LazyRole(
 
     @builtins.property
     @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> RoleReference:
+    def role_ref(self) -> "_RoleReference_447077bb":
         '''A reference to a Role resource.'''
-        return typing.cast(RoleReference, jsii.get(self, "roleRef"))
+        return typing.cast("_RoleReference_447077bb", jsii.get(self, "roleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -14607,14 +14240,14 @@ class LazyRoleProps(RoleProps):
     def __init__(
         self,
         *,
-        assumed_by: IPrincipal,
+        assumed_by: "IPrincipal",
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
-        managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-        max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
+        managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
+        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a LazyRole.
@@ -14690,7 +14323,7 @@ class LazyRoleProps(RoleProps):
             self._values["role_name"] = role_name
 
     @builtins.property
-    def assumed_by(self) -> IPrincipal:
+    def assumed_by(self) -> "IPrincipal":
         '''The IAM principal (i.e. ``new ServicePrincipal('sns.amazonaws.com')``) which can assume this role.
 
         You can later modify the assume role policy document by accessing it via
@@ -14698,7 +14331,7 @@ class LazyRoleProps(RoleProps):
         '''
         result = self._values.get("assumed_by")
         assert result is not None, "Required property 'assumed_by' is missing"
-        return typing.cast(IPrincipal, result)
+        return typing.cast("IPrincipal", result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
@@ -14726,7 +14359,7 @@ class LazyRoleProps(RoleProps):
     @builtins.property
     def inline_policies(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, PolicyDocument]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]]:
         '''A list of named policies to inline into this role.
 
         These policies will be
@@ -14737,10 +14370,10 @@ class LazyRoleProps(RoleProps):
         :default: - No policy is inlined in the Role resource.
         '''
         result = self._values.get("inline_policies")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, PolicyDocument]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]], result)
 
     @builtins.property
-    def managed_policies(self) -> typing.Optional[typing.List[IManagedPolicy]]:
+    def managed_policies(self) -> typing.Optional[typing.List["IManagedPolicy"]]:
         '''A list of managed policies associated with this role.
 
         You can add managed policies later using
@@ -14749,10 +14382,10 @@ class LazyRoleProps(RoleProps):
         :default: - No managed policies.
         '''
         result = self._values.get("managed_policies")
-        return typing.cast(typing.Optional[typing.List[IManagedPolicy]], result)
+        return typing.cast(typing.Optional[typing.List["IManagedPolicy"]], result)
 
     @builtins.property
-    def max_session_duration(self) -> typing.Optional[_Duration_4839e8c3]:
+    def max_session_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The maximum session duration that you want to set for the specified role.
 
         This setting can have a value from 1 hour (3600sec) to 12 (43200sec) hours.
@@ -14773,7 +14406,7 @@ class LazyRoleProps(RoleProps):
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles_use.html
         '''
         result = self._values.get("max_session_duration")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def path(self) -> typing.Optional[builtins.str]:
@@ -14788,7 +14421,7 @@ class LazyRoleProps(RoleProps):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def permissions_boundary(self) -> typing.Optional[IManagedPolicy]:
+    def permissions_boundary(self) -> typing.Optional["IManagedPolicy"]:
         '''AWS supports permissions boundaries for IAM entities (users or roles).
 
         A permissions boundary is an advanced feature for using a managed policy
@@ -14802,7 +14435,7 @@ class LazyRoleProps(RoleProps):
         :link: https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies_boundaries.html
         '''
         result = self._values.get("permissions_boundary")
-        return typing.cast(typing.Optional[IManagedPolicy], result)
+        return typing.cast(typing.Optional["IManagedPolicy"], result)
 
     @builtins.property
     def role_name(self) -> typing.Optional[builtins.str]:
@@ -14839,435 +14472,6 @@ class LazyRoleProps(RoleProps):
         )
 
 
-@jsii.implements(IManagedPolicy, IGrantable)
-class ManagedPolicy(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.ManagedPolicy",
-):
-    '''Managed policy.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # build: gamelift.Build
-        
-        role = iam.Role(self, "Role",
-            assumed_by=iam.CompositePrincipal(iam.ServicePrincipal("gamelift.amazonaws.com"))
-        )
-        role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("CloudWatchAgentServerPolicy"))
-        
-        fleet = gamelift.BuildFleet(self, "Game server fleet",
-            fleet_name="test-fleet",
-            content=build,
-            instance_type=ec2.InstanceType.of(ec2.InstanceClass.C5, ec2.InstanceSize.LARGE),
-            runtime_configuration=gamelift.RuntimeConfiguration(
-                server_processes=[gamelift.ServerProcess(
-                    launch_path="/local/game/GameLiftExampleServer.x86_64"
-                )]
-            ),
-            role=role
-        )
-        
-        # Actions can also be grantted through dedicated method
-        fleet.grant(role, "gamelift:ListFleets")
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        description: typing.Optional[builtins.str] = None,
-        document: typing.Optional[PolicyDocument] = None,
-        groups: typing.Optional[typing.Sequence[IGroupRef]] = None,
-        managed_policy_name: typing.Optional[builtins.str] = None,
-        path: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Sequence[IRole]] = None,
-        statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
-        users: typing.Optional[typing.Sequence[IUser]] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param description: A description of the managed policy. Typically used to store information about the permissions defined in the policy. For example, "Grants access to production DynamoDB tables." The policy description is immutable. After a value is assigned, it cannot be changed. Default: - empty
-        :param document: Initial PolicyDocument to use for this ManagedPolicy. If omited, any ``PolicyStatement`` provided in the ``statements`` property will be applied against the empty default ``PolicyDocument``. Default: - An empty policy.
-        :param groups: Groups to attach this policy to. You can also use ``attachToGroup(group)`` to attach this policy to a group. Default: - No groups.
-        :param managed_policy_name: The name of the managed policy. If you specify multiple policies for an entity, specify unique names. For example, if you specify a list of policies for an IAM role, each policy must have a unique name. Default: - A name is automatically generated.
-        :param path: The path for the policy. This parameter allows (through its regex pattern) a string of characters consisting of either a forward slash (/) by itself or a string that must begin and end with forward slashes. In addition, it can contain any ASCII character from the ! (\\u0021) through the DEL character (\\u007F), including most punctuation characters, digits, and upper and lowercased letters. For more information about paths, see IAM Identifiers in the IAM User Guide. Default: - "/"
-        :param roles: Roles to attach this policy to. You can also use ``attachToRole(role)`` to attach this policy to a role. Default: - No roles.
-        :param statements: Initial set of permissions to add to this policy document. You can also use ``addPermission(statement)`` to add permissions later. Default: - No statements.
-        :param users: Users to attach this policy to. You can also use ``attachToUser(user)`` to attach this policy to a user. Default: - No users.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81e573c2d)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = ManagedPolicyProps(
-            description=description,
-            document=document,
-            groups=groups,
-            managed_policy_name=managed_policy_name,
-            path=path,
-            roles=roles,
-            statements=statements,
-            users=users,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromAwsManagedPolicyName")
-    @builtins.classmethod
-    def from_aws_managed_policy_name(
-        cls,
-        managed_policy_name: builtins.str,
-    ) -> IManagedPolicy:
-        '''Import a managed policy from one of the policies that AWS manages.
-
-        For this managed policy, you only need to know the name to be able to use it.
-
-        Some managed policy names start with "service-role/", some start with
-        "job-function/", and some don't start with anything. Include the
-        prefix when constructing this object.
-
-        :param managed_policy_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04dc3b9def232bf73e8992c95959e8ca96d18af4cafb5db34a590a221cb825ca)
-            check_type(argname="argument managed_policy_name", value=managed_policy_name, expected_type=type_hints["managed_policy_name"])
-        return typing.cast(IManagedPolicy, jsii.sinvoke(cls, "fromAwsManagedPolicyName", [managed_policy_name]))
-
-    @jsii.member(jsii_name="fromManagedPolicyArn")
-    @builtins.classmethod
-    def from_managed_policy_arn(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        managed_policy_arn: builtins.str,
-    ) -> IManagedPolicy:
-        '''Import an external managed policy by ARN.
-
-        For this managed policy, you only need to know the ARN to be able to use it.
-        This can be useful if you got the ARN from a CloudFormation Export.
-
-        If the imported Managed Policy ARN is a Token (such as a
-        ``CfnParameter.valueAsString`` or a ``Fn.importValue()``) *and* the referenced
-        managed policy has a ``path`` (like ``arn:...:policy/AdminPolicy/AdminAllow``), the
-        ``managedPolicyName`` property will not resolve to the correct value. Instead it
-        will resolve to the first path component. We unfortunately cannot express
-        the correct calculation of the full path name as a CloudFormation
-        expression. In this scenario the Managed Policy ARN should be supplied without the
-        ``path`` in order to resolve the correct managed policy resource.
-
-        :param scope: construct scope.
-        :param id: construct id.
-        :param managed_policy_arn: the ARN of the managed policy to import.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b433b3584cc62234ee457168b3f3d2db5b0b227fe9dc2240edd9ce3eecb779a)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument managed_policy_arn", value=managed_policy_arn, expected_type=type_hints["managed_policy_arn"])
-        return typing.cast(IManagedPolicy, jsii.sinvoke(cls, "fromManagedPolicyArn", [scope, id, managed_policy_arn]))
-
-    @jsii.member(jsii_name="fromManagedPolicyName")
-    @builtins.classmethod
-    def from_managed_policy_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        managed_policy_name: builtins.str,
-    ) -> IManagedPolicy:
-        '''Import a customer managed policy from the managedPolicyName.
-
-        For this managed policy, you only need to know the name to be able to use it.
-
-        :param scope: -
-        :param id: -
-        :param managed_policy_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__324e775a0f29673011a6cd38f79e52c1bb0c3c5c895f02fcfd38496e4fe98322)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument managed_policy_name", value=managed_policy_name, expected_type=type_hints["managed_policy_name"])
-        return typing.cast(IManagedPolicy, jsii.sinvoke(cls, "fromManagedPolicyName", [scope, id, managed_policy_name]))
-
-    @jsii.member(jsii_name="addStatements")
-    def add_statements(self, *statement: PolicyStatement) -> None:
-        '''Adds a statement to the policy document.
-
-        :param statement: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf5441cdcef)
-            check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
-
-    @jsii.member(jsii_name="attachToGroup")
-    def attach_to_group(self, group: IGroupRef) -> None:
-        '''Attaches this policy to a group.
-
-        :param group: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e)
-            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
-        return typing.cast(None, jsii.invoke(self, "attachToGroup", [group]))
-
-    @jsii.member(jsii_name="attachToRole")
-    def attach_to_role(self, role: IRole) -> None:
-        '''Attaches this policy to a role.
-
-        :param role: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45bef91c9)
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-        return typing.cast(None, jsii.invoke(self, "attachToRole", [role]))
-
-    @jsii.member(jsii_name="attachToUser")
-    def attach_to_user(self, user: IUserRef) -> None:
-        '''Attaches this policy to a user.
-
-        :param user: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d)
-            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
-        return typing.cast(None, jsii.invoke(self, "attachToUser", [user]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="description")
-    def description(self) -> builtins.str:
-        '''The description of this policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "description"))
-
-    @builtins.property
-    @jsii.member(jsii_name="document")
-    def document(self) -> PolicyDocument:
-        '''The policy document.'''
-        return typing.cast(PolicyDocument, jsii.get(self, "document"))
-
-    @builtins.property
-    @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
-        '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyArn")
-    def managed_policy_arn(self) -> builtins.str:
-        '''Returns the ARN of this managed policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "managedPolicyArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyName")
-    def managed_policy_name(self) -> builtins.str:
-        '''The name of this policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "managedPolicyName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="managedPolicyRef")
-    def managed_policy_ref(self) -> ManagedPolicyReference:
-        '''A reference to a ManagedPolicy resource.'''
-        return typing.cast(ManagedPolicyReference, jsii.get(self, "managedPolicyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="path")
-    def path(self) -> builtins.str:
-        '''The path of this policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "path"))
-
-
-@jsii.implements(IPolicy, IGrantable)
-class Policy(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.Policy",
-):
-    '''The AWS::IAM::Policy resource associates an `inline <https://docs.aws.amazon.com/IAM/latest/UserGuide/access_policies.html#inline>`_ IAM policy with IAM users, roles, or groups. For more information about IAM policies, see `Overview of IAM Policies <http://docs.aws.amazon.com/IAM/latest/UserGuide/policies_overview.html>`_ in the IAM User Guide guide.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # post_auth_fn: lambda.Function
-        
-        
-        userpool = cognito.UserPool(self, "myuserpool",
-            lambda_triggers=cognito.UserPoolTriggers(
-                post_authentication=post_auth_fn
-            )
-        )
-        
-        # provide permissions to describe the user pool scoped to the ARN the user pool
-        post_auth_fn.role.attach_inline_policy(iam.Policy(self, "userpool-policy",
-            statements=[iam.PolicyStatement(
-                actions=["cognito-idp:DescribeUserPool"],
-                resources=[userpool.user_pool_arn]
-            )]
-        ))
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        document: typing.Optional[PolicyDocument] = None,
-        force: typing.Optional[builtins.bool] = None,
-        groups: typing.Optional[typing.Sequence["IGroup"]] = None,
-        policy_name: typing.Optional[builtins.str] = None,
-        roles: typing.Optional[typing.Sequence[IRole]] = None,
-        statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
-        users: typing.Optional[typing.Sequence[IUser]] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param document: Initial PolicyDocument to use for this Policy. If omited, any ``PolicyStatement`` provided in the ``statements`` property will be applied against the empty default ``PolicyDocument``. Default: - An empty policy.
-        :param force: Force creation of an ``AWS::IAM::Policy``. Unless set to ``true``, this ``Policy`` construct will not materialize to an ``AWS::IAM::Policy`` CloudFormation resource in case it would have no effect (for example, if it remains unattached to an IAM identity or if it has no statements). This is generally desired behavior, since it prevents creating invalid--and hence undeployable--CloudFormation templates. In cases where you know the policy must be created and it is actually an error if no statements have been added to it or it remains unattached to an IAM identity, you can set this to ``true``. Default: false
-        :param groups: Groups to attach this policy to. You can also use ``attachToGroup(group)`` to attach this policy to a group. Default: - No groups.
-        :param policy_name: The name of the policy. If you specify multiple policies for an entity, specify unique names. For example, if you specify a list of policies for an IAM role, each policy must have a unique name. Default: - Uses the logical ID of the policy resource, which is ensured to be unique within the stack.
-        :param roles: Roles to attach this policy to. You can also use ``attachToRole(role)`` to attach this policy to a role. Default: - No roles.
-        :param statements: Initial set of permissions to add to this policy document. You can also use ``addStatements(...statement)`` to add permissions later. Default: - No statements.
-        :param users: Users to attach this policy to. You can also use ``attachToUser(user)`` to attach this policy to a user. Default: - No users.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bf4aaba2f6acb5486adaf871c56e1317b1a2931936b56a78bf4633c14caba596)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = PolicyProps(
-            document=document,
-            force=force,
-            groups=groups,
-            policy_name=policy_name,
-            roles=roles,
-            statements=statements,
-            users=users,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="fromPolicyName")
-    @builtins.classmethod
-    def from_policy_name(
-        cls,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        policy_name: builtins.str,
-    ) -> IPolicy:
-        '''Import a policy in this app based on its name.
-
-        :param scope: -
-        :param id: -
-        :param policy_name: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11207539a0ef88ae02fb600ab0862501107d998ae3be0f5a08a9fc0466cc0948)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-            check_type(argname="argument policy_name", value=policy_name, expected_type=type_hints["policy_name"])
-        return typing.cast(IPolicy, jsii.sinvoke(cls, "fromPolicyName", [scope, id, policy_name]))
-
-    @jsii.member(jsii_name="addStatements")
-    def add_statements(self, *statement: PolicyStatement) -> None:
-        '''Adds a statement to the policy document.
-
-        :param statement: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__510252a6b115bef4c94f6ab3c402eb29a1b2012a86045ddad51b4825713e0799)
-            check_type(argname="argument statement", value=statement, expected_type=typing.Tuple[type_hints["statement"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(None, jsii.invoke(self, "addStatements", [*statement]))
-
-    @jsii.member(jsii_name="attachToGroup")
-    def attach_to_group(self, group: "IGroup") -> None:
-        '''Attaches this policy to a group.
-
-        :param group: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8d09ae4b9f8a7c9ca0442c9a4b6f69bce78f42c194de9b535704dc9718516fea)
-            check_type(argname="argument group", value=group, expected_type=type_hints["group"])
-        return typing.cast(None, jsii.invoke(self, "attachToGroup", [group]))
-
-    @jsii.member(jsii_name="attachToRole")
-    def attach_to_role(self, role: IRole) -> None:
-        '''Attaches this policy to a role.
-
-        :param role: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__010ce98a5e97a30c0c893a505506c652f5ecdb76ee983e02c498a174717f3e82)
-            check_type(argname="argument role", value=role, expected_type=type_hints["role"])
-        return typing.cast(None, jsii.invoke(self, "attachToRole", [role]))
-
-    @jsii.member(jsii_name="attachToUser")
-    def attach_to_user(self, user: IUser) -> None:
-        '''Attaches this policy to a user.
-
-        :param user: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__87f9ba31abd317367c4b853073e8d4e30843f460c3420b69165c6082b01547ae)
-            check_type(argname="argument user", value=user, expected_type=type_hints["user"])
-        return typing.cast(None, jsii.invoke(self, "attachToUser", [user]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="document")
-    def document(self) -> PolicyDocument:
-        '''The policy document.'''
-        return typing.cast(PolicyDocument, jsii.get(self, "document"))
-
-    @builtins.property
-    @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
-        '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyName")
-    def policy_name(self) -> builtins.str:
-        '''The name of this policy.
-
-        :attribute: true
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "policyName"))
-
-    @builtins.property
-    @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> PolicyReference:
-        '''A reference to a Policy resource.'''
-        return typing.cast(PolicyReference, jsii.get(self, "policyRef"))
-
-
 @jsii.implements(IAssumeRolePrincipal, IComparablePrincipal)
 class PrincipalBase(
     metaclass=jsii.JSIIAbstractClass,
@@ -15298,7 +14502,7 @@ class PrincipalBase(
         jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="addToAssumeRolePolicy")
-    def add_to_assume_role_policy(self, document: PolicyDocument) -> None:
+    def add_to_assume_role_policy(self, document: "PolicyDocument") -> None:
         '''Add the principal to the AssumeRolePolicyDocument.
 
         Add the statements to the AssumeRolePolicyDocument necessary to give this principal
@@ -15312,7 +14516,7 @@ class PrincipalBase(
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [document]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -15325,8 +14529,8 @@ class PrincipalBase(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        _statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        _statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param _statement: -
@@ -15334,7 +14538,7 @@ class PrincipalBase(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__694de3cb2e0ed269c34a93287704999ec395e28838b40b3e517ecb1615ada2fa)
             check_type(argname="argument _statement", value=_statement, expected_type=type_hints["_statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [_statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [_statement]))
 
     @jsii.member(jsii_name="dedupeString")
     @abc.abstractmethod
@@ -15390,14 +14594,14 @@ class PrincipalBase(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
+    def grant_principal(self) -> "IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
     @abc.abstractmethod
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
         ...
 
@@ -15422,9 +14626,9 @@ class _PrincipalBaseProxy(PrincipalBase):
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
 typing.cast(typing.Any, PrincipalBase).__jsii_proxy_class__ = lambda : _PrincipalBaseProxy
@@ -15458,7 +14662,7 @@ class PrincipalWithConditions(
 
     def __init__(
         self,
-        principal: IPrincipal,
+        principal: "IPrincipal",
         conditions: typing.Mapping[builtins.str, typing.Any],
     ) -> None:
         '''
@@ -15502,7 +14706,7 @@ class PrincipalWithConditions(
         return typing.cast(None, jsii.invoke(self, "addConditions", [conditions]))
 
     @jsii.member(jsii_name="addToAssumeRolePolicy")
-    def add_to_assume_role_policy(self, doc: PolicyDocument) -> None:
+    def add_to_assume_role_policy(self, doc: "PolicyDocument") -> None:
         '''Add the principal to the AssumeRolePolicyDocument.
 
         Add the statements to the AssumeRolePolicyDocument necessary to give this principal
@@ -15516,7 +14720,7 @@ class PrincipalWithConditions(
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [doc]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -15529,8 +14733,8 @@ class PrincipalWithConditions(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -15538,7 +14742,7 @@ class PrincipalWithConditions(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bc14ce5e667818ff09808b3d56342245457ad7af45baf54098e3554bdfbb9c5d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="appendDedupe")
     def _append_dedupe(self, append: builtins.str) -> typing.Optional[builtins.str]:
@@ -15586,9 +14790,9 @@ class PrincipalWithConditions(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -15618,36 +14822,36 @@ class Role(
 
     Example::
 
-        # Option 3: Create a new role that allows the account root principal to assume. Add this role in the `system:masters` and witch to this role from the AWS console.
-        # cluster: eks.Cluster
-        
-        
-        console_read_only_role = iam.Role(self, "ConsoleReadOnlyRole",
-            assumed_by=iam.ArnPrincipal("arn_for_trusted_principal")
+        lambda_role = iam.Role(self, "Role",
+            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com"),
+            description="Example role..."
         )
-        console_read_only_role.add_to_policy(iam.PolicyStatement(
-            actions=["eks:AccessKubernetesApi", "eks:Describe*", "eks:List*"
-            ],
-            resources=[cluster.cluster_arn]
-        ))
         
-        # Add this role to system:masters RBAC group
-        cluster.aws_auth.add_masters_role(console_read_only_role)
+        stream = kinesis.Stream(self, "MyEncryptedStream",
+            encryption=kinesis.StreamEncryption.KMS
+        )
+        stream_consumer = kinesis.StreamConsumer(self, "MyStreamConsumer",
+            stream_consumer_name="MyStreamConsumer",
+            stream=stream
+        )
+        
+        # give lambda permissions to read stream via the stream consumer
+        stream_consumer.grant_read(lambda_role)
     '''
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        assumed_by: IPrincipal,
+        assumed_by: "IPrincipal",
         description: typing.Optional[builtins.str] = None,
         external_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        inline_policies: typing.Optional[typing.Mapping[builtins.str, PolicyDocument]] = None,
-        managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-        max_session_duration: typing.Optional[_Duration_4839e8c3] = None,
+        inline_policies: typing.Optional[typing.Mapping[builtins.str, "PolicyDocument"]] = None,
+        managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
+        max_session_duration: typing.Optional["_Duration_4839e8c3"] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         role_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -15685,7 +14889,7 @@ class Role(
     @builtins.classmethod
     def customize_roles(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         *,
         prevent_synthesis: typing.Optional[builtins.bool] = None,
         use_precreated_roles: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -15732,14 +14936,14 @@ class Role(
     @builtins.classmethod
     def from_lookup(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         role_name: builtins.str,
         add_grants_to_resources: typing.Optional[builtins.bool] = None,
         default_policy_name: typing.Optional[builtins.str] = None,
         mutable: typing.Optional[builtins.bool] = None,
-    ) -> IRole:
+    ) -> "IRole":
         '''Lookup an existing Role.
 
         :param scope: -
@@ -15760,20 +14964,20 @@ class Role(
             mutable=mutable,
         )
 
-        return typing.cast(IRole, jsii.sinvoke(cls, "fromLookup", [scope, id, options]))
+        return typing.cast("IRole", jsii.sinvoke(cls, "fromLookup", [scope, id, options]))
 
     @jsii.member(jsii_name="fromRoleArn")
     @builtins.classmethod
     def from_role_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         role_arn: builtins.str,
         *,
         add_grants_to_resources: typing.Optional[builtins.bool] = None,
         default_policy_name: typing.Optional[builtins.str] = None,
         mutable: typing.Optional[builtins.bool] = None,
-    ) -> IRole:
+    ) -> "IRole":
         '''Import an external role by ARN.
 
         If the imported Role ARN is a Token (such as a
@@ -15803,20 +15007,20 @@ class Role(
             mutable=mutable,
         )
 
-        return typing.cast(IRole, jsii.sinvoke(cls, "fromRoleArn", [scope, id, role_arn, options]))
+        return typing.cast("IRole", jsii.sinvoke(cls, "fromRoleArn", [scope, id, role_arn, options]))
 
     @jsii.member(jsii_name="fromRoleName")
     @builtins.classmethod
     def from_role_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         role_name: builtins.str,
         *,
         add_grants_to_resources: typing.Optional[builtins.bool] = None,
         default_policy_name: typing.Optional[builtins.str] = None,
         mutable: typing.Optional[builtins.bool] = None,
-    ) -> IRole:
+    ) -> "IRole":
         '''Import an external role by name.
 
         The imported role is assumed to exist in the same account as the account
@@ -15840,7 +15044,7 @@ class Role(
             mutable=mutable,
         )
 
-        return typing.cast(IRole, jsii.sinvoke(cls, "fromRoleName", [scope, id, role_name, options]))
+        return typing.cast("IRole", jsii.sinvoke(cls, "fromRoleName", [scope, id, role_name, options]))
 
     @jsii.member(jsii_name="isRole")
     @builtins.classmethod
@@ -15855,7 +15059,7 @@ class Role(
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isRole", [x]))
 
     @jsii.member(jsii_name="addManagedPolicy")
-    def add_managed_policy(self, policy: IManagedPolicy) -> None:
+    def add_managed_policy(self, policy: "IManagedPolicy") -> None:
         '''Attaches a managed policy to this role.
 
         :param policy: The the managed policy to attach.
@@ -15866,7 +15070,7 @@ class Role(
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -15879,8 +15083,8 @@ class Role(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Adds a permission to the role's default policy document.
 
         If there is no default policy attached to this role, it will be created.
@@ -15890,10 +15094,10 @@ class Role(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6168031f65ea6f5bbc6ae6d7207de3c8b2039038e0a8ddec4cc0db5ef919299d)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="applyRemovalPolicy")
-    def apply_removal_policy(self, policy: _RemovalPolicy_9f93c814) -> None:
+    def apply_removal_policy(self, policy: "_RemovalPolicy_9f93c814") -> None:
         '''Skip applyRemovalPolicy if role synthesis is prevented by customizeRoles.
 
         Because in this case, this construct does not have a CfnResource in the tree.
@@ -15908,7 +15112,7 @@ class Role(
         return typing.cast(None, jsii.invoke(self, "applyRemovalPolicy", [policy]))
 
     @jsii.member(jsii_name="attachInlinePolicy")
-    def attach_inline_policy(self, policy: Policy) -> None:
+    def attach_inline_policy(self, policy: "Policy") -> None:
         '''Attaches a policy to this role.
 
         :param policy: The policy to attach.
@@ -15919,7 +15123,7 @@ class Role(
         return typing.cast(None, jsii.invoke(self, "attachInlinePolicy", [policy]))
 
     @jsii.member(jsii_name="grant")
-    def grant(self, grantee: IPrincipal, *actions: builtins.str) -> Grant:
+    def grant(self, grantee: "IPrincipal", *actions: builtins.str) -> "Grant":
         '''Grant the actions defined in actions to the identity Principal on this resource.
 
         :param grantee: -
@@ -15929,10 +15133,10 @@ class Role(
             type_hints = typing.get_type_hints(_typecheckingstub__14c932caa1eadf56fd976a12545a5f150425c6f5a3ea878d9bb6ff0b3e24cd46)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
-        return typing.cast(Grant, jsii.invoke(self, "grant", [grantee, *actions]))
+        return typing.cast("Grant", jsii.invoke(self, "grant", [grantee, *actions]))
 
     @jsii.member(jsii_name="grantAssumeRole")
-    def grant_assume_role(self, identity: IPrincipal) -> Grant:
+    def grant_assume_role(self, identity: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to assume this role.
 
         :param identity: -
@@ -15940,10 +15144,10 @@ class Role(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6e41637797f37e9e841bf058d39d0b910ed287ffbdcfeb24f7652a386a18b61e)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(Grant, jsii.invoke(self, "grantAssumeRole", [identity]))
+        return typing.cast("Grant", jsii.invoke(self, "grantAssumeRole", [identity]))
 
     @jsii.member(jsii_name="grantPassRole")
-    def grant_pass_role(self, identity: IPrincipal) -> Grant:
+    def grant_pass_role(self, identity: "IPrincipal") -> "Grant":
         '''Grant permissions to the given principal to pass this role.
 
         :param identity: -
@@ -15951,14 +15155,14 @@ class Role(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ac7870e7ae4f160829d1eaf7f6d20c937b9c938e96709e254eb1422b6989700)
             check_type(argname="argument identity", value=identity, expected_type=type_hints["identity"])
-        return typing.cast(Grant, jsii.invoke(self, "grantPassRole", [identity]))
+        return typing.cast("Grant", jsii.invoke(self, "grantPassRole", [identity]))
 
     @jsii.member(jsii_name="withoutPolicyUpdates")
     def without_policy_updates(
         self,
         *,
         add_grants_to_resources: typing.Optional[builtins.bool] = None,
-    ) -> IRole:
+    ) -> "IRole":
         '''Return a copy of this Role object whose Policies will not be updated.
 
         Use the object returned by this method if you want this Role to be used by
@@ -15973,7 +15177,7 @@ class Role(
             add_grants_to_resources=add_grants_to_resources
         )
 
-        return typing.cast(IRole, jsii.invoke(self, "withoutPolicyUpdates", [options]))
+        return typing.cast("IRole", jsii.invoke(self, "withoutPolicyUpdates", [options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -15989,15 +15193,21 @@ class Role(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
+    def grant_principal(self) -> "IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "RoleGrants":
+        '''Collection of grant methods for a Role.'''
+        return typing.cast("RoleGrants", jsii.get(self, "grants"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Returns the role.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="roleArn")
@@ -16025,21 +15235,21 @@ class Role(
 
     @builtins.property
     @jsii.member(jsii_name="roleRef")
-    def role_ref(self) -> RoleReference:
+    def role_ref(self) -> "_RoleReference_447077bb":
         '''A reference to a Role resource.'''
-        return typing.cast(RoleReference, jsii.get(self, "roleRef"))
+        return typing.cast("_RoleReference_447077bb", jsii.get(self, "roleRef"))
 
     @builtins.property
     @jsii.member(jsii_name="assumeRolePolicy")
-    def assume_role_policy(self) -> typing.Optional[PolicyDocument]:
+    def assume_role_policy(self) -> typing.Optional["PolicyDocument"]:
         '''The assume role policy document associated with this role.'''
-        return typing.cast(typing.Optional[PolicyDocument], jsii.get(self, "assumeRolePolicy"))
+        return typing.cast(typing.Optional["PolicyDocument"], jsii.get(self, "assumeRolePolicy"))
 
     @builtins.property
     @jsii.member(jsii_name="permissionsBoundary")
-    def permissions_boundary(self) -> typing.Optional[IManagedPolicy]:
+    def permissions_boundary(self) -> typing.Optional["IManagedPolicy"]:
         '''Returns the permissions boundary attached to this role.'''
-        return typing.cast(typing.Optional[IManagedPolicy], jsii.get(self, "permissionsBoundary"))
+        return typing.cast(typing.Optional["IManagedPolicy"], jsii.get(self, "permissionsBoundary"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -16061,20 +15271,25 @@ class ServicePrincipal(
 ):
     '''An IAM principal that represents an AWS service (i.e. ``sqs.amazonaws.com``).
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        # definition: sfn.IChainable
-        role = iam.Role(self, "Role",
-            assumed_by=iam.ServicePrincipal("lambda.amazonaws.com")
-        )
-        state_machine = sfn.StateMachine(self, "StateMachine",
-            definition_body=sfn.DefinitionBody.from_chainable(definition)
+        # Create a custom execution role
+        execution_role = iam.Role(self, "BrowserExecutionRole",
+            assumed_by=iam.ServicePrincipal("bedrock-agentcore.amazonaws.com"),
+            managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonBedrockAgentCoreBrowserExecutionRolePolicy")
+            ]
         )
         
-        # Give role permission to get execution history of ALL executions for the state machine
-        state_machine.grant_execution(role, "states:GetExecutionHistory")
+        # Create browser with custom execution role
+        browser = agentcore.BrowserCustom(self, "MyBrowser",
+            browser_custom_name="my_browser",
+            description="Browser with custom execution role",
+            network_configuration=agentcore.BrowserNetworkConfiguration.using_public_network(),
+            execution_role=execution_role
+        )
     '''
 
     def __init__(
@@ -16161,9 +15376,9 @@ class ServicePrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="service")
@@ -16195,7 +15410,7 @@ class SessionTagsPrincipal(
         session_tags_principal = iam.SessionTagsPrincipal(principal)
     '''
 
-    def __init__(self, principal: IPrincipal) -> None:
+    def __init__(self, principal: "IPrincipal") -> None:
         '''
         :param principal: -
         '''
@@ -16205,7 +15420,7 @@ class SessionTagsPrincipal(
         jsii.create(self.__class__, self, [principal])
 
     @jsii.member(jsii_name="addToAssumeRolePolicy")
-    def add_to_assume_role_policy(self, doc: PolicyDocument) -> None:
+    def add_to_assume_role_policy(self, doc: "PolicyDocument") -> None:
         '''Add the principal to the AssumeRolePolicyDocument.
 
         Add the statements to the AssumeRolePolicyDocument necessary to give this principal
@@ -16219,7 +15434,7 @@ class SessionTagsPrincipal(
         return typing.cast(None, jsii.invoke(self, "addToAssumeRolePolicy", [doc]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -16232,8 +15447,8 @@ class SessionTagsPrincipal(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -16241,7 +15456,7 @@ class SessionTagsPrincipal(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cbc62d90b05edca6f8d13d813c28fe7dc43759fba6779d5577f60de0344b39f2)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="appendDedupe")
     def _append_dedupe(self, append: builtins.str) -> typing.Optional[builtins.str]:
@@ -16267,9 +15482,9 @@ class SessionTagsPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -16323,9 +15538,9 @@ class StarPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 @jsii.implements(IIdentity, IUser)
@@ -16352,15 +15567,15 @@ class User(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         groups: typing.Optional[typing.Sequence["IGroup"]] = None,
-        managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
-        password: typing.Optional[_SecretValue_3dd0ddae] = None,
+        managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
+        password: typing.Optional["_SecretValue_3dd0ddae"] = None,
         password_reset_required: typing.Optional[builtins.bool] = None,
         path: typing.Optional[builtins.str] = None,
-        permissions_boundary: typing.Optional[IManagedPolicy] = None,
+        permissions_boundary: typing.Optional["IManagedPolicy"] = None,
         user_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -16394,10 +15609,10 @@ class User(
     @builtins.classmethod
     def from_user_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         user_arn: builtins.str,
-    ) -> IUser:
+    ) -> "IUser":
         '''Import an existing user given a user ARN.
 
         If the ARN comes from a Token, the User cannot have a path; if so, any attempt
@@ -16412,17 +15627,17 @@ class User(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_arn", value=user_arn, expected_type=type_hints["user_arn"])
-        return typing.cast(IUser, jsii.sinvoke(cls, "fromUserArn", [scope, id, user_arn]))
+        return typing.cast("IUser", jsii.sinvoke(cls, "fromUserArn", [scope, id, user_arn]))
 
     @jsii.member(jsii_name="fromUserAttributes")
     @builtins.classmethod
     def from_user_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         user_arn: builtins.str,
-    ) -> IUser:
+    ) -> "IUser":
         '''Import an existing user given user attributes.
 
         If the ARN comes from a Token, the User cannot have a path; if so, any attempt
@@ -16438,16 +15653,16 @@ class User(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         attrs = UserAttributes(user_arn=user_arn)
 
-        return typing.cast(IUser, jsii.sinvoke(cls, "fromUserAttributes", [scope, id, attrs]))
+        return typing.cast("IUser", jsii.sinvoke(cls, "fromUserAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="fromUserName")
     @builtins.classmethod
     def from_user_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         user_name: builtins.str,
-    ) -> IUser:
+    ) -> "IUser":
         '''Import an existing user given a username.
 
         :param scope: construct scope.
@@ -16459,10 +15674,10 @@ class User(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument user_name", value=user_name, expected_type=type_hints["user_name"])
-        return typing.cast(IUser, jsii.sinvoke(cls, "fromUserName", [scope, id, user_name]))
+        return typing.cast("IUser", jsii.sinvoke(cls, "fromUserName", [scope, id, user_name]))
 
     @jsii.member(jsii_name="addManagedPolicy")
-    def add_managed_policy(self, policy: IManagedPolicy) -> None:
+    def add_managed_policy(self, policy: "IManagedPolicy") -> None:
         '''Attaches a managed policy to the user.
 
         :param policy: The managed policy to attach.
@@ -16484,7 +15699,7 @@ class User(
         return typing.cast(None, jsii.invoke(self, "addToGroup", [group]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -16497,8 +15712,8 @@ class User(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Adds an IAM statement to the default policy.
 
         :param statement: -
@@ -16508,10 +15723,10 @@ class User(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__add40848d812b2b19e71bd4e186b890cfd72dfc35ae18ae5733132e665b366a6)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="attachInlinePolicy")
-    def attach_inline_policy(self, policy: Policy) -> None:
+    def attach_inline_policy(self, policy: "Policy") -> None:
         '''Attaches a policy to this user.
 
         :param policy: -
@@ -16535,15 +15750,15 @@ class User(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
+    def grant_principal(self) -> "IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="userArn")
@@ -16565,15 +15780,15 @@ class User(
 
     @builtins.property
     @jsii.member(jsii_name="userRef")
-    def user_ref(self) -> UserReference:
+    def user_ref(self) -> "_UserReference_6bf884c6":
         '''A reference to a User resource.'''
-        return typing.cast(UserReference, jsii.get(self, "userRef"))
+        return typing.cast("_UserReference_6bf884c6", jsii.get(self, "userRef"))
 
     @builtins.property
     @jsii.member(jsii_name="permissionsBoundary")
-    def permissions_boundary(self) -> typing.Optional[IManagedPolicy]:
+    def permissions_boundary(self) -> typing.Optional["IManagedPolicy"]:
         '''Returns the permissions boundary attached  to this user.'''
-        return typing.cast(typing.Optional[IManagedPolicy], jsii.get(self, "permissionsBoundary"))
+        return typing.cast(typing.Optional["IManagedPolicy"], jsii.get(self, "permissionsBoundary"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -16586,75 +15801,6 @@ class User(
         it's assumed to be AWS::AccountId.
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "principalAccount"))
-
-
-@jsii.implements(IAccessKey)
-class AccessKey(
-    _Resource_45bc6135,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_iam.AccessKey",
-):
-    '''Define a new IAM Access Key.
-
-    :exampleMetadata: infused
-
-    Example::
-
-        # Creates a new IAM user, access and secret keys, and stores the secret access key in a Secret.
-        user = iam.User(self, "User")
-        access_key = iam.AccessKey(self, "AccessKey", user=user)
-        secret = secretsmanager.Secret(self, "Secret",
-            secret_string_value=access_key.secret_access_key
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        user: IUser,
-        serial: typing.Optional[jsii.Number] = None,
-        status: typing.Optional[AccessKeyStatus] = None,
-    ) -> None:
-        '''
-        :param scope: -
-        :param id: -
-        :param user: The IAM user this key will belong to. Changing this value will result in the access key being deleted and a new access key (with a different ID and secret value) being assigned to the new user.
-        :param serial: A CloudFormation-specific value that signifies the access key should be replaced/rotated. This value can only be incremented. Incrementing this value will cause CloudFormation to replace the Access Key resource. Default: - No serial value
-        :param status: The status of the access key. An Active access key is allowed to be used to make API calls; An Inactive key cannot. Default: - The access key is active
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__604f514db426465dbc092293e7b2e46f5358ddb17770a96f51ef7e6a5f6d15f4)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = AccessKeyProps(user=user, serial=serial, status=status)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
-    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''Uniquely identifies this class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accessKeyId")
-    def access_key_id(self) -> builtins.str:
-        '''The Access Key ID.'''
-        return typing.cast(builtins.str, jsii.get(self, "accessKeyId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accessKeyRef")
-    def access_key_ref(self) -> AccessKeyReference:
-        '''A reference to a AccessKey resource.'''
-        return typing.cast(AccessKeyReference, jsii.get(self, "accessKeyRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="secretAccessKey")
-    def secret_access_key(self) -> _SecretValue_3dd0ddae:
-        '''The Secret Access Key.'''
-        return typing.cast(_SecretValue_3dd0ddae, jsii.get(self, "secretAccessKey"))
 
 
 class ArnPrincipal(
@@ -16673,7 +15819,7 @@ class ArnPrincipal(
     Example::
 
         # Option 2: create your custom mastersRole with scoped assumeBy arn as the Cluster prop. Switch to this role from the AWS console.
-        from aws_cdk.lambda_layer_kubectl_v33 import KubectlV33Layer
+        from aws_cdk.lambda_layer_kubectl_v34 import KubectlV34Layer
         # vpc: ec2.Vpc
         
         
@@ -16683,8 +15829,8 @@ class ArnPrincipal(
         
         cluster = eks.Cluster(self, "EksCluster",
             vpc=vpc,
-            version=eks.KubernetesVersion.V1_33,
-            kubectl_layer=KubectlV33Layer(self, "KubectlLayer"),
+            version=eks.KubernetesVersion.V1_34,
+            kubectl_layer=KubectlV34Layer(self, "KubectlLayer"),
             masters_role=masters_role
         )
         
@@ -16710,7 +15856,7 @@ class ArnPrincipal(
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "dedupeString", []))
 
     @jsii.member(jsii_name="inOrganization")
-    def in_organization(self, organization_id: builtins.str) -> PrincipalBase:
+    def in_organization(self, organization_id: builtins.str) -> "PrincipalBase":
         '''A convenience method for adding a condition that the principal is part of the specified AWS Organization.
 
         :param organization_id: -
@@ -16718,7 +15864,7 @@ class ArnPrincipal(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4053cc6c8a246179292ae366feb44cbec456a8fe5d81ab3ded5bd52657116d7f)
             check_type(argname="argument organization_id", value=organization_id, expected_type=type_hints["organization_id"])
-        return typing.cast(PrincipalBase, jsii.invoke(self, "inOrganization", [organization_id]))
+        return typing.cast("PrincipalBase", jsii.invoke(self, "inOrganization", [organization_id]))
 
     @jsii.member(jsii_name="toString")
     def to_string(self) -> builtins.str:
@@ -16733,9 +15879,9 @@ class ArnPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 class CanonicalUserPrincipal(
@@ -16795,9 +15941,9 @@ class CanonicalUserPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 class CompositePrincipal(
@@ -16832,7 +15978,7 @@ class CompositePrincipal(
         )
     '''
 
-    def __init__(self, *principals: IPrincipal) -> None:
+    def __init__(self, *principals: "IPrincipal") -> None:
         '''
         :param principals: -
         '''
@@ -16842,7 +15988,7 @@ class CompositePrincipal(
         jsii.create(self.__class__, self, [*principals])
 
     @jsii.member(jsii_name="addPrincipals")
-    def add_principals(self, *principals: IPrincipal) -> "CompositePrincipal":
+    def add_principals(self, *principals: "IPrincipal") -> "CompositePrincipal":
         '''Adds IAM principals to the composite principal.
 
         Composite principals cannot have
@@ -16856,7 +16002,7 @@ class CompositePrincipal(
         return typing.cast("CompositePrincipal", jsii.invoke(self, "addPrincipals", [*principals]))
 
     @jsii.member(jsii_name="addToAssumeRolePolicy")
-    def add_to_assume_role_policy(self, doc: PolicyDocument) -> None:
+    def add_to_assume_role_policy(self, doc: "PolicyDocument") -> None:
         '''Add the principal to the AssumeRolePolicyDocument.
 
         Add the statements to the AssumeRolePolicyDocument necessary to give this principal
@@ -16887,15 +16033,15 @@ class CompositePrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="principals")
-    def principals(self) -> typing.List[IPrincipal]:
+    def principals(self) -> typing.List["IPrincipal"]:
         '''Returns the principals that make up the CompositePrincipal.'''
-        return typing.cast(typing.List[IPrincipal], jsii.get(self, "principals"))
+        return typing.cast(typing.List["IPrincipal"], jsii.get(self, "principals"))
 
 
 class FederatedPrincipal(
@@ -16975,13 +16121,13 @@ class FederatedPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IGroup")
-class IGroup(IIdentity, IGroupRef, typing_extensions.Protocol):
+class IGroup(IIdentity, _IGroupRef_aeb1d9f6, typing_extensions.Protocol):
     '''Represents an IAM Group.
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/id_groups.html
@@ -17008,7 +16154,7 @@ class IGroup(IIdentity, IGroupRef, typing_extensions.Protocol):
 
 class _IGroupProxy(
     jsii.proxy_for(IIdentity), # type: ignore[misc]
-    jsii.proxy_for(IGroupRef), # type: ignore[misc]
+    jsii.proxy_for(_IGroupRef_aeb1d9f6), # type: ignore[misc]
 ):
     '''Represents an IAM Group.
 
@@ -17087,9 +16233,9 @@ class OrganizationPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 class SamlPrincipal(
@@ -17115,7 +16261,7 @@ class SamlPrincipal(
 
     def __init__(
         self,
-        saml_provider: ISAMLProviderRef,
+        saml_provider: "_ISAMLProviderRef_6e369856",
         conditions: typing.Mapping[builtins.str, typing.Any],
     ) -> None:
         '''
@@ -17173,9 +16319,9 @@ class WebIdentityPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 class AccountPrincipal(
@@ -17244,13 +16390,15 @@ class AccountRootPrincipal(
 
     Example::
 
-        bucket = s3.Bucket(self, "MyBucket")
-        result = bucket.add_to_resource_policy(
-            iam.PolicyStatement(
-                actions=["s3:GetObject"],
-                resources=[bucket.arn_for_objects("file.txt")],
-                principals=[iam.AccountRootPrincipal()]
-            ))
+        # Adds to IAM user's policy (not resource policy)
+        # user: iam.User
+        table = dynamodb.TableV2(self, "Table",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING)
+        )
+        
+        # Automatically adds to table's resource policy (same account)
+        table.grant_read_data(iam.AccountRootPrincipal())
+        table.grant_read_data(user)
     '''
 
     def __init__(self) -> None:
@@ -17324,11 +16472,11 @@ class Group(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         group_name: typing.Optional[builtins.str] = None,
-        managed_policies: typing.Optional[typing.Sequence[IManagedPolicy]] = None,
+        managed_policies: typing.Optional[typing.Sequence["IManagedPolicy"]] = None,
         path: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
@@ -17352,10 +16500,10 @@ class Group(
     @builtins.classmethod
     def from_group_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         group_arn: builtins.str,
-    ) -> IGroup:
+    ) -> "IGroup":
         '''Import an external group by ARN.
 
         If the imported Group ARN is a Token (such as a
@@ -17376,16 +16524,16 @@ class Group(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_arn", value=group_arn, expected_type=type_hints["group_arn"])
-        return typing.cast(IGroup, jsii.sinvoke(cls, "fromGroupArn", [scope, id, group_arn]))
+        return typing.cast("IGroup", jsii.sinvoke(cls, "fromGroupArn", [scope, id, group_arn]))
 
     @jsii.member(jsii_name="fromGroupName")
     @builtins.classmethod
     def from_group_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         group_name: builtins.str,
-    ) -> IGroup:
+    ) -> "IGroup":
         '''Import an existing group by given name (with path).
 
         This method has same caveats of ``fromGroupArn``
@@ -17399,10 +16547,10 @@ class Group(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
-        return typing.cast(IGroup, jsii.sinvoke(cls, "fromGroupName", [scope, id, group_name]))
+        return typing.cast("IGroup", jsii.sinvoke(cls, "fromGroupName", [scope, id, group_name]))
 
     @jsii.member(jsii_name="addManagedPolicy")
-    def add_managed_policy(self, policy: IManagedPolicy) -> None:
+    def add_managed_policy(self, policy: "IManagedPolicy") -> None:
         '''Attaches a managed policy to this group.
 
         See [IAM and AWS STS quotas, name requirements, and character limits]
@@ -17417,7 +16565,7 @@ class Group(
         return typing.cast(None, jsii.invoke(self, "addManagedPolicy", [policy]))
 
     @jsii.member(jsii_name="addToPolicy")
-    def add_to_policy(self, statement: PolicyStatement) -> builtins.bool:
+    def add_to_policy(self, statement: "PolicyStatement") -> builtins.bool:
         '''Add to the policy of this principal.
 
         :param statement: -
@@ -17430,8 +16578,8 @@ class Group(
     @jsii.member(jsii_name="addToPrincipalPolicy")
     def add_to_principal_policy(
         self,
-        statement: PolicyStatement,
-    ) -> AddToPrincipalPolicyResult:
+        statement: "PolicyStatement",
+    ) -> "AddToPrincipalPolicyResult":
         '''Adds an IAM statement to the default policy.
 
         :param statement: -
@@ -17439,10 +16587,10 @@ class Group(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f66e324527f4dca14250545b90ce229575ffc379f162d485eb2c630ba43e00b5)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
-        return typing.cast(AddToPrincipalPolicyResult, jsii.invoke(self, "addToPrincipalPolicy", [statement]))
+        return typing.cast("AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
     @jsii.member(jsii_name="addUser")
-    def add_user(self, user: IUser) -> None:
+    def add_user(self, user: "IUser") -> None:
         '''Adds a user to this group.
 
         :param user: -
@@ -17453,7 +16601,7 @@ class Group(
         return typing.cast(None, jsii.invoke(self, "addUser", [user]))
 
     @jsii.member(jsii_name="attachInlinePolicy")
-    def attach_inline_policy(self, policy: Policy) -> None:
+    def attach_inline_policy(self, policy: "Policy") -> None:
         '''Attaches a policy to this group.
 
         :param policy: The policy to attach.
@@ -17477,9 +16625,9 @@ class Group(
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> IPrincipal:
+    def grant_principal(self) -> "IPrincipal":
         '''The principal to grant permissions to.'''
-        return typing.cast(IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="groupArn")
@@ -17495,15 +16643,15 @@ class Group(
 
     @builtins.property
     @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
+    def group_ref(self) -> "_GroupReference_cd6b1d81":
         '''A reference to a Group resource.'''
-        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
+        return typing.cast("_GroupReference_cd6b1d81", jsii.get(self, "groupRef"))
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
     @builtins.property
     @jsii.member(jsii_name="principalAccount")
@@ -17538,7 +16686,7 @@ class OpenIdConnectPrincipal(
 
     def __init__(
         self,
-        open_id_connect_provider: IOIDCProviderRef,
+        open_id_connect_provider: "_IOIDCProviderRef_a866c7c8",
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''
@@ -17558,9 +16706,9 @@ class OpenIdConnectPrincipal(
 
     @builtins.property
     @jsii.member(jsii_name="policyFragment")
-    def policy_fragment(self) -> PrincipalPolicyFragment:
+    def policy_fragment(self) -> "PrincipalPolicyFragment":
         '''Return the policy fragment that identifies this principal in a Policy.'''
-        return typing.cast(PrincipalPolicyFragment, jsii.get(self, "policyFragment"))
+        return typing.cast("PrincipalPolicyFragment", jsii.get(self, "policyFragment"))
 
 
 class SamlConsolePrincipal(
@@ -17584,7 +16732,7 @@ class SamlConsolePrincipal(
 
     def __init__(
         self,
-        saml_provider: ISamlProvider,
+        saml_provider: "ISamlProvider",
         conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''
@@ -17606,7 +16754,6 @@ class SamlConsolePrincipal(
 __all__ = [
     "AccessKey",
     "AccessKeyProps",
-    "AccessKeyReference",
     "AccessKeyStatus",
     "AccountPrincipal",
     "AccountRootPrincipal",
@@ -17657,56 +16804,39 @@ __all__ = [
     "FromRoleArnOptions",
     "FromRoleNameOptions",
     "Grant",
+    "GrantOnKeyResult",
     "GrantOnPrincipalAndResourceOptions",
     "GrantOnPrincipalOptions",
     "GrantPolicyWithResourceOptions",
     "GrantWithResourceOptions",
+    "GrantableResources",
     "Group",
-    "GroupPolicyReference",
     "GroupProps",
-    "GroupReference",
     "IAccessKey",
-    "IAccessKeyRef",
     "IAssumeRolePrincipal",
     "IComparablePrincipal",
+    "IEncryptedResource",
     "IGrantable",
     "IGroup",
-    "IGroupPolicyRef",
-    "IGroupRef",
     "IIdentity",
     "IInstanceProfile",
-    "IInstanceProfileRef",
     "IManagedPolicy",
-    "IManagedPolicyRef",
-    "IOIDCProviderRef",
     "IOidcProvider",
     "IOpenIdConnectProvider",
     "IPolicy",
-    "IPolicyRef",
     "IPrincipal",
     "IResourceWithPolicy",
+    "IResourceWithPolicyV2",
     "IRole",
-    "IRolePolicyRef",
-    "IRoleRef",
-    "ISAMLProviderRef",
     "ISamlProvider",
-    "IServerCertificateRef",
-    "IServiceLinkedRoleRef",
     "IUser",
-    "IUserPolicyRef",
-    "IUserRef",
-    "IUserToGroupAdditionRef",
-    "IVirtualMFADeviceRef",
     "InstanceProfile",
     "InstanceProfileAttributes",
     "InstanceProfileProps",
-    "InstanceProfileReference",
     "LazyRole",
     "LazyRoleProps",
     "ManagedPolicy",
     "ManagedPolicyProps",
-    "ManagedPolicyReference",
-    "OIDCProviderReference",
     "OidcProviderNative",
     "OidcProviderNativeProps",
     "OpenIdConnectPrincipal",
@@ -17718,25 +16848,20 @@ __all__ = [
     "PolicyDocument",
     "PolicyDocumentProps",
     "PolicyProps",
-    "PolicyReference",
     "PolicyStatement",
     "PolicyStatementProps",
     "PrincipalBase",
     "PrincipalPolicyFragment",
     "PrincipalWithConditions",
     "Role",
+    "RoleGrants",
     "RoleLookupOptions",
-    "RolePolicyReference",
     "RoleProps",
-    "RoleReference",
-    "SAMLProviderReference",
     "SamlConsolePrincipal",
     "SamlMetadataDocument",
     "SamlPrincipal",
     "SamlProvider",
     "SamlProviderProps",
-    "ServerCertificateReference",
-    "ServiceLinkedRoleReference",
     "ServicePrincipal",
     "ServicePrincipalOpts",
     "SessionTagsPrincipal",
@@ -17745,11 +16870,7 @@ __all__ = [
     "UnknownPrincipalProps",
     "User",
     "UserAttributes",
-    "UserPolicyReference",
     "UserProps",
-    "UserReference",
-    "UserToGroupAdditionReference",
-    "VirtualMFADeviceReference",
     "WebIdentityPrincipal",
     "WithoutPolicyUpdatesOptions",
 ]
@@ -17761,13 +16882,6 @@ def _typecheckingstub__f7aec9396799d928b7043c068a165e3ad161cc590afe8defeb0ce4ae0
     user: IUser,
     serial: typing.Optional[jsii.Number] = None,
     status: typing.Optional[AccessKeyStatus] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79222c12fb837cf58786d79a342dcff38b0a198d03fc34ff365a16f09e81cbb9(
-    *,
-    access_key_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17788,11 +16902,173 @@ def _typecheckingstub__828f1cacd29f05b4eed40f202f7b5da1fdf626701e78525463598fc44
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8d6875d360f4b68d81822160010f3dcab4fad75219310207a67ebdbd76b5d610(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    user_name: builtins.str,
+    serial: typing.Optional[jsii.Number] = None,
+    status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44af7447864a754d9df484db5d272901a378e9dd7da128a28741b73a5d53eb4a(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab5857eebc55e10a0edcb4b0c6f013af1342700cb0a55e89483e6f8b6d574741(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3405535e039979434b63eda6cd780e7a68f3036e83c19773aa4cce38e62cfcc0(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de65be3bea4fb6cb4947339490001a6cb74c0e6991d864cd5de95395f19d977b(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c8207c22274bc6fabc3862c3b573f9d71344e354dbd17a00318aa43fa18cb7d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8155aca561d14186aae77c5658124546588f321eecca8d6e53a5467862dbddc5(
     *,
     user_name: builtins.str,
     serial: typing.Optional[jsii.Number] = None,
     status: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645df50b18(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    group_name: typing.Optional[builtins.str] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    path: typing.Optional[builtins.str] = None,
+    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3980f39025e91ce99b498701692fb8425cc9af4321db09d71dbd3368a8936555(
+    resource: _IGroupRef_aeb1d9f6,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__109520d0ac5eced5701e6bfb840752f4a4c55e5408f1fc48af017b584d08be03(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89278b67425b9a0f94f61235c7282945d071b501bc7b15f85a485662ff826258(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01be7e8dfd9fda0df1899d3026531e8a38a22b7e1f2d6027c883cf4d505c3d51(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a267baaf187cde3f3930ebef9cdd1a754591f3f54b47d9729cc1d9bb3a93458(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094d07e4ca(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGroup.PolicyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5381732fad8dcd5499b3b303273fdd9097ec896987b47080216d0c734f18d9a8(
+    *,
+    policy_document: typing.Any,
+    policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f890caaa5f6b29722a17bf5c714640d202cb740a7f07aec5a5ced9b53eed348(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    group_name: builtins.str,
+    policy_name: builtins.str,
+    policy_document: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2b1f15a5e63e650cc6c55b8ec0153a01c2d4b292546026f27c56c750c214ff39(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef5341af0b1e6f12f150e9d4694149341aec7aa000971cb5f25b0b9672a631cd(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4ecf7a44c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17809,18 +17085,146 @@ def _typecheckingstub__fa640a2b964f19199ce54686b7fd65c710619c4f560d010f4b3ceaac8
 def _typecheckingstub__83c00814903fe43cbe21eca7faddcd90dcea9ec971aac6d8d2daf6b50f845df0(
     *,
     group_name: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
     path: typing.Optional[builtins.str] = None,
     policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__13af24b231dab76416337b37eed1fc0eb441fa93214942c4f328be745d78987f(
+def _typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c7f7b0b4(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
     *,
-    roles: typing.Sequence[builtins.str],
+    roles: typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]],
     instance_profile_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__511cf624861b94d053cb656d41bfb85226b39bae88821676b01740944f0811d9(
+    resource: _IInstanceProfileRef_d6832c90,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b593290cbc770e9142ad849fa0c3ac70ba9811f3da5475a95ec1753ed5e44a52(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7ea1d50531a33bafd660573c8a2e3a8e5e0215acf7462185f0959ea67f61bee5(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__785f95fb95c2bbe41d514dea64d18cfcbfa66bffbfa2d083ae501bdd37a0fe4f(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94d5332482fea97767ec730f2c1930a5e4ec68efce72124dd1cfd7a7c5f40bba(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed43f11cf4(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13af24b231dab76416337b37eed1fc0eb441fa93214942c4f328be745d78987f(
+    *,
+    roles: typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]],
+    instance_profile_name: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9962df64(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_document: typing.Any,
+    description: typing.Optional[builtins.str] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
+    managed_policy_name: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+    roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]]] = None,
+    users: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IUserRef_b0ccca76]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ddaff230cd62363f571d1c69690fe7f8e88bd1b1eefa314ac6a2020c1a9d9a8c(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__49691612ad6d051c64843fc36b88e2a32e132ab38af6120ecf52699776f24808(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__57f5af0ac55173154c340115659691a27fc295c9250c8d5ca198109f64466ee8(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cc04fd5744afbd3cf5d35eec5e89c42dc47f150557ef85988e2e74ea873c422(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc185a3adf8688a003c343f2c7f2d2213871db292b02bf41ab584d89834d560d(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad4dd76c35346216139c78ee6af3ca0521328f8eeab6374f6ea5d0c3af2b9886(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55edad48d274800976c6721903c6c5c63dd8559011473654245716943a0e2895(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1de9b6a5aa5082e09fb07840ea3cdfca3eb8553aa46fd492dbb181b5362f13b9(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4ad59cd00d0e0ac909d310dbcbbd6e052d1f131f984c456d7dec6c6d0f890843(
+    value: typing.Optional[typing.List[builtins.str]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17829,11 +17233,71 @@ def _typecheckingstub__7363835eb798096a2561a7a8a91d2914cb5cb1e71dbda6de66efc5952
     *,
     policy_document: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
     managed_policy_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    users: typing.Optional[typing.Sequence[builtins.str]] = None,
+    roles: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IRoleRef_8400221f]]] = None,
+    users: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IUserRef_b0ccca76]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140ceabaf1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
+    url: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fab4fe6f3e4db72e34d9bb9535a6cd4366d92f1c50e499ef665ae1a82c7cc813(
+    resource: _IOIDCProviderRef_a866c7c8,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f5057f964f9bab1fcc32fce6ba173b262ffb5b477e91cae47ca4b093e0a2465(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4dae706f759e2af37c98017ae788d704bf61cf6db2c64c99cf832bc287eb6389(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3fabe5e02(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa3ed6dd0ef0854d834aaa2a169f05db6443763c0d3f9c4bd58c44fcdac5c427(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e667481e(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17848,6 +17312,67 @@ def _typecheckingstub__7712735ff8576b291ddb9c7e92ce8078bf6f1d87729109296c1be6414
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cb67178fe7e1b31e1be07438cbe12957995260af0ad90c58a3ab490fe6dfe65e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_document: typing.Any,
+    policy_name: builtins.str,
+    groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    roles: typing.Optional[typing.Sequence[builtins.str]] = None,
+    users: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ee23fc195087e9166c203ff6e5a0a6d7f961f5dee39d0ea4ad91b3bea8f9a36(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85f1de37bbcdfc836c215c1a1844169c37747c39945f4381b39bfd452963ff73(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__06044458de4bf8f3f6bd0026d2e0c44680c55d70af59396fc7616d84dab9d26d(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ecc19153b06dcc252bfb1ae6146652d56fcd1825369497489a00194a960696d5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1cb77529b0bb4edf27e46d46d8fcaedafea19611a49ee1c83bfdd3a98234745e(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87a89a5b9d5419ceb30e8217d4489eae0857ac493147f2a7af32a527ec688a14(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c25ce8e0b5d932098589ac1c033a96eed27019fa02e7aea82f7eaacbdd509100(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__368d6e95de387252f469d8428e0a4cbe73ffdab170f90c7194b6f3e54f8b875c(
     *,
     policy_document: typing.Any,
@@ -17855,6 +17380,156 @@ def _typecheckingstub__368d6e95de387252f469d8428e0a4cbe73ffdab170f90c7194b6f3e54
     groups: typing.Optional[typing.Sequence[builtins.str]] = None,
     roles: typing.Optional[typing.Sequence[builtins.str]] = None,
     users: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7c6fab32(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    assume_role_policy_document: typing.Any,
+    description: typing.Optional[builtins.str] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    max_session_duration: typing.Optional[jsii.Number] = None,
+    path: typing.Optional[builtins.str] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
+    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    role_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aed7930ffdab40f4113234c4ce249e72c7b8fb0328ee2238e91d57b3368ac29b(
+    resource: _IRoleRef_8400221f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ff3f97b4de0b51871305eb5dbe778f76bd225254ccf6a281eb5ad37441bd9365(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c17ebfb69a2f5ed9dd9290d6026b842dd5e032f3f0f7aa29ccc996da3be8aa3(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f64edf2fd513d8eaa71e570374ea6368333dca94e9bcd75c06e0cd57bf703237(
+    value: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3c2a9dbc73d67aad806d2048aa4381abc22ed38266fbe7ad4d0f9363cfdac4a7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__84c396c36f658a4080b46dfbbcb0f9163ca138b4afaf4da438a00378beffede7(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6431acc0b99ad558bc7b549bbfe3e581f937dce92da78253920c201c8cc22e0a(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1d420d46f77d7cfcfcd09009a0f2eadf9ebada83d085948137f30c8ee4abdd4b(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f02795db1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRole.PolicyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cff795bef(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e339dba71f34d8ac881f4a2583a5b3e824a8bb93f479517aebabc1977c8c2ba1(
+    *,
+    policy_document: typing.Any,
+    policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f1532590762c98b830f41db58b5d7333f7f995a90f128be89292c180ecefabf3(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_name: builtins.str,
+    role_name: builtins.str,
+    policy_document: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8728946f5288abc0306a5d628f001064b1d982cebea9643c6ac987974a032a61(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843c350641(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17872,13 +17547,102 @@ def _typecheckingstub__5103775c44bc4d8c2381a2d9cd5bbb47d14617e4000af5af24e41da60
     *,
     assume_role_policy_document: typing.Any,
     description: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
     max_session_duration: typing.Optional[jsii.Number] = None,
     path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[builtins.str] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
     policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     role_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d1f3f009(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    add_private_key: typing.Optional[builtins.str] = None,
+    assertion_encryption_mode: typing.Optional[builtins.str] = None,
+    name: typing.Optional[builtins.str] = None,
+    private_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSAMLProvider.SAMLPrivateKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    remove_private_key: typing.Optional[builtins.str] = None,
+    saml_metadata_document: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1f1e65df7127c08c1603f184585a56d767362a3b5afeaa5a74ddaabf619b5da(
+    resource: _ISAMLProviderRef_6e369856,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc9dc8f4401f1aaf9a9981044bc588dc6bdc25dc997eeedb4fa39af1ecd2529f(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aa493901e136133decf51345379fd4b5dd35432e35f354e5dd453eb7daa8245b(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8eda0b212280ae29b138f852bf55874f8617cd18d7ed484f68edc38bffe20894(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b22ac38ad8a3fd6af168b0c9077c481244d37477d750cb3920773c2aa0381628(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c3269877e220a(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSAMLProvider.SAMLPrivateKeyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ee9b5a78619fab076894e18105c29d8554950dedb6d0b06ebdb5bdcf17266e1(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe0e0d57c(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e7b8165114a2decbdfd66da703311b43a9b1c50edd7d65c71d2b8484a52e4f02(
+    *,
+    key_id: builtins.str,
+    timestamp: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17896,6 +17660,80 @@ def _typecheckingstub__753bbb479e0c0a542a8456d357a3312bedbcc25e8753ca69dabd0ebf0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e76e4b5b(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    certificate_body: typing.Optional[builtins.str] = None,
+    certificate_chain: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+    private_key: typing.Optional[builtins.str] = None,
+    server_certificate_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bdc593551fa8cc6ccbfd2bc0375f5568203a3f854d4f715a6b618e4b88274326(
+    resource: _IServerCertificateRef_005ddfcc,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3287a2c8df8f2cca57e9ef3ac067d25816a83b556c24ac1057b3b2ae573636bd(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a54a0dba3e2e40002701a3afd9e2e4bf8ce9a72d2137a4aaa4aa728c81f007a(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87c7211629136fb42c02f367b9448da78ab4e5abfd4d9e04ab0caad5325bb2b2(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4ff303b49caa7890566d08d6a2a60ec1a95e65e81edd71a7aa6f85f708e4fdd(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__77ad8bd4800869c88771ef98910278fbbe26e1520e96f812fdbc0837580817e8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a4203fd09b7317247f69586ca724e62c2ea809be65e02471885451dfe4324b20(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e609428f5648(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__8c0fa14d93aea4f905649a3dfa7bcd3ea31e86d8c6ac197efe6a3040eb6155f7(
     *,
     certificate_body: typing.Optional[builtins.str] = None,
@@ -17908,11 +17746,209 @@ def _typecheckingstub__8c0fa14d93aea4f905649a3dfa7bcd3ea31e86d8c6ac197efe6a3040e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d428bb539fd6df78e6e28b0695f366af555fe1f958879857ee30c8067e2af789(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    aws_service_name: typing.Optional[builtins.str] = None,
+    custom_suffix: typing.Optional[builtins.str] = None,
+    description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e15cbef59f1c57bd0a07b6dc7673834547880709ca660f114c9b692de877ffc(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f0f81638df3b5467a6f2750e681e60bb99239f2a978002ef69aae000229a742(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__894356a5067d4595c32429fb905a7c37dbca2ce428fa3c0743817d563a07b673(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__73b7c9779d86988f0dcb8c2282ce3fb8bd23b1db482b7081dbf555457bc45bdc(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__796fb2b9a69a72a7ee224d68a6ba88159e7107645a0f704a025f9b8bf7b3d6ce(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dafce478a4346996727c8ffa75ed8a924def97e273b5d6cc9f321b9c8eea85d7(
     *,
     aws_service_name: typing.Optional[builtins.str] = None,
     custom_suffix: typing.Optional[builtins.str] = None,
     description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4ca523687(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
+    login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
+    path: typing.Optional[builtins.str] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
+    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    user_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53586ff3825069b3269d54a7efd5838a24c958e3815fb51409e5578af38ed8a2(
+    resource: _IUserRef_b0ccca76,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__39d477467a398dca23b6324aaa1b79887f96a2ebb288e56f19f2715de1901378(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e0ee3dc7778b587a3d4c4511b986f6fc1c9c865253acfb48b0df1fe42cd5f082(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d43257f1398(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.LoginProfileProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d9bc7aa1272c0c2d7eca931089eb5238a71667de1dd61a5e39d1bb0d80b06ac(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8b45a0c327fbd95f77396687ff75f3c61c77223d854a371180accaa05cec25e6(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c5312027885dc7(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.PolicyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611efe7c1f3(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a(
+    *,
+    password: builtins.str,
+    password_reset_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e10d289e0033a52d00a2a3cfb4f5dd68a85b62b072e59b08358dbe810503669c(
+    *,
+    policy_document: typing.Any,
+    policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b09938208fba24d256ecd68450b14a065d6488754943e666f9c0528cd0571773(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    policy_name: builtins.str,
+    user_name: builtins.str,
+    policy_document: typing.Any = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50148d4dcf0c6b86c32afab139135ccee1e0f58e20fc54e8b91ef9b40bc88560(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae995e3d0(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8(
+    value: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17928,14 +17964,54 @@ def _typecheckingstub__fe6f239efe54addc57c69dc765719968f9ffeb9e19e348f502085249d
 
 def _typecheckingstub__8b4312dc8ff103705c67491ae6f470e2644acffd396e5635261bf47e9a8a945f(
     *,
-    groups: typing.Optional[typing.Sequence[builtins.str]] = None,
+    groups: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IGroupRef_aeb1d9f6]]] = None,
     login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    managed_policy_arns: typing.Optional[typing.Sequence[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]]] = None,
     path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[builtins.str] = None,
+    permissions_boundary: typing.Optional[typing.Union[builtins.str, _IManagedPolicyRef_a7a65687]] = None,
     policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cff069f9e69e3551ebb007914281abb14f05e8d822825ab91577ecf95414ffb(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    group_name: builtins.str,
+    users: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ad9fff616a1b1f3024a67ea7adb60a1ee244e8400579a12825ab7e5c6bd17771(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__34d58a01767f256628192ca708cd20a48bd1b0ad6795595846565c2c84e235e8(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__80988c0737b217a15fbc51dd191617d213752314ac76d041cba72fa2fbca3c04(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9633608428e6d8df416ba93dfbf3f5248605fc8d2d8dc1be95067a291eb4223e(
+    value: typing.List[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17944,6 +18020,60 @@ def _typecheckingstub__be028fcc46f0c07bb061d985679cb1824767d764103c011f6956ac7bb
     *,
     group_name: builtins.str,
     users: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc49399a99(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    users: typing.Sequence[builtins.str],
+    path: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    virtual_mfa_device_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__484a1c7065ccbe3212fb35fb07f8f11e400d775147f533660fc3ebc70c5b8802(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__95acd7cc3c337be75e6e1344aafe2900ca56480c92605d270e827237b04933d9(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__62933eb2630cbda8cd521b55437211294e28433e9f2916bffa9f4987d4a9aa8c(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75e1d03c8(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b5456135f25b9d08fb97dae8235054f6111c0d6ff6cb6ca028c6c552d38b10cd(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18031,13 +18161,20 @@ def _typecheckingstub__18a4ff4a989416437955a50d12b650943c445c1bd75cbc2f47d193904
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6d966b064e777c60501cf45b81c5f2072ab9bfb4b7def5ee0ad6a6e273fe0630(
+    *,
+    grant: typing.Optional[Grant] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a60e5877e638d22c44d2e72be768df7f85caf47bec9ab2e6b2adcce826a6aae0(
     *,
     actions: typing.Sequence[builtins.str],
     grantee: IGrantable,
     resource_arns: typing.Sequence[builtins.str],
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-    resource: IResourceWithPolicy,
+    resource: IResourceWithPolicyV2,
     resource_policy_principal: typing.Optional[IPrincipal] = None,
     resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
@@ -18061,16 +18198,20 @@ def _typecheckingstub__d76f68f1d67dcad526c87768d88423a4092a0ef3127be7cb534620448
     grantee: IGrantable,
     resource_arns: typing.Sequence[builtins.str],
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-    resource: IResourceWithPolicy,
+    resource: IResourceWithPolicyV2,
     resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__6444257f273f4e56fa47be2acb2c3a0d80350db81fe412f4e0d2a00b89a77953(
-    *,
-    group_name: builtins.str,
-    policy_name: builtins.str,
+def _typecheckingstub__5dd532720c67899493c38541d1d1385824a8c552f89bc513c1e00d86714b7a75(
+    resource: _constructs_77d1e7e8.IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6abc7b14c1bac1d5c3ea94fff54da43a5f9d27cb6330751d69f1723006eac104(
+    resource: _IEnvironmentAware_f39049ee,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18084,10 +18225,9 @@ def _typecheckingstub__7889ad6c97f3c96c3ead5d27bd1231fba11aadae1700a9dcd08812360
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__2740009e6e979272eadb3fa6ac234d0c26e8189f26597592ee07cd26fd4ce718(
-    *,
-    group_arn: builtins.str,
-    group_name: builtins.str,
+def _typecheckingstub__31391fca81b6f55a5127b16e129f61e26bf7e16d7075081f448434495d73fe70(
+    grantee: IGrantable,
+    *actions: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18098,8 +18238,45 @@ def _typecheckingstub__7c10aadcc3756f5f6d5486d7ecd5cabd7845be5964af1722a9d4962d5
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__dc0b619bfbc345bc9140fcc58d59f27472a211b09306f5c2e6b0147efcef6b18(
+def _typecheckingstub__d0411047245e16030f540e191ce067fdd2216fb84afd5f47032486efe2dddfda(
     statement: PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47902e96d39fe1f772c15032b60b34efd5f4ebb64e4f7d08d924c04ab8393203(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instance_profile_name: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+    role: typing.Optional[IRole] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c5f92c9eb36073e3604dae6b3449d6b3ce102597766d24026143d8edc87c0a1(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    instance_profile_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b4829ea04dde958ee082c71fd13dbdde279a49cce33d5b0cd09b7c5dc1a90e0a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    instance_profile_arn: builtins.str,
+    role: typing.Optional[IRole] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7870e30876638f54c4d41cd7645fabe3356a94b6ede305036ccf59d622f572e(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    instance_profile_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18121,19 +18298,13 @@ def _typecheckingstub__ac5e12eff086b0ebec934d941ac660747a3807a1f2e371ed4b509707a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__79ff1cfdbc8a26d6762ca3d359f96df95d6751186fa61d7fb0f0b8f3dd92708e(
-    *,
-    instance_profile_arn: builtins.str,
-    instance_profile_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ac402af2b963b15f12c561030bd732418fdef258857572111b9a81189e27e35(
+def _typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81e573c2d(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
     document: typing.Optional[PolicyDocument] = None,
-    groups: typing.Optional[typing.Sequence[IGroupRef]] = None,
+    groups: typing.Optional[typing.Sequence[_IGroupRef_aeb1d9f6]] = None,
     managed_policy_name: typing.Optional[builtins.str] = None,
     path: typing.Optional[builtins.str] = None,
     roles: typing.Optional[typing.Sequence[IRole]] = None,
@@ -18143,16 +18314,62 @@ def _typecheckingstub__9ac402af2b963b15f12c561030bd732418fdef258857572111b9a8118
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__35d26acb92c4f6f71803a661d182745f7e7415d39180bf394ffcd8097cff25c4(
-    *,
-    policy_arn: builtins.str,
+def _typecheckingstub__04dc3b9def232bf73e8992c95959e8ca96d18af4cafb5db34a590a221cb825ca(
+    managed_policy_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__d5d460e9758fb6d4467c838e6b15ddc6509080a95fd584461a4f6d82cfb0359a(
+def _typecheckingstub__0b433b3584cc62234ee457168b3f3d2db5b0b227fe9dc2240edd9ce3eecb779a(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    managed_policy_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__324e775a0f29673011a6cd38f79e52c1bb0c3c5c895f02fcfd38496e4fe98322(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    managed_policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf5441cdcef(
+    *statement: PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e(
+    group: _IGroupRef_aeb1d9f6,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45bef91c9(
+    role: IRole,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d(
+    user: _IUserRef_b0ccca76,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ac402af2b963b15f12c561030bd732418fdef258857572111b9a81189e27e35(
     *,
-    oidc_provider_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    document: typing.Optional[PolicyDocument] = None,
+    groups: typing.Optional[typing.Sequence[_IGroupRef_aeb1d9f6]] = None,
+    managed_policy_name: typing.Optional[builtins.str] = None,
+    path: typing.Optional[builtins.str] = None,
+    roles: typing.Optional[typing.Sequence[IRole]] = None,
+    statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
+    users: typing.Optional[typing.Sequence[IUser]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18227,6 +18444,53 @@ def _typecheckingstub__9d84d00226fae280f509c83e8e2fe992e095759345570998cb685b91b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bf4aaba2f6acb5486adaf871c56e1317b1a2931936b56a78bf4633c14caba596(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    document: typing.Optional[PolicyDocument] = None,
+    force: typing.Optional[builtins.bool] = None,
+    groups: typing.Optional[typing.Sequence[IGroup]] = None,
+    policy_name: typing.Optional[builtins.str] = None,
+    roles: typing.Optional[typing.Sequence[IRole]] = None,
+    statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
+    users: typing.Optional[typing.Sequence[IUser]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__11207539a0ef88ae02fb600ab0862501107d998ae3be0f5a08a9fc0466cc0948(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__510252a6b115bef4c94f6ab3c402eb29a1b2012a86045ddad51b4825713e0799(
+    *statement: PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d09ae4b9f8a7c9ca0442c9a4b6f69bce78f42c194de9b535704dc9718516fea(
+    group: IGroup,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__010ce98a5e97a30c0c893a505506c652f5ecdb76ee983e02c498a174717f3e82(
+    role: IRole,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__87f9ba31abd317367c4b853073e8d4e30843f460c3420b69165c6082b01547ae(
+    user: IUser,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__570b193deac1ab27a70fd71df51891425bc3ec3540e0a5cf7f8f9e585b276f20(
     obj: typing.Any,
 ) -> None:
@@ -18263,13 +18527,6 @@ def _typecheckingstub__0a119470d7c78e863a14a450dfe2d14dd9454487e93601f2675b2fafe
     roles: typing.Optional[typing.Sequence[IRole]] = None,
     statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
     users: typing.Optional[typing.Sequence[IUser]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e3a516d467a76a134bcfc4e6a62971d6a30525edb6bd45c51452b5ca901f3e62(
-    *,
-    policy_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18415,19 +18672,29 @@ def _typecheckingstub__278426b331a0d887bf9449f77f6f9c562033abef58a3d7279c5604a1e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dffa67cf033b90d54f11e95ec0b1a8cd60db661c810a4fd24dc03933a21d5c87(
+    role: _IRoleRef_8400221f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0e43e158983e4dd015aa840081e69baed377aba2f7fd40438b55ae1fb555e272(
+    identity: IPrincipal,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__557aabeb0c114b0578fa478004131fa9486a9be7effa997358f0dbebe32cf40c(
+    identity: IPrincipal,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__06f459857ae55dc3473fba5b10ef4188eca762038ac741736a6d4b8cac006356(
     *,
     add_grants_to_resources: typing.Optional[builtins.bool] = None,
     default_policy_name: typing.Optional[builtins.str] = None,
     mutable: typing.Optional[builtins.bool] = None,
-    role_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ef186097b47196c3c0db80b64773778d51b2df8d2e1e7510f072b7e0aa66db8(
-    *,
-    policy_name: builtins.str,
     role_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -18444,21 +18711,6 @@ def _typecheckingstub__9c9223cb9fa6dff45ee4fd7013629ab18542c2499a83f542c5405968f
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
     role_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__444521ea5fa1710b9cbbf5568ad90c8cd3cf1cc3eba92d7f58d8ca95e4f69dee(
-    *,
-    role_arn: builtins.str,
-    role_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d67d67e52b9debe4a64ab6c3de63eae069bbcf59ded7e4e39dd16d1476a809d9(
-    *,
-    saml_provider_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18501,21 +18753,6 @@ def _typecheckingstub__5f0838242f105f982b040b1e4abc268b7e6230b1f40a59916bdce34e2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__073e1ae15a5ad6258b21b8250874f8b21ed4fb59125cc41b9246c13b24a0ba54(
-    *,
-    server_certificate_arn: builtins.str,
-    server_certificate_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c63d4f6d4ae20fa32b9f61558c489c10d6c2baf9bbbe91f3886c7589602c75ac(
-    *,
-    role_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b1a7b908a503ee76c237762d915d7a503778df01faaca4c8b3e6de46c413efea(
     *,
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
@@ -18550,14 +18787,6 @@ def _typecheckingstub__5246085f2e2073ef1bcc0015f7ac242968b5a4a77257c315904c1bf3c
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__866446aa42a57999c0f1a23207218f7e5c5e8546e2541bb67e791f488d58ff89(
-    *,
-    policy_name: builtins.str,
-    user_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b49c33f300471f45a248f56a068fb48f78451f10631fedcb3e5890d72ce3fe05(
     *,
     groups: typing.Optional[typing.Sequence[IGroup]] = None,
@@ -18571,28 +18800,6 @@ def _typecheckingstub__b49c33f300471f45a248f56a068fb48f78451f10631fedcb3e5890d72
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__e735db93dd845c3789478a3e9d585faa013252f78a6b33568ee8fd8dda2114ec(
-    *,
-    user_arn: builtins.str,
-    user_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e2b4b7088269b3c899652c93c66a183190dd431eb4a948d6d8ebeead60abd993(
-    *,
-    user_to_group_addition_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dc236d0b2faa4c00baf1b34fdc67dfd03ed101ecbf4ee382dd6b4c42585dda8c(
-    *,
-    serial_number: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__63c38b4a84c27c159038a7ab31110e5032bef8ddad181f04f0b754232fb1ed44(
     *,
     add_grants_to_resources: typing.Optional[builtins.bool] = None,
@@ -18600,880 +18807,13 @@ def _typecheckingstub__63c38b4a84c27c159038a7ab31110e5032bef8ddad181f04f0b754232
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__8d6875d360f4b68d81822160010f3dcab4fad75219310207a67ebdbd76b5d610(
+def _typecheckingstub__604f514db426465dbc092293e7b2e46f5358ddb17770a96f51ef7e6a5f6d15f4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    user_name: builtins.str,
+    user: IUser,
     serial: typing.Optional[jsii.Number] = None,
-    status: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__253c114f9b2f2b6b08dd9a5564956df556fd7f0ff623cf82d94801cb17f499b2(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ab5857eebc55e10a0edcb4b0c6f013af1342700cb0a55e89483e6f8b6d574741(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3405535e039979434b63eda6cd780e7a68f3036e83c19773aa4cce38e62cfcc0(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__de65be3bea4fb6cb4947339490001a6cb74c0e6991d864cd5de95395f19d977b(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0c8207c22274bc6fabc3862c3b573f9d71344e354dbd17a00318aa43fa18cb7d(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__20b2c419e0a9df4f72befe689959dc5d68aff361365a09c398c4a5645df50b18(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    group_name: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    path: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGroup.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cd8f3cc95c07c18415e709564850ea545ed675e3f0b6e3505e763a15b48e963(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__89278b67425b9a0f94f61235c7282945d071b501bc7b15f85a485662ff826258(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__01be7e8dfd9fda0df1899d3026531e8a38a22b7e1f2d6027c883cf4d505c3d51(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a267baaf187cde3f3930ebef9cdd1a754591f3f54b47d9729cc1d9bb3a93458(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b014a61027fdb2afb518b56e4a64ca65934df00a511ae153c21193094d07e4ca(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9a23f252d3f662bbd9b85e3ee272df167b08d0ce70d4a20ac116d5b1cb15a44e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGroup.PolicyProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5381732fad8dcd5499b3b303273fdd9097ec896987b47080216d0c734f18d9a8(
-    *,
-    policy_document: typing.Any,
-    policy_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4f890caaa5f6b29722a17bf5c714640d202cb740a7f07aec5a5ced9b53eed348(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    group_name: builtins.str,
-    policy_name: builtins.str,
-    policy_document: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79a0026280df7e0717ed9e16473b60d33a900f8870446901848eb1af15bc48c1(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ef5341af0b1e6f12f150e9d4694149341aec7aa000971cb5f25b0b9672a631cd(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__789fa1310fa5f0c8a58c7721ec65bb7fb38294aa983f688e92a477a4ecf7a44c(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__98fde951f7da16e6788d849111dc918395ada4b5134156e2bc4d29caf92e119f(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__252a63b1958f4306e76e5da346149aa1087fd66fc85306f6c6c58ab5571644a4(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__31ec5f0ea7f9ac49e8ad53cc5faa514c2ff04ae0962ad9e9fb0274b3c7f7b0b4(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    roles: typing.Sequence[builtins.str],
-    instance_profile_name: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__014a9e16c0ce84f545ddc2fd74080cc35e47d194639e0b8133383c054c81a206(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7ea1d50531a33bafd660573c8a2e3a8e5e0215acf7462185f0959ea67f61bee5(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__785f95fb95c2bbe41d514dea64d18cfcbfa66bffbfa2d083ae501bdd37a0fe4f(
-    value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94d5332482fea97767ec730f2c1930a5e4ec68efce72124dd1cfd7a7c5f40bba(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cbfe487716a390ca26e092b03b19bce39babeaa672e667fad6be4aed43f11cf4(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a8c17449d46e088e632540cdf9eb1a587f03d90f16e24cec8b7c30c9962df64(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    policy_document: typing.Any,
-    description: typing.Optional[builtins.str] = None,
-    groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    managed_policy_name: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    users: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a722cb81ff9cd42fafa9ac5e408b6c1bfdb242f04cc4ae98a8ea3a1b79fdbfd2(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__49691612ad6d051c64843fc36b88e2a32e132ab38af6120ecf52699776f24808(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__57f5af0ac55173154c340115659691a27fc295c9250c8d5ca198109f64466ee8(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1cc04fd5744afbd3cf5d35eec5e89c42dc47f150557ef85988e2e74ea873c422(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bc185a3adf8688a003c343f2c7f2d2213871db292b02bf41ab584d89834d560d(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ad4dd76c35346216139c78ee6af3ca0521328f8eeab6374f6ea5d0c3af2b9886(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__55edad48d274800976c6721903c6c5c63dd8559011473654245716943a0e2895(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1de9b6a5aa5082e09fb07840ea3cdfca3eb8553aa46fd492dbb181b5362f13b9(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4ad59cd00d0e0ac909d310dbcbbd6e052d1f131f984c456d7dec6c6d0f890843(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5cc57bdb168ce990f6466a329942805a3eead54a8207df63d06106140ceabaf1(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    client_id_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    thumbprint_list: typing.Optional[typing.Sequence[builtins.str]] = None,
-    url: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5e414fee3e3f5f30b79be56e642403e70f811157ff8d43b791b5526b812061d8(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4dae706f759e2af37c98017ae788d704bf61cf6db2c64c99cf832bc287eb6389(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__65ff0b468eb305f1d15390d9c9c9f031b03af51fdd4c6edcd5f1c7b3fabe5e02(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4db8fa394e822c865ec6e624ef31a1dd1aaba19da7971d0044ad1d1d5a060d70(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa3ed6dd0ef0854d834aaa2a169f05db6443763c0d3f9c4bd58c44fcdac5c427(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__047a9e084da3802dd407fe84ef685690e55704bff14429720999a139e667481e(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cb67178fe7e1b31e1be07438cbe12957995260af0ad90c58a3ab490fe6dfe65e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    policy_document: typing.Any,
-    policy_name: builtins.str,
-    groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    roles: typing.Optional[typing.Sequence[builtins.str]] = None,
-    users: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b0b1b065d832052b886db644c3488c7bc10240091ef05927590351b7bc53eb1(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85f1de37bbcdfc836c215c1a1844169c37747c39945f4381b39bfd452963ff73(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__06044458de4bf8f3f6bd0026d2e0c44680c55d70af59396fc7616d84dab9d26d(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ecc19153b06dcc252bfb1ae6146652d56fcd1825369497489a00194a960696d5(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1cb77529b0bb4edf27e46d46d8fcaedafea19611a49ee1c83bfdd3a98234745e(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87a89a5b9d5419ceb30e8217d4489eae0857ac493147f2a7af32a527ec688a14(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c25ce8e0b5d932098589ac1c033a96eed27019fa02e7aea82f7eaacbdd509100(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b418623e6c6b819228e2a7c5d9c5341241e5b0e738f77eeabd6cacec7c6fab32(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    assume_role_policy_document: typing.Any,
-    description: typing.Optional[builtins.str] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    max_session_duration: typing.Optional[jsii.Number] = None,
-    path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnRole.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    role_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2ab1ed2eb652f78c921a94468eea54161c2d72210612c21a2d7221190717d546(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6c17ebfb69a2f5ed9dd9290d6026b842dd5e032f3f0f7aa29ccc996da3be8aa3(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f64edf2fd513d8eaa71e570374ea6368333dca94e9bcd75c06e0cd57bf703237(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3c2a9dbc73d67aad806d2048aa4381abc22ed38266fbe7ad4d0f9363cfdac4a7(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__84c396c36f658a4080b46dfbbcb0f9163ca138b4afaf4da438a00378beffede7(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6431acc0b99ad558bc7b549bbfe3e581f937dce92da78253920c201c8cc22e0a(
-    value: typing.Optional[jsii.Number],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1d420d46f77d7cfcfcd09009a0f2eadf9ebada83d085948137f30c8ee4abdd4b(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6141e4bbefd436f5eddad46690a81845abcebab51fabb169abf1431f02795db1(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__de13ceb9aac4a8cea0907c7e4ba81eeca369f4f35bfc0f1d48beddf9ab76811f(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnRole.PolicyProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__435e72316ea55d9adabad0902ac623255b110529fcd748e3ac74055cff795bef(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__1c0657eba6af54757d6f74532e2ed61efbdc50fb773a54687878cfd7c7f8dda5(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e339dba71f34d8ac881f4a2583a5b3e824a8bb93f479517aebabc1977c8c2ba1(
-    *,
-    policy_document: typing.Any,
-    policy_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f1532590762c98b830f41db58b5d7333f7f995a90f128be89292c180ecefabf3(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    policy_name: builtins.str,
-    role_name: builtins.str,
-    policy_document: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f878b18113dc1f16c459595683f03c065b56afd62d2918c65c6cde7539984412(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0db54a249a715ade4f26735343ca5a55eb1952e807ce57e2d7ec4b843c350641(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7042bd66e9ba283ac19987752cc24a822d1f227ca8217dbbae1ca253f583b373(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c89cdd638f3704d6ca88c2e6c9c5c301322b1ed12de337f2ec3c4bfdee661f0f(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2153da01bebec26c385aa83a08c1b544e6c1e15dfda33c546698c885cbf1e9b9(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f64934981377388842130b01da042285d0dfa38ef82a7537c7ff86f5d1f3f009(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    add_private_key: typing.Optional[builtins.str] = None,
-    assertion_encryption_mode: typing.Optional[builtins.str] = None,
-    name: typing.Optional[builtins.str] = None,
-    private_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSAMLProvider.SAMLPrivateKeyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    remove_private_key: typing.Optional[builtins.str] = None,
-    saml_metadata_document: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__125ecb4c71203c76b16de524888c31f4d67c2ec1eb117d698f7d362c7d8fe450(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__aa493901e136133decf51345379fd4b5dd35432e35f354e5dd453eb7daa8245b(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8eda0b212280ae29b138f852bf55874f8617cd18d7ed484f68edc38bffe20894(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b22ac38ad8a3fd6af168b0c9077c481244d37477d750cb3920773c2aa0381628(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf699aa7d755e072f3b60499335fb6469de4ed3bdb0605652b9c3269877e220a(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4b658e1199288ad46a20aa58d7a48bed2a7a2ce85d292b87c990c63d1cbea592(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnSAMLProvider.SAMLPrivateKeyProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9ee9b5a78619fab076894e18105c29d8554950dedb6d0b06ebdb5bdcf17266e1(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6c9b70ef0e0ed94f53ecf2221518796deaf4c5a9353a14b0183e26bbe0e0d57c(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b139c04642da2a9b428a58eb37077beb7f9b79971517b5fd95e8c7dbfa322e67(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e7b8165114a2decbdfd66da703311b43a9b1c50edd7d65c71d2b8484a52e4f02(
-    *,
-    key_id: builtins.str,
-    timestamp: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b6cf37b70ff9a27f22bc984fc19e96b2e42e00f83cc2e2efd66e3b46e76e4b5b(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    certificate_body: typing.Optional[builtins.str] = None,
-    certificate_chain: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-    private_key: typing.Optional[builtins.str] = None,
-    server_certificate_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__366b62f33040d7a5e531fab130ce2a8bbbba719ed080e892236f3127f59f0273(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4a54a0dba3e2e40002701a3afd9e2e4bf8ce9a72d2137a4aaa4aa728c81f007a(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87c7211629136fb42c02f367b9448da78ab4e5abfd4d9e04ab0caad5325bb2b2(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e4ff303b49caa7890566d08d6a2a60ec1a95e65e81edd71a7aa6f85f708e4fdd(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__77ad8bd4800869c88771ef98910278fbbe26e1520e96f812fdbc0837580817e8(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a4203fd09b7317247f69586ca724e62c2ea809be65e02471885451dfe4324b20(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__54cd160d96a28915ae295954600508a01387f155ef6c01892d38e609428f5648(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__579aa0e0cc52787dc34d6f715f95942533f29fc470256c2e7e0cd454c26ae2f4(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d428bb539fd6df78e6e28b0695f366af555fe1f958879857ee30c8067e2af789(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    aws_service_name: typing.Optional[builtins.str] = None,
-    custom_suffix: typing.Optional[builtins.str] = None,
-    description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cc7c392a2b0731277a0218b6b90c103a720e9d973fe65098c66c9cbdbc1777d(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7f0f81638df3b5467a6f2750e681e60bb99239f2a978002ef69aae000229a742(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__894356a5067d4595c32429fb905a7c37dbca2ce428fa3c0743817d563a07b673(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__73b7c9779d86988f0dcb8c2282ce3fb8bd23b1db482b7081dbf555457bc45bdc(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__796fb2b9a69a72a7ee224d68a6ba88159e7107645a0f704a025f9b8bf7b3d6ce(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b453e8e55124e84a27aa60acd149280051b756df30318da37839b1e4ca523687(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    groups: typing.Optional[typing.Sequence[builtins.str]] = None,
-    login_profile: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.LoginProfileProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    managed_policy_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    path: typing.Optional[builtins.str] = None,
-    permissions_boundary: typing.Optional[builtins.str] = None,
-    policies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PolicyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    user_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c540efa10e05810a6302626e0a6f54b2963bab597096fea4ee0e6023d72f25a8(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e0ee3dc7778b587a3d4c4511b986f6fc1c9c865253acfb48b0df1fe42cd5f082(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a030f35db68335b8a550d10c248a4f289bc47052d3d3d7ad1feb6d43257f1398(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f9ec71116c53dba6fcd83f943f62c54cf4a1829d2c1fbfb773b475eb2e580e43(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.LoginProfileProperty]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d9bc7aa1272c0c2d7eca931089eb5238a71667de1dd61a5e39d1bb0d80b06ac(
-    value: typing.Optional[typing.List[builtins.str]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8b45a0c327fbd95f77396687ff75f3c61c77223d854a371180accaa05cec25e6(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__766b6286be304f39fa6308bbe3eb6a8a552712c6becdc31706c5312027885dc7(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__25df8a318c9f526fd31465b78f732e159102acc489b971d41ccdbe1b91ff426e(
-    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.PolicyProperty]]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__68bb5e640fe8f1d3df25a029bc80e69cb1904a783dae4c75d6eb193e37389a44(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__673a92f6f8c13a39a21d59717aefb8413279cd51db902ce34f4e3611efe7c1f3(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9b9798165bbdd5df9e80975dc2c6efce6bd25d4f2cb0e4afb86f5dd32cb51e5a(
-    *,
-    password: builtins.str,
-    password_reset_required: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e10d289e0033a52d00a2a3cfb4f5dd68a85b62b072e59b08358dbe810503669c(
-    *,
-    policy_document: typing.Any,
-    policy_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b09938208fba24d256ecd68450b14a065d6488754943e666f9c0528cd0571773(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    policy_name: builtins.str,
-    user_name: builtins.str,
-    policy_document: typing.Any = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__cde7256763c767d2775e466edc810c10426403d26df61b45c5e90e87328e04f1(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3ce5c91a6c338867856c8d0c8e4fb1baca52b1340f6738e4b2d9310ae995e3d0(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e1863a06ff9856e56ddfef1835185f36375de9aab427703c632667bf53aed26d(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c87f136af227b9d80b9c996ebad3cd0115cf869a0b881cdc44f69822e5d676a7(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__868920d1b0a57c789262fb64d7c1ce084d6f3da90f834b2da8cc620e6553bad8(
-    value: typing.Any,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cff069f9e69e3551ebb007914281abb14f05e8d822825ab91577ecf95414ffb(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    group_name: builtins.str,
-    users: typing.Sequence[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__839f86071dc7f367d40ea9ba8b644702b8c3f40d83e2a8d6821a097013d1a603(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__34d58a01767f256628192ca708cd20a48bd1b0ad6795595846565c2c84e235e8(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__80988c0737b217a15fbc51dd191617d213752314ac76d041cba72fa2fbca3c04(
-    value: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9633608428e6d8df416ba93dfbf3f5248605fc8d2d8dc1be95067a291eb4223e(
-    value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e13769e4d8767c55f844c7fd4df38f85edde39c6b8cf55033fe2d0cc49399a99(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    users: typing.Sequence[builtins.str],
-    path: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    virtual_mfa_device_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__50929ddeddd60b35f52c962b9e82522e8bb65a7b719ace39001073ce2996743c(
-    inspector: _TreeInspector_488e0dd5,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__95acd7cc3c337be75e6e1344aafe2900ca56480c92605d270e827237b04933d9(
-    props: typing.Mapping[builtins.str, typing.Any],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__62933eb2630cbda8cd521b55437211294e28433e9f2916bffa9f4987d4a9aa8c(
-    value: typing.List[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ed4aacd2a4d70c96cd36de260e15008f2e50d943134027a7f4ea4a75e1d03c8(
-    value: typing.Optional[builtins.str],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8cf1f893827aab77cb8d7fec4a522878bd879b2f8a49198a93c51cf414124229(
-    value: typing.Optional[typing.List[_CfnTag_f6864754]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b5456135f25b9d08fb97dae8235054f6111c0d6ff6cb6ca028c6c552d38b10cd(
-    value: typing.Optional[builtins.str],
+    status: typing.Optional[AccessKeyStatus] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19484,7 +18824,7 @@ def _typecheckingstub__0475ec23892b6dacf8e0426b204cca68a4091056bb08c20a72dbc06d2
     grantee: IGrantable,
     resource_arns: typing.Sequence[builtins.str],
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, typing.Any]]] = None,
-    resource: IResourceWithPolicy,
+    resource: IResourceWithPolicyV2,
     resource_self_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     statement: PolicyStatement,
 ) -> None:
@@ -19530,43 +18870,6 @@ def _typecheckingstub__9a259325b943101480d852a30d681aee828d57198b8501de84e4d9963
 
 def _typecheckingstub__17a32edfd359a804d50015e17cf8c5632c9a0e28c3542088534431b5ae1090e3(
     group: IGroup,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__47902e96d39fe1f772c15032b60b34efd5f4ebb64e4f7d08d924c04ab8393203(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    instance_profile_name: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-    role: typing.Optional[IRole] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0c5f92c9eb36073e3604dae6b3449d6b3ce102597766d24026143d8edc87c0a1(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    instance_profile_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b4829ea04dde958ee082c71fd13dbdde279a49cce33d5b0cd09b7c5dc1a90e0a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    instance_profile_arn: builtins.str,
-    role: typing.Optional[IRole] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__c7870e30876638f54c4d41cd7645fabe3356a94b6ede305036ccf59d622f572e(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    instance_profile_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19642,115 +18945,6 @@ def _typecheckingstub__214cb969b47d061738027497a5718edc40a7ebc688fb6a11b0b38fef2
     path: typing.Optional[builtins.str] = None,
     permissions_boundary: typing.Optional[IManagedPolicy] = None,
     role_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2cd427eaa6d6959043bb705f947d652220f35431c484ef548899b9f81e573c2d(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    description: typing.Optional[builtins.str] = None,
-    document: typing.Optional[PolicyDocument] = None,
-    groups: typing.Optional[typing.Sequence[IGroupRef]] = None,
-    managed_policy_name: typing.Optional[builtins.str] = None,
-    path: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Sequence[IRole]] = None,
-    statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
-    users: typing.Optional[typing.Sequence[IUser]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__04dc3b9def232bf73e8992c95959e8ca96d18af4cafb5db34a590a221cb825ca(
-    managed_policy_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0b433b3584cc62234ee457168b3f3d2db5b0b227fe9dc2240edd9ce3eecb779a(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    managed_policy_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__324e775a0f29673011a6cd38f79e52c1bb0c3c5c895f02fcfd38496e4fe98322(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    managed_policy_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dc09c2f794b8d270cf58515acd36f16f22c50e8e485667751a6b6bf5441cdcef(
-    *statement: PolicyStatement,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__53947185e012309c9619b70da30bfebeef3a52fedd6d8eca19e9a8e96853c82e(
-    group: IGroupRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d3b5752936a78a06ee1095be0dc5362932d7db4aa0245a456f4cfea45bef91c9(
-    role: IRole,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d3b5f4b1c957b78ec0d5ae0e80dc7f2471a55d293c6a67e32ef5a2046d89543d(
-    user: IUserRef,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bf4aaba2f6acb5486adaf871c56e1317b1a2931936b56a78bf4633c14caba596(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    document: typing.Optional[PolicyDocument] = None,
-    force: typing.Optional[builtins.bool] = None,
-    groups: typing.Optional[typing.Sequence[IGroup]] = None,
-    policy_name: typing.Optional[builtins.str] = None,
-    roles: typing.Optional[typing.Sequence[IRole]] = None,
-    statements: typing.Optional[typing.Sequence[PolicyStatement]] = None,
-    users: typing.Optional[typing.Sequence[IUser]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__11207539a0ef88ae02fb600ab0862501107d998ae3be0f5a08a9fc0466cc0948(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    policy_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__510252a6b115bef4c94f6ab3c402eb29a1b2012a86045ddad51b4825713e0799(
-    *statement: PolicyStatement,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8d09ae4b9f8a7c9ca0442c9a4b6f69bce78f42c194de9b535704dc9718516fea(
-    group: IGroup,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__010ce98a5e97a30c0c893a505506c652f5ecdb76ee983e02c498a174717f3e82(
-    role: IRole,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__87f9ba31abd317367c4b853073e8d4e30843f460c3420b69165c6082b01547ae(
-    user: IUser,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -20061,17 +19255,6 @@ def _typecheckingstub__5ebb8924f05370c7968859fd9c4bc9b3ab97a7fcbee56ddd82313a0a6
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__604f514db426465dbc092293e7b2e46f5358ddb17770a96f51ef7e6a5f6d15f4(
-    scope: _constructs_77d1e7e8.Construct,
-    id: builtins.str,
-    *,
-    user: IUser,
-    serial: typing.Optional[jsii.Number] = None,
-    status: typing.Optional[AccessKeyStatus] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__6a6d6c32d3e183186382b39b6b11487d115ae752f5ad9109d40863d0f5d49536(
     arn: builtins.str,
 ) -> None:
@@ -20123,7 +19306,7 @@ def _typecheckingstub__4dc4375c7e3b272eef905d1d27c4bd67aa9d9f51ccb424f15955369df
     pass
 
 def _typecheckingstub__703e9a9603562e94536f153d5ccc52492ff19cc38ed968f3b1f3e31592a8ae7f(
-    saml_provider: ISAMLProviderRef,
+    saml_provider: _ISAMLProviderRef_6e369856,
     conditions: typing.Mapping[builtins.str, typing.Any],
 ) -> None:
     """Type checking stubs"""
@@ -20200,7 +19383,7 @@ def _typecheckingstub__f8334d09c64ac01b56e25eccb0dd778a954e4f613c776ac3447cf3f13
     pass
 
 def _typecheckingstub__11057e2b11d9138bde96aa84215de1b5dba16e8c36af672dbebea8a1c33f4310(
-    open_id_connect_provider: IOIDCProviderRef,
+    open_id_connect_provider: _IOIDCProviderRef_a866c7c8,
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -20212,3 +19395,6 @@ def _typecheckingstub__c7271e79a3715a166397ac94ded3c4043db8b40c10213ffae6abbb3a1
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IAccessKey, IAssumeRolePrincipal, IComparablePrincipal, IEncryptedResource, IGrantable, IGroup, IIdentity, IInstanceProfile, IManagedPolicy, IOidcProvider, IOpenIdConnectProvider, IPolicy, IPrincipal, IResourceWithPolicy, IResourceWithPolicyV2, IRole, ISamlProvider, IUser]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

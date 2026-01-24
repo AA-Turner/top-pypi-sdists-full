@@ -16,7 +16,6 @@ short_description: FortiMail domain setting.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -133,7 +132,7 @@ EXAMPLES = '''
         facts:
           selector: "system_log_maildomain"
           params:
-            mail-domain: "your_value"
+            mail_domain: "your_value"
 '''
 
 RETURN = '''

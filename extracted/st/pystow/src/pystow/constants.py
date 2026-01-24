@@ -2,12 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
-from io import StringIO
+from collections.abc import Callable
 from textwrap import dedent
-from typing import IO, Any, Callable, Union
-
-from typing_extensions import TypeAlias
+from typing import Any, TypeAlias
 
 __all__ = [
     "JSON",
@@ -16,7 +13,6 @@ __all__ = [
     "PYSTOW_NAME_ENVVAR",
     "PYSTOW_USE_APPDIRS",
     "README_TEXT",
-    "Opener",
     "Provider",
     "TimeoutHint",
 ]
@@ -75,10 +71,8 @@ Note: if you set `PYSTOW_HOME`, then `PYSTOW_NAME` is disregarded.
 """
 )
 
-Opener = Generator[StringIO, None, None]
-BytesOpener = Generator[IO[bytes], None, None]
 JSON = Any
 Provider = Callable[..., None]
 
 #: A hint for timeout in :func:`requests.get`
-TimeoutHint: TypeAlias = Union[int, float, None, tuple[Union[float, int], Union[float, int]]]
+TimeoutHint: TypeAlias = int | float | None | tuple[float | int, float | int]

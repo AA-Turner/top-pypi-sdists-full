@@ -9,7 +9,6 @@ from .address import Address
 from .maximum import Maximum
 from .minimum import Minimum
 from ..._utils import PropertyInfo
-from .discount import Discount
 from ..._models import BaseModel
 from .tax_amount import TaxAmount
 from .invoice_tiny import InvoiceTiny
@@ -172,9 +171,6 @@ class LineItem(BaseModel):
     credits_applied: str
     """The number of prepaid credits applied."""
 
-    discount: Optional[Discount] = None
-    """This field is deprecated in favor of `adjustments`"""
-
     end_date: datetime
     """The end date of the range of time applied for this line item's price."""
 
@@ -187,18 +183,6 @@ class LineItem(BaseModel):
     be populated with the key and a value. The `amount` and `subtotal` will be the
     values for this particular grouping.
     """
-
-    maximum: Optional[Maximum] = None
-    """This field is deprecated in favor of `adjustments`."""
-
-    maximum_amount: Optional[str] = None
-    """This field is deprecated in favor of `adjustments`."""
-
-    minimum: Optional[Minimum] = None
-    """This field is deprecated in favor of `adjustments`."""
-
-    minimum_amount: Optional[str] = None
-    """This field is deprecated in favor of `adjustments`."""
 
     name: str
     """The name of the price associated with this line item."""
@@ -274,6 +258,13 @@ class PaymentAttempt(BaseModel):
 
 
 class Invoice(BaseModel):
+    """
+    An [`Invoice`](/core-concepts#invoice) is a fundamental billing entity, representing the request for payment for
+    a single subscription. This includes a set of line items, which correspond to prices in the subscription's plan and
+    can represent fixed recurring fees or usage-based fees. They are generated at the end of a billing period, or as
+    the result of an action, such as a cancellation.
+    """
+
     id: str
 
     amount_due: str
@@ -407,6 +398,7 @@ class Invoice(BaseModel):
     | Peru                   | `pe_ruc`     | Peruvian RUC Number                                                                                     |
     | Philippines            | `ph_tin`     | Philippines Tax Identification Number                                                                   |
     | Poland                 | `eu_vat`     | European VAT Number                                                                                     |
+    | Poland                 | `pl_nip`     | Polish Tax ID Number                                                                                    |
     | Portugal               | `eu_vat`     | European VAT Number                                                                                     |
     | Romania                | `eu_vat`     | European VAT Number                                                                                     |
     | Romania                | `ro_tin`     | Romanian Tax ID Number                                                                                  |

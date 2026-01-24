@@ -1,18 +1,20 @@
 #include <simpledbus/interfaces/ObjectManager.h>
+#include <simpledbus/advanced/Proxy.h>
 
 using namespace SimpleDBus;
+using namespace SimpleDBus::Interfaces;
 
 const AutoRegisterInterface<ObjectManager> ObjectManager::registry{
     "org.freedesktop.DBus.ObjectManager",
     // clang-format off
-    [](std::shared_ptr<Connection> conn, const std::string& bus_name, const std::string& path, const Holder& options) -> std::shared_ptr<SimpleDBus::Interface> {
-        return std::static_pointer_cast<SimpleDBus::Interface>(std::make_shared<ObjectManager>(conn, bus_name, path));
+    [](std::shared_ptr<Connection> conn, std::shared_ptr<Proxy> proxy) -> std::shared_ptr<SimpleDBus::Interface> {
+        return std::static_pointer_cast<SimpleDBus::Interface>(std::make_shared<ObjectManager>(conn, proxy));
     }
     // clang-format on
 };
 
-ObjectManager::ObjectManager(std::shared_ptr<Connection> conn, std::string bus_name, std::string path)
-    : Interface(conn, bus_name, path, "org.freedesktop.DBus.ObjectManager") {}
+ObjectManager::ObjectManager(std::shared_ptr<Connection> conn, std::shared_ptr<Proxy> proxy)
+    : Interface(conn, proxy, "org.freedesktop.DBus.ObjectManager") {}
 
 Holder ObjectManager::GetManagedObjects(bool use_callbacks) {
     Message query_msg = Message::create_method_call(_bus_name, _path, _interface_name, "GetManagedObjects");
@@ -48,11 +50,10 @@ void ObjectManager::message_handle(Message& msg) {
         // TODO: Make a call directly to the proxy to do this?
 
     } else if (msg.is_method_call(_interface_name, "GetManagedObjects")) {
-        // TODO: Implement this.
-        // SimpleDBus::Holder result = _proxy->path_collect();
+        SimpleDBus::Holder result = proxy()->path_collect();
 
-        // SimpleDBus::Message reply = SimpleDBus::Message::create_method_return(msg);
-        // reply.append_argument(result, "a{oa{sa{sv}}}");
-        // _conn->send(reply);
+        SimpleDBus::Message reply = SimpleDBus::Message::create_method_return(msg);
+        reply.append_argument(result, "a{oa{sa{sv}}}");
+        _conn->send(reply);
     }
 }

@@ -2,7 +2,7 @@ import logging
 import os
 import warnings
 from pathlib import Path
-from typing import Dict, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import openvino as ov
@@ -14,8 +14,7 @@ from transformers.modeling_outputs import ModelOutput
 from transformers.models.sam.modeling_sam import SamImageSegmentationOutput, SamPositionalEmbedding
 
 from ...exporters.openvino.utils import save_config
-from .. import OVConfig
-from .configuration import OVQuantizationConfigBase
+from .configuration import OVConfig, OVQuantizationConfigBase, OVWeightQuantizationConfig
 from .modeling_base import OVBaseModel, OVModelPart
 from .utils import (
     ONNX_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME,
@@ -23,6 +22,7 @@ from .utils import (
     OV_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME,
     OV_VISION_ENCODER_MODEL_NAME,
     TemporaryDirectory,
+    classproperty,
     model_has_dynamic_inputs,
 )
 
@@ -39,7 +39,7 @@ class OVSamVisionEncoder(OVModelPart):
         super().__init__(model, parent_model, model_name=self._model_name)
 
     def forward(self, pixel_values):
-        self._compile()
+        self.compile()
         inputs = {"pixel_values": pixel_values}
         result = self.request(inputs)
         image_embeddings = result["image_embeddings"]
@@ -54,7 +54,7 @@ class OVSamPromptEncoder(OVModelPart):
         super().__init__(model, parent_model, model_name=self._model_name)
 
     def forward(self, image_embeddings, image_positional_embeddings, input_points, input_labels=None):
-        self._compile()
+        self.compile()
         inputs = {
             "image_embeddings": image_embeddings,
             "image_positional_embeddings": image_positional_embeddings,
@@ -76,6 +76,13 @@ class OVSamModel(OVBaseModel):
     export_feature = "feature-extraction"
     auto_model_class = SamModel
 
+    @classproperty
+    def _all_ov_model_paths(cls) -> Dict[str, str]:
+        return {
+            "vision_encoder": OV_VISION_ENCODER_MODEL_NAME,
+            "prompt_encoder_mask_decoder": OV_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME,
+        }
+
     def __init__(
         self,
         vision_encoder_model: ov.Model,
@@ -89,7 +96,7 @@ class OVSamModel(OVBaseModel):
         **kwargs,
     ):
         self.config = config
-        self._model_save_dir = model_save_dir
+        self.model_save_dir = model_save_dir
         self._device = device.upper()
         self.ov_config = {} if ov_config is None else {**ov_config}
         self.preprocessors = kwargs.get("preprocessors", [])
@@ -123,12 +130,12 @@ class OVSamModel(OVBaseModel):
             raise ValueError(
                 "`clear_requests()` is not supported with `compile_only` mode, please initialize model without this option"
             )
-        self.vision_encoder.clear_requests()
-        self.prompt_encoder_mask_decoder.clear_requests()
+        for component in self.components.values():
+            component.clear_requests()
 
     def compile(self):
-        self.vision_encoder._compile()
-        self.prompt_encoder_mask_decoder._compile()
+        for component in self.components.values():
+            component.compile()
 
     def _save_config(self, save_directory):
         """
@@ -136,28 +143,6 @@ class OVSamModel(OVBaseModel):
         [`from_pretrained`] class method.
         """
         save_config(self.config, save_directory)
-
-    def _save_pretrained(self, save_directory: Union[str, Path]):
-        """
-        Saves the model to the OpenVINO IR format so that it can be re-loaded using the
-        [`~optimum.intel.openvino.modeling.OVModel.from_pretrained`] class method.
-
-        Arguments:
-            save_directory (`str` or `Path`):
-                The directory where to save the model files.
-        """
-        src_models = self.ov_submodels
-        dst_file_names = {
-            "vision_encoder": OV_VISION_ENCODER_MODEL_NAME,
-            "prompt_encoder_mask_decoder": OV_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME,
-        }
-
-        for name in self._ov_submodel_names:
-            model = src_models[name]
-            dst_file_name = dst_file_names[name]
-            dst_path = os.path.join(save_directory, dst_file_name)
-            ov.save_model(model, dst_path, compress_to_fp16=False)
-        self._save_openvino_config(save_directory)
 
     @classmethod
     def _from_pretrained(
@@ -174,6 +159,7 @@ class OVSamModel(OVBaseModel):
         local_files_only: bool = False,
         load_in_8bit: bool = False,
         quantization_config: Union[OVQuantizationConfigBase, Dict] = None,
+        trust_remote_code: bool = False,
         **kwargs,
     ):
         """
@@ -210,6 +196,8 @@ class OVSamModel(OVBaseModel):
                 Whether or not to apply 8-bit weight quantization.
             quantization_config(`Union[OVQuantizationConfigBase, Dict]`, *optional*, defaults to `None`):
                 Quantization configuration to apply to the model.
+            trust_remote_code (`bool`, *optional*, defaults to `False`):
+                Whether to trust remote code when loading model tokenizer/processor during quantization.
         """
         if use_auth_token is not None:
             warnings.warn(
@@ -223,10 +211,12 @@ class OVSamModel(OVBaseModel):
         from_onnx = kwargs.get("from_onnx", False)
 
         default_vision_encoder_file_name = (
-            ONNX_VISION_ENCODER_MODEL_NAME if from_onnx else OV_VISION_ENCODER_MODEL_NAME
+            ONNX_VISION_ENCODER_MODEL_NAME if from_onnx else cls._all_ov_model_paths["vision_encoder"]
         )
         default_prompt_encoder_mask_decoder_file_name = (
-            ONNX_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME if from_onnx else OV_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME
+            ONNX_PROMPT_ENCODER_MASK_DECODER_MODEL_NAME
+            if from_onnx
+            else cls._all_ov_model_paths["prompt_encoder_mask_decoder"]
         )
         vision_encoder_file_name = vision_encoder_file_name or default_vision_encoder_file_name
         prompt_encoder_mask_decoder_file_name = (
@@ -284,49 +274,43 @@ class OVSamModel(OVBaseModel):
                 model_save_dir,
             )
 
-        quantization_config = cls._prepare_quantization_config(quantization_config, load_in_8bit)
+        quantization_config = quantization_config or (OVWeightQuantizationConfig(bits=8) if load_in_8bit else None)
+        compile_model = kwargs.pop("compile", True)
         model = cls(
             vision_encoder_model=vision_encoder_model,
             prompt_encoder_mask_decoder_model=prompt_encoder_model,
             config=config,
             model_save_dir=model_save_dir,
             quantization_config=quantization_config,
+            compile=compile_model and not quantization_config,
             **kwargs,
         )
 
-        if quantization_config is not None:
-            from optimum.intel import OVQuantizer
-
-            quantizer = OVQuantizer(model)
-            quantization_config_copy = quantization_config.clone()
-            quantization_config_copy.tokenizer = quantization_config.tokenizer or model_id
-            quantization_config_copy.processor = quantization_config.processor or model_id
-            quantizer.quantize(ov_config=OVConfig(quantization_config=quantization_config_copy))
+        if quantization_config:
+            if hasattr(config, "name_or_path"):
+                model_id = config.name_or_path
+            else:
+                logger.warning(
+                    "`model_id` could not be determined from the config. In the case there are default quantization "
+                    "configurations for this model, they will not be applied."
+                )
+            quantization_config = cls._resolve_default_quantization_config(model_id, quantization_config)
+            model._apply_quantization(quantization_config, compile_only, compile_model, model_id, trust_remote_code)
 
         return model
 
     @property
-    def _ov_submodel_names(self):
-        model_names = ["vision_encoder", "prompt_encoder_mask_decoder"]
-        return model_names
+    def _component_names(self) -> List[str]:
+        component_names = ["vision_encoder", "prompt_encoder_mask_decoder"]
+        return component_names
 
     @property
-    def ov_submodels(self) -> Dict[str, ov.Model]:
-        return {component_name: getattr(self, component_name).model for component_name in self._ov_submodel_names}
+    def _ov_model_names(self) -> List[str]:
+        return self._component_names
 
     @property
-    def vision_encoder_model(self) -> ov.Model:
-        logger.warning(
-            "Access to the `vision_encoder_model` attribute is deprecated and will be removed in optimum-intel v1.26, please use `vision_encoder.model` instead"
-        )
-        return self.vision_encoder.model
-
-    @property
-    def prompt_encoder_mask_decoder_model(self) -> ov.Model:
-        logger.warning(
-            "Access to the `prompt_encoder_mask_decoder_model` attribute is deprecated and will be removed in optimum-intel v1.26, please use `prompt_encoder_mask_decoder.model` instead"
-        )
-        return self.prompt_encoder_mask_decoder.model
+    def ov_models(self) -> Dict[str, ov.Model]:
+        return {name: getattr(component, "model") for name, component in self.components.items()}
 
     def reshape(self, batch_size: int = -1, point_batch_size: int = -1, num_points_per_image: int = -1):
         """
@@ -365,9 +349,9 @@ class OVSamModel(OVBaseModel):
         """
         Converts all the model weights to FP16 for more efficient inference on GPU.
         """
-        for submodel in self.ov_submodels.values():
-            apply_moc_transformations(submodel, cf=False)
-            compress_model_transformation(submodel)
+        for ov_model in self.ov_models.values():
+            apply_moc_transformations(ov_model, cf=False)
+            compress_model_transformation(ov_model)
         return self
 
     def forward(
@@ -439,6 +423,17 @@ class OVSamModel(OVBaseModel):
 
     @property
     def is_dynamic(self):
-        return model_has_dynamic_inputs(self.vision_encoder.model) or model_has_dynamic_inputs(
-            self.prompt_encoder_mask_decoder.model
-        )
+        for ov_model in self.ov_models.values():
+            if model_has_dynamic_inputs(ov_model):
+                return True
+        return False
+
+    def _preprocess_quantization_config(
+        self,
+        quantization_config: OVQuantizationConfigBase,
+        model_name_or_path: str,
+    ) -> OVQuantizationConfigBase:
+        if quantization_config.processor is None:
+            quantization_config = quantization_config.clone()
+            quantization_config.processor = model_name_or_path
+        return quantization_config

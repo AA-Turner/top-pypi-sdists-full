@@ -1,9 +1,9 @@
 //! String interns that are obviously unpaid and over worked...
 //!
-//! classic millenials... nobody wants to be a string intern anymore...
+//! classic millennials... nobody wants to be a string intern anymore...
 //!
 //! This keeps the string-interning in one place so we dont have multiple
-//! pydantic based interns who are milling around, presumably not getting
+//! jiff based interns who are milling around, presumably not getting
 //! me the coffee I asked for.
 use pyo3::prelude::*;
 
@@ -20,6 +20,9 @@ macro_rules! unpaid_intern {
         }
     };
 }
+
+// struct-keys
+unpaid_intern!(timestamp);
 
 // singular duration(s)
 unpaid_intern!(year);
@@ -46,13 +49,17 @@ unpaid_intern!(microseconds);
 unpaid_intern!(nanoseconds);
 
 // tz / offset
-unpaid_intern!(tz);
+unpaid_intern!(abbreviation);
+unpaid_intern!(dst);
 unpaid_intern!(fmt);
+unpaid_intern!(offset);
+unpaid_intern!(tz);
 
 // weekday
 unpaid_intern!(weekday);
 
 // signed duration
+// TODO: maybe dedupe with `ryo3-std/time` ?
 unpaid_intern!(secs);
 unpaid_intern!(nanos);
 

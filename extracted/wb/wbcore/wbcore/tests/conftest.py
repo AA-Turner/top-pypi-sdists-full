@@ -43,10 +43,12 @@ pre_migrate.connect(app_pre_migration)
 
 @pytest.fixture()
 def config_registry():
-    request = APIRequestFactory().get("/")
-    registry = ConfigRegistry(request)
+    registry = ConfigRegistry()
     return registry
 
+@pytest.fixture()
+def api_request():
+    return APIRequestFactory().get("/")
 
 @pytest.fixture
 def chrome_options(chrome_options):

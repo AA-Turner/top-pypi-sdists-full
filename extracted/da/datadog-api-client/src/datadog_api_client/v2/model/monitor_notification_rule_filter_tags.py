@@ -35,9 +35,9 @@ class MonitorNotificationRuleFilterTags(ModelNormal):
 
     def __init__(self_, tags: List[str], **kwargs):
         """
-        Filter monitors by tags. Monitors must match all tags.
+        Filter monitor notifications by tags. A monitor notification must match all tags.
 
-        :param tags: A list of monitor tags.
+        :param tags: A list of tags (key:value pairs), which can be used to filter monitor notifications on monitor and group tags.
         :type tags: [str]
         """
         super().__init__(kwargs)

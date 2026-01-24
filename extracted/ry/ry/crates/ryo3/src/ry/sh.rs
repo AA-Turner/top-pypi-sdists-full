@@ -10,11 +10,11 @@ use std::fs::read_dir;
 /// Change the current working directory to the specified path
 #[pyfunction]
 #[expect(clippy::needless_pass_by_value)]
-pub fn cd(p: PathLike) -> PyResult<()> {
-    match std::env::set_current_dir(p.as_ref()) {
+pub fn cd(path: PathLike) -> PyResult<()> {
+    match std::env::set_current_dir(path.as_ref()) {
         Ok(()) => Ok(()),
         Err(e) => {
-            let p_string = p.to_string();
+            let p_string = path.to_string();
             let emsg = format!("{e}: {p_string:?}");
             let pye = PyFileNotFoundError::new_err(format!("cd: {emsg}"));
             Err(pye)
@@ -24,15 +24,15 @@ pub fn cd(p: PathLike) -> PyResult<()> {
 
 /// List the contents of the specified directory as a `Vec<String>`
 #[pyfunction]
-#[pyo3(signature = (fspath = None, *, absolute = false, sort = false, objects = false))]
+#[pyo3(signature = (path = None, *, absolute = false, sort = false, objects = false))]
 pub fn ls(
     py: Python<'_>,
-    fspath: Option<PathLike>,
+    path: Option<PathLike>,
     absolute: bool,
     sort: bool,
     objects: bool,
 ) -> PyResult<Vec<Bound<'_, PyAny>>> {
-    let p = if let Some(p) = fspath {
+    let p = if let Some(p) = path {
         p
     } else {
         let pwd = pwd()?;
@@ -67,7 +67,6 @@ pub fn ls(
         let fspaths = v
             .into_iter()
             .flat_map(|s| PyFsPath::new(s).into_bound_py_any(py))
-            // .map(PyObject::from)
             .collect();
         Ok(fspaths)
     } else {
@@ -79,16 +78,41 @@ pub fn ls(
     }
 }
 
-#[pyfunction]
+#[pyfunction(
+    signature = (path, *, exist_ok = false, recursive = false)
+)]
 #[expect(clippy::needless_pass_by_value)]
-pub fn mkdir(path: PathLike) -> PyResult<String> {
+pub fn mkdir(path: PathLike, exist_ok: bool, recursive: bool) -> PyResult<()> {
     let path = path.as_ref();
-    match std::fs::create_dir(path) {
-        Ok(()) => Ok(path.to_string_lossy().to_string()),
+    let result = if recursive {
+        std::fs::create_dir_all(path)
+    } else {
+        std::fs::create_dir(path)
+    };
+    match result {
+        Ok(()) => Ok(()),
         Err(e) => {
+            if exist_ok && e.kind() == std::io::ErrorKind::AlreadyExists {
+                return Ok(());
+            }
             let p_string = path.display();
             let emsg = format!("{e}: {p_string}");
             let pye = PyFileNotFoundError::new_err(format!("mkdir: {emsg}"));
+            Err(pye)
+        }
+    }
+}
+
+#[pyfunction]
+#[expect(clippy::needless_pass_by_value)]
+pub fn mkdirp(path: PathLike) -> PyResult<()> {
+    let path = path.as_ref();
+    match std::fs::create_dir_all(path) {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            let p_string = path.display();
+            let emsg = format!("{e}: {p_string}");
+            let pye = PyFileNotFoundError::new_err(format!("mkdirp: {emsg}"));
             Err(pye)
         }
     }
@@ -109,6 +133,7 @@ pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(cd, m)?)?;
     m.add_function(wrap_pyfunction!(ls, m)?)?;
     m.add_function(wrap_pyfunction!(mkdir, m)?)?;
+    m.add_function(wrap_pyfunction!(mkdirp, m)?)?;
     m.add_function(wrap_pyfunction!(pwd, m)?)?;
 
     #[cfg(feature = "dirs")]

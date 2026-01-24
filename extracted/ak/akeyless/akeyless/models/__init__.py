@@ -23,6 +23,13 @@ from akeyless.models.aws_secrets_migration import AWSSecretsMigration
 from akeyless.models.aws_target_details import AWSTargetDetails
 from akeyless.models.access_or_group_permission_assignment import AccessOrGroupPermissionAssignment
 from akeyless.models.access_permission_assignment import AccessPermissionAssignment
+from akeyless.models.account_custom_field_create import AccountCustomFieldCreate
+from akeyless.models.account_custom_field_create_output import AccountCustomFieldCreateOutput
+from akeyless.models.account_custom_field_delete import AccountCustomFieldDelete
+from akeyless.models.account_custom_field_get import AccountCustomFieldGet
+from akeyless.models.account_custom_field_get_output import AccountCustomFieldGetOutput
+from akeyless.models.account_custom_field_list import AccountCustomFieldList
+from akeyless.models.account_custom_field_update import AccountCustomFieldUpdate
 from akeyless.models.account_general_settings import AccountGeneralSettings
 from akeyless.models.account_object_version_settings_output import AccountObjectVersionSettingsOutput
 from akeyless.models.acme_account import AcmeAccount
@@ -30,12 +37,15 @@ from akeyless.models.active_directory_migration import ActiveDirectoryMigration
 from akeyless.models.active_directory_payload import ActiveDirectoryPayload
 from akeyless.models.add_gateway_allowed_access_id import AddGatewayAllowedAccessId
 from akeyless.models.admins_config_part import AdminsConfigPart
+from akeyless.models.ai_insights_config_part import AiInsightsConfigPart
+from akeyless.models.ai_insights_setting import AiInsightsSetting
 from akeyless.models.akeyless_gateway_config import AkeylessGatewayConfig
 from akeyless.models.alias_details import AliasDetails
 from akeyless.models.alias_details_output import AliasDetailsOutput
 from akeyless.models.all_analytics_data import AllAnalyticsData
 from akeyless.models.allowed_access import AllowedAccess
 from akeyless.models.allowed_access_old import AllowedAccessOld
+from akeyless.models.allowed_client_type import AllowedClientType
 from akeyless.models.allowed_ip_settings import AllowedIpSettings
 from akeyless.models.artifactory_target_details import ArtifactoryTargetDetails
 from akeyless.models.assoc_role_auth_method import AssocRoleAuthMethod
@@ -105,10 +115,15 @@ from akeyless.models.calc_password_security_info import CalcPasswordSecurityInfo
 from akeyless.models.cert_access_rules import CertAccessRules
 from akeyless.models.certificate_analytic_aggregation import CertificateAnalyticAggregation
 from akeyless.models.certificate_chain_info import CertificateChainInfo
+from akeyless.models.certificate_discovery import CertificateDiscovery
+from akeyless.models.certificate_discovery_output import CertificateDiscoveryOutput
 from akeyless.models.certificate_expiration_event import CertificateExpirationEvent
 from akeyless.models.certificate_expiration_events_settings import CertificateExpirationEventsSettings
 from akeyless.models.certificate_info import CertificateInfo
 from akeyless.models.certificate_issue_info import CertificateIssueInfo
+from akeyless.models.certificate_migration import CertificateMigration
+from akeyless.models.certificate_payload import CertificatePayload
+from akeyless.models.certificate_scan_target import CertificateScanTarget
 from akeyless.models.certificate_store import CertificateStore
 from akeyless.models.certificate_template_info import CertificateTemplateInfo
 from akeyless.models.certificate_version_info import CertificateVersionInfo
@@ -311,6 +326,7 @@ from akeyless.models.dynamic_secret_create_ldap import DynamicSecretCreateLdap
 from akeyless.models.dynamic_secret_create_mongo_db import DynamicSecretCreateMongoDb
 from akeyless.models.dynamic_secret_create_ms_sql import DynamicSecretCreateMsSql
 from akeyless.models.dynamic_secret_create_my_sql import DynamicSecretCreateMySql
+from akeyless.models.dynamic_secret_create_open_ai import DynamicSecretCreateOpenAI
 from akeyless.models.dynamic_secret_create_oracle_db import DynamicSecretCreateOracleDb
 from akeyless.models.dynamic_secret_create_output import DynamicSecretCreateOutput
 from akeyless.models.dynamic_secret_create_ping import DynamicSecretCreatePing
@@ -350,6 +366,7 @@ from akeyless.models.dynamic_secret_update_ldap import DynamicSecretUpdateLdap
 from akeyless.models.dynamic_secret_update_mongo_db import DynamicSecretUpdateMongoDb
 from akeyless.models.dynamic_secret_update_ms_sql import DynamicSecretUpdateMsSql
 from akeyless.models.dynamic_secret_update_my_sql import DynamicSecretUpdateMySql
+from akeyless.models.dynamic_secret_update_open_ai import DynamicSecretUpdateOpenAI
 from akeyless.models.dynamic_secret_update_oracle_db import DynamicSecretUpdateOracleDb
 from akeyless.models.dynamic_secret_update_output import DynamicSecretUpdateOutput
 from akeyless.models.dynamic_secret_update_ping import DynamicSecretUpdatePing
@@ -388,6 +405,7 @@ from akeyless.models.event_action import EventAction
 from akeyless.models.event_forwarder_create_email import EventForwarderCreateEmail
 from akeyless.models.event_forwarder_create_service_now import EventForwarderCreateServiceNow
 from akeyless.models.event_forwarder_create_slack import EventForwarderCreateSlack
+from akeyless.models.event_forwarder_create_teams import EventForwarderCreateTeams
 from akeyless.models.event_forwarder_create_update_output import EventForwarderCreateUpdateOutput
 from akeyless.models.event_forwarder_create_webhook import EventForwarderCreateWebhook
 from akeyless.models.event_forwarder_delete import EventForwarderDelete
@@ -397,11 +415,18 @@ from akeyless.models.event_forwarder_get_output import EventForwarderGetOutput
 from akeyless.models.event_forwarder_update_email import EventForwarderUpdateEmail
 from akeyless.models.event_forwarder_update_service_now import EventForwarderUpdateServiceNow
 from akeyless.models.event_forwarder_update_slack import EventForwarderUpdateSlack
+from akeyless.models.event_forwarder_update_teams import EventForwarderUpdateTeams
 from akeyless.models.event_forwarder_update_webhook import EventForwarderUpdateWebhook
 from akeyless.models.export_classic_key import ExportClassicKey
 from akeyless.models.export_classic_key_output import ExportClassicKeyOutput
 from akeyless.models.extension import Extension
 from akeyless.models.external_kms_key_id import ExternalKMSKeyId
+from akeyless.models.folder_create import FolderCreate
+from akeyless.models.folder_create_output import FolderCreateOutput
+from akeyless.models.folder_delete import FolderDelete
+from akeyless.models.folder_get import FolderGet
+from akeyless.models.folder_get_output import FolderGetOutput
+from akeyless.models.folder_update import FolderUpdate
 from akeyless.models.gcp_access_rules import GCPAccessRules
 from akeyless.models.gcp_payload import GCPPayload
 from akeyless.models.gcp_secrets_migration import GCPSecretsMigration
@@ -613,6 +638,7 @@ from akeyless.models.get_certificate_value_output import GetCertificateValueOutp
 from akeyless.models.get_dynamic_secret_value import GetDynamicSecretValue
 from akeyless.models.get_event_forwarder import GetEventForwarder
 from akeyless.models.get_event_forwarder_output import GetEventForwarderOutput
+from akeyless.models.get_folder_output import GetFolderOutput
 from akeyless.models.get_group import GetGroup
 from akeyless.models.get_group_output import GetGroupOutput
 from akeyless.models.get_kube_exec_creds import GetKubeExecCreds
@@ -662,6 +688,7 @@ from akeyless.models.import_passwords import ImportPasswords
 from akeyless.models.import_passwords_output import ImportPasswordsOutput
 from akeyless.models.importer_info import ImporterInfo
 from akeyless.models.item import Item
+from akeyless.models.item_custom_fields_details import ItemCustomFieldsDetails
 from akeyless.models.item_general_info import ItemGeneralInfo
 from akeyless.models.item_sra_status import ItemSraStatus
 from akeyless.models.item_target_association import ItemTargetAssociation
@@ -755,7 +782,9 @@ from akeyless.models.name import Name
 from akeyless.models.native_k8s_target_details import NativeK8sTargetDetails
 from akeyless.models.next_auto_rotation_event import NextAutoRotationEvent
 from akeyless.models.noti_forwarder import NotiForwarder
+from akeyless.models.noti_forwarder_details_input import NotiForwarderDetailsInput
 from akeyless.models.null_string import NullString
+from akeyless.models.null_time import NullTime
 from akeyless.models.o_auth2_access_rules import OAuth2AccessRules
 from akeyless.models.o_auth2_custom_claim import OAuth2CustomClaim
 from akeyless.models.oci_access_rules import OCIAccessRules
@@ -818,6 +847,7 @@ from akeyless.models.rotated_secret_create_ldap import RotatedSecretCreateLdap
 from akeyless.models.rotated_secret_create_mongodb import RotatedSecretCreateMongodb
 from akeyless.models.rotated_secret_create_mssql import RotatedSecretCreateMssql
 from akeyless.models.rotated_secret_create_mysql import RotatedSecretCreateMysql
+from akeyless.models.rotated_secret_create_open_ai import RotatedSecretCreateOpenAI
 from akeyless.models.rotated_secret_create_oracledb import RotatedSecretCreateOracledb
 from akeyless.models.rotated_secret_create_output import RotatedSecretCreateOutput
 from akeyless.models.rotated_secret_create_postgresql import RotatedSecretCreatePostgresql
@@ -845,6 +875,7 @@ from akeyless.models.rotated_secret_update_ldap import RotatedSecretUpdateLdap
 from akeyless.models.rotated_secret_update_mongodb import RotatedSecretUpdateMongodb
 from akeyless.models.rotated_secret_update_mssql import RotatedSecretUpdateMssql
 from akeyless.models.rotated_secret_update_mysql import RotatedSecretUpdateMysql
+from akeyless.models.rotated_secret_update_open_ai import RotatedSecretUpdateOpenAI
 from akeyless.models.rotated_secret_update_oracledb import RotatedSecretUpdateOracledb
 from akeyless.models.rotated_secret_update_output import RotatedSecretUpdateOutput
 from akeyless.models.rotated_secret_update_postgresql import RotatedSecretUpdatePostgresql
@@ -863,6 +894,7 @@ from akeyless.models.saml_attribute import SAMLAttribute
 from akeyless.models.ssh_certificate_issue_details import SSHCertificateIssueDetails
 from akeyless.models.ssh_target_details import SSHTargetDetails
 from akeyless.models.salesforce_target_details import SalesforceTargetDetails
+from akeyless.models.scan_results import ScanResults
 from akeyless.models.secret_info import SecretInfo
 from akeyless.models.secret_sync_output import SecretSyncOutput
 from akeyless.models.sectigo_target_details import SectigoTargetDetails
@@ -889,6 +921,7 @@ from akeyless.models.sign_pki_cert_output import SignPKICertOutput
 from akeyless.models.sign_pki_cert_with_classic_key import SignPKICertWithClassicKey
 from akeyless.models.sign_rsa_ssa_pss import SignRsaSsaPss
 from akeyless.models.sign_rsa_ssa_pss_output import SignRsaSsaPssOutput
+from akeyless.models.slack_noti_forwarder_details import SlackNotiForwarderDetails
 from akeyless.models.sm_info import SmInfo
 from akeyless.models.splunk_log_forwarding_config import SplunkLogForwardingConfig
 from akeyless.models.sra_desktop_app_conf import SraDesktopAppConf
@@ -936,6 +969,7 @@ from akeyless.models.target_create_web import TargetCreateWeb
 from akeyless.models.target_create_windows import TargetCreateWindows
 from akeyless.models.target_create_zero_ssl import TargetCreateZeroSSL
 from akeyless.models.target_delete import TargetDelete
+from akeyless.models.target_error import TargetError
 from akeyless.models.target_get import TargetGet
 from akeyless.models.target_get_details import TargetGetDetails
 from akeyless.models.target_item_association import TargetItemAssociation
@@ -971,6 +1005,7 @@ from akeyless.models.target_update_ssh import TargetUpdateSsh
 from akeyless.models.target_update_web import TargetUpdateWeb
 from akeyless.models.target_update_windows import TargetUpdateWindows
 from akeyless.models.target_update_zero_ssl import TargetUpdateZeroSSL
+from akeyless.models.teams_noti_forwarder_details import TeamsNotiForwarderDetails
 from akeyless.models.tmp_user_data import TmpUserData
 from akeyless.models.tokenize import Tokenize
 from akeyless.models.tokenize_output import TokenizeOutput
@@ -1120,6 +1155,7 @@ from akeyless.models.web_bastion_guacamole import WebBastionGuacamole
 from akeyless.models.web_bastion_rdp_record import WebBastionRdpRecord
 from akeyless.models.web_hook_noti_forwarder_public_details import WebHookNotiForwarderPublicDetails
 from akeyless.models.web_target_details import WebTargetDetails
+from akeyless.models.webhook_noti_forwarder_details import WebhookNotiForwarderDetails
 from akeyless.models.windows_service import WindowsService
 from akeyless.models.windows_service_attributes import WindowsServiceAttributes
 from akeyless.models.windows_target_details import WindowsTargetDetails

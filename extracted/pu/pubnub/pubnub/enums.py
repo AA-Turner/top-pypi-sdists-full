@@ -127,7 +127,6 @@ class PNOperationType(object):
     PNRemoveSpaceUsersOperation = 82
     PNFetchUserMembershipsOperation = 85
     PNFetchSpaceMembershipsOperation = 86
-    #  NOTE: remember to update PubNub.managers.TelemetryManager.endpoint_name_for_operation() when adding operations
 
 
 class PNHeartbeatNotificationOptions(object):
@@ -144,9 +143,9 @@ class PNReconnectionPolicy(object):
 
 class PNPushType(object):
     APNS = 1
-    MPNS = 2
-    GCM = 3
+    GCM = 3  # Deprecated: Use FCM instead. GCM has been replaced by FCM (Firebase Cloud Messaging)
     APNS2 = 4
+    FCM = 5
 
 
 class PNResourceType(object):

@@ -3,7 +3,7 @@ Type annotations for securityhub service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -49,12 +49,16 @@ __all__ = (
     "DescribeStandardsControlsPaginatorName",
     "DescribeStandardsPaginatorName",
     "FindingHistoryUpdateSourceTypeType",
+    "FindingsTrendsStringFieldType",
     "GetEnabledStandardsPaginatorName",
     "GetFindingHistoryPaginatorName",
     "GetFindingsPaginatorName",
+    "GetFindingsTrendsV2PaginatorName",
     "GetFindingsV2PaginatorName",
     "GetInsightsPaginatorName",
+    "GetResourcesTrendsV2PaginatorName",
     "GetResourcesV2PaginatorName",
+    "GranularityFieldType",
     "GroupByFieldType",
     "IntegrationTypeType",
     "IntegrationV2TypeType",
@@ -74,6 +78,7 @@ __all__ = (
     "NetworkDirectionType",
     "OcsfBooleanFieldType",
     "OcsfDateFieldType",
+    "OcsfIpFieldType",
     "OcsfMapFieldType",
     "OcsfNumberFieldType",
     "OcsfStringFieldType",
@@ -92,6 +97,7 @@ __all__ = (
     "ResourcesMapFieldType",
     "ResourcesNumberFieldType",
     "ResourcesStringFieldType",
+    "ResourcesTrendsStringFieldType",
     "RuleStatusType",
     "RuleStatusV2Type",
     "SecurityControlPropertyType",
@@ -108,6 +114,7 @@ __all__ = (
     "TargetTypeType",
     "ThreatIntelIndicatorCategoryType",
     "ThreatIntelIndicatorTypeType",
+    "TicketCreationModeType",
     "UnprocessedErrorCodeType",
     "UpdateStatusType",
     "VerificationStateType",
@@ -151,21 +158,40 @@ DescribeProductsV2PaginatorName = Literal["describe_products_v2"]
 DescribeStandardsControlsPaginatorName = Literal["describe_standards_controls"]
 DescribeStandardsPaginatorName = Literal["describe_standards"]
 FindingHistoryUpdateSourceTypeType = Literal["BATCH_IMPORT_FINDINGS", "BATCH_UPDATE_FINDINGS"]
+FindingsTrendsStringFieldType = Literal[
+    "account_id",
+    "finding_activity_name",
+    "finding_class_name",
+    "finding_compliance_status",
+    "finding_control_id",
+    "finding_cve_ids",
+    "finding_provider",
+    "finding_status",
+    "finding_types",
+    "region",
+]
 GetEnabledStandardsPaginatorName = Literal["get_enabled_standards"]
 GetFindingHistoryPaginatorName = Literal["get_finding_history"]
 GetFindingsPaginatorName = Literal["get_findings"]
+GetFindingsTrendsV2PaginatorName = Literal["get_findings_trends_v2"]
 GetFindingsV2PaginatorName = Literal["get_findings_v2"]
 GetInsightsPaginatorName = Literal["get_insights"]
+GetResourcesTrendsV2PaginatorName = Literal["get_resources_trends_v2"]
 GetResourcesV2PaginatorName = Literal["get_resources_v2"]
+GranularityFieldType = Literal["Daily", "Monthly", "Weekly"]
 GroupByFieldType = Literal[
     "activity_name",
     "class_name",
+    "cloud.account.name",
     "cloud.account.uid",
     "cloud.provider",
     "cloud.region",
     "compliance.assessments.name",
     "compliance.control",
+    "compliance.standards",
     "compliance.status",
+    "finding_info.analytic.name",
+    "finding_info.related_events.traits.category",
     "finding_info.title",
     "finding_info.types",
     "metadata.product.name",
@@ -174,6 +200,8 @@ GroupByFieldType = Literal[
     "resources.uid",
     "severity",
     "status",
+    "vendor_attributes.severity",
+    "vulnerabilities.affected_packages.name",
     "vulnerabilities.fix_coverage",
 ]
 IntegrationTypeType = Literal[
@@ -226,19 +254,34 @@ OcsfDateFieldType = Literal[
     "finding_info.first_seen_time_dt",
     "finding_info.last_seen_time_dt",
     "finding_info.modified_time_dt",
+    "resources.image.created_time_dt",
+    "resources.image.last_used_time_dt",
+    "resources.modified_time_dt",
 ]
-OcsfMapFieldType = Literal["resources.tags"]
+OcsfIpFieldType = Literal["evidences.dst_endpoint.ip", "evidences.src_endpoint.ip"]
+OcsfMapFieldType = Literal[
+    "compliance.control_parameters", "databucket.tags", "finding_info.tags", "resources.tags"
+]
 OcsfNumberFieldType = Literal[
     "activity_id",
     "compliance.status_id",
     "confidence_score",
+    "evidences.api.response.code",
+    "evidences.dst_endpoint.autonomous_system.number",
+    "evidences.dst_endpoint.port",
+    "evidences.src_endpoint.autonomous_system.number",
+    "evidences.src_endpoint.port",
     "finding_info.related_events_count",
+    "resources.image.in_use_count",
     "severity_id",
     "status_id",
+    "vendor_attributes.severity_id",
+    "vulnerabilities.cve.cvss.base_score",
 ]
 OcsfStringFieldType = Literal[
     "activity_name",
     "class_name",
+    "cloud.account.name",
     "cloud.account.uid",
     "cloud.provider",
     "cloud.region",
@@ -248,27 +291,65 @@ OcsfStringFieldType = Literal[
     "compliance.control",
     "compliance.standards",
     "compliance.status",
+    "databucket.encryption_details.algorithm",
+    "databucket.encryption_details.key_uid",
+    "databucket.file.data_classifications.classifier_details.type",
+    "evidences.actor.user.account.uid",
+    "evidences.api.operation",
+    "evidences.api.response.error_message",
+    "evidences.api.service.name",
+    "evidences.connection_info.direction",
+    "evidences.connection_info.protocol_name",
+    "evidences.dst_endpoint.autonomous_system.name",
+    "evidences.dst_endpoint.location.city",
+    "evidences.dst_endpoint.location.country",
+    "evidences.src_endpoint.autonomous_system.name",
+    "evidences.src_endpoint.hostname",
+    "evidences.src_endpoint.location.city",
+    "evidences.src_endpoint.location.country",
+    "finding_info.analytic.name",
     "finding_info.desc",
     "finding_info.related_events.product.uid",
     "finding_info.related_events.title",
+    "finding_info.related_events.traits.category",
     "finding_info.related_events.uid",
     "finding_info.src_url",
     "finding_info.title",
     "finding_info.types",
     "finding_info.uid",
+    "malware.name",
+    "malware.severity",
+    "malware_scan_info.uid",
     "metadata.product.name",
     "metadata.product.uid",
     "metadata.product.vendor_name",
     "metadata.uid",
     "remediation.desc",
     "remediation.references",
+    "resources.cloud_function.layers.uid_alt",
+    "resources.cloud_function.runtime",
+    "resources.cloud_function.user.uid",
     "resources.cloud_partition",
+    "resources.device.encryption_details.key_uid",
+    "resources.device.image.uid",
+    "resources.image.architecture",
+    "resources.image.registry_uid",
+    "resources.image.repository_name",
+    "resources.image.uid",
     "resources.region",
+    "resources.subnet_info.uid",
     "resources.type",
     "resources.uid",
+    "resources.vpc_uid",
     "severity",
     "status",
+    "vendor_attributes.severity",
+    "vulnerabilities.affected_code.file.path",
+    "vulnerabilities.affected_packages.name",
+    "vulnerabilities.cve.epss.score",
+    "vulnerabilities.cve.uid",
     "vulnerabilities.fix_coverage",
+    "vulnerabilities.related_vulnerabilities",
 ]
 OrganizationConfigurationConfigurationTypeType = Literal["CENTRAL", "LOCAL"]
 OrganizationConfigurationStatusType = Literal["ENABLED", "FAILED", "PENDING"]
@@ -280,36 +361,39 @@ ResourceCategoryType = Literal[
     "AI/ML", "Code", "Compute", "Database", "Identity", "Network", "Other", "Storage"
 ]
 ResourceGroupByFieldType = Literal[
-    "account_id",
-    "findings_summary.finding_type",
-    "region",
-    "resource_category",
-    "resource_name",
-    "resource_type",
+    "AccountId",
+    "FindingsSummary.FindingType",
+    "Region",
+    "ResourceCategory",
+    "ResourceName",
+    "ResourceType",
 ]
-ResourcesDateFieldType = Literal["resource_creation_time_dt", "resource_detail_capture_time_dt"]
-ResourcesMapFieldType = Literal["tags"]
+ResourcesDateFieldType = Literal["ResourceCreationTime", "ResourceDetailCaptureTime"]
+ResourcesMapFieldType = Literal["ResourceTags"]
 ResourcesNumberFieldType = Literal[
-    "findings_summary.severities.critical",
-    "findings_summary.severities.fatal",
-    "findings_summary.severities.high",
-    "findings_summary.severities.informational",
-    "findings_summary.severities.low",
-    "findings_summary.severities.medium",
-    "findings_summary.severities.other",
-    "findings_summary.severities.unknown",
-    "findings_summary.total_findings",
+    "FindingsSummary.Severities.Critical",
+    "FindingsSummary.Severities.Fatal",
+    "FindingsSummary.Severities.High",
+    "FindingsSummary.Severities.Informational",
+    "FindingsSummary.Severities.Low",
+    "FindingsSummary.Severities.Medium",
+    "FindingsSummary.Severities.Other",
+    "FindingsSummary.Severities.Unknown",
+    "FindingsSummary.TotalFindings",
 ]
 ResourcesStringFieldType = Literal[
-    "account_id",
-    "findings_summary.finding_type",
-    "findings_summary.product_name",
-    "region",
-    "resource_arn",
-    "resource_category",
-    "resource_id",
-    "resource_name",
-    "resource_type",
+    "AccountId",
+    "FindingsSummary.FindingType",
+    "FindingsSummary.ProductName",
+    "Region",
+    "ResourceCategory",
+    "ResourceGuid",
+    "ResourceId",
+    "ResourceName",
+    "ResourceType",
+]
+ResourcesTrendsStringFieldType = Literal[
+    "account_id", "region", "resource_category", "resource_type"
 ]
 RuleStatusType = Literal["DISABLED", "ENABLED"]
 RuleStatusV2Type = Literal["DISABLED", "ENABLED"]
@@ -351,6 +435,7 @@ ThreatIntelIndicatorTypeType = Literal[
     "PROCESS",
     "URL",
 ]
+TicketCreationModeType = Literal["DRYRUN"]
 UnprocessedErrorCodeType = Literal[
     "ACCESS_DENIED", "INVALID_INPUT", "LIMIT_EXCEEDED", "NOT_FOUND", "RESOURCE_NOT_FOUND"
 ]
@@ -387,7 +472,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -457,6 +541,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -502,7 +587,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -555,7 +639,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -594,8 +677,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -630,6 +711,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -639,6 +721,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -649,6 +732,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -670,8 +756,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -686,15 +770,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -725,6 +810,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -765,6 +851,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -787,8 +874,10 @@ PaginatorName = Literal[
     "get_enabled_standards",
     "get_finding_history",
     "get_findings",
+    "get_findings_trends_v2",
     "get_findings_v2",
     "get_insights",
+    "get_resources_trends_v2",
     "get_resources_v2",
     "list_aggregators_v2",
     "list_configuration_policies",

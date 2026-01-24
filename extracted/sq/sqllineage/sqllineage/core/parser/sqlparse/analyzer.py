@@ -1,6 +1,5 @@
 from functools import reduce
 from operator import add
-from typing import Optional, Union
 
 import sqlparse
 from sqlparse.sql import (
@@ -113,7 +112,7 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
         holder = StatementLineageHolder()
         src_flag = tgt_flag = update_flag = insert_flag = False
         insert_columns = []
-        direct_source: Optional[Union[Table, SubQuery]] = None
+        direct_source: Table | SubQuery | None = None
         for token in stmt.tokens:
             if is_token_negligible(token):
                 continue
@@ -272,14 +271,14 @@ class SqlParseLineageAnalyzer(LineageAnalyzer):
                 ],
                 [],
             )
-        elif is_subquery(token):
+        elif isinstance(token, Parenthesis) and is_subquery(token):
             # Parenthesis for SubQuery without alias, this is valid syntax for certain SQL dialect
             result = [SqlParseSubQuery.of(token, None)]
         return result
 
     @classmethod
     def _parse_subquery(
-        cls, token: Union[Identifier, Function, Where]
+        cls, token: Identifier | Function | Where | Values
     ) -> list[SubQuery]:
         """
         convert SubQueryTuple to sqllineage.core.models.SubQuery

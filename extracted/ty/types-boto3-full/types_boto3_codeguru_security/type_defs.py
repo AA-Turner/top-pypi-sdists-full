@@ -3,7 +3,7 @@ Type annotations for codeguru-security service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_codeguru_security/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -29,12 +30,6 @@ from .literals import (
     StatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -115,7 +110,7 @@ class FindingIdentifierTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -229,7 +224,7 @@ class BatchGetFindingsRequestTypeDef(TypedDict):
 
 class CreateUploadUrlResponseTypeDef(TypedDict):
     s3Url: str
-    requestHeaders: Dict[str, str]
+    requestHeaders: dict[str, str]
     codeArtifactId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -248,7 +243,7 @@ class GetScanResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -257,7 +252,7 @@ class FilePathTypeDef(TypedDict):
     path: NotRequired[str]
     startLine: NotRequired[int]
     endLine: NotRequired[int]
-    codeSnippet: NotRequired[List[CodeLineTypeDef]]
+    codeSnippet: NotRequired[list[CodeLineTypeDef]]
 
 
 class CreateScanRequestTypeDef(TypedDict):
@@ -320,7 +315,7 @@ class ListFindingsMetricsRequestTypeDef(TypedDict):
 
 
 class ListScansResponseTypeDef(TypedDict):
-    summaries: List[ScanSummaryTypeDef]
+    summaries: list[ScanSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -328,18 +323,18 @@ class ListScansResponseTypeDef(TypedDict):
 class MetricsSummaryTypeDef(TypedDict):
     date: NotRequired[datetime]
     openFindings: NotRequired[FindingMetricsValuePerSeverityTypeDef]
-    categoriesWithMostFindings: NotRequired[List[CategoryWithFindingNumTypeDef]]
-    scansWithMostOpenFindings: NotRequired[List[ScanNameWithFindingNumTypeDef]]
-    scansWithMostOpenCriticalFindings: NotRequired[List[ScanNameWithFindingNumTypeDef]]
+    categoriesWithMostFindings: NotRequired[list[CategoryWithFindingNumTypeDef]]
+    scansWithMostOpenFindings: NotRequired[list[ScanNameWithFindingNumTypeDef]]
+    scansWithMostOpenCriticalFindings: NotRequired[list[ScanNameWithFindingNumTypeDef]]
 
 
 class RemediationTypeDef(TypedDict):
     recommendation: NotRequired[RecommendationTypeDef]
-    suggestedFixes: NotRequired[List[SuggestedFixTypeDef]]
+    suggestedFixes: NotRequired[list[SuggestedFixTypeDef]]
 
 
 class ListFindingsMetricsResponseTypeDef(TypedDict):
-    findingsMetrics: List[AccountFindingsMetricTypeDef]
+    findingsMetrics: list[AccountFindingsMetricTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -347,8 +342,8 @@ class ListFindingsMetricsResponseTypeDef(TypedDict):
 VulnerabilityTypeDef = TypedDict(
     "VulnerabilityTypeDef",
     {
-        "referenceUrls": NotRequired[List[str]],
-        "relatedVulnerabilities": NotRequired[List[str]],
+        "referenceUrls": NotRequired[list[str]],
+        "relatedVulnerabilities": NotRequired[list[str]],
         "id": NotRequired[str],
         "filePath": NotRequired[FilePathTypeDef],
         "itemCount": NotRequired[int],
@@ -376,7 +371,7 @@ FindingTypeDef = TypedDict(
         "severity": NotRequired[SeverityType],
         "remediation": NotRequired[RemediationTypeDef],
         "title": NotRequired[str],
-        "detectorTags": NotRequired[List[str]],
+        "detectorTags": NotRequired[list[str]],
         "detectorId": NotRequired[str],
         "detectorName": NotRequired[str],
         "ruleId": NotRequired[str],
@@ -385,12 +380,12 @@ FindingTypeDef = TypedDict(
 
 
 class BatchGetFindingsResponseTypeDef(TypedDict):
-    findings: List[FindingTypeDef]
-    failedFindings: List[BatchGetFindingsErrorTypeDef]
+    findings: list[FindingTypeDef]
+    failedFindings: list[BatchGetFindingsErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetFindingsResponseTypeDef(TypedDict):
-    findings: List[FindingTypeDef]
+    findings: list[FindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

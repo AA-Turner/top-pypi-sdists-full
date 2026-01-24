@@ -2,6 +2,8 @@ use std::fmt::Write;
 
 use itertools::Itertools;
 
+use crate::types::WithAlignmentHint;
+
 use super::Format;
 
 impl Format for tombi_ast::Root {
@@ -15,11 +17,20 @@ impl Format for tombi_ast::Root {
         if !key_values.is_empty() {
             self.key_values_begin_dangling_comments().format(f)?;
 
+            let equal_alignment_width = f.key_value_equal_alignment_width(key_values.iter());
+            let trailing_comment_alignment_width =
+                f.trailing_comment_alignment_width(key_values.iter(), equal_alignment_width)?;
+
             for (i, key_value) in key_values.iter().enumerate() {
                 if i != 0 {
                     write!(f, "{}", f.line_ending())?;
                 }
-                key_value.format(f)?;
+                WithAlignmentHint {
+                    value: key_value,
+                    equal_alignment_width,
+                    trailing_comment_alignment_width,
+                }
+                .format(f)?;
             }
 
             self.key_values_end_dangling_comments().format(f)?;
@@ -151,53 +162,53 @@ enum Header {
 
 #[cfg(test)]
 mod test {
-    use crate::test_format;
+    use crate::{Formatter, test_format};
 
     test_format! {
-        #[test]
-        fn empty_table_space_on_own_subtable(
+        #[tokio::test]
+        async fn empty_table_space_on_own_subtable(
             r#"
             [foo]
             [foo.bar]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_table_space_on_other_table(
+        #[tokio::test]
+        async fn empty_table_space_on_other_table(
             r#"
             [foo]
 
             [bar.baz]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_table_space_on_own_array_of_subtables(
+        #[tokio::test]
+        async fn empty_table_space_on_own_array_of_sub_tables(
             r#"
             [foo]
             [[foo.bar]]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_table_space_on_other_array_of_tables(
+        #[tokio::test]
+        async fn empty_table_space_on_other_array_of_tables(
             r#"
             [foo]
 
             [[bar.baz]]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_table_space_on_other_array_of_tables_with_comments(
+        #[tokio::test]
+        async fn empty_table_space_on_other_array_of_tables_with_comments(
             r#"
             [foo]  # header table comment
             # table dangling comment 1-1
@@ -213,22 +224,22 @@ mod test {
             # table header leading comment2
             [[bar.baz]]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_array_of_tables_space_on_own_subtable(
+        #[tokio::test]
+        async fn empty_array_of_tables_space_on_own_subtable(
             r#"
             [[foo]]
             [foo.bar]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_array_of_tables_space_on_own_subtable_with_comments(
+        #[tokio::test]
+        async fn empty_array_of_tables_space_on_own_subtable_with_comments(
             r#"
             [[foo]]  # header trailing comment
             # table dangling comment 1-1
@@ -244,23 +255,23 @@ mod test {
             # table header leading comment2
             [foo.bar]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_array_of_tables_space_on_other_subtable(
+        #[tokio::test]
+        async fn empty_array_of_tables_space_on_other_subtable(
             r#"
             [[foo]]
 
             [bar.baz]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_array_of_tables_space_on_other_subtable_with_comments(
+        #[tokio::test]
+        async fn empty_array_of_tables_space_on_other_subtable_with_comments(
             r#"
             [[foo]]  # header trailing comment
             # table dangling comment 1-1
@@ -274,23 +285,23 @@ mod test {
 
             [bar.baz]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_array_of_tables_space_on_same_array_of_tables(
+        #[tokio::test]
+        async fn empty_array_of_tables_space_on_same_array_of_tables(
             r#"
             [[foo]]
 
             [[foo]]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn empty_array_of_tables_space_on_same_array_of_tables_with_comment(
+        #[tokio::test]
+        async fn empty_array_of_tables_space_on_same_array_of_tables_with_comment(
             r#"
             [[foo]]  # header trailing comment
             # table dangling comment 1-1
@@ -306,21 +317,21 @@ mod test {
             # table header leading comment2
             [[foo]]
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn only_dangling_comment1(
+        #[tokio::test]
+        async fn only_dangling_comment1(
             r#"
             # root dangling comment
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn only_dangling_comment2(
+        #[tokio::test]
+        async fn only_dangling_comment2(
             r#"
             # root dangling comment 1-1
             # root dangling comment 1-2
@@ -331,6 +342,6 @@ mod test {
 
             # root dangling comment 3-1
             "#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 }

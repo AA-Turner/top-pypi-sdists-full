@@ -21,12 +21,12 @@
 #include "include/private/base/SkTPin.h"
 #include "include/private/base/SkTo.h"
 #include "src/core/SkBlenderBase.h"
-#include "src/core/SkColorFilterBase.h"
 #include "src/core/SkColorSpacePriv.h"
 #include "src/core/SkColorSpaceXformSteps.h"
 #include "src/core/SkMaskFilterBase.h"
 #include "src/core/SkPaintDefaults.h"
 #include "src/core/SkPathEffectBase.h"
+#include "src/effects/colorfilters/SkColorFilterBase.h"
 
 #include <utility>
 
@@ -123,7 +123,7 @@ void SkPaint::setColor(SkColor color) {
 void SkPaint::setColor(const SkColor4f& color, SkColorSpace* colorSpace) {
     SkColorSpaceXformSteps steps{colorSpace,          kUnpremul_SkAlphaType,
                                  sk_srgb_singleton(), kUnpremul_SkAlphaType};
-    fColor4f = {color.fR, color.fG, color.fB, SkTPin(color.fA, 0.0f, 1.0f)};
+    fColor4f = color.pinAlpha();
     steps.apply(fColor4f.vec());
 }
 

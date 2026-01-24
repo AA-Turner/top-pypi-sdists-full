@@ -20,6 +20,7 @@ class HostedPage:
         CHECKOUT_ONE_TIME = "checkout_one_time"
         PRE_CANCEL = "pre_cancel"
         VIEW_VOUCHER = "view_voucher"
+        ACCEPT_QUOTE = "accept_quote"
         CHECKOUT_GIFT = "checkout_gift"
         CLAIM_GIFT = "claim_gift"
 
@@ -320,6 +321,7 @@ class HostedPage:
         start_date: NotRequired[int]
         coupon: NotRequired[str]
         auto_collection: NotRequired[enums.AutoCollection]
+        offline_payment_method: NotRequired[enums.OfflinePaymentMethod]
         invoice_notes: NotRequired[str]
         po_number: NotRequired[str]
         contract_term_billing_cycle_on_renewal: NotRequired[int]
@@ -600,6 +602,17 @@ class HostedPage:
         item_price_id: NotRequired[str]
         quantity: NotRequired[int]
         quantity_in_decimal: NotRequired[str]
+        unit_price: NotRequired[int]
+        unit_price_in_decimal: NotRequired[str]
+
+    class CheckoutGiftForItemsItemTierParams(TypedDict):
+        item_price_id: NotRequired[str]
+        starting_unit: NotRequired[int]
+        ending_unit: NotRequired[int]
+        price: NotRequired[int]
+        starting_unit_in_decimal: NotRequired[str]
+        ending_unit_in_decimal: NotRequired[str]
+        price_in_decimal: NotRequired[str]
 
     class ClaimGiftGiftParams(TypedDict):
         id: Required[str]
@@ -770,6 +783,7 @@ class HostedPage:
         change_option: NotRequired[enums.ChangeOption]
         changes_scheduled_at: NotRequired[int]
         customer: NotRequired["HostedPage.CheckoutExistingForItemsCustomerParams"]
+        invoice_usages: NotRequired[bool]
         entity_identifiers: NotRequired[
             List["HostedPage.CheckoutExistingForItemsEntityIdentifierParams"]
         ]
@@ -835,6 +849,7 @@ class HostedPage:
         subscription_items: NotRequired[
             List["HostedPage.CheckoutGiftForItemsSubscriptionItemParams"]
         ]
+        item_tiers: NotRequired[List["HostedPage.CheckoutGiftForItemsItemTierParams"]]
         coupon_ids: NotRequired[List[str]]
 
     class ClaimGiftParams(TypedDict):

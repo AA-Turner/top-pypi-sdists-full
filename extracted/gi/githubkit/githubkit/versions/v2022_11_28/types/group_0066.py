@@ -9,24 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0067 import (
+    CommitCommentEventPropCommentType,
+    CommitCommentEventPropCommentTypeForResponse,
+)
 
 
-class ThreadSubscriptionType(TypedDict):
-    """Thread Subscription
+class CommitCommentEventType(TypedDict):
+    """CommitCommentEvent"""
 
-    Thread Subscription
-    """
-
-    subscribed: bool
-    ignored: bool
-    reason: Union[str, None]
-    created_at: Union[datetime, None]
-    url: str
-    thread_url: NotRequired[str]
-    repository_url: NotRequired[str]
+    action: str
+    comment: CommitCommentEventPropCommentType
 
 
-__all__ = ("ThreadSubscriptionType",)
+class CommitCommentEventTypeForResponse(TypedDict):
+    """CommitCommentEvent"""
+
+    action: str
+    comment: CommitCommentEventPropCommentTypeForResponse
+
+
+__all__ = (
+    "CommitCommentEventType",
+    "CommitCommentEventTypeForResponse",
+)

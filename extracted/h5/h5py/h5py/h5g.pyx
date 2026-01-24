@@ -1,4 +1,3 @@
-# cython: language_level=3
 # This file is part of h5py, a Python interface to the HDF5 library.
 #
 # http://www.h5py.org
@@ -11,8 +10,6 @@
 """
     Low-level HDF5 "H5G" group interface.
 """
-
-include "config.pxi"
 
 import sys
 

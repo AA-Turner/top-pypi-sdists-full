@@ -16,6 +16,9 @@ if typing.TYPE_CHECKING:
     from snowflake.snowpark import Row, Session
 
 
+MASKED_VALUE = "********"
+
+
 def random_object_name() -> str:
     return random_string(8, prefix="test_object_")
 
@@ -203,12 +206,6 @@ def setup_spcs(target_account_name=None, executing_account_cursor=None, instance
     executing_account_cursor.execute(f"{prefix} set snowservices_external_image_registry_allowlist = '*';").fetchone()
     executing_account_cursor.execute(f"{prefix} set enable_snowservices=true;").fetchone()
     executing_account_cursor.execute(f"{prefix} set enable_snowservices_user_facing_features=true;").fetchone()
-    with backup_role(executing_account_cursor):
-        executing_account_cursor.execute("use role sysadmin").fetchone()
-        for instance in instance_families_to_create:
-            executing_account_cursor.execute(
-                f"call system$snowservices_create_instance_type('{instance}');"
-            ).fetchone()[0]
 
 
 def setup_credentials(cursor):

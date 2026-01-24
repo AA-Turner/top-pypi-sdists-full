@@ -1,7 +1,7 @@
 """RAG (Retrieval-Augmented Generation) infrastructure for CrewAI."""
 
-import sys
 import importlib
+import sys
 from types import ModuleType
 from typing import Any
 
@@ -11,6 +11,7 @@ from crewai.rag.config.utils import set_rag_config
 
 _module_path = __path__
 _module_file = __file__
+
 
 class _RagModule(ModuleType):
     """Module wrapper to intercept attribute setting for config."""
@@ -51,8 +52,10 @@ class _RagModule(ModuleType):
         """
         try:
             return importlib.import_module(f"{self.__name__}.{name}")
-        except ImportError:
-            raise AttributeError(f"module '{self.__name__}' has no attribute '{name}'")
+        except ImportError as e:
+            raise AttributeError(
+                f"module '{self.__name__}' has no attribute '{name}'"
+            ) from e
 
 
 sys.modules[__name__] = _RagModule(__name__)

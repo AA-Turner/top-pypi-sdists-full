@@ -13,7 +13,7 @@ requires = [
 [project]
 name = "adafruit-circuitpython-connectionmanager"
 description = "A urllib3.poolmanager/urllib3.connectionpool-like library for managing sockets and connections"
-version = "3.1.5"
+version = "3.1.6"
 readme = "README.rst"
 authors = [
     {name = "Adafruit Industries", email = "circuitpython@adafruit.com"}

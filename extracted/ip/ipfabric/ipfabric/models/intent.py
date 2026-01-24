@@ -2,14 +2,14 @@ import logging
 from collections import defaultdict
 from typing import Any, Union, Optional
 
-from httpx import HTTPStatusError
+from niquests import HTTPError
 from pydantic import BaseModel, PrivateAttr, Field
 
 from ipfabric.tools.shared import raise_for_status
 from .intent_check import Group, IntentCheck
 
 logger = logging.getLogger("ipfabric")
-COLOR_DICT = dict(nan=-1, green=0, blue=10, amber=20, red=30)
+COLOR_DICT = {"nan": -1, "green": 0, "blue": 10, "amber": 20, "red": 30}
 
 
 class Intent(BaseModel):
@@ -64,12 +64,12 @@ class Intent(BaseModel):
                 f"Snapshot {snapshot.snapshot_id} has Intent Verification computation disabled; "
                 "cannot pull Intent Rules."
             )
-        res = raise_for_status(self.client.get("reports", params=dict(snapshot=snapshot.snapshot_id)))
+        res = raise_for_status(self.client.get("reports", params={"snapshot": snapshot.snapshot_id}))
         try:
             return [IntentCheck(**check) for check in res.json()]
-        except HTTPStatusError:
+        except HTTPError:
             logger.warning(self.client._api_insuf_rights + 'on GET "/reports". Will not load Intents.')
-            return list()
+            return []
 
     def load_intent(self, snapshot_id: str = None):
         """Loads intent checks into the class.
@@ -91,7 +91,7 @@ class Intent(BaseModel):
             return [Group(**group) for group in res.json()]
         else:  # TODO: Fix this error
             logger.warning(self.client._api_insuf_rights + 'on GET "/reports/groups". Will not load Intent Groups.')
-            return list()
+            return []
 
     @property
     def custom(self) -> list[IntentCheck]:
@@ -182,7 +182,7 @@ class Intent(BaseModel):
             list: List of dictionaries
         """
         new_intents = {i.name: i for i in self.get_intent_checks(snapshot_id)}
-        comparison = list()
+        comparison = []
         for name, intent in new_intents.items():
             old = self.intents_by_name[name][0].result
             compare = intent.result.compare(old) if reverse else old.compare(intent.result)

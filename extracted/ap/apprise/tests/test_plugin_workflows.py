@@ -135,6 +135,27 @@ apprise_url_tests = (
             "privacy_url": "workflow://host:443/w...b/s...e/",
         },
     ),
+    (
+        "workflows://host:443/workflow1e/signature/?powerautomate=yes",
+        {
+            # support power_automate flag
+            "instance": NotifyWorkflows,
+        },
+    ),
+    (
+        "workflows://host:443/workflow1e/signature/?pa=yes&ver=1995-01-01",
+        {
+            # support power_automate flag with ver flag
+            "instance": NotifyWorkflows,
+        },
+    ),
+    (
+        "workflows://host:443/workflow1e/signature/?pa=yes",
+        {
+            # support power_automate flag
+            "instance": NotifyWorkflows,
+        },
+    ),
     # Support native URLs
     (
         (
@@ -151,6 +172,20 @@ apprise_url_tests = (
         },
     ),
     (
+        (
+            "https://server.azure.com:443/"
+            "powerautomate/automations/direct/"
+            "workflows/643e69f83c8944/"
+            "triggers/manual/paths/invoke?"
+            "api-version=2022-03-01-preview&sp=%2Ftriggers%2Fmanual%2Frun&"
+            "sv=1.0&sig=KODuebWbDGYFr0z0eu"
+        ),
+        {
+            # Power-Automate alternative URL - All tokens provided - we're good
+            "instance": NotifyWorkflows,
+        },
+    ),
+    (
         "workflow://host:443/workflow2/signature/",
         {
             "instance": NotifyWorkflows,
@@ -163,7 +198,7 @@ apprise_url_tests = (
         "workflow://host:443/workflow3/signature/",
         {
             "instance": NotifyWorkflows,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -173,7 +208,7 @@ apprise_url_tests = (
         {
             "instance": NotifyWorkflows,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),
@@ -229,6 +264,133 @@ def simple_template(tmpdir):
     return template
 
 
+def test_plugin_workflows_simple_test(
+    request_mock, workflows_url,
+):
+    """
+    NotifyWorkflows() simple testing
+    """
+    # Instantiate our URL
+    obj = Apprise.instantiate(workflows_url)
+    assert isinstance(obj, NotifyWorkflows)
+    assert (
+        obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        is True
+    )
+
+    assert request_mock.called is True
+    assert request_mock.call_args_list[0][0][0].startswith(
+        "https://host:443/workflows/workflow/triggers/manual/paths/invoke"
+    )
+    payload = json.loads(request_mock.call_args_list[0][1]["data"])
+    assert "NotifyType." not in request_mock.call_args_list[0][1]["data"]
+    assert payload == {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "contentUrl": None,
+                "content": {
+                    "$schema":
+                    "http://adaptivecards.io/schemas/adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [
+                        {
+                            "type": "Image",
+                            "url": "https://github.com/caronc/apprise/raw/"
+                            "master/apprise/assets/themes/default/"
+                            "apprise-info-32x32.png",
+                            "height": "32px",
+                            "altText": NotifyType.INFO.value,
+                        }, {
+                            "type": "TextBlock",
+                            # Verify our Title is set
+                            "text": "title",
+                            "style": "heading",
+                            "weight": "Bolder",
+                            "size": "Large",
+                            "id": "title",
+                        }, {
+                            "type": "TextBlock",
+                            # Verify our Body is set
+                            "text": "body",
+                            "style": "default",
+                            "wrap": True,
+                            "id": "body",
+                        },
+                    ],
+                    "msteams": {
+                        "width": "full"
+                    },
+                },
+            },
+        ],
+    }
+
+    request_mock.reset_mock()
+
+    # Instantiate our URL
+    obj = Apprise.instantiate(f"{workflows_url}?pa=yes")
+    assert isinstance(obj, NotifyWorkflows)
+    assert (
+        obj.notify(body="body", title="title", notify_type=NotifyType.INFO)
+        is True
+    )
+
+    assert request_mock.called is True
+    assert request_mock.call_args_list[0][0][0].startswith(
+        "https://host:443/powerautomate/automations/direct/"
+        "workflows/workflow/triggers/manual/paths/invoke"
+    )
+    payload = json.loads(request_mock.call_args_list[0][1]["data"])
+    assert "NotifyType." not in request_mock.call_args_list[0][1]["data"]
+
+    assert payload == {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "contentUrl": None,
+                "content": {
+                    "$schema": "http://adaptivecards.io/schemas/"
+                    "adaptive-card.json",
+                    "type": "AdaptiveCard",
+                    "version": "1.4",
+                    "body": [
+                        {
+                            "type": "Image",
+                            "url": "https://github.com/caronc/apprise/raw/"
+                            "master/apprise/assets/themes/default/"
+                            "apprise-info-32x32.png",
+                            "height": "32px",
+                            "altText": "info",
+                        }, {
+                            "type": "TextBlock",
+                            # Verify our Title is set
+                            "text": "title",
+                            "style": "heading",
+                            "weight": "Bolder",
+                            "size": "Large",
+                            "id": "title",
+                        }, {
+                            "type": "TextBlock",
+                            # Verify our Body is set
+                            "text": "body",
+                            "style": "default",
+                            "wrap": True,
+                            "id": "body",
+                        },
+                    ],
+                    "msteams": {
+                        "width": "full",
+                    },
+                },
+            },
+        ],
+    }
+
+
 def test_plugin_workflows_templating_basic_success(
     request_mock, workflows_url, tmpdir
 ):
@@ -276,6 +438,7 @@ def test_plugin_workflows_templating_basic_success(
 
     # Our Posted JSON Object
     posted_json = json.loads(request_mock.call_args_list[0][1]["data"])
+    assert "NotifyType." not in request_mock.call_args_list[0][1]["data"]
     assert "summary" in posted_json
     assert posted_json["summary"] == "Apprise"
     assert posted_json["themeColor"] == "#3AA3E3"
@@ -394,6 +557,7 @@ def test_plugin_workflows_templating_target_success(
 
     # Our Posted JSON Object
     posted_json = json.loads(request_mock.call_args_list[0][1]["data"])
+    assert "NotifyType." not in request_mock.call_args_list[0][1]["data"]
     assert "summary" in posted_json
     assert posted_json["summary"] == "Apprise Notifications"
     assert posted_json["themeColor"] == "#3AA3E3"

@@ -9,11 +9,11 @@ from sqlglot.dialects.dialect import (
     is_parse_json,
     pivot_column_names,
     rename_func,
-    trim_sql,
     unit_to_str,
 )
 from sqlglot.dialects.hive import Hive
-from sqlglot.helper import seq_get, ensure_list
+from sqlglot.helper import seq_get
+from sqlglot.parser import build_trim
 from sqlglot.tokens import TokenType
 from sqlglot.transforms import (
     preprocess,
@@ -21,11 +21,7 @@ from sqlglot.transforms import (
     ctas_with_tmp_tables_to_create_tmp_view,
     move_schema_columns_to_partitioned_by,
 )
-
-if t.TYPE_CHECKING:
-    from sqlglot._typing import E
-
-    from sqlglot.optimizer.annotate_types import TypeAnnotator
+from sqlglot.typing.spark2 import EXPRESSION_METADATA
 
 
 def _map_sql(self: Spark2.Generator, expression: exp.Map) -> str:
@@ -118,49 +114,15 @@ def temporary_storage_provider(expression: exp.Expression) -> exp.Expression:
     return expression
 
 
-def _annotate_by_similar_args(
-    self: TypeAnnotator, expression: E, *args: str, target_type: exp.DataType | exp.DataType.Type
-) -> E:
-    """
-    Infers the type of the expression according to the following rules:
-    - If all args are of the same type OR any arg is of target_type, the expr is inferred as such
-    - If any arg is of UNKNOWN type and none of target_type, the expr is inferred as UNKNOWN
-    """
-    self._annotate_args(expression)
-
-    expressions: t.List[exp.Expression] = []
-    for arg in args:
-        arg_expr = expression.args.get(arg)
-        expressions.extend(expr for expr in ensure_list(arg_expr) if expr)
-
-    last_datatype = None
-
-    has_unknown = False
-    for expr in expressions:
-        if expr.is_type(exp.DataType.Type.UNKNOWN):
-            has_unknown = True
-        elif expr.is_type(target_type):
-            has_unknown = False
-            last_datatype = target_type
-            break
-        else:
-            last_datatype = expr.type
-
-    self._set_type(expression, exp.DataType.Type.UNKNOWN if has_unknown else last_datatype)
-    return expression
-
-
 class Spark2(Hive):
-    ANNOTATORS = {
-        **Hive.ANNOTATORS,
-        exp.Substring: lambda self, e: self._annotate_by_args(e, "this"),
-        exp.Concat: lambda self, e: _annotate_by_similar_args(
-            self, e, "expressions", target_type=exp.DataType.Type.TEXT
-        ),
-        exp.Pad: lambda self, e: _annotate_by_similar_args(
-            self, e, "this", "fill_pattern", target_type=exp.DataType.Type.TEXT
-        ),
-    }
+    ALTER_TABLE_SUPPORTS_CASCADE = False
+
+    EXPRESSION_METADATA = EXPRESSION_METADATA.copy()
+
+    # https://spark.apache.org/docs/latest/api/sql/index.html#initcap
+    # https://docs.databricks.com/aws/en/sql/language-manual/functions/initcap
+    # https://github.com/apache/spark/blob/master/common/unsafe/src/main/java/org/apache/spark/unsafe/types/UTF8String.java#L859-L905
+    INITCAP_DEFAULT_DELIMITER_CHARS = " "
 
     class Tokenizer(Hive.Tokenizer):
         HEX_STRINGS = [("X'", "'"), ("x'", "'")]
@@ -172,6 +134,7 @@ class Spark2(Hive):
 
     class Parser(Hive.Parser):
         TRIM_PATTERN_FIRST = True
+        CHANGE_COLUMN_ALTER_SYNTAX = True
 
         FUNCTIONS = {
             **Hive.Parser.FUNCTIONS,
@@ -196,9 +159,11 @@ class Spark2(Hive):
                 ),
                 zone=seq_get(args, 1),
             ),
+            "LTRIM": lambda args: build_trim(args, reverse_args=True),
             "INT": _build_as_cast("int"),
             "MAP_FROM_ARRAYS": exp.Map.from_arg_list,
             "RLIKE": exp.RegexpLike.from_arg_list,
+            "RTRIM": lambda args: build_trim(args, is_left=False, reverse_args=True),
             "SHIFTLEFT": binary_from_function(exp.BitwiseLeftShift),
             "SHIFTRIGHT": binary_from_function(exp.BitwiseRightShift),
             "STRING": _build_as_cast("string"),
@@ -248,6 +213,7 @@ class Spark2(Hive):
         QUERY_HINTS = True
         NVL2_SUPPORTED = True
         CAN_IMPLEMENT_ARRAY_ANY = True
+        ALTER_SET_TYPE = "TYPE"
 
         PROPERTIES_LOCATION = {
             **Hive.Generator.PROPERTIES_LOCATION,
@@ -318,10 +284,12 @@ class Spark2(Hive):
                     transforms.any_to_exists,
                 ]
             ),
+            exp.SHA2Digest: lambda self, e: self.func(
+                "SHA2", e.this, e.args.get("length") or exp.Literal.number(256)
+            ),
             exp.StrToDate: _str_to_date,
             exp.StrToTime: lambda self, e: self.func("TO_TIMESTAMP", e.this, self.format_time(e)),
             exp.TimestampTrunc: lambda self, e: self.func("DATE_TRUNC", unit_to_str(e), e.this),
-            exp.Trim: trim_sql,
             exp.UnixToTime: _unix_to_time_sql,
             exp.VariancePop: rename_func("VAR_POP"),
             exp.WeekOfYear: rename_func("WEEKOFYEAR"),
@@ -364,3 +332,16 @@ class Spark2(Hive):
                 return super().fileformatproperty_sql(expression)
 
             return f"USING {expression.name.upper()}"
+
+        def altercolumn_sql(self, expression: exp.AlterColumn) -> str:
+            this = self.sql(expression, "this")
+            new_name = self.sql(expression, "rename_to") or this
+            comment = self.sql(expression, "comment")
+            if new_name == this:
+                if comment:
+                    return f"ALTER COLUMN {this} COMMENT {comment}"
+                return super(Hive.Generator, self).altercolumn_sql(expression)
+            return f"RENAME COLUMN {this} TO {new_name}"
+
+        def renamecolumn_sql(self, expression: exp.RenameColumn) -> str:
+            return super(Hive.Generator, self).renamecolumn_sql(expression)

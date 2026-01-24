@@ -9,45 +9,56 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0249 import VerificationType
+from .group_0278 import DiffEntryType, DiffEntryTypeForResponse
+from .group_0279 import CommitType, CommitTypeForResponse
 
 
-class GitTagType(TypedDict):
-    """Git Tag
+class CommitComparisonType(TypedDict):
+    """Commit Comparison
 
-    Metadata for a Git tag
+    Commit Comparison
     """
 
-    node_id: str
-    tag: str
-    sha: str
     url: str
-    message: str
-    tagger: GitTagPropTaggerType
-    object_: GitTagPropObjectType
-    verification: NotRequired[VerificationType]
+    html_url: str
+    permalink_url: str
+    diff_url: str
+    patch_url: str
+    base_commit: CommitType
+    merge_base_commit: CommitType
+    status: Literal["diverged", "ahead", "behind", "identical"]
+    ahead_by: int
+    behind_by: int
+    total_commits: int
+    commits: list[CommitType]
+    files: NotRequired[list[DiffEntryType]]
 
 
-class GitTagPropTaggerType(TypedDict):
-    """GitTagPropTagger"""
+class CommitComparisonTypeForResponse(TypedDict):
+    """Commit Comparison
 
-    date: str
-    email: str
-    name: str
+    Commit Comparison
+    """
 
-
-class GitTagPropObjectType(TypedDict):
-    """GitTagPropObject"""
-
-    sha: str
-    type: str
     url: str
+    html_url: str
+    permalink_url: str
+    diff_url: str
+    patch_url: str
+    base_commit: CommitTypeForResponse
+    merge_base_commit: CommitTypeForResponse
+    status: Literal["diverged", "ahead", "behind", "identical"]
+    ahead_by: int
+    behind_by: int
+    total_commits: int
+    commits: list[CommitTypeForResponse]
+    files: NotRequired[list[DiffEntryTypeForResponse]]
 
 
 __all__ = (
-    "GitTagPropObjectType",
-    "GitTagPropTaggerType",
-    "GitTagType",
+    "CommitComparisonType",
+    "CommitComparisonTypeForResponse",
 )

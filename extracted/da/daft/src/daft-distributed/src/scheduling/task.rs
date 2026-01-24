@@ -2,6 +2,7 @@ use std::{cmp::Ordering, collections::HashMap, fmt::Debug, future::Future, sync:
 
 use common_daft_config::DaftExecutionConfig;
 use common_error::DaftError;
+use common_metrics::StatSnapshot;
 use common_partitioning::PartitionRef;
 use common_resource_request::ResourceRequest;
 use daft_local_plan::LocalPhysicalPlanRef;
@@ -9,14 +10,15 @@ use tokio_util::sync::CancellationToken;
 
 use super::worker::WorkerId;
 use crate::{
-    pipeline_node::{MaterializedOutput, NodeID, PipelineNodeContext},
-    plan::PlanID,
-    stage::StageID,
+    pipeline_node::{MaterializedOutput, NodeID, PipelineNodeContext, PipelineNodeImpl},
+    plan::{QueryIdx, TaskIDCounter},
+    scheduling::scheduler::SubmittableTask,
+    utils::channel::{OneshotReceiver, OneshotSender, create_oneshot_channel},
 };
 
 #[derive(Debug, Clone)]
 pub(crate) struct TaskResourceRequest {
-    resource_request: ResourceRequest,
+    pub resource_request: ResourceRequest,
 }
 
 impl TaskResourceRequest {
@@ -32,7 +34,6 @@ impl TaskResourceRequest {
         self.resource_request.num_gpus().unwrap_or(0.0)
     }
 
-    #[allow(dead_code)]
     pub fn memory_bytes(&self) -> usize {
         self.resource_request.memory_bytes().unwrap_or(0)
     }
@@ -44,32 +45,29 @@ pub(crate) type TaskName = String;
 #[derive(Clone, PartialEq, Eq, Hash, Default)]
 #[allow(clippy::struct_field_names)]
 pub(crate) struct TaskContext {
-    pub plan_id: PlanID,
-    pub stage_id: StageID,
-    pub node_id: NodeID,
+    /// The query index that the task belongs to.
+    pub query_idx: QueryIdx,
+    /// The ID of the last operator / node in the task's pipeline.
+    /// This gives us a general indication of what portion of the query this task is related to.
+    pub last_node_id: NodeID,
+    /// The task ID
     pub task_id: TaskID,
-    pub logical_node_ids: Vec<NodeID>,
+    pub node_ids: Vec<NodeID>,
 }
 
 impl TaskContext {
     pub fn new(
-        plan_id: PlanID,
-        stage_id: StageID,
+        query_idx: QueryIdx,
         node_id: NodeID,
         task_id: TaskID,
-        logical_node_ids: Vec<NodeID>,
+        node_ids: Vec<NodeID>,
     ) -> Self {
         Self {
-            plan_id,
-            stage_id,
-            node_id,
+            query_idx,
+            last_node_id: node_id,
             task_id,
-            logical_node_ids,
+            node_ids,
         }
-    }
-
-    pub fn add_logical_node_id(&mut self, logical_node_id: NodeID) {
-        self.logical_node_ids.push(logical_node_id);
     }
 }
 
@@ -77,8 +75,8 @@ impl std::fmt::Debug for TaskContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "TaskContext(plan_id = {}, stage_id = {}, node_id = {}, task_id = {})",
-            self.plan_id, self.stage_id, self.node_id, self.task_id
+            "TaskContext(query_idx = {}, last_node_id = {}, task_id = {})",
+            self.query_idx, self.last_node_id, self.task_id
         )
     }
 }
@@ -86,14 +84,10 @@ impl std::fmt::Debug for TaskContext {
 impl From<(&PipelineNodeContext, TaskID)> for TaskContext {
     fn from((node_context, task_id): (&PipelineNodeContext, TaskID)) -> Self {
         Self::new(
-            node_context.plan_id,
-            node_context.stage_id,
+            node_context.query_idx,
             node_context.node_id,
             task_id,
-            node_context
-                .logical_node_id
-                .map(|id| vec![id])
-                .unwrap_or_default(),
+            vec![node_context.node_id],
         )
     }
 }
@@ -110,18 +104,13 @@ pub(crate) trait Task: Send + Sync + Clone + Debug + 'static {
     }
 
     #[allow(dead_code)]
-    fn plan_id(&self) -> PlanID {
-        self.task_context().plan_id
+    fn query_idx(&self) -> QueryIdx {
+        self.task_context().query_idx
     }
 
     #[allow(dead_code)]
-    fn stage_id(&self) -> StageID {
-        self.task_context().stage_id
-    }
-
-    #[allow(dead_code)]
-    fn node_id(&self) -> NodeID {
-        self.task_context().node_id
+    fn last_node_id(&self) -> NodeID {
+        self.task_context().last_node_id
     }
 
     fn task_name(&self) -> TaskName;
@@ -173,18 +162,13 @@ impl std::fmt::Debug for TaskDetails {
 pub(crate) enum SchedulingStrategy {
     Spread,
     // TODO: In the future if we run multiple workers on the same node, we can have a NodeAffinity strategy or a multi-worker affinity strategy
-    #[allow(dead_code)]
-    WorkerAffinity {
-        worker_id: WorkerId,
-        soft: bool,
-    },
+    WorkerAffinity { worker_id: WorkerId, soft: bool },
 }
 
 #[allow(clippy::struct_field_names)]
 #[derive(Debug, Clone, Copy)]
 struct SwordfishTaskPriority {
-    plan_id: PlanID,
-    stage_id: StageID,
+    query_idx: QueryIdx,
     node_id: NodeID,
     task_id: TaskID,
 }
@@ -192,8 +176,7 @@ struct SwordfishTaskPriority {
 impl PartialEq for SwordfishTaskPriority {
     fn eq(&self, other: &Self) -> bool {
         self.task_id == other.task_id
-            && self.plan_id == other.plan_id
-            && self.stage_id == other.stage_id
+            && self.query_idx == other.query_idx
             && self.node_id == other.node_id
     }
 }
@@ -209,14 +192,12 @@ impl PartialOrd for SwordfishTaskPriority {
 impl Ord for SwordfishTaskPriority {
     fn cmp(&self, other: &Self) -> Ordering {
         // Rules for swordfish task priority:
-        // 1. Plan ID: Lower plan_id, higher priority
-        // 2. Stage ID: Higher stage_id, higher priority
-        // 3. Node ID: Higher node_id, higher priority
-        // 4. Task ID: Lower task_id, higher priority
+        // 1. Query Idx: Lower query_idx, higher priority
+        // 2. Node ID:   Higher node_id, higher priority
+        // 3. Task ID:   Lower task_id, higher priority
         other
-            .plan_id
-            .cmp(&self.plan_id)
-            .then_with(|| self.stage_id.cmp(&other.stage_id))
+            .query_idx
+            .cmp(&self.query_idx)
             .then_with(|| self.node_id.cmp(&other.node_id))
             .then_with(|| other.task_id.cmp(&self.task_id))
     }
@@ -236,32 +217,6 @@ pub(crate) struct SwordfishTask {
 }
 
 impl SwordfishTask {
-    pub fn new(
-        task_context: TaskContext,
-        plan: LocalPhysicalPlanRef,
-        config: Arc<DaftExecutionConfig>,
-        psets: HashMap<String, Vec<PartitionRef>>,
-        strategy: SchedulingStrategy,
-        mut context: HashMap<String, String>,
-    ) -> Self {
-        let resource_request = TaskResourceRequest::new(plan.resource_request());
-        context.insert("task_id".to_string(), task_context.task_id.to_string());
-
-        Self {
-            task_context,
-            plan,
-            resource_request,
-            config,
-            psets,
-            strategy,
-            context,
-        }
-    }
-
-    pub fn strategy(&self) -> &SchedulingStrategy {
-        &self.strategy
-    }
-
     pub fn plan(&self) -> LocalPhysicalPlanRef {
         self.plan.clone()
     }
@@ -302,18 +257,163 @@ impl Task for SwordfishTask {
 
     fn priority(&self) -> impl TaskPriority {
         SwordfishTaskPriority {
-            plan_id: self.task_context.plan_id,
-            stage_id: self.task_context.stage_id,
-            node_id: self.task_context.node_id,
+            query_idx: self.task_context.query_idx,
+            node_id: self.task_context.last_node_id,
             task_id: self.task_context.task_id,
         }
     }
 }
 
+/// Builder for creating and modifying SwordfishTask instances.
+/// Automatically handles TaskContext creation, config extraction, and context metadata.
+pub(crate) struct SwordfishTaskBuilder {
+    plan: LocalPhysicalPlanRef,
+    config: Arc<DaftExecutionConfig>,
+    psets: HashMap<String, Vec<PartitionRef>>,
+    strategy: Option<SchedulingStrategy>,
+    context: HashMap<String, String>,
+    node_context: Option<PipelineNodeContext>,
+    pending_node_ids: Vec<NodeID>,
+    notify_tokens: Vec<OneshotSender<()>>,
+}
+
+impl SwordfishTaskBuilder {
+    /// Create a new builder from a plan and node.
+    /// Automatically extracts context and config from the node, and adds node_id to pending_node_ids.
+    pub fn new(plan: LocalPhysicalPlanRef, node: &dyn PipelineNodeImpl) -> Self {
+        Self {
+            plan,
+            config: node.config().execution_config.clone(),
+            psets: HashMap::new(),
+            strategy: None,
+            context: node.context().to_hashmap(),
+            node_context: None,
+            pending_node_ids: vec![node.node_id()],
+            notify_tokens: vec![],
+        }
+    }
+
+    /// Transform the current plan using a function.
+    /// The function receives the current plan and returns a new plan.
+    /// Automatically adds the node_id from the provided node to pending_node_ids.
+    pub fn map_plan<F>(mut self, node: &dyn PipelineNodeImpl, f: F) -> Self
+    where
+        F: FnOnce(LocalPhysicalPlanRef) -> LocalPhysicalPlanRef,
+    {
+        self.plan = f(self.plan);
+        self.pending_node_ids.push(node.node_id());
+        self
+    }
+
+    /// Create a new builder by combining two existing builders.
+    /// The function receives both plans and returns a new plan.
+    /// This allows combining plans from two builders without exposing internals.
+    /// The new builder will have:
+    /// - The combined plan from the function
+    /// - Merged psets from both builders (right takes precedence on conflicts)
+    /// - Config and other fields from the left builder
+    /// - Merged pending_node_ids from both builders, with the node's node_id appended
+    pub fn combine_with<F>(left: &Self, right: &Self, node: &dyn PipelineNodeImpl, f: F) -> Self
+    where
+        F: FnOnce(LocalPhysicalPlanRef, LocalPhysicalPlanRef) -> LocalPhysicalPlanRef,
+    {
+        let combined_plan = f(left.plan.clone(), right.plan.clone());
+
+        let mut psets = left.psets.clone();
+        psets.extend(right.psets.clone());
+
+        // Merge pending_node_ids from both sides, then add the current node's node_id
+        let mut pending_node_ids = left.pending_node_ids.clone();
+        pending_node_ids.extend(right.pending_node_ids.clone());
+        pending_node_ids.push(node.node_id());
+
+        Self {
+            plan: combined_plan,
+            config: left.config.clone(),
+            psets,
+            strategy: left.strategy.clone(),
+            context: left.context.clone(),
+            node_context: left.node_context.clone(),
+            pending_node_ids,
+            notify_tokens: vec![],
+        }
+    }
+
+    /// Conditionally set the scheduling strategy. If None, no-op.
+    pub fn with_strategy(mut self, strategy: Option<SchedulingStrategy>) -> Self {
+        self.strategy = strategy;
+        self
+    }
+
+    /// Set psets (replaces any existing psets).
+    pub fn with_psets(mut self, psets: HashMap<String, Vec<PartitionRef>>) -> Self {
+        self.psets = psets;
+        self
+    }
+
+    /// Merge additional psets into existing ones.
+    pub fn merge_psets(mut self, psets: HashMap<String, Vec<PartitionRef>>) -> Self {
+        self.psets.extend(psets);
+        self
+    }
+
+    /// Add a notify token to the builder. Returns the builder and the receiver for the token.
+    pub fn add_notify_token(mut self) -> (Self, OneshotReceiver<()>) {
+        let (notify_token, notify_rx) = create_oneshot_channel();
+        self.notify_tokens.push(notify_token);
+        (self, notify_rx)
+    }
+
+    /// Build the SubmittableTask directly, which can be submitted to the scheduler.
+    /// The task_id is assigned from the provided task_id_counter at build time.
+    pub fn build(
+        self,
+        query_idx: QueryIdx,
+        task_id_counter: &TaskIDCounter,
+    ) -> SubmittableTask<SwordfishTask> {
+        let strategy = self.strategy.unwrap_or(SchedulingStrategy::Spread);
+
+        let task_context = TaskContext {
+            query_idx,
+            last_node_id: *self
+                .pending_node_ids
+                .last()
+                .expect("Pending node_ids must be non-empty"),
+            task_id: task_id_counter.next(),
+            node_ids: self.pending_node_ids,
+        };
+
+        // Build context HashMap with task_id
+        let mut context = self.context;
+        context.insert("task_id".to_string(), task_context.task_id.to_string());
+
+        // Extract resource_request from plan
+        let resource_request = TaskResourceRequest::new(self.plan.resource_request());
+
+        let task = SwordfishTask {
+            task_context,
+            plan: self.plan,
+            resource_request,
+            config: self.config.clone(),
+            psets: self.psets,
+            strategy,
+            context,
+        };
+
+        let cancel_token = CancellationToken::new();
+        SubmittableTask::new(task, cancel_token, self.notify_tokens)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum TaskStatus {
-    Success { result: MaterializedOutput },
-    Failed { error: DaftError },
+    Success {
+        result: MaterializedOutput,
+        stats: Vec<(usize, StatSnapshot)>,
+    },
+    Failed {
+        error: DaftError,
+    },
     Cancelled,
     WorkerDied,
     WorkerUnavailable,
@@ -356,7 +456,7 @@ impl<H: TaskResultHandle> TaskResultAwaiter<H> {
 pub(super) mod tests {
     use std::{any::Any, sync::Mutex, time::Duration};
 
-    use common_error::{DaftError, DaftResult};
+    use common_error::DaftError;
     use common_partitioning::Partition;
 
     use super::*;
@@ -382,12 +482,12 @@ pub(super) mod tests {
             self
         }
 
-        fn size_bytes(&self) -> DaftResult<Option<usize>> {
-            Ok(Some(self.size_bytes))
+        fn size_bytes(&self) -> usize {
+            self.size_bytes
         }
 
-        fn num_rows(&self) -> DaftResult<usize> {
-            Ok(self.num_rows)
+        fn num_rows(&self) -> usize {
+            self.num_rows
         }
     }
 
@@ -577,6 +677,7 @@ pub(super) mod tests {
                 }
                 TaskStatus::Success {
                     result: task.task_result,
+                    stats: vec![],
                 }
             }
         }
@@ -596,93 +697,68 @@ pub(super) mod tests {
     #[test]
     fn test_swordfish_task_priority_ordering() {
         // Test cases for priority ordering:
-        // Lower plan_id, higher stage_id, higher node_id, lower task_id should have higher priority
+        // Lower query_idx, higher stage_id, higher node_id, lower task_id should have higher priority
 
-        // Test 1: Different plan_ids (lower plan_id should have higher priority)
+        // Test 1: Different query_idxs (lower query_idx should have higher priority)
         let task1 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 1,
         };
         let task2 = SwordfishTaskPriority {
-            plan_id: 2,
-            stage_id: 1,
+            query_idx: 2,
             node_id: 1,
             task_id: 1,
         };
-        assert!(task1 > task2); // plan_id 1 < plan_id 2, so task1 has higher priority (larger in ordering)
+        assert!(task1 > task2); // query_idx 1 < query_idx 2, so task1 has higher priority (larger in ordering)
 
-        // Test 2: Same plan_id, different stage_ids (higher stage_id should have higher priority)
+        // Test 2: Same query_idx, different task_ids (higher task_id should have higher priority)
         let task1 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 2,
-            node_id: 1,
-            task_id: 1,
-        };
-        let task2 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
-            node_id: 1,
-            task_id: 1,
-        };
-        assert!(task1 > task2); // stage_id 2 > stage_id 1, so task1 has higher priority (larger in ordering)
-
-        // Test 3: Same plan_id and stage_id, different node_ids (higher node_id should have higher priority)
-        let task1 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 2,
             task_id: 1,
         };
         let task2 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 1,
         };
         assert!(task1 > task2); // node_id 2 > node_id 1, so task1 has higher priority (larger in ordering)
 
-        // Test 4: Same plan_id, stage_id, and node_id, different task_ids (lower task_id should have higher priority)
+        // Test 3: Same query_idx and node_id, different task_ids (lower task_id should have higher priority)
         let task1 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 1,
         };
         let task2 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 2,
         };
         assert!(task1 > task2); // task_id 1 < task_id 2, so task1 has higher priority (larger in ordering)
 
-        // Test 5: Complex case with multiple differences
+        // Test 4: Complex case with multiple differences
         let task1 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 2,
+            query_idx: 1,
             node_id: 2,
             task_id: 1,
         };
         let task2 = SwordfishTaskPriority {
-            plan_id: 2,
-            stage_id: 1,
+            query_idx: 2,
             node_id: 1,
             task_id: 1,
         };
-        assert!(task1 > task2); // task1 has lower plan_id, so it has higher priority (larger in ordering)
+        assert!(task1 > task2); // task1 has lower query_idx, so it has higher priority (larger in ordering)
 
-        // Test 6: Equality
+        // Test 5: Equality
         let task1 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 1,
         };
         let task2 = SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 1,
         };
@@ -699,87 +775,63 @@ pub(super) mod tests {
 
         // Add tasks in random order - ensuring unique task_ids within each stage
         heap.push(SwordfishTaskPriority {
-            plan_id: 2,
-            stage_id: 1,
+            query_idx: 2,
             node_id: 1,
             task_id: 1,
         });
         heap.push(SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 2,
-            node_id: 1,
-            task_id: 1,
-        });
-        heap.push(SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 2,
             task_id: 3,
         });
         heap.push(SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 2,
         });
         heap.push(SwordfishTaskPriority {
-            plan_id: 1,
-            stage_id: 1,
+            query_idx: 1,
             node_id: 1,
             task_id: 1,
         });
 
         // Pop tasks in order (BinaryHeap is a max heap, so highest priority comes out first)
         // Expected order (highest priority to lowest priority):
-        // 1. plan_id=1, stage_id=2, node_id=1, task_id=1 (higher stage_id = highest priority = largest in heap)
-        // 2. plan_id=1, stage_id=1, node_id=2, task_id=3 (higher node_id = higher priority = larger in heap)
-        // 3. plan_id=1, stage_id=1, node_id=1, task_id=1 (lower task_id = higher priority = larger in heap)
-        // 4. plan_id=1, stage_id=1, node_id=1, task_id=2 (higher task_id = lower priority = smaller in heap)
-        // 5. plan_id=2, stage_id=1, node_id=1, task_id=1 (higher plan_id = lowest priority = smallest in heap)
+        // 1. query_idx=1, stage_id=1, node_id=2, task_id=3 (higher node_id = higher priority = larger in heap)
+        // 2. query_idx=1, stage_id=1, node_id=1, task_id=1 (lower task_id = higher priority = larger in heap)
+        // 3. query_idx=1, stage_id=1, node_id=1, task_id=2 (higher task_id = lower priority = smaller in heap)
+        // 4. query_idx=2, stage_id=1, node_id=1, task_id=1 (higher query_idx = lowest priority = smallest in heap)
 
         assert_eq!(
             heap.pop().unwrap(),
             SwordfishTaskPriority {
-                plan_id: 1,
-                stage_id: 2,
-                node_id: 1,
-                task_id: 1,
-            }
-        );
-        assert_eq!(
-            heap.pop().unwrap(),
-            SwordfishTaskPriority {
-                plan_id: 1,
-                stage_id: 1,
+                query_idx: 1,
                 node_id: 2,
-                task_id: 3,
+                task_id: 3
             }
         );
         assert_eq!(
             heap.pop().unwrap(),
             SwordfishTaskPriority {
-                plan_id: 1,
-                stage_id: 1,
+                query_idx: 1,
                 node_id: 1,
-                task_id: 1,
+                task_id: 1
             }
         );
         assert_eq!(
             heap.pop().unwrap(),
             SwordfishTaskPriority {
-                plan_id: 1,
-                stage_id: 1,
+                query_idx: 1,
                 node_id: 1,
-                task_id: 2,
+                task_id: 2
             }
         );
         assert_eq!(
             heap.pop().unwrap(),
             SwordfishTaskPriority {
-                plan_id: 2,
-                stage_id: 1,
+                query_idx: 2,
                 node_id: 1,
-                task_id: 1,
+                task_id: 1
             }
         );
         assert!(heap.pop().is_none()); // Heap should be empty

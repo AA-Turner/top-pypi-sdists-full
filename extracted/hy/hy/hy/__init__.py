@@ -1,6 +1,6 @@
-__version__ = '1.1.0'
-nickname = 'Business Hugs'
-last_version = __version__
+__version__ = '1.2.0'
+nickname = 'Crackers and Snacks'
+last_version = '1.2.0'
   # This is used by `(pragma :hy …)` to guess whether an unreleased
   # version of Hy is new enough. In a released version, it's simply
   # equal to `__version__`.
@@ -12,10 +12,10 @@ def _initialize_env_var(env_var, default_val):
     return bool(os.environ.get(env_var, default_val))
 
 
-import hy.importer  # NOQA
-
+# Import for side-effects.
+import hy.importer, hy.hy_inspect
 hy.importer._inject_builtins()
-# we import for side-effects.
+
 
 
 class I:

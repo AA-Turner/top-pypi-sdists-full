@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: esp-idf-kconfig
-Version: 3.2.0
+Version: 3.4.2
 Summary: Kconfig tooling for esp-idf
 Author: Espressif Systems
 License: 
@@ -220,6 +220,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
@@ -231,13 +232,13 @@ Requires-Dist: windows-curses>=2.4.1; sys_platform == "win32" and python_version
 Requires-Dist: rich
 Requires-Dist: pyparsing
 Provides-Extra: dev
-Requires-Dist: commitizen; extra == "dev"
+Requires-Dist: czespressif; python_version >= "3.9" and extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pexpect; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: coverage[toml]; extra == "dev"
 Provides-Extra: docs
-Requires-Dist: esp-docs~=1.5; extra == "docs"
+Requires-Dist: esp-docs; extra == "docs"
 
 # esp-idf-kconfig
 

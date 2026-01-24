@@ -229,7 +229,7 @@ cdef void _estimate_negative_gradient_single(
     double * sum_Q,
     double theta,
     double dof,
-) nogil:
+) noexcept nogil:
     # Make sure that we spend no time on empty nodes or simple self-interactions
     if node.num_points == 0 or node.is_leaf and is_close(node, point, EPSILON):
         return
@@ -275,28 +275,28 @@ cdef void _estimate_negative_gradient_single(
         _estimate_negative_gradient_single(&node.children[d], point, gradient, sum_Q, theta, dof)
 
 
-cdef inline double cauchy_1d(double x, double y, double dof) nogil:
+cdef inline double cauchy_1d(double x, double y, double dof) noexcept nogil:
     if dof != 1:
         return (1 + ((x - y) ** 2) / dof) ** -dof
     else:
         return (1 + (x - y) ** 2) ** -1
 
 
-cdef inline double cauchy_1d_exp1p(double x, double y, double dof) nogil:
+cdef inline double cauchy_1d_exp1p(double x, double y, double dof) noexcept nogil:
     if dof != 1:
         return (1 + ((x - y) ** 2) / dof) ** -(dof + 1)
     else:
         return (1 + (x - y) ** 2) ** -2
 
 
-cdef inline double cauchy_2d(double x1, double x2, double y1, double y2, double dof) nogil:
+cdef inline double cauchy_2d(double x1, double x2, double y1, double y2, double dof) noexcept nogil:
     if dof != 1:
         return (1 + ((x1 - y1) ** 2 + (x2 - y2) ** 2) / dof) ** -dof
     else:
         return (1 + (x1 - y1) ** 2 + (x2 - y2) ** 2) ** -1
 
 
-cdef inline double cauchy_2d_exp1p(double x1, double x2, double y1, double y2, double dof) nogil:
+cdef inline double cauchy_2d_exp1p(double x1, double x2, double y1, double y2, double dof) noexcept nogil:
     if dof != 1:
         return (1 + ((x1 - y1) ** 2 + (x2 - y2) ** 2) / dof) ** -(dof + 1)
     else:
@@ -575,7 +575,7 @@ cpdef tuple prepare_negative_gradient_fft_interpolation_grid_1d(
     for i in range(1, n_interpolation_points):
         y_tilde[i] = y_tilde[i - 1] + h
 
-    # Evaluate the the squared cauchy kernel at the interpolation nodes
+    # Evaluate the squared cauchy kernel at the interpolation nodes
     cdef double[::1] sq_kernel_tilde = compute_kernel_tilde_1d(
         &cauchy_1d_exp1p, n_interpolation_points_1d, y_min, h * box_width, dof
     )
@@ -836,7 +836,7 @@ cpdef double estimate_negative_gradient_fft_2d(
     for i in range(1, n_interpolation_points):
         y_tilde[i] = y_tilde[i - 1] + h
 
-    # Evaluate the the squared cauchy kernel at the interpolation nodes
+    # Evaluate the squared cauchy kernel at the interpolation nodes
     cdef double[:, ::1] sq_kernel_tilde = compute_kernel_tilde_2d(
          &cauchy_2d_exp1p, n_interpolation_points * n_boxes_1d, coord_min, h * box_width, dof,
     )

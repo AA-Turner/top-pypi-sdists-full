@@ -19,10 +19,11 @@ from __future__ import annotations
 import json
 import os
 import time
+import uuid
 from base64 import urlsafe_b64encode
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, overload
 
 import attrs
 import httpx
@@ -33,7 +34,7 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
 
-from airflow.utils import timezone
+from airflow._shared.timezones import timezone
 
 if TYPE_CHECKING:
     from jwt.algorithms import AllowedKeys, AllowedPrivateKeys
@@ -225,7 +226,7 @@ def _conf_factory(section, key, **kwargs):
     def factory() -> str:
         from airflow.configuration import conf
 
-        return conf.get(section, key, **kwargs, suppress_warnings=True)  # type: ignore[return-value]
+        return conf.get(section, key, **kwargs, suppress_warnings=True)
 
     return factory
 
@@ -437,12 +438,14 @@ class JWTGenerator:
         """Generate a signed JWT for the subject."""
         now = int(datetime.now(tz=timezone.utc).timestamp())
         claims = {
+            "jti": uuid.uuid4().hex,
             "iss": self.issuer,
             "aud": self.audience,
             "nbf": now,
             "exp": int(now + self.valid_for),
             "iat": now,
         }
+
         if claims["iss"] is None:
             del claims["iss"]
         if claims["aud"] is None:
@@ -535,7 +538,7 @@ def get_signing_key(section: str, key: str, make_secret_key_if_needed: bool = Tr
             raise ValueError(f"The value {section}/{key} must be set!")
 
     # Mypy can't grock the `if not secret_key`
-    return secret_key  # type: ignore[return-value]
+    return secret_key
 
 
 def get_signing_args(make_secret_key_if_needed: bool = True) -> dict[str, Any]:

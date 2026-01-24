@@ -96,7 +96,7 @@ class StorageTarget:
     prefix: str | None = None
     """"The file prefix."""
 
-    params: dict = field(default_factory=dict)
+    params: dict[str, t.Any] = field(default_factory=dict)
     """"The storage parameters."""
 
     def asdict(self) -> dict[str, t.Any]:
@@ -122,7 +122,8 @@ class StorageTarget:
     @cached_property
     def _root_path(self) -> UPath:
         """The root path of the storage target."""
-        return UPath(self.root, **self.params).resolve()
+        # https://github.com/fsspec/universal_pathlib/issues/435
+        return UPath(self.root, **self.params).resolve()  # type: ignore[no-any-return]
 
     @staticmethod
     def split_url(url: str) -> tuple[str, str]:
@@ -213,7 +214,7 @@ class BatchConfig:
             self.encoding = BaseBatchFileEncoding.from_dict(self.encoding)  # type: ignore[unreachable]
 
         if isinstance(self.storage, dict):
-            self.storage = StorageTarget.from_dict(self.storage)
+            self.storage = StorageTarget.from_dict(self.storage)  # ty: ignore[invalid-argument-type]
 
         if self.batch_size is None:
             self.batch_size = DEFAULT_BATCH_SIZE  # type: ignore[unreachable]

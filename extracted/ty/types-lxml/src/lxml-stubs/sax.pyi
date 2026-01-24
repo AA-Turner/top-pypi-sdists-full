@@ -1,4 +1,5 @@
 from typing import Generic, overload
+from typing_extensions import disjoint_base
 from xml.sax.handler import ContentHandler
 
 from ._types import _ET, SupportsLaxItems, Unused, _ElementOrTree
@@ -24,28 +25,34 @@ class ElementTreeContentHandler(Generic[_ET], ContentHandler):
 
     # Incompatible method overrides; some args are similar
     # but use other structures or names
+    # pyrefly: ignore[bad-param-name-override]
     def startElementNS(  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
         self,
         ns_name: tuple[str, str],
         qname: Unused,
         attributes: SupportsLaxItems[tuple[str | None, str], str] | None = None,
     ) -> None: ...
-    def endElementNS(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def endElementNS(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
         ns_name: tuple[str | None, str],
         qname: Unused,
     ) -> None: ...
-    def characters(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def characters(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
         data: str,
     ) -> None: ...
-    def startElement(  # pyright: ignore[reportIncompatibleMethodOverride]
+    # pyrefly: ignore[bad-param-name-override]
+    def startElement(  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
         self,
         name: str,
         attributes: SupportsLaxItems[str, str] | None = None,
     ) -> None: ...
+    # pyrefly: ignore[bad-param-name-override]
     ignorableWhitespace = characters  # type: ignore[assignment]  # pyright: ignore[reportAssignmentType]
 
+@disjoint_base
 class ElementTreeProducer(Generic[_ET]):
     _element: _ET
     _content_handler: ContentHandler

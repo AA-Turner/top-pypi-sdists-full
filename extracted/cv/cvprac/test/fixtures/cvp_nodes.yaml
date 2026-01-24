@@ -1,17 +1,15 @@
-- node: 10.18.182.140
-  username: cvpadmin
-  password: cvp123!
-  device: veos1
-  connect_timeout: 15
-  request_timeout: 45
-#- node: cvp2
-#  username: CvpRacTest
-#  password: AristaInnovates
-#  device: python-test-2
-#- node: cvp3
-#  username: CvpRacTest
-#  password: AristaInnovates
-#  device: python-test-2
+- node: cvp
+  username: CvpRacTest
+  password: AristaInnovates
+  device: python-test-2
+- node: cvp2
+  username: CvpRacTest
+  password: AristaInnovates
+  device: python-test-2
+- node: cvp3
+  username: CvpRacTest
+  password: AristaInnovates
+  device: python-test-2
   # The below fields can be defined to test the token test cases.
   # If they are undefined, the tests are skipped
   # api_token: <token here>

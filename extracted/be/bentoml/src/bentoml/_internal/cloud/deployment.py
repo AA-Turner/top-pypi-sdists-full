@@ -84,9 +84,12 @@ class DeploymentConfigParameters:
     cfg_dict: dict[str, t.Any] | None = None
     _param_config: dict[str, t.Any] | None = None
 
-    def verify(self, create: bool = True):
-        from bentoml._internal.configuration.containers import BentoMLContainer
-
+    def verify(
+        self,
+        create: bool = True,
+        *,
+        _client: RestApiClient,
+    ):
         from .secret import SecretAPI
 
         if self.config_dict:
@@ -152,24 +155,67 @@ class DeploymentConfigParameters:
                 if self.cli:
                     rich.print(f"building bento from [green]{bento_name}[/] ...")
                 bento_info = ensure_bento(
-                    project_path=bento_name, bare=self.dev, cli=self.cli
+                    project_path=bento_name,
+                    bare=self.dev,
+                    cli=self.cli,
+                    _client=_client,
                 )
             elif self.dev:  # dev mode and bento is built
                 return
             else:
                 if self.cli:
                     rich.print(f"using bento [green]{bento_name}[/]...")
-                bento_info = ensure_bento(bento=str(bento_name), cli=self.cli)
+                bento_info = ensure_bento(
+                    bento=str(bento_name),
+                    cli=self.cli,
+                    _client=_client,
+                )
             if create:
                 manifest = (
                     bento_info.get_manifest()
                     if isinstance(bento_info, Bento)
                     else bento_info
                 )
-                required_envs = [env.name for env in manifest.envs if not env.value]
+
+                # NOTE:
+                #   envs defined on the service via @bentoml.service(envs=[...])
+                #   are stored on the Bento manifest (manifest.envs). Historically
+                #   they were only used for validation here (empty value => required),
+                #   and for image build (spec v2).
+                #
+                #   When users run `bentoml deploy .` they expect those envs with
+                #   default values to also show up as deployment envs on BentoCloud.
+                #   To honour that expectation, we treat manifest envs with a value
+                #   as default deployment envs, unless they are explicitly set via
+                #   CLI flags or a config file.
+                if self.cli and self.config_dict is None and self.config_file is None:
+                    # Only envs coming from CLI flags are in self.envs here.
+                    existing_env_names = {
+                        env["name"] for env in (self.envs or []) if "name" in env
+                    }
+                    default_envs = [
+                        {"name": env.name, "value": env.value}
+                        for env in manifest.envs
+                        if env.value
+                        and env.name not in existing_env_names
+                        and env.stage != "build"  # Exclude build time only env
+                    ]
+                    if default_envs:
+                        if self.envs is None:
+                            self.envs = []
+                        self.envs.extend(default_envs)
+                        # Keep cfg_dict in sync so that get_config_dict() sends
+                        # these defaults to BentoCloud.
+                        self.cfg_dict["envs"] = self.envs
+
+                required_envs = [
+                    env.name
+                    for env in manifest.envs
+                    if env.stage != "build" and not env.value
+                ]
                 provided_envs: list[str] = [env["name"] for env in (self.envs or [])]
                 if self.secrets:
-                    secret_api = SecretAPI(BentoMLContainer.rest_api_client.get())
+                    secret_api = SecretAPI(_client)
                     for secret_name in self.secrets:
                         secret = secret_api.get(secret_name, cluster=self.cluster)
                         if secret.content.type == "env":
@@ -205,7 +251,12 @@ class DeploymentConfigParameters:
         else:
             return self.cfg_dict.get("cluster")
 
-    def get_config_dict(self, bento: str | None = None):
+    def get_config_dict(
+        self,
+        bento: str | None = None,
+        *,
+        _client: RestApiClient,
+    ):
         if self.cfg_dict is None:
             raise BentoMLException(
                 "DeploymentConfigParameters.verify() must be called first"
@@ -216,7 +267,7 @@ class DeploymentConfigParameters:
                     raise BentoMLException("Bento is required")
                 bento = self.cfg_dict.get("bento")
 
-            info = ensure_bento(bento=bento)
+            info = ensure_bento(bento=bento, _client=_client)
             if info.entry_service == "":
                 # for compatibility
                 self.service_name = "apiserver"
@@ -951,7 +1002,7 @@ class Deployment:
                         cli=False,
                         dev=True,
                     )
-                    update_config.verify(create=False)
+                    update_config.verify(create=False, _client=self._client)
                     self = deployment_api.update(update_config)
                     target = self._refetch_target(False)
                     needs_update = False
@@ -1341,7 +1392,7 @@ class DeploymentAPI:
         ):
             raise ValueError("bento is required")
 
-        config_params = deployment_config_params.get_config_dict()
+        config_params = deployment_config_params.get_config_dict(_client=rest_client)
         config_struct = bentoml_cattr.structure(config_params, CreateDeploymentSchemaV2)
         self._fix_and_validate_schema(config_struct)
 
@@ -1366,6 +1417,7 @@ class DeploymentAPI:
         Returns:
             The DeploymentInfo object.
         """
+        rest_client = self._client
         name = deployment_config_params.get_name()
         if name is None:
             raise ValueError("name is required")
@@ -1376,6 +1428,7 @@ class DeploymentAPI:
 
         config_params = deployment_config_params.get_config_dict(
             orig_dict.get("bento"),
+            _client=rest_client,
         )
         deep_merge(orig_dict, config_params)
         config_struct = bentoml_cattr.structure(orig_dict, UpdateDeploymentSchemaV2)
@@ -1431,7 +1484,8 @@ class DeploymentAPI:
                     f"Deployment cluster cannot be changed, current cluster is {deployment_schema.cluster.name}"
                 )
             config_struct = bentoml_cattr.structure(
-                deployment_config_params.get_config_dict(), UpdateDeploymentSchemaV2
+                deployment_config_params.get_config_dict(_client=rest_client),
+                UpdateDeploymentSchemaV2,
             )
             self._fix_and_validate_schema(config_struct)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qh3
-Version: 1.5.4
+Version: 1.5.6
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 License-File: LICENSE
 Summary: A lightway and fast implementation of QUIC and HTTP/3
@@ -37,8 +38,8 @@ qh3
     :target: https://pypi.python.org/pypi/qh3
     :alt: Supported Interpreters
 
-.. |pypi-stats| image:: https://img.shields.io/pypi/dm/qh3
-   :target: https://pypistats.org/packages/qh3
+.. |pypi-stats| image:: https://static.pepy.tech/badge/qh3/month
+   :target: https://pepy.tech/projects/qh3?timeRange=threeMonths&category=version&includeCIDownloads=true&granularity=daily&viewType=line&versions=1.*
    :alt: PyPI - Downloads
 
 What is ``qh3``?

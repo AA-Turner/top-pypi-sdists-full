@@ -21,9 +21,11 @@ import platform
 import re
 import sys
 import urllib.parse
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Optional, Dict, List, Set
 
+from colorama import Fore, Style
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
 from google.protobuf.json_format import MessageToDict
 
@@ -39,7 +41,7 @@ from .ksm import KSMCommand, ksm_parser
 from .. import __version__, vault
 from .. import api, rest_api, loginv3, crypto, utils, constants, error, vault_extensions
 from ..breachwatch import BreachWatch
-from ..display import bcolors
+from ..display import bcolors, post_login_summary
 from ..error import CommandError
 from ..generator import KeeperPasswordGenerator, DicewarePasswordGenerator, CryptoPassphraseGenerator
 from ..params import KeeperParams, LAST_RECORD_UID, LAST_FOLDER_UID, LAST_SHARED_FOLDER_UID
@@ -50,8 +52,138 @@ from ..vault import KeeperRecord
 from ..versioning import is_binary_app, is_up_to_date_version
 
 BREACHWATCH_MAX = 5
+KEEPER_API_BATCH_LIMIT = 999  # Maximum objects per pre_delete API request
+KEEPER_API_FOLDER_BATCH_LIMIT = 500  # Maximum folders per pre_delete API request
 
 is_windows = sys.platform.startswith('win')
+
+TFA_EXPIRATION_VALUES = {
+    'login': APIRequest_pb2.TWO_FA_EXP_IMMEDIATELY,
+    '12_hours': APIRequest_pb2.TWO_FA_EXP_12_HOURS,
+    '24_hours': APIRequest_pb2.TWO_FA_EXP_24_HOURS,
+    '30_days': APIRequest_pb2.TWO_FA_EXP_30_DAYS,
+    'forever': APIRequest_pb2.TWO_FA_EXP_NEVER,
+}
+
+@dataclass
+class DeletionStats:
+    """Statistics for deletion operations."""
+    deleted: int = 0
+    failed: int = 0
+    vault_changed: bool = False
+    
+    def add(self, other):
+        """Add another DeletionStats to this one."""
+        self.deleted += other.deleted
+        self.failed += other.failed
+        self.vault_changed = self.vault_changed or other.vault_changed
+
+
+class DeletionValidator:
+    """Centralized validation for deletion operations."""
+    
+    @staticmethod
+    def validate_params(params):
+        """Validate KeeperParams object."""
+        if not params or not hasattr(params, 'record_cache'):
+            raise ValueError("Invalid parameters provided")
+    
+    @staticmethod
+    def validate_record_uid(record_uid):
+        """Validate record UID."""
+        if not record_uid:
+            raise ValueError("Invalid record UID")
+    
+    @staticmethod
+    def validate_folder(folder):
+        """Validate folder object."""
+        if not folder or not hasattr(folder, 'type'):
+            raise ValueError("Invalid folder")
+        return True
+    
+    @staticmethod
+    def validate_api_response(rs, expected_fields=None):
+        """Validate API response structure."""
+        if not isinstance(rs, dict) or 'result' not in rs:
+            raise ValueError("Invalid API response")
+        if expected_fields:
+            for field in expected_fields:
+                if field not in rs:
+                    raise ValueError(f"Missing field: {field}")
+        return True
+
+
+class FolderDeletionHelper:
+    """Helper class for folder deletion operations."""
+    
+    @staticmethod
+    def build_record_delete_object(folder, record_uid):
+        """Build API delete object for a record in a folder."""
+        del_obj = {
+            'delete_resolution': 'unlink',
+            'object_uid': record_uid,
+            'object_type': 'record'
+        }
+        
+        FolderDeletionHelper._set_folder_context(del_obj, folder)
+        return del_obj
+    
+    @staticmethod
+    def build_folder_delete_object(folder, params):
+        """Build API delete object for a folder."""
+        del_obj = {
+            'delete_resolution': 'unlink',
+            'object_uid': folder.uid,
+            'object_type': folder.type
+        }
+        
+        FolderDeletionHelper._set_parent_folder_context(del_obj, folder, params)
+        return del_obj
+    
+    @staticmethod
+    def _set_folder_context(del_obj, folder):
+        """Set folder context for deletion object."""
+        from ..subfolder import BaseFolderNode
+        
+        is_root_or_user = folder.type in {
+            BaseFolderNode.RootFolderType, 
+            BaseFolderNode.UserFolderType
+        }
+        
+        if is_root_or_user:
+            del_obj['from_type'] = 'user_folder'
+            if folder.type == BaseFolderNode.UserFolderType:
+                FolderDeletionHelper._set_folder_uid_if_present(del_obj, folder)
+        else:
+            del_obj['from_type'] = 'shared_folder_folder'
+            FolderDeletionHelper._set_folder_uid_if_present(del_obj, folder)
+    
+    @staticmethod
+    def _set_parent_folder_context(del_obj, folder, params):
+        """Set parent folder context for folder deletion."""
+        from ..subfolder import BaseFolderNode
+        
+        if hasattr(folder, 'parent_uid') and folder.parent_uid:
+            parent = params.folder_cache.get(folder.parent_uid)
+            if parent and hasattr(parent, 'uid') and hasattr(parent, 'type'):
+                del_obj['from_uid'] = parent.uid
+                # Shared folder containers need special handling
+                if parent.type == BaseFolderNode.SharedFolderType:
+                    del_obj['from_type'] = 'shared_folder_folder'
+                else:
+                    del_obj['from_type'] = parent.type
+            else:
+                # Parent not found, assume user folder
+                del_obj['from_type'] = 'user_folder'
+        else:
+            # No parent, it's a top-level user folder
+            del_obj['from_type'] = 'user_folder'
+    
+    @staticmethod
+    def _set_folder_uid_if_present(del_obj, folder):
+        """Set folder UID if present and valid."""
+        if hasattr(folder, 'uid') and folder.uid:
+            del_obj['from_uid'] = folder.uid
 
 def register_commands(commands):
     commands['sync-down'] = SyncDownCommand()
@@ -88,7 +220,7 @@ def register_command_info(aliases, command_info):
     aliases['ssd'] = 'sync-security-data'
     for p in [sync_down_parser, whoami_parser, this_device_parser, proxy_parser, login_parser, logout_parser, echo_parser, set_parser, help_parser,
               version_parser, ksm_parser, keepalive_parser, generate_parser, reset_password_parser,
-              sync_security_data_parser, loginstatus_parser, run_as_parser]:
+              sync_security_data_parser, delete_all_parser, loginstatus_parser, run_as_parser]:
         command_info[p.prog] = p.description
 
 
@@ -102,9 +234,52 @@ whoami_parser.error = raise_parse_exception
 whoami_parser.exit = suppress_exit
 
 
-this_device_available_command_verbs = ['rename', 'register', 'persistent-login', 'ip-auto-approve', 'no-yubikey-pin', 'timeout']
-this_device_parser = argparse.ArgumentParser(prog='this-device', description='Display and modify settings of the current device')
-this_device_parser.add_argument('ops', nargs='*', help="operation str: " + ", ".join(this_device_available_command_verbs))
+this_device_available_command_verbs = ['rename', 'register', 'persistent-login', 'ip-auto-approve', 'no-yubikey-pin', 'timeout', '2fa_expiration']
+this_device_help_epilog = """
+Sub-commands:
+
+  this-device rename <name>
+      Change the display name of this device
+      Example: this-device rename "My Laptop"
+
+  this-device register
+      Register device for persistent login (stores encrypted data key)
+
+  this-device persistent-login <on|off>
+      Enable/disable 'Stay Logged In' on this device
+      Example: this-device persistent-login on
+
+  this-device timeout <duration>
+      Set auto-logout timer
+      Examples: this-device timeout 10m   (10 minutes)
+                this-device timeout 1h    (1 hour)
+                this-device timeout 7d    (7 days)
+                this-device timeout 30d   (30 days)
+
+  this-device ip-auto-approve <on|off>
+      Auto-approve device when logging in from same IP address
+      Example: this-device ip-auto-approve on
+
+  this-device no-yubikey-pin <on|off>
+      Skip PIN prompt for YubiKey/security key authentication
+      Example: this-device no-yubikey-pin on
+
+  this-device 2fa_expiration <duration>
+      Set how long 2FA approval is remembered
+      Examples: this-device 2fa_expiration login    (every login)
+                this-device 2fa_expiration 12h      (12 hours)
+                this-device 2fa_expiration 24h      (24 hours)
+                this-device 2fa_expiration 30d      (30 days)
+                this-device 2fa_expiration forever  (remember forever)
+"""
+this_device_parser = argparse.ArgumentParser(
+    prog='this-device',
+    description='Display and modify settings of the current device',
+    epilog=this_device_help_epilog,
+    formatter_class=argparse.RawDescriptionHelpFormatter
+)
+this_device_parser.add_argument('ops', nargs='*', metavar='command', help='sub-command to run (see below)')
+this_device_parser.add_argument('--format', dest='format', action='store', choices=['text', 'json'], default='text', help='output format')
 this_device_parser.error = raise_parse_exception
 this_device_parser.exit = suppress_exit
 
@@ -119,6 +294,8 @@ proxy_parser.exit = suppress_exit
 
 login_parser = argparse.ArgumentParser(prog='login', description='Start a login session on Commander')
 login_parser.add_argument('-p', '--pass', dest='password', action='store', help='master password')
+login_parser.add_argument('--new-login', dest='new_login', action='store_true', help='Force full login flow')
+login_parser.add_argument('--server', dest='server', action='store', help='Data center region (US, EU, AU, CA, JP, GOV, etc.)')
 login_parser.add_argument('email', nargs='?', type=str, help='account email')
 login_parser.error = raise_parse_exception
 login_parser.exit = suppress_exit
@@ -154,7 +331,7 @@ set_parser.exit = suppress_exit
 
 
 help_parser = argparse.ArgumentParser(prog='help', description='Displays help on a specific command')
-help_help = 'Commander\'s command (Optional -- if not specified, list of available commands is displayed)'
+help_help = 'Command name, or "basics" for essential commands guide'
 help_parser.add_argument('command', action='store', type=str, nargs='*',  help=help_help)
 help_parser.add_argument('--legacy', dest='legacy', action='store_true', help='Show legacy/deprecated commands')
 help_parser.error = raise_parse_exception
@@ -251,6 +428,12 @@ sync_security_data_parser.error = raise_parse_exception
 sync_security_data_parser.exit = suppress_exit
 
 
+delete_all_parser = argparse.ArgumentParser(prog='delete-all', description='Delete all records and folders from the vault')
+delete_all_parser.add_argument('--force', '-f', dest='force', action='store_true', 
+                               help='Force deletion without confirmation prompt')
+delete_all_parser.error = raise_parse_exception
+delete_all_parser.exit = suppress_exit
+
 loginstatus_parser = argparse.ArgumentParser(prog='login-status', description='Check the user login status')
 loginstatus_parser.error = raise_parse_exception
 loginstatus_parser.exit = suppress_exit
@@ -313,20 +496,35 @@ class ThisDeviceCommand(Command):
     def execute(self, params, **kwargs):
 
         ops = kwargs.get('ops')
+        output_format = kwargs.get('format', 'text')
         if len(ops) == 0:
-            ThisDeviceCommand.print_device_info(params)
+            return ThisDeviceCommand.print_device_info(params, output_format=output_format)
+
+
+        action = ops[0].lower() if ops else ''
+
+        # Check for valid sub-commands that need a value
+        if len(ops) == 1 and action != 'register':
+            if action in ('timeout', 'to'):
+                print(f"Usage: this-device timeout <duration>  (e.g., 10m, 1h, 7d, 30d)")
+            elif action == '2fa_expiration':
+                print(f"Usage: this-device 2fa_expiration <duration>  (e.g., login, 12h, 24h, 30d, forever)")
+            elif action in ('persistent_login', 'persistent-login', 'pl'):
+                print(f"Usage: this-device persistent-login <on|off>")
+            elif action in ('ip_auto_approve', 'ip-auto-approve', 'iaa'):
+                print(f"Usage: this-device ip-auto-approve <on|off>")
+            elif action == 'no-yubikey-pin':
+                print(f"Usage: this-device no-yubikey-pin <on|off>")
+            elif action in ('rename', 'ren'):
+                print(f"Usage: this-device rename <name>")
+            else:
+                print(f"Unknown sub-command: {action}")
+            print(f"Run {Fore.GREEN}this-device -h{Fore.RESET} for detailed help.")
             return
 
-        if len(ops) >= 1 and ops[0].lower() != 'register':
-            if len(ops) == 1 and ops[0].lower() != 'register':
-                logging.error("Must supply action and value. Available sub-commands: " + ", ".join(this_device_available_command_verbs))
-                return
-
-            if len(ops) != 2:
-                logging.error("Must supply action and value. Available sub-commands: " + ", ".join(this_device_available_command_verbs))
-                return
-
-        action = ops[0].lower()
+        if len(ops) >= 1 and action != 'register' and len(ops) != 2:
+            print(f"Invalid arguments. Run {Fore.GREEN}this-device -h{Fore.RESET} for help.")
+            return
 
         def register_device():
             is_device_registered = loginv3.LoginV3API.register_encrypted_data_key_for_device(params)
@@ -391,6 +589,18 @@ class ThisDeviceCommand(Command):
             dispay_value = 'default value' if timeout_delta == timedelta(0) else format_timeout(timeout_delta)
             print(f'Successfully set "logout_timer" to {dispay_value}.')
 
+        elif action == '2fa_expiration':
+            value = ops[1]
+            mfa_expiration = TFA_EXPIRATION_VALUES.get(value.lower())
+            if mfa_expiration is None:
+
+                raise CommandError('this-device', f"Unknown 2fa_expiration value \"{value}\". Available values: " + ", ".join(TFA_EXPIRATION_VALUES.keys()))
+
+            rq = APIRequest_pb2.TwoFactorUpdateExpirationRequest()
+            rq.expireIn = mfa_expiration
+            api.communicate_rest(params, rq, 'authentication/2fa_update_expiration')
+            print(f'Successfully set "2fa_expiration" to {value}.')
+
         else:
             raise Exception("Unknown sub-command " + action + ". Available sub-commands: ", ", ".join(this_device_available_command_verbs))
 
@@ -439,96 +649,643 @@ class ThisDeviceCommand(Command):
         return acct_summary_dict, this_device
 
     @staticmethod
-    def print_device_info(params: KeeperParams):
+    def get_device_info(params: KeeperParams):
+        """Get device info as a dictionary (for programmatic use)"""
         acct_summary_dict, this_device = ThisDeviceCommand.get_account_summary_and_this_device(params)
 
-        print('{:>32}: {}'.format('Device Name', this_device['deviceName']))
-        # print("{:>32}: {}".format('API Client Version', rest_api.CLIENT_VERSION))
+        # Build device info dictionary
+        device_name = this_device.get('deviceName', 'Unknown')
+        data_key_present = this_device.get('encryptedDataKeyPresent', False)
 
-        if 'encryptedDataKeyPresent' in this_device:
-            print("{:>32}: {}".format('Data Key Present', (bcolors.OKGREEN + 'YES' + bcolors.ENDC) if this_device['encryptedDataKeyPresent'] else (bcolors.FAIL + 'NO' + bcolors.ENDC)))
-        else:
-            print("{:>32}: {}".format('Data Key Present', (bcolors.FAIL + 'missing' + bcolors.ENDC)))
+        # IP Auto Approve (inverted from ipDisableAutoApprove)
+        ip_auto_approve = not acct_summary_dict['settings'].get('ipDisableAutoApprove', False)
 
-        if 'ipDisableAutoApprove' in acct_summary_dict['settings']:
-            ipDisableAutoApprove = acct_summary_dict['settings']['ipDisableAutoApprove']
-            # ip_disable_auto_approve - If enabled, the device is NOT automatically approved
-            # If disabled, the device will be auto approved
-            ipAutoApprove = not ipDisableAutoApprove
-            print("{:>32}: {}".format('IP Auto Approve',
-                                      (bcolors.OKGREEN + 'ON' + bcolors.ENDC)
-                                      if ipAutoApprove else
-                                      (bcolors.FAIL + 'OFF' + bcolors.ENDC)))
-        else:
-            print("{:>32}: {}".format('IP Auto Approve', (bcolors.OKGREEN + 'ON' + bcolors.ENDC)))
-            # ip_disable_auto_approve = 0 / disabled (default) <==> IP Auto Approve :ON
+        # Persistent Login
+        persistent_login = acct_summary_dict['settings'].get('persistentLogin', False)
+        if persistent_login:
+            persistent_login = not ThisDeviceCommand.is_persistent_login_disabled(params)
 
-        persistentLogin = acct_summary_dict['settings'].get('persistentLogin', False)
-        print("{:>32}: {}".format('Persistent Login',
-                                  (bcolors.OKGREEN + 'ON' + bcolors.ENDC)
-                                  if persistentLogin and not ThisDeviceCommand.is_persistent_login_disabled(params) else
-                                  (bcolors.FAIL + 'OFF' + bcolors.ENDC)))
+        # Security Key No PIN
+        security_key_no_pin = acct_summary_dict['settings'].get('securityKeysNoUserVerify', False)
 
-        no_user_verify = acct_summary_dict['settings'].get('securityKeysNoUserVerify', False)
-        print("{:>32}: {}".format(
-            'Security Key No PIN', (bcolors.OKGREEN + 'ON' + bcolors.ENDC)
-            if no_user_verify else (bcolors.FAIL + 'OFF' + bcolors.ENDC)))
-
-        if 'securityKeysNoUserVerify' in acct_summary_dict['settings']:
-            device_timeout = get_delta_from_timeout_setting(acct_summary_dict['settings']['logoutTimer'])
-            print("{:>32}: {}".format('Device Logout Timeout', format_timeout(device_timeout)))
-
+        # Device Logout Timeout
         if 'logoutTimer' in acct_summary_dict['settings']:
             device_timeout = get_delta_from_timeout_setting(acct_summary_dict['settings']['logoutTimer'])
-            print("{:>32}: {}".format('Device Logout Timeout', format_timeout(device_timeout)))
-
+            device_timeout_str = format_timeout(device_timeout)
         else:
             device_timeout = timedelta(hours=1)
-            print("{:>32}: Default".format('Logout Timeout'))
+            device_timeout_str = 'Default'
 
+        # Enterprise Logout Timeout
+        enterprise_timeout = None
+        enterprise_timeout_str = None
+        effective_timeout_str = None
         if 'Enforcements' in acct_summary_dict and 'longs' in acct_summary_dict['Enforcements']:
             logout_timeout = next((x['value'] for x in acct_summary_dict['Enforcements']['longs']
                                     if x['key'] == 'logout_timer_desktop'), None)
             if logout_timeout:
                 enterprise_timeout = timedelta(minutes=int(logout_timeout))
-                print("{:>32}: {}".format('Enterprise Logout Timeout', format_timeout(enterprise_timeout)))
+                enterprise_timeout_str = format_timeout(enterprise_timeout)
+                effective_timeout_str = format_timeout(min(enterprise_timeout, device_timeout))
 
-                print("{:>32}: {}".format('Effective Logout Timeout',
-                                          format_timeout(min(enterprise_timeout, device_timeout))))
+        is_sso_user = params.settings.get('sso_user', False) if hasattr(params, 'settings') else False
+        config_file = params.config_filename if hasattr(params, 'config_filename') else None
 
-        print('{:>32}: {}'.format('Is SSO User', params.settings['sso_user'] if 'sso_user' in params.settings else False))
+        return {
+            'device_name': device_name,
+            'data_key_present': data_key_present,
+            'ip_auto_approve': ip_auto_approve,
+            'persistent_login': persistent_login,
+            'security_key_no_pin': security_key_no_pin,
+            'device_logout_timeout': device_timeout_str,
+            'enterprise_logout_timeout': enterprise_timeout_str,
+            'effective_logout_timeout': effective_timeout_str,
+            'is_sso_user': is_sso_user,
+            'config_file': config_file,
+        }
 
-        print("\nAvailable sub-commands: ", bcolors.OKBLUE + (", ".join(this_device_available_command_verbs)) + bcolors.ENDC)
+    @staticmethod
+    def print_device_info(params: KeeperParams, output_format: str = 'text'):
+        device_info = ThisDeviceCommand.get_device_info(params)
+
+        device_name = device_info['device_name']
+        data_key_present = device_info['data_key_present']
+        ip_auto_approve = device_info['ip_auto_approve']
+        persistent_login = device_info['persistent_login']
+        security_key_no_pin = device_info['security_key_no_pin']
+        device_timeout_str = device_info['device_logout_timeout']
+        enterprise_timeout_str = device_info['enterprise_logout_timeout']
+        effective_timeout_str = device_info['effective_logout_timeout']
+        is_sso_user = device_info['is_sso_user']
+        config_file = device_info['config_file']
+
+        # JSON output
+        if output_format == 'json':
+            import json
+            print(json.dumps(device_info))
+            return
+
+        # Text output - clean display
+        DIM = Fore.WHITE
+
+        def label_value(label, value):
+            return f"  {DIM}{label:>22}{Fore.RESET}: {value}"
+
+        print()
+        print(f"  {Style.BRIGHT}Device Settings{Style.RESET_ALL}")
+        print(f"  {DIM}{'─' * 50}{Fore.RESET}")
+
+        print(label_value('Device Name', device_name))
+
+        if data_key_present is not None:
+            dk_display = f"{Fore.GREEN}YES{Fore.RESET}" if data_key_present else f"{Fore.RED}NO{Fore.RESET}"
+        else:
+            dk_display = f"{Fore.RED}missing{Fore.RESET}"
+        print(label_value('Data Key Present', dk_display))
+
+        ip_display = f"{Fore.GREEN}ON{Fore.RESET}" if ip_auto_approve else f"{Fore.RED}OFF{Fore.RESET}"
+        print(label_value('IP Auto Approve', ip_display))
+
+        pl_display = f"{Fore.GREEN}ON{Fore.RESET}" if persistent_login else f"{Fore.RED}OFF{Fore.RESET}"
+        print(label_value('Persistent Login', pl_display))
+
+        sk_display = f"{Fore.GREEN}ON{Fore.RESET}" if security_key_no_pin else f"{Fore.RED}OFF{Fore.RESET}"
+        print(label_value('Security Key No PIN', sk_display))
+
+        print(label_value('Logout Timeout', device_timeout_str))
+
+        if enterprise_timeout_str:
+            print(label_value('Enterprise Timeout', enterprise_timeout_str))
+            print(label_value('Effective Timeout', effective_timeout_str))
+
+        print(label_value('Is SSO User', str(is_sso_user)))
+        print(label_value('Config file', config_file))
+        print()
+        print(f"  For usage details, type {Fore.GREEN}this-device -h{Fore.RESET}")
 
 
 class RecordDeleteAllCommand(Command):
+    """
+    Delete all records and folders from the user vault.
+    
+    IMPORTANT: This command automatically skips shared folders and their records.
+    For shared folders, use the recommended workflow:
+    1. 'transform-folder <folder_name>' to move records to user folders (fast)
+    2. Run delete-all to clean remaining user vault content
+    
+    The command will alert you about any skipped shared folder content.
+    If the vault is already empty, no confirmation is required.
+
+    Args:
+        params: KeeperParams instance
+        force: Skip confirmation if True (set internally after user confirms)
+        
+    Returns:
+        None
+        
+        Note:
+        Only processes user folders and records. Uses batches of up to 999 items per 
+        API call. Records in multiple folders will be processed using the first user 
+        folder found.
+    """
+    
+    def get_parser(self):
+        return delete_all_parser
+
     def execute(self, params, **kwargs):
-        uc = user_choice('Are you sure you want to delete all Keeper records on the server?', 'yn', default='n')
-        if uc.lower() == 'y':
-            api.sync_down(params)
-            if len(params.record_cache) == 0:
-                raise CommandError('delete-all', 'No records to delete')
+        """Delete all records and folders from vault. Skips confirmation if vault is already empty."""
+        try:
+            DeletionValidator.validate_params(params)
+        except ValueError:
+            logging.error("Invalid parameters provided")
+            return
+        
+        api.sync_down(params)
+        
+        if self._is_vault_empty(params):
+            print("No records or folders to delete. Vault is already empty.")
+            return
+        
+        if not self._confirm_user_wants_deletion(kwargs):
+            return
+        
+        kwargs['force'] = True
+        
+        record_stats = self._process_record_deletion(params)
+        folder_stats = self._process_folder_deletion(params)
+        
+        self._display_summary(record_stats, folder_stats)
+        self._finalize_deletion(params, record_stats, folder_stats)
 
-            request = {
-                'command': 'record_update',
-                'delete_records': [key for key in params.record_cache.keys()]
-            }
-            logging.info('removing %s records from Keeper', len(params.record_cache))
-            response_json = api.communicate(params, request)
-            success = [info for info in response_json['delete_records'] if info['status'] == 'success']
-            if len(success) > 0:
-                logging.info("%s records deleted successfully", len(success))
-            failures = [info for info in response_json['delete_records'] if info['status'] != 'success']
-            if len(failures) > 0:
-                logging.warning("%s records failed to delete", len(failures))
+    def _is_vault_empty(self, params):
+        """Check if vault is completely empty (no records, no folders)."""
+        from ..subfolder import BaseFolderNode
+        
+        if len(params.record_cache) > 0:
+            return False
+        
+        for folder_uid, folder in params.folder_cache.items():
+            if folder.type != BaseFolderNode.RootFolderType:
+                return False
+        
+        return True
 
+    def _confirm_user_wants_deletion(self, kwargs):
+        """Show warning and get user confirmation."""
+        from ..display import bcolors
+        
+        # Check if user already passed --force flag
+        force_flag_passed = kwargs.get('force', False)
+        
+        if force_flag_passed:
+            # Force flag was passed via command line, skip confirmation
+            logging.info("Force flag detected, proceeding without confirmation...")
+            print(f"{bcolors.WARNING}Force mode: Deleting all records and folders without confirmation{bcolors.ENDC}")
+            return True
+        
+        # Show confirmation prompt
+        confirmation_msg = (
+            f"{bcolors.FAIL}{bcolors.BOLD}WARNING: This will permanently delete ALL records and ALL folders from your vault!{bcolors.ENDC}\n"
+            f"{bcolors.WARNING}This action cannot be undone.{bcolors.ENDC}\n"
+            f"Are you sure you want to proceed?"
+        )
+        
+        uc = user_choice(confirmation_msg, 'yn', default='n')
+        if uc.lower() != 'y':
+            logging.info("Operation cancelled by user")
+            return False
+        
+        return True
+
+    def _process_record_deletion(self, params):
+        """Collect and delete all records, avoiding shared folder records."""
+        records_with_folders, skipped_stats = self._collect_records_with_folders_safe(params)
+        if not records_with_folders:
+            logging.info('No records found to delete')
+            return DeletionStats()
+        
+        if skipped_stats['shared_folders'] > 0 or skipped_stats['shared_records'] > 0:
+            print(f"\nSHARED FOLDER CONTENT SKIPPED:")
+            print(f"   • {skipped_stats['shared_folders']} shared folders avoided")
+            print(f"   • {skipped_stats['shared_records']} records in shared folders avoided")
+            print(f"\nFor shared folders with many records, use this workflow:")
+            print(f"   1. Run 'transform-folder <shared_folder_uid>' to convert shared folder to user folder (fast)")
+            print(f"   2. Then run delete-all to clean remaining user vault content\n")
+        
+        logging.info('Preparing to delete %s records from user folders', len(records_with_folders))
+        return self._delete_objects_in_batches(params, records_with_folders, 'records')
+
+    def _collect_records_with_folders_safe(self, params):
+        """Collect records from user folders only, avoiding shared folders."""
+        from ..subfolder import BaseFolderNode
+        
+        safe_records = []
+        skipped_stats = {
+            'shared_folders': 0,
+            'shared_records': 0
+        }
+        
+        shared_folder_uids = set()
+        shared_record_uids = set()
+        
+        for folder_uid, folder in params.folder_cache.items():
+            if folder.type in (BaseFolderNode.SharedFolderType, BaseFolderNode.SharedFolderFolderType):
+                shared_folder_uids.add(folder_uid)
+                skipped_stats['shared_folders'] += 1
+                
+                folder_records = params.subfolder_record_cache.get(folder_uid, set())
+                shared_record_uids.update(folder_records)
+        
+        skipped_stats['shared_records'] = len(shared_record_uids)
+        
+        for record_uid in params.record_cache:
+            if record_uid in shared_record_uids:
+                continue
+                
+            record_folder = None
+            for folder_uid in params.subfolder_record_cache:
+                if record_uid in params.subfolder_record_cache.get(folder_uid, set()):
+                    folder = params.folder_cache.get(folder_uid)
+                    if folder and folder.type == BaseFolderNode.UserFolderType:
+                        record_folder = folder
+                        break
+            
+            if record_folder is None:
+                root_records = params.subfolder_record_cache.get('', set())
+                if record_uid in root_records:
+                    record_folder = params.root_folder
+            
+            if record_folder is not None:
+                safe_records.append((record_folder, record_uid))
+        
+        return safe_records, skipped_stats
+
+    def _collect_records_with_folders(self, params):
+        """Collect all records with their folder contexts."""
+        from ..subfolder import find_all_folders
+        
+        records_with_folders = []
+        
+        if len(params.record_cache) == 0:
+            return records_with_folders
+        
+        for record_uid in params.record_cache.keys():
+            try:
+                DeletionValidator.validate_record_uid(record_uid)
+                
+                # Find all folders containing this record
+                folders = list(find_all_folders(params, record_uid))
+                if folders:
+                    folder = folders[0]  # Use first folder for API context
+                else:
+                    folder = params.root_folder
+                
+                DeletionValidator.validate_folder(folder)
+                records_with_folders.append((folder, record_uid))
+                
+            except ValueError:
+                logging.warning("Skipping record %s: invalid record UID", record_uid)
+                continue
+        
+        return records_with_folders
+
+    def _process_folder_deletion(self, params):
+        """Delete all empty user folders, avoiding shared folders."""
+        return self._delete_empty_folders(params)
+
+    def _delete_objects_in_batches(self, params, objects_with_context, object_type_name):
+        """Generic batch deletion handler for records."""
+        stats = DeletionStats()
+        
+        while objects_with_context:
+            current_batch = objects_with_context[:KEEPER_API_BATCH_LIMIT]
+            objects_with_context = objects_with_context[KEEPER_API_BATCH_LIMIT:]
+            
+            batch_stats = self._delete_batch(params, current_batch, object_type_name)
+            stats.add(batch_stats)
+        
+        return stats
+
+    def _delete_batch(self, params, batch, object_type_name):
+        """Delete a single batch of objects."""
+        stats = DeletionStats()
+        
+        # Build pre_delete request
+        rq = self._build_pre_delete_request(batch)
+        
+        if not rq['objects']:
+            logging.info(f"No valid {object_type_name} in this batch to delete")
+            return stats
+        
+        try:
+            # Execute pre_delete
+            rs = api.communicate(params, rq)
+            DeletionValidator.validate_api_response(rs, ['pre_delete_response'])
+            
+            if rs['result'] == 'success':
+                batch_stats = self._execute_deletion_batch(params, rs, len(batch))
+                stats.add(batch_stats)
+            else:
+                stats.failed += len(batch)
+                logging.warning(f"Pre-delete failed for batch of {len(batch)} {object_type_name}: {rs.get('message', 'Unknown error')}")
+                
+        except Exception:
+            stats.failed += len(batch)
+            logging.error(f"Error processing batch of {len(batch)} {object_type_name}")
+        
+        return stats
+
+    def _build_pre_delete_request(self, batch):
+        """Build pre_delete request from batch of objects."""
+        rq = {
+            'command': 'pre_delete',
+            'objects': []
+        }
+        
+        for folder, record_uid in batch:
+            try:
+                del_obj = FolderDeletionHelper.build_record_delete_object(folder, record_uid)
+                rq['objects'].append(del_obj)
+            except Exception:
+                logging.warning(f"Skipping object {record_uid}: invalid object")
+                continue
+        
+        return rq
+
+    def _execute_deletion_batch(self, params, pre_delete_response, batch_size):
+        """Execute the actual deletion after pre_delete."""
+        stats = DeletionStats()
+        
+        pdr = pre_delete_response.get('pre_delete_response')
+        if not pdr:
+            stats.failed += batch_size
+            logging.error("Missing pre_delete_response in API response")
+            return stats
+        
+        # Show what would be deleted
+        would_delete = pdr.get('would_delete', {})
+        summary = would_delete.get('deletion_summary', [])
+        for x in summary:
+            print(x)
+        
+        # Validate pre_delete_token
+        pre_delete_token = pdr.get('pre_delete_token')
+        if not pre_delete_token:
+            stats.failed += batch_size
+            logging.error("Missing pre_delete_token in API response")
+            return stats
+        
+        # Execute actual deletion
+        delete_rq = {
+            'command': 'delete',
+            'pre_delete_token': pre_delete_token
+        }
+        
+        delete_rs = api.communicate(params, delete_rq)
+        
+        try:
+            DeletionValidator.validate_api_response(delete_rs)
+            if delete_rs['result'] == 'success':
+                stats.deleted += batch_size
+                stats.vault_changed = True
+                logging.info(f"Batch of {batch_size} objects deleted successfully")
+            else:
+                stats.failed += batch_size
+                logging.warning(f"Failed to delete batch of {batch_size} objects: {delete_rs.get('message', 'Unknown error')}")
+        except ValueError:
+            stats.failed += batch_size
+            logging.error("Invalid deletion response received")
+        
+        return stats
+
+    def _display_summary(self, record_stats, folder_stats):
+        """Display deletion summary."""
+        if record_stats.deleted > 0:
+            logging.info("Total records deleted: %s", record_stats.deleted)
+        if record_stats.failed > 0:
+            logging.warning("Total records failed to delete: %s", record_stats.failed)
+        if folder_stats > 0:
+            logging.info("Total folders deleted: %s", folder_stats)
+
+    def _finalize_deletion(self, params, record_stats, folder_stats):
+        """Finalize the deletion process."""
+        if record_stats.vault_changed or folder_stats > 0:
             params.revision = 0
             params.sync_data = True
+
+    def _delete_empty_folders(self, params):
+        """
+        Delete all empty user folders after records have been deleted.
+        
+        Args:
+            params: KeeperParams instance
+            
+        Returns:
+            int: Number of folders successfully deleted
+            
+        Note:
+            Only deletes user folders that are completely empty.
+            Skips shared folders entirely. Root folder is never deleted.
+        """
+        from ..subfolder import BaseFolderNode
+        
+        # Security check: Ensure params are valid
+        if not params or not hasattr(params, 'folder_cache'):
+            logging.error("Invalid parameters provided to _delete_empty_folders")
+            return 0
+        
+        # Sync down to get latest folder state after record deletion
+        api.sync_down(params)
+        
+        empty_user_folders = []
+        skipped_shared_folders = 0
+        
+        for folder_uid, folder in params.folder_cache.items():
+            # Security check: Skip if folder or folder_uid is invalid
+            if not folder_uid or not folder or not hasattr(folder, 'type'):
+                logging.warning("Skipping invalid folder entry")
+                continue
+            
+            if folder.type == BaseFolderNode.RootFolderType:
+                continue
+            
+            if folder.type in (BaseFolderNode.SharedFolderType, BaseFolderNode.SharedFolderFolderType):
+                skipped_shared_folders += 1
+                continue
+            
+            if folder.type == BaseFolderNode.UserFolderType:
+                records_in_folder = params.subfolder_record_cache.get(folder_uid, set())
+                if len(records_in_folder) == 0:
+                    if not folder.subfolders or len(folder.subfolders) == 0:
+                        empty_user_folders.append(folder)
+        
+        if skipped_shared_folders > 0:
+            logging.info(f"Skipped {skipped_shared_folders} shared folders (use transform-folder workflow instead)")
+        
+        if not empty_user_folders:
+            logging.info("No empty user folders found to delete")
+            return 0
+        
+        logging.info('Found %s empty user folders to delete', len(empty_user_folders))
+        
+        # Sort folders by depth (deepest first) to avoid parent-child dependency issues
+        # Folders with longer paths are deeper in the hierarchy
+        from ..subfolder import get_folder_path
+        empty_user_folders.sort(key=lambda f: len(get_folder_path(params, f.uid).split('/')), reverse=True)
+        
+        total_folders_deleted = 0
+        total_folders_failed = 0
+        
+        folders_to_delete = empty_user_folders[:]
+        while len(folders_to_delete) > 0:
+            # Prepare pre_delete request for folders
+            rq = {
+                'command': 'pre_delete',
+                'objects': []
+            }
+            
+            # Process chunk of folders
+            chunk = folders_to_delete[:KEEPER_API_FOLDER_BATCH_LIMIT]
+            folders_to_delete = folders_to_delete[KEEPER_API_FOLDER_BATCH_LIMIT:]
+            
+            for folder in chunk:
+                # Security check: Validate folder has required attributes
+                if not hasattr(folder, 'uid') or not hasattr(folder, 'type'):
+                    logging.warning("Skipping folder without required attributes")
+                    continue
+                
+                # Security check: Validate folder type is deletable (not root)
+                if folder.type == BaseFolderNode.RootFolderType:
+                    logging.warning("Skipping root folder - cannot be deleted")
+                    continue
+                
+                del_obj = FolderDeletionHelper.build_folder_delete_object(folder, params)
+                
+                rq['objects'].append(del_obj)
+            
+            # Skip empty batches (all folders were filtered out by security checks)
+            if not rq['objects']:
+                logging.info("No valid folders in this batch to delete")
+                continue
+            
+            # Send pre_delete request for folders
+            try:
+                rs = api.communicate(params, rq)
+                # Security check: Validate API response
+                if not isinstance(rs, dict) or 'result' not in rs:
+                    logging.error("Invalid API response received")
+                    total_folders_failed += len(chunk)
+                    continue
+                
+                if rs['result'] == 'success':
+                    pdr = rs.get('pre_delete_response')
+                    if not pdr:
+                        logging.error("Missing pre_delete_response in API response")
+                        total_folders_failed += len(chunk)
+                        continue
+                    
+                    # Show what would be deleted
+                    would_delete = pdr.get('would_delete', {})
+                    summary = would_delete.get('deletion_summary', [])
+                    for x in summary:
+                        print(x)
+                    
+                    # Execute deletion automatically (force is always True after initial confirmation in execute())
+                    # Security check: Validate pre_delete_token exists
+                    pre_delete_token = pdr.get('pre_delete_token')
+                    if not pre_delete_token:
+                        logging.error("Missing pre_delete_token in API response")
+                        total_folders_failed += len(chunk)
+                        continue
+                    
+                    # Execute actual folder deletion
+                    delete_rq = {
+                        'command': 'delete',
+                        'pre_delete_token': pre_delete_token
+                    }
+                    delete_rs = api.communicate(params, delete_rq)
+                    # Security check: Validate deletion response
+                    if not isinstance(delete_rs, dict) or 'result' not in delete_rs:
+                        logging.error("Invalid deletion response received")
+                        total_folders_failed += len(chunk)
+                    elif delete_rs['result'] == 'success':
+                        total_folders_deleted += len(chunk)
+                        logging.info("Batch of %s folders deleted successfully", len(chunk))
+                    else:
+                        total_folders_failed += len(chunk)
+                        logging.warning("Failed to delete batch of %s folders: %s", 
+                                      len(chunk), delete_rs.get('message', 'Unknown error'))
+                else:
+                    total_folders_failed += len(chunk)
+                    logging.warning("Pre-delete failed for batch of %s folders: %s", 
+                                  len(chunk), rs.get('message', 'Unknown error'))
+            except Exception:
+                total_folders_failed += len(chunk)
+                logging.error("Error processing batch of %s folders", len(chunk))
+        
+        if total_folders_failed > 0:
+            logging.warning("Total folders failed to delete: %s", total_folders_failed)
+        
+        return total_folders_deleted
 
 
 class WhoamiCommand(Command):
     def get_parser(self):
         return whoami_parser
+
+    @staticmethod
+    def get_whoami_info(params: KeeperParams, verbose: bool = False):
+        """Get whoami info as a dictionary (for programmatic use)"""
+        data = {}
+
+        if params.session_token:
+            data['logged_in'] = True
+            hostname = get_hostname(params.rest_context.server_base)
+            data['user'] = params.user
+            data['server'] = hostname
+            data['data_center'] = get_data_center(hostname)
+
+            environment = get_environment(hostname)
+            if environment:
+                data['environment'] = environment
+
+            if params.license:
+                account_type = params.license['account_type'] if 'account_type' in params.license else None
+                if account_type == 2:
+                    data['admin'] = params.enterprise is not None
+
+                account_type_name = 'Enterprise' if account_type == 2 \
+                    else 'Family Plan' if account_type == 1 \
+                    else params.license['product_type_name']
+                data['account_type'] = account_type_name
+                data['renewal_date'] = params.license['expiration_date']
+
+                if 'bytes_total' in params.license:
+                    storage_bytes = int(params.license['bytes_total'])
+                    storage_gb = storage_bytes >> 30
+                    storage_bytes_used = params.license['bytes_used'] if 'bytes_used' in params.license else 0
+                    data['storage_capacity'] = f'{storage_gb}GB'
+                    storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0
+                    data['storage_usage'] = f'{storage_usage}%'
+                    data['storage_renewal_date'] = params.license['storage_expiration_date']
+
+                data['breachwatch'] = params.license.get('breach_watch_enabled', False)
+                if params.enterprise:
+                    data['reporting_and_alerts'] = params.license.get('audit_and_reporting_enabled', False)
+
+            if verbose:
+                data['records_count'] = len(params.record_cache)
+                sf_count = len(params.shared_folder_cache)
+                if sf_count > 0:
+                    data['shared_folders_count'] = sf_count
+                team_count = len(params.team_cache)
+                if team_count > 0:
+                    data['teams_count'] = team_count
+        else:
+            data['logged_in'] = False
+            data['message'] = 'Not logged in'
+
+        return data
 
     def execute(self, params, **kwargs):
         json_output = kwargs.get('json_output', False)
@@ -659,52 +1416,69 @@ class WhoamiCommand(Command):
             import json
             print(json.dumps(data, indent=2))
         else:
-            # Original formatted output
+            # Clean formatted output
+            DIM = Fore.WHITE
+
+            def label_value(label, value):
+                return f"  {DIM}{label:>22}{Fore.RESET}: {value}"
+
+            def yes_no(val):
+                return f"{Fore.GREEN}Yes{Fore.RESET}" if val else f"{Fore.RED}No{Fore.RESET}"
+
             if params.session_token:
                 hostname = get_hostname(params.rest_context.server_base)
-                print('{0:>20s}: {1:<20s}'.format('User', params.user))
-                print('{0:>20s}: {1:<20s}'.format('Server', hostname))
-                print('{0:>20s}: {1:<20s}'.format('Data Center', get_data_center(hostname)))
+
+                print()
+                print(f"  {Style.BRIGHT}User Info{Style.RESET_ALL}")
+                print(f"  {DIM}{'─' * 50}{Fore.RESET}")
+                print(label_value('User', params.user))
+                print(label_value('Server', hostname))
+                print(label_value('Data Center', get_data_center(hostname)))
                 environment = get_environment(hostname)
                 if environment:
-                    print('{0:>20s}: {1:<20s}'.format('Environment', get_environment(hostname)))
+                    print(label_value('Environment', environment))
                 if params.license:
                     account_type = params.license['account_type'] if 'account_type' in params.license else None
                     if account_type == 2:
-                        display_admin = 'No' if params.enterprise is None else 'Yes'
-                        print('{0:>20s}: {1:<20s}'.format('Admin', display_admin))
+                        display_admin = yes_no(params.enterprise is not None)
+                        print(label_value('Admin', display_admin))
 
-                    print('')
+                    print()
+                    print(f"  {Style.BRIGHT}Account{Style.RESET_ALL}")
+                    print(f"  {DIM}{'─' * 50}{Fore.RESET}")
                     account_type_name = 'Enterprise' if account_type == 2 \
                         else 'Family Plan' if account_type == 1 \
                         else params.license['product_type_name']
-                    print('{0:>20s}: {1:<20s}'.format('Account Type', account_type_name))
-                    print('{0:>20s}: {1:<20s}'.format('Renewal Date', params.license['expiration_date']))
+                    print(label_value('Account Type', account_type_name))
+                    print(label_value('Renewal Date', params.license['expiration_date']))
                     if 'bytes_total' in params.license:
-                        storage_bytes = int(params.license['bytes_total'])  # note: int64 in protobuf in python produces string as opposed to an int or long.
+                        storage_bytes = int(params.license['bytes_total'])
                         storage_gb = storage_bytes >> 30
                         storage_bytes_used = params.license['bytes_used'] if 'bytes_used' in params.license else 0
-                        print('{0:>20s}: {1:<20s}'.format('Storage Capacity', f'{storage_gb}GB'))
-                        storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0     # note: int64 in protobuf in python produces string  as opposed to an int or long.
-                        print('{0:>20s}: {1:<20s}'.format('Usage', f'{storage_usage}%'))
-                        print('{0:>20s}: {1:<20s}'.format('Storage Renewal Date', params.license['storage_expiration_date']))
-                    print('{0:>20s}: {1:<20s}'.format('BreachWatch', 'Yes' if params.license.get('breach_watch_enabled') else 'No'))
+                        print(label_value('Storage Capacity', f'{storage_gb}GB'))
+                        storage_usage = (int(storage_bytes_used) * 100 // storage_bytes) if storage_bytes != 0 else 0
+                        print(label_value('Usage', f'{storage_usage}%'))
+                        print(label_value('Storage Renewal Date', params.license['storage_expiration_date']))
+                    print(label_value('BreachWatch', yes_no(params.license.get('breach_watch_enabled'))))
                     if params.enterprise:
-                        print('{0:>20s}: {1:<20s}'.format('Reporting & Alerts', 'Yes' if params.license.get('audit_and_reporting_enabled') else 'No'))
+                        print(label_value('Reporting & Alerts', yes_no(params.license.get('audit_and_reporting_enabled'))))
 
                 if verbose:
-                    print('')
-                    print('{0:>20s}: {1}'.format('Records', len(params.record_cache)))
+                    print()
+                    print(f"  {Style.BRIGHT}Vault Stats{Style.RESET_ALL}")
+                    print(f"  {DIM}{'─' * 50}{Fore.RESET}")
+                    print(label_value('Records', str(len(params.record_cache))))
                     sf_count = len(params.shared_folder_cache)
                     if sf_count > 0:
-                        print('{0:>20s}: {1}'.format('Shared Folders', sf_count))
+                        print(label_value('Shared Folders', str(sf_count)))
                     team_count = len(params.team_cache)
                     if team_count > 0:
-                        print('{0:>20s}: {1}'.format('Teams', team_count))
+                        print(label_value('Teams', str(team_count)))
 
                 if params.enterprise:
-                    print('')
-                    print('{0:>20s}:'.format('Enterprise License'))
+                    print()
+                    print(f"  {Style.BRIGHT}Enterprise License{Style.RESET_ALL}")
+                    print(f"  {DIM}{'─' * 50}{Fore.RESET}")
                     for x in params.enterprise.get('licenses', []):
                         product_type_id = x.get('product_type_id', 0)
                         tier = x.get('tier', 0)
@@ -716,29 +1490,45 @@ class WhoamiCommand(Command):
                         elif product_type_id in (11, 12):
                             plan = 'Keeper MSP'
                         elif product_type_id == 8:
-                            plan = 'MC ' + 'Enterprise' if tier == 1 else 'Business'
+                            plan = 'MC ' + ('Enterprise' if tier == 1 else 'Business')
                         else:
                             plan = 'Unknown'
                         if product_type_id in (5, 10, 12):
                             plan += ' Trial'
-                        print('{0:>20s}: {1}'.format('Base Plan', plan))
+                        print(label_value('Base Plan', plan))
                         paid = x.get('paid') is True
                         if paid:
                             exp = x.get('expiration')
-                            if exp > 0:
-                                dt = datetime.datetime.fromtimestamp(exp // 1000) + datetime.timedelta(days=1)
-                                n = datetime.datetime.now()
-                                td = (dt - n).days
-                                expires = str(dt.date())
-                                if td > 0:
-                                    expires += f' (in {td} days)'
-                                else:
-                                    expires += ' (expired)'
-                                print('{0:>20s}: {1}'.format('Expires', expires))
-                        print('{0:>20s}: {1}'.format('User Licenses', f'Plan: {x.get("number_of_seats", "")}    Active: {x.get("seats_allocated", "")}    Invited: {x.get("seats_pending", "")}'))
+                            try:
+                                exp_seconds = int(exp) // 1000
+                            except (TypeError, ValueError):
+                                exp_seconds = 0
+                            if exp_seconds > 0:
+                                try:
+                                    dt = datetime.datetime.fromtimestamp(exp_seconds)
+                                except (OSError, OverflowError, ValueError):
+                                    # Avoid platform timestamp limits for far-future licenses.
+                                    try:
+                                        dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(seconds=exp_seconds)
+                                    except (OverflowError, ValueError):
+                                        dt = None
+                                if dt:
+                                    dt = dt + datetime.timedelta(days=1)
+                                    n = datetime.datetime.now()
+                                    td = (dt - n).days
+                                    expires = str(dt.date())
+                                    if td > 0:
+                                        expires += f' (in {td} days)'
+                                    else:
+                                        expires += f' ({Fore.RED}expired{Fore.RESET})'
+                                    print(label_value('Expires', expires))
+                        seats_plan = x.get("number_of_seats", "")
+                        seats_active = x.get("seats_allocated", "")
+                        seats_invited = x.get("seats_pending", "")
+                        print(label_value('User Licenses', f'Plan: {seats_plan}  Active: {seats_active}  Invited: {seats_invited}'))
                         file_plan = x.get('file_plan')
-                        file_plan_lookup = {x[0]: x[2] for x in constants.ENTERPRISE_FILE_PLANS}
-                        print('{0:>20s}: {1}'.format('Secure File Storage', file_plan_lookup.get(file_plan, '')))
+                        file_plan_lookup = {fp[0]: fp[2] for fp in constants.ENTERPRISE_FILE_PLANS}
+                        print(label_value('Secure File Storage', file_plan_lookup.get(file_plan, '')))
                         addons = []
                         addon_lookup = {a[0]: a[1] for a in constants.MSP_ADDONS}
                         for ao in x.get('add_ons'):
@@ -757,9 +1547,10 @@ class WhoamiCommand(Command):
                                             addon_name += f' ({seats} licenses)'
                                     addons.append(addon_name)
                         for i, addon in enumerate(addons):
-                            print('{0:>20s}: {1}'.format('Secure Add Ons' if i == 0 else '', addon))
+                            print(label_value('Add-ons' if i == 0 else '', addon))
+                print()
             else:
-                print('{0:>20s}:'.format('Not logged in'))
+                print(f"\n  {Fore.YELLOW}Not logged in{Fore.RESET}\n")
     
 
 class VersionCommand(Command):
@@ -879,20 +1670,36 @@ class LoginCommand(Command):
         return False
 
     def execute(self, params, **kwargs):
+        from ..constants import KEEPER_SERVERS, get_abbrev_by_host
+
         if msp.current_mc_id:
             msp.current_mc_id = None
             msp.mc_params_dict.clear()
 
-        new_login = kwargs.get('new_login') is True
-        if new_login:
-            params.clear_session()
+        # Handle --server option to change data center
+        server = kwargs.get('server')
+        if server:
+            server_upper = server.upper().replace('-', '_')
+            if server_upper in KEEPER_SERVERS:
+                params.server = KEEPER_SERVERS[server_upper]
+                logging.info(f'Data center set to {server_upper}')
+            else:
+                logging.warning(f'Unknown server region: {server}. Using default.')
 
         user = kwargs.get('email') or ''
         password = kwargs.get('password') or ''
 
         try:
             if not user:
-                user = input('... {0:>16}: '.format('User(Email)')).strip()
+                # Show current data center before prompting for email
+                region = get_abbrev_by_host(params.server) if params.server else 'US'
+                if not region:
+                    # Check extended server list
+                    region = next((k for k, v in KEEPER_SERVERS.items() if v == params.server), params.server)
+                print(f'{Fore.CYAN}Data center: {Fore.WHITE}{region}{Fore.RESET}')
+                print(f'{Fore.CYAN}Use {Fore.GREEN}login --server <region>{Fore.CYAN} to change (US, EU, AU, CA, JP, GOV){Fore.RESET}')
+                print()
+                user = input(f'{Fore.GREEN}Email: {Fore.RESET}').strip()
             if not user:
                 return
         except KeyboardInterrupt as e:
@@ -906,13 +1713,16 @@ class LoginCommand(Command):
                     password = params.config['password']
 
         params.password = password
-
+        new_login = kwargs.get('new_login') is True
+        skip_sync = kwargs.get('skip_sync') is True
         try:
             api.login(params, new_login=new_login)
         except Exception as exc:
             logging.warning(str(exc))
 
-        if params.session_token:
+        if params.session_token and not skip_sync:
+            params.enterprise = None
+            params._pedm_plugin = None
             SyncDownCommand().execute(params, force=True)
             if params.is_enterprise_admin:
                 api.query_enterprise(params, True)
@@ -924,6 +1734,28 @@ class LoginCommand(Command):
             except Exception as e:
                 logging.warning(f'A problem was encountered while updating BreachWatch/security data: {e}')
                 logging.debug(e, exc_info=True)
+
+            # Auto-register device for persistent login (stores encrypted data key on server)
+            try:
+                loginv3.LoginV3API.register_encrypted_data_key_for_device(params)
+            except Exception as e:
+                logging.debug(f'Device registration: {e}')
+
+            # Show post-login message (only for explicit login command, not auto-login)
+            show_help = kwargs.get('show_help', True)
+            if show_help:
+                if params.batch_mode:
+                    # One-shot login from terminal - show simple success message
+                    print()
+                    print(f'{Fore.GREEN}Keeper login successful.{Fore.RESET}')
+                    print(f'Type "{Fore.GREEN}keeper shell{Fore.RESET}" for the interactive shell, "{Fore.GREEN}keeper supershell{Fore.RESET}" for the vault UI,')
+                    print(f'or "{Fore.GREEN}keeper help{Fore.RESET}" to see all available commands.')
+                    print()
+                else:
+                    # Interactive shell - show full summary with tips
+                    record_count = getattr(params, '_sync_record_count', 0)
+                    breachwatch_count = getattr(params, '_sync_breachwatch_count', 0)
+                    post_login_summary(record_count=record_count, breachwatch_count=breachwatch_count)
 
 
 class CheckEnforcementsCommand(Command):
@@ -994,7 +1826,10 @@ class LogoutCommand(Command):
         return logout_parser
 
     def is_authorised(self):
-        return False
+        return True
+
+    # Logout needs auth but not sync
+    skip_sync_on_auth = True
 
     def execute(self, params, **kwargs):
         if msp.current_mc_id:
@@ -1053,7 +1888,10 @@ class LogoutCommand(Command):
             sp_url = urllib.parse.urlunparse(sp_url_builder)
             logging.info('SSO Logout URL\n%s', sp_url)
 
+        # Preserve commands queue (clear_session() clears it, but we need 'q' to exit)
+        saved_commands = list(params.commands)
         params.clear_session()
+        params.commands.extend(saved_commands)
 
 
 class EchoCommand(Command):
@@ -1095,6 +1933,74 @@ class HelpCommand(Command):
     def get_parser(self):
         return help_parser
 
+    @staticmethod
+    def display_basics_help():
+        """Display help for the most common commands with detailed explanations"""
+        from colorama import Fore, Style
+
+        DIM = Fore.WHITE
+        GRN = Fore.GREEN
+
+        print()
+        print(f"  {Style.BRIGHT}Getting Started - Essential Commands{Style.RESET_ALL}")
+        print(f"  {DIM}{'─' * 60}{Fore.RESET}")
+        print()
+
+        # Each entry: (command, short_desc, details, examples)
+        # examples is a list of example strings, or None
+        basics = [
+            ('whoami', 'Display information about the current user',
+             'Shows your email, data center, account type, and license info', None),
+
+            ('this-device', 'Display and modify settings of the current device',
+             'View/change device name, logout timeout, and persistent login',
+             ['this-device rename "My Laptop"', 'this-device timeout 7d', 'this-device persistent_login on']),
+
+            ('tree', 'Display the folder structure',
+             'Shows a hierarchical view of all folders in your vault', None),
+
+            ('ls', 'List folder contents',
+             'Lists records and subfolders in the current folder',
+             ['ls', 'ls "My Folder"']),
+
+            ('cd', 'Change current folder',
+             'Navigate to a different folder in your vault',
+             ['cd "Business Accounts"', 'cd ..']),
+
+            ('get', 'Get the details of a record/folder/team',
+             'Display full details of a record by title or UID',
+             ['get "Amazon"', 'get AbCdEf123456']),
+
+            ('search', 'Search the vault using a regular expression',
+             'Find records matching a search pattern',
+             ['search amazon', 'search "bank.*account"']),
+
+            ('list-sf', 'List all shared folders',
+             'Shows all shared folders you have access to', None),
+
+            ('enterprise-info', 'Display enterprise tenant structure',
+             'Shows nodes, users, teams, and roles (Enterprise admins only)', None),
+
+            ('supershell (ss)', 'Launch full terminal vault UI',
+             'Opens the interactive TUI with vim-style navigation', None),
+        ]
+
+        max_cmd_width = max(len(cmd) for cmd, _, _, _ in basics)
+        indent = ' ' * (max_cmd_width + 4)
+
+        for cmd, short_desc, detail, examples in basics:
+            print(f"  {GRN}{cmd:<{max_cmd_width}}{Fore.RESET}  {short_desc}")
+            print(f"  {indent}{DIM}{detail}{Fore.RESET}")
+            if examples:
+                for i, ex in enumerate(examples):
+                    prefix = "Examples: " if i == 0 else "          "
+                    print(f"  {indent}{DIM}{prefix}{GRN}{ex}{Fore.RESET}")
+            print()
+
+        print(f"  {DIM}Type {GRN}help <command>{DIM} for detailed help on any command{Fore.RESET}")
+        print(f"  {DIM}Type {GRN}?{DIM} to see all available commands{Fore.RESET}")
+        print()
+
     def execute(self, params, **kwargs):
         help_commands = kwargs.get('command')
         show_legacy = kwargs.get('legacy', False)
@@ -1105,6 +2011,12 @@ class HelpCommand(Command):
 
         if isinstance(help_commands, list) and len(help_commands) > 0:
             cmd = help_commands[0]
+
+            # Handle "help basics" special case
+            if cmd.lower() == 'basics':
+                self.display_basics_help()
+                return
+
             help_commands = help_commands[1:]
             if cmd in aliases:
                 ali = aliases[cmd]
@@ -1142,9 +2054,7 @@ class HelpCommand(Command):
                                 break
                             elif isinstance(subcommand, GroupCommand):
                                 command = subcommand
-                        else:
-                            command.print_help(command=cmd)
-                            break
+                    command.print_help(command=cmd)
 
     def is_authorised(self):
         return False
@@ -1478,7 +2388,7 @@ class SyncSecurityDataCommand(Command):
             api.sync_down(params)
         if not kwargs.get('quiet'):
             if num_updated:
-                logging.info(f'Updated security data for [{num_updated}] record(s)')
+                logging.info(f'Updated security data for {num_updated} {"record" if num_updated == 1 else "records"}')
             elif not kwargs.get('suppress_no_op') and not num_to_update:
                 logging.info('No records requiring security-data updates found')
 

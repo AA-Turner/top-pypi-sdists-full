@@ -4,8 +4,11 @@
 
 #include "sherpa-onnx/csrc/online-recognizer-impl.h"
 
+#include <memory>
+#include <string>
 #include <strstream>
 #include <utility>
+#include <vector>
 
 #if __ANDROID_API__ >= 9
 #include "android/asset_manager.h"
@@ -41,7 +44,7 @@ std::unique_ptr<OnlineRecognizerImpl> OnlineRecognizerImpl::Create(
         config.model_config.zipformer2_ctc.model.empty()) {
       SHERPA_ONNX_LOGE(
           "Only Zipformer transducers and CTC models are currently supported "
-          "by rknn. Fallback to CPU");
+          "by rknn. Fallback to CPU. Make sure you pass an onnx model");
     } else if (!config.model_config.transducer.encoder.empty()) {
       return std::make_unique<OnlineRecognizerTransducerRknnImpl>(config);
     } else if (!config.model_config.zipformer2_ctc.model.empty()) {
@@ -194,8 +197,7 @@ OnlineRecognizerImpl::OnlineRecognizerImpl(const OnlineRecognizerConfig &config)
     }
   }
 
-  if (!config.hr.dict_dir.empty() && !config.hr.lexicon.empty() &&
-      !config.hr.rule_fsts.empty()) {
+  if (!config.hr.lexicon.empty() && !config.hr.rule_fsts.empty()) {
     auto hr_config = config.hr;
     hr_config.debug = config.model_config.debug;
     hr_ = std::make_unique<HomophoneReplacer>(hr_config);
@@ -245,10 +247,9 @@ OnlineRecognizerImpl::OnlineRecognizerImpl(Manager *mgr,
         itn_list_.push_back(
             std::make_unique<kaldifst::TextNormalizer>(std::move(r)));
       }  // for (; !reader->Done(); reader->Next())
-    }    // for (const auto &f : files)
-  }      // if (!config.rule_fars.empty())
-  if (!config.hr.dict_dir.empty() && !config.hr.lexicon.empty() &&
-      !config.hr.rule_fsts.empty()) {
+    }  // for (const auto &f : files)
+  }  // if (!config.rule_fars.empty())
+  if (!config.hr.lexicon.empty() && !config.hr.rule_fsts.empty()) {
     auto hr_config = config.hr;
     hr_config.debug = config.model_config.debug;
     hr_ = std::make_unique<HomophoneReplacer>(mgr, hr_config);

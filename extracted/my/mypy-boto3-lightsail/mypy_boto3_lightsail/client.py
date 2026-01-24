@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -362,12 +363,6 @@ from .type_defs import (
     UpdateRelationalDatabaseResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -378,15 +373,15 @@ __all__ = ("LightsailClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AccountSetupInProgressException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InvalidInputException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    OperationFailureException: Type[BotocoreClientError]
-    RegionSetupInProgressException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    UnauthenticatedException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AccountSetupInProgressException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InvalidInputException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    OperationFailureException: type[BotocoreClientError]
+    RegionSetupInProgressException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    UnauthenticatedException: type[BotocoreClientError]
 
 
 class LightsailClient(BaseClient):
@@ -813,7 +808,7 @@ class LightsailClient(BaseClient):
 
     def delete_container_image(
         self, **kwargs: Unpack[DeleteContainerImageRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a container image that is registered to your Amazon Lightsail container
         service.
@@ -824,7 +819,7 @@ class LightsailClient(BaseClient):
 
     def delete_container_service(
         self, **kwargs: Unpack[DeleteContainerServiceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes your Amazon Lightsail container service.
 

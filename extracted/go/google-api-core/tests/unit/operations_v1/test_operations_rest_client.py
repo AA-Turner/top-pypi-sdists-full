@@ -23,6 +23,7 @@ except ImportError:  # pragma: NO COVER
 
 import pytest
 from typing import Any, List
+from ...helpers import warn_deprecated_credentials_file
 
 try:
     import grpc  # noqa: F401
@@ -34,6 +35,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
 from google.api_core import gapic_v1
+from google.api_core import parse_version_to_tuple
 from google.api_core.operations_v1 import AbstractOperationsClient
 
 import google.auth
@@ -41,6 +43,7 @@ from google.api_core.operations_v1 import pagers
 from google.api_core.operations_v1 import pagers_async
 from google.api_core.operations_v1 import transports
 from google.auth import credentials as ga_credentials
+from google.auth import __version__ as auth_version
 from google.auth.exceptions import MutualTLSChannelError
 from google.longrunning import operations_pb2
 from google.oauth2 import service_account
@@ -225,7 +228,6 @@ def test_operations_client_service_account_always_use_jwt(transport_class):
     PYPARAM_CLIENT,
 )
 def test_operations_client_from_service_account_file(client_class):
-
     if "async" in str(client_class):
         # TODO(): Add support for service account creds to async REST transport.
         with pytest.raises(NotImplementedError):
@@ -345,12 +347,30 @@ def test_operations_client_client_options(
         with pytest.raises(MutualTLSChannelError):
             client = client_class()
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
+    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError):
-            client = client_class()
+        # Test behavior for google.auth versions < 2.43.0.
+        # These versions do not have the updated mtls.should_use_client_cert logic.
+        # Verify that a ValueError is raised when GOOGLE_API_USE_CLIENT_CERTIFICATE
+        # is set to an unsupported value, as expected in these older versions.
+        if parse_version_to_tuple(auth_version) < (2, 43, 0):
+            with pytest.raises(ValueError):
+                client = client_class()
+        # Test behavior for google.auth versions >= 2.43.0.
+        # In these versions, if GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an
+        # unsupported value (e.g., not 'true' or 'false'), the expected behavior
+        # of the internal google.auth.mtls.should_use_client_cert() function
+        # is to return False. Expect should_use_client_cert to return False, so
+        # client creation should proceed without requiring a client certificate.
+        else:
+            with mock.patch.object(transport_class, "__init__") as patched:
+                patched.return_value = None
+                client = client_class(
+                    credentials=ga_credentials.AnonymousCredentials(),
+                    transport=transport_name,
+                )
 
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
@@ -364,6 +384,23 @@ def test_operations_client_client_options(
             scopes=None,
             client_cert_source_for_mtls=None,
             quota_project_id="octopus",
+            client_info=transports.base.DEFAULT_CLIENT_INFO,
+            always_use_jwt_access=True,
+        )
+
+    # Check the case credentials_file is provided
+    with warn_deprecated_credentials_file():
+        options = client_options.ClientOptions(credentials_file="credentials.json")
+    with mock.patch.object(transport_class, "__init__") as patched:
+        patched.return_value = None
+        client = client_class(client_options=options, transport=transport_name)
+        patched.assert_called_once_with(
+            credentials=None,
+            credentials_file="credentials.json",
+            host=client.DEFAULT_ENDPOINT,
+            scopes=None,
+            client_cert_source_for_mtls=None,
+            quota_project_id=None,
             client_info=transports.base.DEFAULT_CLIENT_INFO,
             always_use_jwt_access=True,
         )
@@ -523,11 +560,13 @@ def test_operations_client_client_options_credentials_file(
     client_class, transport_class, transport_name
 ):
     # Check the case credentials file is provided.
-    options = client_options.ClientOptions(credentials_file="credentials.json")
+    with warn_deprecated_credentials_file():
+        options = client_options.ClientOptions(credentials_file="credentials.json")
     if "async" in str(client_class):
         # TODO(): Add support for credentials file to async REST transport.
         with pytest.raises(core_exceptions.AsyncRestUnsupportedParameterError):
-            client_class(client_options=options, transport=transport_name)
+            with warn_deprecated_credentials_file():
+                client_class(client_options=options, transport=transport_name)
     else:
         with mock.patch.object(transport_class, "__init__") as patched:
             patched.return_value = None
@@ -544,8 +583,31 @@ def test_operations_client_client_options_credentials_file(
             )
 
 
-def test_list_operations_rest():
-    client = _get_operations_client(is_async=False)
+@pytest.mark.parametrize(
+    "credentials_file",
+    [None, "credentials.json"],
+)
+@mock.patch(
+    "google.auth.default",
+    autospec=True,
+    return_value=(mock.sentinel.credentials, mock.sentinel.project),
+)
+def test_list_operations_rest(google_auth_default, credentials_file):
+    if credentials_file:
+        with warn_deprecated_credentials_file():
+            sync_transport = transports.rest.OperationsRestTransport(
+                credentials_file=credentials_file,
+                http_options=HTTP_OPTIONS,
+            )
+    else:
+        # no warning expected
+        sync_transport = transports.rest.OperationsRestTransport(
+            credentials_file=credentials_file,
+            http_options=HTTP_OPTIONS,
+        )
+
+    client = AbstractOperationsClient(transport=sync_transport)
+
     # Mock the http request call within the method and fake a response.
     with mock.patch.object(_get_session_type(is_async=False), "request") as req:
         # Designate an appropriate value for the returned response.
@@ -1045,7 +1107,6 @@ async def test_cancel_operation_rest_failure_async():
     PYPARAM_CLIENT_TRANSPORT_CREDENTIALS,
 )
 def test_credentials_transport_error(client_class, transport_class, credentials):
-
     # It is an error to provide credentials and a transport instance.
     transport = transport_class(credentials=credentials)
     with pytest.raises(ValueError):
@@ -1099,10 +1160,11 @@ def test_transport_adc(client_class, transport_class, credentials):
 def test_operations_base_transport_error():
     # Passing both a credentials object and credentials_file should raise an error
     with pytest.raises(core_exceptions.DuplicateCredentialArgs):
-        transports.OperationsTransport(
-            credentials=ga_credentials.AnonymousCredentials(),
-            credentials_file="credentials.json",
-        )
+        with warn_deprecated_credentials_file():
+            transports.OperationsTransport(
+                credentials=ga_credentials.AnonymousCredentials(),
+                credentials_file="credentials.json",
+            )
 
 
 def test_operations_base_transport():
@@ -1140,10 +1202,11 @@ def test_operations_base_transport_with_credentials_file():
     ) as Transport:
         Transport.return_value = None
         load_creds.return_value = (ga_credentials.AnonymousCredentials(), None)
-        transports.OperationsTransport(
-            credentials_file="credentials.json",
-            quota_project_id="octopus",
-        )
+        with warn_deprecated_credentials_file():
+            transports.OperationsTransport(
+                credentials_file="credentials.json",
+                quota_project_id="octopus",
+            )
         load_creds.assert_called_once_with(
             "credentials.json",
             scopes=None,

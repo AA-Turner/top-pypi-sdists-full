@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 T = TypeVar("T")
 
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 
 class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
@@ -39,32 +39,30 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
         uri: The shard's URI.
         shards: The tuple of shards.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import create_json_shard
+        >>> from iden.shard import ShardTuple
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     shards = [
+        ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shards/uri1").as_uri()),
+        ...         create_json_shard(
+        ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shards/uri2").as_uri()
+        ...         ),
+        ...     ]
+        ...     sl = ShardTuple(uri=Path(tmpdir).joinpath("uri").as_uri(), shards=shards)
+        ...     sl
+        ...
+        ShardTuple(
+          (uri): file:///.../uri
+          (shards):
+            (0): JsonShard(uri=file:///.../shards/uri1)
+            (1): JsonShard(uri=file:///.../shards/uri2)
+        )
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import create_json_shard
-    >>> from iden.shard import ShardTuple
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     shards = [
-    ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shards/uri1").as_uri()),
-    ...         create_json_shard(
-    ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shards/uri2").as_uri()
-    ...         ),
-    ...     ]
-    ...     sl = ShardTuple(uri=Path(tmpdir).joinpath("uri").as_uri(), shards=shards)
-    ...     sl
-    ...
-    ShardTuple(
-      (uri): file:///.../uri
-      (shards):
-        (0): JsonShard(uri=file:///.../shards/uri1)
-        (1): JsonShard(uri=file:///.../shards/uri2)
-    )
-
-    ```
+        ```
     """
 
     def __init__(self, uri: str, shards: Iterable[BaseShard[T]]) -> None:
@@ -92,11 +90,11 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
             shard.clear()
 
     def equal(self, other: Any, equal_nan: bool = False) -> bool:
-        if not isinstance(other, self.__class__):
+        if type(other) is not type(self):
             return False
-        return objects_are_equal(
-            self.get_uri(), other.get_uri(), equal_nan=equal_nan
-        ) and objects_are_equal(self.get_data(), other.get_data(), equal_nan=equal_nan)
+        return self.get_uri() == other.get_uri() and objects_are_equal(
+            self.get_data(), other.get_data(), equal_nan=equal_nan
+        )
 
     def get(self, index: int) -> BaseShard[T]:
         r"""Get a shard.
@@ -108,28 +106,27 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
             The shard.
 
         Raises:
-            IndexError: if the index is outside  the tuple range.
+            IndexError: if the index is outside the tuple range.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import create_json_shard
+            >>> from iden.shard import ShardTuple
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     shards = [
+            ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
+            ...         create_json_shard(
+            ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
+            ...         ),
+            ...     ]
+            ...     sl = ShardTuple(uri=Path(tmpdir).joinpath("main_uri").as_uri(), shards=shards)
+            ...     sl.get(0)
+            ...
+            JsonShard(uri=file:///.../uri1)
 
-        ```pycon
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import create_json_shard
-        >>> from iden.shard import ShardTuple
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     shards = [
-        ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
-        ...         create_json_shard(
-        ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
-        ...         ),
-        ...     ]
-        ...     sl = ShardTuple(uri=Path(tmpdir).joinpath("main_uri").as_uri(), shards=shards)
-        ...     sl.get(0)
-        ...
-        JsonShard(uri=file:///.../uri1)
-
-        ```
+            ```
         """
         return self[index]
 
@@ -158,17 +155,105 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
         r"""Instantiate a shard from its URI.
 
         Args:
-            uri: The URI.
+            uri: The Uniform Resource Identifier (URI) of the shard
+                tuple to load.
 
         Returns:
             The instantiated shard.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import ShardTuple, create_json_shard
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     shards = [
+            ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
+            ...         create_json_shard(
+            ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
+            ...         ),
+            ...     ]
+            ...     uri = Path(tmpdir).joinpath("uri").as_uri()
+            ...     create_shard_tuple(shards, uri=uri)
+            ...     shard = ShardTuple.from_uri(uri)
+            ...     shard
+            ...
+            ShardTuple(
+              (uri): file:///.../uri
+              (shards):
+                (0): JsonShard(uri=file:///.../shard/uri1)
+                (1): JsonShard(uri=file:///.../shard/uri2)
+            )
 
+            ```
+        """
+        # local import to avoid cyclic dependencies
+        from iden.shard.loading import load_from_uri  # noqa: PLC0415
+
+        config = load_json(sanitize_path(uri))
+        shards = [load_from_uri(shard) for shard in config[SHARDS]]
+        return cls(uri=uri, shards=shards)
+
+    @classmethod
+    def generate_uri_config(cls, shards: Iterable[BaseShard[T]]) -> dict[str, Any]:
+        r"""Generate the minimal config that is used to load the shard
+        from its URI.
+
+        The config must be compatible with the JSON format.
+
+        Args:
+            shards: The sequence of shards to include in the
+                configuration.
+
+        Returns:
+            The minimal config to load the shard from its URI.
+
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import ShardTuple, create_json_shard
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     shards = [
+            ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
+            ...         create_json_shard(
+            ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
+            ...         ),
+            ...     ]
+            ...     ShardTuple.generate_uri_config(shards)
+            ...
+            {'shards': ['file:///.../shard/uri1', 'file:///.../shard/uri2'],
+             'loader': {'_target_': 'iden.shard.loader.ShardTupleLoader'}}
+
+            ```
+        """
+        return {
+            SHARDS: get_list_uris(shards),
+            LOADER: {OBJECT_TARGET: "iden.shard.loader.ShardTupleLoader"},
+        }
+
+
+def create_shard_tuple(shards: Iterable[BaseShard[T]], uri: str) -> ShardTuple[T]:
+    r"""Create a ``ShardTuple`` from a sequence of shards.
+
+    Note:
+        It is a utility function to create a ``ShardTuple`` from its
+            shards and URI. It is possible to create a ``ShardTuple``
+            in other ways.
+
+    Args:
+        shards: The sequence of shards to include in the tuple.
+        uri: The Uniform Resource Identifier (URI) for the shard
+            tuple.
+
+    Returns:
+        The ``ShardTuple`` object.
+
+    Example:
         ```pycon
         >>> import tempfile
         >>> from pathlib import Path
-        >>> from iden.shard import ShardTuple, create_json_shard
+        >>> from iden.shard import ShardTuple, create_json_shard, create_shard_tuple
         >>> with tempfile.TemporaryDirectory() as tmpdir:
         ...     shards = [
         ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
@@ -176,9 +261,7 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
         ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
         ...         ),
         ...     ]
-        ...     uri = Path(tmpdir).joinpath("uri").as_uri()
-        ...     create_shard_tuple(shards, uri=uri)
-        ...     shard = ShardTuple.from_uri(uri)
+        ...     shard = create_shard_tuple(shards, uri=Path(tmpdir).joinpath("uri").as_uri())
         ...     shard
         ...
         ShardTuple(
@@ -189,93 +272,6 @@ class ShardTuple(BaseShard[tuple[BaseShard[T], ...]]):
         )
 
         ```
-        """
-        # local import to avoid cyclic dependencies
-        from iden.shard.loading import load_from_uri
-
-        config = load_json(sanitize_path(uri))
-        shards = [load_from_uri(shard) for shard in config[SHARDS]]
-        return cls(uri=uri, shards=shards)
-
-    @classmethod
-    def generate_uri_config(cls, shards: Iterable[BaseShard[T]]) -> dict:
-        r"""Generate the minimal config that is used to load the shard
-        from its URI.
-
-        The config must be compatible with the JSON format.
-
-        Args:
-            shards: The shards.
-
-        Returns:
-            The minimal config to load the shard from its URI.
-
-        Example usage:
-
-        ```pycon
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import ShardTuple, create_json_shard
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     shards = [
-        ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
-        ...         create_json_shard(
-        ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
-        ...         ),
-        ...     ]
-        ...     ShardTuple.generate_uri_config(shards)
-        ...
-        {'shards': ['file:///.../shard/uri1', 'file:///.../shard/uri2'],
-         'loader': {'_target_': 'iden.shard.loader.ShardTupleLoader'}}
-
-        ```
-        """
-        return {
-            SHARDS: get_list_uris(shards),
-            LOADER: {OBJECT_TARGET: "iden.shard.loader.ShardTupleLoader"},
-        }
-
-
-def create_shard_tuple(shards: Iterable[BaseShard[T]], uri: str) -> ShardTuple[T]:
-    r"""Create a ``ShardTuple`` a list of shards.
-
-    Note:
-        It is a utility function to create a ``ShardTuple`` from its
-            shards and URI. It is possible to create a ``ShardTuple``
-            in other ways.
-
-    Args:
-        shards: The shards.
-        uri: The shard's URI.
-
-    Returns:
-        The ``ShardTuple`` object.
-
-    Example usage:
-
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import ShardTuple, create_json_shard, create_shard_tuple
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     shards = [
-    ...         create_json_shard([1, 2, 3], uri=Path(tmpdir).joinpath("shard/uri1").as_uri()),
-    ...         create_json_shard(
-    ...             [4, 5, 6, 7], uri=Path(tmpdir).joinpath("shard/uri2").as_uri()
-    ...         ),
-    ...     ]
-    ...     shard = create_shard_tuple(shards, uri=Path(tmpdir).joinpath("uri").as_uri())
-    ...     shard
-    ...
-    ShardTuple(
-      (uri): file:///.../uri
-      (shards):
-        (0): JsonShard(uri=file:///.../shard/uri1)
-        (1): JsonShard(uri=file:///.../shard/uri2)
-    )
-
-    ```
     """
     logger.info(f"Saving URI file {uri}")
     JsonSaver().save(ShardTuple.generate_uri_config(shards), sanitize_path(uri))

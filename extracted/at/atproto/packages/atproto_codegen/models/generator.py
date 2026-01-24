@@ -158,7 +158,7 @@ def _get_str_enum_typehint(nsid: NSID, field_type_def: models.LexString, *, opti
 
     # known_values is not closed enum
     closed_enum = '' if field_type_def.enum else ', str'
-    return f"t.Union[{', '.join(union_type_parts)}{closed_enum}]"
+    return f't.Union[{", ".join(union_type_parts)}{closed_enum}]'
 
 
 def _get_str_typehint(nsid: NSID, field_type_def: models.LexString, *, optional: bool) -> str:
@@ -219,13 +219,10 @@ def _get_ref_union_typehint(nsid: NSID, field_type_def: models.LexRefUnion, *, o
 
     def_names = ', '.join([f"'{name}'" for name in def_names])
 
-    if is_unknown_union:
-        # unknown type does not compatible with discriminator because $type is unknown :)
-        def_field_meta = 'Field(default=None)' if optional else 'Field()'
-    else:
-        def_field_meta = (
-            'Field(default=None, discriminator="py_type")' if optional else 'Field(discriminator="py_type")'
-        )
+    # For discriminated unions, optionality is handled by Optional[] wrapper, not Field(default=None)
+    # Pydantic 2.12.3+ warns that default=None has no effect in union context
+    # Unknown unions can't use discriminator because $type is unknown
+    def_field_meta = 'Field()' if is_unknown_union else 'Field(discriminator="py_type")'
 
     annotated_union = f'te.Annotated[t.Union[{def_names}], {def_field_meta}]'
     return _get_optional_typehint(annotated_union, optional=optional)
@@ -284,7 +281,13 @@ def _get_model_field_value(  # noqa: C901
     alias_name: t.Optional[str] = None,
     *,
     optional: bool,
-) -> str:
+) -> t.Dict[str, t.Any]:
+    """Generate field value and metadata.
+
+    Returns a dict with:
+        - 'value': the field value (e.g., 'None' or 'Field(...)')
+        - 'needs_annotated': whether this field needs Annotated wrapper
+    """
     not_set = object()
 
     default: t.Any = not_set
@@ -296,6 +299,10 @@ def _get_model_field_value(  # noqa: C901
     frozen: t.Union[bool, not_set] = not_set
 
     field_type = type(field_type_def)
+
+    # Ref and RefUnion types handle their own Field generation in the type hint
+    if field_type in (models.LexRef, models.LexRefUnion):
+        return {'value': '', 'needs_annotated': False}
 
     if field_type == models.LexInteger:
         if field_type_def.default is not None:
@@ -342,8 +349,12 @@ def _get_model_field_value(  # noqa: C901
         'frozen': frozen,
     }
 
+    # Check if there are any field constraints besides default
+    has_field_constraints = any(value is not not_set and name != 'default' for name, value in field_params.items())
+
     values = []
     only_default = default is not not_set
+
     for name, value in field_params.items():
         if value is not_set:
             continue
@@ -355,16 +366,23 @@ def _get_model_field_value(  # noqa: C901
         else:
             only_default = False
 
+        # For optional fields with constraints, exclude default from Field to avoid pydantic warning
+        if optional and has_field_constraints and name == 'default':
+            continue
+
         values.append(f'{name}={str_value}')
 
+    # If only default value and it's None, return simple assignment
     if only_default:
-        return default
+        return {'value': default, 'needs_annotated': False}
 
     if not values:
-        return ''
+        return {'value': '', 'needs_annotated': False}
 
     field_params_str = ', '.join(values)
-    return f'Field({field_params_str})'
+    # For optional fields with Field constraints, use Annotated pattern
+    needs_annotated = optional and has_field_constraints
+    return {'value': f'Field({field_params_str})', 'needs_annotated': needs_annotated}
 
 
 def _get_req_fields_set(lex_obj: t.Union[models.LexObject, models.LexXrpcParameters]) -> set:
@@ -460,10 +478,25 @@ def _get_model(
             # alias_name = field_name  # noqa: ERA001
 
         type_hint = _get_model_field_typehint(nsid, field_type_def, optional=is_optional, is_input_type=is_input_type)
-        value = _get_model_field_value(field_type_def, alias_name, optional=is_optional)
+        field_value_info = _get_model_field_value(field_type_def, alias_name, optional=is_optional)
         description = _get_field_docstring(field_name, field_type_def)
 
-        value_def = f' = {value}' if value else ''
+        # Handle Annotated pattern for optional fields with Field constraints
+        # Skip if type hint already uses Annotated (e.g., ref unions)
+        if field_value_info['needs_annotated'] and 'te.Annotated[' not in type_hint:
+            # Wrap type in Annotated and add Field metadata
+            type_hint = f'te.Annotated[{type_hint}, {field_value_info["value"]}]'
+            value_def = ' = None'
+        else:
+            # Simple assignment
+            if field_value_info['value']:
+                value_def = f' = {field_value_info["value"]}'
+            elif is_optional:
+                # Optional fields without Field constraints still need = None
+                value_def = ' = None'
+            else:
+                value_def = ''
+
         field_def = f'{_(1)}{snake_cased_field_name}: {type_hint}{value_def} #: {description}'
 
         if is_optional:
@@ -547,7 +580,7 @@ def _generate_xrpc_body_model(nsid: NSID, body: models.LexXrpcBody, model_type: 
             lines.append(_get_model_docstring(nsid, body.schema_, model_type))
             lines.append(_get_model(nsid, body.schema_, is_input_type=(model_type is ModelType.DATA)))
         elif isinstance(body.schema_, models.LexRef):
-            model_path, _ = _resolve_nsid_ref(nsid, body.schema_.ref)
+            _, __ = _resolve_nsid_ref(nsid, body.schema_.ref)
 
             # here we can generate input and output model alises from the reference
             # but instead we just resolve reference inplace without intermediate model
@@ -848,7 +881,7 @@ def _generate_import_aliases(root_package_path: Path) -> None:
             alias_name = ''.join([p.capitalize() for p in [*nsid_parts, *method_name_parts]])
 
             camel_case_method_name = method_name_parts[0] + ''.join(ele.title() for ele in method_name_parts[1:])
-            method_path = f"{'.'.join(nsid_parts)}.{camel_case_method_name}"
+            method_path = f'{".".join(nsid_parts)}.{camel_case_method_name}'
             ids_db.append(f"{_(1)}{alias_name}: str = '{method_path}'")
 
             import_lines.append(f'from {from_import} import {file[:-3]} as {alias_name}')

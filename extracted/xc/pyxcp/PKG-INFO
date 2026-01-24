@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pyxcp
-Version: 0.23.9
+Version: 0.25.10
 Summary: Universal Calibration Protocol for Python
 License: LGPLv3
+License-File: LICENSE
 Keywords: automotive,ecu,xcp,asam,autosar
 Author: Christoph Schueler
 Author-email: cpu.gems@googlemail.com
@@ -24,6 +25,7 @@ Requires-Dist: chardet (>=5.2.0,<6.0.0)
 Requires-Dist: construct (>=2.10.68,<3.0.0)
 Requires-Dist: line-profiler-pycharm (>=1.1.0,<2.0.0)
 Requires-Dist: mako (>=1.2.4,<2.0.0)
+Requires-Dist: pydantic (>=2.5,<3)
 Requires-Dist: pyserial (>=3.5,<4.0)
 Requires-Dist: python-can (>=4.2.2,<5.0.0)
 Requires-Dist: pytz (>=2025.2,<2026.0)

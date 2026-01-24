@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import typing
 
@@ -40,7 +40,7 @@ class ICurrencyConversion(metaclass=abc.ABCMeta):
     @property
     @abc.abstractmethod
     def conversion_rate(self) -> float:
-        """The current conversion rate between SourceCurrency and DestinationCurrency"""
+        """The current conversion rate between source_currency and destination_currency"""
         ...
 
     @conversion_rate.setter

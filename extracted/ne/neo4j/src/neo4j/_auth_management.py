@@ -18,20 +18,24 @@ from __future__ import annotations
 
 import abc
 import time
-import typing as t
 from dataclasses import dataclass
 
-from .api import Auth
-from .exceptions import AuthError
+# ignore TC003 to make sphinx not completely drop the ball
+from os import PathLike  # noqa: TC003
+
+from . import _typing as t
+from .api import (
+    _TAuth,
+    Auth,
+)
+from .exceptions import (
+    ConfigurationError,
+    Neo4jError,
+)
 
 
 if t.TYPE_CHECKING:
-    from os import PathLike
-
-    from typing_extensions import Protocol as _Protocol
-
-    from .api import _TAuth
-    from .exceptions import Neo4jError
+    from ._typing import Protocol as _Protocol
 else:
     _Protocol = object
 
@@ -117,7 +121,7 @@ class AuthManager(metaclass=abc.ABCMeta):
         Furthermore, the manager is expected to be thread-safe.
 
         The token returned must always belong to the same identity.
-        Switching identities using the `AuthManager` is undefined behavior.
+        Switching identities using the ``AuthManager`` is undefined behavior.
         You may use :ref:`session-level authentication<session-auth-ref>`
         for such use-cases.
 
@@ -128,7 +132,7 @@ class AuthManager(metaclass=abc.ABCMeta):
     .. versionchanged:: 5.12
         ``on_auth_expired`` was removed from the interface and replaced by
         :meth:`handle_security_exception`. The new method is called when the
-        server returns any `Neo.ClientError.Security.*` error. Its signature
+        server returns any ``Neo.ClientError.Security.*`` error. Its signature
         differs in that it additionally receives the error returned by the
         server and returns a boolean indicating whether the error was handled.
 
@@ -147,9 +151,10 @@ class AuthManager(metaclass=abc.ABCMeta):
 
             The method must only ever return auth information belonging to the
             same identity.
-            Switching identities using the `AuthManager` is undefined behavior.
-            You may use :ref:`session-level authentication<session-auth-ref>`
-            for such use-cases.
+            Switching identities using the ``AuthManager`` is undefined
+            behavior. You may use
+            :ref:`session-level authentication<session-auth-ref>` for such
+            use-cases.
         """
         ...
 
@@ -161,7 +166,7 @@ class AuthManager(metaclass=abc.ABCMeta):
         Handle the server indicating authentication failure.
 
         The driver will call this method when the server returns any
-        `Neo.ClientError.Security.*` error. The error will then be processed
+        ``Neo.ClientError.Security.*`` error. The error will then be processed
         further as usual.
 
         :param auth:
@@ -321,7 +326,6 @@ def to_auth_dict(auth: _TAuth) -> dict[str, t.Any]:
         try:
             return vars(auth)
         except (KeyError, TypeError) as e:
-            # TODO: 6.0 - change this to be a DriverError (or subclass)
-            raise AuthError(
+            raise ConfigurationError(
                 f"Cannot determine auth details from {auth!r}"
             ) from e

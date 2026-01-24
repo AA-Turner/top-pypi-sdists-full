@@ -1,7 +1,7 @@
 import logging
 
 
-PEGASUS_MODELS = ["B28", "B26"]
+PEGASUS_MODELS = ["VSP One B", "VSP E"]
 
 BASIC_STORAGE_DETAILS = None
 
@@ -30,9 +30,22 @@ class Endpoints(object):
     # Volumes
     POST_LDEVS = "v1/objects/ldevs"
     LDEVS_ONE = "v1/objects/ldevs/{}"
+    SALAMENDER_GET_LDEVS_ONE = "simple/v1/objects/volumes/{}"
+    SIMPLE_API_VOLUME_EXPAND = "simple/v1/objects/volumes/{}/actions/expand/invoke"
+    SALAMENDER_GET_LDEVS_SERVER_CONNECTION = (
+        "simple/v1/objects/volume-server-connections"
+    )
+    SALAMENDER_GET_LDEV_SERVER_CONNECTION = (
+        "simple/v1/objects/volume-server-connections/{}"
+    )
+    SALAMENDER_UPDATE_QOS_SETTINGS = "simple/v1/objects/volumes/{}/qos-setting"
+    ATTACH_SERVER_SIMPLE = "simple/v1/objects/volume-server-connections"
+    DETACH_SERVER_SIMPLE = "simple/v1/objects/volume-server-connections/{}"
     LDEVS_JOURNAL_VOLUME = "v1/objects/ldevs/?journalId={}"
     PEGA_LDEVS_ONE = "simple/v1/objects/volumes/{}"
     GET_LDEVS = "v1/objects/ldevs{}"
+    SALAMENDER_GET_LDEVS = "simple/v1/objects/volumes"
+    SALAMENDER_GET_LDEVS_QUERY = "simple/v1/objects/volumes{}"
     PUT_LDEVS_CHANGE_STATUS = "v1/objects/ldevs/{}/actions/change-status/invoke"
     PUT_LDEVS_SHRED = "v1/objects/ldevs/{}/actions/shred/invoke"
     DELETE_LDEVS = "v1/objects/ldevs/{}"
@@ -50,6 +63,9 @@ class Endpoints(object):
         "v1/objects/ldevs?ldevOption=undefined&resourceGroupId={}&count=16384"
     )
     GET_FREE_LDEVS_FROM_META_HEAD_LDEV = "v1/objects/ldevs?ldevOption=undefined&headLdevId={}&resourceGroupId={}&count=16384"
+    GET_FREE_LDEVS_FROM_META_BASIC = (
+        "v1/objects/ldevs?ldevOption=undefined&headLdevId={}&count={}"
+    )
     GET_FREE_LDEV_MATCHING_PVOL = (
         "v1/objects/ldevs?ldevOption=undefined&count=1&headLdevId={}"
     )
@@ -62,6 +78,7 @@ class Endpoints(object):
     POST_QOS_UPDATE = "v1/objects/ldevs/{}/actions/set-qos/invoke"
     GET_LDEV_EXT_VOL = "v1/objects/ldevs/{}?detailInfoType=externalVolume"
     GET_QOS_SETTINGS = "v1/objects/ldevs?headLdevId={}&count=1&detailInfoType=qos"
+    SALAMENDER_GET_QOS_SETTINGS = "simple/v1/objects/volumes/{}/qos-setting"
     GET_CMD_DEVICE = "v1/objects/ldevs?headLdevId={}&count=1&detailInfoType=class"
     RECLAIM_ZERO_PAGES = "v1/objects/ldevs/{}/actions/discard-zero-page/invoke"
     CHANGE_MP_BLADE = "v1/objects/ldevs/{}/actions/assign-mp-blade/invoke"
@@ -329,6 +346,29 @@ class Endpoints(object):
     GET_SNMP_SETTINGS = "v1/objects/snmp-settings/instance"
     SEND_SNMP_TRAP = "v1/objects/snmp-settings/instance/actions/send-trap-test/invoke"
 
+    # VSP one server
+    GET_SIMPLE_SERVER_INFO = "simple/v1/objects/servers"
+    GET_SIMPLE_SERVER_INFO_QUERY = "simple/v1/objects/servers?{}"
+    GET_SINGLE_SIMPLE_SERVER = "simple/v1/objects/servers/{}"
+    ADD_HG_TO_SERVER = "simple/v1/objects/servers/{}/actions/add-host-groups/invoke"
+    SYNC_HG_TO_SERVER_NICKNAME = (
+        "simple/v1/objects/servers/{}/actions/sync-host-group-names/invoke"
+    )
+    GET_WWN_OF_HBA = "simple/v1/objects/servers/{}/hbas"
+    SINGLE_WWN_OF_HBA_PER_SERVER = "simple/v1/objects/servers/{}/hbas/{}"
+    ADD_WWN_OF_HBA = "simple/v1/objects/servers/{}/hbas"
+    ALL_SERVER_PATHS = "simple/v1/objects/servers/{}/paths"
+    SPECIFIC_SERVER_PATH = "simple/v1/objects/servers/{}/paths/{}"
+    ADD_PATH_TO_SERVER = "simple/v1/objects/servers/{}/paths"
+    SINGLE_SERVER_PATH = "simple/v1/objects/servers/{}/paths/{}"
+    GET_ALL_SERVER_ISCSI = "simple/v1/objects/servers/{}/target-iscsi-ports"
+    SINGLE_SERVER_ISCSI = "simple/v1/objects/servers/{}/target-iscsi-ports/{}"
+    ISCSI_TARGET_SETTINGS = "simple/v1/objects/servers/{}/target-iscsi-ports/{}"
+
+    # VSP one Port
+    VSP_ONE_GET_PORTS = "simple/v1/objects/ports"
+    VSP_ONE_SINGLE_PORT = "simple/v1/objects/ports/{}"
+
 
 class Http(object):
     GET = "GET"
@@ -425,6 +465,7 @@ class AutomationConstants(object):
     POOL_ID_MAX = 256
     LDEV_ID_MIN = 0
     LDEV_ID_MAX = 65279
+    LDEV_ID_MAX_FULL = 65535
     LDEV_MAX_NUMBER = 16384
     LDEV_MAX_MU_NUMBER = 1023
     ISCSI_NAME_LEN_MIN = 1
@@ -522,6 +563,34 @@ class VolumePayloadConst:
     IS_ALUA_ENABLED = "isAluaEnabled"
     CLPR_ID = "clprId"
 
+    # SALMENDER PARAMS
+    CAPACITY = "capacity"
+    NUMBER = "number"
+    NICKNAME_PARAM = "nicknameParam"
+    NICK_NAME = "nickname"
+    SAVING_SETTING = "savingSetting"
+    IS_DATA_REDUCTION_SHARE_ENABLED = "isDataReductionShareEnabled"
+    POOL_ID = "poolId"
+    COMPRESSION_ACCELERATION = "compressionAcceleration"
+    threshold = "threshold"
+    alertSetting = "alertSetting"
+    isUpperIopsEnabled = "isUpperIopsEnabled"
+    upperIops = "upperIops"
+    isUpperTransferRateEnabled = "isUpperTransferRateEnabled"
+    upperTransferRate = "upperTransferRate"
+    isLowerIopsEnabled = "isLowerIopsEnabled"
+    lowerIops = "lowerIops"
+    isLowerTransferRateEnabled = "isLowerTransferRateEnabled"
+    lowerTransferRate = "lowerTransferRate"
+    isResponsePriorityEnabled = "isResponsePriorityEnabled"
+    responsePriority = "responsePriority"
+    isUpperAlertEnabled = "isUpperAlertEnabled"
+    upperAlertAllowableTime = "upperAlertAllowableTime"
+    isLowerAlertEnabled = "isLowerAlertEnabled"
+    lowerAlertAllowableTime = "lowerAlertAllowableTime"
+    isResponseAlertEnabled = "isResponseAlertEnabled"
+    responseAlertAllowableTime = "responseAlertAllowableTime"
+
     # URL PARAMS
     HEAD_LDEV_ID = "?headLdevId={}"
     HEAD_LDEV_ID_NEXT = "&headLdevId={}"
@@ -563,6 +632,37 @@ class VolumePayloadConst:
     LOWER_ALERT_ALLOWABLE_TIME = "lowerAlertAllowableTime"
     RESPONSE_PRIORITY = "responsePriority"
     RESPONSE_ALERT_ALLOWABLE_TIME = "responseAlertAllowableTime"
+
+    # Vsp one server
+    serverNickname = "serverNickname"
+    protocol = "protocol"
+    osType = "osType"
+    osTypeOptions = "osTypeOptions"
+    isReserved = "isReserved"
+
+
+class ServerPayloadConst:
+    serverNickname = "serverNickname"
+    protocol = "protocol"
+    osType = "osType"
+    osTypeOptions = "osTypeOptions"
+    isReserved = "isReserved"
+    nickname = "nickname"
+    portId = "portId"
+    hostGroupId = "hostGroupId"
+    hostGroupName = "hostGroupName"
+    hbas = "hbas"
+    hbaWwn = "hbaWwn"
+    iscsiName = "iscsiName"
+    hbaWwn = "hbaWwn"
+    portIds = "portIds"
+    targetIscsiName = "targetIscsiName"
+
+
+class VSPOnePortConst:
+    portSpeed = "portSpeed"
+    portSecurity = "portSecurity"
+    fcInformation = "fcInformation"
 
 
 class VSPSnapShotReq:

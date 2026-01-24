@@ -1,5 +1,3 @@
-#![expect(clippy::unwrap_used, reason = "contains legacy code which uses unwrap")]
-
 //! This module implements the API access to the Sentry API as well
 //! as some other APIs we interact with.  In particular it can talk
 //! to the GitHub API to figure out if there are new releases of the
@@ -12,33 +10,30 @@ mod data_types;
 mod encoding;
 mod errors;
 mod pagination;
+mod serialization;
 
 use std::borrow::Cow;
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::ffi::OsStr;
-use std::fmt;
+use std::collections::HashMap;
+#[cfg(any(target_os = "macos", not(feature = "managed")))]
 use std::fs::File;
 use std::io::{self, Read as _, Write};
-use std::path::Path;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::{fmt, thread};
 
 use anyhow::{Context as _, Result};
-use backoff::backoff::Backoff as _;
-use brotli2::write::BrotliEncoder;
+use backon::BlockingRetryable as _;
 #[cfg(target_os = "macos")]
 use chrono::Duration;
 use chrono::{DateTime, FixedOffset, Utc};
 use clap::ArgMatches;
 use flate2::write::GzEncoder;
-use if_chain::if_chain;
 use lazy_static::lazy_static;
 use log::{debug, info, warn};
 use parking_lot::Mutex;
 use regex::{Captures, Regex};
 use secrecy::ExposeSecret as _;
-use sentry::protocol::{Exception, Values};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha1_smol::Digest;
@@ -46,14 +41,13 @@ use symbolic::common::DebugId;
 use symbolic::debuginfo::ObjectKind;
 use uuid::Uuid;
 
-use crate::api::errors::ProjectRenamedError;
+use crate::api::errors::{ProjectRenamedError, RetryError};
 use crate::config::{Auth, Config};
-use crate::constants::{ARCH, DEFAULT_URL, EXT, PLATFORM, RELEASE_REGISTRY_LATEST_URL, VERSION};
-use crate::utils::file_upload::LegacyUploadContext;
+use crate::constants::{ARCH, EXT, PLATFORM, RELEASE_REGISTRY_LATEST_URL, VERSION};
 use crate::utils::http::{self, is_absolute_url};
+use crate::utils::non_empty::NonEmptySlice;
 use crate::utils::progress::{ProgressBar, ProgressBarMode};
 use crate::utils::retry::{get_default_backoff, DurationAsMilliseconds as _};
-use crate::utils::sourcemaps::get_sourcemap_reference_from_headers;
 use crate::utils::ui::{capitalize_string, make_byte_progress_bar};
 
 use self::pagination::Pagination;
@@ -72,6 +66,7 @@ const RETRY_STATUS_CODES: &[u32] = &[
     http::HTTP_STATUS_503_SERVICE_UNAVAILABLE,
     http::HTTP_STATUS_504_GATEWAY_TIMEOUT,
     http::HTTP_STATUS_507_INSUFFICIENT_STORAGE,
+    http::HTTP_STATUS_524_CLOUDFLARE_TIMEOUT,
 ];
 
 /// Helper for the API access.
@@ -86,12 +81,6 @@ pub struct Api {
 /// functions that make API requests requiring authentication via auth token.
 pub struct AuthenticatedApi<'a> {
     api: &'a Api,
-}
-
-pub struct RegionSpecificApi<'a> {
-    api: &'a AuthenticatedApi<'a>,
-    org: &'a str,
-    region_url: Option<Box<str>>,
 }
 
 /// Represents an HTTP method that is used by the API.
@@ -160,6 +149,7 @@ impl Api {
     pub fn with_config(config: Arc<Config>) -> Api {
         Api {
             config,
+            #[expect(clippy::unwrap_used, reason = "legacy code")]
             pool: r2d2::Pool::builder()
                 .max_size(16)
                 .build(CurlConnectionManager)
@@ -174,7 +164,7 @@ impl Api {
 
     /// Creates an AuthenticatedApi referencing this Api instance if an auth token is available.
     /// If an auth token is not available, returns an error.
-    pub fn authenticated(&self) -> ApiResult<AuthenticatedApi> {
+    pub fn authenticated(&self) -> ApiResult<AuthenticatedApi<'_>> {
         self.try_into()
     }
 
@@ -223,7 +213,11 @@ impl Api {
         url: &str,
         auth: Option<&Auth>,
     ) -> ApiResult<ApiRequest> {
-        let mut handle = self.pool.get().unwrap();
+        let mut handle = self
+            .pool
+            .get()
+            .map_err(|e| ApiError::with_source(ApiErrorKind::RequestFailed, e))?;
+
         handle.reset();
         if !self.config.allow_keepalive() {
             handle.forbid_reuse(true).ok();
@@ -245,9 +239,6 @@ impl Api {
         }
         handle.ssl_verify_host(self.config.should_verify_ssl())?;
         handle.ssl_verify_peer(self.config.should_verify_ssl())?;
-
-        // This toggles gzipping, useful for uploading large files
-        handle.transfer_encoding(self.config.allow_transfer_encoding())?;
 
         let env = self.config.get_pipeline_env();
         let headers = self.config.get_headers();
@@ -280,6 +271,10 @@ impl Api {
     }
 
     /// Convenience method that downloads a file into the given file object.
+    ///
+    /// Currently only used on macOS, but we could make it available on other platforms
+    /// if needed.
+    #[cfg(target_os = "macos")]
     pub fn download(&self, url: &str, dst: &mut File) -> ApiResult<ApiResponse> {
         self.request(Method::Get, url, None)?
             .follow_location(true)?
@@ -310,7 +305,11 @@ impl Api {
                     }
                 }
             }
-            std::thread::sleep(Duration::milliseconds(500).to_std().unwrap());
+            std::thread::sleep(
+                Duration::milliseconds(500)
+                    .to_std()
+                    .expect("500ms is valid, as it is non-negative"),
+            );
             if Utc::now() - duration > started {
                 return Ok(false);
             }
@@ -330,12 +329,12 @@ impl Api {
         };
 
         let ref_name = format!("sentry-cli-{}-{arch}{EXT}", capitalize_string(PLATFORM));
-        info!("Looking for file named: {}", ref_name);
+        info!("Looking for file named: {ref_name}");
 
         if resp.status() == 200 {
             let info: RegistryRelease = resp.convert()?;
             for (filename, _download_url) in info.file_urls {
-                info!("Found asset {}", filename);
+                info!("Found asset {filename}");
                 if filename == ref_name {
                     return Ok(Some(SentryCliRelease {
                         version: info.version,
@@ -355,12 +354,6 @@ impl Api {
     /// Compresses a file with the given compression.
     fn compress(data: &[u8], compression: ChunkCompression) -> Result<Vec<u8>, io::Error> {
         Ok(match compression {
-            ChunkCompression::Brotli => {
-                let mut encoder = BrotliEncoder::new(Vec::new(), 6);
-                encoder.write_all(data)?;
-                encoder.finish()?
-            }
-
             ChunkCompression::Gzip => {
                 let mut encoder = GzEncoder::new(Vec::new(), Default::default());
                 encoder.write_all(data)?;
@@ -427,7 +420,7 @@ impl Api {
     }
 }
 
-impl<'a> AuthenticatedApi<'a> {
+impl AuthenticatedApi<'_> {
     // Pass through low-level methods to API.
 
     /// Convenience method to call self.api.get.
@@ -463,220 +456,11 @@ impl<'a> AuthenticatedApi<'a> {
         self.get("/")?.convert()
     }
 
-    /// Lists release files for the given `release`, filtered by a set of checksums.
-    /// When empty checksums list is provided, fetches all possible artifacts.
-    pub fn list_release_files_by_checksum(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        release: &str,
-        checksums: &[String],
-    ) -> ApiResult<Vec<Artifact>> {
-        let mut rv = vec![];
-        let mut cursor = "".to_owned();
-        loop {
-            let mut path = if let Some(project) = project {
-                format!(
-                    "/projects/{}/{}/releases/{}/files/?cursor={}",
-                    PathArg(org),
-                    PathArg(project),
-                    PathArg(release),
-                    QueryArg(&cursor),
-                )
-            } else {
-                format!(
-                    "/organizations/{}/releases/{}/files/?cursor={}",
-                    PathArg(org),
-                    PathArg(release),
-                    QueryArg(&cursor),
-                )
-            };
-
-            let mut checksums_qs = String::new();
-            for checksum in checksums.iter() {
-                checksums_qs.push_str(&format!("&checksum={}", QueryArg(checksum)));
-            }
-            // We have a 16kb buffer for reach request configured in nginx,
-            // so do not even bother trying if it's too long.
-            // (16_384 limit still leaves us with 384 bytes for the url itself).
-            if !checksums_qs.is_empty() && checksums_qs.len() <= 16_000 {
-                path.push_str(&checksums_qs);
-            }
-
-            let resp = self.get(&path)?;
-            if resp.status() == 404 || (resp.status() == 400 && !cursor.is_empty()) {
-                if rv.is_empty() {
-                    return Err(ApiErrorKind::ReleaseNotFound.into());
-                } else {
-                    break;
-                }
-            }
-
-            let pagination = resp.pagination();
-            rv.extend(resp.convert::<Vec<Artifact>>()?);
-            if let Some(next) = pagination.into_next_cursor() {
-                cursor = next;
-            } else {
-                break;
-            }
-        }
-        Ok(rv)
-    }
-
-    /// Lists all the release files for the given `release`.
-    pub fn list_release_files(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        release: &str,
-    ) -> ApiResult<Vec<Artifact>> {
-        self.list_release_files_by_checksum(org, project, release, &[])
-    }
-
-    /// Get a single release file and store it inside provided descriptor.
-    pub fn get_release_file(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        version: &str,
-        file_id: &str,
-        file_desc: &mut File,
-    ) -> Result<(), ApiError> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/releases/{}/files/{}/?download=1",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version),
-                PathArg(file_id)
-            )
-        } else {
-            format!(
-                "/organizations/{}/releases/{}/files/{}/?download=1",
-                PathArg(org),
-                PathArg(version),
-                PathArg(file_id)
-            )
-        };
-
-        let resp = self.api.download(&path, file_desc)?;
-        if resp.status() == 404 {
-            resp.convert_rnf(ApiErrorKind::ResourceNotFound)
-        } else {
-            Ok(())
-        }
-    }
-
-    /// Get a single release file metadata.
-    pub fn get_release_file_metadata(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        version: &str,
-        file_id: &str,
-    ) -> ApiResult<Option<Artifact>> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/releases/{}/files/{}/",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version),
-                PathArg(file_id)
-            )
-        } else {
-            format!(
-                "/organizations/{}/releases/{}/files/{}/",
-                PathArg(org),
-                PathArg(version),
-                PathArg(file_id)
-            )
-        };
-
-        let resp = self.get(&path)?;
-        if resp.status() == 404 {
-            Ok(None)
-        } else {
-            resp.convert()
-        }
-    }
-
-    /// Deletes a single release file.  Returns `true` if the file was
-    /// deleted or `false` otherwise.
-    pub fn delete_release_file(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        version: &str,
-        file_id: &str,
-    ) -> ApiResult<bool> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/releases/{}/files/{}/",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version),
-                PathArg(file_id)
-            )
-        } else {
-            format!(
-                "/organizations/{}/releases/{}/files/{}/",
-                PathArg(org),
-                PathArg(version),
-                PathArg(file_id)
-            )
-        };
-
-        let resp = self.delete(&path)?;
-        if resp.status() == 404 {
-            Ok(false)
-        } else {
-            resp.into_result().map(|_| true)
-        }
-    }
-
-    /// Deletes all release files.  Returns `true` if files were
-    /// deleted or `false` otherwise.
-    pub fn delete_release_files(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        version: &str,
-    ) -> ApiResult<()> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/files/source-maps/?name={}",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version)
-            )
-        } else {
-            format!(
-                "/organizations/{}/files/source-maps/?name={}",
-                PathArg(org),
-                PathArg(version)
-            )
-        };
-
-        self.delete(&path)?.into_result().map(|_| ())
-    }
-
     /// Creates a new release.
     pub fn new_release(&self, org: &str, release: &NewRelease) -> ApiResult<ReleaseInfo> {
-        // for single project releases use the legacy endpoint that is project bound.
-        // This means we can support both old and new servers.
-        if release.projects.len() == 1 {
-            let path = format!(
-                "/projects/{}/{}/releases/",
-                PathArg(org),
-                PathArg(&release.projects[0])
-            );
-            self.post(&path, release)?
-                .convert_rnf(ApiErrorKind::ProjectNotFound)
-        } else {
-            let path = format!("/organizations/{}/releases/", PathArg(org));
-            self.post(&path, release)?
-                .convert_rnf(ApiErrorKind::OrganizationNotFound)
-        }
+        let path = format!("/organizations/{}/releases/", PathArg(org));
+        self.post(&path, release)?
+            .convert_rnf(ApiErrorKind::OrganizationNotFound)
     }
 
     /// Updates a release.
@@ -686,29 +470,20 @@ impl<'a> AuthenticatedApi<'a> {
         version: &str,
         release: &UpdatedRelease,
     ) -> ApiResult<ReleaseInfo> {
-        if_chain! {
-            if let Some(ref projects) = release.projects;
-            if projects.len() == 1;
-            then {
-                let path = format!("/projects/{}/{}/releases/{}/",
-                    PathArg(org),
-                    PathArg(&projects[0]),
-                    PathArg(version)
-                );
-                self.put(&path, release)?.convert_rnf(ApiErrorKind::ReleaseNotFound)
-            } else {
-                if release.version.is_some() {
-                    let path = format!("/organizations/{}/releases/",
-                                    PathArg(org));
-                    return self.post(&path, release)?.convert_rnf(ApiErrorKind::ReleaseNotFound)
-                }
-
-                let path = format!("/organizations/{}/releases/{}/",
-                                PathArg(org),
-                                PathArg(version));
-                self.put(&path, release)?.convert_rnf(ApiErrorKind::ReleaseNotFound)
-            }
+        if release.version.is_some() {
+            let path = format!("/organizations/{}/releases/", PathArg(org));
+            return self
+                .post(&path, release)?
+                .convert_rnf(ApiErrorKind::ReleaseNotFound);
         }
+
+        let path = format!(
+            "/organizations/{}/releases/{}/",
+            PathArg(org),
+            PathArg(version)
+        );
+        self.put(&path, release)?
+            .convert_rnf(ApiErrorKind::ReleaseNotFound)
     }
 
     /// Sets release commits
@@ -732,28 +507,14 @@ impl<'a> AuthenticatedApi<'a> {
     }
 
     /// Deletes an already existing release.  Returns `true` if it was deleted
-    /// or `false` if not.  The project is needed to support the old deletion
-    /// API.
-    pub fn delete_release(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        version: &str,
-    ) -> ApiResult<bool> {
-        let resp = if let Some(project) = project {
-            self.delete(&format!(
-                "/projects/{}/{}/releases/{}/",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version)
-            ))?
-        } else {
-            self.delete(&format!(
-                "/organizations/{}/releases/{}/",
-                PathArg(org),
-                PathArg(version)
-            ))?
-        };
+    /// or `false` if not.
+    pub fn delete_release(&self, org: &str, version: &str) -> ApiResult<bool> {
+        let resp = self.delete(&format!(
+            "/organizations/{}/releases/{}/",
+            PathArg(org),
+            PathArg(version)
+        ))?;
+
         if resp.status() == 404 {
             Ok(false)
         } else {
@@ -763,26 +524,12 @@ impl<'a> AuthenticatedApi<'a> {
 
     /// Looks up a release and returns it.  If it does not exist `None`
     /// will be returned.
-    pub fn get_release(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        version: &str,
-    ) -> ApiResult<Option<ReleaseInfo>> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/releases/{}/",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version)
-            )
-        } else {
-            format!(
-                "/organizations/{}/releases/{}/",
-                PathArg(org),
-                PathArg(version)
-            )
-        };
+    pub fn get_release(&self, org: &str, version: &str) -> ApiResult<Option<ReleaseInfo>> {
+        let path = format!(
+            "/organizations/{}/releases/{}/",
+            PathArg(org),
+            PathArg(version)
+        );
         let resp = self.get(&path)?;
         if resp.status() == 404 {
             Ok(None)
@@ -810,23 +557,13 @@ impl<'a> AuthenticatedApi<'a> {
     pub fn get_release_commits(
         &self,
         org: &str,
-        project: Option<&str>,
         version: &str,
     ) -> ApiResult<Option<Vec<ReleaseCommit>>> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/releases/{}/commits/",
-                PathArg(org),
-                PathArg(project),
-                PathArg(version)
-            )
-        } else {
-            format!(
-                "/organizations/{}/releases/{}/commits/",
-                PathArg(org),
-                PathArg(version)
-            )
-        };
+        let path = format!(
+            "/organizations/{}/releases/{}/commits/",
+            PathArg(org),
+            PathArg(version)
+        );
         let resp = self.get(&path)?;
         if resp.status() == 404 {
             Ok(None)
@@ -856,7 +593,12 @@ impl<'a> AuthenticatedApi<'a> {
     }
 
     /// Creates a new deploy for a release.
-    pub fn create_deploy(&self, org: &str, version: &str, deploy: &Deploy) -> ApiResult<Deploy> {
+    pub fn create_deploy(
+        &self,
+        org: &str,
+        version: &str,
+        deploy: &Deploy,
+    ) -> ApiResult<Deploy<'_>> {
         let path = format!(
             "/organizations/{}/releases/{}/deploys/",
             PathArg(org),
@@ -868,7 +610,7 @@ impl<'a> AuthenticatedApi<'a> {
     }
 
     /// Lists all deploys for a release
-    pub fn list_deploys(&self, org: &str, version: &str) -> ApiResult<Vec<Deploy>> {
+    pub fn list_deploys(&self, org: &str, version: &str) -> ApiResult<Vec<Deploy<'_>>> {
         let path = format!(
             "/organizations/{}/releases/{}/deploys/",
             PathArg(org),
@@ -904,50 +646,11 @@ impl<'a> AuthenticatedApi<'a> {
         .map(|_| true)
     }
 
-    /// Given a list of checksums for DIFs, this returns a list of those
-    /// that do not exist for the project yet.
-    pub fn find_missing_dif_checksums<I>(
-        &self,
-        org: &str,
-        project: &str,
-        checksums: I,
-    ) -> ApiResult<HashSet<Digest>>
-    where
-        I: IntoIterator<Item = Digest>,
-    {
-        let mut url = format!(
-            "/projects/{}/{}/files/dsyms/unknown/?",
-            PathArg(org),
-            PathArg(project)
-        );
-        for (idx, checksum) in checksums.into_iter().enumerate() {
-            if idx > 0 {
-                url.push('&');
-            }
-            url.push_str("checksums=");
-            url.push_str(&checksum.to_string());
-        }
-
-        let state: MissingChecksumsResponse = self.get(&url)?.convert()?;
-        Ok(state.missing)
-    }
-
     /// Get the server configuration for chunked file uploads.
-    pub fn get_chunk_upload_options(&self, org: &str) -> ApiResult<Option<ChunkServerOptions>> {
+    pub fn get_chunk_upload_options(&self, org: &str) -> ApiResult<ChunkServerOptions> {
         let url = format!("/organizations/{}/chunk-upload/", PathArg(org));
-        match self
-            .get(&url)?
-            .convert_rnf::<ChunkServerOptions>(ApiErrorKind::ChunkUploadNotSupported)
-        {
-            Ok(options) => Ok(Some(options)),
-            Err(error) => {
-                if error.kind() == ApiErrorKind::ChunkUploadNotSupported {
-                    Ok(None)
-                } else {
-                    Err(error)
-                }
-            }
-        }
+        self.get(&url)?
+            .convert_rnf::<ChunkServerOptions>(ApiErrorKind::OrganizationNotFound)
     }
 
     /// Request DIF assembling and processing from chunks.
@@ -969,35 +672,10 @@ impl<'a> AuthenticatedApi<'a> {
             .convert_rnf(ApiErrorKind::ProjectNotFound)
     }
 
-    pub fn assemble_release_artifacts(
-        &self,
-        org: &str,
-        release: &str,
-        checksum: Digest,
-        chunks: &[Digest],
-    ) -> ApiResult<AssembleArtifactsResponse> {
-        let url = format!(
-            "/organizations/{}/releases/{}/assemble/",
-            PathArg(org),
-            PathArg(release)
-        );
-
-        self.request(Method::Post, &url)?
-            .with_json_body(&ChunkedArtifactRequest {
-                checksum,
-                chunks,
-                projects: &[],
-                version: None,
-                dist: None,
-            })?
-            .send()?
-            .convert_rnf(ApiErrorKind::ReleaseNotFound)
-    }
-
     pub fn assemble_artifact_bundle(
         &self,
         org: &str,
-        projects: &[String],
+        projects: NonEmptySlice<'_, String>,
         checksum: Digest,
         chunks: &[Digest],
         version: Option<&str>,
@@ -1009,7 +687,7 @@ impl<'a> AuthenticatedApi<'a> {
             .with_json_body(&ChunkedArtifactRequest {
                 checksum,
                 chunks,
-                projects,
+                projects: projects.into(),
                 version,
                 dist,
             })?
@@ -1017,16 +695,12 @@ impl<'a> AuthenticatedApi<'a> {
             .convert_rnf(ApiErrorKind::ReleaseNotFound)
     }
 
-    #[cfg(feature = "unstable-mobile-app")]
-    pub fn assemble_mobile_app(
+    pub fn assemble_build(
         &self,
         org: &str,
         project: &str,
-        checksum: Digest,
-        chunks: &[Digest],
-        git_sha: Option<&str>,
-        build_configuration: Option<&str>,
-    ) -> ApiResult<AssembleMobileAppResponse> {
+        request: &ChunkedBuildRequest<'_>,
+    ) -> ApiResult<AssembleBuildResponse> {
         let url = format!(
             "/projects/{}/{}/files/preprodartifacts/assemble/",
             PathArg(org),
@@ -1034,44 +708,9 @@ impl<'a> AuthenticatedApi<'a> {
         );
 
         self.request(Method::Post, &url)?
-            .with_json_body(&ChunkedMobileAppRequest {
-                checksum,
-                chunks,
-                git_sha,
-                build_configuration,
-            })?
+            .with_json_body(&request)?
             .send()?
             .convert_rnf(ApiErrorKind::ProjectNotFound)
-    }
-
-    pub fn associate_proguard_mappings(
-        &self,
-        org: &str,
-        project: &str,
-        data: &AssociateProguard,
-    ) -> ApiResult<()> {
-        let path = format!(
-            "/projects/{}/{}/files/proguard-artifact-releases",
-            PathArg(org),
-            PathArg(project)
-        );
-        let resp: ApiResponse = self
-            .request(Method::Post, &path)?
-            .with_json_body(data)?
-            .send()?;
-        if resp.status() == 201 {
-            Ok(())
-        } else if resp.status() == 409 {
-            info!(
-                "Release association for release '{}', UUID '{}' already exists.",
-                data.release_name, data.proguard_uuid
-            );
-            Ok(())
-        } else if resp.status() == 404 {
-            return Err(ApiErrorKind::ResourceNotFound.into());
-        } else {
-            resp.convert()
-        }
     }
 
     /// List all organizations associated with the authenticated token
@@ -1226,6 +865,29 @@ impl<'a> AuthenticatedApi<'a> {
         Ok(rv)
     }
 
+    /// Fetch organization events from the specified dataset
+    pub fn fetch_organization_events(
+        &self,
+        org: &str,
+        options: &FetchEventsOptions,
+    ) -> ApiResult<Vec<LogEntry>> {
+        let params = options.to_query_params();
+        let url = format!(
+            "/organizations/{}/events/?{}",
+            PathArg(org),
+            params.join("&")
+        );
+
+        let resp = self.get(&url)?;
+
+        if resp.status() == 404 {
+            return Err(ApiErrorKind::OrganizationNotFound.into());
+        }
+
+        let logs_response: LogsResponse = resp.convert()?;
+        Ok(logs_response.data)
+    }
+
     /// List all issues associated with an organization and a project
     pub fn list_organization_project_issues(
         &self,
@@ -1304,172 +966,76 @@ impl<'a> AuthenticatedApi<'a> {
         }
         Ok(rv)
     }
+}
 
-    /// Looks up an event, which was already processed by Sentry and returns it.
-    /// If it does not exist `None` will be returned.
-    pub fn get_event(
-        &self,
-        org: &str,
-        project: Option<&str>,
-        event_id: &str,
-    ) -> ApiResult<Option<ProcessedEvent>> {
-        let path = if let Some(project) = project {
-            format!(
-                "/projects/{}/{}/events/{}/json/",
-                PathArg(org),
-                PathArg(project),
-                PathArg(event_id)
-            )
-        } else {
-            format!(
-                "/organizations/{}/events/{}/json/",
-                PathArg(org),
-                PathArg(event_id)
-            )
-        };
+/// Available datasets for fetching organization events
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Dataset {
+    /// Our logs dataset
+    Logs,
+}
 
-        let resp = self.get(&path)?;
-        if resp.status() == 404 {
-            Ok(None)
-        } else {
-            resp.convert()
-        }
-    }
-
-    fn get_region_url(&self, org: &str) -> ApiResult<String> {
-        self.get(&format!("/organizations/{org}/region/"))
-            .and_then(|resp| resp.convert::<Region>())
-            .map(|region| region.url)
-    }
-
-    pub fn region_specific(&'a self, org: &'a str) -> RegionSpecificApi<'a> {
-        let base_url = self.api.config.get_base_url();
-        if base_url.is_err()
-            || base_url.expect("base_url should not be error") != DEFAULT_URL.trim_end_matches('/')
-        {
-            // Do not specify a region URL unless the URL is configured to https://sentry.io (i.e. the default).
-            return RegionSpecificApi {
-                api: self,
-                org,
-                region_url: None,
-            };
-        }
-
-        let region_url = match self
-            .api
-            .config
-            .get_auth()
-            .expect("auth should not be None for authenticated API!")
-        {
-            Auth::Token(token) => match token.payload() {
-                Some(payload) => Some(payload.region_url.clone().into()),
-                None => {
-                    let region_url = self.get_region_url(org);
-                    if let Err(err) = &region_url {
-                        log::warn!("Failed to get region URL due to following error: {err}");
-                        log::info!("Failling back to the default region.");
-                    }
-
-                    region_url.ok().map(|url| url.into())
-                }
-            },
-            Auth::Key(_) => {
-                log::warn!(
-                    "Auth key is not supported for region-specific API. Falling back to default region."
-                );
-
-                None
-            }
-        };
-
-        RegionSpecificApi {
-            api: self,
-            org,
-            region_url,
+impl Dataset {
+    /// Returns the string representation of the dataset
+    fn as_str(&self) -> &'static str {
+        match self {
+            Dataset::Logs => "logs",
         }
     }
 }
 
-impl RegionSpecificApi<'_> {
-    fn request(&self, method: Method, url: &str) -> ApiResult<ApiRequest> {
-        self.api
-            .api
-            .request(method, url, self.region_url.as_deref())
+impl fmt::Display for Dataset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_str())
     }
+}
 
-    /// Uploads a ZIP archive containing DIFs from the given path.
-    pub fn upload_dif_archive(&self, project: &str, file: &Path) -> ApiResult<Vec<DebugInfoFile>> {
-        let path = format!(
-            "/projects/{}/{}/files/dsyms/",
-            PathArg(self.org),
-            PathArg(project)
-        );
-        let mut form = curl::easy::Form::new();
-        form.part("file").file(file).add()?;
-        self.request(Method::Post, &path)?
-            .with_form_data(form)?
-            .progress_bar_mode(ProgressBarMode::Request)
-            .send()?
-            .convert()
-    }
+/// Options for fetching organization events
+pub struct FetchEventsOptions<'a> {
+    /// Dataset to fetch events from
+    pub dataset: Dataset,
+    /// Fields to include in the response
+    pub fields: &'a [&'a str],
+    /// Project ID to filter events by
+    pub project_id: Option<&'a str>,
+    /// Cursor for pagination
+    pub cursor: Option<&'a str>,
+    /// Query string to filter events
+    pub query: &'a str,
+    /// Number of events per page
+    pub per_page: usize,
+    /// Time period for stats
+    pub stats_period: &'a str,
+    /// Sort order
+    pub sort: &'a str,
+}
 
-    /// Uploads a new release file.  The file is loaded directly from the file
-    /// system and uploaded as `name`.
-    pub fn upload_release_file(
-        &self,
-        context: &LegacyUploadContext,
-        contents: &[u8],
-        name: &str,
-        headers: Option<&[(String, String)]>,
-        progress_bar_mode: ProgressBarMode,
-    ) -> ApiResult<Option<Artifact>> {
-        let path = if let Some(project) = context.project() {
-            format!(
-                "/projects/{}/{}/releases/{}/files/",
-                PathArg(context.org()),
-                PathArg(project),
-                PathArg(context.release())
-            )
-        } else {
-            format!(
-                "/organizations/{}/releases/{}/files/",
-                PathArg(context.org()),
-                PathArg(context.release())
-            )
-        };
+impl FetchEventsOptions<'_> {
+    /// Generate query parameters as a vector of strings
+    pub fn to_query_params(&self) -> Vec<String> {
+        let mut params = vec![format!("dataset={}", QueryArg(self.dataset.as_str()))];
 
-        let mut form = curl::easy::Form::new();
-
-        let filename = Path::new(name)
-            .file_name()
-            .and_then(OsStr::to_str)
-            .unwrap_or("unknown.bin");
-        form.part("file")
-            .buffer(filename, contents.to_vec())
-            .add()?;
-        form.part("name").contents(name.as_bytes()).add()?;
-        if let Some(dist) = context.dist() {
-            form.part("dist").contents(dist.as_bytes()).add()?;
+        for field in self.fields {
+            params.push(format!("field={}", QueryArg(field)));
         }
 
-        if let Some(headers) = headers {
-            for (key, value) in headers {
-                form.part("header")
-                    .contents(format!("{key}:{value}").as_bytes())
-                    .add()?;
+        if let Some(cursor) = self.cursor {
+            params.push(format!("cursor={}", QueryArg(cursor)));
+        }
+
+        if let Some(project) = self.project_id {
+            if !project.is_empty() {
+                params.push(format!("project={}", QueryArg(project)));
             }
         }
-
-        let resp = self
-            .request(Method::Post, &path)?
-            .with_form_data(form)?
-            .progress_bar_mode(progress_bar_mode)
-            .send()?;
-        if resp.status() == 409 {
-            Ok(None)
-        } else {
-            resp.convert_rnf(ApiErrorKind::ReleaseNotFound)
+        if !self.query.is_empty() {
+            params.push(format!("query={}", QueryArg(self.query)));
         }
+        params.push(format!("per_page={}", self.per_page));
+        params.push(format!("statsPeriod={}", QueryArg(self.stats_period)));
+        params.push(format!("sort={}", QueryArg(self.sort)));
+
+        params
     }
 }
 
@@ -1520,19 +1086,10 @@ fn handle_req<W: Write>(
             })?;
         } else if progress_bar_mode.active() {
             let pb_progress = pb.clone();
-            handle.progress_function(move |a, b, c, d| {
-                let (down_len, down_pos, up_len, up_pos) = (a as u64, b as u64, c as u64, d as u64);
+            #[expect(clippy::unwrap_used, reason = "legacy code")]
+            handle.progress_function(move |a, b, _, _| {
+                let (down_len, down_pos) = (a as u64, b as u64);
                 let mut pb = pb_progress.borrow_mut();
-                if up_len > 0 && progress_bar_mode.request() {
-                    if up_pos < up_len {
-                        if pb.is_none() {
-                            *pb = Some(make_byte_progress_bar(up_len));
-                        }
-                        pb.as_ref().unwrap().set_position(up_pos);
-                    } else if pb.is_some() {
-                        pb.take().unwrap().finish_and_clear();
-                    }
-                }
                 if down_len > 0 && progress_bar_mode.response() {
                     if down_pos < down_len {
                         if pb.is_none() {
@@ -1573,8 +1130,8 @@ fn handle_req<W: Write>(
         handle.perform()?;
     }
 
-    if pb.borrow().is_some() {
-        pb.borrow().as_ref().unwrap().finish_and_clear();
+    if let Some(pb) = pb.borrow().as_ref() {
+        pb.finish_and_clear();
     }
 
     Ok((handle.response_code()?, headers))
@@ -1609,8 +1166,6 @@ impl ApiRequest {
         pipeline_env: Option<String>,
         global_headers: Option<Vec<String>>,
     ) -> ApiResult<Self> {
-        debug!("request {} {}", method, url);
-
         let mut headers = curl::easy::List::new();
         headers.append("Expect:").ok();
 
@@ -1622,7 +1177,7 @@ impl ApiRequest {
 
         match pipeline_env {
             Some(env) => {
-                debug!("pipeline: {}", env);
+                debug!("pipeline: {env}");
                 headers
                     .append(&format!("User-Agent: sentry-cli/{VERSION} {env}"))
                     .ok();
@@ -1663,11 +1218,6 @@ impl ApiRequest {
     pub fn with_auth(mut self, auth: &Auth) -> ApiResult<Self> {
         self.is_authenticated = true;
         match *auth {
-            Auth::Key(ref key) => {
-                self.handle.username(key)?;
-                debug!("using key based authentication");
-                Ok(self)
-            }
             Auth::Token(ref token) => {
                 debug!("using token authentication");
                 self.with_header(
@@ -1710,8 +1260,9 @@ impl ApiRequest {
     }
 
     /// enables or disables redirects.  The default is off.
+    #[cfg(any(target_os = "macos", not(feature = "managed")))]
     pub fn follow_location(mut self, val: bool) -> ApiResult<Self> {
-        debug!("follow redirects: {}", val);
+        debug!("follow redirects: {val}");
         self.handle.follow_location(val)?;
         Ok(self)
     }
@@ -1726,6 +1277,7 @@ impl ApiRequest {
     fn get_headers(&self) -> curl::easy::List {
         let mut result = curl::easy::List::new();
         for header_bytes in self.headers.iter() {
+            #[expect(clippy::unwrap_used, reason = "legacy code")]
             let header = String::from_utf8(header_bytes.to_vec()).unwrap();
             result.append(&header).ok();
         }
@@ -1740,7 +1292,6 @@ impl ApiRequest {
         let body = self.body.as_deref();
         let (status, headers) =
             send_req(&mut self.handle, out, body, self.progress_bar_mode.clone())?;
-        debug!("response status: {}", status);
         Ok(ApiResponse {
             status,
             headers,
@@ -1752,30 +1303,42 @@ impl ApiRequest {
     pub fn send(mut self) -> ApiResult<ApiResponse> {
         let max_retries = Config::current().max_retries();
 
-        let mut backoff = get_default_backoff();
-        let mut retry_number = 0;
+        let backoff = get_default_backoff().with_max_times(max_retries as usize);
+        let retry_number = RefCell::new(0);
 
-        loop {
+        let send_req = || {
             let mut out = vec![];
-            debug!("retry number {retry_number}, max retries: {max_retries}",);
+            let mut retry_number = retry_number.borrow_mut();
+
+            debug!("retry number {retry_number}, max retries: {max_retries}");
+            *retry_number += 1;
 
             let mut rv = self.send_into(&mut out)?;
-            if retry_number >= max_retries || !RETRY_STATUS_CODES.contains(&rv.status) {
-                rv.body = Some(out);
-                return Ok(rv);
+            rv.body = Some(out);
+
+            if RETRY_STATUS_CODES.contains(&rv.status) {
+                anyhow::bail!(RetryError::new(rv));
             }
 
-            // Exponential backoff
-            let backoff_timeout = backoff.next_backoff().unwrap();
-            debug!(
-                "retry number {}, retrying again in {} ms",
-                retry_number,
-                backoff_timeout.as_milliseconds()
-            );
-            std::thread::sleep(backoff_timeout);
+            Ok(rv)
+        };
 
-            retry_number += 1;
-        }
+        send_req
+            .retry(backoff)
+            .sleep(thread::sleep)
+            .when(|e| e.is::<RetryError>())
+            .notify(|e, dur| {
+                debug!(
+                    "retry number {} failed due to {e:#}, retrying again in {} ms",
+                    *retry_number.borrow() - 1,
+                    dur.as_milliseconds()
+                );
+            })
+            .call()
+            .or_else(|err| match err.downcast::<RetryError>() {
+                Ok(err) => Ok(err.into_body()),
+                Err(err) => Err(ApiError::with_source(ApiErrorKind::RequestFailed, err)),
+            })
     }
 }
 
@@ -1800,7 +1363,7 @@ impl ApiResponse {
     pub fn into_result(self) -> ApiResult<Self> {
         if let Some(ref body) = self.body {
             let body = String::from_utf8_lossy(body);
-            debug!("body: {}", body);
+            debug!("body: {body}");
         }
         if self.ok() {
             return Ok(self);
@@ -1919,7 +1482,8 @@ impl ApiResponse {
 
 fn log_headers(is_response: bool, data: &[u8]) {
     lazy_static! {
-        static ref AUTH_RE: Regex = Regex::new(r"(?i)(authorization):\s*([\w]+)\s+(.*)").unwrap();
+        static ref AUTH_RE: Regex =
+            Regex::new(r"(?i)(authorization):\s*([\w]+)\s+(.*)").expect("regex is valid");
     }
     if let Ok(header) = std::str::from_utf8(data) {
         for line in header.lines() {
@@ -1929,13 +1493,14 @@ fn log_headers(is_response: bool, data: &[u8]) {
 
             let replaced = AUTH_RE.replace_all(line, |caps: &Captures<'_>| {
                 let info = if &caps[1].to_lowercase() == "basic" {
+                    #[expect(clippy::unwrap_used, reason = "legacy code")]
                     caps[3].split(':').next().unwrap().to_owned()
                 } else {
                     format!("{}***", &caps[3][..std::cmp::min(caps[3].len(), 8)])
                 };
                 format!("{}: {} {info}", &caps[1], &caps[2])
             });
-            debug!("{} {}", if is_response { ">" } else { "<" }, replaced);
+            debug!("{} {replaced}", if is_response { ">" } else { "<" });
         }
     }
 }
@@ -1968,27 +1533,11 @@ pub struct AuthInfo {
     pub user: Option<User>,
 }
 
-/// A release artifact
-#[derive(Clone, Deserialize, Debug)]
-pub struct Artifact {
-    pub id: String,
-    pub sha1: String,
-    pub name: String,
-    pub size: u64,
-    pub dist: Option<String>,
-    pub headers: HashMap<String, String>,
-}
-
-impl Artifact {
-    pub fn get_sourcemap_reference(&self) -> Option<&str> {
-        get_sourcemap_reference_from_headers(self.headers.iter())
-    }
-}
-
 /// Information for new releases
 #[derive(Debug, Serialize, Default)]
 pub struct NewRelease {
     pub version: String,
+    #[serde(serialize_with = "serialization::serialize_id_slug_list")]
     pub projects: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
@@ -2076,18 +1625,6 @@ pub struct ReleaseCommit {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GitHubAsset {
-    browser_download_url: String,
-    name: String,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-struct GitHubRelease {
-    tag_name: String,
-    assets: Vec<GitHubAsset>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 struct RegistryRelease {
     version: String,
     file_urls: HashMap<String, String>,
@@ -2132,17 +1669,6 @@ impl DebugInfoFile {
     pub fn id(&self) -> DebugId {
         self.id.or(self.uuid).unwrap_or_default()
     }
-}
-
-#[derive(Debug, Serialize)]
-pub struct AssociateProguard {
-    pub release_name: String,
-    pub proguard_uuid: String,
-}
-
-#[derive(Deserialize)]
-struct MissingChecksumsResponse {
-    missing: HashSet<Digest>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -2332,18 +1858,12 @@ pub struct ProcessedEvent {
     #[expect(dead_code)]
     pub project: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub release: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub dist: Option<String>,
-    #[serde(default, skip_serializing_if = "Values::is_empty")]
-    pub exception: Values<Exception>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub user: Option<ProcessedEventUser>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tags: Option<Vec<ProcessedEventTag>>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ProcessedEventUser {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
@@ -2377,7 +1897,7 @@ impl fmt::Display for ProcessedEventUser {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ProcessedEventTag {
     pub key: String,
     pub value: String,
@@ -2400,4 +1920,21 @@ pub struct Region {
 #[derive(Clone, Debug, Deserialize)]
 pub struct RegionResponse {
     pub regions: Vec<Region>,
+}
+
+/// Response structure for logs API
+#[derive(Debug, Deserialize)]
+struct LogsResponse {
+    data: Vec<LogEntry>,
+}
+
+/// Log entry structure from the logs API
+#[derive(Debug, Deserialize, Clone)]
+pub struct LogEntry {
+    #[serde(rename = "sentry.item_id")]
+    pub item_id: String,
+    pub trace: Option<String>,
+    pub severity: Option<String>,
+    pub timestamp: String,
+    pub message: Option<String>,
 }

@@ -32,6 +32,8 @@ AnnotateSpanDocumentsRequestBody = v1.AnnotateSpanDocumentsRequestBody
 AnnotateSpanDocumentsResponseBody = v1.AnnotateSpanDocumentsResponseBody
 AnnotateSpansRequestBody = v1.AnnotateSpansRequestBody
 AnnotateSpansResponseBody = v1.AnnotateSpansResponseBody
+CreateSpanNoteRequestBody = v1.CreateSpanNoteRequestBody
+CreateSpanNoteResponseBody = v1.CreateSpanNoteResponseBody
 CreateSpansResponseBody = v1.CreateSpansResponseBody
 InsertedSpanAnnotation = v1.InsertedSpanAnnotation
 InsertedSpanDocumentAnnotation = v1.InsertedSpanDocumentAnnotation
@@ -42,6 +44,7 @@ SpanAnnotationResult = v1.AnnotationResult
 SpanAnnotationsResponseBody = v1.SpanAnnotationsResponseBody
 SpanDocumentAnnotationData = v1.SpanDocumentAnnotationData
 SpanDocumentAnnotationResult = v1.AnnotationResult
+SpanNoteData = v1.SpanNoteData
 
 DEFAULT_TIMEOUT_IN_SECONDS = 5
 _LOCAL_TIMEZONE = datetime.now(timezone.utc).astimezone().tzinfo
@@ -256,7 +259,8 @@ class Spans:
 
         if spans_dataframe is not None:
             span_ids_raw: list[str] = cast(
-                list[str], spans_dataframe["context.span_id"].dropna().tolist()
+                list[str],
+                spans_dataframe["context.span_id"].dropna().tolist(),  # pyright: ignore[reportUnknownMemberType]
             )
             span_ids_list = list({*span_ids_raw})
         elif span_ids is not None:
@@ -308,7 +312,7 @@ class Spans:
 
         df = pd.DataFrame(annotations)
         df = _flatten_nested_column(df, "result")
-        df.rename(columns={"name": "annotation_name"}, inplace=True)
+        df.rename(columns={"name": "annotation_name"}, inplace=True)  # pyright: ignore[reportUnknownMemberType]
         if not df.empty:
             df.set_index("span_id", inplace=True)  # type: ignore[unused-ignore]
         return df
@@ -715,6 +719,59 @@ class Spans:
         if res := self.log_span_annotations(span_annotations=[anno], sync=sync):
             return res[0]
         return None
+
+    def add_span_note(
+        self,
+        *,
+        span_id: str,
+        note: str,
+    ) -> InsertedSpanAnnotation:
+        """Add a note to a span.
+
+        Notes are a special type of annotation that allow multiple entries per span
+        (unlike regular annotations which are unique by name and identifier). Each note
+        gets a unique timestamp-based identifier automatically.
+
+        Args:
+            span_id (str): The OpenTelemetry span ID of the span to add the note to.
+            note (str): The text content of the note.
+
+        Returns:
+            InsertedSpanAnnotation: The inserted span annotation containing the ID.
+
+        Raises:
+            ValueError: If span_id or note is empty (after stripping whitespace).
+            httpx.HTTPStatusError: If the span is not found (404) or other API errors.
+            httpx.HTTPError: If the request fails.
+
+        Example::
+
+            from phoenix.client import Client
+            client = Client()
+
+            # Add a note to a span
+            result = client.spans.add_span_note(
+                span_id="abc123def456",
+                note="This span shows interesting behavior.",
+            )
+            print(f"Note created with ID: {result['id']}")
+        """
+        span_id = span_id.strip()
+        if not span_id:
+            raise ValueError("Span ID cannot be empty")
+        note = note.strip()
+        if not note:
+            raise ValueError("Note cannot be empty")
+        url = "v1/span_notes"
+        json_: CreateSpanNoteRequestBody = {
+            "data": {
+                "span_id": span_id,
+                "note": note,
+            }
+        }
+        response = self._client.post(url=url, json=json_)
+        response.raise_for_status()
+        return cast(CreateSpanNoteResponseBody, response.json())["data"]
 
     @overload
     def log_span_annotations_dataframe(
@@ -1427,7 +1484,8 @@ class AsyncSpans:
 
         if spans_dataframe is not None:
             span_ids_raw: list[str] = cast(
-                list[str], spans_dataframe["context.span_id"].dropna().tolist()
+                list[str],
+                spans_dataframe["context.span_id"].dropna().tolist(),  # pyright: ignore[reportUnknownMemberType]
             )
             span_ids_list = list({*span_ids_raw})
         elif span_ids is not None:
@@ -1479,7 +1537,7 @@ class AsyncSpans:
 
         df = pd.DataFrame(annotations)
         df = _flatten_nested_column(df, "result")
-        df.rename(columns={"name": "annotation_name"}, inplace=True)
+        df.rename(columns={"name": "annotation_name"}, inplace=True)  # pyright: ignore[reportUnknownMemberType]
         if not df.empty:
             df.set_index("span_id", inplace=True)  # type: ignore[unused-ignore]
         return df
@@ -1885,6 +1943,59 @@ class AsyncSpans:
         if res := await self.log_span_annotations(span_annotations=[anno], sync=sync):
             return res[0]
         return None
+
+    async def add_span_note(
+        self,
+        *,
+        span_id: str,
+        note: str,
+    ) -> InsertedSpanAnnotation:
+        """Add a note to a span asynchronously.
+
+        Notes are a special type of annotation that allow multiple entries per span
+        (unlike regular annotations which are unique by name and identifier). Each note
+        gets a unique timestamp-based identifier automatically.
+
+        Args:
+            span_id (str): The OpenTelemetry span ID of the span to add the note to.
+            note (str): The text content of the note.
+
+        Returns:
+            InsertedSpanAnnotation: The inserted span annotation containing the ID.
+
+        Raises:
+            ValueError: If span_id or note is empty (after stripping whitespace).
+            httpx.HTTPStatusError: If the span is not found (404) or other API errors.
+            httpx.HTTPError: If the request fails.
+
+        Example::
+
+            from phoenix.client import AsyncClient
+            client = AsyncClient()
+
+            # Add a note to a span
+            result = await client.spans.add_span_note(
+                span_id="abc123def456",
+                note="This span shows interesting behavior.",
+            )
+            print(f"Note created with ID: {result['id']}")
+        """
+        span_id = span_id.strip()
+        if not span_id:
+            raise ValueError("Span ID cannot be empty")
+        note = note.strip()
+        if not note:
+            raise ValueError("Note cannot be empty")
+        url = "v1/span_notes"
+        json_: CreateSpanNoteRequestBody = {
+            "data": {
+                "span_id": span_id,
+                "note": note,
+            }
+        }
+        response = await self._client.post(url=url, json=json_)
+        response.raise_for_status()
+        return cast(CreateSpanNoteResponseBody, response.json())["data"]
 
     @overload
     async def log_span_annotations_dataframe(
@@ -2512,9 +2623,9 @@ def _flatten_nested_column(df: "pd.DataFrame", column_name: str) -> "pd.DataFram
         # Flatten the nested dictionary column and prefix each resulting column with
         # the original column name (e.g., "result.label").
         nested_df = pd.json_normalize(df[column_name]).rename(  # type: ignore[arg-type]
-            columns=lambda col: f"{column_name}.{col}"
+            columns=lambda col: f"{column_name}.{col}"  # pyright: ignore[reportUnknownLambdaType]
         )
-        df = pd.concat([df.drop(columns=[column_name]), nested_df], axis=1)
+        df = pd.concat([df.drop(columns=[column_name]), nested_df], axis=1)  # pyright: ignore[reportUnknownMemberType]
     return df
 
 

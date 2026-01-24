@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: marimo
-Version: 0.16.1
+Version: 0.19.6
 Summary: A library for making reactive notebooks and apps
 License: 
                                           Apache License
@@ -212,74 +212,51 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Education
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Dist: click>=8.0,<9
 Requires-Dist: jedi>=0.18.0
 Requires-Dist: markdown>=3.6,<4
 Requires-Dist: pymdown-extensions>=10.15,<11
-Requires-Dist: pygments>=2.13,<3
+Requires-Dist: pygments>=2.19,<3
 Requires-Dist: tomlkit>=0.12.0
-Requires-Dist: pyyaml>=6.0
-Requires-Dist: uvicorn>=0.22.0,<0.36.0
-Requires-Dist: starlette>=0.35.0,!=0.36.0
+Requires-Dist: pyyaml>=6.0.1
+Requires-Dist: uvicorn>=0.22.0
+Requires-Dist: starlette>=0.37.2
 Requires-Dist: websockets>=14.2.0
-Requires-Dist: loro>=1.5.0 ; python_full_version >= '3.11'
+Requires-Dist: loro>=1.5.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
 Requires-Dist: typing-extensions>=4.4.0 ; python_full_version < '3.11'
 Requires-Dist: docutils>=0.16.0
 Requires-Dist: psutil>=5.0
 Requires-Dist: itsdangerous>=2.0.0
-Requires-Dist: narwhals>=1.34.1
+Requires-Dist: narwhals>=2.0.0
 Requires-Dist: packaging
-Requires-Dist: msgspec>=0.19.0
-Requires-Dist: click>=8.0,<9 ; extra == 'dev'
-Requires-Dist: black~=23.12.1 ; extra == 'dev'
-Requires-Dist: opentelemetry-api~=1.26.0 ; extra == 'dev'
-Requires-Dist: opentelemetry-sdk~=1.26.0 ; extra == 'dev'
-Requires-Dist: duckdb>=1.0.0 ; extra == 'dev'
-Requires-Dist: sqlglot>=25.32 ; extra == 'dev'
-Requires-Dist: ruff~=0.9.1 ; extra == 'dev'
-Requires-Dist: openai>=1.55.3 ; extra == 'dev'
-Requires-Dist: mkdocs>=1.6.1 ; extra == 'docs'
-Requires-Dist: mkdocs-material>=9.5.49 ; extra == 'docs'
-Requires-Dist: mkdocstrings[python]>=0.27.0 ; extra == 'docs'
-Requires-Dist: mkdocs-material-extensions>=1.3.1 ; extra == 'docs'
-Requires-Dist: mkdocs-autorefs>=1.2.0 ; extra == 'docs'
-Requires-Dist: mkdocs-git-revision-date-localized-plugin>=1.3.0 ; extra == 'docs'
-Requires-Dist: mkdocs-minify-plugin>=0.8.0 ; extra == 'docs'
-Requires-Dist: mkdocs-glightbox>=0.4.0 ; extra == 'docs'
-Requires-Dist: mkdocs-macros-plugin>=1.3.7 ; extra == 'docs'
-Requires-Dist: mkdocs-redirects>=1.2.2 ; extra == 'docs'
-Requires-Dist: mkdocs-click>=0.8.1 ; extra == 'docs'
-Requires-Dist: mike>=2.0.0 ; extra == 'docs'
-Requires-Dist: pillow>=10.2.0,!=11.3.0 ; extra == 'docs'
-Requires-Dist: cairosvg>=2.7.1 ; extra == 'docs'
-Requires-Dist: mdx-include>=1.4.2 ; extra == 'docs'
-Requires-Dist: pymdown-extensions>=10.7 ; extra == 'docs'
+Requires-Dist: msgspec>=0.20.0
 Requires-Dist: python-lsp-server>=1.13.0 ; extra == 'lsp'
 Requires-Dist: python-lsp-ruff>=2.0.0 ; extra == 'lsp'
-Requires-Dist: mcp>=1.0.0 ; python_full_version >= '3.10' and extra == 'mcp'
-Requires-Dist: duckdb>=1.0.0 ; extra == 'recommended'
+Requires-Dist: mcp>=1.0.0 ; extra == 'mcp'
+Requires-Dist: pydantic>2 ; extra == 'mcp'
+Requires-Dist: marimo[sql] ; extra == 'recommended'
+Requires-Dist: marimo[sandbox] ; extra == 'recommended'
 Requires-Dist: altair>=5.4.0 ; extra == 'recommended'
-Requires-Dist: polars[pyarrow]>=1.9.0 ; extra == 'recommended'
-Requires-Dist: sqlglot>=25.32 ; extra == 'recommended'
-Requires-Dist: openai>=1.55.3 ; extra == 'recommended'
+Requires-Dist: pydantic-ai-slim[openai]>=1.39.0 ; extra == 'recommended'
 Requires-Dist: ruff ; extra == 'recommended'
 Requires-Dist: nbformat>=5.7.0 ; extra == 'recommended'
+Requires-Dist: pyzmq>=27.1.0 ; extra == 'sandbox'
+Requires-Dist: uv>=0.9.21 ; extra == 'sandbox'
 Requires-Dist: duckdb>=1.0.0 ; extra == 'sql'
 Requires-Dist: polars[pyarrow]>=1.9.0 ; extra == 'sql'
-Requires-Dist: sqlglot>=25.32 ; extra == 'sql'
-Requires-Python: >=3.9
+Requires-Dist: sqlglot[rs]>=26.2.0 ; extra == 'sql'
+Requires-Python: >=3.10
 Project-URL: homepage, https://github.com/marimo-team/marimo
-Provides-Extra: dev
-Provides-Extra: docs
 Provides-Extra: lsp
 Provides-Extra: mcp
 Provides-Extra: recommended
+Provides-Extra: sandbox
 Provides-Extra: sql
 Description-Content-Type: text/markdown
 
@@ -289,6 +266,7 @@ Description-Content-Type: text/markdown
 
 <p align="center">
   <em>A reactive Python notebook that's reproducible, git-friendly, and deployable as scripts or apps.</em>
+</p>
 
 <p align="center">
   <a href="https://docs.marimo.io" target="_blank"><strong>Docs</strong></a> ·
@@ -299,7 +277,8 @@ Description-Content-Type: text/markdown
 </p>
 
 <p align="center">
-  <b>English | </b>
+  <b>English</b>
+  <b> | </b>
   <a href="https://github.com/marimo-team/marimo/blob/main/README_Traditional_Chinese.md" target="_blank"><b>繁體中文</b></a>
   <b> | </b>
   <a href="https://github.com/marimo-team/marimo/blob/main/README_Chinese.md" target="_blank"><b>简体中文</b></a>
@@ -310,12 +289,12 @@ Description-Content-Type: text/markdown
 </p>
 
 <p align="center">
-<a href="https://pypi.org/project/marimo/"><img src="https://img.shields.io/pypi/v/marimo?color=%2334D058&label=pypi"/></a>
-<a href="https://anaconda.org/conda-forge/marimo"><img src="https://img.shields.io/conda/vn/conda-forge/marimo.svg"/></a>
-<a href="https://marimo.io/discord?ref=readme"><img src="https://shields.io/discord/1059888774789730424" alt="discord" /></a>
-<img alt="Pepy Total Downloads" src="https://img.shields.io/pepy/dt/marimo?label=pypi%20%7C%20downloads"/>
-<img alt="Conda Downloads" src="https://img.shields.io/conda/d/conda-forge/marimo" />
-<a href="https://github.com/marimo-team/marimo/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/marimo" /></a>
+  <a href="https://pypi.org/project/marimo/"><img src="https://img.shields.io/pypi/v/marimo?color=%2334D058&label=pypi"/></a>
+  <a href="https://anaconda.org/conda-forge/marimo"><img src="https://img.shields.io/conda/vn/conda-forge/marimo.svg"/></a>
+  <a href="https://marimo.io/discord?ref=readme"><img src="https://shields.io/discord/1059888774789730424" alt="discord"/></a>
+  <img alt="Pepy Total Downloads" src="https://img.shields.io/pepy/dt/marimo?label=pypi%20%7C%20downloads"/>
+  <img alt="Conda Downloads" src="https://img.shields.io/conda/d/conda-forge/marimo"/>
+  <a href="https://github.com/marimo-team/marimo/blob/main/LICENSE"><img src="https://img.shields.io/pypi/l/marimo"/></a>
 </p>
 
 **marimo** is a reactive Python notebook: run a cell or interact with a UI
@@ -337,6 +316,7 @@ and deployable as apps.
 - 🧩 **reusable:** [import functions and classes](https://docs.marimo.io/guides/reusing_functions/) from one notebook to another
 - 🧪 **testable:** [run pytest](https://docs.marimo.io/guides/testing/) on notebooks
 - ⌨️ **a modern editor**: [GitHub Copilot](https://docs.marimo.io/guides/editor_features/ai_completion.html#github-copilot), [AI assistants](https://docs.marimo.io/guides/editor_features/ai_completion.html), vim keybindings, variable explorer, and [more](https://docs.marimo.io/guides/editor_features/index.html)
+- 🧑‍💻 **use your favorite editor**: run in [VS Code or Cursor](https://marketplace.visualstudio.com/items?itemName=marimo-team.vscode-marimo), or edit in neovim, Zed, [or any other text editor](https://docs.marimo.io/guides/editor_features/watching/)
 
 ```python
 pip install marimo && marimo tutorial intro
@@ -440,7 +420,7 @@ To install with additional dependencies that unlock SQL cells, AI completion, an
 run
 
 ```bash
-pip install marimo[recommended]
+pip install "marimo[recommended]"
 ```
 
 **Create notebooks.**

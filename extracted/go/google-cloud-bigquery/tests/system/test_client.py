@@ -74,6 +74,16 @@ SCHEMA = [
     bigquery.SchemaField("full_name", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("age", "INTEGER", mode="REQUIRED"),
 ]
+SCHEMA_PICOSECOND = [
+    bigquery.SchemaField("full_name", "STRING", mode="REQUIRED"),
+    bigquery.SchemaField("age", "INTEGER", mode="REQUIRED"),
+    bigquery.SchemaField(
+        "time_pico",
+        "TIMESTAMP",
+        mode="REQUIRED",
+        timestamp_precision=enums.TimestampPrecision.PICOSECOND,
+    ),
+]
 CLUSTERING_SCHEMA = [
     bigquery.SchemaField("full_name", "STRING", mode="REQUIRED"),
     bigquery.SchemaField("age", "INTEGER", mode="REQUIRED"),
@@ -630,6 +640,19 @@ class TestBigQuery(unittest.TestCase):
         self.assertEqual(time_partitioning.type_, TimePartitioningType.DAY)
         self.assertEqual(time_partitioning.field, "transaction_time")
         self.assertEqual(table.clustering_fields, ["user_email", "store_code"])
+
+    def test_create_table_w_picosecond_timestamp(self):
+        dataset = self.temp_dataset(_make_dataset_id("create_table"))
+        table_id = "test_table"
+        table_arg = Table(dataset.table(table_id), schema=SCHEMA_PICOSECOND)
+        self.assertFalse(_table_exists(table_arg))
+
+        table = helpers.retry_403(Config.CLIENT.create_table)(table_arg)
+        self.to_delete.insert(0, table)
+
+        self.assertTrue(_table_exists(table))
+        self.assertEqual(table.table_id, table_id)
+        self.assertEqual(table.schema, SCHEMA_PICOSECOND)
 
     def test_delete_dataset_with_string(self):
         dataset_id = _make_dataset_id("delete_table_true_with_string")
@@ -1271,6 +1294,29 @@ class TestBigQuery(unittest.TestCase):
         table = Config.CLIENT.get_table(table)
         self.assertEqual(tuple(table.schema), table_schema)
         self.assertEqual(table.num_rows, 2)
+
+    def test_load_table_from_csv_w_picosecond_timestamp(self):
+        dataset_id = _make_dataset_id("bq_system_test")
+        self.temp_dataset(dataset_id)
+        table_id = "{}.{}.load_table_from_json_basic_use".format(
+            Config.CLIENT.project, dataset_id
+        )
+
+        table_schema = Config.CLIENT.schema_from_json(DATA_PATH / "pico_schema.json")
+        # create the table before loading so that the column order is predictable
+        table = helpers.retry_403(Config.CLIENT.create_table)(
+            Table(table_id, schema=table_schema)
+        )
+        self.to_delete.insert(0, table)
+
+        # do not pass an explicit job config to trigger automatic schema detection
+        with open(DATA_PATH / "pico.csv", "rb") as f:
+            load_job = Config.CLIENT.load_table_from_file(f, table_id)
+            load_job.result()
+
+        table = Config.CLIENT.get_table(table)
+        self.assertEqual(list(table.schema), table_schema)
+        self.assertEqual(table.num_rows, 3)
 
     def test_load_avro_from_uri_then_dump_table(self):
         from google.cloud.bigquery.job import CreateDisposition

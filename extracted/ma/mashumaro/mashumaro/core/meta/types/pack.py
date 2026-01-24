@@ -3,6 +3,7 @@ import enum
 import ipaddress
 import os
 import re
+import sys
 import typing
 import uuid
 import zoneinfo
@@ -16,6 +17,7 @@ from fractions import Fraction
 from typing import Any, ForwardRef, Optional, Tuple, Union
 
 import typing_extensions
+from typing_extensions import NotRequired
 
 from mashumaro.core.const import PY_311_MIN
 from mashumaro.core.meta.code.lines import CodeLines
@@ -75,6 +77,13 @@ from mashumaro.types import (
     SerializationStrategy,
 )
 
+if sys.version_info >= (3, 14):
+    from typing import evaluate_forward_ref
+
+    from annotationlib import get_annotations
+else:
+    from typing_extensions import evaluate_forward_ref, get_annotations
+
 __all__ = ["PackerRegistry"]
 
 
@@ -94,9 +103,7 @@ def _pack_with_annotated_serialization_strategy(
     except (KeyError, ValueError):
         value_type = Any
     if isinstance(value_type, ForwardRef):
-        value_type = spec.builder.evaluate_forward_ref(
-            value_type, spec.origin_type
-        )
+        value_type = evaluate_forward_ref(value_type)
     value_type = substitute_type_params(
         value_type,  # type: ignore
         resolve_type_params(strategy_type, get_args(spec.type))[strategy_type],
@@ -191,9 +198,7 @@ def _pack_annotated_serializable_type(
     if is_self(value_type):
         return f"{spec.expression}._serialize()"
     if isinstance(value_type, ForwardRef):
-        value_type = spec.builder.evaluate_forward_ref(
-            value_type, spec.origin_type
-        )
+        value_type = evaluate_forward_ref(value_type)
     value_type = substitute_type_params(
         value_type,
         resolve_type_params(spec.origin_type, get_args(spec.type))[
@@ -539,9 +544,7 @@ def pack_special_typing_primitive(spec: ValueSpec) -> Optional[Expression]:
         elif is_type_var_tuple(spec.type):
             return PackerRegistry.get(spec.copy(type=tuple[Any, ...]))
         elif isinstance(spec.type, ForwardRef):
-            evaluated = spec.builder.evaluate_forward_ref(
-                spec.type, spec.owner
-            )
+            evaluated = evaluate_forward_ref(spec.type)
             if evaluated is not None:
                 return PackerRegistry.get(spec.copy(type=evaluated))
         elif is_type_alias_type(spec.type):
@@ -674,7 +677,7 @@ def pack_named_tuple(spec: ValueSpec) -> Expression:
     ]
     annotations = {
         k: resolved.get(v, v)
-        for k, v in getattr(spec.origin_type, "__annotations__", {}).items()
+        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
     }
     fields = getattr(spec.type, "_fields", ())
     packers = []
@@ -716,11 +719,20 @@ def pack_typed_dict(spec: ValueSpec) -> Expression:
     ]
     annotations = {
         k: resolved.get(v, v)
-        for k, v in spec.origin_type.__annotations__.items()
+        for k, v in get_annotations(spec.origin_type, eval_str=True).items()
     }
     all_keys = list(annotations.keys())
-    required_keys = getattr(spec.type, "__required_keys__", all_keys)
-    optional_keys = getattr(spec.type, "__optional_keys__", [])
+    required_keys = set(getattr(spec.type, "__required_keys__", all_keys))
+    optional_keys = set(getattr(spec.type, "__optional_keys__", []))
+
+    # workaround for https://github.com/python/cpython/issues/97727
+    for key, annotation in annotations.items():
+        if isinstance(annotation, ForwardRef):
+            annotation = evaluate_forward_ref(annotation)
+            if get_type_origin(annotation) is NotRequired:
+                required_keys.discard(key)
+                optional_keys.add(key)
+
     lines = CodeLines()
     method_name = (
         f"__pack_typed_dict_{spec.builder.cls.__name__}_"

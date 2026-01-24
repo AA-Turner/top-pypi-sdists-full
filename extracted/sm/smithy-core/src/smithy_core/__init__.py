@@ -1,15 +1,14 @@
 # Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 # SPDX-License-Identifier: Apache-2.0
-import importlib.metadata
 from dataclasses import dataclass
 from enum import Enum
 from functools import cached_property
 from urllib.parse import urlunparse
 
 from . import interfaces, rfc3986
-from .exceptions import SmithyException
+from .exceptions import SmithyError
 
-__version__: str = importlib.metadata.version("smithy-core")
+__version__ = "0.3.0"
 
 
 class HostType(Enum):
@@ -61,7 +60,7 @@ class URI(interfaces.URI):
         if not rfc3986.HOST_MATCHER.match(self.host) and not rfc3986.IPv6_MATCHER.match(
             f"[{self.host}]"
         ):
-            raise SmithyException(f"Invalid host: {self.host}")
+            raise SmithyError(f"Invalid host: {self.host}")
 
     @property
     def netloc(self) -> str:

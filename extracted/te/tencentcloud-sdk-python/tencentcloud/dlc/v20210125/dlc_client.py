@@ -647,6 +647,29 @@ class DlcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateDatasourceConnection(self, request):
+        r"""创建数据源
+
+        :param request: Request instance for CreateDatasourceConnection.
+        :type request: :class:`tencentcloud.dlc.v20210125.models.CreateDatasourceConnectionRequest`
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.CreateDatasourceConnectionResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateDatasourceConnection", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateDatasourceConnectionResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateExportTask(self, request):
         r"""该接口（CreateExportTask）用于创建导出任务
 
@@ -2236,6 +2259,29 @@ class DlcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeResourceGroupUsageInfo(self, request):
+        r"""本接口根据资源组ID查询资源组CU使用情况
+
+        :param request: Request instance for DescribeResourceGroupUsageInfo.
+        :type request: :class:`tencentcloud.dlc.v20210125.models.DescribeResourceGroupUsageInfoRequest`
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.DescribeResourceGroupUsageInfoResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeResourceGroupUsageInfo", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeResourceGroupUsageInfoResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeResultDownload(self, request):
         r"""查询结果下载任务
 
@@ -2627,6 +2673,29 @@ class DlcClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeTaskList(self, request):
+        r"""该接口（DescribleTasks）用于查询任务列表
+
+        :param request: Request instance for DescribeTaskList.
+        :type request: :class:`tencentcloud.dlc.v20210125.models.DescribeTaskListRequest`
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.DescribeTaskListResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTaskList", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTaskListResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeTaskLog(self, request):
         r"""本接口（DescribeTaskLog）用于获取spark 作业任务日志详情
 
@@ -2664,6 +2733,29 @@ class DlcClient(AbstractClient):
             body = self.call("DescribeTaskMonitorInfos", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeTaskMonitorInfosResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeTaskResourceUsage(self, request):
+        r"""返回任务洞察资源用量
+
+        :param request: Request instance for DescribeTaskResourceUsage.
+        :type request: :class:`tencentcloud.dlc.v20210125.models.DescribeTaskResourceUsageRequest`
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.DescribeTaskResourceUsageResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTaskResourceUsage", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTaskResourceUsageResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -3768,6 +3860,29 @@ class DlcClient(AbstractClient):
             body = self.call("RollbackDataEngineImage", params, headers=headers)
             response = json.loads(body)
             model = models.RollbackDataEngineImageResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SetOptimizerPolicy(self, request):
+        r"""设置优化策略的接口
+
+        :param request: Request instance for SetOptimizerPolicy.
+        :type request: :class:`tencentcloud.dlc.v20210125.models.SetOptimizerPolicyRequest`
+        :rtype: :class:`tencentcloud.dlc.v20210125.models.SetOptimizerPolicyResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SetOptimizerPolicy", params, headers=headers)
+            response = json.loads(body)
+            model = models.SetOptimizerPolicyResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

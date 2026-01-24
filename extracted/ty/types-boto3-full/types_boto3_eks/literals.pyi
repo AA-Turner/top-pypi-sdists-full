@@ -3,7 +3,7 @@ Type annotations for eks service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_eks/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -28,7 +28,12 @@ __all__ = (
     "AddonDeletedWaiterName",
     "AddonIssueCodeType",
     "AddonStatusType",
+    "ArgoCdRoleType",
     "AuthenticationModeType",
+    "CapabilityDeletePropagationPolicyType",
+    "CapabilityIssueCodeType",
+    "CapabilityStatusType",
+    "CapabilityTypeType",
     "CapacityTypesType",
     "CategoryType",
     "ClusterActiveWaiterName",
@@ -56,6 +61,7 @@ __all__ = (
     "ListAccessPoliciesPaginatorName",
     "ListAddonsPaginatorName",
     "ListAssociatedAccessPoliciesPaginatorName",
+    "ListCapabilitiesPaginatorName",
     "ListClustersPaginatorName",
     "ListEksAnywhereSubscriptionsPaginatorName",
     "ListFargateProfilesPaginatorName",
@@ -71,11 +77,13 @@ __all__ = (
     "NodegroupStatusType",
     "NodegroupUpdateStrategiesType",
     "PaginatorName",
+    "ProvisionedControlPlaneTierType",
     "RegionName",
     "RepairActionType",
     "ResolveConflictsType",
     "ResourceServiceName",
     "ServiceName",
+    "SsoIdentityTypeType",
     "SupportTypeType",
     "TaintEffectType",
     "UpdateParamTypeType",
@@ -97,9 +105,11 @@ AMITypesType = Literal[
     "BOTTLEROCKET_ARM_64",
     "BOTTLEROCKET_ARM_64_FIPS",
     "BOTTLEROCKET_ARM_64_NVIDIA",
+    "BOTTLEROCKET_ARM_64_NVIDIA_FIPS",
     "BOTTLEROCKET_x86_64",
     "BOTTLEROCKET_x86_64_FIPS",
     "BOTTLEROCKET_x86_64_NVIDIA",
+    "BOTTLEROCKET_x86_64_NVIDIA_FIPS",
     "CUSTOM",
     "WINDOWS_CORE_2019_x86_64",
     "WINDOWS_CORE_2022_x86_64",
@@ -131,7 +141,14 @@ AddonStatusType = Literal[
     "UPDATE_FAILED",
     "UPDATING",
 ]
+ArgoCdRoleType = Literal["ADMIN", "EDITOR", "VIEWER"]
 AuthenticationModeType = Literal["API", "API_AND_CONFIG_MAP", "CONFIG_MAP"]
+CapabilityDeletePropagationPolicyType = Literal["RETAIN"]
+CapabilityIssueCodeType = Literal["AccessDenied", "ClusterUnreachable"]
+CapabilityStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DEGRADED", "DELETE_FAILED", "DELETING", "UPDATING"
+]
+CapabilityTypeType = Literal["ACK", "ARGOCD", "KRO"]
 CapacityTypesType = Literal["CAPACITY_BLOCK", "ON_DEMAND", "SPOT"]
 CategoryType = Literal["MISCONFIGURATION", "UPGRADE_READINESS"]
 ClusterActiveWaiterName = Literal["cluster_active"]
@@ -204,6 +221,7 @@ ListAccessEntriesPaginatorName = Literal["list_access_entries"]
 ListAccessPoliciesPaginatorName = Literal["list_access_policies"]
 ListAddonsPaginatorName = Literal["list_addons"]
 ListAssociatedAccessPoliciesPaginatorName = Literal["list_associated_access_policies"]
+ListCapabilitiesPaginatorName = Literal["list_capabilities"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListEksAnywhereSubscriptionsPaginatorName = Literal["list_eks_anywhere_subscriptions"]
 ListFargateProfilesPaginatorName = Literal["list_fargate_profiles"]
@@ -257,8 +275,10 @@ NodegroupStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DEGRADED", "DELETE_FAILED", "DELETING", "UPDATING"
 ]
 NodegroupUpdateStrategiesType = Literal["DEFAULT", "MINIMAL"]
+ProvisionedControlPlaneTierType = Literal["standard", "tier-2xl", "tier-4xl", "tier-xl"]
 RepairActionType = Literal["NoAction", "Reboot", "Replace"]
 ResolveConflictsType = Literal["NONE", "OVERWRITE", "PRESERVE"]
+SsoIdentityTypeType = Literal["SSO_GROUP", "SSO_USER"]
 SupportTypeType = Literal["EXTENDED", "STANDARD"]
 TaintEffectType = Literal["NO_EXECUTE", "NO_SCHEDULE", "PREFER_NO_SCHEDULE"]
 UpdateParamTypeType = Literal[
@@ -286,6 +306,7 @@ UpdateParamTypeType = Literal[
     "NodeRepairEnabled",
     "PlatformVersion",
     "PodIdentityAssociations",
+    "PreviousTier",
     "PublicAccessCidrs",
     "ReleaseVersion",
     "RemoteNetworkConfig",
@@ -297,6 +318,7 @@ UpdateParamTypeType = Literal[
     "TaintsToAdd",
     "TaintsToRemove",
     "UpdateStrategy",
+    "UpdatedTier",
     "UpgradePolicy",
     "Version",
     "ZonalShiftConfig",
@@ -309,6 +331,7 @@ UpdateTypeType = Literal[
     "AssociateIdentityProviderConfig",
     "AutoModeUpdate",
     "ConfigUpdate",
+    "ControlPlaneScalingConfigUpdate",
     "DeletionProtectionUpdate",
     "DisassociateIdentityProviderConfig",
     "EndpointAccessUpdate",
@@ -347,7 +370,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -417,6 +439,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -462,7 +485,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -515,7 +537,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -554,8 +575,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -590,6 +609,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -599,6 +619,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -609,6 +630,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -630,8 +654,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -646,15 +668,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -685,6 +708,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -725,6 +749,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -745,6 +770,7 @@ PaginatorName = Literal[
     "list_access_policies",
     "list_addons",
     "list_associated_access_policies",
+    "list_capabilities",
     "list_clusters",
     "list_eks_anywhere_subscriptions",
     "list_fargate_profiles",

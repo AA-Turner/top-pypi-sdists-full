@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-gdb
-Version: 16.3.0.20250920
+Version: 16.3.0.20260109
 Summary: Typing stubs for gdb
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -33,8 +33,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`b158ccd3c1b204b2379f898425724d82e7234337`](https://github.com/python/typeshed/commit/b158ccd3c1b204b2379f898425724d82e7234337).
+[`9a175299c4cc4ffe0c9aafc33b2248916b23c3fa`](https://github.com/python/typeshed/commit/9a175299c4cc4ffe0c9aafc33b2248916b23c3fa).

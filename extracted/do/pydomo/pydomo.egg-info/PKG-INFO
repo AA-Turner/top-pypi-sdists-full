@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydomo
-Version: 0.3.0.13
+Version: 0.3.0.16
 Summary: The official Python3 Domo API SDK - Domo, Inc.
 Home-page: https://github.com/domoinc/domo-python-sdk
 Download-URL: https://github.com/domoinc/domo-python-sdk/tarball/0.2.2.1

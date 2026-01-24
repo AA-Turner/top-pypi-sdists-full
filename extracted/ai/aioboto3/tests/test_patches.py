@@ -52,7 +52,7 @@ _API_DIGESTS = {
     RawHandler.__call__: {'5ea91e39ab1dc3587a4038805ee90235990b866d'},
 
     # session.py
-    Session.__init__: {'039bdfe7082256a3bffe3492fc6d84f1480fbd6a'},
+    Session.__init__: {'3f494c3eb0987251cae373873499e917f264571b'},
     Session._register_default_handlers: {'04f247de526b7a0af15737e04019ade52cc65446', '74fa15629c9ea69f79f3a5285357dbf53f734f2d', 'e30e5c3a0f6bc8f002ba679d4bae831914fc67a0'},
     Session.resource: {'5e3568b28281a75eaf9725fab67c33dc16a18144', 'b110781f5a5d148dd1d614e7611650a16cbea372'},
 
@@ -71,7 +71,7 @@ _API_DIGESTS = {
     download_fileobj.__wrapped__: {'3987566bbd712aa81c332b1c2684327a9fd0de38'},
     upload_fileobj.__wrapped__: {'7d344505b3ea95168603e534c75a1a51551b35d5'},
     upload_file.__wrapped__: {'9949e77ef9c98c5017388d8150c3cbf00e412077'},
-    copy.__wrapped__: {'ecf80dcb0fc794e941fce078862ad5e83147b7c1'},
+    copy.__wrapped__: {'534f68820a410ba41072026994badca7f66fe1b9'},
     S3TransferConfig.__init__: {'f418b3dab3c6f073f19feaf1172359bdc3863e22'},
 }
 

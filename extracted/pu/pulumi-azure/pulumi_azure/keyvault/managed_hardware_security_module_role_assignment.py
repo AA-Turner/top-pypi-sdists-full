@@ -27,7 +27,6 @@ class ManagedHardwareSecurityModuleRoleAssignmentArgs:
         """
         The set of arguments for constructing a ManagedHardwareSecurityModuleRoleAssignment resource.
         :param pulumi.Input[_builtins.str] managed_hsm_id: The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-               *
         :param pulumi.Input[_builtins.str] principal_id: The principal ID to be assigned to this role. It can point to a user, service principal, or security group. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] role_definition_id: The resource ID of the role definition to assign. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] scope: Specifies the scope to create the role assignment. Changing this forces a new Managed Hardware Security Module to be created.
@@ -45,7 +44,6 @@ class ManagedHardwareSecurityModuleRoleAssignmentArgs:
     def managed_hsm_id(self) -> pulumi.Input[_builtins.str]:
         """
         The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-        *
         """
         return pulumi.get(self, "managed_hsm_id")
 
@@ -114,7 +112,6 @@ class _ManagedHardwareSecurityModuleRoleAssignmentState:
         """
         Input properties used for looking up and filtering ManagedHardwareSecurityModuleRoleAssignment resources.
         :param pulumi.Input[_builtins.str] managed_hsm_id: The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-               *
         :param pulumi.Input[_builtins.str] name: The name in GUID notation which should be used for this Managed Hardware Security Module Role Assignment. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] principal_id: The principal ID to be assigned to this role. It can point to a user, service principal, or security group. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] resource_id: (Deprecated) The resource id of created assignment resource.
@@ -139,7 +136,6 @@ class _ManagedHardwareSecurityModuleRoleAssignmentState:
     def managed_hsm_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-        *
         """
         return pulumi.get(self, "managed_hsm_id")
 
@@ -223,6 +219,22 @@ class ManagedHardwareSecurityModuleRoleAssignment(pulumi.CustomResource):
         """
         Manages a Managed Hardware Security Module Role Assignment.
 
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_azure as azure
+
+        user = azure.keyvault.get_managed_hardware_security_module_role_definition(managed_hsm_id=example_azurerm_key_vault_managed_hardware_security_module["id"],
+            name="21dbd100-6940-42c2-9190-5d6cb909625b")
+        example = azure.keyvault.ManagedHardwareSecurityModuleRoleAssignment("example",
+            name="a9dbe818-56e7-5878-c0ce-a1477692c1d6",
+            managed_hsm_id=example_azurerm_key_vault_managed_hardware_security_module["id"],
+            scope=user.scope,
+            role_definition_id=user.resource_manager_id,
+            principal_id=current["objectId"])
+        ```
+
         ## Import
 
         Managed Hardware Security Modules can be imported using the `resource id`, e.g.
@@ -234,7 +246,6 @@ class ManagedHardwareSecurityModuleRoleAssignment(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] managed_hsm_id: The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-               *
         :param pulumi.Input[_builtins.str] name: The name in GUID notation which should be used for this Managed Hardware Security Module Role Assignment. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] principal_id: The principal ID to be assigned to this role. It can point to a user, service principal, or security group. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] role_definition_id: The resource ID of the role definition to assign. Changing this forces a new Managed Hardware Security Module to be created.
@@ -248,6 +259,22 @@ class ManagedHardwareSecurityModuleRoleAssignment(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         Manages a Managed Hardware Security Module Role Assignment.
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_azure as azure
+
+        user = azure.keyvault.get_managed_hardware_security_module_role_definition(managed_hsm_id=example_azurerm_key_vault_managed_hardware_security_module["id"],
+            name="21dbd100-6940-42c2-9190-5d6cb909625b")
+        example = azure.keyvault.ManagedHardwareSecurityModuleRoleAssignment("example",
+            name="a9dbe818-56e7-5878-c0ce-a1477692c1d6",
+            managed_hsm_id=example_azurerm_key_vault_managed_hardware_security_module["id"],
+            scope=user.scope,
+            role_definition_id=user.resource_manager_id,
+            principal_id=current["objectId"])
+        ```
 
         ## Import
 
@@ -324,7 +351,6 @@ class ManagedHardwareSecurityModuleRoleAssignment(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] managed_hsm_id: The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-               *
         :param pulumi.Input[_builtins.str] name: The name in GUID notation which should be used for this Managed Hardware Security Module Role Assignment. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] principal_id: The principal ID to be assigned to this role. It can point to a user, service principal, or security group. Changing this forces a new Managed Hardware Security Module to be created.
         :param pulumi.Input[_builtins.str] resource_id: (Deprecated) The resource id of created assignment resource.
@@ -348,7 +374,6 @@ class ManagedHardwareSecurityModuleRoleAssignment(pulumi.CustomResource):
     def managed_hsm_id(self) -> pulumi.Output[_builtins.str]:
         """
         The ID of a Managed Hardware Security Module resource. Changing this forces a new Managed Hardware Security Module to be created.
-        *
         """
         return pulumi.get(self, "managed_hsm_id")
 

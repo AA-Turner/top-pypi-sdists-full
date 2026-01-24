@@ -10,12 +10,10 @@ from ..core.jsonable_encoder import jsonable_encoder
 from ..core.request_options import RequestOptions
 from ..core.unchecked_base_model import construct_type
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
+from ..types.allowed_output_formats import AllowedOutputFormats
 from ..types.http_validation_error import HttpValidationError
 from ..types.voice import Voice
 from ..types.voice_design_preview_response import VoiceDesignPreviewResponse
-from .types.text_to_voice_create_previews_request_output_format import TextToVoiceCreatePreviewsRequestOutputFormat
-from .types.text_to_voice_design_request_output_format import TextToVoiceDesignRequestOutputFormat
-from .types.text_to_voice_remix_request_output_format import TextToVoiceRemixRequestOutputFormat
 from .types.voice_design_request_model_model_id import VoiceDesignRequestModelModelId
 
 # this is used as the default value for optional parameters
@@ -30,13 +28,14 @@ class RawTextToVoiceClient:
         self,
         *,
         voice_description: str,
-        output_format: typing.Optional[TextToVoiceCreatePreviewsRequestOutputFormat] = None,
+        output_format: typing.Optional[AllowedOutputFormats] = None,
         text: typing.Optional[str] = OMIT,
         auto_generate_text: typing.Optional[bool] = OMIT,
         loudness: typing.Optional[float] = OMIT,
         quality: typing.Optional[float] = OMIT,
         seed: typing.Optional[int] = OMIT,
         guidance_scale: typing.Optional[float] = OMIT,
+        should_enhance: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[VoiceDesignPreviewResponse]:
         """
@@ -47,7 +46,7 @@ class RawTextToVoiceClient:
         voice_description : str
             Description to use for the created voice.
 
-        output_format : typing.Optional[TextToVoiceCreatePreviewsRequestOutputFormat]
+        output_format : typing.Optional[AllowedOutputFormats]
             The output format of the generated audio.
 
         text : typing.Optional[str]
@@ -67,6 +66,9 @@ class RawTextToVoiceClient:
 
         guidance_scale : typing.Optional[float]
             Controls how closely the AI follows the prompt. Lower numbers give the AI more freedom to be creative, while higher numbers force it to stick more to the prompt. High numbers can cause voice to sound artificial or robotic. We recommend to use longer, more detailed prompts at lower Guidance Scale.
+
+        should_enhance : typing.Optional[bool]
+            Whether to enhance the voice description using AI to add more detail and improve voice generation quality. When enabled, the system will automatically expand simple prompts into more detailed voice descriptions. Defaults to False
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -90,6 +92,7 @@ class RawTextToVoiceClient:
                 "quality": quality,
                 "seed": seed,
                 "guidance_scale": guidance_scale,
+                "should_enhance": should_enhance,
             },
             headers={
                 "content-type": "application/json",
@@ -207,7 +210,7 @@ class RawTextToVoiceClient:
         self,
         *,
         voice_description: str,
-        output_format: typing.Optional[TextToVoiceDesignRequestOutputFormat] = None,
+        output_format: typing.Optional[AllowedOutputFormats] = None,
         model_id: typing.Optional[VoiceDesignRequestModelModelId] = OMIT,
         text: typing.Optional[str] = OMIT,
         auto_generate_text: typing.Optional[bool] = OMIT,
@@ -215,6 +218,7 @@ class RawTextToVoiceClient:
         seed: typing.Optional[int] = OMIT,
         guidance_scale: typing.Optional[float] = OMIT,
         stream_previews: typing.Optional[bool] = OMIT,
+        should_enhance: typing.Optional[bool] = OMIT,
         remixing_session_id: typing.Optional[str] = OMIT,
         remixing_session_iteration_id: typing.Optional[str] = OMIT,
         quality: typing.Optional[float] = OMIT,
@@ -230,7 +234,7 @@ class RawTextToVoiceClient:
         voice_description : str
             Description to use for the created voice.
 
-        output_format : typing.Optional[TextToVoiceDesignRequestOutputFormat]
+        output_format : typing.Optional[AllowedOutputFormats]
             Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32. MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above. Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
 
         model_id : typing.Optional[VoiceDesignRequestModelModelId]
@@ -253,6 +257,9 @@ class RawTextToVoiceClient:
 
         stream_previews : typing.Optional[bool]
             Determines whether the Text to Voice previews should be included in the response. If true, only the generated IDs will be returned which can then be streamed via the /v1/text-to-voice/:generated_voice_id/stream endpoint.
+
+        should_enhance : typing.Optional[bool]
+            Whether to enhance the voice description using AI to add more detail and improve voice generation quality. When enabled, the system will automatically expand simple prompts into more detailed voice descriptions. Defaults to False
 
         remixing_session_id : typing.Optional[str]
             The remixing session id.
@@ -292,6 +299,7 @@ class RawTextToVoiceClient:
                 "seed": seed,
                 "guidance_scale": guidance_scale,
                 "stream_previews": stream_previews,
+                "should_enhance": should_enhance,
                 "remixing_session_id": remixing_session_id,
                 "remixing_session_iteration_id": remixing_session_iteration_id,
                 "quality": quality,
@@ -335,7 +343,7 @@ class RawTextToVoiceClient:
         voice_id: str,
         *,
         voice_description: str,
-        output_format: typing.Optional[TextToVoiceRemixRequestOutputFormat] = None,
+        output_format: typing.Optional[AllowedOutputFormats] = None,
         text: typing.Optional[str] = OMIT,
         auto_generate_text: typing.Optional[bool] = OMIT,
         loudness: typing.Optional[float] = OMIT,
@@ -358,7 +366,7 @@ class RawTextToVoiceClient:
         voice_description : str
             Description of the changes to make to the voice.
 
-        output_format : typing.Optional[TextToVoiceRemixRequestOutputFormat]
+        output_format : typing.Optional[AllowedOutputFormats]
             Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32. MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above. Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
 
         text : typing.Optional[str]
@@ -455,13 +463,14 @@ class AsyncRawTextToVoiceClient:
         self,
         *,
         voice_description: str,
-        output_format: typing.Optional[TextToVoiceCreatePreviewsRequestOutputFormat] = None,
+        output_format: typing.Optional[AllowedOutputFormats] = None,
         text: typing.Optional[str] = OMIT,
         auto_generate_text: typing.Optional[bool] = OMIT,
         loudness: typing.Optional[float] = OMIT,
         quality: typing.Optional[float] = OMIT,
         seed: typing.Optional[int] = OMIT,
         guidance_scale: typing.Optional[float] = OMIT,
+        should_enhance: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[VoiceDesignPreviewResponse]:
         """
@@ -472,7 +481,7 @@ class AsyncRawTextToVoiceClient:
         voice_description : str
             Description to use for the created voice.
 
-        output_format : typing.Optional[TextToVoiceCreatePreviewsRequestOutputFormat]
+        output_format : typing.Optional[AllowedOutputFormats]
             The output format of the generated audio.
 
         text : typing.Optional[str]
@@ -492,6 +501,9 @@ class AsyncRawTextToVoiceClient:
 
         guidance_scale : typing.Optional[float]
             Controls how closely the AI follows the prompt. Lower numbers give the AI more freedom to be creative, while higher numbers force it to stick more to the prompt. High numbers can cause voice to sound artificial or robotic. We recommend to use longer, more detailed prompts at lower Guidance Scale.
+
+        should_enhance : typing.Optional[bool]
+            Whether to enhance the voice description using AI to add more detail and improve voice generation quality. When enabled, the system will automatically expand simple prompts into more detailed voice descriptions. Defaults to False
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -515,6 +527,7 @@ class AsyncRawTextToVoiceClient:
                 "quality": quality,
                 "seed": seed,
                 "guidance_scale": guidance_scale,
+                "should_enhance": should_enhance,
             },
             headers={
                 "content-type": "application/json",
@@ -632,7 +645,7 @@ class AsyncRawTextToVoiceClient:
         self,
         *,
         voice_description: str,
-        output_format: typing.Optional[TextToVoiceDesignRequestOutputFormat] = None,
+        output_format: typing.Optional[AllowedOutputFormats] = None,
         model_id: typing.Optional[VoiceDesignRequestModelModelId] = OMIT,
         text: typing.Optional[str] = OMIT,
         auto_generate_text: typing.Optional[bool] = OMIT,
@@ -640,6 +653,7 @@ class AsyncRawTextToVoiceClient:
         seed: typing.Optional[int] = OMIT,
         guidance_scale: typing.Optional[float] = OMIT,
         stream_previews: typing.Optional[bool] = OMIT,
+        should_enhance: typing.Optional[bool] = OMIT,
         remixing_session_id: typing.Optional[str] = OMIT,
         remixing_session_iteration_id: typing.Optional[str] = OMIT,
         quality: typing.Optional[float] = OMIT,
@@ -655,7 +669,7 @@ class AsyncRawTextToVoiceClient:
         voice_description : str
             Description to use for the created voice.
 
-        output_format : typing.Optional[TextToVoiceDesignRequestOutputFormat]
+        output_format : typing.Optional[AllowedOutputFormats]
             Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32. MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above. Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
 
         model_id : typing.Optional[VoiceDesignRequestModelModelId]
@@ -678,6 +692,9 @@ class AsyncRawTextToVoiceClient:
 
         stream_previews : typing.Optional[bool]
             Determines whether the Text to Voice previews should be included in the response. If true, only the generated IDs will be returned which can then be streamed via the /v1/text-to-voice/:generated_voice_id/stream endpoint.
+
+        should_enhance : typing.Optional[bool]
+            Whether to enhance the voice description using AI to add more detail and improve voice generation quality. When enabled, the system will automatically expand simple prompts into more detailed voice descriptions. Defaults to False
 
         remixing_session_id : typing.Optional[str]
             The remixing session id.
@@ -717,6 +734,7 @@ class AsyncRawTextToVoiceClient:
                 "seed": seed,
                 "guidance_scale": guidance_scale,
                 "stream_previews": stream_previews,
+                "should_enhance": should_enhance,
                 "remixing_session_id": remixing_session_id,
                 "remixing_session_iteration_id": remixing_session_iteration_id,
                 "quality": quality,
@@ -760,7 +778,7 @@ class AsyncRawTextToVoiceClient:
         voice_id: str,
         *,
         voice_description: str,
-        output_format: typing.Optional[TextToVoiceRemixRequestOutputFormat] = None,
+        output_format: typing.Optional[AllowedOutputFormats] = None,
         text: typing.Optional[str] = OMIT,
         auto_generate_text: typing.Optional[bool] = OMIT,
         loudness: typing.Optional[float] = OMIT,
@@ -783,7 +801,7 @@ class AsyncRawTextToVoiceClient:
         voice_description : str
             Description of the changes to make to the voice.
 
-        output_format : typing.Optional[TextToVoiceRemixRequestOutputFormat]
+        output_format : typing.Optional[AllowedOutputFormats]
             Output format of the generated audio. Formatted as codec_sample_rate_bitrate. So an mp3 with 22.05kHz sample rate at 32kbs is represented as mp3_22050_32. MP3 with 192kbps bitrate requires you to be subscribed to Creator tier or above. PCM with 44.1kHz sample rate requires you to be subscribed to Pro tier or above. Note that the μ-law format (sometimes written mu-law, often approximated as u-law) is commonly used for Twilio audio inputs.
 
         text : typing.Optional[str]

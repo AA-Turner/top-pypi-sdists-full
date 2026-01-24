@@ -1,5 +1,6 @@
-import pandas as pd
 from zoneinfo import ZoneInfo
+
+import pandas as pd
 from pandas.testing import assert_index_equal
 
 from pandas_market_calendars.calendars.tsx import TSXExchangeCalendar, VictoriaDay
@@ -31,3 +32,15 @@ def test_victoria_day():
     )
 
     assert_index_equal(actual, expected)
+
+
+def test_christmas_eve_post_2010():
+    cal = TSXExchangeCalendar()
+    sched_2015 = cal.schedule("2015-12-20", "2015-12-26")
+    assert sched_2015.loc[pd.Timestamp("2015-12-24"), "market_close"] == pd.Timestamp("2015-12-24 18:00 +0")
+
+
+def test_christmas_eve_pre_2010():
+    cal = TSXExchangeCalendar()
+    sched_2009 = cal.schedule("2009-12-20", "2009-12-26")
+    assert sched_2009.loc[pd.Timestamp("2009-12-24"), "market_close"] == pd.Timestamp("2009-12-24 21:00 +0")

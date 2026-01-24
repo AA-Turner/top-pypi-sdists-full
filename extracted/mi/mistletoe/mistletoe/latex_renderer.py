@@ -81,7 +81,7 @@ class LaTeXRenderer(BaseRenderer):
         return (token.content.replace('$', '\\$').replace('#', '\\#')
                              .replace('{', '\\{').replace('}', '\\}')
                              .replace('&', '\\&').replace('_', '\\_')
-                             .replace('%', '\\%')
+                             .replace('%', '\\%').replace('^', '\\^{}')
                ) if escape else token.content
 
     def render_heading(self, token):
@@ -158,7 +158,7 @@ class LaTeXRenderer(BaseRenderer):
 
     @staticmethod
     def render_thematic_break(token):
-        return '\\hrulefill\n'
+        return '\n\\hrulefill\n'
 
     @staticmethod
     def render_line_break(token):

@@ -1,0 +1,502 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2021-2026
+"""
+Cache coordinator for managing all cache operations.
+
+This module provides centralized cache management for device descriptions,
+paramset descriptions, device details, data cache, and session recording.
+
+The CacheCoordinator provides:
+- Unified cache loading and saving
+- Cache clearing operations
+- Device-specific cache management
+- Session recording coordination
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from datetime import datetime
+import logging
+from typing import Final
+
+from aiohomematic.central.events import (
+    CacheInvalidatedEvent,
+    DataFetchCompletedEvent,
+    DataFetchOperation,
+    DeviceRemovedEvent,
+)
+from aiohomematic.const import (
+    FILE_DEVICES,
+    FILE_INCIDENTS,
+    FILE_PARAMSETS,
+    SUB_DIRECTORY_CACHE,
+    CacheInvalidationReason,
+    CacheType,
+    DataOperationResult,
+    Interface,
+)
+from aiohomematic.interfaces import (
+    CentralInfoProtocol,
+    ClientProviderProtocol,
+    ConfigProviderProtocol,
+    DataPointProviderProtocol,
+    DeviceProviderProtocol,
+    EventBusProviderProtocol,
+    PrimaryClientProviderProtocol,
+    SessionRecorderProviderProtocol,
+    TaskSchedulerProtocol,
+)
+from aiohomematic.interfaces.model import DeviceRemovalInfoProtocol
+from aiohomematic.metrics._protocols import CacheProviderForMetricsProtocol
+from aiohomematic.property_decorators import DelegatedProperty
+from aiohomematic.store import CacheStatistics, StorageFactoryProtocol
+from aiohomematic.store.dynamic import CentralDataCache, DeviceDetailsCache
+from aiohomematic.store.persistent import (
+    DeviceDescriptionRegistry,
+    IncidentStore,
+    ParamsetDescriptionRegistry,
+    SessionRecorder,
+)
+from aiohomematic.store.visibility import ParameterVisibilityRegistry
+
+_LOGGER: Final = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _DeviceRemovalAdapter:
+    """
+    Adapter to satisfy DeviceRemovalInfoProtocol from event data.
+
+    This lightweight adapter allows cache removal methods to work with
+    data extracted from DeviceRemovedEvent without requiring a full Device object.
+    """
+
+    address: str
+    """Device address."""
+
+    interface_id: str
+    """Interface ID."""
+
+    channel_addresses: tuple[str, ...]
+    """Channel addresses."""
+
+    @property
+    def channels(self) -> Mapping[str, None]:
+        """Return channel addresses as a mapping (keys only used)."""
+        return dict.fromkeys(self.channel_addresses)
+
+
+class CacheCoordinator(SessionRecorderProviderProtocol, CacheProviderForMetricsProtocol):
+    """Coordinator for all cache operations in the central unit."""
+
+    __slots__ = (
+        "_central_info",
+        "_data_cache",
+        "_device_descriptions_registry",
+        "_device_details_cache",
+        "_event_bus_provider",
+        "_incident_store",
+        "_parameter_visibility_registry",
+        "_paramset_descriptions_registry",
+        "_session_recorder",
+        "_unsubscribers",
+    )
+
+    def __init__(
+        self,
+        *,
+        central_info: CentralInfoProtocol,
+        client_provider: ClientProviderProtocol,
+        config_provider: ConfigProviderProtocol,
+        data_point_provider: DataPointProviderProtocol,
+        device_provider: DeviceProviderProtocol,
+        event_bus_provider: EventBusProviderProtocol,
+        primary_client_provider: PrimaryClientProviderProtocol,
+        session_recorder_active: bool,
+        storage_factory: StorageFactoryProtocol,
+        task_scheduler: TaskSchedulerProtocol,
+    ) -> None:
+        """
+        Initialize the cache coordinator.
+
+        Args:
+            central_info: Provider for central system information.
+            device_provider: Provider for device access.
+            client_provider: Provider for client access.
+            data_point_provider: Provider for data point access.
+            event_bus_provider: Provider for event bus access.
+            primary_client_provider: Provider for primary client access.
+            config_provider: Provider for configuration access.
+            storage_factory: Factory for creating storage instances.
+            task_scheduler: Provider for task scheduling.
+            session_recorder_active: Whether session recording should be active.
+
+        """
+        self._central_info: Final = central_info
+        self._event_bus_provider: Final = event_bus_provider
+
+        # Create storage instances for persistent caches
+        device_storage = storage_factory.create_storage(
+            key=FILE_DEVICES,
+            sub_directory=SUB_DIRECTORY_CACHE,
+        )
+        paramset_storage = storage_factory.create_storage(
+            key=FILE_PARAMSETS,
+            sub_directory=SUB_DIRECTORY_CACHE,
+        )
+        incident_storage = storage_factory.create_storage(
+            key=FILE_INCIDENTS,
+            sub_directory=SUB_DIRECTORY_CACHE,
+        )
+
+        # Initialize all caches with protocol interfaces
+        self._data_cache: Final = CentralDataCache(
+            device_provider=device_provider,
+            client_provider=client_provider,
+            data_point_provider=data_point_provider,
+            central_info=central_info,
+        )
+        self._device_details_cache: Final = DeviceDetailsCache(
+            central_info=central_info,
+            primary_client_provider=primary_client_provider,
+        )
+        self._device_descriptions_registry: Final = DeviceDescriptionRegistry(
+            storage=device_storage,
+            config_provider=config_provider,
+        )
+        self._paramset_descriptions_registry: Final = ParamsetDescriptionRegistry(
+            storage=paramset_storage,
+            config_provider=config_provider,
+        )
+        self._parameter_visibility_registry: Final = ParameterVisibilityRegistry(
+            config_provider=config_provider,
+        )
+        self._incident_store: Final = IncidentStore(
+            storage=incident_storage,
+            config_provider=config_provider,
+        )
+        self._session_recorder: Final = SessionRecorder(
+            central_info=central_info,
+            config_provider=config_provider,
+            device_provider=device_provider,
+            task_scheduler=task_scheduler,
+            storage_factory=storage_factory,
+            ttl_seconds=600,
+            active=session_recorder_active,
+        )
+
+        # Subscribe to events for decoupled cache management
+        self._unsubscribers: list[Callable[[], None]] = []
+
+        # Subscribe to device removal events for cache invalidation
+        self._unsubscribers.append(
+            event_bus_provider.event_bus.subscribe(
+                event_type=DeviceRemovedEvent,
+                event_key=None,
+                handler=self._on_device_removed,
+            )
+        )
+
+        # Subscribe to data fetch completion events for automatic cache persistence
+        self._unsubscribers.append(
+            event_bus_provider.event_bus.subscribe(
+                event_type=DataFetchCompletedEvent,
+                event_key=None,
+                handler=self._on_data_fetch_completed,
+            )
+        )
+
+    data_cache: Final = DelegatedProperty[CentralDataCache](path="_data_cache")
+    device_descriptions: Final = DelegatedProperty[DeviceDescriptionRegistry](path="_device_descriptions_registry")
+    device_details: Final = DelegatedProperty[DeviceDetailsCache](path="_device_details_cache")
+    incident_store: Final = DelegatedProperty[IncidentStore](path="_incident_store")
+    parameter_visibility: Final = DelegatedProperty[ParameterVisibilityRegistry](path="_parameter_visibility_registry")
+    paramset_descriptions: Final = DelegatedProperty[ParamsetDescriptionRegistry](
+        path="_paramset_descriptions_registry"
+    )
+    recorder: Final = DelegatedProperty[SessionRecorder](path="_session_recorder")
+
+    @property
+    def data_cache_size(self) -> int:
+        """Return data cache size."""
+        return self._data_cache.size
+
+    @property
+    def data_cache_statistics(self) -> CacheStatistics:
+        """Return data cache statistics."""
+        return self._data_cache.statistics
+
+    @property
+    def device_descriptions_size(self) -> int:
+        """Return device descriptions cache size."""
+        return self._device_descriptions_registry.size
+
+    @property
+    def paramset_descriptions_size(self) -> int:
+        """Return paramset descriptions cache size."""
+        return self._paramset_descriptions_registry.size
+
+    @property
+    def visibility_cache_size(self) -> int:
+        """Return visibility cache size."""
+        return self._parameter_visibility_registry.size
+
+    async def clear_all(
+        self,
+        *,
+        reason: CacheInvalidationReason = CacheInvalidationReason.MANUAL,
+    ) -> None:
+        """
+        Clear all caches and remove stored files.
+
+        Args:
+        ----
+            reason: Reason for cache invalidation
+
+        """
+        _LOGGER.debug("CLEAR_ALL: Clearing all caches for %s", self._central_info.name)
+
+        await self._device_descriptions_registry.clear()
+        await self._paramset_descriptions_registry.clear()
+        await self._session_recorder.clear()
+        data_cache_size = self._data_cache.size
+        self._device_details_cache.clear()
+        self._data_cache.clear()
+
+        # Emit single consolidated cache invalidation event
+        await self._event_bus_provider.event_bus.publish(
+            event=CacheInvalidatedEvent(
+                timestamp=datetime.now(),
+                cache_type=CacheType.DATA,  # Representative of full clear
+                reason=reason,
+                scope=None,  # Full cache clear
+                entries_affected=data_cache_size,
+            )
+        )
+
+    def clear_on_stop(self) -> None:
+        """Clear in-memory caches on shutdown to free memory."""
+        _LOGGER.debug("CLEAR_ON_STOP: Clearing in-memory caches for %s", self._central_info.name)
+        data_cache_size = self._data_cache.size
+        self._device_details_cache.clear()
+        self._data_cache.clear()
+        self._parameter_visibility_registry.clear_memoization_caches()
+
+        # Emit cache invalidation event (sync publish)
+        self._event_bus_provider.event_bus.publish_sync(
+            event=CacheInvalidatedEvent(
+                timestamp=datetime.now(),
+                cache_type=CacheType.DATA,
+                reason=CacheInvalidationReason.SHUTDOWN,
+                scope=None,
+                entries_affected=data_cache_size,
+            )
+        )
+
+    async def load_all(self) -> bool:
+        """
+        Load all persistent caches from disk.
+
+        If either device or paramset cache has a version mismatch, both caches
+        are cleared to ensure consistency. This guarantees that both caches
+        are always rebuilt together when any schema version changes.
+
+        Returns
+        -------
+            True if loading succeeded and data is available,
+            False if caches need to be rebuilt (load failure or version mismatch)
+
+        """
+        _LOGGER.debug("LOAD_ALL: Loading caches for %s", self._central_info.name)
+
+        device_result = await self._device_descriptions_registry.load()
+        paramset_result = await self._paramset_descriptions_registry.load()
+
+        # Check for load failures
+        if DataOperationResult.LOAD_FAIL in (device_result, paramset_result):
+            _LOGGER.warning(  # i18n-log: ignore
+                "LOAD_ALL failed: Unable to load caches for %s. Clearing files",
+                self._central_info.name,
+            )
+            await self.clear_all()
+            return False
+
+        # Check for version mismatch - clear BOTH caches if either has version mismatch
+        if DataOperationResult.VERSION_MISMATCH in (device_result, paramset_result):
+            _LOGGER.info(  # i18n-log: ignore
+                "LOAD_ALL: Schema version mismatch detected for %s. Clearing both caches for rebuild",
+                self._central_info.name,
+            )
+            await self.clear_all()
+            return False  # Signal that caches need to be rebuilt from CCU
+
+        await self._device_details_cache.load()
+        await self._data_cache.load()
+        return True
+
+    async def load_data_cache(self, *, interface: Interface | None = None) -> None:
+        """
+        Load data cache for a specific interface or all interfaces.
+
+        Args:
+        ----
+            interface: Interface to load cache for, or None for all
+
+        """
+        await self._data_cache.load(interface=interface)
+
+    def remove_device_from_caches(self, *, device: DeviceRemovalInfoProtocol) -> None:
+        """
+        Remove a device from all relevant caches.
+
+        Note: This method is deprecated for direct calls. Prefer publishing
+        DeviceRemovedEvent which triggers automatic cache invalidation.
+
+        Args:
+        ----
+            device: Device to remove from caches
+
+        """
+        _LOGGER.debug(
+            "REMOVE_DEVICE_FROM_CACHES: Removing device %s from caches",
+            device.address,
+        )
+        self._device_descriptions_registry.remove_device(device=device)
+        self._paramset_descriptions_registry.remove_device(device=device)
+        self._device_details_cache.remove_device(device=device)
+
+    async def save_all(
+        self,
+        *,
+        save_device_descriptions: bool = False,
+        save_paramset_descriptions: bool = False,
+    ) -> None:
+        """
+        Save persistent caches to disk.
+
+        Args:
+        ----
+            save_device_descriptions: Whether to save device descriptions
+            save_paramset_descriptions: Whether to save paramset descriptions
+
+        """
+        _LOGGER.debug(
+            "SAVE_ALL: Saving caches for %s (device_desc=%s, paramset_desc=%s)",
+            self._central_info.name,
+            save_device_descriptions,
+            save_paramset_descriptions,
+        )
+
+        if save_device_descriptions:
+            await self._device_descriptions_registry.save()
+        if save_paramset_descriptions:
+            await self._paramset_descriptions_registry.save()
+
+    async def save_if_changed(
+        self,
+        *,
+        save_device_descriptions: bool = False,
+        save_paramset_descriptions: bool = False,
+    ) -> None:
+        """
+        Save caches only if they have unsaved changes.
+
+        This is the preferred method for automatic cache persistence,
+        as it avoids unnecessary disk writes.
+
+        Args:
+        ----
+            save_device_descriptions: Whether to check and save device descriptions
+            save_paramset_descriptions: Whether to check and save paramset descriptions
+
+        """
+        if save_device_descriptions and self._device_descriptions_registry.has_unsaved_changes:
+            _LOGGER.debug(
+                "SAVE_IF_CHANGED: Saving device descriptions for %s",
+                self._central_info.name,
+            )
+            await self._device_descriptions_registry.save()
+
+        if save_paramset_descriptions and self._paramset_descriptions_registry.has_unsaved_changes:
+            _LOGGER.debug(
+                "SAVE_IF_CHANGED: Saving paramset descriptions for %s",
+                self._central_info.name,
+            )
+            await self._paramset_descriptions_registry.save()
+
+    def set_data_cache_initialization_complete(self) -> None:
+        """
+        Mark data cache initialization as complete.
+
+        Call this after device creation is finished to enable normal cache
+        expiration behavior. During initialization, cache entries are kept
+        regardless of age to avoid triggering getValue calls when device
+        creation takes longer than MAX_CACHE_AGE.
+        """
+        self._data_cache.set_initialization_complete()
+
+    def stop(self) -> None:
+        """Stop the coordinator and unsubscribe from events."""
+        for unsub in self._unsubscribers:
+            unsub()
+        self._unsubscribers.clear()
+
+    async def _on_data_fetch_completed(self, *, event: DataFetchCompletedEvent) -> None:
+        """
+        Handle DataFetchCompletedEvent for automatic cache persistence.
+
+        This handler is triggered when paramset or device descriptions have been
+        fetched and added to the cache. It automatically persists the cache if
+        changes are detected.
+
+        Args:
+        ----
+            event: The data fetch completed event
+
+        """
+        _LOGGER.debug(
+            "CACHE_COORDINATOR: Received DataFetchCompletedEvent for %s operation=%s",
+            event.interface_id,
+            event.operation,
+        )
+
+        # Save caches if there are unsaved changes
+        if event.operation == DataFetchOperation.FETCH_PARAMSET_DESCRIPTIONS:
+            await self.save_if_changed(save_paramset_descriptions=True)
+        elif event.operation == DataFetchOperation.FETCH_DEVICE_DESCRIPTIONS:
+            await self.save_if_changed(save_device_descriptions=True)
+
+    def _on_device_removed(self, *, event: DeviceRemovedEvent) -> None:
+        """
+        Handle DeviceRemovedEvent for decoupled cache invalidation.
+
+        This handler is triggered when a device is removed, allowing caches
+        to react independently without direct coupling to the device coordinator.
+
+        Only processes device-level removal events (where device_address is set).
+        Data point removal events (only unique_id set) are ignored.
+
+        Args:
+        ----
+            event: The device removed event
+
+        """
+        # Only process device-level removal events
+        if event.device_address is None or event.interface_id is None:
+            return
+
+        _LOGGER.debug(
+            "CACHE_COORDINATOR: Received DeviceRemovedEvent for %s, invalidating caches",
+            event.device_address,
+        )
+        # Create adapter for cache removal methods
+        removal_info = _DeviceRemovalAdapter(
+            address=event.device_address,
+            interface_id=event.interface_id,
+            channel_addresses=event.channel_addresses,
+        )
+        self._device_descriptions_registry.remove_device(device=removal_info)  # type: ignore[arg-type]
+        self._paramset_descriptions_registry.remove_device(device=removal_info)  # type: ignore[arg-type]
+        self._device_details_cache.remove_device(device=removal_info)  # type: ignore[arg-type]

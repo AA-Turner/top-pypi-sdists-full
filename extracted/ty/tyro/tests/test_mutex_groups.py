@@ -1,6 +1,8 @@
 """Tests for mutually exclusive argument groups."""
 
+import contextlib
 import dataclasses
+import io
 from pathlib import Path
 from typing import Literal, Optional, Tuple, Union
 
@@ -9,9 +11,10 @@ from helptext_utils import get_helptext_with_checks
 from typing_extensions import Annotated
 
 import tyro
+import tyro._strings
 
 
-def test_required_mutex_group_basic():
+def test_required_mutex_group_basic() -> None:
     """Test basic required mutex group functionality."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
 
@@ -36,7 +39,7 @@ def test_required_mutex_group_basic():
         tyro.cli(main, args=[])
 
 
-def test_optional_mutex_group_basic():
+def test_optional_mutex_group_basic() -> None:
     """Test basic optional mutex group functionality."""
     OptionalGroup = tyro.conf.create_mutex_group(required=False)
 
@@ -60,7 +63,7 @@ def test_optional_mutex_group_basic():
         tyro.cli(main, args=["--verbose", "--quiet"])
 
 
-def test_multiple_mutex_groups():
+def test_multiple_mutex_groups() -> None:
     """Test multiple independent mutex groups in the same function."""
     GroupA = tyro.conf.create_mutex_group(required=True)
     GroupB = tyro.conf.create_mutex_group(required=False)
@@ -98,7 +101,7 @@ def test_multiple_mutex_groups():
         tyro.cli(main, args=["--option-a1", "test", "--option-b1", "--option-b2"])
 
 
-def test_mutex_group_with_disallow_none():
+def test_mutex_group_with_disallow_none() -> None:
     """Test mutex groups with DisallowNone configuration."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
 
@@ -119,7 +122,7 @@ def test_mutex_group_with_disallow_none():
     # So this test validates that DisallowNone works with the mutex group feature.
 
 
-def test_mutex_group_with_literal_types():
+def test_mutex_group_with_literal_types() -> None:
     """Test mutex groups with Literal types."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
 
@@ -141,7 +144,7 @@ def test_mutex_group_with_literal_types():
     assert tyro.cli(main, args=["--threads", "4"]) == (None, 4)
 
 
-def test_mutex_group_with_path_types():
+def test_mutex_group_with_path_types() -> None:
     """Test mutex groups with Path types."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
 
@@ -160,7 +163,7 @@ def test_mutex_group_with_path_types():
     assert result == (None, Path("/home/user"))
 
 
-def test_mutex_group_in_dataclass():
+def test_mutex_group_in_dataclass() -> None:
     """Test mutex groups within dataclass fields."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
     OptionalGroup = tyro.conf.create_mutex_group(required=False)
@@ -189,7 +192,7 @@ def test_mutex_group_in_dataclass():
         tyro.cli(Config, args=["--option-a", "test", "--verbose", "--quiet"])
 
 
-def test_mutex_group_helptext():
+def test_mutex_group_helptext() -> None:
     """Test that mutex groups appear correctly in helptext."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
     OptionalGroup = tyro.conf.create_mutex_group(required=False)
@@ -218,7 +221,7 @@ def test_mutex_group_helptext():
     assert "--quiet" in helptext
 
 
-def test_mutex_group_with_flag_create_pairs_off():
+def test_mutex_group_with_flag_create_pairs_off() -> None:
     """Test mutex groups with FlagCreatePairsOff configuration."""
     OptionalGroup = tyro.conf.create_mutex_group(required=False)
 
@@ -245,7 +248,7 @@ def test_mutex_group_with_flag_create_pairs_off():
     ) == (True, False)
 
 
-def test_three_way_mutex_group():
+def test_three_way_mutex_group() -> None:
     """Test mutex group with three options."""
     RequiredGroup = tyro.conf.create_mutex_group(required=True)
 
@@ -276,7 +279,7 @@ def test_three_way_mutex_group():
         tyro.cli(main, args=["--option-a", "a", "--option-b", "1", "--option-c", "2.0"])
 
 
-def test_mutex_group_with_defaults_not_none():
+def test_mutex_group_with_defaults_not_none() -> None:
     """Test mutex groups where defaults are not None."""
     OptionalGroup = tyro.conf.create_mutex_group(required=False)
 
@@ -298,7 +301,7 @@ def test_mutex_group_with_defaults_not_none():
         tyro.cli(main, args=["--verbose", "--verbosity-level", "2"])
 
 
-def test_mutex_group_on_dataclass_is_ignored():
+def test_mutex_group_on_dataclass_is_ignored() -> None:
     """Test that applying a mutex group annotation to a dataclass itself is ignored.
 
     This documents the current limitation where mutex groups can only be applied to
@@ -340,7 +343,7 @@ def test_mutex_group_on_dataclass_is_ignored():
     assert result[1] == 42
 
 
-def test_nested_mutex_groups():
+def test_nested_mutex_groups() -> None:
     """Test that mutex groups work correctly across nested dataclasses."""
     SharedGroup = tyro.conf.create_mutex_group(required=False)
 
@@ -393,3 +396,377 @@ def test_nested_mutex_groups():
 
     with pytest.raises(SystemExit):
         tyro.cli(Outer, args=["--option-d", "10", "--inner.option-b", "20"])
+
+
+def test_mutex_group_custom_title() -> None:
+    """Test that custom titles appear correctly in helptext."""
+    RequiredGroup = tyro.conf.create_mutex_group(required=True, title="output target")
+    OptionalGroup = tyro.conf.create_mutex_group(
+        required=False, title="verbosity level"
+    )
+
+    def main(
+        option_a: Annotated[Union[str, None], RequiredGroup] = None,
+        option_b: Annotated[Union[int, None], RequiredGroup] = None,
+        verbose: Annotated[bool, OptionalGroup] = False,
+        quiet: Annotated[bool, OptionalGroup] = False,
+    ) -> None:
+        """Test function with custom mutex group titles."""
+        pass
+
+    helptext = get_helptext_with_checks(main)
+
+    # Check that custom titles appear in helptext.
+    assert "output target" in helptext
+    assert "verbosity level" in helptext
+
+    # Check that default title does not appear.
+    assert "mutually exclusive" not in helptext.lower()
+
+    # Check that required group is still marked as required.
+    assert "required" in helptext.lower()
+
+    # Check that options are listed.
+    assert "--option-a" in helptext
+    assert "--option-b" in helptext
+    assert "--verbose" in helptext
+    assert "--quiet" in helptext
+
+    # Verify functionality still works - mutual exclusion is enforced.
+    assert tyro.cli(main, args=["--option-a", "test"]) is None
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=["--option-a", "test", "--option-b", "42"])
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=["--verbose", "--quiet"])
+
+
+def test_mutex_group_custom_title_multiple_groups() -> None:
+    """Test multiple independent mutex groups with different custom titles."""
+    GroupA = tyro.conf.create_mutex_group(required=True, title="input source")
+    GroupB = tyro.conf.create_mutex_group(required=False, title="output format")
+    GroupC = tyro.conf.create_mutex_group(required=False, title="logging options")
+
+    def main(
+        input_file: Annotated[Union[str, None], GroupA] = None,
+        input_url: Annotated[Union[str, None], GroupA] = None,
+        format_json: Annotated[bool, GroupB] = False,
+        format_yaml: Annotated[bool, GroupB] = False,
+        log_verbose: Annotated[bool, GroupC] = False,
+        log_quiet: Annotated[bool, GroupC] = False,
+    ) -> None:
+        """Test function with multiple custom mutex group titles."""
+        pass
+
+    helptext = get_helptext_with_checks(main)
+
+    # Check that all custom titles appear in helptext.
+    assert "input source" in helptext
+    assert "output format" in helptext
+    assert "logging options" in helptext
+
+    # Check that default title does not appear.
+    assert "mutually exclusive" not in helptext.lower()
+
+    # Verify that each group works independently.
+    assert tyro.cli(main, args=["--input-file", "test.txt", "--format-json"]) is None
+    assert tyro.cli(main, args=["--input-url", "http://example.com"]) is None
+
+    # Verify mutual exclusion within each group.
+    with pytest.raises(SystemExit):
+        tyro.cli(main, args=["--input-file", "test.txt", "--input-url", "url"])
+    with pytest.raises(SystemExit):
+        tyro.cli(
+            main, args=["--input-file", "test.txt", "--format-json", "--format-yaml"]
+        )
+    with pytest.raises(SystemExit):
+        tyro.cli(
+            main, args=["--input-file", "test.txt", "--log-verbose", "--log-quiet"]
+        )
+
+
+def test_mutex_error_message_format() -> None:
+    """Test that mutex error messages show clean argument names, not internal representations."""
+    RequiredGroup = tyro.conf.create_mutex_group(required=True, title="output target")
+    OptionalGroup = tyro.conf.create_mutex_group(
+        required=False, title="verbosity level"
+    )
+
+    def main(
+        target_stream: Annotated[
+            Optional[Literal["stdout", "stderr"]], RequiredGroup
+        ] = None,
+        target_file: Annotated[Optional[Path], RequiredGroup] = None,
+        verbose: Annotated[bool, OptionalGroup] = False,
+        very_verbose: Annotated[bool, OptionalGroup] = False,
+    ) -> None:
+        """Demonstrate mutually exclusive argument groups."""
+        pass
+
+    # Test required mutex group error message.
+    stderr = io.StringIO()
+    with pytest.raises(SystemExit):
+        with contextlib.redirect_stderr(stderr):
+            tyro.cli(
+                main,
+                args=["--target-stream", "stdout", "--target-file", "/tmp/output.txt"],
+                config=(tyro.conf.DisallowNone, tyro.conf.FlagCreatePairsOff),
+            )
+
+    error_message = tyro._strings.strip_ansi_sequences(stderr.getvalue())
+    # Should show clean argument names.
+    assert "--target-stream" in error_message
+    assert "--target-file" in error_message
+    # Both backends have different error message wording but both should indicate mutual exclusion.
+    # argparse: "not allowed with argument"
+    # tyro: "not allowed together"
+    assert "not allowed" in error_message
+    # Should NOT show internal ArgumentDefinition representation.
+    assert "ArgumentDefinition" not in error_message
+    assert "intern_prefix" not in error_message
+    assert "extern_prefix" not in error_message
+
+    # Test optional mutex group error message.
+    stderr = io.StringIO()
+    with pytest.raises(SystemExit):
+        with contextlib.redirect_stderr(stderr):
+            tyro.cli(
+                main,
+                args=["--target-stream", "stdout", "--verbose", "--very-verbose"],
+                config=(tyro.conf.DisallowNone, tyro.conf.FlagCreatePairsOff),
+            )
+
+    error_message = tyro._strings.strip_ansi_sequences(stderr.getvalue())
+    # Should show clean argument names.
+    assert "--verbose" in error_message
+    assert "--very-verbose" in error_message
+    # Both backends should indicate mutual exclusion.
+    assert "not allowed" in error_message
+    # Should NOT show internal ArgumentDefinition representation.
+    assert "ArgumentDefinition" not in error_message
+
+
+def test_mutex_group_with_short_alias() -> None:
+    """Test mutex groups with one-letter aliases.
+
+    Adapted from Aleksander Krastev: https://github.com/brentyi/tyro/issues/419
+    Short flags (like -f) should not be inverted to --no-f.
+    """
+    MutexGroup = tyro.conf.create_mutex_group(required=False)
+
+    @dataclasses.dataclass
+    class Config:
+        foo: Annotated[
+            bool,
+            MutexGroup,
+            tyro.conf.FlagCreatePairsOff,
+            tyro.conf.arg(aliases=["-f"]),
+        ] = False
+
+    # Should work with short alias.
+    config = tyro.cli(Config, args=["-f"])
+    assert config.foo is True
+
+    # Should work with long flag.
+    config = tyro.cli(Config, args=["--foo"])
+    assert config.foo is True
+
+    # Should work with no flag.
+    config = tyro.cli(Config, args=[])
+    assert config.foo is False
+
+
+def test_boolean_flag_with_short_alias_helptext() -> None:
+    """Test that boolean flags with short aliases show correct help text.
+
+    Adapted from Aleksander Krastev: https://github.com/brentyi/tyro/issues/419
+    Help text should show -f, --foo, --no-foo, not -f, --no-, --foo, --no-foo.
+    """
+
+    @dataclasses.dataclass
+    class Config:
+        foo: Annotated[bool, tyro.conf.arg(aliases=["-f"])] = False
+
+    helptext = get_helptext_with_checks(Config)
+
+    # Should have all valid flags.
+    assert "-f" in helptext
+    assert "--foo" in helptext
+    assert "--no-foo" in helptext
+
+    # Should NOT have malformed --no- flag.
+    # The malformed flag would show up as "--no-," (with comma) or "--no- " (with space).
+    assert "--no-," not in helptext
+    assert "--no- " not in helptext
+
+
+def test_boolean_flag_with_short_alias_functionality() -> None:
+    """Test that boolean flags with short aliases work correctly.
+
+    Adapted from Aleksander Krastev: https://github.com/brentyi/tyro/issues/419
+    """
+
+    @dataclasses.dataclass
+    class Config:
+        foo: Annotated[bool, tyro.conf.arg(aliases=["-f"])] = False
+
+    # Short alias should set to True.
+    config = tyro.cli(Config, args=["-f"])
+    assert config.foo is True
+
+    # Long flag should set to True.
+    config = tyro.cli(Config, args=["--foo"])
+    assert config.foo is True
+
+    # Negated long flag should set to False.
+    config = tyro.cli(Config, args=["--no-foo"])
+    assert config.foo is False
+
+    # No flag should use default.
+    config = tyro.cli(Config, args=[])
+    assert config.foo is False
+
+
+def test_short_multi_char_alias() -> None:
+    """Test that -foo (short flag with multiple chars) is not inverted.
+
+    Short flags (starting with single -) should never be inverted, regardless
+    of the number of characters after the dash.
+    """
+
+    @dataclasses.dataclass
+    class Config:
+        bar: Annotated[bool, tyro.conf.arg(aliases=["-foo"])] = False
+
+    # Short multi-char alias should work.
+    config = tyro.cli(Config, args=["-foo"])
+    assert config.bar is True
+
+    # Long flag should work.
+    config = tyro.cli(Config, args=["--bar"])
+    assert config.bar is True
+
+    # Negated long flag should work.
+    config = tyro.cli(Config, args=["--no-bar"])
+    assert config.bar is False
+
+    # Default should work.
+    config = tyro.cli(Config, args=[])
+    assert config.bar is False
+
+
+def test_short_multi_char_alias_helptext() -> None:
+    """Test that -foo alias shows correct help text without --no-foo."""
+
+    @dataclasses.dataclass
+    class Config:
+        bar: Annotated[bool, tyro.conf.arg(aliases=["-foo"])] = False
+
+    helptext = get_helptext_with_checks(Config)
+
+    # Should have valid flags.
+    assert "-foo" in helptext
+    assert "--bar" in helptext
+    assert "--no-bar" in helptext
+
+    # Should NOT have --no-foo (short flags are not inverted).
+    assert "--no-foo" not in helptext
+
+
+def test_short_multi_char_alias_in_mutex_group() -> None:
+    """Test -foo alias in mutex group works correctly."""
+    MutexGroup = tyro.conf.create_mutex_group(required=False)
+
+    @dataclasses.dataclass
+    class Config:
+        bar: Annotated[
+            bool,
+            MutexGroup,
+            tyro.conf.FlagCreatePairsOff,
+            tyro.conf.arg(aliases=["-foo"]),
+        ] = False
+
+    # Should work with short multi-char alias.
+    config = tyro.cli(Config, args=["-foo"])
+    assert config.bar is True
+
+    # Should work with long flag.
+    config = tyro.cli(Config, args=["--bar"])
+    assert config.bar is True
+
+    # Default should work.
+    config = tyro.cli(Config, args=[])
+    assert config.bar is False
+
+
+def test_long_single_char_alias() -> None:
+    """Test that --f (long flag with single char) IS inverted to --no-f.
+
+    Long flags (starting with --) should always be inverted, regardless
+    of the number of characters after the dashes.
+    """
+
+    @dataclasses.dataclass
+    class Config:
+        bar: Annotated[bool, tyro.conf.arg(aliases=["--f"])] = False
+
+    # Long single-char alias should work.
+    config = tyro.cli(Config, args=["--f"])
+    assert config.bar is True
+
+    # Long flag should work.
+    config = tyro.cli(Config, args=["--bar"])
+    assert config.bar is True
+
+    # Negated single-char alias should work.
+    config = tyro.cli(Config, args=["--no-f"])
+    assert config.bar is False
+
+    # Negated long flag should work.
+    config = tyro.cli(Config, args=["--no-bar"])
+    assert config.bar is False
+
+    # Default should work.
+    config = tyro.cli(Config, args=[])
+    assert config.bar is False
+
+
+def test_long_single_char_alias_helptext() -> None:
+    """Test that --f alias shows --no-f in help text."""
+
+    @dataclasses.dataclass
+    class Config:
+        bar: Annotated[bool, tyro.conf.arg(aliases=["--f"])] = False
+
+    helptext = get_helptext_with_checks(Config)
+
+    # Should have all valid flags including --no-f.
+    assert "--f" in helptext
+    assert "--no-f" in helptext
+    assert "--bar" in helptext
+    assert "--no-bar" in helptext
+
+
+def test_long_single_char_alias_in_mutex_group() -> None:
+    """Test --f alias in mutex group works correctly."""
+    MutexGroup = tyro.conf.create_mutex_group(required=False)
+
+    @dataclasses.dataclass
+    class Config:
+        bar: Annotated[
+            bool,
+            MutexGroup,
+            tyro.conf.FlagCreatePairsOff,
+            tyro.conf.arg(aliases=["--f"]),
+        ] = False
+
+    # Should work with long single-char alias.
+    config = tyro.cli(Config, args=["--f"])
+    assert config.bar is True
+
+    # Should work with long flag.
+    config = tyro.cli(Config, args=["--bar"])
+    assert config.bar is True
+
+    # Default should work.
+    config = tyro.cli(Config, args=[])
+    assert config.bar is False

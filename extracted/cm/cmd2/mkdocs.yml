@@ -60,16 +60,6 @@ theme:
 plugins:
   - search
   - git-revision-date-localized
-  - include-markdown:
-      preserve_includer_indent: true
-      dedent: true
-      comments: false
-  - macros:
-      render_by_default: false
-      on_error_fail: true
-      on_undefined: strict
-      j2_block_start_string: "[[%"
-      j2_block_end_string: "%]]"
   - mkdocstrings:
       handlers:
         python:
@@ -78,7 +68,6 @@ plugins:
             show_if_no_docstring: true
             preload_modules:
               - argparse
-              - cmd
             inherited_members: true
             members_order: source
             separate_signature: true
@@ -122,6 +111,9 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      base_path: [".", "docs"]
+      check_paths: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -138,7 +130,7 @@ validation:
     absolute_links: info
   links:
     not_found: warn
-    absolute_links: info
+    absolute_links: ignore
     unrecognized_links: info
 
 not_in_nav: |
@@ -186,23 +178,25 @@ nav:
       - features/shortcuts_aliases_macros.md
       - features/startup_commands.md
       - features/table_creation.md
+      - features/theme.md
       - features/transcripts.md
   - Examples:
       - examples/index.md
-      - examples/first_app.md
+      - examples/getting_started.md
       - examples/alternate_event_loops.md
       - examples/examples.md
-  - Plugins:
-      - plugins/index.md
-      - plugins/external_test.md
+  - Mixins:
+      - mixins/index.md
+      - mixins/mixin_template.md
   - Testing:
       - testing.md
   - API Reference:
       - api/index.md
       - api/cmd.md
-      - api/ansi.md
       - api/argparse_completer.md
       - api/argparse_custom.md
+      - api/clipboard.md
+      - api/colors.md
       - api/command_definition.md
       - api/constants.md
       - api/decorators.md
@@ -211,8 +205,15 @@ nav:
       - api/parsing.md
       - api/plugin.md
       - api/py_bridge.md
-      - api/table_creator.md
+      - api/rich_utils.md
+      - api/rl_utils.md
+      - api/string_utils.md
+      - api/styles.md
+      - api/terminal_utils.md
+      - api/transcript.md
       - api/utils.md
+  - Version Upgrades:
+      - upgrades.md
   - Meta:
       - doc_conventions.md
 

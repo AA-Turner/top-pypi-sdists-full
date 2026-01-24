@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import StrictStr, field_validator
+from pydantic import ConfigDict, StrictStr, field_validator
 
 from snowflake.core.api_integration._generated.models.api_hook import ApiHook
 
@@ -59,9 +59,10 @@ class AwsHook(ApiHook):
             )
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -86,7 +87,7 @@ class AwsHook(ApiHook):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if api_key (nullable) is None
         if self.api_key is None:
@@ -107,9 +108,9 @@ class AwsHook(ApiHook):
             return None
 
         if type(obj) is not dict:
-            return AwsHook.parse_obj(obj)
+            return AwsHook.model_validate(obj)
 
-        _obj = AwsHook.parse_obj(
+        _obj = AwsHook.model_validate(
             {
                 "api_provider": obj.get("api_provider"),
                 "api_aws_role_arn": obj.get("api_aws_role_arn"),

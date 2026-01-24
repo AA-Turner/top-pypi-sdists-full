@@ -3,7 +3,7 @@ Type annotations for s3vectors service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -28,7 +29,9 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import ListIndexesPaginator, ListVectorBucketsPaginator, ListVectorsPaginator
 from .type_defs import (
     CreateIndexInputTypeDef,
+    CreateIndexOutputTypeDef,
     CreateVectorBucketInputTypeDef,
+    CreateVectorBucketOutputTypeDef,
     DeleteIndexInputTypeDef,
     DeleteVectorBucketInputTypeDef,
     DeleteVectorBucketPolicyInputTypeDef,
@@ -43,6 +46,8 @@ from .type_defs import (
     GetVectorsOutputTypeDef,
     ListIndexesInputTypeDef,
     ListIndexesOutputTypeDef,
+    ListTagsForResourceInputTypeDef,
+    ListTagsForResourceOutputTypeDef,
     ListVectorBucketsInputTypeDef,
     ListVectorBucketsOutputTypeDef,
     ListVectorsInputTypeDef,
@@ -51,14 +56,10 @@ from .type_defs import (
     PutVectorsInputTypeDef,
     QueryVectorsInputTypeDef,
     QueryVectorsOutputTypeDef,
+    TagResourceInputTypeDef,
+    UntagResourceInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -69,19 +70,20 @@ __all__ = ("S3VectorsClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    KmsDisabledException: Type[BotocoreClientError]
-    KmsInvalidKeyUsageException: Type[BotocoreClientError]
-    KmsInvalidStateException: Type[BotocoreClientError]
-    KmsNotFoundException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    KmsDisabledException: type[BotocoreClientError]
+    KmsInvalidKeyUsageException: type[BotocoreClientError]
+    KmsInvalidStateException: type[BotocoreClientError]
+    KmsNotFoundException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    RequestTimeoutException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class S3VectorsClient(BaseClient):
@@ -119,10 +121,9 @@ class S3VectorsClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#generate_presigned_url)
         """
 
-    def create_index(self, **kwargs: Unpack[CreateIndexInputTypeDef]) -> Dict[str, Any]:
+    def create_index(self, **kwargs: Unpack[CreateIndexInputTypeDef]) -> CreateIndexOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Creates a vector index within a vector bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/create_index.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#create_index)
@@ -130,19 +131,18 @@ class S3VectorsClient(BaseClient):
 
     def create_vector_bucket(
         self, **kwargs: Unpack[CreateVectorBucketInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> CreateVectorBucketOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Creates a vector bucket in the Amazon Web Services Region that you want your
+        bucket to be in.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/create_vector_bucket.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#create_vector_bucket)
         """
 
-    def delete_index(self, **kwargs: Unpack[DeleteIndexInputTypeDef]) -> Dict[str, Any]:
+    def delete_index(self, **kwargs: Unpack[DeleteIndexInputTypeDef]) -> dict[str, Any]:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Deletes a vector index.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_index.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#delete_index)
@@ -150,10 +150,9 @@ class S3VectorsClient(BaseClient):
 
     def delete_vector_bucket(
         self, **kwargs: Unpack[DeleteVectorBucketInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Deletes a vector bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_vector_bucket.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#delete_vector_bucket)
@@ -161,19 +160,17 @@ class S3VectorsClient(BaseClient):
 
     def delete_vector_bucket_policy(
         self, **kwargs: Unpack[DeleteVectorBucketPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Deletes a vector bucket policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_vector_bucket_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#delete_vector_bucket_policy)
         """
 
-    def delete_vectors(self, **kwargs: Unpack[DeleteVectorsInputTypeDef]) -> Dict[str, Any]:
+    def delete_vectors(self, **kwargs: Unpack[DeleteVectorsInputTypeDef]) -> dict[str, Any]:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Deletes one or more vectors in a vector index.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/delete_vectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#delete_vectors)
@@ -181,8 +178,7 @@ class S3VectorsClient(BaseClient):
 
     def get_index(self, **kwargs: Unpack[GetIndexInputTypeDef]) -> GetIndexOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Returns vector index attributes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/get_index.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#get_index)
@@ -192,8 +188,7 @@ class S3VectorsClient(BaseClient):
         self, **kwargs: Unpack[GetVectorBucketInputTypeDef]
     ) -> GetVectorBucketOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Returns vector bucket attributes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/get_vector_bucket.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#get_vector_bucket)
@@ -203,8 +198,7 @@ class S3VectorsClient(BaseClient):
         self, **kwargs: Unpack[GetVectorBucketPolicyInputTypeDef]
     ) -> GetVectorBucketPolicyOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Gets details about a vector bucket policy.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/get_vector_bucket_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#get_vector_bucket_policy)
@@ -212,8 +206,7 @@ class S3VectorsClient(BaseClient):
 
     def get_vectors(self, **kwargs: Unpack[GetVectorsInputTypeDef]) -> GetVectorsOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Returns vector attributes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/get_vectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#get_vectors)
@@ -221,19 +214,28 @@ class S3VectorsClient(BaseClient):
 
     def list_indexes(self, **kwargs: Unpack[ListIndexesInputTypeDef]) -> ListIndexesOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Returns a list of all the vector indexes within the specified vector bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/list_indexes.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#list_indexes)
+        """
+
+    def list_tags_for_resource(
+        self, **kwargs: Unpack[ListTagsForResourceInputTypeDef]
+    ) -> ListTagsForResourceOutputTypeDef:
+        """
+        Lists all of the tags applied to a specified Amazon S3 Vectors resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/list_tags_for_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#list_tags_for_resource)
         """
 
     def list_vector_buckets(
         self, **kwargs: Unpack[ListVectorBucketsInputTypeDef]
     ) -> ListVectorBucketsOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Returns a list of all the vector buckets that are owned by the authenticated
+        sender of the request.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/list_vector_buckets.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#list_vector_buckets)
@@ -241,8 +243,7 @@ class S3VectorsClient(BaseClient):
 
     def list_vectors(self, **kwargs: Unpack[ListVectorsInputTypeDef]) -> ListVectorsOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        List vectors in the specified vector index.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/list_vectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#list_vectors)
@@ -250,19 +251,17 @@ class S3VectorsClient(BaseClient):
 
     def put_vector_bucket_policy(
         self, **kwargs: Unpack[PutVectorBucketPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Creates a bucket policy for a vector bucket.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/put_vector_bucket_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#put_vector_bucket_policy)
         """
 
-    def put_vectors(self, **kwargs: Unpack[PutVectorsInputTypeDef]) -> Dict[str, Any]:
+    def put_vectors(self, **kwargs: Unpack[PutVectorsInputTypeDef]) -> dict[str, Any]:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Adds one or more vectors to a vector index.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/put_vectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#put_vectors)
@@ -272,11 +271,28 @@ class S3VectorsClient(BaseClient):
         self, **kwargs: Unpack[QueryVectorsInputTypeDef]
     ) -> QueryVectorsOutputTypeDef:
         """
-        <note> <p>Amazon S3 Vectors is in preview release for Amazon S3 and is subject
-        to change.
+        Performs an approximate nearest neighbor search query in a vector index using a
+        query vector.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/query_vectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#query_vectors)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
+        """
+        Applies one or more user-defined tags to an Amazon S3 Vectors resource or
+        updates existing tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/tag_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#tag_resource)
+        """
+
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
+        """
+        Removes the specified user-defined tags from an Amazon S3 Vectors resource.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/untag_resource.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#untag_resource)
         """
 
     @overload  # type: ignore[override]

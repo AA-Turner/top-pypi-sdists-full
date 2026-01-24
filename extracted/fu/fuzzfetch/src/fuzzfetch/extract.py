@@ -3,6 +3,8 @@
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 """Code for extracting archives"""
 
+from __future__ import annotations
+
 import os
 from logging import getLogger
 from os.path import abspath, commonpath
@@ -21,9 +23,13 @@ LOG = getLogger("fuzzfetch")
 HDIUTIL_PATH = which("hdiutil")
 LBZIP2_PATH = which("lbzip2")
 XZ_PATH = which("xz")
+ZSTD_PATH = which("zstd")
+EXT_WARNINGS = {"bz2", "xz", "zst"}
 
 
-def extract_zip(zip_fn: PathArg, path: PathArg = ".") -> None:
+def extract_zip(
+    zip_fn: PathArg, path: PathArg = ".", product_name: str | None = "firefox"
+) -> None:
     """Download and extract a zip artifact
 
     Arguments:
@@ -31,15 +37,17 @@ def extract_zip(zip_fn: PathArg, path: PathArg = ".") -> None:
         path: where to extract zip contents
     """
     dest_path = Path(path)
+    if product_name is None:
+        product_name = "firefox"
 
-    def _extract_entry(zip_fp: ZipFile, info: ZipInfo) -> None:
+    def _extract_entry(zip_fp: ZipFile, info: ZipInfo, product_name: str) -> None:
         """Extract entries while explicitly setting the proper permissions"""
         rel_path = Path(info.filename)
 
         # strip leading "firefox" from path
         if rel_path.parts[0] == ".":
             rel_path = Path(*rel_path.parts[1:])
-        if rel_path.parts[0] == "firefox":
+        if rel_path.parts[0] == product_name:
             rel_path = Path(*rel_path.parts[1:])
 
         out_path = dest_path / rel_path
@@ -57,7 +65,7 @@ def extract_zip(zip_fn: PathArg, path: PathArg = ".") -> None:
 
     with ZipFile(zip_fn) as zip_fp:
         for info in zip_fp.infolist():
-            _extract_entry(zip_fp, info)
+            _extract_entry(zip_fp, info, product_name)
 
 
 def _is_within_directory(directory: PathArg, target: PathArg) -> bool:
@@ -69,7 +77,12 @@ def _is_within_directory(directory: PathArg, target: PathArg) -> bool:
     return prefix == abs_directory
 
 
-def extract_tar(tar_fn: PathArg, mode: str = "", path: PathArg = ".") -> None:
+def extract_tar(
+    tar_fn: PathArg,
+    mode: str = "",
+    path: PathArg = ".",
+    product_name: str | None = "firefox",
+) -> None:
     """Extract builds with .tar.(*) extension
     When unpacking a build archive, only extract the firefox directory
 
@@ -77,16 +90,21 @@ def extract_tar(tar_fn: PathArg, mode: str = "", path: PathArg = ".") -> None:
         tar_fn: path to tar archive
         mode: compression type
         path: where to extract tar contents
+        product_name: name of the target product
     """
     tmp_fn = None
+    if product_name is None:
+        product_name = "firefox"
     try:
 
-        def _external_decomp(decomp: str, name: str) -> None:
+        def _external_decomp(decomp: str) -> None:
             nonlocal mode, tar_fn, tmp_fn
             tmp_fd, tmp_fn = mkstemp(prefix="fuzzfetch-", suffix=".tar")
+            args = ["-dc"]
+            if mode in {"xz", "zst"}:
+                args.append("-T0")
             result = run(  # pylint: disable=subprocess-run-check
-                [decomp, "-dc", tar_fn],
-                env={"XZ_DEFAULTS": "-T0"},
+                [decomp, *args, tar_fn],
                 stdout=tmp_fd,
                 stderr=PIPE,
             )
@@ -97,28 +115,44 @@ def extract_tar(tar_fn: PathArg, mode: str = "", path: PathArg = ".") -> None:
             else:
                 LOG.warning(
                     "%s was found, but returned %d decompressing %r",
-                    name,
+                    Path(decomp).name,
                     result.returncode,
                     tar_fn,
                 )
 
-        if mode == "bz2" and LBZIP2_PATH:
-            # lbzip2 > bzip2
-            _external_decomp(LBZIP2_PATH, "lbzip2")
+        if mode == "bz2":
+            if LBZIP2_PATH:
+                # lbzip2 is significantly faster than python's bzip2 module
+                _external_decomp(LBZIP2_PATH)
+            elif "bz2" in EXT_WARNINGS:
+                EXT_WARNINGS.remove("bz2")
+                LOG.warning("WARNING: Install lbzip2 for much faster extraction.")
 
-        elif mode == "xz" and XZ_PATH:
-            # xz > python
-            _external_decomp(XZ_PATH, "xz")
+        elif mode == "xz":
+            if XZ_PATH:
+                # xz is significantly faster than python's lzma module
+                _external_decomp(XZ_PATH)
+            elif "xz" in EXT_WARNINGS:
+                EXT_WARNINGS.remove("xz")
+                LOG.warning("WARNING: Install xz-utils for much faster extraction.")
+
+        elif mode == "zst":
+            if ZSTD_PATH:
+                # zstd is significantly faster than python's zstd module
+                _external_decomp(ZSTD_PATH)
+            elif "zst" in EXT_WARNINGS:
+                EXT_WARNINGS.remove("zst")
+                LOG.warning("WARNING: Install zstd for much faster extraction.")
 
         with tar_open(tar_fn, mode=f"r:{mode}") as tar:  # type: ignore
             members = []
             for member in tar.getmembers():
                 if not _is_within_directory(path, Path(path) / member.name):
                     raise RuntimeError("Attempted Path Traversal in Tar File")
-                if member.name.startswith("firefox/"):
-                    member.name = member.name[8:]
+                if member.name.startswith(product_name + "/"):
+                    member.name = member.name[len(product_name) + 1 :]
                     members.append(member)
-                elif member.name != "firefox":
+                elif member.name != product_name:
                     # Ignore top-level build directory
                     members.append(member)
             tar.extractall(members=members, path=path)

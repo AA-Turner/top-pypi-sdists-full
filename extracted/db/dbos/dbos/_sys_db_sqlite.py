@@ -6,7 +6,6 @@ import sqlalchemy as sa
 from sqlalchemy.exc import DBAPIError
 
 from dbos._migration import sqlite_migrations
-from dbos._schemas.system_database import SystemSchema
 
 from ._logger import dbos_logger
 from ._sys_db import SystemDatabase
@@ -19,20 +18,26 @@ class SQLiteSystemDatabase(SystemDatabase):
         self, system_database_url: str, engine_kwargs: Dict[str, Any]
     ) -> sa.Engine:
         """Create a SQLite engine."""
-        # TODO: Make the schema dynamic so this isn't needed
-        SystemSchema.workflow_status.schema = None
-        SystemSchema.operation_outputs.schema = None
-        SystemSchema.notifications.schema = None
-        SystemSchema.workflow_events.schema = None
-        SystemSchema.streams.schema = None
-        return sa.create_engine(system_database_url)
+        sqlite_kwargs = engine_kwargs.copy()
+        connect_args = sqlite_kwargs.get("connect_args", {})
+        if connect_args:
+            filtered_keys = [
+                k for k in connect_args if k in ("application_name", "connect_timeout")
+            ]
+            if filtered_keys:
+                dbos_logger.debug(
+                    f"Ignoring PostgreSQL-specific connect_args for SQLite: {filtered_keys}"
+                )
+            sqlite_connect_args = {
+                k: v
+                for k, v in connect_args.items()
+                if k not in ("application_name", "connect_timeout")
+            }
+            sqlite_kwargs["connect_args"] = sqlite_connect_args
+        return sa.create_engine(system_database_url, **sqlite_kwargs)
 
     def run_migrations(self) -> None:
         """Run SQLite-specific migrations."""
-        if self._debug_mode:
-            dbos_logger.warning("System database migrations are skipped in debug mode.")
-            return
-
         with self.engine.begin() as conn:
             # Enable foreign keys for SQLite
             conn.execute(sa.text("PRAGMA foreign_keys = ON"))
@@ -127,56 +132,4 @@ class SQLiteSystemDatabase(SystemDatabase):
             raise e
 
     def _notification_listener(self) -> None:
-        """Poll for notifications and workflow events in SQLite."""
-
-        def split_payload(payload: str) -> Tuple[str, Optional[str]]:
-            """Split payload into components (first::second format)."""
-            if "::" in payload:
-                parts = payload.split("::", 1)
-                return parts[0], parts[1]
-            return payload, None
-
-        def signal_condition(condition_map: Any, payload: str) -> None:
-            """Signal a condition variable if it exists."""
-            condition = condition_map.get(payload)
-            if condition:
-                condition.acquire()
-                condition.notify_all()
-                condition.release()
-                dbos_logger.debug(f"Signaled condition for {payload}")
-
-        while self._run_background_processes:
-            try:
-                # Poll every second
-                time.sleep(1)
-
-                # Check all payloads in the notifications_map
-                for payload in list(self.notifications_map._dict.keys()):
-                    dest_uuid, topic = split_payload(payload)
-                    with self.engine.begin() as conn:
-                        result = conn.execute(
-                            sa.text(
-                                "SELECT 1 FROM notifications WHERE destination_uuid = :dest_uuid AND topic = :topic LIMIT 1"
-                            ),
-                            {"dest_uuid": dest_uuid, "topic": topic},
-                        )
-                        if result.fetchone():
-                            signal_condition(self.notifications_map, payload)
-
-                # Check all payloads in the workflow_events_map
-                for payload in list(self.workflow_events_map._dict.keys()):
-                    workflow_uuid, key = split_payload(payload)
-                    with self.engine.begin() as conn:
-                        result = conn.execute(
-                            sa.text(
-                                "SELECT 1 FROM workflow_events WHERE workflow_uuid = :workflow_uuid AND key = :key LIMIT 1"
-                            ),
-                            {"workflow_uuid": workflow_uuid, "key": key},
-                        )
-                        if result.fetchone():
-                            signal_condition(self.workflow_events_map, payload)
-
-            except Exception as e:
-                if self._run_background_processes:
-                    dbos_logger.warning(f"SQLite notification poller error: {e}")
-                    time.sleep(1)
+        self._notification_listener_polling()

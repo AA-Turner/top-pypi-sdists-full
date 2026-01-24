@@ -23,6 +23,7 @@ from isolate.server.interface import from_grpc, to_serialized_object, to_struct
 from fal import flags
 from fal._serialization import patch_pickle
 from fal.auth import UserAccess, key_credentials
+from fal.console import console
 from fal.logging import get_logger
 from fal.logging.trace import TraceContextInterceptor
 
@@ -38,6 +39,7 @@ FAL_SERVERLESS_DEFAULT_KEEP_ALIVE = 10
 FAL_SERVERLESS_DEFAULT_MAX_MULTIPLEXING = 1
 FAL_SERVERLESS_DEFAULT_MIN_CONCURRENCY = 0
 FAL_SERVERLESS_DEFAULT_CONCURRENCY_BUFFER = 0
+FAL_SERVERLESS_DEFAULT_CONCURRENCY_BUFFER_PERC = 0
 ALIAS_AUTH_MODES = ["public", "private", "shared"]
 
 logger = get_logger(__name__)
@@ -45,7 +47,39 @@ logger = get_logger(__name__)
 patch_pickle()
 
 
-AuthMode = Optional[Literal["public", "private", "shared"]]
+AuthModeLiteral = Literal["public", "private", "shared"]
+DeploymentStrategyLiteral = Literal["recreate", "rolling"]
+RetryConditionLiteral = Literal["timeout", "server_error", "connection_error"]
+
+ENVIRONMENT_SEPARATOR = "--"
+
+
+def construct_alias(base_name: str, environment_name: str | None = None) -> str:
+    """Construct the full alias with environment suffix.
+
+    Examples:
+    - ("my-app", None) → "my-app"
+    - ("my-app", "main") → "my-app"
+    - ("my-app", "staging") → "my-app--staging"
+    """
+    if not environment_name or environment_name == "main":
+        return base_name
+    return f"{base_name}{ENVIRONMENT_SEPARATOR}{environment_name}"
+
+
+def deconstruct_alias(full_alias: str, environment_name: str | None = None) -> str:
+    """Extract base name from full alias for display.
+
+    Examples:
+    - ("my-app--staging", "staging") → "my-app"
+    - ("my-app", "main") → "my-app"
+    - ("my-app", None) → "my-app"
+    """
+    if environment_name and environment_name != "main":
+        suffix = f"{ENVIRONMENT_SEPARATOR}{environment_name}"
+        if full_alias.endswith(suffix):
+            return full_alias[: -len(suffix)]
+    return full_alias
 
 
 class ServerCredentials:
@@ -175,6 +209,15 @@ class AuthenticatedCredentials(Credentials):
 class ServerlessSecret:
     name: str
     created_at: datetime
+    environment_name: str | None = None
+
+
+@dataclass
+class EnvironmentInfo:
+    name: str
+    description: str | None
+    is_default: bool
+    created_at: datetime
 
 
 def get_agent_credentials(original_credentials: Credentials) -> Credentials:
@@ -229,6 +272,12 @@ class HostedRunStatus:
 
 
 @dataclass
+class File:
+    hash: str
+    relative_path: str
+
+
+@dataclass
 class ApplicationInfo:
     application_id: str
     keep_alive: int
@@ -237,11 +286,14 @@ class ApplicationInfo:
     active_runners: int
     min_concurrency: int
     concurrency_buffer: int
+    concurrency_buffer_perc: int
+    scaling_delay: int
     machine_types: list[str]
     request_timeout: int
     startup_timeout: int
     valid_regions: list[str]
     created_at: datetime
+    environment_name: str | None = None
 
 
 @dataclass
@@ -255,31 +307,25 @@ class AliasInfo:
     active_runners: int
     min_concurrency: int
     concurrency_buffer: int
+    concurrency_buffer_perc: int
+    scaling_delay: int
     machine_types: list[str]
     request_timeout: int
     startup_timeout: int
     valid_regions: list[str]
+    environment_name: str | None = None
 
 
 class RunnerState(Enum):
-    RUNNING = "running"
-    PENDING = "pending"
-    SETUP = "setup"
-    DEAD = "dead"
-    UNKNOWN = "unknown"
-
-    @staticmethod
-    def from_proto(proto: isolate_proto.RunnerInfo.State) -> RunnerState:
-        if proto is isolate_proto.RunnerInfo.State.RUNNING:
-            return RunnerState.RUNNING
-        elif proto is isolate_proto.RunnerInfo.State.PENDING:
-            return RunnerState.PENDING
-        elif proto is isolate_proto.RunnerInfo.State.SETUP:
-            return RunnerState.SETUP
-        elif proto is isolate_proto.RunnerInfo.State.DEAD:
-            return RunnerState.DEAD
-        else:
-            return RunnerState.UNKNOWN
+    RUNNING = "RUNNING"
+    PENDING = "PENDING"
+    SETUP = "SETUP"
+    DOCKER_PULL = "DOCKER_PULL"
+    DEAD = "DEAD"
+    DRAINING = "DRAINING"
+    TERMINATING = "TERMINATING"
+    TERMINATED = "TERMINATED"
+    IDLE = "IDLE"
 
 
 @dataclass
@@ -400,11 +446,14 @@ def _from_grpc_application_info(
         active_runners=message.active_runners,
         min_concurrency=message.min_concurrency,
         concurrency_buffer=message.concurrency_buffer,
+        concurrency_buffer_perc=message.concurrency_buffer_perc,
+        scaling_delay=message.scaling_delay_seconds,
         machine_types=list(message.machine_types),
         request_timeout=message.request_timeout,
         startup_timeout=message.startup_timeout,
         valid_regions=list(message.valid_regions),
         created_at=isolate_proto.datetime_from_timestamp(message.created_at),
+        environment_name=message.environment_name,
     )
 
 
@@ -429,10 +478,13 @@ def _from_grpc_alias_info(message: isolate_proto.AliasInfo) -> AliasInfo:
         active_runners=message.active_runners,
         min_concurrency=message.min_concurrency,
         concurrency_buffer=message.concurrency_buffer,
+        concurrency_buffer_perc=message.concurrency_buffer_perc,
+        scaling_delay=message.scaling_delay_seconds,
         machine_types=list(message.machine_types),
         request_timeout=message.request_timeout,
         startup_timeout=message.startup_timeout,
         valid_regions=list(message.valid_regions),
+        environment_name=message.environment_name,
     )
 
 
@@ -453,7 +505,7 @@ def _from_grpc_runner_info(message: isolate_proto.RunnerInfo) -> RunnerInfo:
         external_metadata=external_metadata,
         revision=message.revision,
         alias=message.alias,
-        state=RunnerState.from_proto(message.state),
+        state=RunnerState(isolate_proto.RunnerInfo.State.Name(message.state)),
     )
 
 
@@ -521,8 +573,11 @@ class MachineRequirements:
     max_multiplexing: int | None = None
     min_concurrency: int | None = None
     concurrency_buffer: int | None = None
+    concurrency_buffer_perc: int | None = None
+    scaling_delay: int | None = None
     request_timeout: int | None = None
     startup_timeout: int | None = None
+    valid_regions: list[str] | None = None
 
     def __post_init__(self):
         if isinstance(self.machine_types, str):
@@ -533,6 +588,71 @@ class MachineRequirements:
 
         if not self.machine_types:
             raise ValueError("No machine type provided.")
+
+
+class HealthCheck:
+    start_period_seconds: Optional[int] = None
+    timeout_seconds: Optional[int] = None
+    failure_threshold: Optional[int] = None
+    call_regularly: Optional[bool] = None
+
+    def __init__(
+        self,
+        *,
+        start_period_seconds: Optional[int] = None,
+        timeout_seconds: Optional[int] = None,
+        failure_threshold: Optional[int] = None,
+        call_regularly: Optional[bool] = None,
+    ):
+        """Health check configuration for a runner.
+
+        Args:
+            start_period_seconds: Minimum time the runner has been running \
+            before considering the runner unhealthy when health check fails. \
+            To prevent the health check from failing too early, \
+            this will be replaced by startup_timeout of the application \
+            if it's less than it. Defaults to 30.
+            timeout_seconds: Timeout in seconds for the health check \
+            request. Defaults to 5 seconds.
+            failure_threshold: Number of consecutive failures \
+            before considering the runner as unhealthy. Defaults to 3.
+            call_regularly: Perform health check every 15s. \
+            If false, only do it when the x-fal-runner-health-check header is present. \
+            Defaults to True.
+        """
+
+        if call_regularly is False:
+            if failure_threshold is not None or start_period_seconds is not None:
+                console.print(
+                    "[bold yellow]Note:[/bold yellow] [dim]failure_threshold[/dim] "
+                    "and [dim]start_period_seconds[/dim] are ignored when "
+                    "[dim]call_regularly[/dim] is set to False. "
+                    "See https://docs.fal.ai/serverless/development/add-health-check-endpoint#manual-health-checks for details."  # noqa: E501
+                )
+
+        self.start_period_seconds = start_period_seconds
+        self.timeout_seconds = timeout_seconds
+        self.failure_threshold = failure_threshold
+        self.call_regularly = call_regularly
+
+    def __hash__(self):
+        return hash(
+            (
+                self.start_period_seconds,
+                self.timeout_seconds,
+                self.failure_threshold,
+                self.call_regularly,
+            )
+        )
+
+
+@dataclass
+class ApplicationHealthCheckConfig:
+    path: str
+    start_period_seconds: Optional[int]
+    timeout_seconds: Optional[int]
+    failure_threshold: Optional[int]
+    call_regularly: Optional[bool]
 
 
 @dataclass
@@ -599,7 +719,7 @@ class FalServerlessConnection:
         self.stub.RevokeUserKey(request)
 
     def define_environment(
-        self, kind: str, **options: Any
+        self, kind: str, force: bool = False, **options: Any
     ) -> isolate_proto.EnvironmentDefinition:
         struct = isolate_proto.Struct()
         struct.update(options)
@@ -607,6 +727,7 @@ class FalServerlessConnection:
         return isolate_proto.EnvironmentDefinition(
             kind=kind,
             configuration=struct,
+            force=force,
         )
 
     def register(
@@ -614,15 +735,20 @@ class FalServerlessConnection:
         function: Callable[..., ResultT],
         environments: list[isolate_proto.EnvironmentDefinition],
         application_name: str | None = None,
-        auth_mode: AuthMode = None,
+        auth_mode: Optional[AuthModeLiteral] = None,
         *,
+        source_code: str | None = None,
+        health_check_config: ApplicationHealthCheckConfig | None = None,
         serialization_method: str = _DEFAULT_SERIALIZATION_METHOD,
         machine_requirements: MachineRequirements | None = None,
         metadata: dict[str, Any] | None = None,
-        deployment_strategy: Literal["recreate", "rolling"] = "recreate",
+        deployment_strategy: DeploymentStrategyLiteral,
         scale: bool = True,
         private_logs: bool = False,
-    ) -> Iterator[isolate_proto.RegisterApplicationResult]:
+        files: list[File] | None = None,
+        skip_retry_conditions: list[RetryConditionLiteral] | None = None,
+        environment_name: str | None = None,
+    ) -> Iterator[RegisterApplicationResult]:
         wrapped_function = to_serialized_object(function, serialization_method)
         if machine_requirements:
             wrapped_requirements = isolate_proto.MachineRequirements(
@@ -640,12 +766,21 @@ class FalServerlessConnection:
                 max_concurrency=machine_requirements.max_concurrency,
                 min_concurrency=machine_requirements.min_concurrency,
                 concurrency_buffer=machine_requirements.concurrency_buffer,
+                concurrency_buffer_perc=machine_requirements.concurrency_buffer_perc,
+                scaling_delay_seconds=machine_requirements.scaling_delay,
                 max_multiplexing=machine_requirements.max_multiplexing,
                 request_timeout=machine_requirements.request_timeout,
                 startup_timeout=machine_requirements.startup_timeout,
+                valid_regions=machine_requirements.valid_regions,
             )
         else:
             wrapped_requirements = None
+
+        if files:
+            files = [
+                isolate_proto.File(hash=file.hash, relative_path=file.relative_path)
+                for file in files
+            ]
 
         if auth_mode == "public":
             auth = isolate_proto.ApplicationAuthMode.PUBLIC
@@ -665,16 +800,46 @@ class FalServerlessConnection:
             deployment_strategy.upper()
         ].to_proto()
 
+        if health_check_config:
+            wrapped_health_check_config = isolate_proto.ApplicationHealthCheckConfig(
+                path=health_check_config.path,
+                start_period_seconds=health_check_config.start_period_seconds,
+                timeout_seconds=health_check_config.timeout_seconds,
+                failure_threshold=health_check_config.failure_threshold,
+                call_regularly=health_check_config.call_regularly,
+            )
+        else:
+            wrapped_health_check_config = None
+
+        if skip_retry_conditions:
+            wrapped_skip_retry_conditions = [
+                isolate_proto.RetryCondition.Value(condition.upper())
+                for condition in skip_retry_conditions
+            ]
+        else:
+            wrapped_skip_retry_conditions = []
+
+        full_application_name = (
+            construct_alias(application_name, environment_name)
+            if application_name
+            else None
+        )
+
         request = isolate_proto.RegisterApplicationRequest(
             function=wrapped_function,
             environments=environments,
             machine_requirements=wrapped_requirements,
-            application_name=application_name,
+            application_name=full_application_name,
             auth_mode=auth,
             metadata=struct_metadata,
             deployment_strategy=deployment_strategy_proto,
             scale=scale,
             private_logs=private_logs,
+            files=files,
+            source_code=source_code,
+            health_check_config=wrapped_health_check_config,
+            skip_retry_conditions=wrapped_skip_retry_conditions,
+            environment_name=environment_name,
         )
         for partial_result in self.stub.RegisterApplication(request):
             yield from_grpc(partial_result)
@@ -690,22 +855,31 @@ class FalServerlessConnection:
         max_concurrency: int | None = None,
         min_concurrency: int | None = None,
         concurrency_buffer: int | None = None,
+        concurrency_buffer_perc: int | None = None,
+        scaling_delay: int | None = None,
         request_timeout: int | None = None,
         startup_timeout: int | None = None,
         valid_regions: list[str] | None = None,
         machine_types: list[str] | None = None,
+        *,
+        environment_name: str | None = None,
     ) -> AliasInfo:
+        full_application_name = construct_alias(application_name, environment_name)
+
         request = isolate_proto.UpdateApplicationRequest(
-            application_name=application_name,
+            application_name=full_application_name,
             keep_alive=keep_alive,
             max_multiplexing=max_multiplexing,
             max_concurrency=max_concurrency,
             min_concurrency=min_concurrency,
             concurrency_buffer=concurrency_buffer,
+            concurrency_buffer_perc=concurrency_buffer_perc,
+            scaling_delay_seconds=scaling_delay,
             request_timeout=request_timeout,
             startup_timeout=startup_timeout,
             valid_regions=valid_regions,
             machine_types=machine_types,
+            environment_name=environment_name,
         )
         res: isolate_proto.UpdateApplicationResult = self.stub.UpdateApplication(
             request
@@ -713,10 +887,20 @@ class FalServerlessConnection:
         return from_grpc(res.alias_info)
 
     def list_applications(
-        self, application_name: str | None = None
+        self,
+        application_name: str | None = None,
+        *,
+        environment_name: str | None = None,
     ) -> list[ApplicationInfo]:
+        full_application_name = (
+            construct_alias(application_name, environment_name)
+            if application_name
+            else None
+        )
+
         request = isolate_proto.ListApplicationsRequest(
-            application_name=application_name
+            application_name=full_application_name,
+            environment_name=environment_name,
         )
         res: isolate_proto.ListApplicationsResult = self.stub.ListApplications(request)
         return [from_grpc(app) for app in res.applications]
@@ -728,6 +912,22 @@ class FalServerlessConnection:
         request = isolate_proto.DeleteApplicationRequest(application_id=application_id)
         self.stub.DeleteApplication(request)
 
+    def rollout_application(
+        self,
+        application_name: str,
+        force: bool = False,
+        *,
+        environment_name: str | None = None,
+    ) -> None:
+        full_application_name = construct_alias(application_name, environment_name)
+
+        request = isolate_proto.RolloutApplicationRequest(
+            application_name=full_application_name,
+            force=force,
+            environment_name=environment_name,
+        )
+        self.stub.RolloutApplication(request)
+
     def run(
         self,
         function: Callable[..., ResultT],
@@ -736,6 +936,8 @@ class FalServerlessConnection:
         serialization_method: str = _DEFAULT_SERIALIZATION_METHOD,
         machine_requirements: MachineRequirements | None = None,
         setup_function: Callable[[], InputT] | None = None,
+        files: list[File] | None = None,
+        environment_name: str | None = None,
     ) -> Iterator[HostedRunResult[ResultT]]:
         wrapped_function = to_serialized_object(function, serialization_method)
         if machine_requirements:
@@ -755,16 +957,25 @@ class FalServerlessConnection:
                 max_multiplexing=machine_requirements.max_multiplexing,
                 min_concurrency=machine_requirements.min_concurrency,
                 concurrency_buffer=machine_requirements.concurrency_buffer,
+                concurrency_buffer_perc=machine_requirements.concurrency_buffer_perc,
+                scaling_delay_seconds=machine_requirements.scaling_delay,
                 request_timeout=machine_requirements.request_timeout,
                 startup_timeout=machine_requirements.startup_timeout,
+                valid_regions=machine_requirements.valid_regions,
             )
         else:
             wrapped_requirements = None
-
+        if files:
+            files = [
+                isolate_proto.File(hash=file.hash, relative_path=file.relative_path)
+                for file in files
+            ]
         request = isolate_proto.HostedRun(
             function=wrapped_function,
             environments=environments,
             machine_requirements=wrapped_requirements,
+            files=files,
+            environment_name=environment_name,
         )
         if setup_function:
             request.setup_func.MergeFrom(
@@ -780,7 +991,9 @@ class FalServerlessConnection:
         self,
         alias: str,
         revision: str,
-        auth_mode: AuthMode,
+        auth_mode: Optional[AuthModeLiteral],
+        *,
+        environment_name: str | None = None,
     ) -> AliasInfo:
         if auth_mode == "public":
             auth = isolate_proto.ApplicationAuthMode.PUBLIC
@@ -791,16 +1004,25 @@ class FalServerlessConnection:
         else:
             auth = None
 
+        full_alias = construct_alias(alias, environment_name)
+
         request = isolate_proto.SetAliasRequest(
-            alias=alias,
+            alias=full_alias,
             revision=revision,
             auth_mode=auth,
+            environment_name=environment_name,
         )
         res = self.stub.SetAlias(request)
         return from_grpc(res.alias_info)
 
-    def delete_alias(self, alias: str) -> str | None:
-        request = isolate_proto.DeleteAliasRequest(alias=alias)
+    def delete_alias(
+        self, alias: str, *, environment_name: str | None = None
+    ) -> str | None:
+        full_alias = construct_alias(alias, environment_name)
+
+        request = isolate_proto.DeleteAliasRequest(
+            alias=full_alias, environment_name=environment_name
+        )
         try:
             res: isolate_proto.DeleteAliasResult = self.stub.DeleteAlias(request)
             return res.revision
@@ -809,8 +1031,8 @@ class FalServerlessConnection:
                 return None
             raise
 
-    def list_aliases(self) -> list[AliasInfo]:
-        request = isolate_proto.ListAliasesRequest()
+    def list_aliases(self, *, environment_name: str | None = None) -> list[AliasInfo]:
+        request = isolate_proto.ListAliasesRequest(environment_name=environment_name)
         response: isolate_proto.ListAliasesResult = self.stub.ListAliases(request)
         return [from_grpc(alias) for alias in response.aliases]
 
@@ -820,8 +1042,15 @@ class FalServerlessConnection:
         *,
         list_pending: bool = True,
         start_time: datetime | None = None,
+        environment_name: str | None = None,
     ) -> list[RunnerInfo]:
-        kwargs = {"alias": alias, "list_pending": list_pending}
+        full_alias = construct_alias(alias, environment_name)
+
+        kwargs: dict[str, Any] = {
+            "alias": full_alias,
+            "list_pending": list_pending,
+            "environment_name": environment_name,
+        }
         if start_time:
             kwargs["start_time"] = isolate_proto.timestamp_from_datetime(start_time)
 
@@ -829,31 +1058,44 @@ class FalServerlessConnection:
         response = self.stub.ListAliasRunners(request)
         return [from_grpc(runner) for runner in response.runners]
 
-    def set_secret(self, name: str, value: str) -> None:
-        request = isolate_proto.SetSecretRequest(name=name, value=value)
+    def set_secret(
+        self, name: str, value: str, *, environment_name: str | None = None
+    ) -> None:
+        request = isolate_proto.SetSecretRequest(
+            name=name, value=value, environment_name=environment_name
+        )
         self.stub.SetSecret(request)
 
-    def delete_secret(self, name: str) -> None:
-        request = isolate_proto.SetSecretRequest(name=name, value=None)
+    def delete_secret(self, name: str, *, environment_name: str | None = None) -> None:
+        request = isolate_proto.SetSecretRequest(
+            name=name, value=None, environment_name=environment_name
+        )
         self.stub.SetSecret(request)
 
-    def list_secrets(self) -> list[ServerlessSecret]:
-        request = isolate_proto.ListSecretsRequest()
+    def list_secrets(
+        self, *, environment_name: str | None = None
+    ) -> list[ServerlessSecret]:
+        request = isolate_proto.ListSecretsRequest(environment_name=environment_name)
         response = self.stub.ListSecrets(request)
         return [
             ServerlessSecret(
                 name=secret.name,
                 created_at=isolate_proto.datetime_from_timestamp(secret.created_time),
+                environment_name=secret.environment_name,
             )
             for secret in response.secrets
         ]
+
+    def stop_runner(self, runner_id: str) -> None:
+        request = isolate_proto.StopRunnerRequest(runner_id=runner_id)
+        self.stub.StopRunner(request)
 
     def kill_runner(self, runner_id: str) -> None:
         request = isolate_proto.KillRunnerRequest(runner_id=runner_id)
         self.stub.KillRunner(request)
 
     def list_runners(self, start_time: datetime | None = None) -> list[RunnerInfo]:
-        kwargs = {
+        kwargs: dict[str, Any] = {
             "list_pending": True,
         }
         if start_time:
@@ -862,3 +1104,35 @@ class FalServerlessConnection:
         request = isolate_proto.ListRunnersRequest(**kwargs)
         response = self.stub.ListRunners(request)
         return [from_grpc(runner) for runner in response.runners]
+
+    def list_environments(self) -> list[EnvironmentInfo]:
+        request = isolate_proto.ListEnvironmentsRequest()
+        response = self.stub.ListEnvironments(request)
+        return [
+            EnvironmentInfo(
+                name=env.name,
+                description=env.description if env.HasField("description") else None,
+                is_default=env.is_default,
+                created_at=isolate_proto.datetime_from_timestamp(env.created_at),
+            )
+            for env in response.environments
+        ]
+
+    def create_environment(
+        self, name: str, description: str | None = None
+    ) -> EnvironmentInfo:
+        request = isolate_proto.CreateEnvironmentRequest(
+            name=name, description=description
+        )
+        response = self.stub.CreateEnvironment(request)
+        env = response.environment
+        return EnvironmentInfo(
+            name=env.name,
+            description=env.description if env.HasField("description") else None,
+            is_default=env.is_default,
+            created_at=isolate_proto.datetime_from_timestamp(env.created_at),
+        )
+
+    def delete_environment(self, name: str) -> None:
+        request = isolate_proto.DeleteEnvironmentRequest(name=name)
+        self.stub.DeleteEnvironment(request)

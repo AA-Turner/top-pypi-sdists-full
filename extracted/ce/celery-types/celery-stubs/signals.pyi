@@ -1,32 +1,33 @@
 from celery.utils.dispatch import Signal
 
 __all__ = [
-    "before_task_publish",
+    "after_setup_logger",
+    "after_setup_task_logger",
     "after_task_publish",
-    "task_prerun",
-    "task_postrun",
-    "task_success",
-    "task_retry",
-    "task_failure",
-    "task_revoked",
-    "celeryd_init",
+    "beat_embedded_init",
+    "beat_init",
+    "before_task_publish",
     "celeryd_after_setup",
+    "celeryd_init",
+    "eventlet_pool_apply",
+    "eventlet_pool_postshutdown",
+    "eventlet_pool_preshutdown",
+    "eventlet_pool_started",
+    "heartbeat_sent",
+    "setup_logging",
+    "task_failure",
+    "task_internal_error",
+    "task_postrun",
+    "task_prerun",
+    "task_retry",
+    "task_revoked",
+    "task_success",
+    "worker_before_create_process",
     "worker_init",
     "worker_process_init",
     "worker_ready",
     "worker_shutdown",
     "worker_shutting_down",
-    "worker_before_create_process",
-    "setup_logging",
-    "after_setup_logger",
-    "after_setup_task_logger",
-    "beat_init",
-    "beat_embedded_init",
-    "heartbeat_sent",
-    "eventlet_pool_started",
-    "eventlet_pool_preshutdown",
-    "eventlet_pool_postshutdown",
-    "eventlet_pool_apply",
 ]
 
 before_task_publish: Signal
@@ -39,6 +40,7 @@ task_retry: Signal
 task_failure: Signal
 task_revoked: Signal
 task_rejected: Signal
+task_internal_error: Signal
 task_unknown: Signal
 #: Deprecated, use after_task_publish instead.
 task_sent: Signal

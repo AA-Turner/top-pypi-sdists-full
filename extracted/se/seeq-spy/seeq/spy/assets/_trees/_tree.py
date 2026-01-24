@@ -93,6 +93,11 @@ class Tree:
         be replaced by displays from a Seeq Data Lab datasource when this tree
         is pushed.
 
+    trim_root_paths : bool, default True
+        If True, any leading parts of the path that are shared across all nodes
+        will be removed. This is useful when pulling a subtree from a larger tree.
+        If False, the paths will be used as-is.
+
     quiet : bool, default False
         If True, suppresses progress output. This setting will be the default for all
         operations on this Tree. This option can be changed later using
@@ -130,8 +135,8 @@ class Tree:
 
     @Status.handle_keyboard_interrupt()
     def __init__(self, data, *, friendly_name=None, description=None, workbook=_common.DEFAULT_WORKBOOK_PATH,
-                 datasource=None, convert_displays_to_sdl=True, quiet=None, errors=None, status=None,
-                 session: Optional[Session] = None):
+                 datasource=None, convert_displays_to_sdl=True, trim_root_paths=True,
+                 quiet=None, errors=None, status=None, session: Optional[Session] = None):
         _common.validate_argument_types([
             (data, 'data', (pd.DataFrame, str)),
             (friendly_name, 'friendly_name', str),
@@ -139,6 +144,7 @@ class Tree:
             (workbook, 'workbook', str),
             (datasource, 'datasource', str),
             (convert_displays_to_sdl, 'convert_displays_to_sdl', bool),
+            (trim_root_paths, 'trim_root_paths', bool),
             (errors, 'errors', str),
             (quiet, 'quiet', bool),
             (status, 'status', Status),
@@ -208,7 +214,8 @@ class Tree:
             modified_items.update(df.spy.modified_items)
 
             # Rectify paths
-            df = _path.trim_unneeded_paths(df)
+            if trim_root_paths:
+                df = _path.trim_unneeded_paths(df)
             df = _path.reify_missing_assets(df)
 
             # Pull children of items with IDs

@@ -1,6 +1,6 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 DESCR = """
 J. Mullahy (1997), "Instrumental-Variable Estimation of Count Data Models:
@@ -25,6 +25,5 @@ faminc                   log(faminc)
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "birthweight.csv.bz2")

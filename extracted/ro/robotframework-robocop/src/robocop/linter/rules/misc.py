@@ -3,13 +3,16 @@
 import ast
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
 
 from robot.api import Token
 from robot.errors import VariableError
-from robot.parsing.model.blocks import TestCaseSection
+from robot.parsing.model.blocks import For, TestCaseSection
 from robot.parsing.model.statements import Arguments, KeywordCall, Teardown
 from robot.utils import unescape
 from robot.variables.search import search_variable
+
+from robocop.linter.diagnostics import Diagnostic
 
 try:
     from robot.api.parsing import Comment, EmptyLine, If, Variable
@@ -19,9 +22,14 @@ try:
     from robot.api.parsing import Break, Continue, InlineIfHeader
 except ImportError:
     InlineIfHeader, Break, Continue = None, None, None
+try:  # RF 7+
+    from robot.api.parsing import Var
+except ImportError:
+    Var = None  # type: ignore[assignment, misc]
 
 from robocop.linter import sonar_qube
 from robocop.linter.rules import (
+    AfterRunChecker,
     Rule,
     RuleParam,
     RuleSeverity,
@@ -29,10 +37,14 @@ from robocop.linter.rules import (
     VisitorChecker,
     arguments,
     deprecated,
+    typing,
     variables,
 )
 from robocop.linter.utils import misc as utils
 from robocop.linter.utils.variable_matcher import VariableMatches
+
+if TYPE_CHECKING:
+    from robocop.linter.utils.disablers import DisablersFinder
 
 
 class KeywordAfterReturnRule(Rule):
@@ -43,7 +55,7 @@ class KeywordAfterReturnRule(Rule):
     from the keyword, use ``RETURN`` statement instead. ``[Return]`` does not return from the keyword but only
     sets the values that will be returned at the end of the keyword.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Keyword
@@ -51,7 +63,7 @@ class KeywordAfterReturnRule(Rule):
             [Return]    ${variable}
             ${variable}    Other Step
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Keyword
@@ -67,8 +79,10 @@ class KeywordAfterReturnRule(Rule):
     severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0901",)
 
 
 class EmptyReturnRule(Rule):
@@ -78,7 +92,7 @@ class EmptyReturnRule(Rule):
     ``[Return]`` statement is used to define variables returned from keyword. If you don't return anything from
     keyword,  don't use ``[Return]``.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Keyword
@@ -86,7 +100,7 @@ class EmptyReturnRule(Rule):
             Assert Results
             [Return]
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Keyword
@@ -101,15 +115,17 @@ class EmptyReturnRule(Rule):
     severity = RuleSeverity.WARNING
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.COMPLETE, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.COMPLETE,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0903",)
 
 
 class NestedForLoopRule(Rule):
     """
     Not supported nested for loop.
 
-    Older versions of Robot Framework did not support nested for loops::
+    Older versions of Robot Framework did not support nested for loops:
 
         *** Test Cases
         Test case
@@ -128,8 +144,10 @@ class NestedForLoopRule(Rule):
     version = "<4.0"
     added_in_version = "1.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0907",)
 
 
 class InconsistentAssignmentRule(Rule):
@@ -138,7 +156,7 @@ class InconsistentAssignmentRule(Rule):
 
     Use only one type of assignment sign in a file.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Keyword
@@ -149,7 +167,7 @@ class InconsistentAssignmentRule(Rule):
             No Operation
             ${var}  ${var2}    Some Keyword
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Keyword
@@ -160,27 +178,25 @@ class InconsistentAssignmentRule(Rule):
             No Operation
             ${var}  ${var2}    Some Keyword
 
-    By default, Robocop looks for most popular assignment sign in the file. It is possible to define expected
-    assignment sign by running:
+    By default, Robocop looks for the most popular assignment sign in the file. It is possible to define the expected
+    assignment sign:
 
-    .. tab-set::
+    === ":octicons-command-palette-24: cli"
 
-        .. tab-item:: Cli
+    ```bash
+    robocop check --configure inconsistent-assignment.assignment_sign_type=none
+    ```
 
-            .. code:: shell
+    === ":material-file-cog-outline: toml"
 
-                robocop check --configure inconsistent-assignment.assignment_sign_type=none
+        ```toml
+        [tool.robocop.lint]
+        configure = [
+            "inconsistent-assignment.assignment_sign_type=none"
+        ]
+        ```
 
-        .. tab-item:: Configuration file
-
-            .. code:: toml
-
-                [tool.robocop.lint]
-                configure = [
-                    "inconsistent-assignment.assignment_sign_type=none"
-                ]
-
-    You can choose between following assignment signs:
+    You can choose between the following assignment signs:
 
     - 'autodetect' (default),
     - 'none',
@@ -208,8 +224,10 @@ class InconsistentAssignmentRule(Rule):
     ]
     added_in_version = "1.7.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0909",)
 
 
 class InconsistentAssignmentInVariablesRule(Rule):
@@ -218,7 +236,7 @@ class InconsistentAssignmentInVariablesRule(Rule):
 
     Use one type of assignment sign in Variables section.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Variables ***
         ${var} =    1
@@ -227,7 +245,7 @@ class InconsistentAssignmentInVariablesRule(Rule):
         ${var4}     a
         ${var5}     b
 
-    Correct code::
+    Correct code:
 
         *** Variables ***
         ${var}      1
@@ -237,7 +255,7 @@ class InconsistentAssignmentInVariablesRule(Rule):
         ${var5}     b
 
     By default, Robocop looks for the most popular assignment sign in the file. It is possible to define expected
-    assignment sign by running::
+    assignment sign by running:
 
         robocop check --configure inconsistent-assignment-in-variables.assignment_sign_type=equal_sign
 
@@ -269,8 +287,10 @@ class InconsistentAssignmentInVariablesRule(Rule):
     ]
     added_in_version = "1.7.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0910",)
 
 
 class CanBeResourceFileRule(Rule):
@@ -287,8 +307,10 @@ class CanBeResourceFileRule(Rule):
     file_wide_rule = True
     added_in_version = "1.10.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0913",)
 
 
 class IfCanBeMergedRule(Rule):
@@ -297,7 +319,7 @@ class IfCanBeMergedRule(Rule):
 
     ``IF`` statement follows another ``IF`` with identical conditions. It can be possibly merged into one.
 
-    Example of rule violation::
+    Example of rule violation:
 
         *** Test Cases ***
         Test case
@@ -311,7 +333,7 @@ class IfCanBeMergedRule(Rule):
 
     ``IF`` statement is considered identical only if all branches have identical conditions.
 
-    Similar but not identical ``IF``::
+    Similar but not identical ``IF``:
 
         *** Test Cases ***
         Test case
@@ -333,8 +355,10 @@ class IfCanBeMergedRule(Rule):
     version = ">=4.0"
     added_in_version = "2.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0914",)
 
 
 class StatementOutsideLoopRule(Rule):
@@ -358,8 +382,10 @@ class StatementOutsideLoopRule(Rule):
     version = ">=5.0"
     added_in_version = "2.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.BUG
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.BUG,
     )
+    deprecated_names = ("0915",)
 
 
 class InlineIfCanBeUsedRule(Rule):
@@ -368,13 +394,13 @@ class InlineIfCanBeUsedRule(Rule):
 
     Short and simple ``IF`` statements can be replaced with ``inline IF``.
 
-    Following ``IF``::
+    Following ``IF``:
 
         IF    $condition
             BREAK
         END
 
-    can be replaced with::
+    can be replaced with:
 
         IF    $condition    BREAK
 
@@ -397,8 +423,10 @@ class InlineIfCanBeUsedRule(Rule):
     severity_threshold = SeverityThreshold("max_width", compare_method="less")
     added_in_version = "2.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0916",)
 
 
 class UnreachableCodeRule(Rule):
@@ -407,7 +435,7 @@ class UnreachableCodeRule(Rule):
 
     Detects the unreachable code after ``RETURN``, ``BREAK`` or ``CONTINUE`` statements.
 
-    For example::
+    For example:
 
         *** Keywords ***
         Example Keyword
@@ -431,8 +459,10 @@ class UnreachableCodeRule(Rule):
     version = ">=5.0"
     added_in_version = "3.1.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.LOGICAL, issue_type=sonar_qube.SonarQubeIssueType.BUG
+        clean_code=sonar_qube.CleanCodeAttribute.LOGICAL,
+        issue_type=sonar_qube.SonarQubeIssueType.BUG,
     )
+    deprecated_names = ("0917",)
 
 
 class MultilineInlineIfRule(Rule):
@@ -442,20 +472,20 @@ class MultilineInlineIfRule(Rule):
     It's allowed to create ``inline IF`` that spans multiple lines, but it should be avoided,
     since it decreases readability. Try to use normal ``IF``/``ELSE`` instead.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Keyword
             IF  ${condition}  Log  hello
             ...    ELSE       Log  hi!
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Keyword
             IF  ${condition}    Log  hello     ELSE    Log  hi!
 
-    or IF block can be used::
+    or IF block can be used:
 
         *** Keywords ***
         Keyword
@@ -474,8 +504,10 @@ class MultilineInlineIfRule(Rule):
     version = ">=5.0"
     added_in_version = "3.1.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.FORMATTED, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.FORMATTED,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0918",)
 
 
 class UnnecessaryStringConversionRule(Rule):
@@ -485,7 +517,7 @@ class UnnecessaryStringConversionRule(Rule):
 
     Expressions in Robot Framework are evaluated using Python's eval function. When a variable is used
     in the expression using the normal ``${variable}`` syntax, its value is replaced before the expression
-    is evaluated. For example, with the following expression::
+    is evaluated. For example, with the following expression:
 
         *** Test Cases ***
         Check if schema was uploaded
@@ -500,20 +532,20 @@ class UnnecessaryStringConversionRule(Rule):
             END
             Send File To SFTP Root   ${filename}
 
-    "${filename}" will be replaced by "schema.avsc"::
+    "${filename}" will be replaced by "schema.avsc":
 
         IF    schema.avsc == 'default'
 
-    "schema.avsc" will not be recognized as Python variable. That's why you need to quote it::
+    "schema.avsc" will not be recognized as Python variable. That's why you need to quote it:
 
         IF    '${filename}' == 'default'
 
-    However it introduces unnecessary string conversion and can mask difference in the type. For example::
+    However it introduces unnecessary string conversion and can mask difference in the type. For example:
 
         ${numerical}    Set Variable    10  # ${numerical} is actually string 10, not integer 10
         IF    "${numerical}" == "10"
 
-    You can use  ``$variable`` syntax instead::
+    You can use  ``$variable`` syntax instead:
 
         IF    $numerical == 10
 
@@ -525,8 +557,10 @@ class UnnecessaryStringConversionRule(Rule):
     rule_id = "MISC12"
     message = "Variable '{name}' in '{block_name}' condition has unnecessary string conversion"
     severity = RuleSeverity.INFO
+    deprecated = True
     version = ">=4.0"
     added_in_version = "4.0.0"
+    deprecated_names = ("0923",)
 
 
 class ExpressionCanBeSimplifiedRule(Rule):
@@ -535,7 +569,7 @@ class ExpressionCanBeSimplifiedRule(Rule):
 
     Evaluated expression can be simplified.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Click On Element
@@ -547,7 +581,7 @@ class ExpressionCanBeSimplifiedRule(Rule):
             END
             Click    ${locator}
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Click On Element
@@ -559,7 +593,7 @@ class ExpressionCanBeSimplifiedRule(Rule):
             END
             Click    ${locator}
 
-    Comparisons to empty sequences (lists, dicts, sets), empty string or ``0`` can be also simplified::
+    Comparisons to empty sequences (lists, dicts, sets), empty string or ``0`` can be also simplified:
 
         *** Test Cases ***
         Check conditions
@@ -576,15 +610,17 @@ class ExpressionCanBeSimplifiedRule(Rule):
     version = ">=4.0"
     added_in_version = "4.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
+    deprecated_names = ("0924",)
 
 
 class MisplacedNegativeConditionRule(Rule):
     """
     Position of not operator can be changed for better readability.
 
-    Incorrect code example::
+    Incorrect code example:
 
         *** Keywords ***
         Check Unmapped Codes
@@ -597,7 +633,7 @@ class MisplacedNegativeConditionRule(Rule):
                 Fail    Did not receive codes from API.
             END
 
-    Correct code::
+    Correct code:
 
         *** Keywords ***
         Check Unmapped Codes
@@ -619,7 +655,44 @@ class MisplacedNegativeConditionRule(Rule):
     version = ">=4.0"
     added_in_version = "4.0.0"
     sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
-        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL, issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
+    )
+    deprecated_names = ("0925",)
+
+
+class DisablerNotUsedRule(Rule):
+    """
+    Robocop disabler directive is not used.
+
+    Overlapping disablers, code that was already fixed or rules that are disabled globally do not need rule disablers.
+
+    Rule violation examples:
+
+        *** Keywords ***
+        Log To Page
+            ${email}    Get Email  # robocop: off=unused-variable
+            Log    ${email}
+            FOR    ${locator}    IN    @{email_locators}
+                # robocop: off
+                # robocop: off=some-rule
+                Fill Text    ${locator}
+            END
+
+    In above examples we disable unused-variable rule, but no violation is raised for this line.
+    Also, we define disablers for all rules and some-rule in FOR loop, and all rules disabler overlaps second disabler
+    which is never used.
+
+    """
+
+    name = "unused-disabler"
+    rule_id = "MISC15"
+    message = "Disabler directive found for '{rule_name}' rule(s) but no violation found"
+    severity = RuleSeverity.INFO
+    added_in_version = "6.8.0"
+    sonar_qube_attrs = sonar_qube.SonarQubeAttributes(
+        clean_code=sonar_qube.CleanCodeAttribute.CONVENTIONAL,
+        issue_type=sonar_qube.SonarQubeIssueType.CODE_SMELL,
     )
 
 
@@ -695,7 +768,7 @@ class UnreachableCodeChecker(VisitorChecker):
                     statement=token.value,
                     node=child,
                     col=code_after_statement.col_offset + 1,
-                    end_col=child.end_col_offset + 1,
+                    end_col=child.end_col_offset,
                 )
                 statement_node = None
 
@@ -719,7 +792,10 @@ class NestedForLoopsChecker(VisitorChecker):  # TODO: merge
             if child.type == "FOR":
                 token = child.get_token(Token.FOR)
                 self.report(
-                    self.nested_for_loop, node=child, col=token.col_offset + 1, end_col=token.end_col_offset + 1
+                    self.nested_for_loop,
+                    node=child,
+                    col=token.col_offset + 1,
+                    end_col=token.end_col_offset + 1,
                 )
 
 
@@ -739,7 +815,11 @@ class IfBlockCanBeUsed(VisitorChecker):
         if utils.normalize_robot_name(node.keyword, remove_prefix="builtin.") in self.run_keyword_variants:
             col = utils.keyword_col(node)
             self.report(
-                self.if_can_be_used, run_keyword=node.keyword, node=node, col=col, end_col=col + len(node.keyword)
+                self.if_can_be_used,
+                run_keyword=node.keyword,
+                node=node,
+                col=col,
+                end_col=col + len(node.keyword),
             )
 
 
@@ -751,7 +831,7 @@ class ConsistentAssignmentSignChecker(VisitorChecker):
     section and ``*** Test Cases ***``, ``*** Keywords ***`` sections) and report any inconsistent type of sign in
     particular file.
 
-    To force one type of sign type you can configure two rules::
+    To force one type of sign type you can configure two rules:
 
         robocop check --configure inconsistent-assignment.assignment_sign_type={sign_type}
         robocop check --configure inconsistent-assignment-in-variables.assignment_sign_type={sign_type}
@@ -776,7 +856,10 @@ class ConsistentAssignmentSignChecker(VisitorChecker):
     def visit_File(self, node) -> None:  # noqa: N802
         self.keyword_expected_sign_type = self.inconsistent_assignment.assignment_sign_type
         self.variables_expected_sign_type = self.inconsistent_assignment_in_variables.assignment_sign_type
-        if "autodetect" in [self.keyword_expected_sign_type, self.variables_expected_sign_type]:
+        if "autodetect" in [
+            self.keyword_expected_sign_type,
+            self.variables_expected_sign_type,
+        ]:
             auto_detector = self.auto_detect_assignment_sign(node)
             if self.keyword_expected_sign_type == "autodetect":
                 self.keyword_expected_sign_type = auto_detector.keyword_most_common
@@ -804,7 +887,9 @@ class ConsistentAssignmentSignChecker(VisitorChecker):
                 continue
             var_token = child.get_token(Token.VARIABLE)
             self.check_assign_type(
-                var_token, self.variables_expected_sign_type, self.inconsistent_assignment_in_variables
+                var_token,
+                self.variables_expected_sign_type,
+                self.inconsistent_assignment_in_variables,
             )
         return node
 
@@ -906,7 +991,12 @@ class ResourceFileChecker(VisitorChecker):
                 and node.sections
                 and not any(isinstance(section, TestCaseSection) for section in node.sections)
             ):
-                self.report(self.can_be_resource_file, file_name=Path(source).name, file_name_stem=file_name, node=node)
+                self.report(
+                    self.can_be_resource_file,
+                    file_name=Path(source).name,
+                    file_name_stem=file_name,
+                    node=node,
+                )
 
 
 class IfChecker(VisitorChecker):
@@ -921,7 +1011,9 @@ class IfChecker(VisitorChecker):
             return
         self.check_adjacent_ifs(node)
 
-    visit_For = visit_If = visit_Keyword = visit_TestCase  # noqa: N815  # TODO: While, Try Except?
+    visit_For = visit_If = visit_Keyword = (  # noqa: N815
+        visit_TestCase  # TODO: While, Try Except?
+    )
 
     @staticmethod
     def is_inline_if(node):
@@ -989,7 +1081,7 @@ class IfChecker(VisitorChecker):
                     node=node,
                     col=if_header.col_offset + 1,
                     end_lineno=node.end_lineno,
-                    end_col=node.end_col_offset + 1,
+                    end_col=node.end_col_offset,
                 )
             return
         if (
@@ -1017,7 +1109,12 @@ class LoopStatementsChecker(VisitorChecker):
     """Checker for loop keywords and statements such as CONTINUE or Exit For Loop"""
 
     statement_outside_loop: StatementOutsideLoopRule
-    for_keyword = {"continueforloop", "continueforloopif", "exitforloop", "exitforloopif"}
+    for_keyword = {
+        "continueforloop",
+        "continueforloopif",
+        "exitforloop",
+        "exitforloopif",
+    }
 
     def __init__(self):
         self.loops = 0
@@ -1086,6 +1183,7 @@ class CachedVariable:
     name: str
     token: Token
     is_used: bool
+    current_scopy_only: bool = False
 
 
 class SectionVariablesCollector(ast.NodeVisitor):
@@ -1094,7 +1192,7 @@ class SectionVariablesCollector(ast.NodeVisitor):
     def __init__(self):
         self.section_variables: dict[str, CachedVariable] = {}
 
-    def visit_Variable(self, node) -> None:  # noqa: N802
+    def visit_Variable(self, node) -> None:
         if utils.get_errors(node):
             return
         var_token = node.get_token(Token.VARIABLE)
@@ -1135,7 +1233,18 @@ class UnusedVariablesChecker(VisitorChecker):
     def report_not_used_section_variables(self) -> None:
         if not self.test_or_task_section:
             return
-        self.check_unused_variables_in_scope(self.section_variables)
+        ignored = self.get_ignored_variable_names()
+        for variable in self.section_variables.values():
+            should_ignore = variable.is_used or utils.normalize_robot_var_name(variable.name) in ignored
+            if not should_ignore:
+                self.report_arg_or_var_rule(self.unused_variable, variable.token, variable.name)
+
+    def get_ignored_variable_names(self) -> set[str]:
+        """Get normalized set of variable names to ignore from the ignore parameter."""
+        ignore_config = self.unused_variable.ignore
+        if not ignore_config:
+            return set()
+        return {utils.normalize_robot_name(name.strip()) for name in ignore_config.split(",")}
 
     def visit_TestCaseSection(self, node) -> None:  # noqa: N802
         self.test_or_task_section = True
@@ -1252,8 +1361,8 @@ class UnusedVariablesChecker(VisitorChecker):
 
     def add_variables_from_if_to_scope(self, if_variables: dict[str, CachedVariable]) -> None:
         """
-        Add all variables in given IF branch to common scope. If variable is used already in the branch, if it will
-        also be mark as used.
+        Add all variables in the given IF branch to a common scope. If a variable is used already in the branch, it
+        will also be marked as used.
         """
         if not self.variables:
             self.variables.append(if_variables)
@@ -1269,28 +1378,32 @@ class UnusedVariablesChecker(VisitorChecker):
         for token in node.get_tokens(Token.NAME, Token.ARGUMENT):
             self.find_not_nested_variable(token.value, is_var=False)
 
-    visit_TestTags = visit_ForceTags = visit_Metadata = visit_DefaultTags = visit_Variable = visit_ReturnStatement = (  # noqa: N815
-        visit_ReturnSetting  # noqa: N815
-    ) = visit_Teardown = visit_Timeout = visit_Return = visit_SuiteSetup = visit_SuiteTeardown = visit_TestSetup = (  # noqa: N815
-        visit_TestTeardown  # noqa: N815
-    ) = visit_Setup = visit_ResourceImport = visit_VariablesImport = visit_Tags = visit_Documentation = (  # noqa: N815
-        visit_LibraryImport
-    )
+    visit_TestTags = visit_ForceTags = visit_Metadata = visit_DefaultTags = (  # noqa: N815
+        visit_Variable  # noqa: N815
+    ) = visit_ReturnStatement = visit_ReturnSetting = visit_Teardown = (  # noqa: N815
+        visit_Timeout  # noqa: N815
+    ) = visit_Return = visit_SuiteSetup = (  # noqa: N815  # noqa: N815
+        visit_SuiteTeardown  # noqa: N815
+    ) = visit_TestSetup = visit_TestTeardown = visit_Setup = (  # noqa: N815
+        visit_ResourceImport  # noqa: N815
+    ) = visit_VariablesImport = visit_Tags = (  # noqa: N815  # noqa: N815
+        visit_Documentation  # noqa: N815
+    ) = visit_LibraryImport
 
     def clear_variables_after_loop(self) -> None:
-        """Remove used variables after loop finishes."""
+        """Remove used variables after the loop finishes."""
         for index, scope in enumerate(self.variables):
             self.variables[index] = {name: variable for name, variable in scope.items() if not variable.is_used}
 
     def revisit_variables_used_in_loop(self) -> None:
         """
-        Due to recursive nature of the loops, we need to revisit variables used in the loop again in case
-        variable defined in the further part of the loop was used.
+        Due to the recursive nature of the loops, we need to revisit variables used in the loop again in case
+        the variable defined in the further part of the loop was used.
 
-        In case of nested FOR/WHILE loops we're storing variables in separate stacks, that are merged until we reach
-        outer END.
+        In case of nested FOR/WHILE loops, we're storing variables in separate stacks that are merged until we reach
+        the outer END.
 
-        For example::
+        For example:
 
             *** Keywords ***
             Use loop variable
@@ -1346,18 +1459,42 @@ class UnusedVariablesChecker(VisitorChecker):
     def visit_Try(self, node):  # noqa: N802
         if node.errors or node.header.errors:
             return
-        for token in node.header.get_tokens(Token.ARGUMENT, Token.OPTION):
-            self.find_not_nested_variable(token.value, is_var=False)
+        # first gather variables from the TRY node
         self.variables.append({})
-        if self.try_assign(node) is not None:
-            error_var = node.header.get_token(Token.VARIABLE)
-            if error_var is not None:
-                self.handle_assign_variable(error_var, ignore_var_conversion=False)
         for item in node.body:
             self.visit(item)
-        self.variables.pop()
-        if node.next:
-            self.visit_Try(node.next)
+        try_variables = self.variables.pop()
+        branch_variables = []
+        try_branch = node.next
+        while try_branch:
+            self.variables.append({})
+            # variables in EXCEPT  ${error_pattern}
+            for token in try_branch.header.get_tokens(Token.ARGUMENT, Token.OPTION):
+                self.find_not_nested_variable(token.value, is_var=False)
+            # except AS ${err}
+            if self.try_assign(try_branch) is not None:
+                error_var = try_branch.header.get_token(Token.VARIABLE)
+                if error_var is not None:
+                    self.handle_assign_variable(error_var, ignore_var_conversion=False)
+                    for variable in self.variables[-1].values():
+                        variable.current_scopy_only = True
+            # visit body of branch
+            for item in try_branch.body:
+                self.visit(item)
+            branch_variables.append(self.variables.pop())
+            try_branch = try_branch.next
+        for branch in branch_variables:
+            for name, variable in branch.items():
+                if variable.current_scopy_only:
+                    if not variable.is_used:
+                        self.report_arg_or_var_rule(self.unused_variable, variable.token, variable.name)
+                elif name not in try_variables:
+                    try_variables[name] = variable
+                else:
+                    try_variables[name].is_used = try_variables[name].is_used and variable.is_used
+                    if not variable.is_used:
+                        try_variables[name].token = variable.token
+        self.add_variables_from_if_to_scope(try_variables)
 
     def visit_Group(self, node):  # noqa: N802
         for token in node.header.get_tokens(Token.ARGUMENT):
@@ -1365,7 +1502,7 @@ class UnusedVariablesChecker(VisitorChecker):
         self.generic_visit(node)
 
     def visit_KeywordCall(self, node) -> None:  # noqa: N802
-        for token in node.get_tokens(Token.ARGUMENT, Token.KEYWORD):  # argument can be used in keyword name
+        for token in node.get_tokens(Token.ARGUMENT, Token.KEYWORD):  # argument can be used in the keyword name
             self.find_not_nested_variable(token.value, is_var=False)
         for token in node.get_tokens(Token.ASSIGN):  # we first check args, then assign for used and then overwritten
             self.handle_assign_variable(token)
@@ -1395,7 +1532,7 @@ class UnusedVariablesChecker(VisitorChecker):
         if ignore_var_conversion:
             name = utils.remove_variable_type_conversion(name)
         normalized = utils.normalize_robot_name(name)
-        if not normalized:  # ie. "${_}" -> ""
+        if not normalized or name.startswith("_"):  # i.e. "${_}" -> "", or ${_ignore}
             return
         arg = self.arguments.get(normalized, None)
         if arg is not None:
@@ -1408,7 +1545,7 @@ class UnusedVariablesChecker(VisitorChecker):
             variable_scope = self.variables[-1]
             if normalized in variable_scope:
                 is_used = variable_scope[normalized].is_used
-                if not variable_scope[normalized].is_used and not self.ignore_overwriting:
+                if not is_used and not self.ignore_overwriting:
                     self.report_arg_or_var_rule(
                         self.variable_overwritten_before_usage,
                         variable_scope[normalized].token,
@@ -1432,12 +1569,12 @@ class UnusedVariablesChecker(VisitorChecker):
         Find and process not nested variable.
 
         Search `value` string until there is ${variable} without other variables inside. Unescaped escaped syntax
-        ($var or \\${var}). If variable does exist in assign variables or arguments, it is removed to denote it was
+        ($var or \\${var}). If a variable does exist in assign variables or arguments, it is removed to denote it was
         used.
         """
         try:
             variables = list(VariableMatches(value))
-        except VariableError:  # for example ${variable which wasn't closed properly
+        except VariableError:  # for example, ${variable which wasn't closed properly
             return
         if not variables:
             if is_var:
@@ -1517,9 +1654,26 @@ class ExpressionsChecker(VisitorChecker):
     misplaced_negative_condition: MisplacedNegativeConditionRule
 
     QUOTE_CHARS = {"'", '"'}
-    CONDITION_KEYWORDS = {"passexecutionif", "setvariableif", "shouldbetrue", "shouldnotbetrue", "skipif"}
+    CONDITION_KEYWORDS = {
+        "passexecutionif",
+        "setvariableif",
+        "shouldbetrue",
+        "shouldnotbetrue",
+        "skipif",
+    }
     COMPARISON_SIGNS = {"==", "!="}
-    EMPTY_COMPARISON = {"${true}", "${false}", "true", "false", "[]", "{}", "set()", "list()", "dict()", "0"}
+    EMPTY_COMPARISON = {
+        "${true}",
+        "${false}",
+        "true",
+        "false",
+        "[]",
+        "{}",
+        "set()",
+        "list()",
+        "dict()",
+        "0",
+    }
 
     def visit_If(self, node) -> None:  # noqa: N802
         condition_token = node.header.get_token(Token.ARGUMENT)
@@ -1555,7 +1709,12 @@ class ExpressionsChecker(VisitorChecker):
             position += len(match.before)
             self.check_for_misplaced_not(condition_token, node_name, match.before, match.match, match.after)
             self.check_for_complex_condition(
-                condition_token, node_name, match.before, match.match, match.after, position
+                condition_token,
+                node_name,
+                match.before,
+                match.match,
+                match.after,
+                position,
             )
 
     def check_for_misplaced_not(self, condition_token, node_name, left_side, variable, right_side) -> None:
@@ -1682,6 +1841,8 @@ class NonLocalVariableChecker(VisitorChecker):
 class UndefinedArgumentDefaultChecker(VisitorChecker):
     undefined_argument_default: arguments.UndefinedArgumentDefaultRule
     undefined_argument_value: arguments.UndefinedArgumentValueRule
+    # used by AssertionEngine library
+    assertion_operators = {"==", "!=", "<", ">", "<=", ">=", "*=", "^=", "$=", "$"}
 
     def visit_Arguments(self, node: Arguments):  # noqa: N802
         for token in node.get_tokens(Token.ARGUMENT):
@@ -1706,6 +1867,8 @@ class UndefinedArgumentDefaultChecker(VisitorChecker):
         for token in node.get_tokens(Token.ARGUMENT):
             arg = token.value
 
+            if arg in self.assertion_operators:
+                continue
             if "=" not in arg or arg.startswith("="):
                 # Is a positional arg
                 continue
@@ -1729,3 +1892,170 @@ class UndefinedArgumentDefaultChecker(VisitorChecker):
                 end_col=token.col_offset + len(token.value) + 1,
                 arg_name=arg_name,
             )
+
+
+class UnusedDiagnosticChecker(AfterRunChecker):
+    unused_disabler: DisablerNotUsedRule
+
+    def scan_file(
+        self,
+        ast_model,
+        filename: Path,
+        in_memory_content: Optional[str],
+        **kwargs,  # ast_model: File, need RF6+
+    ) -> list[Diagnostic]:
+        disablers = kwargs["disablers"]
+        super().scan_file(ast_model, filename, in_memory_content, **kwargs)
+        self.check_unused_disablers(disablers)
+        return self.issues
+
+    def check_unused_disablers(self, disablers: "DisablersFinder"):
+        for rule, disabler in disablers.not_used_disablers:
+            self.report(
+                self.unused_disabler,
+                rule_name=rule,
+                lineno=disabler.start_line,
+                end_lineno=disabler.start_line,
+                col=disabler.directive_col_start,
+                end_col=disabler.directive_col_end,
+            )
+
+
+class MissingVariableTypeChecker(VisitorChecker):
+    """Checker for variables without type annotations (RF 7.3+)."""
+
+    missing_section_variable_type: typing.MissingSectionVariableTypeRule
+    missing_argument_type: typing.MissingArgumentTypeRule
+    missing_for_loop_variable_type: typing.MissingForLoopVariableTypeRule
+
+    @staticmethod
+    def has_type_annotation(var_name: str) -> bool:
+        """
+        Check if variable has type annotation (contains ': ' followed by type).
+
+        Returns:
+            True if variable has type annotation
+
+        """
+        # Type conversion syntax: ${var: type} - note the space after colon
+        # vs embedded pattern: ${var:pattern} - no space after colon
+        return ": " in var_name
+
+    @staticmethod
+    def is_ignore_variable(var_name: str) -> bool:
+        """
+        Check if variable is an ignore variable like ${_} or ${_name}.
+
+        Args:
+            var_name: Variable name from search_variable().base
+
+        Returns:
+            True if variable should be ignored (starts with underscore)
+
+        """
+        # Strip variable markers like ${, @{, &{, %}
+        name = var_name.lstrip("$@&%{").rstrip("}")
+        # Remove type annotation if present
+        name = utils.remove_variable_type_conversion(name)
+        return name == "_" or name.startswith("_")
+
+    def should_report_missing_type(self, var_name: str) -> bool:
+        """
+        Check if variable should be reported for missing type annotation.
+
+        Args:
+            var_name: Variable name from search_variable()
+
+        Returns:
+            True if variable is missing type annotation and should be reported
+
+        """
+        try:
+            var_match = search_variable(var_name, ignore_errors=True)
+            return (
+                var_match.base
+                and not self.has_type_annotation(var_match.base)
+                and not self.is_ignore_variable(var_match.base)
+            )
+        except VariableError:
+            return False
+
+    def visit_Variable(self, node: Variable) -> None:  # noqa: N802
+        """Check variables in *** Variables *** section."""
+        if utils.get_errors(node):
+            return
+        token = node.data_tokens[0]
+        if self.should_report_missing_type(token.value):
+            var_match = search_variable(token.value, ignore_errors=True)
+            self.report(
+                self.missing_section_variable_type,
+                variable_name=var_match.match,
+                node=node,
+                lineno=token.lineno,
+                col=token.col_offset + 1,
+                end_col=token.end_col_offset + 1,
+            )
+
+    def visit_Var(self, node: Var) -> None:  # noqa: N802
+        """Check VAR statements."""
+        if node.errors:
+            return
+        variable = node.get_token(Token.VARIABLE)
+        if not variable:
+            return
+        if self.should_report_missing_type(variable.value):
+            var_match = search_variable(variable.value, ignore_errors=True)
+            self.report(
+                self.missing_section_variable_type,
+                variable_name=var_match.match,
+                node=node,
+                lineno=variable.lineno,
+                col=variable.col_offset + 1,
+                end_col=variable.end_col_offset + 1,
+            )
+
+    def visit_KeywordCall(self, node: KeywordCall) -> None:  # noqa: N802
+        """Check assignment expressions (${var} = Keyword)."""
+        for token in node.get_tokens(Token.ASSIGN):
+            if self.should_report_missing_type(token.value):
+                var_match = search_variable(token.value, ignore_errors=True)
+                self.report(
+                    self.missing_section_variable_type,
+                    variable_name=var_match.match,
+                    node=node,
+                    lineno=token.lineno,
+                    col=token.col_offset + 1,
+                    end_col=token.end_col_offset + 1,
+                )
+
+    def visit_Arguments(self, node: Arguments) -> None:  # noqa: N802
+        """Check keyword arguments ([Arguments])."""
+        for arg in node.get_tokens(Token.ARGUMENT):
+            # Handle default values: ${arg: type}=default
+            arg_name, _ = utils.split_argument_default_value(arg.value)
+            if self.should_report_missing_type(arg_name):
+                var_match = search_variable(arg_name, ignore_errors=True)
+                self.report(
+                    self.missing_argument_type,
+                    variable_name=var_match.match,
+                    node=node,
+                    lineno=arg.lineno,
+                    col=arg.col_offset + 1,
+                    end_col=arg.col_offset + len(arg_name) + 1,
+                )
+
+    def visit_For(self, node: For) -> None:  # noqa: N802
+        """Check FOR loop variables."""
+        if not node.header.errors:
+            for variable in node.header.get_tokens(Token.VARIABLE):
+                if self.should_report_missing_type(variable.value):
+                    var_match = search_variable(variable.value, ignore_errors=True)
+                    self.report(
+                        self.missing_for_loop_variable_type,
+                        variable_name=var_match.match,
+                        node=node,
+                        lineno=variable.lineno,
+                        col=variable.col_offset + 1,
+                        end_col=variable.end_col_offset + 1,
+                    )
+        self.generic_visit(node)  # Continue to nested loops

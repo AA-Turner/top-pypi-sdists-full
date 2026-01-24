@@ -50,6 +50,23 @@ impl<
         }
     }
 
+    pub async fn get_prefix(
+        &'referred_data self,
+        prefix: &'referred_data str,
+    ) -> Result<Box<dyn Iterator<Item = (K, V)> + Send + Sync + 'referred_data>, Box<dyn ChromaError>>
+    {
+        match self {
+            BlockfileReader::ArrowBlockfileReader(reader) => {
+                Ok(Box::new(reader.get_prefix(prefix).await?))
+            }
+            BlockfileReader::MemoryBlockfileReader(reader) => Ok(Box::new(
+                reader
+                    .get_range_iter(prefix..=prefix, ..)?
+                    .map(|(_, k, v)| (k, v)),
+            )),
+        }
+    }
+
     pub async fn count(&'referred_data self) -> Result<usize, Box<dyn ChromaError>> {
         match self {
             BlockfileReader::MemoryBlockfileReader(reader) => reader.count(),
@@ -120,9 +137,10 @@ impl<
         }
     }
 
-    pub async fn load_blocks_for_keys(&self, keys: impl IntoIterator<Item = (String, K)>) {
+    // NOTE(sicheng): This loads the underlying data concurrently
+    pub async fn load_data_for_keys(&self, keys: impl IntoIterator<Item = (String, K)>) {
         match self {
-            BlockfileReader::MemoryBlockfileReader(_reader) => unimplemented!(),
+            BlockfileReader::MemoryBlockfileReader(_) => (),
             BlockfileReader::ArrowBlockfileReader(reader) => {
                 reader.load_blocks_for_keys(keys).await
             }
@@ -134,7 +152,7 @@ impl<
         prefixes: impl IntoIterator<Item = &'prefix str>,
     ) {
         match self {
-            BlockfileReader::MemoryBlockfileReader(_reader) => unimplemented!(),
+            BlockfileReader::MemoryBlockfileReader(_reader) => (),
             BlockfileReader::ArrowBlockfileReader(reader) => {
                 reader.load_blocks_for_prefixes(prefixes).await
             }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dsnparse
-Version: 0.3.1
+Version: 0.4.0
 Summary: parse dsn urls
 Author-email: Jay Marcyes <jay@marcyes.com>
 License-Expression: MIT

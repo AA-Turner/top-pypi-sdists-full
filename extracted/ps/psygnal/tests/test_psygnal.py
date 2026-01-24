@@ -1,10 +1,9 @@
 import gc
 import os
-import sys
 from contextlib import suppress
 from functools import partial, wraps
 from inspect import Signature
-from typing import Literal, Optional
+from typing import Literal
 from unittest.mock import MagicMock, Mock, call
 
 import pytest
@@ -14,7 +13,6 @@ from psygnal import EmitLoopError, Signal, SignalInstance
 from psygnal._signal import ReemissionMode, ReemissionVal
 from psygnal._weak_callback import WeakCallback
 
-PY39 = sys.version_info[:2] == (3, 9)
 WINDOWS = os.name == "nt"
 COMPILED = psygnal._compiled
 
@@ -355,7 +353,7 @@ def test_slot_types(type_: str) -> None:
     elif type_ == "partial_method_kwarg":
         signal.connect(partial(obj.f_int_int, b=2))
     elif type_ == "partial_method_kwarg_bad":
-        with pytest.raises(ValueError, match=".*prefer using positional args"):
+        with pytest.raises(ValueError, match=r".*prefer using positional args"):
             signal.connect(partial(obj.f_int_int, a=2))
         return
 
@@ -599,8 +597,8 @@ class Rcv:
     def methodA_ref(self, obj: 'TypeA'): ...
     def methodB(self, obj: TypeB): ...
     def methodB_ref(self, obj: 'TypeB'): ...
-    def methodOptB(self, obj: Optional[TypeB]): ...
-    def methodOptB_ref(self, obj: 'Optional[TypeB]'): ...
+    def methodOptB(self, obj: TypeB | None): ...
+    def methodOptB_ref(self, obj: 'TypeB | None'): ...
     def methodC(self, obj: TypeC): ...
     def methodC_ref(self, obj: 'TypeC'): ...
 class Emt:
@@ -1043,7 +1041,6 @@ def test_pickle():
     mock.assert_called_once()
 
 
-@pytest.mark.skipif(PY39 and WINDOWS and COMPILED, reason="fails")
 @pytest.mark.parametrize("strategy", [ReemissionMode.QUEUED, ReemissionMode.IMMEDIATE])
 def test_recursion_error(strategy: ReemissionMode) -> None:
     s = SignalInstance(reemission=strategy)

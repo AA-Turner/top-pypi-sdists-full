@@ -20,7 +20,7 @@ repos:
       - id: sort-simple-yaml
       - id: trailing-whitespace
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 'v0.12.8'
+    rev: 'v0.14.10'
     hooks:
       - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix]
@@ -30,8 +30,3 @@ repos:
     hooks:
       - id: codespell
         additional_dependencies: ["tomli"]
-  - repo: https://github.com/asottile/pyupgrade
-    rev: v3.20.0
-    hooks:
-      - id: pyupgrade
-        args: [--py38-plus]

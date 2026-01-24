@@ -11,6 +11,7 @@ from torch import nn as nn
 from ._fx import register_notrace_function
 from .grid import ndgrid
 from .trace_utils import _assert
+from .weight_init import is_meta_device
 
 
 def pixel_freq_bands(
@@ -43,8 +44,8 @@ def build_sincos2d_pos_embed(
         temperature: float = 10000.,
         reverse_coord: bool = False,
         interleave_sin_cos: bool = False,
+        device: Optional[torch.device] = None,
         dtype: torch.dtype = torch.float32,
-        device: Optional[torch.device] = None
 ) -> torch.Tensor:
     """
 
@@ -96,8 +97,8 @@ def build_fourier_pos_embed(
         ref_feat_shape: Optional[List[int]] = None,
         grid_offset: float = 0.,
         grid_indexing: str = 'ij',
-        dtype: torch.dtype = torch.float32,
         device: Optional[torch.device] = None,
+        dtype: torch.dtype = torch.float32,
 ) -> List[torch.Tensor]:
     """
 
@@ -164,7 +165,7 @@ def build_fourier_pos_embed(
     grid = grid.unsqueeze(-1)
     pos = grid * bands
 
-    pos_sin, pos_cos = pos.sin().to(dtype=dtype), pos.cos().to(dtype)
+    pos_sin, pos_cos = pos.sin().to(dtype=dtype), pos.cos().to(dtype=dtype)
     out = [grid, pos_sin, pos_cos] if include_grid else [pos_sin, pos_cos]
     return out
 
@@ -177,17 +178,30 @@ class FourierEmbed(nn.Module):
             num_bands: int = 64,
             concat_grid=True,
             keep_spatial=False,
+            device=None,
+            dtype=None,
     ):
         super().__init__()
         self.max_res = max_res
         self.num_bands = num_bands
         self.concat_grid = concat_grid
         self.keep_spatial = keep_spatial
-        self.register_buffer(
-            'bands',
-            pixel_freq_bands(max_res, num_bands),
-            persistent=False,
-        )
+        self.register_buffer('bands', torch.empty(num_bands, device=device, dtype=dtype), persistent=False)
+
+        if not is_meta_device(device):
+            self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        self._init_buffers()
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        self.bands.copy_(pixel_freq_bands(self.num_bands, self.max_res))
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
 
     def forward(self, x):
         B, C = x.shape[:2]
@@ -228,7 +242,8 @@ def rope_rotate_half(x: torch.Tensor) -> torch.Tensor:
 
 def apply_rot_embed(
         x: torch.Tensor,
-        emb: torch.Tensor,
+        sin_emb: torch.Tensor,
+        cos_emb: torch.Tensor,
         half: bool = False,
 ) -> torch.Tensor:
     # x: [..., D], eg [x0, x1, x2, x3, x4, x5]
@@ -246,7 +261,8 @@ def apply_rot_embed(
 
 def apply_rot_embed_list(
         x: List[torch.Tensor],
-        emb: torch.Tensor,
+        sin_emb: torch.Tensor,
+        cos_emb: torch.Tensor,
         half: bool = False
 ) -> List[torch.Tensor]:
     if isinstance(x, torch.Tensor):
@@ -269,7 +285,7 @@ def apply_rot_embed_cat(
         emb: torch.Tensor,
         half: bool = False
 ) -> torch.Tensor:
-    sin_emb, cos_emb = emb.tensor_split(2, -1)
+    sin_emb, cos_emb = emb.chunk(2, -1)
     # x: [..., D], eg [x0, x1, x2, x3, x4, x5]
     if half:
         # sin: [..., D], eg [sin0, sin1, sin2, sin0, sin1, sin2]
@@ -331,8 +347,8 @@ def build_rotary_pos_embed(
         ref_feat_shape: Optional[List[int]] = None,
         grid_offset: float = 0.,
         grid_indexing: str = 'ij',
-        dtype: torch.dtype = torch.float32,
         device: Optional[torch.device] = None,
+        dtype: torch.dtype = torch.float32,
 ):
     """
 
@@ -347,8 +363,8 @@ def build_rotary_pos_embed(
         ref_feat_shape: Reference feature shape for resize / fine-tune.
         grid_offset: Constant offset to add to grid for non-pixel freq.
         grid_indexing: Indexing mode for meshgrid ('ij' or 'xy')
-        dtype: Output dtype.
         device: Output device.
+        dtype: Output dtype.
 
     Returns:
 
@@ -398,6 +414,8 @@ class RotaryEmbedding(nn.Module):
             ref_feat_shape: Optional[List[int]] = None,
             grid_offset: float = 0.,
             grid_indexing: str = 'ij',
+            device=None,
+            dtype=None,
     ):
         super().__init__()
         self.dim = dim
@@ -410,43 +428,58 @@ class RotaryEmbedding(nn.Module):
         self.grid_offset = grid_offset
         self.grid_indexing = grid_indexing
 
+        # Track which mode we're in
+        self._use_cached_embed = feat_shape is not None
+
         if feat_shape is None:
-            # only cache bands
-            if in_pixels:
-                bands = pixel_freq_bands(
-                    dim // 4,
-                    float(max_res),
-                    linear_bands=linear_bands,
-                )
-            else:
-                bands = freq_bands(
-                    dim // 4,
-                    temperature=temperature,
-                    step=1,
-                )
-            self.register_buffer(
-                'bands',
-                bands,
-                persistent=False,
-            )
+            # bands mode: cache bands, rebuild embeddings on each get_embed call
+            bands_shape = (dim // 4,)
+            self.register_buffer('bands', torch.empty(bands_shape, device=device, dtype=dtype), persistent=False)
             self.pos_embed_sin = None
             self.pos_embed_cos = None
         else:
-            # cache full sin/cos embeddings if shape provided up front
-            emb_sin, emb_cos = self._get_pos_embed_values(feat_shape)
+            # embed mode: cache full sin/cos embeddings
             self.bands = None
-            self.register_buffer(
-                'pos_embed_sin',
-                emb_sin,
-                persistent=False,
-            )
-            self.register_buffer(
-                'pos_embed_cos',
-                emb_cos,
-                persistent=False,
-            )
+            num_pos = 1
+            for s in feat_shape:
+                num_pos *= s
+            emb_shape = (num_pos, dim)
+            self.register_buffer('pos_embed_sin', torch.empty(emb_shape, device=device, dtype=dtype), persistent=False)
+            self.register_buffer('pos_embed_cos', torch.empty(emb_shape, device=device, dtype=dtype), persistent=False)
 
-    def _get_pos_embed_values(self, feat_shape: List[int]):
+        if not is_meta_device(device):
+            self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        self._init_buffers()
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        if not self._use_cached_embed:
+            self.bands.copy_(self._compute_bands())
+        else:
+            emb_sin, emb_cos = self._get_pos_embed_values(self.feat_shape)
+            self.pos_embed_sin.copy_(emb_sin)
+            self.pos_embed_cos.copy_(emb_cos)
+
+    def _compute_bands(self, device=None, dtype=None):
+        """Compute frequency bands."""
+        if self.in_pixels:
+            bands = pixel_freq_bands(
+                self.dim // 4,
+                float(self.max_res),
+                linear_bands=self.linear_bands,
+            )
+        else:
+            bands = freq_bands(
+                self.dim // 4,
+                temperature=self.temperature,
+                step=1,
+            )
+        return bands.to(device=device, dtype=dtype)
+
+    def _get_pos_embed_values(self, feat_shape: List[int], device=None, dtype=torch.float32):
         emb_sin, emb_cos = build_rotary_pos_embed(
             feat_shape=feat_shape,
             dim=self.dim,
@@ -457,17 +490,25 @@ class RotaryEmbedding(nn.Module):
             ref_feat_shape=self.ref_feat_shape,
             grid_offset=self.grid_offset,
             grid_indexing=self.grid_indexing,
+            device=device,
+            dtype=dtype,
         )
         return emb_sin, emb_cos
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
 
     def update_feat_shape(self, feat_shape: List[int]):
         if self.feat_shape is not None and feat_shape != self.feat_shape:
             # only update if feat_shape was set and different from previous value
             assert self.pos_embed_sin is not None
             assert self.pos_embed_cos is not None
-            emb_sin, emb_cos = self._get_pos_embed_values(feat_shape)
-            self.pos_embed_sin = emb_sin.to(self.pos_embed_sin.device, self.pos_embed_sin.dtype)
-            self.pos_embed_cos = emb_cos.to(self.pos_embed_cos.device, self.pos_embed_cos.dtype)
+            self.pos_embed_sin, self.pos_embed_cos = self._get_pos_embed_values(
+                feat_shape,
+                device=self.pos_embed_sin.device,
+                dtype=self.pos_embed_sin.dtype,
+            )
             self.feat_shape = feat_shape
 
     def get_embed(self, shape: Optional[List[int]] = None):
@@ -502,15 +543,17 @@ class RotaryEmbeddingCat(nn.Module):
 
     def __init__(
             self,
-            dim,
-            max_res=224,
-            temperature=10000,
-            in_pixels=True,
+            dim: int,
+            max_res: int = 224,
+            temperature: float = 10000,
+            in_pixels: bool = True,
             linear_bands: bool = False,
             feat_shape: Optional[List[int]] = None,
             ref_feat_shape: Optional[List[int]] = None,
             grid_offset: float = 0.,
             grid_indexing: str = 'ij',
+            device=None,
+            dtype=None,
     ):
         super().__init__()
         self.dim = dim
@@ -523,36 +566,54 @@ class RotaryEmbeddingCat(nn.Module):
         self.grid_offset = grid_offset
         self.grid_indexing = grid_indexing
 
+        # Track which mode we're in
+        self._use_cached_embed = feat_shape is not None
+
         if feat_shape is None:
-            # only cache bands
-            if in_pixels:
-                bands = pixel_freq_bands(
-                    dim // 4,
-                    float(max_res),
-                    linear_bands=linear_bands,
-                )
-            else:
-                bands = freq_bands(
-                    dim // 4,
-                    temperature=temperature,
-                    step=1,
-                )
-            self.register_buffer(
-                'bands',
-                bands,
-                persistent=False,
-            )
+            # bands mode: cache bands, rebuild embeddings on each get_embed call
+            bands_shape = (dim // 4,)
+            self.register_buffer('bands', torch.empty(bands_shape, device=device, dtype=dtype), persistent=False)
             self.pos_embed = None
         else:
-            # cache full sin/cos embeddings if shape provided up front
+            # embed mode: cache full embeddings
             self.bands = None
-            self.register_buffer(
-                'pos_embed',
-                self._get_pos_embed_values(feat_shape=feat_shape),
-                persistent=False,
-            )
+            num_pos = 1
+            for s in feat_shape:
+                num_pos *= s
+            emb_shape = (num_pos, dim * 2)  # concatenated sin & cos
+            self.register_buffer('pos_embed', torch.empty(emb_shape, device=device, dtype=dtype), persistent=False)
 
-    def _get_pos_embed_values(self, feat_shape: List[int]):
+        if not is_meta_device(device):
+            self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        self._init_buffers()
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        if not self._use_cached_embed:
+            self.bands.copy_(self._compute_bands())
+        else:
+            self.pos_embed.copy_(self._get_pos_embed_values(self.feat_shape))
+
+    def _compute_bands(self, device=None, dtype=None):
+        """Compute frequency bands."""
+        if self.in_pixels:
+            bands = pixel_freq_bands(
+                self.dim // 4,
+                float(self.max_res),
+                linear_bands=self.linear_bands,
+            )
+        else:
+            bands = freq_bands(
+                self.dim // 4,
+                temperature=self.temperature,
+                step=1,
+            )
+        return bands.to(device=device, dtype=dtype)
+
+    def _get_pos_embed_values(self, feat_shape: List[int], device=None, dtype=torch.float32):
         embeds = build_rotary_pos_embed(
             feat_shape=feat_shape,
             dim=self.dim,
@@ -563,14 +624,21 @@ class RotaryEmbeddingCat(nn.Module):
             ref_feat_shape=self.ref_feat_shape,
             grid_offset=self.grid_offset,
             grid_indexing=self.grid_indexing,
+            device=device,
+            dtype=dtype,
         )
         return torch.cat(embeds, -1)
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
 
     def update_feat_shape(self, feat_shape: List[int]):
         if self.feat_shape is not None and feat_shape != self.feat_shape:
             # only update if feat_shape was set and different from previous value
             assert self.pos_embed is not None
-            self.pos_embed = self._get_pos_embed_values(feat_shape).to(
+            self.pos_embed = self._get_pos_embed_values(
+                feat_shape,
                 device=self.pos_embed.device,
                 dtype=self.pos_embed.dtype,
             )
@@ -697,12 +765,12 @@ def get_mixed_grid(
     if grid_indexing == 'xy':
         shape = swap_shape_xy(shape)
     x_pos, y_pos = torch.meshgrid(
-        torch.arange(shape[0], dtype=dtype, device=device),
-        torch.arange(shape[1], dtype=dtype, device=device),
+        torch.arange(shape[0], device=device, dtype=torch.float32),
+        torch.arange(shape[1], device=device, dtype=torch.float32),
         indexing=grid_indexing,
     )
-    t_x = x_pos.flatten()
-    t_y = y_pos.flatten()
+    t_x = x_pos.to(dtype).flatten()
+    t_y = y_pos.to(dtype).flatten()
     return t_x, t_y
 
 
@@ -741,6 +809,8 @@ class RotaryEmbeddingMixed(nn.Module):
             temperature: float = 10.0,
             feat_shape: Optional[List[int]] = None,
             grid_indexing: str = 'xy',
+            device=None,
+            dtype=None,
     ):
         """Initialize rotary embeddings.
 
@@ -769,22 +839,39 @@ class RotaryEmbeddingMixed(nn.Module):
             num_heads,
             temperature=temperature,
             rotate=True,
+            device=device,
+            dtype=dtype,
         )  # (2, depth, num_heads, head_dim//2)
         self.freqs = nn.Parameter(freqs)
 
         if feat_shape is not None:
             # cache pre-computed grid
-            t_x, t_y = self._get_grid_values(feat_shape)
-            self.register_buffer('t_x', t_x, persistent=False)
-            self.register_buffer('t_y', t_y, persistent=False)
+            num_pos = 1
+            for s in feat_shape:
+                num_pos *= s
+            self.register_buffer('t_x', torch.empty(num_pos, device=device, dtype=dtype), persistent=False)
+            self.register_buffer('t_y', torch.empty(num_pos, device=device, dtype=dtype), persistent=False)
+            if not is_meta_device(device):
+                self._init_buffers()
         else:
             self.t_x = self.t_y = None
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        if self.feat_shape is not None:
+            t_x, t_y = self._get_grid_values(self.feat_shape)
+            self.t_x.copy_(t_x)
+            self.t_y.copy_(t_y)
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        self._init_buffers()
 
     def _get_grid_values(self, feat_shape: Optional[List[int]]):
         t_x, t_y = get_mixed_grid(
             feat_shape,
             grid_indexing=self.grid_indexing,
-            device=self.freqs.device
+            device=self.freqs.device,
         )
         return t_x, t_y
 
@@ -796,6 +883,10 @@ class RotaryEmbeddingMixed(nn.Module):
             self.t_x = t_x.to(self.t_x.device, self.t_x.dtype)
             self.t_y = t_y.to(self.t_y.device, self.t_y.dtype)
             self.feat_shape = feat_shape
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
 
     def get_embed(self, shape: Optional[List[int]] = None) -> torch.Tensor:
         """Generate rotary embeddings for the given spatial shape.
@@ -900,8 +991,8 @@ def make_coords_dinov3(
     Returns: coords with shape (HW, 2) in [-1, 1].
     """
     # 0.5-centered indices with optional offset
-    coords_h = torch.arange(0.5, height, device=device, dtype=dtype) + grid_offset
-    coords_w = torch.arange(0.5, width, device=device, dtype=dtype) + grid_offset
+    coords_h = torch.arange(0.5, height, device=device, dtype=torch.float32) + grid_offset
+    coords_w = torch.arange(0.5, width, device=device, dtype=torch.float32) + grid_offset
 
     # Normalization denominators
     if normalize_coords == "max":
@@ -921,6 +1012,8 @@ def make_coords_dinov3(
     # Normalize to [0, 1]
     coords_h = coords_h / h_denom
     coords_w = coords_w / w_denom
+    coords_h = coords_h.to(dtype)
+    coords_w = coords_w.to(dtype)
 
     # Create grid then map to [-1, 1]
     if grid_indexing == "xy":
@@ -956,6 +1049,8 @@ class RotaryEmbeddingDinoV3(nn.Module):
             shift_coords: Optional[float] = None,
             jitter_coords: Optional[float] = None,  # interpreted as factor J >= 1
             rescale_coords: Optional[float] = None,  # interpreted as factor R >= 1
+            device=None,
+            dtype=None,
     ):
         super().__init__()
 
@@ -980,33 +1075,48 @@ class RotaryEmbeddingDinoV3(nn.Module):
         self.grid_offset = grid_offset
         self.grid_indexing = grid_indexing
 
-        # Precompute periods
-        periods = self._compute_periods()
-        self.register_buffer("periods", periods, persistent=False)
+        # Register empty buffer for periods
+        periods_shape = (dim // 4,)
+        self.register_buffer("periods", torch.empty(periods_shape, device=device, dtype=dtype), persistent=False)
 
         if feat_shape is not None:
-            self._cache_embed(feat_shape)
+            # Register empty buffer for cached embeddings
+            num_pos = feat_shape[0] * feat_shape[1]
+            emb_shape = (num_pos, dim * 2)  # concatenated sin & cos
+            self.register_buffer("pos_embed_cached", torch.empty(emb_shape, device=device, dtype=dtype), persistent=False)
         else:
-            self.register_buffer("pos_embed_cached", None, persistent=False)
-            self.feat_shape = None
+            self.pos_embed_cached = None
+
+        if not is_meta_device(device):
+            self.reset_parameters()
+
+    def reset_parameters(self) -> None:
+        """Initialize parameters and buffers."""
+        self._init_buffers()
+
+    def _init_buffers(self) -> None:
+        """Compute and fill non-persistent buffer values."""
+        self.periods.copy_(self._compute_periods())
+        if self.feat_shape is not None and self.pos_embed_cached is not None:
+            rope_embed = self._create_embed(self.feat_shape, no_aug=True)
+            self.pos_embed_cached.copy_(rope_embed)
 
     def _compute_periods(self, device: torch.device = 'cpu', dtype: torch.dtype = torch.float32) -> torch.Tensor:
         """Construct periods from either min/max or temperature."""
         dim = self.dim // 4
 
         if self.min_period is not None and self.max_period is not None:
-            exponents = torch.linspace(0, 1, dim, dtype=torch.float32)
+            exponents = torch.linspace(0, 1, dim, device='cpu', dtype=torch.float32)
             periods = self.min_period * ((self.max_period / self.min_period) ** exponents)
         else:
             if self.temperature is None:
                 raise ValueError("Provide either min/max periods or `temperature`.")
-            exponents = 2.0 * torch.arange(dim, device=device, dtype=dtype) / (self.dim // 2)
+            exponents = 2.0 * torch.arange(dim, device='cpu', dtype=torch.float32) / (self.dim // 2)
             periods = self.temperature ** exponents
 
         # NOTE: The original dinv3 model weights have periods downcast to bfloat16 in persistent buffers,
         # loaded models will differ a bit vs timm as periods is not persistent and generated in float32 by default
-
-        return periods
+        return periods.to(device=device, dtype=dtype)
 
     def _apply_coord_augs(self, coords: torch.Tensor) -> torch.Tensor:
         """Apply shift/jitter/rescale train time augmentations."""
@@ -1042,7 +1152,7 @@ class RotaryEmbeddingDinoV3(nn.Module):
 
         return coords
 
-    def _get_pos_embed_from_coords(self,  coords: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _get_pos_embed_from_coords(self, coords: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         """Return sin/cos embeddings with either 'half' or 'interleaved' layout."""
         # coords: (HW, 2); periods: (dim)
         dim = self.dim // 4
@@ -1066,13 +1176,17 @@ class RotaryEmbeddingDinoV3(nn.Module):
         cos = torch.cos(angles)
         return sin, cos
 
-    def _create_embed(self, feat_shape: List[int], no_aug: bool = False) -> torch.Tensor:
+    def _create_embed(
+            self,
+            feat_shape: List[int],
+            no_aug: bool = False,
+    ) -> torch.Tensor:
         H, W = feat_shape
         coords = make_coords_dinov3(
             H, W,
             normalize_coords=self.normalize_coords,
             grid_indexing=self.grid_indexing,
-            grid_offset=self.grid_offset
+            grid_offset=self.grid_offset,
         )  # (HW, 2)
         if not no_aug:
             coords = self._apply_coord_augs(coords)
@@ -1081,9 +1195,19 @@ class RotaryEmbeddingDinoV3(nn.Module):
         return rope_embed
 
     def _cache_embed(self, feat_shape: List[int]):
-        rope_embed = self._create_embed(feat_shape, no_aug=True)  # create non-augmented embeds for cache
+        # create non-augmented embeds for cache
+        rope_embed = self._create_embed(feat_shape, no_aug=True)
         self.register_buffer("pos_embed_cached", rope_embed, persistent=False)
         self.feat_shape = feat_shape
+
+    def update_feat_shape(self, feat_shape: List[int]):
+        if self.feat_shape is not None and feat_shape != self.feat_shape:
+            # only update if feat_shape was set (valid cache) and different from previous value
+            self._cache_embed(feat_shape)
+
+    def init_non_persistent_buffers(self) -> None:
+        """Initialize non-persistent buffers."""
+        self._init_buffers()
 
     def get_embed(self, shape: Optional[List[int]] = None) -> torch.Tensor:
         """Generate rope_embed matching DINOv3 RopePositionEmbedding numerics.
@@ -1132,13 +1256,19 @@ def create_rope_embed(
         Rotary embedding module
     """
     if rope_type == 'base':
+        kwargs.pop('rotate_half', None)  # doesn't support
         return RotaryEmbedding(dim=dim // num_heads, **kwargs)
     elif rope_type == 'cat':
+        kwargs.pop('rotate_half', None)  # doesn't support
         return RotaryEmbeddingCat(dim=dim // num_heads, **kwargs)
     elif rope_type == 'mixed':
         # Mixed requires depth parameter, generates differing embeddings per layer and head
+        kwargs.pop('in_pixels', None)  # doesn't support
+        kwargs.pop('ref_feat_shape', None)  # doesn't support
         return RotaryEmbeddingMixed(dim=dim, num_heads=num_heads, **kwargs)
     elif rope_type == 'dinov3':
+        kwargs.pop('in_pixels', None)  # doesn't support
+        kwargs.pop('ref_feat_shape', None)  # doesn't support
         return RotaryEmbeddingDinoV3(dim=dim // num_heads, **kwargs)
     else:
         raise ValueError(f"Unknown RoPE type: {rope_type}")

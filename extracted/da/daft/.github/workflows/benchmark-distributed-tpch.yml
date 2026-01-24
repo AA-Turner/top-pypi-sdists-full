@@ -36,6 +36,7 @@ on:
         default: 4
         required: true
 
+permissions: {}
 
 env:
   DAFT_INDEX_URL: ${{ inputs.daft_index_url != '' && inputs.daft_index_url || format('https://d1p3klp2t5517h.cloudfront.net/builds/dev/{0}', github.sha) }}
@@ -45,11 +46,14 @@ env:
   RAY_NUM_WORKERS: ${{ inputs.num_workers }}
 
   DAFT_ANALYTICS_ENABLED: "0"
-  PYTHON_VERSION: "3.9"
+  PYTHON_VERSION: "3.10"
 
 jobs:
   build:
     name: Build and publish wheels if necessary
+    permissions:
+      contents: read
+      id-token: write
     if: ${{ inputs.daft_index_url == '' }}
     uses: ./.github/workflows/publish-dev-s3.yml
     secrets: inherit
@@ -63,16 +67,16 @@ jobs:
       contents: read
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
     - name: Assume GitHub Actions AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v5
       with:
         aws-region: ${{ env.AWS_REGION }}
         role-session-name: DaftDistributedTpchGitHubWorkflow
     - name: Install uv
-      uses: astral-sh/setup-uv@v6
+      uses: astral-sh/setup-uv@v7
       with:
         python-version: ${{ env.PYTHON_VERSION }}
         enable-cache: true

@@ -8,11 +8,17 @@
 #ifndef SK_COMMON_FLAGS_CONFIG_H
 #define SK_COMMON_FLAGS_CONFIG_H
 
+#include "include/core/SkAlphaType.h"
 #include "include/core/SkColorSpace.h"
+#include "include/core/SkColorType.h"
 #include "tools/flags/CommandLineFlags.h"
-#include "tools/gpu/GrContextFactory.h"
 
-DECLARE_string(config);
+#if defined(SK_GANESH)
+#include "tools/ganesh/GrContextFactory.h"
+#include "tools/gpu/ContextType.h"
+#endif
+
+DECLARE_string(config)
 
 class SkCommandLineConfigGpu;
 class SkCommandLineConfigGraphite;
@@ -45,6 +51,10 @@ private:
     skia_private::TArray<SkString> fViaParts;
 };
 
+#if defined(SK_GANESH)
+
+// TODO: This should be "Ganesh" not "Gpu".
+
 // SkCommandLineConfigGpu is a SkCommandLineConfig that extracts information out of the backend
 // part of the tag. It is constructed tags that have:
 // * backends of form "gpu[option=value,option2=value,...]"
@@ -53,7 +63,7 @@ private:
 class SkCommandLineConfigGpu : public SkCommandLineConfig {
 public:
     enum class SurfType { kDefault, kBackendTexture, kBackendRenderTarget };
-    typedef sk_gpu_test::GrContextFactory::ContextType      ContextType;
+    typedef skgpu::ContextType                              ContextType;
     typedef sk_gpu_test::GrContextFactory::ContextOverrides ContextOverrides;
 
     SkCommandLineConfigGpu(const SkString&           tag,
@@ -65,9 +75,8 @@ public:
                            SkColorType               colorType,
                            SkAlphaType               alphaType,
                            bool                      useStencilBuffers,
-                           bool                      testThreading,
                            int                       testPersistentCache,
-                           bool                      testPrecompile,
+                           bool                      testPrecompileGanesh,
                            bool                      useDDLSink,
                            bool                      slug,
                            bool                      serializedSlug,
@@ -82,9 +91,8 @@ public:
     int           getSamples() const { return fSamples; }
     SkColorType   getColorType() const { return fColorType; }
     SkAlphaType   getAlphaType() const { return fAlphaType; }
-    bool          getTestThreading() const { return fTestThreading; }
     int           getTestPersistentCache() const { return fTestPersistentCache; }
-    bool          getTestPrecompile() const { return fTestPrecompile; }
+    bool          getTestPrecompileGanesh() const { return fTestPrecompileGanesh; }
     bool          getUseDDLSink() const { return fUseDDLSink; }
     bool          getSlug() const { return fSlug; }
     bool          getSerializedSlug() const { return fSerializeSlug; }
@@ -99,9 +107,8 @@ private:
     int                 fSamples;
     SkColorType         fColorType;
     SkAlphaType         fAlphaType;
-    bool                fTestThreading;
     int                 fTestPersistentCache;
-    bool                fTestPrecompile;
+    bool                fTestPrecompileGanesh;
     bool                fUseDDLSink;
     bool                fSlug;
     bool                fSerializeSlug;
@@ -109,6 +116,7 @@ private:
     bool                fReducedShaders;
     SurfType            fSurfType;
 };
+#endif  // SK_GANESH
 
 #if defined(SK_GRAPHITE)
 
@@ -116,28 +124,36 @@ private:
 
 class SkCommandLineConfigGraphite : public SkCommandLineConfig {
 public:
-    using ContextType = sk_gpu_test::GrContextFactory::ContextType;
+    using ContextType = skgpu::ContextType;
 
-    SkCommandLineConfigGraphite(const SkString&           tag,
+    SkCommandLineConfigGraphite(const SkString& tag,
                                 const skia_private::TArray<SkString>& viaParts,
-                                ContextType               contextType,
-                                SkColorType               colorType,
-                                SkAlphaType               alphaType)
+                                ContextType contextType,
+                                SkColorType colorType,
+                                SkAlphaType alphaType,
+                                bool testPersistentStorage,
+                                bool testPrecompileGraphite)
             : SkCommandLineConfig(tag, SkString("graphite"), viaParts)
             , fContextType(contextType)
             , fColorType(colorType)
-            , fAlphaType(alphaType) {
+            , fAlphaType(alphaType)
+            , fTestPersistentStorage(testPersistentStorage)
+            , fTestPrecompileGraphite(testPrecompileGraphite) {
     }
     const SkCommandLineConfigGraphite* asConfigGraphite() const override { return this; }
 
     ContextType getContextType() const { return fContextType; }
     SkColorType getColorType() const { return fColorType; }
     SkAlphaType getAlphaType() const { return fAlphaType; }
+    bool        getTestPersistentStorage() const { return fTestPersistentStorage; }
+    bool        getTestPrecompileGraphite() const { return fTestPrecompileGraphite; }
 
 private:
-    ContextType         fContextType;
-    SkColorType         fColorType;
-    SkAlphaType         fAlphaType;
+    ContextType                     fContextType;
+    SkColorType                     fColorType;
+    SkAlphaType                     fAlphaType;
+    bool                            fTestPersistentStorage;
+    bool                            fTestPrecompileGraphite;
 };
 
 #endif // SK_GRAPHITE

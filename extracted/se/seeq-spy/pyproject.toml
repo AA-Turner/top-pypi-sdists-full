@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=65.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "seeq-spy"
+version = "198.1"
+description = "Easy-to-use Python interface for Seeq"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [
+    {name = "Seeq Corporation", email = "support@seeq.com"}
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "Deprecated >= 1.2.6",
+    "numpy >= 1.21.6",
+    "pandas >= 1.2.5",
+    "python-dateutil >= 2.7.3",
+    "pytz >= 2020.1",
+    "requests >= 2.22.0",
+    "urllib3 >= 1.21.1",
+]
+[project.optional-dependencies]
+widgets = [
+    "ipython >= 7.6.1",
+    "ipywidgets >= 7.6.0",
+    "matplotlib >= 3.5.0",
+    "seeq-data-lab-env-mgr >= 0.1.0",
+]
+templates = [
+    "beautifulsoup4 >= 4.8.0",
+    "chevron >= 0.14.0",
+    "Mako >= 1.1.0",
+    "Markdown >= 3.3.4",
+    "matplotlib >= 3.5.0",
+]
+jobs = [
+    "cron-descriptor >= 1.2.24",
+    "jupyter_client >= 7.2.0",
+    "nbconvert >= 6.4.4",
+    "nbformat >= 5.2.0",
+    "recurrent >= 0.4.0",
+]
+jupyter = [
+    "ipylab >= 0.5.2",
+    "ipython >= 7.6.1",
+    "ipywidgets >= 7.6.0",
+    "jupyterlab >= 3.0.0",
+    "nbconvert >= 6.4.4",
+    "nbformat >= 5.2.0",
+    "notebook >= 6.0.0",
+    "psutil >= 5.9.0",
+    "setuptools >= 65.0.0",
+]
+all = [
+    "beautifulsoup4 >= 4.8.0",
+    "chevron >= 0.14.0",
+    "cron-descriptor >= 1.2.24",
+    "ipylab >= 0.5.2",
+    "ipywidgets >= 7.6.0",
+    "jupyterlab >= 3.0.0",
+    "Markdown >= 3.3.4",
+    "matplotlib >= 3.5.0",
+    "nbconvert >= 6.4.4",
+    "nbformat >= 5.2.0",
+    "notebook >= 6.0.0",
+    "psutil >= 5.9.0",
+    "recurrent >= 0.4.0",
+    "setuptools >= 65.0.0",
+    "ipython >= 7.6.1",
+    "Mako >= 1.1.0",
+    "seeq-data-lab-env-mgr >= 0.1.0",
+    "jupyter_client >= 7.2.0",
+]
+[project.urls]
+Homepage = "https://www.seeq.com"
+Documentation = "https://python-docs.seeq.com/"
+Changelog = "https://python-docs.seeq.com/changelog.html"
+
+[tool.setuptools]
+# Package discovery configuration
+# Metadata comes from [project] section above to prevent Dynamic fields
+packages = {find = {exclude = ["seeq.sdk", "seeq.sdk.*"]}}
+# A bug exists in setuptools where license-files is incorrectly marked as dynamic. Rely on `license` above, which
+# inlines the file, but is at least valid. https://github.com/pypa/setuptools/issues/4960
+license-files = []
+
+# Explicitly declare no dynamic fields to prevent setuptools from marking fields as dynamic
+# when setup.py is present
+[tool.setuptools.dynamic]
+# Empty - no dynamic fields
+

@@ -16,18 +16,6 @@ fn test_md001_heading_increment() {
 }
 
 #[test]
-fn test_md002_first_heading_h1() {
-    // With markdownlint compatibility, MD002 doesn't trigger when heading is on first line
-    // Test with heading not on first line
-    let test = simple_test(
-        "MD002",
-        "Some text\n\n## Second level heading",
-        ExpectedWarning::new(3, 1, 3, 24, "## Second level heading"),
-    );
-    test_character_ranges(test);
-}
-
-#[test]
 fn test_md018_missing_space_atx() {
     let test = simple_test("MD018", "#Heading without space", ExpectedWarning::new(1, 2, 1, 2, ""));
     test_character_ranges(test);
@@ -104,10 +92,12 @@ fn test_md037_spaces_around_emphasis() {
 
 #[test]
 fn test_md038_spaces_around_code() {
+    // CommonMark: Single space at BOTH ends is valid (spaces are stripped)
+    // Test a case with space at only one end (which should be flagged)
     let test = simple_test(
         "MD038",
-        "This is ` code with spaces `",
-        ExpectedWarning::new(1, 9, 1, 28, "` code with spaces "),
+        "This is ` code with spaces` without trailing",
+        ExpectedWarning::new(1, 9, 1, 27, "` code with spaces"),
     );
     test_character_ranges(test);
 }

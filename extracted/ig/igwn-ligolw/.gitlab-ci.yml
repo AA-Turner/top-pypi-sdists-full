@@ -1,0 +1,61 @@
+variables:
+  PYTHONWARNINGS: "default::DeprecationWarning,default::PendingDeprecationWarning"
+
+include:
+  # -- code scanning -----------------
+
+  - local: .gitlab/ci/scan.yml
+
+  # -- sdist -------------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/python/all/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/sdist@2
+    inputs:
+      image: python:3.11
+      job_name: sdist
+
+  # -- wheels ------------------------
+
+  - local: .gitlab/ci/wheels.yml
+
+  # -- Python tests ------------------
+
+  - local: .gitlab/ci/test.yml
+
+  # -- Coverage ----------------------
+
+  - local: .gitlab/ci/coverage.yml
+
+  # -- Debian ------------------------
+
+  - local: .gitlab/ci/debian.yml
+
+  # -- Red Hat -----------------------
+
+  - local: .gitlab/ci/redhat.yml
+
+  # -- Documentation ------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/sphinx/apidoc/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/sphinx/build@1
+    inputs:
+      image: python:3.12
+
+  # -- Publishing ---------------------
+
+  # https://computing.docs.ligo.org/guide/gitlab/components/python/publish/
+  - component: $CI_SERVER_FQDN/computing/gitlab/components/python/publish@2
+    inputs:
+      files: "igwn_ligolw-*.tar.* igwn_ligolw-*.whl"
+    rules:
+      # allow disabling via variable
+      - if: $TWINE_DISABLED == 'true' || $TWINE_DISABLED == '1'
+        when: never
+      # only publish tags
+      - if: $CI_COMMIT_TAG
+
+sphinx:
+  # customise setup to build the project in place
+  before_script:
+    - apt-get update -yqq && apt-get install -yqq graphviz
+    - python -m pip install .[docs]

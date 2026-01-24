@@ -888,8 +888,10 @@ class process(tube):
         """maps() -> [mapping]
 
         Returns a list of process mappings.
+        
         A mapping object has the following fields:
             addr, address (addr alias), start (addr alias), end, size, perms, path, rss, pss, shared_clean, shared_dirty, private_clean, private_dirty, referenced, anonymous, swap
+
         perms is a permissions object, with the following fields:
             read, write, execute, private, shared, string
 
@@ -917,24 +919,25 @@ class process(tube):
             >>> checker_arr == [True] * len(proc_maps) * 5
             True
 
-        """
-
-        """
         Useful information about this can be found at: https://man7.org/linux/man-pages/man5/proc.5.html
         specifically the /proc/pid/maps section.
 
-        memory_maps() returns a list of pmmap_ext objects
+        memory_maps() returns a list of pmmap_ext objects. The definition (from psutil/_pslinux.py) is:
 
-        The definition (from psutil/_pslinux.py) is:
-        pmmap_grouped = namedtuple(
-            'pmmap_grouped',
-            ['path', 'rss', 'size', 'pss', 'shared_clean', 'shared_dirty',
-            'private_clean', 'private_dirty', 'referenced', 'anonymous', 'swap'])
-        pmmap_ext = namedtuple(
-            'pmmap_ext', 'addr perms ' + ' '.join(pmmap_grouped._fields))
+        .. code-block:: python
+
+            pmmap_grouped = namedtuple(
+                'pmmap_grouped',
+                ['path', 'rss', 'size', 'pss', 'shared_clean', 'shared_dirty',
+                'private_clean', 'private_dirty', 'referenced', 'anonymous', 'swap'])
+            pmmap_ext = namedtuple(
+                'pmmap_ext', 'addr perms ' + ' '.join(pmmap_grouped._fields))
 
             
         Here is an example of a pmmap_ext entry: 
+
+        .. code-block:: python
+
             pmmap_ext(addr='15555551c000-155555520000', perms='r--p', path='[vvar]', rss=0, size=16384, pss=0, shared_clean=0, shared_dirty=0, private_clean=0, private_dirty=0, referenced=0, anonymous=0, swap=0)
         """
 
@@ -1256,6 +1259,9 @@ class process(tube):
 
             >>> from pwn import *
             >>> p = process(['cat'])
+            >>> p.send(b'meow')
+            >>> p.recvuntil(b'meow')
+            b'meow'
             >>> libc_size = p.lib_size(p.libc.path)
             >>> hex(libc_size) # doctest: +SKIP
             '0x1d5000'
@@ -1322,8 +1328,7 @@ class process(tube):
         by the process to the address it is loaded at in the process' address
         space.
         """
-        from pwnlib.util.proc import memory_maps
-        maps_raw = self.poll() is not None and memory_maps(self.pid)
+        maps_raw = self.poll() is None and self.maps()
 
         if not maps_raw:
             import pwnlib.elf.elf
@@ -1332,23 +1337,15 @@ class process(tube):
                 return pwnlib.elf.elf.ELF(self.executable).maps
 
         # Enumerate all of the libraries actually loaded right now.
-        maps = {}
+        libs = {}
         for mapping in maps_raw:
             path = mapping.path
             if os.sep not in path: continue
             path = os.path.realpath(path)
-            if path not in maps:
-                maps[path]=0
+            if path not in libs:
+                libs[path] = mapping.addr
 
-        for lib in maps:
-            path = os.path.realpath(lib)
-            for mapping in maps_raw:
-                if mapping.path == path:
-                    address = mapping.addr.split('-')[0]
-                    maps[lib] = int(address, 16)
-                    break
-
-        return maps
+        return libs
 
     @property
     def libc(self):
@@ -1361,7 +1358,12 @@ class process(tube):
         Example:
 
         >>> p = process("/bin/cat")
+        >>> p.send(b"meow")
+        >>> p.recvuntil(b"meow")
+        b'meow'
         >>> libc = p.libc
+        >>> libc is not None
+        True
         >>> libc # doctest: +SKIP
         ELF('/lib64/libc-...so')
         >>> p.close()

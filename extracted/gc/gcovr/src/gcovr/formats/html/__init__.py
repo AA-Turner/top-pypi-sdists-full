@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,20 +17,15 @@
 #
 # ****************************************************************************
 
-import logging
-from typing import Union
-
-from ...coverage import CoverageContainer
+from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import (
     GcovrConfigOption,
     OutputOrDefault,
     check_input_file,
-    check_percentage,
 )
 
 
-LOGGER = logging.getLogger("gcovr")
 THEMES = (
     "green",
     "blue",
@@ -45,11 +40,19 @@ class HtmlHandler(BaseHandler):
     """Class to handle HTML format."""
 
     @classmethod
-    def get_options(cls) -> list[Union[GcovrConfigOption, str]]:
+    def get_options(cls) -> list[GcovrConfigOption | str]:
         return [
             # Global options needed for report
-            "exclude_calls",
+            "show_calls",
             "show_decision",
+            "medium_threshold",
+            "high_threshold",
+            "medium_threshold_branch",
+            "high_threshold_branch",
+            "medium_threshold_line",
+            "high_threshold_line",
+            # Needed for highlighting of GCOVR markers
+            "exclude_pattern_prefix",
             # Local options
             GcovrConfigOption(
                 "html",
@@ -93,6 +96,41 @@ class HtmlHandler(BaseHandler):
                 type=OutputOrDefault,
                 default=None,
                 const=OutputOrDefault(None),
+            ),
+            GcovrConfigOption(
+                "html_single_page",
+                ["--html-single-page"],
+                group="output_options",
+                help=(
+                    "Use one single html output file containing all data in the "
+                    "specified mode. If mode is 'js-enabled' (default) and javascript "
+                    "is possible the page is interactive like the normal report. "
+                    "If mode is 'static' all files are shown at once."
+                ),
+                action="store_true",
+            ),
+            GcovrConfigOption(
+                "html_static_report",
+                ["--html-static-report"],
+                group="output_options",
+                help="Create a static report without javascript.",
+                action="store_true",
+            ),
+            GcovrConfigOption(
+                "html_self_contained",
+                ["--html-self-contained"],
+                group="output_options",
+                help=(
+                    "Control whether the HTML report bundles resources like CSS styles. "
+                    "Self-contained reports can be sent via email, "
+                    "but conflict with the Content Security Policy of some web servers. "
+                    "Defaults to self-contained reports unless --html-details or "
+                    "--html-nested is used without --html-single-page."
+                ),
+                action="store_const",
+                default=None,
+                const=True,
+                const_negate=False,
             ),
             GcovrConfigOption(
                 "html_block_ids",
@@ -153,91 +191,6 @@ class HtmlHandler(BaseHandler):
                 default="GCC Code Coverage Report",
             ),
             GcovrConfigOption(
-                "html_medium_threshold",
-                ["--html-medium-threshold"],
-                group="output_options",
-                type=check_percentage,
-                metavar="MEDIUM",
-                help=(
-                    "If the coverage is below MEDIUM, the value is marked "
-                    "as low coverage in the HTML report. "
-                    "MEDIUM has to be lower than or equal to value of --html-high-threshold "
-                    "and greater than 0. "
-                    "If MEDIUM is equal to value of --html-high-threshold the report has "
-                    "only high and low coverage. Default is {default!s}."
-                ),
-                default=75.0,
-            ),
-            GcovrConfigOption(
-                "html_high_threshold",
-                ["--html-high-threshold"],
-                group="output_options",
-                type=check_percentage,
-                metavar="HIGH",
-                help=(
-                    "If the coverage is below HIGH, the value is marked "
-                    "as medium coverage in the HTML report. "
-                    "HIGH has to be greater than or equal to value of --html-medium-threshold. "
-                    "If HIGH is equal to value of --html-medium-threshold the report has "
-                    "only high and low coverage. Default is {default!s}."
-                ),
-                default=90.0,
-            ),
-            GcovrConfigOption(
-                "html_medium_threshold_branch",
-                ["--html-medium-threshold-branch"],
-                group="output_options",
-                metavar="MEDIUM_BRANCH",
-                type=check_percentage,
-                help="If the coverage is below MEDIUM_BRANCH, the value is marked "
-                "as low coverage in the HTML report. "
-                "MEDIUM_BRANCH has to be lower than or equal to value of --html-high-threshold-branch "
-                "and greater than 0. "
-                "If MEDIUM_BRANCH is equal to value of --html-medium-threshold-branch the report has "
-                "only high and low coverage. Default is taken from --html-medium-threshold.",
-                default=None,
-            ),
-            GcovrConfigOption(
-                "html_high_threshold_branch",
-                ["--html-high-threshold-branch"],
-                group="output_options",
-                type=check_percentage,
-                metavar="HIGH_BRANCH",
-                help="If the coverage is below HIGH_BRANCH, the value is marked "
-                "as medium coverage in the HTML report. "
-                "HIGH_BRANCH has to be greater than or equal to value of --html-medium-threshold-branch. "
-                "If HIGH_BRANCH is equal to value of --html-medium-threshold-branch the report has "
-                "only high and low coverage. Default is taken from --html-high-threshold.",
-                default=None,
-            ),
-            GcovrConfigOption(
-                "html_medium_threshold_line",
-                ["--html-medium-threshold-line"],
-                group="output_options",
-                metavar="MEDIUM_LINE",
-                type=check_percentage,
-                help="If the coverage is below MEDIUM_LINE, the value is marked "
-                "as low coverage in the HTML report. "
-                "MEDIUM_LINE has to be lower than or equal to value of --html-high-threshold-line "
-                "and greater than 0. "
-                "If MEDIUM_LINE is equal to value of --html-medium-threshold-line the report has "
-                "only high and low coverage. Default is taken from --html-medium-threshold.",
-                default=None,
-            ),
-            GcovrConfigOption(
-                "html_high_threshold_line",
-                ["--html-high-threshold-line"],
-                group="output_options",
-                type=check_percentage,
-                metavar="HIGH_LINE",
-                help="If the coverage is below HIGH_LINE, the value is marked "
-                "as medium coverage in the HTML report. "
-                "HIGH_LINE has to be greater than or equal to value of --html-medium-threshold-line. "
-                "If HIGH_LINE is equal to value of --html-medium-threshold-line the report has "
-                "only high and low coverage. Default is taken from --html-high-threshold.",
-                default=None,
-            ),
-            GcovrConfigOption(
                 "html_tab_size",
                 ["--html-tab-size"],
                 group="output_options",
@@ -266,42 +219,11 @@ class HtmlHandler(BaseHandler):
                 ),
                 default="UTF-8",
             ),
-            GcovrConfigOption(
-                "html_self_contained",
-                ["--html-self-contained"],
-                group="output_options",
-                help=(
-                    "Control whether the HTML report bundles resources like CSS styles. "
-                    "Self-contained reports can be sent via email, "
-                    "but conflict with the Content Security Policy of some web servers. "
-                    "Defaults to self-contained reports unless --html-details or "
-                    "--html-nested is used without --html-single-page."
-                ),
-                action="store_const",
-                default=None,
-                const=True,
-                const_negate=False,
-            ),
-            GcovrConfigOption(
-                "html_single_page",
-                ["--html-single-page"],
-                group="output_options",
-                choices=("static", "js-enabled"),
-                nargs="?",
-                const="js-enabled",
-                default=None,
-                help=(
-                    "Use one single html output file containing all data in the "
-                    "specified mode. If mode is 'js-enabled' (default) and javascript "
-                    "is possible the page is interactive like the normal report. "
-                    "If mode is 'static' all files are shown at once."
-                ),
-            ),
         ]
 
     def validate_options(self) -> None:
         if self.options.html_tab_size < 1:
-            raise RuntimeError("value of --html-tab-size= should be greater 0.")
+            raise RuntimeError("Value of --html-tab-size should be greater 0.")
 
         if self.options.html_details and self.options.html_nested:
             raise RuntimeError(

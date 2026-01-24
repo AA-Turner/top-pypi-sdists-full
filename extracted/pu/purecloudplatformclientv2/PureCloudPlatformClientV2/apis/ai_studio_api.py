@@ -43,6 +43,8 @@ from ..models import Guide
 from ..models import GuideContentGenerationJob
 from ..models import GuideEntityListing
 from ..models import GuideJob
+from ..models import GuideSessionTurnRequest
+from ..models import GuideSessionTurnResponse
 from ..models import GuideVersion
 from ..models import GuideVersionPublishJob
 from ..models import GuideVersionPublishJobRequest
@@ -51,6 +53,8 @@ from ..models import SummarySettingEntityListing
 from ..models import SummarySettingWithTranscript
 from ..models import UpdateGuide
 from ..models import UpdateGuideVersion
+from ..models import UploadUrlRequest
+from ..models import UploadUrlResponse
 
 class AIStudioApi(object):
     """
@@ -152,7 +156,6 @@ class AIStudioApi(object):
         """
         Start the deletion of a guide.
         
-	    delete_guide_jobs is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -407,7 +410,6 @@ class AIStudioApi(object):
         """
         Get guide.
         
-	    get_guide is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -486,7 +488,6 @@ class AIStudioApi(object):
         """
         Get the specified guide deletion job.
         
-	    get_guide_job is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -571,7 +572,6 @@ class AIStudioApi(object):
         """
         Get a guide version.
         
-	    get_guide_version is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -656,7 +656,6 @@ class AIStudioApi(object):
         """
         Get the status of the publishing job for this guide version.
         
-	    get_guide_version_job is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -747,7 +746,6 @@ class AIStudioApi(object):
         """
         Get all guides.
         
-	    get_guides is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -841,7 +839,6 @@ class AIStudioApi(object):
         """
         Get the status of the guide content generation job.
         
-	    get_guides_job is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -920,7 +917,6 @@ class AIStudioApi(object):
         """
         Update a guide.
         
-	    patch_guide is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1005,7 +1001,6 @@ class AIStudioApi(object):
         """
         Update a guide version.
         
-	    patch_guide_version is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1248,11 +1243,100 @@ class AIStudioApi(object):
                                             callback=params.get('callback'))
         return response
 
+    def post_guide_session_turns(self, guide_id: str, guide_session_id: str, body: 'GuideSessionTurnRequest', **kwargs) -> 'GuideSessionTurnResponse':
+        """
+        Add a turn to a guide session.
+        Creates a new turn in the specified guide session with the provided request data. If the session ID doesn't exist, a new session will be created automatically.
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_guide_session_turns(guide_id, guide_session_id, body, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param str guide_id: Guide ID (required)
+        :param str guide_session_id: Guide Session ID (required)
+        :param GuideSessionTurnRequest body:  (required)
+        :return: GuideSessionTurnResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['guide_id', 'guide_session_id', 'body']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_guide_session_turns" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'guide_id' is set
+        if ('guide_id' not in params) or (params['guide_id'] is None):
+            raise ValueError("Missing the required parameter `guide_id` when calling `post_guide_session_turns`")
+        # verify the required parameter 'guide_session_id' is set
+        if ('guide_session_id' not in params) or (params['guide_session_id'] is None):
+            raise ValueError("Missing the required parameter `guide_session_id` when calling `post_guide_session_turns`")
+        # verify the required parameter 'body' is set
+        if ('body' not in params) or (params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `post_guide_session_turns`")
+
+
+        resource_path = '/api/v2/guides/{guideId}/sessions/{guideSessionId}/turns'.replace('{format}', 'json')
+        path_params = {}
+        if 'guide_id' in params:
+            path_params['guideId'] = params['guide_id']
+        if 'guide_session_id' in params:
+            path_params['guideSessionId'] = params['guide_session_id']
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='GuideSessionTurnResponse',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
     def post_guide_version_jobs(self, guide_id: str, version_id: str, body: 'GuideVersionPublishJobRequest', **kwargs) -> 'GuideVersionPublishJob':
         """
         Start the publishing of a guide version.
         
-	    post_guide_version_jobs is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1343,7 +1427,6 @@ class AIStudioApi(object):
         """
         Create a guide version.
         
-	    post_guide_versions is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1425,7 +1508,6 @@ class AIStudioApi(object):
         """
         Create a guide.
         
-	    post_guides is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1504,7 +1586,6 @@ class AIStudioApi(object):
         """
         Start a guide content generation job.
         
-	    post_guides_jobs is a preview method and is subject to both breaking and non-breaking changes at any time without notice
 
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please define a `callback` function
@@ -1575,6 +1656,84 @@ class AIStudioApi(object):
                                             post_params=form_params,
                                             files=local_var_files,
                                             response_type='GuideContentGenerationJob',
+                                            auth_settings=auth_settings,
+                                            callback=params.get('callback'))
+        return response
+
+    def post_guides_uploads(self, body: 'UploadUrlRequest', **kwargs) -> 'UploadUrlResponse':
+        """
+        Generate presigned URL for uploading a file content to generate guide
+        
+
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please define a `callback` function
+        to be invoked when receiving the response.
+        >>> def callback_function(response):
+        >>>     pprint(response)
+        >>>
+        >>> thread = api.post_guides_uploads(body, callback=callback_function)
+
+        :param callback function: The callback function
+            for asynchronous request. (optional)
+        :param UploadUrlRequest body: query (required)
+        :return: UploadUrlResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        all_params = ['body']
+        all_params.append('callback')
+
+        params = locals()
+        for key, val in params['kwargs'].items():
+            if key not in all_params:
+                raise TypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method post_guides_uploads" % key
+                )
+            params[key] = val
+        del params['kwargs']
+
+        # verify the required parameter 'body' is set
+        if ('body' not in params) or (params['body'] is None):
+            raise ValueError("Missing the required parameter `body` when calling `post_guides_uploads`")
+
+
+        resource_path = '/api/v2/guides/uploads'.replace('{format}', 'json')
+        path_params = {}
+
+        query_params = {}
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'body' in params:
+            body_params = params['body']
+
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.\
+            select_header_accept(['application/json'])
+        if not header_params['Accept']:
+            del header_params['Accept']
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.\
+            select_header_content_type(['application/json'])
+
+        # Authentication setting
+        auth_settings = ['PureCloud OAuth']
+
+        response = self.api_client.call_api(resource_path, 'POST',
+                                            path_params,
+                                            query_params,
+                                            header_params,
+                                            body=body_params,
+                                            post_params=form_params,
+                                            files=local_var_files,
+                                            response_type='UploadUrlResponse',
                                             auth_settings=auth_settings,
                                             callback=params.get('callback'))
         return response

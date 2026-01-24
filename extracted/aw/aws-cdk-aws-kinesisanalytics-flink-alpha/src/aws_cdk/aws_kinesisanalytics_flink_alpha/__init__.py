@@ -26,9 +26,9 @@ To create a new Flink application, use the `Application` construct:
 
 ```python
 import path as path
-import aws_cdk.aws_cloudwatch as cloudwatch
-import aws_cdk as core
 import aws_cdk.integ_tests_alpha as integ
+import aws_cdk as core
+import aws_cdk.aws_cloudwatch as cloudwatch
 import aws_cdk.aws_kinesisanalytics_flink_alpha as flink
 
 app = core.App()
@@ -159,10 +159,10 @@ import aws_cdk.aws_cloudwatch as _aws_cdk_aws_cloudwatch_ceddda9d
 import aws_cdk.aws_ec2 as _aws_cdk_aws_ec2_ceddda9d
 import aws_cdk.aws_iam as _aws_cdk_aws_iam_ceddda9d
 import aws_cdk.aws_kinesisanalytics as _aws_cdk_aws_kinesisanalytics_ceddda9d
-import aws_cdk.aws_kms as _aws_cdk_aws_kms_ceddda9d
 import aws_cdk.aws_logs as _aws_cdk_aws_logs_ceddda9d
 import aws_cdk.aws_s3 as _aws_cdk_aws_s3_ceddda9d
 import aws_cdk.aws_s3_assets as _aws_cdk_aws_s3_assets_ceddda9d
+import aws_cdk.interfaces.aws_kms as _aws_cdk_interfaces_aws_kms_ceddda9d
 import constructs as _constructs_77d1e7e8
 
 
@@ -179,7 +179,7 @@ class ApplicationAttributes:
         self,
         *,
         application_arn: builtins.str,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
     ) -> None:
         '''(experimental) Attributes used for importing an Application with Application.fromApplicationAttributes.
 
@@ -230,7 +230,7 @@ class ApplicationAttributes:
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) The security groups for this Flink application if deployed in a VPC.
 
         :default: - no security groups
@@ -238,7 +238,7 @@ class ApplicationAttributes:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -292,14 +292,14 @@ class ApplicationCode(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-        source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+        readers: typing.Optional[typing.Sequence["_aws_cdk_aws_iam_ceddda9d.IGrantable"]] = None,
+        source_kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
-        bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_aws_cdk_ceddda9d.AssetHashType"] = None,
+        bundling: typing.Optional[typing.Union["_aws_cdk_ceddda9d.BundlingOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_aws_cdk_ceddda9d.SymlinkFollowMode] = None,
-        ignore_mode: typing.Optional[_aws_cdk_ceddda9d.IgnoreMode] = None,
+        follow_symlinks: typing.Optional["_aws_cdk_ceddda9d.SymlinkFollowMode"] = None,
+        ignore_mode: typing.Optional["_aws_cdk_ceddda9d.IgnoreMode"] = None,
     ) -> "ApplicationCode":
         '''(experimental) Reference code from a local directory containing a Flink JAR file.
 
@@ -340,7 +340,7 @@ class ApplicationCode(
     @builtins.classmethod
     def from_bucket(
         cls,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         file_key: builtins.str,
         object_version: typing.Optional[builtins.str] = None,
     ) -> "ApplicationCode":
@@ -361,7 +361,7 @@ class ApplicationCode(
 
     @jsii.member(jsii_name="bind")
     @abc.abstractmethod
-    def bind(self, scope: _constructs_77d1e7e8.Construct) -> "ApplicationCodeConfig":
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "ApplicationCodeConfig":
         '''(experimental) A method to lazily bind asset resources to the parent FlinkApplication.
 
         :param scope: -
@@ -373,7 +373,7 @@ class ApplicationCode(
 
 class _ApplicationCodeProxy(ApplicationCode):
     @jsii.member(jsii_name="bind")
-    def bind(self, scope: _constructs_77d1e7e8.Construct) -> "ApplicationCodeConfig":
+    def bind(self, scope: "_constructs_77d1e7e8.Construct") -> "ApplicationCodeConfig":
         '''(experimental) A method to lazily bind asset resources to the parent FlinkApplication.
 
         :param scope: -
@@ -401,8 +401,8 @@ class ApplicationCodeConfig:
     def __init__(
         self,
         *,
-        application_code_configuration_property: typing.Union[_aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty, typing.Dict[builtins.str, typing.Any]],
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
+        application_code_configuration_property: typing.Union["_aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty", typing.Dict[builtins.str, typing.Any]],
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
     ) -> None:
         '''(experimental) The return type of ``ApplicationCode.bind``. This represents CloudFormation configuration and an s3 bucket holding the Flink application JAR file.
 
@@ -414,6 +414,41 @@ class ApplicationCodeConfig:
 
         Example::
 
+            from aws_cdk.aws_kinesisanalytics.ApplicationConfigurationProperty import ApplicationConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.ApplicationCodeConfigurationProperty import ApplicationCodeConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.CodeContentProperty import CodeContentProperty
+            from aws_cdk.aws_kinesisanalytics.S3ContentLocationProperty import S3ContentLocationProperty, S3ContentLocationProperty
+            from aws_cdk.aws_kinesisanalytics.ApplicationEncryptionConfigurationProperty import ApplicationEncryptionConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.ApplicationSnapshotConfigurationProperty import ApplicationSnapshotConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.ApplicationSystemRollbackConfigurationProperty import ApplicationSystemRollbackConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.EnvironmentPropertiesProperty import EnvironmentPropertiesProperty
+            from aws_cdk.aws_kinesisanalytics.PropertyGroupProperty import PropertyGroupProperty
+            from aws_cdk.aws_kinesisanalytics.FlinkApplicationConfigurationProperty import FlinkApplicationConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.CheckpointConfigurationProperty import CheckpointConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.MonitoringConfigurationProperty import MonitoringConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.ParallelismConfigurationProperty import ParallelismConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.SqlApplicationConfigurationProperty import SqlApplicationConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.InputProperty import InputProperty
+            from aws_cdk.aws_kinesisanalytics.InputSchemaProperty import InputSchemaProperty
+            from aws_cdk.aws_kinesisanalytics.RecordColumnProperty import RecordColumnProperty
+            from aws_cdk.aws_kinesisanalytics.RecordFormatProperty import RecordFormatProperty
+            from aws_cdk.aws_kinesisanalytics.MappingParametersProperty import MappingParametersProperty
+            from aws_cdk.aws_kinesisanalytics.CSVMappingParametersProperty import CSVMappingParametersProperty
+            from aws_cdk.aws_kinesisanalytics.JSONMappingParametersProperty import JSONMappingParametersProperty
+            from aws_cdk.aws_kinesisanalytics.InputParallelismProperty import InputParallelismProperty
+            from aws_cdk.aws_kinesisanalytics.InputProcessingConfigurationProperty import InputProcessingConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.InputLambdaProcessorProperty import InputLambdaProcessorProperty
+            from aws_cdk.aws_kinesisanalytics.KinesisFirehoseInputProperty import KinesisFirehoseInputProperty
+            from aws_cdk.aws_kinesisanalytics.KinesisStreamsInputProperty import KinesisStreamsInputProperty
+            from aws_cdk.aws_kinesisanalytics.VpcConfigurationProperty import VpcConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.ZeppelinApplicationConfigurationProperty import ZeppelinApplicationConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.CatalogConfigurationProperty import CatalogConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.GlueDataCatalogConfigurationProperty import GlueDataCatalogConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.CustomArtifactConfigurationProperty import CustomArtifactConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.MavenReferenceProperty import MavenReferenceProperty
+            from aws_cdk.aws_kinesisanalytics.DeployAsApplicationConfigurationProperty import DeployAsApplicationConfigurationProperty
+            from aws_cdk.aws_kinesisanalytics.S3ContentBaseLocationProperty import S3ContentBaseLocationProperty
+            from aws_cdk.aws_kinesisanalytics.ZeppelinMonitoringConfigurationProperty import ZeppelinMonitoringConfigurationProperty
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             import aws_cdk.aws_kinesisanalytics_flink_alpha as kinesisanalytics_flink_alpha
@@ -586,24 +621,24 @@ class ApplicationCodeConfig:
     @builtins.property
     def application_code_configuration_property(
         self,
-    ) -> _aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty:
+    ) -> "_aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty":
         '''(experimental) Low-level Cloudformation ApplicationConfigurationProperty.
 
         :stability: experimental
         '''
         result = self._values.get("application_code_configuration_property")
         assert result is not None, "Required property 'application_code_configuration_property' is missing"
-        return typing.cast(_aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty, result)
+        return typing.cast("_aws_cdk_aws_kinesisanalytics_ceddda9d.CfnApplicationV2.ApplicationConfigurationProperty", result)
 
     @builtins.property
-    def bucket(self) -> _aws_cdk_aws_s3_ceddda9d.IBucket:
+    def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
         '''(experimental) S3 Bucket that stores the Flink application code.
 
         :stability: experimental
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_aws_cdk_aws_s3_ceddda9d.IBucket, result)
+        return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -646,25 +681,25 @@ class ApplicationProps:
     def __init__(
         self,
         *,
-        code: ApplicationCode,
+        code: "ApplicationCode",
         runtime: "Runtime",
         application_name: typing.Optional[builtins.str] = None,
         auto_scaling_enabled: typing.Optional[builtins.bool] = None,
         checkpointing_enabled: typing.Optional[builtins.bool] = None,
-        checkpoint_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
+        checkpoint_interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
         log_level: typing.Optional["LogLevel"] = None,
         metrics_level: typing.Optional["MetricsLevel"] = None,
-        min_pause_between_checkpoints: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        min_pause_between_checkpoints: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         parallelism: typing.Optional[jsii.Number] = None,
         parallelism_per_kpu: typing.Optional[jsii.Number] = None,
         property_groups: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         snapshots_enabled: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Props for creating an Application construct.
 
@@ -770,14 +805,14 @@ class ApplicationProps:
             self._values["vpc_subnets"] = vpc_subnets
 
     @builtins.property
-    def code(self) -> ApplicationCode:
+    def code(self) -> "ApplicationCode":
         '''(experimental) The Flink code asset to run.
 
         :stability: experimental
         '''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
-        return typing.cast(ApplicationCode, result)
+        return typing.cast("ApplicationCode", result)
 
     @builtins.property
     def runtime(self) -> "Runtime":
@@ -823,7 +858,7 @@ class ApplicationProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def checkpoint_interval(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def checkpoint_interval(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The interval between checkpoints.
 
         :default: - 1 minute
@@ -831,10 +866,10 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("checkpoint_interval")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
-    def log_group(self) -> typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup]:
+    def log_group(self) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"]:
         '''(experimental) The log group to send log entries to.
 
         :default: - CDK's default LogGroup
@@ -842,7 +877,7 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("log_group")
-        return typing.cast(typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"], result)
 
     @builtins.property
     def log_level(self) -> typing.Optional["LogLevel"]:
@@ -873,7 +908,7 @@ class ApplicationProps:
     @builtins.property
     def min_pause_between_checkpoints(
         self,
-    ) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    ) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''(experimental) The minimum amount of time in to wait after a checkpoint finishes to start a new checkpoint.
 
         :default: - 5 seconds
@@ -881,7 +916,7 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("min_pause_between_checkpoints")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def parallelism(self) -> typing.Optional[jsii.Number]:
@@ -926,7 +961,7 @@ class ApplicationProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]], result)
 
     @builtins.property
-    def removal_policy(self) -> typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy]:
+    def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
         '''(experimental) Provide a RemovalPolicy to override the default.
 
         :default: RemovalPolicy.DESTROY
@@ -934,10 +969,10 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("removal_policy")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) A role to use to grant permissions to your application.
 
         Prefer omitting
@@ -948,12 +983,12 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
 
     @builtins.property
     def security_groups(
         self,
-    ) -> typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]]:
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
         '''(experimental) Security groups to use with a provided VPC.
 
         :default: - a new security group is created for this application.
@@ -961,7 +996,7 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
     def snapshots_enabled(self) -> typing.Optional[builtins.bool]:
@@ -975,7 +1010,7 @@ class ApplicationProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc]:
+    def vpc(self) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"]:
         '''(experimental) Deploy the Flink application in a VPC.
 
         :default: - no VPC
@@ -983,10 +1018,12 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection]:
+    def vpc_subnets(
+        self,
+    ) -> typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"]:
         '''(experimental) Choose which VPC subnets to use.
 
         :default: - SubnetType.PRIVATE_WITH_EGRESS subnets
@@ -994,7 +1031,7 @@ class ApplicationProps:
         :stability: experimental
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1042,7 +1079,7 @@ class IApplication(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The application IAM role.
 
         :stability: experimental
@@ -1052,7 +1089,7 @@ class IApplication(
     @jsii.member(jsii_name="addToRolePolicy")
     def add_to_role_policy(
         self,
-        policy_statement: _aws_cdk_aws_iam_ceddda9d.PolicyStatement,
+        policy_statement: "_aws_cdk_aws_iam_ceddda9d.PolicyStatement",
     ) -> builtins.bool:
         '''(experimental) Convenience method for adding a policy statement to the application role.
 
@@ -1072,14 +1109,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return a CloudWatch metric associated with this Flink application.
 
         :param metric_name: The name of the metric.
@@ -1109,14 +1146,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is back pressured per second.
 
         Units: Milliseconds
@@ -1151,14 +1188,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is busy (neither idle nor back pressured) per second.
 
         Can be NaN, if the value could not be
@@ -1196,14 +1233,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The overall percentage of CPU utilization across task managers.
 
         For
@@ -1242,14 +1279,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The last watermark this application/operator/task/thread has received.
 
         Units: Milliseconds
@@ -1284,14 +1321,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The last watermark this application/operator/task/thread has received.
 
         Units: Milliseconds
@@ -1326,14 +1363,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time elapsed during an outage for failing/recovering jobs.
 
         Units: Milliseconds
@@ -1368,14 +1405,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of times this job has fully restarted since it was submitted.
 
         This metric does not measure fine-grained restarts.
@@ -1412,14 +1449,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Overall heap memory utilization across task managers.
 
         For example, if there
@@ -1458,14 +1495,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is idle (has no data to process) per second.
 
         Idle time excludes back pressured time, so if the task
@@ -1503,14 +1540,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of Kinesis Processing Units that are used to run your stream processing application.
 
         The average number of KPUs used each hour
@@ -1548,14 +1585,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time it took to complete the last checkpoint.
 
         Units: Milliseconds
@@ -1590,14 +1627,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total size of the last checkpoint.
 
         Units: Bytes
@@ -1632,14 +1669,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total amount of managed memory.
 
         Units: Bytes
@@ -1674,14 +1711,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The amount of managed memory currently used.
 
         Units: Bytes
@@ -1716,14 +1753,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Derived from managedMemoryUsed/managedMemoryTotal.
 
         Units: Percentage
@@ -1758,14 +1795,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of times checkpointing has failed.
 
         Units: Count
@@ -1800,14 +1837,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of records this operator or task has dropped due to arriving late.
 
         Units: Count
@@ -1842,14 +1879,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator, or task has received.
 
         Units: Count
@@ -1884,14 +1921,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has received per second.
 
         Units: Count/Second
@@ -1926,14 +1963,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has emitted.
 
         Units: Count
@@ -1968,14 +2005,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has emitted per second.
 
         Units: Count/Second
@@ -2010,14 +2047,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of old garbage collection operations that have occurred across all task managers.
 
         Units: Count
@@ -2052,14 +2089,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total time spent performing old garbage collection operations.
 
         Units: Milliseconds
@@ -2094,14 +2131,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of live threads used by the application.
 
         Units: Count
@@ -2136,14 +2173,14 @@ class IApplication(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time that the job has been running without interruption.
 
         Units: Milliseconds
@@ -2204,17 +2241,17 @@ class _IApplicationProxy(
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The application IAM role.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "role"))
 
     @jsii.member(jsii_name="addToRolePolicy")
     def add_to_role_policy(
         self,
-        policy_statement: _aws_cdk_aws_iam_ceddda9d.PolicyStatement,
+        policy_statement: "_aws_cdk_aws_iam_ceddda9d.PolicyStatement",
     ) -> builtins.bool:
         '''(experimental) Convenience method for adding a policy statement to the application role.
 
@@ -2237,14 +2274,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return a CloudWatch metric associated with this Flink application.
 
         :param metric_name: The name of the metric.
@@ -2281,7 +2318,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricBackPressuredTimeMsPerSecond")
     def metric_back_pressured_time_ms_per_second(
@@ -2292,14 +2329,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is back pressured per second.
 
         Units: Milliseconds
@@ -2338,7 +2375,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricBackPressuredTimeMsPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricBackPressuredTimeMsPerSecond", [props]))
 
     @jsii.member(jsii_name="metricBusyTimePerMsPerSecond")
     def metric_busy_time_per_ms_per_second(
@@ -2349,14 +2386,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is busy (neither idle nor back pressured) per second.
 
         Can be NaN, if the value could not be
@@ -2398,7 +2435,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricBusyTimePerMsPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricBusyTimePerMsPerSecond", [props]))
 
     @jsii.member(jsii_name="metricCpuUtilization")
     def metric_cpu_utilization(
@@ -2409,14 +2446,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The overall percentage of CPU utilization across task managers.
 
         For
@@ -2459,7 +2496,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricCpuUtilization", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCpuUtilization", [props]))
 
     @jsii.member(jsii_name="metricCurrentInputWatermark")
     def metric_current_input_watermark(
@@ -2470,14 +2507,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The last watermark this application/operator/task/thread has received.
 
         Units: Milliseconds
@@ -2516,7 +2553,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricCurrentInputWatermark", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCurrentInputWatermark", [props]))
 
     @jsii.member(jsii_name="metricCurrentOutputWatermark")
     def metric_current_output_watermark(
@@ -2527,14 +2564,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The last watermark this application/operator/task/thread has received.
 
         Units: Milliseconds
@@ -2573,7 +2610,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricCurrentOutputWatermark", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCurrentOutputWatermark", [props]))
 
     @jsii.member(jsii_name="metricDowntime")
     def metric_downtime(
@@ -2584,14 +2621,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time elapsed during an outage for failing/recovering jobs.
 
         Units: Milliseconds
@@ -2630,7 +2667,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricDowntime", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricDowntime", [props]))
 
     @jsii.member(jsii_name="metricFullRestarts")
     def metric_full_restarts(
@@ -2641,14 +2678,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of times this job has fully restarted since it was submitted.
 
         This metric does not measure fine-grained restarts.
@@ -2689,7 +2726,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricFullRestarts", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricFullRestarts", [props]))
 
     @jsii.member(jsii_name="metricHeapMemoryUtilization")
     def metric_heap_memory_utilization(
@@ -2700,14 +2737,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Overall heap memory utilization across task managers.
 
         For example, if there
@@ -2750,7 +2787,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricHeapMemoryUtilization", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricHeapMemoryUtilization", [props]))
 
     @jsii.member(jsii_name="metricIdleTimeMsPerSecond")
     def metric_idle_time_ms_per_second(
@@ -2761,14 +2798,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is idle (has no data to process) per second.
 
         Idle time excludes back pressured time, so if the task
@@ -2810,7 +2847,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricIdleTimeMsPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricIdleTimeMsPerSecond", [props]))
 
     @jsii.member(jsii_name="metricKpus")
     def metric_kpus(
@@ -2821,14 +2858,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of Kinesis Processing Units that are used to run your stream processing application.
 
         The average number of KPUs used each hour
@@ -2870,7 +2907,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricKpus", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricKpus", [props]))
 
     @jsii.member(jsii_name="metricLastCheckpointDuration")
     def metric_last_checkpoint_duration(
@@ -2881,14 +2918,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time it took to complete the last checkpoint.
 
         Units: Milliseconds
@@ -2927,7 +2964,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricLastCheckpointDuration", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricLastCheckpointDuration", [props]))
 
     @jsii.member(jsii_name="metricLastCheckpointSize")
     def metric_last_checkpoint_size(
@@ -2938,14 +2975,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total size of the last checkpoint.
 
         Units: Bytes
@@ -2984,7 +3021,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricLastCheckpointSize", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricLastCheckpointSize", [props]))
 
     @jsii.member(jsii_name="metricManagedMemoryTotal")
     def metric_managed_memory_total(
@@ -2995,14 +3032,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total amount of managed memory.
 
         Units: Bytes
@@ -3041,7 +3078,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricManagedMemoryTotal", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricManagedMemoryTotal", [props]))
 
     @jsii.member(jsii_name="metricManagedMemoryUsed")
     def metric_managed_memory_used(
@@ -3052,14 +3089,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The amount of managed memory currently used.
 
         Units: Bytes
@@ -3098,7 +3135,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricManagedMemoryUsed", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricManagedMemoryUsed", [props]))
 
     @jsii.member(jsii_name="metricManagedMemoryUtilization")
     def metric_managed_memory_utilization(
@@ -3109,14 +3146,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Derived from managedMemoryUsed/managedMemoryTotal.
 
         Units: Percentage
@@ -3155,7 +3192,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricManagedMemoryUtilization", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricManagedMemoryUtilization", [props]))
 
     @jsii.member(jsii_name="metricNumberOfFailedCheckpoints")
     def metric_number_of_failed_checkpoints(
@@ -3166,14 +3203,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of times checkpointing has failed.
 
         Units: Count
@@ -3212,7 +3249,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumberOfFailedCheckpoints", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumberOfFailedCheckpoints", [props]))
 
     @jsii.member(jsii_name="metricNumLateRecordsDropped")
     def metric_num_late_records_dropped(
@@ -3223,14 +3260,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of records this operator or task has dropped due to arriving late.
 
         Units: Count
@@ -3269,7 +3306,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumLateRecordsDropped", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumLateRecordsDropped", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsIn")
     def metric_num_records_in(
@@ -3280,14 +3317,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator, or task has received.
 
         Units: Count
@@ -3326,7 +3363,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsIn", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsIn", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsInPerSecond")
     def metric_num_records_in_per_second(
@@ -3337,14 +3374,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has received per second.
 
         Units: Count/Second
@@ -3383,7 +3420,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsInPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsInPerSecond", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsOut")
     def metric_num_records_out(
@@ -3394,14 +3431,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has emitted.
 
         Units: Count
@@ -3440,7 +3477,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsOut", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsOut", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsOutPerSecond")
     def metric_num_records_out_per_second(
@@ -3451,14 +3488,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has emitted per second.
 
         Units: Count/Second
@@ -3497,7 +3534,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsOutPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsOutPerSecond", [props]))
 
     @jsii.member(jsii_name="metricOldGenerationGCCount")
     def metric_old_generation_gc_count(
@@ -3508,14 +3545,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of old garbage collection operations that have occurred across all task managers.
 
         Units: Count
@@ -3554,7 +3591,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricOldGenerationGCCount", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricOldGenerationGCCount", [props]))
 
     @jsii.member(jsii_name="metricOldGenerationGCTime")
     def metric_old_generation_gc_time(
@@ -3565,14 +3602,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total time spent performing old garbage collection operations.
 
         Units: Milliseconds
@@ -3611,7 +3648,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricOldGenerationGCTime", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricOldGenerationGCTime", [props]))
 
     @jsii.member(jsii_name="metricThreadsCount")
     def metric_threads_count(
@@ -3622,14 +3659,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of live threads used by the application.
 
         Units: Count
@@ -3668,7 +3705,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricThreadsCount", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricThreadsCount", [props]))
 
     @jsii.member(jsii_name="metricUptime")
     def metric_uptime(
@@ -3679,14 +3716,14 @@ class _IApplicationProxy(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time that the job has been running without interruption.
 
         Units: Milliseconds
@@ -3725,7 +3762,7 @@ class _IApplicationProxy(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricUptime", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricUptime", [props]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IApplication).__jsii_proxy_class__ = lambda : _IApplicationProxy
@@ -4057,28 +4094,28 @@ class Application(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        code: ApplicationCode,
-        runtime: Runtime,
+        code: "ApplicationCode",
+        runtime: "Runtime",
         application_name: typing.Optional[builtins.str] = None,
         auto_scaling_enabled: typing.Optional[builtins.bool] = None,
         checkpointing_enabled: typing.Optional[builtins.bool] = None,
-        checkpoint_interval: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
-        log_group: typing.Optional[_aws_cdk_aws_logs_ceddda9d.ILogGroup] = None,
-        log_level: typing.Optional[LogLevel] = None,
-        metrics_level: typing.Optional[MetricsLevel] = None,
-        min_pause_between_checkpoints: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        checkpoint_interval: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
+        log_group: typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"] = None,
+        log_level: typing.Optional["LogLevel"] = None,
+        metrics_level: typing.Optional["MetricsLevel"] = None,
+        min_pause_between_checkpoints: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         parallelism: typing.Optional[jsii.Number] = None,
         parallelism_per_kpu: typing.Optional[jsii.Number] = None,
         property_groups: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
-        removal_policy: typing.Optional[_aws_cdk_ceddda9d.RemovalPolicy] = None,
-        role: typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole] = None,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
+        removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
+        role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         snapshots_enabled: typing.Optional[builtins.bool] = None,
-        vpc: typing.Optional[_aws_cdk_aws_ec2_ceddda9d.IVpc] = None,
-        vpc_subnets: typing.Optional[typing.Union[_aws_cdk_aws_ec2_ceddda9d.SubnetSelection, typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.IVpc"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_aws_cdk_aws_ec2_ceddda9d.SubnetSelection", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -4137,10 +4174,10 @@ class Application(
     @builtins.classmethod
     def from_application_arn(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         application_arn: builtins.str,
-    ) -> IApplication:
+    ) -> "IApplication":
         '''(experimental) Import an existing application defined outside of CDK code by applicationArn.
 
         :param scope: -
@@ -4154,18 +4191,18 @@ class Application(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_arn", value=application_arn, expected_type=type_hints["application_arn"])
-        return typing.cast(IApplication, jsii.sinvoke(cls, "fromApplicationArn", [scope, id, application_arn]))
+        return typing.cast("IApplication", jsii.sinvoke(cls, "fromApplicationArn", [scope, id, application_arn]))
 
     @jsii.member(jsii_name="fromApplicationAttributes")
     @builtins.classmethod
     def from_application_attributes(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         application_arn: builtins.str,
-        security_groups: typing.Optional[typing.Sequence[_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup]] = None,
-    ) -> IApplication:
+        security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
+    ) -> "IApplication":
         '''(experimental) Import an existing application defined outside of CDK code.
 
         :param scope: -
@@ -4183,16 +4220,16 @@ class Application(
             application_arn=application_arn, security_groups=security_groups
         )
 
-        return typing.cast(IApplication, jsii.sinvoke(cls, "fromApplicationAttributes", [scope, id, attrs]))
+        return typing.cast("IApplication", jsii.sinvoke(cls, "fromApplicationAttributes", [scope, id, attrs]))
 
     @jsii.member(jsii_name="fromApplicationName")
     @builtins.classmethod
     def from_application_name(
         cls,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         application_name: builtins.str,
-    ) -> IApplication:
+    ) -> "IApplication":
         '''(experimental) Import an existing Flink application defined outside of CDK code by applicationName.
 
         :param scope: -
@@ -4206,12 +4243,12 @@ class Application(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument application_name", value=application_name, expected_type=type_hints["application_name"])
-        return typing.cast(IApplication, jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
+        return typing.cast("IApplication", jsii.sinvoke(cls, "fromApplicationName", [scope, id, application_name]))
 
     @jsii.member(jsii_name="addToRolePolicy")
     def add_to_role_policy(
         self,
-        policy_statement: _aws_cdk_aws_iam_ceddda9d.PolicyStatement,
+        policy_statement: "_aws_cdk_aws_iam_ceddda9d.PolicyStatement",
     ) -> builtins.bool:
         '''(experimental) Implement the convenience ``IApplication.addToPrincipalPolicy`` method.
 
@@ -4234,14 +4271,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Return a CloudWatch metric associated with this Flink application.
 
         :param metric_name: The name of the metric.
@@ -4278,7 +4315,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metric", [metric_name, props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metric", [metric_name, props]))
 
     @jsii.member(jsii_name="metricBackPressuredTimeMsPerSecond")
     def metric_back_pressured_time_ms_per_second(
@@ -4289,14 +4326,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is back pressured per second.
 
         Units: Milliseconds
@@ -4335,7 +4372,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricBackPressuredTimeMsPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricBackPressuredTimeMsPerSecond", [props]))
 
     @jsii.member(jsii_name="metricBusyTimePerMsPerSecond")
     def metric_busy_time_per_ms_per_second(
@@ -4346,14 +4383,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is busy (neither idle nor back pressured) per second.
 
         Can be NaN, if the value could not be
@@ -4395,7 +4432,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricBusyTimePerMsPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricBusyTimePerMsPerSecond", [props]))
 
     @jsii.member(jsii_name="metricCpuUtilization")
     def metric_cpu_utilization(
@@ -4406,14 +4443,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The overall percentage of CPU utilization across task managers.
 
         For
@@ -4456,7 +4493,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricCpuUtilization", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCpuUtilization", [props]))
 
     @jsii.member(jsii_name="metricCurrentInputWatermark")
     def metric_current_input_watermark(
@@ -4467,14 +4504,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The last watermark this application/operator/task/thread has received.
 
         Units: Milliseconds
@@ -4513,7 +4550,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricCurrentInputWatermark", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCurrentInputWatermark", [props]))
 
     @jsii.member(jsii_name="metricCurrentOutputWatermark")
     def metric_current_output_watermark(
@@ -4524,14 +4561,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The last watermark this application/operator/task/thread has received.
 
         Units: Milliseconds
@@ -4570,7 +4607,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricCurrentOutputWatermark", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricCurrentOutputWatermark", [props]))
 
     @jsii.member(jsii_name="metricDowntime")
     def metric_downtime(
@@ -4581,14 +4618,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time elapsed during an outage for failing/recovering jobs.
 
         Units: Milliseconds
@@ -4627,7 +4664,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricDowntime", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricDowntime", [props]))
 
     @jsii.member(jsii_name="metricFullRestarts")
     def metric_full_restarts(
@@ -4638,14 +4675,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of times this job has fully restarted since it was submitted.
 
         This metric does not measure fine-grained restarts.
@@ -4686,7 +4723,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricFullRestarts", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricFullRestarts", [props]))
 
     @jsii.member(jsii_name="metricHeapMemoryUtilization")
     def metric_heap_memory_utilization(
@@ -4697,14 +4734,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Overall heap memory utilization across task managers.
 
         For example, if there
@@ -4747,7 +4784,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricHeapMemoryUtilization", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricHeapMemoryUtilization", [props]))
 
     @jsii.member(jsii_name="metricIdleTimeMsPerSecond")
     def metric_idle_time_ms_per_second(
@@ -4758,14 +4795,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time (in milliseconds) this task or operator is idle (has no data to process) per second.
 
         Idle time excludes back pressured time, so if the task
@@ -4807,7 +4844,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricIdleTimeMsPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricIdleTimeMsPerSecond", [props]))
 
     @jsii.member(jsii_name="metricKpus")
     def metric_kpus(
@@ -4818,14 +4855,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of Kinesis Processing Units that are used to run your stream processing application.
 
         The average number of KPUs used each hour
@@ -4867,7 +4904,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricKpus", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricKpus", [props]))
 
     @jsii.member(jsii_name="metricLastCheckpointDuration")
     def metric_last_checkpoint_duration(
@@ -4878,14 +4915,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time it took to complete the last checkpoint.
 
         Units: Milliseconds
@@ -4924,7 +4961,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricLastCheckpointDuration", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricLastCheckpointDuration", [props]))
 
     @jsii.member(jsii_name="metricLastCheckpointSize")
     def metric_last_checkpoint_size(
@@ -4935,14 +4972,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total size of the last checkpoint.
 
         Units: Bytes
@@ -4981,7 +5018,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricLastCheckpointSize", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricLastCheckpointSize", [props]))
 
     @jsii.member(jsii_name="metricManagedMemoryTotal")
     def metric_managed_memory_total(
@@ -4992,14 +5029,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total amount of managed memory.
 
         Units: Bytes
@@ -5038,7 +5075,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricManagedMemoryTotal", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricManagedMemoryTotal", [props]))
 
     @jsii.member(jsii_name="metricManagedMemoryUsed")
     def metric_managed_memory_used(
@@ -5049,14 +5086,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The amount of managed memory currently used.
 
         Units: Bytes
@@ -5095,7 +5132,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricManagedMemoryUsed", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricManagedMemoryUsed", [props]))
 
     @jsii.member(jsii_name="metricManagedMemoryUtilization")
     def metric_managed_memory_utilization(
@@ -5106,14 +5143,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) Derived from managedMemoryUsed/managedMemoryTotal.
 
         Units: Percentage
@@ -5152,7 +5189,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricManagedMemoryUtilization", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricManagedMemoryUtilization", [props]))
 
     @jsii.member(jsii_name="metricNumberOfFailedCheckpoints")
     def metric_number_of_failed_checkpoints(
@@ -5163,14 +5200,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of times checkpointing has failed.
 
         Units: Count
@@ -5209,7 +5246,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumberOfFailedCheckpoints", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumberOfFailedCheckpoints", [props]))
 
     @jsii.member(jsii_name="metricNumLateRecordsDropped")
     def metric_num_late_records_dropped(
@@ -5220,14 +5257,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The number of records this operator or task has dropped due to arriving late.
 
         Units: Count
@@ -5266,7 +5303,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumLateRecordsDropped", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumLateRecordsDropped", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsIn")
     def metric_num_records_in(
@@ -5277,14 +5314,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator, or task has received.
 
         Units: Count
@@ -5323,7 +5360,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsIn", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsIn", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsInPerSecond")
     def metric_num_records_in_per_second(
@@ -5334,14 +5371,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has received per second.
 
         Units: Count/Second
@@ -5380,7 +5417,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsInPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsInPerSecond", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsOut")
     def metric_num_records_out(
@@ -5391,14 +5428,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has emitted.
 
         Units: Count
@@ -5437,7 +5474,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsOut", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsOut", [props]))
 
     @jsii.member(jsii_name="metricNumRecordsOutPerSecond")
     def metric_num_records_out_per_second(
@@ -5448,14 +5485,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of records this application, operator or task has emitted per second.
 
         Units: Count/Second
@@ -5494,7 +5531,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricNumRecordsOutPerSecond", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricNumRecordsOutPerSecond", [props]))
 
     @jsii.member(jsii_name="metricOldGenerationGCCount")
     def metric_old_generation_gc_count(
@@ -5505,14 +5542,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of old garbage collection operations that have occurred across all task managers.
 
         Units: Count
@@ -5551,7 +5588,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricOldGenerationGCCount", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricOldGenerationGCCount", [props]))
 
     @jsii.member(jsii_name="metricOldGenerationGCTime")
     def metric_old_generation_gc_time(
@@ -5562,14 +5599,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total time spent performing old garbage collection operations.
 
         Units: Milliseconds
@@ -5608,7 +5645,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricOldGenerationGCTime", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricOldGenerationGCTime", [props]))
 
     @jsii.member(jsii_name="metricThreadsCount")
     def metric_threads_count(
@@ -5619,14 +5656,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The total number of live threads used by the application.
 
         Units: Count
@@ -5665,7 +5702,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricThreadsCount", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricThreadsCount", [props]))
 
     @jsii.member(jsii_name="metricUptime")
     def metric_uptime(
@@ -5676,14 +5713,14 @@ class Application(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        period: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_aws_cdk_aws_cloudwatch_ceddda9d.Unit] = None,
+        unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _aws_cdk_aws_cloudwatch_ceddda9d.Metric:
+    ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
         '''(experimental) The time that the job has been running without interruption.
 
         Units: Milliseconds
@@ -5722,7 +5759,7 @@ class Application(
             visible=visible,
         )
 
-        return typing.cast(_aws_cdk_aws_cloudwatch_ceddda9d.Metric, jsii.invoke(self, "metricUptime", [props]))
+        return typing.cast("_aws_cdk_aws_cloudwatch_ceddda9d.Metric", jsii.invoke(self, "metricUptime", [props]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -5753,30 +5790,30 @@ class Application(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> _aws_cdk_aws_ec2_ceddda9d.Connections:
+    def connections(self) -> "_aws_cdk_aws_ec2_ceddda9d.Connections":
         '''(experimental) The network connections associated with this resource.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_ec2_ceddda9d.Connections, jsii.get(self, "connections"))
+        return typing.cast("_aws_cdk_aws_ec2_ceddda9d.Connections", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
-    def grant_principal(self) -> _aws_cdk_aws_iam_ceddda9d.IPrincipal:
+    def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
         '''(experimental) The principal to grant permissions to.
 
         :stability: experimental
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.IPrincipal, jsii.get(self, "grantPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole]:
+    def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
         '''(experimental) The application IAM role.
 
         :stability: experimental
         '''
-        return typing.cast(typing.Optional[_aws_cdk_aws_iam_ceddda9d.IRole], jsii.get(self, "role"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "role"))
 
 
 __all__ = [
@@ -5808,7 +5845,7 @@ def _typecheckingstub__1b3f5ea7b01f2c445236fa2c0bbef9d04ab26dce3d5e0a7fe634f6546
     deploy_time: typing.Optional[builtins.bool] = None,
     display_name: typing.Optional[builtins.str] = None,
     readers: typing.Optional[typing.Sequence[_aws_cdk_aws_iam_ceddda9d.IGrantable]] = None,
-    source_kms_key: typing.Optional[_aws_cdk_aws_kms_ceddda9d.IKeyRef] = None,
+    source_kms_key: typing.Optional[_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef] = None,
     asset_hash: typing.Optional[builtins.str] = None,
     asset_hash_type: typing.Optional[_aws_cdk_ceddda9d.AssetHashType] = None,
     bundling: typing.Optional[typing.Union[_aws_cdk_ceddda9d.BundlingOptions, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5974,3 +6011,6 @@ def _typecheckingstub__bd7be1e816d1e378b989c42da53244077b88147554f5269f162bf7af5
 ) -> None:
     """Type checking stubs"""
     pass
+
+for cls in [IApplication]:
+    typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

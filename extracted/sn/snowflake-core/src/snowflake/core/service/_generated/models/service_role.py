@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class ServiceRole(BaseModel):
@@ -30,11 +30,11 @@ class ServiceRole(BaseModel):
     Parameters
     __________
     created_on : datetime, optional
-        Date and time when the service role was created
+        Date and time when the service role was created — **Read-only:** *any user-provided value will be ignored.*
     name : str, optional
-        Service role name
+        Service role name — **Read-only:** *any user-provided value will be ignored.*
     comment : str, optional
-        Comment, if any, for the service role
+        Comment, if any, for the service role — **Read-only:** *any user-provided value will be ignored.*
     """
 
     created_on: Optional[datetime] = None
@@ -45,9 +45,10 @@ class ServiceRole(BaseModel):
 
     __properties = ["created_on", "name", "comment"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -78,7 +79,7 @@ class ServiceRole(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -93,9 +94,9 @@ class ServiceRole(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ServiceRole.parse_obj(obj)
+            return ServiceRole.model_validate(obj)
 
-        _obj = ServiceRole.parse_obj(
+        _obj = ServiceRole.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "name": obj.get("name"),

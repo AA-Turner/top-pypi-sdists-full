@@ -1,7 +1,15 @@
 from django.db import models
 
-from canvas_sdk.v1.data.base import IdentifiableModel, Model
-from canvas_sdk.v1.data.common import TaxIDType
+from canvas_sdk.v1.data.base import IdentifiableModel, Model, TimestampedModel
+from canvas_sdk.v1.data.common import (
+    AddressState,
+    AddressType,
+    AddressUse,
+    ContactPointState,
+    ContactPointSystem,
+    ContactPointUse,
+    TaxIDType,
+)
 
 
 class PracticeLocationPOS(models.TextChoices):
@@ -53,14 +61,12 @@ class PracticeLocationPOS(models.TextChoices):
     OTHER = "99", "Other Place of Service"
 
 
-class PracticeLocation(IdentifiableModel):
+class PracticeLocation(TimestampedModel, IdentifiableModel):
     """PracticeLocation."""
 
     class Meta:
         db_table = "canvas_sdk_data_api_practicelocation_001"
 
-    created = models.DateTimeField(auto_now_add=True)
-    modified = models.DateTimeField(auto_now=True)
     organization = models.ForeignKey(
         "v1.Organization", on_delete=models.DO_NOTHING, related_name="practice_locations", null=True
     )
@@ -69,7 +75,7 @@ class PracticeLocation(IdentifiableModel):
     short_name = models.CharField(max_length=255)
     background_image_url = models.CharField(max_length=255)
     background_gradient = models.CharField(max_length=255)
-    active = models.BooleanField()
+    active = models.BooleanField(default=True)
     npi_number = models.CharField(max_length=10)
     bill_through_organization = models.BooleanField()
     tax_id = models.CharField(max_length=25)
@@ -77,10 +83,40 @@ class PracticeLocation(IdentifiableModel):
     billing_location_name = models.CharField(max_length=255)
     group_npi_number = models.CharField(max_length=10)
     taxonomy_number = models.CharField(max_length=10)
-    include_zz_qualifier = models.BooleanField()
+    include_zz_qualifier = models.BooleanField(default=False)
 
     def __str__(self) -> str:
         return self.full_name
+
+
+class PracticeLocationAddress(Model):
+    """PracticeLocationAddress."""
+
+    class Meta:
+        db_table = "canvas_sdk_data_api_practicelocationaddress_001"
+
+    practice_location = models.ForeignKey(
+        "v1.PracticeLocation", on_delete=models.DO_NOTHING, related_name="addresses", null=True
+    )
+    line1 = models.CharField(max_length=255, default="", blank=True)
+    line2 = models.CharField(max_length=255, default="", blank=True)
+    city = models.CharField(max_length=255)
+    district = models.CharField(max_length=255, blank=True, default="")
+    state_code = models.CharField(max_length=2)
+    postal_code = models.CharField(max_length=255)
+    use = models.CharField(choices=AddressUse.choices, max_length=10, default=AddressUse.WORK)
+    type = models.CharField(choices=AddressType.choices, max_length=10, default=AddressType.BOTH)
+    longitude = models.FloatField(null=True, blank=True)
+    latitude = models.FloatField(null=True, blank=True)
+    start = models.DateField(null=True, blank=True)
+    end = models.DateField(null=True, blank=True)
+    country = models.CharField(max_length=255)
+    state = models.CharField(
+        choices=AddressState.choices, max_length=20, default=AddressState.ACTIVE
+    )
+
+    def __str__(self) -> str:
+        return f"Address for {self.practice_location}"
 
 
 class PracticeLocationSetting(Model):
@@ -99,8 +135,31 @@ class PracticeLocationSetting(Model):
         return self.name
 
 
+class PracticeLocationContactPoint(IdentifiableModel):
+    """PracticeLocationContactPoint."""
+
+    class Meta:
+        db_table = "canvas_sdk_data_api_practicelocationcontactpoint_001"
+
+    practice_location = models.ForeignKey(
+        "v1.PracticeLocation", on_delete=models.PROTECT, related_name="telecom"
+    )
+    system = models.CharField(choices=ContactPointSystem.choices, max_length=20, db_index=True)
+    value = models.CharField(max_length=100, db_index=True)
+    use = models.CharField(
+        choices=ContactPointUse.choices, max_length=20, default=ContactPointUse.HOME
+    )
+    use_notes = models.CharField(max_length=255, blank=True, default="")
+    rank = models.IntegerField(default=1)
+    state = models.CharField(
+        choices=ContactPointState.choices, max_length=20, default=ContactPointState.ACTIVE
+    )
+
+
 __exports__ = (
     "PracticeLocationPOS",
     "PracticeLocation",
+    "PracticeLocationContactPoint",
     "PracticeLocationSetting",
+    "PracticeLocationAddress",
 )

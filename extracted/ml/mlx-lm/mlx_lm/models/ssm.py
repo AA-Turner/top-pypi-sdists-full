@@ -114,6 +114,8 @@ def ssm_attn(
     state: Optional[mx.array] = None,
     time_step_limit: Tuple[float, float] = (0.001, 100.0),
     mask: Optional[mx.array] = None,
+    lengths: Optional[mx.array] = None,
+    step: int = 256,
 ) -> Tuple[mx.array, mx.array]:
     """SSD-SSM forward pass.
 
@@ -127,6 +129,8 @@ def ssm_attn(
         dt_bias: Bias for time deltas of shape (num_heads,).
         time_step_limit: Minimum and maximum value for time deltas.
         mask: Optional multiplicative mask.
+        lengths: Optional lenghts of sequences, assumed to be the full length if unspecified.
+        step: Step size for processing x.
 
     Code modified from
     https://github.com/cartesia-ai/edge/blob/main/cartesia-mlx/cartesia_mlx/layers/ssd/ops.py
@@ -137,39 +141,68 @@ def ssm_attn(
 
     dt = compute_dt(dt, dt_bias, time_step_limit)
     repeats = h // g
-    A = -mx.exp(A_log)
-    B = mx.transpose(B, (0, 2, 3, 1))
-
-    # A * s + B * C
-    CB = mx.swapaxes(C, 1, 2) @ B
-    CB = mx.repeat(CB, repeats, axis=1)
-
+    A = -mx.exp(A_log).astype(dt.dtype)
     dtA = dt * A.reshape(1, 1, -1)
-    decay = mx.exp(segsum(dtA.swapaxes(1, 2), mask=mask))
-
-    surrogate_attention_matrix = mx.tril(CB * decay, 0)
-
     dtx = dt.reshape(b, l, h, 1) * x
-    y = surrogate_attention_matrix @ dtx.swapaxes(1, 2)
-    y = mx.swapaxes(y, 1, 2)
 
-    decay = decay[:, :, -1:, :].transpose(0, 3, 1, 2)
-    B = mx.repeat(B, h // g, axis=1).swapaxes(2, 3)
-    dtxdecay = dtx * decay
-    dtxdecay = dtxdecay.swapaxes(1, 2).swapaxes(2, 3)
+    def _step(dtx, dtA, B, C, state, mask):
+        s = dtx.shape[1]
+        B = mx.transpose(B, (0, 2, 3, 1))
 
-    next_state = dtxdecay @ B
+        CB = mx.swapaxes(C, 1, 2) @ B
+        CB = mx.repeat(CB, repeats, axis=1)
 
-    if state is not None:
-        exp_dtA_cumsum = mx.exp(mx.cumsum(dtA, axis=-2))
-        next_state += exp_dtA_cumsum[:, -1, :, None, None] * state
-        state = state.reshape((b, 1, g, repeats, dh, d))
-        C = C.reshape(b, l, g, 1, d, 1)
-        y_prev = (state @ C).squeeze(-1).flatten(2, 3)
-        y += exp_dtA_cumsum[..., None] * y_prev
+        decay = mx.exp(segsum(dtA.swapaxes(1, 2), mask=mask))
 
-    y += x * D.reshape(1, 1, h, 1)
-    return y, next_state
+        surrogate_attention_matrix = mx.tril(CB * decay, 0)
+
+        y = surrogate_attention_matrix @ dtx.swapaxes(1, 2)
+        y = mx.swapaxes(y, 1, 2)
+
+        if lengths is not None:
+            pos = mx.maximum(mx.minimum(lengths, step) - 1, 0)
+            pos = mx.expand_dims(pos, (1, 2, 3))
+            decay = mx.take_along_axis(decay, pos, axis=2)
+        else:
+            decay = decay[:, :, -1:, :]
+
+        decay = decay.transpose(0, 3, 1, 2)
+        B = mx.repeat(B, h // g, axis=1).swapaxes(2, 3)
+        dtxdecay = dtx * decay
+        dtxdecay = dtxdecay.swapaxes(1, 2).swapaxes(2, 3)
+
+        next_state = dtxdecay @ B
+
+        if state is not None:
+            exp_dtA_cumsum = mx.exp(mx.cumsum(dtA, axis=-2))
+            next_state += exp_dtA_cumsum[:, -1, :, None, None] * state
+            C = C.reshape(b, s, g, 1, d, 1)
+            y_prev = (
+                (state.reshape((b, 1, g, repeats, dh, d)) @ C).squeeze(-1).flatten(2, 3)
+            )
+            y += exp_dtA_cumsum[..., None] * y_prev
+        if lengths is not None and state is not None:
+            next_state = mx.where(
+                mx.expand_dims(lengths < 0, (1, 2, 3)), state, next_state
+            )
+
+        return y, next_state
+
+    ys = []
+    for i in range(0, l, step):
+        y, state = _step(
+            dtx[:, i : i + step],
+            dtA[:, i : i + step],
+            B[:, i : i + step],
+            C[:, i : i + step],
+            state,
+            None if mask is None else mask[..., i : i + step],
+        )
+        if lengths is not None:
+            lengths = lengths - step
+        ys.append(y)
+    y = mx.concatenate(ys, axis=1) + x * D.reshape(1, 1, h, 1)
+    return y, state
 
 
 def ssm_update(
@@ -183,6 +216,7 @@ def ssm_update(
     state: Optional[mx.array] = None,
     time_step_limit: Tuple[float, float] = (0.001, 100.0),
     mask: Optional[mx.array] = None,
+    lengths: Optional[mx.array] = None,
 ):
     seq_len = hidden_states.shape[1]
     if (
@@ -202,6 +236,7 @@ def ssm_update(
             state,
             time_step_limit,
             mask=mask,
+            lengths=lengths,
         )
     else:
         return ssm_update_kernel(

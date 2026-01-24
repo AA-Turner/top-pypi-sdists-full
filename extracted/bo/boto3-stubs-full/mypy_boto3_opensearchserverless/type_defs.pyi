@@ -3,7 +3,7 @@ Type annotations for opensearchserverless service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_opensearchserverless/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from .literals import (
@@ -26,16 +27,11 @@ from .literals import (
     IamIdentityCenterUserAttributeType,
     SecurityConfigTypeType,
     SecurityPolicyTypeType,
+    ServerlessVectorAccelerationStatusType,
     StandbyReplicasType,
     VpcEndpointStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -46,6 +42,8 @@ __all__ = (
     "AccessPolicyStatsTypeDef",
     "AccessPolicySummaryTypeDef",
     "AccountSettingsDetailTypeDef",
+    "BatchGetCollectionGroupRequestTypeDef",
+    "BatchGetCollectionGroupResponseTypeDef",
     "BatchGetCollectionRequestTypeDef",
     "BatchGetCollectionResponseTypeDef",
     "BatchGetEffectiveLifecyclePolicyRequestTypeDef",
@@ -58,10 +56,17 @@ __all__ = (
     "CollectionDetailTypeDef",
     "CollectionErrorDetailTypeDef",
     "CollectionFiltersTypeDef",
+    "CollectionGroupCapacityLimitsTypeDef",
+    "CollectionGroupDetailTypeDef",
+    "CollectionGroupErrorDetailTypeDef",
+    "CollectionGroupSummaryTypeDef",
     "CollectionSummaryTypeDef",
     "CreateAccessPolicyRequestTypeDef",
     "CreateAccessPolicyResponseTypeDef",
     "CreateCollectionDetailTypeDef",
+    "CreateCollectionGroupDetailTypeDef",
+    "CreateCollectionGroupRequestTypeDef",
+    "CreateCollectionGroupResponseTypeDef",
     "CreateCollectionRequestTypeDef",
     "CreateCollectionResponseTypeDef",
     "CreateIamIdentityCenterConfigOptionsTypeDef",
@@ -77,6 +82,7 @@ __all__ = (
     "CreateVpcEndpointResponseTypeDef",
     "DeleteAccessPolicyRequestTypeDef",
     "DeleteCollectionDetailTypeDef",
+    "DeleteCollectionGroupRequestTypeDef",
     "DeleteCollectionRequestTypeDef",
     "DeleteCollectionResponseTypeDef",
     "DeleteIndexRequestTypeDef",
@@ -88,6 +94,7 @@ __all__ = (
     "DeleteVpcEndpointResponseTypeDef",
     "EffectiveLifecyclePolicyDetailTypeDef",
     "EffectiveLifecyclePolicyErrorDetailTypeDef",
+    "EncryptionConfigTypeDef",
     "FipsEndpointsTypeDef",
     "GetAccessPolicyRequestTypeDef",
     "GetAccessPolicyResponseTypeDef",
@@ -109,6 +116,8 @@ __all__ = (
     "LifecyclePolicySummaryTypeDef",
     "ListAccessPoliciesRequestTypeDef",
     "ListAccessPoliciesResponseTypeDef",
+    "ListCollectionGroupsRequestTypeDef",
+    "ListCollectionGroupsResponseTypeDef",
     "ListCollectionsRequestTypeDef",
     "ListCollectionsResponseTypeDef",
     "ListLifecyclePoliciesRequestTypeDef",
@@ -137,6 +146,9 @@ __all__ = (
     "UpdateAccountSettingsRequestTypeDef",
     "UpdateAccountSettingsResponseTypeDef",
     "UpdateCollectionDetailTypeDef",
+    "UpdateCollectionGroupDetailTypeDef",
+    "UpdateCollectionGroupRequestTypeDef",
+    "UpdateCollectionGroupResponseTypeDef",
     "UpdateCollectionRequestTypeDef",
     "UpdateCollectionResponseTypeDef",
     "UpdateIamIdentityCenterConfigOptionsTypeDef",
@@ -150,6 +162,7 @@ __all__ = (
     "UpdateVpcEndpointDetailTypeDef",
     "UpdateVpcEndpointRequestTypeDef",
     "UpdateVpcEndpointResponseTypeDef",
+    "VectorOptionsTypeDef",
     "VpcEndpointDetailTypeDef",
     "VpcEndpointErrorDetailTypeDef",
     "VpcEndpointFiltersTypeDef",
@@ -163,7 +176,7 @@ AccessPolicyDetailTypeDef = TypedDict(
         "name": NotRequired[str],
         "policyVersion": NotRequired[str],
         "description": NotRequired[str],
-        "policy": NotRequired[Dict[str, Any]],
+        "policy": NotRequired[dict[str, Any]],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
     },
@@ -188,6 +201,27 @@ class CapacityLimitsTypeDef(TypedDict):
     maxIndexingCapacityInOCU: NotRequired[int]
     maxSearchCapacityInOCU: NotRequired[int]
 
+class BatchGetCollectionGroupRequestTypeDef(TypedDict):
+    ids: NotRequired[Sequence[str]]
+    names: NotRequired[Sequence[str]]
+
+CollectionGroupErrorDetailTypeDef = TypedDict(
+    "CollectionGroupErrorDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "errorMessage": NotRequired[str],
+        "errorCode": NotRequired[str],
+    },
+)
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
 class BatchGetCollectionRequestTypeDef(TypedDict):
     ids: NotRequired[Sequence[str]]
     names: NotRequired[Sequence[str]]
@@ -201,14 +235,6 @@ CollectionErrorDetailTypeDef = TypedDict(
         "errorCode": NotRequired[str],
     },
 )
-
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
 LifecyclePolicyResourceIdentifierTypeDef = TypedDict(
     "LifecyclePolicyResourceIdentifierTypeDef",
     {
@@ -250,7 +276,7 @@ LifecyclePolicyDetailTypeDef = TypedDict(
         "name": NotRequired[str],
         "policyVersion": NotRequired[str],
         "description": NotRequired[str],
-        "policy": NotRequired[Dict[str, Any]],
+        "policy": NotRequired[dict[str, Any]],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
     },
@@ -274,8 +300,8 @@ VpcEndpointDetailTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "vpcId": NotRequired[str],
-        "subnetIds": NotRequired[List[str]],
-        "securityGroupIds": NotRequired[List[str]],
+        "subnetIds": NotRequired[list[str]],
+        "securityGroupIds": NotRequired[list[str]],
         "status": NotRequired[VpcEndpointStatusType],
         "createdDate": NotRequired[int],
         "failureCode": NotRequired[str],
@@ -295,9 +321,23 @@ class FipsEndpointsTypeDef(TypedDict):
     collectionEndpoint: NotRequired[str]
     dashboardEndpoint: NotRequired[str]
 
+class VectorOptionsTypeDef(TypedDict):
+    ServerlessVectorAcceleration: ServerlessVectorAccelerationStatusType
+
 class CollectionFiltersTypeDef(TypedDict):
     name: NotRequired[str]
     status: NotRequired[CollectionStatusType]
+    collectionGroupName: NotRequired[str]
+
+class CollectionGroupCapacityLimitsTypeDef(TypedDict):
+    maxIndexingCapacityInOCU: NotRequired[float]
+    maxSearchCapacityInOCU: NotRequired[float]
+    minIndexingCapacityInOCU: NotRequired[float]
+    minSearchCapacityInOCU: NotRequired[float]
+
+class TagTypeDef(TypedDict):
+    key: str
+    value: str
 
 CollectionSummaryTypeDef = TypedDict(
     "CollectionSummaryTypeDef",
@@ -306,6 +346,8 @@ CollectionSummaryTypeDef = TypedDict(
         "name": NotRequired[str],
         "status": NotRequired[CollectionStatusType],
         "arn": NotRequired[str],
+        "kmsKeyArn": NotRequired[str],
+        "collectionGroupName": NotRequired[str],
     },
 )
 CreateAccessPolicyRequestTypeDef = TypedDict(
@@ -318,25 +360,10 @@ CreateAccessPolicyRequestTypeDef = TypedDict(
         "clientToken": NotRequired[str],
     },
 )
-CreateCollectionDetailTypeDef = TypedDict(
-    "CreateCollectionDetailTypeDef",
-    {
-        "id": NotRequired[str],
-        "name": NotRequired[str],
-        "status": NotRequired[CollectionStatusType],
-        "type": NotRequired[CollectionTypeType],
-        "description": NotRequired[str],
-        "arn": NotRequired[str],
-        "kmsKeyArn": NotRequired[str],
-        "standbyReplicas": NotRequired[StandbyReplicasType],
-        "createdDate": NotRequired[int],
-        "lastModifiedDate": NotRequired[int],
-    },
-)
 
-class TagTypeDef(TypedDict):
-    key: str
-    value: str
+class EncryptionConfigTypeDef(TypedDict):
+    aWSOwnedKey: NotRequired[bool]
+    kmsKeyArn: NotRequired[str]
 
 class CreateIamIdentityCenterConfigOptionsTypeDef(TypedDict):
     instanceArn: str
@@ -390,7 +417,7 @@ SecurityPolicyDetailTypeDef = TypedDict(
         "name": NotRequired[str],
         "policyVersion": NotRequired[str],
         "description": NotRequired[str],
-        "policy": NotRequired[Dict[str, Any]],
+        "policy": NotRequired[dict[str, Any]],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
     },
@@ -425,6 +452,13 @@ DeleteCollectionDetailTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "status": NotRequired[CollectionStatusType],
+    },
+)
+DeleteCollectionGroupRequestTypeDef = TypedDict(
+    "DeleteCollectionGroupRequestTypeDef",
+    {
+        "id": str,
+        "clientToken": NotRequired[str],
     },
 )
 DeleteCollectionRequestTypeDef = TypedDict(
@@ -546,6 +580,11 @@ ListAccessPoliciesRequestTypeDef = TypedDict(
         "maxResults": NotRequired[int],
     },
 )
+
+class ListCollectionGroupsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
 ListLifecyclePoliciesRequestTypeDef = TypedDict(
     "ListLifecyclePoliciesRequestTypeDef",
     {
@@ -687,8 +726,8 @@ UpdateVpcEndpointDetailTypeDef = TypedDict(
         "id": NotRequired[str],
         "name": NotRequired[str],
         "status": NotRequired[VpcEndpointStatusType],
-        "subnetIds": NotRequired[List[str]],
-        "securityGroupIds": NotRequired[List[str]],
+        "subnetIds": NotRequired[list[str]],
+        "securityGroupIds": NotRequired[list[str]],
         "lastModifiedDate": NotRequired[int],
     },
 )
@@ -719,11 +758,11 @@ class GetAccessPolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetIndexResponseTypeDef(TypedDict):
-    indexSchema: Dict[str, Any]
+    indexSchema: dict[str, Any]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAccessPoliciesResponseTypeDef(TypedDict):
-    accessPolicySummaries: List[AccessPolicySummaryTypeDef]
+    accessPolicySummaries: list[AccessPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -735,8 +774,8 @@ class BatchGetEffectiveLifecyclePolicyRequestTypeDef(TypedDict):
     resourceIdentifiers: Sequence[LifecyclePolicyResourceIdentifierTypeDef]
 
 class BatchGetEffectiveLifecyclePolicyResponseTypeDef(TypedDict):
-    effectiveLifecyclePolicyDetails: List[EffectiveLifecyclePolicyDetailTypeDef]
-    effectiveLifecyclePolicyErrorDetails: List[EffectiveLifecyclePolicyErrorDetailTypeDef]
+    effectiveLifecyclePolicyDetails: list[EffectiveLifecyclePolicyDetailTypeDef]
+    effectiveLifecyclePolicyErrorDetails: list[EffectiveLifecyclePolicyErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetLifecyclePolicyRequestTypeDef(TypedDict):
@@ -751,13 +790,13 @@ class UpdateLifecyclePolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetLifecyclePolicyResponseTypeDef(TypedDict):
-    lifecyclePolicyDetails: List[LifecyclePolicyDetailTypeDef]
-    lifecyclePolicyErrorDetails: List[LifecyclePolicyErrorDetailTypeDef]
+    lifecyclePolicyDetails: list[LifecyclePolicyDetailTypeDef]
+    lifecyclePolicyErrorDetails: list[LifecyclePolicyErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetVpcEndpointResponseTypeDef(TypedDict):
-    vpcEndpointDetails: List[VpcEndpointDetailTypeDef]
-    vpcEndpointErrorDetails: List[VpcEndpointErrorDetailTypeDef]
+    vpcEndpointDetails: list[VpcEndpointDetailTypeDef]
+    vpcEndpointErrorDetails: list[VpcEndpointErrorDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 CollectionDetailTypeDef = TypedDict(
@@ -771,6 +810,7 @@ CollectionDetailTypeDef = TypedDict(
         "arn": NotRequired[str],
         "kmsKeyArn": NotRequired[str],
         "standbyReplicas": NotRequired[StandbyReplicasType],
+        "vectorOptions": NotRequired[VectorOptionsTypeDef],
         "createdDate": NotRequired[int],
         "lastModifiedDate": NotRequired[int],
         "collectionEndpoint": NotRequired[str],
@@ -778,6 +818,24 @@ CollectionDetailTypeDef = TypedDict(
         "fipsEndpoints": NotRequired[FipsEndpointsTypeDef],
         "failureCode": NotRequired[str],
         "failureMessage": NotRequired[str],
+        "collectionGroupName": NotRequired[str],
+    },
+)
+CreateCollectionDetailTypeDef = TypedDict(
+    "CreateCollectionDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "status": NotRequired[CollectionStatusType],
+        "type": NotRequired[CollectionTypeType],
+        "description": NotRequired[str],
+        "arn": NotRequired[str],
+        "kmsKeyArn": NotRequired[str],
+        "standbyReplicas": NotRequired[StandbyReplicasType],
+        "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "createdDate": NotRequired[int],
+        "lastModifiedDate": NotRequired[int],
+        "collectionGroupName": NotRequired[str],
     },
 )
 
@@ -786,14 +844,86 @@ class ListCollectionsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
 
+CollectionGroupSummaryTypeDef = TypedDict(
+    "CollectionGroupSummaryTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "numberOfCollections": NotRequired[int],
+        "createdDate": NotRequired[int],
+        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+    },
+)
+UpdateCollectionGroupDetailTypeDef = TypedDict(
+    "UpdateCollectionGroupDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "description": NotRequired[str],
+        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+        "createdDate": NotRequired[int],
+        "lastModifiedDate": NotRequired[int],
+    },
+)
+UpdateCollectionGroupRequestTypeDef = TypedDict(
+    "UpdateCollectionGroupRequestTypeDef",
+    {
+        "id": str,
+        "description": NotRequired[str],
+        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+        "clientToken": NotRequired[str],
+    },
+)
+CollectionGroupDetailTypeDef = TypedDict(
+    "CollectionGroupDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "standbyReplicas": NotRequired[StandbyReplicasType],
+        "description": NotRequired[str],
+        "tags": NotRequired[list[TagTypeDef]],
+        "createdDate": NotRequired[int],
+        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+        "numberOfCollections": NotRequired[int],
+    },
+)
+CreateCollectionGroupDetailTypeDef = TypedDict(
+    "CreateCollectionGroupDetailTypeDef",
+    {
+        "id": NotRequired[str],
+        "arn": NotRequired[str],
+        "name": NotRequired[str],
+        "standbyReplicas": NotRequired[StandbyReplicasType],
+        "description": NotRequired[str],
+        "tags": NotRequired[list[TagTypeDef]],
+        "createdDate": NotRequired[int],
+        "capacityLimits": NotRequired[CollectionGroupCapacityLimitsTypeDef],
+    },
+)
+
+class CreateCollectionGroupRequestTypeDef(TypedDict):
+    name: str
+    standbyReplicas: StandbyReplicasType
+    description: NotRequired[str]
+    tags: NotRequired[Sequence[TagTypeDef]]
+    capacityLimits: NotRequired[CollectionGroupCapacityLimitsTypeDef]
+    clientToken: NotRequired[str]
+
+class ListTagsForResourceResponseTypeDef(TypedDict):
+    tags: list[TagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class TagResourceRequestTypeDef(TypedDict):
+    resourceArn: str
+    tags: Sequence[TagTypeDef]
+
 class ListCollectionsResponseTypeDef(TypedDict):
-    collectionSummaries: List[CollectionSummaryTypeDef]
+    collectionSummaries: list[CollectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class CreateCollectionResponseTypeDef(TypedDict):
-    createCollectionDetail: CreateCollectionDetailTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 CreateCollectionRequestTypeDef = TypedDict(
     "CreateCollectionRequestTypeDef",
@@ -803,18 +933,12 @@ CreateCollectionRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "tags": NotRequired[Sequence[TagTypeDef]],
         "standbyReplicas": NotRequired[StandbyReplicasType],
+        "vectorOptions": NotRequired[VectorOptionsTypeDef],
+        "collectionGroupName": NotRequired[str],
+        "encryptionConfig": NotRequired[EncryptionConfigTypeDef],
         "clientToken": NotRequired[str],
     },
 )
-
-class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class TagResourceRequestTypeDef(TypedDict):
-    resourceArn: str
-    tags: Sequence[TagTypeDef]
-
 CreateSecurityConfigRequestTypeDef = TypedDict(
     "CreateSecurityConfigRequestTypeDef",
     {
@@ -876,17 +1000,17 @@ SecurityConfigDetailTypeDef = TypedDict(
 )
 
 class ListLifecyclePoliciesResponseTypeDef(TypedDict):
-    lifecyclePolicySummaries: List[LifecyclePolicySummaryTypeDef]
+    lifecyclePolicySummaries: list[LifecyclePolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSecurityConfigsResponseTypeDef(TypedDict):
-    securityConfigSummaries: List[SecurityConfigSummaryTypeDef]
+    securityConfigSummaries: list[SecurityConfigSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSecurityPoliciesResponseTypeDef(TypedDict):
-    securityPolicySummaries: List[SecurityPolicySummaryTypeDef]
+    securityPolicySummaries: list[SecurityPolicySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -896,7 +1020,7 @@ class ListVpcEndpointsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class ListVpcEndpointsResponseTypeDef(TypedDict):
-    vpcEndpointSummaries: List[VpcEndpointSummaryTypeDef]
+    vpcEndpointSummaries: list[VpcEndpointSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -930,8 +1054,30 @@ class UpdateAccountSettingsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchGetCollectionResponseTypeDef(TypedDict):
-    collectionDetails: List[CollectionDetailTypeDef]
-    collectionErrorDetails: List[CollectionErrorDetailTypeDef]
+    collectionDetails: list[CollectionDetailTypeDef]
+    collectionErrorDetails: list[CollectionErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCollectionResponseTypeDef(TypedDict):
+    createCollectionDetail: CreateCollectionDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCollectionGroupsResponseTypeDef(TypedDict):
+    collectionGroupSummaries: list[CollectionGroupSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class UpdateCollectionGroupResponseTypeDef(TypedDict):
+    updateCollectionGroupDetail: UpdateCollectionGroupDetailTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class BatchGetCollectionGroupResponseTypeDef(TypedDict):
+    collectionGroupDetails: list[CollectionGroupDetailTypeDef]
+    collectionGroupErrorDetails: list[CollectionGroupErrorDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCollectionGroupResponseTypeDef(TypedDict):
+    createCollectionGroupDetail: CreateCollectionGroupDetailTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateSecurityConfigResponseTypeDef(TypedDict):

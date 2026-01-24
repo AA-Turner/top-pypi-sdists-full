@@ -4,7 +4,7 @@ import contextlib
 from logging import Logger
 import time
 from abc import ABCMeta
-from typing import Optional
+from typing import Optional, Any
 import pyautogui
 import _ctypes
 from retry import retry
@@ -170,7 +170,7 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
                 self.deal_with_unhandled_exception_popup(f"NextGen - {practice}")
                 self.click_no_button_in_next_gen_alert()
                 closed_windows_count += 1
-            except Exception as e:
+            except (_ctypes.COMError, RuntimeError, AttributeError) as e:
                 self.logger.error(f"Error closing window: {str(e)}")
 
         self.logger.debug(f"Closed {closed_windows_count} child windows.")
@@ -355,7 +355,9 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
         for _ in range(n + confidence_value):
             pyautogui.press("down")
 
-    def click_center_and_scroll(self, element, index: int, page_size: int = 50, scroll_step: int = 3):
+    def click_center_and_scroll(
+        self, element: WindowSpecification, index: int, page_size: int = 50, scroll_step: int = 3
+    ) -> None:
         """Clicks at the center of the given element and performs a downward scroll.
 
         Args:
@@ -363,19 +365,27 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
             index (int): The index to determine the scroll amount.
             page_size (int, optional): The size of the page to calculate scrolling. Defaults to 50
             scroll_step (int, optional): The step size for each scroll action. Defaults to 3.
-
-        Raises:
-            Exception: If any error occurs during the click or scroll operation,
         """
         rect = element.rectangle()
         center_x = rect.left + (rect.width() // 2)
         center_y = rect.top + (rect.height() // 2)
         mouse.click("left", (center_x, center_y))
         pyautogui.press("home")
-        scroll_count = max(0, (index - page_size + 1 + scroll_step - 1) // scroll_step)
+        scroll_count = max(0, (index - page_size + scroll_step) // scroll_step)
         self.logger.debug(f"Index to scroll: {index}")
         self.logger.debug(f"Scroll count {scroll_count}")
-        mouse.scroll(coords=(center_x, center_y), wheel_dist=-scroll_count)
+        if scroll_count > 100:
+            while scroll_count > 100:
+                self.logger.debug(f"Scrolling 100 units, remaining: {scroll_count}")
+                mouse.scroll(coords=(center_x, center_y), wheel_dist=-100)
+                scroll_count -= 100
+                time.sleep(0.2)
+
+            if scroll_count > 0:
+                self.logger.debug(f"Scrolling final {scroll_count} units")
+                mouse.scroll(coords=(center_x, center_y), wheel_dist=-scroll_count)
+        else:
+            mouse.scroll(coords=(center_x, center_y), wheel_dist=-scroll_count)
         time.sleep(0.5)
 
     def click_button_by_element_name(self, element_name: str) -> None:
@@ -503,7 +513,7 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
                 return True
             return False
 
-    def get_element_coordinates(self, element) -> tuple:
+    def get_element_coordinates(self, element: WindowSpecification) -> tuple:
         """This method gets the element coordinates.
 
         Args:
@@ -514,7 +524,7 @@ class NGAppManager(DesktopApp, metaclass=ScopedSingletonMeta):
         """
         return element.rectangle().mid_point()
 
-    def safe_wait(self, kwargs):
+    def safe_wait(self, kwargs: Any) -> bool | TimeoutError:
         """Waits for an element specified by `kwargs` to become visible in the `next_gen` dialog window.
 
         This function will attempt to wait for an element to become visible up to a maximum of 3 tries.

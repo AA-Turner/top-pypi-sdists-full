@@ -15,6 +15,8 @@ import arrow
 import requests
 from lxml import etree
 
+from .dwdairquality import AirQuality as AirQuality
+
 with (
     importlib.resources.files("simple_dwd_weatherforecast")
     .joinpath(  # type: ignore
@@ -135,12 +137,15 @@ class Weather:
     weather_report = None
     uv_reports = {}
     etags = None
+    airquality_daily = None
+    airquality_hourly = None
 
     namespaces = {
         "kml": "http://www.opengis.net/kml/2.2",
         "dwd": "https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd",
     }
 
+    # Weather codes mapping to (condition_text, priority)
     weather_codes = {
         "1": ("sunny", 29),
         "0": ("sunny", 28),
@@ -171,6 +176,8 @@ class Weather:
         "85": ("snowy-rainy", 7),
         "86": ("snowy-rainy", 6),
         "95": ("lightning-rainy", 1),
+        "-": ("unknown", 99),
+        "-": ("unknown", 99),
     }
 
     actual_report_codes = {

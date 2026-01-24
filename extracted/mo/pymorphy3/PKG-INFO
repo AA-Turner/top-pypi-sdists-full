@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymorphy3
-Version: 2.0.4
+Version: 2.0.6
 Summary: Morphological analyzer (POS tagger + inflection engine) for Russian language.
 Home-page: https://github.com/no-plagiarism/pymorphy3
 Author: Danylo Halaiko
@@ -48,7 +48,7 @@ pymorphy3
 
 pymorphy3 is the continuation of the unmaintained project [pymorphy2](https://github.com/kmike/pymorphy2) which is an morphological analyzer (POS tagger + inflection engine) for Russian and Ukrainian languages.
 
-pymorphy3 officially supports Python 3.9 ~ 3.13.
+pymorphy3 officially supports Python 3.9 ~ 3.14.
 
 * Documentation: https://pymorphy2.readthedocs.io
 * Bug tracker: https://github.com/no-plagiarism/pymorphy3/issues

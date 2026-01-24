@@ -1,25 +1,25 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dnaio
-Version: 1.2.3
+Version: 1.2.4
 Summary: Read and write FASTA and FASTQ files efficiently
 Author-email: Marcel Martin <marcel.martin@scilifelab.se>, Ruben Vorderman <r.h.p.vorderman@lumc.nl>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://dnaio.readthedocs.io/
 Project-URL: Changelog, https://dnaio.readthedocs.io/en/latest/changes.html
 Project-URL: Repository, https://github.com/marcelm/dnaio/
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: xopen>=1.4.0
 Provides-Extra: dev
 Requires-Dist: Cython; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
+Dynamic: license-file
 
 .. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.10548864.svg
   :target: https://doi.org/10.5281/zenodo.10548864
@@ -39,7 +39,7 @@ Requires-Dist: pytest; extra == "dev"
 dnaio processes FASTQ, FASTA and uBAM files
 ===========================================
 
-``dnaio`` is a Python 3.9+ library for very efficient parsing and writing of FASTQ and also FASTA files.
+``dnaio`` is a Python 3 library for very efficient parsing and writing of FASTQ and also FASTA files.
 Since ``dnaio`` version 1.1.0, support for efficiently parsing uBAM files has been implemented.
 This allows reading ONT files from the `dorado <https://github.com/nanoporetech/dorado>`_
 basecaller directly.

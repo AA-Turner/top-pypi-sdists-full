@@ -116,21 +116,18 @@ class MetadataSplitter(Iterator[UpdateRunSnapshot]):
         self._file_series = peekable(self._stream_files(file_series)) if file_series else None
 
         self._max_update_bytes_size = max_message_bytes_size
-        self._has_returned = False
 
     def __iter__(self) -> MetadataSplitter:
-        self._has_returned = False
         return self
 
     def __next__(self) -> UpdateRunSnapshot:
         if (
-            self._has_returned
-            and not self._configs
-            and not self._metrics
-            and not self._add_tags
-            and not self._remove_tags
-            and not self._files
-            and not self._file_series
+            not bool(self._configs)
+            and not bool(self._metrics)
+            and not bool(self._add_tags)
+            and not bool(self._remove_tags)
+            and not bool(self._files)
+            and not bool(self._file_series)
         ):
             raise StopIteration
 
@@ -170,7 +167,6 @@ class MetadataSplitter(Iterator[UpdateRunSnapshot]):
             size=size,
         )
 
-        self._has_returned = True
         return update
 
     def populate_assign(
@@ -576,8 +572,6 @@ def make_step(number: Union[float, int]) -> Step:
 
     Args:
         number: step expressed as number
-        raise_on_step_precision_loss: inform converter whether it should silently drop precision and
-            round down to 6 decimal places or raise an error.
 
     Returns: Step protobuf used in Neptune API.
     """

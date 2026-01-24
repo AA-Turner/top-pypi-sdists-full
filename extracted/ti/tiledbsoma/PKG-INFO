@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tiledbsoma
-Version: 1.17.1
+Version: 2.2.0
 Summary: Python API for efficient storage and retrieval of single-cell data using TileDB
 Home-page: https://github.com/single-cell-data/TileDB-SOMA/tree/main/apis/python
 Author: TileDB, Inc.
@@ -32,8 +32,8 @@ Requires-Dist: pandas
 Requires-Dist: pyarrow
 Requires-Dist: scanpy>=1.9.2
 Requires-Dist: scipy
-Requires-Dist: somacore==1.0.28
-Requires-Dist: typing-extensions
+Requires-Dist: somacore==1.0.29
+Requires-Dist: typing-extensions>=4.5.0
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: dask; extra == "dev"
@@ -52,7 +52,7 @@ Requires-Dist: tifffile; extra == "spatial-io"
 Requires-Dist: pillow; extra == "spatial-io"
 Requires-Dist: spatialdata>=0.2.5; extra == "spatial-io"
 Requires-Dist: xarray; extra == "spatial-io"
-Requires-Dist: dask<=2024.11.2; extra == "spatial-io"
+Requires-Dist: dask; extra == "spatial-io"
 Provides-Extra: all
 Requires-Dist: black; extra == "all"
 Requires-Dist: dask; extra == "all"
@@ -70,7 +70,7 @@ Requires-Dist: tifffile; extra == "all"
 Requires-Dist: pillow; extra == "all"
 Requires-Dist: spatialdata>=0.2.5; extra == "all"
 Requires-Dist: xarray; extra == "all"
-Requires-Dist: dask<=2024.11.2; extra == "all"
+Requires-Dist: dask; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

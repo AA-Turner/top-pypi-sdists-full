@@ -91,6 +91,10 @@ depsgraph_update_pre: list[collections.abc.Callable[[bpy.types.Scene, None], Non
 """ on depsgraph update (pre). Accepts two arguments: The scene data-block and the dependency graph being updated
 """
 
+exit_pre: list[collections.abc.Callable[[bpy.types.Scene], None]]
+""" just before Blender shuts down, while all data is still valid. Accepts one boolean argument. True indicates either that a user has been using Blender and exited, or that Blender is exiting in a circumstance that should be treated as if that were the case. False indicates that Blender is running in background mode, or is exiting due to failed command line arguments, etc.
+"""
+
 frame_change_post: list[collections.abc.Callable[[bpy.types.Scene], None]]
 """ Called after frame change for playback and rendering, after the data has been evaluated for the new frame. Accepts two arguments: The scene data-block and the dependency graph being updated
 """

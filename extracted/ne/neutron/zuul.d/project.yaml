@@ -1,6 +1,6 @@
 - project:
     templates:
-      - neutron-tempest-plugin-jobs-2025-1
+      - neutron-tempest-plugin-jobs-2025-2
       - openstack-cover-jobs
       - openstack-python3-jobs
       - openstack-python3-jobs-arm64
@@ -15,7 +15,6 @@
     check:
       jobs:
         - neutron-functional
-        - neutron-fullstack
         - neutron-ovs-grenade-multinode
         - neutron-ovn-grenade-multinode
         - neutron-ovs-tempest-multinode-full
@@ -31,6 +30,7 @@
               - ^releasenotes/.*$
               - ^doc/.*$
               - ^setup.cfg$
+              - ^pyproject.toml$
               - ^.*\.conf\.sample$
               - ^.*\.rst$
               - ^neutron/locale/.*$
@@ -66,7 +66,6 @@
     gate:
       jobs:
         - neutron-functional
-        - neutron-fullstack
         - neutron-ovs-tempest-multinode-full
         - neutron-ovn-grenade-multinode
         - neutron-ovs-grenade-multinode

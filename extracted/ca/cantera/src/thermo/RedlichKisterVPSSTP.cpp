@@ -50,39 +50,6 @@ void RedlichKisterVPSSTP::getChemPotentials(double* mu) const
     }
 }
 
-double RedlichKisterVPSSTP::enthalpy_mole() const
-{
-    double h = 0;
-    vector<double> hbar(m_kk);
-    getPartialMolarEnthalpies(&hbar[0]);
-    for (size_t i = 0; i < m_kk; i++) {
-        h += moleFractions_[i]*hbar[i];
-    }
-    return h;
-}
-
-double RedlichKisterVPSSTP::entropy_mole() const
-{
-    double s = 0;
-    vector<double> sbar(m_kk);
-    getPartialMolarEntropies(&sbar[0]);
-    for (size_t i = 0; i < m_kk; i++) {
-        s += moleFractions_[i]*sbar[i];
-    }
-    return s;
-}
-
-double RedlichKisterVPSSTP::cp_mole() const
-{
-    double cp = 0;
-    vector<double> cpbar(m_kk);
-    getPartialMolarCp(&cpbar[0]);
-    for (size_t i = 0; i < m_kk; i++) {
-        cp += moleFractions_[i]*cpbar[i];
-    }
-    return cp;
-}
-
 double RedlichKisterVPSSTP::cv_mole() const
 {
     return cp_mole();
@@ -457,15 +424,8 @@ void RedlichKisterVPSSTP::addBinaryInteraction(
     const double* excess_enthalpy, size_t n_enthalpy,
     const double* excess_entropy, size_t n_entropy)
 {
-    size_t kA = speciesIndex(speciesA);
-    size_t kB = speciesIndex(speciesB);
-    if (kA == npos) {
-        throw CanteraError("RedlichKisterVPSSTP::addBinaryInteraction",
-            "Species '{}' not present in phase", speciesA);
-    } else if (kB == npos) {
-        throw CanteraError("RedlichKisterVPSSTP::addBinaryInteraction",
-            "Species '{}' not present in phase", speciesB);
-    }
+    size_t kA = speciesIndex(speciesA, true);
+    size_t kB = speciesIndex(speciesB, true);
     if (charge(kA) != 0) {
         throw CanteraError("RedlichKisterVPSSTP::addBinaryInteraction",
             "Species '{}' should be neutral", speciesA);

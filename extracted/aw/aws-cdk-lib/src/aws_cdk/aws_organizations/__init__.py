@@ -67,66 +67,325 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.AccountReference",
-    jsii_struct_bases=[],
-    name_mapping={"account_arn": "accountArn", "account_id": "accountId"},
+from ..interfaces.aws_organizations import (
+    AccountReference as _AccountReference_aedc6357,
+    IAccountRef as _IAccountRef_ee273c41,
+    IOrganizationRef as _IOrganizationRef_74d1fc09,
+    IOrganizationalUnitRef as _IOrganizationalUnitRef_1eee9aae,
+    IPolicyRef as _IPolicyRef_f285244f,
+    IResourcePolicyRef as _IResourcePolicyRef_10723097,
+    OrganizationReference as _OrganizationReference_fc9037cc,
+    OrganizationalUnitReference as _OrganizationalUnitReference_bb42755f,
+    PolicyReference as _PolicyReference_b6a2b56e,
+    ResourcePolicyReference as _ResourcePolicyReference_3ac39914,
 )
-class AccountReference:
-    def __init__(self, *, account_arn: builtins.str, account_id: builtins.str) -> None:
-        '''A reference to a Account resource.
 
-        :param account_arn: The ARN of the Account resource.
-        :param account_id: The AccountId of the Account resource.
 
-        :exampleMetadata: fixture=_generated
+@jsii.implements(_IInspectable_c2943556, _IAccountRef_ee273c41, _ITaggable_36806126)
+class CfnAccount(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_organizations.CfnAccount",
+):
+    '''Creates an AWS account that is automatically a member of the organization whose credentials made the request.
 
-        Example::
+    CloudFormation uses the ```CreateAccount`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_CreateAccount.html>`_ operation to create accounts. This is an asynchronous request that AWS performs in the background. Because ``CreateAccount`` operates asynchronously, it can return a successful completion message even though account initialization might still be in progress. You might need to wait a few minutes before you can successfully access the account. To check the status of the request, do one of the following:
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            account_reference = organizations.AccountReference(
-                account_arn="accountArn",
-                account_id="accountId"
-            )
+    - Use the ``Id`` value of the ``CreateAccountStatus`` response element from the ``CreateAccount`` operation to provide as a parameter to the ```DescribeCreateAccountStatus`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_DescribeCreateAccountStatus.html>`_ operation.
+    - Check the CloudTrail log for the ``CreateAccountResult`` event. For information on using CloudTrail with AWS Organizations , see `Logging and monitoring in AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_security_incident-response.html#orgs_cloudtrail-integration>`_ in the *AWS Organizations User Guide* .
+
+    The user who calls the API to create an account must have the ``organizations:CreateAccount`` permission. If you enabled all features in the organization, AWS Organizations creates the required service-linked role named ``AWSServiceRoleForOrganizations`` . For more information, see `AWS Organizations and service-linked roles <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html#orgs_integrate_services-using_slrs>`_ in the *AWS Organizations User Guide* .
+
+    If the request includes tags, then the requester must have the ``organizations:TagResource`` permission.
+
+    AWS Organizations preconfigures the new member account with a role (named ``OrganizationAccountAccessRole`` by default) that grants users in the management account administrator permissions in the new member account. Principals in the management account can assume the role. AWS Organizations clones the company name and address information for the new account from the organization's management account.
+
+    For more information about creating accounts, see `Creating a member account in your organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html>`_ in the *AWS Organizations User Guide* .
+
+    This operation can be called only from the organization's management account.
+
+    *Deleting Account resources*
+
+    The default ``DeletionPolicy`` for resource ``AWS::Organizations::Account`` is ``Retain`` . For more information about how CloudFormation deletes resources, see `DeletionPolicy Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-deletionpolicy.html>`_ .
+    .. epigraph::
+
+       - If you include multiple accounts in a single template, you must use the ``DependsOn`` attribute on each account resource type so that the accounts are created sequentially. If you create multiple accounts at the same time, Organizations returns an error and the stack operation fails.
+       - You can't modify the following list of ``Account`` resource parameters using CloudFormation updates.
+       - AccountName
+       - Email
+       - RoleName
+
+       If you attempt to update the listed parameters, CloudFormation will attempt the update, but you will receive an error message as those updates are not supported from an Organizations management account or a `registered delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ account. Both the update and the update roll-back will fail, so you must skip the account resource update. To update parameters ``AccountName`` and ``Email`` , you must sign in to the AWS Management Console as the AWS account root user. For more information, see `Update the AWS account name, email address, or password for the root user <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-root-user.html>`_ in the *Account Management Reference Guide* .
+
+       - When you create an account in an organization using the AWS Organizations console, API, or AWS CLI commands, we don't automatically collect the information required for the account to operate as a standalone account. That includes collecting the payment method and signing the end user license agreement (EULA). If you must remove an account from your organization later, you can do so only after you provide the missing information. For more information, see `Considerations before removing an account from an organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_account-before-remove.html>`_ in the *AWS Organizations User Guide* .
+       - When you create an account in an organization using CloudFormation , you can't specify a value for the ``CreateAccount`` operation parameter ``IamUserAccessToBilling`` . The default value for parameter ``IamUserAccessToBilling`` is ``ALLOW`` , and IAM users and roles with the required permissions can access billing information for the new account.
+       - If you get an exception that indicates ``DescribeCreateAccountStatus returns IN_PROGRESS state before time out`` . You must check the account creation status using the ```DescribeCreateAccountStatus`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_DescribeCreateAccountStatus.html>`_ operation. If the account state returns as ``SUCCEEDED`` , you can import the account into CloudFormation management using ```resource import`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resource-import.html>`_ .
+       - If you get an exception that indicates you have exceeded your account quota for the organization, you can request an increase by using the `Service Quotas console <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ .
+       - If you get an exception that indicates the operation failed because your organization is still initializing, wait one hour and then try again. If the error persists, contact `AWS Support <https://docs.aws.amazon.com/support/home#/>`_ .
+       - We don't recommend that you use the ``CreateAccount`` operation to create multiple temporary accounts. You can close accounts using the ```CloseAccount`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_CloseAccount.html>`_ operation or from the AWS Organizations console in the organization's management account. For information on the requirements and process for closing an account, see `Closing a member account in your organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_close.html>`_ in the *AWS Organizations User Guide* .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-account.html
+    :cloudformationResource: AWS::Organizations::Account
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_organizations as organizations
+        
+        cfn_account = organizations.CfnAccount(self, "MyCfnAccount",
+            account_name="accountName",
+            email="email",
+        
+            # the properties below are optional
+            parent_ids=["parentIds"],
+            role_name="roleName",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        account_name: builtins.str,
+        email: builtins.str,
+        parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        role_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Organizations::Account``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param account_name: The account name given to the account when it was created.
+        :param email: The email address associated with the AWS account. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for this parameter is a string of characters that represents a standard internet email address.
+        :param parent_ids: The unique identifier (ID) of the root or organizational unit (OU) that you want to create the new account in. If you don't specify this parameter, the ``ParentId`` defaults to the root ID. This parameter only accepts a string array with one string value. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a parent ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
+        :param role_name: The name of an IAM role that AWS Organizations automatically preconfigures in the new member account. This role trusts the management account, allowing users in the management account to assume the role, as permitted by the management account administrator. The role has administrator permissions in the new member account. If you don't specify this parameter, the role name defaults to ``OrganizationAccountAccessRole`` . For more information about how to use this role to access the member account, see the following links: - `Creating the OrganizationAccountAccessRole in an invited member account <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html#orgs_manage_accounts_create-cross-account-role>`_ in the *AWS Organizations User Guide* - Steps 2 and 3 in `IAM Tutorial: Delegate access across AWS accounts using IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_cross-account-with-roles.html>`_ in the *IAM User Guide* The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter. The pattern can include uppercase letters, lowercase letters, digits with no spaces, and any of the following characters: =,.@- Default: - "OrganizationAccountAccessRole"
+        :param tags: A list of tags that you want to attach to the newly created account. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the maximum allowed number of tags for an account, then the entire request fails and the account is not created.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee0855a5a9190f7e58a0d9d4856c4182684d3972e9ca74357e75022efa2a2d31)
-            check_type(argname="argument account_arn", value=account_arn, expected_type=type_hints["account_arn"])
-            check_type(argname="argument account_id", value=account_id, expected_type=type_hints["account_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "account_arn": account_arn,
-            "account_id": account_id,
-        }
-
-    @builtins.property
-    def account_arn(self) -> builtins.str:
-        '''The ARN of the Account resource.'''
-        result = self._values.get("account_arn")
-        assert result is not None, "Required property 'account_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def account_id(self) -> builtins.str:
-        '''The AccountId of the Account resource.'''
-        result = self._values.get("account_id")
-        assert result is not None, "Required property 'account_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "AccountReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
+            type_hints = typing.get_type_hints(_typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0f5f1b60)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnAccountProps(
+            account_name=account_name,
+            email=email,
+            parent_ids=parent_ids,
+            role_name=role_name,
+            tags=tags,
         )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForAccount")
+    @builtins.classmethod
+    def arn_for_account(cls, resource: "_IAccountRef_ee273c41") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9ba93a038ccc85e707f22f7b3273c9b66b0d924087ed9c72e5382468c546a56a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForAccount", [resource]))
+
+    @jsii.member(jsii_name="isCfnAccount")
+    @builtins.classmethod
+    def is_cfn_account(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnAccount.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9144f00ecfeba678bb624a0941ebc36f76b6c32768c2020b7218983db3e4094a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnAccount", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ee3ea086c724fb0935ee8a727937a17ae19b987a8ade49b1405a7787feb7e3bc)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__80bdf2bd3ebcd33351d23efb5a5fbe768927b4510acf316c02ac29e5ffcca33a)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountRef")
+    def account_ref(self) -> "_AccountReference_aedc6357":
+        '''A reference to a Account resource.'''
+        return typing.cast("_AccountReference_aedc6357", jsii.get(self, "accountRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrAccountId")
+    def attr_account_id(self) -> builtins.str:
+        '''Returns the unique identifier (ID) of the account.
+
+        For example: ``123456789012`` .
+
+        :cloudformationAttribute: AccountId
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrArn")
+    def attr_arn(self) -> builtins.str:
+        '''Returns the Amazon Resource Name (ARN) of the account.
+
+        For example: ``arn:aws:organizations::111111111111:account/o-exampleorgid/555555555555`` .
+
+        :cloudformationAttribute: Arn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrJoinedMethod")
+    def attr_joined_method(self) -> builtins.str:
+        '''Returns the method by which the account joined the organization.
+
+        For example: ``INVITED | CREATED`` .
+
+        :cloudformationAttribute: JoinedMethod
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrJoinedMethod"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrJoinedTimestamp")
+    def attr_joined_timestamp(self) -> builtins.str:
+        '''Returns the date the account became a part of the organization.
+
+        For example: ``2016-11-24T11:11:48-08:00`` .
+
+        :cloudformationAttribute: JoinedTimestamp
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrJoinedTimestamp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''Each state represents a specific phase in the account lifecycle.
+
+        Use this information to manage account access, automate workflows, or trigger actions based on account state changes.
+
+        For more information about account states and their implications, see `Monitor the state of your AWS accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_account_state.html>`_ in the *AWS Organizations User Guide* .
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrStatus")
+    def attr_status(self) -> builtins.str:
+        '''Returns the status of the account in the organization.
+
+        For example: ``ACTIVE | SUSPENDED | PENDING_CLOSURE`` .
+
+        :cloudformationAttribute: Status
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accountName")
+    def account_name(self) -> builtins.str:
+        '''The account name given to the account when it was created.'''
+        return typing.cast(builtins.str, jsii.get(self, "accountName"))
+
+    @account_name.setter
+    def account_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7cb80343b6f0f43ba7a94207203ab7cefaa6c6f61ec38391afffdb4896b52f1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "accountName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="email")
+    def email(self) -> builtins.str:
+        '''The email address associated with the AWS account.'''
+        return typing.cast(builtins.str, jsii.get(self, "email"))
+
+    @email.setter
+    def email(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fb3017540fda5760817d479375b8f0ba4860d2d1001cb43056042fc31d63a8f9)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "email", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="parentIds")
+    def parent_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The unique identifier (ID) of the root or organizational unit (OU) that you want to create the new account in.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "parentIds"))
+
+    @parent_ids.setter
+    def parent_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4341d69ba10680d0ef646a879e2ef2e66709e58b62fb62e8d3e1b8008424fd63)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "parentIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="roleName")
+    def role_name(self) -> typing.Optional[builtins.str]:
+        '''The name of an IAM role that AWS Organizations automatically preconfigures in the new member account.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleName"))
+
+    @role_name.setter
+    def role_name(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__70acd1418e03b2ec3a6e3ad06a5c89c09a87bc96955d07b91a2af5820d3ded62)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the newly created account.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__797fecb1b9a4bafd998e385c8ea18d8b31431a28a593cf9eba2da34a96ca8e0a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -148,7 +407,7 @@ class CfnAccountProps:
         email: builtins.str,
         parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnAccount``.
 
@@ -163,6 +422,7 @@ class CfnAccountProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_organizations as organizations
@@ -261,7 +521,7 @@ class CfnAccountProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the newly created account.
 
         For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
@@ -272,7 +532,7 @@ class CfnAccountProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-account.html#cfn-organizations-account-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -286,1180 +546,7 @@ class CfnAccountProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.CfnOrganizationProps",
-    jsii_struct_bases=[],
-    name_mapping={"feature_set": "featureSet"},
-)
-class CfnOrganizationProps:
-    def __init__(self, *, feature_set: typing.Optional[builtins.str] = None) -> None:
-        '''Properties for defining a ``CfnOrganization``.
-
-        :param feature_set: Specifies the feature set supported by the new organization. Each feature set supports different levels of functionality. - ``ALL`` In addition to all the features supported by the consolidated billing feature set, the management account gains access to advanced features that give you more control over accounts in your organization. For more information, see `All features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-all>`_ in the *AWS Organizations User Guide* . - ``CONSOLIDATED_BILLING`` All member accounts have their bills consolidated to and paid by the management account. For more information, see `Consolidated billing <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only>`_ in the *AWS Organizations User Guide* . .. epigraph:: The consolidated billing feature feature set isn't available for organizations in the AWS GovCloud (US) Region. If you don't specify this property, the default value is ``ALL`` . Default: - "ALL"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organization.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            cfn_organization_props = organizations.CfnOrganizationProps(
-                feature_set="featureSet"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__232c106aefcec7adaf1b3c73c0f809bd72527d672e2faf2ac3e81e72e8f01c48)
-            check_type(argname="argument feature_set", value=feature_set, expected_type=type_hints["feature_set"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {}
-        if feature_set is not None:
-            self._values["feature_set"] = feature_set
-
-    @builtins.property
-    def feature_set(self) -> typing.Optional[builtins.str]:
-        '''Specifies the feature set supported by the new organization. Each feature set supports different levels of functionality.
-
-        - ``ALL``  In addition to all the features supported by the consolidated billing feature set, the management account gains access to advanced features that give you more control over accounts in your organization. For more information, see `All features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-all>`_ in the *AWS Organizations User Guide* .
-        - ``CONSOLIDATED_BILLING``  All member accounts have their bills consolidated to and paid by the management account. For more information, see `Consolidated billing <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only>`_ in the *AWS Organizations User Guide* .
-
-        .. epigraph::
-
-           The consolidated billing feature feature set isn't available for organizations in the AWS GovCloud (US) Region.
-
-        If you don't specify this property, the default value is ``ALL`` .
-
-        :default: - "ALL"
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organization.html#cfn-organizations-organization-featureset
-        '''
-        result = self._values.get("feature_set")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOrganizationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.CfnOrganizationalUnitProps",
-    jsii_struct_bases=[],
-    name_mapping={"name": "name", "parent_id": "parentId", "tags": "tags"},
-)
-class CfnOrganizationalUnitProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        parent_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnOrganizationalUnit``.
-
-        :param name: The friendly name of this OU. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
-        :param parent_id: The unique identifier (ID) of the parent root or OU that you want to create the new OU in. .. epigraph:: To update the ``ParentId`` parameter value, you must first remove all accounts attached to the organizational unit (OU). OUs can't be moved within the organization with accounts still attached. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a parent ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
-        :param tags: A list of tags that you want to attach to the newly created OU. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for an OU, then the entire request fails and the OU is not created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            cfn_organizational_unit_props = organizations.CfnOrganizationalUnitProps(
-                name="name",
-                parent_id="parentId",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe5046a1191)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument parent_id", value=parent_id, expected_type=type_hints["parent_id"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "parent_id": parent_id,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The friendly name of this OU.
-
-        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def parent_id(self) -> builtins.str:
-        '''The unique identifier (ID) of the parent root or OU that you want to create the new OU in.
-
-        .. epigraph::
-
-           To update the ``ParentId`` parameter value, you must first remove all accounts attached to the organizational unit (OU). OUs can't be moved within the organization with accounts still attached.
-
-        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a parent ID string requires one of the following:
-
-        - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits.
-        - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-parentid
-        '''
-        result = self._values.get("parent_id")
-        assert result is not None, "Required property 'parent_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the newly created OU.
-
-        For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
-        .. epigraph::
-
-           If any one of the tags is not valid or if you exceed the allowed number of tags for an OU, then the entire request fails and the OU is not created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnOrganizationalUnitProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.CfnPolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "content": "content",
-        "name": "name",
-        "type": "type",
-        "description": "description",
-        "tags": "tags",
-        "target_ids": "targetIds",
-    },
-)
-class CfnPolicyProps:
-    def __init__(
-        self,
-        *,
-        content: typing.Any,
-        name: builtins.str,
-        type: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnPolicy``.
-
-        :param content: The policy text content. You can specify the policy content as a JSON object or a JSON string. .. epigraph:: When you specify the policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the policy content as a JSON object instead. The text that you supply must adhere to the rules of the policy type you specify in the ``Type`` parameter. The following AWS Organizations quotas are enforced for the maximum size of a policy document: - Service control policies: 5,120 characters - Resource control policies: 5,120 characters - Declarative policies: 10,000 characters - Backup policies: 10,000 characters - Tag policies: 10,000 characters - Chat applications policies: 10,000 characters - AI services opt-out policies: 2,500 characters For more information about Organizations service quotas, see `Quotas for AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ in the *AWS Organizations User Guide* .
-        :param name: Name of the policy. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
-        :param type: The type of policy to create.
-        :param description: Human readable description of the policy.
-        :param tags: A list of tags that you want to attach to the newly created policy. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for a policy, then the entire request fails and the policy is not created.
-        :param target_ids: List of unique identifiers (IDs) of the root, OU, or account that you want to attach the policy to. You can get the ID by calling the `ListRoots <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListRoots.html>`_ , `ListOrganizationalUnitsForParent <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListOrganizationalUnitsForParent.html>`_ , or `ListAccounts <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListAccounts.html>`_ operations. If you don't specify this parameter, the policy is created but not attached to any organization resource. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a target ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Account* - A string that consists of exactly 12 digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            # content: Any
-            
-            cfn_policy_props = organizations.CfnPolicyProps(
-                content=content,
-                name="name",
-                type="type",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                target_ids=["targetIds"]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6ff28a47)
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument target_ids", value=target_ids, expected_type=type_hints["target_ids"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "content": content,
-            "name": name,
-            "type": type,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if target_ids is not None:
-            self._values["target_ids"] = target_ids
-
-    @builtins.property
-    def content(self) -> typing.Any:
-        '''The policy text content. You can specify the policy content as a JSON object or a JSON string.
-
-        .. epigraph::
-
-           When you specify the policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the policy content as a JSON object instead.
-
-        The text that you supply must adhere to the rules of the policy type you specify in the ``Type`` parameter. The following AWS Organizations quotas are enforced for the maximum size of a policy document:
-
-        - Service control policies: 5,120 characters
-        - Resource control policies: 5,120 characters
-        - Declarative policies: 10,000 characters
-        - Backup policies: 10,000 characters
-        - Tag policies: 10,000 characters
-        - Chat applications policies: 10,000 characters
-        - AI services opt-out policies: 2,500 characters
-
-        For more information about Organizations service quotas, see `Quotas for AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ in the *AWS Organizations User Guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-content
-        '''
-        result = self._values.get("content")
-        assert result is not None, "Required property 'content' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''Name of the policy.
-
-        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def type(self) -> builtins.str:
-        '''The type of policy to create.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-type
-        '''
-        result = self._values.get("type")
-        assert result is not None, "Required property 'type' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''Human readable description of the policy.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the newly created policy.
-
-        For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
-        .. epigraph::
-
-           If any one of the tags is not valid or if you exceed the allowed number of tags for a policy, then the entire request fails and the policy is not created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def target_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''List of unique identifiers (IDs) of the root, OU, or account that you want to attach the policy to.
-
-        You can get the ID by calling the `ListRoots <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListRoots.html>`_ , `ListOrganizationalUnitsForParent <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListOrganizationalUnitsForParent.html>`_ , or `ListAccounts <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListAccounts.html>`_ operations. If you don't specify this parameter, the policy is created but not attached to any organization resource.
-
-        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a target ID string requires one of the following:
-
-        - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits.
-        - *Account* - A string that consists of exactly 12 digits.
-        - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-targetids
-        '''
-        result = self._values.get("target_ids")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnPolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.CfnResourcePolicyProps",
-    jsii_struct_bases=[],
-    name_mapping={"content": "content", "tags": "tags"},
-)
-class CfnResourcePolicyProps:
-    def __init__(
-        self,
-        *,
-        content: typing.Any,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnResourcePolicy``.
-
-        :param content: The policy text of the organization resource policy. You can specify the resource policy content as a JSON object or a JSON string. .. epigraph:: When you specify the resource policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the resource policy content as a JSON object instead.
-        :param tags: A list of tags that you want to attach to the newly created resource policy. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the *AWS Organizations User Guide* . .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for the resource policy, then the entire request fails and the resource policy is not created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            # content: Any
-            
-            cfn_resource_policy_props = organizations.CfnResourcePolicyProps(
-                content=content,
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d)
-            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "content": content,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def content(self) -> typing.Any:
-        '''The policy text of the organization resource policy.
-
-        You can specify the resource policy content as a JSON object or a JSON string.
-        .. epigraph::
-
-           When you specify the resource policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the resource policy content as a JSON object instead.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html#cfn-organizations-resourcepolicy-content
-        '''
-        result = self._values.get("content")
-        assert result is not None, "Required property 'content' is missing"
-        return typing.cast(typing.Any, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the newly created resource policy.
-
-        For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the *AWS Organizations User Guide* .
-        .. epigraph::
-
-           If any one of the tags is not valid or if you exceed the allowed number of tags for the resource policy, then the entire request fails and the resource policy is not created.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html#cfn-organizations-resourcepolicy-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnResourcePolicyProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_organizations.IAccountRef")
-class IAccountRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Account.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="accountRef")
-    def account_ref(self) -> AccountReference:
-        '''(experimental) A reference to a Account resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IAccountRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Account.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_organizations.IAccountRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="accountRef")
-    def account_ref(self) -> AccountReference:
-        '''(experimental) A reference to a Account resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(AccountReference, jsii.get(self, "accountRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IAccountRef).__jsii_proxy_class__ = lambda : _IAccountRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_organizations.IOrganizationRef")
-class IOrganizationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Organization.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="organizationRef")
-    def organization_ref(self) -> "OrganizationReference":
-        '''(experimental) A reference to a Organization resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IOrganizationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Organization.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_organizations.IOrganizationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="organizationRef")
-    def organization_ref(self) -> "OrganizationReference":
-        '''(experimental) A reference to a Organization resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("OrganizationReference", jsii.get(self, "organizationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IOrganizationRef).__jsii_proxy_class__ = lambda : _IOrganizationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_organizations.IOrganizationalUnitRef")
-class IOrganizationalUnitRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a OrganizationalUnit.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="organizationalUnitRef")
-    def organizational_unit_ref(self) -> "OrganizationalUnitReference":
-        '''(experimental) A reference to a OrganizationalUnit resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IOrganizationalUnitRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a OrganizationalUnit.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_organizations.IOrganizationalUnitRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="organizationalUnitRef")
-    def organizational_unit_ref(self) -> "OrganizationalUnitReference":
-        '''(experimental) A reference to a OrganizationalUnit resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("OrganizationalUnitReference", jsii.get(self, "organizationalUnitRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IOrganizationalUnitRef).__jsii_proxy_class__ = lambda : _IOrganizationalUnitRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_organizations.IPolicyRef")
-class IPolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Policy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "PolicyReference":
-        '''(experimental) A reference to a Policy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IPolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Policy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_organizations.IPolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> "PolicyReference":
-        '''(experimental) A reference to a Policy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("PolicyReference", jsii.get(self, "policyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IPolicyRef).__jsii_proxy_class__ = lambda : _IPolicyRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_organizations.IResourcePolicyRef")
-class IResourcePolicyRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "ResourcePolicyReference":
-        '''(experimental) A reference to a ResourcePolicy resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IResourcePolicyRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ResourcePolicy.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_organizations.IResourcePolicyRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> "ResourcePolicyReference":
-        '''(experimental) A reference to a ResourcePolicy resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ResourcePolicyReference", jsii.get(self, "resourcePolicyRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.OrganizationReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "organization_arn": "organizationArn",
-        "organization_id": "organizationId",
-    },
-)
-class OrganizationReference:
-    def __init__(
-        self,
-        *,
-        organization_arn: builtins.str,
-        organization_id: builtins.str,
-    ) -> None:
-        '''A reference to a Organization resource.
-
-        :param organization_arn: The ARN of the Organization resource.
-        :param organization_id: The Id of the Organization resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            organization_reference = organizations.OrganizationReference(
-                organization_arn="organizationArn",
-                organization_id="organizationId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0908adfbdc83afbcb9c029470c6a9974c30a1241b8b0f14a1c493d2d24c04fd)
-            check_type(argname="argument organization_arn", value=organization_arn, expected_type=type_hints["organization_arn"])
-            check_type(argname="argument organization_id", value=organization_id, expected_type=type_hints["organization_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "organization_arn": organization_arn,
-            "organization_id": organization_id,
-        }
-
-    @builtins.property
-    def organization_arn(self) -> builtins.str:
-        '''The ARN of the Organization resource.'''
-        result = self._values.get("organization_arn")
-        assert result is not None, "Required property 'organization_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def organization_id(self) -> builtins.str:
-        '''The Id of the Organization resource.'''
-        result = self._values.get("organization_id")
-        assert result is not None, "Required property 'organization_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OrganizationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.OrganizationalUnitReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "organizational_unit_arn": "organizationalUnitArn",
-        "organizational_unit_id": "organizationalUnitId",
-    },
-)
-class OrganizationalUnitReference:
-    def __init__(
-        self,
-        *,
-        organizational_unit_arn: builtins.str,
-        organizational_unit_id: builtins.str,
-    ) -> None:
-        '''A reference to a OrganizationalUnit resource.
-
-        :param organizational_unit_arn: The ARN of the OrganizationalUnit resource.
-        :param organizational_unit_id: The Id of the OrganizationalUnit resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            organizational_unit_reference = organizations.OrganizationalUnitReference(
-                organizational_unit_arn="organizationalUnitArn",
-                organizational_unit_id="organizationalUnitId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5fd4688dec9141a89fb606e5585000644cb8435fb8daf4eef5254dc247c119dd)
-            check_type(argname="argument organizational_unit_arn", value=organizational_unit_arn, expected_type=type_hints["organizational_unit_arn"])
-            check_type(argname="argument organizational_unit_id", value=organizational_unit_id, expected_type=type_hints["organizational_unit_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "organizational_unit_arn": organizational_unit_arn,
-            "organizational_unit_id": organizational_unit_id,
-        }
-
-    @builtins.property
-    def organizational_unit_arn(self) -> builtins.str:
-        '''The ARN of the OrganizationalUnit resource.'''
-        result = self._values.get("organizational_unit_arn")
-        assert result is not None, "Required property 'organizational_unit_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def organizational_unit_id(self) -> builtins.str:
-        '''The Id of the OrganizationalUnit resource.'''
-        result = self._values.get("organizational_unit_id")
-        assert result is not None, "Required property 'organizational_unit_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "OrganizationalUnitReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.PolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={"policy_arn": "policyArn", "policy_id": "policyId"},
-)
-class PolicyReference:
-    def __init__(self, *, policy_arn: builtins.str, policy_id: builtins.str) -> None:
-        '''A reference to a Policy resource.
-
-        :param policy_arn: The ARN of the Policy resource.
-        :param policy_id: The Id of the Policy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            policy_reference = organizations.PolicyReference(
-                policy_arn="policyArn",
-                policy_id="policyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__daa8ae90bd2edbbcf3a4e383f7deb67a8fb79d2bdc4e709022bd3ec887aa9050)
-            check_type(argname="argument policy_arn", value=policy_arn, expected_type=type_hints["policy_arn"])
-            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "policy_arn": policy_arn,
-            "policy_id": policy_id,
-        }
-
-    @builtins.property
-    def policy_arn(self) -> builtins.str:
-        '''The ARN of the Policy resource.'''
-        result = self._values.get("policy_arn")
-        assert result is not None, "Required property 'policy_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def policy_id(self) -> builtins.str:
-        '''The Id of the Policy resource.'''
-        result = self._values.get("policy_id")
-        assert result is not None, "Required property 'policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "PolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_organizations.ResourcePolicyReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "resource_policy_arn": "resourcePolicyArn",
-        "resource_policy_id": "resourcePolicyId",
-    },
-)
-class ResourcePolicyReference:
-    def __init__(
-        self,
-        *,
-        resource_policy_arn: builtins.str,
-        resource_policy_id: builtins.str,
-    ) -> None:
-        '''A reference to a ResourcePolicy resource.
-
-        :param resource_policy_arn: The ARN of the ResourcePolicy resource.
-        :param resource_policy_id: The Id of the ResourcePolicy resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_organizations as organizations
-            
-            resource_policy_reference = organizations.ResourcePolicyReference(
-                resource_policy_arn="resourcePolicyArn",
-                resource_policy_id="resourcePolicyId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__89f3e999db52b52452faecf4023444cf0e6a6039ea363a0fa1e8f2565f8b686b)
-            check_type(argname="argument resource_policy_arn", value=resource_policy_arn, expected_type=type_hints["resource_policy_arn"])
-            check_type(argname="argument resource_policy_id", value=resource_policy_id, expected_type=type_hints["resource_policy_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "resource_policy_arn": resource_policy_arn,
-            "resource_policy_id": resource_policy_id,
-        }
-
-    @builtins.property
-    def resource_policy_arn(self) -> builtins.str:
-        '''The ARN of the ResourcePolicy resource.'''
-        result = self._values.get("resource_policy_arn")
-        assert result is not None, "Required property 'resource_policy_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def resource_policy_id(self) -> builtins.str:
-        '''The Id of the ResourcePolicy resource.'''
-        result = self._values.get("resource_policy_id")
-        assert result is not None, "Required property 'resource_policy_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ResourcePolicyReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IAccountRef, _ITaggable_36806126)
-class CfnAccount(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_organizations.CfnAccount",
-):
-    '''Creates an AWS account that is automatically a member of the organization whose credentials made the request.
-
-    AWS CloudFormation uses the ```CreateAccount`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_CreateAccount.html>`_ operation to create accounts. This is an asynchronous request that AWS performs in the background. Because ``CreateAccount`` operates asynchronously, it can return a successful completion message even though account initialization might still be in progress. You might need to wait a few minutes before you can successfully access the account. To check the status of the request, do one of the following:
-
-    - Use the ``Id`` value of the ``CreateAccountStatus`` response element from the ``CreateAccount`` operation to provide as a parameter to the ```DescribeCreateAccountStatus`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_DescribeCreateAccountStatus.html>`_ operation.
-    - Check the CloudTrail log for the ``CreateAccountResult`` event. For information on using CloudTrail with AWS Organizations , see `Logging and monitoring in AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_security_incident-response.html#orgs_cloudtrail-integration>`_ in the *AWS Organizations User Guide* .
-
-    The user who calls the API to create an account must have the ``organizations:CreateAccount`` permission. If you enabled all features in the organization, AWS Organizations creates the required service-linked role named ``AWSServiceRoleForOrganizations`` . For more information, see `AWS Organizations and service-linked roles <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_integrate_services.html#orgs_integrate_services-using_slrs>`_ in the *AWS Organizations User Guide* .
-
-    If the request includes tags, then the requester must have the ``organizations:TagResource`` permission.
-
-    AWS Organizations preconfigures the new member account with a role (named ``OrganizationAccountAccessRole`` by default) that grants users in the management account administrator permissions in the new member account. Principals in the management account can assume the role. AWS Organizations clones the company name and address information for the new account from the organization's management account.
-
-    For more information about creating accounts, see `Creating a member account in your organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html>`_ in the *AWS Organizations User Guide* .
-
-    This operation can be called only from the organization's management account.
-
-    *Deleting Account resources*
-
-    The default ``DeletionPolicy`` for resource ``AWS::Organizations::Account`` is ``Retain`` . For more information about how AWS CloudFormation deletes resources, see `DeletionPolicy Attribute <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-attribute-deletionpolicy.html>`_ .
-    .. epigraph::
-
-       - If you include multiple accounts in a single template, you must use the ``DependsOn`` attribute on each account resource type so that the accounts are created sequentially. If you create multiple accounts at the same time, Organizations returns an error and the stack operation fails.
-       - You can't modify the following list of ``Account`` resource parameters using AWS CloudFormation updates.
-       - AccountName
-       - Email
-       - RoleName
-
-       If you attempt to update the listed parameters, CloudFormation will attempt the update, but you will receive an error message as those updates are not supported from an Organizations management account or a `registered delegated administrator <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-delegated-admin.html>`_ account. Both the update and the update roll-back will fail, so you must skip the account resource update. To update parameters ``AccountName`` and ``Email`` , you must sign in to the AWS Management Console as the AWS account root user. For more information, see `Update the AWS account name, email address, or password for the root user <https://docs.aws.amazon.com/accounts/latest/reference/manage-acct-update-root-user.html>`_ in the *Account Management Reference Guide* .
-
-       - When you create an account in an organization using the AWS Organizations console, API, or AWS CLI commands, we don't automatically collect the information required for the account to operate as a standalone account. That includes collecting the payment method and signing the end user license agreement (EULA). If you must remove an account from your organization later, you can do so only after you provide the missing information. For more information, see `Considerations before removing an account from an organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_account-before-remove.html>`_ in the *AWS Organizations User Guide* .
-       - When you create an account in an organization using AWS CloudFormation , you can't specify a value for the ``CreateAccount`` operation parameter ``IamUserAccessToBilling`` . The default value for parameter ``IamUserAccessToBilling`` is ``ALLOW`` , and IAM users and roles with the required permissions can access billing information for the new account.
-       - If you get an exception that indicates ``DescribeCreateAccountStatus returns IN_PROGRESS state before time out`` . You must check the account creation status using the ```DescribeCreateAccountStatus`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_DescribeCreateAccountStatus.html>`_ operation. If the account state returns as ``SUCCEEDED`` , you can import the account into AWS CloudFormation management using ```resource import`` <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/resource-import.html>`_ .
-       - If you get an exception that indicates you have exceeded your account quota for the organization, you can request an increase by using the `Service Quotas console <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ .
-       - If you get an exception that indicates the operation failed because your organization is still initializing, wait one hour and then try again. If the error persists, contact `AWS Support <https://docs.aws.amazon.com/support/home#/>`_ .
-       - We don't recommend that you use the ``CreateAccount`` operation to create multiple temporary accounts. You can close accounts using the ```CloseAccount`` <https://docs.aws.amazon.com/organizations/latest/APIReference/API_CloseAccount.html>`_ operation or from the AWS Organizations console in the organization's management account. For information on the requirements and process for closing an account, see `Closing a member account in your organization <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_close.html>`_ in the *AWS Organizations User Guide* .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-account.html
-    :cloudformationResource: AWS::Organizations::Account
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_organizations as organizations
-        
-        cfn_account = organizations.CfnAccount(self, "MyCfnAccount",
-            account_name="accountName",
-            email="email",
-        
-            # the properties below are optional
-            parent_ids=["parentIds"],
-            role_name="roleName",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        account_name: builtins.str,
-        email: builtins.str,
-        parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-        role_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param account_name: The account name given to the account when it was created.
-        :param email: The email address associated with the AWS account. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for this parameter is a string of characters that represents a standard internet email address.
-        :param parent_ids: The unique identifier (ID) of the root or organizational unit (OU) that you want to create the new account in. If you don't specify this parameter, the ``ParentId`` defaults to the root ID. This parameter only accepts a string array with one string value. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a parent ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
-        :param role_name: The name of an IAM role that AWS Organizations automatically preconfigures in the new member account. This role trusts the management account, allowing users in the management account to assume the role, as permitted by the management account administrator. The role has administrator permissions in the new member account. If you don't specify this parameter, the role name defaults to ``OrganizationAccountAccessRole`` . For more information about how to use this role to access the member account, see the following links: - `Creating the OrganizationAccountAccessRole in an invited member account <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html#orgs_manage_accounts_create-cross-account-role>`_ in the *AWS Organizations User Guide* - Steps 2 and 3 in `IAM Tutorial: Delegate access across AWS accounts using IAM roles <https://docs.aws.amazon.com/IAM/latest/UserGuide/tutorial_cross-account-with-roles.html>`_ in the *IAM User Guide* The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter. The pattern can include uppercase letters, lowercase letters, digits with no spaces, and any of the following characters: =,.@- Default: - "OrganizationAccountAccessRole"
-        :param tags: A list of tags that you want to attach to the newly created account. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the maximum allowed number of tags for an account, then the entire request fails and the account is not created.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0f5f1b60)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnAccountProps(
-            account_name=account_name,
-            email=email,
-            parent_ids=parent_ids,
-            role_name=role_name,
-            tags=tags,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee3ea086c724fb0935ee8a727937a17ae19b987a8ade49b1405a7787feb7e3bc)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80bdf2bd3ebcd33351d23efb5a5fbe768927b4510acf316c02ac29e5ffcca33a)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accountRef")
-    def account_ref(self) -> AccountReference:
-        '''A reference to a Account resource.'''
-        return typing.cast(AccountReference, jsii.get(self, "accountRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrAccountId")
-    def attr_account_id(self) -> builtins.str:
-        '''Returns the unique identifier (ID) of the account.
-
-        For example: ``123456789012`` .
-
-        :cloudformationAttribute: AccountId
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrAccountId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrArn")
-    def attr_arn(self) -> builtins.str:
-        '''Returns the Amazon Resource Name (ARN) of the account.
-
-        For example: ``arn:aws:organizations::111111111111:account/o-exampleorgid/555555555555`` .
-
-        :cloudformationAttribute: Arn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrJoinedMethod")
-    def attr_joined_method(self) -> builtins.str:
-        '''Returns the method by which the account joined the organization.
-
-        For example: ``INVITED | CREATED`` .
-
-        :cloudformationAttribute: JoinedMethod
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrJoinedMethod"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrJoinedTimestamp")
-    def attr_joined_timestamp(self) -> builtins.str:
-        '''Returns the date the account became a part of the organization.
-
-        For example: ``2016-11-24T11:11:48-08:00`` .
-
-        :cloudformationAttribute: JoinedTimestamp
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrJoinedTimestamp"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrStatus")
-    def attr_status(self) -> builtins.str:
-        '''Returns the status of the account in the organization.
-
-        For example: ``ACTIVE | SUSPENDED | PENDING_CLOSURE`` .
-
-        :cloudformationAttribute: Status
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrStatus"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="accountName")
-    def account_name(self) -> builtins.str:
-        '''The account name given to the account when it was created.'''
-        return typing.cast(builtins.str, jsii.get(self, "accountName"))
-
-    @account_name.setter
-    def account_name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7cb80343b6f0f43ba7a94207203ab7cefaa6c6f61ec38391afffdb4896b52f1)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "accountName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="email")
-    def email(self) -> builtins.str:
-        '''The email address associated with the AWS account.'''
-        return typing.cast(builtins.str, jsii.get(self, "email"))
-
-    @email.setter
-    def email(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb3017540fda5760817d479375b8f0ba4860d2d1001cb43056042fc31d63a8f9)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "email", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="parentIds")
-    def parent_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The unique identifier (ID) of the root or organizational unit (OU) that you want to create the new account in.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "parentIds"))
-
-    @parent_ids.setter
-    def parent_ids(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4341d69ba10680d0ef646a879e2ef2e66709e58b62fb62e8d3e1b8008424fd63)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "parentIds", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="roleName")
-    def role_name(self) -> typing.Optional[builtins.str]:
-        '''The name of an IAM role that AWS Organizations automatically preconfigures in the new member account.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleName"))
-
-    @role_name.setter
-    def role_name(self, value: typing.Optional[builtins.str]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70acd1418e03b2ec3a6e3ad06a5c89c09a87bc96955d07b91a2af5820d3ded62)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "roleName", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of tags that you want to attach to the newly created account.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__797fecb1b9a4bafd998e385c8ea18d8b31431a28a593cf9eba2da34a96ca8e0a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-
-@jsii.implements(_IInspectable_c2943556, IOrganizationRef)
+@jsii.implements(_IInspectable_c2943556, _IOrganizationRef_74d1fc09)
 class CfnOrganization(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1495,12 +582,13 @@ class CfnOrganization(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         feature_set: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Organizations::Organization``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param feature_set: Specifies the feature set supported by the new organization. Each feature set supports different levels of functionality. - ``ALL`` In addition to all the features supported by the consolidated billing feature set, the management account gains access to advanced features that give you more control over accounts in your organization. For more information, see `All features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-all>`_ in the *AWS Organizations User Guide* . - ``CONSOLIDATED_BILLING`` All member accounts have their bills consolidated to and paid by the management account. For more information, see `Consolidated billing <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only>`_ in the *AWS Organizations User Guide* . .. epigraph:: The consolidated billing feature feature set isn't available for organizations in the AWS GovCloud (US) Region. If you don't specify this property, the default value is ``ALL`` . Default: - "ALL"
@@ -1513,8 +601,34 @@ class CfnOrganization(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForOrganization")
+    @builtins.classmethod
+    def arn_for_organization(
+        cls,
+        resource: "_IOrganizationRef_74d1fc09",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc87460a7b7e0ef44f3c618cd0a4730422138ef2ee6b63752435c79731d027e9)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganization", [resource]))
+
+    @jsii.member(jsii_name="isCfnOrganization")
+    @builtins.classmethod
+    def is_cfn_organization(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOrganization.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a8fefa87446a18d6ecbb8b6c93060497fcdbea9c9bcca10800e3a612517b6d17)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganization", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1604,9 +718,9 @@ class CfnOrganization(
 
     @builtins.property
     @jsii.member(jsii_name="organizationRef")
-    def organization_ref(self) -> OrganizationReference:
+    def organization_ref(self) -> "_OrganizationReference_fc9037cc":
         '''A reference to a Organization resource.'''
-        return typing.cast(OrganizationReference, jsii.get(self, "organizationRef"))
+        return typing.cast("_OrganizationReference_fc9037cc", jsii.get(self, "organizationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="featureSet")
@@ -1625,7 +739,70 @@ class CfnOrganization(
         jsii.set(self, "featureSet", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IOrganizationalUnitRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_organizations.CfnOrganizationProps",
+    jsii_struct_bases=[],
+    name_mapping={"feature_set": "featureSet"},
+)
+class CfnOrganizationProps:
+    def __init__(self, *, feature_set: typing.Optional[builtins.str] = None) -> None:
+        '''Properties for defining a ``CfnOrganization``.
+
+        :param feature_set: Specifies the feature set supported by the new organization. Each feature set supports different levels of functionality. - ``ALL`` In addition to all the features supported by the consolidated billing feature set, the management account gains access to advanced features that give you more control over accounts in your organization. For more information, see `All features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-all>`_ in the *AWS Organizations User Guide* . - ``CONSOLIDATED_BILLING`` All member accounts have their bills consolidated to and paid by the management account. For more information, see `Consolidated billing <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only>`_ in the *AWS Organizations User Guide* . .. epigraph:: The consolidated billing feature feature set isn't available for organizations in the AWS GovCloud (US) Region. If you don't specify this property, the default value is ``ALL`` . Default: - "ALL"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organization.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_organizations as organizations
+            
+            cfn_organization_props = organizations.CfnOrganizationProps(
+                feature_set="featureSet"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__232c106aefcec7adaf1b3c73c0f809bd72527d672e2faf2ac3e81e72e8f01c48)
+            check_type(argname="argument feature_set", value=feature_set, expected_type=type_hints["feature_set"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if feature_set is not None:
+            self._values["feature_set"] = feature_set
+
+    @builtins.property
+    def feature_set(self) -> typing.Optional[builtins.str]:
+        '''Specifies the feature set supported by the new organization. Each feature set supports different levels of functionality.
+
+        - ``ALL``  In addition to all the features supported by the consolidated billing feature set, the management account gains access to advanced features that give you more control over accounts in your organization. For more information, see `All features <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-all>`_ in the *AWS Organizations User Guide* .
+        - ``CONSOLIDATED_BILLING``  All member accounts have their bills consolidated to and paid by the management account. For more information, see `Consolidated billing <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_getting-started_concepts.html#feature-set-cb-only>`_ in the *AWS Organizations User Guide* .
+
+        .. epigraph::
+
+           The consolidated billing feature feature set isn't available for organizations in the AWS GovCloud (US) Region.
+
+        If you don't specify this property, the default value is ``ALL`` .
+
+        :default: - "ALL"
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organization.html#cfn-organizations-organization-featureset
+        '''
+        result = self._values.get("feature_set")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOrganizationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IOrganizationalUnitRef_1eee9aae, _ITaggable_36806126)
 class CfnOrganizationalUnit(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1639,7 +816,7 @@ class CfnOrganizationalUnit(
 
     If the request includes tags, then the requester must have the ``organizations:TagResource`` permission.
 
-    This operation can be called only from the organization's management account.
+    You can only call this operation from the management account.
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html
     :cloudformationResource: AWS::Organizations::OrganizationalUnit
@@ -1647,6 +824,7 @@ class CfnOrganizationalUnit(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_organizations as organizations
@@ -1665,14 +843,15 @@ class CfnOrganizationalUnit(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         parent_id: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Organizations::OrganizationalUnit``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The friendly name of this OU. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
@@ -1687,8 +866,34 @@ class CfnOrganizationalUnit(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForOrganizationalUnit")
+    @builtins.classmethod
+    def arn_for_organizational_unit(
+        cls,
+        resource: "_IOrganizationalUnitRef_1eee9aae",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56abf8fbaba3dc526d9151677d8242a33cb1605cd3b9f168bb5f98719c4db0b5)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForOrganizationalUnit", [resource]))
+
+    @jsii.member(jsii_name="isCfnOrganizationalUnit")
+    @builtins.classmethod
+    def is_cfn_organizational_unit(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnOrganizationalUnit.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c7a8bd04f0959cb23678c3cbd0aae67faaad36a84db6dc98a766ea6ec95c27a3)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnOrganizationalUnit", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1746,15 +951,15 @@ class CfnOrganizationalUnit(
 
     @builtins.property
     @jsii.member(jsii_name="organizationalUnitRef")
-    def organizational_unit_ref(self) -> OrganizationalUnitReference:
+    def organizational_unit_ref(self) -> "_OrganizationalUnitReference_bb42755f":
         '''A reference to a OrganizationalUnit resource.'''
-        return typing.cast(OrganizationalUnitReference, jsii.get(self, "organizationalUnitRef"))
+        return typing.cast("_OrganizationalUnitReference_bb42755f", jsii.get(self, "organizationalUnitRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1784,19 +989,128 @@ class CfnOrganizationalUnit(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the newly created OU.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eabed8f386c5c6fcea2646194b0879df9b16b1d40979baac245b456985dfa3e7)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IPolicyRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_organizations.CfnOrganizationalUnitProps",
+    jsii_struct_bases=[],
+    name_mapping={"name": "name", "parent_id": "parentId", "tags": "tags"},
+)
+class CfnOrganizationalUnitProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        parent_id: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnOrganizationalUnit``.
+
+        :param name: The friendly name of this OU. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
+        :param parent_id: The unique identifier (ID) of the parent root or OU that you want to create the new OU in. .. epigraph:: To update the ``ParentId`` parameter value, you must first remove all accounts attached to the organizational unit (OU). OUs can't be moved within the organization with accounts still attached. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a parent ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
+        :param tags: A list of tags that you want to attach to the newly created OU. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for an OU, then the entire request fails and the OU is not created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_organizations as organizations
+            
+            cfn_organizational_unit_props = organizations.CfnOrganizationalUnitProps(
+                name="name",
+                parent_id="parentId",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe5046a1191)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument parent_id", value=parent_id, expected_type=type_hints["parent_id"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "parent_id": parent_id,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The friendly name of this OU.
+
+        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def parent_id(self) -> builtins.str:
+        '''The unique identifier (ID) of the parent root or OU that you want to create the new OU in.
+
+        .. epigraph::
+
+           To update the ``ParentId`` parameter value, you must first remove all accounts attached to the organizational unit (OU). OUs can't be moved within the organization with accounts still attached.
+
+        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a parent ID string requires one of the following:
+
+        - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits.
+        - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-parentid
+        '''
+        result = self._values.get("parent_id")
+        assert result is not None, "Required property 'parent_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the newly created OU.
+
+        For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
+        .. epigraph::
+
+           If any one of the tags is not valid or if you exceed the allowed number of tags for an OU, then the entire request fails and the OU is not created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-organizationalunit.html#cfn-organizations-organizationalunit-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnOrganizationalUnitProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IPolicyRef_f285244f, _ITaggable_36806126)
 class CfnPolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1819,6 +1133,7 @@ class CfnPolicy(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_organizations as organizations
@@ -1842,20 +1157,21 @@ class CfnPolicy(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         content: typing.Any,
         name: builtins.str,
         type: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Organizations::Policy``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param content: The policy text content. You can specify the policy content as a JSON object or a JSON string. .. epigraph:: When you specify the policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the policy content as a JSON object instead. The text that you supply must adhere to the rules of the policy type you specify in the ``Type`` parameter. The following AWS Organizations quotas are enforced for the maximum size of a policy document: - Service control policies: 5,120 characters - Resource control policies: 5,120 characters - Declarative policies: 10,000 characters - Backup policies: 10,000 characters - Tag policies: 10,000 characters - Chat applications policies: 10,000 characters - AI services opt-out policies: 2,500 characters For more information about Organizations service quotas, see `Quotas for AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ in the *AWS Organizations User Guide* .
+        :param content: The policy text content. You can specify the policy content as a JSON object or a JSON string. .. epigraph:: When you specify the policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the policy content as a JSON object instead. The text that you supply must adhere to the rules of the policy type you specify in the ``Type`` parameter. The following AWS Organizations quotas are enforced for the maximum size of a policy document: - Service control policies: 5,120 characters - Resource control policies: 5,120 characters - Declarative policies: 10,000 characters - Backup policies: 10,000 characters - Tag policies: 10,000 characters - Chat applications policies: 10,000 characters - AI services opt-out policies: 2,500 characters - Security Hub policies: 10,000 characters - Amazon Inspector policies: 10,000 characters - Amazon Bedrock policies: 10,000 characters - Upgrade rollout policies: 10,000 characters For more information about Organizations service quotas, see `Quotas for AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ in the *AWS Organizations User Guide* .
         :param name: Name of the policy. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
         :param type: The type of policy to create.
         :param description: Human readable description of the policy.
@@ -1877,8 +1193,31 @@ class CfnPolicy(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForPolicy")
+    @builtins.classmethod
+    def arn_for_policy(cls, resource: "_IPolicyRef_f285244f") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__60a099d74c38572686e6ca0eb73e2ec5789c96a4c4975024d468446bb28b8f04)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForPolicy", [resource]))
+
+    @jsii.member(jsii_name="isCfnPolicy")
+    @builtins.classmethod
+    def is_cfn_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnPolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8b66435b5ef6490ef39b8bb5945e323753a52c32c26444046846eb2874e72f2)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnPolicy", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1920,14 +1259,14 @@ class CfnPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="attrAwsManaged")
-    def attr_aws_managed(self) -> _IResolvable_da3f097b:
+    def attr_aws_managed(self) -> "_IResolvable_da3f097b":
         '''Returns a boolean value that indicates whether the specified policy is an AWS managed policy.
 
         If true, then you can attach the policy to roots, OUs, or accounts, but you cannot edit it. For example: ``true | false`` .
 
         :cloudformationAttribute: AwsManaged
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrAwsManaged"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrAwsManaged"))
 
     @builtins.property
     @jsii.member(jsii_name="attrId")
@@ -1947,15 +1286,15 @@ class CfnPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="policyRef")
-    def policy_ref(self) -> PolicyReference:
+    def policy_ref(self) -> "_PolicyReference_b6a2b56e":
         '''A reference to a Policy resource.'''
-        return typing.cast(PolicyReference, jsii.get(self, "policyRef"))
+        return typing.cast("_PolicyReference_b6a2b56e", jsii.get(self, "policyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -2014,12 +1353,12 @@ class CfnPolicy(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the newly created policy.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9caafe6d9a16db2e71e0d35514c7cc53b1f7f3b30806cee494691748e49625f2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2039,7 +1378,189 @@ class CfnPolicy(
         jsii.set(self, "targetIds", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IResourcePolicyRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_organizations.CfnPolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "content": "content",
+        "name": "name",
+        "type": "type",
+        "description": "description",
+        "tags": "tags",
+        "target_ids": "targetIds",
+    },
+)
+class CfnPolicyProps:
+    def __init__(
+        self,
+        *,
+        content: typing.Any,
+        name: builtins.str,
+        type: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnPolicy``.
+
+        :param content: The policy text content. You can specify the policy content as a JSON object or a JSON string. .. epigraph:: When you specify the policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the policy content as a JSON object instead. The text that you supply must adhere to the rules of the policy type you specify in the ``Type`` parameter. The following AWS Organizations quotas are enforced for the maximum size of a policy document: - Service control policies: 5,120 characters - Resource control policies: 5,120 characters - Declarative policies: 10,000 characters - Backup policies: 10,000 characters - Tag policies: 10,000 characters - Chat applications policies: 10,000 characters - AI services opt-out policies: 2,500 characters - Security Hub policies: 10,000 characters - Amazon Inspector policies: 10,000 characters - Amazon Bedrock policies: 10,000 characters - Upgrade rollout policies: 10,000 characters For more information about Organizations service quotas, see `Quotas for AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ in the *AWS Organizations User Guide* .
+        :param name: Name of the policy. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
+        :param type: The type of policy to create.
+        :param description: Human readable description of the policy.
+        :param tags: A list of tags that you want to attach to the newly created policy. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide. .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for a policy, then the entire request fails and the policy is not created.
+        :param target_ids: List of unique identifiers (IDs) of the root, OU, or account that you want to attach the policy to. You can get the ID by calling the `ListRoots <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListRoots.html>`_ , `ListOrganizationalUnitsForParent <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListOrganizationalUnitsForParent.html>`_ , or `ListAccounts <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListAccounts.html>`_ operations. If you don't specify this parameter, the policy is created but not attached to any organization resource. The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a target ID string requires one of the following: - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits. - *Account* - A string that consists of exactly 12 digits. - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_organizations as organizations
+            
+            # content: Any
+            
+            cfn_policy_props = organizations.CfnPolicyProps(
+                content=content,
+                name="name",
+                type="type",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                target_ids=["targetIds"]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6ff28a47)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument target_ids", value=target_ids, expected_type=type_hints["target_ids"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+            "name": name,
+            "type": type,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if target_ids is not None:
+            self._values["target_ids"] = target_ids
+
+    @builtins.property
+    def content(self) -> typing.Any:
+        '''The policy text content. You can specify the policy content as a JSON object or a JSON string.
+
+        .. epigraph::
+
+           When you specify the policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the policy content as a JSON object instead.
+
+        The text that you supply must adhere to the rules of the policy type you specify in the ``Type`` parameter. The following AWS Organizations quotas are enforced for the maximum size of a policy document:
+
+        - Service control policies: 5,120 characters
+        - Resource control policies: 5,120 characters
+        - Declarative policies: 10,000 characters
+        - Backup policies: 10,000 characters
+        - Tag policies: 10,000 characters
+        - Chat applications policies: 10,000 characters
+        - AI services opt-out policies: 2,500 characters
+        - Security Hub policies: 10,000 characters
+        - Amazon Inspector policies: 10,000 characters
+        - Amazon Bedrock policies: 10,000 characters
+        - Upgrade rollout policies: 10,000 characters
+
+        For more information about Organizations service quotas, see `Quotas for AWS Organizations <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_reference_limits.html>`_ in the *AWS Organizations User Guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''Name of the policy.
+
+        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ that is used to validate this parameter is a string of any of the characters in the ASCII character range.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def type(self) -> builtins.str:
+        '''The type of policy to create.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-type
+        '''
+        result = self._values.get("type")
+        assert result is not None, "Required property 'type' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''Human readable description of the policy.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the newly created policy.
+
+        For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the AWS Organizations User Guide.
+        .. epigraph::
+
+           If any one of the tags is not valid or if you exceed the allowed number of tags for a policy, then the entire request fails and the policy is not created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def target_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''List of unique identifiers (IDs) of the root, OU, or account that you want to attach the policy to.
+
+        You can get the ID by calling the `ListRoots <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListRoots.html>`_ , `ListOrganizationalUnitsForParent <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListOrganizationalUnitsForParent.html>`_ , or `ListAccounts <https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListAccounts.html>`_ operations. If you don't specify this parameter, the policy is created but not attached to any organization resource.
+
+        The `regex pattern <https://docs.aws.amazon.com/http://wikipedia.org/wiki/regex>`_ for a target ID string requires one of the following:
+
+        - *Root* - A string that begins with "r-" followed by from 4 to 32 lowercase letters or digits.
+        - *Account* - A string that consists of exactly 12 digits.
+        - *Organizational unit (OU)* - A string that begins with "ou-" followed by from 4 to 32 lowercase letters or digits (the ID of the root that the OU is in). This string is followed by a second "-" dash and from 8 to 32 additional lowercase letters or digits.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-policy.html#cfn-organizations-policy-targetids
+        '''
+        result = self._values.get("target_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnPolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IResourcePolicyRef_10723097, _ITaggable_36806126)
 class CfnResourcePolicy(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2057,6 +1578,7 @@ class CfnResourcePolicy(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_organizations as organizations
@@ -2076,13 +1598,14 @@ class CfnResourcePolicy(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         content: typing.Any,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::Organizations::ResourcePolicy``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param content: The policy text of the organization resource policy. You can specify the resource policy content as a JSON object or a JSON string. .. epigraph:: When you specify the resource policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the resource policy content as a JSON object instead.
@@ -2096,8 +1619,34 @@ class CfnResourcePolicy(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForResourcePolicy")
+    @builtins.classmethod
+    def arn_for_resource_policy(
+        cls,
+        resource: "_IResourcePolicyRef_10723097",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4bdf39b3cbefe7d3bf477ad788760a83e4ba09939a7a87a3b1f60153f67418ea)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForResourcePolicy", [resource]))
+
+    @jsii.member(jsii_name="isCfnResourcePolicy")
+    @builtins.classmethod
+    def is_cfn_resource_policy(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnResourcePolicy.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c6d4f07fdbcf608edaa909d0c6cc93cb7179369c254fddcc2f93ec547925c0b9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnResourcePolicy", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2155,15 +1704,15 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="resourcePolicyRef")
-    def resource_policy_ref(self) -> ResourcePolicyReference:
+    def resource_policy_ref(self) -> "_ResourcePolicyReference_3ac39914":
         '''A reference to a ResourcePolicy resource.'''
-        return typing.cast(ResourcePolicyReference, jsii.get(self, "resourcePolicyRef"))
+        return typing.cast("_ResourcePolicyReference_3ac39914", jsii.get(self, "resourcePolicyRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="content")
@@ -2180,20 +1729,109 @@ class CfnResourcePolicy(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''A list of tags that you want to attach to the newly created resource policy.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__164d77bb0e3c4701ced04ca47a3969c95a5eff28be165197ce2e498bf32cedd1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_organizations.CfnResourcePolicyProps",
+    jsii_struct_bases=[],
+    name_mapping={"content": "content", "tags": "tags"},
+)
+class CfnResourcePolicyProps:
+    def __init__(
+        self,
+        *,
+        content: typing.Any,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnResourcePolicy``.
+
+        :param content: The policy text of the organization resource policy. You can specify the resource policy content as a JSON object or a JSON string. .. epigraph:: When you specify the resource policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the resource policy content as a JSON object instead.
+        :param tags: A list of tags that you want to attach to the newly created resource policy. For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the *AWS Organizations User Guide* . .. epigraph:: If any one of the tags is not valid or if you exceed the allowed number of tags for the resource policy, then the entire request fails and the resource policy is not created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_organizations as organizations
+            
+            # content: Any
+            
+            cfn_resource_policy_props = organizations.CfnResourcePolicyProps(
+                content=content,
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d)
+            check_type(argname="argument content", value=content, expected_type=type_hints["content"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "content": content,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def content(self) -> typing.Any:
+        '''The policy text of the organization resource policy.
+
+        You can specify the resource policy content as a JSON object or a JSON string.
+        .. epigraph::
+
+           When you specify the resource policy content as a JSON string, you can't perform drift detection on the CloudFormation stack. For this reason, we recommend specifying the resource policy content as a JSON object instead.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html#cfn-organizations-resourcepolicy-content
+        '''
+        result = self._values.get("content")
+        assert result is not None, "Required property 'content' is missing"
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''A list of tags that you want to attach to the newly created resource policy.
+
+        For each tag in the list, you must specify both a tag key and a value. You can set the value to an empty string, but you can't set it to ``null`` . For more information about tagging, see `Tagging AWS Organizations resources <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_tagging.html>`_ in the *AWS Organizations User Guide* .
+        .. epigraph::
+
+           If any one of the tags is not valid or if you exceed the allowed number of tags for the resource policy, then the entire request fails and the resource policy is not created.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-organizations-resourcepolicy.html#cfn-organizations-resourcepolicy-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "AccountReference",
     "CfnAccount",
     "CfnAccountProps",
     "CfnOrganization",
@@ -2204,105 +1842,9 @@ __all__ = [
     "CfnPolicyProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
-    "IAccountRef",
-    "IOrganizationRef",
-    "IOrganizationalUnitRef",
-    "IPolicyRef",
-    "IResourcePolicyRef",
-    "OrganizationReference",
-    "OrganizationalUnitReference",
-    "PolicyReference",
-    "ResourcePolicyReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__ee0855a5a9190f7e58a0d9d4856c4182684d3972e9ca74357e75022efa2a2d31(
-    *,
-    account_arn: builtins.str,
-    account_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a77bb3f433e62d91418b11b634f558fe79904da5ba0000f7cb7c650162add452(
-    *,
-    account_name: builtins.str,
-    email: builtins.str,
-    parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-    role_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__232c106aefcec7adaf1b3c73c0f809bd72527d672e2faf2ac3e81e72e8f01c48(
-    *,
-    feature_set: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe5046a1191(
-    *,
-    name: builtins.str,
-    parent_id: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6ff28a47(
-    *,
-    content: typing.Any,
-    name: builtins.str,
-    type: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d(
-    *,
-    content: typing.Any,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d0908adfbdc83afbcb9c029470c6a9974c30a1241b8b0f14a1c493d2d24c04fd(
-    *,
-    organization_arn: builtins.str,
-    organization_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5fd4688dec9141a89fb606e5585000644cb8435fb8daf4eef5254dc247c119dd(
-    *,
-    organizational_unit_arn: builtins.str,
-    organizational_unit_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__daa8ae90bd2edbbcf3a4e383f7deb67a8fb79d2bdc4e709022bd3ec887aa9050(
-    *,
-    policy_arn: builtins.str,
-    policy_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__89f3e999db52b52452faecf4023444cf0e6a6039ea363a0fa1e8f2565f8b686b(
-    *,
-    resource_policy_arn: builtins.str,
-    resource_policy_id: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0f5f1b60(
     scope: _constructs_77d1e7e8.Construct,
@@ -2313,6 +1855,18 @@ def _typecheckingstub__717b5f787efa43cf2d1c6b1edf32de9bd64cd50c67b6e29cf7e1d6df0
     parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     role_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9ba93a038ccc85e707f22f7b3273c9b66b0d924087ed9c72e5382468c546a56a(
+    resource: _IAccountRef_ee273c41,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9144f00ecfeba678bb624a0941ebc36f76b6c32768c2020b7218983db3e4094a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2359,11 +1913,34 @@ def _typecheckingstub__797fecb1b9a4bafd998e385c8ea18d8b31431a28a593cf9eba2da34a9
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a77bb3f433e62d91418b11b634f558fe79904da5ba0000f7cb7c650162add452(
+    *,
+    account_name: builtins.str,
+    email: builtins.str,
+    parent_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    role_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__450a54c6b7334fcb8f406a9a29b8e1f90a618bcbd127f2d5a6a9fa43ff254400(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     feature_set: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc87460a7b7e0ef44f3c618cd0a4730422138ef2ee6b63752435c79731d027e9(
+    resource: _IOrganizationRef_74d1fc09,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a8fefa87446a18d6ecbb8b6c93060497fcdbea9c9bcca10800e3a612517b6d17(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2386,6 +1963,13 @@ def _typecheckingstub__bba27bb9e125d71f0e3f25eaa03ce169e5b7e47cf184fcaeb273ce584
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__232c106aefcec7adaf1b3c73c0f809bd72527d672e2faf2ac3e81e72e8f01c48(
+    *,
+    feature_set: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__05eb3e3a6c1c8de7f03913252600dcc42e4c1e99dbbab3f47a3fb8e4ce5ffcec(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2393,6 +1977,18 @@ def _typecheckingstub__05eb3e3a6c1c8de7f03913252600dcc42e4c1e99dbbab3f47a3fb8e4c
     name: builtins.str,
     parent_id: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56abf8fbaba3dc526d9151677d8242a33cb1605cd3b9f168bb5f98719c4db0b5(
+    resource: _IOrganizationalUnitRef_1eee9aae,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c7a8bd04f0959cb23678c3cbd0aae67faaad36a84db6dc98a766ea6ec95c27a3(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2427,6 +2023,15 @@ def _typecheckingstub__eabed8f386c5c6fcea2646194b0879df9b16b1d40979baac245b45698
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0140abb0fae0d0670b748f08be863eb25b5afb304506c41736e4ebe5046a1191(
+    *,
+    name: builtins.str,
+    parent_id: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9c8ac465f7818132d3539ff8d8e22250305dad104185434533d033da8a80adad(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -2437,6 +2042,18 @@ def _typecheckingstub__9c8ac465f7818132d3539ff8d8e22250305dad104185434533d033da8
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60a099d74c38572686e6ca0eb73e2ec5789c96a4c4975024d468446bb28b8f04(
+    resource: _IPolicyRef_f285244f,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8b66435b5ef6490ef39b8bb5945e323753a52c32c26444046846eb2874e72f2(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2489,12 +2106,36 @@ def _typecheckingstub__b5e07984d6cb568abac54dca9143f32081c21cefa3f9f57283a87b6c3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__544be01c589611e04faed808433966307bb111627f81a689fb735a3a6ff28a47(
+    *,
+    content: typing.Any,
+    name: builtins.str,
+    type: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    target_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__d9208421dfafb85e674bb3b797871f578fa0566480e15ed57d8dbc67fd20d87f(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     content: typing.Any,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4bdf39b3cbefe7d3bf477ad788760a83e4ba09939a7a87a3b1f60153f67418ea(
+    resource: _IResourcePolicyRef_10723097,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c6d4f07fdbcf608edaa909d0c6cc93cb7179369c254fddcc2f93ec547925c0b9(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -2519,6 +2160,14 @@ def _typecheckingstub__1a62f3cef96b84d09856779bec28b78a1d418f3c268511a050c8b1af0
 
 def _typecheckingstub__164d77bb0e3c4701ced04ca47a3969c95a5eff28be165197ce2e498bf32cedd1(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37cd3de3e4908cd34c5eb0c9d1d4d248a5bbe3e921f6d262efcfbc7acdd5bf4d(
+    *,
+    content: typing.Any,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

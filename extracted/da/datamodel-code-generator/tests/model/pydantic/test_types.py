@@ -1,3 +1,5 @@
+"""Tests for Pydantic type generation and constraints."""
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -22,6 +24,7 @@ from datamodel_code_generator.model.pydantic.imports import (
 )
 from datamodel_code_generator.model.pydantic.types import DataTypeManager
 from datamodel_code_generator.types import DataType, Types, UnionIntFloat
+from datamodel_code_generator.util import model_dump
 
 
 @pytest.mark.parametrize(
@@ -137,11 +140,12 @@ def test_get_data_int_type(
     params: dict[str, Any],
     data_type: dict[str, Any],
 ) -> None:
+    """Test integer data type generation with various constraints."""
     data_type_manager = DataTypeManager(
         use_non_positive_negative_number_constrained_types=use_non_positive_negative_number_constrained_types
     )
-    assert (
-        data_type_manager.get_data_int_type(types, **params).dict() == data_type_manager.data_type(**data_type).dict()
+    assert model_dump(data_type_manager.get_data_int_type(types, **params)) == model_dump(
+        data_type_manager.data_type(**data_type)
     )
 
 
@@ -258,6 +262,7 @@ def test_get_data_float_type(
     params: dict[str, Any],
     data_type: dict[str, Any],
 ) -> None:
+    """Test float data type generation with various constraints."""
     data_type_manager = DataTypeManager(
         use_non_positive_negative_number_constrained_types=use_non_positive_negative_number_constrained_types
     )
@@ -335,8 +340,52 @@ def test_get_data_float_type(
     ],
 )
 def test_get_data_decimal_type(types: Types, params: dict[str, Any], data_type: dict[str, Any]) -> None:
+    """Test decimal data type generation with various constraints."""
     data_type_manager = DataTypeManager()
     assert data_type_manager.get_data_decimal_type(types, **params) == data_type_manager.data_type(**data_type)
+
+
+@pytest.mark.parametrize(
+    ("types", "params", "data_type"),
+    [
+        (
+            Types.float,
+            {"multipleOf": 0.1},
+            {
+                "type": "condecimal",
+                "is_func": True,
+                "kwargs": {"multiple_of": Decimal("0.1")},
+                "import_": IMPORT_CONDECIMAL,
+            },
+        ),
+        (
+            Types.float,
+            {"multipleOf": 0.1, "minimum": 0, "maximum": 100},
+            {
+                "type": "condecimal",
+                "is_func": True,
+                "kwargs": {"multiple_of": Decimal("0.1"), "ge": Decimal(0), "le": Decimal(100)},
+                "import_": IMPORT_CONDECIMAL,
+            },
+        ),
+        (
+            Types.number,
+            {"multipleOf": 0.01, "exclusiveMinimum": 0},
+            {
+                "type": "condecimal",
+                "is_func": True,
+                "kwargs": {"multiple_of": Decimal("0.01"), "gt": Decimal(0)},
+                "import_": IMPORT_CONDECIMAL,
+            },
+        ),
+    ],
+)
+def test_get_data_float_type_with_use_decimal_for_multiple_of(
+    types: Types, params: dict[str, Any], data_type: dict[str, Any]
+) -> None:
+    """Test float type uses condecimal when use_decimal_for_multiple_of is True."""
+    data_type_manager = DataTypeManager(use_decimal_for_multiple_of=True)
+    assert data_type_manager.get_data_float_type(types, **params) == data_type_manager.data_type(**data_type)
 
 
 @pytest.mark.parametrize(
@@ -376,6 +425,7 @@ def test_get_data_decimal_type(types: Types, params: dict[str, Any], data_type: 
     ],
 )
 def test_get_data_str_type(types: Types, params: dict[str, Any], data_type: dict[str, Any]) -> None:
+    """Test string data type generation with various constraints."""
     data_type_manager = DataTypeManager()
     assert data_type_manager.get_data_str_type(types, **params) == data_type_manager.data_type(**data_type)
 
@@ -394,11 +444,13 @@ def test_get_data_str_type(types: Types, params: dict[str, Any], data_type: dict
     ],
 )
 def test_get_data_type(types: Types, data_type: dict[str, str]) -> None:
+    """Test basic data type retrieval for common types."""
     data_type_manager = DataTypeManager()
     assert data_type_manager.get_data_type(types) == data_type_manager.data_type(**data_type)
 
 
 def test_data_type_type_hint() -> None:
+    """Test type hint generation for DataType objects."""
     assert DataType(type="str").type_hint == "str"
     assert DataType(type="constr", is_func=True).type_hint == "constr()"
     assert DataType(type="constr", is_func=True, kwargs={"min_length": 10}).type_hint == "constr(min_length=10)"
@@ -414,6 +466,7 @@ def test_data_type_type_hint() -> None:
     ],
 )
 def test_get_data_type_from_value(types: Any, data_type: dict[str, str]) -> None:
+    """Test data type inference from Python values."""
     data_type_manager = DataTypeManager()
     assert data_type_manager.get_data_type_from_value(types) == data_type_manager.data_type(**data_type)
 
@@ -433,6 +486,7 @@ def test_get_data_type_from_value(types: Any, data_type: dict[str, str]) -> None
     ],
 )
 def test_get_data_type_from_full_path(types: Any, data_type: tuple[str, bool]) -> None:
+    """Test data type generation from full module paths."""
     data_type_manager = DataTypeManager()
     assert data_type_manager.get_data_type_from_value(types) == data_type_manager.get_data_type_from_full_path(
         *data_type

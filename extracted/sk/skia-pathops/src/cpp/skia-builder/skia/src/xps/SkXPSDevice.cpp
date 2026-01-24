@@ -22,11 +22,9 @@
 #include <FontSub.h>
 #include <limits>
 
-#include "include/codec/SkEncodedImageFormat.h"
 #include "include/core/SkColor.h"
 #include "include/core/SkData.h"
 #include "include/core/SkImage.h"
-#include "include/core/SkImageEncoder.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPathEffect.h"
 #include "include/core/SkPathUtils.h"
@@ -42,14 +40,17 @@
 #include "src/base/SkTLazy.h"
 #include "src/base/SkUtils.h"
 #include "src/core/SkDraw.h"
+#include "src/core/SkFontPriv.h"
 #include "src/core/SkGeometry.h"
 #include "src/core/SkImagePriv.h"
 #include "src/core/SkMaskFilterBase.h"
+#include "src/core/SkPathPriv.h"
 #include "src/core/SkRasterClip.h"
 #include "src/core/SkStrikeCache.h"
 #include "src/image/SkImage_Base.h"
 #include "src/sfnt/SkSFNTHeader.h"
 #include "src/sfnt/SkTTCFHeader.h"
+#include "src/shaders/SkColorShader.h"
 #include "src/shaders/SkShaderBase.h"
 #include "src/text/GlyphRun.h"
 #include "src/utils/SkClipStackUtils.h"
@@ -118,10 +119,11 @@ HRESULT SkXPSDevice::createId(wchar_t* buffer, size_t bufferSize, wchar_t sep) {
     return S_OK;
 }
 
-SkXPSDevice::SkXPSDevice(SkISize s)
-    : INHERITED(SkImageInfo::MakeUnknown(s.width(), s.height()),
-                SkSurfaceProps(0, kUnknown_SkPixelGeometry))
-    , fCurrentPage(0), fTopTypefaces(&fTypefaces) {}
+SkXPSDevice::SkXPSDevice(SkISize s, SkXPS::Options opts)
+        : SkClipStackDevice(SkImageInfo::MakeUnknown(s.width(), s.height()), SkSurfaceProps())
+        , fCurrentPage(0)
+        , fTopTypefaces(&fTypefaces)
+        , fOpts(opts) {}
 
 SkXPSDevice::~SkXPSDevice() {}
 
@@ -341,7 +343,7 @@ static HRESULT subset_typeface(const SkXPSDevice::TypefaceUse& current) {
     unsigned long fontPackageBufferSize;
     unsigned long bytesWritten;
     unsigned long result = CreateFontPackage(
-        (unsigned char *) current.fontData->getMemoryBase(),
+        (const unsigned char *) current.fontData->getMemoryBase(),
         (unsigned long) current.fontData->getLength(),
         &fontPackageBufferRaw,
         &fontPackageBufferSize,
@@ -436,14 +438,14 @@ bool SkXPSDevice::endPortfolio() {
     return true;
 }
 
-static XPS_COLOR xps_color(const SkColor skColor) {
+static XPS_COLOR xps_color(const SkColor4f skColor) {
     //XPS uses non-pre-multiplied alpha (XPS Spec 11.4).
     XPS_COLOR xpsColor;
-    xpsColor.colorType = XPS_COLOR_TYPE_SRGB;
-    xpsColor.value.sRGB.alpha = SkColorGetA(skColor);
-    xpsColor.value.sRGB.red = SkColorGetR(skColor);
-    xpsColor.value.sRGB.green = SkColorGetG(skColor);
-    xpsColor.value.sRGB.blue = SkColorGetB(skColor);
+    xpsColor.colorType = XPS_COLOR_TYPE_SCRGB;
+    xpsColor.value.scRGB.alpha = skColor.fA;
+    xpsColor.value.scRGB.red = skColor.fR;
+    xpsColor.value.scRGB.green = skColor.fG;
+    xpsColor.value.scRGB.blue = skColor.fB;
 
     return xpsColor;
 }
@@ -457,9 +459,7 @@ static XPS_POINT xps_point(const SkPoint& point) {
 }
 
 static XPS_POINT xps_point(const SkPoint& point, const SkMatrix& matrix) {
-    SkPoint skTransformedPoint;
-    matrix.mapXY(point.fX, point.fY, &skTransformedPoint);
-    return xps_point(skTransformedPoint);
+    return xps_point(matrix.mapPoint(point));
 }
 
 static XPS_SPREAD_METHOD xps_spread_method(SkTileMode tileMode) {
@@ -482,12 +482,10 @@ static XPS_SPREAD_METHOD xps_spread_method(SkTileMode tileMode) {
 static void transform_offsets(SkScalar* stopOffsets, const int numOffsets,
                               const SkPoint& start, const SkPoint& end,
                               const SkMatrix& transform) {
-    SkPoint startTransformed;
-    transform.mapXY(start.fX, start.fY, &startTransformed);
-    SkPoint endTransformed;
-    transform.mapXY(end.fX, end.fY, &endTransformed);
+    SkPoint startTransformed = transform.mapPoint(start);
+    SkPoint endTransformed = transform.mapPoint(end);
 
-    //Manhattan distance between transformed start and end.
+    // Manhattan distance between transformed start and end.
     SkScalar startToEnd = (endTransformed.fX - startTransformed.fX)
                         + (endTransformed.fY - startTransformed.fY);
     if (SkScalarNearlyZero(startToEnd)) {
@@ -502,8 +500,7 @@ static void transform_offsets(SkScalar* stopOffsets, const int numOffsets,
         stop.fX = (end.fX - start.fX) * stopOffsets[i];
         stop.fY = (end.fY - start.fY) * stopOffsets[i];
 
-        SkPoint stopTransformed;
-        transform.mapXY(stop.fX, stop.fY, &stopTransformed);
+        SkPoint stopTransformed = transform.mapPoint(stop);
 
         //Manhattan distance between transformed start and stop.
         SkScalar startToStop = (stopTransformed.fX - startTransformed.fX)
@@ -552,7 +549,7 @@ HRESULT SkXPSDevice::createPath(IXpsOMGeometryFigure* figure,
     return S_OK;
 }
 
-HRESULT SkXPSDevice::createXpsSolidColorBrush(const SkColor skColor,
+HRESULT SkXPSDevice::createXpsSolidColorBrush(const SkColor4f skColor,
                                               const SkAlpha alpha,
                                               IXpsOMBrush** xpsBrush) {
     XPS_COLOR xpsColor = xps_color(skColor);
@@ -589,7 +586,7 @@ HRESULT SkXPSDevice::sideOfClamp(const SkRect& areaToFill,
 }
 
 HRESULT SkXPSDevice::cornerOfClamp(const SkRect& areaToFill,
-                                   const SkColor color,
+                                   const SkColor4f color,
                                    IXpsOMVisualCollection* visuals) {
     SkTScopedComPtr<IXpsOMGeometryFigure> areaToFillFigure;
     HR(this->createXpsRect(areaToFill, FALSE, TRUE, &areaToFillFigure));
@@ -628,13 +625,16 @@ static XPS_TILE_MODE SkToXpsTileMode(SkTileMode tmx, SkTileMode tmy) {
 }
 
 HRESULT SkXPSDevice::createXpsImageBrush(
-        const SkBitmap& bitmap,
+        const SkPixmap& bitmap,
         const SkMatrix& localMatrix,
         const SkTileMode (&xy)[2],
         const SkAlpha alpha,
         IXpsOMTileBrush** xpsBrush) {
     SkDynamicMemoryWStream write;
-    if (!SkEncodeImage(&write, bitmap, SkEncodedImageFormat::kPNG, 100)) {
+    if (!fOpts.pngEncoder) {
+        HRM(E_FAIL, "No PNG encoder registered when document created.");
+    }
+    if (!fOpts.pngEncoder(&write, bitmap)) {
         HRM(E_FAIL, "Unable to encode bitmap as png.");
     }
     SkTScopedComPtr<IStream> read;
@@ -753,20 +753,20 @@ HRESULT SkXPSDevice::createXpsImageBrush(
         if (SkTileMode::kClamp == xy[0] &&
             SkTileMode::kClamp == xy[1]) {
 
-            const SkColor tlColor = bitmap.getColor(0,0);
+            const SkColor4f tlColor = bitmap.getColor4f(0,0);
             const SkRect tlArea = SkRect::MakeLTRB(-BIG, -BIG, 0, 0);
             HR(this->cornerOfClamp(tlArea, tlColor, brushVisuals.get()));
 
-            const SkColor trColor = bitmap.getColor(bitmap.width()-1,0);
+            const SkColor4f trColor = bitmap.getColor4f(bitmap.width()-1,0);
             const SkRect trArea = SkRect::MakeLTRB(bWidth, -BIG, BIG, 0);
             HR(this->cornerOfClamp(trArea, trColor, brushVisuals.get()));
 
-            const SkColor brColor = bitmap.getColor(bitmap.width()-1,
+            const SkColor4f brColor = bitmap.getColor4f(bitmap.width()-1,
                                                     bitmap.height()-1);
             const SkRect brArea = SkRect::MakeLTRB(bWidth, bHeight, BIG, BIG);
             HR(this->cornerOfClamp(brArea, brColor, brushVisuals.get()));
 
-            const SkColor blColor = bitmap.getColor(0,bitmap.height()-1);
+            const SkColor4f blColor = bitmap.getColor4f(0,bitmap.height()-1);
             const SkRect blArea = SkRect::MakeLTRB(-BIG, bHeight, 0, BIG);
             HR(this->cornerOfClamp(blArea, blColor, brushVisuals.get()));
         }
@@ -816,7 +816,7 @@ HRESULT SkXPSDevice::createXpsImageBrush(
     return S_OK;
 }
 
-HRESULT SkXPSDevice::createXpsGradientStop(const SkColor skColor,
+HRESULT SkXPSDevice::createXpsGradientStop(const SkColor4f skColor,
                                            const SkScalar offset,
                                            IXpsOMGradientStop** xpsGradStop) {
     XPS_COLOR gradStopXpsColor = xps_color(skColor);
@@ -923,7 +923,7 @@ HRESULT SkXPSDevice::createXpsRadialGradient(SkShaderBase::GradientInfo info,
 
         vec[0].set(radius, 0);
         vec[1].set(0, radius);
-        localMatrix.mapVectors(vec, 2);
+        localMatrix.mapVectors(vec);
 
         SkScalar d0 = vec[0].length();
         SkScalar d1 = vec[1].length();
@@ -972,42 +972,36 @@ HRESULT SkXPSDevice::createXpsBrush(const SkPaint& skPaint,
                                     const SkMatrix* parentTransform) {
     const SkShader *shader = skPaint.getShader();
     if (nullptr == shader) {
-        HR(this->createXpsSolidColorBrush(skPaint.getColor(), 0xFF, brush));
+        HR(this->createXpsSolidColorBrush(skPaint.getColor4f(), 0xFF, brush));
         return S_OK;
     }
 
     //Gradient shaders.
-    SkShaderBase::GradientInfo info;
-    SkShaderBase::GradientType gradientType = as_SB(shader)->asGradient(&info);
+    auto shaderBase = as_SB(shader);
 
-    if (gradientType == SkShaderBase::GradientType::kNone) {
-        //Nothing to see, move along.
-
-    } else if (gradientType == SkShaderBase::GradientType::kColor) {
-        SkASSERT(1 == info.fColorCount);
-        SkColor color;
-        info.fColors = &color;
-        as_SB(shader)->asGradient(&info);
+    if (shaderBase->type() == SkShaderBase::ShaderType::kColor) {
+        auto colorShader = static_cast<const SkColorShader*>(shader);
         SkAlpha alpha = skPaint.getAlpha();
-        HR(this->createXpsSolidColorBrush(color, alpha, brush));
+        HR(this->createXpsSolidColorBrush(colorShader->color(), alpha, brush));
         return S_OK;
-
-    } else {
+    } else if (shaderBase->asGradient() != SkShaderBase::GradientType::kNone) {
+        SkShaderBase::GradientInfo info;
+        SkShaderBase::GradientType gradientType = shaderBase->asGradient(&info);
         if (info.fColorCount == 0) {
-            const SkColor color = skPaint.getColor();
+            const SkColor4f color = skPaint.getColor4f();
             HR(this->createXpsSolidColorBrush(color, 0xFF, brush));
             return S_OK;
         }
 
         SkMatrix localMatrix;
-        AutoTArray<SkColor> colors(info.fColorCount);
+        AutoTArray<SkColor4f> colors(info.fColorCount);
         AutoTArray<SkScalar> colorOffsets(info.fColorCount);
         info.fColors = colors.get();
         info.fColorOffsets = colorOffsets.get();
-        as_SB(shader)->asGradient(&info, &localMatrix);
+        shaderBase->asGradient(&info, &localMatrix);
 
         if (1 == info.fColorCount) {
-            SkColor color = info.fColors[0];
+            SkColor4f color = info.fColors[0];
             SkAlpha alpha = skPaint.getAlpha();
             HR(this->createXpsSolidColorBrush(color, alpha, brush));
             return S_OK;
@@ -1050,17 +1044,18 @@ HRESULT SkXPSDevice::createXpsBrush(const SkPaint& skPaint,
     SkMatrix outMatrix;
     SkTileMode xy[2];
     SkImage* image = shader->isAImage(&outMatrix, xy);
-    if (image->asLegacyBitmap(&outTexture)) {
+    if (image && image->asLegacyBitmap(&outTexture)) {
         if (parentTransform) {
             outMatrix.postConcat(*parentTransform);
         }
 
         SkTScopedComPtr<IXpsOMTileBrush> tileBrush;
-        HR(this->createXpsImageBrush(outTexture, outMatrix, xy, skPaint.getAlpha(), &tileBrush));
+        HR(this->createXpsImageBrush(outTexture.pixmap(), outMatrix, xy, skPaint.getAlpha(),
+                                     &tileBrush));
 
         HRM(tileBrush->QueryInterface<IXpsOMBrush>(brush), "QI failed.");
     } else {
-        HR(this->createXpsSolidColorBrush(skPaint.getColor(), 0xFF, brush));
+        HR(this->createXpsSolidColorBrush(skPaint.getColor4f(), 0xFF, brush));
     }
     return S_OK;
 }
@@ -1132,9 +1127,7 @@ HRESULT SkXPSDevice::createXpsQuad(const SkPoint (&points)[4],
     return S_OK;
 }
 
-void SkXPSDevice::drawPoints(SkCanvas::PointMode mode,
-                             size_t count, const SkPoint points[],
-                             const SkPaint& paint) {
+void SkXPSDevice::drawPoints(SkCanvas::PointMode, SkSpan<const SkPoint>, const SkPaint&) {
     //TODO
 }
 
@@ -1166,28 +1159,20 @@ void SkXPSDevice::drawRect(const SkRect& r,
 
 void SkXPSDevice::drawRRect(const SkRRect& rr,
                             const SkPaint& paint) {
-    SkPath path;
-    path.addRRect(rr);
-    this->drawPath(path, paint, true);
+    this->drawPath(SkPath::RRect(rr), paint);
 }
-
-static SkIRect size(const SkBaseDevice& dev) { return {0, 0, dev.width(), dev.height()}; }
 
 void SkXPSDevice::internalDrawRect(const SkRect& r,
                                    bool transformRect,
                                    const SkPaint& paint) {
     //Exit early if there is nothing to draw.
-    if (this->cs().isEmpty(size(*this)) ||
-        (paint.getAlpha() == 0 && paint.isSrcOver())) {
+    if (this->isClipEmpty() || (paint.getAlpha() == 0 && paint.isSrcOver())) {
         return;
     }
 
     //Path the rect if we can't optimize it.
     if (rect_must_be_pathed(paint, this->localToDevice())) {
-        SkPath tmp;
-        tmp.addRect(r);
-        tmp.setFillType(SkPathFillType::kWinding);
-        this->drawPath(tmp, paint, true);
+        this->drawPath(SkPath::Rect(r), paint);
         return;
     }
 
@@ -1233,7 +1218,7 @@ void SkXPSDevice::internalDrawRect(const SkRect& r,
             { r.fRight, r.fTop },
         };
         if (!xpsTransformsPath && transformRect) {
-            this->localToDevice().mapPoints(points, std::size(points));
+            this->localToDevice().mapPoints(points);
         }
         HRV(this->createXpsQuad(points, stroke, fill, &rectFigure));
     }
@@ -1415,11 +1400,12 @@ HRESULT SkXPSDevice::applyMask(const SkMask& mask,
     xy[0] = (SkTileMode)3;
     xy[1] = (SkTileMode)3;
 
-    SkBitmap bm;
-    bm.installMaskPixels(mask);
+    SkASSERT(mask.fFormat == SkMask::kA8_Format);
+    SkPixmap pm(SkImageInfo::MakeA8(mask.fBounds.width(), mask.fBounds.height()),
+                mask.fImage, mask.fRowBytes);
 
     SkTScopedComPtr<IXpsOMTileBrush> maskBrush;
-    HR(this->createXpsImageBrush(bm, m, xy, 0xFF, &maskBrush));
+    HR(this->createXpsImageBrush(pm, m, xy, 0xFF, &maskBrush));
     HRM(shadedPath->SetOpacityMaskBrushLocal(maskBrush.get()),
         "Could not set mask.");
 
@@ -1492,13 +1478,12 @@ HRESULT SkXPSDevice::shadePath(IXpsOMPath* shadedPath,
 }
 
 void SkXPSDevice::drawPath(const SkPath& platonicPath,
-                           const SkPaint& origPaint,
-                           bool pathIsMutable) {
+                           const SkPaint& origPaint) {
+    bool pathIsMutable = false;
     SkTCopyOnFirstWrite<SkPaint> paint(origPaint);
 
     // nothing to draw
-    if (this->cs().isEmpty(size(*this)) ||
-        (paint->getAlpha() == 0 && paint->isSrcOver())) {
+    if (this->isClipEmpty() || (paint->getAlpha() == 0 && paint->isSrcOver())) {
         return;
     }
 
@@ -1568,12 +1553,16 @@ void SkXPSDevice::drawPath(const SkPath& platonicPath,
         this->convertToPpm(filter,
                            &matrix,
                            &ppuScale,
-                           this->cs().bounds(size(*this)).roundOut(),
+                           this->devClipBounds(),
                            &clipIRect);
 
         //[Fillable-path -> Pixel-path]
         SkPath* pixelPath = pathIsMutable ? fillablePath : &modifiedPath;
-        fillablePath->transform(matrix, pixelPath);
+        *pixelPath = fillablePath->makeTransform(matrix);
+        auto pixelRaw = SkPathPriv::Raw(*pixelPath, SkResolveConvexity::kYes);
+        if (!pixelRaw) {
+            return;
+        }
 
         SkMask* mask = nullptr;
 
@@ -1583,25 +1572,24 @@ void SkXPSDevice::drawPath(const SkPath& platonicPath,
                                             ? SkStrokeRec::kFill_InitStyle
                                             : SkStrokeRec::kHairline_InitStyle;
         //[Pixel-path -> Mask]
-        SkMask rasteredMask;
-        if (SkDraw::DrawToMask(
-                        *pixelPath,
-                        clipIRect,
-                        filter,  //just to compute how much to draw.
-                        &matrix,
-                        &rasteredMask,
-                        SkMask::kComputeBoundsAndRenderImage_CreateMode,
-                        style)) {
+        SkMaskBuilder rasteredMask;
+        if (skcpu::DrawToMask(*pixelRaw,
+                              clipIRect,
+                              filter,  //just to compute how much to draw.
+                              &matrix,
+                              &rasteredMask,
+                              SkMaskBuilder::kComputeBoundsAndRenderImage_CreateMode,
+                              style)) {
 
-            SkAutoMaskFreeImage rasteredAmi(rasteredMask.fImage);
+            SkAutoMaskFreeImage rasteredAmi(rasteredMask.image());
             mask = &rasteredMask;
 
             //[Mask -> Mask]
-            SkMask filteredMask;
+            SkMaskBuilder filteredMask;
             if (as_MFB(filter)->filterMask(&filteredMask, rasteredMask, matrix, nullptr)) {
                 mask = &filteredMask;
             }
-            SkAutoMaskFreeImage filteredAmi(filteredMask.fImage);
+            SkAutoMaskFreeImage filteredAmi(filteredMask.image());
 
             //Draw mask.
             HRV(this->applyMask(*mask, ppuScale, shadedPath.get()));
@@ -1674,7 +1662,7 @@ void SkXPSDevice::drawPath(const SkPath& platonicPath,
     if (!xpsTransformsPath) {
         //[Fillable-path -> Device-path]
         devicePath = pathIsMutable ? xpsCompatiblePath : &modifiedPath;
-        xpsCompatiblePath->transform(matrix, devicePath);
+        *devicePath = xpsCompatiblePath->makeTransform(matrix);
     }
     HRV(this->addXpsPathGeometry(shadedFigures.get(),
                                  stroke, fill, *devicePath));
@@ -1693,9 +1681,8 @@ HRESULT SkXPSDevice::clip(IXpsOMVisual* xpsVisual) {
     if (this->cs().isWideOpen()) {
         return S_OK;
     }
-    SkPath clipPath;
-    // clipPath.addRect(this->cs().bounds(size(*this)));
-    SkClipStack_AsPath(this->cs(), &clipPath);
+    // clipPath.addRect(this->devClipBounds()));
+    SkPath clipPath = SkClipStack_AsPath(this->cs());
     // TODO: handle all the kinds of paths, like drawPath does
     return this->clipToPath(xpsVisual, clipPath, XPS_FILL_RULE_EVENODD);
 }
@@ -1727,7 +1714,7 @@ HRESULT SkXPSDevice::clipToPath(IXpsOMVisual* xpsVisual,
 
 HRESULT SkXPSDevice::CreateTypefaceUse(const SkFont& font,
                                        TypefaceUse** typefaceUse) {
-    SkTypeface* typeface = font.getTypefaceOrDefault();
+    SkTypeface* typeface = font.getTypeface();
 
     //Check cache.
     const SkTypefaceID typefaceID = typeface->uniqueID();
@@ -1772,10 +1759,10 @@ HRESULT SkXPSDevice::CreateTypefaceUse(const SkFont& font,
         "Could not create font resource.");
 
     //TODO: change openStream to return -1 for non-ttc, get rid of this.
-    uint8_t* data = (uint8_t*)fontData->getMemoryBase();
+    const uint8_t* data = (const uint8_t*)fontData->getMemoryBase();
     bool isTTC = (data &&
                   fontData->getLength() >= sizeof(SkTTCFHeader) &&
-                  ((SkTTCFHeader*)data)->ttcTag == SkTTCFHeader::TAG);
+                  ((const SkTTCFHeader*)data)->ttcTag == SkTTCFHeader::TAG);
 
     int glyphCount = typeface->countGlyphs();
 
@@ -1894,8 +1881,7 @@ static bool text_must_be_pathed(const SkPaint& paint, const SkMatrix& matrix) {
 
 void SkXPSDevice::onDrawGlyphRunList(SkCanvas*,
                                      const sktext::GlyphRunList& glyphRunList,
-                                     const SkPaint& initailPaint,
-                                     const SkPaint& drawingPaint) {
+                                     const SkPaint& paint) {
     SkASSERT(!glyphRunList.hasRSXForm());
 
     for (const auto& run : glyphRunList) {
@@ -1909,7 +1895,7 @@ void SkXPSDevice::onDrawGlyphRunList(SkCanvas*,
 
         TypefaceUse* typeface;
         if (FAILED(CreateTypefaceUse(font, &typeface)) ||
-            text_must_be_pathed(drawingPaint, this->localToDevice())) {
+            text_must_be_pathed(paint, this->localToDevice())) {
             SkPath path;
             //TODO: make this work, Draw currently does not handle as well.
             //paint.getTextPath(text, byteLength, x, y, &path);
@@ -1958,16 +1944,16 @@ void SkXPSDevice::onDrawGlyphRunList(SkCanvas*,
                       SkScalarToFLOAT(font.getSize()),
                       XPS_STYLE_SIMULATION_NONE,
                       this->localToDevice(),
-                      drawingPaint));
+                      paint));
     }
 }
 
-void SkXPSDevice::drawDevice(SkBaseDevice* dev, const SkSamplingOptions&, const SkPaint&) {
+void SkXPSDevice::drawDevice(SkDevice* dev, const SkSamplingOptions&, const SkPaint&) {
     SkXPSDevice* that = static_cast<SkXPSDevice*>(dev);
     SkASSERT(that->fTopTypefaces == this->fTopTypefaces);
 
     SkTScopedComPtr<IXpsOMMatrixTransform> xpsTransform;
-    HRVM(this->createXpsTransform(dev->getRelativeTransform(*this), &xpsTransform),
+    HRVM(this->createXpsTransform(dev->getRelativeTransform(*this).asM33(), &xpsTransform),
          "Could not create layer transform.");
     HRVM(that->fCurrentXpsCanvas->SetTransformLocal(xpsTransform.get()),
          "Could not set layer transform.");
@@ -1980,19 +1966,8 @@ void SkXPSDevice::drawDevice(SkBaseDevice* dev, const SkSamplingOptions&, const 
          "Could not add layer to current visuals.");
 }
 
-SkBaseDevice* SkXPSDevice::onCreateDevice(const CreateInfo& info, const SkPaint*) {
-//Conditional for bug compatibility with PDF device.
-#if 0
-    if (SkBaseDevice::kGeneral_Usage == info.fUsage) {
-        return nullptr;
-        //To what stream do we write?
-        //SkXPSDevice* dev = new SkXPSDevice(this);
-        //SkSize s = SkSize::Make(width, height);
-        //dev->BeginCanvas(s, s, SkMatrix::I());
-        //return dev;
-    }
-#endif
-    SkXPSDevice* dev = new SkXPSDevice(info.fInfo.dimensions());
+sk_sp<SkDevice> SkXPSDevice::createDevice(const CreateInfo& info, const SkPaint*) {
+    sk_sp<SkXPSDevice> dev = sk_make_sp<SkXPSDevice>(info.fInfo.dimensions(), fOpts);
     dev->fXpsFactory.reset(SkRefComPtr(fXpsFactory.get()));
     dev->fCurrentCanvasSize = this->fCurrentCanvasSize;
     dev->fCurrentUnitsPerMeter = this->fCurrentUnitsPerMeter;
@@ -2003,9 +1978,7 @@ SkBaseDevice* SkXPSDevice::onCreateDevice(const CreateInfo& info, const SkPaint*
 }
 
 void SkXPSDevice::drawOval( const SkRect& o, const SkPaint& p) {
-    SkPath path;
-    path.addOval(o);
-    this->drawPath(path, p, true);
+    this->drawPath(SkPath::Oval(o), p);
 }
 
 void SkXPSDevice::drawImageRect(const SkImage* image,
@@ -2022,7 +1995,7 @@ void SkXPSDevice::drawImageRect(const SkImage* image,
 
     SkRect bitmapBounds = SkRect::Make(bitmap.bounds());
     SkRect srcBounds = src ? *src : bitmapBounds;
-    SkMatrix matrix = SkMatrix::RectToRect(srcBounds, dst);
+    SkMatrix matrix = SkMatrix::RectToRectOrIdentity(srcBounds, dst);
     SkRect actualDst;
     if (!src || bitmapBounds.contains(*src)) {
         actualDst = dst;

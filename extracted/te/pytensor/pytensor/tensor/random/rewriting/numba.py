@@ -1,6 +1,6 @@
 from pytensor.compile import optdb
 from pytensor.graph import node_rewriter
-from pytensor.graph.rewriting.basic import out2in
+from pytensor.graph.rewriting.basic import copy_stack_trace, dfs_rewriter
 from pytensor.tensor import as_tensor, constant
 from pytensor.tensor.random.op import RandomVariable, RandomVariableWithCoreShape
 from pytensor.tensor.rewriting.shape import ShapeFeature
@@ -53,10 +53,10 @@ def introduce_explicit_core_shape_rv(fgraph, node):
             #  ← dirichlet_rv{"(a)->(a)"}.1 [id F]
             #     └─ ···
     """
-    op: RandomVariable = node.op  # type: ignore[annotation-unchecked]
+    op: RandomVariable = node.op
 
-    next_rng, rv = node.outputs
-    shape_feature: ShapeFeature | None = getattr(fgraph, "shape_feature", None)  # type: ignore[annotation-unchecked]
+    _next_rng, rv = node.outputs
+    shape_feature: ShapeFeature | None = getattr(fgraph, "shape_feature", None)
     if shape_feature:
         core_shape = [
             shape_feature.get_shape(rv, -i - 1) for i in reversed(range(op.ndim_supp))
@@ -69,7 +69,7 @@ def introduce_explicit_core_shape_rv(fgraph, node):
     else:
         core_shape = as_tensor(core_shape)
 
-    return (
+    new_outs = (
         RandomVariableWithCoreShape(
             [core_shape, *node.inputs],
             node.outputs,
@@ -78,11 +78,13 @@ def introduce_explicit_core_shape_rv(fgraph, node):
         .make_node(core_shape, *node.inputs)
         .outputs
     )
+    copy_stack_trace(node.outputs, new_outs)
+    return new_outs
 
 
 optdb.register(
     introduce_explicit_core_shape_rv.__name__,
-    out2in(introduce_explicit_core_shape_rv),
+    dfs_rewriter(introduce_explicit_core_shape_rv),
     "numba",
     position=100,
 )

@@ -3,15 +3,18 @@ import contextlib
 import time
 import uuid
 from collections.abc import Mapping, Sequence
-from typing import Any, NamedTuple, cast
+from typing import TYPE_CHECKING, Any, NamedTuple, cast
 from uuid import UUID
 
 import structlog
-from starlette.authentication import BaseUser
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
+from langgraph_api.encryption.middleware import encrypt_request
+from langgraph_api.feature_flags import FF_USE_CORE_API
 from langgraph_api.graph import GRAPHS, get_assistant_id
+from langgraph_api.grpc.ops import Runs as GrpcRuns
+from langgraph_api.otel_context import inject_current_trace_context
 from langgraph_api.schema import (
     All,
     Config,
@@ -24,10 +27,16 @@ from langgraph_api.schema import (
     RunCommand,
     StreamMode,
 )
-from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx
+from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx, get_user_id
 from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.utils.uuids import uuid7
+from langgraph_api.webhook import validate_webhook_url_or_raise
 from langgraph_runtime.ops import Runs
+
+CrudRuns = GrpcRuns if FF_USE_CORE_API else Runs
+
+if TYPE_CHECKING:
+    from starlette.authentication import BaseUser
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -82,13 +91,13 @@ class RunCreateDict(TypedDict):
     stream_mode: list[StreamMode] | StreamMode
     """One or more of "values", "messages", "updates" or "events".
     - "values": Stream the thread state any time it changes.
-    - "messages": Stream chat messages from thread state and calls to chat models, 
+    - "messages": Stream chat messages from thread state and calls to chat models,
       token-by-token where possible.
     - "updates": Stream the state updates returned by each node.
     - "events": Stream all events produced by sub-runs (eg. nodes, LLMs, etc.).
     - "custom": Stream custom events produced by your nodes.
-    
-    Note: __interrupt__ events are always included in the updates stream, even when "updates" 
+
+    Note: __interrupt__ events are always included in the updates stream, even when "updates"
     is not explicitly requested, to ensure interrupt events are always visible.
     """
     stream_subgraphs: bool | None
@@ -166,18 +175,6 @@ def assign_defaults(
     return stream_mode, multitask_strategy, prevent_insert_if_inflight
 
 
-def get_user_id(user: BaseUser | None) -> str | None:
-    if user is None:
-        return None
-    try:
-        return user.identity
-    except NotImplementedError:
-        try:
-            return user.display_name
-        except NotImplementedError:
-            pass
-
-
 async def create_valid_run(
     conn: AsyncConnectionProto,
     thread_id: str | None,
@@ -238,10 +235,12 @@ async def create_valid_run(
     if checkpoint := payload.get("checkpoint"):
         configurable.update(checkpoint)
     configurable.update(get_configurable_headers(headers))
+    inject_current_trace_context(configurable)
     ctx = get_auth_ctx()
     if ctx:
-        user = cast(BaseUser | None, ctx.user)
+        user = cast("BaseUser | None", ctx.user)
         user_id = get_user_id(user)
+        # Store user as-is; encryption middleware will serialize if needed
         configurable["langgraph_auth_user"] = user
         configurable["langgraph_auth_user_id"] = user_id
         configurable["langgraph_auth_permissions"] = ctx.permissions
@@ -254,8 +253,10 @@ async def create_valid_run(
         configurable["__langsmith_example_id__"] = ls_tracing.get("example_id")
     if request_start_time:
         configurable["__request_start_time_ms__"] = request_start_time
-    after_seconds = cast(int, payload.get("after_seconds", 0))
+    after_seconds = cast("int", payload.get("after_seconds", 0))
     configurable["__after_seconds__"] = after_seconds
+    # Note: encryption context is injected by encrypt_request → encrypt_json_if_needed
+    # as the __encryption_context__ marker. Worker reads it before decryption.
     put_time_start = time.time()
     if_not_exists = payload.get("if_not_exists", "reject")
 
@@ -264,14 +265,31 @@ async def create_valid_run(
         checkpoint_during = payload.get("checkpoint_during")
         durability = "async" if checkpoint_during in (None, True) else "exit"
 
-    run_coro = Runs.put(
+    if webhook := payload.get("webhook"):
+        await validate_webhook_url_or_raise(str(webhook))
+
+    # We can't pass payload directly because config and context have
+    # been modified above (with auth context, checkpoint info, etc.)
+    encrypted = await encrypt_request(
+        {
+            "metadata": payload.get("metadata"),
+            "input": payload.get("input"),
+            "config": config,
+            "context": context,
+            "command": payload.get("command"),
+        },
+        "run",
+        ["metadata", "input", "config", "context", "command"],
+    )
+
+    run_coro = CrudRuns.put(
         conn,
         assistant_id,
         {
-            "input": payload.get("input"),
-            "command": payload.get("command"),
-            "config": config,
-            "context": context,
+            "input": encrypted.get("input"),
+            "command": encrypted.get("command"),
+            "config": encrypted.get("config"),
+            "context": encrypted.get("context"),
             "stream_mode": stream_mode,
             "interrupt_before": payload.get("interrupt_before"),
             "interrupt_after": payload.get("interrupt_after"),
@@ -283,7 +301,7 @@ async def create_valid_run(
             "checkpoint_during": payload.get("checkpoint_during", True),
             "durability": durability,
         },
-        metadata=payload.get("metadata"),
+        metadata=encrypted.get("metadata"),
         status="pending",
         user_id=user_id,
         thread_id=thread_id_,
@@ -332,7 +350,7 @@ async def create_valid_run(
         if multitask_strategy in ("interrupt", "rollback") and inflight_runs:
             with contextlib.suppress(HTTPException):
                 # if we can't find the inflight runs again, we can proceeed
-                await Runs.cancel(
+                await CrudRuns.cancel(
                     conn,
                     [run["run_id"] for run in inflight_runs],
                     thread_id=thread_id_,

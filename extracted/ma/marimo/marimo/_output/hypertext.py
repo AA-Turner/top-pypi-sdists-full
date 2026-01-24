@@ -1,11 +1,11 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
 import weakref
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, Optional, cast, final
+from typing import TYPE_CHECKING, Any, Literal, Optional, cast
 
 from marimo._messaging.mimetypes import KnownMimeType
 from marimo._output.mime import MIME
@@ -136,23 +136,23 @@ class Html(MIME):
         """A string of HTML representing this element."""
         return self._text
 
-    @final
     def _mime_(self) -> tuple[KnownMimeType, str]:
-        no_js = os.getenv("MARIMO_NO_JS", "false").lower() == "true"
-        if no_js and hasattr(self, "_repr_png_"):
-            return (
-                "image/png",
-                cast(
-                    str, cast(Any, self)._repr_png_().decode()
-                ),  # ignore[no-untyped-call]
-            )
-        if no_js and hasattr(self, "_repr_markdown_"):
-            return (
-                "text/markdown",
-                cast(
-                    str, cast(Any, self)._repr_markdown_()
-                ),  # ignore[no-untyped-call]
-            )
+        if not is_no_js():
+            return ("text/html", self.text)
+
+        # Try PNG representation first (for objects with _repr_png_)
+        repr_png = getattr(self, "_repr_png_", None)
+        if repr_png is not None and callable(repr_png):
+            png_bytes = cast(bytes, repr_png())
+            return ("image/png", png_bytes.decode())
+
+        # Try markdown representation (for objects with _repr_markdown_)
+        repr_markdown = getattr(self, "_repr_markdown_", None)
+        if repr_markdown is not None and callable(repr_markdown):
+            markdown_text = cast(str, repr_markdown())
+            return ("text/markdown", markdown_text)
+
+        # Default to HTML
         return ("text/html", self.text)
 
     def __format__(self, spec: str) -> str:
@@ -289,9 +289,7 @@ class Html(MIME):
         return self.text
 
 
-def _js(text: str) -> Html:
-    # TODO: interpolation of Python values to javascript
-    return Html("<script>" + text + "</script>")
+MARIMO_NO_JS_KEY = "MARIMO_NO_JS"
 
 
 @contextmanager
@@ -304,9 +302,18 @@ def patch_html_for_non_interactive_output() -> Iterator[None]:
     # thread
     # This won't work when we are running a marimo server and are auto-exporting
     # with this enabled.
-    old_no_js = os.getenv("MARIMO_NO_JS", "false")
+    old_no_js = os.getenv(MARIMO_NO_JS_KEY, "false")
     try:
-        os.environ["MARIMO_NO_JS"] = "true"
+        os.environ[MARIMO_NO_JS_KEY] = "true"
         yield
     finally:
-        os.environ["MARIMO_NO_JS"] = old_no_js
+        os.environ[MARIMO_NO_JS_KEY] = old_no_js
+
+
+def is_no_js() -> bool:
+    """Whether to render HTML objects as best as possible assuming
+    that this will be rendered without javascript.
+
+    For example, prefer images or markdown over rich HTML output.
+    """
+    return os.getenv(MARIMO_NO_JS_KEY, "false").lower() == "true"

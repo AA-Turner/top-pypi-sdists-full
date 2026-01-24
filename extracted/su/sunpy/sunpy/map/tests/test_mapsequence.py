@@ -14,7 +14,6 @@ import sunpy.data.test
 import sunpy.map
 from sunpy.data.test import get_test_filepath
 from sunpy.tests.helpers import figure_test, skip_glymur
-from sunpy.util.exceptions import SunpyDeprecationWarning
 from sunpy.util.metadata import MetaDict
 
 
@@ -51,28 +50,6 @@ def mapsequence_different(aia171_test_map):
     """ Mapsequence allows that the size of the image data in each map be
     different. This mapsequence contains such maps."""
     return sunpy.map.Map([aia171_test_map, aia171_test_map.superpixel((4, 4) * u.pix)], sequence=True)
-
-
-def test_deprecations(mapsequence_all_the_same,
-                      mapsequence_different):
-    # TODO: Remove this in v7.1
-    with pytest.warns(SunpyDeprecationWarning,
-                      match="The all_maps_same_shape function is deprecated and will be removed in sunpy 7.1. Use the all_same_shape property instead."):
-        mapsequence_all_the_same.all_maps_same_shape()
-    with pytest.warns(SunpyDeprecationWarning,
-                      match='The at_least_one_map_has_mask function is deprecated and will be removed in sunpy 7.1. Use the mask property instead.'):
-        mapsequence_all_the_same.at_least_one_map_has_mask()
-    with pytest.warns(SunpyDeprecationWarning,
-                      match='The as_array function is deprecated and will be removed in sunpy 7.1. Use the data and mask properties instead.'):
-        with pytest.raises(ValueError, match='Not all maps have the same shape.'):
-            mapsequence_different.as_array()
-    with pytest.warns(SunpyDeprecationWarning,
-                      match="The all_meta function is deprecated and will be removed in sunpy 7.1. Use the meta property instead."):
-        mapsequence_all_the_same.all_meta()
-    with pytest.raises(NotImplementedError):
-        with pytest.warns(SunpyDeprecationWarning,
-                          match='"derotate" was deprecated in version 6.1 and will be removed in a future version.'):
-            sunpy.map.MapSequence(derotate=True)
 
 
 def test_as_array_different_shapes(mapsequence_different):
@@ -214,6 +191,13 @@ def test_map_sequence_plot_clip_interval(aia171_test_map):
     # We want to blow the image out to make sure it is clipped on the test data
     animation = seq.plot(clip_interval=(5,75)*u.percent)
     animation._step()
+
+
+@figure_test
+def test_map_sequence_plot_custom_title(aia171_test_map):
+    # Test that custom plot title shows up even when annotate=True
+    seq = sunpy.map.Map([aia171_test_map, aia171_test_map], sequence=True)
+    seq.plot(title='Custom Title', annotate=True)
 
 
 @skip_glymur

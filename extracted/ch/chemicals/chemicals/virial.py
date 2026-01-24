@@ -109,49 +109,66 @@ Third Virial Correlations Dense Implementations
 .. autofunction:: chemicals.virial.CVirial_Liu_Xiang_mat
 .. autofunction:: chemicals.virial.CVirial_Orbey_Vera_mat
 """
+from __future__ import annotations
 
-
-__all__ = ['BVirial_Pitzer_Curl', 'BVirial_Pitzer_Curl_fast',
-           'BVirial_Pitzer_Curl_vec', 'BVirial_Pitzer_Curl_mat',
-
-           'BVirial_Abbott', 'BVirial_Abbott_fast',
-           'BVirial_Abbott_vec', 'BVirial_Abbott_mat',
-
-           'BVirial_Tsonopoulos', 'BVirial_Tsonopoulos_fast',
-           'BVirial_Tsonopoulos_vec', 'BVirial_Tsonopoulos_mat',
-
-           'BVirial_Tsonopoulos_extended',
-           'BVirial_Tsonopoulos_extended_fast',
-           'BVirial_Tsonopoulos_extended_vec',
-           'BVirial_Tsonopoulos_extended_mat',
-
-           'Meng_virial_a', 'BVirial_Meng',
-           'BVirial_Meng_vec', 'BVirial_Meng_mat',
-
-           'BVirial_Oconnell_Prausnitz','BVirial_Oconnell_Prausnitz_vec',
-           'BVirial_Oconnell_Prausnitz_mat',
-
-           'BVirial_Xiang', 'BVirial_Xiang_vec', 'BVirial_Xiang_mat',
-
-           'BVirial_mixture', 'dBVirial_mixture_dzs',
-           'd2BVirial_mixture_dzizjs', 'd3BVirial_mixture_dzizjzks',
-
-           'dCVirial_mixture_Orentlicher_Prausnitz_dzs',
-           'd2CVirial_mixture_Orentlicher_Prausnitz_dzizjs',
-           'd3CVirial_mixture_Orentlicher_Prausnitz_dzizjzks',
-
-           'B_to_Z', 'B_from_Z', 'Z_from_virial_density_form',
-           'Z_from_virial_pressure_form', 'CVirial_Orbey_Vera', 'CVirial_Liu_Xiang',
-           'CVirial_Liu_Xiang_mat', 'CVirial_Liu_Xiang_vec',
-           'CVirial_Orbey_Vera_vec', 'CVirial_Orbey_Vera_mat',
-           'CVirial_mixture_Orentlicher_Prausnitz', 'dCVirial_mixture_dT_Orentlicher_Prausnitz',
-           'd2CVirial_mixture_dT2_Orentlicher_Prausnitz',
-           'd3CVirial_mixture_dT3_Orentlicher_Prausnitz',
-           'd2CVirial_mixture_Orentlicher_Prausnitz_dTdzs',
-           'Tarakad_Danner_virial_CSP_kijs', 'Tarakad_Danner_virial_CSP_Tcijs',
-           'Tarakad_Danner_virial_CSP_Pcijs', 'Tarakad_Danner_virial_CSP_omegaijs',
-           'Meng_Duan_2005_virial_CSP_kijs', 'Lee_Kesler_virial_CSP_Vcijs',
-           'dV_dzs_virial', 'd2V_dzizjs_virial']
+__all__: list[str] = [
+    "BVirial_Abbott",
+    "BVirial_Abbott_fast",
+    "BVirial_Abbott_mat",
+    "BVirial_Abbott_vec",
+    "BVirial_Meng",
+    "BVirial_Meng_mat",
+    "BVirial_Meng_vec",
+    "BVirial_Oconnell_Prausnitz",
+    "BVirial_Oconnell_Prausnitz_mat",
+    "BVirial_Oconnell_Prausnitz_vec",
+    "BVirial_Pitzer_Curl",
+    "BVirial_Pitzer_Curl_fast",
+    "BVirial_Pitzer_Curl_mat",
+    "BVirial_Pitzer_Curl_vec",
+    "BVirial_Tsonopoulos",
+    "BVirial_Tsonopoulos_extended",
+    "BVirial_Tsonopoulos_extended_fast",
+    "BVirial_Tsonopoulos_extended_mat",
+    "BVirial_Tsonopoulos_extended_vec",
+    "BVirial_Tsonopoulos_fast",
+    "BVirial_Tsonopoulos_mat",
+    "BVirial_Tsonopoulos_vec",
+    "BVirial_Xiang",
+    "BVirial_Xiang_mat",
+    "BVirial_Xiang_vec",
+    "BVirial_mixture",
+    "B_from_Z",
+    "B_to_Z",
+    "CVirial_Liu_Xiang",
+    "CVirial_Liu_Xiang_mat",
+    "CVirial_Liu_Xiang_vec",
+    "CVirial_Orbey_Vera",
+    "CVirial_Orbey_Vera_mat",
+    "CVirial_Orbey_Vera_vec",
+    "CVirial_mixture_Orentlicher_Prausnitz",
+    "Lee_Kesler_virial_CSP_Vcijs",
+    "Meng_Duan_2005_virial_CSP_kijs",
+    "Meng_virial_a",
+    "Tarakad_Danner_virial_CSP_Pcijs",
+    "Tarakad_Danner_virial_CSP_Tcijs",
+    "Tarakad_Danner_virial_CSP_kijs",
+    "Tarakad_Danner_virial_CSP_omegaijs",
+    "Z_from_virial_density_form",
+    "Z_from_virial_pressure_form",
+    "d2BVirial_mixture_dzizjs",
+    "d2CVirial_mixture_Orentlicher_Prausnitz_dTdzs",
+    "d2CVirial_mixture_Orentlicher_Prausnitz_dzizjs",
+    "d2CVirial_mixture_dT2_Orentlicher_Prausnitz",
+    "d2V_dzizjs_virial",
+    "d3BVirial_mixture_dzizjzks",
+    "d3CVirial_mixture_Orentlicher_Prausnitz_dzizjzks",
+    "d3CVirial_mixture_dT3_Orentlicher_Prausnitz",
+    "dBVirial_mixture_dzs",
+    "dCVirial_mixture_Orentlicher_Prausnitz_dzs",
+    "dCVirial_mixture_dT_Orentlicher_Prausnitz",
+    "dV_dzs_virial",
+]
 
 
 from fluids.constants import R, R_inv
@@ -159,8 +176,8 @@ from fluids.numerics import cbrt, exp, log, roots_cubic, sqrt
 from fluids.numerics import numpy as np
 
 
-def B_to_Z(B, T, P):
-    r'''Calculates the compressibility factor of a gas, given its
+def B_to_Z(B: float, T: float, P: float) -> float:
+    r"""Calculates the compressibility factor of a gas, given its
     second virial coefficient.
 
     .. math::
@@ -193,12 +210,12 @@ def B_to_Z(B, T, P):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     return 1. + B*P/(R*T)
 
 
-def B_from_Z(Z, T, P):
-    r'''Calculates the second virial coefficient of a pure species, given the
+def B_from_Z(Z: float, T: float, P: float) -> float:
+    r"""Calculates the second virial coefficient of a pure species, given the
     compressibility factor of the gas.
 
     .. math::
@@ -231,12 +248,12 @@ def B_from_Z(Z, T, P):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     return (Z - 1.0)*R*T/P
 
 
 def Z_from_virial_density_form(T, P, coeffs=tuple()):
-    r'''Calculates the compressibility factor of a gas given its temperature,
+    r"""Calculates the compressibility factor of a gas given its temperature,
     pressure, and molar density-form virial coefficients. Any number of
     coefficients is supported.
 
@@ -255,7 +272,7 @@ def Z_from_virial_density_form(T, P, coeffs=tuple()):
         - First coefficient (n=1): Second virial coefficient B [m³/mol]
         - Second coefficient (n=2): Third virial coefficient C [m³/mol²]
         - Third coefficient (n=3): Fourth virial coefficient D [m³/mol³]
-    
+
     Returns
     -------
     Z : float
@@ -289,11 +306,11 @@ def Z_from_virial_density_form(T, P, coeffs=tuple()):
        edition. Upper Saddle River, N.J: Prentice Hall, 1998.
     .. [2] Walas, Stanley M. Phase Equilibria in Chemical Engineering.
        Butterworth-Heinemann, 1985.
-    '''
+    """
     if coeffs is None:
         return 1.0
     l = len(coeffs)
-    if l == 1 or l==2 and coeffs[1] == 0.0:
+    if l == 1 or (l==2 and coeffs[1] == 0.0):
         B = coeffs[0]
         determining_factor = 4.0*B*P + R*T
         if determining_factor < 0.0:
@@ -323,7 +340,7 @@ def Z_from_virial_density_form(T, P, coeffs=tuple()):
 
 
 def Z_from_virial_pressure_form(P, coeffs=tuple()):
-    r'''Calculates the compressibility factor of a gas given its pressure, and
+    r"""Calculates the compressibility factor of a gas given its pressure, and
     pressure-form virial coefficients. Any number of coefficients is supported.
 
     .. math::
@@ -374,7 +391,7 @@ def Z_from_virial_pressure_form(P, coeffs=tuple()):
        edition. Upper Saddle River, N.J: Prentice Hall, 1998.
     .. [2] Walas, Stanley M. Phase Equilibria in Chemical Engineering.
        Butterworth-Heinemann, 1985.
-    '''
+    """
     if not coeffs:
         return 1.0
     tot = 0.0
@@ -388,7 +405,7 @@ def Z_from_virial_pressure_form(P, coeffs=tuple()):
 ### Second Virial Coefficients
 
 def BVirial_mixture(zs, Bijs):
-    r'''Calculate the `B` second virial coefficient from a matrix of
+    r"""Calculate the `B` second virial coefficient from a matrix of
     virial cross-coefficients. The diagonal is virial coefficients of the
     pure components.
 
@@ -421,7 +438,7 @@ def BVirial_mixture(zs, Bijs):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     B = 0.0
     N = len(Bijs)
     for i in range(N):
@@ -433,7 +450,7 @@ def BVirial_mixture(zs, Bijs):
     return B
 
 def dBVirial_mixture_dzs(zs, Bijs, dB_dzs=None):
-    r'''Calculate first mole fraction derivative of the `B` second virial
+    r"""Calculate first mole fraction derivative of the `B` second virial
     coefficient from a matrix of virial cross-coefficients.
 
     .. math::
@@ -464,7 +481,7 @@ def dBVirial_mixture_dzs(zs, Bijs, dB_dzs=None):
     >>> zs = [.5, .3, .2]
     >>> dBVirial_mixture_dzs(zs=zs, Bijs=Bijs)
     [-3.4089e-05, -7.2301e-05, -0.00012621]
-    '''
+    """
     N = len(Bijs)
     if dB_dzs is None:
         dB_dzs = [0.0]*N
@@ -492,7 +509,7 @@ def dBVirial_mixture_dzs(zs, Bijs, dB_dzs=None):
     return dB_dzs
 
 def d2BVirial_mixture_dzizjs(zs, Bijs, d2B_dzizjs=None):
-    r'''Calculate second mole fraction derivative of the `B` second virial
+    r"""Calculate second mole fraction derivative of the `B` second virial
     coefficient from a matrix of virial cross-coefficients.
 
     .. math::
@@ -524,7 +541,7 @@ def d2BVirial_mixture_dzizjs(zs, Bijs, d2B_dzizjs=None):
     >>> zs = [.5, .3, .2]
     >>> d2BVirial_mixture_dzizjs(zs=zs, Bijs=Bijs)
     [[-1.248e-05, -4.023e-05, -7.89e-05], [-4.023e-05, -8.782e-05, -0.0001292], [-7.89e-05, -0.0001292, -0.00024]]
-    '''
+    """
     N = len(Bijs)
     if d2B_dzizjs is None:
         d2B_dzizjs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -537,7 +554,7 @@ def d2BVirial_mixture_dzizjs(zs, Bijs, d2B_dzizjs=None):
     return d2B_dzizjs
 
 def d3BVirial_mixture_dzizjzks(zs, Bijs, d3B_dzizjzks=None):
-    r'''Calculate third mole fraction derivative of the `B` third virial
+    r"""Calculate third mole fraction derivative of the `B` third virial
     coefficient from a matrix of virial cross-coefficients.
 
     .. math::
@@ -568,7 +585,7 @@ def d3BVirial_mixture_dzizjzks(zs, Bijs, d3B_dzizjzks=None):
     >>> zs = [.5, .3, .2]
     >>> d3BVirial_mixture_dzizjzks(zs=zs, Bijs=Bijs)
     [[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]]
-    '''
+    """
     N = len(Bijs)
     if d3B_dzizjzks is None:
         d3B_dzizjzks = [[[0.0]*N for _ in range(N)] for _ in range(N)] # numba: delete
@@ -579,7 +596,7 @@ def d3BVirial_mixture_dzizjzks(zs, Bijs, d3B_dzizjzks=None):
 ### B correlations
 
 def BVirial_Oconnell_Prausnitz(T, Tc, Pc, omega):
-    r'''Calculates the second virial coefficient using the model in [1]_.
+    r"""Calculates the second virial coefficient using the model in [1]_.
 
     .. math::
         B_r=B^{(0)}+\omega B^{(1)}
@@ -643,7 +660,7 @@ def BVirial_Oconnell_Prausnitz(T, Tc, Pc, omega):
        Second Virial Coefficients for Vapor-Liquid Equilibrium Calculations."
        Industrial & Engineering Chemistry Process Design and Development 6,
        no. 2 (April 1, 1967): 245-50. https://doi.org/10.1021/i260022a016.
-    '''
+    """
     c0 = 0.1445
     c1 = -0.330
     c2 = -0.1385
@@ -678,7 +695,7 @@ def BVirial_Oconnell_Prausnitz(T, Tc, Pc, omega):
 
 def BVirial_Oconnell_Prausnitz_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the O'connell Prausnitz B virial coefficient model
+    r"""Perform a vectorized calculation of the O'connell Prausnitz B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -719,7 +736,7 @@ def BVirial_Oconnell_Prausnitz_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -739,7 +756,7 @@ def BVirial_Oconnell_Prausnitz_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
 def BVirial_Oconnell_Prausnitz_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Oconnell_Prausnitz B virial coefficient model
+    r"""Perform a matrix calculation of the Oconnell_Prausnitz B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -780,7 +797,7 @@ def BVirial_Oconnell_Prausnitz_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -812,8 +829,8 @@ def BVirial_Oconnell_Prausnitz_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
             d3B_row[j] = d3B
     return Bs, dB_dTs, d2B_dT2s, d3B_dT3s
 
-def BVirial_Pitzer_Curl(T, Tc, Pc, omega, order=0):
-    r'''Calculates the second virial coefficient using the model in [1]_.
+def BVirial_Pitzer_Curl(T: float, Tc: float, Pc: float, omega: float, order: int=0) -> float:
+    r"""Calculates the second virial coefficient using the model in [1]_.
     Designed for simple calculations.
 
     .. math::
@@ -906,7 +923,7 @@ def BVirial_Pitzer_Curl(T, Tc, Pc, omega, order=0):
        Thermodynamic Properties of Fluids. III. Empirical Equation for the
        Second Virial Coefficient1." Journal of the American Chemical Society
        79, no. 10 (May 1, 1957): 2369-70. doi:10.1021/ja01567a007.
-    '''
+    """
     Tr = T/Tc
     if order == 0:
         B0 = 0.1445 - 0.33/Tr - 0.1385/Tr**2 - 0.0121/Tr**3
@@ -927,12 +944,12 @@ def BVirial_Pitzer_Curl(T, Tc, Pc, omega, order=0):
         B0 = 289*T**2/4000 - 33*T*Tc*log(T)/100 + 33*T*Tc/100 + 277*Tc**2*log(T)/2000 - 121*Tc**3/(20000*T)
         B1 = 73*T**2/2000 + 23*T*Tc*log(T)/50 - 23*T*Tc/50 + Tc**2*log(T)/2 - (20370*T**5*Tc**3 + 73*Tc**8)/(420000*T**6)
     else:
-        raise ValueError('Only orders -2, -1, 0, 1, 2 and 3 are supported.')
+        raise ValueError("Only orders -2, -1, 0, 1, 2 and 3 are supported.")
     Br = B0 + omega*B1
     return Br*R*Tc/Pc
 
 def BVirial_Pitzer_Curl_fast(T, Tc, Pc, omega):
-    r'''Implementation of :obj:`BVirial_Pitzer_Curl` in the interface
+    r"""Implementation of :obj:`BVirial_Pitzer_Curl` in the interface
     which calculates virial coefficients and their derivatives at the
     same time.
 
@@ -968,7 +985,7 @@ def BVirial_Pitzer_Curl_fast(T, Tc, Pc, omega):
     --------
     >>> BVirial_Pitzer_Curl_fast(510., 425.2, 38E5, 0.193)
     (-0.000208453624, 1.065377516e-06, -5.7957101e-09, 4.513533043e-11)
-    '''
+    """
     c0 = 0.1445
     c1 =  - 0.33
     c2 = - 0.1385
@@ -1007,7 +1024,7 @@ def BVirial_Pitzer_Curl_fast(T, Tc, Pc, omega):
 
 def BVirial_Pitzer_Curl_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the Pitzer-Curl B virial coefficient model
+    r"""Perform a vectorized calculation of the Pitzer-Curl B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -1048,7 +1065,7 @@ def BVirial_Pitzer_Curl_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -1068,7 +1085,7 @@ def BVirial_Pitzer_Curl_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
 def BVirial_Pitzer_Curl_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Pitzer-Curl B virial coefficient model
+    r"""Perform a matrix calculation of the Pitzer-Curl B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -1109,7 +1126,7 @@ def BVirial_Pitzer_Curl_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -1142,7 +1159,7 @@ def BVirial_Pitzer_Curl_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
     return Bs, dB_dTs, d2B_dT2s, d3B_dT3s
 
 def BVirial_Abbott(T, Tc, Pc, omega, order=0):
-    r'''Calculates the second virial coefficient using the model in [1]_.
+    r"""Calculates the second virial coefficient using the model in [1]_.
     Simple fit to the Lee-Kesler equation.
 
     .. math::
@@ -1233,7 +1250,7 @@ def BVirial_Abbott(T, Tc, Pc, omega, order=0):
     ----------
     .. [1] Smith, H. C. Van Ness Joseph M. Introduction to Chemical Engineering
        Thermodynamics 4E 1987.
-    '''
+    """
     Tr = T/Tc
     if order == 0:
         B0 = 0.083 - 0.422/Tr**1.6
@@ -1254,12 +1271,12 @@ def BVirial_Abbott(T, Tc, Pc, omega, order=0):
         B0 = 0.0415*T**2 + 211/120.*Tc**2*Tr**0.4
         B1 = 0.0695*T**2 - 43/1760.*Tc**2*Tr**(-2.2)
     else:
-        raise ValueError('Only orders -2, -1, 0, 1, 2 and 3 are supported.')
+        raise ValueError("Only orders -2, -1, 0, 1, 2 and 3 are supported.")
     Br = B0 + omega*B1
     return Br*R*Tc/Pc
 
 def BVirial_Abbott_fast(T, Tc, Pc, omega):
-    r'''Implementation of :obj:`BVirial_Abbott` in the interface
+    r"""Implementation of :obj:`BVirial_Abbott` in the interface
     which calculates virial coefficients and their derivatives at the
     same time.
 
@@ -1295,7 +1312,7 @@ def BVirial_Abbott_fast(T, Tc, Pc, omega):
     --------
     >>> BVirial_Abbott_fast(510., 425.2, 38E5, 0.193)
     (-0.0002057018500, 1.039249294e-06, -5.902233639e-09, 4.78222764e-11)
-    '''
+    """
     c0 = 0.083
     c1 = -0.422
     d0 = 0.139
@@ -1317,7 +1334,7 @@ def BVirial_Abbott_fast(T, Tc, Pc, omega):
 
 def BVirial_Abbott_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the Abbott B virial coefficient model
+    r"""Perform a vectorized calculation of the Abbott B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -1358,7 +1375,7 @@ def BVirial_Abbott_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -1378,7 +1395,7 @@ def BVirial_Abbott_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
 def BVirial_Abbott_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Abbott B virial coefficient model
+    r"""Perform a matrix calculation of the Abbott B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -1419,7 +1436,7 @@ def BVirial_Abbott_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -1451,8 +1468,8 @@ def BVirial_Abbott_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
             d3B_row[j] = d3B
     return Bs, dB_dTs, d2B_dT2s, d3B_dT3s
 
-def BVirial_Tsonopoulos(T, Tc, Pc, omega, order=0):
-    r'''Calculates the second virial coefficient using the model in [1]_.
+def BVirial_Tsonopoulos(T: float, Tc: float, Pc: float, omega: float, order: int=0) -> float:
+    r"""Calculates the second virial coefficient using the model in [1]_.
 
     .. math::
         B_r=B^{(0)}+\omega B^{(1)}
@@ -1546,7 +1563,7 @@ def BVirial_Tsonopoulos(T, Tc, Pc, omega, order=0):
     .. [1] Tsonopoulos, Constantine. "An Empirical Correlation of Second Virial
        Coefficients." AIChE Journal 20, no. 2 (March 1, 1974): 263-72.
        doi:10.1002/aic.690200209.
-    '''
+    """
     Tr = T/Tc
     if order == 0:
         B0 = 0.1445 - 0.33/Tr - 0.1385/Tr**2 - 0.0121/Tr**3 - 0.000607/Tr**8
@@ -1567,12 +1584,12 @@ def BVirial_Tsonopoulos(T, Tc, Pc, omega, order=0):
         B0 = 289*T**2/4000. - 33*T*Tc*log(T)/100. + 33*T*Tc/100. + 277*Tc**2*log(T)/2000. - (254100*T**5*Tc**3 + 607*Tc**8)/(42000000.*T**6)
         B1 = 637*T**2/20000. - 331*Tc**2*log(T)/1000. - (44415*T**5*Tc**3 + 40*Tc**8)/(210000.*T**6)
     else:
-        raise ValueError('Only orders -2, -1, 0, 1, 2 and 3 are supported.')
+        raise ValueError("Only orders -2, -1, 0, 1, 2 and 3 are supported.")
     Br = (B0+omega*B1)
     return Br*R*Tc/Pc
 
 def BVirial_Tsonopoulos_fast(T, Tc, Pc, omega):
-    r'''Implementation of :obj:`BVirial_Tsonopoulos` in the interface
+    r"""Implementation of :obj:`BVirial_Tsonopoulos` in the interface
     which calculates virial coefficients and their derivatives at the
     same time.
 
@@ -1608,7 +1625,7 @@ def BVirial_Tsonopoulos_fast(T, Tc, Pc, omega):
     --------
     >>> BVirial_Tsonopoulos_fast(510., 425.2, 38E5, 0.193)
     (-0.0002093529540, 9.95742355e-07, -5.54234465e-09, 4.57035160e-11)
-    '''
+    """
     c0 = 0.1445
     c1 = -0.33
     c2 = -0.1385
@@ -1650,7 +1667,7 @@ def BVirial_Tsonopoulos_fast(T, Tc, Pc, omega):
 
 def BVirial_Tsonopoulos_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the Tsonopoulos B virial coefficient model
+    r"""Perform a vectorized calculation of the Tsonopoulos B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -1691,7 +1708,7 @@ def BVirial_Tsonopoulos_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -1711,7 +1728,7 @@ def BVirial_Tsonopoulos_vec(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
 def BVirial_Tsonopoulos_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Tsonopoulos B virial coefficient model
+    r"""Perform a matrix calculation of the Tsonopoulos B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -1752,7 +1769,7 @@ def BVirial_Tsonopoulos_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -1784,9 +1801,9 @@ def BVirial_Tsonopoulos_mat(T, Tcs, Pcs, omegas, Bs=None, dB_dTs=None,
             d3B_row[j] = d3B
     return Bs, dB_dTs, d2B_dT2s, d3B_dT3s
 
-def BVirial_Tsonopoulos_extended(T, Tc, Pc, omega, a=0, b=0, species_type='',
-                                 dipole=0, order=0):
-    r'''Calculates the second virial coefficient using the
+def BVirial_Tsonopoulos_extended(T: float, Tc: float, Pc: float, omega: float, a: float=0, b: float=0, species_type: str="",
+                                 dipole: float=0, order: int=0) -> float:
+    r"""Calculates the second virial coefficient using the
     comprehensive model in [1]_. See the notes for the calculation of `a` and
     `b`.
 
@@ -1991,7 +2008,7 @@ def BVirial_Tsonopoulos_extended(T, Tc, Pc, omega, a=0, b=0, species_type='',
        Workshop on Vapour-Liquid Equilibria and Related Properties in Binary
        and Ternary Mixtures of Ethers, Alkanes and Alkanols, 133, no. 1-2
        (June 1997): 11-34. doi:10.1016/S0378-3812(97)00058-7.
-    '''
+    """
     Tr = T/Tc
     if order == 0:
         B0 = 0.1445 - 0.33/Tr - 0.1385/Tr**2 - 0.0121/Tr**3 - 0.000607/Tr**8
@@ -2024,29 +2041,29 @@ def BVirial_Tsonopoulos_extended(T, Tc, Pc, omega, a=0, b=0, species_type='',
         B2 = Tc**6/(20*T**4)
         B3 = -Tc**8/(42*T**6)
     else:
-        raise ValueError('Only orders -2, -1, 0, 1, 2 and 3 are supported.')
-    if a == 0 and b == 0 and species_type != '':
-        if species_type in ('simple', 'normal'):
+        raise ValueError("Only orders -2, -1, 0, 1, 2 and 3 are supported.")
+    if a == 0 and b == 0 and species_type != "":
+        if species_type in ("simple", "normal"):
             a, b = 0, 0
-        elif species_type == 'methyl alcohol':
+        elif species_type == "methyl alcohol":
             a, b = 0.0878, 0.0525
-        elif species_type == 'water':
+        elif species_type == "water":
             a, b = -0.0109, 0
         elif dipole != 0 and Tc != 0 and Pc != 0:
             dipole_r = 1E5*dipole**2*(Pc/101325.0)/Tc**2
 
-            if species_type in ('ketone', 'aldehyde', 'alkyl nitrile',  'ether', 'carboxylic acid', 'ester'):
+            if species_type in ("ketone", "aldehyde", "alkyl nitrile",  "ether", "carboxylic acid", "ester"):
                 a, b = -2.14E-4*dipole_r-4.308E-21*dipole_r**8, 0.0
-            elif species_type in ('alkyl halide', 'mercaptan', 'sulfide', 'disulfide'):
+            elif species_type in ("alkyl halide", "mercaptan", "sulfide", "disulfide"):
                 a, b = -2.188E-4*dipole_r**4-7.831E-21*dipole_r**8, 0.0
 
-            elif species_type == 'alkanol':
+            elif species_type == "alkanol":
                 a, b = 0.0878, 0.00908+0.0006957*dipole_r
     Br = B0 + omega*B1 + a*B2 + b*B3
     return Br*R*Tc/Pc
 
 def BVirial_Tsonopoulos_extended_fast(T, Tc, Pc, omega, a=0.0, b=0.0):
-    r'''Implementation of :obj:`BVirial_Tsonopoulos_extended` in the interface
+    r"""Implementation of :obj:`BVirial_Tsonopoulos_extended` in the interface
     which calculates virial coefficients and their derivatives at the
     same time.
 
@@ -2086,7 +2103,7 @@ def BVirial_Tsonopoulos_extended_fast(T, Tc, Pc, omega, a=0.0, b=0.0):
     --------
     >>> BVirial_Tsonopoulos_extended_fast(510., 425.2, 38E5, 0.193)
     (-0.0002093529540, 9.9574235e-07, -5.54234465e-09, 4.5703516e-11)
-    '''
+    """
     c0 = 0.1445
     c1 = -0.33
     c2 = -0.1385
@@ -2132,7 +2149,7 @@ def BVirial_Tsonopoulos_extended_fast(T, Tc, Pc, omega, a=0.0, b=0.0):
 
 def BVirial_Tsonopoulos_extended_vec(T, Tcs, Pcs, omegas, ais, bs, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the Tsonopoulos (extended) B virial coefficient model
+    r"""Perform a vectorized calculation of the Tsonopoulos (extended) B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -2177,7 +2194,7 @@ def BVirial_Tsonopoulos_extended_vec(T, Tcs, Pcs, omegas, ais, bs, Bs=None, dB_d
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -2197,7 +2214,7 @@ def BVirial_Tsonopoulos_extended_vec(T, Tcs, Pcs, omegas, ais, bs, Bs=None, dB_d
 
 def BVirial_Tsonopoulos_extended_mat(T, Tcs, Pcs, omegas, ais, bs, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Tsonopoulos (extended) B virial coefficient model
+    r"""Perform a matrix calculation of the Tsonopoulos (extended) B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -2242,7 +2259,7 @@ def BVirial_Tsonopoulos_extended_mat(T, Tcs, Pcs, omegas, ais, bs, Bs=None, dB_d
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -2278,7 +2295,7 @@ def BVirial_Tsonopoulos_extended_mat(T, Tcs, Pcs, omegas, ais, bs, Bs=None, dB_d
 
 
 def BVirial_Xiang(T, Tc, Pc, Vc, omega):
-    r'''Calculates the second virial coefficient using the model in [1]_.
+    r"""Calculates the second virial coefficient using the model in [1]_.
 
     .. math::
         B = \frac{\left(-b_0T_r^{-3/4}\exp(b_1T_r^{-3}) + b_2T_r^{-1/2})
@@ -2337,7 +2354,7 @@ def BVirial_Xiang(T, Tc, Pc, Vc, omega):
        Principle: Vapor Pressure and Second Virial Coefficient." Chemical
        Engineering Science 57, no. 8 (April 2002): 1439049.
        https://doi.org/10.1016/S0009-2509(02)00017-9.
-    '''
+    """
     b00 = 4.553
     b01 = 4.172
     b02 = 0.0
@@ -2376,7 +2393,7 @@ def BVirial_Xiang(T, Tc, Pc, Vc, omega):
 
 def BVirial_Xiang_vec(T, Tcs, Pcs, Vcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the Xiang B virial coefficient model
+    r"""Perform a vectorized calculation of the Xiang B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -2419,7 +2436,7 @@ def BVirial_Xiang_vec(T, Tcs, Pcs, Vcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -2439,7 +2456,7 @@ def BVirial_Xiang_vec(T, Tcs, Pcs, Vcs, omegas, Bs=None, dB_dTs=None,
 
 def BVirial_Xiang_mat(T, Tcs, Pcs, Vcs, omegas, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Xiang B virial coefficient model
+    r"""Perform a matrix calculation of the Xiang B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -2482,7 +2499,7 @@ def BVirial_Xiang_mat(T, Tcs, Pcs, Vcs, omegas, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -2516,7 +2533,7 @@ def BVirial_Xiang_mat(T, Tcs, Pcs, Vcs, omegas, Bs=None, dB_dTs=None,
     return Bs, dB_dTs, d2B_dT2s, d3B_dT3s
 
 def BVirial_Meng(T, Tc, Pc, Vc, omega, a=0.0):
-    r'''Calculates the second virial coefficient using the model in [1]_.
+    r"""Calculates the second virial coefficient using the model in [1]_.
 
     .. math::
         B = \frac{RT_c}{P_c}\left(f_0 + \omega f_1 + f_2\right)
@@ -2572,7 +2589,7 @@ def BVirial_Meng(T, Tc, Pc, Vc, omega, a=0.0):
     .. [1] Meng, Long, Yuan-Yuan Duan, and Lei Li. "Correlations for Second and
        Third Virial Coefficients of Pure Fluids." Fluid Phase Equilibria 226
        (December 10, 2004): 109-20. https://doi.org/10.1016/j.fluid.2004.09.023.
-    '''
+    """
     c0, c1, c2, c3, c4 =  0.13356, -0.30252, -0.15668, -0.00724, -0.00022
     d0, d1, d2, d3, d4 = 0.17404, -0.15581, 0.38183, -0.44044, -0.00541
     T_inv = 1.0/T
@@ -2605,7 +2622,7 @@ def BVirial_Meng(T, Tc, Pc, Vc, omega, a=0.0):
 
 def BVirial_Meng_vec(T, Tcs, Pcs, Vcs, omegas, ais, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a vectorized calculation of the Meng B virial coefficient model
+    r"""Perform a vectorized calculation of the Meng B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -2650,7 +2667,7 @@ def BVirial_Meng_vec(T, Tcs, Pcs, Vcs, omegas, ais, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [0.0]*N
@@ -2670,7 +2687,7 @@ def BVirial_Meng_vec(T, Tcs, Pcs, Vcs, omegas, ais, Bs=None, dB_dTs=None,
 
 def BVirial_Meng_mat(T, Tcs, Pcs, Vcs, omegas, ais, Bs=None, dB_dTs=None,
                       d2B_dT2s=None, d3B_dT3s=None):
-    r'''Perform a matrix calculation of the Meng B virial coefficient model
+    r"""Perform a matrix calculation of the Meng B virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -2716,7 +2733,7 @@ def BVirial_Meng_mat(T, Tcs, Pcs, Vcs, omegas, ais, Bs=None, dB_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Bs is None:
         Bs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -2751,7 +2768,7 @@ def BVirial_Meng_mat(T, Tcs, Pcs, Vcs, omegas, ais, Bs=None, dB_dTs=None,
     return Bs, dB_dTs, d2B_dT2s, d3B_dT3s
 
 def Meng_virial_a(Tc, Pc, dipole=0.0, haloalkane=False):
-    r'''Calculate the `a` parameter which is used in the Meng
+    r"""Calculate the `a` parameter which is used in the Meng
     `B` second virial coefficient for polar components. There are two
     correlations implemented - one for haloalkanes, and another for other
     polar molecules. If the dipole moment is not provided, a value of 0.0
@@ -2805,7 +2822,7 @@ def Meng_virial_a(Tc, Pc, dipole=0.0, haloalkane=False):
     .. [1] Meng, Long, Yuan-Yuan Duan, and Lei Li. "Correlations for Second and
        Third Virial Coefficients of Pure Fluids." Fluid Phase Equilibria 226
        (December 10, 2004): 109-20. https://doi.org/10.1016/j.fluid.2004.09.023.
-    '''
+    """
     # Perfect validated with graph
     mur = dipole*dipole*Pc/(1.01325*Tc*Tc)
     if haloalkane:
@@ -2818,7 +2835,7 @@ def Kronecker_delta(i, j): return 1 if i == j else 0.0
 
 
 def dCVirial_mixture_Orentlicher_Prausnitz_dzs(zs, Cijs, dCs=None):
-    r'''Calculate the first mole fraction derivatives of the `C` third virial
+    r"""Calculate the first mole fraction derivatives of the `C` third virial
     coefficient from a matrix of
     virial cross-coefficients.
 
@@ -2862,7 +2879,7 @@ def dCVirial_mixture_Orentlicher_Prausnitz_dzs(zs, Cijs, dCs=None):
     >>> zs = [.5, .3, .2]
     >>> dCVirial_mixture_Orentlicher_Prausnitz_dzs(zs, Cijs)
     [5.44450470e-09, 6.54968776e-09, 7.74986672e-09]
-    '''
+    """
     N = len(zs)
     Cij_cbrts = [[0.0]*N for _ in range(N)] # numba: delete
 #    Cij_cbrts = np.zeros((N, N)) # numba: uncomment
@@ -2902,7 +2919,7 @@ def dCVirial_mixture_Orentlicher_Prausnitz_dzs(zs, Cijs, dCs=None):
     return dCs
 
 def d2CVirial_mixture_Orentlicher_Prausnitz_dzizjs(zs, Cijs, d2Cs=None):
-    r'''Calculate the second mole fraction derivatives of the `C` third virial
+    r"""Calculate the second mole fraction derivatives of the `C` third virial
     coefficient from a matrix of
     virial cross-coefficients.
 
@@ -2948,7 +2965,7 @@ def d2CVirial_mixture_Orentlicher_Prausnitz_dzizjs(zs, Cijs, d2Cs=None):
     >>> zs = [.5, .3, .2]
     >>> d2CVirial_mixture_Orentlicher_Prausnitz_dzizjs(zs, Cijs)
     [[9.6827886655e-09, 1.1449146725e-08, 1.3064355337e-08], [1.1449146725e-08, 1.38557674294e-08, 1.60903596751e-08], [1.3064355337e-08, 1.60903596751e-08, 2.0702239403e-08]]
-    '''
+    """
     N = len(zs)
     Cij_cbrts = [[0.0]*N for _ in range(N)] # numba: delete
 #    Cij_cbrts = np.zeros((N, N)) # numba: uncomment
@@ -2990,7 +3007,7 @@ def d2CVirial_mixture_Orentlicher_Prausnitz_dzizjs(zs, Cijs, d2Cs=None):
 
 
 def d3CVirial_mixture_Orentlicher_Prausnitz_dzizjzks(zs, Cijs, d3Cs=None):
-    r'''Calculate the third mole fraction derivatives of the `C` third virial
+    r"""Calculate the third mole fraction derivatives of the `C` third virial
     coefficient from a matrix of
     virial cross-coefficients.
 
@@ -3036,7 +3053,7 @@ def d3CVirial_mixture_Orentlicher_Prausnitz_dzizjzks(zs, Cijs, d3Cs=None):
     >>> zs = [.5, .3, .2]
     >>> d3CVirial_mixture_Orentlicher_Prausnitz_dzizjzks(zs, Cijs)
     [[[8.760000000e-09, 1.0187346981e-08, 1.12329228549e-08], [1.01873469818e-08, 1.21223973593e-08, 1.35937701316e-08], [1.12329228549e-08, 1.35937701316e-08, 1.68488143533e-08]], [[1.01873469818e-08, 1.21223973593e-08, 1.35937701316e-08], [1.2122397359e-08, 1.47600000000e-08, 1.68328437491e-08], [1.35937701316e-08, 1.68328437491e-08, 2.12181074230e-08]], [[1.12329228549e-08, 1.35937701316e-08, 1.68488143533e-08], [1.35937701316e-08, 1.68328437491e-08, 2.12181074230e-08], [1.68488143533e-08, 2.12181074230e-08, 2.9562000000e-08]]]
-    '''
+    """
     N = len(zs)
     Cij_cbrts = [[0.0]*N for _ in range(N)] # numba: delete
 #    Cij_cbrts = np.zeros((N, N)) # numba: uncomment
@@ -3075,7 +3092,7 @@ def d3CVirial_mixture_Orentlicher_Prausnitz_dzizjzks(zs, Cijs, d3Cs=None):
 
 def d2CVirial_mixture_Orentlicher_Prausnitz_dTdzs(zs, Cijs, dCij_dTs,
                                                   d2C_dTdzs=None):
-    r'''Calculate the first mole fraction derivatives of the `C` third virial
+    r"""Calculate the first mole fraction derivatives of the `C` third virial
     coefficient from a matrix of
     virial cross-coefficients.
 
@@ -3124,7 +3141,7 @@ def d2CVirial_mixture_Orentlicher_Prausnitz_dTdzs(zs, Cijs, dCij_dTs,
     >>> zs = [.5, .3, .2]
     >>> d2CVirial_mixture_Orentlicher_Prausnitz_dTdzs(zs, Cijs, dCij_dTs)
     [-1.5740994103e-11, -2.27267309501e-11, -3.56846953115e-11]
-    '''
+    """
     N = len(zs)
     cC = [[0.0]*N for _ in range(N)] # numba: delete
 #    cC = np.zeros((N, N)) # numba: uncomment
@@ -3177,7 +3194,7 @@ def d2CVirial_mixture_Orentlicher_Prausnitz_dTdzs(zs, Cijs, dCij_dTs,
     return d2C_dTdzs
 
 def CVirial_mixture_Orentlicher_Prausnitz(zs, Cijs):
-    r'''Calculate the `C` third virial coefficient from a matrix of
+    r"""Calculate the `C` third virial coefficient from a matrix of
     virial cross-coefficients. The diagonal is virial coefficients of the
     pure components.
 
@@ -3213,7 +3230,7 @@ def CVirial_mixture_Orentlicher_Prausnitz(zs, Cijs):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     N = len(zs)
     Cij_cbrts = [[0.0]*N for _ in range(N)] # numba: delete
 #    Cij_cbrts = np.zeros((N, N)) # numba: uncomment
@@ -3245,7 +3262,7 @@ def CVirial_mixture_Orentlicher_Prausnitz(zs, Cijs):
     return C_off*2.0 + C_diag
 
 def dCVirial_mixture_dT_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs):
-    r'''Calculate the first temperature derivative of the `C` third virial
+    r"""Calculate the first temperature derivative of the `C` third virial
     coefficient from matrices of
     virial cross-coefficients and their first temperature derivatives.
 
@@ -3290,7 +3307,7 @@ def dCVirial_mixture_dT_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     N = len(zs)
     Cij_pow_n23 = [[0.0]*N for _ in range(N)] # numba: delete
 #    Cij_pow_n23 = np.zeros((N, N)) # numba: uncomment
@@ -3337,7 +3354,7 @@ def dCVirial_mixture_dT_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs):
     return dC
 
 def d2CVirial_mixture_dT2_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs, d2Cij_dT2s):
-    r'''Calculate the second temperature derivative of the `C` third virial
+    r"""Calculate the second temperature derivative of the `C` third virial
     coefficient from matrices of
     virial cross-coefficients and their first and second temperature derivatives.
 
@@ -3413,7 +3430,7 @@ def d2CVirial_mixture_dT2_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs, d2Cij_dT2s):
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     N = len(zs)
     Cij_cbrts = [[0.0]*N for _ in range(N)] # numba: delete
 #    Cij_cbrts = np.zeros((N, N)) # numba: uncomment
@@ -3464,7 +3481,7 @@ def d2CVirial_mixture_dT2_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs, d2Cij_dT2s):
 
 def d3CVirial_mixture_dT3_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs, d2Cij_dT2s,
                                                 d3Cij_dT3s):
-    r'''Calculate the third temperature derivative of the `C` third virial
+    r"""Calculate the third temperature derivative of the `C` third virial
     coefficient from matrices of
     virial cross-coefficients and their first, second, and third temperature
     derivatives.
@@ -3513,7 +3530,7 @@ def d3CVirial_mixture_dT3_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs, d2Cij_dT2s,
     ----------
     .. [1] Poling, Bruce E. The Properties of Gases and Liquids. 5th edition.
        New York: McGraw-Hill Professional, 2000.
-    '''
+    """
     N = len(zs)
     d3C = 0.0
     for i in range(N):
@@ -3574,7 +3591,7 @@ def d3CVirial_mixture_dT3_Orentlicher_Prausnitz(zs, Cijs, dCij_dTs, d2Cij_dT2s,
 
 
 def CVirial_Orbey_Vera(T, Tc, Pc, omega):
-    r'''Calculates the third virial coefficient using the model in [1]_.
+    r"""Calculates the third virial coefficient using the model in [1]_.
 
     .. math::
         C = (RT_c/P_c)^2 (fC_{Tr}^{(0)} + \omega fC_{Tr}^{(1)})
@@ -3625,7 +3642,7 @@ def CVirial_Orbey_Vera(T, Tc, Pc, omega):
     .. [1] Orbey, Hasan, and J. H. Vera. "Correlation for the Third Virial
        Coefficient Using Tc, Pc and ω as Parameters." AIChE Journal 29, no. 1
        (January 1, 1983): 107-13. https://doi.org/10.1002/aic.690290115.
-    '''
+    """
     x0 = T/Tc
     Tinv = 1.0/T
     Tinv2 = Tinv*Tinv
@@ -3648,7 +3665,7 @@ def CVirial_Orbey_Vera(T, Tc, Pc, omega):
 
 def CVirial_Orbey_Vera_vec(T, Tcs, Pcs, omegas, Cs=None, dC_dTs=None,
                          d2C_dT2s=None, d3C_dT3s=None):
-    r'''Perform a vectorized calculation of the Orbey-Vera C virial coefficient model
+    r"""Perform a vectorized calculation of the Orbey-Vera C virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -3689,7 +3706,7 @@ def CVirial_Orbey_Vera_vec(T, Tcs, Pcs, omegas, Cs=None, dC_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Cs is None:
         Cs = [0.0]*N
@@ -3709,7 +3726,7 @@ def CVirial_Orbey_Vera_vec(T, Tcs, Pcs, omegas, Cs=None, dC_dTs=None,
 
 def CVirial_Orbey_Vera_mat(T, Tcs, Pcs, omegas, Cs=None, dC_dTs=None,
                          d2C_dT2s=None, d3C_dT3s=None):
-    r'''Perform a matrix calculation of the Orbey-Vera C virial coefficient model
+    r"""Perform a matrix calculation of the Orbey-Vera C virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -3750,7 +3767,7 @@ def CVirial_Orbey_Vera_mat(T, Tcs, Pcs, omegas, Cs=None, dC_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Cs is None:
         Cs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -3783,7 +3800,7 @@ def CVirial_Orbey_Vera_mat(T, Tcs, Pcs, omegas, Cs=None, dC_dTs=None,
     return Cs, dC_dTs, d2C_dT2s, d3C_dT3s
 
 def CVirial_Liu_Xiang(T, Tc, Pc, Vc, omega):
-    r'''Calculates the third virial coefficient using the model in [1]_.
+    r"""Calculates the third virial coefficient using the model in [1]_.
 
     .. math::
         C = V_c^2 (f_{T_r}^{(0)} + \omega f_{T_r}^{(1)} + \theta f_{T_r}^{(2)})
@@ -3844,7 +3861,7 @@ def CVirial_Liu_Xiang(T, Tc, Pc, Vc, omega):
        Prediction of Third Virial Coefficients for a Wide Range of Substances."
        International Journal of Thermophysics 24, no. 6 (November 1, 2003):
        1667-80. https://doi.org/10.1023/B:IJOT.0000004098.98614.38.
-    '''
+    """
     a00 = 0.1623538
     a01 = -0.5390344
     a02 = 34.22804
@@ -3890,7 +3907,7 @@ def CVirial_Liu_Xiang(T, Tc, Pc, Vc, omega):
 
 def CVirial_Liu_Xiang_vec(T, Tcs, Pcs, Vcs, omegas, Cs=None, dC_dTs=None,
                          d2C_dT2s=None, d3C_dT3s=None):
-    r'''Perform a vectorized calculation of the Xiang C virial coefficient model
+    r"""Perform a vectorized calculation of the Xiang C virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -3933,7 +3950,7 @@ def CVirial_Liu_Xiang_vec(T, Tcs, Pcs, Vcs, omegas, Cs=None, dC_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Cs is None:
         Cs = [0.0]*N
@@ -3953,7 +3970,7 @@ def CVirial_Liu_Xiang_vec(T, Tcs, Pcs, Vcs, omegas, Cs=None, dC_dTs=None,
 
 def CVirial_Liu_Xiang_mat(T, Tcs, Pcs, Vcs, omegas, Cs=None, dC_dTs=None,
                          d2C_dT2s=None, d3C_dT3s=None):
-    r'''Perform a matrix calculation of the Xiang C virial coefficient model
+    r"""Perform a matrix calculation of the Xiang C virial coefficient model
     and its first three temperature derivatives.
 
     Parameters
@@ -3996,7 +4013,7 @@ def CVirial_Liu_Xiang_mat(T, Tcs, Pcs, Vcs, omegas, Cs=None, dC_dTs=None,
 
     Notes
     -----
-    '''
+    """
     N = len(Tcs)
     if Cs is None:
         Cs = [[0.0]*N for _ in range(N)] # numba: delete
@@ -4053,11 +4070,11 @@ def Meng_Duan_2005_virial_CSP_kij_alkane_CO2(nci):
     m = 0.07475
     return m*log(nci + 1.0)**1.5 # equation 15
 
-CO2_CAS = '124-38-9'
-N2_CAS = '7727-37-9'
+CO2_CAS = "124-38-9"
+N2_CAS = "7727-37-9"
 
 def Meng_Duan_2005_virial_CSP_kijs(CASs, atomss):
-    r'''Calculates a binary interaction parameter for the calculation of Bij
+    r"""Calculates a binary interaction parameter for the calculation of Bij
     binary virial coefficient as shown in [1]_. This implements a correlation
     of alkane-alkane, CO2-alkane, and N2-alkane.
 
@@ -4094,36 +4111,36 @@ def Meng_Duan_2005_virial_CSP_kijs(CASs, atomss):
        Virial Coefficients of Nonpolar Binary Mixtures." Fluid Phase Equilibria
        238 (December 1, 2005): 229-38.
        https://doi.org/10.1016/j.fluid.2005.10.007.
-    '''
+    """
     N = len(CASs)
     kijs = [[0.0]*N for _ in range(N)]
     for i in range(N):
         CAS1 = CASs[i]
         kij_row = kijs[i]
-        C_i = atomss[i].get('C', 0)
+        C_i = atomss[i].get("C", 0)
         # symmetrical
         for j in range(i):
             CAS2 = CASs[j]
 
             if CAS1 == CO2_CAS:
-                C = atomss[j].get('C', 0)
+                C = atomss[j].get("C", 0)
                 kij_row[j] = kijs[j][i] = Meng_Duan_2005_virial_CSP_kij_alkane_CO2(C)
             elif CAS2 == CO2_CAS:
                 kij_row[j] = kijs[j][i] = Meng_Duan_2005_virial_CSP_kij_alkane_CO2(C_i)
 
             elif CAS1 == N2_CAS:
-                C = atomss[j].get('C', 0)
+                C = atomss[j].get("C", 0)
                 kij_row[j] = kijs[j][i] = Meng_Duan_2005_virial_CSP_kij_alkane_N2(C)
             elif CAS2 == N2_CAS:
                 kij_row[j] = kijs[j][i] = Meng_Duan_2005_virial_CSP_kij_alkane_N2(C_i)
-            elif C_i and atomss[j].get('C', 0):
-                kij_row[j] = kijs[j][i] = Meng_Duan_2005_virial_CSP_kij_alkane(C_i, atomss[j].get('C', 0))
+            elif C_i and atomss[j].get("C", 0):
+                kij_row[j] = kijs[j][i] = Meng_Duan_2005_virial_CSP_kij_alkane(C_i, atomss[j].get("C", 0))
             else:
                 continue
     return kijs
 
 def Tarakad_Danner_virial_CSP_kijs(Vcs):
-    r'''Calculates a binary interaction parameter for the calculation of Bij
+    r"""Calculates a binary interaction parameter for the calculation of Bij
     binary virial coefficient as shown in [1]_ and [2]_.
 
     This equation for kij is:
@@ -4164,7 +4181,7 @@ def Tarakad_Danner_virial_CSP_kijs(Vcs):
        Virial Coefficients of Nonpolar Binary Mixtures." Fluid Phase Equilibria
        238 (December 1, 2005): 229-38.
        https://doi.org/10.1016/j.fluid.2005.10.007.
-    '''
+    """
     N = len(Vcs)
     kijs = [[0.0]*N for i in range(N)] # numba: delete
 #    kijs = np.zeros((N, N)) # numba: uncomment
@@ -4190,7 +4207,7 @@ def Tarakad_Danner_virial_CSP_kijs(Vcs):
     return kijs
 
 def Tarakad_Danner_virial_CSP_Tcijs(Tcs, kijs):
-    r'''Calculates the corresponding states critical temperature for the
+    r"""Calculates the corresponding states critical temperature for the
     calculation of Bij
     binary virial coefficient as shown in [1]_ and [2]_.
 
@@ -4228,7 +4245,7 @@ def Tarakad_Danner_virial_CSP_Tcijs(Tcs, kijs):
        Virial Coefficients of Nonpolar Binary Mixtures." Fluid Phase Equilibria
        238 (December 1, 2005): 229-38.
        https://doi.org/10.1016/j.fluid.2005.10.007.
-    '''
+    """
     N = len(Tcs)
     Tc_sqrts = [0.0]*N
     for i in range(N):
@@ -4245,7 +4262,7 @@ def Tarakad_Danner_virial_CSP_Tcijs(Tcs, kijs):
     return Tcijs
 
 def Tarakad_Danner_virial_CSP_Pcijs(Tcs, Pcs, Vcs, Tcijs):
-    r'''Calculates the corresponding states critical pressure for the
+    r"""Calculates the corresponding states critical pressure for the
     calculation of Bij
     binary virial coefficient as shown in [1]_ and [2]_.
 
@@ -4291,7 +4308,7 @@ def Tarakad_Danner_virial_CSP_Pcijs(Tcs, Pcs, Vcs, Tcijs):
        Virial Coefficients of Nonpolar Binary Mixtures." Fluid Phase Equilibria
        238 (December 1, 2005): 229-38.
        https://doi.org/10.1016/j.fluid.2005.10.007.
-    '''
+    """
     N = len(Vcs)
     Pcijs = [[0.0]*N for i in range(N)] # numba: delete
 #    Pcijs = np.zeros((N, N)) # numba: uncomment
@@ -4317,7 +4334,7 @@ def Tarakad_Danner_virial_CSP_Pcijs(Tcs, Pcs, Vcs, Tcijs):
     return Pcijs
 
 def Tarakad_Danner_virial_CSP_omegaijs(omegas):
-    r'''Calculates the corresponding states acentric factor for the
+    r"""Calculates the corresponding states acentric factor for the
     calculation of Bij
     binary virial coefficient as shown in [1]_ and [2]_.
 
@@ -4352,7 +4369,7 @@ def Tarakad_Danner_virial_CSP_omegaijs(omegas):
        Virial Coefficients of Nonpolar Binary Mixtures." Fluid Phase Equilibria
        238 (December 1, 2005): 229-38.
        https://doi.org/10.1016/j.fluid.2005.10.007.
-    '''
+    """
     N = len(omegas)
     omegaijs = [[0.0]*N for i in range(N)] # numba: delete
 #    omegaijs = np.zeros((N, N)) # numba: uncomment
@@ -4364,7 +4381,7 @@ def Tarakad_Danner_virial_CSP_omegaijs(omegas):
     return omegaijs
 
 def Lee_Kesler_virial_CSP_Vcijs(Vcs):
-    r'''Calculates the corresponding states critical volumes for the
+    r"""Calculates the corresponding states critical volumes for the
     calculation of Vcijs
     binary virial coefficient as shown in [1]_ and [2]_.
 
@@ -4399,7 +4416,7 @@ def Lee_Kesler_virial_CSP_Vcijs(Vcs):
     .. [2] Lee, Byung Ik, and Michael G. Kesler. "A Generalized Thermodynamic
        Correlation Based on Three-Parameter Corresponding States." AIChE
        Journal 21, no. 3 (1975): 510-27. https://doi.org/10.1002/aic.690210313.
-    '''
+    """
     N = len(Vcs)
     Vcijs = [[0.0]*N for i in range(N)] # numba: delete
 #    Vcijs = np.zeros((N, N)) # numba: uncomment
@@ -4418,7 +4435,7 @@ def Lee_Kesler_virial_CSP_Vcijs(Vcs):
 
 
 def dV_dzs_virial(B, C, V, dB_dzs, dC_dzs, dV_dzs=None):
-    r'''Calculates first mole fraction derivative of volume for the virial
+    r"""Calculates first mole fraction derivative of volume for the virial
     equation of state.
 
     .. math::
@@ -4461,7 +4478,7 @@ def dV_dzs_virial(B, C, V, dB_dzs, dC_dzs, dV_dzs=None):
     --------
     >>> dV_dzs_virial(B=-5.130920247359858e-05, C=2.6627784284381213e-09, V=0.024892080086430797, dB_dzs=[-4.457911131778849e-05, -9.174964457681726e-05, -0.0001594258679841028], dC_dzs=[6.270599057032657e-09, 7.766612052069565e-09, 9.503031492910165e-09])
     [-4.4510120473455416e-05, -9.181495962913208e-05, -0.00015970040988493522]
-    '''
+    """
     N = len(dB_dzs)
     if dV_dzs is None:
         dV_dzs = [0.0]*N
@@ -4471,7 +4488,7 @@ def dV_dzs_virial(B, C, V, dB_dzs, dC_dzs, dV_dzs=None):
 
 def d2V_dzizjs_virial(B, C, V, dB_dzs, dC_dzs, dV_dzs, d2B_dzizjs, d2C_dzizjs,
                       d2V_dzizjs=None):
-    r'''Calculates second mole fraction derivative of volume for the virial
+    r"""Calculates second mole fraction derivative of volume for the virial
     equation of state.
 
     .. math::
@@ -4528,7 +4545,7 @@ def d2V_dzizjs_virial(B, C, V, dB_dzs, dC_dzs, dV_dzs, d2B_dzizjs, d2C_dzizjs,
     >>> dV_dzs = [-4.4510120473455416e-05, -9.181495962913208e-05, -0.00015970040988493522]
     >>> d2V_dzizjs_virial(B=-5.130920247359858e-05, C=2.6627784284381213e-09, V=0.024892080086430797, dB_dzs=dB_dzs, dC_dzs=dC_dzs, dV_dzs=dV_dzs, d2B_dzizjs=d2B_dzizjs, d2C_dzizjs=d2C_dzizjs)
     [[-1.04268917389e-05, -3.9654694588e-05, -7.570310078e-05], [-3.9654694588e-05, -8.3270116767e-05, -0.0001423083584], [-7.5703100789e-05, -0.000142308358, -0.00024779788]]
-    '''
+    """
     N = len(dB_dzs)
     if d2V_dzizjs is None:
         d2V_dzizjs = [[0.0]*N for _ in range(N)] # numba: delete

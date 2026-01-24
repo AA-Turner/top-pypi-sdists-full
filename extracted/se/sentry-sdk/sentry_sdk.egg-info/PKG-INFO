@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentry-sdk
-Version: 2.38.0
+Version: 2.50.0
 Summary: Python client for Sentry (https://sentry.io)
 Home-page: https://github.com/getsentry/sentry-python
 Author: Sentry Team and Contributors
@@ -23,6 +23,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
@@ -76,10 +77,14 @@ Provides-Extra: langgraph
 Requires-Dist: langgraph>=0.6.6; extra == "langgraph"
 Provides-Extra: launchdarkly
 Requires-Dist: launchdarkly-server-sdk>=9.8.0; extra == "launchdarkly"
+Provides-Extra: litellm
+Requires-Dist: litellm>=1.77.5; extra == "litellm"
 Provides-Extra: litestar
 Requires-Dist: litestar>=2.0.0; extra == "litestar"
 Provides-Extra: loguru
 Requires-Dist: loguru>=0.5; extra == "loguru"
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.15.0; extra == "mcp"
 Provides-Extra: openai
 Requires-Dist: openai>=1.0.0; extra == "openai"
 Requires-Dist: tiktoken>=0.3.0; extra == "openai"
@@ -89,10 +94,14 @@ Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-distro>=0.35b0; extra == "opentelemetry"
 Provides-Extra: opentelemetry-experimental
 Requires-Dist: opentelemetry-distro; extra == "opentelemetry-experimental"
+Provides-Extra: opentelemetry-otlp
+Requires-Dist: opentelemetry-distro[otlp]>=0.35b0; extra == "opentelemetry-otlp"
 Provides-Extra: pure-eval
 Requires-Dist: pure_eval; extra == "pure-eval"
 Requires-Dist: executing; extra == "pure-eval"
 Requires-Dist: asttokens; extra == "pure-eval"
+Provides-Extra: pydantic-ai
+Requires-Dist: pydantic-ai>=1.0.0; extra == "pydantic-ai"
 Provides-Extra: pymongo
 Requires-Dist: pymongo>=3.1; extra == "pymongo"
 Provides-Extra: pyspark
@@ -116,6 +125,8 @@ Provides-Extra: tornado
 Requires-Dist: tornado>=6; extra == "tornado"
 Provides-Extra: unleash
 Requires-Dist: UnleashClient>=6.0.1; extra == "unleash"
+Provides-Extra: google-genai
+Requires-Dist: google-genai>=1.29.0; extra == "google-genai"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -139,9 +150,9 @@ _Bad software is everywhere, and we're tired of it. Sentry is on a mission to he
 [<kbd>**Check out our open positions**</kbd>](https://sentry.io/careers/)_.
 
 [![Discord](https://img.shields.io/discord/621778831602221064?logo=discord&labelColor=%20%235462eb&logoColor=%20%23f5f5f5&color=%20%235462eb)](https://discord.com/invite/Ww9hbqr)
-[![Twitter Follow](https://img.shields.io/twitter/follow/getsentry?label=@getsentry&style=social)](https://twitter.com/intent/follow?screen_name=getsentry)
+[![X Follow](https://img.shields.io/twitter/follow/sentry?label=sentry&style=social)](https://x.com/intent/follow?screen_name=sentry)
 [![PyPi page link -- version](https://img.shields.io/pypi/v/sentry-sdk.svg)](https://pypi.python.org/pypi/sentry-sdk)
-<img src="https://img.shields.io/badge/python-3.7 | 3.8 | 3.9 | 3.10 | 3.11 | 3.12 | 3.13-blue.svg" alt="python">
+<img src="https://img.shields.io/badge/python-3.7 | 3.8 | 3.9 | 3.10 | 3.11 | 3.12 | 3.13 | 3.14-blue.svg" alt="python">
 [![Build Status](https://github.com/getsentry/sentry-python/actions/workflows/ci.yml/badge.svg)](https://github.com/getsentry/sentry-python/actions/workflows/ci.yml)
 
 <br/>
@@ -239,7 +250,7 @@ Here are all resources to help you make the most of Sentry:
 
 - [Documentation](https://docs.sentry.io/platforms/python/) - Official documentation to get started.
 - [Discord](https://discord.com/invite/Ww9hbqr) - Join our Discord community.
-- [X/Twitter](https://twitter.com/intent/follow?screen_name=getsentry) -  Follow us on X (Twitter) for updates.
+- [X/Twitter](https://x.com/intent/follow?screen_name=sentry) -  Follow us on X (Twitter) for updates.
 - [Stack Overflow](https://stackoverflow.com/questions/tagged/sentry) - Questions and answers related to Sentry.
 
 <a name="license"></a>

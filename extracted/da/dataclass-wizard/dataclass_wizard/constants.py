@@ -5,6 +5,9 @@ import sys
 # Package name
 PACKAGE_NAME = 'dataclass_wizard'
 
+# _SPECIALIZED_FROM_DICT = f'__{PACKAGE_NAME}_specialized_from_dict__'
+# _SPECIALIZED_TO_DICT   = f'__{PACKAGE_NAME}_specialized_to_dict__'
+
 # Library Log Level
 LOG_LEVEL = os.getenv('WIZARD_LOG_LEVEL', 'ERROR').upper()
 
@@ -22,6 +25,9 @@ PY312_OR_ABOVE = _PY_VERSION >= (3, 12)
 
 # Check if currently running Python 3.13 or higher
 PY313_OR_ABOVE = _PY_VERSION >= (3, 13)
+
+# Check if currently running Python 3.14 or higher
+PY314_OR_ABOVE = _PY_VERSION >= (3, 14)
 
 # The name of the dictionary object that contains `load` hooks for each
 # object type. Also used to check if a class is a :class:`BaseLoadHook`

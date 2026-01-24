@@ -1,6 +1,6 @@
 import { display, undisplay } from "@bokehjs/core/dom";
 import { sum } from "@bokehjs/core/util/arrayable";
-import { isArray, isBoolean, isString, isNumber } from "@bokehjs/core/util/types";
+import { isArray, isBoolean, isFunction, isString, isNumber } from "@bokehjs/core/util/types";
 import { ModelEvent } from "@bokehjs/core/bokeh_events";
 import { div } from "@bokehjs/core/dom";
 import { Enum } from "@bokehjs/core/kinds";
@@ -501,7 +501,7 @@ export class DataTabulatorView extends HTMLBoxView {
         this._restore_scroll = true;
     }
     get is_drawing() {
-        return this._building || this._redrawing || !this.root.has_finished();
+        return this._building || this._redrawing || !this.has_finished();
     }
     after_layout() {
         super.after_layout();
@@ -664,7 +664,7 @@ export class DataTabulatorView extends HTMLBoxView {
             if (initializing) {
                 this._resize_redraw();
             }
-        }, () => this.root.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
+        }, () => this.has_finished() && [...this._initialized_stylesheets.values()].every(v => v));
     }
     recompute_page_size() {
         if (!this.model.pagination || this.model.page_size !== null || this._automatic_page_size) {
@@ -865,7 +865,7 @@ export class DataTabulatorView extends HTMLBoxView {
                 this._update_children();
                 this.resize_table();
             }
-        }, () => this.root.has_finished());
+        }, () => this.has_finished());
     }
     resize_table() {
         if (this.tabulator.rowManager.renderer != null) {
@@ -1067,7 +1067,16 @@ export class DataTabulatorView extends HTMLBoxView {
                 };
             }
             tab_column.visible = (tab_column.visible != false && !this.model.hidden_columns.includes(column.field));
-            tab_column.editable = () => (this.model.editable && (editor.default_view != null));
+            const originalEditable = tab_column.editable;
+            if (isFunction(originalEditable)) {
+                tab_column.editable = (cell) => (this.model.editable && (editor.default_view != null) && originalEditable(cell));
+            }
+            else if (isBoolean(originalEditable)) {
+                tab_column.editable = () => (this.model.editable && (editor.default_view != null) && originalEditable);
+            }
+            else {
+                tab_column.editable = () => (this.model.editable && (editor.default_view != null));
+            }
             if (tab_column.headerFilter) {
                 if (isBoolean(tab_column.headerFilter) && isString(tab_column.editor)) {
                     tab_column.headerFilter = tab_column.editor;
@@ -1103,7 +1112,7 @@ export class DataTabulatorView extends HTMLBoxView {
             };
             columns.push(button_column);
         }
-        if (this.model.container_popup) {
+        if (this.model.container_popup && (this.model.layout !== "fit_data_stretch")) {
             // We insert an empty last column to ensure select editor is rendered in correct position
             // see: https://github.com/holoviz/panel/issues/7295
             columns.push({ width: 1, maxWidth: 1, minWidth: 1, resizable: false, cssClass: "empty", sorter: null });

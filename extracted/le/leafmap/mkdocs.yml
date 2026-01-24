@@ -5,7 +5,7 @@ site_url: https://leafmap.org
 
 repo_url: https://github.com/opengeos/leafmap
 
-copyright: "Copyright &copy; 2021 - 2024 Qiusheng Wu"
+copyright: "Copyright &copy; 2021 - 2025 Qiusheng Wu"
 
 theme:
     palette:
@@ -56,7 +56,7 @@ plugins:
     - mkdocs-jupyter:
           include_source: True
           ignore_h1_titles: True
-          execute: True
+          execute: false
           allow_errors: false
           ignore: ["conf.py", "data/README.md", "usage.md"]
           execute_ignore:
@@ -74,8 +74,10 @@ plugins:
                   "notebooks/42_create_cog.ipynb",
                   "notebooks/47_numpy_to_cog.ipynb",
                   "notebooks/48_lidar.ipynb",
+                  "notebooks/49_split_control.ipynb",
                   "notebooks/50_marker_cluster.ipynb",
                   "notebooks/57_national_map.ipynb",
+                  "notebooks/58_bokeh.ipynb",
                   "notebooks/67_maxar_open_data.ipynb",
                   "notebooks/68_openaerialmap.ipynb",
                   "notebooks/69_turkey_earthquake.ipynb",
@@ -95,12 +97,15 @@ plugins:
                   "notebooks/92_maplibre.ipynb",
                   "notebooks/93_maplibre_pmtiles.ipynb",
                   "notebooks/94_mapbox.ipynb",
+                  "notebooks/97_overture_data.ipynb",
                   "notebooks/99_wetlands.ipynb",
                   "notebooks/100_nlcd.ipynb",
                   "notebooks/101_nasa_opera.ipynb",
                   "notebooks/102_fused.ipynb",
+                  "notebooks/107_copernicus.ipynb",
                   "maplibre/3d_pmtiles.ipynb",
                   "maplibre/animate_a_line.ipynb",
+                  "maplibre/copernicus.ipynb",
                   "maplibre/fields_of_the_world.ipynb",
                   "maplibre/mapillary.ipynb",
                   "maplibre/nasa_opera.ipynb",
@@ -174,6 +179,7 @@ nav:
           - workshops/Taiwan_2024.ipynb
           - workshops/HGAC_2024.ipynb
           - workshops/CVPR_2025.ipynb
+          - workshops/AGU_2025.ipynb
     - MapLibre:
           - maplibre/overview.md
           - maplibre/3d_buildings.ipynb
@@ -212,6 +218,7 @@ nav:
           - maplibre/cloud_optimized_geotiff.ipynb
           - maplibre/cluster.ipynb
           - maplibre/color_switcher.ipynb
+          - maplibre/copernicus.ipynb
           - maplibre/countries_filter.ipynb
           - maplibre/create_vector.ipynb
           - maplibre/custom_marker.ipynb
@@ -221,11 +228,13 @@ nav:
           - maplibre/display_rich_text.ipynb
           - maplibre/drag_a_marker.ipynb
           - maplibre/draw_features.ipynb
+          - maplibre/duckdb_layer.ipynb
           - maplibre/edit_vector.ipynb
           - maplibre/fallback_image.ipynb
           - maplibre/fields_of_the_world.ipynb
           - maplibre/fit_bounds.ipynb
           - maplibre/fill_pattern.ipynb
+          - maplibre/floating_sidebar.ipynb
           - maplibre/fly_to.ipynb
           - maplibre/fly_to_options.ipynb
           - maplibre/fullscreen.ipynb
@@ -238,11 +247,14 @@ nav:
           - maplibre/google_earth.ipynb
           - maplibre/google_earth_engine.ipynb
           - maplibre/gps_trace.ipynb
+          - maplibre/H3.ipynb
           - maplibre/heatmap_layer.ipynb
+          - maplibre/historical_imagery.ipynb
           - maplibre/housing_prices.ipynb
           - maplibre/interactive_false.ipynb
           - maplibre/jump_to.ipynb
           - maplibre/language_switch.ipynb
+          - maplibre/latlon_grid.ipynb
           - maplibre/layer_control.ipynb
           - maplibre/layer_groups.ipynb
           - maplibre/layer_manager.ipynb
@@ -252,6 +264,7 @@ nav:
           - maplibre/live_update_feature.ipynb
           - maplibre/local_geojson.ipynb
           - maplibre/local_raster.ipynb
+          - maplibre/local_titiler.ipynb
           - maplibre/locate_user.ipynb
           - maplibre/map_tiles.ipynb
           - maplibre/mapillary.ipynb
@@ -391,3 +404,6 @@ nav:
           - notebooks/104_point_style.ipynb
           - notebooks/105_vector_time_slider.ipynb
           - notebooks/106_aws_s3.ipynb
+          - notebooks/107_copernicus.ipynb
+          - notebooks/108_add_geotiff.ipynb
+          - notebooks/109_local_titiler.ipynb

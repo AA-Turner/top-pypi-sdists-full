@@ -298,7 +298,7 @@ Keyword arguments:
 
     `wrapperProps` is a dict with keys:
 """
-    _children_props = ['icon']
+    _children_props: typing.List[str] = ['icon']
     _base_nodes = ['icon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Chip'

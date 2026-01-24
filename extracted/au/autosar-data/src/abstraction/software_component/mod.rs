@@ -43,6 +43,15 @@ impl CompositionSwComponentType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -66,7 +75,7 @@ impl CompositionSwComponentType {
     #[pyo3(signature = (other, /))]
     #[pyo3(text_signature = "(self, other: SwComponentType, /)")]
     fn is_parent_of(&self, other: &Bound<'_, PyAny>) -> bool {
-        let other = pyobject_to_sw_component_type(other).unwrap();
+        let other = pyany_to_sw_component_type(other).unwrap();
         self.0.is_parent_of(&other)
     }
 
@@ -80,7 +89,7 @@ impl CompositionSwComponentType {
         name: &str,
         component_type: &Bound<'_, PyAny>,
     ) -> PyResult<SwComponentPrototype> {
-        let component_type = pyobject_to_sw_component_type(component_type)?;
+        let component_type = pyany_to_sw_component_type(component_type)?;
         match self.0.create_component(name, &component_type) {
             Ok(value) => Ok(SwComponentPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -106,8 +115,8 @@ impl CompositionSwComponentType {
         inner_sw_prototype: &SwComponentPrototype,
         outer_port: &Bound<'_, PyAny>,
     ) -> PyResult<DelegationSwConnector> {
-        let inner_port = pyobject_to_port_prototype(inner_port)?;
-        let outer_port = pyobject_to_port_prototype(outer_port)?;
+        let inner_port = pyany_to_port_prototype(inner_port)?;
+        let outer_port = pyany_to_port_prototype(outer_port)?;
         match self.0.create_delegation_connector(
             name,
             &inner_port,
@@ -136,8 +145,8 @@ impl CompositionSwComponentType {
         port_2: &Bound<'_, PyAny>,
         sw_prototype_2: &SwComponentPrototype,
     ) -> PyResult<AssemblySwConnector> {
-        let port_1 = pyobject_to_port_prototype(port_1)?;
-        let port_2 = pyobject_to_port_prototype(port_2)?;
+        let port_1 = pyany_to_port_prototype(port_1)?;
+        let port_2 = pyany_to_port_prototype(port_2)?;
         match self.0.create_assembly_connector(
             name,
             &port_1,
@@ -161,8 +170,8 @@ impl CompositionSwComponentType {
         port_1: &Bound<'_, PyAny>,
         port_2: &Bound<'_, PyAny>,
     ) -> PyResult<PassThroughSwConnector> {
-        let port_1 = pyobject_to_port_prototype(port_1)?;
-        let port_2 = pyobject_to_port_prototype(port_2)?;
+        let port_1 = pyany_to_port_prototype(port_1)?;
+        let port_2 = pyany_to_port_prototype(port_2)?;
         match self.0.create_pass_through_connector(name, &port_1, &port_2) {
             Ok(value) => Ok(PassThroughSwConnector(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -174,18 +183,18 @@ impl CompositionSwComponentType {
         SwConnectorIterator::new(
             self.0
                 .connectors()
-                .filter_map(|connector| sw_connector_to_pyobject(connector).ok()),
+                .filter_map(|connector| sw_connector_to_pyany(connector).ok()),
         )
     }
 
     // ------ AbstractSwComponentType ------
 
     /// list of all instances of the component type
-    fn instances(&self) -> Vec<PyObject> {
+    fn instances(&self) -> Vec<Py<PyAny>> {
         self.0
             .instances()
             .into_iter()
-            .filter_map(|instance| component_prototype_to_pyobject(instance).ok())
+            .filter_map(|instance| component_prototype_to_pyany(instance).ok())
             .collect()
     }
 
@@ -206,7 +215,7 @@ impl CompositionSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<RPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_r_port(name, &port_interface) {
             Ok(value) => Ok(RPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -221,7 +230,7 @@ impl CompositionSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_p_port(name, &port_interface) {
             Ok(value) => Ok(PPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -236,7 +245,7 @@ impl CompositionSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PRPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_pr_port(name, &port_interface) {
             Ok(value) => Ok(PRPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -248,7 +257,7 @@ impl CompositionSwComponentType {
         PortPrototypeIterator::new(
             self.0
                 .ports()
-                .filter_map(|port| port_prototype_to_pyobject(port).ok()),
+                .filter_map(|port| port_prototype_to_pyany(port).ok()),
         )
     }
 
@@ -290,6 +299,15 @@ impl ApplicationSwComponentType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -312,11 +330,11 @@ impl ApplicationSwComponentType {
     // ------ AbstractSwComponentType ------
 
     /// list all instances of the component type
-    fn instances(&self) -> Vec<PyObject> {
+    fn instances(&self) -> Vec<Py<PyAny>> {
         self.0
             .instances()
             .into_iter()
-            .filter_map(|instance| component_prototype_to_pyobject(instance).ok())
+            .filter_map(|instance| component_prototype_to_pyany(instance).ok())
             .collect()
     }
 
@@ -337,7 +355,7 @@ impl ApplicationSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<RPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_r_port(name, &port_interface) {
             Ok(value) => Ok(RPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -352,7 +370,7 @@ impl ApplicationSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_p_port(name, &port_interface) {
             Ok(value) => Ok(PPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -367,7 +385,7 @@ impl ApplicationSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PRPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_pr_port(name, &port_interface) {
             Ok(value) => Ok(PRPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -379,7 +397,7 @@ impl ApplicationSwComponentType {
         PortPrototypeIterator::new(
             self.0
                 .ports()
-                .filter_map(|port| port_prototype_to_pyobject(port).ok()),
+                .filter_map(|port| port_prototype_to_pyany(port).ok()),
         )
     }
 
@@ -440,6 +458,15 @@ impl ComplexDeviceDriverSwComponentType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -462,11 +489,11 @@ impl ComplexDeviceDriverSwComponentType {
     // ------ AbstractSwComponentType ------
 
     /// list of all instances of the component type
-    fn instances(&self) -> Vec<PyObject> {
+    fn instances(&self) -> Vec<Py<PyAny>> {
         self.0
             .instances()
             .into_iter()
-            .filter_map(|instance| component_prototype_to_pyobject(instance).ok())
+            .filter_map(|instance| component_prototype_to_pyany(instance).ok())
             .collect()
     }
 
@@ -487,7 +514,7 @@ impl ComplexDeviceDriverSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<RPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_r_port(name, &port_interface) {
             Ok(value) => Ok(RPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -502,7 +529,7 @@ impl ComplexDeviceDriverSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_p_port(name, &port_interface) {
             Ok(value) => Ok(PPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -517,7 +544,7 @@ impl ComplexDeviceDriverSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PRPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_pr_port(name, &port_interface) {
             Ok(value) => Ok(PRPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -529,7 +556,7 @@ impl ComplexDeviceDriverSwComponentType {
         PortPrototypeIterator::new(
             self.0
                 .ports()
-                .filter_map(|port| port_prototype_to_pyobject(port).ok()),
+                .filter_map(|port| port_prototype_to_pyany(port).ok()),
         )
     }
 
@@ -591,6 +618,15 @@ impl ServiceSwComponentType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -613,11 +649,11 @@ impl ServiceSwComponentType {
     // ------ AbstractSwComponentType ------
 
     /// list all the instances of the component type
-    fn instances(&self) -> Vec<PyObject> {
+    fn instances(&self) -> Vec<Py<PyAny>> {
         self.0
             .instances()
             .into_iter()
-            .filter_map(|instance| component_prototype_to_pyobject(instance).ok())
+            .filter_map(|instance| component_prototype_to_pyany(instance).ok())
             .collect()
     }
 
@@ -638,7 +674,7 @@ impl ServiceSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<RPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_r_port(name, &port_interface) {
             Ok(value) => Ok(RPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -653,7 +689,7 @@ impl ServiceSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_p_port(name, &port_interface) {
             Ok(value) => Ok(PPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -668,7 +704,7 @@ impl ServiceSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PRPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_pr_port(name, &port_interface) {
             Ok(value) => Ok(PRPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -680,7 +716,7 @@ impl ServiceSwComponentType {
         PortPrototypeIterator::new(
             self.0
                 .ports()
-                .filter_map(|port| port_prototype_to_pyobject(port).ok()),
+                .filter_map(|port| port_prototype_to_pyany(port).ok()),
         )
     }
 
@@ -741,6 +777,15 @@ impl SensorActuatorSwComponentType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -763,11 +808,11 @@ impl SensorActuatorSwComponentType {
     // ------ AbstractSwComponentType ------
 
     /// list all instances of the component type
-    fn instances(&self) -> Vec<PyObject> {
+    fn instances(&self) -> Vec<Py<PyAny>> {
         self.0
             .instances()
             .into_iter()
-            .filter_map(|instance| component_prototype_to_pyobject(instance).ok())
+            .filter_map(|instance| component_prototype_to_pyany(instance).ok())
             .collect()
     }
 
@@ -788,7 +833,7 @@ impl SensorActuatorSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<RPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_r_port(name, &port_interface) {
             Ok(value) => Ok(RPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -803,7 +848,7 @@ impl SensorActuatorSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_p_port(name, &port_interface) {
             Ok(value) => Ok(PPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -818,7 +863,7 @@ impl SensorActuatorSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PRPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_pr_port(name, &port_interface) {
             Ok(value) => Ok(PRPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -830,7 +875,7 @@ impl SensorActuatorSwComponentType {
         PortPrototypeIterator::new(
             self.0
                 .ports()
-                .filter_map(|port| port_prototype_to_pyobject(port).ok()),
+                .filter_map(|port| port_prototype_to_pyany(port).ok()),
         )
     }
 
@@ -892,6 +937,15 @@ impl EcuAbstractionSwComponentType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -914,11 +968,11 @@ impl EcuAbstractionSwComponentType {
     // ------ AbstractSwComponentType ------
 
     /// iterator over the instances of the component type
-    fn instances(&self) -> Vec<PyObject> {
+    fn instances(&self) -> Vec<Py<PyAny>> {
         self.0
             .instances()
             .into_iter()
-            .filter_map(|instance| component_prototype_to_pyobject(instance).ok())
+            .filter_map(|instance| component_prototype_to_pyany(instance).ok())
             .collect()
     }
 
@@ -939,7 +993,7 @@ impl EcuAbstractionSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<RPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_r_port(name, &port_interface) {
             Ok(value) => Ok(RPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -954,7 +1008,7 @@ impl EcuAbstractionSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_p_port(name, &port_interface) {
             Ok(value) => Ok(PPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -969,7 +1023,7 @@ impl EcuAbstractionSwComponentType {
         name: &str,
         port_interface: &Bound<'_, PyAny>,
     ) -> PyResult<PRPortPrototype> {
-        let port_interface = pyobject_to_port_interface(port_interface)?;
+        let port_interface = pyany_to_port_interface(port_interface)?;
         match self.0.create_pr_port(name, &port_interface) {
             Ok(value) => Ok(PRPortPrototype(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
@@ -981,7 +1035,7 @@ impl EcuAbstractionSwComponentType {
         PortPrototypeIterator::new(
             self.0
                 .ports()
-                .filter_map(|port| port_prototype_to_pyobject(port).ok()),
+                .filter_map(|port| port_prototype_to_pyany(port).ok()),
         )
     }
 
@@ -1017,7 +1071,7 @@ impl EcuAbstractionSwComponentType {
 
 //##################################################################
 
-pub(crate) fn pyobject_to_sw_component_type(
+pub(crate) fn pyany_to_sw_component_type(
     pyobject: &Bound<'_, PyAny>,
 ) -> PyResult<autosar_data_abstraction::software_component::SwComponentType> {
     if let Ok(value) = pyobject.extract::<CompositionSwComponentType>() {
@@ -1043,10 +1097,10 @@ pub(crate) fn pyobject_to_sw_component_type(
     }
 }
 
-pub(crate) fn sw_component_type_to_pyobject(
+pub(crate) fn sw_component_type_to_pyany(
     component_type: autosar_data_abstraction::software_component::SwComponentType,
-) -> PyResult<PyObject> {
-    Python::with_gil(|py| match component_type {
+) -> PyResult<Py<PyAny>> {
+    Python::attach(|py| match component_type {
         autosar_data_abstraction::software_component::SwComponentType::Composition(component) => {
             CompositionSwComponentType(component).into_py_any(py)
         }
@@ -1093,6 +1147,15 @@ impl SwComponentPrototype {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -1119,10 +1182,10 @@ iterator_wrapper!(SwComponentPrototypeIterator, SwComponentPrototype);
 
 //##################################################################
 
-pub(crate) fn component_prototype_to_pyobject(
+pub(crate) fn component_prototype_to_pyany(
     component_prototype: autosar_data_abstraction::software_component::ComponentPrototype,
-) -> PyResult<PyObject> {
-    Python::with_gil(|py| match component_prototype {
+) -> PyResult<Py<PyAny>> {
+    Python::attach(|py| match component_prototype {
         autosar_data_abstraction::software_component::ComponentPrototype::SwComponent(
             component,
         ) => SwComponentPrototype(component).into_py_any(py),
@@ -1155,6 +1218,15 @@ impl RootSwCompositionPrototype {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]

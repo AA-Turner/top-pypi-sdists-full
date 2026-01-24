@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use daft_core::prelude::{DataType, Field, Schema, TimeUnit};
 use sqlparser::{
     ast::{ArrayElemTypeDef, ExactNumberInfo, StructField, TimezoneInfo},
-    dialect::GenericDialect,
+    dialect::{Dialect, DuckDbDialect, GenericDialect},
+    keywords::Keyword,
     parser::{Parser, ParserOptions},
-    tokenizer::Tokenizer,
+    tokenizer::{Token, Tokenizer},
 };
 
 use crate::{
@@ -15,8 +16,23 @@ use crate::{
 
 /// Parses a SQL string as a daft DataType
 pub fn try_parse_dtype<S: AsRef<str>>(s: S) -> SQLPlannerResult<DataType> {
-    let tokens = Tokenizer::new(&GenericDialect {}, s.as_ref()).tokenize()?;
-    let mut parser = Parser::new(&GenericDialect {})
+    let s_str = s.as_ref();
+    let tokens = Tokenizer::new(&GenericDialect {}, s_str).tokenize()?;
+
+    let non_whitespace_tokens: Vec<&Token> = tokens
+        .iter()
+        .filter(|token| !matches!(token, Token::Whitespace(_)))
+        .collect();
+
+    let uses_paren_syntax = is_struct_with_parens(&non_whitespace_tokens);
+
+    let dialect: &dyn Dialect = if uses_paren_syntax {
+        &DuckDbDialect {}
+    } else {
+        &GenericDialect {}
+    };
+
+    let mut parser = Parser::new(dialect)
         .with_options(ParserOptions {
             trailing_commas: true,
             ..Default::default()
@@ -24,6 +40,28 @@ pub fn try_parse_dtype<S: AsRef<str>>(s: S) -> SQLPlannerResult<DataType> {
         .with_tokens(tokens);
     let dtype = parser.parse_data_type()?;
     sql_dtype_to_dtype(&dtype)
+}
+
+fn is_struct_with_parens(tokens: &[&Token]) -> bool {
+    if tokens.len() < 2 {
+        return false;
+    }
+
+    let is_struct_type = matches!(
+        tokens[0],
+        Token::Word(word) if word.keyword == Keyword::STRUCT
+    );
+
+    if !is_struct_type {
+        return false;
+    }
+
+    tokens.windows(2).any(|window| {
+        matches!(
+            (window[0], window[1]),
+            (Token::Word(word), Token::LParen) if word.keyword == Keyword::STRUCT
+        )
+    })
 }
 
 /// Parses a SQL map of name-type pairs into a new Schema
@@ -95,38 +133,45 @@ pub(crate) fn sql_dtype_to_dtype(dtype: &sqlparser::ast::DataType) -> SQLPlanner
         // ---------------------------------
         // unsigned integer
         // ---------------------------------
-        SQLDataType::UnsignedInt2(_) => use_instead!(dtype, "`smallint unsigned` or `uint16`"),
-        SQLDataType::UnsignedInt4(_) | SQLDataType::UnsignedMediumInt(_) => {
+        SQLDataType::Int2Unsigned(_) => use_instead!(dtype, "`smallint unsigned` or `uint16`"),
+        SQLDataType::Int4Unsigned(_) | SQLDataType::MediumIntUnsigned(_) => {
             use_instead!(dtype, "`int unsigned` or `uint32`")
         }
-        SQLDataType::UnsignedInt8(_) => use_instead!(
+        SQLDataType::Int8Unsigned(_) => use_instead!(
             dtype,
             "`bigint unsigned` or `uint64` for 64-bit unsigned integer, or `unsigned tinyint` for 8-bit unsigned integer"
         ),
-        SQLDataType::UnsignedTinyInt(_) => DataType::UInt8,
-        SQLDataType::UnsignedSmallInt(_) | SQLDataType::UInt16 => DataType::UInt16,
-        SQLDataType::UnsignedInt(_) | SQLDataType::UnsignedInteger(_) | SQLDataType::UInt32 => {
+        SQLDataType::TinyIntUnsigned(_) => DataType::UInt8,
+        SQLDataType::SmallIntUnsigned(_) | SQLDataType::UInt16 => DataType::UInt16,
+        SQLDataType::IntUnsigned(_) | SQLDataType::IntegerUnsigned(_) | SQLDataType::UInt32 => {
             DataType::UInt32
         }
-        SQLDataType::UnsignedBigInt(_) | SQLDataType::UInt64 => DataType::UInt64,
+        SQLDataType::BigIntUnsigned(_) | SQLDataType::UInt64 => DataType::UInt64,
         // ---------------------------------
         // float
         // ---------------------------------
         SQLDataType::Float4 => use_instead!(dtype, "`float32` or `real`"),
         SQLDataType::Float8 => use_instead!(dtype, "`float64` or `double`"),
-        SQLDataType::Double | SQLDataType::DoublePrecision | SQLDataType::Float64 => {
+        SQLDataType::Double(_) | SQLDataType::DoublePrecision | SQLDataType::Float64 => {
             DataType::Float64
         }
-        SQLDataType::Float(n_bytes) => match n_bytes {
-            Some(n) if (1u64..=24u64).contains(n) => DataType::Float32,
-            Some(n) if (25u64..=53u64).contains(n) => DataType::Float64,
-            Some(n) => {
+        SQLDataType::Float(info) => match info {
+            ExactNumberInfo::PrecisionAndScale(p, _) | ExactNumberInfo::Precision(p)
+                if (1u64..=24u64).contains(p) =>
+            {
+                DataType::Float32
+            }
+            ExactNumberInfo::PrecisionAndScale(p, _) | ExactNumberInfo::Precision(p)
+                if (25u64..=53u64).contains(p) =>
+            {
+                DataType::Float64
+            }
+            ExactNumberInfo::PrecisionAndScale(p, _) | ExactNumberInfo::Precision(p) => {
                 unsupported_sql_err!(
-                    "unsupported `float` size (expected a value between 1 and 53, found {})",
-                    n
+                    "unsupported `float` size (expected a value between 1 and 53, found {p})"
                 )
             }
-            None => DataType::Float64,
+            ExactNumberInfo::None => DataType::Float64,
         },
         SQLDataType::Real | SQLDataType::Float32 => DataType::Float32,
 
@@ -146,7 +191,7 @@ pub(crate) fn sql_dtype_to_dtype(dtype: &sqlparser::ast::DataType) -> SQLPlanner
         // temporal
         // ---------------------------------
         SQLDataType::Date => DataType::Date,
-        SQLDataType::Interval => DataType::Interval,
+        SQLDataType::Interval { .. } => DataType::Interval,
         SQLDataType::Time(precision, tz) => match tz {
             TimezoneInfo::None => DataType::Time(timeunit_from_precision(*precision)?),
             _ => unsupported_sql_err!("`time` with timezone is; found tz={}", tz),
@@ -169,10 +214,6 @@ pub(crate) fn sql_dtype_to_dtype(dtype: &sqlparser::ast::DataType) -> SQLPlanner
         // struct
         // ---------------------------------
         SQLDataType::Struct(fields, _brackets) => {
-            // TODO: https://github.com/Eventual-Inc/Daft/issues/4448
-            // if matches!(brackets, StructBracketKind::AngleBrackets) {
-            //     use_instead!(dtype, "STRUCT(fields...)")
-            // }
             let fields = fields
                 .iter()
                 .enumerate()
@@ -182,6 +223,7 @@ pub(crate) fn sql_dtype_to_dtype(dtype: &sqlparser::ast::DataType) -> SQLPlanner
                         StructField {
                             field_name,
                             field_type,
+                            options: _,
                         },
                     )| {
                         let dtype = sql_dtype_to_dtype(field_type)?;
@@ -275,7 +317,7 @@ pub(crate) fn timeunit_from_precision(prec: Option<u64>) -> SQLPlannerResult<Tim
 
 #[cfg(test)]
 mod test {
-    use daft_core::prelude::{DataType, ImageMode};
+    use daft_core::prelude::{DataType, Field, ImageMode};
     use rstest::rstest;
 
     #[rstest]
@@ -345,15 +387,22 @@ mod test {
             10
         )
     )]
-    // TODO: https://github.com/Eventual-Inc/Daft/issues/4448
-    // #[case(
-    //     "struct(a bool, b int, c string)",
-    //     DataType::Struct(vec![
-    //         Field::new("a", DataType::Boolean),
-    //         Field::new("b", DataType::Int32),
-    //         Field::new("c", DataType::Utf8),
-    //     ])
-    // )]
+    #[case(
+        "struct(a bool, b int, c string)",
+        DataType::Struct(vec![
+            Field::new("a", DataType::Boolean),
+            Field::new("b", DataType::Int32),
+            Field::new("c", DataType::Utf8),
+        ])
+    )]
+    #[case(
+        "struct<a bool, b int, c string>",
+        DataType::Struct(vec![
+            Field::new("a", DataType::Boolean),
+            Field::new("b", DataType::Int32),
+            Field::new("c", DataType::Utf8),
+        ])
+    )]
     fn test_sql_datatype(#[case] sql: &str, #[case] expected: DataType) {
         let result = super::try_parse_dtype(sql).unwrap();
         assert_eq!(result, expected);

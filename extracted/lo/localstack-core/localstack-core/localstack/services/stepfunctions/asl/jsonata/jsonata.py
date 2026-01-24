@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import jpype
-import jpype.imports
+import jpype.imports  # noqa # Required for JVM Java class imports
 
 from localstack.services.stepfunctions.asl.utils.encoding import to_json_str
 from localstack.services.stepfunctions.packages import jpype_jsonata_package
@@ -33,7 +33,11 @@ _PATTERN_VARIABLE_REFERENCE = re.compile(
     #    allowing escapes
     r"(?:\"(?:\\.|[^\"\\])*\"|\'(?:\\.|[^\'\\])*\')"
     r"|"
-    # 3) Capturing branch for $$, $identifier[.prop…], or lone $
+    # 3) Non-capturing branch for bracket expressions [...]
+    #    Consume these to avoid capturing $ inside them
+    r"(?:\[[^\[\]]*\])"
+    r"|"
+    # 4) Capturing branch for $$, $identifier[.prop…], or lone $
     r"(\$\$|\$[A-Za-z0-9_$]+(?:\.[A-Za-z0-9_][A-Za-z0-9_$]*)*|\$)"
 )
 

@@ -54,6 +54,7 @@ class Dataframe(Component):
     """
     This component displays a table of value spreadsheet-like component. Can be used to display data as an output component, or as an input to collect data from the user.
     Demos: filter_records, matrix_transpose, tax_calculator, sort_records
+    Guides: styling-the-gradio-dataframe, filters-tables-and-stats
     """
 
     EVENTS = [Events.change, Events.input, Events.select, Events.edit]
@@ -74,8 +75,11 @@ class Dataframe(Component):
         | None = None,
         *,
         headers: list[str] | None = None,
-        row_count: int | tuple[int, str] = (1, "dynamic"),
-        col_count: int | tuple[int, str] | None = None,
+        row_count: int | None = None,
+        row_limits: tuple[int | None, int | None] | None = None,
+        col_count: None = None,
+        column_count: int | None = None,
+        column_limits: tuple[int | None, int | None] | None = None,
         datatype: Literal[
             "str", "number", "bool", "date", "markdown", "html", "image", "auto"
         ]
@@ -101,8 +105,7 @@ class Dataframe(Component):
         wrap: bool = False,
         line_breaks: bool = True,
         column_widths: list[str | int] | None = None,
-        show_fullscreen_button: bool = False,
-        show_copy_button: bool = False,
+        buttons: list[Literal["fullscreen", "copy"]] | None = None,
         show_row_numbers: bool = False,
         max_chars: int | None = None,
         show_search: Literal["none", "search", "filter"] = "none",
@@ -113,8 +116,11 @@ class Dataframe(Component):
         Parameters:
             value: Default value to display in the DataFrame. Supports pandas, numpy, polars, and list of lists. If a Styler is provided, it will be used to set the displayed value in the DataFrame (e.g. to set precision of numbers) if the `interactive` is False. If a Callable function is provided, the function will be called whenever the app loads to set the initial value of the component.
             headers: List of str header names. These are used to set the column headers of the dataframe if the value does not have headers. If None, no headers are shown.
-            row_count: Limit number of rows for input and decide whether user can create new rows or delete existing rows. The first element of the tuple is an `int`, the row count; the second should be 'fixed' or 'dynamic', the new row behaviour. If an `int` is passed the rows default to 'dynamic'
-            col_count: Limit number of columns for input and decide whether user can create new columns or delete existing columns. The first element of the tuple is an `int`, the number of columns; the second should be 'fixed' or 'dynamic', the new column behaviour. If an `int` is passed the columns default to 'dynamic'
+            row_count: The number of rows to initially display in the dataframe. If None, the number of rows is determined automatically based on the `value`.
+            row_limits: A tuple of two integers specifying the minimum and maximum number of rows that can be created in the dataframe via the UI. If the first element is None, there is no minimum number of rows. If the second element is None, there is no maximum number of rows. Only applies if `interactive` is True.
+            col_count: This parameter is deprecated. Please use `column_count` instead.
+            column_count: The number of columns to initially display in the dataframe. If None, the number of columns is determined automatically based on the `value`.
+            column_limits: A tuple of two integers specifying the minimum and maximum number of columns that can be created in the dataframe via the UI. If the first element is None, there is no minimum number of columns. If the second element is None, there is no maximum number of columns. Only applies if `interactive` is True.
             datatype: Datatype of values in sheet. Can be provided per column as a list of strings, or for the entire sheet as a single string. Valid datatypes are "str", "number", "bool", "date", and "markdown". Boolean columns will display as checkboxes. If the datatype "auto" is used, the column datatypes are automatically selected based on the value input if possible.
             type: Type of value to be returned by component. "pandas" for pandas dataframe, "numpy" for numpy array, "polars" for polars dataframe, or "array" for a Python list of lists.
             label: the label for this component. Appears above the component and is also used as the header if there are a table of examples for this component. If None and used in a `gr.Interface`, the label will be the name of the parameter this component is assigned to.
@@ -136,31 +142,72 @@ class Dataframe(Component):
             wrap: If True, the text in table cells will wrap when appropriate. If False and the `column_width` parameter is not set, the column widths will expand based on the cell contents and the table may need to be horizontally scrolled. If `column_width` is set, then any overflow text will be hidden.
             line_breaks: If True (default), will enable Github-flavored Markdown line breaks in chatbot messages. If False, single new lines will be ignored. Only applies for columns of type "markdown."
             column_widths: An optional list representing the width of each column. The elements of the list should be in the format "100px" (ints are also accepted and converted to pixel values) or "10%". The percentage width is calculated based on the viewport width of the table. If not provided, the column widths will be automatically determined based on the content of the cells.
-            show_fullscreen_button: If True, will show a button to view the values in the table in fullscreen mode.
-            show_copy_button: If True, will show a button to copy the table data to the clipboard.
+            buttons: A list of buttons to show in the top right corner of the component. Valid options are "fullscreen" and "copy". The "fullscreen" button allows the user to view the table in fullscreen mode. The "copy" button allows the user to copy the table data to the clipboard. By default, all buttons are shown.
             show_row_numbers: If True, will display row numbers in a separate column.
             max_chars: Maximum number of characters to display in each cell before truncating (single-clicking a cell value will still reveal the full content). If None, no truncation is applied.
             show_search: Show a search input in the toolbar. If "search", a search input is shown. If "filter", a search input and filter buttons are shown. If "none", no search input is shown.
             pinned_columns: If provided, will pin the specified number of columns from the left.
             static_columns: List of column indices (int) that should not be editable. Only applies when interactive=True. When specified, col_count is automatically set to "fixed" and columns cannot be inserted or deleted.
         """
+        if isinstance(row_count, tuple):
+            warnings.warn(
+                "Passing a tuple to 'row_count' will be removed in Gradio 6.0. "
+                "You will need to use 'row_count' for the initial row count and 'row_limits' for min/max constraints instead. "
+                "For example, row_count=(5, 'fixed') should become row_count=5, row_limits=(5, 5).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if col_count is not None:
+            warnings.warn(
+                "The 'col_count' parameter will be removed in Gradio 6.0. "
+                "You will need to use 'column_count' instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if isinstance(col_count, tuple):
+            warnings.warn(
+                "Passing a tuple to 'col_count' will be removed in Gradio 6.0. "
+                "You will need to use 'column_count' for the initial column count and 'column_limits' for min/max constraints instead. "
+                "For example, col_count=(3, 'fixed') should become column_count=3, column_limits=(3, 3).",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
         self.wrap = wrap
+        # TODO: This is a temporary fix to ensure that the row_count and column_count are processed correctly.
+        # with the older version of the dataframe js component. Once we migrate the dataframe js component to
+        # Svelte 5, we'll remove self.__process_counts and drop self.col_count.
         self.row_count = self.__process_counts(row_count)
+        if row_limits is not None:
+            warnings.warn(
+                "The `row_limits` parameter is not yet implemented.",
+                UserWarning,
+            )
+        self.row_limits = row_limits
+        self.column_count = self.col_count = self.__process_counts(
+            column_count, len(headers) if headers else 3
+        )
+        if col_count is not None:
+            warnings.warn(
+                "The `col_count` parameter is deprecated and will be removed. Please use `column_count` instead.",
+                UserWarning,
+            )
+        if column_limits is not None:
+            warnings.warn(
+                "The `column_limits` parameter is not yet implemented.",
+                UserWarning,
+            )
+        self.column_limits = column_limits
         self.static_columns = static_columns or []
 
-        self.col_count = self.__process_counts(
-            col_count, len(headers) if headers else 3
-        )
-
-        if self.static_columns and isinstance(self.col_count, tuple):
-            self.col_count = (self.col_count[0], "fixed")
-
-        self.__validate_headers(headers, self.col_count[0])
+        self.__validate_headers(headers, self.column_count[0])
 
         self.headers = (
             headers
             if headers is not None
-            else [str(i) for i in (range(1, self.col_count[0] + 1))]
+            else [str(i) for i in (range(1, self.column_count[0] + 1))]
         )
 
         valid_types = ["pandas", "numpy", "array", "polars"]
@@ -191,21 +238,12 @@ class Dataframe(Component):
             else f"{w}px"
             for w in (column_widths or [])
         ]
-        self.show_fullscreen_button = show_fullscreen_button
-        self.show_copy_button = show_copy_button
+        self.buttons = buttons
         self.show_row_numbers = show_row_numbers
         self.max_chars = max_chars
         self.show_search = show_search
         self.pinned_columns = pinned_columns
-        if (
-            pinned_columns is not None
-            and isinstance(col_count, tuple)
-            and col_count[1] == "fixed"
-            and pinned_columns > self.col_count[0]
-        ):
-            raise ValueError(
-                f"pinned_columns ({pinned_columns}) cannot exceed the total number of columns ({self.col_count[0]}) when using fixed columns"
-            )
+
         super().__init__(
             label=label,
             every=every,
@@ -255,7 +293,9 @@ class Dataframe(Component):
             polars = _import_polars()
             if payload.headers is not None:
                 return polars.DataFrame(
-                    [] if payload.data == [[]] else payload.data, schema=payload.headers
+                    [] if payload.data == [[]] else payload.data,
+                    schema=payload.headers,
+                    orient="row",
                 )
             else:
                 return polars.DataFrame(payload.data)
@@ -338,7 +378,7 @@ class Dataframe(Component):
         elif _is_polars_available() and isinstance(value, _import_polars().DataFrame):
             return list(value.columns)
         elif isinstance(value, dict):
-            return value.get("headers", [])
+            return value.get("headers", [])  # type: ignore
         elif isinstance(value, (list, np.ndarray)):
             return []
         return []
@@ -362,7 +402,7 @@ class Dataframe(Component):
         from pandas.io.formats.style import Styler
 
         if isinstance(value, dict):
-            return value.get("data", [[]])
+            return value.get("data", [[]])  # type: ignore
         if isinstance(value, (str, pd.DataFrame)):
             if isinstance(value, str):
                 value = pd.read_csv(value)  # type: ignore
@@ -388,7 +428,7 @@ class Dataframe(Component):
                 if isinstance(value[0], tuple):
                     return [list(v) for v in value]
                 return [[v] for v in value]
-            return value
+            return value  # type: ignore
         else:
             raise ValueError(
                 f"Cannot process value of type {type(value)} in gr.Dataframe"
@@ -416,7 +456,7 @@ class Dataframe(Component):
                 value, [int(c) for c in getattr(value, "hidden_columns", [])]
             )
         elif isinstance(value, dict):
-            return value.get("metadata", None)
+            return value.get("metadata", None)  # type: ignore
         return None
 
     def postprocess(
@@ -586,6 +626,15 @@ class Dataframe(Component):
         return metadata
 
     @staticmethod
+    def __validate_headers(headers: list[str] | None, column_count: int):
+        if headers is not None and len(headers) != column_count:
+            raise ValueError(
+                f"The length of the headers list must be equal to the column_count.\n"
+                f"The column count is set to {column_count} but `headers` has {len(headers)} items. "
+                f"Check the values passed to `column_count` and `headers`."
+            )
+
+    @staticmethod
     def __process_counts(count, default=3) -> tuple[int, str]:
         if count is None:
             return (default, "dynamic")
@@ -593,15 +642,6 @@ class Dataframe(Component):
             return (int(count), "dynamic")
         else:
             return count
-
-    @staticmethod
-    def __validate_headers(headers: list[str] | None, col_count: int):
-        if headers is not None and len(headers) != col_count:
-            raise ValueError(
-                f"The length of the headers list must be equal to the col_count int.\n"
-                f"The column count is set to {col_count} but `headers` has {len(headers)} items. "
-                f"Check the values passed to `col_count` and `headers`."
-            )
 
     def process_example(
         self,
@@ -639,7 +679,7 @@ class Dataframe(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -654,7 +694,7 @@ class Dataframe(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -665,7 +705,7 @@ class Dataframe(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -680,7 +720,7 @@ class Dataframe(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -692,7 +732,7 @@ class Dataframe(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -707,7 +747,7 @@ class Dataframe(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -718,7 +758,7 @@ class Dataframe(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -733,7 +773,7 @@ class Dataframe(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -745,7 +785,7 @@ class Dataframe(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -760,7 +800,7 @@ class Dataframe(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -771,7 +811,7 @@ class Dataframe(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -786,7 +826,7 @@ class Dataframe(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
@@ -798,7 +838,7 @@ class Dataframe(Component):
         fn: Callable[..., Any] | None = None,
         inputs: Block | Sequence[Block] | set[Block] | None = None,
         outputs: Block | Sequence[Block] | None = None,
-        api_name: str | None | Literal[False] = None,
+        api_name: str | None = None,
         scroll_to_output: bool = False,
         show_progress: Literal["full", "minimal", "hidden"] = "full",
         show_progress_on: Component | Sequence[Component] | None = None,
@@ -813,7 +853,7 @@ class Dataframe(Component):
         js: str | Literal[True] | None = None,
         concurrency_limit: int | None | Literal["default"] = "default",
         concurrency_id: str | None = None,
-        show_api: bool = True,
+        api_visibility: Literal["public", "private", "undocumented"] = "public",
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
@@ -824,7 +864,7 @@ class Dataframe(Component):
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
-            api_name: defines how the endpoint appears in the API docs. Can be a string, None, or False. If False, the endpoint will not be exposed in the api docs. If set to None, will use the functions name as the endpoint route. If set to a string, the endpoint will be exposed in the api docs with the given name.
+            api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
             show_progress: how to show the progress animation while event is running: "full" shows a spinner which covers the output component area as well as a runtime display in the upper right corner, "minimal" only shows the runtime display, "hidden" shows no progress animation at all
             show_progress_on: Component or list of components to show the progress animation on. If None, will show the progress animation on all of the output components.
@@ -839,7 +879,7 @@ class Dataframe(Component):
             js: optional frontend js method to run before running 'fn'. Input arguments for js method are values of 'inputs' and 'outputs', return should be a list of values for output components.
             concurrency_limit: if set, this is the maximum number of this event that can be running simultaneously. Can be set to None to mean no concurrency_limit (any number of this event can be running simultaneously). Set to "default" to use the default concurrency limit (defined by the `default_concurrency_limit` parameter in `Blocks.queue()`, which itself is 1 by default).
             concurrency_id: if set, this is the id of the concurrency group. Events with the same concurrency_id will be limited by the lowest set concurrency_limit.
-            show_api: whether to show this event in the "view API" page of the Gradio app, or in the ".view_api()" method of the Gradio clients. Unlike setting api_name to False, setting show_api to False will still allow downstream apps as well as the Clients to use this event. If fn is None, show_api will automatically be set to False.
+            api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by clients), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
             validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.

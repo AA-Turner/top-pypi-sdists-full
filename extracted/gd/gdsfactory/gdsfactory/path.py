@@ -8,6 +8,7 @@ Adapted from PHIDL https://github.com/amccaugh/phidl/ by Adam McCaughan
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import math
 import warnings
@@ -26,7 +27,12 @@ from gdsfactory.component import Component, ComponentAllAngle
 from gdsfactory.component_layout import (
     rotate_points,
 )
-from gdsfactory.cross_section import CrossSection, Section, Transition
+from gdsfactory.cross_section import (
+    CrossSection,
+    Section,
+    Transition,
+    TransitionAsymmetric,
+)
 from gdsfactory.pdk import get_layer_name
 from gdsfactory.typings import (
     AngleInDegrees,
@@ -571,8 +577,33 @@ class Path(UMGeometricObject):
             all_angle=all_angle,
         )
 
-    def extrude_transition(self, transition: Transition) -> Component:
-        return extrude_transition(p=self, transition=transition)
+    @overload
+    def extrude_transition(
+        self,
+        transition: Transition | TransitionAsymmetric,
+        all_angle: Literal[False] = False,
+    ) -> Component: ...
+
+    @overload
+    def extrude_transition(
+        self,
+        transition: Transition | TransitionAsymmetric,
+        all_angle: Literal[True] = True,
+    ) -> ComponentAllAngle: ...
+
+    @overload
+    def extrude_transition(
+        self,
+        transition: Transition | TransitionAsymmetric,
+        all_angle: bool = True,
+    ) -> AnyComponent: ...
+
+    def extrude_transition(
+        self,
+        transition: Transition | TransitionAsymmetric,
+        all_angle: bool = False,
+    ) -> AnyComponent:
+        return extrude_transition(p=self, transition=transition, all_angle=all_angle)
 
     def copy(self) -> Path:
         """Returns a copy of the Path."""
@@ -608,13 +639,11 @@ PathFactory = Callable[..., Path]
 T = TypeVar("T", float, npt.NDArray[np.floating[Any]])
 
 
-def _sinusoidal_transition(
-    y1: float, y2: float
-) -> Callable[[float], npt.NDArray[np.floating[Any]]]:
+def _sinusoidal_transition(y1: float, y2: float) -> Callable[[T], T]:
     dy = y2 - y1
 
-    def sine(t: float) -> npt.NDArray[np.floating[Any]]:
-        return np.array(y1 + (1 - np.cos(np.pi * t)) / 2 * dy)
+    def sine(t: T) -> T:
+        return cast("T", y1 + (1 - np.cos(np.pi * t)) / 2 * dy)
 
     return sine
 
@@ -623,7 +652,7 @@ def _parabolic_transition(y1: float, y2: float) -> Callable[[T], T]:
     dy = y2 - y1
 
     def parabolic(t: T) -> T:
-        return cast(T, y1 + np.sqrt(t) * dy)
+        return cast("T", y1 + np.sqrt(t) * dy)
 
     return parabolic
 
@@ -784,6 +813,50 @@ def transition(
     )
 
 
+def transition_asymmetric(
+    cross_section1: CrossSectionSpec,
+    cross_section2: CrossSectionSpec,
+    width_type1: WidthTypes | Callable[[float, float, float], float] = "sine",
+    width_type2: WidthTypes | Callable[[float, float, float], float] = "sine",
+    offset_type1: WidthTypes | Callable[[float, float, float], float] = "sine",
+    offset_type2: WidthTypes | Callable[[float, float, float], float] = "sine",
+) -> TransitionAsymmetric:
+    """Returns a smoothly-transitioning object between two CrossSections with asymmetric transitions.
+
+    Args:
+        cross_section1: First CrossSection.
+        cross_section2: Second CrossSection.
+        width_type1: transition type for lower edge width.
+        width_type2: transition type for upper edge width.
+        offset_type1: transition type for lower edge offset.
+        offset_type2: transition type for upper edge offset.
+    """
+    from gdsfactory.pdk import get_cross_section, get_layer
+
+    X1 = get_cross_section(cross_section1)
+    X2 = get_cross_section(cross_section2)
+
+    layers1 = {get_layer(section.layer) for section in X1.sections}
+    layers2 = {get_layer(section.layer) for section in X2.sections}
+    layers1.add(get_layer(X1.layer))
+    layers2.add(get_layer(X2.layer))
+
+    has_common_layers = bool(layers1.intersection(layers2))
+    if not has_common_layers:
+        raise ValueError(
+            f"transition_asymmetric() found no common layers X1 {layers1} and X2 {layers2}"
+        )
+
+    return TransitionAsymmetric(
+        cross_section1=X1,
+        cross_section2=X2,
+        width_type1=width_type1,
+        width_type2=width_type2,
+        offset_type1=offset_type1,
+        offset_type2=offset_type2,
+    )
+
+
 def along_path(
     p: Path,
     component: ComponentSpec,
@@ -912,7 +985,7 @@ def extrude(
         simplify: Tolerance value for the simplification algorithm. \
                 All points that can be removed without changing the resulting polygon \
                 by more than the value listed here will be removed.
-        all_angle: if True, the bend is drawn with a single euler curve.
+        all_angle: if True, returns a ComponentAllAngle.
     """
     from gdsfactory.pdk import get_cross_section, get_layer
 
@@ -929,8 +1002,8 @@ def extrude(
         )
     else:
         s = Section(
-            width=cast(float, width),
-            layer=cast(LayerSpec, layer),
+            width=cast("float", width),
+            layer=cast("LayerSpec", layer),
             port_names=("o1", "o2"),
             port_types=("optical", "optical"),
         )
@@ -1133,7 +1206,7 @@ def extrude(
                 port_type=port_types[0],
                 width=port_width,
                 orientation=port_orientation,
-                center=center,
+                center=(float(center[0]), float(center[1])),
                 cross_section=x,
             )
         if port_names[1]:
@@ -1150,7 +1223,7 @@ def extrude(
                 layer=layer,
                 port_type=port_types[1],
                 width=port_width,
-                center=center,
+                center=(float(center[0]), float(center[1])),
                 orientation=port_orientation,
                 cross_section=x,
             )
@@ -1174,21 +1247,68 @@ def extrude(
     return c
 
 
-def extrude_transition(p: Path, transition: Transition) -> Component:
-    """Extrudes a path along a transition.
+@overload
+def extrude_transition(
+    p: Path,
+    transition: Transition | TransitionAsymmetric,
+    all_angle: Literal[False] = False,
+) -> Component: ...
+
+
+@overload
+def extrude_transition(
+    p: Path,
+    transition: Transition | TransitionAsymmetric,
+    all_angle: Literal[True] = True,
+) -> ComponentAllAngle: ...
+
+
+@overload
+def extrude_transition(
+    p: Path,
+    transition: Transition | TransitionAsymmetric,
+    all_angle: bool = True,
+) -> AnyComponent: ...
+
+
+def extrude_transition(
+    p: Path,
+    transition: Transition | TransitionAsymmetric,
+    all_angle: bool = False,
+) -> AnyComponent:
+    """
+    Extrudes a path along a transition, allowing different transition methods for the upper and lower edges.
 
     Args:
-        p: path to extrude.
-        transition: transition to extrude along.
+        p: Path to extrude.
+        transition: Transition or TransitionAsymmetric object describing the cross-sections and default transition types.
+        all_angle: if True, returns a ComponentAllAngle.
+
+    Returns:
+        Component: The extruded component with the specified transition methods for each edge.
     """
     from gdsfactory.pdk import get_cross_section, get_layer
 
-    c = Component()
+    c = ComponentAllAngle() if all_angle else Component()
+
+    if not isinstance(transition, Transition | TransitionAsymmetric):
+        raise TypeError(
+            f"Expected Transition or TransitionAsymmetric, got {type(transition).__name__}"
+        )
 
     x1 = get_cross_section(transition.cross_section1)
     x2 = get_cross_section(transition.cross_section2)
-    width_type = transition.width_type
-    offset_type = transition.offset_type
+    # Support different transition methods for points1 and points2 in case of asymmetric transition
+    if isinstance(transition, TransitionAsymmetric):
+        width_type1 = transition.width_type1
+        width_type2 = transition.width_type2
+        offset_type1 = transition.offset_type1
+        offset_type2 = transition.offset_type2
+    elif isinstance(transition, Transition):
+        width_type1 = transition.width_type
+        width_type2 = transition.width_type
+        offset_type1 = transition.offset_type
+        offset_type2 = transition.offset_type
 
     # if named, prefer name over layer
     named_sections1 = _get_named_sections(x1.sections)
@@ -1220,34 +1340,71 @@ def extrude_transition(p: Path, transition: Transition) -> Component:
         width1 = section1.width
         width2 = section2.width
 
-        if offset_type == "linear":
-            offset = _linear_transition(offset1, offset2)
-        elif offset_type == "sine":
-            offset = _sinusoidal_transition(offset1, offset2)  # type: ignore[assignment]
-        elif offset_type == "parabolic":
-            offset = _parabolic_transition(offset1, offset2)
-        elif callable(offset_type):
+        # Transition for points1 (lower edge)
+        if offset_type1 == "linear":
+            offset_func1 = _linear_transition(offset1, offset2)
+        elif offset_type1 == "sine":
+            offset_func1 = _sinusoidal_transition(offset1, offset2)
+        elif offset_type1 == "parabolic":
+            offset_func1 = _parabolic_transition(offset1, offset2)
+        elif callable(offset_type1):
 
-            def offset_func(t: float) -> float:
-                return offset_type(t, offset1, offset2)  # noqa: B023
+            def _offset_func1(
+                t: T, offset1: float = offset1, offset2: float = offset2
+            ) -> T:
+                return cast("T", offset_type1(t, offset1, offset2))  # type: ignore[misc,arg-type]
 
-            offset = offset_func  # type: ignore[assignment]
+            offset_func1 = _offset_func1
         else:
-            raise NotImplementedError()
-        if width_type == "linear":
-            width = _linear_transition(width1, width2)
-        elif width_type == "sine":
-            width = _sinusoidal_transition(width1, width2)  # type: ignore[assignment]
-        elif width_type == "parabolic":
-            width = _parabolic_transition(width1, width2)
-        elif callable(width_type):
+            raise NotImplementedError
 
-            def width_func(t: float) -> float:
-                return width_type(t, width1, width2)  # noqa: B023
+        if width_type1 == "linear":
+            width_func1 = _linear_transition(width1, width2)
+        elif width_type1 == "sine":
+            width_func1 = _sinusoidal_transition(width1, width2)
+        elif width_type1 == "parabolic":
+            width_func1 = _parabolic_transition(width1, width2)
+        elif callable(width_type1):
 
-            width = width_func  # type: ignore[assignment]
+            def _width_func1(t: T, width1: float = width1, width2: float = width2) -> T:
+                return cast("T", width_type1(t, width1, width2))  # type: ignore[misc,arg-type]
+
+            width_func1 = _width_func1
         else:
-            raise NotImplementedError()
+            raise NotImplementedError
+
+        # Transition for points2 (upper edge)
+        if offset_type2 == "linear":
+            offset_func2 = _linear_transition(offset1, offset2)
+        elif offset_type2 == "sine":
+            offset_func2 = _sinusoidal_transition(offset1, offset2)
+        elif offset_type2 == "parabolic":
+            offset_func2 = _parabolic_transition(offset1, offset2)
+        elif callable(offset_type2):
+
+            def _offset_func2(
+                t: T, offset1: float = offset1, offset2: float = offset2
+            ) -> T:
+                return cast("T", offset_type2(t, offset1, offset2))  # type: ignore[misc,arg-type]
+
+            offset_func2 = _offset_func2
+        else:
+            raise NotImplementedError
+
+        if width_type2 == "linear":
+            width_func2 = _linear_transition(width1, width2)
+        elif width_type2 == "sine":
+            width_func2 = _sinusoidal_transition(width1, width2)
+        elif width_type2 == "parabolic":
+            width_func2 = _parabolic_transition(width1, width2)
+        elif callable(width_type2):
+
+            def _width_func2(t: T, width1: float = width1, width2: float = width2) -> T:
+                return cast("T", width_type2(t, width1, width2))  # type: ignore[misc,arg-type]
+
+            width_func2 = _width_func2
+        else:
+            raise NotImplementedError
 
         if section1.layer != section2.layer:
             hidden = True
@@ -1262,19 +1419,21 @@ def extrude_transition(p: Path, transition: Transition) -> Component:
         end_angle = p.end_angle
         start_angle = p.start_angle
         points = p.points
-        width_value = width(lengths)
-        offset_value = offset(lengths)
+        width_value1 = width_func1(lengths)
+        offset_value1 = offset_func1(lengths)
+        width_value2 = width_func2(lengths)
+        offset_value2 = offset_func2(lengths)
 
         points1 = p.centerpoint_offset_curve(
             points,
-            offset_distance=offset_value + width_value / 2,
+            offset_distance=offset_value1 + width_value1 / 2,
             start_angle=start_angle,
             end_angle=end_angle,
         )
 
         points2 = p.centerpoint_offset_curve(
             points,
-            offset_distance=offset_value - width_value / 2,
+            offset_distance=offset_value2 - width_value2 / 2,
             start_angle=start_angle,
             end_angle=end_angle,
         )
@@ -1294,10 +1453,10 @@ def extrude_transition(p: Path, transition: Transition) -> Component:
         if port_names[0] is not None:
             port_width = width1
             port_orientation = (p.start_angle + 180) % 360
-            assert not isinstance(offset_value, float)
+            assert not isinstance(offset_value1, float)
             center = p.centerpoint_offset_curve(
                 points[:2],
-                offset_distance=offset_value[:2],
+                offset_distance=offset_value1[:2],
                 start_angle=start_angle,
                 end_angle=None,
             )[0]
@@ -1314,10 +1473,10 @@ def extrude_transition(p: Path, transition: Transition) -> Component:
         if port_names[1] is not None:
             port_width = width2
             port_orientation = (p.end_angle) % 360
-            assert not isinstance(offset_value, float)
+            assert not isinstance(offset_value1, float)
             center = p.centerpoint_offset_curve(
                 points[-2:],
-                offset_distance=offset_value[-2:],
+                offset_distance=offset_value1[-2:],
                 start_angle=None,
                 end_angle=end_angle,
             )[-1]
@@ -1465,7 +1624,7 @@ def arc(
         npoints = npoints or int(
             abs(angle) / 360 * radius / PDK.bend_points_distance / 2
         )
-        npoints = max(int(npoints), int(360 / abs(angle)) + 1)
+        npoints = max(int(npoints), 2)
 
     t = np.linspace(
         start_angle * np.pi / 180, (angle + start_angle) * np.pi / 180, npoints
@@ -1482,69 +1641,46 @@ def arc(
     return path
 
 
-def _fresnel(
-    R0: float, s: float, num_pts: int, n_iter: int = 8
-) -> npt.NDArray[np.floating]:
-    """Fresnel integral using a series expansion.
+@functools.cache
+def _fresnel_coeffs(
+    n_iter: int = 8,
+) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.floating]]:
+    """Compute Fresnel coefficients (cached on first call).
 
-    Args:
-        R0: Initial radius of curvature.
-        s: Length of the curve.
-        num_pts: Number of points to generate.
-        n_iter: Number of iterations to use in the series expansion.
-
-    Returns:
-        Array of shape (2, num_pts): [x; y]
+    Arrays are marked read-only to prevent accidental mutation of cached values.
     """
-    t = np.linspace(0, s / float(np.sqrt(2) * R0), num_pts)
-
     n = np.arange(n_iter)
     exp = np.array([4 * n + 1, 4 * n + 3])
-
     den = np.empty(shape=(2, n_iter))
     den[0] = [math.factorial(2 * i) * (4 * i + 1) for i in n]
     den[1] = [math.factorial(2 * i + 1) * (4 * i + 3) for i in n]
     den *= (-1.0) ** n
+    exp.flags.writeable = False
+    den.flags.writeable = False
+    return exp, den
 
+
+def _fresnel(
+    R0: float, s: float, num_pts: int, n_iter: int = 8
+) -> npt.NDArray[np.floating]:
+    """Fresnel integral using a series expansion with cached coefficients."""
+    t = np.linspace(0, s / float(np.sqrt(2) * R0), num_pts)
+    exp, den = _fresnel_coeffs(n_iter)
     series = (t ** exp[..., None] / den[..., None]).sum(axis=1)
-
-    return cast(npt.NDArray[np.floating], np.sqrt(2) * R0 * series)
+    return cast("npt.NDArray[np.floating]", np.sqrt(2) * R0 * series)
 
 
 def _fresnel_angular(
     R0: float, s: float, num_pts: int, n_iter: int = 8
 ) -> npt.NDArray[np.floating]:
-    """Fresnel integral with uniform angular sampling.
-
-    Args:
-        R0: Initial radius of curvature.
-        s: Length of the curve.
-        num_pts: Number of points to generate.
-        n_iter: Number of iterations to use in the series expansion.
-
-    Returns:
-        Array of shape (2, num_pts): [x; y]
-    """
-    # For Fresnel spiral, the angle theta = t^2/2
-    # So t = sqrt(2*theta), where theta is in radians
+    """Fresnel integral with uniform angular sampling and cached coefficients."""
     t_max = s / float(np.sqrt(2) * R0)
     theta_max = t_max**2 / 2
-
-    # Generate uniform angles
     thetas = np.linspace(0, theta_max, num_pts)
     t = np.sqrt(2 * thetas)
-
-    n = np.arange(n_iter)
-    exp = np.array([4 * n + 1, 4 * n + 3])
-
-    den = np.empty(shape=(2, n_iter))
-    den[0] = [math.factorial(2 * i) * (4 * i + 1) for i in n]
-    den[1] = [math.factorial(2 * i + 1) * (4 * i + 3) for i in n]
-    den *= (-1.0) ** n
-
+    exp, den = _fresnel_coeffs(n_iter)
     series = (t ** exp[..., None] / den[..., None]).sum(axis=1)
-
-    return cast(npt.NDArray[np.floating], np.sqrt(2) * R0 * series)
+    return cast("npt.NDArray[np.floating]", np.sqrt(2) * R0 * series)
 
 
 def euler(
@@ -1610,9 +1746,10 @@ def euler(
 
     R0 = 1
     alpha = np.radians(angle)
-    Rp = R0 / (np.sqrt(p * alpha))
     sp = float(R0 * np.sqrt(p * alpha))
-    s0 = float(2 * sp + Rp * alpha * (1 - p))
+    # Rp = inf at alpha=0, but all usages are guarded by is_small_angle
+    with np.errstate(divide="ignore"):
+        Rp = R0 / np.sqrt(p * alpha)
 
     pdk = get_active_pdk()
     if angular_step is not None:
@@ -1629,8 +1766,9 @@ def euler(
         npoints = npoints or abs(
             int(angle / 360 * radius / pdk.bend_points_distance / 2)
         )
-        npoints = max(npoints, int(360 / angle) + 1)
-        num_pts_euler = int(np.round(sp / (s0 / 2) * npoints))
+        npoints = max(int(npoints), 2)
+        # Use simplified form: sp/(s0/2) = 2p/(p+1), avoids 0/0 at alpha=0
+        num_pts_euler = int(np.round(2 * p / (p + 1) * npoints))
         num_pts_arc = npoints - num_pts_euler
 
     # Ensure a minimum of 2 points for each euler/arc section
@@ -1638,29 +1776,43 @@ def euler(
         num_pts_euler = 0
         num_pts_arc = 2
 
+    # Small angle threshold in degrees (matches arc() convention)
+    is_small_angle = abs(angle) <= 1e-6
+
     if num_pts_euler > 0:
         if angular_step is not None:
             xbend1, ybend1 = _fresnel_angular(R0, sp, num_pts_euler)
         else:
             xbend1, ybend1 = _fresnel(R0, sp, num_pts_euler)
         xp, yp = xbend1[-1], ybend1[-1]
-        dx = xp - Rp * np.sin(p * alpha / 2)
-        dy = yp - Rp * (1 - np.cos(p * alpha / 2))
+        # Sinc-based formulas avoid Rp*sin (inf*0 at alpha=0)
+        # Rp * sin(p*a/2) = sp/2 * sinc(p*a/(2*pi))
+        # Rp * (1-cos(p*a/2)) = (sp^3/8) * sinc^2(p*a/(4*pi))  [using 1-cos=2sin^2]
+        # Using sinc(2x) = sinc(x)*cos(pi*x) to compute both from one sinc call
+        sinc_quarter = np.sinc(p * alpha / (4 * np.pi))
+        dx = xp - sp / 2 * sinc_quarter * np.cos(p * alpha / 4)
+        dy = yp - (sp**3 / 8) * sinc_quarter**2
     else:
         xbend1 = ybend1 = np.asarray([], dtype=float)
         dx = 0
         dy = 0
 
-    if angular_step is not None:
-        # For angular discretization in the arc section
-        arc_angle = alpha * (1 - p)  # angle covered by the arc section
-        theta = np.linspace(0, arc_angle, num_pts_arc)
-        xbend2 = Rp * np.sin(theta + p * alpha / 2) + dx
-        ybend2 = Rp * (1 - np.cos(theta + p * alpha / 2)) + dy
+    if not is_small_angle:
+        if angular_step is not None:
+            # Original angular_step behavior (different from npoints mode)
+            arc_angle_section = alpha * (1 - p)
+            theta = np.linspace(0, arc_angle_section, num_pts_arc)
+            arc_angles = theta + p * alpha / 2
+        else:
+            # Direct linspace replaces: s = linspace(sp, s0/2), arc_angles = (s-sp)*sqrt(p*a)/R0 + p*a/2
+            arc_angles = np.linspace(p * alpha / 2, alpha / 2, num_pts_arc)
+        xbend2 = Rp * np.sin(arc_angles) + dx
+        ybend2 = Rp * (1 - np.cos(arc_angles)) + dy
     else:
-        s = np.linspace(sp, s0 / 2, num_pts_arc)
-        xbend2 = Rp * np.sin((s - sp) / Rp + p * alpha / 2) + dx
-        ybend2 = Rp * (1 - np.cos((s - sp) / Rp + p * alpha / 2)) + dy
+        # Limit is 0 by L'Hopital: Rp*sin(t) ~ sin(a)/sqrt(a) -> 0
+        xbend2 = np.zeros(num_pts_arc) + dx
+        # Limit is 0: Rp*(1-cos(t)) ~ (1/sqrt(a))*(a^2/2) = a^(3/2)/2 -> 0
+        ybend2 = np.zeros(num_pts_arc) + dy
 
     x = np.concatenate([xbend1, xbend2[1:]])
     y = np.concatenate([ybend1, ybend2[1:]])
@@ -1670,21 +1822,27 @@ def euler(
     points2 = rotate_points(points2, angle - 180)
     points2 += -points2[0, :] + points1[-1, :]
 
-    points = np.concatenate([points1[:-1], points2])
+    # Use [:-1] to remove duplicate junction point, but [:None] if only 1 point
+    points = np.concatenate([points1[: -1 if len(points1) > 1 else None], points2])
 
     # Find y-axis intersection point to compute Reff
     start_angle = 180 * (angle < 0)
     end_angle = start_angle + angle
-    dy = np.tan(np.radians(end_angle - 90)) * points[-1][0]
-    Reff = points[-1][1] - dy
-    Rmin = Rp
 
-    # Fix degenerate condition at angle == 180
-    if np.abs(180 - angle) < 1e-3:
-        Reff = points[-1][1] / 2
+    if is_small_angle:
+        # Degenerate case: curve collapses to a point, radius is infinite
+        Reff = np.inf
+        Rmin = np.inf
+        scale = 0.0
+    else:
+        dy = np.tan(np.radians(end_angle - 90)) * points[-1][0]
+        Reff = points[-1][1] - dy
+        Rmin = Rp
+        # Fix degenerate condition at angle == 180
+        if np.abs(180 - angle) < 1e-3:
+            Reff = points[-1][1] / 2
+        scale = radius / Reff if use_eff else radius / Rmin
 
-    # Scale curve to either match Reff or Rmin
-    scale = radius / Reff if use_eff else radius / Rmin
     points *= scale
 
     path = Path()
@@ -1693,8 +1851,8 @@ def euler(
     path.points = points
     path.start_angle = start_angle
     path.end_angle = end_angle
-    path.info["Reff"] = Reff * scale
-    path.info["Rmin"] = Rmin * scale
+    path.info["Reff"] = Reff * scale if not is_small_angle else np.inf
+    path.info["Rmin"] = Rmin * scale if not is_small_angle else np.inf
     if mirror:
         path.mirror((1, 0))
     return path
@@ -1847,7 +2005,7 @@ def smooth(
     path = Path()
     path.append(new_points_np)
     path.rotate(float(theta[0]))
-    path.move(cast(tuple[float, float], points[0, :]))
+    path.move(cast("tuple[float, float]", points[0, :]))
     path.start_angle = theta[0]
     path.end_angle = theta[-1]
     return path

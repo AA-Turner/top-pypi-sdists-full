@@ -1,7 +1,7 @@
 import logging
 from collections.abc import AsyncGenerator, Generator
 from typing import Dict, Optional, Union
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, call, patch
 
 import httpx
 import pytest
@@ -198,14 +198,59 @@ def test_retryable_exception(mock_responses: MockResponse) -> None:
     assert mock_sleep.call_count == 10
 
 
+def test_retryable_exception_custom_exception(mock_responses: MockResponse) -> None:
+    mock_sleep, _ = mock_responses
+    transport = RetryTransport(retry=Retry(retry_on_exceptions=[ValueError]))
+
+    with patch("httpx.HTTPTransport.handle_request", side_effect=ValueError("oops")):
+        with httpx.Client(transport=transport) as client:
+            with pytest.raises(ValueError, match="oops"):
+                client.get("https://example.com")
+
+    assert mock_sleep.call_count == 10
+
+
+@pytest.mark.parametrize("status_code", Retry.RETRYABLE_STATUS_CODES)
+def test_retry_operation_always_closes_response(status_code: int) -> None:
+    transport = RetryTransport()
+
+    responses = []
+
+    def send_method(request: httpx.Request) -> httpx.Response:
+        response = Mock(spec=httpx.Response)
+        response.status_code = status_code
+        response.headers = httpx.Headers()
+        response.close = Mock()
+
+        responses.append(response)
+        return response
+
+    transport._retry_operation(request=httpx.Request("GET", "https://example.com"), send_method=send_method)
+
+    assert all(r.close.called for r in responses[:-1])
+
+
 @pytest.mark.asyncio
 async def test_async_retryable_exception(mock_async_responses: AsyncMockResponse) -> None:
     mock_asleep, _ = mock_async_responses
     transport = RetryTransport()
 
-    with patch("httpx.AsyncHTTPTransport.handle_async_request", side_effect=httpx.ReadTimeout("Timeout!")):
+    with patch("httpx.AsyncHTTPTransport.handle_async_request", side_effect=httpx.ReadTimeout("oops")):
         async with httpx.AsyncClient(transport=transport) as client:
-            with pytest.raises(httpx.ReadTimeout, match="Timeout!"):
+            with pytest.raises(httpx.ReadTimeout, match="oops"):
+                await client.get("https://example.com")
+
+    assert mock_asleep.call_count == 10
+
+
+@pytest.mark.asyncio
+async def test_async_retryable_exception_custom_exception(mock_async_responses: AsyncMockResponse) -> None:
+    mock_asleep, _ = mock_async_responses
+    transport = RetryTransport(retry=Retry(retry_on_exceptions=[ValueError]))
+
+    with patch("httpx.AsyncHTTPTransport.handle_async_request", side_effect=ValueError("Timeout!")):
+        async with httpx.AsyncClient(transport=transport) as client:
+            with pytest.raises(ValueError, match="Timeout!"):
                 await client.get("https://example.com")
 
     assert mock_asleep.call_count == 10
@@ -415,3 +460,24 @@ async def test_async_from_base_transport() -> None:
     async with httpx.AsyncClient(transport=transport) as client:
         response = await client.get("https://example.com")
         assert response.status_code == 200
+
+
+@pytest.mark.parametrize("status_code", Retry.RETRYABLE_STATUS_CODES)
+@pytest.mark.asyncio
+async def test_retry_operation_async_always_closes_response(status_code: int) -> None:
+    transport = RetryTransport()
+
+    responses = []
+
+    async def send_method(request: httpx.Request) -> httpx.Response:
+        response = AsyncMock(spec=httpx.Response)
+        response.status_code = status_code
+        response.headers = httpx.Headers()
+        response.aclose = AsyncMock()
+
+        responses.append(response)
+        return response
+
+    await transport._retry_operation_async(request=httpx.Request("GET", "https://example.com"), send_method=send_method)
+
+    assert all(r.aclose.called for r in responses[:-1])

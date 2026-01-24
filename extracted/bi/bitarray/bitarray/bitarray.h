@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.7.1"
+#define BITARRAY_VERSION  "3.8.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -52,6 +52,8 @@ typedef struct {
 /* --- bit-endianness --- */
 #define ENDIAN_LITTLE  0
 #define ENDIAN_BIG     1
+/* default bit-endianness */
+#define ENDIAN_DEFAULT  ENDIAN_BIG
 
 #define IS_LE(self)  ((self)->endian == ENDIAN_LITTLE)
 #define IS_BE(self)  ((self)->endian == ENDIAN_BIG)
@@ -233,7 +235,7 @@ setup_table(char *table, char kop)
     for (k = 0; k < 256; k++) {
         char t = 0, j;
         for (j = 0; j < 8; j++) {
-            if (k & 1 << j)
+            if (k & 1 << j) {
                 /* j are the indices of active bits in k (little endian) */
                 switch (kop) {
                 case 'a': t += j;        break;  /* add active indices */
@@ -249,6 +251,7 @@ setup_table(char *table, char kop)
                 case 'r': t |= 128 >> j; break;  /* reverse bits */
                 default: Py_UNREACHABLE();
                 }
+            }
         }
         table[k] = t;
     }

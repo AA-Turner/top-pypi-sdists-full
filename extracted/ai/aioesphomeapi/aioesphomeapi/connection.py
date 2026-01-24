@@ -150,7 +150,7 @@ CONNECTION_STATE_CLOSED = ConnectionState.CLOSED
 def _make_hello_request(client_info: str) -> HelloRequest:
     """Make a HelloRequest."""
     return HelloRequest(
-        client_info=client_info, api_version_major=1, api_version_minor=12
+        client_info=client_info, api_version_major=1, api_version_minor=14
     )
 
 
@@ -287,7 +287,14 @@ class APIConnection:
         was_connected = self.is_connected
         self._set_connection_state(CONNECTION_STATE_CLOSED)
         if self._debug_enabled:
-            _LOGGER.debug("Cleaning up connection to %s", self.log_name)
+            if self._fatal_exception:
+                _LOGGER.debug(
+                    "Cleaning up connection to %s (error: %s)",
+                    self.log_name,
+                    self._fatal_exception,
+                )
+            else:
+                _LOGGER.debug("Cleaning up connection to %s", self.log_name)
         for fut in self._read_exception_futures:
             if not fut.done():
                 err = self._fatal_exception or APIConnectionError("Connection closed")
@@ -473,32 +480,21 @@ class APIConnection:
         msg_types = [HelloResponse]
         if login:
             messages.append(self._make_auth_request())
-            if self._params.password:
-                # Only wait for AuthenticationResponse if we actually have
-                # a password to send, but we will still register
-                # a handler for a AuthenticationResponse just in case
-                # the device has a password but we don't expect it
-                msg_types.append(AuthenticationResponse)
+            # Never wait for AuthenticationResponse - the device will either
+            # send it immediately if authentication fails, or not send it at all
+            # if it doesn't support password authentication
 
         responses = await self.send_messages_await_response_complex(
             tuple(messages),
             None,
             lambda resp: type(resp)  # pylint: disable=unidiomatic-typecheck
-            is msg_types[-1],
+            is HelloResponse,  # Only wait for HelloResponse
             tuple(msg_types),
             CONNECT_REQUEST_TIMEOUT,
         )
 
         resp = responses.pop(0)
         self._process_hello_resp(resp)
-        if login and self._params.password:
-            login_response = responses.pop(0)
-            self._process_login_response(login_response)
-
-    def _process_login_response(self, login_response: AuthenticationResponse) -> None:
-        """Process a AuthenticationResponse."""
-        if login_response.invalid_password:
-            raise InvalidAuthAPIError("Invalid password!")
 
     def _handle_login_response(self, login_response: AuthenticationResponse) -> None:
         """Handle a AuthenticationResponse."""
@@ -789,8 +785,11 @@ class APIConnection:
                     MessageToDict(msg) if _WIN32 else msg,
                 )
 
-        if TYPE_CHECKING:
-            assert self._frame_helper is not None
+        # Check frame_helper is not None to prevent segfault in Cython code
+        if self._frame_helper is None:
+            raise self._fatal_exception or ConnectionNotEstablishedAPIError(
+                f"Connection is closed ({self.connection_state})"
+            )
 
         try:
             self._frame_helper.write_packets(packets, self._debug_enabled)
@@ -1097,11 +1096,12 @@ class APIConnection:
                     )
 
         self._expected_disconnect = True
-        if self._handshake_complete:
+        if self._handshake_complete and self._frame_helper is not None:
             # We still want to send a disconnect request even
             # if the hello phase isn't finished to ensure we
             # the esp will clean up the connection as soon
             # as possible.
+            # But skip if frame_helper is None (connection already cleaned up)
             try:
                 await self.send_message_await_response(
                     DISCONNECT_REQUEST_MESSAGE,
@@ -1116,9 +1116,10 @@ class APIConnection:
     def force_disconnect(self) -> None:
         """Forcefully disconnect from the API."""
         self._expected_disconnect = True
-        if self._handshake_complete:
+        if self._handshake_complete and self._frame_helper is not None:
             # Still try to tell the esp to disconnect gracefully
             # but don't wait for it to finish
+            # But skip if frame_helper is None (connection already cleaned up)
             try:
                 self.send_messages((DISCONNECT_REQUEST_MESSAGE,))
             except APIConnectionError:

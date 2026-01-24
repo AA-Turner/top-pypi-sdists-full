@@ -16,15 +16,34 @@ class CallControlApplication(BaseModel):
     active: Optional[bool] = None
     """Specifies whether the connection can be used."""
 
-    anchorsite_override: Optional[Literal['"Latency"', '"Chicago, IL"', '"Ashburn, VA"', '"San Jose, CA"']] = None
+    anchorsite_override: Optional[
+        Literal[
+            "Latency",
+            "Chicago, IL",
+            "Ashburn, VA",
+            "San Jose, CA",
+            "London, UK",
+            "Chennai, IN",
+            "Amsterdam, Netherlands",
+            "Toronto, Canada",
+            "Sydney, Australia",
+        ]
+    ] = None
     """
-    `Latency` directs Telnyx to route media through the site with the lowest
-    round-trip time to the user's connection. Telnyx calculates this time using ICMP
-    ping messages. This can be disabled by specifying a site to handle all media.
+    <code>Latency</code> directs Telnyx to route media through the site with the
+    lowest round-trip time to the user's connection. Telnyx calculates this time
+    using ICMP ping messages. This can be disabled by specifying a site to handle
+    all media.
     """
 
     application_name: Optional[str] = None
     """A user-assigned name to help manage the application."""
+
+    call_cost_in_webhooks: Optional[bool] = None
+    """
+    Specifies if call cost webhooks should be sent for this Call Control
+    Application.
+    """
 
     created_at: Optional[str] = None
     """ISO 8601 formatted date of when the resource was created"""

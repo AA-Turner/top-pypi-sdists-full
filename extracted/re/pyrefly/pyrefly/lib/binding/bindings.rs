@@ -5,31 +5,40 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::fmt;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::sync::Arc;
 
 use dupe::Dupe;
-use itertools::Either;
+use pyrefly_graph::index::Idx;
+use pyrefly_graph::index::Index;
+use pyrefly_graph::index_map::IndexMap;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
-use pyrefly_python::symbol_kind::SymbolKind;
 use pyrefly_python::sys_info::SysInfo;
+use pyrefly_types::type_info::JoinStyle;
 use pyrefly_types::types::Type;
 use pyrefly_util::display::DisplayWithCtx;
+use pyrefly_util::gas::Gas;
 use pyrefly_util::uniques::UniqueFactory;
-use ruff_python_ast::AnyParameterRef;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
+use ruff_python_ast::Parameter;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::TypeParam;
 use ruff_python_ast::TypeParams;
 use ruff_python_ast::name::Name;
+use ruff_python_parser::semantic_errors::SemanticSyntaxChecker;
+use ruff_python_parser::semantic_errors::SemanticSyntaxContext;
+use ruff_python_parser::semantic_errors::SemanticSyntaxError;
+use ruff_python_parser::semantic_errors::SemanticSyntaxErrorKind;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ruff_text_size::TextSize;
@@ -44,6 +53,7 @@ use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExport;
 use crate::binding::binding::BindingLegacyTypeParam;
+use crate::binding::binding::BranchInfo;
 use crate::binding::binding::FirstUse;
 use crate::binding::binding::FunctionParameter;
 use crate::binding::binding::Key;
@@ -55,29 +65,31 @@ use crate::binding::binding::KeyLegacyTypeParam;
 use crate::binding::binding::KeyUndecoratedFunction;
 use crate::binding::binding::Keyed;
 use crate::binding::binding::LastStmt;
+use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::TypeParameter;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::Exportable;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::NameReadInfo;
-use crate::binding::scope::ScopeKind;
 use crate::binding::scope::ScopeTrace;
 use crate::binding::scope::Scopes;
+use crate::binding::scope::UnusedImport;
+use crate::binding::scope::UnusedParameter;
+use crate::binding::scope::UnusedVariable;
 use crate::binding::table::TableKeyed;
 use crate::config::base::UntypedDefBehavior;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorInfo;
+use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::export::special::SpecialExport;
-use crate::graph::index::Idx;
-use crate::graph::index::Index;
-use crate::graph::index_map::IndexMap;
 use crate::module::module_info::ModuleInfo;
 use crate::solver::solver::Solver;
 use crate::state::loader::FindError;
+use crate::state::loader::FindingOrError;
 use crate::table;
 use crate::table_for_each;
 use crate::table_try_for_each;
@@ -90,7 +102,7 @@ use crate::types::types::Var;
 /// intercepting first-usage reads and for wrapping forward-reference `Key`s
 /// in `Idx<Key>` by inserting them into the bindings table.
 #[derive(Debug)]
-pub enum NameLookupResult<T> {
+pub enum NameLookupResult {
     /// I am the bound key for this name in the current scope stack.
     /// I might be:
     /// - initialized (either part of the current flow, or an anywhere-style
@@ -101,48 +113,35 @@ pub enum NameLookupResult<T> {
     ///   understands) and this key is either the most recent stale flow key (e.g.
     ///   if I am used after a `del` or is an anywhere-style lookup)
     Found {
-        value: T,
-        is_initialized: IsInitialized,
+        idx: Idx<Key>,
+        initialized: InitializedInFlow,
     },
     /// This name is not defined in the current scope stack.
     NotFound,
 }
 
-impl<T> NameLookupResult<T> {
-    fn found(self) -> Option<T> {
+impl NameLookupResult {
+    fn found(self) -> Option<Idx<Key>> {
         match self {
-            NameLookupResult::Found { value, .. } => Some(value),
+            NameLookupResult::Found { idx, .. } => Some(idx),
             NameLookupResult::NotFound => None,
-        }
-    }
-
-    pub fn map_found<S>(self, f: impl FnOnce(T) -> S) -> NameLookupResult<S> {
-        match self {
-            NameLookupResult::Found {
-                value,
-                is_initialized,
-            } => NameLookupResult::Found {
-                value: f(value),
-                is_initialized,
-            },
-            NameLookupResult::NotFound => NameLookupResult::NotFound,
         }
     }
 }
 
 #[derive(Debug)]
-pub enum IsInitialized {
+pub enum InitializedInFlow {
     Yes,
-    Maybe,
+    Conditionally,
     No,
 }
 
-impl IsInitialized {
+impl InitializedInFlow {
     pub fn as_error_message(&self, name: &Name) -> Option<String> {
         match self {
-            IsInitialized::Yes => None,
-            IsInitialized::Maybe => Some(format!("`{name}` may be uninitialized")),
-            IsInitialized::No => Some(format!("`{name}` is uninitialized")),
+            InitializedInFlow::Yes => None,
+            InitializedInFlow::Conditionally => Some(format!("`{name}` may be uninitialized")),
+            InitializedInFlow::No => Some(format!("`{name}` is uninitialized")),
         }
     }
 }
@@ -162,6 +161,9 @@ struct BindingsInner {
     module_info: ModuleInfo,
     table: BindingTable,
     scope_trace: Option<ScopeTrace>,
+    unused_parameters: Vec<UnusedParameter>,
+    unused_imports: Vec<UnusedImport>,
+    unused_variables: Vec<UnusedVariable>,
 }
 
 impl Display for Bindings {
@@ -186,11 +188,27 @@ impl Display for Bindings {
     }
 }
 
+/// Information needed to create a BoundName binding after AST traversal.
+///
+/// During traversal, we record the lookup result without creating the binding.
+/// After traversal (when all phi nodes are populated), we process these to
+/// create the actual bindings and correctly detect first-use opportunities.
+#[derive(Debug)]
+struct DeferredBoundName {
+    /// The reserved Idx for the Key::BoundName we will create
+    bound_name_idx: Idx<Key>,
+    /// The result of the name lookup (may be a phi that forwards elsewhere)
+    lookup_result_idx: Idx<Key>,
+    /// Information about the usage context where the lookup occurred
+    usage: Usage,
+}
+
 pub struct BindingsBuilder<'a> {
     pub module_info: ModuleInfo,
     pub lookup: &'a dyn LookupExport,
     pub sys_info: &'a SysInfo,
     pub class_count: u32,
+    await_context: AwaitContext,
     errors: &'a ErrorCollector,
     solver: &'a Solver,
     uniques: &'a UniqueFactory,
@@ -198,6 +216,28 @@ pub struct BindingsBuilder<'a> {
     pub scopes: Scopes,
     table: BindingTable,
     pub untyped_def_behavior: UntypedDefBehavior,
+    unused_parameters: Vec<UnusedParameter>,
+    unused_imports: Vec<UnusedImport>,
+    unused_variables: Vec<UnusedVariable>,
+    semantic_checker: SemanticSyntaxChecker,
+    semantic_syntax_errors: RefCell<Vec<SemanticSyntaxError>>,
+    /// BoundName lookups deferred until after AST traversal
+    deferred_bound_names: Vec<DeferredBoundName>,
+}
+
+/// An enum tracking whether we are in a generator expression
+/// like `(x for x in xs)` - used to allow `await` inside of generators
+/// even when a function is not async, for example (await x for x in xs).
+///
+/// This is legal because the resulting AsyncGenerator does not actually
+/// await until iterated (which can only be done in an `async def`).
+///
+/// In any other comprehension, `await` requires us to be in an `async def`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AwaitContext {
+    #[default]
+    General,
+    GeneratorElement,
 }
 
 impl Bindings {
@@ -217,6 +257,18 @@ impl Bindings {
 
     pub fn module(&self) -> &ModuleInfo {
         &self.0.module_info
+    }
+
+    pub fn unused_parameters(&self) -> &[UnusedParameter] {
+        &self.0.unused_parameters
+    }
+
+    pub fn unused_imports(&self) -> &[UnusedImport] {
+        &self.0.unused_imports
+    }
+
+    pub fn unused_variables(&self) -> &[UnusedVariable] {
+        &self.0.unused_variables
     }
 
     pub fn available_definitions(&self, position: TextSize) -> SmallSet<Idx<Key>> {
@@ -329,6 +381,25 @@ impl Bindings {
         }
     }
 
+    pub fn function_has_return_annotation(&self, name: &Identifier) -> bool {
+        let b = self.get(self.key_to_idx(&Key::ReturnType(ShortIdentifier::new(name))));
+        if let Binding::ReturnType(box r) = b {
+            r.kind.has_return_annotation()
+        } else if let Binding::Type(_) = b {
+            // This happens when we have an un-annotated return & the inference behavior is "skip and infer Any"
+            false
+        } else {
+            panic!(
+                "Internal error: unexpected binding for return type `{}` @  {:?}: {}, module={}, path={}",
+                &name.id,
+                name.range,
+                b.display_with(self),
+                self.module().name(),
+                self.module().path(),
+            )
+        }
+    }
+
     pub fn new(
         x: ModModule,
         module_info: ModuleInfo,
@@ -349,19 +420,55 @@ impl Bindings {
             solver,
             uniques,
             class_count: 0,
+            await_context: AwaitContext::General,
             has_docstring: Ast::has_docstring(&x),
             scopes: Scopes::module(x.range, enable_trace),
             table: Default::default(),
             untyped_def_behavior,
+            unused_parameters: Vec::new(),
+            unused_imports: Vec::new(),
+            unused_variables: Vec::new(),
+            semantic_checker: SemanticSyntaxChecker::new(),
+            semantic_syntax_errors: RefCell::new(Vec::new()),
+            deferred_bound_names: Vec::new(),
         };
         builder.init_static_scope(&x.body, true);
         if module_info.name() != ModuleName::builtins() {
-            builder.inject_builtins();
+            builder.inject_builtins(ModuleName::builtins(), false);
+            if module_info.name() != ModuleName::extra_builtins() {
+                builder.inject_builtins(ModuleName::extra_builtins(), true);
+            }
         }
         builder.inject_globals();
         builder.stmts(x.body, &NestingContext::toplevel());
         assert_eq!(builder.scopes.loop_depth(), 0);
+
+        builder.process_deferred_bound_names();
+
+        // Validate that all entries in __all__ are defined in the module
+        for (range, name) in exports.invalid_dunder_all_entries(lookup, &module_info) {
+            builder.error(
+                range,
+                ErrorInfo::Kind(ErrorKind::BadDunderAll),
+                format!("Name `{name}` is listed in `__all__` but is not defined in the module"),
+            );
+        }
+
+        let unused_imports = builder.scopes.collect_module_unused_imports();
+        builder.record_unused_imports(unused_imports);
         let scope_trace = builder.scopes.finish();
+
+        let semantic_errors = builder.semantic_syntax_errors.into_inner();
+        for error in semantic_errors {
+            if Self::should_emit_semantic_syntax_error(&error) {
+                builder.errors.add(
+                    error.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                    vec1![error.to_string()],
+                );
+            }
+        }
+
         let exported = exports.exports(lookup);
         for (name, exportable) in scope_trace.exportables().into_iter_hashed() {
             let binding = match exportable {
@@ -387,7 +494,50 @@ impl Bindings {
             } else {
                 None
             },
+            unused_parameters: builder.unused_parameters,
+            unused_imports: builder.unused_imports,
+            unused_variables: builder.unused_variables,
         }))
+    }
+
+    fn should_emit_semantic_syntax_error(error: &SemanticSyntaxError) -> bool {
+        match error.kind {
+            SemanticSyntaxErrorKind::BreakOutsideLoop
+            | SemanticSyntaxErrorKind::ContinueOutsideLoop
+            | SemanticSyntaxErrorKind::SingleStarredAssignment
+            | SemanticSyntaxErrorKind::DifferentMatchPatternBindings
+            | SemanticSyntaxErrorKind::IrrefutableCasePattern(_)
+            | SemanticSyntaxErrorKind::LateFutureImport
+            | SemanticSyntaxErrorKind::ReboundComprehensionVariable
+            | SemanticSyntaxErrorKind::DuplicateParameter(_)
+            | SemanticSyntaxErrorKind::NonlocalDeclarationAtModuleLevel
+            | SemanticSyntaxErrorKind::MultipleCaseAssignment(_)
+            | SemanticSyntaxErrorKind::DuplicateMatchKey(_)
+            | SemanticSyntaxErrorKind::DuplicateMatchClassAttribute(_)
+            | SemanticSyntaxErrorKind::DuplicateTypeParameter
+            | SemanticSyntaxErrorKind::NonModuleImportStar(_) => true,
+            // TODO: the following errors aren't being emitted even when enabled
+            // we should investigate that
+            SemanticSyntaxErrorKind::WriteToDebug(_)
+            | SemanticSyntaxErrorKind::MultipleStarredExpressions
+            // pyrefly already handles these errors - we should weigh the pros and cons of enabling them
+            | SemanticSyntaxErrorKind::InvalidExpression(_, _)
+            | SemanticSyntaxErrorKind::FutureFeatureNotDefined(_)
+            | SemanticSyntaxErrorKind::AsyncComprehensionInSyncComprehension(_)
+            | SemanticSyntaxErrorKind::InvalidStarExpression
+            | SemanticSyntaxErrorKind::AwaitOutsideAsyncFunction(_)
+            | SemanticSyntaxErrorKind::ReturnOutsideFunction
+            | SemanticSyntaxErrorKind::YieldFromInAsyncFunction
+            | SemanticSyntaxErrorKind::YieldOutsideFunction(_)
+            // The following errors involve modifying our scope implementation
+            | SemanticSyntaxErrorKind::LoadBeforeGlobalDeclaration { .. }
+            | SemanticSyntaxErrorKind::GlobalParameter(_)
+            | SemanticSyntaxErrorKind::LoadBeforeNonlocalDeclaration { .. }
+            | SemanticSyntaxErrorKind::NonlocalAndGlobal(_)
+            | SemanticSyntaxErrorKind::AnnotatedGlobal(_)
+            | SemanticSyntaxErrorKind::AnnotatedNonlocal(_)
+            | SemanticSyntaxErrorKind::NonlocalWithoutBinding(_) => false,
+        }
     }
 }
 
@@ -432,10 +582,13 @@ impl BindingTable {
         match self
             .types
             .1
-            .insert_if_missing(phi_idx, || Binding::Phi(SmallSet::new()))
+            .insert_if_missing(phi_idx, || Binding::Phi(JoinStyle::SimpleMerge, vec![]))
         {
-            Binding::Phi(phi) => {
-                phi.insert(idx);
+            Binding::Phi(_, branches) => {
+                branches.push(BranchInfo {
+                    value_key: idx,
+                    termination_key: None,
+                });
             }
             _ => unreachable!(),
         }
@@ -455,70 +608,32 @@ impl BindingTable {
     }
 }
 
-pub enum MutableCaptureLookupError {
-    /// We can't find the name at all
-    NotFound,
-    /// We expected the name to be in an enclosing, non-global scope, but it's not
-    NonlocalScope,
-    /// This variable was assigned before the nonlocal declaration
-    AssignedBeforeNonlocal,
-    /// We expected the name to be in the global scope, but it's not
-    GlobalScope,
-    /// This variable was assigned before the global declaration
-    AssignedBeforeGlobal,
-}
-
-impl MutableCaptureLookupError {
-    pub fn message(&self, name: &Identifier) -> String {
-        match self {
-            Self::NotFound => format!("Could not find name `{name}`"),
-            Self::NonlocalScope => {
-                format!("Found `{name}`, but it was not in a valid enclosing scope")
-            }
-            Self::AssignedBeforeNonlocal => {
-                format!(
-                    "`{name}` was assigned in the current scope before the nonlocal declaration"
-                )
-            }
-            Self::GlobalScope => {
-                format!("Found `{name}`, but it was not the global scope")
-            }
-            Self::AssignedBeforeGlobal => {
-                format!("`{name}` was assigned in the current scope before the global declaration")
-            }
-        }
-    }
-}
-
-#[derive(PartialEq, Eq)]
-pub enum MutableCaptureLookupKind {
-    /// Look up a name in a `global` statement
-    Global,
-    /// Look up a name in a `nonlocal` statement
-    Nonlocal,
-}
-
 /// An abstraction representing the `Idx<Key>` for a binding that we
 /// are currently constructing, which can be used as a factory to create
 /// usage values for `ensure_expr`.
 ///
 /// Note that while it wraps a `Usage`, that usage is always `Usage::CurrentIdx`,
 /// never some other variant.
+///
+/// The first_use_of tracking has been removed since deferred BoundName processing
+/// now handles all first-use detection after AST traversal.
 #[derive(Debug)]
 pub struct CurrentIdx(Usage);
 
 impl CurrentIdx {
     pub fn new(idx: Idx<Key>) -> Self {
-        Self(Usage::CurrentIdx(idx, SmallSet::new()))
+        // Create a CurrentIdx usage without first_use_of tracking.
+        // Deferred BoundName processing will build the first-use graph.
+        Self(Usage::CurrentIdx(idx))
     }
 
     pub fn usage(&mut self) -> &mut Usage {
         &mut self.0
     }
 
-    fn idx(&self) -> Idx<Key> {
+    pub fn idx(&self) -> Idx<Key> {
         match self.0 {
-            Usage::CurrentIdx(idx, ..) => idx,
+            Usage::CurrentIdx(idx) => idx,
             _ => unreachable!(),
         }
     }
@@ -526,16 +641,14 @@ impl CurrentIdx {
     pub fn into_idx(self) -> Idx<Key> {
         self.idx()
     }
-
-    pub fn decompose(self) -> (SmallSet<Idx<Key>>, Idx<Key>) {
-        match self.0 {
-            Usage::CurrentIdx(idx, first_used_by) => (first_used_by, idx),
-            _ => unreachable!(),
-        }
-    }
 }
 
 impl<'a> BindingsBuilder<'a> {
+    /// Whether to infer empty container types and unsolved type variables based on first use.
+    pub fn infer_with_first_use(&self) -> bool {
+        self.solver.infer_with_first_use
+    }
+
     /// Given a `key: K = impl Keyed`, get an `Idx<K>` for it. The intended use case
     /// is when creating a complex binding where the process of creating the binding
     /// requires being able to identify what we are binding.
@@ -545,6 +658,14 @@ impl<'a> BindingsBuilder<'a> {
         BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
     {
         self.table.get_mut::<K>().0.insert(key)
+    }
+
+    pub fn idx_to_key<K>(&self, idx: Idx<K>) -> &K
+    where
+        K: Keyed,
+        BindingTable: TableKeyed<K, Value = BindingEntry<K>>,
+    {
+        self.table.get::<K>().0.idx_to_key(idx)
     }
 
     /// Declare a `Key` as a usage, which can be used for name lookups. Like `idx_for_promise`,
@@ -575,8 +696,35 @@ impl<'a> BindingsBuilder<'a> {
         self.table.insert_idx(idx, value)
     }
 
-    /// Insert a binding into the bindings table, given a `Usage`. This will panic if the usage
-    /// is `Usage::NoUsageTracking`.
+    pub fn record_unused_parameters(&mut self, unused: Vec<UnusedParameter>) {
+        self.unused_parameters.extend(unused);
+    }
+
+    pub fn record_unused_imports(&mut self, unused: Vec<UnusedImport>) {
+        self.unused_imports.extend(unused);
+    }
+
+    pub fn record_unused_variables(&mut self, unused: Vec<UnusedVariable>) {
+        self.unused_variables.extend(unused);
+    }
+
+    pub(crate) fn with_await_context<R>(
+        &mut self,
+        ctx: AwaitContext,
+        f: impl FnOnce(&mut Self) -> R,
+    ) -> R {
+        let prev = self.await_context;
+        self.await_context = ctx;
+        let result = f(self);
+        self.await_context = prev;
+        result
+    }
+
+    pub(crate) fn in_generator_await_context(&self) -> bool {
+        matches!(self.await_context, AwaitContext::GeneratorElement)
+    }
+
+    /// Insert a binding into the bindings table using the current idx from a `CurrentIdx` wrapper.
     pub fn insert_binding_current(&mut self, current: CurrentIdx, value: Binding) -> Idx<Key> {
         self.insert_binding_idx(current.into_idx(), value)
     }
@@ -632,22 +780,19 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     pub fn init_static_scope(&mut self, x: &[Stmt], top_level: bool) {
-        let current = self.scopes.current_mut();
-        current.stat.stmts(
+        self.scopes.init_current_static(
             x,
             &self.module_info,
             top_level,
             self.lookup,
             self.sys_info,
-            |x| {
+            &mut |x| {
                 self.table
                     .annotations
                     .0
                     .insert(KeyAnnotation::Annotation(x))
             },
         );
-        // Presize the flow, as its likely to need as much space as static
-        current.flow.info.reserve(current.stat.0.capacity());
     }
 
     pub fn stmts(&mut self, xs: Vec<Stmt>, parent: &NestingContext) {
@@ -664,11 +809,10 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
-    fn inject_builtins(&mut self) {
-        let builtins_module = ModuleName::builtins();
+    fn inject_builtins(&mut self, builtins_module: ModuleName, ignore_if_missing: bool) {
         match self.lookup.get(builtins_module) {
-            Ok(builtins_export) => {
-                for name in builtins_export.wildcard(self.lookup).iter() {
+            FindingOrError::Finding(builtins_export) => {
+                for name in builtins_export.finding.wildcard(self.lookup).iter() {
                     let key = Key::Import(name.clone(), TextRange::default());
                     let idx = self
                         .table
@@ -676,25 +820,38 @@ impl<'a> BindingsBuilder<'a> {
                     self.bind_name(name, idx, FlowStyle::Import(builtins_module, name.clone()));
                 }
             }
-            Err(err @ FindError::NotFound(..)) => {
-                let (ctx, msg) = err.display();
-                self.error_multiline(
-                    TextRange::default(),
-                    ErrorInfo::new(ErrorKind::InternalError, ctx.as_deref()),
-                    msg,
-                );
+            FindingOrError::Error(err @ FindError::NotFound(..)) if !ignore_if_missing => {
+                let (_, msg) = err.display();
+                self.errors.internal_error(TextRange::default(), msg);
             }
-            Err(FindError::Ignored | FindError::NoSource(_)) => (),
+            FindingOrError::Error(_) => (),
         }
     }
 
     // Only works for things with `Foo`, or `source.Foo`, or `F` where `from module import Foo as F`.
     // Does not work for things with nested modules - but no SpecialExport's have that.
     pub fn as_special_export(&self, e: &Expr) -> Option<SpecialExport> {
+        let mut visited_names: SmallSet<Name> = SmallSet::new();
+        let mut visited_keys: SmallSet<Idx<Key>> = SmallSet::new();
+        self.as_special_export_inner(e, &mut visited_names, &mut visited_keys)
+    }
+
+    fn as_special_export_inner(
+        &self,
+        e: &Expr,
+        visited_names: &mut SmallSet<Name>,
+        visited_keys: &mut SmallSet<Idx<Key>>,
+    ) -> Option<SpecialExport> {
         match e {
             Expr::Name(name) => {
+                if !visited_names.insert(name.id.clone()) {
+                    return None;
+                }
                 self.scopes
                     .as_special_export(&name.id, None, self.module_info.name(), self.lookup)
+                    .or_else(|| {
+                        self.special_export_via_alias(&name.id, visited_names, visited_keys)
+                    })
             }
             Expr::Attribute(ExprAttribute {
                 value, attr: name, ..
@@ -708,6 +865,59 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    fn special_export_via_alias(
+        &self,
+        name: &Name,
+        visited_names: &mut SmallSet<Name>,
+        visited_keys: &mut SmallSet<Idx<Key>>,
+    ) -> Option<SpecialExport> {
+        let (idx, style) = self.scopes.binding_idx_for_name(name)?;
+        match style {
+            FlowStyle::Other
+            | FlowStyle::ClassField { .. }
+            | FlowStyle::PossiblyUninitialized
+            | FlowStyle::Uninitialized => {
+                self.special_export_from_binding_idx(idx, visited_names, visited_keys)
+            }
+            FlowStyle::MergeableImport(_)
+            | FlowStyle::Import(..)
+            | FlowStyle::ImportAs(_)
+            | FlowStyle::FunctionDef { .. }
+            | FlowStyle::ClassDef
+            | FlowStyle::LoopRecursion => None,
+        }
+    }
+
+    fn special_export_from_binding_idx(
+        &self,
+        mut idx: Idx<Key>,
+        visited_names: &mut SmallSet<Name>,
+        visited_keys: &mut SmallSet<Idx<Key>>,
+    ) -> Option<SpecialExport> {
+        for _ in 0..16 {
+            if !visited_keys.insert(idx) {
+                return None;
+            }
+            let binding = self.table.types.1.get(idx)?;
+            match binding {
+                Binding::CompletedPartialType(inner_idx, _) => {
+                    idx = *inner_idx;
+                }
+                Binding::PartialTypeWithUpstreamsCompleted(inner_idx, _) => {
+                    idx = *inner_idx;
+                }
+                Binding::Forward(inner_idx) => {
+                    idx = *inner_idx;
+                }
+                Binding::NameAssign { expr: value, .. } => {
+                    return self.as_special_export_inner(value, visited_names, visited_keys);
+                }
+                _ => return None,
+            }
+        }
+        None
+    }
+
     pub fn error(&self, range: TextRange, info: ErrorInfo, msg: String) {
         self.errors.add(range, info, vec1![msg]);
     }
@@ -716,318 +926,296 @@ impl<'a> BindingsBuilder<'a> {
         self.errors.add(range, info, msg);
     }
 
-    pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureLookupKind) {
-        let key = Key::MutableCapture(ShortIdentifier::new(name));
-        let binding = match self.lookup_mutable_capture(&name.id, kind) {
-            Ok(found) => Binding::Forward(found),
+    pub fn declare_mutable_capture(&mut self, name: &Identifier, kind: MutableCaptureKind) {
+        // Record any errors finding the identity of the mutable capture, and get a binding
+        // that provides the type coming from the parent scope.
+        let binding = match self
+            .scopes
+            .validate_mutable_capture_and_get_key(Hashed::new(&name.id), kind)
+        {
+            Ok(key) => Binding::Forward(self.table.types.0.insert(key)),
             Err(error) => {
-                self.error(
-                    name.range,
-                    ErrorInfo::Kind(ErrorKind::UnknownName),
-                    error.message(name),
-                );
+                let should_suppress = matches!(kind, MutableCaptureKind::Nonlocal)
+                    && self.scopes.in_module_or_class_top_level()
+                    && !self.scopes.in_class_body();
+                if !should_suppress {
+                    self.error(
+                        name.range,
+                        ErrorInfo::Kind(ErrorKind::UnknownName),
+                        error.message(name),
+                    );
+                }
                 Binding::Type(Type::any_error())
             }
         };
-        let idx = self.insert_binding(key, binding);
+        // Insert that type into the current flow.
+        let idx = self.insert_binding(Key::MutableCapture(ShortIdentifier::new(name)), binding);
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
-    fn lookup_mutable_capture(
-        &mut self,
-        name: &Name,
-        kind: MutableCaptureLookupKind,
-    ) -> Result<Idx<Key>, MutableCaptureLookupError> {
-        let name = Hashed::new(name);
-        let mut barrier = false;
-        let allow_nonlocal_reference = kind == MutableCaptureLookupKind::Nonlocal;
-        let allow_global_reference = kind == MutableCaptureLookupKind::Global;
-        let mut result = Err(MutableCaptureLookupError::NotFound);
-        // If there is static info for the name in the current scope and this value is not None
-        // set the `annot` field to this value
-        let mut static_annot_override = None;
-        for (idx, scope) in self.scopes.iter_rev().enumerate() {
-            let in_current_scope = idx == 0;
-            let valid_nonlocal_reference = allow_nonlocal_reference
-                && !in_current_scope
-                && !matches!(scope.kind, ScopeKind::Module | ScopeKind::Class(_));
-            let valid_global_reference = allow_global_reference
-                && !in_current_scope
-                && matches!(scope.kind, ScopeKind::Module);
-            if scope.flow.info.get_hashed(name).is_some() {
-                match kind {
-                    MutableCaptureLookupKind::Nonlocal => {
-                        if in_current_scope {
-                            // If there's a flow type for the name in the current scope
-                            // it must have been assigned before
-                            return Err(MutableCaptureLookupError::AssignedBeforeNonlocal);
-                        }
-                    }
-                    MutableCaptureLookupKind::Global => {
-                        if in_current_scope {
-                            // If there's a flow type for the name in the current scope
-                            // it must have been assigned before
-                            return Err(MutableCaptureLookupError::AssignedBeforeGlobal);
-                        }
-                    }
-                }
+    /// Look up a name in scope, marking it as used, but without first-use detection.
+    ///
+    /// This is the primary lookup method for deferred BoundName creation.
+    /// First-use detection happens later in `process_deferred_bound_names`
+    /// when all phi nodes are populated.
+    pub fn lookup_name(&mut self, name: Hashed<&Name>, usage: &mut Usage) -> NameLookupResult {
+        let name_read_info = if matches!(usage, Usage::StaticTypeInformation) {
+            self.scopes
+                .look_up_name_for_read_in_static_type_context(name)
+        } else {
+            self.scopes.look_up_name_for_read(name)
+        };
+        match name_read_info {
+            NameReadInfo::Flow { idx, initialized } => {
+                // Mark as used (this must happen during traversal for unused-variable detection)
+                self.scopes.mark_parameter_used(name.key());
+                self.scopes.mark_import_used(name.key());
+                self.scopes.mark_variable_used(name.key());
+                NameLookupResult::Found { idx, initialized }
             }
-            if !matches!(scope.kind, ScopeKind::Class(_))
-                && let Some(info) = scope.stat.0.get_hashed(name)
-            {
-                match kind {
-                    MutableCaptureLookupKind::Nonlocal => {
-                        if valid_nonlocal_reference {
-                            let key = info.as_key(name.into_key());
-                            result = Ok(self.table.types.0.insert(key));
-                            // We can't return immediately, because we need to override
-                            // the static annotation in the current scope with the one we found
-                            static_annot_override = info.annot;
-                            break;
-                        } else if !in_current_scope {
-                            return Err(MutableCaptureLookupError::NonlocalScope);
-                        }
-                    }
-                    MutableCaptureLookupKind::Global => {
-                        if valid_global_reference {
-                            let key = info.as_key(name.into_key());
-                            result = Ok(self.table.types.0.insert(key));
-                            // We can't return immediately, because we need to override
-                            // the static annotation in the current scope with the one we found
-                            static_annot_override = info.annot;
-                            break;
-                        } else if !in_current_scope {
-                            return Err(MutableCaptureLookupError::GlobalScope);
-                        }
-                    }
-                }
-            }
-            barrier = barrier || scope.barrier;
-        }
-        self.scopes
-            .set_annotation_for_mutable_capture(name, static_annot_override);
-        result
-    }
-
-    pub fn lookup_name(
-        &mut self,
-        name: Hashed<&Name>,
-        usage: &mut Usage,
-    ) -> NameLookupResult<Idx<Key>> {
-        match self.scopes.look_up_name_for_read(name) {
-            NameReadInfo::Flow {
-                idx,
-                is_initialized,
-            } => {
-                let (idx, first_use) = self.detect_first_use(idx, usage);
-                if let Some(used_idx) = first_use {
-                    self.record_first_use(used_idx, usage);
-                }
+            NameReadInfo::Anywhere { key, initialized } => {
+                self.scopes.mark_parameter_used(name.key());
+                self.scopes.mark_import_used(name.key());
+                self.scopes.mark_variable_used(name.key());
                 NameLookupResult::Found {
-                    value: idx,
-                    is_initialized,
+                    idx: self.table.types.0.insert(key),
+                    initialized,
                 }
             }
-            NameReadInfo::Anywhere {
-                key,
-                is_initialized,
-            } => NameLookupResult::Found {
-                value: self.table.types.0.insert(key),
-                is_initialized,
-            },
             NameReadInfo::NotFound => NameLookupResult::NotFound,
         }
     }
 
-    /// Look up the idx for a name. The first output is the idx to use for the
-    /// lookup itself, and the second is possibly used to record the first-usage
-    /// for pinning:
-    /// - If this is not the first use of a `Binding::Pin`, then the result is just
-    ///   `(flow_idx, None)`.
-    /// - If this is the first use of a `Binding::Pin` then we look at the usage:
-    ///   - If it is `Usage(idx)`, then we return `(unpinned_idx, Some(pinned_idx))`
-    ///     which will allow us to expose unpinned types to the first use, then pin.
-    ///   - Otherwise, we return `(pinned_idx, Some(pinned_idx))` which will tell
-    ///     us to record that the first usage does not pin (and therefore the
-    ///     `Binding::Pin` should force placeholder types to default values).
-    /// - If this is a secondary read of a `Binding::Pin` and the usage is the same
-    ///   usage as the first read, return `(pinned_idx, None)`: we don't need to
-    ///   record first use because that is done already, but we want to continue
-    ///   forwarding the raw binding throughout this first use.
-    fn detect_first_use(
-        &self,
-        flow_idx: Idx<Key>,
-        usage: &mut Usage,
-    ) -> (Idx<Key>, Option<Idx<Key>>) {
-        match self.table.types.1.get(flow_idx) {
-            Some(Binding::Pin(unpinned_idx, FirstUse::Undetermined)) => match usage {
-                Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
-                Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
-            },
-            Some(Binding::Pin(unpinned_idx, first_use)) => match first_use {
-                FirstUse::DoesNotPin => (flow_idx, None),
-                FirstUse::Undetermined => match usage {
-                    Usage::StaticTypeInformation | Usage::Narrowing => (flow_idx, Some(flow_idx)),
-                    Usage::CurrentIdx(..) => (*unpinned_idx, Some(flow_idx)),
-                },
-                FirstUse::UsedBy(usage_idx) => {
-                    // Detect secondary reads of the same name from a first use, and make
-                    // sure they all use the raw binding rather than the `Pin`.
-                    let currently_in_first_use = match usage {
-                        Usage::CurrentIdx(idx, ..) => idx == usage_idx,
-                        Usage::Narrowing | Usage::StaticTypeInformation => false,
-                    };
-                    if currently_in_first_use {
-                        (*unpinned_idx, None)
-                    } else {
-                        (flow_idx, None)
-                    }
-                }
-            },
-            _ => (flow_idx, None),
-        }
-    }
-
-    /// Record a first use detected in `detect_possible_first_use`.
-    fn record_first_use(&mut self, used: Idx<Key>, usage: &mut Usage) {
-        match self.table.types.1.get_mut(used) {
-            Some(Binding::Pin(.., first_use @ FirstUse::Undetermined)) => {
-                *first_use = match usage {
-                    Usage::CurrentIdx(use_idx, first_uses_of) => {
-                        first_uses_of.insert(used);
-                        FirstUse::UsedBy(*use_idx)
-                    }
-                    Usage::StaticTypeInformation | Usage::Narrowing => FirstUse::DoesNotPin,
-                };
-            }
-            b => {
-                unreachable!("Expected a Binding::Pin needing first use, got {:?}", b)
-            }
-        }
-    }
-
-    /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
-    /// when in a setting where we have to check values currently in scope to see if they are
-    /// legacy type parameters and need to be re-bound into quantified type variables.
+    /// Defer creation of a BoundName binding until after AST traversal.
     ///
-    /// The returned value will be:
-    /// - Either::Right(None) if the name is not in scope; we'll just skip it (the same
-    ///   code will be traversed elsewhere, so no need for a duplicate type error)
-    /// - Either::Right(Idx<Key>) if the name is in scope and does not point at a
-    ///   legacy type parameter. In this case, the intercepted lookup should just forward
-    ///   the existing binding.
-    /// - Either::Left(Idx<KeyLegacyTypeParameter>) if the name might be a legacy type
-    ///   parameter. We actually cannot currently be sure; imported names have to be treated
-    ///   as though they *might* be legacy type parameters. Making a final decision is deferred
-    ///   until the solve stage.
-    fn lookup_legacy_tparam(
+    /// This reserves an index for the binding and stores the lookup result
+    /// along with usage context. The actual binding is created later by
+    /// `process_deferred_bound_names` when all phi nodes are populated.
+    pub fn defer_bound_name(
         &mut self,
-        id: &LegacyTParamId,
-    ) -> Either<Idx<KeyLegacyTypeParam>, Option<Idx<Key>>> {
-        let name = match &id {
-            LegacyTParamId::Name(name) => name,
-            LegacyTParamId::Attr(value, _) => value,
-        };
-        let found = self
-            .lookup_name(Hashed::new(&name.id), &mut Usage::StaticTypeInformation)
-            .found();
-        let key = {
-            match (id, found) {
-                (LegacyTParamId::Name(name), Some(idx)) => self
-                    .lookup_legacy_tparam_from_idx(idx, |binding| {
-                        Self::make_legacy_tparam_from_tparam_binding(binding, name, idx)
-                    }),
-                (LegacyTParamId::Attr(_, attr), Some(idx)) => self
-                    .lookup_legacy_tparam_from_idx(idx, |binding| {
-                        Self::make_legacy_tparam_from_module_binding(binding, attr, idx)
-                    }),
-                (_, None) => None,
-            }
-        };
-        match key {
-            Some(left) => Either::Left(left),
-            None => Either::Right(found),
+        key: Key,
+        lookup_result_idx: Idx<Key>,
+        usage: &Usage,
+    ) -> Idx<Key> {
+        let bound_name_idx = self.idx_for_promise(key);
+        self.deferred_bound_names.push(DeferredBoundName {
+            bound_name_idx,
+            lookup_result_idx,
+            usage: usage.clone(),
+        });
+        bound_name_idx
+    }
+
+    /// Process all deferred BoundName bindings after AST traversal.
+    ///
+    /// At this point, all phi nodes are populated, so we can correctly
+    /// follow Forward chains and detect first-use opportunities.
+    fn process_deferred_bound_names(&mut self) {
+        // Take the deferred bindings to avoid borrow issues
+        let deferred = std::mem::take(&mut self.deferred_bound_names);
+
+        // Build an index from Definition idx -> PartialTypeWithUpstreamsCompleted idx,
+        // and create a map of the first-use graph to minimize allocations.
+        let def_to_upstreams: HashMap<Idx<Key>, Idx<Key>> =
+            self.build_definition_to_upstreams_index();
+        let mut first_uses_to_add: HashMap<Idx<Key>, Vec<Idx<Key>>> = HashMap::new();
+
+        // Process each deferred binding, tracking what we find in the first-use graph.
+        for deferred_binding in deferred {
+            self.finalize_bound_name(deferred_binding, &def_to_upstreams, &mut first_uses_to_add);
+        }
+
+        // Bulk update all PartialTypeWithUpstreamsCompleted bindings using the first-use graph.
+        for (upstreams_idx, new_first_uses) in first_uses_to_add {
+            self.extend_first_uses_of_partial_type(upstreams_idx, new_first_uses);
         }
     }
 
-    /// Perform the inner loop of looking up a possible legacy type parameter, given a starting
-    /// binding. The loop follows `Forward` nodes backward, and returns:
-    /// - Some(...) if we find either a legacy type variable or an import (in which case it *might*
-    ///   be a legacy type variable, so we'll let the solve stage decide)
-    /// - None if we find something that is definitely not a legacy type variable.
-    fn lookup_legacy_tparam_from_idx(
+    /// Build an index from Key::Definition idx to Key::PartialTypeWithUpstreamsCompleted idx.
+    fn build_definition_to_upstreams_index(&self) -> HashMap<Idx<Key>, Idx<Key>> {
+        let mut index = HashMap::new();
+        for (idx, _) in self.table.types.0.items() {
+            if let Some(Binding::PartialTypeWithUpstreamsCompleted(def_idx, _)) =
+                self.table.types.1.get(idx)
+            {
+                index.insert(*def_idx, idx);
+            }
+        }
+        index
+    }
+
+    /// Extend the first_uses list of a PartialTypeWithUpstreamsCompleted binding.
+    fn extend_first_uses_of_partial_type(
         &mut self,
-        mut idx: Idx<Key>,
-        make_legacy_tparam_from: impl Fn(
-            &Binding,
-        )
-            -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)>,
-    ) -> Option<Idx<KeyLegacyTypeParam>> {
-        // We are happy to follow some forward bindings, but it's possible to have a cycle of such bindings.
-        // Therefore we arbitrarily cut off at 100 forward hops.
-        for _ in 1..100 {
-            if let Some(b) = self.table.types.1.get(idx) {
-                if let Binding::Forward(fwd_idx) = b {
-                    idx = *fwd_idx;
-                    continue;
+        partial_type_idx: Idx<Key>,
+        additional_first_uses: Vec<Idx<Key>>,
+    ) {
+        if additional_first_uses.is_empty() {
+            return;
+        }
+        if let Some(Binding::PartialTypeWithUpstreamsCompleted(_, first_uses)) =
+            self.table.types.1.get_mut(partial_type_idx)
+        {
+            let mut vec: Vec<_> = std::mem::take(first_uses).into_vec();
+            vec.extend(additional_first_uses);
+            *first_uses = vec.into_boxed_slice();
+        }
+    }
+
+    /// Finalize a single deferred BoundName binding.
+    fn finalize_bound_name(
+        &mut self,
+        deferred: DeferredBoundName,
+        def_to_upstreams: &HashMap<Idx<Key>, Idx<Key>>,
+        first_uses_to_add: &mut HashMap<Idx<Key>, Vec<Idx<Key>>>,
+    ) {
+        // Follow Forward chains to find any partial type
+        let (default_idx, partial_type_info) =
+            self.follow_to_partial_type(deferred.lookup_result_idx);
+
+        if let Some((pinned_idx, unpinned_idx, first_use)) = partial_type_info {
+            let is_narrowing = matches!(deferred.usage, Usage::Narrowing(_));
+
+            if matches!(deferred.usage, Usage::StaticTypeInformation) {
+                self.mark_does_not_pin_if_first_use(pinned_idx);
+                self.insert_binding_idx(deferred.bound_name_idx, Binding::Forward(pinned_idx));
+                return;
+            }
+
+            if !is_narrowing {
+                // Normal reads might pin partial types from upstream
+                match first_use {
+                    FirstUse::Undetermined => {
+                        if let Some(current_idx) = deferred.usage.current_idx() {
+                            self.mark_first_use(pinned_idx, current_idx);
+                            if let Some(&current_upstreams_idx) = def_to_upstreams.get(&current_idx)
+                            {
+                                first_uses_to_add
+                                    .entry(current_upstreams_idx)
+                                    .or_default()
+                                    .push(pinned_idx);
+                            }
+                        }
+                        self.insert_binding_idx(
+                            deferred.bound_name_idx,
+                            Binding::Forward(unpinned_idx),
+                        );
+                    }
+                    FirstUse::UsedBy(other_idx) => {
+                        let same_context = deferred.usage.current_idx() == Some(other_idx);
+                        if same_context {
+                            self.insert_binding_idx(
+                                deferred.bound_name_idx,
+                                Binding::Forward(unpinned_idx),
+                            );
+                        } else {
+                            self.insert_binding_idx(
+                                deferred.bound_name_idx,
+                                Binding::Forward(pinned_idx),
+                            );
+                        }
+                    }
+                    FirstUse::DoesNotPin => {
+                        self.insert_binding_idx(
+                            deferred.bound_name_idx,
+                            Binding::Forward(pinned_idx),
+                        );
+                    }
                 }
-                return make_legacy_tparam_from(b).map(|(k, v)| self.insert_binding(k, v));
+            } else if let Usage::Narrowing(Some(enclosing_idx)) = deferred.usage {
+                // Narrowing reads cannot pin partial types directly, but they *might* use an unpinned
+                // upstream; this is used to prevent cycles when a narrow is neseted inside a larger
+                // expression (e.g. `x = []; y = x.append(1) if x else x.append('foo')` ... if we tried to
+                // use the pinned version of `x` in the narrow we would get a cycle from the narrow to the
+                // entire definition of `y` to the pin of `x`.
+                match first_use {
+                    FirstUse::Undetermined => {
+                        self.mark_does_not_pin_if_first_use(pinned_idx);
+                        self.insert_binding_idx(
+                            deferred.bound_name_idx,
+                            Binding::Forward(pinned_idx),
+                        );
+                    }
+                    FirstUse::UsedBy(other_idx) => {
+                        if enclosing_idx == other_idx {
+                            self.insert_binding_idx(
+                                deferred.bound_name_idx,
+                                Binding::Forward(unpinned_idx),
+                            );
+                        } else {
+                            self.insert_binding_idx(
+                                deferred.bound_name_idx,
+                                Binding::Forward(pinned_idx),
+                            );
+                        }
+                    }
+                    FirstUse::DoesNotPin => {
+                        self.insert_binding_idx(
+                            deferred.bound_name_idx,
+                            Binding::Forward(pinned_idx),
+                        );
+                    }
+                }
             } else {
-                // This case happens if the name is associated with a promised binding
-                // that is not yet in the table. I'm fuzzy when exactly this occurs, but
-                // such names cannot point at legacy type variables.
-                //
-                // TODO(stroxler): it would be nice to have an actual example here, but I am
-                // still not sure when exactly it happens.
-                return None;
+                // Any other kind of read (e.g. StaticTypeInformation) should use the pinned upstream.
+                if matches!(first_use, FirstUse::Undetermined) {
+                    self.mark_does_not_pin_if_first_use(pinned_idx);
+                }
+                self.insert_binding_idx(deferred.bound_name_idx, Binding::Forward(pinned_idx));
             }
+        } else {
+            // Default: forward to whatever we found (no partial type in chain)
+            self.insert_binding_idx(deferred.bound_name_idx, Binding::Forward(default_idx));
         }
-        None
     }
 
-    /// Make a BindingLegacyTypeParam if the given Binding may be a legacy tparam.
-    /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a key.
-    fn make_legacy_tparam_from_tparam_binding(
-        binding: &Binding,
-        name: &Identifier,
-        idx: Idx<Key>,
-    ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
-        match binding {
-            Binding::TypeVar(..) | Binding::ParamSpec(..) | Binding::TypeVarTuple(..) => Some((
-                KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                BindingLegacyTypeParam::ParamKeyed(idx),
-            )),
-            Binding::Import(..) => {
-                // TODO: We need to recursively look through imports to determine
-                // whether it is a legacy type parameter. We can't simply walk through
-                // bindings, because we could recursively reach ourselves, resulting in
-                // a deadlock.
-                Some((
-                    KeyLegacyTypeParam(ShortIdentifier::new(name)),
-                    BindingLegacyTypeParam::ParamKeyed(idx),
-                ))
+    /// Follow Forward chains to find a CompletedPartialType.
+    fn follow_to_partial_type(
+        &self,
+        start_idx: Idx<Key>,
+    ) -> (Idx<Key>, Option<(Idx<Key>, Idx<Key>, FirstUse)>) {
+        let mut current = start_idx;
+        let mut seen = SmallSet::new();
+
+        loop {
+            if seen.contains(&current) {
+                return (start_idx, None);
             }
-            _ => {
-                // If we hit anything other than a type variable, an import, or a Forward,
-                // then we know this name does not point at a type variable
-                None
+            seen.insert(current);
+
+            match self.table.types.1.get(current) {
+                Some(Binding::Forward(target)) => {
+                    current = *target;
+                }
+                Some(Binding::CompletedPartialType(unpinned_idx, first_use)) => {
+                    return (current, Some((current, *unpinned_idx, first_use.clone())));
+                }
+                _ => {
+                    return (current, None);
+                }
             }
         }
     }
 
-    /// Make a BindingLegacyTypeParam if the given Binding may be a module containing a legacy tparam.
-    /// Used in conjunction with lookup_legacy_tparam_from_idx to look up a legacy tparam from a module key.
-    fn make_legacy_tparam_from_module_binding(
-        binding: &Binding,
-        attr: &Identifier,
-        idx: Idx<Key>,
-    ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
-        match binding {
-            Binding::Module(..) => Some((
-                KeyLegacyTypeParam(ShortIdentifier::new(attr)),
-                BindingLegacyTypeParam::ModuleKeyed(idx, Box::new(attr.id.clone())),
-            )),
-            _ => None,
+    /// Mark a CompletedPartialType as used by a specific binding.
+    fn mark_first_use(&mut self, partial_type_idx: Idx<Key>, user_idx: Idx<Key>) {
+        if let Some(Binding::CompletedPartialType(_, first_use)) =
+            self.table.types.1.get_mut(partial_type_idx)
+        {
+            *first_use = FirstUse::UsedBy(user_idx);
+        }
+    }
+
+    /// Mark a CompletedPartialType as DoesNotPin if it's the first use.
+    ///
+    /// This is used when looking up names in static type contexts or for narrowing,
+    /// where we don't want to pin partial types. Should be called after `lookup_name`.
+    pub fn mark_does_not_pin_if_first_use(&mut self, partial_type_idx: Idx<Key>) {
+        if let Some(Binding::CompletedPartialType(_, first_use)) =
+            self.table.types.1.get_mut(partial_type_idx)
+            && matches!(first_use, FirstUse::Undetermined)
+        {
+            *first_use = FirstUse::DoesNotPin;
         }
     }
 
@@ -1037,6 +1225,10 @@ impl<'a> BindingsBuilder<'a> {
         binding: Binding,
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
+        // Ignore imports and other items from unused variable detection
+        if matches!(style, FlowStyle::Other) {
+            self.scopes.register_variable(name);
+        }
         let idx = self.insert_binding(Key::Definition(ShortIdentifier::new(name)), binding);
         self.bind_name(&name.id, idx, style)
     }
@@ -1068,9 +1260,8 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Bind a name in the current flow. Panics if the name is not in the current static scope.
     ///
-    /// Return a pair of:
-    /// 1. The annotation that should be used at the moment, if one was provided.
-    /// 2. The default that should be used if you are in a loop.
+    /// Return the first annotation for this variable, if one exists, which the binding we
+    /// eventually produce for `idx` will often use to verify we don't assign an incompatible type.
     pub fn bind_name(
         &mut self,
         name: &Name,
@@ -1078,8 +1269,15 @@ impl<'a> BindingsBuilder<'a> {
         style: FlowStyle,
     ) -> Option<Idx<KeyAnnotation>> {
         let name = Hashed::new(name);
-        let write_info = self.scopes.look_up_name_for_write(name, &self.module_info);
-        self.scopes.upsert_flow_info(name, idx, Some(style));
+        let write_info = self
+            .scopes
+            .define_in_current_flow(name, idx, style)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Name `{name}` not found in static scope of module `{}`.",
+                    self.module_info.name(),
+                )
+            });
         if let Some(range) = write_info.anywhere_range {
             self.table
                 .record_bind_in_anywhere(name.into_key().clone(), range, idx);
@@ -1087,9 +1285,27 @@ impl<'a> BindingsBuilder<'a> {
         write_info.annotation
     }
 
-    pub fn type_params(&mut self, x: &mut TypeParams) {
+    pub fn type_params(&mut self, x: &mut TypeParams) -> SmallSet<Name> {
+        let mut names = SmallSet::new();
         for x in x.type_params.iter_mut() {
             let name = x.name().clone();
+            names.insert(name.id.clone());
+
+            // Check for shadowing of type parameters in enclosing Annotation scopes
+            if self
+                .scopes
+                .name_shadows_enclosing_annotation_scope(&name.id)
+            {
+                self.error(
+                    name.range,
+                    ErrorInfo::Kind(ErrorKind::InvalidTypeVar),
+                    format!(
+                        "Type parameter `{}` shadows a type parameter of the same name from an enclosing scope",
+                        name.id
+                    ),
+                );
+            }
+
             let mut default = None;
             let mut bound = None;
             let mut constraints = None;
@@ -1129,12 +1345,7 @@ impl<'a> BindingsBuilder<'a> {
                     QuantifiedKind::TypeVarTuple
                 }
             };
-            self.scopes.add_to_current_static(
-                name.id.clone(),
-                name.range,
-                SymbolKind::TypeParameter,
-                None,
-            );
+            self.scopes.add_parameter_to_current_static(&name, None);
             self.bind_definition(
                 &name,
                 Binding::TypeParameter(Box::new(TypeParameter {
@@ -1148,16 +1359,25 @@ impl<'a> BindingsBuilder<'a> {
                 FlowStyle::Other,
             );
         }
+        names
     }
 
-    pub fn bind_narrow_ops(&mut self, narrow_ops: &NarrowOps, use_range: TextRange) {
+    pub fn bind_narrow_ops(
+        &mut self,
+        narrow_ops: &NarrowOps,
+        use_location: NarrowUseLocation,
+        _usage: &Usage,
+    ) {
         for (name, (op, op_range)) in narrow_ops.0.iter_hashed() {
-            if let Some(initial_idx) = self.lookup_name(name, &mut Usage::Narrowing).found() {
+            // Narrowing operations should not pin partial types
+            let mut narrowing_usage = Usage::narrowing_from(_usage);
+            if let Some(initial_idx) = self.lookup_name(name, &mut narrowing_usage).found() {
+                self.mark_does_not_pin_if_first_use(initial_idx);
                 let narrowed_idx = self.insert_binding(
-                    Key::Narrow(name.into_key().clone(), *op_range, use_range),
-                    Binding::Narrow(initial_idx, Box::new(op.clone()), use_range),
+                    Key::Narrow(name.into_key().clone(), *op_range, use_location),
+                    Binding::Narrow(initial_idx, Box::new(op.clone()), use_location),
                 );
-                self.scopes.upsert_flow_info(name, narrowed_idx, None);
+                self.scopes.narrow_in_current_flow(name, narrowed_idx);
             }
         }
     }
@@ -1166,24 +1386,27 @@ impl<'a> BindingsBuilder<'a> {
         // Create a parameter var; the binding for the lambda expr itself will use this to pass
         // any contextual typing information as a side-effect to the parameter binding used in
         // the lambda body.
-        let var = self.solver.fresh_parameter(self.uniques);
+        let var = self.solver.fresh_unwrap(self.uniques);
         let idx = self.insert_binding(
             Key::Definition(ShortIdentifier::new(name)),
             Binding::LambdaParameter(var),
         );
-        self.scopes
-            .add_to_current_static(name.id.clone(), name.range, SymbolKind::Parameter, None);
+        self.scopes.add_parameter_to_current_static(name, None);
         self.bind_name(&name.id, idx, FlowStyle::Other);
     }
 
     pub fn bind_function_param(
         &mut self,
         target: AnnotationTarget,
-        x: AnyParameterRef,
+        x: &Parameter,
         undecorated_idx: Idx<KeyUndecoratedFunction>,
         class_key: Option<Idx<KeyClass>>,
+        is_variadic: bool,
     ) {
         let name = x.name();
+        let allow_unused = name.id.as_str().starts_with('_')
+            || matches!(name.id.as_str(), "self" | "cls")
+            || is_variadic;
         let annot = x.annotation().map(|x| {
             self.insert_binding(
                 KeyAnnotation::Annotation(ShortIdentifier::new(name)),
@@ -1197,15 +1420,12 @@ impl<'a> BindingsBuilder<'a> {
                 None => FunctionParameter::Unannotated(
                     self.solver.fresh_parameter(self.uniques),
                     undecorated_idx,
+                    target,
                 ),
             }),
         );
-        self.scopes.add_to_current_static(
-            name.id.clone(),
-            name.range,
-            SymbolKind::Parameter,
-            annot,
-        );
+        self.scopes.add_parameter_to_current_static(name, annot);
+        self.scopes.register_parameter(name, allow_unused);
         self.bind_name(&name.id, key, FlowStyle::Other);
     }
 }
@@ -1219,10 +1439,31 @@ pub enum LegacyTParamId {
 }
 
 impl LegacyTParamId {
-    fn key(&self) -> Name {
+    /// Get the identifier of the name that will actually be bound (for a normal name, this is
+    /// just itself; for a `<base>.<attr>` attribute it is the base portion, which gets narrowed).
+    fn as_identifier(&self) -> &Identifier {
         match self {
-            Self::Name(name) => name.id.clone(),
-            Self::Attr(value, attr) => Name::new(format!("{value}.{attr}")),
+            Self::Name(name) => name,
+            Self::Attr(base, _) => base,
+        }
+    }
+
+    /// Create the `Key` actually used to model the legacy type parameter
+    /// name (or an attribute narrow of the base name, if this is an attribute
+    /// of an imported module like `foo.T`) as a type.
+    ///
+    /// Note that the range here is not the range of the full `LegacyTParamId`, but
+    /// just of the name being bound (which in the `Attr` case is just the base
+    /// rather than the entire identifier).
+    fn as_possible_legacy_tparam_key(&self) -> Key {
+        Key::PossibleLegacyTParam(self.as_identifier().range)
+    }
+
+    /// Get the key used to track this potential legacy tparam in the `legacy_tparams` map.
+    fn tvar_name(&self) -> String {
+        match self {
+            Self::Name(name) => name.id.as_str().to_owned(),
+            Self::Attr(base, attr) => format!("{base}.{attr}"),
         }
     }
 }
@@ -1236,94 +1477,55 @@ impl Ranged for LegacyTParamId {
     }
 }
 
+/// A name we found that might either be a legacy type variable or be a module
+/// that has a legacy type variable as an attribute.
+struct PossibleTParam {
+    id: LegacyTParamId,
+    idx: Idx<Key>,
+    tparam_idx: Idx<KeyLegacyTypeParam>,
+}
+
+enum TParamLookupResult {
+    MaybeTParam(PossibleTParam),
+    NotTParam(Idx<Key>),
+    NotFound,
+}
+
+impl TParamLookupResult {
+    fn idx(&self) -> Option<Idx<Key>> {
+        match self {
+            Self::MaybeTParam(possible_tparam) => Some(possible_tparam.idx),
+            Self::NotTParam(idx) => Some(*idx),
+            Self::NotFound => None,
+        }
+    }
+
+    fn as_name_lookup_result(&self) -> NameLookupResult {
+        self.idx()
+            .map_or(NameLookupResult::NotFound, |idx| NameLookupResult::Found {
+                idx,
+                initialized: InitializedInFlow::Yes,
+            })
+    }
+}
+
 /// Handle intercepting names inside either function parameter/return
 /// annotations or base class lists of classes, in order to check whether they
 /// point at type variable declarations and need to be converted to type
 /// parameters.
-pub struct LegacyTParamBuilder {
+pub struct LegacyTParamCollector {
     /// All of the names used. Each one may or may not point at a type variable
     /// and therefore bind a legacy type parameter.
-    legacy_tparams:
-        SmallMap<Name, Either<(LegacyTParamId, Idx<KeyLegacyTypeParam>), Option<Idx<Key>>>>,
+    legacy_tparams: SmallMap<String, TParamLookupResult>,
     /// Are there scoped type parameters? Used to control downstream errors.
     has_scoped_tparams: bool,
 }
 
-impl LegacyTParamBuilder {
+impl LegacyTParamCollector {
     pub fn new(has_scoped_tparams: bool) -> Self {
         Self {
             legacy_tparams: SmallMap::new(),
             has_scoped_tparams,
-        }
-    }
-
-    /// Perform a lookup of a name used in either base classes of a class or
-    /// parameter/return annotations of a function.
-    ///
-    /// We have a special "intercepted" lookup to create bindings that allow us
-    /// to later determine whether this name points at a type variable
-    /// declaration, in which case we intercept it to treat it as a type
-    /// parameter in the current scope.
-    pub fn intercept_lookup(
-        &mut self,
-        builder: &mut BindingsBuilder,
-        id: LegacyTParamId,
-    ) -> NameLookupResult<Binding> {
-        let range = id.range();
-        let result = self
-            .legacy_tparams
-            .entry(id.key())
-            .or_insert_with(|| builder.lookup_legacy_tparam(&id).map_left(|idx| (id, idx)));
-        match result {
-            Either::Left((_, idx)) => {
-                let range_if_scoped_params_exist = if self.has_scoped_tparams {
-                    Some(range)
-                } else {
-                    None
-                };
-                NameLookupResult::Found {
-                    value: Binding::CheckLegacyTypeParam(*idx, range_if_scoped_params_exist),
-                    is_initialized: IsInitialized::Maybe,
-                }
-            }
-            Either::Right(maybe_idx) => match maybe_idx {
-                Some(idx) => NameLookupResult::Found {
-                    value: Binding::Forward(*idx),
-                    is_initialized: IsInitialized::Yes,
-                },
-                None => NameLookupResult::NotFound,
-            },
-        }
-    }
-
-    /// Add `Definition` bindings to a class or function body scope for all the names
-    /// referenced in the function parameter/return annotations or the class bases.
-    ///
-    /// We do this so that AnswersSolver has the opportunity to determine whether any
-    /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
-    /// case the name should be treated as a Quantified type parameter inside this scope.
-    pub fn add_name_definitions(&self, builder: &mut BindingsBuilder) {
-        for entry in self.legacy_tparams.values() {
-            match entry {
-                Either::Left((LegacyTParamId::Name(name) | LegacyTParamId::Attr(name, _), idx)) => {
-                    builder.scopes.add_to_current_static(
-                        name.id.clone(),
-                        name.range,
-                        SymbolKind::TypeParameter,
-                        None,
-                    );
-                    builder.bind_definition(
-                        name,
-                        // Note: we use None as the range here because the range is
-                        // used to error if legacy tparams are mixed with scope
-                        // tparams, and we only want to do that once (which we do in
-                        // the binding created by `forward_lookup`).
-                        Binding::CheckLegacyTypeParam(*idx, None),
-                        builder.scopes.get_flow_style(&name.id).clone(),
-                    );
-                }
-                _ => {}
-            }
         }
     }
 
@@ -1335,7 +1537,267 @@ impl LegacyTParamBuilder {
     pub fn lookup_keys(&self) -> Vec<Idx<KeyLegacyTypeParam>> {
         self.legacy_tparams
             .values()
-            .filter_map(|x| x.as_ref().left().as_ref().map(|(_, idx)| *idx))
+            .filter_map(|x| match x {
+                TParamLookupResult::MaybeTParam(possible_tparam) => {
+                    Some(possible_tparam.tparam_idx)
+                }
+                _ => None,
+            })
             .collect()
+    }
+}
+
+/// The legacy-tparams-specific logic is in a second impl because that lets us define it
+/// just under where the key data structures live.
+impl<'a> BindingsBuilder<'a> {
+    /// Perform a lookup of a name used in either base classes of a class or
+    /// parameter/return annotations of a function.
+    ///
+    /// We have a special "intercepted" lookup to create bindings that allow us
+    /// to later determine whether this name points at a type variable
+    /// declaration, in which case we intercept it to treat it as a type
+    /// parameter in the current scope.
+    pub fn intercept_lookup(
+        &mut self,
+        legacy_tparams: &mut LegacyTParamCollector,
+        id: LegacyTParamId,
+    ) -> NameLookupResult {
+        let result = legacy_tparams
+            .legacy_tparams
+            .entry(id.tvar_name())
+            .or_insert_with(|| self.lookup_legacy_tparam(id, legacy_tparams.has_scoped_tparams));
+        result.as_name_lookup_result()
+    }
+
+    /// Look up a name that might refer to a legacy tparam. This is used by `intercept_lookup`
+    /// when in a setting where we have to check values currently in scope to see if they are
+    /// legacy type parameters and need to be re-bound into quantified type variables.
+    ///
+    /// The returned value will be:
+    /// - Either::Right(None) if the name is not in scope; we'll just skip it (the same
+    ///   code will be traversed elsewhere, so no need for a duplicate type error)
+    /// - Either::Right(Idx<Key>) if the name is in scope and does not point at a
+    ///   legacy type parameter. In this case, the intercepted lookup should just forward
+    ///   the existing binding.
+    /// - Either::Left(Idx<KeyLegacyTypeParameter>) if the name might be a legacy type
+    ///   parameter. We actually cannot currently be sure; imported names have to be treated
+    ///   as though they *might* be legacy type parameters. Making a final decision is deferred
+    ///   until the solve stage.
+    fn lookup_legacy_tparam(
+        &mut self,
+        id: LegacyTParamId,
+        has_scoped_type_params: bool,
+    ) -> TParamLookupResult {
+        let name = id.as_identifier();
+        // Legacy type parameter lookups are in static type contexts
+        let mut usage = Usage::StaticTypeInformation;
+        self.lookup_name(Hashed::new(&name.id), &mut usage)
+            .found()
+            .map_or(TParamLookupResult::NotFound, |original_idx| {
+                self.mark_does_not_pin_if_first_use(original_idx);
+                match self.lookup_legacy_tparam_from_idx(id, original_idx, has_scoped_type_params) {
+                    Some(possible_tparam) => TParamLookupResult::MaybeTParam(possible_tparam),
+                    None => TParamLookupResult::NotTParam(original_idx),
+                }
+            })
+    }
+
+    pub fn get_original_binding(
+        &'a self,
+        mut original_idx: Idx<Key>,
+    ) -> Option<(Idx<Key>, Option<&'a Binding>)> {
+        // Follow Forwards to get to the actual original binding.
+        // Short circuit if there are too many forwards - it may mean there's a cycle.
+        let mut original_binding = self.table.types.1.get(original_idx);
+        let mut gas = Gas::new(100);
+        while let Some(
+            Binding::Forward(fwd_idx)
+            | Binding::CompletedPartialType(fwd_idx, _)
+            | Binding::PartialTypeWithUpstreamsCompleted(fwd_idx, _)
+            | Binding::Phi(JoinStyle::NarrowOf(fwd_idx), _),
+        ) = original_binding
+        {
+            if gas.stop() {
+                return None;
+            } else {
+                original_idx = *fwd_idx;
+                original_binding = self.table.types.1.get(original_idx);
+            }
+        }
+        Some((original_idx, original_binding))
+    }
+
+    /// Perform the inner loop of looking up a possible legacy type parameter, given a starting
+    /// binding. The loop follows `Forward` nodes backward, and returns:
+    /// - Some(...) if we find either a legacy type variable or an import (in which case it *might*
+    ///   be a legacy type variable, so we'll let the solve stage decide)
+    /// - None if we find something that is definitely not a legacy type variable.
+    fn lookup_legacy_tparam_from_idx(
+        &mut self,
+        id: LegacyTParamId,
+        original_idx: Idx<Key>,
+        has_scoped_type_params: bool,
+    ) -> Option<PossibleTParam> {
+        let (original_idx, original_binding) = self.get_original_binding(original_idx)?;
+        // If we found a potential legacy type variable, first insert the key / binding pair
+        // for the raw lookup, then insert another key / binding pair for the
+        // `CheckLegacyTypeParam`, and return the `Idx<Key>`.
+        let tparam_idx = Self::make_legacy_tparam(&id, original_binding, original_idx)
+            .map(|(k, v)| self.insert_binding(k, v))?;
+        let idx = self.insert_binding(
+            id.as_possible_legacy_tparam_key(),
+            Binding::PossibleLegacyTParam(
+                tparam_idx,
+                if has_scoped_type_params {
+                    Some(id.range())
+                } else {
+                    None
+                },
+            ),
+        );
+        Some(PossibleTParam {
+            id,
+            idx,
+            tparam_idx,
+        })
+    }
+
+    /// Given a name (either a bare name or a `<base>.<attribute>`) name, produce
+    /// `Some((key, binding))` if we cannot rule out that the name is a legacy type
+    /// variable; the solver will make the final decision.
+    ///
+    /// To break down "when we cannot rule out":
+    /// - We know for certain that a bare name whose binding is a legacy type
+    ///   variable *is* a legacy type variable
+    /// - We cannot be sure in a few cases:
+    ///   - a bare name that is an imported name
+    ///   - a `module.attr` name, where the base is an imported module
+    ///   - either kind of name and a forward reference where we don't yet know
+    ///     what it will be
+    /// - In all other cases, we know for sure the name is *not* a legacy
+    ///   type variable, and we will return `None`
+    fn make_legacy_tparam(
+        id: &LegacyTParamId,
+        binding: Option<&Binding>,
+        original_idx: Idx<Key>,
+    ) -> Option<(KeyLegacyTypeParam, BindingLegacyTypeParam)> {
+        match id {
+            LegacyTParamId::Name(name) => match binding {
+                Some(
+                    Binding::TypeVar(..)
+                    | Binding::ParamSpec(..)
+                    | Binding::TypeVarTuple(..)
+                    | Binding::Import(..)
+                    | Binding::ImportViaGetattr(..),
+                )
+                | None => Some((
+                    KeyLegacyTypeParam(ShortIdentifier::new(name)),
+                    BindingLegacyTypeParam::ParamKeyed(original_idx),
+                )),
+                Some(_) => None,
+            },
+            LegacyTParamId::Attr(_, attr) => match binding {
+                Some(Binding::Module(..)) | None => Some((
+                    KeyLegacyTypeParam(ShortIdentifier::new(attr)),
+                    BindingLegacyTypeParam::ModuleKeyed(original_idx, Box::new(attr.id.clone())),
+                )),
+                Some(_) => None,
+            },
+        }
+    }
+
+    /// Add `Definition` bindings to a class or function body scope for all the names
+    /// referenced in the function parameter/return annotations or the class bases.
+    ///
+    /// We do this so that AnswersSolver has the opportunity to determine whether any
+    /// of those names point at legacy (pre-PEP-695) type variable declarations, in which
+    /// case the name should be treated as a Quantified type parameter inside this scope.
+    pub fn add_name_definitions(&mut self, legacy_tparams: &LegacyTParamCollector) {
+        for entry in legacy_tparams.legacy_tparams.values() {
+            match entry {
+                TParamLookupResult::MaybeTParam(possible_tparam) => {
+                    self.scopes
+                        .add_possible_legacy_tparam(possible_tparam.id.as_identifier());
+                }
+                _ => {}
+            }
+        }
+    }
+
+    pub fn with_semantic_checker(&mut self, f: impl FnOnce(&mut SemanticSyntaxChecker, &Self)) {
+        let mut checker = std::mem::take(&mut self.semantic_checker);
+        f(&mut checker, self);
+        self.semantic_checker = checker;
+    }
+}
+
+impl<'a> SemanticSyntaxContext for BindingsBuilder<'a> {
+    fn python_version(&self) -> ruff_python_ast::PythonVersion {
+        ruff_python_ast::PythonVersion {
+            major: self.sys_info.version().major as u8,
+            minor: self.sys_info.version().minor as u8,
+        }
+    }
+
+    fn source(&self) -> &str {
+        self.module_info.contents()
+    }
+
+    fn future_annotations_or_stub(&self) -> bool {
+        self.module_info.source_type() == ruff_python_ast::PySourceType::Stub
+    }
+
+    fn report_semantic_error(&self, error: SemanticSyntaxError) {
+        self.semantic_syntax_errors.borrow_mut().push(error);
+    }
+
+    fn global(&self, name: &str) -> Option<TextRange> {
+        self.scopes.get_global_declaration(name)
+    }
+
+    fn has_nonlocal_binding(&self, name: &str) -> bool {
+        self.scopes.has_nonlocal_binding(name)
+    }
+
+    fn in_async_context(&self) -> bool {
+        self.scopes.is_in_async_def()
+    }
+
+    fn in_await_allowed_context(&self) -> bool {
+        // await is allowed in functions, lambdas, and notebooks
+        self.scopes.in_function_scope() || self.in_notebook()
+    }
+
+    fn in_yield_allowed_context(&self) -> bool {
+        // yield is allowed in functions and lambdas, but not in comprehensions or classes
+        self.scopes.in_function_scope()
+    }
+
+    fn in_sync_comprehension(&self) -> bool {
+        self.scopes.in_sync_comprehension()
+    }
+
+    fn in_module_scope(&self) -> bool {
+        self.scopes.in_module_or_class_top_level() && !self.scopes.in_class_body()
+    }
+
+    fn in_function_scope(&self) -> bool {
+        self.scopes.in_function_scope()
+    }
+
+    fn in_generator_scope(&self) -> bool {
+        self.scopes.in_generator_expression()
+    }
+
+    fn in_notebook(&self) -> bool {
+        self.module_info.source_type() == ruff_python_ast::PySourceType::Ipynb
+    }
+
+    fn in_loop_context(&self) -> bool {
+        self.scopes.loop_depth() > 0
+    }
+
+    fn is_bound_parameter(&self, name: &str) -> bool {
+        self.scopes.is_bound_parameter(name)
     }
 }

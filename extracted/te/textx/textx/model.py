@@ -2,7 +2,6 @@
 Model construction from parse trees and the model API.
 """
 
-import codecs
 import traceback
 from collections import OrderedDict
 from contextlib import suppress
@@ -360,7 +359,7 @@ def get_model_parser(top_rule, comments_model, **kwargs):
             If file_name is given file will be parsed before model
             construction.
             """
-            with codecs.open(file_name, "r", encoding) as f:
+            with open(file_name, encoding=encoding) as f:
                 model_str = f.read()
 
             model = self.get_model_from_str(
@@ -774,7 +773,7 @@ def parse_tree_to_objgraph(
                 metaclass_of_grammar_rule = metamodel[model_obj.__class__.__name__]
         except KeyError as e:
             raise TextXSemanticError(
-                f'Unknown meta-class "{model.obj.__class__.__name__}".'
+                f'Unknown meta-class "{model_obj.__class__.__name__}".'
             ) from e
 
         if metaclass_of_grammar_rule._tx_type is RULE_MATCH:

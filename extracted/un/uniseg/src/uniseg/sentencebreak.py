@@ -7,13 +7,13 @@
 from collections.abc import Iterator
 from typing import Optional
 
-from uniseg import Unicode_Property
-from uniseg.breaking import (Breakable, Breakables, Run, TailorBreakables, boundaries,
+from uniseg.breaking import (Breakable, Breakables, Run, TailorFunction, boundaries,
                              break_units)
 from uniseg.db import get_handle, get_value
+from uniseg.unicodeproperty import EnumProperty, PropertyFunction, character_property
 
 __all__ = [
-    'Sentence_Break',
+    'SentenceBreak',
     'SB',
     'sentence_break',
     'sentence_breakables',
@@ -22,68 +22,89 @@ __all__ = [
 ]
 
 
-H_SENTENCE_BREAK = get_handle('Sentence_Break')
+_H_SB = get_handle('Sentence_Break')
 
 
-class Sentence_Break(Unicode_Property):
+class SentenceBreak(EnumProperty):
     """Sentence_Break property values."""
-    Other = 'Other'
+
+    __propname__ = 'SentenceBreak'
+
+    OTHER = 'Other'
     """Sentence_Break property value Other"""
+
     CR = 'CR'
     """Sentence_Break property value CR"""
+
     LF = 'LF'
     """Sentence_Break property value LF"""
-    Extend = 'Extend'
+
+    EXTEND = 'Extend'
     """Sentence_Break property value Extend"""
-    Sep = 'Sep'
+
+    SEP = 'Sep'
     """Sentence_Break property value Sep"""
-    Format = 'Format'
+
+    FORMAT = 'Format'
     """Sentence_Break property value Format"""
-    Sp = 'Sp'
+
+    SP = 'Sp'
     """Sentence_Break property value Sp"""
-    Lower = 'Lower'
+
+    LOWER = 'Lower'
     """Sentence_Break property value Lower"""
-    Upper = 'Upper'
+
+    UPPER = 'Upper'
     """Sentence_Break property value Upper"""
-    OLetter = 'OLetter'
+
+    OLETTER = 'OLetter'
     """Sentence_Break property value OLetter"""
-    Numeric = 'Numeric'
+
+    NUMERIC = 'Numeric'
     """Sentence_Break property value Numeric"""
-    ATerm = 'ATerm'
+
+    ATERM = 'ATerm'
     """Sentence_Break property value ATerm"""
-    SContinue = 'SContinue'
+
+    SCONTINUE = 'SContinue'
     """Sentence_Break property value SContinue"""
-    STerm = 'STerm'
+
+    STERM = 'STerm'
     """Sentence_Break property value STerm"""
-    Close = 'Close'
+
+    CLOSE = 'Close'
     """Sentence_Break property value Close"""
 
 
 # type alias for `SentenceBreak`
-SB = Sentence_Break
-
-ParaSepTuple = (SB.Sep, SB.CR, SB.LF)
-SATermTuple = (SB.STerm, SB.ATerm)
+SB = SentenceBreak
 
 
-def sentence_break(c: str, /) -> Sentence_Break:
-    R"""Return Sentence_Break property value of `c`.
+@character_property
+def sentence_break(c: str, /) -> SentenceBreak:
+    R"""Return the Sentence_Break value assigned to the code point `c`.
 
     `c` must be a single Unicode code point string.
 
     >>> sentence_break('\r')
-    Sentence_Break.CR
+    SentenceBreak.CR
     >>> sentence_break(' ')
-    Sentence_Break.Sp
+    SentenceBreak.SP
     >>> sentence_break('a')
-    Sentence_Break.Lower
+    SentenceBreak.LOWER
     >>> sentence_break('/')
-    Sentence_Break.Other
+    SentenceBreak.OTHER
     """
-    return Sentence_Break[get_value(H_SENTENCE_BREAK, ord(c)) or 'Other']
+    return SentenceBreak(get_value(_H_SB, ord(c)) or 'Other')
 
 
-def sentence_breakables(s: str, /) -> Breakables:
+_PARASEP = (SB.SEP, SB.CR, SB.LF)
+_SATERM = (SB.STERM, SB.ATERM)
+
+
+def sentence_breakables(
+    s: str, /, *, property: PropertyFunction[SentenceBreak] = sentence_break
+) -> Breakables:
     R"""Iterate sentence breaking opportunities for every position of
     `s`.
 
@@ -96,7 +117,7 @@ def sentence_breakables(s: str, /) -> Breakables:
     [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
      0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
     """
-    run = Run(s, sentence_break)
+    run = Run(s, property)
     # SB1
     run.break_here()
     while run.walk():
@@ -104,66 +125,66 @@ def sentence_breakables(s: str, /) -> Breakables:
         if run.prev == SB.CR and run.curr == SB.LF:
             run.do_not_break_here()
         # SB4
-        elif run.prev in ParaSepTuple:
+        elif run.prev in _PARASEP:
             run.break_here()
     # SB5
-    run.set_skip_table(x not in (SB.Extend, SB.Format)
-                       for x in run.attributes())
+    run.set_skip_table(x not in (SB.EXTEND, SB.FORMAT) for x in run.attributes())
+
     run.head()
     while run.walk():
         # SB6
-        if run.prev == SB.ATerm and run.curr == SB.Numeric:
+        if run.prev == SB.ATERM and run.curr == SB.NUMERIC:
             run.do_not_break_here()
         # SB7
         elif (
-            run.attr(-2) in (SB.Upper, SB.Lower)
-            and run.prev == SB.ATerm
-            and run.curr == SB.Upper
+            run.attr(-2) in (SB.UPPER, SB.LOWER)
+            and run.prev == SB.ATERM
+            and run.curr == SB.UPPER
         ):
             run.do_not_break_here()
         # SB8
         elif (
-            run.is_following(SB.Sp, greedy=True)
-            .is_following(SB.Close, greedy=True).prev == SB.ATerm
+            run.is_following(SB.SP, greedy=True)
+            .is_following(SB.CLOSE, greedy=True).prev == SB.ATERM
             and (
                 (
-                    run.curr in (SB.Extend, SB.Format, SB.Sp,
-                                 SB.Numeric, SB.SContinue, SB.Close)
-                    and run.is_leading((SB.Extend, SB.Format, SB.Sp, SB.Numeric,
-                                        SB.SContinue, SB.Close), greedy=True)
-                    .next == SB.Lower
+                    run.curr in (SB.EXTEND, SB.FORMAT, SB.SP,
+                                 SB.NUMERIC, SB.SCONTINUE, SB.CLOSE)
+                    and run.is_leading((SB.EXTEND, SB.FORMAT, SB.SP, SB.NUMERIC,
+                                        SB.SCONTINUE, SB.CLOSE), greedy=True)
+                    .next == SB.LOWER
                 )
-                or run.curr == SB.Lower
+                or run.curr == SB.LOWER
             )
         ):
             run.do_not_break_here()
         # SB8a
         elif (
-            run.is_following(SB.Sp, greedy=True)
-            .is_following(SB.Close, greedy=True).prev in SATermTuple
-            and run.curr in (SB.SContinue,) + SATermTuple
+            run.is_following(SB.SP, greedy=True)
+            .is_following(SB.CLOSE, greedy=True).prev in _SATERM
+            and run.curr in (SB.SCONTINUE,) + _SATERM
         ):
             run.do_not_break_here()
         # SB9
         elif (
-            run.is_following(SB.Close, greedy=True).prev in SATermTuple
-            and run.curr in (SB.Close, SB.Sp) + ParaSepTuple
+            run.is_following(SB.CLOSE, greedy=True).prev in _SATERM
+            and run.curr in (SB.CLOSE, SB.SP) + _PARASEP
         ):
             run.do_not_break_here()
         # SB10
         elif (
-            run.is_following(SB.Sp, greedy=True)
-            .is_following(SB.Close, greedy=True).prev in SATermTuple
-            and run.curr in (SB.Sp,) + ParaSepTuple
+            run.is_following(SB.SP, greedy=True)
+            .is_following(SB.CLOSE, greedy=True).prev in _SATERM
+            and run.curr in (SB.SP,) + _PARASEP
         ):
             run.do_not_break_here()
         # SB11
         elif (
-            run.is_following(SB.Sp, greedy=True)
-            .is_following(SB.Close, greedy=True).prev in SATermTuple
-            or run.is_following(ParaSepTuple, noskip=True)
-            .is_following(SB.Sp, greedy=True)
-            .is_following(SB.Close, greedy=True).prev in SATermTuple
+            run.is_following(SB.SP, greedy=True)
+            .is_following(SB.CLOSE, greedy=True).prev in _SATERM
+            or run.is_following(_PARASEP, noskip=True)
+            .is_following(SB.SP, greedy=True)
+            .is_following(SB.CLOSE, greedy=True).prev in _SATERM
         ):
             run.break_here()
         else:
@@ -174,7 +195,11 @@ def sentence_breakables(s: str, /) -> Breakables:
 
 
 def sentence_boundaries(
-    s: str, /, tailor: Optional[TailorBreakables] = None
+    s: str,
+    /,
+    *,
+    property: PropertyFunction[SentenceBreak] = sentence_break,
+    tailor: Optional[TailorFunction] = None,
 ) -> Iterator[int]:
     R"""Iterate indices of the sentence boundaries of `s`.
 
@@ -188,20 +213,26 @@ def sentence_boundaries(
     >>> list(sentence_boundaries(''))
     []
     """
-    breakables = sentence_breakables(s)
+    breakables = sentence_breakables(s, property=property)
     if tailor is not None:
         breakables = tailor(s, breakables)
     return boundaries(breakables)
 
 
-def sentences(s: str, /, tailor: Optional[TailorBreakables] = None) -> Iterator[str]:
+def sentences(
+    s: str,
+    /,
+    *,
+    property: PropertyFunction[SentenceBreak] = sentence_break,
+    tailor: Optional[TailorFunction] = None,
+) -> Iterator[str]:
     R"""Iterate every sentence of `s`.
 
     >>> s = 'He said, “Are you going?” John shook his head.'
     >>> list(sentences(s))
     ['He said, “Are you going?” ', 'John shook his head.']
     """
-    breakables = sentence_breakables(s)
+    breakables = sentence_breakables(s, property=property)
     if tailor is not None:
         breakables = tailor(s, breakables)
     return break_units(s, breakables)

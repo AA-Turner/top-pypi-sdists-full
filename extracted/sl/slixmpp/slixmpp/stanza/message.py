@@ -49,7 +49,7 @@ class Message(RootStanza):
     plugin_attrib = name
     interfaces = {'type', 'to', 'from', 'id', 'body', 'subject', 'thread',
                   'parent_thread', 'mucroom', 'mucnick'}
-    sub_interfaces = {'body', 'subject', 'thread'}
+    sub_interfaces = {'body', 'thread'}
     lang_interfaces = sub_interfaces
     types = {'normal', 'chat', 'headline', 'error', 'groupchat'}
 
@@ -231,3 +231,30 @@ class Message(RootStanza):
     def del_mucnick(self):
         """Dummy method to prevent deletion."""
         pass
+
+    def __get_subject_el_str(self) -> str:
+        return f"{{{self.namespace}}}subject"
+
+    def __get_subject_element(self) -> ET.Element | None:
+        return self.xml.find(self.__get_subject_el_str())
+
+    def set_subject(self, subject: str, **_kwargs) -> None:
+        el = self.__get_subject_element()
+        if el is None:
+            el = ET.Element(self.__get_subject_el_str())
+            self.xml.append(el)
+        el.text = subject
+        self.values["subject"] = subject
+
+    def get_subject(self) -> str | None:
+        el = self.__get_subject_element()
+        if el is None:
+            return None
+        return el.text
+
+    def del_subject(self) -> None:
+        el = self.__get_subject_element()
+        if el is None:
+            return
+        self.xml.remove(el)
+        del self.values["subject"]

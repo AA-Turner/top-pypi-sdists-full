@@ -3,7 +3,7 @@ Type annotations for networkflowmonitor service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -32,12 +33,6 @@ from .literals import (
     WorkloadInsightsMetricType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -127,7 +122,7 @@ MonitorRemoteResourceTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -158,8 +153,8 @@ class GetQueryResultsWorkloadInsightsTopContributorsDataInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class WorkloadInsightsTopContributorsDataPointTypeDef(TypedDict):
-    timestamps: List[datetime]
-    values: List[float]
+    timestamps: list[datetime]
+    values: list[float]
     label: str
 
 class GetQueryResultsWorkloadInsightsTopContributorsInputTypeDef(TypedDict):
@@ -275,29 +270,29 @@ class CreateMonitorOutputTypeDef(TypedDict):
     monitorArn: str
     monitorName: str
     monitorStatus: MonitorStatusType
-    localResources: List[MonitorLocalResourceTypeDef]
-    remoteResources: List[MonitorRemoteResourceTypeDef]
+    localResources: list[MonitorLocalResourceTypeDef]
+    remoteResources: list[MonitorRemoteResourceTypeDef]
     createdAt: datetime
     modifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateScopeOutputTypeDef(TypedDict):
     scopeId: str
     status: ScopeStatusType
     scopeArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetMonitorOutputTypeDef(TypedDict):
     monitorArn: str
     monitorName: str
     monitorStatus: MonitorStatusType
-    localResources: List[MonitorLocalResourceTypeDef]
-    remoteResources: List[MonitorRemoteResourceTypeDef]
+    localResources: list[MonitorLocalResourceTypeDef]
+    remoteResources: list[MonitorRemoteResourceTypeDef]
     createdAt: datetime
     modifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetQueryStatusMonitorTopContributorsOutputTypeDef(TypedDict):
@@ -313,7 +308,7 @@ class GetQueryStatusWorkloadInsightsTopContributorsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartQueryMonitorTopContributorsOutputTypeDef(TypedDict):
@@ -332,18 +327,18 @@ class UpdateMonitorOutputTypeDef(TypedDict):
     monitorArn: str
     monitorName: str
     monitorStatus: MonitorStatusType
-    localResources: List[MonitorLocalResourceTypeDef]
-    remoteResources: List[MonitorRemoteResourceTypeDef]
+    localResources: list[MonitorLocalResourceTypeDef]
+    remoteResources: list[MonitorRemoteResourceTypeDef]
     createdAt: datetime
     modifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateScopeOutputTypeDef(TypedDict):
     scopeId: str
     status: ScopeStatusType
     scopeArn: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetQueryResultsMonitorTopContributorsInputPaginateTypeDef(TypedDict):
@@ -370,22 +365,22 @@ class ListScopesInputPaginateTypeDef(TypedDict):
 
 class GetQueryResultsWorkloadInsightsTopContributorsDataOutputTypeDef(TypedDict):
     unit: MetricUnitType
-    datapoints: List[WorkloadInsightsTopContributorsDataPointTypeDef]
+    datapoints: list[WorkloadInsightsTopContributorsDataPointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetQueryResultsWorkloadInsightsTopContributorsOutputTypeDef(TypedDict):
-    topContributors: List[WorkloadInsightsTopContributorsRowTypeDef]
+    topContributors: list[WorkloadInsightsTopContributorsRowTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListMonitorsOutputTypeDef(TypedDict):
-    monitors: List[MonitorSummaryTypeDef]
+    monitors: list[MonitorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListScopesOutputTypeDef(TypedDict):
-    scopes: List[ScopeSummaryTypeDef]
+    scopes: list[ScopeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -407,7 +402,7 @@ class MonitorTopContributorsRowTypeDef(TypedDict):
     remoteIp: NotRequired[str]
     dnatIp: NotRequired[str]
     value: NotRequired[int]
-    traversedConstructs: NotRequired[List[TraversedComponentTypeDef]]
+    traversedConstructs: NotRequired[list[TraversedComponentTypeDef]]
     kubernetesMetadata: NotRequired[KubernetesMetadataTypeDef]
     localInstanceArn: NotRequired[str]
     localSubnetArn: NotRequired[str]
@@ -445,7 +440,7 @@ class TargetIdentifierTypeDef(TypedDict):
 
 class GetQueryResultsMonitorTopContributorsOutputTypeDef(TypedDict):
     unit: MetricUnitType
-    topContributors: List[MonitorTopContributorsRowTypeDef]
+    topContributors: list[MonitorTopContributorsRowTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -462,8 +457,8 @@ class GetScopeOutputTypeDef(TypedDict):
     scopeId: str
     status: ScopeStatusType
     scopeArn: str
-    targets: List[TargetResourceTypeDef]
-    tags: Dict[str, str]
+    targets: list[TargetResourceTypeDef]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateScopeInputTypeDef(TypedDict):

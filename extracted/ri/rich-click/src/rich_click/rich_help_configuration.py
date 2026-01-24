@@ -128,6 +128,7 @@ class RichHelpConfiguration:
     style_deprecated: "StyleType" = field(default=FROM_THEME)
     style_helptext_first_line: "StyleType" = field(default=FROM_THEME)
     style_helptext: "StyleType" = field(default=FROM_THEME)
+    style_helptext_aliases: Optional["StyleType"] = field(default=None)
     style_option_help: "StyleType" = field(default=FROM_THEME)
     style_command_help: "StyleType" = field(default=FROM_THEME)
     style_option_default: "StyleType" = field(default=FROM_THEME)
@@ -204,6 +205,7 @@ class RichHelpConfiguration:
     range_string: str = field(default=FROM_THEME)
     append_metavars_help_string: str = field(default=FROM_THEME)
     append_range_help_string: str = field(default=FROM_THEME)
+    helptext_aliases_string: str = field(default="Aliases: {}")
     arguments_panel_title: str = field(default="Arguments")
     options_panel_title: str = field(default="Options")
     commands_panel_title: str = field(default="Commands")
@@ -233,6 +235,8 @@ class RichHelpConfiguration:
     """Show a column with the option metavar (eg. INTEGER)"""
     commands_before_options: bool = field(default=False)
     """If set, the commands panel show above the options panel."""
+    default_panels_first: bool = field(default=False)
+    """If set, default panels appear before custom panels of the same type."""
     append_metavars_help: Optional[bool] = field(default=None)
     """Append metavar (eg. [TEXT]) after the help text"""
     group_arguments_options: bool = field(default=False)
@@ -258,6 +262,7 @@ class RichHelpConfiguration:
     """Define sorted groups of panels to display options and arguments"""
     use_click_short_help: bool = field(default=False)
     """Use click's default function to truncate help text"""
+    helptext_show_aliases: bool = field(default=True)
     highlighter: Optional["Highlighter"] = field(default=None, repr=False, compare=False)
     """(Deprecated) Rich regex highlighter for help highlighting"""
 

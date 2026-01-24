@@ -298,22 +298,22 @@ class ServerlessClamscan(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         accept_responsibility_for_using_imported_bucket: typing.Optional[builtins.bool] = None,
-        buckets: typing.Optional[typing.Sequence[_aws_cdk_aws_s3_ceddda9d.IBucket]] = None,
+        buckets: typing.Optional[typing.Sequence["_aws_cdk_aws_s3_ceddda9d.IBucket"]] = None,
         defs_bucket_access_logs_config: typing.Optional[typing.Union["ServerlessClamscanLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         defs_bucket_allow_policy_mutation: typing.Optional[builtins.bool] = None,
         efs_encryption: typing.Optional[builtins.bool] = None,
-        efs_performance_mode: typing.Optional[_aws_cdk_aws_efs_ceddda9d.PerformanceMode] = None,
-        efs_provisioned_throughput_per_second: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
-        efs_throughput_mode: typing.Optional[_aws_cdk_aws_efs_ceddda9d.ThroughputMode] = None,
-        on_error: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
-        on_result: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
+        efs_performance_mode: typing.Optional["_aws_cdk_aws_efs_ceddda9d.PerformanceMode"] = None,
+        efs_provisioned_throughput_per_second: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+        efs_throughput_mode: typing.Optional["_aws_cdk_aws_efs_ceddda9d.ThroughputMode"] = None,
+        on_error: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
+        on_result: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
         reserved_concurrency: typing.Optional[jsii.Number] = None,
         scan_function_memory_size: typing.Optional[jsii.Number] = None,
-        scan_function_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        scan_function_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''Creates a ServerlessClamscan construct.
 
@@ -356,7 +356,7 @@ class ServerlessClamscan(
         jsii.create(self.__class__, self, [scope, id, props])
 
     @jsii.member(jsii_name="addSourceBucket")
-    def add_source_bucket(self, bucket: _aws_cdk_aws_s3_ceddda9d.IBucket) -> None:
+    def add_source_bucket(self, bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket") -> None:
         '''Sets the specified S3 Bucket as a s3:ObjectCreate* for the ClamAV function.
 
         Grants the ClamAV function permissions to get and tag objects.
@@ -372,8 +372,8 @@ class ServerlessClamscan(
     @jsii.member(jsii_name="getPolicyStatementForBucket")
     def get_policy_statement_for_bucket(
         self,
-        bucket: _aws_cdk_aws_s3_ceddda9d.IBucket,
-    ) -> _aws_cdk_aws_iam_ceddda9d.PolicyStatement:
+        bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
+    ) -> "_aws_cdk_aws_iam_ceddda9d.PolicyStatement":
         '''Returns the statement that should be added to the bucket policy in order to prevent objects to be accessed when they are not clean or there have been scanning errors: this policy should be added manually if external buckets are passed to addSourceBucket().
 
         :param bucket: The bucket which you need to protect with the policy.
@@ -383,67 +383,67 @@ class ServerlessClamscan(
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7810beb50932b9b83ee8c63bc62209567de654d2032fafbe7348d1b7415fa413)
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.PolicyStatement, jsii.invoke(self, "getPolicyStatementForBucket", [bucket]))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.PolicyStatement", jsii.invoke(self, "getPolicyStatementForBucket", [bucket]))
 
     @builtins.property
     @jsii.member(jsii_name="errorDest")
-    def error_dest(self) -> _aws_cdk_aws_lambda_ceddda9d.IDestination:
+    def error_dest(self) -> "_aws_cdk_aws_lambda_ceddda9d.IDestination":
         '''The Lambda Destination for failed on erred scans [ERROR, IN PROGRESS (If error is due to Lambda timeout)].'''
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.IDestination, jsii.get(self, "errorDest"))
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.IDestination", jsii.get(self, "errorDest"))
 
     @builtins.property
     @jsii.member(jsii_name="resultDest")
-    def result_dest(self) -> _aws_cdk_aws_lambda_ceddda9d.IDestination:
+    def result_dest(self) -> "_aws_cdk_aws_lambda_ceddda9d.IDestination":
         '''The Lambda Destination for completed ClamAV scans [CLEAN, INFECTED].'''
-        return typing.cast(_aws_cdk_aws_lambda_ceddda9d.IDestination, jsii.get(self, "resultDest"))
+        return typing.cast("_aws_cdk_aws_lambda_ceddda9d.IDestination", jsii.get(self, "resultDest"))
 
     @builtins.property
     @jsii.member(jsii_name="scanAssumedPrincipal")
-    def scan_assumed_principal(self) -> _aws_cdk_aws_iam_ceddda9d.ArnPrincipal:
+    def scan_assumed_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.ArnPrincipal":
         '''
         :return: ArnPrincipal the ARN of the assumed role principal for the scan function
         '''
-        return typing.cast(_aws_cdk_aws_iam_ceddda9d.ArnPrincipal, jsii.get(self, "scanAssumedPrincipal"))
+        return typing.cast("_aws_cdk_aws_iam_ceddda9d.ArnPrincipal", jsii.get(self, "scanAssumedPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="cleanRule")
-    def clean_rule(self) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.Rule]:
+    def clean_rule(self) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.Rule"]:
         '''Conditional: An Event Bridge Rule for files that are marked 'CLEAN' by ClamAV if a success destination was not specified.'''
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.Rule], jsii.get(self, "cleanRule"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.Rule"], jsii.get(self, "cleanRule"))
 
     @builtins.property
     @jsii.member(jsii_name="defsAccessLogsBucket")
     def defs_access_logs_bucket(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket]:
+    ) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
         '''Conditional: The Bucket for access logs for the virus definitions bucket if logging is enabled (defsBucketAccessLogsConfig).'''
-        return typing.cast(typing.Optional[_aws_cdk_aws_s3_ceddda9d.IBucket], jsii.get(self, "defsAccessLogsBucket"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], jsii.get(self, "defsAccessLogsBucket"))
 
     @builtins.property
     @jsii.member(jsii_name="errorDeadLetterQueue")
     def error_dead_letter_queue(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue]:
+    ) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"]:
         '''Conditional: The SQS Dead Letter Queue for the errorQueue if a failure (onError) destination was not specified.'''
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue], jsii.get(self, "errorDeadLetterQueue"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"], jsii.get(self, "errorDeadLetterQueue"))
 
     @builtins.property
     @jsii.member(jsii_name="errorQueue")
-    def error_queue(self) -> typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue]:
+    def error_queue(self) -> typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"]:
         '''Conditional: The SQS Queue for erred scans if a failure (onError) destination was not specified.'''
-        return typing.cast(typing.Optional[_aws_cdk_aws_sqs_ceddda9d.Queue], jsii.get(self, "errorQueue"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_sqs_ceddda9d.Queue"], jsii.get(self, "errorQueue"))
 
     @builtins.property
     @jsii.member(jsii_name="infectedRule")
-    def infected_rule(self) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.Rule]:
+    def infected_rule(self) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.Rule"]:
         '''Conditional: An Event Bridge Rule for files that are marked 'INFECTED' by ClamAV if a success destination was not specified.'''
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.Rule], jsii.get(self, "infectedRule"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.Rule"], jsii.get(self, "infectedRule"))
 
     @builtins.property
     @jsii.member(jsii_name="resultBus")
-    def result_bus(self) -> typing.Optional[_aws_cdk_aws_events_ceddda9d.EventBus]:
+    def result_bus(self) -> typing.Optional["_aws_cdk_aws_events_ceddda9d.EventBus"]:
         '''Conditional: The Event Bridge Bus for completed ClamAV scans if a success (onResult) destination was not specified.'''
-        return typing.cast(typing.Optional[_aws_cdk_aws_events_ceddda9d.EventBus], jsii.get(self, "resultBus"))
+        return typing.cast(typing.Optional["_aws_cdk_aws_events_ceddda9d.EventBus"], jsii.get(self, "resultBus"))
 
     @builtins.property
     @jsii.member(jsii_name="useImportedBuckets")
@@ -461,7 +461,7 @@ class ServerlessClamscanLoggingProps:
     def __init__(
         self,
         *,
-        logs_bucket: typing.Optional[typing.Union[builtins.bool, _aws_cdk_aws_s3_ceddda9d.IBucket]] = None,
+        logs_bucket: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_aws_s3_ceddda9d.IBucket"]] = None,
         logs_prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Interface for ServerlessClamscan Virus Definitions S3 Bucket Logging.
@@ -482,10 +482,10 @@ class ServerlessClamscanLoggingProps:
     @builtins.property
     def logs_bucket(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _aws_cdk_aws_s3_ceddda9d.IBucket]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_aws_cdk_aws_s3_ceddda9d.IBucket"]]:
         '''Destination bucket for the server access logs (Default: Creates a new S3 Bucket for access logs).'''
         result = self._values.get("logs_bucket")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _aws_cdk_aws_s3_ceddda9d.IBucket]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_aws_cdk_aws_s3_ceddda9d.IBucket"]], result)
 
     @builtins.property
     def logs_prefix(self) -> typing.Optional[builtins.str]:
@@ -529,18 +529,18 @@ class ServerlessClamscanProps:
         self,
         *,
         accept_responsibility_for_using_imported_bucket: typing.Optional[builtins.bool] = None,
-        buckets: typing.Optional[typing.Sequence[_aws_cdk_aws_s3_ceddda9d.IBucket]] = None,
-        defs_bucket_access_logs_config: typing.Optional[typing.Union[ServerlessClamscanLoggingProps, typing.Dict[builtins.str, typing.Any]]] = None,
+        buckets: typing.Optional[typing.Sequence["_aws_cdk_aws_s3_ceddda9d.IBucket"]] = None,
+        defs_bucket_access_logs_config: typing.Optional[typing.Union["ServerlessClamscanLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         defs_bucket_allow_policy_mutation: typing.Optional[builtins.bool] = None,
         efs_encryption: typing.Optional[builtins.bool] = None,
-        efs_performance_mode: typing.Optional[_aws_cdk_aws_efs_ceddda9d.PerformanceMode] = None,
-        efs_provisioned_throughput_per_second: typing.Optional[_aws_cdk_ceddda9d.Size] = None,
-        efs_throughput_mode: typing.Optional[_aws_cdk_aws_efs_ceddda9d.ThroughputMode] = None,
-        on_error: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
-        on_result: typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination] = None,
+        efs_performance_mode: typing.Optional["_aws_cdk_aws_efs_ceddda9d.PerformanceMode"] = None,
+        efs_provisioned_throughput_per_second: typing.Optional["_aws_cdk_ceddda9d.Size"] = None,
+        efs_throughput_mode: typing.Optional["_aws_cdk_aws_efs_ceddda9d.ThroughputMode"] = None,
+        on_error: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
+        on_result: typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"] = None,
         reserved_concurrency: typing.Optional[jsii.Number] = None,
         scan_function_memory_size: typing.Optional[jsii.Number] = None,
-        scan_function_timeout: typing.Optional[_aws_cdk_ceddda9d.Duration] = None,
+        scan_function_timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
         '''Interface for creating a ServerlessClamscan.
 
@@ -615,21 +615,23 @@ class ServerlessClamscanProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def buckets(self) -> typing.Optional[typing.List[_aws_cdk_aws_s3_ceddda9d.IBucket]]:
+    def buckets(
+        self,
+    ) -> typing.Optional[typing.List["_aws_cdk_aws_s3_ceddda9d.IBucket"]]:
         '''An optional list of S3 buckets to configure for ClamAV Virus Scanning;
 
         buckets can be added later by calling addSourceBucket.
         '''
         result = self._values.get("buckets")
-        return typing.cast(typing.Optional[typing.List[_aws_cdk_aws_s3_ceddda9d.IBucket]], result)
+        return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_s3_ceddda9d.IBucket"]], result)
 
     @builtins.property
     def defs_bucket_access_logs_config(
         self,
-    ) -> typing.Optional[ServerlessClamscanLoggingProps]:
+    ) -> typing.Optional["ServerlessClamscanLoggingProps"]:
         '''Whether or not to enable Access Logging for the Virus Definitions bucket, you can specify an existing bucket and prefix (Default: Creates a new S3 Bucket for access logs).'''
         result = self._values.get("defs_bucket_access_logs_config")
-        return typing.cast(typing.Optional[ServerlessClamscanLoggingProps], result)
+        return typing.cast(typing.Optional["ServerlessClamscanLoggingProps"], result)
 
     @builtins.property
     def defs_bucket_allow_policy_mutation(self) -> typing.Optional[builtins.bool]:
@@ -651,41 +653,41 @@ class ServerlessClamscanProps:
     @builtins.property
     def efs_performance_mode(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_efs_ceddda9d.PerformanceMode]:
+    ) -> typing.Optional["_aws_cdk_aws_efs_ceddda9d.PerformanceMode"]:
         '''Set the performance mode of the EFS file system (Default: GENERAL_PURPOSE).'''
         result = self._values.get("efs_performance_mode")
-        return typing.cast(typing.Optional[_aws_cdk_aws_efs_ceddda9d.PerformanceMode], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_efs_ceddda9d.PerformanceMode"], result)
 
     @builtins.property
     def efs_provisioned_throughput_per_second(
         self,
-    ) -> typing.Optional[_aws_cdk_ceddda9d.Size]:
+    ) -> typing.Optional["_aws_cdk_ceddda9d.Size"]:
         '''Provisioned throughput for the EFS file system.
 
         This is a required property if the throughput mode is set to PROVISIONED. Must be at least 1MiB/s (Default: none).
         '''
         result = self._values.get("efs_provisioned_throughput_per_second")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Size], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Size"], result)
 
     @builtins.property
     def efs_throughput_mode(
         self,
-    ) -> typing.Optional[_aws_cdk_aws_efs_ceddda9d.ThroughputMode]:
+    ) -> typing.Optional["_aws_cdk_aws_efs_ceddda9d.ThroughputMode"]:
         '''Set the throughput mode of the EFS file system (Default: BURSTING).'''
         result = self._values.get("efs_throughput_mode")
-        return typing.cast(typing.Optional[_aws_cdk_aws_efs_ceddda9d.ThroughputMode], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_efs_ceddda9d.ThroughputMode"], result)
 
     @builtins.property
-    def on_error(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination]:
+    def on_error(self) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"]:
         '''The Lambda Destination for files that fail to scan and are marked 'ERROR' or stuck 'IN PROGRESS' due to a Lambda timeout (Default: Creates and publishes to a new SQS queue if unspecified).'''
         result = self._values.get("on_error")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"], result)
 
     @builtins.property
-    def on_result(self) -> typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination]:
+    def on_result(self) -> typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"]:
         '''The Lambda Destination for files marked 'CLEAN' or 'INFECTED' based on the ClamAV Virus scan or 'N/A' for scans triggered by S3 folder creation events marked (Default: Creates and publishes to a new Event Bridge Bus if unspecified).'''
         result = self._values.get("on_result")
-        return typing.cast(typing.Optional[_aws_cdk_aws_lambda_ceddda9d.IDestination], result)
+        return typing.cast(typing.Optional["_aws_cdk_aws_lambda_ceddda9d.IDestination"], result)
 
     @builtins.property
     def reserved_concurrency(self) -> typing.Optional[jsii.Number]:
@@ -708,13 +710,13 @@ class ServerlessClamscanProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def scan_function_timeout(self) -> typing.Optional[_aws_cdk_ceddda9d.Duration]:
+    def scan_function_timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
         '''Optionally set the timeout for the scan function.
 
         (Default: 15 minutes).
         '''
         result = self._values.get("scan_function_timeout")
-        return typing.cast(typing.Optional[_aws_cdk_ceddda9d.Duration], result)
+        return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values

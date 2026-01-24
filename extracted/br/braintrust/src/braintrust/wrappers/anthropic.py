@@ -1,9 +1,10 @@
 import logging
+import time
 import warnings
 from contextlib import contextmanager
-from typing import Any
 
 from braintrust.logger import NOOP_SPAN, log_exc_info_to_span, start_span
+from braintrust.wrappers._anthropic_utils import Wrapper, extract_anthropic_usage, finalize_anthropic_tokens
 
 log = logging.getLogger(__name__)
 
@@ -37,14 +38,6 @@ METADATA_PARAMS = (
 )
 
 
-class Wrapper:
-    def __init__(self, wrapped: Any):
-        self.__wrapped = wrapped
-
-    def __getattr__(self, name: str) -> Any:
-        return getattr(self.__wrapped, name)
-
-
 class TracedAsyncAnthropic(Wrapper):
     def __init__(self, client):
         super().__init__(client)
@@ -53,6 +46,10 @@ class TracedAsyncAnthropic(Wrapper):
     @property
     def messages(self):
         return AsyncMessages(self.__client.messages)
+
+    @property
+    def beta(self):
+        return AsyncBeta(self.__client.beta)
 
 
 class AsyncMessages(Wrapper):
@@ -68,10 +65,12 @@ class AsyncMessages(Wrapper):
 
     async def __create_with_stream_false(self, *args, **kwargs):
         span = _start_span("anthropic.messages.create", kwargs)
+        request_start_time = time.time()
         try:
             result = await self.__messages.create(*args, **kwargs)
+            ttft = time.time() - request_start_time
             with _catch_exceptions():
-                _log_message_to_span(result, span)
+                _log_message_to_span(result, span, time_to_first_token=ttft)
             return result
         except Exception as e:
             with _catch_exceptions():
@@ -82,6 +81,7 @@ class AsyncMessages(Wrapper):
 
     async def __create_with_stream_true(self, *args, **kwargs):
         span = _start_span("anthropic.messages.stream", kwargs)
+        request_start_time = time.time()
         try:
             stream = await self.__messages.create(*args, **kwargs)
         except Exception as e:
@@ -90,7 +90,7 @@ class AsyncMessages(Wrapper):
                 span.end()
             raise
 
-        traced_stream = TracedMessageStream(stream, span)
+        traced_stream = TracedMessageStream(stream, span, request_start_time)
 
         async def async_stream():
             try:
@@ -104,15 +104,27 @@ class AsyncMessages(Wrapper):
                 with _catch_exceptions():
                     msg = traced_stream._get_final_traced_message()
                     if msg:
-                        _log_message_to_span(msg, span)
+                        ttft = traced_stream._get_time_to_first_token()
+                        _log_message_to_span(msg, span, time_to_first_token=ttft)
                     span.end()
 
         return async_stream()
 
     def stream(self, *args, **kwargs):
         span = _start_span("anthropic.messages.stream", kwargs)
+        request_start_time = time.time()
         stream = self.__messages.stream(*args, **kwargs)
-        return TracedMessageStreamManager(stream, span)
+        return TracedMessageStreamManager(stream, span, request_start_time)
+
+
+class AsyncBeta(Wrapper):
+    def __init__(self, beta):
+        super().__init__(beta)
+        self.__beta = beta
+
+    @property
+    def messages(self):
+        return AsyncMessages(self.__beta.messages)
 
 
 class TracedAnthropic(Wrapper):
@@ -123,6 +135,10 @@ class TracedAnthropic(Wrapper):
     @property
     def messages(self):
         return Messages(self.__client.messages)
+
+    @property
+    def beta(self):
+        return Beta(self.__client.beta)
 
 
 class Messages(Wrapper):
@@ -139,9 +155,11 @@ class Messages(Wrapper):
             return self.__trace_stream(self.__messages.create, *args, **kwargs)
 
         span = _start_span("anthropic.messages.create", kwargs)
+        request_start_time = time.time()
         try:
             msg = self.__messages.create(*args, **kwargs)
-            _log_message_to_span(msg, span)
+            ttft = time.time() - request_start_time
+            _log_message_to_span(msg, span, time_to_first_token=ttft)
             return msg
         except Exception as e:
             span.log(error=e)
@@ -151,25 +169,37 @@ class Messages(Wrapper):
 
     def __trace_stream(self, stream_func, *args, **kwargs):
         span = _start_span("anthropic.messages.stream", kwargs)
+        request_start_time = time.time()
         s = stream_func(*args, **kwargs)
-        return TracedMessageStreamManager(s, span)
+        return TracedMessageStreamManager(s, span, request_start_time)
+
+
+class Beta(Wrapper):
+    def __init__(self, beta):
+        super().__init__(beta)
+        self.__beta = beta
+
+    @property
+    def messages(self):
+        return Messages(self.__beta.messages)
 
 
 class TracedMessageStreamManager(Wrapper):
-    def __init__(self, msg_stream_mgr, span):
+    def __init__(self, msg_stream_mgr, span, request_start_time: float):
         super().__init__(msg_stream_mgr)
         self.__msg_stream_mgr = msg_stream_mgr
         self.__traced_message_stream = None
         self.__span = span
+        self.__request_start_time = request_start_time
 
     async def __aenter__(self):
         ms = await self.__msg_stream_mgr.__aenter__()
-        self.__traced_message_stream = TracedMessageStream(ms, self.__span)
+        self.__traced_message_stream = TracedMessageStream(ms, self.__span, self.__request_start_time)
         return self.__traced_message_stream
 
     def __enter__(self):
         ms = self.__msg_stream_mgr.__enter__()
-        self.__traced_message_stream = TracedMessageStream(ms, self.__span)
+        self.__traced_message_stream = TracedMessageStream(ms, self.__span, self.__request_start_time)
         return self.__traced_message_stream
 
     def __aexit__(self, exc_type, exc_value, traceback):
@@ -187,13 +217,15 @@ class TracedMessageStreamManager(Wrapper):
                 self.__close(exc_type, exc_value, traceback)
 
     def __close(self, exc_type, exc_value, traceback):
-        tms = self.__traced_message_stream
-        msg = tms._get_final_traced_message()
-        if msg:
-            _log_message_to_span(msg, self.__span)
-        if exc_type:
-            log_exc_info_to_span(self.__span, exc_type, exc_value, traceback)
-        self.__span.end()
+        with _catch_exceptions():
+            tms = self.__traced_message_stream
+            msg = tms._get_final_traced_message()
+            if msg:
+                ttft = tms._get_time_to_first_token()
+                _log_message_to_span(msg, self.__span, time_to_first_token=ttft)
+            if exc_type:
+                log_exc_info_to_span(self.__span, exc_type, exc_value, traceback)
+            self.__span.end()
 
 
 class TracedMessageStream(Wrapper):
@@ -201,15 +233,20 @@ class TracedMessageStream(Wrapper):
     makes sense at a time
     """
 
-    def __init__(self, msg_stream, span):
+    def __init__(self, msg_stream, span, request_start_time: float):
         super().__init__(msg_stream)
         self.__msg_stream = msg_stream
         self.__span = span
         self.__metrics = {}
         self.__snapshot = None
+        self.__request_start_time = request_start_time
+        self.__time_to_first_token: float | None = None
 
     def _get_final_traced_message(self):
         return self.__snapshot
+
+    def _get_time_to_first_token(self):
+        return self.__time_to_first_token
 
     def __await__(self):
         return self.__msg_stream.__await__()
@@ -233,7 +270,12 @@ class TracedMessageStream(Wrapper):
         return m
 
     def __process_message(self, m):
-        self.__snapshot = accumulate_event(event=m, current_snapshot=self.__snapshot)
+        # Track time to first token on the first message
+        if self.__time_to_first_token is None:
+            self.__time_to_first_token = time.time() - self.__request_start_time
+
+        with _catch_exceptions():
+            self.__snapshot = accumulate_event(event=m, current_snapshot=self.__snapshot)
 
 
 def _get_input_from_kwargs(kwargs):
@@ -270,43 +312,24 @@ def _start_span(name, kwargs):
     return NOOP_SPAN
 
 
-def _log_message_to_span(message, span):
+def _log_message_to_span(message, span, time_to_first_token: float | None = None):
     """Log telemetry from the given anthropic.Message to the given span."""
     with _catch_exceptions():
-        metrics = _finalize_metrics(_extract_metrics(getattr(message, "usage", {})))
-        content = getattr(message, "content", None)
-        span.log(output=content, metrics=metrics)
+        usage = getattr(message, "usage", {})
+        metrics = finalize_anthropic_tokens(extract_anthropic_usage(usage))
 
+        # Add time_to_first_token if provided
+        if time_to_first_token is not None:
+            metrics["time_to_first_token"] = time_to_first_token
 
-def _extract_metrics(usage):
-    metrics = {}
-    if not usage:
-        return {}
+        # Create output dict with only truthy values for role and content
+        output = {
+            k: v
+            for k, v in {"role": getattr(message, "role", None), "content": getattr(message, "content", None)}.items()
+            if v
+        } or None
 
-    def _save_if_exists_to(source, target=None):
-        n = getattr(usage, source, None)
-        if n is not None:
-            metrics[target or source] = n
-
-    _save_if_exists_to("input_tokens", "prompt_tokens")
-    _save_if_exists_to("output_tokens", "completion_tokens")
-    _save_if_exists_to("cache_read_input_tokens", "prompt_cached_tokens")
-    _save_if_exists_to("cache_creation_input_tokens", "prompt_cache_creation_tokens")
-
-    return metrics
-
-
-def _finalize_metrics(metrics):
-    prompt_tokens = (
-        metrics.get("prompt_tokens", 0)
-        + metrics.get("prompt_cached_tokens", 0)
-        + metrics.get("prompt_cache_creation_tokens", 0)
-    )
-    return {
-        **metrics,
-        "prompt_tokens": prompt_tokens,
-        "tokens": prompt_tokens + metrics.get("completion_tokens", 0),
-    }
+        span.log(output=output, metrics=metrics)
 
 
 @contextmanager

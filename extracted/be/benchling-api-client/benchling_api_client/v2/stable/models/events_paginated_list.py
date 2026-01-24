@@ -31,12 +31,14 @@ from ..models.automation_transform_status_succeeded_event_v2_event import (
 )
 from ..models.entity_registered_event import EntityRegisteredEvent
 from ..models.entry_created_event import EntryCreatedEvent
+from ..models.entry_updated_assigned_reviewers_event import EntryUpdatedAssignedReviewersEvent
 from ..models.entry_updated_fields_event import EntryUpdatedFieldsEvent
 from ..models.entry_updated_review_record_event import EntryUpdatedReviewRecordEvent
 from ..models.entry_updated_review_snapshot_beta_event import EntryUpdatedReviewSnapshotBetaEvent
 from ..models.request_created_event import RequestCreatedEvent
 from ..models.request_updated_fields_event import RequestUpdatedFieldsEvent
 from ..models.stage_entry_created_event import StageEntryCreatedEvent
+from ..models.stage_entry_updated_assigned_reviewers_event import StageEntryUpdatedAssignedReviewersEvent
 from ..models.stage_entry_updated_fields_event import StageEntryUpdatedFieldsEvent
 from ..models.stage_entry_updated_review_record_event import StageEntryUpdatedReviewRecordEvent
 from ..models.workflow_output_created_event import WorkflowOutputCreatedEvent
@@ -49,6 +51,7 @@ from ..models.workflow_task_updated_assignee_event import WorkflowTaskUpdatedAss
 from ..models.workflow_task_updated_fields_event import WorkflowTaskUpdatedFieldsEvent
 from ..models.workflow_task_updated_scheduled_on_event import WorkflowTaskUpdatedScheduledOnEvent
 from ..models.workflow_task_updated_status_event import WorkflowTaskUpdatedStatusEvent
+from ..models.worksheet_updated_review_snapshot_beta_event import WorksheetUpdatedReviewSnapshotBetaEvent
 from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="EventsPaginatedList")
@@ -66,10 +69,12 @@ class EventsPaginatedList:
                 EntryCreatedEvent,
                 EntryUpdatedFieldsEvent,
                 EntryUpdatedReviewRecordEvent,
+                EntryUpdatedAssignedReviewersEvent,
                 EntryUpdatedReviewSnapshotBetaEvent,
                 StageEntryCreatedEvent,
                 StageEntryUpdatedFieldsEvent,
                 StageEntryUpdatedReviewRecordEvent,
+                StageEntryUpdatedAssignedReviewersEvent,
                 RequestCreatedEvent,
                 RequestUpdatedFieldsEvent,
                 AssayRunCreatedEvent,
@@ -94,6 +99,7 @@ class EventsPaginatedList:
                 WorkflowTaskGroupUpdatedWatchersEvent,
                 WorkflowOutputCreatedEvent,
                 WorkflowOutputUpdatedFieldsEvent,
+                WorksheetUpdatedReviewSnapshotBetaEvent,
                 UnknownType,
             ]
         ],
@@ -127,6 +133,9 @@ class EventsPaginatedList:
                 elif isinstance(events_item_data, EntryUpdatedReviewRecordEvent):
                     events_item = events_item_data.to_dict()
 
+                elif isinstance(events_item_data, EntryUpdatedAssignedReviewersEvent):
+                    events_item = events_item_data.to_dict()
+
                 elif isinstance(events_item_data, EntryUpdatedReviewSnapshotBetaEvent):
                     events_item = events_item_data.to_dict()
 
@@ -137,6 +146,9 @@ class EventsPaginatedList:
                     events_item = events_item_data.to_dict()
 
                 elif isinstance(events_item_data, StageEntryUpdatedReviewRecordEvent):
+                    events_item = events_item_data.to_dict()
+
+                elif isinstance(events_item_data, StageEntryUpdatedAssignedReviewersEvent):
                     events_item = events_item_data.to_dict()
 
                 elif isinstance(events_item_data, RequestCreatedEvent):
@@ -208,6 +220,9 @@ class EventsPaginatedList:
                 elif isinstance(events_item_data, WorkflowOutputCreatedEvent):
                     events_item = events_item_data.to_dict()
 
+                elif isinstance(events_item_data, WorkflowOutputUpdatedFieldsEvent):
+                    events_item = events_item_data.to_dict()
+
                 else:
                     events_item = events_item_data.to_dict()
 
@@ -237,10 +252,12 @@ class EventsPaginatedList:
                     EntryCreatedEvent,
                     EntryUpdatedFieldsEvent,
                     EntryUpdatedReviewRecordEvent,
+                    EntryUpdatedAssignedReviewersEvent,
                     EntryUpdatedReviewSnapshotBetaEvent,
                     StageEntryCreatedEvent,
                     StageEntryUpdatedFieldsEvent,
                     StageEntryUpdatedReviewRecordEvent,
+                    StageEntryUpdatedAssignedReviewersEvent,
                     RequestCreatedEvent,
                     RequestUpdatedFieldsEvent,
                     AssayRunCreatedEvent,
@@ -265,6 +282,7 @@ class EventsPaginatedList:
                     WorkflowTaskGroupUpdatedWatchersEvent,
                     WorkflowOutputCreatedEvent,
                     WorkflowOutputUpdatedFieldsEvent,
+                    WorksheetUpdatedReviewSnapshotBetaEvent,
                     UnknownType,
                 ]
             ],
@@ -280,10 +298,12 @@ class EventsPaginatedList:
                     EntryCreatedEvent,
                     EntryUpdatedFieldsEvent,
                     EntryUpdatedReviewRecordEvent,
+                    EntryUpdatedAssignedReviewersEvent,
                     EntryUpdatedReviewSnapshotBetaEvent,
                     StageEntryCreatedEvent,
                     StageEntryUpdatedFieldsEvent,
                     StageEntryUpdatedReviewRecordEvent,
+                    StageEntryUpdatedAssignedReviewersEvent,
                     RequestCreatedEvent,
                     RequestUpdatedFieldsEvent,
                     AssayRunCreatedEvent,
@@ -308,6 +328,7 @@ class EventsPaginatedList:
                     WorkflowTaskGroupUpdatedWatchersEvent,
                     WorkflowOutputCreatedEvent,
                     WorkflowOutputUpdatedFieldsEvent,
+                    WorksheetUpdatedReviewSnapshotBetaEvent,
                     UnknownType,
                 ]:
                     events_item: Union[
@@ -315,10 +336,12 @@ class EventsPaginatedList:
                         EntryCreatedEvent,
                         EntryUpdatedFieldsEvent,
                         EntryUpdatedReviewRecordEvent,
+                        EntryUpdatedAssignedReviewersEvent,
                         EntryUpdatedReviewSnapshotBetaEvent,
                         StageEntryCreatedEvent,
                         StageEntryUpdatedFieldsEvent,
                         StageEntryUpdatedReviewRecordEvent,
+                        StageEntryUpdatedAssignedReviewersEvent,
                         RequestCreatedEvent,
                         RequestUpdatedFieldsEvent,
                         AssayRunCreatedEvent,
@@ -343,6 +366,7 @@ class EventsPaginatedList:
                         WorkflowTaskGroupUpdatedWatchersEvent,
                         WorkflowOutputCreatedEvent,
                         WorkflowOutputUpdatedFieldsEvent,
+                        WorksheetUpdatedReviewSnapshotBetaEvent,
                         UnknownType,
                     ]
                     discriminator_value: str = cast(str, data.get("eventType"))
@@ -352,10 +376,12 @@ class EventsPaginatedList:
                             EntryCreatedEvent,
                             EntryUpdatedFieldsEvent,
                             EntryUpdatedReviewRecordEvent,
+                            EntryUpdatedAssignedReviewersEvent,
                             EntryUpdatedReviewSnapshotBetaEvent,
                             StageEntryCreatedEvent,
                             StageEntryUpdatedFieldsEvent,
                             StageEntryUpdatedReviewRecordEvent,
+                            StageEntryUpdatedAssignedReviewersEvent,
                             RequestCreatedEvent,
                             RequestUpdatedFieldsEvent,
                             AssayRunCreatedEvent,
@@ -380,10 +406,15 @@ class EventsPaginatedList:
                             WorkflowTaskGroupUpdatedWatchersEvent,
                             WorkflowOutputCreatedEvent,
                             WorkflowOutputUpdatedFieldsEvent,
+                            WorksheetUpdatedReviewSnapshotBetaEvent,
                             UnknownType,
                         ]
                         if discriminator_value == "v2-alpha.stageEntry.created":
                             event = StageEntryCreatedEvent.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2-alpha.stageEntry.updated.assignedReviewers":
+                            event = StageEntryUpdatedAssignedReviewersEvent.from_dict(data, strict=False)
 
                             return event
                         if discriminator_value == "v2-beta.automationInputGenerator.completed":
@@ -402,6 +433,10 @@ class EventsPaginatedList:
                             return event
                         if discriminator_value == "v2-beta.entry.updated.reviewSnapshot":
                             event = EntryUpdatedReviewSnapshotBetaEvent.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2-beta.worksheet.updated.reviewSnapshot":
+                            event = WorksheetUpdatedReviewSnapshotBetaEvent.from_dict(data, strict=False)
 
                             return event
                         if discriminator_value == "v2.assayRun.created":
@@ -448,6 +483,10 @@ class EventsPaginatedList:
                             return event
                         if discriminator_value == "v2.entry.created":
                             event = EntryCreatedEvent.from_dict(data, strict=False)
+
+                            return event
+                        if discriminator_value == "v2.entry.updated.assignedReviewers":
+                            event = EntryUpdatedAssignedReviewersEvent.from_dict(data, strict=False)
 
                             return event
                         if discriminator_value == "v2.entry.updated.fields":
@@ -543,6 +582,14 @@ class EventsPaginatedList:
                     try:
                         if not isinstance(data, dict):
                             raise TypeError()
+                        event = EntryUpdatedAssignedReviewersEvent.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
                         event = EntryUpdatedReviewSnapshotBetaEvent.from_dict(data, strict=True)
 
                         return event
@@ -568,6 +615,14 @@ class EventsPaginatedList:
                         if not isinstance(data, dict):
                             raise TypeError()
                         event = StageEntryUpdatedReviewRecordEvent.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        event = StageEntryUpdatedAssignedReviewersEvent.from_dict(data, strict=True)
 
                         return event
                     except:  # noqa: E722
@@ -764,6 +819,14 @@ class EventsPaginatedList:
                         return event
                     except:  # noqa: E722
                         pass
+                    try:
+                        if not isinstance(data, dict):
+                            raise TypeError()
+                        event = WorksheetUpdatedReviewSnapshotBetaEvent.from_dict(data, strict=True)
+
+                        return event
+                    except:  # noqa: E722
+                        pass
                     return UnknownType(data)
 
                 events_item = _parse_events_item(events_item_data)
@@ -786,10 +849,12 @@ class EventsPaginatedList:
                             EntryCreatedEvent,
                             EntryUpdatedFieldsEvent,
                             EntryUpdatedReviewRecordEvent,
+                            EntryUpdatedAssignedReviewersEvent,
                             EntryUpdatedReviewSnapshotBetaEvent,
                             StageEntryCreatedEvent,
                             StageEntryUpdatedFieldsEvent,
                             StageEntryUpdatedReviewRecordEvent,
+                            StageEntryUpdatedAssignedReviewersEvent,
                             RequestCreatedEvent,
                             RequestUpdatedFieldsEvent,
                             AssayRunCreatedEvent,
@@ -814,6 +879,7 @@ class EventsPaginatedList:
                             WorkflowTaskGroupUpdatedWatchersEvent,
                             WorkflowOutputCreatedEvent,
                             WorkflowOutputUpdatedFieldsEvent,
+                            WorksheetUpdatedReviewSnapshotBetaEvent,
                             UnknownType,
                         ]
                     ],
@@ -868,10 +934,12 @@ class EventsPaginatedList:
             EntryCreatedEvent,
             EntryUpdatedFieldsEvent,
             EntryUpdatedReviewRecordEvent,
+            EntryUpdatedAssignedReviewersEvent,
             EntryUpdatedReviewSnapshotBetaEvent,
             StageEntryCreatedEvent,
             StageEntryUpdatedFieldsEvent,
             StageEntryUpdatedReviewRecordEvent,
+            StageEntryUpdatedAssignedReviewersEvent,
             RequestCreatedEvent,
             RequestUpdatedFieldsEvent,
             AssayRunCreatedEvent,
@@ -896,6 +964,7 @@ class EventsPaginatedList:
             WorkflowTaskGroupUpdatedWatchersEvent,
             WorkflowOutputCreatedEvent,
             WorkflowOutputUpdatedFieldsEvent,
+            WorksheetUpdatedReviewSnapshotBetaEvent,
             UnknownType,
         ]
     ]:
@@ -912,10 +981,12 @@ class EventsPaginatedList:
                 EntryCreatedEvent,
                 EntryUpdatedFieldsEvent,
                 EntryUpdatedReviewRecordEvent,
+                EntryUpdatedAssignedReviewersEvent,
                 EntryUpdatedReviewSnapshotBetaEvent,
                 StageEntryCreatedEvent,
                 StageEntryUpdatedFieldsEvent,
                 StageEntryUpdatedReviewRecordEvent,
+                StageEntryUpdatedAssignedReviewersEvent,
                 RequestCreatedEvent,
                 RequestUpdatedFieldsEvent,
                 AssayRunCreatedEvent,
@@ -940,6 +1011,7 @@ class EventsPaginatedList:
                 WorkflowTaskGroupUpdatedWatchersEvent,
                 WorkflowOutputCreatedEvent,
                 WorkflowOutputUpdatedFieldsEvent,
+                WorksheetUpdatedReviewSnapshotBetaEvent,
                 UnknownType,
             ]
         ],

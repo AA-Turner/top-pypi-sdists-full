@@ -3,7 +3,7 @@ Type annotations for omics service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -66,12 +67,6 @@ from .literals import (
     WorkflowTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -401,7 +396,7 @@ class AcceptShareRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -446,7 +441,7 @@ AnnotationImportJobItemTypeDef = TypedDict(
         "updateTime": datetime,
         "completionTime": NotRequired[datetime],
         "runLeftNormalization": NotRequired[bool],
-        "annotationFields": NotRequired[Dict[str, str]],
+        "annotationFields": NotRequired[dict[str, str]],
     },
 )
 
@@ -805,7 +800,7 @@ class ImportReferenceSourceItemTypeDef(TypedDict):
     statusMessage: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     referenceId: NotRequired[str]
 
 
@@ -1002,7 +997,7 @@ class MultipartReadSetUploadListItemTypeDef(TypedDict):
     creationTime: datetime
     name: NotRequired[str]
     description: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class ReadSetUploadPartListItemTypeDef(TypedDict):
@@ -1141,7 +1136,7 @@ VariantImportJobItemTypeDef = TypedDict(
         "updateTime": datetime,
         "completionTime": NotRequired[datetime],
         "runLeftNormalization": NotRequired[bool],
-        "annotationFields": NotRequired[Dict[str, str]],
+        "annotationFields": NotRequired[dict[str, str]],
     },
 )
 
@@ -1171,7 +1166,7 @@ WorkflowVersionListItemTypeDef = TypedDict(
         "type": NotRequired[WorkflowTypeType],
         "digest": NotRequired[str],
         "creationTime": NotRequired[datetime],
-        "metadata": NotRequired[Dict[str, str]],
+        "metadata": NotRequired[dict[str, str]],
     },
 )
 ListWorkflowsRequestTypeDef = TypedDict(
@@ -1193,7 +1188,7 @@ WorkflowListItemTypeDef = TypedDict(
         "type": NotRequired[WorkflowTypeType],
         "digest": NotRequired[str],
         "creationTime": NotRequired[datetime],
-        "metadata": NotRequired[Dict[str, str]],
+        "metadata": NotRequired[dict[str, str]],
     },
 )
 
@@ -1254,8 +1249,8 @@ class VariantImportItemSourceTypeDef(TypedDict):
 
 class TsvStoreOptionsOutputTypeDef(TypedDict):
     annotationType: NotRequired[AnnotationTypeType]
-    formatToHeader: NotRequired[Dict[FormatToHeaderKeyType, str]]
-    schema: NotRequired[List[Dict[str, SchemaValueTypeType]]]
+    formatToHeader: NotRequired[dict[FormatToHeaderKeyType, str]]
+    schema: NotRequired[list[dict[str, SchemaValueTypeType]]]
 
 
 class TsvStoreOptionsTypeDef(TypedDict):
@@ -1271,8 +1266,8 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class TsvVersionOptionsOutputTypeDef(TypedDict):
     annotationType: NotRequired[AnnotationTypeType]
-    formatToHeader: NotRequired[Dict[FormatToHeaderKeyType, str]]
-    schema: NotRequired[List[Dict[str, SchemaValueTypeType]]]
+    formatToHeader: NotRequired[dict[FormatToHeaderKeyType, str]]
+    schema: NotRequired[list[dict[str, SchemaValueTypeType]]]
 
 
 class TsvVersionOptionsTypeDef(TypedDict):
@@ -1366,7 +1361,7 @@ class CreateMultipartReadSetUploadResponseTypeDef(TypedDict):
     referenceArn: str
     name: str
     description: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     creationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1377,7 +1372,7 @@ CreateRunCacheResponseTypeDef = TypedDict(
         "arn": str,
         "id": str,
         "status": RunCacheStatusType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1386,7 +1381,7 @@ CreateRunGroupResponseTypeDef = TypedDict(
     {
         "arn": str,
         "id": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1405,7 +1400,7 @@ CreateWorkflowResponseTypeDef = TypedDict(
         "arn": str,
         "id": str,
         "status": WorkflowStatusType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "uuid": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1417,7 +1412,7 @@ class CreateWorkflowVersionResponseTypeDef(TypedDict):
     workflowId: str
     versionName: str
     status: WorkflowStatusType
-    tags: Dict[str, str]
+    tags: dict[str, str]
     uuid: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1463,7 +1458,7 @@ GetRunCacheResponseTypeDef = TypedDict(
         "id": str,
         "name": str,
         "status": RunCacheStatusType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1477,7 +1472,7 @@ GetRunGroupResponseTypeDef = TypedDict(
         "maxRuns": int,
         "maxDuration": int,
         "creationTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "maxGpus": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1494,7 +1489,7 @@ class GetS3AccessPolicyResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1559,7 +1554,7 @@ StartRunResponseTypeDef = TypedDict(
         "arn": str,
         "id": str,
         "status": RunStatusType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "uuid": str,
         "runOutputUri": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1657,7 +1652,7 @@ class SequenceStoreFilterTypeDef(TypedDict):
 
 
 class ListReadSetActivationJobsResponseTypeDef(TypedDict):
-    activationJobs: List[ActivateReadSetJobItemTypeDef]
+    activationJobs: list[ActivateReadSetJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1671,14 +1666,14 @@ GetReadSetActivationJobResponseTypeDef = TypedDict(
         "statusMessage": str,
         "creationTime": datetime,
         "completionTime": datetime,
-        "sources": List[ActivateReadSetSourceItemTypeDef],
+        "sources": list[ActivateReadSetSourceItemTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 
 class ListAnnotationImportJobsResponseTypeDef(TypedDict):
-    annotationImportJobs: List[AnnotationImportJobItemTypeDef]
+    annotationImportJobs: list[AnnotationImportJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1780,7 +1775,7 @@ GetVariantStoreResponseTypeDef = TypedDict(
         "sseConfig": SseConfigTypeDef,
         "creationTime": datetime,
         "updateTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "statusMessage": str,
         "storeSizeBytes": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1832,13 +1827,13 @@ VariantStoreItemTypeDef = TypedDict(
 
 
 class ListAnnotationStoreVersionsResponseTypeDef(TypedDict):
-    annotationStoreVersions: List[AnnotationStoreVersionItemTypeDef]
+    annotationStoreVersions: list[AnnotationStoreVersionItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class BatchDeleteReadSetResponseTypeDef(TypedDict):
-    errors: List[ReadSetBatchErrorTypeDef]
+    errors: list[ReadSetBatchErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1857,8 +1852,8 @@ class CompleteMultipartReadSetUploadRequestTypeDef(TypedDict):
 
 
 class ContainerRegistryMapOutputTypeDef(TypedDict):
-    registryMappings: NotRequired[List[RegistryMappingTypeDef]]
-    imageMappings: NotRequired[List[ImageMappingTypeDef]]
+    registryMappings: NotRequired[list[RegistryMappingTypeDef]]
+    imageMappings: NotRequired[list[ImageMappingTypeDef]]
 
 
 class ContainerRegistryMapTypeDef(TypedDict):
@@ -1903,7 +1898,7 @@ CreateSequenceStoreResponseTypeDef = TypedDict(
         "eTagAlgorithmFamily": ETagAlgorithmFamilyType,
         "status": SequenceStoreStatusType,
         "statusMessage": str,
-        "propagatedSetLevelTags": List[str],
+        "propagatedSetLevelTags": list[str],
         "s3Access": SequenceStoreS3AccessTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1922,7 +1917,7 @@ GetSequenceStoreResponseTypeDef = TypedDict(
         "eTagAlgorithmFamily": ETagAlgorithmFamilyType,
         "status": SequenceStoreStatusType,
         "statusMessage": str,
-        "propagatedSetLevelTags": List[str],
+        "propagatedSetLevelTags": list[str],
         "updateTime": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -1937,7 +1932,7 @@ UpdateSequenceStoreResponseTypeDef = TypedDict(
         "sseConfig": SseConfigTypeDef,
         "creationTime": datetime,
         "updateTime": datetime,
-        "propagatedSetLevelTags": List[str],
+        "propagatedSetLevelTags": list[str],
         "status": SequenceStoreStatusType,
         "statusMessage": str,
         "fallbackLocation": str,
@@ -1964,7 +1959,7 @@ class DefinitionRepositoryTypeDef(TypedDict):
 
 
 class DeleteAnnotationStoreVersionsResponseTypeDef(TypedDict):
-    errors: List[VersionDeleteErrorTypeDef]
+    errors: list[VersionDeleteErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1978,14 +1973,14 @@ GetReadSetExportJobResponseTypeDef = TypedDict(
         "statusMessage": str,
         "creationTime": datetime,
         "completionTime": datetime,
-        "readSets": List[ExportReadSetDetailTypeDef],
+        "readSets": list[ExportReadSetDetailTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 
 class ListReadSetExportJobsResponseTypeDef(TypedDict):
-    exportJobs: List[ExportReadSetJobDetailTypeDef]
+    exportJobs: list[ExportReadSetJobDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2175,7 +2170,7 @@ GetReferenceImportJobResponseTypeDef = TypedDict(
         "statusMessage": str,
         "creationTime": datetime,
         "completionTime": datetime,
-        "sources": List[ImportReferenceSourceItemTypeDef],
+        "sources": list[ImportReferenceSourceItemTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2197,17 +2192,17 @@ GetRunResponseTypeDef = TypedDict(
         "priority": int,
         "definition": str,
         "digest": str,
-        "parameters": Dict[str, Any],
+        "parameters": dict[str, Any],
         "storageCapacity": int,
         "outputUri": str,
         "logLevel": RunLogLevelType,
-        "resourceDigests": Dict[str, str],
+        "resourceDigests": dict[str, str],
         "startedBy": str,
         "creationTime": datetime,
         "startTime": datetime,
         "stopTime": datetime,
         "statusMessage": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "accelerators": Literal["GPU"],
         "retentionMode": RunRetentionModeType,
         "failureReason": str,
@@ -2249,7 +2244,7 @@ class GetShareResponseTypeDef(TypedDict):
 
 
 class ListSharesResponseTypeDef(TypedDict):
-    shares: List[ShareDetailsTypeDef]
+    shares: list[ShareDetailsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2265,16 +2260,16 @@ GetVariantImportResponseTypeDef = TypedDict(
         "creationTime": datetime,
         "updateTime": datetime,
         "completionTime": datetime,
-        "items": List[VariantImportItemDetailTypeDef],
+        "items": list[VariantImportItemDetailTypeDef],
         "runLeftNormalization": bool,
-        "annotationFields": Dict[str, str],
+        "annotationFields": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
 
 
 class ListReadSetImportJobsResponseTypeDef(TypedDict):
-    importJobs: List[ImportReadSetJobItemTypeDef]
+    importJobs: list[ImportReadSetJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2290,7 +2285,7 @@ class ImportReadSetSourceItemTypeDef(TypedDict):
     referenceArn: NotRequired[str]
     name: NotRequired[str]
     description: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     readSetId: NotRequired[str]
 
 
@@ -2307,7 +2302,7 @@ class StartReadSetImportJobSourceItemTypeDef(TypedDict):
 
 
 class ListReferenceImportJobsResponseTypeDef(TypedDict):
-    importJobs: List[ImportReferenceJobItemTypeDef]
+    importJobs: list[ImportReferenceJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2424,43 +2419,43 @@ ListAnnotationStoresRequestTypeDef = TypedDict(
 
 
 class ListMultipartReadSetUploadsResponseTypeDef(TypedDict):
-    uploads: List[MultipartReadSetUploadListItemTypeDef]
+    uploads: list[MultipartReadSetUploadListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListReadSetUploadPartsResponseTypeDef(TypedDict):
-    parts: List[ReadSetUploadPartListItemTypeDef]
+    parts: list[ReadSetUploadPartListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListReferencesResponseTypeDef(TypedDict):
-    references: List[ReferenceListItemTypeDef]
+    references: list[ReferenceListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRunCachesResponseTypeDef(TypedDict):
-    items: List[RunCacheListItemTypeDef]
+    items: list[RunCacheListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRunGroupsResponseTypeDef(TypedDict):
-    items: List[RunGroupListItemTypeDef]
+    items: list[RunGroupListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRunTasksResponseTypeDef(TypedDict):
-    items: List[TaskListItemTypeDef]
+    items: list[TaskListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListRunsResponseTypeDef(TypedDict):
-    items: List[RunListItemTypeDef]
+    items: list[RunListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2485,7 +2480,7 @@ ListVariantImportJobsRequestTypeDef = TypedDict(
 
 
 class ListVariantImportJobsResponseTypeDef(TypedDict):
-    variantImportJobs: List[VariantImportJobItemTypeDef]
+    variantImportJobs: list[VariantImportJobItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2510,13 +2505,13 @@ ListVariantStoresRequestTypeDef = TypedDict(
 
 
 class ListWorkflowVersionsResponseTypeDef(TypedDict):
-    items: List[WorkflowVersionListItemTypeDef]
+    items: list[WorkflowVersionListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListWorkflowsResponseTypeDef(TypedDict):
-    items: List[WorkflowListItemTypeDef]
+    items: list[WorkflowListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2718,25 +2713,25 @@ ListSequenceStoresRequestTypeDef = TypedDict(
 
 
 class ListAnnotationStoresResponseTypeDef(TypedDict):
-    annotationStores: List[AnnotationStoreItemTypeDef]
+    annotationStores: list[AnnotationStoreItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListReferenceStoresResponseTypeDef(TypedDict):
-    referenceStores: List[ReferenceStoreDetailTypeDef]
+    referenceStores: list[ReferenceStoreDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListSequenceStoresResponseTypeDef(TypedDict):
-    sequenceStores: List[SequenceStoreDetailTypeDef]
+    sequenceStores: list[SequenceStoreDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListVariantStoresResponseTypeDef(TypedDict):
-    variantStores: List[VariantStoreItemTypeDef]
+    variantStores: list[VariantStoreItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2757,12 +2752,12 @@ GetWorkflowResponseTypeDef = TypedDict(
         "definition": str,
         "main": str,
         "digest": str,
-        "parameterTemplate": Dict[str, WorkflowParameterTypeDef],
+        "parameterTemplate": dict[str, WorkflowParameterTypeDef],
         "storageCapacity": int,
         "creationTime": datetime,
         "statusMessage": str,
-        "tags": Dict[str, str],
-        "metadata": Dict[str, str],
+        "tags": dict[str, str],
+        "metadata": dict[str, str],
         "accelerators": Literal["GPU"],
         "storageType": StorageTypeType,
         "uuid": str,
@@ -2786,14 +2781,14 @@ GetWorkflowVersionResponseTypeDef = TypedDict(
         "digest": str,
         "engine": WorkflowEngineType,
         "main": str,
-        "metadata": Dict[str, str],
-        "parameterTemplate": Dict[str, WorkflowParameterTypeDef],
+        "metadata": dict[str, str],
+        "parameterTemplate": dict[str, WorkflowParameterTypeDef],
         "status": WorkflowStatusType,
         "statusMessage": str,
         "storageType": StorageTypeType,
         "storageCapacity": int,
         "type": WorkflowTypeType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "uuid": str,
         "workflowBucketOwnerId": str,
         "containerRegistryMap": ContainerRegistryMapOutputTypeDef,
@@ -2817,7 +2812,7 @@ class ReferenceFilesTypeDef(TypedDict):
 
 
 class ListReadSetsResponseTypeDef(TypedDict):
-    readSets: List[ReadSetListItemTypeDef]
+    readSets: list[ReadSetListItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2832,7 +2827,7 @@ GetReadSetImportJobResponseTypeDef = TypedDict(
         "statusMessage": str,
         "creationTime": datetime,
         "completionTime": datetime,
-        "sources": List[ImportReadSetSourceItemTypeDef],
+        "sources": list[ImportReadSetSourceItemTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -2876,7 +2871,7 @@ GetAnnotationStoreResponseTypeDef = TypedDict(
         "sseConfig": SseConfigTypeDef,
         "creationTime": datetime,
         "updateTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "storeOptions": StoreOptionsOutputTypeDef,
         "storeFormat": StoreFormatType,
         "statusMessage": str,
@@ -2926,7 +2921,7 @@ GetAnnotationStoreVersionResponseTypeDef = TypedDict(
         "description": str,
         "creationTime": datetime,
         "updateTime": datetime,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "versionOptions": VersionOptionsOutputTypeDef,
         "statusMessage": str,
         "versionSizeBytes": int,
@@ -3036,10 +3031,10 @@ GetAnnotationImportResponseTypeDef = TypedDict(
         "creationTime": datetime,
         "updateTime": datetime,
         "completionTime": datetime,
-        "items": List[AnnotationImportItemDetailTypeDef],
+        "items": list[AnnotationImportItemDetailTypeDef],
         "runLeftNormalization": bool,
         "formatOptions": FormatOptionsTypeDef,
-        "annotationFields": Dict[str, str],
+        "annotationFields": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

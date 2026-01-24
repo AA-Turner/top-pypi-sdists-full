@@ -35,17 +35,18 @@ class KeysApp(App[None], inherit_bindings=False):
         width: 1fr;
     }
     """
+    ENABLE_COMMAND_PALETTE = False
 
     last_key: var[str | None] = var[Optional[str]](None)
 
     def compose(self) -> ComposeResult:
         yield Header()
+        yield KeyLog()
         yield Horizontal(
             Button("Clear", id="clear", variant="warning"),
             Button("Quit", id="quit", variant="error"),
             id="buttons",
         )
-        yield KeyLog()
 
     def on_ready(self) -> None:
         self.query_one(KeyLog).write(Panel(Text.from_markup(INSTRUCTIONS)), expand=True)

@@ -9,21 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
-from .group_0032 import SimpleRepositoryType
-
-
-class DependabotRepositoryAccessDetailsType(TypedDict):
-    """Dependabot Repository Access Details
-
-    Information about repositories that Dependabot is able to access in an
-    organization
-    """
-
-    default_level: NotRequired[Union[None, Literal["public", "internal"]]]
-    accessible_repositories: NotRequired[list[Union[None, SimpleRepositoryType]]]
+from .group_0069 import (
+    ReleaseEventPropReleaseType,
+    ReleaseEventPropReleaseTypeForResponse,
+)
 
 
-__all__ = ("DependabotRepositoryAccessDetailsType",)
+class ReleaseEventType(TypedDict):
+    """ReleaseEvent"""
+
+    action: str
+    release: ReleaseEventPropReleaseType
+
+
+class ReleaseEventTypeForResponse(TypedDict):
+    """ReleaseEvent"""
+
+    action: str
+    release: ReleaseEventPropReleaseTypeForResponse
+
+
+__all__ = (
+    "ReleaseEventType",
+    "ReleaseEventTypeForResponse",
+)

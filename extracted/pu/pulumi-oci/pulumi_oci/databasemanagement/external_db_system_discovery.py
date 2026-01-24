@@ -378,11 +378,29 @@ class ExternalDbSystemDiscovery(pulumi.CustomResource):
                  patch_operations: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ExternalDbSystemDiscoveryPatchOperationArgs', 'ExternalDbSystemDiscoveryPatchOperationArgsDict']]]]] = None,
                  __props__=None):
         """
-        This resource provides the External Db System Discovery resource in Oracle Cloud Infrastructure Database Management service.
+        ## Example Usage
 
-        Creates an external DB system discovery resource and initiates the discovery process.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
 
-          Patches the external DB system discovery specified by `externalDbSystemDiscoveryId`.
+        test_external_db_system_discovery = oci.databasemanagement.ExternalDbSystemDiscovery("test_external_db_system_discovery",
+            agent_id=test_agent["id"],
+            compartment_id=compartment_id,
+            external_db_system_discovery_id=external_db_system_discovery_external_db_system_discovery_id,
+            defined_tags={
+                "Operations.CostCenter": "42",
+            },
+            display_name=external_db_system_discovery_display_name,
+            freeform_tags={
+                "Department": "Finance",
+            },
+            patch_operations=[{
+                "operation": external_db_system_discovery_patch_operations_operation,
+                "selection": external_db_system_discovery_patch_operations_selection,
+                "value": external_db_system_discovery_patch_operations_value[0],
+            }])
+        ```
 
         ## Import
 
@@ -408,11 +426,29 @@ class ExternalDbSystemDiscovery(pulumi.CustomResource):
                  args: ExternalDbSystemDiscoveryArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        This resource provides the External Db System Discovery resource in Oracle Cloud Infrastructure Database Management service.
+        ## Example Usage
 
-        Creates an external DB system discovery resource and initiates the discovery process.
+        ```python
+        import pulumi
+        import pulumi_oci as oci
 
-          Patches the external DB system discovery specified by `externalDbSystemDiscoveryId`.
+        test_external_db_system_discovery = oci.databasemanagement.ExternalDbSystemDiscovery("test_external_db_system_discovery",
+            agent_id=test_agent["id"],
+            compartment_id=compartment_id,
+            external_db_system_discovery_id=external_db_system_discovery_external_db_system_discovery_id,
+            defined_tags={
+                "Operations.CostCenter": "42",
+            },
+            display_name=external_db_system_discovery_display_name,
+            freeform_tags={
+                "Department": "Finance",
+            },
+            patch_operations=[{
+                "operation": external_db_system_discovery_patch_operations_operation,
+                "selection": external_db_system_discovery_patch_operations_selection,
+                "value": external_db_system_discovery_patch_operations_value[0],
+            }])
+        ```
 
         ## Import
 

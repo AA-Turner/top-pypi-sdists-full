@@ -27,12 +27,15 @@ from stripe._stripe_response import (
     StripeStreamResponseAsync,
 )
 from stripe._encode import _encode_datetime  # pyright: ignore
-from stripe._request_options import extract_options_from_dict
+from stripe._request_options import (
+    PERSISTENT_OPTIONS_KEYS,
+    extract_options_from_dict,
+)
 from stripe._api_mode import ApiMode
 from stripe._base_address import BaseAddress
 
 if TYPE_CHECKING:
-    from stripe import _APIRequestor  # pyright: ignore[reportPrivateUsage]
+    from stripe._api_requestor import _APIRequestor  # pyright: ignore[reportPrivateUsage]
 
 
 @overload
@@ -108,8 +111,10 @@ class StripeObject(Dict[str, Any]):
         self._retrieve_params = params
         self._previous = None
 
+        from stripe._api_requestor import _APIRequestor  # pyright: ignore[reportPrivateUsage]
+
         self._requestor = (
-            stripe._APIRequestor._global_with_options(  # pyright: ignore[reportPrivateUsage]
+            _APIRequestor._global_with_options(  # pyright: ignore[reportPrivateUsage]
                 api_key=api_key,
                 stripe_version=stripe_version,
                 stripe_account=stripe_account,
@@ -150,8 +155,10 @@ class StripeObject(Dict[str, Any]):
     if not TYPE_CHECKING:
 
         def __setattr__(self, k, v):
-            if k in {"api_key", "stripe_account", "stripe_version"}:
-                self._requestor = self._requestor._replace_options({k: v})
+            if k in PERSISTENT_OPTIONS_KEYS:
+                self._requestor = self._requestor._new_requestor_with_options(
+                    {k: v}
+                )
                 return None
 
             if k[0] == "_" or k in self.__dict__:
@@ -209,6 +216,15 @@ class StripeObject(Dict[str, Any]):
                     % (k, k, ", ".join(list(self.keys())))
                 )
             else:
+                from stripe._invoice import Invoice
+
+                # super specific one-off case to help users debug this property disappearing
+                # see also: https://go/j/DEVSDK-2835
+                if isinstance(self, Invoice) and k == "payment_intent":
+                    raise KeyError(
+                        "The 'payment_intent' attribute is no longer available on Invoice objects. See the docs for more details: https://docs.stripe.com/changelog/basil/2025-03-31/add-support-for-multiple-partial-payments-on-invoices#why-is-this-a-breaking-change"
+                    )
+
                 raise err
 
     def __delitem__(self, k: str) -> None:
@@ -251,9 +267,11 @@ class StripeObject(Dict[str, Any]):
         *,
         api_mode: ApiMode = "V1",
     ) -> Self:
+        from stripe._api_requestor import _APIRequestor  # pyright: ignore[reportPrivateUsage]
+
         return cls._construct_from(
             values=values,
-            requestor=stripe._APIRequestor._global_with_options(  # pyright: ignore[reportPrivateUsage]
+            requestor=_APIRequestor._global_with_options(  # pyright: ignore[reportPrivateUsage]
                 api_key=key,
                 stripe_version=stripe_version,
                 stripe_account=stripe_account,
@@ -299,7 +317,7 @@ class StripeObject(Dict[str, Any]):
             values=values,
             partial=partial,
             last_response=last_response,
-            requestor=self._requestor._replace_options(  # pyright: ignore[reportPrivateUsage]
+            requestor=self._requestor._new_requestor_with_options(  # pyright: ignore[reportPrivateUsage]
                 {
                     "api_key": api_key,
                     "stripe_version": stripe_version,

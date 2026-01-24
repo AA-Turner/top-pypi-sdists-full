@@ -62,7 +62,7 @@ class MmapTracker:
         self.count += 1
         def finalizer(ref):
             self._already_released += 1
-            if verboseLevel >=2:
+            if verboseLevel is not None and verboseLevel >=2:
                 if self.count == self._already_released:
                     text =" (all the mmaps have been released)"
                 else:
@@ -105,6 +105,30 @@ class tensor_slice:
 
     def get_shape(self):
         return self.catalog[self.name]["shape"]
+
+class tensor_stub:
+    dtype = None
+    shape = None
+
+    def __init__(self, dtype, shape):
+        self.dtype = dtype
+        self.shape = tuple(shape)
+
+    @property
+    def ndim(self):
+        return len(self.shape)
+
+    def numel(self):
+        if not self.shape:
+            return 1
+        n = 1
+        for dim in self.shape:
+            n *= int(dim)
+        return n
+
+    @property
+    def device(self):
+        return torch.device("cpu")
 
 class cached_metadata:
     file_path = None
@@ -172,6 +196,23 @@ def _read_safetensors_header(path, file):
         file.seek(length_of_header, 1)
     
     return catalog, metadata, length_of_header + 8
+
+
+def load_metadata_state_dict(file_path):
+    if str(file_path).lower().endswith(".gguf"):
+        from shared.qtypes import gguf as gguf_handler
+        metadata = gguf_handler.read_gguf_metadata(file_path)
+        return OrderedDict(), metadata
+    with open(file_path, 'rb') as f:
+        catalog, metadata, _ = _read_safetensors_header(file_path, f)
+    sd = OrderedDict()
+    for k, v in catalog.items():
+        dtypestr = v["dtype"]
+        dtype = _map_to_dtype.get(dtypestr)
+        if dtype is None:
+            raise KeyError(f"Unknown safetensors dtype '{dtypestr}' in {file_path}")
+        sd[k] = tensor_stub(dtype, v["shape"])
+    return sd, metadata
 
     
 def torch_write_file(sd, file_path, quantization_map = None, config = None, extra_meta = None):
@@ -309,10 +350,10 @@ class SafeTensorFile:
         current_map_start = (skip_bytes // PAGE_SIZE) * PAGE_SIZE
         current_map_size = skip_bytes - current_map_start
         idx = 0
-        for k,v in self._catalog.items():
+        for entry_no, (k,v) in enumerate(self._catalog.items()):
             data_offsets = v["data_offsets"]
             length = data_offsets[1]-data_offsets[0]
-            if current_map_size + length > MMAP_SIZE:
+            if current_map_size + length > MMAP_SIZE and entry_no:
                 maps_info.append((current_map_start, current_map_size))
                 current_map_start = (current_pos // PAGE_SIZE) * PAGE_SIZE
                 current_map_size = current_pos - current_map_start

@@ -36,24 +36,20 @@ T_CustomModelBase = TypeVar("T_CustomModelBase", bound="_CustomModelBase")
 class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
     _path = "customModels/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("name"): String(),
-            t.Key("description"): String(allow_blank=True),
-            t.Key("supports_binary_classification", optional=True, default=False): t.Bool(),
-            t.Key("supports_regression", optional=True, default=False): t.Bool(),
-            t.Key("supports_textgeneration", optional=True, default=False): t.Bool(),
-            t.Key("latest_version", optional=True, default=None): t.Or(
-                CustomModelVersion.schema, t.Null()
-            ),
-            t.Key("deployments_count", optional=True, default=None): Int(),
-            t.Key("created_by"): String(),
-            t.Key("updated") >> "updated_at": String(),
-            t.Key("created") >> "created_at": String(),
-            t.Key("target_type", optional=True, default=None): String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("name"): String(),
+        t.Key("description"): String(allow_blank=True),
+        t.Key("supports_binary_classification", optional=True, default=False): t.Bool(),
+        t.Key("supports_regression", optional=True, default=False): t.Bool(),
+        t.Key("supports_textgeneration", optional=True, default=False): t.Bool(),
+        t.Key("latest_version", optional=True, default=None): t.Or(CustomModelVersion.schema, t.Null()),
+        t.Key("deployments_count", optional=True, default=None): Int(),
+        t.Key("created_by"): String(),
+        t.Key("updated") >> "updated_at": String(),
+        t.Key("created") >> "created_at": String(),
+        t.Key("target_type", optional=True, default=None): String(),
+    }).ignore_extra("*")
 
     def __init__(self, **kwargs: Any) -> None:
         self._set_values(**kwargs)
@@ -93,24 +89,14 @@ class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
                 self.target_type = CUSTOM_MODEL_TARGET_TYPE.TEXT_GENERATION
             else:
                 raise ValueError("Target type must be provided")
-        else:
-            if target_type != CUSTOM_MODEL_TARGET_TYPE.BINARY and supports_binary_classification:
-                raise ValueError(
-                    "Cannot specify both target_type {} and "
-                    "supports_binary_classification.".format(target_type)
-                )
-            elif target_type != CUSTOM_MODEL_TARGET_TYPE.REGRESSION and supports_regression:
-                raise ValueError(
-                    "Cannot specify both target_type {} and "
-                    "supports_regression.".format(target_type)
-                )
-            elif (
-                target_type != CUSTOM_MODEL_TARGET_TYPE.TEXT_GENERATION and supports_textgeneration
-            ):
-                raise ValueError(
-                    "Cannot specify both target_type {} and "
-                    "supports_text_generation.".format(target_type)
-                )
+        elif target_type != CUSTOM_MODEL_TARGET_TYPE.BINARY and supports_binary_classification:
+            raise ValueError(
+                "Cannot specify both target_type {} and supports_binary_classification.".format(target_type)
+            )
+        elif target_type != CUSTOM_MODEL_TARGET_TYPE.REGRESSION and supports_regression:
+            raise ValueError("Cannot specify both target_type {} and supports_regression.".format(target_type))
+        elif target_type != CUSTOM_MODEL_TARGET_TYPE.TEXT_GENERATION and supports_textgeneration:
+            raise ValueError("Cannot specify both target_type {} and supports_text_generation.".format(target_type))
 
         self.latest_version = CustomModelVersion(**latest_version) if latest_version else None  # type: ignore[arg-type]
         self.deployments_count = deployments_count
@@ -277,9 +263,7 @@ class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
             payload["supports_regression"] = True
         elif target_type not in CUSTOM_MODEL_TARGET_TYPE.ALL:
             raise ClientError(
-                "Unsupported target_type. target_type must be in  {}.".format(
-                    CUSTOM_MODEL_TARGET_TYPE.ALL
-                ),
+                "Unsupported target_type. target_type must be in  {}.".format(CUSTOM_MODEL_TARGET_TYPE.ALL),
                 422,
             )
 
@@ -316,9 +300,7 @@ class _CustomModelBase(APIObject):  # pylint: disable=missing-class-docstring
         response = cls._client.post(path, data={"custom_model_id": custom_model_id})
         return cls.from_server_data(response.json())
 
-    def update(
-        self, name: Optional[str] = None, description: Optional[str] = None, **kwargs: Any
-    ) -> None:
+    def update(self, name: Optional[str] = None, description: Optional[str] = None, **kwargs: Any) -> None:
         """Update custom inference model properties.
 
         .. versionadded:: v2.21
@@ -463,9 +445,7 @@ class CustomInferenceModel(_CustomModelBase):
             t.Key("network_egress_policy", optional=True): t.Enum(*NETWORK_EGRESS_POLICY.ALL),
             t.Key("maximum_memory", optional=True): Int(),
             t.Key("replicas", optional=True): Int(),
-            t.Key(
-                "is_training_data_for_versions_permanently_enabled", optional=True, default=False
-            ): t.Bool(),
+            t.Key("is_training_data_for_versions_permanently_enabled", optional=True, default=False): t.Bool(),
         }
     ).allow_extra("*")
 
@@ -504,9 +484,7 @@ class CustomInferenceModel(_CustomModelBase):
         self.network_egress_policy = network_egress_policy
         self.maximum_memory = maximum_memory
         self.replicas = replicas
-        self.is_training_data_for_versions_permanently_enabled = (
-            is_training_data_for_versions_permanently_enabled
-        )
+        self.is_training_data_for_versions_permanently_enabled = is_training_data_for_versions_permanently_enabled
 
     @classmethod
     def list(  # type: ignore[override] # pylint: disable=arguments-renamed
@@ -673,9 +651,7 @@ class CustomInferenceModel(_CustomModelBase):
             If the server responded with 5xx status.
         """
         if target_type in CUSTOM_MODEL_TARGET_TYPE.REQUIRES_TARGET_NAME and target_name is None:
-            raise ValueError(
-                f"target_name is required for custom models with target type {target_type}"
-            )
+            raise ValueError(f"target_name is required for custom models with target type {target_type}")
         if class_labels and class_labels_file:
             raise ValueError("class_labels and class_labels_file cannot be used together")
         if class_labels_file:
@@ -881,9 +857,7 @@ class CustomInferenceModel(_CustomModelBase):
         list of :class:`SharingAccess <datarobot.SharingAccess>`
         """
         url = f"{self._path}{self.id}/accessControl/"
-        return [
-            SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)
-        ]
+        return [SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)]
 
     def share(self, access_list: List[SharingAccess]) -> None:
         """Update the access control settings of this custom model.

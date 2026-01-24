@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import configparser
 import os
 import pathlib
 import shutil
-import uuid
 from pathlib import Path
-from typing import Dict, List, Union
+from typing import TYPE_CHECKING, Dict, List, Union
 
 import pytest
 
@@ -15,11 +13,6 @@ import great_expectations.exceptions as gx_exceptions
 from great_expectations.core.expectation_suite import ExpectationSuite
 from great_expectations.core.yaml_handler import YAMLHandler
 from great_expectations.data_context import get_context
-from great_expectations.data_context.data_context.abstract_data_context import AbstractDataContext
-from great_expectations.data_context.data_context.cloud_data_context import CloudDataContext
-from great_expectations.data_context.data_context.ephemeral_data_context import (
-    EphemeralDataContext,
-)
 from great_expectations.data_context.data_context.file_data_context import (
     FileDataContext,
 )
@@ -40,6 +33,12 @@ from great_expectations.util import (
     gen_directory_tree_str,
 )
 from tests.test_utils import safe_remove
+
+if TYPE_CHECKING:
+    from great_expectations.data_context.data_context.abstract_data_context import (
+        AbstractDataContext,
+    )
+    from great_expectations.data_context.data_context.cloud_data_context import CloudDataContext
 
 yaml = YAMLHandler()
 
@@ -845,34 +844,3 @@ def test_file_backed_context_updates_existing_gitignore(tmp_path: pathlib.Path):
     contents = gitignore.read_text()
     assert existing_value in contents
     assert FileDataContext.GX_UNCOMMITTED_DIR in contents
-
-
-@pytest.mark.unit
-def test_set_oss_id_with_empty_config(in_memory_runtime_context: EphemeralDataContext):
-    context = in_memory_runtime_context
-    config = configparser.ConfigParser()
-
-    oss_id = context._set_oss_id(config)
-
-    assert config.sections() == ["analytics"]
-    assert list(config["analytics"]) == ["oss_id"]
-    assert oss_id == uuid.UUID(config["analytics"]["oss_id"])
-
-
-@pytest.mark.unit
-def test_set_oss_id_with_existing_config(
-    in_memory_runtime_context: EphemeralDataContext,
-):
-    context = in_memory_runtime_context
-
-    # Set up existing config
-    config = configparser.ConfigParser()
-    config["analytics"] = {}
-
-    oss_id = context._set_oss_id(config)
-
-    assert config.sections() == ["analytics"]
-    assert list(config["analytics"]) == [
-        "oss_id",
-    ]
-    assert oss_id == uuid.UUID(config["analytics"]["oss_id"])

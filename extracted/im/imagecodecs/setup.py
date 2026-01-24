@@ -2,10 +2,13 @@
 
 """Imagecodecs package Setuptools script."""
 
+import contextlib
 import os
 import re
 import shutil
 import sys
+import sysconfig
+from typing import Any
 
 import numpy
 from Cython.Build import cythonize
@@ -13,16 +16,29 @@ from setuptools import Extension, setup
 
 buildnumber = ''  # e.g. 'pre1' or 'post1'
 
-DEBUG = bool(os.environ.get('IMAGECODECS_DEBUG', False))
+HERE = os.path.dirname(os.path.abspath(__file__))
+DEBUG = bool(os.environ.get('CG_DEBUG', ''))
+LIMITED_API = os.environ.get('CG_LIMITED_API', '1').lower() in ('1', 'true')
 
-base_dir = os.path.dirname(os.path.abspath(__file__))
+if LIMITED_API and not sysconfig.get_config_var('Py_GIL_DISABLED'):
+    py_limited_api = True
+    define_macros = [
+        ('Py_LIMITED_API', 0x030B0000),
+        ('CYTHON_LIMITED_API', '1'),
+    ]
+    options = {'bdist_wheel': {'py_limited_api': 'cp311'}}
+else:
+    py_limited_api = False
+    define_macros = []
+    options = {}
 
 
 def search(pattern: str, string: str, flags: int = 0) -> str:
     """Return first match of pattern in string."""
     match = re.search(pattern, string, flags)
     if match is None:
-        raise ValueError(f'{pattern!r} not found')
+        msg = f'{pattern=!r} not found'
+        raise ValueError(msg)
     return match.groups()[0]
 
 
@@ -45,7 +61,7 @@ def fix_docstring_examples(docstring: str) -> str:
 
 
 with open(
-    os.path.join(base_dir, 'imagecodecs/imagecodecs.py'), encoding='utf-8'
+    os.path.join(HERE, 'imagecodecs/imagecodecs.py'), encoding='utf-8'
 ) as fh:
     code = fh.read().replace('\r\n', '\n').replace('\r', '\n')
 
@@ -60,7 +76,7 @@ readme = search(
     re.MULTILINE | re.DOTALL,
 )
 readme = '\n'.join(
-    [description, '=' * len(description)] + readme.splitlines()[1:]
+    (description, '=' * len(description), *readme.splitlines()[1:])
 )
 
 if 'sdist' in sys.argv:
@@ -95,52 +111,50 @@ if 'sdist' in sys.argv:
         fh.write(old)
 
 
-def ext(**kwargs):
+def ext(**kwargs: Any) -> dict[str, Any]:
     """Return Extension arguments."""
-    d: dict[str, object] = dict(
-        sources=[],
-        include_dirs=[],
-        library_dirs=[],
-        libraries=[],
-        define_macros=[],
-        extra_compile_args=[],
-        extra_link_args=[],
-        extra_objects=[],
-        depends=[],
-        py_limited_api=False,
-    )
+    d: dict[str, Any] = {
+        'sources': [],
+        'include_dirs': [],
+        'library_dirs': [],
+        'libraries': [],
+        'define_macros': [],
+        'extra_compile_args': [],
+        'extra_link_args': [],
+        'extra_objects': [],
+        'depends': [],
+        'py_limited_api': py_limited_api,
+    }
     d.update(kwargs)
     return d
 
 
-OPTIONS = {
+OPTIONS: dict[str, Any] = {
     'include_dirs': ['imagecodecs', numpy.get_include()],
     'library_dirs': [],
     'libraries': ['m'] if sys.platform != 'win32' else [],
-    'define_macros': (
-        [
-            # ('CYTHON_TRACE_NOGIL', '1'),
-            # ('CYTHON_LIMITED_API', '1'),
-            # ('Py_LIMITED_API', '1'),
-            ('NPY_NO_DEPRECATED_API', 'NPY_1_20_API_VERSION'),
-        ]
-        + ([('WIN32', 1)] if sys.platform == 'win32' else [])
-    ),
+    'define_macros': [
+        *define_macros,
+        # ('CYTHON_TRACE_NOGIL', '1'),
+        ('NPY_NO_DEPRECATED_API', 'NPY_2_0_API_VERSION'),
+        *([('WIN32', 1)] if sys.platform == 'win32' else []),
+    ],
+    'py_limited_api': py_limited_api,
     'extra_compile_args': ['/Zi', '/Od'] if DEBUG else [],
     'extra_link_args': ['-debug:full'] if DEBUG else [],
     'extra_objects': [],
     'depends': ['imagecodecs/_shared.pxd'],
-    'py_limited_api': False,
     # cythonize options
+    'annotate': DEBUG,
     'nthreads': 0,
     'build_dir': 'build',
     'include_path': ['imagecodecs'],
     'shared_utility_qualified_name': 'imagecodecs._shared_cython',
-    'compile_time_env': {'IS_PYPY': 'pypy' in sys.version.lower()},
     'compiler_directives': {'freethreading_compatible': True},
+    'compile_time_env': {},
 }
 
-EXTENSIONS = {
+EXTENSIONS: dict[str, dict[str, Any]] = {
     'shared': ext(),
     'imcd': ext(sources=['imagecodecs/imcd.c']),
     'aec': ext(libraries=['aec']),
@@ -175,7 +189,7 @@ EXTENSIONS = {
         include_dirs=['3rdparty/hdf5'],
     ),
     'heif': ext(libraries=['heif']),
-    # 'htj2k': ext(libraries=['openjph']),
+    'htj2k': ext(libraries=['openjph']),
     'jetraw': ext(libraries=['jetraw', 'dpcore']),
     'jpeg2k': ext(
         sources=['3rdparty/openjpeg/color.c'],
@@ -212,9 +226,11 @@ EXTENSIONS = {
     'lzham': ext(libraries=['lzham']),
     'lzma': ext(libraries=['lzma']),
     'lzo': ext(libraries=['lzokay-c', 'lzokay']),
+    'meshopt': ext(libraries=['meshoptimizer']),
     'mozjpeg': ext(libraries=['mozjpeg']),
     # 'nvjpeg': ext(libraries=['nvjpeg', 'cuda']),
     # 'nvjpeg2k': ext(libraries=['nvjpeg2k', 'cuda']),
+    # 'openzl': ext(libraries=['openzl']),
     'pcodec': ext(libraries=['cpcodec']),
     'pglz': ext(
         sources=['3rdparty/postgresql/pg_lzcompress.c'],
@@ -258,29 +274,31 @@ EXTENSIONS = {
 }
 
 
-def customize_build_default(EXTENSIONS, OPTIONS):
+def customize_build_default(
+    extensions: dict[str, Any], options: dict[str, Any]
+) -> None:
     """Customize default, minimal build.
 
-    Only build extensions required by core dependent libraries (tifffile,
-    and czifile).
+    Only build extensions required by core dependent libraries
+    (tifffile, liffile, and czifile).
 
     Works on Ubuntu 24.04
 
     """
-    del OPTIONS['shared_utility_qualified_name']
+    del options['shared_utility_qualified_name']
 
-    EXTENSIONS['jpeg2k']['include_dirs'].extend(
+    extensions['jpeg2k']['include_dirs'].extend(
         (
             '/usr/include/openjpeg-2.3',
             '/usr/include/openjpeg-2.4',
             '/usr/include/openjpeg-2.5',
         )
     )
-    EXTENSIONS['jpegxr']['include_dirs'].append('/usr/include/jxrlib')
+    extensions['jpegxr']['include_dirs'].append('/usr/include/jxrlib')
 
-    if not os.environ.get('IMAGECODECS_JPEG8_LEGACY', False):
+    if not os.environ.get('IMAGECODECS_JPEG8_LEGACY', ''):
         # use libjpeg-turbo 3 by default
-        EXTENSIONS['jpeg8']['sources'] = []
+        extensions['jpeg8']['sources'] = []
 
     # these extensions are required by core dependent libraries
     keep = {
@@ -302,65 +320,66 @@ def customize_build_default(EXTENSIONS, OPTIONS):
         'zlib',
         'zstd',
     }
-    for name in tuple(EXTENSIONS.keys()):
+    for name in tuple(extensions.keys()):
         if name not in keep:
-            EXTENSIONS.pop(name, None)
+            extensions.pop(name, None)
 
 
-def customize_build_cgohlke(EXTENSIONS, OPTIONS):
+def customize_build_cgohlke(
+    extensions: dict[str, Any],
+    options: dict[str, Any],
+) -> None:
     """Customize build for Windows development environment with static libs."""
-    INCLIB = os.environ.get('INCLIB', '.')
+    inclib = os.environ.get('INCLIB', '.')
 
-    OPTIONS['include_dirs'].append(os.path.join(INCLIB, 'lib'))
-    OPTIONS['library_dirs'].append(os.path.join(INCLIB, 'include'))
+    options['include_dirs'].append(os.path.join(inclib, 'lib'))
+    options['library_dirs'].append(os.path.join(inclib, 'include'))
 
     # remove unstable extensions
-    EXTENSIONS.pop('brunsli', None)
-    EXTENSIONS.pop('pcodec', None)
-    EXTENSIONS.pop('sperr', None)
-    EXTENSIONS.pop('sz3', None)
+    # extensions.pop('brunsli', None)
+    extensions.pop('pcodec', None)
+    # extensions.pop('sperr', None)
+    # extensions.pop('sz3', None)
 
     dlls: list[str] = []  # 'heif.dll'
     if '64 bit' in sys.version:
         for dll in dlls:
             shutil.copyfile(
-                os.path.join(INCLIB, 'bin', dll), 'imagecodecs/' + dll
+                os.path.join(inclib, 'bin', dll), 'imagecodecs/' + dll
             )
     else:
-        # EXTENSIONS.pop('nvjpeg2k')
-        EXTENSIONS.pop('jetraw', None)
-        EXTENSIONS.pop('heif', None)
-        EXTENSIONS.pop('sperr', None)
+        # extensions.pop('nvjpeg2k')
+        extensions.pop('jetraw', None)
+        extensions.pop('heif', None)
+        extensions.pop('sperr', None)
         for dll in dlls:
-            try:
+            with contextlib.suppress(FileNotFoundError):
                 os.remove('imagecodecs/' + dll)
-            except FileNotFoundError:
-                pass
     if 'ARM64' in sys.version:
-        EXTENSIONS.pop('jetraw', None)
+        extensions.pop('jetraw', None)
 
-    # EXTENSIONS['exr']['define_macros'].append(('TINYEXR_USE_OPENMP', 1))
-    # EXTENSIONS['exr']['extra_compile_args'] = ['/openmp']
+    # extensions['exr']['define_macros'].append(('TINYEXR_USE_OPENMP', 1))
+    # extensions['exr']['extra_compile_args'] = ['/openmp']
 
-    if not os.environ.get('IMAGECODECS_JPEG8_LEGACY', False):
+    if not os.environ.get('IMAGECODECS_JPEG8_LEGACY', ''):
         # use libjpeg-turbo 3
-        EXTENSIONS['jpeg8']['sources'] = []
+        extensions['jpeg8']['sources'] = []
 
-    # EXTENSIONS['jpegli']['include_dirs'] = [
-    #     os.path.join(INCLIB, 'include', 'jpegli')
+    # extensions['jpegli']['include_dirs'] = [
+    #     os.path.join(inclib, 'include', 'jpegli')
     # ]
-    # EXTENSIONS['jpegli']['libraries'] = ['jpegli-static']
+    # extensions['jpegli']['libraries'] = ['jpegli-static']
 
-    EXTENSIONS['mozjpeg']['include_dirs'] = [
-        os.path.join(INCLIB, 'include', 'mozjpeg')
+    extensions['mozjpeg']['include_dirs'] = [
+        os.path.join(inclib, 'include', 'mozjpeg')
     ]
-    EXTENSIONS['mozjpeg']['libraries'] = ['mozjpeg-static']
+    extensions['mozjpeg']['libraries'] = ['mozjpeg-static']
 
     # if 'AMD64' in sys.version:
-    #     EXTENSIONS['bitshuffle']['extra_compile_args'].append('/DUSESSE2')
+    #     extensions['bitshuffle']['extra_compile_args'].append('/DUSESSE2')
 
-    if 'pcodec' in EXTENSIONS:
-        EXTENSIONS['pcodec']['libraries'] = [
+    if 'pcodec' in extensions:
+        extensions['pcodec']['libraries'] = [
             'cpcodec',
             'Ws2_32',
             'Advapi32',
@@ -369,7 +388,7 @@ def customize_build_cgohlke(EXTENSIONS, OPTIONS):
             'ntdll',
         ]
 
-    EXTENSIONS['avif']['libraries'] = [
+    extensions['avif']['libraries'] = [
         'avif',
         'aom',
         'libdav1d',
@@ -385,60 +404,60 @@ def customize_build_cgohlke(EXTENSIONS, OPTIONS):
         'ntdll',
     ]
 
-    if 'sz3' in EXTENSIONS:
-        EXTENSIONS['sz3']['libraries'] = ['SZ3c', 'zstd_static']
+    if 'sz3' in extensions:
+        extensions['sz3']['libraries'] = ['SZ3c', 'zstd_static']
 
-    EXTENSIONS['szip']['libraries'] = ['szip-static']
-    EXTENSIONS['aec']['libraries'] = ['aec-static']
-    EXTENSIONS['bz2']['libraries'] = ['libbz2']
-    EXTENSIONS['lzf']['libraries'] = ['lzf']
-    EXTENSIONS['gif']['libraries'] = ['libgif']
-    EXTENSIONS['webp']['libraries'] = [
+    extensions['szip']['libraries'] = ['szip-static']
+    extensions['aec']['libraries'] = ['aec-static']
+    extensions['bz2']['libraries'] = ['libbz2']
+    extensions['lzf']['libraries'] = ['lzf']
+    extensions['gif']['libraries'] = ['libgif']
+    extensions['webp']['libraries'] = [
         'libwebp',
         'libwebpdemux',
         'libsharpyuv',
     ]
 
     # link with static zlib-ng compatibility mode library
-    EXTENSIONS['png']['libraries'] = ['png', 'zlibstatic-ng-compat']
-    EXTENSIONS['apng']['libraries'] = ['png', 'zlibstatic-ng-compat']
+    extensions['png']['libraries'] = ['png', 'zlibstatic-ng-compat']
+    extensions['apng']['libraries'] = ['png', 'zlibstatic-ng-compat']
 
-    EXTENSIONS['lzham']['libraries'] = ['lzhamlib', 'lzhamcomp', 'lzhamdecomp']
+    extensions['lzham']['libraries'] = ['lzhamlib', 'lzhamcomp', 'lzhamdecomp']
 
-    EXTENSIONS['deflate']['libraries'] = ['deflatestatic']
-    EXTENSIONS['zlibng']['libraries'] = ['zlibstatic-ng']
-    EXTENSIONS['zstd']['libraries'] = ['zstd_static']
-    EXTENSIONS['lerc']['define_macros'].append(('LERC_STATIC', 1))
-    EXTENSIONS['jpegls']['define_macros'].append(('CHARLS_STATIC', 1))
-    EXTENSIONS['jpeg2k']['define_macros'].append(('OPJ_STATIC', 1))
-    EXTENSIONS['jpeg2k']['include_dirs'].append(
-        os.path.join(INCLIB, 'include', 'openjpeg-2.5')
+    extensions['deflate']['libraries'] = ['deflatestatic']
+    extensions['zlibng']['libraries'] = ['zlibstatic-ng']
+    extensions['zstd']['libraries'] = ['zstd_static']
+    extensions['lerc']['define_macros'].append(('LERC_STATIC', 1))
+    extensions['jpegls']['define_macros'].append(('CHARLS_STATIC', 1))
+    extensions['jpeg2k']['define_macros'].append(('OPJ_STATIC', 1))
+    extensions['jpeg2k']['include_dirs'].append(
+        os.path.join(inclib, 'include', 'openjpeg-2.5')
     )
-    EXTENSIONS['jpegxr']['include_dirs'].append(
-        os.path.join(INCLIB, 'include', 'jxrlib')
+    extensions['jpegxr']['include_dirs'].append(
+        os.path.join(inclib, 'include', 'jxrlib')
     )
-    EXTENSIONS['zopfli']['include_dirs'].append(
-        os.path.join(INCLIB, 'include', 'zopfli')
+    extensions['zopfli']['include_dirs'].append(
+        os.path.join(inclib, 'include', 'zopfli')
     )
-    EXTENSIONS['zfp']['extra_compile_args'] = ['/openmp']
-    EXTENSIONS['blosc']['libraries'] = [
+    extensions['zfp']['extra_compile_args'] = ['/openmp']
+    extensions['blosc']['libraries'] = [
         'libblosc',
         'zlib',
         'lz4',
         'snappy',
         'zstd_static',
     ]
-    EXTENSIONS['blosc2']['libraries'] = [
+    extensions['blosc2']['libraries'] = [
         'libblosc2',
         'zlibstatic-ng',
         'lz4',
         'zstd_static',
     ]
-    EXTENSIONS['lzma']['define_macros'].append(('LZMA_API_STATIC', 1))
-    EXTENSIONS['tiff']['define_macros'].extend(
+    extensions['lzma']['define_macros'].append(('LZMA_API_STATIC', 1))
+    extensions['tiff']['define_macros'].extend(
         (('LZMA_API_STATIC', 1), ('LERC_STATIC', 1))
     )
-    EXTENSIONS['tiff']['libraries'] = [
+    extensions['tiff']['libraries'] = [
         'tiff',
         'jpeg',
         'png',
@@ -450,10 +469,10 @@ def customize_build_cgohlke(EXTENSIONS, OPTIONS):
         'deflatestatic',
         'lerc',
     ]
-    EXTENSIONS['jpegxl']['define_macros'].extend(
+    extensions['jpegxl']['define_macros'].extend(
         (('JXL_STATIC_DEFINE', 1), ('JXL_THREADS_STATIC_DEFINE', 1))
     )
-    EXTENSIONS['jpegxl']['libraries'] = [
+    extensions['jpegxl']['libraries'] = [
         'jxl',
         'jxl_cms',
         'jxl_extras_codec',
@@ -464,8 +483,8 @@ def customize_build_cgohlke(EXTENSIONS, OPTIONS):
         'hwy',
         'lcms2',
     ]
-    if 'brunsli' in EXTENSIONS:
-        EXTENSIONS['brunsli']['libraries'] = [
+    if 'brunsli' in extensions:
+        extensions['brunsli']['libraries'] = [
             'brunslidec-c',
             'brunslienc-c',
             # static linking
@@ -479,41 +498,46 @@ def customize_build_cgohlke(EXTENSIONS, OPTIONS):
         ]
 
 
-def customize_build_cibuildwheel(EXTENSIONS, OPTIONS):
-    """Customize build for Czaki's cibuildwheel environment."""
-    for ext in {
+def customize_build_cibuildwheel(
+    extensions: dict[str, Any],
+    options: dict[str, Any],
+) -> None:
+    """Customize build for cibuildwheel environment."""
+    for ext in (
         'heif',
         'jetraw',
         'jpegxs',
         'mozjpeg',
         'brunsli',
+        'openzl',
         'pcodec',
-        'sperr',
-        'sz3',
-    }:
-        EXTENSIONS.pop(ext, None)
+        # 'sperr',
+        # 'sz3',
+    ):
+        extensions.pop(ext, None)
 
     if sys.platform == 'linux':
         # statically link zlib-ng
         # https://github.com/pypa/auditwheel/issues/613
-        EXTENSIONS['zlibng']['libraries'] = []
-        EXTENSIONS['zlibng']['extra_objects'] = [
+        extensions['zlibng']['libraries'] = []
+        extensions['zlibng']['extra_objects'] = [
             '/opt/imagecodecs/build_utils/libs_build/lib64/libz-ng.a'
         ]
 
-    EXTENSIONS['jpeg8']['sources'] = []  # use libjpeg-turbo 3
+    extensions['jpeg8']['sources'] = []  # use libjpeg-turbo 3
 
-    EXTENSIONS['lzham']['libraries'] = ['lzhamdll']
+    extensions['lzham']['libraries'] = ['lzhamdll']
     if sys.platform == 'darwin':
-        EXTENSIONS.pop('lzham', None)
+        extensions.pop('htj2k', None)  # requires aligned_alloc, C++ 14
+        extensions.pop('lzham', None)
 
-    if not os.environ.get('SKIP_OMP', False):
+    if not os.environ.get('SKIP_OMP', ''):
         if sys.platform == 'darwin':
-            EXTENSIONS['zfp']['extra_compile_args'].append('-Xpreprocessor')
-            EXTENSIONS['zfp']['extra_link_args'].append('-lomp')
-        EXTENSIONS['zfp']['extra_compile_args'].append('-fopenmp')
+            extensions['zfp']['extra_compile_args'].append('-Xpreprocessor')
+            extensions['zfp']['extra_link_args'].append('-lomp')
+        extensions['zfp']['extra_compile_args'].append('-fopenmp')
 
-    OPTIONS['library_dirs'] = [
+    options['library_dirs'] = [
         x
         for x in os.environ.get(
             'LD_LIBRARY_PATH', os.environ.get('LIBRARY_PATH', '')
@@ -528,24 +552,27 @@ def customize_build_cibuildwheel(EXTENSIONS, OPTIONS):
         base_path, 'build_utils', 'libs_build', 'include'
     )
 
-    OPTIONS['include_dirs'].append(include_base_path)
+    options['include_dirs'].append(include_base_path)
     for el in os.listdir(include_base_path):
         path_to_dir = os.path.join(include_base_path, el)
         if os.path.isdir(path_to_dir):
-            OPTIONS['include_dirs'].append(path_to_dir)
+            options['include_dirs'].append(path_to_dir)
 
-    for dir_path in OPTIONS['include_dirs']:
+    for dir_path in options['include_dirs']:
         if os.path.exists(os.path.join(dir_path, 'jxl', 'types.h')):
             break
     else:
-        EXTENSIONS.pop('jpegxl', None)
+        extensions.pop('jpegxl', None)
 
 
-def customize_build_condaforge(EXTENSIONS, OPTIONS):
+def customize_build_condaforge(
+    extensions: dict[str, Any],
+    options: dict[str, Any],
+) -> None:
     """Customize build for conda-forge."""
-    del OPTIONS['shared_utility_qualified_name']
+    del options['shared_utility_qualified_name']
 
-    for ext in {
+    for ext in (
         'apng',
         'brunsli',
         'heif',
@@ -554,65 +581,71 @@ def customize_build_condaforge(EXTENSIONS, OPTIONS):
         'lzfse',
         'lzham',
         'lzo',
+        'meshopt',
         'mozjpeg',
+        'openzl',
         'pcodec',
         'sperr',
         'sz3',
         'ultrahdr',
-    }:
-        EXTENSIONS.pop(ext, None)
+    ):
+        extensions.pop(ext, None)
 
-    EXTENSIONS['jpeg8']['sources'] = []  # use libjpeg-turbo 3
+    extensions['jpeg8']['sources'] = []  # use libjpeg-turbo 3
 
     if sys.platform == 'win32':
-        EXTENSIONS.pop('brunsli', None)  # brunsli not stable on conda-forge
+        extensions.pop('brunsli', None)  # brunsli not stable on conda-forge
 
-        EXTENSIONS['bz2']['libraries'] = ['bzip2']
-        EXTENSIONS['jpeg2k']['include_dirs'] += [
+        extensions['bz2']['libraries'] = ['bzip2']
+        extensions['jpeg2k']['include_dirs'] += [
             os.path.join(
-                os.environ['LIBRARY_INC'], 'openjpeg-' + os.environ['openjpeg']
+                os.environ['LIBRARY_INC'], 'openjpeg-' + os.environ['OPENJPEG']
             )
         ]
-        EXTENSIONS['jpegls']['libraries'] = ['charls-2-x64']
-        EXTENSIONS['png']['libraries'] = ['libpng', 'z']
-        EXTENSIONS['webp']['libraries'] = ['libwebp', 'libwebpdemux']
-        EXTENSIONS['zopfli']['include_dirs'] = [
+        extensions['jpegls']['libraries'] = ['charls-2-x64']
+        extensions['png']['libraries'] = ['libpng', 'z']
+        extensions['webp']['libraries'] = ['libwebp', 'libwebpdemux']
+        extensions['zopfli']['include_dirs'] = [
             os.path.join(os.environ['LIBRARY_INC'], 'zopfli')
         ]
-        EXTENSIONS['jpegxr']['include_dirs'] = [
+        extensions['jpegxr']['include_dirs'] = [
             os.path.join(os.environ['LIBRARY_INC'], 'jxrlib')
         ]
-        EXTENSIONS['jpegxr']['libraries'] = ['libjpegxr', 'libjxrglue']
-        EXTENSIONS['szip']['libraries'] = ['szip']
-        EXTENSIONS['zlibng']['libraries'] = ['zlib-ng']
+        extensions['jpegxr']['libraries'] = ['libjpegxr', 'libjxrglue']
+        extensions['szip']['libraries'] = ['szip']
+        extensions['zlibng']['libraries'] = ['zlib-ng']
     else:
-        EXTENSIONS['zopfli']['include_dirs'] = [
+        extensions['zopfli']['include_dirs'] = [
             os.path.join(os.environ['PREFIX'], 'include', 'zopfli')
         ]
-        EXTENSIONS['jpeg2k']['include_dirs'] += [
+        extensions['jpeg2k']['include_dirs'] += [
             os.path.join(
                 os.environ['PREFIX'],
                 'include',
-                'openjpeg-' + os.environ['openjpeg'],
+                'openjpeg-' + os.environ['OPENJPEG'],
             )
         ]
-        EXTENSIONS['jpegxr']['include_dirs'] = [
+        extensions['jpegxr']['include_dirs'] = [
             os.path.join(os.environ['PREFIX'], 'include', 'jxrlib')
         ]
-        EXTENSIONS['jpegxr']['libraries'] = ['jpegxr', 'jxrglue']
+        extensions['jpegxr']['libraries'] = ['jpegxr', 'jxrglue']
 
 
-def customize_build_macports(EXTENSIONS, OPTIONS):
+def customize_build_macports(
+    extensions: dict[str, Any],
+    options: dict[str, Any],
+) -> None:
     """Customize build for MacPorts."""
-    del OPTIONS['shared_utility_qualified_name']
+    del options['shared_utility_qualified_name']
 
-    for ext in {
+    for ext in (
         'apng',
         'avif',
         'blosc2',
         'brunsli',
         'deflate',
         'heif',
+        'htj2k',
         'jetraw',
         'jpegls',
         'jpegxl',
@@ -623,24 +656,26 @@ def customize_build_macports(EXTENSIONS, OPTIONS):
         'lzfse',
         'lzham',
         'lzo',
+        'meshopt',
         'mozjpeg',
+        'openzl',
         'pcodec',
         'sperr',
         'sz3',
         'ultrahdr',
         'zfp',
         'zlibng',
-    }:
-        EXTENSIONS.pop(ext, None)
+    ):
+        extensions.pop(ext, None)
 
-    EXTENSIONS['jpeg8']['sources'] = []  # use libjpeg-turbo 3
+    extensions['jpeg8']['sources'] = []  # use libjpeg-turbo 3
 
-    EXTENSIONS['szip']['library_dirs'] = ['%PREFIX%/lib/libaec/lib']
-    EXTENSIONS['szip']['include_dirs'] = ['%PREFIX%/lib/libaec/include']
-    EXTENSIONS['aec']['library_dirs'] = ['%PREFIX%/lib/libaec/lib']
-    EXTENSIONS['aec']['include_dirs'] = ['%PREFIX%/lib/libaec/include']
-    EXTENSIONS['gif']['include_dirs'] = ['%PREFIX%/include/giflib5']
-    EXTENSIONS['jpeg2k']['include_dirs'].extend(
+    extensions['szip']['library_dirs'] = ['%PREFIX%/lib/libaec/lib']
+    extensions['szip']['include_dirs'] = ['%PREFIX%/lib/libaec/include']
+    extensions['aec']['library_dirs'] = ['%PREFIX%/lib/libaec/lib']
+    extensions['aec']['include_dirs'] = ['%PREFIX%/lib/libaec/include']
+    extensions['gif']['include_dirs'] = ['%PREFIX%/include/giflib5']
+    extensions['jpeg2k']['include_dirs'].extend(
         (
             '%PREFIX%/include/openjpeg-2.3',
             '%PREFIX%/include/openjpeg-2.4',
@@ -649,11 +684,14 @@ def customize_build_macports(EXTENSIONS, OPTIONS):
     )
 
 
-def customize_build_mingw(EXTENSIONS, OPTIONS):
+def customize_build_mingw(
+    extensions: dict[str, Any],
+    options: dict[str, Any],
+) -> None:
     """Customize build for mingw-w64."""
-    del OPTIONS['shared_utility_qualified_name']
+    del options['shared_utility_qualified_name']
 
-    for ext in {
+    for ext in (
         'brunsli',
         'heif',
         'jetraw',
@@ -662,23 +700,24 @@ def customize_build_mingw(EXTENSIONS, OPTIONS):
         'lzham',
         'lzo',
         'mozjpeg',
+        'openzl',
         'pcodec',
         'sperr',
         'sz3',
         'zfp',
         'zlibng',
-    }:
-        EXTENSIONS.pop(ext, None)
+    ):
+        extensions.pop(ext, None)
 
-    EXTENSIONS['jpeg8']['sources'] = []  # use libjpeg-turbo 3
-    EXTENSIONS['jpeg2k']['include_dirs'].extend(
+    extensions['jpeg8']['sources'] = []  # use libjpeg-turbo 3
+    extensions['jpeg2k']['include_dirs'].extend(
         (
             sys.prefix + '/include/openjpeg-2.3',
             sys.prefix + '/include/openjpeg-2.4',
             sys.prefix + '/include/openjpeg-2.5',
         )
     )
-    EXTENSIONS['jpegxr']['include_dirs'].append(sys.prefix + '/include/jxrlib')
+    extensions['jpegxr']['include_dirs'].append(sys.prefix + '/include/jxrlib')
 
 
 if 'sdist' not in sys.argv:
@@ -702,14 +741,14 @@ if 'sdist' not in sys.argv:
     customize_build(EXTENSIONS, OPTIONS)
 
 
-def extension(name):
+def extension(name: str) -> Extension:
     """Return setuptools Extension."""
     opt = EXTENSIONS[name]
     sources = opt['sources']
     fname = f'imagecodecs/_{name}'
     if all(not n.startswith(fname) for n in sources):
-        sources = [fname + '.pyx'] + sources
-    ext = Extension(
+        sources = [fname + '.pyx', *sources]
+    return Extension(
         f'imagecodecs._{name}',
         sources=sources,
         **{
@@ -727,7 +766,6 @@ def extension(name):
             )
         },
     )
-    return ext
 
 
 MODULE_LIST = [extension(name) for name in sorted(EXTENSIONS)]
@@ -735,13 +773,30 @@ MODULE_LIST = [extension(name) for name in sorted(EXTENSIONS)]
 if 'shared_utility_qualified_name' in OPTIONS:
     name = OPTIONS['shared_utility_qualified_name']
     assert isinstance(name, str)
-    MODULE_LIST.append(Extension(name, []))
+    MODULE_LIST.append(
+        Extension(
+            name,
+            [],
+            **{
+                key: OPTIONS[key]
+                for key in (
+                    'define_macros',
+                    'extra_compile_args',
+                    'extra_link_args',
+                    'py_limited_api',
+                )
+                if key in OPTIONS
+            },
+        )
+    )
 
 EXT_MODULES = cythonize(
     MODULE_LIST,
     **{
         key: OPTIONS[key]
         for key in (
+            'annotate',
+            'nthreads',
             'build_dir',
             'include_path',
             'compiler_directives',
@@ -776,10 +831,11 @@ setup(
             'pytest-run-parallel',
             'tifffile',
             'czifile',
+            'liffile',
+            'backports.zstd',
             'blosc',
             'blosc2',
             'brotli',
-            'zstd',
             'lz4',
             'pyliblzfse',
             'python-lzf',
@@ -802,6 +858,7 @@ setup(
         'console_scripts': ['imagecodecs=imagecodecs.__main__:main']
     },
     ext_modules=EXT_MODULES,
+    options=options,
     zip_safe=False,
     platforms=['any'],
     classifiers=[

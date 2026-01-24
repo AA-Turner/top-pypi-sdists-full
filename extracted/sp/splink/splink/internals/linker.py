@@ -65,7 +65,7 @@ class Linker:
     model.
 
     Most of Splink's functionality can  be accessed by calling methods (functions)
-    on the linker, such as `linker.predict()`, `linker.profile_columns()` etc.
+    on the linker, such as `linker.inference.predict()`, `linker.profile_columns()` etc.
 
     The Linker class is intended for subclassing for specific backends, e.g.
     a `DuckDBLinker`.
@@ -205,29 +205,27 @@ class Linker:
 
         input_dfs = self._input_tables_dict.values()
 
-        # get a list of the column names for each input frame
-        # sort it for consistent ordering, and give each frame's
-        # columns as a tuple so we can hash it
-        column_names_by_input_df = [
-            tuple(sorted([col.name for col in input_df.columns]))
-            for input_df in input_dfs
+        # get a list of the column names for each input frame as frozensets
+        # of InputColumn objects (frozensets are hashable for set comparison)
+        column_sets_by_input_df = [
+            frozenset(input_df.columns) for input_df in input_dfs
         ]
         # check that the set of input columns is the same for each frame,
         # fail if the sets are different
-        if len(set(column_names_by_input_df)) > 1:
+        if len(set(column_sets_by_input_df)) > 1:
             common_cols = set.intersection(
-                *(set(col_names) for col_names in column_names_by_input_df)
+                *(set(col_set) for col_set in column_sets_by_input_df)
             )
-            problem_names = {
+            problem_cols = {
                 col
-                for frame_col_names in column_names_by_input_df
-                for col in frame_col_names
+                for col_set in column_sets_by_input_df
+                for col in col_set
                 if col not in common_cols
             }
             raise SplinkException(
                 "All linker input frames must have the same set of columns.  "
                 "The following columns were not found in all input frames: "
-                + ", ".join(problem_names)
+                + ", ".join(c.name for c in problem_cols)
             )
 
         columns = next(iter(input_dfs)).columns
@@ -240,18 +238,9 @@ class Linker:
         if not include_additional_columns_to_retain:
             remove_columns.extend(self._settings_obj._additional_columns_to_retain)
 
-        remove_id_cols = [c.unquote().name for c in remove_columns]
-        columns = [col for col in columns if col.unquote().name not in remove_id_cols]
+        columns = [col for col in columns if col not in remove_columns]
 
         return columns
-
-    @property
-    def _source_dataset_column_already_exists(self):
-        input_cols = [c.unquote().name for c in self._input_columns()]
-        return (
-            self._settings_obj.column_info_settings.source_dataset_column_name
-            in input_cols
-        )
 
     @property
     def _concat_table_column_names(self) -> list[str]:
@@ -583,6 +572,7 @@ class Linker:
         sql_infos = predict_from_comparison_vectors_sqls(
             unique_id_input_columns=uid_cols,
             core_model_settings=self._settings_obj.core_model_settings,
+            sql_dialect=self._sql_dialect,
             sql_infinity_expression=self._infinity_expression,
         )
         for sql_info in sql_infos:

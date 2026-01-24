@@ -3,18 +3,23 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import uuid
 import warnings
 from collections import defaultdict
 from collections.abc import Callable
+from functools import partial
 from typing import TYPE_CHECKING, Any, Optional, TypeVar
 
 import anyio
-from asyncer import asyncify, create_task_group, syncify
+from anyio import create_task_group, from_thread
+
+from autogen.agentchat.group.guardrails import Guardrail, GuardrailResult
 
 from ....agentchat.contrib.swarm_agent import AfterWorkOption, initiate_swarm_chat
 from ....cache import AbstractCache
 from ....code_utils import content_str
 from ....doc_utils import export_module
+from ....fast_depends.utils import asyncify
 from ... import Agent, ChatResult, ConversableAgent, LLMAgent
 from ...utils import consolidate_chat_info, gather_usage_summary
 
@@ -133,6 +138,8 @@ class SwarmableAgent(Agent):
         self.previous_cache = None
 
         self.reply_at_receive: dict[Agent, bool] = defaultdict(bool)
+        self.input_guardrails: list[Guardrail] = []
+        self.output_guardrails: list[Guardrail] = []
 
     @property
     def system_message(self) -> str:
@@ -153,6 +160,32 @@ class SwarmableAgent(Agent):
     @property
     def description(self) -> str:
         return self._description
+
+    def register_input_guardrail(self, guardrail: Guardrail) -> None:
+        self.input_guardrails.append(guardrail)
+
+    def register_input_guardrails(self, guardrails: list[Guardrail]) -> None:
+        self.input_guardrails.extend(guardrails)
+
+    def register_output_guardrail(self, guardrail: Guardrail) -> None:
+        self.output_guardrails.append(guardrail)
+
+    def register_output_guardrails(self, guardrails: list[Guardrail]) -> None:
+        self.output_guardrails.extend(guardrails)
+
+    def run_input_guardrails(self, messages: list[dict[str, Any]] | None = None) -> GuardrailResult | None:
+        for guardrail in self.input_guardrails:
+            result = guardrail.check(context=messages)
+            if result.activated:
+                return result
+        return None
+
+    def run_output_guardrails(self, reply: str | dict[str, Any]) -> GuardrailResult | None:
+        for guardrail in self.output_guardrails:
+            result = guardrail.check(context=reply)
+            if result.activated:
+                return result
+        return None
 
     def send(
         self,
@@ -182,7 +215,6 @@ class SwarmableAgent(Agent):
         self,
         messages: list[dict[str, Any]] | None = None,
         sender: Optional["Agent"] = None,
-        **kwargs: Any,
     ) -> str | dict[str, Any] | None:
         if messages is None:
             if sender is None:
@@ -211,6 +243,7 @@ class SwarmableAgent(Agent):
         summary_args: dict[str, Any] | None = {},
         **kwargs: dict[str, Any],
     ) -> ChatResult:
+        chat_id = uuid.uuid4().int
         _chat_info = locals().copy()
         _chat_info["sender"] = self
         consolidate_chat_info(_chat_info, uniform_sender=self)
@@ -226,6 +259,7 @@ class SwarmableAgent(Agent):
         recipient.previous_cache = None  # type: ignore[attr-defined]
 
         chat_result = ChatResult(
+            chat_id=chat_id,
             chat_history=self.chat_messages[recipient],
             summary=summary,
             cost=gather_usage_summary([self, recipient]),  # type: ignore[arg-type]
@@ -237,9 +271,8 @@ class SwarmableAgent(Agent):
         self,
         messages: list[dict[str, Any]] | None = None,
         sender: Optional["Agent"] = None,
-        **kwargs: Any,
     ) -> str | dict[str, Any] | None:
-        return self.generate_reply(messages=messages, sender=sender, **kwargs)
+        return self.generate_reply(messages=messages, sender=sender)
 
     async def a_receive(
         self,
@@ -349,7 +382,7 @@ class SwarmableRealtimeAgent(SwarmableAgent):
         self._agents = agents
         self._realtime_agent = realtime_agent
 
-        self._answer_event: anyio.Event = anyio.Event()
+        self._answer_event = anyio.Event()
         self._answer: str = ""
         self.question_message = question_message or QUESTION_MESSAGE
 
@@ -419,12 +452,13 @@ class SwarmableRealtimeAgent(SwarmableAgent):
 
         async def get_input() -> None:
             async with create_task_group() as tg:
-                tg.soonify(self.ask_question)(
+                tg.start_soon(
+                    self.ask_question,
                     self.question_message.format(messages[-1]["content"]),
                     question_timeout=QUESTION_TIMEOUT_SECONDS,
                 )
 
-        syncify(get_input)()
+        from_thread.run_sync(get_input)
 
         return True, {"role": "user", "content": self._answer}  # type: ignore[return-value]
 
@@ -448,13 +482,27 @@ class SwarmableRealtimeAgent(SwarmableAgent):
             name="answer_task_question", description="Answer question from the task"
         )(self.set_answer)
 
+        registered_tool_names = set()
+        all_agents = [self._initial_agent] + self._agents
+
+        for agent in all_agents:
+            for tool in agent.tools:
+                if tool.name not in registered_tool_names:
+                    realtime_agent.register_realtime_function(name=tool.name, description=tool.description)(tool.func)
+                    registered_tool_names.add(tool.name)
+
         async def on_observers_ready() -> None:
-            self._realtime_agent._tg.soonify(asyncify(initiate_swarm_chat))(
-                initial_agent=self._initial_agent,
-                agents=self._agents,
-                user_agent=self,  # type: ignore[arg-type]
-                messages="Find out what the user wants.",
-                after_work=AfterWorkOption.REVERT_TO_USER,
+            self._realtime_agent._tg.start_soon(
+                asyncify(
+                    partial(
+                        initiate_swarm_chat,
+                        initial_agent=self._initial_agent,
+                        agents=self._agents,
+                        user_agent=self,  # type: ignore[arg-type]
+                        messages="Find out what the user wants.",
+                        after_work=AfterWorkOption.REVERT_TO_USER,
+                    )
+                )
             )
 
         self._realtime_agent.callbacks.on_observers_ready = on_observers_ready

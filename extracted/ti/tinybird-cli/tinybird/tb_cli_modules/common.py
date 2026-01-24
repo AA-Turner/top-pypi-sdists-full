@@ -1042,7 +1042,7 @@ def get_format_from_filename_or_url(filename_or_url: str) -> str:
     'csv'
     """
     filename_or_url = filename_or_url.lower()
-    if filename_or_url.endswith("json") or filename_or_url.endswith("ndjson"):
+    if filename_or_url.endswith(("json", "ndjson")):
         return "ndjson"
     if filename_or_url.endswith("parquet"):
         return "parquet"
@@ -1050,7 +1050,7 @@ def get_format_from_filename_or_url(filename_or_url: str) -> str:
         return "csv"
     try:
         parsed = urlparse(filename_or_url)
-        if parsed.path.endswith("json") or parsed.path.endswith("ndjson"):
+        if parsed.path.endswith(("json", "ndjson")):
             return "ndjson"
         if parsed.path.endswith("parquet"):
             return "parquet"

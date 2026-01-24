@@ -1,27 +1,44 @@
 import subprocess
 import sys
+from datetime import datetime, timezone
 from tempfile import NamedTemporaryFile
 
 import msgpack
 
 
 def pretty_byte_size(size_bytes):
-    if size_bytes < 1024:
-        return f"{size_bytes:5d} B"
+    """Format byte size as a short, readable string.
 
+    Uses 2-digit format with rounding to keep output compact:
+    - 856000 bytes → "0.8 MB" (not "856.0 KB")
+    - 499 bytes → "0.5 KB" (not "499 B")
+    """
     size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    bit_length = size_bytes.bit_length() - 1
-    index = bit_length // 10
-    denominator = 1 << (10 * index)
-    ratio = size_bytes / denominator
-    return f"{ratio:5.1f} {size_name[index]}"
+
+    # Start with bytes
+    ratio = float(size_bytes)
+    index = 0
+
+    # Keep dividing by 1024 until we get a value < 100 (2 digits max)
+    # or we run out of units
+    while ratio >= 100 and index < len(size_name) - 1:
+        ratio /= 1024
+        index += 1
+
+    # Format with one decimal place, no padding
+    if ratio >= 10:
+        # For 10-99.9, show no decimal to keep it short
+        return f"{ratio:.0f} {size_name[index]}"
+    else:
+        # For 0.1-9.9, show one decimal place
+        return f"{ratio:.1f} {size_name[index]}"
 
 
 def maybe_format(rendered):
     rendered = maybe_isort(rendered)
 
     try:
-        import ruff
+        import ruff  # noqa: F401
     except ImportError:
         if len(rendered) <= 1_000_000:
             rendered = maybe_black(rendered)
@@ -68,10 +85,27 @@ def maybe_black(rendered):
 
 def maybe_isort(rendered):
     try:
-        from isort.api import sort_code_string
+        import ruff  # noqa: F401
     except ImportError:
-        return rendered
-    return sort_code_string(rendered)
+        # Fallback to isort if Ruff is not available
+        try:
+            from isort.api import sort_code_string
+        except ImportError:
+            return rendered
+        return sort_code_string(rendered)
+
+    with NamedTemporaryFile("w+", delete=False) as f:
+        f.write(rendered)
+        name = f.name
+
+    subprocess.run(
+        [sys.executable, "-m", "ruff", "check", name, "--select", "I", "--fix"],
+        check=False,  # Don't fail if there are unfixable issues
+    )
+    with open(name) as f:
+        rendered = f.read()
+
+    return rendered
 
 
 def get_terminal_formatter(mode):
@@ -162,7 +196,6 @@ def extract_http_trace_name(frames_by_thread, current_thread_id):
 
     for frame in unpacked_frames:
         if frame.get("type") == "django_request":
-            print("extracting http trace name - django request")
             if request_frame is None:
                 # first frame wins
                 request_frame = frame
@@ -226,3 +259,23 @@ def extract_test_trace_name(frames_by_thread, current_thread_id):
             return test_name
 
     return None
+
+
+def relative_time(timestamp: datetime) -> str:
+    now = datetime.now(timezone.utc)
+
+    delta = now - timestamp
+    if delta.days > 7:
+        relative_time = timestamp.strftime("%Y-%m-%d")
+    elif delta.days > 0:
+        relative_time = f"{delta.days}d ago"
+    elif delta.seconds > 3600:
+        relative_time = f"{delta.seconds // 3600}h ago"
+    elif delta.seconds > 60:
+        relative_time = f"{delta.seconds // 60}m ago"
+    elif delta.seconds >= 1:
+        relative_time = f"{delta.seconds}s ago"
+    else:
+        relative_time = f"{delta.microseconds // 1000}ms ago"
+
+    return relative_time

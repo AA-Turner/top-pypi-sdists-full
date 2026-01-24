@@ -1,3 +1,20 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
 import inspect
 import logging
 import typing
@@ -486,7 +503,7 @@ class save_to__meta__(type):
                 "If you've gotten to this point, you either (1) spelled the "
                 "loader name wrong, (2) are trying to use a saver that does"
                 "not exist (yet). For a list of available savers, see "
-                "https://hamilton.dagworks.io/en/latest/reference/io/available-data-adapters/"
+                "https://hamilton.apache.org/reference/io/available-data-adapters/"
             ) from e
 
 

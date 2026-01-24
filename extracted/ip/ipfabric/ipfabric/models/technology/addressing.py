@@ -32,6 +32,11 @@ class Addressing(BaseModel):
 
     @computed_field
     @property
+    def managed_ipv6_summary(self) -> Table:
+        return Table(client=self.client, endpoint="tables/addressing/ipv6-managed-ip-summary", sn=self.sn)
+
+    @computed_field
+    @property
     def managed_ip_ipv4(self) -> Table:
         return Table(client=self.client, endpoint="tables/addressing/managed-devs", sn=self.sn)
 

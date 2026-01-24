@@ -16,7 +16,6 @@ short_description: Exclude one or more ranges of IP addresses from being assigne
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -150,9 +152,9 @@ EXAMPLES = '''
         server: 1 # id
         state: present
         system_dhcp_server_excluderange:
-          end-ip: 222.222.222.7
+          end_ip: 222.222.222.7
           id: 1
-          start-ip: 222.222.222.6
+          start_ip: 222.222.222.6
 
 - name: Gathering fortimanager facts
   hosts: fortimanagers
@@ -170,7 +172,7 @@ EXAMPLES = '''
           params:
             adom: "ansible"
             server: "1" # id
-            exclude-range: "your_value"
+            exclude_range: "your_value"
 '''
 
 RETURN = '''
@@ -228,6 +230,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'server': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'system_dhcp_server_excluderange': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],

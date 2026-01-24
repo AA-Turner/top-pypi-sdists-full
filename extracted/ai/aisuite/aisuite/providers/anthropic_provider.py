@@ -6,7 +6,13 @@ import anthropic
 import json
 from aisuite.provider import Provider
 from aisuite.framework import ChatCompletionResponse
-from aisuite.framework.message import Message, ChatCompletionMessageToolCall, Function
+from aisuite.framework.message import (
+    Message,
+    ChatCompletionMessageToolCall,
+    Function,
+    CompletionUsage,
+    PromptTokensDetails,
+)
 
 # Define a constant for the default max_tokens value
 DEFAULT_MAX_TOKENS = 4096
@@ -36,7 +42,7 @@ class AnthropicMessageConverter:
         """Normalize the response from the Anthropic API to match OpenAI's response format."""
         normalized_response = ChatCompletionResponse()
         normalized_response.choices[0].finish_reason = self._get_finish_reason(response)
-        normalized_response.usage = self._get_usage_stats(response)
+        normalized_response.usage = self._get_completion_usage(response)
         normalized_response.choices[0].message = self._get_message(response)
         return normalized_response
 
@@ -121,23 +127,35 @@ class AnthropicMessageConverter:
         """Get the normalized finish reason."""
         return self.FINISH_REASON_MAPPING.get(response.stop_reason, "stop")
 
-    def _get_usage_stats(self, response):
+    def _get_completion_usage(self, response):
         """Get the usage statistics."""
-        return {
-            "prompt_tokens": response.usage.input_tokens,
-            "completion_tokens": response.usage.output_tokens,
-            "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
-        }
+        return CompletionUsage(
+            completion_tokens=response.usage.output_tokens,
+            prompt_tokens=response.usage.input_tokens,
+            total_tokens=response.usage.input_tokens + response.usage.output_tokens,
+            prompt_tokens_details=PromptTokensDetails(
+                cached_tokens=response.usage.cache_read_input_tokens,
+            ),
+        )
 
     def _get_message(self, response):
         """Get the appropriate message based on response type."""
-        if response.stop_reason == "tool_use":
+        # Check if response contains any tool use blocks (regardless of stop_reason)
+        has_tool_use = any(content.type == "tool_use" for content in response.content)
+
+        if has_tool_use:
             tool_message = self.convert_response_with_tool_use(response)
             if tool_message:
                 return tool_message
 
+        # Safely extract text content from any position in content blocks
+        text_content = next(
+            (content.text for content in response.content if content.type == "text"),
+            "",
+        )
+
         return Message(
-            content=response.content[0].text,
+            content=text_content or None,
             role="assistant",
             tool_calls=None,
             refusal=None,

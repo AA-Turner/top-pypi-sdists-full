@@ -67,7 +67,9 @@ from scapy.layers.gssapi import (
 )
 from scapy.layers.smb2 import (
     STATUS_ERREF,
+    SMB2_Compression_Transform_Header,
     SMB2_Header,
+    SMB2_Transform_Header,
 )
 
 
@@ -919,11 +921,9 @@ class NETLOGON(Packet):
             elif _pkt[0] == 0x13:  # LOGON_SAM_USER_RESPONSE
                 try:
                     i = _pkt.index(b"\xff\xff\xff\xff")
-                    NtVersion = (
-                        NETLOGON_SAM_LOGON_RESPONSE_NT40.fields_desc[-3].getfield(
-                            None, _pkt[i - 4:i]
-                        )[1]
-                    )
+                    NtVersion = NETLOGON_SAM_LOGON_RESPONSE_NT40.fields_desc[
+                        -3
+                    ].getfield(None, _pkt[i - 4 : i])[1]
                     if NtVersion.V1 and not NtVersion.V5:
                         return NETLOGON_SAM_LOGON_RESPONSE_NT40
                 except Exception:
@@ -1001,10 +1001,11 @@ _NETLOGON_FLAGS = {
     0x00000800: "SELECT_SECRET_DOMAIN_6",
     0x00001000: "FULL_SECRET_DOMAIN_6",
     0x00002000: "WS",
-    0x00004000: "DS_8",
-    0x00008000: "DS_9",
-    0x00010000: "DS_10",  # guess
-    0x00020000: "DS_11",  # guess
+    0x00004000: "DS_8",  # >=2008R2
+    0x00008000: "DS_9",  # >=2012
+    0x00010000: "DS_10",  # >=2016
+    0x00020000: "DS_11",  # >=2019
+    0x00040000: "DS_12",  # >=2025
     0x20000000: "DNS_CONTROLLER",
     0x40000000: "DNS_DOMAIN",
     0x80000000: "DNS_FOREST",
@@ -1012,6 +1013,7 @@ _NETLOGON_FLAGS = {
 
 
 # [MS-ADTS] sect 6.3.1.8
+
 
 class NETLOGON_SAM_LOGON_RESPONSE(NETLOGON, DNSCompressedPacket):
     fields_desc = [
@@ -1085,8 +1087,7 @@ class NETLOGON_SAM_LOGON_RESPONSE_EX(NETLOGON, DNSCompressedPacket):
         try:
             i = s.index(b"\xff\xff\xff\xff")
             self.fields["NtVersion"] = self.fields_desc[-3].getfield(
-                self,
-                s[i - 4:i]
+                self, s[i - 4 : i]
             )[1]
         except Exception:
             self.NtVersion = 0xB
@@ -1098,20 +1099,25 @@ class NETLOGON_SAM_LOGON_RESPONSE_EX(NETLOGON, DNSCompressedPacket):
 
 # [MS-BRWS] sect 2.2
 
+
 class BRWS(Packet):
     fields_desc = [
-        ByteEnumField("OpCode", 0x00, {
-            0x01: "HostAnnouncement",
-            0x02: "AnnouncementRequest",
-            0x08: "RequestElection",
-            0x09: "GetBackupListRequest",
-            0x0A: "GetBackupListResponse",
-            0x0B: "BecomeBackup",
-            0x0C: "DomainAnnouncement",
-            0x0D: "MasterAnnouncement",
-            0x0E: "ResetStateRequest",
-            0x0F: "LocalMasterAnnouncement",
-        }),
+        ByteEnumField(
+            "OpCode",
+            0x00,
+            {
+                0x01: "HostAnnouncement",
+                0x02: "AnnouncementRequest",
+                0x08: "RequestElection",
+                0x09: "GetBackupListRequest",
+                0x0A: "GetBackupListResponse",
+                0x0B: "BecomeBackup",
+                0x0C: "DomainAnnouncement",
+                0x0D: "MasterAnnouncement",
+                0x0E: "ResetStateRequest",
+                0x0F: "LocalMasterAnnouncement",
+            },
+        ),
     ]
 
     def mysummary(self):
@@ -1135,6 +1141,7 @@ class BRWS(Packet):
 
 # [MS-BRWS] sect 2.2.1
 
+
 class BRWS_HostAnnouncement(BRWS):
     OpCode = 0x01
     fields_desc = [
@@ -1157,6 +1164,7 @@ class BRWS_HostAnnouncement(BRWS):
 
 # [MS-BRWS] sect 2.2.6
 
+
 class BRWS_BecomeBackup(BRWS):
     OpCode = 0x0B
     fields_desc = [
@@ -1169,6 +1177,7 @@ class BRWS_BecomeBackup(BRWS):
 
 
 # [MS-BRWS] sect 2.2.10
+
 
 class BRWS_LocalMasterAnnouncement(BRWS_HostAnnouncement):
     OpCode = 0x0F
@@ -1193,6 +1202,10 @@ class _SMBGeneric(Packet):
                 return SMB_Header
             if _pkt[:4] == b"\xfeSMB":
                 return SMB2_Header
+            if _pkt[:4] == b"\xfdSMB":
+                return SMB2_Transform_Header
+            if _pkt[:4] == b"\xfcSMB":
+                return SMB2_Compression_Transform_Header
         return cls
 
 

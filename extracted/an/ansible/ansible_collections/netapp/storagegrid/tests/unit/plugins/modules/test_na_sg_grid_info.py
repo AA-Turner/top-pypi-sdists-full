@@ -24,6 +24,7 @@ if sys.version_info < (3, 11):
 SRR = {
     # common responses
     'empty_good': ({'data': []}, None),
+    "version_114": ({"data": {"productVersion": "11.4.0-20200721.1338.d3969b3"}}, None),
     'end_of_sequence': (None, 'Unexpected call to send_request'),
     'generic_error': (None, 'Expected error'),
     'grid_accounts': (
@@ -82,7 +83,10 @@ SRR = {
     'grid_health_topology': ({'data': {}}, None),
     'grid_identity_source': ({'data': {}}, None),
     'grid_ilm_criteria': ({'data': []}, None),
+    'grid_ilm_grade_site': ({'data': {}}, None),
+    'grid_ilm_grades': ({'data': []}, None),
     'grid_ilm_policies': ({'data': []}, None),
+    'grid_ilm_pools': ({'data': []}, None),
     'grid_ilm_rules': ({'data': []}, None),
     'grid_license': ({'data': []}, None),
     'grid_management_certificate': ({'data': {}}, None),
@@ -145,6 +149,12 @@ SRR = {
         },
         None
     ),
+    'grid_network_topology': ({'data': []}, None),
+    'grid_vlan_interfaces': ({'data': []}, None),
+    'grid_single_sign_on': ({'data': []}, None),
+    'grid_firewall_external_ports': ({'data': []}, None),
+    'grid_firewall_blocked_ports': ({'data': []}, None),
+    'grid_firewall_privileged_ips': ({'data': []}, None),
 }
 
 
@@ -252,6 +262,54 @@ class TestMyModule(unittest.TestCase):
             'gather_subset': ['grid_ha_groups_info'],
         })
 
+    def set_args_run_sg_gather_facts_for_network_topology_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['grid_network_topology_info'],
+        })
+
+    def set_args_run_sg_gather_facts_for_vlan_interfaces_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['grid_vlan_interfaces_info'],
+        })
+
+    def set_args_run_sg_gather_facts_for_single_sign_on_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['grid_single_sign_on_info'],
+        })
+
+    def set_args_run_sg_gather_facts_for_firewall_external_ports_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['grid_firewall_external_ports'],
+        })
+
+    def set_args_run_sg_gather_facts_for_firewall_blocked_ports_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['grid_firewall_blocked_ports'],
+        })
+
+    def set_args_run_sg_gather_facts_for_firewall_privileged_ips_info(self):
+        return dict({
+            'api_url': 'sgmi.example.com',
+            'auth_token': '01234567-5678-9abc-78de-9fgabc123def',
+            'validate_certs': False,
+            'gather_subset': ['grid_firewall_privileged_ips'],
+        })
+
     def test_module_fail_when_required_args_missing(self):
         ''' required arguments are reported as errors '''
         with pytest.raises(AnsibleFailJson) as exc:
@@ -262,8 +320,12 @@ class TestMyModule(unittest.TestCase):
             % exc.value.args[0]['msg']
         )
 
-    def test_module_pass_when_required_args_present(self):
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_module_pass_when_required_args_present(self, mock_request):
         ''' required arguments are reported as errors '''
+        mock_request.side_effect = [
+            SRR['version_114'],
+        ]
         with pytest.raises(AnsibleExitJson) as exc:
             set_module_args(self.set_default_args_pass_check())
             sg_grid_info_module()
@@ -274,7 +336,11 @@ class TestMyModule(unittest.TestCase):
         )
         assert exc.value.args[0]['changed']
 
-    def test_module_pass_when_optional_args_present(self):
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_module_pass_when_optional_args_present(self, mock_request):
+        mock_request.side_effect = [
+            SRR['version_114'],
+        ]
         ''' Optional arguments are reported as pass '''
         with pytest.raises(AnsibleExitJson) as exc:
             set_module_args(self.set_default_optional_args_pass_check())
@@ -289,7 +355,6 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_run_sg_gather_facts_for_all_info_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_all_info())
-        my_obj = sg_grid_info_module()
         gather_subset = [
             'grid/accounts',
             'grid/alarms',
@@ -311,7 +376,10 @@ class TestMyModule(unittest.TestCase):
             'grid/health/topology',
             'grid/identity-source',
             'grid/ilm-criteria',
+            'grid/ilm-grade-site',
+            'grid/ilm-grades',
             'grid/ilm-policies',
+            'grid/ilm-pools',
             'grid/ilm-rules',
             'grid/license',
             'grid/management-certificate',
@@ -325,11 +393,18 @@ class TestMyModule(unittest.TestCase):
             'grid/untrusted-client-network',
             'grid/users',
             'grid/users/root',
-            'versions',
-            'private/gateway-configs',
-            'private/ha-groups',
+            'grid/versions',
+            'grid/gateway-configs',
+            'grid/ha-groups',
+            'grid/network-topology',
+            'grid/vlan-interfaces',
+            'grid/single-sign-on',
+            'grid/firewall-external-ports',
+            'grid/firewall-blocked-ports',
+            'grid/firewall-privileged-ips',
         ]
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['grid_accounts'],
             SRR['grid_alarms'],
             SRR['grid_audit'],
@@ -350,7 +425,10 @@ class TestMyModule(unittest.TestCase):
             SRR['grid_health_topology'],
             SRR['grid_identity_source'],
             SRR['grid_ilm_criteria'],
+            SRR['grid_ilm_grade_site'],
+            SRR['grid_ilm_grades'],
             SRR['grid_ilm_policies'],
+            SRR['grid_ilm_pools'],
             SRR['grid_ilm_rules'],
             SRR['grid_license'],
             SRR['grid_management_certificate'],
@@ -367,8 +445,15 @@ class TestMyModule(unittest.TestCase):
             SRR['versions'],
             SRR['grid_load_balancer_endpoints_config'],
             SRR['grid_ha_groups'],
+            SRR['grid_network_topology'],
+            SRR['grid_vlan_interfaces'],
+            SRR['grid_single_sign_on'],
+            SRR['grid_firewall_external_ports'],
+            SRR['grid_firewall_blocked_ports'],
+            SRR['grid_firewall_privileged_ips'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_grid_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_run_sg_gather_facts_for_all_info_pass: %s' % repr(exc.value.args))
@@ -377,12 +462,13 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_run_sg_gather_facts_for_grid_accounts_info_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_grid_accounts_info())
-        my_obj = sg_grid_info_module()
         gather_subset = ['grid/accounts']
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['grid_accounts'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_grid_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_run_sg_gather_facts_for_grid_accounts_info_pass: %s' % repr(exc.value.args))
@@ -391,13 +477,14 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_run_sg_gather_facts_for_grid_accounts_and_grid_users_root_info_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_grid_accounts_and_grid_users_root_info())
-        my_obj = sg_grid_info_module()
         gather_subset = ['grid/accounts', 'grid/users/root']
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['grid_accounts'],
             SRR['grid_users_root'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_grid_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_run_sg_gather_facts_for_grid_accounts_and_grid_users_root_info_pass: %s' % repr(exc.value.args))
@@ -406,12 +493,13 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_get_na_sg_grid_info_lb_endpoints_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_lb_endpoints_info())
-        my_obj = sg_grid_info_module()
-        gather_subset = ['private/gateway-configs']
+        gather_subset = ['grid/gateway-configs']
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['grid_load_balancer_endpoints_config'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_grid_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_get_na_sg_grid_info_lb_endpoints_pass: %s' % repr(exc.value.args))
@@ -420,13 +508,104 @@ class TestMyModule(unittest.TestCase):
     @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
     def test_get_na_sg_grid_info_ha_groups_pass(self, mock_request):
         set_module_args(self.set_args_run_sg_gather_facts_for_ha_group_info())
-        my_obj = sg_grid_info_module()
-        gather_subset = ['private/ha-groups']
+        gather_subset = ['grid/ha-groups']
         mock_request.side_effect = [
+            SRR['version_114'],
             SRR['grid_ha_groups'],
             SRR['end_of_sequence'],
         ]
+        my_obj = sg_grid_info_module()
         with pytest.raises(AnsibleExitJson) as exc:
             my_obj.apply()
         print('Info: test_get_na_sg_grid_info_ha_groups_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_get_na_sg_grid_info_network_topology_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_network_topology_info())
+        gather_subset = ['grid/network-topology']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['grid_network_topology'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_grid_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_get_na_sg_grid_info_network_topology_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_get_na_sg_grid_info_vlan_interfaces_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_vlan_interfaces_info())
+        gather_subset = ['grid/vlan-interfaces']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['grid_vlan_interfaces'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_grid_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_get_na_sg_grid_info_vlan_interfaces_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_get_na_sg_grid_info_single_sign_on_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_single_sign_on_info())
+        gather_subset = ['grid/single-sign-on']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['grid_single_sign_on'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_grid_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_get_na_sg_grid_info_single_sign_on_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_get_na_sg_grid_info_firewall_external_ports_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_firewall_external_ports_info())
+        gather_subset = ['grid/firewall-external-ports']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['grid_firewall_external_ports'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_grid_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_get_na_sg_grid_info_firewall_external_ports_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_get_na_sg_grid_info_firewall_blocked_ports_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_firewall_blocked_ports_info())
+        gather_subset = ['grid/firewall-blocked-ports']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['grid_firewall_blocked_ports'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_grid_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_get_na_sg_grid_info_firewall_blocked_ports_pass: %s' % repr(exc.value.args))
+        assert set(exc.value.args[0]['sg_info']) == set(gather_subset)
+
+    @patch('ansible_collections.netapp.storagegrid.plugins.module_utils.netapp.SGRestAPI.send_request')
+    def test_get_na_sg_grid_info_firewall_privileged_ips_pass(self, mock_request):
+        set_module_args(self.set_args_run_sg_gather_facts_for_firewall_privileged_ips_info())
+        gather_subset = ['grid/firewall-privileged-ips']
+        mock_request.side_effect = [
+            SRR['version_114'],
+            SRR['grid_firewall_privileged_ips'],
+            SRR['end_of_sequence'],
+        ]
+        my_obj = sg_grid_info_module()
+        with pytest.raises(AnsibleExitJson) as exc:
+            my_obj.apply()
+        print('Info: test_get_na_sg_grid_info_firewall_privileged_ips_pass: %s' % repr(exc.value.args))
         assert set(exc.value.args[0]['sg_info']) == set(gather_subset)

@@ -1,18 +1,19 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: geojson-rewind
-Version: 1.1.0
+Version: 1.2.1
 Summary: A Python library for enforcing polygon ring winding order in GeoJSON
-Home-page: https://github.com/chris48s/geojson-rewind
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: chris48s
-Requires-Python: >=3.8
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Project-URL: Repository, https://github.com/chris48s/geojson-rewind
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Project-URL: Home, https://github.com/chris48s/geojson-rewind
+Project-URL: Source, https://github.com/chris48s/geojson-rewind
 Description-Content-Type: text/markdown
 
 # geojson-rewind

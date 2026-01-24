@@ -1,10 +1,10 @@
-from __future__ import annotations
-
 from pandas import DataFrame
+
+from linearmodels import datasets
 
 DESCR = """
 Munnell, A. “Why Has Productivity Declined? Productivity and Public
-Investment.” New England Economic Review, 1990, pp. 3–22.
+Investment.” New England Economic Review, 1990, pp. 3-22.
 
 STATE   Full State Name
 ST_ABB  State Code
@@ -21,6 +21,5 @@ UNEMP   Unemployment rate
 
 
 def load() -> DataFrame:
-    from linearmodels import datasets
 
     return datasets.load(__file__, "munnell.csv.bz2")

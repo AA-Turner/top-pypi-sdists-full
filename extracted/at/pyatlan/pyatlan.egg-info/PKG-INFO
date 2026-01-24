@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyatlan
-Version: 8.1.1
+Version: 8.5.0
 Summary: Atlan Python Client
 Author-email: Atlan Technologies Pvt Ltd <engineering@atlan.com>
 Maintainer-email: Atlan Technologies Pvt Ltd <engineering@atlan.com>
@@ -22,17 +22,17 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: pydantic~=2.11.7
+Requires-Dist: pydantic~=2.12.4
 Requires-Dist: jinja2~=3.1.6
 Requires-Dist: tenacity~=9.1.2
-Requires-Dist: lazy_loader~=0.4
+Requires-Dist: lazy-loader~=0.4
 Requires-Dist: nanoid~=2.0.0
 Requires-Dist: pytz~=2025.2
 Requires-Dist: python-dateutil~=2.9.0.post0
-Requires-Dist: PyYAML~=6.0.2
+Requires-Dist: PyYAML~=6.0.3
 Requires-Dist: httpx~=0.28.1
-Requires-Dist: httpx-retries~=0.4.0
-Requires-Dist: pytest-asyncio~=1.1.0
+Requires-Dist: httpx-retries~=0.4.5
+Requires-Dist: authlib~=1.6.5
 Dynamic: license-file
 
 <div align="center">
@@ -330,7 +330,7 @@ atlan-python/
 ### Development Workflow
 
 1. **Models**: Generated from your Atlan instance's typedefs
-2. **Clients**: Hand-crafted for optimal developer experience  
+2. **Clients**: Hand-crafted for optimal developer experience
 3. **Tests**: Mix of unit (fast iteration) and integration (real validation)
 4. **Quality**: Automated formatting, linting, and type checking
 5. **Documentation**: Auto-generated from docstrings and examples

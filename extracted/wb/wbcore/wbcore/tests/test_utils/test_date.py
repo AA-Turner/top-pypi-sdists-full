@@ -4,7 +4,7 @@ import pytest
 from rest_framework.test import APIRequestFactory
 
 from wbcore.utils.date import get_date_interval_from_request, shortcut
-from wbcore.utils.date_builder import *
+from wbcore.utils.date_builder import Day, Now, WeekStart
 
 
 class TestGetDateInterval:

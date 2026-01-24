@@ -1,0 +1,311 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from typing import Any
+
+from pandas import DataFrame
+
+from graphdatascience.procedure_surface.api.base_result import BaseResult
+from graphdatascience.procedure_surface.api.catalog.graph_api import GraphV2
+from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
+from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+
+
+class CelfEndpoints(ABC):
+    @abstractmethod
+    def mutate(
+        self,
+        G: GraphV2,
+        seed_set_size: int,
+        mutate_property: str,
+        relationship_types: list[str] = ALL_TYPES,
+        node_labels: list[str] = ALL_LABELS,
+        monte_carlo_simulations: int = 100,
+        propagation_probability: float = 0.1,
+        random_seed: int | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+    ) -> CelfMutateResult:
+        """
+        Runs the CELF algorithm and stores the results in the graph catalog as a new node property.
+
+        The influence maximization problem asks for a set of k nodes that maximize the expected spread of influence in the network.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        seed_set_size : int
+            The number of nodes to select as the seed set for influence maximization
+        mutate_property
+            Name of the node property to store the results in.
+        propagation_probability : float | None, default=None
+            Probability of a node being activated by an active neighbour node.
+        monte_carlo_simulations : int | None, default=None
+            Number of Monte-Carlo simulations.
+        random_seed
+            Seed for random number generation to ensure reproducible results.
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        sudo
+            Disable the memory guard.
+        log_progress
+            Display progress logging.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+
+        Returns
+        -------
+        CelfMutateResult
+            Algorithm metrics and statistics including the total influence spread
+        """
+        pass
+
+    @abstractmethod
+    def stats(
+        self,
+        G: GraphV2,
+        seed_set_size: int,
+        relationship_types: list[str] = ALL_TYPES,
+        node_labels: list[str] = ALL_LABELS,
+        monte_carlo_simulations: int = 100,
+        propagation_probability: float = 0.1,
+        random_seed: int | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+    ) -> CelfStatsResult:
+        """
+        Runs the CELF algorithm and returns result statistics without storing the results.
+
+        The influence maximization problem asks for a set of k nodes that maximize the expected spread of influence in the network.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        seed_set_size : int
+            The number of nodes to select as the seed set for influence maximization
+        propagation_probability : float | None, default=None
+            Probability of a node being activated by an active neighbour node.
+        monte_carlo_simulations : int | None, default=None
+            Number of Monte-Carlo simulations.
+        random_seed
+            Seed for random number generation to ensure reproducible results.
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        sudo
+            Disable the memory guard.
+        log_progress
+            Display progress logging.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+
+        Returns
+        -------
+        CelfStatsResult
+            Algorithm statistics including the total influence spread
+        """
+        pass
+
+    @abstractmethod
+    def stream(
+        self,
+        G: GraphV2,
+        seed_set_size: int,
+        relationship_types: list[str] = ALL_TYPES,
+        node_labels: list[str] = ALL_LABELS,
+        monte_carlo_simulations: int = 100,
+        propagation_probability: float = 0.1,
+        random_seed: int | None = None,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+    ) -> DataFrame:
+        """
+        Executes the CELF algorithm and returns a stream of results.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        seed_set_size : int
+            The number of nodes to select as the seed set for influence maximization
+        propagation_probability : float | None, default=None
+            The probability that influence spreads from one node to another.
+        monte_carlo_simulations : int | None, default=None
+            The number of Monte-Carlo simulations.
+        random_seed
+            Seed for random number generation to ensure reproducible results.
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        sudo
+            Disable the memory guard.
+        log_progress
+            Display progress logging.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+
+        Returns
+        -------
+        DataFrame
+            DataFrame with nodeId and spread columns containing CELF results.
+            Each row represents a selected node with its corresponding influence spread value.
+        """
+        pass
+
+    @abstractmethod
+    def write(
+        self,
+        G: GraphV2,
+        seed_set_size: int,
+        write_property: str,
+        propagation_probability: float = 0.1,
+        monte_carlo_simulations: int = 100,
+        random_seed: int | None = None,
+        relationship_types: list[str] = ALL_TYPES,
+        node_labels: list[str] = ALL_LABELS,
+        sudo: bool = False,
+        log_progress: bool = True,
+        username: str | None = None,
+        concurrency: int | None = None,
+        job_id: str | None = None,
+        write_concurrency: int | None = None,
+    ) -> CelfWriteResult:
+        """
+        Runs the CELF algorithm and stores the result in the Neo4j database as a new node property.
+
+        The influence maximization problem asks for a set of k nodes that maximize the expected spread of influence in the network.
+
+        Parameters
+        ----------
+        G
+           Graph object to use
+        seed_set_size : int
+            The number of nodes to select as the seed set for influence maximization
+        write_property
+            Name of the node property to store the results in.
+        propagation_probability : float | None, default=None
+            Probability of a node being activated by an active neighbour node.
+        monte_carlo_simulations : int | None, default=None
+            Number of Monte-Carlo simulations.
+        random_seed
+            Seed for random number generation to ensure reproducible results.
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        sudo
+            Disable the memory guard.
+        log_progress
+            Display progress logging.
+        username
+            As an administrator, impersonate a different user for accessing their graphs.
+        concurrency
+            Number of concurrent threads to use.
+        job_id
+            Identifier for the computation.
+        write_concurrency
+            Number of concurrent threads to use for writing.Returns
+        -------
+        CelfWriteResult
+            Algorithm metrics and statistics including the total influence spread and write timing
+        """
+        pass
+
+    @abstractmethod
+    def estimate(
+        self,
+        G: GraphV2 | dict[str, Any],
+        seed_set_size: int,
+        propagation_probability: float = 0.1,
+        monte_carlo_simulations: int = 100,
+        random_seed: int | None = None,
+        relationship_types: list[str] = ALL_TYPES,
+        node_labels: list[str] = ALL_LABELS,
+        concurrency: int | None = None,
+    ) -> EstimationResult:
+        """
+        Estimate the memory consumption of an algorithm run.
+
+        Parameters
+        ----------
+        G
+           Graph object to use or a dictionary representing the graph dimensions.
+        seed_set_size : int
+            The number of nodes to select as the seed set for influence maximization.
+        propagation_probability : float
+            The probability that influence spreads from one node to another.
+        monte_carlo_simulations : int
+            The number of Monte-Carlo simulations.
+        random_seed
+            Seed for random number generation to ensure reproducible results.
+        relationship_types
+            Filter the graph using the given relationship types. Relationships with any of the given types will be included.
+        node_labels
+            Filter the graph using the given node labels. Nodes with any of the given labels will be included.
+        concurrency
+            Number of concurrent threads to use.
+
+        Returns
+        -------
+        EstimationResult
+            An object containing the result of the estimation including memory requirements
+        """
+        pass
+
+
+class CelfMutateResult(BaseResult):
+    """Result of running CELF algorithm with mutate mode."""
+
+    node_properties_written: int
+    mutate_millis: int
+    compute_millis: int
+    total_spread: float
+    node_count: int
+    configuration: dict[str, Any]
+
+
+class CelfStatsResult(BaseResult):
+    """Result of running CELF algorithm with stats mode."""
+
+    compute_millis: int
+    total_spread: float
+    node_count: int
+    configuration: dict[str, Any]
+
+
+class CelfWriteResult(BaseResult):
+    """Result of running CELF algorithm with write mode."""
+
+    node_properties_written: int
+    write_millis: int
+    compute_millis: int
+    total_spread: float
+    node_count: int
+    configuration: dict[str, Any]

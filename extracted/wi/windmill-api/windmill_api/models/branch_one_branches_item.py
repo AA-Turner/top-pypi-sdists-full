@@ -16,9 +16,10 @@ T = TypeVar("T", bound="BranchOneBranchesItem")
 class BranchOneBranchesItem:
     """
     Attributes:
-        expr (str):
-        modules (List['BranchOneBranchesItemModulesItem']):
-        summary (Union[Unset, str]):
+        expr (str): JavaScript expression that returns boolean. Can use 'results.step_id' or 'flow_input'. First true
+            expr wins
+        modules (List['BranchOneBranchesItemModulesItem']): Steps to execute if this branch's expr is true
+        summary (Union[Unset, str]): Short description of this branch condition
     """
 
     expr: str

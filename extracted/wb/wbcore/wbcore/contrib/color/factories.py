@@ -1,4 +1,5 @@
 import factory
+
 from wbcore.contrib.color.models import ColorGradient
 
 

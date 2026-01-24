@@ -1,6 +1,6 @@
+from collections.abc import Callable, Sequence
 import logging
 import time
-from typing import Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from numpy.random import choice
@@ -75,10 +75,10 @@ class PhysicalRidge(LinearRegression):
         self,
         lamb_size: float = 1e-6,
         lamb_dia: float = 1e-6,
-        size_decay: Union[str, Callable[[int], float]] = "linear",
-        dia_decay: Union[str, Callable[[int], float]] = "linear",
+        size_decay: str | Callable[[int], float] = "linear",
+        dia_decay: str | Callable[[int], float] = "linear",
         normalize: bool = True,
-        cf_names: Optional[List[str]] = None,
+        cf_names: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.lamb_size = lamb_size
@@ -105,7 +105,7 @@ class PhysicalRidge(LinearRegression):
         """
         self._constraint = {"A": A, "c": c}
 
-    def fit_data(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def fit_data(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         If normalize is True, a normalized version of the passed data is
         returned. Otherwise, X and y is returned as they are passed.
@@ -125,7 +125,7 @@ class PhysicalRidge(LinearRegression):
         return self._size_decay
 
     @size_decay.setter
-    def size_decay(self, decay: Union[str, Callable[[int], float]]) -> None:
+    def size_decay(self, decay: str | Callable[[int], float]) -> None:
         self._size_decay = get_size_decay(decay)
 
     @property
@@ -133,10 +133,10 @@ class PhysicalRidge(LinearRegression):
         return self._dia_decay
 
     @dia_decay.setter
-    def dia_decay(self, decay: Union[str, Callable[[int], float]]) -> None:
+    def dia_decay(self, decay: str | Callable[[int], float]) -> None:
         self._dia_decay = get_dia_decay(decay)
 
-    def sizes_from_names(self, names: List[str]) -> None:
+    def sizes_from_names(self, names: list[str]) -> None:
         """
         Extract the sizes from a list of correlation function names
 
@@ -147,7 +147,7 @@ class PhysicalRidge(LinearRegression):
         """
         self.sizes = [get_size_from_cf_name(n) for n in names]
 
-    def diameters_from_names(self, names: List[str]) -> None:
+    def diameters_from_names(self, names: list[str]) -> None:
         """
         Extract the diameters from a list of correltion function names
 
@@ -230,7 +230,7 @@ def exponential_dia(dia: int) -> float:
     return np.exp(dia) - 1.0
 
 
-def get_size_decay(decay: Union[str, Callable[[int], float]]) -> Callable[[int], float]:
+def get_size_decay(decay: str | Callable[[int], float]) -> Callable[[int], float]:
     if isinstance(decay, str):
         if decay == "linear":
             return linear_size
@@ -246,7 +246,7 @@ def get_size_decay(decay: Union[str, Callable[[int], float]]) -> Callable[[int],
     raise ValueError("size_decay has to be either a string or callable")
 
 
-def get_dia_decay(decay: Union[str, Callable[[int], float]]) -> Callable[[int], float]:
+def get_dia_decay(decay: str | Callable[[int], float]) -> Callable[[int], float]:
     if isinstance(decay, str):
         if decay == "linear":
             return linear_dia
@@ -264,13 +264,13 @@ def get_dia_decay(decay: Union[str, Callable[[int], float]]) -> Callable[[int], 
 
 def random_cv_hyper_opt(
     phys_ridge: PhysicalRidge,
-    params: Dict,
+    params: dict,
     X: np.ndarray,
     y: np.ndarray,
     cv: int = 5,
     num_trials: int = 100,
     groups: Sequence[int] = (),
-) -> Dict:
+) -> dict:
     """
     Estimate the hyper parameters of the Physical Ridge by random search.
 
@@ -343,8 +343,8 @@ def random_cv_hyper_opt(
 
         if time.perf_counter() - last_print > 30:
             msg = (
-                f"{i} of {num_trials}. CV: {best_cv*1000.0} meV/atom. "
-                f"MSE: {best_mse*1000.0} meV/atom. Params: {best_param}"
+                f"{i} of {num_trials}. CV: {best_cv * 1000.0} meV/atom. "
+                f"MSE: {best_mse * 1000.0} meV/atom. Params: {best_param}"
             )
             logger.info(msg)
             last_print = time.perf_counter()

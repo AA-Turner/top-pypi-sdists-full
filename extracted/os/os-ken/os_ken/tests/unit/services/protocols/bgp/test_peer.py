@@ -377,6 +377,7 @@ class Test_Peer(unittest.TestCase):
         neigh_conf = mock.Mock()
         neigh_conf.local_as = local_as
         neigh_conf.stats_time = 0
+        neigh_conf.stats_log_enabled = False
         common_conf = mock.Mock()
         common_conf.allow_local_as_in_count = allow_local_as_in_count
         common_conf.cluster_id = '10.0.0.1'

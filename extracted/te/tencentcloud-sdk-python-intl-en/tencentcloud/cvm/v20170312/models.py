@@ -142,9 +142,9 @@ class AllocateHostsRequest(AbstractModel):
         :type Placement: :class:`tencentcloud.cvm.v20170312.models.Placement`
         :param _ClientToken: A string used to ensure the idempotency of the request.
         :type ClientToken: str
-        :param _HostChargePrepaid: Configuration of prepaid instances. You can use the parameter to specify the attributes of prepaid instances, such as the subscription period and the auto-renewal plan. This parameter is required for prepaid instances.
+        :param _HostChargePrepaid: Not supported. Configuration of prepaid instances. You can use the parameter to specify the attributes of prepaid instances, such as the subscription period and the auto-renewal plan. This parameter is required for prepaid instances.
         :type HostChargePrepaid: :class:`tencentcloud.cvm.v20170312.models.ChargePrepaid`
-        :param _HostChargeType: Instance billing model, only monthly or yearly subscription supported. Default value: `PREPAID'.
+        :param _HostChargeType: Instance [billing type](https://intl.cloud.tencent.com/document/product/213/2180?from_cn_redirect=1). <br><li>`POSTPAID_BY_HOUR`: Hourly-based pay-as-you-go <br>
         :type HostChargeType: str
         :param _HostType: CDH instance model. Default value: `HS1`.
         :type HostType: str
@@ -185,7 +185,7 @@ class AllocateHostsRequest(AbstractModel):
 
     @property
     def HostChargePrepaid(self):
-        r"""Configuration of prepaid instances. You can use the parameter to specify the attributes of prepaid instances, such as the subscription period and the auto-renewal plan. This parameter is required for prepaid instances.
+        r"""Not supported. Configuration of prepaid instances. You can use the parameter to specify the attributes of prepaid instances, such as the subscription period and the auto-renewal plan. This parameter is required for prepaid instances.
         :rtype: :class:`tencentcloud.cvm.v20170312.models.ChargePrepaid`
         """
         return self._HostChargePrepaid
@@ -196,7 +196,7 @@ class AllocateHostsRequest(AbstractModel):
 
     @property
     def HostChargeType(self):
-        r"""Instance billing model, only monthly or yearly subscription supported. Default value: `PREPAID'.
+        r"""Instance [billing type](https://intl.cloud.tencent.com/document/product/213/2180?from_cn_redirect=1). <br><li>`POSTPAID_BY_HOUR`: Hourly-based pay-as-you-go <br>
         :rtype: str
         """
         return self._HostChargeType
@@ -1140,12 +1140,15 @@ class ConfigureChcAssistVpcRequest(AbstractModel):
         :type DeployVirtualPrivateCloud: :class:`tencentcloud.cvm.v20170312.models.VirtualPrivateCloud`
         :param _DeploySecurityGroupIds: Deployment network security group list
         :type DeploySecurityGroupIds: list of str
+        :param _ChcDeployExtraConfig: 
+        :type ChcDeployExtraConfig: :class:`tencentcloud.cvm.v20170312.models.ChcDeployExtraConfig`
         """
         self._ChcIds = None
         self._BmcVirtualPrivateCloud = None
         self._BmcSecurityGroupIds = None
         self._DeployVirtualPrivateCloud = None
         self._DeploySecurityGroupIds = None
+        self._ChcDeployExtraConfig = None
 
     @property
     def ChcIds(self):
@@ -1202,6 +1205,17 @@ class ConfigureChcAssistVpcRequest(AbstractModel):
     def DeploySecurityGroupIds(self, DeploySecurityGroupIds):
         self._DeploySecurityGroupIds = DeploySecurityGroupIds
 
+    @property
+    def ChcDeployExtraConfig(self):
+        r"""
+        :rtype: :class:`tencentcloud.cvm.v20170312.models.ChcDeployExtraConfig`
+        """
+        return self._ChcDeployExtraConfig
+
+    @ChcDeployExtraConfig.setter
+    def ChcDeployExtraConfig(self, ChcDeployExtraConfig):
+        self._ChcDeployExtraConfig = ChcDeployExtraConfig
+
 
     def _deserialize(self, params):
         self._ChcIds = params.get("ChcIds")
@@ -1213,6 +1227,9 @@ class ConfigureChcAssistVpcRequest(AbstractModel):
             self._DeployVirtualPrivateCloud = VirtualPrivateCloud()
             self._DeployVirtualPrivateCloud._deserialize(params.get("DeployVirtualPrivateCloud"))
         self._DeploySecurityGroupIds = params.get("DeploySecurityGroupIds")
+        if params.get("ChcDeployExtraConfig") is not None:
+            self._ChcDeployExtraConfig = ChcDeployExtraConfig()
+            self._ChcDeployExtraConfig._deserialize(params.get("ChcDeployExtraConfig"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1264,10 +1281,13 @@ class ConfigureChcDeployVpcRequest(AbstractModel):
         :type DeployVirtualPrivateCloud: :class:`tencentcloud.cvm.v20170312.models.VirtualPrivateCloud`
         :param _DeploySecurityGroupIds: Deployment network security group list
         :type DeploySecurityGroupIds: list of str
+        :param _ChcDeployExtraConfig: 
+        :type ChcDeployExtraConfig: :class:`tencentcloud.cvm.v20170312.models.ChcDeployExtraConfig`
         """
         self._ChcIds = None
         self._DeployVirtualPrivateCloud = None
         self._DeploySecurityGroupIds = None
+        self._ChcDeployExtraConfig = None
 
     @property
     def ChcIds(self):
@@ -1302,6 +1322,17 @@ class ConfigureChcDeployVpcRequest(AbstractModel):
     def DeploySecurityGroupIds(self, DeploySecurityGroupIds):
         self._DeploySecurityGroupIds = DeploySecurityGroupIds
 
+    @property
+    def ChcDeployExtraConfig(self):
+        r"""
+        :rtype: :class:`tencentcloud.cvm.v20170312.models.ChcDeployExtraConfig`
+        """
+        return self._ChcDeployExtraConfig
+
+    @ChcDeployExtraConfig.setter
+    def ChcDeployExtraConfig(self, ChcDeployExtraConfig):
+        self._ChcDeployExtraConfig = ChcDeployExtraConfig
+
 
     def _deserialize(self, params):
         self._ChcIds = params.get("ChcIds")
@@ -1309,6 +1340,9 @@ class ConfigureChcDeployVpcRequest(AbstractModel):
             self._DeployVirtualPrivateCloud = VirtualPrivateCloud()
             self._DeployVirtualPrivateCloud._deserialize(params.get("DeployVirtualPrivateCloud"))
         self._DeploySecurityGroupIds = params.get("DeploySecurityGroupIds")
+        if params.get("ChcDeployExtraConfig") is not None:
+            self._ChcDeployExtraConfig = ChcDeployExtraConfig()
+            self._ChcDeployExtraConfig._deserialize(params.get("ChcDeployExtraConfig"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2775,6 +2809,8 @@ If the dry run succeeds, the RequestId will be returned.
         :type InstanceChargePrepaid: :class:`tencentcloud.cvm.v20170312.models.InstanceChargePrepaid`
         :param _DisableApiTermination: Instance termination protection flag, indicating whether an instance is allowed to be deleted through an API. Valid values:<br><li>TRUE: Instance protection is enabled, and the instance is not allowed to be deleted through the API.</li><br><li>FALSE: Instance protection is disabled, and the instance is allowed to be deleted through the API.</li><br><br>Default value: FALSE.
         :type DisableApiTermination: bool
+        :param _EnableJumboFrame: 
+        :type EnableJumboFrame: bool
         :param _Metadata: Custom metadata. specifies that custom metadata key-value pairs can be added when creating a CVM.
 Note: this field is in beta test.
         :type Metadata: :class:`tencentcloud.cvm.v20170312.models.Metadata`
@@ -2813,6 +2849,7 @@ Note: this field is in beta test.
         self._InstanceChargeType = None
         self._InstanceChargePrepaid = None
         self._DisableApiTermination = None
+        self._EnableJumboFrame = None
         self._Metadata = None
         self._TemplateDataModifyAction = None
 
@@ -3131,6 +3168,17 @@ If the dry run succeeds, the RequestId will be returned.
         self._DisableApiTermination = DisableApiTermination
 
     @property
+    def EnableJumboFrame(self):
+        r"""
+        :rtype: bool
+        """
+        return self._EnableJumboFrame
+
+    @EnableJumboFrame.setter
+    def EnableJumboFrame(self, EnableJumboFrame):
+        self._EnableJumboFrame = EnableJumboFrame
+
+    @property
     def Metadata(self):
         r"""Custom metadata. specifies that custom metadata key-value pairs can be added when creating a CVM.
 Note: this field is in beta test.
@@ -3215,6 +3263,7 @@ Note: this field is in beta test.
             self._InstanceChargePrepaid = InstanceChargePrepaid()
             self._InstanceChargePrepaid._deserialize(params.get("InstanceChargePrepaid"))
         self._DisableApiTermination = params.get("DisableApiTermination")
+        self._EnableJumboFrame = params.get("EnableJumboFrame")
         if params.get("Metadata") is not None:
             self._Metadata = Metadata()
             self._Metadata._deserialize(params.get("Metadata"))
@@ -3281,7 +3330,7 @@ class DataDisk(AbstractModel):
         r"""
         :param _DiskSize: Data disk size, unit: GiB. the minimum adjustment step size is 10 GiB. the value ranges of different data disk types vary. for specific limitations, see the storage overview (https://intl.cloud.tencent.com/document/product/213/4952?from_cn_redirect=1). the default value is 0, which means no data disk purchase. for more restrictions, see the product document.
         :type DiskSize: int
-        :param _DiskType: Data disk type. For the detailed restrictions on the data disk type, refer to [Storage Overview](https://cloud.tencent.com/document/product/213/4952). Valid values: <br /><li>LOCAL_BASIC: Local Disk <br /><li>LOCAL_SSD: Local SSD <br /><li>LOCAL_NVME: Local NVMe Disk, which is strongly related with InstanceType and can not be specified <br /><li>LOCAL_PRO: Local HDD, which is strongly related with InstanceType and can not be specified <br /><li>CLOUD_BASIC: Basic Cloud Disk <br /><li>CLOUD_PREMIUM: Premium Disk <br /><li>CLOUD_SSD: Cloud SSD <br /><li>CLOUD_HSSD: Enhanced SSD <br /><li>CLOUD_TSSD: Tremendous SSD <br /><li>CLOUD_BSSD: Balanced SSD <br /><br />Default value: LOCAL_BASIC. <br /><br />This parameter is invalid for the `ResizeInstanceDisk` API.</li></li></li> </li> </li></li></li></li></li></li>
+        :param _DiskType: Specifies the data disk type. for restrictions on data disk types, refer to [storage overview](https://www.tencentcloud.com/document/product/213/4952?from_cn_redirect=1). valid values: <br /><li>LOCAL_BASIC: LOCAL disk</li> <li>LOCAL_SSD: LOCAL SSD</li><li>LOCAL_NVME: LOCAL NVME disk, which is closely related to InstanceType and cannot be specified</li><li>LOCAL_PRO: LOCAL HDD, which is closely related to InstanceType and cannot be specified</li><li>cloud_BASIC: BASIC cloud disk</li><li>cloud_PREMIUM: high-performance cloud block storage</li><li>cloud_SSD: SSD cloud disk</li><li>cloud_HSSD: enhanced SSD cloud disk</li> <li>cloud_TSSD: ultra-fast SSD cbs</li><li>cloud_BSSD: universal SSD cloud disk</li><br />default: LOCAL_BASIC.<br/><br />this parameter is invalid for the `ResizeInstanceDisk` api.
         :type DiskType: str
         :param _DiskId: Specifies the data disk ID.
 This parameter currently only serves as a response parameter for query apis such as `DescribeInstances`, and cannot be used as an input parameter for write apis such as `RunInstances`.
@@ -3292,18 +3341,21 @@ This parameter currently only serves as a response parameter for query apis such
         :type SnapshotId: str
         :param _Encrypt: Specifies whether the data disk is encrypted. value range: <li>true: encrypted</li> <li>false: unencrypted</li><br/> default value: false<br/> this parameter is currently only used for the `RunInstances` api.
         :type Encrypt: bool
-        :param _KmsKeyId: Custom CMK's corresponding ID, with a value of UUID or something similar to kms - abcd1234. used for encrypting cloud disks.
+        :param _KmsKeyId: Custom CMK ID, value is UUID or similar to kms-abcd1234. used for encrypted cloud disk.
 
 This parameter is currently only used for the `RunInstances` api.
+Note: This field may return null, indicating that no valid value is found.
         :type KmsKeyId: str
-        :param _ThroughputPerformance: Specifies the cloud disk performance (unit: MiB/s). using this parameter allows you to purchase additional performance for the cloud disk.
-Currently only supports ultra-fast CLOUD disk (CLOUD_TSSD) and enhanced SSD CLOUD disk (CLOUD_HSSD).
+        :param _ThroughputPerformance: Cloud disk performance (unit: MiB/s). specifies additional performance for cloud disks.
+Currently only supports extreme cbs (CLOUD_TSSD) and enhanced SSD CLOUD disk (CLOUD_HSSD).
+Note: This field may return null, indicating that no valid value is found.
         :type ThroughputPerformance: int
-        :param _CdcId: Specifies the exclusive cluster ID it belongs to.
+        :param _CdcId: Specifies the dedicated cluster ID belonging to.
+Note: This field may return null, indicating that no valid value is found.
         :type CdcId: str
-        :param _BurstPerformance: Burst performance.
+        :param _BurstPerformance: Burstable performance.
 
-<B>Note: this feature is in beta test.</b>.
+<B>Note: this field is in beta test.</b>.
         :type BurstPerformance: bool
         :param _DiskName: Disk name, with a length not exceeding 128 characters.
         :type DiskName: str
@@ -3333,7 +3385,7 @@ Currently only supports ultra-fast CLOUD disk (CLOUD_TSSD) and enhanced SSD CLOU
 
     @property
     def DiskType(self):
-        r"""Data disk type. For the detailed restrictions on the data disk type, refer to [Storage Overview](https://cloud.tencent.com/document/product/213/4952). Valid values: <br /><li>LOCAL_BASIC: Local Disk <br /><li>LOCAL_SSD: Local SSD <br /><li>LOCAL_NVME: Local NVMe Disk, which is strongly related with InstanceType and can not be specified <br /><li>LOCAL_PRO: Local HDD, which is strongly related with InstanceType and can not be specified <br /><li>CLOUD_BASIC: Basic Cloud Disk <br /><li>CLOUD_PREMIUM: Premium Disk <br /><li>CLOUD_SSD: Cloud SSD <br /><li>CLOUD_HSSD: Enhanced SSD <br /><li>CLOUD_TSSD: Tremendous SSD <br /><li>CLOUD_BSSD: Balanced SSD <br /><br />Default value: LOCAL_BASIC. <br /><br />This parameter is invalid for the `ResizeInstanceDisk` API.</li></li></li> </li> </li></li></li></li></li></li>
+        r"""Specifies the data disk type. for restrictions on data disk types, refer to [storage overview](https://www.tencentcloud.com/document/product/213/4952?from_cn_redirect=1). valid values: <br /><li>LOCAL_BASIC: LOCAL disk</li> <li>LOCAL_SSD: LOCAL SSD</li><li>LOCAL_NVME: LOCAL NVME disk, which is closely related to InstanceType and cannot be specified</li><li>LOCAL_PRO: LOCAL HDD, which is closely related to InstanceType and cannot be specified</li><li>cloud_BASIC: BASIC cloud disk</li><li>cloud_PREMIUM: high-performance cloud block storage</li><li>cloud_SSD: SSD cloud disk</li><li>cloud_HSSD: enhanced SSD cloud disk</li> <li>cloud_TSSD: ultra-fast SSD cbs</li><li>cloud_BSSD: universal SSD cloud disk</li><br />default: LOCAL_BASIC.<br/><br />this parameter is invalid for the `ResizeInstanceDisk` api.
         :rtype: str
         """
         return self._DiskType
@@ -3389,9 +3441,10 @@ This parameter currently only serves as a response parameter for query apis such
 
     @property
     def KmsKeyId(self):
-        r"""Custom CMK's corresponding ID, with a value of UUID or something similar to kms - abcd1234. used for encrypting cloud disks.
+        r"""Custom CMK ID, value is UUID or similar to kms-abcd1234. used for encrypted cloud disk.
 
 This parameter is currently only used for the `RunInstances` api.
+Note: This field may return null, indicating that no valid value is found.
         :rtype: str
         """
         return self._KmsKeyId
@@ -3402,8 +3455,9 @@ This parameter is currently only used for the `RunInstances` api.
 
     @property
     def ThroughputPerformance(self):
-        r"""Specifies the cloud disk performance (unit: MiB/s). using this parameter allows you to purchase additional performance for the cloud disk.
-Currently only supports ultra-fast CLOUD disk (CLOUD_TSSD) and enhanced SSD CLOUD disk (CLOUD_HSSD).
+        r"""Cloud disk performance (unit: MiB/s). specifies additional performance for cloud disks.
+Currently only supports extreme cbs (CLOUD_TSSD) and enhanced SSD CLOUD disk (CLOUD_HSSD).
+Note: This field may return null, indicating that no valid value is found.
         :rtype: int
         """
         return self._ThroughputPerformance
@@ -3414,7 +3468,8 @@ Currently only supports ultra-fast CLOUD disk (CLOUD_TSSD) and enhanced SSD CLOU
 
     @property
     def CdcId(self):
-        r"""Specifies the exclusive cluster ID it belongs to.
+        r"""Specifies the dedicated cluster ID belonging to.
+Note: This field may return null, indicating that no valid value is found.
         :rtype: str
         """
         return self._CdcId
@@ -3425,9 +3480,9 @@ Currently only supports ultra-fast CLOUD disk (CLOUD_TSSD) and enhanced SSD CLOU
 
     @property
     def BurstPerformance(self):
-        r"""Burst performance.
+        r"""Burstable performance.
 
-<B>Note: this feature is in beta test.</b>.
+<B>Note: this field is in beta test.</b>.
         :rtype: bool
         """
         return self._BurstPerformance
@@ -4113,6 +4168,8 @@ class DescribeDisasterRecoverGroupQuotaResponse(AbstractModel):
         :type CvmInSwGroupQuota: int
         :param _CvmInRackGroupQuota: Quota on instances in a rack-type disaster recovery group.
         :type CvmInRackGroupQuota: int
+        :param _CvmInSwitchGroupQuota: 
+        :type CvmInSwitchGroupQuota: int
         :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :type RequestId: str
         """
@@ -4121,6 +4178,7 @@ class DescribeDisasterRecoverGroupQuotaResponse(AbstractModel):
         self._CvmInHostGroupQuota = None
         self._CvmInSwGroupQuota = None
         self._CvmInRackGroupQuota = None
+        self._CvmInSwitchGroupQuota = None
         self._RequestId = None
 
     @property
@@ -4158,6 +4216,8 @@ class DescribeDisasterRecoverGroupQuotaResponse(AbstractModel):
 
     @property
     def CvmInSwGroupQuota(self):
+        warnings.warn("parameter `CvmInSwGroupQuota` is deprecated", DeprecationWarning) 
+
         r"""Quota on instances in a switch-type disaster recovery group.
         :rtype: int
         """
@@ -4165,6 +4225,8 @@ class DescribeDisasterRecoverGroupQuotaResponse(AbstractModel):
 
     @CvmInSwGroupQuota.setter
     def CvmInSwGroupQuota(self, CvmInSwGroupQuota):
+        warnings.warn("parameter `CvmInSwGroupQuota` is deprecated", DeprecationWarning) 
+
         self._CvmInSwGroupQuota = CvmInSwGroupQuota
 
     @property
@@ -4177,6 +4239,17 @@ class DescribeDisasterRecoverGroupQuotaResponse(AbstractModel):
     @CvmInRackGroupQuota.setter
     def CvmInRackGroupQuota(self, CvmInRackGroupQuota):
         self._CvmInRackGroupQuota = CvmInRackGroupQuota
+
+    @property
+    def CvmInSwitchGroupQuota(self):
+        r"""
+        :rtype: int
+        """
+        return self._CvmInSwitchGroupQuota
+
+    @CvmInSwitchGroupQuota.setter
+    def CvmInSwitchGroupQuota(self, CvmInSwitchGroupQuota):
+        self._CvmInSwitchGroupQuota = CvmInSwitchGroupQuota
 
     @property
     def RequestId(self):
@@ -4196,6 +4269,7 @@ class DescribeDisasterRecoverGroupQuotaResponse(AbstractModel):
         self._CvmInHostGroupQuota = params.get("CvmInHostGroupQuota")
         self._CvmInSwGroupQuota = params.get("CvmInSwGroupQuota")
         self._CvmInRackGroupQuota = params.get("CvmInRackGroupQuota")
+        self._CvmInSwitchGroupQuota = params.get("CvmInSwitchGroupQuota")
         self._RequestId = params.get("RequestId")
 
 
@@ -4763,13 +4837,13 @@ class DescribeImagesRequest(AbstractModel):
 <li><strong>tag-value</strong></li>
 <p style="padding-left: 30px;">Filter by the <strong>tag value</strong>.</p><p style="padding-left: 30px;">Type: String</p><p style="padding-left: 30px;">Optional</p>
 <li><strong>tag:tag-key</strong></li>
-<p style="padding-left: 30px;">Filter by the <strong>tag key-value pair</strong>. Replace “tag-key” with the actual value. </p><p style="padding-left: 30px;">Type: String</p><p style="padding-left: 30px;">Optional</p>
+<p style="padding-left: 30px;">Filter by the <strong>tag key-value pair</strong>. Replace "tag-key" with the actual value. </p><p style="padding-left: 30px;">Type: String</p><p style="padding-left: 30px;">Optional</p>
         :type Filters: list of Filter
         :param _Offset: Offset; default value: 0. For more information on `Offset`, see [API Introduction](https://intl.cloud.tencent.com/document/api/213/568?from_cn_redirect=1#.E8.BE.93.E5.85.A5.E5.8F.82.E6.95.B0.E4.B8.8E.E8.BF.94.E5.9B.9E.E5.8F.82.E6.95.B0.E9.87.8A.E4.B9.89).
         :type Offset: int
         :param _Limit: Number of results returned; default value: 20; maximum: 100. For more information on `Limit`, see [API Introduction](https://intl.cloud.tencent.com/document/api/213/568?from_cn_redirect=1#.E8.BE.93.E5.85.A5.E5.8F.82.E6.95.B0.E4.B8.8E.E8.BF.94.E5.9B.9E.E5.8F.82.E6.95.B0.E9.87.8A.E4.B9.89).
         :type Limit: int
-        :param _InstanceType: Instance type, e.g. `S1.SMALL1`
+        :param _InstanceType: Instance type, e.g. `SA5.MEDIUM2`
         :type InstanceType: str
         """
         self._ImageIds = None
@@ -4806,7 +4880,7 @@ class DescribeImagesRequest(AbstractModel):
 <li><strong>tag-value</strong></li>
 <p style="padding-left: 30px;">Filter by the <strong>tag value</strong>.</p><p style="padding-left: 30px;">Type: String</p><p style="padding-left: 30px;">Optional</p>
 <li><strong>tag:tag-key</strong></li>
-<p style="padding-left: 30px;">Filter by the <strong>tag key-value pair</strong>. Replace “tag-key” with the actual value. </p><p style="padding-left: 30px;">Type: String</p><p style="padding-left: 30px;">Optional</p>
+<p style="padding-left: 30px;">Filter by the <strong>tag key-value pair</strong>. Replace "tag-key" with the actual value. </p><p style="padding-left: 30px;">Type: String</p><p style="padding-left: 30px;">Optional</p>
         :rtype: list of Filter
         """
         return self._Filters
@@ -4839,7 +4913,7 @@ class DescribeImagesRequest(AbstractModel):
 
     @property
     def InstanceType(self):
-        r"""Instance type, e.g. `S1.SMALL1`
+        r"""Instance type, e.g. `SA5.MEDIUM2`
         :rtype: str
         """
         return self._InstanceType
@@ -7060,6 +7134,8 @@ Note: This field may return null, indicating that no valid value was found.
         :param _CreateTime: Creation time of a spread placement group.
 Note: This field may return null, indicating that no valid value is found.
         :type CreateTime: str
+        :param _Affinity: 
+        :type Affinity: int
         :param _Tags: List of tags associated with the placement group.
         :type Tags: list of Tag
         """
@@ -7070,6 +7146,7 @@ Note: This field may return null, indicating that no valid value is found.
         self._CurrentNum = None
         self._InstanceIds = None
         self._CreateTime = None
+        self._Affinity = None
         self._Tags = None
 
     @property
@@ -7155,6 +7232,17 @@ Note: This field may return null, indicating that no valid value is found.
         self._CreateTime = CreateTime
 
     @property
+    def Affinity(self):
+        r"""
+        :rtype: int
+        """
+        return self._Affinity
+
+    @Affinity.setter
+    def Affinity(self, Affinity):
+        self._Affinity = Affinity
+
+    @property
     def Tags(self):
         r"""List of tags associated with the placement group.
         :rtype: list of Tag
@@ -7174,6 +7262,7 @@ Note: This field may return null, indicating that no valid value is found.
         self._CurrentNum = params.get("CurrentNum")
         self._InstanceIds = params.get("InstanceIds")
         self._CreateTime = params.get("CreateTime")
+        self._Affinity = params.get("Affinity")
         if params.get("Tags") is not None:
             self._Tags = []
             for item in params.get("Tags"):
@@ -7277,11 +7366,14 @@ class EnterRescueModeRequest(AbstractModel):
         :type Username: str
         :param _ForceStop: Whether to perform forced shutdown.
         :type ForceStop: bool
+        :param _StopType: 
+        :type StopType: str
         """
         self._InstanceId = None
         self._Password = None
         self._Username = None
         self._ForceStop = None
+        self._StopType = None
 
     @property
     def InstanceId(self):
@@ -7318,6 +7410,8 @@ class EnterRescueModeRequest(AbstractModel):
 
     @property
     def ForceStop(self):
+        warnings.warn("parameter `ForceStop` is deprecated", DeprecationWarning) 
+
         r"""Whether to perform forced shutdown.
         :rtype: bool
         """
@@ -7325,7 +7419,20 @@ class EnterRescueModeRequest(AbstractModel):
 
     @ForceStop.setter
     def ForceStop(self, ForceStop):
+        warnings.warn("parameter `ForceStop` is deprecated", DeprecationWarning) 
+
         self._ForceStop = ForceStop
+
+    @property
+    def StopType(self):
+        r"""
+        :rtype: str
+        """
+        return self._StopType
+
+    @StopType.setter
+    def StopType(self, StopType):
+        self._StopType = StopType
 
 
     def _deserialize(self, params):
@@ -7333,6 +7440,7 @@ class EnterRescueModeRequest(AbstractModel):
         self._Password = params.get("Password")
         self._Username = params.get("Username")
         self._ForceStop = params.get("ForceStop")
+        self._StopType = params.get("StopType")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7755,14 +7863,11 @@ class GPUInfo(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _GPUCount: Number of GPUs. 
-Note: this field may return `null`, indicating that no valid value can be found.
+        :param _GPUCount: Specifies the GPU count of the instance. a value less than 1 indicates VGPU type, and a value larger than 1 indicates GPU passthrough type.
         :type GPUCount: float
-        :param _GPUId: GPU address
-Note: this field may return `null`, indicating that no valid value can be found.
+        :param _GPUId: Specifies the GPU address of the instance.
         :type GPUId: list of str
-        :param _GPUType: GPU type of the instance.
-Note: this field may return `null`, indicating that no valid value can be found.
+        :param _GPUType: Specifies the GPU type of the instance.
         :type GPUType: str
         """
         self._GPUCount = None
@@ -7771,8 +7876,7 @@ Note: this field may return `null`, indicating that no valid value can be found.
 
     @property
     def GPUCount(self):
-        r"""Number of GPUs. 
-Note: this field may return `null`, indicating that no valid value can be found.
+        r"""Specifies the GPU count of the instance. a value less than 1 indicates VGPU type, and a value larger than 1 indicates GPU passthrough type.
         :rtype: float
         """
         return self._GPUCount
@@ -7783,8 +7887,7 @@ Note: this field may return `null`, indicating that no valid value can be found.
 
     @property
     def GPUId(self):
-        r"""GPU address
-Note: this field may return `null`, indicating that no valid value can be found.
+        r"""Specifies the GPU address of the instance.
         :rtype: list of str
         """
         return self._GPUId
@@ -7795,8 +7898,7 @@ Note: this field may return `null`, indicating that no valid value can be found.
 
     @property
     def GPUType(self):
-        r"""GPU type of the instance.
-Note: this field may return `null`, indicating that no valid value can be found.
+        r"""Specifies the GPU type of the instance.
         :rtype: str
         """
         return self._GPUType
@@ -8965,7 +9067,7 @@ class InquirePricePurchaseReservedInstancesOfferingRequest(AbstractModel):
         :type DryRun: bool
         :param _ClientToken: A unique string supplied by the client to ensure that the request is idempotent. Its maximum length is 64 ASCII characters. If this parameter is not specified, the idempotency of the request cannot be guaranteed.<br>For more information, see Ensuring Idempotency.
         :type ClientToken: str
-        :param _ReservedInstanceName: Reserved instance name.<br><li>The RI name defaults to “unnamed” if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
+        :param _ReservedInstanceName: Reserved instance name.<br><li>The RI name defaults to "unnamed" if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
         :type ReservedInstanceName: str
         """
         self._InstanceCount = None
@@ -9020,7 +9122,7 @@ class InquirePricePurchaseReservedInstancesOfferingRequest(AbstractModel):
 
     @property
     def ReservedInstanceName(self):
-        r"""Reserved instance name.<br><li>The RI name defaults to “unnamed” if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
+        r"""Reserved instance name.<br><li>The RI name defaults to "unnamed" if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
         :rtype: str
         """
         return self._ReservedInstanceName
@@ -9098,7 +9200,7 @@ class InquiryPriceModifyInstancesChargeTypeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceIds: One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 100.
+        :param _InstanceIds: One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 20.
         :type InstanceIds: list of str
         :param _InstanceChargeType: Modified instance [billing type](https://www.tencentcloud.com/document/product/213/2180?from_cn_redirect=1). <br><li>`PREPAID`: monthly subscription.</li>
 
@@ -9118,7 +9220,7 @@ default value: `PREPAID`
 
     @property
     def InstanceIds(self):
-        r"""One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 100.
+        r"""One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 20.
         :rtype: list of str
         """
         return self._InstanceIds
@@ -9234,7 +9336,7 @@ class InquiryPriceRenewInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceIds: One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.comom/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 100.
+        :param _InstanceIds: One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/zh/document/api/213/33258). The maximum number of instances per request is 100.
         :type InstanceIds: list of str
         :param _InstanceChargePrepaid: Prepaid mode, that is, monthly subscription-related parameter settings. You can specify attributes of a monthly subscription instance, such as purchase duration and whether to set auto-renewal, through this parameter.
         :type InstanceChargePrepaid: :class:`tencentcloud.cvm.v20170312.models.InstanceChargePrepaid`
@@ -9250,7 +9352,7 @@ class InquiryPriceRenewInstancesRequest(AbstractModel):
 
     @property
     def InstanceIds(self):
-        r"""One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.comom/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 100.
+        r"""One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/zh/document/api/213/33258). The maximum number of instances per request is 100.
         :rtype: list of str
         """
         return self._InstanceIds
@@ -9372,12 +9474,15 @@ class InquiryPriceResetInstanceRequest(AbstractModel):
         :type LoginSettings: :class:`tencentcloud.cvm.v20170312.models.LoginSettings`
         :param _EnhancedService: Enhanced services. You can use this parameter to specify whether to enable services such as Cloud Monitor and Cloud Security. If this parameter is not specified, Cloud Monitor and Cloud Security will be enabled by default.
         :type EnhancedService: :class:`tencentcloud.cvm.v20170312.models.EnhancedService`
+        :param _UserData: 
+        :type UserData: str
         """
         self._InstanceId = None
         self._ImageId = None
         self._SystemDisk = None
         self._LoginSettings = None
         self._EnhancedService = None
+        self._UserData = None
 
     @property
     def InstanceId(self):
@@ -9434,6 +9539,17 @@ class InquiryPriceResetInstanceRequest(AbstractModel):
     def EnhancedService(self, EnhancedService):
         self._EnhancedService = EnhancedService
 
+    @property
+    def UserData(self):
+        r"""
+        :rtype: str
+        """
+        return self._UserData
+
+    @UserData.setter
+    def UserData(self, UserData):
+        self._UserData = UserData
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -9447,6 +9563,7 @@ class InquiryPriceResetInstanceRequest(AbstractModel):
         if params.get("EnhancedService") is not None:
             self._EnhancedService = EnhancedService()
             self._EnhancedService._deserialize(params.get("EnhancedService"))
+        self._UserData = params.get("UserData")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9854,30 +9971,31 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
         :param _Placement: Location of the instance. You can use this parameter to specify the attributes of the instance, such as its availability zone and project.
  <b>Note: `Placement` is required when `LaunchTemplate` is not specified. If both the parameters are passed in, `Placement` prevails.</b>
         :type Placement: :class:`tencentcloud.cvm.v20170312.models.Placement`
-        :param _ImageId: [Image](https://intl.cloud.tencent.com/document/product/213/4940?from_cn_redirect=1) ID in the format of `img-xxx`. There are three types of images: <br/><li>Public images</li><li>Custom images</li><li>Shared images</li><br/>You can obtain the available image IDs in the following ways: <br/><li>For IDs of `public images`, `custom images`, and `shared images`, log in to the [CVM console](https://console.cloud.tencent.com/cvm/image?rid=1&imageType=PUBLIC_IMAGE) to query the information. </li><li>Call [DescribeImages](https://intl.cloud.tencent.com/document/api/213/15715?from_cn_redirect=1) and look for `ImageId` in the response.</li>
+        :param _ImageId: [Image](https://intl.cloud.tencent.com/document/product/213/4940?from_cn_redirect=1) ID in the format of `img-xxx`. There are three types of images: <br/><li>Public images</li><li>Custom images</li><li>Shared images</li><br/>You can obtain the available image IDs in the following ways: <br/><li>For IDs of `public images`, `custom images`, and `shared images`, log in to the [CVM console](https://console.tencentcloud.com/cvm/image/index?rid=1&tab=PUBLIC_IMAGE&imageType=PUBLIC_IMAGE) to query the information. </li><li>Call [DescribeImages](https://intl.cloud.tencent.com/document/api/213/15715?from_cn_redirect=1) and look for `ImageId` in the response.</li>
  <b>Note: `ImageId` is required when `LaunchTemplate` is not specified. If both the parameters are passed in, `ImageId` prevails.</b>
         :type ImageId: str
         :param _InstanceChargeType: The instance [billing method](https://intl.cloud.tencent.com/document/product/213/2180?from_cn_redirect=1).<br><li>POSTPAID_BY_HOUR: Pay-as-you-go on an hourly basis<br>Default value: POSTPAID_BY_HOUR.
         :type InstanceChargeType: str
         :param _InstanceChargePrepaid: Details of the monthly subscription, including the purchase period, auto-renewal. It is required if the `InstanceChargeType` is `PREPAID`. 
         :type InstanceChargePrepaid: :class:`tencentcloud.cvm.v20170312.models.InstanceChargePrepaid`
-        :param _InstanceType: The instance model. Different resource specifications are specified for different models. For specific values, call [DescribeInstanceTypeConfigs](https://intl.cloud.tencent.com/document/api/213/15749?from_cn_redirect=1) to retrieve the latest specification list or refer to [Instance Types](https://intl.cloud.tencent.com/document/product/213/11518?from_cn_redirect=1). If the parameter is not specified, `S1.SMALL1` will be used by default.
+        :param _InstanceType: Instance model. Different instance models specify different resource specifications.
+<br><li>For instances created with the payment modes PREPAID or POSTPAID_BY_HOUR, specifies the specific values obtained BY calling the [DescribeInstanceTypeConfig](https://www.tencentcloud.com/document/product/1119/45686?lang=en) api for the latest specification table or referring to [instance specifications](https://www.tencentcloud.com/document/product/213/11518). if not specified, the system will dynamically assign a default model based on the current resource sales situation in a region.</li><br><li>for instances created with the payment mode CDHPAID, indicates this parameter uses the prefix "CDH_" and is generated based on CPU and memory configuration. the specific format is: CDH_XCXG. for example, for creating a CDH instance with 1 CPU core and 1 gb memory, this parameter should be CDH_1C1G.</li>.
         :type InstanceType: str
         :param _SystemDisk: System disk configuration of the instance. If this parameter is not specified, the default value will be used.
         :type SystemDisk: :class:`tencentcloud.cvm.v20170312.models.SystemDisk`
         :param _DataDisks: Data disk configuration of the instance. If the parameter is not specified, no data disk will be purchased by default. If you want to purchase data disks, you can specify 21 data disks, including up to 1 `LOCAL_BASIC` data disk or `LOCAL_SSD` data disk and up to 20 `CLOUD_BASIC` data disks, `CLOUD_PREMIUM` data disks, or `CLOUD_SSD` data disks.
         :type DataDisks: list of DataDisk
-        :param _VirtualPrivateCloud: VPC configurations (VPC ID, subnet ID, etc). If it’s not specified, the classic network will be used by default. If a VPC IP is specified in this parameter, the `InstanceCount` can only be 1.
+        :param _VirtualPrivateCloud: VPC configurations (VPC ID, subnet ID, etc). If It's not specified, the classic network will be used by default. If a VPC IP is specified in this parameter, the `InstanceCount` can only be 1.
         :type VirtualPrivateCloud: :class:`tencentcloud.cvm.v20170312.models.VirtualPrivateCloud`
-        :param _InternetAccessible: Configuration of public network bandwidth. If it’s not specified, 0 Mbps is used by default.
+        :param _InternetAccessible: Configuration of public network bandwidth. If it's not specified, 0 Mbps is used by default.
         :type InternetAccessible: :class:`tencentcloud.cvm.v20170312.models.InternetAccessible`
         :param _InstanceCount: Number of instances to purchase. Value range: 1 (default) to 100. It cannot exceed the remaining CVM quota of the user. For more information on quota, see [Restrictions on CVM Instance Purchase](https://intl.cloud.tencent.com/document/product/213/2664).
         :type InstanceCount: int
-        :param _InstanceName: Instance name.<br><li>If this parameter is not specified, "Unnamed" will be displayed by default.</li><li>If you purchase multiple instances and specify a pattern string `{R:x}`, numbers `[x, x+n-1]` will be generated, where `n` represents the number of instances purchased. For example, you specify a pattern string `server_{R:3}`. If you purchase only one instance, the instance will be named `server_3`; if you purchase two, they will be named `server_3` and `server_4`. You can specify multiple pattern strings in the format of `{R:x}`.</li><li>If you purchase multiple instances without specifying a pattern string, the instance names will be suffixed with `1, 2...n`, where `n` represents the number of instances purchased. For example, if you purchase two instances with the name `server_`, the instance names will be `server_1` and `server_2`.</li><li>This parameter can contain up to 60 characters (including pattern strings).</li>
+        :param _InstanceName: Instance display name. <li>if no instance display name is specified, it will display 'unnamed' by default.</li> <li>when purchasing multiple instances, if the pattern string `{R:x}` is specified, it means generating numbers `[x, x+n-1]`, where `n` represents the number of purchased instances. for example, `server_{R:3}`: when purchasing 1 instance, the instance display name is `server_3`; when purchasing 2 instances, the instance display names are `server_3` and `server_4` respectively. supports specifying multiple pattern strings `{R:x}`.</li> <li>when purchasing multiple instances without specifying a pattern string, suffixes `1, 2...n` will be added to the instance display name, where `n` represents the number of purchased instances. for example, `server_`: when purchasing 2 instances, the instance display names are `server_1` and `server_2` respectively.</li> <li>supports up to 128 characters (including pattern strings).</li>.
         :type InstanceName: str
         :param _LoginSettings: Login settings of the instance. You can use this parameter to set the login method, password, and key of the instance, or keep the original login settings of the image. By default, a random password will be generated and sent to you via the Message Center.
         :type LoginSettings: :class:`tencentcloud.cvm.v20170312.models.LoginSettings`
-        :param _SecurityGroupIds: Security groups to which the instance belongs. To obtain the security group IDs, you can call [DescribeSecurityGroups](https://intl.cloud.tencent.com/document/api/215/15808) and look for the `sgld` fields in the response. If this parameter is not specified, the instance will not be associated with any security group by default.
+        :param _SecurityGroupIds: Security group to which an instance belongs. obtain this parameter by calling the `SecurityGroupId` field in the return value of [DescribeSecurityGroups](https://www.tencentcloud.com/document/product/215/15808). if not specified, bind the default security group under the designated project. if the default security group does not exist, automatically create it.
         :type SecurityGroupIds: list of str
         :param _EnhancedService: Enhanced services. You can use this parameter to specify whether to enable services such as Cloud Security and Cloud Monitor. If this parameter is not specified, Cloud Monitor and Cloud Security will be enabled by default.
         :type EnhancedService: :class:`tencentcloud.cvm.v20170312.models.EnhancedService`
@@ -9889,6 +10007,10 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
         :type TagSpecification: list of TagSpecification
         :param _InstanceMarketOptions: The market options of the instance.
         :type InstanceMarketOptions: :class:`tencentcloud.cvm.v20170312.models.InstanceMarketOptionsRequest`
+        :param _Metadata: Custom metadata, supports creating key-value pairs of custom metadata when creating a CVM.
+
+**Note: this field is in beta test.**.
+        :type Metadata: :class:`tencentcloud.cvm.v20170312.models.Metadata`
         :param _HpcClusterId: HPC cluster ID.
         :type HpcClusterId: str
         :param _CpuTopology: Information about the CPU topology of an instance. If not specified, it is determined by system resources.
@@ -9914,6 +10036,7 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
         self._HostName = None
         self._TagSpecification = None
         self._InstanceMarketOptions = None
+        self._Metadata = None
         self._HpcClusterId = None
         self._CpuTopology = None
         self._LaunchTemplate = None
@@ -9932,7 +10055,7 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
 
     @property
     def ImageId(self):
-        r"""[Image](https://intl.cloud.tencent.com/document/product/213/4940?from_cn_redirect=1) ID in the format of `img-xxx`. There are three types of images: <br/><li>Public images</li><li>Custom images</li><li>Shared images</li><br/>You can obtain the available image IDs in the following ways: <br/><li>For IDs of `public images`, `custom images`, and `shared images`, log in to the [CVM console](https://console.cloud.tencent.com/cvm/image?rid=1&imageType=PUBLIC_IMAGE) to query the information. </li><li>Call [DescribeImages](https://intl.cloud.tencent.com/document/api/213/15715?from_cn_redirect=1) and look for `ImageId` in the response.</li>
+        r"""[Image](https://intl.cloud.tencent.com/document/product/213/4940?from_cn_redirect=1) ID in the format of `img-xxx`. There are three types of images: <br/><li>Public images</li><li>Custom images</li><li>Shared images</li><br/>You can obtain the available image IDs in the following ways: <br/><li>For IDs of `public images`, `custom images`, and `shared images`, log in to the [CVM console](https://console.tencentcloud.com/cvm/image/index?rid=1&tab=PUBLIC_IMAGE&imageType=PUBLIC_IMAGE) to query the information. </li><li>Call [DescribeImages](https://intl.cloud.tencent.com/document/api/213/15715?from_cn_redirect=1) and look for `ImageId` in the response.</li>
  <b>Note: `ImageId` is required when `LaunchTemplate` is not specified. If both the parameters are passed in, `ImageId` prevails.</b>
         :rtype: str
         """
@@ -9966,7 +10089,8 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
 
     @property
     def InstanceType(self):
-        r"""The instance model. Different resource specifications are specified for different models. For specific values, call [DescribeInstanceTypeConfigs](https://intl.cloud.tencent.com/document/api/213/15749?from_cn_redirect=1) to retrieve the latest specification list or refer to [Instance Types](https://intl.cloud.tencent.com/document/product/213/11518?from_cn_redirect=1). If the parameter is not specified, `S1.SMALL1` will be used by default.
+        r"""Instance model. Different instance models specify different resource specifications.
+<br><li>For instances created with the payment modes PREPAID or POSTPAID_BY_HOUR, specifies the specific values obtained BY calling the [DescribeInstanceTypeConfig](https://www.tencentcloud.com/document/product/1119/45686?lang=en) api for the latest specification table or referring to [instance specifications](https://www.tencentcloud.com/document/product/213/11518). if not specified, the system will dynamically assign a default model based on the current resource sales situation in a region.</li><br><li>for instances created with the payment mode CDHPAID, indicates this parameter uses the prefix "CDH_" and is generated based on CPU and memory configuration. the specific format is: CDH_XCXG. for example, for creating a CDH instance with 1 CPU core and 1 gb memory, this parameter should be CDH_1C1G.</li>.
         :rtype: str
         """
         return self._InstanceType
@@ -9999,7 +10123,7 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
 
     @property
     def VirtualPrivateCloud(self):
-        r"""VPC configurations (VPC ID, subnet ID, etc). If it’s not specified, the classic network will be used by default. If a VPC IP is specified in this parameter, the `InstanceCount` can only be 1.
+        r"""VPC configurations (VPC ID, subnet ID, etc). If It's not specified, the classic network will be used by default. If a VPC IP is specified in this parameter, the `InstanceCount` can only be 1.
         :rtype: :class:`tencentcloud.cvm.v20170312.models.VirtualPrivateCloud`
         """
         return self._VirtualPrivateCloud
@@ -10010,7 +10134,7 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
 
     @property
     def InternetAccessible(self):
-        r"""Configuration of public network bandwidth. If it’s not specified, 0 Mbps is used by default.
+        r"""Configuration of public network bandwidth. If it's not specified, 0 Mbps is used by default.
         :rtype: :class:`tencentcloud.cvm.v20170312.models.InternetAccessible`
         """
         return self._InternetAccessible
@@ -10032,7 +10156,7 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
 
     @property
     def InstanceName(self):
-        r"""Instance name.<br><li>If this parameter is not specified, "Unnamed" will be displayed by default.</li><li>If you purchase multiple instances and specify a pattern string `{R:x}`, numbers `[x, x+n-1]` will be generated, where `n` represents the number of instances purchased. For example, you specify a pattern string `server_{R:3}`. If you purchase only one instance, the instance will be named `server_3`; if you purchase two, they will be named `server_3` and `server_4`. You can specify multiple pattern strings in the format of `{R:x}`.</li><li>If you purchase multiple instances without specifying a pattern string, the instance names will be suffixed with `1, 2...n`, where `n` represents the number of instances purchased. For example, if you purchase two instances with the name `server_`, the instance names will be `server_1` and `server_2`.</li><li>This parameter can contain up to 60 characters (including pattern strings).</li>
+        r"""Instance display name. <li>if no instance display name is specified, it will display 'unnamed' by default.</li> <li>when purchasing multiple instances, if the pattern string `{R:x}` is specified, it means generating numbers `[x, x+n-1]`, where `n` represents the number of purchased instances. for example, `server_{R:3}`: when purchasing 1 instance, the instance display name is `server_3`; when purchasing 2 instances, the instance display names are `server_3` and `server_4` respectively. supports specifying multiple pattern strings `{R:x}`.</li> <li>when purchasing multiple instances without specifying a pattern string, suffixes `1, 2...n` will be added to the instance display name, where `n` represents the number of purchased instances. for example, `server_`: when purchasing 2 instances, the instance display names are `server_1` and `server_2` respectively.</li> <li>supports up to 128 characters (including pattern strings).</li>.
         :rtype: str
         """
         return self._InstanceName
@@ -10054,7 +10178,7 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
 
     @property
     def SecurityGroupIds(self):
-        r"""Security groups to which the instance belongs. To obtain the security group IDs, you can call [DescribeSecurityGroups](https://intl.cloud.tencent.com/document/api/215/15808) and look for the `sgld` fields in the response. If this parameter is not specified, the instance will not be associated with any security group by default.
+        r"""Security group to which an instance belongs. obtain this parameter by calling the `SecurityGroupId` field in the return value of [DescribeSecurityGroups](https://www.tencentcloud.com/document/product/215/15808). if not specified, bind the default security group under the designated project. if the default security group does not exist, automatically create it.
         :rtype: list of str
         """
         return self._SecurityGroupIds
@@ -10117,6 +10241,19 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
     @InstanceMarketOptions.setter
     def InstanceMarketOptions(self, InstanceMarketOptions):
         self._InstanceMarketOptions = InstanceMarketOptions
+
+    @property
+    def Metadata(self):
+        r"""Custom metadata, supports creating key-value pairs of custom metadata when creating a CVM.
+
+**Note: this field is in beta test.**.
+        :rtype: :class:`tencentcloud.cvm.v20170312.models.Metadata`
+        """
+        return self._Metadata
+
+    @Metadata.setter
+    def Metadata(self, Metadata):
+        self._Metadata = Metadata
 
     @property
     def HpcClusterId(self):
@@ -10197,6 +10334,9 @@ class InquiryPriceRunInstancesRequest(AbstractModel):
         if params.get("InstanceMarketOptions") is not None:
             self._InstanceMarketOptions = InstanceMarketOptionsRequest()
             self._InstanceMarketOptions._deserialize(params.get("InstanceMarketOptions"))
+        if params.get("Metadata") is not None:
+            self._Metadata = Metadata()
+            self._Metadata._deserialize(params.get("Metadata"))
         self._HpcClusterId = params.get("HpcClusterId")
         if params.get("CpuTopology") is not None:
             self._CpuTopology = CpuTopology()
@@ -10274,9 +10414,9 @@ class Instance(AbstractModel):
         :type InstanceType: str
         :param _CPU: Number of CPU cores of the instance; unit: core
         :type CPU: int
-        :param _Memory: Memory capacity; unit: `GB`.
+        :param _Memory: Instance memory capacity. unit: GiB.
         :type Memory: int
-        :param _RestrictState: Instance status. Valid values: <br><li>NORMAL: instance is normal. <br><li>EXPIRED: instance expired. <br><li>PROTECTIVELY_ISOLATED: instance is protectively isolated.
+        :param _RestrictState: Instance business status. valid values:<br><li>NORMAL: indicates an instance in the NORMAL state</li><li>EXPIRED: indicates an EXPIRED instance</li><li>PROTECTIVELY_ISOLATED: PROTECTIVELY ISOLATED instance</li>.
         :type RestrictState: str
         :param _InstanceName: Instance name
         :type InstanceName: str
@@ -10297,8 +10437,8 @@ Note: This field may return null, indicating that no valid value is found.
         :type VirtualPrivateCloud: :class:`tencentcloud.cvm.v20170312.models.VirtualPrivateCloud`
         :param _ImageId: `ID` of the image used to create the instance.
         :type ImageId: str
-        :param _RenewFlag: Auto renewal flag. Valid values: <br><li>`NOTIFY_AND_MANUAL_RENEW`: notify upon expiration, but do not renew automatically <br><li>`NOTIFY_AND_AUTO_RENEW`: notify upon expiration and renew automatically <br><li>`DISABLE_NOTIFY_AND_MANUAL_RENEW`: do not notify upon expiration and do not renew automatically.
-<br><li>Note: this parameter is `null` for postpaid instances.
+        :param _RenewFlag: AUTO-Renewal flag. valid values:<br><li>`NOTIFY_AND_MANUAL_RENEW`: indicates that a notification of impending expiration is made but AUTO-renewal is not performed</li><li>`NOTIFY_AND_AUTO_RENEW`: indicates that a notification of impending expiration is made AND AUTO-renewal is performed</li><li>`DISABLE_NOTIFY_AND_MANUAL_RENEW`: indicates that notification that it is about to expire is not made AND AUTO-renewal is not performed.
+Note: this field is null in postpaid mode.
         :type RenewFlag: str
         :param _CreatedTime: Creation time following the `ISO8601` standard and using `UTC` time in the format of `YYYY-MM-DDThh:mm:ssZ`.
         :type CreatedTime: str
@@ -10310,23 +10450,24 @@ Note: This field may return null, indicating that no valid value is found.
         :type SecurityGroupIds: list of str
         :param _LoginSettings: Login settings of the instance. Currently only the key associated with the instance is returned.
         :type LoginSettings: :class:`tencentcloud.cvm.v20170312.models.LoginSettings`
-        :param _InstanceState: Instance state. Valid values: <br><li>PENDING: creating <br></li><li>LAUNCH_FAILED: creation failed <br></li><li>RUNNING: running <br></li><li>STOPPED: shut down <br></li><li>STARTING: starting <br></li><li>STOPPING: shutting down <br></li><li>REBOOTING: rebooting <br></li><li>SHUTDOWN: shut down and to be terminated <br></li><li>TERMINATING: terminating. <br></li>
+        :param _InstanceState: Instance status. for specific status types, see the  [instance status table](https://www.tencentcloud.com/document/product/213/15753#instancestatus)
         :type InstanceState: str
         :param _Tags: List of tags associated with the instance.
         :type Tags: list of Tag
-        :param _StopChargingMode: Instance billing method after shutdown.
-Valid values: <br><li>KEEP_CHARGING: billing continues after shutdown <br><li>STOP_CHARGING: billing stops after shutdown <li>NOT_APPLICABLE: the instance is not shut down or stopping billing after shutdown is not applicable to the instance. <br>
+        :param _StopChargingMode: Shutdown billing mode of an instance.
+
+Valid values: <br><li>KEEP_CHARGING: billing continues after shutdown</li><li>STOP_CHARGING: billing stops after shutdown</li><li>NOT_APPLICABLE: the instance is NOT shut down or stopping billing after shutdown is NOT APPLICABLE to the instance</li>.
         :type StopChargingMode: str
         :param _Uuid: Globally unique ID of the instance.
         :type Uuid: str
         :param _LatestOperation: Last operation of the instance, such as StopInstances or ResetInstance.
         :type LatestOperation: str
-        :param _LatestOperationState: The latest operation status of the instance. Valid values:<br><li>SUCCESS: operation succeeded<br><li>OPERATING: operation in progress<br><li>FAILED: operation failed
+        :param _LatestOperationState: The latest operation status of the instance. valid values:<br><li>SUCCESS: indicates that the operation succeeded</li><li>OPERATING: indicates that the operation is in progress</li><li>FAILED: indicates that the operation FAILED</li>.
+Note: This field may return null, indicating that no valid value is found.
         :type LatestOperationState: str
         :param _LatestOperationRequestId: Unique request ID for the last operation of the instance.
         :type LatestOperationRequestId: str
-        :param _DisasterRecoverGroupId: ID of a spread placement group.
-Note: this field may return null, indicating that no valid value is obtained.
+        :param _DisasterRecoverGroupId: Spread placement group ID.
         :type DisasterRecoverGroupId: str
         :param _IPv6Addresses: IPv6 address of the instance.
 Note: this field may return null, indicating that no valid value is obtained.
@@ -10334,23 +10475,20 @@ Note: this field may return null, indicating that no valid value is obtained.
         :param _CamRoleName: CAM role name.
 Note: this field may return null, indicating that no valid value is obtained.
         :type CamRoleName: str
-        :param _HpcClusterId: HPC cluster ID.
-Note: this field may return null, indicating that no valid value was found.
+        :param _HpcClusterId: High-performance computing cluster ID.
         :type HpcClusterId: str
         :param _RdmaIpAddresses: IP list of HPC cluster.
 Note: this field may return null, indicating that no valid value was found.
         :type RdmaIpAddresses: list of str
-        :param _DedicatedClusterId: 
+        :param _DedicatedClusterId: Dedicated cluster ID where the instance is located.
         :type DedicatedClusterId: str
-        :param _IsolatedSource: The isolation status of the instance. Valid values:<br><li>`ARREAR`: isolated due to overdue payment;<br></li><li>`EXPIRE`: isolated upon expiration;<br></li><li>`MANMADE`: isolated after manual returning;<br></li><li>`NOTISOLATED`: not isolated<br></li>
-Note: this field may return null, indicating that no valid value was found.
+        :param _IsolatedSource: Instance isolation type. valid values:<br><li>ARREAR: indicates arrears isolation<br></li><li>EXPIRE: indicates isolation upon expiration<br></li><li>MANMADE: indicates voluntarily refunded isolation<br></li><li>NOTISOLATED: indicates unisolated<br></li>.
         :type IsolatedSource: str
-        :param _GPUInfo: GPU information. This field is only returned for GPU instances.
-Note: this field may return null, indicating that no valid value was found.
+        :param _GPUInfo: GPU information. if it is a gpu type instance, this value will be returned. for other type instances, it does not return.
         :type GPUInfo: :class:`tencentcloud.cvm.v20170312.models.GPUInfo`
         :param _LicenseType: Instance OS license type. Default value: `TencentCloud`
         :type LicenseType: str
-        :param _DisableApiTermination: Whether the termination protection is enabled. Values: <br><li>`TRUE`: Enable instance protection, which means that this instance can not be deleted by an API action.<br><li>`FALSE`: Do not enable the instance protection.<br><br>Default value: `FALSE`.
+        :param _DisableApiTermination: Instance destruction protection flag indicates whether an instance is allowed to be deleted through an api. value ranges from:<br><li>true: indicates that instance protection is enabled, deletion through apis is not allowed</li><li>false: indicates that instance protection is disabled, allow passage</li><br>default value: false.
         :type DisableApiTermination: bool
         :param _DefaultLoginUser: Default login user
         :type DefaultLoginUser: str
@@ -10359,8 +10497,9 @@ Note: this field may return null, indicating that no valid value was found.
         :param _LatestOperationErrorMsg: Latest operation errors of the instance.
 Note: This field may return `null`, indicating that no valid values can be obtained.
         :type LatestOperationErrorMsg: str
-        :param _PublicIPv6Addresses: Public IPv6 address of the instance.
-Note: this field may return null, indicating that no valid value was found.
+        :param _Metadata: Custom metadata. this parameter corresponds to the metadata information specified when creating a CVM. **note: in beta test**.
+        :type Metadata: :class:`tencentcloud.cvm.v20170312.models.Metadata`
+        :param _PublicIPv6Addresses: Specifies the public IPv6 address bound to the instance.
         :type PublicIPv6Addresses: list of str
         """
         self._Placement = None
@@ -10404,6 +10543,7 @@ Note: this field may return null, indicating that no valid value was found.
         self._DefaultLoginUser = None
         self._DefaultLoginPort = None
         self._LatestOperationErrorMsg = None
+        self._Metadata = None
         self._PublicIPv6Addresses = None
 
     @property
@@ -10452,7 +10592,7 @@ Note: this field may return null, indicating that no valid value was found.
 
     @property
     def Memory(self):
-        r"""Memory capacity; unit: `GB`.
+        r"""Instance memory capacity. unit: GiB.
         :rtype: int
         """
         return self._Memory
@@ -10463,7 +10603,7 @@ Note: this field may return null, indicating that no valid value was found.
 
     @property
     def RestrictState(self):
-        r"""Instance status. Valid values: <br><li>NORMAL: instance is normal. <br><li>EXPIRED: instance expired. <br><li>PROTECTIVELY_ISOLATED: instance is protectively isolated.
+        r"""Instance business status. valid values:<br><li>NORMAL: indicates an instance in the NORMAL state</li><li>EXPIRED: indicates an EXPIRED instance</li><li>PROTECTIVELY_ISOLATED: PROTECTIVELY ISOLATED instance</li>.
         :rtype: str
         """
         return self._RestrictState
@@ -10574,8 +10714,8 @@ Note: This field may return null, indicating that no valid value is found.
 
     @property
     def RenewFlag(self):
-        r"""Auto renewal flag. Valid values: <br><li>`NOTIFY_AND_MANUAL_RENEW`: notify upon expiration, but do not renew automatically <br><li>`NOTIFY_AND_AUTO_RENEW`: notify upon expiration and renew automatically <br><li>`DISABLE_NOTIFY_AND_MANUAL_RENEW`: do not notify upon expiration and do not renew automatically.
-<br><li>Note: this parameter is `null` for postpaid instances.
+        r"""AUTO-Renewal flag. valid values:<br><li>`NOTIFY_AND_MANUAL_RENEW`: indicates that a notification of impending expiration is made but AUTO-renewal is not performed</li><li>`NOTIFY_AND_AUTO_RENEW`: indicates that a notification of impending expiration is made AND AUTO-renewal is performed</li><li>`DISABLE_NOTIFY_AND_MANUAL_RENEW`: indicates that notification that it is about to expire is not made AND AUTO-renewal is not performed.
+Note: this field is null in postpaid mode.
         :rtype: str
         """
         return self._RenewFlag
@@ -10641,7 +10781,7 @@ Note: This field may return null, indicating that no valid value is found.
 
     @property
     def InstanceState(self):
-        r"""Instance state. Valid values: <br><li>PENDING: creating <br></li><li>LAUNCH_FAILED: creation failed <br></li><li>RUNNING: running <br></li><li>STOPPED: shut down <br></li><li>STARTING: starting <br></li><li>STOPPING: shutting down <br></li><li>REBOOTING: rebooting <br></li><li>SHUTDOWN: shut down and to be terminated <br></li><li>TERMINATING: terminating. <br></li>
+        r"""Instance status. for specific status types, see the  [instance status table](https://www.tencentcloud.com/document/product/213/15753#instancestatus)
         :rtype: str
         """
         return self._InstanceState
@@ -10663,8 +10803,9 @@ Note: This field may return null, indicating that no valid value is found.
 
     @property
     def StopChargingMode(self):
-        r"""Instance billing method after shutdown.
-Valid values: <br><li>KEEP_CHARGING: billing continues after shutdown <br><li>STOP_CHARGING: billing stops after shutdown <li>NOT_APPLICABLE: the instance is not shut down or stopping billing after shutdown is not applicable to the instance. <br>
+        r"""Shutdown billing mode of an instance.
+
+Valid values: <br><li>KEEP_CHARGING: billing continues after shutdown</li><li>STOP_CHARGING: billing stops after shutdown</li><li>NOT_APPLICABLE: the instance is NOT shut down or stopping billing after shutdown is NOT APPLICABLE to the instance</li>.
         :rtype: str
         """
         return self._StopChargingMode
@@ -10697,7 +10838,8 @@ Valid values: <br><li>KEEP_CHARGING: billing continues after shutdown <br><li>ST
 
     @property
     def LatestOperationState(self):
-        r"""The latest operation status of the instance. Valid values:<br><li>SUCCESS: operation succeeded<br><li>OPERATING: operation in progress<br><li>FAILED: operation failed
+        r"""The latest operation status of the instance. valid values:<br><li>SUCCESS: indicates that the operation succeeded</li><li>OPERATING: indicates that the operation is in progress</li><li>FAILED: indicates that the operation FAILED</li>.
+Note: This field may return null, indicating that no valid value is found.
         :rtype: str
         """
         return self._LatestOperationState
@@ -10719,8 +10861,7 @@ Valid values: <br><li>KEEP_CHARGING: billing continues after shutdown <br><li>ST
 
     @property
     def DisasterRecoverGroupId(self):
-        r"""ID of a spread placement group.
-Note: this field may return null, indicating that no valid value is obtained.
+        r"""Spread placement group ID.
         :rtype: str
         """
         return self._DisasterRecoverGroupId
@@ -10755,8 +10896,7 @@ Note: this field may return null, indicating that no valid value is obtained.
 
     @property
     def HpcClusterId(self):
-        r"""HPC cluster ID.
-Note: this field may return null, indicating that no valid value was found.
+        r"""High-performance computing cluster ID.
         :rtype: str
         """
         return self._HpcClusterId
@@ -10779,7 +10919,7 @@ Note: this field may return null, indicating that no valid value was found.
 
     @property
     def DedicatedClusterId(self):
-        r"""
+        r"""Dedicated cluster ID where the instance is located.
         :rtype: str
         """
         return self._DedicatedClusterId
@@ -10790,8 +10930,7 @@ Note: this field may return null, indicating that no valid value was found.
 
     @property
     def IsolatedSource(self):
-        r"""The isolation status of the instance. Valid values:<br><li>`ARREAR`: isolated due to overdue payment;<br></li><li>`EXPIRE`: isolated upon expiration;<br></li><li>`MANMADE`: isolated after manual returning;<br></li><li>`NOTISOLATED`: not isolated<br></li>
-Note: this field may return null, indicating that no valid value was found.
+        r"""Instance isolation type. valid values:<br><li>ARREAR: indicates arrears isolation<br></li><li>EXPIRE: indicates isolation upon expiration<br></li><li>MANMADE: indicates voluntarily refunded isolation<br></li><li>NOTISOLATED: indicates unisolated<br></li>.
         :rtype: str
         """
         return self._IsolatedSource
@@ -10802,8 +10941,7 @@ Note: this field may return null, indicating that no valid value was found.
 
     @property
     def GPUInfo(self):
-        r"""GPU information. This field is only returned for GPU instances.
-Note: this field may return null, indicating that no valid value was found.
+        r"""GPU information. if it is a gpu type instance, this value will be returned. for other type instances, it does not return.
         :rtype: :class:`tencentcloud.cvm.v20170312.models.GPUInfo`
         """
         return self._GPUInfo
@@ -10825,7 +10963,7 @@ Note: this field may return null, indicating that no valid value was found.
 
     @property
     def DisableApiTermination(self):
-        r"""Whether the termination protection is enabled. Values: <br><li>`TRUE`: Enable instance protection, which means that this instance can not be deleted by an API action.<br><li>`FALSE`: Do not enable the instance protection.<br><br>Default value: `FALSE`.
+        r"""Instance destruction protection flag indicates whether an instance is allowed to be deleted through an api. value ranges from:<br><li>true: indicates that instance protection is enabled, deletion through apis is not allowed</li><li>false: indicates that instance protection is disabled, allow passage</li><br>default value: false.
         :rtype: bool
         """
         return self._DisableApiTermination
@@ -10869,9 +11007,19 @@ Note: This field may return `null`, indicating that no valid values can be obtai
         self._LatestOperationErrorMsg = LatestOperationErrorMsg
 
     @property
+    def Metadata(self):
+        r"""Custom metadata. this parameter corresponds to the metadata information specified when creating a CVM. **note: in beta test**.
+        :rtype: :class:`tencentcloud.cvm.v20170312.models.Metadata`
+        """
+        return self._Metadata
+
+    @Metadata.setter
+    def Metadata(self, Metadata):
+        self._Metadata = Metadata
+
+    @property
     def PublicIPv6Addresses(self):
-        r"""Public IPv6 address of the instance.
-Note: this field may return null, indicating that no valid value was found.
+        r"""Specifies the public IPv6 address bound to the instance.
         :rtype: list of str
         """
         return self._PublicIPv6Addresses
@@ -10945,6 +11093,9 @@ Note: this field may return null, indicating that no valid value was found.
         self._DefaultLoginUser = params.get("DefaultLoginUser")
         self._DefaultLoginPort = params.get("DefaultLoginPort")
         self._LatestOperationErrorMsg = params.get("LatestOperationErrorMsg")
+        if params.get("Metadata") is not None:
+            self._Metadata = Metadata()
+            self._Metadata._deserialize(params.get("Metadata"))
         self._PublicIPv6Addresses = params.get("PublicIPv6Addresses")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -11623,29 +11774,34 @@ class InternetAccessible(AbstractModel):
         :type PublicIpAssigned: bool
         :param _BandwidthPackageId: Bandwidth package ID. it can be obtained through the `BandwidthPackageId` in the return value from the DescribeBandwidthPackages api. this parameter is used as an input parameter only in the RunInstances api.
         :type BandwidthPackageId: str
-        :param _InternetServiceProvider: Describes the line type. for details, refer to [EIP IP address types](https://www.tencentcloud.com/zh/document/product/213/5733). default value: `BGP`.
- <li>BGP Default: BGP</li>
-For a user who has activated the static single-line IP allowlist, possible values are:
- <li>CMCC: China Mobile</li> <li>CTCC: China Telecom</li> <li>CUCC: China Unicom</li>
-Note: Only certain regions support static single-line IP addresses.
+        :param _InternetServiceProvider: Line type. for details on various types of lines and supported regions, refer to [EIP IP address types](https://cloud.tencent.com/document/product/1199/41646). default value: BGP.
+<Li>BGP: specifies the general bgp line.</li>.
+For a user with static single-line IP allowlist enabled, valid values include:.
+<Li>CMCC: china mobile.</li>.
+<Li>CTCC: china telecom</li>.
+<Li>CUCC: china unicom</li>.
+Note: The static single-line IP is only supported in some regions.
+
+
         :type InternetServiceProvider: str
-        :param _IPv4AddressType: Type of public IP address.
+        :param _IPv4AddressType: Specifies the public IP type.
 
-<li> WanIP: Ordinary public IP address. </li> <li> HighQualityEIP: High Quality EIP is supported only in Singapore and Hong Kong. </li> <li> AntiDDoSEIP: Anti-DDoS IP is supported only in specific regions. For details, see [EIP Product Overview](https://www.tencentcloud.com/zh/document/product/213/5733). </li> 
-Specify the type of public IPv4 address to assign a public IPv4 address to the resource. HighQualityEIP and AntiDDoSEIP features are gradually released in select regions.
-This feature is currently in gradually released phase. To access it, please [contact us](https://console.tencentcloud.com/workorder).
+<Li>WanIP: specifies the public ip address.</li>.
+<Li>HighQualityEIP: specifies a high quality ip. high quality ip is only supported in Singapore and hong kong (china).</li>.
+<li> AntiDDoSEIP: specifies the anti-ddos eip. only partial regions support anti-ddos eip. details visible in the [elastic IP product overview](https://www.tencentcloud.comom/document/product/1199/41646?from_cn_redirect=1).</li>.
+If needed, assign a public IPv4 address to the resource by specifying the IPv4 address type.
+
+This feature is in beta test in selected regions. submit a ticket for consultation (https://console.cloud.tencent.com/workorder/category) if needed.
         :type IPv4AddressType: str
-        :param _IPv6AddressType: Indicates the type of EIPv6. Valid values:
+        :param _IPv6AddressType: Indicates the type of elastic public IPv6.
+<Li>EIPv6: elastic ip version 6.</li>.
+<Li>HighQualityEIPv6: specifies the high quality ipv6. highqualityeipv6 is only supported in hong kong (china).</li>.
+If needed, assign an elastic IPv6 address for resource allocation.
 
-<li>EIPv6: common IPv6</li>
-<li>HighQualityEIPv6: High Quality EIPv6</li>
-Note: Contact the product team to enable the dedicated IPv6 allowlist. The dedicated IPv6 is only supported in some regions. 
-
-Default: `EIPv6`
-
-This feature is currently in gradually released phase. To access it, please [contact us](https://console.tencentcloud.com/workorder).
+This feature is in beta test in selected regions. submit a ticket for consultation (https://console.cloud.tencent.com/workorder/category) if needed.
         :type IPv6AddressType: str
-        :param _AntiDDoSPackageId: Anti-DDoS service package ID. This is required when you want to request an Anti-DDoS IP.
+        :param _AntiDDoSPackageId: DDoS protection package unique ID. this field is required when applying for a ddos protection IP.
+
         :type AntiDDoSPackageId: str
         """
         self._InternetChargeType = None
@@ -11706,11 +11862,15 @@ This feature is currently in gradually released phase. To access it, please [con
 
     @property
     def InternetServiceProvider(self):
-        r"""Describes the line type. for details, refer to [EIP IP address types](https://www.tencentcloud.com/zh/document/product/213/5733). default value: `BGP`.
- <li>BGP Default: BGP</li>
-For a user who has activated the static single-line IP allowlist, possible values are:
- <li>CMCC: China Mobile</li> <li>CTCC: China Telecom</li> <li>CUCC: China Unicom</li>
-Note: Only certain regions support static single-line IP addresses.
+        r"""Line type. for details on various types of lines and supported regions, refer to [EIP IP address types](https://cloud.tencent.com/document/product/1199/41646). default value: BGP.
+<Li>BGP: specifies the general bgp line.</li>.
+For a user with static single-line IP allowlist enabled, valid values include:.
+<Li>CMCC: china mobile.</li>.
+<Li>CTCC: china telecom</li>.
+<Li>CUCC: china unicom</li>.
+Note: The static single-line IP is only supported in some regions.
+
+
         :rtype: str
         """
         return self._InternetServiceProvider
@@ -11721,11 +11881,14 @@ Note: Only certain regions support static single-line IP addresses.
 
     @property
     def IPv4AddressType(self):
-        r"""Type of public IP address.
+        r"""Specifies the public IP type.
 
-<li> WanIP: Ordinary public IP address. </li> <li> HighQualityEIP: High Quality EIP is supported only in Singapore and Hong Kong. </li> <li> AntiDDoSEIP: Anti-DDoS IP is supported only in specific regions. For details, see [EIP Product Overview](https://www.tencentcloud.com/zh/document/product/213/5733). </li> 
-Specify the type of public IPv4 address to assign a public IPv4 address to the resource. HighQualityEIP and AntiDDoSEIP features are gradually released in select regions.
-This feature is currently in gradually released phase. To access it, please [contact us](https://console.tencentcloud.com/workorder).
+<Li>WanIP: specifies the public ip address.</li>.
+<Li>HighQualityEIP: specifies a high quality ip. high quality ip is only supported in Singapore and hong kong (china).</li>.
+<li> AntiDDoSEIP: specifies the anti-ddos eip. only partial regions support anti-ddos eip. details visible in the [elastic IP product overview](https://www.tencentcloud.comom/document/product/1199/41646?from_cn_redirect=1).</li>.
+If needed, assign a public IPv4 address to the resource by specifying the IPv4 address type.
+
+This feature is in beta test in selected regions. submit a ticket for consultation (https://console.cloud.tencent.com/workorder/category) if needed.
         :rtype: str
         """
         return self._IPv4AddressType
@@ -11736,15 +11899,12 @@ This feature is currently in gradually released phase. To access it, please [con
 
     @property
     def IPv6AddressType(self):
-        r"""Indicates the type of EIPv6. Valid values:
+        r"""Indicates the type of elastic public IPv6.
+<Li>EIPv6: elastic ip version 6.</li>.
+<Li>HighQualityEIPv6: specifies the high quality ipv6. highqualityeipv6 is only supported in hong kong (china).</li>.
+If needed, assign an elastic IPv6 address for resource allocation.
 
-<li>EIPv6: common IPv6</li>
-<li>HighQualityEIPv6: High Quality EIPv6</li>
-Note: Contact the product team to enable the dedicated IPv6 allowlist. The dedicated IPv6 is only supported in some regions. 
-
-Default: `EIPv6`
-
-This feature is currently in gradually released phase. To access it, please [contact us](https://console.tencentcloud.com/workorder).
+This feature is in beta test in selected regions. submit a ticket for consultation (https://console.cloud.tencent.com/workorder/category) if needed.
         :rtype: str
         """
         return self._IPv6AddressType
@@ -11755,7 +11915,8 @@ This feature is currently in gradually released phase. To access it, please [con
 
     @property
     def AntiDDoSPackageId(self):
-        r"""Anti-DDoS service package ID. This is required when you want to request an Anti-DDoS IP.
+        r"""DDoS protection package unique ID. this field is required when applying for a ddos protection IP.
+
         :rtype: str
         """
         return self._AntiDDoSPackageId
@@ -13324,10 +13485,9 @@ class MetadataItem(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Key: Custom metadata key. it must comply with the regular expression ^[a-zA-Z0-9_-]+$. the length is less than or equal to 128 bytes (case-sensitive).
-
+        :param _Key: Custom metadata key, consisting of uppercase letters (A-Z), lowercase letters (A-Z), digits (0-9), underscores (_), or hyphens (-), with a size limit of 128 bytes.
         :type Key: str
-        :param _Value: Specifies a custom metadata value. it supports any data . The size is &le; 256 KB. it is case-sensitive.
+        :param _Value: Custom metadata value. The upper limit of message size is 256 KB.
         :type Value: str
         """
         self._Key = None
@@ -13335,8 +13495,7 @@ class MetadataItem(AbstractModel):
 
     @property
     def Key(self):
-        r"""Custom metadata key. it must comply with the regular expression ^[a-zA-Z0-9_-]+$. the length is less than or equal to 128 bytes (case-sensitive).
-
+        r"""Custom metadata key, consisting of uppercase letters (A-Z), lowercase letters (A-Z), digits (0-9), underscores (_), or hyphens (-), with a size limit of 128 bytes.
         :rtype: str
         """
         return self._Key
@@ -13347,7 +13506,7 @@ class MetadataItem(AbstractModel):
 
     @property
     def Value(self):
-        r"""Specifies a custom metadata value. it supports any data . The size is &le; 256 KB. it is case-sensitive.
+        r"""Custom metadata value. The upper limit of message size is 256 KB.
         :rtype: str
         """
         return self._Value
@@ -13922,14 +14081,13 @@ class ModifyInstancesAttributeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceIds: Instance ID(s). To obtain the instance IDs, you can call [`DescribeInstances`](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) and look for `InstanceId` in the response. The maximum number of instances in each request is 100.
+        :param _InstanceIds: Instance ID(s). To obtain the instance IDs, you can call [DescribeInstances](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) and look for `InstanceId` in the response. The maximum number of instances in each request is 100.
         :type InstanceIds: list of str
-        :param _InstanceName: The instance name, which can not exceed 60 characters
-<dx-alert infotype="explain" title="">Either `InstanceName` or `SecurityGroups` must be specified, but they can not be both specified.</dx-alert>
+        :param _InstanceName: Modified instance name. can be named as required but should not exceed 128 characters.
         :type InstanceName: str
         :param _UserData: User data provided to an instance, which needs to be encoded in Base64 format with a maximum size of 16 KB. For details on obtaining this parameter, refer to the startup commands for [Windows](https://intl.cloud.tencent.com/document/product/213/17526?from_cn_redirect=1) and [Linux](https://intl.cloud.tencent.com/document/product/213/17525?from_cn_redirect=1).
         :type UserData: str
-        :param _SecurityGroups: IDs of security groups associated with the specified instance. You can associate with a security group by adding its ID, or cancel the association with a security group by removing its ID. <dx-alert infotype="explain" title="">Either `InstanceName` or `SecurityGroups` must be specified, but they cannot be both set.</dx-alert>
+        :param _SecurityGroups: Specifies the security group Id list of the specified instance after modification. the instance will reassociate with the security groups in the specified list, and the associated security group will be unbound.
         :type SecurityGroups: list of str
         :param _CamRoleName: The role bound with the instance. If it is not specified, it indicates to unbind the current role of the CVM.
         :type CamRoleName: str
@@ -13937,9 +14095,9 @@ class ModifyInstancesAttributeRequest(AbstractModel):
         :type HostName: str
         :param _DisableApiTermination: Instance termination protection flag, indicating whether an instance is allowed to be deleted through an API. Valid values:<li>true: Instance protection is enabled, and the instance is not allowed to be deleted through the API.</li><li>false: Instance protection is disabled, and the instance is allowed to be deleted through the API.</li>Default value: false.
         :type DisableApiTermination: bool
-        :param _CamRoleType: The role type, which is used in conjunction with `CamRoleName`. The value is obtained in `RoleType` field, returning by `CAM DescribeRoleList` and `GetRole` APIs. Valid value: `user`, `system` and `service_linked`.
-For example, when `LinkedRoleIn` is contained in `CamRoleName` (such as `TKE_QCSLinkedRoleInPrometheusService`), the returned `RoleType` of `DescribeRoleList` and `GetRoleis` is `service_linked`, and the `CamRoleType` `service_linked`.
-When the value obtained in `RoleType` is `user` (default) or `system`, `CamRoleType` can be left empty.
+        :param _CamRoleType: Role type, used in conjunction with CamRoleName. this value can be obtained from the RoleType field in the API response of CAM [DescribeRoleList](https://www.tencentcloud.com/document/product/1219/67889) or [GetRole](https://www.tencentcloud.com/document/product/598/33557?lang=en). currently, only user, system, and service_linked types are accepted.
+For example, when CamRoleName contains "LinkedRoleIn" (such as TKE_QCSLinkedRoleInPrometheusService), DescribeRoleList and GetRole return RoleType as service_linked, this parameter must also transmit service_linked.
+The parameter default value is user. this parameter can be omitted if CameRoleName is not of the service_linked kind.
         :type CamRoleType: str
         :param _AutoReboot: Whether to automatically restart an instance when modifying a hostname. If not specified, the instance will automatically restart by default.
 - true: Modify the hostname and automatically restart the instance.
@@ -13959,7 +14117,7 @@ Note: This parameter is valid only when a hostname is modified.
 
     @property
     def InstanceIds(self):
-        r"""Instance ID(s). To obtain the instance IDs, you can call [`DescribeInstances`](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) and look for `InstanceId` in the response. The maximum number of instances in each request is 100.
+        r"""Instance ID(s). To obtain the instance IDs, you can call [DescribeInstances](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) and look for `InstanceId` in the response. The maximum number of instances in each request is 100.
         :rtype: list of str
         """
         return self._InstanceIds
@@ -13970,8 +14128,7 @@ Note: This parameter is valid only when a hostname is modified.
 
     @property
     def InstanceName(self):
-        r"""The instance name, which can not exceed 60 characters
-<dx-alert infotype="explain" title="">Either `InstanceName` or `SecurityGroups` must be specified, but they can not be both specified.</dx-alert>
+        r"""Modified instance name. can be named as required but should not exceed 128 characters.
         :rtype: str
         """
         return self._InstanceName
@@ -13993,7 +14150,7 @@ Note: This parameter is valid only when a hostname is modified.
 
     @property
     def SecurityGroups(self):
-        r"""IDs of security groups associated with the specified instance. You can associate with a security group by adding its ID, or cancel the association with a security group by removing its ID. <dx-alert infotype="explain" title="">Either `InstanceName` or `SecurityGroups` must be specified, but they cannot be both set.</dx-alert>
+        r"""Specifies the security group Id list of the specified instance after modification. the instance will reassociate with the security groups in the specified list, and the associated security group will be unbound.
         :rtype: list of str
         """
         return self._SecurityGroups
@@ -14037,9 +14194,9 @@ Note: This parameter is valid only when a hostname is modified.
 
     @property
     def CamRoleType(self):
-        r"""The role type, which is used in conjunction with `CamRoleName`. The value is obtained in `RoleType` field, returning by `CAM DescribeRoleList` and `GetRole` APIs. Valid value: `user`, `system` and `service_linked`.
-For example, when `LinkedRoleIn` is contained in `CamRoleName` (such as `TKE_QCSLinkedRoleInPrometheusService`), the returned `RoleType` of `DescribeRoleList` and `GetRoleis` is `service_linked`, and the `CamRoleType` `service_linked`.
-When the value obtained in `RoleType` is `user` (default) or `system`, `CamRoleType` can be left empty.
+        r"""Role type, used in conjunction with CamRoleName. this value can be obtained from the RoleType field in the API response of CAM [DescribeRoleList](https://www.tencentcloud.com/document/product/1219/67889) or [GetRole](https://www.tencentcloud.com/document/product/598/33557?lang=en). currently, only user, system, and service_linked types are accepted.
+For example, when CamRoleName contains "LinkedRoleIn" (such as TKE_QCSLinkedRoleInPrometheusService), DescribeRoleList and GetRole return RoleType as service_linked, this parameter must also transmit service_linked.
+The parameter default value is user. this parameter can be omitted if CameRoleName is not of the service_linked kind.
         :rtype: str
         """
         return self._CamRoleType
@@ -14118,7 +14275,7 @@ class ModifyInstancesChargeTypeRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceIds: One or more instance ids to be operated. you can obtain the instance ID through the `InstanceId` in the return value from the api [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). the maximum number of instances per request is 30.
+        :param _InstanceIds: One or more instance ids to be operated. you can obtain the instance ID through the `InstanceId` in the return value from the api [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). the maximum number of instances per request is 20.
         :type InstanceIds: list of str
         :param _InstanceChargeType: Modified instance [billing type](https://www.tencentcloud.com/document/product/213/2180?from_cn_redirect=1). <li>`PREPAID`: monthly subscription.</li> 
 **Note:** Only supports converting pay-as-you-go instances to annual and monthly subscription instances.
@@ -14137,7 +14294,7 @@ default value: `PREPAID`
 
     @property
     def InstanceIds(self):
-        r"""One or more instance ids to be operated. you can obtain the instance ID through the `InstanceId` in the return value from the api [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). the maximum number of instances per request is 30.
+        r"""One or more instance ids to be operated. you can obtain the instance ID through the `InstanceId` in the return value from the api [DescribeInstances](https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1). the maximum number of instances per request is 20.
         :rtype: list of str
         """
         return self._InstanceIds
@@ -14920,9 +15077,9 @@ class Placement(AbstractModel):
         r"""
         :param _Zone: ID of the availability zone where the instance resides. You can call the [DescribeZones](https://intl.cloud.tencent.com/document/product/213/35071) API and obtain the ID in the returned `Zone` field.
         :type Zone: str
-        :param _ProjectId: ID of the project to which the instance belongs. This parameter can be obtained from the `projectId` returned by [DescribeProject](https://intl.cloud.tencent.com/document/api/651/78725?from_cn_redirect=1). If this is left empty, the default project is used.
+        :param _ProjectId: Instance'S project ID. obtain this parameter by calling the `ProjectId` field in the return value of [DescribeProjects](https://www.tencentcloud.com/document/product/651/54679). default value 0 means default project.
         :type ProjectId: int
-        :param _HostIds: ID list of CDHs from which the instance can be created. If you have purchased CDHs and specify this parameter, the instances you purchase will be randomly deployed on the CDHs.
+        :param _HostIds: Specifies the dedicated host ID list for instance ownership, only used for input parameters. if you purchase a dedicated host and specify this parameter, instances you purchase will be randomly deployed on these dedicated hosts. obtain this parameter by calling the `HostId` field in the return value of [DescribeHosts](https://www.tencentcloud.com/document/product/213/33279?lang=en).
         :type HostIds: list of str
         :param _HostId: The ID of the CDH to which the instance belongs, only used as an output parameter.
         :type HostId: str
@@ -14945,7 +15102,7 @@ class Placement(AbstractModel):
 
     @property
     def ProjectId(self):
-        r"""ID of the project to which the instance belongs. This parameter can be obtained from the `projectId` returned by [DescribeProject](https://intl.cloud.tencent.com/document/api/651/78725?from_cn_redirect=1). If this is left empty, the default project is used.
+        r"""Instance'S project ID. obtain this parameter by calling the `ProjectId` field in the return value of [DescribeProjects](https://www.tencentcloud.com/document/product/651/54679). default value 0 means default project.
         :rtype: int
         """
         return self._ProjectId
@@ -14956,7 +15113,7 @@ class Placement(AbstractModel):
 
     @property
     def HostIds(self):
-        r"""ID list of CDHs from which the instance can be created. If you have purchased CDHs and specify this parameter, the instances you purchase will be randomly deployed on the CDHs.
+        r"""Specifies the dedicated host ID list for instance ownership, only used for input parameters. if you purchase a dedicated host and specify this parameter, instances you purchase will be randomly deployed on these dedicated hosts. obtain this parameter by calling the `HostId` field in the return value of [DescribeHosts](https://www.tencentcloud.com/document/product/213/33279?lang=en).
         :rtype: list of str
         """
         return self._HostIds
@@ -15062,7 +15219,7 @@ class PurchaseReservedInstancesOfferingRequest(AbstractModel):
         :type DryRun: bool
         :param _ClientToken: A unique string supplied by the client to ensure that the request is idempotent. Its maximum length is 64 ASCII characters. If this parameter is not specified, the idempotency of the request cannot be guaranteed.<br>For more information, see Ensuring Idempotency.
         :type ClientToken: str
-        :param _ReservedInstanceName: Reserved instance name.<br><li>The RI name defaults to “unnamed” if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
+        :param _ReservedInstanceName: Reserved instance name.<br><li>The RI name defaults to "unnamed" if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
         :type ReservedInstanceName: str
         """
         self._InstanceCount = None
@@ -15117,7 +15274,7 @@ class PurchaseReservedInstancesOfferingRequest(AbstractModel):
 
     @property
     def ReservedInstanceName(self):
-        r"""Reserved instance name.<br><li>The RI name defaults to “unnamed” if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
+        r"""Reserved instance name.<br><li>The RI name defaults to "unnamed" if this parameter is left empty.</li><li>You can enter any name within 60 characters (including the pattern string).</li>
         :rtype: str
         """
         return self._ReservedInstanceName
@@ -15481,7 +15638,7 @@ class RenewInstancesRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceIds: One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.comom/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 100.
+        :param _InstanceIds: One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/document/api/213/33258). The maximum number of instances per request is 100.
         :type InstanceIds: list of str
         :param _InstanceChargePrepaid: Prepaid mode, that is, parameter settings related to monthly/annual subscription. specifies attributes of a monthly subscription instance, such as renewal duration and whether to enable auto-renewal, by specifying this parameter. <dx-alert infotype="explain" title="">.
 Annual and monthly subscription instances. this parameter is a required parameter.</dx-alert>.
@@ -15495,7 +15652,7 @@ Annual and monthly subscription instances. this parameter is a required paramete
 
     @property
     def InstanceIds(self):
-        r"""One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.comom/document/api/213/15728?from_cn_redirect=1). The maximum number of instances per request is 100.
+        r"""One or more instance IDs to be operated. You can obtain the instance ID through the `InstanceId` in the return value from the API [DescribeInstances](https://www.tencentcloud.com/document/api/213/33258). The maximum number of instances per request is 100.
         :rtype: list of str
         """
         return self._InstanceIds
@@ -17154,15 +17311,14 @@ class ResizeInstanceDisksRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _InstanceId: Instance ID. To obtain the instance IDs, you can call [`DescribeInstances`](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) and look for `InstanceId` in the response.
+        :param _InstanceId: Instance ID to be operated. can be obtained from the `InstanceId` in the return value from the DescribeInstances api (https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1).
         :type InstanceId: str
-        :param _DataDisks: Configuration information of a data disk to be expanded. Only inelastic data disks (with `Portable` being `false` in the return values of [DescribeDisks](https://intl.cloud.tencent.com/document/api/362/16315?from_cn_redirect=1)) can be expanded. The unit of data disk capacity is GB. The minimum expansion step is 10 GB. For more information about data disk types, refer to [Disk Product Introduction](https://intl.cloud.tencent.com/document/product/362/2353?from_cn_redirect=1). The available data disk type is restricted by the instance type `InstanceType`. Additionally, the maximum allowable capacity for expansion varies by data disk type.
+        :param _DataDisks: Specifies the configuration information of the data disk to be expanded, only supporting specifying the target capacity of the disk to be expanded. only non-elastic data disks (with `Portable` being `false` in the return values of [DescribeDisks](https://www.tencentcloud.com/document/api/362/16315?from_cn_redirect=1)) can be expanded. the unit of data disk capacity is GiB. the minimum expansion step is 10 GiB. for data disk type selection, refer to [disk product introduction](https://www.tencentcloud.com/document/product/362/2353?from_cn_redirect=1). the available data disk type is restricted by the instance type `InstanceType`. additionally, the maximum allowable capacity for expansion varies by data disk type.
 <dx-alert infotype="explain" title="">You should specify either DataDisks or SystemDisk, but you cannot specify both at the same time.</dx-alert>
         :type DataDisks: list of DataDisk
-        :param _ForceStop: Whether to forcibly shut down a running instance. It is recommended to manually shut down a running instance first and then reset the user password. Valid values:<br><li>true: Forcibly shut down an instance after a normal shutdown fails.</li><br><li>false: Do not forcibly shut down an instance after a normal shutdown fails.</li><br><br>Default value: false.<br><br>Forced shutdown is equivalent to turning off a physical computer's power switch. Forced shutdown may cause data loss or file system corruption and should only be used when a server cannot be shut down normally.
+        :param _ForceStop: Specifies whether to forcibly shut down a running instance. it is recommended to manually shut down a running instance first and then expand the instance disk. valid values:<br><li>true: forcibly shut down an instance after a normal shutdown fails.</li><br><li>false: do not forcibly shut down an instance after a normal shutdown fails.</li><br><br>default value: false.<br><br>forced shutdown is equivalent to turning off a physical computer's power switch. forced shutdown may cause data loss or file system corruption and should only be used when a server cannot be shut down normally.
         :type ForceStop: bool
-        :param _SystemDisk: Configuration information of a system disk to be expanded. Only cloud disks can be expanded.
-
+        :param _SystemDisk: System disk configuration information to be expanded. only supports specifying the purpose capacity of the disk to be expanded. only supports cloud disk expansion.
 <dx-alert infotype="explain" title="">You should specify either DataDisks or SystemDisk, but you cannot specify both at the same time.</dx-alert>
         :type SystemDisk: :class:`tencentcloud.cvm.v20170312.models.SystemDisk`
         :param _ResizeOnline: Whether the cloud disk is expanded online.
@@ -17176,7 +17332,7 @@ class ResizeInstanceDisksRequest(AbstractModel):
 
     @property
     def InstanceId(self):
-        r"""Instance ID. To obtain the instance IDs, you can call [`DescribeInstances`](https://intl.cloud.tencent.com/document/api/213/15728?from_cn_redirect=1) and look for `InstanceId` in the response.
+        r"""Instance ID to be operated. can be obtained from the `InstanceId` in the return value from the DescribeInstances api (https://www.tencentcloud.com/document/api/213/15728?from_cn_redirect=1).
         :rtype: str
         """
         return self._InstanceId
@@ -17187,7 +17343,7 @@ class ResizeInstanceDisksRequest(AbstractModel):
 
     @property
     def DataDisks(self):
-        r"""Configuration information of a data disk to be expanded. Only inelastic data disks (with `Portable` being `false` in the return values of [DescribeDisks](https://intl.cloud.tencent.com/document/api/362/16315?from_cn_redirect=1)) can be expanded. The unit of data disk capacity is GB. The minimum expansion step is 10 GB. For more information about data disk types, refer to [Disk Product Introduction](https://intl.cloud.tencent.com/document/product/362/2353?from_cn_redirect=1). The available data disk type is restricted by the instance type `InstanceType`. Additionally, the maximum allowable capacity for expansion varies by data disk type.
+        r"""Specifies the configuration information of the data disk to be expanded, only supporting specifying the target capacity of the disk to be expanded. only non-elastic data disks (with `Portable` being `false` in the return values of [DescribeDisks](https://www.tencentcloud.com/document/api/362/16315?from_cn_redirect=1)) can be expanded. the unit of data disk capacity is GiB. the minimum expansion step is 10 GiB. for data disk type selection, refer to [disk product introduction](https://www.tencentcloud.com/document/product/362/2353?from_cn_redirect=1). the available data disk type is restricted by the instance type `InstanceType`. additionally, the maximum allowable capacity for expansion varies by data disk type.
 <dx-alert infotype="explain" title="">You should specify either DataDisks or SystemDisk, but you cannot specify both at the same time.</dx-alert>
         :rtype: list of DataDisk
         """
@@ -17199,7 +17355,7 @@ class ResizeInstanceDisksRequest(AbstractModel):
 
     @property
     def ForceStop(self):
-        r"""Whether to forcibly shut down a running instance. It is recommended to manually shut down a running instance first and then reset the user password. Valid values:<br><li>true: Forcibly shut down an instance after a normal shutdown fails.</li><br><li>false: Do not forcibly shut down an instance after a normal shutdown fails.</li><br><br>Default value: false.<br><br>Forced shutdown is equivalent to turning off a physical computer's power switch. Forced shutdown may cause data loss or file system corruption and should only be used when a server cannot be shut down normally.
+        r"""Specifies whether to forcibly shut down a running instance. it is recommended to manually shut down a running instance first and then expand the instance disk. valid values:<br><li>true: forcibly shut down an instance after a normal shutdown fails.</li><br><li>false: do not forcibly shut down an instance after a normal shutdown fails.</li><br><br>default value: false.<br><br>forced shutdown is equivalent to turning off a physical computer's power switch. forced shutdown may cause data loss or file system corruption and should only be used when a server cannot be shut down normally.
         :rtype: bool
         """
         return self._ForceStop
@@ -17210,8 +17366,7 @@ class ResizeInstanceDisksRequest(AbstractModel):
 
     @property
     def SystemDisk(self):
-        r"""Configuration information of a system disk to be expanded. Only cloud disks can be expanded.
-
+        r"""System disk configuration information to be expanded. only supports specifying the purpose capacity of the disk to be expanded. only supports cloud disk expansion.
 <dx-alert infotype="explain" title="">You should specify either DataDisks or SystemDisk, but you cannot specify both at the same time.</dx-alert>
         :rtype: :class:`tencentcloud.cvm.v20170312.models.SystemDisk`
         """
@@ -17350,17 +17505,32 @@ class RunInstancesRequest(AbstractModel):
         :type InternetAccessible: :class:`tencentcloud.cvm.v20170312.models.InternetAccessible`
         :param _InstanceCount: The number of instances to be purchased. Value range for pay-as-you-go instances: [1, 100]. Default value: `1`. The specified number of instances to be purchased cannot exceed the remaining quota allowed for the user. For more information on the quota, see [Quota for CVM Instances](https://intl.cloud.tencent.com/document/product/213/2664).
         :type InstanceCount: int
-        :param _InstanceName: Instance name.<br><li>If this parameter is not specified, "Unnamed" will be displayed by default.</li><li>If you purchase multiple instances and specify a pattern string `{R:x}`, numbers `[x, x+n-1]` will be generated, where `n` represents the number of instances purchased. For example, you specify a pattern string `server_{R:3}`. If you purchase only one instance, the instance will be named `server_3`; if you purchase two, they will be named `server_3` and `server_4`. You can specify multiple pattern strings in the format of `{R:x}`.</li><li>If you purchase multiple instances without specifying a pattern string, the instance names will be suffixed with `1, 2...n`, where `n` represents the number of instances purchased. For example, if you purchase two instances with the name `server_`, the instance names will be `server_1` and `server_2`.</li><li>This parameter can contain up to 60 characters (including pattern strings).</li>
+        :param _MinCount: Specifies the minimum number of instances to create. value range: positive integer not greater than InstanceCount.
+Specifies the minimum purchasable quantity, guarantees to create at least MinCount instances, and creates InstanceCount instances as much as possible.
+Insufficient inventory to meet the minimum purchasable quantity will trigger an error info indicating insufficient stock.
+Only applicable to accounts, regions, and billing modes (annual/monthly subscription, pay-as-you-go, spot instance, exclusive sales) with partial support.
+        :type MinCount: int
+        :param _InstanceName: Instance display name.<br><li>If no instance display name is specified, it will display 'unnamed' by default.</li><li>Supports up to 128 characters (including pattern strings).</li><li>When purchasing multiple instances:.
+- Specify a pattern string {R:x}: Generates a numeric sequence [x, x+n-1], where n represents the number of purchased instances. For example: Input server_{R:3}. When purchasing 1 instance, the display name is server_3; when purchasing 2 instances, the display names are server_3 and server_4.
+- Specify a pattern string {R:x,F:y}: y indicates fixed digit (optional), value range [0,8], default value 0 means no fixed digit (equivalent to {R:x}). Automatically pads with zeros when digits are insufficient, for example: input server_{R:3,F:3}, when purchasing 2 instances, the instance display name is server_003, server_004. If digit count exceeds y (such as {R:99,F:2}), the actual number is used, for example: app_{R:99,F:2}, when purchasing 2 instances, the instance display name is app_99, app_100.
+- Pattern strings must strictly follow the format {R:x,F:y} or {R:x}. Invalid formats (such as {}) are treated as plain text. Multiple pattern strings are supported.
+- No pattern string specified: The display name is appended with suffix 1, 2...n, where n indicates the number of instances purchased. For example server_. When purchasing 2 instances, generates server_1 and server_2.
         :type InstanceName: str
         :param _LoginSettings: Instance login settings. You can use this parameter to set the login method, password and key of the instance, or keep the original login settings of the image. If it's not specified, the user needs to set the login password using the "Reset password" option in the CVM console or calling the API `ResetInstancesPassword` to complete the creation of the CVM instance(s).
         :type LoginSettings: :class:`tencentcloud.cvm.v20170312.models.LoginSettings`
-        :param _SecurityGroupIds: Security groups to which the instance belongs. To obtain the security group IDs, you can call [DescribeSecurityGroups](https://intl.cloud.tencent.com/document/api/215/15808) and look for the `sgld` fields in the response. If this parameter is not specified, the instance will be associated with default security groups.
+        :param _SecurityGroupIds: Security group to which an instance belongs. obtain this parameter by calling the `SecurityGroupId` field in the return value of [DescribeSecurityGroups](https://www.tencentcloud.com/document/product/215/15808?from_search=1). if not specified, bind the default security group under the designated project. if the default security group does not exist, automatically create it.
         :type SecurityGroupIds: list of str
         :param _EnhancedService: Enhanced service. You can use this parameter to specify whether to enable services such as Anti-DDoS and Cloud Monitor. If this parameter is not specified, Cloud Monitor and Anti-DDoS are enabled for public images by default. However, for custom images and images from the marketplace, Anti-DDoS and Cloud Monitor are not enabled by default. The original services in the image will be retained.
         :type EnhancedService: :class:`tencentcloud.cvm.v20170312.models.EnhancedService`
         :param _ClientToken: A unique string supplied by the client to ensure that the request is idempotent. Its maximum length is 64 ASCII characters. If this parameter is not specified, the idem-potency of the request cannot be guaranteed.
         :type ClientToken: str
-        :param _HostName: Hostname of an instance.<br><li>Period (.) and hyphen (-) should not be used as the first or last character of the hostname, and should not be used consecutively.</li><br><li>Windows instances: The hostname should contain 2 to 15 characters, including letters (case insensitive), digits, and hyphens (-), does not support periods (.), and should not be all digits.</li><br><li>Instances of other types (such as Linux instances): The hostname should contain 2 to 60 characters, including multiple periods (.), with each segment between periods considered as one section. Each section can contain letters (case insensitive), digits, and hyphens (-).</li><br><li>If you purchase multiple instances and specify a pattern string `{R:x}`, numbers `[x, x+n-1]` will be generated, where `n` represents the number of instances purchased. For example, you specify a pattern string `server{R:3}`. If you purchase only one instance, the hostname will be `server3`; if you purchase two, they will be `server3` and `server4`. You can specify multiple pattern strings in the format of `{R:x}`.</li><br><li>If you purchase multiple instances without specifying a pattern string, the hostnames will be suffixed with `1, 2...n`, where `n` represents the number of instances purchased. For example, if you purchase two instances with the name `server`, the hostnames will be `server1` and `server2`.</li>
+        :param _HostName: Instance HostName.<br><li>Period (.) and hyphen (-) should not be used as the first or last character of the hostname, and should not be used consecutively.</li><br><li>Windows instances: The hostname should contain 2 to 15 characters, including letters (case insensitive), digits, and hyphens (-), does not support periods (.), and should not be all digits.</li><br><li>Instances of other types (such as Linux instances): The hostname should contain 2 to 60 characters, including multiple periods (.), with each segment between periods considered as one section. Each section can contain letters (case insensitive), digits, and hyphens (-).</li><br><li>When purchasing multiple instances:
+- Specify a pattern string {R:x}: Generates a numeric sequence [x, x+n-1], where n represents the number of purchased instances. For example: Input server_{R:3}. When purchasing 1 instance, the hostname is server_3; when purchasing 2 instances, the hostnames are server_3 and server_4.
+- Specify a pattern string {R:x,F:y}: y indicates fixed digit width (optional), valid range [0,8]. Default value 0 means no fixed width (equivalent to {R:x}). Insufficient digits are automatically padded with zeros. For example: Input server{R:3,F:3}. When purchasing 2 instances, the hostnames are server_003 and server_004. If the number of digits exceeds y (e.g., {R:99,F:2}), the actual digit count is used. For example: app{R:99,F:2}. When purchasing 2 instances, the hostnames are app_99 and app_100.
+- Specify a pattern string {IP}: Automatically replace with the private IP address of the instance. For example: input node-{IP}, the instance hostname is node-10.0.12.8. Supports mixed use with serial number pattern strings, such as: input web-{IP}-{R:1}, when purchasing 2 instances, the instance hostnames are web-10.0.12.8-1 and web-10.0.12.9-2 respectively.
+- Pattern strings must strictly follow the format {R:x,F:y}, {R:x}, or {IP}. Invalid formats (such as {}) are treated as plain text. Multiple pattern strings are supported.
+- No specified pattern string: add suffix 1, 2...n to instance hostname, where n means the number of purchased instances, such as server_1, server_2 when purchasing 2 instances.
+</li>
         :type HostName: str
         :param _ActionTimer: Scheduled tasks. You can use this parameter to specify scheduled tasks for the instance. Only scheduled termination is supported.
         :type ActionTimer: :class:`tencentcloud.cvm.v20170312.models.ActionTimer`
@@ -17372,7 +17542,8 @@ class RunInstancesRequest(AbstractModel):
         :type InstanceMarketOptions: :class:`tencentcloud.cvm.v20170312.models.InstanceMarketOptionsRequest`
         :param _UserData: User data provided to the instance. This parameter needs to be encoded in base64 format with the maximum size of 16 KB. For more information on how to get the value of this parameter, see the commands you need to execute on startup for [Windows](https://intl.cloud.tencent.com/document/product/213/17526) or [Linux](https://intl.cloud.tencent.com/document/product/213/17525).
         :type UserData: str
-        :param _Metadata: 
+        :param _Metadata: Custom metadata. specifies the support for creating custom metadata key-value pairs when creating a CVM.
+**Note: this field is in beta test.**.
         :type Metadata: :class:`tencentcloud.cvm.v20170312.models.Metadata`
         :param _DryRun: Whether the request is a dry run only.
 `true`: dry run only. The request will not create instance(s). A dry run can check whether all the required parameters are specified, whether the request format is right, whether the request exceeds service limits, and whether the specified CVMs are available.
@@ -17394,7 +17565,7 @@ If the dry run succeeds, the RequestId will be returned.
         :type ChcIds: list of str
         :param _DisableApiTermination: Instance termination protection flag, indicating whether an instance is allowed to be deleted through an API. Valid values:<br><li>true: Instance protection is enabled, and the instance is not allowed to be deleted through the API.</li><br><li>false: Instance protection is disabled, and the instance is allowed to be deleted through the API.</li><br><br>Default value: false.
         :type DisableApiTermination: bool
-        :param _EnableJumboFrame: 
+        :param _EnableJumboFrame: Whether the instance enables jumbo frames. valid values:<br><li/> true: means the instance enables jumbo frames. only models supporting jumbo frames can be set to true.<br><li/> false: means the instance disables jumbo frames. only models supporting jumbo frames can be set to false.<br> instance specifications supporting jumbo frames: [instance specifications](https://www.tencentcloud.com/document/product/213/11518?lang=en&pg=).
         :type EnableJumboFrame: bool
         """
         self._InstanceChargeType = None
@@ -17407,6 +17578,7 @@ If the dry run succeeds, the RequestId will be returned.
         self._VirtualPrivateCloud = None
         self._InternetAccessible = None
         self._InstanceCount = None
+        self._MinCount = None
         self._InstanceName = None
         self._LoginSettings = None
         self._SecurityGroupIds = None
@@ -17543,8 +17715,26 @@ If the dry run succeeds, the RequestId will be returned.
         self._InstanceCount = InstanceCount
 
     @property
+    def MinCount(self):
+        r"""Specifies the minimum number of instances to create. value range: positive integer not greater than InstanceCount.
+Specifies the minimum purchasable quantity, guarantees to create at least MinCount instances, and creates InstanceCount instances as much as possible.
+Insufficient inventory to meet the minimum purchasable quantity will trigger an error info indicating insufficient stock.
+Only applicable to accounts, regions, and billing modes (annual/monthly subscription, pay-as-you-go, spot instance, exclusive sales) with partial support.
+        :rtype: int
+        """
+        return self._MinCount
+
+    @MinCount.setter
+    def MinCount(self, MinCount):
+        self._MinCount = MinCount
+
+    @property
     def InstanceName(self):
-        r"""Instance name.<br><li>If this parameter is not specified, "Unnamed" will be displayed by default.</li><li>If you purchase multiple instances and specify a pattern string `{R:x}`, numbers `[x, x+n-1]` will be generated, where `n` represents the number of instances purchased. For example, you specify a pattern string `server_{R:3}`. If you purchase only one instance, the instance will be named `server_3`; if you purchase two, they will be named `server_3` and `server_4`. You can specify multiple pattern strings in the format of `{R:x}`.</li><li>If you purchase multiple instances without specifying a pattern string, the instance names will be suffixed with `1, 2...n`, where `n` represents the number of instances purchased. For example, if you purchase two instances with the name `server_`, the instance names will be `server_1` and `server_2`.</li><li>This parameter can contain up to 60 characters (including pattern strings).</li>
+        r"""Instance display name.<br><li>If no instance display name is specified, it will display 'unnamed' by default.</li><li>Supports up to 128 characters (including pattern strings).</li><li>When purchasing multiple instances:.
+- Specify a pattern string {R:x}: Generates a numeric sequence [x, x+n-1], where n represents the number of purchased instances. For example: Input server_{R:3}. When purchasing 1 instance, the display name is server_3; when purchasing 2 instances, the display names are server_3 and server_4.
+- Specify a pattern string {R:x,F:y}: y indicates fixed digit (optional), value range [0,8], default value 0 means no fixed digit (equivalent to {R:x}). Automatically pads with zeros when digits are insufficient, for example: input server_{R:3,F:3}, when purchasing 2 instances, the instance display name is server_003, server_004. If digit count exceeds y (such as {R:99,F:2}), the actual number is used, for example: app_{R:99,F:2}, when purchasing 2 instances, the instance display name is app_99, app_100.
+- Pattern strings must strictly follow the format {R:x,F:y} or {R:x}. Invalid formats (such as {}) are treated as plain text. Multiple pattern strings are supported.
+- No pattern string specified: The display name is appended with suffix 1, 2...n, where n indicates the number of instances purchased. For example server_. When purchasing 2 instances, generates server_1 and server_2.
         :rtype: str
         """
         return self._InstanceName
@@ -17566,7 +17756,7 @@ If the dry run succeeds, the RequestId will be returned.
 
     @property
     def SecurityGroupIds(self):
-        r"""Security groups to which the instance belongs. To obtain the security group IDs, you can call [DescribeSecurityGroups](https://intl.cloud.tencent.com/document/api/215/15808) and look for the `sgld` fields in the response. If this parameter is not specified, the instance will be associated with default security groups.
+        r"""Security group to which an instance belongs. obtain this parameter by calling the `SecurityGroupId` field in the return value of [DescribeSecurityGroups](https://www.tencentcloud.com/document/product/215/15808?from_search=1). if not specified, bind the default security group under the designated project. if the default security group does not exist, automatically create it.
         :rtype: list of str
         """
         return self._SecurityGroupIds
@@ -17599,7 +17789,13 @@ If the dry run succeeds, the RequestId will be returned.
 
     @property
     def HostName(self):
-        r"""Hostname of an instance.<br><li>Period (.) and hyphen (-) should not be used as the first or last character of the hostname, and should not be used consecutively.</li><br><li>Windows instances: The hostname should contain 2 to 15 characters, including letters (case insensitive), digits, and hyphens (-), does not support periods (.), and should not be all digits.</li><br><li>Instances of other types (such as Linux instances): The hostname should contain 2 to 60 characters, including multiple periods (.), with each segment between periods considered as one section. Each section can contain letters (case insensitive), digits, and hyphens (-).</li><br><li>If you purchase multiple instances and specify a pattern string `{R:x}`, numbers `[x, x+n-1]` will be generated, where `n` represents the number of instances purchased. For example, you specify a pattern string `server{R:3}`. If you purchase only one instance, the hostname will be `server3`; if you purchase two, they will be `server3` and `server4`. You can specify multiple pattern strings in the format of `{R:x}`.</li><br><li>If you purchase multiple instances without specifying a pattern string, the hostnames will be suffixed with `1, 2...n`, where `n` represents the number of instances purchased. For example, if you purchase two instances with the name `server`, the hostnames will be `server1` and `server2`.</li>
+        r"""Instance HostName.<br><li>Period (.) and hyphen (-) should not be used as the first or last character of the hostname, and should not be used consecutively.</li><br><li>Windows instances: The hostname should contain 2 to 15 characters, including letters (case insensitive), digits, and hyphens (-), does not support periods (.), and should not be all digits.</li><br><li>Instances of other types (such as Linux instances): The hostname should contain 2 to 60 characters, including multiple periods (.), with each segment between periods considered as one section. Each section can contain letters (case insensitive), digits, and hyphens (-).</li><br><li>When purchasing multiple instances:
+- Specify a pattern string {R:x}: Generates a numeric sequence [x, x+n-1], where n represents the number of purchased instances. For example: Input server_{R:3}. When purchasing 1 instance, the hostname is server_3; when purchasing 2 instances, the hostnames are server_3 and server_4.
+- Specify a pattern string {R:x,F:y}: y indicates fixed digit width (optional), valid range [0,8]. Default value 0 means no fixed width (equivalent to {R:x}). Insufficient digits are automatically padded with zeros. For example: Input server{R:3,F:3}. When purchasing 2 instances, the hostnames are server_003 and server_004. If the number of digits exceeds y (e.g., {R:99,F:2}), the actual digit count is used. For example: app{R:99,F:2}. When purchasing 2 instances, the hostnames are app_99 and app_100.
+- Specify a pattern string {IP}: Automatically replace with the private IP address of the instance. For example: input node-{IP}, the instance hostname is node-10.0.12.8. Supports mixed use with serial number pattern strings, such as: input web-{IP}-{R:1}, when purchasing 2 instances, the instance hostnames are web-10.0.12.8-1 and web-10.0.12.9-2 respectively.
+- Pattern strings must strictly follow the format {R:x,F:y}, {R:x}, or {IP}. Invalid formats (such as {}) are treated as plain text. Multiple pattern strings are supported.
+- No specified pattern string: add suffix 1, 2...n to instance hostname, where n means the number of purchased instances, such as server_1, server_2 when purchasing 2 instances.
+</li>
         :rtype: str
         """
         return self._HostName
@@ -17665,7 +17861,8 @@ If the dry run succeeds, the RequestId will be returned.
 
     @property
     def Metadata(self):
-        r"""
+        r"""Custom metadata. specifies the support for creating custom metadata key-value pairs when creating a CVM.
+**Note: this field is in beta test.**.
         :rtype: :class:`tencentcloud.cvm.v20170312.models.Metadata`
         """
         return self._Metadata
@@ -17768,7 +17965,7 @@ If the dry run succeeds, the RequestId will be returned.
 
     @property
     def EnableJumboFrame(self):
-        r"""
+        r"""Whether the instance enables jumbo frames. valid values:<br><li/> true: means the instance enables jumbo frames. only models supporting jumbo frames can be set to true.<br><li/> false: means the instance disables jumbo frames. only models supporting jumbo frames can be set to false.<br> instance specifications supporting jumbo frames: [instance specifications](https://www.tencentcloud.com/document/product/213/11518?lang=en&pg=).
         :rtype: bool
         """
         return self._EnableJumboFrame
@@ -17804,6 +18001,7 @@ If the dry run succeeds, the RequestId will be returned.
             self._InternetAccessible = InternetAccessible()
             self._InternetAccessible._deserialize(params.get("InternetAccessible"))
         self._InstanceCount = params.get("InstanceCount")
+        self._MinCount = params.get("MinCount")
         self._InstanceName = params.get("InstanceName")
         if params.get("LoginSettings") is not None:
             self._LoginSettings = LoginSettings()
@@ -18241,6 +18439,8 @@ This parameter is only valid for some pay-as-you-go instances using cloud disks.
 
     @property
     def ForceStop(self):
+        warnings.warn("parameter `ForceStop` is deprecated", DeprecationWarning) 
+
         r"""(Disused. Please use `StopType` instead.) Whether to forcibly shut down an instance after a normal shutdown fails. Valid values: <br><li>`TRUE`: yes;<br><li>`FALSE`: no<br><br>Default value: `FALSE`. 
         :rtype: bool
         """
@@ -18248,6 +18448,8 @@ This parameter is only valid for some pay-as-you-go instances using cloud disks.
 
     @ForceStop.setter
     def ForceStop(self, ForceStop):
+        warnings.warn("parameter `ForceStop` is deprecated", DeprecationWarning) 
+
         self._ForceStop = ForceStop
 
     @property
@@ -18632,7 +18834,7 @@ class SystemDisk(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _DiskType: Specifies the system disk type. for the restrictions on the system disk type, refer to [storage overview](https://intl.cloud.tencent.com/document/product/213/4952?from_cn_redirect=1). value range:<br>
+        :param _DiskType: Specifies the system disk type. for the restrictions on the system disk type, refer to [storage overview](https://www.tencentcloud.com/document/product/362/31636). value range:<br>
 <li>LOCAL_BASIC: Local SATA disk</li>
 <li>LOCAL_SSD: Local NVMe SSD</li>
 <li>CLOUD_BASIC: Cloud SATA disk</li>
@@ -18643,12 +18845,13 @@ class SystemDisk(AbstractModel):
 <li>CLOUD_TSSD: Tremendous SSD</li>
 Default value: Current disk types with inventory available.
         :type DiskType: str
-        :param _DiskId: Specifies the system disk ID.
-This parameter currently only serves as a response parameter for query apis such as `DescribeInstances`, and cannot be used as an input parameter for write apis such as `RunInstances`.
+        :param _DiskId: System disk ID.
+Currently, this parameter is only used for response parameters in query apis such as [DescribeInstances](https://www.tencentcloud.com/document/api/213/33258) and is not applicable to request parameters in write apis such as [RunInstances](https://www.tencentcloud.com/document/api/213/33237).
         :type DiskId: str
         :param _DiskSize: System disk size; unit: GiB; default value: 50 GiB.
         :type DiskSize: int
-        :param _CdcId: Specifies the exclusive cluster ID it belongs to.
+        :param _CdcId: Specifies the dedicated cluster ID belonging to.
+Note: This field may return null, indicating that no valid value is found.
         :type CdcId: str
         :param _DiskName: Disk name, which specifies a length not exceeding 128 characters.
         :type DiskName: str
@@ -18661,7 +18864,7 @@ This parameter currently only serves as a response parameter for query apis such
 
     @property
     def DiskType(self):
-        r"""Specifies the system disk type. for the restrictions on the system disk type, refer to [storage overview](https://intl.cloud.tencent.com/document/product/213/4952?from_cn_redirect=1). value range:<br>
+        r"""Specifies the system disk type. for the restrictions on the system disk type, refer to [storage overview](https://www.tencentcloud.com/document/product/362/31636). value range:<br>
 <li>LOCAL_BASIC: Local SATA disk</li>
 <li>LOCAL_SSD: Local NVMe SSD</li>
 <li>CLOUD_BASIC: Cloud SATA disk</li>
@@ -18681,8 +18884,8 @@ Default value: Current disk types with inventory available.
 
     @property
     def DiskId(self):
-        r"""Specifies the system disk ID.
-This parameter currently only serves as a response parameter for query apis such as `DescribeInstances`, and cannot be used as an input parameter for write apis such as `RunInstances`.
+        r"""System disk ID.
+Currently, this parameter is only used for response parameters in query apis such as [DescribeInstances](https://www.tencentcloud.com/document/api/213/33258) and is not applicable to request parameters in write apis such as [RunInstances](https://www.tencentcloud.com/document/api/213/33237).
         :rtype: str
         """
         return self._DiskId
@@ -18704,7 +18907,8 @@ This parameter currently only serves as a response parameter for query apis such
 
     @property
     def CdcId(self):
-        r"""Specifies the exclusive cluster ID it belongs to.
+        r"""Specifies the dedicated cluster ID belonging to.
+Note: This field may return null, indicating that no valid value is found.
         :rtype: str
         """
         return self._CdcId
@@ -18799,7 +19003,7 @@ class TagSpecification(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _ResourceType: Tag-Bound resource type. "instance" for cloud virtual machine, "host" for cdh, "image" for mirror, and "keypair" for key.
+        :param _ResourceType: Specifies the resource type for Tag binding. valid values: "instance" (cloud virtual machine), "host" (cdh), "image" (mirror), "keypair" (key), "ps" (placement group), "hpc" (hyper computing cluster).
         :type ResourceType: str
         :param _Tags: Tag pair list
         :type Tags: list of Tag
@@ -18809,7 +19013,7 @@ class TagSpecification(AbstractModel):
 
     @property
     def ResourceType(self):
-        r"""Tag-Bound resource type. "instance" for cloud virtual machine, "host" for cdh, "image" for mirror, and "keypair" for key.
+        r"""Specifies the resource type for Tag binding. valid values: "instance" (cloud virtual machine), "host" (cdh), "image" (mirror), "keypair" (key), "ps" (placement group), "hpc" (hyper computing cluster).
         :rtype: str
         """
         return self._ResourceType
@@ -19008,9 +19212,9 @@ class VirtualPrivateCloud(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _VpcId: VPC ID in the format of `vpc-xxx`. To obtain valid VPC IDs, you can log in to the [console](https://console.cloud.tencent.com/vpc/vpc?rid=1) or call the [DescribeVpcs](https://www.tencentcloud.com/document/product/215/15778) API and look for the `unVpcId` fields in the response. If you specify `DEFAULT` for both `VpcId` and `SubnetId` when creating an instance, the default VPC will be used.
+        :param _VpcId: vpc ID, such as `vpc-xxx`. valid vpc ids can be queried by logging in to the console (https://console.cloud.tencent.com/vpc/vpc?rid=1) or by calling the API [DescribeVpcs](https://www.tencentcloud.com/document/product/215/15778?lang=en) and obtaining the `VpcId` field from the API response. if both VpcId and SubnetId are input as `DEFAULT` when creating an instance, the DEFAULT vpc network will be forcibly used.
         :type VpcId: str
-        :param _SubnetId: vpc subnet ID, in the form of `subnet-xxx`. valid vpc subnet ids can be queried by logging in to the console (https://console.cloud.tencent.com/vpc/subnet?rid=1); or they can be obtained from the `SubnetId` field in the API response by calling the DescribeSubnets API (https://intl.cloud.tencent.com/document/product/215/15784?from_cn_redirect=1). if SubnetId and VpcId are both input as `DEFAULT` when creating an instance, the DEFAULT vpc network will be forcibly used.
+        :param _SubnetId: vpc subnet ID, in the form of `subnet-xxx`. valid vpc subnet ids can be queried by logging in to the [console](https://console.tencentcloud.com/vpc/subnet); or they can be obtained from the `SubnetId` field in the API response by calling the [DescribeSubnets](https://www.tencentcloud.com/document/product/215/15784) API . if SubnetId and VpcId are both input as `DEFAULT` when creating an instance, the DEFAULT vpc network will be forcibly used.
         :type SubnetId: str
         :param _AsVpcGateway: Whether it is used as a public gateway. A public gateway can only be used normally when an instance has a public IP address and is in a VPC. Valid values:<li>true: It is used as a public gateway.</li><li>false: It is not used as a public gateway.</li>Default value: false.
         :type AsVpcGateway: bool
@@ -19028,7 +19232,7 @@ If IPv6AddressType is specified under InternetAccessible, this parameter must no
 
     @property
     def VpcId(self):
-        r"""VPC ID in the format of `vpc-xxx`. To obtain valid VPC IDs, you can log in to the [console](https://console.cloud.tencent.com/vpc/vpc?rid=1) or call the [DescribeVpcs](https://www.tencentcloud.com/document/product/215/15778) API and look for the `unVpcId` fields in the response. If you specify `DEFAULT` for both `VpcId` and `SubnetId` when creating an instance, the default VPC will be used.
+        r"""vpc ID, such as `vpc-xxx`. valid vpc ids can be queried by logging in to the console (https://console.cloud.tencent.com/vpc/vpc?rid=1) or by calling the API [DescribeVpcs](https://www.tencentcloud.com/document/product/215/15778?lang=en) and obtaining the `VpcId` field from the API response. if both VpcId and SubnetId are input as `DEFAULT` when creating an instance, the DEFAULT vpc network will be forcibly used.
         :rtype: str
         """
         return self._VpcId
@@ -19039,7 +19243,7 @@ If IPv6AddressType is specified under InternetAccessible, this parameter must no
 
     @property
     def SubnetId(self):
-        r"""vpc subnet ID, in the form of `subnet-xxx`. valid vpc subnet ids can be queried by logging in to the console (https://console.cloud.tencent.com/vpc/subnet?rid=1); or they can be obtained from the `SubnetId` field in the API response by calling the DescribeSubnets API (https://intl.cloud.tencent.com/document/product/215/15784?from_cn_redirect=1). if SubnetId and VpcId are both input as `DEFAULT` when creating an instance, the DEFAULT vpc network will be forcibly used.
+        r"""vpc subnet ID, in the form of `subnet-xxx`. valid vpc subnet ids can be queried by logging in to the [console](https://console.tencentcloud.com/vpc/subnet); or they can be obtained from the `SubnetId` field in the API response by calling the [DescribeSubnets](https://www.tencentcloud.com/document/product/215/15784) API . if SubnetId and VpcId are both input as `DEFAULT` when creating an instance, the DEFAULT vpc network will be forcibly used.
         :rtype: str
         """
         return self._SubnetId
@@ -19121,7 +19325,6 @@ The names of availability zones across the network are as follows:
 <li> ap-shenzhen-fsi-2 </li>
 <li> ap-shenzhen-fsi-3 (sold out)</li>
 <li> ap-guangzhou-1 (sold out)</li>
-<li> ap-guangzhou-2 (sold out)</li>
 <li> ap-guangzhou-3 </li>
 <li> ap-guangzhou-4 </li>
 <li> ap-guangzhou-6 </li>
@@ -19194,7 +19397,6 @@ The names of availability zones across the network are as follows:
 <li> ap-shenzhen-fsi-2 </li>
 <li> ap-shenzhen-fsi-3 (sold out)</li>
 <li> ap-guangzhou-1 (sold out)</li>
-<li> ap-guangzhou-2 (sold out)</li>
 <li> ap-guangzhou-3 </li>
 <li> ap-guangzhou-4 </li>
 <li> ap-guangzhou-6 </li>

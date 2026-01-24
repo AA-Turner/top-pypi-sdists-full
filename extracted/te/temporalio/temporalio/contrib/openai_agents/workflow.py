@@ -4,9 +4,10 @@ import functools
 import inspect
 import json
 import typing
+from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import timedelta
-from typing import Any, Callable, Optional, Type
+from typing import Any, Optional, Type
 
 import nexusrpc
 from agents import (
@@ -35,17 +36,18 @@ if typing.TYPE_CHECKING:
 def activity_as_tool(
     fn: Callable,
     *,
-    task_queue: Optional[str] = None,
-    schedule_to_close_timeout: Optional[timedelta] = None,
-    schedule_to_start_timeout: Optional[timedelta] = None,
-    start_to_close_timeout: Optional[timedelta] = None,
-    heartbeat_timeout: Optional[timedelta] = None,
-    retry_policy: Optional[RetryPolicy] = None,
+    task_queue: str | None = None,
+    schedule_to_close_timeout: timedelta | None = None,
+    schedule_to_start_timeout: timedelta | None = None,
+    start_to_close_timeout: timedelta | None = None,
+    heartbeat_timeout: timedelta | None = None,
+    retry_policy: RetryPolicy | None = None,
     cancellation_type: ActivityCancellationType = ActivityCancellationType.TRY_CANCEL,
-    activity_id: Optional[str] = None,
-    versioning_intent: Optional[VersioningIntent] = None,
-    summary: Optional[str] = None,
+    activity_id: str | None = None,
+    versioning_intent: VersioningIntent | None = None,
+    summary: str | None = None,
     priority: Priority = Priority.default,
+    strict_json_schema: bool = True,
 ) -> Tool:
     """Convert a single Temporal activity function to an OpenAI agent tool.
 
@@ -59,9 +61,13 @@ def activity_as_tool(
     of inputs and outputs between the agent and the activity. Note that if you take a context,
     mutation will not be persisted, as the activity may not be running in the same location.
 
+    For undocumented arguments, refer to :py:mod:`workflow` and :py:meth:`start_activity`
+
     Args:
         fn: A Temporal activity function to convert to a tool.
-        For other arguments, refer to :py:mod:`workflow` :py:meth:`start_activity`
+        strict_json_schema: Whether the tool should follow a strict schema.
+            See https://openai.github.io/openai-agents-python/ref/tool/#agents.tool.FunctionTool.strict_json_schema
+
 
     Returns:
         An OpenAI agent tool that wraps the provided activity.
@@ -151,16 +157,17 @@ def activity_as_tool(
         description=schema.description or "",
         params_json_schema=schema.params_json_schema,
         on_invoke_tool=run_activity,
-        strict_json_schema=True,
+        strict_json_schema=strict_json_schema,
     )
 
 
 def nexus_operation_as_tool(
     operation: nexusrpc.Operation[Any, Any],
     *,
-    service: Type[Any],
+    service: type[Any],
     endpoint: str,
-    schedule_to_close_timeout: Optional[timedelta] = None,
+    schedule_to_close_timeout: timedelta | None = None,
+    strict_json_schema: bool = True,
 ) -> Tool:
     """Convert a Nexus operation into an OpenAI agent tool.
 
@@ -174,9 +181,10 @@ def nexus_operation_as_tool(
     of inputs and outputs between the agent and the operation.
 
     Args:
-        fn: A Nexus operation to convert into a tool.
+        operation: A Nexus operation to convert into a tool.
         service: The Nexus service class that contains the operation.
         endpoint: The Nexus endpoint to use for the operation.
+        strict_json_schema: Whether the tool should follow a strict schema
 
     Returns:
         An OpenAI agent tool that wraps the provided operation.
@@ -237,14 +245,15 @@ def nexus_operation_as_tool(
         description=schema.description or "",
         params_json_schema=schema.params_json_schema,
         on_invoke_tool=run_operation,
-        strict_json_schema=True,
+        strict_json_schema=strict_json_schema,
     )
 
 
 def stateless_mcp_server(
     name: str,
-    config: Optional[ActivityConfig] = None,
+    config: ActivityConfig | None = None,
     cache_tools_list: bool = False,
+    factory_argument: Any | None = None,
 ) -> "MCPServer":
     """A stateless MCP server implementation for Temporal workflows.
 
@@ -264,18 +273,22 @@ def stateless_mcp_server(
         config: Optional activity configuration for MCP operation activities.
                Defaults to 1-minute start-to-close timeout.
         cache_tools_list: If true, the list of tools will be cached for the duration of the server
+        factory_argument: Optional argument to be provided to the factory when producing an MCPServer
     """
     from temporalio.contrib.openai_agents._mcp import (
         _StatelessMCPServerReference,
     )
 
-    return _StatelessMCPServerReference(name, config, cache_tools_list)
+    return _StatelessMCPServerReference(
+        name, config, cache_tools_list, factory_argument
+    )
 
 
 def stateful_mcp_server(
     name: str,
-    config: Optional[ActivityConfig] = None,
-    server_session_config: Optional[ActivityConfig] = None,
+    config: ActivityConfig | None = None,
+    server_session_config: ActivityConfig | None = None,
+    factory_argument: Any | None = None,
 ) -> AbstractAsyncContextManager["MCPServer"]:
     """A stateful MCP server implementation for Temporal workflows.
 
@@ -300,12 +313,15 @@ def stateful_mcp_server(
                Defaults to 1-minute start-to-close and 30-second schedule-to-start timeouts.
         server_session_config: Optional activity configuration for the connection activity.
                        Defaults to 1-hour start-to-close timeout.
+        factory_argument: Optional argument to be provided to the factory when producing an MCPServer
     """
     from temporalio.contrib.openai_agents._mcp import (
         _StatefulMCPServerReference,
     )
 
-    return _StatefulMCPServerReference(name, config, server_session_config)
+    return _StatefulMCPServerReference(
+        name, config, server_session_config, factory_argument
+    )
 
 
 class ToolSerializationError(TemporalError):

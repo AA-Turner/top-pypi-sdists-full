@@ -1,0 +1,51 @@
+[build-system]
+build-backend = "maturin"
+requires = ["maturin>=1.10.0,<2.0"]
+
+[dependency-groups]
+build = [
+  "maturin==1.10.2"
+]
+dev = [
+  {include-group = "build"},
+  {include-group = "test"},
+  {include-group = "pre-commit"}
+]
+pre-commit = [
+  "pre-commit==4.5.0"
+]
+test = [
+  "pytest-github-actions-annotate-failures==0.3.0",
+  "pytest==9.0.2"
+]
+
+[project]
+classifiers = [
+  "Programming Language :: Rust",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Topic :: Software Development :: Libraries :: Python Modules"
+]
+description = "Unicode segmentation and width for Python using Rust"
+dynamic = ["version"]
+license = "MIT"
+license-files = ["LICENSE"]
+name = "unicode-segmentation-rs"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[[project.authors]]
+email = "michal@weblate.org"
+name = "Michal Čihař"
+
+[project.urls]
+Documentation = "https://docs.weblate.org/"
+Download = "https://github.com/WeblateOrg/unicode-segmentation-rs"
+Funding = "https://weblate.org/donate/"
+Homepage = "https://weblate.org/"
+"Issue Tracker" = "https://github.com/WeblateOrg/unicode-segmentation-rs/issues"
+"Source Code" = "https://github.com/WeblateOrg/unicode-segmentation-rs"
+Twitter = "https://twitter.com/WeblateOrg"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]

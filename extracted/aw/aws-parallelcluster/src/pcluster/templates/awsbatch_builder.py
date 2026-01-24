@@ -8,7 +8,7 @@
 # or in the "LICENSE.txt" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES
 # OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions and
 # limitations under the License.
-from datetime import datetime
+from datetime import datetime, timezone
 
 from aws_cdk import aws_batch as batch
 from aws_cdk import aws_cloudformation as cfn
@@ -22,7 +22,8 @@ from aws_cdk import aws_logs as logs
 from aws_cdk.aws_ec2 import CfnSecurityGroup
 from aws_cdk.core import CfnOutput, CfnResource, Construct, Fn, Stack
 
-from pcluster.config.cluster_config import AwsBatchClusterConfig, CapacityType, SharedStorageType
+from pcluster.config.cluster_config import AwsBatchClusterConfig, CapacityType
+from pcluster.config.common import SharedStorageType
 from pcluster.constants import AWSBATCH_CLI_REQUIREMENTS, CW_LOG_GROUP_NAME_PREFIX, IAM_ROLE_PATH
 from pcluster.models.s3_bucket import S3Bucket
 from pcluster.templates.cdk_builder_utils import (
@@ -524,7 +525,7 @@ class AwsBatchConstruct(Construct):
         )
 
     def _add_code_build_docker_image_builder_project(self):
-        timestamp = f"{datetime.utcnow().strftime('%Y%m%d%H%M')}"
+        timestamp = f"{datetime.now(timezone.utc).strftime('%Y%m%d%H%M')}"
         log_group_name = (
             f"{CW_LOG_GROUP_NAME_PREFIX}codebuild/{self.stack_name}-CodeBuildDockerImageBuilderProject-{timestamp}"
         )

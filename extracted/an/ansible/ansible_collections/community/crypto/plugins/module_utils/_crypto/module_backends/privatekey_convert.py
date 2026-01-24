@@ -11,6 +11,7 @@ import traceback
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_bytes
+
 from ansible_collections.community.crypto.plugins.module_utils._argspec import (
     ArgumentSpec,
 )
@@ -28,7 +29,6 @@ from ansible_collections.community.crypto.plugins.module_utils._cryptography_dep
     assert_required_cryptography_version,
 )
 from ansible_collections.community.crypto.plugins.module_utils._io import load_file
-
 
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
@@ -286,8 +286,8 @@ def get_privatekey_argument_spec() -> ArgumentSpec:
 
 
 __all__ = (
-    "PrivateKeyError",
     "PrivateKeyConvertBackend",
-    "select_backend",
+    "PrivateKeyError",
     "get_privatekey_argument_spec",
+    "select_backend",
 )

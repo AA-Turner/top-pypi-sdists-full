@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.688254                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.849831                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.user_decorators.user_flow_decorator
     import metaflow.user_decorators.mutable_flow
+    import metaflow.user_decorators.user_flow_decorator
 
 from .....user_decorators.mutable_flow import MutableFlow as MutableFlow
 from .....user_decorators.mutable_step import MutableStep as MutableStep
@@ -39,6 +39,24 @@ class assume_role(metaflow.user_decorators.user_flow_decorator.FlowMutator, meta
         def end(self):
             from metaflow import get_aws_client
             client = get_aws_client("dynamodb")  # Automatically uses the role in the flow decorator
+    
+    You can also filter which steps should use the role:
+    @assume_role(role_arn="arn:aws:iam::123456789012:role/my-iam-role", steps=["start", "process"])
+    class MyFlow(FlowSpec):
+        @step
+        def start(self):
+            # user code in this step will use the assumed role
+            pass
+    
+        @step
+        def process(self):
+            # user code in this step will use the assumed role
+            pass
+    
+        @step
+        def end(self):
+            # user code in this step will NOT use the assumed role
+            pass
     """
     def init(self, *args, **kwargs):
         ...

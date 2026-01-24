@@ -10,6 +10,7 @@ from ...core.jsonable_encoder import jsonable_encoder
 from ...core.request_options import RequestOptions
 from ...core.unchecked_base_model import construct_type
 from ...errors.unprocessable_entity_error import UnprocessableEntityError
+from ...types.conversation_initiation_source import ConversationInitiationSource
 from ...types.conversation_signed_url_response_model import ConversationSignedUrlResponseModel
 from ...types.evaluation_success_result import EvaluationSuccessResult
 from ...types.get_conversation_response_model import GetConversationResponseModel
@@ -28,6 +29,7 @@ class RawConversationsClient:
         *,
         agent_id: str,
         include_conversation_id: typing.Optional[bool] = None,
+        branch_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[ConversationSignedUrlResponseModel]:
         """
@@ -40,6 +42,9 @@ class RawConversationsClient:
 
         include_conversation_id : typing.Optional[bool]
             Whether to include a conversation_id with the response. If included, the conversation_signature cannot be used again.
+
+        branch_id : typing.Optional[str]
+            The ID of the branch to use
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -55,6 +60,7 @@ class RawConversationsClient:
             params={
                 "agent_id": agent_id,
                 "include_conversation_id": include_conversation_id,
+                "branch_id": branch_id,
             },
             request_options=request_options,
         )
@@ -89,6 +95,7 @@ class RawConversationsClient:
         *,
         agent_id: str,
         participant_name: typing.Optional[str] = None,
+        branch_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[TokenResponseModel]:
         """
@@ -101,6 +108,9 @@ class RawConversationsClient:
 
         participant_name : typing.Optional[str]
             Optional custom participant name. If not provided, user ID will be used
+
+        branch_id : typing.Optional[str]
+            The ID of the branch to use
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -116,6 +126,7 @@ class RawConversationsClient:
             params={
                 "agent_id": agent_id,
                 "participant_name": participant_name,
+                "branch_id": branch_id,
             },
             request_options=request_options,
         )
@@ -153,9 +164,21 @@ class RawConversationsClient:
         call_successful: typing.Optional[EvaluationSuccessResult] = None,
         call_start_before_unix: typing.Optional[int] = None,
         call_start_after_unix: typing.Optional[int] = None,
+        call_duration_min_secs: typing.Optional[int] = None,
+        call_duration_max_secs: typing.Optional[int] = None,
+        rating_max: typing.Optional[int] = None,
+        rating_min: typing.Optional[int] = None,
+        has_feedback_comment: typing.Optional[bool] = None,
         user_id: typing.Optional[str] = None,
+        evaluation_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        data_collection_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        tool_names: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        main_languages: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         page_size: typing.Optional[int] = None,
         summary_mode: typing.Optional[ConversationsListRequestSummaryMode] = None,
+        search: typing.Optional[str] = None,
+        conversation_initiation_source: typing.Optional[ConversationInitiationSource] = None,
+        branch_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[GetConversationsPageResponseModel]:
         """
@@ -178,14 +201,49 @@ class RawConversationsClient:
         call_start_after_unix : typing.Optional[int]
             Unix timestamp (in seconds) to filter conversations after to this start date.
 
+        call_duration_min_secs : typing.Optional[int]
+            Minimum call duration in seconds.
+
+        call_duration_max_secs : typing.Optional[int]
+            Maximum call duration in seconds.
+
+        rating_max : typing.Optional[int]
+            Maximum overall rating (1-5).
+
+        rating_min : typing.Optional[int]
+            Minimum overall rating (1-5).
+
+        has_feedback_comment : typing.Optional[bool]
+            Filter conversations with user feedback comments.
+
         user_id : typing.Optional[str]
             Filter conversations by the user ID who initiated them.
+
+        evaluation_params : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Evaluation filters. Repeat param. Format: criteria_id:result. Example: eval=value_framing:success
+
+        data_collection_params : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Data collection filters. Repeat param. Format: id:op:value where op is one of eq|neq|gt|gte|lt|lte|in|exists|missing. For in, pipe-delimit values.
+
+        tool_names : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by tool names used during the call.
+
+        main_languages : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by detected main language (language code).
 
         page_size : typing.Optional[int]
             How many conversations to return at maximum. Can not exceed 100, defaults to 30.
 
         summary_mode : typing.Optional[ConversationsListRequestSummaryMode]
             Whether to include transcript summaries in the response.
+
+        search : typing.Optional[str]
+            Full-text or fuzzy search over transcript messages
+
+        conversation_initiation_source : typing.Optional[ConversationInitiationSource]
+
+        branch_id : typing.Optional[str]
+            Filter conversations by branch ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -204,9 +262,21 @@ class RawConversationsClient:
                 "call_successful": call_successful,
                 "call_start_before_unix": call_start_before_unix,
                 "call_start_after_unix": call_start_after_unix,
+                "call_duration_min_secs": call_duration_min_secs,
+                "call_duration_max_secs": call_duration_max_secs,
+                "rating_max": rating_max,
+                "rating_min": rating_min,
+                "has_feedback_comment": has_feedback_comment,
                 "user_id": user_id,
+                "evaluation_params": evaluation_params,
+                "data_collection_params": data_collection_params,
+                "tool_names": tool_names,
+                "main_languages": main_languages,
                 "page_size": page_size,
                 "summary_mode": summary_mode,
+                "search": search,
+                "conversation_initiation_source": conversation_initiation_source,
+                "branch_id": branch_id,
             },
             request_options=request_options,
         )
@@ -288,7 +358,7 @@ class RawConversationsClient:
 
     def delete(
         self, conversation_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> HttpResponse[typing.Optional[typing.Any]]:
+    ) -> HttpResponse[typing.Any]:
         """
         Delete a particular conversation
 
@@ -302,7 +372,7 @@ class RawConversationsClient:
 
         Returns
         -------
-        HttpResponse[typing.Optional[typing.Any]]
+        HttpResponse[typing.Any]
             Successful Response
         """
         _response = self._client_wrapper.httpx_client.request(
@@ -315,9 +385,9 @@ class RawConversationsClient:
                 return HttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    typing.Any,
                     construct_type(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=typing.Any,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -348,6 +418,7 @@ class AsyncRawConversationsClient:
         *,
         agent_id: str,
         include_conversation_id: typing.Optional[bool] = None,
+        branch_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[ConversationSignedUrlResponseModel]:
         """
@@ -360,6 +431,9 @@ class AsyncRawConversationsClient:
 
         include_conversation_id : typing.Optional[bool]
             Whether to include a conversation_id with the response. If included, the conversation_signature cannot be used again.
+
+        branch_id : typing.Optional[str]
+            The ID of the branch to use
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -375,6 +449,7 @@ class AsyncRawConversationsClient:
             params={
                 "agent_id": agent_id,
                 "include_conversation_id": include_conversation_id,
+                "branch_id": branch_id,
             },
             request_options=request_options,
         )
@@ -409,6 +484,7 @@ class AsyncRawConversationsClient:
         *,
         agent_id: str,
         participant_name: typing.Optional[str] = None,
+        branch_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[TokenResponseModel]:
         """
@@ -421,6 +497,9 @@ class AsyncRawConversationsClient:
 
         participant_name : typing.Optional[str]
             Optional custom participant name. If not provided, user ID will be used
+
+        branch_id : typing.Optional[str]
+            The ID of the branch to use
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -436,6 +515,7 @@ class AsyncRawConversationsClient:
             params={
                 "agent_id": agent_id,
                 "participant_name": participant_name,
+                "branch_id": branch_id,
             },
             request_options=request_options,
         )
@@ -473,9 +553,21 @@ class AsyncRawConversationsClient:
         call_successful: typing.Optional[EvaluationSuccessResult] = None,
         call_start_before_unix: typing.Optional[int] = None,
         call_start_after_unix: typing.Optional[int] = None,
+        call_duration_min_secs: typing.Optional[int] = None,
+        call_duration_max_secs: typing.Optional[int] = None,
+        rating_max: typing.Optional[int] = None,
+        rating_min: typing.Optional[int] = None,
+        has_feedback_comment: typing.Optional[bool] = None,
         user_id: typing.Optional[str] = None,
+        evaluation_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        data_collection_params: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        tool_names: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        main_languages: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
         page_size: typing.Optional[int] = None,
         summary_mode: typing.Optional[ConversationsListRequestSummaryMode] = None,
+        search: typing.Optional[str] = None,
+        conversation_initiation_source: typing.Optional[ConversationInitiationSource] = None,
+        branch_id: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[GetConversationsPageResponseModel]:
         """
@@ -498,14 +590,49 @@ class AsyncRawConversationsClient:
         call_start_after_unix : typing.Optional[int]
             Unix timestamp (in seconds) to filter conversations after to this start date.
 
+        call_duration_min_secs : typing.Optional[int]
+            Minimum call duration in seconds.
+
+        call_duration_max_secs : typing.Optional[int]
+            Maximum call duration in seconds.
+
+        rating_max : typing.Optional[int]
+            Maximum overall rating (1-5).
+
+        rating_min : typing.Optional[int]
+            Minimum overall rating (1-5).
+
+        has_feedback_comment : typing.Optional[bool]
+            Filter conversations with user feedback comments.
+
         user_id : typing.Optional[str]
             Filter conversations by the user ID who initiated them.
+
+        evaluation_params : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Evaluation filters. Repeat param. Format: criteria_id:result. Example: eval=value_framing:success
+
+        data_collection_params : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Data collection filters. Repeat param. Format: id:op:value where op is one of eq|neq|gt|gte|lt|lte|in|exists|missing. For in, pipe-delimit values.
+
+        tool_names : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by tool names used during the call.
+
+        main_languages : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Filter conversations by detected main language (language code).
 
         page_size : typing.Optional[int]
             How many conversations to return at maximum. Can not exceed 100, defaults to 30.
 
         summary_mode : typing.Optional[ConversationsListRequestSummaryMode]
             Whether to include transcript summaries in the response.
+
+        search : typing.Optional[str]
+            Full-text or fuzzy search over transcript messages
+
+        conversation_initiation_source : typing.Optional[ConversationInitiationSource]
+
+        branch_id : typing.Optional[str]
+            Filter conversations by branch ID.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -524,9 +651,21 @@ class AsyncRawConversationsClient:
                 "call_successful": call_successful,
                 "call_start_before_unix": call_start_before_unix,
                 "call_start_after_unix": call_start_after_unix,
+                "call_duration_min_secs": call_duration_min_secs,
+                "call_duration_max_secs": call_duration_max_secs,
+                "rating_max": rating_max,
+                "rating_min": rating_min,
+                "has_feedback_comment": has_feedback_comment,
                 "user_id": user_id,
+                "evaluation_params": evaluation_params,
+                "data_collection_params": data_collection_params,
+                "tool_names": tool_names,
+                "main_languages": main_languages,
                 "page_size": page_size,
                 "summary_mode": summary_mode,
+                "search": search,
+                "conversation_initiation_source": conversation_initiation_source,
+                "branch_id": branch_id,
             },
             request_options=request_options,
         )
@@ -608,7 +747,7 @@ class AsyncRawConversationsClient:
 
     async def delete(
         self, conversation_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> AsyncHttpResponse[typing.Optional[typing.Any]]:
+    ) -> AsyncHttpResponse[typing.Any]:
         """
         Delete a particular conversation
 
@@ -622,7 +761,7 @@ class AsyncRawConversationsClient:
 
         Returns
         -------
-        AsyncHttpResponse[typing.Optional[typing.Any]]
+        AsyncHttpResponse[typing.Any]
             Successful Response
         """
         _response = await self._client_wrapper.httpx_client.request(
@@ -635,9 +774,9 @@ class AsyncRawConversationsClient:
                 return AsyncHttpResponse(response=_response, data=None)
             if 200 <= _response.status_code < 300:
                 _data = typing.cast(
-                    typing.Optional[typing.Any],
+                    typing.Any,
                     construct_type(
-                        type_=typing.Optional[typing.Any],  # type: ignore
+                        type_=typing.Any,  # type: ignore
                         object_=_response.json(),
                     ),
                 )

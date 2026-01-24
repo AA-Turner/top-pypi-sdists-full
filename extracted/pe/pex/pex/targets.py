@@ -6,8 +6,10 @@ from __future__ import absolute_import
 import os
 
 from pex.dist_metadata import Constraint, Distribution
+from pex.dist_metadata import requires_python as dist_requires_python
 from pex.interpreter import PythonInterpreter
 from pex.interpreter_implementation import InterpreterImplementation
+from pex.interpreter_selection_strategy import InterpreterSelectionStrategy
 from pex.orderedset import OrderedSet
 from pex.pep_425 import CompatibilityTags, RankedTag
 from pex.pep_508 import MarkerEnvironment
@@ -31,6 +33,22 @@ class RequiresPythonError(Exception):
 
 @attr.s(frozen=True)
 class WheelEvaluation(object):
+    @classmethod
+    def select_best_match(cls, evals):
+        # type: (Iterable[WheelEvaluation]) -> Optional[WheelEvaluation]
+        match = None  # type: Optional[WheelEvaluation]
+        for wheel_eval in evals:
+            if not wheel_eval.applies:
+                continue
+            if match is None:
+                match = wheel_eval
+            elif wheel_eval.best_match and (
+                wheel_eval.best_match.select_higher_rank(match.best_match) == wheel_eval.best_match
+            ):
+                match = wheel_eval
+        return match
+
+    wheel = attr.ib()  # type: str
     tags = attr.ib()  # type: Tuple[Tag, ...]
     best_match = attr.ib()  # type: Optional[RankedTag]
     requires_python = attr.ib()  # type: Optional[SpecifierSet]
@@ -182,20 +200,27 @@ class Target(object):
         return False
 
     def wheel_applies(self, wheel):
-        # type: (Distribution) -> WheelEvaluation
+        # type: (Union[str, Distribution]) -> WheelEvaluation
+
         wheel_tags = CompatibilityTags.from_wheel(wheel)
         ranked_tag = self.supported_tags.best_match(wheel_tags)
+        requires_python = (
+            wheel.metadata.requires_python
+            if isinstance(wheel, Distribution)
+            else dist_requires_python(wheel)
+        )
+        wheel_location = wheel.location if isinstance(wheel, Distribution) else wheel
+
         return WheelEvaluation(
+            wheel=wheel_location,
             tags=tuple(wheel_tags),
             best_match=ranked_tag,
-            requires_python=wheel.metadata.requires_python,
+            requires_python=requires_python,
             applies=(
                 ranked_tag is not None
                 and (
-                    not wheel.metadata.requires_python
-                    or self.requires_python_applies(
-                        wheel.metadata.requires_python, source=wheel.location
-                    )
+                    not requires_python
+                    or self.requires_python_applies(requires_python, source=wheel_location)
                 )
             ),
         )
@@ -217,8 +242,15 @@ class Target(object):
 class LocalInterpreter(Target):
     @classmethod
     def create(cls, interpreter=None):
-        # type: (Optional[PythonInterpreter]) -> LocalInterpreter
-        python_interpreter = interpreter or PythonInterpreter.get()
+        # type: (Optional[Union[str, PythonInterpreter]]) -> LocalInterpreter
+
+        if not interpreter:
+            python_interpreter = PythonInterpreter.get()
+        elif isinstance(interpreter, PythonInterpreter):
+            python_interpreter = interpreter
+        else:
+            python_interpreter = PythonInterpreter.from_binary(interpreter)
+
         return cls(
             id=python_interpreter.binary.replace(os.sep, ".").lstrip("."),
             platform=python_interpreter.platform,
@@ -343,6 +375,9 @@ class Targets(object):
             return cls(interpreters=(target.get_interpreter(),))
 
     interpreters = attr.ib(default=())  # type: Tuple[PythonInterpreter, ...]
+    interpreter_selection_strategy = attr.ib(
+        default=InterpreterSelectionStrategy.OLDEST
+    )  # type: InterpreterSelectionStrategy.Value
     complete_platforms = attr.ib(default=())  # type: Tuple[CompletePlatform, ...]
     platforms = attr.ib(default=())  # type: Tuple[Optional[Platform], ...]
 
@@ -356,7 +391,7 @@ class Targets(object):
         # type: () -> Optional[PythonInterpreter]
         if not self.interpreters:
             return None
-        return PythonInterpreter.latest_release_of_min_compatible_version(self.interpreters)
+        return self.interpreter_selection_strategy.select(self.interpreters)
 
     def unique_targets(self, only_explicit=False):
         # type: (bool) -> OrderedSet[Target]

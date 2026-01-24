@@ -19,7 +19,7 @@ from __future__ import annotations
 import ast
 import datetime
 import decimal
-from typing import TYPE_CHECKING, Literal, Union
+from typing import TYPE_CHECKING, Literal, NewType, Optional, Union
 
 import pytz
 from hopsworks_common.core.constants import (
@@ -28,12 +28,14 @@ from hopsworks_common.core.constants import (
     HAS_PYARROW,
 )
 from hopsworks_common.decorators import uses_polars
+from hsfs.client.exceptions import FeatureStoreException
 
 
 if TYPE_CHECKING:
     import numpy as np
     import pandas as pd
     import polars as pl
+    from hsfs.core.feature_logging import LoggingMetaData
 
 if HAS_PYARROW:
     import pyarrow as pa
@@ -87,6 +89,121 @@ if HAS_PYARROW:
 else:
     PYARROW_HOPSWORKS_DTYPE_MAPPING = {}
 
+if HAS_PYARROW:
+
+    def convert_offline_type_to_pyarrow_type(offline_type: str):
+        """
+        Convert an offline type string to a PyArrow type.
+
+        Supports simple types (int, bigint, string, etc.), array types (array<type>),
+        and struct types (struct<field1:type1,field2:type2>).
+
+        # Arguments
+            offline_type: `str`. The offline type string to convert.
+
+        # Returns
+            `pa.DataType`. The corresponding PyArrow type.
+        """
+        offline_type = offline_type.strip().lower()
+
+        # Handle array types: array<type>
+        if offline_type.startswith("array<") and offline_type.endswith(">"):
+            element_type_str = offline_type[
+                6:-1
+            ]  # Extract content between array< and >
+            element_type = convert_offline_type_to_pyarrow_type(element_type_str)
+            return pa.list_(element_type)
+
+        # Handle struct types: struct<field1:type1,field2:type2>
+        if offline_type.startswith("struct<") and offline_type.endswith(">"):
+            struct_content = offline_type[7:-1]  # Extract content between struct< and >
+            fields = []
+            # Parse struct fields: field1:type1,field2:type2
+            # Need to handle nested structs and arrays in field types
+            i = 0
+            while i < len(struct_content):
+                # Find the field name (until colon)
+                field_start = i
+                while i < len(struct_content) and struct_content[i] != ":":
+                    i += 1
+                if i >= len(struct_content):
+                    raise FeatureStoreException(
+                        f"Invalid struct type format: {offline_type}. Missing colon after field name."
+                    )
+                field_name = struct_content[field_start:i].strip()
+                i += 1  # Skip colon
+
+                # Find the field type (handle nested structs/arrays)
+                type_start = i
+                bracket_count = 0
+                angle_bracket_count = 0
+                while i < len(struct_content):
+                    char = struct_content[i]
+                    if char == "," and bracket_count == 0 and angle_bracket_count == 0:
+                        break
+                    if char == "<":
+                        angle_bracket_count += 1
+                    elif char == ">":
+                        angle_bracket_count -= 1
+                    elif char == "(":
+                        bracket_count += 1
+                    elif char == ")":
+                        bracket_count -= 1
+                    i += 1
+
+                field_type_str = struct_content[type_start:i].strip()
+                field_type = convert_offline_type_to_pyarrow_type(field_type_str)
+                fields.append(pa.field(field_name, field_type, nullable=True))
+                if i < len(struct_content):
+                    i += 1  # Skip comma
+
+            return pa.struct(fields)
+
+        # Handle simple types
+        offline_type_lower = offline_type.lower()
+        type_mapping = {
+            "string": pa.string(),
+            "bigint": pa.int64(),
+            "int": pa.int32(),
+            "smallint": pa.int16(),
+            "tinyint": pa.int8(),
+            "float": pa.float32(),
+            "double": pa.float64(),
+            "boolean": pa.bool_(),
+            "timestamp": pa.timestamp("us"),
+            "date": pa.date32(),
+            "binary": pa.binary(),
+        }
+
+        # Handle decimal types: decimal(precision,scale) or just decimal
+        if offline_type_lower.startswith("decimal"):
+            # Try to parse decimal(precision,scale)
+            if "(" in offline_type_lower:
+                # Extract precision and scale
+                start = offline_type_lower.index("(")
+                end = offline_type_lower.index(")")
+                params = offline_type_lower[start + 1 : end].split(",")
+                if len(params) == 2:
+                    precision = int(params[0].strip())
+                    scale = int(params[1].strip())
+                    return pa.decimal128(precision, scale)
+            # Default decimal type
+            return pa.decimal128(10, 0)
+
+        if offline_type_lower in type_mapping:
+            return type_mapping[offline_type_lower]
+
+        raise FeatureStoreException(
+            f"Unsupported offline type: {offline_type}. Cannot convert to PyArrow type."
+        )
+else:
+
+    def convert_offline_type_to_pyarrow_type(offline_type: str):
+        raise FeatureStoreException(
+            "PyArrow is not installed. Cannot convert offline type to PyArrow type."
+        )
+
+
 # python cast column to offline type
 if HAS_POLARS:
     import polars as pl
@@ -100,7 +217,7 @@ if HAS_POLARS:
         "double": pl.Float64,
     }
 
-    _polars_online_dtype_mapping = {
+    polars_online_dtype_mapping = {
         "bigint": pl.Int64,
         "int": pl.Int32,
         "smallint": pl.Int16,
@@ -118,8 +235,8 @@ if HAS_PANDAS:
         "int": pd.Int32Dtype(),
         "smallint": pd.Int16Dtype(),
         "tinyint": pd.Int8Dtype(),
-        "float": np.dtype("float32"),
-        "double": np.dtype("float64"),
+        "float": pd.Float32Dtype(),
+        "double": pd.Float64Dtype(),
     }
 
     pandas_online_dtype_mapping = {
@@ -127,9 +244,42 @@ if HAS_PANDAS:
         "int": pd.Int32Dtype(),
         "smallint": pd.Int16Dtype(),
         "tinyint": pd.Int8Dtype(),
-        "float": np.dtype("float32"),
-        "double": np.dtype("float64"),
+        "float": pd.Float32Dtype(),
+        "double": pd.Float64Dtype(),
     }
+
+
+def create_extended_type(base_type: type) -> "HopsworksLoggingMetadataType":
+    """
+    This is wrapper function to create a new class that extends the base_type class with a new attribute that can be used to store metadata.
+
+    Args:
+        base_type : The base class to extend
+    """
+
+    class HopsworksLoggingMetadataType(base_type):
+        """
+        This is a class that extends the base_type class with a new attribute `hopsworks_logging_metadata` that can be used to store metadata.
+        """
+
+        _is_extended_type = True
+
+        @property
+        def hopsworks_logging_metadata(self) -> Optional[LoggingMetaData]:
+            if not hasattr(self, "_hopsworks_logging_metadata"):
+                return None
+            return self._hopsworks_logging_metadata
+
+        @hopsworks_logging_metadata.setter
+        def hopsworks_logging_metadata(self, meta_data: LoggingMetaData):
+            self._hopsworks_logging_metadata = meta_data
+
+    return HopsworksLoggingMetadataType
+
+
+HopsworksLoggingMetadataType = NewType(
+    "HopsworksLoggingMetadataType", create_extended_type(type)
+)  # Adding new type for type hinting and static analysis.
 
 
 def convert_pandas_dtype_to_offline_type(arrow_type: str) -> str:
@@ -184,7 +334,13 @@ def cast_pandas_column_to_offline_type(
     ):
         return feature_column.apply(
             lambda x: (ast.literal_eval(x) if isinstance(x, str) else x)
-            if (x is not None and x != "")
+            if (
+                x is not None
+                and (
+                    isinstance(x, (list, dict, np.ndarray))
+                    or (not pd.isnull(x) and x != "")
+                )
+            )
             else None
         )
     elif offline_type == "string":

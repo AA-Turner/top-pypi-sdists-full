@@ -1,17 +1,14 @@
 use std::{collections::HashMap, sync::Arc};
 
 use common_error::DaftResult;
+use common_runtime::{JoinSet, JoinSetId};
 
 use super::{
     scheduler::{PendingTask, ScheduledTask},
     task::{Task, TaskResultAwaiter, TaskStatus},
     worker::{Worker, WorkerManager},
 };
-use crate::{
-    scheduling::task::TaskResultHandle,
-    statistics::StatisticsManagerRef,
-    utils::joinset::{JoinSet, JoinSetId},
-};
+use crate::{scheduling::task::TaskResultHandle, statistics::StatisticsManagerRef};
 
 const DISPATCHER_LOG_TARGET: &str = "DaftFlotillaDispatcher";
 
@@ -109,7 +106,7 @@ impl<W: Worker> Dispatcher<W> {
                 match task_result {
                     Ok(task_status) => match task_status {
                         // Task completed successfully, send the result to the result_tx
-                        TaskStatus::Success { result } => {
+                        TaskStatus::Success { result, .. } => {
                             if result_tx.send(Ok(Some(result))).is_err() {
                                 tracing::error!(target: DISPATCHER_LOG_TARGET, error = "Failed to send result of task to result_tx", task_context = ?task.task_context());
                             }
@@ -214,7 +211,7 @@ mod tests {
 
         let partition_ref = create_mock_partition_ref(100, 100);
         let task = MockTaskBuilder::new(partition_ref.clone()).build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let (schedulable_task, submitted_task) =
             SchedulerHandle::prepare_task_for_submission(submittable_task);
 
@@ -248,7 +245,7 @@ mod tests {
                     .with_task_id(i as u32)
                     .with_sleep_duration(std::time::Duration::from_millis(rng.gen_range(50..100)))
                     .build();
-                let submittable_task = SubmittableTask::new(task);
+                let submittable_task = SubmittableTask::task_only(task);
                 let (schedulable_task, submitted_task) =
                     SchedulerHandle::prepare_task_for_submission(submittable_task);
                 (
@@ -272,8 +269,8 @@ mod tests {
         for (i, submitted_task) in submitted_tasks.into_iter().enumerate() {
             let result = submitted_task.await?;
             let partition = result.unwrap().partitions()[0].clone();
-            assert_eq!(partition.num_rows().unwrap(), 100 + i);
-            assert_eq!(partition.size_bytes().unwrap(), Some(1024 * (i + 1)));
+            assert_eq!(partition.num_rows(), 100 + i);
+            assert_eq!(partition.size_bytes(), 1024 * (i + 1));
         }
 
         Ok(())
@@ -290,7 +287,7 @@ mod tests {
         let task = MockTaskBuilder::new(partition_ref.clone())
             .with_cancel_notifier(cancel_notifier)
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let (schedulable_task, submitted_task) =
             SchedulerHandle::prepare_task_for_submission(submittable_task);
 
@@ -312,7 +309,7 @@ mod tests {
         let task = MockTaskBuilder::new(create_mock_partition_ref(100, 1024))
             .with_failure(MockTaskFailure::Error("test error".to_string()))
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let (schedulable_task, submitted_task) =
             SchedulerHandle::prepare_task_for_submission(submittable_task);
 
@@ -344,7 +341,7 @@ mod tests {
             .with_failure(MockTaskFailure::Panic("test panic".to_string()))
             .build();
 
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let (schedulable_task, submitted_task) =
             SchedulerHandle::prepare_task_for_submission(submittable_task);
         let scheduled_tasks = vec![ScheduledTask::new(schedulable_task, worker_id)];
@@ -376,7 +373,7 @@ mod tests {
         let task = MockTaskBuilder::new(create_mock_partition_ref(100, 1024))
             .with_failure(MockTaskFailure::WorkerDied)
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let (schedulable_task, _submitted_task) =
             SchedulerHandle::prepare_task_for_submission(submittable_task);
 
@@ -416,7 +413,7 @@ mod tests {
         let task = MockTaskBuilder::new(create_mock_partition_ref(100, 1024))
             .with_failure(MockTaskFailure::WorkerUnavailable)
             .build();
-        let submittable_task = SubmittableTask::new(task);
+        let submittable_task = SubmittableTask::task_only(task);
         let (schedulable_task, _submitted_task) =
             SchedulerHandle::prepare_task_for_submission(submittable_task);
 
@@ -491,7 +488,7 @@ mod tests {
                 worker3_id.clone(),
             ])
             .map(|(task, worker_id)| {
-                let submittable_task = SubmittableTask::new(task);
+                let submittable_task = SubmittableTask::task_only(task);
                 let (schedulable_task, submitted_task) =
                     SchedulerHandle::prepare_task_for_submission(submittable_task);
                 (

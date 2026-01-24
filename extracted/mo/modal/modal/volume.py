@@ -1,5 +1,6 @@
 # Copyright Modal Labs 2023
 import asyncio
+import builtins
 import concurrent.futures
 import enum
 import functools
@@ -7,6 +8,7 @@ import multiprocessing
 import os
 import platform
 import re
+import sys
 import time
 import typing
 from collections.abc import AsyncGenerator, AsyncIterator, Generator, Sequence
@@ -24,20 +26,21 @@ from typing import (
 )
 
 from google.protobuf.message import Message
-from grpclib import GRPCError, Status
 from synchronicity import classproperty
 from synchronicity.async_wrap import asynccontextmanager
 
 import modal.exception
 import modal_proto.api_pb2
-from modal.exception import AlreadyExistsError, InvalidError, NotFoundError, VolumeUploadTimeoutError
+from modal.exception import AlreadyExistsError, ConflictError, InvalidError, NotFoundError, VolumeUploadTimeoutError
 from modal_proto import api_pb2
 
+from ._load_context import LoadContext
 from ._object import (
     EPHEMERAL_OBJECT_HEARTBEAT_SLEEP,
     _get_environment_name,
     _Object,
     live_method,
+    live_method_contextmanager,
     live_method_gen,
 )
 from ._resolver import Resolver
@@ -59,7 +62,7 @@ from ._utils.blob_utils import (
     get_file_upload_spec_from_path,
 )
 from ._utils.deprecation import deprecation_warning, warn_if_passing_namespace
-from ._utils.grpc_utils import retry_transient_errors
+from ._utils.grpc_utils import Retry
 from ._utils.http_utils import ClientSessionRegistry
 from ._utils.name_utils import check_object_name
 from ._utils.time_utils import as_timestamp, timestamp_to_localized_dt
@@ -170,11 +173,9 @@ class _VolumeManager:
             version=version,
         )
         try:
-            await retry_transient_errors(client.stub.VolumeGetOrCreate, req)
-        except GRPCError as exc:
-            if exc.status == Status.ALREADY_EXISTS and not allow_existing:
-                raise AlreadyExistsError(exc.message)
-            else:
+            await client.stub.VolumeGetOrCreate(req)
+        except AlreadyExistsError:
+            if not allow_existing:
                 raise
 
     @staticmethod
@@ -184,7 +185,7 @@ class _VolumeManager:
         created_before: Optional[Union[datetime, str]] = None,  # Limit based on creation date
         environment_name: str = "",  # Uses active environment if not specified
         client: Optional[_Client] = None,  # Optional client with Modal credentials
-    ) -> list["_Volume"]:
+    ) -> builtins.list["_Volume"]:
         """Return a list of hydrated Volume objects.
 
         **Examples:**
@@ -222,7 +223,7 @@ class _VolumeManager:
             req = api_pb2.VolumeListRequest(
                 environment_name=_get_environment_name(environment_name), pagination=pagination
             )
-            resp = await retry_transient_errors(client.stub.VolumeList, req)
+            resp = await client.stub.VolumeList(req)
             items.extend(resp.items)
             finished = (len(resp.items) < max_page_size) or (max_objects is not None and len(items) >= max_objects)
             return finished
@@ -280,7 +281,7 @@ class _VolumeManager:
                 raise
         else:
             req = api_pb2.VolumeDeleteRequest(volume_id=obj.object_id)
-            await retry_transient_errors(obj._client.stub.VolumeDelete, req)
+            await obj._client.stub.VolumeDelete(req)
 
 
 VolumeManager = synchronize_api(_VolumeManager)
@@ -362,11 +363,19 @@ class _Volume(_Object, type_prefix="vo"):
         Added in v1.0.5.
         """
 
-        async def _load(new_volume: _Volume, resolver: Resolver, existing_object_id: Optional[str]):
+        async def _load(
+            new_volume: _Volume, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
+        ):
             new_volume._initialize_from_other(self)
             new_volume._read_only = True
 
-        obj = _Volume._from_loader(_load, "Volume()", hydrate_lazily=True, deps=lambda: [self])
+        obj = _Volume._from_loader(
+            _load,
+            "Volume()",
+            hydrate_lazily=True,
+            deps=lambda: [self],
+            load_context_overrides=self._load_context_overrides,
+        )
         return obj
 
     def _hydrate_metadata(self, metadata: Optional[Message]):
@@ -408,6 +417,7 @@ class _Volume(_Object, type_prefix="vo"):
         environment_name: Optional[str] = None,
         create_if_missing: bool = False,
         version: "typing.Optional[modal_proto.api_pb2.VolumeFsVersion.ValueType]" = None,
+        client: Optional[_Client] = None,
     ) -> "_Volume":
         """Reference a Volume by name, creating if necessary.
 
@@ -429,18 +439,26 @@ class _Volume(_Object, type_prefix="vo"):
         check_object_name(name, "Volume")
         warn_if_passing_namespace(namespace, "modal.Volume.from_name")
 
-        async def _load(self: _Volume, resolver: Resolver, existing_object_id: Optional[str]):
+        async def _load(
+            self: _Volume, resolver: Resolver, load_context: LoadContext, existing_object_id: Optional[str]
+        ):
             req = api_pb2.VolumeGetOrCreateRequest(
                 deployment_name=name,
-                environment_name=_get_environment_name(environment_name, resolver),
+                environment_name=load_context.environment_name,
                 object_creation_type=(api_pb2.OBJECT_CREATION_TYPE_CREATE_IF_MISSING if create_if_missing else None),
                 version=version,
             )
-            response = await resolver.client.stub.VolumeGetOrCreate(req)
-            self._hydrate(response.volume_id, resolver.client, response.metadata)
+            response = await load_context.client.stub.VolumeGetOrCreate(req)
+            self._hydrate(response.volume_id, load_context.client, response.metadata)
 
         rep = _Volume._repr(name, environment_name)
-        return _Volume._from_loader(_load, rep, hydrate_lazily=True, name=name)
+        return _Volume._from_loader(
+            _load,
+            rep,
+            hydrate_lazily=True,
+            name=name,
+            load_context_overrides=LoadContext(client=client, environment_name=environment_name),
+        )
 
     @classmethod
     @asynccontextmanager
@@ -485,47 +503,6 @@ class _Volume(_Object, type_prefix="vo"):
             )
 
     @staticmethod
-    async def lookup(
-        name: str,
-        namespace=None,  # mdmd:line-hidden
-        client: Optional[_Client] = None,
-        environment_name: Optional[str] = None,
-        create_if_missing: bool = False,
-        version: "typing.Optional[modal_proto.api_pb2.VolumeFsVersion.ValueType]" = None,
-    ) -> "_Volume":
-        """mdmd:hidden
-        Lookup a named Volume.
-
-        DEPRECATED: This method is deprecated in favor of `modal.Volume.from_name`.
-
-        In contrast to `modal.Volume.from_name`, this is an eager method
-        that will hydrate the local object with metadata from Modal servers.
-
-        ```python notest
-        vol = modal.Volume.from_name("my-volume")
-        print(vol.listdir("/"))
-        ```
-        """
-        deprecation_warning(
-            (2025, 1, 27),
-            "`modal.Volume.lookup` is deprecated and will be removed in a future release."
-            " It can be replaced with `modal.Volume.from_name`."
-            "\n\nSee https://modal.com/docs/guide/modal-1-0-migration for more information.",
-        )
-        warn_if_passing_namespace(namespace, "modal.Volume.lookup")
-        obj = _Volume.from_name(
-            name,
-            environment_name=environment_name,
-            create_if_missing=create_if_missing,
-            version=version,
-        )
-        if client is None:
-            client = await _Client.from_env()
-        resolver = Resolver(client=client)
-        await resolver.load(obj)
-        return obj
-
-    @staticmethod
     async def create_deployed(
         deployment_name: str,
         namespace=None,  # mdmd:line-hidden
@@ -560,7 +537,7 @@ class _Volume(_Object, type_prefix="vo"):
             object_creation_type=api_pb2.OBJECT_CREATION_TYPE_CREATE_FAIL_IF_EXISTS,
             version=version,
         )
-        resp = await retry_transient_errors(client.stub.VolumeGetOrCreate, request)
+        resp = await client.stub.VolumeGetOrCreate(request)
         return resp.volume_id
 
     @live_method
@@ -580,7 +557,7 @@ class _Volume(_Object, type_prefix="vo"):
     async def _do_reload(self, lock=True):
         async with (await self._get_lock()) if lock else asyncnullcontext():
             req = api_pb2.VolumeReloadRequest(volume_id=self.object_id)
-            _ = await retry_transient_errors(self._client.stub.VolumeReload, req)
+            _ = await self._client.stub.VolumeReload(req)
 
     @live_method
     async def commit(self):
@@ -593,12 +570,12 @@ class _Volume(_Object, type_prefix="vo"):
             req = api_pb2.VolumeCommitRequest(volume_id=self.object_id)
             try:
                 # TODO(gongy): only apply indefinite retries on 504 status.
-                resp = await retry_transient_errors(self._client.stub.VolumeCommit, req, max_retries=90)
+                resp = await self._client.stub.VolumeCommit(req, retry=Retry(max_retries=90))
                 if not resp.skip_reload:
                     # Reload changes on successful commit.
                     await self._do_reload(lock=False)
-            except GRPCError as exc:
-                raise RuntimeError(exc.message) if exc.status in (Status.FAILED_PRECONDITION, Status.NOT_FOUND) else exc
+            except (ConflictError, NotFoundError) as exc:
+                raise RuntimeError(str(exc))
 
     @live_method
     async def reload(self):
@@ -611,11 +588,12 @@ class _Volume(_Object, type_prefix="vo"):
         """
         try:
             await self._do_reload()
-        except GRPCError as exc:
+        except (NotFoundError, ConflictError) as exc:
             # TODO(staffan): This is brittle and janky, as it relies on specific paths and error messages which can
             #  change server-side at any time. Consider returning the open files directly in the error emitted from the
             #  server.
-            if exc.message == "there are open files preventing the operation":
+            message = str(exc)
+            if "there are open files preventing the operation" in message:
                 # Attempt to identify what open files are problematic and include information about the first (to avoid
                 # really verbose errors) open file in the error message to help troubleshooting.
                 # This is best-effort and not necessarily bulletproof, as the view of open files inside the container
@@ -623,9 +601,8 @@ class _Volume(_Object, type_prefix="vo"):
                 vol_path = f"/__modal/volumes/{self.object_id}"
                 annotation = _open_files_error_annotation(vol_path)
                 if annotation:
-                    raise RuntimeError(f"{exc.message}: {annotation}")
-
-            raise RuntimeError(exc.message) if exc.status in (Status.FAILED_PRECONDITION, Status.NOT_FOUND) else exc
+                    raise RuntimeError(f"{message}: {annotation}")
+            raise RuntimeError(message)
 
     @live_method_gen
     async def iterdir(self, path: str, *, recursive: bool = True) -> AsyncIterator[FileEntry]:
@@ -668,7 +645,7 @@ class _Volume(_Object, type_prefix="vo"):
         return [entry async for entry in self.iterdir(path, recursive=recursive)]
 
     @live_method_gen
-    async def read_file(self, path: str) -> AsyncIterator[bytes]:
+    async def read_file(self, path: str) -> AsyncGenerator[bytes, None]:
         """
         Read a file from the modal.Volume.
 
@@ -689,13 +666,14 @@ class _Volume(_Object, type_prefix="vo"):
         req = api_pb2.VolumeGetFile2Request(volume_id=self.object_id, path=path)
 
         try:
-            response = await retry_transient_errors(self._client.stub.VolumeGetFile2, req)
+            response = await self._client.stub.VolumeGetFile2(req)
         except modal.exception.NotFoundError as exc:
             raise FileNotFoundError(exc.args[0])
 
         @retry(n_attempts=5, base_delay=0.1, timeout=None)
         async def read_block(block_url: str) -> bytes:
             async with ClientSessionRegistry.get_session().get(block_url) as get_response:
+                get_response.raise_for_status()
                 return await get_response.content.read()
 
         async def iter_urls() -> AsyncGenerator[str]:
@@ -711,25 +689,43 @@ class _Volume(_Object, type_prefix="vo"):
 
     @live_method
     async def read_file_into_fileobj(
-        self, path: str, fileobj: typing.IO[bytes], progress_cb: Optional[Callable[..., Any]] = None
+        self,
+        path: str,
+        fileobj: typing.IO[bytes],
+        progress_cb: Optional[Callable[..., Any]] = None,
     ) -> int:
         """mdmd:hidden
         Read volume file into file-like IO object.
         """
+        return await self._read_file_into_fileobj(path, fileobj, progress_cb=progress_cb)
+
+    @live_method
+    async def _read_file_into_fileobj(
+        self,
+        path: str,
+        fileobj: typing.IO[bytes],
+        concurrency: Optional[int] = None,
+        download_semaphore: Optional[asyncio.Semaphore] = None,
+        progress_cb: Optional[Callable[..., Any]] = None,
+    ) -> int:
         if progress_cb is None:
 
             def progress_cb(*_, **__):
                 pass
 
+        if concurrency is None:
+            concurrency = multiprocessing.cpu_count()
+
         req = api_pb2.VolumeGetFile2Request(volume_id=self.object_id, path=path)
 
         try:
-            response = await retry_transient_errors(self._client.stub.VolumeGetFile2, req)
+            response = await self._client.stub.VolumeGetFile2(req)
         except modal.exception.NotFoundError as exc:
             raise FileNotFoundError(exc.args[0])
 
-        # TODO(dflemstr): Sane default limit? Make configurable?
-        download_semaphore = asyncio.Semaphore(multiprocessing.cpu_count())
+        if download_semaphore is None:
+            download_semaphore = asyncio.Semaphore(concurrency)
+
         write_lock = asyncio.Lock()
         start_pos = fileobj.tell()
 
@@ -739,6 +735,7 @@ class _Volume(_Object, type_prefix="vo"):
             num_bytes_written = 0
 
             async with download_semaphore, ClientSessionRegistry.get_session().get(url) as get_response:
+                get_response.raise_for_status()
                 async for chunk in get_response.content.iter_any():
                     num_chunk_bytes_written = 0
 
@@ -772,10 +769,10 @@ class _Volume(_Object, type_prefix="vo"):
         try:
             if self._is_v1:
                 req = api_pb2.VolumeRemoveFileRequest(volume_id=self.object_id, path=path, recursive=recursive)
-                await retry_transient_errors(self._client.stub.VolumeRemoveFile, req)
+                await self._client.stub.VolumeRemoveFile(req)
             else:
                 req = api_pb2.VolumeRemoveFile2Request(volume_id=self.object_id, path=path, recursive=recursive)
-                await retry_transient_errors(self._client.stub.VolumeRemoveFile2, req)
+                await self._client.stub.VolumeRemoveFile2(req)
         except modal.exception.NotFoundError as exc:
             raise FileNotFoundError(exc.args[0])
 
@@ -814,15 +811,16 @@ class _Volume(_Object, type_prefix="vo"):
             request = api_pb2.VolumeCopyFilesRequest(
                 volume_id=self.object_id, src_paths=src_paths, dst_path=dst_path, recursive=recursive
             )
-            await retry_transient_errors(self._client.stub.VolumeCopyFiles, request, base_delay=1)
+            await self._client.stub.VolumeCopyFiles(request, retry=Retry(base_delay=1))
         else:
             request = api_pb2.VolumeCopyFiles2Request(
                 volume_id=self.object_id, src_paths=src_paths, dst_path=dst_path, recursive=recursive
             )
-            await retry_transient_errors(self._client.stub.VolumeCopyFiles2, request, base_delay=1)
+            await self._client.stub.VolumeCopyFiles2(request, retry=Retry(base_delay=1))
 
-    @live_method
-    async def batch_upload(self, force: bool = False) -> "_AbstractVolumeUploadContextManager":
+    @live_method_contextmanager
+    @asynccontextmanager
+    async def batch_upload(self, force: bool = False) -> AsyncGenerator["_AbstractVolumeUploadContextManager", None]:
         """
         Initiate a batched upload to a volume.
 
@@ -843,15 +841,19 @@ class _Volume(_Object, type_prefix="vo"):
         if self._read_only:
             raise InvalidError("Read-only Volume can not be written to")
 
-        return _AbstractVolumeUploadContextManager.resolve(
+        version_context_manager = _AbstractVolumeUploadContextManager.resolve(
             self._metadata.version, self.object_id, self._client, force=force
         )
+        await version_context_manager.__aenter__()
+        try:
+            yield version_context_manager
+        finally:
+            exc_type, exc_value, traceback = sys.exc_info()
+            await version_context_manager.__aexit__(exc_type, exc_value, traceback)
 
     @live_method
     async def _instance_delete(self):
-        await retry_transient_errors(
-            self._client.stub.VolumeDelete, api_pb2.VolumeDeleteRequest(volume_id=self.object_id)
-        )
+        await self._client.stub.VolumeDelete(api_pb2.VolumeDeleteRequest(volume_id=self.object_id))
 
     @staticmethod
     async def delete(name: str, client: Optional[_Client] = None, environment_name: Optional[str] = None):
@@ -880,7 +882,7 @@ class _Volume(_Object, type_prefix="vo"):
     ):
         obj = await _Volume.from_name(old_name, environment_name=environment_name).hydrate(client)
         req = api_pb2.VolumeRenameRequest(volume_id=obj.object_id, name=new_name)
-        await retry_transient_errors(obj._client.stub.VolumeRename, req)
+        await obj._client.stub.VolumeRename(req)
 
 
 Volume = synchronize_api(_Volume)
@@ -981,9 +983,9 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
                 disallow_overwrite_existing_files=not self._force,
             )
             try:
-                await retry_transient_errors(self._client.stub.VolumePutFiles, request, base_delay=1)
-            except GRPCError as exc:
-                raise FileExistsError(exc.message) if exc.status == Status.ALREADY_EXISTS else exc
+                await self._client.stub.VolumePutFiles(request, retry=Retry(base_delay=1))
+            except AlreadyExistsError as exc:
+                raise FileExistsError(str(exc))
 
     def put_file(
         self,
@@ -1041,7 +1043,7 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
         remote_filename = file_spec.mount_filename
         progress_task_id = self._progress_cb(name=remote_filename, size=file_spec.size)
         request = api_pb2.MountPutFileRequest(sha256_hex=file_spec.sha256_hex)
-        response = await retry_transient_errors(self._client.stub.MountPutFile, request, base_delay=1)
+        response = await self._client.stub.MountPutFile(request, retry=Retry(base_delay=1))
 
         start_time = time.monotonic()
         if not response.exists:
@@ -1061,11 +1063,15 @@ class _VolumeUploadContextManager(_AbstractVolumeUploadContextManager):
                 logger.debug(
                     f"Uploading file {file_spec.source_description} to {remote_filename} ({file_spec.size} bytes)"
                 )
-                request2 = api_pb2.MountPutFileRequest(data=file_spec.content, sha256_hex=file_spec.sha256_hex)
+                if file_spec.content is None:
+                    content = await asyncio.to_thread(file_spec.read_content)
+                else:
+                    content = file_spec.content
+                request2 = api_pb2.MountPutFileRequest(data=content, sha256_hex=file_spec.sha256_hex)
                 self._progress_cb(task_id=progress_task_id, complete=True)
 
             while (time.monotonic() - start_time) < VOLUME_PUT_FILE_CLIENT_TIMEOUT:
-                response = await retry_transient_errors(self._client.stub.MountPutFile, request2, base_delay=1)
+                response = await self._client.stub.MountPutFile(request2, retry=Retry(base_delay=1))
                 if response.exists:
                     break
 
@@ -1225,9 +1231,9 @@ class _VolumeUploadContextManager2(_AbstractVolumeUploadContextManager):
             )
 
             try:
-                response = await retry_transient_errors(self._client.stub.VolumePutFiles2, request, base_delay=1)
-            except GRPCError as exc:
-                raise FileExistsError(exc.message) if exc.status == Status.ALREADY_EXISTS else exc
+                response = await self._client.stub.VolumePutFiles2(request, retry=Retry(base_delay=1))
+            except AlreadyExistsError as exc:
+                raise FileExistsError(str(exc))
 
             if not response.missing_blocks:
                 break
@@ -1286,7 +1292,7 @@ async def _put_missing_blocks(
         file_progress.pending_blocks.add(missing_block.block_index)
         task_progress_cb = functools.partial(progress_cb, task_id=file_progress.task_id)
 
-        @retry(n_attempts=5, base_delay=0.5, timeout=None)
+        @retry(n_attempts=11, base_delay=0.5, timeout=None)
         async def put_missing_block_attempt(payload: BytesIOSegmentPayload) -> bytes:
             with payload.reset_on_error(subtract_progress=True):
                 async with ClientSessionRegistry.get_session().put(

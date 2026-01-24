@@ -1,13 +1,16 @@
+import base64
 import logging
+import os
 import re
-import traceback
+import warnings
 from contextlib import contextmanager
 from copy import deepcopy
 from io import BytesIO
 from pathlib import Path
 from typing import Final, Optional, Union, cast
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
+import requests
 from bs4 import BeautifulSoup, NavigableString, PageElement, Tag
 from bs4.element import PreformattedString
 from docling_core.types.doc import (
@@ -17,17 +20,26 @@ from docling_core.types.doc import (
     DocumentOrigin,
     GroupItem,
     GroupLabel,
+    PictureItem,
+    RefItem,
+    RichTableCell,
     TableCell,
     TableData,
+    TableItem,
     TextItem,
 )
-from docling_core.types.doc.document import ContentLayer, Formatting, Script
+from docling_core.types.doc.document import ContentLayer, Formatting, ImageRef, Script
+from PIL import Image, UnidentifiedImageError
 from pydantic import AnyUrl, BaseModel, ValidationError
 from typing_extensions import override
 
-from docling.backend.abstract_backend import DeclarativeDocumentBackend
+from docling.backend.abstract_backend import (
+    DeclarativeDocumentBackend,
+)
+from docling.datamodel.backend_options import HTMLBackendOptions
 from docling.datamodel.base_models import InputFormat
 from docling.datamodel.document import InputDocument
+from docling.exceptions import OperationNotAllowed
 
 _log = logging.getLogger(__name__)
 
@@ -40,6 +52,7 @@ _BLOCK_TAGS: Final = {
     "details",
     "figure",
     "footer",
+    "img",
     "h1",
     "h2",
     "h3",
@@ -52,6 +65,43 @@ _BLOCK_TAGS: Final = {
     "summary",
     "table",
     "ul",
+}
+
+# Block-level elements that should not appear inside <p>
+_PARA_BREAKERS = {
+    "address",
+    "article",
+    "aside",
+    "blockquote",
+    "div",
+    "dl",
+    "fieldset",
+    "figcaption",
+    "figure",
+    "footer",
+    "form",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "header",
+    "hr",
+    "main",
+    "nav",
+    "ol",
+    "ul",
+    "li",
+    "p",  # <p> inside <p> also forces closing
+    "pre",
+    "section",
+    "table",
+    "thead",
+    "tbody",
+    "tfoot",
+    "tr",
+    "td",
 }
 
 _CODE_TAG_SET: Final = {"code", "kbd", "samp"}
@@ -183,11 +233,13 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         self,
         in_doc: InputDocument,
         path_or_stream: Union[BytesIO, Path],
-        original_url: Optional[AnyUrl] = None,
+        options: HTMLBackendOptions = HTMLBackendOptions(),
     ):
-        super().__init__(in_doc, path_or_stream)
-        self.soup: Optional[Tag] = None
-        self.path_or_stream = path_or_stream
+        super().__init__(in_doc, path_or_stream, options)
+        self.options: HTMLBackendOptions
+        self.soup: Optional[BeautifulSoup] = None
+        self.path_or_stream: Union[BytesIO, Path] = path_or_stream
+        self.base_path: Optional[str] = str(options.source_uri)
 
         # Initialize the parents for the hierarchy
         self.max_levels = 10
@@ -197,7 +249,6 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         for i in range(self.max_levels):
             self.parents[i] = None
         self.hyperlink: Union[AnyUrl, Path, None] = None
-        self.original_url = original_url
         self.format_tags: list[str] = []
 
         try:
@@ -249,7 +300,7 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         assert self.soup is not None
         # set the title as furniture, since it is part of the document metadata
         title = self.soup.title
-        if title:
+        if title and self.options.add_title:
             title_text = title.get_text(separator=" ", strip=True)
             title_clean = HTMLDocumentBackend._clean_unicode(title_text)
             doc.add_title(
@@ -258,28 +309,330 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 content_layer=ContentLayer.FURNITURE,
             )
         # remove script and style tags
-        for tag in self.soup(["script", "style"]):
+        for tag in self.soup(["script", "noscript", "style"]):
             tag.decompose()
         # remove any hidden tag
         for tag in self.soup(hidden=True):
             tag.decompose()
+        # fix flow content that is not permitted inside <p>
+        HTMLDocumentBackend._fix_invalid_paragraph_structure(self.soup)
 
         content = self.soup.body or self.soup
         # normalize <br> tags
         for br in content("br"):
             br.replace_with(NavigableString("\n"))
         # set default content layer
-        headers = content.find(["h1", "h2", "h3", "h4", "h5", "h6"])
+
+        # Furniture before the first heading rule, except for headers in tables
+        header = None
+        # Find all headers first
+        all_headers = content.find_all(["h1", "h2", "h3", "h4", "h5", "h6"])
+        # Keep only those that do NOT have a <table> in a parent chain
+        clean_headers = [h for h in all_headers if not h.find_parent("table")]
+        # Pick the first header from the remaining
+        if len(clean_headers):
+            header = clean_headers[0]
+        # Set starting content layer
         self.content_layer = (
-            ContentLayer.BODY if headers is None else ContentLayer.FURNITURE
+            ContentLayer.BODY
+            if (not self.options.infer_furniture) or (header is None)
+            else ContentLayer.FURNITURE
         )
         # reset context
         self.ctx = _Context()
         self._walk(content, doc)
-
         return doc
 
-    def _walk(self, element: Tag, doc: DoclingDocument) -> None:
+    @staticmethod
+    def _fix_invalid_paragraph_structure(soup: BeautifulSoup) -> None:
+        """Rewrite <p> elements that contain block-level breakers.
+
+        This function emulates browser logic when other block-level elements
+        are found inside a <p> element.
+        When a <p> is open and a block-level breaker (e.g., h1-h6, div, table)
+        appears, automatically close the <p>, emit it, then emit the breaker,
+        and if needed open a new <p> for trailing text.
+
+        Args:
+            soup: The HTML document. The DOM may be rewritten.
+        """
+
+        def _start_para():
+            nonlocal current_p
+            if current_p is None:
+                current_p = soup.new_tag("p")
+                new_nodes.append(current_p)
+
+        def _flush_para_if_empty():
+            nonlocal current_p
+            if current_p is not None and not current_p.get_text(strip=True):
+                # remove empty paragraph placeholder
+                if current_p in new_nodes:
+                    new_nodes.remove(current_p)
+            current_p = None
+
+        paragraphs = soup.select(f"p:has({','.join(tag for tag in _PARA_BREAKERS)})")
+
+        for p in paragraphs:
+            parent = p.parent
+            if parent is None:
+                continue
+
+            new_nodes = []
+            current_p = None
+
+            for node in list(p.contents):
+                if isinstance(node, NavigableString):
+                    text = str(node)
+                    node.extract()
+                    if text.strip():
+                        _start_para()
+                        if current_p is not None:
+                            current_p.append(NavigableString(text))
+                    # skip whitespace-only text
+                    continue
+
+                if isinstance(node, Tag):
+                    node.extract()
+
+                    if node.name in _PARA_BREAKERS:
+                        _flush_para_if_empty()
+                        new_nodes.append(node)
+                        continue
+                    else:
+                        _start_para()
+                        if current_p is not None:
+                            current_p.append(node)
+                        continue
+
+            _flush_para_if_empty()
+
+            siblings = list(parent.children)
+            try:
+                idx = siblings.index(p)
+            except ValueError:
+                # p might have been removed
+                continue
+
+            p.extract()
+            for n in reversed(new_nodes):
+                parent.insert(idx, n)
+
+    @staticmethod
+    def _is_remote_url(value: str) -> bool:
+        parsed = urlparse(value)
+        return parsed.scheme in {"http", "https", "ftp", "s3", "gs"}
+
+    def _resolve_relative_path(self, loc: str) -> str:
+        abs_loc = loc
+
+        if self.base_path:
+            if loc.startswith("//"):
+                # Protocol-relative URL - default to https
+                abs_loc = "https:" + loc
+            elif not loc.startswith(("http://", "https://", "data:", "file://")):
+                if HTMLDocumentBackend._is_remote_url(self.base_path):  # remote fetch
+                    abs_loc = urljoin(self.base_path, loc)
+                elif self.base_path:  # local fetch
+                    # For local files, resolve relative to the HTML file location
+                    abs_loc = str(Path(self.base_path).parent / loc)
+
+        _log.debug(f"Resolved location {loc} to {abs_loc}")
+        return abs_loc
+
+    @staticmethod
+    def group_cell_elements(
+        group_name: str,
+        doc: DoclingDocument,
+        provs_in_cell: list[RefItem],
+        docling_table: TableItem,
+    ) -> RefItem:
+        group_element = doc.add_group(
+            label=GroupLabel.UNSPECIFIED,
+            name=group_name,
+            parent=docling_table,
+        )
+        for prov in provs_in_cell:
+            group_element.children.append(prov)
+            pr_item = prov.resolve(doc)
+            item_parent = pr_item.parent.resolve(doc)
+            if pr_item.get_ref() in item_parent.children:
+                item_parent.children.remove(pr_item.get_ref())
+            pr_item.parent = group_element.get_ref()
+        ref_for_rich_cell = group_element.get_ref()
+        return ref_for_rich_cell
+
+    @staticmethod
+    def process_rich_table_cells(
+        provs_in_cell: list[RefItem],
+        group_name: str,
+        doc: DoclingDocument,
+        docling_table: TableItem,
+    ) -> tuple[bool, Union[RefItem, None]]:
+        rich_table_cell = False
+        ref_for_rich_cell = None
+        if len(provs_in_cell) >= 1:
+            # Cell rich cell has multiple elements, we need to group them
+            rich_table_cell = True
+            ref_for_rich_cell = HTMLDocumentBackend.group_cell_elements(
+                group_name, doc, provs_in_cell, docling_table
+            )
+
+        return rich_table_cell, ref_for_rich_cell
+
+    def _is_rich_table_cell(self, table_cell: Tag) -> bool:
+        """Determine whether an table cell should be parsed as a Docling RichTableCell.
+
+        A table cell can hold rich content and be parsed with a Docling RichTableCell.
+        However, this requires walking through the content elements and creating
+        Docling node items. If the cell holds only plain text, the parsing is simpler
+        and using a TableCell is prefered.
+
+        Args:
+            table_cell: The HTML tag representing a table cell.
+
+        Returns:
+            Whether the cell should be parsed as RichTableCell.
+        """
+        is_rich: bool = True
+
+        children = table_cell.find_all(recursive=True)  # all descendants of type Tag
+        if not children:
+            content = [
+                item
+                for item in table_cell.contents
+                if isinstance(item, NavigableString)
+            ]
+            is_rich = len(content) > 1
+        else:
+            annotations = self._extract_text_and_hyperlink_recursively(
+                table_cell, find_parent_annotation=True
+            )
+            if not annotations:
+                is_rich = bool(item for item in children if item.name == "img")
+            elif len(annotations) == 1:
+                anno: AnnotatedText = annotations[0]
+                is_rich = bool(anno.formatting) or bool(anno.hyperlink) or anno.code
+
+        return is_rich
+
+    def parse_table_data(
+        self,
+        element: Tag,
+        doc: DoclingDocument,
+        docling_table: TableItem,
+        num_rows: int,
+        num_cols: int,
+    ) -> Optional[TableData]:
+        for t in cast(list[Tag], element.find_all(["thead", "tbody"], recursive=False)):
+            t.unwrap()
+
+        _log.debug(f"The table has {num_rows} rows and {num_cols} cols.")
+        grid: list = [[None for _ in range(num_cols)] for _ in range(num_rows)]
+        data = TableData(num_rows=num_rows, num_cols=num_cols, table_cells=[])
+
+        # Iterate over the rows in the table
+        start_row_span = 0
+        row_idx = -1
+
+        # We don't want this recursive to support nested tables
+        for row in element("tr", recursive=False):
+            if not isinstance(row, Tag):
+                continue
+            # For each row, find all the column cells (both <td> and <th>)
+            # We don't want this recursive to support nested tables
+            cells = row(["td", "th"], recursive=False)
+            # Check if cell is in a column header or row header
+            col_header = True
+            row_header = True
+            for html_cell in cells:
+                if isinstance(html_cell, Tag):
+                    _, row_span = HTMLDocumentBackend._get_cell_spans(html_cell)
+                    if html_cell.name == "td":
+                        col_header = False
+                        row_header = False
+                    elif row_span == 1:
+                        row_header = False
+            if not row_header:
+                row_idx += 1
+                start_row_span = 0
+            else:
+                start_row_span += 1
+
+            # Extract the text content of each cell
+            col_idx = 0
+            for html_cell in cells:
+                if not isinstance(html_cell, Tag):
+                    continue
+
+                # extract inline formulas
+                for formula in html_cell("inline-formula"):
+                    math_parts = formula.text.split("$$")
+                    if len(math_parts) == 3:
+                        math_formula = f"$${math_parts[1]}$$"
+                        formula.replace_with(NavigableString(math_formula))
+
+                provs_in_cell: list[RefItem] = []
+                rich_table_cell = self._is_rich_table_cell(html_cell)
+                if rich_table_cell:
+                    # Parse table cell sub-tree for Rich Cells content:
+                    with self._use_table_cell_context():
+                        provs_in_cell = self._walk(html_cell, doc)
+
+                    group_name = f"rich_cell_group_{len(doc.tables)}_{col_idx}_{start_row_span + row_idx}"
+                    rich_table_cell, ref_for_rich_cell = (
+                        HTMLDocumentBackend.process_rich_table_cells(
+                            provs_in_cell, group_name, doc, docling_table
+                        )
+                    )
+
+                # Extracting text
+                text = HTMLDocumentBackend._clean_unicode(
+                    self.get_text(html_cell).strip()
+                )
+                col_span, row_span = self._get_cell_spans(html_cell)
+                if row_header:
+                    row_span -= 1
+                while (
+                    col_idx < num_cols
+                    and grid[row_idx + start_row_span][col_idx] is not None
+                ):
+                    col_idx += 1
+                for r in range(start_row_span, start_row_span + row_span):
+                    for c in range(col_span):
+                        if row_idx + r < num_rows and col_idx + c < num_cols:
+                            grid[row_idx + r][col_idx + c] = text
+
+                if rich_table_cell:
+                    rich_cell = RichTableCell(
+                        text=text,
+                        row_span=row_span,
+                        col_span=col_span,
+                        start_row_offset_idx=start_row_span + row_idx,
+                        end_row_offset_idx=start_row_span + row_idx + row_span,
+                        start_col_offset_idx=col_idx,
+                        end_col_offset_idx=col_idx + col_span,
+                        column_header=col_header,
+                        row_header=((not col_header) and html_cell.name == "th"),
+                        ref=ref_for_rich_cell,  # points to an artificial group around children
+                    )
+                    doc.add_table_cell(table_item=docling_table, cell=rich_cell)
+                else:
+                    simple_cell = TableCell(
+                        text=text,
+                        row_span=row_span,
+                        col_span=col_span,
+                        start_row_offset_idx=start_row_span + row_idx,
+                        end_row_offset_idx=start_row_span + row_idx + row_span,
+                        start_col_offset_idx=col_idx,
+                        end_col_offset_idx=col_idx + col_span,
+                        column_header=col_header,
+                        row_header=((not col_header) and html_cell.name == "th"),
+                    )
+                    doc.add_table_cell(table_item=docling_table, cell=simple_cell)
+        return data
+
+    def _walk(self, element: Tag, doc: DoclingDocument) -> list[RefItem]:
         """Parse an XML tag by recursively walking its content.
 
         While walking, the method buffers inline text across tags like <b> or <span>,
@@ -289,9 +642,10 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
             element: The XML tag to parse.
             doc: The Docling document to be updated with the parsed content.
         """
+        added_refs: list[RefItem] = []
         buffer: AnnotatedTextList = AnnotatedTextList()
 
-        def flush_buffer():
+        def _flush_buffer() -> None:
             if not buffer:
                 return
             annotated_text_list: AnnotatedTextList = buffer.simplify_text_elements()
@@ -309,15 +663,16 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                                 annotated_text.text.strip()
                             )
                             if annotated_text.code:
-                                doc.add_code(
+                                docling_code2 = doc.add_code(
                                     parent=self.parents[self.level],
                                     text=seg_clean,
                                     content_layer=self.content_layer,
                                     formatting=annotated_text.formatting,
                                     hyperlink=annotated_text.hyperlink,
                                 )
+                                added_refs.append(docling_code2.get_ref())
                             else:
-                                doc.add_text(
+                                docling_text2 = doc.add_text(
                                     parent=self.parents[self.level],
                                     label=DocItemLabel.TEXT,
                                     text=seg_clean,
@@ -325,25 +680,33 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                                     formatting=annotated_text.formatting,
                                     hyperlink=annotated_text.hyperlink,
                                 )
+                                added_refs.append(docling_text2.get_ref())
 
         for node in element.contents:
             if isinstance(node, Tag):
                 name = node.name.lower()
                 if name == "img":
-                    flush_buffer()
-                    self._emit_image(node, doc)
+                    _flush_buffer()
+                    im_ref3 = self._emit_image(node, doc)
+                    if im_ref3:
+                        added_refs.append(im_ref3)
                 elif name in _FORMAT_TAG_MAP:
+                    _flush_buffer()
                     with self._use_format([name]):
-                        self._walk(node, doc)
+                        wk = self._walk(node, doc)
+                        added_refs.extend(wk)
                 elif name == "a":
                     with self._use_hyperlink(node):
-                        self._walk(node, doc)
+                        wk2 = self._walk(node, doc)
+                        added_refs.extend(wk2)
                 elif name in _BLOCK_TAGS:
-                    flush_buffer()
-                    self._handle_block(node, doc)
+                    _flush_buffer()
+                    blk = self._handle_block(node, doc)
+                    added_refs.extend(blk)
                 elif node.find(_BLOCK_TAGS):
-                    flush_buffer()
-                    self._walk(node, doc)
+                    _flush_buffer()
+                    wk3 = self._walk(node, doc)
+                    added_refs.extend(wk3)
                 else:
                     buffer.extend(
                         self._extract_text_and_hyperlink_recursively(
@@ -354,7 +717,7 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 node, PreformattedString
             ):
                 if str(node).strip("\n\r") == "":
-                    flush_buffer()
+                    _flush_buffer()
                 else:
                     buffer.extend(
                         self._extract_text_and_hyperlink_recursively(
@@ -362,7 +725,8 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                         )
                     )
 
-        flush_buffer()
+        _flush_buffer()
+        return added_refs
 
     @staticmethod
     def _collect_parent_format_tags(item: PageElement) -> list[str]:
@@ -475,8 +839,7 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         else:
             if isinstance(this_href, str) and this_href:
                 old_hyperlink = self.hyperlink
-                if self.original_url is not None:
-                    this_href = urljoin(str(self.original_url), str(this_href))
+                this_href = self._resolve_relative_path(this_href)
                 # ugly fix for relative links since pydantic does not support them.
                 try:
                     new_hyperlink = AnyUrl(this_href)
@@ -581,7 +944,23 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
             self.level -= 1
             self.content_layer = current_layer
 
-    def _handle_heading(self, tag: Tag, doc: DoclingDocument) -> None:
+    @contextmanager
+    def _use_table_cell_context(self):
+        """Preserve the hierarchy level and parents during table cell processing.
+
+        While the context manager is active, the hierarchy level and parents can be modified.
+        When exiting, the original level and parents are restored.
+        """
+        original_level = self.level
+        original_parents = self.parents.copy()
+        try:
+            yield
+        finally:
+            self.level = original_level
+            self.parents = original_parents
+
+    def _handle_heading(self, tag: Tag, doc: DoclingDocument) -> list[RefItem]:
+        added_ref = []
         tag_name = tag.name.lower()
         # set default content layer to BODY as soon as we encounter a heading
         self.content_layer = ContentLayer.BODY
@@ -602,6 +981,9 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 formatting=annotated_text.formatting,
                 hyperlink=annotated_text.hyperlink,
             )
+            p1 = self.parents[self.level + 1]
+            if p1 is not None:
+                added_ref = [p1.get_ref()]
         # the other levels need to be lowered by 1 if a title was set
         else:
             level -= 1
@@ -632,12 +1014,18 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 formatting=annotated_text.formatting,
                 hyperlink=annotated_text.hyperlink,
             )
+            p2 = self.parents[self.level + 1]
+            if p2 is not None:
+                added_ref = [p2.get_ref()]
         self.level += 1
         for img_tag in tag("img"):
             if isinstance(img_tag, Tag):
-                self._emit_image(img_tag, doc)
+                im_ref = self._emit_image(img_tag, doc)
+                if im_ref:
+                    added_ref.append(im_ref)
+        return added_ref
 
-    def _handle_list(self, tag: Tag, doc: DoclingDocument) -> None:
+    def _handle_list(self, tag: Tag, doc: DoclingDocument) -> RefItem:
         tag_name = tag.name.lower()
         start: Optional[int] = None
         name: str = ""
@@ -765,20 +1153,51 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
 
         self.parents[self.level + 1] = None
         self.level -= 1
+        return list_group.get_ref()
 
-    def _handle_block(self, tag: Tag, doc: DoclingDocument) -> None:
+    @staticmethod
+    def get_html_table_row_col(tag: Tag) -> tuple[int, int]:
+        for t in cast(list[Tag], tag.find_all(["thead", "tbody"], recursive=False)):
+            t.unwrap()
+        # Find the number of rows and columns (taking into account spans)
+        num_rows: int = 0
+        num_cols: int = 0
+        for row in tag("tr", recursive=False):
+            col_count = 0
+            is_row_header = True
+            if not isinstance(row, Tag):
+                continue
+            for cell in row(["td", "th"], recursive=False):
+                if not isinstance(row, Tag):
+                    continue
+                cell_tag = cast(Tag, cell)
+                col_span, row_span = HTMLDocumentBackend._get_cell_spans(cell_tag)
+                col_count += col_span
+                if cell_tag.name == "td" or row_span == 1:
+                    is_row_header = False
+            num_cols = max(num_cols, col_count)
+            if not is_row_header:
+                num_rows += 1
+        return num_rows, num_cols
+
+    def _handle_block(self, tag: Tag, doc: DoclingDocument) -> list[RefItem]:
+        added_refs = []
         tag_name = tag.name.lower()
 
         if tag_name == "figure":
             img_tag = tag.find("img")
             if isinstance(img_tag, Tag):
-                self._emit_image(img_tag, doc)
+                im_ref = self._emit_image(img_tag, doc)
+                if im_ref is not None:
+                    added_refs.append(im_ref)
 
         elif tag_name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
-            self._handle_heading(tag, doc)
+            heading_refs = self._handle_heading(tag, doc)
+            added_refs.extend(heading_refs)
 
         elif tag_name in {"ul", "ol"}:
-            self._handle_list(tag, doc)
+            list_ref = self._handle_list(tag, doc)
+            added_refs.append(list_ref)
 
         elif tag_name in {"p", "address", "summary"}:
             text_list = self._extract_text_and_hyperlink_recursively(
@@ -791,15 +1210,16 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                         if seg := annotated_text.text.strip():
                             seg_clean = HTMLDocumentBackend._clean_unicode(seg)
                             if annotated_text.code:
-                                doc.add_code(
+                                docling_code = doc.add_code(
                                     parent=self.parents[self.level],
                                     text=seg_clean,
                                     content_layer=self.content_layer,
                                     formatting=annotated_text.formatting,
                                     hyperlink=annotated_text.hyperlink,
                                 )
+                                added_refs.append(docling_code.get_ref())
                             else:
-                                doc.add_text(
+                                docling_text = doc.add_text(
                                     parent=self.parents[self.level],
                                     label=DocItemLabel.TEXT,
                                     text=seg_clean,
@@ -807,22 +1227,28 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                                     formatting=annotated_text.formatting,
                                     hyperlink=annotated_text.hyperlink,
                                 )
+                                added_refs.append(docling_text.get_ref())
 
             for img_tag in tag("img"):
                 if isinstance(img_tag, Tag):
                     self._emit_image(img_tag, doc)
 
         elif tag_name == "table":
-            data = HTMLDocumentBackend.parse_table_data(tag)
+            num_rows, num_cols = self.get_html_table_row_col(tag)
+            data_e = TableData(num_rows=num_rows, num_cols=num_cols)
+            docling_table = doc.add_table(
+                data=data_e,
+                parent=self.parents[self.level],
+                content_layer=self.content_layer,
+            )
+            added_refs.append(docling_table.get_ref())
+            self.parse_table_data(tag, doc, docling_table, num_rows, num_cols)
+
             for img_tag in tag("img"):
                 if isinstance(img_tag, Tag):
-                    self._emit_image(tag, doc)
-            if data is not None:
-                doc.add_table(
-                    data=data,
-                    parent=self.parents[self.level],
-                    content_layer=self.content_layer,
-                )
+                    im_ref2 = self._emit_image(tag, doc)
+                    if im_ref2 is not None:
+                        added_refs.append(im_ref2)
 
         elif tag_name in {"pre"}:
             # handle monospace code snippets (pre).
@@ -835,13 +1261,14 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                     text_clean = HTMLDocumentBackend._clean_unicode(
                         annotated_text.text.strip()
                     )
-                    doc.add_code(
+                    docling_code2 = doc.add_code(
                         parent=self.parents[self.level],
                         text=text_clean,
                         content_layer=self.content_layer,
                         formatting=annotated_text.formatting,
                         hyperlink=annotated_text.hyperlink,
                     )
+                    added_refs.append(docling_code2.get_ref())
 
         elif tag_name == "footer":
             with self._use_footer(tag, doc):
@@ -850,10 +1277,13 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         elif tag_name == "details":
             with self._use_details(tag, doc):
                 self._walk(tag, doc)
+        return added_refs
 
-    def _emit_image(self, img_tag: Tag, doc: DoclingDocument) -> None:
+    def _emit_image(self, img_tag: Tag, doc: DoclingDocument) -> Optional[RefItem]:
         figure = img_tag.find_parent("figure")
         caption: AnnotatedTextList = AnnotatedTextList()
+
+        parent = self.parents[self.level]
 
         # check if the figure has a link - this is HACK:
         def get_img_hyperlink(img_tag):
@@ -865,9 +1295,8 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
             return None
 
         if img_hyperlink := get_img_hyperlink(img_tag):
-            caption.append(
-                AnnotatedText(text="Image Hyperlink.", hyperlink=img_hyperlink)
-            )
+            img_text = img_tag.get("alt") or ""
+            caption.append(AnnotatedText(text=img_text, hyperlink=img_hyperlink))
 
         if isinstance(figure, Tag):
             caption_tag = figure.find("figcaption", recursive=False)
@@ -894,11 +1323,77 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
                 hyperlink=caption_anno_text.hyperlink,
             )
 
-        doc.add_picture(
+        src_loc: str = self._get_attr_as_string(img_tag, "src")
+        if not cast(HTMLBackendOptions, self.options).fetch_images or not src_loc:
+            # Do not fetch the image, just add a placeholder
+            placeholder: PictureItem = doc.add_picture(
+                caption=caption_item,
+                parent=parent,
+                content_layer=self.content_layer,
+            )
+            return placeholder.get_ref()
+
+        src_loc = self._resolve_relative_path(src_loc)
+        img_ref = self._create_image_ref(src_loc)
+
+        docling_pic = doc.add_picture(
+            image=img_ref,
             caption=caption_item,
-            parent=self.parents[self.level],
+            parent=parent,
             content_layer=self.content_layer,
         )
+        return docling_pic.get_ref()
+
+    def _create_image_ref(self, src_url: str) -> Optional[ImageRef]:
+        try:
+            img_data = self._load_image_data(src_url)
+            if img_data:
+                img = Image.open(BytesIO(img_data))
+                return ImageRef.from_pil(img, dpi=int(img.info.get("dpi", (72,))[0]))
+        except (
+            requests.HTTPError,
+            ValidationError,
+            UnidentifiedImageError,
+            OperationNotAllowed,
+            TypeError,
+            ValueError,
+        ) as e:
+            warnings.warn(f"Could not process an image from {src_url}: {e}")
+
+        return None
+
+    def _load_image_data(self, src_loc: str) -> Optional[bytes]:
+        if src_loc.lower().endswith(".svg"):
+            _log.debug(f"Skipping SVG file: {src_loc}")
+            return None
+
+        if HTMLDocumentBackend._is_remote_url(src_loc):
+            if not self.options.enable_remote_fetch:
+                raise OperationNotAllowed(
+                    "Fetching remote resources is only allowed when set explicitly. "
+                    "Set options.enable_remote_fetch=True."
+                )
+            response = requests.get(src_loc, stream=True)
+            response.raise_for_status()
+            return response.content
+        elif src_loc.startswith("data:"):
+            data = re.sub(r"^data:image/.+;base64,", "", src_loc)
+            return base64.b64decode(data)
+
+        if src_loc.startswith("file://"):
+            src_loc = src_loc[7:]
+
+        if not self.options.enable_local_fetch:
+            raise OperationNotAllowed(
+                "Fetching local resources is only allowed when set explicitly. "
+                "Set options.enable_local_fetch=True."
+            )
+        # add check that file exists and can read
+        if os.path.isfile(src_loc) and os.access(src_loc, os.R_OK):
+            with open(src_loc, "rb") as f:
+                return f.read()
+        else:
+            raise ValueError("File does not exist or it is not readable.")
 
     @staticmethod
     def get_text(item: PageElement) -> str:
@@ -998,104 +1493,10 @@ class HTMLDocumentBackend(DeclarativeDocumentBackend):
         return int_spans
 
     @staticmethod
-    def parse_table_data(element: Tag) -> Optional[TableData]:  # noqa: C901
-        nested_tables = element.find("table")
-        if nested_tables is not None:
-            _log.debug("Skipping nested table.")
-            return None
+    def _get_attr_as_string(tag: Tag, attr: str, default: str = "") -> str:
+        """Get attribute value as string, handling list values."""
+        value = tag.get(attr)
+        if not value:
+            return default
 
-        # Find the number of rows and columns (taking into account spans)
-        num_rows = 0
-        num_cols = 0
-        for row in element("tr"):
-            col_count = 0
-            is_row_header = True
-            if not isinstance(row, Tag):
-                continue
-            for cell in row(["td", "th"]):
-                if not isinstance(row, Tag):
-                    continue
-                cell_tag = cast(Tag, cell)
-                col_span, row_span = HTMLDocumentBackend._get_cell_spans(cell_tag)
-                col_count += col_span
-                if cell_tag.name == "td" or row_span == 1:
-                    is_row_header = False
-            num_cols = max(num_cols, col_count)
-            if not is_row_header:
-                num_rows += 1
-
-        _log.debug(f"The table has {num_rows} rows and {num_cols} cols.")
-
-        grid: list = [[None for _ in range(num_cols)] for _ in range(num_rows)]
-
-        data = TableData(num_rows=num_rows, num_cols=num_cols, table_cells=[])
-
-        # Iterate over the rows in the table
-        start_row_span = 0
-        row_idx = -1
-        for row in element("tr"):
-            if not isinstance(row, Tag):
-                continue
-
-            # For each row, find all the column cells (both <td> and <th>)
-            cells = row(["td", "th"])
-
-            # Check if cell is in a column header or row header
-            col_header = True
-            row_header = True
-            for html_cell in cells:
-                if isinstance(html_cell, Tag):
-                    _, row_span = HTMLDocumentBackend._get_cell_spans(html_cell)
-                    if html_cell.name == "td":
-                        col_header = False
-                        row_header = False
-                    elif row_span == 1:
-                        row_header = False
-            if not row_header:
-                row_idx += 1
-                start_row_span = 0
-            else:
-                start_row_span += 1
-
-            # Extract the text content of each cell
-            col_idx = 0
-            for html_cell in cells:
-                if not isinstance(html_cell, Tag):
-                    continue
-
-                # extract inline formulas
-                for formula in html_cell("inline-formula"):
-                    math_parts = formula.text.split("$$")
-                    if len(math_parts) == 3:
-                        math_formula = f"$${math_parts[1]}$$"
-                        formula.replace_with(NavigableString(math_formula))
-
-                # TODO: extract content correctly from table-cells with lists
-                text = HTMLDocumentBackend.get_text(html_cell).strip()
-                col_span, row_span = HTMLDocumentBackend._get_cell_spans(html_cell)
-                if row_header:
-                    row_span -= 1
-                while (
-                    col_idx < num_cols
-                    and grid[row_idx + start_row_span][col_idx] is not None
-                ):
-                    col_idx += 1
-                for r in range(start_row_span, start_row_span + row_span):
-                    for c in range(col_span):
-                        if row_idx + r < num_rows and col_idx + c < num_cols:
-                            grid[row_idx + r][col_idx + c] = text
-
-                table_cell = TableCell(
-                    text=text,
-                    row_span=row_span,
-                    col_span=col_span,
-                    start_row_offset_idx=start_row_span + row_idx,
-                    end_row_offset_idx=start_row_span + row_idx + row_span,
-                    start_col_offset_idx=col_idx,
-                    end_col_offset_idx=col_idx + col_span,
-                    column_header=col_header,
-                    row_header=((not col_header) and html_cell.name == "th"),
-                )
-                data.table_cells.append(table_cell)
-
-        return data
+        return value[0] if isinstance(value, list) else value

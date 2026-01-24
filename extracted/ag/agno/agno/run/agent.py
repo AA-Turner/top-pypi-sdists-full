@@ -1,7 +1,7 @@
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 from time import time
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import BaseModel
 
@@ -11,7 +11,124 @@ from agno.models.metrics import Metrics
 from agno.models.response import ToolExecution
 from agno.reasoning.step import ReasoningStep
 from agno.run.base import BaseRunOutputEvent, MessageReferences, RunStatus
+from agno.run.requirement import RunRequirement
 from agno.utils.log import logger
+from agno.utils.media import (
+    reconstruct_audio_list,
+    reconstruct_files,
+    reconstruct_images,
+    reconstruct_response_audio,
+    reconstruct_videos,
+)
+
+if TYPE_CHECKING:
+    from agno.session.summary import SessionSummary
+
+
+@dataclass
+class RunInput:
+    """Container for the raw input data passed to Agent.run().
+
+    This captures the original input exactly as provided by the user,
+    separate from the processed messages that go to the model.
+
+    Attributes:
+        input_content: The literal input message/content passed to run()
+        images: Images directly passed to run()
+        videos: Videos directly passed to run()
+        audios: Audio files directly passed to run()
+        files: Files directly passed to run()
+    """
+
+    input_content: Union[str, List, Dict, Message, BaseModel, List[Message]]
+    images: Optional[Sequence[Image]] = None
+    videos: Optional[Sequence[Video]] = None
+    audios: Optional[Sequence[Audio]] = None
+    files: Optional[Sequence[File]] = None
+
+    def input_content_string(self) -> str:
+        import json
+
+        if isinstance(self.input_content, (str)):
+            return self.input_content
+        elif isinstance(self.input_content, BaseModel):
+            return self.input_content.model_dump_json(exclude_none=True)
+        elif isinstance(self.input_content, Message):
+            return json.dumps(self.input_content.to_dict())
+        elif isinstance(self.input_content, list):
+            try:
+                return json.dumps(self.to_dict().get("input_content"))
+            except Exception:
+                return str(self.input_content)
+        else:
+            return str(self.input_content)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary representation"""
+        result: Dict[str, Any] = {}
+
+        if self.input_content is not None:
+            if isinstance(self.input_content, (str)):
+                result["input_content"] = self.input_content
+            elif isinstance(self.input_content, BaseModel):
+                result["input_content"] = self.input_content.model_dump(exclude_none=True)
+            elif isinstance(self.input_content, Message):
+                result["input_content"] = self.input_content.to_dict()
+            elif isinstance(self.input_content, list):
+                serialized_items: List[Any] = []
+                for item in self.input_content:
+                    if isinstance(item, Message):
+                        serialized_items.append(item.to_dict())
+                    elif isinstance(item, BaseModel):
+                        serialized_items.append(item.model_dump(exclude_none=True))
+                    elif isinstance(item, dict):
+                        content = dict(item)
+                        if content.get("images"):
+                            content["images"] = [
+                                img.to_dict() if isinstance(img, Image) else img for img in content["images"]
+                            ]
+                        if content.get("videos"):
+                            content["videos"] = [
+                                vid.to_dict() if isinstance(vid, Video) else vid for vid in content["videos"]
+                            ]
+                        if content.get("audios"):
+                            content["audios"] = [
+                                aud.to_dict() if isinstance(aud, Audio) else aud for aud in content["audios"]
+                            ]
+                        if content.get("files"):
+                            content["files"] = [
+                                file.to_dict() if isinstance(file, File) else file for file in content["files"]
+                            ]
+                        serialized_items.append(content)
+                    else:
+                        serialized_items.append(item)
+
+                result["input_content"] = serialized_items
+            else:
+                result["input_content"] = self.input_content
+
+        if self.images:
+            result["images"] = [img.to_dict() for img in self.images]
+        if self.videos:
+            result["videos"] = [vid.to_dict() for vid in self.videos]
+        if self.audios:
+            result["audios"] = [aud.to_dict() for aud in self.audios]
+        if self.files:
+            result["files"] = [file.to_dict() for file in self.files]
+
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "RunInput":
+        """Create RunInput from dictionary"""
+        images = reconstruct_images(data.get("images"))
+        videos = reconstruct_videos(data.get("videos"))
+        audios = reconstruct_audio_list(data.get("audios"))
+        files = reconstruct_files(data.get("files"))
+
+        return cls(
+            input_content=data.get("input_content", ""), images=images, videos=videos, audios=audios, files=files
+        )
 
 
 class RunEvent(str, Enum):
@@ -19,6 +136,7 @@ class RunEvent(str, Enum):
 
     run_started = "RunStarted"
     run_content = "RunContent"
+    run_content_completed = "RunContentCompleted"
     run_intermediate_content = "RunIntermediateContent"
     run_completed = "RunCompleted"
     run_error = "RunError"
@@ -27,21 +145,38 @@ class RunEvent(str, Enum):
     run_paused = "RunPaused"
     run_continued = "RunContinued"
 
+    pre_hook_started = "PreHookStarted"
+    pre_hook_completed = "PreHookCompleted"
+
+    post_hook_started = "PostHookStarted"
+    post_hook_completed = "PostHookCompleted"
+
     tool_call_started = "ToolCallStarted"
     tool_call_completed = "ToolCallCompleted"
+    tool_call_error = "ToolCallError"
 
     reasoning_started = "ReasoningStarted"
     reasoning_step = "ReasoningStep"
+    reasoning_content_delta = "ReasoningContentDelta"
     reasoning_completed = "ReasoningCompleted"
 
     memory_update_started = "MemoryUpdateStarted"
     memory_update_completed = "MemoryUpdateCompleted"
+
+    session_summary_started = "SessionSummaryStarted"
+    session_summary_completed = "SessionSummaryCompleted"
 
     parser_model_response_started = "ParserModelResponseStarted"
     parser_model_response_completed = "ParserModelResponseCompleted"
 
     output_model_response_started = "OutputModelResponseStarted"
     output_model_response_completed = "OutputModelResponseCompleted"
+
+    model_request_started = "ModelRequestStarted"
+    model_request_completed = "ModelRequestCompleted"
+
+    compression_started = "CompressionStarted"
+    compression_completed = "CompressionCompleted"
 
     custom_event = "CustomEvent"
 
@@ -53,6 +188,7 @@ class BaseAgentRunEvent(BaseRunOutputEvent):
     agent_id: str = ""
     agent_name: str = ""
     run_id: Optional[str] = None
+    parent_run_id: Optional[str] = None
     session_id: Optional[str] = None
 
     # Step context for workflow execution
@@ -94,6 +230,9 @@ class RunContentEvent(BaseAgentRunEvent):
 
     event: str = RunEvent.run_content.value
     content: Optional[Any] = None
+    workflow_agent: bool = (
+        False  # Used by consumers of the events to distinguish between workflow agent and regular agent
+    )
     content_type: str = "str"
     reasoning_content: Optional[str] = None
     model_provider_data: Optional[Dict[str, Any]] = None
@@ -104,6 +243,11 @@ class RunContentEvent(BaseAgentRunEvent):
     additional_input: Optional[List[Message]] = None
     reasoning_steps: Optional[List[ReasoningStep]] = None
     reasoning_messages: Optional[List[Message]] = None
+
+
+@dataclass
+class RunContentCompletedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.run_content_completed.value
 
 
 @dataclass
@@ -131,16 +275,24 @@ class RunCompletedEvent(BaseAgentRunEvent):
     reasoning_messages: Optional[List[Message]] = None
     metadata: Optional[Dict[str, Any]] = None
     metrics: Optional[Metrics] = None
+    session_state: Optional[Dict[str, Any]] = None
 
 
 @dataclass
 class RunPausedEvent(BaseAgentRunEvent):
     event: str = RunEvent.run_paused.value
     tools: Optional[List[ToolExecution]] = None
+    requirements: Optional[List[RunRequirement]] = None
 
     @property
     def is_paused(self):
         return True
+
+    @property
+    def active_requirements(self) -> List[RunRequirement]:
+        if not self.requirements:
+            return []
+        return [requirement for requirement in self.requirements if not requirement.is_resolved()]
 
 
 @dataclass
@@ -152,6 +304,11 @@ class RunContinuedEvent(BaseAgentRunEvent):
 class RunErrorEvent(BaseAgentRunEvent):
     event: str = RunEvent.run_error.value
     content: Optional[str] = None
+
+    # From exceptions
+    error_type: Optional[str] = None
+    error_id: Optional[str] = None
+    additional_data: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -165,6 +322,32 @@ class RunCancelledEvent(BaseAgentRunEvent):
 
 
 @dataclass
+class PreHookStartedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.pre_hook_started.value
+    pre_hook_name: Optional[str] = None
+    run_input: Optional[RunInput] = None
+
+
+@dataclass
+class PreHookCompletedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.pre_hook_completed.value
+    pre_hook_name: Optional[str] = None
+    run_input: Optional[RunInput] = None
+
+
+@dataclass
+class PostHookStartedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.post_hook_started.value
+    post_hook_name: Optional[str] = None
+
+
+@dataclass
+class PostHookCompletedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.post_hook_completed.value
+    post_hook_name: Optional[str] = None
+
+
+@dataclass
 class MemoryUpdateStartedEvent(BaseAgentRunEvent):
     event: str = RunEvent.memory_update_started.value
 
@@ -172,6 +355,18 @@ class MemoryUpdateStartedEvent(BaseAgentRunEvent):
 @dataclass
 class MemoryUpdateCompletedEvent(BaseAgentRunEvent):
     event: str = RunEvent.memory_update_completed.value
+    memories: Optional[List[Any]] = None
+
+
+@dataclass
+class SessionSummaryStartedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.session_summary_started.value
+
+
+@dataclass
+class SessionSummaryCompletedEvent(BaseAgentRunEvent):
+    event: str = RunEvent.session_summary_completed.value
+    session_summary: Optional["SessionSummary"] = None
 
 
 @dataclass
@@ -185,6 +380,14 @@ class ReasoningStepEvent(BaseAgentRunEvent):
     content: Optional[Any] = None
     content_type: str = "str"
     reasoning_content: str = ""
+
+
+@dataclass
+class ReasoningContentDeltaEvent(BaseAgentRunEvent):
+    """Event for streaming reasoning content chunks as they arrive."""
+
+    event: str = RunEvent.reasoning_content_delta.value
+    reasoning_content: str = ""  # The delta/chunk of reasoning content
 
 
 @dataclass
@@ -211,6 +414,13 @@ class ToolCallCompletedEvent(BaseAgentRunEvent):
 
 
 @dataclass
+class ToolCallErrorEvent(BaseAgentRunEvent):
+    event: str = RunEvent.tool_call_error.value
+    tool: Optional[ToolExecution] = None
+    error: Optional[str] = None
+
+
+@dataclass
 class ParserModelResponseStartedEvent(BaseAgentRunEvent):
     event: str = RunEvent.parser_model_response_started.value
 
@@ -231,30 +441,92 @@ class OutputModelResponseCompletedEvent(BaseAgentRunEvent):
 
 
 @dataclass
+class ModelRequestStartedEvent(BaseAgentRunEvent):
+    """Event sent when a model request is about to be made"""
+
+    event: str = RunEvent.model_request_started.value
+    model: Optional[str] = None
+    model_provider: Optional[str] = None
+
+
+@dataclass
+class ModelRequestCompletedEvent(BaseAgentRunEvent):
+    """Event sent when a model request has completed"""
+
+    event: str = RunEvent.model_request_completed.value
+    model: Optional[str] = None
+    model_provider: Optional[str] = None
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+    time_to_first_token: Optional[float] = None
+    reasoning_tokens: Optional[int] = None
+    cache_read_tokens: Optional[int] = None
+    cache_write_tokens: Optional[int] = None
+
+
+@dataclass
+class CompressionStartedEvent(BaseAgentRunEvent):
+    """Event sent when tool result compression is about to start"""
+
+    event: str = RunEvent.compression_started.value
+
+
+@dataclass
+class CompressionCompletedEvent(BaseAgentRunEvent):
+    """Event sent when tool result compression has completed"""
+
+    event: str = RunEvent.compression_completed.value
+    tool_results_compressed: Optional[int] = None
+    original_size: Optional[int] = None
+    compressed_size: Optional[int] = None
+
+
+@dataclass
 class CustomEvent(BaseAgentRunEvent):
     event: str = RunEvent.custom_event.value
+    # tool_call_id for ToolExecution
+    tool_call_id: Optional[str] = None
+
+    def __init__(self, **kwargs):
+        # Store arbitrary attributes directly on the instance
+        for key, value in kwargs.items():
+            setattr(self, key, value)
 
 
 RunOutputEvent = Union[
     RunStartedEvent,
     RunContentEvent,
     IntermediateRunContentEvent,
+    RunContentCompletedEvent,
     RunCompletedEvent,
     RunErrorEvent,
     RunCancelledEvent,
     RunPausedEvent,
     RunContinuedEvent,
+    PreHookStartedEvent,
+    PreHookCompletedEvent,
+    PostHookStartedEvent,
+    PostHookCompletedEvent,
     ReasoningStartedEvent,
     ReasoningStepEvent,
+    ReasoningContentDeltaEvent,
     ReasoningCompletedEvent,
     MemoryUpdateStartedEvent,
     MemoryUpdateCompletedEvent,
+    SessionSummaryStartedEvent,
+    SessionSummaryCompletedEvent,
     ToolCallStartedEvent,
     ToolCallCompletedEvent,
+    ToolCallErrorEvent,
     ParserModelResponseStartedEvent,
     ParserModelResponseCompletedEvent,
     OutputModelResponseStartedEvent,
     OutputModelResponseCompletedEvent,
+    ModelRequestStartedEvent,
+    ModelRequestCompletedEvent,
+    CompressionStartedEvent,
+    CompressionCompletedEvent,
     CustomEvent,
 ]
 
@@ -263,23 +535,36 @@ RunOutputEvent = Union[
 RUN_EVENT_TYPE_REGISTRY = {
     RunEvent.run_started.value: RunStartedEvent,
     RunEvent.run_content.value: RunContentEvent,
+    RunEvent.run_content_completed.value: RunContentCompletedEvent,
     RunEvent.run_intermediate_content.value: IntermediateRunContentEvent,
     RunEvent.run_completed.value: RunCompletedEvent,
     RunEvent.run_error.value: RunErrorEvent,
     RunEvent.run_cancelled.value: RunCancelledEvent,
     RunEvent.run_paused.value: RunPausedEvent,
     RunEvent.run_continued.value: RunContinuedEvent,
+    RunEvent.pre_hook_started.value: PreHookStartedEvent,
+    RunEvent.pre_hook_completed.value: PreHookCompletedEvent,
+    RunEvent.post_hook_started.value: PostHookStartedEvent,
+    RunEvent.post_hook_completed.value: PostHookCompletedEvent,
     RunEvent.reasoning_started.value: ReasoningStartedEvent,
     RunEvent.reasoning_step.value: ReasoningStepEvent,
+    RunEvent.reasoning_content_delta.value: ReasoningContentDeltaEvent,
     RunEvent.reasoning_completed.value: ReasoningCompletedEvent,
     RunEvent.memory_update_started.value: MemoryUpdateStartedEvent,
     RunEvent.memory_update_completed.value: MemoryUpdateCompletedEvent,
+    RunEvent.session_summary_started.value: SessionSummaryStartedEvent,
+    RunEvent.session_summary_completed.value: SessionSummaryCompletedEvent,
     RunEvent.tool_call_started.value: ToolCallStartedEvent,
     RunEvent.tool_call_completed.value: ToolCallCompletedEvent,
+    RunEvent.tool_call_error.value: ToolCallErrorEvent,
     RunEvent.parser_model_response_started.value: ParserModelResponseStartedEvent,
     RunEvent.parser_model_response_completed.value: ParserModelResponseCompletedEvent,
     RunEvent.output_model_response_started.value: OutputModelResponseStartedEvent,
     RunEvent.output_model_response_completed.value: OutputModelResponseCompletedEvent,
+    RunEvent.model_request_started.value: ModelRequestStartedEvent,
+    RunEvent.model_request_completed.value: ModelRequestCompletedEvent,
+    RunEvent.compression_started.value: CompressionStartedEvent,
+    RunEvent.compression_completed.value: CompressionCompletedEvent,
     RunEvent.custom_event.value: CustomEvent,
 }
 
@@ -293,80 +578,6 @@ def run_output_event_from_dict(data: dict) -> BaseRunOutputEvent:
 
 
 @dataclass
-class RunInput:
-    """Container for the raw input data passed to Agent.run().
-
-    This captures the original input exactly as provided by the user,
-    separate from the processed messages that go to the model.
-
-    Attributes:
-        input_content: The literal input message/content passed to run()
-        images: Images directly passed to run()
-        videos: Videos directly passed to run()
-        audios: Audio files directly passed to run()
-        files: Files directly passed to run()
-    """
-
-    input_content: Optional[Union[str, List, Dict, Message, BaseModel, List[Message]]] = None
-    images: Optional[Sequence[Image]] = None
-    videos: Optional[Sequence[Video]] = None
-    audios: Optional[Sequence[Audio]] = None
-    files: Optional[Sequence[File]] = None
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary representation"""
-        result: Dict[str, Any] = {}
-
-        if self.input_content is not None:
-            if isinstance(self.input_content, (str)):
-                result["input_content"] = self.input_content
-            elif isinstance(self.input_content, BaseModel):
-                result["input_content"] = self.input_content.model_dump(exclude_none=True)
-            elif isinstance(self.input_content, Message):
-                result["input_content"] = self.input_content.to_dict()
-            elif (
-                isinstance(self.input_content, list)
-                and self.input_content
-                and isinstance(self.input_content[0], Message)
-            ):
-                result["input_content"] = [m.to_dict() for m in self.input_content]
-            else:
-                result["input_content"] = self.input_content
-
-        if self.images:
-            result["images"] = [img.to_dict() for img in self.images]
-        if self.videos:
-            result["videos"] = [vid.to_dict() for vid in self.videos]
-        if self.audios:
-            result["audios"] = [aud.to_dict() for aud in self.audios]
-        if self.files:
-            result["files"] = [file.to_dict() for file in self.files]
-
-        return result
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "RunInput":
-        """Create RunInput from dictionary"""
-        images = None
-        if data.get("images"):
-            images = [Image.model_validate(img_data) for img_data in data["images"]]
-
-        videos = None
-        if data.get("videos"):
-            videos = [Video.model_validate(vid_data) for vid_data in data["videos"]]
-
-        audios = None
-        if data.get("audios"):
-            audios = [Audio.model_validate(aud_data) for aud_data in data["audios"]]
-
-        files = None
-        if data.get("files"):
-            files = [File.model_validate(file_data) for file_data in data["files"]]
-
-        return cls(input_content=data.get("input_content"), images=images, videos=videos, audios=audios, files=files)
-
-
-@dataclass
 class RunOutput:
     """Response returned by Agent.run() or Workflow.run() functions"""
 
@@ -377,6 +588,9 @@ class RunOutput:
     parent_run_id: Optional[str] = None
     workflow_id: Optional[str] = None
     user_id: Optional[str] = None
+
+    # Input media and messages from user
+    input: Optional[RunInput] = None
 
     content: Optional[Any] = None
     content_type: str = "str"
@@ -401,13 +615,11 @@ class RunOutput:
     files: Optional[List[File]] = None  # Files attached to the response
     response_audio: Optional[Audio] = None  # Model audio response
 
-    # Input media and messages from user
-    input: Optional[RunInput] = None
-
     citations: Optional[Citations] = None
     references: Optional[List[MessageReferences]] = None
 
     metadata: Optional[Dict[str, Any]] = None
+    session_state: Optional[Dict[str, Any]] = None
 
     created_at: int = field(default_factory=lambda: int(time()))
 
@@ -415,10 +627,19 @@ class RunOutput:
 
     status: RunStatus = RunStatus.running
 
+    # User control flow (HITL) requirements to continue a run when paused, in order of arrival
+    requirements: Optional[list[RunRequirement]] = None
+
     # === FOREIGN KEY RELATIONSHIPS ===
     # These fields establish relationships to parent workflow/step structures
     # and should be treated as foreign keys for data integrity
     workflow_step_id: Optional[str] = None  # FK: Points to StepOutput.step_id
+
+    @property
+    def active_requirements(self) -> list[RunRequirement]:
+        if not self.requirements:
+            return []
+        return [requirement for requirement in self.requirements if not requirement.is_resolved()]
 
     @property
     def is_paused(self):
@@ -448,6 +669,7 @@ class RunOutput:
             and k
             not in [
                 "messages",
+                "metrics",
                 "tools",
                 "metadata",
                 "images",
@@ -462,6 +684,7 @@ class RunOutput:
                 "reasoning_steps",
                 "reasoning_messages",
                 "references",
+                "requirements",
             ]
         }
 
@@ -547,6 +770,9 @@ class RunOutput:
                 else:
                     _dict["tools"].append(tool)
 
+        if self.requirements is not None:
+            _dict["requirements"] = [req.to_dict() if hasattr(req, "to_dict") else req for req in self.requirements]
+
         if self.input is not None:
             _dict["input"] = self.input.to_dict()
 
@@ -572,7 +798,17 @@ class RunOutput:
             data = data.pop("run")
 
         events = data.pop("events", None)
-        events = [run_output_event_from_dict(event) for event in events] if events else None
+        final_events = []
+        for event in events or []:
+            if "agent_id" in event:
+                event = run_output_event_from_dict(event)
+            else:
+                # Use the factory from response.py for agent events
+                from agno.run.team import team_run_output_event_from_dict
+
+                event = team_run_output_event_from_dict(event)
+            final_events.append(event)
+        events = final_events
 
         messages = data.pop("messages", None)
         messages = [Message.from_dict(message) for message in messages] if messages else None
@@ -583,20 +819,23 @@ class RunOutput:
         tools = data.pop("tools", [])
         tools = [ToolExecution.from_dict(tool) for tool in tools] if tools else None
 
-        images = data.pop("images", [])
-        images = [Image.model_validate(image) for image in images] if images else None
+        # Handle requirements
+        requirements_data = data.pop("requirements", None)
+        requirements: Optional[List[RunRequirement]] = None
+        if requirements_data is not None:
+            requirements_list: List[RunRequirement] = []
+            for item in requirements_data:
+                if isinstance(item, RunRequirement):
+                    requirements_list.append(item)
+                elif isinstance(item, dict):
+                    requirements_list.append(RunRequirement.from_dict(item))
+            requirements = requirements_list if requirements_list else None
 
-        videos = data.pop("videos", [])
-        videos = [Video.model_validate(video) for video in videos] if videos else None
-
-        audio = data.pop("audio", [])
-        audio = [Audio.model_validate(audio) for audio in audio] if audio else None
-
-        files = data.pop("files", [])
-        files = [File.model_validate(file) for file in files] if files else None
-
-        response_audio = data.pop("response_audio", None)
-        response_audio = Audio.model_validate(response_audio) if response_audio else None
+        images = reconstruct_images(data.pop("images", []))
+        videos = reconstruct_videos(data.pop("videos", []))
+        audio = reconstruct_audio_list(data.pop("audio", []))
+        files = reconstruct_files(data.pop("files", []))
+        response_audio = reconstruct_response_audio(data.pop("response_audio", None))
 
         input_data = data.pop("input", None)
         input_obj = None
@@ -624,6 +863,12 @@ class RunOutput:
         if references is not None:
             references = [MessageReferences.model_validate(reference) for reference in references]
 
+        # Filter data to only include fields that are actually defined in the RunOutput dataclass
+        from dataclasses import fields
+
+        supported_fields = {f.name for f in fields(cls)}
+        filtered_data = {k: v for k, v in data.items() if k in supported_fields}
+
         return cls(
             messages=messages,
             metrics=metrics,
@@ -640,7 +885,8 @@ class RunOutput:
             reasoning_steps=reasoning_steps,
             reasoning_messages=reasoning_messages,
             references=references,
-            **data,
+            requirements=requirements,
+            **filtered_data,
         )
 
     def get_content_as_string(self, **kwargs) -> str:

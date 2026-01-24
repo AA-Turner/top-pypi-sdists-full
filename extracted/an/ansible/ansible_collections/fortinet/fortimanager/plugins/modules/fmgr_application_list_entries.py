@@ -16,7 +16,6 @@ short_description: Application list entries.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -263,7 +265,7 @@ EXAMPLES = '''
           category: "2"
           id: 1
           log: enable
-          log-packet: enable
+          log_packet: enable
           protocols: "all"
 
 - name: Gathering fortimanager facts
@@ -340,6 +342,7 @@ def main():
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
         'list': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'application_list_entries': {
             'type': 'dict',
             'v_range': [['6.0.0', '']],
@@ -386,7 +389,7 @@ def main():
                 'sub-category': {'type': 'raw'},
                 'technology': {'type': 'raw'},
                 'vendor': {'type': 'raw'},
-                'tags': {'v_range': [['6.2.0', '6.4.15']], 'type': 'str'},
+                'tags': {'v_range': [['6.2.0', '6.4.15'], ['7.4.8', '7.4.8']], 'type': 'str'},
                 'exclusion': {'v_range': [['6.2.7', '6.2.13'], ['6.4.3', '']], 'type': 'raw'}
             }
         }

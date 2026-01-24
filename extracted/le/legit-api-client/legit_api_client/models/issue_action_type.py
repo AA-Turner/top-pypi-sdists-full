@@ -102,6 +102,8 @@ class IssueActionType(str, Enum):
     USERSNOOZEDISSUEUNTILFIXAVAILABLE = 'UserSnoozedIssueUntilFixAvailable'
     ISSUECREATEDFROMMANUALUPLOAD = 'IssueCreatedFromManualUpload'
     PULLREQUESTOPENED = 'PullRequestOpened'
+    TAGADDEDTOISSUEBYAUTOMATIONRULE = 'TagAddedToIssueByAutomationRule'
+    ISSUECOMMENTEDBYAUTOMATIONRULE = 'IssueCommentedByAutomationRule'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

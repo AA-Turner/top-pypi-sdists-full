@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: dotnetfile
+Version: 0.2.9
+Summary: Library to parse the CLR header of .NET assemblies
+Author: Bob Jung, Yaron Samuel, Dominik Reichel
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: pefile
+Requires-Dist: dncil
+Dynamic: author
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

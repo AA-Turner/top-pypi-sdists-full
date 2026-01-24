@@ -668,6 +668,13 @@ class ErrorCode(Enum):
         "Use client.asset.set_dq_row_scope_filter_column() to configure the row scope filter column first.",
         InvalidRequestError,
     )
+    INVALID_RICH_TEXT_CREATION = (
+        400,
+        "ATLAN-PYTHON-400-076",
+        "Rich text attributes cannot be multi-valued for '{0}'.",
+        "Set multi_valued=False when creating rich text attributes.",
+        InvalidRequestError,
+    )
     AUTHENTICATION_PASSTHROUGH = (
         401,
         "ATLAN-PYTHON-401-000",
@@ -958,6 +965,13 @@ class ErrorCode(Enum):
         "ATLAN-PYTHON-404-029",
         "DQ rule with type {0} was not found.",
         "Verify you have provided a valid DQ rule type.",
+        NotFoundError,
+    )
+    ROLE_NOT_FOUND_BY_DESCRIPTION = (
+        404,
+        "ATLAN-PYTHON-404-030",
+        "Role '{0}' does not exist. Available roles: {1}",
+        "Verify the role description provided matches one of the available roles.",
         NotFoundError,
     )
     CONFLICT_PASSTHROUGH = (

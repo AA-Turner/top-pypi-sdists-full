@@ -1,10 +1,11 @@
 import logging
 import time
+from dataclasses import dataclass
 from enum import IntEnum
 from typing import Any, ClassVar, Dict, List, Optional, TypeVar, Union
 
 import numpy as np
-import ujson
+import orjson
 
 from pymilvus.exceptions import (
     AutoIDException,
@@ -21,15 +22,19 @@ ConsistencyLevel = common_pb2.ConsistencyLevel
 
 logger = logging.getLogger(__name__)
 
+ALWAYS_KEEP_ZERO_KEYS = frozenset(
+    {"scanned_remote_bytes", "scanned_total_bytes", "cache_hit_ratio"}
+)
+
 
 # OmitZeroDict: ignore the key-value pairs with value as 0 when printing
 class OmitZeroDict(dict):
     def omit_zero_len(self):
-        return len(dict(filter(lambda x: x[1], self.items())))
+        return len({k: v for k, v in self.items() if v or k in ALWAYS_KEEP_ZERO_KEYS})
 
-    # filter the key-value pairs with value as 0
+    # keep zero for specific keys, omit other zero values
     def __str__(self):
-        return str(dict(filter(lambda x: x[1], self.items())))
+        return str({k: v for k, v in self.items() if v or k in ALWAYS_KEEP_ZERO_KEYS})
 
     # no filter
     def __repr__(self):
@@ -111,6 +116,7 @@ class DataType(IntEnum):
     ARRAY = schema_pb2.Array
     JSON = schema_pb2.JSON
     GEOMETRY = schema_pb2.Geometry
+    TIMESTAMPTZ = schema_pb2.Timestamptz
 
     BINARY_VECTOR = schema_pb2.BinaryVector
     FLOAT_VECTOR = schema_pb2.FloatVector
@@ -118,6 +124,12 @@ class DataType(IntEnum):
     BFLOAT16_VECTOR = schema_pb2.BFloat16Vector
     SPARSE_FLOAT_VECTOR = schema_pb2.SparseFloatVector
     INT8_VECTOR = schema_pb2.Int8Vector
+
+    STRUCT = schema_pb2.Struct
+
+    # Internal use only - not exposed to users
+    _ARRAY_OF_VECTOR = schema_pb2.ArrayOfVector
+    _ARRAY_OF_STRUCT = schema_pb2.ArrayOfStruct
 
     UNKNOWN = 999
 
@@ -130,6 +142,11 @@ class FunctionType(IntEnum):
     BM25 = 1
     TEXTEMBEDDING = 2
     RERANK = 3
+
+
+class HighlightType(IntEnum):
+    LEXICAL = 0
+    SEMANTIC = 1
 
 
 class RangeType(IntEnum):
@@ -199,6 +216,13 @@ class PlaceholderType(IntEnum):
     SparseFloatVector = 104
     Int8Vector = 105
     VARCHAR = 21
+
+    EmbListBinaryVector = 300
+    EmbListFloatVector = 301
+    EmbListFloat16Vector = 302
+    EmbListBFloat16Vector = 303
+    EmbListSparseFloatVector = 304
+    EmbListInt8Vector = 305
 
 
 class State(IntEnum):
@@ -1058,13 +1082,35 @@ class HybridExtraList(list):
         self._strict_float32 = strict_float32
         self._materialized_bitmap = [False] * len(self)
 
+    def _get_physical_index(self, field_data: Any, logical_index: int) -> int:
+        """Calculate physical index for nullable vectors with sparse storage.
+
+        Uses prefix sum for O(1) lookup instead of O(n) iteration.
+        Caches prefix sum in instance variable using field_data id as key.
+        """
+        if not hasattr(self, "_prefix_sum_cache"):
+            self._prefix_sum_cache = {}
+
+        field_id = id(field_data)
+        if field_id not in self._prefix_sum_cache:
+            if len(field_data.valid_data) == 0:
+                self._prefix_sum_cache[field_id] = None
+            else:
+                self._prefix_sum_cache[field_id] = np.cumsum(
+                    [0] + [1 if v else 0 for v in field_data.valid_data]
+                )
+        prefix_sum = self._prefix_sum_cache[field_id]
+        if prefix_sum is None:
+            return logical_index
+        return int(prefix_sum[logical_index])
+
     def _extract_lazy_fields(self, index: int, field_data: Any, row_data: Dict) -> Any:
         if field_data.type == DataType.JSON:
             if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
                 row_data[field_data.field_name] = None
                 return
             try:
-                json_dict = ujson.loads(field_data.scalars.json_data.data[index])
+                json_dict = orjson.loads(field_data.scalars.json_data.data[index])
             except Exception as e:
                 logger.error(
                     f"HybridExtraList::_extract_lazy_fields::Failed to load JSON data: {e}, original data: {field_data.scalars.json_data.data[index]}"
@@ -1086,10 +1132,14 @@ class HybridExtraList(list):
                 }
             )
         elif field_data.type == DataType.FLOAT_VECTOR:
+            if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
+                row_data[field_data.field_name] = None
+                return
             dim = field_data.vectors.dim
-            start_pos = index * dim
+            phys_idx = self._get_physical_index(field_data, index)
+            start_pos = phys_idx * dim
             end_pos = start_pos + dim
-            if len(field_data.vectors.float_vector.data) >= start_pos:
+            if len(field_data.vectors.float_vector.data) >= end_pos:
                 # Here we use numpy.array to convert the float64 values to numpy.float32 values,
                 # and return a list of numpy.float32 to users
                 # By using numpy.array, performance improved by 60% for topk=16384 dim=1536 case.
@@ -1102,44 +1152,93 @@ class HybridExtraList(list):
                         start_pos:end_pos
                     ]
         elif field_data.type == DataType.BINARY_VECTOR:
+            if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
+                row_data[field_data.field_name] = None
+                return
             dim = field_data.vectors.dim
             bytes_per_vector = dim // 8
-            start_pos = index * bytes_per_vector
+            phys_idx = self._get_physical_index(field_data, index)
+            start_pos = phys_idx * bytes_per_vector
             end_pos = start_pos + bytes_per_vector
-            if len(field_data.vectors.binary_vector) >= start_pos:
+            if len(field_data.vectors.binary_vector) >= end_pos:
                 row_data[field_data.field_name] = [
                     field_data.vectors.binary_vector[start_pos:end_pos]
                 ]
         elif field_data.type == DataType.BFLOAT16_VECTOR:
+            if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
+                row_data[field_data.field_name] = None
+                return
             dim = field_data.vectors.dim
             bytes_per_vector = dim * 2
-            start_pos = index * bytes_per_vector
+            phys_idx = self._get_physical_index(field_data, index)
+            start_pos = phys_idx * bytes_per_vector
             end_pos = start_pos + bytes_per_vector
-            if len(field_data.vectors.bfloat16_vector) >= start_pos:
+            if len(field_data.vectors.bfloat16_vector) >= end_pos:
                 row_data[field_data.field_name] = [
                     field_data.vectors.bfloat16_vector[start_pos:end_pos]
                 ]
         elif field_data.type == DataType.FLOAT16_VECTOR:
+            if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
+                row_data[field_data.field_name] = None
+                return
             dim = field_data.vectors.dim
             bytes_per_vector = dim * 2
-            start_pos = index * bytes_per_vector
+            phys_idx = self._get_physical_index(field_data, index)
+            start_pos = phys_idx * bytes_per_vector
             end_pos = start_pos + bytes_per_vector
-            if len(field_data.vectors.float16_vector) >= start_pos:
+            if len(field_data.vectors.float16_vector) >= end_pos:
                 row_data[field_data.field_name] = [
                     field_data.vectors.float16_vector[start_pos:end_pos]
                 ]
         elif field_data.type == DataType.SPARSE_FLOAT_VECTOR:
+            if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
+                row_data[field_data.field_name] = None
+                return
+            phys_idx = self._get_physical_index(field_data, index)
             row_data[field_data.field_name] = utils.sparse_parse_single_row(
-                field_data.vectors.sparse_float_vector.contents[index]
+                field_data.vectors.sparse_float_vector.contents[phys_idx]
             )
         elif field_data.type == DataType.INT8_VECTOR:
+            if len(field_data.valid_data) > 0 and field_data.valid_data[index] is False:
+                row_data[field_data.field_name] = None
+                return
             dim = field_data.vectors.dim
-            start_pos = index * dim
+            phys_idx = self._get_physical_index(field_data, index)
+            start_pos = phys_idx * dim
             end_pos = start_pos + dim
-            if len(field_data.vectors.int8_vector) >= start_pos:
+            if len(field_data.vectors.int8_vector) >= end_pos:
                 row_data[field_data.field_name] = [
                     field_data.vectors.int8_vector[start_pos:end_pos]
                 ]
+        elif field_data.type == DataType._ARRAY_OF_VECTOR:
+            # Handle array of vectors
+            if hasattr(field_data, "vectors") and hasattr(field_data.vectors, "vector_array"):
+                if index < len(field_data.vectors.vector_array.data):
+                    vector_data = field_data.vectors.vector_array.data[index]
+                    dim = vector_data.dim
+                    float_data = vector_data.float_vector.data
+                    num_vectors = len(float_data) // dim
+                    row_vectors = []
+                    for vec_idx in range(num_vectors):
+                        vec_start = vec_idx * dim
+                        vec_end = vec_start + dim
+                        row_vectors.append(list(float_data[vec_start:vec_end]))
+                    row_data[field_data.field_name] = row_vectors
+                else:
+                    row_data[field_data.field_name] = []
+            else:
+                row_data[field_data.field_name] = []
+        elif field_data.type == DataType._ARRAY_OF_STRUCT:
+            # Handle struct arrays - convert column format back to array of structs
+            if hasattr(field_data, "struct_arrays") and field_data.struct_arrays:
+                # Import here to avoid circular imports
+                from .entity_helper import extract_struct_array_from_column_data  # noqa: PLC0415
+
+                row_data[field_data.field_name] = extract_struct_array_from_column_data(
+                    field_data.struct_arrays, index
+                )
+            else:
+                row_data[field_data.field_name] = None
 
     def __getitem__(self, index: Union[int, slice]):
         if isinstance(index, slice):
@@ -1153,6 +1252,10 @@ class HybridExtraList(list):
             return super().__getitem__(index)
 
         self._pre_materialize_float_vector()
+
+        if index < 0:
+            index = len(self) + index
+
         row = super().__getitem__(index)
         for field_data in self._lazy_field_data:
             self._extract_lazy_fields(index, field_data, row)
@@ -1212,11 +1315,23 @@ class ExtraList(list):
 
 
 def get_cost_from_status(status: Optional[common_pb2.Status] = None):
-    return int(status.extra_info["report_value"] if status and status.extra_info else "0")
+    return int(
+        status.extra_info["report_value"]
+        if status and status.extra_info and "report_value" in status.extra_info
+        else "0"
+    )
 
 
-def get_cost_extra(status: Optional[common_pb2.Status] = None):
-    return {"cost": get_cost_from_status(status)}
+def get_extra_info(status: Optional[common_pb2.Status] = None):
+    extra = {"cost": get_cost_from_status(status)}
+    if status and status.extra_info:
+        if "scanned_remote_bytes" in status.extra_info:
+            extra["scanned_remote_bytes"] = int(status.extra_info["scanned_remote_bytes"])
+        if "scanned_total_bytes" in status.extra_info:
+            extra["scanned_total_bytes"] = int(status.extra_info["scanned_total_bytes"])
+        if "cache_hit_ratio" in status.extra_info:
+            extra["cache_hit_ratio"] = float(status.extra_info["cache_hit_ratio"])
+    return extra
 
 
 class DatabaseInfo:
@@ -1313,3 +1428,20 @@ class AnalyzeResult:
         return str(self.tokens)
 
     __repr__ = __str__
+
+
+@dataclass
+class SegmentInfo:
+    segment_id: int
+    collection_id: int
+    collection_name: str
+    num_rows: int
+    is_sorted: bool
+    state: common_pb2.SegmentState
+    level: common_pb2.SegmentLevel
+    storage_version: int
+
+
+@dataclass
+class LoadedSegmentInfo(SegmentInfo):
+    mem_size: int

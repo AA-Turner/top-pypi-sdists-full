@@ -20,8 +20,9 @@ from datetime import timedelta
 from typing import Any, Callable, Optional, Protocol, TypeVar, Union, cast
 
 import wrapt
+from typing_extensions import Self
 
-from testcontainers.core.config import testcontainers_config as config
+from testcontainers.core.config import testcontainers_config
 from testcontainers.core.utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -73,10 +74,11 @@ class WaitStrategy(ABC):
     """Base class for all wait strategies."""
 
     def __init__(self) -> None:
-        self._startup_timeout: float = config.timeout
-        self._poll_interval: float = config.sleep_time
+        self._startup_timeout: float = testcontainers_config.timeout
+        self._poll_interval: float = testcontainers_config.sleep_time
+        self._transient_exceptions: list[type[Exception]] = [*TRANSIENT_EXCEPTIONS]
 
-    def with_startup_timeout(self, timeout: Union[int, timedelta]) -> "WaitStrategy":
+    def with_startup_timeout(self, timeout: Union[int, timedelta]) -> Self:
         """Set the maximum time to wait for the container to be ready."""
         if isinstance(timeout, timedelta):
             self._startup_timeout = float(int(timeout.total_seconds()))
@@ -84,7 +86,7 @@ class WaitStrategy(ABC):
             self._startup_timeout = float(timeout)
         return self
 
-    def with_poll_interval(self, interval: Union[float, timedelta]) -> "WaitStrategy":
+    def with_poll_interval(self, interval: Union[float, timedelta]) -> Self:
         """Set how frequently to check if the container is ready."""
         if isinstance(interval, timedelta):
             self._poll_interval = interval.total_seconds()
@@ -92,14 +94,49 @@ class WaitStrategy(ABC):
             self._poll_interval = interval
         return self
 
+    def with_transient_exceptions(self, *transient_exceptions: type[Exception]) -> Self:
+        self._transient_exceptions.extend(transient_exceptions)
+        return self
+
     @abstractmethod
     def wait_until_ready(self, container: WaitStrategyTarget) -> None:
         """Wait until the container is ready."""
         pass
 
+    def _poll(self, check: Callable[[], bool], transient_exceptions: Optional[list[type[Exception]]] = None) -> bool:
+        if not transient_exceptions:
+            all_te_types = self._transient_exceptions
+        else:
+            all_te_types = [*self._transient_exceptions, *(transient_exceptions or [])]
+
+        start = time.time()
+        while True:
+            start_attempt = time.time()
+            duration = start_attempt - start
+            if duration > self._startup_timeout:
+                return False
+
+            # noinspection PyBroadException
+            try:
+                result = check()
+                if result:
+                    return result
+            except StopIteration:
+                return False
+            except Exception as e:  # noqa: E722, RUF100
+                is_transient = False
+                for et in all_te_types:
+                    if isinstance(e, et):
+                        is_transient = True
+                if not is_transient:
+                    raise RuntimeError(f"exception while checking for strategy {self}") from e
+
+            seconds_left_until_next = self._poll_interval - (time.time() - start_attempt)
+            time.sleep(max(0.0, seconds_left_until_next))
+
 
 # Keep existing wait_container_is_ready but make it use the new system internally
-def wait_container_is_ready(*transient_exceptions: type[Exception]) -> Callable[[F], F]:
+def wait_container_is_ready(*transient_exceptions: type[Exception]) -> Callable[[F], F]:  # noqa: C901
     """
     Legacy wait decorator that uses the new wait strategy system internally.
     Maintains backwards compatibility with existing code.
@@ -124,7 +161,7 @@ def wait_container_is_ready(*transient_exceptions: type[Exception]) -> Callable[
     )
 
     class LegacyWaitStrategy(WaitStrategy):
-        def __init__(self, func: Callable[..., Any], instance: Any, args: list[Any], kwargs: dict[str, Any]):
+        def __init__(self, func: Callable[..., Any], instance: Any, args: tuple[Any], kwargs: dict[str, Any]):
             super().__init__()
             self.func = func
             self.instance = instance
@@ -160,12 +197,16 @@ def wait_container_is_ready(*transient_exceptions: type[Exception]) -> Callable[
                     logger.debug(f"Connection attempt failed: {e!s}")
                     time.sleep(self._poll_interval)
 
-    @wrapt.decorator  # type: ignore[misc]
-    def wrapper(wrapped: Callable[..., Any], instance: Any, args: list[Any], kwargs: dict[str, Any]) -> Any:
+    @wrapt.decorator
+    def wrapper(wrapped: Callable[..., Any], instance: Any, args: tuple[Any], kwargs: dict[str, Any]) -> Any:
         # Use the LegacyWaitStrategy to handle retries with proper timeout
         strategy = LegacyWaitStrategy(wrapped, instance, args, kwargs)
         # For backwards compatibility, assume the instance is the container
-        container = instance if hasattr(instance, "get_container_host_ip") else args[0] if args else None
+        try:
+            first_arg = args[0]
+        except IndexError:
+            first_arg = None
+        container = instance if hasattr(instance, "get_container_host_ip") else first_arg
         if container:
             return strategy.wait_until_ready(container)
         else:
@@ -194,7 +235,7 @@ _NOT_EXITED_STATUSES = {"running", "created"}
 def wait_for_logs(
     container: WaitStrategyTarget,
     predicate: Union[Callable[[str], bool], str, WaitStrategy],
-    timeout: float = config.timeout,
+    timeout: float = testcontainers_config.timeout,
     interval: float = 1,
     predicate_streams_and: bool = False,
     raise_on_exit: bool = False,
@@ -261,7 +302,7 @@ def wait_for_logs(
     # Original implementation for backwards compatibility
     re_predicate: Optional[Callable[[str], Any]] = None
     if timeout is None:
-        timeout = config.timeout
+        timeout = testcontainers_config.timeout
     if isinstance(predicate, str):
         re_predicate = re.compile(predicate, re.MULTILINE).search
     elif callable(predicate):

@@ -24,23 +24,22 @@ class R2BucketEventNotificationArgs:
                  account_id: pulumi.Input[_builtins.str],
                  bucket_name: pulumi.Input[_builtins.str],
                  queue_id: pulumi.Input[_builtins.str],
-                 jurisdiction: Optional[pulumi.Input[_builtins.str]] = None,
-                 rules: Optional[pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]]] = None):
+                 rules: pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]],
+                 jurisdiction: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The set of arguments for constructing a R2BucketEventNotification resource.
         :param pulumi.Input[_builtins.str] account_id: Account ID.
         :param pulumi.Input[_builtins.str] bucket_name: Name of the bucket.
         :param pulumi.Input[_builtins.str] queue_id: Queue ID.
-        :param pulumi.Input[_builtins.str] jurisdiction: Jurisdiction of the bucket
         :param pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]] rules: Array of rules to drive notifications.
+        :param pulumi.Input[_builtins.str] jurisdiction: Jurisdiction of the bucket
         """
         pulumi.set(__self__, "account_id", account_id)
         pulumi.set(__self__, "bucket_name", bucket_name)
         pulumi.set(__self__, "queue_id", queue_id)
+        pulumi.set(__self__, "rules", rules)
         if jurisdiction is not None:
             pulumi.set(__self__, "jurisdiction", jurisdiction)
-        if rules is not None:
-            pulumi.set(__self__, "rules", rules)
 
     @_builtins.property
     @pulumi.getter(name="accountId")
@@ -80,6 +79,18 @@ class R2BucketEventNotificationArgs:
 
     @_builtins.property
     @pulumi.getter
+    def rules(self) -> pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]]:
+        """
+        Array of rules to drive notifications.
+        """
+        return pulumi.get(self, "rules")
+
+    @rules.setter
+    def rules(self, value: pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]]):
+        pulumi.set(self, "rules", value)
+
+    @_builtins.property
+    @pulumi.getter
     def jurisdiction(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Jurisdiction of the bucket
@@ -89,18 +100,6 @@ class R2BucketEventNotificationArgs:
     @jurisdiction.setter
     def jurisdiction(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "jurisdiction", value)
-
-    @_builtins.property
-    @pulumi.getter
-    def rules(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]]]:
-        """
-        Array of rules to drive notifications.
-        """
-        return pulumi.get(self, "rules")
-
-    @rules.setter
-    def rules(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['R2BucketEventNotificationRuleArgs']]]]):
-        pulumi.set(self, "rules", value)
 
 
 @pulumi.input_type
@@ -241,6 +240,10 @@ class R2BucketEventNotification(pulumi.CustomResource):
             }])
         ```
 
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] account_id: Account ID.
@@ -276,6 +279,10 @@ class R2BucketEventNotification(pulumi.CustomResource):
                 "suffix": ".jpeg",
             }])
         ```
+
+        ## Import
+
+        ~> This resource does not currently support `pulumi import`.
 
         :param str resource_name: The name of the resource.
         :param R2BucketEventNotificationArgs args: The arguments to use to populate this resource's properties.
@@ -316,6 +323,8 @@ class R2BucketEventNotification(pulumi.CustomResource):
             if queue_id is None and not opts.urn:
                 raise TypeError("Missing required property 'queue_id'")
             __props__.__dict__["queue_id"] = queue_id
+            if rules is None and not opts.urn:
+                raise TypeError("Missing required property 'rules'")
             __props__.__dict__["rules"] = rules
             __props__.__dict__["queue_name"] = None
         super(R2BucketEventNotification, __self__).__init__(
@@ -402,7 +411,7 @@ class R2BucketEventNotification(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def rules(self) -> pulumi.Output[Optional[Sequence['outputs.R2BucketEventNotificationRule']]]:
+    def rules(self) -> pulumi.Output[Sequence['outputs.R2BucketEventNotificationRule']]:
         """
         Array of rules to drive notifications.
         """

@@ -55,6 +55,12 @@ __all__ = [
     'DataTransferConfigScheduleOptionsArgsDict',
     'DataTransferConfigSensitiveParamsArgs',
     'DataTransferConfigSensitiveParamsArgsDict',
+    'Datapolicyv2DataPolicyDataMaskingPolicyArgs',
+    'Datapolicyv2DataPolicyDataMaskingPolicyArgsDict',
+    'Datapolicyv2DataPolicyIamBindingConditionArgs',
+    'Datapolicyv2DataPolicyIamBindingConditionArgsDict',
+    'Datapolicyv2DataPolicyIamMemberConditionArgs',
+    'Datapolicyv2DataPolicyIamMemberConditionArgsDict',
     'DatasetAccessArgs',
     'DatasetAccessArgsDict',
     'DatasetAccessAuthorizedDatasetArgs',
@@ -137,6 +143,10 @@ __all__ = [
     'ReservationReplicationStatusErrorArgsDict',
     'RoutineArgumentArgs',
     'RoutineArgumentArgsDict',
+    'RoutineExternalRuntimeOptionsArgs',
+    'RoutineExternalRuntimeOptionsArgsDict',
+    'RoutinePythonOptionsArgs',
+    'RoutinePythonOptionsArgsDict',
     'RoutineRemoteFunctionOptionsArgs',
     'RoutineRemoteFunctionOptionsArgsDict',
     'RoutineSparkOptionsArgs',
@@ -1408,9 +1418,14 @@ if not MYPY:
         """
         The Secret Access Key of the AWS account transferring data from.
         """
+        secret_access_key_wo: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        The Secret Access Key of the AWS account transferring data from.
+        """
         secret_access_key_wo_version: NotRequired[pulumi.Input[_builtins.int]]
         """
-        The version of the sensitive params - used to trigger updates of the write-only params. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)
+        The version of the sensitive params - used to trigger updates of the write-only params. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         """
 elif False:
     DataTransferConfigSensitiveParamsArgsDict: TypeAlias = Mapping[str, Any]
@@ -1419,13 +1434,18 @@ elif False:
 class DataTransferConfigSensitiveParamsArgs:
     def __init__(__self__, *,
                  secret_access_key: Optional[pulumi.Input[_builtins.str]] = None,
+                 secret_access_key_wo: Optional[pulumi.Input[_builtins.str]] = None,
                  secret_access_key_wo_version: Optional[pulumi.Input[_builtins.int]] = None):
         """
         :param pulumi.Input[_builtins.str] secret_access_key: The Secret Access Key of the AWS account transferring data from.
-        :param pulumi.Input[_builtins.int] secret_access_key_wo_version: The version of the sensitive params - used to trigger updates of the write-only params. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)
+        :param pulumi.Input[_builtins.str] secret_access_key_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               The Secret Access Key of the AWS account transferring data from.
+        :param pulumi.Input[_builtins.int] secret_access_key_wo_version: The version of the sensitive params - used to trigger updates of the write-only params. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         """
         if secret_access_key is not None:
             pulumi.set(__self__, "secret_access_key", secret_access_key)
+        if secret_access_key_wo is not None:
+            pulumi.set(__self__, "secret_access_key_wo", secret_access_key_wo)
         if secret_access_key_wo_version is not None:
             pulumi.set(__self__, "secret_access_key_wo_version", secret_access_key_wo_version)
 
@@ -1442,16 +1462,208 @@ class DataTransferConfigSensitiveParamsArgs:
         pulumi.set(self, "secret_access_key", value)
 
     @_builtins.property
+    @pulumi.getter(name="secretAccessKeyWo")
+    def secret_access_key_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        The Secret Access Key of the AWS account transferring data from.
+        """
+        return pulumi.get(self, "secret_access_key_wo")
+
+    @secret_access_key_wo.setter
+    def secret_access_key_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "secret_access_key_wo", value)
+
+    @_builtins.property
     @pulumi.getter(name="secretAccessKeyWoVersion")
     def secret_access_key_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
-        The version of the sensitive params - used to trigger updates of the write-only params. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes)
+        The version of the sensitive params - used to trigger updates of the write-only params. For more info see [updating write-only arguments](https://www.terraform.io/docs/providers/google/guides/using_write_only_arguments.html#updating-write-only-arguments)
         """
         return pulumi.get(self, "secret_access_key_wo_version")
 
     @secret_access_key_wo_version.setter
     def secret_access_key_wo_version(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "secret_access_key_wo_version", value)
+
+
+if not MYPY:
+    class Datapolicyv2DataPolicyDataMaskingPolicyArgsDict(TypedDict):
+        predefined_expression: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        A predefined masking expression.
+        Possible values:
+        SHA256
+        ALWAYS_NULL
+        DEFAULT_MASKING_VALUE
+        LAST_FOUR_CHARACTERS
+        FIRST_FOUR_CHARACTERS
+        EMAIL_MASK
+        DATE_YEAR_MASK
+        RANDOM_HASH
+        """
+        routine: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the BigQuery routine that contains the custom masking
+        routine, in the format of
+        `projects/{project_number}/datasets/{dataset_id}/routines/{routine_id}`.
+        """
+elif False:
+    Datapolicyv2DataPolicyDataMaskingPolicyArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class Datapolicyv2DataPolicyDataMaskingPolicyArgs:
+    def __init__(__self__, *,
+                 predefined_expression: Optional[pulumi.Input[_builtins.str]] = None,
+                 routine: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] predefined_expression: A predefined masking expression.
+               Possible values:
+               SHA256
+               ALWAYS_NULL
+               DEFAULT_MASKING_VALUE
+               LAST_FOUR_CHARACTERS
+               FIRST_FOUR_CHARACTERS
+               EMAIL_MASK
+               DATE_YEAR_MASK
+               RANDOM_HASH
+        :param pulumi.Input[_builtins.str] routine: The name of the BigQuery routine that contains the custom masking
+               routine, in the format of
+               `projects/{project_number}/datasets/{dataset_id}/routines/{routine_id}`.
+        """
+        if predefined_expression is not None:
+            pulumi.set(__self__, "predefined_expression", predefined_expression)
+        if routine is not None:
+            pulumi.set(__self__, "routine", routine)
+
+    @_builtins.property
+    @pulumi.getter(name="predefinedExpression")
+    def predefined_expression(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        A predefined masking expression.
+        Possible values:
+        SHA256
+        ALWAYS_NULL
+        DEFAULT_MASKING_VALUE
+        LAST_FOUR_CHARACTERS
+        FIRST_FOUR_CHARACTERS
+        EMAIL_MASK
+        DATE_YEAR_MASK
+        RANDOM_HASH
+        """
+        return pulumi.get(self, "predefined_expression")
+
+    @predefined_expression.setter
+    def predefined_expression(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "predefined_expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def routine(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the BigQuery routine that contains the custom masking
+        routine, in the format of
+        `projects/{project_number}/datasets/{dataset_id}/routines/{routine_id}`.
+        """
+        return pulumi.get(self, "routine")
+
+    @routine.setter
+    def routine(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "routine", value)
+
+
+if not MYPY:
+    class Datapolicyv2DataPolicyIamBindingConditionArgsDict(TypedDict):
+        expression: pulumi.Input[_builtins.str]
+        title: pulumi.Input[_builtins.str]
+        description: NotRequired[pulumi.Input[_builtins.str]]
+elif False:
+    Datapolicyv2DataPolicyIamBindingConditionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class Datapolicyv2DataPolicyIamBindingConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: Optional[pulumi.Input[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+
+if not MYPY:
+    class Datapolicyv2DataPolicyIamMemberConditionArgsDict(TypedDict):
+        expression: pulumi.Input[_builtins.str]
+        title: pulumi.Input[_builtins.str]
+        description: NotRequired[pulumi.Input[_builtins.str]]
+elif False:
+    Datapolicyv2DataPolicyIamMemberConditionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class Datapolicyv2DataPolicyIamMemberConditionArgs:
+    def __init__(__self__, *,
+                 expression: pulumi.Input[_builtins.str],
+                 title: pulumi.Input[_builtins.str],
+                 description: Optional[pulumi.Input[_builtins.str]] = None):
+        pulumi.set(__self__, "expression", expression)
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "expression")
+
+    @expression.setter
+    def expression(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "expression", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
 
 
 if not MYPY:
@@ -2351,7 +2563,13 @@ class DatasetExternalDatasetReferenceArgs:
 if not MYPY:
     class DatasetIamBindingConditionArgsDict(TypedDict):
         expression: pulumi.Input[_builtins.str]
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
         title: pulumi.Input[_builtins.str]
+        """
+        A title for the expression, i.e. a short string describing its purpose.
+        """
         description: NotRequired[pulumi.Input[_builtins.str]]
 elif False:
     DatasetIamBindingConditionArgsDict: TypeAlias = Mapping[str, Any]
@@ -2362,6 +2580,10 @@ class DatasetIamBindingConditionArgs:
                  expression: pulumi.Input[_builtins.str],
                  title: pulumi.Input[_builtins.str],
                  description: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] expression: Textual representation of an expression in Common Expression Language syntax.
+        :param pulumi.Input[_builtins.str] title: A title for the expression, i.e. a short string describing its purpose.
+        """
         pulumi.set(__self__, "expression", expression)
         pulumi.set(__self__, "title", title)
         if description is not None:
@@ -2370,6 +2592,9 @@ class DatasetIamBindingConditionArgs:
     @_builtins.property
     @pulumi.getter
     def expression(self) -> pulumi.Input[_builtins.str]:
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
         return pulumi.get(self, "expression")
 
     @expression.setter
@@ -2379,6 +2604,9 @@ class DatasetIamBindingConditionArgs:
     @_builtins.property
     @pulumi.getter
     def title(self) -> pulumi.Input[_builtins.str]:
+        """
+        A title for the expression, i.e. a short string describing its purpose.
+        """
         return pulumi.get(self, "title")
 
     @title.setter
@@ -2398,7 +2626,13 @@ class DatasetIamBindingConditionArgs:
 if not MYPY:
     class DatasetIamMemberConditionArgsDict(TypedDict):
         expression: pulumi.Input[_builtins.str]
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
         title: pulumi.Input[_builtins.str]
+        """
+        A title for the expression, i.e. a short string describing its purpose.
+        """
         description: NotRequired[pulumi.Input[_builtins.str]]
 elif False:
     DatasetIamMemberConditionArgsDict: TypeAlias = Mapping[str, Any]
@@ -2409,6 +2643,10 @@ class DatasetIamMemberConditionArgs:
                  expression: pulumi.Input[_builtins.str],
                  title: pulumi.Input[_builtins.str],
                  description: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] expression: Textual representation of an expression in Common Expression Language syntax.
+        :param pulumi.Input[_builtins.str] title: A title for the expression, i.e. a short string describing its purpose.
+        """
         pulumi.set(__self__, "expression", expression)
         pulumi.set(__self__, "title", title)
         if description is not None:
@@ -2417,6 +2655,9 @@ class DatasetIamMemberConditionArgs:
     @_builtins.property
     @pulumi.getter
     def expression(self) -> pulumi.Input[_builtins.str]:
+        """
+        Textual representation of an expression in Common Expression Language syntax.
+        """
         return pulumi.get(self, "expression")
 
     @expression.setter
@@ -2426,6 +2667,9 @@ class DatasetIamMemberConditionArgs:
     @_builtins.property
     @pulumi.getter
     def title(self) -> pulumi.Input[_builtins.str]:
+        """
+        A title for the expression, i.e. a short string describing its purpose.
+        """
         return pulumi.get(self, "title")
 
     @title.setter
@@ -5550,6 +5794,208 @@ class RoutineArgumentArgs:
 
 
 if not MYPY:
+    class RoutineExternalRuntimeOptionsArgsDict(TypedDict):
+        container_cpu: NotRequired[pulumi.Input[_builtins.float]]
+        """
+        Amount of CPU provisioned for a Python UDF container instance. For more
+        information, see [Configure container limits for Python
+        UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+        """
+        container_memory: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Amount of memory provisioned for a Python UDF container instance. Format:
+        {number}{unit} where unit is one of "M", "G", "Mi" and "Gi" (e.g. 1G,
+        512Mi). If not specified, the default value is 512Mi. For more information,
+        see [Configure container limits for Python
+        UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+        """
+        max_batching_rows: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Maximum number of rows in each batch sent to the external runtime. If
+        absent or if 0, BigQuery dynamically decides the number of rows in a batch.
+        """
+        runtime_connection: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Fully qualified name of the connection whose service account will be used
+        to execute the code in the container. Format:
+        `"projects/{project_id}/locations/{location_id}/connections/{connection_id}"`
+        """
+        runtime_version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Language runtime version. Example: `python-3.11`.
+        """
+elif False:
+    RoutineExternalRuntimeOptionsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class RoutineExternalRuntimeOptionsArgs:
+    def __init__(__self__, *,
+                 container_cpu: Optional[pulumi.Input[_builtins.float]] = None,
+                 container_memory: Optional[pulumi.Input[_builtins.str]] = None,
+                 max_batching_rows: Optional[pulumi.Input[_builtins.str]] = None,
+                 runtime_connection: Optional[pulumi.Input[_builtins.str]] = None,
+                 runtime_version: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.float] container_cpu: Amount of CPU provisioned for a Python UDF container instance. For more
+               information, see [Configure container limits for Python
+               UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+        :param pulumi.Input[_builtins.str] container_memory: Amount of memory provisioned for a Python UDF container instance. Format:
+               {number}{unit} where unit is one of "M", "G", "Mi" and "Gi" (e.g. 1G,
+               512Mi). If not specified, the default value is 512Mi. For more information,
+               see [Configure container limits for Python
+               UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+        :param pulumi.Input[_builtins.str] max_batching_rows: Maximum number of rows in each batch sent to the external runtime. If
+               absent or if 0, BigQuery dynamically decides the number of rows in a batch.
+        :param pulumi.Input[_builtins.str] runtime_connection: Fully qualified name of the connection whose service account will be used
+               to execute the code in the container. Format:
+               `"projects/{project_id}/locations/{location_id}/connections/{connection_id}"`
+        :param pulumi.Input[_builtins.str] runtime_version: Language runtime version. Example: `python-3.11`.
+        """
+        if container_cpu is not None:
+            pulumi.set(__self__, "container_cpu", container_cpu)
+        if container_memory is not None:
+            pulumi.set(__self__, "container_memory", container_memory)
+        if max_batching_rows is not None:
+            pulumi.set(__self__, "max_batching_rows", max_batching_rows)
+        if runtime_connection is not None:
+            pulumi.set(__self__, "runtime_connection", runtime_connection)
+        if runtime_version is not None:
+            pulumi.set(__self__, "runtime_version", runtime_version)
+
+    @_builtins.property
+    @pulumi.getter(name="containerCpu")
+    def container_cpu(self) -> Optional[pulumi.Input[_builtins.float]]:
+        """
+        Amount of CPU provisioned for a Python UDF container instance. For more
+        information, see [Configure container limits for Python
+        UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+        """
+        return pulumi.get(self, "container_cpu")
+
+    @container_cpu.setter
+    def container_cpu(self, value: Optional[pulumi.Input[_builtins.float]]):
+        pulumi.set(self, "container_cpu", value)
+
+    @_builtins.property
+    @pulumi.getter(name="containerMemory")
+    def container_memory(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Amount of memory provisioned for a Python UDF container instance. Format:
+        {number}{unit} where unit is one of "M", "G", "Mi" and "Gi" (e.g. 1G,
+        512Mi). If not specified, the default value is 512Mi. For more information,
+        see [Configure container limits for Python
+        UDFs](https://cloud.google.com/bigquery/docs/user-defined-functions-python#configure-container-limits)
+        """
+        return pulumi.get(self, "container_memory")
+
+    @container_memory.setter
+    def container_memory(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "container_memory", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxBatchingRows")
+    def max_batching_rows(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Maximum number of rows in each batch sent to the external runtime. If
+        absent or if 0, BigQuery dynamically decides the number of rows in a batch.
+        """
+        return pulumi.get(self, "max_batching_rows")
+
+    @max_batching_rows.setter
+    def max_batching_rows(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "max_batching_rows", value)
+
+    @_builtins.property
+    @pulumi.getter(name="runtimeConnection")
+    def runtime_connection(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Fully qualified name of the connection whose service account will be used
+        to execute the code in the container. Format:
+        `"projects/{project_id}/locations/{location_id}/connections/{connection_id}"`
+        """
+        return pulumi.get(self, "runtime_connection")
+
+    @runtime_connection.setter
+    def runtime_connection(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "runtime_connection", value)
+
+    @_builtins.property
+    @pulumi.getter(name="runtimeVersion")
+    def runtime_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Language runtime version. Example: `python-3.11`.
+        """
+        return pulumi.get(self, "runtime_version")
+
+    @runtime_version.setter
+    def runtime_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "runtime_version", value)
+
+
+if not MYPY:
+    class RoutinePythonOptionsArgsDict(TypedDict):
+        entry_point: pulumi.Input[_builtins.str]
+        """
+        The name of the function defined in Python code as the entry point when the
+        Python UDF is invoked.
+        """
+        packages: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        A list of Python package names along with versions to be installed.
+        Example: ["pandas>=2.1", "google-cloud-translate==3.11"]. For more
+        information, see [Use third-party
+        packages](https://cloud.google.com/bigquery/docs/user-defined-functions-python#third-party-packages).
+        """
+elif False:
+    RoutinePythonOptionsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class RoutinePythonOptionsArgs:
+    def __init__(__self__, *,
+                 entry_point: pulumi.Input[_builtins.str],
+                 packages: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] entry_point: The name of the function defined in Python code as the entry point when the
+               Python UDF is invoked.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] packages: A list of Python package names along with versions to be installed.
+               Example: ["pandas>=2.1", "google-cloud-translate==3.11"]. For more
+               information, see [Use third-party
+               packages](https://cloud.google.com/bigquery/docs/user-defined-functions-python#third-party-packages).
+        """
+        pulumi.set(__self__, "entry_point", entry_point)
+        if packages is not None:
+            pulumi.set(__self__, "packages", packages)
+
+    @_builtins.property
+    @pulumi.getter(name="entryPoint")
+    def entry_point(self) -> pulumi.Input[_builtins.str]:
+        """
+        The name of the function defined in Python code as the entry point when the
+        Python UDF is invoked.
+        """
+        return pulumi.get(self, "entry_point")
+
+    @entry_point.setter
+    def entry_point(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "entry_point", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def packages(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        A list of Python package names along with versions to be installed.
+        Example: ["pandas>=2.1", "google-cloud-translate==3.11"]. For more
+        information, see [Use third-party
+        packages](https://cloud.google.com/bigquery/docs/user-defined-functions-python#third-party-packages).
+        """
+        return pulumi.get(self, "packages")
+
+    @packages.setter
+    def packages(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "packages", value)
+
+
+if not MYPY:
     class RoutineRemoteFunctionOptionsArgsDict(TypedDict):
         connection: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -6390,6 +6836,22 @@ if not MYPY:
         Additional properties to set if
         `source_format` is set to "CSV". Structure is documented below.
         """
+        decimal_target_types: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        Defines the list of possible SQL data types to which the source decimal values are converted. This list and the precision and the scale parameters of the decimal field determine the target type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the specified list and if it supports the precision and the scale. STRING supports all precision and scale values. If none of the listed types supports the precision and the scale, the type supporting the widest range in the specified list is picked, and if a value exceeds the supported range when reading the data, an error will be thrown.
+
+        Example: Suppose the value of this field is ["NUMERIC", "BIGNUMERIC"]. If (precision,scale) is:
+
+        (38,9) > NUMERIC;
+        (39,9) > BIGNUMERIC (NUMERIC cannot hold 30 integer digits);
+        (38,10) > BIGNUMERIC (NUMERIC cannot hold 10 fractional digits);
+        (76,38) > BIGNUMERIC;
+        (77,38) > BIGNUMERIC (error if value exceeds supported range).
+
+        This field cannot contain duplicate types. The order of the types in this field is ignored. For example, ["BIGNUMERIC", "NUMERIC"] is the same as ["NUMERIC", "BIGNUMERIC"] and NUMERIC always takes precedence over BIGNUMERIC.
+
+        Defaults to ["NUMERIC", "STRING"] for ORC and ["NUMERIC"] for the other file formats.
+        """
         file_set_spec_type: NotRequired[pulumi.Input[_builtins.str]]
         """
         Specifies how source URIs are interpreted for constructing the file set to load.
@@ -6487,6 +6949,7 @@ class TableExternalDataConfigurationArgs:
                  compression: Optional[pulumi.Input[_builtins.str]] = None,
                  connection_id: Optional[pulumi.Input[_builtins.str]] = None,
                  csv_options: Optional[pulumi.Input['TableExternalDataConfigurationCsvOptionsArgs']] = None,
+                 decimal_target_types: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  file_set_spec_type: Optional[pulumi.Input[_builtins.str]] = None,
                  google_sheets_options: Optional[pulumi.Input['TableExternalDataConfigurationGoogleSheetsOptionsArgs']] = None,
                  hive_partitioning_options: Optional[pulumi.Input['TableExternalDataConfigurationHivePartitioningOptionsArgs']] = None,
@@ -6521,6 +6984,19 @@ class TableExternalDataConfigurationArgs:
                documented above.
         :param pulumi.Input['TableExternalDataConfigurationCsvOptionsArgs'] csv_options: Additional properties to set if
                `source_format` is set to "CSV". Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] decimal_target_types: Defines the list of possible SQL data types to which the source decimal values are converted. This list and the precision and the scale parameters of the decimal field determine the target type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the specified list and if it supports the precision and the scale. STRING supports all precision and scale values. If none of the listed types supports the precision and the scale, the type supporting the widest range in the specified list is picked, and if a value exceeds the supported range when reading the data, an error will be thrown.
+               
+               Example: Suppose the value of this field is ["NUMERIC", "BIGNUMERIC"]. If (precision,scale) is:
+               
+               (38,9) > NUMERIC;
+               (39,9) > BIGNUMERIC (NUMERIC cannot hold 30 integer digits);
+               (38,10) > BIGNUMERIC (NUMERIC cannot hold 10 fractional digits);
+               (76,38) > BIGNUMERIC;
+               (77,38) > BIGNUMERIC (error if value exceeds supported range).
+               
+               This field cannot contain duplicate types. The order of the types in this field is ignored. For example, ["BIGNUMERIC", "NUMERIC"] is the same as ["NUMERIC", "BIGNUMERIC"] and NUMERIC always takes precedence over BIGNUMERIC.
+               
+               Defaults to ["NUMERIC", "STRING"] for ORC and ["NUMERIC"] for the other file formats.
         :param pulumi.Input[_builtins.str] file_set_spec_type: Specifies how source URIs are interpreted for constructing the file set to load.
                By default source URIs are expanded against the underlying storage.
                Other options include specifying manifest files. Only applicable to object storage systems. Docs
@@ -6579,6 +7055,8 @@ class TableExternalDataConfigurationArgs:
             pulumi.set(__self__, "connection_id", connection_id)
         if csv_options is not None:
             pulumi.set(__self__, "csv_options", csv_options)
+        if decimal_target_types is not None:
+            pulumi.set(__self__, "decimal_target_types", decimal_target_types)
         if file_set_spec_type is not None:
             pulumi.set(__self__, "file_set_spec_type", file_set_spec_type)
         if google_sheets_options is not None:
@@ -6702,6 +7180,30 @@ class TableExternalDataConfigurationArgs:
     @csv_options.setter
     def csv_options(self, value: Optional[pulumi.Input['TableExternalDataConfigurationCsvOptionsArgs']]):
         pulumi.set(self, "csv_options", value)
+
+    @_builtins.property
+    @pulumi.getter(name="decimalTargetTypes")
+    def decimal_target_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Defines the list of possible SQL data types to which the source decimal values are converted. This list and the precision and the scale parameters of the decimal field determine the target type. In the order of NUMERIC, BIGNUMERIC, and STRING, a type is picked if it is in the specified list and if it supports the precision and the scale. STRING supports all precision and scale values. If none of the listed types supports the precision and the scale, the type supporting the widest range in the specified list is picked, and if a value exceeds the supported range when reading the data, an error will be thrown.
+
+        Example: Suppose the value of this field is ["NUMERIC", "BIGNUMERIC"]. If (precision,scale) is:
+
+        (38,9) > NUMERIC;
+        (39,9) > BIGNUMERIC (NUMERIC cannot hold 30 integer digits);
+        (38,10) > BIGNUMERIC (NUMERIC cannot hold 10 fractional digits);
+        (76,38) > BIGNUMERIC;
+        (77,38) > BIGNUMERIC (error if value exceeds supported range).
+
+        This field cannot contain duplicate types. The order of the types in this field is ignored. For example, ["BIGNUMERIC", "NUMERIC"] is the same as ["NUMERIC", "BIGNUMERIC"] and NUMERIC always takes precedence over BIGNUMERIC.
+
+        Defaults to ["NUMERIC", "STRING"] for ORC and ["NUMERIC"] for the other file formats.
+        """
+        return pulumi.get(self, "decimal_target_types")
+
+    @decimal_target_types.setter
+    def decimal_target_types(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "decimal_target_types", value)
 
     @_builtins.property
     @pulumi.getter(name="fileSetSpecType")

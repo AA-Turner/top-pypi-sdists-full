@@ -66,9 +66,7 @@ def list_of_records_to_buffer(list_of_records: List[Dict[str, Any]]) -> StringIO
 def is_urlsource(sourcedata: Any) -> bool:
     """Whether sourcedata is of url kind"""
     return isinstance(sourcedata, str) and (
-        sourcedata.startswith("http")
-        or sourcedata.startswith("file:")
-        or sourcedata.startswith("s3:")
+        sourcedata.startswith("http") or sourcedata.startswith("file:") or sourcedata.startswith("s3:")
     )
 
 
@@ -128,6 +126,5 @@ def assert_modelable(sourcedata: bytes) -> None:
     """
     if len(sourcedata) < 500 and len(sourcedata.splitlines()) == 1:
         raise errors.InputNotUnderstoodError(
-            "The source appears to contain only a single line of data. "
-            "Did you mistype a file path?"
+            "The source appears to contain only a single line of data. Did you mistype a file path?"
         )

@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: exchangelib
-Version: 5.5.1
+Version: 5.6.0
 Summary: Client for Microsoft Exchange Web Services (EWS)
 Author-email: Erik Cederstrand <erik@cederstrand.dk>
-License: BSD-2-Clause
+License-Expression: BSD-2-Clause
 Project-URL: Homepage, https://github.com/ecederstrand/exchangelib
 Project-URL: Issues, https://github.com/ecederstrand/exchangelib/issues
 Project-URL: Documentation, https://ecederstrand.github.io/exchangelib/
@@ -12,9 +12,8 @@ Project-URL: Changelog, https://github.com/ecederstrand/exchangelib/blob/master/
 Keywords: autodiscover,ews,exchange,exchange-web-services,microsoft,o365,office365,outlook
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Topic :: Communications
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cached_property
@@ -39,6 +38,7 @@ Provides-Extra: complete
 Requires-Dist: requests_gssapi; extra == "complete"
 Requires-Dist: msal; extra == "complete"
 Requires-Dist: requests_negotiate_sspi; extra == "complete"
+Dynamic: license-file
 
 Exchange Web Services client library
 ====================================

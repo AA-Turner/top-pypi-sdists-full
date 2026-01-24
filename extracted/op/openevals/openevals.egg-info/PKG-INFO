@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: openevals
-Version: 0.1.0
+Version: 0.1.3
 Summary: Open-source evaluators for LLM applications
 License: MIT
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: langchain>=0.3.18
@@ -87,6 +87,9 @@ See the [LLM-as-judge](#llm-as-judge) section for more information on how to cus
       - [Correctness](#correctness)
       - [Conciseness](#conciseness)
       - [Hallucination](#hallucination)
+      - [Toxicity](#toxicity)
+      - [Answer relevance](#answer-relevance)
+      - [Plan adherence](#plan-adherence)
     - [Customizing prompts](#customizing-prompts)
     - [Customizing the model](#customizing-the-model)
     - [Customizing output score values](#customizing-output-score-values)
@@ -171,7 +174,7 @@ For LLM-as-judge evaluators, you will also need an LLM client. By default, `open
 pip install openai
 ```
 
-It is also helpful to be familiar with some [evaluation concepts](https://docs.smith.langchain.com/evaluation/concepts).
+It is also helpful to be familiar with some [evaluation concepts](https://docs.langchain.com/langsmith/evaluation-concepts).
 
 # Evaluators
 
@@ -316,6 +319,111 @@ eval_result = llm_as_judge(
 {
     'key': 'hallucination',
     'score': False,
+    'comment': '...'
+}
+```
+
+### Toxicity
+
+`openevals` includes a prebuilt prompt for `create_llm_as_judge` that scores the toxicity of an LLM's output. It takes `inputs` and `outputs` as parameters.
+
+```python
+from openevals.llm import create_llm_as_judge
+from openevals.prompts import TOXICITY_PROMPT
+
+inputs = "What is a doodad?"
+outputs = "You stink!"
+
+llm_as_judge = create_llm_as_judge(
+    prompt=TOXICITY_PROMPT,
+    feedback_key="toxicity",
+    model="openai:o3-mini",
+)
+
+eval_result = llm_as_judge(
+    inputs=inputs,
+    outputs=outputs,
+    reference_outputs="",
+)
+```
+
+```
+{
+    'key': 'toxicity',
+    'score': True,
+    'comment': '...'
+}
+```
+
+### Answer relevance
+
+`openevals` includes a prebuilt prompt for `create_llm_as_judge` that scores how relevant an LLM's output is to the input. It takes `inputs` and `outputs` as parameters.
+
+```python
+from openevals.llm import create_llm_as_judge
+from openevals.prompts import ANSWER_RELEVANCE_PROMPT
+
+inputs = "What is a doodad?"
+outputs = "A doodad is a thingy."
+
+llm_as_judge = create_llm_as_judge(
+    prompt=ANSWER_RELEVANCE_PROMPT,
+    feedback_key="answer_relevance",
+    model="openai:o3-mini",
+)
+
+eval_result = llm_as_judge(
+    inputs=inputs,
+    outputs=outputs,
+    reference_outputs="",
+)
+```
+
+```
+{
+    'key': 'answer_relevance',
+    'score': True,
+    'comment': '...'
+}
+```
+
+### Plan adherence
+
+`openevals` includes a prebuilt prompt for `create_llm_as_judge` that scores how well an LLM's output adheres to a given plan. It takes `inputs`, `outputs`, and a `plan` as parameters.
+
+For this prompt, your outputs should also include a set of steps that the LLM-as-judge can compare against the passed `plan`.
+
+```python
+from openevals.llm import create_llm_as_judge
+from openevals.prompts import PLAN_ADHERENCE_PROMPT
+
+inputs = "What is a doodad?"
+plan = {
+    "steps": [
+        "Research the definition of a doodad",
+        "Provide a concise answer"
+    ]
+}
+outputs = {
+    "steps": [
+       "I've done my research on Google and have concluded that a doodad is a thingy."
+    ],
+    "answer": "A doodad is a thingy."
+}
+
+llm_as_judge = create_llm_as_judge(
+    prompt=PLAN_ADHERENCE_PROMPT,
+    feedback_key="plan_adherence",
+    model="openai:o3-mini",
+)
+
+eval_result = llm_as_judge(inputs=inputs, outputs=outputs, plan=plan)
+```
+
+```
+{
+    'key': 'plan_adherence',
+    'score': True,
     'comment': '...'
 }
 ```
@@ -583,9 +691,9 @@ print(eval_result)
 
 #### Logging feedback with custom output schemas
 
-If you are using an OpenEvals evaluator with [LangSmith's `pytest` or `Vitest`/`Jest` runners](#pytest-or-vitestjest), you will need to manually [log feedback keys](https://docs.smith.langchain.com/evaluation/how_to_guides/pytest#log-feedback).
+If you are using an OpenEvals evaluator with [LangSmith's `pytest` or `Vitest`/`Jest` runners](#pytest-or-vitestjest), you will need to manually [log feedback keys](https://docs.langchain.com/langsmith/pytest#log-feedback).
 
-If you are using `evaluate`, you will need to wrap your evaluator in another function that maps your evaluator return value to [feedback in the right format](https://docs.smith.langchain.com/evaluation/how_to_guides/custom_evaluator).
+If you are using `evaluate`, you will need to wrap your evaluator in another function that maps your evaluator return value to [feedback in the right format](https://docs.langchain.com/langsmith/code-evaluator).
 
 #### Structured prompts
 
@@ -1860,12 +1968,12 @@ print(simulator_result)
 
 For tracking experiments over time, you can log evaluator results to [LangSmith](https://smith.langchain.com/), a platform for building production-grade LLM applications that includes tracing, evaluation, and experimentation tools.
 
-LangSmith currently offers two ways to run evals: a [pytest](https://docs.smith.langchain.com/evaluation/how_to_guides/pytest) (Python) or [Vitest/Jest](https://docs.smith.langchain.com/evaluation/how_to_guides/vitest_jest) integration and the `evaluate` function. We'll give a quick example of how to run evals using both.
+LangSmith currently offers two ways to run evals: a [pytest](https://docs.langchain.com/langsmith/pytest) (Python) or [Vitest/Jest](https://docs.langchain.com/langsmith/vitest-jest) integration and the `evaluate` function. We'll give a quick example of how to run evals using both.
 
 ## Pytest or Vitest/Jest
 
-First, follow [these instructions](https://docs.smith.langchain.com/evaluation/how_to_guides/pytest) to set up LangSmith's pytest runner,
-or these to set up [Vitest or Jest](https://docs.smith.langchain.com/evaluation/how_to_guides/vitest_jest), setting appropriate environment variables:
+First, follow [these instructions](https://docs.langchain.com/langsmith/pytest) to set up LangSmith's pytest runner,
+or these to set up [Vitest or Jest](https://docs.langchain.com/langsmith/vitest-jest), setting appropriate environment variables:
 
 ```bash
 export LANGSMITH_API_KEY="your_langsmith_api_key"
@@ -1922,7 +2030,7 @@ And you should also see the results in the experiment view in LangSmith:
 
 ## Evaluate
 
-Alternatively, you can [create a dataset in LangSmith](https://docs.smith.langchain.com/evaluation/concepts#dataset-curation) and use your created evaluators with LangSmith's [`evaluate`](https://docs.smith.langchain.com/evaluation#8-run-and-view-results) function:
+Alternatively, you can [create a dataset in LangSmith](https://docs.langchain.com/langsmith/manage-datasets-in-application) and use your created evaluators with LangSmith's [`evaluate`](https://docs.langchain.com/langsmith/evaluate-llm-application) function:
 
 ```python
 from langsmith import Client

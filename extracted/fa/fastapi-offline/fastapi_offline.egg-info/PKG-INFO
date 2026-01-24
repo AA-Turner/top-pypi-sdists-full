@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: fastapi_offline
-Version: 1.7.4
+Version: 1.7.6
 Summary: FastAPI without reliance on CDNs for docs
 Home-page: https://github.com/turettn/fastapi_offline
 Author: Neal Turett
 Author-email: turettn@gmail.com
 License: MIT
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.8

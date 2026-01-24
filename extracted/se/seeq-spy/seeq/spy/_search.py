@@ -6,10 +6,11 @@ from dataclasses import dataclass
 from typing import List, Dict, Union, Mapping, Optional, Set
 
 import pandas as pd
+
 from seeq import spy
 from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
-from seeq.spy import _common, _login, _metadata, _swap
+from seeq.spy import _common, _login, _metadata, _swap, _version
 from seeq.spy._context import WorkbookContext
 from seeq.spy._errors import *
 from seeq.spy._redaction import safely, request_safely
@@ -18,6 +19,17 @@ from seeq.spy._status import Status
 
 RESERVED_SEARCH_COLUMN_NAMES = ['Path', 'Asset', 'Type', 'Depth', 'Estimated Sample Period', 'Formula Parameters',
                                 'Datasource Name']
+
+VALID_ITEM_TYPES_FOR_SEARCH = [
+    'StoredSignal', 'CalculatedSignal',
+    'StoredCondition', 'CalculatedCondition',
+    'LiteralScalar', 'CalculatedScalar',
+    'Datasource',
+    'ThresholdMetric', 'Chart', 'Asset',
+    'Workbook', 'Worksheet',
+    'Display', 'DisplayTemplate',
+    'TableDefinition'
+]
 
 ALL_PROPERTIES = ['@allProperties']
 
@@ -598,14 +610,14 @@ def _process_query(context: SearchContext, current_query):
     for key in disallowed_properties:
         del current_query[key]
 
-    allowed_properties_str = '", "'.join(allowed_properties)
+    allowed_properties_str = '"' + '", "'.join(allowed_properties) + '"'
     if len(disallowed_properties) > 0:
-        disallowed_properties_str = '", "'.join(disallowed_properties)
+        disallowed_properties_str = '"' + '", "'.join(disallowed_properties) + '"'
         message = f'The following properties are not indexed' \
                   f'{" and will be ignored" if context.ignore_unindexed_properties else ""}:\n' \
-                  f'"{disallowed_properties_str}"\n' \
+                  f'{disallowed_properties_str}\n' \
                   f'Use any of the following searchable properties and then filter further using DataFrame ' \
-                  f'operations:\n"{allowed_properties_str}"'
+                  f'operations:\n{allowed_properties_str}'
 
         if not context.ignore_unindexed_properties:
             raise SPyValueError(message)
@@ -627,14 +639,6 @@ def _process_query(context: SearchContext, current_query):
         else:
             item_type_specs.append(current_query['Type'])
 
-        valid_types = ['StoredSignal', 'CalculatedSignal',
-                       'StoredCondition', 'CalculatedCondition',
-                       'LiteralScalar', 'CalculatedScalar',
-                       'Datasource',
-                       'ThresholdMetric', 'Chart', 'Asset',
-                       'Workbook', 'Worksheet',
-                       'Display', 'DisplayTemplate']
-
         for item_type_spec in item_type_specs:
             if item_type_spec == 'Signal':
                 item_types.extend(['StoredSignal', 'CalculatedSignal'])
@@ -646,9 +650,11 @@ def _process_query(context: SearchContext, current_query):
                 item_types.extend(['Datasource'])
             elif item_type_spec == 'Metric':
                 item_types.extend(['ThresholdMetric'])
-            elif item_type_spec not in valid_types:
+            elif item_type_spec == 'Table':
+                item_types.extend(['TableDefinition'])
+            elif item_type_spec not in VALID_ITEM_TYPES_FOR_SEARCH:
                 raise SPyValueError(f'Type field value not recognized: {item_type_spec}\n'
-                                    f'Valid types: {", ".join(valid_types)}')
+                                    f'Valid types: {", ".join(VALID_ITEM_TYPES_FOR_SEARCH)}')
             else:
                 item_types.append(item_type_spec)
 
@@ -714,7 +720,7 @@ def _process_query(context: SearchContext, current_query):
         # If the user supplied a limit argument, then use it (if it's smaller than the page size)
         kwargs['limit'] = min(context.session.options.search_page_size, context.limit)
 
-    if context.include_properties is not None and _login.is_sdk_module_version_at_least(62):
+    if context.include_properties is not None and _version.is_sdk_module_version_at_least(62):
         kwargs['include_properties'] = context.include_properties
 
     if context.workbook:
@@ -892,7 +898,7 @@ def _create_prop_dict(context: SearchContext, item: Union[str, TreeItemOutputV1,
 
         if output_object.type in ['CalculatedSignal', 'CalculatedCondition', 'CalculatedScalar', 'LiteralScalar']:
             formula_parameters = None
-            if _login.is_sdk_module_version_at_least(62) and hasattr(output_object, 'parameters'):
+            if _version.is_sdk_module_version_at_least(62) and hasattr(output_object, 'parameters'):
                 formula_parameters = output_object.parameters
             elif (_has_requested_property(context, 'Formula') or
                   _has_requested_property(context, 'FormulaParameters')):
@@ -969,16 +975,20 @@ def _add_properties_smartly(context: SearchContext,
 
     if isinstance(item, str):
         # R62+: Try to look up the item properties using the much faster SearchByIDHelper.
-        if _login.is_sdk_module_version_at_least(62):
+        if _version.is_sdk_module_version_at_least(62):
             item_search_preview = context.search_by_id_helper_for_all_queries.get_by_index(context.status_index)
             item_object = item_search_preview
 
         # If SearchByIDHelper isn't available or it didn't work due to an edge case (E.G. CRAB-40580),
-        # get the properties directly from the get_item_and_all_properties endpoint.
+        # get the properties directly from the get_item_and_all_properties or get_item_preview endpoint.
         if not isinstance(item_object, ItemSearchPreviewV1) and not isinstance(item_object, ItemOutputV1):
             # Note: This doesn't need to be wrapped in request_safely because it's safely called in _create_prop_dict()
-            item_output = context.items_api.get_item_and_all_properties(id=item)
-            item_object = item_output
+            if hasattr(context.items_api, 'get_item_preview'):
+                item_search_preview = context.items_api.get_item_preview(id=item)
+                item_object = item_search_preview
+            else:
+                item_output = context.items_api.get_item_and_all_properties(id=item)
+                item_object = item_output
     elif isinstance(item, ItemSearchPreviewV1):
         item_search_preview = item
 
@@ -1045,7 +1055,7 @@ def _add_properties_smartly(context: SearchContext,
     if not need_more_properties:
         return item_object
 
-    if _login.is_sdk_module_version_at_least(62):
+    if _version.is_sdk_module_version_at_least(62):
         if item_search_preview is None and isinstance(item, TreeItemOutputV1):
             item_search_preview = context.search_by_id_helper_for_tree_children.get_by_index(
                 getattr(item, 'child_index'))
@@ -1299,7 +1309,7 @@ def _add_asset_to_metadata(context: SearchContext, actual_path_list, child, curr
     if not matches:
         return
 
-    if _login.is_sdk_module_version_at_least(62):
+    if _version.is_sdk_module_version_at_least(62):
         search_by_id_helper = SearchByIDHelper(context, [{'ID': child.id}])
         item_object = search_by_id_helper.get_by_index(0)
         asset_dict = _create_prop_dict(context, item_object)

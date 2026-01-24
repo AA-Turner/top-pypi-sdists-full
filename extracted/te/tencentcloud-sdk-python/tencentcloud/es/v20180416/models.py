@@ -884,21 +884,54 @@ class CosBackup(AbstractModel):
         :type IsAutoBackup: bool
         :param _BackupTime: 自动备份执行时间（精确到小时）, e.g. "22:00"
         :type BackupTime: str
+        :param _SnapshotName: 备份快照前缀
+        :type SnapshotName: str
         :param _EsRepositoryType: 0 腾讯云仓库; 1 客户仓库
         :type EsRepositoryType: int
+        :param _PaasEsRepository: 托管快照仓库名称
+        :type PaasEsRepository: str
         :param _UserEsRepository: 客户快照仓库名称
         :type UserEsRepository: str
+        :param _CosBasePath: cos存储文件夹目录
+        :type CosBasePath: str
         :param _StorageDuration: 快照存储周期 单位天
         :type StorageDuration: int
         :param _AutoBackupInterval: 自动备份频率单位小时
         :type AutoBackupInterval: int
+        :param _CosRetention: 备份锁定 0 不锁定; 1 锁定
+        :type CosRetention: int
+        :param _RetainUntilDate: 锁定截止日期 2022-12-10T08:34:48.000Z
+        :type RetainUntilDate: str
+        :param _RetentionGraceTime: 锁定宽限期
+        :type RetentionGraceTime: int
+        :param _RemoteCos: 跨地域备份 0 不跨地域; 1 跨地域
+        :type RemoteCos: int
+        :param _RemoteCosRegion: 跨地域备份地域名称 ap-guangzhou
+        :type RemoteCosRegion: str
+        :param _StrategyName: 策略名称
+        :type StrategyName: str
+        :param _Indices: 备份索引列表，如果不填表示备份所有索引
+        :type Indices: str
+        :param _CreateTime: 策略创建时间
+        :type CreateTime: str
         """
         self._IsAutoBackup = None
         self._BackupTime = None
+        self._SnapshotName = None
         self._EsRepositoryType = None
+        self._PaasEsRepository = None
         self._UserEsRepository = None
+        self._CosBasePath = None
         self._StorageDuration = None
         self._AutoBackupInterval = None
+        self._CosRetention = None
+        self._RetainUntilDate = None
+        self._RetentionGraceTime = None
+        self._RemoteCos = None
+        self._RemoteCosRegion = None
+        self._StrategyName = None
+        self._Indices = None
+        self._CreateTime = None
 
     @property
     def IsAutoBackup(self):
@@ -923,6 +956,17 @@ class CosBackup(AbstractModel):
         self._BackupTime = BackupTime
 
     @property
+    def SnapshotName(self):
+        r"""备份快照前缀
+        :rtype: str
+        """
+        return self._SnapshotName
+
+    @SnapshotName.setter
+    def SnapshotName(self, SnapshotName):
+        self._SnapshotName = SnapshotName
+
+    @property
     def EsRepositoryType(self):
         r"""0 腾讯云仓库; 1 客户仓库
         :rtype: int
@@ -934,6 +978,17 @@ class CosBackup(AbstractModel):
         self._EsRepositoryType = EsRepositoryType
 
     @property
+    def PaasEsRepository(self):
+        r"""托管快照仓库名称
+        :rtype: str
+        """
+        return self._PaasEsRepository
+
+    @PaasEsRepository.setter
+    def PaasEsRepository(self, PaasEsRepository):
+        self._PaasEsRepository = PaasEsRepository
+
+    @property
     def UserEsRepository(self):
         r"""客户快照仓库名称
         :rtype: str
@@ -943,6 +998,17 @@ class CosBackup(AbstractModel):
     @UserEsRepository.setter
     def UserEsRepository(self, UserEsRepository):
         self._UserEsRepository = UserEsRepository
+
+    @property
+    def CosBasePath(self):
+        r"""cos存储文件夹目录
+        :rtype: str
+        """
+        return self._CosBasePath
+
+    @CosBasePath.setter
+    def CosBasePath(self, CosBasePath):
+        self._CosBasePath = CosBasePath
 
     @property
     def StorageDuration(self):
@@ -966,14 +1032,113 @@ class CosBackup(AbstractModel):
     def AutoBackupInterval(self, AutoBackupInterval):
         self._AutoBackupInterval = AutoBackupInterval
 
+    @property
+    def CosRetention(self):
+        r"""备份锁定 0 不锁定; 1 锁定
+        :rtype: int
+        """
+        return self._CosRetention
+
+    @CosRetention.setter
+    def CosRetention(self, CosRetention):
+        self._CosRetention = CosRetention
+
+    @property
+    def RetainUntilDate(self):
+        r"""锁定截止日期 2022-12-10T08:34:48.000Z
+        :rtype: str
+        """
+        return self._RetainUntilDate
+
+    @RetainUntilDate.setter
+    def RetainUntilDate(self, RetainUntilDate):
+        self._RetainUntilDate = RetainUntilDate
+
+    @property
+    def RetentionGraceTime(self):
+        r"""锁定宽限期
+        :rtype: int
+        """
+        return self._RetentionGraceTime
+
+    @RetentionGraceTime.setter
+    def RetentionGraceTime(self, RetentionGraceTime):
+        self._RetentionGraceTime = RetentionGraceTime
+
+    @property
+    def RemoteCos(self):
+        r"""跨地域备份 0 不跨地域; 1 跨地域
+        :rtype: int
+        """
+        return self._RemoteCos
+
+    @RemoteCos.setter
+    def RemoteCos(self, RemoteCos):
+        self._RemoteCos = RemoteCos
+
+    @property
+    def RemoteCosRegion(self):
+        r"""跨地域备份地域名称 ap-guangzhou
+        :rtype: str
+        """
+        return self._RemoteCosRegion
+
+    @RemoteCosRegion.setter
+    def RemoteCosRegion(self, RemoteCosRegion):
+        self._RemoteCosRegion = RemoteCosRegion
+
+    @property
+    def StrategyName(self):
+        r"""策略名称
+        :rtype: str
+        """
+        return self._StrategyName
+
+    @StrategyName.setter
+    def StrategyName(self, StrategyName):
+        self._StrategyName = StrategyName
+
+    @property
+    def Indices(self):
+        r"""备份索引列表，如果不填表示备份所有索引
+        :rtype: str
+        """
+        return self._Indices
+
+    @Indices.setter
+    def Indices(self, Indices):
+        self._Indices = Indices
+
+    @property
+    def CreateTime(self):
+        r"""策略创建时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
 
     def _deserialize(self, params):
         self._IsAutoBackup = params.get("IsAutoBackup")
         self._BackupTime = params.get("BackupTime")
+        self._SnapshotName = params.get("SnapshotName")
         self._EsRepositoryType = params.get("EsRepositoryType")
+        self._PaasEsRepository = params.get("PaasEsRepository")
         self._UserEsRepository = params.get("UserEsRepository")
+        self._CosBasePath = params.get("CosBasePath")
         self._StorageDuration = params.get("StorageDuration")
         self._AutoBackupInterval = params.get("AutoBackupInterval")
+        self._CosRetention = params.get("CosRetention")
+        self._RetainUntilDate = params.get("RetainUntilDate")
+        self._RetentionGraceTime = params.get("RetentionGraceTime")
+        self._RemoteCos = params.get("RemoteCos")
+        self._RemoteCosRegion = params.get("RemoteCosRegion")
+        self._StrategyName = params.get("StrategyName")
+        self._Indices = params.get("Indices")
+        self._CreateTime = params.get("CreateTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1134,6 +1299,102 @@ class CosSnapShotInfo(AbstractModel):
         
 
 
+class CreateAutoBackUpStrategyRequest(AbstractModel):
+    r"""CreateAutoBackUpStrategy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例名称
+        :type InstanceId: str
+        :param _CosBackup: 策略信息
+        :type CosBackup: :class:`tencentcloud.es.v20180416.models.CosBackup`
+        """
+        self._InstanceId = None
+        self._CosBackup = None
+
+    @property
+    def InstanceId(self):
+        r"""实例名称
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def CosBackup(self):
+        r"""策略信息
+        :rtype: :class:`tencentcloud.es.v20180416.models.CosBackup`
+        """
+        return self._CosBackup
+
+    @CosBackup.setter
+    def CosBackup(self, CosBackup):
+        self._CosBackup = CosBackup
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        if params.get("CosBackup") is not None:
+            self._CosBackup = CosBackup()
+            self._CosBackup._deserialize(params.get("CosBackup"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateAutoBackUpStrategyResponse(AbstractModel):
+    r"""CreateAutoBackUpStrategy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Status: true 成功; false 失败
+        :type Status: bool
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Status = None
+        self._RequestId = None
+
+    @property
+    def Status(self):
+        r"""true 成功; false 失败
+        :rtype: bool
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Status = params.get("Status")
+        self._RequestId = params.get("RequestId")
+
+
 class CreateClusterSnapshotRequest(AbstractModel):
     r"""CreateClusterSnapshot请求参数结构体
 
@@ -1147,10 +1408,34 @@ class CreateClusterSnapshotRequest(AbstractModel):
         :type SnapshotName: str
         :param _Indices: 索引名称
         :type Indices: str
+        :param _EsRepositoryType: 0 腾讯云仓库; 1 客户仓库
+        :type EsRepositoryType: int
+        :param _UserEsRepository: 客户快照仓库名称
+        :type UserEsRepository: str
+        :param _StorageDuration: 快照存储周期 单位天，范围[0, INF), 如果没有设置则默认7天
+        :type StorageDuration: int
+        :param _CosRetention: 备份锁定 0 不锁定; 1 锁定
+        :type CosRetention: int
+        :param _RetainUntilDate: 锁定截止日期 2022-12-10T08:34:48.000Z
+        :type RetainUntilDate: str
+        :param _RetentionGraceTime: 锁定宽限期,单位天
+        :type RetentionGraceTime: int
+        :param _RemoteCos: 跨地域备份 0 不跨地域; 1 跨地域
+        :type RemoteCos: int
+        :param _RemoteCosRegion: 跨地域备份地域名称 ap-guangzhou
+        :type RemoteCosRegion: str
         """
         self._InstanceId = None
         self._SnapshotName = None
         self._Indices = None
+        self._EsRepositoryType = None
+        self._UserEsRepository = None
+        self._StorageDuration = None
+        self._CosRetention = None
+        self._RetainUntilDate = None
+        self._RetentionGraceTime = None
+        self._RemoteCos = None
+        self._RemoteCosRegion = None
 
     @property
     def InstanceId(self):
@@ -1185,11 +1470,107 @@ class CreateClusterSnapshotRequest(AbstractModel):
     def Indices(self, Indices):
         self._Indices = Indices
 
+    @property
+    def EsRepositoryType(self):
+        r"""0 腾讯云仓库; 1 客户仓库
+        :rtype: int
+        """
+        return self._EsRepositoryType
+
+    @EsRepositoryType.setter
+    def EsRepositoryType(self, EsRepositoryType):
+        self._EsRepositoryType = EsRepositoryType
+
+    @property
+    def UserEsRepository(self):
+        r"""客户快照仓库名称
+        :rtype: str
+        """
+        return self._UserEsRepository
+
+    @UserEsRepository.setter
+    def UserEsRepository(self, UserEsRepository):
+        self._UserEsRepository = UserEsRepository
+
+    @property
+    def StorageDuration(self):
+        r"""快照存储周期 单位天，范围[0, INF), 如果没有设置则默认7天
+        :rtype: int
+        """
+        return self._StorageDuration
+
+    @StorageDuration.setter
+    def StorageDuration(self, StorageDuration):
+        self._StorageDuration = StorageDuration
+
+    @property
+    def CosRetention(self):
+        r"""备份锁定 0 不锁定; 1 锁定
+        :rtype: int
+        """
+        return self._CosRetention
+
+    @CosRetention.setter
+    def CosRetention(self, CosRetention):
+        self._CosRetention = CosRetention
+
+    @property
+    def RetainUntilDate(self):
+        r"""锁定截止日期 2022-12-10T08:34:48.000Z
+        :rtype: str
+        """
+        return self._RetainUntilDate
+
+    @RetainUntilDate.setter
+    def RetainUntilDate(self, RetainUntilDate):
+        self._RetainUntilDate = RetainUntilDate
+
+    @property
+    def RetentionGraceTime(self):
+        r"""锁定宽限期,单位天
+        :rtype: int
+        """
+        return self._RetentionGraceTime
+
+    @RetentionGraceTime.setter
+    def RetentionGraceTime(self, RetentionGraceTime):
+        self._RetentionGraceTime = RetentionGraceTime
+
+    @property
+    def RemoteCos(self):
+        r"""跨地域备份 0 不跨地域; 1 跨地域
+        :rtype: int
+        """
+        return self._RemoteCos
+
+    @RemoteCos.setter
+    def RemoteCos(self, RemoteCos):
+        self._RemoteCos = RemoteCos
+
+    @property
+    def RemoteCosRegion(self):
+        r"""跨地域备份地域名称 ap-guangzhou
+        :rtype: str
+        """
+        return self._RemoteCosRegion
+
+    @RemoteCosRegion.setter
+    def RemoteCosRegion(self, RemoteCosRegion):
+        self._RemoteCosRegion = RemoteCosRegion
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._SnapshotName = params.get("SnapshotName")
         self._Indices = params.get("Indices")
+        self._EsRepositoryType = params.get("EsRepositoryType")
+        self._UserEsRepository = params.get("UserEsRepository")
+        self._StorageDuration = params.get("StorageDuration")
+        self._CosRetention = params.get("CosRetention")
+        self._RetainUntilDate = params.get("RetainUntilDate")
+        self._RetentionGraceTime = params.get("RetentionGraceTime")
+        self._RemoteCos = params.get("RemoteCos")
+        self._RemoteCosRegion = params.get("RemoteCosRegion")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1632,7 +2013,7 @@ class CreateInstanceRequest(AbstractModel):
         :type OperationDuration: :class:`tencentcloud.es.v20180416.models.OperationDuration`
         :param _EnableHybridStorage: 是否开启存算分离
         :type EnableHybridStorage: bool
-        :param _DiskEnhance: 是否开启essd 增强型云盘
+        :param _DiskEnhance: 硬盘额外性能
         :type DiskEnhance: int
         :param _EnableDiagnose: 是否开启智能巡检
         :type EnableDiagnose: bool
@@ -2058,7 +2439,7 @@ class CreateInstanceRequest(AbstractModel):
 
     @property
     def DiskEnhance(self):
-        r"""是否开启essd 增强型云盘
+        r"""硬盘额外性能
         :rtype: int
         """
         return self._DiskEnhance
@@ -3169,6 +3550,100 @@ class DataStreamInfo(AbstractModel):
         
 
 
+class DeleteAutoBackUpStrategyRequest(AbstractModel):
+    r"""DeleteAutoBackUpStrategy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例名称
+        :type InstanceId: str
+        :param _StrategyName: 策略名称
+        :type StrategyName: list of str
+        """
+        self._InstanceId = None
+        self._StrategyName = None
+
+    @property
+    def InstanceId(self):
+        r"""实例名称
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def StrategyName(self):
+        r"""策略名称
+        :rtype: list of str
+        """
+        return self._StrategyName
+
+    @StrategyName.setter
+    def StrategyName(self, StrategyName):
+        self._StrategyName = StrategyName
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._StrategyName = params.get("StrategyName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteAutoBackUpStrategyResponse(AbstractModel):
+    r"""DeleteAutoBackUpStrategy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Status: true 成功; false 失败
+        :type Status: bool
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Status = None
+        self._RequestId = None
+
+    @property
+    def Status(self):
+        r"""true 成功; false 失败
+        :rtype: bool
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Status = params.get("Status")
+        self._RequestId = params.get("RequestId")
+
+
 class DeleteClusterSnapshotRequest(AbstractModel):
     r"""DeleteClusterSnapshot请求参数结构体
 
@@ -3764,6 +4239,90 @@ class DeleteServerlessSpaceUserResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeAutoBackUpStrategyRequest(AbstractModel):
+    r"""DescribeAutoBackUpStrategy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例名称
+        :type InstanceId: str
+        """
+        self._InstanceId = None
+
+    @property
+    def InstanceId(self):
+        r"""实例名称
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeAutoBackUpStrategyResponse(AbstractModel):
+    r"""DescribeAutoBackUpStrategy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _CosBackupList: 策略信息
+        :type CosBackupList: list of CosBackup
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._CosBackupList = None
+        self._RequestId = None
+
+    @property
+    def CosBackupList(self):
+        r"""策略信息
+        :rtype: list of CosBackup
+        """
+        return self._CosBackupList
+
+    @CosBackupList.setter
+    def CosBackupList(self, CosBackupList):
+        self._CosBackupList = CosBackupList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("CosBackupList") is not None:
+            self._CosBackupList = []
+            for item in params.get("CosBackupList"):
+                obj = CosBackup()
+                obj._deserialize(item)
+                self._CosBackupList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -4450,6 +5009,16 @@ class DescribeInstanceLogsRequest(AbstractModel):
 <li>0, 降序</li>
 <li>1, 升序</li>
         :type OrderByType: int
+        :param _LogLevels: 日志级别
+        :type LogLevels: list of str
+        :param _NodeIds: 节点ID
+        :type NodeIds: list of str
+        :param _IndexName: 慢日志索引名
+        :type IndexName: str
+        :param _ShardId: 慢日志索引分片
+        :type ShardId: str
+        :param _QueryCost: 慢日志查询耗时
+        :type QueryCost: int
         """
         self._InstanceId = None
         self._LogType = None
@@ -4459,6 +5028,11 @@ class DescribeInstanceLogsRequest(AbstractModel):
         self._Offset = None
         self._Limit = None
         self._OrderByType = None
+        self._LogLevels = None
+        self._NodeIds = None
+        self._IndexName = None
+        self._ShardId = None
+        self._QueryCost = None
 
     @property
     def InstanceId(self):
@@ -4554,6 +5128,61 @@ class DescribeInstanceLogsRequest(AbstractModel):
     def OrderByType(self, OrderByType):
         self._OrderByType = OrderByType
 
+    @property
+    def LogLevels(self):
+        r"""日志级别
+        :rtype: list of str
+        """
+        return self._LogLevels
+
+    @LogLevels.setter
+    def LogLevels(self, LogLevels):
+        self._LogLevels = LogLevels
+
+    @property
+    def NodeIds(self):
+        r"""节点ID
+        :rtype: list of str
+        """
+        return self._NodeIds
+
+    @NodeIds.setter
+    def NodeIds(self, NodeIds):
+        self._NodeIds = NodeIds
+
+    @property
+    def IndexName(self):
+        r"""慢日志索引名
+        :rtype: str
+        """
+        return self._IndexName
+
+    @IndexName.setter
+    def IndexName(self, IndexName):
+        self._IndexName = IndexName
+
+    @property
+    def ShardId(self):
+        r"""慢日志索引分片
+        :rtype: str
+        """
+        return self._ShardId
+
+    @ShardId.setter
+    def ShardId(self, ShardId):
+        self._ShardId = ShardId
+
+    @property
+    def QueryCost(self):
+        r"""慢日志查询耗时
+        :rtype: int
+        """
+        return self._QueryCost
+
+    @QueryCost.setter
+    def QueryCost(self, QueryCost):
+        self._QueryCost = QueryCost
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -4564,6 +5193,11 @@ class DescribeInstanceLogsRequest(AbstractModel):
         self._Offset = params.get("Offset")
         self._Limit = params.get("Limit")
         self._OrderByType = params.get("OrderByType")
+        self._LogLevels = params.get("LogLevels")
+        self._NodeIds = params.get("NodeIds")
+        self._IndexName = params.get("IndexName")
+        self._ShardId = params.get("ShardId")
+        self._QueryCost = params.get("QueryCost")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9730,6 +10364,162 @@ class GetDiagnoseSettingsResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class GetIpTraceStatusRequest(AbstractModel):
+    r"""GetIpTraceStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 集群ID
+        :type InstanceId: str
+        """
+        self._InstanceId = None
+
+    @property
+    def InstanceId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class GetIpTraceStatusResponse(AbstractModel):
+    r"""GetIpTraceStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _OpenIpTrace: 是否开启IP溯源
+        :type OpenIpTrace: bool
+        :param _DurationTime: IP溯源开启持续时间，单位：秒
+        :type DurationTime: int
+        :param _IpTraceConfig: IP溯源配置
+        :type IpTraceConfig: :class:`tencentcloud.es.v20180416.models.IpTraceConfig`
+        :param _LastStartTime: 上次执行时间
+        :type LastStartTime: str
+        :param _LastEndTime: 上次关闭时间
+        :type LastEndTime: str
+        :param _FilterKibanaIp: 是否过滤Kibana节点IP
+        :type FilterKibanaIp: bool
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._OpenIpTrace = None
+        self._DurationTime = None
+        self._IpTraceConfig = None
+        self._LastStartTime = None
+        self._LastEndTime = None
+        self._FilterKibanaIp = None
+        self._RequestId = None
+
+    @property
+    def OpenIpTrace(self):
+        r"""是否开启IP溯源
+        :rtype: bool
+        """
+        return self._OpenIpTrace
+
+    @OpenIpTrace.setter
+    def OpenIpTrace(self, OpenIpTrace):
+        self._OpenIpTrace = OpenIpTrace
+
+    @property
+    def DurationTime(self):
+        r"""IP溯源开启持续时间，单位：秒
+        :rtype: int
+        """
+        return self._DurationTime
+
+    @DurationTime.setter
+    def DurationTime(self, DurationTime):
+        self._DurationTime = DurationTime
+
+    @property
+    def IpTraceConfig(self):
+        r"""IP溯源配置
+        :rtype: :class:`tencentcloud.es.v20180416.models.IpTraceConfig`
+        """
+        return self._IpTraceConfig
+
+    @IpTraceConfig.setter
+    def IpTraceConfig(self, IpTraceConfig):
+        self._IpTraceConfig = IpTraceConfig
+
+    @property
+    def LastStartTime(self):
+        r"""上次执行时间
+        :rtype: str
+        """
+        return self._LastStartTime
+
+    @LastStartTime.setter
+    def LastStartTime(self, LastStartTime):
+        self._LastStartTime = LastStartTime
+
+    @property
+    def LastEndTime(self):
+        r"""上次关闭时间
+        :rtype: str
+        """
+        return self._LastEndTime
+
+    @LastEndTime.setter
+    def LastEndTime(self, LastEndTime):
+        self._LastEndTime = LastEndTime
+
+    @property
+    def FilterKibanaIp(self):
+        r"""是否过滤Kibana节点IP
+        :rtype: bool
+        """
+        return self._FilterKibanaIp
+
+    @FilterKibanaIp.setter
+    def FilterKibanaIp(self, FilterKibanaIp):
+        self._FilterKibanaIp = FilterKibanaIp
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._OpenIpTrace = params.get("OpenIpTrace")
+        self._DurationTime = params.get("DurationTime")
+        if params.get("IpTraceConfig") is not None:
+            self._IpTraceConfig = IpTraceConfig()
+            self._IpTraceConfig._deserialize(params.get("IpTraceConfig"))
+        self._LastStartTime = params.get("LastStartTime")
+        self._LastEndTime = params.get("LastEndTime")
+        self._FilterKibanaIp = params.get("FilterKibanaIp")
+        self._RequestId = params.get("RequestId")
+
+
 class GetRequestTargetNodeTypesRequest(AbstractModel):
     r"""GetRequestTargetNodeTypes请求参数结构体
 
@@ -10655,11 +11445,23 @@ class InstallInstanceModelRequest(AbstractModel):
         :type ModelNames: list of str
         :param _TaskTypes: 模型使用的任务类型，包括：fill_mask, ner, question_answering, text_classification, text_embedding, text_expansion, text_similarity和zero_shot_classification，默认为text_embedding
         :type TaskTypes: list of str
+        :param _HuggingFaceModelNames: HuggingFace模型名称
+        :type HuggingFaceModelNames: list of str
+        :param _ModelDescription: 模型描述
+        :type ModelDescription: str
+        :param _ModelSourceType: 模型来源：UserModel、HuggingFace和PlatformModel
+        :type ModelSourceType: str
+        :param _UploadedCosPaths: 已上传的模型路径
+        :type UploadedCosPaths: list of str
         """
         self._InstanceId = None
         self._UsrCosModelUrlList = None
         self._ModelNames = None
         self._TaskTypes = None
+        self._HuggingFaceModelNames = None
+        self._ModelDescription = None
+        self._ModelSourceType = None
+        self._UploadedCosPaths = None
 
     @property
     def InstanceId(self):
@@ -10705,12 +11507,60 @@ class InstallInstanceModelRequest(AbstractModel):
     def TaskTypes(self, TaskTypes):
         self._TaskTypes = TaskTypes
 
+    @property
+    def HuggingFaceModelNames(self):
+        r"""HuggingFace模型名称
+        :rtype: list of str
+        """
+        return self._HuggingFaceModelNames
+
+    @HuggingFaceModelNames.setter
+    def HuggingFaceModelNames(self, HuggingFaceModelNames):
+        self._HuggingFaceModelNames = HuggingFaceModelNames
+
+    @property
+    def ModelDescription(self):
+        r"""模型描述
+        :rtype: str
+        """
+        return self._ModelDescription
+
+    @ModelDescription.setter
+    def ModelDescription(self, ModelDescription):
+        self._ModelDescription = ModelDescription
+
+    @property
+    def ModelSourceType(self):
+        r"""模型来源：UserModel、HuggingFace和PlatformModel
+        :rtype: str
+        """
+        return self._ModelSourceType
+
+    @ModelSourceType.setter
+    def ModelSourceType(self, ModelSourceType):
+        self._ModelSourceType = ModelSourceType
+
+    @property
+    def UploadedCosPaths(self):
+        r"""已上传的模型路径
+        :rtype: list of str
+        """
+        return self._UploadedCosPaths
+
+    @UploadedCosPaths.setter
+    def UploadedCosPaths(self, UploadedCosPaths):
+        self._UploadedCosPaths = UploadedCosPaths
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
         self._UsrCosModelUrlList = params.get("UsrCosModelUrlList")
         self._ModelNames = params.get("ModelNames")
         self._TaskTypes = params.get("TaskTypes")
+        self._HuggingFaceModelNames = params.get("HuggingFaceModelNames")
+        self._ModelDescription = params.get("ModelDescription")
+        self._ModelSourceType = params.get("ModelSourceType")
+        self._UploadedCosPaths = params.get("UploadedCosPaths")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11041,6 +11891,8 @@ RENEW_FLAG_DEFAULT：不自动续费
         :type ShowKibanaIpPort: str
         :param _IsCdzLite: 是否为CDZLite可用区
         :type IsCdzLite: bool
+        :param _EsPrivateTcpUrl: 集群内网tcp地址
+        :type EsPrivateTcpUrl: str
         """
         self._InstanceId = None
         self._InstanceName = None
@@ -11138,6 +11990,7 @@ RENEW_FLAG_DEFAULT：不自动续费
         self._EnableDestroyProtection = None
         self._ShowKibanaIpPort = None
         self._IsCdzLite = None
+        self._EsPrivateTcpUrl = None
 
     @property
     def InstanceId(self):
@@ -12258,6 +13111,17 @@ RENEW_FLAG_DEFAULT：不自动续费
     def IsCdzLite(self, IsCdzLite):
         self._IsCdzLite = IsCdzLite
 
+    @property
+    def EsPrivateTcpUrl(self):
+        r"""集群内网tcp地址
+        :rtype: str
+        """
+        return self._EsPrivateTcpUrl
+
+    @EsPrivateTcpUrl.setter
+    def EsPrivateTcpUrl(self, EsPrivateTcpUrl):
+        self._EsPrivateTcpUrl = EsPrivateTcpUrl
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -12404,6 +13268,7 @@ RENEW_FLAG_DEFAULT：不自动续费
         self._EnableDestroyProtection = params.get("EnableDestroyProtection")
         self._ShowKibanaIpPort = params.get("ShowKibanaIpPort")
         self._IsCdzLite = params.get("IsCdzLite")
+        self._EsPrivateTcpUrl = params.get("EsPrivateTcpUrl")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12431,12 +13296,21 @@ class InstanceLog(AbstractModel):
         :type Message: str
         :param _NodeID: 集群节点ID
         :type NodeID: str
+        :param _IndexName: 慢日志索引名
+        :type IndexName: str
+        :param _Shard: 慢日志索引分片
+        :type Shard: str
+        :param _QueryCost: 慢日志索引查询耗时
+        :type QueryCost: str
         """
         self._Time = None
         self._Level = None
         self._Ip = None
         self._Message = None
         self._NodeID = None
+        self._IndexName = None
+        self._Shard = None
+        self._QueryCost = None
 
     @property
     def Time(self):
@@ -12493,6 +13367,39 @@ class InstanceLog(AbstractModel):
     def NodeID(self, NodeID):
         self._NodeID = NodeID
 
+    @property
+    def IndexName(self):
+        r"""慢日志索引名
+        :rtype: str
+        """
+        return self._IndexName
+
+    @IndexName.setter
+    def IndexName(self, IndexName):
+        self._IndexName = IndexName
+
+    @property
+    def Shard(self):
+        r"""慢日志索引分片
+        :rtype: str
+        """
+        return self._Shard
+
+    @Shard.setter
+    def Shard(self, Shard):
+        self._Shard = Shard
+
+    @property
+    def QueryCost(self):
+        r"""慢日志索引查询耗时
+        :rtype: str
+        """
+        return self._QueryCost
+
+    @QueryCost.setter
+    def QueryCost(self, QueryCost):
+        self._QueryCost = QueryCost
+
 
     def _deserialize(self, params):
         self._Time = params.get("Time")
@@ -12500,6 +13407,9 @@ class InstanceLog(AbstractModel):
         self._Ip = params.get("Ip")
         self._Message = params.get("Message")
         self._NodeID = params.get("NodeID")
+        self._IndexName = params.get("IndexName")
+        self._Shard = params.get("Shard")
+        self._QueryCost = params.get("QueryCost")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12565,6 +13475,303 @@ class IpTimePair(AbstractModel):
     def _deserialize(self, params):
         self._Ip = params.get("Ip")
         self._Timestamp = params.get("Timestamp")
+        self._NodeIp = params.get("NodeIp")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IpTraceConfig(AbstractModel):
+    r"""IP溯源配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _EnableRequest: 请求溯源开关
+        :type EnableRequest: bool
+        :param _EnableResponse: 返回溯源开关
+        :type EnableResponse: bool
+        :param _EnableRequestBody: 请求消息体溯源开关
+        :type EnableRequestBody: bool
+        :param _EnableResponseBody: 返回消息体溯源开关
+        :type EnableResponseBody: bool
+        :param _RemoteIpInclude: 排除IP
+        :type RemoteIpInclude: list of str
+        :param _RemoteIpExclude: 包含IP
+        :type RemoteIpExclude: list of str
+        :param _UriInclude: 排除uri
+        :type UriInclude: list of str
+        :param _UriExclude: 包含uri
+        :type UriExclude: list of str
+        """
+        self._EnableRequest = None
+        self._EnableResponse = None
+        self._EnableRequestBody = None
+        self._EnableResponseBody = None
+        self._RemoteIpInclude = None
+        self._RemoteIpExclude = None
+        self._UriInclude = None
+        self._UriExclude = None
+
+    @property
+    def EnableRequest(self):
+        r"""请求溯源开关
+        :rtype: bool
+        """
+        return self._EnableRequest
+
+    @EnableRequest.setter
+    def EnableRequest(self, EnableRequest):
+        self._EnableRequest = EnableRequest
+
+    @property
+    def EnableResponse(self):
+        r"""返回溯源开关
+        :rtype: bool
+        """
+        return self._EnableResponse
+
+    @EnableResponse.setter
+    def EnableResponse(self, EnableResponse):
+        self._EnableResponse = EnableResponse
+
+    @property
+    def EnableRequestBody(self):
+        r"""请求消息体溯源开关
+        :rtype: bool
+        """
+        return self._EnableRequestBody
+
+    @EnableRequestBody.setter
+    def EnableRequestBody(self, EnableRequestBody):
+        self._EnableRequestBody = EnableRequestBody
+
+    @property
+    def EnableResponseBody(self):
+        r"""返回消息体溯源开关
+        :rtype: bool
+        """
+        return self._EnableResponseBody
+
+    @EnableResponseBody.setter
+    def EnableResponseBody(self, EnableResponseBody):
+        self._EnableResponseBody = EnableResponseBody
+
+    @property
+    def RemoteIpInclude(self):
+        r"""排除IP
+        :rtype: list of str
+        """
+        return self._RemoteIpInclude
+
+    @RemoteIpInclude.setter
+    def RemoteIpInclude(self, RemoteIpInclude):
+        self._RemoteIpInclude = RemoteIpInclude
+
+    @property
+    def RemoteIpExclude(self):
+        r"""包含IP
+        :rtype: list of str
+        """
+        return self._RemoteIpExclude
+
+    @RemoteIpExclude.setter
+    def RemoteIpExclude(self, RemoteIpExclude):
+        self._RemoteIpExclude = RemoteIpExclude
+
+    @property
+    def UriInclude(self):
+        r"""排除uri
+        :rtype: list of str
+        """
+        return self._UriInclude
+
+    @UriInclude.setter
+    def UriInclude(self, UriInclude):
+        self._UriInclude = UriInclude
+
+    @property
+    def UriExclude(self):
+        r"""包含uri
+        :rtype: list of str
+        """
+        return self._UriExclude
+
+    @UriExclude.setter
+    def UriExclude(self, UriExclude):
+        self._UriExclude = UriExclude
+
+
+    def _deserialize(self, params):
+        self._EnableRequest = params.get("EnableRequest")
+        self._EnableResponse = params.get("EnableResponse")
+        self._EnableRequestBody = params.get("EnableRequestBody")
+        self._EnableResponseBody = params.get("EnableResponseBody")
+        self._RemoteIpInclude = params.get("RemoteIpInclude")
+        self._RemoteIpExclude = params.get("RemoteIpExclude")
+        self._UriInclude = params.get("UriInclude")
+        self._UriExclude = params.get("UriExclude")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class IpTraceLogEntry(AbstractModel):
+    r"""IP溯源日志
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Timestamp: 时间
+        :type Timestamp: str
+        :param _RemoteIp: 访问IP
+        :type RemoteIp: str
+        :param _TraceType: 溯源类型rsp/req
+        :type TraceType: str
+        :param _NetType: 访问网络类型，公网/私网
+        :type NetType: str
+        :param _Message: 原始消息
+        :type Message: str
+        :param _Uri: 访问uri
+        :type Uri: str
+        :param _PublicIp: 公网IP
+        :type PublicIp: str
+        :param _ReqTypeOrRspStatus: 请求类型或返回状态
+        :type ReqTypeOrRspStatus: str
+        :param _NodeIp: 集群节点IP
+        :type NodeIp: str
+        """
+        self._Timestamp = None
+        self._RemoteIp = None
+        self._TraceType = None
+        self._NetType = None
+        self._Message = None
+        self._Uri = None
+        self._PublicIp = None
+        self._ReqTypeOrRspStatus = None
+        self._NodeIp = None
+
+    @property
+    def Timestamp(self):
+        r"""时间
+        :rtype: str
+        """
+        return self._Timestamp
+
+    @Timestamp.setter
+    def Timestamp(self, Timestamp):
+        self._Timestamp = Timestamp
+
+    @property
+    def RemoteIp(self):
+        r"""访问IP
+        :rtype: str
+        """
+        return self._RemoteIp
+
+    @RemoteIp.setter
+    def RemoteIp(self, RemoteIp):
+        self._RemoteIp = RemoteIp
+
+    @property
+    def TraceType(self):
+        r"""溯源类型rsp/req
+        :rtype: str
+        """
+        return self._TraceType
+
+    @TraceType.setter
+    def TraceType(self, TraceType):
+        self._TraceType = TraceType
+
+    @property
+    def NetType(self):
+        r"""访问网络类型，公网/私网
+        :rtype: str
+        """
+        return self._NetType
+
+    @NetType.setter
+    def NetType(self, NetType):
+        self._NetType = NetType
+
+    @property
+    def Message(self):
+        r"""原始消息
+        :rtype: str
+        """
+        return self._Message
+
+    @Message.setter
+    def Message(self, Message):
+        self._Message = Message
+
+    @property
+    def Uri(self):
+        r"""访问uri
+        :rtype: str
+        """
+        return self._Uri
+
+    @Uri.setter
+    def Uri(self, Uri):
+        self._Uri = Uri
+
+    @property
+    def PublicIp(self):
+        r"""公网IP
+        :rtype: str
+        """
+        return self._PublicIp
+
+    @PublicIp.setter
+    def PublicIp(self, PublicIp):
+        self._PublicIp = PublicIp
+
+    @property
+    def ReqTypeOrRspStatus(self):
+        r"""请求类型或返回状态
+        :rtype: str
+        """
+        return self._ReqTypeOrRspStatus
+
+    @ReqTypeOrRspStatus.setter
+    def ReqTypeOrRspStatus(self, ReqTypeOrRspStatus):
+        self._ReqTypeOrRspStatus = ReqTypeOrRspStatus
+
+    @property
+    def NodeIp(self):
+        r"""集群节点IP
+        :rtype: str
+        """
+        return self._NodeIp
+
+    @NodeIp.setter
+    def NodeIp(self, NodeIp):
+        self._NodeIp = NodeIp
+
+
+    def _deserialize(self, params):
+        self._Timestamp = params.get("Timestamp")
+        self._RemoteIp = params.get("RemoteIp")
+        self._TraceType = params.get("TraceType")
+        self._NetType = params.get("NetType")
+        self._Message = params.get("Message")
+        self._Uri = params.get("Uri")
+        self._PublicIp = params.get("PublicIp")
+        self._ReqTypeOrRspStatus = params.get("ReqTypeOrRspStatus")
         self._NodeIp = params.get("NodeIp")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
@@ -14626,6 +15833,151 @@ class MetricMapByIndexId(AbstractModel):
         
 
 
+class ModifyAutoBackUpCommonInfoRequest(AbstractModel):
+    r"""ModifyAutoBackUpCommonInfo请求参数结构体
+
+    """
+
+
+class ModifyAutoBackUpCommonInfoResponse(AbstractModel):
+    r"""ModifyAutoBackUpCommonInfo返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyAutoBackUpStrategyRequest(AbstractModel):
+    r"""ModifyAutoBackUpStrategy请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例名称
+        :type InstanceId: str
+        :param _StrategyName: 当前策略名称
+        :type StrategyName: str
+        :param _CosBackup: 策略信息
+        :type CosBackup: :class:`tencentcloud.es.v20180416.models.CosBackup`
+        """
+        self._InstanceId = None
+        self._StrategyName = None
+        self._CosBackup = None
+
+    @property
+    def InstanceId(self):
+        r"""实例名称
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def StrategyName(self):
+        r"""当前策略名称
+        :rtype: str
+        """
+        return self._StrategyName
+
+    @StrategyName.setter
+    def StrategyName(self, StrategyName):
+        self._StrategyName = StrategyName
+
+    @property
+    def CosBackup(self):
+        r"""策略信息
+        :rtype: :class:`tencentcloud.es.v20180416.models.CosBackup`
+        """
+        return self._CosBackup
+
+    @CosBackup.setter
+    def CosBackup(self, CosBackup):
+        self._CosBackup = CosBackup
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._StrategyName = params.get("StrategyName")
+        if params.get("CosBackup") is not None:
+            self._CosBackup = CosBackup()
+            self._CosBackup._deserialize(params.get("CosBackup"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyAutoBackUpStrategyResponse(AbstractModel):
+    r"""ModifyAutoBackUpStrategy返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Status: true 成功; false 失败
+        :type Status: bool
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Status = None
+        self._RequestId = None
+
+    @property
+    def Status(self):
+        r"""true 成功; false 失败
+        :rtype: bool
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Status = params.get("Status")
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyEsVipSecurityGroupRequest(AbstractModel):
     r"""ModifyEsVipSecurityGroup请求参数结构体
 
@@ -14738,7 +16090,7 @@ class NodeInfo(AbstractModel):
         :param _MemSize: 内存大小，单位GB
 注意：此字段可能返回 null，表示取不到有效值。
         :type MemSize: int
-        :param _DiskEnhance: /
+        :param _DiskEnhance: 硬盘额外性能
 注意：此字段可能返回 null，表示取不到有效值。
         :type DiskEnhance: int
         :param _GpuInfo: 节点Gpu信息
@@ -14876,7 +16228,7 @@ class NodeInfo(AbstractModel):
 
     @property
     def DiskEnhance(self):
-        r"""/
+        r"""硬盘额外性能
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -16008,6 +17360,270 @@ class ProcessDetail(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class QueryIpTraceLogRequest(AbstractModel):
+    r"""QueryIpTraceLog请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: ES集群ID
+        :type InstanceId: str
+        :param _StartTime: 开始时间
+        :type StartTime: str
+        :param _EndTime: 结束时间
+        :type EndTime: str
+        :param _Offset: 起始偏移量
+        :type Offset: int
+        :param _Limit: 数据条数
+        :type Limit: int
+        :param _RemoteIp: 访问IP
+        :type RemoteIp: list of str
+        :param _TraceType: Request/Response 请求/返回, 非必填
+        :type TraceType: list of str
+        :param _NetType: Public/Private 公网访问/内网访问, 非必填
+        :type NetType: list of str
+        :param _ReqTypeOrRspStatus: POST/GET/PUT/DELETE/HEAD/OPTIONS/PATCH/CONNECT/TRACE/CONNECT等, 非必填
+        :type ReqTypeOrRspStatus: list of str
+        :param _SearchKey: 关键字模糊查询，支持Lucene Query String
+        :type SearchKey: str
+        :param _Uri: Uri搜索
+        :type Uri: str
+        :param _NodeIp: 集群节点IP
+        :type NodeIp: list of str
+        """
+        self._InstanceId = None
+        self._StartTime = None
+        self._EndTime = None
+        self._Offset = None
+        self._Limit = None
+        self._RemoteIp = None
+        self._TraceType = None
+        self._NetType = None
+        self._ReqTypeOrRspStatus = None
+        self._SearchKey = None
+        self._Uri = None
+        self._NodeIp = None
+
+    @property
+    def InstanceId(self):
+        r"""ES集群ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def StartTime(self):
+        r"""开始时间
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""结束时间
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def Offset(self):
+        r"""起始偏移量
+        :rtype: int
+        """
+        return self._Offset
+
+    @Offset.setter
+    def Offset(self, Offset):
+        self._Offset = Offset
+
+    @property
+    def Limit(self):
+        r"""数据条数
+        :rtype: int
+        """
+        return self._Limit
+
+    @Limit.setter
+    def Limit(self, Limit):
+        self._Limit = Limit
+
+    @property
+    def RemoteIp(self):
+        r"""访问IP
+        :rtype: list of str
+        """
+        return self._RemoteIp
+
+    @RemoteIp.setter
+    def RemoteIp(self, RemoteIp):
+        self._RemoteIp = RemoteIp
+
+    @property
+    def TraceType(self):
+        r"""Request/Response 请求/返回, 非必填
+        :rtype: list of str
+        """
+        return self._TraceType
+
+    @TraceType.setter
+    def TraceType(self, TraceType):
+        self._TraceType = TraceType
+
+    @property
+    def NetType(self):
+        r"""Public/Private 公网访问/内网访问, 非必填
+        :rtype: list of str
+        """
+        return self._NetType
+
+    @NetType.setter
+    def NetType(self, NetType):
+        self._NetType = NetType
+
+    @property
+    def ReqTypeOrRspStatus(self):
+        r"""POST/GET/PUT/DELETE/HEAD/OPTIONS/PATCH/CONNECT/TRACE/CONNECT等, 非必填
+        :rtype: list of str
+        """
+        return self._ReqTypeOrRspStatus
+
+    @ReqTypeOrRspStatus.setter
+    def ReqTypeOrRspStatus(self, ReqTypeOrRspStatus):
+        self._ReqTypeOrRspStatus = ReqTypeOrRspStatus
+
+    @property
+    def SearchKey(self):
+        r"""关键字模糊查询，支持Lucene Query String
+        :rtype: str
+        """
+        return self._SearchKey
+
+    @SearchKey.setter
+    def SearchKey(self, SearchKey):
+        self._SearchKey = SearchKey
+
+    @property
+    def Uri(self):
+        r"""Uri搜索
+        :rtype: str
+        """
+        return self._Uri
+
+    @Uri.setter
+    def Uri(self, Uri):
+        self._Uri = Uri
+
+    @property
+    def NodeIp(self):
+        r"""集群节点IP
+        :rtype: list of str
+        """
+        return self._NodeIp
+
+    @NodeIp.setter
+    def NodeIp(self, NodeIp):
+        self._NodeIp = NodeIp
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._Offset = params.get("Offset")
+        self._Limit = params.get("Limit")
+        self._RemoteIp = params.get("RemoteIp")
+        self._TraceType = params.get("TraceType")
+        self._NetType = params.get("NetType")
+        self._ReqTypeOrRspStatus = params.get("ReqTypeOrRspStatus")
+        self._SearchKey = params.get("SearchKey")
+        self._Uri = params.get("Uri")
+        self._NodeIp = params.get("NodeIp")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class QueryIpTraceLogResponse(AbstractModel):
+    r"""QueryIpTraceLog返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Total: 总数
+        :type Total: int
+        :param _IpTraceLogList: IP溯源日志列表
+        :type IpTraceLogList: list of IpTraceLogEntry
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Total = None
+        self._IpTraceLogList = None
+        self._RequestId = None
+
+    @property
+    def Total(self):
+        r"""总数
+        :rtype: int
+        """
+        return self._Total
+
+    @Total.setter
+    def Total(self, Total):
+        self._Total = Total
+
+    @property
+    def IpTraceLogList(self):
+        r"""IP溯源日志列表
+        :rtype: list of IpTraceLogEntry
+        """
+        return self._IpTraceLogList
+
+    @IpTraceLogList.setter
+    def IpTraceLogList(self, IpTraceLogList):
+        self._IpTraceLogList = IpTraceLogList
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Total = params.get("Total")
+        if params.get("IpTraceLogList") is not None:
+            self._IpTraceLogList = []
+            for item in params.get("IpTraceLogList"):
+                obj = IpTraceLogEntry()
+                obj._deserialize(item)
+                self._IpTraceLogList.append(obj)
+        self._RequestId = params.get("RequestId")
 
 
 class RestartInstanceRequest(AbstractModel):
@@ -17548,6 +19164,10 @@ class ServerlessSpace(AbstractModel):
         :param _TagList: 空间标签信息
 注意：此字段可能返回 null，表示取不到有效值。
         :type TagList: list of TagInfo
+        :param _EnableMcpAccess: 是否开启mcp服务
+        :type EnableMcpAccess: int
+        :param _McpAccess: mcp的访问地址
+        :type McpAccess: str
         """
         self._SpaceId = None
         self._SpaceName = None
@@ -17569,6 +19189,8 @@ class ServerlessSpace(AbstractModel):
         self._KibanaLanguage = None
         self._ClusterType = None
         self._TagList = None
+        self._EnableMcpAccess = None
+        self._McpAccess = None
 
     @property
     def SpaceId(self):
@@ -17805,6 +19427,28 @@ class ServerlessSpace(AbstractModel):
     def TagList(self, TagList):
         self._TagList = TagList
 
+    @property
+    def EnableMcpAccess(self):
+        r"""是否开启mcp服务
+        :rtype: int
+        """
+        return self._EnableMcpAccess
+
+    @EnableMcpAccess.setter
+    def EnableMcpAccess(self, EnableMcpAccess):
+        self._EnableMcpAccess = EnableMcpAccess
+
+    @property
+    def McpAccess(self):
+        r"""mcp的访问地址
+        :rtype: str
+        """
+        return self._McpAccess
+
+    @McpAccess.setter
+    def McpAccess(self, McpAccess):
+        self._McpAccess = McpAccess
+
 
     def _deserialize(self, params):
         self._SpaceId = params.get("SpaceId")
@@ -17841,6 +19485,8 @@ class ServerlessSpace(AbstractModel):
                 obj = TagInfo()
                 obj._deserialize(item)
                 self._TagList.append(obj)
+        self._EnableMcpAccess = params.get("EnableMcpAccess")
+        self._McpAccess = params.get("McpAccess")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -18100,6 +19746,48 @@ SUCCESS     备份成功
         :param _UserBackUp: 是否用户备份
 注意：此字段可能返回 null，表示取不到有效值。
         :type UserBackUp: str
+        :param _EsRepositoryType: 0 腾讯云仓库; 1 客户仓库
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EsRepositoryType: int
+        :param _PaasEsRepository: 托管快照仓库名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :type PaasEsRepository: str
+        :param _UserEsRepository: 客户快照仓库名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :type UserEsRepository: str
+        :param _StorageDuration: 快照存储周期 单位天，范围[0, INF), 如果没有设置则默认7天
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StorageDuration: int
+        :param _AutoBackupInterval: 自动备份频率, 如果是0,则等效24
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AutoBackupInterval: int
+        :param _CosRetention: 备份锁定 0 不锁定; 1 锁定
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CosRetention: int
+        :param _RetainUntilDate: 锁定截止日期 2022-12-10T08:34:48.000Z
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RetainUntilDate: str
+        :param _RetentionGraceTime: 锁定宽限期,单位天
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RetentionGraceTime: int
+        :param _IsLocked: 是否已经备份锁定 0 不锁定; 1 锁定
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsLocked: int
+        :param _RemoteCos: 跨地域备份 0 不跨地域; 1 跨地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RemoteCos: int
+        :param _RemoteCosRegion: 跨地域备份地域名称 ap-guangzhou
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RemoteCosRegion: str
+        :param _CosEncryption: 备份加密 0 不加密; 1 加密
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CosEncryption: int
+        :param _KmsKey: kms密钥
+注意：此字段可能返回 null，表示取不到有效值。
+        :type KmsKey: str
+        :param _StrategyName: 策略名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :type StrategyName: str
         """
         self._SnapshotName = None
         self._Uuid = None
@@ -18116,6 +19804,20 @@ SUCCESS     备份成功
         self._SuccessfulShards = None
         self._Failures = None
         self._UserBackUp = None
+        self._EsRepositoryType = None
+        self._PaasEsRepository = None
+        self._UserEsRepository = None
+        self._StorageDuration = None
+        self._AutoBackupInterval = None
+        self._CosRetention = None
+        self._RetainUntilDate = None
+        self._RetentionGraceTime = None
+        self._IsLocked = None
+        self._RemoteCos = None
+        self._RemoteCosRegion = None
+        self._CosEncryption = None
+        self._KmsKey = None
+        self._StrategyName = None
 
     @property
     def SnapshotName(self):
@@ -18305,6 +20007,174 @@ SUCCESS     备份成功
     def UserBackUp(self, UserBackUp):
         self._UserBackUp = UserBackUp
 
+    @property
+    def EsRepositoryType(self):
+        r"""0 腾讯云仓库; 1 客户仓库
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._EsRepositoryType
+
+    @EsRepositoryType.setter
+    def EsRepositoryType(self, EsRepositoryType):
+        self._EsRepositoryType = EsRepositoryType
+
+    @property
+    def PaasEsRepository(self):
+        r"""托管快照仓库名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._PaasEsRepository
+
+    @PaasEsRepository.setter
+    def PaasEsRepository(self, PaasEsRepository):
+        self._PaasEsRepository = PaasEsRepository
+
+    @property
+    def UserEsRepository(self):
+        r"""客户快照仓库名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._UserEsRepository
+
+    @UserEsRepository.setter
+    def UserEsRepository(self, UserEsRepository):
+        self._UserEsRepository = UserEsRepository
+
+    @property
+    def StorageDuration(self):
+        r"""快照存储周期 单位天，范围[0, INF), 如果没有设置则默认7天
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._StorageDuration
+
+    @StorageDuration.setter
+    def StorageDuration(self, StorageDuration):
+        self._StorageDuration = StorageDuration
+
+    @property
+    def AutoBackupInterval(self):
+        r"""自动备份频率, 如果是0,则等效24
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._AutoBackupInterval
+
+    @AutoBackupInterval.setter
+    def AutoBackupInterval(self, AutoBackupInterval):
+        self._AutoBackupInterval = AutoBackupInterval
+
+    @property
+    def CosRetention(self):
+        r"""备份锁定 0 不锁定; 1 锁定
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._CosRetention
+
+    @CosRetention.setter
+    def CosRetention(self, CosRetention):
+        self._CosRetention = CosRetention
+
+    @property
+    def RetainUntilDate(self):
+        r"""锁定截止日期 2022-12-10T08:34:48.000Z
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RetainUntilDate
+
+    @RetainUntilDate.setter
+    def RetainUntilDate(self, RetainUntilDate):
+        self._RetainUntilDate = RetainUntilDate
+
+    @property
+    def RetentionGraceTime(self):
+        r"""锁定宽限期,单位天
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._RetentionGraceTime
+
+    @RetentionGraceTime.setter
+    def RetentionGraceTime(self, RetentionGraceTime):
+        self._RetentionGraceTime = RetentionGraceTime
+
+    @property
+    def IsLocked(self):
+        r"""是否已经备份锁定 0 不锁定; 1 锁定
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsLocked
+
+    @IsLocked.setter
+    def IsLocked(self, IsLocked):
+        self._IsLocked = IsLocked
+
+    @property
+    def RemoteCos(self):
+        r"""跨地域备份 0 不跨地域; 1 跨地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._RemoteCos
+
+    @RemoteCos.setter
+    def RemoteCos(self, RemoteCos):
+        self._RemoteCos = RemoteCos
+
+    @property
+    def RemoteCosRegion(self):
+        r"""跨地域备份地域名称 ap-guangzhou
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RemoteCosRegion
+
+    @RemoteCosRegion.setter
+    def RemoteCosRegion(self, RemoteCosRegion):
+        self._RemoteCosRegion = RemoteCosRegion
+
+    @property
+    def CosEncryption(self):
+        r"""备份加密 0 不加密; 1 加密
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._CosEncryption
+
+    @CosEncryption.setter
+    def CosEncryption(self, CosEncryption):
+        self._CosEncryption = CosEncryption
+
+    @property
+    def KmsKey(self):
+        r"""kms密钥
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._KmsKey
+
+    @KmsKey.setter
+    def KmsKey(self, KmsKey):
+        self._KmsKey = KmsKey
+
+    @property
+    def StrategyName(self):
+        r"""策略名称
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._StrategyName
+
+    @StrategyName.setter
+    def StrategyName(self, StrategyName):
+        self._StrategyName = StrategyName
+
 
     def _deserialize(self, params):
         self._SnapshotName = params.get("SnapshotName")
@@ -18327,6 +20197,20 @@ SUCCESS     备份成功
                 obj._deserialize(item)
                 self._Failures.append(obj)
         self._UserBackUp = params.get("UserBackUp")
+        self._EsRepositoryType = params.get("EsRepositoryType")
+        self._PaasEsRepository = params.get("PaasEsRepository")
+        self._UserEsRepository = params.get("UserEsRepository")
+        self._StorageDuration = params.get("StorageDuration")
+        self._AutoBackupInterval = params.get("AutoBackupInterval")
+        self._CosRetention = params.get("CosRetention")
+        self._RetainUntilDate = params.get("RetainUntilDate")
+        self._RetentionGraceTime = params.get("RetentionGraceTime")
+        self._IsLocked = params.get("IsLocked")
+        self._RemoteCos = params.get("RemoteCos")
+        self._RemoteCosRegion = params.get("RemoteCosRegion")
+        self._CosEncryption = params.get("CosEncryption")
+        self._KmsKey = params.get("KmsKey")
+        self._StrategyName = params.get("StrategyName")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -20043,6 +21927,132 @@ class UpdateInstanceResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class UpdateIpTraceStatusRequest(AbstractModel):
+    r"""UpdateIpTraceStatus请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 集群ID
+        :type InstanceId: str
+        :param _OpenIpTrace: IP溯源配置开关
+        :type OpenIpTrace: bool
+        :param _DurationTime: IP溯源开启持续时间，单位：秒
+        :type DurationTime: int
+        :param _IpTraceConfig: IP溯源配置
+        :type IpTraceConfig: :class:`tencentcloud.es.v20180416.models.IpTraceConfig`
+        :param _FilterKibanaIp: 是否过滤kibana节点IP
+        :type FilterKibanaIp: bool
+        """
+        self._InstanceId = None
+        self._OpenIpTrace = None
+        self._DurationTime = None
+        self._IpTraceConfig = None
+        self._FilterKibanaIp = None
+
+    @property
+    def InstanceId(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def OpenIpTrace(self):
+        r"""IP溯源配置开关
+        :rtype: bool
+        """
+        return self._OpenIpTrace
+
+    @OpenIpTrace.setter
+    def OpenIpTrace(self, OpenIpTrace):
+        self._OpenIpTrace = OpenIpTrace
+
+    @property
+    def DurationTime(self):
+        r"""IP溯源开启持续时间，单位：秒
+        :rtype: int
+        """
+        return self._DurationTime
+
+    @DurationTime.setter
+    def DurationTime(self, DurationTime):
+        self._DurationTime = DurationTime
+
+    @property
+    def IpTraceConfig(self):
+        r"""IP溯源配置
+        :rtype: :class:`tencentcloud.es.v20180416.models.IpTraceConfig`
+        """
+        return self._IpTraceConfig
+
+    @IpTraceConfig.setter
+    def IpTraceConfig(self, IpTraceConfig):
+        self._IpTraceConfig = IpTraceConfig
+
+    @property
+    def FilterKibanaIp(self):
+        r"""是否过滤kibana节点IP
+        :rtype: bool
+        """
+        return self._FilterKibanaIp
+
+    @FilterKibanaIp.setter
+    def FilterKibanaIp(self, FilterKibanaIp):
+        self._FilterKibanaIp = FilterKibanaIp
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._OpenIpTrace = params.get("OpenIpTrace")
+        self._DurationTime = params.get("DurationTime")
+        if params.get("IpTraceConfig") is not None:
+            self._IpTraceConfig = IpTraceConfig()
+            self._IpTraceConfig._deserialize(params.get("IpTraceConfig"))
+        self._FilterKibanaIp = params.get("FilterKibanaIp")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UpdateIpTraceStatusResponse(AbstractModel):
+    r"""UpdateIpTraceStatus返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class UpdateJdkRequest(AbstractModel):
     r"""UpdateJdk请求参数结构体
 
@@ -20177,6 +22187,8 @@ class UpdateLogstashInstanceRequest(AbstractModel):
         :type DiskSize: int
         :param _OperationDuration: 可维护时间段
         :type OperationDuration: :class:`tencentcloud.es.v20180416.models.OperationDurationUpdated`
+        :param _MultiZoneInfo: 多可用区部署
+        :type MultiZoneInfo: list of ZoneDetail
         """
         self._InstanceId = None
         self._NodeNum = None
@@ -20187,6 +22199,7 @@ class UpdateLogstashInstanceRequest(AbstractModel):
         self._NodeType = None
         self._DiskSize = None
         self._OperationDuration = None
+        self._MultiZoneInfo = None
 
     @property
     def InstanceId(self):
@@ -20287,6 +22300,17 @@ class UpdateLogstashInstanceRequest(AbstractModel):
     def OperationDuration(self, OperationDuration):
         self._OperationDuration = OperationDuration
 
+    @property
+    def MultiZoneInfo(self):
+        r"""多可用区部署
+        :rtype: list of ZoneDetail
+        """
+        return self._MultiZoneInfo
+
+    @MultiZoneInfo.setter
+    def MultiZoneInfo(self, MultiZoneInfo):
+        self._MultiZoneInfo = MultiZoneInfo
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -20307,6 +22331,12 @@ class UpdateLogstashInstanceRequest(AbstractModel):
         if params.get("OperationDuration") is not None:
             self._OperationDuration = OperationDurationUpdated()
             self._OperationDuration._deserialize(params.get("OperationDuration"))
+        if params.get("MultiZoneInfo") is not None:
+            self._MultiZoneInfo = []
+            for item in params.get("MultiZoneInfo"):
+                obj = ZoneDetail()
+                obj._deserialize(item)
+                self._MultiZoneInfo.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

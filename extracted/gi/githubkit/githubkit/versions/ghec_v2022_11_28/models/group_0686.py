@@ -9,26 +9,22 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
+
+from .group_0003 import SimpleUser
 
 
-class WebhookIssuesClosedPropIssueAllof0PropPullRequest(GitHubModel):
-    """WebhookIssuesClosedPropIssueAllof0PropPullRequest"""
+class WebhookGithubAppAuthorizationRevoked(GitHubModel):
+    """github_app_authorization revoked event"""
 
-    diff_url: Missing[str] = Field(default=UNSET)
-    html_url: Missing[str] = Field(default=UNSET)
-    merged_at: Missing[Union[datetime, None]] = Field(default=UNSET)
-    patch_url: Missing[str] = Field(default=UNSET)
-    url: Missing[str] = Field(default=UNSET)
+    action: Literal["revoked"] = Field()
+    sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
 
 
-model_rebuild(WebhookIssuesClosedPropIssueAllof0PropPullRequest)
+model_rebuild(WebhookGithubAppAuthorizationRevoked)
 
-__all__ = ("WebhookIssuesClosedPropIssueAllof0PropPullRequest",)
+__all__ = ("WebhookGithubAppAuthorizationRevoked",)

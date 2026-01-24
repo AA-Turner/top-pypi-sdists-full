@@ -1,11 +1,11 @@
+import os
 import json
 import logging
 from databricks.labs.blueprint.tui import Prompts
+
+from databricks.labs.dqx.errors import InvalidParameterError
 from databricks.labs.dqx.installer.warehouse_installer import WarehouseInstaller
 from databricks.labs.dqx.config import WorkspaceConfig, RunConfig, InputConfig, OutputConfig, ProfilerConfig
-
-
-logger = logging.getLogger(__name__)
 
 
 class ConfigProvider:
@@ -13,21 +13,33 @@ class ConfigProvider:
     Collects configuration from the user interactively.
     """
 
-    def __init__(self, prompts: Prompts, warehouse_configurator: WarehouseInstaller):
+    def __init__(self, prompts: Prompts, warehouse_configurator: WarehouseInstaller, logger: logging.Logger):
         self._prompts = prompts
         self._warehouse_configurator = warehouse_configurator
+        self.logger = logger
 
-    def prompt_new_installation(self) -> WorkspaceConfig:
-        logger.info(
+    def prompt_new_installation(self, install_folder: str | None = None) -> WorkspaceConfig:
+        self.logger.info(
             "Please answer a couple of questions to provide default DQX run configuration. "
             "The configuration can also be updated manually after the installation."
         )
+
+        # Show installation folder information
+        if install_folder:
+            self.logger.info(f"DQX will be installed in folder '{install_folder}'")
+        else:
+            install_path = (
+                "/Applications/dqx" if os.getenv("DQX_FORCE_INSTALL") == "global" else "/Users/<your_user>/.dqx"
+            )
+            self.logger.info(f"DQX will be installed in the default location: '{install_path}'")
 
         log_level = self._prompts.question("Log level", default="INFO").upper()
         is_streaming = self._prompts.confirm("Should the input data be read using streaming?")
         input_config = self._prompt_input_config(is_streaming)
         output_config = self._prompt_output_config(is_streaming)
         quarantine_config = self._prompt_quarantine_config(is_streaming)
+
+        metrics_config, custom_metrics = self._prompt_metrics()
 
         checks_location = self._prompts.question(
             "Provide location of the quality checks definitions, either:\n"
@@ -88,6 +100,9 @@ class ConfigProvider:
 
         warehouse_id = self._warehouse_configurator.create()
 
+        # Ask if the workspace blocks Internet access to determine if dependencies should be uploaded
+        upload_dependencies = self._prompts.confirm("Does the given workspace block Internet access?")
+
         return WorkspaceConfig(
             log_level=log_level,
             run_configs=[
@@ -95,6 +110,7 @@ class ConfigProvider:
                     input_config=input_config,
                     output_config=output_config,
                     quarantine_config=quarantine_config,
+                    metrics_config=metrics_config,
                     checks_location=checks_location,
                     warehouse_id=warehouse_id,
                     profiler_config=profiler_config,
@@ -103,12 +119,14 @@ class ConfigProvider:
                 )
             ],
             serverless_clusters=serverless_clusters,
+            upload_dependencies=upload_dependencies,
             profiler_spark_conf=profiler_spark_conf,
             profiler_override_clusters=profiler_override_clusters,
             quality_checker_spark_conf=quality_checker_spark_conf,
             quality_checker_override_clusters=quality_checker_override_clusters,
             e2e_spark_conf=e2e_spark_conf,
             e2e_override_clusters=e2e_override_clusters,
+            custom_metrics=custom_metrics,
         )
 
     def _prompt_clusters_configs(self):
@@ -122,7 +140,7 @@ class ConfigProvider:
 
         profiler_override_clusters = json.loads(
             self._prompts.question(
-                "Optional Cluster ID to use for the profiler workflow (e.g. {\"main\": \"<existing-cluster-id>\"}). "
+                "Optional Cluster ID to use for the profiler workflow (e.g. {\"default\": \"<existing-cluster-id>\"}). "
                 "If not provided, a job cluster will be created automatically when the job runs",
                 default="{}",
                 valid_regex=r"^.*$",
@@ -139,7 +157,7 @@ class ConfigProvider:
 
         quality_checker_override_clusters = json.loads(
             self._prompts.question(
-                "Optional Cluster ID to use for the data quality job (e.g. {\"main\": \"<existing-cluster-id>\"}). "
+                "Optional Cluster ID to use for the data quality job (e.g. {\"default\": \"<existing-cluster-id>\"}). "
                 "If not provided, a job cluster will be created automatically when the job runs",
                 default="{}",
                 valid_regex=r"^.*$",
@@ -155,7 +173,7 @@ class ConfigProvider:
 
         e2e_override_clusters = json.loads(
             self._prompts.question(
-                "Optional Cluster ID to use for the end-to-end workflow (e.g. {\"main\": \"<existing-cluster-id>\"}). "
+                "Optional Cluster ID to use for the end-to-end workflow (e.g. {\"default\": \"<existing-cluster-id>\"}). "
                 "If not provided, a job cluster will be created automatically when the job runs",
                 default="{}",
                 valid_regex=r"^.*$",
@@ -319,3 +337,69 @@ class ConfigProvider:
                 trigger=quarantine_trigger_options,
             )
         return None
+
+    def _prompt_metrics(self) -> tuple[OutputConfig | None, list[str] | None]:
+        store_summary_metrics = self._prompts.confirm(
+            "Do you want to store summary metrics from data quality checking in a table?"
+        )
+        metrics_config = None
+        custom_metrics = None
+
+        if store_summary_metrics:
+            metrics_config = self._prompt_metrics_config()
+            custom_metrics = self._prompt_custom_metrics()
+
+        return metrics_config, custom_metrics
+
+    def _prompt_metrics_config(self) -> OutputConfig:
+        """Prompt user for metrics configuration."""
+        metrics_table = self._prompts.question(
+            "Provide table for storing summary metrics in the fully qualified format `catalog.schema.table` or `schema.table`",
+            valid_regex=r"^([\w]+(?:\.[\w]+){1,2})$",
+        )
+
+        metrics_write_mode = self._prompts.question(
+            "Provide write mode for metrics table (e.g. 'append' or 'overwrite')",
+            default="append",
+            valid_regex=r"^(append|overwrite)$",
+        )
+
+        metrics_format = self._prompts.question(
+            "Provide format for the metrics data (e.g. delta, parquet)",
+            default="delta",
+            valid_regex=r"^\w.+$",
+        )
+
+        metrics_write_options = json.loads(
+            self._prompts.question(
+                "Provide additional options for writing the metrics data (e.g. {\"mergeSchema\": \"true\"})",
+                default="{}",
+                valid_regex=r"^.*$",
+            )
+        )
+
+        return OutputConfig(
+            location=metrics_table,
+            mode=metrics_write_mode,
+            format=metrics_format,
+            options=metrics_write_options,
+        )
+
+    def _prompt_custom_metrics(self) -> list[str]:
+        """Prompt user for custom metrics as Spark SQL expressions."""
+        custom_metrics_input = self._prompts.question(
+            "Provide custom metrics as a list of Spark SQL expressions "
+            "(e.g. [\"count(case when age > 65 then 1 end) as senior_count\", \"avg(salary) as avg_salary\"]). "
+            "Leave blank to track the default data quality metrics.",
+            default="[]",
+            valid_regex=r"^.*$",
+        )
+
+        if custom_metrics_input.strip():
+            custom_metrics = json.loads(custom_metrics_input)
+            if not isinstance(custom_metrics, list):
+                raise InvalidParameterError(
+                    "Custom metrics must be provided as a list of Spark SQL expressions (e.g. ['count(case when age > 65 then 1 end) as senior_count']"
+                )
+            return custom_metrics
+        return []

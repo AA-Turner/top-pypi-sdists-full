@@ -11,11 +11,7 @@ PYTHON_INTERPRETER=/opt/python/cp39-cp39/bin/python
 VIRTUALENV_PYTHON_BIN="${USERSPACE_VENV_BIN_PATH}/python"
 VIRTUALENV_PIP_BIN="${VIRTUALENV_PYTHON_BIN} -m pip"
 
-TOOLS_PKGS=auditwheel
-if [ "${ARCH}" == "x86_64" ]
-then
-    TOOLS_PKGS="${TOOLS_PKGS} cmake --only-binary=cmake"
-fi
+TOOLS_PKGS="auditwheel cmake --only-binary=cmake"
 
 # Avoid creation of __pycache__/*.py[c|o]
 export PYTHONDONTWRITEBYTECODE=1

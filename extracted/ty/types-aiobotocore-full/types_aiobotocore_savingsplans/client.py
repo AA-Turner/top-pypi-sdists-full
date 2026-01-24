@@ -3,7 +3,7 @@ Type annotations for savingsplans service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_savingsplans/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -48,12 +49,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -64,11 +59,11 @@ __all__ = ("SavingsPlansClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class SavingsPlansClient(AioBaseClient):
@@ -118,7 +113,7 @@ class SavingsPlansClient(AioBaseClient):
 
     async def delete_queued_savings_plan(
         self, **kwargs: Unpack[DeleteQueuedSavingsPlanRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the queued purchase for the specified Savings Plan.
 
@@ -130,7 +125,7 @@ class SavingsPlansClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeSavingsPlanRatesRequestTypeDef]
     ) -> DescribeSavingsPlanRatesResponseTypeDef:
         """
-        Describes the rates for the specified Savings Plan.
+        Describes the rates for a specific, existing Savings Plan.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/savingsplans/client/describe_savings_plan_rates.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_savingsplans/client/#describe_savings_plan_rates)
@@ -150,7 +145,7 @@ class SavingsPlansClient(AioBaseClient):
         self, **kwargs: Unpack[DescribeSavingsPlansOfferingRatesRequestTypeDef]
     ) -> DescribeSavingsPlansOfferingRatesResponseTypeDef:
         """
-        Describes the offering rates for the specified Savings Plans.
+        Describes the offering rates for Savings Plans you might want to purchase.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/savingsplans/client/describe_savings_plans_offering_rates.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_savingsplans/client/#describe_savings_plans_offering_rates)
@@ -186,7 +181,7 @@ class SavingsPlansClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_savingsplans/client/#return_savings_plan)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -194,7 +189,7 @@ class SavingsPlansClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_savingsplans/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -210,7 +205,7 @@ class SavingsPlansClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

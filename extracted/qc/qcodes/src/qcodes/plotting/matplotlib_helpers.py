@@ -5,11 +5,12 @@ import logging
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
-    import matplotlib
     import matplotlib.colorbar
 
 import numpy as np
 import numpy.typing as npt
+
+import qcodes
 
 from .auto_range import DEFAULT_PERCENTILE, auto_range_iqr
 
@@ -213,7 +214,6 @@ def auto_color_scale_from_config(
             ``config.plotting.auto_color_scale.color_under``.
 
     """
-    import qcodes
 
     if colorbar is None:
         _LOG.warning(

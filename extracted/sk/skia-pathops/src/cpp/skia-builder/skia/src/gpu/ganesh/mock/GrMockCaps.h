@@ -9,9 +9,30 @@
 #define GrMockCaps_DEFINED
 
 #include "include/core/SkTextureCompressionType.h"
-#include "include/gpu/mock/GrMockTypes.h"
+#include "include/gpu/GpuTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/mock/GrMockTypes.h"
+#include "include/private/base/SkAssert.h"
+#include "include/private/base/SkMath.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrCaps.h"
-#include "src/gpu/ganesh/SkGr.h"
+#include "src/gpu/ganesh/GrProgramDesc.h"
+#include "src/gpu/ganesh/GrShaderCaps.h"
+#include "src/gpu/ganesh/GrSurface.h"
+#include "src/gpu/ganesh/GrSurfaceProxy.h"
+
+#include <algorithm>
+#include <cstdint>
+#include <memory>
+#include <vector>
+
+class GrProgramInfo;
+class GrRenderTarget;
+namespace GrTest { struct TestFormatColorTypeCombination; }
+struct GrContextOptions;
+struct SkIRect;
 
 class GrMockCaps : public GrCaps {
 public:
@@ -28,6 +49,7 @@ public:
         fMaxPreferredRenderTargetSize = fMaxRenderTargetSize;
         fMaxVertexAttributes = options.fMaxVertexAttributes;
         fSampleLocationsSupport = true;
+        fSupportsProtectedContent = true;
 
         fShaderCaps = std::make_unique<GrShaderCaps>();
         fShaderCaps->fIntegerSupport = options.fIntegerSupport;
@@ -66,10 +88,12 @@ public:
 
     bool isFormatAsColorTypeRenderable(GrColorType ct, const GrBackendFormat& format,
                                        int sampleCount = 1) const override {
-        // Currently we don't allow RGB_888X to be renderable because we don't have a way to
-        // handle blends that reference dst alpha when the values in the dst alpha channel are
-        // uninitialized.
-        if (ct == GrColorType::kRGB_888x) {
+        // Currently we don't allow RGB_888X, RGB_F16F16F16x, or RGB_101010x to
+        // be renderable because we don't have a way to handle blends that
+        // reference dst alpha when the values in the dst alpha channel are uninitialized.
+        if (ct == GrColorType::kRGB_888x ||
+            ct == GrColorType::kRGB_F16F16F16x ||
+            ct == GrColorType::kRGB_101010x) {
             return false;
         }
         return this->isFormatRenderable(format, sampleCount);
@@ -122,8 +146,9 @@ public:
         return {surfaceColorType, 1};
     }
 
-    SurfaceReadPixelsSupport surfaceSupportsReadPixels(const GrSurface*) const override {
-        return SurfaceReadPixelsSupport::kSupported;
+    SurfaceReadPixelsSupport surfaceSupportsReadPixels(const GrSurface* surface) const override {
+        return surface->isProtected() ? SurfaceReadPixelsSupport::kUnsupported
+                                      : SurfaceReadPixelsSupport::kSupported;
     }
 
     GrBackendFormat getBackendFormatFromCompressionType(SkTextureCompressionType) const override {
@@ -141,7 +166,7 @@ public:
                            const GrProgramInfo&,
                            ProgramDescOverrideFlags) const override;
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     std::vector<GrTest::TestFormatColorTypeCombination> getTestingCombinations() const override;
 #endif
 
@@ -149,6 +174,9 @@ private:
     bool onSurfaceSupportsWritePixels(const GrSurface*) const override { return true; }
     bool onCanCopySurface(const GrSurfaceProxy* dst, const SkIRect& dstRect,
                           const GrSurfaceProxy* src, const SkIRect& srcRect) const override {
+        if (src->isProtected() == GrProtected::kYes && dst->isProtected() != GrProtected::kYes) {
+            return false;
+        }
         return true;
     }
     GrBackendFormat onGetDefaultBackendFormat(GrColorType ct) const override {

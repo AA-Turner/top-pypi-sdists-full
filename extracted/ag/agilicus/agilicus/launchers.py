@@ -9,7 +9,12 @@ from .output.table import (
     column,
     subtable,
 )
+from .pagination import normalize_page_args
+from .resource_helpers import standard_page_fields
+
 import agilicus
+
+page_fields = standard_page_fields
 
 
 def get(ctx, id, **kwargs):
@@ -68,6 +73,7 @@ def query(ctx, **kwargs):
     kwargs = input_helpers.strip_none(kwargs)
 
     kwargs["org_id"] = org_id
+    kwargs = normalize_page_args(kwargs)
     query_results = apiclient.launchers_api.list_launchers(**kwargs)
     return query_results.launchers
 

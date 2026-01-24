@@ -18,27 +18,31 @@ import pathlib
 import pickle
 import re
 import tempfile
+import threading
+import time
+from typing import assert_type
 import numpy as np
 import pytest
 import tensorstore as ts
 
-pytestmark = pytest.mark.asyncio
 
-
-async def test_open_array_driver():
+async def test_open_array_driver() -> None:
   t = await ts.open({
       "driver": "array",
       "array": [[1, 2, 3], [4, 5, 6]],
       "dtype": "int32",
   })
+  assert_type(t, ts.TensorStore)
   assert t.domain == ts.IndexDomain(shape=[2, 3])
   assert t.rank == 2
   assert t.ndim == 2
   assert t.origin == (0, 0)
+  assert_type(t.shape, tuple[int, ...])
   assert t.shape == (2, 3)
+  assert_type(t.dtype, ts.dtype)
   assert t.dtype == ts.int32
-  assert t.readable == True
-  assert t.writable == True
+  assert t.readable
+  assert t.writable
   assert t.mode == "rw"
   a = np.array(t)
   assert a.dtype == np.int32
@@ -57,10 +61,10 @@ async def test_open_array_driver():
   with pytest.raises(
       TypeError, match=re.escape("`order` must be specified as 'C' or 'F'")
   ):
-    await t.read(order="X")
+    await t.read(order="X")  # type: ignore[arg-type]
 
 
-async def test_resize():
+async def test_resize() -> None:
   arr = np.asarray([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
   t = await ts.open(
       {
@@ -84,7 +88,7 @@ async def test_resize():
   np.testing.assert_equal(a, [[1, 2], [4, 5], [7, 8]])
 
 
-async def test_array():
+async def test_array() -> None:
   t = ts.array(np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int64))
   assert t.spec().to_json(include_defaults=False) == {
       "driver": "array",
@@ -117,7 +121,7 @@ async def test_array():
   }
 
 
-async def test_array_no_copy():
+async def test_array_no_copy() -> None:
   with pytest.raises(
       ValueError, match=r"Unable to avoid copy while creating an array"
   ):
@@ -135,7 +139,7 @@ async def test_array_no_copy():
   assert (await y[0].read()) == 4
 
 
-async def test_array_no_write():
+async def test_array_no_write() -> None:
   x = np.array([1, 2, 3], dtype=np.int32)
 
   y = ts.array(x)
@@ -161,7 +165,7 @@ async def test_array_no_write():
     ts.array(x, write=True, copy=False)
 
 
-async def test_open_ustring_dtype():
+async def test_open_ustring_dtype() -> None:
   t = await ts.open({
       "driver": "array",
       "array": ["this", "is", "a", "string", "array"],
@@ -176,7 +180,7 @@ async def test_open_ustring_dtype():
   )
 
 
-async def test_cast():
+async def test_cast() -> None:
   t = ts.array(np.array([0, 1, 2, 3], dtype=np.int64))
   t_string = t.astype(bytes)
   np.testing.assert_equal(await t_string.read(), [b"0", b"1", b"2", b"3"])
@@ -184,7 +188,7 @@ async def test_cast():
   np.testing.assert_equal(await t_bool.read(), [False, True, True, True])
 
 
-async def test_local_n5():
+async def test_local_n5() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     dataset = ts.open({
         "driver": "n5",
@@ -208,7 +212,7 @@ async def test_local_n5():
     )
 
 
-async def test_memory_n5_cache_open():
+async def test_memory_n5_cache_open() -> None:
   ts.open({
       "context": {"cache_pool": {"total_bytes_limit": 1000000}},
       "driver": "n5",
@@ -226,7 +230,7 @@ async def test_memory_n5_cache_open():
   }).result()
 
 
-async def test_open_error_message():
+async def test_open_error_message() -> None:
   with pytest.raises(
       ValueError, match='.*Error parsing object member "driver": .*'
   ):
@@ -236,7 +240,7 @@ async def test_open_error_message():
     await ts.open(3)
 
 
-async def test_pickle():
+async def test_pickle() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     context = ts.Context({"cache_pool": {"total_bytes_limit": 1000000}})
     spec = {
@@ -279,7 +283,7 @@ async def test_pickle():
     assert new_t2[0, 0].read().result() == 42
 
 
-async def test_pickle_read_write_mode():
+async def test_pickle_read_write_mode() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     spec = {
         "driver": "n5",
@@ -312,7 +316,7 @@ async def test_pickle_read_write_mode():
     assert new_t1.writable
 
 
-async def test_copy():
+async def test_copy() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     context = ts.Context({"cache_pool": {"total_bytes_limit": 1000000}})
     spec = {
@@ -347,7 +351,7 @@ async def test_copy():
     assert t3[0, 0].read().result() == 42
 
 
-async def test_write_json():
+async def test_write_json() -> None:
   t = await ts.open(
       {"driver": "array", "dtype": "json", "array": [1, {"a": 2}, 3], "rank": 1}
   )
@@ -357,12 +361,12 @@ async def test_write_json():
   np.testing.assert_equal(
       await t.read(), np.array([1, {"a": 2}, 3], dtype=object)
   )
-  t[0] = {"x": 3}
+  t[0] = {"x": 3}  # type: ignore[call-overload]
   np.testing.assert_equal(
       await t.read(), np.array([{"x": 3}, {"a": 2}, 3], dtype=object)
   )
   with pytest.raises(TypeError):
-    t[1] = object()
+    t[1] = object()  # type: ignore[call-overload]
   np.testing.assert_equal(
       await t.read(), np.array([{"x": 3}, {"a": 2}, 3], dtype=object)
   )
@@ -370,11 +374,11 @@ async def test_write_json():
   np.testing.assert_equal(
       await t.read(), np.array([{"x": 3}, {"a": 2}, [1, 2, 3]], dtype=object)
   )
-  await t.write([1, 2, "abc"])
+  await t.write([1, 2, "abc"])  # type: ignore[arg-type]
   np.testing.assert_equal(await t.read(), np.array([1, 2, "abc"], dtype=object))
 
 
-async def test_write_ustring():
+async def test_write_ustring() -> None:
   t = await ts.open({
       "driver": "array",
       "dtype": "ustring",
@@ -395,7 +399,7 @@ async def test_write_ustring():
     t[1] = b"foo"
 
 
-async def test_write_string():
+async def test_write_string() -> None:
   t = await ts.open({
       "driver": "array",
       "dtype": "string",
@@ -414,12 +418,12 @@ async def test_write_string():
     t[1] = "abc"
 
 
-async def test_instantiation():
+async def test_instantiation() -> None:
   with pytest.raises(TypeError):
     ts.TensorStore()
 
 
-async def test_assume_metadata():
+async def test_assume_metadata() -> None:
   t = await ts.open(
       {
           "driver": "zarr",
@@ -430,10 +434,15 @@ async def test_assume_metadata():
       open=True,
       assume_metadata=True,
   )
-  assert await t.kvstore.list() == []
+  assert_type(t, ts.TensorStore)
+  kvs = t.kvstore
+  assert_type(kvs, ts.KvStore | None)
+  assert kvs is not None
+  assert_type(kvs, ts.KvStore)
+  assert await kvs.list() == []
 
 
-async def test_storage_statistics():
+async def test_storage_statistics() -> None:
   t = await ts.open(
       {
           "driver": "zarr",
@@ -445,7 +454,7 @@ async def test_storage_statistics():
       create=True,
   )
 
-  transformed = t[(1, 1, 1):(20, 5, 5)]
+  transformed = t[slice((1, 1, 1), (20, 5, 5))]
   assert await transformed.storage_statistics(
       query_not_stored=True
   ) == ts.TensorStore.StorageStatistics(not_stored=True)
@@ -458,13 +467,48 @@ async def test_storage_statistics():
   ) == ts.TensorStore.StorageStatistics(not_stored=False, fully_stored=True)
 
 
-async def test_storage_statistics_pickle():
+async def test_storage_statistics_pickle() -> None:
   x = ts.TensorStore.StorageStatistics(not_stored=True, fully_stored=False)
   assert pickle.loads(pickle.dumps(x)) == x
 
 
-async def test_tensorstore_ocdbt_zarr_repr():
-  arr = ts.open(
+def test_storage_statistics_concurrent() -> None:
+  s = ts.TensorStore.StorageStatistics()
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = s.not_stored
+      _ = s.fully_stored
+      _ = s == ts.TensorStore.StorageStatistics()
+      _ = f"{s}"
+      _ = repr(s)
+
+  def update_props() -> None:
+    while not stop.is_set():
+      s.not_stored = True
+      s.fully_stored = True
+      s.not_stored = None
+      s.fully_stored = None
+
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
+def test_tensorstore_ocdbt_zarr_repr() -> None:
+  arr_future = ts.open(
       {
           "driver": "zarr",
           "kvstore": {
@@ -477,11 +521,15 @@ async def test_tensorstore_ocdbt_zarr_repr():
       dtype=ts.float32,
       open=True,
       create=True,
-  ).result()
+  )
+
+  assert_type(arr_future, ts.Future[ts.TensorStore])
+
+  arr = arr_future.result()
   repr(arr)
 
 
-async def test_spec_open_mode():
+async def test_spec_open_mode() -> None:
   spec = ts.Spec({
       "driver": "zarr",
       "kvstore": "memory://",
@@ -497,8 +545,8 @@ async def test_spec_open_mode():
       {"open": True, "assume_cached_metadata": True},
   ]:
     spec_copy = spec.copy()
-    open_mode = ts.OpenMode(**open_mode_kwargs)
-    spec_copy.update(**open_mode_kwargs)
+    open_mode = ts.OpenMode(**open_mode_kwargs)  # type: ignore[arg-type]
+    spec_copy.update(**open_mode_kwargs)  # type: ignore[arg-type]
     assert spec_copy.open_mode == open_mode
 
     spec_copy = spec.copy()
@@ -509,18 +557,56 @@ async def test_spec_open_mode():
     if open_mode == ts.OpenMode(open=True):
       context = ts.Context()
       await ts.open(spec, create=True, context=context)
-    store = await ts.open(spec, context=context, **open_mode_kwargs)
+    store = await ts.open(spec, context=context, **open_mode_kwargs)  # type: ignore[arg-type]
 
-    requested_spec = store.spec(**open_mode_kwargs)
+    requested_spec = store.spec(**open_mode_kwargs)  # type: ignore[arg-type]
     assert requested_spec.open_mode == open_mode
 
     store = await ts.open(spec, context=context, open_mode=open_mode)
-    requested_spec = store.spec(**open_mode_kwargs)
+    requested_spec = store.spec(**open_mode_kwargs)  # type: ignore[arg-type]
     assert requested_spec.open_mode == open_mode
 
 
+def test_openmode_concurrent() -> None:
+  o = ts.OpenMode()
+
+  stop = threading.Event()
+
+  def read_props() -> None:
+    while not stop.is_set():
+      _ = o.open
+      _ = o.create
+      _ = o.delete_existing
+      _ = o == ts.OpenMode()
+      _ = f"{o}"
+      _ = repr(o)
+
+  def update_props() -> None:
+    while not stop.is_set():
+      o.open = True
+      o.create = True
+      o.delete_existing = True
+      o.open = False
+      o.create = False
+      o.delete_existing = False
+
+  threads = []
+  for _ in range(4):
+    threads.append(threading.Thread(target=read_props))
+    threads.append(threading.Thread(target=update_props))
+
+  for t in threads:
+    t.start()
+
+  time.sleep(0.3)
+  stop.set()
+
+  for t in threads:
+    t.join()
+
+
 @pytest.mark.parametrize("writable", [True, False])
-async def test_zero_copy(writable: bool):
+async def test_zero_copy(writable: bool) -> None:
   store = await ts.open(
       {"driver": "zarr3", "kvstore": "memory://"},
       dtype=ts.uint32,
@@ -542,7 +628,7 @@ async def test_zero_copy(writable: bool):
   np.testing.assert_equal(43, await store.read())
 
 
-def test_issue_168():
+def test_issue_168() -> None:
   t = ts.array(np.zeros((0,)))
   assert t.spec().to_json(include_defaults=False) == {
       "driver": "array",
@@ -565,14 +651,17 @@ def test_issue_168():
         "recheck_cached",
     ],
 )
-async def test_recheck_cached(key, value):
+async def test_recheck_cached(
+    key: str,
+    value: ts.RecheckCacheOption,
+) -> None:
   spec = ts.Spec({
       "driver": "zarr",
       "kvstore": "memory://",
       "schema": {"dtype": "uint32", "domain": {"shape": [100, 200]}},
   })
 
-  def validate_spec(s):
+  def validate_spec(s: ts.Spec) -> None:
     j = s.to_json(include_defaults=True)
     if key != "recheck_cached_data":
       assert j["recheck_cached_metadata"] == value
@@ -580,24 +669,25 @@ async def test_recheck_cached(key, value):
       assert j["recheck_cached_data"] == value
 
   spec_copy = spec.copy()
-  spec_copy.update(**{key: value})
+  spec_copy.update(**{key: value})  # type: ignore[arg-type]
   validate_spec(spec_copy)
 
-  t = await ts.open(spec, create=True, **{key: value})
+  t = await ts.open(spec, create=True, **{key: value})  # type: ignore[arg-type]
   validate_spec(t.spec())
 
   t = await ts.open(spec, create=True)
-  validate_spec(t.spec(**{key: value}))
+  new_spec = t.spec(**{key: value})  # type: ignore[arg-type]
+  validate_spec(new_spec)
 
 
-async def test_non_utf8_error():
+async def test_non_utf8_error() -> None:
   with tempfile.TemporaryDirectory() as dir_path:
     base_url = pathlib.Path(dir_path).resolve()
     with pytest.raises(ValueError, match='.*local file ".*\\\\xfa.*'):
       await ts.open({"driver": "zarr", "kvstore": base_url.as_uri() + "/%fa"})
 
 
-async def test_write_batch():
+async def test_write_batch() -> None:
   store = await ts.open(
       {"driver": "zarr3", "kvstore": "memory://"},
       dtype=ts.uint8,
@@ -613,9 +703,9 @@ async def test_write_batch():
   await write_future
 
 
-async def test_open_with_open_kvstore():
+async def test_open_with_open_kvstore() -> None:
   kvstore = await ts.KvStore.open("memory://")
-  store = await ts.open(
+  await ts.open(
       {"driver": "zarr3"},
       dtype=ts.uint8,
       shape=[],
@@ -623,3 +713,43 @@ async def test_open_with_open_kvstore():
       create=True,
   )
   assert "zarr.json" in kvstore
+
+
+async def test_spec_to_json():
+  store = await ts.open({
+      "driver": "array",
+      "array": [[1, 2, 3], [4, 5, 6]],
+      "dtype": "int32",
+  })
+
+  border_size = (10, 10)
+  new_min = store.domain.inclusive_min
+  new_max = tuple([x + 20 for x in store.domain.exclusive_max])
+
+  ts.Spec({
+      "driver": "stack",
+      "dtype": store.dtype,
+      "layers": [
+          {
+              "array": 0,
+              "driver": "array",
+              "transform": {
+                  "input_inclusive_min": new_min,
+                  "input_exclusive_max": new_max,
+                  "output": [],
+              },
+              "dtype": store.dtype,
+          },
+          store.translate_to[border_size].spec(minimal_spec=False),
+      ],
+      "schema": {
+          "domain": {
+              "exclusive_max": new_max,
+              "inclusive_min": new_min,
+          }
+      },
+      "transform": {
+          "input_exclusive_max": new_max,
+          "input_inclusive_min": new_min,
+      },
+  })

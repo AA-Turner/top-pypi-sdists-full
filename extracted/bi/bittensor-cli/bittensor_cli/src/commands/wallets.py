@@ -3,6 +3,7 @@ import itertools
 import json
 import os
 from collections import defaultdict
+from enum import Enum
 from typing import Generator, Optional, Union
 
 import aiohttp
@@ -14,8 +15,6 @@ from rich.align import Align
 from rich.table import Column, Table
 from rich.tree import Tree
 from rich.padding import Padding
-from rich.prompt import Confirm
-
 from bittensor_cli.src import COLOR_PALETTE, COLORS, Constants
 from bittensor_cli.src.bittensor import utils
 from bittensor_cli.src.bittensor.balances import Balance
@@ -29,9 +28,13 @@ from bittensor_cli.src.bittensor.extrinsics.registration import (
 )
 from bittensor_cli.src.bittensor.extrinsics.transfer import transfer_extrinsic
 from bittensor_cli.src.bittensor.networking import int_to_ip
-from bittensor_cli.src.bittensor.subtensor_interface import SubtensorInterface
+from bittensor_cli.src.bittensor.subtensor_interface import (
+    SubtensorInterface,
+    GENESIS_ADDRESS,
+)
 from bittensor_cli.src.bittensor.utils import (
     RAO_PER_TAO,
+    confirm_action,
     console,
     convert_blocks_to_time,
     err_console,
@@ -49,7 +52,29 @@ from bittensor_cli.src.bittensor.utils import (
     blocks_to_duration,
     decode_account_id,
     get_hotkey_pub_ss58,
+    print_extrinsic_id,
 )
+
+
+class SortByBalance(Enum):
+    name = "name"
+    free = "free"
+    staked = "staked"
+    total = "total"
+
+
+def _sort_by_balance_key(sort_by: SortByBalance):
+    """Get the sort key function based on the enum"""
+    if sort_by == SortByBalance.name:
+        return lambda row: row[0].lower()  # Case-insensitive alphabetical sort
+    elif sort_by == SortByBalance.free:
+        return lambda row: row[2]
+    elif sort_by == SortByBalance.staked:
+        return lambda row: row[3]
+    elif sort_by == SortByBalance.total:
+        return lambda row: row[4]
+    else:
+        raise ValueError("Invalid sort key")
 
 
 async def associate_hotkey(
@@ -58,6 +83,9 @@ async def associate_hotkey(
     hotkey_ss58: str,
     hotkey_display: str,
     prompt: bool = False,
+    decline: bool = False,
+    quiet: bool = False,
+    proxy: Optional[str] = None,
 ):
     """Associates a hotkey with a wallet"""
 
@@ -83,7 +111,9 @@ async def associate_hotkey(
             f"{hotkey_display.capitalize()} is not associated with any wallet"
         )
 
-    if prompt and not Confirm.ask("Do you want to continue with the association?"):
+    if prompt and not confirm_action(
+        "Do you want to continue with the association?", decline=decline, quiet=quiet
+    ):
         return False
 
     if not unlock_key(wallet).success:
@@ -98,11 +128,12 @@ async def associate_hotkey(
     )
 
     with console.status(":satellite: Associating hotkey on-chain..."):
-        success, err_msg = await subtensor.sign_and_send_extrinsic(
+        success, err_msg, ext_receipt = await subtensor.sign_and_send_extrinsic(
             call,
             wallet,
             wait_for_inclusion=True,
             wait_for_finalization=False,
+            proxy=proxy,
         )
 
         if not success:
@@ -116,6 +147,7 @@ async def associate_hotkey(
             f"wallet [blue]{wallet.name}[/blue], "
             f"SS58: [{COLORS.GENERAL.CK}]{wallet.coldkeypub.ss58_address}[/{COLORS.GENERAL.CK}]"
         )
+        await print_extrinsic_id(ext_receipt)
         return True
 
 
@@ -239,7 +271,7 @@ async def regen_hotkey(
     json_str: Optional[str] = None
     if json_path:
         if not os.path.exists(json_path) or not os.path.isfile(json_path):
-            err_console.print(f"File {json_path} does not exist")
+            print_error(f"File {json_path} does not exist")
             return False
         with open(json_path, "r") as f:
             json_str = f.read()
@@ -563,6 +595,7 @@ async def wallet_balance(
     subtensor: SubtensorInterface,
     all_balances: bool,
     ss58_addresses: Optional[str] = None,
+    sort_by: Optional[SortByBalance] = None,
     json_output: bool = False,
 ):
     """Retrieves the current balance of the specified wallet"""
@@ -572,7 +605,7 @@ async def wallet_balance(
 
     elif not all_balances:
         if not wallet.coldkeypub_file.exists_on_device():
-            err_console.print("[bold red]No wallets found.[/bold red]")
+            print_error("[bold red]No wallets found.[/bold red]")
             return
 
     with console.status("Retrieving balances", spinner="aesthetic") as status:
@@ -592,8 +625,8 @@ async def wallet_balance(
             subtensor.get_total_stake_for_coldkey(*coldkeys, block_hash=block_hash),
         )
 
-    total_free_balance = sum(free_balances.values())
-    total_staked_balance = sum(stake[0] for stake in staked_balances.values())
+    total_free_balance: Balance = sum(free_balances.values())
+    total_staked_balance: Balance = sum(stake[0] for stake in staked_balances.values())
 
     balances = {
         name: (
@@ -642,14 +675,26 @@ async def wallet_balance(
         width=None,
         leading=True,
     )
-
-    for name, (coldkey, free, staked) in balances.items():
+    balance_rows = [
+        (name, coldkey, free, staked, free + staked)
+        for (name, (coldkey, free, staked)) in balances.items()
+    ]
+    sorted_balances = (
+        sorted(
+            balance_rows,
+            key=_sort_by_balance_key(sort_by),
+            reverse=(sort_by != SortByBalance.name),
+        )
+        if sort_by is not None
+        else balance_rows
+    )
+    for name, coldkey, free, staked, total in sorted_balances:
         table.add_row(
             name,
             coldkey,
             str(free),
             str(staked),
-            str(free + staked),
+            str(total),
         )
     table.add_row()
     table.add_row(
@@ -811,12 +856,19 @@ async def wallet_history(wallet: Wallet):
     console.print(table)
 
 
-async def wallet_list(wallet_path: str, json_output: bool):
+async def wallet_list(
+    wallet_path: str, json_output: bool, wallet_name: Optional[str] = None
+):
     """Lists wallets."""
     wallets = utils.get_coldkey_wallets_for_path(wallet_path)
     print_verbose(f"Using wallets path: {wallet_path}")
     if not wallets:
-        err_console.print(f"[red]No wallets found in dir: {wallet_path}[/red]")
+        print_error(f"No wallets found in dir: {wallet_path}")
+
+    if wallet_name:
+        wallets = [wallet for wallet in wallets if wallet.name == wallet_name]
+        if not wallets:
+            print_error(f"Wallet '{wallet_name}' not found in dir: {wallet_path}")
 
     root = Tree("Wallets")
     main_data_dict = {"wallets": []}
@@ -874,7 +926,12 @@ async def wallet_list(wallet_path: str, json_output: bool):
 
     if not wallets:
         print_verbose(f"No wallets found in path: {wallet_path}")
-        root.add("[bold red]No wallets found.")
+        message = (
+            "[bold red]No wallets found."
+            if not wallet_name
+            else f"[bold red]Wallet '{wallet_name}' not found."
+        )
+        root.add(message)
     if json_output:
         json_console.print(json.dumps(main_data_dict))
     else:
@@ -1479,9 +1536,11 @@ async def transfer(
     era: int,
     prompt: bool,
     json_output: bool,
+    proxy: Optional[str] = None,
+    announce_only: bool = False,
 ):
     """Transfer token of amount to destination."""
-    result = await transfer_extrinsic(
+    result, ext_receipt = await transfer_extrinsic(
         subtensor=subtensor,
         wallet=wallet,
         destination=destination,
@@ -1490,9 +1549,16 @@ async def transfer(
         allow_death=allow_death,
         era=era,
         prompt=prompt,
+        proxy=proxy,
+        announce_only=announce_only,
     )
+    ext_id = (await ext_receipt.get_extrinsic_identifier()) if result else None
     if json_output:
-        json_console.print(json.dumps({"success": result}))
+        json_console.print(
+            json.dumps({"success": result, "extrinsic_identifier": ext_id})
+        )
+    else:
+        await print_extrinsic_id(ext_receipt)
     return result
 
 
@@ -1670,7 +1736,7 @@ async def faucet(
         max_successes=max_successes,
     )
     if not success:
-        err_console.print("Faucet run failed.")
+        print_error("Faucet run failed.")
 
 
 async def swap_hotkey(
@@ -1678,19 +1744,29 @@ async def swap_hotkey(
     new_wallet: Wallet,
     subtensor: SubtensorInterface,
     netuid: Optional[int],
+    proxy: Optional[str],
     prompt: bool,
     json_output: bool,
 ):
     """Swap your hotkey for all registered axons on the network."""
-    result = await swap_hotkey_extrinsic(
+    result, ext_receipt = await swap_hotkey_extrinsic(
         subtensor,
         original_wallet,
         new_wallet,
         netuid=netuid,
         prompt=prompt,
+        proxy=proxy,
     )
+    if result:
+        ext_id = await ext_receipt.get_extrinsic_identifier()
+    else:
+        ext_id = None
     if json_output:
-        json_console.print(json.dumps({"success": result}))
+        json_console.print(
+            json.dumps({"success": result, "extrinsic_identifier": ext_id})
+        )
+    else:
+        await print_extrinsic_id(ext_receipt)
     return result
 
 
@@ -1729,9 +1805,9 @@ async def set_id(
     description: str,
     additional: str,
     github_repo: str,
-    prompt: bool,
     json_output: bool = False,
-):
+    proxy: Optional[str] = None,
+) -> bool:
     """Create a new or update existing identity on-chain."""
     output_dict = {"success": False, "identity": None, "error": ""}
     identity_data = {
@@ -1756,16 +1832,20 @@ async def set_id(
     with console.status(
         " :satellite: [dark_sea_green3]Updating identity on-chain...", spinner="earth"
     ):
-        success, err_msg = await subtensor.sign_and_send_extrinsic(call, wallet)
+        success, err_msg, ext_receipt = await subtensor.sign_and_send_extrinsic(
+            call, wallet, proxy=proxy
+        )
 
         if not success:
-            err_console.print(f"[red]:cross_mark: Failed![/red] {err_msg}")
+            print_error(f"Failed! {err_msg}")
             output_dict["error"] = err_msg
             if json_output:
                 json_console.print(json.dumps(output_dict))
-            return
+            return False
         else:
             console.print(":white_heavy_check_mark: [dark_sea_green3]Success!")
+            ext_id = await ext_receipt.get_extrinsic_identifier()
+            await print_extrinsic_id(ext_receipt)
             output_dict["success"] = True
             identity = await subtensor.query_identity(wallet.coldkeypub.ss58_address)
 
@@ -1774,9 +1854,12 @@ async def set_id(
     for key, value in identity.items():
         table.add_row(key, str(value) if value else "~")
     output_dict["identity"] = identity
-    console.print(table)
+    output_dict["extrinsic_identifier"] = ext_id
     if json_output:
         json_console.print(json.dumps(output_dict))
+    else:
+        console.print(table)
+    return True
 
 
 async def get_id(
@@ -1791,7 +1874,7 @@ async def get_id(
         identity = await subtensor.query_identity(ss58_address)
 
     if not identity:
-        err_console.print(
+        print_error(
             f"[blue]Existing identity not found[/blue]"
             f" for [{COLOR_PALETTE['GENERAL']['COLDKEY']}]{ss58_address}[/{COLOR_PALETTE['GENERAL']['COLDKEY']}]"
             f" on {subtensor}"
@@ -1922,8 +2005,8 @@ async def verify(
                     )
                 )
             else:
-                err_console.print(
-                    f":cross_mark: Invalid SS58 address or hex public key (64 chars, with or without 0x prefix)- {str(e)}"
+                print_error(
+                    f"Invalid SS58 address or hex public key (64 chars, with or without 0x prefix)- {str(e)}"
                 )
             return False
 
@@ -1940,7 +2023,7 @@ async def verify(
                 )
             )
         else:
-            err_console.print(f"[red]:cross_mark: Invalid signature format: {str(e)}")
+            print_error(f"Invalid signature format: {str(e)}")
         return False
 
     is_valid = keypair.verify(message.encode("utf-8"), signature_bytes)
@@ -1956,7 +2039,7 @@ async def verify(
             console.print("[dark_sea_green3]Signature is valid!\n")
             console.print(f"[yellow]Signer:[/yellow] {signer_address}")
         else:
-            err_console.print(":cross_mark: [red]Signature verification failed!")
+            print_error("Signature verification failed!")
 
     return is_valid
 
@@ -1966,6 +2049,9 @@ async def schedule_coldkey_swap(
     subtensor: SubtensorInterface,
     new_coldkey_ss58: str,
     force_swap: bool = False,
+    decline: bool = False,
+    quiet: bool = False,
+    proxy: Optional[str] = None,
 ) -> bool:
     """Schedules a coldkey swap operation to be executed at a future block.
 
@@ -1994,13 +2080,13 @@ async def schedule_coldkey_swap(
                 "[yellow]Continuing with the swap due to force_swap flag.[/yellow]\n"
             )
 
-    prompt = (
+    prompt_msg = (
         "You are [red]swapping[/red] your [blue]coldkey[/blue] to a new address.\n"
         f"Current ss58: [{COLORS.G.CK}]{wallet.coldkeypub.ss58_address}[/{COLORS.G.CK}]\n"
         f"New ss58: [{COLORS.G.CK}]{new_coldkey_ss58}[/{COLORS.G.CK}]\n"
         "Are you sure you want to continue?"
     )
-    if not Confirm.ask(prompt):
+    if not confirm_action(prompt_msg, decline=decline, quiet=quiet):
         return False
 
     if not unlock_key(wallet).success:
@@ -2016,13 +2102,14 @@ async def schedule_coldkey_swap(
             },
         ),
     )
-
+    swap_info = None
     with console.status(":satellite: Scheduling coldkey swap on-chain..."):
-        success, err_msg = await subtensor.sign_and_send_extrinsic(
+        success, err_msg, ext_receipt = await subtensor.sign_and_send_extrinsic(
             call,
             wallet,
             wait_for_inclusion=True,
             wait_for_finalization=True,
+            proxy=proxy,
         )
         block_post_call = await subtensor.substrate.get_block_number()
 
@@ -2033,13 +2120,29 @@ async def schedule_coldkey_swap(
         console.print(
             ":white_heavy_check_mark: [green]Successfully scheduled coldkey swap"
         )
+        await print_extrinsic_id(ext_receipt)
+        for event in await ext_receipt.triggered_events:
+            if (
+                event.get("event", {}).get("module_id") == "SubtensorModule"
+                and event.get("event", {}).get("event_id") == "ColdkeySwapScheduled"
+            ):
+                attributes = event["event"].get("attributes", {})
+                old_coldkey = decode_account_id(attributes["old_coldkey"][0])
 
-    swap_info = await find_coldkey_swap_extrinsic(
-        subtensor=subtensor,
-        start_block=block_pre_call,
-        end_block=block_post_call,
-        wallet_ss58=wallet.coldkeypub.ss58_address,
-    )
+                if old_coldkey == wallet.coldkeypub.ss58_address:
+                    swap_info = {
+                        "block_num": block_pre_call,
+                        "dest_coldkey": decode_account_id(attributes["new_coldkey"][0]),
+                        "execution_block": attributes["execution_block"],
+                    }
+
+    if not swap_info:
+        swap_info = await find_coldkey_swap_extrinsic(
+            subtensor=subtensor,
+            start_block=block_pre_call,
+            end_block=block_post_call,
+            wallet_ss58=wallet.coldkeypub.ss58_address,
+        )
 
     if not swap_info:
         console.print(
@@ -2174,10 +2277,8 @@ async def check_swap_status(
     chain_reported_completion_block, destination_address = await subtensor.query(
         "SubtensorModule", "ColdkeySwapScheduled", [origin_ss58]
     )
-    if (
-        chain_reported_completion_block != 0
-        and destination_address != "5C4hrfjw9DjXZTzV3MwzrrAr9P1MJhSrvWGWqi1eSuyUpnhM"
-    ):
+    destination_address = decode_account_id(destination_address[0])
+    if chain_reported_completion_block != 0 and destination_address != GENESIS_ADDRESS:
         is_pending = True
     else:
         is_pending = False

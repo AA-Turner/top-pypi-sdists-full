@@ -16,7 +16,6 @@ short_description: SNMP community configuration.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -387,8 +386,8 @@ EXAMPLES = '''
             - power-blade-down
             - confsync_failure
           hosts:
-            - ha-direct: enable
-              host-type: any
+            - ha_direct: enable
+              host_type: any
               id: 1
           id: 1
           name: "ansible-test"

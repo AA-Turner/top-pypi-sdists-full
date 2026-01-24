@@ -300,8 +300,8 @@ class AlertCollection(SchemaObjectCollectionParent["AlertResource"]):
 class AlertResource(SchemaObjectReferenceMixin[AlertCollection]):
     """Represents a reference to a Snowflake Alert resource.
 
-    With this alert reference, you can create, update, delete, and fetch information about alerts, as well
-    as perform certain actions on them.
+    With this alert reference, you can fetch information about an alert, as well as perform certain
+    actions on it.
     """
 
     def __init__(self, name: StrictStr, collection: AlertCollection) -> None:

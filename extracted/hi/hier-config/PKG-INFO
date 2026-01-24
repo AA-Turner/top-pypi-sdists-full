@@ -1,11 +1,11 @@
 Metadata-Version: 2.1
 Name: hier-config
-Version: 3.2.2
+Version: 3.4.0
 Summary: A network configuration query and comparison library, used to build remediation configurations.
 License: MIT
 Author: Andrew Edwards
 Author-email: edwards.andrew@heb.com
-Requires-Python: >=3.9.0,<4.0
+Requires-Python: >=3.10.0,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -14,11 +14,11 @@ Classifier: Intended Audience :: Telecommunications Industry
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Dist: pydantic (>=2.9,<3.0)

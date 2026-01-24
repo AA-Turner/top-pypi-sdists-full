@@ -14,11 +14,20 @@ import copy
 import functools
 import logging
 import os
+import typing
 
 from oslo_config import cfg
 
 
+if typing.TYPE_CHECKING:
+    from cotyledon import Service
+    from cotyledon import ServiceManager
+    from cotyledon import types
+
+
 LOG = logging.getLogger(__name__)
+
+ReloadMethod: typing.TypeAlias = typing.Literal["reload", "mutate"]
 
 service_opts = [
     cfg.BoolOpt(
@@ -38,40 +47,68 @@ service_opts = [
     ),
 ]
 
+OsloConfigT: typing.TypeAlias = typing.Any
 
-def _load_service_manager_options(service_manager, conf) -> None:
-    service_manager.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
+
+def _load_service_manager_options(
+    service_manager: "ServiceManager",
+    conf: OsloConfigT,
+) -> None:
+    service_manager._graceful_shutdown_timeout = conf.graceful_shutdown_timeout  # noqa: SLF001
     if conf.log_options:
         LOG.debug("Full set of CONF:")
         conf.log_opt_values(LOG, logging.DEBUG)
 
 
-def _load_service_options(service, conf) -> None:
-    service.graceful_shutdown_timeout = conf.graceful_shutdown_timeout
-
+def _load_service_options(service: "Service", conf: OsloConfigT) -> None:
     if conf.log_options:
         LOG.debug("Full set of CONF:")
         conf.log_opt_values(LOG, logging.DEBUG)
 
 
-def _configfile_reload(conf, reload_method) -> None:
+def _configfile_reload(conf: OsloConfigT, reload_method: ReloadMethod) -> None:
     if reload_method == "reload":
         conf.reload_config_files()
     elif reload_method == "mutate":
         conf.mutate_config_files()
 
 
-def _new_worker_hook(conf, reload_method, service_id, worker_id, service) -> None:
-    def _service_reload(service) -> None:
+def _new_worker_hook(
+    conf: OsloConfigT,
+    reload_method: ReloadMethod,
+    service_id: "types.ServiceId",
+    worker_id: "types.WorkerId",
+    service: "Service",
+) -> None:
+    def _service_reload(service: "Service") -> None:
         _configfile_reload(conf, reload_method)
         _load_service_options(service, conf)
 
-    service._on_reload_internal_hook = _service_reload  # noqa: SLF001
+    real_reload = service.reload
+
+    def reload(self: "Service") -> None:
+        _service_reload(self)
+        real_reload()
+
     _load_service_options(service, conf)
 
 
-def setup(service_manager, conf, reload_method="reload") -> None:
-    """Load services configuration from oslo config object.
+def register_opts(conf: OsloConfigT) -> None:
+    conf.register_opts(service_opts)
+
+
+def unregister_opts(conf: OsloConfigT) -> None:
+    conf.unregister_opts(service_opts)
+
+
+def link(
+    service_manager: "ServiceManager",
+    conf: OsloConfigT,
+    reload_method: ReloadMethod = "reload",
+) -> None:
+    """Link services configuration and hooks from oslo config object.
+
+    oslo_config_glue.register_opts() must be called first to register required options.
 
     It reads ServiceManager and Service configuration options from an
     oslo_config.ConfigOpts() object. Also It registers a ServiceManager hook to
@@ -85,6 +122,7 @@ def setup(service_manager, conf, reload_method="reload") -> None:
     Options currently supported on ServiceManager and Service:
     * graceful_shutdown_timeout
 
+
     :param service_manager: ServiceManager instance
     :type service_manager: cotyledon.ServiceManager
     :param conf: Oslo Config object
@@ -92,7 +130,6 @@ def setup(service_manager, conf, reload_method="reload") -> None:
     :param reload_method: reload or mutate the config files
     :type reload_method: str "reload/mutate"
     """
-    conf.register_opts(service_opts)
 
     # Set cotyledon options from oslo config options
     _load_service_manager_options(service_manager, conf)
@@ -112,6 +149,25 @@ def setup(service_manager, conf, reload_method="reload") -> None:
     )
 
 
-def list_opts():
+def setup(
+    service_manager: "ServiceManager",
+    conf: OsloConfigT,
+    reload_method: ReloadMethod = "reload",
+) -> None:
+    """Setup oslo config options registry and load services configuration from them
+
+    :param service_manager: ServiceManager instance
+    :type service_manager: cotyledon.ServiceManager
+    :param conf: Oslo Config object
+    :type conf: oslo_config.ConfigOpts()
+    :param reload_method: reload or mutate the config files
+    :type reload_method: str "reload/mutate"
+    """
+
+    register_opts(conf)
+    link(service_manager, conf, reload_method)
+
+
+def list_opts() -> list[typing.Any]:
     """Entry point for oslo-config-generator."""
     return [(None, copy.deepcopy(service_opts))]

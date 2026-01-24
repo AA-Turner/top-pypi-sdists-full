@@ -25,10 +25,10 @@ All supported use cases are in the unit tests
 import argparse
 import json
 import sys
-from typing import Literal, TextIO, overload
+from typing import Any, Literal, TextIO, overload
 
-from .constants import JSONReturnType
 from .json_parser import JSONParser
+from .utils.constants import JSONReturnType
 
 
 @overload
@@ -40,7 +40,8 @@ def repair_json(
     json_fd: TextIO | None = None,
     chunk_length: int = 0,
     stream_stable: bool = False,
-    **json_dumps_args,
+    strict: bool = False,
+    **json_dumps_args: Any,
 ) -> str: ...
 
 
@@ -53,7 +54,8 @@ def repair_json(
     json_fd: TextIO | None = None,
     chunk_length: int = 0,
     stream_stable: bool = False,
-    **json_dumps_args,
+    strict: bool = False,
+    **json_dumps_args: Any,
 ) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]]: ...
 
 
@@ -65,8 +67,9 @@ def repair_json(
     json_fd: TextIO | None = None,
     chunk_length: int = 0,
     stream_stable: bool = False,
-    **json_dumps_args,
-) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]] | tuple[JSONReturnType, list]:
+    strict: bool = False,
+    **json_dumps_args: Any,
+) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]]:
     """
     Given a json formatted string, it will try to decode it and, if it fails, it will try to fix it.
 
@@ -79,10 +82,11 @@ def repair_json(
         ensure_ascii (bool, optional): Set to False to avoid converting non-latin characters to ascii (for example when using chinese characters). Defaults to True. Ignored if `skip_json_loads` is True.
         chunk_length (int, optional): Size in bytes of the file chunks to read at once. Ignored if `json_fd` is None. Do not use! Use `from_file` or `load` instead. Defaults to 1MB.
         stream_stable (bool, optional): When the json to be repaired is the accumulation of streaming json at a certain moment.If this parameter to True will keep the repair results stable.
+        strict (bool, optional): If True, surface structural problems (duplicate keys, missing separators, empty keys/values, etc.) as ValueError instead of repairing them.
     Returns:
         Union[JSONReturnType, Tuple[JSONReturnType, List[Dict[str, str]]]]: The repaired JSON or a tuple with the repaired JSON and repair log when logging is True.
     """
-    parser = JSONParser(json_str, json_fd, logging, chunk_length, stream_stable)
+    parser = JSONParser(json_str, json_fd, logging, chunk_length, stream_stable, strict)
     if skip_json_loads:
         parsed_json = parser.parse()
     else:
@@ -109,6 +113,7 @@ def loads(
     skip_json_loads: bool = False,
     logging: bool = False,
     stream_stable: bool = False,
+    strict: bool = False,
 ) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]] | str:
     """
     This function works like `json.loads()` except that it will fix your JSON in the process.
@@ -118,6 +123,7 @@ def loads(
         json_str (str): The JSON string to load and repair.
         skip_json_loads (bool, optional): If True, skip calling the built-in json.loads() function to verify that the json is valid before attempting to repair. Defaults to False.
         logging (bool, optional): If True, return a tuple with the repaired json and a log of all repair actions. Defaults to False.
+        strict (bool, optional): If True, surface structural problems (duplicate keys, missing separators, empty keys/values, etc.) as ValueError instead of repairing them.
 
     Returns:
         Union[JSONReturnType, Tuple[JSONReturnType, List[Dict[str, str]]], str]: The repaired JSON object or a tuple with the repaired JSON object and repair log.
@@ -128,6 +134,7 @@ def loads(
         skip_json_loads=skip_json_loads,
         logging=logging,
         stream_stable=stream_stable,
+        strict=strict,
     )
 
 
@@ -136,6 +143,7 @@ def load(
     skip_json_loads: bool = False,
     logging: bool = False,
     chunk_length: int = 0,
+    strict: bool = False,
 ) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]]:
     """
     This function works like `json.load()` except that it will fix your JSON in the process.
@@ -146,6 +154,7 @@ def load(
         skip_json_loads (bool, optional): If True, skip calling the built-in json.loads() function to verify that the json is valid before attempting to repair. Defaults to False.
         logging (bool, optional): If True, return a tuple with the repaired json and a log of all repair actions. Defaults to False.
         chunk_length (int, optional): Size in bytes of the file chunks to read at once. Defaults to 1MB.
+        strict (bool, optional): If True, surface structural problems (duplicate keys, missing separators, empty keys/values, etc.) as ValueError instead of repairing them.
 
     Returns:
         Union[JSONReturnType, Tuple[JSONReturnType, List[Dict[str, str]]]]: The repaired JSON object or a tuple with the repaired JSON object and repair log.
@@ -156,6 +165,7 @@ def load(
         return_objects=True,
         skip_json_loads=skip_json_loads,
         logging=logging,
+        strict=strict,
     )
 
 
@@ -164,6 +174,7 @@ def from_file(
     skip_json_loads: bool = False,
     logging: bool = False,
     chunk_length: int = 0,
+    strict: bool = False,
 ) -> JSONReturnType | tuple[JSONReturnType, list[dict[str, str]]]:
     """
     This function is a wrapper around `load()` so you can pass the filename as string
@@ -173,6 +184,7 @@ def from_file(
         skip_json_loads (bool, optional): If True, skip calling the built-in json.loads() function to verify that the json is valid before attempting to repair. Defaults to False.
         logging (bool, optional): If True, return a tuple with the repaired json and a log of all repair actions. Defaults to False.
         chunk_length (int, optional): Size in bytes of the file chunks to read at once. Defaults to 1MB.
+        strict (bool, optional): If True, surface structural problems (duplicate keys, missing separators, empty keys/values, etc.) as ValueError instead of repairing them.
 
     Returns:
         Union[JSONReturnType, Tuple[JSONReturnType, List[Dict[str, str]]]]: The repaired JSON object or a tuple with the repaired JSON object and repair log.
@@ -183,6 +195,7 @@ def from_file(
             skip_json_loads=skip_json_loads,
             logging=logging,
             chunk_length=chunk_length,
+            strict=strict,
         )
 
     return jsonobj
@@ -240,6 +253,11 @@ def cli(inline_args: list[str] | None = None) -> int:
         default=2,
         help="Number of spaces for indentation (Default 2)",
     )
+    parser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Raise on duplicate keys, missing separators, empty keys/values, and other unrecoverable structures instead of repairing them",
+    )
 
     args = parser.parse_args() if inline_args is None else parser.parse_args(inline_args)
 
@@ -259,10 +277,10 @@ def cli(inline_args: list[str] | None = None) -> int:
     try:
         # Use from_file if a filename is provided; otherwise read from stdin.
         if args.filename:
-            result = from_file(args.filename)
+            result = from_file(args.filename, strict=args.strict)
         else:
             data = sys.stdin.read()
-            result = loads(data)
+            result = loads(data, strict=args.strict)
         if args.inline or args.output:
             with open(args.output or args.filename, mode="w") as fd:
                 json.dump(result, fd, indent=args.indent, ensure_ascii=ensure_ascii)

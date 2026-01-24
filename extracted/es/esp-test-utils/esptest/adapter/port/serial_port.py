@@ -1,28 +1,43 @@
 import time
-from typing import TYPE_CHECKING, Any, AnyStr, Dict, Optional, TypeAlias
+from typing import TYPE_CHECKING
 
 import serial
-from serial import Serial
+from serial import Serial, SerialBase
+
+import esptest.common.compat_typing as t
 
 from ...common import to_bytes
 from ...logger import get_logger
 from .base_port import BasePort
 
 if TYPE_CHECKING:
-    MixinBase: TypeAlias = 'BasePort'
+    MixinBase: t.TypeAlias = 'BasePort'
 else:
     MixinBase = object
 
 logger = get_logger('ser_port')
 
 
-class SerialExt(Serial):
-    """Add RawPort methods to serial.Serial"""
+class SerialBaseProtocol(t.Protocol):
+    @property
+    def port(self) -> t.Optional[str]: ...
 
+    @property
+    def baudrate(self) -> t.Optional[int]: ...
+
+    @property
+    def timeout(self) -> t.Optional[float]: ...
+
+    def read(self, size: int = 1) -> bytes: ...
+
+    def write(self, data: t.AnyStr) -> int: ...
+
+
+class SerMixin(SerialBaseProtocol):
     @property
     def read_timeout(self) -> float:
         # For PortSpawn
-        return super().timeout or 0.001  # type: ignore
+        return self.timeout or 0.001  # type: ignore
 
     def read_bytes(self, timeout: float = 0.001) -> bytes:
         # For PortSpawn
@@ -30,25 +45,52 @@ class SerialExt(Serial):
         assert self.timeout >= 0.001
         if timeout > self.timeout:
             time.sleep(timeout - self.timeout)
-        return super().read(1024)  # type: ignore
+        return self.read(1024)  # type: ignore
 
-    def write_bytes(self, data: AnyStr) -> None:
+    def write_bytes(self, data: t.AnyStr) -> int:
         # For PortSpawn
-        super().write(to_bytes(data))
+        self.write(to_bytes(data))
+        return len(to_bytes(data))
 
     def __str__(self) -> str:
-        """SerialPort<device=xxx,baudrate=xxx,timeout=xxx>"""
-        return f'SerialPort<device={self.port},baudrate={self.baudrate},timeout={self.timeout}>'
+        """SerialExt<device=xxx,baudrate=xxx,timeout=xxx>"""
+        return f'SerialExt<device={self.port},baudrate={self.baudrate},timeout={self.timeout}>'
+
+
+class SerialExt(Serial, SerMixin):
+    """Add RawPort methods to serial.Serial"""
+
+
+def serial_add_mixin(cls: t.Type[t.Any]) -> t.Type[t.Any]:
+    """动态为类添加 SerMixin"""
+    # 创建一个新的类，继承自原始类和 SerMixin
+    # 基类顺序与 SerialExt(Serial, SerMixin) 保持一致
+    return type(f'{cls.__name__}Ext', (cls, SerMixin), {})
 
 
 class SerialPortMixin(MixinBase):
     """Add RawPort methods to serial.Serial"""
 
-    def __init__(self, raw_port: Any, name: str, log_file: str = '') -> None:
-        if isinstance(raw_port, Serial):
+    @staticmethod
+    def _add_mixin_by_type(raw_port: t.Any) -> None:
+        """根据原始类型添加对应的 mixin"""
+        if raw_port is None:
+            return
+        original_type = type(raw_port)
+        # If the original type already includes SerMixin, do nothing.
+        # This prevents repeatedly nesting mixin classes when the serial
+        # object is reassigned and _add_mixin_by_type is called multiple times.
+        if issubclass(original_type, SerMixin):
+            return
+        if issubclass(original_type, Serial):
             raw_port.__class__ = SerialExt
+        elif issubclass(original_type, SerialBase):
+            raw_port.__class__ = serial_add_mixin(original_type)
+
+    def __init__(self, raw_port: t.Any, name: str, log_file: str = '') -> None:
+        self._add_mixin_by_type(raw_port)
         super().__init__(raw_port, name, log_file)
-        self._serial_config: Dict[str, Any] = {}
+        self._serial_config: t.Dict[str, t.Any] = {}
 
     def start_redirect_thread(self) -> None:
         if not self.serial:
@@ -72,12 +114,12 @@ class SerialPortMixin(MixinBase):
         super().start_redirect_thread()
 
     @property
-    def serial(self) -> Optional[SerialExt]:
+    def serial(self) -> t.Optional[SerialExt]:
         """Get Current serial instance."""
         return self._raw_port  # type: ignore
 
     @serial.setter
-    def serial(self, serial_instance: Optional[Serial]) -> None:
+    def serial(self, serial_instance: t.Optional[Serial]) -> None:
         """Set serial instance, will close and clean up the old serial resources"""
         if self._raw_port:
             # Close pexpect proc
@@ -87,7 +129,7 @@ class SerialPortMixin(MixinBase):
             #     self._port.close()
         if serial_instance:
             self._raw_port = serial_instance
-            self._raw_port.__class__ = SerialExt
+            self._add_mixin_by_type(serial_instance)
             self.start_redirect_thread()
 
     def close(self) -> None:
@@ -107,7 +149,7 @@ class SerialPort(SerialPortMixin, BasePort):
     This class using serial with pexpect.
     """
 
-    def __init__(self, dut: Serial, name: str, log_file: str = '', **kwargs: Any) -> None:
+    def __init__(self, dut: Serial, name: str, log_file: str = '', **kwargs: t.Any) -> None:
         if not dut:
             self.INIT_START_REDIRECT_THREAD = False  # pylint: disable=invalid-name
         super().__init__(dut, name, log_file, **kwargs)

@@ -26,6 +26,39 @@ class TeoClient(AbstractClient):
     _service = 'teo'
 
 
+    def ApplyFreeCertificate(self, request):
+        r"""This API is used to apply for a free certificate. If you need to proceed with DNS delegated verification or file verification, you can call this API to initiate the certificate application and obtain the corresponding verification content based on the application method. The order for API calls is as follows:.
+        Step 1: Call ApplyFreeCertificate, specify the verification method for free certificate application, and obtain the verification content.
+        Step 2: Configure the corresponding domain as verification content.
+        Step 3: Call CheckFreeCertificateVerification to verify. After verification passes, the free certificate application is completed.
+        Step 4: Call ModifyHostsCertificate to issue a domain certificate configured to use the EdgeOne free certificate.
+
+        The application method introduction in the document: [Free Certificate Application Description](https://www.tencentcloud.com/document/product/1552/90437?from_cn_redirect=1).
+        description:.
+        - Only CNAME access mode can call this API to specify the free certificate application method. NS/DNSPod hosting access modes use automatic validation to apply for free certificates with no need to call this API.
+        - If you need to switch the free certificate authentication method, you can call this API again by changing the VerificationMethod field to update it.
+        - A domain name can only apply for one free certificate. After calling this API, the backend will trigger the free certificate application task. You need to complete the domain name verification info configuration within 2 days, then finish certificate authentication.
+
+        :param request: Request instance for ApplyFreeCertificate.
+        :type request: :class:`tencentcloud.teo.v20220901.models.ApplyFreeCertificateRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.ApplyFreeCertificateResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ApplyFreeCertificate", params, headers=headers)
+            response = json.loads(body)
+            model = models.ApplyFreeCertificateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def BindSecurityTemplateToEntity(self, request):
         r"""This API is used to bind/unbind a domain name to/from a specific policy template.
 
@@ -109,6 +142,53 @@ class TeoClient(AbstractClient):
             body = self.call("CheckCnameStatus", params, headers=headers)
             response = json.loads(body)
             model = models.CheckCnameStatusResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CheckFreeCertificateVerification(self, request):
+        r"""This API is used to verify a free certificate and obtain the application result. If verified, you can query the free certificate information for the corresponding domain name application through this API. If failed to apply, this API will return the corresponding verification failure message.
+        This API is used to check the free certificate application result after triggering the [ApplyFreeCertificate](https://www.tencentcloud.com/document/product/1552/124807?from_cn_redirect=1) . Once the application is successful, you need to configure through the [ModifyHostsCertificate](https://www.tencentcloud.com/document/product/1552/80764?from_cn_redirect=1) to deploy the free certificate to the acceleration domain.
+
+        :param request: Request instance for CheckFreeCertificateVerification.
+        :type request: :class:`tencentcloud.teo.v20220901.models.CheckFreeCertificateVerificationRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.CheckFreeCertificateVerificationResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CheckFreeCertificateVerification", params, headers=headers)
+            response = json.loads(body)
+            model = models.CheckFreeCertificateVerificationResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ConfirmMultiPathGatewayOriginACL(self, request):
+        r"""This API is used to confirm the latest origin IP range is updated to the origin server firewall when the multi-channel security acceleration gateway's origin IP range changes.
+
+        :param request: Request instance for ConfirmMultiPathGatewayOriginACL.
+        :type request: :class:`tencentcloud.teo.v20220901.models.ConfirmMultiPathGatewayOriginACLRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.ConfirmMultiPathGatewayOriginACLResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ConfirmMultiPathGatewayOriginACL", params, headers=headers)
+            response = json.loads(body)
+            model = models.ConfirmMultiPathGatewayOriginACLResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -400,7 +480,7 @@ class TeoClient(AbstractClient):
     def CreateJustInTimeTranscodeTemplate(self, request):
         r"""JIT transcoding already provides preset transcoding templates to meet most needs. If there are personalized transcoding requirements, you can create custom transcoding templates through this API, with up to 100 custom transcoding templates allowed.
         This API is used to ensure the consistency of JIT transcoding effect, avoid video output exceptions caused by EO cache or M3U8 sharding template changes during the process, and templates cannot be modified after creation.
-        This API is used to learn about the detailed capacity of JIT transcoding. EdgeOne video instant processing function introduction (https://www.tencentcloud.comom/document/product/1552/111927?from_cn_redirect=1).
+        This API is used to learn about the detailed capacity of JIT transcoding. EdgeOne video instant processing function introduction (https://www.tencentcloud.com/document/product/1552/111927?from_cn_redirect=1).
 
         :param request: Request instance for CreateJustInTimeTranscodeTemplate.
         :type request: :class:`tencentcloud.teo.v20220901.models.CreateJustInTimeTranscodeTemplateRequest`
@@ -966,7 +1046,7 @@ class TeoClient(AbstractClient):
 
     def DeleteAliasDomain(self, request):
         r"""This API is used to delete an alias domain name.
-        The feature is only supported by the enterprise plan and is currently in closed beta testing. If you need to use it, [Contact Us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service?from=connect-us).
+        The feature is only supported by the enterprise plan and is currently in closed beta testing. If you need to use it, [Contact Us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for DeleteAliasDomain.
         :type request: :class:`tencentcloud.teo.v20220901.models.DeleteAliasDomainRequest`
@@ -1611,7 +1691,7 @@ class TeoClient(AbstractClient):
 
     def DescribeAliasDomains(self, request):
         r"""This API is used to query the alias domain name information list.
-        The feature is only supported in the enterprise plan and is currently in closed beta testing. If you need to use it, [Contact Us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service?from=connect-us).
+        The feature is only supported in the enterprise plan and is currently in closed beta testing. If you need to use it, [Contact Us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for DescribeAliasDomains.
         :type request: :class:`tencentcloud.teo.v20220901.models.DescribeAliasDomainsRequest`
@@ -2255,7 +2335,7 @@ class TeoClient(AbstractClient):
 
 
     def DescribeLoadBalancerList(self, request):
-        r"""This API is used to query the LoadBalancer list. The load balancing feature is in beta test. If you need to use it, [contact us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service).
+        r"""This API is used to query the LoadBalancer list. The load balancing feature is in beta test. If you need to use it, [contact us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for DescribeLoadBalancerList.
         :type request: :class:`tencentcloud.teo.v20220901.models.DescribeLoadBalancerListRequest`
@@ -2314,6 +2394,29 @@ class TeoClient(AbstractClient):
             body = self.call("DescribeMultiPathGatewayLine", params, headers=headers)
             response = json.loads(body)
             model = models.DescribeMultiPathGatewayLineResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def DescribeMultiPathGatewayOriginACL(self, request):
+        r"""This API is used to query the binding relationship between a multi-channel security acceleration gateway instance and the origin server IP range, as well as the IP range details. If the MultiPathGatewayNextOriginACL field has a return value, the latest origin server IP range must be synchronized to the origin server firewall configuration.
+
+        :param request: Request instance for DescribeMultiPathGatewayOriginACL.
+        :type request: :class:`tencentcloud.teo.v20220901.models.DescribeMultiPathGatewayOriginACLRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.DescribeMultiPathGatewayOriginACLResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeMultiPathGatewayOriginACL", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeMultiPathGatewayOriginACLResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -2439,7 +2542,7 @@ class TeoClient(AbstractClient):
 
 
     def DescribeOriginGroupHealthStatus(self, request):
-        r"""This API is used to query the health status of origin server groups under a LoadBalancer. The load balancing feature is in beta test. If you need to use it, [contact us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service).
+        r"""This API is used to query the health status of origin server groups under a LoadBalancer. The load balancing feature is in beta test. If you need to use it, [contact us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for DescribeOriginGroupHealthStatus.
         :type request: :class:`tencentcloud.teo.v20220901.models.DescribeOriginGroupHealthStatusRequest`
@@ -2882,10 +2985,10 @@ class TeoClient(AbstractClient):
 
 
     def DescribeTimingL7AnalysisData(self, request):
-        r"""This API is used to query time-series data for L7 domain services.
-        Notes:
-        1. There is a delay of about 10 minutes for this API. It is recommended to query data from 10 minutes before the current time.
-        2. By default, the API returns traffic and request data after Web Security mitigation (that is, the clean traffic). Users can set `Filters.mitigatedByWebSecurity ` to query data that has been mitigated by Web Security.
+        r"""This API is used to query time series data for L7 domain name business.
+        Create and bind policy Query instance Reset instance access password.
+        This API is used to query data with a delay of about 10 minutes. It is recommended to pull data from at least 10 minutes before the current time.
+        This API is used to return post-protection traffic request data by default. Users can query defended data in `Filters.mitigatedByWebSecurity`.
 
         :param request: Request instance for DescribeTimingL7AnalysisData.
         :type request: :class:`tencentcloud.teo.v20220901.models.DescribeTimingL7AnalysisDataRequest`
@@ -2930,11 +3033,34 @@ class TeoClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def DescribeTimingL7OriginPullData(self, request):
+        r"""This API is used to query time series data for layer-7 domain services' origin-pull data.
+
+        :param request: Request instance for DescribeTimingL7OriginPullData.
+        :type request: :class:`tencentcloud.teo.v20220901.models.DescribeTimingL7OriginPullDataRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.DescribeTimingL7OriginPullDataResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("DescribeTimingL7OriginPullData", params, headers=headers)
+            response = json.loads(body)
+            model = models.DescribeTimingL7OriginPullDataResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def DescribeTopL7AnalysisData(self, request):
-        r"""This API is used to query the top N data of the L7 domain services by a specified dimension.
-        Notes:
-        1. There is a delay of about 10 minutes for this API. It is recommended to query data from 10 minutes before the current time.
-        2. By default, the API returns traffic and request data after Web Security mitigation (that is, the clean traffic). Users can set `Filters.mitigatedByWebSecurity ` to query data that has been mitigated by Web Security.
+        r"""This API is used to query the top N data of the L7 domain name business by specified dimension.
+        Create and bind policy Query instance Reset instance access password.
+        This API is used to query data with a delay of about 10 minutes. It is recommended to pull data from at least 10 minutes before the current time.
+        This API is used to return post-protection traffic request data by default. Users can query defended data in `Filters.mitigatedByWebSecurity`.
 
         :param request: Request instance for DescribeTopL7AnalysisData.
         :type request: :class:`tencentcloud.teo.v20220901.models.DescribeTopL7AnalysisDataRequest`
@@ -3100,7 +3226,7 @@ class TeoClient(AbstractClient):
             1. The plan has expired (except for the Enterprise Edition Plan);
             2. All sites under the plan have been either shut down or deleted.
 
-        > The site status can be queried through the [Query Site List](https://intl.cloud.tencent.com/document/product/1552/80713?from_cn_redirect=1) interface.
+        > The site status can be queried through the [Query Site List](https://www.tencentcloud.com/zh/document/product/1145/50481) interface.
         A site can be deactivated by switching the site to a closed status through the [Switch Site Status](https://intl.cloud.tencent.com/document/product/1552/80707?from_cn_redirect=1) interface.
         A site can be deleted by using the [Delete Site](https://intl.cloud.tencent.com/document/product/1552/80717?from_cn_redirect=1) interface.
 
@@ -3385,7 +3511,7 @@ class TeoClient(AbstractClient):
 
     def ModifyAliasDomain(self, request):
         r"""This API is used to modify an alias domain name.
-        The feature is only supported in the enterprise plan and is currently in closed beta testing. If you need to use it, [contact us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service?from=connect-us).
+        The feature is only supported in the enterprise plan and is currently in closed beta testing. If you need to use it, [contact us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for ModifyAliasDomain.
         :type request: :class:`tencentcloud.teo.v20220901.models.ModifyAliasDomainRequest`
@@ -3895,7 +4021,7 @@ class TeoClient(AbstractClient):
 
 
     def ModifyLoadBalancer(self, request):
-        r"""This API is used to modify LoadBalancer configuration. The load balancing feature is in beta test. If you need to use it, [contact us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service).
+        r"""This API is used to modify LoadBalancer configuration. The load balancing feature is in beta test. If you need to use it, [contact us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for ModifyLoadBalancer.
         :type request: :class:`tencentcloud.teo.v20220901.models.ModifyLoadBalancerRequest`
@@ -3977,6 +4103,29 @@ class TeoClient(AbstractClient):
             body = self.call("ModifyMultiPathGatewaySecretKey", params, headers=headers)
             response = json.loads(body)
             model = models.ModifyMultiPathGatewaySecretKeyResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ModifyMultiPathGatewayStatus(self, request):
+        r"""This API is used to update the status of a multi-channel security gateway.
+
+        :param request: Request instance for ModifyMultiPathGatewayStatus.
+        :type request: :class:`tencentcloud.teo.v20220901.models.ModifyMultiPathGatewayStatusRequest`
+        :rtype: :class:`tencentcloud.teo.v20220901.models.ModifyMultiPathGatewayStatusResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ModifyMultiPathGatewayStatus", params, headers=headers)
+            response = json.loads(body)
+            model = models.ModifyMultiPathGatewayStatusResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -4383,7 +4532,7 @@ class TeoClient(AbstractClient):
         r"""When you need features available only in higher-tier plans, you can upgrade your plan through this interface. Upgrades are only supported for Personal and Basic Edition Plans.
         > For differences between EdgeOne billing plans, refer to [Comparison of EdgeOne Plans](https://intl.cloud.tencent.com/document/product/1552/94165?from_cn_redirect=1).
         For EdgeOne plan upgrade rules and pricing details, refer to [EdgeOne Plan Upgrade Guide](https://intl.cloud.tencent.com/document/product/1552/95291?from_cn_redirect=1).
-        If your plan needs to upgrade to the Enterprise Edition, [Contact Us](https://intl.cloud.tencent.com/online?from_cn_redirect=1-service).
+        If your plan needs to upgrade to the Enterprise Edition, [Contact Us](https://www.tencentcloud.com/contact-us).
 
         :param request: Request instance for UpgradePlan.
         :type request: :class:`tencentcloud.teo.v20220901.models.UpgradePlanRequest`

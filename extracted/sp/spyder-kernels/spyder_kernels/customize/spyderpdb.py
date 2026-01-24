@@ -7,17 +7,20 @@
 
 """Spyder debugger."""
 
+from __future__ import annotations
+
 import ast
 import bdb
 import builtins
 from contextlib import contextmanager
+from collections import namedtuple
+from functools import lru_cache
 import logging
 import os
 import sys
 import traceback
 import threading
-from collections import namedtuple
-from functools import lru_cache
+import typing
 
 from IPython.core.autocall import ZMQExitAutocall
 from IPython.core.debugger import Pdb as ipyPdb
@@ -27,8 +30,14 @@ import spyder_kernels
 from spyder_kernels.comms.commbase import stacksummary_to_json
 from spyder_kernels.comms.frontendcomm import CommError, frontend_request
 from spyder_kernels.customize.utils import (
-    path_is_library, capture_last_Expr, exec_encapsulate_locals
+    path_is_library,
+    capture_last_Expr,
+    exec_encapsulate_locals,
 )
+
+
+if typing.TYPE_CHECKING:
+    from spyder_kernels.console.shell import SpyderShell
 
 
 logger = logging.getLogger(__name__)
@@ -85,7 +94,9 @@ class SpyderPdb(ipyPdb):
         self._exclamation_warning_printed = False
         self.pdb_stop_first_line = True
         self._disable_next_stack_entry = False
-        super(SpyderPdb, self).__init__()
+        self.shell: SpyderShell | None = None
+
+        super().__init__()
 
         # content of tuple: (filename, line number)
         self._previous_step = None
@@ -248,11 +259,6 @@ class SpyderPdb(ipyPdb):
         self.message("\nProgram interrupted. (Use 'cont' to resume).")
         self.set_step()
 
-    def set_trace(self, frame=None):
-        """Register that debugger is tracing."""
-        self.shell.add_pdb_session(self)
-        super(SpyderPdb, self).set_trace(frame)
-
     def set_quit(self):
         """Register that debugger is not tracing."""
         self.shell.remove_pdb_session(self)
@@ -351,16 +357,16 @@ class SpyderPdb(ipyPdb):
     do_bt = do_where
 
     # --- Method defined by us to respond to ipython complete protocol
-    def do_complete(self, code, cursor_pos):
+    async def do_complete(self, code, cursor_pos):
         """
         Respond to a complete request.
         """
         if self.pdb_use_exclamation_mark:
-            return self._complete_exclamation(code, cursor_pos)
+            return await self._complete_exclamation(code, cursor_pos)
         else:
-            return self._complete_default(code, cursor_pos)
+            return await self._complete_default(code, cursor_pos)
 
-    def _complete_default(self, code, cursor_pos):
+    async def _complete_default(self, code, cursor_pos):
         """
         Respond to a complete request if not pdb_use_exclamation_mark.
         """
@@ -422,7 +428,7 @@ class SpyderPdb(ipyPdb):
                 else:
                     frame = self.curframe
                 self.shell.set_completer_frame(frame)
-            result = self.shell.kernel._do_complete(code, cursor_pos)
+            result = await self.shell.kernel._do_complete(code, cursor_pos)
             # Reset frame
             self.shell.set_completer_frame()
             # If there is no Pdb results to merge, return the result
@@ -450,7 +456,7 @@ class SpyderPdb(ipyPdb):
                 'metadata': {},
                 'status': 'ok'}
 
-    def _complete_exclamation(self, code, cursor_pos):
+    async def _complete_exclamation(self, code, cursor_pos):
         """
         Respond to a complete request if pdb_use_exclamation_mark.
         """
@@ -529,7 +535,7 @@ class SpyderPdb(ipyPdb):
             else:
                 frame = self.curframe
             self.shell.set_completer_frame(frame)
-        result = self.shell.kernel._do_complete(code, cursor_pos)
+        result = await self.shell.kernel._do_complete(code, cursor_pos)
         # Reset frame
         self.shell.set_completer_frame()
         return result

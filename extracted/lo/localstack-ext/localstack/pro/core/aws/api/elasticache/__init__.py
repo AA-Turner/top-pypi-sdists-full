@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -878,11 +878,11 @@ class Tag(TypedDict, total=False):
     A tag with a null Value is permitted.
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class AddTagsToResourceMessage(ServiceRequest):
@@ -892,7 +892,7 @@ class AddTagsToResourceMessage(ServiceRequest):
     Tags: TagList
 
 
-NodeTypeList = List[String]
+NodeTypeList = list[String]
 
 
 class AllowedNodeTypeModificationsMessage(TypedDict, total=False):
@@ -900,25 +900,25 @@ class AllowedNodeTypeModificationsMessage(TypedDict, total=False):
     replication group.
     """
 
-    ScaleUpModifications: Optional[NodeTypeList]
-    ScaleDownModifications: Optional[NodeTypeList]
+    ScaleUpModifications: NodeTypeList | None
+    ScaleDownModifications: NodeTypeList | None
 
 
 class Authentication(TypedDict, total=False):
     """Indicates whether the user requires a password to authenticate."""
 
-    Type: Optional[AuthenticationType]
-    PasswordCount: Optional[IntegerOptional]
+    Type: AuthenticationType | None
+    PasswordCount: IntegerOptional | None
 
 
-PasswordListInput = List[String]
+PasswordListInput = list[String]
 
 
 class AuthenticationMode(TypedDict, total=False):
     """Specifies the authentication mode to use."""
 
-    Type: Optional[InputAuthenticationType]
-    Passwords: Optional[PasswordListInput]
+    Type: InputAuthenticationType | None
+    Passwords: PasswordListInput | None
 
 
 class AuthorizeCacheSecurityGroupIngressMessage(ServiceRequest):
@@ -934,12 +934,12 @@ class EC2SecurityGroup(TypedDict, total=False):
     group.
     """
 
-    Status: Optional[String]
-    EC2SecurityGroupName: Optional[String]
-    EC2SecurityGroupOwnerId: Optional[String]
+    Status: String | None
+    EC2SecurityGroupName: String | None
+    EC2SecurityGroupOwnerId: String | None
 
 
-EC2SecurityGroupList = List[EC2SecurityGroup]
+EC2SecurityGroupList = list[EC2SecurityGroup]
 
 
 class CacheSecurityGroup(TypedDict, total=False):
@@ -952,50 +952,50 @@ class CacheSecurityGroup(TypedDict, total=False):
     -  ``RevokeCacheSecurityGroupIngress``
     """
 
-    OwnerId: Optional[String]
-    CacheSecurityGroupName: Optional[String]
-    Description: Optional[String]
-    EC2SecurityGroups: Optional[EC2SecurityGroupList]
-    ARN: Optional[String]
+    OwnerId: String | None
+    CacheSecurityGroupName: String | None
+    Description: String | None
+    EC2SecurityGroups: EC2SecurityGroupList | None
+    ARN: String | None
 
 
 class AuthorizeCacheSecurityGroupIngressResult(TypedDict, total=False):
-    CacheSecurityGroup: Optional[CacheSecurityGroup]
+    CacheSecurityGroup: CacheSecurityGroup | None
 
 
 class AvailabilityZone(TypedDict, total=False):
     """Describes an Availability Zone in which the cluster is launched."""
 
-    Name: Optional[String]
+    Name: String | None
 
 
-AvailabilityZonesList = List[String]
-CacheClusterIdList = List[String]
-ReplicationGroupIdList = List[String]
+AvailabilityZonesList = list[String]
+CacheClusterIdList = list[String]
+ReplicationGroupIdList = list[String]
 
 
 class BatchApplyUpdateActionMessage(ServiceRequest):
-    ReplicationGroupIds: Optional[ReplicationGroupIdList]
-    CacheClusterIds: Optional[CacheClusterIdList]
+    ReplicationGroupIds: ReplicationGroupIdList | None
+    CacheClusterIds: CacheClusterIdList | None
     ServiceUpdateName: String
 
 
 class BatchStopUpdateActionMessage(ServiceRequest):
-    ReplicationGroupIds: Optional[ReplicationGroupIdList]
-    CacheClusterIds: Optional[CacheClusterIdList]
+    ReplicationGroupIds: ReplicationGroupIdList | None
+    CacheClusterIds: CacheClusterIdList | None
     ServiceUpdateName: String
 
 
 class KinesisFirehoseDestinationDetails(TypedDict, total=False):
     """The configuration details of the Kinesis Data Firehose destination."""
 
-    DeliveryStream: Optional[String]
+    DeliveryStream: String | None
 
 
 class CloudWatchLogsDestinationDetails(TypedDict, total=False):
     """The configuration details of the CloudWatch Logs destination."""
 
-    LogGroup: Optional[String]
+    LogGroup: String | None
 
 
 class DestinationDetails(TypedDict, total=False):
@@ -1003,33 +1003,33 @@ class DestinationDetails(TypedDict, total=False):
     Data Firehose destination.
     """
 
-    CloudWatchLogsDetails: Optional[CloudWatchLogsDestinationDetails]
-    KinesisFirehoseDetails: Optional[KinesisFirehoseDestinationDetails]
+    CloudWatchLogsDetails: CloudWatchLogsDestinationDetails | None
+    KinesisFirehoseDetails: KinesisFirehoseDestinationDetails | None
 
 
 class LogDeliveryConfiguration(TypedDict, total=False):
     """Returns the destination, format and type of the logs."""
 
-    LogType: Optional[LogType]
-    DestinationType: Optional[DestinationType]
-    DestinationDetails: Optional[DestinationDetails]
-    LogFormat: Optional[LogFormat]
-    Status: Optional[LogDeliveryConfigurationStatus]
-    Message: Optional[String]
+    LogType: LogType | None
+    DestinationType: DestinationType | None
+    DestinationDetails: DestinationDetails | None
+    LogFormat: LogFormat | None
+    Status: LogDeliveryConfigurationStatus | None
+    Message: String | None
 
 
-LogDeliveryConfigurationList = List[LogDeliveryConfiguration]
+LogDeliveryConfigurationList = list[LogDeliveryConfiguration]
 TStamp = datetime
 
 
 class SecurityGroupMembership(TypedDict, total=False):
     """Represents a single cache security group and its status."""
 
-    SecurityGroupId: Optional[String]
-    Status: Optional[String]
+    SecurityGroupId: String | None
+    Status: String | None
 
 
-SecurityGroupMembershipList = List[SecurityGroupMembership]
+SecurityGroupMembershipList = list[SecurityGroupMembership]
 
 
 class Endpoint(TypedDict, total=False):
@@ -1037,8 +1037,8 @@ class Endpoint(TypedDict, total=False):
     cache node. This value is read-only.
     """
 
-    Address: Optional[String]
-    Port: Optional[Integer]
+    Address: String | None
+    Port: Integer | None
 
 
 class CacheNode(TypedDict, total=False):
@@ -1157,36 +1157,36 @@ class CacheNode(TypedDict, total=False):
        not supported on Valkey, or on Redis OSS version 2.8.22 and later.
     """
 
-    CacheNodeId: Optional[String]
-    CacheNodeStatus: Optional[String]
-    CacheNodeCreateTime: Optional[TStamp]
-    Endpoint: Optional[Endpoint]
-    ParameterGroupStatus: Optional[String]
-    SourceCacheNodeId: Optional[String]
-    CustomerAvailabilityZone: Optional[String]
-    CustomerOutpostArn: Optional[String]
+    CacheNodeId: String | None
+    CacheNodeStatus: String | None
+    CacheNodeCreateTime: TStamp | None
+    Endpoint: Endpoint | None
+    ParameterGroupStatus: String | None
+    SourceCacheNodeId: String | None
+    CustomerAvailabilityZone: String | None
+    CustomerOutpostArn: String | None
 
 
-CacheNodeList = List[CacheNode]
-CacheNodeIdsList = List[String]
+CacheNodeList = list[CacheNode]
+CacheNodeIdsList = list[String]
 
 
 class CacheParameterGroupStatus(TypedDict, total=False):
     """Status of the cache parameter group."""
 
-    CacheParameterGroupName: Optional[String]
-    ParameterApplyStatus: Optional[String]
-    CacheNodeIdsToReboot: Optional[CacheNodeIdsList]
+    CacheParameterGroupName: String | None
+    ParameterApplyStatus: String | None
+    CacheNodeIdsToReboot: CacheNodeIdsList | None
 
 
 class CacheSecurityGroupMembership(TypedDict, total=False):
     """Represents a cluster's status within a particular cache security group."""
 
-    CacheSecurityGroupName: Optional[String]
-    Status: Optional[String]
+    CacheSecurityGroupName: String | None
+    Status: String | None
 
 
-CacheSecurityGroupMembershipList = List[CacheSecurityGroupMembership]
+CacheSecurityGroupMembershipList = list[CacheSecurityGroupMembership]
 
 
 class NotificationConfiguration(TypedDict, total=False):
@@ -1195,8 +1195,8 @@ class NotificationConfiguration(TypedDict, total=False):
     Simple Notification Service (SNS).
     """
 
-    TopicArn: Optional[String]
-    TopicStatus: Optional[String]
+    TopicArn: String | None
+    TopicStatus: String | None
 
 
 class ScaleConfig(TypedDict, total=False):
@@ -1204,20 +1204,20 @@ class ScaleConfig(TypedDict, total=False):
     Memcached clusters.
     """
 
-    ScalePercentage: Optional[IntegerOptional]
-    ScaleIntervalMinutes: Optional[IntegerOptional]
+    ScalePercentage: IntegerOptional | None
+    ScaleIntervalMinutes: IntegerOptional | None
 
 
 class PendingLogDeliveryConfiguration(TypedDict, total=False):
     """The log delivery configurations being modified"""
 
-    LogType: Optional[LogType]
-    DestinationType: Optional[DestinationType]
-    DestinationDetails: Optional[DestinationDetails]
-    LogFormat: Optional[LogFormat]
+    LogType: LogType | None
+    DestinationType: DestinationType | None
+    DestinationDetails: DestinationDetails | None
+    LogFormat: LogFormat | None
 
 
-PendingLogDeliveryConfigurationList = List[PendingLogDeliveryConfiguration]
+PendingLogDeliveryConfigurationList = list[PendingLogDeliveryConfiguration]
 
 
 class PendingModifiedValues(TypedDict, total=False):
@@ -1225,93 +1225,93 @@ class PendingModifiedValues(TypedDict, total=False):
     that are currently being applied.
     """
 
-    NumCacheNodes: Optional[IntegerOptional]
-    CacheNodeIdsToRemove: Optional[CacheNodeIdsList]
-    EngineVersion: Optional[String]
-    CacheNodeType: Optional[String]
-    AuthTokenStatus: Optional[AuthTokenUpdateStatus]
-    LogDeliveryConfigurations: Optional[PendingLogDeliveryConfigurationList]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    TransitEncryptionMode: Optional[TransitEncryptionMode]
-    ScaleConfig: Optional[ScaleConfig]
+    NumCacheNodes: IntegerOptional | None
+    CacheNodeIdsToRemove: CacheNodeIdsList | None
+    EngineVersion: String | None
+    CacheNodeType: String | None
+    AuthTokenStatus: AuthTokenUpdateStatus | None
+    LogDeliveryConfigurations: PendingLogDeliveryConfigurationList | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    TransitEncryptionMode: TransitEncryptionMode | None
+    ScaleConfig: ScaleConfig | None
 
 
 class CacheCluster(TypedDict, total=False):
     """Contains all of the attributes of a specific cluster."""
 
-    CacheClusterId: Optional[String]
-    ConfigurationEndpoint: Optional[Endpoint]
-    ClientDownloadLandingPage: Optional[String]
-    CacheNodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    CacheClusterStatus: Optional[String]
-    NumCacheNodes: Optional[IntegerOptional]
-    PreferredAvailabilityZone: Optional[String]
-    PreferredOutpostArn: Optional[String]
-    CacheClusterCreateTime: Optional[TStamp]
-    PreferredMaintenanceWindow: Optional[String]
-    PendingModifiedValues: Optional[PendingModifiedValues]
-    NotificationConfiguration: Optional[NotificationConfiguration]
-    CacheSecurityGroups: Optional[CacheSecurityGroupMembershipList]
-    CacheParameterGroup: Optional[CacheParameterGroupStatus]
-    CacheSubnetGroupName: Optional[String]
-    CacheNodes: Optional[CacheNodeList]
-    AutoMinorVersionUpgrade: Optional[Boolean]
-    SecurityGroups: Optional[SecurityGroupMembershipList]
-    ReplicationGroupId: Optional[String]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    AuthTokenEnabled: Optional[BooleanOptional]
-    AuthTokenLastModifiedDate: Optional[TStamp]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    AtRestEncryptionEnabled: Optional[BooleanOptional]
-    ARN: Optional[String]
-    ReplicationGroupLogDeliveryEnabled: Optional[Boolean]
-    LogDeliveryConfigurations: Optional[LogDeliveryConfigurationList]
-    NetworkType: Optional[NetworkType]
-    IpDiscovery: Optional[IpDiscovery]
-    TransitEncryptionMode: Optional[TransitEncryptionMode]
+    CacheClusterId: String | None
+    ConfigurationEndpoint: Endpoint | None
+    ClientDownloadLandingPage: String | None
+    CacheNodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    CacheClusterStatus: String | None
+    NumCacheNodes: IntegerOptional | None
+    PreferredAvailabilityZone: String | None
+    PreferredOutpostArn: String | None
+    CacheClusterCreateTime: TStamp | None
+    PreferredMaintenanceWindow: String | None
+    PendingModifiedValues: PendingModifiedValues | None
+    NotificationConfiguration: NotificationConfiguration | None
+    CacheSecurityGroups: CacheSecurityGroupMembershipList | None
+    CacheParameterGroup: CacheParameterGroupStatus | None
+    CacheSubnetGroupName: String | None
+    CacheNodes: CacheNodeList | None
+    AutoMinorVersionUpgrade: Boolean | None
+    SecurityGroups: SecurityGroupMembershipList | None
+    ReplicationGroupId: String | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    AuthTokenEnabled: BooleanOptional | None
+    AuthTokenLastModifiedDate: TStamp | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    AtRestEncryptionEnabled: BooleanOptional | None
+    ARN: String | None
+    ReplicationGroupLogDeliveryEnabled: Boolean | None
+    LogDeliveryConfigurations: LogDeliveryConfigurationList | None
+    NetworkType: NetworkType | None
+    IpDiscovery: IpDiscovery | None
+    TransitEncryptionMode: TransitEncryptionMode | None
 
 
-CacheClusterList = List[CacheCluster]
+CacheClusterList = list[CacheCluster]
 
 
 class CacheClusterMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeCacheClusters`` operation."""
 
-    Marker: Optional[String]
-    CacheClusters: Optional[CacheClusterList]
+    Marker: String | None
+    CacheClusters: CacheClusterList | None
 
 
 class CacheEngineVersion(TypedDict, total=False):
     """Provides all of the details about a particular cache engine version."""
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    CacheParameterGroupFamily: Optional[String]
-    CacheEngineDescription: Optional[String]
-    CacheEngineVersionDescription: Optional[String]
+    Engine: String | None
+    EngineVersion: String | None
+    CacheParameterGroupFamily: String | None
+    CacheEngineDescription: String | None
+    CacheEngineVersionDescription: String | None
 
 
-CacheEngineVersionList = List[CacheEngineVersion]
+CacheEngineVersionList = list[CacheEngineVersion]
 
 
 class CacheEngineVersionMessage(TypedDict, total=False):
     """Represents the output of a DescribeCacheEngineVersions operation."""
 
-    Marker: Optional[String]
-    CacheEngineVersions: Optional[CacheEngineVersionList]
+    Marker: String | None
+    CacheEngineVersions: CacheEngineVersionList | None
 
 
 class CacheNodeTypeSpecificValue(TypedDict, total=False):
     """A value that applies only to a certain cache node type."""
 
-    CacheNodeType: Optional[String]
-    Value: Optional[String]
+    CacheNodeType: String | None
+    Value: String | None
 
 
-CacheNodeTypeSpecificValueList = List[CacheNodeTypeSpecificValue]
+CacheNodeTypeSpecificValueList = list[CacheNodeTypeSpecificValue]
 
 
 class CacheNodeTypeSpecificParameter(TypedDict, total=False):
@@ -1321,44 +1321,44 @@ class CacheNodeTypeSpecificParameter(TypedDict, total=False):
     value than a ``cache.m1.small`` type.
     """
 
-    ParameterName: Optional[String]
-    Description: Optional[String]
-    Source: Optional[String]
-    DataType: Optional[String]
-    AllowedValues: Optional[String]
-    IsModifiable: Optional[Boolean]
-    MinimumEngineVersion: Optional[String]
-    CacheNodeTypeSpecificValues: Optional[CacheNodeTypeSpecificValueList]
-    ChangeType: Optional[ChangeType]
+    ParameterName: String | None
+    Description: String | None
+    Source: String | None
+    DataType: String | None
+    AllowedValues: String | None
+    IsModifiable: Boolean | None
+    MinimumEngineVersion: String | None
+    CacheNodeTypeSpecificValues: CacheNodeTypeSpecificValueList | None
+    ChangeType: ChangeType | None
 
 
-CacheNodeTypeSpecificParametersList = List[CacheNodeTypeSpecificParameter]
+CacheNodeTypeSpecificParametersList = list[CacheNodeTypeSpecificParameter]
 
 
 class CacheNodeUpdateStatus(TypedDict, total=False):
     """The status of the service update on the cache node"""
 
-    CacheNodeId: Optional[String]
-    NodeUpdateStatus: Optional[NodeUpdateStatus]
-    NodeDeletionDate: Optional[TStamp]
-    NodeUpdateStartDate: Optional[TStamp]
-    NodeUpdateEndDate: Optional[TStamp]
-    NodeUpdateInitiatedBy: Optional[NodeUpdateInitiatedBy]
-    NodeUpdateInitiatedDate: Optional[TStamp]
-    NodeUpdateStatusModifiedDate: Optional[TStamp]
+    CacheNodeId: String | None
+    NodeUpdateStatus: NodeUpdateStatus | None
+    NodeDeletionDate: TStamp | None
+    NodeUpdateStartDate: TStamp | None
+    NodeUpdateEndDate: TStamp | None
+    NodeUpdateInitiatedBy: NodeUpdateInitiatedBy | None
+    NodeUpdateInitiatedDate: TStamp | None
+    NodeUpdateStatusModifiedDate: TStamp | None
 
 
-CacheNodeUpdateStatusList = List[CacheNodeUpdateStatus]
+CacheNodeUpdateStatusList = list[CacheNodeUpdateStatus]
 
 
 class CacheParameterGroup(TypedDict, total=False):
     """Represents the output of a ``CreateCacheParameterGroup`` operation."""
 
-    CacheParameterGroupName: Optional[String]
-    CacheParameterGroupFamily: Optional[String]
-    Description: Optional[String]
-    IsGlobal: Optional[Boolean]
-    ARN: Optional[String]
+    CacheParameterGroupName: String | None
+    CacheParameterGroupFamily: String | None
+    Description: String | None
+    IsGlobal: Boolean | None
+    ARN: String | None
 
 
 class Parameter(TypedDict, total=False):
@@ -1366,29 +1366,29 @@ class Parameter(TypedDict, total=False):
     behavior.
     """
 
-    ParameterName: Optional[String]
-    ParameterValue: Optional[String]
-    Description: Optional[String]
-    Source: Optional[String]
-    DataType: Optional[String]
-    AllowedValues: Optional[String]
-    IsModifiable: Optional[Boolean]
-    MinimumEngineVersion: Optional[String]
-    ChangeType: Optional[ChangeType]
+    ParameterName: String | None
+    ParameterValue: String | None
+    Description: String | None
+    Source: String | None
+    DataType: String | None
+    AllowedValues: String | None
+    IsModifiable: Boolean | None
+    MinimumEngineVersion: String | None
+    ChangeType: ChangeType | None
 
 
-ParametersList = List[Parameter]
+ParametersList = list[Parameter]
 
 
 class CacheParameterGroupDetails(TypedDict, total=False):
     """Represents the output of a ``DescribeCacheParameters`` operation."""
 
-    Marker: Optional[String]
-    Parameters: Optional[ParametersList]
-    CacheNodeTypeSpecificParameters: Optional[CacheNodeTypeSpecificParametersList]
+    Marker: String | None
+    Parameters: ParametersList | None
+    CacheNodeTypeSpecificParameters: CacheNodeTypeSpecificParametersList | None
 
 
-CacheParameterGroupList = List[CacheParameterGroup]
+CacheParameterGroupList = list[CacheParameterGroup]
 
 
 class CacheParameterGroupNameMessage(TypedDict, total=False):
@@ -1399,34 +1399,34 @@ class CacheParameterGroupNameMessage(TypedDict, total=False):
     -  ``ResetCacheParameterGroup``
     """
 
-    CacheParameterGroupName: Optional[String]
+    CacheParameterGroupName: String | None
 
 
 class CacheParameterGroupsMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeCacheParameterGroups`` operation."""
 
-    Marker: Optional[String]
-    CacheParameterGroups: Optional[CacheParameterGroupList]
+    Marker: String | None
+    CacheParameterGroups: CacheParameterGroupList | None
 
 
-CacheSecurityGroups = List[CacheSecurityGroup]
+CacheSecurityGroups = list[CacheSecurityGroup]
 
 
 class CacheSecurityGroupMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeCacheSecurityGroups`` operation."""
 
-    Marker: Optional[String]
-    CacheSecurityGroups: Optional[CacheSecurityGroups]
+    Marker: String | None
+    CacheSecurityGroups: CacheSecurityGroups | None
 
 
-CacheSecurityGroupNameList = List[String]
-NetworkTypeList = List[NetworkType]
+CacheSecurityGroupNameList = list[String]
+NetworkTypeList = list[NetworkType]
 
 
 class SubnetOutpost(TypedDict, total=False):
     """The ID of the outpost subnet."""
 
-    SubnetOutpostArn: Optional[String]
+    SubnetOutpostArn: String | None
 
 
 class Subnet(TypedDict, total=False):
@@ -1435,13 +1435,13 @@ class Subnet(TypedDict, total=False):
     with ElastiCache.
     """
 
-    SubnetIdentifier: Optional[String]
-    SubnetAvailabilityZone: Optional[AvailabilityZone]
-    SubnetOutpost: Optional[SubnetOutpost]
-    SupportedNetworkTypes: Optional[NetworkTypeList]
+    SubnetIdentifier: String | None
+    SubnetAvailabilityZone: AvailabilityZone | None
+    SubnetOutpost: SubnetOutpost | None
+    SupportedNetworkTypes: NetworkTypeList | None
 
 
-SubnetList = List[Subnet]
+SubnetList = list[Subnet]
 
 
 class CacheSubnetGroup(TypedDict, total=False):
@@ -1452,22 +1452,22 @@ class CacheSubnetGroup(TypedDict, total=False):
     -  ``ModifyCacheSubnetGroup``
     """
 
-    CacheSubnetGroupName: Optional[String]
-    CacheSubnetGroupDescription: Optional[String]
-    VpcId: Optional[String]
-    Subnets: Optional[SubnetList]
-    ARN: Optional[String]
-    SupportedNetworkTypes: Optional[NetworkTypeList]
+    CacheSubnetGroupName: String | None
+    CacheSubnetGroupDescription: String | None
+    VpcId: String | None
+    Subnets: SubnetList | None
+    ARN: String | None
+    SupportedNetworkTypes: NetworkTypeList | None
 
 
-CacheSubnetGroups = List[CacheSubnetGroup]
+CacheSubnetGroups = list[CacheSubnetGroup]
 
 
 class CacheSubnetGroupMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeCacheSubnetGroups`` operation."""
 
-    Marker: Optional[String]
-    CacheSubnetGroups: Optional[CacheSubnetGroups]
+    Marker: String | None
+    CacheSubnetGroups: CacheSubnetGroups | None
 
 
 class ECPUPerSecond(TypedDict, total=False):
@@ -1475,15 +1475,15 @@ class ECPUPerSecond(TypedDict, total=False):
     the cache can consume per second.
     """
 
-    Maximum: Optional[IntegerOptional]
-    Minimum: Optional[IntegerOptional]
+    Maximum: IntegerOptional | None
+    Minimum: IntegerOptional | None
 
 
 class DataStorage(TypedDict, total=False):
     """The data storage limit."""
 
-    Maximum: Optional[IntegerOptional]
-    Minimum: Optional[IntegerOptional]
+    Maximum: IntegerOptional | None
+    Minimum: IntegerOptional | None
     Unit: DataStorageUnit
 
 
@@ -1492,34 +1492,34 @@ class CacheUsageLimits(TypedDict, total=False):
     cache.
     """
 
-    DataStorage: Optional[DataStorage]
-    ECPUPerSecond: Optional[ECPUPerSecond]
+    DataStorage: DataStorage | None
+    ECPUPerSecond: ECPUPerSecond | None
 
 
-ClusterIdList = List[String]
+ClusterIdList = list[String]
 
 
 class CompleteMigrationMessage(ServiceRequest):
     ReplicationGroupId: String
-    Force: Optional[Boolean]
+    Force: Boolean | None
 
 
-UserGroupIdList = List[UserGroupId]
-ReplicationGroupOutpostArnList = List[String]
+UserGroupIdList = list[UserGroupId]
+ReplicationGroupOutpostArnList = list[String]
 
 
 class NodeGroupMember(TypedDict, total=False):
     """Represents a single node within a node group (shard)."""
 
-    CacheClusterId: Optional[String]
-    CacheNodeId: Optional[String]
-    ReadEndpoint: Optional[Endpoint]
-    PreferredAvailabilityZone: Optional[String]
-    PreferredOutpostArn: Optional[String]
-    CurrentRole: Optional[String]
+    CacheClusterId: String | None
+    CacheNodeId: String | None
+    ReadEndpoint: Endpoint | None
+    PreferredAvailabilityZone: String | None
+    PreferredOutpostArn: String | None
+    CurrentRole: String | None
 
 
-NodeGroupMemberList = List[NodeGroupMember]
+NodeGroupMemberList = list[NodeGroupMember]
 
 
 class NodeGroup(TypedDict, total=False):
@@ -1528,34 +1528,34 @@ class NodeGroup(TypedDict, total=False):
     are read-only Replica nodes.
     """
 
-    NodeGroupId: Optional[String]
-    Status: Optional[String]
-    PrimaryEndpoint: Optional[Endpoint]
-    ReaderEndpoint: Optional[Endpoint]
-    Slots: Optional[String]
-    NodeGroupMembers: Optional[NodeGroupMemberList]
+    NodeGroupId: String | None
+    Status: String | None
+    PrimaryEndpoint: Endpoint | None
+    ReaderEndpoint: Endpoint | None
+    Slots: String | None
+    NodeGroupMembers: NodeGroupMemberList | None
 
 
-NodeGroupList = List[NodeGroup]
+NodeGroupList = list[NodeGroup]
 
 
 class UserGroupsUpdateStatus(TypedDict, total=False):
     """The status of the user group update."""
 
-    UserGroupIdsToAdd: Optional[UserGroupIdList]
-    UserGroupIdsToRemove: Optional[UserGroupIdList]
+    UserGroupIdsToAdd: UserGroupIdList | None
+    UserGroupIdsToRemove: UserGroupIdList | None
 
 
 class SlotMigration(TypedDict, total=False):
     """Represents the progress of an online resharding operation."""
 
-    ProgressPercentage: Optional[Double]
+    ProgressPercentage: Double | None
 
 
 class ReshardingStatus(TypedDict, total=False):
     """The status of an online resharding operation."""
 
-    SlotMigration: Optional[SlotMigration]
+    SlotMigration: SlotMigration | None
 
 
 class ReplicationGroupPendingModifiedValues(TypedDict, total=False):
@@ -1563,15 +1563,15 @@ class ReplicationGroupPendingModifiedValues(TypedDict, total=False):
     either immediately or during the next maintenance window.
     """
 
-    PrimaryClusterId: Optional[String]
-    AutomaticFailoverStatus: Optional[PendingAutomaticFailoverStatus]
-    Resharding: Optional[ReshardingStatus]
-    AuthTokenStatus: Optional[AuthTokenUpdateStatus]
-    UserGroups: Optional[UserGroupsUpdateStatus]
-    LogDeliveryConfigurations: Optional[PendingLogDeliveryConfigurationList]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    TransitEncryptionMode: Optional[TransitEncryptionMode]
-    ClusterMode: Optional[ClusterMode]
+    PrimaryClusterId: String | None
+    AutomaticFailoverStatus: PendingAutomaticFailoverStatus | None
+    Resharding: ReshardingStatus | None
+    AuthTokenStatus: AuthTokenUpdateStatus | None
+    UserGroups: UserGroupsUpdateStatus | None
+    LogDeliveryConfigurations: PendingLogDeliveryConfigurationList | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    TransitEncryptionMode: TransitEncryptionMode | None
+    ClusterMode: ClusterMode | None
 
 
 class GlobalReplicationGroupInfo(TypedDict, total=False):
@@ -1579,8 +1579,8 @@ class GlobalReplicationGroupInfo(TypedDict, total=False):
     the Global datastore.
     """
 
-    GlobalReplicationGroupId: Optional[String]
-    GlobalReplicationGroupMemberRole: Optional[String]
+    GlobalReplicationGroupId: String | None
+    GlobalReplicationGroupMemberRole: String | None
 
 
 class ReplicationGroup(TypedDict, total=False):
@@ -1588,46 +1588,46 @@ class ReplicationGroup(TypedDict, total=False):
     replication group.
     """
 
-    ReplicationGroupId: Optional[String]
-    Description: Optional[String]
-    GlobalReplicationGroupInfo: Optional[GlobalReplicationGroupInfo]
-    Status: Optional[String]
-    PendingModifiedValues: Optional[ReplicationGroupPendingModifiedValues]
-    MemberClusters: Optional[ClusterIdList]
-    NodeGroups: Optional[NodeGroupList]
-    SnapshottingClusterId: Optional[String]
-    AutomaticFailover: Optional[AutomaticFailoverStatus]
-    MultiAZ: Optional[MultiAZStatus]
-    ConfigurationEndpoint: Optional[Endpoint]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    ClusterEnabled: Optional[BooleanOptional]
-    CacheNodeType: Optional[String]
-    AuthTokenEnabled: Optional[BooleanOptional]
-    AuthTokenLastModifiedDate: Optional[TStamp]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    AtRestEncryptionEnabled: Optional[BooleanOptional]
-    MemberClustersOutpostArns: Optional[ReplicationGroupOutpostArnList]
-    KmsKeyId: Optional[String]
-    ARN: Optional[String]
-    UserGroupIds: Optional[UserGroupIdList]
-    LogDeliveryConfigurations: Optional[LogDeliveryConfigurationList]
-    ReplicationGroupCreateTime: Optional[TStamp]
-    DataTiering: Optional[DataTieringStatus]
-    AutoMinorVersionUpgrade: Optional[Boolean]
-    NetworkType: Optional[NetworkType]
-    IpDiscovery: Optional[IpDiscovery]
-    TransitEncryptionMode: Optional[TransitEncryptionMode]
-    ClusterMode: Optional[ClusterMode]
-    Engine: Optional[String]
+    ReplicationGroupId: String | None
+    Description: String | None
+    GlobalReplicationGroupInfo: GlobalReplicationGroupInfo | None
+    Status: String | None
+    PendingModifiedValues: ReplicationGroupPendingModifiedValues | None
+    MemberClusters: ClusterIdList | None
+    NodeGroups: NodeGroupList | None
+    SnapshottingClusterId: String | None
+    AutomaticFailover: AutomaticFailoverStatus | None
+    MultiAZ: MultiAZStatus | None
+    ConfigurationEndpoint: Endpoint | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    ClusterEnabled: BooleanOptional | None
+    CacheNodeType: String | None
+    AuthTokenEnabled: BooleanOptional | None
+    AuthTokenLastModifiedDate: TStamp | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    AtRestEncryptionEnabled: BooleanOptional | None
+    MemberClustersOutpostArns: ReplicationGroupOutpostArnList | None
+    KmsKeyId: String | None
+    ARN: String | None
+    UserGroupIds: UserGroupIdList | None
+    LogDeliveryConfigurations: LogDeliveryConfigurationList | None
+    ReplicationGroupCreateTime: TStamp | None
+    DataTiering: DataTieringStatus | None
+    AutoMinorVersionUpgrade: Boolean | None
+    NetworkType: NetworkType | None
+    IpDiscovery: IpDiscovery | None
+    TransitEncryptionMode: TransitEncryptionMode | None
+    ClusterMode: ClusterMode | None
+    Engine: String | None
 
 
 class CompleteMigrationResponse(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
-PreferredOutpostArnList = List[String]
-PreferredAvailabilityZoneList = List[String]
+PreferredOutpostArnList = list[String]
+PreferredAvailabilityZoneList = list[String]
 
 
 class ConfigureShard(TypedDict, total=False):
@@ -1638,23 +1638,23 @@ class ConfigureShard(TypedDict, total=False):
 
     NodeGroupId: AllowedNodeGroupId
     NewReplicaCount: Integer
-    PreferredAvailabilityZones: Optional[PreferredAvailabilityZoneList]
-    PreferredOutpostArns: Optional[PreferredOutpostArnList]
+    PreferredAvailabilityZones: PreferredAvailabilityZoneList | None
+    PreferredOutpostArns: PreferredOutpostArnList | None
 
 
 class CopyServerlessCacheSnapshotRequest(ServiceRequest):
     SourceServerlessCacheSnapshotName: String
     TargetServerlessCacheSnapshotName: String
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
+    KmsKeyId: String | None
+    Tags: TagList | None
 
 
 class ServerlessCacheConfiguration(TypedDict, total=False):
     """The configuration settings for a specific serverless cache."""
 
-    ServerlessCacheName: Optional[String]
-    Engine: Optional[String]
-    MajorEngineVersion: Optional[String]
+    ServerlessCacheName: String | None
+    Engine: String | None
+    MajorEngineVersion: String | None
 
 
 class ServerlessCacheSnapshot(TypedDict, total=False):
@@ -1662,19 +1662,19 @@ class ServerlessCacheSnapshot(TypedDict, total=False):
     Valkey, Redis OSS and Serverless Memcached only.
     """
 
-    ServerlessCacheSnapshotName: Optional[String]
-    ARN: Optional[String]
-    KmsKeyId: Optional[String]
-    SnapshotType: Optional[String]
-    Status: Optional[String]
-    CreateTime: Optional[TStamp]
-    ExpiryTime: Optional[TStamp]
-    BytesUsedForCache: Optional[String]
-    ServerlessCacheConfiguration: Optional[ServerlessCacheConfiguration]
+    ServerlessCacheSnapshotName: String | None
+    ARN: String | None
+    KmsKeyId: String | None
+    SnapshotType: String | None
+    Status: String | None
+    CreateTime: TStamp | None
+    ExpiryTime: TStamp | None
+    BytesUsedForCache: String | None
+    ServerlessCacheConfiguration: ServerlessCacheConfiguration | None
 
 
 class CopyServerlessCacheSnapshotResponse(TypedDict, total=False):
-    ServerlessCacheSnapshot: Optional[ServerlessCacheSnapshot]
+    ServerlessCacheSnapshot: ServerlessCacheSnapshot | None
 
 
 class CopySnapshotMessage(ServiceRequest):
@@ -1682,12 +1682,12 @@ class CopySnapshotMessage(ServiceRequest):
 
     SourceSnapshotName: String
     TargetSnapshotName: String
-    TargetBucket: Optional[String]
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
+    TargetBucket: String | None
+    KmsKeyId: String | None
+    Tags: TagList | None
 
 
-OutpostArnsList = List[String]
+OutpostArnsList = list[String]
 
 
 class NodeGroupConfiguration(TypedDict, total=False):
@@ -1696,28 +1696,28 @@ class NodeGroupConfiguration(TypedDict, total=False):
     ``ReplicaAvailabilityZones``, ``ReplicaCount``.
     """
 
-    NodeGroupId: Optional[AllowedNodeGroupId]
-    Slots: Optional[String]
-    ReplicaCount: Optional[IntegerOptional]
-    PrimaryAvailabilityZone: Optional[String]
-    ReplicaAvailabilityZones: Optional[AvailabilityZonesList]
-    PrimaryOutpostArn: Optional[String]
-    ReplicaOutpostArns: Optional[OutpostArnsList]
+    NodeGroupId: AllowedNodeGroupId | None
+    Slots: String | None
+    ReplicaCount: IntegerOptional | None
+    PrimaryAvailabilityZone: String | None
+    ReplicaAvailabilityZones: AvailabilityZonesList | None
+    PrimaryOutpostArn: String | None
+    ReplicaOutpostArns: OutpostArnsList | None
 
 
 class NodeSnapshot(TypedDict, total=False):
     """Represents an individual cache node in a snapshot of a cluster."""
 
-    CacheClusterId: Optional[String]
-    NodeGroupId: Optional[String]
-    CacheNodeId: Optional[String]
-    NodeGroupConfiguration: Optional[NodeGroupConfiguration]
-    CacheSize: Optional[String]
-    CacheNodeCreateTime: Optional[TStamp]
-    SnapshotCreateTime: Optional[TStamp]
+    CacheClusterId: String | None
+    NodeGroupId: String | None
+    CacheNodeId: String | None
+    NodeGroupConfiguration: NodeGroupConfiguration | None
+    CacheSize: String | None
+    CacheNodeCreateTime: TStamp | None
+    SnapshotCreateTime: TStamp | None
 
 
-NodeSnapshotList = List[NodeSnapshot]
+NodeSnapshotList = list[NodeSnapshot]
 
 
 class Snapshot(TypedDict, total=False):
@@ -1725,92 +1725,92 @@ class Snapshot(TypedDict, total=False):
     time when the snapshot was taken.
     """
 
-    SnapshotName: Optional[String]
-    ReplicationGroupId: Optional[String]
-    ReplicationGroupDescription: Optional[String]
-    CacheClusterId: Optional[String]
-    SnapshotStatus: Optional[String]
-    SnapshotSource: Optional[String]
-    CacheNodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    NumCacheNodes: Optional[IntegerOptional]
-    PreferredAvailabilityZone: Optional[String]
-    PreferredOutpostArn: Optional[String]
-    CacheClusterCreateTime: Optional[TStamp]
-    PreferredMaintenanceWindow: Optional[String]
-    TopicArn: Optional[String]
-    Port: Optional[IntegerOptional]
-    CacheParameterGroupName: Optional[String]
-    CacheSubnetGroupName: Optional[String]
-    VpcId: Optional[String]
-    AutoMinorVersionUpgrade: Optional[Boolean]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    NumNodeGroups: Optional[IntegerOptional]
-    AutomaticFailover: Optional[AutomaticFailoverStatus]
-    NodeSnapshots: Optional[NodeSnapshotList]
-    KmsKeyId: Optional[String]
-    ARN: Optional[String]
-    DataTiering: Optional[DataTieringStatus]
+    SnapshotName: String | None
+    ReplicationGroupId: String | None
+    ReplicationGroupDescription: String | None
+    CacheClusterId: String | None
+    SnapshotStatus: String | None
+    SnapshotSource: String | None
+    CacheNodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    NumCacheNodes: IntegerOptional | None
+    PreferredAvailabilityZone: String | None
+    PreferredOutpostArn: String | None
+    CacheClusterCreateTime: TStamp | None
+    PreferredMaintenanceWindow: String | None
+    TopicArn: String | None
+    Port: IntegerOptional | None
+    CacheParameterGroupName: String | None
+    CacheSubnetGroupName: String | None
+    VpcId: String | None
+    AutoMinorVersionUpgrade: Boolean | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    NumNodeGroups: IntegerOptional | None
+    AutomaticFailover: AutomaticFailoverStatus | None
+    NodeSnapshots: NodeSnapshotList | None
+    KmsKeyId: String | None
+    ARN: String | None
+    DataTiering: DataTieringStatus | None
 
 
 class CopySnapshotResult(TypedDict, total=False):
-    Snapshot: Optional[Snapshot]
+    Snapshot: Snapshot | None
 
 
 class LogDeliveryConfigurationRequest(TypedDict, total=False):
     """Specifies the destination, format and type of the logs."""
 
-    LogType: Optional[LogType]
-    DestinationType: Optional[DestinationType]
-    DestinationDetails: Optional[DestinationDetails]
-    LogFormat: Optional[LogFormat]
-    Enabled: Optional[BooleanOptional]
+    LogType: LogType | None
+    DestinationType: DestinationType | None
+    DestinationDetails: DestinationDetails | None
+    LogFormat: LogFormat | None
+    Enabled: BooleanOptional | None
 
 
-LogDeliveryConfigurationRequestList = List[LogDeliveryConfigurationRequest]
-SnapshotArnsList = List[String]
-SecurityGroupIdsList = List[String]
+LogDeliveryConfigurationRequestList = list[LogDeliveryConfigurationRequest]
+SnapshotArnsList = list[String]
+SecurityGroupIdsList = list[String]
 
 
 class CreateCacheClusterMessage(ServiceRequest):
     """Represents the input of a CreateCacheCluster operation."""
 
     CacheClusterId: String
-    ReplicationGroupId: Optional[String]
-    AZMode: Optional[AZMode]
-    PreferredAvailabilityZone: Optional[String]
-    PreferredAvailabilityZones: Optional[PreferredAvailabilityZoneList]
-    NumCacheNodes: Optional[IntegerOptional]
-    CacheNodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    CacheParameterGroupName: Optional[String]
-    CacheSubnetGroupName: Optional[String]
-    CacheSecurityGroupNames: Optional[CacheSecurityGroupNameList]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    Tags: Optional[TagList]
-    SnapshotArns: Optional[SnapshotArnsList]
-    SnapshotName: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    Port: Optional[IntegerOptional]
-    NotificationTopicArn: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    AuthToken: Optional[String]
-    OutpostMode: Optional[OutpostMode]
-    PreferredOutpostArn: Optional[String]
-    PreferredOutpostArns: Optional[PreferredOutpostArnList]
-    LogDeliveryConfigurations: Optional[LogDeliveryConfigurationRequestList]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    NetworkType: Optional[NetworkType]
-    IpDiscovery: Optional[IpDiscovery]
+    ReplicationGroupId: String | None
+    AZMode: AZMode | None
+    PreferredAvailabilityZone: String | None
+    PreferredAvailabilityZones: PreferredAvailabilityZoneList | None
+    NumCacheNodes: IntegerOptional | None
+    CacheNodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    CacheParameterGroupName: String | None
+    CacheSubnetGroupName: String | None
+    CacheSecurityGroupNames: CacheSecurityGroupNameList | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    Tags: TagList | None
+    SnapshotArns: SnapshotArnsList | None
+    SnapshotName: String | None
+    PreferredMaintenanceWindow: String | None
+    Port: IntegerOptional | None
+    NotificationTopicArn: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    AuthToken: String | None
+    OutpostMode: OutpostMode | None
+    PreferredOutpostArn: String | None
+    PreferredOutpostArns: PreferredOutpostArnList | None
+    LogDeliveryConfigurations: LogDeliveryConfigurationRequestList | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    NetworkType: NetworkType | None
+    IpDiscovery: IpDiscovery | None
 
 
 class CreateCacheClusterResult(TypedDict, total=False):
-    CacheCluster: Optional[CacheCluster]
+    CacheCluster: CacheCluster | None
 
 
 class CreateCacheParameterGroupMessage(ServiceRequest):
@@ -1819,11 +1819,11 @@ class CreateCacheParameterGroupMessage(ServiceRequest):
     CacheParameterGroupName: String
     CacheParameterGroupFamily: String
     Description: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateCacheParameterGroupResult(TypedDict, total=False):
-    CacheParameterGroup: Optional[CacheParameterGroup]
+    CacheParameterGroup: CacheParameterGroup | None
 
 
 class CreateCacheSecurityGroupMessage(ServiceRequest):
@@ -1831,14 +1831,14 @@ class CreateCacheSecurityGroupMessage(ServiceRequest):
 
     CacheSecurityGroupName: String
     Description: String
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateCacheSecurityGroupResult(TypedDict, total=False):
-    CacheSecurityGroup: Optional[CacheSecurityGroup]
+    CacheSecurityGroup: CacheSecurityGroup | None
 
 
-SubnetIdentifierList = List[String]
+SubnetIdentifierList = list[String]
 
 
 class CreateCacheSubnetGroupMessage(ServiceRequest):
@@ -1847,16 +1847,16 @@ class CreateCacheSubnetGroupMessage(ServiceRequest):
     CacheSubnetGroupName: String
     CacheSubnetGroupDescription: String
     SubnetIds: SubnetIdentifierList
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateCacheSubnetGroupResult(TypedDict, total=False):
-    CacheSubnetGroup: Optional[CacheSubnetGroup]
+    CacheSubnetGroup: CacheSubnetGroup | None
 
 
 class CreateGlobalReplicationGroupMessage(ServiceRequest):
     GlobalReplicationGroupIdSuffix: String
-    GlobalReplicationGroupDescription: Optional[String]
+    GlobalReplicationGroupDescription: String | None
     PrimaryReplicationGroupId: String
 
 
@@ -1865,11 +1865,11 @@ class GlobalNodeGroup(TypedDict, total=False):
     group.
     """
 
-    GlobalNodeGroupId: Optional[String]
-    Slots: Optional[String]
+    GlobalNodeGroupId: String | None
+    Slots: String | None
 
 
-GlobalNodeGroupList = List[GlobalNodeGroup]
+GlobalNodeGroupList = list[GlobalNodeGroup]
 
 
 class GlobalReplicationGroupMember(TypedDict, total=False):
@@ -1877,14 +1877,14 @@ class GlobalReplicationGroupMember(TypedDict, total=False):
     the Amazon region and the role of the replication group.
     """
 
-    ReplicationGroupId: Optional[String]
-    ReplicationGroupRegion: Optional[String]
-    Role: Optional[String]
-    AutomaticFailover: Optional[AutomaticFailoverStatus]
-    Status: Optional[String]
+    ReplicationGroupId: String | None
+    ReplicationGroupRegion: String | None
+    Role: String | None
+    AutomaticFailover: AutomaticFailoverStatus | None
+    Status: String | None
 
 
-GlobalReplicationGroupMemberList = List[GlobalReplicationGroupMember]
+GlobalReplicationGroupMemberList = list[GlobalReplicationGroupMember]
 
 
 class GlobalReplicationGroup(TypedDict, total=False):
@@ -1898,27 +1898,27 @@ class GlobalReplicationGroup(TypedDict, total=False):
        cluster.
     """
 
-    GlobalReplicationGroupId: Optional[String]
-    GlobalReplicationGroupDescription: Optional[String]
-    Status: Optional[String]
-    CacheNodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    Members: Optional[GlobalReplicationGroupMemberList]
-    ClusterEnabled: Optional[BooleanOptional]
-    GlobalNodeGroups: Optional[GlobalNodeGroupList]
-    AuthTokenEnabled: Optional[BooleanOptional]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    AtRestEncryptionEnabled: Optional[BooleanOptional]
-    ARN: Optional[String]
+    GlobalReplicationGroupId: String | None
+    GlobalReplicationGroupDescription: String | None
+    Status: String | None
+    CacheNodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    Members: GlobalReplicationGroupMemberList | None
+    ClusterEnabled: BooleanOptional | None
+    GlobalNodeGroups: GlobalNodeGroupList | None
+    AuthTokenEnabled: BooleanOptional | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    AtRestEncryptionEnabled: BooleanOptional | None
+    ARN: String | None
 
 
 class CreateGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
-UserGroupIdListInput = List[UserGroupId]
-NodeGroupConfigurationList = List[NodeGroupConfiguration]
+UserGroupIdListInput = list[UserGroupId]
+NodeGroupConfigurationList = list[NodeGroupConfiguration]
 
 
 class CreateReplicationGroupMessage(ServiceRequest):
@@ -1926,188 +1926,188 @@ class CreateReplicationGroupMessage(ServiceRequest):
 
     ReplicationGroupId: String
     ReplicationGroupDescription: String
-    GlobalReplicationGroupId: Optional[String]
-    PrimaryClusterId: Optional[String]
-    AutomaticFailoverEnabled: Optional[BooleanOptional]
-    MultiAZEnabled: Optional[BooleanOptional]
-    NumCacheClusters: Optional[IntegerOptional]
-    PreferredCacheClusterAZs: Optional[AvailabilityZonesList]
-    NumNodeGroups: Optional[IntegerOptional]
-    ReplicasPerNodeGroup: Optional[IntegerOptional]
-    NodeGroupConfiguration: Optional[NodeGroupConfigurationList]
-    CacheNodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    CacheParameterGroupName: Optional[String]
-    CacheSubnetGroupName: Optional[String]
-    CacheSecurityGroupNames: Optional[CacheSecurityGroupNameList]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    Tags: Optional[TagList]
-    SnapshotArns: Optional[SnapshotArnsList]
-    SnapshotName: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    Port: Optional[IntegerOptional]
-    NotificationTopicArn: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    AuthToken: Optional[String]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    AtRestEncryptionEnabled: Optional[BooleanOptional]
-    KmsKeyId: Optional[String]
-    UserGroupIds: Optional[UserGroupIdListInput]
-    LogDeliveryConfigurations: Optional[LogDeliveryConfigurationRequestList]
-    DataTieringEnabled: Optional[BooleanOptional]
-    NetworkType: Optional[NetworkType]
-    IpDiscovery: Optional[IpDiscovery]
-    TransitEncryptionMode: Optional[TransitEncryptionMode]
-    ClusterMode: Optional[ClusterMode]
-    ServerlessCacheSnapshotName: Optional[String]
+    GlobalReplicationGroupId: String | None
+    PrimaryClusterId: String | None
+    AutomaticFailoverEnabled: BooleanOptional | None
+    MultiAZEnabled: BooleanOptional | None
+    NumCacheClusters: IntegerOptional | None
+    PreferredCacheClusterAZs: AvailabilityZonesList | None
+    NumNodeGroups: IntegerOptional | None
+    ReplicasPerNodeGroup: IntegerOptional | None
+    NodeGroupConfiguration: NodeGroupConfigurationList | None
+    CacheNodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    CacheParameterGroupName: String | None
+    CacheSubnetGroupName: String | None
+    CacheSecurityGroupNames: CacheSecurityGroupNameList | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    Tags: TagList | None
+    SnapshotArns: SnapshotArnsList | None
+    SnapshotName: String | None
+    PreferredMaintenanceWindow: String | None
+    Port: IntegerOptional | None
+    NotificationTopicArn: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    AuthToken: String | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    AtRestEncryptionEnabled: BooleanOptional | None
+    KmsKeyId: String | None
+    UserGroupIds: UserGroupIdListInput | None
+    LogDeliveryConfigurations: LogDeliveryConfigurationRequestList | None
+    DataTieringEnabled: BooleanOptional | None
+    NetworkType: NetworkType | None
+    IpDiscovery: IpDiscovery | None
+    TransitEncryptionMode: TransitEncryptionMode | None
+    ClusterMode: ClusterMode | None
+    ServerlessCacheSnapshotName: String | None
 
 
 class CreateReplicationGroupResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
-SubnetIdsList = List[String]
+SubnetIdsList = list[String]
 
 
 class CreateServerlessCacheRequest(ServiceRequest):
     ServerlessCacheName: String
-    Description: Optional[String]
+    Description: String | None
     Engine: String
-    MajorEngineVersion: Optional[String]
-    CacheUsageLimits: Optional[CacheUsageLimits]
-    KmsKeyId: Optional[String]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    SnapshotArnsToRestore: Optional[SnapshotArnsList]
-    Tags: Optional[TagList]
-    UserGroupId: Optional[String]
-    SubnetIds: Optional[SubnetIdsList]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    DailySnapshotTime: Optional[String]
+    MajorEngineVersion: String | None
+    CacheUsageLimits: CacheUsageLimits | None
+    KmsKeyId: String | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    SnapshotArnsToRestore: SnapshotArnsList | None
+    Tags: TagList | None
+    UserGroupId: String | None
+    SubnetIds: SubnetIdsList | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    DailySnapshotTime: String | None
 
 
 class ServerlessCache(TypedDict, total=False):
     """The resource representing a serverless cache."""
 
-    ServerlessCacheName: Optional[String]
-    Description: Optional[String]
-    CreateTime: Optional[TStamp]
-    Status: Optional[String]
-    Engine: Optional[String]
-    MajorEngineVersion: Optional[String]
-    FullEngineVersion: Optional[String]
-    CacheUsageLimits: Optional[CacheUsageLimits]
-    KmsKeyId: Optional[String]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    Endpoint: Optional[Endpoint]
-    ReaderEndpoint: Optional[Endpoint]
-    ARN: Optional[String]
-    UserGroupId: Optional[String]
-    SubnetIds: Optional[SubnetIdsList]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    DailySnapshotTime: Optional[String]
+    ServerlessCacheName: String | None
+    Description: String | None
+    CreateTime: TStamp | None
+    Status: String | None
+    Engine: String | None
+    MajorEngineVersion: String | None
+    FullEngineVersion: String | None
+    CacheUsageLimits: CacheUsageLimits | None
+    KmsKeyId: String | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    Endpoint: Endpoint | None
+    ReaderEndpoint: Endpoint | None
+    ARN: String | None
+    UserGroupId: String | None
+    SubnetIds: SubnetIdsList | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    DailySnapshotTime: String | None
 
 
 class CreateServerlessCacheResponse(TypedDict, total=False):
-    ServerlessCache: Optional[ServerlessCache]
+    ServerlessCache: ServerlessCache | None
 
 
 class CreateServerlessCacheSnapshotRequest(ServiceRequest):
     ServerlessCacheSnapshotName: String
     ServerlessCacheName: String
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
+    KmsKeyId: String | None
+    Tags: TagList | None
 
 
 class CreateServerlessCacheSnapshotResponse(TypedDict, total=False):
-    ServerlessCacheSnapshot: Optional[ServerlessCacheSnapshot]
+    ServerlessCacheSnapshot: ServerlessCacheSnapshot | None
 
 
 class CreateSnapshotMessage(ServiceRequest):
     """Represents the input of a ``CreateSnapshot`` operation."""
 
-    ReplicationGroupId: Optional[String]
-    CacheClusterId: Optional[String]
+    ReplicationGroupId: String | None
+    CacheClusterId: String | None
     SnapshotName: String
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
+    KmsKeyId: String | None
+    Tags: TagList | None
 
 
 class CreateSnapshotResult(TypedDict, total=False):
-    Snapshot: Optional[Snapshot]
+    Snapshot: Snapshot | None
 
 
-UserIdListInput = List[UserId]
+UserIdListInput = list[UserId]
 
 
 class CreateUserGroupMessage(ServiceRequest):
     UserGroupId: String
     Engine: EngineType
-    UserIds: Optional[UserIdListInput]
-    Tags: Optional[TagList]
+    UserIds: UserIdListInput | None
+    Tags: TagList | None
 
 
 class CreateUserMessage(ServiceRequest):
     UserId: UserId
     UserName: UserName
     Engine: EngineType
-    Passwords: Optional[PasswordListInput]
+    Passwords: PasswordListInput | None
     AccessString: AccessString
-    NoPasswordRequired: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    AuthenticationMode: Optional[AuthenticationMode]
+    NoPasswordRequired: BooleanOptional | None
+    Tags: TagList | None
+    AuthenticationMode: AuthenticationMode | None
 
 
 class CustomerNodeEndpoint(TypedDict, total=False):
     """The endpoint from which data should be migrated."""
 
-    Address: Optional[String]
-    Port: Optional[IntegerOptional]
+    Address: String | None
+    Port: IntegerOptional | None
 
 
-CustomerNodeEndpointList = List[CustomerNodeEndpoint]
-GlobalNodeGroupIdList = List[String]
+CustomerNodeEndpointList = list[CustomerNodeEndpoint]
+GlobalNodeGroupIdList = list[String]
 
 
 class DecreaseNodeGroupsInGlobalReplicationGroupMessage(ServiceRequest):
     GlobalReplicationGroupId: String
     NodeGroupCount: Integer
-    GlobalNodeGroupsToRemove: Optional[GlobalNodeGroupIdList]
-    GlobalNodeGroupsToRetain: Optional[GlobalNodeGroupIdList]
+    GlobalNodeGroupsToRemove: GlobalNodeGroupIdList | None
+    GlobalNodeGroupsToRetain: GlobalNodeGroupIdList | None
     ApplyImmediately: Boolean
 
 
 class DecreaseNodeGroupsInGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
-RemoveReplicasList = List[String]
-ReplicaConfigurationList = List[ConfigureShard]
+RemoveReplicasList = list[String]
+ReplicaConfigurationList = list[ConfigureShard]
 
 
 class DecreaseReplicaCountMessage(ServiceRequest):
     ReplicationGroupId: String
-    NewReplicaCount: Optional[IntegerOptional]
-    ReplicaConfiguration: Optional[ReplicaConfigurationList]
-    ReplicasToRemove: Optional[RemoveReplicasList]
+    NewReplicaCount: IntegerOptional | None
+    ReplicaConfiguration: ReplicaConfigurationList | None
+    ReplicasToRemove: RemoveReplicasList | None
     ApplyImmediately: Boolean
 
 
 class DecreaseReplicaCountResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
 class DeleteCacheClusterMessage(ServiceRequest):
     """Represents the input of a ``DeleteCacheCluster`` operation."""
 
     CacheClusterId: String
-    FinalSnapshotIdentifier: Optional[String]
+    FinalSnapshotIdentifier: String | None
 
 
 class DeleteCacheClusterResult(TypedDict, total=False):
-    CacheCluster: Optional[CacheCluster]
+    CacheCluster: CacheCluster | None
 
 
 class DeleteCacheParameterGroupMessage(ServiceRequest):
@@ -2134,28 +2134,28 @@ class DeleteGlobalReplicationGroupMessage(ServiceRequest):
 
 
 class DeleteGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
 class DeleteReplicationGroupMessage(ServiceRequest):
     """Represents the input of a ``DeleteReplicationGroup`` operation."""
 
     ReplicationGroupId: String
-    RetainPrimaryCluster: Optional[BooleanOptional]
-    FinalSnapshotIdentifier: Optional[String]
+    RetainPrimaryCluster: BooleanOptional | None
+    FinalSnapshotIdentifier: String | None
 
 
 class DeleteReplicationGroupResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
 class DeleteServerlessCacheRequest(ServiceRequest):
     ServerlessCacheName: String
-    FinalSnapshotName: Optional[String]
+    FinalSnapshotName: String | None
 
 
 class DeleteServerlessCacheResponse(TypedDict, total=False):
-    ServerlessCache: Optional[ServerlessCache]
+    ServerlessCache: ServerlessCache | None
 
 
 class DeleteServerlessCacheSnapshotRequest(ServiceRequest):
@@ -2163,7 +2163,7 @@ class DeleteServerlessCacheSnapshotRequest(ServiceRequest):
 
 
 class DeleteServerlessCacheSnapshotResponse(TypedDict, total=False):
-    ServerlessCacheSnapshot: Optional[ServerlessCacheSnapshot]
+    ServerlessCacheSnapshot: ServerlessCacheSnapshot | None
 
 
 class DeleteSnapshotMessage(ServiceRequest):
@@ -2173,7 +2173,7 @@ class DeleteSnapshotMessage(ServiceRequest):
 
 
 class DeleteSnapshotResult(TypedDict, total=False):
-    Snapshot: Optional[Snapshot]
+    Snapshot: Snapshot | None
 
 
 class DeleteUserGroupMessage(ServiceRequest):
@@ -2187,63 +2187,63 @@ class DeleteUserMessage(ServiceRequest):
 class DescribeCacheClustersMessage(ServiceRequest):
     """Represents the input of a ``DescribeCacheClusters`` operation."""
 
-    CacheClusterId: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    ShowCacheNodeInfo: Optional[BooleanOptional]
-    ShowCacheClustersNotInReplicationGroups: Optional[BooleanOptional]
+    CacheClusterId: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    ShowCacheNodeInfo: BooleanOptional | None
+    ShowCacheClustersNotInReplicationGroups: BooleanOptional | None
 
 
 class DescribeCacheEngineVersionsMessage(ServiceRequest):
     """Represents the input of a ``DescribeCacheEngineVersions`` operation."""
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    CacheParameterGroupFamily: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    DefaultOnly: Optional[Boolean]
+    Engine: String | None
+    EngineVersion: String | None
+    CacheParameterGroupFamily: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    DefaultOnly: Boolean | None
 
 
 class DescribeCacheParameterGroupsMessage(ServiceRequest):
     """Represents the input of a ``DescribeCacheParameterGroups`` operation."""
 
-    CacheParameterGroupName: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    CacheParameterGroupName: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeCacheParametersMessage(ServiceRequest):
     """Represents the input of a ``DescribeCacheParameters`` operation."""
 
     CacheParameterGroupName: String
-    Source: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Source: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeCacheSecurityGroupsMessage(ServiceRequest):
     """Represents the input of a ``DescribeCacheSecurityGroups`` operation."""
 
-    CacheSecurityGroupName: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    CacheSecurityGroupName: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeCacheSubnetGroupsMessage(ServiceRequest):
     """Represents the input of a ``DescribeCacheSubnetGroups`` operation."""
 
-    CacheSubnetGroupName: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    CacheSubnetGroupName: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeEngineDefaultParametersMessage(ServiceRequest):
     """Represents the input of a ``DescribeEngineDefaultParameters`` operation."""
 
     CacheParameterGroupFamily: String
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class EngineDefaults(TypedDict, total=False):
@@ -2251,62 +2251,62 @@ class EngineDefaults(TypedDict, total=False):
     operation.
     """
 
-    CacheParameterGroupFamily: Optional[String]
-    Marker: Optional[String]
-    Parameters: Optional[ParametersList]
-    CacheNodeTypeSpecificParameters: Optional[CacheNodeTypeSpecificParametersList]
+    CacheParameterGroupFamily: String | None
+    Marker: String | None
+    Parameters: ParametersList | None
+    CacheNodeTypeSpecificParameters: CacheNodeTypeSpecificParametersList | None
 
 
 class DescribeEngineDefaultParametersResult(TypedDict, total=False):
-    EngineDefaults: Optional[EngineDefaults]
+    EngineDefaults: EngineDefaults | None
 
 
 class DescribeEventsMessage(ServiceRequest):
     """Represents the input of a ``DescribeEvents`` operation."""
 
-    SourceIdentifier: Optional[String]
-    SourceType: Optional[SourceType]
-    StartTime: Optional[TStamp]
-    EndTime: Optional[TStamp]
-    Duration: Optional[IntegerOptional]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    SourceIdentifier: String | None
+    SourceType: SourceType | None
+    StartTime: TStamp | None
+    EndTime: TStamp | None
+    Duration: IntegerOptional | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeGlobalReplicationGroupsMessage(ServiceRequest):
-    GlobalReplicationGroupId: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    ShowMemberInfo: Optional[BooleanOptional]
+    GlobalReplicationGroupId: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    ShowMemberInfo: BooleanOptional | None
 
 
-GlobalReplicationGroupList = List[GlobalReplicationGroup]
+GlobalReplicationGroupList = list[GlobalReplicationGroup]
 
 
 class DescribeGlobalReplicationGroupsResult(TypedDict, total=False):
-    Marker: Optional[String]
-    GlobalReplicationGroups: Optional[GlobalReplicationGroupList]
+    Marker: String | None
+    GlobalReplicationGroups: GlobalReplicationGroupList | None
 
 
 class DescribeReplicationGroupsMessage(ServiceRequest):
     """Represents the input of a ``DescribeReplicationGroups`` operation."""
 
-    ReplicationGroupId: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReplicationGroupId: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeReservedCacheNodesMessage(ServiceRequest):
     """Represents the input of a ``DescribeReservedCacheNodes`` operation."""
 
-    ReservedCacheNodeId: Optional[String]
-    ReservedCacheNodesOfferingId: Optional[String]
-    CacheNodeType: Optional[String]
-    Duration: Optional[String]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReservedCacheNodeId: String | None
+    ReservedCacheNodesOfferingId: String | None
+    CacheNodeType: String | None
+    Duration: String | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeReservedCacheNodesOfferingsMessage(ServiceRequest):
@@ -2314,78 +2314,78 @@ class DescribeReservedCacheNodesOfferingsMessage(ServiceRequest):
     operation.
     """
 
-    ReservedCacheNodesOfferingId: Optional[String]
-    CacheNodeType: Optional[String]
-    Duration: Optional[String]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReservedCacheNodesOfferingId: String | None
+    CacheNodeType: String | None
+    Duration: String | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeServerlessCacheSnapshotsRequest(ServiceRequest):
-    ServerlessCacheName: Optional[String]
-    ServerlessCacheSnapshotName: Optional[String]
-    SnapshotType: Optional[String]
-    NextToken: Optional[String]
-    MaxResults: Optional[IntegerOptional]
+    ServerlessCacheName: String | None
+    ServerlessCacheSnapshotName: String | None
+    SnapshotType: String | None
+    NextToken: String | None
+    MaxResults: IntegerOptional | None
 
 
-ServerlessCacheSnapshotList = List[ServerlessCacheSnapshot]
+ServerlessCacheSnapshotList = list[ServerlessCacheSnapshot]
 
 
 class DescribeServerlessCacheSnapshotsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    ServerlessCacheSnapshots: Optional[ServerlessCacheSnapshotList]
+    NextToken: String | None
+    ServerlessCacheSnapshots: ServerlessCacheSnapshotList | None
 
 
 class DescribeServerlessCachesRequest(ServiceRequest):
-    ServerlessCacheName: Optional[String]
-    MaxResults: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    ServerlessCacheName: String | None
+    MaxResults: IntegerOptional | None
+    NextToken: String | None
 
 
-ServerlessCacheList = List[ServerlessCache]
+ServerlessCacheList = list[ServerlessCache]
 
 
 class DescribeServerlessCachesResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    ServerlessCaches: Optional[ServerlessCacheList]
+    NextToken: String | None
+    ServerlessCaches: ServerlessCacheList | None
 
 
-ServiceUpdateStatusList = List[ServiceUpdateStatus]
+ServiceUpdateStatusList = list[ServiceUpdateStatus]
 
 
 class DescribeServiceUpdatesMessage(ServiceRequest):
-    ServiceUpdateName: Optional[String]
-    ServiceUpdateStatus: Optional[ServiceUpdateStatusList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ServiceUpdateName: String | None
+    ServiceUpdateStatus: ServiceUpdateStatusList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-SnapshotList = List[Snapshot]
+SnapshotList = list[Snapshot]
 
 
 class DescribeSnapshotsListMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeSnapshots`` operation."""
 
-    Marker: Optional[String]
-    Snapshots: Optional[SnapshotList]
+    Marker: String | None
+    Snapshots: SnapshotList | None
 
 
 class DescribeSnapshotsMessage(ServiceRequest):
     """Represents the input of a ``DescribeSnapshotsMessage`` operation."""
 
-    ReplicationGroupId: Optional[String]
-    CacheClusterId: Optional[String]
-    SnapshotName: Optional[String]
-    SnapshotSource: Optional[String]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    ShowNodeGroupConfig: Optional[BooleanOptional]
+    ReplicationGroupId: String | None
+    CacheClusterId: String | None
+    SnapshotName: String | None
+    SnapshotSource: String | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
+    ShowNodeGroupConfig: BooleanOptional | None
 
 
-UpdateActionStatusList = List[UpdateActionStatus]
+UpdateActionStatusList = list[UpdateActionStatus]
 
 
 class TimeRangeFilter(TypedDict, total=False):
@@ -2393,62 +2393,62 @@ class TimeRangeFilter(TypedDict, total=False):
     status during the time range.
     """
 
-    StartTime: Optional[TStamp]
-    EndTime: Optional[TStamp]
+    StartTime: TStamp | None
+    EndTime: TStamp | None
 
 
 class DescribeUpdateActionsMessage(ServiceRequest):
-    ServiceUpdateName: Optional[String]
-    ReplicationGroupIds: Optional[ReplicationGroupIdList]
-    CacheClusterIds: Optional[CacheClusterIdList]
-    Engine: Optional[String]
-    ServiceUpdateStatus: Optional[ServiceUpdateStatusList]
-    ServiceUpdateTimeRange: Optional[TimeRangeFilter]
-    UpdateActionStatus: Optional[UpdateActionStatusList]
-    ShowNodeLevelUpdateStatus: Optional[BooleanOptional]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ServiceUpdateName: String | None
+    ReplicationGroupIds: ReplicationGroupIdList | None
+    CacheClusterIds: CacheClusterIdList | None
+    Engine: String | None
+    ServiceUpdateStatus: ServiceUpdateStatusList | None
+    ServiceUpdateTimeRange: TimeRangeFilter | None
+    UpdateActionStatus: UpdateActionStatusList | None
+    ShowNodeLevelUpdateStatus: BooleanOptional | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeUserGroupsMessage(ServiceRequest):
-    UserGroupId: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    UserGroupId: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-UGServerlessCacheIdList = List[String]
-UGReplicationGroupIdList = List[String]
-UserIdList = List[UserId]
+UGServerlessCacheIdList = list[String]
+UGReplicationGroupIdList = list[String]
+UserIdList = list[UserId]
 
 
 class UserGroupPendingChanges(TypedDict, total=False):
     """Returns the updates being applied to the user group."""
 
-    UserIdsToRemove: Optional[UserIdList]
-    UserIdsToAdd: Optional[UserIdList]
+    UserIdsToRemove: UserIdList | None
+    UserIdsToAdd: UserIdList | None
 
 
 class UserGroup(TypedDict, total=False):
-    UserGroupId: Optional[String]
-    Status: Optional[String]
-    Engine: Optional[EngineType]
-    UserIds: Optional[UserIdList]
-    MinimumEngineVersion: Optional[String]
-    PendingChanges: Optional[UserGroupPendingChanges]
-    ReplicationGroups: Optional[UGReplicationGroupIdList]
-    ServerlessCaches: Optional[UGServerlessCacheIdList]
-    ARN: Optional[String]
+    UserGroupId: String | None
+    Status: String | None
+    Engine: EngineType | None
+    UserIds: UserIdList | None
+    MinimumEngineVersion: String | None
+    PendingChanges: UserGroupPendingChanges | None
+    ReplicationGroups: UGReplicationGroupIdList | None
+    ServerlessCaches: UGServerlessCacheIdList | None
+    ARN: String | None
 
 
-UserGroupList = List[UserGroup]
+UserGroupList = list[UserGroup]
 
 
 class DescribeUserGroupsResult(TypedDict, total=False):
-    UserGroups: Optional[UserGroupList]
-    Marker: Optional[String]
+    UserGroups: UserGroupList | None
+    Marker: String | None
 
 
-FilterValueList = List[FilterValue]
+FilterValueList = list[FilterValue]
 
 
 class Filter(TypedDict, total=False):
@@ -2460,35 +2460,35 @@ class Filter(TypedDict, total=False):
     Values: FilterValueList
 
 
-FilterList = List[Filter]
+FilterList = list[Filter]
 
 
 class DescribeUsersMessage(ServiceRequest):
-    Engine: Optional[EngineType]
-    UserId: Optional[UserId]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Engine: EngineType | None
+    UserId: UserId | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class User(TypedDict, total=False):
-    UserId: Optional[String]
-    UserName: Optional[String]
-    Status: Optional[String]
-    Engine: Optional[EngineType]
-    MinimumEngineVersion: Optional[String]
-    AccessString: Optional[String]
-    UserGroupIds: Optional[UserGroupIdList]
-    Authentication: Optional[Authentication]
-    ARN: Optional[String]
+    UserId: String | None
+    UserName: String | None
+    Status: String | None
+    Engine: EngineType | None
+    MinimumEngineVersion: String | None
+    AccessString: String | None
+    UserGroupIds: UserGroupIdList | None
+    Authentication: Authentication | None
+    ARN: String | None
 
 
-UserList = List[User]
+UserList = list[User]
 
 
 class DescribeUsersResult(TypedDict, total=False):
-    Users: Optional[UserList]
-    Marker: Optional[String]
+    Users: UserList | None
+    Marker: String | None
 
 
 class DisassociateGlobalReplicationGroupMessage(ServiceRequest):
@@ -2498,7 +2498,7 @@ class DisassociateGlobalReplicationGroupMessage(ServiceRequest):
 
 
 class DisassociateGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
 class Event(TypedDict, total=False):
@@ -2507,20 +2507,20 @@ class Event(TypedDict, total=False):
     removing a cache node, or rebooting a node.
     """
 
-    SourceIdentifier: Optional[String]
-    SourceType: Optional[SourceType]
-    Message: Optional[String]
-    Date: Optional[TStamp]
+    SourceIdentifier: String | None
+    SourceType: SourceType | None
+    Message: String | None
+    Date: TStamp | None
 
 
-EventList = List[Event]
+EventList = list[Event]
 
 
 class EventsMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeEvents`` operation."""
 
-    Marker: Optional[String]
-    Events: Optional[EventList]
+    Marker: String | None
+    Events: EventList | None
 
 
 class ExportServerlessCacheSnapshotRequest(ServiceRequest):
@@ -2529,7 +2529,7 @@ class ExportServerlessCacheSnapshotRequest(ServiceRequest):
 
 
 class ExportServerlessCacheSnapshotResponse(TypedDict, total=False):
-    ServerlessCacheSnapshot: Optional[ServerlessCacheSnapshot]
+    ServerlessCacheSnapshot: ServerlessCacheSnapshot | None
 
 
 class FailoverGlobalReplicationGroupMessage(ServiceRequest):
@@ -2539,7 +2539,7 @@ class FailoverGlobalReplicationGroupMessage(ServiceRequest):
 
 
 class FailoverGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
 class ReshardingConfiguration(TypedDict, total=False):
@@ -2547,11 +2547,11 @@ class ReshardingConfiguration(TypedDict, total=False):
     configuration of a node group in the resharded cluster.
     """
 
-    NodeGroupId: Optional[AllowedNodeGroupId]
-    PreferredAvailabilityZones: Optional[AvailabilityZonesList]
+    NodeGroupId: AllowedNodeGroupId | None
+    PreferredAvailabilityZones: AvailabilityZonesList | None
 
 
-ReshardingConfigurationList = List[ReshardingConfiguration]
+ReshardingConfigurationList = list[ReshardingConfiguration]
 
 
 class RegionalConfiguration(TypedDict, total=False):
@@ -2562,32 +2562,32 @@ class RegionalConfiguration(TypedDict, total=False):
     ReshardingConfiguration: ReshardingConfigurationList
 
 
-RegionalConfigurationList = List[RegionalConfiguration]
+RegionalConfigurationList = list[RegionalConfiguration]
 
 
 class IncreaseNodeGroupsInGlobalReplicationGroupMessage(ServiceRequest):
     GlobalReplicationGroupId: String
     NodeGroupCount: Integer
-    RegionalConfigurations: Optional[RegionalConfigurationList]
+    RegionalConfigurations: RegionalConfigurationList | None
     ApplyImmediately: Boolean
 
 
 class IncreaseNodeGroupsInGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
 class IncreaseReplicaCountMessage(ServiceRequest):
     ReplicationGroupId: String
-    NewReplicaCount: Optional[IntegerOptional]
-    ReplicaConfiguration: Optional[ReplicaConfigurationList]
+    NewReplicaCount: IntegerOptional | None
+    ReplicaConfiguration: ReplicaConfigurationList | None
     ApplyImmediately: Boolean
 
 
 class IncreaseReplicaCountResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
-KeyList = List[String]
+KeyList = list[String]
 
 
 class ListAllowedNodeTypeModificationsMessage(ServiceRequest):
@@ -2595,8 +2595,8 @@ class ListAllowedNodeTypeModificationsMessage(ServiceRequest):
     operation.
     """
 
-    CacheClusterId: Optional[String]
-    ReplicationGroupId: Optional[String]
+    CacheClusterId: String | None
+    ReplicationGroupId: String | None
 
 
 class ListTagsForResourceMessage(ServiceRequest):
@@ -2609,32 +2609,32 @@ class ModifyCacheClusterMessage(ServiceRequest):
     """Represents the input of a ``ModifyCacheCluster`` operation."""
 
     CacheClusterId: String
-    NumCacheNodes: Optional[IntegerOptional]
-    CacheNodeIdsToRemove: Optional[CacheNodeIdsList]
-    AZMode: Optional[AZMode]
-    NewAvailabilityZones: Optional[PreferredAvailabilityZoneList]
-    CacheSecurityGroupNames: Optional[CacheSecurityGroupNameList]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    PreferredMaintenanceWindow: Optional[String]
-    NotificationTopicArn: Optional[String]
-    CacheParameterGroupName: Optional[String]
-    NotificationTopicStatus: Optional[String]
-    ApplyImmediately: Optional[Boolean]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    CacheNodeType: Optional[String]
-    AuthToken: Optional[String]
-    AuthTokenUpdateStrategy: Optional[AuthTokenUpdateStrategyType]
-    LogDeliveryConfigurations: Optional[LogDeliveryConfigurationRequestList]
-    IpDiscovery: Optional[IpDiscovery]
-    ScaleConfig: Optional[ScaleConfig]
+    NumCacheNodes: IntegerOptional | None
+    CacheNodeIdsToRemove: CacheNodeIdsList | None
+    AZMode: AZMode | None
+    NewAvailabilityZones: PreferredAvailabilityZoneList | None
+    CacheSecurityGroupNames: CacheSecurityGroupNameList | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    PreferredMaintenanceWindow: String | None
+    NotificationTopicArn: String | None
+    CacheParameterGroupName: String | None
+    NotificationTopicStatus: String | None
+    ApplyImmediately: Boolean | None
+    Engine: String | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    CacheNodeType: String | None
+    AuthToken: String | None
+    AuthTokenUpdateStrategy: AuthTokenUpdateStrategyType | None
+    LogDeliveryConfigurations: LogDeliveryConfigurationRequestList | None
+    IpDiscovery: IpDiscovery | None
+    ScaleConfig: ScaleConfig | None
 
 
 class ModifyCacheClusterResult(TypedDict, total=False):
-    CacheCluster: Optional[CacheCluster]
+    CacheCluster: CacheCluster | None
 
 
 class ParameterNameValue(TypedDict, total=False):
@@ -2642,11 +2642,11 @@ class ParameterNameValue(TypedDict, total=False):
     parameter.
     """
 
-    ParameterName: Optional[String]
-    ParameterValue: Optional[String]
+    ParameterName: String | None
+    ParameterValue: String | None
 
 
-ParameterNameValueList = List[ParameterNameValue]
+ParameterNameValueList = list[ParameterNameValue]
 
 
 class ModifyCacheParameterGroupMessage(ServiceRequest):
@@ -2660,70 +2660,70 @@ class ModifyCacheSubnetGroupMessage(ServiceRequest):
     """Represents the input of a ``ModifyCacheSubnetGroup`` operation."""
 
     CacheSubnetGroupName: String
-    CacheSubnetGroupDescription: Optional[String]
-    SubnetIds: Optional[SubnetIdentifierList]
+    CacheSubnetGroupDescription: String | None
+    SubnetIds: SubnetIdentifierList | None
 
 
 class ModifyCacheSubnetGroupResult(TypedDict, total=False):
-    CacheSubnetGroup: Optional[CacheSubnetGroup]
+    CacheSubnetGroup: CacheSubnetGroup | None
 
 
 class ModifyGlobalReplicationGroupMessage(ServiceRequest):
     GlobalReplicationGroupId: String
     ApplyImmediately: Boolean
-    CacheNodeType: Optional[String]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    CacheParameterGroupName: Optional[String]
-    GlobalReplicationGroupDescription: Optional[String]
-    AutomaticFailoverEnabled: Optional[BooleanOptional]
+    CacheNodeType: String | None
+    Engine: String | None
+    EngineVersion: String | None
+    CacheParameterGroupName: String | None
+    GlobalReplicationGroupDescription: String | None
+    AutomaticFailoverEnabled: BooleanOptional | None
 
 
 class ModifyGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
 class ModifyReplicationGroupMessage(ServiceRequest):
     """Represents the input of a ``ModifyReplicationGroups`` operation."""
 
     ReplicationGroupId: String
-    ReplicationGroupDescription: Optional[String]
-    PrimaryClusterId: Optional[String]
-    SnapshottingClusterId: Optional[String]
-    AutomaticFailoverEnabled: Optional[BooleanOptional]
-    MultiAZEnabled: Optional[BooleanOptional]
-    NodeGroupId: Optional[String]
-    CacheSecurityGroupNames: Optional[CacheSecurityGroupNameList]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    PreferredMaintenanceWindow: Optional[String]
-    NotificationTopicArn: Optional[String]
-    CacheParameterGroupName: Optional[String]
-    NotificationTopicStatus: Optional[String]
-    ApplyImmediately: Optional[Boolean]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    SnapshotWindow: Optional[String]
-    CacheNodeType: Optional[String]
-    AuthToken: Optional[String]
-    AuthTokenUpdateStrategy: Optional[AuthTokenUpdateStrategyType]
-    UserGroupIdsToAdd: Optional[UserGroupIdList]
-    UserGroupIdsToRemove: Optional[UserGroupIdList]
-    RemoveUserGroups: Optional[BooleanOptional]
-    LogDeliveryConfigurations: Optional[LogDeliveryConfigurationRequestList]
-    IpDiscovery: Optional[IpDiscovery]
-    TransitEncryptionEnabled: Optional[BooleanOptional]
-    TransitEncryptionMode: Optional[TransitEncryptionMode]
-    ClusterMode: Optional[ClusterMode]
+    ReplicationGroupDescription: String | None
+    PrimaryClusterId: String | None
+    SnapshottingClusterId: String | None
+    AutomaticFailoverEnabled: BooleanOptional | None
+    MultiAZEnabled: BooleanOptional | None
+    NodeGroupId: String | None
+    CacheSecurityGroupNames: CacheSecurityGroupNameList | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    PreferredMaintenanceWindow: String | None
+    NotificationTopicArn: String | None
+    CacheParameterGroupName: String | None
+    NotificationTopicStatus: String | None
+    ApplyImmediately: Boolean | None
+    Engine: String | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    SnapshotWindow: String | None
+    CacheNodeType: String | None
+    AuthToken: String | None
+    AuthTokenUpdateStrategy: AuthTokenUpdateStrategyType | None
+    UserGroupIdsToAdd: UserGroupIdList | None
+    UserGroupIdsToRemove: UserGroupIdList | None
+    RemoveUserGroups: BooleanOptional | None
+    LogDeliveryConfigurations: LogDeliveryConfigurationRequestList | None
+    IpDiscovery: IpDiscovery | None
+    TransitEncryptionEnabled: BooleanOptional | None
+    TransitEncryptionMode: TransitEncryptionMode | None
+    ClusterMode: ClusterMode | None
 
 
 class ModifyReplicationGroupResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
-NodeGroupsToRetainList = List[AllowedNodeGroupId]
-NodeGroupsToRemoveList = List[AllowedNodeGroupId]
+NodeGroupsToRetainList = list[AllowedNodeGroupId]
+NodeGroupsToRemoveList = list[AllowedNodeGroupId]
 
 
 class ModifyReplicationGroupShardConfigurationMessage(ServiceRequest):
@@ -2734,74 +2734,74 @@ class ModifyReplicationGroupShardConfigurationMessage(ServiceRequest):
     ReplicationGroupId: String
     NodeGroupCount: Integer
     ApplyImmediately: Boolean
-    ReshardingConfiguration: Optional[ReshardingConfigurationList]
-    NodeGroupsToRemove: Optional[NodeGroupsToRemoveList]
-    NodeGroupsToRetain: Optional[NodeGroupsToRetainList]
+    ReshardingConfiguration: ReshardingConfigurationList | None
+    NodeGroupsToRemove: NodeGroupsToRemoveList | None
+    NodeGroupsToRetain: NodeGroupsToRetainList | None
 
 
 class ModifyReplicationGroupShardConfigurationResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
 class ModifyServerlessCacheRequest(ServiceRequest):
     ServerlessCacheName: String
-    Description: Optional[String]
-    CacheUsageLimits: Optional[CacheUsageLimits]
-    RemoveUserGroup: Optional[BooleanOptional]
-    UserGroupId: Optional[String]
-    SecurityGroupIds: Optional[SecurityGroupIdsList]
-    SnapshotRetentionLimit: Optional[IntegerOptional]
-    DailySnapshotTime: Optional[String]
-    Engine: Optional[String]
-    MajorEngineVersion: Optional[String]
+    Description: String | None
+    CacheUsageLimits: CacheUsageLimits | None
+    RemoveUserGroup: BooleanOptional | None
+    UserGroupId: String | None
+    SecurityGroupIds: SecurityGroupIdsList | None
+    SnapshotRetentionLimit: IntegerOptional | None
+    DailySnapshotTime: String | None
+    Engine: String | None
+    MajorEngineVersion: String | None
 
 
 class ModifyServerlessCacheResponse(TypedDict, total=False):
-    ServerlessCache: Optional[ServerlessCache]
+    ServerlessCache: ServerlessCache | None
 
 
 class ModifyUserGroupMessage(ServiceRequest):
     UserGroupId: String
-    UserIdsToAdd: Optional[UserIdListInput]
-    UserIdsToRemove: Optional[UserIdListInput]
-    Engine: Optional[EngineType]
+    UserIdsToAdd: UserIdListInput | None
+    UserIdsToRemove: UserIdListInput | None
+    Engine: EngineType | None
 
 
 class ModifyUserMessage(ServiceRequest):
     UserId: UserId
-    AccessString: Optional[AccessString]
-    AppendAccessString: Optional[AccessString]
-    Passwords: Optional[PasswordListInput]
-    NoPasswordRequired: Optional[BooleanOptional]
-    AuthenticationMode: Optional[AuthenticationMode]
-    Engine: Optional[EngineType]
+    AccessString: AccessString | None
+    AppendAccessString: AccessString | None
+    Passwords: PasswordListInput | None
+    NoPasswordRequired: BooleanOptional | None
+    AuthenticationMode: AuthenticationMode | None
+    Engine: EngineType | None
 
 
 class NodeGroupMemberUpdateStatus(TypedDict, total=False):
     """The status of the service update on the node group member"""
 
-    CacheClusterId: Optional[String]
-    CacheNodeId: Optional[String]
-    NodeUpdateStatus: Optional[NodeUpdateStatus]
-    NodeDeletionDate: Optional[TStamp]
-    NodeUpdateStartDate: Optional[TStamp]
-    NodeUpdateEndDate: Optional[TStamp]
-    NodeUpdateInitiatedBy: Optional[NodeUpdateInitiatedBy]
-    NodeUpdateInitiatedDate: Optional[TStamp]
-    NodeUpdateStatusModifiedDate: Optional[TStamp]
+    CacheClusterId: String | None
+    CacheNodeId: String | None
+    NodeUpdateStatus: NodeUpdateStatus | None
+    NodeDeletionDate: TStamp | None
+    NodeUpdateStartDate: TStamp | None
+    NodeUpdateEndDate: TStamp | None
+    NodeUpdateInitiatedBy: NodeUpdateInitiatedBy | None
+    NodeUpdateInitiatedDate: TStamp | None
+    NodeUpdateStatusModifiedDate: TStamp | None
 
 
-NodeGroupMemberUpdateStatusList = List[NodeGroupMemberUpdateStatus]
+NodeGroupMemberUpdateStatusList = list[NodeGroupMemberUpdateStatus]
 
 
 class NodeGroupUpdateStatus(TypedDict, total=False):
     """The status of the service update on the node group"""
 
-    NodeGroupId: Optional[String]
-    NodeGroupMemberUpdateStatus: Optional[NodeGroupMemberUpdateStatusList]
+    NodeGroupId: String | None
+    NodeGroupMemberUpdateStatus: NodeGroupMemberUpdateStatusList | None
 
 
-NodeGroupUpdateStatusList = List[NodeGroupUpdateStatus]
+NodeGroupUpdateStatusList = list[NodeGroupUpdateStatus]
 
 
 class ProcessedUpdateAction(TypedDict, total=False):
@@ -2809,13 +2809,13 @@ class ProcessedUpdateAction(TypedDict, total=False):
     request
     """
 
-    ReplicationGroupId: Optional[String]
-    CacheClusterId: Optional[String]
-    ServiceUpdateName: Optional[String]
-    UpdateActionStatus: Optional[UpdateActionStatus]
+    ReplicationGroupId: String | None
+    CacheClusterId: String | None
+    ServiceUpdateName: String | None
+    UpdateActionStatus: UpdateActionStatus | None
 
 
-ProcessedUpdateActionList = List[ProcessedUpdateAction]
+ProcessedUpdateActionList = list[ProcessedUpdateAction]
 
 
 class PurchaseReservedCacheNodesOfferingMessage(ServiceRequest):
@@ -2824,9 +2824,9 @@ class PurchaseReservedCacheNodesOfferingMessage(ServiceRequest):
     """
 
     ReservedCacheNodesOfferingId: String
-    ReservedCacheNodeId: Optional[String]
-    CacheNodeCount: Optional[IntegerOptional]
-    Tags: Optional[TagList]
+    ReservedCacheNodeId: String | None
+    CacheNodeCount: IntegerOptional | None
+    Tags: TagList | None
 
 
 class RecurringCharge(TypedDict, total=False):
@@ -2834,11 +2834,11 @@ class RecurringCharge(TypedDict, total=False):
     reserved cache node, or for a reserved cache node offering.
     """
 
-    RecurringChargeAmount: Optional[Double]
-    RecurringChargeFrequency: Optional[String]
+    RecurringChargeAmount: Double | None
+    RecurringChargeFrequency: String | None
 
 
-RecurringChargeList = List[RecurringCharge]
+RecurringChargeList = list[RecurringCharge]
 
 
 class ReservedCacheNode(TypedDict, total=False):
@@ -2846,23 +2846,23 @@ class ReservedCacheNode(TypedDict, total=False):
     operation.
     """
 
-    ReservedCacheNodeId: Optional[String]
-    ReservedCacheNodesOfferingId: Optional[String]
-    CacheNodeType: Optional[String]
-    StartTime: Optional[TStamp]
-    Duration: Optional[Integer]
-    FixedPrice: Optional[Double]
-    UsagePrice: Optional[Double]
-    CacheNodeCount: Optional[Integer]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    State: Optional[String]
-    RecurringCharges: Optional[RecurringChargeList]
-    ReservationARN: Optional[String]
+    ReservedCacheNodeId: String | None
+    ReservedCacheNodesOfferingId: String | None
+    CacheNodeType: String | None
+    StartTime: TStamp | None
+    Duration: Integer | None
+    FixedPrice: Double | None
+    UsagePrice: Double | None
+    CacheNodeCount: Integer | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    State: String | None
+    RecurringCharges: RecurringChargeList | None
+    ReservationARN: String | None
 
 
 class PurchaseReservedCacheNodesOfferingResult(TypedDict, total=False):
-    ReservedCacheNode: Optional[ReservedCacheNode]
+    ReservedCacheNode: ReservedCacheNode | None
 
 
 class RebalanceSlotsInGlobalReplicationGroupMessage(ServiceRequest):
@@ -2871,7 +2871,7 @@ class RebalanceSlotsInGlobalReplicationGroupMessage(ServiceRequest):
 
 
 class RebalanceSlotsInGlobalReplicationGroupResult(TypedDict, total=False):
-    GlobalReplicationGroup: Optional[GlobalReplicationGroup]
+    GlobalReplicationGroup: GlobalReplicationGroup | None
 
 
 class RebootCacheClusterMessage(ServiceRequest):
@@ -2882,7 +2882,7 @@ class RebootCacheClusterMessage(ServiceRequest):
 
 
 class RebootCacheClusterResult(TypedDict, total=False):
-    CacheCluster: Optional[CacheCluster]
+    CacheCluster: CacheCluster | None
 
 
 class RemoveTagsFromResourceMessage(ServiceRequest):
@@ -2892,40 +2892,40 @@ class RemoveTagsFromResourceMessage(ServiceRequest):
     TagKeys: KeyList
 
 
-ReplicationGroupList = List[ReplicationGroup]
+ReplicationGroupList = list[ReplicationGroup]
 
 
 class ReplicationGroupMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeReplicationGroups`` operation."""
 
-    Marker: Optional[String]
-    ReplicationGroups: Optional[ReplicationGroupList]
+    Marker: String | None
+    ReplicationGroups: ReplicationGroupList | None
 
 
-ReservedCacheNodeList = List[ReservedCacheNode]
+ReservedCacheNodeList = list[ReservedCacheNode]
 
 
 class ReservedCacheNodeMessage(TypedDict, total=False):
     """Represents the output of a ``DescribeReservedCacheNodes`` operation."""
 
-    Marker: Optional[String]
-    ReservedCacheNodes: Optional[ReservedCacheNodeList]
+    Marker: String | None
+    ReservedCacheNodes: ReservedCacheNodeList | None
 
 
 class ReservedCacheNodesOffering(TypedDict, total=False):
     """Describes all of the attributes of a reserved cache node offering."""
 
-    ReservedCacheNodesOfferingId: Optional[String]
-    CacheNodeType: Optional[String]
-    Duration: Optional[Integer]
-    FixedPrice: Optional[Double]
-    UsagePrice: Optional[Double]
-    ProductDescription: Optional[String]
-    OfferingType: Optional[String]
-    RecurringCharges: Optional[RecurringChargeList]
+    ReservedCacheNodesOfferingId: String | None
+    CacheNodeType: String | None
+    Duration: Integer | None
+    FixedPrice: Double | None
+    UsagePrice: Double | None
+    ProductDescription: String | None
+    OfferingType: String | None
+    RecurringCharges: RecurringChargeList | None
 
 
-ReservedCacheNodesOfferingList = List[ReservedCacheNodesOffering]
+ReservedCacheNodesOfferingList = list[ReservedCacheNodesOffering]
 
 
 class ReservedCacheNodesOfferingMessage(TypedDict, total=False):
@@ -2933,16 +2933,16 @@ class ReservedCacheNodesOfferingMessage(TypedDict, total=False):
     operation.
     """
 
-    Marker: Optional[String]
-    ReservedCacheNodesOfferings: Optional[ReservedCacheNodesOfferingList]
+    Marker: String | None
+    ReservedCacheNodesOfferings: ReservedCacheNodesOfferingList | None
 
 
 class ResetCacheParameterGroupMessage(ServiceRequest):
     """Represents the input of a ``ResetCacheParameterGroup`` operation."""
 
     CacheParameterGroupName: String
-    ResetAllParameters: Optional[Boolean]
-    ParameterNameValues: Optional[ParameterNameValueList]
+    ResetAllParameters: Boolean | None
+    ParameterNameValues: ParameterNameValueList | None
 
 
 class RevokeCacheSecurityGroupIngressMessage(ServiceRequest):
@@ -2954,32 +2954,32 @@ class RevokeCacheSecurityGroupIngressMessage(ServiceRequest):
 
 
 class RevokeCacheSecurityGroupIngressResult(TypedDict, total=False):
-    CacheSecurityGroup: Optional[CacheSecurityGroup]
+    CacheSecurityGroup: CacheSecurityGroup | None
 
 
 class ServiceUpdate(TypedDict, total=False):
     """An update that you can apply to your Valkey or Redis OSS clusters."""
 
-    ServiceUpdateName: Optional[String]
-    ServiceUpdateReleaseDate: Optional[TStamp]
-    ServiceUpdateEndDate: Optional[TStamp]
-    ServiceUpdateSeverity: Optional[ServiceUpdateSeverity]
-    ServiceUpdateRecommendedApplyByDate: Optional[TStamp]
-    ServiceUpdateStatus: Optional[ServiceUpdateStatus]
-    ServiceUpdateDescription: Optional[String]
-    ServiceUpdateType: Optional[ServiceUpdateType]
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    AutoUpdateAfterRecommendedApplyByDate: Optional[BooleanOptional]
-    EstimatedUpdateTime: Optional[String]
+    ServiceUpdateName: String | None
+    ServiceUpdateReleaseDate: TStamp | None
+    ServiceUpdateEndDate: TStamp | None
+    ServiceUpdateSeverity: ServiceUpdateSeverity | None
+    ServiceUpdateRecommendedApplyByDate: TStamp | None
+    ServiceUpdateStatus: ServiceUpdateStatus | None
+    ServiceUpdateDescription: String | None
+    ServiceUpdateType: ServiceUpdateType | None
+    Engine: String | None
+    EngineVersion: String | None
+    AutoUpdateAfterRecommendedApplyByDate: BooleanOptional | None
+    EstimatedUpdateTime: String | None
 
 
-ServiceUpdateList = List[ServiceUpdate]
+ServiceUpdateList = list[ServiceUpdate]
 
 
 class ServiceUpdatesMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    ServiceUpdates: Optional[ServiceUpdateList]
+    Marker: String | None
+    ServiceUpdates: ServiceUpdateList | None
 
 
 class StartMigrationMessage(ServiceRequest):
@@ -2988,7 +2988,7 @@ class StartMigrationMessage(ServiceRequest):
 
 
 class StartMigrationResponse(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
 class TagListMessage(TypedDict, total=False):
@@ -2996,7 +2996,7 @@ class TagListMessage(TypedDict, total=False):
     ``ListTagsForResource``, and ``RemoveTagsFromResource`` operations.
     """
 
-    TagList: Optional[TagList]
+    TagList: TagList | None
 
 
 class TestFailoverMessage(ServiceRequest):
@@ -3005,7 +3005,7 @@ class TestFailoverMessage(ServiceRequest):
 
 
 class TestFailoverResult(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
 class TestMigrationMessage(ServiceRequest):
@@ -3014,7 +3014,7 @@ class TestMigrationMessage(ServiceRequest):
 
 
 class TestMigrationResponse(TypedDict, total=False):
-    ReplicationGroup: Optional[ReplicationGroup]
+    ReplicationGroup: ReplicationGroup | None
 
 
 class UnprocessedUpdateAction(TypedDict, total=False):
@@ -3022,54 +3022,54 @@ class UnprocessedUpdateAction(TypedDict, total=False):
     apply/stop request
     """
 
-    ReplicationGroupId: Optional[String]
-    CacheClusterId: Optional[String]
-    ServiceUpdateName: Optional[String]
-    ErrorType: Optional[String]
-    ErrorMessage: Optional[String]
+    ReplicationGroupId: String | None
+    CacheClusterId: String | None
+    ServiceUpdateName: String | None
+    ErrorType: String | None
+    ErrorMessage: String | None
 
 
-UnprocessedUpdateActionList = List[UnprocessedUpdateAction]
+UnprocessedUpdateActionList = list[UnprocessedUpdateAction]
 
 
 class UpdateAction(TypedDict, total=False):
     """The status of the service update for a specific replication group"""
 
-    ReplicationGroupId: Optional[String]
-    CacheClusterId: Optional[String]
-    ServiceUpdateName: Optional[String]
-    ServiceUpdateReleaseDate: Optional[TStamp]
-    ServiceUpdateSeverity: Optional[ServiceUpdateSeverity]
-    ServiceUpdateStatus: Optional[ServiceUpdateStatus]
-    ServiceUpdateRecommendedApplyByDate: Optional[TStamp]
-    ServiceUpdateType: Optional[ServiceUpdateType]
-    UpdateActionAvailableDate: Optional[TStamp]
-    UpdateActionStatus: Optional[UpdateActionStatus]
-    NodesUpdated: Optional[String]
-    UpdateActionStatusModifiedDate: Optional[TStamp]
-    SlaMet: Optional[SlaMet]
-    NodeGroupUpdateStatus: Optional[NodeGroupUpdateStatusList]
-    CacheNodeUpdateStatus: Optional[CacheNodeUpdateStatusList]
-    EstimatedUpdateTime: Optional[String]
-    Engine: Optional[String]
+    ReplicationGroupId: String | None
+    CacheClusterId: String | None
+    ServiceUpdateName: String | None
+    ServiceUpdateReleaseDate: TStamp | None
+    ServiceUpdateSeverity: ServiceUpdateSeverity | None
+    ServiceUpdateStatus: ServiceUpdateStatus | None
+    ServiceUpdateRecommendedApplyByDate: TStamp | None
+    ServiceUpdateType: ServiceUpdateType | None
+    UpdateActionAvailableDate: TStamp | None
+    UpdateActionStatus: UpdateActionStatus | None
+    NodesUpdated: String | None
+    UpdateActionStatusModifiedDate: TStamp | None
+    SlaMet: SlaMet | None
+    NodeGroupUpdateStatus: NodeGroupUpdateStatusList | None
+    CacheNodeUpdateStatus: CacheNodeUpdateStatusList | None
+    EstimatedUpdateTime: String | None
+    Engine: String | None
 
 
-UpdateActionList = List[UpdateAction]
+UpdateActionList = list[UpdateAction]
 
 
 class UpdateActionResultsMessage(TypedDict, total=False):
-    ProcessedUpdateActions: Optional[ProcessedUpdateActionList]
-    UnprocessedUpdateActions: Optional[UnprocessedUpdateActionList]
+    ProcessedUpdateActions: ProcessedUpdateActionList | None
+    UnprocessedUpdateActions: UnprocessedUpdateActionList | None
 
 
 class UpdateActionsMessage(TypedDict, total=False):
-    Marker: Optional[String]
-    UpdateActions: Optional[UpdateActionList]
+    Marker: String | None
+    UpdateActions: UpdateActionList | None
 
 
 class ElasticacheApi:
-    service = "elasticache"
-    version = "2015-02-02"
+    service: str = "elasticache"
+    version: str = "2015-02-02"
 
     @handler("AddTagsToResource")
     def add_tags_to_resource(

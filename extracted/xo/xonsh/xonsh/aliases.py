@@ -7,16 +7,19 @@ import operator
 import os
 import pathlib
 import re
+import shlex
 import shutil
 import sys
 import types
 import typing as tp
 from collections import abc as cabc
+from pathlib import Path
 from typing import Literal
 
 import xonsh.completers._aliases as xca
 import xonsh.history.main as xhm
 import xonsh.xoreutils.which as xxw
+import xonsh.xoreutils.xcontext as xxt
 from xonsh.built_ins import XSH
 from xonsh.cli_utils import Annotated, Arg, ArgParserAlias
 from xonsh.dirstack import _get_cwd, cd, dirs, popd, pushd
@@ -551,7 +554,11 @@ def run_alias_by_params(func: tp.Callable, params: dict[str, tp.Any]):
     if len(kwargs) != len(func_params):
         # There is unknown param. Switch to positional mode.
         kwargs = dict(
-            zip(map(operator.itemgetter(0), func_params), alias_params.values())
+            zip(
+                map(operator.itemgetter(0), func_params),
+                alias_params.values(),
+                strict=False,
+            )
         )
     return func(**kwargs)
 
@@ -664,7 +671,13 @@ def source_foreign_fn(
         if not sourcer:
             return (None, "xonsh: error: `sourcer` command is not mentioned.\n", 1)
         # we have filenames to source
-        prevcmd = "".join([f"{sourcer} {f}\n" for f in files_or_code])
+        shell_name = os.path.basename(shell).lower()
+        quote = (
+            functools.partial(argvquote, force=True)
+            if shell_name in {"cmd", "cmd.exe"}
+            else shlex.quote
+        )
+        prevcmd = "".join(f"{sourcer} {quote(f)}\n" for f in files_or_code)
         files = tuple(files_or_code)
     elif not prevcmd:
         prevcmd = " ".join(files_or_code)  # code to run, no files
@@ -746,16 +759,24 @@ source_foreign = SourceForeignAlias(
 )
 
 
-@unthreadable
-def source_alias(args, stdin=None):
+def source_alias_fn(
+    files: Annotated[list[str], Arg(nargs="+")], ignore_ext=False, _stdin=None
+):
     """Executes the contents of the provided files in the current context.
     If sourced file isn't found in cwd, search for file along $PATH to source
     instead.
+
+    Parameters
+    ----------
+    files
+        paths to source files.
+    ignore_ext : -e, --ignore-ext
+        don't check the file extension
     """
     env = XSH.env
     encoding = env.get("XONSH_ENCODING")
     errors = env.get("XONSH_ENCODING_ERRORS")
-    for i, fname in enumerate(args):
+    for i, fname in enumerate(files):
         fpath = fname
         if not os.path.isfile(fpath):
             fpath = locate_file(fname)
@@ -768,12 +789,16 @@ def source_alias(args, stdin=None):
                     )
                 break
         _, fext = os.path.splitext(fpath)
-        if fext and fext != ".xsh" and fext != ".py":
+        fext, name = Path(fpath).suffix, Path(fpath).name
+        if not fext and name.startswith("."):
+            fext = name  # hidden file with no extension
+        if not ignore_ext and fext not in {".xsh", ".py", ".xonshrc"}:
             raise RuntimeError(
-                "attempting to source non-xonsh file! If you are "
-                "trying to source a file in another language, "
-                "then please use the appropriate source command. "
-                "For example, source-bash script.sh"
+                f"attempting to source file with non-xonsh extension {repr(name)}! "
+                f"If you are trying to source a file in another language, "
+                "then please use the appropriate source command "
+                "e.g. `source-bash script.sh`. "
+                "Use `-e` to ignore extension checking and source the file."
             )
         with open(fpath, encoding=encoding, errors=errors) as fp:
             src = fp.read()
@@ -782,7 +807,7 @@ def source_alias(args, stdin=None):
         ctx = XSH.ctx
         updates = {"__file__": fpath, "__name__": os.path.abspath(fpath)}
         with (
-            env.swap(XONSH_MODE="source", **make_args_env(args[i + 1 :])),
+            env.swap(XONSH_MODE="source", **make_args_env(files[i + 1 :])),
             swap_values(ctx, updates),
         ):
             try:
@@ -792,11 +817,16 @@ def source_alias(args, stdin=None):
                     "{RED}You may be attempting to source non-xonsh file! "
                     "{RESET}If you are trying to source a file in "
                     "another language, then please use the appropriate "
-                    "source command. For example, {GREEN}source-bash "
-                    "script.sh{RESET}",
+                    "source command. For example, {GREEN}`source-bash "
+                    "script.sh`{RESET}",
                     file=sys.stderr,
                 )
                 raise
+
+
+source_alias = ArgParserAlias(
+    func=source_alias_fn, has_args=True, prog="source", threadable=False
+)
 
 
 def source_cmd_fn(
@@ -972,22 +1002,30 @@ def trace(args, stdin=None, stdout=None, stderr=None, spec=None):
 
 
 def showcmd(args, stdin=None):
-    """usage: showcmd [-h|--help|cmd args]
+    """usage: showcmd [-e|--expand-alias] [-h|--help] cmd
 
     Displays the command and arguments as a list of strings that xonsh would
     run in subprocess mode. This is useful for determining how xonsh evaluates
     your commands and arguments prior to running these commands.
 
     optional arguments:
+      -e, --expand-alias    expand alias
       -h, --help            show this help message and exit
 
     Examples
     --------
-      >>> showcmd echo $USER "can't" hear "the sea"
+      @ showcmd echo $USER "can't" hear "the sea"
       ['echo', 'I', "can't", 'hear', 'the sea']
+
+      @ aliases['ali'] = 'echo 1'
+      @ showcmd -e ali 2
+      ['echo', '1', '2']
+
     """
     if len(args) == 0 or (len(args) == 1 and args[0] in {"-h", "--help"}):
         print(showcmd.__doc__.rstrip().replace("\n    ", "\n"))
+    elif args[0] in {"-e", "--expand-alias"}:
+        sys.displayhook(XSH.aliases.eval_alias(args[1:]))
     else:
         sys.displayhook(args)
 
@@ -1071,14 +1109,16 @@ def make_default_aliases():
         "trace": trace,
         "timeit": timeit_alias,
         "xonfig": xonfig,
-        "scp-resume": ["rsync", "--partial", "-h", "--progress", "--rsh=ssh"],
         "showcmd": showcmd,
-        "ipynb": ["jupyter", "notebook", "--no-browser"],
         "which": xxw.which,
+        "xcontext": xxt.xcontext,
         "xontrib": xontribs_main,
         "completer": xca.completer_alias,
         "xpip": detect_xpip_alias(),
-        "xonsh-reset": xonsh_reset,
+        "xpython": [XSH.env.get("_", sys.executable)]
+        if IN_APPIMAGE
+        else [sys.executable],
+        "xreset": xonsh_reset,
         "@thread": SpecAttrDecoratorAlias(
             {"threadable": True, "force_threadable": True},
             "Mark current command as threadable.",

@@ -8,7 +8,7 @@ from pytensor import config
 from pytensor.compile.builders import OpFromGraph
 from pytensor.gradient import DisconnectedType
 from pytensor.graph import FunctionGraph
-from pytensor.graph.basic import Apply, Constant, explicit_graph_inputs
+from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.null_type import NullType
 from pytensor.graph.op import Op
 from pytensor.graph.replace import (
@@ -16,6 +16,7 @@ from pytensor.graph.replace import (
     _vectorize_not_needed,
     vectorize_graph,
 )
+from pytensor.graph.traversal import explicit_graph_inputs
 from pytensor.link.c.op import COp
 from pytensor.scalar import ScalarType
 from pytensor.tensor import as_tensor_variable
@@ -370,8 +371,12 @@ class Blockwise(COp):
                 safe_core_output_shapes = [list(shape) for shape in core_output_shapes]
                 for core_out_shape in safe_core_output_shapes:
                     for o, core_out_dim in enumerate(core_out_shape):
-                        if set_dummy_core_inputs & set(
-                            explicit_graph_inputs([core_out_dim])
+                        if (
+                            # Some Ops return integers / literals from infer_shape...
+                            # If it's not a Variable it can't depend on inputs
+                            isinstance(core_out_dim, Variable)
+                            and set_dummy_core_inputs
+                            & set(explicit_graph_inputs([core_out_dim]))
                         ):
                             core_out_shape[o] = None
 
@@ -385,9 +390,16 @@ class Blockwise(COp):
         ):
             core_out_shape = []
             for i, dim_name in enumerate(sig):
-                # The output dim is the same as another input dim
                 if dim_name in core_dims:
+                    # The output dim is the same as another input dim
                     core_out_shape.append(core_dims[dim_name])
+                elif str.isnumeric(dim_name):
+                    # The core_dim has a constant size
+                    from pytensor.tensor.basic import constant
+
+                    core_out_shape.append(
+                        constant(np.array(int(dim_name), dtype="int64"))
+                    )
                 else:
                     if safe_core_out_shape is None:
                         # Extract the core shape from the core_op infer_shape on demand
@@ -592,6 +604,11 @@ class OpWithCoreShape(OpFromGraph):
 
 class BlockwiseWithCoreShape(OpWithCoreShape):
     """Generalizes a Blockwise `Op` to include a core shape parameter."""
+
+    @property
+    def core_op(self):
+        [blockwise_node] = self.fgraph.apply_nodes
+        return cast(Blockwise, blockwise_node.op).core_op
 
     def __str__(self):
         [blockwise_node] = self.fgraph.apply_nodes

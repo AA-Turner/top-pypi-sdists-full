@@ -8,6 +8,7 @@ import base64
 import typing as t
 
 from ansible.module_utils.common.text.converters import to_bytes
+
 from ansible_collections.community.crypto.plugins.module_utils._crypto.basic import (
     OpenSSLObjectError,
 )
@@ -18,7 +19,6 @@ from ansible_collections.community.crypto.plugins.module_utils._crypto.module_ba
 from ansible_collections.community.crypto.plugins.plugin_utils._action_module import (
     ActionModuleBase,
 )
-
 
 if t.TYPE_CHECKING:
     from ansible_collections.community.crypto.plugins.module_utils._argspec import (  # pragma: no cover

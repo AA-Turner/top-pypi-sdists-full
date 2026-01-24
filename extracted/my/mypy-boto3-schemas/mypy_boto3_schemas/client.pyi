@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -92,11 +93,6 @@ from .type_defs import (
 )
 from .waiter import CodeBindingExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -105,17 +101,17 @@ else:
 __all__ = ("SchemasClient",)
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    GoneException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    PreconditionFailedException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnauthorizedException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    GoneException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    PreconditionFailedException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnauthorizedException: type[BotocoreClientError]
 
 class SchemasClient(BaseClient):
     """

@@ -14,7 +14,7 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype.claw._importlib.clawimppath import remove_beartype_pathhook
+from beartype.claw._importlib.clawimpmain import remove_beartype_pathhook
 from beartype.roar import BeartypeClawHookException
 from beartype.typing import (
     TYPE_CHECKING,
@@ -24,12 +24,12 @@ from beartype.typing import (
 )
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._conf.confmain import BeartypeConf
-from beartype._data.hint.datahinttyping import CollectionStrs
+from beartype._data.typing.datatyping import CollectionStrs
 from collections.abc import (
     Collection as CollectionABC,
 )
 
-# ....................{ SUBCLASSES                         }....................
+# ....................{ HINTS                              }....................
 PackageBasenameToTrieBlacklist = Dict[str, 'PackagesTrieBlacklist']
 '''
 PEP-compliant type hint matching a dictionary mapping from the unqualified
@@ -63,7 +63,6 @@ sub-subpackages of that subpackage).
 #* The passed value is either "None" or another "PackagesTrieWhitelist" object.
 #
 #See the __init__() dunder method for similar validation logic, please.
-
 class PackagesTrieBlacklist(PackageBasenameToTrieBlacklist):
     '''
     **(Sub)package (sub)trie blacklist** (i.e., recursively nested dictionary
@@ -158,6 +157,10 @@ class PackagesTrieBlacklist(PackageBasenameToTrieBlacklist):
         '''
         assert isinstance(package_basename, NoneTypeOr[str]), (
             f'{repr(package_basename)} neither string nor "None".')
+        assert isinstance(subpackage_basename_to_trie, NoneTypeOr[dict]), (
+            f'{repr(subpackage_basename_to_trie)} '
+            f'neither dictionary nor "None".'
+        )
 
         # Initialize our superclass to the empty dictionary.
         super().__init__()
@@ -167,7 +170,7 @@ class PackagesTrieBlacklist(PackageBasenameToTrieBlacklist):
 
         # If the caller explicitly passed an initial dictionary to initialize
         # this dictionary subclass with...
-        if subpackage_basename_to_trie is not None:
+        if subpackage_basename_to_trie:
             # If this initial dictionary is *NOT* a dictionary such that...
             if not (
                 isinstance(subpackage_basename_to_trie, dict) and
@@ -195,6 +198,22 @@ class PackagesTrieBlacklist(PackageBasenameToTrieBlacklist):
             self.update(subpackage_basename_to_trie)
         # Else, the caller explicitly passed *NO* initial dictionary. In this
         # case, preserve this dictionary subclass as the empty dictionary.
+
+    # ..................{ COPIERS                            }..................
+    #FIXME: Unit test us up, please.
+    #FIXME: Comment out all of this for the moment, please. This method isn't
+    #implemented correctly at the moment, sadly. It needs to call itself
+    #recursively. It currently doesn't. Thus, we all sigh. *sigh*
+    # def copy_deep(self) -> 'PackagesTrieBlacklist':
+    #     '''
+    #     Deep copy of this packages trie blacklist.
+    #     '''
+    #
+    #     # Create and return a new deep copy of this packages trie blacklist.
+    #     return PackagesTrieBlacklist(
+    #         package_basename=self.package_basename,
+    #         subpackage_basename_to_trie=self,
+    #     )
 
     # ..................{ DUNDERS                            }..................
     def __repr__(self) -> str:
@@ -286,9 +305,9 @@ class PackagesTrieWhitelist(PackageBasenameToTrieWhitelist):
         Either:
 
         * If this (sub)package has been explicitly registered by a prior call to
-          the :func:`add_package_names` function, the **beartype
-          configuration** (i.e., dataclass encapsulating all settings
-          configuring type-checking for this (sub)package).
+          the :func:`beartype.claw._package.clawpkgmain.hook_packages` function,
+          the beartype configuration encapsulating all settings configuring
+          type-checking for this (sub)package.
         * Else, :data:`None`.
     package_basename : Optional[str]
         Either:
@@ -326,6 +345,7 @@ class PackagesTrieWhitelist(PackageBasenameToTrieWhitelist):
         self,
 
         # Optional parameters.
+        conf_if_hooked: Optional[BeartypeConf] = None,
         package_basename: Optional[str] = None,
     ) -> None:
         '''
@@ -333,7 +353,18 @@ class PackagesTrieWhitelist(PackageBasenameToTrieWhitelist):
 
         Parameters
         ----------
-        package_basename : Optional[str]
+        conf_if_hooked : Optional[BeartypeConf], defaults: None
+            Either:
+
+            * If this (sub)package has been explicitly registered by a prior
+              call to the
+              :func:`beartype.claw._package.clawpkgmain.hook_packages` function,
+              the beartype configuration encapsulating all settings configuring
+              type-checking for this (sub)package.
+            * Else, :data:`None`.
+
+            Defaults to :data:`None`.
+        package_basename : Optional[str], defaults: None
             Either:
 
             * If this is the root of a packages trie whitelist (i.e., the
@@ -344,6 +375,9 @@ class PackagesTrieWhitelist(PackageBasenameToTrieWhitelist):
 
             Defaults to :data:`None`.
         '''
+        assert isinstance(conf_if_hooked, NoneTypeOr[BeartypeConf]), (
+            f'{repr(conf_if_hooked)} neither beartype configuration nor "None".'
+        )
         assert isinstance(package_basename, NoneTypeOr[str]), (
             f'{repr(package_basename)} neither string nor "None".')
 
@@ -351,10 +385,24 @@ class PackagesTrieWhitelist(PackageBasenameToTrieWhitelist):
         super().__init__()
 
         # Classify all remaining passed parameters.
+        self.conf_if_hooked = conf_if_hooked
         self.package_basename = package_basename
 
-        # Nullify all subclass-specific parameters for safety.
-        self.conf_if_hooked: Optional[BeartypeConf] = None
+    # ..................{ COPIERS                            }..................
+    #FIXME: Unit test us up, please.
+    #FIXME: Comment out all of this for the moment, please. This method isn't
+    #implemented correctly at the moment, sadly. It needs to call itself
+    #recursively. It currently doesn't. Thus, we all sigh. *sigh*
+    # def copy_deep(self) -> 'PackagesTrieWhitelist':
+    #     '''
+    #     Deep copy of this packages trie whitelist.
+    #     '''
+    #
+    #     # Create and return a new deep copy of this packages trie whitelist.
+    #     return PackagesTrieWhitelist(
+    #         conf_if_hooked=self.conf_if_hooked,
+    #         package_basename=self.package_basename,
+    #     )
 
     # ..................{ DUNDERS                            }..................
     def __repr__(self) -> str:
@@ -371,49 +419,71 @@ class PackagesTrieWhitelist(PackageBasenameToTrieWhitelist):
         ))
 
 # ....................{ RAISERS                            }....................
-def die_if_packages_trie() -> None:
-    '''
-    Raise an exception if one or more packages have been registered by a prior
-    call to the :func:`beartype.claw._package.clawpkghook.hook_packages` function.
-
-    Raises
-    ------
-    BeartypeClawHookException
-        If one or more packages have been registered by a prior call to the
-        :func:`beartype.claw._package.clawpkghook.hook_packages` function.
-    '''
-
-    # If one or more packages have been registered...
-    if is_packages_trie():
-        # Avoid circular import dependencies.
-        from beartype.claw._clawstate import claw_state
-
-        # If a global configuration was already added by a prior call to the
-        # public beartype.claw.beartype_all() function, raise an exception.
-        if claw_state.packages_trie_whitelist.conf_if_hooked is not None:
-            raise BeartypeClawHookException(
-                f'Prior call to package-agnostic import hook '
-                f'beartype.claw.beartype_all() already registered all packages '
-                f'for type-checking under global beartype configuration '
-                f'{repr(claw_state.packages_trie_whitelist.conf_if_hooked)}.'
-            )
-        # Else, or more package-specific configurations have been added by prior
-        # calls to public beartype.claw.beartype_*() functions. In this case,
-        # raise another exception.
-        else:
-            raise BeartypeClawHookException(
-                f'Prior call to package-specific import hook '
-                f'beartype.claw.beartype_*() already registered some packages '
-                f'for type-checking under beartype configurations:\n\t'
-                f'{repr(claw_state.packages_trie_whitelist)}'
-            )
+#FIXME: Excise us up, please. This is no longer required anywhere. *sigh*
+# def die_if_packages_trie() -> None:
+#     '''
+#     Raise an exception if one or more packages have been registered by a prior
+#     call to the :func:`beartype.claw._package.clawpkgmain.hook_packages`
+#     function.
+#
+#     This raiser is thread-safe.
+#
+#     Raises
+#     ------
+#     BeartypeClawHookException
+#         If one or more packages have been registered by a prior call to the
+#         :func:`beartype.claw._package.clawpkgmain.hook_packages` function.
+#     '''
+#
+#     # Avoid circular import dependencies.
+#     from beartype.claw._clawstate import (
+#         claw_lock,
+#         claw_state,
+#     )
+#
+#     # With a submodule-specific thread-safe reentrant lock...
+#     with claw_lock:
+#         # If one or more packages have been registered...
+#         if is_packages_trie():
+#             # Package trie whitelist, localized merely for readability. *sigh*
+#             packages_trie_whitelist = claw_state.packages_trie_whitelist
+#
+#             # If a global configuration was already added by a prior call to the
+#             # public beartype.claw.beartype_all() function, raise an exception.
+#             if packages_trie_whitelist.conf_if_hooked is not None:
+#                 raise BeartypeClawHookException(
+#                     f'Prior call to package-agnostic import hook '
+#                     f'beartype.claw.beartype_all() already registered '
+#                     f'all packages for type-checking under '
+#                     f'global beartype configuration '
+#                     f'{repr(packages_trie_whitelist.conf_if_hooked)}.'
+#                 )
+#             # Else, or more package-specific configurations have been added by prior
+#             # calls to public beartype.claw.beartype_*() functions. In this case,
+#             # raise another exception.
+#             else:
+#                 raise BeartypeClawHookException(
+#                     f'Prior call to package-specific import hook '
+#                     f'beartype.claw.beartype_package() and/or '
+#                     f'beartype_packages() already registered '
+#                     f'{len(packages_trie_whitelist)} package(s) for '
+#                     f'type-checking under beartype configurations:\n'
+#                     f'{repr(packages_trie_whitelist)}'
+#                 )
 
 # ....................{ TESTERS                            }....................
 #FIXME: Unit test us up, please.
 def is_packages_trie() -> bool:
     '''
     :data:`True` only if one or more packages have been registered by a prior
-    call to the :func:`beartype.claw._package.clawpkghook.hook_packages` function.
+    call to the :func:`beartype.claw._package.clawpkgmain.hook_packages`
+    function.
+
+    Caveats
+    -------
+    **This function is only safely callable in a thread-safe manner from within
+    a** ``with claw_lock:`` **context manager.** Equivalently, this function is
+    *not* safely callable outside that manager.
 
     Returns
     -------
@@ -426,11 +496,12 @@ def is_packages_trie() -> bool:
 
     # Return true only if either...
     return (
-        # A global configuration has been added by a prior call to the public
-        # beartype.claw.beartype_all() function *OR*...
+        # A global configuration has been added by a prior call to the
+        # beartype.claw.beartype_all() import hook *OR*...
         claw_state.packages_trie_whitelist.conf_if_hooked is not None or
-        # One or more package-specific configurations have been added by prior
-        # calls to public beartype.claw.beartype_*() functions.
+        # One or more package-specific configurations have been added by
+        # prior calls to either the beartype.claw.beartype_package() *OR*
+        # beartype_packages() import hooks.
         bool(claw_state.packages_trie_whitelist)
     )
 
@@ -442,11 +513,10 @@ def is_package_blacklisted(package_basenames: CollectionStrs) -> bool:
     **blacklisted** (i.e., prevented from being runtime type-checked on the
     first importation of that package) by being either:
 
-     * Explicitly blacklisted by being directly listed in a previously
-       configured :attr:`beartype.BeartypeConf.claw_skip_package_names`
-       collection.
-     * Implicitly blacklisted by being the subpackage of a parent package
-       directly listed in such a collection.
+    * Explicitly blacklisted by being directly listed in a previously configured
+      :attr:`beartype.BeartypeConf.claw_skip_package_names` collection.
+    * Implicitly blacklisted by being the subpackage of a parent package
+      directly listed in such a collection.
 
     Caveats
     -------
@@ -576,6 +646,8 @@ def get_package_conf_or_none(package_name: str) -> Optional[BeartypeConf]:
     # ....................{ SEARCH                         }....................
     # With a submodule-specific thread-safe reentrant lock...
     with claw_lock:
+        # print(f'claw_state: {claw_state}')
+
         # ....................{ PHASE 1 ~ blacklist        }....................
         # In this first phase, decide whether this package has been either:
         # * Explicitly blacklisted by being directly listed in a previously
@@ -639,7 +711,7 @@ def iter_packages_trie(
     whitelist** (i.e., :class:`PackagesTrieWhitelist` instance) describing each
     transitive parent package of the package with the passed name if this
     package or a parent package of this package was hooked by a prior call to
-    the :func:`beartype.claw._package.clawpkghook.hook_packages` function *or*
+    the :func:`beartype.claw._package.clawpkgmain.hook_packages` function *or*
     the empty iterable otherwise otherwise (i.e., if neither this package nor a
     parent package of this package was hooked by such a call).
 
@@ -723,9 +795,9 @@ def remove_beartype_pathhook_unless_packages_trie() -> None:
 
     Caveats
     -------
-    **This function is non-thread-safe.** For both simplicity and efficiency,
-    the caller is expected to provide thread-safety through a higher-level
-    locking primitive managed by the caller.
+    **This function is only safely callable in a thread-safe manner from within
+    a** ``with claw_lock:`` **context manager.** Equivalently, this function is
+    *not* safely callable outside that manager.
     '''
 
     # If all previously registered packages have been unregistered, safely

@@ -3,7 +3,7 @@ Type annotations for kafka service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kafka/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -28,6 +28,7 @@ __all__ = (
     "ClusterTypeType",
     "ConfigurationStateType",
     "CustomerActionStatusType",
+    "DescribeTopicPartitionsPaginatorName",
     "EnhancedMonitoringType",
     "KafkaServiceName",
     "KafkaVersionStatusType",
@@ -42,9 +43,11 @@ __all__ = (
     "ListNodesPaginatorName",
     "ListReplicatorsPaginatorName",
     "ListScramSecretsPaginatorName",
+    "ListTopicsPaginatorName",
     "ListVpcConnectionsPaginatorName",
     "NodeTypeType",
     "PaginatorName",
+    "RebalancingStatusType",
     "RegionName",
     "ReplicationStartingPositionTypeType",
     "ReplicationTopicNameConfigurationTypeType",
@@ -53,6 +56,7 @@ __all__ = (
     "ServiceName",
     "StorageModeType",
     "TargetCompressionTypeType",
+    "TopicStateType",
     "UserIdentityTypeType",
     "VpcConnectionStateType",
 )
@@ -72,6 +76,7 @@ ClusterStateType = Literal[
 ClusterTypeType = Literal["PROVISIONED", "SERVERLESS"]
 ConfigurationStateType = Literal["ACTIVE", "DELETE_FAILED", "DELETING"]
 CustomerActionStatusType = Literal["ACTION_RECOMMENDED", "CRITICAL_ACTION_REQUIRED", "NONE"]
+DescribeTopicPartitionsPaginatorName = Literal["describe_topic_partitions"]
 EnhancedMonitoringType = Literal[
     "DEFAULT", "PER_BROKER", "PER_TOPIC_PER_BROKER", "PER_TOPIC_PER_PARTITION"
 ]
@@ -87,8 +92,10 @@ ListKafkaVersionsPaginatorName = Literal["list_kafka_versions"]
 ListNodesPaginatorName = Literal["list_nodes"]
 ListReplicatorsPaginatorName = Literal["list_replicators"]
 ListScramSecretsPaginatorName = Literal["list_scram_secrets"]
+ListTopicsPaginatorName = Literal["list_topics"]
 ListVpcConnectionsPaginatorName = Literal["list_vpc_connections"]
 NodeTypeType = Literal["BROKER"]
+RebalancingStatusType = Literal["ACTIVE", "PAUSED"]
 ReplicationStartingPositionTypeType = Literal["EARLIEST", "LATEST"]
 ReplicationTopicNameConfigurationTypeType = Literal[
     "IDENTICAL", "PREFIXED_WITH_SOURCE_CLUSTER_ALIAS"
@@ -96,6 +103,7 @@ ReplicationTopicNameConfigurationTypeType = Literal[
 ReplicatorStateType = Literal["CREATING", "DELETING", "FAILED", "RUNNING", "UPDATING"]
 StorageModeType = Literal["LOCAL", "TIERED"]
 TargetCompressionTypeType = Literal["GZIP", "LZ4", "NONE", "SNAPPY", "ZSTD"]
+TopicStateType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 UserIdentityTypeType = Literal["AWSACCOUNT", "AWSSERVICE"]
 VpcConnectionStateType = Literal[
     "AVAILABLE",
@@ -134,7 +142,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -204,6 +211,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -249,7 +257,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -302,7 +309,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -341,8 +347,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -377,6 +381,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -386,6 +391,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -396,6 +402,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -417,8 +426,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -433,15 +440,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -472,6 +480,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -512,6 +521,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -526,6 +536,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "describe_topic_partitions",
     "list_client_vpc_connections",
     "list_cluster_operations",
     "list_cluster_operations_v2",
@@ -537,6 +548,7 @@ PaginatorName = Literal[
     "list_nodes",
     "list_replicators",
     "list_scram_secrets",
+    "list_topics",
     "list_vpc_connections",
 ]
 RegionName = Literal[
@@ -553,6 +565,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

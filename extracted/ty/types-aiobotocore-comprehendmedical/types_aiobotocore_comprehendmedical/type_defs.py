@@ -3,7 +3,7 @@ Type annotations for comprehendmedical service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_comprehendmedical/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -40,11 +40,6 @@ from .literals import (
     SNOMEDCTTraitNameType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-else:
-    from typing import Dict, List
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -160,7 +155,7 @@ class DescribeEntitiesDetectionV2JobRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -292,7 +287,7 @@ AttributeTypeDef = TypedDict(
         "EndOffset": NotRequired[int],
         "Text": NotRequired[str],
         "Category": NotRequired[EntityTypeType],
-        "Traits": NotRequired[List[TraitTypeDef]],
+        "Traits": NotRequired[list[TraitTypeDef]],
     },
 )
 
@@ -431,7 +426,7 @@ ICD10CMAttributeTypeDef = TypedDict(
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
         "Text": NotRequired[str],
-        "Traits": NotRequired[List[ICD10CMTraitTypeDef]],
+        "Traits": NotRequired[list[ICD10CMTraitTypeDef]],
         "Category": NotRequired[ICD10CMEntityTypeType],
         "RelationshipType": NotRequired[ICD10CMRelationshipTypeType],
     },
@@ -446,7 +441,7 @@ RxNormAttributeTypeDef = TypedDict(
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
         "Text": NotRequired[str],
-        "Traits": NotRequired[List[RxNormTraitTypeDef]],
+        "Traits": NotRequired[list[RxNormTraitTypeDef]],
     },
 )
 SNOMEDCTAttributeTypeDef = TypedDict(
@@ -461,8 +456,8 @@ SNOMEDCTAttributeTypeDef = TypedDict(
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
         "Text": NotRequired[str],
-        "Traits": NotRequired[List[SNOMEDCTTraitTypeDef]],
-        "SNOMEDCTConcepts": NotRequired[List[SNOMEDCTConceptTypeDef]],
+        "Traits": NotRequired[list[SNOMEDCTTraitTypeDef]],
+        "SNOMEDCTConcepts": NotRequired[list[SNOMEDCTConceptTypeDef]],
     },
 )
 EntityTypeDef = TypedDict(
@@ -475,8 +470,8 @@ EntityTypeDef = TypedDict(
         "Text": NotRequired[str],
         "Category": NotRequired[EntityTypeType],
         "Type": NotRequired[EntitySubTypeType],
-        "Traits": NotRequired[List[TraitTypeDef]],
-        "Attributes": NotRequired[List[AttributeTypeDef]],
+        "Traits": NotRequired[list[TraitTypeDef]],
+        "Attributes": NotRequired[list[AttributeTypeDef]],
     },
 )
 UnmappedAttributeTypeDef = TypedDict(
@@ -544,31 +539,31 @@ class DescribeSNOMEDCTInferenceJobResponseTypeDef(TypedDict):
 
 
 class ListEntitiesDetectionV2JobsResponseTypeDef(TypedDict):
-    ComprehendMedicalAsyncJobPropertiesList: List[ComprehendMedicalAsyncJobPropertiesTypeDef]
+    ComprehendMedicalAsyncJobPropertiesList: list[ComprehendMedicalAsyncJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListICD10CMInferenceJobsResponseTypeDef(TypedDict):
-    ComprehendMedicalAsyncJobPropertiesList: List[ComprehendMedicalAsyncJobPropertiesTypeDef]
+    ComprehendMedicalAsyncJobPropertiesList: list[ComprehendMedicalAsyncJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPHIDetectionJobsResponseTypeDef(TypedDict):
-    ComprehendMedicalAsyncJobPropertiesList: List[ComprehendMedicalAsyncJobPropertiesTypeDef]
+    ComprehendMedicalAsyncJobPropertiesList: list[ComprehendMedicalAsyncJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListRxNormInferenceJobsResponseTypeDef(TypedDict):
-    ComprehendMedicalAsyncJobPropertiesList: List[ComprehendMedicalAsyncJobPropertiesTypeDef]
+    ComprehendMedicalAsyncJobPropertiesList: list[ComprehendMedicalAsyncJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListSNOMEDCTInferenceJobsResponseTypeDef(TypedDict):
-    ComprehendMedicalAsyncJobPropertiesList: List[ComprehendMedicalAsyncJobPropertiesTypeDef]
+    ComprehendMedicalAsyncJobPropertiesList: list[ComprehendMedicalAsyncJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -583,9 +578,9 @@ ICD10CMEntityTypeDef = TypedDict(
         "Score": NotRequired[float],
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
-        "Attributes": NotRequired[List[ICD10CMAttributeTypeDef]],
-        "Traits": NotRequired[List[ICD10CMTraitTypeDef]],
-        "ICD10CMConcepts": NotRequired[List[ICD10CMConceptTypeDef]],
+        "Attributes": NotRequired[list[ICD10CMAttributeTypeDef]],
+        "Traits": NotRequired[list[ICD10CMTraitTypeDef]],
+        "ICD10CMConcepts": NotRequired[list[ICD10CMConceptTypeDef]],
     },
 )
 RxNormEntityTypeDef = TypedDict(
@@ -598,9 +593,9 @@ RxNormEntityTypeDef = TypedDict(
         "Score": NotRequired[float],
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
-        "Attributes": NotRequired[List[RxNormAttributeTypeDef]],
-        "Traits": NotRequired[List[RxNormTraitTypeDef]],
-        "RxNormConcepts": NotRequired[List[RxNormConceptTypeDef]],
+        "Attributes": NotRequired[list[RxNormAttributeTypeDef]],
+        "Traits": NotRequired[list[RxNormTraitTypeDef]],
+        "RxNormConcepts": NotRequired[list[RxNormConceptTypeDef]],
     },
 )
 SNOMEDCTEntityTypeDef = TypedDict(
@@ -613,52 +608,52 @@ SNOMEDCTEntityTypeDef = TypedDict(
         "Score": NotRequired[float],
         "BeginOffset": NotRequired[int],
         "EndOffset": NotRequired[int],
-        "Attributes": NotRequired[List[SNOMEDCTAttributeTypeDef]],
-        "Traits": NotRequired[List[SNOMEDCTTraitTypeDef]],
-        "SNOMEDCTConcepts": NotRequired[List[SNOMEDCTConceptTypeDef]],
+        "Attributes": NotRequired[list[SNOMEDCTAttributeTypeDef]],
+        "Traits": NotRequired[list[SNOMEDCTTraitTypeDef]],
+        "SNOMEDCTConcepts": NotRequired[list[SNOMEDCTConceptTypeDef]],
     },
 )
 
 
 class DetectPHIResponseTypeDef(TypedDict):
-    Entities: List[EntityTypeDef]
+    Entities: list[EntityTypeDef]
     ModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 
 class DetectEntitiesResponseTypeDef(TypedDict):
-    Entities: List[EntityTypeDef]
-    UnmappedAttributes: List[UnmappedAttributeTypeDef]
+    Entities: list[EntityTypeDef]
+    UnmappedAttributes: list[UnmappedAttributeTypeDef]
     ModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 
 class DetectEntitiesV2ResponseTypeDef(TypedDict):
-    Entities: List[EntityTypeDef]
-    UnmappedAttributes: List[UnmappedAttributeTypeDef]
+    Entities: list[EntityTypeDef]
+    UnmappedAttributes: list[UnmappedAttributeTypeDef]
     ModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 
 class InferICD10CMResponseTypeDef(TypedDict):
-    Entities: List[ICD10CMEntityTypeDef]
+    Entities: list[ICD10CMEntityTypeDef]
     ModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 
 class InferRxNormResponseTypeDef(TypedDict):
-    Entities: List[RxNormEntityTypeDef]
+    Entities: list[RxNormEntityTypeDef]
     ModelVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
     PaginationToken: NotRequired[str]
 
 
 class InferSNOMEDCTResponseTypeDef(TypedDict):
-    Entities: List[SNOMEDCTEntityTypeDef]
+    Entities: list[SNOMEDCTEntityTypeDef]
     ModelVersion: str
     SNOMEDCTDetails: SNOMEDCTDetailsTypeDef
     Characters: CharactersTypeDef

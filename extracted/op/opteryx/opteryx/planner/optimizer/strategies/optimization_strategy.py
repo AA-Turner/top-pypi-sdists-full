@@ -11,6 +11,7 @@ from opteryx.planner.logical_planner import LogicalPlanStepType
 
 
 def get_nodes_of_type_from_logical_plan(plan: LogicalPlan, types: Tuple[LogicalPlanStepType]):
+    """Utility to get all nodes of a given type from a logical plan"""
     matches = []
     for node in plan.nodes(True):
         if node[1].node_type in types:
@@ -32,6 +33,9 @@ class OptimizerContext:
         self.seen_unions: int = 0
         self.seen_distincts: int = 0
         self.seen_projects_since_distinct: int = 0
+
+        self.false_filters: list = []
+        """We collect FILTER(FALSE) nodes for later rewriting"""
 
         self.collected_predicates: list = []
         """We collect predicates we should be able to push to reads and joins"""
@@ -59,14 +63,23 @@ class OptimizationStrategy:
         self.statistics = statistics
 
     def visit(self, node: LogicalPlanNode, context: OptimizerContext) -> OptimizerContext:
+        """
+        Visit a node in the logical plan
+        """
         raise NotImplementedError(
             "Visit method must be implemented in OptimizationStrategy classes."
         )
 
     def complete(self, plan: LogicalPlan, context: OptimizerContext) -> LogicalPlan:
+        """
+        Complete the optimization process and return the optimized logical plan.
+        """
         raise NotImplementedError(
             "Complete method must be implemented in OptimizationStrategy classes."
         )
 
     def should_i_run(self, plan: LogicalPlan) -> bool:
+        """
+        Determine if the optimization strategy should run on the given plan.
+        """
         return True

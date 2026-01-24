@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
-from dateutil import parser
 from functools import lru_cache
 from logging import getLogger
-from typing import Dict, Optional, Set
 
 from a_sync import ProcessingQueue, a_sync
 from brownie import chain
-from pony.orm import commit, select
+from dateutil import parser
+from eth_typing import BlockNumber
+from pony.orm import TransactionIntegrityError, commit, select
 
 from y._db.common import make_executor
 from y._db.decorators import (
@@ -17,7 +17,6 @@ from y._db.decorators import (
 )
 from y._db.entities import Block, BlockAtTimestamp, Chain, insert
 
-
 logger = getLogger(__name__)
 _logger_debug = logger.debug
 
@@ -25,7 +24,7 @@ CHAINID = chain.id
 del chain
 
 
-_block_executor = make_executor(4, 8, "ypricemagic db executor [block]")
+_block_executor = make_executor(2, 8, "ypricemagic db executor [block]")
 _timestamp_executor = make_executor(1, 4, "ypricemagic db executor [timestamp]")
 
 
@@ -115,11 +114,14 @@ def ensure_block(number: int) -> None:
         from y._db.utils._ep import _get_get_block
 
         get_block = _get_get_block()
-        get_block(number, sync=True)
+        try:
+            get_block(number, sync=True)
+        except TransactionIntegrityError:
+            get_block(number, sync=True)
 
 
 @a_sync_read_db_session
-def get_block_timestamp(number: int) -> Optional[int]:
+def get_block_timestamp(number: int) -> int | None:
     """Retrieve the timestamp for a given block number.
 
     If the timestamp is not known, it retrieves and caches the block's timestamp.
@@ -152,7 +154,7 @@ def get_block_timestamp(number: int) -> Optional[int]:
 
 
 @a_sync_read_db_session
-def get_block_at_timestamp(timestamp: datetime) -> Optional[int]:
+def get_block_at_timestamp(timestamp: datetime) -> BlockNumber | None:
     """Retrieve the block number at a specific timestamp.
 
     If the block number is not known, it attempts to find it in the database.
@@ -218,7 +220,7 @@ def set_block_timestamp(block: int, timestamp: int) -> None:
     """
 
 
-set_block_timestamp = ProcessingQueue(_set_block_timestamp, num_workers=10, return_data=False)
+set_block_timestamp = ProcessingQueue(_set_block_timestamp, num_workers=2, return_data=False)
 
 
 @a_sync(default="async", executor=_timestamp_executor)
@@ -240,14 +242,14 @@ def _set_block_at_timestamp(timestamp: datetime, block: int) -> None:
     _logger_debug("inserted block %s for %s", block, timestamp)
 
 
-set_block_at_timestamp = ProcessingQueue(_set_block_at_timestamp, num_workers=10, return_data=False)
+set_block_at_timestamp = ProcessingQueue(_set_block_at_timestamp, num_workers=2, return_data=False)
 
 # startup caches
 
 
 @lru_cache(maxsize=1)
 @log_result_count("blocks")
-def known_blocks() -> Set[int]:
+def known_blocks() -> set[int]:
     """Cache and return all known blocks for this chain to minimize db reads.
 
     Returns:
@@ -265,7 +267,7 @@ def known_blocks() -> Set[int]:
 
 @lru_cache(maxsize=1)
 @log_result_count("block timestamps")
-def known_block_timestamps() -> Dict[int, datetime]:
+def known_block_timestamps() -> dict[int, datetime]:
     """Cache and return all known block timestamps for this chain to minimize db reads.
 
     Returns:
@@ -289,7 +291,7 @@ def known_block_timestamps() -> Dict[int, datetime]:
 
 @lru_cache(maxsize=1)
 @log_result_count("blocks for timestamps")
-def known_blocks_for_timestamps() -> Dict[datetime, int]:
+def known_blocks_for_timestamps() -> dict[datetime, int]:
     """Cache and return all known blocks for timestamps for this chain to minimize db reads.
 
     Returns:

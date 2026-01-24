@@ -3,7 +3,7 @@ Type annotations for deadline service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -246,7 +247,9 @@ from .type_defs import (
 )
 from .waiter import (
     FleetActiveWaiter,
+    JobCompleteWaiter,
     JobCreateCompleteWaiter,
+    JobSucceededWaiter,
     LicenseEndpointDeletedWaiter,
     LicenseEndpointValidWaiter,
     QueueFleetAssociationStoppedWaiter,
@@ -255,12 +258,6 @@ from .waiter import (
     QueueSchedulingWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -271,14 +268,14 @@ __all__ = ("DeadlineCloudClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class DeadlineCloudClient(BaseClient):
@@ -318,7 +315,7 @@ class DeadlineCloudClient(BaseClient):
 
     def associate_member_to_farm(
         self, **kwargs: Unpack[AssociateMemberToFarmRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a farm membership level to a member.
 
@@ -328,7 +325,7 @@ class DeadlineCloudClient(BaseClient):
 
     def associate_member_to_fleet(
         self, **kwargs: Unpack[AssociateMemberToFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a fleet membership level to a member.
 
@@ -338,7 +335,7 @@ class DeadlineCloudClient(BaseClient):
 
     def associate_member_to_job(
         self, **kwargs: Unpack[AssociateMemberToJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a job membership level to a member.
 
@@ -348,7 +345,7 @@ class DeadlineCloudClient(BaseClient):
 
     def associate_member_to_queue(
         self, **kwargs: Unpack[AssociateMemberToQueueRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a queue membership level to a member.
 
@@ -517,7 +514,7 @@ class DeadlineCloudClient(BaseClient):
 
     def create_queue_fleet_association(
         self, **kwargs: Unpack[CreateQueueFleetAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an association between a queue and a fleet.
 
@@ -527,7 +524,7 @@ class DeadlineCloudClient(BaseClient):
 
     def create_queue_limit_association(
         self, **kwargs: Unpack[CreateQueueLimitAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a limit with a particular queue.
 
@@ -556,7 +553,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#create_worker)
         """
 
-    def delete_budget(self, **kwargs: Unpack[DeleteBudgetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_budget(self, **kwargs: Unpack[DeleteBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a budget.
 
@@ -564,7 +561,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_budget)
         """
 
-    def delete_farm(self, **kwargs: Unpack[DeleteFarmRequestTypeDef]) -> Dict[str, Any]:
+    def delete_farm(self, **kwargs: Unpack[DeleteFarmRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a farm.
 
@@ -572,7 +569,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_farm)
         """
 
-    def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> Dict[str, Any]:
+    def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a fleet.
 
@@ -582,7 +579,7 @@ class DeadlineCloudClient(BaseClient):
 
     def delete_license_endpoint(
         self, **kwargs: Unpack[DeleteLicenseEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a license endpoint.
 
@@ -590,7 +587,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_license_endpoint)
         """
 
-    def delete_limit(self, **kwargs: Unpack[DeleteLimitRequestTypeDef]) -> Dict[str, Any]:
+    def delete_limit(self, **kwargs: Unpack[DeleteLimitRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a limit from the specified farm.
 
@@ -600,7 +597,7 @@ class DeadlineCloudClient(BaseClient):
 
     def delete_metered_product(
         self, **kwargs: Unpack[DeleteMeteredProductRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a metered product.
 
@@ -608,7 +605,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_metered_product)
         """
 
-    def delete_monitor(self, **kwargs: Unpack[DeleteMonitorRequestTypeDef]) -> Dict[str, Any]:
+    def delete_monitor(self, **kwargs: Unpack[DeleteMonitorRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a Deadline Cloud monitor.
 
@@ -616,7 +613,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_monitor)
         """
 
-    def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> Dict[str, Any]:
+    def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a queue.
 
@@ -626,7 +623,7 @@ class DeadlineCloudClient(BaseClient):
 
     def delete_queue_environment(
         self, **kwargs: Unpack[DeleteQueueEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a queue environment.
 
@@ -636,7 +633,7 @@ class DeadlineCloudClient(BaseClient):
 
     def delete_queue_fleet_association(
         self, **kwargs: Unpack[DeleteQueueFleetAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a queue-fleet association.
 
@@ -646,7 +643,7 @@ class DeadlineCloudClient(BaseClient):
 
     def delete_queue_limit_association(
         self, **kwargs: Unpack[DeleteQueueLimitAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the association between a queue and a limit.
 
@@ -656,7 +653,7 @@ class DeadlineCloudClient(BaseClient):
 
     def delete_storage_profile(
         self, **kwargs: Unpack[DeleteStorageProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a storage profile.
 
@@ -664,7 +661,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#delete_storage_profile)
         """
 
-    def delete_worker(self, **kwargs: Unpack[DeleteWorkerRequestTypeDef]) -> Dict[str, Any]:
+    def delete_worker(self, **kwargs: Unpack[DeleteWorkerRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a worker.
 
@@ -674,7 +671,7 @@ class DeadlineCloudClient(BaseClient):
 
     def disassociate_member_from_farm(
         self, **kwargs: Unpack[DisassociateMemberFromFarmRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a farm.
 
@@ -684,7 +681,7 @@ class DeadlineCloudClient(BaseClient):
 
     def disassociate_member_from_fleet(
         self, **kwargs: Unpack[DisassociateMemberFromFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a fleet.
 
@@ -694,7 +691,7 @@ class DeadlineCloudClient(BaseClient):
 
     def disassociate_member_from_job(
         self, **kwargs: Unpack[DisassociateMemberFromJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a job.
 
@@ -704,7 +701,7 @@ class DeadlineCloudClient(BaseClient):
 
     def disassociate_member_from_queue(
         self, **kwargs: Unpack[DisassociateMemberFromQueueRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a queue.
 
@@ -1158,7 +1155,7 @@ class DeadlineCloudClient(BaseClient):
 
     def put_metered_product(
         self, **kwargs: Unpack[PutMeteredProductRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a metered product.
 
@@ -1215,7 +1212,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#start_sessions_statistics_aggregation)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource using the resource's ARN and desired tags.
 
@@ -1223,7 +1220,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource using the resource's ARN and tag to remove.
 
@@ -1231,7 +1228,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#untag_resource)
         """
 
-    def update_budget(self, **kwargs: Unpack[UpdateBudgetRequestTypeDef]) -> Dict[str, Any]:
+    def update_budget(self, **kwargs: Unpack[UpdateBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a budget that sets spending thresholds for rendering activity.
 
@@ -1239,7 +1236,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_budget)
         """
 
-    def update_farm(self, **kwargs: Unpack[UpdateFarmRequestTypeDef]) -> Dict[str, Any]:
+    def update_farm(self, **kwargs: Unpack[UpdateFarmRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a farm.
 
@@ -1247,7 +1244,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_farm)
         """
 
-    def update_fleet(self, **kwargs: Unpack[UpdateFleetRequestTypeDef]) -> Dict[str, Any]:
+    def update_fleet(self, **kwargs: Unpack[UpdateFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a fleet.
 
@@ -1255,7 +1252,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_fleet)
         """
 
-    def update_job(self, **kwargs: Unpack[UpdateJobRequestTypeDef]) -> Dict[str, Any]:
+    def update_job(self, **kwargs: Unpack[UpdateJobRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a job.
 
@@ -1263,7 +1260,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_job)
         """
 
-    def update_limit(self, **kwargs: Unpack[UpdateLimitRequestTypeDef]) -> Dict[str, Any]:
+    def update_limit(self, **kwargs: Unpack[UpdateLimitRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the properties of the specified limit.
 
@@ -1271,7 +1268,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_limit)
         """
 
-    def update_monitor(self, **kwargs: Unpack[UpdateMonitorRequestTypeDef]) -> Dict[str, Any]:
+    def update_monitor(self, **kwargs: Unpack[UpdateMonitorRequestTypeDef]) -> dict[str, Any]:
         """
         Modifies the settings for a Deadline Cloud monitor.
 
@@ -1279,7 +1276,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_monitor)
         """
 
-    def update_queue(self, **kwargs: Unpack[UpdateQueueRequestTypeDef]) -> Dict[str, Any]:
+    def update_queue(self, **kwargs: Unpack[UpdateQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a queue.
 
@@ -1289,7 +1286,7 @@ class DeadlineCloudClient(BaseClient):
 
     def update_queue_environment(
         self, **kwargs: Unpack[UpdateQueueEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the queue environment.
 
@@ -1299,7 +1296,7 @@ class DeadlineCloudClient(BaseClient):
 
     def update_queue_fleet_association(
         self, **kwargs: Unpack[UpdateQueueFleetAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a queue-fleet association.
 
@@ -1309,7 +1306,7 @@ class DeadlineCloudClient(BaseClient):
 
     def update_queue_limit_association(
         self, **kwargs: Unpack[UpdateQueueLimitAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the status of the queue.
 
@@ -1317,7 +1314,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_queue_limit_association)
         """
 
-    def update_session(self, **kwargs: Unpack[UpdateSessionRequestTypeDef]) -> Dict[str, Any]:
+    def update_session(self, **kwargs: Unpack[UpdateSessionRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a session.
 
@@ -1325,7 +1322,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_session)
         """
 
-    def update_step(self, **kwargs: Unpack[UpdateStepRequestTypeDef]) -> Dict[str, Any]:
+    def update_step(self, **kwargs: Unpack[UpdateStepRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a step.
 
@@ -1335,7 +1332,7 @@ class DeadlineCloudClient(BaseClient):
 
     def update_storage_profile(
         self, **kwargs: Unpack[UpdateStorageProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a storage profile.
 
@@ -1343,7 +1340,7 @@ class DeadlineCloudClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#update_storage_profile)
         """
 
-    def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> Dict[str, Any]:
+    def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a task.
 
@@ -1703,8 +1700,30 @@ class DeadlineCloudClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["job_complete"]
+    ) -> JobCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["job_create_complete"]
     ) -> JobCreateCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_waiter.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_deadline/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["job_succeeded"]
+    ) -> JobSucceededWaiter:
         """
         Returns an object that can wait for some condition.
 

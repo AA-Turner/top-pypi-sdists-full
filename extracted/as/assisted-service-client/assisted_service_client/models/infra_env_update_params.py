@@ -36,6 +36,7 @@ class InfraEnvUpdateParams(object):
         'ssh_authorized_key': 'str',
         'pull_secret': 'str',
         'static_network_config': 'list[HostStaticNetworkConfig]',
+        'rendezvous_ip': 'str',
         'image_type': 'ImageType',
         'ignition_config_override': 'str',
         'kernel_arguments': 'KernelArguments',
@@ -49,6 +50,7 @@ class InfraEnvUpdateParams(object):
         'ssh_authorized_key': 'ssh_authorized_key',
         'pull_secret': 'pull_secret',
         'static_network_config': 'static_network_config',
+        'rendezvous_ip': 'rendezvous_ip',
         'image_type': 'image_type',
         'ignition_config_override': 'ignition_config_override',
         'kernel_arguments': 'kernel_arguments',
@@ -56,7 +58,7 @@ class InfraEnvUpdateParams(object):
         'openshift_version': 'openshift_version'
     }
 
-    def __init__(self, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, image_type=None, ignition_config_override=None, kernel_arguments=None, additional_trust_bundle=None, openshift_version=None):  # noqa: E501
+    def __init__(self, proxy=None, additional_ntp_sources=None, ssh_authorized_key=None, pull_secret=None, static_network_config=None, rendezvous_ip=None, image_type=None, ignition_config_override=None, kernel_arguments=None, additional_trust_bundle=None, openshift_version=None):  # noqa: E501
         """InfraEnvUpdateParams - a model defined in Swagger"""  # noqa: E501
 
         self._proxy = None
@@ -64,6 +66,7 @@ class InfraEnvUpdateParams(object):
         self._ssh_authorized_key = None
         self._pull_secret = None
         self._static_network_config = None
+        self._rendezvous_ip = None
         self._image_type = None
         self._ignition_config_override = None
         self._kernel_arguments = None
@@ -81,6 +84,8 @@ class InfraEnvUpdateParams(object):
             self.pull_secret = pull_secret
         if static_network_config is not None:
             self.static_network_config = static_network_config
+        if rendezvous_ip is not None:
+            self.rendezvous_ip = rendezvous_ip
         if image_type is not None:
             self.image_type = image_type
         if ignition_config_override is not None:
@@ -202,6 +207,29 @@ class InfraEnvUpdateParams(object):
         """
 
         self._static_network_config = static_network_config
+
+    @property
+    def rendezvous_ip(self):
+        """Gets the rendezvous_ip of this InfraEnvUpdateParams.  # noqa: E501
+
+        The IP address of the host that will act as the rendezvous (bootstrap) node for agent-based installations. This is optional for disconnected-iso image type and specifies which host will run the assisted service during the bootstrap phase. All other hosts will connect to this IP to coordinate the installation.  # noqa: E501
+
+        :return: The rendezvous_ip of this InfraEnvUpdateParams.  # noqa: E501
+        :rtype: str
+        """
+        return self._rendezvous_ip
+
+    @rendezvous_ip.setter
+    def rendezvous_ip(self, rendezvous_ip):
+        """Sets the rendezvous_ip of this InfraEnvUpdateParams.
+
+        The IP address of the host that will act as the rendezvous (bootstrap) node for agent-based installations. This is optional for disconnected-iso image type and specifies which host will run the assisted service during the bootstrap phase. All other hosts will connect to this IP to coordinate the installation.  # noqa: E501
+
+        :param rendezvous_ip: The rendezvous_ip of this InfraEnvUpdateParams.  # noqa: E501
+        :type: str
+        """
+
+        self._rendezvous_ip = rendezvous_ip
 
     @property
     def image_type(self):

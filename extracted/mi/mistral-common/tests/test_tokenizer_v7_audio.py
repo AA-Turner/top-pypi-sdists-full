@@ -1,6 +1,5 @@
 import tempfile
 from pathlib import Path
-from typing import List
 from unittest.mock import patch
 
 import numpy as np
@@ -38,13 +37,13 @@ from mistral_common.tokens.tokenizers.instruct import (
 )
 from mistral_common.tokens.tokenizers.mistral import MistralTokenizer
 from mistral_common.tokens.tokenizers.tekken import Tekkenizer
-from tests.test_tekken import _quick_vocab, get_special_tokens
+from tests.test_tekken import get_special_tokens, quick_vocab
 
 
-def _get_tekkenizer_with_audio() -> InstructTokenizerV7:
+def get_tekkenizer_with_audio() -> InstructTokenizerV7:
     special_tokens = get_special_tokens(tokenizer_version=TokenizerVersion.v7, add_audio=True)
     tokenizer = Tekkenizer(
-        _quick_vocab([b"a", b"b", b"c", b"f", b"de"]),
+        quick_vocab([b"a", b"b", b"c", b"f", b"de"]),
         special_tokens,
         pattern=r".+",  # single token, whole string
         vocab_size=256 + 100,
@@ -62,8 +61,8 @@ def _get_tekkenizer_with_audio() -> InstructTokenizerV7:
         ),
     )
     special_audio_ids = SpecialAudioIDs(
-        audio=tokenizer.get_control_token(SpecialTokens.audio.value),
-        begin_audio=tokenizer.get_control_token(SpecialTokens.begin_audio.value),
+        audio=tokenizer.get_special_token(SpecialTokens.audio.value),
+        begin_audio=tokenizer.get_special_token(SpecialTokens.begin_audio.value),
     )
     audio_encoder = AudioEncoder(audio_config, special_audio_ids)
 
@@ -72,7 +71,7 @@ def _get_tekkenizer_with_audio() -> InstructTokenizerV7:
 
 @pytest.fixture(scope="session")
 def tekkenizer() -> InstructTokenizerV7:
-    return _get_tekkenizer_with_audio()
+    return get_tekkenizer_with_audio()
 
 
 def sin_wave(sampling_rate: int, duration: float) -> np.ndarray:
@@ -150,13 +149,13 @@ def _get_audio_chunk(duration: float) -> AudioChunk:
 
 
 def _get_specials(tekkenizer: InstructTokenizerV7) -> tuple[int, ...]:
-    BOS = tekkenizer.tokenizer.get_control_token(SpecialTokens.bos.value)
-    EOS = tekkenizer.tokenizer.get_control_token(SpecialTokens.eos.value)
-    BEGIN_INST = tekkenizer.tokenizer.get_control_token(SpecialTokens.begin_inst.value)
-    END_INST = tekkenizer.tokenizer.get_control_token(SpecialTokens.end_inst.value)
-    AUDIO = tekkenizer.tokenizer.get_control_token(SpecialTokens.audio.value)
-    BEGIN_AUDIO = tekkenizer.tokenizer.get_control_token(SpecialTokens.begin_audio.value)
-    TRANSCRIBE = tekkenizer.tokenizer.get_control_token(SpecialTokens.transcribe.value)
+    BOS = tekkenizer.tokenizer.get_special_token(SpecialTokens.bos.value)
+    EOS = tekkenizer.tokenizer.get_special_token(SpecialTokens.eos.value)
+    BEGIN_INST = tekkenizer.tokenizer.get_special_token(SpecialTokens.begin_inst.value)
+    END_INST = tekkenizer.tokenizer.get_special_token(SpecialTokens.end_inst.value)
+    AUDIO = tekkenizer.tokenizer.get_special_token(SpecialTokens.audio.value)
+    BEGIN_AUDIO = tekkenizer.tokenizer.get_special_token(SpecialTokens.begin_audio.value)
+    TRANSCRIBE = tekkenizer.tokenizer.get_special_token(SpecialTokens.transcribe.value)
     return BOS, EOS, BEGIN_INST, END_INST, AUDIO, BEGIN_AUDIO, TRANSCRIBE
 
 
@@ -218,7 +217,7 @@ def test_tokenize_user_message(tekkenizer: InstructTokenizerV7, audio_first: boo
     text_chunk = TextChunk(text="a")
 
     num_expected_frames = int(np.ceil(duration * frame_rate))
-    chunks: List[UserContentChunk] = [audio_chunk, text_chunk] if audio_first else [text_chunk, audio_chunk]
+    chunks: list[UserContentChunk] = [audio_chunk, text_chunk] if audio_first else [text_chunk, audio_chunk]
 
     tokenized = tekkenizer.encode_instruct(
         InstructRequest(
@@ -264,7 +263,7 @@ def test_tokenize_multi_turn(tekkenizer: InstructTokenizerV7) -> None:
     text_chunk = TextChunk(text="a")
 
     num_expected_frames = int(np.ceil(duration * frame_rate))
-    chunks: List[UserContentChunk] = [audio_chunk, text_chunk]
+    chunks: list[UserContentChunk] = [audio_chunk, text_chunk]
 
     tokenized = tekkenizer.encode_instruct(
         InstructRequest(
@@ -351,7 +350,7 @@ def test_no_audio_in_system_message_before_v7() -> None:
         ),
     ],
 )
-def test_tokenize_audio_raise(tekkenizer: InstructTokenizerV7, messages: List[UATS], match_regex: str) -> None:
+def test_tokenize_audio_raise(tekkenizer: InstructTokenizerV7, messages: list[UATS], match_regex: str) -> None:
     with pytest.raises(ValueError, match=match_regex):
         tekkenizer.encode_instruct(InstructRequest(messages=messages))
 

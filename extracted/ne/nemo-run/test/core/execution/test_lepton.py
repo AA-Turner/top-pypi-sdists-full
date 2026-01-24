@@ -59,6 +59,42 @@ class TestLeptonExecutor:
         assert executor.nemo_run_dir == "/workspace/nemo_run"
         assert executor.mounts == [{"path": "/workspace", "mount_path": "/workspace"}]
 
+    def test_init_with_node_reservation(self):
+        """Test initialization with node_reservation parameter."""
+        executor = LeptonExecutor(
+            resource_shape="gpu.8xh100-80gb",
+            node_group="my-node-group",
+            container_image="test-image",
+            nodes=2,
+            gpus_per_node=8,
+            nemo_run_dir="/workspace/nemo_run",
+            mounts=[{"path": "/workspace", "mount_path": "/workspace"}],
+            node_reservation="my-reservation-id",
+        )
+
+        assert executor.node_reservation == "my-reservation-id"
+
+    def test_init_with_empty_node_reservation(self):
+        """Test initialization with empty node_reservation string."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            node_reservation="",
+        )
+
+        assert executor.node_reservation == ""
+
+    def test_init_without_node_reservation(self):
+        """Test initialization without node_reservation parameter (default behavior)."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+        )
+
+        assert executor.node_reservation == ""
+
     @patch("nemo_run.core.execution.lepton.APIClient")
     def test_stop_job(self, mock_APIClient):
         mock_instance = MagicMock()
@@ -343,6 +379,88 @@ class TestLeptonExecutor:
         executor.create_lepton_job("my-lepton-job")
 
         mock_client.job.create.assert_called_once()
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_reservation_config(self, mock_APIClient_class):
+        """Test create_lepton_job creates ReservationConfig when node_reservation is set."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            node_reservation="my-reservation-id",
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify that job.create was called with the correct ReservationConfig
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.reservation_config is not None
+        assert created_job.spec.reservation_config.reservation_id == "my-reservation-id"
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_without_reservation_config(self, mock_APIClient_class):
+        """Test create_lepton_job creates no ReservationConfig when node_reservation is not set."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            # No node_reservation set
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify that job.create was called with no ReservationConfig
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.reservation_config is None
+
+    @patch("nemo_run.core.execution.lepton.APIClient")
+    def test_create_lepton_job_with_empty_reservation_config(self, mock_APIClient_class):
+        """Test create_lepton_job creates no ReservationConfig when node_reservation is empty string."""
+        mock_client = mock_APIClient_class.return_value
+        mock_client.job.create.return_value = LeptonJob(metadata=Metadata(id="my-lepton-job"))
+        node_group = SimpleNamespace(metadata=SimpleNamespace(id_="123456"))
+
+        mock_client.nodegroup.list_all.return_value = []
+        valid_node_ids = ["node-id-1", "node-id-2"]
+
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            node_group="123456",
+            mounts=[{"path": "/test", "mount_path": "/test"}],
+            node_reservation="",  # Empty string
+        )
+        executor._valid_node_ids = MagicMock(return_value=valid_node_ids)
+        executor._node_group_id = MagicMock(return_value=node_group)
+
+        executor.create_lepton_job("my-lepton-job")
+
+        # Verify that job.create was called with no ReservationConfig
+        mock_client.job.create.assert_called_once()
+        created_job = mock_client.job.create.call_args[0][0]
+        assert created_job.spec.reservation_config is None
 
     def test_nnodes(self):
         executor = LeptonExecutor(
@@ -641,3 +759,217 @@ class TestLeptonExecutor:
         result = executor.macro_values()
 
         assert result is None
+
+    def test_pre_launch_commands_initialization(self):
+        """Test that pre_launch_commands can be initialized and defaults to empty list."""
+        # Test default initialization
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+        assert executor.pre_launch_commands == []
+
+        # Test initialization with commands
+        commands = ["echo 'Setting up environment'", "export TEST_VAR=value"]
+        executor_with_commands = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            pre_launch_commands=commands,
+        )
+        assert executor_with_commands.pre_launch_commands == commands
+
+    def test_launch_script_with_pre_launch_commands(self):
+        """Test that pre_launch_commands are correctly included in the launch script."""
+
+        # Test without pre_launch_commands
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+        )
+
+        # Test script section generation - empty case
+        pre_launch_section = ""
+        if executor.pre_launch_commands:
+            pre_launch_section = "\n".join(executor.pre_launch_commands) + "\n"
+        assert pre_launch_section == ""
+
+        # Test with pre_launch_commands
+        commands = ["echo 'Custom setup'", "export MY_VAR=test"]
+        executor_with_commands = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            pre_launch_commands=commands,
+        )
+
+        # Test script section generation - with commands
+        pre_launch_section_with_commands = ""
+        if executor_with_commands.pre_launch_commands:
+            pre_launch_section_with_commands = (
+                "\n".join(executor_with_commands.pre_launch_commands) + "\n"
+            )
+
+        expected_pre_launch = "echo 'Custom setup'\nexport MY_VAR=test\n"
+        assert pre_launch_section_with_commands == expected_pre_launch
+
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor._validate_mounts")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.move_data")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.create_lepton_job")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.status")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("os.path.join")
+    @patch("nemo_run.core.execution.lepton.logger")
+    def test_launch_method_comprehensive(
+        self,
+        mock_logger,
+        mock_join,
+        mock_file,
+        mock_status,
+        mock_create_job,
+        mock_move_data,
+        mock_validate_mounts,
+    ):
+        """Test launch method name validation, pre_launch_commands, and script generation."""
+        # Setup
+        executor = LeptonExecutor(
+            container_image="test-image", nemo_run_dir="/test", pre_launch_commands=["echo setup"]
+        )
+        executor.job_dir = executor.lepton_job_dir = "/fake"
+        mock_join.return_value = "/fake/script.sh"
+        mock_job = MagicMock()
+        mock_job.metadata.id_ = "job-id"
+        mock_create_job.return_value = mock_job
+        mock_status.return_value = LeptonJobState.Running
+
+        # Test name transformation and pre_launch_commands
+        job_id, status = executor.launch("Test_Job.Name", ["python", "script.py"])
+        assert job_id == "job-id"
+
+        # Verify script content includes pre_launch_commands
+        handle = mock_file.return_value.__enter__.return_value
+        written_content = handle.write.call_args[0][0]
+        assert "echo setup\n" in written_content
+        assert "python script.py" in written_content
+
+        # Test long name truncation
+        long_name = "a" * 50
+        executor.launch(long_name, ["cmd"])
+        mock_logger.warning.assert_called_with(
+            "length of name exceeds 35 characters. Shortening..."
+        )
+
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor._validate_mounts")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.move_data")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.create_lepton_job")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.status")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("os.path.join")
+    @patch("nemo_run.core.execution.lepton.logger")
+    def test_launch_error_paths(
+        self,
+        mock_logger,
+        mock_join,
+        mock_file,
+        mock_status,
+        mock_create_job,
+        mock_move_data,
+        mock_validate_mounts,
+    ):
+        """Test launch method error handling and logging."""
+        executor = LeptonExecutor(container_image="test-image", nemo_run_dir="/test/path")
+        executor.job_dir = executor.lepton_job_dir = "/fake/dir"
+        mock_join.return_value = "/fake/launch_script.sh"
+
+        # Test job creation failure
+        mock_create_job.return_value = None
+        with pytest.raises(RuntimeError, match="Failed to create Lepton job"):
+            executor.launch("test", ["cmd"])
+        mock_logger.info.assert_any_call("Creating distributed workload")
+
+        # Test missing job ID
+        mock_job = MagicMock()
+        mock_job.metadata.id_ = None
+        mock_create_job.return_value = mock_job
+        with pytest.raises(RuntimeError, match="Failed to retrieve job information"):
+            executor.launch("test", ["cmd"])
+
+        # Test status failure
+        mock_job.metadata.id_ = "job-id"
+        mock_status.return_value = None
+        with pytest.raises(RuntimeError, match="Failed to retrieve job status"):
+            executor.launch("test", ["cmd"])
+
+        # Test success path with logging
+        mock_status.return_value = LeptonJobState.Running
+        job_id, status = executor.launch("test", ["cmd"])
+        assert job_id == "job-id"
+        mock_logger.info.assert_any_call("Copying experiment directory to remote filesystem")
+
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor._validate_mounts")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.move_data")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.create_lepton_job")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.status")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("os.path.join")
+    @patch("nemo_run.core.execution.lepton.logger")
+    def test_launch_long_name_truncation(
+        self,
+        mock_logger,
+        mock_join,
+        mock_file,
+        mock_status,
+        mock_create_job,
+        mock_move_data,
+        mock_validate_mounts,
+    ):
+        """Test name truncation warning and logic (lines 246-247)."""
+        executor = LeptonExecutor(container_image="test-image", nemo_run_dir="/test/path")
+        executor.job_dir = executor.lepton_job_dir = "/fake/dir"
+        mock_join.return_value = "/fake/launch_script.sh"
+
+        mock_job = MagicMock()
+        mock_job.metadata.id_ = "job-id"
+        mock_create_job.return_value = mock_job
+        mock_status.return_value = LeptonJobState.Running
+
+        # Test long name triggers warning and truncation
+        long_name = "a" * 50  # 50 characters, exceeds 35
+        executor.launch(long_name, ["cmd"])
+        mock_logger.warning.assert_called_with(
+            "length of name exceeds 35 characters. Shortening..."
+        )
+
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor._validate_mounts")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.move_data")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.create_lepton_job")
+    @patch("nemo_run.core.execution.lepton.LeptonExecutor.status")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("os.path.join")
+    def test_launch_prelaunch_commands_join(
+        self,
+        mock_join,
+        mock_file,
+        mock_status,
+        mock_create_job,
+        mock_move_data,
+        mock_validate_mounts,
+    ):
+        """Test pre_launch_commands joining logic (line 252)."""
+        executor = LeptonExecutor(
+            container_image="test-image",
+            nemo_run_dir="/test/path",
+            pre_launch_commands=["echo setup", "export VAR=1"],
+        )
+        executor.job_dir = executor.lepton_job_dir = "/fake/dir"
+        mock_join.return_value = "/fake/launch_script.sh"
+
+        mock_job = MagicMock()
+        mock_job.metadata.id_ = "job-id"
+        mock_create_job.return_value = mock_job
+        mock_status.return_value = LeptonJobState.Running
+
+        executor.launch("test", ["cmd"])
+
+        # Verify script contains joined pre_launch_commands
+        handle = mock_file.return_value.__enter__.return_value
+        written_content = handle.write.call_args[0][0]
+        assert "echo setup\nexport VAR=1\n" in written_content

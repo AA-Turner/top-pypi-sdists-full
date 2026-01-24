@@ -254,7 +254,7 @@ Keyword arguments:
 - withCopyButton (boolean; optional):
     Determines whether copy button should be displayed, `True` by
     default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'CodeHighlight'

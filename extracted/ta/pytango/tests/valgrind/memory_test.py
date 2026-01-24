@@ -7,6 +7,7 @@ memory leaks in the past, or are suspected of causing memory leaks.
 
 import json
 import time
+import sys
 
 from tango import (
     AttributeProxy,
@@ -17,7 +18,6 @@ from tango import (
     EventType,
     Group,
 )
-from tango.device_proxy import _UNSUBSCRIBE_LIFETIME
 from tango.server import Device, command, attribute
 from tango.test_context import DeviceTestContext
 from tango.test_utils import (
@@ -46,7 +46,7 @@ class MemTestDevice(Device):
                 fget=self.generic_read,
             )
             self.add_attribute(attr)
-            self.set_change_event(name, True, False)
+            self.set_change_event(name, implemented=True, detect=False)
 
             name = f"attr_rw_{repr_type(dtype)}"
             self._attr_data[name] = {"value": values[0], "reads": 0, "writes": 0}
@@ -61,11 +61,11 @@ class MemTestDevice(Device):
                 fset=self.generic_write,
             )
             self.add_attribute(attr)
-            self.set_change_event(name, True, False)
+            self.set_change_event(name, implemented=True, detect=False)
 
         # Include standard attributes
-        self.set_change_event("State", True, False)
-        self.set_change_event("Status", True, False)
+        self.set_change_event("State", implemented=True, detect=False)
+        self.set_change_event("Status", implemented=True, detect=False)
         self._attr_data["State"] = {"value": DevState.ON, "reads": 0, "writes": 0}
         self._attr_data["Status"] = {"value": "State ON", "reads": 0, "writes": 0}
 
@@ -256,6 +256,14 @@ def get_command_input_data_map():
     return result
 
 
+def progress_bar(current, total, width=40):
+    progress = int(width * current / total)
+    bar = "[" + "#" * progress + "-" * (width - progress) + "]"
+    percent = f"{(current / total) * 100:.1f}%"
+    sys.stdout.write(f"\r{bar} {percent}")
+    sys.stdout.flush()
+
+
 if __name__ == "__main__":
     print("Running PyTango MemTestDevice")
     with DeviceTestContext(MemTestDevice, process=True) as proxy:
@@ -300,17 +308,6 @@ if __name__ == "__main__":
             for _ in range(unique_num_rw):
                 proxy.write_attribute(attr_name, value)
 
-            # events
-            if attr_name in ("State", "Status"):
-                # Remove this once the bug has been fixed
-                print(
-                    "\tWarning: skipping events for State and Status attributes, "
-                    "due to known bug: "
-                    "https://gitlab.com/tango-controls/cppTango/-/issues/368"
-                )
-                unique_num_event_no_sub = 0
-                unique_num_event_with_sub = 0
-
             config = {"name": attr_name, "count": unique_num_event_no_sub}
             proxy.emit_events(json.dumps(config))
 
@@ -339,29 +336,27 @@ if __name__ == "__main__":
         offset = (len(attr_names) * 10 + unique_num_cmd + 10) * 2
         num_device_proxy_from_test_context = 2  # server + device
         unique_num_device_proxy = offset
-        for _ in range(unique_num_device_proxy - num_device_proxy_from_test_context):
+
+        print("Creating DeviceProxies:")
+        n_device_proxies = unique_num_device_proxy - num_device_proxy_from_test_context
+        for ind in range(n_device_proxies):
             DeviceProxy(device_name)
+            progress_bar(ind, n_device_proxies)
         unique_num_attr_proxy = unique_num_device_proxy + 1
-        for _ in range(unique_num_attr_proxy):
+        print(f"\n              DeviceProxy | created: {unique_num_device_proxy:>3} |")
+
+        print("Creating AttributeProxies:")
+        for ind in range(unique_num_attr_proxy):
             AttributeProxy(f"{device_name}/state")
+            progress_bar(ind, unique_num_attr_proxy)
         unique_num_group = unique_num_attr_proxy + 1
-        for _ in range(unique_num_group):
+        print(f"\n           AttributeProxy | created: {unique_num_attr_proxy:>3} |")
+
+        print("Creating Groups:")
+        for ind in range(unique_num_group):
             group = Group("test")
             group.add(device_name)
-        print(f"              DeviceProxy | created: {unique_num_device_proxy:>3} |")
-        print(f"           AttributeProxy | created: {unique_num_attr_proxy:>3} |")
-        print(f"                    Group | created: {unique_num_group:>3} |")
-
-        # wait for event unsubscription:
-        expected_cleanup_time = last_unsubscription_time + _UNSUBSCRIBE_LIFETIME + 1.0
-        time_left = round(expected_cleanup_time - time.time())
-        if time_left > 0:
-            print(f"\nWaiting {time_left} sec for event subscription cleanup...")
-            time.sleep(time_left)
-            print("Done waiting for cleanup.")
-        try:
-            proxy.unsubscribe_event(0)  # need extra call to clean up expired items
-        except KeyError:
-            pass
+            progress_bar(ind, unique_num_group)
+        print(f"\n                    Group | created: {unique_num_group:>3} |")
 
     print("\nMemTestDevice done.")

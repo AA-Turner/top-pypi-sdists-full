@@ -9,30 +9,25 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class CodeScanningVariantAnalysisRepository(GitHubModel):
-    """Repository Identifier
+class ActionsCacheRetentionLimitForRepository(GitHubModel):
+    """Actions cache retention limit for a repository
 
-    Repository Identifier
+    GitHub Actions cache retention policy for a repository.
     """
 
-    id: int = Field(description="A unique identifier of the repository.")
-    name: str = Field(description="The name of the repository.")
-    full_name: str = Field(
-        description="The full, globally unique, name of the repository."
+    max_cache_retention_days: Missing[int] = Field(
+        default=UNSET,
+        description="The maximum number of days to keep caches in this repository.",
     )
-    private: bool = Field(description="Whether the repository is private.")
-    stargazers_count: int = Field()
-    updated_at: Union[datetime, None] = Field()
 
 
-model_rebuild(CodeScanningVariantAnalysisRepository)
+model_rebuild(ActionsCacheRetentionLimitForRepository)
 
-__all__ = ("CodeScanningVariantAnalysisRepository",)
+__all__ = ("ActionsCacheRetentionLimitForRepository",)

@@ -1,7 +1,7 @@
 """Milvus Like Client."""
 import logging
 import json
-from typing import Optional, Union, Dict, List
+from typing import Optional, Union
 
 from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy import (
@@ -68,22 +68,19 @@ class MilvusLikeClient(Client):
         `metric_type`, `auto_id` will be ignored.
         
         Args:
-        :param collection_name (string) : collection name
-        :param dimension (Optional[int]) : vector data dimension
-        :param primary_field_name (string) : primary field name
-        :param id_type (Union[DataType, str]) : 
-                primary field data type(Only VARCHAR and INT type supported)
-        :param vector_field_name (string) : vector field name
-        :param metric_type (str) : not used in OceanBase (for default, l2 distance)
-        :param auto_id (bool) : whether primary field is auto incremented
-        :param timeout (Optional[float]) : not used in OceanBase
-        :param schema (Optional[CollectionSchema]) : 
-                customed collection schema, when `schema` is not None 
+            collection_name (string): collection name
+            dimension (Optional[int]): vector data dimension
+            primary_field_name (string): primary field name
+            id_type (Union[DataType, str]): primary field data type (Only VARCHAR and INT type supported)
+            vector_field_name (string): vector field name
+            metric_type (str): not used in OceanBase (for default, l2 distance)
+            auto_id (bool): whether primary field is auto incremented
+            timeout (Optional[float]): not used in OceanBase
+            schema (Optional[CollectionSchema]): custom collection schema, when `schema` is not None
                 the above argument will be ignored
-        :param index_params (Optional[IndexParams]) : customed vector index parameters
-        :param max_length (int) : 
-                when primary field data type is VARCHAR and `schema` is not None 
-            the max varchar length is `max_length`
+            index_params (Optional[IndexParams]): custom vector index parameters
+            max_length (int): when primary field data type is VARCHAR and `schema` is not None,
+                the max varchar length is `max_length`
         """
         if isinstance(id_type, str):
             if id_type not in ("str", "string", "int", "integer"):
@@ -150,12 +147,15 @@ class MilvusLikeClient(Client):
 
     def get_collection_stats(
         self, collection_name: str, timeout: Optional[float] = None # pylint: disable=unused-argument
-    ) -> Dict:
+    ) -> dict:
         """Get collection row count.
         
         Args:
-        :param collection_name (string) : collection name
-        :return {'row_count': count}
+            collection_name (string): collection name
+            timeout (Optional[float]): not used in OceanBase
+
+        Returns:
+            dict: {'row_count': count}
         """
         with self.engine.connect() as conn:
             with conn.begin():
@@ -168,30 +168,34 @@ class MilvusLikeClient(Client):
     def has_collection(
         self, collection_name: str, timeout: Optional[float] = None # pylint: disable=unused-argument
     ) -> bool: # pylint: disable=unused-argument
-        """check if collection exists.
+        """Check if collection exists.
 
         Args:
-        :param collection_name (string) : collection name
-        :return True if collection exists else False
+            collection_name (string): collection name
+            timeout (Optional[float]): not used in OceanBase
+
+        Returns:
+            bool: True if collection exists else False
         """
         return self.check_table_exists(collection_name)
 
     def drop_collection(self, collection_name: str) -> None:
-        """drop collection if exists.
+        """Drop collection if exists.
         
         Args:
-        :param collection_name (string) : collection name
+            collection_name (string): collection name
         """
         self.drop_table_if_exist(collection_name)
 
     def rename_collection(
         self, old_name: str, new_name: str, timeout: Optional[float] = None # pylint: disable=unused-argument
     ) -> None:
-        """rename collection.
+        """Rename collection.
         
         Args:
-        :param old_name (string) : old collection name
-        :param new_name (string) : new collection name
+            old_name (string): old collection name
+            new_name (string): new collection name
+            timeout (Optional[float]): not used in OceanBase
         """
         with self.engine.connect() as conn:
             with conn.begin():
@@ -201,11 +205,13 @@ class MilvusLikeClient(Client):
         self,
         collection_name: str,
     ):
-        """load table into SQLAlchemy metadata.
+        """Load table into SQLAlchemy metadata.
         
         Args:
-        :param collection_name (string) : which collection to load
-        :return sqlalchemy.Table
+            collection_name (string): which collection to load
+
+        Returns:
+            sqlalchemy.Table: table object
         """
         try:
             table = Table(collection_name, self.metadata_obj, autoload_with=self.engine)
@@ -225,12 +231,13 @@ class MilvusLikeClient(Client):
         timeout: Optional[float] = None,
         **kwargs,
     ): # pylint: disable=unused-argument
-        """create vector index with index params.
+        """Create vector index with index params.
         
         Args:
-        :param collection_name (string) : which collection to create vector index
-        :param index_params (IndexParams) : the vectpr index parameters
-        :param kwargs : different args for different vector index type
+            collection_name (string): which collection to create vector index
+            index_params (IndexParams): the vector index parameters
+            timeout (Optional[float]): not used in OceanBase
+            **kwargs: different args for different vector index type
         """
         try:
             table = Table(collection_name, self.metadata_obj, autoload_with=self.engine)
@@ -261,8 +268,11 @@ class MilvusLikeClient(Client):
         
         If the index not exists, SQL ERROR 1091 will raise.
 
-        :param collection_name (string) : which collection the index belongs to
-        :param index_name (string) : which index
+        Args:
+            collection_name (string): which collection the index belongs to
+            index_name (string): which index
+            timeout (Optional[float]): not used in OceanBase
+            **kwargs: additional arguments
         """
         super().drop_index(collection_name, index_name)
 
@@ -275,10 +285,9 @@ class MilvusLikeClient(Client):
         """Refresh vector index for performance.
         
         Args:
-        :param collection_name (string) : collection name
-        :param index_name (string) : vector index name
-        :param trigger_threshold (int) : 
-                If delta_buffer_table row count is greater than `trigger_threshold`,
+            collection_name (string): collection name
+            index_name (string): vector index name
+            trigger_threshold (int): If delta_buffer_table row count is greater than `trigger_threshold`,
                 refreshing is actually triggered.
         """
         super().refresh_index(
@@ -296,9 +305,9 @@ class MilvusLikeClient(Client):
         """Rebuild vector index for performance.
         
         Args:
-        :param collection_name (string) : collection name
-        :param index_name (string) : vector index name
-        :param trigger_threshold (float)
+            collection_name (string): collection name
+            index_name (string): vector index name
+            trigger_threshold (float): threshold value for rebuilding index
         """
         super().rebuild_index(
             table_name=collection_name,
@@ -340,35 +349,40 @@ class MilvusLikeClient(Client):
     def search(
         self,
         collection_name: str,
-        data: list,
+        data: Union[list, dict],
         anns_field: str,
         with_dist: bool = False,
         flter=None,
         limit: int = 10,
-        output_fields: Optional[List[str]] = None,
+        output_fields: Optional[list[str]] = None,
         search_params: Optional[dict] = None,
         timeout: Optional[float] = None, # pylint: disable=unused-argument
-        partition_names: Optional[List[str]] = None,
+        partition_names: Optional[list[str]] = None,
         **kwargs, # pylint: disable=unused-argument
-    ) -> List[dict]:
-        """perform ann search. 
+    ) -> list[dict]:
+        """Perform ann search.
         Note: OceanBase does not support batch search now. `data` & the return value is not a batch.
         
         Args:
-        :param collection_name (string) : collection name
-        :param data (list) : the vector data to search
-        :param anns_field (string) : which vector field to search
-        :param with_dist (bool) : return result with distance
-        :param flter : do ann search with filter
-        :param limit (int) : top K
-        :param output_fields (Optional[List[str]]) : output fields
-        :param search_params (Optional[dict]) :
-            Only `metric_type` with value `l2`/`neg_ip` supported
-        :param timeout : not used in OceanBase
-        :param partition_names (List[str]) : limit the query to certain partitions
-        :return : A list of records, each record is a dict 
-                indicates a mapping from column_name to column value.
+            collection_name (string): collection name
+            data (list): the vector/sparse_vector data to search
+            anns_field (string): which vector field to search
+            with_dist (bool): return result with distance
+            flter: do ann search with filter (note: parameter name is intentionally 'flter' to distinguish it from the built-in function)
+            limit (int): top K
+            output_fields (Optional[List[str]]): output fields
+            search_params (Optional[dict]): Only `metric_type` with value `l2`/`neg_ip` supported
+            timeout (Optional[float]): not used in OceanBase
+            partition_names (Optional[List[str]]): limit the query to certain partitions
+            **kwargs: additional arguments
+
+        Returns:
+            List[dict]: A list of records, each record is a dict indicating a mapping from
+                column_name to column value.
         """
+        if not (isinstance(data, list) or isinstance(data, dict)):
+            raise ValueError("'data' type must be in 'list'/'dict'")
+
         lower_metric_type_str = "l2"
         if search_params is not None:
             if "metric_type" in search_params:
@@ -401,15 +415,21 @@ class MilvusLikeClient(Client):
             columns = [table.c[column.name] for column in table.columns]
 
         if with_dist:
-            columns.append(distance_func(table.c[anns_field],
-                "[" + ",".join([str(np.float32(v)) for v in data]) + "]"))
+            if isinstance(data, list):
+                columns.append(distance_func(table.c[anns_field],
+                    "[" + ",".join([str(np.float32(v)) for v in data]) + "]"))
+            else:
+                columns.append(distance_func(table.c[anns_field], f"{data}"))
         stmt = select(*columns)
 
         if flter is not None:
             stmt = stmt.where(*flter)
-
-        stmt = stmt.order_by(distance_func(table.c[anns_field],
-            "[" + ",".join([str(np.float32(v)) for v in data]) + "]"))
+        
+        if isinstance(data, list):
+            stmt = stmt.order_by(distance_func(table.c[anns_field],
+                "[" + ",".join([str(np.float32(v)) for v in data]) + "]"))
+        else:
+            stmt = stmt.order_by(distance_func(table.c[anns_field], f"{data}"))
         stmt_str = (
             str(stmt.compile(
                 dialect=self.engine.dialect,
@@ -447,21 +467,24 @@ class MilvusLikeClient(Client):
         self,
         collection_name: str,
         flter=None,
-        output_fields: Optional[List[str]] = None,
+        output_fields: Optional[list[str]] = None,
         timeout: Optional[float] = None, # pylint: disable=unused-argument
-        partition_names: Optional[List[str]] = None,
+        partition_names: Optional[list[str]] = None,
         **kwargs, # pylint: disable=unused-argument
-    ) -> List[dict]:
-        """query records.
+    ) -> list[dict]:
+        """Query records.
         
         Args:
-        :param collection_name (string) : collection name
-        :param flter : do ann search with filter
-        :param output_fields (Optional[List[str]]) : output fields
-        :param timeout : not used in OceanBase
-        :param partition_names (List[str]) : limit the query to certain partitions
-        :return : A list of records, each record is a dict 
-                indicates a mapping from column_name to column value
+            collection_name (string): collection name
+            flter: do ann search with filter (note: parameter name is intentionally 'flter' to distinguish it from the built-in function)
+            output_fields (Optional[List[str]]): output fields
+            timeout (Optional[float]): not used in OceanBase
+            partition_names (Optional[List[str]]): limit the query to certain partitions
+            **kwargs: additional arguments
+
+        Returns:
+            List[dict]: A list of records, each record is a dict indicating a mapping from
+                column_name to column value.
         """
         try:
             table = Table(collection_name, self.metadata_obj, autoload_with=self.engine)
@@ -509,22 +532,25 @@ class MilvusLikeClient(Client):
     def get(
         self,
         collection_name: str,
-        ids: Union[list, str, int],
-        output_fields: Optional[List[str]] = None,
+        ids: Union[list, str, int] = None,
+        output_fields: Optional[list[str]] = None,
         timeout: Optional[float] = None, # pylint: disable=unused-argument
-        partition_names: Optional[List[str]] = None,
+        partition_names: Optional[list[str]] = None,
         **kwargs, # pylint: disable=unused-argument
-    ) -> List[dict]:
-        """get records with specified primary field `ids`.
+    ) -> list[dict]:
+        """Get records with specified primary field `ids`.
         
         Args:
-        :param collection_name (string) : collection name
-        :param ids : specified primary field values
-        :param output_fields (Optional[List[str]]) : output fields
-        :param timeout : not used in OceanBase
-        :param partition_names (List[str]) : limit the query to certain partitions
-        :return : A list of records, each record is a dict 
-                indicates a mapping from column_name to column value
+            collection_name (string): collection name
+            ids (Union[list, str, int]): specified primary field values
+            output_fields (Optional[List[str]]): output fields
+            timeout (Optional[float]): not used in OceanBase
+            partition_names (Optional[List[str]]): limit the query to certain partitions
+            **kwargs: additional arguments
+
+        Returns:
+            List[dict]: A list of records, each record is a dict indicating a mapping from
+                column_name to column value.
         """
         try:
             table = Table(collection_name, self.metadata_obj, autoload_with=self.engine)
@@ -593,10 +619,15 @@ class MilvusLikeClient(Client):
         """Delete data in collection.
 
         Args:
-        :param collection_name (string) : collection name
-        :param ids (Optional[Union[list, str, int]]) : a list of primary keys value
-        :param flter : delete with filter
-        :param partition_name (Optional[str]) : limit the query to certain partition
+            collection_name (string): collection name
+            ids (Optional[Union[list, str, int]]): a list of primary keys value
+            timeout (Optional[float]): not used in OceanBase
+            flter: delete with filter (note: parameter name is intentionally 'flter' to distinguish it from the built-in function)
+            partition_name (Optional[str]): limit the query to certain partition
+            **kwargs: additional arguments
+
+        Returns:
+            dict: deletion result
         """
         try:
             table = Table(collection_name, self.metadata_obj, autoload_with=self.engine)
@@ -641,7 +672,7 @@ class MilvusLikeClient(Client):
     def insert(
         self,
         collection_name: str,
-        data: Union[Dict, List[Dict]],
+        data: Union[dict, list[dict]],
         timeout: Optional[float] = None,
         partition_name: Optional[str] = "",
     ) -> (
@@ -650,9 +681,10 @@ class MilvusLikeClient(Client):
         """Insert data into collection.
         
         Args:
-        :param collection_name (string) : collection name
-        :param data (Union[Dict, List[Dict]]) : data that will be inserted
-        :param partition_names (Optional[str]) : limit the query to certain partition
+            collection_name (string): collection name
+            data (Union[Dict, List[Dict]]): data that will be inserted
+            timeout (Optional[float]): not used in OceanBase
+            partition_name (Optional[str]): limit the query to certain partition
         """
         # different from milvus: OceanBase in mysql mode do not support returning.
         try:
@@ -668,16 +700,20 @@ class MilvusLikeClient(Client):
     def upsert(
         self,
         collection_name: str,
-        data: Union[Dict, List[Dict]],
+        data: Union[dict, list[dict]],
         timeout: Optional[float] = None, # pylint: disable=unused-argument
         partition_name: Optional[str] = "",
-    ) -> List[Union[str, int]]:
+    ) -> list[Union[str, int]]:
         """Update data in table. If primary key is duplicated, replace it.
         
         Args:
-        :param collection_name (string) : collection name
-        :param data (Union[Dict, List[Dict]]) : data that will be upserted
-        :param partition_name (Optional[str]) : limit the query to certain partition
+            collection_name (string): collection name
+            data (Union[Dict, List[Dict]]): data that will be upserted
+            timeout (Optional[float]): not used in OceanBase
+            partition_name (Optional[str]): limit the query to certain partition
+
+        Returns:
+            List[Union[str, int]]: list of primary keys
         """
         try:
             super().upsert(

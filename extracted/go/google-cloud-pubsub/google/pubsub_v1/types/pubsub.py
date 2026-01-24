@@ -241,13 +241,13 @@ class IngestionDataSourceSettings(proto.Message):
                     Permission denied encountered while consuming data from
                     Kinesis. This can happen if:
 
-                    -  The provided ``aws_role_arn`` does not exist or does not
-                       have the appropriate permissions attached.
-                    -  The provided ``aws_role_arn`` is not set up properly for
-                       Identity Federation using ``gcp_service_account``.
-                    -  The Pub/Sub SA is not granted the
-                       ``iam.serviceAccounts.getOpenIdToken`` permission on
-                       ``gcp_service_account``.
+                    - The provided ``aws_role_arn`` does not exist or does not
+                      have the appropriate permissions attached.
+                    - The provided ``aws_role_arn`` is not set up properly for
+                      Identity Federation using ``gcp_service_account``.
+                    - The Pub/Sub SA is not granted the
+                      ``iam.serviceAccounts.getOpenIdToken`` permission on
+                      ``gcp_service_account``.
                 PUBLISH_PERMISSION_DENIED (3):
                     Permission denied encountered while publishing to the topic.
                     This can happen if the Pub/Sub SA has not been granted the
@@ -347,9 +347,9 @@ class IngestionDataSourceSettings(proto.Message):
                     granted the `appropriate
                     permissions <https://cloud.google.com/storage/docs/access-control/iam-permissions>`__:
 
-                    -  storage.objects.list: to list the objects in a bucket.
-                    -  storage.objects.get: to read the objects in a bucket.
-                    -  storage.buckets.get: to verify the bucket exists.
+                    - storage.objects.list: to list the objects in a bucket.
+                    - storage.objects.get: to read the objects in a bucket.
+                    - storage.buckets.get: to verify the bucket exists.
                 PUBLISH_PERMISSION_DENIED (3):
                     Permission denied encountered while publishing to the topic.
                     This can happen if the Pub/Sub SA has not been granted the
@@ -1211,6 +1211,13 @@ class IngestionFailureEvent(proto.Message):
                 message transformation to the Pub/Sub message.
 
                 This field is a member of `oneof`_ ``reason``.
+            api_violation_reason (google.pubsub_v1.types.IngestionFailureEvent.ApiViolationReason):
+                Optional. The message failed to be published
+                due to an API violation. This is only set when
+                the size of the data field of the Kinesis record
+                is zero.
+
+                This field is a member of `oneof`_ ``reason``.
         """
 
         stream_arn: str = proto.Field(
@@ -1238,6 +1245,12 @@ class IngestionFailureEvent(proto.Message):
             number=5,
             oneof="reason",
             message="IngestionFailureEvent.MessageTransformationFailureReason",
+        )
+        api_violation_reason: "IngestionFailureEvent.ApiViolationReason" = proto.Field(
+            proto.MESSAGE,
+            number=6,
+            oneof="reason",
+            message="IngestionFailureEvent.ApiViolationReason",
         )
 
     topic: str = proto.Field(
@@ -1423,6 +1436,13 @@ class Topic(proto.Message):
             Optional. Transforms to be applied to
             messages published to the topic. Transforms are
             applied in the order specified.
+        tags (MutableMapping[str, str]):
+            Optional. Input only. Immutable. Tag
+            keys/values directly bound to this resource. For
+            example:
+
+              "123/environment": "production",
+              "123/costCenter": "marketing".
     """
 
     class State(proto.Enum):
@@ -1490,6 +1510,11 @@ class Topic(proto.Message):
         proto.MESSAGE,
         number=13,
         message="MessageTransform",
+    )
+    tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=14,
     )
 
 
@@ -1991,11 +2016,11 @@ class Subscription(proto.Message):
             for the delivery of a message with a given value of
             ``message_id`` on this subscription:
 
-            -  The message sent to a subscriber is guaranteed not to be
-               resent before the message's acknowledgment deadline
-               expires.
-            -  An acknowledged message will not be resent to a
-               subscriber.
+            - The message sent to a subscriber is guaranteed not to be
+              resent before the message's acknowledgment deadline
+              expires.
+            - An acknowledged message will not be resent to a
+              subscriber.
 
             Note that subscribers may still receive multiple copies of a
             message when ``enable_exactly_once_delivery`` is true if the
@@ -2024,6 +2049,13 @@ class Subscription(proto.Message):
             messages before they are delivered to
             subscribers. Transforms are applied in the order
             specified.
+        tags (MutableMapping[str, str]):
+            Optional. Input only. Immutable. Tag
+            keys/values directly bound to this resource. For
+            example:
+
+              "123/environment": "production",
+              "123/costCenter": "marketing".
     """
 
     class State(proto.Enum):
@@ -2161,6 +2193,11 @@ class Subscription(proto.Message):
         proto.MESSAGE,
         number=25,
         message="MessageTransform",
+    )
+    tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=26,
     )
 
 
@@ -2309,10 +2346,10 @@ class PushConfig(proto.Message):
             The only supported values for the ``x-goog-version``
             attribute are:
 
-            -  ``v1beta1``: uses the push format defined in the v1beta1
-               Pub/Sub API.
-            -  ``v1`` or ``v1beta2``: uses the push format defined in
-               the v1 Pub/Sub API.
+            - ``v1beta1``: uses the push format defined in the v1beta1
+              Pub/Sub API.
+            - ``v1`` or ``v1beta2``: uses the push format defined in the
+              v1 Pub/Sub API.
 
             For example: ``attributes { "x-goog-version": "v1" }``
         oidc_token (google.pubsub_v1.types.PushConfig.OidcToken):
@@ -2478,12 +2515,11 @@ class BigQueryConfig(proto.Message):
                 Cannot write to the BigQuery table because of permission
                 denied errors. This can happen if
 
-                -  Pub/Sub SA has not been granted the `appropriate BigQuery
-                   IAM
-                   permissions <https://cloud.google.com/pubsub/docs/create-subscription#assign_bigquery_service_account>`__
-                -  bigquery.googleapis.com API is not enabled for the
-                   project
-                   (`instructions <https://cloud.google.com/service-usage/docs/enable-disable>`__)
+                - Pub/Sub SA has not been granted the `appropriate BigQuery
+                  IAM
+                  permissions <https://cloud.google.com/pubsub/docs/create-subscription#assign_bigquery_service_account>`__
+                - bigquery.googleapis.com API is not enabled for the project
+                  (`instructions <https://cloud.google.com/service-usage/docs/enable-disable>`__)
             NOT_FOUND (3):
                 Cannot write to the BigQuery table because it
                 does not exist.
@@ -3111,6 +3147,11 @@ class StreamingPullRequest(proto.Message):
             only be set on the initial StreamingPullRequest. If it is
             set on a subsequent request, the stream will be aborted with
             status ``INVALID_ARGUMENT``.
+        protocol_version (int):
+            Optional. The protocol version used by the client. This
+            property can only be set on the initial
+            StreamingPullRequest. If it is set on a subsequent request,
+            the stream will be aborted with status ``INVALID_ARGUMENT``.
     """
 
     subscription: str = proto.Field(
@@ -3145,6 +3186,10 @@ class StreamingPullRequest(proto.Message):
         proto.INT64,
         number=8,
     )
+    protocol_version: int = proto.Field(
+        proto.INT64,
+        number=10,
+    )
 
 
 class StreamingPullResponse(proto.Message):
@@ -3153,8 +3198,7 @@ class StreamingPullResponse(proto.Message):
 
     Attributes:
         received_messages (MutableSequence[google.pubsub_v1.types.ReceivedMessage]):
-            Optional. Received Pub/Sub messages. This
-            will not be empty.
+            Optional. Received Pub/Sub messages.
         acknowledge_confirmation (google.pubsub_v1.types.StreamingPullResponse.AcknowledgeConfirmation):
             Optional. This field will only be set if
             ``enable_exactly_once_delivery`` is set to ``true`` and is
@@ -3304,6 +3348,13 @@ class CreateSnapshotRequest(proto.Message):
         labels (MutableMapping[str, str]):
             Optional. See `Creating and managing
             labels <https://cloud.google.com/pubsub/docs/labels>`__.
+        tags (MutableMapping[str, str]):
+            Optional. Input only. Immutable. Tag
+            keys/values directly bound to this resource. For
+            example:
+
+              "123/environment": "production",
+              "123/costCenter": "marketing".
     """
 
     name: str = proto.Field(
@@ -3318,6 +3369,11 @@ class CreateSnapshotRequest(proto.Message):
         proto.STRING,
         proto.STRING,
         number=3,
+    )
+    tags: MutableMapping[str, str] = proto.MapField(
+        proto.STRING,
+        proto.STRING,
+        number=4,
     )
 
 

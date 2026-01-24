@@ -8,9 +8,10 @@ T = TypeVar("T", bound="ExtendedJobsJobsItemType1RawFlowModulesItemRetryRetryIf"
 
 @_attrs_define
 class ExtendedJobsJobsItemType1RawFlowModulesItemRetryRetryIf:
-    """
+    """Conditional retry based on error or result
+
     Attributes:
-        expr (str):
+        expr (str): JavaScript expression that returns true to retry. Has access to 'result' and 'error' variables
     """
 
     expr: str

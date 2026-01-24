@@ -16,6 +16,12 @@ from ...types.mcp_approval_policy import McpApprovalPolicy
 from ...types.mcp_server_config_input import McpServerConfigInput
 from ...types.mcp_server_response_model import McpServerResponseModel
 from ...types.mcp_servers_response_model import McpServersResponseModel
+from ...types.tool_call_sound_behavior import ToolCallSoundBehavior
+from ...types.tool_call_sound_type import ToolCallSoundType
+from ...types.tool_execution_mode import ToolExecutionMode
+from .types.mcp_server_config_update_request_model_request_headers_value import (
+    McpServerConfigUpdateRequestModelRequestHeadersValue,
+)
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -179,12 +185,72 @@ class RawMcpServersClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    def delete(
+        self, mcp_server_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> HttpResponse[typing.Any]:
+        """
+        Delete a specific MCP server configuration from the workspace.
+
+        Parameters
+        ----------
+        mcp_server_id : str
+            ID of the MCP Server.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        HttpResponse[typing.Any]
+            Successful Response
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/convai/mcp-servers/{jsonable_encoder(mcp_server_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if _response is None or not _response.text.strip():
+                return HttpResponse(response=_response, data=None)
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Any,
+                    construct_type(
+                        type_=typing.Any,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return HttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     def update(
         self,
         mcp_server_id: str,
         *,
         approval_policy: typing.Optional[McpApprovalPolicy] = OMIT,
         force_pre_tool_speech: typing.Optional[bool] = OMIT,
+        disable_interruptions: typing.Optional[bool] = OMIT,
+        tool_call_sound: typing.Optional[ToolCallSoundType] = OMIT,
+        tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = OMIT,
+        execution_mode: typing.Optional[ToolExecutionMode] = OMIT,
+        request_headers: typing.Optional[
+            typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]
+        ] = OMIT,
+        disable_compression: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[McpServerResponseModel]:
         """
@@ -199,7 +265,25 @@ class RawMcpServersClient:
             The approval mode to set for the MCP server
 
         force_pre_tool_speech : typing.Optional[bool]
-            Whether to force pre-tool speech for all tools from this MCP server
+            If set, overrides the server's force_pre_tool_speech setting for this tool
+
+        disable_interruptions : typing.Optional[bool]
+            If set, overrides the server's disable_interruptions setting for this tool
+
+        tool_call_sound : typing.Optional[ToolCallSoundType]
+            Predefined tool call sound type to play during tool execution for all tools from this MCP server
+
+        tool_call_sound_behavior : typing.Optional[ToolCallSoundBehavior]
+            Determines when the tool call sound should play for all tools from this MCP server
+
+        execution_mode : typing.Optional[ToolExecutionMode]
+            If set, overrides the server's execution_mode setting for this tool
+
+        request_headers : typing.Optional[typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]]
+            The headers to include in requests to the MCP server
+
+        disable_compression : typing.Optional[bool]
+            Whether to disable HTTP compression for this MCP server
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -215,6 +299,16 @@ class RawMcpServersClient:
             json={
                 "approval_policy": approval_policy,
                 "force_pre_tool_speech": force_pre_tool_speech,
+                "disable_interruptions": disable_interruptions,
+                "tool_call_sound": tool_call_sound,
+                "tool_call_sound_behavior": tool_call_sound_behavior,
+                "execution_mode": execution_mode,
+                "request_headers": convert_and_respect_annotation_metadata(
+                    object_=request_headers,
+                    annotation=typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]],
+                    direction="write",
+                ),
+                "disable_compression": disable_compression,
             },
             headers={
                 "content-type": "application/json",
@@ -409,12 +503,72 @@ class AsyncRawMcpServersClient:
             raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
+    async def delete(
+        self, mcp_server_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> AsyncHttpResponse[typing.Any]:
+        """
+        Delete a specific MCP server configuration from the workspace.
+
+        Parameters
+        ----------
+        mcp_server_id : str
+            ID of the MCP Server.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        AsyncHttpResponse[typing.Any]
+            Successful Response
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/convai/mcp-servers/{jsonable_encoder(mcp_server_id)}",
+            method="DELETE",
+            request_options=request_options,
+        )
+        try:
+            if _response is None or not _response.text.strip():
+                return AsyncHttpResponse(response=_response, data=None)
+            if 200 <= _response.status_code < 300:
+                _data = typing.cast(
+                    typing.Any,
+                    construct_type(
+                        type_=typing.Any,  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+                return AsyncHttpResponse(response=_response, data=_data)
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
+        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
+
     async def update(
         self,
         mcp_server_id: str,
         *,
         approval_policy: typing.Optional[McpApprovalPolicy] = OMIT,
         force_pre_tool_speech: typing.Optional[bool] = OMIT,
+        disable_interruptions: typing.Optional[bool] = OMIT,
+        tool_call_sound: typing.Optional[ToolCallSoundType] = OMIT,
+        tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = OMIT,
+        execution_mode: typing.Optional[ToolExecutionMode] = OMIT,
+        request_headers: typing.Optional[
+            typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]
+        ] = OMIT,
+        disable_compression: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[McpServerResponseModel]:
         """
@@ -429,7 +583,25 @@ class AsyncRawMcpServersClient:
             The approval mode to set for the MCP server
 
         force_pre_tool_speech : typing.Optional[bool]
-            Whether to force pre-tool speech for all tools from this MCP server
+            If set, overrides the server's force_pre_tool_speech setting for this tool
+
+        disable_interruptions : typing.Optional[bool]
+            If set, overrides the server's disable_interruptions setting for this tool
+
+        tool_call_sound : typing.Optional[ToolCallSoundType]
+            Predefined tool call sound type to play during tool execution for all tools from this MCP server
+
+        tool_call_sound_behavior : typing.Optional[ToolCallSoundBehavior]
+            Determines when the tool call sound should play for all tools from this MCP server
+
+        execution_mode : typing.Optional[ToolExecutionMode]
+            If set, overrides the server's execution_mode setting for this tool
+
+        request_headers : typing.Optional[typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]]]
+            The headers to include in requests to the MCP server
+
+        disable_compression : typing.Optional[bool]
+            Whether to disable HTTP compression for this MCP server
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -445,6 +617,16 @@ class AsyncRawMcpServersClient:
             json={
                 "approval_policy": approval_policy,
                 "force_pre_tool_speech": force_pre_tool_speech,
+                "disable_interruptions": disable_interruptions,
+                "tool_call_sound": tool_call_sound,
+                "tool_call_sound_behavior": tool_call_sound_behavior,
+                "execution_mode": execution_mode,
+                "request_headers": convert_and_respect_annotation_metadata(
+                    object_=request_headers,
+                    annotation=typing.Dict[str, typing.Optional[McpServerConfigUpdateRequestModelRequestHeadersValue]],
+                    direction="write",
+                ),
+                "disable_compression": disable_compression,
             },
             headers={
                 "content-type": "application/json",

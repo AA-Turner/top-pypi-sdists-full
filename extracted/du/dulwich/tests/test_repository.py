@@ -28,11 +28,13 @@ import shutil
 import stat
 import sys
 import tempfile
+import time
 import warnings
 
-from dulwich import errors, objects, porcelain
+from dulwich import errors, objects
 from dulwich.config import Config
 from dulwich.errors import NotGitRepository
+from dulwich.index import get_unstaged_changes as _get_unstaged_changes
 from dulwich.object_store import tree_lookup_path
 from dulwich.repo import (
     InvalidUserIdentity,
@@ -47,6 +49,14 @@ from dulwich.tests.utils import open_repo, setup_warning_catcher, tear_down_repo
 from . import TestCase, skipIf
 
 missing_sha = b"b91fa4d900e17e99b433218e988c4eb4a3e9a097"
+
+
+def get_unstaged_changes(repo):
+    """Helper to get unstaged changes for a repo."""
+    index = repo.open_index()
+    normalizer = repo.get_blob_normalizer()
+    filter_callback = normalizer.checkin_normalize if normalizer else None
+    return list(_get_unstaged_changes(index, repo.path, filter_callback, False))
 
 
 class CreateRepositoryTests(TestCase):
@@ -291,6 +301,17 @@ class RepositoryRootTests(TestCase):
 
         self.assertRaises(ValueError, r.__delitem__, b"notrefs/foo")
 
+    def test_getitem_32_byte_ref(self) -> None:
+        """Test that accessing a ref name that's 32 bytes long works (issue #2040)."""
+        r = self.open_repo("a.git")
+        # Create a ref with exactly 32 bytes
+        ref_name = b"refs/heads/feat-backend-refactor"
+        self.assertEqual(len(ref_name), 32)
+        r[ref_name] = b"a90fa2d900a17e99b433217e988c4eb4a2e9a097"
+        # This should not raise AssertionError
+        obj = r[ref_name]
+        self.assertEqual(obj.id, b"a90fa2d900a17e99b433217e988c4eb4a2e9a097")
+
     def test_get_refs(self) -> None:
         r = self.open_repo("a.git")
         self.assertEqual(
@@ -527,7 +548,8 @@ class RepositoryRootTests(TestCase):
         self.addCleanup(shutil.rmtree, tmp_dir)
         t = Repo.init(tmp_dir)
         self.addCleanup(t.close)
-        r.fetch(t)
+        with self.assertLogs(level="WARNING"):
+            r.fetch(t)
         self.assertIn(b"a90fa2d900a17e99b433217e988c4eb4a2e9a097", t)
         self.assertIn(b"a90fa2d900a17e99b433217e988c4eb4a2e9a097", t)
         self.assertIn(b"a90fa2d900a17e99b433217e988c4eb4a2e9a097", t)
@@ -626,7 +648,7 @@ class RepositoryRootTests(TestCase):
         self.addCleanup(shutil.rmtree, tmp_dir)
 
         o = Repo.init(os.path.join(tmp_dir, "s"), mkdir=True)
-        o.close()
+        self.addCleanup(o.close)
         os.symlink("foo", os.path.join(tmp_dir, "s", "bar"))
         o.get_worktree().stage("bar")
         o.get_worktree().commit(
@@ -634,10 +656,9 @@ class RepositoryRootTests(TestCase):
         )
 
         t = o.clone(os.path.join(tmp_dir, "t"), symlinks=False)
+        self.addCleanup(t.close)
         with open(os.path.join(tmp_dir, "t", "bar")) as f:
             self.assertEqual("foo", f.read())
-
-        t.close()
 
     def test_reset_index_protect_hfs(self) -> None:
         tmp_dir = self.mkdtemp()
@@ -839,7 +860,7 @@ exit 0
 
         self.assertRaises(
             errors.CommitError,
-            r.do_commit,
+            r.get_worktree().commit,
             b"failed commit",
             committer=b"Test Committer <test@nodomain.com>",
             author=b"Test Author <test@nodomain.com>",
@@ -889,7 +910,7 @@ exit 0
 
         self.assertRaises(
             errors.CommitError,
-            r.do_commit,
+            r.get_worktree().commit,
             b"failed commit",
             committer=b"Test Committer <test@nodomain.com>",
             author=b"Test Author <test@nodomain.com>",
@@ -927,7 +948,7 @@ with open('foo', 'w') as f:
     f.write('newfile')
 
 r = Repo('.')
-r.stage(['foo'])
+r.get_worktree().stage(['foo'])
 """.format(
             executable=sys.executable,
             path=[os.path.join(os.path.dirname(__file__), "..", ".."), *sys.path],
@@ -1415,10 +1436,13 @@ class BuildRepoRootTests(TestCase):
         r.object_store.add_object(tree)
 
         # Use do_commit for MemoryRepo since it doesn't support worktree
-        commit_sha = r.do_commit(
-            message=b"message",
-            tree=tree.id,
-        )
+        # Suppress deprecation warning since we're intentionally testing the deprecated method
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            commit_sha = r.do_commit(
+                message=b"message",
+                tree=tree.id,
+            )
         self.assertEqual(b"Jelmer <jelmer@apache.org>", r[commit_sha].author)
         self.assertEqual(b"Jelmer <jelmer@apache.org>", r[commit_sha].committer)
 
@@ -1453,7 +1477,7 @@ class BuildRepoRootTests(TestCase):
         old_shas = set(r.object_store)
         self.assertRaises(
             errors.CommitError,
-            r.do_commit,
+            r.get_worktree().commit,
             b"failed commit",
             committer=b"Test Committer <test@nodomain.com>",
             author=b"Test Author <test@nodomain.com>",
@@ -1504,7 +1528,7 @@ class BuildRepoRootTests(TestCase):
 
         self.assertRaises(
             ValueError,
-            r.do_commit,
+            r.get_worktree().commit,
             message_callback,
             committer=b"Test Committer <test@nodomain.com>",
             author=b"Test Author <test@nodomain.com>",
@@ -1658,7 +1682,9 @@ class BuildRepoRootTests(TestCase):
     def test_stage_absolute(self) -> None:
         r = self._repo
         os.remove(os.path.join(r.path, "a"))
-        self.assertRaises(ValueError, r.stage, [os.path.join(r.path, "a")])
+        self.assertRaises(
+            ValueError, r.get_worktree().stage, [os.path.join(r.path, "a")]
+        )
 
     def test_stage_deleted(self) -> None:
         r = self._repo
@@ -1688,87 +1714,88 @@ class BuildRepoRootTests(TestCase):
 
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self._repo, paths=[full_path])
-        porcelain.commit(
-            self._repo,
+        wt = self._repo.get_worktree()
+        wt.stage(["new_dir/foo"])
+        wt.commit(
             message=b"unitest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         with open(full_path, "a") as f:
             f.write("something new")
-        self._repo.get_worktree().unstage(["new_dir/foo"])
-        status = list(porcelain.status(self._repo))
-        self.assertEqual(
-            [{"add": [], "delete": [], "modify": []}, [b"new_dir/foo"], []], status
-        )
+        wt.unstage(["new_dir/foo"])
+
+        unstaged = get_unstaged_changes(self._repo)
+        self.assertEqual([b"new_dir/foo"], unstaged)
 
     def test_unstage_while_no_commit(self) -> None:
         file = "foo"
         full_path = os.path.join(self._repo.path, file)
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self._repo, paths=[full_path])
-        self._repo.get_worktree().unstage([file])
-        status = list(porcelain.status(self._repo))
-        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], ["foo"]], status)
+        wt = self._repo.get_worktree()
+        wt.stage([file])
+        wt.unstage([file])
+
+        # Check that file is no longer in index
+        index = self._repo.open_index()
+        self.assertNotIn(b"foo", index)
 
     def test_unstage_add_file(self) -> None:
         file = "foo"
         full_path = os.path.join(self._repo.path, file)
-        porcelain.commit(
-            self._repo,
+        wt = self._repo.get_worktree()
+        wt.commit(
             message=b"unitest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self._repo, paths=[full_path])
-        self._repo.get_worktree().unstage([file])
-        status = list(porcelain.status(self._repo))
-        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], ["foo"]], status)
+        wt.stage([file])
+        wt.unstage([file])
+
+        # Check that file is no longer in index
+        index = self._repo.open_index()
+        self.assertNotIn(b"foo", index)
 
     def test_unstage_modify_file(self) -> None:
         file = "foo"
         full_path = os.path.join(self._repo.path, file)
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self._repo, paths=[full_path])
-        porcelain.commit(
-            self._repo,
+        wt = self._repo.get_worktree()
+        wt.stage([file])
+        wt.commit(
             message=b"unitest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         with open(full_path, "a") as f:
             f.write("broken")
-        porcelain.add(self._repo, paths=[full_path])
-        self._repo.get_worktree().unstage([file])
-        status = list(porcelain.status(self._repo))
+        wt.stage([file])
+        wt.unstage([file])
 
-        self.assertEqual(
-            [{"add": [], "delete": [], "modify": []}, [b"foo"], []], status
-        )
+        unstaged = get_unstaged_changes(self._repo)
+        self.assertEqual([os.fsencode("foo")], unstaged)
 
     def test_unstage_remove_file(self) -> None:
         file = "foo"
         full_path = os.path.join(self._repo.path, file)
         with open(full_path, "w") as f:
             f.write("hello")
-        porcelain.add(self._repo, paths=[full_path])
-        porcelain.commit(
-            self._repo,
+        wt = self._repo.get_worktree()
+        wt.stage([file])
+        wt.commit(
             message=b"unitest",
             committer=b"Jane <jane@example.com>",
             author=b"John <john@example.com>",
         )
         os.remove(full_path)
-        self._repo.get_worktree().unstage([file])
-        status = list(porcelain.status(self._repo))
-        self.assertEqual(
-            [{"add": [], "delete": [], "modify": []}, [b"foo"], []], status
-        )
+        wt.unstage([file])
+
+        unstaged = get_unstaged_changes(self._repo)
+        self.assertEqual([os.fsencode("foo")], unstaged)
 
     def test_reset_index(self) -> None:
         r = self._repo
@@ -1777,13 +1804,32 @@ class BuildRepoRootTests(TestCase):
         with open(os.path.join(r.path, "b"), "wb") as f:
             f.write(b"added")
         r.get_worktree().stage(["a", "b"])
-        status = list(porcelain.status(self._repo))
-        self.assertEqual(
-            [{"add": [b"b"], "delete": [], "modify": [b"a"]}, [], []], status
-        )
+
+        # Check staged changes using lower-level APIs
+        index = r.open_index()
+        staged = {"add": [], "delete": [], "modify": []}
+        try:
+            head_commit = r[b"HEAD"]
+            tree_id = head_commit.tree
+        except KeyError:
+            tree_id = None
+
+        for change in index.changes_from_tree(r.object_store, tree_id):
+            if not change[0][0]:
+                staged["add"].append(change[0][1])
+            elif not change[1][1]:
+                staged["delete"].append(change[0][1])
+            else:
+                staged["modify"].append(change[0][1])
+
+        self.assertEqual({"add": [b"b"], "delete": [], "modify": [b"a"]}, staged)
+
         r.get_worktree().reset_index()
-        status = list(porcelain.status(self._repo))
-        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], ["b"]], status)
+
+        # After reset, check that nothing is staged and b is untracked
+        index = r.open_index()
+        self.assertNotIn(b"b", index)
+        self.assertIn(b"a", index)
 
     @skipIf(
         sys.platform in ("win32", "darwin"),
@@ -2074,3 +2120,344 @@ class RepoConfigIncludeIfTests(TestCase):
             config = r.get_config()
             self.assertEqual(b"true", config.get((b"core",), b"autocrlf"))
             r.close()
+
+
+@skipIf(sys.platform == "win32", "Windows does not support Unix file permissions")
+class SharedRepositoryTests(TestCase):
+    """Tests for core.sharedRepository functionality."""
+
+    def setUp(self):
+        super().setUp()
+        self._orig_umask = os.umask(0o022)
+
+    def tearDown(self):
+        os.umask(self._orig_umask)
+        super().tearDown()
+
+    def _get_file_mode(self, path):
+        """Get the file mode bits (without file type bits)."""
+        return stat.S_IMODE(os.stat(path).st_mode)
+
+    def _check_permissions(self, repo, expected_file_mode, expected_dir_mode):
+        """Check that repository files and directories have expected permissions."""
+        objects_dir = os.path.join(repo.commondir(), "objects")
+
+        # Check objects directory
+        actual_dir_mode = self._get_file_mode(objects_dir)
+        self.assertEqual(
+            expected_dir_mode,
+            actual_dir_mode,
+            f"objects dir mode: expected {oct(expected_dir_mode)}, got {oct(actual_dir_mode)}",
+        )
+
+        # Check pack directory
+        pack_dir = os.path.join(objects_dir, "pack")
+        actual_dir_mode = self._get_file_mode(pack_dir)
+        self.assertEqual(
+            expected_dir_mode,
+            actual_dir_mode,
+            f"pack dir mode: expected {oct(expected_dir_mode)}, got {oct(actual_dir_mode)}",
+        )
+
+        # Check info directory
+        info_dir = os.path.join(objects_dir, "info")
+        actual_dir_mode = self._get_file_mode(info_dir)
+        self.assertEqual(
+            expected_dir_mode,
+            actual_dir_mode,
+            f"info dir mode: expected {oct(expected_dir_mode)}, got {oct(actual_dir_mode)}",
+        )
+
+    def test_init_bare_shared_group(self):
+        """Test initializing bare repo with sharedRepository=group."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="group")
+        self.addCleanup(repo.close)
+
+        # Expected permissions for group sharing
+        expected_dir_mode = 0o2775  # setgid + rwxrwxr-x
+        expected_file_mode = 0o664  # rw-rw-r--
+
+        self._check_permissions(repo, expected_file_mode, expected_dir_mode)
+
+    def test_init_bare_shared_all(self):
+        """Test initializing bare repo with sharedRepository=all."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="all")
+        self.addCleanup(repo.close)
+
+        # Expected permissions for world sharing
+        expected_dir_mode = 0o2777  # setgid + rwxrwxrwx
+        expected_file_mode = 0o666  # rw-rw-rw-
+
+        self._check_permissions(repo, expected_file_mode, expected_dir_mode)
+
+    def test_init_bare_shared_umask(self):
+        """Test initializing bare repo with sharedRepository=umask (default)."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="umask")
+        self.addCleanup(repo.close)
+
+        # With umask, no special permissions should be set
+        # The actual permissions will depend on the umask, but we can
+        # at least verify that setgid is NOT set
+        objects_dir = os.path.join(repo.commondir(), "objects")
+        actual_mode = os.stat(objects_dir).st_mode
+
+        # Verify setgid bit is NOT set
+        self.assertEqual(0, actual_mode & stat.S_ISGID)
+
+    def test_loose_object_permissions_group(self):
+        """Test that loose objects get correct permissions with sharedRepository=group."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="group")
+        self.addCleanup(repo.close)
+
+        # Create a blob object
+        blob = objects.Blob.from_string(b"test content")
+        repo.object_store.add_object(blob)
+
+        # Find the object file
+        obj_path = repo.object_store._get_shafile_path(blob.id)
+
+        # Check file permissions
+        actual_mode = self._get_file_mode(obj_path)
+        expected_mode = 0o664  # rw-rw-r--
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"loose object mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+        # Check directory permissions
+        obj_dir = os.path.dirname(obj_path)
+        actual_dir_mode = self._get_file_mode(obj_dir)
+        expected_dir_mode = 0o2775  # setgid + rwxrwxr-x
+        self.assertEqual(
+            expected_dir_mode,
+            actual_dir_mode,
+            f"object dir mode: expected {oct(expected_dir_mode)}, got {oct(actual_dir_mode)}",
+        )
+
+    def test_loose_object_permissions_all(self):
+        """Test that loose objects get correct permissions with sharedRepository=all."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="all")
+        self.addCleanup(repo.close)
+
+        # Create a blob object
+        blob = objects.Blob.from_string(b"test content")
+        repo.object_store.add_object(blob)
+
+        # Find the object file
+        obj_path = repo.object_store._get_shafile_path(blob.id)
+
+        # Check file permissions
+        actual_mode = self._get_file_mode(obj_path)
+        expected_mode = 0o666  # rw-rw-rw-
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"loose object mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+    def test_pack_file_permissions_group(self):
+        """Test that pack files get correct permissions with sharedRepository=group."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="group")
+        self.addCleanup(repo.close)
+
+        # Create some objects
+        blobs = [
+            objects.Blob.from_string(f"test content {i}".encode()) for i in range(5)
+        ]
+        repo.object_store.add_objects([(blob, None) for blob in blobs])
+
+        # Find the pack files
+        pack_dir = os.path.join(repo.commondir(), "objects", "pack")
+        pack_files = [f for f in os.listdir(pack_dir) if f.endswith(".pack")]
+        self.assertGreater(len(pack_files), 0, "No pack files created")
+
+        # Check pack file permissions
+        pack_path = os.path.join(pack_dir, pack_files[0])
+        actual_mode = self._get_file_mode(pack_path)
+        expected_mode = 0o664  # rw-rw-r--
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"pack file mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+    def test_pack_index_permissions_group(self):
+        """Test that pack index files get correct permissions with sharedRepository=group."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init_bare(tmp_dir, shared_repository="group")
+        self.addCleanup(repo.close)
+
+        # Create some objects
+        blobs = [
+            objects.Blob.from_string(f"test content {i}".encode()) for i in range(5)
+        ]
+        repo.object_store.add_objects([(blob, None) for blob in blobs])
+
+        # Find the pack index files
+        pack_dir = os.path.join(repo.commondir(), "objects", "pack")
+        idx_files = [f for f in os.listdir(pack_dir) if f.endswith(".idx")]
+        self.assertGreater(len(idx_files), 0, "No pack index files created")
+
+        # Check pack index file permissions
+        idx_path = os.path.join(pack_dir, idx_files[0])
+        actual_mode = self._get_file_mode(idx_path)
+        expected_mode = 0o664  # rw-rw-r--
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"pack index mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+    def test_index_file_permissions_group(self):
+        """Test that index file gets correct permissions with sharedRepository=group."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        # Create non-bare repo (index only exists in non-bare repos)
+        repo = Repo.init(tmp_dir, shared_repository="group")
+        self.addCleanup(repo.close)
+
+        # Make a change to trigger index write
+        blob = objects.Blob.from_string(b"test content")
+        repo.object_store.add_object(blob)
+        test_file = os.path.join(tmp_dir, "test.txt")
+        with open(test_file, "wb") as f:
+            f.write(b"test content")
+        # Stage the file
+        repo.get_worktree().stage(["test.txt"])
+
+        # Check index file permissions
+        index_path = repo.index_path()
+        actual_mode = self._get_file_mode(index_path)
+        expected_mode = 0o664  # rw-rw-r--
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"index file mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+    def test_existing_repo_respects_config(self):
+        """Test that opening an existing repo respects core.sharedRepository config."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        # Create repo with shared=group
+        repo = Repo.init_bare(tmp_dir, shared_repository="group")
+        repo.close()
+
+        # Reopen the repo
+        repo = Repo(tmp_dir)
+        self.addCleanup(repo.close)
+
+        # Add an object and check permissions
+        blob = objects.Blob.from_string(b"test content after reopen")
+        repo.object_store.add_object(blob)
+
+        obj_path = repo.object_store._get_shafile_path(blob.id)
+        actual_mode = self._get_file_mode(obj_path)
+        expected_mode = 0o664  # rw-rw-r--
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"loose object mode after reopen: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+    def test_reflog_permissions_group(self):
+        """Test that reflog files get correct permissions with sharedRepository=group."""
+        tmp_dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp_dir)
+
+        # Set umask to 0 to see what permissions are actually set
+        os.umask(0)
+
+        repo = Repo.init(tmp_dir, shared_repository="group")
+        self.addCleanup(repo.close)
+
+        # Create a commit to trigger reflog creation
+        blob = objects.Blob.from_string(b"test content")
+        tree = objects.Tree()
+        tree.add(b"test.txt", 0o100644, blob.id)
+
+        c = objects.Commit()
+        c.tree = tree.id
+        c.author = c.committer = b"Test <test@example.com>"
+        c.author_time = c.commit_time = int(time.time())
+        c.author_timezone = c.commit_timezone = 0
+        c.encoding = b"UTF-8"
+        c.message = b"Test commit"
+
+        repo.object_store.add_object(blob)
+        repo.object_store.add_object(tree)
+        repo.object_store.add_object(c)
+
+        # Update ref to trigger reflog creation
+        repo.refs.set_if_equals(
+            b"refs/heads/master", None, c.id, message=b"commit: initial commit"
+        )
+
+        # Check reflog file permissions
+        reflog_path = os.path.join(repo.controldir(), "logs", "refs", "heads", "master")
+        self.assertTrue(os.path.exists(reflog_path), "Reflog file should exist")
+
+        actual_mode = self._get_file_mode(reflog_path)
+        expected_mode = 0o664  # rw-rw-r--
+        self.assertEqual(
+            expected_mode,
+            actual_mode,
+            f"reflog file mode: expected {oct(expected_mode)}, got {oct(actual_mode)}",
+        )
+
+        # Check reflog directory permissions
+        reflog_dir = os.path.dirname(reflog_path)
+        actual_dir_mode = self._get_file_mode(reflog_dir)
+        expected_dir_mode = 0o2775  # setgid + rwxrwxr-x
+        self.assertEqual(
+            expected_dir_mode,
+            actual_dir_mode,
+            f"reflog dir mode: expected {oct(expected_dir_mode)}, got {oct(actual_dir_mode)}",
+        )

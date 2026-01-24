@@ -5,6 +5,8 @@ import functools
 from typing import Any, Callable, List, Type, TypeVar, cast
 
 from chalk._lsp.error_builder import FeatureClassErrorBuilder
+from chalk.features.feature_wrapper import UnresolvedFeature
+from chalk.utils.notebook import is_notebook
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -53,6 +55,11 @@ def classproperty_support(cls: Type[T]) -> Type[T]:
 
             if (res := self.__chalk_notebook_feature_expressions__.get(item)) is not None:
                 return res
+
+            # If in notebook, fallback to constructing FQN string instead of raising error
+            if is_notebook():
+                fqn = f"{self.namespace}.{item}"
+                return UnresolvedFeature(fqn)
 
             builder: FeatureClassErrorBuilder = self.__chalk_error_builder__
             builder.invalid_attribute(

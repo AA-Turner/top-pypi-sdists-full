@@ -7,11 +7,11 @@ import zipfile
 from typing import Optional
 
 from dotenv import load_dotenv
-from pydash import snake_case
 
 from vellum.client.core.api_error import ApiError
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
 from vellum.utils.uuid import is_valid_uuid
+from vellum.workflows.utils.names import create_module_name
 from vellum.workflows.vellum_client import create_vellum_client
 from vellum_cli.config import (
     DEFAULT_WORKSPACE_CONFIG,
@@ -41,7 +41,11 @@ class PullContentsMetadata(UniversalBaseModel):
     runner_config: Optional[RunnerConfig] = None
     deployment_id: Optional[UUID] = None
     deployment_name: Optional[str] = None
+    deployment_history_item_id: Optional[UUID] = None
+    release_tag_id: Optional[UUID] = None
+    release_tag_name: Optional[str] = None
     workflow_sandbox_id: Optional[UUID] = None
+    workflow_version_id: Optional[UUID] = None
 
 
 def _resolve_workflow_config(
@@ -141,6 +145,7 @@ def pull_command(
     include_sandbox: Optional[bool] = None,
     target_directory: Optional[str] = None,
     workspace: Optional[str] = None,
+    release_tag: Optional[str] = None,
 ) -> None:
     load_dotenv(dotenv_path=os.path.join(os.getcwd(), ".env"))
     logger = load_cli_logger()
@@ -194,6 +199,7 @@ def pull_command(
 
     response = client.workflows.pull(
         pk,
+        release_tag=release_tag,
         request_options={"additional_query_parameters": query_parameters},
     )
 
@@ -257,10 +263,11 @@ def pull_command(
                         workflow_config.container_image_tag = "latest"
                 if not workflow_config.workflow_sandbox_id and pull_contents_metadata.workflow_sandbox_id:
                     workflow_config.workflow_sandbox_id = str(pull_contents_metadata.workflow_sandbox_id)
-                if not workflow_config.module and workflow_deployment and pull_contents_metadata.deployment_name:
-                    workflow_config.module = snake_case(pull_contents_metadata.deployment_name)
-                if not workflow_config.module and pull_contents_metadata.label:
-                    workflow_config.module = snake_case(pull_contents_metadata.label)
+                if not workflow_config.module:
+                    deployment_name = pull_contents_metadata.deployment_name if workflow_deployment else None
+                    workflow_config.module = create_module_name(
+                        deployment_name=deployment_name, label=pull_contents_metadata.label
+                    )
 
                 # Save or update the deployment info when pulling with --workflow-deployment
                 if workflow_deployment:

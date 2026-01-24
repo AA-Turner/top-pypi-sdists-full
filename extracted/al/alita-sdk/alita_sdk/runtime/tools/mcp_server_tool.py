@@ -1,11 +1,12 @@
 import uuid
 from logging import getLogger
-from typing import Any, Type, Literal, Optional, Union, List
+from typing import Any, Type, Literal, Optional, Union, List, Annotated
 
 from langchain_core.tools import BaseTool
-from pydantic import BaseModel, Field, create_model, EmailStr, constr
+from pydantic import BaseModel, Field, create_model, ConfigDict, StringConstraints
 
-from ...tools.utils import TOOLKIT_SPLITTER
+# EmailStr moved to pydantic_extra_types in pydantic v2, use str for simplicity
+EmailStr = str
 
 logger = getLogger(__name__)
 
@@ -19,6 +20,7 @@ class McpServerTool(BaseTool):
     server: str
     tool_timeout_sec: int = 60
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @staticmethod
     def create_pydantic_model_from_schema(schema: dict, model_name: str = "ArgsSchema"):
@@ -60,7 +62,7 @@ class McpServerTool(BaseTool):
                 if field.get("format") == "email":
                     return EmailStr
                 if "pattern" in field:
-                    return constr(regex=field["pattern"])
+                    return Annotated[str, StringConstraints(pattern=field["pattern"])]
                 return str
             if t == "integer":
                 return int
@@ -90,12 +92,13 @@ class McpServerTool(BaseTool):
         return create_model(model_name, **fields)
 
     def _run(self, *args, **kwargs):
+        # Use the tool name directly (no prefix extraction needed)
         call_data = {
             "server": self.server,
             "tool_timeout_sec": self.tool_timeout_sec,
             "tool_call_id": str(uuid.uuid4()),
             "params": {
-                "name": self.name.rsplit(TOOLKIT_SPLITTER)[1] if TOOLKIT_SPLITTER in self.name else self.name,
+                "name": self.name,
                 "arguments": kwargs
             }
         }

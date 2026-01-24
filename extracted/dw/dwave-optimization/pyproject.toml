@@ -1,7 +1,10 @@
 [build-system]
 requires = [
-    "cython~=3.1.0",
+    # Same as dependency-groups.build
+    "cython~=3.2.0",
+    "meson~=1.9.0",
     "meson-python~=0.18.0",
+    "ninja~=1.13.0",
 ]
 build-backend = 'mesonpy'
 
@@ -21,7 +24,6 @@ classifiers = [
     "Operating System :: MacOS",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -30,9 +32,15 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     'Programming Language :: Python :: Implementation :: CPython',
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy>=1.20.0",  # numpy.typing support
+    "numpy>=1.21.3",  # oldest that supports Python 3.10
+]
+
+[project.optional-dependencies]
+all = [
+    "dimod>=0.12.0",  # oldest minor that passes tests
+    "scikit-learn>=1.6.0",  # oldest minor that passes tests
 ]
 
 [project.readme]
@@ -44,14 +52,61 @@ Changelog = "https://github.com/dwavesystems/dwave-optimization/releases"
 Documentation = "https://docs.dwavequantum.com"
 "Source Code" = "https://github.com/dwavesystems/dwave-optimization"
 
+[dependency-groups]
+blas = [
+    # Optional build requirement
+    "scipy_openblas64==0.3.30.0.8",
+]
+build = [
+    # Same as build-system.requires
+    "cython~=3.2.0",
+    "meson~=1.9.0",
+    "meson-python~=0.18.0",
+    "ninja~=1.13.0",
+]
+blas-build = [
+    {include-group = "build"},
+    {include-group = "blas"},
+]
+changelog = [
+    "reno==4.1.0",
+]
+dev = [
+    # Install requirements
+    "numpy==2.2.6; python_version < '3.11'",  # last that supports 3.10
+    "numpy==2.3.3; python_version >= '3.11'",
+    {include-group = "build"},
+    {include-group = "changelog"},
+]
+docs = [
+    # Matches dwave-ocean-sdk as of Dec 2025
+    "pydata-sphinx-theme==0.16.1",
+    "sphinx==8.2.3",
+    "sphinx-design==0.6.1",
+    "breathe==4.35.0",
+]
+test = [
+    "dimod==0.12.21",
+    "scikit-learn==1.7.2; python_version<'3.11'",   # last that supports 3.10
+    "scikit-learn==1.8.0; python_version>='3.11'",  # first that supports 3.14t
+]
+
 [tool.cibuildwheel]
 build-verbosity = "1"
 skip = "pp* *musllinux*"
-before-test = "pip install -r {project}/tests/requirements.txt"
+
+# When building with cibuildwheel, we want scipy_openblas64 available to the
+# build step. There isn't (as of Dec 2025) a way to override the
+# build-system.requires so we need to build without isolation
+before-build = "pip install --group blas-build"
+build-frontend = { name = "build", args = ["--no-isolation"] }
+
+before-test = "pip install --group test"
 test-command = "python -Werror -m unittest discover {project}/tests/"
 
 [tool.cibuildwheel.config-settings]
 compile-args = ["-v"]
+setup-args = ["-Dblas=enabled"]  # require BLAS
 
 [tool.cibuildwheel.linux]
 archs = "x86_64 aarch64"
@@ -67,18 +122,41 @@ environment = "MACOSX_DEPLOYMENT_TARGET=10.13"
 archs = "AMD64"
 repair-wheel-command = [
     "pip install delvewheel",
-    "delvewheel repair -w {dest_dir} {wheel} --namespace-pkg dwave",
+    # We put the commands in an .sh so we can use bash
+    "bash ./dwave/optimization/_build/_windows_repair_wheel.sh {wheel} {dest_dir}",
 ]
 
 [[tool.cibuildwheel.overrides]]
 # For Python3.12+, rather than building individual wheels we build an abi3
 # wheel. 313t and 314t do not support abi wheels yet.
 select = "cp31[!01]-*"  # uses fnmatch, will fail for 3.20+ but good enough for now
-build-frontend = { name = "build", args = ["-Csetup-args=-Dpython.allow_limited_api=true"] }
+build-frontend = { name = "build", args = ["-Csetup-args=-Dpython.allow_limited_api=true", "--no-isolation"] }
 inherit.repair-wheel-command = "append"
 repair-wheel-command = [
     "pip install abi3audit",
     "abi3audit --strict --report {wheel}",
+]
+
+[[tool.cibuildwheel.overrides]]
+select = "*-????linux_*"
+inherit.repair-wheel-command = "prepend"
+repair-wheel-command = "python /project/dwave/optimization/_build/_fix_rpath.py {wheel}"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-macosx_*"
+inherit.repair-wheel-command = "prepend"
+repair-wheel-command = "python ./dwave/optimization/_build/_fix_rpath.py {wheel}"
+
+[[tool.cibuildwheel.overrides]]
+# We need a universal build of scipy_openblas so we need to make one on the fly
+select = "*-macosx_*"
+before-build = [
+    "pip download --group blas -d .openblas_arm64 --platform macosx_11_0_arm64 --no-deps",
+    "pip download --group blas -d .openblas_x86_64 --platform macosx_11_0_x86_64 --no-deps",
+    "pip install delocate",
+    "delocate-merge .openblas_x86_64/scipy_openblas*.whl .openblas_arm64/scipy_openblas*.whl -w .openblas",
+    "pip install .openblas/scipy_openblas*.whl",
+    "pip install --group build",
 ]
 
 [tool.coverage.run]

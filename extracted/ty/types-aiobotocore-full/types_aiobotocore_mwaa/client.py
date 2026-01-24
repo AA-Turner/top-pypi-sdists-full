@@ -3,7 +3,7 @@ Type annotations for mwaa service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mwaa/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -52,12 +53,6 @@ from .type_defs import (
     UpdateEnvironmentOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -68,13 +63,13 @@ __all__ = ("MWAAClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    RestApiClientException: Type[BotocoreClientError]
-    RestApiServerException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    RestApiClientException: type[BotocoreClientError]
+    RestApiServerException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class MWAAClient(AioBaseClient):
@@ -145,7 +140,7 @@ class MWAAClient(AioBaseClient):
 
     async def delete_environment(
         self, **kwargs: Unpack[DeleteEnvironmentInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Amazon Managed Workflows for Apache Airflow (Amazon MWAA)
         environment.
@@ -195,7 +190,7 @@ class MWAAClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mwaa/client/#list_tags_for_resource)
         """
 
-    async def publish_metrics(self, **kwargs: Unpack[PublishMetricsInputTypeDef]) -> Dict[str, Any]:
+    async def publish_metrics(self, **kwargs: Unpack[PublishMetricsInputTypeDef]) -> dict[str, Any]:
         """
         <b>Internal only</b>.
 
@@ -203,7 +198,7 @@ class MWAAClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mwaa/client/#publish_metrics)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Associates key-value tag pairs to your Amazon Managed Workflows for Apache
         Airflow (MWAA) environment.
@@ -212,7 +207,7 @@ class MWAAClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mwaa/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes key-value tag pairs associated to your Amazon Managed Workflows for
         Apache Airflow (MWAA) environment.
@@ -249,7 +244,7 @@ class MWAAClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

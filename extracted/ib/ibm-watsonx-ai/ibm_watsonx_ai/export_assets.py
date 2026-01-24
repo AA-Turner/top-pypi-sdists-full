@@ -1,14 +1,13 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
-import os
-from typing import TYPE_CHECKING, cast
+from pathlib import Path
+from typing import TYPE_CHECKING, Any, Generator, Literal, cast
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import ExportMetaNames
 from ibm_watsonx_ai.wml_client_error import ApiRequestFailure, WMLClientError
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -23,7 +22,6 @@ class Export(WMLResource):
     def __init__(self, client: APIClient) -> None:
         WMLResource.__init__(self, __name__, client)
 
-        self._client = client
         self.ConfigurationMetaNames = ExportMetaNames()
 
     def start(
@@ -31,7 +29,7 @@ class Export(WMLResource):
         meta_props: dict[str, str | bool | list],
         space_id: str | None = None,
         project_id: str | None = None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Start the export. You must provide the space_id or the project_id.
         ALL_ASSETS is by default False. You don't need to provide it unless it is set to True.
         You must provide one of the following in the meta_props: ALL_ASSETS, ASSET_TYPES, or ASSET_IDS. Only one of these can be
@@ -43,16 +41,18 @@ class Export(WMLResource):
         ASSET_IDS is an array that contains the list of assets IDs to be exported.
         ASSET_TYPES is used to provide the asset types to be exported. All assets of that asset type will be exported.
 
-                Eg: wml_model, wml_model_definition, wml_pipeline, wml_function, wml_experiment,
-                software_specification, hardware_specification, package_extension, script
+            Eg: wml_model, wml_model_definition, wml_pipeline, wml_function, wml_experiment,
+            software_specification, hardware_specification, package_extension, script
 
         :param meta_props: metadata,
             to see available meta names use ``client.export_assets.ConfigurationMetaNames.get()``
         :type meta_props: dict
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
-        :type project: str, optional
+        :type project_id: str, optional
 
         :return: Response json
         :rtype: dict
@@ -63,26 +63,39 @@ class Export(WMLResource):
 
             metadata = {
                 client.export_assets.ConfigurationMetaNames.NAME: "export_model",
-                client.export_assets.ConfigurationMetaNames.ASSET_IDS: ["13a53931-a8c0-4c2f-8319-c793155e7517",
-                                                                        "13a53931-a8c0-4c2f-8319-c793155e7518"]}
+                client.export_assets.ConfigurationMetaNames.ASSET_IDS: [
+                    "13a53931-a8c0-4c2f-8319-c793155e7517",
+                    "13a53931-a8c0-4c2f-8319-c793155e7518",
+                ],
+            }
 
-            details = client.export_assets.start(meta_props=metadata, space_id="98a53931-a8c0-4c2f-8319-c793155e4598")
-
-        .. code-block:: python
-
-            metadata = {
-                client.export_assets.ConfigurationMetaNames.NAME: "export_model",
-                client.export_assets.ConfigurationMetaNames.ASSET_TYPES: ["wml_model"]}
-
-            details = client.export_assets.start(meta_props=metadata, space_id="98a53931-a8c0-4c2f-8319-c793155e4598")
+            details = client.export_assets.start(
+                meta_props=metadata, space_id="98a53931-a8c0-4c2f-8319-c793155e4598"
+            )
 
         .. code-block:: python
 
             metadata = {
                 client.export_assets.ConfigurationMetaNames.NAME: "export_model",
-                client.export_assets.ConfigurationMetaNames.ALL_ASSETS: True}
+                client.export_assets.ConfigurationMetaNames.ASSET_TYPES: [
+                    "wml_model"
+                ],
+            }
 
-            details = client.export_assets.start(meta_props=metadata, space_id="98a53931-a8c0-4c2f-8319-c793155e4598")
+            details = client.export_assets.start(
+                meta_props=metadata, space_id="98a53931-a8c0-4c2f-8319-c793155e4598"
+            )
+
+        .. code-block:: python
+
+            metadata = {
+                client.export_assets.ConfigurationMetaNames.NAME: "export_model",
+                client.export_assets.ConfigurationMetaNames.ALL_ASSETS: True,
+            }
+
+            details = client.export_assets.start(
+                meta_props=metadata, space_id="98a53931-a8c0-4c2f-8319-c793155e4598"
+            )
 
         """
 
@@ -101,37 +114,40 @@ class Export(WMLResource):
             meta_props, with_validation=True, client=self._client
         )
 
-        start_meta = {}
-        assets = {}
+        start_meta: dict[str, Any] = {}
+        assets: dict[str, Any] = {}
 
         start_meta["name"] = meta["name"]
         if "description" in meta:
             start_meta["description"] = meta["description"]
 
         if "all_assets" not in meta:
-            assets.update({"all_assets": False})
+            assets["all_assets"] = False
         else:
-            assets.update({"all_assets": meta["all_assets"]})
+            assets["all_assets"] = meta["all_assets"]
 
         if "asset_types" in meta:
-            assets.update({"asset_types": meta["asset_types"]})
+            assets["asset_types"] = meta["asset_types"]
 
         if "asset_ids" in meta:
-            assets.update(({"asset_ids": meta["asset_ids"]}))
+            assets["asset_ids"] = meta["asset_ids"]
 
         start_meta["assets"] = assets
 
         href = self._client._href_definitions.exports_href()
 
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         else:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        creation_response = requests.post(
-            href, params=params, headers=self._client._get_headers(), json=start_meta
+        creation_response = self._client.httpx_client.post(
+            url=href,
+            params=params,
+            headers=self._client._get_headers(),
+            json=start_meta,
         )
 
         details = self._handle_response(
@@ -187,7 +203,7 @@ class Export(WMLResource):
         export_id: str,
         space_id: str | None = None,
         project_id: str | None = None,
-    ) -> str:
+    ) -> Literal["SUCCESS"]:
         """Cancel an export job. `space_id` or `project_id` has to be provided.
 
         .. note::
@@ -195,20 +211,24 @@ class Export(WMLResource):
 
         :param export_id: export job identifier
         :type export_id: str
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
 
-        :returns: status ("SUCCESS" or "FAILED")
-        :rtype: str
+        :return: status "SUCCESS" if the cancellation is successful
+        :rtype: Literal["SUCCESS"]
 
         **Example:**
 
         .. code-block:: python
 
-            client.export_assets.cancel(export_id='6213cf1-252f-424b-b52d-5cdd9814956c',
-                                        space_id='3421cf1-252f-424b-b52d-5cdd981495fe')
+            client.export_assets.cancel(
+                export_id="6213cf1-252f-424b-b52d-5cdd9814956c",
+                space_id="3421cf1-252f-424b-b52d-5cdd981495fe",
+            )
         """
 
         Export._validate_type(export_id, "export_id", str, True)
@@ -223,21 +243,24 @@ class Export(WMLResource):
 
         href = self._client._href_definitions.export_href(export_id)
 
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         else:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        cancel_response = requests.delete(
-            href, params=params, headers=self._client._get_headers()
+        cancel_response = self._client.httpx_client.delete(
+            url=href, params=params, headers=self._client._get_headers()
         )
 
-        details = self._handle_response(
-            expected_status_code=204,
-            operationName="cancel export",
-            response=cancel_response,
+        details = cast(
+            Literal["SUCCESS"],
+            self._handle_response(
+                expected_status_code=204,
+                operationName="cancel export",
+                response=cancel_response,
+            ),
         )
 
         if "SUCCESS" == details:
@@ -250,25 +273,29 @@ class Export(WMLResource):
         export_id: str,
         space_id: str | None = None,
         project_id: str | None = None,
-    ) -> str:
+    ) -> Literal["SUCCESS"]:
         """Delete the given `export_id` job. `space_id` or `project_id` has to be provided.
 
         :param export_id: export job identifier
         :type export_id: str
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
 
-        :return: status ("SUCCESS" or "FAILED")
-        :rtype: str
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
 
         **Example:**
 
         .. code-block:: python
 
-            client.export_assets.delete(export_id='6213cf1-252f-424b-b52d-5cdd9814956c',
-                                        space_id= '98a53931-a8c0-4c2f-8319-c793155e4598')
+            client.export_assets.delete(
+                export_id="6213cf1-252f-424b-b52d-5cdd9814956c",
+                space_id="98a53931-a8c0-4c2f-8319-c793155e4598",
+            )
         """
 
         if space_id is None and project_id is None:
@@ -283,21 +310,24 @@ class Export(WMLResource):
 
         href = self._client._href_definitions.export_href(export_id)
 
-        params: dict = {"hard_delete": True}
+        params: dict[str, Any] = {"hard_delete": True}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         else:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        delete_response = requests.delete(
-            href, params=params, headers=self._client._get_headers()
+        delete_response = self._client.httpx_client.delete(
+            url=href, params=params, headers=self._client._get_headers()
         )
 
-        details = self._handle_response(
-            expected_status_code=204,
-            operationName="delete export job",
-            response=delete_response,
+        details = cast(
+            Literal["SUCCESS"],
+            self._handle_response(
+                expected_status_code=204,
+                operationName="delete export job",
+                response=delete_response,
+            ),
         )
 
         if "SUCCESS" == details:
@@ -313,19 +343,24 @@ class Export(WMLResource):
         limit: int | None = None,
         asynchronous: bool = False,
         get_all: bool = False,
-    ) -> dict:
+    ) -> dict[str, Any] | Generator:
         """Get metadata of a given export job. If no `export_id` is specified, all export metadata is returned.
 
         :param export_id: export job identifier
         :type export_id: str, optional
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
+
         :param limit: limit number of fetched records
         :type limit: int, optional
+
         :param asynchronous: if `True`, it will work as a generator
         :type asynchronous: bool, optional
+
         :param get_all: if `True`, it will get all entries in 'limited' chunks
         :type get_all: bool, optional
 
@@ -336,12 +371,16 @@ class Export(WMLResource):
 
         .. code-block:: python
 
-            details = client.export_assets.get_details(export_id, space_id= '98a53931-a8c0-4c2f-8319-c793155e4598')
+            details = client.export_assets.get_details(
+                export_id, space_id="98a53931-a8c0-4c2f-8319-c793155e4598"
+            )
             details = client.export_assets.get_details()
             details = client.export_assets.get_details(limit=100)
             details = client.export_assets.get_details(limit=100, get_all=True)
             details = []
-            for entry in client.export_assets.get_details(limit=100, asynchronous=True, get_all=True):
+            for entry in client.export_assets.get_details(
+                limit=100, asynchronous=True, get_all=True
+            ):
                 details.extend(entry)
 
         """
@@ -359,15 +398,15 @@ class Export(WMLResource):
 
         href = self._client._href_definitions.exports_href()
 
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         else:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
         if export_id is None:
-            return self._get_artifact_details(
+            return self._get_artifact_details(  # type: ignore[call-overload]
                 href,
                 export_id,
                 limit,
@@ -392,8 +431,10 @@ class Export(WMLResource):
 
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
+
         :param limit: limit number of fetched records
         :type limit: int, optional
 
@@ -417,13 +458,13 @@ class Export(WMLResource):
 
         get_all = self._should_get_all_values(limit)
         if space_id is not None:
-            resources = self.get_details(space_id=space_id, get_all=get_all)[
-                "resources"
-            ]
+            resources = cast(
+                dict, self.get_details(space_id=space_id, get_all=get_all)
+            )["resources"]
         else:
-            resources = self.get_details(project_id=project_id, get_all=get_all)[
-                "resources"
-            ]
+            resources = cast(
+                dict, self.get_details(project_id=project_id, get_all=get_all)
+            )["resources"]
 
         values = [
             (
@@ -440,7 +481,7 @@ class Export(WMLResource):
         return table
 
     @staticmethod
-    def get_id(export_details: dict) -> str:
+    def get_id(export_details: dict[str, Any]) -> str:
         """Get the ID of the export job from export details.
 
         :param export_details: metadata of the export job
@@ -458,7 +499,7 @@ class Export(WMLResource):
         Export._validate_type(export_details, "export_details", object, True)
 
         return WMLResource._get_required_element_from_dict(
-            export_details, "export_details", ["metadata", "id"]
+            export_details, "export_details", ["metadata", "id"], str
         )
 
     def get_exported_content(
@@ -466,19 +507,22 @@ class Export(WMLResource):
         export_id: str,
         space_id: str | None = None,
         project_id: str | None = None,
-        file_path: str | None = None,
+        file_path: str | Path | None = None,
     ) -> str:
         """Get the exported content as a zip file.
 
         :param export_id: export job identifier
         :type export_id: str
+
         :param space_id: space identifier
         :type space_id: str, optional
+
         :param project_id: project identifier
         :type project_id: str, optional
+
         :param file_path: name of local file to create, this should be absolute path of the file
             and the file shouldn't exist
-        :type file_path: str, optional
+        :type file_path: str | Path, optional
 
 
         :return: path to the downloaded function content
@@ -488,10 +532,14 @@ class Export(WMLResource):
 
         .. code-block:: python
 
-            client.export_assets.get_exported_content(export_id,
-                                                space_id='98a53931-a8c0-4c2f-8319-c793155e4598',
-                                                file_path='/home/user/my_exported_content.zip')
+            client.export_assets.get_exported_content(
+                export_id,
+                space_id="98a53931-a8c0-4c2f-8319-c793155e4598",
+                file_path="/home/user/my_exported_content.zip",
+            )
         """
+        if isinstance(file_path, str):
+            file_path = Path(file_path)
 
         if space_id is None and project_id is None:
             raise WMLClientError("Its mandatory to provide space_id or project_id")
@@ -501,17 +549,17 @@ class Export(WMLResource):
                 "Either 'space_id' or 'project_id' can be provided, not both"
             )
 
-        params: dict = {}
+        params: dict[str, Any] = {}
 
         if space_id is not None:
-            params.update({"space_id": space_id})
+            params["space_id"] = space_id
         else:
-            params.update({"project_id": project_id})
+            params["project_id"] = project_id
 
-        Export._validate_type(file_path, "file_path", str, True)
-        file_path = cast(str, file_path)
+        Export._validate_type(file_path, "file_path", Path, True)
+        file_path = cast(Path, file_path)
 
-        if os.path.isfile(file_path):
+        if file_path.is_file():
             raise WMLClientError(
                 "File with name: '{}' already exists.".format(file_path)
             )
@@ -519,13 +567,15 @@ class Export(WMLResource):
         href = self._client._href_definitions.export_content_href(export_id)
 
         try:
-            response = requests.get(
-                href, params=params, headers=self._client._get_headers(), stream=True
+            response = self._client.httpx_client.get(
+                url=href,
+                params=params,
+                headers=self._client._get_headers(),
             )
-
             if response.status_code != 200:
                 raise ApiRequestFailure(
-                    "Failure during {}.".format("downloading export content"), response
+                    "Failure during {}.".format("downloading export content"),
+                    response,
                 )
 
             downloaded_exported_content = response.content
@@ -539,18 +589,17 @@ class Export(WMLResource):
                 "Downloading export content with artifact_url: '{}' failed.".format(
                     href
                 ),
-                e,
+                str(e),
             )
 
         try:
-            with open(file_path, "wb") as f:
-                f.write(downloaded_exported_content)
+            file_path.write_bytes(downloaded_exported_content)
             print("Successfully saved export content to file: '{}'".format(file_path))
-            return file_path
+            return str(file_path)
         except IOError as e:
             raise WMLClientError(
                 "Downloading export content with artifact_url: '{}' failed.".format(
                     href
                 ),
-                e,
+                str(e),
             )

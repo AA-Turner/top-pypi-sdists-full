@@ -44,7 +44,7 @@ class ComickCoversExtractor(ComickBase, GalleryExtractor):
         covers.reverse()
 
         return [
-            (f"https://meo.comick.pictures/{cover['b2key']}", {
+            ("https://meo.comick.pictures/" + cover["b2key"], {
                 "id"    : cover["id"],
                 "width" : cover["w"],
                 "height": cover["h"],
@@ -114,10 +114,8 @@ class ComickChapterExtractor(ComickBase, ChapterExtractor):
             "chapter_hid"   : ch["hid"],
             "chapter_string": chstr,
             "group"   : ch["group_name"],
-            "date"    : text.parse_datetime(
-                ch["created_at"][:19], "%Y-%m-%dT%H:%M:%S"),
-            "date_updated"  : text.parse_datetime(
-                ch["updated_at"][:19], "%Y-%m-%dT%H:%M:%S"),
+            "date"    : self.parse_datetime_iso(ch["created_at"][:19]),
+            "date_updated"  : self.parse_datetime_iso(ch["updated_at"][:19]),
             "lang"    : ch["lang"],
         }
 
@@ -130,7 +128,7 @@ class ComickChapterExtractor(ComickBase, ChapterExtractor):
             return ()
 
         return [
-            (f"https://meo.comick.pictures/{img['b2key']}", {
+            ("https://meo.comick.pictures/" + img["b2key"], {
                 "width"    : img["w"],
                 "height"   : img["h"],
                 "size"     : img["s"],

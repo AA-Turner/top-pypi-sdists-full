@@ -2,7 +2,7 @@ import mimetypes
 import os
 
 from rocketchat_API.APIExceptions.RocketExceptions import RocketMissingParamException
-from rocketchat_API.APISections.base import RocketChatBase
+from rocketchat_API.APISections.base import RocketChatBase, paginated
 
 
 class RocketChatUsers(RocketChatBase):
@@ -18,6 +18,7 @@ class RocketChatUsers(RocketChatBase):
             return self.call_api_get("users.info", username=username, kwargs=kwargs)
         raise RocketMissingParamException("userID or username required")
 
+    @paginated("users")
     def users_list(self, **kwargs):
         """All of the users and their information, limited to permissions."""
         return self.call_api_get("users.list", kwargs=kwargs)
@@ -61,27 +62,12 @@ class RocketChatUsers(RocketChatBase):
     def users_get_avatar(self, user_id=None, username=None, **kwargs):
         """Gets the URL for a user's avatar."""
         if user_id:
-            response = self.call_api_get(
-                "users.getAvatar", userId=user_id, kwargs=kwargs
-            )
-        elif username:
-            response = self.call_api_get(
+            return self.call_api_get("users.getAvatar", userId=user_id, kwargs=kwargs)
+        if username:
+            return self.call_api_get(
                 "users.getAvatar", username=username, kwargs=kwargs
             )
-        else:
-            raise RocketMissingParamException("userID or username required")
-
-        # If Accounts_AvatarBlockUnauthorizedAccess is set, we need to provide the Token as cookies
-        if response.status_code == 403:
-            return self.req.get(
-                response.url,
-                cert=self.cert,
-                cookies={
-                    "rc_uid": self.headers.get("X-User-Id"),
-                    "rc_token": self.headers.get("X-Auth-Token"),
-                },
-            )
-        return response
+        raise RocketMissingParamException("userID or username required")
 
     def users_set_avatar(self, avatar_url, **kwargs):
         """Set a user's avatar"""
@@ -112,17 +98,11 @@ class RocketChatUsers(RocketChatBase):
             )
         raise RocketMissingParamException("userID or username required")
 
-    def users_create_token(self, user_id=None, username=None, **kwargs):
+    def users_create_token(self, user_id, secret, **kwargs):
         """Create a user authentication token."""
-        if user_id:
-            return self.call_api_post(
-                "users.createToken", userId=user_id, kwargs=kwargs
-            )
-        if username:
-            return self.call_api_post(
-                "users.createToken", username=username, kwargs=kwargs
-            )
-        raise RocketMissingParamException("userID or username required")
+        return self.call_api_post(
+            "users.createToken", userId=user_id, secret=secret, kwargs=kwargs
+        )
 
     def users_update(self, user_id, **kwargs):
         """Update an existing user."""

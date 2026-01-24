@@ -1,13 +1,16 @@
+from __future__ import annotations
+
 import json
 import operator
 import re
 import typing
 import warnings
 from contextlib import suppress
-from functools import lru_cache, wraps
+from functools import lru_cache, partial, wraps
 
 import jsonpath_rfc9535
 import semver
+from typing_extensions import TypedDict
 
 from flag_engine.context.mappers import map_any_value_to_context_value
 from flag_engine.context.types import (
@@ -20,143 +23,203 @@ from flag_engine.context.types import (
 )
 from flag_engine.result.types import EvaluationResult, FlagResult, SegmentResult
 from flag_engine.segments import constants
-from flag_engine.segments.types import ConditionOperator, ContextValue, is_context_value
-from flag_engine.segments.utils import escape_double_quotes, get_matching_function
+from flag_engine.segments.types import (
+    ConditionOperator,
+    ContextValue,
+    FeatureMetadataT,
+    SegmentMetadataT,
+    is_context_value,
+)
+from flag_engine.segments.utils import get_matching_function
 from flag_engine.utils.hashing import get_hashed_percentage_for_object_ids
 from flag_engine.utils.semver import is_semver
 from flag_engine.utils.types import SupportsStr, get_casting_function
 
 
-class FeatureContextWithSegmentName(typing.TypedDict):
-    feature_context: FeatureContext
+class SegmentOverride(TypedDict, typing.Generic[FeatureMetadataT]):
+    feature_context: FeatureContext[FeatureMetadataT]
     segment_name: str
 
 
-def get_evaluation_result(context: EvaluationContext) -> EvaluationResult:
+SegmentOverrides = dict[str, SegmentOverride[FeatureMetadataT]]
+
+# Type alias for EvaluationContext with any metadata types
+# used in internal evaluation logic
+_EvaluationContextAnyMeta = EvaluationContext[typing.Any, typing.Any]
+
+
+def get_evaluation_result(
+    context: EvaluationContext[SegmentMetadataT, FeatureMetadataT],
+) -> EvaluationResult[SegmentMetadataT, FeatureMetadataT]:
     """
     Get the evaluation result for a given context.
 
     :param context: the evaluation context
     :return: EvaluationResult containing the context, flags, and segments
     """
-    segments: list[SegmentResult] = []
-    flags: list[FlagResult] = []
-
-    segment_feature_contexts: dict[SupportsStr, FeatureContextWithSegmentName] = {}
-
-    for segment_context in (context.get("segments") or {}).values():
-        if not is_context_in_segment(context, segment_context):
-            continue
-
-        segments.append(
-            {
-                "key": segment_context["key"],
-                "name": segment_context["name"],
-            }
-        )
-
-        if overrides := segment_context.get("overrides"):
-            for override_feature_context in overrides:
-                feature_key = override_feature_context["feature_key"]
-                if (
-                    feature_key not in segment_feature_contexts
-                    or override_feature_context.get(
-                        "priority",
-                        constants.DEFAULT_PRIORITY,
-                    )
-                    < (segment_feature_contexts[feature_key]["feature_context"]).get(
-                        "priority",
-                        constants.DEFAULT_PRIORITY,
-                    )
-                ):
-                    segment_feature_contexts[feature_key] = (
-                        FeatureContextWithSegmentName(
-                            feature_context=override_feature_context,
-                            segment_name=segment_context["name"],
-                        )
-                    )
-
-    identity_key = (
-        identity_context["key"]
-        if (identity_context := context.get("identity"))
-        else None
-    )
-    for feature_context in (context.get("features") or {}).values():
-        if feature_context_with_segment_name := segment_feature_contexts.get(
-            feature_context["feature_key"],
-        ):
-            feature_context = feature_context_with_segment_name["feature_context"]
-            flags.append(
-                {
-                    "enabled": feature_context["enabled"],
-                    "feature_key": feature_context["feature_key"],
-                    "name": feature_context["name"],
-                    "reason": f"TARGETING_MATCH; segment={feature_context_with_segment_name['segment_name']}",
-                    "value": feature_context.get("value"),
-                }
-            )
-            continue
-        flags.append(
-            get_flag_result_from_feature_context(
-                feature_context=feature_context,
-                key=identity_key,
-            )
-        )
+    context = get_enriched_context(context)
+    segments, segment_overrides = evaluate_segments(context)
+    flags = evaluate_features(context, segment_overrides)
 
     return {
-        "context": context,
         "flags": flags,
         "segments": segments,
     }
 
 
-def get_flag_result_from_feature_context(
-    feature_context: FeatureContext,
-    key: typing.Optional[SupportsStr],
-) -> FlagResult:
+def get_enriched_context(
+    context: EvaluationContext[SegmentMetadataT, FeatureMetadataT],
+) -> EvaluationContext[SegmentMetadataT, FeatureMetadataT]:
     """
-    Get a feature value from the feature context
-    for a given key.
+    Get an enriched version of the evaluation context by ensuring that:
+     - `$.identity.key` is set
 
-    :param feature_context: the feature context
-    :param key: the key to get the value for
-    :return: the value for the key in the feature context
+    :param context: the evaluation context to enrich
+    :return: the enriched evaluation context. If not modified, returns the original context.
     """
+    if identity_context := context.get("identity"):
+        if not identity_context.get("key"):
+            context = context.copy()
+            context["identity"] = {
+                **identity_context,
+                "key": (
+                    f"{context['environment']['key']}_{identity_context['identifier']}"
+                ),
+            }
+
+    return context
+
+
+def evaluate_segments(
+    context: EvaluationContext[SegmentMetadataT, FeatureMetadataT],
+) -> typing.Tuple[
+    list[SegmentResult[SegmentMetadataT]],
+    SegmentOverrides[FeatureMetadataT],
+]:
+    if not (segment_contexts := context.get("segments")):
+        return [], {}
+
+    segment_results: list[SegmentResult[SegmentMetadataT]] = []
+    segment_overrides: SegmentOverrides[FeatureMetadataT] = {}
+
+    for segment_context in segment_contexts.values():
+        if not is_context_in_segment(context, segment_context):
+            continue
+
+        segment_result: SegmentResult[SegmentMetadataT] = {
+            "name": segment_context["name"],
+        }
+        if segment_metadata := segment_context.get("metadata"):
+            segment_result["metadata"] = segment_metadata
+        segment_results.append(segment_result)
+
+        if overrides := segment_context.get("overrides"):
+            for override_feature_context in overrides:
+                feature_name = override_feature_context["name"]
+                if (
+                    feature_name not in segment_overrides
+                    or override_feature_context.get(
+                        "priority",
+                        constants.DEFAULT_PRIORITY,
+                    )
+                    < (segment_overrides[feature_name]["feature_context"]).get(
+                        "priority",
+                        constants.DEFAULT_PRIORITY,
+                    )
+                ):
+                    segment_overrides[feature_name] = SegmentOverride(
+                        feature_context=override_feature_context,
+                        segment_name=segment_context["name"],
+                    )
+
+    return segment_results, segment_overrides
+
+
+def evaluate_features(
+    context: EvaluationContext[typing.Any, FeatureMetadataT],
+    segment_overrides: SegmentOverrides[FeatureMetadataT],
+) -> dict[str, FlagResult[FeatureMetadataT]]:
+    if not (features := context.get("features")):
+        return {}
+
+    flags: dict[str, FlagResult[FeatureMetadataT]] = {}
+
+    for feature_context in features.values():
+        feature_name = feature_context["name"]
+        if segment_override := segment_overrides.get(feature_name):
+            flags[feature_name] = get_flag_result_from_context(
+                context=context,
+                feature_context=segment_override["feature_context"],
+                reason=f"TARGETING_MATCH; segment={segment_override['segment_name']}",
+            )
+            continue
+        flags[feature_name] = get_flag_result_from_context(
+            context=context,
+            feature_context=context["features"][feature_name],
+            reason="DEFAULT",
+        )
+
+    return flags
+
+
+def get_flag_result_from_context(
+    context: _EvaluationContextAnyMeta,
+    feature_context: FeatureContext[FeatureMetadataT],
+    reason: str,
+) -> FlagResult[FeatureMetadataT]:
+    """
+    Get a feature value from the evaluation context
+    for a given feature name.
+
+    :param context: evaluation context
+    :param feature_context: feature context
+    :param reason: reason to use when no variant selected
+    :return: the value for the feature name in the evaluation context
+    """
+    key = _get_identity_key(context)
+
+    flag_result: typing.Optional[FlagResult[FeatureMetadataT]] = None
+
     if key is not None and (variants := feature_context.get("variants")):
         percentage_value = get_hashed_percentage_for_object_ids(
             [feature_context["key"], key]
         )
 
-        # We expect `variants` to be pre-sorted in order of persistence. This gives us a
-        # way to ensure that the same value is returned every time we use the same
-        # percentage value.
         start_percentage = 0.0
 
-        for variant in variants:
+        for variant in sorted(
+            variants,
+            key=operator.itemgetter("priority"),
+        ):
             limit = (weight := variant["weight"]) + start_percentage
             if start_percentage <= percentage_value < limit:
-                return {
+                flag_result = {
                     "enabled": feature_context["enabled"],
-                    "feature_key": feature_context["feature_key"],
                     "name": feature_context["name"],
                     "reason": f"SPLIT; weight={weight}",
                     "value": variant["value"],
                 }
+                break
 
             start_percentage = limit
 
-    return {
-        "enabled": feature_context["enabled"],
-        "feature_key": feature_context["feature_key"],
-        "name": feature_context["name"],
-        "reason": "DEFAULT",
-        "value": feature_context["value"],
-    }
+    if flag_result is None:
+        flag_result = {
+            "enabled": feature_context["enabled"],
+            "name": feature_context["name"],
+            "reason": reason,
+            "value": feature_context["value"],
+        }
+
+    if metadata := feature_context.get("metadata"):
+        flag_result["metadata"] = metadata
+
+    return flag_result
 
 
 def is_context_in_segment(
-    context: EvaluationContext,
-    segment_context: SegmentContext,
+    context: _EvaluationContextAnyMeta,
+    segment_context: SegmentContext[typing.Any, typing.Any],
 ) -> bool:
     return bool(rules := segment_context["rules"]) and all(
         context_matches_rule(
@@ -167,7 +230,7 @@ def is_context_in_segment(
 
 
 def context_matches_rule(
-    context: EvaluationContext,
+    context: _EvaluationContextAnyMeta,
     rule: SegmentRule,
     segment_key: SupportsStr,
 ) -> bool:
@@ -197,17 +260,25 @@ def context_matches_rule(
 
 
 def context_matches_condition(
-    context: EvaluationContext,
+    context: _EvaluationContextAnyMeta,
     condition: SegmentCondition,
     segment_key: SupportsStr,
 ) -> bool:
-    context_value = (
-        get_context_value(context, condition_property)
-        if (condition_property := condition.get("property"))
-        else None
-    )
+    context_value: ContextValue
+    condition_property = condition["property"]
+    condition_operator = condition["operator"]
 
-    if condition["operator"] == constants.IN:
+    if condition_operator == constants.PERCENTAGE_SPLIT and (not condition_property):
+        # Currently, the only supported condition with a blank property
+        # is percentage split.
+        # In this case, we use the identity key as context value.
+        # This is mainly to support legacy segments created before
+        # we introduced JSONPath support.
+        context_value = _get_identity_key(context)
+    else:
+        context_value = get_context_value(context, condition_property)
+
+    if condition_operator == constants.IN:
         if isinstance(segment_value := condition["value"], list):
             in_values = segment_value
         else:
@@ -230,13 +301,11 @@ def context_matches_condition(
 
     condition = typing.cast(StrValueSegmentCondition, condition)
 
-    if condition["operator"] == constants.PERCENTAGE_SPLIT:
-        if context_value is not None:
-            object_ids = [segment_key, context_value]
-        elif identity_context := context.get("identity"):
-            object_ids = [segment_key, identity_context["key"]]
-        else:
+    if condition_operator == constants.PERCENTAGE_SPLIT:
+        if context_value is None:
             return False
+
+        object_ids = [segment_key, context_value]
 
         try:
             float_value = float(condition["value"])
@@ -244,10 +313,10 @@ def context_matches_condition(
             return False
         return get_hashed_percentage_for_object_ids(object_ids) <= float_value
 
-    if condition["operator"] == constants.IS_NOT_SET:
+    if condition_operator == constants.IS_NOT_SET:
         return context_value is None
 
-    if condition["operator"] == constants.IS_SET:
+    if condition_operator == constants.IS_SET:
         return context_value is not None
 
     return (
@@ -258,15 +327,14 @@ def context_matches_condition(
 
 
 def get_context_value(
-    context: EvaluationContext,
+    context: _EvaluationContextAnyMeta,
     property: str,
 ) -> ContextValue:
     value = None
     if property.startswith("$."):
         value = _get_context_value_getter(property)(context)
-    elif identity_context := context.get("identity"):
-        if traits := identity_context.get("traits"):
-            value = traits.get(property)
+    else:
+        value = _get_trait_value(context, property)
     return map_any_value_to_context_value(value)
 
 
@@ -353,10 +421,28 @@ MATCHERS_BY_OPERATOR: dict[
 }
 
 
+def _get_identity_key(
+    context: _EvaluationContextAnyMeta,
+) -> typing.Optional[str]:
+    if identity_context := context.get("identity"):
+        return identity_context.get("key")
+    return None
+
+
+def _get_trait_value(
+    context: _EvaluationContextAnyMeta,
+    trait_key: str,
+) -> ContextValue:
+    if identity_context := context.get("identity"):
+        if traits := identity_context.get("traits"):
+            return traits.get(trait_key)
+    return None
+
+
 @lru_cache
 def _get_context_value_getter(
     property: str,
-) -> typing.Callable[[EvaluationContext], ContextValue]:
+) -> typing.Callable[[_EvaluationContextAnyMeta], ContextValue]:
     """
     Get a function to retrieve a context value based on property value,
     assumed to be either a JSONPath string or a trait key.
@@ -369,11 +455,12 @@ def _get_context_value_getter(
     except jsonpath_rfc9535.JSONPathSyntaxError:
         # This covers a rare case when a trait starting with "$.",
         # but not a valid JSONPath, is used.
-        compiled_query = jsonpath_rfc9535.compile(
-            f'$.identity.traits["{escape_double_quotes(property)}"]',
-        )
+        return partial(_get_trait_value, trait_key=property)
 
-    def getter(context: EvaluationContext) -> ContextValue:
+    def getter(context: _EvaluationContextAnyMeta) -> ContextValue:
+        value: object
+        if (value := _get_trait_value(context, property)) is not None:
+            return value
         if typing.TYPE_CHECKING:  # pragma: no cover
             # Ugly hack to satisfy mypy :(
             data = dict(context)

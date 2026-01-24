@@ -71,12 +71,10 @@ class DefaultEnvironment(APIObject):
     Default execution environment.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("environment_id"): t.String(),
-            t.Key("environment_version_id"): t.String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("environment_id"): t.String(),
+        t.Key("environment_version_id"): t.String(),
+    }).ignore_extra("*")
     schema = _converter
 
     def __init__(self, environment_id: str, environment_version_id: str):
@@ -94,17 +92,15 @@ class CustomMetricMetadata(APIObject):
     Metadata for custom metrics.
     """
 
-    _converter = t.Dict(
-        {
-            # NOTE: several values are really enums, but treated as strings for simplicity
-            t.Key("units"): t.String(),
-            t.Key("directionality"): t.String(),
-            t.Key("type"): t.String(),
-            t.Key("time_step"): t.String(),
-            t.Key("is_model_specific"): t.Bool(),
-            t.Key("template_metric_type", optional=True): t.Or(t.Null(), t.String()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        # NOTE: several values are really enums, but treated as strings for simplicity
+        t.Key("units"): t.String(),
+        t.Key("directionality"): t.String(),
+        t.Key("type"): t.String(),
+        t.Key("time_step"): t.String(),
+        t.Key("is_model_specific"): t.Bool(),
+        t.Key("template_metric_type", optional=True): t.Or(t.Null(), t.String()),
+    }).ignore_extra("*")
     schema = _converter
 
     def __init__(
@@ -129,18 +125,17 @@ class TemplateMetadata(APIObject):
     Metadata for the custom templates.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("readme", optional=True): t.Or(t.Null(), t.String()),
-            t.Key("source", optional=True): t.Or(t.Null(), t.Dict().allow_extra("*")),
-            t.Key("tags", optional=True): t.List(t.String()),
-            t.Key("custom_metric_metadata", optional=True): t.Or(
-                t.Null(), CustomMetricMetadata.schema
-            ),
-            t.Key("feature_flag", optional=True): t.Or(t.Null(), t.String()),
-            t.Key("preview_image", optional=True): t.Or(t.Null(), t.String()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("readme", optional=True): t.Or(t.Null(), t.String()),
+        t.Key("source", optional=True): t.Or(t.Null(), t.Dict().allow_extra("*")),
+        t.Key("tags", optional=True): t.List(t.String()),
+        t.Key("custom_metric_metadata", optional=True): t.Or(t.Null(), CustomMetricMetadata.schema),
+        t.Key("feature_flag", optional=True): t.Or(t.Null(), t.String()),
+        t.Key("preview_image", optional=True): t.Or(t.Null(), t.String()),
+        t.Key("class_labels", optional=True): t.List(t.String()),
+        t.Key("resource_bundle_ids", optional=True): t.List(t.String()),
+        t.Key("template_type_specific_resources", optional=True): t.Dict().allow_extra("*"),
+    }).allow_extra("*")
     schema = _converter
 
     def __init__(
@@ -151,13 +146,21 @@ class TemplateMetadata(APIObject):
         feature_flag: Optional[str] = None,
         preview_image: Optional[str] = None,
         custom_metric_metadata: Optional[CustomMetricMetadata] = None,
-    ):
+        class_labels: Optional[List[str]] = None,
+        resource_bundle_ids: Optional[List[str]] = None,
+        template_type_specific_resources: Optional[Dict[str, Any]] = None,
+        **kwargs: Dict[str, Any],
+    ) -> None:
+        super().__init__(**kwargs)
         self.readme = readme
         self.source = source
         self.tags = tags
         self.feature_flag = feature_flag
         self.preview_image = preview_image
         self.custom_metric_metadata = custom_metric_metadata
+        self.class_labels = class_labels
+        self.resource_bundle_ids = resource_bundle_ids
+        self.template_type_specific_resources = template_type_specific_resources
 
 
 class CustomTemplate(APIObject):
@@ -167,23 +170,19 @@ class CustomTemplate(APIObject):
 
     _path = "customTemplates/"
 
-    _converter = t.Dict(
-        {
-            t.Key("default_environment"): DefaultEnvironment.schema,
-            t.Key("default_resource_bundle_id", optional=True, default=None): t.Or(
-                t.Null(), t.String()
-            ),
-            t.Key("description"): t.String(),
-            t.Key("enabled"): t.Bool(),
-            t.Key("id"): t.String(),
-            t.Key("items"): t.List(t.Dict().allow_extra("*")),
-            t.Key("name"): t.String(),
-            t.Key("template_metadata"): TemplateMetadata.schema,
-            t.Key("template_sub_type"): t.String(),
-            t.Key("template_type"): t.String(),
-            t.Key("is_hidden", optional=True, default=None): t.Or(t.Bool(), t.Null()),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("default_environment"): DefaultEnvironment.schema,
+        t.Key("default_resource_bundle_id", optional=True, default=None): t.Or(t.Null(), t.String()),
+        t.Key("description"): t.String(),
+        t.Key("enabled"): t.Bool(),
+        t.Key("id"): t.String(),
+        t.Key("items"): t.List(t.Dict().allow_extra("*")),
+        t.Key("name"): t.String(),
+        t.Key("template_metadata"): TemplateMetadata.schema,
+        t.Key("template_sub_type"): t.String(),
+        t.Key("template_type"): t.String(),
+        t.Key("is_hidden", optional=True, default=None): t.Or(t.Bool(), t.Null()),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -536,9 +535,7 @@ class CustomTemplate(APIObject):
         url = f"{self._path}{self.id}/"
         self._client.delete(url)
 
-    def download_content(
-        self, index: Optional[int] = None, filename: Optional[str] = None
-    ) -> Optional[bytes]:
+    def download_content(self, index: Optional[int] = None, filename: Optional[str] = None) -> Optional[bytes]:
         """
         Retrieve the file content for the given item.
 
@@ -560,9 +557,7 @@ class CustomTemplate(APIObject):
         item = None
         if index is not None:
             if index > len(self.items):
-                raise ValueError(
-                    f"Index out of range -- only {len(self.items)} items are available"
-                )
+                raise ValueError(f"Index out of range -- only {len(self.items)} items are available")
             item = self.items[index]
         elif filename is not None:
             item = next((i for i in self.items if i.get("name") == filename), None)
@@ -577,3 +572,22 @@ class CustomTemplate(APIObject):
         url = f"{self._path}{self.id}/files/{item.get('id')}/"
         resp = self._client.get(url)
         return str(resp.json().get("content")).encode("utf-8") if resp.ok else None
+
+    def upload_preview(self, filename: str) -> None:
+        """
+        Upload the custom template preview image file.
+
+        .. versionadded:: v3.10
+
+        Parameters
+        ----------
+        filename: str
+            The preview image filename.
+        """
+        url = f"{self._path}/{self.id}/preview/"
+        self._client.build_request_with_file(
+            method="POST",
+            url=url,
+            fname=filename,
+            content=file_content(filename),
+        )

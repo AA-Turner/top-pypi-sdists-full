@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib import admin
 from django_better_admin_arrayfield.models.fields import ArrayField
+
 from wbcore.contrib.color.forms import DynamicArrayColorWidget
 from wbcore.contrib.color.models import ColorGradient
 

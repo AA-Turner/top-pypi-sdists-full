@@ -1,7 +1,7 @@
 """
 Publish Markdown files to Confluence wiki.
 
-Copyright 2022-2025, Levente Hunyadi
+Copyright 2022-2026, Levente Hunyadi
 
 :see: https://github.com/hunyadi/md2conf
 """
@@ -63,6 +63,7 @@ class TestMatcher(TypedTestCase):
     def test_rules(self) -> None:
         directory = Path(os.path.dirname(__file__)) / "source"
         expected = sorted(Entry(entry.name, entry.is_dir()) for entry in os.scandir(directory) if entry.is_dir() or entry.name.endswith(".md"))
+        expected.remove(Entry("docs", True))
         expected.remove(Entry("ignore.md", False))
         expected.remove(Entry("anchors.md", False))
         expected.remove(Entry("missing.md", False))

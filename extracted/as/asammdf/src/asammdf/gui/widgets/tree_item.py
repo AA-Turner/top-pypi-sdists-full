@@ -19,6 +19,12 @@ class MinimalTreeItem(QtWidgets.QTreeWidgetItem):
         self.name = name
         self.origin_uuid = origin_uuid
 
+    def setText(self, column, text):
+        if column == 0:
+            self.name = text
+
+        super().setText(column, text)
+
 
 class TreeItem(QtWidgets.QTreeWidgetItem):
     def __init__(

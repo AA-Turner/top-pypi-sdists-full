@@ -66,7 +66,8 @@ if(MSVC)
         " /EHsc /bigobj"
         " /Zc:preprocessor"
         " /experimental:external /external:anglebrackets /external:W0"
-        " /Wall /Wv:19.40"  # Visual Studio 2022 version 17.10
+        # https://learn.microsoft.com/en-us/cpp/error-messages/compiler-warnings/compiler-warnings-by-compiler-version
+        " /Wall /Wv:19.45"  # Visual Studio 2022 version 17.15
         # Suppress following warnings
         " /wd4127"  # conditional expression is constant
         " /wd4365"  # conversion from 'type_1' to 'type_2', signed/unsigned mismatch
@@ -188,6 +189,10 @@ system(
 message(STATUS "Use Python version: ${Python_VERSION}")
 message(STATUS "Use Python executable: \"${Python_EXECUTABLE}\"")
 
+if (DEFINED Python_ROOT_DIR)
+    message(STATUS "Use Python_ROOT_DIR: \"${Python_ROOT_DIR}\"")
+endif()
+
 if(NOT DEFINED Python_INCLUDE_DIR)
     message(STATUS "Auto detecting Python include directory...")
     system(
@@ -200,6 +205,23 @@ if("${Python_INCLUDE_DIR}" STREQUAL "")
     message(FATAL_ERROR "Python include directory not found")
 else()
     message(STATUS "Detected Python include directory: \"${Python_INCLUDE_DIR}\"")
+    if (NOT EXISTS "${Python_INCLUDE_DIR}/Python.h")
+        message(WARNING "Python.h not found in \"${Python_INCLUDE_DIR}\"")
+        if (DEFINED Python_EXTRA_INCLUDE_DIRS)
+            message(STATUS "Looking for Python.h in Python_EXTRA_INCLUDE_DIRS: "
+                           "\"${Python_EXTRA_INCLUDE_DIRS}\"")
+            foreach(Python_EXTRA_INCLUDE_DIR IN LISTS Python_EXTRA_INCLUDE_DIRS)
+                if (EXISTS "${Python_EXTRA_INCLUDE_DIR}/Python.h")
+                    set(Python_INCLUDE_DIR "${Python_EXTRA_INCLUDE_DIR}")
+                    message(STATUS "Detected Python.h in \"${Python_INCLUDE_DIR}\"")
+                    break()
+                endif()
+            endforeach()
+            if (NOT EXISTS "${Python_INCLUDE_DIR}/Python.h")
+                message(WARNING "Python.h not found in Python_EXTRA_INCLUDE_DIRS")
+            endif()
+        endif()
+    endif()
     include_directories("${Python_INCLUDE_DIR}")
 endif()
 
@@ -272,6 +294,12 @@ endif()
 
 foreach(
     varname IN ITEMS
+    CMAKE_SYSTEM_NAME
+    CMAKE_GENERATOR_PLATFORM
+    CMAKE_OSX_SYSROOT
+    CMAKE_OSX_DEPLOYMENT_TARGET
+    CMAKE_OSX_ARCHITECTURES
+    Python_ROOT_DIR
     Python_INCLUDE_DIR
     Python_INCLUDE_DIRS
     Python_LIBRARY
@@ -281,7 +309,9 @@ foreach(
     PYTHON_IS_DEBUG
     SETUPTOOLS_EXT_SUFFIX
 )
-    message(STATUS "Use ${varname}: \"${${varname}}\"")
+    if(NOT "${${varname}}" STREQUAL "")
+        message(STATUS "Use ${varname}: \"${${varname}}\"")
+    endif()
 endforeach()
 
 include_directories("${CMAKE_SOURCE_DIR}/include")

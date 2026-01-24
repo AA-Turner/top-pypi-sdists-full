@@ -1,6 +1,6 @@
 [build-system]
-build-backend = "setuptools.build_meta"
-requires = ["setuptools"]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core>=3.2"]
 
 [project]
 name = "matplotlib-inline"
@@ -11,22 +11,26 @@ authors = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Framework :: IPython",
-    "Framework :: Jupyter",
-    "Framework :: Jupyter :: JupyterLab",
     "Framework :: Jupyter :: JupyterLab :: 3",
     "Framework :: Jupyter :: JupyterLab :: 4",
+    "Framework :: Jupyter :: JupyterLab",
+    "Framework :: Jupyter",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python",
     "Topic :: Multimedia :: Graphics",
 ]
+
+# do not rely on matplotlib/IPython, as we want matplotlib-inline to be _installable_ without pulling the other
+# dependencies
+
 dependencies = ["traitlets"]
 dynamic = ["version"]
 keywords = [
@@ -37,13 +41,51 @@ keywords = [
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 
 [project.entry-points."matplotlib.backend"]
 inline = "matplotlib_inline.backend_inline"
+
+[project.optional-dependencies]
+test = [
+    "flake8",
+    "nbdime",
+    "nbval",
+    "notebook",
+    "pytest",
+]
 
 [project.urls]
 Homepage = "https://github.com/ipython/matplotlib-inline"
 
 [tool.setuptools.dynamic]
 version = {attr = "matplotlib_inline.__version__"}
+
+[tool.pytest.ini_options]
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+    "--nbval",
+    "--ignore=tests/notebooks/.ipynb_checkpoints/*",
+    "--strict-config",
+    "-ra",
+    "--strict-markers",
+]
+filterwarnings = ["error"]
+testpaths = [
+    "tests",
+]
+
+[tool.mypy]
+strict=false
+warn_unreachable=true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[tool.ruff]
+
+[tool.ruff.lint]
+extend-select = [
+  "UP",  # pyupgrade
+  "I",  # isort
+  "B",  # flake8-bugbear
+]

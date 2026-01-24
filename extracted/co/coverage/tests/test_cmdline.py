@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Test cmdline.py for coverage.py."""
 
@@ -12,9 +12,10 @@ import re
 import sys
 import textwrap
 
-from unittest import mock
-from typing import Any
 from collections.abc import Mapping
+from pathlib import Path
+from typing import Any
+from unittest import mock
 
 import pytest
 
@@ -29,7 +30,7 @@ from coverage.version import __url__
 
 from tests import testenv
 from tests.coveragetest import CoverageTest, OK, ERR, command_line
-from tests.helpers import os_sep, re_line
+from tests.helpers import os_sep, re_line, re_lines
 
 
 class BaseCmdLineTest(CoverageTest):
@@ -368,7 +369,7 @@ class CmdLineTest(BaseCmdLineTest):
         )
 
     def test_combine_doesnt_confuse_options_with_args(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/385
+        # https://github.com/coveragepy/coveragepy/issues/385
         self.cmd_executes(
             "combine --rcfile cov.ini",
             """\
@@ -389,9 +390,12 @@ class CmdLineTest(BaseCmdLineTest):
     @pytest.mark.parametrize(
         "cmd, output",
         [
-            ("debug", "What information would you like: config, data, sys, premain, pybehave?"),
+            (
+                "debug",
+                "What information would you like: config, data, sys, premain, pybehave, sqlite?",
+            ),
             ("debug foo", "Don't know what you mean by 'foo'"),
-            ("debug sys config", "Only one topic at a time, please"),
+            ("debug sys config", "'debug sys' takes no additional arguments"),
         ],
     )
     def test_debug(self, cmd: str, output: str) -> None:
@@ -415,7 +419,7 @@ class CmdLineTest(BaseCmdLineTest):
         out = self.stdout()
         assert " CPYTHON:" in out
         assert " PYVERSION:" in out
-        assert " pep626:" in out
+        assert " deferred_annotations:" in out
 
         # Some things that shouldn't appear..
         assert "typing." not in out  # import from typing
@@ -448,6 +452,15 @@ class CmdLineTest(BaseCmdLineTest):
         assert re.search(rf"(?m)^\s+command_line : .*{s}coverage{s}cmdline.py:\d+$", out)
         assert re.search(rf"(?m)^\s+do_debug : .*{s}coverage{s}cmdline.py:\d+$", out)
         assert "do_debug : " in lines[-1]
+
+    def test_debug_sqlite(self) -> None:
+        self.command_line("debug sqlite")
+        out = self.stdout()
+        assert "sqlite3_sqlite_version:" in out
+        assert "sqlite3_compile_options:" in out
+        assert len(out.splitlines()) > 15
+        # Lots of lines of indented SQLite compile-time options.
+        assert len(re_lines(r"^ {20,35}[A-Z]{3}", out)) > 12
 
     def test_erase(self) -> None:
         # coverage erase
@@ -1294,13 +1307,21 @@ class CmdLineTest(BaseCmdLineTest):
         )
 
 
-class CmdLineWithFilesTest(BaseCmdLineTest):
-    """Test the command line in ways that need temp files."""
+class CmdLineDebugDataTest(BaseCmdLineTest):
+    """Test the `debug data` command line."""
 
     run_in_temp_dir = True
 
-    def test_debug_data(self) -> None:
+    @pytest.mark.parametrize(
+        "filename, ddarg",
+        [
+            (None, ""),
+            ("mydata.dat", "mydata.dat"),
+        ],
+    )
+    def test_debug_data(self, filename: str | None, ddarg: str) -> None:
         data = self.make_data_file(
+            basename=filename,
             lines={
                 "file1.py": range(1, 18),
                 "file2.py": range(1, 24),
@@ -1308,7 +1329,7 @@ class CmdLineWithFilesTest(BaseCmdLineTest):
             file_tracers={"file1.py": "a_plugin"},
         )
 
-        self.command_line("debug data")
+        self.command_line(f"debug data {ddarg}")
         assert self.stdout() == textwrap.dedent(f"""\
             -- data ------------------------------------------------------
             path: {data.data_filename()}
@@ -1318,12 +1339,18 @@ class CmdLineWithFilesTest(BaseCmdLineTest):
             file2.py: 23 lines
             """)
 
-    def test_debug_data_with_no_data_file(self) -> None:
-        data = self.make_data_file()
-        self.command_line("debug data")
+    @pytest.mark.parametrize(
+        "filename, ddarg",
+        [
+            (".coverage", ""),
+            ("mydata.dat", "mydata.dat"),
+        ],
+    )
+    def test_debug_data_with_no_data_file(self, filename: str, ddarg: str) -> None:
+        self.command_line(f"debug data {ddarg}")
         assert self.stdout() == textwrap.dedent(f"""\
             -- data ------------------------------------------------------
-            path: {data.data_filename()}
+            path: {Path(".").resolve() / filename}
             No data collected: file doesn't exist
             """)
 
@@ -1346,6 +1373,42 @@ class CmdLineWithFilesTest(BaseCmdLineTest):
             file2.py: 9 lines
             """)
 
+    def test_debug_multiple_files(self) -> None:
+        data1 = self.make_data_file(
+            basename="data1.dat",
+            lines={"file11.py": range(1, 38), "file12.py": [1, 2]},
+        )
+        data2 = self.make_data_file(
+            basename="data2.dat",
+            lines={"file1.py": range(1, 18), "file2.py": [1]},
+        )
+        data3 = self.make_data_file(
+            basename="data2.dat",
+            suffix="123",
+            lines={"file2.py": range(1, 10)},
+        )
+
+        self.command_line("debug data data1.dat data2.dat")
+        assert self.stdout() == textwrap.dedent(f"""\
+            -- data ------------------------------------------------------
+            path: {data1.data_filename()}
+            has_arcs: False
+            2 files:
+            file11.py: 37 lines
+            file12.py: 2 lines
+            -- data ------------------------------------------------------
+            path: {data2.data_filename()}
+            has_arcs: False
+            2 files:
+            file1.py: 17 lines
+            file2.py: 1 line
+            -----
+            path: {data3.data_filename()}
+            has_arcs: False
+            1 file:
+            file2.py: 9 lines
+            """)
+
 
 class CmdLineStdoutTest(BaseCmdLineTest):
     """Test the command line with real stdout output."""
@@ -1360,7 +1423,7 @@ class CmdLineStdoutTest(BaseCmdLineTest):
         self.command_line("--version")
         out = self.stdout()
         assert "ersion " in out
-        if testenv.C_TRACER or testenv.SYS_MON:
+        if testenv.C_TRACER:
             assert "with C extension" in out
         else:
             assert "without C extension" in out

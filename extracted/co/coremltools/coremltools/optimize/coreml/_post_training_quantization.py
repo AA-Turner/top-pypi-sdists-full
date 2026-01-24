@@ -578,9 +578,9 @@ def linear_quantize_activations(
 
         # (Optional) It's recommended to use with linear_quantize_weights.
         weight_config = cto.coreml.OptimizationConfig(
-            global_config=cto.OpLinearQuantizerConfig(mode="linear_symmetric")
+            global_config=cto.coreml.OpLinearQuantizerConfig(mode="linear_symmetric")
         )
-        compressed_model_w8a8 = cto.linear_quantize_weights(compressed_model_a8, weight_config)
+        compressed_model_w8a8 = cto.coreml.linear_quantize_weights(compressed_model_a8, weight_config)
     """
     # Validate Sample data. If the sample data name is not provided, try to infer it.
     for sample in sample_data:
@@ -601,7 +601,11 @@ def linear_quantize_activations(
         "compression::insert_prefix_quantize_dequantize_pair"
     ]
     insert_prefix_quantize_dequantize_pair.set_options([PassOption("config", config)])
-    activation_stats = _get_activation_calibration_stats(mlmodel, sample_data)
+    activation_stats = _get_activation_calibration_stats(
+        mlmodel, 
+        sample_data,
+        calibration_op_group_size,
+    )
     insert_prefix_quantize_dequantize_pair.set_options(
         [PassOption("activation_stats", activation_stats)]
     )

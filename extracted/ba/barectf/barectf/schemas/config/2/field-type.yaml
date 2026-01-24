@@ -1,0 +1,318 @@
+# The MIT License (MIT)
+#
+# Copyright (c) 2020 Philippe Proulx <pproulx@efficios.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the
+# "Software"), to deal in the Software without restriction, including
+# without limitation the rights to use, copy, modify, merge, publish,
+# distribute, sublicense, and/or sell copies of the Software, and to
+# permit persons to whom the Software is furnished to do so, subject to
+# the following conditions:
+#
+# The above copyright notice and this permission notice shall be
+# included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+# IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+# CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+# TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+$schema: http://json-schema.org/draft-07/schema#
+$id: https://barectf.org/schemas/config/2/field-type.json
+title: Effective field type object
+definitions:
+  opt-encoding-prop:
+    title: Encoding property value
+    if:
+      type: string
+    then:
+      enum:
+        - utf8
+        - UTF8
+        - utf-8
+        - UTF-8
+        - Utf-8
+        - ascii
+        - Ascii
+        - ASCII
+        - none
+        - None
+        - NONE
+    else:
+      type: 'null'
+  int-ft-class-prop:
+    type: string
+    enum:
+      - int
+      - integer
+  int-ft:
+    title: Integer field type object
+    type: object
+    properties:
+      class:
+        $ref: '#/definitions/int-ft-class-prop'
+      size:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/int-ft-size-prop
+      signed:
+        oneOf:
+          - type: boolean
+          - type: 'null'
+      align:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/opt-int-min-1
+      byte-order:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/opt-byte-order-prop
+      base:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/opt-int-ft-preferred-display-base-prop
+      encoding:
+        $ref: '#/definitions/opt-encoding-prop'
+      property-mappings:
+        if:
+          type: array
+        then:
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                const: clock
+              name:
+                type: string
+                pattern: '^[A-Za-z_][A-Za-z0-9_]*$'
+              property:
+                type: string
+                const: value
+            required:
+              - type
+              - name
+              - property
+            additionalProperties: false
+          minItems: 1
+          maxItems: 1
+        else:
+          type: 'null'
+    required:
+      - class
+      - size
+    additionalProperties: false
+  real-ft-class-prop:
+    type: string
+    enum:
+      - flt
+      - float
+      - floating-point
+  real-ft:
+    title: Real field type object
+    type: object
+    properties:
+      class:
+        $ref: '#/definitions/real-ft-class-prop'
+      size:
+        type: object
+        properties:
+          exp:
+            type: integer
+          mant:
+            type: integer
+        oneOf:
+          - properties:
+              exp:
+                const: 8
+              mant:
+                const: 24
+          - properties:
+              exp:
+                const: 11
+              mant:
+                const: 53
+        required:
+          - exp
+          - mant
+        additionalProperties: false
+      align:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/opt-int-min-1
+      byte-order:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/opt-byte-order-prop
+    required:
+      - class
+      - size
+    additionalProperties: false
+  enum-ft-class-prop:
+    type: string
+    enum:
+      - enum
+      - enumeration
+  enum-ft:
+    title: Enumeration field type object
+    type: object
+    properties:
+      class:
+        $ref: '#/definitions/enum-ft-class-prop'
+      value-type:
+        $ref: '#/definitions/int-ft'
+      members:
+        type: array
+        minItems: 1
+        items:
+          if:
+            type: object
+          then:
+            properties:
+              label:
+                type: string
+              value:
+                if:
+                  type: array
+                then:
+                  items:
+                    type: integer
+                  minItems: 2
+                  maxItems: 2
+                else:
+                  type: integer
+            additionalProperties: false
+            required:
+              - label
+              - value
+          else:
+            type: string
+    required:
+      - class
+      - value-type
+    additionalProperties: false
+  string-ft-class-prop:
+    type: string
+    enum:
+      - str
+      - string
+  string-ft:
+    title: String field type object
+    type: object
+    properties:
+      class:
+        $ref: '#/definitions/string-ft-class-prop'
+      encoding:
+        $ref: '#/definitions/opt-encoding-prop'
+    required:
+      - class
+    additionalProperties: false
+  array-ft-class-prop:
+    type: string
+    const: array
+  array-ft:
+    title: Static array field type object
+    type: object
+    properties:
+      class:
+        $ref: '#/definitions/array-ft-class-prop'
+      element-type:
+        $ref: '#/definitions/ft'
+      length:
+        if:
+          type: integer
+        then:
+          minimum: 0
+        else:
+          type: string
+          const: dynamic
+    required:
+      - class
+      - element-type
+      - length
+    additionalProperties: false
+  struct-ft-class-prop:
+    type: string
+    enum:
+      - struct
+      - structure
+  struct-ft:
+    title: Structure field type object
+    type: object
+    properties:
+      class:
+        $ref: '#/definitions/struct-ft-class-prop'
+      min-align:
+        $ref: https://barectf.org/schemas/config/common/common.json#/definitions/opt-int-min-1
+      fields:
+        if:
+          type: object
+        then:
+          patternProperties:
+            '^[A-Za-z_][A-Za-z0-9_]*$':
+              $ref: '#/definitions/ft'
+          additionalProperties: false
+        else:
+          type: 'null'
+    required:
+      - class
+    additionalProperties: false
+  ft:
+    type: object
+    properties:
+      class:
+        # This is used to make sure that the field type's class name is
+        # valid as any of the conditionals below can fail.
+        #
+        # Although we could use `oneOf` instead of this enumeration here
+        # and refer to each of the `*-ft-class-prop` definitions, it
+        # would be hard for the validator to show something useful for
+        # the user as all cases would fail.
+        #
+        # Using `enum` below makes the validator show a very clear
+        # validation failure message.
+        enum:
+          - int
+          - integer
+          - flt
+          - float
+          - floating-point
+          - enum
+          - enumeration
+          - str
+          - string
+          - array
+          - struct
+          - structure
+    allOf:
+      - if:
+          properties:
+            class:
+              $ref: '#/definitions/int-ft-class-prop'
+        then:
+          $ref: '#/definitions/int-ft'
+      - if:
+          properties:
+            class:
+              $ref: '#/definitions/real-ft-class-prop'
+        then:
+          $ref: '#/definitions/real-ft'
+      - if:
+          properties:
+            class:
+              $ref: '#/definitions/enum-ft-class-prop'
+        then:
+          $ref: '#/definitions/enum-ft'
+      - if:
+          properties:
+            class:
+              $ref: '#/definitions/string-ft-class-prop'
+        then:
+          $ref: '#/definitions/string-ft'
+      - if:
+          properties:
+            class:
+              $ref: '#/definitions/array-ft-class-prop'
+        then:
+          $ref: '#/definitions/array-ft'
+      - if:
+          properties:
+            class:
+              $ref: '#/definitions/struct-ft-class-prop'
+        then:
+          $ref: '#/definitions/struct-ft'
+    required:
+      - class
+$ref: '#/definitions/ft'

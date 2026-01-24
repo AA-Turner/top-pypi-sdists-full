@@ -10,12 +10,13 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "river"
-version = "0.22.0"
+version = "0.23.0"
 description = "Online machine learning in Python"
 readme = "README.md"
 homepage = "https://riverml.xyz/"
 repository = "https://github.com/online-ml/river/"
 authors = ["Max Halford <maxhalford25@gmail.com>"]
+license = "BSD-3-Clause"
 
 include = [
     "**/*.cpp",
@@ -84,6 +85,8 @@ optional = true
 "spacy" = "*"
 "tabulate" = "*"
 "watermark" = "*"
+"notebook" = "<7"
+"jupyter-contrib-nbextensions" = "^0.7.0"
 
 [tool.poetry.group.benchmark]
 optional = true
@@ -174,7 +177,6 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 # Disable strict mode for all non fully-typed modules
 module = [
-    "river.base.*",
     "river.metrics.*",
     "river.utils.*",
     "river.stats.*",
@@ -209,9 +211,7 @@ module = [
     "river.reco.*",
     "river.imblearn.*",
     "river.feature_selection.*",
-    "river.misc.*",
     "river.active.*",
-    "river.conf.*",
     "river.neural_net.*",
     "river.test_estimators",
     "river.dummy",

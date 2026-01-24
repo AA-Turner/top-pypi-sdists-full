@@ -23,7 +23,7 @@ except ImportError:
 from smithy_core.aio.interfaces import StreamingBlob
 from smithy_core.aio.types import AsyncBytesReader
 from smithy_core.aio.utils import async_list
-from smithy_core.exceptions import MissingDependencyException
+from smithy_core.exceptions import MissingDependencyError
 from smithy_core.interfaces import URI
 
 from .. import Field, Fields
@@ -39,7 +39,7 @@ from .interfaces import HTTPResponse as HTTPResponseInterface
 
 def _assert_aiohttp() -> None:
     if not HAS_AIOHTTP:
-        raise MissingDependencyException(
+        raise MissingDependencyError(
             "Attempted to use aiohttp component, but aiohttp is not installed."
         )
 
@@ -51,6 +51,8 @@ class AIOHTTPClientConfig(HTTPClientConfiguration):
 
 class AIOHTTPClient(HTTPClient):
     """Implementation of :py:class:`.interfaces.HTTPClient` using aiohttp."""
+
+    TIMEOUT_EXCEPTIONS = (TimeoutError,)
 
     def __init__(
         self,

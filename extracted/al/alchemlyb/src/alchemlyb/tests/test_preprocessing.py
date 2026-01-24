@@ -1,6 +1,4 @@
-"""Tests for preprocessing functions.
-
-"""
+"""Tests for preprocessing functions."""
 
 import logging
 
@@ -96,7 +94,7 @@ class TestSlicing:
 
         # Slice data, and test that we didn't change the input data
         original_length = len(data)
-        sliced = self.slicer(data, lower=lower, upper=upper, step=5)
+        self.slicer(data, lower=lower, upper=upper, step=5)
         assert len(data) == original_length
 
     @pytest.mark.parametrize(

@@ -73,7 +73,8 @@ class UnaryOpNode : public ArrayOutputMixin<ArrayNode> {
     // predecessors(), but this is more performant
     Array* const array_ptr_;
 
-    const std::pair<double, double> minmax_;
+    const ValuesInfo values_info_;
+    const SizeInfo sizeinfo_;
 };
 
 using AbsoluteNode = UnaryOpNode<functional::abs<double>>;
@@ -88,5 +89,6 @@ using RintNode = UnaryOpNode<functional::rint<double>>;
 using SinNode = UnaryOpNode<functional::sin<double>>;
 using SquareNode = UnaryOpNode<functional::square<double>>;
 using SquareRootNode = UnaryOpNode<functional::square_root<double>>;
+using TanhNode = UnaryOpNode<functional::tanh<double>>;
 
 }  // namespace dwave::optimization

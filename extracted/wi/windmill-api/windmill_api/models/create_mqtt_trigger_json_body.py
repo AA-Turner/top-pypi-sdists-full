@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.create_mqtt_trigger_json_body_client_version import CreateMqttTriggerJsonBodyClientVersion
+from ..models.create_mqtt_trigger_json_body_mode import CreateMqttTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -32,11 +33,11 @@ class CreateMqttTriggerJsonBody:
         v3_config (Union[Unset, CreateMqttTriggerJsonBodyV3Config]):
         v5_config (Union[Unset, CreateMqttTriggerJsonBodyV5Config]):
         client_version (Union[Unset, CreateMqttTriggerJsonBodyClientVersion]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, CreateMqttTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreateMqttTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, CreateMqttTriggerJsonBodyRetry]):
+        retry (Union[Unset, CreateMqttTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     mqtt_resource_path: str
@@ -48,7 +49,7 @@ class CreateMqttTriggerJsonBody:
     v3_config: Union[Unset, "CreateMqttTriggerJsonBodyV3Config"] = UNSET
     v5_config: Union[Unset, "CreateMqttTriggerJsonBodyV5Config"] = UNSET
     client_version: Union[Unset, CreateMqttTriggerJsonBodyClientVersion] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, CreateMqttTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateMqttTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "CreateMqttTriggerJsonBodyRetry"] = UNSET
@@ -78,7 +79,10 @@ class CreateMqttTriggerJsonBody:
         if not isinstance(self.client_version, Unset):
             client_version = self.client_version.value
 
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -107,8 +111,8 @@ class CreateMqttTriggerJsonBody:
             field_dict["v5_config"] = v5_config
         if client_version is not UNSET:
             field_dict["client_version"] = client_version
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -167,7 +171,12 @@ class CreateMqttTriggerJsonBody:
         else:
             client_version = CreateMqttTriggerJsonBodyClientVersion(_client_version)
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreateMqttTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreateMqttTriggerJsonBodyMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -195,7 +204,7 @@ class CreateMqttTriggerJsonBody:
             v3_config=v3_config,
             v5_config=v5_config,
             client_version=client_version,
-            enabled=enabled,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, conlist, constr, validator 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from lusid.models.alias import Alias
 from lusid.models.custom_data_model_identifier_type_specification import CustomDataModelIdentifierTypeSpecification
 from lusid.models.custom_data_model_property_specification import CustomDataModelPropertySpecification
@@ -30,16 +32,17 @@ class CreateCustomDataModelRequest(BaseModel):
     """
     CreateCustomDataModelRequest
     """
-    id: ResourceId = Field(...)
+    id: ResourceId
     display_name:  StrictStr = Field(...,alias="displayName", description="The name of the Custom Data Model.") 
-    description:  StrictStr = Field(...,alias="description", description="A description for the Custom Data Model.") 
-    parent_data_model: Optional[ResourceId] = Field(None, alias="parentDataModel")
+    description:  Optional[StrictStr] = Field(None,alias="description", description="A description for the Custom Data Model.") 
+    parent_data_model: Optional[ResourceId] = Field(default=None, alias="parentDataModel")
     conditions:  Optional[StrictStr] = Field(None,alias="conditions", description="The conditions that the bound entity must meet to be valid.") 
-    properties: Optional[conlist(CustomDataModelPropertySpecification)] = Field(None, description="The properties that are required or allowed on the bound entity.")
-    identifier_types: Optional[conlist(CustomDataModelIdentifierTypeSpecification)] = Field(None, alias="identifierTypes", description="The identifier types that are required or allowed on the bound entity.")
-    attribute_aliases: Optional[conlist(Alias)] = Field(None, alias="attributeAliases", description="The aliases for property keys, identifier types, and fields on the bound entity.")
-    recommended_sort_by: Optional[conlist(RecommendedSortBy)] = Field(None, alias="recommendedSortBy", description="The preferred default sorting instructions.")
-    __properties = ["id", "displayName", "description", "parentDataModel", "conditions", "properties", "identifierTypes", "attributeAliases", "recommendedSortBy"]
+    properties: Optional[List[CustomDataModelPropertySpecification]] = Field(default=None, description="The properties that are required or allowed on the bound entity.")
+    identifier_types: Optional[List[CustomDataModelIdentifierTypeSpecification]] = Field(default=None, description="The identifier types that are required or allowed on the bound entity.", alias="identifierTypes")
+    attribute_aliases: Optional[List[Alias]] = Field(default=None, description="The aliases for property keys, identifier types, and fields on the bound entity.", alias="attributeAliases")
+    recommended_sort_by: Optional[List[RecommendedSortBy]] = Field(default=None, description="The preferred default sorting instructions.", alias="recommendedSortBy")
+    supplemental_property_keys: Optional[List[StrictStr]] = Field(default=None, description="Additional property keys that should be decorated on the bound entity.", alias="supplementalPropertyKeys")
+    __properties = ["id", "displayName", "description", "parentDataModel", "conditions", "properties", "identifierTypes", "attributeAliases", "recommendedSortBy", "supplementalPropertyKeys"]
 
     class Config:
         """Pydantic configuration"""
@@ -107,6 +110,11 @@ class CreateCustomDataModelRequest(BaseModel):
                 if _item:
                     _items.append(_item.to_dict())
             _dict['recommendedSortBy'] = _items
+        # set to None if description (nullable) is None
+        # and __fields_set__ contains the field
+        if self.description is None and "description" in self.__fields_set__:
+            _dict['description'] = None
+
         # set to None if conditions (nullable) is None
         # and __fields_set__ contains the field
         if self.conditions is None and "conditions" in self.__fields_set__:
@@ -132,6 +140,11 @@ class CreateCustomDataModelRequest(BaseModel):
         if self.recommended_sort_by is None and "recommended_sort_by" in self.__fields_set__:
             _dict['recommendedSortBy'] = None
 
+        # set to None if supplemental_property_keys (nullable) is None
+        # and __fields_set__ contains the field
+        if self.supplemental_property_keys is None and "supplemental_property_keys" in self.__fields_set__:
+            _dict['supplementalPropertyKeys'] = None
+
         return _dict
 
     @classmethod
@@ -152,6 +165,9 @@ class CreateCustomDataModelRequest(BaseModel):
             "properties": [CustomDataModelPropertySpecification.from_dict(_item) for _item in obj.get("properties")] if obj.get("properties") is not None else None,
             "identifier_types": [CustomDataModelIdentifierTypeSpecification.from_dict(_item) for _item in obj.get("identifierTypes")] if obj.get("identifierTypes") is not None else None,
             "attribute_aliases": [Alias.from_dict(_item) for _item in obj.get("attributeAliases")] if obj.get("attributeAliases") is not None else None,
-            "recommended_sort_by": [RecommendedSortBy.from_dict(_item) for _item in obj.get("recommendedSortBy")] if obj.get("recommendedSortBy") is not None else None
+            "recommended_sort_by": [RecommendedSortBy.from_dict(_item) for _item in obj.get("recommendedSortBy")] if obj.get("recommendedSortBy") is not None else None,
+            "supplemental_property_keys": obj.get("supplementalPropertyKeys")
         })
         return _obj
+
+CreateCustomDataModelRequest.update_forward_refs()

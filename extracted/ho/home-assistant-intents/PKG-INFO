@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: home-assistant-intents
-Version: 2025.9.3
+Version: 2026.1.6
 Summary: Intents for Home Assistant
 Author-email: The Home Assistant Authors <hello@home-assistant.io>
 License-Expression: Apache-2.0
@@ -18,6 +18,16 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
+Provides-Extra: dev
+Requires-Dist: build==1.3.0; extra == "dev"
+Requires-Dist: black==25.1.0; extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
+Requires-Dist: isort==6.0.1; extra == "dev"
+Requires-Dist: mypy==1.17.1; extra == "dev"
+Requires-Dist: pylint==3.3.8; extra == "dev"
+Requires-Dist: pytest==8.4.1; extra == "dev"
+Requires-Dist: PyYAML==6.0.2; extra == "dev"
+Requires-Dist: types-PyYAML==6.0.12.20250822; extra == "dev"
 Dynamic: license-file
 
 # Home Assistant Intents Package

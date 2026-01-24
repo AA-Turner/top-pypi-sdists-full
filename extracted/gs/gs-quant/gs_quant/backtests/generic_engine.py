@@ -371,18 +371,16 @@ class HedgeActionImpl(OrderBasedActionImpl):
             if len(active_dates):
                 scaling_portfolio = ScalingPortfolio(trade=hedge_trade, dates=active_dates, risk=self.action.risk,
                                                      csa_term=self.action.csa_term,
-                                                     scaling_parameter=self.action.scaling_parameter,
-                                                     risk_transformation=self.action.risk_transformation)
+                                                     risk_transformation=self.action.risk_transformation,
+                                                     risk_percentage=self.action.risk_percentage)
                 tc_enter = TransactionCostEntry(create_date, hedge_trade, self.action.transaction_cost)
                 current_tc_entries.append(tc_enter)
                 entry_payment = CashPayment(trade=hedge_trade, effective_date=create_date, direction=-1,
-                                            scaling_parameter=self.action.scaling_parameter,
                                             transaction_cost_entry=tc_enter)
                 backtest.transaction_cost_entries[create_date].append(tc_enter)
                 tc_exit = TransactionCostEntry(final_date, hedge_trade, self.action.transaction_cost_exit)
                 current_tc_entries.append(tc_exit)
-                exit_payment = CashPayment(trade=hedge_trade, effective_date=final_date, scale_date=create_date,
-                                           scaling_parameter=self.action.scaling_parameter,
+                exit_payment = CashPayment(trade=hedge_trade, effective_date=final_date,
                                            transaction_cost_entry=tc_exit) \
                     if final_date <= dt.date.today() else None
                 backtest.transaction_cost_entries[final_date].append(tc_exit)
@@ -512,7 +510,6 @@ class RebalanceActionImpl(ActionHandler):
         tc_enter = TransactionCostEntry(state, pos, self.action.transaction_cost)
         current_tc_entries.append(tc_enter)
         backtest.cash_payments[state].append(CashPayment(pos, effective_date=state, direction=-1,
-                                                         scaling_parameter=self.action.size_parameter,
                                                          transaction_cost_entry=tc_enter))
         backtest.transaction_cost_entries[state].append(tc_enter)
         unwind_payment = None
@@ -522,8 +519,7 @@ class RebalanceActionImpl(ActionHandler):
                 if self.action.priceable.name.split('_')[-1] in cp.trade.name and cp.direction == 1:
                     tc_exit = TransactionCostEntry(d, pos, self.action.transaction_cost_exit)
                     current_tc_entries.append(tc_exit)
-                    unwind_payment = CashPayment(pos, effective_date=d, scaling_parameter=self.action.size_parameter,
-                                                 transaction_cost_entry=tc_exit)
+                    unwind_payment = CashPayment(pos, effective_date=d, transaction_cost_entry=tc_exit)
                     backtest.cash_payments[d].append(unwind_payment)
                     backtest.transaction_cost_entries[d].append(exit)
                     break
@@ -830,36 +826,46 @@ class GenericEngine(BacktestBaseEngine):
                         port = p.trade if isinstance(p.trade, Portfolio) else Portfolio([p.trade])
                         p.results = port.calc(tuple(risks))
 
-    def __ensure_risk_results(self, d, backtest: BackTest, risks):
-        port = []
-        for t in backtest.portfolio_dict[d]:
-            if not backtest.results[d] or t.name not in backtest.results[d].portfolio:
-                port.append(t)
+    def __ensure_risk_results(self, dates, backtest: BackTest, risks):
+        port_by_date = {}
+        for d in dates:
+            port = []
+            for t in backtest.portfolio_dict[d]:
+                if not backtest.results[d] or t.name not in backtest.results[d].portfolio:
+                    port.append(t)
+            if len(port):
+                port_by_date[d] = port
 
-        if len(port):
-            with PricingContext(pricing_date=d):
-                results = Portfolio(port).calc(tuple(risks))
+        if len(port_by_date):
+            results_by_date = {}
+            with PricingContext():
+                for d, port in port_by_date.items():
+                    with PricingContext(pricing_date=d):
+                        results_by_date[d] = Portfolio(port).calc(tuple(risks))
 
-            backtest.add_results(d, results)
+            for d, results in results_by_date.items():
+                backtest.add_results(d, results)
 
     def _process_triggers_and_actions_for_date(self, d, strategy, backtest: BackTest, risks):
         logger.debug(f'{d}: Processing triggers and actions')
-        self.__ensure_risk_results(d, backtest, risks)
 
-        # path dependent
+        # need to ensure risk results for the day are available prior to the path-dependent action/trigger being applied
+        # note that __ensure_risk_results sends a risk calculation for the day, so it should only happen when required
         for trigger in strategy.triggers:
             if trigger.calc_type == CalcType.path_dependent:
                 if trigger.has_triggered(d, backtest):
                     for action in trigger.actions:
+                        self.__ensure_risk_results([d], backtest, risks)
                         self.get_action_handler(action).apply_action(d, backtest)
             else:
                 for action in trigger.actions:
                     if action.calc_type == CalcType.path_dependent:
                         if trigger.has_triggered(d, backtest):
+                            self.__ensure_risk_results([d], backtest, risks)
                             self.get_action_handler(action).apply_action(d, backtest)
-        # test to see if new trades have been added and calc
-        self.__ensure_risk_results(d, backtest, risks)
-
+        # explicit check needed because backtest.hedges is a defaultdict that gets populated on access below
+        if d not in backtest.hedges:
+            return
         for hedge in backtest.hedges[d]:
             sp = hedge.scaling_portfolio
             if sp.results is None:
@@ -868,10 +874,15 @@ class GenericEngine(BacktestBaseEngine):
                     port_sp = sp.trade if isinstance(sp.trade, Portfolio) else Portfolio([sp.trade])
                     sp.results = port_sp.calc(tuple(risks))
 
-        # semi path dependent scaling
-        if d in backtest.hedges:
-            if len(backtest.hedges[d]) and d not in backtest.results:
-                # No risk found to hedge, proceed to the next date
+        # semi path dependent scaling for hedges; only apply if there are any hedges to scale
+        if backtest.hedges[d]:
+            # ensure all risk results are available (including the hedge risk required to scale below)
+            # this is useful when there is overlap between hedges (e.g. an instrument hedging risk from another hedge)
+            # note it does not get applied when there is no overlap between hedges, as the ensure fn will skip the calc
+            self.__ensure_risk_results([d], backtest, risks)
+            # this needs to be applied after the "ensure" line above, which may add results
+            # if there is no risk to hedge, skip to the next day; hedges for this day can be ignored
+            if d not in backtest.results:
                 return
             for hedge in backtest.hedges[d]:
                 p = hedge.scaling_portfolio
@@ -882,7 +893,7 @@ class GenericEngine(BacktestBaseEngine):
                     continue
                 if current_risk.unit != hedge_risk.unit:
                     raise RuntimeError('cannot hedge in a different currency')
-                scaling_factor = current_risk / hedge_risk
+                scaling_factor = current_risk / hedge_risk * hedge.scaling_portfolio.risk_percentage / 100
                 hedge.entry_payment.transaction_cost_entry.additional_scaling = scaling_factor
                 if hedge.exit_payment is not None:
                     hedge.exit_payment.transaction_cost_entry.additional_scaling = scaling_factor
@@ -906,15 +917,10 @@ class GenericEngine(BacktestBaseEngine):
                     hedge.entry_payment.trade = copy.deepcopy(scaled_portfolio_position)
                     if hedge.exit_payment is not None:
                         hedge.exit_payment.trade = copy.deepcopy(scaled_portfolio_position)
-                        hedge.exit_payment.scale_date = None
                 else:
-                    new_notional = getattr(p.trade, p.scaling_parameter) * -scaling_factor
-                    scaled_trade = p.trade.clone(**{p.scaling_parameter: new_notional, 'name': p.trade.name})
-                    for day in p.dates:
-                        backtest.add_results(day, p.results[day] * -scaling_factor)
-                        backtest.portfolio_dict[day] += Portfolio(scaled_trade)
-                # Add payments to backtest cash payments
-                # Scaled if portfolio, otherwise picked up from scaled results or scaled via scale_date
+                    raise RuntimeError('Hedge trade instrument must be a Portfolio')
+
+                # Add cash payments for hedge entry and exit
                 backtest.cash_payments[hedge.entry_payment.effective_date].append(hedge.entry_payment)
                 if hedge.exit_payment is not None:
                     backtest.cash_payments[hedge.exit_payment.effective_date].append(hedge.exit_payment)
@@ -966,8 +972,6 @@ class GenericEngine(BacktestBaseEngine):
                             cash_trades_by_date[cp.effective_date].append(trade)
                             if calc_risk_at_trade_exits and cp.direction == 1:
                                 exited_cash_trades_by_date[cp.effective_date].append(trade)
-                        else:
-                            cp.scale_date = None
 
         with PricingContext():
             backtest.calc_calls += 1
@@ -1005,13 +1009,8 @@ class GenericEngine(BacktestBaseEngine):
                                 backtest.cash_dict[d] = {ccy: initial_value}
                             if ccy not in backtest.cash_dict[d]:
                                 backtest.cash_dict[d][ccy] = 0
-                            if cp.scale_date:
-                                scale_notional = getattr(backtest.portfolio_dict[cp.scale_date][cp.trade.name],
-                                                         cp.scaling_parameter)
-                                scale_date_adj = scale_notional / getattr(cp.trade, cp.scaling_parameter)
-                                cp.cash_paid[ccy] += value * scale_date_adj * cp.direction
-                            else:
-                                cp.cash_paid[ccy] += value * cp.direction
+
+                            cp.cash_paid[ccy] += value * cp.direction
 
                         for ccy, cash_paid in cp.cash_paid.items():
                             backtest.cash_dict[d][ccy] += cash_paid

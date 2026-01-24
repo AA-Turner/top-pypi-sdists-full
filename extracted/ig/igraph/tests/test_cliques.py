@@ -1,5 +1,7 @@
 import unittest
 
+from math import inf
+
 from igraph import Graph
 
 from .utils import temporary_file
@@ -59,8 +61,24 @@ class CliqueTests(unittest.TestCase):
                 [1, 2, 4, 5],
             ],
         }
+
         for (lo, hi), exp in tests.items():
             self.assertEqual(sorted(exp), sorted(map(sorted, self.g.cliques(lo, hi))))
+
+        for (lo, hi), exp in tests.items():
+            self.assertEqual(sorted(exp), sorted(map(sorted, self.g.cliques(lo, hi, max_results=inf))))
+
+        for (lo, hi), exp in tests.items():
+            observed = [sorted(cl) for cl in self.g.cliques(lo, hi, max_results=10)]
+            for cl in observed:
+                self.assertTrue(cl in exp)
+
+        for (lo, hi), _ in tests.items():
+            self.assertEqual([], self.g.cliques(lo, hi, max_results=0))
+
+        for (lo, hi), _ in tests.items():
+            with self.assertRaises(ValueError):
+                self.g.cliques(lo, hi, max_results=-2)
 
     def testLargestCliques(self):
         self.assertEqual(
@@ -138,7 +156,14 @@ class IndependentVertexSetTests(unittest.TestCase):
         self.assertEqual(
             self.g1.largest_independent_vertex_sets(), [(0, 3, 4), (2, 3, 4)]
         )
-        self.assertTrue(all(map(self.g1.is_independent_vertex_set, self.g1.largest_independent_vertex_sets())))
+        self.assertTrue(
+            all(
+                map(
+                    self.g1.is_independent_vertex_set,
+                    self.g1.largest_independent_vertex_sets(),
+                )
+            )
+        )
 
     def testMaximalIndependentVertexSets(self):
         self.assertEqual(
@@ -155,7 +180,14 @@ class IndependentVertexSetTests(unittest.TestCase):
                 (2, 4, 7, 8),
             ],
         )
-        self.assertTrue(all(map(self.g2.is_independent_vertex_set, self.g2.maximal_independent_vertex_sets())))
+        self.assertTrue(
+            all(
+                map(
+                    self.g2.is_independent_vertex_set,
+                    self.g2.maximal_independent_vertex_sets(),
+                )
+            )
+        )
 
     def testIndependenceNumber(self):
         self.assertEqual(self.g2.independence_number(), 6)

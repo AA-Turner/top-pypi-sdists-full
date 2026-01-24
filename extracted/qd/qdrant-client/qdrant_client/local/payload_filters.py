@@ -1,5 +1,6 @@
 from datetime import date, datetime, timezone
-from typing import Any, Optional, Union, Dict
+from typing import Any
+from uuid import UUID
 
 import numpy as np
 
@@ -26,7 +27,7 @@ def get_value_counts(values: list[Any]) -> list[int]:
     return counts
 
 
-def check_values_count(condition: models.ValuesCount, values: Optional[list[Any]]) -> bool:
+def check_values_count(condition: models.ValuesCount, values: list[Any] | None) -> bool:
     if values is None:
         return False
 
@@ -116,7 +117,7 @@ def check_range(condition: models.Range, value: Any) -> bool:
 
 
 def check_datetime_range(condition: models.DatetimeRange, value: Any) -> bool:
-    def make_condition_tz_aware(dt: Optional[Union[datetime, date]]) -> Optional[datetime]:
+    def make_condition_tz_aware(dt: datetime | date | None) -> datetime | None:
         if isinstance(dt, date) and not isinstance(dt, datetime):
             dt = datetime.combine(dt, datetime.min.time())
 
@@ -152,6 +153,8 @@ def check_match(condition: models.Match, value: Any) -> bool:
         return value == condition.value
     if isinstance(condition, models.MatchText):
         return value is not None and condition.text in value
+    if isinstance(condition, models.MatchTextAny):
+        return value is not None and any(word in value for word in condition.text_any.split())
     if isinstance(condition, models.MatchAny):
         return value in condition.any
     if isinstance(condition, models.MatchExcept):
@@ -167,7 +170,7 @@ def check_condition(
     condition: models.Condition,
     payload: dict[str, Any],
     point_id: models.ExtendedPointId,
-    has_vector: Dict[str, bool],
+    has_vector: dict[str, bool],
 ) -> bool:
     if isinstance(condition, models.IsNullCondition):
         values = value_by_key(payload, condition.is_null.key, flat=False)
@@ -184,7 +187,8 @@ def check_condition(
         ):
             return True
     elif isinstance(condition, models.HasIdCondition):
-        if point_id in condition.has_id:
+        ids = [str(id_) if isinstance(id_, UUID) else id_ for id_ in condition.has_id]
+        if point_id in ids:
             return True
     elif isinstance(condition, models.HasVectorCondition):
         if condition.has_vector in has_vector and has_vector[condition.has_vector]:
@@ -230,7 +234,7 @@ def check_must(
     conditions: list[models.Condition],
     payload: dict,
     point_id: models.ExtendedPointId,
-    has_vector: Dict[str, bool],
+    has_vector: dict[str, bool],
 ) -> bool:
     return all(
         check_condition(condition, payload, point_id, has_vector) for condition in conditions
@@ -241,7 +245,7 @@ def check_must_not(
     conditions: list[models.Condition],
     payload: dict,
     point_id: models.ExtendedPointId,
-    has_vector: Dict[str, bool],
+    has_vector: dict[str, bool],
 ) -> bool:
     return all(
         not check_condition(condition, payload, point_id, has_vector) for condition in conditions
@@ -252,7 +256,7 @@ def check_should(
     conditions: list[models.Condition],
     payload: dict,
     point_id: models.ExtendedPointId,
-    has_vector: Dict[str, bool],
+    has_vector: dict[str, bool],
 ) -> bool:
     return any(
         check_condition(condition, payload, point_id, has_vector) for condition in conditions
@@ -263,7 +267,7 @@ def check_min_should(
     conditions: list[models.Condition],
     payload: dict,
     point_id: models.ExtendedPointId,
-    vectors: Dict[str, Any],
+    vectors: dict[str, Any],
     min_count: int,
 ) -> bool:
     return (
@@ -276,10 +280,10 @@ def check_filter(
     payload_filter: models.Filter,
     payload: dict,
     point_id: models.ExtendedPointId,
-    has_vector: Dict[str, bool],
+    has_vector: dict[str, bool],
 ) -> bool:
     def ensure_condition_list(
-        condition: Union[models.Condition, list[models.Condition]],
+        condition: models.Condition | list[models.Condition],
     ) -> list[models.Condition]:
         if isinstance(condition, list):
             return condition
@@ -314,9 +318,9 @@ def check_filter(
 
 def calculate_payload_mask(
     payloads: list[dict],
-    payload_filter: Optional[models.Filter],
+    payload_filter: models.Filter | None,
     ids_inv: list[models.ExtendedPointId],
-    deleted_per_vector: Dict[str, np.ndarray],
+    deleted_per_vector: dict[str, np.ndarray],
 ) -> types.NumpyArray:
     if payload_filter is None:
         return np.ones(len(payloads), dtype=bool)

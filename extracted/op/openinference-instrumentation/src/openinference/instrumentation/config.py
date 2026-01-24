@@ -80,16 +80,23 @@ OPENINFERENCE_HIDE_INPUT_TEXT = "OPENINFERENCE_HIDE_INPUT_TEXT"
 OPENINFERENCE_HIDE_OUTPUT_TEXT = "OPENINFERENCE_HIDE_OUTPUT_TEXT"
 # Hides text from output messages
 OPENINFERENCE_HIDE_EMBEDDING_VECTORS = "OPENINFERENCE_HIDE_EMBEDDING_VECTORS"
+# Deprecated: use OPENINFERENCE_HIDE_EMBEDDINGS_VECTORS instead
+OPENINFERENCE_HIDE_EMBEDDINGS_VECTORS = "OPENINFERENCE_HIDE_EMBEDDINGS_VECTORS"
 # Hides embedding vectors
+OPENINFERENCE_HIDE_EMBEDDINGS_TEXT = "OPENINFERENCE_HIDE_EMBEDDINGS_TEXT"
+# Hides embedding text
 OPENINFERENCE_BASE64_IMAGE_MAX_LENGTH = "OPENINFERENCE_BASE64_IMAGE_MAX_LENGTH"
 # Limits characters of a base64 encoding of an image
 OPENINFERENCE_HIDE_PROMPTS = "OPENINFERENCE_HIDE_PROMPTS"
-# Hides LLM prompts
+# Hides LLM prompts (completions API)
+OPENINFERENCE_HIDE_CHOICES = "OPENINFERENCE_HIDE_CHOICES"
+# Hides LLM choices (completions API outputs)
 REDACTED_VALUE = "__REDACTED__"
 # When a value is hidden, it will be replaced by this redacted value
 
 DEFAULT_HIDE_LLM_INVOCATION_PARAMETERS = False
 DEFAULT_HIDE_PROMPTS = False
+DEFAULT_HIDE_CHOICES = False
 DEFAULT_HIDE_INPUTS = False
 DEFAULT_HIDE_OUTPUTS = False
 
@@ -100,7 +107,9 @@ DEFAULT_HIDE_INPUT_IMAGES = False
 DEFAULT_HIDE_INPUT_TEXT = False
 DEFAULT_HIDE_OUTPUT_TEXT = False
 
-DEFAULT_HIDE_EMBEDDING_VECTORS = False
+DEFAULT_HIDE_EMBEDDING_VECTORS = False  # Deprecated
+DEFAULT_HIDE_EMBEDDINGS_VECTORS = False
+DEFAULT_HIDE_EMBEDDINGS_TEXT = False
 DEFAULT_BASE64_IMAGE_MAX_LENGTH = 32_000
 
 
@@ -187,7 +196,23 @@ class TraceConfig:
             "default_value": DEFAULT_HIDE_EMBEDDING_VECTORS,
         },
     )
+    """Deprecated: use hide_embeddings_vectors instead"""
+    hide_embeddings_vectors: Optional[bool] = field(
+        default=None,
+        metadata={
+            "env_var": OPENINFERENCE_HIDE_EMBEDDINGS_VECTORS,
+            "default_value": DEFAULT_HIDE_EMBEDDINGS_VECTORS,
+        },
+    )
     """Hides embedding vectors"""
+    hide_embeddings_text: Optional[bool] = field(
+        default=None,
+        metadata={
+            "env_var": OPENINFERENCE_HIDE_EMBEDDINGS_TEXT,
+            "default_value": DEFAULT_HIDE_EMBEDDINGS_TEXT,
+        },
+    )
+    """Hides embedding text"""
     hide_prompts: Optional[bool] = field(
         default=None,
         metadata={
@@ -195,7 +220,15 @@ class TraceConfig:
             "default_value": DEFAULT_HIDE_PROMPTS,
         },
     )
-    """Hides LLM prompts"""
+    """Hides LLM prompts (completions API)"""
+    hide_choices: Optional[bool] = field(
+        default=None,
+        metadata={
+            "env_var": OPENINFERENCE_HIDE_CHOICES,
+            "default_value": DEFAULT_HIDE_CHOICES,
+        },
+    )
+    """Hides LLM choices (completions API outputs)"""
     base64_image_max_length: Optional[int] = field(
         default=None,
         metadata={
@@ -224,8 +257,6 @@ class TraceConfig:
     ) -> Optional[AttributeValue]:
         if self.hide_llm_invocation_parameters and key == SpanAttributes.LLM_INVOCATION_PARAMETERS:
             return None
-        elif self.hide_prompts and key == SpanAttributes.LLM_PROMPTS:
-            value = REDACTED_VALUE
         elif self.hide_inputs and key == SpanAttributes.INPUT_VALUE:
             value = REDACTED_VALUE
         elif self.hide_inputs and key == SpanAttributes.INPUT_MIME_TYPE:
@@ -238,10 +269,14 @@ class TraceConfig:
             self.hide_inputs or self.hide_input_messages
         ) and SpanAttributes.LLM_INPUT_MESSAGES in key:
             return None
+        elif (self.hide_inputs or self.hide_prompts) and SpanAttributes.LLM_PROMPTS in key:
+            value = REDACTED_VALUE
         elif (
             self.hide_outputs or self.hide_output_messages
         ) and SpanAttributes.LLM_OUTPUT_MESSAGES in key:
             return None
+        elif (self.hide_outputs or self.hide_choices) and SpanAttributes.LLM_CHOICES in key:
+            value = REDACTED_VALUE
         elif (
             self.hide_input_text
             and SpanAttributes.LLM_INPUT_MESSAGES in key
@@ -283,11 +318,17 @@ class TraceConfig:
         ):
             value = REDACTED_VALUE
         elif (
-            self.hide_embedding_vectors
+            (self.hide_embedding_vectors or self.hide_embeddings_vectors)
             and SpanAttributes.EMBEDDING_EMBEDDINGS in key
             and EmbeddingAttributes.EMBEDDING_VECTOR in key
         ):
-            return None
+            value = REDACTED_VALUE
+        elif (
+            self.hide_embeddings_text
+            and SpanAttributes.EMBEDDING_EMBEDDINGS in key
+            and EmbeddingAttributes.EMBEDDING_TEXT in key
+        ):
+            value = REDACTED_VALUE
         return value() if callable(value) else value
 
     def _parse_value(

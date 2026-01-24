@@ -238,9 +238,10 @@ class RegionDiskTypesRestTransport(_BaseRegionDiskTypesRestTransport):
                  are specified, the client will attempt to ascertain the
                  credentials from the environment.
 
-             credentials_file (Optional[str]): A file with credentials that can
+             credentials_file (Optional[str]): Deprecated. A file with credentials that can
                  be loaded with :func:`google.auth.load_credentials_from_file`.
-                 This argument is ignored if ``channel`` is provided.
+                 This argument is ignored if ``channel`` is provided. This argument will be
+                 removed in the next major version of this library.
              scopes (Optional(Sequence[str])): A list of scopes. This argument is
                  ignored if ``channel`` is provided.
              client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -330,17 +331,23 @@ class RegionDiskTypesRestTransport(_BaseRegionDiskTypesRestTransport):
 
             Returns:
                 ~.compute.DiskType:
-                    Represents a Disk Type resource. Google Compute Engine
-                has two Disk Type resources: \*
-                `Regional </compute/docs/reference/rest/v1/regionDiskTypes>`__
-                \* `Zonal </compute/docs/reference/rest/v1/diskTypes>`__
+                    Represents a Disk Type resource.
+
+                Google Compute Engine has two Disk Type resources:
+
+                - `Regional </compute/docs/reference/rest/v1/regionDiskTypes>`__
+                - `Zonal </compute/docs/reference/rest/v1/diskTypes>`__
+
                 You can choose from a variety of disk types based on
-                your needs. For more information, read Storage options.
+                your needs. For more information, readStorage options.
+
                 The diskTypes resource represents disk types for a zonal
-                persistent disk. For more information, read Zonal
-                persistent disks. The regionDiskTypes resource
-                represents disk types for a regional persistent disk.
-                For more information, read Regional persistent disks.
+                persistent disk. For more information, readZonal
+                persistent disks.
+
+                The regionDiskTypes resource represents disk types for a
+                regional persistent disk. For more information, read
+                Regional persistent disks.
 
             """
 

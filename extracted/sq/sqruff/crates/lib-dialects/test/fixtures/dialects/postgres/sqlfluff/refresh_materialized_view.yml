@@ -1,0 +1,41 @@
+file:
+- statement:
+  - refresh_materialized_view_statement:
+    - keyword: REFRESH
+    - keyword: MATERIALIZED
+    - keyword: VIEW
+    - table_reference:
+      - naked_identifier: bar
+- statement_terminator: ;
+- statement:
+  - refresh_materialized_view_statement:
+    - keyword: REFRESH
+    - keyword: MATERIALIZED
+    - keyword: VIEW
+    - keyword: CONCURRENTLY
+    - table_reference:
+      - naked_identifier: bar
+- statement_terminator: ;
+- statement:
+  - refresh_materialized_view_statement:
+    - keyword: REFRESH
+    - keyword: MATERIALIZED
+    - keyword: VIEW
+    - table_reference:
+      - naked_identifier: bar
+    - with_data_clause:
+      - keyword: WITH
+      - keyword: DATA
+- statement_terminator: ;
+- statement:
+  - refresh_materialized_view_statement:
+    - keyword: REFRESH
+    - keyword: MATERIALIZED
+    - keyword: VIEW
+    - table_reference:
+      - naked_identifier: bar
+    - with_data_clause:
+      - keyword: WITH
+      - keyword: NO
+      - keyword: DATA
+- statement_terminator: ;

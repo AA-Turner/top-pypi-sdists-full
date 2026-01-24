@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-calc
-Version: 4.0.2
+Version: 4.0.3
 Summary: A helper library for mathematical calculations and symbolic mathematics, used by Open edX.
 Home-page: https://github.com/openedx/openedx-calc
 Author: edX

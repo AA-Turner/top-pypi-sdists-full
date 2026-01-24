@@ -184,7 +184,7 @@ def _load_project_config_at_path(filename: Path) -> Optional[ProjectSettings]:
     except OSError:
         return None
     except ValueError as e:
-        raise ValueError(f"Failed to load project config (chalkpy=={__version__}): {e}")
+        raise ValueError(f"Failed to load project config from {filename} (chalkpy=={__version__}): {e}") from e
 
 
 def load_project_config() -> Optional[ProjectSettings]:

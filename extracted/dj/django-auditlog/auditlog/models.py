@@ -1,9 +1,10 @@
 import ast
 import contextlib
 import json
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import timezone
-from typing import Any, Callable, Union
+from typing import Any
 
 from dateutil import parser
 from dateutil.tz import gettz
@@ -23,6 +24,7 @@ from django.utils import timezone as django_timezone
 from django.utils.encoding import smart_str
 from django.utils.translation import gettext_lazy as _
 
+from auditlog import get_logentry_model
 from auditlog.diff import get_mask_function
 
 DEFAULT_OBJECT_REPR = "<error forming object repr>"
@@ -303,7 +305,7 @@ class LogEntryManager(models.Manager):
         return data
 
 
-class LogEntry(models.Model):
+class AbstractLogEntry(models.Model):
     """
     Represents an entry in the audit log. The content type is saved along with the textual and numeric
     (if available) primary key, as well as the textual representation of the object when it was saved.
@@ -392,6 +394,7 @@ class LogEntry(models.Model):
     objects = LogEntryManager()
 
     class Meta:
+        abstract = True
         get_latest_by = "timestamp"
         ordering = ["-timestamp"]
         verbose_name = _("log entry")
@@ -455,9 +458,17 @@ class LogEntry(models.Model):
         if auditlog.contains(model._meta.model):
             model_fields = auditlog.get_model_fields(model._meta.model)
 
+        if settings.AUDITLOG_STORE_JSON_CHANGES:
+            changes_dict = {}
+            for field_name, values in self.changes_dict.items():
+                values_as_strings = [str(v) for v in values]
+                changes_dict[field_name] = values_as_strings
+        else:
+            changes_dict = self.changes_dict
+
         changes_display_dict = {}
         # grab the changes_dict and iterate through
-        for field_name, values in self.changes_dict.items():
+        for field_name, values in changes_dict.items():
             # try to get the field attribute on the model
             try:
                 field = model._meta.get_field(field_name)
@@ -526,7 +537,7 @@ class LogEntry(models.Model):
         return changes_display_dict
 
     def _get_changes_display_for_fk_field(
-        self, field: Union[models.ForeignKey, models.OneToOneField], value: Any
+        self, field: models.ForeignKey | models.OneToOneField, value: Any
     ) -> str:
         """
         :return: A string representing a given FK value and the field to which it belongs
@@ -545,10 +556,17 @@ class LogEntry(models.Model):
             return value
         # Attempt to return the string representation of the object
         try:
-            return smart_str(field.related_model._default_manager.get(pk=pk_value))
+            related_model_manager = _get_manager_from_settings(field.related_model)
+
+            return smart_str(related_model_manager.get(pk=pk_value))
         # ObjectDoesNotExist will be raised if the object was deleted.
         except ObjectDoesNotExist:
             return f"Deleted '{field.related_model.__name__}' ({value})"
+
+
+class LogEntry(AbstractLogEntry):
+    class Meta(AbstractLogEntry.Meta):
+        swappable = "AUDITLOG_LOGENTRY_MODEL"
 
 
 class AuditlogHistoryField(GenericRelation):
@@ -571,7 +589,7 @@ class AuditlogHistoryField(GenericRelation):
     """
 
     def __init__(self, pk_indexable=True, delete_related=False, **kwargs):
-        kwargs["to"] = LogEntry
+        kwargs["to"] = get_logentry_model()
 
         if pk_indexable:
             kwargs["object_id_field"] = "object_id"
@@ -614,3 +632,16 @@ def _changes_func() -> Callable[[LogEntry], dict]:
     if settings.AUDITLOG_USE_TEXT_CHANGES_IF_JSON_IS_NOT_PRESENT:
         return json_then_text
     return default
+
+
+def _get_manager_from_settings(model: type[models.Model]) -> models.Manager:
+    """
+    Get model manager as selected by AUDITLOG_USE_BASE_MANAGER.
+
+    - True: return model._meta.base_manager
+    - False: return model._meta.default_manager
+    """
+    if settings.AUDITLOG_USE_BASE_MANAGER:
+        return model._meta.base_manager
+    else:
+        return model._meta.default_manager

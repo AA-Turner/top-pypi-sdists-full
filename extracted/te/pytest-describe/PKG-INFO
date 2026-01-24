@@ -1,42 +1,38 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-describe
-Version: 2.2.0
+Version: 3.1.0
 Summary: Describe-style plugin for pytest
-Home-page: https://github.com/pytest-dev/pytest-describe
-Author: Robin Pedersen
-Author-email: robinpeder@gmail.com
-Maintainer: Christoph Zwerschke
-Maintainer-email: cito@online.de
-License: MIT
-Project-URL: Source, https://github.com/pytest-dev/pytest-describe
-Project-URL: Tracker, https://github.com/pytest-dev/pytest-describe/issues
 Keywords: test,unittest,plugin,describe
-Platform: unix
-Platform: linux
-Platform: osx
-Platform: cygwin
-Platform: win32
+Author: Robin Pedersen
+Author-email: Robin Pedersen <robinpeder@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
+Classifier: Framework :: Pytest
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
+Requires-Dist: pytest>=6,<10
+Maintainer: Christoph Zwerschke
+Maintainer-email: Christoph Zwerschke <cito@online.de>
+Requires-Python: >=3.9
+Project-URL: Homepage, https://github.com/pytest-dev/pytest-describe
+Project-URL: Source, https://github.com/pytest-dev/pytest-describe
+Project-URL: Tracker, https://github.com/pytest-dev/pytest-describe/issues
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: pytest<9,>=4.6
 
 [![PyPI version](https://badge.fury.io/py/pytest-describe.svg)](https://pypi.org/project/pytest-describe/)
 [![Workflow status](https://github.com/pytest-dev/pytest-describe/actions/workflows/main.yml/badge.svg)](https://github.com/pytest-dev/pytest-describe/actions)
@@ -60,13 +56,13 @@ pip install pytest-describe
 
 ## Usage
 
-Pytest will automatically find the plugin and use it when you run pytest. 
+Pytest will automatically find the plugin and use it when you run pytest.
 Running pytest will show that the plugin is loaded:
 
 ```sh
 $ pytest 
 ...
-plugins: describe-2.2.0
+plugins: describe-3.0.0
 ...
 ```
 

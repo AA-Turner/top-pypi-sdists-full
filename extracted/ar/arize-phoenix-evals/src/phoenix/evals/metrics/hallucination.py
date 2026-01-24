@@ -1,13 +1,13 @@
-# ruff: noqa: W291
-
 from pydantic import BaseModel, Field
 
+from ..__generated__.classification_evaluator_configs import (
+    HALLUCINATION_CLASSIFICATION_EVALUATOR_CONFIG,
+)
 from ..evaluators import ClassificationEvaluator
 from ..llm import LLM
-from ..templating import Template
+from ..llm.prompts import PromptTemplate
 
 
-# --- Built-in LLM evaluator: hallucination ---
 class HallucinationEvaluator(ClassificationEvaluator):
     """
     A specialized evaluator for detecting hallucinations in grounded LLM responses.
@@ -17,14 +17,14 @@ class HallucinationEvaluator(ClassificationEvaluator):
 
     Notes:
         - Evaluates whether the output to an input is factual or hallucinated based on the context.
-        - Returns one `Score` with `label` (factual or hallucinated), `score` (1.0 if factual, 0.0
-          if hallucinated), and an `explanation` from the LLM judge.
+        - Returns one `Score` with `label` (factual or hallucinated), `score` (1.0 if hallucinated,
+          0.0 if factual), and an `explanation` from the LLM judge.
         - Requires an LLM that supports tool calling or structured output.
 
     Examples::
 
         from phoenix.evals.metrics.hallucination import HallucinationEvaluator
-        from phoenix.evals.llm import LLM
+        from phoenix.evals import LLM
         llm = LLM(provider="openai", model="gpt-4o-mini")
         hallucination_eval = HallucinationEvaluator(llm=llm)
         eval_input = {
@@ -34,43 +34,20 @@ class HallucinationEvaluator(ClassificationEvaluator):
             }
         scores = hallucination_eval.evaluate(eval_input)
         print(scores)
-        [Score(name='hallucination', score=1.0, label='factual',
+        [Score(name='hallucination', score=0.0, label='factual',
             explanation='Information is supported by context', metadata={'model': 'gpt-4o-mini'},
-            source="llm", direction="maximize")]
+            kind="llm", direction="minimize")]
 
     """
 
-    NAME = "hallucination"
-    PROMPT = Template(
-        template="""
-        In this task, you will be presented with a query, some context and a response. The response 
-        is generated to the question based on the context. The response may contain false 
-        information. You must use the context to determine if the response to the question 
-        contains false information, if the response is a hallucination of facts. Your objective is 
-        to determine whether the response text contains factual information and is not a 
-        hallucination. A 'hallucination' refers to a response that is not based on the context or 
-        assumes information that is not available in the context. Your response should be a single
-        word: either 'factual' or 'hallucinated', and it should not include any other text or 
-        characters. 'hallucinated' indicates that the response provides factually inaccurate 
-        information to the query based on the context. 'factual' indicates that the response to 
-        the question is correct relative to the context, and does not contain made up 
-        information. Please read the query and context carefully before determining your 
-        response.
-
-        [BEGIN DATA]
-        ************
-        [Query]: {input}
-        ************
-        [Context]: {context}
-        ************
-        [Response]: {output}
-        ************
-        [END DATA]
-
-        Is the response above factual or hallucinated based on the query and context?
-    """
+    NAME = HALLUCINATION_CLASSIFICATION_EVALUATOR_CONFIG.name
+    PROMPT = PromptTemplate(
+        template=[
+            msg.model_dump() for msg in HALLUCINATION_CLASSIFICATION_EVALUATOR_CONFIG.messages
+        ],
     )
-    CHOICES = {"hallucinated": 0.0, "factual": 1.0}
+    CHOICES = HALLUCINATION_CLASSIFICATION_EVALUATOR_CONFIG.choices
+    DIRECTION = HALLUCINATION_CLASSIFICATION_EVALUATOR_CONFIG.optimization_direction
 
     class HallucinationInputSchema(BaseModel):
         input: str = Field(description="The input query.")
@@ -84,8 +61,8 @@ class HallucinationEvaluator(ClassificationEvaluator):
         super().__init__(
             name=self.NAME,
             llm=llm,
-            prompt_template=self.PROMPT,
+            prompt_template=self.PROMPT.template,
             choices=self.CHOICES,
-            direction="maximize",
+            direction=self.DIRECTION,
             input_schema=self.HallucinationInputSchema,
         )

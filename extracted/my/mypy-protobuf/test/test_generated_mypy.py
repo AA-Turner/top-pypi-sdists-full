@@ -10,7 +10,7 @@ These tests can be set up and run by the run_test.sh script
 
 import glob
 import os
-from typing import Any, Generator, NewType, Tuple, Type
+from typing import Any, Generator, NewType, Protocol, Tuple, Type, Union
 
 import pytest
 import testproto.test_pb2 as test_pb2
@@ -33,7 +33,12 @@ from testproto.test_extensions3_pb2 import (
     repeated_scalar_option,
     scalar_option,
 )
-from testproto.test_pb2 import DESCRIPTOR, FOO, Extensions1, Extensions2
+from testproto.test_pb2 import (
+    DESCRIPTOR,
+    FOO,
+    Extensions1,
+    Extensions2,
+)
 from testproto.test_pb2 import Name as NamingConflicts_Name
 from testproto.test_pb2 import (
     NamingConflicts,
@@ -63,10 +68,10 @@ def _is_summary(line: str) -> bool:
 
 def test_generate_mypy_matches() -> None:
     proto_files = glob.glob("proto/**/*.proto", recursive=True)
-    assert len(proto_files) == 17  # Just a sanity check that all the files show up
+    assert len(proto_files) == 23  # Just a sanity check that all the files show up
 
     pyi_files = glob.glob("test/generated/**/*.pyi", recursive=True)
-    assert len(pyi_files) == 19  # Should be higher - because grpc files generate extra pyis
+    assert len(pyi_files) == 25  # Should be higher - because grpc files generate extra pyis
 
     failure_check_results = []
     for fn in proto_files:
@@ -99,6 +104,9 @@ def test_generate_negative_matches() -> None:
             if _is_summary(line):
                 continue
             parts = line.split(":")
+            # Filter out errors not from negative.py. Like deprecation warnigns from pyi files that were import followed
+            if not parts[0].endswith("test_negative/negative.py"):
+                continue
             yield parts[0], int(parts[1])
 
     def grab_expectations(filename: str, marker: str) -> Generator[Tuple[str, int], None, None]:
@@ -106,14 +114,14 @@ def test_generate_negative_matches() -> None:
             if "#" in line and marker in line:
                 yield filename, idx + 1
 
-    errors_38 = set(grab_errors("test_negative/output.expected.3.8"))
+    errors_39 = set(grab_errors("test_negative/output.expected.3.9"))
 
-    expected_errors_38 = set(grab_expectations("test_negative/negative.py", "E:3.8"))
+    expected_errors_39 = set(grab_expectations("test_negative/negative.py", "E:3.8"))
 
-    assert errors_38 == expected_errors_38
+    assert errors_39 == expected_errors_39
 
     # Some sanity checks to make sure we don't mess this up. Please update as necessary.
-    assert len(errors_38) == 77
+    assert len(errors_39) == 96
 
 
 def test_func() -> None:
@@ -426,14 +434,19 @@ def test_constructor_proto3() -> None:
     # an_optional_string has optional keyword so None is allowed
     x = SimpleProto3(an_optional_string=None)
     assert not x.HasField("an_optional_string")
+    # Field access still returns the 0-value, even though
+    # the field is not present.
+    assert x.an_optional_string == ""
 
     x = SimpleProto3(a_string="", an_optional_string="")
     assert x.a_string == ""
     assert x.HasField("an_optional_string")
+    assert x.an_optional_string == ""
 
     x = SimpleProto3(a_string="hello", an_optional_string="hello")
     assert x.a_string == "hello"
     assert x.HasField("an_optional_string")
+    assert x.an_optional_string == "hello"
 
 
 def test_message_descriptor_proto2() -> None:
@@ -511,3 +524,115 @@ def test_reserved_keywords() -> None:
     prk = PythonReservedKeywords(none=none_instance, valid=PythonReservedKeywords.valid_in_finally)
     assert prk.none.valid == 5
     assert prk.valid == PythonReservedKeywords.valid_in_finally
+
+
+def test_editions_2024() -> None:
+    from testproto.edition2024_pb2 import Editions2024SubMessage, Editions2024Test
+
+    submsg = Editions2024SubMessage(thing="example")
+
+    # Check type of parameters of class constructor
+    class Editions2024TestProto(Protocol):
+        def __init__(
+            self,
+            *,
+            legacy: Union[str, None] = ...,
+            explicit_singular: Union[str, None] = ...,
+            message_field: Union[Editions2024SubMessage, None] = ...,
+            implicit_singular: str = ...,
+            default_singular: Union[str, None] = ...,
+        ) -> None: ...
+
+    # Type checker verifies the class matches
+    _: type[Editions2024TestProto] = Editions2024Test
+
+    testmsg = Editions2024Test(
+        legacy="legacy value",
+        explicit_singular="explicit value",
+        message_field=submsg,
+        implicit_singular="implicit value",
+        default_singular="default value",
+    )
+
+    assert testmsg.legacy == "legacy value"
+    assert testmsg.explicit_singular == "explicit value"
+    assert testmsg.message_field == submsg
+    assert testmsg.implicit_singular == "implicit value"
+    assert testmsg.default_singular == "default value"
+
+    assert testmsg.HasField("explicit_singular")
+    assert testmsg.HasField("message_field")
+    assert testmsg.HasField("legacy")
+    assert testmsg.HasField("default_singular")
+
+    with pytest.raises(ValueError):
+        testmsg.HasField("implicit_singular")  # type: ignore
+
+
+def test_editions_2024_impl_field_pre() -> None:
+    from testproto.edition2024implicitfieldpresence_pb2 import (
+        Editions2024ImplicitFieldPresenceSubMessage,
+        Editions2024ImplicitFieldPresenceTest,
+    )
+
+    submsg = Editions2024ImplicitFieldPresenceSubMessage(thing="example")
+
+    # Check type of parameters of class constructor
+    class Editions2024TestProto(Protocol):
+
+        def __init__(
+            self,
+            *,
+            legacy: Union[str, None] = ...,
+            explicit_singular: Union[str, None] = ...,
+            message_field: Union[Editions2024ImplicitFieldPresenceSubMessage, None] = ...,
+            implicit_singular: str = ...,
+            default_singular: str = ...,
+        ) -> None: ...
+
+    # Type checker verifies the class matches
+    _: type[Editions2024TestProto] = Editions2024ImplicitFieldPresenceTest
+
+    testmsg = Editions2024ImplicitFieldPresenceTest(
+        legacy="legacy value",
+        explicit_singular="explicit value",
+        message_field=submsg,
+        implicit_singular="implicit value",
+        default_singular="default value",
+    )
+    assert testmsg.legacy == "legacy value"
+    assert testmsg.explicit_singular == "explicit value"
+    assert testmsg.message_field == submsg
+    assert testmsg.implicit_singular == "implicit value"
+    assert testmsg.default_singular == "default value"
+
+    assert testmsg.HasField("explicit_singular")
+    assert testmsg.HasField("message_field")
+    assert testmsg.HasField("legacy")
+
+    with pytest.raises(ValueError):
+        testmsg.HasField("default_singular")  # type: ignore # implicit because of file option
+        testmsg.HasField("implicit_singular")  # type: ignore
+
+
+def test_has_field_and_clear_field_type_aliases_exist() -> None:
+    """Confirm that the generated type aliases for HasField and ClearField exist"""
+    from testproto.edition2024_pb2 import Editions2024Test
+
+    def test_hasfield_alias(msg: Editions2024Test, field: "Editions2024Test._HasFieldArgType") -> bool:
+        return msg.HasField(field)
+
+    test_hasfield_alias(Editions2024Test(), "legacy")
+
+    def test_clearfield_alias(msg: Editions2024Test, field: "Editions2024Test._ClearFieldArgType") -> None:
+        return msg.ClearField(field)
+
+    test_clearfield_alias(Editions2024Test(), "legacy")
+
+    def test_whichoneof_alias(
+        msg: SimpleProto3,
+        oneof: "SimpleProto3._WhichOneofArgType_a_oneof",
+    ) -> "SimpleProto3._WhichOneofReturnType_a_oneof | None":
+        return msg.WhichOneof(oneof)
+
+    test_whichoneof_alias(SimpleProto3(), "a_oneof")

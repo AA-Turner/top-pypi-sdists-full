@@ -13,12 +13,12 @@ from dagster import (
 )
 from dagster._config import EvaluationError, StringSource, validate_config
 
-from .docker import SHARED_DOCKER_CONFIG
-from .ecs import (
+from dagster_cloud.workspace.config_schema.docker import SHARED_DOCKER_CONFIG
+from dagster_cloud.workspace.config_schema.ecs import (
     ECS_CONTAINER_CONTEXT_CONFIG as ECS_CONTAINER_CONTEXT_CONFIG,
     SHARED_ECS_CONFIG as SHARED_ECS_CONFIG,
 )
-from .kubernetes import SHARED_K8S_CONFIG
+from dagster_cloud.workspace.config_schema.kubernetes import SHARED_K8S_CONFIG
 
 
 def validate_workspace_location(workspace_location) -> Optional[list[str]]:
@@ -277,7 +277,13 @@ CONFIG_SCHEMA_FIELDS = {
         description="Locations that specify an agent queue will only have their requests handled by agents configured to read from a matching queue. By default, requests are placed on a default queue that's handled by all agents.",
     ),
     "defs_state_info": Field(
-        config=Map(str, Shape(fields={"version": str, "create_timestamp": float})),
+        config=Shape(
+            fields={
+                "info_mapping": Map(
+                    str, Noneable(Shape(fields={"version": str, "create_timestamp": float}))
+                )
+            },
+        ),
         is_required=False,
         description="Defs state info for the code location.",
     ),

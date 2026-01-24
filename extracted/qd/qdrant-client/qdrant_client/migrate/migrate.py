@@ -1,5 +1,5 @@
 import time
-from typing import Iterable, Optional, Any
+from typing import Iterable
 
 from qdrant_client._pydantic_compat import to_dict, model_fields
 from qdrant_client.client_base import QdrantBase
@@ -35,7 +35,7 @@ def upload_with_retry(
 def migrate(
     source_client: QdrantBase,
     dest_client: QdrantBase,
-    collection_names: Optional[list[str]] = None,
+    collection_names: list[str] | None = None,
     recreate_on_collision: bool = False,
     batch_size: int = 100,
 ) -> None:
@@ -81,7 +81,7 @@ def _has_custom_shards(source_client: QdrantBase, collection_name: str) -> bool:
 
 
 def _select_source_collections(
-    source_client: QdrantBase, collection_names: Optional[list[str]] = None
+    source_client: QdrantBase, collection_names: list[str] | None = None
 ) -> list[str]:
     source_collections = source_client.get_collections().collections
     source_collection_names = [collection.name for collection in source_collections]
@@ -114,7 +114,7 @@ def _recreate_collection(
     if dest_client.collection_exists(collection_name):
         dest_client.delete_collection(collection_name)
 
-    strict_mode_config: Optional[models.StrictModeConfig] = None
+    strict_mode_config: models.StrictModeConfig | None = None
     if src_config.strict_mode_config is not None:
         strict_mode_config = models.StrictModeConfig(
             **{
@@ -170,9 +170,6 @@ def _migrate_collection(
     """
     records, next_offset = source_client.scroll(collection_name, limit=2, with_vectors=True)
     upload_with_retry(client=dest_client, collection_name=collection_name, points=records)  # type: ignore
-    # upload_records has been deprecated due to the usage of models.Record; models.Record has been deprecated as a
-    # structure for uploading due to a `shard_key` field, and now is used only as a result structure.
-    # since shard_keys are not supported in migration, we can safely type ignore here and use Records for uploading
     while next_offset is not None:
         records, next_offset = source_client.scroll(
             collection_name, offset=next_offset, limit=batch_size, with_vectors=True

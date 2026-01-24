@@ -18,20 +18,16 @@ import trafaret as t
 from datarobot._compat import String, TypedDict
 from datarobot.models.api_object import APIObject
 
-SingleFeatureImpactTrafaret = t.Dict(
-    {
-        t.Key("feature_impacts"): t.List(
-            t.Dict(
-                {
-                    t.Key("impact_unnormalized"): t.Float,
-                    t.Key("impact_normalized"): t.Float,
-                    t.Key("redundant_with"): t.Or(String, t.Null),
-                    t.Key("feature_name"): String,
-                }
-            ).ignore_extra("*")
-        )
-    }
-)
+SingleFeatureImpactTrafaret = t.Dict({
+    t.Key("feature_impacts"): t.List(
+        t.Dict({
+            t.Key("impact_unnormalized"): t.Float,
+            t.Key("impact_normalized"): t.Float,
+            t.Key("redundant_with"): t.Or(String, t.Null),
+            t.Key("feature_name"): String,
+        }).ignore_extra("*")
+    )
+})
 
 
 class FeatureImpactData(TypedDict):
@@ -90,19 +86,16 @@ class FeatureImpact(APIObject):
     """
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("count"): t.Int,
-                t.Key("ran_redundancy_detection"): t.Bool,
-                t.Key("row_count", optional=True, default=None): t.Or(t.Int, t.Null),
-                t.Key("shap_based"): t.Bool,
-                # to make newer client work with older DataRobot responses
-                t.Key("backtest", optional=True, default=None): t.Or(
-                    t.Int(gte=0), t.Null, t.Atom("holdout")
-                ),
-                t.Key("data_slice_id", optional=True, default=None): t.Or(String, t.Null),
-            }
-        )
+        t
+        .Dict({
+            t.Key("count"): t.Int,
+            t.Key("ran_redundancy_detection"): t.Bool,
+            t.Key("row_count", optional=True, default=None): t.Or(t.Int, t.Null),
+            t.Key("shap_based"): t.Bool,
+            # to make newer client work with older DataRobot responses
+            t.Key("backtest", optional=True, default=None): t.Or(t.Int(gte=0), t.Null, t.Atom("holdout")),
+            t.Key("data_slice_id", optional=True, default=None): t.Or(String, t.Null),
+        })
         .merge(SingleFeatureImpactTrafaret)
         .ignore_extra("*")
     )

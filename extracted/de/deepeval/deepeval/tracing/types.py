@@ -1,13 +1,28 @@
 from enum import Enum
 from dataclasses import dataclass, field
-from pydantic import BaseModel, Field
-from typing import Any, Dict, List, Optional, Union
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Any, Dict, List, Optional, Union, Literal
 from rich.progress import Progress
+
+from deepeval.utils import make_model_config
 
 from deepeval.prompt.prompt import Prompt
 from deepeval.test_case.llm_test_case import ToolCall
 from deepeval.test_case import LLMTestCase
 from deepeval.metrics import BaseMetric
+
+
+class Message(BaseModel):
+    role: str
+    """To be displayed on the top of the message block."""
+
+    type: Literal["tool_calls", "tool_output", "thinking", "default"] = (
+        "default"
+    )
+    """Decides how the content is rendered."""
+
+    content: Any
+    """The content of the message."""
 
 
 class TraceWorkerStatus(Enum):
@@ -37,14 +52,16 @@ class LlmToolCall(BaseModel):
 
 class LlmOutput(BaseModel):
     role: str
-    content: str
+    content: Any
     tool_calls: Optional[List[LlmToolCall]] = None
 
 
 class BaseSpan(BaseModel):
+    model_config = make_model_config(arbitrary_types_allowed=True)
+
     uuid: str
     status: TraceSpanStatus
-    children: List["BaseSpan"]
+    children: List["BaseSpan"] = Field(default_factory=list)
     trace_uuid: str = Field(serialization_alias="traceUuid")
     parent_uuid: Optional[str] = Field(None, serialization_alias="parentUuid")
     start_time: float = Field(serialization_alias="startTime")
@@ -77,9 +94,6 @@ class BaseSpan(BaseModel):
         None, serialization_alias="expectedTools"
     )
 
-    class Config:
-        arbitrary_types_allowed = True
-
 
 class AgentSpan(BaseSpan):
     name: str
@@ -88,6 +102,7 @@ class AgentSpan(BaseSpan):
 
 
 class LlmSpan(BaseSpan):
+
     model: Optional[str] = None
     prompt: Optional[Prompt] = None
     input_token_count: Optional[float] = Field(
@@ -106,8 +121,12 @@ class LlmSpan(BaseSpan):
         None, serialization_alias="tokenTimes"
     )
 
+    # input_tools: Optional[List[ToolSchema]] = Field(None, serialization_alias="inputTools")
+    # invocation_params: Optional[Dict[str, Any]] = Field(None, serialization_alias="invocationParams")
+    # output_metadata: Optional[Dict[str, Any]] = Field(None, serialization_alias="outputMetadata")
+
     # for serializing `prompt`
-    model_config = {"arbitrary_types_allowed": True}
+    model_config = make_model_config(arbitrary_types_allowed=True)
 
 
 class RetrieverSpan(BaseSpan):
@@ -122,6 +141,8 @@ class ToolSpan(BaseSpan):
 
 
 class Trace(BaseModel):
+    model_config = make_model_config(arbitrary_types_allowed=True)
+
     uuid: str = Field(serialization_alias="uuid")
     status: TraceSpanStatus
     root_spans: List[BaseSpan] = Field(serialization_alias="rootSpans")
@@ -155,9 +176,6 @@ class Trace(BaseModel):
     expected_tools: Optional[List[ToolCall]] = Field(
         None, serialization_alias="expectedTools"
     )
-
-    class Config:
-        arbitrary_types_allowed = True
 
 
 class TraceAttributes(BaseModel):

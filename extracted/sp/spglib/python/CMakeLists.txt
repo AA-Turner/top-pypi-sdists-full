@@ -6,12 +6,12 @@ cmake_minimum_required(VERSION 3.25...3.29)
 
 list(APPEND CMAKE_MESSAGE_CONTEXT Python)
 project(Spglib_Python
-        LANGUAGES C
+        LANGUAGES CXX
 )
 
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -37,8 +37,9 @@ set(BUILD_SHARED_LIBS ${SPGLIB_SHARED_LIBS})
 ]=============================================================================]
 
 # Running `find_package(Python)` early to be able to define target with `Python_add_library`
-find_package(Python 3.9 COMPONENTS REQUIRED Interpreter Development.Module NumPy)
-Python_add_library(Spglib_python MODULE WITH_SOABI)
+find_package(Python 3.9 COMPONENTS REQUIRED Development.Module NumPy)
+find_package(pybind11 CONFIG REQUIRED)
+pybind11_add_module(Spglib_python MODULE WITH_SOABI)
 add_library(Spglib::python ALIAS Spglib_python)
 
 #[=============================================================================[
@@ -61,13 +62,19 @@ endif ()
 # Define main target
 set_target_properties(Spglib_python PROPERTIES
         OUTPUT_NAME _spglib
+        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/spglib
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/spglib
         INSTALL_RPATH "$<IF:$<BOOL:${APPLE}>,@loader_path,$ORIGIN>/${CMAKE_INSTALL_LIBDIR}"
 )
 target_sources(Spglib_python PRIVATE
-        _spglib.c
+        _spglib.cpp
+        py_bindings.cpp
 )
 target_link_libraries(Spglib_python PRIVATE
         Spglib::symspg Python::NumPy
+)
+target_include_directories(Spglib_python PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # _version.py may not have been populated in source yet, use a dummy file for the build environment
 # TODO: Use a scikit-build-cli or other CLI to populate the metadata files
@@ -78,12 +85,7 @@ endif ()
 # Copy all python packages to the build directory
 file(COPY spglib
         DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/)
-# Link the built library to the package in the binary directory
-add_custom_command(TARGET Spglib_python POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E create_symlink
-        $<TARGET_FILE:Spglib_python>
-        ${CMAKE_CURRENT_BINARY_DIR}/spglib/$<TARGET_FILE_NAME:Spglib_python>
-)
+
 # On Windows make sure the dll files are in the build directory
 # https://stackoverflow.com/a/73550650
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.26)

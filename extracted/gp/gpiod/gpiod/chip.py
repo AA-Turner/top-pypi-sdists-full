@@ -3,12 +3,11 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from errno import ENOENT
 from typing import TYPE_CHECKING, Optional, Union, cast
 
 from . import _ext
-from ._internal import poll_fd
+from ._internal import config_iter, poll_fd
 from .exception import ChipClosedError
 from .line import Value
 from .line_request import LineRequest
@@ -101,7 +100,7 @@ class Chip:
         longer be used after this method is called.
         """
         self._check_closed()
-        cast(_ext.Chip, self._chip).close()
+        cast("_ext.Chip", self._chip).close()
         self._chip = None
 
     def get_info(self) -> ChipInfo:
@@ -114,7 +113,7 @@ class Chip:
         self._check_closed()
 
         if not self._info:
-            self._info = cast(_ext.Chip, self._chip).get_info()
+            self._info = cast("_ext.Chip", self._chip).get_info()
 
         return self._info
 
@@ -139,7 +138,7 @@ class Chip:
 
         if not isinstance(id, int):
             try:
-                return cast(_ext.Chip, self._chip).line_offset_from_id(id)
+                return cast("_ext.Chip", self._chip).line_offset_from_id(id)
             except OSError as ex:
                 if ex.errno == ENOENT:
                     try:
@@ -158,7 +157,7 @@ class Chip:
 
     def _get_line_info(self, line: Union[int, str], watch: bool) -> LineInfo:
         self._check_closed()
-        return cast(_ext.Chip, self._chip).get_line_info(
+        return cast("_ext.Chip", self._chip).get_line_info(
             self.line_offset_from_id(line), watch
         )
 
@@ -198,7 +197,7 @@ class Chip:
             Offset or name of the line to stop watching.
         """
         self._check_closed()
-        return cast(_ext.Chip, self._chip).unwatch_line_info(
+        return cast("_ext.Chip", self._chip).unwatch_line_info(
             self.line_offset_from_id(line)
         )
 
@@ -234,7 +233,7 @@ class Chip:
           This function may block if there are no available events in the queue.
         """
         self._check_closed()
-        return cast(_ext.Chip, self._chip).read_info_event()
+        return cast("_ext.Chip", self._chip).read_info_event()
 
     def request_lines(
         self,
@@ -269,57 +268,50 @@ class Chip:
 
         line_cfg = _ext.LineConfig()
 
-        # Sanitize lines - don't allow offset repetitions or offset-name conflicts.
-        for offset, count in Counter(
-            [
-                self.line_offset_from_id(line)
-                for line in (
-                    lambda t: [
-                        j for i in (t) for j in (i if isinstance(i, tuple) else (i,))
-                    ]
-                )(tuple(config.keys()))
-            ]
-        ).items():
-            if count != 1:
-                raise ValueError(
-                    f"line must be configured exactly once - offset {offset} repeats"
-                )
-
         # If we have global output values - map line names to offsets
+        mapped_output_values = None
         if output_values:
             mapped_output_values = {
                 self.line_offset_from_id(line): value
                 for line, value in output_values.items()
             }
-        else:
-            mapped_output_values = None
 
         name_map = dict()
-        offset_map = dict()
+        requested_lines = list()
         global_output_values = list()
+        seen_offsets = set()
 
-        for lines, settings in config.items():
+        for line, settings in config_iter(config):
             offsets = list()
 
-            if isinstance(lines, int) or isinstance(lines, str):
-                lines = (lines,)
+            offset = self.line_offset_from_id(line)
+            # don't allow offset repetitions or offset-name conflicts.
+            if offset in seen_offsets:
+                raise ValueError(
+                    f"line must be configured exactly once - offset {offset} repeats"
+                )
+            seen_offsets.add(offset)
+            offsets.append(offset)
+            requested_lines.append(line)
 
-            for line in lines:
-                offset = self.line_offset_from_id(line)
-                offsets.append(offset)
+            # If there's a global output value for this offset, store it in the
+            # list for later.
+            if mapped_output_values:
+                global_output_values.append(
+                    mapped_output_values.get(offset, Value.INACTIVE)
+                )
 
-                # If there's a global output value for this offset, store it in the
-                # list for later.
-                if mapped_output_values:
-                    global_output_values.append(
-                        mapped_output_values[offset]
-                        if offset in mapped_output_values
-                        else Value.INACTIVE
-                    )
-
-                if isinstance(line, str):
-                    name_map[line] = offset
-                    offset_map[offset] = line
+            if isinstance(line, str):
+                # lines specifically requested by name overwrite any entries
+                name_map[line] = offset
+            else:
+                name = cast("_ext.Chip", self._chip).get_line_name(offset)
+                # Only track lines with actual names. Names from offsets do not
+                # overwrite existing entries (such as requests by name). So if
+                # multiple lines have the same name, the first in the request
+                # list is the one addressable by name
+                if name and name not in name_map:
+                    name_map[name] = offset
 
             line_cfg.add_line_settings(
                 offsets, _line_settings_to_ext(settings or LineSettings())
@@ -328,7 +320,7 @@ class Chip:
         if len(global_output_values):
             line_cfg.set_output_values(global_output_values)
 
-        req_internal = cast(_ext.Chip, self._chip).request_lines(
+        req_internal = cast("_ext.Chip", self._chip).request_lines(
             line_cfg, consumer, event_buffer_size
         )
         request = LineRequest(req_internal)
@@ -336,11 +328,8 @@ class Chip:
         request._chip_name = req_internal.chip_name
         request._offsets = req_internal.offsets
         request._name_map = name_map
-        request._offset_map = offset_map
 
-        request._lines = [
-            offset_map[off] if off in offset_map else off for off in request.offsets
-        ]
+        request._lines = requested_lines
 
         return request
 
@@ -374,7 +363,7 @@ class Chip:
         Filesystem path used to open this chip.
         """
         self._check_closed()
-        return cast(_ext.Chip, self._chip).path
+        return cast("_ext.Chip", self._chip).path
 
     @property
     def fd(self) -> int:
@@ -382,4 +371,4 @@ class Chip:
         File descriptor associated with this chip.
         """
         self._check_closed()
-        return cast(_ext.Chip, self._chip).fd
+        return cast("_ext.Chip", self._chip).fd

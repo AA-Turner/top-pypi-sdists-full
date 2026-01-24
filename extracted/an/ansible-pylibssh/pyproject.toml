@@ -10,15 +10,64 @@ requires = [
   "tomli; python_version < '3.11'",  # needed by in-tree build backend `packaging/pep517_backend.py`
 
   # Plugins
-  "setuptools-scm >= 7.0.0; python_version >= '3.7'",
-  #  ^    supports git archives through a plugin
-  #  |                                        |
-  # supports git archives natively            V
-  "setuptools-scm[toml] >= 3.5, < 7.0.0; python_version < '3.7'",
-  "setuptools-scm-git-archive >= 1.1; python_version < '3.7'",
+  "setuptools-scm >= 7.0.0",
 ]
 backend-path = ["packaging"]  # requires 'Pip>=20' or 'pep517>=0.6.0'
 build-backend = "pep517_backend.hooks"
+
+[tool.local.cython]
+# This attr can contain multiple globs
+src = ["src/**/*.pyx"]
+
+[tool.local.cython.env]
+# Env vars provisioned during cythonize call
+#ANSIBLE_PYLIBSSH_CYTHON_TRACING = "1"
+#CFLAGS = "-DCYTHON_TRACE=1 ${CFLAGS}"
+LDFLAGS = "-lssh ${LDFLAGS}"
+
+[tool.local.cython.flags]
+# This section can contain the following booleans:
+# * annotate — generate annotated HTML page for source files
+# * build — build extension modules using distutils
+# * inplace — build extension modules in place using distutils (implies -b)
+# * force — force recompilation
+# * quiet — be less verbose during compilation
+# * lenient — increase Python compat by ignoring some compile time errors
+# * keep-going — compile as much as possible, ignore compilation failures
+annotate = false
+build = false
+inplace = true
+force = true
+quiet = false
+lenient = false
+keep-going = false
+
+[tool.local.cython.kwargs]
+# This section can contain args tha have values:
+# * exclude=PATTERN      exclude certain file patterns from the compilation
+# * parallel=N    run builds in N parallel jobs (default: calculated per system)
+# exclude = "**.py"
+# parallel = 12
+
+[tool.local.cython.kwargs.directive]
+# This section can contain compiler directives
+# Ref: https://github.com/cython/cython/blob/d6e6de9/Cython/Compiler/Options.py#L170-L242
+embedsignature = "True"
+emit_code_comments = "True"
+linetrace = "True"
+profile = "True"
+
+[tool.local.cython.kwargs.compile-time-env]
+# This section can contain compile time env vars
+
+[tool.local.cython.kwargs.option]
+# This section can contain cythonize options
+# Ref: https://github.com/cython/cython/blob/d6e6de9/Cython/Compiler/Options.py#L694-L730
+#docstrings = "True"
+#embed_pos_in_docstring = "True"
+#warning_errors = "True"
+#error_on_unknown_names = "True"
+#error_on_uninitialized = "True"
 
 [tool.local.cythonize]
 # This attr can contain multiple globs
@@ -52,7 +101,13 @@ keep-going = false
 # * exclude=PATTERN      exclude certain file patterns from the compilation
 # * parallel=N    run builds in N parallel jobs (default: calculated per system)
 # exclude = "**.py"
-# parallel = 12
+#
+# NOTE: Setting parallelism to 1 works around a bug in the ``cythonize``
+# NOTE: script that hangs on macOS under Python 3.8+ due to the use of
+# NOTE: the ``spawn`` method in ``multiprocessing``. This patch can be
+# NOTE: reverted once the fix PR is usable upstream.
+# Ref: https://github.com/cython/cython/pull/7183
+parallel = 1
 
 [tool.local.cythonize.kwargs.directive]
 # This section can contain compiler directives
@@ -147,7 +202,8 @@ profile = "True"
 
 [tool.cibuildwheel]
 build-frontend = "build"
-test-requires = "pytest pytest-cov pytest-xdist pytest-forked"
+# container-engine = "podman"  # FIXME?
+test-requires = "pytest pytest-cov pytest-xdist"
 test-command = "python -Im pytest -m smoke --no-cov {project}/tests"
 skip = "pp*"
 
@@ -157,11 +213,34 @@ FORCE_COLOR = "1"
 MYPY_FORCE_COLOR = "1"
 # PIP_CONSTRAINT = "{package}/requirements-build.txt"
 # PIP_CONSTRAINT = "{project}/requirements-build.txt"
+PIP_CONSTRAINT = "requirements-build.txt"
 PIP_DISABLE_PIP_VERSION_CHECK = "1"
 PIP_NO_PYTHON_VERSION_WARNING = "1"
 PIP_NO_WARN_SCRIPT_LOCATION = "1"
 PRE_COMMIT_COLOR = "always"
 PY_COLORS = "1"
+
+[tool.cibuildwheel.linux]
+manylinux-aarch64-image = "ghcr.io/ansible/pylibssh-manylinux_2_28_aarch64:libssh-v0.11.3"
+manylinux-ppc64le-image = "ghcr.io/ansible/pylibssh-manylinux_2_28_ppc64le:libssh-v0.11.3"
+manylinux-s390x-image = "ghcr.io/ansible/pylibssh-manylinux_2_28_s390x:libssh-v0.11.3"
+manylinux-x86_64-image = "ghcr.io/ansible/pylibssh-manylinux_2_28_x86_64:libssh-v0.11.3"
+skip = [
+  "*-musllinux_*",  # FIXME: musllinux needs us to provide with containers pre-built libssh
+  "pp*",  # FIXME: we don't ship these currently but could
+
+  # The support for 32-bit wheels has been dropped long ago:
+  "*-manylinux_i686",
+  "*-musllinux_i686",
+]
+
+[tool.cibuildwheel.linux.environment]
+STATIC_DEPS_DIR = "$(cat /root/.static-deps-path)"
+# LDFLAGS = "'-L${STATIC_DEPS_PREFIX}/lib64' '-L${STATIC_DEPS_PREFIX}/lib'"
+# LD_LIBRARY_PATH = "${STATIC_DEPS_PREFIX}/lib64:${STATIC_DEPS_PREFIX}/lib:${LD_LIBRARY_PATH}"
+CFLAGS="'-I$(cat /root/.static-deps-path)/include'"
+LDFLAGS = "'-L$(cat /root/.static-deps-path)/lib64' '-L$(cat /root/.static-deps-path)/lib'"
+LD_LIBRARY_PATH = "$(cat /root/.static-deps-path)/lib64:$(cat /root/.static-deps-path)/lib:${LD_LIBRARY_PATH}"
 
 [tool.cibuildwheel.macos]
 before-build = [

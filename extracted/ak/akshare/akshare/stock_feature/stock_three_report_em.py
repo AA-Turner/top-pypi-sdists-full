@@ -102,7 +102,7 @@ def stock_balance_sheet_by_yearly_em(symbol: str = "SH600036") -> pd.DataFrame:
     try:
         temp_df = pd.DataFrame(data_json["data"])
     except:  # noqa: E722
-        company_type = '3'
+        company_type = "3"
         params.update({"companyType": company_type})
         r = requests.get(url, params=params)
         data_json = r.json()
@@ -453,15 +453,15 @@ def __get_report_date_list_delisted_em(symbol: str = "SZ000013") -> list:
     url = "https://datacenter.eastmoney.com/securities/api/data/get"
     params = {
         "type": "RPT_F10_FINANCE_GINCOME",
-        "sty": "SECURITY_CODE,REPORT_DATE,REPORT_TYPE,REPORT_DATE_NAME",
-        "filter": f'(SECURITY_CODE="{symbol[2:]}")',
+        "sty": "SECUCODE,SECURITY_CODE,REPORT_DATE,REPORT_TYPE,REPORT_DATE_NAME",
+        "filter": f'(SECUCODE="{symbol[2:]}.{symbol[:2]}")',
         "p": "1",
         "ps": "200",
         "sr": "-1",
         "st": "REPORT_DATE",
         "source": "HSF10",
         "client": "PC",
-        "v": "05767841728614413",
+        "v": "07306678536291241",
     }
     r = requests.get(url, params=params)
     data_json = r.json()
@@ -485,7 +485,7 @@ def stock_balance_sheet_by_report_delisted_em(symbol: str = "SZ000013") -> pd.Da
     params = {
         "type": "RPT_F10_FINANCE_GBALANCE",
         "sty": "F10_FINANCE_GBALANCE",
-        "filter": f"""(SECUCODE="{symbol[2:]}.{symbol[:2]}")(REPORT_DATE in ({','.join(report_date_list)}))""",
+        "filter": f"""(SECUCODE="{symbol[2:]}.{symbol[:2]}")(REPORT_DATE in ({",".join(report_date_list)}))""",
         "p": "1",
         "ps": "200",
         "sr": "-1",
@@ -518,7 +518,7 @@ def stock_profit_sheet_by_report_delisted_em(symbol: str = "SZ000013") -> pd.Dat
     params = {
         "type": "RPT_F10_FINANCE_GINCOME",
         "sty": "APP_F10_GINCOME",
-        "filter": f"""(SECUCODE="{symbol[2:]}.{symbol[:2]}")(REPORT_DATE in ({','.join(report_date_list)}))""",
+        "filter": f"""(SECUCODE="{symbol[2:]}.{symbol[:2]}")(REPORT_DATE in ({",".join(report_date_list)}))""",
         "p": "1",
         "ps": "200",
         "sr": "-1",
@@ -553,7 +553,7 @@ def stock_cash_flow_sheet_by_report_delisted_em(
     params = {
         "type": "RPT_F10_FINANCE_GCASHFLOW",
         "sty": "APP_F10_GCASHFLOW",
-        "filter": f"""(SECUCODE="{symbol[2:]}.{symbol[:2]}")(REPORT_DATE in ({','.join(report_date_list)}))""",
+        "filter": f"""(SECUCODE="{symbol[2:]}.{symbol[:2]}")(REPORT_DATE in ({",".join(report_date_list)}))""",
         "p": "1",
         "ps": "200",
         "sr": "-1",

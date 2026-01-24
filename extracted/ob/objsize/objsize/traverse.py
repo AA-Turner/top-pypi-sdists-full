@@ -16,15 +16,15 @@ FilterFunc = Callable[[Any], bool]
 GetReferentsFunc = Callable[..., Iterable[Any]]
 SizeFunc = Callable[[Any], int]
 
-SharedObjectType = (
+SHARED_OBJECT_TYPE = (
     type,
     types.ModuleType,
     types.FrameType,
     types.BuiltinFunctionType,
 )
 
-SharedObjectOrFunctionType = (
-    *SharedObjectType,
+SHARED_OBJECT_OR_FUNCTION_TYPE = (
+    *SHARED_OBJECT_TYPE,
     types.FunctionType,
     types.LambdaType,
 )
@@ -58,12 +58,12 @@ def safe_is_instance(obj: Any, type_tuple) -> bool:
 
 def shared_object_or_function_filter(obj: Any) -> bool:
     """Filters objects that are likely to be shared among many objects."""
-    return not safe_is_instance(obj, SharedObjectOrFunctionType)
+    return not safe_is_instance(obj, SHARED_OBJECT_OR_FUNCTION_TYPE)
 
 
 def shared_object_filter(obj: Any) -> bool:
     """Filters objects that are likely to be shared among many objects, but includes functions and lambdas."""
-    return not safe_is_instance(obj, SharedObjectType)
+    return not safe_is_instance(obj, SHARED_OBJECT_TYPE)
 
 
 def default_get_referents(*objs: Any) -> Iterable[Any]:
@@ -342,7 +342,14 @@ class TraversalContext:
         # We keep the current frame and `subtree` objects in addition to the marked-set because they refer to objects
         # in our subtree which may cause them to appear non-exclusive.
         # `objs` should not be added as it only refers to the root objects.
-        frame_set = self.marked_set | {id(inspect.currentframe()), id(subtree)}
+        # In Python 3.14, inspect module added f_generator attribute to frame objects,
+        # making the frame-to-generator reference explicit. This causes gc.get_referrers()
+        # to return the generator as a referrer, so we include it in frame_set.
+        current_frame = inspect.currentframe()
+        frame_ids = {id(current_frame), id(subtree)}
+        if hasattr(current_frame, "f_generator"):
+            frame_ids.add(id(current_frame.f_generator))  # type: ignore[union-attr]
+        frame_set = self.marked_set | frame_ids
 
         # We first make sure that any "old" objects that may refer to our subtree were collected.
         gc.collect()

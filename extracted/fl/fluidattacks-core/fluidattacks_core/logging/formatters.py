@@ -2,24 +2,22 @@ import logging
 import traceback
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import simplejson as json
 from pythonjsonlogger.json import JsonFormatter
 
-from fluidattacks_core.logging.utils import (
-    get_environment_metadata,
-    get_job_metadata,
-    get_pipeline_environment,
-    get_pipeline_metadata,
-    get_telemetry_metadata,
+from fluidattacks_core.logging.sources import (
+    BatchSource,
+    ContainerSource,
+    DefaultSource,
+    LambdaSource,
+    PipelineSource,
 )
+from fluidattacks_core.logging.utils import get_telemetry_metadata
 
-# Main formats
-DATE_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
-"""
-Default date format for logs.
-"""
+if TYPE_CHECKING:
+    from fluidattacks_core.logging.sources.types import SourceStrategy
 
 
 class ColorfulFormatter(logging.Formatter):
@@ -48,8 +46,8 @@ class ColorfulFormatter(logging.Formatter):
 
 
 class CustomJsonFormatter(JsonFormatter):
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        def json_default(object_: object) -> Any:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # noqa: ANN401
+        def json_default(object_: object) -> Any:  # noqa: ANN401
             if isinstance(object_, set):
                 return list(object_)
             if isinstance(object_, datetime):
@@ -81,8 +79,7 @@ class CustomJsonFormatter(JsonFormatter):
         log_record["file_location"] = f"{record.filename}:{record.lineno}"
         log_record["lineno"] = record.lineno
 
-        self._add_service_fields(log_record)
-        self._add_deployment_fields(log_record)
+        self._add_source_fields(log_record)
 
         self._add_default_telemetry_fields(log_record)
         self._add_error_fields(log_record, record)
@@ -97,40 +94,27 @@ class CustomJsonFormatter(JsonFormatter):
                 return int(timestamp)
         return round(datetime.now(tz=UTC).timestamp() * 1000)
 
-    def _add_service_fields(self, log_record: dict[str, Any]) -> None:
-        """Add service information to the log record.
+    def _add_source_fields(self, log_record: dict[str, Any]) -> None:
+        """Add source information to the log record.
 
         It includes:
+        - Source
+        - Service
         - Version
-        - Product name
+        - Deployment environment
+        - Other metadata according to the source
         """
-        batch_info = get_job_metadata().job_queue
-        is_in_batch = get_job_metadata().job_id is not None
-        product_name = get_environment_metadata().product_id
-        service = f"{product_name}" + (f"/{batch_info}" if is_in_batch else "")
-        version = get_environment_metadata().version
-
-        log_record["dd.version"] = version
-        log_record["service.version"] = version
-        log_record["dd.service"] = service
-        log_record["service.name"] = service
-
-    def _add_deployment_fields(self, log_record: dict[str, Any]) -> None:
-        """Add deployment information to the log record.
-
-        It includes:
-        - Environment
-        - Pipeline where the log was generated
-        """
-        env = get_environment_metadata().environment
-
-        log_record["dd.environment"] = env
-        log_record["deployment.environment"] = env
-
-        if pipeline := get_pipeline_environment():
-            log_record["deployment.pipeline.type"] = pipeline.upper()
-            for key, value in get_pipeline_metadata(pipeline).items():
-                log_record[f"deployment.pipeline.{key}"] = value
+        supported_sources: list[type[SourceStrategy]] = [
+            LambdaSource,
+            BatchSource,
+            PipelineSource,
+            ContainerSource,
+            DefaultSource,
+        ]
+        for source in supported_sources:
+            if source.detect():
+                log_record.update(source.log_metadata())
+                break
 
     def _add_default_telemetry_fields(self, log_record: dict[str, Any]) -> None:
         """Add default metadata fields to the log record.
@@ -145,13 +129,13 @@ class CustomJsonFormatter(JsonFormatter):
         """Add error fields to the log record.
 
         It includes:
-        - `error.type`
+        - `error.kind`
         - `error.message`
         - `error.stack`
         """
         if record.exc_info:
             if exc_type := record.exc_info[0]:
-                log_record["error.type"] = exc_type.__name__
+                log_record["error.kind"] = exc_type.__name__
             if exc_value := record.exc_info[1]:
                 log_record["error.message"] = str(exc_value)
             if exc_tb := record.exc_info[2]:

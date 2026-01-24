@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from logging import getLogger
-from typing import TYPE_CHECKING, Any, Optional, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 from typing_extensions import override
@@ -46,10 +47,10 @@ class _HttpxResponse:
     def headers(self) -> HttpHeaders:
         return HttpHeaders(dict(self._response.headers))
 
-    def read(self) -> bytes:
+    async def read(self) -> bytes:
         if not self._response.is_closed:
             raise RuntimeError('Use `read_stream` to read the body of the Response received from the `stream` method')
-        return self._response.read()
+        return await self._response.aread()
 
     async def read_stream(self) -> AsyncIterator[bytes]:
         if self._response.is_stream_consumed:
@@ -81,7 +82,7 @@ class _HttpxTransport(httpx.AsyncHTTPTransport):
         return response
 
 
-@docs_group('Classes')
+@docs_group('HTTP clients')
 class HttpxHttpClient(HttpClient):
     """HTTP client based on the `HTTPX` library.
 
@@ -136,7 +137,7 @@ class HttpxHttpClient(HttpClient):
 
         self._transport: _HttpxTransport | None = None
 
-        self._client_by_proxy_url = dict[Optional[str], httpx.AsyncClient]()
+        self._client_by_proxy_url = dict[str | None, httpx.AsyncClient]()
 
     @override
     async def crawl(
@@ -146,6 +147,7 @@ class HttpxHttpClient(HttpClient):
         session: Session | None = None,
         proxy_info: ProxyInfo | None = None,
         statistics: Statistics | None = None,
+        timeout: timedelta | None = None,
     ) -> HttpCrawlingResult:
         client = self._get_client(proxy_info.url if proxy_info else None)
         headers = self._combine_headers(request.headers)
@@ -157,10 +159,13 @@ class HttpxHttpClient(HttpClient):
             content=request.payload,
             cookies=session.cookies.jar if session else None,
             extensions={'crawlee_session': session if self._persist_cookies_per_session else None},
+            timeout=timeout.total_seconds() if timeout is not None else httpx.USE_CLIENT_DEFAULT,
         )
 
         try:
             response = await client.send(http_request)
+        except httpx.TimeoutException as exc:
+            raise asyncio.TimeoutError from exc
         except httpx.TransportError as exc:
             if self._is_proxy_error(exc):
                 raise ProxyError from exc
@@ -185,6 +190,7 @@ class HttpxHttpClient(HttpClient):
         payload: HttpPayload | None = None,
         session: Session | None = None,
         proxy_info: ProxyInfo | None = None,
+        timeout: timedelta | None = None,
     ) -> HttpResponse:
         client = self._get_client(proxy_info.url if proxy_info else None)
 
@@ -195,10 +201,13 @@ class HttpxHttpClient(HttpClient):
             headers=headers,
             payload=payload,
             session=session,
+            timeout=httpx.Timeout(timeout.total_seconds()) if timeout is not None else None,
         )
 
         try:
             response = await client.send(http_request)
+        except httpx.TimeoutException as exc:
+            raise asyncio.TimeoutError from exc
         except httpx.TransportError as exc:
             if self._is_proxy_error(exc):
                 raise ProxyError from exc
@@ -228,10 +237,13 @@ class HttpxHttpClient(HttpClient):
             headers=headers,
             payload=payload,
             session=session,
-            timeout=timeout,
+            timeout=httpx.Timeout(None, connect=timeout.total_seconds()) if timeout else None,
         )
 
-        response = await client.send(http_request, stream=True)
+        try:
+            response = await client.send(http_request, stream=True)
+        except httpx.TimeoutException as exc:
+            raise asyncio.TimeoutError from exc
 
         try:
             yield _HttpxResponse(response)
@@ -246,7 +258,7 @@ class HttpxHttpClient(HttpClient):
         headers: HttpHeaders | dict[str, str] | None,
         payload: HttpPayload | None,
         session: Session | None = None,
-        timeout: timedelta | None = None,
+        timeout: httpx.Timeout | None = None,
     ) -> httpx.Request:
         """Build an `httpx.Request` using the provided parameters."""
         if isinstance(headers, dict) or headers is None:
@@ -254,15 +266,13 @@ class HttpxHttpClient(HttpClient):
 
         headers = self._combine_headers(headers)
 
-        httpx_timeout = httpx.Timeout(None, connect=timeout.total_seconds()) if timeout else None
-
         return client.build_request(
             url=url,
             method=method,
             headers=dict(headers) if headers else None,
             content=payload,
             extensions={'crawlee_session': session if self._persist_cookies_per_session else None},
-            timeout=httpx_timeout,
+            timeout=timeout if timeout else httpx.USE_CLIENT_DEFAULT,
         )
 
     def _get_client(self, proxy_url: str | None) -> httpx.AsyncClient:

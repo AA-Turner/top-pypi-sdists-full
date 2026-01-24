@@ -1,10 +1,6 @@
 from __future__ import annotations
 
-from .ai import (
-    classify_text,
-    embed_text,
-    embed_image,
-)
+from .ai import classify_image, classify_text, embed_text, embed_image, prompt
 from .agg import (
     count,
     count_distinct,
@@ -12,6 +8,7 @@ from .agg import (
     approx_count_distinct,
     approx_percentiles,
     mean,
+    avg,
     stddev,
     min,
     max,
@@ -22,6 +19,7 @@ from .agg import (
     list_agg,
     list_agg_distinct,
     string_agg,
+    product,
 )
 from .binary import encode, try_encode, compress, try_compress, decode, try_decode, decompress, try_decompress
 from .bitwise import bitwise_and, bitwise_or, bitwise_xor, shift_left, shift_right
@@ -32,6 +30,7 @@ from .columnar import (
     columns_min,
     columns_max,
 )
+from .process import run_process
 from .datetime import (
     date,
     day,
@@ -64,12 +63,16 @@ from .datetime import (
     to_unix_epoch,
 )
 from .embedding import cosine_distance
+
+from .file_ import file, file_size, video_file, audio_file, guess_mime_type
+
 from .image import (
     resize,
     crop,
     encode_image,
     decode_image,
     convert_image,
+    image_to_tensor,
     image_attribute,
     image_width,
     image_height,
@@ -97,7 +100,6 @@ from .list import (
 from .llm import llm_generate
 from .misc import (
     monotonically_increasing_id,
-    file,
     eq_null_safe,
     cast,
     is_null,
@@ -112,6 +114,7 @@ from .misc import (
     get,
     map_get,
     slice,
+    when,
 )
 from .numeric import (
     abs,
@@ -146,6 +149,8 @@ from .numeric import (
     log,
     ln,
     log1p,
+    pow,
+    power,
     exp,
     expm1,
     between,
@@ -202,6 +207,8 @@ from .str import (
 )
 from .struct import unnest, to_struct
 from .url import download, upload, parse_url
+from .audio import audio_metadata, resample
+from .video import video_metadata, video_keyframes
 from .window import (
     row_number,
     rank,
@@ -223,6 +230,9 @@ __all__ = [
     "arctan",
     "arctan2",
     "arctanh",
+    "audio_file",
+    "audio_metadata",
+    "avg",
     "between",
     "bitwise_and",
     "bitwise_or",
@@ -234,6 +244,7 @@ __all__ = [
     "cbrt",
     "ceil",
     "chunk",
+    "classify_image",
     "classify_text",
     "clip",
     "coalesce",
@@ -278,12 +289,14 @@ __all__ = [
     "explode",
     "expm1",
     "file",
+    "file_size",
     "fill_nan",
     "fill_null",
     "find",
     "floor",
     "format",
     "get",
+    "guess_mime_type",
     "hash",
     "hour",
     "ilike",
@@ -291,6 +304,7 @@ __all__ = [
     "image_channel",
     "image_height",
     "image_mode",
+    "image_to_tensor",
     "image_width",
     "is_in",
     "is_inf",
@@ -349,6 +363,10 @@ __all__ = [
     "partition_iceberg_truncate",
     "partition_months",
     "partition_years",
+    "pow",
+    "power",
+    "product",
+    "prompt",
     "quarter",
     "radians",
     "rank",
@@ -360,6 +378,7 @@ __all__ = [
     "regexp_split",
     "repeat",
     "replace",
+    "resample",
     "resize",
     "reverse",
     "right",
@@ -367,6 +386,7 @@ __all__ = [
     "row_number",
     "rpad",
     "rstrip",
+    "run_process",
     "sec",
     "second",
     "serialize",
@@ -412,6 +432,10 @@ __all__ = [
     "upload",
     "upper",
     "value_counts",
+    "video_file",
+    "video_keyframes",
+    "video_metadata",
     "week_of_year",
+    "when",
     "year",
 ]

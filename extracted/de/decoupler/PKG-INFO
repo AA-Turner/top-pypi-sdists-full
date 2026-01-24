@@ -1,0 +1,207 @@
+Metadata-Version: 2.4
+Name: decoupler
+Version: 2.1.4
+Summary: Python package to perform enrichment analysis from omics data.
+Project-URL: Documentation, https://decoupler.readthedocs.io/
+Project-URL: Homepage, https://github.com/scverse/decoupler
+Project-URL: Source, https://github.com/scverse/decoupler
+Author: Pau Badia i Mompel
+Maintainer-email: Pau Badia i Mompel <paubim@stanford.edu>
+License: BSD 3-Clause License
+        
+        Copyright (c) 2025, scverse®
+        Copyright (c) 2025, Pau Badia i Mompel, Saez lab
+        All rights reserved.
+        
+        Redistribution and use in source and binary forms, with or without
+        modification, are permitted provided that the following conditions are met:
+        
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
+        
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
+        
+        3. Neither the name of the copyright holder nor the names of its
+           contributors may be used to endorse or promote products derived from
+           this software without specific prior written permission.
+        
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+        AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+        IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+        FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+        DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+        SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+        CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+        OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+        OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-File: LICENSE
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: adjusttext
+Requires-Dist: anndata
+Requires-Dist: docrep
+Requires-Dist: marsilea
+Requires-Dist: numba
+Requires-Dist: requests
+Requires-Dist: scipy
+Requires-Dist: session-info2
+Requires-Dist: tqdm
+Provides-Extra: dev
+Requires-Dist: pre-commit; extra == 'dev'
+Requires-Dist: twine>=4.0.2; extra == 'dev'
+Provides-Extra: doc
+Requires-Dist: docutils!=0.18.*,!=0.19.*,>=0.8; extra == 'doc'
+Requires-Dist: ipykernel; extra == 'doc'
+Requires-Dist: ipython; extra == 'doc'
+Requires-Dist: myst-nb>=1.1; extra == 'doc'
+Requires-Dist: pandas; extra == 'doc'
+Requires-Dist: setuptools; extra == 'doc'
+Requires-Dist: sphinx-autodoc-typehints; extra == 'doc'
+Requires-Dist: sphinx-book-theme>=1; extra == 'doc'
+Requires-Dist: sphinx-copybutton; extra == 'doc'
+Requires-Dist: sphinx-tabs; extra == 'doc'
+Requires-Dist: sphinx>=8.1; extra == 'doc'
+Requires-Dist: sphinxcontrib-bibtex>=1; extra == 'doc'
+Requires-Dist: sphinxext-opengraph; extra == 'doc'
+Provides-Extra: full
+Requires-Dist: dcor; extra == 'full'
+Requires-Dist: igraph; extra == 'full'
+Requires-Dist: ipywidgets; extra == 'full'
+Requires-Dist: pydeseq2; extra == 'full'
+Requires-Dist: scanpy; extra == 'full'
+Requires-Dist: xgboost; extra == 'full'
+Provides-Extra: test
+Requires-Dist: coverage>=7.10; extra == 'test'
+Requires-Dist: dcor; extra == 'test'
+Requires-Dist: gseapy; extra == 'test'
+Requires-Dist: igraph; extra == 'test'
+Requires-Dist: ipywidgets; extra == 'test'
+Requires-Dist: memory-profiler; extra == 'test'
+Requires-Dist: pydeseq2; extra == 'test'
+Requires-Dist: pytest; extra == 'test'
+Requires-Dist: pytest-cov; extra == 'test'
+Requires-Dist: scanpy; extra == 'test'
+Requires-Dist: statsmodels; extra == 'test'
+Requires-Dist: xgboost; extra == 'test'
+Description-Content-Type: text/markdown
+
+# decoupler - Ensemble of methods to infer enrichment scores
+<img src="https://raw.githubusercontent.com/scverse/decoupler/refs/heads/main/docs/_static/images/logo.svg" align="right" width="120" class="no-scaled-link" />
+
+[![Tests][badge-tests]][tests]
+[![Documentation][badge-docs]][documentation]
+
+[![Issues][badge-issues]][issue tracker]
+[![Coverage][badge-coverage]][codecoverage]
+[![Stars][badge-stars]](https://github.com/scverse/anndata/stargazers)
+
+[![PyPI][badge-pypi]][pypi]
+[![Downloads month][badge-mdown]][down]
+[![Downloads all][badge-adown]][down]
+
+[![Conda version][badge-condav]][conda]
+[![Conda downloads][badge-condad]][conda]
+
+[badge-tests]: https://img.shields.io/github/actions/workflow/status/scverse/decoupler/test.yaml?branch=main
+[badge-docs]: https://img.shields.io/readthedocs/decoupler
+[badge-condav]: https://img.shields.io/conda/vn/conda-forge/decoupler-py.svg
+[badge-condad]: https://img.shields.io/conda/dn/conda-forge/decoupler-py.svg
+[badge-issues]: https://img.shields.io/github/issues/scverse/decoupler
+[badge-coverage]: https://codecov.io/gh/scverse/decoupler/branch/main/graph/badge.svg
+[badge-pypi]: https://img.shields.io/pypi/v/decoupler.svg
+[badge-mdown]: https://static.pepy.tech/badge/decoupler/month
+[badge-adown]: https://static.pepy.tech/badge/decoupler
+[badge-stars]: https://img.shields.io/github/stars/scverse/decoupler?style=flat&logo=github&color=yellow
+
+`decoupler` is a python package containing different enrichment statistical
+methods to extract biologically driven scores
+from omics data within a unified framework. This is its faster and memory efficient Python implementation,
+a deprecated version in R can be found [here](https://github.com/saezlab/decoupler).
+
+[//]: # (numfocus-fiscal-sponsor-attribution)
+
+decoupler is part of the scverse® project ([website](https://scverse.org), [governance](https://scverse.org/about/roles)) and is fiscally sponsored by [NumFOCUS](https://numfocus.org/).
+If you like scverse® and want to support our mission, please consider making a tax-deductible [donation](https://numfocus.org/donate-to-scverse) to help the project pay for developer time, professional services, travel, workshops, and a variety of other needs.
+
+<div align="center">
+<a href="https://numfocus.org/project/scverse">
+  <img
+    src="https://raw.githubusercontent.com/numfocus/templates/master/images/numfocus-logo.png"
+    width="200"
+  >
+</a>
+</div>
+
+## Getting started
+
+Please refer to the [documentation][],
+in particular, the [API documentation][].
+
+## Installation
+
+You need to have Python 3.10 or newer installed on your system.
+If you don't have Python installed, we recommend installing [uv][].
+
+There are several alternative options to install decoupler:
+
+1. Install the latest stable release from [PyPI][pypi] with minimal dependancies:
+
+```bash
+pip install decoupler
+```
+
+2. Install the latest stable full release from [PyPI][pypi] with extra dependancies:
+
+```bash
+pip install decoupler[full]
+```
+
+3. Install the latest stable version from [conda-forge][conda] using mamba or conda (pay attention to the `-py` suffix at the end):
+
+```bash
+mamba create -n=dcp conda-forge::decoupler-py
+```
+
+4. Install the latest development version:
+
+```bash
+pip install git+https://github.com/scverse/decoupler.git@main
+```
+
+## Release notes
+
+See the [changelog][].
+
+## Contact
+
+For questions and help requests, you can reach out in the [scverse discourse][].
+If you found a bug, please use the [issue tracker][].
+
+## Citation
+
+> Badia-i-Mompel P., Vélez Santiago J., Braunger J., Geiss C., Dimitrov D.,
+Müller-Dott S., Taus P., Dugourd A., Holland C.H., Ramirez Flores R.O.
+and Saez-Rodriguez J. 2022. decoupleR: Ensemble of computational methods
+to infer biological activities from omics data. Bioinformatics Advances.
+<https://doi.org/10.1093/bioadv/vbac016>
+
+[uv]: https://github.com/astral-sh/uv
+[scverse discourse]: https://discourse.scverse.org/
+[scverse]: https://scverse.org/
+[issue tracker]: https://github.com/scverse/decoupler/issues
+[tests]: https://github.com/scverse/decoupler/actions/workflows/test.yaml
+[documentation]: https://decoupler.readthedocs.io
+[changelog]: https://decoupler.readthedocs.io/en/latest/changelog.html
+[api documentation]: https://decoupler.readthedocs.io/en/latest/api.html
+[pypi]: https://pypi.org/project/decoupler
+[down]: https://pepy.tech/project/decoupler
+[conda]: https://anaconda.org/conda-forge/decoupler-py
+[codecoverage]: https://codecov.io/gh/scverse/decoupler

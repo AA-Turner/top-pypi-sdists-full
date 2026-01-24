@@ -1,4 +1,4 @@
-use crate::networking::{NetworkClient, NetworkError, RequestArgs};
+use crate::networking::{NetworkClient, NetworkError, RequestArgs, ResponseData};
 use crate::observability::ops_stats::{OpsStatsForInstance, OPS_STATS};
 use crate::observability::sdk_errors_observer::ErrorBoundaryEvent;
 use crate::sdk_diagnostics::diagnostics::ContextType;
@@ -24,7 +24,7 @@ use tokio::time::sleep;
 use super::SpecsInfo;
 
 pub struct NetworkResponse {
-    pub data: Vec<u8>,
+    pub data: ResponseData,
     pub api: String,
 }
 
@@ -45,6 +45,7 @@ pub struct StatsigHttpSpecsAdapter {
     sync_interval_duration: Duration,
     ops_stats: Arc<OpsStatsForInstance>,
     shutdown_notify: Arc<Notify>,
+    enable_proto_spec_support: bool,
 }
 
 impl StatsigHttpSpecsAdapter {
@@ -81,6 +82,11 @@ impl StatsigHttpSpecsAdapter {
 
         let headers = StatsigMetadata::get_constant_request_headers(sdk_key);
 
+        let enable_proto_spec_support = options_ref
+            .experimental_flags
+            .as_ref()
+            .is_some_and(|flags| flags.contains("enable_proto_spec_support"));
+
         Self {
             listener: RwLock::new(None),
             network: NetworkClient::new(sdk_key, Some(headers), Some(options_ref)),
@@ -95,6 +101,7 @@ impl StatsigHttpSpecsAdapter {
             )),
             ops_stats: OPS_STATS.get_for_instance(sdk_key),
             shutdown_notify: Arc::new(Notify::new()),
+            enable_proto_spec_support,
         }
     }
 
@@ -124,6 +131,16 @@ impl StatsigHttpSpecsAdapter {
         trigger: SpecsSyncTrigger,
     ) -> RequestArgs {
         let mut params = HashMap::new();
+        let mut headers = None;
+
+        if self.enable_proto_spec_support {
+            params.insert("supports_proto".to_string(), "true".to_string());
+            headers = Some(HashMap::from([(
+                "supports-proto".to_string(),
+                "true".to_string(),
+            )]));
+        }
+
         if let Some(lcut) = current_specs_info.lcut {
             if lcut > 0 {
                 params.insert("sinceTime".to_string(), lcut.to_string());
@@ -155,6 +172,7 @@ impl StatsigHttpSpecsAdapter {
             accept_gzip_response: true,
             diagnostics_key: Some(KeyType::DownloadConfigSpecs),
             timeout_ms,
+            headers,
             ..RequestArgs::new()
         }
     }
@@ -185,11 +203,10 @@ impl StatsigHttpSpecsAdapter {
         })
     }
 
-    // TODO: return a decompressed and parsed SpecsResponse
     async fn handle_specs_request(
         &self,
         request_args: RequestArgs,
-    ) -> Result<Vec<u8>, NetworkError> {
+    ) -> Result<ResponseData, NetworkError> {
         let url = request_args.url.clone();
         let response = self.network.get(request_args).await?;
         match response.data {
@@ -197,7 +214,7 @@ impl StatsigHttpSpecsAdapter {
             None => Err(NetworkError::RequestFailed(
                 url,
                 None,
-                "No data in response".to_string(),
+                response.error.unwrap_or("No data in response".to_string()),
             )),
         }
     }

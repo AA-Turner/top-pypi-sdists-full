@@ -1,0 +1,275 @@
+name: CI 
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    - cron: "0 10 * * 1" # every Monday at 10:00 UTC
+
+jobs:
+  sanity:
+    name: Ansible Sanity Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.12"
+            ansible-core: stable-2.16
+          - python-version: "3.12"
+            ansible-core: stable-2.17
+          - python-version: "3.13"
+            ansible-core: stable-2.18
+          - python-version: "3.13"
+            ansible-core: stable-2.19
+          - python-version: "3.13"
+            ansible-core: devel
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fix collection path for ansible-test
+        run: |
+          mkdir -p ansible_collections/ravendb/ravendb
+          rsync -av --exclude ansible_collections ./ ansible_collections/ravendb/ravendb
+          cd ansible_collections/ravendb/ravendb
+
+      - name: Set up Python (host)
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-core@https://github.com/ansible/ansible/archive/${{ matrix.ansible-core }}.tar.gz"
+
+      - name: Run ansible-test sanity
+        working-directory: ansible_collections/ravendb/ravendb
+        run: |
+          ansible-test sanity --docker -v --color
+
+
+  integration-and-unit:
+    name: Integration + Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      RAVEN_LICENSE: ${{ secrets.RAVEN_LICENSE }}
+      A_SETTINGS_JSON: ${{ secrets.A_SETTINGS_JSON }}
+      B_SETTINGS_JSON: ${{ secrets.B_SETTINGS_JSON }}
+      C_SETTINGS_JSON: ${{ secrets.C_SETTINGS_JSON }}
+      A_PFX_B64: ${{ secrets.A_PFX_B64 }}
+      B_PFX_B64: ${{ secrets.B_PFX_B64 }}
+      C_PFX_B64: ${{ secrets.C_PFX_B64 }}
+      ADMIN_PFX_B64: ${{ secrets.ADMIN_PFX_B64 }}
+      ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_CRT: ${{ secrets.ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_CRT }}
+      ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_KEY: ${{ secrets.ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_KEY }}
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.10"
+            ansible-core: stable-2.16
+          - python-version: "3.11"
+            ansible-core: stable-2.16
+          - python-version: "3.12"
+            ansible-core: stable-2.16
+          - python-version: "3.10"
+            ansible-core: stable-2.17
+          - python-version: "3.11"
+            ansible-core: stable-2.17
+          - python-version: "3.12"
+            ansible-core: stable-2.17
+          - python-version: "3.11"
+            ansible-core: stable-2.18
+          - python-version: "3.12"
+            ansible-core: stable-2.18
+          - python-version: "3.13"
+            ansible-core: stable-2.18
+          - python-version: "3.11"
+            ansible-core: stable-2.19
+          - python-version: "3.12"
+            ansible-core: stable-2.19
+          - python-version: "3.13"
+            ansible-core: stable-2.19
+          - python-version: "3.12"
+            ansible-core: devel
+          - python-version: "3.13"
+            ansible-core: devel
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Fix collection path for ansible-test
+        run: |
+          mkdir -p ansible_collections/ravendb/ravendb
+          rsync -av --exclude ansible_collections ./ ansible_collections/ravendb/ravendb
+          cd ansible_collections/ravendb/ravendb
+
+      - name: Set up Python (host)
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install ASP.NET Core Runtime
+        run: |
+          wget https://dot.net/v1/dotnet-install.sh -O dotnet-install.sh
+          chmod +x dotnet-install.sh
+          ./dotnet-install.sh --runtime aspnetcore --channel 8.0
+
+      - name: Uninstall old Molecule plugins 
+        run: |
+          pip uninstall -y molecule-docker molecule molecule-plugins[docker] community.docker docker
+
+      - name: Install dependencies
+        env:
+          ANSIBLE_COLLECTIONS_PATHS: ~/.ansible/collections:/usr/share/ansible/collections
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-core@https://github.com/ansible/ansible/archive/${{ matrix.ansible-core }}.tar.gz"
+          pip install molecule molecule-plugins[docker] docker ravendb_test_driver
+          ansible-galaxy collection install community.docker ansible.posix community.general
+      
+      - name: Set ansible roles path
+        run: echo "ANSIBLE_ROLES_PATH=$GITHUB_WORKSPACE/roles" >> $GITHUB_ENV
+
+      - name: Detect required secrets
+        id: detect_secrets
+        shell: bash
+        run: |
+          required=(RAVEN_LICENSE A_SETTINGS_JSON B_SETTINGS_JSON C_SETTINGS_JSON A_PFX_B64 B_PFX_B64 C_PFX_B64 ADMIN_PFX_B64 ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_CRT ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_KEY)
+          missing=0
+
+          for k in "${required[@]}"; do
+            if [ -z "${!k:-}" ]; then
+              missing=$((missing+1))
+            fi
+          done
+          
+          if [ "$missing" -eq 0 ]; then
+            printf 'has_secrets=true\n' >> "$GITHUB_OUTPUT"
+          else
+            printf 'has_secrets=false\n' >> "$GITHUB_OUTPUT"
+          fi
+      
+      - name: Run Debian unsecured scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s unsecured
+ 
+      - name: Run Debian-11 unsecured scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s debian-11
+
+      - name: Run Debian-12 unsecured scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s debian-12
+
+      - name: Run Debian-13 unsecured scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s debian-13
+
+      - name: Run Debian update scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s update
+
+      - name: Run Debian cleanup scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s cleanup
+
+      - name: Run RHEL unsecured scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s unsecured-rhel
+
+      - name: Run RHEL update scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s update-rhel
+
+      - name: Run RHEL cleanup scenario
+        working-directory: roles/ravendb_node
+        run: molecule test -s cleanup-rhel
+
+      - name: Write license to a temp file
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          LICENSE_FILE="/tmp/license.json"
+          printf '%s' "$RAVEN_LICENSE" > "$LICENSE_FILE"
+          chmod 600 "$LICENSE_FILE"
+          echo "RAVEN_LICENSE_FILE=$LICENSE_FILE" >> "$GITHUB_ENV"
+
+      - name: Rebuild setup_package.zip
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          mkdir -p setup_package/{A,B,C}
+          printf '%s' "$A_SETTINGS_JSON" > setup_package/A/settings.json
+          printf '%s' "$B_SETTINGS_JSON" > setup_package/B/settings.json
+          printf '%s' "$C_SETTINGS_JSON" > setup_package/C/settings.json
+          printf '%s' "$A_PFX_B64" | base64 -d > setup_package/A/cluster.server.certificate.rdbansibleci.pfx
+          printf '%s' "$B_PFX_B64" | base64 -d > setup_package/B/cluster.server.certificate.rdbansibleci.pfx
+          printf '%s' "$C_PFX_B64" | base64 -d > setup_package/C/cluster.server.certificate.rdbansibleci.pfx
+          printf '%s' "$ADMIN_PFX_B64" | base64 -d > setup_package/admin.client.certificate.rdbansibleci.pfx
+          printf '%s' "$ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_CRT" > setup_package/admin.client.certificate.rdbansibleci.crt
+          printf '%s' "$ADMIN_CLIENT_CERTIFICATE_RDBANSIBLE_KEY" > setup_package/admin.client.certificate.rdbansibleci.key
+
+          (cd setup_package && zip -r /tmp/setup_package.zip .)
+          chmod 600 /tmp/setup_package.zip
+
+      - name: create dedicated docker network for secured scenario
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+        run: |
+          docker network rm ravendbnet || true
+          docker network create --driver bridge --subnet 172.22.0.0/24 --gateway 172.22.0.1 ravendbnet
+
+      - name: Run Debian secured scenario
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+        working-directory: roles/ravendb_node
+        run: molecule test -s secured
+
+      - name: remove dedicated docker network for secured scenario
+        if: always() && steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+        run: |
+          docker network rm ravendbnet || true
+
+      - name: Build ansible galaxy collection
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request'
+        run: |
+          ansible-galaxy collection build .
+          ansible-galaxy collection install ./ravendb-ravendb-*.tar.gz --force -p ./
+
+      - name: Run modules scenarios
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request' # requiers license
+        working-directory: roles/ravendb_node
+        run: molecule test -s plugins-unsecured
+
+      - name: Run modules scenarios nodes
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request' # requiers license
+        working-directory: roles/ravendb_node
+        run: molecule test -s plugins-unsecured-nodes
+
+      - name: Run rolling-update UCs
+        if: steps.detect_secrets.outputs.has_secrets == 'true' && github.event_name != 'pull_request' # requiers license
+        working-directory: roles/ravendb_node
+        run: |
+          UCs="\
+            happy-paths/node-cluster-and-db-online-ok.yml \
+            failure-paths/node-alive-fails-on-b.yml \
+            failure-paths/cluster-connectivity-fails-on-b.yml \
+            failure-paths/degraded-db-placement-on-a-c.yml \
+            failure-paths/db-online-fail-fast-on-load-error.yml"
+          for UC in $UCs; do
+            molecule test -s rolling-update -- --extra-vars "rolling_uc=${UC}"
+          done
+          
+      - name: Set up .NET environment variables
+        run: |
+          export DOTNET_ROOT=$HOME/.dotnet
+          export PATH=$PATH:$HOME/.dotnet
+          source ~/.bashrc
+
+      - name: Change to ravendb_node role directory
+        run: cd roles/ravendb_node
+        
+      - name: Run modules unit tests
+        run: python3 -m unittest discover -s tests/unit -v

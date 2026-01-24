@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,12 +34,6 @@ from .literals import (
     TagSyncTaskStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -150,13 +145,13 @@ class GroupTypeDef(TypedDict):
     Criticality: NotRequired[int]
     Owner: NotRequired[str]
     DisplayName: NotRequired[str]
-    ApplicationTag: NotRequired[Dict[str, str]]
+    ApplicationTag: NotRequired[dict[str, str]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -196,7 +191,7 @@ class GetTagsInputTypeDef(TypedDict):
 
 class GroupConfigurationParameterOutputTypeDef(TypedDict):
     Name: str
-    Values: NotRequired[List[str]]
+    Values: NotRequired[list[str]]
 
 
 class GroupConfigurationParameterTypeDef(TypedDict):
@@ -372,7 +367,7 @@ class GetTagSyncTaskOutputTypeDef(TypedDict):
 
 class GetTagsOutputTypeDef(TypedDict):
     Arn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -389,13 +384,13 @@ class StartTagSyncTaskOutputTypeDef(TypedDict):
 
 class TagOutputTypeDef(TypedDict):
     Arn: str
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UntagOutputTypeDef(TypedDict):
     Arn: str
-    Keys: List[str]
+    Keys: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -413,7 +408,7 @@ GroupConfigurationItemOutputTypeDef = TypedDict(
     "GroupConfigurationItemOutputTypeDef",
     {
         "Type": str,
-        "Parameters": NotRequired[List[GroupConfigurationParameterOutputTypeDef]],
+        "Parameters": NotRequired[list[GroupConfigurationParameterOutputTypeDef]],
     },
 )
 GroupConfigurationParameterUnionTypeDef = Union[
@@ -428,29 +423,29 @@ class ListGroupsInputTypeDef(TypedDict):
 
 
 class ListGroupsOutputTypeDef(TypedDict):
-    GroupIdentifiers: List[GroupIdentifierTypeDef]
-    Groups: List[GroupTypeDef]
+    GroupIdentifiers: list[GroupIdentifierTypeDef]
+    Groups: list[GroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GroupResourcesOutputTypeDef(TypedDict):
-    Succeeded: List[str]
-    Failed: List[FailedResourceTypeDef]
-    Pending: List[PendingResourceTypeDef]
+    Succeeded: list[str]
+    Failed: list[FailedResourceTypeDef]
+    Pending: list[PendingResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class UngroupResourcesOutputTypeDef(TypedDict):
-    Succeeded: List[str]
-    Failed: List[FailedResourceTypeDef]
-    Pending: List[PendingResourceTypeDef]
+    Succeeded: list[str]
+    Failed: list[FailedResourceTypeDef]
+    Pending: list[PendingResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListGroupingStatusesOutputTypeDef(TypedDict):
     Group: str
-    GroupingStatuses: List[GroupingStatusesItemTypeDef]
+    GroupingStatuses: list[GroupingStatusesItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -486,8 +481,8 @@ class ListGroupResourcesItemTypeDef(TypedDict):
 
 
 class SearchResourcesOutputTypeDef(TypedDict):
-    ResourceIdentifiers: List[ResourceIdentifierTypeDef]
-    QueryErrors: List[QueryErrorTypeDef]
+    ResourceIdentifiers: list[ResourceIdentifierTypeDef]
+    QueryErrors: list[QueryErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -527,14 +522,14 @@ class UpdateGroupQueryOutputTypeDef(TypedDict):
 
 
 class ListTagSyncTasksOutputTypeDef(TypedDict):
-    TagSyncTasks: List[TagSyncTaskItemTypeDef]
+    TagSyncTasks: list[TagSyncTaskItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class GroupConfigurationTypeDef(TypedDict):
-    Configuration: NotRequired[List[GroupConfigurationItemOutputTypeDef]]
-    ProposedConfiguration: NotRequired[List[GroupConfigurationItemOutputTypeDef]]
+    Configuration: NotRequired[list[GroupConfigurationItemOutputTypeDef]]
+    ProposedConfiguration: NotRequired[list[GroupConfigurationItemOutputTypeDef]]
     Status: NotRequired[GroupConfigurationStatusType]
     FailureReason: NotRequired[str]
 
@@ -549,9 +544,9 @@ GroupConfigurationItemTypeDef = TypedDict(
 
 
 class ListGroupResourcesOutputTypeDef(TypedDict):
-    Resources: List[ListGroupResourcesItemTypeDef]
-    ResourceIdentifiers: List[ResourceIdentifierTypeDef]
-    QueryErrors: List[QueryErrorTypeDef]
+    Resources: list[ListGroupResourcesItemTypeDef]
+    ResourceIdentifiers: list[ResourceIdentifierTypeDef]
+    QueryErrors: list[QueryErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -559,7 +554,7 @@ class ListGroupResourcesOutputTypeDef(TypedDict):
 class CreateGroupOutputTypeDef(TypedDict):
     Group: GroupTypeDef
     ResourceQuery: ResourceQueryTypeDef
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     GroupConfiguration: GroupConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

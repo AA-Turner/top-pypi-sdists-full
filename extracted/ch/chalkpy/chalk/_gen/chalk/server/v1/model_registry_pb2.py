@@ -23,7 +23,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n$chalk/server/v1/model_registry.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a\x1a\x63halk/graph/v1/graph.proto\x1a$chalk/models/v1/model_artifact.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xd9\x01\n\rModelArtifact\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04path\x18\x02 \x01(\tR\x04path\x12\x36\n\x04spec\x18\x03 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\x04spec\x12"\n\ncreated_by\x18\x04 \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAtB\r\n\x0b_created_by"\xc4\x03\n\x0cModelVersion\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x03 \x01(\x04R\x07version\x12\x45\n\x0emodel_artifact\x18\x04 \x01(\x0b\x32\x1e.chalk.server.v1.ModelArtifactR\rmodelArtifact\x12\x18\n\x07\x61liases\x18\x05 \x03(\tR\x07\x61liases\x12G\n\x08metadata\x18\x06 \x03(\x0b\x32+.chalk.server.v1.ModelVersion.MetadataEntryR\x08metadata\x12"\n\ncreated_by\x18\x07 \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_created_by"\xed\x04\n\x05Model\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12@\n\x08metadata\x18\x04 \x03(\x0b\x32$.chalk.server.v1.Model.MetadataEntryR\x08metadata\x12"\n\ncreated_by\x18\x05 \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tupdatedAt\x88\x01\x01\x12@\n\x0b\x61rchived_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\narchivedAt\x88\x01\x01\x12T\n\x14latest_model_version\x18\t \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionH\x03R\x12latestModelVersion\x88\x01\x01\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_created_byB\r\n\x0b_updated_atB\x0e\n\x0c_archived_atB\x17\n\x15_latest_model_version"`\n\x11ListModelsRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limit"z\n\x12ListModelsResponse\x12.\n\x06models\x18\x01 \x03(\x0b\x32\x16.chalk.server.v1.ModelR\x06models\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"c\n\x0fGetModelRequest\x12\x1b\n\x08model_id\x18\x01 \x01(\tH\x00R\x07modelId\x12\x1f\n\nmodel_name\x18\x02 \x01(\tH\x00R\tmodelNameB\x12\n\x10model_identifier"O\n\x10GetModelResponse\x12\x31\n\x05model\x18\x01 \x01(\x0b\x32\x16.chalk.server.v1.ModelH\x00R\x05model\x88\x01\x01\x42\x08\n\x06_model"\xf9\x01\n\x12\x43reateModelRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12 \n\x0b\x64\x65scription\x18\x02 \x01(\tR\x0b\x64\x65scription\x12M\n\x08metadata\x18\x04 \x03(\x0b\x32\x31.chalk.server.v1.CreateModelRequest.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"C\n\x13\x43reateModelResponse\x12,\n\x05model\x18\x01 \x01(\x0b\x32\x16.chalk.server.v1.ModelR\x05model"\xf8\x02\n\x14UpdateModelOperation\x12"\n\nmodel_name\x18\x01 \x01(\tH\x00R\tmodelName\x88\x01\x01\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x01R\x0b\x64\x65scription\x88\x01\x01\x12O\n\x08metadata\x18\x03 \x03(\x0b\x32\x33.chalk.server.v1.UpdateModelOperation.MetadataEntryR\x08metadata\x12@\n\x0b\x61rchived_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\narchivedAt\x88\x01\x01\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_model_nameB\x0e\n\x0c_descriptionB\x0e\n\x0c_archived_at"\xab\x01\n\x12UpdateModelRequest\x12\x19\n\x08model_id\x18\x01 \x01(\tR\x07modelId\x12=\n\x06update\x18\x02 \x01(\x0b\x32%.chalk.server.v1.UpdateModelOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"C\n\x13UpdateModelResponse\x12,\n\x05model\x18\x01 \x01(\x0b\x32\x16.chalk.server.v1.ModelR\x05model"\x9a\x01\n\x18ListModelVersionsRequest\x12"\n\nmodel_name\x18\x01 \x01(\tH\x00R\tmodelName\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x03 \x01(\x05H\x02R\x05limit\x88\x01\x01\x42\r\n\x0b_model_nameB\t\n\x07_cursorB\x08\n\x06_limit"\x97\x01\n\x19ListModelVersionsResponse\x12\x44\n\x0emodel_versions\x18\x01 \x03(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\rmodelVersions\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"Q\n\x16GetModelVersionRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x02 \x01(\x04R\x07version"t\n\x17GetModelVersionResponse\x12G\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionH\x00R\x0cmodelVersion\x88\x01\x01\x42\x10\n\x0e_model_version"\xf6\x02\n\x19\x43reateModelVersionRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12*\n\x11model_artifact_id\x18\x05 \x01(\tR\x0fmodelArtifactId\x12I\n\x0emodel_artifact\x18\x02 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\rmodelArtifact\x12\x18\n\x07\x61liases\x18\x03 \x03(\tR\x07\x61liases\x12T\n\x08metadata\x18\x04 \x03(\x0b\x32\x38.chalk.server.v1.CreateModelVersionRequest.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"`\n\x1a\x43reateModelVersionResponse\x12\x42\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\x0cmodelVersion"J\n\x0fModelVersionKey\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x02 \x01(\x04R\x07version"\xe4\x01\n\x1bUpdateModelVersionOperation\x12\x18\n\x07\x61liases\x18\x01 \x03(\tR\x07\x61liases\x12V\n\x08metadata\x18\x02 \x03(\x0b\x32:.chalk.server.v1.UpdateModelVersionOperation.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\xec\x01\n\x19UpdateModelVersionRequest\x12L\n\x11model_version_key\x18\x01 \x01(\x0b\x32 .chalk.server.v1.ModelVersionKeyR\x0fmodelVersionKey\x12\x44\n\x06update\x18\x02 \x01(\x0b\x32,.chalk.server.v1.UpdateModelVersionOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"`\n\x1aUpdateModelVersionResponse\x12\x42\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\x0cmodelVersion"B\n!GetModelArtifactUploadUrlsRequest\x12\x1d\n\nfile_names\x18\x01 \x03(\tR\tfileNames"\xf5\x01\n"GetModelArtifactUploadUrlsResponse\x12\x64\n\x0bupload_urls\x18\x01 \x03(\x0b\x32\x43.chalk.server.v1.GetModelArtifactUploadUrlsResponse.UploadUrlsEntryR\nuploadUrls\x12*\n\x11model_artifact_id\x18\x02 \x01(\tR\x0fmodelArtifactId\x1a=\n\x0fUploadUrlsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"l\n\x1c\x44ownloadModelArtifactRequest\x12L\n\x11model_version_key\x18\x01 \x01(\x0b\x32 .chalk.server.v1.ModelVersionKeyR\x0fmodelVersionKey"1\n\x1d\x44ownloadModelArtifactResponse\x12\x10\n\x03uri\x18\x01 \x01(\tR\x03uri"@\n\x19GetModelReferencesRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId"]\n\rModelRelation\x12%\n\x0einput_features\x18\x01 \x03(\tR\rinputFeatures\x12%\n\x0eoutput_feature\x18\x02 \x01(\tR\routputFeature"\x8d\x03\n\x0eModelReference\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x03 \x01(\x04R\x07version\x12#\n\rdeployment_id\x18\x04 \x01(\tR\x0c\x64\x65ploymentId\x12<\n\trelations\x18\x05 \x03(\x0b\x32\x1e.chalk.server.v1.ModelRelationR\trelations\x12\x1c\n\tresolvers\x18\x06 \x03(\tR\tresolvers\x12\\\n\x15source_file_reference\x18\x07 \x01(\x0b\x32#.chalk.graph.v1.SourceFileReferenceH\x00R\x13sourceFileReference\x88\x01\x01\x12\x39\n\ncreated_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAtB\x18\n\x16_source_file_reference"h\n\x1aGetModelReferencesResponse\x12J\n\x10model_references\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.ModelReferenceR\x0fmodelReferences"\xa2\x01\n\x18GetModelReferenceRequest\x12\x1d\n\x08model_id\x18\x01 \x01(\tB\x02\x18\x01R\x07modelId\x12\x1d\n\nmodel_name\x18\x04 \x01(\tR\tmodelName\x12#\n\rmodel_version\x18\x02 \x01(\x04R\x0cmodelVersion\x12#\n\rdeployment_id\x18\x03 \x01(\tR\x0c\x64\x65ploymentId"~\n\x19GetModelReferenceResponse\x12M\n\x0fmodel_reference\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.ModelReferenceH\x00R\x0emodelReference\x88\x01\x01\x42\x12\n\x10_model_reference2\xad\x0c\n\x14ModelRegistryService\x12]\n\nListModels\x12".chalk.server.v1.ListModelsRequest\x1a#.chalk.server.v1.ListModelsResponse"\x06\x90\x02\x01\x80}\x0b\x12W\n\x08GetModel\x12 .chalk.server.v1.GetModelRequest\x1a!.chalk.server.v1.GetModelResponse"\x06\x90\x02\x01\x80}\x0b\x12\xb4\x01\n\x0b\x43reateModel\x12#.chalk.server.v1.CreateModelRequest\x1a$.chalk.server.v1.CreateModelResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\xb4\x01\n\x0bUpdateModel\x12#.chalk.server.v1.UpdateModelRequest\x1a$.chalk.server.v1.UpdateModelResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12r\n\x11ListModelVersions\x12).chalk.server.v1.ListModelVersionsRequest\x1a*.chalk.server.v1.ListModelVersionsResponse"\x06\x90\x02\x01\x80}\x0b\x12l\n\x0fGetModelVersion\x12\'.chalk.server.v1.GetModelVersionRequest\x1a(.chalk.server.v1.GetModelVersionResponse"\x06\x90\x02\x01\x80}\x0b\x12\xc9\x01\n\x12\x43reateModelVersion\x12*.chalk.server.v1.CreateModelVersionRequest\x1a+.chalk.server.v1.CreateModelVersionResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12r\n\x12UpdateModelVersion\x12*.chalk.server.v1.UpdateModelVersionRequest\x1a+.chalk.server.v1.UpdateModelVersionResponse"\x03\x80}\x0c\x12u\n\x12GetModelReferences\x12*.chalk.server.v1.GetModelReferencesRequest\x1a+.chalk.server.v1.GetModelReferencesResponse"\x06\x90\x02\x01\x80}\x0b\x12r\n\x11GetModelReference\x12).chalk.server.v1.GetModelReferenceRequest\x1a*.chalk.server.v1.GetModelReferenceResponse"\x06\x90\x02\x01\x80}\x0b\x12\xe1\x01\n\x1aGetModelArtifactUploadUrls\x12\x32.chalk.server.v1.GetModelArtifactUploadUrlsRequest\x1a\x33.chalk.server.v1.GetModelArtifactUploadUrlsResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.B\x9b\x01\n\x13\x63om.chalk.server.v1B\x12ModelRegistryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n$chalk/server/v1/model_registry.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1a\x63halk/flags/v1/flags.proto\x1a\x1a\x63halk/graph/v1/graph.proto\x1a$chalk/models/v1/model_artifact.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xf8\x02\n\rModelArtifact\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04path\x18\x02 \x01(\tR\x04path\x12\x36\n\x04spec\x18\x03 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\x04spec\x12H\n\x08metadata\x18\x06 \x03(\x0b\x32,.chalk.server.v1.ModelArtifact.MetadataEntryR\x08metadata\x12"\n\ncreated_by\x18\x04 \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_created_by"\xc4\x03\n\x0cModelVersion\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x03 \x01(\x04R\x07version\x12\x45\n\x0emodel_artifact\x18\x04 \x01(\x0b\x32\x1e.chalk.server.v1.ModelArtifactR\rmodelArtifact\x12\x18\n\x07\x61liases\x18\x05 \x03(\tR\x07\x61liases\x12G\n\x08metadata\x18\x06 \x03(\x0b\x32+.chalk.server.v1.ModelVersion.MetadataEntryR\x08metadata\x12"\n\ncreated_by\x18\x07 \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_created_by"\xed\x04\n\x05Model\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12 \n\x0b\x64\x65scription\x18\x03 \x01(\tR\x0b\x64\x65scription\x12@\n\x08metadata\x18\x04 \x03(\x0b\x32$.chalk.server.v1.Model.MetadataEntryR\x08metadata\x12"\n\ncreated_by\x18\x05 \x01(\tH\x00R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12>\n\nupdated_at\x18\x07 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tupdatedAt\x88\x01\x01\x12@\n\x0b\x61rchived_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\narchivedAt\x88\x01\x01\x12T\n\x14latest_model_version\x18\t \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionH\x03R\x12latestModelVersion\x88\x01\x01\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_created_byB\r\n\x0b_updated_atB\x0e\n\x0c_archived_atB\x17\n\x15_latest_model_version"`\n\x11ListModelsRequest\x12\x1b\n\x06\x63ursor\x18\x01 \x01(\tH\x00R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x01R\x05limit\x88\x01\x01\x42\t\n\x07_cursorB\x08\n\x06_limit"z\n\x12ListModelsResponse\x12.\n\x06models\x18\x01 \x03(\x0b\x32\x16.chalk.server.v1.ModelR\x06models\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"c\n\x0fGetModelRequest\x12\x1b\n\x08model_id\x18\x01 \x01(\tH\x00R\x07modelId\x12\x1f\n\nmodel_name\x18\x02 \x01(\tH\x00R\tmodelNameB\x12\n\x10model_identifier"O\n\x10GetModelResponse\x12\x31\n\x05model\x18\x01 \x01(\x0b\x32\x16.chalk.server.v1.ModelH\x00R\x05model\x88\x01\x01\x42\x08\n\x06_model"\xf9\x01\n\x12\x43reateModelRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12 \n\x0b\x64\x65scription\x18\x02 \x01(\tR\x0b\x64\x65scription\x12M\n\x08metadata\x18\x04 \x03(\x0b\x32\x31.chalk.server.v1.CreateModelRequest.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"C\n\x13\x43reateModelResponse\x12,\n\x05model\x18\x01 \x01(\x0b\x32\x16.chalk.server.v1.ModelR\x05model"\xf8\x02\n\x14UpdateModelOperation\x12"\n\nmodel_name\x18\x01 \x01(\tH\x00R\tmodelName\x88\x01\x01\x12%\n\x0b\x64\x65scription\x18\x02 \x01(\tH\x01R\x0b\x64\x65scription\x88\x01\x01\x12O\n\x08metadata\x18\x03 \x03(\x0b\x32\x33.chalk.server.v1.UpdateModelOperation.MetadataEntryR\x08metadata\x12@\n\x0b\x61rchived_at\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\narchivedAt\x88\x01\x01\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\r\n\x0b_model_nameB\x0e\n\x0c_descriptionB\x0e\n\x0c_archived_at"\xab\x01\n\x12UpdateModelRequest\x12\x19\n\x08model_id\x18\x01 \x01(\tR\x07modelId\x12=\n\x06update\x18\x02 \x01(\x0b\x32%.chalk.server.v1.UpdateModelOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"C\n\x13UpdateModelResponse\x12,\n\x05model\x18\x01 \x01(\x0b\x32\x16.chalk.server.v1.ModelR\x05model"\x9a\x01\n\x18ListModelVersionsRequest\x12"\n\nmodel_name\x18\x01 \x01(\tH\x00R\tmodelName\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x03 \x01(\x05H\x02R\x05limit\x88\x01\x01\x42\r\n\x0b_model_nameB\t\n\x07_cursorB\x08\n\x06_limit"\x97\x01\n\x19ListModelVersionsResponse\x12\x44\n\x0emodel_versions\x18\x01 \x03(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\rmodelVersions\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"Q\n\x16GetModelVersionRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x02 \x01(\x04R\x07version"t\n\x17GetModelVersionResponse\x12G\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionH\x00R\x0cmodelVersion\x88\x01\x01\x42\x10\n\x0e_model_version"\xbf\x02\n\x1a\x43reateModelArtifactRequest\x12*\n\x11model_artifact_id\x18\x05 \x01(\tR\x0fmodelArtifactId\x12I\n\x0emodel_artifact\x18\x02 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\rmodelArtifact\x12U\n\x08metadata\x18\x04 \x03(\x0b\x32\x39.chalk.server.v1.CreateModelArtifactRequest.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"d\n\x1b\x43reateModelArtifactResponse\x12\x45\n\x0emodel_artifact\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.ModelArtifactR\rmodelArtifact"\xf6\x02\n\x19\x43reateModelVersionRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12*\n\x11model_artifact_id\x18\x05 \x01(\tR\x0fmodelArtifactId\x12I\n\x0emodel_artifact\x18\x02 \x01(\x0b\x32".chalk.models.v1.ModelArtifactSpecR\rmodelArtifact\x12\x18\n\x07\x61liases\x18\x03 \x03(\tR\x07\x61liases\x12T\n\x08metadata\x18\x04 \x03(\x0b\x32\x38.chalk.server.v1.CreateModelVersionRequest.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"`\n\x1a\x43reateModelVersionResponse\x12\x42\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\x0cmodelVersion"J\n\x0fModelVersionKey\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x02 \x01(\x04R\x07version"\xe4\x01\n\x1bUpdateModelVersionOperation\x12\x18\n\x07\x61liases\x18\x01 \x03(\tR\x07\x61liases\x12V\n\x08metadata\x18\x02 \x03(\x0b\x32:.chalk.server.v1.UpdateModelVersionOperation.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\xec\x01\n\x19UpdateModelVersionRequest\x12L\n\x11model_version_key\x18\x01 \x01(\x0b\x32 .chalk.server.v1.ModelVersionKeyR\x0fmodelVersionKey\x12\x44\n\x06update\x18\x02 \x01(\x0b\x32,.chalk.server.v1.UpdateModelVersionOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"`\n\x1aUpdateModelVersionResponse\x12\x42\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\x0cmodelVersion"B\n!GetModelArtifactUploadUrlsRequest\x12\x1d\n\nfile_names\x18\x01 \x03(\tR\tfileNames"\xf5\x01\n"GetModelArtifactUploadUrlsResponse\x12\x64\n\x0bupload_urls\x18\x01 \x03(\x0b\x32\x43.chalk.server.v1.GetModelArtifactUploadUrlsResponse.UploadUrlsEntryR\nuploadUrls\x12*\n\x11model_artifact_id\x18\x02 \x01(\tR\x0fmodelArtifactId\x1a=\n\x0fUploadUrlsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"l\n\x1c\x44ownloadModelArtifactRequest\x12L\n\x11model_version_key\x18\x01 \x01(\x0b\x32 .chalk.server.v1.ModelVersionKeyR\x0fmodelVersionKey"1\n\x1d\x44ownloadModelArtifactResponse\x12\x10\n\x03uri\x18\x01 \x01(\tR\x03uri"\xfc\x01\n\x19GetModelReferencesRequest\x12#\n\rdeployment_id\x18\x01 \x01(\tR\x0c\x64\x65ploymentId\x12"\n\nmodel_name\x18\x02 \x01(\tH\x00R\tmodelName\x88\x01\x01\x12(\n\rmodel_version\x18\x03 \x01(\rH\x01R\x0cmodelVersion\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x04 \x01(\tH\x02R\x06\x63ursor\x88\x01\x01\x12\x19\n\x05limit\x18\x05 \x01(\x05H\x03R\x05limit\x88\x01\x01\x42\r\n\x0b_model_nameB\x10\n\x0e_model_versionB\t\n\x07_cursorB\x08\n\x06_limit"]\n\rModelRelation\x12%\n\x0einput_features\x18\x01 \x03(\tR\rinputFeatures\x12%\n\x0eoutput_feature\x18\x02 \x01(\tR\routputFeature"\x8d\x03\n\x0eModelReference\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n\nmodel_name\x18\x02 \x01(\tR\tmodelName\x12\x18\n\x07version\x18\x03 \x01(\x04R\x07version\x12#\n\rdeployment_id\x18\x04 \x01(\tR\x0c\x64\x65ploymentId\x12<\n\trelations\x18\x05 \x03(\x0b\x32\x1e.chalk.server.v1.ModelRelationR\trelations\x12\x1c\n\tresolvers\x18\x06 \x03(\tR\tresolvers\x12\\\n\x15source_file_reference\x18\x07 \x01(\x0b\x32#.chalk.graph.v1.SourceFileReferenceH\x00R\x13sourceFileReference\x88\x01\x01\x12\x39\n\ncreated_at\x18\x08 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAtB\x18\n\x16_source_file_reference"\x9e\x01\n\x1aGetModelReferencesResponse\x12J\n\x10model_references\x18\x01 \x03(\x0b\x32\x1f.chalk.server.v1.ModelReferenceR\x0fmodelReferences\x12$\n\x0bnext_cursor\x18\x04 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xa2\x01\n\x18GetModelReferenceRequest\x12\x1d\n\x08model_id\x18\x01 \x01(\tB\x02\x18\x01R\x07modelId\x12\x1d\n\nmodel_name\x18\x04 \x01(\tR\tmodelName\x12#\n\rmodel_version\x18\x02 \x01(\x04R\x0cmodelVersion\x12#\n\rdeployment_id\x18\x03 \x01(\tR\x0c\x64\x65ploymentId"~\n\x19GetModelReferenceResponse\x12M\n\x0fmodel_reference\x18\x01 \x01(\x0b\x32\x1f.chalk.server.v1.ModelReferenceH\x00R\x0emodelReference\x88\x01\x01\x42\x12\n\x10_model_reference"\xd7\x01\n\x0cRunCriterion\x12\x17\n\x06run_id\x18\x01 \x01(\tH\x00R\x05runId\x12\x1b\n\x08run_name\x18\x04 \x01(\tH\x00R\x07runName\x12\x1b\n\x06metric\x18\x02 \x01(\tH\x01R\x06metric\x88\x01\x01\x12I\n\tdirection\x18\x03 \x01(\x0e\x32&.chalk.server.v1.RunCriterionDirectionH\x02R\tdirection\x88\x01\x01\x42\x10\n\x0erun_identifierB\t\n\x07_metricB\x0c\n\n_direction"\xe9\x01\n%CreateModelVersionFromArtifactRequest\x12\x1d\n\nmodel_name\x18\x01 \x01(\tR\tmodelName\x12,\n\x11model_artifact_id\x18\x02 \x01(\tH\x00R\x0fmodelArtifactId\x12\x42\n\x0ctraining_run\x18\x03 \x01(\x0b\x32\x1d.chalk.server.v1.RunCriterionH\x00R\x0btrainingRun\x12\x18\n\x07\x61liases\x18\x04 \x03(\tR\x07\x61liasesB\x15\n\x13\x61rtifact_identifier"l\n&CreateModelVersionFromArtifactResponse\x12\x42\n\rmodel_version\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.ModelVersionR\x0cmodelVersion*\x82\x01\n\x15RunCriterionDirection\x12\'\n#RUN_CRITERION_DIRECTION_UNSPECIFIED\x10\x00\x12\x1f\n\x1bRUN_CRITERION_DIRECTION_MAX\x10\x01\x12\x1f\n\x1bRUN_CRITERION_DIRECTION_MIN\x10\x02\x32\xec\x0f\n\x14ModelRegistryService\x12]\n\nListModels\x12".chalk.server.v1.ListModelsRequest\x1a#.chalk.server.v1.ListModelsResponse"\x06\x90\x02\x01\x80}\x0b\x12W\n\x08GetModel\x12 .chalk.server.v1.GetModelRequest\x1a!.chalk.server.v1.GetModelResponse"\x06\x90\x02\x01\x80}\x0b\x12\xb4\x01\n\x0b\x43reateModel\x12#.chalk.server.v1.CreateModelRequest\x1a$.chalk.server.v1.CreateModelResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\xb4\x01\n\x0bUpdateModel\x12#.chalk.server.v1.UpdateModelRequest\x1a$.chalk.server.v1.UpdateModelResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12r\n\x11ListModelVersions\x12).chalk.server.v1.ListModelVersionsRequest\x1a*.chalk.server.v1.ListModelVersionsResponse"\x06\x90\x02\x01\x80}\x0b\x12l\n\x0fGetModelVersion\x12\'.chalk.server.v1.GetModelVersionRequest\x1a(.chalk.server.v1.GetModelVersionResponse"\x06\x90\x02\x01\x80}\x0b\x12\xc9\x01\n\x12\x43reateModelVersion\x12*.chalk.server.v1.CreateModelVersionRequest\x1a+.chalk.server.v1.CreateModelVersionResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\xcc\x01\n\x13\x43reateModelArtifact\x12+.chalk.server.v1.CreateModelArtifactRequest\x1a,.chalk.server.v1.CreateModelArtifactResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12\xed\x01\n\x1e\x43reateModelVersionFromArtifact\x12\x36.chalk.server.v1.CreateModelVersionFromArtifactRequest\x1a\x37.chalk.server.v1.CreateModelVersionFromArtifactResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.\x12r\n\x12UpdateModelVersion\x12*.chalk.server.v1.UpdateModelVersionRequest\x1a+.chalk.server.v1.UpdateModelVersionResponse"\x03\x80}\x0c\x12u\n\x12GetModelReferences\x12*.chalk.server.v1.GetModelReferencesRequest\x1a+.chalk.server.v1.GetModelReferencesResponse"\x06\x90\x02\x01\x80}\x0b\x12r\n\x11GetModelReference\x12).chalk.server.v1.GetModelReferenceRequest\x1a*.chalk.server.v1.GetModelReferenceResponse"\x06\x90\x02\x01\x80}\x0b\x12\xe1\x01\n\x1aGetModelArtifactUploadUrls\x12\x32.chalk.server.v1.GetModelArtifactUploadUrlsRequest\x1a\x33.chalk.server.v1.GetModelArtifactUploadUrlsResponse"Z\x80}\x0c\x92\xd3\x0eS\n\x16model_registry_enabled\x12\x39This action is not enabled. Please contact Chalk Support.B\x9b\x01\n\x13\x63om.chalk.server.v1B\x12ModelRegistryProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -34,6 +34,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\022ModelRegistryProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_MODELARTIFACT_METADATAENTRY"]._options = None
+    _globals["_MODELARTIFACT_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_MODELVERSION_METADATAENTRY"]._options = None
     _globals["_MODELVERSION_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_MODEL_METADATAENTRY"]._options = None
@@ -42,6 +44,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CREATEMODELREQUEST_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_UPDATEMODELOPERATION_METADATAENTRY"]._options = None
     _globals["_UPDATEMODELOPERATION_METADATAENTRY"]._serialized_options = b"8\001"
+    _globals["_CREATEMODELARTIFACTREQUEST_METADATAENTRY"]._options = None
+    _globals["_CREATEMODELARTIFACTREQUEST_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_CREATEMODELVERSIONREQUEST_METADATAENTRY"]._options = None
     _globals["_CREATEMODELVERSIONREQUEST_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_UPDATEMODELVERSIONOPERATION_METADATAENTRY"]._options = None
@@ -72,6 +76,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MODELREGISTRYSERVICE"].methods_by_name[
         "CreateModelVersion"
     ]._serialized_options = b"\200}\014\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
+    _globals["_MODELREGISTRYSERVICE"].methods_by_name["CreateModelArtifact"]._options = None
+    _globals["_MODELREGISTRYSERVICE"].methods_by_name[
+        "CreateModelArtifact"
+    ]._serialized_options = b"\200}\014\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
+    _globals["_MODELREGISTRYSERVICE"].methods_by_name["CreateModelVersionFromArtifact"]._options = None
+    _globals["_MODELREGISTRYSERVICE"].methods_by_name[
+        "CreateModelVersionFromArtifact"
+    ]._serialized_options = b"\200}\014\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
     _globals["_MODELREGISTRYSERVICE"].methods_by_name["UpdateModelVersion"]._options = None
     _globals["_MODELREGISTRYSERVICE"].methods_by_name["UpdateModelVersion"]._serialized_options = b"\200}\014"
     _globals["_MODELREGISTRYSERVICE"].methods_by_name["GetModelReferences"]._options = None
@@ -86,84 +98,100 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_MODELREGISTRYSERVICE"].methods_by_name[
         "GetModelArtifactUploadUrls"
     ]._serialized_options = b"\200}\014\222\323\016S\n\026model_registry_enabled\0229This action is not enabled. Please contact Chalk Support."
+    _globals["_RUNCRITERIONDIRECTION"]._serialized_start = 7387
+    _globals["_RUNCRITERIONDIRECTION"]._serialized_end = 7517
     _globals["_MODELARTIFACT"]._serialized_start = 282
-    _globals["_MODELARTIFACT"]._serialized_end = 499
-    _globals["_MODELVERSION"]._serialized_start = 502
-    _globals["_MODELVERSION"]._serialized_end = 954
-    _globals["_MODELVERSION_METADATAENTRY"]._serialized_start = 856
-    _globals["_MODELVERSION_METADATAENTRY"]._serialized_end = 939
-    _globals["_MODEL"]._serialized_start = 957
-    _globals["_MODEL"]._serialized_end = 1578
-    _globals["_MODEL_METADATAENTRY"]._serialized_start = 856
-    _globals["_MODEL_METADATAENTRY"]._serialized_end = 939
-    _globals["_LISTMODELSREQUEST"]._serialized_start = 1580
-    _globals["_LISTMODELSREQUEST"]._serialized_end = 1676
-    _globals["_LISTMODELSRESPONSE"]._serialized_start = 1678
-    _globals["_LISTMODELSRESPONSE"]._serialized_end = 1800
-    _globals["_GETMODELREQUEST"]._serialized_start = 1802
-    _globals["_GETMODELREQUEST"]._serialized_end = 1901
-    _globals["_GETMODELRESPONSE"]._serialized_start = 1903
-    _globals["_GETMODELRESPONSE"]._serialized_end = 1982
-    _globals["_CREATEMODELREQUEST"]._serialized_start = 1985
-    _globals["_CREATEMODELREQUEST"]._serialized_end = 2234
-    _globals["_CREATEMODELREQUEST_METADATAENTRY"]._serialized_start = 856
-    _globals["_CREATEMODELREQUEST_METADATAENTRY"]._serialized_end = 939
-    _globals["_CREATEMODELRESPONSE"]._serialized_start = 2236
-    _globals["_CREATEMODELRESPONSE"]._serialized_end = 2303
-    _globals["_UPDATEMODELOPERATION"]._serialized_start = 2306
-    _globals["_UPDATEMODELOPERATION"]._serialized_end = 2682
-    _globals["_UPDATEMODELOPERATION_METADATAENTRY"]._serialized_start = 856
-    _globals["_UPDATEMODELOPERATION_METADATAENTRY"]._serialized_end = 939
-    _globals["_UPDATEMODELREQUEST"]._serialized_start = 2685
-    _globals["_UPDATEMODELREQUEST"]._serialized_end = 2856
-    _globals["_UPDATEMODELRESPONSE"]._serialized_start = 2858
-    _globals["_UPDATEMODELRESPONSE"]._serialized_end = 2925
-    _globals["_LISTMODELVERSIONSREQUEST"]._serialized_start = 2928
-    _globals["_LISTMODELVERSIONSREQUEST"]._serialized_end = 3082
-    _globals["_LISTMODELVERSIONSRESPONSE"]._serialized_start = 3085
-    _globals["_LISTMODELVERSIONSRESPONSE"]._serialized_end = 3236
-    _globals["_GETMODELVERSIONREQUEST"]._serialized_start = 3238
-    _globals["_GETMODELVERSIONREQUEST"]._serialized_end = 3319
-    _globals["_GETMODELVERSIONRESPONSE"]._serialized_start = 3321
-    _globals["_GETMODELVERSIONRESPONSE"]._serialized_end = 3437
-    _globals["_CREATEMODELVERSIONREQUEST"]._serialized_start = 3440
-    _globals["_CREATEMODELVERSIONREQUEST"]._serialized_end = 3814
-    _globals["_CREATEMODELVERSIONREQUEST_METADATAENTRY"]._serialized_start = 856
-    _globals["_CREATEMODELVERSIONREQUEST_METADATAENTRY"]._serialized_end = 939
-    _globals["_CREATEMODELVERSIONRESPONSE"]._serialized_start = 3816
-    _globals["_CREATEMODELVERSIONRESPONSE"]._serialized_end = 3912
-    _globals["_MODELVERSIONKEY"]._serialized_start = 3914
-    _globals["_MODELVERSIONKEY"]._serialized_end = 3988
-    _globals["_UPDATEMODELVERSIONOPERATION"]._serialized_start = 3991
-    _globals["_UPDATEMODELVERSIONOPERATION"]._serialized_end = 4219
-    _globals["_UPDATEMODELVERSIONOPERATION_METADATAENTRY"]._serialized_start = 856
-    _globals["_UPDATEMODELVERSIONOPERATION_METADATAENTRY"]._serialized_end = 939
-    _globals["_UPDATEMODELVERSIONREQUEST"]._serialized_start = 4222
-    _globals["_UPDATEMODELVERSIONREQUEST"]._serialized_end = 4458
-    _globals["_UPDATEMODELVERSIONRESPONSE"]._serialized_start = 4460
-    _globals["_UPDATEMODELVERSIONRESPONSE"]._serialized_end = 4556
-    _globals["_GETMODELARTIFACTUPLOADURLSREQUEST"]._serialized_start = 4558
-    _globals["_GETMODELARTIFACTUPLOADURLSREQUEST"]._serialized_end = 4624
-    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE"]._serialized_start = 4627
-    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE"]._serialized_end = 4872
-    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE_UPLOADURLSENTRY"]._serialized_start = 4811
-    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE_UPLOADURLSENTRY"]._serialized_end = 4872
-    _globals["_DOWNLOADMODELARTIFACTREQUEST"]._serialized_start = 4874
-    _globals["_DOWNLOADMODELARTIFACTREQUEST"]._serialized_end = 4982
-    _globals["_DOWNLOADMODELARTIFACTRESPONSE"]._serialized_start = 4984
-    _globals["_DOWNLOADMODELARTIFACTRESPONSE"]._serialized_end = 5033
-    _globals["_GETMODELREFERENCESREQUEST"]._serialized_start = 5035
-    _globals["_GETMODELREFERENCESREQUEST"]._serialized_end = 5099
-    _globals["_MODELRELATION"]._serialized_start = 5101
-    _globals["_MODELRELATION"]._serialized_end = 5194
-    _globals["_MODELREFERENCE"]._serialized_start = 5197
-    _globals["_MODELREFERENCE"]._serialized_end = 5594
-    _globals["_GETMODELREFERENCESRESPONSE"]._serialized_start = 5596
-    _globals["_GETMODELREFERENCESRESPONSE"]._serialized_end = 5700
-    _globals["_GETMODELREFERENCEREQUEST"]._serialized_start = 5703
-    _globals["_GETMODELREFERENCEREQUEST"]._serialized_end = 5865
-    _globals["_GETMODELREFERENCERESPONSE"]._serialized_start = 5867
-    _globals["_GETMODELREFERENCERESPONSE"]._serialized_end = 5993
-    _globals["_MODELREGISTRYSERVICE"]._serialized_start = 5996
-    _globals["_MODELREGISTRYSERVICE"]._serialized_end = 7577
+    _globals["_MODELARTIFACT"]._serialized_end = 658
+    _globals["_MODELARTIFACT_METADATAENTRY"]._serialized_start = 560
+    _globals["_MODELARTIFACT_METADATAENTRY"]._serialized_end = 643
+    _globals["_MODELVERSION"]._serialized_start = 661
+    _globals["_MODELVERSION"]._serialized_end = 1113
+    _globals["_MODELVERSION_METADATAENTRY"]._serialized_start = 560
+    _globals["_MODELVERSION_METADATAENTRY"]._serialized_end = 643
+    _globals["_MODEL"]._serialized_start = 1116
+    _globals["_MODEL"]._serialized_end = 1737
+    _globals["_MODEL_METADATAENTRY"]._serialized_start = 560
+    _globals["_MODEL_METADATAENTRY"]._serialized_end = 643
+    _globals["_LISTMODELSREQUEST"]._serialized_start = 1739
+    _globals["_LISTMODELSREQUEST"]._serialized_end = 1835
+    _globals["_LISTMODELSRESPONSE"]._serialized_start = 1837
+    _globals["_LISTMODELSRESPONSE"]._serialized_end = 1959
+    _globals["_GETMODELREQUEST"]._serialized_start = 1961
+    _globals["_GETMODELREQUEST"]._serialized_end = 2060
+    _globals["_GETMODELRESPONSE"]._serialized_start = 2062
+    _globals["_GETMODELRESPONSE"]._serialized_end = 2141
+    _globals["_CREATEMODELREQUEST"]._serialized_start = 2144
+    _globals["_CREATEMODELREQUEST"]._serialized_end = 2393
+    _globals["_CREATEMODELREQUEST_METADATAENTRY"]._serialized_start = 560
+    _globals["_CREATEMODELREQUEST_METADATAENTRY"]._serialized_end = 643
+    _globals["_CREATEMODELRESPONSE"]._serialized_start = 2395
+    _globals["_CREATEMODELRESPONSE"]._serialized_end = 2462
+    _globals["_UPDATEMODELOPERATION"]._serialized_start = 2465
+    _globals["_UPDATEMODELOPERATION"]._serialized_end = 2841
+    _globals["_UPDATEMODELOPERATION_METADATAENTRY"]._serialized_start = 560
+    _globals["_UPDATEMODELOPERATION_METADATAENTRY"]._serialized_end = 643
+    _globals["_UPDATEMODELREQUEST"]._serialized_start = 2844
+    _globals["_UPDATEMODELREQUEST"]._serialized_end = 3015
+    _globals["_UPDATEMODELRESPONSE"]._serialized_start = 3017
+    _globals["_UPDATEMODELRESPONSE"]._serialized_end = 3084
+    _globals["_LISTMODELVERSIONSREQUEST"]._serialized_start = 3087
+    _globals["_LISTMODELVERSIONSREQUEST"]._serialized_end = 3241
+    _globals["_LISTMODELVERSIONSRESPONSE"]._serialized_start = 3244
+    _globals["_LISTMODELVERSIONSRESPONSE"]._serialized_end = 3395
+    _globals["_GETMODELVERSIONREQUEST"]._serialized_start = 3397
+    _globals["_GETMODELVERSIONREQUEST"]._serialized_end = 3478
+    _globals["_GETMODELVERSIONRESPONSE"]._serialized_start = 3480
+    _globals["_GETMODELVERSIONRESPONSE"]._serialized_end = 3596
+    _globals["_CREATEMODELARTIFACTREQUEST"]._serialized_start = 3599
+    _globals["_CREATEMODELARTIFACTREQUEST"]._serialized_end = 3918
+    _globals["_CREATEMODELARTIFACTREQUEST_METADATAENTRY"]._serialized_start = 560
+    _globals["_CREATEMODELARTIFACTREQUEST_METADATAENTRY"]._serialized_end = 643
+    _globals["_CREATEMODELARTIFACTRESPONSE"]._serialized_start = 3920
+    _globals["_CREATEMODELARTIFACTRESPONSE"]._serialized_end = 4020
+    _globals["_CREATEMODELVERSIONREQUEST"]._serialized_start = 4023
+    _globals["_CREATEMODELVERSIONREQUEST"]._serialized_end = 4397
+    _globals["_CREATEMODELVERSIONREQUEST_METADATAENTRY"]._serialized_start = 560
+    _globals["_CREATEMODELVERSIONREQUEST_METADATAENTRY"]._serialized_end = 643
+    _globals["_CREATEMODELVERSIONRESPONSE"]._serialized_start = 4399
+    _globals["_CREATEMODELVERSIONRESPONSE"]._serialized_end = 4495
+    _globals["_MODELVERSIONKEY"]._serialized_start = 4497
+    _globals["_MODELVERSIONKEY"]._serialized_end = 4571
+    _globals["_UPDATEMODELVERSIONOPERATION"]._serialized_start = 4574
+    _globals["_UPDATEMODELVERSIONOPERATION"]._serialized_end = 4802
+    _globals["_UPDATEMODELVERSIONOPERATION_METADATAENTRY"]._serialized_start = 560
+    _globals["_UPDATEMODELVERSIONOPERATION_METADATAENTRY"]._serialized_end = 643
+    _globals["_UPDATEMODELVERSIONREQUEST"]._serialized_start = 4805
+    _globals["_UPDATEMODELVERSIONREQUEST"]._serialized_end = 5041
+    _globals["_UPDATEMODELVERSIONRESPONSE"]._serialized_start = 5043
+    _globals["_UPDATEMODELVERSIONRESPONSE"]._serialized_end = 5139
+    _globals["_GETMODELARTIFACTUPLOADURLSREQUEST"]._serialized_start = 5141
+    _globals["_GETMODELARTIFACTUPLOADURLSREQUEST"]._serialized_end = 5207
+    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE"]._serialized_start = 5210
+    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE"]._serialized_end = 5455
+    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE_UPLOADURLSENTRY"]._serialized_start = 5394
+    _globals["_GETMODELARTIFACTUPLOADURLSRESPONSE_UPLOADURLSENTRY"]._serialized_end = 5455
+    _globals["_DOWNLOADMODELARTIFACTREQUEST"]._serialized_start = 5457
+    _globals["_DOWNLOADMODELARTIFACTREQUEST"]._serialized_end = 5565
+    _globals["_DOWNLOADMODELARTIFACTRESPONSE"]._serialized_start = 5567
+    _globals["_DOWNLOADMODELARTIFACTRESPONSE"]._serialized_end = 5616
+    _globals["_GETMODELREFERENCESREQUEST"]._serialized_start = 5619
+    _globals["_GETMODELREFERENCESREQUEST"]._serialized_end = 5871
+    _globals["_MODELRELATION"]._serialized_start = 5873
+    _globals["_MODELRELATION"]._serialized_end = 5966
+    _globals["_MODELREFERENCE"]._serialized_start = 5969
+    _globals["_MODELREFERENCE"]._serialized_end = 6366
+    _globals["_GETMODELREFERENCESRESPONSE"]._serialized_start = 6369
+    _globals["_GETMODELREFERENCESRESPONSE"]._serialized_end = 6527
+    _globals["_GETMODELREFERENCEREQUEST"]._serialized_start = 6530
+    _globals["_GETMODELREFERENCEREQUEST"]._serialized_end = 6692
+    _globals["_GETMODELREFERENCERESPONSE"]._serialized_start = 6694
+    _globals["_GETMODELREFERENCERESPONSE"]._serialized_end = 6820
+    _globals["_RUNCRITERION"]._serialized_start = 6823
+    _globals["_RUNCRITERION"]._serialized_end = 7038
+    _globals["_CREATEMODELVERSIONFROMARTIFACTREQUEST"]._serialized_start = 7041
+    _globals["_CREATEMODELVERSIONFROMARTIFACTREQUEST"]._serialized_end = 7274
+    _globals["_CREATEMODELVERSIONFROMARTIFACTRESPONSE"]._serialized_start = 7276
+    _globals["_CREATEMODELVERSIONFROMARTIFACTRESPONSE"]._serialized_end = 7384
+    _globals["_MODELREGISTRYSERVICE"]._serialized_start = 7520
+    _globals["_MODELREGISTRYSERVICE"]._serialized_end = 9548
 # @@protoc_insertion_point(module_scope)

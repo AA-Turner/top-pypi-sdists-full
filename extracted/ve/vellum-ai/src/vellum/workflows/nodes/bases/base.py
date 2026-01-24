@@ -1,10 +1,26 @@
-from abc import ABC, ABCMeta, abstractmethod
+from abc import ABC, ABCMeta
+from collections.abc import Callable as CollectionsCallable
 from dataclasses import field
 from functools import cached_property, reduce
 import inspect
 from types import MappingProxyType
 from uuid import UUID, uuid4
-from typing import Any, Dict, Generic, Iterator, Optional, Set, Tuple, Type, TypeVar, Union, cast, get_args
+from typing import (
+    Any,
+    Callable as TypingCallable,
+    Dict,
+    Generic,
+    Iterator,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
@@ -14,6 +30,7 @@ from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.events.node import NodeExecutionStreamingEvent
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.executable import BaseExecutable
+from vellum.workflows.expressions.accessor import AccessorExpression
 from vellum.workflows.graph import Graph
 from vellum.workflows.graph.graph import GraphTarget
 from vellum.workflows.inputs.base import BaseInputs
@@ -29,7 +46,7 @@ from vellum.workflows.state.context import WorkflowContext
 from vellum.workflows.types.core import MergeBehavior
 from vellum.workflows.types.generics import StateType
 from vellum.workflows.types.utils import get_class_attr_names, get_original_base, infer_types
-from vellum.workflows.utils.uuids import uuid4_from_hash
+from vellum.workflows.utils.uuids import generate_entity_id_from_path, uuid4_from_hash
 
 
 def _is_nested_class(nested: Any, parent: Type) -> bool:
@@ -43,15 +60,15 @@ def _is_nested_class(nested: Any, parent: Type) -> bool:
     ) or any(_is_nested_class(nested, base) for base in parent.__bases__)
 
 
-def _is_annotated(cls: Type, name: str) -> bool:
+def _is_annotated(cls: Type, name: str) -> Any:
     if name in cls.__annotations__:
-        return True
+        return cls.__annotations__[name]
 
     for base in cls.__bases__:
-        if _is_annotated(base, name):
-            return True
+        if annotation := _is_annotated(base, name):
+            return annotation
 
-    return False
+    return None
 
 
 class BaseNodeMeta(ABCMeta):
@@ -98,6 +115,30 @@ class BaseNodeMeta(ABCMeta):
                     dct["Ports"] = type(f"{name}.Ports", (base.Ports,), ports_dct)
                     break
 
+        if "Display" in dct:
+            display_class = dct["Display"]
+            parent_display_class = next(
+                (base.Display for base in bases if hasattr(base, "Display")),
+                None,
+            )
+            # Ensure user-defined Display class inherits from parent's Display
+            if parent_display_class and not issubclass(display_class, parent_display_class):
+                filtered_bases = tuple(base for base in display_class.__bases__ if base is not object)
+                dct["Display"] = type(
+                    f"{name}.Display",
+                    (parent_display_class,) + filtered_bases,
+                    {**display_class.__dict__, "__module__": dct["__module__"]},
+                )
+        else:
+            for base in reversed(bases):
+                if issubclass(base, BaseNode):
+                    dct["Display"] = type(
+                        f"{name}.Display",
+                        (base.Display,),
+                        {"__module__": dct["__module__"]},
+                    )
+                    break
+
         if "Execution" not in dct:
             for base in reversed(bases):
                 if issubclass(base, BaseNode):
@@ -130,7 +171,11 @@ class BaseNodeMeta(ABCMeta):
         node_class.Execution.node_class = node_class
         node_class.Trigger.node_class = node_class
         node_class.ExternalInputs.__parent_class__ = node_class
-        node_class.__id__ = uuid4_from_hash(node_class.__qualname__)
+
+        # Use new ID generation (module + qualname)
+        # generate_entity_id_from_path normalizes the module path to filter out UUID namespace for stable ID generation
+        node_class.__id__ = generate_entity_id_from_path(f"{node_class.__module__}.{node_class.__qualname__}")
+
         node_class.__output_ids__ = {
             ref.name: uuid4_from_hash(f"{node_class.__id__}|{ref.name}")
             for ref in node_class.Outputs
@@ -151,8 +196,10 @@ class BaseNodeMeta(ABCMeta):
         try:
             attribute = super().__getattribute__(name)
         except AttributeError as e:
-            if _is_annotated(cls, name):
-                attribute = None
+            annotation = _is_annotated(cls, name)
+            origin_annotation = get_origin(annotation)
+            if origin_annotation is not CollectionsCallable and origin_annotation is not TypingCallable:
+                attribute = undefined
             else:
                 raise e
 
@@ -215,17 +262,6 @@ class BaseNodeMeta(ABCMeta):
                 yield attr_value
                 yielded_attr_names.add(attr_name)
 
-    @abstractmethod
-    def __validate__(cls) -> None:
-        """
-        Validates the node.
-        Subclasses can override this method to implement their specific validation logic.
-        Called during serialization or explicit validation.
-
-        Default implementation performs no validation.
-        """
-        pass
-
 
 class _BaseNodeTriggerMeta(type):
     def __eq__(self, other: Any) -> bool:
@@ -275,7 +311,9 @@ NodeRunResponse = Union[BaseOutputs, Iterator[BaseOutput]]
 class BaseNode(Generic[StateType], ABC, BaseExecutable, metaclass=BaseNodeMeta):
     state: StateType
     _context: WorkflowContext
-    _inputs: MappingProxyType[NodeReference, Any]
+    _inputs: MappingProxyType[Union[NodeReference, AccessorExpression], Any]
+
+    __exclude_from_monitoring__: bool = False
 
     class ExternalInputs(BaseInputs):
         __descriptor_class__ = ExternalInputReference
@@ -285,6 +323,15 @@ class BaseNode(Generic[StateType], ABC, BaseExecutable, metaclass=BaseNodeMeta):
 
     class Ports(NodePorts):
         default = Port(default=True)
+
+    class Display:
+        """Optional display metadata for visual representation."""
+
+        icon: Optional[str] = None
+        color: Optional[str] = None
+        x: Optional[float] = None
+        y: Optional[float] = None
+        z_index: Optional[int] = None
 
     class Trigger(metaclass=_BaseNodeTriggerMeta):
         node_class: Type["BaseNode"]
@@ -343,8 +390,11 @@ class BaseNode(Generic[StateType], ABC, BaseExecutable, metaclass=BaseNodeMeta):
                 all_deps_invoked = all(dep in node_classes_invoked for dep in dependencies)
                 return all_deps_invoked
 
+            if cls.merge_behavior == MergeBehavior.CUSTOM:
+                return False
+
             raise NodeException(
-                message="Invalid Trigger Node Specification",
+                message=f"Invalid Trigger Node Specification: {cls.merge_behavior}",
                 code=WorkflowErrorCode.INVALID_INPUTS,
             )
 
@@ -482,7 +532,8 @@ class BaseNode(Generic[StateType], ABC, BaseExecutable, metaclass=BaseNodeMeta):
                     setattr(base, leaf, input_value)
 
         for descriptor in self.__class__:
-            if not descriptor.instance:
+            if descriptor.instance is undefined:
+                setattr(self, descriptor.name, undefined)
                 continue
 
             if any(isinstance(t, type) and issubclass(t, BaseDescriptor) for t in descriptor.types):
@@ -505,6 +556,16 @@ class BaseNode(Generic[StateType], ABC, BaseExecutable, metaclass=BaseNodeMeta):
     def run(self) -> NodeRunResponse:
         return self.Outputs()
 
+    def __cancel__(self, message: str) -> None:
+        """
+        Called when the node should be cancelled. Override this method to propagate
+        cancellation to nested workflows or other resources.
+
+        Args:
+            message: The error message describing why the node is being cancelled
+        """
+        pass
+
     def __repr__(self) -> str:
         return str(self.__class__)
 
@@ -520,3 +581,14 @@ class BaseNode(Generic[StateType], ABC, BaseExecutable, metaclass=BaseNodeMeta):
         """
 
         return False
+
+    @classmethod
+    def __validate__(cls) -> None:
+        """
+        Validates the node.
+        Subclasses can override this method to implement their specific validation logic.
+        Called during serialization or explicit validation.
+
+        Default implementation performs no validation.
+        """
+        pass

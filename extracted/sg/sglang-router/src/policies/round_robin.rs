@@ -1,8 +1,12 @@
 //! Round-robin load balancing policy
 
-use super::{get_healthy_worker_indices, LoadBalancingPolicy};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+
+use super::{get_healthy_worker_indices, LoadBalancingPolicy, SelectWorkerInfo};
 use crate::core::Worker;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Round-robin selection policy
 ///
@@ -23,8 +27,8 @@ impl RoundRobinPolicy {
 impl LoadBalancingPolicy for RoundRobinPolicy {
     fn select_worker(
         &self,
-        workers: &[Box<dyn Worker>],
-        _request_text: Option<&str>,
+        workers: &[Arc<dyn Worker>],
+        _info: &SelectWorkerInfo,
     ) -> Option<usize> {
         let healthy_indices = get_healthy_worker_indices(workers);
 
@@ -55,82 +59,93 @@ impl LoadBalancingPolicy for RoundRobinPolicy {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::core::{BasicWorker, WorkerType};
+    use crate::core::{BasicWorkerBuilder, WorkerType};
 
     #[test]
     fn test_round_robin_selection() {
         let policy = RoundRobinPolicy::new();
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w3:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w3:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
         ];
 
         // Should select workers in order: 0, 1, 2, 0, 1, 2, ...
-        assert_eq!(policy.select_worker(&workers, None), Some(0));
-        assert_eq!(policy.select_worker(&workers, None), Some(1));
-        assert_eq!(policy.select_worker(&workers, None), Some(2));
-        assert_eq!(policy.select_worker(&workers, None), Some(0));
-        assert_eq!(policy.select_worker(&workers, None), Some(1));
+        let info = SelectWorkerInfo::default();
+        assert_eq!(policy.select_worker(&workers, &info), Some(0));
+        assert_eq!(policy.select_worker(&workers, &info), Some(1));
+        assert_eq!(policy.select_worker(&workers, &info), Some(2));
+        assert_eq!(policy.select_worker(&workers, &info), Some(0));
+        assert_eq!(policy.select_worker(&workers, &info), Some(1));
     }
 
     #[test]
     fn test_round_robin_with_unhealthy_workers() {
         let policy = RoundRobinPolicy::new();
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w3:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w3:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
         ];
 
         // Mark middle worker as unhealthy
         workers[1].set_healthy(false);
 
         // Should skip unhealthy worker: 0, 2, 0, 2, ...
-        assert_eq!(policy.select_worker(&workers, None), Some(0));
-        assert_eq!(policy.select_worker(&workers, None), Some(2));
-        assert_eq!(policy.select_worker(&workers, None), Some(0));
-        assert_eq!(policy.select_worker(&workers, None), Some(2));
+        let info = SelectWorkerInfo::default();
+        assert_eq!(policy.select_worker(&workers, &info), Some(0));
+        assert_eq!(policy.select_worker(&workers, &info), Some(2));
+        assert_eq!(policy.select_worker(&workers, &info), Some(0));
+        assert_eq!(policy.select_worker(&workers, &info), Some(2));
     }
 
     #[test]
     fn test_round_robin_reset() {
         let policy = RoundRobinPolicy::new();
-        let workers: Vec<Box<dyn Worker>> = vec![
-            Box::new(BasicWorker::new(
-                "http://w1:8000".to_string(),
-                WorkerType::Regular,
-            )),
-            Box::new(BasicWorker::new(
-                "http://w2:8000".to_string(),
-                WorkerType::Regular,
-            )),
+        let workers: Vec<Arc<dyn Worker>> = vec![
+            Arc::new(
+                BasicWorkerBuilder::new("http://w1:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
+            Arc::new(
+                BasicWorkerBuilder::new("http://w2:8000")
+                    .worker_type(WorkerType::Regular)
+                    .build(),
+            ),
         ];
 
         // Advance the counter
-        assert_eq!(policy.select_worker(&workers, None), Some(0));
-        assert_eq!(policy.select_worker(&workers, None), Some(1));
+        let info = SelectWorkerInfo::default();
+        assert_eq!(policy.select_worker(&workers, &info), Some(0));
+        assert_eq!(policy.select_worker(&workers, &info), Some(1));
 
         // Reset should start from beginning
         policy.reset();
-        assert_eq!(policy.select_worker(&workers, None), Some(0));
+        assert_eq!(policy.select_worker(&workers, &info), Some(0));
     }
 }

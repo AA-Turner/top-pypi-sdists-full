@@ -8,24 +8,29 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_bedrock_data_automation_runtime.type_defs import BlueprintTypeDef
+    from mypy_boto3_bedrock_data_automation_runtime.type_defs import BlobTypeDef
 
-    data: BlueprintTypeDef = ...
+    data: BlobTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
+from datetime import datetime
+from typing import IO, Any, Union
 
-from .literals import AutomationJobStatusType, BlueprintStageType, DataAutomationStageType
+from botocore.response import StreamingBody
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
+from .literals import (
+    AutomationJobStatusType,
+    BlueprintStageType,
+    CustomOutputStatusType,
+    DataAutomationStageType,
+    SemanticModalityType,
+)
+
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -34,6 +39,7 @@ else:
 
 __all__ = (
     "AssetProcessingConfigurationTypeDef",
+    "BlobTypeDef",
     "BlueprintTypeDef",
     "DataAutomationConfigurationTypeDef",
     "EncryptionConfigurationTypeDef",
@@ -43,11 +49,15 @@ __all__ = (
     "InputConfigurationTypeDef",
     "InvokeDataAutomationAsyncRequestTypeDef",
     "InvokeDataAutomationAsyncResponseTypeDef",
+    "InvokeDataAutomationRequestTypeDef",
+    "InvokeDataAutomationResponseTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "NotificationConfigurationTypeDef",
     "OutputConfigurationTypeDef",
+    "OutputSegmentTypeDef",
     "ResponseMetadataTypeDef",
+    "SyncInputConfigurationTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
     "TimestampSegmentTypeDef",
@@ -55,6 +65,8 @@ __all__ = (
     "VideoAssetProcessingConfigurationTypeDef",
     "VideoSegmentConfigurationTypeDef",
 )
+
+BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 
 class BlueprintTypeDef(TypedDict):
@@ -88,7 +100,7 @@ class OutputConfigurationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -96,6 +108,12 @@ class ResponseMetadataTypeDef(TypedDict):
 class TagTypeDef(TypedDict):
     key: str
     value: str
+
+
+class OutputSegmentTypeDef(TypedDict):
+    customOutputStatus: NotRequired[CustomOutputStatusType]
+    customOutput: NotRequired[str]
+    standardOutput: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -112,6 +130,15 @@ class UntagResourceRequestTypeDef(TypedDict):
     tagKeys: Sequence[str]
 
 
+SyncInputConfigurationTypeDef = TypedDict(
+    "SyncInputConfigurationTypeDef",
+    {
+        "bytes": NotRequired[BlobTypeDef],
+        "s3Uri": NotRequired[str],
+    },
+)
+
+
 class NotificationConfigurationTypeDef(TypedDict):
     eventBridgeConfiguration: EventBridgeConfigurationTypeDef
 
@@ -121,6 +148,9 @@ class GetDataAutomationStatusResponseTypeDef(TypedDict):
     errorType: str
     errorMessage: str
     outputConfiguration: OutputConfigurationTypeDef
+    jobSubmissionTime: datetime
+    jobCompletionTime: datetime
+    jobDurationInSeconds: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -130,7 +160,7 @@ class InvokeDataAutomationAsyncResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -139,8 +169,22 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 
+class InvokeDataAutomationResponseTypeDef(TypedDict):
+    semanticModality: SemanticModalityType
+    outputSegments: list[OutputSegmentTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class VideoSegmentConfigurationTypeDef(TypedDict):
     timestampSegment: NotRequired[TimestampSegmentTypeDef]
+
+
+class InvokeDataAutomationRequestTypeDef(TypedDict):
+    inputConfiguration: SyncInputConfigurationTypeDef
+    dataAutomationProfileArn: str
+    dataAutomationConfiguration: NotRequired[DataAutomationConfigurationTypeDef]
+    blueprints: NotRequired[Sequence[BlueprintTypeDef]]
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
 
 
 class VideoAssetProcessingConfigurationTypeDef(TypedDict):

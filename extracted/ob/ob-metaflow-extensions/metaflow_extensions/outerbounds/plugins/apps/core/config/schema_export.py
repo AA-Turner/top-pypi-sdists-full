@@ -165,7 +165,11 @@ def export_schema(
 
 # Private helper functions
 def _generate_openapi_schema(cls) -> Dict[str, Any]:
-    """Generate OpenAPI schema for a configuration class."""
+    """Generate OpenAPI schema for a configuration class.
+
+    Note: Schema is intended for CLI/config file usage, so PROGRAMMATIC-only
+    fields are excluded.
+    """
     # Clean up class docstring for better YAML formatting
     description = f"{cls.__name__} configuration"
     get_description = getattr(cls, "SCHEMA_DOC", None)
@@ -191,6 +195,13 @@ def _generate_openapi_schema(cls) -> Dict[str, Any]:
 
     for field_name, field_info in cls._fields.items():
         if field_name.startswith("_"):
+            continue
+
+        # Skip PROGRAMMATIC-only fields - schema is for CLI/config file usage
+        if (
+            hasattr(field_info, "is_available_in_cli")
+            and not field_info.is_available_in_cli()
+        ):
             continue
 
         field_schema = _get_field_schema(field_info)

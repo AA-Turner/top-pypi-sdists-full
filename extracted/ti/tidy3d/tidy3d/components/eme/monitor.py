@@ -8,7 +8,12 @@ from typing import Literal, Optional, Union
 import pydantic.v1 as pd
 
 from tidy3d.components.base_sim.monitor import AbstractMonitor
-from tidy3d.components.monitor import AbstractFieldMonitor, ModeSolverMonitor, PermittivityMonitor
+from tidy3d.components.monitor import (
+    AbstractFieldMonitor,
+    MediumMonitor,
+    ModeSolverMonitor,
+    PermittivityMonitor,
+)
 from tidy3d.components.types import FreqArray
 
 BYTES_COMPLEX = 8
@@ -54,7 +59,7 @@ class EMEMonitor(AbstractMonitor, ABC):
     eme_cell_interval_space: Literal[1] = pd.Field(
         1,
         title="EME Cell Interval",
-        description="Number of eme cells between monitor recordings. If equal to 1, "
+        description="Number of EME cells between monitor recordings. If equal to 1, "
         "there will be no downsampling. If greater than 1, the step will be applied, but the "
         "first and last cells are always included. Not used in all monitors. "
         "Not all monitors support values different from 1.",
@@ -136,7 +141,7 @@ class EMEModeSolverMonitor(EMEMonitor):
     eme_cell_interval_space: pd.PositiveInt = pd.Field(
         1,
         title="EME Cell Interval",
-        description="Number of eme cells between monitor recordings. If equal to 1, "
+        description="Number of EME cells between monitor recordings. If equal to 1, "
         "there will be no downsampling. If greater than 1, the step will be applied, but the "
         "first and last cells are always included. Not used in all monitors. "
         "Not all monitors support values different from 1.",
@@ -209,7 +214,7 @@ class EMEFieldMonitor(EMEMonitor, AbstractFieldMonitor):
     eme_cell_interval_space: Literal[1] = pd.Field(
         1,
         title="EME Cell Interval",
-        description="Number of eme cells between monitor recordings. If equal to 1, "
+        description="Number of EME cells between monitor recordings. If equal to 1, "
         "there will be no downsampling. If greater than 1, the step will be applied, but the "
         "first and last cells are always included. Not used in all monitors. "
         "Not all monitors support values different from 1. Note: this field is not used for "
@@ -275,7 +280,7 @@ class EMECoefficientMonitor(EMEMonitor):
     eme_cell_interval_space: pd.PositiveInt = pd.Field(
         1,
         title="EME Cell Interval",
-        description="Number of eme cells between monitor recordings. If equal to 1, "
+        description="Number of EME cells between monitor recordings. If equal to 1, "
         "there will be no downsampling. If greater than 1, the step will be applied, but the "
         "first and last cells are always included. Not used in all monitors. "
         "Not all monitors support values different from 1.",
@@ -303,4 +308,5 @@ EMEMonitorType = Union[
     EMECoefficientMonitor,
     ModeSolverMonitor,
     PermittivityMonitor,
+    MediumMonitor,
 ]

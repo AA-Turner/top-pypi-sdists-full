@@ -21,6 +21,16 @@ SHELL = /usr/bin/env bash -o pipefail
 PROJECT_DIR := $(shell dirname $(abspath $(lastword $(MAKEFILE_LIST))))
 VENV_DIR := $(PROJECT_DIR)/.venv
 
+# Setting SED for compatibility with macos
+ifeq ($(shell command -v gsed 2>/dev/null),)
+    SED ?= $(shell command -v sed)
+else
+    SED ?= $(shell command -v gsed)
+endif
+ifeq ($(shell ${SED} --version 2>&1 | grep -q GNU; echo $$?),1)
+    $(error !!! GNU sed is required. If on OS X, use 'brew install gnu-sed'.)
+endif
+
 ##@ General
 
 # The help target prints out all targets with their descriptions organized
@@ -36,8 +46,6 @@ VENV_DIR := $(PROJECT_DIR)/.venv
 
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
-
-#UV := $(shell which uv)
 
 .PHONY: uv
 uv: ## Install UV
@@ -57,7 +65,7 @@ verify: install-dev  ## install all required tools
 	@uv run ruff format --check kubeflow
 
 .PHONY: uv-venv
-uv-venv:
+uv-venv:  ## Create uv virtual environment
 	@if [ ! -d "$(VENV_DIR)" ]; then \
 		echo "Creating uv virtual environment in $(VENV_DIR)..."; \
 		uv venv; \
@@ -67,18 +75,29 @@ uv-venv:
 
 .PHONY: release
 release: install-dev
-	@if [ -z "$(VERSION)" ]; then echo "Usage: make release VERSION=0.1.0"; exit 1; fi
-	@V_NO_V=$(VERSION); \
-	sed -i.bak "s/^__version__ = \".*\"/__version__ = \"$$V_NO_V\"/" kubeflow/__init__.py && \
-	rm -f kubeflow/__init__.py.bak
-	@uv run python scripts/gen-changelog.py --token=$${GITHUB_TOKEN} --version=$(VERSION)
+	@if [ -z "$(VERSION)" ] || ! echo "$(VERSION)" | grep -E -q '^[0-9]+\.[0-9]+\.[0-9]+$$'; then \
+		echo "Error: VERSION must be set in X.Y.Z format. Usage: make release VERSION=X.Y.Z"; \
+		exit 1; \
+	fi
+	@$(SED) -i 's/^__version__ = ".*"/__version__ = "$(VERSION)"/' kubeflow/__init__.py
+	@MAJOR_MINOR=$$(echo "$(VERSION)" | cut -d. -f1,2); \
+	CHANGELOG_PATH="CHANGELOG/CHANGELOG-$$MAJOR_MINOR.md"; \
+	echo "Generating changelog for $(VERSION) (unreleased)"; \
+	CLIFF_CMD="uv run git-cliff --unreleased --tag $(VERSION)"; \
+	if [ -f "$$CHANGELOG_PATH" ]; then \
+		$$CLIFF_CMD --prepend "$$CHANGELOG_PATH"; \
+	else \
+		$$CLIFF_CMD -o "$$CHANGELOG_PATH"; \
+	fi; \
+	echo "Changelog generated at $$CHANGELOG_PATH"
+
 
  # make test-python will produce html coverage by default. Run with `make test-python report=xml` to produce xml report.
 .PHONY: test-python
-test-python: uv-venv
+test-python: uv-venv  ## Run Python unit tests
 	@uv sync
-	@uv run coverage run --source=kubeflow.trainer.backends.kubernetes.backend,kubeflow.trainer.utils.utils -m pytest ./kubeflow/trainer/backends/kubernetes/backend_test.py ./kubeflow/trainer/utils/utils_test.py
-	@uv run coverage report -m kubeflow/trainer/backends/kubernetes/backend.py kubeflow/trainer/utils/utils.py
+	@uv run coverage run --source=kubeflow -m pytest ./kubeflow/
+	@uv run coverage report --omit='*_test.py' --skip-covered --skip-empty
 ifeq ($(report),xml)
 	@uv run coverage xml
 else
@@ -87,7 +106,7 @@ endif
 
 
 .PHONY: install-dev
-install-dev: uv uv-venv ruff ## Install uv, create .venv, sync deps; DEV=1 to include dev group; EXTRAS=comma,list for extras
+install-dev: uv uv-venv ruff  ## Install uv, create .venv, sync deps.
 	@echo "Using virtual environment at: $(VENV_DIR)"
 	@echo "Syncing dependencies with uv..."
 	@uv sync

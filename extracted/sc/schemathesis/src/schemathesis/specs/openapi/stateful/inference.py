@@ -13,16 +13,21 @@ When a `Location` header points to `/users/123`, the inference:
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Mapping, Union
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from werkzeug.exceptions import MethodNotAllowed, NotFound
 from werkzeug.routing import Map, MapAdapter, Rule
 
+from schemathesis.core.adapter import ResponsesContainer
+from schemathesis.core.transforms import encode_pointer
+from schemathesis.specs.openapi.stateful.links import SCHEMATHESIS_LINK_EXTENSION
+
 if TYPE_CHECKING:
     from schemathesis.engine.observations import LocationHeaderEntry
-    from schemathesis.specs.openapi.schemas import BaseOpenAPISchema
+    from schemathesis.specs.openapi.schemas import OpenApiSchema
 
 
 @dataclass(unsafe_hash=True)
@@ -36,7 +41,7 @@ class OperationById:
     __slots__ = ("value", "method", "path")
 
     def to_link_base(self) -> dict[str, Any]:
-        return {"operationId": self.value, "x-inferred": True}
+        return {"operationId": self.value, SCHEMATHESIS_LINK_EXTENSION: {"is_inferred": True}}
 
 
 @dataclass(unsafe_hash=True)
@@ -50,10 +55,10 @@ class OperationByRef:
     __slots__ = ("value", "method", "path")
 
     def to_link_base(self) -> dict[str, Any]:
-        return {"operationRef": self.value, "x-inferred": True}
+        return {"operationRef": self.value, SCHEMATHESIS_LINK_EXTENSION: {"is_inferred": True}}
 
 
-OperationReference = Union[OperationById, OperationByRef]
+OperationReference = OperationById | OperationByRef
 # Method, path, response code, sorted path parameter names
 SeenLinkKey = tuple[str, str, int, tuple[str, ...]]
 
@@ -78,12 +83,12 @@ class LinkInferencer:
     _operations: list[OperationReference]
     _base_url: str | None
     _base_path: str
-    _links_field_name: str
+    _links_keyword: str
 
-    __slots__ = ("_adapter", "_operations", "_base_url", "_base_path", "_links_field_name")
+    __slots__ = ("_adapter", "_operations", "_base_url", "_base_path", "_links_keyword")
 
     @classmethod
-    def from_schema(cls, schema: BaseOpenAPISchema) -> LinkInferencer:
+    def from_schema(cls, schema: OpenApiSchema) -> LinkInferencer:
         # NOTE: Use `matchit` for routing in the future
         rules = []
         operations = []
@@ -93,7 +98,7 @@ class LinkInferencer:
             if operation_id:
                 operation = OperationById(operation_id, method=method, path=path)
             else:
-                encoded_path = path.replace("~", "~0").replace("/", "~1")
+                encoded_path = encode_pointer(path)
                 operation = OperationByRef(f"#/paths/{encoded_path}/{method}", method=method, path=path)
 
             operations.append(operation)
@@ -107,7 +112,7 @@ class LinkInferencer:
             _operations=operations,
             _base_url=schema.config.base_url,
             _base_path=schema.base_path,
-            _links_field_name=schema.links_field,
+            _links_keyword=schema.adapter.links_keyword,
         )
 
     def match(self, path: str) -> tuple[OperationReference, Mapping[str, str]] | None:
@@ -214,10 +219,7 @@ class LinkInferencer:
         relative_path = path[len(base_path) :]
         return relative_path if relative_path.startswith("/") else "/" + relative_path
 
-    def inject_links(self, operation: dict[str, Any], entries: list[LocationHeaderEntry]) -> int:
-        from schemathesis.specs.openapi.schemas import _get_response_definition_by_status
-
-        responses = operation.setdefault("responses", {})
+    def inject_links(self, responses: ResponsesContainer, entries: list[LocationHeaderEntry]) -> int:
         # To avoid unnecessary work, we need to skip entries that we know will produce already inferred links
         seen: set[SeenLinkKey] = set()
         injected = 0
@@ -239,10 +241,13 @@ class LinkInferencer:
                 continue
             seen.add(key)
             # Find the right bucket for the response status or create a new one
-            definition = _get_response_definition_by_status(entry.status_code, responses)
-            if definition is None:
-                definition = responses.setdefault(str(entry.status_code), {})
-            links = definition.setdefault(self._links_field_name, {})
+            response = responses.find_by_status_code(entry.status_code)
+            links: dict[str, dict[str, dict]]
+            if response is None:
+                links = {}
+                responses.add(str(entry.status_code), {self._links_keyword: links})
+            else:
+                links = response.definition.setdefault(self._links_keyword, {})
 
             for idx, link in enumerate(self._build_links_from_matches(matches)):
                 links[f"X-Inferred-Link-{idx}"] = link

@@ -17,11 +17,12 @@ __all__ = (
 import contextlib
 import shutil
 import sys
+from collections.abc import Iterator
 from enum import Enum
 from io import StringIO
 from itertools import chain
 from pathlib import Path
-from typing import Any, Iterator, Optional, Set, TextIO, Union, cast
+from typing import Any, TextIO, cast
 from warnings import warn
 
 from isort import core
@@ -68,11 +69,11 @@ class ImportKey(Enum):
 
 def sort_code_string(
     code: str,
-    extension: Optional[str] = None,
+    extension: str | None = None,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
+    file_path: Path | None = None,
     disregard_skip: bool = False,
-    show_diff: Union[bool, TextIO] = False,
+    show_diff: bool | TextIO = False,
     **config_kwargs: Any,
 ) -> str:
     """Sorts any imports within the provided code string, returning a new string with them sorted.
@@ -104,10 +105,10 @@ def sort_code_string(
 
 def check_code_string(
     code: str,
-    show_diff: Union[bool, TextIO] = False,
-    extension: Optional[str] = None,
+    show_diff: bool | TextIO = False,
+    extension: str | None = None,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
+    file_path: Path | None = None,
     disregard_skip: bool = False,
     **config_kwargs: Any,
 ) -> bool:
@@ -137,11 +138,11 @@ def check_code_string(
 def sort_stream(
     input_stream: TextIO,
     output_stream: TextIO,
-    extension: Optional[str] = None,
+    extension: str | None = None,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
+    file_path: Path | None = None,
     disregard_skip: bool = False,
-    show_diff: Union[bool, TextIO] = False,
+    show_diff: bool | TextIO = False,
     raise_on_skip: bool = True,
     **config_kwargs: Any,
 ) -> bool:
@@ -239,10 +240,10 @@ def sort_stream(
 
 def check_stream(
     input_stream: TextIO,
-    show_diff: Union[bool, TextIO] = False,
-    extension: Optional[str] = None,
+    show_diff: bool | TextIO = False,
+    extension: str | None = None,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
+    file_path: Path | None = None,
     disregard_skip: bool = False,
     **config_kwargs: Any,
 ) -> bool:
@@ -305,12 +306,12 @@ def check_stream(
 
 
 def check_file(
-    filename: Union[str, Path],
-    show_diff: Union[bool, TextIO] = False,
+    filename: str | Path,
+    show_diff: bool | TextIO = False,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
+    file_path: Path | None = None,
     disregard_skip: bool = True,
-    extension: Optional[str] = None,
+    extension: str | None = None,
     **config_kwargs: Any,
 ) -> bool:
     """Checks any imports within the provided file, returning `False` if any unsorted or
@@ -358,7 +359,7 @@ def _in_memory_output_stream_context() -> Iterator[TextIO]:
 
 
 @contextlib.contextmanager
-def _file_output_stream_context(filename: Union[str, Path], source_file: File) -> Iterator[TextIO]:
+def _file_output_stream_context(filename: str | Path, source_file: File) -> Iterator[TextIO]:
     tmp_file = _tmp_file(source_file)
     with tmp_file.open("w+", encoding=source_file.encoding, newline="") as output_stream:
         shutil.copymode(filename, tmp_file)
@@ -369,18 +370,18 @@ def _file_output_stream_context(filename: Union[str, Path], source_file: File) -
 # the main entrypoints so sort of expected to be complex.
 # skipcq: PY-R1000
 def sort_file(
-    filename: Union[str, Path],
-    extension: Optional[str] = None,
+    filename: str | Path,
+    extension: str | None = None,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
+    file_path: Path | None = None,
     disregard_skip: bool = True,
     ask_to_apply: bool = False,
-    show_diff: Union[bool, TextIO] = False,
+    show_diff: bool | TextIO = False,
     write_to_stdout: bool = False,
-    output: Optional[TextIO] = None,
+    output: TextIO | None = None,
     **config_kwargs: Any,
 ) -> bool:
-    """Sorts and formats any groups of imports imports within the provided file or Path.
+    """Sorts and formats any groups of imports within the provided file or Path.
      Returns `True` if the file has been changed, otherwise `False`.
 
     - **filename**: The name or Path of the file to format.
@@ -509,8 +510,8 @@ def sort_file(
 def find_imports_in_code(
     code: str,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
-    unique: Union[bool, ImportKey] = False,
+    file_path: Path | None = None,
+    unique: bool | ImportKey = False,
     top_only: bool = False,
     **config_kwargs: Any,
 ) -> Iterator[identify.Import]:
@@ -536,10 +537,10 @@ def find_imports_in_code(
 def find_imports_in_stream(
     input_stream: TextIO,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
-    unique: Union[bool, ImportKey] = False,
+    file_path: Path | None = None,
+    unique: bool | ImportKey = False,
     top_only: bool = False,
-    _seen: Optional[Set[str]] = None,
+    _seen: set[str] | None = None,
     **config_kwargs: Any,
 ) -> Iterator[identify.Import]:
     """Finds and returns all imports within the provided code stream.
@@ -559,7 +560,7 @@ def find_imports_in_stream(
     if not unique:
         yield from identified_imports
 
-    seen: Set[str] = set() if _seen is None else _seen
+    seen: set[str] = set() if _seen is None else _seen
     for identified_import in identified_imports:
         if unique in (True, ImportKey.ALIAS):
             key = identified_import.statement()
@@ -576,10 +577,10 @@ def find_imports_in_stream(
 
 
 def find_imports_in_file(
-    filename: Union[str, Path],
+    filename: str | Path,
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
-    unique: Union[bool, ImportKey] = False,
+    file_path: Path | None = None,
+    unique: bool | ImportKey = False,
     top_only: bool = False,
     **config_kwargs: Any,
 ) -> Iterator[identify.Import]:
@@ -608,10 +609,10 @@ def find_imports_in_file(
 
 
 def find_imports_in_paths(
-    paths: Iterator[Union[str, Path]],
+    paths: Iterator[str | Path],
     config: Config = DEFAULT_CONFIG,
-    file_path: Optional[Path] = None,
-    unique: Union[bool, ImportKey] = False,
+    file_path: Path | None = None,
+    unique: bool | ImportKey = False,
     top_only: bool = False,
     **config_kwargs: Any,
 ) -> Iterator[identify.Import]:
@@ -626,7 +627,7 @@ def find_imports_in_paths(
     - ****config_kwargs**: Any config modifications.
     """
     config = _config(config=config, **config_kwargs)
-    seen: Optional[Set[str]] = set() if unique else None
+    seen: set[str] | None = set() if unique else None
     yield from chain(
         *(
             find_imports_in_file(
@@ -638,7 +639,7 @@ def find_imports_in_paths(
 
 
 def _config(
-    path: Optional[Path] = None, config: Config = DEFAULT_CONFIG, **config_kwargs: Any
+    path: Path | None = None, config: Config = DEFAULT_CONFIG, **config_kwargs: Any
 ) -> Config:
     if path and (
         config is DEFAULT_CONFIG

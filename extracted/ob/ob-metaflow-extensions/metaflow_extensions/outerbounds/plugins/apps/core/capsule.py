@@ -20,16 +20,30 @@ from ._state_machine import (
     DEPLOYMENT_READY_CONDITIONS,
     LogLine,
 )
+from .exceptions import (
+    CapsuleApiException,
+    CapsuleConcurrentUpgradeException,
+    CapsuleCrashLoopException,
+    CapsuleDeletedDuringDeploymentException,
+    CapsuleDeploymentException,
+    CapsuleReadinessException,
+    OuterboundsBackendUnhealthyException,
+    OuterboundsForbiddenException,
+)
+
+STATE_REFRESH_FREQUENCY = 1  # in seconds
 
 
-def _format_url_string(url):
+def _format_url_string(url, is_https=True):
     if url is None:
         return None
 
     if url.startswith("http://") or url.startswith("https://"):
         return url
+    if is_https:
+        return f"https://{url}"
 
-    return f"https://{url}"
+    return f"http://{url}"
 
 
 class CapsuleStateMachine:
@@ -84,12 +98,12 @@ class CapsuleStateMachine:
     @property
     def out_of_cluster_url(self):
         access_info = self.current_status.get("accessInfo", {}) or {}
-        return _format_url_string(access_info.get("outOfClusterURL", None))
+        return _format_url_string(access_info.get("outOfClusterURL", None), True)
 
     @property
     def in_cluster_url(self):
         access_info = self.current_status.get("accessInfo", {}) or {}
-        return _format_url_string(access_info.get("inClusterURL", None))
+        return _format_url_string(access_info.get("inClusterURL", None), True)
 
     @property
     def update_in_progress(self):
@@ -327,47 +341,53 @@ class CapsuleInput:
             "forceUpdate": app_config.get_state("force_upgrade", False),
         }
 
+    @classmethod
+    def from_backend_spec(cls, spec: dict, patch: dict = None) -> dict:
+        """
+        Transform a backend spec into a valid create payload.
 
-class CapsuleApiException(Exception):
-    def __init__(
-        self,
-        url: str,
-        method: str,
-        status_code: int,
-        text: str,
-        message: Optional[str] = None,
-    ):
-        self.url = url
-        self.method = method
-        self.status_code = status_code
-        self.text = text
-        self.message = message
+        The backend returns specs with computed/runtime fields that should
+        not be sent back to the create endpoint.
 
-    def __str__(self):
-        return (
-            f"CapsuleApiException: {self.url} [{self.method}]: Status Code: {self.status_code} \n\n {self.text}"
-            + (f"\n\n {self.message}" if self.message else "")
-        )
+        Parameters
+        ----------
+        spec : dict
+            The spec from backend (via capsule_api.get())
+        patch : dict, optional
+            Fields to update/merge into the spec
 
+        Returns
+        -------
+        dict
+            A spec ready for the create endpoint
+        """
+        result = json.loads(json.dumps(spec))
+        # We have this if statement only because if the backend
+        # gets a `none` persistence it farts out.
+        if result.get("persistence") and spec.get("persistence") == "none":
+            result.pop("persistence")
 
-class CapsuleDeploymentException(Exception):
-    def __init__(
-        self,
-        capsule_id: str,
-        message: str,
-    ):
-        self.capsule_id = capsule_id
-        self.message = message
+        # Apply patch with deep merge for nested dicts
+        if patch:
+            for key, value in patch.items():
+                if (
+                    key in result
+                    and isinstance(result[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    result[key] = {**result[key], **value}
+                else:
+                    result[key] = value
 
-    def __str__(self):
-        return f"CapsuleDeploymentException: [{self.capsule_id}] :: {self.message}"
+        return result
 
 
 class CapsuleApi:
-    def __init__(self, base_url: str, perimeter: str, logger_fn=None):
+    def __init__(self, base_url: str, perimeter: str, logger_fn=None, retry_500s=False):
         self._base_url = self._create_base_url(base_url, perimeter)
         from metaflow.metaflow_config import SERVICE_HEADERS
 
+        self._retry_500s = retry_500s
         self._logger_fn = logger_fn
         self._request_headers = {
             **{"Content-Type": "application/json", "Connection": "keep-alive"},
@@ -393,7 +413,23 @@ class CapsuleApi:
                 logger_fn=self._logger_fn,
                 **kwargs,
             )
+        # The CapsuleApi wraps every API call happening to the capsule
+        # API. We do this so that we can raise exceptions in a way that make
+        # it clearer to the end-user and the operator. since the safe_requests_wrapper
+        # can already retry 5xx errors too we should ensure that any time we hit max
+        # retries or if we hit 5xx without retries, we should raise a "special" exception
+        # and not the CapsuleApiException to notify the operator that the
+        # backend is not working right RN and thier application crashes. We can lift the
+        # exception to top level to make it importable so operators can deal with that condition
+        # how they like.
         except MaximumRetriesExceeded as e:
+            if e.status_code >= 500:
+                raise OuterboundsBackendUnhealthyException(
+                    e.url,
+                    e.method,
+                    e.status_code,
+                    e.text,
+                )
             raise CapsuleApiException(
                 e.url,
                 e.method,
@@ -401,7 +437,41 @@ class CapsuleApi:
                 e.text,
                 message=f"Maximum retries exceeded for {e.url} [{e.method}]",
             )
-        if response.status_code >= 400:
+        except requests.exceptions.ConnectionError as e:
+            # Network connectivity issues after retries exhausted
+            raise OuterboundsBackendUnhealthyException(
+                url=args[0] if args else "unknown",
+                method=method_func.__name__,
+                message=(
+                    f"Unable to reach Outerbounds backend at {args[0] if args else 'unknown'}. "
+                    "This could be due to network connectivity issues, DNS resolution failures, "
+                    "or the service being temporarily unavailable. "
+                    "Please check your network connection and retry. "
+                    "If the issue persists, contact Outerbounds support."
+                ),
+            ) from e
+
+        if response.status_code >= 500:
+            raise OuterboundsBackendUnhealthyException(
+                args[0],
+                method_func.__name__,
+                response.status_code,
+                response.text,
+                message=(
+                    f"Outerbounds backend returned an error (HTTP {response.status_code}). "
+                    "This is a server-side issue, not a problem with your configuration. "
+                    "Please retry your request. If the issue persists, contact Outerbounds support."
+                ),
+            )
+
+        elif response.status_code == 403:
+            raise OuterboundsForbiddenException(
+                args[0],
+                method_func.__name__,
+                response.text,
+            )
+
+        elif response.status_code >= 400:
             raise CapsuleApiException(
                 args[0],
                 method_func.__name__,
@@ -410,12 +480,39 @@ class CapsuleApi:
             )
         return response
 
+    def _retry_parameters(
+        self,
+        status_codes,
+        retries,
+    ):
+        """
+        All functions calling the wrapped_api_caller use this function
+        set the number of retries for the apis calls. It sets status codes
+        that are allowed to N retries (total including connection retries).
+        If no status codes are passed we should still always pass connnection
+        retries > 0 since DNS can be flaky in-frequently and we dont want to
+        trip up there.
+        """
+        kwargs = {}
+        if self._retry_500s:
+            kwargs = dict(
+                retryable_status_codes=status_codes
+                + [500, 502, 503, 504],  # todo : verify me
+                conn_error_retries=max(
+                    3, retries
+                ),  # connection retries + any other retries.
+            )
+        else:
+            kwargs = dict(
+                retryable_status_codes=status_codes,
+                conn_error_retries=retries,  # connection retries + any other retries.
+            )
+        return kwargs
+
     def create(self, capsule_input: dict):
         _data = json.dumps(capsule_input)
         response = self._wrapped_api_caller(
-            requests.post,
-            self._base_url,
-            data=_data,
+            requests.post, self._base_url, data=_data, **self._retry_parameters([], 3)
         )
         try:
             return response.json()
@@ -431,10 +528,7 @@ class CapsuleApi:
     def get(self, capsule_id: str) -> Dict[str, Any]:
         _url = os.path.join(self._base_url, capsule_id)
         response = self._wrapped_api_caller(
-            requests.get,
-            _url,
-            retryable_status_codes=[409, 404],  # todo : verify me
-            conn_error_retries=3,
+            requests.get, _url, **self._retry_parameters([409, 404], 3)
         )
         try:
             return response.json()
@@ -451,10 +545,7 @@ class CapsuleApi:
     def get_by_name(self, name: str, most_recent_only: bool = True):
         _url = os.path.join(self._base_url, f"?displayName={name}")
         response = self._wrapped_api_caller(
-            requests.get,
-            _url,
-            retryable_status_codes=[409],  # todo : verify me
-            conn_error_retries=3,
+            requests.get, _url, **self._retry_parameters([409], 3)
         )
         try:
             if most_recent_only:
@@ -478,10 +569,7 @@ class CapsuleApi:
 
     def list(self):
         response = self._wrapped_api_caller(
-            requests.get,
-            self._base_url,
-            retryable_status_codes=[409],  # todo : verify me
-            conn_error_retries=3,
+            requests.get, self._base_url, **self._retry_parameters([409], 3)
         )
         try:
             response_json = response.json()
@@ -506,9 +594,7 @@ class CapsuleApi:
     def delete(self, capsule_id: str):
         _url = os.path.join(self._base_url, capsule_id)
         response = self._wrapped_api_caller(
-            requests.delete,
-            _url,
-            retryable_status_codes=[409],  # todo : verify me
+            requests.delete, _url, **self._retry_parameters([409], 3)
         )
         if response.status_code >= 400:
             raise CapsuleApiException(
@@ -527,11 +613,10 @@ class CapsuleApi:
         response = self._wrapped_api_caller(
             requests.get,
             _url,
-            retryable_status_codes=[409, 404],  # todo : verify me
             # Adding 404s because sometimes we might even end up getting 404s if
             # the backend cache is not updated yet. So on consistent 404s we should
             # just crash out.
-            conn_error_retries=3,
+            **self._retry_parameters([409, 404], 3),
         )
         try:
             return response.json().get("workers", []) or []
@@ -552,10 +637,7 @@ class CapsuleApi:
         if previous:
             options = {"previous": True}
         response = self._wrapped_api_caller(
-            requests.get,
-            _url,
-            retryable_status_codes=[409],  # todo : verify me
-            params=options,
+            requests.get, _url, params=options, **self._retry_parameters([409], 3)
         )
         try:
             return response.json().get("logs", []) or []
@@ -578,8 +660,9 @@ class CapsuleApi:
                 "Capsule response of incorrect format",
             )
 
-        spec = capsule_response.get("spec")
-        spec.update(patch_input)
+        spec = CapsuleInput.from_backend_spec(
+            capsule_response.get("spec"), patch=patch_input
+        )
         return self.create(spec)
 
 
@@ -655,6 +738,10 @@ class CapsuleDeployer:
             base_url,
             app_config.get_state("perimeter"),
             logger_fn=logger_fn or partial(print, file=sys.stderr),
+            retry_500s=True
+            # retry for 5xx because during the capsule deployer might even be used
+            # programmatically so any intermittent breakage shouldnt break the overall
+            # control flow unless the breakage is severe (maybe over 20s of complete outage)
         )
         self._create_timeout = create_timeout
         self._logger_fn = logger_fn
@@ -666,7 +753,7 @@ class CapsuleDeployer:
     @property
     def url(self):
         return _format_url_string(
-            ({} or self._capsule_deploy_response).get("outOfClusterUrl", None)
+            ({} or self._capsule_deploy_response).get("outOfClusterUrl", None), True
         )
 
     @property
@@ -678,7 +765,7 @@ class CapsuleDeployer:
         auth_type = self._app_config.get_state("auth", {}).get("type", AuthType.default)
         if auth_type == AuthType.BROWSER:
             return "App"
-        elif auth_type == AuthType.API:
+        elif auth_type == AuthType.API or auth_type == AuthType.BROWSER_AND_API:
             return "Endpoint"
         else:
             raise TODOException(f"Unknown auth type: {auth_type}")
@@ -723,9 +810,13 @@ class CapsuleDeployer:
         output that they desire.
         """
         if capsule_response.get("version", None) != current_deployment_instance_version:
-            raise CapsuleDeploymentException(
+            metadata = capsule_response.get("metadata", {}) or {}
+            raise CapsuleConcurrentUpgradeException(
                 self.identifier,  # type: ignore
-                f"A capsule upgrade was triggered outside current deployment instance. Current deployment version was discarded. Current deployment version: {current_deployment_instance_version} and new version: {capsule_response.get('version', None)}",
+                expected_version=current_deployment_instance_version,
+                actual_version=capsule_response.get("version", None),
+                modified_by=metadata.get("lastModifiedBy"),
+                modified_at=metadata.get("lastModifiedAt"),
             )
 
     def _update_capsule_and_worker_sm(
@@ -734,7 +825,26 @@ class CapsuleDeployer:
         workers_sm: "CapsuleWorkersStateMachine",
         logger: Callable[[str], None],
     ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
-        capsule_response = self.get()
+        try:
+            capsule_response = self.get()
+        except CapsuleApiException as e:
+            # At this point when the code is executing
+            # the CapsuleDeployer would already have created
+            # the capsule since this function is called within
+            # wait_for_terminal_state. Because of that if there
+            # is now a 404 then it means someone deleted the
+            # deployment WHILE this deployment instance is running
+            # We shoud notify the user that something funky has
+            # happened over here. We need to do this since Apps can
+            # now be programmatically created / deleted, we need to
+            # ensure that if some-one has done something concurrent-unsafe
+            # (foo deleting bar's deployment while bar is deploying)
+            # then for that circumstance we should raise an exception here
+            # that something funky has happened. Otherwise if the
+            # CapsuleApiException leaks out then it should be fine.
+            if e.status_code == 404:
+                raise CapsuleDeletedDuringDeploymentException(self.identifier) from e
+            raise
         capsule_sm.add_status(capsule_response.get("status", {}))  # type: ignore
 
         # We need to check if someone has not upgraded the capsule under the hood and
@@ -771,8 +881,10 @@ class CapsuleDeployer:
         """returns True if the worker is crashlooping, False otherwise"""
         logger = self._logger_fn or partial(print, file=sys.stderr)
         for i in range(self._readiness_wait_time):
-            time.sleep(1)
-            self._update_capsule_and_worker_sm(capsule_sm, workers_sm, logger)
+            time.sleep(STATE_REFRESH_FREQUENCY)
+            self._update_capsule_and_worker_sm(
+                capsule_sm, workers_sm, logger
+            )  # [2 API calls]
             if workers_sm.is_crashlooping:
                 return True
         return False
@@ -827,8 +939,8 @@ class CapsuleDeployer:
         # If we reach a teminal condition like described in `DEPLOYMENT_READY_CONDITIONS`, then
         # we will further check for readiness conditions.
         for i in range(self._create_timeout):
-            time.sleep(1)
-            capsule_response, _ = self._update_capsule_and_worker_sm(
+            time.sleep(STATE_REFRESH_FREQUENCY)
+            capsule_response, _ = self._update_capsule_and_worker_sm(  # [2 API calls]
                 state_machine, workers_state_machine, logger
             )
             # Deployment readiness checks will determine what is the terminal state
@@ -901,9 +1013,10 @@ class CapsuleDeployer:
                                 + ["\t" + l["message"] for l in logs]
                             )
                         )
-                        raise CapsuleDeploymentException(
+                        raise CapsuleCrashLoopException(
                             self.identifier,
-                            f"Worker ID ({worker_id}) is crashlooping. Please check the logs for more information.",
+                            worker_id=worker_id,
+                            logs=logs,
                         )
 
                 if state_machine.ready_to_serve_traffic:
@@ -942,14 +1055,13 @@ class CapsuleDeployer:
             and not _is_async_readiness
             and not self.status.ready_to_serve_traffic
         ):
-            raise CapsuleDeploymentException(
+            raise CapsuleReadinessException(
                 self.identifier,
-                f"Capsule {self.identifier} failed to be ready to serve traffic",
             )
-
+        auth_type = self._app_config.get_state("auth", {}).get("type", AuthType.default)
         return dict(
             id=self.identifier,
-            auth_type=self.capsule_type,
+            auth_type=auth_type,
             public_url=self.url,
             available_replicas=self.status.available_replicas,
             name=self.name,

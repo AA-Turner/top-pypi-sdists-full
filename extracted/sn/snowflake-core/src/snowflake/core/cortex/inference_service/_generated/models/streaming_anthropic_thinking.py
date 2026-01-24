@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class StreamingAnthropicThinking(BaseModel):
@@ -42,9 +42,10 @@ class StreamingAnthropicThinking(BaseModel):
 
     __properties = ["thinking", "signature"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -69,7 +70,7 @@ class StreamingAnthropicThinking(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if thinking (nullable) is None
         if self.thinking is None:
@@ -92,9 +93,9 @@ class StreamingAnthropicThinking(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return StreamingAnthropicThinking.parse_obj(obj)
+            return StreamingAnthropicThinking.model_validate(obj)
 
-        _obj = StreamingAnthropicThinking.parse_obj(
+        _obj = StreamingAnthropicThinking.model_validate(
             {
                 "thinking": obj.get("thinking"),
                 "signature": obj.get("signature"),

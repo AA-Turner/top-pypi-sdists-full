@@ -21,21 +21,27 @@
 
 """Working with Git submodules."""
 
+__all__ = [
+    "ensure_submodule_placeholder",
+    "iter_cached_submodules",
+]
+
 import os
 from collections.abc import Iterator
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 from .object_store import iter_tree_contents
 from .objects import S_ISGITLINK
 
 if TYPE_CHECKING:
-    from .object_store import ObjectContainer
+    from .objects import ObjectID
+    from .pack import ObjectContainer
     from .repo import Repo
 
 
 def iter_cached_submodules(
-    store: "ObjectContainer", root_tree_id: bytes
-) -> Iterator[tuple[str, bytes]]:
+    store: "ObjectContainer", root_tree_id: "ObjectID"
+) -> Iterator[tuple[bytes, "ObjectID"]]:
     """Iterate over cached submodules.
 
     Args:
@@ -46,13 +52,16 @@ def iter_cached_submodules(
       Iterator over over (path, sha) tuples
     """
     for entry in iter_tree_contents(store, root_tree_id):
+        assert entry.mode is not None
         if S_ISGITLINK(entry.mode):
+            assert entry.path is not None
+            assert entry.sha is not None
             yield entry.path, entry.sha
 
 
 def ensure_submodule_placeholder(
     repo: "Repo",
-    submodule_path: Union[str, bytes],
+    submodule_path: str | bytes,
 ) -> None:
     """Create a submodule placeholder directory with .git file.
 

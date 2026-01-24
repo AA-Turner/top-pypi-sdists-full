@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List
 from typing import Optional, Set
 from typing_extensions import Self
+from connector_sdk_types.oai.fingerprint import request_fingerprint
 
 
 class UnassignApplication(BaseModel):
@@ -81,3 +82,6 @@ class UnassignApplication(BaseModel):
             }
         )
         return _obj
+
+    def fingerprint(self) -> str:
+        return request_fingerprint(self)

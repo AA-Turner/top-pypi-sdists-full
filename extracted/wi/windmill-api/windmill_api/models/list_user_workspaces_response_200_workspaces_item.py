@@ -22,6 +22,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
         name (str):
         username (str):
         color (str):
+        disabled (bool):
         operator_settings (Union[Unset, None, ListUserWorkspacesResponse200WorkspacesItemOperatorSettings]):
         parent_workspace_id (Union[Unset, None, str]):
         created_by (Union[Unset, None, str]):
@@ -31,6 +32,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
     name: str
     username: str
     color: str
+    disabled: bool
     operator_settings: Union[Unset, None, "ListUserWorkspacesResponse200WorkspacesItemOperatorSettings"] = UNSET
     parent_workspace_id: Union[Unset, None, str] = UNSET
     created_by: Union[Unset, None, str] = UNSET
@@ -41,6 +43,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
         name = self.name
         username = self.username
         color = self.color
+        disabled = self.disabled
         operator_settings: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.operator_settings, Unset):
             operator_settings = self.operator_settings.to_dict() if self.operator_settings else None
@@ -56,6 +59,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
                 "name": name,
                 "username": username,
                 "color": color,
+                "disabled": disabled,
             }
         )
         if operator_settings is not UNSET:
@@ -82,6 +86,8 @@ class ListUserWorkspacesResponse200WorkspacesItem:
 
         color = d.pop("color")
 
+        disabled = d.pop("disabled")
+
         _operator_settings = d.pop("operator_settings", UNSET)
         operator_settings: Union[Unset, None, ListUserWorkspacesResponse200WorkspacesItemOperatorSettings]
         if _operator_settings is None:
@@ -102,6 +108,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
             name=name,
             username=username,
             color=color,
+            disabled=disabled,
             operator_settings=operator_settings,
             parent_workspace_id=parent_workspace_id,
             created_by=created_by,

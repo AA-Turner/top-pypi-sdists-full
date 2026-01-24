@@ -1,3 +1,20 @@
+#  This file is part of ssh-python.
+#  Copyright (C) 2018-2025 Panos Kittenis.
+#  Copyright (C) 2018-2025 ssh-python Contributors.
+#
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
+#
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
+#
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-130
+
 import os
 import platform
 import sys
@@ -106,9 +123,9 @@ setup(
     version=versioneer.get_version(),
     cmdclass=cmdclass,
     url='https://github.com/ParallelSSH/ssh-python',
-    license='LGPLv2.1',
+    license='LGPL-2.1-only',
     author='Panos Kittenis',
-    author_email='22e889d8@opayq.com',
+    author_email='danst@tutanota.com',
     description="libssh C library bindings for Python.",
     long_description=open('README.rst').read(),
     packages=find_packages(
@@ -119,20 +136,21 @@ setup(
     include_package_data=False,
     platforms='any',
     classifiers=[
-        'Development Status :: 4 - Beta',
-        'License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Operating System :: OS Independent',
         'Programming Language :: C',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
         'Topic :: System :: Shells',
         'Topic :: System :: Networking',
         'Topic :: Software Development :: Libraries',
@@ -140,8 +158,8 @@ setup(
         'Operating System :: POSIX',
         'Operating System :: POSIX :: Linux',
         'Operating System :: POSIX :: BSD',
-        'Operating System :: MacOS :: MacOS X',
         'Operating System :: Microsoft :: Windows',
+        'Operating System :: MacOS :: MacOS X',
     ],
     ext_modules=extensions,
     package_data=package_data,

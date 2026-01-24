@@ -26,7 +26,7 @@ from google.genai import _api_module
 from google.genai import _common
 from google.genai._common import get_value_by_path as getv
 from google.genai._common import set_value_by_path as setv
-from google.genai.pagers import Pager
+from google.genai.pagers import AsyncPager, Pager
 
 from . import _agent_engines_utils
 from . import types
@@ -35,33 +35,6 @@ from . import types
 logger = logging.getLogger("vertexai_genai.sessions")
 
 logger.setLevel(logging.INFO)
-
-
-def _AgentEngineSessionOperation_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["name"]) is not None:
-        setv(to_object, ["name"], getv(from_object, ["name"]))
-
-    if getv(from_object, ["metadata"]) is not None:
-        setv(to_object, ["metadata"], getv(from_object, ["metadata"]))
-
-    if getv(from_object, ["done"]) is not None:
-        setv(to_object, ["done"], getv(from_object, ["done"]))
-
-    if getv(from_object, ["error"]) is not None:
-        setv(to_object, ["error"], getv(from_object, ["error"]))
-
-    if getv(from_object, ["response"]) is not None:
-        setv(
-            to_object,
-            ["response"],
-            _Session_from_vertex(getv(from_object, ["response"]), to_object),
-        )
-
-    return to_object
 
 
 def _CreateAgentEngineSessionConfig_to_vertex(
@@ -81,6 +54,9 @@ def _CreateAgentEngineSessionConfig_to_vertex(
 
     if getv(from_object, ["expire_time"]) is not None:
         setv(parent_object, ["expireTime"], getv(from_object, ["expire_time"]))
+
+    if getv(from_object, ["labels"]) is not None:
+        setv(parent_object, ["labels"], getv(from_object, ["labels"]))
 
     return to_object
 
@@ -104,26 +80,6 @@ def _CreateAgentEngineSessionRequestParameters_to_vertex(
                 getv(from_object, ["config"]), to_object
             ),
         )
-
-    return to_object
-
-
-def _DeleteAgentEngineSessionOperation_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["name"]) is not None:
-        setv(to_object, ["name"], getv(from_object, ["name"]))
-
-    if getv(from_object, ["metadata"]) is not None:
-        setv(to_object, ["metadata"], getv(from_object, ["metadata"]))
-
-    if getv(from_object, ["done"]) is not None:
-        setv(to_object, ["done"], getv(from_object, ["done"]))
-
-    if getv(from_object, ["error"]) is not None:
-        setv(to_object, ["error"], getv(from_object, ["error"]))
 
     return to_object
 
@@ -210,62 +166,6 @@ def _ListAgentEngineSessionsRequestParameters_to_vertex(
     return to_object
 
 
-def _ListReasoningEnginesSessionsResponse_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["sdkHttpResponse"]) is not None:
-        setv(to_object, ["sdk_http_response"], getv(from_object, ["sdkHttpResponse"]))
-
-    if getv(from_object, ["nextPageToken"]) is not None:
-        setv(to_object, ["next_page_token"], getv(from_object, ["nextPageToken"]))
-
-    if getv(from_object, ["sessions"]) is not None:
-        setv(
-            to_object,
-            ["sessions"],
-            [
-                _Session_from_vertex(item, to_object)
-                for item in getv(from_object, ["sessions"])
-            ],
-        )
-
-    return to_object
-
-
-def _Session_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["createTime"]) is not None:
-        setv(to_object, ["create_time"], getv(from_object, ["createTime"]))
-
-    if getv(from_object, ["displayName"]) is not None:
-        setv(to_object, ["display_name"], getv(from_object, ["displayName"]))
-
-    if getv(from_object, ["expireTime"]) is not None:
-        setv(to_object, ["expire_time"], getv(from_object, ["expireTime"]))
-
-    if getv(from_object, ["name"]) is not None:
-        setv(to_object, ["name"], getv(from_object, ["name"]))
-
-    if getv(from_object, ["sessionState"]) is not None:
-        setv(to_object, ["session_state"], getv(from_object, ["sessionState"]))
-
-    if getv(from_object, ["ttl"]) is not None:
-        setv(to_object, ["ttl"], getv(from_object, ["ttl"]))
-
-    if getv(from_object, ["updateTime"]) is not None:
-        setv(to_object, ["update_time"], getv(from_object, ["updateTime"]))
-
-    if getv(from_object, ["userId"]) is not None:
-        setv(to_object, ["user_id"], getv(from_object, ["userId"]))
-
-    return to_object
-
-
 def _UpdateAgentEngineSessionConfig_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -283,6 +183,9 @@ def _UpdateAgentEngineSessionConfig_to_vertex(
 
     if getv(from_object, ["expire_time"]) is not None:
         setv(parent_object, ["expireTime"], getv(from_object, ["expire_time"]))
+
+    if getv(from_object, ["labels"]) is not None:
+        setv(parent_object, ["labels"], getv(from_object, ["labels"]))
 
     if getv(from_object, ["update_mask"]) is not None:
         setv(
@@ -328,7 +231,7 @@ class Sessions(_api_module.BaseModule):
         Creates a new session in the Agent Engine.
 
         Args:
-            name (str): Required. The name of the Agent Engine session to be created. Format:
+            name (str): Required. The name of the Agent Engine to create the session under. Format:
                 `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
             user_id (str): Required. The user ID of the session.
             config (CreateAgentEngineSessionConfig):
@@ -376,10 +279,7 @@ class Sessions(_api_module.BaseModule):
 
         response = self._api_client.request("post", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _AgentEngineSessionOperation_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.AgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -399,7 +299,7 @@ class Sessions(_api_module.BaseModule):
 
         Args:
             name (str): Required. The name of the Agent Engine session to be deleted. Format:
-                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
+                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}/sessions/{session_id}`.
             config (DeleteAgentEngineSessionConfig):
                 Optional. Additional configurations for deleting the Agent Engine session.
 
@@ -444,12 +344,7 @@ class Sessions(_api_module.BaseModule):
 
         response = self._api_client.request("delete", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _DeleteAgentEngineSessionOperation_from_vertex(
-                response_dict
-            )
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.DeleteAgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -469,7 +364,7 @@ class Sessions(_api_module.BaseModule):
 
         Args:
             name (str): Required. The name of the Agent Engine session to get. Format:
-                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
+                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}/sessions/{session_id}`.
             config (GetAgentEngineSessionConfig):
                 Optional. Additional configurations for getting the Agent Engine session.
 
@@ -514,10 +409,7 @@ class Sessions(_api_module.BaseModule):
 
         response = self._api_client.request("get", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _Session_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.Session._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -582,12 +474,7 @@ class Sessions(_api_module.BaseModule):
 
         response = self._api_client.request("get", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _ListReasoningEnginesSessionsResponse_from_vertex(
-                response_dict
-            )
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.ListReasoningEnginesSessionsResponse._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -638,10 +525,7 @@ class Sessions(_api_module.BaseModule):
 
         response = self._api_client.request("get", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _AgentEngineSessionOperation_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.AgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -661,7 +545,7 @@ class Sessions(_api_module.BaseModule):
 
         Args:
             name (str): Required. The name of the Agent Engine session to be updated. Format:
-                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
+                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}/sessions/{session_id}`.
             config (UpdateAgentEngineSessionConfig):
                 Optional. Additional configurations for updating the Agent Engine session.
 
@@ -706,10 +590,7 @@ class Sessions(_api_module.BaseModule):
 
         response = self._api_client.request("patch", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _AgentEngineSessionOperation_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.AgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -824,7 +705,7 @@ class AsyncSessions(_api_module.BaseModule):
         Creates a new session in the Agent Engine.
 
         Args:
-            name (str): Required. The name of the Agent Engine session to be created. Format:
+            name (str): Required. The name of the Agent Engine to create the session under. Format:
                 `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
             user_id (str): Required. The user ID of the session.
             config (CreateAgentEngineSessionConfig):
@@ -874,10 +755,7 @@ class AsyncSessions(_api_module.BaseModule):
             "post", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _AgentEngineSessionOperation_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.AgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -897,7 +775,7 @@ class AsyncSessions(_api_module.BaseModule):
 
         Args:
             name (str): Required. The name of the Agent Engine session to be deleted. Format:
-                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
+                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}/sessions/{session_id}`.
             config (DeleteAgentEngineSessionConfig):
                 Optional. Additional configurations for deleting the Agent Engine session.
 
@@ -944,12 +822,7 @@ class AsyncSessions(_api_module.BaseModule):
             "delete", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _DeleteAgentEngineSessionOperation_from_vertex(
-                response_dict
-            )
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.DeleteAgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -969,7 +842,7 @@ class AsyncSessions(_api_module.BaseModule):
 
         Args:
             name (str): Required. The name of the Agent Engine session to get. Format:
-                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
+                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}/sessions/{session_id}`.
             config (GetAgentEngineSessionConfig):
                 Optional. Additional configurations for getting the Agent Engine session.
 
@@ -1016,10 +889,7 @@ class AsyncSessions(_api_module.BaseModule):
             "get", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _Session_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.Session._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -1086,12 +956,7 @@ class AsyncSessions(_api_module.BaseModule):
             "get", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _ListReasoningEnginesSessionsResponse_from_vertex(
-                response_dict
-            )
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.ListReasoningEnginesSessionsResponse._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -1144,10 +1009,7 @@ class AsyncSessions(_api_module.BaseModule):
             "get", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _AgentEngineSessionOperation_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.AgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -1167,7 +1029,7 @@ class AsyncSessions(_api_module.BaseModule):
 
         Args:
             name (str): Required. The name of the Agent Engine session to be updated. Format:
-                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}`.
+                `projects/{project}/locations/{location}/reasoningEngines/{resource_id}/sessions/{session_id}`.
             config (UpdateAgentEngineSessionConfig):
                 Optional. Additional configurations for updating the Agent Engine session.
 
@@ -1214,10 +1076,7 @@ class AsyncSessions(_api_module.BaseModule):
             "patch", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _AgentEngineSessionOperation_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.AgentEngineSessionOperation._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -1225,3 +1084,95 @@ class AsyncSessions(_api_module.BaseModule):
 
         self._api_client._verify_response(return_value)
         return return_value
+
+    _events = None
+
+    @property
+    @_common.experimental_warning(
+        "The Vertex SDK GenAI agent_engines.sessions.events module is "
+        "experimental, and may change in future versions."
+    )
+    def events(self):
+        if self._events is None:
+            try:
+                # We need to lazy load the sessions.events module to handle the
+                # possibility of ImportError when dependencies are not installed.
+                self._events = importlib.import_module(".session_events", __package__)
+            except ImportError as e:
+                raise ImportError(
+                    "The 'agent_engines.sessions.events' module requires"
+                    "additional packages. Please install them using pip install "
+                    "google-cloud-aiplatform[agent_engines]"
+                ) from e
+        return self._events.AsyncSessionEvents(self._api_client)
+
+    async def create(
+        self,
+        *,
+        name: str,
+        user_id: str,
+        config: Optional[types.CreateAgentEngineSessionConfigOrDict] = None,
+    ) -> types.AgentEngineSessionOperation:
+        """Creates a new session in the Agent Engine.
+
+        Args:
+            name (str):
+                Required. The name of the agent engine to create the session for.
+            user_id (str):
+                Required. The user ID of the session.
+            config (CreateAgentEngineSessionConfig):
+                Optional. The configuration for the session to create.
+
+        Returns:
+            AgentEngineSessionOperation: The operation for creating the session.
+        """
+        if config is None:
+            config = types.CreateAgentEngineSessionConfig()
+        elif isinstance(config, dict):
+            config = types.CreateAgentEngineSessionConfig.model_validate(config)
+        operation = await self._create(
+            name=name,
+            user_id=user_id,
+            config=config,
+        )
+        if config.wait_for_completion and not operation.done:
+            operation = await _agent_engines_utils._await_async_operation(
+                operation_name=operation.name,
+                get_operation_fn=self._get_session_operation,
+                poll_interval_seconds=0.5,
+            )
+            if operation.response:
+                operation.response = await self.get(name=operation.response.name)
+            elif operation.error:
+                raise RuntimeError(f"Failed to create session: {operation.error}")
+            else:
+                raise RuntimeError(
+                    "Error retrieving session from the operation response. "
+                    f"Operation name: {operation.name}"
+                )
+        return operation
+
+    async def list(
+        self,
+        *,
+        name: str,
+        config: Optional[types.ListAgentEngineSessionsConfigOrDict] = None,
+    ) -> AsyncPager[types.Session]:
+        """Lists Agent Engine sessions.
+
+        Args:
+            name (str): Required. The name of the agent engine to list sessions
+                for.
+            config (ListAgentEngineSessionConfig): Optional. The configuration
+                for the sessions to list.
+
+        Returns:
+            AsyncPager[Session]: An async pager of sessions.
+        """
+
+        return AsyncPager(
+            "sessions",
+            functools.partial(self._list, name=name),
+            await self._list(name=name, config=config),
+            config,
+        )

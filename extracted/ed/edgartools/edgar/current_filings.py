@@ -1,6 +1,5 @@
 import re
 from datetime import datetime
-from functools import lru_cache
 from typing import Optional
 
 import pyarrow as pa
@@ -15,7 +14,7 @@ from rich.text import Text
 
 from edgar._filings import Filings
 from edgar.core import IntString
-from edgar.formatting import accepted_time_text, accession_number_text
+from edgar.display.formatting import accepted_time_text, accession_number_text
 from edgar.httprequests import get_with_retry
 from edgar.reference.tickers import find_ticker
 from edgar.xmltools import child_text
@@ -28,12 +27,12 @@ __all__ = [
 ]
 
 summary_regex = re.compile(r'<b>([^<]+):</b>\s+([^<\s]+)')
-title_regex = re.compile(r"(.*) - (.*) \((\d+)\) \((.*)\)")
+title_regex = re.compile(r"(.*?) - (.*) \((\d+)\) \((.*)\)")
 
 """
 Get the current filings from the SEC. Use this to get the filings filed after the 5:30 deadline
 """
-GET_CURRENT_URL = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom&owner=only&count=100"
+from edgar.config import SEC_BASE_URL
 
 
 def _empty_filing_index():
@@ -65,7 +64,8 @@ def parse_title(title: str):
     parse into a tuple of form type, company name, CIK, and status using regex
     """
     match = title_regex.match(title)
-    assert match, f"Could not parse title: {title} using regex: {title_regex}"
+    if not match:
+        raise ValueError(f"Could not parse title: {title} using regex: {title_regex}")
     return match.groups()
 
 def parse_summary(summary: str):
@@ -83,7 +83,20 @@ def parse_summary(summary: str):
     # Convert matches into a dictionary
     fields = {k.strip(): (int(v) if v.isdigit() else v) for k, v in matches}
 
-    return datetime.strptime(str(fields.get('Filed', '')), '%Y-%m-%d').date(), fields.get('AccNo')
+    filed_date = fields.get('Filed')
+    if not filed_date:
+        raise ValueError(f"Could not find 'Filed' date in summary: {summary}")
+
+    accession_no = fields.get('AccNo')
+    if not accession_no:
+        raise ValueError(f"Could not find 'AccNo' in summary: {summary}")
+
+    try:
+        filing_date = datetime.strptime(str(filed_date), '%Y-%m-%d').date()
+    except ValueError as e:
+        raise ValueError(f"Invalid date format in summary: {filed_date}") from e
+
+    return filing_date, accession_no
 
 
 def get_current_url(atom: bool = True,
@@ -91,7 +104,7 @@ def get_current_url(atom: bool = True,
                     start: int = 0,
                     form: str = '',
                     owner: str = 'include'):
-    url = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent"
+    url = f"{SEC_BASE_URL}/cgi-bin/browse-edgar?action=getcurrent"
 
     count = count if count in [10, 20, 40, 80, 100] else 40
     owner = owner if owner in ['include', 'exclude', 'only'] else 'include'
@@ -102,7 +115,6 @@ def get_current_url(atom: bool = True,
     return url
 
 
-@lru_cache(maxsize=32)
 def get_current_entries_on_page(count: int, start: int, form: Optional[str] = None, owner: str = 'include'):
     url = get_current_url(count=count, start=start, form=form if form else '', owner=owner, atom=True)
     response = get_with_retry(url)
@@ -145,12 +157,22 @@ class CurrentFilings(Filings):
         self.owner = owner
         self.form = form
 
+    @property
+    def current_page(self) -> int:
+        """
+        Calculate the current page number (1-indexed).
+
+        Returns:
+            int: The current page number
+        """
+        return ((self._start - 1) // self._page_size) + 1
+
     def next(self):
         # If the number of entries is less than the page size then we are at the end of the data
         if len(self.data) < self._page_size:
             return None
         start = self._start + len(self.data)
-        next_entries = get_current_entries_on_page(start=start-1, count=self._page_size, form=self.form)
+        next_entries = get_current_entries_on_page(start=start-1, count=self._page_size, form=self.form, owner=self.owner)
         if next_entries:
             # Copy the values to this Filings object and return it
             self.data = pa.Table.from_pylist(next_entries)
@@ -162,7 +184,7 @@ class CurrentFilings(Filings):
         if self._start == 1:
             return None
         start = max(1, self._start - self._page_size)
-        previous_entries = get_current_entries_on_page(start=start, count=self._page_size, form=self.form)
+        previous_entries = get_current_entries_on_page(start=start, count=self._page_size, form=self.form, owner=self.owner)
         if previous_entries:
             # Copy the values to this Filings object and return it
             self.data = pa.Table.from_pylist(previous_entries)
@@ -227,15 +249,19 @@ class CurrentFilings(Filings):
     def _get_current_filing_by_accession_number(data: pa.Table, accession_number: str):
         from edgar import Filing
         mask = pc.equal(data['accession_number'], accession_number)
-        idx = mask.index(True).as_py()
-        if idx > -1:
-            return Filing(
-                cik=data['cik'][idx].as_py(),
-                company=data['company'][idx].as_py(),
-                form=data['form'][idx].as_py(),
-                filing_date=data['filing_date'][idx].as_py(),
-                accession_no=data['accession_number'][idx].as_py(),
-            )
+        try:
+            idx = mask.index(True).as_py()
+            if idx > -1:
+                return Filing(
+                    cik=data['cik'][idx].as_py(),
+                    company=data['company'][idx].as_py(),
+                    form=data['form'][idx].as_py(),
+                    filing_date=data['filing_date'][idx].as_py(),
+                    accession_no=data['accession_number'][idx].as_py(),
+                )
+        except ValueError:
+            # Accession number not found in this batch
+            pass
         return None
 
     def __rich__(self):
@@ -252,33 +278,56 @@ class CurrentFilings(Filings):
 
         # Add columns with specific styling and alignment
         table.add_column("#", style="dim", justify="right")
-        table.add_column("Form", width=12)
+        table.add_column("Form", width=14)
         table.add_column("CIK", style="dim", width=10, justify="right")
         table.add_column("Ticker", width=6, style="yellow")
         table.add_column("Company", style="bold green", width=38, no_wrap=True)
         table.add_column("Accepted", width=20)
         table.add_column("Accession Number", width=20)
+        table.add_column(" ", width=1, style="cyan dim")  # Group indicator column
 
 
-        # Get current page from data pager
-        current_page = self.data.to_pandas()
+        # Access data directly from PyArrow table (zero-copy)
+        num_rows = len(self.data)
+        start_idx = self._start - 1
 
-        # compute the index from the start and page_size and set it as the index of the page
-        current_page.index = range(self._start - 1, self._start - 1 + len(current_page))
+        # Get accession numbers for grouping (zero-copy access)
+        accession_numbers = self.data.column('accession_number').to_pylist()
 
-        # Iterate through rows in current page
-        for t in current_page.itertuples():
-            cik = t.cik
+        # Identify groups of consecutive filings with same accession number
+        groups = {}
+
+        for i in range(len(accession_numbers)):
+            acc_no = accession_numbers[i]
+
+            # Check previous and next accession numbers
+            prev_acc = accession_numbers[i-1] if i > 0 else None
+            next_acc = accession_numbers[i+1] if i < len(accession_numbers)-1 else None
+
+            if acc_no != prev_acc and acc_no == next_acc:
+                groups[i] = '┐'  # Start of group
+            elif acc_no == prev_acc and acc_no == next_acc:
+                groups[i] = '│'  # Middle of group
+            elif acc_no == prev_acc and acc_no != next_acc:
+                groups[i] = '┘'  # End of group
+            else:
+                groups[i] = ' '   # Standalone filing
+
+        # Iterate through PyArrow table directly (zero-copy)
+        for idx in range(num_rows):
+            row_index = start_idx + idx
+            cik = self.data['cik'][idx].as_py()
             ticker = find_ticker(cik)
 
             row = [
-                str(t.Index),
-                t.form,
+                str(row_index),
+                self.data['form'][idx].as_py(),
                 str(cik),
                 ticker,
-                t.company,
-                accepted_time_text(t.accepted),
-                accession_number_text(t.accession_number)
+                self.data['company'][idx].as_py(),
+                accepted_time_text(self.data['accepted'][idx].as_py()),
+                accession_number_text(self.data['accession_number'][idx].as_py()),
+                groups.get(idx, ' ')  # Add group indicator
             ]
             table.add_row(*row)
 
@@ -287,9 +336,9 @@ class CurrentFilings(Filings):
 
         page_info = Text.assemble(
             ("Showing ", "dim"),
-            (f"{current_page.index.min():,}", "bold red"),
+            (f"{start_idx:,}", "bold red"),
             (" to ", "dim"),
-            (f"{current_page.index.max():,}", "bold red"),
+            (f"{start_idx + num_rows - 1:,}", "bold red"),
             (" most recent filings.", "dim"),
             (" Page using ", "dim"),
             ("← prev()", "bold gray54"),
@@ -340,17 +389,54 @@ def get_all_current_filings(form: str = '',
     if not all_entries:
         return Filings(_empty_filing_index())
 
-    # Return as regular Filings object (not CurrentFilings)
-    return Filings(pa.Table.from_pylist(all_entries))
+    # Create Filings object
+    filings = Filings(pa.Table.from_pylist(all_entries))
+
+    # Apply client-side filter since SEC API ignores form parameter
+    # Issue #501: SEC's current filings API doesn't respect the type parameter,
+    # so we must filter client-side to match user expectations
+    if form:
+        filings = filings.filter(form=form)
+
+    return filings
 
 
 def get_current_filings(form: str = '',
                         owner: str = 'include',
-                        page_size: int = 40):
+                        page_size: Optional[int] = 40):
     """
-    Get the current filings from the SEC
-    :return: The current filings from the SEC
+    Get real-time filings from the SEC (updated every few minutes).
+
+    ✅ DATA FRESHNESS: Returns filings from today and the past ~24 hours,
+       updated in near real-time (every few minutes).
+
+    Use this function when you need:
+    - Today's filings
+    - Real-time monitoring
+    - Latest filings by acceptance time
+
+    For historical bulk analysis or filings from yesterday and earlier, use get_filings() instead.
+
+    Examples:
+        >>> # Get first page of today's 10-K filings
+        >>> current = get_current_filings(form="10-K")
+
+        >>> # Get ALL current NT 10-Q filings (all pages)
+        >>> all_current = get_current_filings(form="NT 10-Q", page_size=None)
+
+        >>> # Get first 100 current filings
+        >>> current = get_current_filings(page_size=100)
+
+    :param form: Form type to filter by (e.g., "10-K", "8-K")
+    :param owner: Owner filter ('include', 'exclude', 'only')
+    :param page_size: Number of filings per page (10, 20, 40, 80, 100).
+                      Use None to fetch ALL current filings (iterates through all pages).
+    :return: CurrentFilings (single page) or Filings (all pages if page_size=None)
     """
+    # If page_size is None, fetch all current filings
+    if page_size is None:
+        return get_all_current_filings(form=form, owner=owner, page_size=100)
+
     owner = owner if owner in ['include', 'exclude', 'only'] else 'include'
     page_size = page_size if page_size in [10, 20, 40, 80, 100] else 100
     start = 0

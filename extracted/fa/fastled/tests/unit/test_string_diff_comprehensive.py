@@ -210,6 +210,41 @@ class TestStringDiffComprehensive:
                 expected in result_names
             ), f"Expected '{expected}' in results for spaced input '{input_str}', got: {result_names}"
 
+    def test_whitespace_in_camelcase_names(self):
+        """Test that whitespace between words matches CamelCase names without disambiguation.
+
+        This tests the specific case where 'Noise Ring' should directly match 'FxNoiseRing'
+        without requiring a disambiguation step, since the whitespace is just separating
+        the CamelCase components.
+        """
+        test_cases = [
+            ("Noise Ring", "FxNoiseRing", 1),  # Should be unique match
+            ("Noise Playground", "NoisePlayground", 1),  # Should be unique match
+            ("Noise Plus Palette", "NoisePlusPalette", 1),  # Should be unique match
+            ("Fire Cylinder", "FireCylinder", 1),  # Should be unique match
+            ("Fire Matrix", "FireMatrix", 1),  # Should be unique match
+            ("Blink Parallel", "BlinkParallel", 1),  # Should be unique match
+            ("Color Palette", "ColorPalette", 1),  # Should be unique match
+            ("Color Temperature", "ColorTemperature", 1),  # Should be unique match
+            ("Demo Reel 100", "DemoReel100", 1),  # Should be unique match
+            ("XY Matrix", "XYMatrix", 1),  # Should be unique match
+            ("XY Path", "XYPath", 1),  # Should be unique match
+        ]
+
+        for input_str, expected, expected_count in test_cases:
+            results = string_diff(input_str, self.fastled_examples)
+            result_names = [r[1] for r in results]
+
+            # Check that the expected match is in the results
+            assert (
+                expected in result_names
+            ), f"Expected '{expected}' in results for whitespace input '{input_str}', got: {result_names}"
+
+            # Check that it's a direct match without disambiguation (should return exactly expected_count results)
+            assert (
+                len(results) == expected_count
+            ), f"Expected exactly {expected_count} result(s) for '{input_str}' (no disambiguation), got {len(results)}: {result_names}"
+
     def test_typos_and_minor_edits(self):
         """Test handling of typos and minor edits."""
         test_cases = [
@@ -511,6 +546,59 @@ class TestStringDiffComprehensive:
                 results1 == results2 == results3
             ), f"Results inconsistent for '{test_case}'"
 
+    def test_wasm_disambiguation_issue(self):
+        """Test the specific Wasm disambiguation issue where exact matches should be prioritized."""
+        # This test exposes the bug where "Wasm" returns both "wasm" and "WasmScreenCoords"
+        # when it should prioritize the exact case-insensitive match "wasm"
+        results = string_diff("Wasm", self.fastled_examples)
+        result_names = [r[1] for r in results]
+
+        # The issue: currently returns both "wasm" and "WasmScreenCoords"
+        # Expected: should only return "wasm" since it's an exact case-insensitive match
+        assert (
+            len(result_names) == 1
+        ), f"Expected exactly 1 result for 'Wasm', got {len(result_names)}: {result_names}"
+        assert (
+            result_names[0] == "wasm"
+        ), f"Expected 'wasm' as the only result, got: {result_names[0]}"
+
+    def test_character_count_based_disambiguation(self):
+        """Test that disambiguation considers the number of extra characters."""
+        # Test cases where the exact match should include variants based on character count
+        test_data = ["Wave2d", "FxWave2d", "SuperLongPrefixWave2d"]
+
+        # Wave2d case: should return Wave2d and FxWave2d (Fx is only 2 chars - short prefix)
+        # but exclude SuperLongPrefixWave2d (SuperLongPrefix is 15 chars - long prefix)
+        results = string_diff("Wave2d", test_data)
+        result_names = [r[1] for r in results]
+
+        assert (
+            "Wave2d" in result_names
+        ), f"Expected 'Wave2d' in results, got: {result_names}"
+        assert (
+            "FxWave2d" in result_names
+        ), f"Expected 'FxWave2d' (short prefix) in results, got: {result_names}"
+
+        # The key test: should exclude long prefixes
+        assert (
+            "SuperLongPrefixWave2d" not in result_names
+        ), f"Did not expect 'SuperLongPrefixWave2d' (long prefix) in results, got: {result_names}"
+
+        # Test with Fire2012 example
+        fire_data = ["Fire2012", "FxFire2012", "VeryLongPrefixFire2012"]
+        results = string_diff("Fire2012", fire_data)
+        result_names = [r[1] for r in results]
+
+        assert (
+            "Fire2012" in result_names
+        ), f"Expected 'Fire2012' in results, got: {result_names}"
+        assert (
+            "FxFire2012" in result_names
+        ), f"Expected 'FxFire2012' (short prefix) in results, got: {result_names}"
+        assert (
+            "VeryLongPrefixFire2012" not in result_names
+        ), f"Did not expect 'VeryLongPrefixFire2012' (long prefix) in results, got: {result_names}"
+
     def test_investigate_multiple_results(self):
         """Investigate cases where multiple results are returned and understand why."""
         # Test cases that might return multiple results
@@ -552,6 +640,7 @@ if __name__ == "__main__":
         test_instance.test_case_insensitive_matches,
         test_instance.test_partial_matches,
         test_instance.test_spaces_in_input,
+        test_instance.test_whitespace_in_camelcase_names,
         test_instance.test_typos_and_minor_edits,
         test_instance.test_prefix_matching,
         test_instance.test_suffix_matching,
@@ -564,6 +653,8 @@ if __name__ == "__main__":
         test_instance.test_special_characters_in_input,
         test_instance.test_performance_with_large_dataset,
         test_instance.test_consistency_across_runs,
+        test_instance.test_wasm_disambiguation_issue,
+        test_instance.test_character_count_based_disambiguation,
         test_instance.test_investigate_multiple_results,
     ]
 

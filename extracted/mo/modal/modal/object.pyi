@@ -1,5 +1,6 @@
 import collections.abc
 import google.protobuf.message
+import modal._load_context
 import modal._resolver
 import modal.client
 import typing
@@ -12,12 +13,14 @@ class Object:
     _prefix_to_type: typing.ClassVar[dict[str, type]]
     _load: typing.Optional[
         collections.abc.Callable[
-            [typing_extensions.Self, modal._resolver.Resolver, typing.Optional[str]], collections.abc.Awaitable[None]
+            [typing_extensions.Self, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]],
+            collections.abc.Awaitable[None],
         ]
     ]
     _preload: typing.Optional[
         collections.abc.Callable[
-            [typing_extensions.Self, modal._resolver.Resolver, typing.Optional[str]], collections.abc.Awaitable[None]
+            [typing_extensions.Self, modal._resolver.Resolver, modal._load_context.LoadContext, typing.Optional[str]],
+            collections.abc.Awaitable[None],
         ]
     ]
     _rep: str
@@ -27,6 +30,7 @@ class Object:
     _deduplication_key: typing.Optional[
         collections.abc.Callable[[], collections.abc.Awaitable[collections.abc.Hashable]]
     ]
+    _load_context_overrides: modal._load_context.LoadContext
     _object_id: typing.Optional[str]
     _client: typing.Optional[modal.client.Client]
     _is_hydrated: bool
@@ -40,22 +44,40 @@ class Object:
     @classmethod
     def __init_subclass__(cls, type_prefix: typing.Optional[str] = None): ...
 
-    class ___init_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___init_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
             rep: str,
             load: typing.Optional[
-                collections.abc.Callable[[SUPERSELF, modal._resolver.Resolver, typing.Optional[str]], None]
+                collections.abc.Callable[
+                    [
+                        typing_extensions.Self,
+                        modal._resolver.Resolver,
+                        modal._load_context.LoadContext,
+                        typing.Optional[str],
+                    ],
+                    None,
+                ]
             ] = None,
             is_another_app: bool = False,
             preload: typing.Optional[
-                collections.abc.Callable[[SUPERSELF, modal._resolver.Resolver, typing.Optional[str]], None]
+                collections.abc.Callable[
+                    [
+                        typing_extensions.Self,
+                        modal._resolver.Resolver,
+                        modal._load_context.LoadContext,
+                        typing.Optional[str],
+                    ],
+                    None,
+                ]
             ] = None,
             hydrate_lazily: bool = False,
             deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
             deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
             name: typing.Optional[str] = None,
+            *,
+            load_context_overrides: typing.Optional[modal._load_context.LoadContext] = None,
         ): ...
         def aio(
             self,
@@ -63,13 +85,25 @@ class Object:
             rep: str,
             load: typing.Optional[
                 collections.abc.Callable[
-                    [SUPERSELF, modal._resolver.Resolver, typing.Optional[str]], collections.abc.Awaitable[None]
+                    [
+                        typing_extensions.Self,
+                        modal._resolver.Resolver,
+                        modal._load_context.LoadContext,
+                        typing.Optional[str],
+                    ],
+                    collections.abc.Awaitable[None],
                 ]
             ] = None,
             is_another_app: bool = False,
             preload: typing.Optional[
                 collections.abc.Callable[
-                    [SUPERSELF, modal._resolver.Resolver, typing.Optional[str]], collections.abc.Awaitable[None]
+                    [
+                        typing_extensions.Self,
+                        modal._resolver.Resolver,
+                        modal._load_context.LoadContext,
+                        typing.Optional[str],
+                    ],
+                    collections.abc.Awaitable[None],
                 ]
             ] = None,
             hydrate_lazily: bool = False,
@@ -78,9 +112,11 @@ class Object:
                 collections.abc.Callable[[], collections.abc.Awaitable[collections.abc.Hashable]]
             ] = None,
             name: typing.Optional[str] = None,
+            *,
+            load_context_overrides: typing.Optional[modal._load_context.LoadContext] = None,
         ): ...
 
-    _init: ___init_spec[typing_extensions.Self]
+    _init: ___init_spec
 
     def _unhydrate(self): ...
     def _initialize_from_empty(self): ...
@@ -98,20 +134,76 @@ class Object:
         """
         ...
 
-    @classmethod
-    def _from_loader(
-        cls,
-        load: collections.abc.Callable[[typing_extensions.Self, modal._resolver.Resolver, typing.Optional[str]], None],
-        rep: str,
-        is_another_app: bool = False,
-        preload: typing.Optional[
-            collections.abc.Callable[[typing_extensions.Self, modal._resolver.Resolver, typing.Optional[str]], None]
-        ] = None,
-        hydrate_lazily: bool = False,
-        deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
-        deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
-        name: typing.Optional[str] = None,
-    ): ...
+    class ___from_loader_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            load: collections.abc.Callable[
+                [
+                    typing_extensions.Self,
+                    modal._resolver.Resolver,
+                    modal._load_context.LoadContext,
+                    typing.Optional[str],
+                ],
+                None,
+            ],
+            rep: str,
+            is_another_app: bool = False,
+            preload: typing.Optional[
+                collections.abc.Callable[
+                    [
+                        typing_extensions.Self,
+                        modal._resolver.Resolver,
+                        modal._load_context.LoadContext,
+                        typing.Optional[str],
+                    ],
+                    None,
+                ]
+            ] = None,
+            hydrate_lazily: bool = False,
+            deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
+            deduplication_key: typing.Optional[collections.abc.Callable[[], collections.abc.Hashable]] = None,
+            name: typing.Optional[str] = None,
+            *,
+            load_context_overrides: modal._load_context.LoadContext,
+        ): ...
+        def aio(
+            self,
+            /,
+            load: collections.abc.Callable[
+                [
+                    typing_extensions.Self,
+                    modal._resolver.Resolver,
+                    modal._load_context.LoadContext,
+                    typing.Optional[str],
+                ],
+                collections.abc.Awaitable[None],
+            ],
+            rep: str,
+            is_another_app: bool = False,
+            preload: typing.Optional[
+                collections.abc.Callable[
+                    [
+                        typing_extensions.Self,
+                        modal._resolver.Resolver,
+                        modal._load_context.LoadContext,
+                        typing.Optional[str],
+                    ],
+                    collections.abc.Awaitable[None],
+                ]
+            ] = None,
+            hydrate_lazily: bool = False,
+            deps: typing.Optional[collections.abc.Callable[..., collections.abc.Sequence[Object]]] = None,
+            deduplication_key: typing.Optional[
+                collections.abc.Callable[[], collections.abc.Awaitable[collections.abc.Hashable]]
+            ] = None,
+            name: typing.Optional[str] = None,
+            *,
+            load_context_overrides: modal._load_context.LoadContext,
+        ): ...
+
+    _from_loader: typing.ClassVar[___from_loader_spec]
+
     @staticmethod
     def _get_type_from_id(object_id: str) -> type[Object]: ...
     @classmethod

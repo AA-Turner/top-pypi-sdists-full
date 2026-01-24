@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloudpathlib
-Version: 0.22.0
+Version: 0.23.0
 Summary: pathlib-style classes for cloud storage services.
 Keywords: pathlib,cloud storage,s3,azure blob storage,google cloud storage
 Author-email: DrivenData <info@drivendata.org>
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: typing-extensions>4 ; python_version < '3.11'
 Requires-Dist: cloudpathlib[azure] ; extra == "all"

@@ -1,24 +1,17 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: diagrams
-Version: 0.24.4
+Version: 0.25.1
 Summary: Diagram as Code
-Home-page: https://diagrams.mingrammer.com
-License: MIT
-Author: mingrammer
-Author-email: mingrammer@gmail.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: graphviz (>=0.13.2,<0.21.0)
-Requires-Dist: jinja2 (>=2.10,<4.0)
-Requires-Dist: pre-commit (>=4.0.1,<5.0.0)
-Requires-Dist: typed-ast (>=1.5.5,<2.0.0) ; python_version < "3.8"
+Project-URL: Homepage, https://diagrams.mingrammer.com
 Project-URL: Repository, https://github.com/mingrammer/diagrams
+Author-email: mingrammer <mingrammer@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Requires-Python: ~=3.9
+Requires-Dist: graphviz<0.21.0,>=0.13.2
+Requires-Dist: jinja2<4.0,>=2.10
+Requires-Dist: pre-commit<5,>=4.0.1
+Requires-Dist: typed-ast<2,>=1.5.5; python_version < '3.8'
 Description-Content-Type: text/markdown
 
 ![diagrams logo](assets/img/diagrams.png)
@@ -114,4 +107,3 @@ To contribute to diagram, check out [contribution guidelines](CONTRIBUTING.md).
 ## License
 
 [MIT](LICENSE)
-

@@ -5,21 +5,21 @@ use anyhow::anyhow;
 use cas_types::{REQUEST_ID_HEADER, SESSION_ID_HEADER};
 use error_printer::{ErrorPrinter, OptionPrinter};
 use http::{Extensions, StatusCode};
-use reqwest::header::{HeaderValue, AUTHORIZATION};
+use reqwest::header::{AUTHORIZATION, HeaderValue};
 use reqwest::{Request, Response};
 use reqwest_middleware::{ClientBuilder, ClientWithMiddleware, Middleware, Next};
 use reqwest_retry::policies::ExponentialBackoff;
 use reqwest_retry::{
-    default_on_request_failure, default_on_request_success, DefaultRetryableStrategy, RetryTransientMiddleware,
-    Retryable, RetryableStrategy,
+    DefaultRetryableStrategy, RetryTransientMiddleware, Retryable, RetryableStrategy, default_on_request_failure,
+    default_on_request_success,
 };
 use tokio::sync::Mutex;
-use tracing::{debug, info_span, warn, Instrument};
+use tracing::{Instrument, info, info_span, warn};
 use utils::auth::{AuthConfig, TokenProvider};
 
-use crate::constants::{CLIENT_IDLE_CONNECTION_TIMEOUT_SECS, CLIENT_MAX_IDLE_CONNECTIONS};
+use crate::constants::{CLIENT_IDLE_CONNECTION_TIMEOUT, CLIENT_MAX_IDLE_CONNECTIONS};
 use crate::retry_wrapper::on_request_failure;
-use crate::{error, CasClientError};
+use crate::{CasClientError, error};
 
 pub(crate) const NUM_RETRIES: u32 = 5;
 pub(crate) const BASE_RETRY_DELAY_MS: u64 = 3000; // 3s
@@ -30,10 +30,10 @@ pub struct No429RetryStrategy;
 
 impl RetryableStrategy for No429RetryStrategy {
     fn handle(&self, res: &Result<Response, reqwest_middleware::Error>) -> Option<Retryable> {
-        if let Ok(success) = res {
-            if success.status() == StatusCode::TOO_MANY_REQUESTS {
-                return Some(Retryable::Fatal);
-            }
+        if let Ok(success) = res
+            && success.status() == StatusCode::TOO_MANY_REQUESTS
+        {
+            return Some(Retryable::Fatal);
         }
 
         const DEFAULT_STRATEGY: DefaultRetryableStrategy = DefaultRetryableStrategy;
@@ -98,14 +98,20 @@ fn reqwest_client() -> Result<reqwest::Client, CasClientError> {
 
     #[cfg(not(target_family = "wasm"))]
     {
-        use xet_runtime::ThreadPool;
+        use xet_runtime::XetRuntime;
 
-        let client = ThreadPool::get_or_create_reqwest_client(|| {
+        let client = XetRuntime::get_or_create_reqwest_client(|| {
             reqwest::Client::builder()
-                .pool_idle_timeout(Duration::from_secs(*CLIENT_IDLE_CONNECTION_TIMEOUT_SECS))
+                .pool_idle_timeout(*CLIENT_IDLE_CONNECTION_TIMEOUT)
                 .pool_max_idle_per_host(*CLIENT_MAX_IDLE_CONNECTIONS)
                 .build()
         })?;
+
+        info!(
+            idle_timeout=?*CLIENT_IDLE_CONNECTION_TIMEOUT,
+            max_idle_connections=*CLIENT_MAX_IDLE_CONNECTIONS,
+            "HTTP client configured"
+        );
 
         Ok(client)
     }
@@ -222,15 +228,15 @@ impl Middleware for LoggingMiddleware {
                 // to check if we are retrying or not.
                 let status_code = res.status().as_u16();
                 let request_id = request_id_from_response(res);
-                debug!(request_id, status_code, "Received CAS response");
+                info!(request_id, status_code, "Received CAS response");
                 if Some(Retryable::Transient) == default_on_request_success(res) {
-                    warn!(request_id, "Status Code: {status_code:?}. Retrying...");
+                    warn!(request_id, status_code, "Retrying...");
                 }
             })
             .inspect_err(|err| {
                 // Error received, check if we are retrying or not.
                 if Some(Retryable::Transient) == default_on_request_failure(err) {
-                    warn!("{err:?}. Retrying...");
+                    warn!(?err, "Retrying...");
                 }
             })
     }
@@ -257,7 +263,13 @@ impl AuthMiddleware {
         provider
             .get_valid_token()
             .await
-            .map_err(|e| anyhow!("couldn't get token: {e:?}"))
+            .map_err(|err| {
+                warn!(?err, "Token refresh failed");
+                anyhow!("couldn't get token: {err:?}")
+            })
+            .inspect(|_token| {
+                info!("Token refresh successful for CAS authentication");
+            })
     }
 }
 
@@ -340,12 +352,10 @@ impl ResponseErrorLogger<error::Result<Response>> for reqwest_middleware::Result
 }
 
 pub fn request_id_from_response(res: &Response) -> &str {
-    let request_id = res
-        .headers()
+    res.headers()
         .get(REQUEST_ID_HEADER)
         .and_then(|h| h.to_str().ok())
-        .unwrap_or_default();
-    request_id
+        .unwrap_or_default()
 }
 
 #[cfg(test)]
@@ -381,7 +391,8 @@ mod tests {
             let response = client.get(server.url("/data")).send().await.unwrap();
 
             // Assert
-            assert!(logs_contain("Status Code: 500. Retrying..."));
+            assert!(logs_contain("status_code=500"));
+            assert!(logs_contain("Retrying..."));
             assert_eq!(2, mock.hits());
             assert_eq!(response.status(), 500);
         }
@@ -406,7 +417,8 @@ mod tests {
             let response = client.get(server.url("/data")).send().await.unwrap();
 
             // Assert
-            assert!(logs_contain("Status Code: 500. Retrying..."));
+            assert!(logs_contain("status_code=500"));
+            assert!(logs_contain("Retrying..."));
             assert_eq!(2, mock.hits());
             assert_eq!(response.status(), 500);
         }
@@ -435,7 +447,8 @@ mod tests {
             let response = client.get(server.url("/data")).send().await.unwrap();
 
             // Assert
-            assert!(logs_contain("Status Code: 408. Retrying..."));
+            assert!(logs_contain("status_code=408"));
+            assert!(logs_contain("Retrying..."));
             assert_eq!(3, mock.hits());
             assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
         }
@@ -460,7 +473,8 @@ mod tests {
             let response = client.get(server.url("/data")).send().await.unwrap();
 
             // Assert
-            assert!(logs_contain("Status Code: 408. Retrying..."));
+            assert!(logs_contain("status_code=408"));
+            assert!(logs_contain("Retrying..."));
             assert_eq!(3, mock.hits());
             assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
         }
@@ -490,7 +504,8 @@ mod tests {
             let response = client.get(server.url("/data")).send().await.unwrap();
 
             // Assert
-            assert!(logs_contain("Status Code: 500. Retrying..."));
+            assert!(logs_contain("status_code=500"));
+            assert!(logs_contain("Retrying..."));
             assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
             assert_eq!(3, mock.hits());
             assert!(start_time.elapsed().unwrap() > Duration::from_secs(0));
@@ -517,7 +532,8 @@ mod tests {
             let response = client.get(server.url("/data")).send().await.unwrap();
 
             // Assert
-            assert!(logs_contain("Status Code: 500. Retrying..."));
+            assert!(logs_contain("status_code=500"));
+            assert!(logs_contain("Retrying..."));
             assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
             assert_eq!(3, mock.hits());
             assert!(start_time.elapsed().unwrap() > Duration::from_secs(0));

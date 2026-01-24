@@ -35,7 +35,15 @@ class TestDisablers:
         assert disabler.any_disabler
         assert disabler.is_line_disabled(10, "line-too-long")
         assert disabler.is_line_disabled(12, "all")  # from noqa
-        assert not disabler.is_line_disabled(10, "otherule")
+        assert disabler.is_line_disabled(15, "disable-whole-keyword")
+        assert disabler.is_line_disabled(16, "disable-whole-keyword")
+        assert not disabler.is_line_disabled(17, "disable-whole-keyword")
+        assert disabler.is_line_disabled(23, "whole-section")
+        assert disabler.is_line_disabled(24, "whole-section")
+        assert disabler.is_line_disabled(25, "whole-section")
+        assert not disabler.is_line_disabled(19, "all")
+        assert not disabler.is_line_disabled(19, "some-rule")
+        assert not disabler.is_line_disabled(20, "all")
         model = get_model(DISABLED_TEST_DIR / "disabled_whole.robot")
         disabler = DisablersFinder(model)
         for i in range(1, 11):
@@ -43,7 +51,7 @@ class TestDisablers:
 
     def test_is_rule_disabled(self, diagnostic):
         # check if rule 1010 is disabled in selected lines
-        exp_disabled_lines = {6, 10, 12}
+        exp_disabled_lines = {6, 7, 8, 10, 11, 12, 13}
         model = get_model(DISABLED_TEST_DIR / "disabled.robot")
         disabler = DisablersFinder(model)
         disabled_lines = set()
@@ -65,9 +73,29 @@ class TestDisablers:
         exp_disabled_rules = {
             "all": [(8, 9)],
             "rule1": [(4, 9), (39, 39), (72, 72)],
-            "rule2": [(14, 42), (32, 41), (47, 74), (65, 74)],
+            "rule2": [(14, 42), (32, 41), (47, 78), (65, 74)],
             "rule3": [(22, 29), (55, 62)],
             "rule4": [(24, 25), (57, 58)],
         }
-        disabled_rules = {rule_name: sorted(rule.blocks) for rule_name, rule in disabler.disabled.rules.items()}
+        disabled_rules = {
+            rule_name: sorted([(block.start_line, block.end_line) for block in rule.blocks])
+            for rule_name, rule in disabler.visitor.rules.items()
+        }
+        assert disabled_rules == exp_disabled_rules
+
+    def test_mixed_disablers(self):
+        # Arrange
+        model = get_model(DISABLED_TEST_DIR / "mixed_disablers.robot")
+        disabler = DisablersFinder(model)
+        exp_disabled_rules = {
+            "all": [4, 5, 7, 8, 11, 12, 13, 15],
+            "rule": [3, 6, 14],
+            "rule1": [15, 16, 17, 18],
+            "rule2": [14, 15, 16, 17],
+        }
+
+        # Act
+        disabled_rules = {rule_name: sorted(rule.lines) for rule_name, rule in disabler.visitor.rules.items()}
+
+        # Assert
         assert disabled_rules == exp_disabled_rules

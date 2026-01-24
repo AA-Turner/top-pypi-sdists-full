@@ -4,33 +4,37 @@ Extended functionality for the ExecutionAPI
 
 from __future__ import annotations
 
-import logging
 import time
-
 from io import BytesIO
-from typing import Any, List, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from deprecated import deprecated
 
 from dune_client.api.base import (
-    DUNE_CSV_NEXT_URI_HEADER,
     DUNE_CSV_NEXT_OFFSET_HEADER,
+    DUNE_CSV_NEXT_URI_HEADER,
     MAX_NUM_ROWS_PER_BATCH,
 )
+from dune_client.api.custom import CustomEndpointAPI
+from dune_client.api.datasets import DatasetsAPI
 from dune_client.api.execution import ExecutionAPI
+from dune_client.api.pipeline import PipelineAPI
 from dune_client.api.query import QueryAPI
 from dune_client.api.table import TableAPI
-from dune_client.api.custom import CustomEndpointAPI
+from dune_client.api.uploads import UploadsAPI
+from dune_client.api.usage import UsageAPI
 from dune_client.models import (
-    ResultsResponse,
     DuneError,
-    ExecutionState,
-    QueryFailed,
     ExecutionResultCSV,
+    ExecutionState,
+    QueryFailedError,
+    ResultsResponse,
 )
 from dune_client.query import QueryBase, parse_query_object_or_id
-from dune_client.types import QueryParameter
 from dune_client.util import age_in_hours
+
+if TYPE_CHECKING:
+    from dune_client.types import QueryParameter
 
 # This is the expiry time on old query results.
 THREE_MONTHS_IN_HOURS = 2191
@@ -38,22 +42,38 @@ THREE_MONTHS_IN_HOURS = 2191
 POLL_FREQUENCY_SECONDS = 1
 
 
-class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
+class ExtendedAPI(  # type: ignore[misc]
+    ExecutionAPI,
+    QueryAPI,
+    UploadsAPI,
+    DatasetsAPI,
+    TableAPI,
+    UsageAPI,
+    CustomEndpointAPI,
+    PipelineAPI,
+):
     """
     Provides higher level helper methods for faster
     and easier development on top of the base ExecutionAPI.
+
+    Includes both legacy TableAPI (deprecated) and modern UploadsAPI/DatasetsAPI.
+    UploadsAPI is listed before TableAPI in the MRO to ensure modern methods
+    take precedence over deprecated ones with the same name.
+
+    Note: TableAPI has incompatible method signatures with UploadsAPI but is
+    kept for backward compatibility. The UploadsAPI methods take precedence.
     """
 
     def run_query(
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
-        batch_size: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        performance: str | None = None,
+        batch_size: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
         allow_partial_results: str = "true",
     ) -> ResultsResponse:
         """
@@ -69,12 +89,8 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
             or (batch_size is None and filters is None)
         ), "sampling cannot be combined with filters or pagination"
 
-        if sample_count is not None:
-            limit = None
-        else:
-            limit = batch_size or MAX_NUM_ROWS_PER_BATCH
+        limit = None if sample_count is not None else batch_size or MAX_NUM_ROWS_PER_BATCH
 
-        # pylint: disable=duplicate-code
         job_id = self._refresh(query, ping_frequency, performance)
         return self._fetch_entire_result(
             self.get_execution_results(
@@ -92,12 +108,12 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
-        batch_size: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        performance: str | None = None,
+        batch_size: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
     ) -> ExecutionResultCSV:
         """
         Executes a Dune query, waits till execution completes,
@@ -112,12 +128,8 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
             or (batch_size is None and filters is None)
         ), "sampling cannot be combined with filters or pagination"
 
-        if sample_count is not None:
-            limit = None
-        else:
-            limit = batch_size or MAX_NUM_ROWS_PER_BATCH
+        limit = None if sample_count is not None else batch_size or MAX_NUM_ROWS_PER_BATCH
 
-        # pylint: disable=duplicate-code
         job_id = self._refresh(query, ping_frequency, performance)
         return self._fetch_entire_result_csv(
             self.get_execution_results_csv(
@@ -134,12 +146,12 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
-        batch_size: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        performance: str | None = None,
+        batch_size: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
     ) -> Any:
         """
         Execute a Dune Query, waits till execution completes,
@@ -148,11 +160,9 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         This is a convenience method that uses run_query_csv() + pandas.read_csv() underneath
         """
         try:
-            import pandas  # pylint: disable=import-outside-toplevel
+            import pandas as pd  # noqa: PLC0415
         except ImportError as exc:
-            raise ImportError(
-                "dependency failure, pandas is required but missing"
-            ) from exc
+            raise ImportError("dependency failure, pandas is required but missing") from exc
         data = self.run_query_csv(
             query,
             ping_frequency,
@@ -163,17 +173,17 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
             filters=filters,
             sort_by=sort_by,
         ).data
-        return pandas.read_csv(data)
+        return pd.read_csv(data)
 
     def get_latest_result(
         self,
-        query: Union[QueryBase, str, int],
+        query: QueryBase | str | int,
         max_age_hours: int = THREE_MONTHS_IN_HOURS,
-        batch_size: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        batch_size: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
     ) -> ResultsResponse:
         """
         GET the latest results for a query_id without re-executing the query
@@ -210,7 +220,7 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
 
             if last_run and age_in_hours(last_run) > max_age_hours:
                 # Query older than specified max age, we need to refresh the results
-                logging.info(
+                self.logger.info(
                     f"results (from {last_run}) older than {max_age_hours} hours, re-running query"
                 )
                 results = self.run_query(
@@ -223,7 +233,6 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
                 )
             else:
                 # The results are fresh enough, retrieve the entire result
-                # pylint: disable=duplicate-code
                 results = self._fetch_entire_result(
                     self.get_execution_results(
                         metadata.execution_id,
@@ -234,18 +243,19 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
                         limit=batch_size,
                     ),
                 )
-            return results
         except KeyError as err:
             raise DuneError(response_json, "ResultsResponse", err) from err
+        else:
+            return results
 
     def get_latest_result_dataframe(
         self,
-        query: Union[QueryBase, str, int],
-        batch_size: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        query: QueryBase | str | int,
+        batch_size: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
     ) -> Any:
         """
         GET the latest results for a query_id without re-executing the query
@@ -255,11 +265,9 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         This is a convenience method that uses get_latest_result() + pandas.read_csv() underneath
         """
         try:
-            import pandas  # pylint: disable=import-outside-toplevel
+            import pandas as pd  # noqa: PLC0415
         except ImportError as exc:
-            raise ImportError(
-                "dependency failure, pandas is required but missing"
-            ) from exc
+            raise ImportError("dependency failure, pandas is required but missing") from exc
 
         results = self.download_csv(
             query,
@@ -269,16 +277,16 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
             sort_by=sort_by,
             batch_size=batch_size,
         )
-        return pandas.read_csv(results.data)
+        return pd.read_csv(results.data)
 
     def download_csv(
         self,
-        query: Union[QueryBase, str, int],
-        batch_size: Optional[int] = None,
-        columns: Optional[List[str]] = None,
-        sample_count: Optional[int] = None,
-        filters: Optional[str] = None,
-        sort_by: Optional[List[str]] = None,
+        query: QueryBase | str | int,
+        batch_size: int | None = None,
+        columns: list[str] | None = None,
+        sample_count: int | None = None,
+        filters: str | None = None,
+        sort_by: list[str] | None = None,
     ) -> ExecutionResultCSV:
         """
         Almost like an alias for `get_latest_result` but for the csv endpoint.
@@ -305,9 +313,7 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         if sample_count is None and batch_size is None:
             params["limit"] = MAX_NUM_ROWS_PER_BATCH
 
-        response = self._get(
-            route=f"/query/{query_id}/results/csv", params=params, raw=True
-        )
+        response = self._get(route=f"/query/{query_id}/results/csv", params=params, raw=True)
         response.raise_for_status()
 
         next_uri = response.headers.get(DUNE_CSV_NEXT_URI_HEADER)
@@ -327,28 +333,57 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
     def run_sql(
         self,
         query_sql: str,
-        params: Optional[list[QueryParameter]] = None,
+        params: list[QueryParameter] | None = None,
         is_private: bool = True,
         archive_after: bool = True,
-        performance: Optional[str] = None,
+        performance: str | None = None,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
         name: str = "API Query",
     ) -> ResultsResponse:
         """
-        Allows user to provide execute raw_sql via the CRUD interface
-        - create, run, get results with optional archive/delete.
-        - Query is by default made private and archived after execution.
+        Execute arbitrary SQL directly via the API and return results.
+        Uses the /sql/execute endpoint introduced in the Dune API.
+        https://docs.dune.com/api-reference/executions/endpoint/execute-query
+
+        Note: The `name`, `is_private`, `archive_after`, and `params` parameters are
+        kept for backward compatibility but are ignored when using the direct SQL execution
+        endpoint. The /sql/execute endpoint does not support parameterized queries.
+
+        Args:
+            query_sql: The SQL query string to execute
+            params: (Ignored) Kept for backward compatibility
+            is_private: (Ignored) Kept for backward compatibility
+            archive_after: (Ignored) Kept for backward compatibility
+            performance: Optional performance tier ("medium" or "large")
+            ping_frequency: Seconds between status checks while polling
+            name: (Ignored) Kept for backward compatibility
+
+        Returns:
+            ResultsResponse with the query execution results
+
         Requires Plus subscription!
         """
-        query = self.create_query(name, query_sql, params, is_private)
-        try:
-            results = self.run_query(
-                query=query.base, performance=performance, ping_frequency=ping_frequency
-            )
-        finally:
-            if archive_after:
-                self.archive_query(query.base.query_id)
-        return results
+        # Execute SQL directly using the new endpoint
+        job_id = self.execute_sql(
+            query_sql=query_sql,
+            performance=performance,
+        ).execution_id
+
+        # Poll for completion
+        status = self.get_execution_status(job_id)
+        while status.state not in ExecutionState.terminal_states():
+            self.logger.info(f"waiting for query execution {job_id} to complete: {status}")
+            time.sleep(ping_frequency)
+            status = self.get_execution_status(job_id)
+
+        if status.state == ExecutionState.FAILED:
+            self.logger.error(status)
+            if status.error:
+                raise QueryFailedError(status.error.message)
+            raise QueryFailedError("Query execution failed")
+
+        # Fetch and return results
+        return self._fetch_entire_result(self.get_execution_results(job_id))
 
     ######################
     # Deprecated Functions
@@ -358,7 +393,7 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
+        performance: str | None = None,
     ) -> ResultsResponse:
         """
         Executes a Dune `query`, waits until execution completes,
@@ -372,7 +407,7 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
+        performance: str | None = None,
     ) -> ExecutionResultCSV:
         """
         Executes a Dune query, waits till execution completes,
@@ -386,7 +421,7 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
+        performance: str | None = None,
     ) -> Any:
         """
         Execute a Dune Query, waits till execution completes,
@@ -403,7 +438,7 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         self,
         query: QueryBase,
         ping_frequency: int = POLL_FREQUENCY_SECONDS,
-        performance: Optional[str] = None,
+        performance: str | None = None,
     ) -> str:
         """
         Executes a Dune `query`, waits until execution completes,
@@ -413,16 +448,16 @@ class ExtendedAPI(ExecutionAPI, QueryAPI, TableAPI, CustomEndpointAPI):
         job_id = self.execute_query(query=query, performance=performance).execution_id
         status = self.get_execution_status(job_id)
         while status.state not in ExecutionState.terminal_states():
-            self.logger.info(
-                f"waiting for query execution {job_id} to complete: {status}"
-            )
+            self.logger.info(f"waiting for query execution {job_id} to complete: {status}")
             time.sleep(ping_frequency)
             status = self.get_execution_status(job_id)
         if status.state == ExecutionState.PENDING:
             self.logger.warning("Partial result set retrieved.")
         if status.state == ExecutionState.FAILED:
             self.logger.error(status)
-            raise QueryFailed(f"Error data: {status.error}")
+            if status.error:
+                raise QueryFailedError(status.error.message)
+            raise QueryFailedError("Query execution failed")
         return job_id
 
     def _fetch_entire_result(

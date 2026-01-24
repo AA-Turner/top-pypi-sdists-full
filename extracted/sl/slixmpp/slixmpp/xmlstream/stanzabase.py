@@ -511,6 +511,9 @@ class ElementBase(object):
         """
         Check if the stanza contains a specific plugin.
         """
+        value = self.values.get(name, None)
+        if value is not None:
+            return True
         lang = None
         if '|' in name:
             name, lang, *_ = name.split('|')

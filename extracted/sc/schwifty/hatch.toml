@@ -3,7 +3,7 @@ installer = "uv"
 features = ["pydantic"]
 
 [envs.hatch-static-analysis]
-dependencies = ["ruff==0.12.*"]
+dependencies = ["ruff==0.14.*"]
 config-path = ".ruff_defaults.toml"
 
 [envs.hatch-test]

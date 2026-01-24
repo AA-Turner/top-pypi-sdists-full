@@ -32,7 +32,7 @@ class TeamSyncRequest(ModelNormal):
         """
         Team sync request.
 
-        :param data: Team sync data.
+        :param data: A configuration governing syncing between Datadog teams and teams from an external system.
         :type data: TeamSyncData
         """
         super().__init__(kwargs)

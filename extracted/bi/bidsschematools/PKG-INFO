@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bidsschematools
-Version: 1.1.0
+Version: 1.1.6
 Summary: Python tools for working with the BIDS schema.
 Author: bids-standard developers
 Maintainer-Email: bids-standard developers <bids.maintenance@gmail.com>
@@ -30,6 +30,7 @@ Provides-Extra: render
 Requires-Dist: tabulate; extra == "render"
 Requires-Dist: pandas; extra == "render"
 Requires-Dist: markdown-it-py; extra == "render"
+Requires-Dist: pymdown-extensions>=9.2; extra == "render"
 Provides-Extra: tests
 Requires-Dist: bidsschematools[expressions,render,validation]; extra == "tests"
 Requires-Dist: check-jsonschema; extra == "tests"

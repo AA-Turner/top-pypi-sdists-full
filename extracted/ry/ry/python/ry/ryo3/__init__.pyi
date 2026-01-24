@@ -5,6 +5,16 @@ from ry.ryo3 import ulid as ulid
 from ry.ryo3 import uuid as uuid
 from ry.ryo3 import xxhash as xxhash
 from ry.ryo3 import zstd as zstd
+from ry.ryo3.__about__ import __allocator__ as __allocator__
+from ry.ryo3.__about__ import __authors__ as __authors__
+from ry.ryo3.__about__ import __build_profile__ as __build_profile__
+from ry.ryo3.__about__ import __build_timestamp__ as __build_timestamp__
+from ry.ryo3.__about__ import __crypto_provider__ as __crypto_provider__
+from ry.ryo3.__about__ import __description__ as __description__
+from ry.ryo3.__about__ import __opt_level__ as __opt_level__
+from ry.ryo3.__about__ import __pkg_name__ as __pkg_name__
+from ry.ryo3.__about__ import __target__ as __target__
+from ry.ryo3.__about__ import __version__ as __version__
 from ry.ryo3._brotli import brotli as brotli
 from ry.ryo3._brotli import brotli_decode as brotli_decode
 from ry.ryo3._brotli import brotli_encode as brotli_encode
@@ -17,7 +27,6 @@ from ry.ryo3._flate2 import gzip as gzip
 from ry.ryo3._flate2 import gzip_decode as gzip_decode
 from ry.ryo3._flate2 import gzip_encode as gzip_encode
 from ry.ryo3._flate2 import is_gzipped as is_gzipped
-from ry.ryo3._fnv import FnvHasher as FnvHasher
 from ry.ryo3._fnv import fnv1a as fnv1a
 from ry.ryo3._fspath import FsPath as FsPath
 from ry.ryo3._glob import Pattern as Pattern
@@ -88,11 +97,23 @@ from ry.ryo3._memchr import memrchr2 as memrchr2
 from ry.ryo3._memchr import memrchr3 as memrchr3
 from ry.ryo3._quick_maths import quick_maths as quick_maths
 from ry.ryo3._regex import Regex as Regex
+from ry.ryo3._reqwest import BlockingClient as BlockingClient
+from ry.ryo3._reqwest import BlockingResponse as BlockingResponse
+from ry.ryo3._reqwest import BlockingResponseStream as BlockingResponseStream
+from ry.ryo3._reqwest import Certificate as Certificate
+from ry.ryo3._reqwest import CertificateRevocationList as CertificateRevocationList
+from ry.ryo3._reqwest import Client as Client
+from ry.ryo3._reqwest import ClientConfig as ClientConfig
+from ry.ryo3._reqwest import Cookie as Cookie
 from ry.ryo3._reqwest import HttpClient as HttpClient
+from ry.ryo3._reqwest import Identity as Identity
+from ry.ryo3._reqwest import Proxy as Proxy
+from ry.ryo3._reqwest import RequestKwargs as RequestKwargs
 from ry.ryo3._reqwest import ReqwestError as ReqwestError
 from ry.ryo3._reqwest import Response as Response
 from ry.ryo3._reqwest import ResponseStream as ResponseStream
 from ry.ryo3._reqwest import fetch as fetch
+from ry.ryo3._reqwest import fetch_sync as fetch_sync
 from ry.ryo3._same_file import is_same_file as is_same_file
 from ry.ryo3._shlex import shplit as shplit
 from ry.ryo3._size import Size as Size
@@ -100,6 +121,7 @@ from ry.ryo3._size import SizeFormatter as SizeFormatter
 from ry.ryo3._size import fmt_size as fmt_size
 from ry.ryo3._size import parse_size as parse_size
 from ry.ryo3._sqlformat import SqlfmtQueryParams as SqlfmtQueryParams
+from ry.ryo3._sqlformat import SqlFormatter as SqlFormatter
 from ry.ryo3._sqlformat import sqlfmt as sqlfmt
 from ry.ryo3._sqlformat import sqlfmt_params as sqlfmt_params
 from ry.ryo3._std import DirEntry as DirEntry
@@ -111,6 +133,7 @@ from ry.ryo3._std import IpAddr as IpAddr
 from ry.ryo3._std import Ipv4Addr as Ipv4Addr
 from ry.ryo3._std import Ipv6Addr as Ipv6Addr
 from ry.ryo3._std import Metadata as Metadata
+from ry.ryo3._std import ReadDir as ReadDir
 from ry.ryo3._std import SocketAddr as SocketAddr
 from ry.ryo3._std import SocketAddrV4 as SocketAddrV4
 from ry.ryo3._std import SocketAddrV6 as SocketAddrV6
@@ -118,7 +141,9 @@ from ry.ryo3._std import canonicalize as canonicalize
 from ry.ryo3._std import copy as copy
 from ry.ryo3._std import create_dir as create_dir
 from ry.ryo3._std import create_dir_all as create_dir_all
+from ry.ryo3._std import duration as duration
 from ry.ryo3._std import exists as exists
+from ry.ryo3._std import hard_link as hard_link
 from ry.ryo3._std import instant as instant
 from ry.ryo3._std import is_dir as is_dir
 from ry.ryo3._std import is_file as is_file
@@ -127,13 +152,19 @@ from ry.ryo3._std import metadata as metadata
 from ry.ryo3._std import read as read
 from ry.ryo3._std import read_bytes as read_bytes
 from ry.ryo3._std import read_dir as read_dir
+from ry.ryo3._std import read_link as read_link
+from ry.ryo3._std import read_str as read_str
 from ry.ryo3._std import read_stream as read_stream
 from ry.ryo3._std import read_text as read_text
+from ry.ryo3._std import read_to_string as read_to_string
 from ry.ryo3._std import remove_dir as remove_dir
 from ry.ryo3._std import remove_dir_all as remove_dir_all
 from ry.ryo3._std import remove_file as remove_file
 from ry.ryo3._std import rename as rename
+from ry.ryo3._std import set_permissions as set_permissions
 from ry.ryo3._std import sleep as sleep
+from ry.ryo3._std import soft_link as soft_link
+from ry.ryo3._std import symlink_metadata as symlink_metadata
 from ry.ryo3._std import write as write
 from ry.ryo3._std import write_bytes as write_bytes
 from ry.ryo3._std import write_text as write_text
@@ -173,8 +204,12 @@ from ry.ryo3._std_constants import U128_MIN as U128_MIN
 from ry.ryo3._std_constants import USIZE_BITS as USIZE_BITS
 from ry.ryo3._std_constants import USIZE_MAX as USIZE_MAX
 from ry.ryo3._std_constants import USIZE_MIN as USIZE_MIN
+from ry.ryo3._tokio import AsyncDirEntry as AsyncDirEntry
 from ry.ryo3._tokio import AsyncFile as AsyncFile
-from ry.ryo3._tokio import aiopen as aiopen
+from ry.ryo3._tokio import AsyncFileReadStream as AsyncFileReadStream
+from ry.ryo3._tokio import AsyncReadDir as AsyncReadDir
+from ry.ryo3._tokio import aiopen as aiopen  # type: ignore[deprecated]
+from ry.ryo3._tokio import aopen as aopen
 from ry.ryo3._tokio import asleep as asleep
 from ry.ryo3._tokio import canonicalize_async as canonicalize_async
 from ry.ryo3._tokio import copy_async as copy_async
@@ -186,6 +221,7 @@ from ry.ryo3._tokio import metadata_async as metadata_async
 from ry.ryo3._tokio import read_async as read_async
 from ry.ryo3._tokio import read_dir_async as read_dir_async
 from ry.ryo3._tokio import read_link_async as read_link_async
+from ry.ryo3._tokio import read_stream_async as read_stream_async
 from ry.ryo3._tokio import read_to_string_async as read_to_string_async
 from ry.ryo3._tokio import remove_dir_all_async as remove_dir_all_async
 from ry.ryo3._tokio import remove_dir_async as remove_dir_async
@@ -216,15 +252,5 @@ from ry.ryo3.sh import cd as cd
 from ry.ryo3.sh import home as home
 from ry.ryo3.sh import ls as ls
 from ry.ryo3.sh import mkdir as mkdir
+from ry.ryo3.sh import mkdirp as mkdirp
 from ry.ryo3.sh import pwd as pwd
-
-# =============================================================================
-# CONSTANTS
-# =============================================================================
-__version__: str
-__authors__: str
-__build_profile__: str
-__build_timestamp__: str
-__pkg_name__: str
-__description__: str
-__target__: str

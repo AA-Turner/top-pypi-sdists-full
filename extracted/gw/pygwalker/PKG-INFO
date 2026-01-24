@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygwalker
-Version: 0.4.9.15
+Version: 0.5.0.0
 Summary: pygwalker: turn your data into an interactive UI for data exploration and visualization
 Project-URL: homepage, https://kanaries.net/pygwalker
 Project-URL: repository, https://github.com/Kanaries/pygwalker
@@ -15,7 +15,7 @@ Requires-Dist: appdirs
 Requires-Dist: arrow
 Requires-Dist: astor
 Requires-Dist: cachetools
-Requires-Dist: duckdb<2.0.0,>=0.10.1
+Requires-Dist: duckdb<2.0.0,>=0.10.4
 Requires-Dist: gw-dsl-parser==0.1.49.1
 Requires-Dist: ipylab<=1.0.0
 Requires-Dist: ipython
@@ -39,6 +39,7 @@ Requires-Dist: typing-extensions
 Provides-Extra: all
 Requires-Dist: pandas; extra == 'all'
 Requires-Dist: polars; extra == 'all'
+Requires-Dist: reflex; extra == 'all'
 Requires-Dist: streamlit; extra == 'all'
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
@@ -57,6 +58,8 @@ Provides-Extra: pandas
 Requires-Dist: pandas; extra == 'pandas'
 Provides-Extra: polars
 Requires-Dist: polars; extra == 'polars'
+Provides-Extra: reflex
+Requires-Dist: reflex; extra == 'reflex'
 Provides-Extra: snowflake
 Requires-Dist: pandas; extra == 'snowflake'
 Requires-Dist: pyarrow==10.0.1; extra == 'snowflake'
@@ -66,7 +69,7 @@ Provides-Extra: streamlit
 Requires-Dist: streamlit; extra == 'streamlit'
 Description-Content-Type: text/markdown
 
-[English](README.md) | [Español](./docs/README.es.md) | [Français](./docs/README.fr.md) | [Deutsch](./docs/README.de.md) | [中文](./docs/README.zh.md) | [Türkçe](./docs/README.tr.md) | [日本語](./docs/README.ja.md) | [한국어](./docs/README.ko.md)
+[English](README.md) | [Español](./docs/README.es.md) | [Français](./docs/README.fr.md) | [Deutsch](./docs/README.de.md) | [中文](./docs/README.zh.md) | [Türkçe](./docs/README.tr.md) | [日本語](./docs/README.ja.md) | [한국어](./docs/README.ko.md) | [Русский](./docs/README.ru.md)
 
 
 <p align="center"><a href="https://github.com/Kanaries/pygwalker"><img width=100% alt="" src="https://github.com/user-attachments/assets/f90db669-6e5a-45d3-942e-547c9d0471c9" /></a></p>
@@ -105,13 +108,43 @@ Description-Content-Type: text/markdown
 
 **PyGWalker** (pronounced like "Pig Walker", just for fun) is named as an abbreviation of "**Py**thon binding of **G**raphic **Walker**". It integrates Jupyter Notebook with [Graphic Walker](https://github.com/Kanaries/graphic-walker), an open-source alternative to Tableau. It allows data scientists to visualize / clean / annotates the data with simple drag-and-drop operations and even natural language queries.
      
+
+https://github.com/Kanaries/pygwalker/assets/22167673/2b940e11-cf8b-4cde-b7f6-190fb10ee44b
+
+> [!TIP]
+> If you want more AI features, we also build [runcell](https://runcell.dev), an AI Code Agent in Jupyter that understands your code/data/cells and generate code, execute cells and take actions for you. It can be used in jupyter lab with `pip install runcell`
+
+
+
+https://github.com/user-attachments/assets/9ec64252-864d-4bd1-8755-83f9b0396d38
+
+
+
+
 Visit [Google Colab](https://colab.research.google.com/drive/171QUQeq-uTLgSj1u-P9DQig7Md1kpXQ2?usp=sharing), [Kaggle Code](https://www.kaggle.com/code/lxy21495892/airbnb-eda-pygwalker-demo) or [Graphic Walker Online Demo](https://graphic-walker.kanaries.net/) to test it out!
 
 > If you prefer using R, check [GWalkR](https://github.com/Kanaries/GWalkR), the R wrapper of Graphic Walker.
+> If you prefer a Desktop App that can be used offline and without any coding, check out [PyGWalker Desktop](https://kanaries.net/download?utm_source=pygwalker_github&utm_content=tip).
 
 
-
-https://github.com/Kanaries/pygwalker/assets/22167673/2b940e11-cf8b-4cde-b7f6-190fb10ee44b
+# Features
+PyGWalker is a Python library that simplifies data analysis and visualization workflows by turning pandas DataFrames into interactive visual interfaces.
+It offers a variety of features that make it a powerful tool for data exploration:
+- ##### Interactive Data Exploration:
+    - Drag-and-drop interface for easy visualization creation.   
+    - Real-time updates as you make changes to the visualization.
+    - Ability to zoom, pan, and filter the data.   
+- ##### Data Cleaning and Transformation:
+    - Visual data cleaning tools to identify and remove outliers or inconsistencies.   
+    - Ability to create new variables and features based on existing data.   
+- ##### Advanced Visualization Capabilities:
+    - Support for various chart types (bar charts, line charts, scatter plots, etc.). 
+    - Customization options for colors, labels, and other visual elements.   
+    - Interactive features like tooltips and drill-down capabilities.   
+- ##### Integration with Jupyter Notebooks:
+    - Seamless integration with Jupyter Notebooks for a smooth workflow.   
+- ##### Open-Source and Free:
+    - Available for free and allows for customization and extension.
 
 
 
@@ -213,6 +246,18 @@ walker = pyg.walk(
 
 * [Use PyGWalker in Kaggle](https://www.kaggle.com/code/lxy21495892/airbnb-eda-pygwalker-demo)
 * [Use PyGWalker in Google Colab](https://colab.research.google.com/drive/171QUQeq-uTLgSj1u-P9DQig7Md1kpXQ2?usp=sharing)
+
+### Programmatic Export of Charts
+
+After saving a chart from the UI, you can retrieve the image directly from Python.
+
+```python
+walker = pyg.walk(df, spec="./chart_meta_0.json")
+# edit the chart in the UI and click the save button
+walker.save_chart_to_file("Chart 1", "chart1.svg", save_type="svg")
+png_bytes = walker.export_chart_png("Chart 1")
+svg_bytes = walker.export_chart_svg("Chart 1")
+```
 
 ## Use pygwalker in Streamlit
 Streamlit allows you to host a web version of pygwalker without figuring out details of how web application works.
@@ -327,6 +372,14 @@ More details, refer it: [How to set your privacy configuration?](https://github.
 # License
 
 [Apache License 2.0](https://github.com/Kanaries/pygwalker/blob/main/LICENSE)
+
+# Contribution Guideline
+You are encouraged to contribute to PyGWalker in any way that suits your interests. This may include:
+- Answering questions and providing support
+- Sharing ideas for new features
+- Reporting bugs and glitches
+- Contributing code to the project
+- Offering suggestions for website improvements and better documentation
 
 # Resources
 

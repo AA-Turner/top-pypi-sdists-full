@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: psygnal
-Version: 0.14.1
+Version: 0.15.1
 Summary: Fast python callback/event system modeled after Qt Signals
 Project-URL: homepage, https://github.com/pyapp-kit/psygnal
 Project-URL: repository, https://github.com/pyapp-kit/psygnal
@@ -8,17 +8,17 @@ Project-URL: documentation, https://psygnal.readthedocs.io
 Author-email: Talley Lambert <talley.lambert@gmail.com>
 License: BSD 3-Clause License
 License-File: LICENSE
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Provides-Extra: proxy
 Requires-Dist: wrapt; extra == 'proxy'
 Provides-Extra: pydantic

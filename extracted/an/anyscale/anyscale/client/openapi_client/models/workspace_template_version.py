@@ -37,9 +37,11 @@ class WorkspaceTemplateVersion(object):
         'image_uri': 'str',
         'compute_configs': 'dict(str, str)',
         'artifacts': 'WorkspaceSystemArtifacts',
+        'idle_termination_minutes': 'int',
         'id': 'str',
         'version': 'int',
         'creator_id': 'str',
+        'creator_email': 'str',
         'created_at': 'datetime'
     }
 
@@ -48,13 +50,15 @@ class WorkspaceTemplateVersion(object):
         'image_uri': 'image_uri',
         'compute_configs': 'compute_configs',
         'artifacts': 'artifacts',
+        'idle_termination_minutes': 'idle_termination_minutes',
         'id': 'id',
         'version': 'version',
         'creator_id': 'creator_id',
+        'creator_email': 'creator_email',
         'created_at': 'created_at'
     }
 
-    def __init__(self, template_id=None, image_uri=None, compute_configs=None, artifacts=None, id=None, version=None, creator_id=None, created_at=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, template_id=None, image_uri=None, compute_configs=None, artifacts=None, idle_termination_minutes=None, id=None, version=None, creator_id=None, creator_email=None, created_at=None, local_vars_configuration=None):  # noqa: E501
         """WorkspaceTemplateVersion - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,9 +68,11 @@ class WorkspaceTemplateVersion(object):
         self._image_uri = None
         self._compute_configs = None
         self._artifacts = None
+        self._idle_termination_minutes = None
         self._id = None
         self._version = None
         self._creator_id = None
+        self._creator_email = None
         self._created_at = None
         self.discriminator = None
 
@@ -77,9 +83,12 @@ class WorkspaceTemplateVersion(object):
             self.compute_configs = compute_configs
         if artifacts is not None:
             self.artifacts = artifacts
+        if idle_termination_minutes is not None:
+            self.idle_termination_minutes = idle_termination_minutes
         self.id = id
         self.version = version
         self.creator_id = creator_id
+        self.creator_email = creator_email
         self.created_at = created_at
 
     @property
@@ -177,6 +186,29 @@ class WorkspaceTemplateVersion(object):
         self._artifacts = artifacts
 
     @property
+    def idle_termination_minutes(self):
+        """Gets the idle_termination_minutes of this WorkspaceTemplateVersion.  # noqa: E501
+
+        Idle termination minutes for this version  # noqa: E501
+
+        :return: The idle_termination_minutes of this WorkspaceTemplateVersion.  # noqa: E501
+        :rtype: int
+        """
+        return self._idle_termination_minutes
+
+    @idle_termination_minutes.setter
+    def idle_termination_minutes(self, idle_termination_minutes):
+        """Sets the idle_termination_minutes of this WorkspaceTemplateVersion.
+
+        Idle termination minutes for this version  # noqa: E501
+
+        :param idle_termination_minutes: The idle_termination_minutes of this WorkspaceTemplateVersion.  # noqa: E501
+        :type: int
+        """
+
+        self._idle_termination_minutes = idle_termination_minutes
+
+    @property
     def id(self):
         """Gets the id of this WorkspaceTemplateVersion.  # noqa: E501
 
@@ -250,6 +282,31 @@ class WorkspaceTemplateVersion(object):
             raise ValueError("Invalid value for `creator_id`, must not be `None`")  # noqa: E501
 
         self._creator_id = creator_id
+
+    @property
+    def creator_email(self):
+        """Gets the creator_email of this WorkspaceTemplateVersion.  # noqa: E501
+
+        Email of the creator  # noqa: E501
+
+        :return: The creator_email of this WorkspaceTemplateVersion.  # noqa: E501
+        :rtype: str
+        """
+        return self._creator_email
+
+    @creator_email.setter
+    def creator_email(self, creator_email):
+        """Sets the creator_email of this WorkspaceTemplateVersion.
+
+        Email of the creator  # noqa: E501
+
+        :param creator_email: The creator_email of this WorkspaceTemplateVersion.  # noqa: E501
+        :type: str
+        """
+        if self.local_vars_configuration.client_side_validation and creator_email is None:  # noqa: E501
+            raise ValueError("Invalid value for `creator_email`, must not be `None`")  # noqa: E501
+
+        self._creator_email = creator_email
 
     @property
     def created_at(self):

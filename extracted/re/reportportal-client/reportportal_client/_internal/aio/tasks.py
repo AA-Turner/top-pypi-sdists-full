@@ -17,7 +17,7 @@ import asyncio
 import sys
 import time
 from asyncio import Future
-from typing import Any, Awaitable, Coroutine, Generator, Generic, List, Optional, TypeVar, Union
+from typing import Any, Awaitable, Coroutine, Generator, Generic, Optional, TypeVar, Union
 
 from reportportal_client.aio.tasks import BlockingOperationError, Task
 
@@ -142,7 +142,7 @@ class ThreadedTaskFactory:
 class TriggerTaskBatcher(Generic[_T]):
     """Batching class which compile its batches by object number or by passed time."""
 
-    __task_list: List[_T]
+    __task_list: list[_T]
     __last_run_time: float
     __trigger_num: int
     __trigger_interval: float
@@ -170,33 +170,37 @@ class TriggerTaskBatcher(Generic[_T]):
             return True
         return False
 
-    def append(self, value: _T) -> Optional[List[_T]]:
+    def append(self, value: _T) -> Optional[list[_T]]:
         """Add an object to internal batch and return the batch if it's triggered.
 
         :param   value: an object to add to the batch
         :return: a batch or None
         """
         self.__task_list.append(value)
-        if self.__ready_to_run():
-            tasks = self.__task_list
-            self.__task_list = []
-            return tasks
+        if not self.__ready_to_run():
+            return None
 
-    def flush(self) -> Optional[List[_T]]:
+        tasks = self.__task_list
+        self.__task_list = []
+        return tasks
+
+    def flush(self) -> Optional[list[_T]]:
         """Immediately return everything what's left in the internal batch.
 
         :return: a batch or None
         """
-        if len(self.__task_list) > 0:
-            tasks = self.__task_list
-            self.__task_list = []
-            return tasks
+        if len(self.__task_list) <= 0:
+            return None
+
+        tasks = self.__task_list
+        self.__task_list = []
+        return tasks
 
 
 class BackgroundTaskList(Generic[_T]):
     """Task list class which collects Tasks into internal batch and removes when they complete."""
 
-    __task_list: List[_T]
+    __task_list: list[_T]
 
     def __init__(self):
         """Initialize an instance of the Batcher."""
@@ -218,13 +222,15 @@ class BackgroundTaskList(Generic[_T]):
         self.__remove_finished()
         self.__task_list.append(value)
 
-    def flush(self) -> Optional[List[_T]]:
+    def flush(self) -> Optional[list[_T]]:
         """Immediately return everything what's left unfinished in the internal batch.
 
         :return: a batch or None
         """
         self.__remove_finished()
-        if len(self.__task_list) > 0:
-            tasks = self.__task_list
-            self.__task_list = []
-            return tasks
+        if len(self.__task_list) <= 0:
+            return None
+
+        tasks = self.__task_list
+        self.__task_list = []
+        return tasks

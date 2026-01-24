@@ -41,6 +41,7 @@ from ....time import (
     Duration,
     Time,
 )
+from ....vector import Vector
 from .._common import (
     GraphHydrator,
     HydrationScope,
@@ -49,6 +50,7 @@ from .._interface import HydrationHandlerABC
 from . import (
     spatial,
     temporal,
+    vector,
 )
 
 
@@ -74,7 +76,6 @@ class _GraphHydrator(GraphHydrator):
         except KeyError:
             inst = Node(self.graph, element_id, id_, labels, properties)
             self.graph._nodes[element_id] = inst
-            self.graph._legacy_nodes[id_] = inst
         else:
             # If we have already hydrated this node as the endpoint of
             # a relationship, it won't have any labels or properties.
@@ -125,7 +126,6 @@ class _GraphHydrator(GraphHydrator):
             r = self.graph.relationship_type(type_)
             inst = r(self.graph, element_id, id_, properties)
             self.graph._relationships[element_id] = inst
-            self.graph._legacy_relationships[id_] = inst
         return inst
 
     def hydrate_path(self, nodes, relationships, sequence):
@@ -179,6 +179,7 @@ class HydrationHandler(HydrationHandlerABC):
                 datetime: temporal.dehydrate_datetime,
                 Duration: temporal.dehydrate_duration,
                 timedelta: temporal.dehydrate_timedelta,
+                Vector: vector.dehydrate_vector,
             }
         )
         if np is not None:

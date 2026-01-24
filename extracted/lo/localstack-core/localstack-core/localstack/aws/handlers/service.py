@@ -2,22 +2,24 @@
 
 import logging
 import traceback
+import types
 from collections import defaultdict
 from typing import Any
 
 from botocore.model import OperationModel, ServiceModel
+from plux.core.plugin import PluginDisabled
 
 from localstack import config
 from localstack.http import Response
-from localstack.utils.coverage_docs import get_coverage_link_for_service
 
+from ...utils.coverage_docs import get_coverage_link_for_service
 from ..api import CommonServiceException, RequestContext, ServiceException
 from ..api.core import ServiceOperation
 from ..chain import CompositeResponseHandler, ExceptionHandler, Handler, HandlerChain
 from ..client import parse_response, parse_service_exception
 from ..protocol.parser import RequestParser, create_parser
 from ..protocol.serializer import create_serializer
-from ..protocol.service_router import determine_aws_service_model
+from ..protocol.service_router import determine_aws_protocol, determine_aws_service_model
 from ..skeleton import Skeleton, create_skeleton
 
 LOG = logging.getLogger(__name__)
@@ -33,6 +35,8 @@ class ServiceNameParser(Handler):
         # example). If it is already set, we can skip the parsing of the request. It is very important for S3, because
         # parsing the request will consume the data stream and prevent streaming.
         if context.service:
+            if not context.protocol:
+                context.protocol = determine_aws_protocol(context.request, context.service)
             return
 
         service_model = determine_aws_service_model(context.request)
@@ -41,6 +45,7 @@ class ServiceNameParser(Handler):
             return
 
         context.service = service_model
+        context.protocol = determine_aws_protocol(context.request, service_model)
 
 
 class ServiceRequestParser(Handler):
@@ -63,7 +68,7 @@ class ServiceRequestParser(Handler):
         return self.parse_and_enrich(context)
 
     def parse_and_enrich(self, context: RequestContext):
-        parser = create_parser(context.service)
+        parser = create_parser(context.service, context.protocol)
         operation, instance = parser.parse(context.request)
 
         # enrich context
@@ -137,7 +142,7 @@ class ServiceRequestRouter(Handler):
         operation_name = operation.name
         message = f"no handler for operation '{operation_name}' on service '{service_name}'"
         error = CommonServiceException("InternalFailure", message, status_code=501)
-        serializer = create_serializer(context.service)
+        serializer = create_serializer(context.service, context.protocol)
         return serializer.serialize_error_to_response(
             error, operation, context.request.headers, context.request_id
         )
@@ -152,6 +157,18 @@ class ServiceExceptionSerializer(ExceptionHandler):
 
     def __init__(self):
         self.handle_internal_failures = True
+
+        self._moto_service_exception = types.EllipsisType
+        self._moto_rest_error = types.EllipsisType
+
+        try:
+            import moto.core.exceptions
+
+            self._moto_service_exception = moto.core.exceptions.ServiceException
+            self._moto_rest_error = moto.core.exceptions.RESTError
+        except (ModuleNotFoundError, AttributeError) as exc:
+            # Moto may not be available in stripped-down versions of LocalStack, like LocalStack S3 image.
+            LOG.debug("Unable to set up Moto exception translation: %s", exc)
 
     def __call__(
         self,
@@ -176,9 +193,22 @@ class ServiceExceptionSerializer(ExceptionHandler):
             action_name = operation.name
             exception_message: str | None = exception.args[0] if exception.args else None
             message = exception_message or get_coverage_link_for_service(service_name, action_name)
-            LOG.info(message)
             error = CommonServiceException("InternalFailure", message, status_code=501)
-            context.service_exception = error
+            LOG.info(message)
+
+        elif isinstance(exception, self._moto_service_exception):
+            # Translate Moto ServiceException to native ServiceException if Moto is available.
+            # This allows handler chain to gracefully handles Moto errors when provider handlers invoke Moto methods directly.
+            error = CommonServiceException(
+                code=exception.code,
+                message=exception.message,
+            )
+        elif isinstance(exception, self._moto_rest_error):
+            # Some Moto exceptions (like ones raised by EC2) are of type RESTError.
+            error = CommonServiceException(
+                code=exception.error_type,
+                message=exception.message,
+            )
 
         elif not isinstance(exception, ServiceException):
             if not self.handle_internal_failures:
@@ -202,14 +232,24 @@ class ServiceExceptionSerializer(ExceptionHandler):
                 operation = context.service.operation_model(context.service.operation_names[0])
                 msg = f"exception while calling {service_name} with unknown operation: {message}"
 
-            status_code = 501 if config.FAIL_FAST else 500
+            # Check for license restricted plugin message and set status code to 501
+            if (
+                isinstance(exception, PluginDisabled)
+                and "not part of the active license agreement"
+                in str(getattr(exception, "reason", "")).lower()
+            ):
+                status_code = 501
+                msg = f"exception while calling {service_name}.{operation.name}: {str(getattr(exception, 'reason', ''))}"
+            else:
+                status_code = 501 if config.FAIL_FAST else 500
 
             error = CommonServiceException(
                 "InternalError", msg, status_code=status_code
             ).with_traceback(exception.__traceback__)
-            context.service_exception = error
 
-        serializer = create_serializer(context.service)  # TODO: serializer cache
+        context.service_exception = error
+
+        serializer = create_serializer(context.service, context.protocol)
         return serializer.serialize_error_to_response(
             error, operation, context.request.headers, context.request_id
         )
@@ -252,7 +292,9 @@ class ServiceResponseParser(Handler):
             return
 
         # in this case we need to parse the raw response
-        parsed = parse_response(context.operation, response, include_response_metadata=False)
+        parsed = parse_response(
+            context.operation, context.protocol, response, include_response_metadata=False
+        )
         if service_exception := parse_service_exception(response, parsed):
             context.service_exception = service_exception
         else:

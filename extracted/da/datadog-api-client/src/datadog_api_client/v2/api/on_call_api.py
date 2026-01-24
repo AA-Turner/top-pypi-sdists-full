@@ -21,6 +21,13 @@ from datadog_api_client.v2.model.shift import Shift
 from datadog_api_client.v2.model.team_on_call_responders import TeamOnCallResponders
 from datadog_api_client.v2.model.team_routing_rules import TeamRoutingRules
 from datadog_api_client.v2.model.team_routing_rules_request import TeamRoutingRulesRequest
+from datadog_api_client.v2.model.list_notification_channels_response import ListNotificationChannelsResponse
+from datadog_api_client.v2.model.notification_channel import NotificationChannel
+from datadog_api_client.v2.model.create_user_notification_channel_request import CreateUserNotificationChannelRequest
+from datadog_api_client.v2.model.list_on_call_notification_rules_response import ListOnCallNotificationRulesResponse
+from datadog_api_client.v2.model.on_call_notification_rule import OnCallNotificationRule
+from datadog_api_client.v2.model.create_on_call_notification_rule_request import CreateOnCallNotificationRuleRequest
+from datadog_api_client.v2.model.update_on_call_notification_rule_request import UpdateOnCallNotificationRuleRequest
 
 
 class OnCallApi:
@@ -84,6 +91,58 @@ class OnCallApi:
             api_client=api_client,
         )
 
+        self._create_user_notification_channel_endpoint = _Endpoint(
+            settings={
+                "response_type": (NotificationChannel,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-channels",
+                "operation_id": "create_user_notification_channel",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (CreateUserNotificationChannelRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_user_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (OnCallNotificationRule,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-rules",
+                "operation_id": "create_user_notification_rule",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (CreateOnCallNotificationRuleRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._delete_on_call_escalation_policy_endpoint = _Endpoint(
             settings={
                 "response_type": None,
@@ -121,6 +180,64 @@ class OnCallApi:
                     "required": True,
                     "openapi_types": (str,),
                     "attribute": "schedule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._delete_user_notification_channel_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-channels/{channel_id}",
+                "operation_id": "delete_user_notification_channel",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "channel_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "channel_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._delete_user_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-rules/{rule_id}",
+                "operation_id": "delete_user_notification_rule",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "rule_id",
                     "location": "path",
                 },
             },
@@ -275,6 +392,120 @@ class OnCallApi:
             api_client=api_client,
         )
 
+        self._get_user_notification_channel_endpoint = _Endpoint(
+            settings={
+                "response_type": (NotificationChannel,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-channels/{channel_id}",
+                "operation_id": "get_user_notification_channel",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "channel_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "channel_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_user_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (OnCallNotificationRule,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-rules/{rule_id}",
+                "operation_id": "get_user_notification_rule",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+                "include": {
+                    "openapi_types": (str,),
+                    "attribute": "include",
+                    "location": "query",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_user_notification_channels_endpoint = _Endpoint(
+            settings={
+                "response_type": (ListNotificationChannelsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-channels",
+                "operation_id": "list_user_notification_channels",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._list_user_notification_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (ListOnCallNotificationRulesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-rules",
+                "operation_id": "list_user_notification_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "include": {
+                    "openapi_types": (str,),
+                    "attribute": "include",
+                    "location": "query",
+                },
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._set_on_call_team_routing_rules_endpoint = _Endpoint(
             settings={
                 "response_type": (TeamRoutingRules,),
@@ -368,6 +599,43 @@ class OnCallApi:
             api_client=api_client,
         )
 
+        self._update_user_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (OnCallNotificationRule,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/on-call/users/{user_id}/notification-rules/{rule_id}",
+                "operation_id": "update_user_notification_rule",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "user_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "user_id",
+                    "location": "path",
+                },
+                "rule_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "rule_id",
+                    "location": "path",
+                },
+                "include": {
+                    "openapi_types": (str,),
+                    "attribute": "include",
+                    "location": "query",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (UpdateOnCallNotificationRuleRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
     def create_on_call_escalation_policy(
         self,
         body: EscalationPolicyCreateRequest,
@@ -414,6 +682,48 @@ class OnCallApi:
 
         return self._create_on_call_schedule_endpoint.call_with_http_info(**kwargs)
 
+    def create_user_notification_channel(
+        self,
+        user_id: str,
+        body: CreateUserNotificationChannelRequest,
+    ) -> NotificationChannel:
+        """Create an On-Call notification channel for a user.
+
+        Create a new notification channel for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :type body: CreateUserNotificationChannelRequest
+        :rtype: NotificationChannel
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["body"] = body
+
+        return self._create_user_notification_channel_endpoint.call_with_http_info(**kwargs)
+
+    def create_user_notification_rule(
+        self,
+        user_id: str,
+        body: CreateOnCallNotificationRuleRequest,
+    ) -> OnCallNotificationRule:
+        """Create an On-Call notification rule for a user.
+
+        Create a new notification rule for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :type body: CreateOnCallNotificationRuleRequest
+        :rtype: OnCallNotificationRule
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["body"] = body
+
+        return self._create_user_notification_rule_endpoint.call_with_http_info(**kwargs)
+
     def delete_on_call_escalation_policy(
         self,
         policy_id: str,
@@ -447,6 +757,50 @@ class OnCallApi:
         kwargs["schedule_id"] = schedule_id
 
         return self._delete_on_call_schedule_endpoint.call_with_http_info(**kwargs)
+
+    def delete_user_notification_channel(
+        self,
+        user_id: str,
+        channel_id: str,
+    ) -> None:
+        """Delete an On-Call notification channel for a user.
+
+        Delete a notification channel for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :param channel_id: The channel ID
+        :type channel_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["channel_id"] = channel_id
+
+        return self._delete_user_notification_channel_endpoint.call_with_http_info(**kwargs)
+
+    def delete_user_notification_rule(
+        self,
+        user_id: str,
+        rule_id: str,
+    ) -> None:
+        """Delete an On-Call notification rule for a user.
+
+        Delete a notification rule for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :param rule_id: The rule ID
+        :type rule_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["rule_id"] = rule_id
+
+        return self._delete_user_notification_rule_endpoint.call_with_http_info(**kwargs)
 
     def get_on_call_escalation_policy(
         self,
@@ -527,7 +881,7 @@ class OnCallApi:
         include: Union[str, UnsetType] = unset,
         filter_at_ts: Union[str, UnsetType] = unset,
     ) -> Shift:
-        """Get the schedule on-call user.
+        """Get scheduled on-call user.
 
         Retrieves the user who is on-call for the specified schedule at a given time.
 
@@ -573,6 +927,98 @@ class OnCallApi:
         kwargs["team_id"] = team_id
 
         return self._get_team_on_call_users_endpoint.call_with_http_info(**kwargs)
+
+    def get_user_notification_channel(
+        self,
+        user_id: str,
+        channel_id: str,
+    ) -> NotificationChannel:
+        """Get an On-Call notification channel for a user.
+
+        Get a notification channel for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :param channel_id: The channel ID
+        :type channel_id: str
+        :rtype: NotificationChannel
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["channel_id"] = channel_id
+
+        return self._get_user_notification_channel_endpoint.call_with_http_info(**kwargs)
+
+    def get_user_notification_rule(
+        self,
+        user_id: str,
+        rule_id: str,
+        *,
+        include: Union[str, UnsetType] = unset,
+    ) -> OnCallNotificationRule:
+        """Get an On-Call notification rule for a user.
+
+        Get a notification rule for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :param rule_id: The rule ID
+        :type rule_id: str
+        :param include: Comma-separated list of included relationships to be returned. Allowed values: ``channel``.
+        :type include: str, optional
+        :rtype: OnCallNotificationRule
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["rule_id"] = rule_id
+
+        if include is not unset:
+            kwargs["include"] = include
+
+        return self._get_user_notification_rule_endpoint.call_with_http_info(**kwargs)
+
+    def list_user_notification_channels(
+        self,
+        user_id: str,
+    ) -> ListNotificationChannelsResponse:
+        """List On-Call notification channels for a user.
+
+        List the notification channels for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :rtype: ListNotificationChannelsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        return self._list_user_notification_channels_endpoint.call_with_http_info(**kwargs)
+
+    def list_user_notification_rules(
+        self,
+        user_id: str,
+        *,
+        include: Union[str, UnsetType] = unset,
+    ) -> ListOnCallNotificationRulesResponse:
+        """List On-Call notification rules for a user.
+
+        List the notification rules for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :param include: Comma-separated list of included relationships to be returned. Allowed values: ``channel``.
+        :type include: str, optional
+        :rtype: ListOnCallNotificationRulesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        if include is not unset:
+            kwargs["include"] = include
+
+        kwargs["user_id"] = user_id
+
+        return self._list_user_notification_rules_endpoint.call_with_http_info(**kwargs)
 
     def set_on_call_team_routing_rules(
         self,
@@ -657,3 +1103,36 @@ class OnCallApi:
         kwargs["body"] = body
 
         return self._update_on_call_schedule_endpoint.call_with_http_info(**kwargs)
+
+    def update_user_notification_rule(
+        self,
+        user_id: str,
+        rule_id: str,
+        body: UpdateOnCallNotificationRuleRequest,
+        *,
+        include: Union[str, UnsetType] = unset,
+    ) -> OnCallNotificationRule:
+        """Update an On-Call notification rule for a user.
+
+        Update a notification rule for a user. The authenticated user must be the target user or have the ``on_call_admin`` permission
+
+        :param user_id: The user ID
+        :type user_id: str
+        :param rule_id: The rule ID
+        :type rule_id: str
+        :type body: UpdateOnCallNotificationRuleRequest
+        :param include: Comma-separated list of included relationships to be returned. Allowed values: ``channel``.
+        :type include: str, optional
+        :rtype: OnCallNotificationRule
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["user_id"] = user_id
+
+        kwargs["rule_id"] = rule_id
+
+        if include is not unset:
+            kwargs["include"] = include
+
+        kwargs["body"] = body
+
+        return self._update_user_notification_rule_endpoint.call_with_http_info(**kwargs)

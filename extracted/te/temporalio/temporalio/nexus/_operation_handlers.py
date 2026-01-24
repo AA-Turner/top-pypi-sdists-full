@@ -1,22 +1,18 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from typing import (
     Any,
-    Awaitable,
-    Callable,
 )
 
 from nexusrpc import (
     HandlerError,
     HandlerErrorType,
     InputT,
-    OperationInfo,
     OutputT,
 )
 from nexusrpc.handler import (
     CancelOperationContext,
-    FetchOperationInfoContext,
-    FetchOperationResultContext,
     OperationHandler,
     StartOperationContext,
     StartOperationResultAsync,
@@ -81,22 +77,6 @@ class WorkflowRunOperationHandler(OperationHandler[InputT, OutputT]):
         """Cancel the operation, by cancelling the workflow."""
         await _cancel_workflow(token)
 
-    async def fetch_info(
-        self, ctx: FetchOperationInfoContext, token: str
-    ) -> OperationInfo:
-        """Fetch operation info (not supported for Temporal Nexus operations)."""
-        raise NotImplementedError(
-            "Temporal Nexus operation handlers do not support fetching operation info."
-        )
-
-    async def fetch_result(
-        self, ctx: FetchOperationResultContext, token: str
-    ) -> OutputT:
-        """Fetch operation result (not supported for Temporal Nexus operations)."""
-        raise NotImplementedError(
-            "Temporal Nexus operation handlers do not support fetching the operation result."
-        )
-
 
 async def _cancel_workflow(
     token: str,
@@ -110,7 +90,7 @@ async def _cancel_workflow(
 
     Args:
         token: The token of the workflow to cancel. kwargs: Additional keyword arguments
-        to pass to the workflow cancel method.
+         to pass to the workflow cancel method.
     """
     try:
         nexus_workflow_handle = WorkflowHandle[Any].from_token(token)

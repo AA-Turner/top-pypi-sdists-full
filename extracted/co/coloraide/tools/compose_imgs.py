@@ -48,22 +48,21 @@ def printt(t):
 
 
 @lru_cache(maxsize=1024 * 1024)
-def apply_compositing(background, blend, operator, pixels, fit, space):
+def apply_compositing(background, blend, operator, pixels, space):
     """Apply compositing."""
 
     result = Color.layer(
         [Color('srgb', [x / 255 for x in p[:-1]], p[-1] / 255) for p in pixels],
         blend=blend,
         operator=operator,
-        space=space,
-        out_space='srgb'
-    ).clip()
+        space=space
+    )
 
     # Overlay first layer on background color in isolation
     if background != 'transparent':
-        result = Color.layer([result, background]).clip()
+        result = Color.layer([result, background], space=space)
 
-    return tuple(round(x * 255) for x in result.fit(**GMAP)[:4])
+    return tuple(round(x * 255) for x in result.convert('srgb').fit(**GMAP)[:4])
 
 
 def process_image(imgs, bg, output, blend, porter_duff, space):

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict
+from databricks.sdk.service._internal import _enum, _from_dict, _repeated_dict
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -238,6 +238,7 @@ class AgentBricksAPI:
 
         :returns: :class:`CustomLlm`
         """
+
         body = {}
         if agent_artifact_path is not None:
             body["agent_artifact_path"] = agent_artifact_path
@@ -328,6 +329,7 @@ class AgentBricksAPI:
 
         :returns: :class:`CustomLlm`
         """
+
         body = {}
         if custom_llm is not None:
             body["custom_llm"] = custom_llm.as_dict()

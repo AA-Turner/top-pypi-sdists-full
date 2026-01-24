@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: antsibull-fileutils
-Version: 1.4.0
+Version: 1.5.2
 Summary: Tools for building the Ansible Distribution
 Project-URL: Source code, https://github.com/ansible-community/antsibull-fileutils
-Project-URL: Code of Conduct, https://docs.ansible.com/ansible/latest/community/code_of_conduct.html
+Project-URL: Code of Conduct, https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html
 Project-URL: Bug tracker, https://github.com/ansible-community/antsibull-fileutils/issues
 Author-email: Felix Fontein <felix@fontein.de>
 Maintainer-email: Felix Fontein <felix@fontein.de>, Maxwell G <maxwell@gtmx.me>
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Requires-Dist: aiofiles
@@ -80,7 +81,7 @@ You can find a list of changes in [the antsibull-fileutils changelog](./CHANGELO
 Unless otherwise noted in the code, it is licensed under the terms of the GNU
 General Public License v3 or, at your option, later.
 
-antsibull-fileutils is covered by the [Ansible Code of Conduct](https://docs.ansible.com/ansible/latest/community/code_of_conduct.html).
+antsibull-fileutils is covered by the [Ansible Code of Conduct](https://docs.ansible.com/projects/ansible/latest/community/code_of_conduct.html).
 
 ## Versioning and compatibility
 

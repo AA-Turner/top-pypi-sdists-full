@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canvas
-Version: 0.64.0
+Version: 0.91.0
 Summary: SDK to customize event-driven actions in your Canvas instance
 Author-email: Canvas Team <engineering@canvasmedical.com>
 License-Expression: MIT
@@ -8,6 +8,7 @@ Requires-Python: <3.13,>=3.11
 Requires-Dist: cookiecutter
 Requires-Dist: cron-converter<2,>=1.2.1
 Requires-Dist: cryptography>=45.0.5
+Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: deprecation<3,>=2.1.0
 Requires-Dist: django-stubs[compatible-mypy]<6,>=5.1.1
 Requires-Dist: django-timezone-utils<0.16,>=0.15.0
@@ -24,12 +25,14 @@ Requires-Dist: psycopg[binary,pool]<4,>=3.2.2
 Requires-Dist: pydantic<3,>=2.6.1
 Requires-Dist: pyjwt==2.10.1
 Requires-Dist: python-dotenv<2,>=1.0.1
+Requires-Dist: python-logstash-async>=4.0.2
 Requires-Dist: rapidfuzz<4,>=3.10.1
 Requires-Dist: redis<6,>=5.0.4
 Requires-Dist: requests
 Requires-Dist: restrictedpython>=8.0
 Requires-Dist: sentry-sdk>=2.33.2
 Requires-Dist: statsd<5,>=4.0.1
+Requires-Dist: stripe>=14.1.0
 Requires-Dist: typer
 Requires-Dist: typing-extensions<4.13,>=4.8
 Requires-Dist: websocket-client<2,>=1.7.0

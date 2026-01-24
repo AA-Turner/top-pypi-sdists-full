@@ -59,6 +59,9 @@ FAILEDOPERATION_IMAGEDECODEFAILED = 'FailedOperation.ImageDecodeFailed'
 # 照片未检测到名片。
 FAILEDOPERATION_IMAGENOBUSINESSCARD = 'FailedOperation.ImageNoBusinessCard'
 
+# 图片中未检测到手写体
+FAILEDOPERATION_IMAGENOHANDWRITE = 'FailedOperation.ImageNoHandWrite'
+
 # 图片中未检测到第二代身份证或临时身份证。
 FAILEDOPERATION_IMAGENOIDCARD = 'FailedOperation.ImageNoIdCard'
 
@@ -116,11 +119,17 @@ FAILEDOPERATION_NOSTORELABEL = 'FailedOperation.NoStoreLabel'
 # 上传的图片非行驶证
 FAILEDOPERATION_NOVEHICLELICENSEERROR = 'FailedOperation.NoVehicleLicenseError'
 
+# 非指定证件
+FAILEDOPERATION_NOTAPPOINTCARD = 'FailedOperation.NotAppointCard'
+
 # OCR识别失败。
 FAILEDOPERATION_OCRFAILED = 'FailedOperation.OcrFailed'
 
 # PDF解析失败。
 FAILEDOPERATION_PDFPARSEFAILED = 'FailedOperation.PDFParseFailed'
+
+# 结果解析失败
+FAILEDOPERATION_RESPONSEPARSEFAILED = 'FailedOperation.ResponseParseFailed'
 
 # 未知错误。
 FAILEDOPERATION_UNKNOWERROR = 'FailedOperation.UnKnowError'

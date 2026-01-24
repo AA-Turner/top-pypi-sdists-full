@@ -8,8 +8,6 @@ from django.db.models.constraints import BaseConstraint, UniqueConstraint
 from django.db.models.functions import Abs, Lower, Sqrt, Upper
 from django.db.transaction import atomic
 from django.test import SimpleTestCase, TestCase, skipIfDBFeature, skipUnlessDBFeature
-from django.test.utils import ignore_warnings
-from django.utils.deprecation import RemovedInDjango60Warning
 
 from .models import (
     ChildModel,
@@ -104,22 +102,12 @@ class BaseConstraintTests(SimpleTestCase):
             },
         )
 
-    def test_deprecation(self):
-        msg = "Passing positional arguments to BaseConstraint is deprecated."
-        with self.assertRaisesMessage(RemovedInDjango60Warning, msg):
-            BaseConstraint("name", "violation error message")
-
     def test_name_required(self):
         msg = (
             "BaseConstraint.__init__() missing 1 required keyword-only argument: 'name'"
         )
         with self.assertRaisesMessage(TypeError, msg):
             BaseConstraint()
-
-    @ignore_warnings(category=RemovedInDjango60Warning)
-    def test_positional_arguments(self):
-        c = BaseConstraint("name", "custom %(name)s message")
-        self.assertEqual(c.get_violation_error_message(), "custom name message")
 
 
 class CheckConstraintTests(TestCase):
@@ -373,6 +361,22 @@ class CheckConstraintTests(TestCase):
             constraint_with_pk.validate(ChildModel, ChildModel(id=1, age=1))
         constraint_with_pk.validate(ChildModel, ChildModel(pk=1, age=1), exclude={"pk"})
 
+    def test_validate_fk_attname(self):
+        constraint_with_fk = models.CheckConstraint(
+            condition=models.Q(uniqueconstraintproduct_ptr_id__isnull=False),
+            name="parent_ptr_present",
+        )
+        with self.assertRaisesMessage(
+            ValidationError, "Constraint “parent_ptr_present” is violated."
+        ):
+            constraint_with_fk.validate(
+                ChildUniqueConstraintProduct, ChildUniqueConstraintProduct()
+            )
+        constraint_with_fk.validate(
+            ChildUniqueConstraintProduct,
+            ChildUniqueConstraintProduct(uniqueconstraintproduct_ptr_id=1),
+        )
+
     @skipUnlessDBFeature("supports_json_field")
     def test_validate_jsonfield_exact(self):
         data = {"release": "5.0.2", "version": "stable"}
@@ -409,23 +413,6 @@ class CheckConstraintTests(TestCase):
         # Excluding referenced or generated fields should skip validation.
         constraint.validate(model, invalid_product, exclude={"price"})
         constraint.validate(model, invalid_product, exclude={"rebate"})
-
-    def test_check_deprecation(self):
-        msg = "CheckConstraint.check is deprecated in favor of `.condition`."
-        condition = models.Q(foo="bar")
-        with self.assertWarnsMessage(RemovedInDjango60Warning, msg) as ctx:
-            constraint = models.CheckConstraint(name="constraint", check=condition)
-        self.assertEqual(ctx.filename, __file__)
-        with self.assertWarnsMessage(RemovedInDjango60Warning, msg) as ctx:
-            self.assertIs(constraint.check, condition)
-        self.assertEqual(ctx.filename, __file__)
-        other_condition = models.Q(something="else")
-        with self.assertWarnsMessage(RemovedInDjango60Warning, msg) as ctx:
-            constraint.check = other_condition
-        self.assertEqual(ctx.filename, __file__)
-        with self.assertWarnsMessage(RemovedInDjango60Warning, msg) as ctx:
-            self.assertIs(constraint.check, other_condition)
-        self.assertEqual(ctx.filename, __file__)
 
     def test_database_default(self):
         models.CheckConstraint(

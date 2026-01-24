@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Optional, Union
 
 import numpy as np
 
@@ -16,7 +15,7 @@ class BufferedArray:
         the buffer will not be flushed to file when full.
     """
 
-    def __init__(self, size: int = 1000, fname: Optional[Union[str, Path]] = None):
+    def __init__(self, size: int = 1000, fname: str | Path | None = None):
         self._buffer = np.zeros(size)
         self._next = 0
         self.fname = fname

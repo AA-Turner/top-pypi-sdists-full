@@ -5,6 +5,7 @@ import typing
 from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
+from ...types.list_location_booking_profiles_response import ListLocationBookingProfilesResponse
 from ...types.location_booking_profile import LocationBookingProfile
 from .raw_client import AsyncRawLocationProfilesClient, RawLocationProfilesClient
 
@@ -30,7 +31,7 @@ class LocationProfilesClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[LocationBookingProfile]:
+    ) -> SyncPager[LocationBookingProfile, ListLocationBookingProfilesResponse]:
         """
         Lists location booking profiles of a seller.
 
@@ -47,7 +48,7 @@ class LocationProfilesClient:
 
         Returns
         -------
-        SyncPager[LocationBookingProfile]
+        SyncPager[LocationBookingProfile, ListLocationBookingProfilesResponse]
             Success
 
         Examples
@@ -57,7 +58,10 @@ class LocationProfilesClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.bookings.location_profiles.list()
+        response = client.bookings.location_profiles.list(
+            limit=1,
+            cursor="cursor",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -88,7 +92,7 @@ class AsyncLocationProfilesClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[LocationBookingProfile]:
+    ) -> AsyncPager[LocationBookingProfile, ListLocationBookingProfilesResponse]:
         """
         Lists location booking profiles of a seller.
 
@@ -105,7 +109,7 @@ class AsyncLocationProfilesClient:
 
         Returns
         -------
-        AsyncPager[LocationBookingProfile]
+        AsyncPager[LocationBookingProfile, ListLocationBookingProfilesResponse]
             Success
 
         Examples
@@ -120,7 +124,10 @@ class AsyncLocationProfilesClient:
 
 
         async def main() -> None:
-            response = await client.bookings.location_profiles.list()
+            response = await client.bookings.location_profiles.list(
+                limit=1,
+                cursor="cursor",
+            )
             async for item in response:
                 yield item
 

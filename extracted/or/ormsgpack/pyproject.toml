@@ -1,7 +1,7 @@
 [project]
 name = "ormsgpack"
-repository = "https://github.com/aviramha/ormsgpack"
-requires-python = ">=3.9"
+version = "1.12.2"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
@@ -11,25 +11,35 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: GraalPy",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python",
     "Programming Language :: Rust",
     "Typing :: Typed",
 ]
-dynamic = ["version"]
+authors = [
+    { name = "Aviram Hassan", email = "aviramyhassan@gmail.com" },
+    { name = "Emanuele Giaquinta", email = "emanuele.giaquinta@gmail.com" },
+]
+description = "Fast, correct Python msgpack library supporting dataclasses, datetimes, and numpy"
+readme = "README.md"
+license = "Apache-2.0 OR MIT"
+keywords = ["fast", "msgpack", "dataclass", "dataclasses", "datetime"]
+
+[project.urls]
+Homepage = "https://github.com/ormsgpack/ormsgpack"
 
 [dependency-groups]
 dev = [
     "msgpack",
-    "mypy",
-    "numpy; platform_machine != 'armv7l' and platform_python_implementation != 'GraalVM'",
-    "pendulum; platform_machine != 'armv7l'",
+    "mypy; platform_python_implementation == 'CPython'",
+    "pendulum",
     "pydantic",
     "pytest",
     "pytest-benchmark",
@@ -39,6 +49,15 @@ dev = [
     "types-python-dateutil",
     "types-pytz",
     "tzdata",
+]
+
+docs = [
+    "furo",
+    "sphinx",
+]
+
+numpy = [
+    "numpy; platform_python_implementation != 'GraalVM'",
 ]
 
 [build-system]
@@ -59,23 +78,33 @@ ignore_missing_imports = true
 [tool.ruff]
 line-length = 88
 src = ["python"]
-target-version = "py39"
+target-version = "py310"
+extend-exclude = ["docs/examples"]
 
 [tool.ruff.lint]
 select = [
-  "F",
-  "E",
-  "I",
-  "RUF",
+    "F",
+    "E",
+    "I",
+    "RUF",
 ]
 ignore = [
-  "E501",
-  "RUF022",
-  "RUF023",
+    "E501",
+    "RUF022",
+    "RUF023",
 ]
 
 [tool.ruff.lint.isort]
 known-first-party = ["ormsgpack"]
+
+[tool.uv]
+cache-keys = [
+    { file = "**/*.rs" },
+    { file = "Cargo.lock" },
+    { file = "Cargo.toml" },
+    { file = "pyproject.toml" },
+]
+default-groups = ["dev", "numpy"]
 
 [project.entry-points.pyinstaller40]
 hook-dirs = "ormsgpack._pyinstaller:get_hook_dirs"

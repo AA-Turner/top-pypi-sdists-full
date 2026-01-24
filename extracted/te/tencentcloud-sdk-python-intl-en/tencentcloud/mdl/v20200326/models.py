@@ -92,9 +92,9 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
         :type MultiAudioTrackEnabled: int
         :param _AudioTracks: Quantity limit 0-20 Valid when MultiAudioTrackEnabled is turned on.
         :type AudioTracks: list of AudioTrackInfo
-        :param _VideoEnhanceEnabled: 
+        :param _VideoEnhanceEnabled: Do you want to enable video enhancement? 1: Enable 0: Do not enable.
         :type VideoEnhanceEnabled: int
-        :param _VideoEnhanceSettings: 
+        :param _VideoEnhanceSettings: Video enhancement configuration array.
         :type VideoEnhanceSettings: list of VideoEnhanceSetting
         :param _GopSize: Key frame interval, 300-10000, optional.
         :type GopSize: int
@@ -102,6 +102,8 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
         :type GopSizeUnits: str
         :param _ColorSpaceSettings: Color space setting.
         :type ColorSpaceSettings: :class:`tencentcloud.mdl.v20200326.models.ColorSpaceSetting`
+        :param _ForensicWatermarkIds: Traceability watermark.
+        :type ForensicWatermarkIds: list of str
         """
         self._Name = None
         self._NeedVideo = None
@@ -138,6 +140,7 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
         self._GopSize = None
         self._GopSizeUnits = None
         self._ColorSpaceSettings = None
+        self._ForensicWatermarkIds = None
 
     @property
     def Name(self):
@@ -478,7 +481,7 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
 
     @property
     def VideoEnhanceEnabled(self):
-        r"""
+        r"""Do you want to enable video enhancement? 1: Enable 0: Do not enable.
         :rtype: int
         """
         return self._VideoEnhanceEnabled
@@ -489,7 +492,7 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
 
     @property
     def VideoEnhanceSettings(self):
-        r"""
+        r"""Video enhancement configuration array.
         :rtype: list of VideoEnhanceSetting
         """
         return self._VideoEnhanceSettings
@@ -530,6 +533,17 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
     @ColorSpaceSettings.setter
     def ColorSpaceSettings(self, ColorSpaceSettings):
         self._ColorSpaceSettings = ColorSpaceSettings
+
+    @property
+    def ForensicWatermarkIds(self):
+        r"""Traceability watermark.
+        :rtype: list of str
+        """
+        return self._ForensicWatermarkIds
+
+    @ForensicWatermarkIds.setter
+    def ForensicWatermarkIds(self, ForensicWatermarkIds):
+        self._ForensicWatermarkIds = ForensicWatermarkIds
 
 
     def _deserialize(self, params):
@@ -588,6 +602,424 @@ Valid values: `6000`, `7000`, `8000`, `10000`, `12000`, `14000`, `16000`, `20000
         if params.get("ColorSpaceSettings") is not None:
             self._ColorSpaceSettings = ColorSpaceSetting()
             self._ColorSpaceSettings._deserialize(params.get("ColorSpaceSettings"))
+        self._ForensicWatermarkIds = params.get("ForensicWatermarkIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AbWatermarkDetectionInfo(AbstractModel):
+    r"""AbWatermarkDetectionInfo
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task ID
+        :type TaskId: str
+        :param _Type: Types of testing
+        :type Type: str
+        :param _State: State
+        :type State: str
+        :param _Result: Result
+        :type Result: str
+        :param _ErrorCode: Error code
+        :type ErrorCode: int
+        :param _ErrorMsg: Error message
+        :type ErrorMsg: str
+        :param _InputInfo: Input information
+        :type InputInfo: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkInputInfo`
+        :param _TaskNotifyConfig: Task notification configuration
+        :type TaskNotifyConfig: :class:`tencentcloud.mdl.v20200326.models.TaskNotifyConfig`
+        :param _CreateTime: Create time
+        :type CreateTime: int
+        :param _UpdateTime: Update time
+        :type UpdateTime: int
+        :param _InputFileInfo: Input file information
+        :type InputFileInfo: :class:`tencentcloud.mdl.v20200326.models.InputFileInfo`
+        """
+        self._TaskId = None
+        self._Type = None
+        self._State = None
+        self._Result = None
+        self._ErrorCode = None
+        self._ErrorMsg = None
+        self._InputInfo = None
+        self._TaskNotifyConfig = None
+        self._CreateTime = None
+        self._UpdateTime = None
+        self._InputFileInfo = None
+
+    @property
+    def TaskId(self):
+        r"""Task ID
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def Type(self):
+        r"""Types of testing
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def State(self):
+        r"""State
+        :rtype: str
+        """
+        return self._State
+
+    @State.setter
+    def State(self, State):
+        self._State = State
+
+    @property
+    def Result(self):
+        r"""Result
+        :rtype: str
+        """
+        return self._Result
+
+    @Result.setter
+    def Result(self, Result):
+        self._Result = Result
+
+    @property
+    def ErrorCode(self):
+        r"""Error code
+        :rtype: int
+        """
+        return self._ErrorCode
+
+    @ErrorCode.setter
+    def ErrorCode(self, ErrorCode):
+        self._ErrorCode = ErrorCode
+
+    @property
+    def ErrorMsg(self):
+        r"""Error message
+        :rtype: str
+        """
+        return self._ErrorMsg
+
+    @ErrorMsg.setter
+    def ErrorMsg(self, ErrorMsg):
+        self._ErrorMsg = ErrorMsg
+
+    @property
+    def InputInfo(self):
+        r"""Input information
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkInputInfo`
+        """
+        return self._InputInfo
+
+    @InputInfo.setter
+    def InputInfo(self, InputInfo):
+        self._InputInfo = InputInfo
+
+    @property
+    def TaskNotifyConfig(self):
+        r"""Task notification configuration
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.TaskNotifyConfig`
+        """
+        return self._TaskNotifyConfig
+
+    @TaskNotifyConfig.setter
+    def TaskNotifyConfig(self, TaskNotifyConfig):
+        self._TaskNotifyConfig = TaskNotifyConfig
+
+    @property
+    def CreateTime(self):
+        r"""Create time
+        :rtype: int
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def UpdateTime(self):
+        r"""Update time
+        :rtype: int
+        """
+        return self._UpdateTime
+
+    @UpdateTime.setter
+    def UpdateTime(self, UpdateTime):
+        self._UpdateTime = UpdateTime
+
+    @property
+    def InputFileInfo(self):
+        r"""Input file information
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.InputFileInfo`
+        """
+        return self._InputFileInfo
+
+    @InputFileInfo.setter
+    def InputFileInfo(self, InputFileInfo):
+        self._InputFileInfo = InputFileInfo
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._Type = params.get("Type")
+        self._State = params.get("State")
+        self._Result = params.get("Result")
+        self._ErrorCode = params.get("ErrorCode")
+        self._ErrorMsg = params.get("ErrorMsg")
+        if params.get("InputInfo") is not None:
+            self._InputInfo = AbWatermarkInputInfo()
+            self._InputInfo._deserialize(params.get("InputInfo"))
+        if params.get("TaskNotifyConfig") is not None:
+            self._TaskNotifyConfig = TaskNotifyConfig()
+            self._TaskNotifyConfig._deserialize(params.get("TaskNotifyConfig"))
+        self._CreateTime = params.get("CreateTime")
+        self._UpdateTime = params.get("UpdateTime")
+        if params.get("InputFileInfo") is not None:
+            self._InputFileInfo = InputFileInfo()
+            self._InputFileInfo._deserialize(params.get("InputFileInfo"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AbWatermarkInputInfo(AbstractModel):
+    r"""InputInfo
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Input type, optional URL/COS, currently only supports URL
+
+        :type Type: str
+        :param _UrlInputInfo: URL input information
+        :type UrlInputInfo: :class:`tencentcloud.mdl.v20200326.models.UrlInputInfo`
+        """
+        self._Type = None
+        self._UrlInputInfo = None
+
+    @property
+    def Type(self):
+        r"""Input type, optional URL/COS, currently only supports URL
+
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def UrlInputInfo(self):
+        r"""URL input information
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.UrlInputInfo`
+        """
+        return self._UrlInputInfo
+
+    @UrlInputInfo.setter
+    def UrlInputInfo(self, UrlInputInfo):
+        self._UrlInputInfo = UrlInputInfo
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        if params.get("UrlInputInfo") is not None:
+            self._UrlInputInfo = UrlInputInfo()
+            self._UrlInputInfo._deserialize(params.get("UrlInputInfo"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AbWatermarkSettingsReq(AbstractModel):
+    r"""AB watermark configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Optional values: A/B.
+        :type Type: str
+        """
+        self._Type = None
+
+    @property
+    def Type(self):
+        r"""Optional values: A/B.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AbWatermarkSettingsResp(AbstractModel):
+    r"""AbWatermarkSettingsResp
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: AB watermark type.
+        :type Type: str
+        :param _Content: Watermark payload.
+        :type Content: str
+        """
+        self._Type = None
+        self._Content = None
+
+    @property
+    def Type(self):
+        r"""AB watermark type.
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Content(self):
+        r"""Watermark payload.
+        :rtype: str
+        """
+        return self._Content
+
+    @Content.setter
+    def Content(self, Content):
+        self._Content = Content
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._Content = params.get("Content")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AdBreakSetting(AbstractModel):
+    r"""AdBreakSetting
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Format: Advertising type, currently supports L-SQUEEZE
+        :type Format: str
+        :param _Duration: Duration, in milliseconds, requires 1000<duration<=600000. The current accuracy is seconds, which is a multiple of 1000
+        :type Duration: int
+        :param _LSqueezeSetting: L-type compression recovery configuration
+        :type LSqueezeSetting: :class:`tencentcloud.mdl.v20200326.models.LSqueezeSetting`
+        :param _AdSource: AdSource type, supports UPLOAD_CREATIVES
+        :type AdSource: str
+        """
+        self._Format = None
+        self._Duration = None
+        self._LSqueezeSetting = None
+        self._AdSource = None
+
+    @property
+    def Format(self):
+        r"""Advertising type, currently supports L-SQUEEZE
+        :rtype: str
+        """
+        return self._Format
+
+    @Format.setter
+    def Format(self, Format):
+        self._Format = Format
+
+    @property
+    def Duration(self):
+        r"""Duration, in milliseconds, requires 1000<duration<=600000. The current accuracy is seconds, which is a multiple of 1000
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def LSqueezeSetting(self):
+        r"""L-type compression recovery configuration
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.LSqueezeSetting`
+        """
+        return self._LSqueezeSetting
+
+    @LSqueezeSetting.setter
+    def LSqueezeSetting(self, LSqueezeSetting):
+        self._LSqueezeSetting = LSqueezeSetting
+
+    @property
+    def AdSource(self):
+        r"""AdSource type, supports UPLOAD_CREATIVES
+        :rtype: str
+        """
+        return self._AdSource
+
+    @AdSource.setter
+    def AdSource(self, AdSource):
+        self._AdSource = AdSource
+
+
+    def _deserialize(self, params):
+        self._Format = params.get("Format")
+        self._Duration = params.get("Duration")
+        if params.get("LSqueezeSetting") is not None:
+            self._LSqueezeSetting = LSqueezeSetting()
+            self._LSqueezeSetting._deserialize(params.get("LSqueezeSetting"))
+        self._AdSource = params.get("AdSource")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1562,9 +1994,15 @@ class ChannelAlertInfos(AbstractModel):
         :type Pipeline0: list of ChannelPipelineAlerts
         :param _Pipeline1: Alarm details of pipeline 1 under this channel.
         :type Pipeline1: list of ChannelPipelineAlerts
+        :param _PipelineAActiveAlerts: Pipeline 0 total active alarm count
+        :type PipelineAActiveAlerts: int
+        :param _PipelineBActiveAlerts: Pipeline 1 total active alarm count
+        :type PipelineBActiveAlerts: int
         """
         self._Pipeline0 = None
         self._Pipeline1 = None
+        self._PipelineAActiveAlerts = None
+        self._PipelineBActiveAlerts = None
 
     @property
     def Pipeline0(self):
@@ -1588,6 +2026,28 @@ class ChannelAlertInfos(AbstractModel):
     def Pipeline1(self, Pipeline1):
         self._Pipeline1 = Pipeline1
 
+    @property
+    def PipelineAActiveAlerts(self):
+        r"""Pipeline 0 total active alarm count
+        :rtype: int
+        """
+        return self._PipelineAActiveAlerts
+
+    @PipelineAActiveAlerts.setter
+    def PipelineAActiveAlerts(self, PipelineAActiveAlerts):
+        self._PipelineAActiveAlerts = PipelineAActiveAlerts
+
+    @property
+    def PipelineBActiveAlerts(self):
+        r"""Pipeline 1 total active alarm count
+        :rtype: int
+        """
+        return self._PipelineBActiveAlerts
+
+    @PipelineBActiveAlerts.setter
+    def PipelineBActiveAlerts(self, PipelineBActiveAlerts):
+        self._PipelineBActiveAlerts = PipelineBActiveAlerts
+
 
     def _deserialize(self, params):
         if params.get("Pipeline0") is not None:
@@ -1602,6 +2062,8 @@ class ChannelAlertInfos(AbstractModel):
                 obj = ChannelPipelineAlerts()
                 obj._deserialize(item)
                 self._Pipeline1.append(obj)
+        self._PipelineAActiveAlerts = params.get("PipelineAActiveAlerts")
+        self._PipelineBActiveAlerts = params.get("PipelineBActiveAlerts")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1961,15 +2423,15 @@ class CreateImageSettings(AbstractModel):
         :type ImageContent: str
         :param _Location: Origin. Valid values: TOP_LEFT, BOTTOM_LEFT, TOP_RIGHT, BOTTOM_RIGHT.
         :type Location: str
-        :param _XPos: The watermark’s horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
+        :param _XPos: The watermark's horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
         :type XPos: int
-        :param _YPos: The watermark’s vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
+        :param _YPos: The watermark's vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
         :type YPos: int
-        :param _Width: The watermark image’s width as a percentage of the video width. Value range: 0-100. Default: 10.
+        :param _Width: The watermark image's width as a percentage of the video width. Value range: 0-100. Default: 10.
 `0` means to scale the width proportionally to the height.
 You cannot set both `Width` and `Height` to `0`.
         :type Width: int
-        :param _Height: The watermark image’s height as a percentage of the video height. Value range: 0-100. Default: 10.
+        :param _Height: The watermark image's height as a percentage of the video height. Value range: 0-100. Default: 10.
 `0` means to scale the height proportionally to the width.
 You cannot set both `Width` and `Height` to `0`.
         :type Height: int
@@ -2017,7 +2479,7 @@ You cannot set both `Width` and `Height` to `0`.
 
     @property
     def XPos(self):
-        r"""The watermark’s horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
+        r"""The watermark's horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
         :rtype: int
         """
         return self._XPos
@@ -2028,7 +2490,7 @@ You cannot set both `Width` and `Height` to `0`.
 
     @property
     def YPos(self):
-        r"""The watermark’s vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
+        r"""The watermark's vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
         :rtype: int
         """
         return self._YPos
@@ -2039,7 +2501,7 @@ You cannot set both `Width` and `Height` to `0`.
 
     @property
     def Width(self):
-        r"""The watermark image’s width as a percentage of the video width. Value range: 0-100. Default: 10.
+        r"""The watermark image's width as a percentage of the video width. Value range: 0-100. Default: 10.
 `0` means to scale the width proportionally to the height.
 You cannot set both `Width` and `Height` to `0`.
         :rtype: int
@@ -2052,7 +2514,7 @@ You cannot set both `Width` and `Height` to `0`.
 
     @property
     def Height(self):
-        r"""The watermark image’s height as a percentage of the video height. Value range: 0-100. Default: 10.
+        r"""The watermark image's height as a percentage of the video height. Value range: 0-100. Default: 10.
 `0` means to scale the height proportionally to the width.
 You cannot set both `Width` and `Height` to `0`.
         :rtype: int
@@ -2101,7 +2563,7 @@ class CreateStreamLiveChannelRequest(AbstractModel):
         :type VideoTemplates: list of VideoTemplateInfo
         :param _AVTemplates: Audio/Video transcoding templates. Quantity: [1, 10]
         :type AVTemplates: list of AVTemplate
-        :param _CaptionTemplates: Subtitle template configuration, only AVTemplates are valid.
+        :param _CaptionTemplates: Subtitle template configuration.
         :type CaptionTemplates: list of SubtitleConf
         :param _PlanSettings: Event settings
         :type PlanSettings: :class:`tencentcloud.mdl.v20200326.models.PlanSettings`
@@ -2204,7 +2666,7 @@ class CreateStreamLiveChannelRequest(AbstractModel):
 
     @property
     def CaptionTemplates(self):
-        r"""Subtitle template configuration, only AVTemplates are valid.
+        r"""Subtitle template configuration.
         :rtype: list of SubtitleConf
         """
         return self._CaptionTemplates
@@ -2769,11 +3231,14 @@ class CreateStreamLiveWatermarkRequest(AbstractModel):
         :type ImageSettings: :class:`tencentcloud.mdl.v20200326.models.CreateImageSettings`
         :param _TextSettings: Watermark text settings. This parameter is valid if `Type` is `TEXT`.
         :type TextSettings: :class:`tencentcloud.mdl.v20200326.models.CreateTextSettings`
+        :param _AbWatermarkSettings: AB watermark configuration
+        :type AbWatermarkSettings: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkSettingsReq`
         """
         self._Name = None
         self._Type = None
         self._ImageSettings = None
         self._TextSettings = None
+        self._AbWatermarkSettings = None
 
     @property
     def Name(self):
@@ -2819,6 +3284,17 @@ class CreateStreamLiveWatermarkRequest(AbstractModel):
     def TextSettings(self, TextSettings):
         self._TextSettings = TextSettings
 
+    @property
+    def AbWatermarkSettings(self):
+        r"""AB watermark configuration
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkSettingsReq`
+        """
+        return self._AbWatermarkSettings
+
+    @AbWatermarkSettings.setter
+    def AbWatermarkSettings(self, AbWatermarkSettings):
+        self._AbWatermarkSettings = AbWatermarkSettings
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -2829,6 +3305,9 @@ class CreateStreamLiveWatermarkRequest(AbstractModel):
         if params.get("TextSettings") is not None:
             self._TextSettings = CreateTextSettings()
             self._TextSettings._deserialize(params.get("TextSettings"))
+        if params.get("AbWatermarkSettings") is not None:
+            self._AbWatermarkSettings = AbWatermarkSettingsReq()
+            self._AbWatermarkSettings._deserialize(params.get("AbWatermarkSettings"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2893,9 +3372,9 @@ class CreateTextSettings(AbstractModel):
         :type Text: str
         :param _Location: Origin. Valid values: TOP_LEFT, BOTTOM_LEFT, TOP_RIGHT, BOTTOM_RIGHT.
         :type Location: str
-        :param _XPos: The watermark’s horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
+        :param _XPos: The watermark's horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
         :type XPos: int
-        :param _YPos: The watermark’s vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
+        :param _YPos: The watermark's vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
         :type YPos: int
         :param _FontSize: Font size. Value range: 25-50.
         :type FontSize: int
@@ -2933,7 +3412,7 @@ class CreateTextSettings(AbstractModel):
 
     @property
     def XPos(self):
-        r"""The watermark’s horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
+        r"""The watermark's horizontal distance from the origin as a percentage of the video width. Value range: 0-100. Default: 10.
         :rtype: int
         """
         return self._XPos
@@ -2944,7 +3423,7 @@ class CreateTextSettings(AbstractModel):
 
     @property
     def YPos(self):
-        r"""The watermark’s vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
+        r"""The watermark's vertical distance from the origin as a percentage of the video height. Value range: 0-100. Default: 10.
         :rtype: int
         """
         return self._YPos
@@ -2991,6 +3470,136 @@ class CreateTextSettings(AbstractModel):
         if len(memeber_set) > 0:
             warnings.warn("%s fileds are useless." % ",".join(memeber_set))
         
+
+
+class CreateWatermarkDetectionRequest(AbstractModel):
+    r"""CreateWatermarkDetection request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Task type, currently supports ExtractVideoABWatermarkId
+        :type Type: str
+        :param _InputInfo: Input information
+        :type InputInfo: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkInputInfo`
+        :param _InputFileInfo: Input file information
+        :type InputFileInfo: :class:`tencentcloud.mdl.v20200326.models.InputFileInfo`
+        :param _TaskNotifyConfig: Input notification configuration
+        :type TaskNotifyConfig: :class:`tencentcloud.mdl.v20200326.models.TaskNotifyConfig`
+        """
+        self._Type = None
+        self._InputInfo = None
+        self._InputFileInfo = None
+        self._TaskNotifyConfig = None
+
+    @property
+    def Type(self):
+        r"""Task type, currently supports ExtractVideoABWatermarkId
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def InputInfo(self):
+        r"""Input information
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkInputInfo`
+        """
+        return self._InputInfo
+
+    @InputInfo.setter
+    def InputInfo(self, InputInfo):
+        self._InputInfo = InputInfo
+
+    @property
+    def InputFileInfo(self):
+        r"""Input file information
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.InputFileInfo`
+        """
+        return self._InputFileInfo
+
+    @InputFileInfo.setter
+    def InputFileInfo(self, InputFileInfo):
+        self._InputFileInfo = InputFileInfo
+
+    @property
+    def TaskNotifyConfig(self):
+        r"""Input notification configuration
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.TaskNotifyConfig`
+        """
+        return self._TaskNotifyConfig
+
+    @TaskNotifyConfig.setter
+    def TaskNotifyConfig(self, TaskNotifyConfig):
+        self._TaskNotifyConfig = TaskNotifyConfig
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        if params.get("InputInfo") is not None:
+            self._InputInfo = AbWatermarkInputInfo()
+            self._InputInfo._deserialize(params.get("InputInfo"))
+        if params.get("InputFileInfo") is not None:
+            self._InputFileInfo = InputFileInfo()
+            self._InputFileInfo._deserialize(params.get("InputFileInfo"))
+        if params.get("TaskNotifyConfig") is not None:
+            self._TaskNotifyConfig = TaskNotifyConfig()
+            self._TaskNotifyConfig._deserialize(params.get("TaskNotifyConfig"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateWatermarkDetectionResponse(AbstractModel):
+    r"""CreateWatermarkDetection response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task ID
+        :type TaskId: str
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskId = None
+        self._RequestId = None
+
+    @property
+    def TaskId(self):
+        r"""Task ID
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        self._RequestId = params.get("RequestId")
 
 
 class DashRemuxSettingsInfo(AbstractModel):
@@ -3629,7 +4238,7 @@ class DescribeStreamLiveChannelAlertsResponse(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Infos: Alarm information of the channel’s two pipelines
+        :param _Infos: Alarm information of the channel's two pipelines
         :type Infos: :class:`tencentcloud.mdl.v20200326.models.ChannelAlertInfos`
         :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
         :type RequestId: str
@@ -3639,7 +4248,7 @@ class DescribeStreamLiveChannelAlertsResponse(AbstractModel):
 
     @property
     def Infos(self):
-        r"""Alarm information of the channel’s two pipelines
+        r"""Alarm information of the channel's two pipelines
         :rtype: :class:`tencentcloud.mdl.v20200326.models.ChannelAlertInfos`
         """
         return self._Infos
@@ -4952,9 +5561,9 @@ class DescribeTextSettings(AbstractModel):
         :type Text: str
         :param _Location: Origin
         :type Location: str
-        :param _XPos: The watermark image’s horizontal distance from the origin as a percentage of the video width
+        :param _XPos: The watermark image's horizontal distance from the origin as a percentage of the video width
         :type XPos: int
-        :param _YPos: The watermark image’s vertical distance from the origin as a percentage of the video height
+        :param _YPos: The watermark image's vertical distance from the origin as a percentage of the video height
         :type YPos: int
         :param _FontSize: Font size
         :type FontSize: int
@@ -4992,7 +5601,7 @@ class DescribeTextSettings(AbstractModel):
 
     @property
     def XPos(self):
-        r"""The watermark image’s horizontal distance from the origin as a percentage of the video width
+        r"""The watermark image's horizontal distance from the origin as a percentage of the video width
         :rtype: int
         """
         return self._XPos
@@ -5003,7 +5612,7 @@ class DescribeTextSettings(AbstractModel):
 
     @property
     def YPos(self):
-        r"""The watermark image’s vertical distance from the origin as a percentage of the video height
+        r"""The watermark image's vertical distance from the origin as a percentage of the video height
         :rtype: int
         """
         return self._YPos
@@ -5218,6 +5827,231 @@ Examples:
         
 
 
+class DescribeWatermarkDetectionRequest(AbstractModel):
+    r"""DescribeWatermarkDetection request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskId: Task Id
+        :type TaskId: str
+        """
+        self._TaskId = None
+
+    @property
+    def TaskId(self):
+        r"""Task Id
+        :rtype: str
+        """
+        return self._TaskId
+
+    @TaskId.setter
+    def TaskId(self, TaskId):
+        self._TaskId = TaskId
+
+
+    def _deserialize(self, params):
+        self._TaskId = params.get("TaskId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeWatermarkDetectionResponse(AbstractModel):
+    r"""DescribeWatermarkDetection response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskInfo: Detecting task related information
+        :type TaskInfo: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkDetectionInfo`
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskInfo = None
+        self._RequestId = None
+
+    @property
+    def TaskInfo(self):
+        r"""Detecting task related information
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkDetectionInfo`
+        """
+        return self._TaskInfo
+
+    @TaskInfo.setter
+    def TaskInfo(self, TaskInfo):
+        self._TaskInfo = TaskInfo
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("TaskInfo") is not None:
+            self._TaskInfo = AbWatermarkDetectionInfo()
+            self._TaskInfo._deserialize(params.get("TaskInfo"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeWatermarkDetectionsRequest(AbstractModel):
+    r"""DescribeWatermarkDetections request structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _StartTime: Start time, 2022-12-04T16:50:00+08:00
+        :type StartTime: str
+        :param _EndTime: End time, 2022-12-04T17:50:00+08:00, maximum supported query range of 7 days
+        :type EndTime: str
+        :param _PageNum: Number of pages queried
+        :type PageNum: int
+        :param _PageSize: Single page quantity, 1-100
+        :type PageSize: int
+        """
+        self._StartTime = None
+        self._EndTime = None
+        self._PageNum = None
+        self._PageSize = None
+
+    @property
+    def StartTime(self):
+        r"""Start time, 2022-12-04T16:50:00+08:00
+        :rtype: str
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""End time, 2022-12-04T17:50:00+08:00, maximum supported query range of 7 days
+        :rtype: str
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def PageNum(self):
+        r"""Number of pages queried
+        :rtype: int
+        """
+        return self._PageNum
+
+    @PageNum.setter
+    def PageNum(self, PageNum):
+        self._PageNum = PageNum
+
+    @property
+    def PageSize(self):
+        r"""Single page quantity, 1-100
+        :rtype: int
+        """
+        return self._PageSize
+
+    @PageSize.setter
+    def PageSize(self, PageSize):
+        self._PageSize = PageSize
+
+
+    def _deserialize(self, params):
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._PageNum = params.get("PageNum")
+        self._PageSize = params.get("PageSize")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeWatermarkDetectionsResponse(AbstractModel):
+    r"""DescribeWatermarkDetections response structure.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TaskInfos: Watermark detection information
+        :type TaskInfos: list of AbWatermarkDetectionInfo
+        :param _TotalCount: number of tasks
+        :type TotalCount: int
+        :param _RequestId: The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :type RequestId: str
+        """
+        self._TaskInfos = None
+        self._TotalCount = None
+        self._RequestId = None
+
+    @property
+    def TaskInfos(self):
+        r"""Watermark detection information
+        :rtype: list of AbWatermarkDetectionInfo
+        """
+        return self._TaskInfos
+
+    @TaskInfos.setter
+    def TaskInfos(self, TaskInfos):
+        self._TaskInfos = TaskInfos
+
+    @property
+    def TotalCount(self):
+        r"""number of tasks
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
+
+    @property
+    def RequestId(self):
+        r"""The unique request ID, generated by the server, will be returned for every request (if the request fails to reach the server for other reasons, the request will not obtain a RequestId). RequestId is required for locating a problem.
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("TaskInfos") is not None:
+            self._TaskInfos = []
+            for item in params.get("TaskInfos"):
+                obj = AbWatermarkDetectionInfo()
+                obj._deserialize(item)
+                self._TaskInfos.append(obj)
+        self._TotalCount = params.get("TotalCount")
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeWatermarkInfo(AbstractModel):
     r"""Watermark information
 
@@ -5243,6 +6077,8 @@ Note: This field may return `null`, indicating that no valid value was found.
         :param _AttachedChannels: List of channel IDs the watermark is bound to
 Note: This field may return `null`, indicating that no valid value was found.
         :type AttachedChannels: list of str
+        :param _AbWatermarkSettings: AB watermark configuration.
+        :type AbWatermarkSettings: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkSettingsResp`
         """
         self._Id = None
         self._Name = None
@@ -5251,6 +6087,7 @@ Note: This field may return `null`, indicating that no valid value was found.
         self._TextSettings = None
         self._UpdateTime = None
         self._AttachedChannels = None
+        self._AbWatermarkSettings = None
 
     @property
     def Id(self):
@@ -5333,6 +6170,17 @@ Note: This field may return `null`, indicating that no valid value was found.
     def AttachedChannels(self, AttachedChannels):
         self._AttachedChannels = AttachedChannels
 
+    @property
+    def AbWatermarkSettings(self):
+        r"""AB watermark configuration.
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkSettingsResp`
+        """
+        return self._AbWatermarkSettings
+
+    @AbWatermarkSettings.setter
+    def AbWatermarkSettings(self, AbWatermarkSettings):
+        self._AbWatermarkSettings = AbWatermarkSettings
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -5346,6 +6194,9 @@ Note: This field may return `null`, indicating that no valid value was found.
             self._TextSettings._deserialize(params.get("TextSettings"))
         self._UpdateTime = params.get("UpdateTime")
         self._AttachedChannels = params.get("AttachedChannels")
+        if params.get("AbWatermarkSettings") is not None:
+            self._AbWatermarkSettings = AbWatermarkSettingsResp()
+            self._AbWatermarkSettings._deserialize(params.get("AbWatermarkSettings"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5873,6 +6724,8 @@ class EventSettingsReq(AbstractModel):
         :type EventType: str
         :param _InputAttachment: ID of the input to attach, which is required if `EventType` is `INPUT_SWITCH`
         :type InputAttachment: str
+        :param _PipelineId: When the type is FIXED_PTS, it is mandatory and defaults to 0
+        :type PipelineId: int
         :param _OutputGroupName: Name of the output group to attach. This parameter is required if `EventType` is `TIMED_RECORD`.
         :type OutputGroupName: str
         :param _ManifestName: Name of the manifest file for timed recording, which must end with `.m3u8` for HLS and `.mpd` for DASH. This parameter is required if `EventType` is `TIMED_RECORD`.
@@ -5891,9 +6744,14 @@ class EventSettingsReq(AbstractModel):
         :type StaticImageActivateSetting: :class:`tencentcloud.mdl.v20200326.models.StaticImageActivateSetting`
         :param _StaticImageDeactivateSetting: Static image deactivate setting.
         :type StaticImageDeactivateSetting: :class:`tencentcloud.mdl.v20200326.models.StaticImageDeactivateSetting`
+        :param _MotionGraphicsActivateSetting: Dynamic graphic overlay activate configuration
+        :type MotionGraphicsActivateSetting: :class:`tencentcloud.mdl.v20200326.models.MotionGraphicsActivateSetting`
+        :param _AdBreakSetting: Ad Settings
+        :type AdBreakSetting: :class:`tencentcloud.mdl.v20200326.models.AdBreakSetting`
         """
         self._EventType = None
         self._InputAttachment = None
+        self._PipelineId = None
         self._OutputGroupName = None
         self._ManifestName = None
         self._Destinations = None
@@ -5903,6 +6761,8 @@ class EventSettingsReq(AbstractModel):
         self._TimedMetadataSetting = None
         self._StaticImageActivateSetting = None
         self._StaticImageDeactivateSetting = None
+        self._MotionGraphicsActivateSetting = None
+        self._AdBreakSetting = None
 
     @property
     def EventType(self):
@@ -5925,6 +6785,17 @@ class EventSettingsReq(AbstractModel):
     @InputAttachment.setter
     def InputAttachment(self, InputAttachment):
         self._InputAttachment = InputAttachment
+
+    @property
+    def PipelineId(self):
+        r"""When the type is FIXED_PTS, it is mandatory and defaults to 0
+        :rtype: int
+        """
+        return self._PipelineId
+
+    @PipelineId.setter
+    def PipelineId(self, PipelineId):
+        self._PipelineId = PipelineId
 
     @property
     def OutputGroupName(self):
@@ -6025,10 +6896,33 @@ class EventSettingsReq(AbstractModel):
     def StaticImageDeactivateSetting(self, StaticImageDeactivateSetting):
         self._StaticImageDeactivateSetting = StaticImageDeactivateSetting
 
+    @property
+    def MotionGraphicsActivateSetting(self):
+        r"""Dynamic graphic overlay activate configuration
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.MotionGraphicsActivateSetting`
+        """
+        return self._MotionGraphicsActivateSetting
+
+    @MotionGraphicsActivateSetting.setter
+    def MotionGraphicsActivateSetting(self, MotionGraphicsActivateSetting):
+        self._MotionGraphicsActivateSetting = MotionGraphicsActivateSetting
+
+    @property
+    def AdBreakSetting(self):
+        r"""Ad Settings
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AdBreakSetting`
+        """
+        return self._AdBreakSetting
+
+    @AdBreakSetting.setter
+    def AdBreakSetting(self, AdBreakSetting):
+        self._AdBreakSetting = AdBreakSetting
+
 
     def _deserialize(self, params):
         self._EventType = params.get("EventType")
         self._InputAttachment = params.get("InputAttachment")
+        self._PipelineId = params.get("PipelineId")
         self._OutputGroupName = params.get("OutputGroupName")
         self._ManifestName = params.get("ManifestName")
         if params.get("Destinations") is not None:
@@ -6054,6 +6948,12 @@ class EventSettingsReq(AbstractModel):
         if params.get("StaticImageDeactivateSetting") is not None:
             self._StaticImageDeactivateSetting = StaticImageDeactivateSetting()
             self._StaticImageDeactivateSetting._deserialize(params.get("StaticImageDeactivateSetting"))
+        if params.get("MotionGraphicsActivateSetting") is not None:
+            self._MotionGraphicsActivateSetting = MotionGraphicsActivateSetting()
+            self._MotionGraphicsActivateSetting._deserialize(params.get("MotionGraphicsActivateSetting"))
+        if params.get("AdBreakSetting") is not None:
+            self._AdBreakSetting = AdBreakSetting()
+            self._AdBreakSetting._deserialize(params.get("AdBreakSetting"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6075,6 +6975,8 @@ class EventSettingsResp(AbstractModel):
         :type EventType: str
         :param _InputAttachment: ID of the input attached, which is not empty if `EventType` is `INPUT_SWITCH`
         :type InputAttachment: str
+        :param _PipelineId: When the type is FIXED_PTS, it is mandatory and defaults to 0
+        :type PipelineId: int
         :param _OutputGroupName: Name of the output group attached. This parameter is not empty if `EventType` is `TIMED_RECORD`.
         :type OutputGroupName: str
         :param _ManifestName: Name of the manifest file for timed recording, which ends with `.m3u8` for HLS and `.mpd` for DASH. This parameter is not empty if `EventType` is `TIMED_RECORD`.
@@ -6093,9 +6995,14 @@ class EventSettingsResp(AbstractModel):
         :type StaticImageActivateSetting: :class:`tencentcloud.mdl.v20200326.models.StaticImageActivateSetting`
         :param _StaticImageDeactivateSetting: Static image deactivate setting.
         :type StaticImageDeactivateSetting: :class:`tencentcloud.mdl.v20200326.models.StaticImageDeactivateSetting`
+        :param _MotionGraphicsActivateSetting: Dynamic graphic overlay activate configuration.
+        :type MotionGraphicsActivateSetting: :class:`tencentcloud.mdl.v20200326.models.MotionGraphicsActivateSetting`
+        :param _AdBreakSetting: Ad Settings
+        :type AdBreakSetting: :class:`tencentcloud.mdl.v20200326.models.AdBreakSetting`
         """
         self._EventType = None
         self._InputAttachment = None
+        self._PipelineId = None
         self._OutputGroupName = None
         self._ManifestName = None
         self._Destinations = None
@@ -6105,6 +7012,8 @@ class EventSettingsResp(AbstractModel):
         self._TimedMetadataSetting = None
         self._StaticImageActivateSetting = None
         self._StaticImageDeactivateSetting = None
+        self._MotionGraphicsActivateSetting = None
+        self._AdBreakSetting = None
 
     @property
     def EventType(self):
@@ -6127,6 +7036,17 @@ class EventSettingsResp(AbstractModel):
     @InputAttachment.setter
     def InputAttachment(self, InputAttachment):
         self._InputAttachment = InputAttachment
+
+    @property
+    def PipelineId(self):
+        r"""When the type is FIXED_PTS, it is mandatory and defaults to 0
+        :rtype: int
+        """
+        return self._PipelineId
+
+    @PipelineId.setter
+    def PipelineId(self, PipelineId):
+        self._PipelineId = PipelineId
 
     @property
     def OutputGroupName(self):
@@ -6227,10 +7147,33 @@ class EventSettingsResp(AbstractModel):
     def StaticImageDeactivateSetting(self, StaticImageDeactivateSetting):
         self._StaticImageDeactivateSetting = StaticImageDeactivateSetting
 
+    @property
+    def MotionGraphicsActivateSetting(self):
+        r"""Dynamic graphic overlay activate configuration.
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.MotionGraphicsActivateSetting`
+        """
+        return self._MotionGraphicsActivateSetting
+
+    @MotionGraphicsActivateSetting.setter
+    def MotionGraphicsActivateSetting(self, MotionGraphicsActivateSetting):
+        self._MotionGraphicsActivateSetting = MotionGraphicsActivateSetting
+
+    @property
+    def AdBreakSetting(self):
+        r"""Ad Settings
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AdBreakSetting`
+        """
+        return self._AdBreakSetting
+
+    @AdBreakSetting.setter
+    def AdBreakSetting(self, AdBreakSetting):
+        self._AdBreakSetting = AdBreakSetting
+
 
     def _deserialize(self, params):
         self._EventType = params.get("EventType")
         self._InputAttachment = params.get("InputAttachment")
+        self._PipelineId = params.get("PipelineId")
         self._OutputGroupName = params.get("OutputGroupName")
         self._ManifestName = params.get("ManifestName")
         if params.get("Destinations") is not None:
@@ -6256,6 +7199,12 @@ class EventSettingsResp(AbstractModel):
         if params.get("StaticImageDeactivateSetting") is not None:
             self._StaticImageDeactivateSetting = StaticImageDeactivateSetting()
             self._StaticImageDeactivateSetting._deserialize(params.get("StaticImageDeactivateSetting"))
+        if params.get("MotionGraphicsActivateSetting") is not None:
+            self._MotionGraphicsActivateSetting = MotionGraphicsActivateSetting()
+            self._MotionGraphicsActivateSetting._deserialize(params.get("MotionGraphicsActivateSetting"))
+        if params.get("AdBreakSetting") is not None:
+            self._AdBreakSetting = AdBreakSetting()
+            self._AdBreakSetting._deserialize(params.get("AdBreakSetting"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6469,8 +7418,14 @@ class GeneralSetting(AbstractModel):
         r"""
         :param _StaticImageSettings: Static graphic overlay configuration.
         :type StaticImageSettings: :class:`tencentcloud.mdl.v20200326.models.StaticImageSettings`
+        :param _MotionGraphicsSettings: Dynamic graphic overlay configuration.
+        :type MotionGraphicsSettings: :class:`tencentcloud.mdl.v20200326.models.MotionGraphicsSetting`
+        :param _ThumbnailSettings: Thumbnail Configuration.
+        :type ThumbnailSettings: :class:`tencentcloud.mdl.v20200326.models.ThumbnailSettings`
         """
         self._StaticImageSettings = None
+        self._MotionGraphicsSettings = None
+        self._ThumbnailSettings = None
 
     @property
     def StaticImageSettings(self):
@@ -6483,11 +7438,39 @@ class GeneralSetting(AbstractModel):
     def StaticImageSettings(self, StaticImageSettings):
         self._StaticImageSettings = StaticImageSettings
 
+    @property
+    def MotionGraphicsSettings(self):
+        r"""Dynamic graphic overlay configuration.
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.MotionGraphicsSetting`
+        """
+        return self._MotionGraphicsSettings
+
+    @MotionGraphicsSettings.setter
+    def MotionGraphicsSettings(self, MotionGraphicsSettings):
+        self._MotionGraphicsSettings = MotionGraphicsSettings
+
+    @property
+    def ThumbnailSettings(self):
+        r"""Thumbnail Configuration.
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.ThumbnailSettings`
+        """
+        return self._ThumbnailSettings
+
+    @ThumbnailSettings.setter
+    def ThumbnailSettings(self, ThumbnailSettings):
+        self._ThumbnailSettings = ThumbnailSettings
+
 
     def _deserialize(self, params):
         if params.get("StaticImageSettings") is not None:
             self._StaticImageSettings = StaticImageSettings()
             self._StaticImageSettings._deserialize(params.get("StaticImageSettings"))
+        if params.get("MotionGraphicsSettings") is not None:
+            self._MotionGraphicsSettings = MotionGraphicsSetting()
+            self._MotionGraphicsSettings._deserialize(params.get("MotionGraphicsSettings"))
+        if params.get("ThumbnailSettings") is not None:
+            self._ThumbnailSettings = ThumbnailSettings()
+            self._ThumbnailSettings._deserialize(params.get("ThumbnailSettings"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7009,6 +7992,42 @@ class InputAnalysisInfo(AbstractModel):
         if params.get("HighlightSetting") is not None:
             self._HighlightSetting = HighlightInfo()
             self._HighlightSetting._deserialize(params.get("HighlightSetting"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class InputFileInfo(AbstractModel):
+    r"""InputFileInfo
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _SegmentDuration: Segment duration, in milliseconds, ranging from 1000-10000, must be a multiple of 1000. The input video duration should be between SegmentDuration * 90 and SegmentDuration * 180
+        :type SegmentDuration: int
+        """
+        self._SegmentDuration = None
+
+    @property
+    def SegmentDuration(self):
+        r"""Segment duration, in milliseconds, ranging from 1000-10000, must be a multiple of 1000. The input video duration should be between SegmentDuration * 90 and SegmentDuration * 180
+        :rtype: int
+        """
+        return self._SegmentDuration
+
+    @SegmentDuration.setter
+    def SegmentDuration(self, SegmentDuration):
+        self._SegmentDuration = SegmentDuration
+
+
+    def _deserialize(self, params):
+        self._SegmentDuration = params.get("SegmentDuration")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -7743,6 +8762,117 @@ class InputTracks(AbstractModel):
         
 
 
+class LSqueezeSetting(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Location: Advertising benchmark position, 0 top left, 1 top right, 2 bottom right, 3 bottom left, default value 0, corresponding TOP_LEFT,TOP_RIGHT,BOTTOM_RIGHT,BOTTOM_LEFT
+        :type Location: int
+        :param _OffsetX: The default value for the percentage in the X-axis direction is 20, with a range of 0-50
+        :type OffsetX: int
+        :param _OffsetY: The default value for the percentage in the Y-axis direction is 20, with a range of 0-50
+        :type OffsetY: int
+        :param _BackgroundImgUrl: Background image URL, starting with http/https and ending in jpg/jpeg/png
+        :type BackgroundImgUrl: str
+        :param _SqueezeInPeriod: Compress time. Unit ms, default value 2000, range: 500-10000, SqueezeInPeriod+SqueezeOutPeriod cannot be greater than duration, included in duration
+        :type SqueezeInPeriod: int
+        :param _SqueezeOutPeriod: Restore to full screen time. Unit ms, default value 2000, range 500-10000, SqueezeInPeriod+SqueezeOutPeriod cannot be greater than duration, included in duration
+        :type SqueezeOutPeriod: int
+        """
+        self._Location = None
+        self._OffsetX = None
+        self._OffsetY = None
+        self._BackgroundImgUrl = None
+        self._SqueezeInPeriod = None
+        self._SqueezeOutPeriod = None
+
+    @property
+    def Location(self):
+        r"""Advertising benchmark position, 0 top left, 1 top right, 2 bottom right, 3 bottom left, default value 0, corresponding TOP_LEFT,TOP_RIGHT,BOTTOM_RIGHT,BOTTOM_LEFT
+        :rtype: int
+        """
+        return self._Location
+
+    @Location.setter
+    def Location(self, Location):
+        self._Location = Location
+
+    @property
+    def OffsetX(self):
+        r"""The default value for the percentage in the X-axis direction is 20, with a range of 0-50
+        :rtype: int
+        """
+        return self._OffsetX
+
+    @OffsetX.setter
+    def OffsetX(self, OffsetX):
+        self._OffsetX = OffsetX
+
+    @property
+    def OffsetY(self):
+        r"""The default value for the percentage in the Y-axis direction is 20, with a range of 0-50
+        :rtype: int
+        """
+        return self._OffsetY
+
+    @OffsetY.setter
+    def OffsetY(self, OffsetY):
+        self._OffsetY = OffsetY
+
+    @property
+    def BackgroundImgUrl(self):
+        r"""Background image URL, starting with http/https and ending in jpg/jpeg/png
+        :rtype: str
+        """
+        return self._BackgroundImgUrl
+
+    @BackgroundImgUrl.setter
+    def BackgroundImgUrl(self, BackgroundImgUrl):
+        self._BackgroundImgUrl = BackgroundImgUrl
+
+    @property
+    def SqueezeInPeriod(self):
+        r"""Compress time. Unit ms, default value 2000, range: 500-10000, SqueezeInPeriod+SqueezeOutPeriod cannot be greater than duration, included in duration
+        :rtype: int
+        """
+        return self._SqueezeInPeriod
+
+    @SqueezeInPeriod.setter
+    def SqueezeInPeriod(self, SqueezeInPeriod):
+        self._SqueezeInPeriod = SqueezeInPeriod
+
+    @property
+    def SqueezeOutPeriod(self):
+        r"""Restore to full screen time. Unit ms, default value 2000, range 500-10000, SqueezeInPeriod+SqueezeOutPeriod cannot be greater than duration, included in duration
+        :rtype: int
+        """
+        return self._SqueezeOutPeriod
+
+    @SqueezeOutPeriod.setter
+    def SqueezeOutPeriod(self, SqueezeOutPeriod):
+        self._SqueezeOutPeriod = SqueezeOutPeriod
+
+
+    def _deserialize(self, params):
+        self._Location = params.get("Location")
+        self._OffsetX = params.get("OffsetX")
+        self._OffsetY = params.get("OffsetY")
+        self._BackgroundImgUrl = params.get("BackgroundImgUrl")
+        self._SqueezeInPeriod = params.get("SqueezeInPeriod")
+        self._SqueezeOutPeriod = params.get("SqueezeOutPeriod")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class LogInfo(AbstractModel):
     r"""Log information.
 
@@ -7874,7 +9004,7 @@ class ModifyStreamLiveChannelRequest(AbstractModel):
         :type VideoTemplates: list of VideoTemplateInfo
         :param _AVTemplates: Audio/Video transcoding templates. Quantity: [1, 10]
         :type AVTemplates: list of AVTemplate
-        :param _CaptionTemplates: Subtitle template configuration, only AVTemplates are valid.
+        :param _CaptionTemplates: Subtitle template configuration.
         :type CaptionTemplates: list of SubtitleConf
         :param _PlanSettings: Event settings
         :type PlanSettings: :class:`tencentcloud.mdl.v20200326.models.PlanSettings`
@@ -7989,7 +9119,7 @@ class ModifyStreamLiveChannelRequest(AbstractModel):
 
     @property
     def CaptionTemplates(self):
-        r"""Subtitle template configuration, only AVTemplates are valid.
+        r"""Subtitle template configuration.
         :rtype: list of SubtitleConf
         """
         return self._CaptionTemplates
@@ -8446,11 +9576,14 @@ class ModifyStreamLiveWatermarkRequest(AbstractModel):
         :type ImageSettings: :class:`tencentcloud.mdl.v20200326.models.CreateImageSettings`
         :param _TextSettings: Watermark text settings. This parameter is valid if `Type` is `TEXT`.
         :type TextSettings: :class:`tencentcloud.mdl.v20200326.models.CreateTextSettings`
+        :param _AbWatermarkSettings: 
+        :type AbWatermarkSettings: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkSettingsReq`
         """
         self._Id = None
         self._Name = None
         self._ImageSettings = None
         self._TextSettings = None
+        self._AbWatermarkSettings = None
 
     @property
     def Id(self):
@@ -8496,6 +9629,17 @@ class ModifyStreamLiveWatermarkRequest(AbstractModel):
     def TextSettings(self, TextSettings):
         self._TextSettings = TextSettings
 
+    @property
+    def AbWatermarkSettings(self):
+        r"""
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.AbWatermarkSettingsReq`
+        """
+        return self._AbWatermarkSettings
+
+    @AbWatermarkSettings.setter
+    def AbWatermarkSettings(self, AbWatermarkSettings):
+        self._AbWatermarkSettings = AbWatermarkSettings
+
 
     def _deserialize(self, params):
         self._Id = params.get("Id")
@@ -8506,6 +9650,9 @@ class ModifyStreamLiveWatermarkRequest(AbstractModel):
         if params.get("TextSettings") is not None:
             self._TextSettings = CreateTextSettings()
             self._TextSettings._deserialize(params.get("TextSettings"))
+        if params.get("AbWatermarkSettings") is not None:
+            self._AbWatermarkSettings = AbWatermarkSettingsReq()
+            self._AbWatermarkSettings._deserialize(params.get("AbWatermarkSettings"))
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8544,6 +9691,93 @@ class ModifyStreamLiveWatermarkResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class MotionGraphicsActivateSetting(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Duration: Duration in ms, valid when MOTION_Graphics_ACTIVATE, required; An integer in the range of 0-86400000, where 0 represents the duration until the end of the live stream.
+        :type Duration: int
+        :param _Url: The address of HTML5 needs to comply with the format specification of http/https.
+        :type Url: str
+        """
+        self._Duration = None
+        self._Url = None
+
+    @property
+    def Duration(self):
+        r"""Duration in ms, valid when MOTION_Graphics_ACTIVATE, required; An integer in the range of 0-86400000, where 0 represents the duration until the end of the live stream.
+        :rtype: int
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def Url(self):
+        r"""The address of HTML5 needs to comply with the format specification of http/https.
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+
+    def _deserialize(self, params):
+        self._Duration = params.get("Duration")
+        self._Url = params.get("Url")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class MotionGraphicsSetting(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MotionGraphicsOverlayEnabled: Whether to enable dynamic graphic overlay, '0' not enabled, '1' enabled; Default 0.
+        :type MotionGraphicsOverlayEnabled: int
+        """
+        self._MotionGraphicsOverlayEnabled = None
+
+    @property
+    def MotionGraphicsOverlayEnabled(self):
+        r"""Whether to enable dynamic graphic overlay, '0' not enabled, '1' enabled; Default 0.
+        :rtype: int
+        """
+        return self._MotionGraphicsOverlayEnabled
+
+    @MotionGraphicsOverlayEnabled.setter
+    def MotionGraphicsOverlayEnabled(self, MotionGraphicsOverlayEnabled):
+        self._MotionGraphicsOverlayEnabled = MotionGraphicsOverlayEnabled
+
+
+    def _deserialize(self, params):
+        self._MotionGraphicsOverlayEnabled = params.get("MotionGraphicsOverlayEnabled")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class OutputInfo(AbstractModel):
     r"""Output information.
 
@@ -8571,6 +9805,8 @@ Note: this field may return `null`, indicating that no valid value was found.
         :type TimedMetadataSettings: :class:`tencentcloud.mdl.v20200326.models.TimedMetadataSettingInfo`
         :param _FrameCaptureTemplateNames: Frame capture template name array. Quantity limit: [0,1].
         :type FrameCaptureTemplateNames: list of str
+        :param _NameModifier: Name modification for sub m3u8.
+        :type NameModifier: str
         """
         self._Name = None
         self._AudioTemplateNames = None
@@ -8580,6 +9816,7 @@ Note: this field may return `null`, indicating that no valid value was found.
         self._CaptionTemplateNames = None
         self._TimedMetadataSettings = None
         self._FrameCaptureTemplateNames = None
+        self._NameModifier = None
 
     @property
     def Name(self):
@@ -8673,6 +9910,17 @@ Note: this field may return `null`, indicating that no valid value was found.
     def FrameCaptureTemplateNames(self, FrameCaptureTemplateNames):
         self._FrameCaptureTemplateNames = FrameCaptureTemplateNames
 
+    @property
+    def NameModifier(self):
+        r"""Name modification for sub m3u8.
+        :rtype: str
+        """
+        return self._NameModifier
+
+    @NameModifier.setter
+    def NameModifier(self, NameModifier):
+        self._NameModifier = NameModifier
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -8687,6 +9935,7 @@ Note: this field may return `null`, indicating that no valid value was found.
             self._TimedMetadataSettings = TimedMetadataSettingInfo()
             self._TimedMetadataSettings._deserialize(params.get("TimedMetadataSettings"))
         self._FrameCaptureTemplateNames = params.get("FrameCaptureTemplateNames")
+        self._NameModifier = params.get("NameModifier")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8813,11 +10062,20 @@ For other inputs, the quantity is 1.
 For `rtp/udp` input, the quantity is the number of `Pid` of the input audio.
 For other inputs, the quantity is 1.
         :type Audio: list of AudioPipelineInputStatistics
+        :param _SessionId: Session ID
+        :type SessionId: str
+        :param _RTT: Rtt time, in milliseconds
+        :type RTT: int
+        :param _NetworkValid: Is the Network parameter valid? 0 indicates invalid, 1 indicates valid
+        :type NetworkValid: int
         """
         self._Timestamp = None
         self._NetworkIn = None
         self._Video = None
         self._Audio = None
+        self._SessionId = None
+        self._RTT = None
+        self._NetworkValid = None
 
     @property
     def Timestamp(self):
@@ -8867,6 +10125,39 @@ For other inputs, the quantity is 1.
     def Audio(self, Audio):
         self._Audio = Audio
 
+    @property
+    def SessionId(self):
+        r"""Session ID
+        :rtype: str
+        """
+        return self._SessionId
+
+    @SessionId.setter
+    def SessionId(self, SessionId):
+        self._SessionId = SessionId
+
+    @property
+    def RTT(self):
+        r"""Rtt time, in milliseconds
+        :rtype: int
+        """
+        return self._RTT
+
+    @RTT.setter
+    def RTT(self, RTT):
+        self._RTT = RTT
+
+    @property
+    def NetworkValid(self):
+        r"""Is the Network parameter valid? 0 indicates invalid, 1 indicates valid
+        :rtype: int
+        """
+        return self._NetworkValid
+
+    @NetworkValid.setter
+    def NetworkValid(self, NetworkValid):
+        self._NetworkValid = NetworkValid
+
 
     def _deserialize(self, params):
         self._Timestamp = params.get("Timestamp")
@@ -8883,6 +10174,9 @@ For other inputs, the quantity is 1.
                 obj = AudioPipelineInputStatistics()
                 obj._deserialize(item)
                 self._Audio.append(obj)
+        self._SessionId = params.get("SessionId")
+        self._RTT = params.get("RTT")
+        self._NetworkValid = params.get("NetworkValid")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8970,9 +10264,12 @@ In seconds, indicating data time.
         :type Timestamp: int
         :param _NetworkOut: Output bandwidth in bps.
         :type NetworkOut: int
+        :param _NetworkValid: Is the Network parameter valid? 0 indicates invalid, 1 indicates valid
+        :type NetworkValid: int
         """
         self._Timestamp = None
         self._NetworkOut = None
+        self._NetworkValid = None
 
     @property
     def Timestamp(self):
@@ -8997,10 +10294,22 @@ In seconds, indicating data time.
     def NetworkOut(self, NetworkOut):
         self._NetworkOut = NetworkOut
 
+    @property
+    def NetworkValid(self):
+        r"""Is the Network parameter valid? 0 indicates invalid, 1 indicates valid
+        :rtype: int
+        """
+        return self._NetworkValid
+
+    @NetworkValid.setter
+    def NetworkValid(self, NetworkValid):
+        self._NetworkValid = NetworkValid
+
 
     def _deserialize(self, params):
         self._Timestamp = params.get("Timestamp")
         self._NetworkOut = params.get("NetworkOut")
+        self._NetworkValid = params.get("NetworkValid")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -9627,7 +10936,7 @@ class SegmentationDescriptorInfo(AbstractModel):
         :type UPID: str
         :param _TypeID: Corresponds to SCTE-35 segmentation_type_id.
         :type TypeID: int
-        :param _Num: Corresponds to SCTE-35 segment_num。This field provides support for numbering segments within a given collection of segments.
+        :param _Num: Corresponds to SCTE-35 segment_num. This field provides support for numbering segments within a given collection of segments.
         :type Num: int
         :param _Expected: Corresponds to SCTE-35 segment_expected.This field provides a count of the expected number of individual segments within a collection of segments.
         :type Expected: int
@@ -9727,7 +11036,7 @@ class SegmentationDescriptorInfo(AbstractModel):
 
     @property
     def Num(self):
-        r"""Corresponds to SCTE-35 segment_num。This field provides support for numbering segments within a given collection of segments.
+        r"""Corresponds to SCTE-35 segment_num. This field provides support for numbering segments within a given collection of segments.
         :rtype: int
         """
         return self._Num
@@ -9815,7 +11124,7 @@ class SegmentationDescriptorRespInfo(AbstractModel):
         :type UPID: str
         :param _TypeID: Corresponds to SCTE-35 segmentation_type_id.
         :type TypeID: int
-        :param _Num: Corresponds to SCTE-35 segment_num。This field provides support for numbering segments within a given collection of segments.
+        :param _Num: Corresponds to SCTE-35 segment_num. This field provides support for numbering segments within a given collection of segments.
         :type Num: int
         :param _Expected: Corresponds to SCTE-35 segment_expected.This field provides a count of the expected number of individual segments within a collection of segments.
         :type Expected: int
@@ -9915,7 +11224,7 @@ class SegmentationDescriptorRespInfo(AbstractModel):
 
     @property
     def Num(self):
-        r"""Corresponds to SCTE-35 segment_num。This field provides support for numbering segments within a given collection of segments.
+        r"""Corresponds to SCTE-35 segment_num. This field provides support for numbering segments within a given collection of segments.
         :rtype: int
         """
         return self._Num
@@ -11355,9 +12664,9 @@ class SubtitleConf(AbstractModel):
         :type CaptionSelectorName: str
         :param _CaptionSource: Optional values: INPUT (source subtitle information), ANALYSIS (intelligent speech recognition to subtitles).
         :type CaptionSource: str
-        :param _ContentType: Optional values: 1 Source, 2 Source+Target, 3 Target (original language only, original language + translation language, translation language). Required when CaptionSource selects `ANALYSIS `.
+        :param _ContentType: Optional values: 1 Source, 2 Source+Target, 3 Target (original language only, original language + translation language, translation language). Required when CaptionSource selects `ANALYSIS `. When outputting as WebVTT, a single template can only output one language.
         :type ContentType: int
-        :param _TargetType: Output mode: 1 Burn in, 2 Embedded. Support `2` when CaptionSource selects `INPUT`. Support `1` when CaptionSource selects `ANALYSIS `.
+        :param _TargetType: Output mode: 1 Burn in, 2 Embedded, 3 WebVTT. Support `2` when CaptionSource selects `INPUT`. Support `1` and `3` when CaptionSource selects `ANALYSIS `.
         :type TargetType: int
         :param _SourceLanguage: Original phonetic language.
 Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource selects `ANALYSIS `.
@@ -11367,10 +12676,18 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
         :type TargetLanguage: str
         :param _FontStyle: Font style configuration. Required when CaptionSource selects `ANALYSIS `.
         :type FontStyle: :class:`tencentcloud.mdl.v20200326.models.SubtitleFontConf`
-        :param _StateEffectMode: There are two modes: STEADY and DYNAMIC, corresponding to steady state and unstable state respectively; the default is STEADY. Required when CaptionSource selects `ANALYSIS `.
+        :param _StateEffectMode: There are two modes: STEADY and DYNAMIC, corresponding to steady state and unstable state respectively; the default is STEADY. Required when CaptionSource selects `ANALYSIS `. When the output is WebVTT, only STEADY can be selected.
         :type StateEffectMode: str
         :param _SteadyStateDelayedTime: Steady-state delay time, unit seconds; optional values: 10, 20, default 10. Required when CaptionSource selects `ANALYSIS `.
         :type SteadyStateDelayedTime: int
+        :param _AudioSelectorName: Audio selector name, required for generating WebVTT subtitles using speech recognition, can be empty.
+        :type AudioSelectorName: str
+        :param _WebVTTFontStyle: Format configuration for speech recognition output on WebVTT.
+        :type WebVTTFontStyle: :class:`tencentcloud.mdl.v20200326.models.WebVTTFontStyle`
+        :param _LanguageCode: Language code, length 2-20. ISO 639-2 three-digit code is recommend.
+        :type LanguageCode: str
+        :param _LanguageDescription: Language description, less than 100 characters in length.
+        :type LanguageDescription: str
         """
         self._Name = None
         self._CaptionSelectorName = None
@@ -11382,6 +12699,10 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
         self._FontStyle = None
         self._StateEffectMode = None
         self._SteadyStateDelayedTime = None
+        self._AudioSelectorName = None
+        self._WebVTTFontStyle = None
+        self._LanguageCode = None
+        self._LanguageDescription = None
 
     @property
     def Name(self):
@@ -11418,7 +12739,7 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
 
     @property
     def ContentType(self):
-        r"""Optional values: 1 Source, 2 Source+Target, 3 Target (original language only, original language + translation language, translation language). Required when CaptionSource selects `ANALYSIS `.
+        r"""Optional values: 1 Source, 2 Source+Target, 3 Target (original language only, original language + translation language, translation language). Required when CaptionSource selects `ANALYSIS `. When outputting as WebVTT, a single template can only output one language.
         :rtype: int
         """
         return self._ContentType
@@ -11429,7 +12750,7 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
 
     @property
     def TargetType(self):
-        r"""Output mode: 1 Burn in, 2 Embedded. Support `2` when CaptionSource selects `INPUT`. Support `1` when CaptionSource selects `ANALYSIS `.
+        r"""Output mode: 1 Burn in, 2 Embedded, 3 WebVTT. Support `2` when CaptionSource selects `INPUT`. Support `1` and `3` when CaptionSource selects `ANALYSIS `.
         :rtype: int
         """
         return self._TargetType
@@ -11475,7 +12796,7 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
 
     @property
     def StateEffectMode(self):
-        r"""There are two modes: STEADY and DYNAMIC, corresponding to steady state and unstable state respectively; the default is STEADY. Required when CaptionSource selects `ANALYSIS `.
+        r"""There are two modes: STEADY and DYNAMIC, corresponding to steady state and unstable state respectively; the default is STEADY. Required when CaptionSource selects `ANALYSIS `. When the output is WebVTT, only STEADY can be selected.
         :rtype: str
         """
         return self._StateEffectMode
@@ -11495,6 +12816,50 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
     def SteadyStateDelayedTime(self, SteadyStateDelayedTime):
         self._SteadyStateDelayedTime = SteadyStateDelayedTime
 
+    @property
+    def AudioSelectorName(self):
+        r"""Audio selector name, required for generating WebVTT subtitles using speech recognition, can be empty.
+        :rtype: str
+        """
+        return self._AudioSelectorName
+
+    @AudioSelectorName.setter
+    def AudioSelectorName(self, AudioSelectorName):
+        self._AudioSelectorName = AudioSelectorName
+
+    @property
+    def WebVTTFontStyle(self):
+        r"""Format configuration for speech recognition output on WebVTT.
+        :rtype: :class:`tencentcloud.mdl.v20200326.models.WebVTTFontStyle`
+        """
+        return self._WebVTTFontStyle
+
+    @WebVTTFontStyle.setter
+    def WebVTTFontStyle(self, WebVTTFontStyle):
+        self._WebVTTFontStyle = WebVTTFontStyle
+
+    @property
+    def LanguageCode(self):
+        r"""Language code, length 2-20. ISO 639-2 three-digit code is recommend.
+        :rtype: str
+        """
+        return self._LanguageCode
+
+    @LanguageCode.setter
+    def LanguageCode(self, LanguageCode):
+        self._LanguageCode = LanguageCode
+
+    @property
+    def LanguageDescription(self):
+        r"""Language description, less than 100 characters in length.
+        :rtype: str
+        """
+        return self._LanguageDescription
+
+    @LanguageDescription.setter
+    def LanguageDescription(self, LanguageDescription):
+        self._LanguageDescription = LanguageDescription
+
 
     def _deserialize(self, params):
         self._Name = params.get("Name")
@@ -11509,6 +12874,12 @@ Optional values: Chinese, English, Japanese, Korean. Required when CaptionSource
             self._FontStyle._deserialize(params.get("FontStyle"))
         self._StateEffectMode = params.get("StateEffectMode")
         self._SteadyStateDelayedTime = params.get("SteadyStateDelayedTime")
+        self._AudioSelectorName = params.get("AudioSelectorName")
+        if params.get("WebVTTFontStyle") is not None:
+            self._WebVTTFontStyle = WebVTTFontStyle()
+            self._WebVTTFontStyle._deserialize(params.get("WebVTTFontStyle"))
+        self._LanguageCode = params.get("LanguageCode")
+        self._LanguageDescription = params.get("LanguageDescription")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -11786,6 +13157,93 @@ class Tag(AbstractModel):
         
 
 
+class TaskNotifyConfig(AbstractModel):
+    r"""TaskNotifyConfig
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: Notification type. Currently only supports URLs
+        :type Type: str
+        :param _NotifyUrl: Callback URL. Starting with http/https, supporting a maximum of 512 characters
+        :type NotifyUrl: str
+        """
+        self._Type = None
+        self._NotifyUrl = None
+
+    @property
+    def Type(self):
+        r"""Notification type. Currently only supports URLs
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def NotifyUrl(self):
+        r"""Callback URL. Starting with http/https, supporting a maximum of 512 characters
+        :rtype: str
+        """
+        return self._NotifyUrl
+
+    @NotifyUrl.setter
+    def NotifyUrl(self, NotifyUrl):
+        self._NotifyUrl = NotifyUrl
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        self._NotifyUrl = params.get("NotifyUrl")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ThumbnailSettings(AbstractModel):
+    r"""
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ThumbnailEnabled: Generate thumbnail ,0: Disabled ,1: Enabled , Default: 0
+        :type ThumbnailEnabled: int
+        """
+        self._ThumbnailEnabled = None
+
+    @property
+    def ThumbnailEnabled(self):
+        r"""Generate thumbnail ,0: Disabled ,1: Enabled , Default: 0
+        :rtype: int
+        """
+        return self._ThumbnailEnabled
+
+    @ThumbnailEnabled.setter
+    def ThumbnailEnabled(self, ThumbnailEnabled):
+        self._ThumbnailEnabled = ThumbnailEnabled
+
+
+    def _deserialize(self, params):
+        self._ThumbnailEnabled = params.get("ThumbnailEnabled")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class TimeShiftSettingsInfo(AbstractModel):
     r"""Time-shift configuration. This parameter is valid only for HLS_ARCHIVE and DASH_ARCHIVE output groups.
 
@@ -11975,7 +13433,7 @@ class TimingSettingsReq(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _StartType: Event trigger type. Valid values: `FIXED_TIME`, `IMMEDIATE`. This parameter is required if `EventType` is `INPUT_SWITCH`.
+        :param _StartType: Event trigger type. Valid values: `FIXED_TIME`, `IMMEDIATE`,`FIXED_PTS `. This parameter is required if `EventType` is `INPUT_SWITCH`.
         :type StartType: str
         :param _Time: This parameter is required if `EventType` is `INPUT_SWITCH` and `StartType` is `FIXED_TIME`.
 It must be in UTC format, e.g., `2020-01-01T12:00:00Z`.
@@ -11986,15 +13444,18 @@ It specifies the recording start time in UTC format (e.g., `2020-01-01T12:00:00Z
         :param _EndTime: This parameter is required if `EventType` is `TIMED_RECORD`.
 It specifies the recording end time in UTC format (e.g., `2020-01-01T12:00:00Z`) and must be at least 1 minute later than the recording start time.
         :type EndTime: str
+        :param _PTS: Effective only when StartType is FIXED_PTS, with a range of 1-8589934592
+        :type PTS: int
         """
         self._StartType = None
         self._Time = None
         self._StartTime = None
         self._EndTime = None
+        self._PTS = None
 
     @property
     def StartType(self):
-        r"""Event trigger type. Valid values: `FIXED_TIME`, `IMMEDIATE`. This parameter is required if `EventType` is `INPUT_SWITCH`.
+        r"""Event trigger type. Valid values: `FIXED_TIME`, `IMMEDIATE`,`FIXED_PTS `. This parameter is required if `EventType` is `INPUT_SWITCH`.
         :rtype: str
         """
         return self._StartType
@@ -12039,12 +13500,24 @@ It specifies the recording end time in UTC format (e.g., `2020-01-01T12:00:00Z`)
     def EndTime(self, EndTime):
         self._EndTime = EndTime
 
+    @property
+    def PTS(self):
+        r"""Effective only when StartType is FIXED_PTS, with a range of 1-8589934592
+        :rtype: int
+        """
+        return self._PTS
+
+    @PTS.setter
+    def PTS(self, PTS):
+        self._PTS = PTS
+
 
     def _deserialize(self, params):
         self._StartType = params.get("StartType")
         self._Time = params.get("Time")
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
+        self._PTS = params.get("PTS")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12073,11 +13546,14 @@ It indicates the start time for recording in UTC format (e.g., `2020-01-01T12:00
         :param _EndTime: This parameter cannot be empty if `EventType` is `TIMED_RECORD`.
 It indicates the end time for recording in UTC format (e.g., `2020-01-01T12:00:00Z`) and must be at least 1 minute later than the start time for recording.
         :type EndTime: str
+        :param _PTS: Effective only when StartType is FIXED_PTS, with a range of 1-8589934592
+        :type PTS: int
         """
         self._StartType = None
         self._Time = None
         self._StartTime = None
         self._EndTime = None
+        self._PTS = None
 
     @property
     def StartType(self):
@@ -12126,12 +13602,60 @@ It indicates the end time for recording in UTC format (e.g., `2020-01-01T12:00:0
     def EndTime(self, EndTime):
         self._EndTime = EndTime
 
+    @property
+    def PTS(self):
+        r"""Effective only when StartType is FIXED_PTS, with a range of 1-8589934592
+        :rtype: int
+        """
+        return self._PTS
+
+    @PTS.setter
+    def PTS(self, PTS):
+        self._PTS = PTS
+
 
     def _deserialize(self, params):
         self._StartType = params.get("StartType")
         self._Time = params.get("Time")
         self._StartTime = params.get("StartTime")
         self._EndTime = params.get("EndTime")
+        self._PTS = params.get("PTS")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class UrlInputInfo(AbstractModel):
+    r"""UrlInputInfo
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Url: Video URL, starting with http/https, supports up to 512 characters, currently only supports complete single file videos, does not support streaming formats based on playlists and segments (such as HLS or DASH)
+        :type Url: str
+        """
+        self._Url = None
+
+    @property
+    def Url(self):
+        r"""Video URL, starting with http/https, supports up to 512 characters, currently only supports complete single file videos, does not support streaming formats based on playlists and segments (such as HLS or DASH)
+        :rtype: str
+        """
+        return self._Url
+
+    @Url.setter
+    def Url(self, Url):
+        self._Url = Url
+
+
+    def _deserialize(self, params):
+        self._Url = params.get("Url")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12239,15 +13763,15 @@ class VideoCodecDetail(AbstractModel):
 
 
 class VideoEnhanceSetting(AbstractModel):
-    r"""
+    r"""VideoEnhanceSetting
 
     """
 
     def __init__(self):
         r"""
-        :param _Type: 
+        :param _Type: Video enhancement types, optional: "GameEnhance", "ColorEnhance", "Debur", "Comprehensive", "Denoising", "SR", "OutdoorSportsCompetitions", "IndoorSportsCompetitions", "ShowEnhance"
         :type Type: str
-        :param _Strength: 
+        :param _Strength: Video enhancement intensity, 0-1.0, granularity 0.1
         :type Strength: float
         """
         self._Type = None
@@ -12255,7 +13779,7 @@ class VideoEnhanceSetting(AbstractModel):
 
     @property
     def Type(self):
-        r"""
+        r"""Video enhancement types, optional: "GameEnhance", "ColorEnhance", "Debur", "Comprehensive", "Denoising", "SR", "OutdoorSportsCompetitions", "IndoorSportsCompetitions", "ShowEnhance"
         :rtype: str
         """
         return self._Type
@@ -12266,7 +13790,7 @@ class VideoEnhanceSetting(AbstractModel):
 
     @property
     def Strength(self):
-        r"""
+        r"""Video enhancement intensity, 0-1.0, granularity 0.1
         :rtype: float
         """
         return self._Strength
@@ -12399,12 +13923,14 @@ Note: This field may return `null`, indicating that no valid value was found.
         :type AdditionalRateSettings: :class:`tencentcloud.mdl.v20200326.models.AdditionalRateSetting`
         :param _VideoCodecDetails: Video encoding configuration.
         :type VideoCodecDetails: :class:`tencentcloud.mdl.v20200326.models.VideoCodecDetail`
-        :param _VideoEnhanceEnabled: 
+        :param _VideoEnhanceEnabled: Video enhancement switch, 1: on 0: off.
         :type VideoEnhanceEnabled: int
-        :param _VideoEnhanceSettings: 
+        :param _VideoEnhanceSettings: Video enhancement parameter array.
         :type VideoEnhanceSettings: list of VideoEnhanceSetting
         :param _ColorSpaceSettings: Color space setting.
         :type ColorSpaceSettings: :class:`tencentcloud.mdl.v20200326.models.ColorSpaceSetting`
+        :param _ForensicWatermarkIds: Traceability watermark.
+        :type ForensicWatermarkIds: list of str
         """
         self._Name = None
         self._Vcodec = None
@@ -12427,6 +13953,7 @@ Note: This field may return `null`, indicating that no valid value was found.
         self._VideoEnhanceEnabled = None
         self._VideoEnhanceSettings = None
         self._ColorSpaceSettings = None
+        self._ForensicWatermarkIds = None
 
     @property
     def Name(self):
@@ -12629,7 +14156,7 @@ Note: This field may return `null`, indicating that no valid value was found.
 
     @property
     def VideoEnhanceEnabled(self):
-        r"""
+        r"""Video enhancement switch, 1: on 0: off.
         :rtype: int
         """
         return self._VideoEnhanceEnabled
@@ -12640,7 +14167,7 @@ Note: This field may return `null`, indicating that no valid value was found.
 
     @property
     def VideoEnhanceSettings(self):
-        r"""
+        r"""Video enhancement parameter array.
         :rtype: list of VideoEnhanceSetting
         """
         return self._VideoEnhanceSettings
@@ -12659,6 +14186,17 @@ Note: This field may return `null`, indicating that no valid value was found.
     @ColorSpaceSettings.setter
     def ColorSpaceSettings(self, ColorSpaceSettings):
         self._ColorSpaceSettings = ColorSpaceSettings
+
+    @property
+    def ForensicWatermarkIds(self):
+        r"""Traceability watermark.
+        :rtype: list of str
+        """
+        return self._ForensicWatermarkIds
+
+    @ForensicWatermarkIds.setter
+    def ForensicWatermarkIds(self, ForensicWatermarkIds):
+        self._ForensicWatermarkIds = ForensicWatermarkIds
 
 
     def _deserialize(self, params):
@@ -12694,6 +14232,178 @@ Note: This field may return `null`, indicating that no valid value was found.
         if params.get("ColorSpaceSettings") is not None:
             self._ColorSpaceSettings = ColorSpaceSetting()
             self._ColorSpaceSettings._deserialize(params.get("ColorSpaceSettings"))
+        self._ForensicWatermarkIds = params.get("ForensicWatermarkIds")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class WebVTTFontStyle(AbstractModel):
+    r"""WebVTT format configuration.
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _TextColor: Text color, RGB hexadecimal representation, 6 hexadecimal characters (no # needed).
+        :type TextColor: str
+        :param _BackgroundColor: Background color, RGB hexadecimal representation, 6 hexadecimal characters (no # needed).
+        :type BackgroundColor: str
+        :param _BackgroundAlpha: Background opacity parameter, a number from 0 to 100, with 0 being the default for full transparency.
+        :type BackgroundAlpha: int
+        :param _FontSize: Font size, in units of vh (1% of height), default value 0 means automatic.
+        :type FontSize: int
+        :param _Line: The position of the text box, default value AUTO, can be empty; represents the percentage of video height, supports integers from 0 to 100.
+        :type Line: str
+        :param _LineAlignment: The alignment of the text box on the Line. Optional values: START, CENTER, END. Which can be empty.
+        :type LineAlignment: str
+        :param _Position: The text box is positioned in another direction as a percentage of the video's width. It defaults to AUTO and can be empty.
+        :type Position: str
+        :param _PositionAlignment: The alignment of the text box on the Position. Optional values are LINE_LEFT, LINE_RIGHT, CENTER, and AUTO. The default value is AUTO, and it can be empty.
+        :type PositionAlignment: str
+        :param _CueSize: Text box size, a percentage of video width/height, with values (0, 100), default AUTO, can be empty.
+        :type CueSize: str
+        :param _TextAlignment: Text alignment, with possible values  START, CENTER, END, LEFT, and RIGHT; the default value is CENTER, which can be empty.
+        :type TextAlignment: str
+        """
+        self._TextColor = None
+        self._BackgroundColor = None
+        self._BackgroundAlpha = None
+        self._FontSize = None
+        self._Line = None
+        self._LineAlignment = None
+        self._Position = None
+        self._PositionAlignment = None
+        self._CueSize = None
+        self._TextAlignment = None
+
+    @property
+    def TextColor(self):
+        r"""Text color, RGB hexadecimal representation, 6 hexadecimal characters (no # needed).
+        :rtype: str
+        """
+        return self._TextColor
+
+    @TextColor.setter
+    def TextColor(self, TextColor):
+        self._TextColor = TextColor
+
+    @property
+    def BackgroundColor(self):
+        r"""Background color, RGB hexadecimal representation, 6 hexadecimal characters (no # needed).
+        :rtype: str
+        """
+        return self._BackgroundColor
+
+    @BackgroundColor.setter
+    def BackgroundColor(self, BackgroundColor):
+        self._BackgroundColor = BackgroundColor
+
+    @property
+    def BackgroundAlpha(self):
+        r"""Background opacity parameter, a number from 0 to 100, with 0 being the default for full transparency.
+        :rtype: int
+        """
+        return self._BackgroundAlpha
+
+    @BackgroundAlpha.setter
+    def BackgroundAlpha(self, BackgroundAlpha):
+        self._BackgroundAlpha = BackgroundAlpha
+
+    @property
+    def FontSize(self):
+        r"""Font size, in units of vh (1% of height), default value 0 means automatic.
+        :rtype: int
+        """
+        return self._FontSize
+
+    @FontSize.setter
+    def FontSize(self, FontSize):
+        self._FontSize = FontSize
+
+    @property
+    def Line(self):
+        r"""The position of the text box, default value AUTO, can be empty; represents the percentage of video height, supports integers from 0 to 100.
+        :rtype: str
+        """
+        return self._Line
+
+    @Line.setter
+    def Line(self, Line):
+        self._Line = Line
+
+    @property
+    def LineAlignment(self):
+        r"""The alignment of the text box on the Line. Optional values: START, CENTER, END. Which can be empty.
+        :rtype: str
+        """
+        return self._LineAlignment
+
+    @LineAlignment.setter
+    def LineAlignment(self, LineAlignment):
+        self._LineAlignment = LineAlignment
+
+    @property
+    def Position(self):
+        r"""The text box is positioned in another direction as a percentage of the video's width. It defaults to AUTO and can be empty.
+        :rtype: str
+        """
+        return self._Position
+
+    @Position.setter
+    def Position(self, Position):
+        self._Position = Position
+
+    @property
+    def PositionAlignment(self):
+        r"""The alignment of the text box on the Position. Optional values are LINE_LEFT, LINE_RIGHT, CENTER, and AUTO. The default value is AUTO, and it can be empty.
+        :rtype: str
+        """
+        return self._PositionAlignment
+
+    @PositionAlignment.setter
+    def PositionAlignment(self, PositionAlignment):
+        self._PositionAlignment = PositionAlignment
+
+    @property
+    def CueSize(self):
+        r"""Text box size, a percentage of video width/height, with values (0, 100), default AUTO, can be empty.
+        :rtype: str
+        """
+        return self._CueSize
+
+    @CueSize.setter
+    def CueSize(self, CueSize):
+        self._CueSize = CueSize
+
+    @property
+    def TextAlignment(self):
+        r"""Text alignment, with possible values  START, CENTER, END, LEFT, and RIGHT; the default value is CENTER, which can be empty.
+        :rtype: str
+        """
+        return self._TextAlignment
+
+    @TextAlignment.setter
+    def TextAlignment(self, TextAlignment):
+        self._TextAlignment = TextAlignment
+
+
+    def _deserialize(self, params):
+        self._TextColor = params.get("TextColor")
+        self._BackgroundColor = params.get("BackgroundColor")
+        self._BackgroundAlpha = params.get("BackgroundAlpha")
+        self._FontSize = params.get("FontSize")
+        self._Line = params.get("Line")
+        self._LineAlignment = params.get("LineAlignment")
+        self._Position = params.get("Position")
+        self._PositionAlignment = params.get("PositionAlignment")
+        self._CueSize = params.get("CueSize")
+        self._TextAlignment = params.get("TextAlignment")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

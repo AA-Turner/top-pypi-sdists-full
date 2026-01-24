@@ -1,6 +1,8 @@
-# pyright: reportAttributeAccessIssue=false
+from __future__ import annotations
+
 import datetime
 import json
+from typing import Any, cast
 
 import responses
 
@@ -30,7 +32,7 @@ class DummyOAuth2(BaseOAuth2):
             "last_name": response.get("last_name", ""),
         }
 
-    def user_data(self, access_token, *args, **kwargs):
+    def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Loads user data from service"""
         return self.get_json(
             "http://dummy.com/user", params={"access_token": access_token}
@@ -70,7 +72,7 @@ class DummyOAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
     def test_revoke_token(self) -> None:
         self.strategy.set_settings({"SOCIAL_AUTH_REVOKE_TOKENS_ON_DISCONNECT": True})
         self.do_login()
-        user = User.get(self.expected_username)
+        user = cast("User", User.get(self.expected_username))
         user.password = "password"
         responses.add(
             self._method(self.backend.REVOKE_TOKEN_METHOD),

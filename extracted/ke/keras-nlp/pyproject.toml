@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keras-nlp"
-version = "0.22.2"
-dependencies = ["keras-hub==0.22.2"]
+version = "0.25.1"
+dependencies = ["keras-hub==0.25.1"]
 authors = [
     {name = "Keras team", email = "keras-users@googlegroups.com"},
 ]

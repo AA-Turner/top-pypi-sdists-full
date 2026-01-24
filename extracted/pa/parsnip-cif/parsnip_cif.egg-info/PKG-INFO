@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parsnip-cif
-Version: 0.4.0
+Version: 0.5.0
 Summary: Minimal library for parsing CIF & mmCIF files in Python.
 Author-email: Jen Bradley <jenbrad@umich.edu>
 Project-URL: Source, https://github.com/glotzerlab/parsnip
@@ -14,47 +14,22 @@ Requires-Dist: more-itertools
 Provides-Extra: tests
 Requires-Dist: ase; extra == "tests"
 Requires-Dist: gemmi; extra == "tests"
+Requires-Dist: gsd; extra == "tests"
 Requires-Dist: pycifrw!=5.0.0; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: pytest-doctestplus; extra == "tests"
 Requires-Dist: pytest-xdist; extra == "tests"
+Requires-Dist: setuptools; extra == "tests"
 Requires-Dist: sympy; extra == "tests"
+Requires-Dist: wheel; extra == "tests"
 Provides-Extra: doc
-Requires-Dist: alabaster==1.0.0; extra == "doc"
-Requires-Dist: autodocsumm==0.2.14; extra == "doc"
-Requires-Dist: babel==2.17.0; extra == "doc"
-Requires-Dist: beautifulsoup4==4.13.4; extra == "doc"
-Requires-Dist: certifi==2025.6.15; extra == "doc"
-Requires-Dist: charset-normalizer==3.4.2; extra == "doc"
-Requires-Dist: docutils==0.21.2; extra == "doc"
-Requires-Dist: furo==2024.8.6; extra == "doc"
-Requires-Dist: idna==3.10; extra == "doc"
-Requires-Dist: imagesize==1.4.1; extra == "doc"
-Requires-Dist: iniconfig==2.1.0; extra == "doc"
-Requires-Dist: jinja2==3.1.6; extra == "doc"
-Requires-Dist: markupsafe==3.0.2; extra == "doc"
-Requires-Dist: numpy==2.3.1; extra == "doc"
-Requires-Dist: packaging==25.0; extra == "doc"
-Requires-Dist: pluggy==1.6.0; extra == "doc"
-Requires-Dist: pygments==2.19.2; extra == "doc"
-Requires-Dist: pytest==8.4.1; extra == "doc"
-Requires-Dist: pytest-doctestplus==1.4.0; extra == "doc"
-Requires-Dist: requests==2.32.4; extra == "doc"
-Requires-Dist: roman-numerals-py==3.1.0; extra == "doc"
-Requires-Dist: snowballstemmer==3.0.1; extra == "doc"
-Requires-Dist: soupsieve==2.7; extra == "doc"
-Requires-Dist: sphinx==8.2.3; extra == "doc"
-Requires-Dist: sphinx-basic-ng==1.0.0b2; extra == "doc"
-Requires-Dist: sphinx-copybutton==0.5.2; extra == "doc"
-Requires-Dist: sphinx-notfound-page==1.1.0; extra == "doc"
-Requires-Dist: sphinxcontrib-applehelp==2.0.0; extra == "doc"
-Requires-Dist: sphinxcontrib-devhelp==2.0.0; extra == "doc"
-Requires-Dist: sphinxcontrib-htmlhelp==2.1.0; extra == "doc"
-Requires-Dist: sphinxcontrib-jsmath==1.0.1; extra == "doc"
-Requires-Dist: sphinxcontrib-qthelp==2.0.0; extra == "doc"
-Requires-Dist: sphinxcontrib-serializinghtml==2.0.0; extra == "doc"
-Requires-Dist: typing-extensions==4.14.0; extra == "doc"
-Requires-Dist: urllib3==2.5.0; extra == "doc"
+Requires-Dist: autodocsumm; extra == "doc"
+Requires-Dist: furo; extra == "doc"
+Requires-Dist: numpy>=1.26.4; extra == "doc"
+Requires-Dist: sphinx>=7.3.7; extra == "doc"
+Requires-Dist: sphinx-copybutton; extra == "doc"
+Requires-Dist: sphinx-notfound-page; extra == "doc"
+Requires-Dist: pytest-doctestplus; extra == "doc"
 Provides-Extra: sympy
 Requires-Dist: sympy; extra == "sympy"
 Dynamic: license-file
@@ -66,9 +41,6 @@ Dynamic: license-file
 
 
 .. _header:
-
-..
-  TODO: set up Readthedocs, PyPI, and conda-forge
 
 |ReadTheDocs|
 |PyPI|

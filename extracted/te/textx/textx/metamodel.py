@@ -1,13 +1,13 @@
 """
 Meta-model construction.
 """
-import codecs
 import os
 import warnings
 from collections import OrderedDict
 from os.path import abspath, dirname, join
+from typing import Any, Dict, List
 
-from arpeggio import DebugPrinter
+from arpeggio import DebugPrinter, ParsingExpression
 
 from textx.const import (
     MULT_ONE,
@@ -73,7 +73,7 @@ def metamodel_from_file(file_name, **kwargs):
         file_name(str): The name of the file with textX language description.
         other params: See metamodel_from_str.
     """
-    with codecs.open(file_name, "r", "utf-8") as f:
+    with open(file_name, encoding="utf-8") as f:
         lang_desc = f.read()
 
     metamodel = metamodel_from_str(lang_desc=lang_desc, file_name=file_name, **kwargs)
@@ -128,10 +128,36 @@ class MetaAttr:
 class TextXMetaClass(type):
     """
     A meta-class for all textX generated classes.
+
+    Attributes:
+        _tx_fqn(str): A fully qualified name of the meta-class.
+        _tx_attrs(dict): A dict of meta-attributes keyed by name.
+            Used by common rules.
+        _tx_inh_by(list): Classes that inherits this one. Used by
+            abstract rules.
+        _tx_position(int): A position in the input string where
+            this class is defined.
+        _tx_position_end(int): A position in the input string where
+            this class ends.
+        _tx_type(str): The type of the textX rule this class is
+            created for. See textx.const
+        _tx_metamodel(TextXMetaModel): A metamodel this class
+            belongs to.
+        _tx_peg_rule(ParsingExpression): An Arpeggio PEG rule that
+            matches this class.
+
     """
+
+    _tx_fqn: str
+    _tx_attrs: Dict[str, MetaAttr]
+    _tx_inh_by: List[Any]
+    _tx_position: int
+    _tx_type: str
+    _tx_metamodel: "TextXMetaModel"
+    _tx_peg_rule: ParsingExpression
+
     def __repr__(cls):
         return f"<textx:{cls._tx_fqn} class at {id(cls)}>"
-
 
 
 class TextXMetaModel(DebugPrinter):
@@ -420,22 +446,6 @@ class TextXMetaModel(DebugPrinter):
             creating one Python class with the type name of the rule.
             textX model is a graph of instances of these Python classes.
 
-            Attributes:
-                _tx_attrs(dict): A dict of meta-attributes keyed by name.
-                    Used by common rules.
-                _tx_inh_by(list): Classes that inherits this one. Used by
-                    abstract rules.
-                _tx_position(int): A position in the input string where
-                    this class is defined.
-                _tx_position_end(int): A position in the input string where
-                    this class ends.
-                _tx_type(int): The type of the textX rule this class is
-                    created for. See textx.const
-                _tx_metamodel(TextXMetaModel): A metamodel this class
-                    belongs to.
-                _tx_peg_rule(ParsingExpression): An Arpeggio PEG rule that
-                    matches this class.
-
             """
 
             def __repr__(self):
@@ -503,7 +513,7 @@ class TextXMetaModel(DebugPrinter):
         if external_attributes:
             cls._tx_obj_attrs = {}
 
-    def _cls_fqn(self, cls):
+    def _cls_fqn(self, cls) -> str:
         """
         Returns fully qualified name for the class based on current namespace
         and the class name.
@@ -782,7 +792,7 @@ class TextXMetaModel(DebugPrinter):
         if not model:
             # Read model from file
             if not model_str:
-                with codecs.open(file_name, "r", encoding) as f:
+                with open(file_name, encoding=encoding) as f:
                     model_str = f.read()
             # model not present (from global repo) -> load it
             model = self._parser_blueprint.clone().get_model_from_str(

@@ -1,7 +1,5 @@
-var Jupyter
 var widgets = require("@jupyter-widgets/base")
-var NGL = require('ngl')
-var BaseView = require('./base').BaseView
+import * as NGL from "ngl"
 import * as $ from 'jquery'
 import * as _ from 'underscore'
 import "./lib/signals.min.js"
@@ -16,8 +14,8 @@ import { StageWidget } from "./gui"
 import { FullscreenModel, FullscreenView } from "./fullscreen"
 import { ColormakerRegistryModel, ColormakerRegistryView } from "./color"
 import { ThemeManagerModel, ThemeManagerView } from "./theme"
+import { MolstarModel, MolstarView } from "./molstarview/widget"
 
-NGL.nglview_debug = false
 
 // From NGL
 // http://www.broofa.com/Tools/Math.uuid.htm
@@ -45,18 +43,7 @@ function generateUUID() {
 }
 
 
-async function createView(that, trait_name) {
-    // Create a view for the model with given `trait_name`
-    // e.g: in backend, 'view.<trait_name>`
-    console.log("Creating view for model " + trait_name);
-    var manager = that.model.widget_manager
-    var model_id = that.model.get(trait_name).replace("IPY_MODEL_", "");
-    return await manager.create_view(await manager.get_model(model_id))
-}
-
-
-export
-    class NGLModel extends widgets.DOMWidgetModel {
+export class NGLModel extends widgets.DOMWidgetModel {
     defaults() {
         return _.extend(widgets.DOMWidgetModel.prototype.defaults(), {
             _model_name: 'NGLModel',
@@ -71,18 +58,19 @@ export
 
 export
     class NGLView extends widgets.DOMWidgetView {
+    stage: NGL.Stage
+
     render() {
-        this.beforeDisplay()
-        this.displayed.then(function () {
+        this.beforeDisplay();
+        this.displayed.then(() => {
             // move all below code inside 'displayed'
             // to make sure the NGLView and NGLModel are created
-            this.createStage()
-            this.handlePicking()
-            this.handleSignals()
-            this.handleMessage()
-            this.finalizeDisplay()
-        }.bind(this));
-
+            this.createStage();
+            this.handlePicking();
+            this.handleSignals();
+            this.handleMessage();
+            this.finalizeDisplay();
+        });
     }
 
     beforeDisplay() {
@@ -111,8 +99,6 @@ export
         if (!("backgroundColor" in stage_params)) {
             stage_params["backgroundColor"] = "white"
         }
-        NGL.useWorker = false;
-        var view_parent = this.options.parent
         this.stage = new NGL.Stage(undefined)
         this.$container = $(this.stage.viewer.container);
         this.$el.append(this.$container)
@@ -265,13 +251,16 @@ export
         }, this);
 
         this.stage.viewerControls.signals.changed.add(function () {
-            this.serialize_camera_orientation();
+            setTimeout(() => {
+                // https://github.com/nglviewer/nglview/issues/948#issuecomment-898121063
+                this.serialize_camera_orientation();
+            }, 100);
+
             var m = this.stage.viewerControls.getOrientation();
             if (that._synced_model_ids.length > 0 && that._ngl_focused == 1) {
                 that._synced_model_ids.forEach(async function (mid) {
                     var model = await that.model.widget_manager.get_model(mid)
                     for (var k in model.views) {
-                        var pview = model.views[k];
                         var view = await model.views[k]
                         if (view.uuid != that.uuid) {
                             view.stage.viewerControls.orient(m);
@@ -293,8 +282,7 @@ export
             .css("opacity", "0.7")
             .appendTo(this.$container);
 
-        var that = this;
-        this.stage.signals.clicked.add(function (pd) {
+        this.stage.signals.clicked.add((pd) => {
             if (pd) {
                 this.model.set('picked', {}); //refresh signal
                 this.touch();
@@ -328,7 +316,7 @@ export
 
                 this.$pickingInfo.text(pickingText);
             }
-        }, this);
+        });
     }
 
     async mouseOverDisplay(type) {
@@ -429,7 +417,7 @@ export
         });
 
 
-        var compList = await Promise.all(loadfile_list)
+        await Promise.all(loadfile_list)
         that.stage.setParameters(ngl_stage_params);
         that.set_camera_orientation(camera_orientation);
         that.touch();
@@ -471,7 +459,7 @@ export
         var keys = Object.keys(cdict).filter(k => (k !== 'n_frames'));
 
         for (var i = 0; i < keys.length; i++) {
-            var traj_index = keys[i];
+            var traj_index = parseInt(keys[i], 10);
             var coordinates = this.decode_base64(cdict[traj_index][frame_index]);
             if (coordinates && coordinates.byteLength > 0) {
                 this.updateCoordinates(coordinates, traj_index);
@@ -665,13 +653,13 @@ export
             this.stage.toggleFullscreen();
         }.bind(this)
         stage.viewer.container.append(view.el);
-        stage.signals.fullscreenChanged.add(function (isFullscreen) {
+        stage.signals.fullscreenChanged.add((isFullscreen) => {
             if (isFullscreen) {
-                view.model.set("icon", "compress")
+                view.model.set("icon", "compress");
             } else {
-                view.model.set("icon", "expand")
+                view.model.set("icon", "expand");
             }
-        })
+        });
     }
 
 
@@ -712,65 +700,45 @@ export
         }
     }
 
-    removeRepresentationsByName(repr_name, component_index) {
+    removeRepresentationsByName = (repr_name, component_index) => {
         var component = this.stage.compList[component_index];
 
         if (component) {
-            component.reprList.forEach(function (repr) {
+            component.reprList.forEach((repr) => {
                 if (repr.name == repr_name) {
                     component.removeRepresentation(repr);
                 }
-            })
+            });
         }
     }
 
-    updateRepresentationForComponent(repr_index, component_index, params) {
+    updateRepresentationForComponent = (repr_index, component_index, params) => {
         var component = this.stage.compList[component_index];
-        var that = this;
         var repr = component.reprList[repr_index];
         if (repr) {
             repr.setParameters(params);
         }
     }
 
-    updateRepresentationsByName(repr_name, component_index, params) {
-        var component = this.stage.compList[component_index];
-        var that = this;
+    updateRepresentationsByName = (repr_name: string, component_index: number, params: any): void => {
+        const component = this.stage.compList[component_index];
 
         if (component) {
-            component.reprList.forEach(function (repr) {
-                if (repr.name == repr_name) {
+            component.reprList.forEach((repr: any) => {
+                if (repr.name === repr_name) {
                     repr.setParameters(params);
-                    that.request_repr_dict();
+                    this.request_repr_dict();
                 }
-            })
+            });
         }
     }
 
-    setRepresentation(name, params, component_index, repr_index) {
-        var component = this.stage.compList[component_index];
-        var repr = component.reprList[repr_index];
-        var that = this;
-
-        if (repr) {
-            params['useWorker'] = false;
-            var new_repr = NGL.makeRepresentation(name, component.structure,
-                this.stage.viewer, params);
-            if (new_repr) {
-                repr.setRepresentation(new_repr);
-                repr.name = name;
-                component.reprList[repr_index] = repr;
-                that.request_repr_dict();
-            }
-        }
-    }
-
-    setColorByResidue(colors, component_index, repr_index) {
+    setColorByResidue = (colors, component_index, repr_index) => {
         var repr = this.stage.compList[component_index].reprList[repr_index];
-        var schemeId = NGL.ColormakerRegistry.addScheme(function (params) {
-            this.atomColor = function (atom) {
+        var schemeId = NGL.ColormakerRegistry.addScheme((params) => {
+            this.atomColor = (atom) => {
                 var color = colors[atom.residueIndex];
-                return color
+                return color;
             };
             params; // to pass eslint; ack;
         });
@@ -805,13 +773,15 @@ export
             // shape.func(params);
         }
         var shapeComp = this.stage.addComponentFromObject(shape);
-        shapeComp.addRepresentation("buffer");
+        if (shapeComp) {
+            shapeComp.addRepresentation("buffer", {});
+        }
     }
 
     addBuffer(name, kwargs) {
         var class_dict = {
             "arrow": NGL.ArrowBuffer,
-            "box": NGL.BoXbuffer,
+            "box": NGL.BoxBuffer,
             "cone": NGL.ConeBuffer,
             "cylinder": NGL.CylinderBuffer,
             "ellipsoid": NGL.EllipsoidBuffer,
@@ -831,26 +801,30 @@ export
         var buffer = new buffer_class(params);
         shape.addBuffer(buffer);
         var shapeComp = this.stage.addComponentFromObject(shape);
-        shapeComp.addRepresentation("buffer");
+        if (shapeComp) {
+            shapeComp.addRepresentation("buffer", {});
+        }
     }
 
     async replaceStructure(structure) {
         var blob = new Blob([structure.data], { type: "text/plain" });
-        var stage = this.stage
+        var stage = this.stage;
         var params = structure.params || {};
         params.ext = structure.ext;
         params.defaultRepresentation = false;
         var comp = this.stage.compList[0];
         var representations = comp.reprList.slice();
         var old_orientation = this.stage.viewerControls.getOrientation();
-        var component = await this.stage.loadFile(blob, params)
+        var component = await this.stage.loadFile(blob, params);
         stage.viewerControls.orient(old_orientation);
-        representations.forEach(function (repr) {
+        representations.forEach((repr) => {
             var repr_name = repr.name;
             var repr_params = repr.repr.getParameters();
             // Note: not using repr.repr.type, repr.repr.params
             // since seems to me that repr.repr.params won't return correct "sele"
-            component.addRepresentation(repr_name, repr_params);
+            if (component) {
+                component.addRepresentation(repr_name, repr_params);
+            }
         });
         stage.removeComponent(comp);
         this._handleLoadFileFinished();
@@ -860,7 +834,7 @@ export
         // superpose two components with given params
         var component0 = this.stage.compList[cindex0];
         var component1 = this.stage.compList[cindex1];
-        component1.superpose(component0, align, sele0, sele1);
+        (component1 as NGL.StructureComponent).superpose(component0 as NGL.StructureComponent, align, sele0, sele1);
     }
 
     decode_base64(base64) {
@@ -904,12 +878,12 @@ export
         return arraybuffer;
     }
 
-    updateCoordinates(coordinates, model) {
+    updateCoordinates(coordinates: ArrayBuffer, model: number) {
         // coordinates must be ArrayBuffer (use this.decode_base64)
         var component = this.stage.compList[model];
         if (coordinates && component) {
             var coords = new Float32Array(coordinates);
-            component.structure.updatePosition(coords);
+            (component as NGL.StructureComponent).structure.updatePosition(coords);
             component.updateRepresentations({
                 "position": true
             });
@@ -1105,10 +1079,12 @@ export
         if (msg.methodName === 'addRepresentation' && msg.reconstruc_color_scheme) {
             msg.kwargs.color = this.addColorScheme(msg.kwargs.color, msg.kwargs.color_label);
         }
-        if ("colorVolume" in msg.kwargs) {
-            index = msg.kwargs["colorVolume"];
-            msg.kwargs["colorVolume"] = this.stage.compList[index].volume;
-        }
+
+        // FIXME:  Property 'volume' does not exist on type 'Component'.
+        // if ("colorVolume" in msg.kwargs) {
+        //     index = msg.kwargs["colorVolume"];
+        //     msg.kwargs["colorVolume"] = this.stage.compList[index].volume;
+        // }
 
         switch (msg.target) {
             case 'Stage':
@@ -1140,9 +1116,7 @@ export
 
     async handleStageMethod(msg, new_args) {
         var stage_func = this.stage[msg.methodName];
-        if (msg.methodName === 'screenshot') {
-            NGL.screenshot(this.stage.viewer, msg.kwargs);
-        } else if (msg.methodName === 'removeComponent') {
+        if (msg.methodName === 'removeComponent') {
             var component = this.stage.compList[msg.args[0]];
             this.stage.removeComponent(component);
         } else if (msg.methodName === 'loadFile') {
@@ -1158,7 +1132,7 @@ export
     handleBase64Single(coordinatesDict) {
         var keys = Object.keys(coordinatesDict);
         for (var i = 0; i < keys.length; i++) {
-            var traj_index = keys[i];
+            var traj_index = parseInt(keys[i], 10);
             var coordinates = this.decode_base64(coordinatesDict[traj_index]);
             if (coordinates && coordinates.byteLength > 0) {
                 this.updateCoordinates(coordinates, traj_index);
@@ -1170,7 +1144,7 @@ export
         var coordinateMeta = msg.data;
         var keys = Object.keys(coordinateMeta);
         for (var i = 0; i < keys.length; i++) {
-            var traj_index = keys[i];
+            var traj_index = parseInt(keys[i], 10);
             var coordinates = new Float32Array(msg.buffers[i].buffer);
             if (coordinates.byteLength > 0) {
                 this.updateCoordinates(coordinates, traj_index);
@@ -1204,4 +1178,6 @@ module.exports = {
     'ColormakerRegistryView': ColormakerRegistryView,
     'ThemeManagerModel': ThemeManagerModel,
     'ThemeManagerView': ThemeManagerView,
+    'MolstarModel': MolstarModel,
+    'MolstarView': MolstarView,
 }

@@ -3,7 +3,7 @@ Type annotations for memorydb service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_memorydb/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -86,6 +87,10 @@ from .type_defs import (
     DescribeEventsResponseTypeDef,
     DescribeMultiRegionClustersRequestTypeDef,
     DescribeMultiRegionClustersResponseTypeDef,
+    DescribeMultiRegionParameterGroupsRequestTypeDef,
+    DescribeMultiRegionParameterGroupsResponseTypeDef,
+    DescribeMultiRegionParametersRequestTypeDef,
+    DescribeMultiRegionParametersResponseTypeDef,
     DescribeParameterGroupsRequestTypeDef,
     DescribeParameterGroupsResponseTypeDef,
     DescribeParametersRequestTypeDef,
@@ -132,11 +137,6 @@ from .type_defs import (
     UpdateUserResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -145,64 +145,64 @@ else:
 __all__ = ("MemoryDBClient",)
 
 class Exceptions(BaseClientExceptions):
-    ACLAlreadyExistsFault: Type[BotocoreClientError]
-    ACLNotFoundFault: Type[BotocoreClientError]
-    ACLQuotaExceededFault: Type[BotocoreClientError]
-    APICallRateForCustomerExceededFault: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ClusterAlreadyExistsFault: Type[BotocoreClientError]
-    ClusterNotFoundFault: Type[BotocoreClientError]
-    ClusterQuotaForCustomerExceededFault: Type[BotocoreClientError]
-    DefaultUserRequired: Type[BotocoreClientError]
-    DuplicateUserNameFault: Type[BotocoreClientError]
-    InsufficientClusterCapacityFault: Type[BotocoreClientError]
-    InvalidACLStateFault: Type[BotocoreClientError]
-    InvalidARNFault: Type[BotocoreClientError]
-    InvalidClusterStateFault: Type[BotocoreClientError]
-    InvalidCredentialsException: Type[BotocoreClientError]
-    InvalidKMSKeyFault: Type[BotocoreClientError]
-    InvalidMultiRegionClusterStateFault: Type[BotocoreClientError]
-    InvalidNodeStateFault: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidParameterGroupStateFault: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    InvalidSnapshotStateFault: Type[BotocoreClientError]
-    InvalidSubnet: Type[BotocoreClientError]
-    InvalidUserStateFault: Type[BotocoreClientError]
-    InvalidVPCNetworkStateFault: Type[BotocoreClientError]
-    MultiRegionClusterAlreadyExistsFault: Type[BotocoreClientError]
-    MultiRegionClusterNotFoundFault: Type[BotocoreClientError]
-    MultiRegionParameterGroupNotFoundFault: Type[BotocoreClientError]
-    NoOperationFault: Type[BotocoreClientError]
-    NodeQuotaForClusterExceededFault: Type[BotocoreClientError]
-    NodeQuotaForCustomerExceededFault: Type[BotocoreClientError]
-    ParameterGroupAlreadyExistsFault: Type[BotocoreClientError]
-    ParameterGroupNotFoundFault: Type[BotocoreClientError]
-    ParameterGroupQuotaExceededFault: Type[BotocoreClientError]
-    ReservedNodeAlreadyExistsFault: Type[BotocoreClientError]
-    ReservedNodeNotFoundFault: Type[BotocoreClientError]
-    ReservedNodeQuotaExceededFault: Type[BotocoreClientError]
-    ReservedNodesOfferingNotFoundFault: Type[BotocoreClientError]
-    ServiceLinkedRoleNotFoundFault: Type[BotocoreClientError]
-    ServiceUpdateNotFoundFault: Type[BotocoreClientError]
-    ShardNotFoundFault: Type[BotocoreClientError]
-    ShardsPerClusterQuotaExceededFault: Type[BotocoreClientError]
-    SnapshotAlreadyExistsFault: Type[BotocoreClientError]
-    SnapshotNotFoundFault: Type[BotocoreClientError]
-    SnapshotQuotaExceededFault: Type[BotocoreClientError]
-    SubnetGroupAlreadyExistsFault: Type[BotocoreClientError]
-    SubnetGroupInUseFault: Type[BotocoreClientError]
-    SubnetGroupNotFoundFault: Type[BotocoreClientError]
-    SubnetGroupQuotaExceededFault: Type[BotocoreClientError]
-    SubnetInUse: Type[BotocoreClientError]
-    SubnetNotAllowedFault: Type[BotocoreClientError]
-    SubnetQuotaExceededFault: Type[BotocoreClientError]
-    TagNotFoundFault: Type[BotocoreClientError]
-    TagQuotaPerResourceExceeded: Type[BotocoreClientError]
-    TestFailoverNotAvailableFault: Type[BotocoreClientError]
-    UserAlreadyExistsFault: Type[BotocoreClientError]
-    UserNotFoundFault: Type[BotocoreClientError]
-    UserQuotaExceededFault: Type[BotocoreClientError]
+    ACLAlreadyExistsFault: type[BotocoreClientError]
+    ACLNotFoundFault: type[BotocoreClientError]
+    ACLQuotaExceededFault: type[BotocoreClientError]
+    APICallRateForCustomerExceededFault: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ClusterAlreadyExistsFault: type[BotocoreClientError]
+    ClusterNotFoundFault: type[BotocoreClientError]
+    ClusterQuotaForCustomerExceededFault: type[BotocoreClientError]
+    DefaultUserRequired: type[BotocoreClientError]
+    DuplicateUserNameFault: type[BotocoreClientError]
+    InsufficientClusterCapacityFault: type[BotocoreClientError]
+    InvalidACLStateFault: type[BotocoreClientError]
+    InvalidARNFault: type[BotocoreClientError]
+    InvalidClusterStateFault: type[BotocoreClientError]
+    InvalidCredentialsException: type[BotocoreClientError]
+    InvalidKMSKeyFault: type[BotocoreClientError]
+    InvalidMultiRegionClusterStateFault: type[BotocoreClientError]
+    InvalidNodeStateFault: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidParameterGroupStateFault: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    InvalidSnapshotStateFault: type[BotocoreClientError]
+    InvalidSubnet: type[BotocoreClientError]
+    InvalidUserStateFault: type[BotocoreClientError]
+    InvalidVPCNetworkStateFault: type[BotocoreClientError]
+    MultiRegionClusterAlreadyExistsFault: type[BotocoreClientError]
+    MultiRegionClusterNotFoundFault: type[BotocoreClientError]
+    MultiRegionParameterGroupNotFoundFault: type[BotocoreClientError]
+    NoOperationFault: type[BotocoreClientError]
+    NodeQuotaForClusterExceededFault: type[BotocoreClientError]
+    NodeQuotaForCustomerExceededFault: type[BotocoreClientError]
+    ParameterGroupAlreadyExistsFault: type[BotocoreClientError]
+    ParameterGroupNotFoundFault: type[BotocoreClientError]
+    ParameterGroupQuotaExceededFault: type[BotocoreClientError]
+    ReservedNodeAlreadyExistsFault: type[BotocoreClientError]
+    ReservedNodeNotFoundFault: type[BotocoreClientError]
+    ReservedNodeQuotaExceededFault: type[BotocoreClientError]
+    ReservedNodesOfferingNotFoundFault: type[BotocoreClientError]
+    ServiceLinkedRoleNotFoundFault: type[BotocoreClientError]
+    ServiceUpdateNotFoundFault: type[BotocoreClientError]
+    ShardNotFoundFault: type[BotocoreClientError]
+    ShardsPerClusterQuotaExceededFault: type[BotocoreClientError]
+    SnapshotAlreadyExistsFault: type[BotocoreClientError]
+    SnapshotNotFoundFault: type[BotocoreClientError]
+    SnapshotQuotaExceededFault: type[BotocoreClientError]
+    SubnetGroupAlreadyExistsFault: type[BotocoreClientError]
+    SubnetGroupInUseFault: type[BotocoreClientError]
+    SubnetGroupNotFoundFault: type[BotocoreClientError]
+    SubnetGroupQuotaExceededFault: type[BotocoreClientError]
+    SubnetInUse: type[BotocoreClientError]
+    SubnetNotAllowedFault: type[BotocoreClientError]
+    SubnetQuotaExceededFault: type[BotocoreClientError]
+    TagNotFoundFault: type[BotocoreClientError]
+    TagQuotaPerResourceExceeded: type[BotocoreClientError]
+    TestFailoverNotAvailableFault: type[BotocoreClientError]
+    UserAlreadyExistsFault: type[BotocoreClientError]
+    UserNotFoundFault: type[BotocoreClientError]
+    UserQuotaExceededFault: type[BotocoreClientError]
 
 class MemoryDBClient(AioBaseClient):
     """
@@ -448,6 +448,27 @@ class MemoryDBClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/memorydb/client/describe_multi_region_clusters.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_memorydb/client/#describe_multi_region_clusters)
+        """
+
+    async def describe_multi_region_parameter_groups(
+        self, **kwargs: Unpack[DescribeMultiRegionParameterGroupsRequestTypeDef]
+    ) -> DescribeMultiRegionParameterGroupsResponseTypeDef:
+        """
+        Returns a list of multi-region parameter groups.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/memorydb/client/describe_multi_region_parameter_groups.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_memorydb/client/#describe_multi_region_parameter_groups)
+        """
+
+    async def describe_multi_region_parameters(
+        self, **kwargs: Unpack[DescribeMultiRegionParametersRequestTypeDef]
+    ) -> DescribeMultiRegionParametersResponseTypeDef:
+        """
+        Returns the detailed parameter list for a particular multi-region parameter
+        group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/memorydb/client/describe_multi_region_parameters.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_memorydb/client/#describe_multi_region_parameters)
         """
 
     async def describe_parameter_groups(
@@ -822,7 +843,7 @@ class MemoryDBClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -4,7 +4,7 @@ Filings-related classes for the Entity package.
 This module contains classes related to SEC filings for entities, including
 collections of filings and filing facts.
 """
-from typing import List, Union
+from typing import List, Optional, Union
 
 import pandas as pd
 import pyarrow as pa
@@ -16,8 +16,8 @@ from rich.table import Table
 from rich.text import Text
 
 from edgar._filings import Filing, Filings, PagingState
-from edgar.core import IntString, log
-from edgar.formatting import accession_number_text, display_size
+from edgar.core import IntString, listify, log
+from edgar.display.formatting import accession_number_text, display_size
 from edgar.reference.forms import describe_form
 from edgar.richtools import Docs, df_to_rich_table, repr_rich
 
@@ -35,6 +35,20 @@ class EntityFiling(Filing):
 
     This extends the base Filing class with additional information
     and methods specific to SEC entities.
+
+    Attributes:
+        items (str): Filing items from SEC metadata. For 8-K filings, this indicates
+            which items are included (e.g., "2.02,9.01").
+
+            **Data Source**: This value comes from SEC filing metadata, not from parsing
+            the filing document itself.
+
+            **Legacy Limitation**: For legacy filings (1999-2011), the SEC's historical
+            metadata may be incorrect or incomplete. Modern filings (2012+) have
+            accurate metadata.
+
+            **Solution for Legacy Filings**: Use the ``parsed_items`` property to extract
+            accurate items from the filing document text. This works for all 8-K filings.
     """
 
     def __init__(self,
@@ -56,7 +70,7 @@ class EntityFiling(Filing):
         self.report_date = report_date
         self.acceptance_datetime = acceptance_datetime
         self.file_number: str = file_number
-        self.items: str = items
+        self.items: str = items  # See class docstring for important notes on data source and limitations
         self.size: int = size
         self.primary_document: str = primary_document
         self.primary_doc_description: str = primary_doc_description
@@ -66,6 +80,92 @@ class EntityFiling(Filing):
     def related_filings(self):
         """Get all the filings related to this one by file number."""
         return self.get_entity().get_filings(file_number=self.file_number, sort_by="filing_date")
+
+    @property
+    def parsed_items(self) -> str:
+        """
+        Extract 8-K items by parsing the filing document text.
+
+        This property parses the actual filing document to extract item numbers,
+        providing accurate items even when SEC metadata is incorrect or empty.
+        Items marked "Not Applicable" are filtered out, returning only substantive items.
+
+        Returns:
+            str: Comma-separated item numbers (e.g., "2.02,9.01" or "5,7").
+                 Returns empty string if no items found or if not an 8-K filing.
+
+        Note:
+            - For modern 8-K filings (2005+), this usually matches `items` from SEC metadata
+            - For legacy SGML filings (1999-2004), this provides accurate items when
+              SEC metadata is incorrect or incomplete
+            - Items marked "Not Applicable" are automatically filtered out
+            - This property requires downloading and parsing the filing document,
+              which is slower than accessing the `items` attribute
+
+        Example:
+            >>> filing = Company(864509).get_filings(form="8-K", filing_date='1999-10-13')[0]
+            >>> filing.items  # SEC metadata (may be wrong)
+            '3'
+            >>> filing.parsed_items  # Parsed from document (accurate)
+            '7'
+        """
+        import re
+
+        from edgar.documents.parser import HTMLParser
+
+        # Only parse 8-K filings
+        if not self.form or not self.form.startswith('8-K'):
+            return ""
+
+        try:
+            # Get the primary document content
+            content = self.document.download()
+
+            # Parse with new parser
+            parser = HTMLParser()
+            doc = parser.parse(content)
+            text = doc.text()
+
+            # Extract item numbers with their context to filter out "Not Applicable"
+            # Pattern captures: Item number and following text on same line
+            pattern = r'(?:ITEM|Item)\s+(\d+(?:\.\d+)?)\s*[:\.]?\s*([^\n]*)'
+            matches = re.findall(pattern, text, re.IGNORECASE)
+
+            # Valid 8-K item numbers:
+            # - Modern format: X.XX where X is 1-9 (e.g., 1.01, 2.02, 5.02, 9.01)
+            # - Legacy format: single digit 1-9
+            # Invalid: 401, 404 (from Section 401(k) or Section 404 references)
+            def is_valid_8k_item(item: str) -> bool:
+                if '.' in item:
+                    parts = item.split('.')
+                    # Format: X.XX where first part is 1-9
+                    return len(parts) == 2 and parts[0] in '123456789' and len(parts[1]) <= 2
+                else:
+                    # Legacy format: single digit 1-9
+                    return item in '123456789'
+
+            # Filter out items marked "Not Applicable" (common in legacy filings)
+            substantive_items = []
+            for item_num, description in matches:
+                # Skip invalid item numbers (like 401, 404 from Section references)
+                if not is_valid_8k_item(item_num):
+                    continue
+                desc_lower = description.lower().strip()
+                # Skip items explicitly marked as not applicable
+                if 'not applicable' in desc_lower:
+                    continue
+                # Skip grouped items like "Item 1-Item 4 Not Applicable"
+                if '-item' in desc_lower or 'item ' in desc_lower:
+                    continue
+                substantive_items.append(item_num)
+
+            # Deduplicate and sort
+            unique_items = sorted(set(substantive_items), key=lambda x: (float(x.split('.')[0]), float(x.split('.')[-1]) if '.' in x else 0))
+
+            return ','.join(unique_items)
+        except Exception as e:
+            log.warning(f"Failed to parse items from filing {self.accession_no}: {e}")
+            return ""
 
     def __str__(self):
         return (f"Filing(company='{self.company}', cik={self.cik}, form='{self.form}', "
@@ -85,7 +185,7 @@ class EntityFilings(Filings):
                  data: pa.Table,
                  cik: int,
                  company_name: str,
-                 original_state: PagingState = None):
+                 original_state: Optional[PagingState] = None):
         super().__init__(data, original_state=original_state)
         self.cik = cik
         self.company_name = company_name
@@ -121,13 +221,14 @@ class EntityFilings(Filings):
         )
 
     def filter(self,
-               form: Union[str, List[str]] = None,
-               amendments: bool = None,
-               filing_date: str = None,
-               date: str = None,
-               cik: Union[int, str, List[Union[int, str]]] = None,
-               ticker: Union[str, List[str]] = None,
-               accession_number: Union[str, List[str]] = None):
+               form: Optional[Union[str, List[str]]] = None,
+               amendments: Optional[bool] = None,
+               filing_date: Optional[str] = None,
+               date: Optional[str] = None,
+               cik: Optional[Union[int, str, List[Union[int, str]]]] = None,
+               ticker: Optional[Union[str, List[str]]] = None,
+               accession_number: Optional[Union[str, List[str]]] = None,
+               file_number: Optional[Union[str, List[str]]] = None):
         """
         Filter the filings based on various criteria.
 
@@ -139,6 +240,7 @@ class EntityFilings(Filings):
             cik: Filter by CIK
             ticker: Filter by ticker
             accession_number: Filter by accession number
+            file_number: Filter by file number
 
         Returns:
             Filtered EntityFilings
@@ -151,7 +253,12 @@ class EntityFilings(Filings):
                              cik=cik,
                              ticker=ticker,
                              accession_number=accession_number)
-        return EntityFilings(data=res.data, cik=self.cik, company_name=self.company_name)
+        if file_number:
+            data  = res.data.filter(
+                pc.is_in(res.data['fileNumber'], pa.array(listify(file_number))))
+        else:
+            data = res.data
+        return EntityFilings(data=data, cik=self.cik, company_name=self.company_name)
 
     def latest(self, n: int = 1):
         """
@@ -274,6 +381,84 @@ class EntityFilings(Filings):
     def __repr__(self):
         return repr_rich(self.__rich__())
 
+    def to_context(self, detail: str = 'standard') -> str:
+        """
+        Returns AI-optimized entity filings summary for language models.
+
+        This method extends Filings.to_context() with entity-specific context,
+        providing structured information in a markdown-KV format optimized for AI navigation.
+
+        Args:
+            detail: Level of detail to include:
+                - 'minimal': Basic collection info (~150 tokens)
+                - 'standard': Adds sample entries (~300 tokens)
+                - 'full': Adds form breakdown and crowdfunding details (~500 tokens)
+
+        Returns:
+            Markdown-KV formatted context string optimized for LLMs
+
+        Example:
+            >>> company = Company(1881570)
+            >>> filings = company.get_filings(form='C')
+            >>> print(filings.to_context('standard'))
+            FILINGS FOR: ViiT Health Inc
+            CIK: 1881570
+
+            Total: 5 filings
+            Forms: C, C-U, C-AR
+            Date Range: 2024-01-01 to 2025-06-11
+
+            AVAILABLE ACTIONS:
+              - Use .latest() to get most recent filing
+              - Use [index] to access specific filing (e.g., filings[0])
+              - Use .filter(form='C') to narrow by form type
+              - Use .docs for detailed API documentation
+
+            SAMPLE FILINGS:
+              0. Form C - 2025-06-11 - ViiT Health Inc
+              1. Form C-U - 2024-12-15 - ViiT Health Inc
+              2. Form C-AR - 2024-08-20 - ViiT Health Inc
+              ... (2 more)
+
+            CROWDFUNDING FILINGS:
+              C: 1 filing
+              C-U: 2 filings
+              C-AR: 2 filings
+        """
+        lines = []
+
+        # Header with entity info
+        lines.append(f"FILINGS FOR: {self.company_name}")
+        lines.append(f"CIK: {self.cik}")
+        lines.append("")
+
+        # Get base context from parent (without the header lines)
+        base_context = super().to_context(detail=detail)
+        # Skip first 2 lines (header and blank) from parent
+        base_lines = base_context.split('\n')[2:]
+        lines.extend(base_lines)
+
+        # Add entity-specific insights for standard/full
+        if detail in ['standard', 'full'] and len(self) > 0:
+            # Crowdfunding-specific breakdown
+            cf_forms = ['C', 'C/A', 'C-U', 'C-AR', 'C-TR']
+            forms_list = self.data['form'].to_pylist()
+            cf_filings = [f for f in forms_list if f.split('/')[0] in cf_forms]
+
+            if cf_filings:
+                from collections import Counter
+                cf_counts = Counter(cf_filings)
+
+                lines.append("")
+                lines.append("CROWDFUNDING FILINGS:")
+                # Order by typical lifecycle: C, C-U, C-AR, C-TR
+                for form in ['C', 'C/A', 'C-U', 'C-AR', 'C-TR']:
+                    if form in cf_counts:
+                        cnt = cf_counts[form]
+                        lines.append(f"  {form}: {cnt} {'filing' if cnt == 1 else 'filings'}")
+
+        return "\n".join(lines)
+
     def __rich__(self):
         # Create table with appropriate columns and styling
         table = Table(
@@ -349,7 +534,13 @@ class EntityFilings(Filings):
 
         # Get the subtitle
         start_date, end_date = self.date_range
-        subtitle = f"Company filings between {start_date:%Y-%m-%d} and {end_date:%Y-%m-%d}" if start_date else ""
+        date_range_text = f"Company filings between {start_date:%Y-%m-%d} and {end_date:%Y-%m-%d}" if start_date else "Company filings"
+        subtitle = Text.assemble(
+            (date_range_text, "dim"),
+            " • ",
+            ("filings.docs", "cyan dim"),
+            (" for usage guide", "dim")
+        )
         return Panel(
             Group(*elements),
             title=title,

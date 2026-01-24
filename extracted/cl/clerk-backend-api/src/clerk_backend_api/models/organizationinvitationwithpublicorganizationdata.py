@@ -5,6 +5,10 @@ from .organizationinvitationpublicorganizationdata import (
     OrganizationInvitationPublicOrganizationData,
     OrganizationInvitationPublicOrganizationDataTypedDict,
 )
+from .organizationinvitationpublicuserdata import (
+    OrganizationInvitationPublicUserData,
+    OrganizationInvitationPublicUserDataTypedDict,
+)
 from clerk_backend_api.types import BaseModel, Nullable, UNSET_SENTINEL
 from enum import Enum
 from pydantic import model_serializer
@@ -29,6 +33,9 @@ class OrganizationInvitationWithPublicOrganizationDataTypedDict(TypedDict):
     email_address: str
     role: str
     role_name: str
+    inviter_id: Nullable[str]
+    public_inviter_data: Nullable[OrganizationInvitationPublicUserDataTypedDict]
+    r"""An organization inviter's public user data"""
     public_metadata: Dict[str, Any]
     url: Nullable[str]
     expires_at: Nullable[int]
@@ -61,6 +68,11 @@ class OrganizationInvitationWithPublicOrganizationData(BaseModel):
 
     role_name: str
 
+    inviter_id: Nullable[str]
+
+    public_inviter_data: Nullable[OrganizationInvitationPublicUserData]
+    r"""An organization inviter's public user data"""
+
     public_metadata: Dict[str, Any]
 
     url: Nullable[str]
@@ -92,7 +104,7 @@ class OrganizationInvitationWithPublicOrganizationData(BaseModel):
             "private_metadata",
             "public_organization_data",
         ]
-        nullable_fields = ["url", "expires_at"]
+        nullable_fields = ["inviter_id", "public_inviter_data", "url", "expires_at"]
         null_default_fields = []
 
         serialized = handler(self)

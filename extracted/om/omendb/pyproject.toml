@@ -1,0 +1,78 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "omendb"
+dynamic = ["version"]
+readme = "README.md"
+description = "Fast embedded vector database with HNSW + ACORN-1 filtered search"
+authors = [{ name = "OmenDB Team" }]
+license = { text = "Elastic-2.0" }
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Rust",
+]
+dependencies = [
+    "chromadb>=1.3.5",
+    "hnswlib>=0.8.0",
+    "lancedb>=0.26.1",
+    "numpy>=1.24.4",
+    "qdrant-client>=1.16.1",
+]
+
+[project.optional-dependencies]
+langchain = [
+    "langchain-core>=0.2.0",
+]
+llamaindex = [
+    "llama-index-core>=0.10.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/omendb/omendb"
+Repository = "https://github.com/omendb/omendb"
+
+[tool.maturin]
+# Build options - mixed Rust/Python package
+module-name = "omendb.omendb"
+python-source = "."
+manifest-path = "python/Cargo.toml"
+
+[tool.pytest.ini_options]
+addopts = "-m 'not soak'"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "soak: marks tests as soak tests (long-running, skip by default, run with '-m soak')",
+]
+
+[dependency-groups]
+dev = [
+    "maturin>=1.0",
+    "pytest>=8.3.5",
+    "pytest-timeout>=2.3.0",
+    "ruff>=0.8.0",
+    "chromadb>=1.0.0",
+    "langchain-core>=0.2.0",
+    "llama-index-core>=0.10.0",
+    "sentence-transformers>=5.1.2",
+    "ty>=0.0.2",
+    "h5py>=3.10.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]  # line length handled separately

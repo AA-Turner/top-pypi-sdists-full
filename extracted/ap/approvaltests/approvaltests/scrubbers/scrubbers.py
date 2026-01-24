@@ -1,5 +1,5 @@
 import re
-from collections import abc, defaultdict
+from collections import defaultdict
 from typing import Callable, DefaultDict, Union
 
 from approval_utilities.utilities.logger.logging_instance import print_type
@@ -23,7 +23,7 @@ def create_regex_scrubber(
 
 
 def _replace_regex(text: str, regex: str, replacement: Callable[[int], str]) -> str:
-    matches = defaultdict(lambda: len(matches))  # type: DefaultDict[str, int]
+    matches: DefaultDict[str, int] = defaultdict(lambda: len(matches))
     return re.sub(regex, lambda m: replacement(matches[m.group(0)]), text)
 
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -267,8 +267,8 @@ class TooManyTagsException(ServiceException):
     status_code: int = 400
 
 
-ProcessedInputRecords = List[ProcessedInputRecord]
-RawInputRecords = List[RawInputRecord]
+ProcessedInputRecords = list[ProcessedInputRecord]
+RawInputRecords = list[RawInputRecord]
 
 
 class UnableToDetectSchemaException(ServiceException):
@@ -279,8 +279,8 @@ class UnableToDetectSchemaException(ServiceException):
     code: str = "UnableToDetectSchemaException"
     sender_fault: bool = False
     status_code: int = 400
-    RawInputRecords: Optional[RawInputRecords]
-    ProcessedInputRecords: Optional[ProcessedInputRecords]
+    RawInputRecords: RawInputRecords | None
+    ProcessedInputRecords: ProcessedInputRecords | None
 
 
 class UnsupportedOperationException(ServiceException):
@@ -306,27 +306,27 @@ ApplicationVersionId = int
 
 class AddApplicationCloudWatchLoggingOptionRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    CurrentApplicationVersionId: Optional[ApplicationVersionId]
+    CurrentApplicationVersionId: ApplicationVersionId | None
     CloudWatchLoggingOption: CloudWatchLoggingOption
-    ConditionalToken: Optional[ConditionalToken]
+    ConditionalToken: ConditionalToken | None
 
 
 class CloudWatchLoggingOptionDescription(TypedDict, total=False):
     """Describes the Amazon CloudWatch logging option."""
 
-    CloudWatchLoggingOptionId: Optional[Id]
+    CloudWatchLoggingOptionId: Id | None
     LogStreamARN: LogStreamARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
-CloudWatchLoggingOptionDescriptions = List[CloudWatchLoggingOptionDescription]
+CloudWatchLoggingOptionDescriptions = list[CloudWatchLoggingOptionDescription]
 
 
 class AddApplicationCloudWatchLoggingOptionResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    CloudWatchLoggingOptionDescriptions: Optional[CloudWatchLoggingOptionDescriptions]
-    OperationId: Optional[OperationId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    CloudWatchLoggingOptionDescriptions: CloudWatchLoggingOptionDescriptions | None
+    OperationId: OperationId | None
 
 
 class InputLambdaProcessor(TypedDict, total=False):
@@ -363,7 +363,7 @@ class InputLambdaProcessorDescription(TypedDict, total=False):
     """
 
     ResourceARN: ResourceARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
 class InputProcessingConfigurationDescription(TypedDict, total=False):
@@ -373,14 +373,14 @@ class InputProcessingConfigurationDescription(TypedDict, total=False):
     Lambda <https://docs.aws.amazon.com/lambda/>`__.
     """
 
-    InputLambdaProcessorDescription: Optional[InputLambdaProcessorDescription]
+    InputLambdaProcessorDescription: InputLambdaProcessorDescription | None
 
 
 class AddApplicationInputProcessingConfigurationResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    InputId: Optional[Id]
-    InputProcessingConfigurationDescription: Optional[InputProcessingConfigurationDescription]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    InputId: Id | None
+    InputProcessingConfigurationDescription: InputProcessingConfigurationDescription | None
 
 
 class RecordColumn(TypedDict, total=False):
@@ -392,11 +392,11 @@ class RecordColumn(TypedDict, total=False):
     """
 
     Name: RecordColumnName
-    Mapping: Optional[RecordColumnMapping]
+    Mapping: RecordColumnMapping | None
     SqlType: RecordColumnSqlType
 
 
-RecordColumns = List[RecordColumn]
+RecordColumns = list[RecordColumn]
 
 
 class CSVMappingParameters(TypedDict, total=False):
@@ -432,8 +432,8 @@ class MappingParameters(TypedDict, total=False):
     streaming source.
     """
 
-    JSONMappingParameters: Optional[JSONMappingParameters]
-    CSVMappingParameters: Optional[CSVMappingParameters]
+    JSONMappingParameters: JSONMappingParameters | None
+    CSVMappingParameters: CSVMappingParameters | None
 
 
 class RecordFormat(TypedDict, total=False):
@@ -443,7 +443,7 @@ class RecordFormat(TypedDict, total=False):
     """
 
     RecordFormatType: RecordFormatType
-    MappingParameters: Optional[MappingParameters]
+    MappingParameters: MappingParameters | None
 
 
 class SourceSchema(TypedDict, total=False):
@@ -453,7 +453,7 @@ class SourceSchema(TypedDict, total=False):
     """
 
     RecordFormat: RecordFormat
-    RecordEncoding: Optional[RecordEncoding]
+    RecordEncoding: RecordEncoding | None
     RecordColumns: RecordColumns
 
 
@@ -462,7 +462,7 @@ class InputParallelism(TypedDict, total=False):
     of in-application streams to create for a given streaming source.
     """
 
-    Count: Optional[InputParallelismCount]
+    Count: InputParallelismCount | None
 
 
 class KinesisFirehoseInput(TypedDict, total=False):
@@ -490,10 +490,10 @@ class Input(TypedDict, total=False):
     """
 
     NamePrefix: InAppStreamName
-    InputProcessingConfiguration: Optional[InputProcessingConfiguration]
-    KinesisStreamsInput: Optional[KinesisStreamsInput]
-    KinesisFirehoseInput: Optional[KinesisFirehoseInput]
-    InputParallelism: Optional[InputParallelism]
+    InputProcessingConfiguration: InputProcessingConfiguration | None
+    KinesisStreamsInput: KinesisStreamsInput | None
+    KinesisFirehoseInput: KinesisFirehoseInput | None
+    InputParallelism: InputParallelism | None
     InputSchema: SourceSchema
 
 
@@ -508,7 +508,7 @@ class InputStartingPositionConfiguration(TypedDict, total=False):
     source.
     """
 
-    InputStartingPosition: Optional[InputStartingPosition]
+    InputStartingPosition: InputStartingPosition | None
 
 
 class KinesisFirehoseInputDescription(TypedDict, total=False):
@@ -518,7 +518,7 @@ class KinesisFirehoseInputDescription(TypedDict, total=False):
     """
 
     ResourceARN: ResourceARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
 class KinesisStreamsInputDescription(TypedDict, total=False):
@@ -528,10 +528,10 @@ class KinesisStreamsInputDescription(TypedDict, total=False):
     """
 
     ResourceARN: ResourceARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
-InAppStreamNames = List[InAppStreamName]
+InAppStreamNames = list[InAppStreamName]
 
 
 class InputDescription(TypedDict, total=False):
@@ -539,24 +539,24 @@ class InputDescription(TypedDict, total=False):
     Data Analytics application.
     """
 
-    InputId: Optional[Id]
-    NamePrefix: Optional[InAppStreamName]
-    InAppStreamNames: Optional[InAppStreamNames]
-    InputProcessingConfigurationDescription: Optional[InputProcessingConfigurationDescription]
-    KinesisStreamsInputDescription: Optional[KinesisStreamsInputDescription]
-    KinesisFirehoseInputDescription: Optional[KinesisFirehoseInputDescription]
-    InputSchema: Optional[SourceSchema]
-    InputParallelism: Optional[InputParallelism]
-    InputStartingPositionConfiguration: Optional[InputStartingPositionConfiguration]
+    InputId: Id | None
+    NamePrefix: InAppStreamName | None
+    InAppStreamNames: InAppStreamNames | None
+    InputProcessingConfigurationDescription: InputProcessingConfigurationDescription | None
+    KinesisStreamsInputDescription: KinesisStreamsInputDescription | None
+    KinesisFirehoseInputDescription: KinesisFirehoseInputDescription | None
+    InputSchema: SourceSchema | None
+    InputParallelism: InputParallelism | None
+    InputStartingPositionConfiguration: InputStartingPositionConfiguration | None
 
 
-InputDescriptions = List[InputDescription]
+InputDescriptions = list[InputDescription]
 
 
 class AddApplicationInputResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    InputDescriptions: Optional[InputDescriptions]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    InputDescriptions: InputDescriptions | None
 
 
 class DestinationSchema(TypedDict, total=False):
@@ -604,9 +604,9 @@ class Output(TypedDict, total=False):
     """
 
     Name: InAppStreamName
-    KinesisStreamsOutput: Optional[KinesisStreamsOutput]
-    KinesisFirehoseOutput: Optional[KinesisFirehoseOutput]
-    LambdaOutput: Optional[LambdaOutput]
+    KinesisStreamsOutput: KinesisStreamsOutput | None
+    KinesisFirehoseOutput: KinesisFirehoseOutput | None
+    LambdaOutput: LambdaOutput | None
     DestinationSchema: DestinationSchema
 
 
@@ -622,7 +622,7 @@ class LambdaOutputDescription(TypedDict, total=False):
     """
 
     ResourceARN: ResourceARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
 class KinesisFirehoseOutputDescription(TypedDict, total=False):
@@ -632,7 +632,7 @@ class KinesisFirehoseOutputDescription(TypedDict, total=False):
     """
 
     ResourceARN: ResourceARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
 class KinesisStreamsOutputDescription(TypedDict, total=False):
@@ -641,7 +641,7 @@ class KinesisStreamsOutputDescription(TypedDict, total=False):
     """
 
     ResourceARN: ResourceARN
-    RoleARN: Optional[RoleARN]
+    RoleARN: RoleARN | None
 
 
 class OutputDescription(TypedDict, total=False):
@@ -652,21 +652,21 @@ class OutputDescription(TypedDict, total=False):
     delivery stream.
     """
 
-    OutputId: Optional[Id]
-    Name: Optional[InAppStreamName]
-    KinesisStreamsOutputDescription: Optional[KinesisStreamsOutputDescription]
-    KinesisFirehoseOutputDescription: Optional[KinesisFirehoseOutputDescription]
-    LambdaOutputDescription: Optional[LambdaOutputDescription]
-    DestinationSchema: Optional[DestinationSchema]
+    OutputId: Id | None
+    Name: InAppStreamName | None
+    KinesisStreamsOutputDescription: KinesisStreamsOutputDescription | None
+    KinesisFirehoseOutputDescription: KinesisFirehoseOutputDescription | None
+    LambdaOutputDescription: LambdaOutputDescription | None
+    DestinationSchema: DestinationSchema | None
 
 
-OutputDescriptions = List[OutputDescription]
+OutputDescriptions = list[OutputDescription]
 
 
 class AddApplicationOutputResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    OutputDescriptions: Optional[OutputDescriptions]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    OutputDescriptions: OutputDescriptions | None
 
 
 class S3ReferenceDataSource(TypedDict, total=False):
@@ -678,8 +678,8 @@ class S3ReferenceDataSource(TypedDict, total=False):
     trigger reloading of data into your application.
     """
 
-    BucketARN: Optional[BucketARN]
-    FileKey: Optional[FileKey]
+    BucketARN: BucketARN | None
+    FileKey: FileKey | None
 
 
 class ReferenceDataSource(TypedDict, total=False):
@@ -691,7 +691,7 @@ class ReferenceDataSource(TypedDict, total=False):
     """
 
     TableName: InAppTableName
-    S3ReferenceDataSource: Optional[S3ReferenceDataSource]
+    S3ReferenceDataSource: S3ReferenceDataSource | None
     ReferenceSchema: SourceSchema
 
 
@@ -708,7 +708,7 @@ class S3ReferenceDataSourceDescription(TypedDict, total=False):
 
     BucketARN: BucketARN
     FileKey: FileKey
-    ReferenceRoleARN: Optional[RoleARN]
+    ReferenceRoleARN: RoleARN | None
 
 
 class ReferenceDataSourceDescription(TypedDict, total=False):
@@ -719,20 +719,20 @@ class ReferenceDataSourceDescription(TypedDict, total=False):
     ReferenceId: Id
     TableName: InAppTableName
     S3ReferenceDataSourceDescription: S3ReferenceDataSourceDescription
-    ReferenceSchema: Optional[SourceSchema]
+    ReferenceSchema: SourceSchema | None
 
 
-ReferenceDataSourceDescriptions = List[ReferenceDataSourceDescription]
+ReferenceDataSourceDescriptions = list[ReferenceDataSourceDescription]
 
 
 class AddApplicationReferenceDataSourceResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    ReferenceDataSourceDescriptions: Optional[ReferenceDataSourceDescriptions]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    ReferenceDataSourceDescriptions: ReferenceDataSourceDescriptions | None
 
 
-SecurityGroupIds = List[SecurityGroupId]
-SubnetIds = List[SubnetId]
+SecurityGroupIds = list[SecurityGroupId]
+SubnetIds = list[SubnetId]
 
 
 class VpcConfiguration(TypedDict, total=False):
@@ -744,9 +744,9 @@ class VpcConfiguration(TypedDict, total=False):
 
 class AddApplicationVpcConfigurationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    CurrentApplicationVersionId: Optional[ApplicationVersionId]
+    CurrentApplicationVersionId: ApplicationVersionId | None
     VpcConfiguration: VpcConfiguration
-    ConditionalToken: Optional[ConditionalToken]
+    ConditionalToken: ConditionalToken | None
 
 
 class VpcConfigurationDescription(TypedDict, total=False):
@@ -759,10 +759,10 @@ class VpcConfigurationDescription(TypedDict, total=False):
 
 
 class AddApplicationVpcConfigurationResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    VpcConfigurationDescription: Optional[VpcConfigurationDescription]
-    OperationId: Optional[OperationId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    VpcConfigurationDescription: VpcConfigurationDescription | None
+    OperationId: OperationId | None
 
 
 class S3ContentLocation(TypedDict, total=False):
@@ -775,7 +775,7 @@ class S3ContentLocation(TypedDict, total=False):
 
     BucketARN: BucketARN
     FileKey: FileKey
-    ObjectVersion: Optional[ObjectVersion]
+    ObjectVersion: ObjectVersion | None
 
 
 ZipFileContent = bytes
@@ -786,15 +786,15 @@ class CodeContent(TypedDict, total=False):
     application code, for a Managed Service for Apache Flink application.
     """
 
-    TextContent: Optional[TextContent]
-    ZipFileContent: Optional[ZipFileContent]
-    S3ContentLocation: Optional[S3ContentLocation]
+    TextContent: TextContent | None
+    ZipFileContent: ZipFileContent | None
+    S3ContentLocation: S3ContentLocation | None
 
 
 class ApplicationCodeConfiguration(TypedDict, total=False):
     """Describes code configuration for an application."""
 
-    CodeContent: Optional[CodeContent]
+    CodeContent: CodeContent | None
     CodeContentType: CodeContentType
 
 
@@ -803,7 +803,7 @@ class S3ApplicationCodeLocationDescription(TypedDict, total=False):
 
     BucketARN: BucketARN
     FileKey: FileKey
-    ObjectVersion: Optional[ObjectVersion]
+    ObjectVersion: ObjectVersion | None
 
 
 CodeSize = int
@@ -814,17 +814,17 @@ class CodeContentDescription(TypedDict, total=False):
     application.
     """
 
-    TextContent: Optional[TextContent]
-    CodeMD5: Optional[CodeMD5]
-    CodeSize: Optional[CodeSize]
-    S3ApplicationCodeLocationDescription: Optional[S3ApplicationCodeLocationDescription]
+    TextContent: TextContent | None
+    CodeMD5: CodeMD5 | None
+    CodeSize: CodeSize | None
+    S3ApplicationCodeLocationDescription: S3ApplicationCodeLocationDescription | None
 
 
 class ApplicationCodeConfigurationDescription(TypedDict, total=False):
     """Describes code configuration for an application."""
 
     CodeContentType: CodeContentType
-    CodeContentDescription: Optional[CodeContentDescription]
+    CodeContentDescription: CodeContentDescription | None
 
 
 class S3ContentLocationUpdate(TypedDict, total=False):
@@ -832,9 +832,9 @@ class S3ContentLocationUpdate(TypedDict, total=False):
     application.
     """
 
-    BucketARNUpdate: Optional[BucketARN]
-    FileKeyUpdate: Optional[FileKey]
-    ObjectVersionUpdate: Optional[ObjectVersion]
+    BucketARNUpdate: BucketARN | None
+    FileKeyUpdate: FileKey | None
+    ObjectVersionUpdate: ObjectVersion | None
 
 
 class CodeContentUpdate(TypedDict, total=False):
@@ -842,9 +842,9 @@ class CodeContentUpdate(TypedDict, total=False):
     Apache Zeppelin.
     """
 
-    TextContentUpdate: Optional[TextContent]
-    ZipFileContentUpdate: Optional[ZipFileContent]
-    S3ContentLocationUpdate: Optional[S3ContentLocationUpdate]
+    TextContentUpdate: TextContent | None
+    ZipFileContentUpdate: ZipFileContent | None
+    S3ContentLocationUpdate: S3ContentLocationUpdate | None
 
 
 class ApplicationCodeConfigurationUpdate(TypedDict, total=False):
@@ -853,14 +853,14 @@ class ApplicationCodeConfigurationUpdate(TypedDict, total=False):
     SQL-based Kinesis Data Analytics application.
     """
 
-    CodeContentTypeUpdate: Optional[CodeContentType]
-    CodeContentUpdate: Optional[CodeContentUpdate]
+    CodeContentTypeUpdate: CodeContentType | None
+    CodeContentUpdate: CodeContentUpdate | None
 
 
 class ApplicationEncryptionConfiguration(TypedDict, total=False):
     """Specifies the configuration to manage encryption at rest."""
 
-    KeyId: Optional[KeyId]
+    KeyId: KeyId | None
     KeyType: KeyType
 
 
@@ -880,18 +880,18 @@ class CustomArtifactConfiguration(TypedDict, total=False):
     """
 
     ArtifactType: ArtifactType
-    S3ContentLocation: Optional[S3ContentLocation]
-    MavenReference: Optional[MavenReference]
+    S3ContentLocation: S3ContentLocation | None
+    MavenReference: MavenReference | None
 
 
-CustomArtifactsConfigurationList = List[CustomArtifactConfiguration]
+CustomArtifactsConfigurationList = list[CustomArtifactConfiguration]
 
 
 class S3ContentBaseLocation(TypedDict, total=False):
     """The S3 bucket that holds the application information."""
 
     BucketARN: BucketARN
-    BasePath: Optional[BasePath]
+    BasePath: BasePath | None
 
 
 class DeployAsApplicationConfiguration(TypedDict, total=False):
@@ -932,13 +932,13 @@ class ZeppelinMonitoringConfiguration(TypedDict, total=False):
 class ZeppelinApplicationConfiguration(TypedDict, total=False):
     """The configuration of a Managed Service for Apache Flink Studio notebook."""
 
-    MonitoringConfiguration: Optional[ZeppelinMonitoringConfiguration]
-    CatalogConfiguration: Optional[CatalogConfiguration]
-    DeployAsApplicationConfiguration: Optional[DeployAsApplicationConfiguration]
-    CustomArtifactsConfiguration: Optional[CustomArtifactsConfigurationList]
+    MonitoringConfiguration: ZeppelinMonitoringConfiguration | None
+    CatalogConfiguration: CatalogConfiguration | None
+    DeployAsApplicationConfiguration: DeployAsApplicationConfiguration | None
+    CustomArtifactsConfiguration: CustomArtifactsConfigurationList | None
 
 
-VpcConfigurations = List[VpcConfiguration]
+VpcConfigurations = list[VpcConfiguration]
 
 
 class ApplicationSystemRollbackConfiguration(TypedDict, total=False):
@@ -957,7 +957,7 @@ class ApplicationSnapshotConfiguration(TypedDict, total=False):
     SnapshotsEnabled: BooleanObject
 
 
-PropertyMap = Dict[PropertyKey, PropertyValue]
+PropertyMap = dict[PropertyKey, PropertyValue]
 
 
 class PropertyGroup(TypedDict, total=False):
@@ -967,7 +967,7 @@ class PropertyGroup(TypedDict, total=False):
     PropertyMap: PropertyMap
 
 
-PropertyGroups = List[PropertyGroup]
+PropertyGroups = list[PropertyGroup]
 
 
 class EnvironmentProperties(TypedDict, total=False):
@@ -988,9 +988,9 @@ class ParallelismConfiguration(TypedDict, total=False):
     """
 
     ConfigurationType: ConfigurationType
-    Parallelism: Optional[Parallelism]
-    ParallelismPerKPU: Optional[ParallelismPerKPU]
-    AutoScalingEnabled: Optional[BooleanObject]
+    Parallelism: Parallelism | None
+    ParallelismPerKPU: ParallelismPerKPU | None
+    AutoScalingEnabled: BooleanObject | None
 
 
 class MonitoringConfiguration(TypedDict, total=False):
@@ -1000,8 +1000,8 @@ class MonitoringConfiguration(TypedDict, total=False):
     """
 
     ConfigurationType: ConfigurationType
-    MetricsLevel: Optional[MetricsLevel]
-    LogLevel: Optional[LogLevel]
+    MetricsLevel: MetricsLevel | None
+    LogLevel: LogLevel | None
 
 
 MinPauseBetweenCheckpoints = int
@@ -1018,9 +1018,9 @@ class CheckpointConfiguration(TypedDict, total=False):
     """
 
     ConfigurationType: ConfigurationType
-    CheckpointingEnabled: Optional[BooleanObject]
-    CheckpointInterval: Optional[CheckpointInterval]
-    MinPauseBetweenCheckpoints: Optional[MinPauseBetweenCheckpoints]
+    CheckpointingEnabled: BooleanObject | None
+    CheckpointInterval: CheckpointInterval | None
+    MinPauseBetweenCheckpoints: MinPauseBetweenCheckpoints | None
 
 
 class FlinkApplicationConfiguration(TypedDict, total=False):
@@ -1028,14 +1028,14 @@ class FlinkApplicationConfiguration(TypedDict, total=False):
     Flink application or a Studio notebook.
     """
 
-    CheckpointConfiguration: Optional[CheckpointConfiguration]
-    MonitoringConfiguration: Optional[MonitoringConfiguration]
-    ParallelismConfiguration: Optional[ParallelismConfiguration]
+    CheckpointConfiguration: CheckpointConfiguration | None
+    MonitoringConfiguration: MonitoringConfiguration | None
+    ParallelismConfiguration: ParallelismConfiguration | None
 
 
-ReferenceDataSources = List[ReferenceDataSource]
-Outputs = List[Output]
-Inputs = List[Input]
+ReferenceDataSources = list[ReferenceDataSource]
+Outputs = list[Output]
+Inputs = list[Input]
 
 
 class SqlApplicationConfiguration(TypedDict, total=False):
@@ -1043,9 +1043,9 @@ class SqlApplicationConfiguration(TypedDict, total=False):
     SQL-based Kinesis Data Analytics application.
     """
 
-    Inputs: Optional[Inputs]
-    Outputs: Optional[Outputs]
-    ReferenceDataSources: Optional[ReferenceDataSources]
+    Inputs: Inputs | None
+    Outputs: Outputs | None
+    ReferenceDataSources: ReferenceDataSources | None
 
 
 class ApplicationConfiguration(TypedDict, total=False):
@@ -1053,40 +1053,40 @@ class ApplicationConfiguration(TypedDict, total=False):
     application.
     """
 
-    SqlApplicationConfiguration: Optional[SqlApplicationConfiguration]
-    FlinkApplicationConfiguration: Optional[FlinkApplicationConfiguration]
-    EnvironmentProperties: Optional[EnvironmentProperties]
-    ApplicationCodeConfiguration: Optional[ApplicationCodeConfiguration]
-    ApplicationSnapshotConfiguration: Optional[ApplicationSnapshotConfiguration]
-    ApplicationSystemRollbackConfiguration: Optional[ApplicationSystemRollbackConfiguration]
-    VpcConfigurations: Optional[VpcConfigurations]
-    ZeppelinApplicationConfiguration: Optional[ZeppelinApplicationConfiguration]
-    ApplicationEncryptionConfiguration: Optional[ApplicationEncryptionConfiguration]
+    SqlApplicationConfiguration: SqlApplicationConfiguration | None
+    FlinkApplicationConfiguration: FlinkApplicationConfiguration | None
+    EnvironmentProperties: EnvironmentProperties | None
+    ApplicationCodeConfiguration: ApplicationCodeConfiguration | None
+    ApplicationSnapshotConfiguration: ApplicationSnapshotConfiguration | None
+    ApplicationSystemRollbackConfiguration: ApplicationSystemRollbackConfiguration | None
+    VpcConfigurations: VpcConfigurations | None
+    ZeppelinApplicationConfiguration: ZeppelinApplicationConfiguration | None
+    ApplicationEncryptionConfiguration: ApplicationEncryptionConfiguration | None
 
 
 class ApplicationEncryptionConfigurationDescription(TypedDict, total=False):
     """Describes the encryption at rest configuration."""
 
-    KeyId: Optional[KeyId]
+    KeyId: KeyId | None
     KeyType: KeyType
 
 
 class CustomArtifactConfigurationDescription(TypedDict, total=False):
     """Specifies a dependency JAR or a JAR of user-defined functions."""
 
-    ArtifactType: Optional[ArtifactType]
-    S3ContentLocationDescription: Optional[S3ContentLocation]
-    MavenReferenceDescription: Optional[MavenReference]
+    ArtifactType: ArtifactType | None
+    S3ContentLocationDescription: S3ContentLocation | None
+    MavenReferenceDescription: MavenReference | None
 
 
-CustomArtifactsConfigurationDescriptionList = List[CustomArtifactConfigurationDescription]
+CustomArtifactsConfigurationDescriptionList = list[CustomArtifactConfigurationDescription]
 
 
 class S3ContentBaseLocationDescription(TypedDict, total=False):
     """The description of the S3 base location that holds the application."""
 
     BucketARN: BucketARN
-    BasePath: Optional[BasePath]
+    BasePath: BasePath | None
 
 
 class DeployAsApplicationConfigurationDescription(TypedDict, total=False):
@@ -1119,21 +1119,19 @@ class ZeppelinMonitoringConfigurationDescription(TypedDict, total=False):
     Service for Apache Flink Studio notebook.
     """
 
-    LogLevel: Optional[LogLevel]
+    LogLevel: LogLevel | None
 
 
 class ZeppelinApplicationConfigurationDescription(TypedDict, total=False):
     """The configuration of a Managed Service for Apache Flink Studio notebook."""
 
     MonitoringConfigurationDescription: ZeppelinMonitoringConfigurationDescription
-    CatalogConfigurationDescription: Optional[CatalogConfigurationDescription]
-    DeployAsApplicationConfigurationDescription: Optional[
-        DeployAsApplicationConfigurationDescription
-    ]
-    CustomArtifactsConfigurationDescription: Optional[CustomArtifactsConfigurationDescriptionList]
+    CatalogConfigurationDescription: CatalogConfigurationDescription | None
+    DeployAsApplicationConfigurationDescription: DeployAsApplicationConfigurationDescription | None
+    CustomArtifactsConfigurationDescription: CustomArtifactsConfigurationDescriptionList | None
 
 
-VpcConfigurationDescriptions = List[VpcConfigurationDescription]
+VpcConfigurationDescriptions = list[VpcConfigurationDescription]
 
 
 class ApplicationSystemRollbackConfigurationDescription(TypedDict, total=False):
@@ -1155,7 +1153,7 @@ class ApplicationSnapshotConfigurationDescription(TypedDict, total=False):
 class EnvironmentPropertyDescriptions(TypedDict, total=False):
     """Describes the execution properties for an Apache Flink runtime."""
 
-    PropertyGroupDescriptions: Optional[PropertyGroups]
+    PropertyGroupDescriptions: PropertyGroups | None
 
 
 class ParallelismConfigurationDescription(TypedDict, total=False):
@@ -1163,11 +1161,11 @@ class ParallelismConfigurationDescription(TypedDict, total=False):
     application executes multiple tasks simultaneously.
     """
 
-    ConfigurationType: Optional[ConfigurationType]
-    Parallelism: Optional[Parallelism]
-    ParallelismPerKPU: Optional[ParallelismPerKPU]
-    CurrentParallelism: Optional[Parallelism]
-    AutoScalingEnabled: Optional[BooleanObject]
+    ConfigurationType: ConfigurationType | None
+    Parallelism: Parallelism | None
+    ParallelismPerKPU: ParallelismPerKPU | None
+    CurrentParallelism: Parallelism | None
+    AutoScalingEnabled: BooleanObject | None
 
 
 class MonitoringConfigurationDescription(TypedDict, total=False):
@@ -1175,9 +1173,9 @@ class MonitoringConfigurationDescription(TypedDict, total=False):
     application.
     """
 
-    ConfigurationType: Optional[ConfigurationType]
-    MetricsLevel: Optional[MetricsLevel]
-    LogLevel: Optional[LogLevel]
+    ConfigurationType: ConfigurationType | None
+    MetricsLevel: MetricsLevel | None
+    LogLevel: LogLevel | None
 
 
 class CheckpointConfigurationDescription(TypedDict, total=False):
@@ -1185,10 +1183,10 @@ class CheckpointConfigurationDescription(TypedDict, total=False):
     Flink application.
     """
 
-    ConfigurationType: Optional[ConfigurationType]
-    CheckpointingEnabled: Optional[BooleanObject]
-    CheckpointInterval: Optional[CheckpointInterval]
-    MinPauseBetweenCheckpoints: Optional[MinPauseBetweenCheckpoints]
+    ConfigurationType: ConfigurationType | None
+    CheckpointingEnabled: BooleanObject | None
+    CheckpointInterval: CheckpointInterval | None
+    MinPauseBetweenCheckpoints: MinPauseBetweenCheckpoints | None
 
 
 class FlinkApplicationConfigurationDescription(TypedDict, total=False):
@@ -1196,10 +1194,10 @@ class FlinkApplicationConfigurationDescription(TypedDict, total=False):
     Flink application.
     """
 
-    CheckpointConfigurationDescription: Optional[CheckpointConfigurationDescription]
-    MonitoringConfigurationDescription: Optional[MonitoringConfigurationDescription]
-    ParallelismConfigurationDescription: Optional[ParallelismConfigurationDescription]
-    JobPlanDescription: Optional[JobPlanDescription]
+    CheckpointConfigurationDescription: CheckpointConfigurationDescription | None
+    MonitoringConfigurationDescription: MonitoringConfigurationDescription | None
+    ParallelismConfigurationDescription: ParallelismConfigurationDescription | None
+    JobPlanDescription: JobPlanDescription | None
 
 
 class FlinkRunConfiguration(TypedDict, total=False):
@@ -1207,7 +1205,7 @@ class FlinkRunConfiguration(TypedDict, total=False):
     application.
     """
 
-    AllowNonRestoredState: Optional[BooleanObject]
+    AllowNonRestoredState: BooleanObject | None
 
 
 class ApplicationRestoreConfiguration(TypedDict, total=False):
@@ -1216,7 +1214,7 @@ class ApplicationRestoreConfiguration(TypedDict, total=False):
     """
 
     ApplicationRestoreType: ApplicationRestoreType
-    SnapshotName: Optional[SnapshotName]
+    SnapshotName: SnapshotName | None
 
 
 class RunConfigurationDescription(TypedDict, total=False):
@@ -1224,8 +1222,8 @@ class RunConfigurationDescription(TypedDict, total=False):
     application.
     """
 
-    ApplicationRestoreConfigurationDescription: Optional[ApplicationRestoreConfiguration]
-    FlinkRunConfigurationDescription: Optional[FlinkRunConfiguration]
+    ApplicationRestoreConfigurationDescription: ApplicationRestoreConfiguration | None
+    FlinkRunConfigurationDescription: FlinkRunConfiguration | None
 
 
 class SqlApplicationConfigurationDescription(TypedDict, total=False):
@@ -1233,9 +1231,9 @@ class SqlApplicationConfigurationDescription(TypedDict, total=False):
     SQL-based Kinesis Data Analytics application.
     """
 
-    InputDescriptions: Optional[InputDescriptions]
-    OutputDescriptions: Optional[OutputDescriptions]
-    ReferenceDataSourceDescriptions: Optional[ReferenceDataSourceDescriptions]
+    InputDescriptions: InputDescriptions | None
+    OutputDescriptions: OutputDescriptions | None
+    ReferenceDataSourceDescriptions: ReferenceDataSourceDescriptions | None
 
 
 class ApplicationConfigurationDescription(TypedDict, total=False):
@@ -1243,30 +1241,26 @@ class ApplicationConfigurationDescription(TypedDict, total=False):
     a Managed Service for Apache Flink application.
     """
 
-    SqlApplicationConfigurationDescription: Optional[SqlApplicationConfigurationDescription]
-    ApplicationCodeConfigurationDescription: Optional[ApplicationCodeConfigurationDescription]
-    RunConfigurationDescription: Optional[RunConfigurationDescription]
-    FlinkApplicationConfigurationDescription: Optional[FlinkApplicationConfigurationDescription]
-    EnvironmentPropertyDescriptions: Optional[EnvironmentPropertyDescriptions]
-    ApplicationSnapshotConfigurationDescription: Optional[
-        ApplicationSnapshotConfigurationDescription
-    ]
-    ApplicationSystemRollbackConfigurationDescription: Optional[
-        ApplicationSystemRollbackConfigurationDescription
-    ]
-    VpcConfigurationDescriptions: Optional[VpcConfigurationDescriptions]
-    ZeppelinApplicationConfigurationDescription: Optional[
-        ZeppelinApplicationConfigurationDescription
-    ]
-    ApplicationEncryptionConfigurationDescription: Optional[
-        ApplicationEncryptionConfigurationDescription
-    ]
+    SqlApplicationConfigurationDescription: SqlApplicationConfigurationDescription | None
+    ApplicationCodeConfigurationDescription: ApplicationCodeConfigurationDescription | None
+    RunConfigurationDescription: RunConfigurationDescription | None
+    FlinkApplicationConfigurationDescription: FlinkApplicationConfigurationDescription | None
+    EnvironmentPropertyDescriptions: EnvironmentPropertyDescriptions | None
+    ApplicationSnapshotConfigurationDescription: ApplicationSnapshotConfigurationDescription | None
+    ApplicationSystemRollbackConfigurationDescription: (
+        ApplicationSystemRollbackConfigurationDescription | None
+    )
+    VpcConfigurationDescriptions: VpcConfigurationDescriptions | None
+    ZeppelinApplicationConfigurationDescription: ZeppelinApplicationConfigurationDescription | None
+    ApplicationEncryptionConfigurationDescription: (
+        ApplicationEncryptionConfigurationDescription | None
+    )
 
 
 class ApplicationEncryptionConfigurationUpdate(TypedDict, total=False):
     """Describes configuration updates to encryption at rest."""
 
-    KeyIdUpdate: Optional[KeyId]
+    KeyIdUpdate: KeyId | None
     KeyTypeUpdate: KeyType
 
 
@@ -1275,8 +1269,8 @@ class S3ContentBaseLocationUpdate(TypedDict, total=False):
     application.
     """
 
-    BucketARNUpdate: Optional[BucketARN]
-    BasePathUpdate: Optional[BasePath]
+    BucketARNUpdate: BucketARN | None
+    BasePathUpdate: BasePath | None
 
 
 class DeployAsApplicationConfigurationUpdate(TypedDict, total=False):
@@ -1284,7 +1278,7 @@ class DeployAsApplicationConfigurationUpdate(TypedDict, total=False):
     Data Analytics Studio notebook as an application with durable state.
     """
 
-    S3ContentLocationUpdate: Optional[S3ContentBaseLocationUpdate]
+    S3ContentLocationUpdate: S3ContentBaseLocationUpdate | None
 
 
 class GlueDataCatalogConfigurationUpdate(TypedDict, total=False):
@@ -1318,21 +1312,21 @@ class ZeppelinApplicationConfigurationUpdate(TypedDict, total=False):
     notebook.
     """
 
-    MonitoringConfigurationUpdate: Optional[ZeppelinMonitoringConfigurationUpdate]
-    CatalogConfigurationUpdate: Optional[CatalogConfigurationUpdate]
-    DeployAsApplicationConfigurationUpdate: Optional[DeployAsApplicationConfigurationUpdate]
-    CustomArtifactsConfigurationUpdate: Optional[CustomArtifactsConfigurationList]
+    MonitoringConfigurationUpdate: ZeppelinMonitoringConfigurationUpdate | None
+    CatalogConfigurationUpdate: CatalogConfigurationUpdate | None
+    DeployAsApplicationConfigurationUpdate: DeployAsApplicationConfigurationUpdate | None
+    CustomArtifactsConfigurationUpdate: CustomArtifactsConfigurationList | None
 
 
 class VpcConfigurationUpdate(TypedDict, total=False):
     """Describes updates to the VPC configuration used by the application."""
 
     VpcConfigurationId: Id
-    SubnetIdUpdates: Optional[SubnetIds]
-    SecurityGroupIdUpdates: Optional[SecurityGroupIds]
+    SubnetIdUpdates: SubnetIds | None
+    SecurityGroupIdUpdates: SecurityGroupIds | None
 
 
-VpcConfigurationUpdates = List[VpcConfigurationUpdate]
+VpcConfigurationUpdates = list[VpcConfigurationUpdate]
 
 
 class ApplicationSystemRollbackConfigurationUpdate(TypedDict, total=False):
@@ -1364,10 +1358,10 @@ class ParallelismConfigurationUpdate(TypedDict, total=False):
     tasks simultaneously.
     """
 
-    ConfigurationTypeUpdate: Optional[ConfigurationType]
-    ParallelismUpdate: Optional[Parallelism]
-    ParallelismPerKPUUpdate: Optional[ParallelismPerKPU]
-    AutoScalingEnabledUpdate: Optional[BooleanObject]
+    ConfigurationTypeUpdate: ConfigurationType | None
+    ParallelismUpdate: Parallelism | None
+    ParallelismPerKPUUpdate: ParallelismPerKPU | None
+    AutoScalingEnabledUpdate: BooleanObject | None
 
 
 class MonitoringConfigurationUpdate(TypedDict, total=False):
@@ -1375,9 +1369,9 @@ class MonitoringConfigurationUpdate(TypedDict, total=False):
     logging for an application.
     """
 
-    ConfigurationTypeUpdate: Optional[ConfigurationType]
-    MetricsLevelUpdate: Optional[MetricsLevel]
-    LogLevelUpdate: Optional[LogLevel]
+    ConfigurationTypeUpdate: ConfigurationType | None
+    MetricsLevelUpdate: MetricsLevel | None
+    LogLevelUpdate: LogLevel | None
 
 
 class CheckpointConfigurationUpdate(TypedDict, total=False):
@@ -1385,10 +1379,10 @@ class CheckpointConfigurationUpdate(TypedDict, total=False):
     for Apache Flink application.
     """
 
-    ConfigurationTypeUpdate: Optional[ConfigurationType]
-    CheckpointingEnabledUpdate: Optional[BooleanObject]
-    CheckpointIntervalUpdate: Optional[CheckpointInterval]
-    MinPauseBetweenCheckpointsUpdate: Optional[MinPauseBetweenCheckpoints]
+    ConfigurationTypeUpdate: ConfigurationType | None
+    CheckpointingEnabledUpdate: BooleanObject | None
+    CheckpointIntervalUpdate: CheckpointInterval | None
+    MinPauseBetweenCheckpointsUpdate: MinPauseBetweenCheckpoints | None
 
 
 class FlinkApplicationConfigurationUpdate(TypedDict, total=False):
@@ -1396,9 +1390,9 @@ class FlinkApplicationConfigurationUpdate(TypedDict, total=False):
     for Apache Flink application.
     """
 
-    CheckpointConfigurationUpdate: Optional[CheckpointConfigurationUpdate]
-    MonitoringConfigurationUpdate: Optional[MonitoringConfigurationUpdate]
-    ParallelismConfigurationUpdate: Optional[ParallelismConfigurationUpdate]
+    CheckpointConfigurationUpdate: CheckpointConfigurationUpdate | None
+    MonitoringConfigurationUpdate: MonitoringConfigurationUpdate | None
+    ParallelismConfigurationUpdate: ParallelismConfigurationUpdate | None
 
 
 class S3ReferenceDataSourceUpdate(TypedDict, total=False):
@@ -1407,8 +1401,8 @@ class S3ReferenceDataSourceUpdate(TypedDict, total=False):
     table.
     """
 
-    BucketARNUpdate: Optional[BucketARN]
-    FileKeyUpdate: Optional[FileKey]
+    BucketARNUpdate: BucketARN | None
+    FileKeyUpdate: FileKey | None
 
 
 class ReferenceDataSourceUpdate(TypedDict, total=False):
@@ -1421,12 +1415,12 @@ class ReferenceDataSourceUpdate(TypedDict, total=False):
     """
 
     ReferenceId: Id
-    TableNameUpdate: Optional[InAppTableName]
-    S3ReferenceDataSourceUpdate: Optional[S3ReferenceDataSourceUpdate]
-    ReferenceSchemaUpdate: Optional[SourceSchema]
+    TableNameUpdate: InAppTableName | None
+    S3ReferenceDataSourceUpdate: S3ReferenceDataSourceUpdate | None
+    ReferenceSchemaUpdate: SourceSchema | None
 
 
-ReferenceDataSourceUpdates = List[ReferenceDataSourceUpdate]
+ReferenceDataSourceUpdates = list[ReferenceDataSourceUpdate]
 
 
 class LambdaOutputUpdate(TypedDict, total=False):
@@ -1465,14 +1459,14 @@ class OutputUpdate(TypedDict, total=False):
     """
 
     OutputId: Id
-    NameUpdate: Optional[InAppStreamName]
-    KinesisStreamsOutputUpdate: Optional[KinesisStreamsOutputUpdate]
-    KinesisFirehoseOutputUpdate: Optional[KinesisFirehoseOutputUpdate]
-    LambdaOutputUpdate: Optional[LambdaOutputUpdate]
-    DestinationSchemaUpdate: Optional[DestinationSchema]
+    NameUpdate: InAppStreamName | None
+    KinesisStreamsOutputUpdate: KinesisStreamsOutputUpdate | None
+    KinesisFirehoseOutputUpdate: KinesisFirehoseOutputUpdate | None
+    LambdaOutputUpdate: LambdaOutputUpdate | None
+    DestinationSchemaUpdate: DestinationSchema | None
 
 
-OutputUpdates = List[OutputUpdate]
+OutputUpdates = list[OutputUpdate]
 
 
 class InputParallelismUpdate(TypedDict, total=False):
@@ -1488,9 +1482,9 @@ class InputSchemaUpdate(TypedDict, total=False):
     input schema.
     """
 
-    RecordFormatUpdate: Optional[RecordFormat]
-    RecordEncodingUpdate: Optional[RecordEncoding]
-    RecordColumnUpdates: Optional[RecordColumns]
+    RecordFormatUpdate: RecordFormat | None
+    RecordEncodingUpdate: RecordEncoding | None
+    RecordColumnUpdates: RecordColumns | None
 
 
 class KinesisFirehoseInputUpdate(TypedDict, total=False):
@@ -1535,15 +1529,15 @@ class InputUpdate(TypedDict, total=False):
     """
 
     InputId: Id
-    NamePrefixUpdate: Optional[InAppStreamName]
-    InputProcessingConfigurationUpdate: Optional[InputProcessingConfigurationUpdate]
-    KinesisStreamsInputUpdate: Optional[KinesisStreamsInputUpdate]
-    KinesisFirehoseInputUpdate: Optional[KinesisFirehoseInputUpdate]
-    InputSchemaUpdate: Optional[InputSchemaUpdate]
-    InputParallelismUpdate: Optional[InputParallelismUpdate]
+    NamePrefixUpdate: InAppStreamName | None
+    InputProcessingConfigurationUpdate: InputProcessingConfigurationUpdate | None
+    KinesisStreamsInputUpdate: KinesisStreamsInputUpdate | None
+    KinesisFirehoseInputUpdate: KinesisFirehoseInputUpdate | None
+    InputSchemaUpdate: InputSchemaUpdate | None
+    InputParallelismUpdate: InputParallelismUpdate | None
 
 
-InputUpdates = List[InputUpdate]
+InputUpdates = list[InputUpdate]
 
 
 class SqlApplicationConfigurationUpdate(TypedDict, total=False):
@@ -1552,25 +1546,25 @@ class SqlApplicationConfigurationUpdate(TypedDict, total=False):
     application.
     """
 
-    InputUpdates: Optional[InputUpdates]
-    OutputUpdates: Optional[OutputUpdates]
-    ReferenceDataSourceUpdates: Optional[ReferenceDataSourceUpdates]
+    InputUpdates: InputUpdates | None
+    OutputUpdates: OutputUpdates | None
+    ReferenceDataSourceUpdates: ReferenceDataSourceUpdates | None
 
 
 class ApplicationConfigurationUpdate(TypedDict, total=False):
     """Describes updates to an application's configuration."""
 
-    SqlApplicationConfigurationUpdate: Optional[SqlApplicationConfigurationUpdate]
-    ApplicationCodeConfigurationUpdate: Optional[ApplicationCodeConfigurationUpdate]
-    FlinkApplicationConfigurationUpdate: Optional[FlinkApplicationConfigurationUpdate]
-    EnvironmentPropertyUpdates: Optional[EnvironmentPropertyUpdates]
-    ApplicationSnapshotConfigurationUpdate: Optional[ApplicationSnapshotConfigurationUpdate]
-    ApplicationSystemRollbackConfigurationUpdate: Optional[
-        ApplicationSystemRollbackConfigurationUpdate
-    ]
-    VpcConfigurationUpdates: Optional[VpcConfigurationUpdates]
-    ZeppelinApplicationConfigurationUpdate: Optional[ZeppelinApplicationConfigurationUpdate]
-    ApplicationEncryptionConfigurationUpdate: Optional[ApplicationEncryptionConfigurationUpdate]
+    SqlApplicationConfigurationUpdate: SqlApplicationConfigurationUpdate | None
+    ApplicationCodeConfigurationUpdate: ApplicationCodeConfigurationUpdate | None
+    FlinkApplicationConfigurationUpdate: FlinkApplicationConfigurationUpdate | None
+    EnvironmentPropertyUpdates: EnvironmentPropertyUpdates | None
+    ApplicationSnapshotConfigurationUpdate: ApplicationSnapshotConfigurationUpdate | None
+    ApplicationSystemRollbackConfigurationUpdate: (
+        ApplicationSystemRollbackConfigurationUpdate | None
+    )
+    VpcConfigurationUpdates: VpcConfigurationUpdates | None
+    ZeppelinApplicationConfigurationUpdate: ZeppelinApplicationConfigurationUpdate | None
+    ApplicationEncryptionConfigurationUpdate: ApplicationEncryptionConfigurationUpdate | None
 
 
 Timestamp = datetime
@@ -1589,25 +1583,25 @@ class ApplicationDetail(TypedDict, total=False):
     """
 
     ApplicationARN: ResourceARN
-    ApplicationDescription: Optional[ApplicationDescription]
+    ApplicationDescription: ApplicationDescription | None
     ApplicationName: ApplicationName
     RuntimeEnvironment: RuntimeEnvironment
-    ServiceExecutionRole: Optional[RoleARN]
+    ServiceExecutionRole: RoleARN | None
     ApplicationStatus: ApplicationStatus
     ApplicationVersionId: ApplicationVersionId
-    CreateTimestamp: Optional[Timestamp]
-    LastUpdateTimestamp: Optional[Timestamp]
-    ApplicationConfigurationDescription: Optional[ApplicationConfigurationDescription]
-    CloudWatchLoggingOptionDescriptions: Optional[CloudWatchLoggingOptionDescriptions]
-    ApplicationMaintenanceConfigurationDescription: Optional[
-        ApplicationMaintenanceConfigurationDescription
-    ]
-    ApplicationVersionUpdatedFrom: Optional[ApplicationVersionId]
-    ApplicationVersionRolledBackFrom: Optional[ApplicationVersionId]
-    ApplicationVersionCreateTimestamp: Optional[Timestamp]
-    ConditionalToken: Optional[ConditionalToken]
-    ApplicationVersionRolledBackTo: Optional[ApplicationVersionId]
-    ApplicationMode: Optional[ApplicationMode]
+    CreateTimestamp: Timestamp | None
+    LastUpdateTimestamp: Timestamp | None
+    ApplicationConfigurationDescription: ApplicationConfigurationDescription | None
+    CloudWatchLoggingOptionDescriptions: CloudWatchLoggingOptionDescriptions | None
+    ApplicationMaintenanceConfigurationDescription: (
+        ApplicationMaintenanceConfigurationDescription | None
+    )
+    ApplicationVersionUpdatedFrom: ApplicationVersionId | None
+    ApplicationVersionRolledBackFrom: ApplicationVersionId | None
+    ApplicationVersionCreateTimestamp: Timestamp | None
+    ConditionalToken: ConditionalToken | None
+    ApplicationVersionRolledBackTo: ApplicationVersionId | None
+    ApplicationMode: ApplicationMode | None
 
 
 class ApplicationMaintenanceConfigurationUpdate(TypedDict, total=False):
@@ -1621,24 +1615,24 @@ class ApplicationOperationInfo(TypedDict, total=False):
     about the updates that were made to the application.
     """
 
-    Operation: Optional[Operation]
-    OperationId: Optional[OperationId]
-    StartTime: Optional[Timestamp]
-    EndTime: Optional[Timestamp]
-    OperationStatus: Optional[OperationStatus]
+    Operation: Operation | None
+    OperationId: OperationId | None
+    StartTime: Timestamp | None
+    EndTime: Timestamp | None
+    OperationStatus: OperationStatus | None
 
 
 class ErrorInfo(TypedDict, total=False):
     """A description of the error that caused an operation to fail."""
 
-    ErrorString: Optional[ErrorString]
+    ErrorString: ErrorString | None
 
 
 class OperationFailureDetails(TypedDict, total=False):
     """Provides a description of the operation failure."""
 
-    RollbackOperationId: Optional[OperationId]
-    ErrorInfo: Optional[ErrorInfo]
+    RollbackOperationId: OperationId | None
+    ErrorInfo: ErrorInfo | None
 
 
 class ApplicationVersionChangeDetails(TypedDict, total=False):
@@ -1659,11 +1653,11 @@ class ApplicationOperationInfoDetails(TypedDict, total=False):
     StartTime: Timestamp
     EndTime: Timestamp
     OperationStatus: OperationStatus
-    ApplicationVersionChangeDetails: Optional[ApplicationVersionChangeDetails]
-    OperationFailureDetails: Optional[OperationFailureDetails]
+    ApplicationVersionChangeDetails: ApplicationVersionChangeDetails | None
+    OperationFailureDetails: OperationFailureDetails | None
 
 
-ApplicationOperationInfoList = List[ApplicationOperationInfo]
+ApplicationOperationInfoList = list[ApplicationOperationInfo]
 
 
 class ApplicationSummary(TypedDict, total=False):
@@ -1676,10 +1670,10 @@ class ApplicationSummary(TypedDict, total=False):
     ApplicationStatus: ApplicationStatus
     ApplicationVersionId: ApplicationVersionId
     RuntimeEnvironment: RuntimeEnvironment
-    ApplicationMode: Optional[ApplicationMode]
+    ApplicationMode: ApplicationMode | None
 
 
-ApplicationSummaries = List[ApplicationSummary]
+ApplicationSummaries = list[ApplicationSummary]
 
 
 class ApplicationVersionSummary(TypedDict, total=False):
@@ -1689,29 +1683,29 @@ class ApplicationVersionSummary(TypedDict, total=False):
     ApplicationStatus: ApplicationStatus
 
 
-ApplicationVersionSummaries = List[ApplicationVersionSummary]
+ApplicationVersionSummaries = list[ApplicationVersionSummary]
 
 
 class CloudWatchLoggingOptionUpdate(TypedDict, total=False):
     """Describes the Amazon CloudWatch logging option updates."""
 
     CloudWatchLoggingOptionId: Id
-    LogStreamARNUpdate: Optional[LogStreamARN]
+    LogStreamARNUpdate: LogStreamARN | None
 
 
-CloudWatchLoggingOptionUpdates = List[CloudWatchLoggingOptionUpdate]
-CloudWatchLoggingOptions = List[CloudWatchLoggingOption]
+CloudWatchLoggingOptionUpdates = list[CloudWatchLoggingOptionUpdate]
+CloudWatchLoggingOptions = list[CloudWatchLoggingOption]
 SessionExpirationDurationInSeconds = int
 
 
 class CreateApplicationPresignedUrlRequest(ServiceRequest):
     ApplicationName: ApplicationName
     UrlType: UrlType
-    SessionExpirationDurationInSeconds: Optional[SessionExpirationDurationInSeconds]
+    SessionExpirationDurationInSeconds: SessionExpirationDurationInSeconds | None
 
 
 class CreateApplicationPresignedUrlResponse(TypedDict, total=False):
-    AuthorizedUrl: Optional[AuthorizedUrl]
+    AuthorizedUrl: AuthorizedUrl | None
 
 
 class Tag(TypedDict, total=False):
@@ -1725,21 +1719,21 @@ class Tag(TypedDict, total=False):
     """
 
     Key: TagKey
-    Value: Optional[TagValue]
+    Value: TagValue | None
 
 
-Tags = List[Tag]
+Tags = list[Tag]
 
 
 class CreateApplicationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    ApplicationDescription: Optional[ApplicationDescription]
+    ApplicationDescription: ApplicationDescription | None
     RuntimeEnvironment: RuntimeEnvironment
     ServiceExecutionRole: RoleARN
-    ApplicationConfiguration: Optional[ApplicationConfiguration]
-    CloudWatchLoggingOptions: Optional[CloudWatchLoggingOptions]
-    Tags: Optional[Tags]
-    ApplicationMode: Optional[ApplicationMode]
+    ApplicationConfiguration: ApplicationConfiguration | None
+    CloudWatchLoggingOptions: CloudWatchLoggingOptions | None
+    Tags: Tags | None
+    ApplicationMode: ApplicationMode | None
 
 
 class CreateApplicationResponse(TypedDict, total=False):
@@ -1757,16 +1751,16 @@ class CreateApplicationSnapshotResponse(TypedDict, total=False):
 
 class DeleteApplicationCloudWatchLoggingOptionRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    CurrentApplicationVersionId: Optional[ApplicationVersionId]
+    CurrentApplicationVersionId: ApplicationVersionId | None
     CloudWatchLoggingOptionId: Id
-    ConditionalToken: Optional[ConditionalToken]
+    ConditionalToken: ConditionalToken | None
 
 
 class DeleteApplicationCloudWatchLoggingOptionResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    CloudWatchLoggingOptionDescriptions: Optional[CloudWatchLoggingOptionDescriptions]
-    OperationId: Optional[OperationId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    CloudWatchLoggingOptionDescriptions: CloudWatchLoggingOptionDescriptions | None
+    OperationId: OperationId | None
 
 
 class DeleteApplicationInputProcessingConfigurationRequest(ServiceRequest):
@@ -1776,8 +1770,8 @@ class DeleteApplicationInputProcessingConfigurationRequest(ServiceRequest):
 
 
 class DeleteApplicationInputProcessingConfigurationResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
 
 
 class DeleteApplicationOutputRequest(ServiceRequest):
@@ -1787,8 +1781,8 @@ class DeleteApplicationOutputRequest(ServiceRequest):
 
 
 class DeleteApplicationOutputResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
 
 
 class DeleteApplicationReferenceDataSourceRequest(ServiceRequest):
@@ -1798,8 +1792,8 @@ class DeleteApplicationReferenceDataSourceRequest(ServiceRequest):
 
 
 class DeleteApplicationReferenceDataSourceResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
 
 
 class DeleteApplicationRequest(ServiceRequest):
@@ -1823,15 +1817,15 @@ class DeleteApplicationSnapshotResponse(TypedDict, total=False):
 
 class DeleteApplicationVpcConfigurationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    CurrentApplicationVersionId: Optional[ApplicationVersionId]
+    CurrentApplicationVersionId: ApplicationVersionId | None
     VpcConfigurationId: Id
-    ConditionalToken: Optional[ConditionalToken]
+    ConditionalToken: ConditionalToken | None
 
 
 class DeleteApplicationVpcConfigurationResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationVersionId: Optional[ApplicationVersionId]
-    OperationId: Optional[OperationId]
+    ApplicationARN: ResourceARN | None
+    ApplicationVersionId: ApplicationVersionId | None
+    OperationId: OperationId | None
 
 
 class DescribeApplicationOperationRequest(ServiceRequest):
@@ -1848,12 +1842,12 @@ class DescribeApplicationOperationResponse(TypedDict, total=False):
     on a Managed Service for Apache Flink application.
     """
 
-    ApplicationOperationInfoDetails: Optional[ApplicationOperationInfoDetails]
+    ApplicationOperationInfoDetails: ApplicationOperationInfoDetails | None
 
 
 class DescribeApplicationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    IncludeAdditionalDetails: Optional[BooleanObject]
+    IncludeAdditionalDetails: BooleanObject | None
 
 
 class DescribeApplicationResponse(TypedDict, total=False):
@@ -1871,11 +1865,11 @@ class SnapshotDetails(TypedDict, total=False):
     SnapshotName: SnapshotName
     SnapshotStatus: SnapshotStatus
     ApplicationVersionId: ApplicationVersionId
-    SnapshotCreationTimestamp: Optional[Timestamp]
-    RuntimeEnvironment: Optional[RuntimeEnvironment]
-    ApplicationEncryptionConfigurationDescription: Optional[
-        ApplicationEncryptionConfigurationDescription
-    ]
+    SnapshotCreationTimestamp: Timestamp | None
+    RuntimeEnvironment: RuntimeEnvironment | None
+    ApplicationEncryptionConfigurationDescription: (
+        ApplicationEncryptionConfigurationDescription | None
+    )
 
 
 class DescribeApplicationSnapshotResponse(TypedDict, total=False):
@@ -1888,7 +1882,7 @@ class DescribeApplicationVersionRequest(ServiceRequest):
 
 
 class DescribeApplicationVersionResponse(TypedDict, total=False):
-    ApplicationVersionDetail: Optional[ApplicationDetail]
+    ApplicationVersionDetail: ApplicationDetail | None
 
 
 class S3Configuration(TypedDict, total=False):
@@ -1903,74 +1897,74 @@ class S3Configuration(TypedDict, total=False):
 
 
 class DiscoverInputSchemaRequest(ServiceRequest):
-    ResourceARN: Optional[ResourceARN]
+    ResourceARN: ResourceARN | None
     ServiceExecutionRole: RoleARN
-    InputStartingPositionConfiguration: Optional[InputStartingPositionConfiguration]
-    S3Configuration: Optional[S3Configuration]
-    InputProcessingConfiguration: Optional[InputProcessingConfiguration]
+    InputStartingPositionConfiguration: InputStartingPositionConfiguration | None
+    S3Configuration: S3Configuration | None
+    InputProcessingConfiguration: InputProcessingConfiguration | None
 
 
-ParsedInputRecord = List[ParsedInputRecordField]
-ParsedInputRecords = List[ParsedInputRecord]
+ParsedInputRecord = list[ParsedInputRecordField]
+ParsedInputRecords = list[ParsedInputRecord]
 
 
 class DiscoverInputSchemaResponse(TypedDict, total=False):
-    InputSchema: Optional[SourceSchema]
-    ParsedInputRecords: Optional[ParsedInputRecords]
-    ProcessedInputRecords: Optional[ProcessedInputRecords]
-    RawInputRecords: Optional[RawInputRecords]
+    InputSchema: SourceSchema | None
+    ParsedInputRecords: ParsedInputRecords | None
+    ProcessedInputRecords: ProcessedInputRecords | None
+    RawInputRecords: RawInputRecords | None
 
 
 class ListApplicationOperationsRequest(ServiceRequest):
     """A request for a list of operations performed on an application."""
 
     ApplicationName: ApplicationName
-    Limit: Optional[ListApplicationOperationsInputLimit]
-    NextToken: Optional[NextToken]
-    Operation: Optional[Operation]
-    OperationStatus: Optional[OperationStatus]
+    Limit: ListApplicationOperationsInputLimit | None
+    NextToken: NextToken | None
+    Operation: Operation | None
+    OperationStatus: OperationStatus | None
 
 
 class ListApplicationOperationsResponse(TypedDict, total=False):
     """A response that returns a list of operations for an application."""
 
-    ApplicationOperationInfoList: Optional[ApplicationOperationInfoList]
-    NextToken: Optional[NextToken]
+    ApplicationOperationInfoList: ApplicationOperationInfoList | None
+    NextToken: NextToken | None
 
 
 class ListApplicationSnapshotsRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    Limit: Optional[ListSnapshotsInputLimit]
-    NextToken: Optional[NextToken]
+    Limit: ListSnapshotsInputLimit | None
+    NextToken: NextToken | None
 
 
-SnapshotSummaries = List[SnapshotDetails]
+SnapshotSummaries = list[SnapshotDetails]
 
 
 class ListApplicationSnapshotsResponse(TypedDict, total=False):
-    SnapshotSummaries: Optional[SnapshotSummaries]
-    NextToken: Optional[NextToken]
+    SnapshotSummaries: SnapshotSummaries | None
+    NextToken: NextToken | None
 
 
 class ListApplicationVersionsRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    Limit: Optional[ListApplicationVersionsInputLimit]
-    NextToken: Optional[NextToken]
+    Limit: ListApplicationVersionsInputLimit | None
+    NextToken: NextToken | None
 
 
 class ListApplicationVersionsResponse(TypedDict, total=False):
-    ApplicationVersionSummaries: Optional[ApplicationVersionSummaries]
-    NextToken: Optional[NextToken]
+    ApplicationVersionSummaries: ApplicationVersionSummaries | None
+    NextToken: NextToken | None
 
 
 class ListApplicationsRequest(ServiceRequest):
-    Limit: Optional[ListApplicationsInputLimit]
-    NextToken: Optional[ApplicationName]
+    Limit: ListApplicationsInputLimit | None
+    NextToken: ApplicationName | None
 
 
 class ListApplicationsResponse(TypedDict, total=False):
     ApplicationSummaries: ApplicationSummaries
-    NextToken: Optional[ApplicationName]
+    NextToken: ApplicationName | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1978,7 +1972,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[Tags]
+    Tags: Tags | None
 
 
 class RollbackApplicationRequest(ServiceRequest):
@@ -1988,7 +1982,7 @@ class RollbackApplicationRequest(ServiceRequest):
 
 class RollbackApplicationResponse(TypedDict, total=False):
     ApplicationDetail: ApplicationDetail
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class SqlRunConfiguration(TypedDict, total=False):
@@ -2000,7 +1994,7 @@ class SqlRunConfiguration(TypedDict, total=False):
     InputStartingPositionConfiguration: InputStartingPositionConfiguration
 
 
-SqlRunConfigurations = List[SqlRunConfiguration]
+SqlRunConfigurations = list[SqlRunConfiguration]
 
 
 class RunConfiguration(TypedDict, total=False):
@@ -2008,9 +2002,9 @@ class RunConfiguration(TypedDict, total=False):
     Flink application.
     """
 
-    FlinkRunConfiguration: Optional[FlinkRunConfiguration]
-    SqlRunConfigurations: Optional[SqlRunConfigurations]
-    ApplicationRestoreConfiguration: Optional[ApplicationRestoreConfiguration]
+    FlinkRunConfiguration: FlinkRunConfiguration | None
+    SqlRunConfigurations: SqlRunConfigurations | None
+    ApplicationRestoreConfiguration: ApplicationRestoreConfiguration | None
 
 
 class RunConfigurationUpdate(TypedDict, total=False):
@@ -2018,29 +2012,29 @@ class RunConfigurationUpdate(TypedDict, total=False):
     for Apache Flink application.
     """
 
-    FlinkRunConfiguration: Optional[FlinkRunConfiguration]
-    ApplicationRestoreConfiguration: Optional[ApplicationRestoreConfiguration]
+    FlinkRunConfiguration: FlinkRunConfiguration | None
+    ApplicationRestoreConfiguration: ApplicationRestoreConfiguration | None
 
 
 class StartApplicationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    RunConfiguration: Optional[RunConfiguration]
+    RunConfiguration: RunConfiguration | None
 
 
 class StartApplicationResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class StopApplicationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    Force: Optional[BooleanObject]
+    Force: BooleanObject | None
 
 
 class StopApplicationResponse(TypedDict, total=False):
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
-TagKeys = List[TagKey]
+TagKeys = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -2067,31 +2061,31 @@ class UpdateApplicationMaintenanceConfigurationRequest(ServiceRequest):
 
 
 class UpdateApplicationMaintenanceConfigurationResponse(TypedDict, total=False):
-    ApplicationARN: Optional[ResourceARN]
-    ApplicationMaintenanceConfigurationDescription: Optional[
-        ApplicationMaintenanceConfigurationDescription
-    ]
+    ApplicationARN: ResourceARN | None
+    ApplicationMaintenanceConfigurationDescription: (
+        ApplicationMaintenanceConfigurationDescription | None
+    )
 
 
 class UpdateApplicationRequest(ServiceRequest):
     ApplicationName: ApplicationName
-    CurrentApplicationVersionId: Optional[ApplicationVersionId]
-    ApplicationConfigurationUpdate: Optional[ApplicationConfigurationUpdate]
-    ServiceExecutionRoleUpdate: Optional[RoleARN]
-    RunConfigurationUpdate: Optional[RunConfigurationUpdate]
-    CloudWatchLoggingOptionUpdates: Optional[CloudWatchLoggingOptionUpdates]
-    ConditionalToken: Optional[ConditionalToken]
-    RuntimeEnvironmentUpdate: Optional[RuntimeEnvironment]
+    CurrentApplicationVersionId: ApplicationVersionId | None
+    ApplicationConfigurationUpdate: ApplicationConfigurationUpdate | None
+    ServiceExecutionRoleUpdate: RoleARN | None
+    RunConfigurationUpdate: RunConfigurationUpdate | None
+    CloudWatchLoggingOptionUpdates: CloudWatchLoggingOptionUpdates | None
+    ConditionalToken: ConditionalToken | None
+    RuntimeEnvironmentUpdate: RuntimeEnvironment | None
 
 
 class UpdateApplicationResponse(TypedDict, total=False):
     ApplicationDetail: ApplicationDetail
-    OperationId: Optional[OperationId]
+    OperationId: OperationId | None
 
 
 class Kinesisanalyticsv2Api:
-    service = "kinesisanalyticsv2"
-    version = "2018-05-23"
+    service: str = "kinesisanalyticsv2"
+    version: str = "2018-05-23"
 
     @handler("AddApplicationCloudWatchLoggingOption")
     def add_application_cloud_watch_logging_option(

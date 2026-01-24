@@ -152,8 +152,8 @@ class WheelRepair:
     _data_dir: str  # extracted path to .data directory, is set even if directory does not exist
     _purelib_dir: str  # extracted path to .data/purelib directory, is set even if directory does not exist
     _platlib_dir: str  # extracted path to .data/platlib directory, is set even if directory does not exist
-    _include: set[str]  # additional DLLs to include
-    _exclude: set[str]  # DLLs to exclude
+    _include: set[str]  # additional DLLs to include, lowercase
+    _exclude: set[str]  # DLLs to exclude, lowercase (allows * wildcard)
     _wheel_dirs: typing.Optional[list[str]]  # extracted directories from inside wheel
     _ignore_existing: bool  # whether to ignore DLLs that are already inside wheel
     _analyze_existing: bool  # whether to analyze and vendor in dependencies of DLLs that are already in the wheel
@@ -177,7 +177,7 @@ class WheelRepair:
             directory is created.
         include: Set of lowercase DLL names to force inclusion into the wheel
         exclude: Set of lowercase DLL names to force exclusion from wheel
-            (cannot overlap with include)
+            (cannot overlap with include, allows * wildcard)
         ignore_existing: whether to ignore DLLs that are already in the wheel
         analyze_existing: whether to analyze and vendor in dependencies of DLLs
             that are already in the wheel
@@ -301,21 +301,30 @@ class WheelRepair:
         """Return (hash, size) for a file with path file_path. The hash and
         size can be used to verify the integrity of the contents of a wheel."""
         with open(file_path, 'rb') as file:
-            contents = file.read()
-            hash = base64.urlsafe_b64encode(hashlib.sha256(contents).digest()).decode('latin1').rstrip('=')
-            size = len(contents)
-            return hash, size
+            if hasattr(hashlib, 'file_digest'):
+                digest = hashlib.file_digest(file, hashlib.sha256)
+                size = os.path.getsize(file_path)
+            else:
+                contents = file.read()
+                digest = hashlib.sha256(contents)
+                size = len(contents)
+            return base64.urlsafe_b64encode(digest.digest()).decode('latin1').rstrip('='), size
 
-    def _hashfile(self, afile: typing.BinaryIO, blocksize: int = 65536, length: int = 32, start: typing.Optional[typing.Iterable[str]] = None) -> str:
+    @staticmethod
+    def _hashfile(afile: typing.BinaryIO, blocksize: int = 65536, length: int = 32, start: typing.Optional[typing.Iterable[str]] = None) -> str:
         """Hash the contents of start along with the contents of an open file
-        handle with SHA256. Return the first length characters of the hash."""
+        handle with SHA256. Return the first length characters of the hash in
+        hexadecimal form."""
         hasher = hashlib.sha256()
         if start:
             for start_item in start:
                 hasher.update(start_item.encode())
                 hasher.update(b'\x00')
-        while buf := afile.read(blocksize):
-            hasher.update(buf)
+        if hasattr(hashlib, 'file_digest'):
+            hasher = hashlib.file_digest(afile, lambda: hasher)
+        else:
+            while buf := afile.read(blocksize):
+                hasher.update(buf)
         return hasher.hexdigest()[:length]
 
     def _patch_py_contents_str(self, at_start: bool, libs_dir: str, load_order_filename: typing.Optional[str], depth: int) -> str:
@@ -695,7 +704,7 @@ class WheelRepair:
 
         # check whether wheel has already been repaired
         if repair_version := self._get_repair_version():
-            print(f'Delvewheel {repair_version} has already repaired this wheel.')
+            print(f'delvewheel {repair_version} has already repaired this wheel')
             return
 
         # find dependencies
@@ -780,7 +789,8 @@ class WheelRepair:
         """Repair the wheel in a manner similar to auditwheel.
 
         target is the target directory for storing the repaired wheel
-        no_mangles is a set of lowercase DLL names that will not be mangled
+        no_mangles is a set of lowercase DLL names that will not be mangled,
+            where the * wildcard is supported
         no_mangle_all is True if no DLL name mangling should happen at all
         with_mangle is True if the direct dependencies of the DLLs that are
             already in the wheel should be name-mangled. Requires
@@ -801,7 +811,7 @@ class WheelRepair:
 
         # check whether wheel has already been repaired
         if repair_version := self._get_repair_version():
-            print(f'Delvewheel {repair_version} has already repaired this wheel.')
+            print(f'delvewheel {repair_version} has already repaired this wheel')
             return
 
         # find dependencies
@@ -927,7 +937,7 @@ class WheelRepair:
                 lib_name = os.path.basename(dependency_path)
                 lib_name_lower = lib_name.lower()
                 if not any(r.fullmatch(lib_name_lower) for r in _dll_list.no_mangle_regexes) and \
-                        lib_name_lower not in no_mangles:
+                        not _dll_utils.wildcard_contains(lib_name_lower, no_mangles):
                     lib_name_casemap[lib_name_lower] = lib_name
                     name_mangle_graph[lib_name_lower] = _dll_utils.get_direct_mangleable_needed(dependency_path, self._exclude, no_mangles)
             lib_name_lower_hashmap = {}  # map from lowercase DLL name to the hash that will be appended to the name
@@ -1079,16 +1089,14 @@ class WheelRepair:
                 file.write(f'Arguments: {sys.argv}\n')
 
         # update record file, which tracks wheel contents and their checksums
-        try:
-            # remove JSON web signature
-            os.remove(os.path.join(self._extract_dir, dist_info_foldername, 'RECORD.jws'))
-        except FileNotFoundError:
-            pass
-        try:
-            # remove S/MIME signature
-            os.remove(os.path.join(self._extract_dir, dist_info_foldername, 'RECORD.p7s'))
-        except FileNotFoundError:
-            pass
+        for signature_filename in ('RECORD.jws', 'RECORD.p7s'):
+            # remove JSON web signature or S/MIME signature
+            try:
+                os.remove(os.path.join(self._extract_dir, dist_info_foldername, signature_filename))
+            except FileNotFoundError:
+                pass
+            else:
+                warnings.warn(f'Wheel signature file {signature_filename} removed')
         record_filepath = os.path.join(self._extract_dir, dist_info_foldername, 'RECORD')
         if _Config.verbose >= 1:
             print(f'updating {os.path.join(dist_info_foldername, "RECORD")}')

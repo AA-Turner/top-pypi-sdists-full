@@ -6,6 +6,7 @@ from ...core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
 from ...types.get_team_member_wage_response import GetTeamMemberWageResponse
+from ...types.list_team_member_wages_response import ListTeamMemberWagesResponse
 from ...types.team_member_wage import TeamMemberWage
 from .raw_client import AsyncRawTeamMemberWagesClient, RawTeamMemberWagesClient
 
@@ -32,7 +33,7 @@ class TeamMemberWagesClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[TeamMemberWage]:
+    ) -> SyncPager[TeamMemberWage, ListTeamMemberWagesResponse]:
         """
         Returns a paginated list of `TeamMemberWage` instances for a business.
 
@@ -54,7 +55,7 @@ class TeamMemberWagesClient:
 
         Returns
         -------
-        SyncPager[TeamMemberWage]
+        SyncPager[TeamMemberWage, ListTeamMemberWagesResponse]
             Success
 
         Examples
@@ -64,7 +65,11 @@ class TeamMemberWagesClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.labor.team_member_wages.list()
+        response = client.labor.team_member_wages.list(
+            team_member_id="team_member_id",
+            limit=1,
+            cursor="cursor",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -129,7 +134,7 @@ class AsyncTeamMemberWagesClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[TeamMemberWage]:
+    ) -> AsyncPager[TeamMemberWage, ListTeamMemberWagesResponse]:
         """
         Returns a paginated list of `TeamMemberWage` instances for a business.
 
@@ -151,7 +156,7 @@ class AsyncTeamMemberWagesClient:
 
         Returns
         -------
-        AsyncPager[TeamMemberWage]
+        AsyncPager[TeamMemberWage, ListTeamMemberWagesResponse]
             Success
 
         Examples
@@ -166,7 +171,11 @@ class AsyncTeamMemberWagesClient:
 
 
         async def main() -> None:
-            response = await client.labor.team_member_wages.list()
+            response = await client.labor.team_member_wages.list(
+                team_member_id="team_member_id",
+                limit=1,
+                cursor="cursor",
+            )
             async for item in response:
                 yield item
 

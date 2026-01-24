@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2025, Daily
+# Copyright (c) 2024-2026, Daily
 #
 # SPDX-License-Identifier: BSD 2-Clause License
 #
@@ -35,21 +35,22 @@ class LocalSmartTurnAnalyzerV3(BaseSmartTurn):
     enabling offline operation without network dependencies.
     """
 
-    def __init__(self, *, smart_turn_model_path: Optional[str] = None, **kwargs):
+    def __init__(
+        self, *, smart_turn_model_path: Optional[str] = None, cpu_count: int = 1, **kwargs
+    ):
         """Initialize the local ONNX smart-turn-v3 analyzer.
 
         Args:
             smart_turn_model_path: Path to the ONNX model file. If this is not
-                set, the bundled smart-turn-v3.0 model will be used.
+                set, the bundled smart-turn-v3.2-cpu model will be used.
+            cpu_count: The number of CPUs to use for inference. Defaults to 1.
             **kwargs: Additional arguments passed to BaseSmartTurn.
         """
         super().__init__(**kwargs)
 
-        logger.debug("Loading Local Smart Turn v3 model...")
-
         if not smart_turn_model_path:
             # Load bundled model
-            model_name = "smart-turn-v3.0.onnx"
+            model_name = "smart-turn-v3.2-cpu.onnx"
             package_path = "pipecat.audio.turn.smart_turn.data"
 
             try:
@@ -67,17 +68,20 @@ class LocalSmartTurnAnalyzerV3(BaseSmartTurn):
                         impresources.files(package_path).joinpath(model_name)
                     )
 
+        logger.debug(f"Loading Local Smart Turn v3.x model from {smart_turn_model_path}...")
+
         so = ort.SessionOptions()
         so.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         so.inter_op_num_threads = 1
+        so.intra_op_num_threads = cpu_count
         so.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
 
         self._feature_extractor = WhisperFeatureExtractor(chunk_length=8)
         self._session = ort.InferenceSession(smart_turn_model_path, sess_options=so)
 
-        logger.debug("Loaded Local Smart Turn v3")
+        logger.debug("Loaded Local Smart Turn v3.x")
 
-    async def _predict_endpoint(self, audio_array: np.ndarray) -> Dict[str, Any]:
+    def _predict_endpoint(self, audio_array: np.ndarray) -> Dict[str, Any]:
         """Predict end-of-turn using local ONNX model."""
 
         def truncate_audio_to_last_n_seconds(audio_array, n_seconds=8, sample_rate=16000):
@@ -98,15 +102,15 @@ class LocalSmartTurnAnalyzerV3(BaseSmartTurn):
         inputs = self._feature_extractor(
             audio_array,
             sampling_rate=16000,
-            return_tensors="pt",
+            return_tensors="np",
             padding="max_length",
             max_length=8 * 16000,
             truncation=True,
             do_normalize=True,
         )
 
-        # Convert to numpy and ensure correct shape for ONNX
-        input_features = inputs.input_features.squeeze(0).numpy().astype(np.float32)
+        # Extract features and ensure correct shape for ONNX
+        input_features = inputs.input_features.squeeze(0).astype(np.float32)
         input_features = np.expand_dims(input_features, axis=0)  # Add batch dimension
 
         # Run ONNX inference

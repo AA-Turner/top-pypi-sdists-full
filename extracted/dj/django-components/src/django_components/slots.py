@@ -394,7 +394,6 @@ slot content function.
 **Example:**
 
 ```python
-from typing import NamedTuple
 from typing_extensions import TypedDict
 from django_components import Component, SlotInput
 
@@ -402,7 +401,7 @@ class TableFooterSlotData(TypedDict):
     page_number: int
 
 class Table(Component):
-    class Slots(NamedTuple):
+    class Slots:
         header: SlotInput
         footer: SlotInput[TableFooterSlotData]
 
@@ -680,7 +679,11 @@ class SlotNode(BaseNode):
         # Component info
         component_id: str = context[_COMPONENT_CONTEXT_KEY]
         component_ctx = component_context_cache[component_id]
-        component = component_ctx.component
+        component = component_ctx.component()
+        if component is None:
+            raise RuntimeError(
+                f"Component with id '{component_id}' was garbage collected before its slots could be rendered."
+            )
         component_name = component.name
         component_path = component_ctx.component_path
         is_dynamic_component = getattr(component, "_is_dynamic_component", False)
@@ -828,7 +831,12 @@ class SlotNode(BaseNode):
             if parent_index is not None:
                 ctx_id_with_fills = context.dicts[parent_index][_COMPONENT_CONTEXT_KEY]
                 ctx_with_fills = component_context_cache[ctx_id_with_fills]
-                slot_fills = ctx_with_fills.component.raw_slots
+                parent_component = ctx_with_fills.component()
+                if parent_component is None:
+                    raise RuntimeError(
+                        f"Component with id '{component_id}' was garbage collected before its slots could be rendered."
+                    )
+                slot_fills = parent_component.raw_slots
 
                 # Add trace message when slot_fills are overwritten
                 trace_component_msg(

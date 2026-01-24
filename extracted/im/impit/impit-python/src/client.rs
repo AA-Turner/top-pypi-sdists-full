@@ -117,8 +117,10 @@ impl Client {
         };
 
         pyo3_async_runtimes::tokio::get_runtime().block_on(async {
+            let impit = builder.build().map_err(ImpitPyError)?;
+
             Ok(Self {
-                impit: builder.build(),
+                impit,
                 default_encoding,
             })
         })
@@ -423,15 +425,13 @@ impl Client {
                 };
 
                 match response {
-                    Ok(response) => {
-                        let py_response = ImpitPyResponse::from_async(
-                            response,
-                            self.default_encoding.clone(),
-                            stream.unwrap_or(false),
-                        )
-                        .await;
-                        Ok(py_response)
-                    }
+                    Ok(response) => ImpitPyResponse::from_async(
+                        response,
+                        self.default_encoding.clone(),
+                        stream.unwrap_or(false),
+                    )
+                    .await
+                    .map_err(ImpitPyError),
                     Err(err) => Err(ImpitPyError(err)),
                 }
             })

@@ -27,7 +27,7 @@ from typing import Optional, Sequence, Callable, List, Any, Iterable, Dict, Set
 import sys
 from tabulate import tabulate
 
-from .. import api, crypto, utils, vault, resources
+from .. import api, crypto, utils, vault, resources, error
 from ..params import KeeperParams
 from ..subfolder import try_resolve_path, BaseFolderNode
 
@@ -38,11 +38,23 @@ msp_commands = {}            # type: Dict[str, Command]
 command_info = OrderedDict()
 
 
+json_output_parser = argparse.ArgumentParser(add_help=False)
+json_output_parser.add_argument('--format', dest='format', action='store', choices=['table', 'json'],
+                                default='table', help='format of output')
+json_output_parser.add_argument('--output', dest='output', action='store',
+                                help='path to resulting output file (ignored for "table" format)')
+
+
 report_output_parser = argparse.ArgumentParser(add_help=False)
 report_output_parser.add_argument('--format', dest='format', action='store', choices=['table', 'csv', 'json', 'pdf'],
                                   default='table', help='format of output')
 report_output_parser.add_argument('--output', dest='output', action='store',
                                   help='path to resulting output file (ignored for "table" format)')
+
+
+class CommandError(error.CommandError):
+    def __init__(self, message):
+        super().__init__('', message)
 
 
 class ParseError(Exception):
@@ -116,6 +128,26 @@ def register_commands(commands, aliases, command_info):
     commands['2fa'] = TwoFaCommand()
     command_info['2fa'] = '2FA management'
 
+    from .email_commands import EmailConfigCommand
+    commands['email-config'] = EmailConfigCommand()
+    command_info['email-config'] = 'Email provider configuration management'
+
+    # SuperShell requires textual library - only register if available
+    if sys.version_info.major > 3 or (sys.version_info.major == 3 and sys.version_info.minor >= 9):
+        try:
+            from .supershell import SuperShellCommand
+            commands['supershell'] = SuperShellCommand()
+            command_info['supershell'] = 'Launch full terminal vault UI with vim navigation'
+            aliases['ss'] = 'supershell'
+        except ImportError as e:
+            logging.debug(f"SuperShell not available: {e}")
+        except Exception as e:
+            logging.error(f"SuperShell import error: {e}")
+
+    from . import credential_provision
+    credential_provision.register_commands(commands)
+    credential_provision.register_command_info(aliases, command_info)
+
     from . import device_management
     device_management.register_commands(commands)
     device_management.register_command_info(aliases, command_info)
@@ -130,16 +162,21 @@ def register_commands(commands, aliases, command_info):
         service_commands(commands)
         service_command_info(aliases, command_info)
 
-    if sys.version_info.major == 3 and sys.version_info.minor >= 8:
+    toggle_pam_legacy_commands(legacy=False)
+
+
+def toggle_pam_legacy_commands(legacy: bool):
+    if sys.version_info.major > 3 or (sys.version_info.major == 3 and sys.version_info.minor >= 8):
         from . import discoveryrotation
-        discoveryrotation.register_commands(commands)
-        discoveryrotation.register_command_info(aliases, command_info)
-
-
-def register_pam_legacy_commands():
-    from . import discoveryrotation_v1
-    discoveryrotation_v1.register_commands(commands)
-    discoveryrotation_v1.register_command_info(aliases, command_info)
+        from . import discoveryrotation_v1
+        if legacy is True:
+            discoveryrotation_v1.register_commands(commands)
+            discoveryrotation_v1.register_command_info(aliases, command_info)
+        else:
+            discoveryrotation.register_commands(commands)
+            discoveryrotation.register_command_info(aliases, command_info)
+    else:
+        logging.debug('pam commands require Python 3.8 or newer')
 
 
 def register_enterprise_commands(commands, aliases, command_info):
@@ -174,6 +211,13 @@ def register_enterprise_commands(commands, aliases, command_info):
     from . import device_management
     device_management.register_enterprise_commands(commands)
     device_management.register_enterprise_command_info(aliases, command_info)
+
+    if sys.version_info.major > 3 or (sys.version_info.major == 3 and sys.version_info.minor >= 9):
+        from.pedm import pedm_admin
+        pedm_command = pedm_admin.PedmCommand()
+        commands['epm'] = pedm_command
+        command_info['epm'] = pedm_command.description
+        aliases['pedm'] = 'epm'
 
 
 def register_msp_commands(commands, aliases, command_info):
@@ -747,6 +791,15 @@ class Command(CliCommand):
     _ensure_parser = staticmethod(_ensure_parser)
 
 
+class ArgparseCommand(Command):
+    def __init__(self, parser):
+        super().__init__()
+        self.parser = parser
+
+    def get_parser(self):
+        return self.parser
+
+
 class GroupCommand(CliCommand):
     def __init__(self):
         self._commands = collections.OrderedDict()     # type: dict[str, CliCommand]
@@ -759,7 +812,9 @@ class GroupCommand(CliCommand):
         verb = verb.lower()
         self._commands[verb] = command
         if not description:
-            if isinstance(command, Command):
+            if isinstance(command, GroupCommandNew):
+                description = command.description
+            elif isinstance(command, Command):
                 parser = command.get_parser()
                 if parser:
                     description = parser.description
@@ -827,6 +882,15 @@ class GroupCommand(CliCommand):
     @property
     def subcommands(self):
         return self._commands
+
+
+class GroupCommandNew(GroupCommand):
+    def __init__(self, description):
+        super().__init__()
+        self.description = description
+
+    def register_command_new(self, command, verb, alias=None):
+        super().register_command(verb, command, None, alias)
 
 
 class RecordMixin:

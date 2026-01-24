@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import token as token_types
@@ -17,7 +17,8 @@ from marimo._ast.names import (
 )
 from marimo._ast.variables import BUILTINS
 from marimo._ast.visitor import Name, VariableData
-from marimo._runtime.dataflow import DirectedGraph, topological_sort
+from marimo._runtime.dataflow import topological_sort
+from marimo._runtime.dataflow.topology import GraphTopology
 from marimo._types.ids import CellId_t
 
 if TYPE_CHECKING:
@@ -37,6 +38,7 @@ TopLevelInvalidHints = Literal[
     "This function depends on variables defined by other cells:\n\n{}\n\nTo make this function importable from other Python modules,\nmove these variables to the setup cell.",
     "Function contains references to variables {} which were unable to become reusable.",
     "Cell cannot contain non-indented trailing comments.",
+    "Definitions starting with `_` are local to a cell.",
 ]
 (
     HINT_UNPARSABLE,
@@ -46,6 +48,7 @@ TopLevelInvalidHints = Literal[
     HINT_HAS_REFS,
     HINT_HAS_CLOSE_REFS,
     HINT_HAS_COMMENT,
+    HINT_NO_PRIVATES,
 ) = get_args(TopLevelInvalidHints)
 
 TopLevelHints = Union[Literal["Valid"], TopLevelInvalidHints]
@@ -136,6 +139,10 @@ class TopLevelStatus:
         var = self._cell.toplevel_variable
         if var is None:
             self.demote(HINT_NOT_SINGLE)
+            return
+
+        if var.kind == "temporary":
+            self.demote(HINT_NO_PRIVATES)
             return
 
         (self.name,) = self._cell.defs
@@ -276,7 +283,9 @@ class TopLevelExtraction:
         unresolved: set[Name] = set()
         for status in self.statuses:
             if status.is_unresolved or status.is_cell:
-                self._statuses[status.type].pop(status.name)
+                # Use pop with default to handle duplicate definitions gracefully
+                # If there are duplicates, only the last one is in the dict
+                self._statuses[status.type].pop(status.name, None)
                 status.update(
                     self.allowed_refs,
                     unresolved,
@@ -377,7 +386,7 @@ class TopLevelExtraction:
     @classmethod
     def from_graph(
         cls,
-        graph: DirectedGraph,
+        graph: GraphTopology,
         cell: CellImpl | None = None,
     ) -> TopLevelExtraction:
         if cell:

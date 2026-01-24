@@ -3,7 +3,7 @@ Main interface for bedrock-agent service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

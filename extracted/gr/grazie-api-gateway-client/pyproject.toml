@@ -1,0 +1,47 @@
+[tool.poetry]
+name = "grazie_api_gateway_client"
+version = "0.3.3"
+description = "Api client for Grazie services"
+readme = "README.md"
+authors = ["JetBrains"]
+license = "Apache-2.0"
+packages = [
+    { include = "grazie" },
+    { include = "grazie/py.typed" }
+]
+
+[tool.poetry.dependencies]
+python = ">=3.8"
+attrs = ">=23.1.0"
+requests = "^2.26.0"
+cbor2 = "^5.4.6"
+jsonschema = "^4.17.3"
+httpx= ">=0.23.0, <1"
+pydantic = ">1.9, <3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.3.1"
+pyright = "^1.1.239"
+types-requests = "^2.30.0.0"
+pytest-anyio = "^0.0.0"
+pytest-recording = "^0.13.1"
+freezegun = "^1.5.1"
+mypy = "^1.10.0"
+black = "^23.11.0"
+isort = "^5.13.2"
+
+[tool.pytest.ini_options]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')"
+]
+
+[tool.black]
+target-version = ['py310']
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

@@ -13,16 +13,15 @@ else:
 
 import pytest
 from django import __version__ as DJANGO_VERSION
-from django.conf.urls import include
 from django.db import models
-from django.urls import re_path
+from django.urls import include, path
 from django.utils.functional import lazystr
 from rest_framework import generics, serializers
 
 from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.plumbing import (
     analyze_named_regex_pattern, build_basic_type, build_choice_field, detype_pattern,
-    follow_field_source, force_instance, get_list_serializer, get_relative_url, is_field,
+    follow_field_source, force_instance, get_doc, get_list_serializer, get_relative_url, is_field,
     is_serializer, resolve_type_hint, safe_ref, set_query_parameters,
 )
 from drf_spectacular.validation import validate_schema
@@ -95,7 +94,7 @@ def test_follow_field_source_forward_reverse(no_warnings):
 
 def test_detype_patterns_with_module_includes(no_warnings):
     detype_pattern(
-        pattern=re_path(r'^', include('tests.test_fields'))
+        pattern=path('', include('tests.test_fields'))
     )
 
 
@@ -119,8 +118,14 @@ class InvalidLanguageEnum(Enum):
     DE = 'de'
 
 
-TD1 = TypedDict('TD1', {"foo": int, "bar": typing.List[str]})
-TD2 = TypedDict('TD2', {"foo": str, "bar": typing.Dict[str, int]})
+class TD1(TypedDict):
+    foo: int
+    bar: typing.List[str]
+
+
+class TD2(TypedDict):
+    foo: str
+    bar: typing.Dict[str, int]
 
 
 TYPE_HINT_TEST_PARAMS = [
@@ -195,14 +200,13 @@ if DJANGO_VERSION > '3':
         {'enum': ['en', 'de'], 'type': 'string'}
     ))
 
-if sys.version_info >= (3, 7):
-    TYPE_HINT_TEST_PARAMS.append((
-        typing.Iterable[NamedTupleA],
-        {
-            'type': 'array',
-            'items': {'type': 'object', 'properties': {'a': {}, 'b': {}}, 'required': ['a', 'b']}
-        }
-    ))
+TYPE_HINT_TEST_PARAMS.append((
+    typing.Iterable[NamedTupleA],
+    {
+        'type': 'array',
+        'items': {'type': 'object', 'properties': {'a': {}, 'b': {}}, 'required': ['a', 'b']}
+    }
+))
 
 if sys.version_info >= (3, 8):
     # Literal only works for python >= 3.8 despite typing_extensions, because it
@@ -448,3 +452,13 @@ def test_url_tooling_with_lazy_url():
 
     assert get_relative_url(lazystr(some_url)) == "/accounts/"
     assert set_query_parameters(lazystr(some_url), foo=123) == some_url + "?foo=123"
+
+
+def test_get_doc():
+    T = typing.TypeVar('T')
+
+    class MyClass(typing.Generic[T]):
+        pass
+
+    doc = get_doc(MyClass)
+    assert doc == ""

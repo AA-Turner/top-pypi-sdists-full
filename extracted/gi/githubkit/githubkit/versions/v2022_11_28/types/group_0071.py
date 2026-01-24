@@ -9,14 +9,102 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
 
 
-class ActionsCacheUsageOrgEnterpriseType(TypedDict):
-    """ActionsCacheUsageOrgEnterprise"""
+class FeedType(TypedDict):
+    """Feed
 
-    total_active_caches_count: int
-    total_active_caches_size_in_bytes: int
+    Feed
+    """
+
+    timeline_url: str
+    user_url: str
+    current_user_public_url: NotRequired[str]
+    current_user_url: NotRequired[str]
+    current_user_actor_url: NotRequired[str]
+    current_user_organization_url: NotRequired[str]
+    current_user_organization_urls: NotRequired[list[str]]
+    security_advisories_url: NotRequired[str]
+    repository_discussions_url: NotRequired[str]
+    repository_discussions_category_url: NotRequired[str]
+    links: FeedPropLinksType
 
 
-__all__ = ("ActionsCacheUsageOrgEnterpriseType",)
+class FeedTypeForResponse(TypedDict):
+    """Feed
+
+    Feed
+    """
+
+    timeline_url: str
+    user_url: str
+    current_user_public_url: NotRequired[str]
+    current_user_url: NotRequired[str]
+    current_user_actor_url: NotRequired[str]
+    current_user_organization_url: NotRequired[str]
+    current_user_organization_urls: NotRequired[list[str]]
+    security_advisories_url: NotRequired[str]
+    repository_discussions_url: NotRequired[str]
+    repository_discussions_category_url: NotRequired[str]
+    links: FeedPropLinksTypeForResponse
+
+
+class FeedPropLinksType(TypedDict):
+    """FeedPropLinks"""
+
+    timeline: LinkWithTypeType
+    user: LinkWithTypeType
+    security_advisories: NotRequired[LinkWithTypeType]
+    current_user: NotRequired[LinkWithTypeType]
+    current_user_public: NotRequired[LinkWithTypeType]
+    current_user_actor: NotRequired[LinkWithTypeType]
+    current_user_organization: NotRequired[LinkWithTypeType]
+    current_user_organizations: NotRequired[list[LinkWithTypeType]]
+    repository_discussions: NotRequired[LinkWithTypeType]
+    repository_discussions_category: NotRequired[LinkWithTypeType]
+
+
+class FeedPropLinksTypeForResponse(TypedDict):
+    """FeedPropLinks"""
+
+    timeline: LinkWithTypeTypeForResponse
+    user: LinkWithTypeTypeForResponse
+    security_advisories: NotRequired[LinkWithTypeTypeForResponse]
+    current_user: NotRequired[LinkWithTypeTypeForResponse]
+    current_user_public: NotRequired[LinkWithTypeTypeForResponse]
+    current_user_actor: NotRequired[LinkWithTypeTypeForResponse]
+    current_user_organization: NotRequired[LinkWithTypeTypeForResponse]
+    current_user_organizations: NotRequired[list[LinkWithTypeTypeForResponse]]
+    repository_discussions: NotRequired[LinkWithTypeTypeForResponse]
+    repository_discussions_category: NotRequired[LinkWithTypeTypeForResponse]
+
+
+class LinkWithTypeType(TypedDict):
+    """Link With Type
+
+    Hypermedia Link with Type
+    """
+
+    href: str
+    type: str
+
+
+class LinkWithTypeTypeForResponse(TypedDict):
+    """Link With Type
+
+    Hypermedia Link with Type
+    """
+
+    href: str
+    type: str
+
+
+__all__ = (
+    "FeedPropLinksType",
+    "FeedPropLinksTypeForResponse",
+    "FeedType",
+    "FeedTypeForResponse",
+    "LinkWithTypeType",
+    "LinkWithTypeTypeForResponse",
+)

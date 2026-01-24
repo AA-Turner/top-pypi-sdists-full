@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from textwrap import dedent
 from typing import TYPE_CHECKING, Any
@@ -173,7 +174,12 @@ def test_scan_video_episode(episodes: dict[str, Episode], tmp_path: Path, monkey
     assert scanned_video.tvdb_id is None
 
 
-def test_scan_video_path_does_not_exist(movies: dict[str, Movie]) -> None:
+def test_scan_video_path_does_not_exist(
+    movies: dict[str, Movie],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
     path = movies['man_of_steel'].name
     with pytest.raises(ValueError, match='Path does not exist'):
         scan_video(path)
@@ -190,7 +196,7 @@ def test_scan_video_invalid_extension(
     monkeypatch.chdir(tmp_path)
     movie_name = os.path.splitext(movies['man_of_steel'].name)[0] + '.mp3'
     ensure(tmp_path / movie_name)
-    with pytest.raises(ValueError, match="'.mp3' is not a valid video extension"):
+    with pytest.raises(ValueError, match=re.escape("'.mp3' is not a valid video extension")):
         scan_video(movie_name)
 
 
@@ -305,7 +311,12 @@ def test_scan_path(
     mock.assert_called_once()
 
 
-def test_scan_videos_path_does_not_exist(movies: dict[str, Movie]) -> None:
+def test_scan_videos_path_does_not_exist(
+    movies: dict[str, Movie],
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.chdir(tmp_path)
     with pytest.raises(ValueError, match='Path does not exist'):
         scan_videos(movies['man_of_steel'].name)
 

@@ -1,12 +1,32 @@
-from typing import Optional
-
 from importlinter.domain.contract import Contract, ContractCheck
 
 from . import output
 from .ports.reporting import Report
 
+TEXT_LOGO = """
+╔══╗─────────▶╔╗ ╔╗      ╔╗◀───┐
+╚╣╠╝◀─────┐  ╔╝╚╗║║────▶╔╝╚╗   │
+ ║║   ╔══╦══╦╩╗╔╝║║  ╔╦═╩╗╔╝╔═╦══╗
+ ║║╔══╣╔╗║╔╗║╔╣║ ║║ ╔╬╣╔╗║║ ║│║╔═╝
+╔╣╠╣║║║╚╝║╚╝║║║╚╗║╚═╝║║║║║╚╗║═╣║
+╚══╩╩╩╣╔═╩══╩╝╚═╝╚═══╩╩╝╚╩═╩╩═╩╝
+  └──▶║║                    ▲ 
+      ╚╝────────────────────┘
+"""
+BRAND_COLOR = "pale_turquoise1"
+BRAND_COLOR = "#007575"
+
 # Public functions
 # ----------------
+
+
+def print_title() -> None:
+    if output.console.encoding.startswith("utf"):
+        output.print(TEXT_LOGO, color=BRAND_COLOR)
+    else:
+        # The logo contains characters that can't be encoded in some encodings (e.g. cp1252).
+        # Fall back to a simpler heading.
+        output.print_heading("Import Linter", output.HEADING_LEVEL_ONE)
 
 
 def render_report(report: Report) -> None:
@@ -48,7 +68,7 @@ def render_report(report: Report) -> None:
 
 
 def render_contract_result_line(
-    contract: Contract, contract_check: ContractCheck, duration: Optional[int]
+    contract: Contract, contract_check: ContractCheck, duration: int | None
 ) -> None:
     """
     Render the one-line contract check result.

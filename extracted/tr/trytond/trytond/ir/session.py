@@ -2,15 +2,12 @@
 # this repository contains the full copyright notices and license terms.
 import datetime
 import json
-from secrets import token_hex
+from secrets import compare_digest, token_hex
 
+import trytond.config as config
 from trytond.cache import Cache
-from trytond.config import config
 from trytond.model import Index, ModelSQL, fields
-
-_session_timeout = datetime.timedelta(
-    seconds=config.getint('session', 'timeout'))
-_reset_interval = _session_timeout // 10
+from trytond.transaction import Transaction
 
 
 class Session(ModelSQL):
@@ -18,6 +15,7 @@ class Session(ModelSQL):
     _rec_name = 'key'
 
     key = fields.Char("Key", required=True, strip=False)
+    ip_address = fields.Char("IP Address")
     _session_reset_cache = Cache('ir_session.session_reset', context=False)
 
     @classmethod
@@ -40,6 +38,11 @@ class Session(ModelSQL):
     @classmethod
     def default_key(cls, nbytes=None):
         return token_hex(nbytes)
+
+    @classmethod
+    def default_ip_address(cls):
+        ip_address, _ = Transaction().remote_address()
+        return str(ip_address) if ip_address else None
 
     @classmethod
     def on_modification(cls, mode, sessions, field_names=None):
@@ -81,19 +84,21 @@ class Session(ModelSQL):
         now = datetime.datetime.now()
         timeout = datetime.timedelta(
             seconds=config.getint('session', 'max_age'))
+        ip_address, _ = Transaction().remote_address()
         sessions = cls.search([
                 ('create_uid', '=', user),
+                ('ip_address', '=', str(ip_address) if ip_address else None),
                 domain or [],
                 ])
         find, last_reset = None, None
         to_delete = []
         for session in sessions:
             if abs(session.create_date - now) < timeout:
-                if session.key == key:
+                if compare_digest(session.key, key):
                     find = True
                     last_reset = session.write_date or session.create_date
             else:
-                if find is None and session.key == key:
+                if find is None and compare_digest(session.key, key):
                     find = False
                 to_delete.append(session)
         cls.delete(to_delete)
@@ -126,8 +131,11 @@ class Session(ModelSQL):
         "Reset key session timestamp"
         now = datetime.datetime.now()
         last_reset = cls._session_reset_cache.get(key)
-        if last_reset is None or (now - _reset_interval) > last_reset:
-            timestamp = now - _session_timeout
+        session_timeout = datetime.timedelta(
+            seconds=config.getint('session', 'timeout'))
+        reset_interval = session_timeout // 10
+        if last_reset is None or (now - reset_interval) > last_reset:
+            timestamp = now - session_timeout
             sessions = cls.search([
                     ('key', '=', key),
                     ['OR',

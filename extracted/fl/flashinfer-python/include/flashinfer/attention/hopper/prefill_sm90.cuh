@@ -194,7 +194,7 @@ __global__ void __launch_bounds__(Ktraits::NUM_WARPS* cutlass::NumThreadsPerWarp
               shared_storage, scheduler, scheduler_params, work_tile_info, block_coord, work_idx,
               num_kv_tiles_outside_items_window, num_kv_tiles_prefix);
         } else {
-          collective_mainloop.load<LEFT_SLIDING_WINDOW>(
+          collective_mainloop.template load<LEFT_SLIDING_WINDOW>(
               mainloop_params, pipeline_k, pipeline_v, smem_pipe_write_k, smem_pipe_write_v,
               shared_storage, scheduler, scheduler_params, work_tile_info, block_coord, work_idx);
         }
@@ -379,7 +379,11 @@ cudaError_t BatchPrefillWithPagedKVCacheKernelTraitsDispatched(Params& params,
        params.v_ptr,
        get_gmem_layout(/*nnz=*/0, params.num_kv_heads, KernelTraits::HEAD_DIM_VO, params.v_stride_n,
                        params.v_stride_h),  // layout_V
-       params.kv_indices, params.window_left, params.additional_params});
+       params.kv_indices, params.window_left,
+       params.k_page_stride,                     // Stride between pages for K
+       params.v_page_stride,                     // Stride between pages for V
+       static_cast<uint32_t>(params.page_size),  // Page size
+       params.additional_params});
   typename CollectiveEpilogue::Params epilogue_params =
       CollectiveEpilogue::to_underlying_arguments({
           params.o_ptr,

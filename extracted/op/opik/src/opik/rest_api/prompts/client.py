@@ -9,7 +9,10 @@ from ..types.prompt_detail import PromptDetail
 from ..types.prompt_page_public import PromptPagePublic
 from ..types.prompt_version_detail import PromptVersionDetail
 from ..types.prompt_version_page_public import PromptVersionPagePublic
+from ..types.prompt_version_update import PromptVersionUpdate
 from .raw_client import AsyncRawPromptsClient, RawPromptsClient
+from .types.create_prompt_version_detail_template_structure import CreatePromptVersionDetailTemplateStructure
+from .types.prompt_write_template_structure import PromptWriteTemplateStructure
 from .types.prompt_write_type import PromptWriteType
 
 # this is used as the default value for optional parameters
@@ -85,6 +88,7 @@ class PromptsClient:
         metadata: typing.Optional[JsonNodeWrite] = OMIT,
         change_description: typing.Optional[str] = OMIT,
         type: typing.Optional[PromptWriteType] = OMIT,
+        template_structure: typing.Optional[PromptWriteTemplateStructure] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
@@ -106,6 +110,9 @@ class PromptsClient:
         change_description : typing.Optional[str]
 
         type : typing.Optional[PromptWriteType]
+
+        template_structure : typing.Optional[PromptWriteTemplateStructure]
+            Template structure type: 'text' or 'chat'. Immutable after creation.
 
         tags : typing.Optional[typing.Sequence[str]]
 
@@ -130,13 +137,19 @@ class PromptsClient:
             metadata=metadata,
             change_description=change_description,
             type=type,
+            template_structure=template_structure,
             tags=tags,
             request_options=request_options,
         )
         return _response.data
 
     def create_prompt_version(
-        self, *, name: str, version: PromptVersionDetail, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        name: str,
+        version: PromptVersionDetail,
+        template_structure: typing.Optional[CreatePromptVersionDetailTemplateStructure] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptVersionDetail:
         """
         Create prompt version
@@ -146,6 +159,9 @@ class PromptsClient:
         name : str
 
         version : PromptVersionDetail
+
+        template_structure : typing.Optional[CreatePromptVersionDetailTemplateStructure]
+            Template structure for the prompt: 'text' or 'chat'. Note: This field is only used when creating a new prompt. If a prompt with the given name already exists, this field is ignored and the existing prompt's template structure is used. Template structure is immutable after prompt creation.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -162,7 +178,60 @@ class PromptsClient:
         client = OpikApi(api_key="YOUR_API_KEY", workspace_name="YOUR_WORKSPACE_NAME", )
         client.prompts.create_prompt_version(name='name', version=PromptVersionDetail(template='template', ), )
         """
-        _response = self._raw_client.create_prompt_version(name=name, version=version, request_options=request_options)
+        _response = self._raw_client.create_prompt_version(
+            name=name, version=version, template_structure=template_structure, request_options=request_options
+        )
+        return _response.data
+
+    def update_prompt_versions(
+        self,
+        *,
+        ids: typing.Sequence[str],
+        update: PromptVersionUpdate,
+        merge_tags: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
+        """
+        Update one or more prompt versions.
+
+        Note: Prompt versions are immutable by design.
+        Only organizational properties, such as tags etc., can be updated.
+        Core properties like template and metadata cannot be modified after creation.
+
+        PATCH semantics:
+        - non-empty values update the field
+        - null values preserve existing field values (no change)
+        - empty values explicitly clear the field
+
+        Parameters
+        ----------
+        ids : typing.Sequence[str]
+            IDs of prompt versions to update
+
+        update : PromptVersionUpdate
+
+        merge_tags : typing.Optional[bool]
+            Tag merge behavior:
+            - true: Add new tags to existing tags (union)
+            - false: Replace all existing tags with new tags (default behaviour if not provided)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from Opik import OpikApi
+        from Opik import PromptVersionUpdate
+        client = OpikApi(api_key="YOUR_API_KEY", workspace_name="YOUR_WORKSPACE_NAME", )
+        client.prompts.update_prompt_versions(ids=['ids'], update=PromptVersionUpdate(), )
+        """
+        _response = self._raw_client.update_prompt_versions(
+            ids=ids, update=update, merge_tags=merge_tags, request_options=request_options
+        )
         return _response.data
 
     def get_prompt_by_id(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> PromptDetail:
@@ -313,6 +382,9 @@ class PromptsClient:
         *,
         page: typing.Optional[int] = None,
         size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
+        sorting: typing.Optional[str] = None,
+        filters: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptVersionPagePublic:
         """
@@ -325,6 +397,13 @@ class PromptsClient:
         page : typing.Optional[int]
 
         size : typing.Optional[int]
+
+        search : typing.Optional[str]
+            Search text to find in template or change description fields
+
+        sorting : typing.Optional[str]
+
+        filters : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -340,7 +419,38 @@ class PromptsClient:
         client = OpikApi(api_key="YOUR_API_KEY", workspace_name="YOUR_WORKSPACE_NAME", )
         client.prompts.get_prompt_versions(id='id', )
         """
-        _response = self._raw_client.get_prompt_versions(id, page=page, size=size, request_options=request_options)
+        _response = self._raw_client.get_prompt_versions(
+            id, page=page, size=size, search=search, sorting=sorting, filters=filters, request_options=request_options
+        )
+        return _response.data
+
+    def restore_prompt_version(
+        self, prompt_id: str, version_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> PromptVersionDetail:
+        """
+        Restore a prompt version by creating a new version with the content from the specified version
+
+        Parameters
+        ----------
+        prompt_id : str
+
+        version_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PromptVersionDetail
+            OK
+
+        Examples
+        --------
+        from Opik import OpikApi
+        client = OpikApi(api_key="YOUR_API_KEY", workspace_name="YOUR_WORKSPACE_NAME", )
+        client.prompts.restore_prompt_version(prompt_id='promptId', version_id='versionId', )
+        """
+        _response = self._raw_client.restore_prompt_version(prompt_id, version_id, request_options=request_options)
         return _response.data
 
     def retrieve_prompt_version(
@@ -445,6 +555,7 @@ class AsyncPromptsClient:
         metadata: typing.Optional[JsonNodeWrite] = OMIT,
         change_description: typing.Optional[str] = OMIT,
         type: typing.Optional[PromptWriteType] = OMIT,
+        template_structure: typing.Optional[PromptWriteTemplateStructure] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
@@ -466,6 +577,9 @@ class AsyncPromptsClient:
         change_description : typing.Optional[str]
 
         type : typing.Optional[PromptWriteType]
+
+        template_structure : typing.Optional[PromptWriteTemplateStructure]
+            Template structure type: 'text' or 'chat'. Immutable after creation.
 
         tags : typing.Optional[typing.Sequence[str]]
 
@@ -493,13 +607,19 @@ class AsyncPromptsClient:
             metadata=metadata,
             change_description=change_description,
             type=type,
+            template_structure=template_structure,
             tags=tags,
             request_options=request_options,
         )
         return _response.data
 
     async def create_prompt_version(
-        self, *, name: str, version: PromptVersionDetail, request_options: typing.Optional[RequestOptions] = None
+        self,
+        *,
+        name: str,
+        version: PromptVersionDetail,
+        template_structure: typing.Optional[CreatePromptVersionDetailTemplateStructure] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptVersionDetail:
         """
         Create prompt version
@@ -509,6 +629,9 @@ class AsyncPromptsClient:
         name : str
 
         version : PromptVersionDetail
+
+        template_structure : typing.Optional[CreatePromptVersionDetailTemplateStructure]
+            Template structure for the prompt: 'text' or 'chat'. Note: This field is only used when creating a new prompt. If a prompt with the given name already exists, this field is ignored and the existing prompt's template structure is used. Template structure is immutable after prompt creation.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -529,7 +652,61 @@ class AsyncPromptsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.create_prompt_version(
-            name=name, version=version, request_options=request_options
+            name=name, version=version, template_structure=template_structure, request_options=request_options
+        )
+        return _response.data
+
+    async def update_prompt_versions(
+        self,
+        *,
+        ids: typing.Sequence[str],
+        update: PromptVersionUpdate,
+        merge_tags: typing.Optional[bool] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
+        """
+        Update one or more prompt versions.
+
+        Note: Prompt versions are immutable by design.
+        Only organizational properties, such as tags etc., can be updated.
+        Core properties like template and metadata cannot be modified after creation.
+
+        PATCH semantics:
+        - non-empty values update the field
+        - null values preserve existing field values (no change)
+        - empty values explicitly clear the field
+
+        Parameters
+        ----------
+        ids : typing.Sequence[str]
+            IDs of prompt versions to update
+
+        update : PromptVersionUpdate
+
+        merge_tags : typing.Optional[bool]
+            Tag merge behavior:
+            - true: Add new tags to existing tags (union)
+            - false: Replace all existing tags with new tags (default behaviour if not provided)
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+
+        Examples
+        --------
+        from Opik import AsyncOpikApi
+        from Opik import PromptVersionUpdate
+        import asyncio
+        client = AsyncOpikApi(api_key="YOUR_API_KEY", workspace_name="YOUR_WORKSPACE_NAME", )
+        async def main() -> None:
+            await client.prompts.update_prompt_versions(ids=['ids'], update=PromptVersionUpdate(), )
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.update_prompt_versions(
+            ids=ids, update=update, merge_tags=merge_tags, request_options=request_options
         )
         return _response.data
 
@@ -698,6 +875,9 @@ class AsyncPromptsClient:
         *,
         page: typing.Optional[int] = None,
         size: typing.Optional[int] = None,
+        search: typing.Optional[str] = None,
+        sorting: typing.Optional[str] = None,
+        filters: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PromptVersionPagePublic:
         """
@@ -710,6 +890,13 @@ class AsyncPromptsClient:
         page : typing.Optional[int]
 
         size : typing.Optional[int]
+
+        search : typing.Optional[str]
+            Search text to find in template or change description fields
+
+        sorting : typing.Optional[str]
+
+        filters : typing.Optional[str]
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -729,7 +916,41 @@ class AsyncPromptsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.get_prompt_versions(
-            id, page=page, size=size, request_options=request_options
+            id, page=page, size=size, search=search, sorting=sorting, filters=filters, request_options=request_options
+        )
+        return _response.data
+
+    async def restore_prompt_version(
+        self, prompt_id: str, version_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> PromptVersionDetail:
+        """
+        Restore a prompt version by creating a new version with the content from the specified version
+
+        Parameters
+        ----------
+        prompt_id : str
+
+        version_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        PromptVersionDetail
+            OK
+
+        Examples
+        --------
+        from Opik import AsyncOpikApi
+        import asyncio
+        client = AsyncOpikApi(api_key="YOUR_API_KEY", workspace_name="YOUR_WORKSPACE_NAME", )
+        async def main() -> None:
+            await client.prompts.restore_prompt_version(prompt_id='promptId', version_id='versionId', )
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.restore_prompt_version(
+            prompt_id, version_id, request_options=request_options
         )
         return _response.data
 

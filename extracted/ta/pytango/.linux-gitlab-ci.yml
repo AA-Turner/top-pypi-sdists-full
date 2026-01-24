@@ -1,5 +1,5 @@
 .matrix-wheel-linux:
-  image: ${IMAGE_REGISTRY}:${MANYLINUX}_${ARCH}_v2.0.3
+  image: ${IMAGE_REGISTRY}:${MANYLINUX}_${ARCH}_v${LINUX_WHEEL_DOCKER_IMAGE_VERSION}
   tags:
     - linux
     - docker
@@ -8,16 +8,20 @@
     IMAGE_REGISTRY: registry.gitlab.com/tango-controls/docker/pytango-builder
     MANYLINUX: manylinux2014
     GLIBC_TAG: '2_17' # depends on manylinux
-    PYTHON_TAG: 'cp${PYTHON_VER}-cp${PYTHON_VER}${ABI_SUFFIX}'
+    PYTHON_TAG: 'cp${PYTHON_VER}-cp${PYTHON_VER}'
     WHEEL_GLOB_PATTERN: pytango-*${PYTHON_TAG}*${ARCH}.whl
   parallel:
     matrix:
       - RUNNER_TAG: amd64
         ARCH: [x86_64, i686]
-        PYTHON_VER: [39, 310, 311, 312, 313]
+        PYTHON_VER: [310, 311, 312, 313]
+      # Skip i686 for Python >=3.14
+      - RUNNER_TAG: amd64
+        ARCH: [x86_64]
+        PYTHON_VER: [314]
       - RUNNER_TAG: aarch64
         ARCH: aarch64
-        PYTHON_VER: [39, 310, 311, 312, 313]
+        PYTHON_VER: [310, 311, 312, 313, 314]
 
 linux:build-wheel:
   extends: [.matrix-wheel-linux, .build-wheel]
@@ -25,7 +29,6 @@ linux:build-wheel:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     # build wheel
-    - export BOOST_PYTHON_SUFFIX=$(/opt/python/${PYTHON_TAG}/bin/python -c "import sys;print(f'{sys.version_info[0]}{sys.version_info[1]}')")
     - |
       /opt/python/${PYTHON_TAG}/bin/python -m pip install build
       /opt/python/${PYTHON_TAG}/bin/python -m build --wheel --config-setting=cmake.build-type="RelWithDebInfo" --config-setting=cmake.args="--preset=ci-Linux-wheel"
@@ -39,6 +42,64 @@ linux:build-wheel:
     - rm -rf dist/*.whl
     # move repaired wheel to dist
     - mv wheelhouse/*.whl dist/
+
+linux:build-wheel-against-specific-branch:
+  stage: build
+  when: manual
+  image: ${IMAGE_REGISTRY}:${MANYLINUX}_${ARCH}_v${LINUX_WHEEL_DOCKER_IMAGE_VERSION}
+  tags:
+    - linux
+    - docker
+    - $RUNNER_TAG
+  variables:
+    RUNNER_TAG: amd64
+    ARCH: x86_64
+    PYTHON_VER: 314
+    IMAGE_REGISTRY: registry.gitlab.com/tango-controls/docker/pytango-builder
+    MANYLINUX: manylinux2014
+    GLIBC_TAG: '2_17' # depends on manylinux
+    PYTHON_TAG: 'cp${PYTHON_VER}-cp${PYTHON_VER}'
+    WHEEL_GLOB_PATTERN: pytango-*${PYTHON_TAG}*${ARCH}.whl
+    IDL_SOURCE: "main"
+    CPPTANGO_SOURCE: "main"
+    GIT_SUBMODULE_STRATEGY: recursive
+  before_script:
+    # Build and install dependencies
+    # check which idl should we use and install it
+    - |
+      echo "Building and installing idl from ${IDL_SOURCE} branch"
+      pushd /tmp
+      git clone --recurse-submodules --depth 1 -b $IDL_SOURCE https://gitlab.com/tango-controls/tango-idl
+      cd tango-idl
+      cmake -B build
+      make -C build install
+      popd
+    # check which cpptango should we use and install it
+    - |
+      echo "Building and installing cpptango from ${CPPTANGO_SOURCE} branch"
+      pushd /tmp
+      git clone --recurse-submodules --depth 1 -b $CPPTANGO_SOURCE https://gitlab.com/tango-controls/cppTango
+      cd cppTango
+      mkdir build
+      cd build
+      cmake ${CMAKE_ARGS} -DCMAKE_BUILD_TYPE=Debug -DCMAKE_VERBOSE_MAKEFILE=ON -DBUILD_TESTING=OFF -DCMAKE_CXX_STANDARD=17 -DTANGO_USE_TELEMETRY=ON ..
+      make
+      make install
+      popd
+  script:
+    # build wheel
+    - |
+      /opt/python/${PYTHON_TAG}/bin/python -m pip install build
+      /opt/python/${PYTHON_TAG}/bin/python -m build --wheel --config-setting=cmake.build-type="RelWithDebInfo" --config-setting=cmake.args="--preset=ci-Linux-wheel"
+    # repair wheel, keeping any debug symbols (output will be in the 'wheelhouse' directory)
+    - auditwheel repair dist/${WHEEL_GLOB_PATTERN}
+    # move repaired debug wheel into its own directory
+    - mv wheelhouse debug_dist
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - debug_dist/
+
 
 linux:build-sdist:
   stage: build
@@ -61,7 +122,7 @@ linux:build-sdist:
 
 linux:test-source:
   stage: test
-  image: registry.gitlab.com/tango-controls/docker/micromamba:latest
+  image: registry.gitlab.com/tango-controls/docker/micromamba:2.3.0
   tags:
     - linux
     - docker
@@ -76,19 +137,19 @@ linux:test-source:
     # Install build and test dependencies
     - >
       micromamba install -y -n base -c conda-forge
-      libboost-python-devel cppzmq cxx-compiler pkg-config
-      python=$PYTHON_VERSION "numpy<2.3" gcovr git make
+      "pybind11>=3.0.1" cppzmq cxx-compiler pkg-config
+      python=$PYTHON_VERSION numpy "gcovr>=8.3" "lxml>=6" git make
       packaging psutil typing_extensions pytest pytest-asyncio pytest-forked pytest-cov pytest-timeout pystack gevent
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
-      cmake clang-format clang-tools cppcheck ninja
-      scikit-build-core pybind11-stubgen
+      cmake clang-format clang-tools cppcheck ninja docstring_parser
+      scikit-build-core pybind11-stubgen ruff
     - micromamba activate base
     - |
       {
         if [[ $CPP_TANGO_VERSION == *"dev"* ]]; then
-          micromamba install -c conda-forge -c tango-controls/label/dev cpptango-dbg=$CPP_TANGO_VERSION tango-test=${TANGO_TEST_VERSION}
+          micromamba install -c tango-controls/label/tango-test_dev -c conda-forge -c tango-controls/label/dev cpptango-dbg=$CPP_TANGO_VERSION tango-test=${TANGO_TEST_VERSION}
         else
-          micromamba install -c conda-forge -c conda-forge/label/cpptango_rc cpptango=$CPP_TANGO_VERSION tango-test=${TANGO_TEST_VERSION}
+          micromamba install -c conda-forge -c conda-forge/label/cpptango_rc -c conda-forge/label/tango-test_rc cpptango=$CPP_TANGO_VERSION tango-test=${TANGO_TEST_VERSION}
         fi
       } || {
         echo "Cannot find matching TangoTest, trying to building TangoTest against dev cpp_tango"
@@ -109,12 +170,10 @@ linux:test-source:
       python -m pip install
       --no-build-isolation
       --config-settings=cmake.args="--preset=ci-Linux"
+      --config-settings=cmake.build-type="Debug"
       --config-settings=build-dir="cmakebuild"
       -v -e ".[tests,telemetry]"
   script:
-    # some magic to get real coverage when using pytest `filterwarnings` with own module
-    - >
-      export COV_CORE_SOURCE=: && export COV_CORE_CONFIG=: && export COV_CORE_DATAFILE=.coverage.eager
     # run full test suite with telemetry disabled (default), then re-run telemetry-specific tests with it enabled
     - >
       pytest --cov . --cov-branch --cov-append --cov-report=term --write_cpp_coverage --run_extra_src_tests --junitxml=report.xml ||
@@ -145,6 +204,18 @@ linux:test-source:
       --cobertura coverage-all.xml
     # check typing stubs
     - python cmake/check_stubs.py
+    - |
+      if [[ $PYTHON_VERSION = "3.13" ]]; then
+        echo "🔍 Checking if tango/*.pyi stubs are unchanged..."
+        if git diff --quiet -- tango/*.pyi; then
+          echo "✅ tango/*.pyi files are unchanged."
+        else
+          echo "❌ tango/*.pyi files have been modified. Commit updated version to the repo (use Linux or macOS, Python 3.13)."
+          exit 1
+        fi
+      else
+        echo "ℹ️ Skipping check of tango/*.pyi stubs: only done on Python 3.13"
+      fi
   after_script:
     # Core files configuration
     - python_executable=$(which python)
@@ -165,7 +236,7 @@ linux:test-source:
       fi
   parallel:
     matrix:
-      - PYTHON_VERSION: ['3.9', '3.10', '3.11', '3.12', '3.13']
+      - PYTHON_VERSION: ['3.10', '3.11', '3.12', '3.13', '3.14']
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
   artifacts:
     when: always
@@ -186,7 +257,7 @@ linux:test-source:
 linux:test-source-against-develop-dependencies:
   stage: test
   when: manual
-  image: registry.gitlab.com/tango-controls/docker/micromamba:latest
+  image: registry.gitlab.com/tango-controls/docker/micromamba:2.3.0
   tags:
     - linux
     - docker
@@ -196,7 +267,7 @@ linux:test-source-against-develop-dependencies:
     IDL_SOURCE: "main"
     CPPTANGO_SOURCE: "main"
     TANGOTEST_SOURCE: "main"
-    PYTHON_VERSION: "3.12"
+    PYTHON_VERSION: "3.14"
   # Avoid job to wait on wheels building
   needs: [linux:build-sdist]
   before_script:
@@ -205,10 +276,10 @@ linux:test-source-against-develop-dependencies:
     # Install build and test dependencies
     - >
       micromamba install -y -n base -c conda-forge
-      libboost-python-devel cmake cppzmq cxx-compiler omniorb libtool pkg-config gnuconfig autoconf zeromq jpeg
+      "pybind11>=3.0.1" cmake cppzmq cxx-compiler omniorb libtool pkg-config gnuconfig autoconf zeromq jpeg
       cpp-opentelemetry-api cpp-opentelemetry-sdk
-      git make ninja python "numpy<2.3" packaging psutil pytest pytest-forked pytest-cov pystack gevent valgrind
-      clang-format clang-tools cppcheck python=$PYTHON_VERSION typing_extensions
+      git make ninja python numpy packaging psutil pytest pytest-forked pytest-cov pystack gevent valgrind
+      clang-format clang-tools cppcheck python=$PYTHON_VERSION typing_extensions docstring_parser
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
     - micromamba activate base
     # check which idl should we use and install it
@@ -265,6 +336,7 @@ linux:test-source-against-develop-dependencies:
     - >
       python -m pip install
       --config-settings=cmake.args="--preset=ci-Linux"
+      --config-settings=cmake.build-type="Debug"
       --config-settings=build-dir="cmakebuild"
       -v -e ".[tests,telemetry]"
   script:
@@ -303,7 +375,7 @@ linux:test-source-against-develop-dependencies:
 
 linux:test-main-cpptango:
   stage: test
-  image: registry.gitlab.com/tango-controls/docker/micromamba:latest
+  image: registry.gitlab.com/tango-controls/docker/micromamba:2.3.0
   tags:
     - linux
     - docker
@@ -315,9 +387,9 @@ linux:test-main-cpptango:
     # Install build and test dependencies
     - >
       micromamba install -y -n base -c tango-controls/label/dev -c conda-forge
-      cpptango libboost-python-devel cmake cppzmq cxx-compiler git make pkg-config ninja
-      python "numpy<2.3"
-      packaging psutil typing_extensions pytest pytest-forked gevent valgrind
+      cpptango "pybind11>=3.0.1" cmake cppzmq cxx-compiler git make pkg-config ninja
+      python numpy
+      packaging psutil typing_extensions pytest pytest-forked gevent valgrind docstring_parser
       opentelemetry-api opentelemetry-sdk opentelemetry-exporter-otlp-proto-grpc opentelemetry-exporter-otlp-proto-http
     - micromamba activate base
     # build and install TangoTest
@@ -381,39 +453,39 @@ linux:test-main-cpptango:
 linux:test-wheel:
   extends: .linux-test-wheel
 
-# Only wait on linux wheel for x86_64 python 3.12
-linux:test-wheel:x86_64:3.12:
+# Only wait on linux wheel for x86_64 python 3.14
+linux:test-wheel:x86_64:3.14:
   extends: .linux-test-wheel
   when: manual
   parallel:
     matrix:
       - RUNNER_TAG: amd64
         ARCH: x86_64
-        PYTHON_VER: "312"
+        PYTHON_VER: "314"
   needs:
     - job: linux:build-wheel
       parallel:
         matrix:
           - RUNNER_TAG: amd64
             ARCH: x86_64
-            PYTHON_VER: "312"
+            PYTHON_VER: "314"
 
-# Only wait on linux wheel for aarch64 python 3.12
-linux:test-wheel:aarch64:3.12:
+# Only wait on linux wheel for aarch64 python 3.14
+linux:test-wheel:aarch64:3.14:
   extends: .linux-test-wheel
   when: manual
   parallel:
     matrix:
       - RUNNER_TAG: aarch64
         ARCH: aarch64
-        PYTHON_VER: "312"
+        PYTHON_VER: "314"
   needs:
     - job: linux:build-wheel
       parallel:
         matrix:
           - RUNNER_TAG: aarch64
             ARCH: aarch64
-            PYTHON_VER: "312"
+            PYTHON_VER: "314"
 
 .linux-test-pixi:
   extends: .test-pixi

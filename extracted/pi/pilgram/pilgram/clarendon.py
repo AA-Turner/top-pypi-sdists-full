@@ -12,11 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from pilgram import css
-from pilgram import util
+from PIL import Image
+
+from pilgram import css, util
 
 
-def clarendon(im):
+def clarendon(im: Image.Image) -> Image.Image:
     """Applies Clarendon filter.
 
     Arguments:
@@ -26,9 +27,9 @@ def clarendon(im):
         The output image.
     """
 
-    cb = util.or_convert(im, 'RGB')
+    cb = util.or_convert(im, "RGB")
 
-    cs = util.fill(cb.size, [127, 187, 227, .2])
+    cs = util.fill(cb.size, (127, 187, 227, 0.2))
     cr = css.blending.overlay(cb, cs)
 
     cr = css.contrast(cr, 1.2)

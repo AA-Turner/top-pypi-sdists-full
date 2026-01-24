@@ -13,7 +13,9 @@
 #include "slang/ast/expressions/OperatorExpressions.h"
 #include "slang/ast/symbols/AttributeSymbol.h"
 #include "slang/ast/symbols/BlockSymbols.h"
+#include "slang/ast/symbols/CheckerSymbols.h"
 #include "slang/ast/symbols/InstanceSymbols.h"
+#include "slang/ast/symbols/PortSymbols.h"
 #include "slang/ast/symbols/VariableSymbols.h"
 #include "slang/ast/types/Type.h"
 #include "slang/diagnostics/DeclarationsDiags.h"
@@ -28,14 +30,25 @@ namespace slang::ast {
 using namespace syntax;
 
 const InstanceSymbolBase* ASTContext::getInstance() const {
-    if (instanceOrProc && instanceOrProc->kind != SymbolKind::ProceduralBlock)
-        return (const InstanceSymbolBase*)instanceOrProc;
+    if (symbolCtx && symbolCtx->kind != SymbolKind::ProceduralBlock) {
+        switch (symbolCtx->kind) {
+            case SymbolKind::Port:
+            case SymbolKind::MultiPort:
+            case SymbolKind::InterfacePort: {
+                auto ps = symbolCtx->getParentScope();
+                SLANG_ASSERT(ps);
+                return ps->asSymbol().as<InstanceBodySymbol>().parentInstance;
+            }
+            default:
+                return (const InstanceSymbolBase*)symbolCtx;
+        }
+    }
     return nullptr;
 }
 
 const ProceduralBlockSymbol* ASTContext::getProceduralBlock() const {
-    if (instanceOrProc && instanceOrProc->kind == SymbolKind::ProceduralBlock)
-        return &instanceOrProc->as<ProceduralBlockSymbol>();
+    if (symbolCtx && symbolCtx->kind == SymbolKind::ProceduralBlock)
+        return &symbolCtx->as<ProceduralBlockSymbol>();
     return nullptr;
 }
 
@@ -48,13 +61,18 @@ bool ASTContext::inAlwaysCombLatch() const {
 }
 
 void ASTContext::setInstance(const InstanceSymbolBase& inst) {
-    SLANG_ASSERT(!instanceOrProc);
-    instanceOrProc = &inst;
+    SLANG_ASSERT(!symbolCtx);
+    symbolCtx = &inst;
 }
 
 void ASTContext::setProceduralBlock(const ProceduralBlockSymbol& block) {
-    SLANG_ASSERT(!instanceOrProc);
-    instanceOrProc = &block;
+    SLANG_ASSERT(!symbolCtx);
+    symbolCtx = &block;
+}
+
+void ASTContext::setPort(const Symbol& port) {
+    SLANG_ASSERT(!symbolCtx);
+    symbolCtx = &port;
 }
 
 const Symbol* ASTContext::tryFillAssertionDetails() {
@@ -100,18 +118,40 @@ void ASTContext::setAttributes(const Expression& expr,
                                    AttributeSymbol::fromSyntax(syntax, *scope, getLocation()));
 }
 
-Diagnostic& ASTContext::addDiag(DiagCode code, SourceLocation location) const {
-    auto& diag = scope->addDiag(code, location);
-    if (assertionInstance)
+template<typename TLoc>
+Diagnostic& ASTContext::addDiagImpl(DiagCode code, TLoc loc) const {
+    if (assertionInstance) {
+        // If we're in an assertion instance we need to walk up the
+        // instantiation chain to find the real scope, otherwise we
+        // might miss cases where we are in an uninstantiated scope.
+        auto curCtx = this;
+        while (curCtx->assertionInstance && curCtx->assertionInstance->prevContext &&
+               curCtx->assertionInstance->symbol &&
+               curCtx->assertionInstance->symbol->kind != SymbolKind::Checker) {
+            curCtx = curCtx->assertionInstance->prevContext;
+        }
+
+        auto& diag = curCtx->scope->addDiag(code, loc);
         addAssertionBacktrace(diag);
+        return diag;
+    }
+
+    auto& diag = scope->addDiag(code, loc);
+
+    if (flags.has(ASTFlags::WildcardPortConn)) {
+        SLANG_ASSERT(symbolCtx);
+        diag.addNote(diag::NoteForPortConn, symbolCtx->location) << symbolCtx->name;
+    }
+
     return diag;
 }
 
+Diagnostic& ASTContext::addDiag(DiagCode code, SourceLocation location) const {
+    return addDiagImpl(code, location);
+}
+
 Diagnostic& ASTContext::addDiag(DiagCode code, SourceRange sourceRange) const {
-    auto& diag = scope->addDiag(code, sourceRange);
-    if (assertionInstance)
-        addAssertionBacktrace(diag);
-    return diag;
+    return addDiagImpl(code, sourceRange);
 }
 
 bool ASTContext::requireIntegral(const Expression& expr) const {

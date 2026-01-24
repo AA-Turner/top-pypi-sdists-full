@@ -12,6 +12,7 @@
 """
 This module contains compatibility fixes to allow usage of both 1.x and 2.x Trafaret versions
 """
+
 from __future__ import annotations
 
 try:

@@ -20,7 +20,7 @@
 """
 Module for parsing Qt .ts files for translation.
 
-Currently this module supports the old format of .ts files. Some applictaions
+Currently this module supports the old format of .ts files. Some applications
 use the newer .ts format which are documented here:
 `TS file format 4.3 <http://doc.qt.io/archives/4.3/linguist-ts-file-format.html>`_,
 `Example <http://svn.ez.no/svn/ezcomponents/trunk/Translation/docs/linguist-format.txt>`_
@@ -36,7 +36,7 @@ class QtTsParser:
     contextancestors = dict.fromkeys(["TS"])
     messageancestors = dict.fromkeys(["TS", "context"])
 
-    def __init__(self, inputfile=None):
+    def __init__(self, inputfile=None) -> None:
         """Make a new QtTsParser, reading from the given inputfile if required."""
         self.filename = getattr(inputfile, "filename", None)
         self.knowncontextnodes = {}
@@ -55,7 +55,7 @@ class QtTsParser:
         comment=None,
         transtype=None,
         createifmissing=False,
-    ):
+    ) -> bool:
         """Adds the given translation (will create the nodes required if asked). Returns success."""
         contextnode = self.getcontextnode(contextname)
         if contextnode is None:
@@ -162,7 +162,7 @@ class QtTsParser:
         ):
             yield self.getcontextname(contextnode), self.getmessagenodes(contextnode)
 
-    def __del__(self):
+    def __del__(self) -> None:
         """Clean up the document if required."""
         if hasattr(self, "document"):
             self.document.unlink()

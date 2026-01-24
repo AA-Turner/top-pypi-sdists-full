@@ -1,15 +1,10 @@
 import sys
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from abstra_internals.entities.forms.form_entity import (
-    FormEntity,
-    Step,
-)
+from abstra_internals.entities.forms.form_entity import FormEntity, Step
 from abstra_internals.entities.forms.form_state import State
-from abstra_internals.interface.contract.forms_contract import (
-    StepsInfo,
-    ValidationResult,
-)
+from abstra_internals.environment import IS_DEVELOPMENT
+from abstra_internals.interface.contract import StepsInfo, ValidationResult
 from abstra_internals.interface.sdk import user_exceptions
 from abstra_internals.repositories.users import UsersRepository
 from abstra_internals.services.jwt import UserClaims
@@ -27,7 +22,7 @@ class FormSDKController:
 
     def get_user(self, force_refresh: bool) -> UserClaims:
         data = self.client.request_auth(force_refresh)
-        claims = UserClaims.from_jwt(data["jwt"])
+        claims = UserClaims.from_jwt(data["jwt"], skip_verify=IS_DEVELOPMENT)
 
         if not claims:
             self.client.handle_invalid_jwt()

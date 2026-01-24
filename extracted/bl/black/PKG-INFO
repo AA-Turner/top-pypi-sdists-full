@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: black
-Version: 25.9.0
+Version: 26.1.0
 Summary: The uncompromising code formatter.
 Project-URL: Documentation, https://black.readthedocs.io/
 Project-URL: Changelog, https://github.com/psf/black/blob/main/CHANGES.md
@@ -8,30 +8,28 @@ Project-URL: Repository, https://github.com/psf/black
 Project-URL: Issues, https://github.com/psf/black/issues
 Author-email: Łukasz Langa <lukasz@langa.pl>
 License-Expression: MIT
-License-File: AUTHORS.md
 License-File: LICENSE
 Keywords: automation,autopep8,formatter,gofmt,pyfmt,rustfmt,yapf
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: click>=8.0.0
 Requires-Dist: mypy-extensions>=0.4.3
 Requires-Dist: packaging>=22.0
-Requires-Dist: pathspec>=0.9.0
+Requires-Dist: pathspec>=1.0.0
 Requires-Dist: platformdirs>=2
-Requires-Dist: pytokens>=0.1.10
+Requires-Dist: pytokens>=0.3.0
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.0.1; python_version < '3.11'
 Provides-Extra: colorama
@@ -55,6 +53,7 @@ Description-Content-Type: text/markdown
 <a href="https://coveralls.io/github/psf/black?branch=main"><img alt="Coverage Status" src="https://coveralls.io/repos/github/psf/black/badge.svg?branch=main"></a>
 <a href="https://github.com/psf/black/blob/main/LICENSE"><img alt="License: MIT" src="https://black.readthedocs.io/en/stable/_static/license.svg"></a>
 <a href="https://pypi.org/project/black/"><img alt="PyPI" src="https://img.shields.io/pypi/v/black"></a>
+<a href="https://pypi.org/project/black"><img alt="Supported Python Versions" src="https://img.shields.io/pypi/pyversions/black?color=brightgreen"></a>
 <a href="https://pepy.tech/project/black"><img alt="Downloads" src="https://static.pepy.tech/badge/black"></a>
 <a href="https://anaconda.org/conda-forge/black/"><img alt="conda-forge" src="https://img.shields.io/conda/dn/conda-forge/black.svg?label=conda-forge"></a>
 <a href="https://github.com/psf/black"><img alt="Code style: black" src="https://img.shields.io/badge/code%20style-black-000000.svg"></a>
@@ -85,12 +84,9 @@ Try it out now using the [Black Playground](https://black.vercel.app). Watch the
 
 ### Installation
 
-_Black_ can be installed by running `pip install black`. It requires Python 3.9+ to run.
-If you want to format Jupyter Notebooks, install with `pip install "black[jupyter]"`.
-
-If you can't wait for the latest _hotness_ and want to install from GitHub, use:
-
-`pip install git+https://github.com/psf/black`
+_Black_ can be installed by running `pip install black`. It requires Python 3.10+ to
+run. If you want to format Jupyter Notebooks, install with
+`pip install "black[jupyter]"`.
 
 ### Usage
 
@@ -227,7 +223,7 @@ Use the badge in your project's README.md:
 
 Using the badge in README.rst:
 
-```
+```rst
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/psf/black
 ```
@@ -276,6 +272,150 @@ Flying Circus is expected. We are not savages.
 
 And if you _really_ need to slap somebody, do it with a fish while dancing.
 # Change Log
+
+## 26.1.0
+
+### Highlights
+
+Introduces the 2026 stable style (#4892), stabilizing the following changes:
+
+- `always_one_newline_after_import`: Always force one blank line after import
+  statements, except when the line after the import is a comment or an import statement
+  (#4489)
+- `fix_fmt_skip_in_one_liners`: Fix `# fmt: skip` behavior on one-liner declarations,
+  such as `def foo(): return "mock" # fmt: skip`, where previously the declaration would
+  have been incorrectly collapsed (#4800)
+- `fix_module_docstring_detection`: Fix module docstrings being treated as normal
+  strings if preceded by comments (#4764)
+- `fix_type_expansion_split`: Fix type expansions split in generic functions (#4777)
+- `multiline_string_handling`: Make expressions involving multiline strings more compact
+  (#1879)
+- `normalize_cr_newlines`: Add `\r` style newlines to the potential newlines to
+  normalize file newlines both from and to (#4710)
+- `remove_parens_around_except_types`: Remove parentheses around multiple exception
+  types in `except` and `except*` without `as` (#4720)
+- `remove_parens_from_assignment_lhs`: Remove unnecessary parentheses from the left-hand
+  side of assignments while preserving magic trailing commas and intentional multiline
+  formatting (#4865)
+- `standardize_type_comments`: Format type comments which have zero or more spaces
+  between `#` and `type:` or between `type:` and value to `# type: (value)` (#4645)
+
+The following change was not in any previous stable release:
+
+- Regenerated the `_width_table.py` and added tests for the Khmer language (#4253)
+
+This release alo bumps `pathspec` to v1 and fixes inconsistencies with Git's
+`.gitignore` logic (#4958). Now, files will be ignored if a pattern matches them, even
+if the parent directory is directly unignored. For example, Black would previously
+format `exclude/not_this/foo.py` with this `.gitignore`:
+
+```
+exclude/
+!exclude/not_this/
+```
+
+Now, `exclude/not_this/foo.py` will remain ignored. To ensure `exclude/not_this/` and
+all of it's children are included in formatting (and in Git), use this `.gitignore`:
+
+```
+*/exclude/*
+!*/exclude/not_this/
+```
+
+This new behavior matches Git. The leading `*/` are only necessary if you wish to ignore
+matching subdirectories (like the previous behavior did), and not just matching root
+directories.
+
+### Output
+
+- Explicitly shutdown the multiprocessing manager when run in diff mode too (#4952)
+
+### Integrations
+
+- Upgraded PyPI upload workflow to use Trusted Publishing (#4611)
+
+## 25.12.0
+
+### Highlights
+
+- Black no longer supports running with Python 3.9 (#4842)
+
+### Stable style
+
+- Fix bug where comments preceding `# fmt: off`/`# fmt: on` blocks were incorrectly
+  removed, particularly affecting Jupytext's `# %% [markdown]` comments (#4845)
+- Fix crash when multiple `# fmt: skip` comments are used in a multi-part if-clause, on
+  string literals, or on dictionary entries with long lines (#4872)
+- Fix possible crash when `fmt: ` directives aren't on the top level (#4856)
+
+### Preview style
+
+- Fix `fmt: skip` skipping the line after instead of the line it's on (#4855)
+- Remove unnecessary parentheses from the left-hand side of assignments while preserving
+  magic trailing commas and intentional multiline formatting (#4865)
+- Fix `fix_fmt_skip_in_one_liners` crashing on `with` statements (#4853)
+- Fix `fix_fmt_skip_in_one_liners` crashing on annotated parameters (#4854)
+- Fix new lines being added after imports with `# fmt: skip` on them (#4894)
+
+### Packaging
+
+- Releases now include arm64 Windows binaries and wheels (#4814)
+
+### Integrations
+
+- Add `output-file` input to GitHub Action `psf/black` to write formatter output to a
+  file for artifact capture and log cleanliness (#4824)
+
+## 25.11.0
+
+### Highlights
+
+- Enable base 3.14 support (#4804)
+- Add support for the new Python 3.14 t-string syntax introduced by PEP 750 (#4805)
+
+### Stable style
+
+- Fix bug where comments between `# fmt: off` and `# fmt: on` were reformatted (#4811)
+- Comments containing fmt directives now preserve their exact formatting instead of
+  being normalized (#4811)
+
+### Preview style
+
+- Move `multiline_string_handling` from `--unstable` to `--preview` (#4760)
+- Fix bug where module docstrings would be treated as normal strings if preceded by
+  comments (#4764)
+- Fix bug where python 3.12 generics syntax split line happens weirdly (#4777)
+- Standardize type comments to form `# type: <value>` (#4645)
+- Fix `fix_fmt_skip_in_one_liners` preview feature to respect `# fmt: skip` for compound
+  statements with semicolon-separated bodies (#4800)
+
+### Configuration
+
+- Add `no_cache` option to control caching behavior. (#4803)
+
+### Packaging
+
+- Releases now include arm64 Linux binaries (#4773)
+
+### Output
+
+- Write unchanged content to stdout when excluding formatting from stdin using pipes
+  (#4610)
+
+### _Blackd_
+
+- Implemented BlackDClient. This simple python client allows to easily send formatting
+  requests to blackd (#4774)
+
+### Integrations
+
+- Enable 3.14 base CI (#4804)
+- Enhance GitHub Action `psf/black` to support the `required-version` major-version-only
+  "stability" format when using pyproject.toml (#4770)
+- Improve error message for vim plugin users. It now handles independently vim version
+- Vim: Warn on unsupported Vim and Python versions independently (#4772)
+- Vim: Print the import paths when importing black fails (#4675)
+- Vim: Fix handling of virtualenvs that have a different Python version (#4675)
 
 ## 25.9.0
 

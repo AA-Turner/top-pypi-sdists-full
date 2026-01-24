@@ -11,10 +11,9 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from google.protobuf import wrappers_pb2 as google_dot_protobuf_dot_wrappers__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!qwak/fitness_service/status.proto\x12\x14qwak.fitness.service\x1a\x1egoogle/protobuf/wrappers.proto\"\xf3\x01\n\x14RemoteBuildingStatus\x12S\n\x1bremote_building_status_code\x18\x01 \x01(\x0e\x32..qwak.fitness.service.RemoteBuildingStatusCode\x12Q\n\x0f\x66\x61ilure_details\x18\x02 \x01(\x0b\x32\x38.qwak.fitness.service.RemoteBuildingFailureReasonDetails\x12\x33\n\npod_status\x18\x03 \x01(\x0b\x32\x1f.qwak.fitness.service.PodStatus\"\x8c\x01\n\"RemoteBuildingFailureReasonDetails\x12K\n\x0c\x66\x61ilure_code\x18\x01 \x01(\x0e\x32\x35.qwak.fitness.service.RemoteBuildingFailureReasonCode\x12\x19\n\x11technical_details\x18\x02 \x01(\t\"\xa2\x01\n\tPodStatus\x12\x41\n\x12\x63ontainer_statuses\x18\x01 \x03(\x0b\x32%.qwak.fitness.service.ContainerStatus\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\r\n\x05phase\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x12\n\nstart_time\x18\x05 \x01(\t\x12\x0e\n\x06pod_id\x18\x06 \x01(\t\"\x9d\x01\n\x0f\x43ontainerStatus\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\r\n\x05image\x18\x02 \x01(\t\x12\x15\n\rrestart_count\x18\x03 \x01(\x05\x12\x0f\n\x07started\x18\x04 \x01(\x08\x12=\n\x0f\x63ontainer_state\x18\x05 \x01(\x0b\x32$.qwak.fitness.service.ContainerState\"\x8f\x02\n\x0e\x43ontainerState\x12N\n\x17\x63ontainer_state_running\x18\x01 \x01(\x0b\x32+.qwak.fitness.service.ContainerStateRunningH\x00\x12T\n\x1a\x63ontainer_state_terminated\x18\x02 \x01(\x0b\x32..qwak.fitness.service.ContainerStateTerminatedH\x00\x12N\n\x17\x63ontainer_state_waiting\x18\x03 \x01(\x0b\x32+.qwak.fitness.service.ContainerStateWaitingH\x00\x42\x07\n\x05state\"+\n\x15\x43ontainerStateRunning\x12\x12\n\nstarted_at\x18\x01 \x01(\t\"\x9d\x01\n\x18\x43ontainerStateTerminated\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x11\n\texit_code\x18\x02 \x01(\x05\x12\x13\n\x0b\x66inished_at\x18\x03 \x01(\t\x12\x0f\n\x07message\x18\x04 \x01(\t\x12\x0e\n\x06reason\x18\x05 \x01(\t\x12\x0e\n\x06signal\x18\x06 \x01(\x05\x12\x12\n\nstarted_at\x18\x07 \x01(\t\"8\n\x15\x43ontainerStateWaiting\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\t*\x98\x01\n\x18RemoteBuildingStatusCode\x12\x12\n\x0eINVALID_STATUS\x10\x00\x12\x10\n\x0cINITIALIZING\x10\x01\x12\x0f\n\x0bIN_PROGRESS\x10\x02\x12\x0e\n\nSUCCESSFUL\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\r\n\tCANCELLED\x10\x05\x12\r\n\tTIMED_OUT\x10\x06\x12\x0b\n\x07UNKNOWN\x10\x07*\x98\x01\n\x1fRemoteBuildingFailureReasonCode\x12\x10\n\x0cINVALID_CODE\x10\x00\x12\x12\n\x0eUNKNOWN_REASON\x10\x01\x12\x1a\n\x16INSUFFICIENT_RESOURCES\x10\x02\x12\x18\n\x14MISSING_DOCKER_IMAGE\x10\x03\x12\x19\n\x15MEMORY_LIMIT_EXCEEDED\x10\x04\x42#\n\x1f\x63om.qwak.ai.fitness.service.apiP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n!qwak/fitness_service/status.proto\x12\x14qwak.fitness.service\"\xa2\x01\n\tPodStatus\x12\x41\n\x12\x63ontainer_statuses\x18\x01 \x03(\x0b\x32%.qwak.fitness.service.ContainerStatus\x12\x0f\n\x07message\x18\x02 \x01(\t\x12\r\n\x05phase\x18\x03 \x01(\t\x12\x0e\n\x06reason\x18\x04 \x01(\t\x12\x12\n\nstart_time\x18\x05 \x01(\t\x12\x0e\n\x06pod_id\x18\x06 \x01(\t\"\x9d\x01\n\x0f\x43ontainerStatus\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\r\n\x05image\x18\x02 \x01(\t\x12\x15\n\rrestart_count\x18\x03 \x01(\x05\x12\x0f\n\x07started\x18\x04 \x01(\x08\x12=\n\x0f\x63ontainer_state\x18\x05 \x01(\x0b\x32$.qwak.fitness.service.ContainerState\"\x8f\x02\n\x0e\x43ontainerState\x12N\n\x17\x63ontainer_state_running\x18\x01 \x01(\x0b\x32+.qwak.fitness.service.ContainerStateRunningH\x00\x12T\n\x1a\x63ontainer_state_terminated\x18\x02 \x01(\x0b\x32..qwak.fitness.service.ContainerStateTerminatedH\x00\x12N\n\x17\x63ontainer_state_waiting\x18\x03 \x01(\x0b\x32+.qwak.fitness.service.ContainerStateWaitingH\x00\x42\x07\n\x05state\"+\n\x15\x43ontainerStateRunning\x12\x12\n\nstarted_at\x18\x01 \x01(\t\"\x9d\x01\n\x18\x43ontainerStateTerminated\x12\x14\n\x0c\x63ontainer_id\x18\x01 \x01(\t\x12\x11\n\texit_code\x18\x02 \x01(\x05\x12\x13\n\x0b\x66inished_at\x18\x03 \x01(\t\x12\x0f\n\x07message\x18\x04 \x01(\t\x12\x0e\n\x06reason\x18\x05 \x01(\t\x12\x0e\n\x06signal\x18\x06 \x01(\x05\x12\x12\n\nstarted_at\x18\x07 \x01(\t\"8\n\x15\x43ontainerStateWaiting\x12\x0f\n\x07message\x18\x01 \x01(\t\x12\x0e\n\x06reason\x18\x02 \x01(\tB#\n\x1f\x63om.qwak.ai.fitness.service.apiP\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -23,24 +22,16 @@ if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
   DESCRIPTOR._serialized_options = b'\n\037com.qwak.ai.fitness.service.apiP\001'
-  _globals['_REMOTEBUILDINGSTATUSCODE']._serialized_start=1343
-  _globals['_REMOTEBUILDINGSTATUSCODE']._serialized_end=1495
-  _globals['_REMOTEBUILDINGFAILUREREASONCODE']._serialized_start=1498
-  _globals['_REMOTEBUILDINGFAILUREREASONCODE']._serialized_end=1650
-  _globals['_REMOTEBUILDINGSTATUS']._serialized_start=92
-  _globals['_REMOTEBUILDINGSTATUS']._serialized_end=335
-  _globals['_REMOTEBUILDINGFAILUREREASONDETAILS']._serialized_start=338
-  _globals['_REMOTEBUILDINGFAILUREREASONDETAILS']._serialized_end=478
-  _globals['_PODSTATUS']._serialized_start=481
-  _globals['_PODSTATUS']._serialized_end=643
-  _globals['_CONTAINERSTATUS']._serialized_start=646
-  _globals['_CONTAINERSTATUS']._serialized_end=803
-  _globals['_CONTAINERSTATE']._serialized_start=806
-  _globals['_CONTAINERSTATE']._serialized_end=1077
-  _globals['_CONTAINERSTATERUNNING']._serialized_start=1079
-  _globals['_CONTAINERSTATERUNNING']._serialized_end=1122
-  _globals['_CONTAINERSTATETERMINATED']._serialized_start=1125
-  _globals['_CONTAINERSTATETERMINATED']._serialized_end=1282
-  _globals['_CONTAINERSTATEWAITING']._serialized_start=1284
-  _globals['_CONTAINERSTATEWAITING']._serialized_end=1340
+  _globals['_PODSTATUS']._serialized_start=60
+  _globals['_PODSTATUS']._serialized_end=222
+  _globals['_CONTAINERSTATUS']._serialized_start=225
+  _globals['_CONTAINERSTATUS']._serialized_end=382
+  _globals['_CONTAINERSTATE']._serialized_start=385
+  _globals['_CONTAINERSTATE']._serialized_end=656
+  _globals['_CONTAINERSTATERUNNING']._serialized_start=658
+  _globals['_CONTAINERSTATERUNNING']._serialized_end=701
+  _globals['_CONTAINERSTATETERMINATED']._serialized_start=704
+  _globals['_CONTAINERSTATETERMINATED']._serialized_end=861
+  _globals['_CONTAINERSTATEWAITING']._serialized_start=863
+  _globals['_CONTAINERSTATEWAITING']._serialized_end=919
 # @@protoc_insertion_point(module_scope)

@@ -850,7 +850,7 @@ def merge_templates(default_template, *user_templates):
 cdef class Session(HasFuncList, types.Session):
     """Extend Session with implementation."""
 
-    cdef CK_SESSION_HANDLE handle
+    cdef readonly CK_SESSION_HANDLE handle
     cdef readonly Token token
     cdef readonly bint rw
     cdef CK_USER_TYPE _user_type
@@ -1366,8 +1366,15 @@ cdef object make_object(Session session, CK_OBJECT_HANDLE handle) with gil:
         # Determine a list of base classes to manufacture our class with
         try:
             attributes = wrapper.get_attribute_list(&attr_keys[0], 8)
-        except (AttributeTypeInvalid, FunctionFailed) as e:
+        except PKCS11Error:
+            # retry fetching the flags one by one, some tokens do not implement error handling
+            # on bulk fetches correctly.
             attributes = {}
+            for key in attr_keys:
+                try:
+                    attributes[key] = wrapper[key]
+                except (AttributeTypeInvalid, AttributeSensitive, FunctionFailed):
+                    continue
 
         object_class = attributes.get(Attribute.CLASS, session.attribute_mapper)
         bases = (_CLASS_MAP[object_class],)

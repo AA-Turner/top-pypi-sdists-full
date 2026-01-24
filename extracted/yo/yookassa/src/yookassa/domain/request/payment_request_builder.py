@@ -12,9 +12,9 @@ class PaymentRequestBuilder(object):
 
     def set_recipient(self, value):
         """
-        Устанавливает type модели PaymentRequestBuilder.
+        Устанавливает recipient модели PaymentRequestBuilder.
 
-        :param value: type модели PaymentRequestBuilder.
+        :param value: recipient модели PaymentRequestBuilder.
         :type value: Recipient
         :rtype: PaymentRequestBuilder
         """
@@ -218,6 +218,17 @@ class PaymentRequestBuilder(object):
         :rtype: PaymentRequestBuilder
         """
         self.__request.payment_order = value
+        return self
+
+    def set_statements(self, value):
+        """
+        Устанавливает statements модели PaymentRequestBuilder.
+
+        :param value: statements модели PaymentRequestBuilder.
+        :type value: list[Statement]
+        :rtype: PaymentRequestBuilder
+        """
+        self.__request.statements = value
         return self
 
     def build(self):

@@ -20,6 +20,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     CreateServiceTokenResponse,
     CreateTeamRequest,
     CreateTeamResponse,
+    CreateVectorDBConfigurationRequest,
+    CreateVectorDBConfigurationResponse,
     DeactivateUserRequest,
     DeactivateUserResponse,
     DeleteServiceTokenRequest,
@@ -32,6 +34,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     GetAvailablePermissionsResponse,
     GetDisplayAgentRequest,
     GetDisplayAgentResponse,
+    GetEnvIncludingArchivedRequest,
+    GetEnvIncludingArchivedResponse,
     GetEnvRequest,
     GetEnvResponse,
     GetEnvironmentsRequest,
@@ -72,6 +76,10 @@ class TeamServiceStub:
         GetEnvRequest,
         GetEnvResponse,
     ]
+    GetEnvIncludingArchived: UnaryUnaryMultiCallable[
+        GetEnvIncludingArchivedRequest,
+        GetEnvIncludingArchivedResponse,
+    ]
     GetEnvironments: UnaryUnaryMultiCallable[
         GetEnvironmentsRequest,
         GetEnvironmentsResponse,
@@ -111,6 +119,10 @@ class TeamServiceStub:
     UpdateEnvironment: UnaryUnaryMultiCallable[
         UpdateEnvironmentRequest,
         UpdateEnvironmentResponse,
+    ]
+    CreateVectorDBConfiguration: UnaryUnaryMultiCallable[
+        CreateVectorDBConfigurationRequest,
+        CreateVectorDBConfigurationResponse,
     ]
     GetAvailablePermissions: UnaryUnaryMultiCallable[
         GetAvailablePermissionsRequest,
@@ -182,6 +194,12 @@ class TeamServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetEnvResponse: ...
     @abstractmethod
+    def GetEnvIncludingArchived(
+        self,
+        request: GetEnvIncludingArchivedRequest,
+        context: ServicerContext,
+    ) -> GetEnvIncludingArchivedResponse: ...
+    @abstractmethod
     def GetEnvironments(
         self,
         request: GetEnvironmentsRequest,
@@ -241,6 +259,12 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: UpdateEnvironmentRequest,
         context: ServicerContext,
     ) -> UpdateEnvironmentResponse: ...
+    @abstractmethod
+    def CreateVectorDBConfiguration(
+        self,
+        request: CreateVectorDBConfigurationRequest,
+        context: ServicerContext,
+    ) -> CreateVectorDBConfigurationResponse: ...
     @abstractmethod
     def GetAvailablePermissions(
         self,

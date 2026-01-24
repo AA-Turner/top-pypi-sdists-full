@@ -2,21 +2,14 @@ import abc
 import sys
 import typing
 import warnings
-from typing import Hashable, Union
-
-from typing_extensions import Self, TypeGuard
+from collections.abc import Callable, Hashable
+from functools import reduce
+from operator import or_
+from types import UnionType
+from typing import Literal, TypeGuard, get_args, get_origin
+from typing_extensions import Self
 
 from beartype.vale._core._valecore import BeartypeValidator
-
-from .typing import get_args, get_origin
-
-try:  # pragma: specific no cover 3.8 3.9
-    from types import UnionType
-except ImportError:  # pragma: specific no cover 3.10 3.11
-
-    class UnionType:
-        """Replacement for :class:`types.UnionType`."""
-
 
 __all__ = [
     "PromisedType",
@@ -54,7 +47,7 @@ class ResolvableType(type):
         self._type = type
         return self
 
-    def resolve(self) -> Union[type, Self]:
+    def resolve(self) -> type | Self:
         """Resolve the type.
 
         Returns:
@@ -92,17 +85,34 @@ class ModuleType(ResolvableType):
         name (str): Name of the type that is promised.
         allow_fail (bool, optional): If the type is does not exist in `module`,
             do not raise an `AttributeError`.
+        condition (Callable[[], bool], optional): A callable that can check a condition,
+            like a package version. This callable will be run whenever `module` has been
+            imported. Only if the callable returns `True`, `name` will be imported
+            from `module`.
     """
 
-    def __init__(self, module: str, name: str, allow_fail: bool = False) -> None:
+    def __init__(
+        self,
+        module: str,
+        name: str,
+        allow_fail: bool = False,
+        condition: Callable[[], bool] | None = None,
+    ) -> None:
         if module in {"__builtin__", "__builtins__"}:
             module = "builtins"
         ResolvableType.__init__(self, f"ModuleType[{module}.{name}]")
         self._name = name
         self._module = module
         self._allow_fail = allow_fail
+        self._condition = condition
 
-    def __new__(cls, module: str, name: str, allow_fail: bool = False) -> Self:
+    def __new__(
+        cls,
+        module: str,
+        name: str,
+        allow_fail: bool = False,
+        condition: Callable[[], bool] | None = None,
+    ) -> Self:
         return ResolvableType.__new__(cls, f"ModuleType[{module}.{name}]")
 
     def retrieve(self) -> bool:
@@ -112,6 +122,10 @@ class ModuleType(ResolvableType):
             bool: Whether the retrieval succeeded.
         """
         if self._type is None and self._module in sys.modules:
+            # If a condition is given, check the condition before attempting to import.
+            if self._condition is not None and not self._condition():
+                return False
+
             type = sys.modules[self._module]
             for name in self._name.split("."):
                 # If `type` does not contain `name` and `self._allow_fail` is
@@ -133,7 +147,7 @@ def _is_hint(x: object) -> bool:
         bool: `True` if `x` is a type hint and `False` otherwise.
     """
     try:
-        if x.__module__ == "builtins":  # pragma: specific no cover 3.8
+        if x.__module__ == "builtins":
             # Check if `x` is a subscripted built-in. We do this by checking the module
             # of the type of `x`.
             x = type(x)
@@ -168,7 +182,7 @@ type_mapping = {}
 values."""
 
 
-def resolve_type_hint(x):
+def resolve_type_hint(x: object, /) -> object:
     """Resolve all :class:`ResolvableType` in a type or type hint.
 
     Args:
@@ -183,33 +197,18 @@ def resolve_type_hint(x):
         origin = get_origin(x)
         args = get_args(x)
         if args == ():
-            # `origin` might not make sense here. For example, `get_origin(Any)` is
-            # `None`. Since the hint wasn't subscripted, the right thing is to right the
-            # hint itself.
+            # `origin` might not make sense here. For example, `get_origin(Any)`
+            # is `None`. Since the hint wasn't subscripted, the right thing is
+            # to return the hint itself.
             return x
+        if origin is UnionType:  # The new union syntax was used.
+            return reduce(or_, (resolve_type_hint(arg) for arg in args))
         else:
-            if origin is UnionType:  # pragma: specific no cover 3.8 3.9
-                # The new union syntax was used.
-                y = args[0]
-                for arg in args[1:]:
-                    y = y | arg
-                return y
-            else:
-                # Do not resolve the arguments for `Literal`s.
-                if origin != typing.Literal:
-                    args = resolve_type_hint(args)
-                try:
-                    return origin[args]
-                except TypeError as e:  # pragma: specific no cover 3.9 3.10 3.11
-                    # In Python 3.8, the origin might be a type that cannot be
-                    # subscripted. As a workaround, we get the name of the type,
-                    # capitalize it, and try to get it from `typing`. So far, this
-                    # seems to have worked fine.
-                    if sys.version_info.minor <= 8:
-                        return getattr(typing, origin.__name__.capitalize())[args]
-                    else:  # pragma: no cover
-                        # This branch can never be reached.
-                        raise e
+            # Do not resolve the arguments for `Literal`s.
+            if origin is not Literal:
+                args = resolve_type_hint(args)
+
+            return origin[args]
 
     elif x is None or x is Ellipsis:
         return x
@@ -217,7 +216,7 @@ def resolve_type_hint(x):
     elif isinstance(x, tuple):
         return tuple(resolve_type_hint(arg) for arg in x)
     elif isinstance(x, list):
-        return list(resolve_type_hint(arg) for arg in x)
+        return [resolve_type_hint(arg) for arg in x]
     elif isinstance(x, type):
         if isinstance(x, ResolvableType):
             if isinstance(x, ModuleType) and not x.retrieve():
@@ -245,7 +244,7 @@ def resolve_type_hint(x):
         return x
 
 
-def is_faithful(x) -> bool:
+def is_faithful(x: object, /) -> bool:
     """Check whether a type hint is faithful.
 
     A type or type hint `t` is defined _faithful_ if, for all `x`, the following holds
@@ -268,20 +267,23 @@ def is_faithful(x) -> bool:
     return _is_faithful(resolve_type_hint(x))
 
 
-def _is_faithful(x) -> bool:
+UNION_TYPES = frozenset({typing.Union, UnionType, typing.Optional})
+
+
+def _is_faithful(x: object, /) -> bool:
     if _is_hint(x):
         origin = get_origin(x)
         args = get_args(x)
         if args == ():
-            # Unsubscripted type hints tend to be faithful. For example, `Any`, `List`,
-            # `Tuple`, `Dict`, `Callable`, and `Generator` are. When we come across a
-            # counter-example, we will refine this logic.
+            # Unsubscripted type hints tend to be faithful. For example, `Any`,
+            # `List`, `Tuple`, `Dict`, `Callable`, and `Generator` are. When we
+            # come across a counter-example, we will refine this logic.
             return True
-        else:
-            if origin in {typing.Union, typing.Optional}:
-                return all(is_faithful(arg) for arg in args)
-            else:
-                return False
+
+        if origin in UNION_TYPES:
+            return all(is_faithful(arg) for arg in args)
+
+        return False
 
     elif x is None or x == Ellipsis:
         return True

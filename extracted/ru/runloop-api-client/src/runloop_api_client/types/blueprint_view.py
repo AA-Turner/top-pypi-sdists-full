@@ -10,6 +10,8 @@ __all__ = ["BlueprintView", "ContainerizedService", "ContainerizedServiceCredent
 
 
 class ContainerizedServiceCredentials(BaseModel):
+    """The credentials of the container service."""
+
     password: str
     """The password of the container service."""
 
@@ -41,6 +43,11 @@ class ContainerizedService(BaseModel):
 
 
 class BlueprintView(BaseModel):
+    """Blueprints are ways to create customized starting points for Devboxes.
+
+    They allow you to define custom starting points for Devboxes such that environment set up can be cached to improve Devbox boot times.
+    """
+
     id: str
     """The id of the Blueprint."""
 
@@ -56,11 +63,14 @@ class BlueprintView(BaseModel):
     state: Literal["created", "deleted"]
     """The state of the Blueprint."""
 
-    status: Literal["provisioning", "building", "failed", "build_complete"]
+    status: Literal["queued", "provisioning", "building", "failed", "build_complete"]
     """The status of the Blueprint build."""
 
     base_blueprint_id: Optional[str] = None
     """The ID of the base Blueprint."""
+
+    build_finish_time_ms: Optional[int] = None
+    """Build completion time of the Blueprint (Unix timestamp milliseconds)."""
 
     containerized_services: Optional[List[ContainerizedService]] = None
     """List of ContainerizedServices available in the Blueprint.
@@ -68,9 +78,9 @@ class BlueprintView(BaseModel):
     Services can be explicitly started when creating a Devbox.
     """
 
-    devbox_capabilities: Optional[
-        List[Literal["unknown", "computer_usage", "browser_usage", "language_server", "docker_in_docker"]]
-    ] = None
+    devbox_capabilities: Optional[List[Literal["unknown", "computer_usage", "browser_usage", "docker_in_docker"]]] = (
+        None
+    )
     """Capabilities that will be available on Devbox."""
 
     failure_reason: Optional[Literal["out_of_memory", "out_of_disk", "build_failed"]] = None

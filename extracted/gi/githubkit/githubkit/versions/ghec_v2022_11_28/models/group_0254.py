@@ -9,8 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+import datetime as _dt
+from typing import Union
 
 from pydantic import Field
 
@@ -19,90 +19,53 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class RuleSuite(GitHubModel):
-    """Rule Suite
+class CredentialAuthorization(GitHubModel):
+    """Credential Authorization
 
-    Response
+    Credential Authorization
     """
 
-    id: Missing[int] = Field(
-        default=UNSET, description="The unique identifier of the rule insight."
+    login: str = Field(description="User login that owns the underlying credential.")
+    credential_id: int = Field(
+        description="Unique identifier for the authorization of the credential. Use this to revoke authorization of the underlying token or key."
     )
-    actor_id: Missing[Union[int, None]] = Field(
-        default=UNSET, description="The number that identifies the user."
+    credential_type: str = Field(
+        description="Human-readable description of the credential type."
     )
-    actor_name: Missing[Union[str, None]] = Field(
-        default=UNSET, description="The handle for the GitHub user account."
-    )
-    before_sha: Missing[str] = Field(
-        default=UNSET, description="The previous commit SHA of the ref."
-    )
-    after_sha: Missing[str] = Field(
-        default=UNSET, description="The new commit SHA of the ref."
-    )
-    ref: Missing[str] = Field(
-        default=UNSET, description="The ref name that the evaluation ran on."
-    )
-    repository_id: Missing[int] = Field(
+    token_last_eight: Missing[str] = Field(
         default=UNSET,
-        description="The ID of the repository associated with the rule evaluation.",
+        description="Last eight characters of the credential. Only included in responses with credential_type of personal access token.",
     )
-    repository_name: Missing[str] = Field(
+    credential_authorized_at: _dt.datetime = Field(
+        description="Date when the credential was authorized for use."
+    )
+    scopes: Missing[list[str]] = Field(
+        default=UNSET, description="List of oauth scopes the token has been granted."
+    )
+    fingerprint: Missing[str] = Field(
         default=UNSET,
-        description="The name of the repository without the `.git` extension.",
+        description="Unique string to distinguish the credential. Only included in responses with credential_type of SSH Key.",
     )
-    pushed_at: Missing[datetime] = Field(default=UNSET)
-    result: Missing[Literal["pass", "fail", "bypass"]] = Field(
+    credential_accessed_at: Union[_dt.datetime, None] = Field(
+        description="Date when the credential was last accessed. May be null if it was never accessed"
+    )
+    authorized_credential_id: Union[int, None] = Field(
+        description="The ID of the underlying token that was authorized by the user. This will remain unchanged across authorizations of the token."
+    )
+    authorized_credential_title: Missing[Union[str, None]] = Field(
         default=UNSET,
-        description="The result of the rule evaluations for rules with the `active` enforcement status.",
+        description="The title given to the ssh key. This will only be present when the credential is an ssh key.",
     )
-    evaluation_result: Missing[Union[None, Literal["pass", "fail", "bypass"]]] = Field(
+    authorized_credential_note: Missing[Union[str, None]] = Field(
         default=UNSET,
-        description="The result of the rule evaluations for rules with the `active` and `evaluate` enforcement statuses, demonstrating whether rules would pass or fail if all rules in the rule suite were `active`. Null if no rules with `evaluate` enforcement status were run.",
+        description="The note given to the token. This will only be present when the credential is a token.",
     )
-    rule_evaluations: Missing[list[RuleSuitePropRuleEvaluationsItems]] = Field(
-        default=UNSET, description="Details on the evaluated rules."
-    )
-
-
-class RuleSuitePropRuleEvaluationsItems(GitHubModel):
-    """RuleSuitePropRuleEvaluationsItems"""
-
-    rule_source: Missing[RuleSuitePropRuleEvaluationsItemsPropRuleSource] = Field(
-        default=UNSET
-    )
-    enforcement: Missing[Literal["active", "evaluate", "deleted ruleset"]] = Field(
-        default=UNSET, description="The enforcement level of this rule source."
-    )
-    result: Missing[Literal["pass", "fail"]] = Field(
+    authorized_credential_expires_at: Missing[Union[_dt.datetime, None]] = Field(
         default=UNSET,
-        description="The result of the evaluation of the individual rule.",
-    )
-    rule_type: Missing[str] = Field(default=UNSET, description="The type of rule.")
-    details: Missing[Union[str, None]] = Field(
-        default=UNSET,
-        description="The detailed failure message for the rule. Null if the rule passed.",
+        description="The expiry for the token. This will only be present when the credential is a token.",
     )
 
 
-class RuleSuitePropRuleEvaluationsItemsPropRuleSource(GitHubModel):
-    """RuleSuitePropRuleEvaluationsItemsPropRuleSource"""
+model_rebuild(CredentialAuthorization)
 
-    type: Missing[str] = Field(default=UNSET, description="The type of rule source.")
-    id: Missing[Union[int, None]] = Field(
-        default=UNSET, description="The ID of the rule source."
-    )
-    name: Missing[Union[str, None]] = Field(
-        default=UNSET, description="The name of the rule source."
-    )
-
-
-model_rebuild(RuleSuite)
-model_rebuild(RuleSuitePropRuleEvaluationsItems)
-model_rebuild(RuleSuitePropRuleEvaluationsItemsPropRuleSource)
-
-__all__ = (
-    "RuleSuite",
-    "RuleSuitePropRuleEvaluationsItems",
-    "RuleSuitePropRuleEvaluationsItemsPropRuleSource",
-)
+__all__ = ("CredentialAuthorization",)

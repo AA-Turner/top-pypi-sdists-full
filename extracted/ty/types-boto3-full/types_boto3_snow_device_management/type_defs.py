@@ -3,7 +3,7 @@ Type annotations for snow-device-management service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_snow_device_management/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -30,12 +31,6 @@ from .literals import (
     UnlockStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -99,7 +94,7 @@ class CancelTaskInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -160,7 +155,7 @@ class DeviceSummaryTypeDef(TypedDict):
     associatedWithJob: NotRequired[str]
     managedDeviceArn: NotRequired[str]
     managedDeviceId: NotRequired[str]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 
 class EbsInstanceBlockDeviceTypeDef(TypedDict):
@@ -238,7 +233,7 @@ class ListTasksInputTypeDef(TypedDict):
 class TaskSummaryTypeDef(TypedDict):
     taskId: str
     state: NotRequired[TaskStateType]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
     taskArn: NotRequired[str]
 
 
@@ -279,8 +274,8 @@ class DescribeTaskOutputTypeDef(TypedDict):
     description: str
     lastUpdatedAt: datetime
     state: TaskStateType
-    tags: Dict[str, str]
-    targets: List[str]
+    tags: dict[str, str]
+    targets: list[str]
     taskArn: str
     taskId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -291,7 +286,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -305,21 +300,21 @@ class CreateTaskInputTypeDef(TypedDict):
 
 class DescribeDeviceOutputTypeDef(TypedDict):
     associatedWithJob: str
-    deviceCapacities: List[CapacityTypeDef]
+    deviceCapacities: list[CapacityTypeDef]
     deviceState: UnlockStateType
     deviceType: str
     lastReachedOutAt: datetime
     lastUpdatedAt: datetime
     managedDeviceArn: str
     managedDeviceId: str
-    physicalNetworkInterfaces: List[PhysicalNetworkInterfaceTypeDef]
+    physicalNetworkInterfaces: list[PhysicalNetworkInterfaceTypeDef]
     software: SoftwareInformationTypeDef
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListDevicesOutputTypeDef(TypedDict):
-    devices: List[DeviceSummaryTypeDef]
+    devices: list[DeviceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -330,7 +325,7 @@ class InstanceBlockDeviceMappingTypeDef(TypedDict):
 
 
 class ListExecutionsOutputTypeDef(TypedDict):
-    executions: List[ExecutionSummaryTypeDef]
+    executions: list[ExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -362,20 +357,20 @@ class ListTasksInputPaginateTypeDef(TypedDict):
 
 
 class ListDeviceResourcesOutputTypeDef(TypedDict):
-    resources: List[ResourceSummaryTypeDef]
+    resources: list[ResourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTasksOutputTypeDef(TypedDict):
-    tasks: List[TaskSummaryTypeDef]
+    tasks: list[TaskSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class InstanceTypeDef(TypedDict):
     amiLaunchIndex: NotRequired[int]
-    blockDeviceMappings: NotRequired[List[InstanceBlockDeviceMappingTypeDef]]
+    blockDeviceMappings: NotRequired[list[InstanceBlockDeviceMappingTypeDef]]
     cpuOptions: NotRequired[CpuOptionsTypeDef]
     createdAt: NotRequired[datetime]
     imageId: NotRequired[str]
@@ -384,7 +379,7 @@ class InstanceTypeDef(TypedDict):
     privateIpAddress: NotRequired[str]
     publicIpAddress: NotRequired[str]
     rootDeviceName: NotRequired[str]
-    securityGroups: NotRequired[List[SecurityGroupIdentifierTypeDef]]
+    securityGroups: NotRequired[list[SecurityGroupIdentifierTypeDef]]
     state: NotRequired[InstanceStateTypeDef]
     updatedAt: NotRequired[datetime]
 
@@ -395,5 +390,5 @@ class InstanceSummaryTypeDef(TypedDict):
 
 
 class DescribeDeviceEc2OutputTypeDef(TypedDict):
-    instances: List[InstanceSummaryTypeDef]
+    instances: list[InstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef

@@ -28,8 +28,8 @@ mod _kolo {
     /// The `KoloProfiler` struct is registered with Python via `PyEval_SetProfile`. If
     /// `use_threading` is `true` we also use `threading.setprofile` with the
     /// `KoloProfiler::register_threading_profiler` callback to register on all threads.
-    fn register_profiler(profiler: PyObject) -> Result<(), PyErr> {
-        Python::with_gil(|py| {
+    fn register_profiler(profiler: Py<PyAny>) -> Result<(), PyErr> {
+        Python::attach(|py| {
             let py_profiler = profiler.bind(py);
             if !py_profiler.is_callable() {
                 return Err(PyTypeError::new_err("profiler object is not callable"));
@@ -38,7 +38,7 @@ mod _kolo {
             let rust_profiler = profiler::KoloProfiler::new_from_python(py, py_profiler)?;
 
             // Convert the Rust struct into a Python object the Python interpreter can handle.
-            let py_rust_profiler = rust_profiler.into_py(py);
+            let py_rust_profiler = Bound::new(py, rust_profiler)?.into_any().unbind();
 
             // Increment the reference count of our profiler as a Python object so we can pass it
             // to both `PyEval_SetProfile` and `threading.setprofile`.
@@ -77,13 +77,13 @@ mod _kolo {
                 Err(_) => false,
             };
             if use_threading {
-                let threading = PyModule::import_bound(py, "threading")?;
+                let threading = PyModule::import(py, "threading")?;
                 let args =
-                    PyTuple::new_bound(
+                    PyTuple::new(
                         py,
                         [py_rust_profiler_2
                             .getattr(py, intern!(py, "register_threading_profiler"))?],
-                    );
+                    )?;
                 threading.call_method1("setprofile", args)?;
             }
 
@@ -131,11 +131,11 @@ mod _kolo {
         // `arg1` can accept a NULL pointer, so that's what we pass.
         //
         // PyEval_SetProfile also requires we hold the GIL, so we wrap the
-        // `unsafe` block in `Python::with_gil`.
+        // `unsafe` block in `Python::attach`.
         //
         // https://docs.rs/pyo3-ffi/latest/pyo3_ffi/fn.PyEval_SetProfile.html
         // https://docs.python.org/3/c-api/init.html#c.PyEval_SetProfile
-        Python::with_gil(|_py| unsafe {
+        Python::attach(|_py| unsafe {
             ffi::PyEval_SetProfile(Some(noop_profile), ptr::null_mut());
         })
     }
@@ -153,17 +153,17 @@ mod _kolo {
 
         #[test]
         fn test_register_profiler_uncallable() {
-            pyo3::prepare_freethreaded_python();
+            Python::initialize();
 
-            Python::with_gil(|py| {
-                let invalid: PyObject = PyTuple::empty_bound(py).into();
+            Python::attach(|py| {
+                let invalid: Py<PyAny> = PyTuple::empty(py).into();
                 let pyerr = register_profiler(invalid).unwrap_err();
 
                 assert!(pyerr
-                    .get_type_bound(py)
-                    .is(&PyType::new_bound::<PyTypeError>(py)));
+                    .get_type(py)
+                    .is(&PyType::new::<PyTypeError>(py)));
                 assert_eq!(
-                    pyerr.value_bound(py).to_string(),
+                    pyerr.value(py).to_string(),
                     "profiler object is not callable"
                 );
             });

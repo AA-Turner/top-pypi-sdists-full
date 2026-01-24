@@ -9,6 +9,7 @@ from ...requests.custom_attribute_definition import CustomAttributeDefinitionPar
 from ...types.create_order_custom_attribute_definition_response import CreateOrderCustomAttributeDefinitionResponse
 from ...types.custom_attribute_definition import CustomAttributeDefinition
 from ...types.delete_order_custom_attribute_definition_response import DeleteOrderCustomAttributeDefinitionResponse
+from ...types.list_order_custom_attribute_definitions_response import ListOrderCustomAttributeDefinitionsResponse
 from ...types.retrieve_order_custom_attribute_definition_response import RetrieveOrderCustomAttributeDefinitionResponse
 from ...types.update_order_custom_attribute_definition_response import UpdateOrderCustomAttributeDefinitionResponse
 from ...types.visibility_filter import VisibilityFilter
@@ -40,7 +41,7 @@ class CustomAttributeDefinitionsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[CustomAttributeDefinition]:
+    ) -> SyncPager[CustomAttributeDefinition, ListOrderCustomAttributeDefinitionsResponse]:
         """
         Lists the order-related [custom attribute definitions](entity:CustomAttributeDefinition) that belong to a Square seller account.
 
@@ -70,7 +71,7 @@ class CustomAttributeDefinitionsClient:
 
         Returns
         -------
-        SyncPager[CustomAttributeDefinition]
+        SyncPager[CustomAttributeDefinition, ListOrderCustomAttributeDefinitionsResponse]
             Success
 
         Examples
@@ -80,7 +81,11 @@ class CustomAttributeDefinitionsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.orders.custom_attribute_definitions.list()
+        response = client.orders.custom_attribute_definitions.list(
+            visibility_filter="ALL",
+            cursor="cursor",
+            limit=1,
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -190,6 +195,7 @@ class CustomAttributeDefinitionsClient:
         )
         client.orders.custom_attribute_definitions.get(
             key="key",
+            version=1,
         )
         """
         _response = self._raw_client.get(key, version=version, request_options=request_options)
@@ -315,7 +321,7 @@ class AsyncCustomAttributeDefinitionsClient:
         cursor: typing.Optional[str] = None,
         limit: typing.Optional[int] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[CustomAttributeDefinition]:
+    ) -> AsyncPager[CustomAttributeDefinition, ListOrderCustomAttributeDefinitionsResponse]:
         """
         Lists the order-related [custom attribute definitions](entity:CustomAttributeDefinition) that belong to a Square seller account.
 
@@ -345,7 +351,7 @@ class AsyncCustomAttributeDefinitionsClient:
 
         Returns
         -------
-        AsyncPager[CustomAttributeDefinition]
+        AsyncPager[CustomAttributeDefinition, ListOrderCustomAttributeDefinitionsResponse]
             Success
 
         Examples
@@ -360,7 +366,11 @@ class AsyncCustomAttributeDefinitionsClient:
 
 
         async def main() -> None:
-            response = await client.orders.custom_attribute_definitions.list()
+            response = await client.orders.custom_attribute_definitions.list(
+                visibility_filter="ALL",
+                cursor="cursor",
+                limit=1,
+            )
             async for item in response:
                 yield item
 
@@ -487,6 +497,7 @@ class AsyncCustomAttributeDefinitionsClient:
         async def main() -> None:
             await client.orders.custom_attribute_definitions.get(
                 key="key",
+                version=1,
             )
 
 

@@ -54,7 +54,7 @@ class LogInfoReplacer:
         of each key and replaces the matched substring with the string value associated with that key."""
         self._regex_sr_replacer = repl_dict
 
-    def put_regex_sr_replacer_item(self, search: re.Pattern or str, replace: str) -> re.Pattern:
+    def put_regex_sr_replacer_item(self, search: re.Pattern | str, replace: str) -> re.Pattern:
         """Sets/replaces one item in the regex replacer. The key can be either a regex pattern,
         or a string. In case of the string, the key is compiled to a regex pattern,
         before it is put into the replacing dictionary.
@@ -64,7 +64,7 @@ class LogInfoReplacer:
         self._regex_sr_replacer[search] = replace
         return search
 
-    def pop_regex_sr_replacer_item(self, search: re.Pattern or str) -> None:
+    def pop_regex_sr_replacer_item(self, search: re.Pattern | str) -> None:
         """Pops(removes) the entered regex replacer item. The key can be either a regex pattern,
         or a string. In case of the string, the key is compiled to a regex pattern prior to popping."""
         if isinstance(search, str):
@@ -97,7 +97,7 @@ class LogEntry:
     _tab_var_re = re.compile(r'PAD_(LEFT|RIGHT)(\d+)\(%(START_TIME|END_TIME|DURATION|DEVICE_NAME|LOG_STRING_INFO|LOG_STRING|SCPI_COMMAND)%\)')
     _var_re = re.compile(r'%(START_TIME|END_TIME|DURATION|DEVICE_NAME|LOG_STRING_INFO|LOG_STRING|SCPI_COMMAND)%')
 
-    def __init__(self, start_time: datetime or None or float, end_time: datetime or None or float, device_name: str, log_string_info: str, log_string: str, cmd: str or None, add_new_line: bool, error: bool, raw: bool, binary: bool):
+    def __init__(self, start_time: datetime | None | float, end_time: datetime | None | float, device_name: str, log_string_info: str, log_string: str, cmd: str | None, add_new_line: bool, error: bool, raw: bool, binary: bool):
         # Public properties
         self.start_time: datetime = start_time
         self.end_time: datetime = end_time
@@ -105,10 +105,10 @@ class LogEntry:
         self._device_name: str = device_name
         self._log_string_info: str = log_string_info
         self._log_string: str = log_string
-        self._cmd: str or None = cmd
+        self._cmd: str | None = cmd
         self._raw: bool = raw
         self._binary: bool = binary
-        self._timestamp_reference_time: datetime or None = None
+        self._timestamp_reference_time: datetime | None = None
 
         # Public properties
         self.add_new_line: bool = add_new_line
@@ -125,17 +125,17 @@ class LogEntry:
         return cls(start_time=None, end_time=None, device_name='', log_string_info='', log_string=content, cmd=None, add_new_line=add_new_line, error=True, raw=True, binary=False)
 
     @classmethod
-    def as_info_entry(cls, start_time: datetime or None, end_time: datetime or None, device_name: str, log_string_info: str, log_string: str, cmd: str or None, add_new_line: bool) -> 'LogEntry':
+    def as_info_entry(cls, start_time: datetime | None, end_time: datetime | None, device_name: str, log_string_info: str, log_string: str, cmd: str | None, add_new_line: bool) -> 'LogEntry':
         """Create the entry as info entry."""
         return cls(start_time=start_time, end_time=end_time, device_name=device_name, log_string_info=log_string_info, log_string=log_string, cmd=cmd, add_new_line=add_new_line, error=False, raw=False, binary=False)
 
     @classmethod
-    def as_error_entry(cls, start_time: datetime or None, end_time: datetime or None, device_name: str, log_string_info: str, log_string: str, cmd: str or None, add_new_line: bool) -> 'LogEntry':
+    def as_error_entry(cls, start_time: datetime | None, end_time: datetime | None, device_name: str, log_string_info: str, log_string: str, cmd: str | None, add_new_line: bool) -> 'LogEntry':
         """Create the entry as info entry."""
         return cls(start_time=start_time, end_time=end_time, device_name=device_name, log_string_info=log_string_info, log_string=log_string, cmd=cmd, add_new_line=add_new_line, error=True, raw=False, binary=False)
 
     @classmethod
-    def as_info_bin_entry(cls, start_time: datetime or None, end_time: datetime or None, device_name: str, log_string_info: str, log_string: str, cmd: str or None, add_new_line: bool) -> 'LogEntry':
+    def as_info_bin_entry(cls, start_time: datetime | None, end_time: datetime | None, device_name: str, log_string_info: str, log_string: str, cmd: str | None, add_new_line: bool) -> 'LogEntry':
         """Create the entry as info entry."""
         return cls(start_time=start_time, end_time=end_time, device_name=device_name, log_string_info=log_string_info, log_string=log_string, cmd=cmd, add_new_line=add_new_line, error=False, raw=False, binary=True)
 
@@ -146,13 +146,13 @@ class LogEntry:
 
     def get_resolved_content(self, template: str, replacer: LogInfoReplacer, encoding: str) -> str:
         """Returns the resolved content. For raw entry it means only the log_string."""
-        if self._raw is True:
+        if self._raw:
             return self._log_string
 
         self._log_string_info = replacer.replace(self._log_string_info)
         result_str = self._replace_variables(template)
         # For non-binary data, trim the end and escape the non-printable chars.
-        if self._binary is False:
+        if not self._binary:
             result_str = result_str.rstrip(': ')
             result_str = escape_nonprintable_chars(result_str, encoding)
         return result_str
@@ -230,7 +230,7 @@ class Segment:
     def add_to_segment(self, entry: LogEntry) -> None:
         """Adds an entry to the current segment."""
         self.entries.append(entry)
-        if entry.error is True:
+        if entry.error:
             self.error_present = True
 
     def empty(self) -> None:
@@ -280,7 +280,7 @@ class ScpiLogger:
         self._mode: LoggingMode = self._default_mode
         self._log_target_local = None
         self._cached = CachedEntries()
-        self._timestamp_reference_time_local: datetime or None = None
+        self._timestamp_reference_time_local: datetime | None = None
         self._format_string: str = ''
         self._line_divider: str = '\n'
         self._target_auto_flushing = True
@@ -293,7 +293,7 @@ class ScpiLogger:
         self._time_offset_zero_on_first_entry: bool = False
 
         # Transients
-        self._segment: Segment or None = None
+        self._segment: Segment | None = None
         self._log_status_check_ok: bool = True
         self._socket = None
 
@@ -391,7 +391,7 @@ class ScpiLogger:
         Cached log entries are generated when the Logging is ON, but no target has been defined yet."""
         self._cached.clear()
 
-    def set_logging_target(self, target, console_log: bool or None = None, udp_log: bool or None = None) -> None:
+    def set_logging_target(self, target, console_log: bool | None = None, udp_log: bool | None = None) -> None:
         """Sets local logging stream target - the target must implement write() and flush().
         You can optionally set the console and UDP logging ON or OFF.
         This method switches the logging target global to OFF."""
@@ -403,7 +403,7 @@ class ScpiLogger:
             self._log_to_udp = udp_log
         self._flush_cached_entries()
 
-    def set_logging_target_global(self, console_log: bool or None = None, udp_log: bool or None = None) -> None:
+    def set_logging_target_global(self, console_log: bool | None = None, udp_log: bool | None = None) -> None:
         """Sets logging target to global. The global target must be defined.
         You can optionally set the console and UDP logging ON or OFF.
         This method switches the logging target global to ON."""
@@ -420,7 +420,7 @@ class ScpiLogger:
         """Based on the global_mode, it returns the logging target: either the local or the global one."""
         return self._log_target_local if self._global_mode is False else GlobalData.get_logging_target()
 
-    def get_relative_timestamp(self) -> datetime or None:
+    def get_relative_timestamp(self) -> datetime | None:
         """Based on the global_mode, it returns the relative timestamp: either the local or the global one."""
         return self._timestamp_reference_time_local if self._global_mode is False else GlobalData.get_logging_relative_timestamp()
 
@@ -503,7 +503,7 @@ class ScpiLogger:
     def log_to_console(self, value: bool) -> None:
         """Sets logging to console. Default value is False."""
         self._log_to_console = value
-        if self._log_to_console is True:
+        if self._log_to_console:
             self._flush_cached_entries()
 
     @property
@@ -515,7 +515,7 @@ class ScpiLogger:
     def log_to_udp(self, value: bool) -> None:
         """Sets logging to UDP. Default value is False."""
         self._log_to_udp = value
-        if self._log_to_udp is True:
+        if self._log_to_udp:
             self._flush_cached_entries()
 
     @property
@@ -529,7 +529,7 @@ class ScpiLogger:
         Compare to calling two methods, this one flushes potential cached entries to both targets."""
         self._log_to_console = value
         self._log_to_udp = value
-        if self._log_to_console is True:
+        if self._log_to_console:
             self._flush_cached_entries()
 
     @property
@@ -592,7 +592,7 @@ class ScpiLogger:
             raise ValueError('LoggingMode.Default can not be set here. Use a specific value.')
         self._default_mode = value
 
-    def _resolve_reference_time(self, reference_time: datetime or float or int or None) -> None:
+    def _resolve_reference_time(self, reference_time: datetime | float | int | None) -> None:
         """Checks the internal flag time_offset_zero_on_first_entry or Global attribute _global_logging_relative_time_of_first_entry.
         If this flag is true, it sets the reference time to the entered reference_time, and clears the time_offset_zero_on_first_entry."""
         if self._global_mode:
@@ -681,7 +681,7 @@ class ScpiLogger:
                 return
         self._write_to_log(log_entry)
 
-    def info(self, start_time: datetime or float or None, end_time: datetime or float or None, log_string_info: str, log_string: str, cmd: str or None = None) -> None:
+    def info(self, start_time: datetime | float | None, end_time: datetime | float | None, log_string_info: str, log_string: str, cmd: str | None = None) -> None:
         """Method for logging one info entry. For binary log_string, use the info_bin()"""
         if self.mode == LoggingMode.Off:
             return
@@ -689,7 +689,7 @@ class ScpiLogger:
         entry.add_new_line = True
         self._info_as_raw_entry(entry)
 
-    def info_bin(self, start_time: datetime or float or None, end_time: datetime or float or None, log_string_info: str, log_data: bytes, cmd: str or None = None) -> None:
+    def info_bin(self, start_time: datetime | float | None, end_time: datetime | float | None, log_string_info: str, log_data: bytes, cmd: str | None = None) -> None:
         """Method for logging one info entry where the log_data is binary (bytes)."""
         if self.mode == LoggingMode.Off:
             return
@@ -697,7 +697,7 @@ class ScpiLogger:
         entry.add_new_line = True
         self._info_as_raw_entry(entry)
 
-    def info_list(self, start_time: datetime or float or None, end_time: datetime or float or None, log_string_info: str, list_data: List, cmd: str or None = None) -> None:
+    def info_list(self, start_time: datetime | float | None, end_time: datetime | float | None, log_string_info: str, list_data: List, cmd: str | None = None) -> None:
         """Method for logging one info entry where the list_data is decimal List[]."""
         if self.mode == LoggingMode.Off:
             return
@@ -733,7 +733,7 @@ class ScpiLogger:
         log_entry.add_new_line = True
         self._write_to_log(log_entry)
 
-    def error(self, start_time: datetime or float or None, end_time: datetime or float or None, log_string_info: str, log_string: str, cmd: str or None = None) -> None:
+    def error(self, start_time: datetime | float | None, end_time: datetime | float | None, log_string_info: str, log_string: str, cmd: str | None = None) -> None:
         """Method for logging one error entry."""
         if self.mode == LoggingMode.Off:
             return
@@ -759,7 +759,7 @@ class ScpiLogger:
             log_string = log_string.replace(log_string_info, '')
         return log_string
 
-    def _compose_log_entry(self, start_time: datetime or float, end_time: datetime or float, log_string_info: str, log_string: str, cmd: str or None, max_log_string_len: int = None) -> LogEntry:
+    def _compose_log_entry(self, start_time: datetime | float, end_time: datetime | float, log_string_info: str, log_string: str, cmd: str | None, max_log_string_len: int = None) -> LogEntry:
         """Composes the log string with the format defined in the self._format_string"""
         log_string_info = self._adjust_log_strings(log_string_info)
         log_string = self._adjust_log_strings(log_string)
@@ -772,7 +772,7 @@ class ScpiLogger:
         entry = LogEntry(start_time, end_time, self.device_name, log_string_info, log_string, cmd, add_new_line=False, error=False, raw=False, binary=False)
         return entry
 
-    def _compose_bin_log_entry(self, start_time: datetime or float, end_time: datetime or float, log_string_info: str, cmd: str or None, log_data: bytes) -> LogEntry:
+    def _compose_bin_log_entry(self, start_time: datetime | float, end_time: datetime | float, log_string_info: str, cmd: str | None, log_data: bytes) -> LogEntry:
         """Composes the binary log string with the format defined in the self._format_string"""
         log_string_info = self._adjust_log_strings(log_string_info)
         log_string_info = escape_nonprintable_chars(log_string_info, self.encoding)
@@ -780,7 +780,7 @@ class ScpiLogger:
         entry = LogEntry(start_time, end_time, self.device_name, log_string_info, log_string, cmd, add_new_line=False, error=False, raw=False, binary=True)
         return entry
 
-    def _compose_hexdump(self, value: str or bytes, offset_left: int) -> str:
+    def _compose_hexdump(self, value: str | bytes, offset_left: int) -> str:
         """Composes hexdump string from string or bytes.
         The hex dump is organised in the groups of 16 bytes per line."""
         if isinstance(value, str):
@@ -850,7 +850,7 @@ class ScpiLogger:
 
         self._log_target_local = source._log_target_local
         self._timestamp_reference_time_local = source._timestamp_reference_time_local
-        if source._global_mode is True:
+        if source._global_mode:
             self.set_logging_target_global()
 
         # Public properties

@@ -9,32 +9,25 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
-
-from .group_0097 import RepositoryRulesetConditionsPropRefName
-from .group_0099 import (
-    RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty,
-)
-from .group_0101 import (
-    EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationId,
-)
 
 
-class EnterpriseRulesetConditionsOneof3(GitHubModel):
-    """organization_id_and_repository_property
+class CustomPropertyValue(GitHubModel):
+    """Custom Property Value
 
-    Conditions to target organization by id and repositories by property
+    Custom property name and associated value
     """
 
-    organization_id: EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationId = Field()
-    repository_property: RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryProperty = Field()
-    ref_name: Missing[RepositoryRulesetConditionsPropRefName] = Field(default=UNSET)
+    property_name: str = Field(description="The name of the property")
+    value: Union[str, list[str], None] = Field(
+        description="The value assigned to the property"
+    )
 
 
-model_rebuild(EnterpriseRulesetConditionsOneof3)
+model_rebuild(CustomPropertyValue)
 
-__all__ = ("EnterpriseRulesetConditionsOneof3",)
+__all__ = ("CustomPropertyValue",)

@@ -2,6 +2,7 @@ import datetime
 import importlib
 import io
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -28,7 +29,9 @@ from django.db.backends.base.schema import BaseDatabaseSchemaEditor
 from django.db.backends.utils import truncate_name
 from django.db.migrations.autodetector import MigrationAutodetector
 from django.db.migrations.exceptions import InconsistentMigrationHistory
+from django.db.migrations.loader import MigrationLoader
 from django.db.migrations.recorder import MigrationRecorder
+from django.db.migrations.writer import MigrationWriter
 from django.test import TestCase, override_settings, skipUnlessDBFeature
 from django.test.utils import captured_stdout, extend_sys_path, isolate_apps
 from django.utils import timezone
@@ -442,7 +445,7 @@ class MigrateTests(MigrationTestBase):
     @override_settings(MIGRATION_MODULES={"migrations": "migrations.test_migrations"})
     def test_showmigrations_list(self):
         """
-        showmigrations --list  displays migrations and whether or not they're
+        showmigrations --list displays migrations and whether or not they're
         applied.
         """
         out = io.StringIO()
@@ -460,7 +463,8 @@ class MigrateTests(MigrationTestBase):
         call_command("migrate", "migrations", "0001", verbosity=0)
 
         out = io.StringIO()
-        # Giving the explicit app_label tests for selective `show_list` in the command
+        # Giving the explicit app_label tests for selective `show_list` in the
+        # command
         call_command(
             "showmigrations",
             "migrations",
@@ -1328,6 +1332,16 @@ class MigrateTests(MigrationTestBase):
     @override_settings(
         MIGRATION_MODULES={"migrations": "migrations.test_migrations_squashed"}
     )
+    def test_migrate_forward_to_squashed_migration(self):
+        try:
+            call_command("migrate", "migrations", "0001_initial", verbosity=0)
+        finally:
+            # Unmigrate everything.
+            call_command("migrate", "migrations", "zero", verbosity=0)
+
+    @override_settings(
+        MIGRATION_MODULES={"migrations": "migrations.test_migrations_squashed"}
+    )
     def test_migrate_backward_to_squashed_migration(self):
         try:
             call_command("migrate", "migrations", "0001_squashed_0002", verbosity=0)
@@ -1538,6 +1552,14 @@ class MigrateTests(MigrationTestBase):
             recorder.record_unapplied("migrations2", "0002_second")
             recorder.record_unapplied("migrations2", "0001_squashed_0002")
 
+    @override_settings(
+        INSTALLED_APPS=[
+            "migrations.migrations_test_apps.with_generic_model",
+        ]
+    )
+    def test_migrate_model_inherit_generic(self):
+        call_command("migrate", verbosity=0)
+
 
 class MakeMigrationsTests(MigrationTestBase):
     """
@@ -1675,7 +1697,8 @@ class MakeMigrationsTests(MigrationTestBase):
                 self.assertEqual(has_table.call_count, 4)
 
     def test_failing_migration(self):
-        # If a migration fails to serialize, it shouldn't generate an empty file. #21280
+        # If a migration fails to serialize, it shouldn't generate an empty
+        # file. #21280
         apps.register_model("migrations", UnserializableModel)
 
         with self.temporary_migration_module() as migration_dir:
@@ -1733,7 +1756,8 @@ class MakeMigrationsTests(MigrationTestBase):
             with open(initial_file, encoding="utf-8") as fp:
                 content = fp.read()
 
-                # Remove all whitespace to check for empty dependencies and operations
+                # Remove all whitespace to check for empty dependencies and
+                # operations
                 content = content.replace(" ", "")
                 self.assertIn(
                     "dependencies=[]" if HAS_BLACK else "dependencies=[\n]", content
@@ -1757,7 +1781,8 @@ class MakeMigrationsTests(MigrationTestBase):
 
     def test_makemigrations_no_changes_no_apps(self):
         """
-        makemigrations exits when there are no changes and no apps are specified.
+        makemigrations exits when there are no changes and no apps are
+        specified.
         """
         out = io.StringIO()
         call_command("makemigrations", stdout=out)
@@ -2144,7 +2169,8 @@ class MakeMigrationsTests(MigrationTestBase):
 
     def test_makemigrations_handle_merge(self):
         """
-        makemigrations properly merges the conflicting migrations with --noinput.
+        makemigrations properly merges the conflicting migrations with
+        --noinput.
         """
         out = io.StringIO()
         with self.temporary_migration_module(
@@ -2939,6 +2965,237 @@ class SquashMigrationsTests(MigrationTestBase):
             "  you can delete them.\n" % squashed_migration_file,
         )
 
+    def test_squashmigrations_replacement_cycle(self):
+        out = io.StringIO()
+        with self.temporary_migration_module(
+            module="migrations.test_migrations_squashed_loop"
+        ):
+            # Hits a squash replacement cycle check error, but the actual
+            # failure is dependent on the order in which the files are read on
+            # disk.
+            with self.assertRaisesRegex(
+                CommandError,
+                r"Cyclical squash replacement found, starting at"
+                r" \('migrations', '2_(squashed|auto)'\)",
+            ):
+                call_command(
+                    "migrate", "migrations", "--plan", interactive=False, stdout=out
+                )
+
+    def test_squashmigrations_squashes_already_squashed(self):
+        out = io.StringIO()
+
+        with self.temporary_migration_module(
+            module="migrations.test_migrations_squashed_complex"
+        ):
+            call_command(
+                "squashmigrations",
+                "migrations",
+                "3_squashed_5",
+                "--squashed-name",
+                "double_squash",
+                stdout=out,
+                interactive=False,
+            )
+
+            loader = MigrationLoader(connection)
+            migration = loader.disk_migrations[("migrations", "0001_double_squash")]
+            # Confirm the replaces mechanism holds the squashed migration
+            # (and not what it squashes, as the squash operations are what
+            # end up being used).
+            self.assertEqual(
+                migration.replaces,
+                [
+                    ("migrations", "1_auto"),
+                    ("migrations", "2_auto"),
+                    ("migrations", "3_squashed_5"),
+                ],
+            )
+
+            out = io.StringIO()
+            call_command(
+                "migrate", "migrations", "--plan", interactive=False, stdout=out
+            )
+
+            migration_plan = re.findall("migrations.(.+)\n", out.getvalue())
+            self.assertEqual(migration_plan, ["0001_double_squash", "6_auto", "7_auto"])
+
+    def test_squash_partially_applied(self):
+        """
+        Replacement migrations are partially applied. Then we squash again and
+        verify that only unapplied migrations will be applied by "migrate".
+        """
+        out = io.StringIO()
+
+        with self.temporary_migration_module(
+            module="migrations.test_migrations_squashed_partially_applied"
+        ):
+            # Apply first 2 migrations.
+            call_command("migrate", "migrations", "0002", interactive=False, stdout=out)
+
+            # Squash the 2 migrations, that we just applied + 1 more.
+            call_command(
+                "squashmigrations",
+                "migrations",
+                "0001",
+                "0003",
+                "--squashed-name",
+                "squashed_0001_0003",
+                stdout=out,
+                interactive=False,
+            )
+
+            # Update the 4th migration to depend on the squash(replacement)
+            # migration.
+            loader = MigrationLoader(connection)
+            migration = loader.disk_migrations[
+                ("migrations", "0004_remove_mymodel1_field_1_mymodel1_field_3_and_more")
+            ]
+            migration.dependencies = [("migrations", "0001_squashed_0001_0003")]
+            writer = MigrationWriter(migration)
+            with open(writer.path, "w", encoding="utf-8") as fh:
+                fh.write(writer.as_string())
+
+            # Squash the squash(replacement) migration with the 4th migration.
+            call_command(
+                "squashmigrations",
+                "migrations",
+                "0001_squashed_0001_0003",
+                "0004",
+                "--squashed-name",
+                "squashed_0001_0004",
+                stdout=out,
+                interactive=False,
+            )
+
+            loader = MigrationLoader(connection)
+            migration = loader.disk_migrations[
+                ("migrations", "0001_squashed_0001_0004")
+            ]
+            self.assertEqual(
+                migration.replaces,
+                [
+                    ("migrations", "0001_squashed_0001_0003"),
+                    (
+                        "migrations",
+                        "0004_remove_mymodel1_field_1_mymodel1_field_3_and_more",
+                    ),
+                ],
+            )
+
+            # Verify that only unapplied migrations will be applied.
+            out = io.StringIO()
+            call_command(
+                "migrate", "migrations", "--plan", interactive=False, stdout=out
+            )
+
+            migration_plan = re.findall("migrations.(.+)\n", out.getvalue())
+            self.assertEqual(
+                migration_plan,
+                [
+                    "0003_alter_mymodel2_unique_together",
+                    "0004_remove_mymodel1_field_1_mymodel1_field_3_and_more",
+                ],
+            )
+
+    def test_double_replaced_migrations_are_recorded(self):
+        """
+        All recursively replaced migrations should be recorded/unrecorded, when
+        migrating an app with double squashed migrations.
+        """
+        out = io.StringIO()
+        with self.temporary_migration_module(
+            module="migrations.test_migrations_squashed_double"
+        ):
+            recorder = MigrationRecorder(connection)
+            applied_app_labels = [
+                app_label for app_label, _ in recorder.applied_migrations()
+            ]
+            self.assertNotIn("migrations", applied_app_labels)
+
+            call_command(
+                "migrate", "migrations", "--plan", interactive=False, stdout=out
+            )
+            migration_plan = re.findall("migrations.(.+)\n", out.getvalue())
+            # Only the top-level replacement migration should be applied.
+            self.assertEqual(migration_plan, ["0005_squashed_0003_and_0004"])
+
+            call_command("migrate", "migrations", interactive=False, verbosity=0)
+            applied_migrations = recorder.applied_migrations()
+            # Make sure all replaced migrations are recorded.
+            self.assertIn(("migrations", "0001_initial"), applied_migrations)
+            self.assertIn(("migrations", "0002_auto"), applied_migrations)
+            self.assertIn(
+                ("migrations", "0003_squashed_0001_and_0002"), applied_migrations
+            )
+            self.assertIn(("migrations", "0004_auto"), applied_migrations)
+            self.assertIn(
+                ("migrations", "0005_squashed_0003_and_0004"), applied_migrations
+            )
+
+            # Unapply all migrations from this app.
+            call_command(
+                "migrate", "migrations", "zero", interactive=False, verbosity=0
+            )
+            applied_app_labels = [
+                app_label for app_label, _ in recorder.applied_migrations()
+            ]
+            self.assertNotIn("migrations", applied_app_labels)
+
+    def test_double_replaced_migrations_are_checked_correctly(self):
+        """
+        If replaced migrations are already applied and replacing migrations
+        are not, then migrate should not fail with
+        InconsistentMigrationHistory.
+        """
+        with self.temporary_migration_module():
+            call_command(
+                "makemigrations",
+                "migrations",
+                "--empty",
+                interactive=False,
+                verbosity=0,
+            )
+            call_command(
+                "makemigrations",
+                "migrations",
+                "--empty",
+                interactive=False,
+                verbosity=0,
+            )
+            call_command(
+                "makemigrations",
+                "migrations",
+                "--empty",
+                interactive=False,
+                verbosity=0,
+            )
+            call_command(
+                "makemigrations",
+                "migrations",
+                "--empty",
+                interactive=False,
+                verbosity=0,
+            )
+            call_command("migrate", "migrations", interactive=False, verbosity=0)
+            call_command(
+                "squashmigrations",
+                "migrations",
+                "0001",
+                "0002",
+                interactive=False,
+                verbosity=0,
+            )
+            call_command(
+                "squashmigrations",
+                "migrations",
+                "0001_initial_squashed",
+                "0003",
+                interactive=False,
+                verbosity=0,
+            )
+            call_command("migrate", "migrations", interactive=False, verbosity=0)
+
     def test_squashmigrations_initial_attribute(self):
         with self.temporary_migration_module(
             module="migrations.test_migrations"
@@ -3023,7 +3280,8 @@ class SquashMigrationsTests(MigrationTestBase):
 
     def test_squashmigrations_invalid_start(self):
         """
-        squashmigrations doesn't accept a starting migration after the ending migration.
+        squashmigrations doesn't accept a starting migration after the ending
+        migration.
         """
         with self.temporary_migration_module(
             module="migrations.test_migrations_no_changes"

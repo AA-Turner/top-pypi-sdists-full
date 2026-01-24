@@ -3,7 +3,7 @@ exclude = ["deprecated.robot"]
 default-exclude = ["archived/"]
 include = ["custom.txt"]
 default-include = ["*.robot"]
-target-version = 6
+target-version = 4
 language = ["en", "pl"]
 # config = "other_config.toml"  # ignored, --config can be only passed via cli
 # ignore_git_dir = true  # ignored, only from cli
@@ -13,6 +13,9 @@ language = ["en", "pl"]
 select = [
     "rulename",
     "ruleid"
+]
+extend-select = [
+    "customrule"
 ]
 ignore = [
     "ruleid"
@@ -32,7 +35,7 @@ configure = [
 
 [tool.robocop.format]
 select = ["NormalizeNewLines"]
-custom-formatters = ["CustomFormatter.py"]
+extend-select = ["CustomFormatter.py"]
 configure = [
     "NormalizeNewLines.flatten_lines=True"
 ]

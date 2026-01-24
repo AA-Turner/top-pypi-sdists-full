@@ -6,6 +6,7 @@ This test uses real Airflow classes to ensure compatibility.
 from unittest import TestCase, skipIf
 from unittest.mock import Mock, patch, MagicMock
 from datetime import datetime, timezone
+import uuid
 from airflow_mcd import airflow_major_version
 
 # Import Airflow modules - these will fail gracefully in Airflow 2 environments
@@ -72,19 +73,40 @@ class TestAirflow3Callbacks(TestCase):
         self.dag_run.data_interval_end = datetime(2023, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         
         # Create real TaskInstance objects
-        self.task_instance1 = TaskInstance(
-            task=self.task1,
-            run_id="manual__2025-07-18T13:58:43.164720+00:00"
-        )
+        # Note: Airflow 3.1+ may require dag_version_id parameter
+        try:
+            # Try with dag_version_id first (Airflow 3.1+)
+            dag_version_id = uuid.uuid4()
+            self.task_instance1 = TaskInstance(
+                task=self.task1,
+                run_id="manual__2025-07-18T13:58:43.164720+00:00",
+                dag_version_id=dag_version_id
+            )
+        except TypeError:
+            # Fall back to without dag_version_id (Airflow 3.0)
+            self.task_instance1 = TaskInstance(
+                task=self.task1,
+                run_id="manual__2025-07-18T13:58:43.164720+00:00"
+            )
+            dag_version_id = None
         # In Airflow 3, TaskInstance doesn't have execution_date - it uses logical_date from DagRun
         self.task_instance1.state = "success"
         self.task_instance1.start_date = datetime(2023, 1, 1, 0, 0, 0, tzinfo=timezone.utc)
         self.task_instance1.end_date = datetime(2023, 1, 1, 0, 1, 0, tzinfo=timezone.utc)
         
-        self.task_instance2 = TaskInstance(
-            task=self.task2,
-            run_id="manual__2025-07-18T13:58:43.164720+00:00"
-        )
+        try:
+            # Try with dag_version_id first (Airflow 3.1+)
+            self.task_instance2 = TaskInstance(
+                task=self.task2,
+                run_id="manual__2025-07-18T13:58:43.164720+00:00",
+                dag_version_id=dag_version_id
+            )
+        except (TypeError, NameError):
+            # Fall back to without dag_version_id (Airflow 3.0) or if dag_version_id is None
+            self.task_instance2 = TaskInstance(
+                task=self.task2,
+                run_id="manual__2025-07-18T13:58:43.164720+00:00"
+            )
         # In Airflow 3, TaskInstance doesn't have execution_date - it uses logical_date from DagRun
         self.task_instance2.state = "success"
         self.task_instance2.start_date = datetime(2023, 1, 1, 0, 1, 0, tzinfo=timezone.utc)

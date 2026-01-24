@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mygeotab
-Version: 0.9.3
+Version: 0.9.4
 Summary: A Python client for the MyGeotab SDK
 Home-page: https://github.com/geotab/mygeotab-python
 Author: Geotab Inc.
@@ -10,12 +10,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 License-File: LICENSE
@@ -24,7 +23,7 @@ Requires-Dist: urllib3
 Requires-Dist: click
 Requires-Dist: pytz
 Requires-Dist: arrow
-Requires-Dist: aiohttp<4,>=3.8.1
+Requires-Dist: aiohttp[speedups]<4,>=3.12.2
 Requires-Dist: python-rapidjson
 Provides-Extra: notebook
 Requires-Dist: pandas; extra == "notebook"
@@ -73,7 +72,7 @@ Features
 
 - Automatic serializing and deserializing of API call results
 - Clean, Pythonic API for querying data
-- Cross-platform and compatible with Python 3.7+
+- Cross-platform and compatible with Python 3.9+
 - A `myg` command-line tool for interactively working with data in a terminal
 
 Usage
@@ -149,6 +148,14 @@ Read the docs at `<http://mygeotab-python.readthedocs.org>`_
 
 Changes
 -------
+
+0.9.4 (2025-10-24)
+++++++++++++++++++
+
+**Improvements**
+
+- Altitude: Improved error handling for access check failures `#133 <https://github.com/Geotab/mygeotab-python/pull/133>`__.
+- Removes un-needed pandas and pytest-monkeytype from dev-packages.
 
 0.9.3 (2025-09-08)
 ++++++++++++++++++

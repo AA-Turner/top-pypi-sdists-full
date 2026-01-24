@@ -3,7 +3,7 @@ Main interface for apprunner service.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_apprunner/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

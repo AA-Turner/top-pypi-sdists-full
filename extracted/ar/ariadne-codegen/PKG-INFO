@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ariadne-codegen
-Version: 0.15.3
+Version: 0.17.1
 Summary: Generate fully typed GraphQL client from schema, queries and mutations!
 Project-URL: Homepage, https://ariadnegraphql.org/
 Project-URL: Repository, https://github.com/mirumee/ariadne-codegen
@@ -15,18 +15,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: autoflake
 Requires-Dist: black
-Requires-Dist: click~=8.1
+Requires-Dist: click~=8.3
 Requires-Dist: graphql-core<3.3,>=3.2.0
-Requires-Dist: httpx~=0.23
+Requires-Dist: httpx~=0.28
 Requires-Dist: isort
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: toml~=0.10
@@ -35,7 +35,7 @@ Requires-Dist: ipdb; extra == 'dev'
 Provides-Extra: opentelemetry
 Requires-Dist: opentelemetry-api; extra == 'opentelemetry'
 Provides-Extra: subscriptions
-Requires-Dist: websockets>=14.2; extra == 'subscriptions'
+Requires-Dist: websockets>=15; extra == 'subscriptions'
 Provides-Extra: test
 Requires-Dist: ariadne; extra == 'test'
 Requires-Dist: freezegun; extra == 'test'
@@ -48,12 +48,12 @@ Requires-Dist: requests-toolbelt; extra == 'test'
 Requires-Dist: types-toml; extra == 'test'
 Requires-Dist: websockets>=14.2; extra == 'test'
 Provides-Extra: types
-Requires-Dist: mypy>=1.0.0; extra == 'types'
+Requires-Dist: mypy>=1.19.0; extra == 'types'
 Description-Content-Type: text/markdown
 
 [![Ariadne](https://ariadnegraphql.org/img/logo-horizontal-sm.png)](https://ariadnegraphql.org)
 
-[![Build Status](https://github.com/mirumee/ariadne-codegen/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/mirumee/ariadne-codegen/actions)
+[![Build Status](https://github.com/mirumee/ariadne-codegen/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/mirumee/ariadne-codegen/actions)
 
 - - - - -
 
@@ -117,6 +117,7 @@ Optional settings:
 
 - `remote_schema_headers` - extra headers that are passed along with introspection query, eg. `{"Authorization" = "Bearer: token"}`. To include an environment variable in a header value, prefix the variable with `$`, eg. `{"Authorization" = "$AUTH_TOKEN"}`
 - `remote_schema_verify_ssl` (defaults to `true`) - a flag that specifies wheter to verify ssl while introspecting remote schema
+- `remote_schema_timeout` (defaults to `5`) - timeout in seconds while introspecting remote schema
 - `target_package_name` (defaults to `"graphql_client"`) - name of generated package
 - `target_package_path` (defaults to cwd) - path where to generate package
 - `client_name` (defaults to `"Client"`) - name of generated client class
@@ -384,7 +385,7 @@ class GetB(BaseModel):
 class Client(AsyncBaseClient):
     async def test_mutation(self, value: TypeB) -> TestMutation:
         ...
-        variables: Dict[str, object] = {
+        variables: dict[str, object] = {
             "value": serialize_b(value),
         }
         ...
@@ -471,7 +472,7 @@ Instead of generating a client, you can generate a file with a copy of a GraphQL
 ariadne-codegen graphqlschema
 ```
 
-`graphqlschema` mode reads configuration from the same place as [`client`](#configuration) but uses only `schema_path`, `remote_schema_url`, `remote_schema_headers`, `remote_schema_verify_ssl` options to retrieve the schema and `plugins` option to load plugins.
+`graphqlschema` mode reads configuration from the same place as [`client`](#configuration) but uses only `schema_path`, `remote_schema_url`, `remote_schema_headers`, `remote_schema_verify_ssl`, `remote_schema_timeout` options to retrieve the schema and `plugins` option to load plugins.
 
 In addition to the above, `graphqlschema` mode also accepts additional settings specific to it:
 

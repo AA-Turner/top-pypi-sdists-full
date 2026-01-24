@@ -13,6 +13,7 @@ from ..registry import (
 )
 from ..util import to_bytes
 from ..errors import (
+    KeyParameterError,
     UnsupportedKeyUseError,
     UnsupportedKeyAlgorithmError,
     UnsupportedKeyOperationError,
@@ -58,13 +59,13 @@ class NativeKeyBinding(metaclass=ABCMeta):
     def validate_dict_key_registry(cls, dict_key: DictKey, registry: KeyParameterRegistryDict) -> None:
         for k in registry:
             if registry[k].required and k not in dict_key:
-                raise ValueError(f"'{k}' is required")
+                raise KeyParameterError(f"'{k}' is required")
 
             if k in dict_key:
                 try:
                     registry[k].validate(dict_key[k])
                 except ValueError as error:
-                    raise ValueError(f"'{k}' {error}")
+                    raise KeyParameterError(f"'{k}' {error}")
 
     @classmethod
     def validate_dict_key_use_operations(cls, dict_key: DictKey) -> None:
@@ -73,7 +74,7 @@ class NativeKeyBinding(metaclass=ABCMeta):
             operations = cls.use_key_ops_registry[_use]
             for op in dict_key["key_ops"]:
                 if op not in operations:
-                    raise ValueError("'use' and 'key_ops' does not match")
+                    raise KeyParameterError("'use' and 'key_ops' does not match")
 
 
 class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
@@ -215,7 +216,7 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
         requires its presence.
 
         :param use: this key is used for, e.g. "sig", "enc"
-        :raise: UnsupportedKeyUseError
+        :raise UnsupportedKeyUseError: if this key is not designed for the given use
         """
         designed_use = self.get("use")
         if designed_use and designed_use != use:
@@ -225,7 +226,7 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
         """Check if this key supports the given "alg".
 
         :param alg: the algorithm this key is intended to be used, e.g. "HS256", "ECDH-EC"
-        :raise: UnsupportedKeyAlgorithmError
+        :raise UnsupportedKeyAlgorithmError: if this key is not designed for the given algorithm
         """
         designed_alg = self.get("alg")
         if designed_alg and designed_alg != alg:
@@ -235,7 +236,7 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
         """Check if the given key_op is supported by this key.
 
         :param operation: key operation value, such as "sign", "encrypt".
-        :raise: UnsupportedKeyOperationError
+        :raise UnsupportedKeyOperationError: if the operation is not supported by this key.
         """
         key_ops = self.get("key_ops")
         if key_ops is not None and operation not in key_ops:
@@ -284,7 +285,7 @@ class BaseKey(t.Generic[NativePrivateKey, NativePublicKey], metaclass=ABCMeta):
     @classmethod
     def generate_key(
         cls: t.Type[GenericKey],
-        size_or_crv: t.Any,
+        *,
         parameters: KeyParameters | None = None,
         private: bool = True,
         auto_kid: bool = False,

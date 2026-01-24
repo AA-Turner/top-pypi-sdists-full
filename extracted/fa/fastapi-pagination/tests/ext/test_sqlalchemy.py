@@ -17,6 +17,8 @@ from tests.utils import maybe_async
 
 
 class _SQLAlchemyPaginateFuncMixin:
+    add_pydantic_v1_suites = True
+
     @pytest.fixture(scope="session")
     def paginate_func(self, is_async_db):
         if is_async_db:
@@ -222,6 +224,24 @@ class TestSQLAlchemyCursor(_SQLAlchemyPaginateFuncMixin, BasePaginationTestSuite
             set_params(CursorPage.__params_type__()),
         ):
             await maybe_async(paginate(sa_session(), select(sa_user)))
+
+
+@async_sync_testsuite
+class TestCompoundSelectSQLAlchemyCursor(_SQLAlchemyPaginateFuncMixin, BasePaginationTestSuite):
+    @pytest.fixture(scope="session")
+    def app(self, builder, sa_user, sa_session_ctx, paginate_func):
+        builder = builder.new()
+
+        @builder.cursor.default
+        async def route(db: Any = Depends(sa_session_ctx)):
+            stmt = select(sa_user).union_all(select(sa_user)).order_by("id")
+            return await maybe_async(paginate_func(db, stmt))
+
+        return builder.build()
+
+    @pytest.fixture(scope="session")
+    def entities(self, entities):
+        return entities + entities
 
 
 @async_sync_testsuite

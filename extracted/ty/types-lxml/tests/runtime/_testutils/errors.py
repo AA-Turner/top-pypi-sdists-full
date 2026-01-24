@@ -31,6 +31,13 @@ raise_no_attribute = pytest.raises(
     AttributeError, match=r"('.+?' object|type object '.+?') has no attribute "
 )
 
+# AttributeError("property '...' of '...' object has no setter")
+# AttributeError("can't set attribute '.+?'")  # py3.10
+raise_prop_not_writable = pytest.raises(
+    AttributeError,
+    match=r"property '.+?' of '.+?' object has no setter|can't set attribute '.+?'",
+)
+
 # TypeError("got an unexpected keyword argument '...'")
 raise_unexpected_kwarg = pytest.raises(
     TypeError, match=r"got an unexpected keyword argument"
@@ -60,8 +67,10 @@ raise_wrong_arg_type = pytest.raises(
 )
 
 # TypeError("'...' object is not iterable")
+# TypeError("argument of type '...' is not iterable / is not a container or iterable")
 raise_non_iterable = pytest.raises(
-    TypeError, match=r"(object|argument of type '.+?') is not iterable"
+    TypeError,
+    match=r"(object|argument of type '.+?') is not (a container or )?iterable",
 )
 
 # TypeError("'...' object cannot be interpreted as an integer")

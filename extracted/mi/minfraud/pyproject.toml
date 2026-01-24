@@ -1,0 +1,137 @@
+[project]
+name = "minfraud"
+version = "3.2.0"
+description = "MaxMind minFraud API"
+authors = [
+    {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
+]
+dependencies = [
+    "aiohttp>=3.6.2,<4.0.0",
+    "email_validator>=2.0.0,<3.0.0",
+    "geoip2>=5.2.0,<6.0.0",
+    "requests>=2.24.0,<3.0.0",
+    "typing-extensions>=4.13.2",
+    "voluptuous",
+]
+requires-python = ">=3.10"
+readme = "README.rst"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Web Environment",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Internet",
+    "Topic :: Internet :: Proxy Servers",
+    "Topic :: Internet :: WWW/HTTP",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-httpserver>=1.0.10",
+    "tox-uv>=1.29.0",
+]
+lint = [
+    "mypy>=1.15.0",
+    "ruff>=0.11.6",
+    "types-requests>=2.32.0.20250328",
+]
+
+[project.urls]
+Homepage = "https://www.maxmind.com/"
+Documentation = "https://minfraud.readthedocs.org/"
+"Source Code" = "https://github.com/maxmind/minfraud-api-python"
+"Issue Tracker" = "https://github.com/maxmind/minfraud-api-python/issues"
+
+[build-system]
+requires = ["uv_build>=0.7.19,<0.8.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-include = [
+    "HISTORY.rst",
+    "README.rst",
+    "LICENSE",
+    "docs/html",
+    "examples/*.py",
+    "tests/*.py",
+]
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    # Redundant as the formatter handles missing trailing commas.
+    "COM812",
+
+    # documenting magic methods
+    "D105",
+
+    # Conflicts with D211
+    "D203",
+
+    # Conflicts with D212
+    "D213",
+
+    # Magic numbers for HTTP status codes seem ok most of the time.
+    "PLR2004",
+
+    # pytest rules
+    "PT009",
+    "PT027",
+]
+
+[tool.ruff.lint.flake8-builtins]
+ignorelist = ["id"]
+
+[tool.ruff.lint.per-file-ignores]
+"docs/*" = ["ALL"]
+"src/minfraud/models.py" = ["ANN401", "PLR0913"]
+"src/minfraud/webservice.py" = ["ANN401"]
+"tests/*" = ["ANN201", "D"]
+
+[tool.tox]
+env_list = [
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "lint",
+]
+skip_missing_interpreters = false
+
+[tool.tox.env_run_base]
+dependency_groups = [
+  "dev",
+]
+commands = [
+    ["pytest", "tests"],
+]
+
+[tool.tox.env.lint]
+description = "Code linting"
+python = "3.14"
+dependency_groups = [
+    "dev",
+    "lint",
+]
+commands = [
+    ["mypy", "src", "tests"],
+    ["ruff", "check"],
+    ["ruff", "format", "--check", "--diff", "."],
+]
+
+[tool.tox.gh.python]
+"3.14" = ["3.14", "lint"]
+"3.13" = ["3.13"]
+"3.12" = ["3.12"]
+"3.11" = ["3.11"]
+"3.10" = ["3.10"]

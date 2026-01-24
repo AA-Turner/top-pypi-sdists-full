@@ -3,7 +3,7 @@ Type annotations for medialive service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -27,10 +28,12 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     DescribeSchedulePaginator,
+    ListAlertsPaginator,
     ListChannelPlacementGroupsPaginator,
     ListChannelsPaginator,
     ListCloudWatchAlarmTemplateGroupsPaginator,
     ListCloudWatchAlarmTemplatesPaginator,
+    ListClusterAlertsPaginator,
     ListClustersPaginator,
     ListEventBridgeRuleTemplateGroupsPaginator,
     ListEventBridgeRuleTemplatesPaginator,
@@ -38,6 +41,7 @@ from .paginator import (
     ListInputDeviceTransfersPaginator,
     ListInputSecurityGroupsPaginator,
     ListInputsPaginator,
+    ListMultiplexAlertsPaginator,
     ListMultiplexesPaginator,
     ListMultiplexProgramsPaginator,
     ListNetworksPaginator,
@@ -165,6 +169,8 @@ from .type_defs import (
     GetEventBridgeRuleTemplateResponseTypeDef,
     GetSignalMapRequestTypeDef,
     GetSignalMapResponseTypeDef,
+    ListAlertsRequestTypeDef,
+    ListAlertsResponseTypeDef,
     ListChannelPlacementGroupsRequestTypeDef,
     ListChannelPlacementGroupsResponseTypeDef,
     ListChannelsRequestTypeDef,
@@ -173,6 +179,8 @@ from .type_defs import (
     ListCloudWatchAlarmTemplateGroupsResponseTypeDef,
     ListCloudWatchAlarmTemplatesRequestTypeDef,
     ListCloudWatchAlarmTemplatesResponseTypeDef,
+    ListClusterAlertsRequestTypeDef,
+    ListClusterAlertsResponseTypeDef,
     ListClustersRequestTypeDef,
     ListClustersResponseTypeDef,
     ListEventBridgeRuleTemplateGroupsRequestTypeDef,
@@ -187,6 +195,8 @@ from .type_defs import (
     ListInputSecurityGroupsResponseTypeDef,
     ListInputsRequestTypeDef,
     ListInputsResponseTypeDef,
+    ListMultiplexAlertsRequestTypeDef,
+    ListMultiplexAlertsResponseTypeDef,
     ListMultiplexesRequestTypeDef,
     ListMultiplexesResponseTypeDef,
     ListMultiplexProgramsRequestTypeDef,
@@ -294,12 +304,6 @@ from .waiter import (
     SignalMapUpdatedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -310,16 +314,16 @@ __all__ = ("MediaLiveClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadGatewayException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    GatewayTimeoutException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnprocessableEntityException: Type[BotocoreClientError]
+    BadGatewayException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    GatewayTimeoutException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
 
 
 class MediaLiveClient(BaseClient):
@@ -359,7 +363,7 @@ class MediaLiveClient(BaseClient):
 
     def accept_input_device_transfer(
         self, **kwargs: Unpack[AcceptInputDeviceTransferRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Accept an incoming input device transfer.
 
@@ -405,7 +409,7 @@ class MediaLiveClient(BaseClient):
 
     def cancel_input_device_transfer(
         self, **kwargs: Unpack[CancelInputDeviceTransferRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Cancel an input device transfer that you have requested.
 
@@ -413,7 +417,7 @@ class MediaLiveClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#cancel_input_device_transfer)
         """
 
-    def claim_device(self, **kwargs: Unpack[ClaimDeviceRequestTypeDef]) -> Dict[str, Any]:
+    def claim_device(self, **kwargs: Unpack[ClaimDeviceRequestTypeDef]) -> dict[str, Any]:
         """
         Send a request to claim an AWS Elemental device that you have purchased from a
         third-party vendor.
@@ -502,7 +506,7 @@ class MediaLiveClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#delete_channel)
         """
 
-    def delete_input(self, **kwargs: Unpack[DeleteInputRequestTypeDef]) -> Dict[str, Any]:
+    def delete_input(self, **kwargs: Unpack[DeleteInputRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the input end point.
 
@@ -512,7 +516,7 @@ class MediaLiveClient(BaseClient):
 
     def delete_input_security_group(
         self, **kwargs: Unpack[DeleteInputSecurityGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Input Security Group.
 
@@ -550,7 +554,7 @@ class MediaLiveClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#delete_reservation)
         """
 
-    def delete_schedule(self, **kwargs: Unpack[DeleteScheduleRequestTypeDef]) -> Dict[str, Any]:
+    def delete_schedule(self, **kwargs: Unpack[DeleteScheduleRequestTypeDef]) -> dict[str, Any]:
         """
         Delete all schedule actions on a channel.
 
@@ -796,7 +800,7 @@ class MediaLiveClient(BaseClient):
 
     def reboot_input_device(
         self, **kwargs: Unpack[RebootInputDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send a reboot command to the specified input device.
 
@@ -806,7 +810,7 @@ class MediaLiveClient(BaseClient):
 
     def reject_input_device_transfer(
         self, **kwargs: Unpack[RejectInputDeviceTransferRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Reject the transfer of the specified input device to your AWS account.
 
@@ -826,7 +830,7 @@ class MediaLiveClient(BaseClient):
 
     def start_input_device(
         self, **kwargs: Unpack[StartInputDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Start an input device that is attached to a MediaConnect flow.
 
@@ -836,7 +840,7 @@ class MediaLiveClient(BaseClient):
 
     def start_input_device_maintenance_window(
         self, **kwargs: Unpack[StartInputDeviceMaintenanceWindowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Start a maintenance window for the specified input device.
 
@@ -864,7 +868,7 @@ class MediaLiveClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#stop_channel)
         """
 
-    def stop_input_device(self, **kwargs: Unpack[StopInputDeviceRequestTypeDef]) -> Dict[str, Any]:
+    def stop_input_device(self, **kwargs: Unpack[StopInputDeviceRequestTypeDef]) -> dict[str, Any]:
         """
         Stop an input device that is attached to a MediaConnect flow.
 
@@ -884,7 +888,7 @@ class MediaLiveClient(BaseClient):
 
     def transfer_input_device(
         self, **kwargs: Unpack[TransferInputDeviceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Start an input device transfer to another AWS account.
 
@@ -1539,10 +1543,49 @@ class MediaLiveClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#update_sdi_source)
         """
 
+    def list_alerts(self, **kwargs: Unpack[ListAlertsRequestTypeDef]) -> ListAlertsResponseTypeDef:
+        """
+        List the alerts for a channel with optional filtering based on alert state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/list_alerts.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#list_alerts)
+        """
+
+    def list_cluster_alerts(
+        self, **kwargs: Unpack[ListClusterAlertsRequestTypeDef]
+    ) -> ListClusterAlertsResponseTypeDef:
+        """
+        List the alerts for a cluster with optional filtering based on alert state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/list_cluster_alerts.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#list_cluster_alerts)
+        """
+
+    def list_multiplex_alerts(
+        self, **kwargs: Unpack[ListMultiplexAlertsRequestTypeDef]
+    ) -> ListMultiplexAlertsResponseTypeDef:
+        """
+        List the alerts for a multiplex with optional filtering based on alert state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/list_multiplex_alerts.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#list_multiplex_alerts)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_schedule"]
     ) -> DescribeSchedulePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_alerts"]
+    ) -> ListAlertsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1587,6 +1630,17 @@ class MediaLiveClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_cloud_watch_alarm_templates"]
     ) -> ListCloudWatchAlarmTemplatesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_cluster_alerts"]
+    ) -> ListClusterAlertsPaginator:
         """
         Create a paginator for an operation.
 
@@ -1664,6 +1718,17 @@ class MediaLiveClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_inputs"]
     ) -> ListInputsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/medialive/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_medialive/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_multiplex_alerts"]
+    ) -> ListMultiplexAlertsPaginator:
         """
         Create a paginator for an operation.
 

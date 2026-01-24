@@ -1,11 +1,13 @@
 import ipaddress
 import socket
+import sys
 from socket import AddressFamily  # type hint
 from typing import Iterator, List
 
 import psutil
 
 from ..logger import get_logger
+from .mac import normalize_mac
 
 # netifaces needs a new maintaine
 # https://github.com/al45tair/netifaces/issues/78
@@ -13,6 +15,14 @@ from ..logger import get_logger
 
 
 logger = get_logger('network')
+
+
+def _compatible_ipv6_address(address: str) -> str:
+    """Remove the zone/index suffix from an IPv6 address (e.g. '%eth0') for older python versions."""
+    if sys.version_info < (3, 9):
+        if '%' in address:
+            return address.split('%', 1)[0]
+    return address
 
 
 def get_interfaces() -> List[str]:
@@ -45,7 +55,7 @@ def get_all_ips_from_interface(interface: str, family: AddressFamily = socket.AF
         for addr in addrs:
             if addr.family != family:
                 continue
-            _ip = ipaddress.ip_address(addr.address)
+            _ip = ipaddress.ip_address(_compatible_ipv6_address(addr.address))
             if prefix and not addr.address.startswith(prefix):
                 continue
             # Sort all available IP addresses.
@@ -138,7 +148,7 @@ def guess_local_ip6(
     Yields:
         Iterator[str]: possible IP addresses (eg: fe80::2%eth0) that may connect to the given to_addr.
     """
-    target = ipaddress.ip_address(to_addr)
+    target = ipaddress.ip_address(_compatible_ipv6_address(to_addr))
 
     for if_name, addrs in psutil.net_if_addrs().items():
         if interface and if_name != interface:
@@ -146,10 +156,11 @@ def guess_local_ip6(
         for addr in addrs:
             if addr.family != socket.AF_INET6:
                 continue
-            _ip = ipaddress.ip_address(addr.address)
+            _ip = ipaddress.ip_address(_compatible_ipv6_address(addr.address))
             assert addr.netmask
             _mask_len = bin(int(ipaddress.ip_address(addr.netmask))).count('1')
-            _net = ipaddress.ip_network(f'{addr.address}/{_mask_len}', strict=False)
+            base_addr = _compatible_ipv6_address(addr.address)
+            _net = ipaddress.ip_network(f'{base_addr}/{_mask_len}', strict=False)
             if target in _net:
                 yield addr.address
             # If target is global address, do not check
@@ -164,13 +175,21 @@ def get_mac_by_interface(interface: str) -> str:
         interface (str): net interface name
 
     Returns:
-        str: mac address
+        str: mac address (lower case)
     """
     if_addrs = psutil.net_if_addrs()
+    mac_addr = ''
     for addr in if_addrs[interface]:
-        if addr.family == socket.AF_PACKET:
-            assert isinstance(addr.address, str)
-            return addr.address
+        if sys.platform == 'win32':
+            if addr.family == psutil.AF_LINK:
+                assert isinstance(addr.address, str)
+                mac_addr = addr.address
+        else:
+            if addr.family == socket.AF_PACKET:
+                assert isinstance(addr.address, str)
+                mac_addr = addr.address
+    if mac_addr:
+        return normalize_mac(mac_addr).lower()
     raise ValueError(f'Failed to get addr info from {interface}')
 
 
@@ -185,9 +204,14 @@ def get_interface_by_mac(mac_addr: str) -> str:
     """
     for interface, addrs in psutil.net_if_addrs().items():
         for addr in addrs:
-            if addr.family != socket.AF_PACKET:
-                continue
-            if addr.address == mac_addr:
+            if sys.platform == 'win32':
+                if addr.family != psutil.AF_LINK:
+                    continue
+            else:
+                if addr.family != socket.AF_PACKET:
+                    continue
+
+            if normalize_mac(addr.address).lower() == mac_addr.lower():
                 assert isinstance(interface, str)
                 return interface
     raise ValueError(f'Failed to get interface with mac {mac_addr}')

@@ -1,6 +1,8 @@
+import datetime
 from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 
 import attr
+from dateutil.parser import isoparse
 
 from ..extensions import NotPresentError, UnknownType
 from ..models.archive_record import ArchiveRecord
@@ -22,6 +24,7 @@ class PlateSchema:
 
     _container_schema: Union[Unset, None, PlateSchemaContainerSchema] = UNSET
     _height: Union[Unset, float] = UNSET
+    _modified_at: Union[Unset, datetime.datetime] = UNSET
     _plate_type: Union[Unset, str] = UNSET
     _type: Union[Unset, PlateSchemaType] = UNSET
     _width: Union[Unset, float] = UNSET
@@ -49,6 +52,7 @@ class PlateSchema:
         fields = []
         fields.append("container_schema={}".format(repr(self._container_schema)))
         fields.append("height={}".format(repr(self._height)))
+        fields.append("modified_at={}".format(repr(self._modified_at)))
         fields.append("plate_type={}".format(repr(self._plate_type)))
         fields.append("type={}".format(repr(self._type)))
         fields.append("width={}".format(repr(self._width)))
@@ -67,6 +71,10 @@ class PlateSchema:
             container_schema = self._container_schema.to_dict() if self._container_schema else None
 
         height = self._height
+        modified_at: Union[Unset, str] = UNSET
+        if not isinstance(self._modified_at, Unset):
+            modified_at = self._modified_at.isoformat()
+
         plate_type = self._plate_type
         type: Union[Unset, int] = UNSET
         if not isinstance(self._type, Unset):
@@ -112,6 +120,8 @@ class PlateSchema:
             field_dict["containerSchema"] = container_schema
         if height is not UNSET:
             field_dict["height"] = height
+        if modified_at is not UNSET:
+            field_dict["modifiedAt"] = modified_at
         if plate_type is not UNSET:
             field_dict["plateType"] = plate_type
         if type is not UNSET:
@@ -163,6 +173,21 @@ class PlateSchema:
             if strict:
                 raise
             height = cast(Union[Unset, float], UNSET)
+
+        def get_modified_at() -> Union[Unset, datetime.datetime]:
+            modified_at: Union[Unset, datetime.datetime] = UNSET
+            _modified_at = d.pop("modifiedAt")
+            if _modified_at is not None and not isinstance(_modified_at, Unset):
+                modified_at = isoparse(cast(str, _modified_at))
+
+            return modified_at
+
+        try:
+            modified_at = get_modified_at()
+        except KeyError:
+            if strict:
+                raise
+            modified_at = cast(Union[Unset, datetime.datetime], UNSET)
 
         def get_plate_type() -> Union[Unset, str]:
             plate_type = d.pop("plateType")
@@ -372,6 +397,7 @@ class PlateSchema:
         plate_schema = cls(
             container_schema=container_schema,
             height=height,
+            modified_at=modified_at,
             plate_type=plate_type,
             type=type,
             width=width,
@@ -432,6 +458,21 @@ class PlateSchema:
     @height.deleter
     def height(self) -> None:
         self._height = UNSET
+
+    @property
+    def modified_at(self) -> datetime.datetime:
+        """ DateTime the Plate Schema was last modified """
+        if isinstance(self._modified_at, Unset):
+            raise NotPresentError(self, "modified_at")
+        return self._modified_at
+
+    @modified_at.setter
+    def modified_at(self, value: datetime.datetime) -> None:
+        self._modified_at = value
+
+    @modified_at.deleter
+    def modified_at(self) -> None:
+        self._modified_at = UNSET
 
     @property
     def plate_type(self) -> str:

@@ -9,7 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
+import datetime as _dt
 from typing import Literal, Union
 
 from pydantic import Field
@@ -19,33 +19,55 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 from .group_0003 import SimpleUser
-from .group_0189 import MinimalRepository
+from .group_0083 import Team
 
 
-class RepositoryInvitation(GitHubModel):
-    """Repository Invitation
+class PendingDeploymentPropReviewersItems(GitHubModel):
+    """PendingDeploymentPropReviewersItems"""
 
-    Repository invitations let you manage who you collaborate with.
+    type: Missing[Literal["User", "Team"]] = Field(
+        default=UNSET, description="The type of reviewer."
+    )
+    reviewer: Missing[Union[SimpleUser, Team]] = Field(default=UNSET)
+
+
+class PendingDeployment(GitHubModel):
+    """Pending Deployment
+
+    Details of a deployment that is waiting for protection rules to pass
     """
 
-    id: int = Field(description="Unique identifier of the repository invitation.")
-    repository: MinimalRepository = Field(
-        title="Minimal Repository", description="Minimal Repository"
+    environment: PendingDeploymentPropEnvironment = Field()
+    wait_timer: int = Field(description="The set duration of the wait timer")
+    wait_timer_started_at: Union[_dt.datetime, None] = Field(
+        description="The time that the wait timer began."
     )
-    invitee: Union[None, SimpleUser] = Field()
-    inviter: Union[None, SimpleUser] = Field()
-    permissions: Literal["read", "write", "admin", "triage", "maintain"] = Field(
-        description="The permission associated with the invitation."
+    current_user_can_approve: bool = Field(
+        description="Whether the currently authenticated user can approve the deployment"
     )
-    created_at: datetime = Field()
-    expired: Missing[bool] = Field(
-        default=UNSET, description="Whether or not the invitation has expired"
+    reviewers: list[PendingDeploymentPropReviewersItems] = Field(
+        description="The people or teams that may approve jobs that reference the environment. You can list up to six users or teams as reviewers. The reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed."
     )
-    url: str = Field(description="URL for the repository invitation")
-    html_url: str = Field()
-    node_id: str = Field()
 
 
-model_rebuild(RepositoryInvitation)
+class PendingDeploymentPropEnvironment(GitHubModel):
+    """PendingDeploymentPropEnvironment"""
 
-__all__ = ("RepositoryInvitation",)
+    id: Missing[int] = Field(default=UNSET, description="The id of the environment.")
+    node_id: Missing[str] = Field(default=UNSET)
+    name: Missing[str] = Field(
+        default=UNSET, description="The name of the environment."
+    )
+    url: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+
+
+model_rebuild(PendingDeploymentPropReviewersItems)
+model_rebuild(PendingDeployment)
+model_rebuild(PendingDeploymentPropEnvironment)
+
+__all__ = (
+    "PendingDeployment",
+    "PendingDeploymentPropEnvironment",
+    "PendingDeploymentPropReviewersItems",
+)

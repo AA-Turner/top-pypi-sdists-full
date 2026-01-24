@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: qualang-tools
-Version: 0.20.0
+Version: 0.21.1
 Summary: The qualang_tools package includes various tools related to QUA programs in Python
 License: BSD-3-Clause
+License-File: LICENSE
 Author: Quantum Machines
 Author-email: info@quantum-machines.co
 Requires-Python: >=3.9,<3.13
@@ -33,7 +34,7 @@ Requires-Dist: netCDF4 (>=1.7.2,<2.0.0) ; extra == "datahandler"
 Requires-Dist: numpy (>=1.26.0,<2)
 Requires-Dist: pandas (>=1.2.4) ; extra == "configbuilder"
 Requires-Dist: pypiwin32 (>=223,<224) ; (sys_platform == "win32") and (extra == "interplot")
-Requires-Dist: qm-qua (>=1.2.2)
+Requires-Dist: qm-qua (>=1.2.3)
 Requires-Dist: scikit-learn (>=1.5.0)
 Requires-Dist: scipy (>=1.11.0)
 Requires-Dist: tqdm (>=4.67.1,<5.0.0) ; extra == "two-qubit-rb"

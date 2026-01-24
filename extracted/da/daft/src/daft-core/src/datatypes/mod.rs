@@ -2,15 +2,20 @@ mod agg_ops;
 mod infer_datatype;
 mod matching;
 
+use arrow::{
+    array::ArrowNumericType,
+    buffer::{Buffer, ScalarBuffer},
+    datatypes::ArrowNativeType,
+};
 pub use infer_datatype::InferDataType;
 pub mod prelude;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
 pub use agg_ops::{
-    try_mean_aggregation_supertype, try_skew_aggregation_supertype,
+    try_mean_aggregation_supertype, try_product_supertype, try_skew_aggregation_supertype,
     try_stddev_aggregation_supertype, try_sum_supertype,
 };
-use arrow2::{
+use daft_arrow::{
     compute::comparison::Simd8,
     types::{NativeType, simd::Simd},
 };
@@ -27,11 +32,18 @@ use num_traits::{Bounded, Float, FromPrimitive, Num, NumCast, ToPrimitive, Zero}
 use serde::Serialize;
 
 pub use crate::array::{DataArray, FixedSizeListArray, file_array::FileArray};
-use crate::array::{ListArray, StructArray, ops::as_arrow::AsArrow};
+#[cfg(feature = "python")]
+use crate::prelude::PythonArray;
+use crate::{
+    array::{ListArray, StructArray, ops::as_arrow::AsArrow},
+    file::{DaftMediaType, FileType},
+};
 
 pub mod interval;
 pub mod logical;
 pub use interval::*;
+#[cfg(feature = "python")]
+pub mod python;
 
 /// Trait that is implemented by all Array types
 ///
@@ -55,6 +67,20 @@ pub trait DaftDataType: Sync + Send + Clone + 'static {
     fn get_dtype() -> DataType
     where
         Self: Sized;
+}
+
+impl<T> DaftDataType for T
+where
+    T: DaftMediaType,
+{
+    type ArrayType = FileArray<T>;
+
+    fn get_dtype() -> DataType
+    where
+        Self: Sized,
+    {
+        DataType::File(T::get_type())
+    }
 }
 
 pub trait DaftPhysicalType: Send + Sync + DaftDataType {}
@@ -81,23 +107,6 @@ macro_rules! impl_daft_arrow_datatype {
         }
 
         impl DaftArrowBackedType for $ca {}
-        impl DaftPhysicalType for $ca {}
-    };
-}
-
-macro_rules! impl_daft_non_arrow_datatype {
-    ($ca:ident, $variant:ident) => {
-        #[derive(Clone, Debug)]
-        pub struct $ca {}
-
-        impl DaftDataType for $ca {
-            #[inline]
-            fn get_dtype() -> DataType {
-                DataType::$variant
-            }
-
-            type ArrayType = DataArray<$ca>;
-        }
         impl DaftPhysicalType for $ca {}
     };
 }
@@ -241,8 +250,6 @@ impl_daft_logical_data_array_datatype!(TimestampType, Unknown, Int64Type);
 impl_daft_logical_data_array_datatype!(DateType, Date, Int32Type);
 impl_daft_logical_data_array_datatype!(TimeType, Unknown, Int64Type);
 impl_daft_logical_data_array_datatype!(DurationType, Unknown, Int64Type);
-impl_daft_logical_data_array_datatype!(FileType, File, StructType);
-
 impl_daft_logical_data_array_datatype!(ImageType, Unknown, StructType);
 impl_daft_logical_data_array_datatype!(TensorType, Unknown, StructType);
 impl_daft_logical_data_array_datatype!(SparseTensorType, Unknown, StructType);
@@ -252,11 +259,42 @@ impl_daft_logical_fixed_size_list_datatype!(FixedShapeImageType, Unknown);
 impl_daft_logical_fixed_size_list_datatype!(FixedShapeTensorType, Unknown);
 impl_daft_logical_list_datatype!(MapType, Unknown);
 
+impl<T> DaftDataType for FileType<T>
+where
+    T: DaftMediaType,
+{
+    #[inline]
+    fn get_dtype() -> DataType {
+        DataType::File(T::get_type())
+    }
+    #[allow(clippy::use_self)]
+    type ArrayType = logical::LogicalArray<FileType<T>>;
+}
+
+impl<T> DaftLogicalType for FileType<T>
+where
+    T: DaftMediaType,
+{
+    type PhysicalType = StructType;
+}
+
 #[cfg(feature = "python")]
-impl_daft_non_arrow_datatype!(PythonType, Python);
+#[derive(Clone, Debug)]
+pub struct PythonType {}
+
+#[cfg(feature = "python")]
+impl DaftDataType for PythonType {
+    #[inline]
+    fn get_dtype() -> DataType {
+        DataType::Python
+    }
+
+    type ArrayType = PythonArray;
+}
 
 pub trait NumericNative:
-    PartialOrd
+    ArrowNativeType
+    + PartialOrd
     + NativeType
     + Num
     + NumCast
@@ -275,6 +313,7 @@ pub trait NumericNative:
     + Serialize
 {
     type DAFTTYPE: DaftNumericType;
+    type ARROWTYPE: ArrowNumericType;
 }
 
 /// Trait to express types that are native and can be vectorized
@@ -284,37 +323,48 @@ pub trait DaftNumericType: Send + Sync + DaftArrowBackedType + 'static {
 
 impl NumericNative for i8 {
     type DAFTTYPE = Int8Type;
+    type ARROWTYPE = arrow::datatypes::Int8Type;
 }
 impl NumericNative for i16 {
     type DAFTTYPE = Int16Type;
+    type ARROWTYPE = arrow::datatypes::Int16Type;
 }
 impl NumericNative for i32 {
     type DAFTTYPE = Int32Type;
+    type ARROWTYPE = arrow::datatypes::Int32Type;
 }
 impl NumericNative for i64 {
     type DAFTTYPE = Int64Type;
+    type ARROWTYPE = arrow::datatypes::Int64Type;
 }
 impl NumericNative for i128 {
     type DAFTTYPE = Int128Type;
+    type ARROWTYPE = arrow::datatypes::Decimal128Type;
 }
 impl NumericNative for u8 {
     type DAFTTYPE = UInt8Type;
+    type ARROWTYPE = arrow::datatypes::UInt8Type;
 }
 impl NumericNative for u16 {
     type DAFTTYPE = UInt16Type;
+    type ARROWTYPE = arrow::datatypes::UInt16Type;
 }
 impl NumericNative for u32 {
     type DAFTTYPE = UInt32Type;
+    type ARROWTYPE = arrow::datatypes::UInt32Type;
 }
 impl NumericNative for u64 {
     type DAFTTYPE = UInt64Type;
+    type ARROWTYPE = arrow::datatypes::UInt64Type;
 }
 
 impl NumericNative for f32 {
     type DAFTTYPE = Float32Type;
+    type ARROWTYPE = arrow::datatypes::Float32Type;
 }
 impl NumericNative for f64 {
     type DAFTTYPE = Float64Type;
+    type ARROWTYPE = arrow::datatypes::Float64Type;
 }
 
 impl DaftNumericType for UInt8Type {
@@ -413,19 +463,29 @@ pub type ExtensionArray = DataArray<ExtensionType>;
 pub type IntervalArray = DataArray<IntervalType>;
 pub type Decimal128Array = DataArray<Decimal128Type>;
 
-#[cfg(feature = "python")]
-pub type PythonArray = DataArray<PythonType>;
-
-impl<T: DaftNumericType> DataArray<T> {
+impl<T: DaftPrimitiveType> DataArray<T> {
     pub fn as_slice(&self) -> &[T::Native] {
-        self.as_arrow().values().as_slice()
+        self.as_arrow2().values().as_slice()
     }
-}
 
-impl<P: AsRef<str>> FromIterator<Option<P>> for Utf8Array {
-    #[inline]
-    fn from_iter<I: IntoIterator<Item = Option<P>>>(iter: I) -> Self {
-        let arrow_arr = arrow2::array::Utf8Array::<i64>::from_iter(iter);
-        Self::from(("", Box::new(arrow_arr)))
+    pub fn values(&self) -> ScalarBuffer<T::Native> {
+        // this is fully zero copy to convert the values into an arrow-rs ScalarBuffer
+        let arrow_buffer = Buffer::from(self.as_arrow2().values().clone());
+        ScalarBuffer::from(arrow_buffer)
+    }
+
+    /// Maps the values only without changing the null bitmaps
+    pub fn map_values<F>(&self, f: F) -> Self
+    where
+        F: Fn(&T::Native) -> T::Native,
+    {
+        let arrow_buffer = Buffer::from(self.as_arrow2().values().clone());
+
+        Self::from_values_iter(
+            self.field.clone(),
+            ScalarBuffer::from(arrow_buffer).into_iter().map(f),
+        )
+        .with_nulls(self.nulls().cloned())
+        .expect("Failed to set nulls")
     }
 }

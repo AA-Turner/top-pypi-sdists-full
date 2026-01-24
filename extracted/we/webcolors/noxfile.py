@@ -19,7 +19,6 @@ import typing
 import nox
 
 nox.options.default_venv_backend = "venv"
-nox.options.keywords = "not release"
 nox.options.reuse_existing_virtualenvs = True
 
 PACKAGE_NAME = "webcolors"
@@ -58,28 +57,22 @@ def clean(paths: typing.Iterable[pathlib.Path] = ARTIFACT_PATHS) -> None:
 # -----------------------------------------------------------------------------------
 
 
-@nox.session(python=["3.9", "3.10", "3.11", "3.12", "3.13"], tags=["tests"])
+@nox.session(python=["3.10", "3.11", "3.12", "3.13", "3.14"], tags=["tests"])
 def tests_with_coverage(session: nox.Session) -> None:
     """
     Run the package's unit tests, with coverage instrumentation.
 
     """
-    session.install(
-        ".[tests]",
-        "coverage",
-        'tomli; python_full_version < "3.11.0a7"',
-    )
+    session.install(".", "pytest", "coverage[toml]")
     session.run(
         f"python{session.python}",
         "-Wonce::DeprecationWarning",
         "-Im",
         "coverage",
         "run",
-        "--source",
-        PACKAGE_NAME,
         "-m",
-        "unittest",
-        "discover",
+        "pytest",
+        "-vv",
     )
     clean()
 
@@ -227,7 +220,7 @@ def format_black(session: nox.Session) -> None:
     Check code formatting with Black.
 
     """
-    session.install("black>=24.0,<25.0")
+    session.install("black>=25.0,<26.0")
     session.run(f"python{session.python}", "-Im", "black", "--version")
     session.run(
         f"python{session.python}",
@@ -296,7 +289,7 @@ def lint_flake8(session: nox.Session) -> None:
     Lint code with flake8.
 
     """
-    session.install("flake8", "flake8-bugbear")
+    session.install("flake8", "flake8-bugbear", "flake8-pytest-style")
     session.run(f"python{session.python}", "-Im", "flake8", "--version")
     session.run(
         f"python{session.python}",
@@ -317,7 +310,7 @@ def lint_pylint(session: nox.Session) -> None:
 
     """
     # Pylint requires that all dependencies be importable during the run.
-    session.install("pylint", "bs4", "html5lib", "requests")
+    session.install("pylint", "bs4", "html5lib", "requests", "pytest")
     session.run(f"python{session.python}", "-Im", "pylint", "--version")
     session.run(f"python{session.python}", "-Im", "pylint", "src/", "tests/")
     clean()

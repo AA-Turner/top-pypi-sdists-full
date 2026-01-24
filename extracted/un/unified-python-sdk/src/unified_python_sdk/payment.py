@@ -60,6 +60,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_link, False, False, "json", shared.PaymentLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -76,7 +77,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -152,6 +153,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_link, False, False, "json", shared.PaymentLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -168,7 +170,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -244,6 +246,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_payment, False, False, "json", shared.PaymentPayment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -260,7 +263,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -336,6 +339,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_payment, False, False, "json", shared.PaymentPayment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -352,7 +356,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -434,6 +438,7 @@ class Payment(BaseSDK):
                 "json",
                 shared.PaymentSubscription,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -450,7 +455,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -532,6 +537,7 @@ class Payment(BaseSDK):
                 "json",
                 shared.PaymentSubscription,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -548,7 +554,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createPaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -620,6 +626,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -636,7 +643,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -708,6 +715,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -724,7 +732,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -797,6 +805,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -813,7 +822,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -886,6 +895,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -902,7 +912,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -975,6 +985,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -991,7 +1002,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentPayout",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1064,6 +1075,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1080,7 +1092,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentPayout",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1153,6 +1165,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1169,7 +1182,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentRefund",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1242,6 +1255,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1258,7 +1272,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentRefund",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1331,6 +1345,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1347,7 +1362,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1420,6 +1435,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1436,7 +1452,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getPaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1509,6 +1525,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1525,7 +1542,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentLinks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1598,6 +1615,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1614,7 +1632,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentLinks",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1687,6 +1705,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1703,7 +1722,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentPayments",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1776,6 +1795,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1792,7 +1812,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentPayments",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1865,6 +1885,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1881,7 +1902,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentPayouts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1954,6 +1975,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1970,7 +1992,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentPayouts",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2043,6 +2065,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2059,7 +2082,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentRefunds",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2132,6 +2155,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2148,7 +2172,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentRefunds",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2223,6 +2247,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2239,7 +2264,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentSubscriptions",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2314,6 +2339,7 @@ class Payment(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2330,7 +2356,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listPaymentSubscriptions",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2406,6 +2432,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_link, False, False, "json", shared.PaymentLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2422,7 +2449,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2498,6 +2525,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_link, False, False, "json", shared.PaymentLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2514,7 +2542,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2590,6 +2618,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_payment, False, False, "json", shared.PaymentPayment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2606,7 +2635,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2682,6 +2711,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_payment, False, False, "json", shared.PaymentPayment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2698,7 +2728,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2780,6 +2810,7 @@ class Payment(BaseSDK):
                 "json",
                 shared.PaymentSubscription,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2796,7 +2827,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2878,6 +2909,7 @@ class Payment(BaseSDK):
                 "json",
                 shared.PaymentSubscription,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2894,7 +2926,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchPaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -2967,6 +2999,7 @@ class Payment(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -2983,7 +3016,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3061,6 +3094,7 @@ class Payment(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3077,7 +3111,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3155,6 +3189,7 @@ class Payment(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3171,7 +3206,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3249,6 +3284,7 @@ class Payment(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3265,7 +3301,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3345,6 +3381,7 @@ class Payment(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3361,7 +3398,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3441,6 +3478,7 @@ class Payment(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3457,7 +3495,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removePaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3538,6 +3576,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_link, False, False, "json", shared.PaymentLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3554,7 +3593,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3630,6 +3669,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_link, False, False, "json", shared.PaymentLink
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3646,7 +3686,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePaymentLink",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3722,6 +3762,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_payment, False, False, "json", shared.PaymentPayment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3738,7 +3779,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3814,6 +3855,7 @@ class Payment(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.payment_payment, False, False, "json", shared.PaymentPayment
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3830,7 +3872,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePaymentPayment",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -3912,6 +3954,7 @@ class Payment(BaseSDK):
                 "json",
                 shared.PaymentSubscription,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -3928,7 +3971,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -4010,6 +4053,7 @@ class Payment(BaseSDK):
                 "json",
                 shared.PaymentSubscription,
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -4026,7 +4070,7 @@ class Payment(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updatePaymentSubscription",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

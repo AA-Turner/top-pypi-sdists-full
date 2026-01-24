@@ -6,7 +6,7 @@ build-backend = "pdm.backend"
 
 [project]
 name = "langgraph-swarm"
-version = "0.0.14"
+version = "0.1.0"
 description = "An implementation of a multi-agent swarm using LangGraph"
 authors = [
     { name = "Vadym Barda", email = "19161700+vbarda@users.noreply.github.com " },
@@ -18,17 +18,18 @@ license-files = [
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "langgraph>=0.6.0,<0.7.0",
-    "langchain-core>=0.3.40,<0.4.0",
+    "langchain>=1,<2",
+    "langchain-core>=1,<2",
+    "langgraph>=1,<2",
 ]
 
 [dependency-groups]
 test = [
-    "pytest>=8.0.0",
-    "ruff>=0.9.4",
-    "mypy>=1.8.0",
-    "pytest-socket>=0.7.0",
-    "types-setuptools>=69.0.0",
+    "pytest>=9,<10",
+    "ruff>=0.9,<1",
+    "mypy>=1,<2",
+    "pytest-socket>=0.7,<1",
+    "types-setuptools>=80",
 ]
 
 [tool.pytest.ini_options]

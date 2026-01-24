@@ -26,6 +26,7 @@ from sky.serve import constants as serve_constants
 from sky.serve import serve_rpc_utils
 from sky.serve import serve_state
 from sky.serve import serve_utils
+from sky.server.requests import request_names
 from sky.skylet import constants
 from sky.skylet import job_lib
 from sky.utils import admin_policy_utils
@@ -89,7 +90,7 @@ def _get_service_record(
     assert isinstance(handle, backends.CloudVmRayResourceHandle)
     use_legacy = not handle.is_grpc_enabled_with_flag
 
-    if handle.is_grpc_enabled_with_flag:
+    if not use_legacy:
         try:
             service_statuses = serve_rpc_utils.RpcRunner.get_service_status(
                 handle, [service_name], pool)
@@ -122,6 +123,18 @@ def _get_service_record(
     return service_statuses[0]
 
 
+def _maybe_display_run_warning(task: 'task_lib.Task') -> None:
+    # We do not block the user from creating a pool with a run section
+    # in order to enable using the same yaml for pool creation
+    # and job submission. But we want to make it clear that 'run' will not
+    # be respected here.
+    if task.run is not None:
+        logger.warning(
+            f'{colorama.Fore.YELLOW} Pool creation does not support the '
+            '`run` section. Creating the pool while ignoring the '
+            f'`run` section.{colorama.Style.RESET_ALL}')
+
+
 def up(
     task: 'task_lib.Task',
     service_name: Optional[str] = None,
@@ -152,16 +165,15 @@ def up(
     # Always apply the policy again here, even though it might have been applied
     # in the CLI. This is to ensure that we apply the policy to the final DAG
     # and get the mutated config.
-    dag, mutated_user_config = admin_policy_utils.apply(dag)
+    dag, mutated_user_config = admin_policy_utils.apply(
+        dag, request_name=request_names.AdminPolicyRequestName.SERVE_UP)
     dag.resolve_and_validate_volumes()
     dag.pre_mount_volumes()
     task = dag.tasks[0]
     assert task.service is not None
     if pool:
-        if task.run is not None:
-            logger.warning(f'{colorama.Fore.YELLOW}The `run` section will be '
-                           f'ignored for pool.{colorama.Style.RESET_ALL}')
-        # Use dummy run script for cluster pool.
+        _maybe_display_run_warning(task)
+        # Use dummy run script for pool.
         task.run = serve_constants.POOL_DUMMY_RUN_COMMAND
 
     with rich_utils.safe_status(
@@ -270,15 +282,22 @@ def up(
         if not serve_utils.is_consolidation_mode(pool):
             print(f'{colorama.Fore.YELLOW}Launching controller for '
                   f'{service_name!r}...{colorama.Style.RESET_ALL}')
-            with common.with_server_user():
-                with skypilot_config.local_active_workspace_ctx(
-                        constants.SKYPILOT_DEFAULT_WORKSPACE):
-                    controller_job_id, controller_handle = execution.launch(
-                        task=controller_task,
-                        cluster_name=controller_name,
-                        retry_until_up=True,
-                        _disable_controller_check=True,
-                    )
+            with common.with_server_user(
+            ), skypilot_config.local_active_workspace_ctx(
+                    constants.SKYPILOT_DEFAULT_WORKSPACE
+            ), (
+                    # Serve controller is not placed in kueue, as the controller
+                    # pod is considered a "system" pod and is not subject to
+                    # queue limits or preemption.
+                    skypilot_config.remove_queue_name_from_config()):
+                controller_job_id, controller_handle = execution.launch(
+                    task=controller_task,
+                    cluster_name=controller_name,
+                    retry_until_up=True,
+                    _request_name=request_names.AdminPolicyRequestName.
+                    SERVE_LAUNCH_CONTROLLER,
+                    _disable_controller_check=True,
+                )
         else:
             controller_type = controller_utils.get_controller_for_pool(pool)
             controller_handle = backend_utils.is_controller_accessible(
@@ -411,6 +430,9 @@ def up(
                 f'\n{ux_utils.INDENT_LAST_SYMBOL}To terminate the pool:\t'
                 f'{ux_utils.BOLD}sky jobs pool down {service_name}'
                 f'{ux_utils.RESET_BOLD}'
+                f'\n{ux_utils.INDENT_SYMBOL}To update the number of workers:\t'
+                f'{ux_utils.BOLD}sky jobs pool apply --pool {service_name} '
+                f'--workers 5{ux_utils.RESET_BOLD}'
                 '\n\n' + ux_utils.finishing_message('Successfully created pool '
                                                     f'{service_name!r}.'))
         else:
@@ -448,37 +470,15 @@ def up(
 
 
 def update(
-    task: 'task_lib.Task',
+    task: Optional['task_lib.Task'],
     service_name: str,
     mode: serve_utils.UpdateMode = serve_utils.DEFAULT_UPDATE_MODE,
     pool: bool = False,
+    workers: Optional[int] = None,
 ) -> None:
     """Updates an existing service or pool."""
     noun = 'pool' if pool else 'service'
     capnoun = noun.capitalize()
-    task.validate()
-    serve_utils.validate_service_task(task, pool=pool)
-
-    # Always apply the policy again here, even though it might have been applied
-    # in the CLI. This is to ensure that we apply the policy to the final DAG
-    # and get the mutated config.
-    # TODO(cblmemo,zhwu): If a user sets a new skypilot_config, the update
-    # will not apply the config.
-    dag, _ = admin_policy_utils.apply(task)
-    task = dag.tasks[0]
-    if pool:
-        if task.run is not None:
-            logger.warning(f'{colorama.Fore.YELLOW}The `run` section will be '
-                           f'ignored for pool.{colorama.Style.RESET_ALL}')
-        # Use dummy run script for cluster pool.
-        task.run = serve_constants.POOL_DUMMY_RUN_COMMAND
-
-    assert task.service is not None
-    if not pool and task.service.tls_credential is not None:
-        logger.warning('Updating TLS keyfile and certfile is not supported. '
-                       'Any updates to the keyfile and certfile will not take '
-                       'effect. To update TLS keyfile and certfile, please '
-                       'tear down the service and spin up a new one.')
 
     controller_type = controller_utils.get_controller_for_pool(pool)
     handle = backend_utils.is_controller_accessible(
@@ -504,6 +504,58 @@ def update(
             raise RuntimeError(f'Cannot find {noun} {service_name!r}.'
                                f'To spin up a {noun}, use {ux_utils.BOLD}'
                                f'{cmd}{ux_utils.RESET_BOLD}')
+
+    # If task is None and workers is specified, load existing configuration
+    # and update replica count.
+    if task is None:
+        if workers is None:
+            with ux_utils.print_exception_no_traceback():
+                raise ValueError(
+                    f'Cannot update {noun} without specifying '
+                    f'task or workers. Please provide either a task '
+                    f'or specify the number of workers.')
+
+        if not pool:
+            with ux_utils.print_exception_no_traceback():
+                raise ValueError(
+                    'Non-pool service, trying to update replicas to '
+                    f'{workers} is not supported. Ignoring the update.')
+
+        # Load the existing task configuration from the service's YAML file
+        yaml_content = service_record['yaml_content']
+
+        # Load the existing task configuration
+        task = task_lib.Task.from_yaml_str(yaml_content)
+
+        if task.service is None:
+            with ux_utils.print_exception_no_traceback():
+                raise RuntimeError('No service configuration found in '
+                                   f'existing {noun} {service_name!r}')
+        task.set_service(task.service.copy(min_replicas=workers))
+
+    task.validate()
+    serve_utils.validate_service_task(task, pool=pool)
+
+    # Now apply the policy and handle task-specific logic
+    # Always apply the policy again here, even though it might have been applied
+    # in the CLI. This is to ensure that we apply the policy to the final DAG
+    # and get the mutated config.
+    # TODO(cblmemo,zhwu): If a user sets a new skypilot_config, the update
+    # will not apply the config.
+    dag, _ = admin_policy_utils.apply(
+        task, request_name=request_names.AdminPolicyRequestName.SERVE_UPDATE)
+    task = dag.tasks[0]
+    if pool:
+        _maybe_display_run_warning(task)
+        # Use dummy run script for pool.
+        task.run = serve_constants.POOL_DUMMY_RUN_COMMAND
+
+    assert task.service is not None
+    if not pool and task.service.tls_credential is not None:
+        logger.warning('Updating TLS keyfile and certfile is not supported. '
+                       'Any updates to the keyfile and certfile will not take '
+                       'effect. To update TLS keyfile and certfile, please '
+                       'tear down the service and spin up a new one.')
 
     prompt = None
     if (service_record['status'] == serve_state.ServiceStatus.CONTROLLER_FAILED
@@ -537,7 +589,7 @@ def update(
 
     use_legacy = not handle.is_grpc_enabled_with_flag
 
-    if handle.is_grpc_enabled_with_flag:
+    if not use_legacy:
         try:
             current_version = serve_rpc_utils.RpcRunner.add_version(
                 handle, service_name)
@@ -584,7 +636,7 @@ def update(
 
         use_legacy = not handle.is_grpc_enabled_with_flag
 
-        if handle.is_grpc_enabled_with_flag:
+        if not use_legacy:
             try:
                 serve_rpc_utils.RpcRunner.update_service(
                     handle, service_name, current_version, mode, pool)
@@ -617,14 +669,25 @@ def update(
         f'Please use {ux_utils.BOLD}{cmd} {service_name} '
         f'{ux_utils.RESET_BOLD}to check the latest status.')
 
+    if pool:
+        logs_cmd = f'`sky jobs pool logs {service_name} <worker_id>`'
+        unit_noun = 'Workers'
+
+    else:
+        logs_cmd = f'`sky serve logs {service_name} <replica_id>`'
+        unit_noun = 'Replicas'
     logger.info(
         ux_utils.finishing_message(
             f'Successfully updated {noun} {service_name!r} '
-            f'to version {current_version}.'))
+            f'to version {current_version}.',
+            follow_up_message=
+            f'\n{unit_noun} are updating, use {ux_utils.BOLD}{logs_cmd}'
+            f'{ux_utils.RESET_BOLD} to check their status.'))
 
 
 def apply(
     task: 'task_lib.Task',
+    workers: Optional[int],
     service_name: str,
     mode: serve_utils.UpdateMode = serve_utils.DEFAULT_UPDATE_MODE,
     pool: bool = False,
@@ -640,7 +703,7 @@ def apply(
             service_record = _get_service_record(service_name, pool, handle,
                                                  backend)
             if service_record is not None:
-                return update(task, service_name, mode, pool)
+                return update(task, service_name, mode, pool, workers)
         except exceptions.ClusterNotUpError:
             pass
         up(task, service_name, pool)
@@ -677,7 +740,7 @@ def down(
         assert isinstance(handle, backends.CloudVmRayResourceHandle)
         use_legacy = not handle.is_grpc_enabled_with_flag
 
-        if handle.is_grpc_enabled_with_flag:
+        if not use_legacy:
             try:
                 stdout = serve_rpc_utils.RpcRunner.terminate_services(
                     handle, service_names, purge, pool)
@@ -739,7 +802,7 @@ def status(
     assert isinstance(handle, backends.CloudVmRayResourceHandle)
     use_legacy = not handle.is_grpc_enabled_with_flag
 
-    if handle.is_grpc_enabled_with_flag:
+    if not use_legacy:
         try:
             service_records = serve_rpc_utils.RpcRunner.get_service_status(
                 handle, service_names, pool)
@@ -875,7 +938,7 @@ def _get_all_replica_targets(
     assert isinstance(handle, backends.CloudVmRayResourceHandle)
     use_legacy = not handle.is_grpc_enabled_with_flag
 
-    if handle.is_grpc_enabled_with_flag:
+    if not use_legacy:
         try:
             service_records = serve_rpc_utils.RpcRunner.get_service_status(
                 handle, [service_name], pool)

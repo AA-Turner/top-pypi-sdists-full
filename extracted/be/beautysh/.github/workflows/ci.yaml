@@ -1,0 +1,60 @@
+name: CI
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+jobs:
+  nix-eval:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.eval.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/nix
+            ~root/.cache/nix
+          key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}
+          restore-keys: |
+            nix-${{ runner.os }}-${{ runner.arch }}-
+      - name: Evaluate flake matrix
+        id: eval
+        run: |
+          echo "matrix=$(nix eval --json '.#githubActions.matrix')" >> "$GITHUB_OUTPUT"
+  nix-matrix:
+    name: ${{ matrix.name }} (${{ matrix.system }})
+    runs-on: ${{ matrix.os }}
+    needs: nix-eval
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.nix-eval.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+            accept-flake-config = true
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/nix
+            ~root/.cache/nix
+          key: nix-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('flake.lock') }}
+          restore-keys: |
+            nix-${{ runner.os }}-${{ runner.arch }}-
+      - uses: cachix/cachix-action@v16
+        with:
+          name: beautysh
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: ${{ github.event_name == 'pull_request' }}
+      - name: Build ${{ matrix.name }} (${{ matrix.system }})
+        run: nix build -L '.#${{ matrix.attr }}'

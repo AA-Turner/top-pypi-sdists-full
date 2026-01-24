@@ -23,6 +23,9 @@ import time
 import urllib
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
+from hashlib import sha256
+from importlib.metadata import version
+from importlib.resources import files  # nosemgrep: python.lang.compatibility.python37.python37-compatibility-importlib2
 from io import BytesIO
 from shlex import quote
 from typing import Callable, NoReturn
@@ -31,8 +34,8 @@ from urllib.parse import urlparse
 
 import boto3
 import dateutil.parser
-import pkg_resources
 import yaml
+from packaging.version import parse
 from yaml import SafeLoader
 from yaml.constructor import ConstructorError
 from yaml.resolver import BaseResolver
@@ -149,8 +152,8 @@ def zip_dir(path):
     """
     file_out = BytesIO()
     with zipfile.ZipFile(file_out, "w", zipfile.ZIP_DEFLATED) as ziph:
-        for root, _, files in os.walk(path):
-            for file in files:
+        for root, _, files_list in os.walk(path):
+            for file in files_list:
                 _add_file_to_zip(
                     ziph,
                     os.path.join(root, file),
@@ -199,7 +202,7 @@ def to_utc_datetime(time_in, default_timezone=datetime.timezone.utc) -> datetime
     if isinstance(time_in, int):
         if time_in > 1e12:
             time_in /= 1000
-        time_ = datetime.datetime.utcfromtimestamp(time_in)
+        time_ = datetime.datetime.fromtimestamp(time_in, tz=datetime.timezone.utc)
         time_ = time_.replace(tzinfo=datetime.timezone.utc)
     elif isinstance(time_in, str):
         time_ = dateutil.parser.parse(time_in)
@@ -305,8 +308,8 @@ def get_templates_bucket_path():
 
 def get_installed_version(base_version_only: bool = False):
     """Get the version of the installed aws-parallelcluster package."""
-    pkg_distribution = pkg_resources.get_distribution("aws-parallelcluster")
-    return pkg_distribution.version if not base_version_only else pkg_distribution.parsed_version.base_version
+    pkg_version = version("aws-parallelcluster")
+    return pkg_version if not base_version_only else parse(pkg_version).base_version
 
 
 def warn(message):
@@ -576,7 +579,7 @@ def retrieve_supported_regions():
                 retrieve_supported_regions.cache = f.read().decode("utf-8").split("\n")
         except URLError:
             # When the file is not found on the URL, use local file. This is useful when developing new versions.
-            with open(pkg_resources.resource_filename(__name__, "/resources/supported-regions"), encoding="utf-8") as f:
+            with open(str(files(__package__) / "resources" / "supported-regions"), encoding="utf-8") as f:
                 retrieve_supported_regions.cache = f.read().split("\n")
     return retrieve_supported_regions.cache
 
@@ -595,3 +598,19 @@ def get_service_principal(service_name: str, partition: str, region: str = None,
 def format_arn(partition: str, service: str, region: str, account: str, resource: str) -> str:
     """Format an ARN string."""
     return f"arn:{partition}:{service}:{region}:{account}:{resource}"
+
+
+def generate_string_hash(input_string: str, hash_length: int = 12) -> str:
+    """Return first input length hex chars of sha256(str)."""
+    return sha256(input_string.encode()).hexdigest()[:hash_length]
+
+
+def get_needed_ultraserver_capacity_block_statuses(statuses, capacity_reservation_ids):
+    needed_capacity_block_statuses = []
+    for status in statuses:
+        if (
+            status.get("CapacityReservationStatuses")
+            and status.get("CapacityReservationStatuses")[0].get("CapacityReservationId") in capacity_reservation_ids
+        ):
+            needed_capacity_block_statuses.append(status)
+    return needed_capacity_block_statuses

@@ -3,7 +3,7 @@ Type annotations for mediastore service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediastore/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -61,12 +62,6 @@ from .type_defs import (
     UntagResourceInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -75,13 +70,13 @@ else:
 __all__ = ("MediaStoreClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ContainerInUseException: Type[BotocoreClientError]
-    ContainerNotFoundException: Type[BotocoreClientError]
-    CorsPolicyNotFoundException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    PolicyNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ContainerInUseException: type[BotocoreClientError]
+    ContainerNotFoundException: type[BotocoreClientError]
+    CorsPolicyNotFoundException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    PolicyNotFoundException: type[BotocoreClientError]
 
 class MediaStoreClient(AioBaseClient):
     """
@@ -130,7 +125,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def delete_container(
         self, **kwargs: Unpack[DeleteContainerInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified container.
 
@@ -140,7 +135,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def delete_container_policy(
         self, **kwargs: Unpack[DeleteContainerPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the access policy that is associated with the specified container.
 
@@ -150,7 +145,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def delete_cors_policy(
         self, **kwargs: Unpack[DeleteCorsPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the cross-origin resource sharing (CORS) configuration information that
         is set for the container.
@@ -161,7 +156,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def delete_lifecycle_policy(
         self, **kwargs: Unpack[DeleteLifecyclePolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes an object lifecycle policy from a container.
 
@@ -171,7 +166,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def delete_metric_policy(
         self, **kwargs: Unpack[DeleteMetricPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the metric policy that is associated with the specified container.
 
@@ -252,7 +247,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def put_container_policy(
         self, **kwargs: Unpack[PutContainerPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an access policy for the specified container to restrict the users and
         clients that can access it.
@@ -261,7 +256,7 @@ class MediaStoreClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediastore/client/#put_container_policy)
         """
 
-    async def put_cors_policy(self, **kwargs: Unpack[PutCorsPolicyInputTypeDef]) -> Dict[str, Any]:
+    async def put_cors_policy(self, **kwargs: Unpack[PutCorsPolicyInputTypeDef]) -> dict[str, Any]:
         """
         Sets the cross-origin resource sharing (CORS) configuration on a container so
         that the container can service cross-origin requests.
@@ -272,7 +267,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def put_lifecycle_policy(
         self, **kwargs: Unpack[PutLifecyclePolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Writes an object lifecycle policy to a container.
 
@@ -282,7 +277,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def put_metric_policy(
         self, **kwargs: Unpack[PutMetricPolicyInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The metric policy that you want to add to the container.
 
@@ -292,7 +287,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def start_access_logging(
         self, **kwargs: Unpack[StartAccessLoggingInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts access logging on the specified container.
 
@@ -302,7 +297,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def stop_access_logging(
         self, **kwargs: Unpack[StopAccessLoggingInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops access logging on the specified container.
 
@@ -310,7 +305,7 @@ class MediaStoreClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediastore/client/#stop_access_logging)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds tags to the specified AWS Elemental MediaStore container.
 
@@ -318,7 +313,7 @@ class MediaStoreClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mediastore/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the specified container.
 
@@ -344,7 +339,7 @@ class MediaStoreClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

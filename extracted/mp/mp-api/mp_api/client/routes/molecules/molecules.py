@@ -13,7 +13,7 @@ from mp_api.client.core.utils import validate_ids
 _EMMET_SETTINGS = EmmetSettings()
 
 
-class BaseMoleculeRester(BaseRester[MoleculeDoc]):
+class BaseMoleculeRester(BaseRester):
     document_model = MoleculeDoc
     primary_key = "molecule_id"
 
@@ -34,13 +34,7 @@ class BaseMoleculeRester(BaseRester[MoleculeDoc]):
         field = "molecule" if final else "initial_molecules"
 
         response = self.search(molecule_ids=[mpcule_id], fields=[field])  # type: ignore
-
-        if response:
-            response = (
-                response[0].model_dump() if self.use_document_model else response[0]  # type: ignore
-            )
-
-        return response[field] if response else response  # type: ignore
+        return response[0][field] if (response and response[0]) else response  # type: ignore
 
     def find_molecule(
         self,
@@ -96,10 +90,7 @@ class BaseMoleculeRester(BaseRester[MoleculeDoc]):
                 )
             return results  # type: ignore
 
-        if results:
-            return results[0]["molecule_id"]
-        else:
-            return []
+        return results[0]["molecule_id"] if (results and results[0]) else []
 
     def search(
         self,

@@ -10,6 +10,7 @@ from ..requests.destination_details_external_refund_details import DestinationDe
 from ..requests.money import MoneyParams
 from ..types.get_payment_refund_response import GetPaymentRefundResponse
 from ..types.list_payment_refunds_request_sort_field import ListPaymentRefundsRequestSortField
+from ..types.list_payment_refunds_response import ListPaymentRefundsResponse
 from ..types.payment_refund import PaymentRefund
 from ..types.refund_payment_response import RefundPaymentResponse
 from .raw_client import AsyncRawRefundsClient, RawRefundsClient
@@ -48,7 +49,7 @@ class RefundsClient:
         updated_at_end_time: typing.Optional[str] = None,
         sort_field: typing.Optional[ListPaymentRefundsRequestSortField] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[PaymentRefund]:
+    ) -> SyncPager[PaymentRefund, ListPaymentRefundsResponse]:
         """
         Retrieves a list of refunds for the account making the request.
 
@@ -129,7 +130,7 @@ class RefundsClient:
 
         Returns
         -------
-        SyncPager[PaymentRefund]
+        SyncPager[PaymentRefund, ListPaymentRefundsResponse]
             Success
 
         Examples
@@ -139,7 +140,19 @@ class RefundsClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.refunds.list()
+        response = client.refunds.list(
+            begin_time="begin_time",
+            end_time="end_time",
+            sort_order="sort_order",
+            cursor="cursor",
+            location_id="location_id",
+            status="status",
+            source_type="source_type",
+            limit=1,
+            updated_at_begin_time="updated_at_begin_time",
+            updated_at_end_time="updated_at_end_time",
+            sort_field="CREATED_AT",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -375,7 +388,7 @@ class AsyncRefundsClient:
         updated_at_end_time: typing.Optional[str] = None,
         sort_field: typing.Optional[ListPaymentRefundsRequestSortField] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[PaymentRefund]:
+    ) -> AsyncPager[PaymentRefund, ListPaymentRefundsResponse]:
         """
         Retrieves a list of refunds for the account making the request.
 
@@ -456,7 +469,7 @@ class AsyncRefundsClient:
 
         Returns
         -------
-        AsyncPager[PaymentRefund]
+        AsyncPager[PaymentRefund, ListPaymentRefundsResponse]
             Success
 
         Examples
@@ -471,7 +484,19 @@ class AsyncRefundsClient:
 
 
         async def main() -> None:
-            response = await client.refunds.list()
+            response = await client.refunds.list(
+                begin_time="begin_time",
+                end_time="end_time",
+                sort_order="sort_order",
+                cursor="cursor",
+                location_id="location_id",
+                status="status",
+                source_type="source_type",
+                limit=1,
+                updated_at_begin_time="updated_at_begin_time",
+                updated_at_end_time="updated_at_end_time",
+                sort_field="CREATED_AT",
+            )
             async for item in response:
                 yield item
 

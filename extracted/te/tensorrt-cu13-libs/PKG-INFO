@@ -1,0 +1,16 @@
+Metadata-Version: 2.1
+Name: tensorrt_cu13_libs
+Version: 10.14.1.48.post1
+Summary: TensorRT Libraries
+Home-page: https://github.com/nvidia/tensorrt
+Download-URL: https://developer.nvidia.com/tensorrt
+Author: NVIDIA Corporation
+License: Proprietary
+Keywords: nvidia tensorrt deeplearning inference
+Classifier: License :: Other/Proprietary License
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3
+License-File: LICENSE.txt
+Requires-Dist: cuda-toolkit[cudart]<14,>=13
+
+TensorRT Libraries

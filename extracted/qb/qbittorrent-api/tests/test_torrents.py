@@ -24,6 +24,7 @@ from qbittorrentapi.torrents import (
     TorrentLimitsDictionary,
     TorrentPieceInfoList,
     TorrentPropertiesDictionary,
+    TorrentsAddedMetadata,
     TorrentsAddPeersDictionary,
     TrackersList,
     WebSeedsList,
@@ -70,7 +71,7 @@ def test_methods(client):
     "add_func, delete_func",
     [("torrents_add", "torrents_delete"), ("torrents.add", "torrents.delete")],
 )
-def test_add_delete(client, add_func, delete_func, tmp_path):
+def test_add_delete(client, api_version, add_func, delete_func, tmp_path):
     def download_file(url, filename=None, return_bytes=False):
         max_attempts = 3
         for attempt in range(max_attempts):
@@ -129,9 +130,17 @@ def test_add_delete(client, add_func, delete_func, tmp_path):
         )
 
         if single:
-            assert client.func(add_func)(torrent_files=files[0]) == "Ok."
+            resp = client.func(add_func)(torrent_files=files[0])
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
         else:
-            assert client.func(add_func)(torrent_files=files) == "Ok."
+            resp = client.func(add_func)(torrent_files=files)
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
 
     @retry()
     @check_torrents_added
@@ -140,20 +149,23 @@ def test_add_delete(client, add_func, delete_func, tmp_path):
         download_file(url=TORRENT2_URL, filename=TORRENT2_FILENAME)
 
         if single:
-            assert (
-                client.func(add_func)(
-                    torrent_files={
-                        TORRENT1_FILENAME: mkpath(tmp_path, TORRENT1_FILENAME)
-                    }
-                )
-                == "Ok."
+            resp = client.func(add_func)(
+                torrent_files={TORRENT1_FILENAME: mkpath(tmp_path, TORRENT1_FILENAME)}
             )
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
         else:
             files = {
                 TORRENT1_FILENAME: mkpath(tmp_path, TORRENT1_FILENAME),
                 TORRENT2_FILENAME: mkpath(tmp_path, TORRENT2_FILENAME),
             }
-            assert client.func(add_func)(torrent_files=files) == "Ok."
+            resp = client.func(add_func)(torrent_files=files)
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
 
     @retry()
     @check_torrents_added
@@ -166,9 +178,17 @@ def test_add_delete(client, add_func, delete_func, tmp_path):
         )
 
         if single:
-            assert client.func(add_func)(torrent_files=files[0]) == "Ok."
+            resp = client.func(add_func)(torrent_files=files[0])
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
         else:
-            assert client.func(add_func)(torrent_files=files) == "Ok."
+            resp = client.func(add_func)(torrent_files=files)
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
 
         for file in files:
             file.close()
@@ -182,9 +202,17 @@ def test_add_delete(client, add_func, delete_func, tmp_path):
         )
 
         if single:
-            assert client.func(add_func)(torrent_files=files[0]) == "Ok."
+            resp = client.func(add_func)(torrent_files=files[0])
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
         else:
-            assert client.func(add_func)(torrent_files=files) == "Ok."
+            resp = client.func(add_func)(torrent_files=files)
+            if v(api_version) >= v("2.14.0"):
+                isinstance(resp, TorrentsAddedMetadata)
+            else:
+                assert resp == "Ok."
 
     @retry()
     @check_torrents_added
@@ -702,29 +730,33 @@ def test_rename_file(
     new_name,
     rename_file_func,
 ):
-    # pre-v4.3.3 rename_file signature
-    client.func(rename_file_func)(
-        torrent_hash=new_torrent.hash, file_id=0, new_file_name=new_name
-    )
-    check(lambda: new_torrent.files[0].name.replace("+", " "), new_name)
-    # test invalid file ID is rejected
-    with pytest.raises(Conflict409Error):
+    @retry()
+    def test():
+        # pre-v4.3.3 rename_file signature
         client.func(rename_file_func)(
-            torrent_hash=new_torrent.hash, file_id=10, new_file_name=new_name
+            torrent_hash=new_torrent.hash, file_id=0, new_file_name=new_name
         )
-    # post-v4.3.3 rename_file signature
-    new_new_name = new_name + "NEW"
-    client.func(rename_file_func)(
-        torrent_hash=new_torrent.hash,
-        old_path=new_torrent.files[0].name,
-        new_path=new_new_name,
-    )
-    check(lambda: new_torrent.files[0].name.replace("+", " "), new_new_name)
-    # test invalid old_path is rejected
-    with pytest.raises(Conflict409Error):
+        check(lambda: new_torrent.files[0].name.replace("+", " "), new_name)
+        # test invalid file ID is rejected
+        with pytest.raises(Conflict409Error):
+            client.func(rename_file_func)(
+                torrent_hash=new_torrent.hash, file_id=10, new_file_name=new_name
+            )
+        # post-v4.3.3 rename_file signature
+        new_new_name = new_name + "NEW"
         client.func(rename_file_func)(
-            torrent_hash=new_torrent.hash, old_path="asdf", new_path="xcvb"
+            torrent_hash=new_torrent.hash,
+            old_path=new_torrent.files[0].name,
+            new_path=new_new_name,
         )
+        check(lambda: new_torrent.files[0].name.replace("+", " "), new_new_name)
+        # test invalid old_path is rejected
+        with pytest.raises(Conflict409Error):
+            client.func(rename_file_func)(
+                torrent_hash=new_torrent.hash, old_path="asdf", new_path="xcvb"
+            )
+
+    test()
 
 
 @pytest.mark.skipif_after_api_version("2.4.0")
@@ -758,36 +790,40 @@ def test_rename_file_not_implemented(
     ],
 )
 def test_rename_folder(client, app_version, new_torrent, new_name, rename_folder_func):
-    if v(app_version) >= v("v4.3.3"):
-        # move the file in to a new folder
-        orig_file_path = new_torrent.files[0].name
-        new_folder = "qwer"
-        client.torrents_rename_file(
-            torrent_hash=new_torrent.hash,
-            old_path=orig_file_path,
-            new_path=new_folder + "/" + orig_file_path,
-        )
+    @retry()
+    def test():
+        if v(app_version) >= v("v4.3.3"):
+            # move the file in to a new folder
+            orig_file_path = new_torrent.files[0].name
+            new_folder = "qwer"
+            client.torrents_rename_file(
+                torrent_hash=new_torrent.hash,
+                old_path=orig_file_path,
+                new_path=new_folder + "/" + orig_file_path,
+            )
 
-        # wait for the folder to be renamed
-        check(
-            lambda: [f.name.split("/")[0] for f in new_torrent.files],
-            new_folder,
-            reverse=True,
-        )
+            # wait for the folder to be renamed
+            check(
+                lambda: [f.name.split("/")[0] for f in new_torrent.files],
+                new_folder,
+                reverse=True,
+            )
 
-        # test rename that new folder
-        client.func(rename_folder_func)(
-            torrent_hash=new_torrent.hash,
-            old_path=new_folder,
-            new_path=new_name,
-        )
-        check(
-            lambda: new_torrent.files[0].name.replace("+", " "),
-            new_name + "/" + orig_file_path,
-        )
-    elif v(app_version) >= v("v4.3.2"):
-        with pytest.raises(NotImplementedError):
-            client.func(rename_folder_func)()
+            # test rename that new folder
+            client.func(rename_folder_func)(
+                torrent_hash=new_torrent.hash,
+                old_path=new_folder,
+                new_path=new_name,
+            )
+            check(
+                lambda: new_torrent.files[0].name.replace("+", " "),
+                new_name + "/" + orig_file_path,
+            )
+        elif v(app_version) >= v("v4.3.2"):
+            with pytest.raises(NotImplementedError):
+                client.func(rename_folder_func)()
+
+    test()
 
 
 @pytest.mark.skipif_after_api_version("2.7")
@@ -1071,6 +1107,7 @@ def test_set_share_limits(client, orig_torrent, set_share_limits_func):
         ratio_limit=2,
         seeding_time_limit=5,
         inactive_seeding_time_limit=8,
+        share_limit_action="STOP",
         torrent_hashes=orig_torrent.hash,
     )
     check(lambda: orig_torrent.info.max_ratio, 2)
@@ -1082,6 +1119,7 @@ def test_set_share_limits(client, orig_torrent, set_share_limits_func):
         ratio_limit=3,
         seeding_time_limit=6,
         inactive_seeding_time_limit=9,
+        share_limit_action="STOP",
         torrent_hashes=orig_torrent.hash,
     )
     check(lambda: orig_torrent.info.max_ratio, 3)

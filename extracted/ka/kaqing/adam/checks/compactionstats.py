@@ -5,7 +5,8 @@ from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
-from adam.k8s_utils.cassandra_nodes import CassandraNodes
+from adam.utils import Color
+from adam.utils_k8s.cassandra_nodes import CassandraNodes
 
 class CompactionStats(Check):
     def name(self):
@@ -15,7 +16,7 @@ class CompactionStats(Check):
         issues: list[Issue] = []
 
         try:
-            result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} compactionstats", show_out=ctx.show_output)
+            result = CassandraNodes.exec(ctx.pod, ctx.namespace, f"nodetool -u {ctx.user} -pw {ctx.pw} compactionstats", show_out=ctx.show_output, text_color=Color.gray)
             compactions = parse_nodetool_compactionstats(result.stdout)
             pod_details = {
                 'name': ctx.pod,

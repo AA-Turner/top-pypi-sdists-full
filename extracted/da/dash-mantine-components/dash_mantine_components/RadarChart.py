@@ -303,7 +303,7 @@ Keyword arguments:
 - withPolarRadiusAxis (boolean; optional):
     Determines whether PolarRadiusAxisProps component should be
     displayed, `False` by default."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'RadarChart'

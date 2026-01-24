@@ -1,10 +1,10 @@
 __title__ = "pygal"
-__version__ = "3.0.5"
+__version__ = "3.1.0"
 
 __summary__ = "A Python svg graph plotting library"
 __uri__ = "https://www.pygal.org/"
-__author__ = "Florian Mounier / Kozea"
-__email__ = "community@kozea.fr"
+__author__ = "Kozea"
+__email__ = "dev@kozea.fr"
 
 __license__ = "GNU LGPL v3+"
 __copyright__ = "Copyright 2020 %s" % __author__

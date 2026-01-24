@@ -34,6 +34,14 @@ from .invoices import (
     InvoicesResourceWithStreamingResponse,
     AsyncInvoicesResourceWithStreamingResponse,
 )
+from .payments import (
+    PaymentsResource,
+    AsyncPaymentsResource,
+    PaymentsResourceWithRawResponse,
+    AsyncPaymentsResourceWithRawResponse,
+    PaymentsResourceWithStreamingResponse,
+    AsyncPaymentsResourceWithStreamingResponse,
+)
 from .services import (
     ServicesResource,
     AsyncServicesResource,
@@ -91,6 +99,14 @@ from .billable_metrics import (
     AsyncBillableMetricsResourceWithRawResponse,
     BillableMetricsResourceWithStreamingResponse,
     AsyncBillableMetricsResourceWithStreamingResponse,
+)
+from .settings.settings import (
+    SettingsResource,
+    AsyncSettingsResource,
+    SettingsResourceWithRawResponse,
+    AsyncSettingsResourceWithRawResponse,
+    SettingsResourceWithStreamingResponse,
+    AsyncSettingsResourceWithStreamingResponse,
 )
 from .contracts.contracts import (
     ContractsResource,
@@ -166,6 +182,14 @@ class V1Resource(SyncAPIResource):
         return ContractsResource(self._client)
 
     @cached_property
+    def payments(self) -> PaymentsResource:
+        return PaymentsResource(self._client)
+
+    @cached_property
+    def settings(self) -> SettingsResource:
+        return SettingsResource(self._client)
+
+    @cached_property
     def with_raw_response(self) -> V1ResourceWithRawResponse:
         """
         This property can be used as a prefix for any HTTP method call to return
@@ -237,6 +261,14 @@ class AsyncV1Resource(AsyncAPIResource):
     @cached_property
     def contracts(self) -> AsyncContractsResource:
         return AsyncContractsResource(self._client)
+
+    @cached_property
+    def payments(self) -> AsyncPaymentsResource:
+        return AsyncPaymentsResource(self._client)
+
+    @cached_property
+    def settings(self) -> AsyncSettingsResource:
+        return AsyncSettingsResource(self._client)
 
     @cached_property
     def with_raw_response(self) -> AsyncV1ResourceWithRawResponse:
@@ -314,6 +346,14 @@ class V1ResourceWithRawResponse:
     def contracts(self) -> ContractsResourceWithRawResponse:
         return ContractsResourceWithRawResponse(self._v1.contracts)
 
+    @cached_property
+    def payments(self) -> PaymentsResourceWithRawResponse:
+        return PaymentsResourceWithRawResponse(self._v1.payments)
+
+    @cached_property
+    def settings(self) -> SettingsResourceWithRawResponse:
+        return SettingsResourceWithRawResponse(self._v1.settings)
+
 
 class AsyncV1ResourceWithRawResponse:
     def __init__(self, v1: AsyncV1Resource) -> None:
@@ -370,6 +410,14 @@ class AsyncV1ResourceWithRawResponse:
     @cached_property
     def contracts(self) -> AsyncContractsResourceWithRawResponse:
         return AsyncContractsResourceWithRawResponse(self._v1.contracts)
+
+    @cached_property
+    def payments(self) -> AsyncPaymentsResourceWithRawResponse:
+        return AsyncPaymentsResourceWithRawResponse(self._v1.payments)
+
+    @cached_property
+    def settings(self) -> AsyncSettingsResourceWithRawResponse:
+        return AsyncSettingsResourceWithRawResponse(self._v1.settings)
 
 
 class V1ResourceWithStreamingResponse:
@@ -428,6 +476,14 @@ class V1ResourceWithStreamingResponse:
     def contracts(self) -> ContractsResourceWithStreamingResponse:
         return ContractsResourceWithStreamingResponse(self._v1.contracts)
 
+    @cached_property
+    def payments(self) -> PaymentsResourceWithStreamingResponse:
+        return PaymentsResourceWithStreamingResponse(self._v1.payments)
+
+    @cached_property
+    def settings(self) -> SettingsResourceWithStreamingResponse:
+        return SettingsResourceWithStreamingResponse(self._v1.settings)
+
 
 class AsyncV1ResourceWithStreamingResponse:
     def __init__(self, v1: AsyncV1Resource) -> None:
@@ -484,3 +540,11 @@ class AsyncV1ResourceWithStreamingResponse:
     @cached_property
     def contracts(self) -> AsyncContractsResourceWithStreamingResponse:
         return AsyncContractsResourceWithStreamingResponse(self._v1.contracts)
+
+    @cached_property
+    def payments(self) -> AsyncPaymentsResourceWithStreamingResponse:
+        return AsyncPaymentsResourceWithStreamingResponse(self._v1.payments)
+
+    @cached_property
+    def settings(self) -> AsyncSettingsResourceWithStreamingResponse:
+        return AsyncSettingsResourceWithStreamingResponse(self._v1.settings)

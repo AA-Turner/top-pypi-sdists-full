@@ -1,7 +1,7 @@
 r'''
 # `github_organization_ruleset`
 
-Refer to the Terraform Registry for docs: [`github_organization_ruleset`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset).
+Refer to the Terraform Registry for docs: [`github_organization_ruleset`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OrganizationRuleset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRuleset",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset github_organization_ruleset}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset github_organization_ruleset}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class OrganizationRuleset(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset github_organization_ruleset} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset github_organization_ruleset} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#enforcement OrganizationRuleset#enforcement}
-        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#rules OrganizationRuleset#rules}
-        :param target: Possible values are ``branch``, ``tag`` and ``push``. Note: The ``push`` target is in beta and is subject to change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#target OrganizationRuleset#target}
-        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#bypass_actors OrganizationRuleset#bypass_actors}
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#conditions OrganizationRuleset#conditions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#id OrganizationRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#enforcement OrganizationRuleset#enforcement}
+        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#rules OrganizationRuleset#rules}
+        :param target: Possible values are ``branch``, ``tag`` and ``push``. Note: The ``push`` target is in beta and is subject to change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#target OrganizationRuleset#target}
+        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#bypass_actors OrganizationRuleset#bypass_actors}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#conditions OrganizationRuleset#conditions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#id OrganizationRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class OrganizationRuleset(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OrganizationRuleset to import.
-        :param import_from_id: The id of the existing OrganizationRuleset that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OrganizationRuleset that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OrganizationRuleset to import is found.
         '''
         if __debug__:
@@ -154,9 +154,9 @@ class OrganizationRuleset(
         repository_name: typing.Optional[typing.Union["OrganizationRulesetConditionsRepositoryName", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#ref_name OrganizationRuleset#ref_name}
-        :param repository_id: The repository IDs that the ruleset applies to. One of these IDs must match for the condition to pass. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
-        :param repository_name: repository_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_name OrganizationRuleset#repository_name}
+        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#ref_name OrganizationRuleset#ref_name}
+        :param repository_id: The repository IDs that the ruleset applies to. One of these IDs must match for the condition to pass. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
+        :param repository_name: repository_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_name OrganizationRuleset#repository_name}
         '''
         value = OrganizationRulesetConditions(
             ref_name=ref_name,
@@ -176,6 +176,10 @@ class OrganizationRuleset(
         committer_email_pattern: typing.Optional[typing.Union["OrganizationRulesetRulesCommitterEmailPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        file_extension_restriction: typing.Optional[typing.Union["OrganizationRulesetRulesFileExtensionRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        file_path_restriction: typing.Optional[typing.Union["OrganizationRulesetRulesFilePathRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_path_length: typing.Optional[typing.Union["OrganizationRulesetRulesMaxFilePathLength", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_size: typing.Optional[typing.Union["OrganizationRulesetRulesMaxFileSize", typing.Dict[builtins.str, typing.Any]]] = None,
         non_fast_forward: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         pull_request: typing.Optional[typing.Union["OrganizationRulesetRulesPullRequest", typing.Dict[builtins.str, typing.Any]]] = None,
         required_code_scanning: typing.Optional[typing.Union["OrganizationRulesetRulesRequiredCodeScanning", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -187,21 +191,25 @@ class OrganizationRuleset(
         update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#branch_name_pattern OrganizationRuleset#branch_name_pattern}
-        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#commit_author_email_pattern OrganizationRuleset#commit_author_email_pattern}
-        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#commit_message_pattern OrganizationRuleset#commit_message_pattern}
-        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#committer_email_pattern OrganizationRuleset#committer_email_pattern}
-        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#creation OrganizationRuleset#creation}
-        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#deletion OrganizationRuleset#deletion}
-        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#non_fast_forward OrganizationRuleset#non_fast_forward}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pull_request OrganizationRuleset#pull_request}
-        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_code_scanning OrganizationRuleset#required_code_scanning}
-        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_linear_history OrganizationRuleset#required_linear_history}
-        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_signatures OrganizationRuleset#required_signatures}
-        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_status_checks OrganizationRuleset#required_status_checks}
-        :param required_workflows: required_workflows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_workflows OrganizationRuleset#required_workflows}
-        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#tag_name_pattern OrganizationRuleset#tag_name_pattern}
-        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#update OrganizationRuleset#update}
+        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#branch_name_pattern OrganizationRuleset#branch_name_pattern}
+        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#commit_author_email_pattern OrganizationRuleset#commit_author_email_pattern}
+        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#commit_message_pattern OrganizationRuleset#commit_message_pattern}
+        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#committer_email_pattern OrganizationRuleset#committer_email_pattern}
+        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#creation OrganizationRuleset#creation}
+        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#deletion OrganizationRuleset#deletion}
+        :param file_extension_restriction: file_extension_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#file_extension_restriction OrganizationRuleset#file_extension_restriction}
+        :param file_path_restriction: file_path_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#file_path_restriction OrganizationRuleset#file_path_restriction}
+        :param max_file_path_length: max_file_path_length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_path_length OrganizationRuleset#max_file_path_length}
+        :param max_file_size: max_file_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_size OrganizationRuleset#max_file_size}
+        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#non_fast_forward OrganizationRuleset#non_fast_forward}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pull_request OrganizationRuleset#pull_request}
+        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_code_scanning OrganizationRuleset#required_code_scanning}
+        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_linear_history OrganizationRuleset#required_linear_history}
+        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_signatures OrganizationRuleset#required_signatures}
+        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_status_checks OrganizationRuleset#required_status_checks}
+        :param required_workflows: required_workflows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_workflows OrganizationRuleset#required_workflows}
+        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#tag_name_pattern OrganizationRuleset#tag_name_pattern}
+        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#update OrganizationRuleset#update}
         '''
         value = OrganizationRulesetRules(
             branch_name_pattern=branch_name_pattern,
@@ -210,6 +218,10 @@ class OrganizationRuleset(
             committer_email_pattern=committer_email_pattern,
             creation=creation,
             deletion=deletion,
+            file_extension_restriction=file_extension_restriction,
+            file_path_restriction=file_path_restriction,
+            max_file_path_length=max_file_path_length,
+            max_file_size=max_file_size,
             non_fast_forward=non_fast_forward,
             pull_request=pull_request,
             required_code_scanning=required_code_scanning,
@@ -368,52 +380,41 @@ class OrganizationRuleset(
     jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetBypassActors",
     jsii_struct_bases=[],
     name_mapping={
-        "actor_id": "actorId",
         "actor_type": "actorType",
         "bypass_mode": "bypassMode",
+        "actor_id": "actorId",
     },
 )
 class OrganizationRulesetBypassActors:
     def __init__(
         self,
         *,
-        actor_id: jsii.Number,
         actor_type: builtins.str,
         bypass_mode: builtins.str,
+        actor_id: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param actor_id: The ID of the actor that can bypass a ruleset. When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#actor_id OrganizationRuleset#actor_id}
-        :param actor_type: The type of actor that can bypass a ruleset. Can be one of: ``RepositoryRole``, ``Team``, ``Integration``, ``OrganizationAdmin``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#actor_type OrganizationRuleset#actor_type}
-        :param bypass_mode: When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#bypass_mode OrganizationRuleset#bypass_mode}
+        :param actor_type: The type of actor that can bypass a ruleset. See https://docs.github.com/en/rest/orgs/rules for more information. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#actor_type OrganizationRuleset#actor_type}
+        :param bypass_mode: When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``, ``exempt``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#bypass_mode OrganizationRuleset#bypass_mode}
+        :param actor_id: The ID of the actor that can bypass a ruleset. When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``. Some resources such as DeployKey do not have an ID and this should be omitted. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#actor_id OrganizationRuleset#actor_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__171bcb85f36c9e4fc8105474b4c99f6153562a06a88854e69c4bedba915e7579)
-            check_type(argname="argument actor_id", value=actor_id, expected_type=type_hints["actor_id"])
             check_type(argname="argument actor_type", value=actor_type, expected_type=type_hints["actor_type"])
             check_type(argname="argument bypass_mode", value=bypass_mode, expected_type=type_hints["bypass_mode"])
+            check_type(argname="argument actor_id", value=actor_id, expected_type=type_hints["actor_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "actor_id": actor_id,
             "actor_type": actor_type,
             "bypass_mode": bypass_mode,
         }
-
-    @builtins.property
-    def actor_id(self) -> jsii.Number:
-        '''The ID of the actor that can bypass a ruleset.
-
-        When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``.
-
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#actor_id OrganizationRuleset#actor_id}
-        '''
-        result = self._values.get("actor_id")
-        assert result is not None, "Required property 'actor_id' is missing"
-        return typing.cast(jsii.Number, result)
+        if actor_id is not None:
+            self._values["actor_id"] = actor_id
 
     @builtins.property
     def actor_type(self) -> builtins.str:
-        '''The type of actor that can bypass a ruleset. Can be one of: ``RepositoryRole``, ``Team``, ``Integration``, ``OrganizationAdmin``.
+        '''The type of actor that can bypass a ruleset. See https://docs.github.com/en/rest/orgs/rules for more information.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#actor_type OrganizationRuleset#actor_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#actor_type OrganizationRuleset#actor_type}
         '''
         result = self._values.get("actor_type")
         assert result is not None, "Required property 'actor_type' is missing"
@@ -423,13 +424,24 @@ class OrganizationRulesetBypassActors:
     def bypass_mode(self) -> builtins.str:
         '''When the specified actor can bypass the ruleset.
 
-        pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``.
+        pull_request means that an actor can only bypass rules on pull requests. Can be one of: ``always``, ``pull_request``, ``exempt``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#bypass_mode OrganizationRuleset#bypass_mode}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#bypass_mode OrganizationRuleset#bypass_mode}
         '''
         result = self._values.get("bypass_mode")
         assert result is not None, "Required property 'bypass_mode' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def actor_id(self) -> typing.Optional[jsii.Number]:
+        '''The ID of the actor that can bypass a ruleset.
+
+        When ``actor_type`` is ``OrganizationAdmin``, this should be set to ``1``. Some resources such as DeployKey do not have an ID and this should be omitted.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#actor_id OrganizationRuleset#actor_id}
+        '''
+        result = self._values.get("actor_id")
+        return typing.cast(typing.Optional[jsii.Number], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -562,6 +574,10 @@ class OrganizationRulesetBypassActorsOutputReference(
             check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
 
+    @jsii.member(jsii_name="resetActorId")
+    def reset_actor_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetActorId", []))
+
     @builtins.property
     @jsii.member(jsii_name="actorIdInput")
     def actor_id_input(self) -> typing.Optional[jsii.Number]:
@@ -649,9 +665,9 @@ class OrganizationRulesetConditions:
         repository_name: typing.Optional[typing.Union["OrganizationRulesetConditionsRepositoryName", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#ref_name OrganizationRuleset#ref_name}
-        :param repository_id: The repository IDs that the ruleset applies to. One of these IDs must match for the condition to pass. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
-        :param repository_name: repository_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_name OrganizationRuleset#repository_name}
+        :param ref_name: ref_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#ref_name OrganizationRuleset#ref_name}
+        :param repository_id: The repository IDs that the ruleset applies to. One of these IDs must match for the condition to pass. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
+        :param repository_name: repository_name block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_name OrganizationRuleset#repository_name}
         '''
         if isinstance(ref_name, dict):
             ref_name = OrganizationRulesetConditionsRefName(**ref_name)
@@ -674,7 +690,7 @@ class OrganizationRulesetConditions:
     def ref_name(self) -> "OrganizationRulesetConditionsRefName":
         '''ref_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#ref_name OrganizationRuleset#ref_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#ref_name OrganizationRuleset#ref_name}
         '''
         result = self._values.get("ref_name")
         assert result is not None, "Required property 'ref_name' is missing"
@@ -684,7 +700,7 @@ class OrganizationRulesetConditions:
     def repository_id(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''The repository IDs that the ruleset applies to. One of these IDs must match for the condition to pass.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
         '''
         result = self._values.get("repository_id")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -695,7 +711,7 @@ class OrganizationRulesetConditions:
     ) -> typing.Optional["OrganizationRulesetConditionsRepositoryName"]:
         '''repository_name block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_name OrganizationRuleset#repository_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_name OrganizationRuleset#repository_name}
         '''
         result = self._values.get("repository_name")
         return typing.cast(typing.Optional["OrganizationRulesetConditionsRepositoryName"], result)
@@ -740,8 +756,8 @@ class OrganizationRulesetConditionsOutputReference(
         include: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
-        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
+        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
+        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
         '''
         value = OrganizationRulesetConditionsRefName(exclude=exclude, include=include)
 
@@ -756,9 +772,9 @@ class OrganizationRulesetConditionsOutputReference(
         protected: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param exclude: Array of repository names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
-        :param include: Array of repository names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~ALL`` to include all repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
-        :param protected: Whether renaming of target repositories is prevented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#protected OrganizationRuleset#protected}
+        :param exclude: Array of repository names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
+        :param include: Array of repository names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~ALL`` to include all repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
+        :param protected: Whether renaming of target repositories is prevented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#protected OrganizationRuleset#protected}
         '''
         value = OrganizationRulesetConditionsRepositoryName(
             exclude=exclude, include=include, protected=protected
@@ -844,8 +860,8 @@ class OrganizationRulesetConditionsRefName:
         include: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
-        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
+        :param exclude: Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
+        :param include: Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9a47a657e5128740f328c06455c50e0488f40951acc92b9125753d74b266a565)
@@ -860,7 +876,7 @@ class OrganizationRulesetConditionsRefName:
     def exclude(self) -> typing.List[builtins.str]:
         '''Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
         '''
         result = self._values.get("exclude")
         assert result is not None, "Required property 'exclude' is missing"
@@ -872,7 +888,7 @@ class OrganizationRulesetConditionsRefName:
 
         One of these patterns must match for the condition to pass. Also accepts ``~DEFAULT_BRANCH`` to include the default branch or ``~ALL`` to include all branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -978,9 +994,9 @@ class OrganizationRulesetConditionsRepositoryName:
         protected: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param exclude: Array of repository names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
-        :param include: Array of repository names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~ALL`` to include all repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
-        :param protected: Whether renaming of target repositories is prevented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#protected OrganizationRuleset#protected}
+        :param exclude: Array of repository names or patterns to exclude. The condition will not pass if any of these patterns match. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
+        :param include: Array of repository names or patterns to include. One of these patterns must match for the condition to pass. Also accepts ``~ALL`` to include all repositories. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
+        :param protected: Whether renaming of target repositories is prevented. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#protected OrganizationRuleset#protected}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cf7f5d26c86b9c559386d286b2d09e3f548da9627e7101137a95bc50ea363f16)
@@ -998,7 +1014,7 @@ class OrganizationRulesetConditionsRepositoryName:
     def exclude(self) -> typing.List[builtins.str]:
         '''Array of repository names or patterns to exclude. The condition will not pass if any of these patterns match.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#exclude OrganizationRuleset#exclude}
         '''
         result = self._values.get("exclude")
         assert result is not None, "Required property 'exclude' is missing"
@@ -1010,7 +1026,7 @@ class OrganizationRulesetConditionsRepositoryName:
 
         One of these patterns must match for the condition to pass. Also accepts ``~ALL`` to include all repositories.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#include OrganizationRuleset#include}
         '''
         result = self._values.get("include")
         assert result is not None, "Required property 'include' is missing"
@@ -1022,7 +1038,7 @@ class OrganizationRulesetConditionsRepositoryName:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether renaming of target repositories is prevented.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#protected OrganizationRuleset#protected}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#protected OrganizationRuleset#protected}
         '''
         result = self._values.get("protected")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1184,13 +1200,13 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#enforcement OrganizationRuleset#enforcement}
-        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#rules OrganizationRuleset#rules}
-        :param target: Possible values are ``branch``, ``tag`` and ``push``. Note: The ``push`` target is in beta and is subject to change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#target OrganizationRuleset#target}
-        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#bypass_actors OrganizationRuleset#bypass_actors}
-        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#conditions OrganizationRuleset#conditions}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#id OrganizationRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param enforcement: Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#enforcement OrganizationRuleset#enforcement}
+        :param name: The name of the ruleset. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param rules: rules block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#rules OrganizationRuleset#rules}
+        :param target: Possible values are ``branch``, ``tag`` and ``push``. Note: The ``push`` target is in beta and is subject to change. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#target OrganizationRuleset#target}
+        :param bypass_actors: bypass_actors block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#bypass_actors OrganizationRuleset#bypass_actors}
+        :param conditions: conditions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#conditions OrganizationRuleset#conditions}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#id OrganizationRuleset#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1309,7 +1325,7 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enforcement(self) -> builtins.str:
         '''Possible values for Enforcement are ``disabled``, ``active``, ``evaluate``. Note: ``evaluate`` is currently only supported for owners of type ``organization``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#enforcement OrganizationRuleset#enforcement}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#enforcement OrganizationRuleset#enforcement}
         '''
         result = self._values.get("enforcement")
         assert result is not None, "Required property 'enforcement' is missing"
@@ -1319,7 +1335,7 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the ruleset.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1329,7 +1345,7 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def rules(self) -> "OrganizationRulesetRules":
         '''rules block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#rules OrganizationRuleset#rules}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#rules OrganizationRuleset#rules}
         '''
         result = self._values.get("rules")
         assert result is not None, "Required property 'rules' is missing"
@@ -1339,7 +1355,7 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def target(self) -> builtins.str:
         '''Possible values are ``branch``, ``tag`` and ``push``. Note: The ``push`` target is in beta and is subject to change.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#target OrganizationRuleset#target}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#target OrganizationRuleset#target}
         '''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
@@ -1351,7 +1367,7 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OrganizationRulesetBypassActors]]]:
         '''bypass_actors block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#bypass_actors OrganizationRuleset#bypass_actors}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#bypass_actors OrganizationRuleset#bypass_actors}
         '''
         result = self._values.get("bypass_actors")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[OrganizationRulesetBypassActors]]], result)
@@ -1360,14 +1376,14 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def conditions(self) -> typing.Optional[OrganizationRulesetConditions]:
         '''conditions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#conditions OrganizationRuleset#conditions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#conditions OrganizationRuleset#conditions}
         '''
         result = self._values.get("conditions")
         return typing.cast(typing.Optional[OrganizationRulesetConditions], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#id OrganizationRuleset#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#id OrganizationRuleset#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1397,6 +1413,10 @@ class OrganizationRulesetConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         "committer_email_pattern": "committerEmailPattern",
         "creation": "creation",
         "deletion": "deletion",
+        "file_extension_restriction": "fileExtensionRestriction",
+        "file_path_restriction": "filePathRestriction",
+        "max_file_path_length": "maxFilePathLength",
+        "max_file_size": "maxFileSize",
         "non_fast_forward": "nonFastForward",
         "pull_request": "pullRequest",
         "required_code_scanning": "requiredCodeScanning",
@@ -1418,6 +1438,10 @@ class OrganizationRulesetRules:
         committer_email_pattern: typing.Optional[typing.Union["OrganizationRulesetRulesCommitterEmailPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+        file_extension_restriction: typing.Optional[typing.Union["OrganizationRulesetRulesFileExtensionRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        file_path_restriction: typing.Optional[typing.Union["OrganizationRulesetRulesFilePathRestriction", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_path_length: typing.Optional[typing.Union["OrganizationRulesetRulesMaxFilePathLength", typing.Dict[builtins.str, typing.Any]]] = None,
+        max_file_size: typing.Optional[typing.Union["OrganizationRulesetRulesMaxFileSize", typing.Dict[builtins.str, typing.Any]]] = None,
         non_fast_forward: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         pull_request: typing.Optional[typing.Union["OrganizationRulesetRulesPullRequest", typing.Dict[builtins.str, typing.Any]]] = None,
         required_code_scanning: typing.Optional[typing.Union["OrganizationRulesetRulesRequiredCodeScanning", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -1429,21 +1453,25 @@ class OrganizationRulesetRules:
         update: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#branch_name_pattern OrganizationRuleset#branch_name_pattern}
-        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#commit_author_email_pattern OrganizationRuleset#commit_author_email_pattern}
-        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#commit_message_pattern OrganizationRuleset#commit_message_pattern}
-        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#committer_email_pattern OrganizationRuleset#committer_email_pattern}
-        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#creation OrganizationRuleset#creation}
-        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#deletion OrganizationRuleset#deletion}
-        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#non_fast_forward OrganizationRuleset#non_fast_forward}
-        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pull_request OrganizationRuleset#pull_request}
-        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_code_scanning OrganizationRuleset#required_code_scanning}
-        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_linear_history OrganizationRuleset#required_linear_history}
-        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_signatures OrganizationRuleset#required_signatures}
-        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_status_checks OrganizationRuleset#required_status_checks}
-        :param required_workflows: required_workflows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_workflows OrganizationRuleset#required_workflows}
-        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#tag_name_pattern OrganizationRuleset#tag_name_pattern}
-        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#update OrganizationRuleset#update}
+        :param branch_name_pattern: branch_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#branch_name_pattern OrganizationRuleset#branch_name_pattern}
+        :param commit_author_email_pattern: commit_author_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#commit_author_email_pattern OrganizationRuleset#commit_author_email_pattern}
+        :param commit_message_pattern: commit_message_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#commit_message_pattern OrganizationRuleset#commit_message_pattern}
+        :param committer_email_pattern: committer_email_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#committer_email_pattern OrganizationRuleset#committer_email_pattern}
+        :param creation: Only allow users with bypass permission to create matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#creation OrganizationRuleset#creation}
+        :param deletion: Only allow users with bypass permissions to delete matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#deletion OrganizationRuleset#deletion}
+        :param file_extension_restriction: file_extension_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#file_extension_restriction OrganizationRuleset#file_extension_restriction}
+        :param file_path_restriction: file_path_restriction block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#file_path_restriction OrganizationRuleset#file_path_restriction}
+        :param max_file_path_length: max_file_path_length block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_path_length OrganizationRuleset#max_file_path_length}
+        :param max_file_size: max_file_size block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_size OrganizationRuleset#max_file_size}
+        :param non_fast_forward: Prevent users with push access from force pushing to branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#non_fast_forward OrganizationRuleset#non_fast_forward}
+        :param pull_request: pull_request block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pull_request OrganizationRuleset#pull_request}
+        :param required_code_scanning: required_code_scanning block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_code_scanning OrganizationRuleset#required_code_scanning}
+        :param required_linear_history: Prevent merge commits from being pushed to matching branches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_linear_history OrganizationRuleset#required_linear_history}
+        :param required_signatures: Commits pushed to matching branches must have verified signatures. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_signatures OrganizationRuleset#required_signatures}
+        :param required_status_checks: required_status_checks block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_status_checks OrganizationRuleset#required_status_checks}
+        :param required_workflows: required_workflows block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_workflows OrganizationRuleset#required_workflows}
+        :param tag_name_pattern: tag_name_pattern block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#tag_name_pattern OrganizationRuleset#tag_name_pattern}
+        :param update: Only allow users with bypass permission to update matching refs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#update OrganizationRuleset#update}
         '''
         if isinstance(branch_name_pattern, dict):
             branch_name_pattern = OrganizationRulesetRulesBranchNamePattern(**branch_name_pattern)
@@ -1453,6 +1481,14 @@ class OrganizationRulesetRules:
             commit_message_pattern = OrganizationRulesetRulesCommitMessagePattern(**commit_message_pattern)
         if isinstance(committer_email_pattern, dict):
             committer_email_pattern = OrganizationRulesetRulesCommitterEmailPattern(**committer_email_pattern)
+        if isinstance(file_extension_restriction, dict):
+            file_extension_restriction = OrganizationRulesetRulesFileExtensionRestriction(**file_extension_restriction)
+        if isinstance(file_path_restriction, dict):
+            file_path_restriction = OrganizationRulesetRulesFilePathRestriction(**file_path_restriction)
+        if isinstance(max_file_path_length, dict):
+            max_file_path_length = OrganizationRulesetRulesMaxFilePathLength(**max_file_path_length)
+        if isinstance(max_file_size, dict):
+            max_file_size = OrganizationRulesetRulesMaxFileSize(**max_file_size)
         if isinstance(pull_request, dict):
             pull_request = OrganizationRulesetRulesPullRequest(**pull_request)
         if isinstance(required_code_scanning, dict):
@@ -1471,6 +1507,10 @@ class OrganizationRulesetRules:
             check_type(argname="argument committer_email_pattern", value=committer_email_pattern, expected_type=type_hints["committer_email_pattern"])
             check_type(argname="argument creation", value=creation, expected_type=type_hints["creation"])
             check_type(argname="argument deletion", value=deletion, expected_type=type_hints["deletion"])
+            check_type(argname="argument file_extension_restriction", value=file_extension_restriction, expected_type=type_hints["file_extension_restriction"])
+            check_type(argname="argument file_path_restriction", value=file_path_restriction, expected_type=type_hints["file_path_restriction"])
+            check_type(argname="argument max_file_path_length", value=max_file_path_length, expected_type=type_hints["max_file_path_length"])
+            check_type(argname="argument max_file_size", value=max_file_size, expected_type=type_hints["max_file_size"])
             check_type(argname="argument non_fast_forward", value=non_fast_forward, expected_type=type_hints["non_fast_forward"])
             check_type(argname="argument pull_request", value=pull_request, expected_type=type_hints["pull_request"])
             check_type(argname="argument required_code_scanning", value=required_code_scanning, expected_type=type_hints["required_code_scanning"])
@@ -1493,6 +1533,14 @@ class OrganizationRulesetRules:
             self._values["creation"] = creation
         if deletion is not None:
             self._values["deletion"] = deletion
+        if file_extension_restriction is not None:
+            self._values["file_extension_restriction"] = file_extension_restriction
+        if file_path_restriction is not None:
+            self._values["file_path_restriction"] = file_path_restriction
+        if max_file_path_length is not None:
+            self._values["max_file_path_length"] = max_file_path_length
+        if max_file_size is not None:
+            self._values["max_file_size"] = max_file_size
         if non_fast_forward is not None:
             self._values["non_fast_forward"] = non_fast_forward
         if pull_request is not None:
@@ -1518,7 +1566,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesBranchNamePattern"]:
         '''branch_name_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#branch_name_pattern OrganizationRuleset#branch_name_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#branch_name_pattern OrganizationRuleset#branch_name_pattern}
         '''
         result = self._values.get("branch_name_pattern")
         return typing.cast(typing.Optional["OrganizationRulesetRulesBranchNamePattern"], result)
@@ -1529,7 +1577,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesCommitAuthorEmailPattern"]:
         '''commit_author_email_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#commit_author_email_pattern OrganizationRuleset#commit_author_email_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#commit_author_email_pattern OrganizationRuleset#commit_author_email_pattern}
         '''
         result = self._values.get("commit_author_email_pattern")
         return typing.cast(typing.Optional["OrganizationRulesetRulesCommitAuthorEmailPattern"], result)
@@ -1540,7 +1588,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesCommitMessagePattern"]:
         '''commit_message_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#commit_message_pattern OrganizationRuleset#commit_message_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#commit_message_pattern OrganizationRuleset#commit_message_pattern}
         '''
         result = self._values.get("commit_message_pattern")
         return typing.cast(typing.Optional["OrganizationRulesetRulesCommitMessagePattern"], result)
@@ -1551,7 +1599,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesCommitterEmailPattern"]:
         '''committer_email_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#committer_email_pattern OrganizationRuleset#committer_email_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#committer_email_pattern OrganizationRuleset#committer_email_pattern}
         '''
         result = self._values.get("committer_email_pattern")
         return typing.cast(typing.Optional["OrganizationRulesetRulesCommitterEmailPattern"], result)
@@ -1562,7 +1610,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only allow users with bypass permission to create matching refs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#creation OrganizationRuleset#creation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#creation OrganizationRuleset#creation}
         '''
         result = self._values.get("creation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1573,10 +1621,52 @@ class OrganizationRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only allow users with bypass permissions to delete matching refs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#deletion OrganizationRuleset#deletion}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#deletion OrganizationRuleset#deletion}
         '''
         result = self._values.get("deletion")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
+
+    @builtins.property
+    def file_extension_restriction(
+        self,
+    ) -> typing.Optional["OrganizationRulesetRulesFileExtensionRestriction"]:
+        '''file_extension_restriction block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#file_extension_restriction OrganizationRuleset#file_extension_restriction}
+        '''
+        result = self._values.get("file_extension_restriction")
+        return typing.cast(typing.Optional["OrganizationRulesetRulesFileExtensionRestriction"], result)
+
+    @builtins.property
+    def file_path_restriction(
+        self,
+    ) -> typing.Optional["OrganizationRulesetRulesFilePathRestriction"]:
+        '''file_path_restriction block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#file_path_restriction OrganizationRuleset#file_path_restriction}
+        '''
+        result = self._values.get("file_path_restriction")
+        return typing.cast(typing.Optional["OrganizationRulesetRulesFilePathRestriction"], result)
+
+    @builtins.property
+    def max_file_path_length(
+        self,
+    ) -> typing.Optional["OrganizationRulesetRulesMaxFilePathLength"]:
+        '''max_file_path_length block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_path_length OrganizationRuleset#max_file_path_length}
+        '''
+        result = self._values.get("max_file_path_length")
+        return typing.cast(typing.Optional["OrganizationRulesetRulesMaxFilePathLength"], result)
+
+    @builtins.property
+    def max_file_size(self) -> typing.Optional["OrganizationRulesetRulesMaxFileSize"]:
+        '''max_file_size block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_size OrganizationRuleset#max_file_size}
+        '''
+        result = self._values.get("max_file_size")
+        return typing.cast(typing.Optional["OrganizationRulesetRulesMaxFileSize"], result)
 
     @builtins.property
     def non_fast_forward(
@@ -1584,7 +1674,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Prevent users with push access from force pushing to branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#non_fast_forward OrganizationRuleset#non_fast_forward}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#non_fast_forward OrganizationRuleset#non_fast_forward}
         '''
         result = self._values.get("non_fast_forward")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1593,7 +1683,7 @@ class OrganizationRulesetRules:
     def pull_request(self) -> typing.Optional["OrganizationRulesetRulesPullRequest"]:
         '''pull_request block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pull_request OrganizationRuleset#pull_request}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pull_request OrganizationRuleset#pull_request}
         '''
         result = self._values.get("pull_request")
         return typing.cast(typing.Optional["OrganizationRulesetRulesPullRequest"], result)
@@ -1604,7 +1694,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesRequiredCodeScanning"]:
         '''required_code_scanning block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_code_scanning OrganizationRuleset#required_code_scanning}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_code_scanning OrganizationRuleset#required_code_scanning}
         '''
         result = self._values.get("required_code_scanning")
         return typing.cast(typing.Optional["OrganizationRulesetRulesRequiredCodeScanning"], result)
@@ -1615,7 +1705,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Prevent merge commits from being pushed to matching branches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_linear_history OrganizationRuleset#required_linear_history}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_linear_history OrganizationRuleset#required_linear_history}
         '''
         result = self._values.get("required_linear_history")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1626,7 +1716,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Commits pushed to matching branches must have verified signatures.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_signatures OrganizationRuleset#required_signatures}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_signatures OrganizationRuleset#required_signatures}
         '''
         result = self._values.get("required_signatures")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1637,7 +1727,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesRequiredStatusChecks"]:
         '''required_status_checks block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_status_checks OrganizationRuleset#required_status_checks}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_status_checks OrganizationRuleset#required_status_checks}
         '''
         result = self._values.get("required_status_checks")
         return typing.cast(typing.Optional["OrganizationRulesetRulesRequiredStatusChecks"], result)
@@ -1648,7 +1738,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesRequiredWorkflows"]:
         '''required_workflows block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_workflows OrganizationRuleset#required_workflows}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_workflows OrganizationRuleset#required_workflows}
         '''
         result = self._values.get("required_workflows")
         return typing.cast(typing.Optional["OrganizationRulesetRulesRequiredWorkflows"], result)
@@ -1659,7 +1749,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional["OrganizationRulesetRulesTagNamePattern"]:
         '''tag_name_pattern block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#tag_name_pattern OrganizationRuleset#tag_name_pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#tag_name_pattern OrganizationRuleset#tag_name_pattern}
         '''
         result = self._values.get("tag_name_pattern")
         return typing.cast(typing.Optional["OrganizationRulesetRulesTagNamePattern"], result)
@@ -1670,7 +1760,7 @@ class OrganizationRulesetRules:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Only allow users with bypass permission to update matching refs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#update OrganizationRuleset#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#update OrganizationRuleset#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1707,10 +1797,10 @@ class OrganizationRulesetRulesBranchNamePattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d8617c4ab8159b74c2eac3cbc9edc3a30a7549d307611dea71f210e465f4636)
@@ -1731,7 +1821,7 @@ class OrganizationRulesetRulesBranchNamePattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -1741,7 +1831,7 @@ class OrganizationRulesetRulesBranchNamePattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -1751,7 +1841,7 @@ class OrganizationRulesetRulesBranchNamePattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1762,7 +1852,7 @@ class OrganizationRulesetRulesBranchNamePattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1918,10 +2008,10 @@ class OrganizationRulesetRulesCommitAuthorEmailPattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1a8999aab61fe9ccbdff23e5804e0b7bd6247a62f3d2044a9d278f414d237fb8)
@@ -1942,7 +2032,7 @@ class OrganizationRulesetRulesCommitAuthorEmailPattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -1952,7 +2042,7 @@ class OrganizationRulesetRulesCommitAuthorEmailPattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -1962,7 +2052,7 @@ class OrganizationRulesetRulesCommitAuthorEmailPattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1973,7 +2063,7 @@ class OrganizationRulesetRulesCommitAuthorEmailPattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2129,10 +2219,10 @@ class OrganizationRulesetRulesCommitMessagePattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cc0eca162b0ca4c9f47bb2a7fb627264e2c745e76a4b60bdc83e8520f9b7ad8)
@@ -2153,7 +2243,7 @@ class OrganizationRulesetRulesCommitMessagePattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -2163,7 +2253,7 @@ class OrganizationRulesetRulesCommitMessagePattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -2173,7 +2263,7 @@ class OrganizationRulesetRulesCommitMessagePattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2184,7 +2274,7 @@ class OrganizationRulesetRulesCommitMessagePattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2340,10 +2430,10 @@ class OrganizationRulesetRulesCommitterEmailPattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__56e19d8418043602d4f6e8b990b0c668f0174df988b6b6edaad841fa209b8fd0)
@@ -2364,7 +2454,7 @@ class OrganizationRulesetRulesCommitterEmailPattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -2374,7 +2464,7 @@ class OrganizationRulesetRulesCommitterEmailPattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -2384,7 +2474,7 @@ class OrganizationRulesetRulesCommitterEmailPattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2395,7 +2485,7 @@ class OrganizationRulesetRulesCommitterEmailPattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -2531,6 +2621,386 @@ class OrganizationRulesetRulesCommitterEmailPatternOutputReference(
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesFileExtensionRestriction",
+    jsii_struct_bases=[],
+    name_mapping={"restricted_file_extensions": "restrictedFileExtensions"},
+)
+class OrganizationRulesetRulesFileExtensionRestriction:
+    def __init__(
+        self,
+        *,
+        restricted_file_extensions: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param restricted_file_extensions: The file extensions that are restricted from being pushed to the commit graph. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#restricted_file_extensions OrganizationRuleset#restricted_file_extensions}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25d2d1362dffb46e1edbc2011ebbe76d594396873279ae5ee6002b09abed025b)
+            check_type(argname="argument restricted_file_extensions", value=restricted_file_extensions, expected_type=type_hints["restricted_file_extensions"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "restricted_file_extensions": restricted_file_extensions,
+        }
+
+    @builtins.property
+    def restricted_file_extensions(self) -> typing.List[builtins.str]:
+        '''The file extensions that are restricted from being pushed to the commit graph.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#restricted_file_extensions OrganizationRuleset#restricted_file_extensions}
+        '''
+        result = self._values.get("restricted_file_extensions")
+        assert result is not None, "Required property 'restricted_file_extensions' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OrganizationRulesetRulesFileExtensionRestriction(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OrganizationRulesetRulesFileExtensionRestrictionOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesFileExtensionRestrictionOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43f3333af3f95a568cd5760269c65e4cd133b794941d152efcbf72d47e2a768e)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFileExtensionsInput")
+    def restricted_file_extensions_input(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "restrictedFileExtensionsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFileExtensions")
+    def restricted_file_extensions(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "restrictedFileExtensions"))
+
+    @restricted_file_extensions.setter
+    def restricted_file_extensions(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f3ab250b1cc0830b45ab097630658b60c762680aaa25e9a7d4cf9b6fb3f9458a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restrictedFileExtensions", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesFileExtensionRestriction]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesFileExtensionRestriction], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[OrganizationRulesetRulesFileExtensionRestriction],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6b0e402bf00b002a08c218dd509c6cfd8c52ef19dae11e10a6ee213937fcf973)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesFilePathRestriction",
+    jsii_struct_bases=[],
+    name_mapping={"restricted_file_paths": "restrictedFilePaths"},
+)
+class OrganizationRulesetRulesFilePathRestriction:
+    def __init__(self, *, restricted_file_paths: typing.Sequence[builtins.str]) -> None:
+        '''
+        :param restricted_file_paths: The file paths that are restricted from being pushed to the commit graph. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#restricted_file_paths OrganizationRuleset#restricted_file_paths}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6eb373fce5e8d38308377b89433f77976855298667c28db282d6d486d1c204f6)
+            check_type(argname="argument restricted_file_paths", value=restricted_file_paths, expected_type=type_hints["restricted_file_paths"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "restricted_file_paths": restricted_file_paths,
+        }
+
+    @builtins.property
+    def restricted_file_paths(self) -> typing.List[builtins.str]:
+        '''The file paths that are restricted from being pushed to the commit graph.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#restricted_file_paths OrganizationRuleset#restricted_file_paths}
+        '''
+        result = self._values.get("restricted_file_paths")
+        assert result is not None, "Required property 'restricted_file_paths' is missing"
+        return typing.cast(typing.List[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OrganizationRulesetRulesFilePathRestriction(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OrganizationRulesetRulesFilePathRestrictionOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesFilePathRestrictionOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc02a778e447ab3fbf5e54773dbdad8a4500b0dde91eec0c596a0ed6f263ba3a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFilePathsInput")
+    def restricted_file_paths_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "restrictedFilePathsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="restrictedFilePaths")
+    def restricted_file_paths(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "restrictedFilePaths"))
+
+    @restricted_file_paths.setter
+    def restricted_file_paths(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b6f94657091186d3768530c0adcdc45e246a28dd2b803f818b3e6d857907e9db)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "restrictedFilePaths", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesFilePathRestriction]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesFilePathRestriction], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[OrganizationRulesetRulesFilePathRestriction],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce4b900bac180f3b07ba452dc45deadfe2fe01b80bc107a76c0d844052c39040)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesMaxFilePathLength",
+    jsii_struct_bases=[],
+    name_mapping={"max_file_path_length": "maxFilePathLength"},
+)
+class OrganizationRulesetRulesMaxFilePathLength:
+    def __init__(self, *, max_file_path_length: jsii.Number) -> None:
+        '''
+        :param max_file_path_length: The maximum allowed length of a file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_path_length OrganizationRuleset#max_file_path_length}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__174f09e69e3983ccc6b6c36fb43b87b04997bfdb539f4c43bc2152428dd699ee)
+            check_type(argname="argument max_file_path_length", value=max_file_path_length, expected_type=type_hints["max_file_path_length"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "max_file_path_length": max_file_path_length,
+        }
+
+    @builtins.property
+    def max_file_path_length(self) -> jsii.Number:
+        '''The maximum allowed length of a file path.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_path_length OrganizationRuleset#max_file_path_length}
+        '''
+        result = self._values.get("max_file_path_length")
+        assert result is not None, "Required property 'max_file_path_length' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OrganizationRulesetRulesMaxFilePathLength(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OrganizationRulesetRulesMaxFilePathLengthOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesMaxFilePathLengthOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3edfdd27991d8b62231d48a6b5d2fd1223ddab872ac1994ccec37e33922d65f8)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLengthInput")
+    def max_file_path_length_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxFilePathLengthInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLength")
+    def max_file_path_length(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxFilePathLength"))
+
+    @max_file_path_length.setter
+    def max_file_path_length(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c52310dcbda8907c34712eaf59f33d8ffa38a782daf32e786a27a80fb8aef1ac)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxFilePathLength", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesMaxFilePathLength]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesMaxFilePathLength], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[OrganizationRulesetRulesMaxFilePathLength],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85ef4159e38b0f4827d233c84471aade45ec9e0ba525a0e023abd3034297dab4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesMaxFileSize",
+    jsii_struct_bases=[],
+    name_mapping={"max_file_size": "maxFileSize"},
+)
+class OrganizationRulesetRulesMaxFileSize:
+    def __init__(self, *, max_file_size: jsii.Number) -> None:
+        '''
+        :param max_file_size: The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_size OrganizationRuleset#max_file_size}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2bf5413a9b4a86c6356159d9cb86dd76a8328194ad5c3220a2bfa23464830e4a)
+            check_type(argname="argument max_file_size", value=max_file_size, expected_type=type_hints["max_file_size"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "max_file_size": max_file_size,
+        }
+
+    @builtins.property
+    def max_file_size(self) -> jsii.Number:
+        '''The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_size OrganizationRuleset#max_file_size}
+        '''
+        result = self._values.get("max_file_size")
+        assert result is not None, "Required property 'max_file_size' is missing"
+        return typing.cast(jsii.Number, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "OrganizationRulesetRulesMaxFileSize(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class OrganizationRulesetRulesMaxFileSizeOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesMaxFileSizeOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94de23ea98213ab6a472ccfed3b80b7a16dceb6c49b53904f8fe1627b41c5a98)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSizeInput")
+    def max_file_size_input(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "maxFileSizeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSize")
+    def max_file_size(self) -> jsii.Number:
+        return typing.cast(jsii.Number, jsii.get(self, "maxFileSize"))
+
+    @max_file_size.setter
+    def max_file_size(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21ee49ad213962e0cef95ff62289c1ef0ae890716e6c9d517e96ca0194040df6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "maxFileSize", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[OrganizationRulesetRulesMaxFileSize]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesMaxFileSize], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[OrganizationRulesetRulesMaxFileSize],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__762a0f8becf910f69dc30836b862514524e8f2f909ed345fde0c27de2c556d07)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
 class OrganizationRulesetRulesOutputReference(
     _cdktf_9a9027ec.ComplexObject,
     metaclass=jsii.JSIIMeta,
@@ -2561,10 +3031,10 @@ class OrganizationRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         value = OrganizationRulesetRulesBranchNamePattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2582,10 +3052,10 @@ class OrganizationRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         value = OrganizationRulesetRulesCommitAuthorEmailPattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2603,10 +3073,10 @@ class OrganizationRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         value = OrganizationRulesetRulesCommitMessagePattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2624,16 +3094,66 @@ class OrganizationRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         value = OrganizationRulesetRulesCommitterEmailPattern(
             operator=operator, pattern=pattern, name=name, negate=negate
         )
 
         return typing.cast(None, jsii.invoke(self, "putCommitterEmailPattern", [value]))
+
+    @jsii.member(jsii_name="putFileExtensionRestriction")
+    def put_file_extension_restriction(
+        self,
+        *,
+        restricted_file_extensions: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param restricted_file_extensions: The file extensions that are restricted from being pushed to the commit graph. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#restricted_file_extensions OrganizationRuleset#restricted_file_extensions}
+        '''
+        value = OrganizationRulesetRulesFileExtensionRestriction(
+            restricted_file_extensions=restricted_file_extensions
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putFileExtensionRestriction", [value]))
+
+    @jsii.member(jsii_name="putFilePathRestriction")
+    def put_file_path_restriction(
+        self,
+        *,
+        restricted_file_paths: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param restricted_file_paths: The file paths that are restricted from being pushed to the commit graph. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#restricted_file_paths OrganizationRuleset#restricted_file_paths}
+        '''
+        value = OrganizationRulesetRulesFilePathRestriction(
+            restricted_file_paths=restricted_file_paths
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putFilePathRestriction", [value]))
+
+    @jsii.member(jsii_name="putMaxFilePathLength")
+    def put_max_file_path_length(self, *, max_file_path_length: jsii.Number) -> None:
+        '''
+        :param max_file_path_length: The maximum allowed length of a file path. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_path_length OrganizationRuleset#max_file_path_length}
+        '''
+        value = OrganizationRulesetRulesMaxFilePathLength(
+            max_file_path_length=max_file_path_length
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putMaxFilePathLength", [value]))
+
+    @jsii.member(jsii_name="putMaxFileSize")
+    def put_max_file_size(self, *, max_file_size: jsii.Number) -> None:
+        '''
+        :param max_file_size: The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#max_file_size OrganizationRuleset#max_file_size}
+        '''
+        value = OrganizationRulesetRulesMaxFileSize(max_file_size=max_file_size)
+
+        return typing.cast(None, jsii.invoke(self, "putMaxFileSize", [value]))
 
     @jsii.member(jsii_name="putPullRequest")
     def put_pull_request(
@@ -2646,11 +3166,11 @@ class OrganizationRulesetRulesOutputReference(
         require_last_push_approval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#dismiss_stale_reviews_on_push OrganizationRuleset#dismiss_stale_reviews_on_push}
-        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#require_code_owner_review OrganizationRuleset#require_code_owner_review}
-        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_approving_review_count OrganizationRuleset#required_approving_review_count}
-        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_review_thread_resolution OrganizationRuleset#required_review_thread_resolution}
-        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#require_last_push_approval OrganizationRuleset#require_last_push_approval}
+        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#dismiss_stale_reviews_on_push OrganizationRuleset#dismiss_stale_reviews_on_push}
+        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#require_code_owner_review OrganizationRuleset#require_code_owner_review}
+        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_approving_review_count OrganizationRuleset#required_approving_review_count}
+        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_review_thread_resolution OrganizationRuleset#required_review_thread_resolution}
+        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#require_last_push_approval OrganizationRuleset#require_last_push_approval}
         '''
         value = OrganizationRulesetRulesPullRequest(
             dismiss_stale_reviews_on_push=dismiss_stale_reviews_on_push,
@@ -2669,7 +3189,7 @@ class OrganizationRulesetRulesOutputReference(
         required_code_scanning_tool: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_code_scanning_tool OrganizationRuleset#required_code_scanning_tool}
+        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_code_scanning_tool OrganizationRuleset#required_code_scanning_tool}
         '''
         value = OrganizationRulesetRulesRequiredCodeScanning(
             required_code_scanning_tool=required_code_scanning_tool
@@ -2682,14 +3202,17 @@ class OrganizationRulesetRulesOutputReference(
         self,
         *,
         required_check: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrganizationRulesetRulesRequiredStatusChecksRequiredCheck", typing.Dict[builtins.str, typing.Any]]]],
+        do_not_enforce_on_create: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         strict_required_status_checks_policy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_check OrganizationRuleset#required_check}
-        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#strict_required_status_checks_policy OrganizationRuleset#strict_required_status_checks_policy}
+        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_check OrganizationRuleset#required_check}
+        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#do_not_enforce_on_create OrganizationRuleset#do_not_enforce_on_create}
+        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#strict_required_status_checks_policy OrganizationRuleset#strict_required_status_checks_policy}
         '''
         value = OrganizationRulesetRulesRequiredStatusChecks(
             required_check=required_check,
+            do_not_enforce_on_create=do_not_enforce_on_create,
             strict_required_status_checks_policy=strict_required_status_checks_policy,
         )
 
@@ -2700,12 +3223,15 @@ class OrganizationRulesetRulesOutputReference(
         self,
         *,
         required_workflow: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow", typing.Dict[builtins.str, typing.Any]]]],
+        do_not_enforce_on_create: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param required_workflow: required_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_workflow OrganizationRuleset#required_workflow}
+        :param required_workflow: required_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_workflow OrganizationRuleset#required_workflow}
+        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#do_not_enforce_on_create OrganizationRuleset#do_not_enforce_on_create}
         '''
         value = OrganizationRulesetRulesRequiredWorkflows(
-            required_workflow=required_workflow
+            required_workflow=required_workflow,
+            do_not_enforce_on_create=do_not_enforce_on_create,
         )
 
         return typing.cast(None, jsii.invoke(self, "putRequiredWorkflows", [value]))
@@ -2720,10 +3246,10 @@ class OrganizationRulesetRulesOutputReference(
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         value = OrganizationRulesetRulesTagNamePattern(
             operator=operator, pattern=pattern, name=name, negate=negate
@@ -2754,6 +3280,22 @@ class OrganizationRulesetRulesOutputReference(
     @jsii.member(jsii_name="resetDeletion")
     def reset_deletion(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDeletion", []))
+
+    @jsii.member(jsii_name="resetFileExtensionRestriction")
+    def reset_file_extension_restriction(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFileExtensionRestriction", []))
+
+    @jsii.member(jsii_name="resetFilePathRestriction")
+    def reset_file_path_restriction(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetFilePathRestriction", []))
+
+    @jsii.member(jsii_name="resetMaxFilePathLength")
+    def reset_max_file_path_length(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxFilePathLength", []))
+
+    @jsii.member(jsii_name="resetMaxFileSize")
+    def reset_max_file_size(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetMaxFileSize", []))
 
     @jsii.member(jsii_name="resetNonFastForward")
     def reset_non_fast_forward(self) -> None:
@@ -2818,6 +3360,32 @@ class OrganizationRulesetRulesOutputReference(
         self,
     ) -> OrganizationRulesetRulesCommitterEmailPatternOutputReference:
         return typing.cast(OrganizationRulesetRulesCommitterEmailPatternOutputReference, jsii.get(self, "committerEmailPattern"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileExtensionRestriction")
+    def file_extension_restriction(
+        self,
+    ) -> OrganizationRulesetRulesFileExtensionRestrictionOutputReference:
+        return typing.cast(OrganizationRulesetRulesFileExtensionRestrictionOutputReference, jsii.get(self, "fileExtensionRestriction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filePathRestriction")
+    def file_path_restriction(
+        self,
+    ) -> OrganizationRulesetRulesFilePathRestrictionOutputReference:
+        return typing.cast(OrganizationRulesetRulesFilePathRestrictionOutputReference, jsii.get(self, "filePathRestriction"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLength")
+    def max_file_path_length(
+        self,
+    ) -> OrganizationRulesetRulesMaxFilePathLengthOutputReference:
+        return typing.cast(OrganizationRulesetRulesMaxFilePathLengthOutputReference, jsii.get(self, "maxFilePathLength"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSize")
+    def max_file_size(self) -> OrganizationRulesetRulesMaxFileSizeOutputReference:
+        return typing.cast(OrganizationRulesetRulesMaxFileSizeOutputReference, jsii.get(self, "maxFileSize"))
 
     @builtins.property
     @jsii.member(jsii_name="pullRequest")
@@ -2893,6 +3461,34 @@ class OrganizationRulesetRulesOutputReference(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "deletionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="fileExtensionRestrictionInput")
+    def file_extension_restriction_input(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesFileExtensionRestriction]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesFileExtensionRestriction], jsii.get(self, "fileExtensionRestrictionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="filePathRestrictionInput")
+    def file_path_restriction_input(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesFilePathRestriction]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesFilePathRestriction], jsii.get(self, "filePathRestrictionInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFilePathLengthInput")
+    def max_file_path_length_input(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesMaxFilePathLength]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesMaxFilePathLength], jsii.get(self, "maxFilePathLengthInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="maxFileSizeInput")
+    def max_file_size_input(
+        self,
+    ) -> typing.Optional[OrganizationRulesetRulesMaxFileSize]:
+        return typing.cast(typing.Optional[OrganizationRulesetRulesMaxFileSize], jsii.get(self, "maxFileSizeInput"))
 
     @builtins.property
     @jsii.member(jsii_name="nonFastForwardInput")
@@ -3088,11 +3684,11 @@ class OrganizationRulesetRulesPullRequest:
         require_last_push_approval: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#dismiss_stale_reviews_on_push OrganizationRuleset#dismiss_stale_reviews_on_push}
-        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#require_code_owner_review OrganizationRuleset#require_code_owner_review}
-        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_approving_review_count OrganizationRuleset#required_approving_review_count}
-        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_review_thread_resolution OrganizationRuleset#required_review_thread_resolution}
-        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#require_last_push_approval OrganizationRuleset#require_last_push_approval}
+        :param dismiss_stale_reviews_on_push: New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#dismiss_stale_reviews_on_push OrganizationRuleset#dismiss_stale_reviews_on_push}
+        :param require_code_owner_review: Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#require_code_owner_review OrganizationRuleset#require_code_owner_review}
+        :param required_approving_review_count: The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_approving_review_count OrganizationRuleset#required_approving_review_count}
+        :param required_review_thread_resolution: All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_review_thread_resolution OrganizationRuleset#required_review_thread_resolution}
+        :param require_last_push_approval: Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#require_last_push_approval OrganizationRuleset#require_last_push_approval}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55a6ba266aa0d91b9124cda65218e40e2afd852239f6b33ba8806bbf10d4b854)
@@ -3119,7 +3715,7 @@ class OrganizationRulesetRulesPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#dismiss_stale_reviews_on_push OrganizationRuleset#dismiss_stale_reviews_on_push}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#dismiss_stale_reviews_on_push OrganizationRuleset#dismiss_stale_reviews_on_push}
         '''
         result = self._values.get("dismiss_stale_reviews_on_push")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3130,7 +3726,7 @@ class OrganizationRulesetRulesPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Require an approving review in pull requests that modify files that have a designated code owner. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#require_code_owner_review OrganizationRuleset#require_code_owner_review}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#require_code_owner_review OrganizationRuleset#require_code_owner_review}
         '''
         result = self._values.get("require_code_owner_review")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3139,7 +3735,7 @@ class OrganizationRulesetRulesPullRequest:
     def required_approving_review_count(self) -> typing.Optional[jsii.Number]:
         '''The number of approving reviews that are required before a pull request can be merged. Defaults to ``0``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_approving_review_count OrganizationRuleset#required_approving_review_count}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_approving_review_count OrganizationRuleset#required_approving_review_count}
         '''
         result = self._values.get("required_approving_review_count")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -3150,7 +3746,7 @@ class OrganizationRulesetRulesPullRequest:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''All conversations on code must be resolved before a pull request can be merged. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_review_thread_resolution OrganizationRuleset#required_review_thread_resolution}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_review_thread_resolution OrganizationRuleset#required_review_thread_resolution}
         '''
         result = self._values.get("required_review_thread_resolution")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3163,7 +3759,7 @@ class OrganizationRulesetRulesPullRequest:
 
         Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#require_last_push_approval OrganizationRuleset#require_last_push_approval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#require_last_push_approval OrganizationRuleset#require_last_push_approval}
         '''
         result = self._values.get("require_last_push_approval")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3361,7 +3957,7 @@ class OrganizationRulesetRulesRequiredCodeScanning:
         required_code_scanning_tool: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_code_scanning_tool OrganizationRuleset#required_code_scanning_tool}
+        :param required_code_scanning_tool: required_code_scanning_tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_code_scanning_tool OrganizationRuleset#required_code_scanning_tool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__137afefcbc77a3a9eeb1c66d5876055da4e8ec66f2f8873eb245f6ad9c7116a4)
@@ -3376,7 +3972,7 @@ class OrganizationRulesetRulesRequiredCodeScanning:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool"]]:
         '''required_code_scanning_tool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_code_scanning_tool OrganizationRuleset#required_code_scanning_tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_code_scanning_tool OrganizationRuleset#required_code_scanning_tool}
         '''
         result = self._values.get("required_code_scanning_tool")
         assert result is not None, "Required property 'required_code_scanning_tool' is missing"
@@ -3477,9 +4073,9 @@ class OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
         tool: builtins.str,
     ) -> None:
         '''
-        :param alerts_threshold: The severity level at which code scanning results that raise alerts block a reference update. Can be one of: ``none``, ``errors``, ``errors_and_warnings``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#alerts_threshold OrganizationRuleset#alerts_threshold}
-        :param security_alerts_threshold: The severity level at which code scanning results that raise security alerts block a reference update. Can be one of: ``none``, ``critical``, ``high_or_higher``, ``medium_or_higher``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#security_alerts_threshold OrganizationRuleset#security_alerts_threshold}
-        :param tool: The name of a code scanning tool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#tool OrganizationRuleset#tool}
+        :param alerts_threshold: The severity level at which code scanning results that raise alerts block a reference update. Can be one of: ``none``, ``errors``, ``errors_and_warnings``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#alerts_threshold OrganizationRuleset#alerts_threshold}
+        :param security_alerts_threshold: The severity level at which code scanning results that raise security alerts block a reference update. Can be one of: ``none``, ``critical``, ``high_or_higher``, ``medium_or_higher``, ``all``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#security_alerts_threshold OrganizationRuleset#security_alerts_threshold}
+        :param tool: The name of a code scanning tool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#tool OrganizationRuleset#tool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__098e784b8b6711010d07d0b3531ffea618b323c6f7a21a238b5bb281595a79a9)
@@ -3498,7 +4094,7 @@ class OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
 
         Can be one of: ``none``, ``errors``, ``errors_and_warnings``, ``all``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#alerts_threshold OrganizationRuleset#alerts_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#alerts_threshold OrganizationRuleset#alerts_threshold}
         '''
         result = self._values.get("alerts_threshold")
         assert result is not None, "Required property 'alerts_threshold' is missing"
@@ -3510,7 +4106,7 @@ class OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
 
         Can be one of: ``none``, ``critical``, ``high_or_higher``, ``medium_or_higher``, ``all``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#security_alerts_threshold OrganizationRuleset#security_alerts_threshold}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#security_alerts_threshold OrganizationRuleset#security_alerts_threshold}
         '''
         result = self._values.get("security_alerts_threshold")
         assert result is not None, "Required property 'security_alerts_threshold' is missing"
@@ -3520,7 +4116,7 @@ class OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningTool:
     def tool(self) -> builtins.str:
         '''The name of a code scanning tool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#tool OrganizationRuleset#tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#tool OrganizationRuleset#tool}
         '''
         result = self._values.get("tool")
         assert result is not None, "Required property 'tool' is missing"
@@ -3731,6 +4327,7 @@ class OrganizationRulesetRulesRequiredCodeScanningRequiredCodeScanningToolOutput
     jsii_struct_bases=[],
     name_mapping={
         "required_check": "requiredCheck",
+        "do_not_enforce_on_create": "doNotEnforceOnCreate",
         "strict_required_status_checks_policy": "strictRequiredStatusChecksPolicy",
     },
 )
@@ -3739,19 +4336,24 @@ class OrganizationRulesetRulesRequiredStatusChecks:
         self,
         *,
         required_check: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrganizationRulesetRulesRequiredStatusChecksRequiredCheck", typing.Dict[builtins.str, typing.Any]]]],
+        do_not_enforce_on_create: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         strict_required_status_checks_policy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_check OrganizationRuleset#required_check}
-        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#strict_required_status_checks_policy OrganizationRuleset#strict_required_status_checks_policy}
+        :param required_check: required_check block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_check OrganizationRuleset#required_check}
+        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#do_not_enforce_on_create OrganizationRuleset#do_not_enforce_on_create}
+        :param strict_required_status_checks_policy: Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to ``false``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#strict_required_status_checks_policy OrganizationRuleset#strict_required_status_checks_policy}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2d7aba486b967ac91630462bc500cc3594fe6997e073249edca39ba70c660fac)
             check_type(argname="argument required_check", value=required_check, expected_type=type_hints["required_check"])
+            check_type(argname="argument do_not_enforce_on_create", value=do_not_enforce_on_create, expected_type=type_hints["do_not_enforce_on_create"])
             check_type(argname="argument strict_required_status_checks_policy", value=strict_required_status_checks_policy, expected_type=type_hints["strict_required_status_checks_policy"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "required_check": required_check,
         }
+        if do_not_enforce_on_create is not None:
+            self._values["do_not_enforce_on_create"] = do_not_enforce_on_create
         if strict_required_status_checks_policy is not None:
             self._values["strict_required_status_checks_policy"] = strict_required_status_checks_policy
 
@@ -3761,11 +4363,22 @@ class OrganizationRulesetRulesRequiredStatusChecks:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredStatusChecksRequiredCheck"]]:
         '''required_check block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_check OrganizationRuleset#required_check}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_check OrganizationRuleset#required_check}
         '''
         result = self._values.get("required_check")
         assert result is not None, "Required property 'required_check' is missing"
         return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredStatusChecksRequiredCheck"]], result)
+
+    @builtins.property
+    def do_not_enforce_on_create(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Allow repositories and branches to be created if a check would otherwise prohibit it.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#do_not_enforce_on_create OrganizationRuleset#do_not_enforce_on_create}
+        '''
+        result = self._values.get("do_not_enforce_on_create")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def strict_required_status_checks_policy(
@@ -3775,7 +4388,7 @@ class OrganizationRulesetRulesRequiredStatusChecks:
 
         This setting will not take effect unless at least one status check is enabled. Defaults to ``false``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#strict_required_status_checks_policy OrganizationRuleset#strict_required_status_checks_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#strict_required_status_checks_policy OrganizationRuleset#strict_required_status_checks_policy}
         '''
         result = self._values.get("strict_required_status_checks_policy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -3825,6 +4438,10 @@ class OrganizationRulesetRulesRequiredStatusChecksOutputReference(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putRequiredCheck", [value]))
 
+    @jsii.member(jsii_name="resetDoNotEnforceOnCreate")
+    def reset_do_not_enforce_on_create(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDoNotEnforceOnCreate", []))
+
     @jsii.member(jsii_name="resetStrictRequiredStatusChecksPolicy")
     def reset_strict_required_status_checks_policy(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetStrictRequiredStatusChecksPolicy", []))
@@ -3835,6 +4452,13 @@ class OrganizationRulesetRulesRequiredStatusChecksOutputReference(
         self,
     ) -> "OrganizationRulesetRulesRequiredStatusChecksRequiredCheckList":
         return typing.cast("OrganizationRulesetRulesRequiredStatusChecksRequiredCheckList", jsii.get(self, "requiredCheck"))
+
+    @builtins.property
+    @jsii.member(jsii_name="doNotEnforceOnCreateInput")
+    def do_not_enforce_on_create_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "doNotEnforceOnCreateInput"))
 
     @builtins.property
     @jsii.member(jsii_name="requiredCheckInput")
@@ -3849,6 +4473,23 @@ class OrganizationRulesetRulesRequiredStatusChecksOutputReference(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "strictRequiredStatusChecksPolicyInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="doNotEnforceOnCreate")
+    def do_not_enforce_on_create(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "doNotEnforceOnCreate"))
+
+    @do_not_enforce_on_create.setter
+    def do_not_enforce_on_create(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5df4bd604fcb7426fcae2df16e951701d283888f23f88c0a2af6babbcf3fb6e5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "doNotEnforceOnCreate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="strictRequiredStatusChecksPolicy")
@@ -3898,8 +4539,8 @@ class OrganizationRulesetRulesRequiredStatusChecksRequiredCheck:
         integration_id: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param context: The status check context name that must be present on the commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#context OrganizationRuleset#context}
-        :param integration_id: The optional integration ID that this status check must originate from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#integration_id OrganizationRuleset#integration_id}
+        :param context: The status check context name that must be present on the commit. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#context OrganizationRuleset#context}
+        :param integration_id: The optional integration ID that this status check must originate from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#integration_id OrganizationRuleset#integration_id}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d94f346f8e9567da929511dc9dca073b4ed9a7da9da22f3fb043e6f50580771)
@@ -3915,7 +4556,7 @@ class OrganizationRulesetRulesRequiredStatusChecksRequiredCheck:
     def context(self) -> builtins.str:
         '''The status check context name that must be present on the commit.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#context OrganizationRuleset#context}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#context OrganizationRuleset#context}
         '''
         result = self._values.get("context")
         assert result is not None, "Required property 'context' is missing"
@@ -3925,7 +4566,7 @@ class OrganizationRulesetRulesRequiredStatusChecksRequiredCheck:
     def integration_id(self) -> typing.Optional[jsii.Number]:
         '''The optional integration ID that this status check must originate from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#integration_id OrganizationRuleset#integration_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#integration_id OrganizationRuleset#integration_id}
         '''
         result = self._values.get("integration_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -4120,23 +4761,31 @@ class OrganizationRulesetRulesRequiredStatusChecksRequiredCheckOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-github.organizationRuleset.OrganizationRulesetRulesRequiredWorkflows",
     jsii_struct_bases=[],
-    name_mapping={"required_workflow": "requiredWorkflow"},
+    name_mapping={
+        "required_workflow": "requiredWorkflow",
+        "do_not_enforce_on_create": "doNotEnforceOnCreate",
+    },
 )
 class OrganizationRulesetRulesRequiredWorkflows:
     def __init__(
         self,
         *,
         required_workflow: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow", typing.Dict[builtins.str, typing.Any]]]],
+        do_not_enforce_on_create: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param required_workflow: required_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_workflow OrganizationRuleset#required_workflow}
+        :param required_workflow: required_workflow block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_workflow OrganizationRuleset#required_workflow}
+        :param do_not_enforce_on_create: Allow repositories and branches to be created if a check would otherwise prohibit it. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#do_not_enforce_on_create OrganizationRuleset#do_not_enforce_on_create}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8177f8274d24da26111c13992e3b2f50f50b37e6c84196a6eae32452a835f451)
             check_type(argname="argument required_workflow", value=required_workflow, expected_type=type_hints["required_workflow"])
+            check_type(argname="argument do_not_enforce_on_create", value=do_not_enforce_on_create, expected_type=type_hints["do_not_enforce_on_create"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "required_workflow": required_workflow,
         }
+        if do_not_enforce_on_create is not None:
+            self._values["do_not_enforce_on_create"] = do_not_enforce_on_create
 
     @builtins.property
     def required_workflow(
@@ -4144,11 +4793,22 @@ class OrganizationRulesetRulesRequiredWorkflows:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow"]]:
         '''required_workflow block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#required_workflow OrganizationRuleset#required_workflow}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#required_workflow OrganizationRuleset#required_workflow}
         '''
         result = self._values.get("required_workflow")
         assert result is not None, "Required property 'required_workflow' is missing"
         return typing.cast(typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow"]], result)
+
+    @builtins.property
+    def do_not_enforce_on_create(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Allow repositories and branches to be created if a check would otherwise prohibit it.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#do_not_enforce_on_create OrganizationRuleset#do_not_enforce_on_create}
+        '''
+        result = self._values.get("do_not_enforce_on_create")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4195,6 +4855,10 @@ class OrganizationRulesetRulesRequiredWorkflowsOutputReference(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "putRequiredWorkflow", [value]))
 
+    @jsii.member(jsii_name="resetDoNotEnforceOnCreate")
+    def reset_do_not_enforce_on_create(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDoNotEnforceOnCreate", []))
+
     @builtins.property
     @jsii.member(jsii_name="requiredWorkflow")
     def required_workflow(
@@ -4203,11 +4867,35 @@ class OrganizationRulesetRulesRequiredWorkflowsOutputReference(
         return typing.cast("OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflowList", jsii.get(self, "requiredWorkflow"))
 
     @builtins.property
+    @jsii.member(jsii_name="doNotEnforceOnCreateInput")
+    def do_not_enforce_on_create_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "doNotEnforceOnCreateInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="requiredWorkflowInput")
     def required_workflow_input(
         self,
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow"]]]:
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow"]]], jsii.get(self, "requiredWorkflowInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="doNotEnforceOnCreate")
+    def do_not_enforce_on_create(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "doNotEnforceOnCreate"))
+
+    @do_not_enforce_on_create.setter
+    def do_not_enforce_on_create(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6441ac0221f91af0fba3b22f99fd281d5067a77e9f9114d8137c54f491727c79)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "doNotEnforceOnCreate", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="internalValue")
@@ -4241,9 +4929,9 @@ class OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow:
         ref: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param path: The path to the workflow YAML definition file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#path OrganizationRuleset#path}
-        :param repository_id: The repository in which the workflow is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
-        :param ref: The ref (branch or tag) of the workflow file to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#ref OrganizationRuleset#ref}
+        :param path: The path to the workflow YAML definition file. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#path OrganizationRuleset#path}
+        :param repository_id: The repository in which the workflow is defined. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
+        :param ref: The ref (branch or tag) of the workflow file to use. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#ref OrganizationRuleset#ref}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a64e282fde9d11b302f583d2e2408d13c9943d877ec1cbb0e86f947cb543df6f)
@@ -4261,7 +4949,7 @@ class OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow:
     def path(self) -> builtins.str:
         '''The path to the workflow YAML definition file.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#path OrganizationRuleset#path}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#path OrganizationRuleset#path}
         '''
         result = self._values.get("path")
         assert result is not None, "Required property 'path' is missing"
@@ -4271,7 +4959,7 @@ class OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow:
     def repository_id(self) -> jsii.Number:
         '''The repository in which the workflow is defined.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#repository_id OrganizationRuleset#repository_id}
         '''
         result = self._values.get("repository_id")
         assert result is not None, "Required property 'repository_id' is missing"
@@ -4281,7 +4969,7 @@ class OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow:
     def ref(self) -> typing.Optional[builtins.str]:
         '''The ref (branch or tag) of the workflow file to use.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#ref OrganizationRuleset#ref}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#ref OrganizationRuleset#ref}
         '''
         result = self._values.get("ref")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4510,10 +5198,10 @@ class OrganizationRulesetRulesTagNamePattern:
         negate: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
-        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
-        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
-        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        :param operator: The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        :param pattern: The pattern to match with. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        :param name: How this rule will appear to users. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        :param negate: If true, the rule will fail if the pattern matches. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4eb71538d649a88877084d9d9e014761c05a2c46c77de57e570018d91864159)
@@ -4534,7 +5222,7 @@ class OrganizationRulesetRulesTagNamePattern:
     def operator(self) -> builtins.str:
         '''The operator to use for matching. Can be one of: ``starts_with``, ``ends_with``, ``contains``, ``regex``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#operator OrganizationRuleset#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -4544,7 +5232,7 @@ class OrganizationRulesetRulesTagNamePattern:
     def pattern(self) -> builtins.str:
         '''The pattern to match with.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#pattern OrganizationRuleset#pattern}
         '''
         result = self._values.get("pattern")
         assert result is not None, "Required property 'pattern' is missing"
@@ -4554,7 +5242,7 @@ class OrganizationRulesetRulesTagNamePattern:
     def name(self) -> typing.Optional[builtins.str]:
         '''How this rule will appear to users.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#name OrganizationRuleset#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -4565,7 +5253,7 @@ class OrganizationRulesetRulesTagNamePattern:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''If true, the rule will fail if the pattern matches.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/organization_ruleset#negate OrganizationRuleset#negate}
         '''
         result = self._values.get("negate")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -4720,6 +5408,14 @@ __all__ = [
     "OrganizationRulesetRulesCommitMessagePatternOutputReference",
     "OrganizationRulesetRulesCommitterEmailPattern",
     "OrganizationRulesetRulesCommitterEmailPatternOutputReference",
+    "OrganizationRulesetRulesFileExtensionRestriction",
+    "OrganizationRulesetRulesFileExtensionRestrictionOutputReference",
+    "OrganizationRulesetRulesFilePathRestriction",
+    "OrganizationRulesetRulesFilePathRestrictionOutputReference",
+    "OrganizationRulesetRulesMaxFilePathLength",
+    "OrganizationRulesetRulesMaxFilePathLengthOutputReference",
+    "OrganizationRulesetRulesMaxFileSize",
+    "OrganizationRulesetRulesMaxFileSizeOutputReference",
     "OrganizationRulesetRulesOutputReference",
     "OrganizationRulesetRulesPullRequest",
     "OrganizationRulesetRulesPullRequestOutputReference",
@@ -4807,9 +5503,9 @@ def _typecheckingstub__e5260980bd71bca6133344f4e5e5b41b04c33f0c38941fc15a870fe2d
 
 def _typecheckingstub__171bcb85f36c9e4fc8105474b4c99f6153562a06a88854e69c4bedba915e7579(
     *,
-    actor_id: jsii.Number,
     actor_type: builtins.str,
     bypass_mode: builtins.str,
+    actor_id: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5014,6 +5710,10 @@ def _typecheckingstub__c5a0737e599ea67c04f6e2447a3ace44823d6b435f72c4f6773256687
     committer_email_pattern: typing.Optional[typing.Union[OrganizationRulesetRulesCommitterEmailPattern, typing.Dict[builtins.str, typing.Any]]] = None,
     creation: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     deletion: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
+    file_extension_restriction: typing.Optional[typing.Union[OrganizationRulesetRulesFileExtensionRestriction, typing.Dict[builtins.str, typing.Any]]] = None,
+    file_path_restriction: typing.Optional[typing.Union[OrganizationRulesetRulesFilePathRestriction, typing.Dict[builtins.str, typing.Any]]] = None,
+    max_file_path_length: typing.Optional[typing.Union[OrganizationRulesetRulesMaxFilePathLength, typing.Dict[builtins.str, typing.Any]]] = None,
+    max_file_size: typing.Optional[typing.Union[OrganizationRulesetRulesMaxFileSize, typing.Dict[builtins.str, typing.Any]]] = None,
     non_fast_forward: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     pull_request: typing.Optional[typing.Union[OrganizationRulesetRulesPullRequest, typing.Dict[builtins.str, typing.Any]]] = None,
     required_code_scanning: typing.Optional[typing.Union[OrganizationRulesetRulesRequiredCodeScanning, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -5211,6 +5911,110 @@ def _typecheckingstub__439f8dce8e417f357842e62e4d8e92d3959cb7d3adeea53a4c2d67953
 
 def _typecheckingstub__f0de0a44c5329a33775b0ee15a4abc3d4b1672ede251f623e5be8560a171e64a(
     value: typing.Optional[OrganizationRulesetRulesCommitterEmailPattern],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25d2d1362dffb46e1edbc2011ebbe76d594396873279ae5ee6002b09abed025b(
+    *,
+    restricted_file_extensions: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43f3333af3f95a568cd5760269c65e4cd133b794941d152efcbf72d47e2a768e(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3ab250b1cc0830b45ab097630658b60c762680aaa25e9a7d4cf9b6fb3f9458a(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6b0e402bf00b002a08c218dd509c6cfd8c52ef19dae11e10a6ee213937fcf973(
+    value: typing.Optional[OrganizationRulesetRulesFileExtensionRestriction],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6eb373fce5e8d38308377b89433f77976855298667c28db282d6d486d1c204f6(
+    *,
+    restricted_file_paths: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cc02a778e447ab3fbf5e54773dbdad8a4500b0dde91eec0c596a0ed6f263ba3a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b6f94657091186d3768530c0adcdc45e246a28dd2b803f818b3e6d857907e9db(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce4b900bac180f3b07ba452dc45deadfe2fe01b80bc107a76c0d844052c39040(
+    value: typing.Optional[OrganizationRulesetRulesFilePathRestriction],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__174f09e69e3983ccc6b6c36fb43b87b04997bfdb539f4c43bc2152428dd699ee(
+    *,
+    max_file_path_length: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3edfdd27991d8b62231d48a6b5d2fd1223ddab872ac1994ccec37e33922d65f8(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c52310dcbda8907c34712eaf59f33d8ffa38a782daf32e786a27a80fb8aef1ac(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85ef4159e38b0f4827d233c84471aade45ec9e0ba525a0e023abd3034297dab4(
+    value: typing.Optional[OrganizationRulesetRulesMaxFilePathLength],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2bf5413a9b4a86c6356159d9cb86dd76a8328194ad5c3220a2bfa23464830e4a(
+    *,
+    max_file_size: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94de23ea98213ab6a472ccfed3b80b7a16dceb6c49b53904f8fe1627b41c5a98(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__21ee49ad213962e0cef95ff62289c1ef0ae890716e6c9d517e96ca0194040df6(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__762a0f8becf910f69dc30836b862514524e8f2f909ed345fde0c27de2c556d07(
+    value: typing.Optional[OrganizationRulesetRulesMaxFileSize],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5427,6 +6231,7 @@ def _typecheckingstub__48980e73606cebe758fcecbe4a60bc527b9c2b97d43cb81a09a1e3600
 def _typecheckingstub__2d7aba486b967ac91630462bc500cc3594fe6997e073249edca39ba70c660fac(
     *,
     required_check: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OrganizationRulesetRulesRequiredStatusChecksRequiredCheck, typing.Dict[builtins.str, typing.Any]]]],
+    do_not_enforce_on_create: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     strict_required_status_checks_policy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5441,6 +6246,12 @@ def _typecheckingstub__dec79e973955c971829a81cf7e5b179a865224d7880b63d9e57f31bd0
 
 def _typecheckingstub__fe6b3e4082ec2e1dd31e15c0da63408b38059b4c4cebc8908e0dcbf3f188fc7c(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OrganizationRulesetRulesRequiredStatusChecksRequiredCheck, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5df4bd604fcb7426fcae2df16e951701d283888f23f88c0a2af6babbcf3fb6e5(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5533,6 +6344,7 @@ def _typecheckingstub__06187fb3ef7077995d74d9a36d7ec427603ae7cb783ebbad4a7d442ca
 def _typecheckingstub__8177f8274d24da26111c13992e3b2f50f50b37e6c84196a6eae32452a835f451(
     *,
     required_workflow: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow, typing.Dict[builtins.str, typing.Any]]]],
+    do_not_enforce_on_create: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5546,6 +6358,12 @@ def _typecheckingstub__8afa5cb45578471b14aef64438e823973b0257c88b719abbbb3f4de20
 
 def _typecheckingstub__5d0117df476224f0f7837506a93dbf407f61516afd0dc1cca508d7948e5c4856(
     value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[OrganizationRulesetRulesRequiredWorkflowsRequiredWorkflow, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6441ac0221f91af0fba3b22f99fd281d5067a77e9f9114d8137c54f491727c79(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass

@@ -3,7 +3,7 @@ Type annotations for groundstation service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_groundstation/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -35,9 +35,11 @@ __all__ = (
     "CriticalityType",
     "EirpUnitsType",
     "EndpointStatusType",
+    "EphemerisErrorCodeType",
     "EphemerisInvalidReasonType",
     "EphemerisSourceType",
     "EphemerisStatusType",
+    "EphemerisTypeType",
     "FrequencyUnitsType",
     "GroundStationServiceName",
     "ListConfigsPaginatorName",
@@ -98,6 +100,46 @@ ContactStatusType = Literal[
 CriticalityType = Literal["PREFERRED", "REMOVED", "REQUIRED"]
 EirpUnitsType = Literal["dBW"]
 EndpointStatusType = Literal["created", "creating", "deleted", "deleting", "failed"]
+EphemerisErrorCodeType = Literal[
+    "AZ_EL_SEGMENTS_OUT_OF_ORDER",
+    "AZ_EL_SEGMENT_END_TIME_BEFORE_START_TIME",
+    "AZ_EL_SEGMENT_END_TIME_INVALID",
+    "AZ_EL_SEGMENT_END_TIME_TOO_LATE",
+    "AZ_EL_SEGMENT_LIST_MISSING",
+    "AZ_EL_SEGMENT_REFERENCE_EPOCH_INVALID",
+    "AZ_EL_SEGMENT_START_TIME_INVALID",
+    "AZ_EL_SEGMENT_TIMES_OVERLAP",
+    "AZ_EL_SEGMENT_VALID_TIME_RANGE_INVALID",
+    "AZ_EL_TOTAL_DURATION_EXCEEDED",
+    "CENTER_BODY_UNSUPPORTED",
+    "CREATION_DATE_MISSING",
+    "END_TIME_IN_PAST",
+    "EXPIRATION_TIME_TOO_EARLY",
+    "FILE_FORMAT_INVALID",
+    "INSUFFICIENT_KMS_PERMISSIONS",
+    "INSUFFICIENT_TIME_AZ_EL",
+    "INTERNAL_ERROR",
+    "INTERPOLATION_DEGREE_INVALID",
+    "INTERPOLATION_MISSING",
+    "MEAN_MOTION_INVALID",
+    "MISMATCHED_SATCAT_ID",
+    "OBJECT_ID_MISSING",
+    "OBJECT_NAME_MISSING",
+    "OEM_VERSION_UNSUPPORTED",
+    "ORIGINATOR_MISSING",
+    "REF_FRAME_EPOCH_UNSUPPORTED",
+    "REF_FRAME_UNSUPPORTED",
+    "START_TIME_IN_FUTURE",
+    "START_TIME_METADATA_TOO_EARLY",
+    "STOP_TIME_METADATA_TOO_LATE",
+    "TIME_AZ_EL_ANGLE_UNITS_INVALID",
+    "TIME_AZ_EL_AZ_DEGREE_RANGE_INVALID",
+    "TIME_AZ_EL_AZ_RADIAN_RANGE_INVALID",
+    "TIME_AZ_EL_EL_DEGREE_RANGE_INVALID",
+    "TIME_AZ_EL_EL_RADIAN_RANGE_INVALID",
+    "TIME_AZ_EL_ITEMS_OUT_OF_ORDER",
+    "TIME_SYSTEM_UNSUPPORTED",
+]
 EphemerisInvalidReasonType = Literal[
     "KMS_KEY_INVALID",
     "METADATA_INVALID",
@@ -107,6 +149,7 @@ EphemerisInvalidReasonType = Literal[
 ]
 EphemerisSourceType = Literal["CUSTOMER_PROVIDED", "SPACE_TRACK"]
 EphemerisStatusType = Literal["DISABLED", "ENABLED", "ERROR", "EXPIRED", "INVALID", "VALIDATING"]
+EphemerisTypeType = Literal["AZ_EL", "OEM", "SERVICE_MANAGED", "TLE"]
 FrequencyUnitsType = Literal["GHz", "MHz", "kHz"]
 ListConfigsPaginatorName = Literal["list_configs"]
 ListContactsPaginatorName = Literal["list_contacts"]
@@ -143,7 +186,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -213,6 +255,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -258,7 +301,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -311,7 +353,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -350,8 +391,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -386,6 +425,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -395,6 +435,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -405,6 +446,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -426,8 +470,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -442,15 +484,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -481,6 +524,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -521,6 +565,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

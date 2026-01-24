@@ -9,37 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+import datetime as _dt
+from typing_extensions import TypedDict
+
+from .group_0173 import (
+    RulesetVersionPropActorType,
+    RulesetVersionPropActorTypeForResponse,
+)
 
 
-class IssueFieldValueType(TypedDict):
-    """Issue Field Value
+class RulesetVersionType(TypedDict):
+    """Ruleset version
 
-    A value assigned to an issue field
+    The historical version of a ruleset
     """
 
-    issue_field_id: int
-    node_id: str
-    data_type: Literal["text", "single_select", "number", "date"]
-    value: Union[str, float, int, None]
-    single_select_option: NotRequired[
-        Union[IssueFieldValuePropSingleSelectOptionType, None]
-    ]
+    version_id: int
+    actor: RulesetVersionPropActorType
+    updated_at: _dt.datetime
 
 
-class IssueFieldValuePropSingleSelectOptionType(TypedDict):
-    """IssueFieldValuePropSingleSelectOption
+class RulesetVersionTypeForResponse(TypedDict):
+    """Ruleset version
 
-    Details about the selected option (only present for single_select fields)
+    The historical version of a ruleset
     """
 
-    id: int
-    name: str
-    color: str
+    version_id: int
+    actor: RulesetVersionPropActorTypeForResponse
+    updated_at: str
 
 
 __all__ = (
-    "IssueFieldValuePropSingleSelectOptionType",
-    "IssueFieldValueType",
+    "RulesetVersionType",
+    "RulesetVersionTypeForResponse",
 )

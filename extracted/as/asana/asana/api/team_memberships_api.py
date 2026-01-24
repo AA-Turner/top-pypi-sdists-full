@@ -35,7 +35,7 @@ class TeamMembershipsApi(object):
     def get_team_membership(self, team_membership_gid, opts, **kwargs):  # noqa: E501
         """Get a team membership  # noqa: E501
 
-        Returns the complete team membership record for a single team membership.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns the complete team membership record for a single team membership.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_membership(team_membership_gid, async_req=True)
@@ -58,7 +58,7 @@ class TeamMembershipsApi(object):
     def get_team_membership_with_http_info(self, team_membership_gid, opts, **kwargs):  # noqa: E501
         """Get a team membership  # noqa: E501
 
-        Returns the complete team membership record for a single team membership.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns the complete team membership record for a single team membership.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_membership_with_http_info(team_membership_gid, async_req=True)
@@ -174,7 +174,7 @@ class TeamMembershipsApi(object):
     def get_team_memberships(self, opts, **kwargs):  # noqa: E501
         """Get team memberships  # noqa: E501
 
-        Returns compact team membership records.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns compact team membership records.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_memberships(async_req=True)
@@ -201,7 +201,7 @@ class TeamMembershipsApi(object):
     def get_team_memberships_with_http_info(self, opts, **kwargs):  # noqa: E501
         """Get team memberships  # noqa: E501
 
-        Returns compact team membership records.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns compact team membership records.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_memberships_with_http_info(async_req=True)
@@ -320,7 +320,7 @@ class TeamMembershipsApi(object):
     def get_team_memberships_for_team(self, team_gid, opts, **kwargs):  # noqa: E501
         """Get memberships from a team  # noqa: E501
 
-        Returns the compact team memberships for the team.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns the compact team memberships for the team.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_memberships_for_team(team_gid, async_req=True)
@@ -345,7 +345,7 @@ class TeamMembershipsApi(object):
     def get_team_memberships_for_team_with_http_info(self, team_gid, opts, **kwargs):  # noqa: E501
         """Get memberships from a team  # noqa: E501
 
-        Returns the compact team memberships for the team.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns the compact team memberships for the team.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_memberships_for_team_with_http_info(team_gid, async_req=True)
@@ -466,7 +466,7 @@ class TeamMembershipsApi(object):
     def get_team_memberships_for_user(self, user_gid, workspace, opts, **kwargs):  # noqa: E501
         """Get memberships from a user  # noqa: E501
 
-        Returns the compact team membership records for the user.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns the compact team membership records for the user.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_memberships_for_user(user_gid, workspace, async_req=True)
@@ -492,7 +492,7 @@ class TeamMembershipsApi(object):
     def get_team_memberships_for_user_with_http_info(self, user_gid, workspace, opts, **kwargs):  # noqa: E501
         """Get memberships from a user  # noqa: E501
 
-        Returns the compact team membership records for the user.  # noqa: E501
+        <b>Required scope: </b><code>team_memberships:read</code>  Returns the compact team membership records for the user.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.get_team_memberships_for_user_with_http_info(user_gid, workspace, async_req=True)

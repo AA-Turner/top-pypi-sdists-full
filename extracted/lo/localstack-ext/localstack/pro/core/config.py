@@ -21,6 +21,8 @@ UNPROTECTED_FILES = [
     "plugins.py",
     "packages.py",
     "localstack-pro-core/localstack/pro/core/runtime/plugin/api.py",
+    # the `alembic` folder is used by AppInspector to run migrations, it has a very specific file loading framework
+    "*/appinspector/database/alembic/*",
 ]
 
 # api server config
@@ -32,6 +34,14 @@ LOCALHOST_IP = "127.0.0.1"
 # base domain name used for endpoints of created resources (e.g., CloudFront distributions)
 RESOURCES_BASE_DOMAIN_NAME = (
     os.environ.get("RESOURCES_BASE_DOMAIN_NAME", "").strip() or localstack_host().host
+)
+
+# Product Entitlement (ProductInfo) data to consider in the DevLocalstackEnvironment
+# This is useful to check the functionality of non-boolean features (e.g., limit features)
+DEV_PRODUCT_ENTITLEMENTS_LIST = os.environ.get("DEV_PRODUCT_ENTITLEMENTS_LIST", "").strip()
+# Whether to allow all features in the DevLocalstackEnvironment or only the ones listed in DEV_FEATURE_ENTITLEMENT_LIST
+DEV_PRODUCT_ENTITLEMENTS_ALLOW_ALL = localstack_config.is_env_not_false(
+    "DEV_PRODUCT_ENTITLEMENTS_ALLOW_ALL"
 )
 
 # SMTP settings (required, e.g., for Cognito)
@@ -48,6 +58,10 @@ TRANSPARENT_LOCAL_ENDPOINTS = localstack_config.is_env_not_false("TRANSPARENT_LO
 DISABLE_TRANSPARENT_ENDPOINT_INJECTION = localstack_config.is_env_true(
     "DISABLE_TRANSPARENT_ENDPOINT_INJECTION"
 )
+
+# custom names to resolve to the LocalStack container
+# Note: we don't expose this in community as people could implement TEI with this method
+DNS_NAMES_RESOLVING_TO_LOCALSTACK = os.environ.get("DNS_NAMES_RESOLVING_TO_LOCALSTACK")
 
 # whether to enforce IAM policies when processing requests
 ENFORCE_IAM = localstack_config.is_env_true("ENFORCE_IAM")
@@ -107,13 +121,16 @@ LOCALSTACK_K8S_LABELS = os.environ.get("LOCALSTACK_K8S_LABELS") or os.environ.ge
 # Kubernetes pod annotations. Will be added to all spawned pods
 LOCALSTACK_K8S_ANNOTATIONS = os.environ.get("LOCALSTACK_K8S_ANNOTATIONS")
 
-# Kubernetes pod security context. Will be set on all spawned pods
-LOCALSTACK_K8S_SECURITY_CONTEXT = os.environ.get(
-    "LOCALSTACK_K8S_SECURITY_CONTEXT"
-) or os.environ.get("LAMBDA_K8S_SECURITY_CONTEXT")
+# Kubernetes container security context. Will be set on all containers in all spawned pods
+K8S_CONTAINER_SECURITY_CONTEXT = os.environ.get("K8S_CONTAINER_SECURITY_CONTEXT") or os.environ.get(
+    "LAMBDA_K8S_SECURITY_CONTEXT"
+)
+
+# K8S curl init image used to download files from LS into the LS pod, as init container
+K8S_CURL_INIT_IMAGE = os.environ.get("K8S_CURL_INIT_IMAGE") or "curlimages/curl:8.16.0"
 
 # Kubernetes init image used for downloading the init binary into the pod when using container lambdas
-LAMBDA_K8S_INIT_IMAGE = os.environ.get("LAMBDA_K8S_INIT_IMAGE")
+LAMBDA_K8S_INIT_IMAGE = os.environ.get("LAMBDA_K8S_INIT_IMAGE") or K8S_CURL_INIT_IMAGE
 
 # Kubernetes namespace for Localstack resources
 LOCALSTACK_K8S_NAMESPACE = os.environ.get("LOCALSTACK_K8S_NAMESPACE", "default")
@@ -172,6 +189,12 @@ EC2_DOCKER_INIT = localstack_config.is_env_not_false("EC2_DOCKER_INIT")
 # Libvirt connection URI to use when hypervisor is remote
 EC2_HYPERVISOR_URI = os.environ.get("EC2_HYPERVISOR_URI", "").strip() or "qemu:///system"
 
+# Name of the Libvirt network to use for all domains
+EC2_LIBVIRT_NETWORK = os.environ.get("EC2_LIBVIRT_NETWORK", "default").strip()
+
+# Name of the Libvirt storage pool to use for base images
+EC2_LIBVIRT_POOL = os.environ.get("EC2_LIBVIRT_POOL", "default").strip()
+
 # Flag to enable loading of DMS provider
 ENABLE_DMS = localstack_config.is_env_true("ENABLE_DMS")
 
@@ -208,8 +231,25 @@ EKS_STARTUP_TIMEOUT = int(os.environ.get("EKS_STARTUP_TIMEOUT", "180").strip())
 # Allow customisation of the k3s cluster
 EKS_K3S_FLAGS = os.environ.get("EKS_K3S_FLAGS")
 
+# Set EKS pod identity webhook image
+EKS_POD_IDENTITY_WEBHOOK_IMAGE = (
+    os.environ.get("EKS_POD_IDENTITY_WEBHOOK_IMAGE")
+    or "localstack/amazon-eks-pod-identity-webhook:v0.6.7"
+)
+
+# Set EKS Velero image
+EKS_VELERO_IMAGE = os.environ.get("EKS_VELERO_IMAGE") or "velero/velero:v1.17.0"
+
+# Set EKS Velero plugin for aws image
+EKS_VELERO_PLUGIN_AWS_IMAGE = (
+    os.environ.get("EKS_VELERO_PLUGIN_AWS_IMAGE") or "velero/velero-plugin-for-aws:v1.13.0"
+)
+
 # whether to automatically start Traefik in EKS K3D clusters
 EKS_START_K3D_LB_INGRESS = localstack_config.is_env_true("EKS_START_K3D_LB_INGRESS")
+
+# Whether to persist resources and data inside an eks cluster
+EKS_PERSIST_CLUSTER_CONTENTS = localstack_config.is_env_true("EKS_PERSIST_CLUSTER_CONTENTS")
 
 # Port where Hive/metastore/Spark are available for EMR/Athena
 PORT_HIVE_METASTORE = int(os.getenv("PORT_HIVE_METASTORE") or 9083)
@@ -335,6 +375,9 @@ ACTIVATE_PRO = localstack_config.is_env_not_false("ACTIVATE_PRO")
 # a comma-separated list of cloud pods to be automatically loaded at startup
 AUTO_LOAD_POD = os.environ.get("AUTO_LOAD_POD", "")
 
+# The strategy that gets applied when a state (currently only via cloudpods) gets loaded into LocalStack.
+MERGE_STRATEGY = (os.environ.get("MERGE_STRATEGY", "") or "account-region-merge").strip()
+
 # if true, we encrypt the pod before sending it to the remote. It requires a secret
 POD_ENCRYPTION = is_env_true("POD_ENCRYPTION")
 
@@ -411,14 +454,19 @@ NEPTUNE_GREMLIN_DEBUG = is_env_true("NEPTUNE_GREMLIN_DEBUG")
 # Instant job completion for MediaConvert
 MEDIACONVERT_DISABLE_JOB_DURATION = is_env_true("MEDIACONVERT_DISABLE_JOB_DURATION")
 
-# Batch provider override
-BATCH_LEGACY_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_BATCH") == "legacy"
+# Kafka provider override
+KAFKA_LEGACY_PROVIDER_OVERRIDE = os.getenv("PROVIDER_OVERRIDE_KAFKA") == "legacy"
 
-# EventStudio
-EVENTSTUDIO_DEV_ENABLE = is_env_true(
-    "EVENTSTUDIO_DEV_ENABLE"
-)  # flag to hide EventStudio before official release
-EVENTSTUDIO_ENABLE = is_env_true("EVENTSTUDIO_ENABLE")
+# Resource Groups Tagging API override
+RESOURCE_GROUPS_TAGGING_API_V2 = (
+    os.environ.get("PROVIDER_OVERRIDE_RESOURCEGROUPSTAGGINGAPI", "") == "v2"
+)
+
+# AppInspector
+APPINSPECTOR_DEV_ENABLE = is_env_true(
+    "APPINSPECTOR_DEV_ENABLE"
+)  # flag to hide AppInspector before official release
+APPINSPECTOR_ENABLE = is_env_true("APPINSPECTOR_ENABLE")
 
 # update variable names that need to be passed as arguments to Docker
 localstack_config.CONFIG_ENV_VARS += [
@@ -446,14 +494,20 @@ localstack_config.CONFIG_ENV_VARS += [
     "EC2_DOCKER_INIT",
     "EC2_DOWNLOAD_DEFAULT_IMAGES",
     "EC2_HYPERVISOR_URI",
+    "EC2_LIBVIRT_NETWORK",
+    "EC2_LIBVIRT_POOL",
     "EC2_REMOVE_CONTAINERS",
     "EC2_VM_MANAGER",
     "EKS_K3S_IMAGE_REPOSITORY",
     "EKS_K3S_IMAGE_TAG",
     "EKS_K8S_PROVIDER",
     "EKS_MOCK_CREATE_CLUSTER_DELAY",
+    "EKS_PERSIST_CLUSTER_CONTENTS",
     "EKS_STARTUP_TIMEOUT",
     "EKS_K3S_FLAGS",
+    "EKS_POD_IDENTITY_WEBHOOK_IMAGE",
+    "EKS_VELERO_IMAGE",
+    "EKS_VELERO_PLUGIN_AWS_IMAGE",
     "ENABLE_DMS",
     "ENABLE_POD_RESOURCES",
     "DMS_SERVERLESS_DEPROVISIONING_DELAY",

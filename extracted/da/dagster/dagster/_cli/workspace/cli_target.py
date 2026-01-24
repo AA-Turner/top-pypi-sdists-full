@@ -1,9 +1,9 @@
 import logging
 import os
 import sys
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
-from typing import Any, Callable, Optional, TypeVar, cast
+from typing import Any, Optional, TypeVar, cast
 
 import click
 from click import UsageError
@@ -466,6 +466,7 @@ def _get_code_pointer_dict_from_python_pointer_opts(
         working_directory=working_directory,
         attribute=params.attribute,
         autoload_defs_module_name=params.autoload_defs_module_name,
+        resolve_lazy_defs=True,
     )
 
     # repository_name -> code_pointer

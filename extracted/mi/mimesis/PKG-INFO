@@ -1,38 +1,40 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mimesis
-Version: 18.0.0
+Version: 19.1.0
 Summary: Mimesis: Fake Data Generator.
-Home-page: https://github.com/lk-geimfari/mimesis
-License: MIT
-Keywords: data,datascince,database,dummy,fake,faker,fixtures,generate,mimesis,mock,schema,dataframe,populate,testing,pandas,polars,pytest,factory,factory_boy
-Author: Isaak Uchakaev
-Author-email: hey@isaak.dev
-Requires-Python: >=3.10,<4.0
+Project-URL: Homepage, https://github.com/lk-geimfari/mimesis
+Project-URL: Repository, https://github.com/lk-geimfari/mimesis
+Project-URL: Documentation, https://mimesis.name
+Author-email: Isaak Uchakaev <hey@isaak.dev>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: data,database,dataframe,datascince,dummy,factory,factory_boy,fake,faker,fixtures,generate,mimesis,mock,pandas,polars,populate,pytest,schema,testing
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
+Requires-Python: >=3.10
 Provides-Extra: factory
-Provides-Extra: pytest
-Requires-Dist: factory-boy (>=3.3.0,<4.0.0) ; extra == "factory"
-Requires-Dist: pytest (>=7.2,<8.0) ; extra == "pytest"
-Project-URL: Documentation, https://mimesis.name
-Project-URL: Repository, https://github.com/lk-geimfari/mimesis
+Requires-Dist: factory-boy<4,>=3.3.0; extra == 'factory'
 Description-Content-Type: text/markdown
 
 <p align="center">
-  <a href="https://github.com/lk-geimfari/mimesis"><img src="https://raw.githubusercontent.com/lk-geimfari/mimesis/master/.github/images/logo.png" alt="Mimesis"></a>
+  <a href="https://github.com/lk-geimfari/mimesis">
+    <img src="https://raw.githubusercontent.com/lk-geimfari/mimesis/master/.github/images/logo.png" width="300" alt="Mimesis">
+  </a>
 </p>
 
 <p align="center">
@@ -53,7 +55,7 @@ Description-Content-Type: text/markdown
     <img src="https://img.shields.io/pypi/dm/mimesis" alt="Package version">
 </a>
 <a href="https://pypi.org/project/mimesis/" target="_blank">
-    <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%20pypy-brightgreen" alt="Supported Python versions">
+    <img src="https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14%20%7C%20pypy-brightgreen" alt="Supported Python versions">
 </a>
 </p>
 
@@ -63,20 +65,28 @@ Description-Content-Type: text/markdown
 
 ---
 
-Mimesis ([/mɪˈmiːsɪs](https://mimesis.name/en/latest/about.html#what-does-name-mean)) is a robust data generator for
+Mimesis ([/mɪˈmiːsɪs](https://mimesis.name/master/about.html#what-does-name-mean)) is a robust data generator for
 Python that can produce a wide range of fake data in various languages.
 
 The key features are:
 
-- **Multilingual**: Supports 35 different locales.
+- **Multilingual**: Supports 46 different locales.
 - **Extensibility**: Supports custom data providers and custom field handlers.
 - **Ease of use**: Features a simple design and clear documentation for straightforward data generation.
 - **Performance**: Widely recognized as the fastest data generator among Python solutions.
 - **Data variety**: Includes various data providers designed for different use cases.
 - **Schema-based generators**: Offers schema-based data generators to effortlessly produce data of any complexity.
+- **Relational data**: Supports generating relational data with references between schemas for complex data structures.
 - **Intuitive**: Great editor support. Fully typed, thus autocompletion almost everywhere.
 
 ## Installation
+
+> [!IMPORTANT]
+> To work with Mimesis on Python versions 3.8 and 3.9, the final compatible version is Mimesis 11.1.0. Install this specific version to ensure compatibility.
+
+> [!WARNING]
+> Starting from version 19.0.0, Mimesis has dropped support for builtin providers.
+
 
 To install mimesis, use pip:
 
@@ -84,25 +94,21 @@ To install mimesis, use pip:
 ~ pip install mimesis
 ```
 
-To work with Mimesis on Python versions 3.8 and 3.9, the final compatible version is Mimesis 11.1.0.
-Install this specific version to ensure compatibility.
-
 ## Documentation
 
 You can find the complete documentation on the [Read the Docs](https://mimesis.name/).
 
 It is divided into several sections:
 
--  [About Mimesis](https://mimesis.name/en/latest/about.html)
--  [Quickstart](https://mimesis.name/en/latest/quickstart.html)
--  [Locales](https://mimesis.name/en/latest/locales.html)
--  [Data Providers](https://mimesis.name/en/latest/providers.html)
--  [Structured Data Generation](https://mimesis.name/en/latest/schema.html)
--  [Random and Seed](https://mimesis.name/en/latest/random_and_seed.html)
--  [Integration with Pytest](https://mimesis.name/en/latest/pytest_plugin.html)
--  [Integration with factory_boy](https://mimesis.name/en/latest/factory_plugin.html)
--  [API Reference](https://mimesis.name/en/latest/api.html)
--  [Changelog](https://mimesis.name/en/latest/index.html#changelog)
+-  [About Mimesis](https://mimesis.name/latest/about.html)
+-  [Quickstart](https://mimesis.name/latest/quickstart.html)
+-  [Locales](https://mimesis.name/latest/locales.html)
+-  [Data Providers](https://mimesis.name/latest/providers.html)
+-  [Structured Data Generation](https://mimesis.name/latest/schema.html)
+-  [Random and Seed](https://mimesis.name/latest/random_and_seed.html)
+-  [Integration with factory_boy](https://mimesis.name/latest/factory_plugin.html)
+-  [API Reference](https://mimesis.name/latest/api.html)
+-  [Changelog](https://mimesis.name/latest/index.html#changelog)
 
 You can improve it by sending pull requests to this repository.
 
@@ -111,7 +117,7 @@ You can improve it by sending pull requests to this repository.
 The library is exceptionally user-friendly, and it only requires you to import a **Data Provider** object that
 corresponds to the desired data type.
 
-For instance, the [Person](https://mimesis.name/en/latest/api.html#person) provider can be imported to access personal information,
+For instance, the [Person](https://mimesis.name/latest/api.html#person) provider can be imported to access personal information,
 including name, surname, email, and other related fields:
 
 ```python
@@ -136,4 +142,3 @@ person.telephone(mask='1-4##-8##-5##3')
 ## License
 
 Mimesis is licensed under the MIT License. See [LICENSE](https://github.com/lk-geimfari/mimesis/blob/master/LICENSE) for more information.
-

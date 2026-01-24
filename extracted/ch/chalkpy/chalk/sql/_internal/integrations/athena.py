@@ -24,6 +24,7 @@ from chalk.sql.finalized_query import FinalizedChalkQuery
 from chalk.utils.df_utils import pa_array_to_pl_series
 from chalk.utils.log_with_context import get_logger
 from chalk.utils.missing_dependency import missing_dependency_exception
+from chalk.utils.pl_helpers import str_json_decode_compat
 from chalk.utils.threading import DEFAULT_IO_EXECUTOR, MultiSemaphore
 from chalk.utils.tracing import safe_incr, safe_set_gauge, safe_trace
 
@@ -485,7 +486,11 @@ class AthenaSourceImpl(BaseSQLSource):
                 if pa.types.is_list(expected_type) or pa.types.is_large_list(expected_type):
                     if pa.types.is_string(actual_type) or pa.types.is_large_string(actual_type):
                         series = pa_array_to_pl_series(tbl[col_name])
-                        column = series.str.json_extract(feature.converter.polars_dtype).to_arrow().cast(expected_type)
+                        column = (
+                            str_json_decode_compat(series, feature.converter.polars_dtype)
+                            .to_arrow()
+                            .cast(expected_type)
+                        )
                 if actual_type != expected_type:
                     column = column.cast(options=pc.CastOptions(target_type=expected_type, allow_time_truncate=True))
                 if isinstance(column, pa.ChunkedArray):

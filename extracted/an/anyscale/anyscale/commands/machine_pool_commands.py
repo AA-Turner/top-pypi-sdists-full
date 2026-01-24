@@ -3,6 +3,7 @@ This file holds all of the CLI commands for the "anyscale machine-pool" path.
 """
 
 import json
+from typing import Optional
 
 import click
 import tabulate
@@ -37,19 +38,9 @@ def machine_pool_cli() -> None:
     required=True,
     help="Provide a machine pool name (must be unique within an organization).",
 )
-@click.option(
-    "--enable-rootless-dataplane-config",
-    type=bool,
-    default=False,
-    required=False,
-    help="Enable the dataplane rootless configuration for nodes running under this machine pool.",
-)
-def create_machine_pool(name: str, enable_rootless_dataplane_config: bool) -> None:
+def create_machine_pool(name: str) -> None:
     machine_pool_controller = MachinePoolController()
-    output = machine_pool_controller.create_machine_pool(
-        machine_pool_name=name,
-        enable_rootless_dataplane_config=enable_rootless_dataplane_config,
-    )
+    output = machine_pool_controller.create_machine_pool(machine_pool_name=name,)
     print(
         f"Machine pool {output.machine_pool.machine_pool_name} has been created successfully (ID {output.machine_pool.machine_pool_id})."
     )
@@ -227,15 +218,20 @@ def list_machine_pools(format_: str) -> None:
             "MACHINE POOL",
             "ID",
             "Clouds",
-            "Rootless",
         ]
         for mp in result.machine_pools:
+            formatted_cloud_resources = [
+                machine_pool_controller.format_cloud_and_cloud_resources(
+                    cloud_id, cloud_resource_ids
+                )
+                for cloud_id, cloud_resource_ids in mp.cloud_resource_ids.items()
+            ]
+
             table.append(
                 [
                     mp.machine_pool_name,
                     mp.machine_pool_id,
-                    "\n".join(mp.cloud_ids),
-                    mp.enable_rootless_dataplane_config,
+                    "\n".join(formatted_cloud_resources),
                 ]
             )
         print(
@@ -251,7 +247,6 @@ def list_machine_pools(format_: str) -> None:
                     "machine_pool_name": mp.machine_pool_name,
                     "machine_pool_id": mp.machine_pool_id,
                     "cloud_ids": mp.cloud_ids,
-                    "enable_rootless_dataplane_config": mp.enable_rootless_dataplane_config,
                     "spec": mp.spec,
                 }
             )
@@ -262,33 +257,61 @@ def list_machine_pools(format_: str) -> None:
 
 @machine_pool_cli.command(
     name="attach",
-    help="Attach a machine pool to a cloud.",
+    help="Attach a machine pool to a cloud or cloud resource.",
     cls=AnyscaleCommand,
     example=command_examples.MACHINE_POOL_ATTACH_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")
 @click.option("--cloud", type=str, required=True, help="Provide a cloud name.")
-def attach_machine_pool_to_cloud(name: str, cloud: str) -> None:
+@click.option(
+    "--resource",
+    type=str,
+    required=False,
+    default=None,
+    help="For multi-resource clouds, the name of the cloud resource to attach to. If not provided, attaches to the primary cloud resource in the cloud.",
+)
+def attach_machine_pool_to_cloud(
+    name: str, cloud: str, resource: Optional[str] = None
+) -> None:
     machine_pool_controller = MachinePoolController()
     machine_pool_controller.attach_machine_pool_to_cloud(
-        machine_pool_name=name, cloud=cloud
+        machine_pool_name=name, cloud_name=cloud, cloud_resource_name=resource
     )
-    print(f"Attached machine pool '{name}' to cloud '{cloud}'.")
+    if resource:
+        print(
+            f"Attached machine pool '{name}' to resource '{resource}' in cloud '{cloud}'."
+        )
+    else:
+        print(f"Attached machine pool '{name}' to cloud '{cloud}'.")
 
 
 @machine_pool_cli.command(
     name="detach",
-    help="Detach a machine pool from a cloud.",
+    help="Detach a machine pool from a cloud or cloud resource.",
     cls=AnyscaleCommand,
     example=command_examples.MACHINE_POOL_DETACH_EXAMPLE,
     is_beta=True,
 )
 @click.option("--name", type=str, required=True, help="Provide a machine pool name.")
 @click.option("--cloud", type=str, required=True, help="Provide a cloud name.")
-def detach_machine_pool_from_cloud(name: str, cloud: str) -> None:
+@click.option(
+    "--resource",
+    type=str,
+    required=False,
+    default=None,
+    help="For multi-resource clouds, the name of the cloud resource to detach from. If not provided, detaches from the primary cloud resource in the cloud.",
+)
+def detach_machine_pool_from_cloud(
+    name: str, cloud: str, resource: Optional[str] = None
+) -> None:
     machine_pool_controller = MachinePoolController()
     machine_pool_controller.detach_machine_pool_from_cloud(
-        machine_pool_name=name, cloud=cloud
+        machine_pool_name=name, cloud_name=cloud, cloud_resource_name=resource
     )
-    print(f"Detached machine pool '{name}' from cloud '{cloud}'.")
+    if resource:
+        print(
+            f"Detached machine pool '{name}' from resource '{resource}' in cloud '{cloud}'."
+        )
+    else:
+        print(f"Detached machine pool '{name}' from cloud '{cloud}'.")

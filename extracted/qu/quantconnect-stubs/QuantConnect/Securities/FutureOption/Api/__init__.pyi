@@ -1,9 +1,108 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Securities.FutureOption.Api
 import System
+
+
+class CMEOptionExpirationEntry(System.Object):
+    """Chicago Mercantile Exchange Option Expiration Entry"""
+
+    @property
+    def month(self) -> int:
+        """Month of expiry"""
+        ...
+
+    @property
+    def year(self) -> int:
+        """Year of expiry"""
+        ...
+
+    @property
+    def code(self) -> str:
+        """Expiration code (two letter)"""
+        ...
+
+    @property
+    def two_digits_code(self) -> str:
+        """Expiration code (three letter)"""
+        ...
+
+
+class CMEOptionsExpiration(System.Object):
+    """
+    Future options Expiration entries. These are useful because we can derive the
+    future chain from this data, since FOP and FUT share a 1-1 expiry code.
+    """
+
+    @property
+    def label(self) -> str:
+        """Date of expiry"""
+        ...
+
+    @property
+    def product_id(self) -> int:
+        """Product ID of the expiring asset (usually future option)"""
+        ...
+
+    @property
+    def contract_id(self) -> str:
+        """Contract ID of the asset"""
+        ...
+
+    @property
+    def expiration(self) -> QuantConnect.Securities.FutureOption.Api.CMEOptionExpirationEntry:
+        """Contract month code formatted as <FUTURE_MONTH_LETTER(1)><YEAR(1)>"""
+        ...
+
+
+class CMEOptionsTradeDatesAndExpiration(System.Object):
+    """CME options trades, dates, and expiration list API call root response"""
+
+    @property
+    def label(self) -> str:
+        """Describes the type of future option this entry is"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Name of the product"""
+        ...
+
+    @property
+    def option_type(self) -> str:
+        """
+        Option type. "AME" for American, "EUR" for European.
+        Note that there are other types such as weekly, but we
+        only support American options for now.
+        """
+        ...
+
+    @property
+    def product_id(self) -> int:
+        """Product ID of the option"""
+        ...
+
+    @property
+    def daily(self) -> bool:
+        """Is Daily option"""
+        ...
+
+    @property
+    def sto(self) -> bool:
+        """???"""
+        ...
+
+    @property
+    def weekly(self) -> bool:
+        """Is weekly option"""
+        ...
+
+    @property
+    def expirations(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEOptionsExpiration]:
+        """Expirations of the future option"""
+        ...
 
 
 class CMEProductSlateV2ListEntry(System.Object):
@@ -84,105 +183,6 @@ class CMEOptionChainQuotes(System.Object):
     @property
     def quotes(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEOptionChainQuoteEntry]:
         """The future options contracts with/without settlements"""
-        ...
-
-
-class CMEOptionExpirationEntry(System.Object):
-    """Chicago Mercantile Exchange Option Expiration Entry"""
-
-    @property
-    def month(self) -> int:
-        """Month of expiry"""
-        ...
-
-    @property
-    def year(self) -> int:
-        """Year of expiry"""
-        ...
-
-    @property
-    def code(self) -> str:
-        """Expiration code (two letter)"""
-        ...
-
-    @property
-    def two_digits_code(self) -> str:
-        """Expiration code (three letter)"""
-        ...
-
-
-class CMEOptionsExpiration(System.Object):
-    """
-    Future options Expiration entries. These are useful because we can derive the
-    future chain from this data, since FOP and FUT share a 1-1 expiry code.
-    """
-
-    @property
-    def label(self) -> str:
-        """Date of expiry"""
-        ...
-
-    @property
-    def product_id(self) -> int:
-        """Product ID of the expiring asset (usually future option)"""
-        ...
-
-    @property
-    def contract_id(self) -> str:
-        """Contract ID of the asset"""
-        ...
-
-    @property
-    def expiration(self) -> QuantConnect.Securities.FutureOption.Api.CMEOptionExpirationEntry:
-        """Contract month code formatted as [FUTURE_MONTH_LETTER(1)][YEAR(1)]"""
-        ...
-
-
-class CMEOptionsTradeDatesAndExpiration(System.Object):
-    """CME options trades, dates, and expiration list API call root response"""
-
-    @property
-    def label(self) -> str:
-        """Describes the type of future option this entry is"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Name of the product"""
-        ...
-
-    @property
-    def option_type(self) -> str:
-        """
-        Option type. "AME" for American, "EUR" for European.
-        Note that there are other types such as weekly, but we
-        only support American options for now.
-        """
-        ...
-
-    @property
-    def product_id(self) -> int:
-        """Product ID of the option"""
-        ...
-
-    @property
-    def daily(self) -> bool:
-        """Is Daily option"""
-        ...
-
-    @property
-    def sto(self) -> bool:
-        """???"""
-        ...
-
-    @property
-    def weekly(self) -> bool:
-        """Is weekly option"""
-        ...
-
-    @property
-    def expirations(self) -> typing.List[QuantConnect.Securities.FutureOption.Api.CMEOptionsExpiration]:
-        """Expirations of the future option"""
         ...
 
 

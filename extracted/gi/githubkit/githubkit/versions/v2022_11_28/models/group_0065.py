@@ -14,42 +14,57 @@ from typing import Union
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0064 import MinimalRepository
+from .group_0003 import SimpleUser
 
 
-class Thread(GitHubModel):
-    """Thread
+class PullRequestReviewEventPropReview(GitHubModel):
+    """PullRequestReviewEventPropReview"""
 
-    Thread
-    """
-
-    id: str = Field()
-    repository: MinimalRepository = Field(
-        title="Minimal Repository", description="Minimal Repository"
+    id: Missing[int] = Field(default=UNSET)
+    node_id: Missing[str] = Field(default=UNSET)
+    user: Missing[Union[None, SimpleUser]] = Field(default=UNSET)
+    body: Missing[str] = Field(default=UNSET)
+    commit_id: Missing[str] = Field(default=UNSET)
+    submitted_at: Missing[Union[str, None]] = Field(default=UNSET)
+    state: Missing[str] = Field(default=UNSET)
+    html_url: Missing[str] = Field(default=UNSET)
+    pull_request_url: Missing[str] = Field(default=UNSET)
+    links: Missing[PullRequestReviewEventPropReviewPropLinks] = Field(
+        default=UNSET, alias="_links"
     )
-    subject: ThreadPropSubject = Field()
-    reason: str = Field()
-    unread: bool = Field()
-    updated_at: str = Field()
-    last_read_at: Union[str, None] = Field()
-    url: str = Field()
-    subscription_url: str = Field()
+    updated_at: Missing[str] = Field(default=UNSET)
 
 
-class ThreadPropSubject(GitHubModel):
-    """ThreadPropSubject"""
+class PullRequestReviewEventPropReviewPropLinks(GitHubModel):
+    """PullRequestReviewEventPropReviewPropLinks"""
 
-    title: str = Field()
-    url: str = Field()
-    latest_comment_url: str = Field()
-    type: str = Field()
+    html: PullRequestReviewEventPropReviewPropLinksPropHtml = Field()
+    pull_request: PullRequestReviewEventPropReviewPropLinksPropPullRequest = Field()
 
 
-model_rebuild(Thread)
-model_rebuild(ThreadPropSubject)
+class PullRequestReviewEventPropReviewPropLinksPropHtml(GitHubModel):
+    """PullRequestReviewEventPropReviewPropLinksPropHtml"""
+
+    href: str = Field()
+
+
+class PullRequestReviewEventPropReviewPropLinksPropPullRequest(GitHubModel):
+    """PullRequestReviewEventPropReviewPropLinksPropPullRequest"""
+
+    href: str = Field()
+
+
+model_rebuild(PullRequestReviewEventPropReview)
+model_rebuild(PullRequestReviewEventPropReviewPropLinks)
+model_rebuild(PullRequestReviewEventPropReviewPropLinksPropHtml)
+model_rebuild(PullRequestReviewEventPropReviewPropLinksPropPullRequest)
 
 __all__ = (
-    "Thread",
-    "ThreadPropSubject",
+    "PullRequestReviewEventPropReview",
+    "PullRequestReviewEventPropReviewPropLinks",
+    "PullRequestReviewEventPropReviewPropLinksPropHtml",
+    "PullRequestReviewEventPropReviewPropLinksPropPullRequest",
 )

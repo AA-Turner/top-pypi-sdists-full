@@ -32,13 +32,14 @@ jobs:
     name: Pre-commit checks
     uses: beeware/.github/.github/workflows/pre-commit-run.yml@main
     with:
-      runner-os: "macos-latest"
+      pre-commit-source: "--group pre-commit"
+      python-version: "3.13"  # docformatter is not compatible with 3.14
 
   towncrier:
     name: Check towncrier
     uses: beeware/.github/.github/workflows/towncrier-run.yml@main
     with:
-      runner-os: "macos-latest"
+      tox-source: "--group tox-uv"
 
   package:
     name: Package Rubicon-ObjC
@@ -58,44 +59,43 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Run all Python versions on macOS 15, intel + ARM
         platform: [
-          # X86-64 runners
-          "macos-13",
-          # M1 runners
-          "macos-14", "macos-15"
+          # X86-64 runner
+          "macos-15-intel",
+          # M1 runner
+          "macos-15",
         ]
-        python-version: [ "3.9", "3.10", "3.11", "3.12", "3.13", "3.14" ]
-        exclude:
-          # actions/setup-python doesn't provide Python 3.9 for M1.
-          - platform: "macos-14"
-            python-version : "3.9"
+        python-version: [ "3.10", "3.11", "3.12", "3.13", "3.14", "3.15" ]
 
-          - platform: "macos-15"
-            python-version : "3.9"
+        include:
+        # Also run the oldest supported Python on macos-14,
+        # and the newest non-dev Python on macos-26.
+        - python-version: "3.10"
+          platform: macos-14
+        - python-version: "3.14"
+          platform: macos-26
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4.2.2
+      uses: actions/checkout@v6.0.0
       with:
         fetch-depth: 0
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5.6.0
+      uses: actions/setup-python@v6.1.0
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
 
     - name: Get packages
-      uses: actions/download-artifact@v4.3.0
+      uses: actions/download-artifact@v6.0.0
       with:
         name: ${{ needs.package.outputs.artifact-name }}
         path: dist
 
     - name: Install Tox
-      uses: beeware/.github/.github/actions/install-requirement@main
-      with:
-        requirements: tox
-        extra: dev
+      run: python -m pip install --group tox-uv
 
     - name: Test
       run: tox -e py --installpkg dist/rubicon_objc-*.whl

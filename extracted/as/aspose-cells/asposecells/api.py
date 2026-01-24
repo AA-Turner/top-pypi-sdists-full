@@ -595,7 +595,6 @@ class ChartType(IntEnum):
     RADAR = 57,
     RADAR_FILLED = 59,
     RADAR_WITH_DATA_MARKERS = 58,
-    RADIAL_HISTOGRAM = 81,
     SCATTER = 60,
     SCATTER_CONNECTED_BY_CURVES_WITH_DATA_MARKER = 61,
     SCATTER_CONNECTED_BY_CURVES_WITHOUT_DATA_MARKER = 62,
@@ -807,6 +806,9 @@ class DataBarFillType(IntEnum):
 class DataBarNegativeColorType(IntEnum):
     COLOR = 0,
     SAME_AS_POSITIVE = 1,
+class DataBarRenderMode(IntEnum):
+    BACKGROUND_COLOR = 1,
+    IMAGE = 2,
 class DataLabelShapeType(IntEnum):
     BENT_LINE_CALLOUT = 11,
     BENT_LINE_WITH_ACCENT_BAR_CALLOUT = 13,
@@ -1463,6 +1465,9 @@ class HtmlHiddenColDisplayType(IntEnum):
 class HtmlHiddenRowDisplayType(IntEnum):
     HIDDEN = 0,
     REMOVE = 1,
+class HtmlLayoutMode(IntEnum):
+    NORMAL = 0,
+    PRINT = 1,
 class HtmlLinkTargetType(IntEnum):
     BLANK = 0,
     PARENT = 1,
@@ -1532,6 +1537,10 @@ class InputMethodEditorMode(IntEnum):
     NO_CONTROL = 0,
     OFF = 2,
     ON = 1,
+class ItemsWithNoDataShowMode(IntEnum):
+    LAST = 1,
+    NATURAL = 2,
+    NONE = 0,
 class JsonExportHyperlinkType(IntEnum):
     ADDRESS = 1,
     DISPLAY_STRING = 0,
@@ -2789,14 +2798,14 @@ class SignatureType(IntEnum):
     CUSTOM = 3,
     DEFAULT = 0,
     STAMP = 1,
+class SignificantDigitsType(IntEnum):
+    DIGITS_15 = 0,
+    G_17 = 1,
+    ROUNDING_17 = 2,
 class SlicerCacheCrossFilterType(IntEnum):
     NONE = 0,
     SHOW_ITEMS_WITH_DATA_AT_TOP = 1,
     SHOW_ITEMS_WITH_NO_DATA = 2,
-class SlicerCacheItemSortType(IntEnum):
-    ASCENDING = 1,
-    DESCENDING = 2,
-    NATURAL = 0,
 class SlicerStyleType(IntEnum):
     CUSTOM = 14,
     SLICER_STYLE_DARK_1 = 8,
@@ -3246,6 +3255,11 @@ class TiffCompression(IntEnum):
 class TiffPhotometricInterpretation(IntEnum):
     BLACKISZERO = 1,
     WHITEISZERO = 0,
+class TimelineLevelType(IntEnum):
+    DAY = 3,
+    MONTH = 2,
+    QUARTER = 1,
+    YEAR = 0,
 class TimePeriodType(IntEnum):
     LAST_7_DAYS = 3,
     LAST_MONTH = 5,
@@ -3360,7 +3374,6 @@ from com.aspose.cells import CopyOptions
 from com.aspose.cells import CustomFilterCollection
 from com.aspose.cells import CustomFunctionDefinition
 from com.aspose.cells import CustomPiovtFieldGroupItem
-from com.aspose.cells import CustomProperty
 from com.aspose.cells import CustomRenderSettings
 from com.aspose.cells import DataSorterKeyCollection
 from com.aspose.cells import DateTime

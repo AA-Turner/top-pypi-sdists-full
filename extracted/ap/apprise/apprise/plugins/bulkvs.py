@@ -56,7 +56,7 @@ class NotifyBulkVS(NotifyBase):
     secure_protocol = "bulkvs"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_bulkvs"
+    setup_url = "https://appriseit.com/services/bulkvs/"
 
     # BulkVS uses the http protocol with JSON requests
     notify_url = "https://portal.bulkvs.com/api/v1.0/messageSend"
@@ -294,7 +294,8 @@ class NotifyBulkVS(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

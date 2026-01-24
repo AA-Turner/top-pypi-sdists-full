@@ -1,37 +1,15 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: mdformat
-Version: 0.7.22
+Version: 1.0.0
 Summary: CommonMark compliant Markdown formatter
 Author-email: Taneli Hukkinen <hukkin@users.noreply.github.com>
-License: MIT License
-        
-        Copyright (c) 2021 Taneli Hukkinen
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: Homepage, https://github.com/hukkin/mdformat
 Project-URL: Documentation, https://mdformat.readthedocs.io
 Project-URL: Style guide, https://mdformat.readthedocs.io/en/stable/users/style.html
 Project-URL: Changelog, https://mdformat.readthedocs.io/en/stable/users/changelog.html
 Keywords: mdformat,markdown,commonmark,formatter,pre-commit
 Classifier: Environment :: Console
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
@@ -39,12 +17,12 @@ Classifier: Topic :: Documentation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: markdown-it-py<4.0.0,>=1.0.0
+Requires-Dist: markdown-it-py<5,>=1
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
-Requires-Dist: importlib-metadata>=3.6.0; python_version < "3.10"
+Dynamic: license-file
 
 <div align="center">
 

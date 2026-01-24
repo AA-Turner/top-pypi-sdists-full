@@ -9,7 +9,7 @@ import sys
 import urllib.parse
 from io import StringIO
 from pathlib import Path
-from typing import Any, Union, cast
+from typing import Any, cast
 
 import cwl_utils.expression as expr
 import pydot
@@ -403,8 +403,8 @@ def test_scandeps() -> None:
     }
 
     def loadref(
-        base: str, p: Union[CommentedMap, CommentedSeq, str, None]
-    ) -> Union[CommentedMap, CommentedSeq, str, None]:
+        base: str, p: CommentedMap | CommentedSeq | str | None
+    ) -> CommentedMap | CommentedSeq | str | None:
         if isinstance(p, dict):
             return p
         raise Exception("test case can't load things")
@@ -508,8 +508,8 @@ def test_scandeps_samedirname() -> None:
     }
 
     def loadref(
-        base: str, p: Union[CommentedMap, CommentedSeq, str, None]
-    ) -> Union[CommentedMap, CommentedSeq, str, None]:
+        base: str, p: CommentedMap | CommentedSeq | str | None
+    ) -> CommentedMap | CommentedSeq | str | None:
         if isinstance(p, dict):
             return p
         raise Exception("test case can't load things")
@@ -681,12 +681,13 @@ def test_compare_types_strict(
 
 
 typechecks = [
-    (["string", "int"], ["string", "int", "null"], None, None, "pass"),
-    (["string", "int"], ["string", "null"], None, None, "warning"),
-    (["File", "int"], ["string", "null"], None, None, "exception"),
+    (["string", "int"], ["string", "int", "null"], None, None, None, "pass"),
+    (["string", "int"], ["string", "null"], None, None, None, "warning"),
+    (["File", "int"], ["string", "null"], None, None, None, "exception"),
     (
         {"items": ["string", "int"], "type": "array"},
         {"items": ["string", "int", "null"], "type": "array"},
+        None,
         None,
         None,
         "pass",
@@ -696,6 +697,7 @@ typechecks = [
         {"items": ["string", "null"], "type": "array"},
         None,
         None,
+        None,
         "warning",
     ),
     (
@@ -703,22 +705,25 @@ typechecks = [
         {"items": ["string", "null"], "type": "array"},
         None,
         None,
+        None,
         "exception",
     ),
     # check linkMerge when sinktype is not an array
-    (["string", "int"], ["string", "int", "null"], "merge_nested", None, "exception"),
+    (["string", "int"], ["string", "int", "null"], "merge_nested", None, None, "exception"),
     # check linkMerge: merge_nested
     (
         ["string", "int"],
         {"items": ["string", "int", "null"], "type": "array"},
         "merge_nested",
         None,
+        None,
         "pass",
     ),
     (
         ["string", "int"],
         {"items": ["string", "null"], "type": "array"},
         "merge_nested",
+        None,
         None,
         "warning",
     ),
@@ -727,22 +732,25 @@ typechecks = [
         {"items": ["string", "null"], "type": "array"},
         "merge_nested",
         None,
+        None,
         "exception",
     ),
     # check linkMerge: merge_nested and sinktype is "Any"
-    (["string", "int"], "Any", "merge_nested", None, "pass"),
+    (["string", "int"], "Any", "merge_nested", None, None, "pass"),
     # check linkMerge: merge_flattened
     (
         ["string", "int"],
         {"items": ["string", "int", "null"], "type": "array"},
         "merge_flattened",
         None,
+        None,
         "pass",
     ),
     (
         ["string", "int"],
         {"items": ["string", "null"], "type": "array"},
         "merge_flattened",
+        None,
         None,
         "warning",
     ),
@@ -751,6 +759,7 @@ typechecks = [
         {"items": ["string", "null"], "type": "array"},
         "merge_flattened",
         None,
+        None,
         "exception",
     ),
     (
@@ -758,12 +767,14 @@ typechecks = [
         {"items": ["string", "int", "null"], "type": "array"},
         "merge_flattened",
         None,
+        None,
         "pass",
     ),
     (
         {"items": ["string", "int"], "type": "array"},
         {"items": ["string", "null"], "type": "array"},
         "merge_flattened",
+        None,
         None,
         "warning",
     ),
@@ -772,14 +783,16 @@ typechecks = [
         {"items": ["string", "null"], "type": "array"},
         "merge_flattened",
         None,
+        None,
         "exception",
     ),
     # check linkMerge: merge_flattened and sinktype is "Any"
-    (["string", "int"], "Any", "merge_flattened", None, "pass"),
+    (["string", "int"], "Any", "merge_flattened", None, None, "pass"),
     (
         {"items": ["string", "int"], "type": "array"},
         "Any",
         "merge_flattened",
+        None,
         None,
         "pass",
     ),
@@ -789,6 +802,82 @@ typechecks = [
         {"items": "string", "type": "array"},
         "merge_flattened",
         None,
+        None,
+        "pass",
+    ),
+    # check pickValue: all_non_null
+    (
+        {"items": ["null", "string"], "type": "array"},
+        {"items": "string", "type": "array"},
+        None,
+        "all_non_null",
+        None,
+        "pass",
+    ),
+    (
+        {"items": ["null", "string"], "type": "array"},
+        {"items": "string", "type": "array"},
+        None,
+        None,
+        None,
+        "warning",
+    ),
+    (
+        {"items": ["null", "string"], "type": "array"},
+        "string",
+        None,
+        "all_non_null",
+        None,
+        "exception",
+    ),
+    # check pickValue: first_non_null
+    (
+        {"items": ["null", "string"], "type": "array"},
+        "string",
+        None,
+        "first_non_null",
+        None,
+        "pass",
+    ),
+    (
+        {"items": ["null", "string"], "type": "array"},
+        "int",
+        None,
+        "first_non_null",
+        None,
+        "exception",
+    ),
+    # check pickValue: the_only_non_null
+    (
+        {"items": ["null", "int"], "type": "array"},
+        "int",
+        None,
+        "the_only_non_null",
+        None,
+        "pass",
+    ),
+    # check pickValue: all_non_null and linkMerge: merge_nested
+    (
+        [
+            {"items": ["null", "string"], "type": "array"},
+            {"items": ["null", "File"], "type": "array"},
+        ],
+        {"items": {"items": ["string", "File"], "type": "array"}, "type": "array"},
+        "merge_nested",
+        "all_non_null",
+        None,
+        "pass",
+    ),
+    # check pickValue: all_non_null and linkMerge: merge_flattened
+    (
+        [
+            {"items": ["null", "string"], "type": "array"},
+            {"items": ["null", "Directory"], "type": "array"},
+        ],
+        {"items": ["string", "Directory"], "type": "array"},
+        "merge_flattened",
+        "all_non_null",
+        None,
         "pass",
     ),
     # check valueFrom
@@ -796,18 +885,28 @@ typechecks = [
         {"items": ["File", "int"], "type": "array"},
         {"items": ["string", "null"], "type": "array"},
         "merge_flattened",
+        None,
         "special value",
         "pass",
     ),
 ]
 
 
-@pytest.mark.parametrize("src_type,sink_type,link_merge,value_from,expected_type", typechecks)
+@pytest.mark.parametrize(
+    "src_type,sink_type,link_merge,pick_value,value_from,expected_type", typechecks
+)
 def test_typechecking(
-    src_type: Any, sink_type: Any, link_merge: str, value_from: Any, expected_type: str
+    src_type: Any,
+    sink_type: Any,
+    link_merge: str,
+    pick_value: Any,
+    value_from: Any,
+    expected_type: str,
 ) -> None:
     assert (
-        cwltool.checker.check_types(src_type, sink_type, linkMerge=link_merge, valueFrom=value_from)
+        cwltool.checker.check_types(
+            src_type, sink_type, linkMerge=link_merge, pickValue=pick_value, valueFrom=value_from
+        )
         == expected_type
     )
 
@@ -995,8 +1094,10 @@ def test_var_spool_cwl_checker3() -> None:
 def test_print_dot() -> None:
     # print Workflow
     cwl_path = get_data("tests/wf/three_step_color.cwl")
-    expected_dot = pydot.graph_from_dot_data(
-        """
+    expected_dot = cast(
+        list[pydot.core.Dot],
+        pydot.graph_from_dot_data(
+            """
     digraph {{
         graph [bgcolor="#eeeeee",
                 clusterrank=local,
@@ -1041,10 +1142,11 @@ def test_print_dot() -> None:
         "command_line_tool" -> "file_output";
 }}
     """.format()
+        ),
     )[0]
     stdout = StringIO()
     assert main(["--debug", "--print-dot", cwl_path], stdout=stdout) == 0
-    computed_dot = pydot.graph_from_dot_data(stdout.getvalue())[0]
+    computed_dot = cast(list[pydot.core.Dot], pydot.graph_from_dot_data(stdout.getvalue()))[0]
     computed_edges = sorted((source, target) for source, target in computed_dot.obj_dict["edges"])
     expected_edges = sorted((source, target) for source, target in expected_dot.obj_dict["edges"])
     assert computed_edges == expected_edges

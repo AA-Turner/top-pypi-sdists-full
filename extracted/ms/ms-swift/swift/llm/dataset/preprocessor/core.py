@@ -11,6 +11,7 @@ from datasets import Dataset as HfDataset
 from datasets import Image
 from datasets import IterableDataset as HfIterableDataset
 from datasets import Sequence, Value
+from modelscope.hub.utils.utils import get_cache_dir
 
 from swift.llm import history_to_messages
 from swift.utils import get_logger, is_dist, is_master, safe_ddp_context
@@ -232,16 +233,6 @@ class RowPreprocessor:
 
         return dataset
 
-    def _rename_columns(self, dataset: DATASET_TYPE) -> DATASET_TYPE:
-        dataset = self.safe_rename_columns(dataset, self.origin_columns)
-        dataset = self.safe_rename_columns(dataset, self.columns)
-        if isinstance(dataset, HfIterableDataset):
-            # fix: https://github.com/huggingface/datasets/issues/6408
-            columns = {k: f'__@{k}' for k in RowPreprocessor.standard_keys if k in dataset.features}
-            if columns:
-                dataset = dataset.rename_columns(columns)
-        return dataset
-
     @staticmethod
     def remove_useless_columns(dataset: DATASET_TYPE) -> DATASET_TYPE:
         dataset = RowPreprocessor.get_features_dataset(dataset)
@@ -324,14 +315,27 @@ class RowPreprocessor:
         dataset = RowPreprocessor.get_features_dataset(dataset)
         if 'solution' in dataset.features:
             with safe_ddp_context(None, True):
+                if isinstance(dataset, HfDataset) and not dataset.cache_files:
+                    map_kwargs['cache_file_name'] = os.path.join(get_cache_dir(), 'datasets', 'map_cache',
+                                                                 f'{dataset._fingerprint}.arrow')
                 dataset = dataset.map(lambda x: {'__#solution': x['solution']}, **map_kwargs)
-        dataset = self._rename_columns(dataset)
+                map_kwargs.pop('cache_file_name', None)
+        dataset = self.safe_rename_columns(dataset, self.origin_columns)
+        dataset = self.safe_rename_columns(dataset, self.columns)
         dataset = self.prepare_dataset(dataset)
         dataset = self._cast_pil_image(dataset)
+        if isinstance(dataset, HfIterableDataset):
+            # fix: https://github.com/huggingface/datasets/issues/6408
+            columns = {k: f'__@{k}' for k in RowPreprocessor.standard_keys if k in dataset.features}
+            if columns:
+                dataset = dataset.rename_columns(columns)
 
         ignore_max_length_error = True if isinstance(dataset, HfDataset) and num_proc > 1 else False
         with self._patch_arrow_writer(), safe_ddp_context(None, True):
             try:
+                if isinstance(dataset, HfDataset) and not dataset.cache_files:
+                    map_kwargs['cache_file_name'] = os.path.join(get_cache_dir(), 'datasets', 'map_cache',
+                                                                 f'{dataset._fingerprint}.arrow')
                 dataset_mapped = dataset.map(
                     self.batched_preprocess,
                     fn_kwargs={
@@ -371,7 +375,7 @@ class ResponsePreprocessor(RowPreprocessor):
             if isinstance(response, (list, tuple)):
                 from transformers.utils import strtobool
                 # sometimes response is a list, pick one randomly
-                if strtobool(os.environ.get('RANDOM_DATASET_RESPONSE', 'True')):
+                if strtobool(os.environ.get('RANDOM_DATASET_RESPONSE', 'False')):
                     response = self.random_state.choice(response)
                 else:
                     response = response[0]

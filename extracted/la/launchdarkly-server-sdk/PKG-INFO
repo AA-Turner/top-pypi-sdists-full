@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: launchdarkly-server-sdk
-Version: 9.12.0
+Version: 9.14.1
 Summary: LaunchDarkly SDK for Python
 License: Apache-2.0
+License-File: LICENSE.txt
 Author: LaunchDarkly
 Author-email: dev@launchdarkly.com
 Requires-Python: >=3.9
@@ -15,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: consul
@@ -24,7 +26,7 @@ Provides-Extra: test-filesource
 Requires-Dist: boto3 (>=1.9.71) ; extra == "dynamodb"
 Requires-Dist: certifi (>=2018.4.16)
 Requires-Dist: expiringdict (>=1.1.4)
-Requires-Dist: launchdarkly-eventsource (>=1.2.4,<2.0.0)
+Requires-Dist: launchdarkly-eventsource (>=1.5.0,<2.0.0)
 Requires-Dist: pyRFC3339 (>=1.0)
 Requires-Dist: python-consul (>=1.0.1) ; extra == "consul"
 Requires-Dist: pyyaml (>=5.3.1) ; extra == "test-filesource"

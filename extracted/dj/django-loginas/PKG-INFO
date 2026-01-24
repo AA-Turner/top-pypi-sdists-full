@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-loginas
-Version: 0.3.12
+Version: 0.3.14
 Summary: An app to add a "Log in as user" button in the Django user admin page.
 Home-page: https://github.com/stochastic-technologies/django-loginas/
 Author: Stochastic Technologies
@@ -13,6 +13,12 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 2.2
 Classifier: Framework :: Django :: 3.2
 Classifier: Framework :: Django :: 4.0
+Classifier: Framework :: Django :: 4.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
@@ -21,8 +27,19 @@ Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 django-loginas
 ==============
@@ -160,6 +177,15 @@ This example uses a symlink:
 
 ```sh
 ln -s <path_to_site_packages>/loginas/static/loginas static/loginas
+```
+
+By default, specifying a reason is not required.
+You can override this behavior like so:
+
+```python
+# settings.py
+
+LOGINAS_LOGIN_REASON_REQUIRED = True
 ```
 
 Other implementation suggestions

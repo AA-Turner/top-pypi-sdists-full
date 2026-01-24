@@ -17,14 +17,12 @@ class PREFERENCES_OT_addon_disable(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -45,14 +43,12 @@ class PREFERENCES_OT_addon_enable(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -74,14 +70,12 @@ class PREFERENCES_OT_addon_expand(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -102,14 +96,12 @@ class PREFERENCES_OT_addon_install(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -137,14 +129,12 @@ class PREFERENCES_OT_addon_refresh(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -165,14 +155,12 @@ class PREFERENCES_OT_addon_remove(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -214,14 +202,12 @@ class PREFERENCES_OT_addon_show(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -242,14 +228,12 @@ class PREFERENCES_OT_app_template_install(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -277,14 +261,12 @@ class PREFERENCES_OT_copy_prev(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -313,14 +295,12 @@ class PREFERENCES_OT_keyconfig_activate(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -341,14 +321,12 @@ class PREFERENCES_OT_keyconfig_export(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -376,14 +354,12 @@ class PREFERENCES_OT_keyconfig_import(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -411,14 +387,12 @@ class PREFERENCES_OT_keyconfig_remove(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -446,14 +420,12 @@ class PREFERENCES_OT_keyconfig_test(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -474,14 +446,12 @@ class PREFERENCES_OT_keyitem_add(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -502,14 +472,12 @@ class PREFERENCES_OT_keyitem_remove(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -537,14 +505,12 @@ class PREFERENCES_OT_keyitem_restore(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -572,14 +538,12 @@ class PREFERENCES_OT_keymap_restore(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -598,14 +562,12 @@ class PREFERENCES_OT_script_directory_new(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -631,14 +593,12 @@ class PREFERENCES_OT_script_directory_remove(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -659,14 +619,12 @@ class PREFERENCES_OT_studiolight_copy_settings(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -687,14 +645,12 @@ class PREFERENCES_OT_studiolight_install(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -723,14 +679,12 @@ class PREFERENCES_OT_studiolight_new(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -764,14 +718,12 @@ class PREFERENCES_OT_studiolight_uninstall(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -792,14 +744,12 @@ class PREFERENCES_OT_theme_install(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:

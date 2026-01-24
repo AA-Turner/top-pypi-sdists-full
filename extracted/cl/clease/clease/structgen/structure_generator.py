@@ -1,4 +1,5 @@
 """Module for generating new structures."""
+
 from abc import ABC
 from copy import deepcopy
 import logging
@@ -116,13 +117,13 @@ class StructureGenerator(ABC):
                 if time.perf_counter() - now > self.output_every:
                     acc_rate = float(num_accepted) / count
                     msg = (
-                        f"T Step: {Ti+1:>{len_max_temp}} of {N}, "
+                        f"T Step: {Ti + 1:>{len_max_temp}} of {N}, "
                         # Print same len as max required
                         f"Temp: {temp:>10.3f}, "
                         # Print same len as max required
                         f"MC Step: {count:>{len_num_steps}d} of "
                         f"{self.num_steps_per_temp}, "
-                        f"Accept. rate: {acc_rate*100:.2f} %"
+                        f"Accept. rate: {acc_rate * 100:.2f} %"
                     )
                     logger.info(msg)
                     now = time.perf_counter()
@@ -367,7 +368,7 @@ class ProbeStructure(StructureGenerator):
                 self.mu = data["mu"]
                 self.o_mv = mean_variance(self.o_cfm, self.sigma, self.mu)
             else:
-                raise IOError(f"'{fname}' not found.")
+                raise OSError(f"'{fname}' not found.")
         else:
             self.o_mv = mean_variance_approx(self.o_cfm)
         self.avg_mv = 0.0
@@ -550,6 +551,6 @@ def precision_matrix(cfm):
     try:
         prec = inv(cfm.T.dot(cfm))
     # if inverting matrix leads to a singular matrix, reduce the matrix
-    except np.linalg.linalg.LinAlgError:
+    except np.linalg.LinAlgError:
         prec = pinv(cfm.T.dot(cfm))
     return prec

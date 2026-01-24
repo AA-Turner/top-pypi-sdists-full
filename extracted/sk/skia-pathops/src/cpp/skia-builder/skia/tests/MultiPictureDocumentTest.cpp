@@ -16,6 +16,7 @@
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
 #include "include/core/SkPath.h"
+#include "include/core/SkPathBuilder.h"
 #include "include/core/SkPicture.h"
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkRRect.h"
@@ -28,13 +29,16 @@
 #include "include/core/SkSurface.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
-#include "src/utils/SkMultiPictureDocument.h"
+#include "include/docs/SkMultiPictureDocument.h"
 #include "tests/Test.h"
-#include "tools/SkSharingProc.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <memory>
 #include <vector>
+
+#if defined(SK_CODEC_DECODES_PNG_WITH_LIBPNG)
+#include "tools/SkSharingProc.h"
 
 // Covers rects, ovals, paths, images, text
 static void draw_basic(SkCanvas* canvas, int seed, sk_sp<SkImage> image) {
@@ -61,8 +65,9 @@ static void draw_basic(SkCanvas* canvas, int seed, sk_sp<SkImage> image) {
     paint.setColor(SK_ColorYELLOW);
     canvas->drawRoundRect(rect, 10, 10, paint);
 
-    SkPath path;
-    path.cubicTo(768, 0, -512, 256, 256, 256);
+    SkPath path = SkPathBuilder()
+                  .cubicTo(768, 0, -512, 256, 256, 256)
+                  .detach();
     paint.setColor(SK_ColorGREEN);
     canvas->drawPath(path, paint);
 
@@ -74,8 +79,9 @@ static void draw_basic(SkCanvas* canvas, int seed, sk_sp<SkImage> image) {
     }
 
     SkPaint paint2;
-    auto text = SkTextBlob::MakeFromString(
-        SkStringPrintf("Frame %d", seed).c_str(), SkFont(nullptr, 2+seed));
+    SkFont font = ToolUtils::DefaultFont();
+    font.setSize(2 + seed);
+    auto text = SkTextBlob::MakeFromString(SkStringPrintf("Frame %d", seed).c_str(), font);
     canvas->drawTextBlob(text.get(), 50, 25, paint2);
 }
 
@@ -98,19 +104,20 @@ DEF_TEST(SkMultiPictureDocument_Serialize_and_deserialize, reporter) {
 
     // Create the image sharing proc.
     SkSharingSerialContext ctx;
+    ctx.setDirectContext(nullptr);
     SkSerialProcs procs;
     procs.fImageProc = SkSharingSerialContext::serializeImage;
     procs.fImageCtx = &ctx;
 
     // Create the multi picture document used for recording frames.
-    sk_sp<SkDocument> multipic = SkMakeMultiPictureDocument(&stream, &procs);
+    sk_sp<SkDocument> multipic = SkMultiPictureDocument::Make(&stream, &procs);
 
     static const int NUM_FRAMES = 12;
     static const int WIDTH = 256;
     static const int HEIGHT = 256;
 
     // Make an image to be used in a later step.
-    auto surface(SkSurface::MakeRasterN32Premul(100, 100));
+    auto surface(SkSurfaces::Raster(SkImageInfo::MakeN32Premul(100, 100)));
     surface->getCanvas()->clear(SK_ColorGREEN);
     sk_sp<SkImage> image(surface->makeImageSnapshot());
     REPORTER_ASSERT(reporter, image);
@@ -129,7 +136,7 @@ DEF_TEST(SkMultiPictureDocument_Serialize_and_deserialize, reporter) {
         draw_advanced(pictureCanvas, i, image, sub);
         multipic->endPage();
         // Also draw the picture to an image for later comparison
-        auto surf = SkSurface::MakeRaster(info);
+        auto surf = SkSurfaces::Raster(info);
         draw_advanced(surf->getCanvas(), i, image, sub);
         expectedImages.push_back(surf->makeImageSnapshot());
     }
@@ -149,15 +156,15 @@ DEF_TEST(SkMultiPictureDocument_Serialize_and_deserialize, reporter) {
     dprocs.fImageCtx = &deserialContext;
 
     // Confirm data is a MultiPictureDocument
-    int frame_count = SkMultiPictureDocumentReadPageCount(writtenStream.get());
+    int frame_count = SkMultiPictureDocument::ReadPageCount(writtenStream.get());
     REPORTER_ASSERT(reporter, frame_count == NUM_FRAMES,
         "Expected %d frames, got %d. \n 0 frames may indicate the written file was not a "
         "MultiPictureDocument.", NUM_FRAMES, frame_count);
 
-    // Deserailize
+    // Deserialize
     std::vector<SkDocumentPage> frames(frame_count);
     REPORTER_ASSERT(reporter,
-        SkMultiPictureDocumentRead(writtenStream.get(), frames.data(), frame_count, &dprocs),
+        SkMultiPictureDocument::Read(writtenStream.get(), frames.data(), frame_count, &dprocs),
         "Failed while reading MultiPictureDocument");
 
     // Examine each frame.
@@ -169,23 +176,26 @@ DEF_TEST(SkMultiPictureDocument_Serialize_and_deserialize, reporter) {
         REPORTER_ASSERT(reporter, bounds.height() == HEIGHT,
             "Page height: expected (%d) got (%d)", HEIGHT, (int)bounds.height());
 
-        auto surf = SkSurface::MakeRaster(info);
+        auto surf = SkSurfaces::Raster(info);
         surf->getCanvas()->drawPicture(frame.fPicture);
         auto img = surf->makeImageSnapshot();
-        REPORTER_ASSERT(reporter, ToolUtils::equal_pixels(img.get(), expectedImages[i].get()));
+        REPORTER_ASSERT(reporter, ToolUtils::equal_pixels(img.get(), expectedImages[i].get()),
+                        "Frame %d is wrong", i);
 
         i++;
     }
 }
-
+#endif
 
 #if defined(SK_GANESH) && defined(SK_BUILD_FOR_ANDROID) && __ANDROID_API__ >= 26
 
+#include "include/android/AHardwareBufferUtils.h"
+#include "include/android/GrAHardwareBufferUtils.h"
 #include "include/core/SkBitmap.h"
 #include "include/core/SkColorSpace.h"
 #include "include/core/SkColorType.h"
-#include "include/gpu/GrDirectContext.h"
-#include "src/gpu/ganesh/GrAHardwareBufferUtils_impl.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkImageGanesh.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrDirectContextPriv.h"
 
@@ -307,13 +317,15 @@ static sk_sp<SkImage> makeAHardwareBufferTestImage(
         backendFormat,
         false   // isRenderable
     );
-    SkColorType colorType = GrAHardwareBufferUtils::GetSkColorTypeFromBufferFormat(hwbDesc.format);
-    sk_sp<SkImage> image = SkImage::MakeFromTexture(
-        context, texture, kTopLeft_GrSurfaceOrigin, colorType, kPremul_SkAlphaType,
-        SkColorSpace::MakeSRGB(),
-        deleteProc,
-        imageCtx
-    );
+    SkColorType colorType = AHardwareBufferUtils::GetSkColorTypeFromBufferFormat(hwbDesc.format);
+    sk_sp<SkImage> image = SkImages::BorrowTextureFrom(context,
+                                                       texture,
+                                                       kTopLeft_GrSurfaceOrigin,
+                                                       colorType,
+                                                       kPremul_SkAlphaType,
+                                                       SkColorSpace::MakeSRGB(),
+                                                       deleteProc,
+                                                       imageCtx);
 
     REPORTER_ASSERT(reporter, image);
     REPORTER_ASSERT(reporter, image->isTextureBacked());
@@ -338,13 +350,14 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkMultiPictureDocument_AHardwarebuffer,
 
     // Create the image sharing proc.
     SkSharingSerialContext ctx;
+    ctx.setDirectContext(context);
     SkSerialProcs procs;
     procs.fImageProc = SkSharingSerialContext::serializeImage;
     procs.fImageCtx = &ctx;
 
     // Create the multi picture document used for recording frames.
     // Pass a lambda as the onEndPage callback that captures our sharing context
-    sk_sp<SkDocument> multipic = SkMakeMultiPictureDocument(&stream, &procs,
+    sk_sp<SkDocument> multipic = SkMultiPictureDocument::Make(&stream, &procs,
         [sharingCtx = &ctx](const SkPicture* pic) {
             SkSharingSerialContext::collectNonTextureImagesFromPicture(pic, sharingCtx);
         });
@@ -364,7 +377,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkMultiPictureDocument_AHardwarebuffer,
     draw_basic(pictureCanvas, 0, image);
     multipic->endPage();
     // Also draw the picture to an image for later comparison
-    auto surf = SkSurface::MakeRaster(info);
+    auto surf = SkSurfaces::Raster(info);
     draw_basic(surf->getCanvas(), 0, image);
     expectedImages.push_back(surf->makeImageSnapshot());
 
@@ -389,7 +402,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkMultiPictureDocument_AHardwarebuffer,
     dprocs.fImageCtx = &deserialContext;
 
     // Confirm data is a MultiPictureDocument
-    int frame_count = SkMultiPictureDocumentReadPageCount(writtenStream.get());
+    int frame_count = SkMultiPictureDocument::ReadPageCount(writtenStream.get());
     REPORTER_ASSERT(reporter, frame_count == 1,
         "Expected 1 frame, got %d. \n 0 frames may indicate the written file was not a "
         "MultiPictureDocument.", frame_count);
@@ -397,7 +410,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkMultiPictureDocument_AHardwarebuffer,
     // Deserialize
     std::vector<SkDocumentPage> frames(frame_count);
     REPORTER_ASSERT(reporter,
-        SkMultiPictureDocumentRead(writtenStream.get(), frames.data(), frame_count, &dprocs),
+        SkMultiPictureDocument::Read(writtenStream.get(), frames.data(), frame_count, &dprocs),
         "Failed while reading MultiPictureDocument");
 
     // Examine frame.
@@ -407,7 +420,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(SkMultiPictureDocument_AHardwarebuffer,
     REPORTER_ASSERT(reporter, bounds.height() == HEIGHT,
         "Page height: expected (%d) got (%d)", HEIGHT, (int)bounds.height());
 
-    auto surf2 = SkSurface::MakeRaster(info);
+    auto surf2 = SkSurfaces::Raster(info);
     surf2->getCanvas()->drawPicture(frames[0].fPicture);
     auto img = surf2->makeImageSnapshot();
     REPORTER_ASSERT(reporter, ToolUtils::equal_pixels(img.get(), expectedImages[0].get()));

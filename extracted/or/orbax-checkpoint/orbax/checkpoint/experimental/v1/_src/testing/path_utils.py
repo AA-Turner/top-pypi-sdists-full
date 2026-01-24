@@ -23,7 +23,7 @@ PathAwaitingCreation = path_types.PathAwaitingCreation
 
 
 class PathAwaitingCreationWrapper(path_types.PathAwaitingCreation):
-  """PathAwaitingCreation where the path is already created."""
+  """:py:class:`~.v1.path.PathAwaitingCreation` where the path is already created."""
 
   def __init__(self, path: Path):
     self._path = path
@@ -31,8 +31,8 @@ class PathAwaitingCreationWrapper(path_types.PathAwaitingCreation):
   def __truediv__(
       self, other: PathAwaitingCreation | PathLike
   ) -> PathAwaitingCreation:
-    if isinstance(other, PathAwaitingCreation):
-      other = other.path
+    if not isinstance(other, path_types.PathLike):
+      raise TypeError(f'Expected PathLike, got {type(other)}.')
     return PathAwaitingCreationWrapper(self._path / other)
 
   @property

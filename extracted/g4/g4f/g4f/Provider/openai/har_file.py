@@ -9,8 +9,10 @@ import uuid
 import random
 from urllib.parse import unquote
 from copy import deepcopy
-
-from .crypt import decrypt, encrypt
+try:
+    from .crypt import decrypt, encrypt
+except ImportError:
+    pass
 from ...requests import StreamSession
 from ...cookies import get_cookies_dir
 from ...errors import NoValidHarFileError
@@ -19,7 +21,7 @@ from ... import debug
 arkose_url = "https://tcr9i.chat.openai.com/fc/gt2/public_key/35536E1E-65B4-4D96-9D97-6ADB7EFF8147"
 backend_url = "https://chatgpt.com/backend-api/f/conversation"
 prepare_url = "https://chatgpt.com/backend-api/f/conversation/prepare"
-backend_anon_url = "https://chatgpt.com/backend-anon/conversation"
+backend_anon_url = "https://chatgpt.com/backend-anon/f/conversation"
 start_url = "https://chatgpt.com/"
 conversation_url = "https://chatgpt.com/c/"
 

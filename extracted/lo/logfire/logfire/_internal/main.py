@@ -26,7 +26,7 @@ import opentelemetry.trace as trace_api
 from opentelemetry.context import Context
 from opentelemetry.metrics import CallbackT, Counter, Histogram, UpDownCounter
 from opentelemetry.sdk.trace import ReadableSpan, Span
-from opentelemetry.trace import SpanContext, Tracer
+from opentelemetry.trace import SpanContext, SpanKind
 from opentelemetry.util import types as otel_types
 from typing_extensions import LiteralString, ParamSpec
 
@@ -60,7 +60,12 @@ from .json_schema import (
 )
 from .metrics import ProxyMeterProvider
 from .stack_info import get_user_stack_info
-from .tracer import ProxyTracerProvider, _LogfireWrappedSpan, record_exception, set_exception_status  # type: ignore
+from .tracer import (
+    ProxyTracerProvider,
+    _LogfireWrappedSpan,  # type: ignore
+    _ProxyTracer,  # type: ignore
+    set_exception_status,
+)
 from .utils import get_version, handle_internal_errors, log_internal_error, uniquify_sequence
 
 if TYPE_CHECKING:
@@ -83,6 +88,8 @@ if TYPE_CHECKING:
     from starlette.applications import Starlette
     from starlette.requests import Request
     from starlette.websockets import WebSocket
+    from surrealdb.connections.async_template import AsyncTemplate
+    from surrealdb.connections.sync_template import SyncTemplate
     from typing_extensions import Unpack
 
     from ..integrations.aiohttp_client import (
@@ -157,14 +164,14 @@ class Logfire:
         return self._meter_provider.get_meter(self._otel_scope, VERSION)
 
     @cached_property
-    def _logs_tracer(self) -> Tracer:
+    def _logs_tracer(self) -> _ProxyTracer:
         return self._get_tracer(is_span_tracer=False)
 
     @cached_property
-    def _spans_tracer(self) -> Tracer:
+    def _spans_tracer(self) -> _ProxyTracer:
         return self._get_tracer(is_span_tracer=True)
 
-    def _get_tracer(self, *, is_span_tracer: bool) -> Tracer:  # pragma: no cover
+    def _get_tracer(self, *, is_span_tracer: bool) -> _ProxyTracer:
         return self._tracer_provider.get_tracer(
             self._otel_scope,
             VERSION,
@@ -181,6 +188,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | int | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _span_kind: SpanKind = SpanKind.INTERNAL,
     ) -> LogfireSpan:
         try:
             if _level is not None:
@@ -236,25 +244,26 @@ class Logfire:
                 self._spans_tracer,
                 json_schema_properties,
                 links=_links,
+                span_kind=_span_kind,
             )
         except Exception:
             log_internal_error()
             return NoopSpan()  # type: ignore
 
-    def _fast_span(self, name: str, attributes: otel_types.Attributes) -> FastLogfireSpan:
+    def _fast_span(self, name: str, attributes: otel_types.Attributes, **kwargs: Any) -> FastLogfireSpan:
         """A simple version of `_span` optimized for auto-tracing that doesn't support message formatting.
 
         Returns a similarly simplified version of `LogfireSpan` which must immediately be used as a context manager.
         """
         try:
-            span = self._spans_tracer.start_span(name=name, attributes=attributes)
+            span = self._spans_tracer.start_span(name=name, attributes=attributes, **kwargs)
             return FastLogfireSpan(span)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
 
     def _instrument_span_with_args(
-        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any]
+        self, name: str, attributes: dict[str, otel_types.AttributeValue], function_args: dict[str, Any], **kwargs: Any
     ) -> FastLogfireSpan:
         """A version of `_span` used by `@instrument` with `extract_args=True`.
 
@@ -267,7 +276,7 @@ class Logfire:
             if json_schema_properties := attributes_json_schema_properties(function_args):  # pragma: no branch
                 attributes[ATTRIBUTES_JSON_SCHEMA_KEY] = attributes_json_schema(json_schema_properties)
             attributes.update(prepare_otlp_attributes(function_args))
-            return self._fast_span(name, attributes)
+            return self._fast_span(name, attributes, **kwargs)
         except Exception:  # pragma: no cover
             log_internal_error()
             return NoopSpan()  # type: ignore
@@ -533,6 +542,7 @@ class Logfire:
         _span_name: str | None = None,
         _level: LevelName | None = None,
         _links: Sequence[tuple[SpanContext, otel_types.Attributes]] = (),
+        _span_kind: SpanKind = SpanKind.INTERNAL,
         **attributes: Any,
     ) -> LogfireSpan:
         """Context manager for creating a span.
@@ -552,6 +562,10 @@ class Logfire:
             _tags: An optional sequence of tags to include in the span.
             _level: An optional log level name.
             _links: An optional sequence of links to other spans. Each link is a tuple of a span context and attributes.
+            _span_kind: The [OpenTelemetry span kind](https://opentelemetry.io/docs/concepts/signals/traces/#span-kind).
+                If not provided, defaults to `INTERNAL`.
+                Users don't typically need to set this.
+                Not related to the `kind` column of the `records` table in Logfire.
             attributes: The arguments to include in the span and format the message template with.
                 Attributes starting with an underscore are not allowed.
         """
@@ -564,6 +578,7 @@ class Logfire:
             _span_name=_span_name,
             _level=_level,
             _links=_links,
+            _span_kind=_span_kind,
         )
 
     @overload
@@ -575,6 +590,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
+        new_trace: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]]:
         """Decorator for instrumenting a function as a span.
 
@@ -598,6 +614,8 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
 
     @overload
@@ -624,6 +642,7 @@ class Logfire:
         extract_args: bool | Iterable[str] = True,
         record_return: bool = False,
         allow_generator: bool = False,
+        new_trace: bool = False,
     ) -> Callable[[Callable[P, R]], Callable[P, R]] | Callable[P, R]:
         """Decorator for instrumenting a function as a span.
 
@@ -647,11 +666,13 @@ class Logfire:
                 Ignored for generators.
             allow_generator: Set to `True` to prevent a warning when instrumenting a generator function.
                 Read https://logfire.pydantic.dev/docs/guides/advanced/generators/#using-logfireinstrument first.
+            new_trace: Set to `True` to start a new trace with a span link to the current span
+                instead of creating a child of the current span.
         """
         if callable(msg_template):
             return self.instrument()(msg_template)
         return instrument(
-            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator
+            self, tuple(self._tags), msg_template, span_name, extract_args, record_return, allow_generator, new_trace
         )
 
     def log(
@@ -753,13 +774,16 @@ class Logfire:
                 start_time=start_time,
             )
 
+            if not span.is_recording():
+                return
+
             if exc_info:
                 if exc_info is True:
                     exc_info = sys.exc_info()
                 if isinstance(exc_info, tuple):
                     exc_info = exc_info[1]
                 if isinstance(exc_info, BaseException):
-                    record_exception(span, exc_info)
+                    span.record_exception(exc_info)
                     if otlp_attributes[ATTRIBUTES_LOG_LEVEL_NUM_KEY] >= LEVEL_NUMBERS['error']:  # type: ignore
                         # Set the status description to the exception message.
                         # OTEL only lets us set the description when the status code is ERROR,
@@ -912,6 +936,21 @@ class Logfire:
     def _warn_if_not_initialized_for_instrumentation(self):
         self.config.warn_if_not_initialized('Instrumentation will have no effect')
 
+    def instrument_surrealdb(
+        self, obj: SyncTemplate | AsyncTemplate | type[SyncTemplate] | type[AsyncTemplate] | None = None
+    ) -> None:
+        """Instrument [SurrealDB](https://surrealdb.com/) connections, creating a span for each method.
+
+        Args:
+            obj: Pass a single connection instance to instrument only that connection.
+                Pass a connection class to instrument all instances of that class.
+                By default, all connection classes are instrumented.
+        """
+        from .integrations.surrealdb import instrument_surrealdb
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_surrealdb(obj, self)
+
     def instrument_mcp(self, *, propagate_otel_context: bool = True) -> None:
         """Instrument the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk).
 
@@ -983,8 +1022,10 @@ class Logfire:
         obj: pydantic_ai.Agent | None = None,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] = 'attributes',
         include_binary_content: bool | None = None,
+        include_content: bool | None = None,
+        version: Literal[1, 2, 3] | None = None,
+        event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> None: ...
 
@@ -994,8 +1035,10 @@ class Logfire:
         obj: pydantic_ai.models.Model,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] = 'attributes',
         include_binary_content: bool | None = None,
+        include_content: bool | None = None,
+        version: Literal[1, 2, 3] | None = None,
+        event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model: ...
 
@@ -1004,8 +1047,10 @@ class Logfire:
         obj: pydantic_ai.Agent | pydantic_ai.models.Model | None = None,
         /,
         *,
-        event_mode: Literal['attributes', 'logs'] | None = None,
         include_binary_content: bool | None = None,
+        include_content: bool | None = None,
+        version: Literal[1, 2, 3] | None = None,
+        event_mode: Literal['attributes', 'logs'] | None = None,
         **kwargs: Any,
     ) -> pydantic_ai.models.Model | None:
         """Instrument Pydantic AI.
@@ -1015,10 +1060,24 @@ class Logfire:
                 By default, all agents are instrumented.
                 You can also pass a specific model or agent.
                 If you pass a model, a new instrumented model will be returned.
-            event_mode: See the [Pydantic AI docs](https://ai.pydantic.dev/logfire/#data-format).
-                The default is whatever the default is in your version of Pydantic AI.
-            include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the events.
+            include_binary_content: Whether to include base64 encoded binary content (e.g. images) in the telemetry.
                 On by default. Requires Pydantic AI 0.2.5 or newer.
+            include_content: Whether to include prompts, completions, and tool call arguments and responses
+                in the telemetry. On by default. Requires Pydantic AI 0.3.4 or newer.
+            version: Version of the data format. This is unrelated to the Pydantic AI package version.
+                Requires Pydantic AI 0.7.5 or newer.
+                Version 1 is based on the legacy event-based OpenTelemetry GenAI spec
+                    and will be removed in a future release.
+                    The parameter `event_mode` is only relevant for version 1.
+                Version 2 uses the newer OpenTelemetry GenAI spec and stores messages in the following attributes:
+                    - `gen_ai.system_instructions` for instructions passed to the agent.
+                    - `gen_ai.input.messages` and `gen_ai.output.messages` on model request spans.
+                    - `pydantic_ai.all_messages` on agent run spans.
+                Version 3 changes the names of some attributes and spans but not the shape of the data.
+                The default version depends on Pydantic AI.
+            event_mode: The mode for emitting events in version 1.
+                If `'attributes'`, events are attached to the span as attributes.
+                If `'logs'`, events are emitted as OpenTelemetry log-based events.
             kwargs: Additional keyword arguments to pass to
                 [`InstrumentationSettings`](https://ai.pydantic.dev/api/models/instrumented/#pydantic_ai.models.instrumented.InstrumentationSettings)
                 for future compatibility.
@@ -1027,13 +1086,13 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
 
-        if include_binary_content is not None:
-            kwargs['include_binary_content'] = include_binary_content
-
         return instrument_pydantic_ai(
             self,
             obj=obj,
             event_mode=event_mode,
+            version=version,
+            include_content=include_content,
+            include_binary_content=include_binary_content,
             **kwargs,
         )
 
@@ -1315,6 +1374,18 @@ class Logfire:
 
         self._warn_if_not_initialized_for_instrumentation()
         instrument_litellm(self, **kwargs)
+
+    def instrument_dspy(self, **kwargs: Any):
+        """Instrument [DSPy](https://dspy.ai/).
+
+        Uses the `DSPyInstrumentor().instrument()` method of the
+        [`openinference-instrumentation-dspy`](https://pypi.org/project/openinference-instrumentation-dspy/)
+        package, to which it passes `**kwargs`.
+        """
+        from .integrations.dspy import instrument_dspy
+
+        self._warn_if_not_initialized_for_instrumentation()
+        instrument_dspy(self, **kwargs)
 
     def instrument_print(self) -> AbstractContextManager[None]:
         """Instrument the built-in `print` function so that calls to it are logged.
@@ -1777,7 +1848,9 @@ class Logfire:
     def instrument_aiohttp_client(
         self,
         *,
+        capture_all: bool | None = None,
         capture_headers: bool = False,
+        capture_request_body: bool = False,
         capture_response_body: bool = False,
         request_hook: AiohttpClientRequestHook | None = None,
         response_hook: AiohttpClientResponseHook | None = None,
@@ -1794,6 +1867,8 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_aiohttp_client(
             self,
+            capture_all=capture_all,
+            capture_request_body=capture_request_body,
             capture_response_body=capture_response_body,
             capture_headers=capture_headers,
             request_hook=request_hook,
@@ -1816,6 +1891,7 @@ class Logfire:
     def instrument_sqlalchemy(
         self,
         engine: AsyncEngine | Engine | None = None,
+        engines: Iterable[AsyncEngine | Engine] | None = None,
         enable_commenter: bool = False,
         commenter_options: SQLAlchemyCommenterOptions | None = None,
         **kwargs: Any,
@@ -1827,7 +1903,8 @@ class Logfire:
         library, specifically `SQLAlchemyInstrumentor().instrument()`, to which it passes `**kwargs`.
 
         Args:
-            engine: The `sqlalchemy` engine to instrument, or `None` to instrument all engines.
+            engine: The `sqlalchemy` engine to instrument.
+            engines: An iterable of `sqlalchemy` engines to instrument.
             enable_commenter: Adds comments to SQL queries performed by SQLAlchemy, so that database logs have additional context.
             commenter_options: Configure the tags to be added to the SQL comments.
             **kwargs: Additional keyword arguments to pass to the OpenTelemetry `instrument` methods.
@@ -1837,6 +1914,7 @@ class Logfire:
         self._warn_if_not_initialized_for_instrumentation()
         return instrument_sqlalchemy(
             engine=engine,
+            engines=engines,
             enable_commenter=enable_commenter,
             commenter_options=commenter_options or {},
             **{
@@ -2325,19 +2403,21 @@ class LogfireSpan(ReadableSpan):
         self,
         span_name: str,
         otlp_attributes: dict[str, otel_types.AttributeValue],
-        tracer: Tracer,
+        tracer: _ProxyTracer,
         json_schema_properties: JsonSchemaProperties,
         links: Sequence[tuple[SpanContext, otel_types.Attributes]],
+        span_kind: SpanKind = SpanKind.INTERNAL,
     ) -> None:
         self._span_name = span_name
         self._otlp_attributes = otlp_attributes
         self._tracer = tracer
         self._json_schema_properties = json_schema_properties
         self._links = list(trace_api.Link(context=context, attributes=attributes) for context, attributes in links)
+        self._span_kind = span_kind
 
         self._added_attributes = False
         self._token: None | Token[Context] = None
-        self._span: None | trace_api.Span = None
+        self._span: None | _LogfireWrappedSpan = None
 
     if not TYPE_CHECKING:  # pragma: no branch
 
@@ -2352,6 +2432,7 @@ class LogfireSpan(ReadableSpan):
             name=self._span_name,
             attributes=self._otlp_attributes,
             links=self._links,
+            kind=self._span_kind,
         )
 
     @handle_internal_errors
@@ -2451,15 +2532,7 @@ class LogfireSpan(ReadableSpan):
         if self._span is None:
             raise RuntimeError('Span has not been started')
 
-        # Check if the span has been sampled out first, since _record_exception is somewhat expensive.
-        if not self._span.is_recording():
-            return
-
-        span = self._span
-        while isinstance(span, _LogfireWrappedSpan):
-            span = span.span
-        record_exception(
-            span,
+        self._span.record_exception(
             exception,
             attributes=attributes,
             timestamp=timestamp,

@@ -3,7 +3,7 @@ Test for the Meilisearch search engine.
 """
 
 from datetime import datetime
-from unittest.mock import Mock, patch, PropertyMock
+from unittest.mock import Mock, patch, MagicMock, PropertyMock
 
 import django.test
 from django.utils import timezone
@@ -11,6 +11,7 @@ import meilisearch
 import pytest
 from requests import Response
 
+from search.api import course_discovery_aggregations
 from search.utils import DateRange, ValueRange
 import search.meilisearch
 
@@ -51,6 +52,8 @@ class EngineTests(django.test.TestCase):
     """
     MeilisearchEngine tests.
     """
+
+    aggregation_terms = course_discovery_aggregations()
 
     def test_index_empty_document(self):
         assert not search.meilisearch.process_nested_document({})
@@ -198,34 +201,43 @@ class EngineTests(django.test.TestCase):
         } == aggs["modes"]
 
     def test_search_params(self):
-        params = search.meilisearch.get_search_params()
+        params = search.meilisearch.get_search_params(aggregation_terms=self.aggregation_terms)
         self.assertTrue(params["showRankingScore"])
 
-        params = search.meilisearch.get_search_params(from_=0)
+        params = search.meilisearch.get_search_params(from_=0, aggregation_terms=self.aggregation_terms)
         assert 0 == params["offset"]
 
     def test_search_params_exclude_dictionary(self):
         # Simple value
         params = search.meilisearch.get_search_params(
-            exclude_dictionary={"course_visibility": "none"}
+            exclude_dictionary={"course_visibility": "none"},
+            aggregation_terms=self.aggregation_terms
         )
         assert ['NOT course_visibility = "none"'] == params["filter"]
 
         # Multiple IDs
         params = search.meilisearch.get_search_params(
-            exclude_dictionary={"id": ["1", "2"]}
+            exclude_dictionary={"id": ["1", "2"]},
+            aggregation_terms=self.aggregation_terms
         )
         assert [
             f'NOT {search.meilisearch.PRIMARY_KEY_FIELD_NAME} = "{search.meilisearch.id2pk("1")}"',
             f'NOT {search.meilisearch.PRIMARY_KEY_FIELD_NAME} = "{search.meilisearch.id2pk("2")}"',
         ] == params["filter"]
 
+        params = search.meilisearch.get_search_params(
+            exclude_dictionary={"language": ["en", "fr"]},
+            aggregation_terms=self.aggregation_terms
+        )
+        assert ['NOT language = "en"', 'NOT language = "fr"'] == params["filter"]
+
     def test_search_params_field_dictionary(self):
         params = search.meilisearch.get_search_params(
             field_dictionary={
                 "course": "course-v1:testorg+test1+alpha",
                 "org": "testorg",
-            }
+            },
+            aggregation_terms=self.aggregation_terms,
         )
         assert [
             'course = "course-v1:testorg+test1+alpha"',
@@ -237,28 +249,32 @@ class EngineTests(django.test.TestCase):
             field_dictionary={
                 'mode': 'honor',
                 "org": ["testorg", "testorg2"],
-            }
+            },
+            aggregation_terms=self.aggregation_terms,
         )
 
         assert [
             'mode = "honor"',
-            ['org = "testorg"', 'org = "testorg2"'],
+            'org = "testorg" OR org = "testorg2"',
         ] == params["filter"]
 
     def test_search_params_filter_dictionary(self):
         params = search.meilisearch.get_search_params(
-            filter_dictionary={"key": "value"}
+            filter_dictionary={"key": "value"},
+            aggregation_terms=self.aggregation_terms,
         )
         assert ['key = "value" OR key NOT EXISTS'] == params["filter"]
 
     def test_search_params_value_range(self):
         params = search.meilisearch.get_search_params(
-            filter_dictionary={"value": ValueRange(lower=1, upper=2)}
+            filter_dictionary={"value": ValueRange(lower=1, upper=2)},
+            aggregation_terms=self.aggregation_terms,
         )
         assert ["(value >= 1 AND value <= 2) OR value NOT EXISTS"] == params["filter"]
 
         params = search.meilisearch.get_search_params(
-            filter_dictionary={"value": ValueRange(lower=1)}
+            filter_dictionary={"value": ValueRange(lower=1)},
+            aggregation_terms=self.aggregation_terms,
         )
         assert ["value >= 1 OR value NOT EXISTS"] == params["filter"]
 
@@ -268,14 +284,16 @@ class EngineTests(django.test.TestCase):
                 "enrollment_end": DateRange(
                     lower=datetime(2024, 1, 1), upper=datetime(2024, 1, 2)
                 )
-            }
+            },
+            aggregation_terms=self.aggregation_terms,
         )
         assert [
             "(enrollment_end >= 1704067200.0 AND enrollment_end <= 1704153600.0) OR enrollment_end NOT EXISTS"
         ] == params["filter"]
 
         params = search.meilisearch.get_search_params(
-            filter_dictionary={"enrollment_end": DateRange(lower=datetime(2024, 1, 1))}
+            filter_dictionary={"enrollment_end": DateRange(lower=datetime(2024, 1, 1))},
+            aggregation_terms=self.aggregation_terms,
         )
         assert [
             "enrollment_end >= 1704067200.0 OR enrollment_end NOT EXISTS"
@@ -283,6 +301,7 @@ class EngineTests(django.test.TestCase):
 
     def test_search_params_sort_by(self):
         params = search.meilisearch.get_search_params(
+            aggregation_terms=self.aggregation_terms,
             sort_by=[
                 search.dataclasses.SortField(name="start", order="asc"),
                 search.dataclasses.SortField(name="title", order="desc"),
@@ -294,7 +313,7 @@ class EngineTests(django.test.TestCase):
         ] == params["sort"]
 
         # No sort by
-        params = search.meilisearch.get_search_params(sort_by=[])
+        params = search.meilisearch.get_search_params(aggregation_terms=self.aggregation_terms, sort_by=[])
         assert params.get("sort") is None
 
     @patch('search.meilisearch.MeilisearchEngine.meilisearch_index', new_callable=PropertyMock)
@@ -350,7 +369,7 @@ class EngineTests(django.test.TestCase):
             "estimatedTotalHits": 1,
         }
 
-        results = engine.search(
+        result = engine.search(
             query_string="abc",
             field_dictionary={
                 "course": "course-v1:testorg+test1+alpha",
@@ -362,7 +381,7 @@ class EngineTests(django.test.TestCase):
             log_search_params=True,
         )
 
-        engine.meilisearch_index.search.assert_called_with(
+        engine.meilisearch_index.search.assert_called_once_with(
             "abc",
             {
                 "showRankingScore": True,
@@ -375,23 +394,25 @@ class EngineTests(django.test.TestCase):
                 ],
             },
         )
-        assert results == {
-            "aggs": {},
-            "max_score": 0.865,
-            "results": [
-                {
-                    "_id": "course-v1:OpenedX+DemoX+DemoCourse",
-                    "_index": "my_index",
-                    "_type": "_doc",
-                    "data": {
-                        "id": "course-v1:OpenedX+DemoX+DemoCourse",
-                        "pk": "f381d4f1914235c9532576c0861d09b484ade634",
+
+        self.assertGreaterEqual(
+            result.items(),
+            {
+                "max_score": 0.865,
+                "took": 0,
+                "results": [
+                    {
+                        "_id": "course-v1:OpenedX+DemoX+DemoCourse",
+                        "_index": "my_index",
+                        "_type": "_doc",
+                        "data": {
+                            "id": "course-v1:OpenedX+DemoX+DemoCourse",
+                            "pk": "f381d4f1914235c9532576c0861d09b484ade634",
+                        },
                     },
-                },
-            ],
-            "took": 0,
-            "total": 1,
-        }
+                ]
+            }.items()
+        )
 
     @patch('search.meilisearch.MeilisearchEngine.meilisearch_index', new_callable=PropertyMock)
     def test_engine_remove(self, mock_meilisearch_index):
@@ -405,6 +426,167 @@ class EngineTests(django.test.TestCase):
         doc_pk = "81fe8bfe87576c3ecb22426f8e57847382917acf"
         engine.remove(doc_ids=[doc_id])
         engine.meilisearch_index.delete_documents.assert_called_with([doc_pk])
+
+    def test_multivalue_search_uses_or_to_join_rules_within_facet(self):
+        filter_dict = {
+            "language": ["en", "fr"]
+        }
+        rules = search.meilisearch.get_filter_rules(filter_dict, or_fields=["org", "modes", "language"])
+
+        self.assertListEqual(rules, ['language = "en" OR language = "fr"'])
+
+    def test_multivalue_search_expands_selected_facet_without_filtering(self):
+        multivalue_distribution = {'en': 1, 'fr': 2}
+
+        engine = search.meilisearch.MeilisearchEngine(index="test_index")
+        engine.meilisearch_index.search = Mock(
+            return_value={
+                'hits': [],
+                'query': '',
+                'processingTimeMs': 0,
+                'limit': 0,
+                'offset': 0,
+                'estimatedTotalHits': 4,
+                'facetDistribution':
+                    {'language': multivalue_distribution},
+                'facetStats': {}
+            }
+        )
+
+        original_filter = [
+            'language = "en" OR language = "fr"',
+            'modes = "audit" OR modes = "honor"',
+            'org = "EDX"',
+        ]
+        selected_facet = 'language'
+        actual_distribution = engine._get_expanded_distribution(  # pylint: disable=protected-access
+            '', selected_facet, original_filter
+        )
+        self.assertDictEqual(actual_distribution, multivalue_distribution)
+        (query, opt_params), _ = engine.meilisearch_index.search.call_args  # pylint: disable=unused-variable
+        self.assertIn(selected_facet, opt_params['facets'])
+        self.assertFalse(any(rule.startswith(f'{selected_facet} = ') for rule in opt_params['filter']))
+
+    def test_multivalue_search_merges_expanded_facet_distributions(self):
+        engine = search.meilisearch.MeilisearchEngine(index='test_index')
+        engine.meilisearch_index.search = Mock(side_effect=[
+            {
+                "hits": [],
+                "query": "",
+                "processingTimeMs": 5,
+                "limit": 20,
+                "offset": 0,
+                "estimatedTotalHits": 0,
+                "facetDistribution": {
+                    "language": {"en": 2},  # Narrowed distribution after selecting a facet value
+                    "org": {"EDX": 2}
+                },
+            },
+            {
+                "hits": [],
+                "facetDistribution": {
+                    "language": {"en": 2, "fr": 1}  # Expanded distribution for multivalue search
+                }
+            }
+        ])
+
+        results = engine.search(
+            query_string='',
+            field_dictionary={'language': ['en']},
+            aggregation_terms=self.aggregation_terms,
+            is_multivalue=True,
+        )
+        aggregations = results["aggs"]
+        self.assertIn("language", aggregations)
+        self.assertIn("org", aggregations)
+        self.assertDictEqual(
+            aggregations["language"]["terms"],
+            {"en": 2, "fr": 1}
+        )
+        self.assertDictEqual(aggregations["org"]["terms"], {"EDX": 2})
+
+    def test_single_value_search_narrows_selected_facet(self):
+        engine = search.meilisearch.MeilisearchEngine(index='test_index')
+        engine.meilisearch_index.search = Mock(side_effect=[
+            {
+                "hits": [],
+                "query": "",
+                "processingTimeMs": 5,
+                "limit": 20,
+                "offset": 0,
+                "estimatedTotalHits": 0,
+                "facetDistribution": {
+                    "language": {"en": 2},
+                    "org": {"EDX": 2}
+                },
+            },
+            {
+                "hits": [],
+                "facetDistribution": {
+                    "language": {"en": 2, "fr": 1}
+                }
+            }
+        ])
+
+        results = engine.search(
+            query_string='',
+            field_dictionary={'language': ['en']},
+            aggregation_terms=self.aggregation_terms,
+            is_multivalue=False,
+        )
+        aggregations = results["aggs"]
+        self.assertIn("language", aggregations)
+        self.assertIn("org", aggregations)
+        self.assertDictEqual(
+            aggregations["language"]["terms"],
+            {"en": 2}
+        )
+        self.assertDictEqual(aggregations["org"]["terms"], {"EDX": 2})
+
+    def test_facet_expansion_not_triggered_if_not_multivalue(self):
+        engine = search.meilisearch.MeilisearchEngine(index="test_index")
+        engine._expand_facet_distibutions = MagicMock()  # pylint: disable=protected-access
+        engine.meilisearch_index.search = Mock(
+            return_value={
+                "hits": [],
+                "facetDistribution": {},
+                "estimatedTotalHits": 0,
+                "processingTimeMs": 1,
+            }
+        )
+        engine.search(
+            field_dictionary={"language": "en"},
+            aggregation_terms=self.aggregation_terms,
+            is_multivalue=False
+        )
+        engine._expand_facet_distibutions.assert_not_called()  # pylint: disable=protected-access
+
+    def test_facet_expansion_is_triggered_if_multivalue(self):
+        engine = search.meilisearch.MeilisearchEngine(index="test_index")
+        engine._expand_facet_distibutions = MagicMock()  # pylint: disable=protected-access
+        engine.meilisearch_index.search = Mock(
+            return_value={
+                "hits": [],
+                "facetDistribution": {},
+                "estimatedTotalHits": 0,
+                "processingTimeMs": 1,
+            }
+        )
+        engine.search(
+            query_string="demo",
+            field_dictionary={"language": ["en"]},
+            aggregation_terms=self.aggregation_terms,
+            is_multivalue=True
+        )
+        engine._expand_facet_distibutions.assert_called_once()  # pylint: disable=protected-access
+
+    def test_multivalue_nonfacet_field_expands_to_multiple_rules(self):
+        # "title" is not a facet field
+        rules = search.meilisearch.get_filter_rules({"title": ["Intro", "Advanced"]})
+        self.assertIn('title = "Intro"', rules)
+        self.assertIn('title = "Advanced"', rules)
+        # Both values should appear separately
+        self.assertEqual(len(rules), 2)
 
 
 class UtilitiesTests(django.test.TestCase):

@@ -16,7 +16,6 @@ short_description: Delete a device.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "1.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -123,7 +122,7 @@ EXAMPLES = '''
             - "create_task"
             - "nonblocking"
       register: uninstalling_task
-    - name: Poll the task
+    - name: Poll the task of deleting device
       when: alldevices.meta.response_data != [] and False
       fortinet.fortimanager.fmgr_fact:
         facts:

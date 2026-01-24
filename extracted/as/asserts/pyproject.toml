@@ -1,38 +1,36 @@
-[tool.poetry]
+[project]
 name = "asserts"
-version = "0.13.1"
+version = "0.14.0"
 description = "Stand-alone Assertions"
 readme = "README.md"
-authors = ["Sebastian Rittau <srittau@rittau.biz>"]
+authors = [{ name = "Sebastian Rittau", email = "sebastian.rittau@zfutura.de" }]
 license = "MIT"
-homepage = "https://github.com/srittau/python-asserts"
-repository = "https://github.com/srittau/python-asserts"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Testing",
 ]
-packages = [{ include = "asserts" }]
-include = ["*/py.typed", "*.pyi"]
+requires-python = ">= 3.10"
+dependencies = ["typing-extensions >= 4.10.0, < 5"]
 
-[tool.poetry.urls]
+[project.urls]
+"Homepage" = "https://github.com/srittau/python-asserts"
+"Repository" = "https://github.com/srittau/python-asserts"
 "GitHub" = "https://github.com/srittau/python-asserts"
 "Bug Tracker" = "https://github.com/srittau/python-asserts/issues"
 "Changes" = "https://github.com/srittau/python-asserts/blob/main/CHANGELOG.md"
 
-[tool.poetry.dependencies]
-python = ">=3.8.1"
-typing-extensions = "^4.10.0"
+[dependency-groups]
+dev = ["mypy >= 1.14, < 1.15", "poethepoet", "ruff >= 0.14.0, < 0.15.0"]
 
-[tool.poetry.group.dev.dependencies]
-mypy = ">=1.9,<1.11"
-poethepoet = ">=0.25,<0.27"
-ruff = ">=0.3.2,<0.5.0"
+[tool.poetry]
+packages = [{ include = "asserts" }]
+include = ["*/py.typed", "*.pyi"]
 
 [tool.ruff]
 line-length = 79
-target-version = "py38"
+target-version = "py310"
 
 [tool.poe.tasks]
 test = "python3 -Wall -m unittest test_asserts"

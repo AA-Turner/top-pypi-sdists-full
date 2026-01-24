@@ -13,9 +13,10 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "include/core/SkTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrTypes.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrTypes.h"
 #include "include/private/base/SkDebug.h"
+#include "include/private/base/SkMacros.h"
 #include "include/private/base/SkTo.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/gpu/ResourceKey.h"
@@ -43,6 +44,7 @@ class GrTextureProxy;
 enum class SkBackingFit;
 namespace skgpu {
 enum class Budgeted : bool;
+enum class Mipmapped : bool;
 }
 
 class GrSurfaceProxy : public SkNVRefCnt<GrSurfaceProxy> {
@@ -87,7 +89,7 @@ public:
         SkISize fDimensions;
         SkBackingFit fFit;
         GrRenderable fRenderable;
-        GrMipmapped fMipmapped;
+        skgpu::Mipmapped fMipmapped;
         int fSampleCnt;
         const GrBackendFormat& fFormat;
         GrTextureType fTextureType;
@@ -339,7 +341,7 @@ public:
     static sk_sp<GrSurfaceProxy> Copy(GrRecordingContext*,
                                       sk_sp<GrSurfaceProxy> src,
                                       GrSurfaceOrigin,
-                                      GrMipmapped,
+                                      skgpu::Mipmapped,
                                       SkIRect srcRect,
                                       SkBackingFit,
                                       skgpu::Budgeted,
@@ -351,13 +353,13 @@ public:
     static sk_sp<GrSurfaceProxy> Copy(GrRecordingContext*,
                                       sk_sp<GrSurfaceProxy> src,
                                       GrSurfaceOrigin,
-                                      GrMipmapped,
+                                      skgpu::Mipmapped,
                                       SkBackingFit,
                                       skgpu::Budgeted,
                                       std::string_view label,
                                       sk_sp<GrRenderTask>* outTask = nullptr);
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     int32_t testingOnly_getBackingRefCnt() const;
     GrInternalSurfaceFlags testingOnly_getFlags() const;
     SkString dump() const;
@@ -366,7 +368,7 @@ public:
 #ifdef SK_DEBUG
     void validate(GrContext_Base*) const;
     SkString getDebugName() {
-        return fDebugName.isEmpty() ? SkStringPrintf("%d", this->uniqueID().asUInt()) : fDebugName;
+        return fDebugName.isEmpty() ? SkStringPrintf("%u", this->uniqueID().asUInt()) : fDebugName;
     }
     void setDebugName(SkString name) { fDebugName = std::move(name); }
 #endif
@@ -419,8 +421,10 @@ protected:
     virtual sk_sp<GrSurface> createSurface(GrResourceProvider*) const = 0;
     void assign(sk_sp<GrSurface> surface);
 
-    sk_sp<GrSurface> createSurfaceImpl(GrResourceProvider*, int sampleCnt, GrRenderable,
-                                       GrMipmapped) const;
+    sk_sp<GrSurface> createSurfaceImpl(GrResourceProvider*,
+                                       int sampleCnt,
+                                       GrRenderable,
+                                       skgpu::Mipmapped) const;
 
     // Once the dimensions of a fully-lazy proxy are decided, and before it gets instantiated, the
     // client can use this optional method to specify the proxy's dimensions. (A proxy's dimensions
@@ -432,8 +436,11 @@ protected:
         fDimensions = dimensions;
     }
 
-    bool instantiateImpl(GrResourceProvider* resourceProvider, int sampleCnt, GrRenderable,
-                         GrMipmapped, const skgpu::UniqueKey*);
+    bool instantiateImpl(GrResourceProvider* resourceProvider,
+                         int sampleCnt,
+                         GrRenderable,
+                         skgpu::Mipmapped,
+                         const skgpu::UniqueKey*);
 
     // For deferred proxies this will be null until the proxy is instantiated.
     // For wrapped proxies it will point to the wrapped resource.
@@ -492,6 +499,6 @@ private:
     SkDEBUGCODE(SkString   fDebugName;)
 };
 
-GR_MAKE_BITFIELD_CLASS_OPS(GrSurfaceProxy::ResolveFlags)
+SK_MAKE_BITFIELD_CLASS_OPS(GrSurfaceProxy::ResolveFlags)
 
 #endif

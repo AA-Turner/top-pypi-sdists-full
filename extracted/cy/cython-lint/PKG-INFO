@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cython-lint
-Version: 0.16.7
+Version: 0.18.1
 Summary: Lint Cython files
 Project-URL: Homepage, https://github.com/MarcoGorelli/cython-lint
 Project-URL: Bug Tracker, https://github.com/MarcoGorelli/cython-lint
@@ -39,6 +39,7 @@ Here's some major projects using ``cython-lint`` - is yours missing? Feel free t
 - [frozenlist](https://github.com/aio-libs/frozenlist)
 - [mkl_fft](https://github.com/IntelPython/mkl_fft)
 - [mkl-service](https://github.com/IntelPython/mkl-service)
+- [NumPy](https://github.com/numpy/numpy)
 - [open library](https://github.com/internetarchive/openlibrary)
 - [pandas](https://github.com/pandas-dev/pandas)
 - [pymatgen](https://github.com/materialsproject/pymatgen)
@@ -68,7 +69,7 @@ Sample `.pre-commit-config.yaml`:
 
 ```yaml
 -   repo: https://github.com/MarcoGorelli/cython-lint
-    rev: v0.16.7
+    rev: v0.18.1
     hooks:
     -   id: cython-lint
     -   id: double-quote-cython-strings
@@ -92,6 +93,7 @@ The following configuration options are available:
 as well as the following command-line arguments:
 - ``--max-line-length`` to control the maximum line length used by pycodestyle;
 - ``--no-pycodestyle`` if you don't want the pycodestyle checks;
+- ``--ban-relative-imports`` if you want to ban relative imports;
 - ``--ignore`` if you want to ignore some specific pycodestyle checks;
 - ``--files`` to pass a Regex pattern with which to match files to include;
 - ``--exclude`` to pass a Regex pattern with which to match files to exclude.
@@ -124,6 +126,7 @@ exclude = 'my_project/excluded_cython_file.pyx'
 - unnecessary import alias
 - variable defined but unused
 - variable imported but unused
+- unnecessary `list`/`set`/`dict` + generator (just use a comprehension)
 
 In addition, the following automated fixers are implemented:
 

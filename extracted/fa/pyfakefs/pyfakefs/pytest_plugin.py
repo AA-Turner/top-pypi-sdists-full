@@ -11,7 +11,6 @@ def my_fakefs_test(fs):
 
 import contextlib
 
-import py
 import pytest
 from _pytest import capture
 
@@ -19,14 +18,27 @@ from pyfakefs.fake_filesystem_unittest import Patcher, Pause
 
 try:
     from _pytest import pathlib
-except ImportError:
-    pathlib = None  # type:ignore[assignment]
 
-Patcher.SKIPMODULES.add(py)
+    Patcher.SKIPMODULES.add(pathlib)
+except ImportError:
+    pass
+
+try:
+    from coverage import python  # type:ignore[import]
+
+    Patcher.SKIPMODULES.add(python)
+except ImportError:
+    pass
+
+try:
+    import py
+
+    Patcher.SKIPMODULES.add(py)
+except ImportError:
+    pass
+
 Patcher.SKIPMODULES.add(pytest)
 Patcher.SKIPMODULES.add(capture)
-if pathlib is not None:
-    Patcher.SKIPMODULES.add(pathlib)
 
 
 @pytest.fixture

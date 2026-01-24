@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: procrastinate
-Version: 3.5.2
+Version: 3.7.2
 Summary: Postgres-based distributed task processing library
 Project-URL: homepage, https://procrastinate.readthedocs.io/
 Project-URL: source, https://github.com/procrastinate-org/procrastinate/
@@ -11,14 +11,14 @@ Author: Eric Lemoine, Kai Schlamp
 Author-email: Joachim Jablon <ewjoachim@gmail.com>
 License-File: LICENSE.md
 Keywords: postgres,task-queue
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: asgiref
 Requires-Dist: attrs
-Requires-Dist: contextlib2; python_version < '3.10'
 Requires-Dist: croniter
+Requires-Dist: packaging
 Requires-Dist: psycopg[pool]
 Requires-Dist: python-dateutil
 Requires-Dist: typing-extensions
@@ -49,7 +49,7 @@ Description-Content-Type: text/markdown
 
 **Procrastinate is looking for** [additional maintainers!](https://github.com/procrastinate-org/procrastinate/discussions/748)
 
-Procrastinate is an open-source Python 3.9+ distributed task processing
+Procrastinate is an open-source Python 3.10+ distributed task processing
 library, leveraging PostgreSQL 13+ to store task definitions, manage locks and
 dispatch tasks. It can be used within both sync and async code,
 has [Django] integration, and is easy to use with ASGI frameworks.

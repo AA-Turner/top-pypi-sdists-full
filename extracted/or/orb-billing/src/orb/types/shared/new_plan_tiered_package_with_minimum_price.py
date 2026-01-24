@@ -21,19 +21,19 @@ __all__ = [
 
 
 class TieredPackageWithMinimumConfigTier(BaseModel):
+    """Configuration for a single tier"""
+
     minimum_amount: str
-    """Minimum amount"""
 
     per_unit: str
-    """Price per package"""
 
     tier_lower_bound: str
-    """Tier lower bound"""
 
 
 class TieredPackageWithMinimumConfig(BaseModel):
+    """Configuration for tiered_package_with_minimum pricing"""
+
     package_size: float
-    """Package size"""
 
     tiers: List[TieredPackageWithMinimumConfigTier]
     """Apply tiered pricing after rounding up the quantity to the package size.

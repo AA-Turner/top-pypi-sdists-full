@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import databricks.sql
 import pyarrow as pa
@@ -295,15 +295,46 @@ class Backend(SQLBackend, CanCreateDatabase, UrlFromPath, PyArrowExampleLoader):
         """
         table = sg.table(
             table_name, db=database, catalog=catalog, quoted=self.compiler.quoted
-        ).sql(self.dialect)
+        )
+        view_name = sg.to_identifier(
+            util.gen_name(f"databricks_view_of_{table_name}"),
+            quoted=self.compiler.quoted,
+        )
+        view = sge.Create(
+            kind="VIEW",
+            this=view_name,
+            expression=sg.select(STAR).from_(table),
+            properties=sge.Properties(expressions=[sge.TemporaryProperty()]),
+        )
+        view_sql = view.sql(self.dialect)
         try:
             with self.con.cursor() as cur:
-                [(out,)] = cur.execute(f"DESCRIBE EXTENDED {table} AS JSON").fetchall()
+                # create a temporary view to get the schema
+                #
+                # this is necessary to support streaming tables, which don't
+                # directly support using
+                #
+                # DESCRIBE EXTENDED {streaming_table} AS JSON
+                #
+                # the create-a-view-then-drop-it strategy works for all table types
+                # it seems
+                cur.execute(view_sql)
         except databricks.sql.exc.ServerOperationError as e:
             raise exc.TableNotFound(
                 f"Table {table_name!r} not found in "
                 f"{catalog or self.current_catalog}.{database or self.current_database}"
             ) from e
+        try:
+            with self.con.cursor() as cur:
+                [(out,)] = cur.execute(
+                    f"DESCRIBE EXTENDED {view_name.sql(self.dialect)} AS JSON"
+                ).fetchall()
+        finally:
+            # clean up the temporary view
+            with self.con.cursor() as cur:
+                cur.execute(
+                    sge.Drop(this=view_name, kind="VIEW", exists=True).sql(self.dialect)
+                )
 
         js = json.loads(out)
         return _databricks_schema_to_ibis(js["columns"])
@@ -428,15 +459,11 @@ class Backend(SQLBackend, CanCreateDatabase, UrlFromPath, PyArrowExampleLoader):
         upstream_path = f"{self._memtable_volume_path}/{stem}"
         sql = sge.Create(
             kind="VIEW",
-            this=sg.table(
-                name,
-                db=self.current_database,
-                catalog=self.current_catalog,
-                quoted=quoted,
-            ),
-            expression=sge.select(STAR).from_(
+            this=sg.table(name, quoted=quoted),
+            expression=sg.select(STAR).from_(
                 sg.table(upstream_path, db="parquet", quoted=quoted)
             ),
+            properties=sge.Properties(expressions=[sge.TemporaryProperty()]),
         ).sql(self.dialect)
         data = op.data.to_pyarrow(schema=op.schema)
         with util.mktempd() as tmpdir:
@@ -449,16 +476,26 @@ class Backend(SQLBackend, CanCreateDatabase, UrlFromPath, PyArrowExampleLoader):
                 cur.execute(put_into)
                 cur.execute(sql)
 
-    def _finalize_memtable(self, name: str) -> None:
+    def _make_memtable_finalizer(self, name: str) -> Callable[..., None]:
         path = f"{self._memtable_volume_path}/{name}.parquet"
-        sql = sge.Drop(
-            kind="VIEW",
-            this=sg.to_identifier(name, quoted=self.compiler.quoted),
-            exists=True,
-        ).sql(self.dialect)
-        with self.con.cursor() as cur:
-            cur.execute(sql)
-            cur.execute(f"REMOVE '{path}'")
+
+        def finalizer(path: str = path, con=self.con) -> None:
+            """Finalizer for in-memory tables.
+
+            The view that references the storage is temporary and will be
+            automatically removed, so remove only the backing file.
+
+            It's not ideal that you can remove the data out from under the
+            view but in our case we're assuming that if this is invoked, the
+            view is no longer needed because the process is shutting down and
+            therefore if the file is removed, it won't be long before the view
+            is also removed (automatically by databricks).
+            """
+
+            with con.cursor() as cur:
+                cur.execute(f"REMOVE '{path}'")
+
+        return finalizer
 
     def create_database(
         self, name: str, /, *, catalog: str | None = None, force: bool = False

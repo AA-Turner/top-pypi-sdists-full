@@ -15,11 +15,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Code Generators",
     "Topic :: Software Development :: Interpreters",
 ]
@@ -34,7 +34,21 @@ keywords = [
 ]
 name = "abnf"
 readme = "README.md"
-requires-python = ">= 3.9"
+requires-python = ">= 3.10"
+
+
+[project.optional-dependencies]
+dev = [
+'check-manifest==0.51',
+'pre-commit==4.3.0',
+'pyright[nodejs]== 1.1.407',
+'pytest==8.4.2',
+'pytest-cov==7.0.0',
+'ruff==0.14.2',
+'setuptools==80.9.0',
+'setuptools_scm==9.2.2',
+'tox==4.31.0',
+]
 
 [tool.black]
 
@@ -47,10 +61,10 @@ ignore = [
 profile = "black"
 
 [tool.pyright]
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 ignore = [

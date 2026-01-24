@@ -24,6 +24,9 @@ from typing import (
 
 import humps
 from hopsworks_common import util
+from hsfs import (
+    storage_connector as sc,
+)
 
 
 class DataSource:
@@ -47,21 +50,17 @@ class DataSource:
         self._path = path
 
     @classmethod
-    def from_response_json(
-        cls, json_dict: Dict[str, Any]
-    ) -> DataSource:
+    def from_response_json(cls, json_dict: Dict[str, Any]) -> list[DataSource]:
         if json_dict is None:
-            return None
+            return None  # TODO: change to [] and fix the tests
 
         json_decamelized: dict = humps.decamelize(json_dict)
 
         if "items" not in json_decamelized:
+            # TODO: change to [cls(**json_decamelized)] and fix the tests
             return cls(**json_decamelized)
         else:
-            return [
-                cls(**item)
-                for item in json_decamelized["items"]
-            ]
+            return [cls(**item) for item in json_decamelized["items"]]
 
     def to_dict(self):
         return {
@@ -69,7 +68,7 @@ class DataSource:
             "database": self._database,
             "group": self._group,
             "table": self._table,
-            "path": self._path
+            "path": self._path,
         }
 
     def json(self):
@@ -114,3 +113,41 @@ class DataSource:
     @path.setter
     def path(self, path: str) -> None:
         self._path = path
+
+    def _update_storage_connector(self, storage_connector: sc.StorageConnector):
+        """
+        Update the storage connector configuration using DataSource.
+
+        This internal method updates the connectors target database, schema,
+        and table to match the information stored in the provided DataSource object.
+
+        # Arguments
+            storage_connector: A StorageConnector instance to be updated depending on the connector type.
+        """
+        if not storage_connector:
+            return
+
+        if storage_connector.type == sc.StorageConnector.REDSHIFT:
+            if self.database:
+                storage_connector._database_name = self.database
+            if self.group:
+                storage_connector._database_group = self.group
+            if self.table:
+                storage_connector._table_name = self.table
+        if storage_connector.type == sc.StorageConnector.SNOWFLAKE:
+            if self.database:
+                storage_connector._database = self.database
+            if self.group:
+                storage_connector._schema = self.group
+            if self.table:
+                storage_connector._table = self.table
+        if storage_connector.type == sc.StorageConnector.BIGQUERY:
+            if self.database:
+                storage_connector._query_project = self.database
+            if self.group:
+                storage_connector._dataset = self.group
+            if self.table:
+                storage_connector._query_table = self.table
+        if storage_connector.type == sc.StorageConnector.RDS:
+            if self.database:
+                storage_connector._database = self.database

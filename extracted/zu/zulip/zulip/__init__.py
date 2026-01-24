@@ -29,7 +29,7 @@ import distro
 import requests
 from typing_extensions import Literal, override
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 # Ensure the Python version is supported
 assert sys.version_info >= (3, 6)
@@ -548,7 +548,8 @@ class Client:
             pass
 
         if vendor == "Linux":
-            vendor, vendor_version, dummy = distro.linux_distribution()
+            vendor = distro.name()
+            vendor_version = distro.version()
         elif vendor == "Windows":
             vendor_version = platform.win32_ver()[1]
         elif vendor == "Darwin":
@@ -1487,6 +1488,15 @@ class Client:
         See examples/get-stream-topics for example usage.
         """
         return self.call_endpoint(url=f"users/me/{stream_id}/topics", method="GET")
+
+    def get_stream_email_address(self, stream_id: int) -> Dict[str, Any]:
+        """
+        Example usage:
+
+        >>> client.get_stream_email_address(stream_id=1)
+        {'result': 'success', 'msg': '', 'email': 'username@example.com'}
+        """
+        return self.call_endpoint(url=f"streams/{stream_id}/email_address", method="GET")
 
     def get_user_groups(self) -> Dict[str, Any]:
         """

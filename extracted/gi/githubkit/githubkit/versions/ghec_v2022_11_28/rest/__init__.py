@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from .emojis import EmojisClient
     from .enterprise_admin import EnterpriseAdminClient
     from .enterprise_team_memberships import EnterpriseTeamMembershipsClient
+    from .enterprise_team_organizations import EnterpriseTeamOrganizationsClient
     from .enterprise_teams import EnterpriseTeamsClient
     from .gists import GistsClient
     from .git import GitClient
@@ -48,7 +49,6 @@ if TYPE_CHECKING:
     from .packages import PackagesClient
     from .private_registries import PrivateRegistriesClient
     from .projects import ProjectsClient
-    from .projects_classic import ProjectsClassicClient
     from .pulls import PullsClient
     from .rate_limit import RateLimitClient
     from .reactions import ReactionsClient
@@ -190,6 +190,12 @@ class RestNamespace:
         return EnterpriseTeamMembershipsClient(self._github)
 
     @cached_property
+    def enterprise_team_organizations(self) -> "EnterpriseTeamOrganizationsClient":
+        from .enterprise_team_organizations import EnterpriseTeamOrganizationsClient
+
+        return EnterpriseTeamOrganizationsClient(self._github)
+
+    @cached_property
     def activity(self) -> "ActivityClient":
         from .activity import ActivityClient
 
@@ -280,12 +286,6 @@ class RestNamespace:
         return PrivateRegistriesClient(self._github)
 
     @cached_property
-    def projects_classic(self) -> "ProjectsClassicClient":
-        from .projects_classic import ProjectsClassicClient
-
-        return ProjectsClassicClient(self._github)
-
-    @cached_property
     def projects(self) -> "ProjectsClient":
         from .projects import ProjectsClient
 
@@ -298,12 +298,6 @@ class RestNamespace:
         return HostedComputeClient(self._github)
 
     @cached_property
-    def reactions(self) -> "ReactionsClient":
-        from .reactions import ReactionsClient
-
-        return ReactionsClient(self._github)
-
-    @cached_property
     def rate_limit(self) -> "RateLimitClient":
         from .rate_limit import RateLimitClient
 
@@ -314,6 +308,12 @@ class RestNamespace:
         from .checks import ChecksClient
 
         return ChecksClient(self._github)
+
+    @cached_property
+    def reactions(self) -> "ReactionsClient":
+        from .reactions import ReactionsClient
+
+        return ReactionsClient(self._github)
 
     @cached_property
     def dependency_graph(self) -> "DependencyGraphClient":

@@ -11,9 +11,9 @@ This private submodule is *not* intended for importation by downstream callers.
 
 # ....................{ IMPORTS                            }....................
 from beartype.roar import BeartypeDecorHintPep557Exception
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.datahinttyping import TypeException
-from beartype._data.hint.pep.sign.datapepsigns import (
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.typing.datatyping import TypeException
+from beartype._data.hint.sign.datahintsigns import (
     HintSignPep557DataclassInitVar)
 
 # ....................{ GETTERS                            }....................
@@ -31,8 +31,8 @@ def get_hint_pep557_initvar_arg(
     subscription of the :class:`dataclasses.InitVar` type hint factory).
 
     This getter is intentionally *not* memoized (e.g., by the
-    :func:`callable_cached` decorator), as the implementation trivially reduces
-    to an efficient one-liner.
+    ``callable_cached`` decorator), as the implementation trivially reduces to
+    an efficient one-liner.
 
     Parameters
     ----------

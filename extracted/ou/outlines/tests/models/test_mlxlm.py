@@ -121,7 +121,22 @@ def test_mlxlm_stream_text_stop(model):
 
 @pytest.mark.skipif(not HAS_MLX, reason="MLX tests require Apple Silicon")
 def test_mlxlm_batch(model):
-    with pytest.raises(NotImplementedError, match="does not support"):
+    result = model.batch(
+        ["Respond with one word.", "Respond with one word."],
+    )
+    assert isinstance(result, list)
+    assert len(result) == 2
+    assert isinstance(result[0], str)
+    assert isinstance(result[1], str)
+
+
+@pytest.mark.skipif(not HAS_MLX, reason="MLX tests require Apple Silicon")
+def test_mlxlm_batch_output_type(model):
+    with pytest.raises(
+        NotImplementedError,
+        match="mlx-lm does not support constrained generation with batching."
+    ):
         model.batch(
             ["Respond with one word.", "Respond with one word."],
+            Regex(r"[0-9]")
         )

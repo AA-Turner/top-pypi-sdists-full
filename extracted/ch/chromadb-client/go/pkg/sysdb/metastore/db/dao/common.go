@@ -36,3 +36,11 @@ func (*MetaDomain) SegmentDb(ctx context.Context) dbmodel.ISegmentDb {
 func (*MetaDomain) SegmentMetadataDb(ctx context.Context) dbmodel.ISegmentMetadataDb {
 	return &segmentMetadataDb{dbcore.GetDB(ctx)}
 }
+
+func (*MetaDomain) AttachedFunctionDb(ctx context.Context) dbmodel.IAttachedFunctionDb {
+	return &attachedFunctionDb{dbcore.GetDB(ctx)}
+}
+
+func (*MetaDomain) FunctionDb(ctx context.Context) dbmodel.IFunctionDb {
+	return &functionDb{dbcore.GetDB(ctx)}
+}

@@ -2,14 +2,22 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from dateutil.parser import isoparse
-
 from ..core import BaseDomain, DomainIdentityMixin
 
 if TYPE_CHECKING:
     from ..actions import BoundAction
     from ..servers import BoundServer, Server
     from .client import BoundFirewall
+
+
+__all__ = [
+    "Firewall",
+    "FirewallRule",
+    "FirewallResource",
+    "FirewallResourceAppliedToResources",
+    "FirewallResourceLabelSelector",
+    "CreateFirewallResponse",
+]
 
 
 class Firewall(BaseDomain, DomainIdentityMixin):
@@ -46,7 +54,7 @@ class Firewall(BaseDomain, DomainIdentityMixin):
         self.rules = rules
         self.applied_to = applied_to
         self.labels = labels
-        self.created = isoparse(created) if created else None
+        self.created = self._parse_datetime(created)
 
 
 class FirewallRule(BaseDomain):
@@ -97,7 +105,7 @@ class FirewallRule(BaseDomain):
         self,
         direction: str,
         protocol: str,
-        source_ips: list[str],
+        source_ips: list[str] | None = None,
         port: str | None = None,
         destination_ips: list[str] | None = None,
         description: str | None = None,
@@ -105,7 +113,7 @@ class FirewallRule(BaseDomain):
         self.direction = direction
         self.port = port
         self.protocol = protocol
-        self.source_ips = source_ips
+        self.source_ips = source_ips or []
         self.destination_ips = destination_ips or []
         self.description = description
 
@@ -116,8 +124,9 @@ class FirewallRule(BaseDomain):
         payload: dict[str, Any] = {
             "direction": self.direction,
             "protocol": self.protocol,
-            "source_ips": self.source_ips,
         }
+        if len(self.source_ips) > 0:
+            payload["source_ips"] = self.source_ips
         if len(self.destination_ips) > 0:
             payload["destination_ips"] = self.destination_ips
         if self.port is not None:

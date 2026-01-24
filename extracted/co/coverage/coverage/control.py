@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Central control stuff for coverage.py."""
 
@@ -8,18 +8,18 @@ from __future__ import annotations
 import atexit
 import collections
 import contextlib
+import datetime
 import functools
 import os
 import os.path
-import platform
 import signal
 import sys
 import threading
 import time
 import warnings
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from types import FrameType
-from typing import IO, Any, Callable, Union, cast
+from typing import IO, Any, cast
 
 from coverage import env
 from coverage.annotate import AnnotateReporter
@@ -66,6 +66,7 @@ from coverage.types import (
     TFileDisposition,
     TLineNo,
     TMorf,
+    TMorfs,
 )
 from coverage.version import __url__
 from coverage.xmlreport import XmlReporter
@@ -287,9 +288,6 @@ class Coverage(TConfigurable):
         self._no_warn_slugs: set[str] = set()
         self._messages = messages
 
-        # If we're invoked from a .pth file, we shouldn't try to make another one.
-        self._make_pth_file = True
-
         # A record of all the warnings that have been issued.
         self._warnings: list[str] = []
 
@@ -298,7 +296,7 @@ class Coverage(TConfigurable):
         self._debug: DebugControl = NoDebugging()
         self._inorout: InOrOut | None = None
         self._plugins: Plugins = Plugins()
-        self._plugin_override = cast(Union[Iterable[TCoverageInit], None], plugins)
+        self._plugin_override = cast(Iterable[TCoverageInit] | None, plugins)
         self._data: CoverageData | None = None
         self._data_to_close: list[CoverageData] = []
         self._core: Core | None = None
@@ -352,6 +350,17 @@ class Coverage(TConfigurable):
         # find it and tell it not to save its data.
         if not env.METACOV:
             _prevent_sub_process_measurement()
+
+    def __repr__(self) -> str:
+        core_name = self._core.tracer_class.__name__ if self._core is not None else "-none-"
+        data_file = repr(self._data._filename) if self._data is not None else "-none-"
+        return (
+            "<Coverage"
+            + f" @0x{id(self):x}"
+            + f" core={core_name}"
+            + f" data_file={data_file}"
+            + ">"
+        )
 
     def _init(self) -> None:
         """Set all the initial state.
@@ -414,20 +423,22 @@ class Coverage(TConfigurable):
         wrote_any = False
         with self._debug.without_callers():
             if self._debug.should("config"):
-                config_info = self.config.debug_info()
-                write_formatted_info(self._debug.write, "config", config_info)
+                write_formatted_info(self._debug.write, "config", self.config.debug_info())
                 wrote_any = True
 
             if self._debug.should("sys"):
                 write_formatted_info(self._debug.write, "sys", self.sys_info())
                 for plugin in self._plugins:
                     header = "sys: " + plugin._coverage_plugin_name
-                    info = plugin.sys_info()
-                    write_formatted_info(self._debug.write, header, info)
+                    write_formatted_info(self._debug.write, header, plugin.sys_info())
                 wrote_any = True
 
             if self._debug.should("pybehave"):
                 write_formatted_info(self._debug.write, "pybehave", env.debug_info())
+                wrote_any = True
+
+            if self._debug.should("sqlite"):
+                write_formatted_info(self._debug.write, "sqlite", CoverageData.sys_info())
                 wrote_any = True
 
         if wrote_any:
@@ -560,7 +571,7 @@ class Coverage(TConfigurable):
     def _init_for_start(self) -> None:
         """Initialization for start()"""
         # Construct the collector.
-        concurrency: list[str] = self.config.concurrency or []
+        concurrency: list[str] = self.config.concurrency
         if "multiprocessing" in concurrency:
             if self.config.config_file is None:
                 raise ConfigError("multiprocessing requires a configuration file")
@@ -582,6 +593,7 @@ class Coverage(TConfigurable):
 
         self._core = Core(
             warn=self._warn,
+            debug=(self._debug if self._debug.should("core") else None),
             config=self.config,
             dynamic_contexts=(should_start_context is not None),
             metacov=self._metacov,
@@ -704,7 +716,7 @@ class Coverage(TConfigurable):
         if self._auto_load:
             self.load()
 
-        apply_patches(self, self.config, self._debug, make_pth_file=self._make_pth_file)
+        apply_patches(self, self.config, self._debug)
 
         self._collector.start()
         self._started = True
@@ -1045,7 +1057,7 @@ class Coverage(TConfigurable):
 
     def _get_file_reporters(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
     ) -> list[tuple[FileReporter, TMorf]]:
         """Get FileReporters for a list of modules or file names.
 
@@ -1079,7 +1091,7 @@ class Coverage(TConfigurable):
 
     def report(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
         show_missing: bool | None = None,
         ignore_errors: bool | None = None,
         file: IO[str] | None = None,
@@ -1161,7 +1173,7 @@ class Coverage(TConfigurable):
 
     def annotate(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
         directory: str | None = None,
         ignore_errors: bool | None = None,
         omit: str | list[str] | None = None,
@@ -1191,7 +1203,7 @@ class Coverage(TConfigurable):
 
     def html_report(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
         directory: str | None = None,
         ignore_errors: bool | None = None,
         omit: str | list[str] | None = None,
@@ -1248,7 +1260,7 @@ class Coverage(TConfigurable):
 
     def xml_report(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
         outfile: str | None = None,
         ignore_errors: bool | None = None,
         omit: str | list[str] | None = None,
@@ -1282,7 +1294,7 @@ class Coverage(TConfigurable):
 
     def json_report(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
         outfile: str | None = None,
         ignore_errors: bool | None = None,
         omit: str | list[str] | None = None,
@@ -1320,7 +1332,7 @@ class Coverage(TConfigurable):
 
     def lcov_report(
         self,
-        morfs: Iterable[TMorf] | None = None,
+        morfs: TMorfs = None,
         outfile: str | None = None,
         ignore_errors: bool | None = None,
         omit: str | list[str] | None = None,
@@ -1350,6 +1362,9 @@ class Coverage(TConfigurable):
     def sys_info(self) -> Iterable[tuple[str, Any]]:
         """Return a list of (key, value) pairs showing internal information."""
 
+        import glob
+        import platform
+        import site
         import coverage as covmod
 
         self._init()
@@ -1364,6 +1379,10 @@ class Coverage(TConfigurable):
                     entry += " (disabled)"
                 entries.append(entry)
             return entries
+
+        pth_files = []
+        for spdir in site.getsitepackages():
+            pth_files.extend(glob.glob(f"{spdir}/*cov*.pth"))
 
         info = [
             ("coverage_version", covmod.__version__),
@@ -1387,6 +1406,7 @@ class Coverage(TConfigurable):
             ("build", platform.python_build()),
             ("gil_enabled", getattr(sys, "_is_gil_enabled", lambda: True)()),
             ("executable", sys.executable),
+            ("pth_files", pth_files),
             ("def_encoding", sys.getdefaultencoding()),
             ("fs_encoding", sys.getfilesystemencoding()),
             ("pid", os.getpid()),
@@ -1394,12 +1414,11 @@ class Coverage(TConfigurable):
             ("path", sys.path),
             ("environment", [f"{k} = {v}" for k, v in relevant_environment_display(os.environ)]),
             ("command_line", " ".join(getattr(sys, "argv", ["-none-"]))),
+            ("time", f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}"),
         ]
 
         if self._inorout is not None:
             info.extend(self._inorout.sys_info())
-
-        info.extend(CoverageData.sys_info())
 
         return info
 
@@ -1415,12 +1434,21 @@ if int(os.getenv("COVERAGE_DEBUG_CALLS", 0)):  # pragma: debugging
     )(Coverage)
 
 
-def process_startup(*, force: bool = False) -> Coverage | None:
+def process_startup(
+    *,
+    force: bool = False,
+    slug: str = "default",  # pylint: disable=unused-argument
+) -> Coverage | None:
     """Call this at Python start-up to perhaps measure coverage.
 
-    If the environment variable COVERAGE_PROCESS_START is defined, coverage
-    measurement is started.  The value of the variable is the config file
-    to use.
+    Coverage is started if one of these environment variables is defined:
+
+    - COVERAGE_PROCESS_START: the config file to use.
+    - COVERAGE_PROCESS_CONFIG: the config data to use, a string produced by
+      CoverageConfig.serialize, prefixed by ":data:".
+
+    If one of these is defined, it's used to get the coverage configuration,
+    and coverage is started.
 
     For details, see https://coverage.readthedocs.io/en/latest/subprocess.html.
 
@@ -1428,6 +1456,29 @@ def process_startup(*, force: bool = False) -> Coverage | None:
     not started by this call.
 
     """
+    # This function can be called more than once in a process, for a few
+    # reasons.
+    #
+    # 1) We install a .pth file in multiple places reported by the site module,
+    #    so this function can be called more than once even in simple
+    #    situations.
+    #
+    # 2) In some virtualenv configurations the same directory is visible twice
+    #    in sys.path.  This means that the .pth file will be found twice and
+    #    executed twice, executing this function twice.
+    #    https://github.com/coveragepy/coveragepy/issues/340 has more details.
+    #
+    # We set a global flag (an attribute on this function) to indicate that
+    # coverage.py has already been started, so we can avoid starting it twice.
+
+    if not force and hasattr(process_startup, "coverage"):
+        # We've annotated this function before, so we must have already
+        # auto-started coverage.py in this process.  Nothing to do.
+        return None
+
+    # Now check for the environment variables that request coverage. If they
+    # aren't set, do nothing.
+
     config_data = os.getenv("COVERAGE_PROCESS_CONFIG")
     cps = os.getenv("COVERAGE_PROCESS_START")
     if config_data is not None:
@@ -1438,27 +1489,12 @@ def process_startup(*, force: bool = False) -> Coverage | None:
         # No request for coverage, nothing to do.
         return None
 
-    # This function can be called more than once in a process. This happens
-    # because some virtualenv configurations make the same directory visible
-    # twice in sys.path.  This means that the .pth file will be found twice,
-    # and executed twice, executing this function twice.  We set a global
-    # flag (an attribute on this function) to indicate that coverage.py has
-    # already been started, so we can avoid doing it twice.
-    #
-    # https://github.com/nedbat/coveragepy/issues/340 has more details.
-
-    if not force and hasattr(process_startup, "coverage"):
-        # We've annotated this function before, so we must have already
-        # auto-started coverage.py in this process.  Nothing to do.
-        return None
-
     cov = Coverage(config_file=config_file)
     process_startup.coverage = cov  # type: ignore[attr-defined]
     cov._warn_no_data = False
     cov._warn_unimported_source = False
     cov._warn_preimported_source = False
     cov._auto_save = True
-    cov._make_pth_file = False
     cov.start()
 
     return cov
@@ -1468,7 +1504,7 @@ def _after_fork_in_child() -> None:
     """Used by patch=fork in the child process to restart coverage."""
     if cov := Coverage.current():
         cov.stop()
-    process_startup(force=True)
+    process_startup(force=True, slug="fork")
 
 
 def _prevent_sub_process_measurement() -> None:

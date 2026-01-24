@@ -1,4 +1,4 @@
-# Copyright 2025 Google LLC
+# Copyright 2026 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,15 +13,51 @@
 # limitations under the License.
 from __future__ import annotations
 
+from datetime import datetime
 import json
 import os
 import shutil
 import subprocess
 from typing import Final
 from typing import Optional
+import warnings
 
 import click
 from packaging.version import parse
+
+_IS_WINDOWS = os.name == 'nt'
+_GCLOUD_CMD = 'gcloud.cmd' if _IS_WINDOWS else 'gcloud'
+_LOCAL_STORAGE_FLAG_MIN_VERSION: Final[str] = '1.21.0'
+_AGENT_ENGINE_REQUIREMENT: Final[str] = (
+    'google-cloud-aiplatform[adk,agent_engines]'
+)
+
+
+def _ensure_agent_engine_dependency(requirements_txt_path: str) -> None:
+  """Ensures staged requirements include Agent Engine dependencies."""
+  if not os.path.exists(requirements_txt_path):
+    raise FileNotFoundError(
+        f'requirements.txt not found at: {requirements_txt_path}'
+    )
+
+  requirements = ''
+  with open(requirements_txt_path, 'r', encoding='utf-8') as f:
+    requirements = f.read()
+
+  for line in requirements.splitlines():
+    stripped = line.strip()
+    if (
+        stripped
+        and not stripped.startswith('#')
+        and stripped.startswith('google-cloud-aiplatform')
+    ):
+      return
+
+  with open(requirements_txt_path, 'a', encoding='utf-8') as f:
+    if requirements and not requirements.endswith('\n'):
+      f.write('\n')
+    f.write(_AGENT_ENGINE_REQUIREMENT + '\n')
+
 
 _DOCKERFILE_TEMPLATE: Final[str] = """
 FROM python:3.11-slim
@@ -59,28 +95,312 @@ COPY --chown=myuser:myuser "agents/{app_name}/" "/app/agents/{app_name}/"
 
 EXPOSE {port}
 
-CMD adk {command} --port={port} {host_option} {service_option} {trace_to_cloud_option} {allow_origins_option} {a2a_option} "/app/agents"
+CMD adk {command} --port={port} {host_option} {service_option} {trace_to_cloud_option} {otel_to_cloud_option} {allow_origins_option} {a2a_option} "/app/agents"
 """
 
 _AGENT_ENGINE_APP_TEMPLATE: Final[str] = """
-from vertexai.preview.reasoning_engines import AdkApp
+import os
+import vertexai
+from vertexai.agent_engines import AdkApp
 
 if {is_config_agent}:
   from google.adk.agents import config_agent_utils
-  try:
-    # This path is for local loading.
-    root_agent = config_agent_utils.from_config("{agent_folder}/root_agent.yaml")
-  except FileNotFoundError:
-    # This path is used to support the file structure in Agent Engine.
-    root_agent = config_agent_utils.from_config("./{temp_folder}/{app_name}/root_agent.yaml")
+  root_agent = config_agent_utils.from_config("{agent_folder}/root_agent.yaml")
 else:
-  from {app_name}.agent import root_agent
+  from .agent import {adk_app_object}
+
+if {express_mode}: # Whether or not to use Express Mode
+  vertexai.init(api_key=os.environ.get("GOOGLE_API_KEY"))
+else:
+  vertexai.init(
+    project=os.environ.get("GOOGLE_CLOUD_PROJECT"),
+    location=os.environ.get("GOOGLE_CLOUD_LOCATION"),
+  )
 
 adk_app = AdkApp(
-  agent=root_agent,
-  enable_tracing={trace_to_cloud_option},
+    {adk_app_type}={adk_app_object},
+    enable_tracing={trace_to_cloud_option},
 )
 """
+
+_AGENT_ENGINE_CLASS_METHODS = [
+    {
+        'name': 'get_session',
+        'description': (
+            'Deprecated. Use async_get_session instead.\n\n        Get a'
+            ' session for the given user.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string'},
+            },
+            'required': ['user_id', 'session_id'],
+            'type': 'object',
+        },
+        'api_mode': '',
+    },
+    {
+        'name': 'list_sessions',
+        'description': (
+            'Deprecated. Use async_list_sessions instead.\n\n        List'
+            ' sessions for the given user.\n        '
+        ),
+        'parameters': {
+            'properties': {'user_id': {'type': 'string'}},
+            'required': ['user_id'],
+            'type': 'object',
+        },
+        'api_mode': '',
+    },
+    {
+        'name': 'create_session',
+        'description': (
+            'Deprecated. Use async_create_session instead.\n\n        Creates a'
+            ' new session.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string', 'nullable': True},
+                'state': {'type': 'object', 'nullable': True},
+            },
+            'required': ['user_id'],
+            'type': 'object',
+        },
+        'api_mode': '',
+    },
+    {
+        'name': 'delete_session',
+        'description': (
+            'Deprecated. Use async_delete_session instead.\n\n        Deletes a'
+            ' session for the given user.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string'},
+            },
+            'required': ['user_id', 'session_id'],
+            'type': 'object',
+        },
+        'api_mode': '',
+    },
+    {
+        'name': 'async_get_session',
+        'description': (
+            'Get a session for the given user.\n\n        Args:\n           '
+            ' user_id (str):\n                Required. The ID of the user.\n  '
+            '          session_id (str):\n                Required. The ID of'
+            ' the session.\n            **kwargs (dict[str, Any]):\n           '
+            '     Optional. Additional keyword arguments to pass to the\n      '
+            '          session service.\n\n        Returns:\n           '
+            ' Session: The session instance (if any). It returns None if the\n '
+            '           session is not found.\n\n        Raises:\n           '
+            ' RuntimeError: If the session is not found.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string'},
+            },
+            'required': ['user_id', 'session_id'],
+            'type': 'object',
+        },
+        'api_mode': 'async',
+    },
+    {
+        'name': 'async_list_sessions',
+        'description': (
+            'List sessions for the given user.\n\n        Args:\n           '
+            ' user_id (str):\n                Required. The ID of the user.\n  '
+            '          **kwargs (dict[str, Any]):\n                Optional.'
+            ' Additional keyword arguments to pass to the\n               '
+            ' session service.\n\n        Returns:\n           '
+            ' ListSessionsResponse: The list of sessions.\n        '
+        ),
+        'parameters': {
+            'properties': {'user_id': {'type': 'string'}},
+            'required': ['user_id'],
+            'type': 'object',
+        },
+        'api_mode': 'async',
+    },
+    {
+        'name': 'async_create_session',
+        'description': (
+            'Creates a new session.\n\n        Args:\n            user_id'
+            ' (str):\n                Required. The ID of the user.\n          '
+            '  session_id (str):\n                Optional. The ID of the'
+            ' session. If not provided, an ID\n                will be be'
+            ' generated for the session.\n            state (dict[str, Any]):\n'
+            '                Optional. The initial state of the session.\n     '
+            '       **kwargs (dict[str, Any]):\n                Optional.'
+            ' Additional keyword arguments to pass to the\n               '
+            ' session service.\n\n        Returns:\n            Session: The'
+            ' newly created session instance.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string', 'nullable': True},
+                'state': {'type': 'object', 'nullable': True},
+            },
+            'required': ['user_id'],
+            'type': 'object',
+        },
+        'api_mode': 'async',
+    },
+    {
+        'name': 'async_delete_session',
+        'description': (
+            'Deletes a session for the given user.\n\n        Args:\n          '
+            '  user_id (str):\n                Required. The ID of the user.\n '
+            '           session_id (str):\n                Required. The ID of'
+            ' the session.\n            **kwargs (dict[str, Any]):\n           '
+            '     Optional. Additional keyword arguments to pass to the\n      '
+            '          session service.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string'},
+            },
+            'required': ['user_id', 'session_id'],
+            'type': 'object',
+        },
+        'api_mode': 'async',
+    },
+    {
+        'name': 'async_add_session_to_memory',
+        'description': (
+            'Generates memories.\n\n        Args:\n            session'
+            ' (Dict[str, Any]):\n                Required. The session to use'
+            ' for generating memories. It should\n                be a'
+            ' dictionary representing an ADK Session object, e.g.\n            '
+            '    session.model_dump(mode="json").\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'session': {'additionalProperties': True, 'type': 'object'}
+            },
+            'required': ['session'],
+            'type': 'object',
+        },
+        'api_mode': 'async',
+    },
+    {
+        'name': 'async_search_memory',
+        'description': (
+            'Searches memories for the given user.\n\n        Args:\n          '
+            '  user_id: The id of the user.\n            query: The query to'
+            ' match the memories on.\n\n        Returns:\n            A'
+            ' SearchMemoryResponse containing the matching memories.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'user_id': {'type': 'string'},
+                'query': {'type': 'string'},
+            },
+            'required': ['user_id', 'query'],
+            'type': 'object',
+        },
+        'api_mode': 'async',
+    },
+    {
+        'name': 'stream_query',
+        'description': (
+            'Deprecated. Use async_stream_query instead.\n\n        Streams'
+            ' responses from the ADK application in response to a message.\n\n '
+            '       Args:\n            message (Union[str, Dict[str, Any]]):\n '
+            '               Required. The message to stream responses for.\n   '
+            '         user_id (str):\n                Required. The ID of the'
+            ' user.\n            session_id (str):\n                Optional.'
+            ' The ID of the session. If not provided, a new\n               '
+            ' session will be created for the user.\n            run_config'
+            ' (Optional[Dict[str, Any]]):\n                Optional. The run'
+            ' config to use for the query. If you want to\n                pass'
+            ' in a `run_config` pydantic object, you can pass in a dict\n      '
+            '          representing it as'
+            ' `run_config.model_dump(mode="json")`.\n            **kwargs'
+            ' (dict[str, Any]):\n                Optional. Additional keyword'
+            ' arguments to pass to the\n                runner.\n\n       '
+            ' Yields:\n            The output of querying the ADK'
+            ' application.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'message': {
+                    'anyOf': [
+                        {'type': 'string'},
+                        {'additionalProperties': True, 'type': 'object'},
+                    ]
+                },
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string', 'nullable': True},
+                'run_config': {'type': 'object', 'nullable': True},
+            },
+            'required': ['message', 'user_id'],
+            'type': 'object',
+        },
+        'api_mode': 'stream',
+    },
+    {
+        'name': 'async_stream_query',
+        'description': (
+            'Streams responses asynchronously from the ADK application.\n\n    '
+            '    Args:\n            message (str):\n                Required.'
+            ' The message to stream responses for.\n            user_id'
+            ' (str):\n                Required. The ID of the user.\n          '
+            '  session_id (str):\n                Optional. The ID of the'
+            ' session. If not provided, a new\n                session will be'
+            ' created for the user.\n            run_config (Optional[Dict[str,'
+            ' Any]]):\n                Optional. The run config to use for the'
+            ' query. If you want to\n                pass in a `run_config`'
+            ' pydantic object, you can pass in a dict\n               '
+            ' representing it as `run_config.model_dump(mode="json")`.\n       '
+            '     **kwargs (dict[str, Any]):\n                Optional.'
+            ' Additional keyword arguments to pass to the\n               '
+            ' runner.\n\n        Yields:\n            Event dictionaries'
+            ' asynchronously.\n        '
+        ),
+        'parameters': {
+            'properties': {
+                'message': {
+                    'anyOf': [
+                        {'type': 'string'},
+                        {'additionalProperties': True, 'type': 'object'},
+                    ]
+                },
+                'user_id': {'type': 'string'},
+                'session_id': {'type': 'string', 'nullable': True},
+                'run_config': {'type': 'object', 'nullable': True},
+            },
+            'required': ['message', 'user_id'],
+            'type': 'object',
+        },
+        'api_mode': 'async_stream',
+    },
+    {
+        'name': 'streaming_agent_run_with_events',
+        'description': (
+            'Streams responses asynchronously from the ADK application.\n\n    '
+            '    In general, you should use `async_stream_query` instead, as it'
+            ' has a\n        more structured API and works with the respective'
+            ' ADK services that\n        you have defined for the AdkApp. This'
+            ' method is primarily meant for\n        invocation from'
+            ' AgentSpace.\n\n        Args:\n            request_json (str):\n  '
+            '              Required. The request to stream responses for.\n   '
+            '     '
+        ),
+        'parameters': {
+            'properties': {'request_json': {'type': 'string'}},
+            'required': ['request_json'],
+            'type': 'object',
+        },
+        'api_mode': 'async_stream',
+    },
+]
 
 
 def _resolve_project(project_in_option: Optional[str]) -> str:
@@ -88,7 +408,7 @@ def _resolve_project(project_in_option: Optional[str]) -> str:
     return project_in_option
 
   result = subprocess.run(
-      ['gcloud', 'config', 'get-value', 'project'],
+      [_GCLOUD_CMD, 'config', 'get-value', 'project'],
       check=True,
       capture_output=True,
       text=True,
@@ -149,26 +469,38 @@ def _get_service_option_by_adk_version(
     session_uri: Optional[str],
     artifact_uri: Optional[str],
     memory_uri: Optional[str],
+    use_local_storage: Optional[bool] = None,
 ) -> str:
   """Returns service option string based on adk_version."""
   parsed_version = parse(adk_version)
+  options: list[str] = []
+
   if parsed_version >= parse('1.3.0'):
-    session_option = (
-        f'--session_service_uri={session_uri}' if session_uri else ''
-    )
-    artifact_option = (
-        f'--artifact_service_uri={artifact_uri}' if artifact_uri else ''
-    )
-    memory_option = f'--memory_service_uri={memory_uri}' if memory_uri else ''
-    return f'{session_option} {artifact_option} {memory_option}'
-  elif parsed_version >= parse('1.2.0'):
-    session_option = f'--session_db_url={session_uri}' if session_uri else ''
-    artifact_option = (
-        f'--artifact_storage_uri={artifact_uri}' if artifact_uri else ''
-    )
-    return f'{session_option} {artifact_option}'
+    if session_uri:
+      options.append(f'--session_service_uri={session_uri}')
+    if artifact_uri:
+      options.append(f'--artifact_service_uri={artifact_uri}')
+    if memory_uri:
+      options.append(f'--memory_service_uri={memory_uri}')
   else:
-    return f'--session_db_url={session_uri}' if session_uri else ''
+    if session_uri:
+      options.append(f'--session_db_url={session_uri}')
+    if parsed_version >= parse('1.2.0') and artifact_uri:
+      options.append(f'--artifact_storage_uri={artifact_uri}')
+
+  if use_local_storage is not None and parsed_version >= parse(
+      _LOCAL_STORAGE_FLAG_MIN_VERSION
+  ):
+    # Only valid when session/artifact URIs are unset; otherwise the CLI
+    # rejects the combination to avoid confusing precedence.
+    if session_uri is None and artifact_uri is None:
+      options.append((
+          '--use_local_storage'
+          if use_local_storage
+          else '--no_use_local_storage'
+      ))
+
+  return ' '.join(options)
 
 
 def to_cloud_run(
@@ -181,6 +513,7 @@ def to_cloud_run(
     temp_folder: str,
     port: int,
     trace_to_cloud: bool,
+    otel_to_cloud: bool,
     with_ui: bool,
     log_level: str,
     verbosity: str,
@@ -189,6 +522,7 @@ def to_cloud_run(
     session_service_uri: Optional[str] = None,
     artifact_service_uri: Optional[str] = None,
     memory_service_uri: Optional[str] = None,
+    use_local_storage: bool = False,
     a2a: bool = False,
     extra_gcloud_args: Optional[tuple[str, ...]] = None,
 ):
@@ -216,15 +550,22 @@ def to_cloud_run(
     temp_folder: The temp folder for the generated Cloud Run source files.
     port: The port of the ADK api server.
     trace_to_cloud: Whether to enable Cloud Trace.
+    otel_to_cloud: Whether to enable exporting OpenTelemetry signals
+      to Google Cloud.
     with_ui: Whether to deploy with UI.
     verbosity: The verbosity level of the CLI.
     adk_version: The ADK version to use in Cloud Run.
-    allow_origins: The list of allowed origins for the ADK api server.
+    allow_origins: Origins to allow for CORS. Can be literal origins or regex
+      patterns prefixed with 'regex:'.
     session_service_uri: The URI of the session service.
     artifact_service_uri: The URI of the artifact service.
     memory_service_uri: The URI of the memory service.
+    use_local_storage: Whether to use local .adk storage in the container.
   """
   app_name = app_name or os.path.basename(agent_folder)
+  if parse(adk_version) >= parse('1.3.0') and not use_local_storage:
+    session_service_uri = session_service_uri or 'memory://'
+    artifact_service_uri = artifact_service_uri or 'memory://'
 
   click.echo(f'Start generating Cloud Run source files in {temp_folder}')
 
@@ -265,8 +606,10 @@ def to_cloud_run(
             session_service_uri,
             artifact_service_uri,
             memory_service_uri,
+            use_local_storage,
         ),
         trace_to_cloud_option='--trace_to_cloud' if trace_to_cloud else '',
+        otel_to_cloud_option='--otel_to_cloud' if otel_to_cloud else '',
         allow_origins_option=allow_origins_option,
         adk_version=adk_version,
         host_option=host_option,
@@ -295,7 +638,7 @@ def to_cloud_run(
 
     # Build the command with extra gcloud args
     gcloud_cmd = [
-        'gcloud',
+        _GCLOUD_CMD,
         'run',
         'deploy',
         service_name,
@@ -342,10 +685,13 @@ def to_cloud_run(
 def to_agent_engine(
     *,
     agent_folder: str,
-    temp_folder: str,
+    temp_folder: Optional[str] = None,
     adk_app: str,
-    staging_bucket: str,
-    trace_to_cloud: bool,
+    staging_bucket: Optional[str] = None,
+    trace_to_cloud: Optional[bool] = None,
+    otel_to_cloud: Optional[bool] = None,
+    api_key: Optional[str] = None,
+    adk_app_object: Optional[str] = None,
     agent_engine_id: Optional[str] = None,
     absolutize_imports: bool = True,
     project: Optional[str] = None,
@@ -370,12 +716,11 @@ def to_agent_engine(
   The contents of `adk_app` should look something like:
 
   ```
-  from agent import root_agent
-  from vertexai.preview.reasoning_engines import AdkApp
+  from agent import <adk_app_object>
+  from vertexai.agent_engines import AdkApp
 
   adk_app = AdkApp(
-    agent=root_agent,
-    enable_tracing=True,
+    agent=<adk_app_object>,  # or `app=<adk_app_object>`
   )
   ```
 
@@ -386,8 +731,16 @@ def to_agent_engine(
       files. It will be replaced with the generated files if it already exists.
     adk_app (str): The name of the file (without .py) containing the AdkApp
       instance.
-    staging_bucket (str): The GCS bucket for staging the deployment artifacts.
+    staging_bucket (str): Deprecated. This argument is no longer required or
+      used.
     trace_to_cloud (bool): Whether to enable Cloud Trace.
+    otel_to_cloud (bool): Whether to enable exporting OpenTelemetry signals
+      to Google Cloud.
+    api_key (str): Optional. The API key to use for Express Mode.
+      If not provided, the API key from the GOOGLE_API_KEY environment variable
+      will be used. It will only be used if GOOGLE_GENAI_USE_VERTEXAI is true.
+    adk_app_object (str): Optional. The Python object corresponding to the root
+      ADK agent or app. Defaults to `root_agent` if not specified.
     agent_engine_id (str): Optional. The ID of the Agent Engine instance to
       update. If not specified, a new Agent Engine instance will be created.
     absolutize_imports (bool): Optional. Default is True. Whether to absolutize
@@ -409,13 +762,43 @@ def to_agent_engine(
       `agent_folder` will be used.
   """
   app_name = os.path.basename(agent_folder)
-  agent_src_path = os.path.join(temp_folder, app_name)
+  display_name = display_name or app_name
+  parent_folder = os.path.dirname(agent_folder)
+  adk_app_object = adk_app_object or 'root_agent'
+  if adk_app_object not in ['root_agent', 'app']:
+    click.echo(
+        f'Invalid adk_app_object: {adk_app_object}. Please use "root_agent"'
+        ' or "app".'
+    )
+    return
+  if staging_bucket:
+    warnings.warn(
+        'WARNING: `staging_bucket` is deprecated and will be removed in a'
+        ' future release. Please drop it from the list of arguments.',
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
+  original_cwd = os.getcwd()
+  did_change_cwd = False
+  if parent_folder != original_cwd:
+    click.echo(
+        'Agent Engine deployment uses relative paths; temporarily switching '
+        f'working directory to: {parent_folder}'
+    )
+    os.chdir(parent_folder)
+    did_change_cwd = True
+  tmp_app_name = app_name + '_tmp' + datetime.now().strftime('%Y%m%d_%H%M%S')
+  temp_folder = temp_folder or tmp_app_name
+  agent_src_path = os.path.join(parent_folder, temp_folder)
+  click.echo(f'Staging all files in: {agent_src_path}')
   # remove agent_src_path if it exists
   if os.path.exists(agent_src_path):
     click.echo('Removing existing files')
     shutil.rmtree(agent_src_path)
 
   try:
+    click.echo(f'Staging all files in: {agent_src_path}')
     ignore_patterns = None
     ae_ignore_path = os.path.join(agent_folder, '.ae_ignore')
     if os.path.exists(ae_ignore_path):
@@ -424,16 +807,14 @@ def to_agent_engine(
         patterns = [pattern.strip() for pattern in f.readlines()]
         ignore_patterns = shutil.ignore_patterns(*patterns)
     click.echo('Copying agent source code...')
-    shutil.copytree(agent_folder, agent_src_path, ignore=ignore_patterns)
+    shutil.copytree(
+        agent_folder,
+        agent_src_path,
+        ignore=ignore_patterns,
+        dirs_exist_ok=True,
+    )
     click.echo('Copying agent source code complete.')
 
-    click.echo('Initializing Vertex AI...')
-    import sys
-
-    import vertexai
-    from vertexai import agent_engines
-
-    sys.path.append(temp_folder)  # To register the adk_app operations
     project = _resolve_project(project)
 
     click.echo('Resolving files and dependencies...')
@@ -460,32 +841,32 @@ def to_agent_engine(
             f'Overriding description in agent engine config with {description}'
         )
       agent_config['description'] = description
-    if agent_config.get('extra_packages'):
-      agent_config['extra_packages'].append(temp_folder)
-    else:
-      agent_config['extra_packages'] = [temp_folder]
 
-    if not requirements_file:
+    requirements_txt_path = os.path.join(agent_src_path, 'requirements.txt')
+    if requirements_file:
+      if os.path.exists(requirements_txt_path):
+        click.echo(
+            f'Overwriting {requirements_txt_path} with {requirements_file}'
+        )
+      shutil.copyfile(requirements_file, requirements_txt_path)
+    elif 'requirements_file' in agent_config:
+      if os.path.exists(requirements_txt_path):
+        click.echo(
+            f'Overwriting {requirements_txt_path} with'
+            f' {agent_config["requirements_file"]}'
+        )
+      shutil.copyfile(agent_config['requirements_file'], requirements_txt_path)
+    else:
       # Attempt to read requirements from requirements.txt in the dir (if any).
-      requirements_txt_path = os.path.join(agent_src_path, 'requirements.txt')
       if not os.path.exists(requirements_txt_path):
         click.echo(f'Creating {requirements_txt_path}...')
         with open(requirements_txt_path, 'w', encoding='utf-8') as f:
-          f.write('google-cloud-aiplatform[adk,agent_engines]')
+          f.write(_AGENT_ENGINE_REQUIREMENT + '\n')
         click.echo(f'Created {requirements_txt_path}')
-      agent_config['requirements'] = agent_config.get(
-          'requirements',
-          requirements_txt_path,
-      )
-    else:
-      if 'requirements' in agent_config:
-        click.echo(
-            'Overriding requirements in agent engine config with '
-            f'{requirements_file}'
-        )
-      agent_config['requirements'] = requirements_file
+    _ensure_agent_engine_dependency(requirements_txt_path)
+    agent_config['requirements_file'] = f'{temp_folder}/requirements.txt'
 
-    env_vars = None
+    env_vars = {}
     if not env_file:
       # Attempt to read the env variables from .env in the dir (if any).
       env_file = os.path.join(agent_folder, '.env')
@@ -518,6 +899,28 @@ def to_agent_engine(
           else:
             region = env_region
             click.echo(f'{region=} set by GOOGLE_CLOUD_LOCATION in {env_file}')
+    if api_key:
+      if 'GOOGLE_API_KEY' in env_vars:
+        click.secho(
+            'Ignoring GOOGLE_API_KEY in .env as `--api_key` was'
+            ' explicitly passed and takes precedence',
+            fg='yellow',
+        )
+      else:
+        env_vars['GOOGLE_GENAI_USE_VERTEXAI'] = '1'
+        env_vars['GOOGLE_API_KEY'] = api_key
+    elif not project:
+      if 'GOOGLE_API_KEY' in env_vars:
+        api_key = env_vars['GOOGLE_API_KEY']
+        click.echo(f'api_key set by GOOGLE_API_KEY in {env_file}')
+    if otel_to_cloud:
+      if 'GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY' in env_vars:
+        click.secho(
+            'Ignoring GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY in .env'
+            ' as `--otel_to_cloud` was explicitly passed and takes precedence',
+            fg='yellow',
+        )
+      env_vars['GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY'] = 'true'
     if env_vars:
       if 'env_vars' in agent_config:
         click.echo(
@@ -527,11 +930,20 @@ def to_agent_engine(
     # Set env_vars in agent_config to None if it is not set.
     agent_config['env_vars'] = agent_config.get('env_vars', env_vars)
 
-    vertexai.init(
-        project=project,
-        location=region,
-        staging_bucket=staging_bucket,
-    )
+    import vertexai
+
+    if project and region:
+      click.echo('Initializing Vertex AI...')
+      client = vertexai.Client(project=project, location=region)
+    elif api_key:
+      click.echo('Initializing Vertex AI in Express Mode with API key...')
+      client = vertexai.Client(api_key=api_key)
+    else:
+      click.echo(
+          'No project/region or api_key provided. '
+          'Please specify either project/region or api_key.'
+      )
+      return
     click.echo('Vertex AI initialized.')
 
     is_config_agent = False
@@ -541,66 +953,58 @@ def to_agent_engine(
       is_config_agent = True
 
     adk_app_file = os.path.join(temp_folder, f'{adk_app}.py')
+    if adk_app_object == 'root_agent':
+      adk_app_type = 'agent'
+    elif adk_app_object == 'app':
+      adk_app_type = 'app'
+    else:
+      click.echo(
+          f'Invalid adk_app_object: {adk_app_object}. Please use "root_agent"'
+          ' or "app".'
+      )
+      return
     with open(adk_app_file, 'w', encoding='utf-8') as f:
       f.write(
           _AGENT_ENGINE_APP_TEMPLATE.format(
               app_name=app_name,
               trace_to_cloud_option=trace_to_cloud,
               is_config_agent=is_config_agent,
-              temp_folder=temp_folder,
-              agent_folder=agent_folder,
+              agent_folder=f'./{temp_folder}',
+              adk_app_object=adk_app_object,
+              adk_app_type=adk_app_type,
+              express_mode=api_key is not None,
           )
       )
     click.echo(f'Created {adk_app_file}')
     click.echo('Files and dependencies resolved')
     if absolutize_imports:
-      for root, _, files in os.walk(agent_src_path):
-        for file in files:
-          if file.endswith('.py'):
-            absolutize_imports_path = os.path.join(root, file)
-            try:
-              click.echo(
-                  f'Running `absolufy-imports {absolutize_imports_path}`'
-              )
-              subprocess.run(
-                  ['absolufy-imports', absolutize_imports_path],
-                  cwd=temp_folder,
-              )
-            except Exception as e:
-              click.echo(f'The following exception was raised: {e}')
-
+      click.echo(
+          'Agent Engine deployments have switched to source-based deployment, '
+          'so it is no longer necessary to absolutize imports.'
+      )
     click.echo('Deploying to agent engine...')
-    agent_config['agent_engine'] = agent_engines.ModuleAgent(
-        module_name=adk_app,
-        agent_name='adk_app',
-        register_operations={
-            '': [
-                'get_session',
-                'list_sessions',
-                'create_session',
-                'delete_session',
-            ],
-            'async': [
-                'async_get_session',
-                'async_list_sessions',
-                'async_create_session',
-                'async_delete_session',
-            ],
-            'async_stream': ['async_stream_query'],
-            'stream': ['stream_query', 'streaming_agent_run_with_events'],
-        },
-        sys_paths=[temp_folder[1:]],
-        agent_framework='google-adk',
-    )
+    agent_config['entrypoint_module'] = f'{temp_folder}.{adk_app}'
+    agent_config['entrypoint_object'] = 'adk_app'
+    agent_config['source_packages'] = [temp_folder]
+    agent_config['class_methods'] = _AGENT_ENGINE_CLASS_METHODS
+    agent_config['agent_framework'] = 'google-adk'
 
     if not agent_engine_id:
-      agent_engines.create(**agent_config)
+      agent_engine = client.agent_engines.create(config=agent_config)
+      click.secho(
+          f'✅ Created agent engine: {agent_engine.api_resource.name}',
+          fg='green',
+      )
     else:
-      resource_name = f'projects/{project}/locations/{region}/reasoningEngines/{agent_engine_id}'
-      agent_engines.update(resource_name=resource_name, **agent_config)
+      if project and region and not agent_engine_id.startswith('projects/'):
+        agent_engine_id = f'projects/{project}/locations/{region}/reasoningEngines/{agent_engine_id}'
+      client.agent_engines.update(name=agent_engine_id, config=agent_config)
+      click.secho(f'✅ Updated agent engine: {agent_engine_id}', fg='green')
   finally:
     click.echo(f'Cleaning up the temp folder: {temp_folder}')
-    shutil.rmtree(temp_folder)
+    shutil.rmtree(agent_src_path)
+    if did_change_cwd:
+      os.chdir(original_cwd)
 
 
 def to_gke(
@@ -614,6 +1018,7 @@ def to_gke(
     temp_folder: str,
     port: int,
     trace_to_cloud: bool,
+    otel_to_cloud: bool,
     with_ui: bool,
     log_level: str,
     adk_version: str,
@@ -621,6 +1026,7 @@ def to_gke(
     session_service_uri: Optional[str] = None,
     artifact_service_uri: Optional[str] = None,
     memory_service_uri: Optional[str] = None,
+    use_local_storage: bool = False,
     a2a: bool = False,
 ):
   """Deploys an agent to Google Kubernetes Engine(GKE).
@@ -638,13 +1044,17 @@ def to_gke(
       Dockerfile and deployment.yaml.
     port: The port of the ADK api server.
     trace_to_cloud: Whether to enable Cloud Trace.
+    otel_to_cloud: Whether to enable exporting OpenTelemetry signals
+      to Google Cloud.
     with_ui: Whether to deploy with UI.
     log_level: The logging level.
     adk_version: The ADK version to use in GKE.
-    allow_origins: The list of allowed origins for the ADK api server.
+    allow_origins: Origins to allow for CORS. Can be literal origins or regex
+      patterns prefixed with 'regex:'.
     session_service_uri: The URI of the session service.
     artifact_service_uri: The URI of the artifact service.
     memory_service_uri: The URI of the memory service.
+    use_local_storage: Whether to use local .adk storage in the container.
   """
   click.secho(
       '\n🚀 Starting ADK Agent Deployment to GKE...', fg='cyan', bold=True
@@ -658,6 +1068,9 @@ def to_gke(
   click.echo('--------------------------------------------------\n')
 
   app_name = app_name or os.path.basename(agent_folder)
+  if parse(adk_version) >= parse('1.3.0') and not use_local_storage:
+    session_service_uri = session_service_uri or 'memory://'
+    artifact_service_uri = artifact_service_uri or 'memory://'
 
   click.secho('STEP 1: Preparing build environment...', bold=True)
   click.echo(f'  - Using temporary directory: {temp_folder}')
@@ -700,8 +1113,10 @@ def to_gke(
             session_service_uri,
             artifact_service_uri,
             memory_service_uri,
+            use_local_storage,
         ),
         trace_to_cloud_option='--trace_to_cloud' if trace_to_cloud else '',
+        otel_to_cloud_option='--otel_to_cloud' if otel_to_cloud else '',
         allow_origins_option=allow_origins_option,
         adk_version=adk_version,
         host_option=host_option,

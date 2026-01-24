@@ -1,0 +1,326 @@
+Metadata-Version: 2.4
+Name: nrt-pytest-soft-asserts
+Version: 2.0.0
+Summary: Soft asserts for pytest
+Home-page: https://github.com/etuzon/python-nrt-pytest-soft-asserts
+Author: Eyal Tuzon
+Author-email: Eyal Tuzon <eyal.tuzon.dev@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/etuzon/python-nrt-pytest-soft-asserts
+Project-URL: Bug Tracker, https://github.com/etuzon/python-nrt-pytest-soft-asserts/issues
+Project-URL: documentation, https://github.com/etuzon/python-nrt-pytest-soft-asserts/wiki
+Keywords: python,python3,python-3,pytest,soft,assert,asserts,assertion,assertions,soft-assert,soft-asserts,soft-assertion,soft-assertions,test,test-framework,unit-testing
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Operating System :: OS Independent
+Classifier: Framework :: Pytest
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Testing :: Unit
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Development Status :: 5 - Production/Stable
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pytest>=7.0.1
+Requires-Dist: zipp>=3.19.1
+Dynamic: author
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+
+# Pytest soft asserts.
+
+![PyPI](https://img.shields.io/pypi/v/nrt-pytest-soft-asserts?color=blueviolet&style=plastic)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/nrt-pytest-soft-asserts?color=greens&style=plastic)
+![PyPI - License](https://img.shields.io/pypi/l/nrt-pytest-soft-asserts?color=blue&style=plastic)
+[![PyPI Downloads](https://static.pepy.tech/badge/nrt-pytest-soft-asserts/week)](https://pepy.tech/projects/nrt-pytest-soft-asserts)
+[![PyPI Downloads](https://static.pepy.tech/badge/nrt-pytest-soft-asserts/month)](https://pepy.tech/projects/nrt-pytest-soft-asserts)
+[![Coverage Status](https://coveralls.io/repos/github/etuzon/python-nrt-pytest-soft-asserts/badge.svg)](https://coveralls.io/github/etuzon/pytohn-nrt-pytest-soft-asserts)
+![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/etuzon/python-nrt-pytest-soft-asserts?style=plastic)
+![GitHub last commit](https://img.shields.io/github/last-commit/etuzon/python-nrt-pytest-soft-asserts?style=plastic)
+[![DeepSource](https://app.deepsource.com/gh/etuzon/python-nrt-pytest-soft-asserts.svg/?label=active+issues&token=d3XBT3-sw5yOtGTGWIJMpmT_)](https://app.deepsource.com/gh/etuzon/python-nrt-pytest-soft-asserts/?ref=repository-badge)
+
+## Supported asserts
+
+| Assert                                                                       | Description                                                                                   | Example                                                                                                         | Return                                              |
+|------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| assert_true(condition, message=None, on_failure=None)                        | Verify that condition is True.                                                                | soft_asserts.assert_true(a == b)                                                                                | True if assertion passes, False if assertion fails. |
+| assert_false(condition, message=None, on_failure=None)                       | Verify that condition is False.                                                               | soft_asserts.assert_false(a == b)                                                                               | True if assertion passes, False if assertion fails. |
+| assert_equal(first, second, message=None, on_failure=None)                   | Verify that first is equal to second.                                                         | soft_asserts.assert_equal(a, b)                                                                                 | True if assertion passes, False if assertion fails. |
+| assert_not_equal(first, second, message=None, on_failure=None)               | Verify that first is not equal to second.                                                     | soft_asserts.assert_not_equal(a, b)                                                                             | True if assertion passes, False if assertion fails. |
+| assert_greater(first, second, message=None, on_failure=None)                 | Verify that first is greater than second.                                                     | soft_asserts.assert_greater(b, a)                                                                               | True if assertion passes, False if assertion fails. |
+| assert_greater_equal(first, second, message=None, on_failure=None)           | Verify that first is greater than or equal to second.                                         | soft_asserts.assert_greater_equal(b, a)                                                                         | True if assertion passes, False if assertion fails. |
+| assert_less(first, second, message=None, on_failure=None)                    | Verify that first is less than second.                                                        | soft_asserts.assert_less(a, b)                                                                                  | True if assertion passes, False if assertion fails. |
+| assert_less_equal(first, second, message=None, on_failure=None)              | Verify that first is less than or equal to second.                                            | soft_asserts.assert_less_equal(a, b)                                                                            | True if assertion passes, False if assertion fails. |
+| assert_is(first, second, message=None, on_failure=None)                      | Verify that first and second are the same object.                                             | soft_asserts.assert_is(a, b)                                                                                    | True if assertion passes, False if assertion fails. |
+| assert_is_not(first, second, message=None, on_failure=None)                  | Verify that first and second are not the same object.                                         | soft_asserts.assert_is_not(a, b)                                                                                | True if assertion passes, False if assertion fails. |
+| assert_is_none(obj, message=None, on_failure=None)                           | Verify that obj is None.                                                                      | soft_asserts.assert_is_none(a)                                                                                  | True if assertion passes, False if assertion fails. |
+| assert_is_not_none(obj, message=None, on_failure=None)                       | Verify that obj is not None.                                                                  | soft_asserts.assert_is_not_none(a)                                                                              | True if assertion passes, False if assertion fails. |
+| assert_in(obj, container, message=None, on_failure=None)                     | Verify that obj is in container.                                                              | soft_asserts.assert_in(a, [a, b, c])                                                                            | True if assertion passes, False if assertion fails. |
+| assert_not_in(obj, container, message=None, on_failure=None)                 | Verify that obj is not in container.                                                          | soft_asserts.assert_not_in(a, [b, c])                                                                           | True if assertion passes, False if assertion fails. |
+| assert_len_equal(obj, expected_length, message=None, on_failure=None)        | Verify that len(obj) is equal to expected_length.                                             | soft_asserts.assert_len_equal([1, 2, 3], 3)                                                                     | True if assertion passes, False if assertion fails. |
+| assert_is_instance(obj, cls, message=None, on_failure=None)                  | Verify that obj is instance of cls.                                                           | soft_asserts.assert_is_instance(a, A)                                                                           | True if assertion passes, False if assertion fails. |
+| assert_is_not_instance(obj, cls, message=None, on_failure=None)              | Verify that obj is not instance of cls.                                                       | soft_asserts.assert_is_not_instance(a, B)                                                                       | True if assertion passes, False if assertion fails. |
+| assert_almost_equal(first, second, delta, message=None, on_failure=None)     | Verify that first is almost equal to second,<br/>and the different is equal or less to delta. | soft_asserts.assert_almost_equal(1.001, 1.002, 0.1)                                                             | True if assertion passes, False if assertion fails. |
+| assert_not_almost_equal(first, second, delta, message=None, on_failure=None) | Verify that first is not almost equal to second,<br/>and the different is more than delta.    | soft_asserts.assert_not_almost_equal(1.001, 1.002, 0.00001)                                                     | True if assertion passes, False if assertion fails. |
+| assert_raises(exception, method: Callable, *args, **kwargs)                  | Verify that method execution raise exception.                                                 | soft_asserts.assert_raises(TypeError, sum, 'a', 2)                                                              | True if assertion passes, False if assertion fails. |
+| assert_raises_with(exception, message=None, on_failure=None)                 | Verify that execution in 'with' block raise exception.                                        | with soft_asserts.assert_raised_with(ValueError):<br/>&nbsp;&nbsp;&nbsp;&nbsp;raise ValueError(ERROR_MESSAGE_1) |                                                     |
+                                                                                                                                                        
+
+In the end of each test, the soft asserts will be verified and the test will be marked as failed if any of the asserts failed.<br/>
+sort assert support on_failure callback function that will be called in case the assert fails.<br/>
+To verify the soft asserts in the middle of the test, call `sa.assert_all()`.<br/>
+<br/>
+assert_all() will raise _AssertionError_ if any of the asserts failed.<br/>
+
+### ith statement
+
+Soft asserts can be used in `with` statement.<br/>
+<br/>
+#### Example 1
+
+```python
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts
+
+
+sa = SoftAsserts()
+
+def print_on_failure():
+    print('Assertion failed!')
+
+def test_assert_with_statement():
+    with sa:
+        sa.assert_true(False, 'First assert failed')
+        sa.assert_equal(1, 2, 'Second assert failed')
+        sa.assert_equal(3, 4, 'Third assert failed', on_failure=print_on_failure)
+```
+
+#### Example 2
+
+```python
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts
+
+
+with SoftAsserts() as sa:
+    sa.assert_true(False, 'First assert failed')
+    sa.assert_equal(1, 2, 'Second assert failed')
+```
+
+### aync context manager
+Soft asserts can be used in `async with` statement.<br/>
+<br/>
+#### Example
+```python
+import asyncio
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts
+
+async def print_on_failure():
+    print('Assertion failed!')
+async def test_assert_with_async_statement():
+    async with SoftAsserts() as sa:
+        sa.assert_true(False, 'First assert failed')
+        sa.assert_equal(1, 2, 'Second assert failed')
+    
+asyncio.run(test_assert_with_async_statement())
+```
+
+### soft_asserts decorator
+Soft asserts can be used as a decorator.<br/>
+Soft asserts decorator supports also async test functions.<br/>
+The assert_all() method will be run in the decorator, so it is not needed to run in the test itself.<br/>
+
+#### Example 1
+
+```python
+import pytest
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts, soft_asserts
+
+
+sa = SoftAsserts()
+
+@soft_asserts(sa=sa)
+def test_assert_with_decorator():
+    sa.assert_true(False, 'First assert failed')
+    sa.assert_equal(1, 2, 'Second assert failed')
+```
+
+#### Example 2
+
+```python
+import pytest
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts, soft_asserts
+
+
+sa = SoftAsserts()
+
+@soft_asserts(sa=sa)
+async def test_assert_with_decorator_async():
+    sa.assert_true(False, 'First assert failed')
+    sa.assert_equal(1, 2, 'Second assert failed')
+```
+
+### Steps
+
+Each testing section can be divided to steps.<br/>
+The meaning of this is that if one of the asserts in a step failed,<br/>
+then the step will be entered to list of failure steps and next test can be skipped<br/>
+if it is depended on the failed step.<br/> 
+
+#### Example
+
+To make test be skipped if step failed, a custom marker should be created.
+
+This is an example of such custom marker, but user can create its own custom marker.
+
+In conftest.py file:
+
+```python
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def run_before_test(request):
+    markers = request.node.own_markers
+
+    for marker in markers:
+        if marker.name == 'soft_asserts':
+            marker_params = marker.kwargs
+            sa = marker_params['sa']
+            skip_steps = marker_params['skip_steps']
+
+            for step in skip_steps:
+                if sa.is_in_failure_steps(step):
+                    pytest.skip(f"Skipped because '{step}' failed.")
+```
+
+```python
+import pytest
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts
+
+
+STEP_1 = 'step_1'
+STEP_2 = 'step_2'
+
+sa = SoftAsserts()
+
+
+def test_assert_with_steps():
+    sa.set_step(STEP_1)
+    # result is False
+    result = sa.assert_true(False)
+    # print False
+    print(result)
+    sa.set_step(STEP_2)
+    sa.assert_true(False)
+
+    # From this code section steps will not be attached to failure asserts
+    sa.unset_step()
+    sa.assert_true(False)
+
+    sa.assert_all()
+
+
+@pytest.mark.soft_asserts(sa=sa, skip_steps=[STEP_1])
+def test_skip_if_step_1_fail():
+    sa.assert_true(True)
+
+
+@pytest.mark.soft_asserts(sa=sa, skip_steps=[STEP_2])
+def test_skip_if_step_2_fail():
+    sa.assert_true(True)
+```
+
+### Print error on each failed assert
+
+Each assertion failure can be printed.<br/>
+This can be done by adding logger or by adding a print method.<br/>
+
+ - In case a logger will be added to soft asserts, then logger.error(message) will be used.
+ - In case a print method will be added to soft asserts, then print_method(message) will be used.
+ - logger and print method cannot be added together.
+
+### Error format
+
+`(Count: ERROR_AMOUNT) message [file_path: line_number] code_line`
+
+#### logger example
+
+```python
+import logging
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts
+
+
+logger = logging.getLogger('test')
+
+sa = SoftAsserts()
+
+# logger will be used to print message after each assert fail.
+sa.set_logger(logger)
+
+
+def test_assert_true_fail():
+    i = 1
+    j = 2
+    # logger.error() will print messages to console for each assert that fails
+    sa.assert_true(i + j == 5)
+    # f'{i} is different from {j}' will be printed by logger.error() after assert will fail
+    sa.assert_equal(i, j, f'{i} is different from {j}')
+    sa.assert_all()
+```
+
+#### print method example
+
+```python
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts
+
+
+def print_method(message):
+    print(message)
+
+    
+sa = SoftAsserts()
+
+# print_method will be used to print message after each assert fail.
+sa.set_print_method(print_method)
+
+
+def test_assert_true_fail():
+    i = 1
+    j = 2
+    # print_method will print messages to console for each assert that fails
+    sa.assert_true(i + j == 5)
+    # f'{i} is different from {j}' will be printed by print_method after assert will fail
+    sa.assert_equal(i, j, f'{i} is different from {j}')
+    sa.assert_all()
+```
+
+### Duplicate error messages
+In case of multiple asserts with the same error message, a count of how many times the error message was printed will be shown.<br/>
+This is useful to avoid printing the same error message multiple times.<br/>
+
+* Supported duplicated error messages options:
+  - `DuplicatedErrorsEnum.NO_DUPLICATED_ERRORS_CODE_SOURCE`: Do not print duplicate error messages, that the duplication is based on the same code source (file path and line number).
+  - `DuplicatedErrorsEnum.NO_DUPLICATED_ERRORS_CODE_SOURCE_AND_ERROR`: Do not print duplicate error messages, that the duplication is based on the same code source (file path and line number) and the same error message.
+
+#### Example
+
+```python
+from nrt_pytest_soft_asserts.soft_asserts import SoftAsserts, DuplicatedErrorsEnum
+
+
+sa = SoftAsserts()
+sa.print_duplicate_errors = DuplicatedErrorsEnum.NO_DUPLICATED_ERRORS_CODE_SOURCE_AND_ERROR
+sa.assert_equal(1, 2, 'Error message')
+sa.assert_equal(1, 2, 'Error message')
+sa.assert_all()
+```
+
+
+
+Wiki: https://github.com/etuzon/python-nrt-pytest-soft-asserts/wiki

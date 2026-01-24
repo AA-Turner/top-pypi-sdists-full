@@ -10,7 +10,7 @@ struct Config {
     tags: Option<HashSet<String>>,
     clean_content_tags: Option<HashSet<String>>,
     attributes: Option<HashMap<String, HashSet<String>>>,
-    attribute_filter: Option<PyObject>,
+    attribute_filter: Option<Py<PyAny>>,
     strip_comments: bool,
     link_rel: Option<String>,
     generic_attribute_prefixes: Option<HashSet<String>>,
@@ -48,6 +48,51 @@ struct Inner {
     builder: ammonia::Builder<'this>,
 }
 
+/// Create a reusable sanitizer according to the given options.
+///
+/// :param tags: Sets the tags that are allowed.
+/// :type tags: ``set[str]``, optional
+/// :param clean_content_tags: Sets the tags whose contents will be completely removed from the output.
+/// :type clean_content_tags: ``set[str]``, optional
+/// :param attributes: Sets the HTML attributes that are allowed on specific tags,
+///    ``*`` key means the attributes are allowed on any tag.
+/// :type attributes: ``dict[str, set[str]]``, optional
+/// :param attribute_filter: Allows rewriting of all attributes using a callback.
+///     The callback takes name of the element, attribute and its value.
+///     Returns ``None`` to remove the attribute, or a value to use.
+/// :type attribute_filter: ``Callable[[str, str, str], str | None]``, optional
+/// :param strip_comments: Configures the handling of HTML comments, defaults to ``True``.
+/// :type strip_comments: ``bool``
+/// :param link_rel: Configures a ``rel`` attribute that will be added on links, defaults to ``noopener noreferrer``.
+///     To turn on rel-insertion, pass a space-separated list.
+///     If ``rel`` is in the generic or tag attributes, this must be set to ``None``. Common ``rel`` values to include:
+///
+///     - ``noopener``: This prevents a particular type of XSS attack, and should usually be turned on for untrusted HTML.
+///     - ``noreferrer``: This prevents the browser from sending the source URL to the website that is linked to.
+///     - ``nofollow``: This prevents search engines from using this link for ranking, which disincentivizes spammers.
+/// :type link_rel: ``str``
+/// :param generic_attribute_prefixes: Sets the prefix of attributes that are allowed on any tag.
+/// :type generic_attribute_prefixes: ``set[str]``, optional
+/// :param tag_attribute_values: Sets the values of HTML attributes that are allowed on specific tags.
+///     The value is structured as a map from tag names to a map from attribute names to a set of attribute values.
+///     If a tag is not itself whitelisted, adding entries to this map will do nothing.
+/// :type tag_attribute_values: ``dict[str, dict[str, set[str]]]``, optional
+/// :param set_tag_attribute_values: Sets the values of HTML attributes that are to be set on specific tags.
+///     The value is structured as a map from tag names to a map from attribute names to an attribute value.
+///     If a tag is not itself whitelisted, adding entries to this map will do nothing.
+/// :type set_tag_attribute_values: ``dict[str, dict[str, str]]``, optional
+/// :param url_schemes: Sets the URL schemes permitted on ``href`` and ``src`` attributes.
+/// :type url_schemes: ``set[str]``, optional
+/// :param allowed_classes: Sets the CSS classes that are allowed on specific tags.
+///     The values is structured as a map from tag names to a set of class names.
+///     The `class` attribute itself should not be whitelisted if this parameter is used.
+/// :type allowed_classes: ``dict[str, set[str]]``, optional
+/// :param filter_style_properties: Only allows the specified properties in `style` attributes.
+///     Irrelevant if `style` is not an allowed attribute.
+///     Note that if style filtering is enabled style properties will be normalised e.g.
+///     invalid declarations and @rules will be removed, with only syntactically valid
+///     declarations kept.
+/// :type filter_style_properties: ``set[str]``, optional
 #[pyclass]
 pub struct Cleaner {
     inner: Inner,
@@ -122,10 +167,10 @@ impl Cleaner {
         let attribute_filter = config
             .attribute_filter
             .as_ref()
-            .map(|f| Python::with_gil(|py| f.clone_ref(py)));
+            .map(|f| Python::attach(|py| f.clone_ref(py)));
         if let Some(callback) = attribute_filter {
             builder.attribute_filter(move |element, attribute, value| {
-                Python::with_gil(|py| {
+                Python::attach(|py| {
                     let res = callback.call(
                         py,
                         PyTuple::new(
@@ -143,12 +188,15 @@ impl Cleaner {
                         Ok(val) => {
                             if val.is_none(py) {
                                 return None;
-                            } else if let Ok(s) = val.extract::<String>(py) {
-                                return Some(Cow::<str>::Owned(s));
                             } else {
-                                PyTypeError::new_err(
-                                    "expected attribute_filter to return str or None",
-                                )
+                                match val.extract::<String>(py) {
+                                    Ok(s) => {
+                                        return Some(Cow::<str>::Owned(s));
+                                    }
+                                    _ => PyTypeError::new_err(
+                                        "expected attribute_filter to return str or None",
+                                    ),
+                                }
                             }
                         }
                         Err(err) => err,
@@ -207,51 +255,6 @@ impl Cleaner {
 
 #[pymethods]
 impl Cleaner {
-    /// Create a reusable sanitizer according to the given options.
-    ///
-    /// :param tags: Sets the tags that are allowed.
-    /// :type tags: ``set[str]``, optional
-    /// :param clean_content_tags: Sets the tags whose contents will be completely removed from the output.
-    /// :type clean_content_tags: ``set[str]``, optional
-    /// :param attributes: Sets the HTML attributes that are allowed on specific tags,
-    ///    ``*`` key means the attributes are allowed on any tag.
-    /// :type attributes: ``dict[str, set[str]]``, optional
-    /// :param attribute_filter: Allows rewriting of all attributes using a callback.
-    ///     The callback takes name of the element, attribute and its value.
-    ///     Returns ``None`` to remove the attribute, or a value to use.
-    /// :type attribute_filter: ``Callable[[str, str, str], str | None]``, optional
-    /// :param strip_comments: Configures the handling of HTML comments, defaults to ``True``.
-    /// :type strip_comments: ``bool``
-    /// :param link_rel: Configures a ``rel`` attribute that will be added on links, defaults to ``noopener noreferrer``.
-    ///     To turn on rel-insertion, pass a space-separated list.
-    ///     If ``rel`` is in the generic or tag attributes, this must be set to ``None``. Common ``rel`` values to include:
-    ///
-    ///     - ``noopener``: This prevents a particular type of XSS attack, and should usually be turned on for untrusted HTML.
-    ///     - ``noreferrer``: This prevents the browser from sending the source URL to the website that is linked to.
-    ///     - ``nofollow``: This prevents search engines from using this link for ranking, which disincentivizes spammers.
-    /// :type link_rel: ``str``
-    /// :param generic_attribute_prefixes: Sets the prefix of attributes that are allowed on any tag.
-    /// :type generic_attribute_prefixes: ``set[str]``, optional
-    /// :param tag_attribute_values: Sets the values of HTML attributes that are allowed on specific tags.
-    ///     The value is structured as a map from tag names to a map from attribute names to a set of attribute values.
-    ///     If a tag is not itself whitelisted, adding entries to this map will do nothing.
-    /// :type tag_attribute_values: ``dict[str, dict[str, set[str]]]``, optional
-    /// :param set_tag_attribute_values: Sets the values of HTML attributes that are to be set on specific tags.
-    ///     The value is structured as a map from tag names to a map from attribute names to an attribute value.
-    ///     If a tag is not itself whitelisted, adding entries to this map will do nothing.
-    /// :type set_tag_attribute_values: ``dict[str, dict[str, str]]``, optional
-    /// :param url_schemes: Sets the URL schemes permitted on ``href`` and ``src`` attributes.
-    /// :type url_schemes: ``set[str]``, optional
-    /// :param allowed_classes: Sets the CSS classes that are allowed on specific tags.
-    ///     The values is structured as a map from tag names to a set of class names.
-    ///     The `class` attribute itself should not be whitelisted if this parameter is used.
-    /// :type allowed_classes: ``dict[str, set[str]]``, optional
-    /// :param filter_style_properties: Only allows the specified properties in `style` attributes.
-    ///     Irrelevant if `style` is not an allowed attribute.
-    ///     Note that if style filtering is enabled style properties will be normalised e.g.
-    ///     invalid declarations and @rules will be removed, with only syntactically valid
-    ///     declarations kept.
-    /// :type filter_style_properties: ``set[str]``, optional
     #[new]
     #[pyo3(signature = (
         tags = None,
@@ -272,7 +275,7 @@ impl Cleaner {
         tags: Option<HashSet<String>>,
         clean_content_tags: Option<HashSet<String>>,
         attributes: Option<HashMap<String, HashSet<String>>>,
-        attribute_filter: Option<PyObject>,
+        attribute_filter: Option<Py<PyAny>>,
         strip_comments: bool,
         link_rel: Option<&str>,
         generic_attribute_prefixes: Option<HashSet<String>>,
@@ -307,7 +310,7 @@ impl Cleaner {
     /// Sanitize an HTML fragment
     #[pyo3(name = "clean")]
     fn py_clean(&self, py: Python, html: &str) -> PyResult<String> {
-        Ok(py.allow_threads(|| self.clean(html)))
+        Ok(py.detach(|| self.clean(html)))
     }
 }
 
@@ -380,7 +383,7 @@ fn clean(
     tags: Option<HashSet<String>>,
     clean_content_tags: Option<HashSet<String>>,
     attributes: Option<HashMap<String, HashSet<String>>>,
-    attribute_filter: Option<PyObject>,
+    attribute_filter: Option<Py<PyAny>>,
     strip_comments: bool,
     link_rel: Option<&str>,
     generic_attribute_prefixes: Option<HashSet<String>>,
@@ -405,7 +408,7 @@ fn clean(
         allowed_classes,
         filter_style_properties,
     )?;
-    Ok(py.allow_threads(|| cleaner.clean(html)))
+    Ok(py.detach(|| cleaner.clean(html)))
 }
 
 /// Turn an arbitrary string into unformatted HTML.
@@ -428,7 +431,7 @@ fn clean(
 ///      'Robert&quot;);&#32;abuse();&#47;&#47;'
 #[pyfunction]
 fn clean_text(py: Python, html: &str) -> String {
-    py.allow_threads(|| ammonia::clean_text(html))
+    py.detach(|| ammonia::clean_text(html))
 }
 
 /// Determine if a given string contains HTML.
@@ -452,7 +455,7 @@ fn clean_text(py: Python, html: &str) -> String {
 ///     True
 #[pyfunction]
 fn is_html(py: Python, html: &str) -> bool {
-    py.allow_threads(|| ammonia::is_html(html))
+    py.detach(|| ammonia::is_html(html))
 }
 
 /// Python bindings to the ammonia HTML sanitization library ( https://github.com/rust-ammonia/ammonia ).

@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
- * Copyright (c) 2025 Munich Quantum Software Company GmbH
+ * Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+ * Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
  * All rights reserved.
  *
  * SPDX-License-Identifier: MIT
@@ -138,7 +138,7 @@ public:
 
   [[nodiscard]] virtual bool isNonUnitaryOperation() const { return false; }
 
-  [[nodiscard]] virtual bool isClassicControlledOperation() const noexcept {
+  [[nodiscard]] virtual bool isIfElseOperation() const noexcept {
     return false;
   }
 
@@ -154,6 +154,8 @@ public:
   }
 
   [[nodiscard]] virtual bool isControlled() const { return !controls.empty(); }
+
+  [[nodiscard]] virtual bool isClifford() const { return false; }
 
   /**
    * @brief Checks whether a gate is global.

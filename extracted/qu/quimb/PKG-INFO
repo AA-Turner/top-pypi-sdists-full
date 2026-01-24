@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quimb
-Version: 1.11.2
+Version: 1.12.1
 Summary: Quantum information and many-body library.
 Project-URL: Documentation, https://quimb.readthedocs.io/
 Project-URL: Repository, https://github.com/jcmgray/quimb/
@@ -13,27 +13,24 @@ Keywords: dmrg,mera,networks,peps,physics,quantum,tebd,tensor,tensors
 Classifier: Development Status :: 3 - Alpha
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
-Requires-Dist: autoray>=0.6.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.11
+Requires-Dist: autoray>=0.8
 Requires-Dist: cotengra>=0.7.1
 Requires-Dist: cytoolz>=0.8.0
 Requires-Dist: numba>=0.39
 Requires-Dist: numpy>=1.17
 Requires-Dist: psutil>=4.3.1
-Requires-Dist: scipy>=1.0.0
+Requires-Dist: scipy>=1.16.0
 Requires-Dist: tqdm>=4
 Provides-Extra: advanced-solvers
 Requires-Dist: mpi4py; extra == 'advanced-solvers'
 Requires-Dist: petsc4py; extra == 'advanced-solvers'
 Requires-Dist: slepc4py; extra == 'advanced-solvers'
 Provides-Extra: docs
-Requires-Dist: astroid<3.0.0; extra == 'docs'
-Requires-Dist: autoray>=0.6.12; extra == 'docs'
-Requires-Dist: cotengra>=0.7.1; extra == 'docs'
+Requires-Dist: astroid; extra == 'docs'
 Requires-Dist: doc2dash>=2.4.1; extra == 'docs'
 Requires-Dist: furo; extra == 'docs'
 Requires-Dist: ipython!=8.7.0; extra == 'docs'
@@ -43,9 +40,15 @@ Requires-Dist: sphinx-autoapi; extra == 'docs'
 Requires-Dist: sphinx-copybutton; extra == 'docs'
 Requires-Dist: sphinx-design; extra == 'docs'
 Requires-Dist: sphinx>=2.0; extra == 'docs'
-Provides-Extra: tensor
-Requires-Dist: matplotlib>=2.0; extra == 'tensor'
-Requires-Dist: networkx>=2.3; extra == 'tensor'
+Provides-Extra: recommended
+Requires-Dist: autograd; extra == 'recommended'
+Requires-Dist: cmaes; extra == 'recommended'
+Requires-Dist: cotengrust; extra == 'recommended'
+Requires-Dist: kahypar; extra == 'recommended'
+Requires-Dist: matplotlib; extra == 'recommended'
+Requires-Dist: networkx; extra == 'recommended'
+Requires-Dist: plotly; extra == 'recommended'
+Requires-Dist: pygraphviz; extra == 'recommended'
 Provides-Extra: tests
 Requires-Dist: coverage; extra == 'tests'
 Requires-Dist: pytest; extra == 'tests'
@@ -70,7 +73,7 @@ The `quimb.tensor` module contains tools for working with **tensors and tensor n
 
 - construct and manipulate arbitrary (hyper) graphs of tensor networks
 - automatically [contract](https://cotengra.readthedocs.io), optimize and draw networks
-- use various backend array libraries such as [jax](https://jax.readthedocs.io) and [torch](https://pytorch.org/) via [autoray](https://github.com/jcmgray/autoray/)
+- use various backend array libraries such as [jax](https://jax.readthedocs.io) and [torch](https://pytorch.org/) via [autoray](https://github.com/jcmgray/autoray/), including symmetries and fermions via [symmray](https://github.com/jcmgray/symmray)
 - run specific MPS, PEPS, MERA and quantum circuit algorithms, such as DMRG & TEBD
 
 ![tensor pic](https://github.com/jcmgray/quimb/blob/HEAD/docs/_static/rand-tensor.svg?raw=true)

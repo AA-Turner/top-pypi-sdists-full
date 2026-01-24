@@ -12,6 +12,7 @@ from deepl.api_data import (
     ModelType,
     Language,
     SplitSentences,
+    StyleRuleInfo,
     TextResult,
     Usage,
 )
@@ -262,6 +263,7 @@ class Translator:
         glossary: Union[
             str, GlossaryInfo, MultilingualGlossaryInfo, None
         ] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
     ) -> dict:
         # target_lang and source_lang are case insensitive
         target_lang = str(target_lang).upper()
@@ -293,6 +295,13 @@ class Translator:
                     "source_lang and target_lang"
                 )
 
+        if isinstance(style_rule, StyleRuleInfo):
+            if (
+                Language.remove_regional_variant(target_lang)
+                != style_rule.language
+            ):
+                raise ValueError("target_lang must match style rule language")
+
         self._check_valid_languages(source_lang, target_lang)
 
         request_data = {"target_lang": target_lang}
@@ -306,6 +315,10 @@ class Translator:
             request_data["glossary_id"] = glossary.glossary_id
         elif glossary is not None:
             request_data["glossary_id"] = glossary
+        if isinstance(style_rule, StyleRuleInfo):
+            request_data["style_id"] = style_rule.style_id
+        elif style_rule is not None:
+            request_data["style_id"] = style_rule
         return request_data
 
     def _create_glossary(
@@ -363,11 +376,15 @@ class Translator:
             str, GlossaryInfo, MultilingualGlossaryInfo, None
         ] = None,
         tag_handling: Optional[str] = None,
+        tag_handling_version: Optional[str] = None,
         outline_detection: Optional[bool] = None,
         non_splitting_tags: Union[str, List[str], None] = None,
         splitting_tags: Union[str, List[str], None] = None,
         ignore_tags: Union[str, List[str], None] = None,
         model_type: Union[str, ModelType, None] = None,
+        style_rule: Union[str, StyleRuleInfo, None] = None,
+        custom_instructions: Optional[List[str]] = None,
+        extra_body_parameters: Optional[dict] = None,
     ) -> Union[TextResult, List[TextResult]]:
         """Translate text(s) into the target language.
 
@@ -394,8 +411,12 @@ class Translator:
             "default".
         :param glossary: (Optional) glossary or glossary ID to use for
             translation. Must match specified source_lang and target_lang.
+        :param style_rule: (Optional) style rule or style rule ID to use for
+            translation.
         :param tag_handling: (Optional) Type of tags to parse before
             translation, only "xml" and "html" are currently available.
+        :param tag_handling_version: (Optional) Version of tag handling
+            algorithm to use, "v1" or "v2".
         :param outline_detection: (Optional) Set to False to disable automatic
             tag detection.
         :param non_splitting_tags: (Optional) XML tags that should not split a
@@ -410,6 +431,14 @@ class Translator:
         :type ignore_tags: List of XML tags or comma-separated-list of tags.
         :param model_type: (Optional) Controls whether the translation engine
             should use a potentially slower model to achieve higher quality.
+        :param custom_instructions: (Optional) List of custom instructions to
+            guide the translation. Maximum of 10 instructions, each with a
+            maximum length of 300 characters.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body. Existing
+            keys set by the client will not be overwritten by entries in
+            extra_body_parameters.
         :return: List of TextResult objects containing results, unless input
             text was one string, then a single TextResult object is returned.
         """
@@ -427,10 +456,7 @@ class Translator:
             )
 
         request_data = self._check_language_and_formality(
-            source_lang,
-            target_lang,
-            formality,
-            glossary,
+            source_lang, target_lang, formality, glossary, style_rule
         )
         request_data["text"] = text
 
@@ -446,10 +472,17 @@ class Translator:
             request_data["preserve_formatting"] = bool(preserve_formatting)
         if tag_handling is not None:
             request_data["tag_handling"] = tag_handling
+        if tag_handling_version is not None:
+            request_data["tag_handling_version"] = tag_handling_version
         if outline_detection is not None:
             request_data["outline_detection"] = bool(outline_detection)
         if model_type is not None:
             request_data["model_type"] = str(model_type)
+        if style_rule is not None:
+            if isinstance(style_rule, StyleRuleInfo):
+                request_data["style_id"] = style_rule.style_id
+            else:
+                request_data["style_id"] = style_rule
 
         def join_tags(tag_argument: Union[str, Iterable[str]]) -> List[str]:
             if isinstance(tag_argument, str):
@@ -466,6 +499,13 @@ class Translator:
             request_data["splitting_tags"] = join_tags(splitting_tags)
         if ignore_tags is not None:
             request_data["ignore_tags"] = join_tags(ignore_tags)
+        if custom_instructions is not None:
+            request_data["custom_instructions"] = custom_instructions
+
+        # Do not overwrite keys that were explicitly set by this method.
+        if extra_body_parameters:
+            for k, v in extra_body_parameters.items():
+                request_data[k] = v
 
         status, content, json = self._api_call(
             "v2/translate", json=request_data
@@ -558,6 +598,7 @@ class Translator:
             str, GlossaryInfo, MultilingualGlossaryInfo, None
         ] = None,
         timeout_s: Optional[int] = None,
+        extra_body_parameters: Optional[dict] = None,
     ) -> DocumentStatus:
         """Upload document at given input path, translate it into the target
         language, and download result to given output path.
@@ -576,6 +617,11 @@ class Translator:
         :param timeout_s: (beta) (Optional) Maximum time to wait before
             the call raises an error. Note that this is not accurate to the
             second, but only polls every 5 seconds.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body. Existing
+            keys set by the client will not be overwritten by entries in
+            extra_body_parameters.
         :return: DocumentStatus when document translation completed, this
             allows the number of billed characters to be queried.
 
@@ -600,6 +646,7 @@ class Translator:
                         glossary=glossary,
                         output_format=output_format,
                         timeout_s=timeout_s,
+                        extra_body_parameters=extra_body_parameters,
                     )
                 except Exception as e:
                     out_file.close()
@@ -620,6 +667,7 @@ class Translator:
         filename: Optional[str] = None,
         output_format: Optional[str] = None,
         timeout_s: Optional[int] = None,
+        extra_body_parameters: Optional[dict] = None,
     ) -> DocumentStatus:
         """Upload document, translate it into the target language, and download
         result.
@@ -644,6 +692,11 @@ class Translator:
         :param timeout_s: (beta) (Optional) Maximum time to wait before
             the call raises an error. Note that this is not accurate to the
             second, but only polls every 5 seconds.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body. Existing
+            keys set by the client will not be overwritten by entries in
+            extra_body_parameters.
         :return: DocumentStatus when document translation completed, this
             allows the number of billed characters to be queried.
 
@@ -659,6 +712,7 @@ class Translator:
             glossary=glossary,
             filename=filename,
             output_format=output_format,
+            extra_body_parameters=extra_body_parameters,
         )
 
         try:
@@ -688,6 +742,7 @@ class Translator:
         ] = None,
         filename: Optional[str] = None,
         output_format: Optional[str] = None,
+        extra_body_parameters: Optional[dict] = None,
     ) -> DocumentHandle:
         """Upload document to be translated and return handle associated with
         request.
@@ -707,6 +762,11 @@ class Translator:
             if uploading string or bytes containing file content.
         :param output_format: (Optional) Desired output file extension, if
             it differs from the input file format.
+        :param extra_body_parameters: (Optional) Additional key/value pairs to
+            include in the JSON request body sent to the API. If provided,
+            keys in this dict will be added to the request body. Existing
+            keys set by the client will not be overwritten by entries in
+            extra_body_parameters.
         :return: DocumentHandle with ID and key identifying document.
         """
 
@@ -726,6 +786,10 @@ class Translator:
             files = {"file": (filename, input_document)}
         else:
             files = {"file": input_document}
+        if extra_body_parameters:
+            for k, v in extra_body_parameters.items():
+                request_data[k] = v
+
         status, content, json = self._api_call(
             "v2/document", data=request_data, files=files
         )
@@ -873,7 +937,7 @@ class Translator:
         else:
             return response
 
-    def get_source_languages(self, skip_cache=False) -> List[Language]:
+    def get_source_languages(self, skip_cache: bool = False) -> List[Language]:
         """Request the list of available source languages.
 
         :param skip_cache: Deprecated, and now has no effect as the
@@ -892,7 +956,7 @@ class Translator:
             for language in languages
         ]
 
-    def get_target_languages(self, skip_cache=False) -> List[Language]:
+    def get_target_languages(self, skip_cache: bool = False) -> List[Language]:
         """Request the list of available target languages.
 
         :param skip_cache: Deprecated, and now has no effect as the

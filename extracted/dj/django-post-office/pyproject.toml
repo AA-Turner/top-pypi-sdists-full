@@ -17,6 +17,7 @@ classifiers = [
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
@@ -27,12 +28,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Communications :: Email",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "bleach[css]",
+    "nh3",
     "django>=4.2",
 ]
 dynamic = ["version"]
@@ -43,14 +45,21 @@ content-type = "text/markdown"
 
 [project.optional-dependencies]
 test = [
+    "pytest",
+    "pytest-django",
     "tox >= 2.3",
-]
-prevent-xss = [
-    "bleach",
 ]
 
 [tool.setuptools]
 zip-safe = false
+
+[tool.setuptools.packages.find]
+include = [
+    "post_office",
+    "post_office.*",
+    "post_office_attachments",
+    "post_office_attachments.*",
+]
 
 [tool.setuptools.dynamic]
 version = {attr = "post_office.version.VERSION"}
@@ -62,6 +71,10 @@ target-version = "py39"
 exclude = [
     "migrations",
 ]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.test_settings"
+pythonpath = ["."]
 
 [tool.ruff.format]
 quote-style = "single"

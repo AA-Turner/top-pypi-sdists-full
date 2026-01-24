@@ -8,6 +8,7 @@ import typing
 # Export this package's modules as members:
 from .action_connection import *
 from .agentless_scanning_aws_scan_options import *
+from .agentless_scanning_gcp_scan_options import *
 from .api_key import *
 from .apm_retention_filter import *
 from .apm_retention_filter_order import *
@@ -17,32 +18,43 @@ from .application_key import *
 from .appsec_waf_custom_rule import *
 from .appsec_waf_exclusion_filter import *
 from .authn_mapping import *
+from .aws_cur_config import *
+from .azure_uc_config import *
 from .child_organization import *
 from .cloud_configuration_rule import *
+from .cloud_inventory_sync_config import *
 from .cloud_workload_security_agent_rule import *
 from .compliance_custom_framework import *
 from .compliance_resource_evaluation_filter import *
 from .cost_budget import *
 from .csm_threats_agent_rule import *
 from .csm_threats_policy import *
+from .custom_allocation_rule import *
+from .custom_allocation_rules import *
 from .dashboard import *
 from .dashboard_json import *
 from .dashboard_list import *
 from .dataset import *
+from .deployment_gate import *
 from .domain_allowlist import *
 from .downtime import *
 from .downtime_schedule import *
+from .gcp_uc_config import *
 from .get_action_connection import *
 from .get_api_key import *
 from .get_apm_retention_filters_order import *
 from .get_app_builder_app import *
 from .get_application_key import *
+from .get_aws_cur_config import *
+from .get_azure_uc_config import *
 from .get_cloud_workload_security_agent_rules import *
 from .get_cost_budget import *
 from .get_csm_threats_agent_rules import *
 from .get_csm_threats_policies import *
+from .get_custom_allocation_rule import *
 from .get_dashboard import *
 from .get_dashboard_list import *
+from .get_gcp_uc_config import *
 from .get_hosts import *
 from .get_incident_notification_rule import *
 from .get_incident_notification_template import *
@@ -56,11 +68,15 @@ from .get_logs_pipelines_order import *
 from .get_metric_active_tags_and_aggregations import *
 from .get_metric_metadata import *
 from .get_metric_tags import *
+from .get_metrics import *
 from .get_monitor import *
 from .get_monitor_config_policies import *
 from .get_monitors import *
+from .get_organization_settings import *
 from .get_permissions import *
 from .get_powerpack import *
+from .get_reference_table import *
+from .get_reference_table_rows import *
 from .get_role import *
 from .get_role_users import *
 from .get_roles import *
@@ -78,8 +94,12 @@ from .get_software_catalog import *
 from .get_synthetics_global_variable import *
 from .get_synthetics_locations import *
 from .get_synthetics_test import *
+from .get_tag_pipeline_ruleset import *
 from .get_team import *
+from .get_team_hierarchy_links import *
 from .get_team_memberships import *
+from .get_team_notification_rule import *
+from .get_team_notification_rules import *
 from .get_teams import *
 from .get_user import *
 from .get_users import *
@@ -97,6 +117,7 @@ from .logs_index_order import *
 from .logs_integration_pipeline import *
 from .logs_metric import *
 from .logs_pipeline_order import *
+from .logs_restriction_query import *
 from .metric_metadata import *
 from .metric_tag_configuration import *
 from .monitor import *
@@ -107,10 +128,14 @@ from .observability_pipeline import *
 from .on_call_escalation_policy import *
 from .on_call_schedule import *
 from .on_call_team_routing_rules import *
+from .on_call_user_notification_channel import *
+from .on_call_user_notification_rule import *
 from .openapi_api import *
+from .org_connection import *
 from .organization_settings import *
 from .powerpack import *
 from .provider import *
+from .reference_table import *
 from .restriction_policy import *
 from .role import *
 from .rum_application import *
@@ -137,9 +162,13 @@ from .synthetics_concurrency_cap import *
 from .synthetics_global_variable import *
 from .synthetics_private_location import *
 from .synthetics_test import *
+from .tag_pipeline_ruleset import *
+from .tag_pipeline_rulesets import *
 from .team import *
+from .team_hierarchy_links import *
 from .team_link import *
 from .team_membership import *
+from .team_notification_rule import *
 from .team_permission_setting import *
 from .user import *
 from .user_role import *
@@ -327,6 +356,14 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/agentlessScanningGcpScanOptions",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/agentlessScanningGcpScanOptions:AgentlessScanningGcpScanOptions": "AgentlessScanningGcpScanOptions"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/apiKey",
   "fqn": "pulumi_datadog",
   "classes": {
@@ -399,6 +436,22 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/awsCurConfig",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/awsCurConfig:AwsCurConfig": "AwsCurConfig"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/azureUcConfig",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/azureUcConfig:AzureUcConfig": "AzureUcConfig"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/childOrganization",
   "fqn": "pulumi_datadog",
   "classes": {
@@ -411,6 +464,14 @@ _utilities.register(
   "fqn": "pulumi_datadog",
   "classes": {
    "datadog:index/cloudConfigurationRule:CloudConfigurationRule": "CloudConfigurationRule"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/cloudInventorySyncConfig",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/cloudInventorySyncConfig:CloudInventorySyncConfig": "CloudInventorySyncConfig"
   }
  },
  {
@@ -463,6 +524,22 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/customAllocationRule",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/customAllocationRule:CustomAllocationRule": "CustomAllocationRule"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/customAllocationRules",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/customAllocationRules:CustomAllocationRules": "CustomAllocationRules"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/dashboard",
   "fqn": "pulumi_datadog",
   "classes": {
@@ -495,6 +572,14 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/deploymentGate",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/deploymentGate:DeploymentGate": "DeploymentGate"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/domainAllowlist",
   "fqn": "pulumi_datadog",
   "classes": {
@@ -515,6 +600,14 @@ _utilities.register(
   "fqn": "pulumi_datadog",
   "classes": {
    "datadog:index/downtimeSchedule:DowntimeSchedule": "DowntimeSchedule"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/gcpUcConfig",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/gcpUcConfig:GcpUcConfig": "GcpUcConfig"
   }
  },
  {
@@ -623,6 +716,14 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/logsRestrictionQuery",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/logsRestrictionQuery:LogsRestrictionQuery": "LogsRestrictionQuery"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/metricMetadata",
   "fqn": "pulumi_datadog",
   "classes": {
@@ -703,10 +804,34 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/onCallUserNotificationChannel",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/onCallUserNotificationChannel:OnCallUserNotificationChannel": "OnCallUserNotificationChannel"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/onCallUserNotificationRule",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/onCallUserNotificationRule:OnCallUserNotificationRule": "OnCallUserNotificationRule"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/openapiApi",
   "fqn": "pulumi_datadog",
   "classes": {
    "datadog:index/openapiApi:OpenapiApi": "OpenapiApi"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/orgConnection",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/orgConnection:OrgConnection": "OrgConnection"
   }
  },
  {
@@ -723,6 +848,14 @@ _utilities.register(
   "fqn": "pulumi_datadog",
   "classes": {
    "datadog:index/powerpack:Powerpack": "Powerpack"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/referenceTable",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/referenceTable:ReferenceTable": "ReferenceTable"
   }
  },
  {
@@ -935,10 +1068,34 @@ _utilities.register(
  },
  {
   "pkg": "datadog",
+  "mod": "index/tagPipelineRuleset",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/tagPipelineRuleset:TagPipelineRuleset": "TagPipelineRuleset"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/tagPipelineRulesets",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/tagPipelineRulesets:TagPipelineRulesets": "TagPipelineRulesets"
+  }
+ },
+ {
+  "pkg": "datadog",
   "mod": "index/team",
   "fqn": "pulumi_datadog",
   "classes": {
    "datadog:index/team:Team": "Team"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/teamHierarchyLinks",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/teamHierarchyLinks:TeamHierarchyLinks": "TeamHierarchyLinks"
   }
  },
  {
@@ -955,6 +1112,14 @@ _utilities.register(
   "fqn": "pulumi_datadog",
   "classes": {
    "datadog:index/teamMembership:TeamMembership": "TeamMembership"
+  }
+ },
+ {
+  "pkg": "datadog",
+  "mod": "index/teamNotificationRule",
+  "fqn": "pulumi_datadog",
+  "classes": {
+   "datadog:index/teamNotificationRule:TeamNotificationRule": "TeamNotificationRule"
   }
  },
  {

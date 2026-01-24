@@ -5,6 +5,7 @@ from ..core.client_wrapper import SyncClientWrapper
 from .requests.tts_request_voice_specifier import TtsRequestVoiceSpecifierParams
 from .requests.output_format import OutputFormatParams
 from .types.supported_language import SupportedLanguage
+from .requests.generation_config import GenerationConfigParams
 from .types.model_speed import ModelSpeed
 from ..core.request_options import RequestOptions
 from ..core.serialization import convert_and_respect_annotation_metadata
@@ -34,8 +35,10 @@ class TtsClient:
         voice: TtsRequestVoiceSpecifierParams,
         output_format: OutputFormatParams,
         language: typing.Optional[SupportedLanguage] = OMIT,
+        generation_config: typing.Optional[GenerationConfigParams] = OMIT,
         duration: typing.Optional[float] = OMIT,
         speed: typing.Optional[ModelSpeed] = OMIT,
+        pronunciation_dict_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[bytes]:
         """
@@ -52,11 +55,16 @@ class TtsClient:
 
         language : typing.Optional[SupportedLanguage]
 
+        generation_config : typing.Optional[GenerationConfigParams]
+
         duration : typing.Optional[float]
             The maximum duration of the audio in seconds. You do not usually need to specify this.
             If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
 
         speed : typing.Optional[ModelSpeed]
+
+        pronunciation_dict_id : typing.Optional[str]
+            A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -97,8 +105,12 @@ class TtsClient:
                 "output_format": convert_and_respect_annotation_metadata(
                     object_=output_format, annotation=OutputFormatParams, direction="write"
                 ),
+                "generation_config": convert_and_respect_annotation_metadata(
+                    object_=generation_config, annotation=GenerationConfigParams, direction="write"
+                ),
                 "duration": duration,
                 "speed": speed,
+                "pronunciation_dict_id": pronunciation_dict_id,
             },
             request_options=request_options,
             omit=OMIT,
@@ -123,12 +135,14 @@ class TtsClient:
         voice: TtsRequestVoiceSpecifierParams,
         output_format: SseOutputFormatParams,
         language: typing.Optional[SupportedLanguage] = OMIT,
+        generation_config: typing.Optional[GenerationConfigParams] = OMIT,
         duration: typing.Optional[float] = OMIT,
         speed: typing.Optional[ModelSpeed] = OMIT,
         add_timestamps: typing.Optional[bool] = OMIT,
         add_phoneme_timestamps: typing.Optional[bool] = OMIT,
         use_normalized_timestamps: typing.Optional[bool] = OMIT,
         context_id: typing.Optional[ContextId] = OMIT,
+        pronunciation_dict_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[WebSocketResponse]:
         """
@@ -144,6 +158,8 @@ class TtsClient:
         output_format : SseOutputFormatParams
 
         language : typing.Optional[SupportedLanguage]
+
+        generation_config : typing.Optional[GenerationConfigParams]
 
         duration : typing.Optional[float]
             The maximum duration of the audio in seconds. You do not usually need to specify this.
@@ -162,6 +178,9 @@ class TtsClient:
 
         context_id : typing.Optional[ContextId]
             Optional context ID for this request.
+
+        pronunciation_dict_id : typing.Optional[str]
+            A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -204,12 +223,16 @@ class TtsClient:
                 "output_format": convert_and_respect_annotation_metadata(
                     object_=output_format, annotation=SseOutputFormatParams, direction="write"
                 ),
+                "generation_config": convert_and_respect_annotation_metadata(
+                    object_=generation_config, annotation=GenerationConfigParams, direction="write"
+                ),
                 "duration": duration,
                 "speed": speed,
                 "add_timestamps": add_timestamps,
                 "add_phoneme_timestamps": add_phoneme_timestamps,
                 "use_normalized_timestamps": use_normalized_timestamps,
                 "context_id": context_id,
+                "pronunciation_dict_id": pronunciation_dict_id,
             },
             request_options=request_options,
             omit=OMIT,
@@ -248,8 +271,10 @@ class AsyncTtsClient:
         voice: TtsRequestVoiceSpecifierParams,
         output_format: OutputFormatParams,
         language: typing.Optional[SupportedLanguage] = OMIT,
+        generation_config: typing.Optional[GenerationConfigParams] = OMIT,
         duration: typing.Optional[float] = OMIT,
         speed: typing.Optional[ModelSpeed] = OMIT,
+        pronunciation_dict_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[bytes]:
         """
@@ -266,11 +291,16 @@ class AsyncTtsClient:
 
         language : typing.Optional[SupportedLanguage]
 
+        generation_config : typing.Optional[GenerationConfigParams]
+
         duration : typing.Optional[float]
             The maximum duration of the audio in seconds. You do not usually need to specify this.
             If the duration is not appropriate for the length of the transcript, the output audio may be truncated.
 
         speed : typing.Optional[ModelSpeed]
+
+        pronunciation_dict_id : typing.Optional[str]
+            A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -319,8 +349,12 @@ class AsyncTtsClient:
                 "output_format": convert_and_respect_annotation_metadata(
                     object_=output_format, annotation=OutputFormatParams, direction="write"
                 ),
+                "generation_config": convert_and_respect_annotation_metadata(
+                    object_=generation_config, annotation=GenerationConfigParams, direction="write"
+                ),
                 "duration": duration,
                 "speed": speed,
+                "pronunciation_dict_id": pronunciation_dict_id,
             },
             request_options=request_options,
             omit=OMIT,
@@ -345,12 +379,14 @@ class AsyncTtsClient:
         voice: TtsRequestVoiceSpecifierParams,
         output_format: SseOutputFormatParams,
         language: typing.Optional[SupportedLanguage] = OMIT,
+        generation_config: typing.Optional[GenerationConfigParams] = OMIT,
         duration: typing.Optional[float] = OMIT,
         speed: typing.Optional[ModelSpeed] = OMIT,
         add_timestamps: typing.Optional[bool] = OMIT,
         add_phoneme_timestamps: typing.Optional[bool] = OMIT,
         use_normalized_timestamps: typing.Optional[bool] = OMIT,
         context_id: typing.Optional[ContextId] = OMIT,
+        pronunciation_dict_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[WebSocketResponse]:
         """
@@ -366,6 +402,8 @@ class AsyncTtsClient:
         output_format : SseOutputFormatParams
 
         language : typing.Optional[SupportedLanguage]
+
+        generation_config : typing.Optional[GenerationConfigParams]
 
         duration : typing.Optional[float]
             The maximum duration of the audio in seconds. You do not usually need to specify this.
@@ -384,6 +422,9 @@ class AsyncTtsClient:
 
         context_id : typing.Optional[ContextId]
             Optional context ID for this request.
+
+        pronunciation_dict_id : typing.Optional[str]
+            A pronunciation dict ID to use for the generation. This will be applied to this TTS generation only.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -434,12 +475,16 @@ class AsyncTtsClient:
                 "output_format": convert_and_respect_annotation_metadata(
                     object_=output_format, annotation=SseOutputFormatParams, direction="write"
                 ),
+                "generation_config": convert_and_respect_annotation_metadata(
+                    object_=generation_config, annotation=GenerationConfigParams, direction="write"
+                ),
                 "duration": duration,
                 "speed": speed,
                 "add_timestamps": add_timestamps,
                 "add_phoneme_timestamps": add_phoneme_timestamps,
                 "use_normalized_timestamps": use_normalized_timestamps,
                 "context_id": context_id,
+                "pronunciation_dict_id": pronunciation_dict_id,
             },
             request_options=request_options,
             omit=OMIT,

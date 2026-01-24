@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlfluff
-Version: 3.4.2
+Version: 4.0.0
 Summary: The SQL Linter for Humans
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
@@ -57,7 +57,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: platformdirs
 Requires-Dist: chardet
-Requires-Dist: click<=8.3.0
+Requires-Dist: click<8.4.0
 Requires-Dist: colorama>=0.3
 Requires-Dist: diff-cover>=2.5.0
 Requires-Dist: Jinja2
@@ -66,8 +66,10 @@ Requires-Dist: pytest
 Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex
 Requires-Dist: tblib
-Requires-Dist: toml; python_version < "3.11"
+Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tqdm
+Provides-Extra: rs
+Requires-Dist: sqlfluffrs==4.0.0; extra == "rs"
 Dynamic: license-file
 
 ![SQLFluff](https://raw.githubusercontent.com/sqlfluff/sqlfluff/main/images/sqlfluff-wide.png)
@@ -121,6 +123,7 @@ currently supports the following SQL dialects (though perhaps not in full):
 - [Doris](https://doris.apache.org/)
 - [DuckDB](https://duckdb.org/)
 - [Exasol](https://www.exasol.com/)
+- [FlinkSQL](https://nightlies.apache.org/flink/flink-docs-master/)
 - [Greenplum](https://greenplum.org/)
 - [Hive](https://hive.apache.org/)
 - [Impala](https://impala.apache.org/)
@@ -251,5 +254,5 @@ the guide to [contributing](CONTRIBUTING.md).
 
 # Sponsors
 
-<img src="images/datacoves.png" alt="Datacoves" width="150"/><br>
+<img src="https://raw.githubusercontent.com/sqlfluff/sqlfluff/refs/heads/main/images/datacoves.png" alt="Datacoves" width="150"/><br>
 The turnkey analytics stack, find out more at [Datacoves.com](https://datacoves.com/).

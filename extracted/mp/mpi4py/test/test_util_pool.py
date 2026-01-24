@@ -3,6 +3,7 @@ import functools
 import itertools
 import os
 import pathlib
+import platform
 import sys
 import time
 import unittest
@@ -16,6 +17,9 @@ try:
 except ImportError:
     sys.path.append(os.fspath(pathlib.Path(__file__).resolve().parent))
     import mpitestutil as testutil
+
+
+mpi_vendor_name, mpi_vendor_version = MPI.get_vendor()
 
 
 def sqr(x, wait=0.0):
@@ -76,6 +80,12 @@ class BaseTestPool:
         cls.pool = None
         super().tearDownClass()
 
+    @unittest.skipIf(
+        mpi_vendor_name == "Open MPI"
+        and mpi_vendor_version < (5, 0, 0)
+        and platform.machine() == "s390x",
+        "openmpi(<5.0.0)-s390x",
+    )
     def test_apply(self):
         papply = self.pool.apply
         self.assertEqual(papply(sqr, (5,)), sqr(5))
@@ -215,6 +225,13 @@ class BaseTestPool:
         self.assertLess(get.elapsed, TIMEOUT2 * 10)
         self.assertGreater(get.elapsed, TIMEOUT2 / 10)
 
+    @unittest.skipIf(
+        testutil.github()
+        and sys.platform == "darwin"
+        and sys.implementation.name == "cpython"
+        and sys.abiflags == "t",
+        "gha-macos-freethreaded",
+    )
     def test_apply_async_timeout(self):
         res = self.pool.apply_async(sqr, (7, TIMEOUT2))
         self.assertFalse(res.ready())
@@ -286,8 +303,8 @@ class BaseTestPool:
         result.wait(TIMEOUT1)
         result.wait()
         self.assertFalse(result.successful())
-        self.assertRaises(Exception, result.get, TIMEOUT1)
-        self.assertRaises(Exception, result.get)
+        self.assertRaises(TimeoutError, result.get, TIMEOUT1)
+        self.assertRaises(TimeoutError, result.get)
 
         p = self.Pool(1)
         args = [TIMEOUT1] * 100
@@ -297,8 +314,8 @@ class BaseTestPool:
         result.wait(TIMEOUT1)
         result.wait()
         self.assertFalse(result.successful())
-        self.assertRaises(Exception, result.get, TIMEOUT1)
-        self.assertRaises(Exception, result.get)
+        self.assertRaises(TimeoutError, result.get, TIMEOUT1)
+        self.assertRaises(TimeoutError, result.get)
 
     def test_empty_iterable(self):
         p = self.Pool(1)

@@ -25,7 +25,7 @@ class InaccessibleArray(utils.NDArrayMixin, ExplicitlyIndexed):
         raise UnexpectedDataAccess("Tried accessing data")
 
     def __array__(
-        self, dtype: np.typing.DTypeLike = None, /, *, copy: bool | None = None
+        self, dtype: np.typing.DTypeLike | None = None, /, *, copy: bool | None = None
     ) -> np.ndarray:
         raise UnexpectedDataAccess("Tried accessing data")
 
@@ -39,6 +39,16 @@ class FirstElementAccessibleArray(InaccessibleArray):
         if len(tuple_idxr) > 1:
             raise UnexpectedDataAccess("Tried accessing more than one element.")
         return self.array[tuple_idxr]
+
+
+class IndexableArray(InaccessibleArray):
+    """An InaccessibleArray subclass that supports indexing."""
+
+    def __getitem__(self, key):
+        return type(self)(self.array[key])
+
+    def transpose(self, axes):
+        return type(self)(self.array.transpose(axes))
 
 
 class DuckArrayWrapper(utils.NDArrayMixin):
@@ -56,7 +66,7 @@ class DuckArrayWrapper(utils.NDArrayMixin):
         return self.array
 
     def __array__(
-        self, dtype: np.typing.DTypeLike = None, /, *, copy: bool | None = None
+        self, dtype: np.typing.DTypeLike | None = None, /, *, copy: bool | None = None
     ) -> np.ndarray:
         raise UnexpectedDataAccess("Tried accessing data")
 
@@ -169,7 +179,7 @@ class ConcatenatableArray:
         raise UnexpectedDataAccess("Tried accessing data")
 
     def __array__(
-        self, dtype: np.typing.DTypeLike = None, /, *, copy: bool | None = None
+        self, dtype: np.typing.DTypeLike | None = None, /, *, copy: bool | None = None
     ) -> np.ndarray:
         raise UnexpectedDataAccess("Tried accessing data")
 

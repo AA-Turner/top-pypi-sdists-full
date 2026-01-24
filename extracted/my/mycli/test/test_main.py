@@ -1,6 +1,7 @@
 # type: ignore
 
 from collections import namedtuple
+import csv
 import os
 import shutil
 from tempfile import NamedTemporaryFile
@@ -8,11 +9,13 @@ from textwrap import dedent
 
 import click
 from click.testing import CliRunner
+from pymysql.err import OperationalError
 
-from mycli.main import MyCli, cli, thanks_picker
+from mycli.main import MyCli, cli, is_valid_connection_scheme, thanks_picker
+import mycli.packages.special
 from mycli.packages.special.main import COMMANDS as SPECIAL_COMMANDS
-from mycli.sqlexecute import ServerInfo
-from test.utils import HOST, PASSWORD, PORT, USER, dbtest, run
+from mycli.sqlexecute import ServerInfo, SQLExecute
+from test.utils import DATABASE, HOST, PASSWORD, PORT, USER, dbtest, run
 
 test_dir = os.path.abspath(os.path.dirname(__file__))
 project_dir = os.path.dirname(test_dir)
@@ -35,6 +38,290 @@ CLI_ARGS = [
     default_config_file,
     "mycli_test_db",
 ]
+
+
+def test_is_valid_connection_scheme_valid(executor, capsys):
+    is_valid, scheme = is_valid_connection_scheme("mysql://test@localhost:3306/dev")
+    assert is_valid
+
+
+def test_is_valid_connection_scheme_invalid(executor, capsys):
+    is_valid, scheme = is_valid_connection_scheme("nope://test@localhost:3306/dev")
+    assert not is_valid
+
+
+@dbtest
+def test_ssl_mode_on(executor, capsys):
+    runner = CliRunner()
+    ssl_mode = "on"
+    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode], input=sql)
+    result_dict = next(csv.DictReader(result.stdout.split("\n")))
+    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
+    assert ssl_cipher
+
+
+@dbtest
+def test_ssl_mode_auto(executor, capsys):
+    runner = CliRunner()
+    ssl_mode = "auto"
+    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode], input=sql)
+    result_dict = next(csv.DictReader(result.stdout.split("\n")))
+    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
+    assert ssl_cipher
+
+
+@dbtest
+def test_ssl_mode_off(executor, capsys):
+    runner = CliRunner()
+    ssl_mode = "off"
+    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode], input=sql)
+    result_dict = next(csv.DictReader(result.stdout.split("\n")))
+    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
+    assert not ssl_cipher
+
+
+@dbtest
+def test_ssl_mode_overrides_ssl(executor, capsys):
+    runner = CliRunner()
+    ssl_mode = "off"
+    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode, "--ssl"], input=sql)
+    result_dict = next(csv.DictReader(result.stdout.split("\n")))
+    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
+    assert not ssl_cipher
+
+
+@dbtest
+def test_ssl_mode_overrides_no_ssl(executor, capsys):
+    runner = CliRunner()
+    ssl_mode = "on"
+    sql = "select * from performance_schema.session_status where variable_name = 'Ssl_cipher'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--csv", "--ssl-mode", ssl_mode, "--no-ssl"], input=sql)
+    result_dict = next(csv.DictReader(result.stdout.split("\n")))
+    ssl_cipher = result_dict.get("VARIABLE_VALUE", None)
+    assert ssl_cipher
+
+
+@dbtest
+def test_reconnect_database_is_selected(executor, capsys):
+    m = MyCli()
+    m.register_special_commands()
+    m.sqlexecute = SQLExecute(
+        None,
+        USER,
+        PASSWORD,
+        HOST,
+        PORT,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    try:
+        next(m.sqlexecute.run(f"use {DATABASE}"))
+        next(m.sqlexecute.run(f"kill {m.sqlexecute.connection_id}"))
+    except OperationalError:
+        pass  # expected as the connection was killed
+    except Exception as e:
+        raise e
+    m.reconnect()
+    try:
+        next(m.sqlexecute.run("show tables")).results.fetchall()
+    except Exception as e:
+        raise e
+
+
+@dbtest
+def test_reconnect_no_database(executor, capsys):
+    m = MyCli()
+    m.register_special_commands()
+    m.sqlexecute = SQLExecute(
+        None,
+        USER,
+        PASSWORD,
+        HOST,
+        PORT,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    sql = "\\r"
+    result = next(mycli.packages.special.execute(executor, sql))
+    stdout, _stderr = capsys.readouterr()
+    assert result.status is None
+    assert "Already connected" in stdout
+
+
+@dbtest
+def test_reconnect_with_different_database(executor):
+    m = MyCli()
+    m.register_special_commands()
+    m.sqlexecute = SQLExecute(
+        None,
+        USER,
+        PASSWORD,
+        HOST,
+        PORT,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    database_1 = "mycli_test_db"
+    database_2 = "mysql"
+    sql_1 = f"use {database_1}"
+    sql_2 = f"\\r {database_2}"
+    _result_1 = next(mycli.packages.special.execute(executor, sql_1))
+    result_2 = next(mycli.packages.special.execute(executor, sql_2))
+    expected = f'You are now connected to database "{database_2}" as user "{USER}"'
+    assert expected in result_2.status
+
+
+@dbtest
+def test_reconnect_with_same_database(executor):
+    m = MyCli()
+    m.register_special_commands()
+    m.sqlexecute = SQLExecute(
+        None,
+        USER,
+        PASSWORD,
+        HOST,
+        PORT,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    database = "mysql"
+    sql = f"\\u {database}"
+    result = next(mycli.packages.special.execute(executor, sql))
+    sql = f"\\r {database}"
+    result = next(mycli.packages.special.execute(executor, sql))
+    expected = f'You are already connected to database "{database}" as user "{USER}"'
+    assert expected in result.status
+
+
+@dbtest
+def test_prompt_no_host_only_socket(executor):
+    mycli = MyCli()
+    mycli.prompt_format = "\\t \\u@\\h:\\d> "
+    mycli.sqlexecute = SQLExecute
+    mycli.sqlexecute.server_info = ServerInfo.from_version_string("8.0.44-0ubuntu0.24.04.1")
+    mycli.sqlexecute.host = None
+    mycli.sqlexecute.socket = "/var/run/mysqld/mysqld.sock"
+    mycli.sqlexecute.user = "root"
+    mycli.sqlexecute.dbname = "mysql"
+    mycli.sqlexecute.port = "3306"
+    prompt = mycli.get_prompt(mycli.prompt_format)
+    assert prompt == "MySQL root@localhost:mysql> "
+
+
+@dbtest
+def test_enable_show_warnings(executor):
+    mycli = MyCli()
+    mycli.register_special_commands()
+    sql = "\\W"
+    result = run(executor, sql)
+    assert result[0]["status"] == "Show warnings enabled."
+
+
+@dbtest
+def test_disable_show_warnings(executor):
+    mycli = MyCli()
+    mycli.register_special_commands()
+    sql = "\\w"
+    result = run(executor, sql)
+    assert result[0]["status"] == "Show warnings disabled."
+
+
+@dbtest
+def test_output_ddl_with_warning_and_show_warnings_enabled(executor):
+    runner = CliRunner()
+    db = "mycli_test_db"
+    table = "table_that_definitely_does_not_exist_1234"
+    sql = f"DROP TABLE IF EXISTS {db}.{table}"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--show-warnings", "--no-warn"], input=sql)
+    expected = "Level\tCode\tMessage\nNote\t1051\tUnknown table 'mycli_test_db.table_that_definitely_does_not_exist_1234'\n"
+    assert expected in result.output
+
+
+@dbtest
+def test_output_with_warning_and_show_warnings_enabled(executor):
+    runner = CliRunner()
+    sql = "SELECT 1 + '0 foo'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--show-warnings"], input=sql)
+    expected = "1 + '0 foo'\n1.0\nLevel\tCode\tMessage\nWarning\t1292\tTruncated incorrect DOUBLE value: '0 foo'\n"
+    assert expected in result.output
+
+
+@dbtest
+def test_output_with_warning_and_show_warnings_disabled(executor):
+    runner = CliRunner()
+    sql = "SELECT 1 + '0 foo'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--no-show-warnings"], input=sql)
+    expected = "1 + '0 foo'\n1.0\nLevel\tCode\tMessage\nWarning\t1292\tTruncated incorrect DOUBLE value: '0 foo'\n"
+    assert expected not in result.output
+
+
+@dbtest
+def test_output_with_multiple_warnings_in_single_statement(executor):
+    runner = CliRunner()
+    sql = "SELECT 1 + '0 foo', 2 + '0 foo'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--show-warnings"], input=sql)
+    expected = (
+        "1 + '0 foo'\t2 + '0 foo'\n"
+        "1.0\t2.0\n"
+        "Level\tCode\tMessage\n"
+        "Warning\t1292\tTruncated incorrect DOUBLE value: '0 foo'\n"
+        "Warning\t1292\tTruncated incorrect DOUBLE value: '0 foo'\n"
+    )
+    assert expected in result.output
+
+
+@dbtest
+def test_output_with_multiple_warnings_in_multiple_statements(executor):
+    runner = CliRunner()
+    sql = "SELECT 1 + '0 foo'; SELECT 2 + '0 foo'"
+    result = runner.invoke(cli, args=CLI_ARGS + ["--show-warnings"], input=sql)
+    expected = (
+        "1 + '0 foo'\n"
+        "1.0\n"
+        "Level\tCode\tMessage\n"
+        "Warning\t1292\tTruncated incorrect DOUBLE value: '0 foo'\n"
+        "2 + '0 foo'\n"
+        "2.0\n"
+        "Level\tCode\tMessage\n"
+        "Warning\t1292\tTruncated incorrect DOUBLE value: '0 foo'\n"
+    )
+    assert expected in result.output
 
 
 @dbtest
@@ -237,7 +524,9 @@ def test_reserved_space_is_integer(monkeypatch):
         assert isinstance(mycli.get_reserved_space(), int)
 
 
-def test_list_dsn():
+def test_list_dsn(monkeypatch):
+    monkeypatch.setattr(MyCli, "system_config_files", [])
+    monkeypatch.setattr(MyCli, "pwd_config_file", os.path.join(test_dir, "does_not_exist.myclirc"))
     runner = CliRunner()
     # keep Windows from locking the file with delete=False
     with NamedTemporaryFile(mode="w", delete=False) as myclirc:
@@ -324,6 +613,7 @@ def test_dsn(monkeypatch):
             self.destructive_warning = False
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
+            self.ssl_mode = "auto"
 
         def connect(self, **args):
             MockMyCli.connect_args = args
@@ -488,6 +778,7 @@ def test_ssh_config(monkeypatch):
             self.destructive_warning = False
             self.main_formatter = Formatter()
             self.redirect_formatter = Formatter()
+            self.ssl_mode = "auto"
 
         def connect(self, **args):
             MockMyCli.connect_args = args
@@ -597,3 +888,22 @@ def test_global_init_commands(executor):
     expected = "sql_select_limit\t9999\n"
     assert result.exit_code == 0
     assert expected in result.output
+
+
+@dbtest
+def test_execute_with_logfile(executor):
+    """Test that --execute combines with --logfile"""
+    sql = 'select 1'
+    runner = CliRunner()
+
+    with NamedTemporaryFile(mode="w", delete=False) as logfile:
+        result = runner.invoke(mycli.main.cli, args=CLI_ARGS + ["--logfile", logfile.name, "--execute", sql])
+        assert result.exit_code == 0
+
+    assert os.path.getsize(logfile.name) > 0
+
+    try:
+        if os.path.exists(logfile.name):
+            os.remove(logfile.name)
+    except Exception as e:
+        print(f"An error occurred while attempting to delete the file: {e}")

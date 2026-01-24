@@ -127,6 +127,38 @@ class ReverseRelation(Generic[MODEL]):
         """
         return self._query.offset(offset)
 
+    async def create(self, using_db: BaseDBAsyncClient | None = None, **kwargs: Any) -> MODEL:
+        """
+        Create a related record in the DB and returns the object, automatically setting the
+        foreign key relationship to the parent instance.
+
+        .. code-block:: python3
+
+            tournament = await Tournament.create(name="...")
+            event = await tournament.events.create(...)
+
+        Equivalent to:
+
+        .. code-block:: python3
+
+            tournament = await Tournament.create(name="...")
+            event = await Event.create(tournament=tournament, ...)
+
+        :param using_db: Specific DB connection to use instead of default bound.
+        :param kwargs: Model parameters for the new object.
+        :raises OperationalError: If parent instance is not saved to the database.
+        """
+        if not self.instance._saved_in_db:
+            raise OperationalError(
+                "This objects hasn't been instanced, call .save() before calling related queries"
+            )
+
+        # Inject foreign key relationship automatically
+        kwargs[self.relation_field] = getattr(self.instance, self.from_field)
+
+        # Call remote model's create method
+        return await self.remote_model.create(using_db=using_db, **kwargs)
+
     def _set_result_for_query(self, sequence: list[MODEL], attr: str | None = None) -> None:
         self._fetched = True
         self.related_objects = sequence
@@ -288,7 +320,7 @@ class ForeignKeyFieldInstance(RelationalField[MODEL]):
         on_delete: OnDelete = CASCADE,
         **kwargs: Any,
     ) -> None:
-        super().__init__(None, **kwargs)  # type: ignore
+        super().__init__(None, **kwargs)  # type:ignore[arg-type]
         self.validate_model_name(model_name)
         self.model_name = model_name
         self.related_name = related_name
@@ -331,7 +363,6 @@ class OneToOneFieldInstance(ForeignKeyFieldInstance[MODEL]):
         on_delete: OnDelete = CASCADE,
         **kwargs: Any,
     ) -> None:
-        self.validate_model_name(model_name)
         super().__init__(model_name, related_name, on_delete, unique=True, **kwargs)
 
 

@@ -119,56 +119,56 @@ class AppPermissions:
     def __init__(
         self,
         *,
-        actions: typing.Optional[AppPermission] = None,
-        administration: typing.Optional[AppPermission] = None,
-        attestations: typing.Optional[AppPermission] = None,
-        checks: typing.Optional[AppPermission] = None,
-        codespaces: typing.Optional[AppPermission] = None,
-        contents: typing.Optional[AppPermission] = None,
-        dependabot_secrets: typing.Optional[AppPermission] = None,
-        deployments: typing.Optional[AppPermission] = None,
-        email_addresses: typing.Optional[AppPermission] = None,
-        environments: typing.Optional[AppPermission] = None,
-        followers: typing.Optional[AppPermission] = None,
-        git_ssh_keys: typing.Optional[AppPermission] = None,
-        gpg_keys: typing.Optional[AppPermission] = None,
-        interaction_limits: typing.Optional[AppPermission] = None,
-        issues: typing.Optional[AppPermission] = None,
-        members: typing.Optional[AppPermission] = None,
-        metadata: typing.Optional[AppPermission] = None,
-        organization_administration: typing.Optional[AppPermission] = None,
-        organization_announcement_banners: typing.Optional[AppPermission] = None,
-        organization_copilot_seat_management: typing.Optional[AppPermission] = None,
-        organization_custom_org_roles: typing.Optional[AppPermission] = None,
-        organization_custom_properties: typing.Optional[AppPermission] = None,
-        organization_custom_roles: typing.Optional[AppPermission] = None,
-        organization_events: typing.Optional[AppPermission] = None,
-        organization_hooks: typing.Optional[AppPermission] = None,
-        organization_packages: typing.Optional[AppPermission] = None,
-        organization_personal_access_token_requests: typing.Optional[AppPermission] = None,
-        organization_personal_access_tokens: typing.Optional[AppPermission] = None,
-        organization_plan: typing.Optional[AppPermission] = None,
-        organization_projects: typing.Optional[AppPermission] = None,
-        organization_secrets: typing.Optional[AppPermission] = None,
-        organization_self_hosted_runners: typing.Optional[AppPermission] = None,
-        orgnaization_user_blocking: typing.Optional[AppPermission] = None,
-        packages: typing.Optional[AppPermission] = None,
-        pages: typing.Optional[AppPermission] = None,
-        profile: typing.Optional[AppPermission] = None,
-        pull_requests: typing.Optional[AppPermission] = None,
-        repository_announcement_banners: typing.Optional[AppPermission] = None,
-        repository_custom_properties: typing.Optional[AppPermission] = None,
-        repository_hooks: typing.Optional[AppPermission] = None,
-        repository_projects: typing.Optional[AppPermission] = None,
-        secrets: typing.Optional[AppPermission] = None,
-        secret_scanning_alerts: typing.Optional[AppPermission] = None,
-        security_events: typing.Optional[AppPermission] = None,
-        single_file: typing.Optional[AppPermission] = None,
-        starring: typing.Optional[AppPermission] = None,
-        statuses: typing.Optional[AppPermission] = None,
-        team_discussions: typing.Optional[AppPermission] = None,
-        vulnerability_alerts: typing.Optional[AppPermission] = None,
-        workflows: typing.Optional[AppPermission] = None,
+        actions: typing.Optional["AppPermission"] = None,
+        administration: typing.Optional["AppPermission"] = None,
+        attestations: typing.Optional["AppPermission"] = None,
+        checks: typing.Optional["AppPermission"] = None,
+        codespaces: typing.Optional["AppPermission"] = None,
+        contents: typing.Optional["AppPermission"] = None,
+        dependabot_secrets: typing.Optional["AppPermission"] = None,
+        deployments: typing.Optional["AppPermission"] = None,
+        email_addresses: typing.Optional["AppPermission"] = None,
+        environments: typing.Optional["AppPermission"] = None,
+        followers: typing.Optional["AppPermission"] = None,
+        git_ssh_keys: typing.Optional["AppPermission"] = None,
+        gpg_keys: typing.Optional["AppPermission"] = None,
+        interaction_limits: typing.Optional["AppPermission"] = None,
+        issues: typing.Optional["AppPermission"] = None,
+        members: typing.Optional["AppPermission"] = None,
+        metadata: typing.Optional["AppPermission"] = None,
+        organization_administration: typing.Optional["AppPermission"] = None,
+        organization_announcement_banners: typing.Optional["AppPermission"] = None,
+        organization_copilot_seat_management: typing.Optional["AppPermission"] = None,
+        organization_custom_org_roles: typing.Optional["AppPermission"] = None,
+        organization_custom_properties: typing.Optional["AppPermission"] = None,
+        organization_custom_roles: typing.Optional["AppPermission"] = None,
+        organization_events: typing.Optional["AppPermission"] = None,
+        organization_hooks: typing.Optional["AppPermission"] = None,
+        organization_packages: typing.Optional["AppPermission"] = None,
+        organization_personal_access_token_requests: typing.Optional["AppPermission"] = None,
+        organization_personal_access_tokens: typing.Optional["AppPermission"] = None,
+        organization_plan: typing.Optional["AppPermission"] = None,
+        organization_projects: typing.Optional["AppPermission"] = None,
+        organization_secrets: typing.Optional["AppPermission"] = None,
+        organization_self_hosted_runners: typing.Optional["AppPermission"] = None,
+        orgnaization_user_blocking: typing.Optional["AppPermission"] = None,
+        packages: typing.Optional["AppPermission"] = None,
+        pages: typing.Optional["AppPermission"] = None,
+        profile: typing.Optional["AppPermission"] = None,
+        pull_requests: typing.Optional["AppPermission"] = None,
+        repository_announcement_banners: typing.Optional["AppPermission"] = None,
+        repository_custom_properties: typing.Optional["AppPermission"] = None,
+        repository_hooks: typing.Optional["AppPermission"] = None,
+        repository_projects: typing.Optional["AppPermission"] = None,
+        secrets: typing.Optional["AppPermission"] = None,
+        secret_scanning_alerts: typing.Optional["AppPermission"] = None,
+        security_events: typing.Optional["AppPermission"] = None,
+        single_file: typing.Optional["AppPermission"] = None,
+        starring: typing.Optional["AppPermission"] = None,
+        statuses: typing.Optional["AppPermission"] = None,
+        team_discussions: typing.Optional["AppPermission"] = None,
+        vulnerability_alerts: typing.Optional["AppPermission"] = None,
+        workflows: typing.Optional["AppPermission"] = None,
     ) -> None:
         '''(experimental) The permissions available to a GitHub App.
 
@@ -385,408 +385,408 @@ class AppPermissions:
             self._values["workflows"] = workflows
 
     @builtins.property
-    def actions(self) -> typing.Optional[AppPermission]:
+    def actions(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def administration(self) -> typing.Optional[AppPermission]:
+    def administration(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("administration")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def attestations(self) -> typing.Optional[AppPermission]:
+    def attestations(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("attestations")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def checks(self) -> typing.Optional[AppPermission]:
+    def checks(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("checks")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def codespaces(self) -> typing.Optional[AppPermission]:
+    def codespaces(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("codespaces")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def contents(self) -> typing.Optional[AppPermission]:
+    def contents(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("contents")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def dependabot_secrets(self) -> typing.Optional[AppPermission]:
+    def dependabot_secrets(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("dependabot_secrets")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def deployments(self) -> typing.Optional[AppPermission]:
+    def deployments(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("deployments")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def email_addresses(self) -> typing.Optional[AppPermission]:
+    def email_addresses(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("email_addresses")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def environments(self) -> typing.Optional[AppPermission]:
+    def environments(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("environments")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def followers(self) -> typing.Optional[AppPermission]:
+    def followers(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("followers")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def git_ssh_keys(self) -> typing.Optional[AppPermission]:
+    def git_ssh_keys(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("git_ssh_keys")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def gpg_keys(self) -> typing.Optional[AppPermission]:
+    def gpg_keys(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("gpg_keys")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def interaction_limits(self) -> typing.Optional[AppPermission]:
+    def interaction_limits(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("interaction_limits")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def issues(self) -> typing.Optional[AppPermission]:
+    def issues(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("issues")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def members(self) -> typing.Optional[AppPermission]:
+    def members(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("members")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def metadata(self) -> typing.Optional[AppPermission]:
+    def metadata(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("metadata")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_administration(self) -> typing.Optional[AppPermission]:
+    def organization_administration(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_administration")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_announcement_banners(self) -> typing.Optional[AppPermission]:
+    def organization_announcement_banners(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_announcement_banners")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_copilot_seat_management(self) -> typing.Optional[AppPermission]:
+    def organization_copilot_seat_management(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_copilot_seat_management")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_custom_org_roles(self) -> typing.Optional[AppPermission]:
+    def organization_custom_org_roles(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_custom_org_roles")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_custom_properties(self) -> typing.Optional[AppPermission]:
+    def organization_custom_properties(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_custom_properties")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_custom_roles(self) -> typing.Optional[AppPermission]:
+    def organization_custom_roles(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_custom_roles")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_events(self) -> typing.Optional[AppPermission]:
+    def organization_events(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_events")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_hooks(self) -> typing.Optional[AppPermission]:
+    def organization_hooks(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_hooks")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_packages(self) -> typing.Optional[AppPermission]:
+    def organization_packages(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_packages")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
     def organization_personal_access_token_requests(
         self,
-    ) -> typing.Optional[AppPermission]:
+    ) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_personal_access_token_requests")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_personal_access_tokens(self) -> typing.Optional[AppPermission]:
+    def organization_personal_access_tokens(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_personal_access_tokens")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_plan(self) -> typing.Optional[AppPermission]:
+    def organization_plan(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_plan")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_projects(self) -> typing.Optional[AppPermission]:
+    def organization_projects(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_projects")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_secrets(self) -> typing.Optional[AppPermission]:
+    def organization_secrets(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_secrets")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def organization_self_hosted_runners(self) -> typing.Optional[AppPermission]:
+    def organization_self_hosted_runners(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("organization_self_hosted_runners")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def orgnaization_user_blocking(self) -> typing.Optional[AppPermission]:
+    def orgnaization_user_blocking(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("orgnaization_user_blocking")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def packages(self) -> typing.Optional[AppPermission]:
+    def packages(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("packages")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def pages(self) -> typing.Optional[AppPermission]:
+    def pages(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("pages")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def profile(self) -> typing.Optional[AppPermission]:
+    def profile(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("profile")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def pull_requests(self) -> typing.Optional[AppPermission]:
+    def pull_requests(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("pull_requests")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def repository_announcement_banners(self) -> typing.Optional[AppPermission]:
+    def repository_announcement_banners(self) -> typing.Optional["AppPermission"]:
         '''
         :deprecated: removed by GitHub
 
         :stability: deprecated
         '''
         result = self._values.get("repository_announcement_banners")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def repository_custom_properties(self) -> typing.Optional[AppPermission]:
+    def repository_custom_properties(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("repository_custom_properties")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def repository_hooks(self) -> typing.Optional[AppPermission]:
+    def repository_hooks(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("repository_hooks")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def repository_projects(self) -> typing.Optional[AppPermission]:
+    def repository_projects(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("repository_projects")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def secrets(self) -> typing.Optional[AppPermission]:
+    def secrets(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("secrets")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def secret_scanning_alerts(self) -> typing.Optional[AppPermission]:
+    def secret_scanning_alerts(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("secret_scanning_alerts")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def security_events(self) -> typing.Optional[AppPermission]:
+    def security_events(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("security_events")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def single_file(self) -> typing.Optional[AppPermission]:
+    def single_file(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("single_file")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def starring(self) -> typing.Optional[AppPermission]:
+    def starring(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("starring")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def statuses(self) -> typing.Optional[AppPermission]:
+    def statuses(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("statuses")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def team_discussions(self) -> typing.Optional[AppPermission]:
+    def team_discussions(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("team_discussions")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def vulnerability_alerts(self) -> typing.Optional[AppPermission]:
+    def vulnerability_alerts(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("vulnerability_alerts")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     @builtins.property
-    def workflows(self) -> typing.Optional[AppPermission]:
+    def workflows(self) -> typing.Optional["AppPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("workflows")
-        return typing.cast(typing.Optional[AppPermission], result)
+        return typing.cast(typing.Optional["AppPermission"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1157,7 +1157,7 @@ class ContainerOptions:
         self,
         *,
         image: builtins.str,
-        credentials: typing.Optional[typing.Union[ContainerCredentials, typing.Dict[builtins.str, typing.Any]]] = None,
+        credentials: typing.Optional[typing.Union["ContainerCredentials", typing.Dict[builtins.str, typing.Any]]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         options: typing.Optional[typing.Sequence[builtins.str]] = None,
         ports: typing.Optional[typing.Sequence[jsii.Number]] = None,
@@ -1212,7 +1212,7 @@ class ContainerOptions:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def credentials(self) -> typing.Optional[ContainerCredentials]:
+    def credentials(self) -> typing.Optional["ContainerCredentials"]:
         '''(experimental) f the image's container registry requires authentication to pull the image, you can use credentials to set a map of the username and password.
 
         The credentials are the same values that you would provide to the docker
@@ -1221,7 +1221,7 @@ class ContainerOptions:
         :stability: experimental
         '''
         result = self._values.get("credentials")
-        return typing.cast(typing.Optional[ContainerCredentials], result)
+        return typing.cast(typing.Optional["ContainerCredentials"], result)
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -1691,15 +1691,15 @@ class Job(CommonJobDefinition):
         needs: typing.Optional[typing.Sequence[builtins.str]] = None,
         strategy: typing.Optional[typing.Union["JobStrategy", typing.Dict[builtins.str, typing.Any]]] = None,
         steps: typing.Sequence[typing.Union["JobStep", typing.Dict[builtins.str, typing.Any]]],
-        container: typing.Optional[typing.Union[ContainerOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        container: typing.Optional[typing.Union["ContainerOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
         defaults: typing.Optional[typing.Union["JobDefaults", typing.Dict[builtins.str, typing.Any]]] = None,
         env: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         environment: typing.Any = None,
         outputs: typing.Optional[typing.Mapping[builtins.str, typing.Union["JobStepOutput", typing.Dict[builtins.str, typing.Any]]]] = None,
         runs_on: typing.Optional[typing.Sequence[builtins.str]] = None,
-        runs_on_group: typing.Optional[typing.Union[_GroupRunnerOptions_148c59c1, typing.Dict[builtins.str, typing.Any]]] = None,
-        services: typing.Optional[typing.Mapping[builtins.str, typing.Union[ContainerOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
+        runs_on_group: typing.Optional[typing.Union["_GroupRunnerOptions_148c59c1", typing.Dict[builtins.str, typing.Any]]] = None,
+        services: typing.Optional[typing.Mapping[builtins.str, typing.Union["ContainerOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
         tools: typing.Optional[typing.Union["Tools", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
@@ -1891,7 +1891,7 @@ class Job(CommonJobDefinition):
         return typing.cast(typing.List["JobStep"], result)
 
     @builtins.property
-    def container(self) -> typing.Optional[ContainerOptions]:
+    def container(self) -> typing.Optional["ContainerOptions"]:
         '''(experimental) A container to run any steps in a job that don't already specify a container.
 
         If you have steps that use both script and container actions,
@@ -1901,7 +1901,7 @@ class Job(CommonJobDefinition):
         :stability: experimental
         '''
         result = self._values.get("container")
-        return typing.cast(typing.Optional[ContainerOptions], result)
+        return typing.cast(typing.Optional["ContainerOptions"], result)
 
     @builtins.property
     def continue_on_error(self) -> typing.Optional[builtins.bool]:
@@ -1981,7 +1981,7 @@ class Job(CommonJobDefinition):
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def runs_on_group(self) -> typing.Optional[_GroupRunnerOptions_148c59c1]:
+    def runs_on_group(self) -> typing.Optional["_GroupRunnerOptions_148c59c1"]:
         '''(experimental) Github Runner Group selection options.
 
         :stability: experimental
@@ -1989,12 +1989,12 @@ class Job(CommonJobDefinition):
         :throws: {Error} if both ``runsOn`` and ``runsOnGroup`` are specified
         '''
         result = self._values.get("runs_on_group")
-        return typing.cast(typing.Optional[_GroupRunnerOptions_148c59c1], result)
+        return typing.cast(typing.Optional["_GroupRunnerOptions_148c59c1"], result)
 
     @builtins.property
     def services(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, ContainerOptions]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "ContainerOptions"]]:
         '''(experimental) Used to host service containers for a job in a workflow.
 
         Service
@@ -2005,7 +2005,7 @@ class Job(CommonJobDefinition):
         :stability: experimental
         '''
         result = self._values.get("services")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, ContainerOptions]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "ContainerOptions"]], result)
 
     @builtins.property
     def timeout_minutes(self) -> typing.Optional[jsii.Number]:
@@ -2432,21 +2432,21 @@ class JobPermissions:
     def __init__(
         self,
         *,
-        actions: typing.Optional[JobPermission] = None,
-        attestations: typing.Optional[JobPermission] = None,
-        checks: typing.Optional[JobPermission] = None,
-        contents: typing.Optional[JobPermission] = None,
-        deployments: typing.Optional[JobPermission] = None,
-        discussions: typing.Optional[JobPermission] = None,
-        id_token: typing.Optional[JobPermission] = None,
-        issues: typing.Optional[JobPermission] = None,
-        models: typing.Optional[JobPermission] = None,
-        packages: typing.Optional[JobPermission] = None,
-        pages: typing.Optional[JobPermission] = None,
-        pull_requests: typing.Optional[JobPermission] = None,
-        repository_projects: typing.Optional[JobPermission] = None,
-        security_events: typing.Optional[JobPermission] = None,
-        statuses: typing.Optional[JobPermission] = None,
+        actions: typing.Optional["JobPermission"] = None,
+        attestations: typing.Optional["JobPermission"] = None,
+        checks: typing.Optional["JobPermission"] = None,
+        contents: typing.Optional["JobPermission"] = None,
+        deployments: typing.Optional["JobPermission"] = None,
+        discussions: typing.Optional["JobPermission"] = None,
+        id_token: typing.Optional["JobPermission"] = None,
+        issues: typing.Optional["JobPermission"] = None,
+        models: typing.Optional["JobPermission"] = None,
+        packages: typing.Optional["JobPermission"] = None,
+        pages: typing.Optional["JobPermission"] = None,
+        pull_requests: typing.Optional["JobPermission"] = None,
+        repository_projects: typing.Optional["JobPermission"] = None,
+        security_events: typing.Optional["JobPermission"] = None,
+        statuses: typing.Optional["JobPermission"] = None,
     ) -> None:
         '''(experimental) The available scopes and access values for workflow permissions.
 
@@ -2524,126 +2524,126 @@ class JobPermissions:
             self._values["statuses"] = statuses
 
     @builtins.property
-    def actions(self) -> typing.Optional[JobPermission]:
+    def actions(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("actions")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def attestations(self) -> typing.Optional[JobPermission]:
+    def attestations(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("attestations")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def checks(self) -> typing.Optional[JobPermission]:
+    def checks(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("checks")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def contents(self) -> typing.Optional[JobPermission]:
+    def contents(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("contents")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def deployments(self) -> typing.Optional[JobPermission]:
+    def deployments(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("deployments")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def discussions(self) -> typing.Optional[JobPermission]:
+    def discussions(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("discussions")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def id_token(self) -> typing.Optional[JobPermission]:
+    def id_token(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("id_token")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def issues(self) -> typing.Optional[JobPermission]:
+    def issues(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("issues")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def models(self) -> typing.Optional[JobPermission]:
+    def models(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("models")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def packages(self) -> typing.Optional[JobPermission]:
+    def packages(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("packages")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def pages(self) -> typing.Optional[JobPermission]:
+    def pages(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("pages")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def pull_requests(self) -> typing.Optional[JobPermission]:
+    def pull_requests(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("pull_requests")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def repository_projects(self) -> typing.Optional[JobPermission]:
+    def repository_projects(self) -> typing.Optional["JobPermission"]:
         '''
         :deprecated: removed by GitHub
 
         :stability: deprecated
         '''
         result = self._values.get("repository_projects")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def security_events(self) -> typing.Optional[JobPermission]:
+    def security_events(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("security_events")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     @builtins.property
-    def statuses(self) -> typing.Optional[JobPermission]:
+    def statuses(self) -> typing.Optional["JobPermission"]:
         '''
         :stability: experimental
         '''
         result = self._values.get("statuses")
-        return typing.cast(typing.Optional[JobPermission], result)
+        return typing.cast(typing.Optional["JobPermission"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2726,7 +2726,7 @@ class JobStrategy:
         self,
         *,
         fail_fast: typing.Optional[builtins.bool] = None,
-        matrix: typing.Optional[typing.Union[JobMatrix, typing.Dict[builtins.str, typing.Any]]] = None,
+        matrix: typing.Optional[typing.Union["JobMatrix", typing.Dict[builtins.str, typing.Any]]] = None,
         max_parallel: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''(experimental) A strategy creates a build matrix for your jobs.
@@ -2767,7 +2767,7 @@ class JobStrategy:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def matrix(self) -> typing.Optional[JobMatrix]:
+    def matrix(self) -> typing.Optional["JobMatrix"]:
         '''(experimental) You can define a matrix of different job configurations.
 
         A matrix allows
@@ -2783,7 +2783,7 @@ class JobStrategy:
         :stability: experimental
         '''
         result = self._values.get("matrix")
-        return typing.cast(typing.Optional[JobMatrix], result)
+        return typing.cast(typing.Optional["JobMatrix"], result)
 
     @builtins.property
     def max_parallel(self) -> typing.Optional[jsii.Number]:
@@ -3740,11 +3740,11 @@ class Tools:
     def __init__(
         self,
         *,
-        dotnet: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
-        go: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
-        java: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
-        node: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
-        python: typing.Optional[typing.Union[ToolRequirement, typing.Dict[builtins.str, typing.Any]]] = None,
+        dotnet: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
+        go: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
+        java: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
+        node: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
+        python: typing.Optional[typing.Union["ToolRequirement", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''(experimental) Supported tools.
 
@@ -3786,7 +3786,7 @@ class Tools:
             self._values["python"] = python
 
     @builtins.property
-    def dotnet(self) -> typing.Optional[ToolRequirement]:
+    def dotnet(self) -> typing.Optional["ToolRequirement"]:
         '''(experimental) Setup .NET Core.
 
         :default: - not installed
@@ -3794,10 +3794,10 @@ class Tools:
         :stability: experimental
         '''
         result = self._values.get("dotnet")
-        return typing.cast(typing.Optional[ToolRequirement], result)
+        return typing.cast(typing.Optional["ToolRequirement"], result)
 
     @builtins.property
-    def go(self) -> typing.Optional[ToolRequirement]:
+    def go(self) -> typing.Optional["ToolRequirement"]:
         '''(experimental) Setup golang.
 
         :default: - not installed
@@ -3805,10 +3805,10 @@ class Tools:
         :stability: experimental
         '''
         result = self._values.get("go")
-        return typing.cast(typing.Optional[ToolRequirement], result)
+        return typing.cast(typing.Optional["ToolRequirement"], result)
 
     @builtins.property
-    def java(self) -> typing.Optional[ToolRequirement]:
+    def java(self) -> typing.Optional["ToolRequirement"]:
         '''(experimental) Setup java (temurin distribution).
 
         :default: - not installed
@@ -3816,10 +3816,10 @@ class Tools:
         :stability: experimental
         '''
         result = self._values.get("java")
-        return typing.cast(typing.Optional[ToolRequirement], result)
+        return typing.cast(typing.Optional["ToolRequirement"], result)
 
     @builtins.property
-    def node(self) -> typing.Optional[ToolRequirement]:
+    def node(self) -> typing.Optional["ToolRequirement"]:
         '''(experimental) Setup node.js.
 
         :default: - not installed
@@ -3827,10 +3827,10 @@ class Tools:
         :stability: experimental
         '''
         result = self._values.get("node")
-        return typing.cast(typing.Optional[ToolRequirement], result)
+        return typing.cast(typing.Optional["ToolRequirement"], result)
 
     @builtins.property
-    def python(self) -> typing.Optional[ToolRequirement]:
+    def python(self) -> typing.Optional["ToolRequirement"]:
         '''(experimental) Setup python.
 
         :default: - not installed
@@ -3838,7 +3838,7 @@ class Tools:
         :stability: experimental
         '''
         result = self._values.get("python")
-        return typing.cast(typing.Optional[ToolRequirement], result)
+        return typing.cast(typing.Optional["ToolRequirement"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3897,37 +3897,37 @@ class Triggers:
     def __init__(
         self,
         *,
-        branch_protection_rule: typing.Optional[typing.Union[BranchProtectionRuleOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_run: typing.Optional[typing.Union[CheckRunOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        check_suite: typing.Optional[typing.Union[CheckSuiteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        create: typing.Optional[typing.Union[CreateOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        delete: typing.Optional[typing.Union[DeleteOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        deployment: typing.Optional[typing.Union[DeploymentOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        deployment_status: typing.Optional[typing.Union[DeploymentStatusOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        discussion: typing.Optional[typing.Union[DiscussionOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        discussion_comment: typing.Optional[typing.Union[DiscussionCommentOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        fork: typing.Optional[typing.Union[ForkOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        gollum: typing.Optional[typing.Union[GollumOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        issue_comment: typing.Optional[typing.Union[IssueCommentOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        issues: typing.Optional[typing.Union[IssuesOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        label: typing.Optional[typing.Union[LabelOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        merge_group: typing.Optional[typing.Union[MergeGroupOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        milestone: typing.Optional[typing.Union[MilestoneOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        page_build: typing.Optional[typing.Union[PageBuildOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        project: typing.Optional[typing.Union[ProjectOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_card: typing.Optional[typing.Union[ProjectCardOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        project_column: typing.Optional[typing.Union[ProjectColumnOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        public: typing.Optional[typing.Union[PublicOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        branch_protection_rule: typing.Optional[typing.Union["BranchProtectionRuleOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_run: typing.Optional[typing.Union["CheckRunOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        check_suite: typing.Optional[typing.Union["CheckSuiteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        create: typing.Optional[typing.Union["CreateOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        delete: typing.Optional[typing.Union["DeleteOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment: typing.Optional[typing.Union["DeploymentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        deployment_status: typing.Optional[typing.Union["DeploymentStatusOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        discussion: typing.Optional[typing.Union["DiscussionOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        discussion_comment: typing.Optional[typing.Union["DiscussionCommentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        fork: typing.Optional[typing.Union["ForkOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        gollum: typing.Optional[typing.Union["GollumOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        issue_comment: typing.Optional[typing.Union["IssueCommentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        issues: typing.Optional[typing.Union["IssuesOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        label: typing.Optional[typing.Union["LabelOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        merge_group: typing.Optional[typing.Union["MergeGroupOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        milestone: typing.Optional[typing.Union["MilestoneOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        page_build: typing.Optional[typing.Union["PageBuildOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        project: typing.Optional[typing.Union["ProjectOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_card: typing.Optional[typing.Union["ProjectCardOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        project_column: typing.Optional[typing.Union["ProjectColumnOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        public: typing.Optional[typing.Union["PublicOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request: typing.Optional[typing.Union["PullRequestOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        pull_request_review: typing.Optional[typing.Union[PullRequestReviewOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        pull_request_review_comment: typing.Optional[typing.Union[PullRequestReviewCommentOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        pull_request_review: typing.Optional[typing.Union["PullRequestReviewOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        pull_request_review_comment: typing.Optional[typing.Union["PullRequestReviewCommentOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pull_request_target: typing.Optional[typing.Union["PullRequestTargetOptions", typing.Dict[builtins.str, typing.Any]]] = None,
-        push: typing.Optional[typing.Union[PushOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        registry_package: typing.Optional[typing.Union[RegistryPackageOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        release: typing.Optional[typing.Union[ReleaseOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        repository_dispatch: typing.Optional[typing.Union[RepositoryDispatchOptions, typing.Dict[builtins.str, typing.Any]]] = None,
-        schedule: typing.Optional[typing.Sequence[typing.Union[CronScheduleOptions, typing.Dict[builtins.str, typing.Any]]]] = None,
-        status: typing.Optional[typing.Union[StatusOptions, typing.Dict[builtins.str, typing.Any]]] = None,
+        push: typing.Optional[typing.Union["PushOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        registry_package: typing.Optional[typing.Union["RegistryPackageOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        release: typing.Optional[typing.Union["ReleaseOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        repository_dispatch: typing.Optional[typing.Union["RepositoryDispatchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
+        schedule: typing.Optional[typing.Sequence[typing.Union["CronScheduleOptions", typing.Dict[builtins.str, typing.Any]]]] = None,
+        status: typing.Optional[typing.Union["StatusOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         watch: typing.Optional[typing.Union["WatchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_call: typing.Optional[typing.Union["WorkflowCallOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         workflow_dispatch: typing.Optional[typing.Union["WorkflowDispatchOptions", typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4152,52 +4152,52 @@ class Triggers:
             self._values["workflow_run"] = workflow_run
 
     @builtins.property
-    def branch_protection_rule(self) -> typing.Optional[BranchProtectionRuleOptions]:
+    def branch_protection_rule(self) -> typing.Optional["BranchProtectionRuleOptions"]:
         '''(experimental) Runs your workflow anytime the branch_protection_rule event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("branch_protection_rule")
-        return typing.cast(typing.Optional[BranchProtectionRuleOptions], result)
+        return typing.cast(typing.Optional["BranchProtectionRuleOptions"], result)
 
     @builtins.property
-    def check_run(self) -> typing.Optional[CheckRunOptions]:
+    def check_run(self) -> typing.Optional["CheckRunOptions"]:
         '''(experimental) Runs your workflow anytime the check_run event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("check_run")
-        return typing.cast(typing.Optional[CheckRunOptions], result)
+        return typing.cast(typing.Optional["CheckRunOptions"], result)
 
     @builtins.property
-    def check_suite(self) -> typing.Optional[CheckSuiteOptions]:
+    def check_suite(self) -> typing.Optional["CheckSuiteOptions"]:
         '''(experimental) Runs your workflow anytime the check_suite event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("check_suite")
-        return typing.cast(typing.Optional[CheckSuiteOptions], result)
+        return typing.cast(typing.Optional["CheckSuiteOptions"], result)
 
     @builtins.property
-    def create(self) -> typing.Optional[CreateOptions]:
+    def create(self) -> typing.Optional["CreateOptions"]:
         '''(experimental) Runs your workflow anytime someone creates a branch or tag, which triggers the create event.
 
         :stability: experimental
         '''
         result = self._values.get("create")
-        return typing.cast(typing.Optional[CreateOptions], result)
+        return typing.cast(typing.Optional["CreateOptions"], result)
 
     @builtins.property
-    def delete(self) -> typing.Optional[DeleteOptions]:
+    def delete(self) -> typing.Optional["DeleteOptions"]:
         '''(experimental) Runs your workflow anytime someone deletes a branch or tag, which triggers the delete event.
 
         :stability: experimental
         '''
         result = self._values.get("delete")
-        return typing.cast(typing.Optional[DeleteOptions], result)
+        return typing.cast(typing.Optional["DeleteOptions"], result)
 
     @builtins.property
-    def deployment(self) -> typing.Optional[DeploymentOptions]:
+    def deployment(self) -> typing.Optional["DeploymentOptions"]:
         '''(experimental) Runs your workflow anytime someone creates a deployment, which triggers the deployment event.
 
         Deployments created with a commit SHA may not have
@@ -4206,10 +4206,10 @@ class Triggers:
         :stability: experimental
         '''
         result = self._values.get("deployment")
-        return typing.cast(typing.Optional[DeploymentOptions], result)
+        return typing.cast(typing.Optional["DeploymentOptions"], result)
 
     @builtins.property
-    def deployment_status(self) -> typing.Optional[DeploymentStatusOptions]:
+    def deployment_status(self) -> typing.Optional["DeploymentStatusOptions"]:
         '''(experimental) Runs your workflow anytime a third party provides a deployment status, which triggers the deployment_status event.
 
         Deployments created with a
@@ -4218,10 +4218,10 @@ class Triggers:
         :stability: experimental
         '''
         result = self._values.get("deployment_status")
-        return typing.cast(typing.Optional[DeploymentStatusOptions], result)
+        return typing.cast(typing.Optional["DeploymentStatusOptions"], result)
 
     @builtins.property
-    def discussion(self) -> typing.Optional[DiscussionOptions]:
+    def discussion(self) -> typing.Optional["DiscussionOptions"]:
         '''(experimental) Runs your workflow anytime the discussion event occurs.
 
         More than one activity type triggers this event.
@@ -4230,10 +4230,10 @@ class Triggers:
         :stability: experimental
         '''
         result = self._values.get("discussion")
-        return typing.cast(typing.Optional[DiscussionOptions], result)
+        return typing.cast(typing.Optional["DiscussionOptions"], result)
 
     @builtins.property
-    def discussion_comment(self) -> typing.Optional[DiscussionCommentOptions]:
+    def discussion_comment(self) -> typing.Optional["DiscussionCommentOptions"]:
         '''(experimental) Runs your workflow anytime the discussion_comment event occurs.
 
         More than one activity type triggers this event.
@@ -4242,115 +4242,115 @@ class Triggers:
         :stability: experimental
         '''
         result = self._values.get("discussion_comment")
-        return typing.cast(typing.Optional[DiscussionCommentOptions], result)
+        return typing.cast(typing.Optional["DiscussionCommentOptions"], result)
 
     @builtins.property
-    def fork(self) -> typing.Optional[ForkOptions]:
+    def fork(self) -> typing.Optional["ForkOptions"]:
         '''(experimental) Runs your workflow anytime when someone forks a repository, which triggers the fork event.
 
         :stability: experimental
         '''
         result = self._values.get("fork")
-        return typing.cast(typing.Optional[ForkOptions], result)
+        return typing.cast(typing.Optional["ForkOptions"], result)
 
     @builtins.property
-    def gollum(self) -> typing.Optional[GollumOptions]:
+    def gollum(self) -> typing.Optional["GollumOptions"]:
         '''(experimental) Runs your workflow when someone creates or updates a Wiki page, which triggers the gollum event.
 
         :stability: experimental
         '''
         result = self._values.get("gollum")
-        return typing.cast(typing.Optional[GollumOptions], result)
+        return typing.cast(typing.Optional["GollumOptions"], result)
 
     @builtins.property
-    def issue_comment(self) -> typing.Optional[IssueCommentOptions]:
+    def issue_comment(self) -> typing.Optional["IssueCommentOptions"]:
         '''(experimental) Runs your workflow anytime the issue_comment event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("issue_comment")
-        return typing.cast(typing.Optional[IssueCommentOptions], result)
+        return typing.cast(typing.Optional["IssueCommentOptions"], result)
 
     @builtins.property
-    def issues(self) -> typing.Optional[IssuesOptions]:
+    def issues(self) -> typing.Optional["IssuesOptions"]:
         '''(experimental) Runs your workflow anytime the issues event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("issues")
-        return typing.cast(typing.Optional[IssuesOptions], result)
+        return typing.cast(typing.Optional["IssuesOptions"], result)
 
     @builtins.property
-    def label(self) -> typing.Optional[LabelOptions]:
+    def label(self) -> typing.Optional["LabelOptions"]:
         '''(experimental) Runs your workflow anytime the label event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("label")
-        return typing.cast(typing.Optional[LabelOptions], result)
+        return typing.cast(typing.Optional["LabelOptions"], result)
 
     @builtins.property
-    def merge_group(self) -> typing.Optional[MergeGroupOptions]:
+    def merge_group(self) -> typing.Optional["MergeGroupOptions"]:
         '''(experimental) Runs your workflow when a pull request is added to a merge queue, which adds the pull request to a merge group.
 
         :stability: experimental
         '''
         result = self._values.get("merge_group")
-        return typing.cast(typing.Optional[MergeGroupOptions], result)
+        return typing.cast(typing.Optional["MergeGroupOptions"], result)
 
     @builtins.property
-    def milestone(self) -> typing.Optional[MilestoneOptions]:
+    def milestone(self) -> typing.Optional["MilestoneOptions"]:
         '''(experimental) Runs your workflow anytime the milestone event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("milestone")
-        return typing.cast(typing.Optional[MilestoneOptions], result)
+        return typing.cast(typing.Optional["MilestoneOptions"], result)
 
     @builtins.property
-    def page_build(self) -> typing.Optional[PageBuildOptions]:
+    def page_build(self) -> typing.Optional["PageBuildOptions"]:
         '''(experimental) Runs your workflow anytime someone pushes to a GitHub Pages-enabled branch, which triggers the page_build event.
 
         :stability: experimental
         '''
         result = self._values.get("page_build")
-        return typing.cast(typing.Optional[PageBuildOptions], result)
+        return typing.cast(typing.Optional["PageBuildOptions"], result)
 
     @builtins.property
-    def project(self) -> typing.Optional[ProjectOptions]:
+    def project(self) -> typing.Optional["ProjectOptions"]:
         '''(experimental) Runs your workflow anytime the project event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("project")
-        return typing.cast(typing.Optional[ProjectOptions], result)
+        return typing.cast(typing.Optional["ProjectOptions"], result)
 
     @builtins.property
-    def project_card(self) -> typing.Optional[ProjectCardOptions]:
+    def project_card(self) -> typing.Optional["ProjectCardOptions"]:
         '''(experimental) Runs your workflow anytime the project_card event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("project_card")
-        return typing.cast(typing.Optional[ProjectCardOptions], result)
+        return typing.cast(typing.Optional["ProjectCardOptions"], result)
 
     @builtins.property
-    def project_column(self) -> typing.Optional[ProjectColumnOptions]:
+    def project_column(self) -> typing.Optional["ProjectColumnOptions"]:
         '''(experimental) Runs your workflow anytime the project_column event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("project_column")
-        return typing.cast(typing.Optional[ProjectColumnOptions], result)
+        return typing.cast(typing.Optional["ProjectColumnOptions"], result)
 
     @builtins.property
-    def public(self) -> typing.Optional[PublicOptions]:
+    def public(self) -> typing.Optional["PublicOptions"]:
         '''(experimental) Runs your workflow anytime someone makes a private repository public, which triggers the public event.
 
         :stability: experimental
         '''
         result = self._values.get("public")
-        return typing.cast(typing.Optional[PublicOptions], result)
+        return typing.cast(typing.Optional["PublicOptions"], result)
 
     @builtins.property
     def pull_request(self) -> typing.Optional["PullRequestOptions"]:
@@ -4362,24 +4362,24 @@ class Triggers:
         return typing.cast(typing.Optional["PullRequestOptions"], result)
 
     @builtins.property
-    def pull_request_review(self) -> typing.Optional[PullRequestReviewOptions]:
+    def pull_request_review(self) -> typing.Optional["PullRequestReviewOptions"]:
         '''(experimental) Runs your workflow anytime the pull_request_review event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("pull_request_review")
-        return typing.cast(typing.Optional[PullRequestReviewOptions], result)
+        return typing.cast(typing.Optional["PullRequestReviewOptions"], result)
 
     @builtins.property
     def pull_request_review_comment(
         self,
-    ) -> typing.Optional[PullRequestReviewCommentOptions]:
+    ) -> typing.Optional["PullRequestReviewCommentOptions"]:
         '''(experimental) Runs your workflow anytime a comment on a pull request's unified diff is modified, which triggers the pull_request_review_comment event.
 
         :stability: experimental
         '''
         result = self._values.get("pull_request_review_comment")
-        return typing.cast(typing.Optional[PullRequestReviewCommentOptions], result)
+        return typing.cast(typing.Optional["PullRequestReviewCommentOptions"], result)
 
     @builtins.property
     def pull_request_target(self) -> typing.Optional["PullRequestTargetOptions"]:
@@ -4407,43 +4407,43 @@ class Triggers:
         return typing.cast(typing.Optional["PullRequestTargetOptions"], result)
 
     @builtins.property
-    def push(self) -> typing.Optional[PushOptions]:
+    def push(self) -> typing.Optional["PushOptions"]:
         '''(experimental) Runs your workflow when someone pushes to a repository branch, which triggers the push event.
 
         :stability: experimental
         '''
         result = self._values.get("push")
-        return typing.cast(typing.Optional[PushOptions], result)
+        return typing.cast(typing.Optional["PushOptions"], result)
 
     @builtins.property
-    def registry_package(self) -> typing.Optional[RegistryPackageOptions]:
+    def registry_package(self) -> typing.Optional["RegistryPackageOptions"]:
         '''(experimental) Runs your workflow anytime a package is published or updated.
 
         :stability: experimental
         '''
         result = self._values.get("registry_package")
-        return typing.cast(typing.Optional[RegistryPackageOptions], result)
+        return typing.cast(typing.Optional["RegistryPackageOptions"], result)
 
     @builtins.property
-    def release(self) -> typing.Optional[ReleaseOptions]:
+    def release(self) -> typing.Optional["ReleaseOptions"]:
         '''(experimental) Runs your workflow anytime the release event occurs.
 
         :stability: experimental
         '''
         result = self._values.get("release")
-        return typing.cast(typing.Optional[ReleaseOptions], result)
+        return typing.cast(typing.Optional["ReleaseOptions"], result)
 
     @builtins.property
-    def repository_dispatch(self) -> typing.Optional[RepositoryDispatchOptions]:
+    def repository_dispatch(self) -> typing.Optional["RepositoryDispatchOptions"]:
         '''(experimental) You can use the GitHub API to trigger a webhook event called repository_dispatch when you want to trigger a workflow for activity that happens outside of GitHub.
 
         :stability: experimental
         '''
         result = self._values.get("repository_dispatch")
-        return typing.cast(typing.Optional[RepositoryDispatchOptions], result)
+        return typing.cast(typing.Optional["RepositoryDispatchOptions"], result)
 
     @builtins.property
-    def schedule(self) -> typing.Optional[typing.List[CronScheduleOptions]]:
+    def schedule(self) -> typing.Optional[typing.List["CronScheduleOptions"]]:
         '''(experimental) You can schedule a workflow to run at specific UTC times using POSIX cron syntax.
 
         Scheduled workflows run on the latest commit on the default or
@@ -4454,16 +4454,16 @@ class Triggers:
         :stability: experimental
         '''
         result = self._values.get("schedule")
-        return typing.cast(typing.Optional[typing.List[CronScheduleOptions]], result)
+        return typing.cast(typing.Optional[typing.List["CronScheduleOptions"]], result)
 
     @builtins.property
-    def status(self) -> typing.Optional[StatusOptions]:
+    def status(self) -> typing.Optional["StatusOptions"]:
         '''(experimental) Runs your workflow anytime the status of a Git commit changes, which triggers the status event.
 
         :stability: experimental
         '''
         result = self._values.get("status")
-        return typing.cast(typing.Optional[StatusOptions], result)
+        return typing.cast(typing.Optional["StatusOptions"], result)
 
     @builtins.property
     def watch(self) -> typing.Optional["WatchOptions"]:

@@ -93,23 +93,33 @@ pyi_splash_setup(struct SPLASH_CONTEXT *splash, const struct PYI_CONTEXT *pyi_ct
      * process uses zero padding and is ensuring that strings themselves
      * have no more than N-1 characters long. */
 
+    /* Top-level application directory */
+    strncpy(splash->application_home_dir, pyi_ctx->application_home_dir, PYI_PATH_MAX); /* both buffers are guaranteed to be PYI_PATH_MAX-sized */
+
     /* Tcl shared library */
-    if (pyi_path_join(splash->tcl_libpath, pyi_ctx->application_home_dir, data_header->tcl_libname) == NULL) {
+    if (pyi_path_join(splash->tcl_shared_library, pyi_ctx->application_home_dir, data_header->tcl_shared_library_name) == NULL) {
         PYI_WARNING("SPLASH: length of Tcl shared library path exceeds maximum path length!\n");
         free(data_header);
         return -1;
     }
 
     /* Tk shared library */
-    if (pyi_path_join(splash->tk_libpath, pyi_ctx->application_home_dir, data_header->tk_libname) == NULL) {
+    if (pyi_path_join(splash->tk_shared_library, pyi_ctx->application_home_dir, data_header->tk_shared_library_name) == NULL) {
         PYI_WARNING("SPLASH: length of Tk shared library path exceeds maximum path length!\n");
         free(data_header);
         return -1;
     }
 
+    /* Tcl modules directory */
+    if (pyi_path_join(splash->tcl_modules_dir, pyi_ctx->application_home_dir, data_header->tcl_module_directory_name) == NULL) {
+        PYI_WARNING("SPLASH: length of Tcl module directory path exceeds maximum path length!\n");
+        free(data_header);
+        return -1;
+    }
+
     /* Tk modules directory */
-    if (pyi_path_join(splash->tk_lib, pyi_ctx->application_home_dir, data_header->tk_lib) == NULL) {
-        PYI_WARNING("SPLASH: length of Tk shared library path exceeds maximum path length!\n");
+    if (pyi_path_join(splash->tk_modules_dir, pyi_ctx->application_home_dir, data_header->tk_module_directory_name) == NULL) {
+        PYI_WARNING("SPLASH: length of Tk module directory path exceeds maximum path length!\n");
         free(data_header);
         return -1;
     }
@@ -180,6 +190,7 @@ int
 pyi_splash_start(struct SPLASH_CONTEXT *splash, const char *executable)
 {
     const struct DYLIB_TCLTK *dylib_tcltk = splash->dylib_tcltk;
+    int ret;
 
     /* Make sure shared libraries have been loaded and their symbols
      * bound. */
@@ -213,13 +224,24 @@ pyi_splash_start(struct SPLASH_CONTEXT *splash, const char *executable)
      * methods provided by Tcl. This function will return TCL_ERROR if it is
      * either not implemented (Tcl is not threaded) or an error occurs.
      * Since we only support threaded Tcl, the error is fatal. */
-    if (dylib_tcltk->Tcl_CreateThread(
-        &splash->thread_id, /* location to store thread ID */
-        _splash_init, /* procedure/function to run in the new thread */
-        splash, /* parameters to pass to procedure */
-        0, /* use default stack size */
-        splash->thread_joinable ? TCL_THREAD_JOINABLE : TCL_THREAD_NOFLAGS /* flags */
-    ) != TCL_OK) {
+     if (dylib_tcltk->tcl_major >= 9) {
+         ret = dylib_tcltk->Tcl_CreateThread_9(
+            &splash->thread_id, /* location to store thread ID */
+            _splash_init, /* procedure/function to run in the new thread */
+            splash, /* parameters to pass to procedure */
+            0, /* use default stack size */
+            splash->thread_joinable ? TCL_THREAD_JOINABLE : TCL_THREAD_NOFLAGS /* flags */
+        );
+    } else {
+        ret = dylib_tcltk->Tcl_CreateThread_8(
+            &splash->thread_id, /* location to store thread ID */
+            _splash_init, /* procedure/function to run in the new thread */
+            splash, /* parameters to pass to procedure */
+            0, /* use default stack size */
+            splash->thread_joinable ? TCL_THREAD_JOINABLE : TCL_THREAD_NOFLAGS /* flags */
+        );
+    }
+    if (ret != TCL_OK) {
         PYI_ERROR("SPLASH: Tcl is not threaded. Only threaded Tcl is supported.\n");
         dylib_tcltk->Tcl_MutexUnlock(&splash->context_mutex);
         pyi_splash_finalize(splash);
@@ -350,11 +372,11 @@ pyi_splash_is_splash_requirement(struct SPLASH_CONTEXT *splash, const char *name
 int
 pyi_splash_load_shared_libraries(struct SPLASH_CONTEXT *splash)
 {
-    PYI_DEBUG("SPLASH: loading Tcl library from: %s\n", splash->tcl_libpath);
-    PYI_DEBUG("SPLASH: loading Tk library from: %s\n", splash->tk_libpath);
+    PYI_DEBUG("SPLASH: loading Tcl library from: %s\n", splash->tcl_shared_library);
+    PYI_DEBUG("SPLASH: loading Tk library from: %s\n", splash->tk_shared_library);
 
     /* Load shared libraries and bind symbols */
-    splash->dylib_tcltk = pyi_dylib_tcltk_load(splash->tcl_libpath, splash->tk_libpath);
+    splash->dylib_tcltk = pyi_dylib_tcltk_load(splash->tcl_shared_library, splash->tk_shared_library);
     if (splash->dylib_tcltk == NULL) {
         PYI_ERROR("SPLASH: failed to load Tcl/Tk shared libraries!\n");
         return -1;
@@ -638,12 +660,18 @@ pyi_splash_update_text(struct SPLASH_CONTEXT *splash, const char *text)
 int
 pyi_splash_send(struct SPLASH_CONTEXT *splash, bool async, const void *user_data, pyi_splash_event_proc proc)
 {
+    const struct DYLIB_TCLTK *dylib_tcltk = splash->dylib_tcltk;
+
     int rc = 0;
     struct Splash_Event *ev;
     Tcl_Condition cond = NULL;
 
     /* Tcl will free this event once it was serviced. */
-    ev = (struct Splash_Event *)splash->dylib_tcltk->Tcl_Alloc(sizeof(struct Splash_Event));
+    if (dylib_tcltk->tcl_major >= 9) {
+        ev = (struct Splash_Event *)dylib_tcltk->Tcl_Alloc_9(sizeof(struct Splash_Event));
+    } else {
+        ev = (struct Splash_Event *)dylib_tcltk->Tcl_Alloc_8(sizeof(struct Splash_Event));
+    }
 
     ev->ev.proc = (Tcl_EventProc *)_splash_event_proc;
     ev->splash = splash;
@@ -660,7 +688,7 @@ pyi_splash_send(struct SPLASH_CONTEXT *splash, bool async, const void *user_data
     _splash_event_send(splash, (Tcl_Event *)ev, &cond, &splash->call_mutex, async);
 
     if (!async) {
-        splash->dylib_tcltk->Tcl_ConditionFinalize(&cond);
+        dylib_tcltk->Tcl_ConditionFinalize(&cond);
     }
     return rc;
 }
@@ -675,20 +703,75 @@ pyi_splash_send(struct SPLASH_CONTEXT *splash, bool async, const void *user_data
  * instead.
  *
  * We override the internal function, because we want to run Tcl in a very
- * minimal environment and do not want to initialize the standard library.
+ * minimal environment.
  */
 static int
 _tclInit_Command(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
     /**
-     * This function would normally do a search in some common and
-     * specific paths to find an `init.tcl` file. Once found, every script
-     * next to it would be executed (`auto.tcl`, `clock.tcl`, etc.) to
-     * define the standard library.
-     * This initialization script would normally set `$auto_path` to be
-     * the folder where `init.tcl` was found, usually the `tclX.Y` directory
-     * inside python's Tcl distribution directory.
-     */
+     * Execute the collected `init.tcl` script in order to set up Tcl's
+     * command auto-load mechanism (the `undefined` handler, the
+     * `auto_path` variable, etc).
+     *
+     * This overrides the default implementation, which searches for the
+     * `init.tcl` script in several pre-defined locations. In our case,
+     * we know exactly where to find it; similarly, we also know that all
+     * our .tcl modules are available in only one location, so try to
+     * restrict the auto-load search paths as much as possible.
+     *
+     * In earlier versions of splash screen, the implementation of this
+     * function was a no-op. However, with Tcl/Tk >= 9, it seems that the
+     * `Tk_init()` function and the modules it loads expect to be able
+     * to auto-load some of the commands provided by other Tk modules.
+     * While we could provide implementation of `undefined` handler that
+     * statically resolves the couple of commands required by the Tk
+     * modules used by splash screen, this does not work when full Tk
+     * is bundled with the application (either because this is onedir
+     * application that uses `tkinter`, or because full collection was
+     * enabled via `full_tk` flag passed to splash screen build options;
+     * in that case, additional modules are loaded (see our override
+     * for `source` command), with additional dependencies. Therefore,
+     * at least at the moment, it seems more reasonable to use the
+     * auto-load mechanism provided by `init.tcl`. */
+    int rc;
+    struct SPLASH_CONTEXT *splash = (struct SPLASH_CONTEXT *)clientData;
+    const struct DYLIB_TCLTK *dylib_tcltk = splash->dylib_tcltk;
+    char init_script_path[PYI_PATH_MAX];
+
+    /* Set tcl_library variable */
+    dylib_tcltk->Tcl_SetVar2(interp, "tcl_library", NULL, splash->tcl_modules_dir, TCL_GLOBAL_ONLY);
+
+    /* Unset tcl_pkgPath variable, to prevent paths from it from being
+     * added to the auto_path by init.tcl. On POSIX platforms, this variable
+     * contains hard-coded paths to system directories. */
+    dylib_tcltk->Tcl_UnsetVar2(interp, "tcl_pkgPath", NULL, TCL_GLOBAL_ONLY);
+
+    /* Initialize auto_path variable with empty string. This prevents
+     * `init.tcl` from trying to initialize it from `TCLLIBPATH`
+     * environment variable, if the latter happens to be available.
+     * See: https://github.com/tcltk/tcl/blob/core-9-0-0/library/init.tcl#L44-L58 */
+    dylib_tcltk->Tcl_SetVar2(interp, "auto_path", NULL, "", TCL_GLOBAL_ONLY);
+
+    /* Run the init.tcl file */
+    pyi_path_join(init_script_path, splash->tcl_modules_dir, "init.tcl");
+    PYI_DEBUG("TCL: 'tclInit' command: running init.tcl from: %s\n", init_script_path);
+    rc = dylib_tcltk->Tcl_EvalFile(interp, init_script_path);
+    if (rc == TCL_OK) {
+        PYI_DEBUG("TCL: 'tclInit' command: init.tcl successfully loaded.\n");
+    } else {
+        PYI_DEBUG("TCL: 'tclInit' command: init.tcl failed to load with status code %d and message: %s.\n", rc, dylib_tcltk->Tcl_GetString(dylib_tcltk->Tcl_GetObjResult(splash->interp)));
+        return rc;
+    }
+
+    /* On Windows, `init.tcl` seems to add not only `tcl_library` to the
+     * `auto_path`, but also its parent directory as well as `../lib`
+     * directory relative to the executable's location. In our restricted
+     * interpreter, we want none of that - so re-set the `auto_path` to
+     * contain only the `tcl_library` location. */
+    dylib_tcltk->Tcl_SetVar2(interp, "auto_path", NULL, splash->tcl_modules_dir, TCL_GLOBAL_ONLY);
+
+    PYI_DEBUG("TCL: 'tclInit' command: 'auto_path' after init: %s\n", dylib_tcltk->Tcl_GetVar2(splash->interp, "auto_path", NULL, TCL_GLOBAL_ONLY));
+
     return TCL_OK;
 }
 
@@ -724,7 +807,15 @@ _tcl_findLibrary_Command(ClientData clientData, Tcl_Interp *interp, int objc, Tc
     int rc;
     struct SPLASH_CONTEXT *splash = (struct SPLASH_CONTEXT *)clientData;
     const struct DYLIB_TCLTK *dylib_tcltk = splash->dylib_tcltk;
-    char initScriptPath[PYI_PATH_MAX];
+    char init_script_path[PYI_PATH_MAX];
+
+#if defined(LAUNCH_DEBUG)
+    int i;
+    PYI_DEBUG("TCL: 'findLibrary' command:\n");
+    for (i = 0; i < objc; i++) {
+        PYI_DEBUG("TCL:  - arg[%i]: %s\n", i, dylib_tcltk->Tcl_GetString(objv[i]));
+    }
+#endif
 
     /* In our minimal environment, this function is only called once,
      * from Tk_Init. So we only implement the behavior for Tk. Other
@@ -732,14 +823,21 @@ _tcl_findLibrary_Command(ClientData clientData, Tcl_Interp *interp, int objc, Tc
      * of `tk`, since the library packed by PyInstaller at build time is
      * guaranteed to be compatible. */
     if (strncmp(dylib_tcltk->Tcl_GetString(objv[4]), "tk.tcl", 64) == 0) {
-        pyi_path_join(initScriptPath, splash->tk_lib, dylib_tcltk->Tcl_GetString(objv[4]));
-        dylib_tcltk->Tcl_SetVar2(interp, "tk_library", NULL, splash->tk_lib, TCL_GLOBAL_ONLY);
-        rc = dylib_tcltk->Tcl_EvalFile(interp, initScriptPath);
+        pyi_path_join(init_script_path, splash->tk_modules_dir, "tk.tcl");
+        PYI_DEBUG("TCL: 'findLibrary' command: running tk.tcl from: %s\n", init_script_path);
+        dylib_tcltk->Tcl_SetVar2(interp, "tk_library", NULL, splash->tk_modules_dir, TCL_GLOBAL_ONLY);
+        rc = dylib_tcltk->Tcl_EvalFile(interp, init_script_path);
+        if (rc == TCL_OK) {
+            PYI_DEBUG("TCL: 'findLibrary' command: tk.tcl successfully loaded.\n");
+        } else {
+            PYI_DEBUG("TCL: 'findLibrary' command: tk.tcl failed to load with status code %d and message: %s.\n", rc, dylib_tcltk->Tcl_GetString(dylib_tcltk->Tcl_GetObjResult(splash->interp)));
+        }
         return rc;
     }
 
     /* We do not expect this function to be called for any other library,
      * but just in case, return that the library was not found. */
+    PYI_DEBUG("TCL: 'findLibrary' command: unsupported library!\n");
     return TCL_ERROR;
 }
 
@@ -764,31 +862,106 @@ _tcl_source_Command(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj
     struct SPLASH_CONTEXT *splash = (struct SPLASH_CONTEXT *)clientData;
     const struct DYLIB_TCLTK *dylib_tcltk = splash->dylib_tcltk;
     Tcl_Obj **_source_objv;
+    char *filename;
     int rc;
     int i;
 
-    /* Check if the file to be sourced exists. The filename
-     * is always the last (objc-1) parameter passed to the command */
-    if (pyi_path_exists(dylib_tcltk->Tcl_GetString(objv[objc - 1]))) {
+#if defined(LAUNCH_DEBUG)
+    PYI_DEBUG("TCL: 'source' command:\n");
+    for (i = 0; i < objc; i++) {
+        PYI_DEBUG("TCL:  - arg[%i]: %s\n", i, dylib_tcltk->Tcl_GetString(objv[i]));
+    }
+#endif
+
+    /* The filename is always the last (objc-1) parameter passed to the
+     * source command. */
+     filename = dylib_tcltk->Tcl_GetString(objv[objc - 1]);
+
+    /* Prevent loading of files that are outside of the top-level application
+     * directory. This would indicate issues with interpreter setup, which is
+     * supposed to be completely isolated. On Windows and macOS, use case-insensitive
+     * comparison to simulate case-insensitive filesystem. On Windows, we must also
+     * normalize separators, because Tcl appears to be using POSIX-style forward slash. */
+    if (1) {
+        bool ok;
+
+#if defined(_WIN32)
+        char normalized_filename[PYI_PATH_MAX];
+        if (snprintf(normalized_filename, PYI_PATH_MAX, "%s", filename) >= PYI_PATH_MAX) {
+            Tcl_Obj *error_obj;
+            PYI_DEBUG("TCL: 'source' command: path to file %s is too long!\n", filename);
+            if (dylib_tcltk->tcl_major >= 9) {
+                error_obj = dylib_tcltk->Tcl_NewStringObj_9("attempted to source file with path that exceeds maximum buffer size", -1);
+            } else {
+                error_obj = dylib_tcltk->Tcl_NewStringObj_8("attempted to source file with path that exceeds maximum buffer size", -1);
+            }
+            dylib_tcltk->Tcl_SetObjResult(interp, error_obj);
+            return TCL_ERROR;
+        } else {
+            char *p = normalized_filename;
+            while (*p != 0) {
+                if (*p == '/') {
+                    *p = '\\';
+                }
+                p++;
+            }
+            ok = strncasecmp(normalized_filename, splash->application_home_dir, strlen(splash->application_home_dir)) == 0;
+        }
+#elif defined(__APPLE__)
+        ok = strncasecmp(filename, splash->application_home_dir, strlen(splash->application_home_dir)) == 0;
+#else
+        ok = strncmp(filename, splash->application_home_dir, strlen(splash->application_home_dir)) == 0;
+#endif
+
+        if (!ok) {
+            Tcl_Obj *error_obj;
+            PYI_DEBUG("TCL: 'source' command: file %s is not rooted in top-level application directory (%s) - raising error!\n", filename, splash->application_home_dir);
+            if (dylib_tcltk->tcl_major >= 9) {
+                error_obj = dylib_tcltk->Tcl_NewStringObj_9("attempted to source file outside of top-level application directory", -1);
+            } else {
+                error_obj = dylib_tcltk->Tcl_NewStringObj_8("attempted to source file outside of top-level application directory", -1);
+            }
+            dylib_tcltk->Tcl_SetObjResult(interp, error_obj);
+            return TCL_ERROR;
+        }
+    }
+
+    /* Check if the file to be sourced exists. */
+    if (pyi_path_exists(filename)) {
         /* Create a new objv array for the original source command
          * named _source. */
-        _source_objv = (Tcl_Obj **)dylib_tcltk->Tcl_Alloc(sizeof(Tcl_Obj *) * objc);
-        _source_objv[0] = dylib_tcltk->Tcl_NewStringObj("_source", -1);
+        if (dylib_tcltk->tcl_major >= 9) {
+            _source_objv = (Tcl_Obj **)dylib_tcltk->Tcl_Alloc_9(sizeof(Tcl_Obj *) * objc);
+            _source_objv[0] = dylib_tcltk->Tcl_NewStringObj_9("_source", -1);
+        } else {
+            _source_objv = (Tcl_Obj **)dylib_tcltk->Tcl_Alloc_8(sizeof(Tcl_Obj *) * objc);
+            _source_objv[0] = dylib_tcltk->Tcl_NewStringObj_8("_source", -1);
+        }
 
         for (i = 1; i < objc; i++) {
             _source_objv[i] = objv[i];
         }
 
         /* Execute `_source` with the given arguments */
-        rc = dylib_tcltk->Tcl_EvalObjv(interp, objc, _source_objv, 0);
+        PYI_DEBUG("TCL: 'source' command: loading file: %s\n", filename);
+        if (dylib_tcltk->tcl_major >= 9) {
+            rc = dylib_tcltk->Tcl_EvalObjv_9(interp, objc, _source_objv, 0);
+        } else {
+            rc = dylib_tcltk->Tcl_EvalObjv_8(interp, objc, _source_objv, 0);
+        }
         dylib_tcltk->Tcl_Free((char *) _source_objv);
+        if (rc == TCL_OK) {
+            PYI_DEBUG("TCL: 'source' command: file %s successfully loaded.\n", filename);
+        } else {
+            PYI_DEBUG("TCL: 'source' command: file %s failed to load with status code %d and message: %s.\n", filename, rc, dylib_tcltk->Tcl_GetString(dylib_tcltk->Tcl_GetObjResult(splash->interp)));
+        }
 
         return rc;
     }
 
     /* If the file does not exist, we return OK */
+    PYI_DEBUG("TCL: 'source' command: file %s does not exist - ignoring.\n", filename);
     return TCL_OK;
-
 }
 
 /*
@@ -800,6 +973,7 @@ static int
 _tcl_exit_Command(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *const objv[])
 {
     struct SPLASH_CONTEXT *splash = (struct SPLASH_CONTEXT *)clientData;
+    PYI_DEBUG("TCL: 'exit' command: exiting main loop.\n");
     splash->exit_main_loop = true;
     return TCL_OK;
 }
@@ -872,7 +1046,11 @@ _splash_init(ClientData client_data)
     ) == NULL;
 
     /* Replace `source` command for use in minimal environment. */
-    dylib_tcltk->Tcl_EvalEx(splash->interp, "rename ::source ::_source", -1, 0);
+    if (dylib_tcltk->tcl_major >= 9) {
+        dylib_tcltk->Tcl_EvalEx_9(splash->interp, "rename ::source ::_source", -1, 0);
+    } else {
+        dylib_tcltk->Tcl_EvalEx_8(splash->interp, "rename ::source ::_source", -1, 0);
+    }
     err |= dylib_tcltk->Tcl_CreateObjCommand(
         splash->interp,
         "source",
@@ -915,14 +1093,22 @@ _splash_init(ClientData client_data)
 
     /* Extract the image from the splash resources, and pass it to Tcl/Tk
      * via the `_image_data` variable. */
-    image_data_obj = dylib_tcltk->Tcl_NewByteArrayObj(splash->image, splash->image_len);
+    if (dylib_tcltk->tcl_major >= 9) {
+        image_data_obj = dylib_tcltk->Tcl_NewByteArrayObj_9(splash->image, splash->image_len);
+    } else {
+        image_data_obj = dylib_tcltk->Tcl_NewByteArrayObj_8(splash->image, splash->image_len);
+    }
     dylib_tcltk->Tcl_SetVar2Ex(splash->interp, "_image_data", NULL, image_data_obj, TCL_GLOBAL_ONLY);
 
     /* Tcl/Tk creates a copy of the image, so we can free our buffer */
     free(splash->image);
     splash->image = NULL;
 
-    err = dylib_tcltk->Tcl_EvalEx(splash->interp, splash->script, splash->script_len, TCL_GLOBAL_ONLY);
+    if (dylib_tcltk->tcl_major >= 9) {
+        err = dylib_tcltk->Tcl_EvalEx_9(splash->interp, splash->script, splash->script_len, TCL_GLOBAL_ONLY);
+    } else {
+        err = dylib_tcltk->Tcl_EvalEx_8(splash->interp, splash->script, splash->script_len, TCL_GLOBAL_ONLY);
+    }
 
     if (err) {
         PYI_DEBUG("SPLASH: Tcl error: %s\n", dylib_tcltk->Tcl_GetString(dylib_tcltk->Tcl_GetObjResult(splash->interp)));

@@ -47,8 +47,8 @@ PANIC_DECODE_BACKTRACE = 'backtrace'
 
 EVENT_QUEUE_TIMEOUT = 0.03  # timeout before raising queue.Empty exception in case of empty event queue
 
-ESPPORT_ENVIRON = str('ESPPORT')
-ESPTOOL_OPEN_PORT_ATTEMPTS_ENVIRON = str('ESPTOOL_OPEN_PORT_ATTEMPTS')
+ESPPORT_ENVIRON = 'ESPPORT'
+ESPTOOL_OPEN_PORT_ATTEMPTS_ENVIRON = 'ESPTOOL_OPEN_PORT_ATTEMPTS'
 MAKEFLAGS_ENVIRON = 'MAKEFLAGS'
 
 GDB_UART_CONTINUE_COMMAND = '+$c#63'
@@ -73,4 +73,4 @@ LOW = True
 HIGH = False
 
 # Port names to filter out
-FILTERED_PORTS = ('Bluetooth-Incoming-Port', 'wlan-debug')
+FILTERED_PORTS = ('Bluetooth-Incoming-Port', 'wlan-debug', 'cu.debug-console')

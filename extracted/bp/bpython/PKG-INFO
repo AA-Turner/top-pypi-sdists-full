@@ -1,6 +1,7 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: bpython
-Version: 0.25
+Version: 0.26
+Summary: A fancy curses interface to the Python interactive interpreter
 Home-page: https://www.bpython-interpreter.org/
 Author: Bob Farrell, Andreas Stuehrk, Sebastian Ramacher, Thomas Ballinger, et al.
 Author-email: bpython@googlegroups.com
@@ -23,9 +24,10 @@ Requires-Dist: pyperclip; extra == "clipboard"
 Provides-Extra: jedi
 Requires-Dist: jedi>=0.16; extra == "jedi"
 Provides-Extra: urwid
-Requires-Dist: urwid; extra == "urwid"
+Requires-Dist: urwid<3.0; extra == "urwid"
 Provides-Extra: watch
 Requires-Dist: watchdog; extra == "watch"
+Dynamic: license-file
 
 .. image:: https://img.shields.io/pypi/v/bpython
     :target: https://pypi.org/project/bpython

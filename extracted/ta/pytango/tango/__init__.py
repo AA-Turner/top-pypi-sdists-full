@@ -22,7 +22,7 @@ __all__ = (
     "AttrConfEventData",
     "AttrData",
     "AttrDataFormat",
-    "AttrList",
+    "AttrMemorizedType",
     "AttrProperty",
     "AttrQuality",
     "AttrReadEvent",
@@ -35,21 +35,18 @@ __all__ = (
     "AttributeConfig",
     "AttributeConfig_2",
     "AttributeConfig_3",
+    "AttributeConfig_5",
     "AttributeDimension",
     "AttributeEventInfo",
     "AttributeInfo",
     "AttributeInfoEx",
     "AttributeInfoList",
     "AttributeInfoListEx",
-    "AttributeList",
     "AttributeProxy",
     "ChangeEventInfo",
     "ChangeEventProp",
-    "Pipe",
-    "PipeConfig",
-    "PipeWriteType",
-    "PipeEventData",
     "DevIntrChangeEventData",
+    "ClientAddr",
     "CmdArgType",
     "CmdDoneEvent",
     "CommandInfo",
@@ -86,13 +83,13 @@ __all__ = (
     "DevLong64",
     "DevShort",
     "DevSource",
-    "DevState",
     "DevString",
     "DevUChar",
     "DevULong",
     "DevULong64",
     "DevUShort",
     "DevEnum",
+    "DevState",
     "DevVarBooleanArray",
     "DevVarCharArray",
     "DevVarDoubleArray",
@@ -131,6 +128,8 @@ __all__ = (
     "ErrorIt",
     "EventData",
     "EventProperties",
+    "EventReason",
+    "EventSubMode",
     "EventSystemFailed",
     "EventType",
     "Except",
@@ -182,17 +181,15 @@ __all__ = (
     "SerialModel",
     "SpectrumAttr",
     "StdDoubleVector",
-    "StdGroupAttrReplyVector",
-    "StdGroupCmdReplyVector",
-    "StdGroupReplyVector",
     "StdLongVector",
     "StdNamedDevFailedVector",
     "StdStringVector",
     "SubDevDiag",
     "TangoStream",
     "TimeVal",
+    "TimedAttrData",
+    "TimedCmdData",
     "UserDefaultAttrProp",
-    "UserDefaultPipeProp",
     "Util",
     "WAttribute",
     "WRITE",
@@ -255,7 +252,7 @@ from ._tango import (
     Attr,
     AttrConfEventData,
     AttrDataFormat,
-    AttrList,
+    AttrMemorizedType,
     AttrProperty,
     AttrQuality,
     AttrReadEvent,
@@ -263,18 +260,23 @@ from ._tango import (
     AttrWriteType,
     AttrWrittenEvent,
     Attribute,
+    AttributeAlarm,
     AttributeAlarmInfo,
+    AttributeConfig,
+    AttributeConfig_2,
+    AttributeConfig_3,
+    AttributeConfig_5,
     AttributeDimension,
     AttributeEventInfo,
     AttributeInfo,
     AttributeInfoEx,
     AttributeInfoList,
     AttributeInfoListEx,
-    AttributeList,
+    ArchiveEventProp,
     ChangeEventInfo,
+    ChangeEventProp,
+    ClientAddr,
     CmdArgType,
-    Pipe,
-    PipeWriteType,
     DevIntrChangeEventData,
     CmdDoneEvent,
     CommandInfo,
@@ -310,13 +312,13 @@ from ._tango import (
     DevLong64,
     DevShort,
     DevSource,
-    DevState,
     DevString,
     DevUChar,
     DevULong,
     DevULong64,
     DevUShort,
     DevEnum,
+    DevState,
     DevVarBooleanArray,
     DevVarCharArray,
     DevVarDoubleArray,
@@ -353,8 +355,10 @@ from ._tango import (
     ErrSeverity,
     EventData,
     EventSystemFailed,
+    EventProperties,
+    EventReason,
+    EventSubMode,
     EventType,
-    PipeEventData,
     Except,
     ExtractAs,
     GreenMode,
@@ -385,6 +389,7 @@ from ._tango import (
     NonSupportedFeature,
     NotAllowed,
     PeriodicEventInfo,
+    PeriodicEventProp,
     PollCmdCode,
     PollDevice,
     PollObjType,
@@ -396,16 +401,12 @@ from ._tango import (
     SerialModel,
     SpectrumAttr,
     StdDoubleVector,
-    StdGroupAttrReplyVector,
-    StdGroupCmdReplyVector,
-    StdGroupReplyVector,
     StdLongVector,
     StdNamedDevFailedVector,
     StdStringVector,
     SubDevDiag,
     TimeVal,
     UserDefaultAttrProp,
-    UserDefaultPipeProp,
     WAttribute,
     WRITE,
     WrongData,
@@ -421,11 +422,12 @@ from ._tango import (
     is_omni_thread,
 )
 
+__auto_die_callbacks_holder = {}
+
 
 # Aliases
 
 ArgType = CmdArgType
-
 
 # Release
 
@@ -447,19 +449,9 @@ from .attr_data import AttrData
 from .log4tango import TangoStream, LogIt, DebugIt, InfoIt, WarnIt, ErrorIt, FatalIt
 
 from .device_server import (
-    ChangeEventProp,
-    PeriodicEventProp,
-    ArchiveEventProp,
-    AttributeAlarm,
-    EventProperties,
-    AttributeConfig,
-    AttributeConfig_2,
-    AttributeConfig_3,
     MultiAttrProp,
     LatestDeviceImpl,
 )
-
-from .pipe import PipeConfig
 
 from .attribute_proxy import AttributeProxy, get_attribute_proxy
 
@@ -497,16 +489,23 @@ from .utils import (
     str_2_obj,
     seqStr_2_obj,
     PyTangoUserWarning,
+    _RemovedClass,
 )
 
 from .green import set_green_mode, get_green_mode
 
 from .device_proxy import get_device_proxy
 
+from .pyutil import TimedAttrData, TimedCmdData
 
-# Pytango initialization
+# PyTango initialization
 
 from .pytango_init import init as __init
 
+PipeWriteType = _RemovedClass(
+    "PipeWriteType Enum was removed from PyTango starting from version 10.1.0. Pipes are not supported anymore. "
+    "Please update your code!"
+)
+
 __init()
-requires_tango("10.0.0", software_name="PyTango")
+requires_tango("10.1.0", software_name="PyTango")

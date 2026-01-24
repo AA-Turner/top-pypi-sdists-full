@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "torchio"
-version = "0.20.22"
+version = "0.21.2"
 description = "Tools for medical image processing with PyTorch"
 readme = "README.md"
 authors = [{ name = "TorchIO contributors" }]
@@ -19,7 +19,6 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -31,7 +30,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 keywords = ["medical", "image processing", "pytorch", "augmentation", "mri"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "deprecated>=1.2",
     "einops>=0.3",
@@ -51,9 +50,7 @@ dependencies = [
 csv = ["pandas>=1"]
 plot = ["colorcet", "matplotlib>=3.4"]
 video = ["ffmpeg-python>=0.2.0"]
-sklearn = [
-    "scikit-learn>=1.6.1",
-]
+sklearn = ["scikit-learn>=1.6.1"]
 
 [project.scripts]
 tiohd = "torchio.cli.print_info:app"
@@ -75,7 +72,7 @@ dev = [
     { include-group = "test" },
     "ipykernel",
     "ipywidgets",
-    "pre-commit-uv",
+    "prek",
 ]
 doc = [
     "distinctipy",
@@ -109,7 +106,7 @@ test = [
 ]
 
 [tool.bumpversion]
-current_version = "0.20.22"
+current_version = "0.21.2"
 commit = true
 tag = true
 

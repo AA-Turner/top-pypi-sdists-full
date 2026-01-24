@@ -16,7 +16,6 @@ short_description: Configure SSL VPN.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -639,8 +638,8 @@ EXAMPLES = '''
     - name: Configure SSL VPN.
       fortinet.fortimanager.fmgr_vpn_ssl_settings:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         device: <your own value>
@@ -823,7 +822,7 @@ def main():
             'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']],
             'options': {
                 'algorithm': {
-                    'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1'], ['7.2.6', '7.2.9'], ['7.4.3', '']],
+                    'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1'], ['7.2.6', '7.2.11'], ['7.4.3', '']],
                     'choices': ['default', 'high', 'low', 'medium'],
                     'type': 'str'
                 },
@@ -896,7 +895,11 @@ def main():
                 'port': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'type': 'int'},
                 'port-precedence': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'reqclientcert': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'route-source-interface': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.0']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'route-source-interface': {
+                    'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.0'], ['7.4.8', '7.4.8']],
+                    'choices': ['disable', 'enable'],
+                    'type': 'str'
+                },
                 'servercert': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'type': 'str'},
                 'source-address': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'type': 'raw'},
                 'source-address-negate': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
@@ -907,9 +910,9 @@ def main():
                 'ssl-insert-empty-fragment': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'ssl-max-proto-ver': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['tls1-0', 'tls1-1', 'tls1-2', 'tls1-3'], 'type': 'str'},
                 'ssl-min-proto-ver': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['tls1-0', 'tls1-1', 'tls1-2', 'tls1-3'], 'type': 'str'},
-                'tlsv1-0': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'tlsv1-1': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'tlsv1-2': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'tlsv1-0': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'tlsv1-1': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'tlsv1-2': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.1'], ['7.4.8', '7.4.8']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'tlsv1-3': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '7.2.0']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'transform-backward-slashes': {'v_range': [['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'tunnel-connect-without-reauth': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
@@ -923,7 +926,11 @@ def main():
                 'wins-server2': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'type': 'str'},
                 'x-content-type-options': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
                 'sslv3': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '6.4.15']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                'ssl-big-buffer': {'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '6.4.15']], 'choices': ['disable', 'enable'], 'type': 'str'},
+                'ssl-big-buffer': {
+                    'v_range': [['6.2.6', '6.2.13'], ['6.4.2', '6.4.15'], ['7.4.8', '7.4.8']],
+                    'choices': ['disable', 'enable'],
+                    'type': 'str'
+                },
                 'client-sigalgs': {'v_range': [['6.4.4', '']], 'choices': ['no-rsa-pss', 'all'], 'type': 'str'},
                 'ciphersuite': {
                     'v_range': [['6.4.8', '']],

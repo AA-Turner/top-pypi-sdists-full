@@ -3,7 +3,7 @@
  *
  * The connection object - this file is part a of the C extension module.
  *
- * Copyright (c) 2024 by the PyGreSQL Development Team
+ * Copyright (c) 2026 by the PyGreSQL Development Team
  *
  * Please see the LICENSE.TXT file for specific restrictions.
  */
@@ -532,6 +532,12 @@ conn_describe_prepared(connObject *self, PyObject *args)
         query_obj->max_row = PQntuples(result);
         query_obj->num_fields = PQnfields(result);
         query_obj->col_types = get_col_types(result, query_obj->num_fields);
+        if (!query_obj->col_types) {
+            PQclear(result);
+            Py_DECREF(query_obj);
+            Py_DECREF(self);
+            return NULL;
+        }
         return (PyObject *)query_obj;
     }
     set_error(ProgrammingError, "Cannot describe prepared statement",
@@ -708,17 +714,21 @@ conn_is_non_blocking(connObject *self, PyObject *noargs)
 static char conn_inserttable__doc__[] =
     "inserttable(table, data, [columns]) -- insert iterable into table\n\n"
     "The fields in the iterable must be in the same order as in the table\n"
-    "or in the list or tuple of columns if one is specified.\n";
+    "or in the list or tuple of columns if one is specified.\n\n"
+    "If the optional argument 'freeze' is set to True, the inserted rows\n"
+    "will be immediately frozen (can be useful for initial bulk loads).\n";
 
 static PyObject *
-conn_inserttable(connObject *self, PyObject *args)
+conn_inserttable(connObject *self, PyObject *args, PyObject *kwds)
 {
     PGresult *result;
-    char *table, *buffer, *bufpt, *bufmax, *s, *t;
-    int encoding, ret;
-    size_t bufsiz;
+    char *table, *s, *t;
+    struct CharBuffer buffer = {0};
+    int freeze = 0, encoding, ret;
     PyObject *rows, *iter_row, *item, *columns = NULL;
     Py_ssize_t i, j, m, n;
+
+    static char *kwlist[] = {"table", "data", "columns", "freeze", NULL};
 
     if (!self->cnx) {
         PyErr_SetString(PyExc_TypeError, "Connection is not valid");
@@ -726,10 +736,12 @@ conn_inserttable(connObject *self, PyObject *args)
     }
 
     /* gets arguments */
-    if (!PyArg_ParseTuple(args, "sO|O", &table, &rows, &columns)) {
+    if (!PyArg_ParseTupleAndKeywords(args, kwds, "sO|O$p", kwlist, &table,
+                                     &rows, &columns, &freeze)) {
         PyErr_SetString(
             PyExc_TypeError,
-            "Method inserttable() expects a string and a list as arguments");
+            "Method inserttable() expects a string, an iterable, an optional "
+            "list/tuple and an optional boolean 'freeze' as arguments");
         return NULL;
     }
 
@@ -769,18 +781,16 @@ conn_inserttable(connObject *self, PyObject *args)
         n = -1; /* number of columns not yet known */
     }
 
-    /* allocate buffer */
-    if (!(buffer = PyMem_Malloc(MAX_BUFFER_SIZE))) {
+    encoding = PQclientEncoding(self->cnx);
+
+    /* pre-allocate some memory for the query buffer */
+    if (!init_char_buffer(&buffer, 4096)) {
         Py_DECREF(iter_row);
         return PyErr_NoMemory();
     }
 
-    encoding = PQclientEncoding(self->cnx);
-
     /* starts query */
-    bufpt = buffer;
-    bufmax = bufpt + MAX_BUFFER_SIZE;
-    bufpt += snprintf(bufpt, (size_t)(bufmax - bufpt), "copy ");
+    ext_char_buffer_s(&buffer, "copy ");
 
     s = table;
     do {
@@ -788,18 +798,16 @@ conn_inserttable(connObject *self, PyObject *args)
         if (!t)
             t = s + strlen(s);
         table = PQescapeIdentifier(self->cnx, s, (size_t)(t - s));
-        if (bufpt < bufmax)
-            bufpt += snprintf(bufpt, (size_t)(bufmax - bufpt), "%s", table);
+        ext_char_buffer_s(&buffer, table);
         PQfreemem(table);
         s = t;
-        if (*s && bufpt < bufmax)
-            *bufpt++ = *s++;
+        if (*s)
+            ext_char_buffer_c(&buffer, *s++);
     } while (*s);
 
     if (columns) {
         /* adds a string like f" ({','.join(columns)})" */
-        if (bufpt < bufmax)
-            bufpt += snprintf(bufpt, (size_t)(bufmax - bufpt), " (");
+        ext_char_buffer_s(&buffer, " (");
         for (j = 0; j < n; ++j) {
             PyObject *obj = PySequence_Fast_GET_ITEM(columns, j);
             Py_ssize_t slen;
@@ -811,7 +819,7 @@ conn_inserttable(connObject *self, PyObject *args)
             else if (PyUnicode_Check(obj)) {
                 obj = get_encoded_string(obj, encoding);
                 if (!obj) {
-                    PyMem_Free(buffer);
+                    PyMem_Free(buffer.data);
                     Py_DECREF(iter_row);
                     return NULL; /* pass the UnicodeEncodeError */
                 }
@@ -820,33 +828,35 @@ conn_inserttable(connObject *self, PyObject *args)
                 PyErr_SetString(
                     PyExc_TypeError,
                     "The third argument must contain only strings");
-                PyMem_Free(buffer);
+                PyMem_Free(buffer.data);
                 Py_DECREF(iter_row);
                 return NULL;
             }
             PyBytes_AsStringAndSize(obj, &col, &slen);
             col = PQescapeIdentifier(self->cnx, col, (size_t)slen);
             Py_DECREF(obj);
-            if (bufpt < bufmax)
-                bufpt += snprintf(bufpt, (size_t)(bufmax - bufpt), "%s%s", col,
-                                  j == n - 1 ? ")" : ",");
+            ext_char_buffer_s(&buffer, col);
             PQfreemem(col);
+            ext_char_buffer_c(&buffer, j == n - 1 ? ')' : ',');
         }
     }
-    if (bufpt < bufmax)
-        snprintf(bufpt, (size_t)(bufmax - bufpt), " from stdin");
-    if (bufpt >= bufmax) {
-        PyMem_Free(buffer);
+    ext_char_buffer_s(&buffer, " from stdin");
+    if (freeze)
+        ext_char_buffer_s(&buffer, " freeze");
+    ext_char_buffer_c(&buffer, '\0');
+
+    if (buffer.error) {
+        PyMem_Free(buffer.data);
         Py_DECREF(iter_row);
         return PyErr_NoMemory();
     }
 
     Py_BEGIN_ALLOW_THREADS
-    result = PQexec(self->cnx, buffer);
+    result = PQexec(self->cnx, buffer.data);
     Py_END_ALLOW_THREADS
 
     if (!result || PQresultStatus(result) != PGRES_COPY_IN) {
-        PyMem_Free(buffer);
+        PyMem_Free(buffer.data);
         Py_DECREF(iter_row);
         PyErr_SetString(PyExc_ValueError, PQerrorMessage(self->cnx));
         return NULL;
@@ -861,8 +871,7 @@ conn_inserttable(connObject *self, PyObject *args)
 
         if (!(PyTuple_Check(columns) || PyList_Check(columns))) {
             PQputCopyEnd(self->cnx, "Invalid arguments");
-            PyMem_Free(buffer);
-            Py_DECREF(columns);
+            PyMem_Free(buffer.data);
             Py_DECREF(columns);
             Py_DECREF(iter_row);
             PyErr_SetString(
@@ -877,7 +886,7 @@ conn_inserttable(connObject *self, PyObject *args)
         }
         else if (j != n) {
             PQputCopyEnd(self->cnx, "Invalid arguments");
-            PyMem_Free(buffer);
+            PyMem_Free(buffer.data);
             Py_DECREF(columns);
             Py_DECREF(iter_row);
             PyErr_SetString(
@@ -886,65 +895,54 @@ conn_inserttable(connObject *self, PyObject *args)
             return NULL;
         }
 
-        /* builds insert line */
-        bufpt = buffer;
-        bufsiz = MAX_BUFFER_SIZE - 1;
+        /* empty buffer while keeping allocated memory */
+        buffer.size = 0;
+
+        /* build insert line */
 
         for (j = 0; j < n; ++j) {
-            if (j) {
-                *bufpt++ = '\t';
-                --bufsiz;
-            }
+            if (j)
+                ext_char_buffer_c(&buffer, '\t');
 
             item = PySequence_Fast_GET_ITEM(columns, j);
 
             /* convert item to string and append to buffer */
             if (item == Py_None) {
-                if (bufsiz > 2) {
-                    *bufpt++ = '\\';
-                    *bufpt++ = 'N';
-                    bufsiz -= 2;
-                }
-                else
-                    bufsiz = 0;
+                ext_char_buffer_c(&buffer, '\\');
+                ext_char_buffer_c(&buffer, 'N');
             }
             else if (PyBytes_Check(item)) {
                 const char *t = PyBytes_AsString(item);
 
-                while (*t && bufsiz) {
+                while (*t) {
                     switch (*t) {
                         case '\\':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = '\\';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\\');
                             break;
                         case '\t':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = 't';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\t');
                             break;
                         case '\r':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = 'r';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\r');
                             break;
                         case '\n':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = 'n';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\n');
                             break;
                         default:
-                            *bufpt++ = *t;
+                            ext_char_buffer_c(&buffer, *t);
                     }
                     ++t;
-                    --bufsiz;
                 }
             }
             else if (PyUnicode_Check(item)) {
                 PyObject *s = get_encoded_string(item, encoding);
                 if (!s) {
                     PQputCopyEnd(self->cnx, "Encoding error");
-                    PyMem_Free(buffer);
+                    PyMem_Free(buffer.data);
                     Py_DECREF(item);
                     Py_DECREF(columns);
                     Py_DECREF(iter_row);
@@ -953,33 +951,28 @@ conn_inserttable(connObject *self, PyObject *args)
                 else {
                     const char *t = PyBytes_AsString(s);
 
-                    while (*t && bufsiz) {
+                    while (*t) {
                         switch (*t) {
                             case '\\':
-                                *bufpt++ = '\\';
-                                if (--bufsiz)
-                                    *bufpt++ = '\\';
+                                ext_char_buffer_c(&buffer, '\\');
+                                ext_char_buffer_c(&buffer, '\\');
                                 break;
                             case '\t':
-                                *bufpt++ = '\\';
-                                if (--bufsiz)
-                                    *bufpt++ = 't';
+                                ext_char_buffer_c(&buffer, '\\');
+                                ext_char_buffer_c(&buffer, '\t');
                                 break;
                             case '\r':
-                                *bufpt++ = '\\';
-                                if (--bufsiz)
-                                    *bufpt++ = 'r';
+                                ext_char_buffer_c(&buffer, '\\');
+                                ext_char_buffer_c(&buffer, '\r');
                                 break;
                             case '\n':
-                                *bufpt++ = '\\';
-                                if (--bufsiz)
-                                    *bufpt++ = 'n';
+                                ext_char_buffer_c(&buffer, '\\');
+                                ext_char_buffer_c(&buffer, '\n');
                                 break;
                             default:
-                                *bufpt++ = *t;
+                                ext_char_buffer_c(&buffer, *t);
                         }
                         ++t;
-                        --bufsiz;
                     }
                     Py_DECREF(s);
                 }
@@ -988,68 +981,59 @@ conn_inserttable(connObject *self, PyObject *args)
                 PyObject *s = PyObject_Str(item);
                 const char *t = PyUnicode_AsUTF8(s);
 
-                while (*t && bufsiz) {
-                    *bufpt++ = *t++;
-                    --bufsiz;
-                }
+                ext_char_buffer_s(&buffer, t);
                 Py_DECREF(s);
             }
             else {
                 PyObject *s = PyObject_Repr(item);
                 const char *t = PyUnicode_AsUTF8(s);
 
-                while (*t && bufsiz) {
+                while (*t) {
                     switch (*t) {
                         case '\\':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = '\\';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\\');
                             break;
                         case '\t':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = 't';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\t');
                             break;
                         case '\r':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = 'r';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\r');
                             break;
                         case '\n':
-                            *bufpt++ = '\\';
-                            if (--bufsiz)
-                                *bufpt++ = 'n';
+                            ext_char_buffer_c(&buffer, '\\');
+                            ext_char_buffer_c(&buffer, '\n');
                             break;
                         default:
-                            *bufpt++ = *t;
+                            ext_char_buffer_c(&buffer, *t);
                     }
                     ++t;
-                    --bufsiz;
                 }
                 Py_DECREF(s);
-            }
-
-            if (bufsiz <= 0) {
-                PQputCopyEnd(self->cnx, "Memory error");
-                PyMem_Free(buffer);
-                Py_DECREF(columns);
-                Py_DECREF(iter_row);
-                return PyErr_NoMemory();
             }
         }
 
         Py_DECREF(columns);
 
-        *bufpt++ = '\n';
+        /* terminate line */
+        ext_char_buffer_c(&buffer, '\n');
+        if (buffer.error) {
+            PQputCopyEnd(self->cnx, "Memory error");
+            PyMem_Free(buffer.data);
+            Py_DECREF(iter_row);
+            return PyErr_NoMemory();
+        }
 
-        /* sends data */
-        ret = PQputCopyData(self->cnx, buffer, (int)(bufpt - buffer));
+        /* send data */
+        ret = PQputCopyData(self->cnx, buffer.data, (int)buffer.size);
         if (ret != 1) {
             char *errormsg = ret == -1 ? PQerrorMessage(self->cnx)
                                        : "Data cannot be queued";
             PyErr_SetString(PyExc_IOError, errormsg);
             PQputCopyEnd(self->cnx, errormsg);
-            PyMem_Free(buffer);
+            PyMem_Free(buffer.data);
             Py_DECREF(iter_row);
             return NULL;
         }
@@ -1057,7 +1041,7 @@ conn_inserttable(connObject *self, PyObject *args)
 
     Py_DECREF(iter_row);
     if (PyErr_Occurred()) {
-        PyMem_Free(buffer);
+        PyMem_Free(buffer.data);
         return NULL; /* pass the iteration error */
     }
 
@@ -1065,11 +1049,11 @@ conn_inserttable(connObject *self, PyObject *args)
     if (ret != 1) {
         PyErr_SetString(PyExc_IOError, ret == -1 ? PQerrorMessage(self->cnx)
                                                  : "Data cannot be queued");
-        PyMem_Free(buffer);
+        PyMem_Free(buffer.data);
         return NULL;
     }
 
-    PyMem_Free(buffer);
+    PyMem_Free(buffer.data);
 
     Py_BEGIN_ALLOW_THREADS
     result = PQgetResult(self->cnx);
@@ -1753,8 +1737,8 @@ static struct PyMethodDef conn_methods[] = {
      conn_set_notice_receiver__doc__},
     {"getnotify", (PyCFunction)conn_get_notify, METH_NOARGS,
      conn_get_notify__doc__},
-    {"inserttable", (PyCFunction)conn_inserttable, METH_VARARGS,
-     conn_inserttable__doc__},
+    {"inserttable", (PyCFunction)conn_inserttable,
+     METH_VARARGS | METH_KEYWORDS, conn_inserttable__doc__},
     {"transaction", (PyCFunction)conn_transaction, METH_NOARGS,
      conn_transaction__doc__},
     {"parameter", (PyCFunction)conn_parameter, METH_VARARGS,

@@ -1,12 +1,21 @@
 """Qdrant configuration model."""
 
+from __future__ import annotations
+
 from dataclasses import field
-from typing import Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
+
 from pydantic.dataclasses import dataclass as pyd_dataclass
 
 from crewai.rag.config.base import BaseRagConfig
-from crewai.rag.qdrant.types import QdrantClientParams, QdrantEmbeddingFunctionWrapper
 from crewai.rag.qdrant.constants import DEFAULT_EMBEDDING_MODEL, DEFAULT_STORAGE_PATH
+from crewai.rag.qdrant.types import QdrantClientParams, QdrantEmbeddingFunctionWrapper
+
+
+if TYPE_CHECKING:
+    from qdrant_client.models import VectorParams
+else:
+    VectorParams = Any
 
 
 def _default_options() -> QdrantClientParams:
@@ -52,3 +61,4 @@ class QdrantConfig(BaseRagConfig):
     embedding_function: QdrantEmbeddingFunctionWrapper = field(
         default_factory=_default_embedding_function
     )
+    vectors_config: VectorParams | None = field(default=None)

@@ -3,6 +3,7 @@
 import ctypes
 import dataclasses
 import dis
+import os
 import sys
 import types
 from collections import defaultdict
@@ -23,6 +24,8 @@ from typing import (
 )
 
 from _crosshair_tracers import CTracer, TraceSwap, supported_opcodes  # type: ignore
+
+CROSSHAIR_EXTRA_ASSERTS = os.environ.get("CROSSHAIR_EXTRA_ASSERTS", "0") == "1"
 
 SYS_MONITORING_TOOL_ID = 4
 USE_C_TRACER = True
@@ -156,12 +159,14 @@ _CALL_HANDLERS: Dict[int, Callable[[object], CallStackInfo]] = {
     CALL_KW: handle_call_kw,
     CALL_FUNCTION: handle_call_function,
     CALL_FUNCTION_KW: handle_call_function_kw,
-    CALL_FUNCTION_EX: handle_call_function_ex_3_14
-    if sys.version_info >= (3, 14)
-    else (
-        handle_call_function_ex_3_13
-        if sys.version_info >= (3, 13)
-        else handle_call_function_ex_3_6
+    CALL_FUNCTION_EX: (
+        handle_call_function_ex_3_14
+        if sys.version_info >= (3, 14)
+        else (
+            handle_call_function_ex_3_13
+            if sys.version_info >= (3, 13)
+            else handle_call_function_ex_3_6
+        )
     ),
     CALL_METHOD: handle_call_method,
 }
@@ -253,12 +258,19 @@ class TracingModule:
             except ValueError:
                 pass
             else:
-                replacement_kwargs = {
-                    # TODO: I don't think it's safe to realize in the middle of a tracing operation.
-                    # Need to confirm with test. I guess we have to wrap the callable instead?
-                    key.__ch_realize__() if hasattr(key, "__ch_realize__") else key: val
-                    for key, val in kwargs_dict.items()
-                }
+                replacement_kwargs = {}
+                for key, val in kwargs_dict.items():
+                    if isinstance(key, str):
+                        replacement_kwargs[key] = val
+                        continue
+                    # circular import:
+                    from crosshair.libimpl.builtinslib import AnySymbolicStr
+
+                    if isinstance(key, AnySymbolicStr):
+                        # NOTE: We need to ensure symbolic strings don't need tracing for realization
+                        replacement_kwargs[key.__ch_realize__()] = val
+                    else:
+                        raise TypeError("keywords must be strings")
                 frame_stack_write(frame, kwargs_idx, replacement_kwargs)
 
         if isinstance(target, Untracable):
@@ -502,8 +514,17 @@ def NoTracing():
     return TraceSwap(COMPOSITE_TRACER.ctracer, True)
 
 
-def ResumedTracing():
-    return TraceSwap(COMPOSITE_TRACER.ctracer, False)
+if CROSSHAIR_EXTRA_ASSERTS:
+
+    def ResumedTracing():
+        if COMPOSITE_TRACER.ctracer.is_handling():
+            raise TraceException("Cannot resume tracing while opcode handling")
+        return TraceSwap(COMPOSITE_TRACER.ctracer, False)
+
+else:
+
+    def ResumedTracing():
+        return TraceSwap(COMPOSITE_TRACER.ctracer, False)
 
 
 _T = TypeVar("_T")

@@ -4,12 +4,14 @@
 
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
+from fnmatch import filter as fnmatch_filter
 from hashlib import sha256
 from importlib import import_module
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as module_version
 from json import dumps
-from logging import getLogger
+from logging import INFO, getLogger
+from re import compile as re_compile
 from sys import stdout
 
 from . import __version__
@@ -442,13 +444,16 @@ class Manager(object):
         '''
         Accepts either UTF-8 or IDNA encoded zone name and returns the list of
         any configured sub-zones in IDNA form. E.g. for the following
-        configured zones:
-          some.com.
-          other.some.com.
-          deep.thing.some.com.
+
+        Configured zones:
+          - some.com.
+          - other.some.com.
+          - deep.thing.some.com.
+
         It would return
-          other
-          deep.thing
+          - other
+          - deep.thing
+
         '''
         if self._configured_sub_zones is None:
             # First time through we compute all the sub-zones
@@ -565,7 +570,7 @@ class Manager(object):
         ]:
             return None
 
-        self.log.info('sync:     sources=%s', sources)
+        self.log.info('_get_sources:     sources=%s', sources)
 
         try:
             # rather than using a list comprehension, we break this loop
@@ -582,36 +587,104 @@ class Manager(object):
 
         return sources
 
+    def _get_processors(self, decoded_zone_name, config):
+        # Build list of processor names
+        processors = (
+            self.global_processors
+            + (config.get('processors') or [])
+            + self.global_post_processors
+        )
+
+        # Translate processor names to processor objects
+        try:
+            collected = []
+            for processor in processors:
+                collected.append(self.processors[processor])
+            processors = collected
+        except KeyError:
+            raise ManagerException(
+                f'Zone {decoded_zone_name}, unknown processor: {processor}'
+            )
+
+        return processors
+
     def _preprocess_zones(self, zones, eligible_sources=None, sources=None):
         '''
         This may modify the passed in zone object, it should be ignored after
         the call and the zones returned from this function should be used
         instead.
         '''
-        for name, config in list(zones.items()):
-            if not name.startswith('*'):
-                continue
-            # we've found a dynamic config element
 
-            # find its sources
+        source_zones = {}
+
+        # list since we'll be modifying zones in the loop
+        for name, config in list(zones.items()):
+            if name[0] != '*':
+                # this isn't a dynamic zone config, move along
+                continue
+
+            # it's dynamic, get a list of zone names from the configured sources
             found_sources = sources or self._get_sources(
                 name, config, eligible_sources
             )
-            self.log.info('sync:   dynamic zone=%s, sources=%s', name, sources)
+            self.log.info(
+                '_preprocess_zones: dynamic zone=%s, sources=%s',
+                name,
+                list(s.id for s in found_sources),
+            )
+            candidates = set()
             for source in found_sources:
-                if not hasattr(source, 'list_zones'):
-                    raise ManagerException(
-                        f'dynamic zone={name} includes a source, {source.id}, that does not support `list_zones`'
-                    )
-                for zone_name in source.list_zones():
-                    if zone_name in zones:
-                        self.log.info(
-                            'sync:      zone=%s already in config, ignoring',
-                            zone_name,
+                if source.id not in source_zones:
+                    if not hasattr(source, 'list_zones'):
+                        raise ManagerException(
+                            f'dynamic zone={name} includes a source, {source.id}, that does not support `list_zones`'
                         )
-                        continue
-                    self.log.info('sync:     adding dynamic zone=%s', zone_name)
-                    zones[zone_name] = config
+                    # get this source's zones
+                    listed_zones = set(source.list_zones())
+                    # cache them
+                    source_zones[source.id] = listed_zones
+                    self.log.debug(
+                        '_preprocess_zones: source=%s, list_zones=%s',
+                        source.id,
+                        listed_zones,
+                    )
+                # add this source's zones to the candidates
+                candidates |= source_zones[source.id]
+
+            self.log.debug(
+                '_preprocess_zones: name=%s, candidates=%s', name, candidates
+            )
+
+            # remove any zones that are already configured, either explicitly or
+            # from a previous dyanmic config
+            candidates -= set(zones.keys())
+
+            if glob := config.pop('glob', None):
+                self.log.debug(
+                    '_preprocess_zones: name=%s, glob=%s', name, glob
+                )
+                candidates = set(fnmatch_filter(candidates, glob))
+            elif regex := config.pop('regex', None):
+                self.log.debug(
+                    '_preprocess_zones: name=%s, regex=%s', name, regex
+                )
+                regex = re_compile(regex)
+                self.log.debug(
+                    '_preprocess_zones: name=%s, compiled=%s', name, regex
+                )
+                candidates = set(z for z in candidates if regex.search(z))
+            else:
+                # old-style wildcard that uses everything
+                self.log.debug(
+                    '_preprocess_zones: name=%s, old semantics, catch all', name
+                )
+
+            self.log.debug(
+                '_preprocess_zones: name=%s, matches=%s', name, candidates
+            )
+
+            for match in candidates:
+                zones[match] = config
 
             # remove the dynamic config element so we don't try and populate it
             del zones[name]
@@ -705,12 +778,8 @@ class Manager(object):
                     f'Zone {decoded_zone_name} is missing targets'
                 )
 
-            processors = (
-                self.global_processors
-                + (config.get('processors') or [])
-                + self.global_post_processors
-            )
-            self.log.info('sync:     processors=%s', processors)
+            processors = self._get_processors(decoded_zone_name, config)
+            self.log.info('sync:     processors=%s', [p.id for p in processors])
 
             if not sources:
                 self.log.info('sync:   no eligible sources, skipping')
@@ -727,17 +796,6 @@ class Manager(object):
                 continue
 
             self.log.info('sync:     targets=%s', targets)
-
-            try:
-                collected = []
-                for processor in processors:
-                    collected.append(self.processors[processor])
-                processors = collected
-            except KeyError:
-                raise ManagerException(
-                    f'Zone {decoded_zone_name}, unknown '
-                    f'processor: {processor}'
-                )
 
             try:
                 trgs = []
@@ -838,7 +896,9 @@ class Manager(object):
             csum = sha256()
             csum.update(data.encode('utf-8'))
             computed_checksum = csum.hexdigest()
-            self.log.info('sync: checksum=%s', computed_checksum)
+            checksum_log = getLogger('Checksum')
+            checksum_log.setLevel(INFO)
+            checksum_log.info('checksum=%s', computed_checksum)
 
         if not force:
             self.log.debug('sync:   checking safety')
@@ -965,16 +1025,31 @@ class Manager(object):
         zones = self._preprocess_zones(zones, sources=sources)
 
         if '*' in zone:
-            # we want to do everything, just need the names though
-            zones = zones.keys()
+            # we want to do everything
+            zones = zones.items()
         else:
             # we want to do a specific zone
-            zones = [zone]
+            try:
+                zones = [(zone, zones[zone])]
+            except KeyError:
+                raise ManagerException(
+                    f'Requested zone "{zone}" not found in config'
+                )
 
-        for zone in zones:
-            zone = self.get_zone(zone)
+        for zone_name, config in zones:
+            decoded_zone_name = idna_decode(zone_name)
+            self.log.info('dump:   zone=%s', decoded_zone_name)
+
+            processors = self._get_processors(decoded_zone_name, config)
+            self.log.info('dump:     processors=%s', [p.id for p in processors])
+
+            zone = self.get_zone(zone_name)
             for source in sources:
                 source.populate(zone, lenient=lenient)
+
+            # Apply processors
+            for processor in processors:
+                zone = processor.process_source_zone(zone, sources=sources)
 
             plan = target.plan(zone)
             if plan is None:

@@ -13,9 +13,9 @@ All span classes provide methods for media processing, attribute management,
 and scoring integration specific to Langfuse's observability platform.
 """
 
+import warnings
 from datetime import datetime
 from time import time_ns
-import warnings
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -30,6 +30,7 @@ from typing import (
 )
 
 from opentelemetry import trace as otel_trace_api
+from opentelemetry.trace.status import Status, StatusCode
 from opentelemetry.util._decorator import _AgnosticContextManager
 
 from langfuse.model import PromptClient
@@ -44,10 +45,10 @@ from langfuse._client.attributes import (
     create_trace_attributes,
 )
 from langfuse._client.constants import (
-    ObservationTypeLiteral,
     ObservationTypeGenerationLike,
-    ObservationTypeSpanLike,
+    ObservationTypeLiteral,
     ObservationTypeLiteralNoEvent,
+    ObservationTypeSpanLike,
     get_observation_types_list,
 )
 from langfuse.logger import langfuse_logger
@@ -188,6 +189,10 @@ class LangfuseObservationWrapper:
             self._otel_span.set_attributes(
                 {k: v for k, v in attributes.items() if v is not None}
             )
+            # Set OTEL span status if level is ERROR
+            self._set_otel_span_status_if_error(
+                level=level, status_message=status_message
+            )
 
     def end(self, *, end_time: Optional[int] = None) -> "LangfuseObservationWrapper":
         """End the span, marking it as completed.
@@ -218,10 +223,6 @@ class LangfuseObservationWrapper:
     ) -> "LangfuseObservationWrapper":
         """Update the trace that this span belongs to.
 
-        This method updates trace-level attributes of the trace that this span
-        belongs to. This is useful for adding or modifying trace-wide information
-        like user ID, session ID, or tags.
-
         Args:
             name: Updated name for the trace
             user_id: ID of the user who initiated the trace
@@ -232,6 +233,9 @@ class LangfuseObservationWrapper:
             metadata: Additional metadata to associate with the trace
             tags: List of tags to categorize the trace
             public: Whether the trace should be publicly accessible
+
+        See Also:
+            :func:`langfuse.propagate_attributes`: Recommended replacement
         """
         if not self._otel_span.is_recording():
             return self
@@ -272,6 +276,8 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -284,6 +290,8 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score(
@@ -295,6 +303,8 @@ class LangfuseObservationWrapper:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for this specific span.
 
@@ -308,6 +318,8 @@ class LangfuseObservationWrapper:
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            timestamp: Optional timestamp for the score (defaults to current UTC time)
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -333,6 +345,8 @@ class LangfuseObservationWrapper:
             data_type=cast(Literal["CATEGORICAL"], data_type),
             comment=comment,
             config_id=config_id,
+            timestamp=timestamp,
+            metadata=metadata,
         )
 
     @overload
@@ -345,6 +359,8 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["NUMERIC", "BOOLEAN"]] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     @overload
@@ -357,6 +373,8 @@ class LangfuseObservationWrapper:
         data_type: Optional[Literal["CATEGORICAL"]] = "CATEGORICAL",
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None: ...
 
     def score_trace(
@@ -368,6 +386,8 @@ class LangfuseObservationWrapper:
         data_type: Optional[ScoreDataType] = None,
         comment: Optional[str] = None,
         config_id: Optional[str] = None,
+        timestamp: Optional[datetime] = None,
+        metadata: Optional[Any] = None,
     ) -> None:
         """Create a score for the entire trace that this span belongs to.
 
@@ -382,6 +402,8 @@ class LangfuseObservationWrapper:
             data_type: Type of score (NUMERIC, BOOLEAN, or CATEGORICAL)
             comment: Optional comment or explanation for the score
             config_id: Optional ID of a score config defined in Langfuse
+            timestamp: Optional timestamp for the score (defaults to current UTC time)
+            metadata: Optional metadata to be attached to the score
 
         Example:
             ```python
@@ -406,6 +428,8 @@ class LangfuseObservationWrapper:
             data_type=cast(Literal["CATEGORICAL"], data_type),
             comment=comment,
             config_id=config_id,
+            timestamp=timestamp,
+            metadata=metadata,
         )
 
     def _set_processed_span_attributes(
@@ -540,6 +564,28 @@ class LangfuseObservationWrapper:
 
         return data
 
+    def _set_otel_span_status_if_error(
+        self, *, level: Optional[SpanLevel] = None, status_message: Optional[str] = None
+    ) -> None:
+        """Set OpenTelemetry span status to ERROR if level is ERROR.
+
+        This method sets the underlying OpenTelemetry span status to ERROR when the
+        Langfuse observation level is set to ERROR, ensuring consistency between
+        Langfuse and OpenTelemetry error states.
+
+        Args:
+            level: The span level to check
+            status_message: Optional status message to include as description
+        """
+        if level == "ERROR" and self._otel_span.is_recording():
+            try:
+                self._otel_span.set_status(
+                    Status(StatusCode.ERROR, description=status_message)
+                )
+            except Exception:
+                # Silently ignore any errors when setting OTEL status to avoid existing flow disruptions
+                pass
+
     def update(
         self,
         *,
@@ -636,6 +682,8 @@ class LangfuseObservationWrapper:
             )
 
         self._otel_span.set_attributes(attributes=attributes)
+        # Set OTEL span status if level is ERROR
+        self._set_otel_span_status_if_error(level=level, status_message=status_message)
 
         return self
 

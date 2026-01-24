@@ -8,12 +8,12 @@ import random
 import string
 import tempfile
 import threading
+import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional, Tuple, TypeVar
 
 from megatron.energon.cache.base import CachePool, FileStore, Lazy
-from megatron.energon.cache.file_store import DecodeFileStore
 from megatron.energon.edataclass import edataclass
 from megatron.energon.fork_hook import ForkMixin
 from megatron.energon.source_info import SourceInfo, add_source_info
@@ -67,6 +67,46 @@ class FileCacheLazy(Lazy[T]):
 
 
 @edataclass
+class CacheFileLazy(Lazy[T]):
+    """
+    Represents a reference to a cached object without deduplication.
+    """
+
+    # The path to the file that contains the cached pickled object.
+    cache_path: Path | None
+
+    # If get() was called, this will be the data (uncached).
+    _data: Optional[T] = None
+
+    def get(self, sample: Any = None) -> T:
+        """
+        Get the lazy data now and adds no source info to the sample.
+        """
+        if self._data is None:
+            with open(self.cache_path, "rb") as f:
+                self._data = pickle.load(f)
+            self.cache_path.unlink()
+            self.cache_path = None
+        return self._data
+
+    def __del__(self):
+        if self.cache_path is not None:
+            self.cache_path.unlink(missing_ok=True)
+            self.cache_path = None
+
+    def __hash__(self) -> int:
+        return hash((self.fname, self.cache_path))
+
+    def __eq__(self, other: Any) -> bool:
+        if not isinstance(other, CacheFileLazy):
+            return False
+        return self.fname == other.fname and self.cache_path == other.cache_path
+
+    def __repr__(self) -> str:
+        return f"CacheFileLazy(fname={self.fname!r}, cache_path={self.cache_path!r})"
+
+
+@edataclass
 class _PendingTask:
     """Dataclass for storing a pending background task"""
 
@@ -111,7 +151,7 @@ class FileStoreCachePool(CachePool, ForkMixin):
     _pending_tasks: Dict[Tuple[str, str], _PendingTask]
 
     # Lock for all shared structures
-    _lock: threading.Lock
+    _lock: threading.RLock
     # Condition variable to signal when cache space is available
     _cache_space_available: threading.Condition
     # Whether the pool is shutting down
@@ -162,7 +202,7 @@ class FileStoreCachePool(CachePool, ForkMixin):
         self.current_cache_count = 0
 
         # A lock to protect all shared structures
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
         # Condition variable to signal when cache space is available
         self._cache_space_available = threading.Condition(self._lock)
@@ -241,10 +281,7 @@ class FileStoreCachePool(CachePool, ForkMixin):
 
         # Perform the data read
         if self.method == "raw":
-            if isinstance(ds, DecodeFileStore):
-                data, entry.source_info = ds.inner_reader[fname]
-            else:
-                data, entry.source_info = ds[fname]
+            data, entry.source_info = ds._get_raw(fname)
         elif self.method == "pickle":
             data, entry.source_info = ds[fname]
             data = pickle.dumps(data)
@@ -326,6 +363,16 @@ class FileStoreCachePool(CachePool, ForkMixin):
 
         return FileCacheLazy(ds=ds, fname=fname, pool=self, entry=entry)
 
+    def to_cache(self, data: T, name: str) -> CacheFileLazy[T]:
+        """
+        Move the data to the cache and return a lazy to fetch it later.
+        """
+        raw_data = pickle.dumps(data)
+        cache_fname = str(uuid.uuid4())
+        cache_path = self.cache_dir / cache_fname
+        self._write_to_cache(cache_path, raw_data)
+        return CacheFileLazy(ds=None, fname=name, pool=self, cache_path=cache_path)
+
     def close(self) -> None:
         """
         Shutdown the pool, wait for tasks, and clear our structures.
@@ -377,10 +424,7 @@ class FileStoreCachePool(CachePool, ForkMixin):
         with open(entry.cache_path, "rb") as f:
             if self.method == "raw":
                 raw = f.read()
-                if isinstance(entry.ds, DecodeFileStore):
-                    return entry.ds.decoder.decode(entry.fname, raw), entry.source_info
-                else:
-                    return raw, entry.source_info
+                return entry.ds._decode_raw(raw, fname=entry.fname), entry.source_info
             else:
                 return pickle.load(f), entry.source_info
 

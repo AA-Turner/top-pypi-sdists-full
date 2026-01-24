@@ -10,7 +10,7 @@ from transformers import PreTrainedModel
 from transformers.utils.versions import require_version
 from trl import DPOTrainer as HFDPOTrainer
 from trl.trainer.dpo_config import DPOConfig
-from trl.trainer.utils import RunningMoments, selective_log_softmax
+from trl.trainer.utils import RunningMoments
 
 from swift.llm import to_device
 from swift.utils import get_logger
@@ -154,14 +154,15 @@ class DPOTrainer(RLHFTrainerMixin, SwiftMixin, DataLoaderMixin, HFDPOTrainer):
                 public_lengths = torch.min(chosen_lengths, rejected_lengths)  # l_p in the paper
                 public_lengths = torch.cat([public_lengths, public_lengths], dim=0)
 
-                seq_len = per_token_logps.size(1)
-                text_position_ids = torch.arange(seq_len, device=per_token_logps.device).expand_as(per_token_logps)
+                # Use loss_mask to compute position within completion
+                # cumsum gives position within completion (1-indexed), subtract 1 to get 0-indexed
+                completion_position_ids = (loss_mask.cumsum(dim=1) - 1) * loss_mask
 
-                ld_mask = text_position_ids < public_lengths.unsqueeze(1)
-                mask = text_position_ids < completion_lengths.unsqueeze(1)
-
-                front_mask = (ld_mask & mask).float()
-                rear_mask = (~ld_mask & mask).float()
+                ld_mask = completion_position_ids < public_lengths.unsqueeze(1)
+                # front_mask: positions within public_lengths (shared prefix)
+                # rear_mask: positions beyond public_lengths (length-dependent suffix)
+                front_mask = (ld_mask & loss_mask).float()
+                rear_mask = (~ld_mask & loss_mask).float()
                 front_logps = (per_token_logps * front_mask).sum(dim=1)
                 rear_logps = (per_token_logps * rear_mask).sum(dim=1)
 
@@ -176,28 +177,11 @@ class DPOTrainer(RLHFTrainerMixin, SwiftMixin, DataLoaderMixin, HFDPOTrainer):
             output['aux_loss'] = outputs.aux_loss
         return output
 
-    @staticmethod
-    def get_per_token_logps(
-        logits: torch.FloatTensor,
-        labels: torch.LongTensor,
-        label_pad_token_id=-100,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        if logits.shape[:-1] != labels.shape:
-            raise ValueError(f'Logits (batch and sequence length dim) {logits.shape[:-1]}'
-                             'and labels must have the same shape {labels.shape}')
-        loss_mask = labels != label_pad_token_id
-        labels = labels.clone()
-        labels[~loss_mask] = 0
-        # https://github.com/huggingface/trl/pull/2799
-        # Reduce peak vram consumption with efficient selective log_softmax
-        per_token_logps = selective_log_softmax(logits, labels)
-        per_token_logps[~loss_mask] = 0
-        return per_token_logps, logits.mean(-1), loss_mask
-
     def training_step(self, model, inputs, *args, **kwargs):
         with self.template.forward_context(self.model, inputs):
             return super().training_step(model, inputs, *args, **kwargs)
 
     def prediction_step(self, model, inputs, *args, **kwargs):
         with self.template.forward_context(self.model, inputs):
+            inputs = self._prepare_inputs(inputs)
             return super().prediction_step(model, inputs, *args, **kwargs)

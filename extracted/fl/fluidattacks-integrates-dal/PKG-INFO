@@ -1,0 +1,11 @@
+Metadata-Version: 2.4
+Name: fluidattacks_integrates_dal
+Version: 2.2.0
+Summary: ASM Synchronous Data Access Layer
+Author-email: Engineering Team <development@fluidattacks.com>
+Requires-Python: >=3.11
+Classifier: License :: OSI Approved :: MIT License
+Requires-Dist: boto3 >=1.40.53, <2.0.0
+Requires-Dist: click >=8.1.7, <9.0.0
+Requires-Dist: fa-purity >=2.5.2, <3.0.0
+Requires-Dist: fluidattacks-utils-logger >=3.0.0, <4.0.0

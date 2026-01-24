@@ -26,11 +26,8 @@ from alembic.script.revision import ResolutionError
 from flask import current_app
 from flask import Flask
 
-if t.TYPE_CHECKING:
-    import typing_extensions as te
-
-t_rev: te.TypeAlias = (
-    "str | Script | list[str] | list[Script] | tuple[str, ...] | tuple[Script, ...]"
+t_rev: t.TypeAlias = (
+    str | Script | list[str] | list[Script] | tuple[str, ...] | tuple[Script, ...]
 )
 
 
@@ -126,28 +123,20 @@ class Alembic:
         if app is not None:
             self.init_app(app)
 
-    def init_app(
-        self,
-        app: Flask,
-        *,
-        run_mkdir: None = None,
-        command_name: None = None,
-    ) -> None:
-        """Register this extension on an app. Will automatically set up
-        migration directory by default.
-
-        Keyword arguments on this method override those set during
-        :meth:`__init__` if not ``None``.
+    def init_app(self, app: Flask) -> None:
+        """Register this extension on an app.
 
         :param app: App to register.
 
-        .. versionchanged:: 3.1
-            ``run_mkdir`` and ``command_name`` are deprecated and will be
-            removed in Flask-Alembic 3.2. Use them in the constructor instead.
+        .. versionchanged:: 3.2
+            ``run_mkdir`` and ``command_name`` args are removed.
         """
         app.extensions["alembic"] = self
 
         config = app.config.setdefault("ALEMBIC", {})
+        # path_separator isn't relevant in Flask-Alembic, but Alembic emits a
+        # warning if it's not set.
+        config.setdefault("path_separator", "os")
         config.setdefault("script_location", "migrations")
         config.setdefault("version_locations", [])
         ctx = app.config.setdefault("ALEMBIC_CONTEXT", {})
@@ -156,34 +145,14 @@ class Alembic:
         self._cache[app] = cache = _Cache()
         app.teardown_appcontext(cache.clear)
 
-        if run_mkdir is not None:
-            import warnings
-
-            warnings.warn(
-                "The 'run_mkdir' argument is deprecated and will be removed in"
-                " Flask-Alembic 3.2. Pass it to the constructor instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        if run_mkdir or (run_mkdir is None and self.run_mkdir):
+        if self.run_mkdir:
             with app.app_context():
                 self.mkdir()
 
-        if command_name is not None:
-            import warnings
-
-            warnings.warn(
-                "The 'command_name' argument is deprecated and will be removed"
-                " in Flask-Alembic 3.2. Pass it to the constructor instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-
-        if command_name or (command_name is None and self.command_name):
+        if self.command_name:
             from .cli import cli
 
-            app.cli.add_command(cli, command_name or self.command_name)
+            app.cli.add_command(cli, self.command_name)
 
     def _get_cache(self) -> _Cache:
         """Get the cache of Alembic objects for the current app."""
@@ -479,6 +448,16 @@ class Alembic:
             self.migration_context.get_current_heads()
         )
 
+    def needs_upgrade(self) -> bool:
+        """Check whether the current revisions are the head revisions.
+
+        :return: ``True`` if the database is not at all head revisions,
+            ``False`` otherwise.
+        """
+        current_revs = {r.revision for r in self.current()}
+        head_revs = {r.revision for r in self.heads()}
+        return current_revs != head_revs
+
     def heads(self, resolve_dependencies: bool = False) -> tuple[Script, ...]:
         """Get the list of revisions that have no child revisions.
 
@@ -511,9 +490,19 @@ class Alembic:
                 return [r.revision for r in self.current()]
             elif handle_int:
                 try:
-                    return [f"{int(rev):+d}"]
+                    int_val = int(rev)
                 except ValueError:
                     return [rev]
+
+                # Check if this string is actually a revision ID before
+                # treating it as a relative count.
+                try:
+                    self.script_directory.revision_map.get_revisions(rev)
+                    # If we got here, the string is a valid revision ID
+                    return [rev]
+                except ResolutionError:
+                    # Not a valid revision ID, treat as relative count
+                    return [f"{int_val:+d}"]
             else:
                 return [rev]
 
@@ -740,10 +729,27 @@ class Alembic:
 
         if len(scripts) > 1:
             # Combine the ops for each database into one script.
-            script.upgrade_ops = [s.upgrade_ops for s in scripts]  # type: ignore[assignment]
-            script.downgrade_ops = [s.downgrade_ops for s in scripts]  # type: ignore[assignment]
+            script.upgrade_ops = [s.upgrade_ops for s in scripts]  # type: ignore[misc]
+            script.downgrade_ops = [s.downgrade_ops for s in scripts]  # type: ignore[misc]
 
         return script
+
+    def needs_revision(self) -> bool:
+        """Check if any changes between the database and models are detected.
+
+        :return: True if changes are detected.
+
+        .. versionadded:: 3.2
+        """
+        script = self.produce_migrations()
+
+        if isinstance(script.upgrade_ops, list):
+            # Multiple databases
+            return any(not ops.is_empty() for ops in script.upgrade_ops)
+
+        # Single database
+        assert script.upgrade_ops is not None
+        return not script.upgrade_ops.is_empty()
 
     def compare_metadata(self) -> list[tuple[t.Any, ...]]:
         """Describe the operations that would be present in a new revision.
@@ -783,7 +789,7 @@ class _Cache:
         if self.contexts is not None:
             for context in self.contexts.values():
                 if context.connection is not None:
-                    context.connection.close()
+                    context.connection.invalidate()
 
         self.contexts = None
         self.ops = None

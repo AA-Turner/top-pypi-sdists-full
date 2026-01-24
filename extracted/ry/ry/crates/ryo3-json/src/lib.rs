@@ -4,7 +4,7 @@ pub mod orjson;
 mod serialize;
 mod transcode;
 
-pub use serialize::{dumps, stringify};
+pub use serialize::{dumps, stringify, to_vec};
 
 use pyo3::prelude::*;
 use pyo3::types::PyModule;
@@ -30,8 +30,6 @@ pub fn pymod_add(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // root level registration
     m.add_function(wrap_pyfunction!(orjson::orjson_default, m)?)?;
     m.add_function(wrap_pyfunction!(serialize::stringify, m)?)?;
-    #[expect(clippy::unsafe_removed_from_name)]
-    m.add_function(wrap_pyfunction!(serialize::stringify_unsafe, m)?)?;
     // m.add_wrapped(wrap_pymodule!(orjson::oj))?;
     Ok(())
 }

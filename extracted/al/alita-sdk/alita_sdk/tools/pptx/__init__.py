@@ -7,7 +7,8 @@ from pydantic import create_model, BaseModel, ConfigDict, Field
 from .pptx_wrapper import PPTXWrapper
 
 from ..base.tool import BaseAction
-from ..utils import clean_string, TOOLKIT_SPLITTER, get_max_toolkit_length
+from ..utils import clean_string, get_max_toolkit_length
+from ...runtime.utils.constants import TOOLKIT_NAME_META, TOOL_NAME_META, TOOLKIT_TYPE_META
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,6 @@ def get_tools(tool):
     ).get_tools()
 
 
-TOOLKIT_MAX_LENGTH = 25
-
 class PPTXToolkit(BaseToolkit):
     """
     PowerPoint (PPTX) manipulation toolkit for Alita.
@@ -45,8 +44,7 @@ class PPTXToolkit(BaseToolkit):
         
         return create_model(
             name,
-            bucket_name=(str, Field(description="Bucket name where PPTX files are stored", 
-                                   json_schema_extra={'toolkit_name': True, 'max_toolkit_length': TOOLKIT_MAX_LENGTH})),
+            bucket_name=(str, Field(description="Bucket name where PPTX files are stored")),
             selected_tools=(List[Literal[tuple(selected_tools)]], Field(default=[], json_schema_extra={'args_schemas': selected_tools})),
             __config__=ConfigDict(json_schema_extra={
                 'metadata': {
@@ -75,19 +73,22 @@ class PPTXToolkit(BaseToolkit):
             selected_tools = []
             
         pptx_api_wrapper = PPTXWrapper(**kwargs)
-        prefix = clean_string(toolkit_name, TOOLKIT_MAX_LENGTH) + TOOLKIT_SPLITTER if toolkit_name else ''
         available_tools = pptx_api_wrapper.get_available_tools()
         tools = []
         
         for tool in available_tools:
             if selected_tools and tool["name"] not in selected_tools:
                 continue
-                
+            description = tool["description"]
+            if toolkit_name:
+                description = f"Toolkit: {toolkit_name}\n{description}"
+            description = description[:1000]
             tools.append(BaseAction(
                 api_wrapper=pptx_api_wrapper,
-                name=prefix + tool["name"],
-                description=tool["description"],
-                args_schema=tool["args_schema"]
+                name=tool["name"],
+                description=description,
+                args_schema=tool["args_schema"],
+                metadata={TOOLKIT_NAME_META: toolkit_name, TOOLKIT_TYPE_META: name, TOOL_NAME_META: tool["name"]} if toolkit_name else {TOOL_NAME_META: tool["name"]}
             ))
             
         return cls(tools=tools)

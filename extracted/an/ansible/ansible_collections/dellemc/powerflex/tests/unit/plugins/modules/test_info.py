@@ -28,7 +28,7 @@ utils.filter_response = MagicMock()
 
 from ansible.module_utils import basic
 basic.AnsibleModule = MagicMock()
-from ansible_collections.dellemc.powerflex.plugins.modules.info import PowerFlexInfo
+from ansible_collections.dellemc.powerflex.plugins.modules.info import PowerFlexInfo, get_powerflex_info_parameters
 INVALID_SORT_MSG = 'messageCode=PARSE002 displayMessage=An invalid column name: invalid is entered in the sort list'
 
 
@@ -41,11 +41,11 @@ class TestPowerflexInfo():
         mocker.patch(
             MockInfoApi.MODULE_UTILS_PATH + '.PowerFlexClient',
             new=MockApiException)
+        utils.is_version_less = MagicMock(return_value=True)
+        utils.is_version_ge_or_eq = MagicMock(return_value=False)
         info_module_mock = PowerFlexInfo()
+        info_module_mock.module.argument_spec = get_powerflex_info_parameters()
         info_module_mock.module.check_mode = False
-        info_module_mock.powerflex_conn.system.api_version = MagicMock(
-            return_value=3.5
-        )
         info_module_mock.powerflex_conn.system.get = MagicMock(
             return_value=MockInfoApi.INFO_ARRAY_DETAILS
         )

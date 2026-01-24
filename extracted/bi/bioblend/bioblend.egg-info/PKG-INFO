@@ -1,19 +1,16 @@
 Metadata-Version: 2.4
 Name: bioblend
-Version: 1.6.0
+Version: 1.7.0
 Summary: Library for interacting with the Galaxy API
-Home-page: https://bioblend.readthedocs.io/
-Author: Enis Afgan
-Author-email: afgane@gmail.com
-Maintainer: Nicola Soranzo
-Maintainer-email: nicola.soranzo@earlham.ac.uk
-License: MIT
-Project-URL: Bug Tracker, https://github.com/galaxyproject/bioblend/issues
+Author-email: Enis Afgan <afgane@gmail.com>
+Maintainer-email: Nicola Soranzo <nicola.soranzo@earlham.ac.uk>
+License-Expression: MIT
+Project-URL: Homepage, https://bioblend.readthedocs.io/
 Project-URL: Documentation, https://bioblend.readthedocs.io/
+Project-URL: Bug Tracker, https://github.com/galaxyproject/bioblend/issues
 Project-URL: Source Code, https://github.com/galaxyproject/bioblend
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -21,11 +18,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
-License-File: CITATION
 License-File: LICENSE
 Requires-Dist: PyYAML
 Requires-Dist: requests>=2.20.0
@@ -52,7 +49,7 @@ BioBlend is a Python library for interacting with the `Galaxy`_ API.
 
 BioBlend is supported and tested on:
 
-- Python 3.9 - 3.13
+- Python 3.9 - 3.14
 - Galaxy release 19.05 and later.
 
 Full docs are available at https://bioblend.readthedocs.io/ with a quick library

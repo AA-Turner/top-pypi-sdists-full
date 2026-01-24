@@ -46,9 +46,16 @@ supported_minicoil_models: list[SparseModelDescription] = [
     ),
 ]
 
-MODEL_TO_LANGUAGE = {
+_MODEL_TO_LANGUAGE = {
     "Qdrant/minicoil-v1": "english",
 }
+MODEL_TO_LANGUAGE = {
+    model_name.lower(): language for model_name, language in _MODEL_TO_LANGUAGE.items()
+}
+
+
+def get_language_by_model_name(model_name: str) -> str:
+    return MODEL_TO_LANGUAGE[model_name.lower()]
 
 
 class MiniCOIL(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
@@ -110,6 +117,8 @@ class MiniCOIL(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
         self.device_ids = device_ids
         self.cuda = cuda
         self.device_id = device_id
+        self._extra_session_options = self._select_exposed_session_options(kwargs)
+
         self.k = k
         self.b = b
         self.avg_len = avg_len
@@ -146,6 +155,7 @@ class MiniCOIL(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
             providers=self.providers,
             cuda=self.cuda,
             device_id=self.device_id,
+            extra_session_options=self._extra_session_options,
         )
 
         assert self.tokenizer is not None
@@ -156,7 +166,7 @@ class MiniCOIL(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
         self.special_tokens_ids = set(self.special_token_to_id.values())
         self.stopwords = set(self._load_stopwords(self._model_dir))
 
-        stemmer = SnowballStemmer(MODEL_TO_LANGUAGE[self.model_name])
+        stemmer = SnowballStemmer(get_language_by_model_name(self.model_name))
 
         self.vocab_resolver = VocabResolver(
             tokenizer=VocabTokenizer(self.tokenizer),
@@ -176,6 +186,11 @@ class MiniCOIL(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
             b=self.b,
             avg_len=self.avg_len,
         )
+
+    def token_count(
+        self, texts: Union[str, Iterable[str]], batch_size: int = 1024, **kwargs: Any
+    ) -> int:
+        return self._token_count(texts, batch_size=batch_size, **kwargs)
 
     def embed(
         self,
@@ -214,6 +229,7 @@ class MiniCOIL(SparseTextEmbeddingBase, OnnxTextModel[SparseEmbedding]):
             is_query=False,
             local_files_only=self._local_files_only,
             specific_model_path=self._specific_model_path,
+            extra_session_options=self._extra_session_options,
             **kwargs,
         )
 

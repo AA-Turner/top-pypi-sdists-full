@@ -1,0 +1,107 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bw2calc"
+license = "BSD-3-Clause"
+authors = [
+  { name=" Chris Mutel", email="cmutel@gmail.com" }
+]
+maintainers = [
+  { name=" Chris Mutel", email="cmutel@gmail.com" }
+]
+description = "The calculation engine for the Brightway life cycle assessment framework."
+readme = "README.md"
+dynamic = ["version"]
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+requires-python = ">=3.9"
+dependencies = [
+        "bw_processing >=1.0",
+        "fsspec",
+        "matrix_utils >=0.6",
+        "numpy <3",
+        "pandas",
+        "pydantic",
+        "scipy",
+        "stats_arrays",
+        "xarray",
+]
+
+[project.urls]
+source = "https://github.com/brightway-lca/brightway2-calc"
+homepage = "https://github.com/brightway-lca/brightway2-calc"
+tracker = "https://github.com/brightway-lca/brightway2-calc/issues"
+
+[project.optional-dependencies]
+testing = [
+    "bw2calc",
+    "bw2data>=4.5",
+    "pytest",
+    "pytest-cov",
+    "pytest-randomly",
+    "python-coveralls"
+]
+dev = [
+    "build",
+    "pre-commit",
+    "pylint",
+    "pytest",
+    "pytest-cov",
+    "setuptools",
+    "Flake8-pyproject",
+]
+
+[tool.setuptools]
+include-package-data = true
+package-dir = {"" = "src"}
+packages = ["bw2calc"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bw2calc.__version__"}
+
+[tool.pytest.ini_options]
+addopts = "--cov bw2calc --cov-report term-missing --verbose"
+pythonpath = ["src"]
+norecursedirs = [
+    "dist",
+    "build",
+    ".tox"
+]
+testpaths = ["tests"]
+
+[tool.flake8]
+# Some sane defaults for the code style checker flake8
+max-line-length = 100
+extend_ignore = ["E203", "W503"]
+# ^  Black-compatible
+#    E203 and W503 have edge cases handled by black
+per-file-ignores = [
+    'src/bw2calc/__init__.py:F401',
+    'src/bw2calc/__init__.py:E402',
+]
+exclude = [
+    ".tox",
+    "build",
+    "dist",
+    ".eggs",
+    "docs/conf.py",
+]
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+line_length = 100
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+skip = ["src/bw2calc/__init__.py"]

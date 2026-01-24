@@ -47,7 +47,6 @@ Exception
                  ├── IncompatibleTypesError
                  ├── UnexpectedDatasetReferenceError
                  ├── UnnamedColumnError
-                 ├── UnnamedSubqueryError
                  ├── UnsupportedSyntaxError
                  └── VariableNotFoundError
 """
@@ -61,7 +60,7 @@ from typing import Union
 class MissingDependencyError(Exception):  # pragma: no cover
     def __init__(self, dependency: str):
         self.dependency = dependency
-        message = f"No module named '{dependency}' can be found, please install or include in requirements.txt"
+        message = f"No module named '{dependency}' can be found, please install or include in requirements.txt/pyproject.toml."
         super().__init__(message)
 
 
@@ -173,9 +172,10 @@ class ColumnReferencedBeforeEvaluationError(SqlError):
 class DatasetNotFoundError(SqlError):
     """Exception raised when a dataset is not found."""
 
-    def __init__(self, dataset: str = None, suggestion: Optional[str] = None):
+    def __init__(self, connector: str, dataset: str = None, suggestion: Optional[str] = None):
         self.dataset = dataset
-        message = f"The requested dataset, '{dataset}', could not be found."
+        self.connector = connector
+        message = f"The requested dataset, '{dataset}', could not be found by '{connector}'."
         if suggestion is not None:
             message += f" Did you mean '{suggestion}'?"
         super().__init__(message)
@@ -387,10 +387,6 @@ class EmptyDatasetError(DataError):
             f"The requested dataset, '{dataset}', was found, but there was no valid partition."
         )
         super().__init__(message)
-
-
-class UnnamedSubqueryError(SqlError):
-    """Exception raised for unnamed subqueries."""
 
 
 class UnnamedColumnError(SqlError):

@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2024 Red Hat, Inc
+#
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+callback = "tests.unit.test_cli:echo"
+
+[[bindings]]
+exchange = "e"
+queue = "q"
+routing_keys = ["#"]

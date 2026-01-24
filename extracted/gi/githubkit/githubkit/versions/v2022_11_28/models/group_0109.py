@@ -9,8 +9,6 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -18,25 +16,23 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class ApiInsightsRouteStatsItems(GitHubModel):
-    """ApiInsightsRouteStatsItems"""
+class SelectedActions(GitHubModel):
+    """SelectedActions"""
 
-    http_method: Missing[str] = Field(default=UNSET, description="The HTTP method")
-    api_route: Missing[str] = Field(
-        default=UNSET, description="The API path's route template"
-    )
-    total_request_count: Missing[int] = Field(
+    github_owned_allowed: Missing[bool] = Field(
         default=UNSET,
-        description="The total number of requests within the queried time period",
+        description="Whether GitHub-owned actions are allowed. For example, this includes the actions in the `actions` organization.",
     )
-    rate_limited_request_count: Missing[int] = Field(
+    verified_allowed: Missing[bool] = Field(
         default=UNSET,
-        description="The total number of requests that were rate limited within the queried time period",
+        description="Whether actions from GitHub Marketplace verified creators are allowed. Set to `true` to allow all actions by GitHub Marketplace verified creators.",
     )
-    last_rate_limited_timestamp: Missing[Union[str, None]] = Field(default=UNSET)
-    last_request_timestamp: Missing[str] = Field(default=UNSET)
+    patterns_allowed: Missing[list[str]] = Field(
+        default=UNSET,
+        description="Specifies a list of string-matching patterns to allow specific action(s) and reusable workflow(s). Wildcards, tags, and SHAs are allowed. For example, `monalisa/octocat@*`, `monalisa/octocat@v2`, `monalisa/*`.\n\n> [!NOTE]\n> The `patterns_allowed` setting only applies to public repositories.",
+    )
 
 
-model_rebuild(ApiInsightsRouteStatsItems)
+model_rebuild(SelectedActions)
 
-__all__ = ("ApiInsightsRouteStatsItems",)
+__all__ = ("SelectedActions",)

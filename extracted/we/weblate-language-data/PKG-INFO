@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate-language-data
-Version: 2025.8
+Version: 2026.1
 Summary: Language definitions for Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python
@@ -31,16 +32,16 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: dev
-Requires-Dist: translate-toolkit==3.15.5; extra == "dev"
+Requires-Dist: translate-toolkit==3.18.0; extra == "dev"
 Requires-Dist: weblate-language-data[lint,test,types]; extra == "dev"
 Provides-Extra: django
 Requires-Dist: Django; extra == "django"
 Provides-Extra: lint
-Requires-Dist: pre-commit==4.2.0; extra == "lint"
+Requires-Dist: pre-commit==4.5.1; extra == "lint"
 Provides-Extra: test
 Provides-Extra: types
-Requires-Dist: django-stubs==5.2.1; extra == "types"
-Requires-Dist: mypy==1.16.1; extra == "types"
+Requires-Dist: django-stubs==5.2.8; extra == "types"
+Requires-Dist: mypy==1.19.1; extra == "types"
 Dynamic: license-file
 
 .. image:: https://s.weblate.org/cdn/Logo-Darktext-borders.png
@@ -139,12 +140,6 @@ translate.csv
 
 * Extracted from `translate-toolkit`_
 * Generated using export-translate
-
-l10n-guide.csv
---------------
-
-* Extracted from the `l10n guide`_
-* Generated using export-l10n-guide
 
 languages-po
 ------------

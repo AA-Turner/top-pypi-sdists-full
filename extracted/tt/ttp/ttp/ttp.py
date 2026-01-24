@@ -116,7 +116,6 @@ def lazy_import_functions():
             )
         )
     # load functions from files instead
-    exclude = "_py3.py" if _ttp_["python_major_version"] == 2 else "_py2.py"
     exclude_modules = ["ttp.py"]
     # load and parse files
     log.info("ttp.lazy_import_functions: loading files for ast parsing")
@@ -124,10 +123,7 @@ def lazy_import_functions():
         root, dirs, files = item
         for f in files:
             if not (
-                f.endswith(".py")
-                and not f.startswith("_")
-                and not f.endswith(exclude)
-                and f not in exclude_modules
+                f.endswith(".py") and not f.startswith("_") and f not in exclude_modules
             ):
                 continue
             try:
@@ -149,7 +145,7 @@ def lazy_import_functions():
                     if target.id == "_name_map_":
                         _name_map_.update(
                             {
-                                key.s: assignment.value.values[index].s
+                                key.value: assignment.value.values[index].value
                                 for index, key in enumerate(assignment.value.keys)
                             }
                         )

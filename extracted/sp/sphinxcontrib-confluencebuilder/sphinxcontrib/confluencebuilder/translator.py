@@ -59,6 +59,7 @@ class ConfluenceBaseTranslator(BaseTranslator):
         self.context = []
         self.nl = '\n'
         self._docnames = [self.docname]
+        self._force_table_width = None
         self._literal = False
         self._section_level = 1
         self._topic = False
@@ -85,6 +86,15 @@ class ConfluenceBaseTranslator(BaseTranslator):
 
     def depart_document(self, node):
         self.body_final = ''
+
+        # warn if there is some context that has not yet been consumed
+        #
+        # This should never happen unless there is a development bug or a user
+        # is injecting custom nodes that are incomplete. This is a sign that
+        # a translator handle has populated an interim context with data that
+        # should be in the body, but departure logic has not yet applied it.
+        if self.context:
+            self.warn('not all context consumed (developer note)')
 
         # prepend header (if any)
         if self.builder.config.confluence_header_file is not None:
@@ -176,10 +186,9 @@ class ConfluenceBaseTranslator(BaseTranslator):
     def visit_section(self, node):
         level = self._section_level
 
-        if not self.builder.config.confluence_adv_writer_no_section_cap:
-            MAX_CONFLUENCE_SECTIONS = 6
-            if self._section_level > MAX_CONFLUENCE_SECTIONS:
-                level = MAX_CONFLUENCE_SECTIONS
+        MAX_CONFLUENCE_SECTIONS = 6
+        if self._section_level > MAX_CONFLUENCE_SECTIONS:
+            level = MAX_CONFLUENCE_SECTIONS
 
         self._title_level = level
         self._section_level += 1
@@ -207,7 +216,6 @@ class ConfluenceBaseTranslator(BaseTranslator):
         uri = node['uri']
         uri = self.encode(uri)
 
-        dochost = None
         img_key = None
         img_sz = None
         internal_img = uri.find('://') == -1 and not uri.startswith('data:')
@@ -219,22 +227,16 @@ class ConfluenceBaseTranslator(BaseTranslator):
             if 'single' in self.builder.name:
                 asset_docname = self.docname
 
-            img_key, dochost, img_path = \
-                self.assets.fetch(node, docname=asset_docname)
+            img_key, img_path = self.assets.fetch(
+                node, docname=asset_docname, allow_new=not is_svg)
 
-            # if this image has not already be processed (injected at a later
-            # stage in the sphinx process); try processing it now
-            if not img_key:
-                # if this is an svg image, additional processing may also needed
-                if is_svg:
-                    confluence_supported_svg(self.builder, node)
+            # if this image was not pre-processed before and is an svg image,
+            # additional processing may also needed
+            if not img_key and is_svg:
+                confluence_supported_svg(self.builder, node)
 
-                if not asset_docname:
-                    asset_docname = self.docname
-
-                img_key, dochost, img_path = \
-                    self.assets.process_image_node(
-                        node, asset_docname, standalone=True)
+                img_key, img_path = self.assets.fetch(
+                    node, docname=asset_docname)
 
             if not img_key:
                 self.warn('unable to find image: ' + uri)
@@ -309,7 +311,6 @@ class ConfluenceBaseTranslator(BaseTranslator):
 
         # forward image options
         opts = {}
-        opts['dochost'] = dochost
         opts['height'] = height
         opts['hu'] = hu
         opts['key'] = img_key
@@ -363,6 +364,17 @@ class ConfluenceBaseTranslator(BaseTranslator):
 
     def visit_toctree(self, node):
         # skip hidden toctree entries
+        raise nodes.SkipNode
+
+    # -----------------------------------------
+    # sphinx -- extension -- confluence builder
+    # -----------------------------------------
+
+    def visit_confluence_table_width(self, node):
+        new_table_width = node.get('width')
+        if new_table_width in ('default', 'unset'):
+            new_table_width = None
+        self._force_table_width = new_table_width
         raise nodes.SkipNode
 
     # -----------------------------------------------------

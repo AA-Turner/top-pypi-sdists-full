@@ -1,3 +1,4 @@
+pub use evaluation::dynamic_returnable::DynamicReturnable;
 pub use evaluation::dynamic_value::DynamicValue;
 pub use evaluation::evaluation_details::EvaluationDetails;
 pub use evaluation::evaluation_types::SecondaryExposure;
@@ -6,10 +7,12 @@ pub use gcir::gcir_formatter::GCIRResponseFormat;
 pub use gcir::gcir_options::ClientInitResponseOptions;
 pub use hashing::HashAlgorithm;
 pub use id_lists_adapter::{IdListsAdapter, StatsigHttpIdListsAdapter};
+pub use init_details::{FailureDetails, InitializeDetails};
 pub use initialize_response::InitializeResponse;
 pub use instance_registry::InstanceRegistry;
 pub use observability::{
     observability_client_adapter::ObservabilityClient, ops_stats::OpsStatsEventObserver,
+    ops_stats::OPS_STATS,
 };
 pub use override_adapter::{
     override_adapter_trait::OverrideAdapter,
@@ -18,8 +21,6 @@ pub use override_adapter::{
 pub use persistent_storage::persistent_storage_trait::*;
 pub use spec_store::SpecStore;
 pub use specs_adapter::*;
-pub use statsig::FailureDetails;
-pub use statsig::InitializeDetails;
 pub use statsig::Statsig;
 pub use statsig_core_api_options::{
     DynamicConfigEvaluationOptions, ExperimentEvaluationOptions, FeatureGateEvaluationOptions,
@@ -32,11 +33,14 @@ pub use user::user_data::UserData as StatsigUserData;
 pub use user::{StatsigUser, StatsigUserBuilder};
 
 pub mod compression;
+pub mod console_capture;
 pub mod data_store_interface;
 pub mod evaluation;
 pub mod event_logging;
+pub mod gcir;
 pub mod global_configs;
 pub mod hashing;
+pub mod init_details;
 pub mod instance_registry;
 pub mod interned_string;
 pub mod interned_value_store;
@@ -52,14 +56,15 @@ pub mod statsig_metadata;
 pub mod statsig_options;
 pub mod statsig_runtime;
 pub mod statsig_types;
+pub mod statsig_types_raw;
 pub mod user;
 
 mod dcs_str;
 mod event_logging_adapter;
-mod gcir;
 mod id_lists_adapter;
 mod initialize_evaluations_response;
 mod initialize_response;
+mod initialize_v2_response;
 mod macros;
 mod observability;
 mod persistent_storage;
@@ -69,3 +74,6 @@ mod statsig;
 mod statsig_err;
 mod statsig_type_factories;
 mod utils;
+
+#[cfg(test)]
+mod __tests__;

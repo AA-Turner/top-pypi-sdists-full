@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: decomp_settings
+Version: 0.0.10
+Classifier: Programming Language :: Rust
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Dist: pytest ; extra == 'test'
+Requires-Dist: pytest-cov ; extra == 'test'
+Provides-Extra: test
+License-File: LICENSE-APACHE
+License-File: LICENSE-MIT
+Summary: A library for reading the decomp.yaml settings file
+Requires-Python: >=3.7
+Project-URL: Bug Tracker, https://github.com/ethteck/decomp_settings/issues
+Project-URL: Homepage, https://github.com/ethteck/decomp_settings

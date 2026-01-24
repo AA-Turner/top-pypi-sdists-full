@@ -33,16 +33,16 @@ from beartype._check.metadata.hint.hintsane import (
     ListHintSane,
     TupleHintSane,
 )
-from beartype._data.code.datacodemagic import LINE_RSTRIP_INDEX_OR
+from beartype._data.code.datacodelen import LINE_RSTRIP_INDEX_OR
 from beartype._data.code.pep.datacodepep484604 import (
     CODE_PEP484604_UNION_CHILD_PEP_format,
     CODE_PEP484604_UNION_CHILD_NONPEP_format,
     CODE_PEP484604_UNION_PREFIX,
     CODE_PEP484604_UNION_SUFFIX,
 )
-from beartype._data.hint.datahintpep import Hint
-from beartype._data.hint.datahinttyping import DictTypeToAny
-from beartype._data.hint.pep.sign.datapepsignset import HINT_SIGNS_UNION
+from beartype._data.typing.datatypingport import Hint
+from beartype._data.typing.datatyping import DictTypeToAny
+from beartype._data.hint.sign.datahintsignset import HINT_SIGNS_UNION
 from beartype._util.cache.pool.utilcachepoolinstance import (
     acquire_instance,
     release_instance,
@@ -378,7 +378,7 @@ def _get_hint_pep484604_union_args_flattened(
         of metadata describing all visitable type hints currently discovered by
         the breadth-first search (BFS) dynamically generating pure-Python
         type-checking code snippets in the
-        :func:`beartype._check.code.codemake.make_check_expr` factory).
+        :func:`beartype._check.code.codemain.make_check_expr` factory).
 
     Returns
     -------

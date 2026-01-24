@@ -18,17 +18,17 @@ import functools
 import logging
 
 from cliff import columns as cliff_columns
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.common import pagination
 from openstackclient.i18n import _
 
 LOG = logging.getLogger(__name__)
 
 
-class VolumeIdColumn(cliff_columns.FormattableColumn):
+class VolumeIdColumn(cliff_columns.FormattableColumn[str]):
     """Formattable column for volume ID column.
 
     Unlike the parent FormattableColumn class, the initializer of the
@@ -453,7 +453,9 @@ class ShowVolumeBackup(command.ShowOne):
 
     def take_action(self, parsed_args):
         volume_client = self.app.client_manager.sdk_connection.volume
-        backup = volume_client.find_backup(parsed_args.backup)
+        backup = volume_client.find_backup(
+            parsed_args.backup, ignore_missing=False
+        )
         columns: tuple[str, ...] = (
             "availability_zone",
             "container",

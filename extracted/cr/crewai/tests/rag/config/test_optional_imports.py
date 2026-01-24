@@ -1,7 +1,6 @@
 """Tests for optional imports."""
 
 import pytest
-
 from crewai.rag.config.optional_imports.base import _MissingProvider
 from crewai.rag.config.optional_imports.providers import MissingChromaDBConfig
 

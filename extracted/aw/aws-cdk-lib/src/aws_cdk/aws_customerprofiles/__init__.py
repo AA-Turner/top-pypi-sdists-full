@@ -68,2402 +68,25 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CalculatedAttributeDefinitionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "calculated_attribute_name": "calculatedAttributeName",
-        "domain_name": "domainName",
-    },
+from ..interfaces.aws_customerprofiles import (
+    CalculatedAttributeDefinitionReference as _CalculatedAttributeDefinitionReference_c3cb3a21,
+    DomainReference as _DomainReference_ad5fb470,
+    EventStreamReference as _EventStreamReference_962d06c6,
+    EventTriggerReference as _EventTriggerReference_153e27ca,
+    ICalculatedAttributeDefinitionRef as _ICalculatedAttributeDefinitionRef_4fe5d636,
+    IDomainRef as _IDomainRef_05f5627e,
+    IEventStreamRef as _IEventStreamRef_2336759c,
+    IEventTriggerRef as _IEventTriggerRef_29992959,
+    IIntegrationRef as _IIntegrationRef_78469d92,
+    IObjectTypeRef as _IObjectTypeRef_3e102175,
+    ISegmentDefinitionRef as _ISegmentDefinitionRef_fb9739e9,
+    IntegrationReference as _IntegrationReference_7dc76a71,
+    ObjectTypeReference as _ObjectTypeReference_55463b5f,
+    SegmentDefinitionReference as _SegmentDefinitionReference_019ca800,
 )
-class CalculatedAttributeDefinitionReference:
-    def __init__(
-        self,
-        *,
-        calculated_attribute_name: builtins.str,
-        domain_name: builtins.str,
-    ) -> None:
-        '''A reference to a CalculatedAttributeDefinition resource.
 
-        :param calculated_attribute_name: The CalculatedAttributeName of the CalculatedAttributeDefinition resource.
-        :param domain_name: The DomainName of the CalculatedAttributeDefinition resource.
 
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            calculated_attribute_definition_reference = customerprofiles.CalculatedAttributeDefinitionReference(
-                calculated_attribute_name="calculatedAttributeName",
-                domain_name="domainName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78249ca7b9e7766f6c75731f511adb6f1637e310836a1d5ff16ada6e1b7172a8)
-            check_type(argname="argument calculated_attribute_name", value=calculated_attribute_name, expected_type=type_hints["calculated_attribute_name"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "calculated_attribute_name": calculated_attribute_name,
-            "domain_name": domain_name,
-        }
-
-    @builtins.property
-    def calculated_attribute_name(self) -> builtins.str:
-        '''The CalculatedAttributeName of the CalculatedAttributeDefinition resource.'''
-        result = self._values.get("calculated_attribute_name")
-        assert result is not None, "Required property 'calculated_attribute_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the CalculatedAttributeDefinition resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CalculatedAttributeDefinitionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "attribute_details": "attributeDetails",
-        "calculated_attribute_name": "calculatedAttributeName",
-        "domain_name": "domainName",
-        "statistic": "statistic",
-        "conditions": "conditions",
-        "description": "description",
-        "display_name": "displayName",
-        "tags": "tags",
-        "use_historical_data": "useHistoricalData",
-    },
-)
-class CfnCalculatedAttributeDefinitionProps:
-    def __init__(
-        self,
-        *,
-        attribute_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.AttributeDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
-        calculated_attribute_name: builtins.str,
-        domain_name: builtins.str,
-        statistic: builtins.str,
-        conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.ConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        description: typing.Optional[builtins.str] = None,
-        display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnCalculatedAttributeDefinition``.
-
-        :param attribute_details: Mathematical expression and a list of attribute items specified in that expression.
-        :param calculated_attribute_name: The name of an attribute defined in a profile object type.
-        :param domain_name: The unique name of the domain.
-        :param statistic: The aggregation operation to perform for the calculated attribute.
-        :param conditions: The conditions including range, object count, and threshold for the calculated attribute.
-        :param description: The description of the calculated attribute.
-        :param display_name: The display name of the calculated attribute.
-        :param tags: An array of key-value pairs to apply to this resource.
-        :param use_historical_data: Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_calculated_attribute_definition_props = customerprofiles.CfnCalculatedAttributeDefinitionProps(
-                attribute_details=customerprofiles.CfnCalculatedAttributeDefinition.AttributeDetailsProperty(
-                    attributes=[customerprofiles.CfnCalculatedAttributeDefinition.AttributeItemProperty(
-                        name="name"
-                    )],
-                    expression="expression"
-                ),
-                calculated_attribute_name="calculatedAttributeName",
-                domain_name="domainName",
-                statistic="statistic",
-            
-                # the properties below are optional
-                conditions=customerprofiles.CfnCalculatedAttributeDefinition.ConditionsProperty(
-                    object_count=123,
-                    range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
-                        unit="unit",
-            
-                        # the properties below are optional
-                        timestamp_format="timestampFormat",
-                        timestamp_source="timestampSource",
-                        value=123,
-                        value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
-                            end=123,
-                            start=123
-                        )
-                    ),
-                    threshold=customerprofiles.CfnCalculatedAttributeDefinition.ThresholdProperty(
-                        operator="operator",
-                        value="value"
-                    )
-                ),
-                description="description",
-                display_name="displayName",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                use_historical_data=False
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b490cf412d8b10ddc1ddbf98b6d852a5446deca7e9befe3439df8de5169c37dd)
-            check_type(argname="argument attribute_details", value=attribute_details, expected_type=type_hints["attribute_details"])
-            check_type(argname="argument calculated_attribute_name", value=calculated_attribute_name, expected_type=type_hints["calculated_attribute_name"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
-            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument use_historical_data", value=use_historical_data, expected_type=type_hints["use_historical_data"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "attribute_details": attribute_details,
-            "calculated_attribute_name": calculated_attribute_name,
-            "domain_name": domain_name,
-            "statistic": statistic,
-        }
-        if conditions is not None:
-            self._values["conditions"] = conditions
-        if description is not None:
-            self._values["description"] = description
-        if display_name is not None:
-            self._values["display_name"] = display_name
-        if tags is not None:
-            self._values["tags"] = tags
-        if use_historical_data is not None:
-            self._values["use_historical_data"] = use_historical_data
-
-    @builtins.property
-    def attribute_details(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"]:
-        '''Mathematical expression and a list of attribute items specified in that expression.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-attributedetails
-        '''
-        result = self._values.get("attribute_details")
-        assert result is not None, "Required property 'attribute_details' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"], result)
-
-    @builtins.property
-    def calculated_attribute_name(self) -> builtins.str:
-        '''The name of an attribute defined in a profile object type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-calculatedattributename
-        '''
-        result = self._values.get("calculated_attribute_name")
-        assert result is not None, "Required property 'calculated_attribute_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The unique name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def statistic(self) -> builtins.str:
-        '''The aggregation operation to perform for the calculated attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-statistic
-        '''
-        result = self._values.get("statistic")
-        assert result is not None, "Required property 'statistic' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def conditions(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ConditionsProperty"]]:
-        '''The conditions including range, object count, and threshold for the calculated attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-conditions
-        '''
-        result = self._values.get("conditions")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ConditionsProperty"]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the calculated attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def display_name(self) -> typing.Optional[builtins.str]:
-        '''The display name of the calculated attribute.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-displayname
-        '''
-        result = self._values.get("display_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def use_historical_data(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-usehistoricaldata
-        '''
-        result = self._values.get("use_historical_data")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnCalculatedAttributeDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomainProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "default_expiration_days": "defaultExpirationDays",
-        "domain_name": "domainName",
-        "dead_letter_queue_url": "deadLetterQueueUrl",
-        "default_encryption_key": "defaultEncryptionKey",
-        "matching": "matching",
-        "rule_based_matching": "ruleBasedMatching",
-        "tags": "tags",
-    },
-)
-class CfnDomainProps:
-    def __init__(
-        self,
-        *,
-        default_expiration_days: jsii.Number,
-        domain_name: builtins.str,
-        dead_letter_queue_url: typing.Optional[builtins.str] = None,
-        default_encryption_key: typing.Optional[builtins.str] = None,
-        matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.MatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rule_based_matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.RuleBasedMatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDomain``.
-
-        :param default_expiration_days: The default number of days until the data within the domain expires.
-        :param domain_name: The unique name of the domain.
-        :param dead_letter_queue_url: The URL of the SQS dead letter queue, which is used for reporting errors associated with ingesting data from third party applications. You must set up a policy on the ``DeadLetterQueue`` for the ``SendMessage`` operation to enable Amazon Connect Customer Profiles to send messages to the ``DeadLetterQueue`` .
-        :param default_encryption_key: The default encryption key, which is an AWS managed key, is used when no specific type of encryption key is specified. It is used to encrypt all data before it is placed in permanent or semi-permanent storage.
-        :param matching: The process of matching duplicate profiles.
-        :param rule_based_matching: The process of matching duplicate profiles using Rule-Based matching.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_domain_props = customerprofiles.CfnDomainProps(
-                default_expiration_days=123,
-                domain_name="domainName",
-            
-                # the properties below are optional
-                dead_letter_queue_url="deadLetterQueueUrl",
-                default_encryption_key="defaultEncryptionKey",
-                matching=customerprofiles.CfnDomain.MatchingProperty(
-                    enabled=False,
-            
-                    # the properties below are optional
-                    auto_merging=customerprofiles.CfnDomain.AutoMergingProperty(
-                        enabled=False,
-            
-                        # the properties below are optional
-                        conflict_resolution=customerprofiles.CfnDomain.ConflictResolutionProperty(
-                            conflict_resolving_model="conflictResolvingModel",
-            
-                            # the properties below are optional
-                            source_name="sourceName"
-                        ),
-                        consolidation=customerprofiles.CfnDomain.ConsolidationProperty(
-                            matching_attributes_list=[["matchingAttributesList"]]
-                        ),
-                        min_allowed_confidence_score_for_merging=123
-                    ),
-                    exporting_config=customerprofiles.CfnDomain.ExportingConfigProperty(
-                        s3_exporting=customerprofiles.CfnDomain.S3ExportingConfigProperty(
-                            s3_bucket_name="s3BucketName",
-            
-                            # the properties below are optional
-                            s3_key_name="s3KeyName"
-                        )
-                    ),
-                    job_schedule=customerprofiles.CfnDomain.JobScheduleProperty(
-                        day_of_the_week="dayOfTheWeek",
-                        time="time"
-                    )
-                ),
-                rule_based_matching=customerprofiles.CfnDomain.RuleBasedMatchingProperty(
-                    enabled=False,
-            
-                    # the properties below are optional
-                    attribute_types_selector=customerprofiles.CfnDomain.AttributeTypesSelectorProperty(
-                        attribute_matching_model="attributeMatchingModel",
-            
-                        # the properties below are optional
-                        address=["address"],
-                        email_address=["emailAddress"],
-                        phone_number=["phoneNumber"]
-                    ),
-                    conflict_resolution=customerprofiles.CfnDomain.ConflictResolutionProperty(
-                        conflict_resolving_model="conflictResolvingModel",
-            
-                        # the properties below are optional
-                        source_name="sourceName"
-                    ),
-                    exporting_config=customerprofiles.CfnDomain.ExportingConfigProperty(
-                        s3_exporting=customerprofiles.CfnDomain.S3ExportingConfigProperty(
-                            s3_bucket_name="s3BucketName",
-            
-                            # the properties below are optional
-                            s3_key_name="s3KeyName"
-                        )
-                    ),
-                    matching_rules=[customerprofiles.CfnDomain.MatchingRuleProperty(
-                        rule=["rule"]
-                    )],
-                    max_allowed_rule_level_for_matching=123,
-                    max_allowed_rule_level_for_merging=123,
-                    status="status"
-                ),
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03a55eb0b8d16e4b2b2589908d65475847a28870949386381667b6572e627f96)
-            check_type(argname="argument default_expiration_days", value=default_expiration_days, expected_type=type_hints["default_expiration_days"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument dead_letter_queue_url", value=dead_letter_queue_url, expected_type=type_hints["dead_letter_queue_url"])
-            check_type(argname="argument default_encryption_key", value=default_encryption_key, expected_type=type_hints["default_encryption_key"])
-            check_type(argname="argument matching", value=matching, expected_type=type_hints["matching"])
-            check_type(argname="argument rule_based_matching", value=rule_based_matching, expected_type=type_hints["rule_based_matching"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "default_expiration_days": default_expiration_days,
-            "domain_name": domain_name,
-        }
-        if dead_letter_queue_url is not None:
-            self._values["dead_letter_queue_url"] = dead_letter_queue_url
-        if default_encryption_key is not None:
-            self._values["default_encryption_key"] = default_encryption_key
-        if matching is not None:
-            self._values["matching"] = matching
-        if rule_based_matching is not None:
-            self._values["rule_based_matching"] = rule_based_matching
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def default_expiration_days(self) -> jsii.Number:
-        '''The default number of days until the data within the domain expires.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-defaultexpirationdays
-        '''
-        result = self._values.get("default_expiration_days")
-        assert result is not None, "Required property 'default_expiration_days' is missing"
-        return typing.cast(jsii.Number, result)
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The unique name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def dead_letter_queue_url(self) -> typing.Optional[builtins.str]:
-        '''The URL of the SQS dead letter queue, which is used for reporting errors associated with ingesting data from third party applications.
-
-        You must set up a policy on the ``DeadLetterQueue`` for the ``SendMessage`` operation to enable Amazon Connect Customer Profiles to send messages to the ``DeadLetterQueue`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-deadletterqueueurl
-        '''
-        result = self._values.get("dead_letter_queue_url")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def default_encryption_key(self) -> typing.Optional[builtins.str]:
-        '''The default encryption key, which is an AWS managed key, is used when no specific type of encryption key is specified.
-
-        It is used to encrypt all data before it is placed in permanent or semi-permanent storage.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-defaultencryptionkey
-        '''
-        result = self._values.get("default_encryption_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def matching(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingProperty"]]:
-        '''The process of matching duplicate profiles.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-matching
-        '''
-        result = self._values.get("matching")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingProperty"]], result)
-
-    @builtins.property
-    def rule_based_matching(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.RuleBasedMatchingProperty"]]:
-        '''The process of matching duplicate profiles using Rule-Based matching.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-rulebasedmatching
-        '''
-        result = self._values.get("rule_based_matching")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.RuleBasedMatchingProperty"]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDomainProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventStreamProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "event_stream_name": "eventStreamName",
-        "uri": "uri",
-        "tags": "tags",
-    },
-)
-class CfnEventStreamProps:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        event_stream_name: builtins.str,
-        uri: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventStream``.
-
-        :param domain_name: The unique name of the domain.
-        :param event_stream_name: The name of the event stream.
-        :param uri: The StreamARN of the destination to deliver profile events to. For example, arn:aws:kinesis:region:account-id:stream/stream-name.
-        :param tags: The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_event_stream_props = customerprofiles.CfnEventStreamProps(
-                domain_name="domainName",
-                event_stream_name="eventStreamName",
-                uri="uri",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__813f95ba6287d3dc18d43b5b2ff35fbde17184e556360b280e3386143cfc00f0)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument event_stream_name", value=event_stream_name, expected_type=type_hints["event_stream_name"])
-            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "event_stream_name": event_stream_name,
-            "uri": uri,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The unique name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_stream_name(self) -> builtins.str:
-        '''The name of the event stream.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-eventstreamname
-        '''
-        result = self._values.get("event_stream_name")
-        assert result is not None, "Required property 'event_stream_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def uri(self) -> builtins.str:
-        '''The StreamARN of the destination to deliver profile events to.
-
-        For example, arn:aws:kinesis:region:account-id:stream/stream-name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-uri
-        '''
-        result = self._values.get("uri")
-        assert result is not None, "Required property 'uri' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventStreamProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTriggerProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "event_trigger_conditions": "eventTriggerConditions",
-        "event_trigger_name": "eventTriggerName",
-        "object_type_name": "objectTypeName",
-        "description": "description",
-        "event_trigger_limits": "eventTriggerLimits",
-        "segment_filter": "segmentFilter",
-        "tags": "tags",
-    },
-)
-class CfnEventTriggerProps:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        event_trigger_conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.EventTriggerConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        event_trigger_name: builtins.str,
-        object_type_name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        event_trigger_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.EventTriggerLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        segment_filter: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnEventTrigger``.
-
-        :param domain_name: The unique name of the domain.
-        :param event_trigger_conditions: A list of conditions that determine when an event should trigger the destination.
-        :param event_trigger_name: The unique name of the event trigger.
-        :param object_type_name: The unique name of the object type.
-        :param description: The description of the event trigger.
-        :param event_trigger_limits: Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
-        :param segment_filter: The destination is triggered only for profiles that meet the criteria of a segment definition.
-        :param tags: An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_event_trigger_props = customerprofiles.CfnEventTriggerProps(
-                domain_name="domainName",
-                event_trigger_conditions=[customerprofiles.CfnEventTrigger.EventTriggerConditionProperty(
-                    event_trigger_dimensions=[customerprofiles.CfnEventTrigger.EventTriggerDimensionProperty(
-                        object_attributes=[customerprofiles.CfnEventTrigger.ObjectAttributeProperty(
-                            comparison_operator="comparisonOperator",
-                            values=["values"],
-            
-                            # the properties below are optional
-                            field_name="fieldName",
-                            source="source"
-                        )]
-                    )],
-                    logical_operator="logicalOperator"
-                )],
-                event_trigger_name="eventTriggerName",
-                object_type_name="objectTypeName",
-            
-                # the properties below are optional
-                description="description",
-                event_trigger_limits=customerprofiles.CfnEventTrigger.EventTriggerLimitsProperty(
-                    event_expiration=123,
-                    periods=[customerprofiles.CfnEventTrigger.PeriodProperty(
-                        unit="unit",
-                        value=123,
-            
-                        # the properties below are optional
-                        max_invocations_per_profile=123,
-                        unlimited=False
-                    )]
-                ),
-                segment_filter="segmentFilter",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9d2b6147273c603d09e90db3d8372049e484840bcff7a8dc8031fd2f0e0e756)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument event_trigger_conditions", value=event_trigger_conditions, expected_type=type_hints["event_trigger_conditions"])
-            check_type(argname="argument event_trigger_name", value=event_trigger_name, expected_type=type_hints["event_trigger_name"])
-            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument event_trigger_limits", value=event_trigger_limits, expected_type=type_hints["event_trigger_limits"])
-            check_type(argname="argument segment_filter", value=segment_filter, expected_type=type_hints["segment_filter"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "event_trigger_conditions": event_trigger_conditions,
-            "event_trigger_name": event_trigger_name,
-            "object_type_name": object_type_name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if event_trigger_limits is not None:
-            self._values["event_trigger_limits"] = event_trigger_limits
-        if segment_filter is not None:
-            self._values["segment_filter"] = segment_filter
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The unique name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_trigger_conditions(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerConditionProperty"]]]:
-        '''A list of conditions that determine when an event should trigger the destination.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-eventtriggerconditions
-        '''
-        result = self._values.get("event_trigger_conditions")
-        assert result is not None, "Required property 'event_trigger_conditions' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerConditionProperty"]]], result)
-
-    @builtins.property
-    def event_trigger_name(self) -> builtins.str:
-        '''The unique name of the event trigger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-eventtriggername
-        '''
-        result = self._values.get("event_trigger_name")
-        assert result is not None, "Required property 'event_trigger_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def object_type_name(self) -> builtins.str:
-        '''The unique name of the object type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-objecttypename
-        '''
-        result = self._values.get("object_type_name")
-        assert result is not None, "Required property 'object_type_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the event trigger.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def event_trigger_limits(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerLimitsProperty"]]:
-        '''Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-eventtriggerlimits
-        '''
-        result = self._values.get("event_trigger_limits")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerLimitsProperty"]], result)
-
-    @builtins.property
-    def segment_filter(self) -> typing.Optional[builtins.str]:
-        '''The destination is triggered only for profiles that meet the criteria of a segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-segmentfilter
-        '''
-        result = self._values.get("segment_filter")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnEventTriggerProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnIntegrationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "event_trigger_names": "eventTriggerNames",
-        "flow_definition": "flowDefinition",
-        "object_type_name": "objectTypeName",
-        "object_type_names": "objectTypeNames",
-        "tags": "tags",
-        "uri": "uri",
-    },
-)
-class CfnIntegrationProps:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        event_trigger_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        flow_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        object_type_name: typing.Optional[builtins.str] = None,
-        object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.ObjectTypeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        uri: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnIntegration``.
-
-        :param domain_name: The unique name of the domain.
-        :param event_trigger_names: A list of unique names for active event triggers associated with the integration.
-        :param flow_definition: The configuration that controls how Customer Profiles retrieves data from the source.
-        :param object_type_name: The name of the profile object type mapping to use.
-        :param object_type_names: The object type mapping.
-        :param tags: The tags used to organize, track, or control access for this resource.
-        :param uri: The URI of the S3 bucket or any other type of data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_integration_props = customerprofiles.CfnIntegrationProps(
-                domain_name="domainName",
-            
-                # the properties below are optional
-                event_trigger_names=["eventTriggerNames"],
-                flow_definition=customerprofiles.CfnIntegration.FlowDefinitionProperty(
-                    flow_name="flowName",
-                    kms_arn="kmsArn",
-                    source_flow_config=customerprofiles.CfnIntegration.SourceFlowConfigProperty(
-                        connector_type="connectorType",
-                        source_connector_properties=customerprofiles.CfnIntegration.SourceConnectorPropertiesProperty(
-                            marketo=customerprofiles.CfnIntegration.MarketoSourcePropertiesProperty(
-                                object="object"
-                            ),
-                            s3=customerprofiles.CfnIntegration.S3SourcePropertiesProperty(
-                                bucket_name="bucketName",
-            
-                                # the properties below are optional
-                                bucket_prefix="bucketPrefix"
-                            ),
-                            salesforce=customerprofiles.CfnIntegration.SalesforceSourcePropertiesProperty(
-                                object="object",
-            
-                                # the properties below are optional
-                                enable_dynamic_field_update=False,
-                                include_deleted_records=False
-                            ),
-                            service_now=customerprofiles.CfnIntegration.ServiceNowSourcePropertiesProperty(
-                                object="object"
-                            ),
-                            zendesk=customerprofiles.CfnIntegration.ZendeskSourcePropertiesProperty(
-                                object="object"
-                            )
-                        ),
-            
-                        # the properties below are optional
-                        connector_profile_name="connectorProfileName",
-                        incremental_pull_config=customerprofiles.CfnIntegration.IncrementalPullConfigProperty(
-                            datetime_type_field_name="datetimeTypeFieldName"
-                        )
-                    ),
-                    tasks=[customerprofiles.CfnIntegration.TaskProperty(
-                        source_fields=["sourceFields"],
-                        task_type="taskType",
-            
-                        # the properties below are optional
-                        connector_operator=customerprofiles.CfnIntegration.ConnectorOperatorProperty(
-                            marketo="marketo",
-                            s3="s3",
-                            salesforce="salesforce",
-                            service_now="serviceNow",
-                            zendesk="zendesk"
-                        ),
-                        destination_field="destinationField",
-                        task_properties=[customerprofiles.CfnIntegration.TaskPropertiesMapProperty(
-                            operator_property_key="operatorPropertyKey",
-                            property="property"
-                        )]
-                    )],
-                    trigger_config=customerprofiles.CfnIntegration.TriggerConfigProperty(
-                        trigger_type="triggerType",
-            
-                        # the properties below are optional
-                        trigger_properties=customerprofiles.CfnIntegration.TriggerPropertiesProperty(
-                            scheduled=customerprofiles.CfnIntegration.ScheduledTriggerPropertiesProperty(
-                                schedule_expression="scheduleExpression",
-            
-                                # the properties below are optional
-                                data_pull_mode="dataPullMode",
-                                first_execution_from=123,
-                                schedule_end_time=123,
-                                schedule_offset=123,
-                                schedule_start_time=123,
-                                timezone="timezone"
-                            )
-                        )
-                    ),
-            
-                    # the properties below are optional
-                    description="description"
-                ),
-                object_type_name="objectTypeName",
-                object_type_names=[customerprofiles.CfnIntegration.ObjectTypeMappingProperty(
-                    key="key",
-                    value="value"
-                )],
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                uri="uri"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__52bfebce0bd12cb9d9ed6354b0627c3f2946899ecf1ba8120aa70c1e1e22428d)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument event_trigger_names", value=event_trigger_names, expected_type=type_hints["event_trigger_names"])
-            check_type(argname="argument flow_definition", value=flow_definition, expected_type=type_hints["flow_definition"])
-            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
-            check_type(argname="argument object_type_names", value=object_type_names, expected_type=type_hints["object_type_names"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-        }
-        if event_trigger_names is not None:
-            self._values["event_trigger_names"] = event_trigger_names
-        if flow_definition is not None:
-            self._values["flow_definition"] = flow_definition
-        if object_type_name is not None:
-            self._values["object_type_name"] = object_type_name
-        if object_type_names is not None:
-            self._values["object_type_names"] = object_type_names
-        if tags is not None:
-            self._values["tags"] = tags
-        if uri is not None:
-            self._values["uri"] = uri
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The unique name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_trigger_names(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of unique names for active event triggers associated with the integration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-eventtriggernames
-        '''
-        result = self._values.get("event_trigger_names")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def flow_definition(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.FlowDefinitionProperty"]]:
-        '''The configuration that controls how Customer Profiles retrieves data from the source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-flowdefinition
-        '''
-        result = self._values.get("flow_definition")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.FlowDefinitionProperty"]], result)
-
-    @builtins.property
-    def object_type_name(self) -> typing.Optional[builtins.str]:
-        '''The name of the profile object type mapping to use.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-objecttypename
-        '''
-        result = self._values.get("object_type_name")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def object_type_names(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ObjectTypeMappingProperty"]]]]:
-        '''The object type mapping.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-objecttypenames
-        '''
-        result = self._values.get("object_type_names")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ObjectTypeMappingProperty"]]]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def uri(self) -> typing.Optional[builtins.str]:
-        '''The URI of the S3 bucket or any other type of data source.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-uri
-        '''
-        result = self._values.get("uri")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnIntegrationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnObjectTypeProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "description": "description",
-        "domain_name": "domainName",
-        "object_type_name": "objectTypeName",
-        "allow_profile_creation": "allowProfileCreation",
-        "encryption_key": "encryptionKey",
-        "expiration_days": "expirationDays",
-        "fields": "fields",
-        "keys": "keys",
-        "max_profile_object_count": "maxProfileObjectCount",
-        "source_last_updated_timestamp_format": "sourceLastUpdatedTimestampFormat",
-        "tags": "tags",
-        "template_id": "templateId",
-    },
-)
-class CfnObjectTypeProps:
-    def __init__(
-        self,
-        *,
-        description: builtins.str,
-        domain_name: builtins.str,
-        object_type_name: builtins.str,
-        allow_profile_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        encryption_key: typing.Optional[builtins.str] = None,
-        expiration_days: typing.Optional[jsii.Number] = None,
-        fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.FieldMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        max_profile_object_count: typing.Optional[jsii.Number] = None,
-        source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        template_id: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnObjectType``.
-
-        :param description: The description of the profile object type mapping.
-        :param domain_name: The unique name of the domain.
-        :param object_type_name: The name of the profile object type.
-        :param allow_profile_creation: Indicates whether a profile should be created when data is received if one doesn’t exist for an object of this type. The default is ``FALSE`` . If the AllowProfileCreation flag is set to ``FALSE`` , then the service tries to fetch a standard profile and associate this object with the profile. If it is set to ``TRUE`` , and if no match is found, then the service creates a new standard profile.
-        :param encryption_key: The customer-provided key to encrypt the profile object that will be created in this profile object type mapping. If not specified the system will use the encryption key of the domain.
-        :param expiration_days: The number of days until the data of this type expires.
-        :param fields: A list of field definitions for the object type mapping.
-        :param keys: A list of keys that can be used to map data to the profile or search for the profile.
-        :param max_profile_object_count: The amount of profile object max count assigned to the object type.
-        :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
-        :param tags: The tags used to organize, track, or control access for this resource.
-        :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_object_type_props = customerprofiles.CfnObjectTypeProps(
-                description="description",
-                domain_name="domainName",
-                object_type_name="objectTypeName",
-            
-                # the properties below are optional
-                allow_profile_creation=False,
-                encryption_key="encryptionKey",
-                expiration_days=123,
-                fields=[customerprofiles.CfnObjectType.FieldMapProperty(
-                    name="name",
-                    object_type_field=customerprofiles.CfnObjectType.ObjectTypeFieldProperty(
-                        content_type="contentType",
-                        source="source",
-                        target="target"
-                    )
-                )],
-                keys=[customerprofiles.CfnObjectType.KeyMapProperty(
-                    name="name",
-                    object_type_key_list=[customerprofiles.CfnObjectType.ObjectTypeKeyProperty(
-                        field_names=["fieldNames"],
-                        standard_identifiers=["standardIdentifiers"]
-                    )]
-                )],
-                max_profile_object_count=123,
-                source_last_updated_timestamp_format="sourceLastUpdatedTimestampFormat",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                template_id="templateId"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2eea85954e)
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
-            check_type(argname="argument allow_profile_creation", value=allow_profile_creation, expected_type=type_hints["allow_profile_creation"])
-            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
-            check_type(argname="argument expiration_days", value=expiration_days, expected_type=type_hints["expiration_days"])
-            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
-            check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
-            check_type(argname="argument max_profile_object_count", value=max_profile_object_count, expected_type=type_hints["max_profile_object_count"])
-            check_type(argname="argument source_last_updated_timestamp_format", value=source_last_updated_timestamp_format, expected_type=type_hints["source_last_updated_timestamp_format"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "description": description,
-            "domain_name": domain_name,
-            "object_type_name": object_type_name,
-        }
-        if allow_profile_creation is not None:
-            self._values["allow_profile_creation"] = allow_profile_creation
-        if encryption_key is not None:
-            self._values["encryption_key"] = encryption_key
-        if expiration_days is not None:
-            self._values["expiration_days"] = expiration_days
-        if fields is not None:
-            self._values["fields"] = fields
-        if keys is not None:
-            self._values["keys"] = keys
-        if max_profile_object_count is not None:
-            self._values["max_profile_object_count"] = max_profile_object_count
-        if source_last_updated_timestamp_format is not None:
-            self._values["source_last_updated_timestamp_format"] = source_last_updated_timestamp_format
-        if tags is not None:
-            self._values["tags"] = tags
-        if template_id is not None:
-            self._values["template_id"] = template_id
-
-    @builtins.property
-    def description(self) -> builtins.str:
-        '''The description of the profile object type mapping.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-description
-        '''
-        result = self._values.get("description")
-        assert result is not None, "Required property 'description' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The unique name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def object_type_name(self) -> builtins.str:
-        '''The name of the profile object type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-objecttypename
-        '''
-        result = self._values.get("object_type_name")
-        assert result is not None, "Required property 'object_type_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def allow_profile_creation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Indicates whether a profile should be created when data is received if one doesn’t exist for an object of this type.
-
-        The default is ``FALSE`` . If the AllowProfileCreation flag is set to ``FALSE`` , then the service tries to fetch a standard profile and associate this object with the profile. If it is set to ``TRUE`` , and if no match is found, then the service creates a new standard profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-allowprofilecreation
-        '''
-        result = self._values.get("allow_profile_creation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def encryption_key(self) -> typing.Optional[builtins.str]:
-        '''The customer-provided key to encrypt the profile object that will be created in this profile object type mapping.
-
-        If not specified the system will use the encryption key of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-encryptionkey
-        '''
-        result = self._values.get("encryption_key")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def expiration_days(self) -> typing.Optional[jsii.Number]:
-        '''The number of days until the data of this type expires.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-expirationdays
-        '''
-        result = self._values.get("expiration_days")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def fields(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.FieldMapProperty"]]]]:
-        '''A list of field definitions for the object type mapping.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-fields
-        '''
-        result = self._values.get("fields")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.FieldMapProperty"]]]], result)
-
-    @builtins.property
-    def keys(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.KeyMapProperty"]]]]:
-        '''A list of keys that can be used to map data to the profile or search for the profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-keys
-        '''
-        result = self._values.get("keys")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.KeyMapProperty"]]]], result)
-
-    @builtins.property
-    def max_profile_object_count(self) -> typing.Optional[jsii.Number]:
-        '''The amount of profile object max count assigned to the object type.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-maxprofileobjectcount
-        '''
-        result = self._values.get("max_profile_object_count")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def source_last_updated_timestamp_format(self) -> typing.Optional[builtins.str]:
-        '''The format of your sourceLastUpdatedTimestamp that was previously set up.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-sourcelastupdatedtimestampformat
-        '''
-        result = self._values.get("source_last_updated_timestamp_format")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags used to organize, track, or control access for this resource.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def template_id(self) -> typing.Optional[builtins.str]:
-        '''A unique identifier for the template mapping.
-
-        This can be used instead of specifying the Keys and Fields properties directly.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-templateid
-        '''
-        result = self._values.get("template_id")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnObjectTypeProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinitionProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "display_name": "displayName",
-        "domain_name": "domainName",
-        "segment_definition_name": "segmentDefinitionName",
-        "segment_groups": "segmentGroups",
-        "description": "description",
-        "tags": "tags",
-    },
-)
-class CfnSegmentDefinitionProps:
-    def __init__(
-        self,
-        *,
-        display_name: builtins.str,
-        domain_name: builtins.str,
-        segment_definition_name: builtins.str,
-        segment_groups: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.SegmentGroupProperty", typing.Dict[builtins.str, typing.Any]]],
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnSegmentDefinition``.
-
-        :param display_name: Display name of the segment definition.
-        :param domain_name: The name of the domain.
-        :param segment_definition_name: Name of the segment definition.
-        :param segment_groups: Contains all groups of the segment definition.
-        :param description: The description of the segment definition.
-        :param tags: The tags belonging to the segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            cfn_segment_definition_props = customerprofiles.CfnSegmentDefinitionProps(
-                display_name="displayName",
-                domain_name="domainName",
-                segment_definition_name="segmentDefinitionName",
-                segment_groups=customerprofiles.CfnSegmentDefinition.SegmentGroupProperty(
-                    groups=[customerprofiles.CfnSegmentDefinition.GroupProperty(
-                        dimensions=[customerprofiles.CfnSegmentDefinition.DimensionProperty(
-                            calculated_attributes={
-                                "calculated_attributes_key": customerprofiles.CfnSegmentDefinition.CalculatedAttributeDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"],
-            
-                                    # the properties below are optional
-                                    condition_overrides=customerprofiles.CfnSegmentDefinition.ConditionOverridesProperty(
-                                        range=customerprofiles.CfnSegmentDefinition.RangeOverrideProperty(
-                                            start=123,
-                                            unit="unit",
-            
-                                            # the properties below are optional
-                                            end=123
-                                        )
-                                    )
-                                )
-                            },
-                            profile_attributes=customerprofiles.CfnSegmentDefinition.ProfileAttributesProperty(
-                                account_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                additional_information=customerprofiles.CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
-                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    )
-                                ),
-                                attributes={
-                                    "attributes_key": customerprofiles.CfnSegmentDefinition.AttributeDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    )
-                                },
-                                billing_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
-                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    )
-                                ),
-                                birth_date=customerprofiles.CfnSegmentDefinition.DateDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                business_email_address=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                business_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                business_phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                email_address=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                first_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                gender_string=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                home_phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                last_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                mailing_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
-                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    )
-                                ),
-                                middle_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                mobile_phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                party_type_string=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                personal_email_address=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
-                                    dimension_type="dimensionType",
-                                    values=["values"]
-                                ),
-                                shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
-                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    ),
-                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
-                                        dimension_type="dimensionType",
-                                        values=["values"]
-                                    )
-                                )
-                            )
-                        )],
-                        source_segments=[customerprofiles.CfnSegmentDefinition.SourceSegmentProperty(
-                            segment_definition_name="segmentDefinitionName"
-                        )],
-                        source_type="sourceType",
-                        type="type"
-                    )],
-                    include="include"
-                ),
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfe3927b013a59f4b37e001ce8d373fe3d8d8bc374ee6c206d37e74f69369348)
-            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument segment_definition_name", value=segment_definition_name, expected_type=type_hints["segment_definition_name"])
-            check_type(argname="argument segment_groups", value=segment_groups, expected_type=type_hints["segment_groups"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "display_name": display_name,
-            "domain_name": domain_name,
-            "segment_definition_name": segment_definition_name,
-            "segment_groups": segment_groups,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def display_name(self) -> builtins.str:
-        '''Display name of the segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-displayname
-        '''
-        result = self._values.get("display_name")
-        assert result is not None, "Required property 'display_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The name of the domain.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-domainname
-        '''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def segment_definition_name(self) -> builtins.str:
-        '''Name of the segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-segmentdefinitionname
-        '''
-        result = self._values.get("segment_definition_name")
-        assert result is not None, "Required property 'segment_definition_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def segment_groups(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SegmentGroupProperty"]:
-        '''Contains all groups of the segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-segmentgroups
-        '''
-        result = self._values.get("segment_groups")
-        assert result is not None, "Required property 'segment_groups' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SegmentGroupProperty"], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags belonging to the segment definition.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnSegmentDefinitionProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.DomainReference",
-    jsii_struct_bases=[],
-    name_mapping={"domain_name": "domainName"},
-)
-class DomainReference:
-    def __init__(self, *, domain_name: builtins.str) -> None:
-        '''A reference to a Domain resource.
-
-        :param domain_name: The DomainName of the Domain resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            domain_reference = customerprofiles.DomainReference(
-                domain_name="domainName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3a1999d01b266c1d01b0028abe3a51118d1af04385288d434e05f31733c9a17)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-        }
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the Domain resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DomainReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.EventStreamReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "event_stream_arn": "eventStreamArn",
-        "event_stream_name": "eventStreamName",
-    },
-)
-class EventStreamReference:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        event_stream_arn: builtins.str,
-        event_stream_name: builtins.str,
-    ) -> None:
-        '''A reference to a EventStream resource.
-
-        :param domain_name: The DomainName of the EventStream resource.
-        :param event_stream_arn: The ARN of the EventStream resource.
-        :param event_stream_name: The EventStreamName of the EventStream resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            event_stream_reference = customerprofiles.EventStreamReference(
-                domain_name="domainName",
-                event_stream_arn="eventStreamArn",
-                event_stream_name="eventStreamName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0f991f591998f685960c7eb34cf4f7c5c70e9dff42d888cfbc1914e186b229f)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument event_stream_arn", value=event_stream_arn, expected_type=type_hints["event_stream_arn"])
-            check_type(argname="argument event_stream_name", value=event_stream_name, expected_type=type_hints["event_stream_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "event_stream_arn": event_stream_arn,
-            "event_stream_name": event_stream_name,
-        }
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the EventStream resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_stream_arn(self) -> builtins.str:
-        '''The ARN of the EventStream resource.'''
-        result = self._values.get("event_stream_arn")
-        assert result is not None, "Required property 'event_stream_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_stream_name(self) -> builtins.str:
-        '''The EventStreamName of the EventStream resource.'''
-        result = self._values.get("event_stream_name")
-        assert result is not None, "Required property 'event_stream_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventStreamReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.EventTriggerReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "event_trigger_name": "eventTriggerName",
-    },
-)
-class EventTriggerReference:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        event_trigger_name: builtins.str,
-    ) -> None:
-        '''A reference to a EventTrigger resource.
-
-        :param domain_name: The DomainName of the EventTrigger resource.
-        :param event_trigger_name: The EventTriggerName of the EventTrigger resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            event_trigger_reference = customerprofiles.EventTriggerReference(
-                domain_name="domainName",
-                event_trigger_name="eventTriggerName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f176fa40aee0dbabac049b7a13287151e5bc28dfbb5123f9d0f928bd73f27f3)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument event_trigger_name", value=event_trigger_name, expected_type=type_hints["event_trigger_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "event_trigger_name": event_trigger_name,
-        }
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the EventTrigger resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def event_trigger_name(self) -> builtins.str:
-        '''The EventTriggerName of the EventTrigger resource.'''
-        result = self._values.get("event_trigger_name")
-        assert result is not None, "Required property 'event_trigger_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "EventTriggerReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.ICalculatedAttributeDefinitionRef"
-)
-class ICalculatedAttributeDefinitionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a CalculatedAttributeDefinition.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="calculatedAttributeDefinitionRef")
-    def calculated_attribute_definition_ref(
-        self,
-    ) -> CalculatedAttributeDefinitionReference:
-        '''(experimental) A reference to a CalculatedAttributeDefinition resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICalculatedAttributeDefinitionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a CalculatedAttributeDefinition.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.ICalculatedAttributeDefinitionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="calculatedAttributeDefinitionRef")
-    def calculated_attribute_definition_ref(
-        self,
-    ) -> CalculatedAttributeDefinitionReference:
-        '''(experimental) A reference to a CalculatedAttributeDefinition resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CalculatedAttributeDefinitionReference, jsii.get(self, "calculatedAttributeDefinitionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICalculatedAttributeDefinitionRef).__jsii_proxy_class__ = lambda : _ICalculatedAttributeDefinitionRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_customerprofiles.IDomainRef")
-class IDomainRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Domain.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> DomainReference:
-        '''(experimental) A reference to a Domain resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDomainRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Domain.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.IDomainRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> DomainReference:
-        '''(experimental) A reference to a Domain resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDomainRef).__jsii_proxy_class__ = lambda : _IDomainRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_customerprofiles.IEventStreamRef")
-class IEventStreamRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EventStream.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventStreamRef")
-    def event_stream_ref(self) -> EventStreamReference:
-        '''(experimental) A reference to a EventStream resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventStreamRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventStream.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.IEventStreamRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventStreamRef")
-    def event_stream_ref(self) -> EventStreamReference:
-        '''(experimental) A reference to a EventStream resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventStreamReference, jsii.get(self, "eventStreamRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventStreamRef).__jsii_proxy_class__ = lambda : _IEventStreamRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_customerprofiles.IEventTriggerRef")
-class IEventTriggerRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a EventTrigger.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="eventTriggerRef")
-    def event_trigger_ref(self) -> EventTriggerReference:
-        '''(experimental) A reference to a EventTrigger resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IEventTriggerRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a EventTrigger.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.IEventTriggerRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="eventTriggerRef")
-    def event_trigger_ref(self) -> EventTriggerReference:
-        '''(experimental) A reference to a EventTrigger resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(EventTriggerReference, jsii.get(self, "eventTriggerRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IEventTriggerRef).__jsii_proxy_class__ = lambda : _IEventTriggerRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_customerprofiles.IIntegrationRef")
-class IIntegrationRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Integration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="integrationRef")
-    def integration_ref(self) -> "IntegrationReference":
-        '''(experimental) A reference to a Integration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IIntegrationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Integration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.IIntegrationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="integrationRef")
-    def integration_ref(self) -> "IntegrationReference":
-        '''(experimental) A reference to a Integration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("IntegrationReference", jsii.get(self, "integrationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IIntegrationRef).__jsii_proxy_class__ = lambda : _IIntegrationRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_customerprofiles.IObjectTypeRef")
-class IObjectTypeRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a ObjectType.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="objectTypeRef")
-    def object_type_ref(self) -> "ObjectTypeReference":
-        '''(experimental) A reference to a ObjectType resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IObjectTypeRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a ObjectType.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.IObjectTypeRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="objectTypeRef")
-    def object_type_ref(self) -> "ObjectTypeReference":
-        '''(experimental) A reference to a ObjectType resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ObjectTypeReference", jsii.get(self, "objectTypeRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IObjectTypeRef).__jsii_proxy_class__ = lambda : _IObjectTypeRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_customerprofiles.ISegmentDefinitionRef")
-class ISegmentDefinitionRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a SegmentDefinition.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="segmentDefinitionRef")
-    def segment_definition_ref(self) -> "SegmentDefinitionReference":
-        '''(experimental) A reference to a SegmentDefinition resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ISegmentDefinitionRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a SegmentDefinition.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_customerprofiles.ISegmentDefinitionRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="segmentDefinitionRef")
-    def segment_definition_ref(self) -> "SegmentDefinitionReference":
-        '''(experimental) A reference to a SegmentDefinition resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("SegmentDefinitionReference", jsii.get(self, "segmentDefinitionRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ISegmentDefinitionRef).__jsii_proxy_class__ = lambda : _ISegmentDefinitionRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.IntegrationReference",
-    jsii_struct_bases=[],
-    name_mapping={"domain_name": "domainName", "uri": "uri"},
-)
-class IntegrationReference:
-    def __init__(self, *, domain_name: builtins.str, uri: builtins.str) -> None:
-        '''A reference to a Integration resource.
-
-        :param domain_name: The DomainName of the Integration resource.
-        :param uri: The Uri of the Integration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            integration_reference = customerprofiles.IntegrationReference(
-                domain_name="domainName",
-                uri="uri"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85f8cf51e74032dbb4ac02a97a87bde926541a71d0742742aabdf8634998149f)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "uri": uri,
-        }
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the Integration resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def uri(self) -> builtins.str:
-        '''The Uri of the Integration resource.'''
-        result = self._values.get("uri")
-        assert result is not None, "Required property 'uri' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "IntegrationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.ObjectTypeReference",
-    jsii_struct_bases=[],
-    name_mapping={"domain_name": "domainName", "object_type_name": "objectTypeName"},
-)
-class ObjectTypeReference:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        object_type_name: builtins.str,
-    ) -> None:
-        '''A reference to a ObjectType resource.
-
-        :param domain_name: The DomainName of the ObjectType resource.
-        :param object_type_name: The ObjectTypeName of the ObjectType resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            object_type_reference = customerprofiles.ObjectTypeReference(
-                domain_name="domainName",
-                object_type_name="objectTypeName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d400cf9ebf30fc2e14385c30ccb039ccc0ba40af2672b4b1573a2ee4cfbd12fc)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "object_type_name": object_type_name,
-        }
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the ObjectType resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def object_type_name(self) -> builtins.str:
-        '''The ObjectTypeName of the ObjectType resource.'''
-        result = self._values.get("object_type_name")
-        assert result is not None, "Required property 'object_type_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ObjectTypeReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_customerprofiles.SegmentDefinitionReference",
-    jsii_struct_bases=[],
-    name_mapping={
-        "domain_name": "domainName",
-        "segment_definition_arn": "segmentDefinitionArn",
-        "segment_definition_name": "segmentDefinitionName",
-    },
-)
-class SegmentDefinitionReference:
-    def __init__(
-        self,
-        *,
-        domain_name: builtins.str,
-        segment_definition_arn: builtins.str,
-        segment_definition_name: builtins.str,
-    ) -> None:
-        '''A reference to a SegmentDefinition resource.
-
-        :param domain_name: The DomainName of the SegmentDefinition resource.
-        :param segment_definition_arn: The ARN of the SegmentDefinition resource.
-        :param segment_definition_name: The SegmentDefinitionName of the SegmentDefinition resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_customerprofiles as customerprofiles
-            
-            segment_definition_reference = customerprofiles.SegmentDefinitionReference(
-                domain_name="domainName",
-                segment_definition_arn="segmentDefinitionArn",
-                segment_definition_name="segmentDefinitionName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__446412fa29347667f1d83db542c90d172c46bff77d4a5a8ad85f44bbe8e16f56)
-            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
-            check_type(argname="argument segment_definition_arn", value=segment_definition_arn, expected_type=type_hints["segment_definition_arn"])
-            check_type(argname="argument segment_definition_name", value=segment_definition_name, expected_type=type_hints["segment_definition_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "domain_name": domain_name,
-            "segment_definition_arn": segment_definition_arn,
-            "segment_definition_name": segment_definition_name,
-        }
-
-    @builtins.property
-    def domain_name(self) -> builtins.str:
-        '''The DomainName of the SegmentDefinition resource.'''
-        result = self._values.get("domain_name")
-        assert result is not None, "Required property 'domain_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def segment_definition_arn(self) -> builtins.str:
-        '''The ARN of the SegmentDefinition resource.'''
-        result = self._values.get("segment_definition_arn")
-        assert result is not None, "Required property 'segment_definition_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def segment_definition_name(self) -> builtins.str:
-        '''The SegmentDefinitionName of the SegmentDefinition resource.'''
-        result = self._values.get("segment_definition_name")
-        assert result is not None, "Required property 'segment_definition_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "SegmentDefinitionReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, ICalculatedAttributeDefinitionRef, _ITaggableV2_4e6798f8)
+@jsii.implements(_IInspectable_c2943556, _ICalculatedAttributeDefinitionRef_4fe5d636, _ITaggableV2_4e6798f8)
 class CfnCalculatedAttributeDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2477,6 +100,7 @@ class CfnCalculatedAttributeDefinition(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -2524,20 +148,21 @@ class CfnCalculatedAttributeDefinition(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        attribute_details: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.AttributeDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        attribute_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.AttributeDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
         calculated_attribute_name: builtins.str,
         domain_name: builtins.str,
         statistic: builtins.str,
-        conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.ConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.ConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         description: typing.Optional[builtins.str] = None,
         display_name: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_historical_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::CalculatedAttributeDefinition``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param attribute_details: Mathematical expression and a list of attribute items specified in that expression.
@@ -2568,8 +193,20 @@ class CfnCalculatedAttributeDefinition(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnCalculatedAttributeDefinition")
+    @builtins.classmethod
+    def is_cfn_calculated_attribute_definition(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCalculatedAttributeDefinition.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c8163b7fc23feae673555a9075f0b9ecf4df3ad65182f649fbb16715b2686cd5)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCalculatedAttributeDefinition", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2618,12 +255,12 @@ class CfnCalculatedAttributeDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="attrReadiness")
-    def attr_readiness(self) -> _IResolvable_da3f097b:
+    def attr_readiness(self) -> "_IResolvable_da3f097b":
         '''The readiness status of the calculated attribute.
 
         :cloudformationAttribute: Readiness
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrReadiness"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrReadiness"))
 
     @builtins.property
     @jsii.member(jsii_name="attrStatus")
@@ -2638,15 +275,15 @@ class CfnCalculatedAttributeDefinition(
     @jsii.member(jsii_name="calculatedAttributeDefinitionRef")
     def calculated_attribute_definition_ref(
         self,
-    ) -> CalculatedAttributeDefinitionReference:
+    ) -> "_CalculatedAttributeDefinitionReference_c3cb3a21":
         '''A reference to a CalculatedAttributeDefinition resource.'''
-        return typing.cast(CalculatedAttributeDefinitionReference, jsii.get(self, "calculatedAttributeDefinitionRef"))
+        return typing.cast("_CalculatedAttributeDefinitionReference_c3cb3a21", jsii.get(self, "calculatedAttributeDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -2657,14 +294,14 @@ class CfnCalculatedAttributeDefinition(
     @jsii.member(jsii_name="attributeDetails")
     def attribute_details(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"]:
         '''Mathematical expression and a list of attribute items specified in that expression.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"], jsii.get(self, "attributeDetails"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"], jsii.get(self, "attributeDetails"))
 
     @attribute_details.setter
     def attribute_details(
         self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"],
+        value: typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fc094b8898d98fbc0a232ed05081d6ffd11e6092cf72d062c7ab6a1a118b2655)
@@ -2714,14 +351,14 @@ class CfnCalculatedAttributeDefinition(
     @jsii.member(jsii_name="conditions")
     def conditions(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ConditionsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ConditionsProperty"]]:
         '''The conditions including range, object count, and threshold for the calculated attribute.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ConditionsProperty"]], jsii.get(self, "conditions"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ConditionsProperty"]], jsii.get(self, "conditions"))
 
     @conditions.setter
     def conditions(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ConditionsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ConditionsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d9f165d8e8dde422309619ae01ce8e4f77e67c1d8707134c0f7c2a25fd53ebc)
@@ -2756,12 +393,12 @@ class CfnCalculatedAttributeDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__66b41ae1f61b2d451c01e8a6b3eabc1ef1fe6f0e51c71a264d46a9df8ec0ad14)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2771,14 +408,14 @@ class CfnCalculatedAttributeDefinition(
     @jsii.member(jsii_name="useHistoricalData")
     def use_historical_data(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Whether historical data ingested before the Calculated Attribute was created should be included in calculations.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "useHistoricalData"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "useHistoricalData"))
 
     @use_historical_data.setter
     def use_historical_data(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7ab1072a749050ba2fecfbba8cc52cbc745e52869b7164a97ab6eb2dcdf582c4)
@@ -2794,7 +431,7 @@ class CfnCalculatedAttributeDefinition(
         def __init__(
             self,
             *,
-            attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.AttributeItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            attributes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.AttributeItemProperty", typing.Dict[builtins.str, typing.Any]]]]],
             expression: builtins.str,
         ) -> None:
             '''Mathematical expression and a list of attribute items specified in that expression.
@@ -2830,14 +467,14 @@ class CfnCalculatedAttributeDefinition(
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeItemProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeItemProperty"]]]:
             '''Mathematical expression and a list of attribute items specified in that expression.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-attributedetails.html#cfn-customerprofiles-calculatedattributedefinition-attributedetails-attributes
             '''
             result = self._values.get("attributes")
             assert result is not None, "Required property 'attributes' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.AttributeItemProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeItemProperty"]]], result)
 
         @builtins.property
         def expression(self) -> builtins.str:
@@ -2928,8 +565,8 @@ class CfnCalculatedAttributeDefinition(
             self,
             *,
             object_count: typing.Optional[jsii.Number] = None,
-            range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.RangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            threshold: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.ThresholdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            range: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.RangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            threshold: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.ThresholdProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The conditions including range, object count, and threshold for the calculated attribute.
 
@@ -2991,24 +628,24 @@ class CfnCalculatedAttributeDefinition(
         @builtins.property
         def range(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.RangeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.RangeProperty"]]:
             '''The relative time period over which data is included in the aggregation.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-conditions.html#cfn-customerprofiles-calculatedattributedefinition-conditions-range
             '''
             result = self._values.get("range")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.RangeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.RangeProperty"]], result)
 
         @builtins.property
         def threshold(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ThresholdProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ThresholdProperty"]]:
             '''The threshold for the calculated attribute.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-conditions.html#cfn-customerprofiles-calculatedattributedefinition-conditions-threshold
             '''
             result = self._values.get("threshold")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ThresholdProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ThresholdProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3040,7 +677,7 @@ class CfnCalculatedAttributeDefinition(
             timestamp_format: typing.Optional[builtins.str] = None,
             timestamp_source: typing.Optional[builtins.str] = None,
             value: typing.Optional[jsii.Number] = None,
-            value_range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCalculatedAttributeDefinition.ValueRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            value_range: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.ValueRangeProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The relative time period over which data is included in the aggregation.
 
@@ -3135,7 +772,7 @@ class CfnCalculatedAttributeDefinition(
         @builtins.property
         def value_range(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ValueRangeProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ValueRangeProperty"]]:
             '''A structure letting customers specify a relative time window over which over which data is included in the Calculated Attribute.
 
             Use positive numbers to indicate that the endpoint is in the past, and negative numbers to indicate it is in the future. ValueRange overrides Value.
@@ -3143,7 +780,7 @@ class CfnCalculatedAttributeDefinition(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-calculatedattributedefinition-range.html#cfn-customerprofiles-calculatedattributedefinition-range-valuerange
             '''
             result = self._values.get("value_range")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCalculatedAttributeDefinition.ValueRangeProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ValueRangeProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3368,7 +1005,229 @@ class CfnCalculatedAttributeDefinition(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IDomainRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnCalculatedAttributeDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "attribute_details": "attributeDetails",
+        "calculated_attribute_name": "calculatedAttributeName",
+        "domain_name": "domainName",
+        "statistic": "statistic",
+        "conditions": "conditions",
+        "description": "description",
+        "display_name": "displayName",
+        "tags": "tags",
+        "use_historical_data": "useHistoricalData",
+    },
+)
+class CfnCalculatedAttributeDefinitionProps:
+    def __init__(
+        self,
+        *,
+        attribute_details: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.AttributeDetailsProperty", typing.Dict[builtins.str, typing.Any]]],
+        calculated_attribute_name: builtins.str,
+        domain_name: builtins.str,
+        statistic: builtins.str,
+        conditions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCalculatedAttributeDefinition.ConditionsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        description: typing.Optional[builtins.str] = None,
+        display_name: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        use_historical_data: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnCalculatedAttributeDefinition``.
+
+        :param attribute_details: Mathematical expression and a list of attribute items specified in that expression.
+        :param calculated_attribute_name: The name of an attribute defined in a profile object type.
+        :param domain_name: The unique name of the domain.
+        :param statistic: The aggregation operation to perform for the calculated attribute.
+        :param conditions: The conditions including range, object count, and threshold for the calculated attribute.
+        :param description: The description of the calculated attribute.
+        :param display_name: The display name of the calculated attribute.
+        :param tags: An array of key-value pairs to apply to this resource.
+        :param use_historical_data: Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_calculated_attribute_definition_props = customerprofiles.CfnCalculatedAttributeDefinitionProps(
+                attribute_details=customerprofiles.CfnCalculatedAttributeDefinition.AttributeDetailsProperty(
+                    attributes=[customerprofiles.CfnCalculatedAttributeDefinition.AttributeItemProperty(
+                        name="name"
+                    )],
+                    expression="expression"
+                ),
+                calculated_attribute_name="calculatedAttributeName",
+                domain_name="domainName",
+                statistic="statistic",
+            
+                # the properties below are optional
+                conditions=customerprofiles.CfnCalculatedAttributeDefinition.ConditionsProperty(
+                    object_count=123,
+                    range=customerprofiles.CfnCalculatedAttributeDefinition.RangeProperty(
+                        unit="unit",
+            
+                        # the properties below are optional
+                        timestamp_format="timestampFormat",
+                        timestamp_source="timestampSource",
+                        value=123,
+                        value_range=customerprofiles.CfnCalculatedAttributeDefinition.ValueRangeProperty(
+                            end=123,
+                            start=123
+                        )
+                    ),
+                    threshold=customerprofiles.CfnCalculatedAttributeDefinition.ThresholdProperty(
+                        operator="operator",
+                        value="value"
+                    )
+                ),
+                description="description",
+                display_name="displayName",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                use_historical_data=False
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b490cf412d8b10ddc1ddbf98b6d852a5446deca7e9befe3439df8de5169c37dd)
+            check_type(argname="argument attribute_details", value=attribute_details, expected_type=type_hints["attribute_details"])
+            check_type(argname="argument calculated_attribute_name", value=calculated_attribute_name, expected_type=type_hints["calculated_attribute_name"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument statistic", value=statistic, expected_type=type_hints["statistic"])
+            check_type(argname="argument conditions", value=conditions, expected_type=type_hints["conditions"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument use_historical_data", value=use_historical_data, expected_type=type_hints["use_historical_data"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "attribute_details": attribute_details,
+            "calculated_attribute_name": calculated_attribute_name,
+            "domain_name": domain_name,
+            "statistic": statistic,
+        }
+        if conditions is not None:
+            self._values["conditions"] = conditions
+        if description is not None:
+            self._values["description"] = description
+        if display_name is not None:
+            self._values["display_name"] = display_name
+        if tags is not None:
+            self._values["tags"] = tags
+        if use_historical_data is not None:
+            self._values["use_historical_data"] = use_historical_data
+
+    @builtins.property
+    def attribute_details(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"]:
+        '''Mathematical expression and a list of attribute items specified in that expression.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-attributedetails
+        '''
+        result = self._values.get("attribute_details")
+        assert result is not None, "Required property 'attribute_details' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.AttributeDetailsProperty"], result)
+
+    @builtins.property
+    def calculated_attribute_name(self) -> builtins.str:
+        '''The name of an attribute defined in a profile object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-calculatedattributename
+        '''
+        result = self._values.get("calculated_attribute_name")
+        assert result is not None, "Required property 'calculated_attribute_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def statistic(self) -> builtins.str:
+        '''The aggregation operation to perform for the calculated attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-statistic
+        '''
+        result = self._values.get("statistic")
+        assert result is not None, "Required property 'statistic' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def conditions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ConditionsProperty"]]:
+        '''The conditions including range, object count, and threshold for the calculated attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-conditions
+        '''
+        result = self._values.get("conditions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCalculatedAttributeDefinition.ConditionsProperty"]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the calculated attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def display_name(self) -> typing.Optional[builtins.str]:
+        '''The display name of the calculated attribute.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-displayname
+        '''
+        result = self._values.get("display_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def use_historical_data(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Whether historical data ingested before the Calculated Attribute was created should be included in calculations.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-calculatedattributedefinition.html#cfn-customerprofiles-calculatedattributedefinition-usehistoricaldata
+        '''
+        result = self._values.get("use_historical_data")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnCalculatedAttributeDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IDomainRef_05f5627e, _ITaggable_36806126)
 class CfnDomain(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -3382,6 +1241,7 @@ class CfnDomain(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -3391,6 +1251,13 @@ class CfnDomain(
             domain_name="domainName",
         
             # the properties below are optional
+            data_store=customerprofiles.CfnDomain.DataStoreProperty(
+                enabled=False,
+                readiness=customerprofiles.CfnDomain.ReadinessProperty(
+                    message="message",
+                    progress_percentage=123
+                )
+            ),
             dead_letter_queue_url="deadLetterQueueUrl",
             default_encryption_key="defaultEncryptionKey",
             matching=customerprofiles.CfnDomain.MatchingProperty(
@@ -3467,22 +1334,25 @@ class CfnDomain(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         default_expiration_days: jsii.Number,
         domain_name: builtins.str,
+        data_store: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DataStoreProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         dead_letter_queue_url: typing.Optional[builtins.str] = None,
         default_encryption_key: typing.Optional[builtins.str] = None,
-        matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.MatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        rule_based_matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.RuleBasedMatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        matching: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.MatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rule_based_matching: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.RuleBasedMatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::Domain``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param default_expiration_days: The default number of days until the data within the domain expires.
         :param domain_name: The unique name of the domain.
+        :param data_store: Configuration and status of the data store for the domain.
         :param dead_letter_queue_url: The URL of the SQS dead letter queue, which is used for reporting errors associated with ingesting data from third party applications. You must set up a policy on the ``DeadLetterQueue`` for the ``SendMessage`` operation to enable Amazon Connect Customer Profiles to send messages to the ``DeadLetterQueue`` .
         :param default_encryption_key: The default encryption key, which is an AWS managed key, is used when no specific type of encryption key is specified. It is used to encrypt all data before it is placed in permanent or semi-permanent storage.
         :param matching: The process of matching duplicate profiles.
@@ -3496,6 +1366,7 @@ class CfnDomain(
         props = CfnDomainProps(
             default_expiration_days=default_expiration_days,
             domain_name=domain_name,
+            data_store=data_store,
             dead_letter_queue_url=dead_letter_queue_url,
             default_encryption_key=default_encryption_key,
             matching=matching,
@@ -3505,8 +1376,52 @@ class CfnDomain(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDomain")
+    @builtins.classmethod
+    def arn_for_domain(cls, resource: "_IDomainRef_05f5627e") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be579f5475b5531cc36be176014d3fb7b28c19b561e96657ccba256cb937b531)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDomain", [resource]))
+
+    @jsii.member(jsii_name="fromDomainName")
+    @builtins.classmethod
+    def from_domain_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        domain_name: builtins.str,
+    ) -> "_IDomainRef_05f5627e":
+        '''Creates a new IDomainRef from a domainName.
+
+        :param scope: -
+        :param id: -
+        :param domain_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fd06f1031d674322ba6de287a0e9b6f98bcf7c1e63ca71ee399b0962fde84df9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+        return typing.cast("_IDomainRef_05f5627e", jsii.sinvoke(cls, "fromDomainName", [scope, id, domain_name]))
+
+    @jsii.member(jsii_name="isCfnDomain")
+    @builtins.classmethod
+    def is_cfn_domain(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDomain.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__136e310007fbc1f10d97cd63d4a2ef7a5d9cadea6f915df4982ac387b2deefbd)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDomain", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3545,6 +1460,15 @@ class CfnDomain(
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrDataStoreReadiness")
+    def attr_data_store_readiness(self) -> "_IResolvable_da3f097b":
+        '''Progress information for data store setup.
+
+        :cloudformationAttribute: DataStore.Readiness
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDataStoreReadiness"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrLastUpdatedAt")
     def attr_last_updated_at(self) -> builtins.str:
         '''The timestamp of when the domain was most recently edited.
@@ -3564,12 +1488,12 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="attrStats")
-    def attr_stats(self) -> _IResolvable_da3f097b:
+    def attr_stats(self) -> "_IResolvable_da3f097b":
         '''Usage-specific statistics about the domain.
 
         :cloudformationAttribute: Stats
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrStats"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrStats"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -3578,15 +1502,15 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="domainRef")
-    def domain_ref(self) -> DomainReference:
+    def domain_ref(self) -> "_DomainReference_ad5fb470":
         '''A reference to a Domain resource.'''
-        return typing.cast(DomainReference, jsii.get(self, "domainRef"))
+        return typing.cast("_DomainReference_ad5fb470", jsii.get(self, "domainRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="defaultExpirationDays")
@@ -3613,6 +1537,24 @@ class CfnDomain(
             type_hints = typing.get_type_hints(_typecheckingstub__5155d94ec0a92f02d3b08cff5971632f213635d3dd2577433bbe328e9fac1d90)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "domainName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dataStore")
+    def data_store(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DataStoreProperty"]]:
+        '''Configuration and status of the data store for the domain.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DataStoreProperty"]], jsii.get(self, "dataStore"))
+
+    @data_store.setter
+    def data_store(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DataStoreProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__51b1b6fd1de18b8d346c70161b7cb61979e8eba7a051f991a07d629d32e2c641)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dataStore", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="deadLetterQueueUrl")
@@ -3644,14 +1586,14 @@ class CfnDomain(
     @jsii.member(jsii_name="matching")
     def matching(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingProperty"]]:
         '''The process of matching duplicate profiles.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingProperty"]], jsii.get(self, "matching"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingProperty"]], jsii.get(self, "matching"))
 
     @matching.setter
     def matching(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__38b62853e21632f695b18d1a2df674dd4f9112b5fa5e1f684278017a8ed38588)
@@ -3662,14 +1604,14 @@ class CfnDomain(
     @jsii.member(jsii_name="ruleBasedMatching")
     def rule_based_matching(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.RuleBasedMatchingProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.RuleBasedMatchingProperty"]]:
         '''The process of matching duplicate profiles using Rule-Based matching.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.RuleBasedMatchingProperty"]], jsii.get(self, "ruleBasedMatching"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.RuleBasedMatchingProperty"]], jsii.get(self, "ruleBasedMatching"))
 
     @rule_based_matching.setter
     def rule_based_matching(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.RuleBasedMatchingProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.RuleBasedMatchingProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__868f26d6f7d5d3991c71c5dd31b8053c3dab74afec8faa28dab5dc89621ca137)
@@ -3678,12 +1620,12 @@ class CfnDomain(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2cc3d01d93fe80a75ec77ac1c37d929543f51e4a47feb47e25ebd0afa5fee06a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3817,9 +1759,9 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            conflict_resolution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ConflictResolutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            consolidation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ConsolidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            conflict_resolution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ConflictResolutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            consolidation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ConsolidationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             min_allowed_confidence_score_for_merging: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Configuration information about the auto-merging process.
@@ -3871,19 +1813,19 @@ class CfnDomain(
                 self._values["min_allowed_confidence_score_for_merging"] = min_allowed_confidence_score_for_merging
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''The flag that enables the auto-merging of duplicate profiles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-automerging.html#cfn-customerprofiles-domain-automerging-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def conflict_resolution(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ConflictResolutionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ConflictResolutionProperty"]]:
             '''Determines how the auto-merging process should resolve conflicts between different profiles.
 
             For example, if Profile A and Profile B have the same ``FirstName`` and ``LastName`` , ``ConflictResolution`` specifies which ``EmailAddress`` should be used.
@@ -3891,12 +1833,12 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-automerging.html#cfn-customerprofiles-domain-automerging-conflictresolution
             '''
             result = self._values.get("conflict_resolution")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ConflictResolutionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ConflictResolutionProperty"]], result)
 
         @builtins.property
         def consolidation(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ConsolidationProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ConsolidationProperty"]]:
             '''A list of matching attributes that represent matching criteria.
 
             If two profiles meet at least one of the requirements in the matching attributes list, they will be merged.
@@ -3904,7 +1846,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-automerging.html#cfn-customerprofiles-domain-automerging-consolidation
             '''
             result = self._values.get("consolidation")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ConsolidationProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ConsolidationProperty"]], result)
 
         @builtins.property
         def min_allowed_confidence_score_for_merging(
@@ -4017,7 +1959,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            matching_attributes_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Sequence[builtins.str]]],
+            matching_attributes_list: typing.Union[typing.Sequence[typing.Sequence[builtins.str]], "_IResolvable_da3f097b"],
         ) -> None:
             '''A list of matching attributes that represent matching criteria.
 
@@ -4048,14 +1990,14 @@ class CfnDomain(
         @builtins.property
         def matching_attributes_list(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.List[builtins.str]]]:
+        ) -> typing.Union[typing.List[typing.List[builtins.str]], "_IResolvable_da3f097b"]:
             '''A list of matching criteria.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-consolidation.html#cfn-customerprofiles-domain-consolidation-matchingattributeslist
             '''
             result = self._values.get("matching_attributes_list")
             assert result is not None, "Required property 'matching_attributes_list' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.List[builtins.str]]], result)
+            return typing.cast(typing.Union[typing.List[typing.List[builtins.str]], "_IResolvable_da3f097b"], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4065,6 +2007,83 @@ class CfnDomain(
 
         def __repr__(self) -> str:
             return "ConsolidationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomain.DataStoreProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled", "readiness": "readiness"},
+    )
+    class DataStoreProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            readiness: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ReadinessProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Configuration and status of the data store for the domain.
+
+            :param enabled: Whether the data store is enabled.
+            :param readiness: Progress information for data store setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-datastore.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                data_store_property = customerprofiles.CfnDomain.DataStoreProperty(
+                    enabled=False,
+                    readiness=customerprofiles.CfnDomain.ReadinessProperty(
+                        message="message",
+                        progress_percentage=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__ed05879fa75b88d4c3657e33fd8e55e1b9c53eaf50ce42de6ac2ea3eda11bf95)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+                check_type(argname="argument readiness", value=readiness, expected_type=type_hints["readiness"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+            if readiness is not None:
+                self._values["readiness"] = readiness
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Whether the data store is enabled.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-datastore.html#cfn-customerprofiles-domain-datastore-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def readiness(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ReadinessProperty"]]:
+            '''Progress information for data store setup.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-datastore.html#cfn-customerprofiles-domain-datastore-readiness
+            '''
+            result = self._values.get("readiness")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ReadinessProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DataStoreProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -4184,7 +2203,7 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            s3_exporting: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.S3ExportingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3_exporting: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.S3ExportingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Configuration information for exporting Identity Resolution results, for example, to an S3 bucket.
 
@@ -4218,13 +2237,13 @@ class CfnDomain(
         @builtins.property
         def s3_exporting(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.S3ExportingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.S3ExportingConfigProperty"]]:
             '''The S3 location where Identity Resolution Jobs write result files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-exportingconfig.html#cfn-customerprofiles-domain-exportingconfig-s3exporting
             '''
             result = self._values.get("s3_exporting")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.S3ExportingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.S3ExportingConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4322,10 +2341,10 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            auto_merging: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.AutoMergingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            exporting_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ExportingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            job_schedule: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.JobScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            auto_merging: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AutoMergingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            exporting_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ExportingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            job_schedule: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.JobScheduleProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The process of matching duplicate profiles.
 
@@ -4395,47 +2414,47 @@ class CfnDomain(
                 self._values["job_schedule"] = job_schedule
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''The flag that enables the matching process of duplicate profiles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-matching.html#cfn-customerprofiles-domain-matching-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def auto_merging(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AutoMergingProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutoMergingProperty"]]:
             '''Configuration information about the auto-merging process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-matching.html#cfn-customerprofiles-domain-matching-automerging
             '''
             result = self._values.get("auto_merging")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AutoMergingProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AutoMergingProperty"]], result)
 
         @builtins.property
         def exporting_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ExportingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ExportingConfigProperty"]]:
             '''The S3 location where Identity Resolution Jobs write result files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-matching.html#cfn-customerprofiles-domain-matching-exportingconfig
             '''
             result = self._values.get("exporting_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ExportingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ExportingConfigProperty"]], result)
 
         @builtins.property
         def job_schedule(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.JobScheduleProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.JobScheduleProperty"]]:
             '''The day and time when do you want to start the Identity Resolution Job every week.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-matching.html#cfn-customerprofiles-domain-matching-jobschedule
             '''
             result = self._values.get("job_schedule")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.JobScheduleProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.JobScheduleProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4503,6 +2522,79 @@ class CfnDomain(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomain.ReadinessProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "message": "message",
+            "progress_percentage": "progressPercentage",
+        },
+    )
+    class ReadinessProperty:
+        def __init__(
+            self,
+            *,
+            message: typing.Optional[builtins.str] = None,
+            progress_percentage: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Progress information for data store setup.
+
+            :param message: A message describing the current progress.
+            :param progress_percentage: The percentage of progress completed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-readiness.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_customerprofiles as customerprofiles
+                
+                readiness_property = customerprofiles.CfnDomain.ReadinessProperty(
+                    message="message",
+                    progress_percentage=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__324f198fba50eb0321211a19e771046aaca0bda28a6d38c0022aed9a86f8bf24)
+                check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+                check_type(argname="argument progress_percentage", value=progress_percentage, expected_type=type_hints["progress_percentage"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if message is not None:
+                self._values["message"] = message
+            if progress_percentage is not None:
+                self._values["progress_percentage"] = progress_percentage
+
+        @builtins.property
+        def message(self) -> typing.Optional[builtins.str]:
+            '''A message describing the current progress.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-readiness.html#cfn-customerprofiles-domain-readiness-message
+            '''
+            result = self._values.get("message")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def progress_percentage(self) -> typing.Optional[jsii.Number]:
+            '''The percentage of progress completed.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-readiness.html#cfn-customerprofiles-domain-readiness-progresspercentage
+            '''
+            result = self._values.get("progress_percentage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ReadinessProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomain.RuleBasedMatchingProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -4520,11 +2612,11 @@ class CfnDomain(
         def __init__(
             self,
             *,
-            enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
-            attribute_types_selector: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.AttributeTypesSelectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            conflict_resolution: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ConflictResolutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            exporting_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.ExportingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            matching_rules: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDomain.MatchingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            enabled: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            attribute_types_selector: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.AttributeTypesSelectorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            conflict_resolution: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ConflictResolutionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            exporting_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ExportingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            matching_rules: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.MatchingRuleProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             max_allowed_rule_level_for_matching: typing.Optional[jsii.Number] = None,
             max_allowed_rule_level_for_merging: typing.Optional[jsii.Number] = None,
             status: typing.Optional[builtins.str] = None,
@@ -4614,30 +2706,30 @@ class CfnDomain(
                 self._values["status"] = status
 
         @builtins.property
-        def enabled(self) -> typing.Union[builtins.bool, _IResolvable_da3f097b]:
+        def enabled(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
             '''The flag that enables the matching process of duplicate profiles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-rulebasedmatching.html#cfn-customerprofiles-domain-rulebasedmatching-enabled
             '''
             result = self._values.get("enabled")
             assert result is not None, "Required property 'enabled' is missing"
-            return typing.cast(typing.Union[builtins.bool, _IResolvable_da3f097b], result)
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
 
         @builtins.property
         def attribute_types_selector(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AttributeTypesSelectorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AttributeTypesSelectorProperty"]]:
             '''Configures information about the ``AttributeTypesSelector`` where the rule-based identity resolution uses to match profiles.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-rulebasedmatching.html#cfn-customerprofiles-domain-rulebasedmatching-attributetypesselector
             '''
             result = self._values.get("attribute_types_selector")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.AttributeTypesSelectorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.AttributeTypesSelectorProperty"]], result)
 
         @builtins.property
         def conflict_resolution(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ConflictResolutionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ConflictResolutionProperty"]]:
             '''Determines how the auto-merging process should resolve conflicts between different profiles.
 
             For example, if Profile A and Profile B have the same ``FirstName`` and ``LastName`` , ``ConflictResolution`` specifies which ``EmailAddress`` should be used.
@@ -4645,23 +2737,23 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-rulebasedmatching.html#cfn-customerprofiles-domain-rulebasedmatching-conflictresolution
             '''
             result = self._values.get("conflict_resolution")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ConflictResolutionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ConflictResolutionProperty"]], result)
 
         @builtins.property
         def exporting_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ExportingConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ExportingConfigProperty"]]:
             '''The S3 location where Identity Resolution Jobs write result files.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-rulebasedmatching.html#cfn-customerprofiles-domain-rulebasedmatching-exportingconfig
             '''
             result = self._values.get("exporting_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnDomain.ExportingConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ExportingConfigProperty"]], result)
 
         @builtins.property
         def matching_rules(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingRuleProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingRuleProperty"]]]]:
             '''Configures how the rule-based matching process should match profiles.
 
             You can have up to 15 ``MatchingRule`` in the ``MatchingRules`` .
@@ -4669,7 +2761,7 @@ class CfnDomain(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-domain-rulebasedmatching.html#cfn-customerprofiles-domain-rulebasedmatching-matchingrules
             '''
             result = self._values.get("matching_rules")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDomain.MatchingRuleProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingRuleProperty"]]]], result)
 
         @builtins.property
         def max_allowed_rule_level_for_matching(self) -> typing.Optional[jsii.Number]:
@@ -4783,7 +2875,263 @@ class CfnDomain(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEventStreamRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnDomainProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "default_expiration_days": "defaultExpirationDays",
+        "domain_name": "domainName",
+        "data_store": "dataStore",
+        "dead_letter_queue_url": "deadLetterQueueUrl",
+        "default_encryption_key": "defaultEncryptionKey",
+        "matching": "matching",
+        "rule_based_matching": "ruleBasedMatching",
+        "tags": "tags",
+    },
+)
+class CfnDomainProps:
+    def __init__(
+        self,
+        *,
+        default_expiration_days: jsii.Number,
+        domain_name: builtins.str,
+        data_store: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.DataStoreProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        dead_letter_queue_url: typing.Optional[builtins.str] = None,
+        default_encryption_key: typing.Optional[builtins.str] = None,
+        matching: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.MatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        rule_based_matching: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.RuleBasedMatchingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDomain``.
+
+        :param default_expiration_days: The default number of days until the data within the domain expires.
+        :param domain_name: The unique name of the domain.
+        :param data_store: Configuration and status of the data store for the domain.
+        :param dead_letter_queue_url: The URL of the SQS dead letter queue, which is used for reporting errors associated with ingesting data from third party applications. You must set up a policy on the ``DeadLetterQueue`` for the ``SendMessage`` operation to enable Amazon Connect Customer Profiles to send messages to the ``DeadLetterQueue`` .
+        :param default_encryption_key: The default encryption key, which is an AWS managed key, is used when no specific type of encryption key is specified. It is used to encrypt all data before it is placed in permanent or semi-permanent storage.
+        :param matching: The process of matching duplicate profiles.
+        :param rule_based_matching: The process of matching duplicate profiles using Rule-Based matching.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_domain_props = customerprofiles.CfnDomainProps(
+                default_expiration_days=123,
+                domain_name="domainName",
+            
+                # the properties below are optional
+                data_store=customerprofiles.CfnDomain.DataStoreProperty(
+                    enabled=False,
+                    readiness=customerprofiles.CfnDomain.ReadinessProperty(
+                        message="message",
+                        progress_percentage=123
+                    )
+                ),
+                dead_letter_queue_url="deadLetterQueueUrl",
+                default_encryption_key="defaultEncryptionKey",
+                matching=customerprofiles.CfnDomain.MatchingProperty(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    auto_merging=customerprofiles.CfnDomain.AutoMergingProperty(
+                        enabled=False,
+            
+                        # the properties below are optional
+                        conflict_resolution=customerprofiles.CfnDomain.ConflictResolutionProperty(
+                            conflict_resolving_model="conflictResolvingModel",
+            
+                            # the properties below are optional
+                            source_name="sourceName"
+                        ),
+                        consolidation=customerprofiles.CfnDomain.ConsolidationProperty(
+                            matching_attributes_list=[["matchingAttributesList"]]
+                        ),
+                        min_allowed_confidence_score_for_merging=123
+                    ),
+                    exporting_config=customerprofiles.CfnDomain.ExportingConfigProperty(
+                        s3_exporting=customerprofiles.CfnDomain.S3ExportingConfigProperty(
+                            s3_bucket_name="s3BucketName",
+            
+                            # the properties below are optional
+                            s3_key_name="s3KeyName"
+                        )
+                    ),
+                    job_schedule=customerprofiles.CfnDomain.JobScheduleProperty(
+                        day_of_the_week="dayOfTheWeek",
+                        time="time"
+                    )
+                ),
+                rule_based_matching=customerprofiles.CfnDomain.RuleBasedMatchingProperty(
+                    enabled=False,
+            
+                    # the properties below are optional
+                    attribute_types_selector=customerprofiles.CfnDomain.AttributeTypesSelectorProperty(
+                        attribute_matching_model="attributeMatchingModel",
+            
+                        # the properties below are optional
+                        address=["address"],
+                        email_address=["emailAddress"],
+                        phone_number=["phoneNumber"]
+                    ),
+                    conflict_resolution=customerprofiles.CfnDomain.ConflictResolutionProperty(
+                        conflict_resolving_model="conflictResolvingModel",
+            
+                        # the properties below are optional
+                        source_name="sourceName"
+                    ),
+                    exporting_config=customerprofiles.CfnDomain.ExportingConfigProperty(
+                        s3_exporting=customerprofiles.CfnDomain.S3ExportingConfigProperty(
+                            s3_bucket_name="s3BucketName",
+            
+                            # the properties below are optional
+                            s3_key_name="s3KeyName"
+                        )
+                    ),
+                    matching_rules=[customerprofiles.CfnDomain.MatchingRuleProperty(
+                        rule=["rule"]
+                    )],
+                    max_allowed_rule_level_for_matching=123,
+                    max_allowed_rule_level_for_merging=123,
+                    status="status"
+                ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03a55eb0b8d16e4b2b2589908d65475847a28870949386381667b6572e627f96)
+            check_type(argname="argument default_expiration_days", value=default_expiration_days, expected_type=type_hints["default_expiration_days"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument data_store", value=data_store, expected_type=type_hints["data_store"])
+            check_type(argname="argument dead_letter_queue_url", value=dead_letter_queue_url, expected_type=type_hints["dead_letter_queue_url"])
+            check_type(argname="argument default_encryption_key", value=default_encryption_key, expected_type=type_hints["default_encryption_key"])
+            check_type(argname="argument matching", value=matching, expected_type=type_hints["matching"])
+            check_type(argname="argument rule_based_matching", value=rule_based_matching, expected_type=type_hints["rule_based_matching"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "default_expiration_days": default_expiration_days,
+            "domain_name": domain_name,
+        }
+        if data_store is not None:
+            self._values["data_store"] = data_store
+        if dead_letter_queue_url is not None:
+            self._values["dead_letter_queue_url"] = dead_letter_queue_url
+        if default_encryption_key is not None:
+            self._values["default_encryption_key"] = default_encryption_key
+        if matching is not None:
+            self._values["matching"] = matching
+        if rule_based_matching is not None:
+            self._values["rule_based_matching"] = rule_based_matching
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def default_expiration_days(self) -> jsii.Number:
+        '''The default number of days until the data within the domain expires.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-defaultexpirationdays
+        '''
+        result = self._values.get("default_expiration_days")
+        assert result is not None, "Required property 'default_expiration_days' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def data_store(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DataStoreProperty"]]:
+        '''Configuration and status of the data store for the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-datastore
+        '''
+        result = self._values.get("data_store")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.DataStoreProperty"]], result)
+
+    @builtins.property
+    def dead_letter_queue_url(self) -> typing.Optional[builtins.str]:
+        '''The URL of the SQS dead letter queue, which is used for reporting errors associated with ingesting data from third party applications.
+
+        You must set up a policy on the ``DeadLetterQueue`` for the ``SendMessage`` operation to enable Amazon Connect Customer Profiles to send messages to the ``DeadLetterQueue`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-deadletterqueueurl
+        '''
+        result = self._values.get("dead_letter_queue_url")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def default_encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The default encryption key, which is an AWS managed key, is used when no specific type of encryption key is specified.
+
+        It is used to encrypt all data before it is placed in permanent or semi-permanent storage.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-defaultencryptionkey
+        '''
+        result = self._values.get("default_encryption_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def matching(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingProperty"]]:
+        '''The process of matching duplicate profiles.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-matching
+        '''
+        result = self._values.get("matching")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.MatchingProperty"]], result)
+
+    @builtins.property
+    def rule_based_matching(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.RuleBasedMatchingProperty"]]:
+        '''The process of matching duplicate profiles using Rule-Based matching.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-rulebasedmatching
+        '''
+        result = self._values.get("rule_based_matching")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.RuleBasedMatchingProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-domain.html#cfn-customerprofiles-domain-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDomainProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEventStreamRef_2336759c, _ITaggableV2_4e6798f8)
 class CfnEventStream(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -4797,6 +3145,7 @@ class CfnEventStream(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -4816,15 +3165,16 @@ class CfnEventStream(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         domain_name: builtins.str,
         event_stream_name: builtins.str,
         uri: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::EventStream``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param domain_name: The unique name of the domain.
@@ -4845,8 +3195,34 @@ class CfnEventStream(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForEventStream")
+    @builtins.classmethod
+    def arn_for_event_stream(
+        cls,
+        resource: "_IEventStreamRef_2336759c",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__41977b51f363c143032c0ed9e9887fcad8d2a49c96031285f4df1cdfe8af298c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForEventStream", [resource]))
+
+    @jsii.member(jsii_name="isCfnEventStream")
+    @builtins.classmethod
+    def is_cfn_event_stream(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventStream.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__30bb94bfb5ac46c1523171eba8ed13e3af1ab4a2327da671f8bd8266e59b3e78)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventStream", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -4886,12 +3262,12 @@ class CfnEventStream(
 
     @builtins.property
     @jsii.member(jsii_name="attrDestinationDetails")
-    def attr_destination_details(self) -> _IResolvable_da3f097b:
+    def attr_destination_details(self) -> "_IResolvable_da3f097b":
         '''Details regarding the Kinesis stream.
 
         :cloudformationAttribute: DestinationDetails
         '''
-        return typing.cast(_IResolvable_da3f097b, jsii.get(self, "attrDestinationDetails"))
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrDestinationDetails"))
 
     @builtins.property
     @jsii.member(jsii_name="attrDestinationDetailsStatus")
@@ -4929,9 +3305,9 @@ class CfnEventStream(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -4940,9 +3316,9 @@ class CfnEventStream(
 
     @builtins.property
     @jsii.member(jsii_name="eventStreamRef")
-    def event_stream_ref(self) -> EventStreamReference:
+    def event_stream_ref(self) -> "_EventStreamReference_962d06c6":
         '''A reference to a EventStream resource.'''
-        return typing.cast(EventStreamReference, jsii.get(self, "eventStreamRef"))
+        return typing.cast("_EventStreamReference_962d06c6", jsii.get(self, "eventStreamRef"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -4985,12 +3361,12 @@ class CfnEventStream(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5dcffaefd3d051ab25e983d551d4abe7f28bcc0ccc2cc0f00dfbe9151cc9bd64)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5065,7 +3441,122 @@ class CfnEventStream(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IEventTriggerRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventStreamProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "event_stream_name": "eventStreamName",
+        "uri": "uri",
+        "tags": "tags",
+    },
+)
+class CfnEventStreamProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        event_stream_name: builtins.str,
+        uri: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventStream``.
+
+        :param domain_name: The unique name of the domain.
+        :param event_stream_name: The name of the event stream.
+        :param uri: The StreamARN of the destination to deliver profile events to. For example, arn:aws:kinesis:region:account-id:stream/stream-name.
+        :param tags: The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_event_stream_props = customerprofiles.CfnEventStreamProps(
+                domain_name="domainName",
+                event_stream_name="eventStreamName",
+                uri="uri",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__813f95ba6287d3dc18d43b5b2ff35fbde17184e556360b280e3386143cfc00f0)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument event_stream_name", value=event_stream_name, expected_type=type_hints["event_stream_name"])
+            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "event_stream_name": event_stream_name,
+            "uri": uri,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_stream_name(self) -> builtins.str:
+        '''The name of the event stream.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-eventstreamname
+        '''
+        result = self._values.get("event_stream_name")
+        assert result is not None, "Required property 'event_stream_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def uri(self) -> builtins.str:
+        '''The StreamARN of the destination to deliver profile events to.
+
+        For example, arn:aws:kinesis:region:account-id:stream/stream-name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-uri
+        '''
+        result = self._values.get("uri")
+        assert result is not None, "Required property 'uri' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventstream.html#cfn-customerprofiles-eventstream-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventStreamProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IEventTriggerRef_29992959, _ITaggableV2_4e6798f8)
 class CfnEventTrigger(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5079,6 +3570,7 @@ class CfnEventTrigger(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -5124,19 +3616,20 @@ class CfnEventTrigger(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         domain_name: builtins.str,
-        event_trigger_conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.EventTriggerConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        event_trigger_conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.EventTriggerConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
         event_trigger_name: builtins.str,
         object_type_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        event_trigger_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.EventTriggerLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        event_trigger_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.EventTriggerLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         segment_filter: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::EventTrigger``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param domain_name: The unique name of the domain.
@@ -5165,8 +3658,20 @@ class CfnEventTrigger(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnEventTrigger")
+    @builtins.classmethod
+    def is_cfn_event_trigger(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnEventTrigger.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d36ef6ace0c9210cfa7cde81e61e4f8857ef14b3522029cf75c6098889004d56)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnEventTrigger", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -5215,9 +3720,9 @@ class CfnEventTrigger(
 
     @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -5226,9 +3731,9 @@ class CfnEventTrigger(
 
     @builtins.property
     @jsii.member(jsii_name="eventTriggerRef")
-    def event_trigger_ref(self) -> EventTriggerReference:
+    def event_trigger_ref(self) -> "_EventTriggerReference_153e27ca":
         '''A reference to a EventTrigger resource.'''
-        return typing.cast(EventTriggerReference, jsii.get(self, "eventTriggerRef"))
+        return typing.cast("_EventTriggerReference_153e27ca", jsii.get(self, "eventTriggerRef"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -5247,14 +3752,14 @@ class CfnEventTrigger(
     @jsii.member(jsii_name="eventTriggerConditions")
     def event_trigger_conditions(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerConditionProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerConditionProperty"]]]:
         '''A list of conditions that determine when an event should trigger the destination.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerConditionProperty"]]], jsii.get(self, "eventTriggerConditions"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerConditionProperty"]]], jsii.get(self, "eventTriggerConditions"))
 
     @event_trigger_conditions.setter
     def event_trigger_conditions(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerConditionProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerConditionProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6c4c9a1ce30ec03f18e86da98746e17633bdcc9de1f9657feb330288a5703464)
@@ -5304,14 +3809,14 @@ class CfnEventTrigger(
     @jsii.member(jsii_name="eventTriggerLimits")
     def event_trigger_limits(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerLimitsProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerLimitsProperty"]]:
         '''Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerLimitsProperty"]], jsii.get(self, "eventTriggerLimits"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerLimitsProperty"]], jsii.get(self, "eventTriggerLimits"))
 
     @event_trigger_limits.setter
     def event_trigger_limits(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerLimitsProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerLimitsProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8577e6b11fafc0b473494e772f42df4b3a275f14decae7f35bf35c8ceca6efbb)
@@ -5333,12 +3838,12 @@ class CfnEventTrigger(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0431604b79fa9f08ecdffc28b119f0c684057eb139cb8d0fcc9e51cc364ff34a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -5356,7 +3861,7 @@ class CfnEventTrigger(
         def __init__(
             self,
             *,
-            event_trigger_dimensions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.EventTriggerDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            event_trigger_dimensions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.EventTriggerDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]],
             logical_operator: builtins.str,
         ) -> None:
             '''Specifies the circumstances under which the event should trigger the destination.
@@ -5399,14 +3904,14 @@ class CfnEventTrigger(
         @builtins.property
         def event_trigger_dimensions(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerDimensionProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerDimensionProperty"]]]:
             '''A list of dimensions to be evaluated for the event.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-eventtriggercondition.html#cfn-customerprofiles-eventtrigger-eventtriggercondition-eventtriggerdimensions
             '''
             result = self._values.get("event_trigger_dimensions")
             assert result is not None, "Required property 'event_trigger_dimensions' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.EventTriggerDimensionProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerDimensionProperty"]]], result)
 
         @builtins.property
         def logical_operator(self) -> builtins.str:
@@ -5438,7 +3943,7 @@ class CfnEventTrigger(
         def __init__(
             self,
             *,
-            object_attributes: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.ObjectAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            object_attributes: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.ObjectAttributeProperty", typing.Dict[builtins.str, typing.Any]]]]],
         ) -> None:
             '''A specific event dimension to be assessed.
 
@@ -5474,14 +3979,14 @@ class CfnEventTrigger(
         @builtins.property
         def object_attributes(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.ObjectAttributeProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.ObjectAttributeProperty"]]]:
             '''A list of object attributes to be evaluated.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-eventtriggerdimension.html#cfn-customerprofiles-eventtrigger-eventtriggerdimension-objectattributes
             '''
             result = self._values.get("object_attributes")
             assert result is not None, "Required property 'object_attributes' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.ObjectAttributeProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.ObjectAttributeProperty"]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5504,7 +4009,7 @@ class CfnEventTrigger(
             self,
             *,
             event_expiration: typing.Optional[jsii.Number] = None,
-            periods: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnEventTrigger.PeriodProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            periods: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.PeriodProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
 
@@ -5554,13 +4059,13 @@ class CfnEventTrigger(
         @builtins.property
         def periods(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.PeriodProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.PeriodProperty"]]]]:
             '''A list of time periods during which the limits apply.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-eventtriggerlimits.html#cfn-customerprofiles-eventtrigger-eventtriggerlimits-periods
             '''
             result = self._values.get("periods")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnEventTrigger.PeriodProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.PeriodProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5698,7 +4203,7 @@ class CfnEventTrigger(
             unit: builtins.str,
             value: jsii.Number,
             max_invocations_per_profile: typing.Optional[jsii.Number] = None,
-            unlimited: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            unlimited: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''Defines a limit and the time period during which it is enforced.
 
@@ -5772,7 +4277,7 @@ class CfnEventTrigger(
         @builtins.property
         def unlimited(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''If set to true, there is no limit on the number of destination invocations per profile.
 
             The default is false.
@@ -5780,7 +4285,7 @@ class CfnEventTrigger(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-eventtrigger-period.html#cfn-customerprofiles-eventtrigger-period-unlimited
             '''
             result = self._values.get("unlimited")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5794,7 +4299,210 @@ class CfnEventTrigger(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IIntegrationRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnEventTriggerProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "event_trigger_conditions": "eventTriggerConditions",
+        "event_trigger_name": "eventTriggerName",
+        "object_type_name": "objectTypeName",
+        "description": "description",
+        "event_trigger_limits": "eventTriggerLimits",
+        "segment_filter": "segmentFilter",
+        "tags": "tags",
+    },
+)
+class CfnEventTriggerProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        event_trigger_conditions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.EventTriggerConditionProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        event_trigger_name: builtins.str,
+        object_type_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        event_trigger_limits: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnEventTrigger.EventTriggerLimitsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_filter: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnEventTrigger``.
+
+        :param domain_name: The unique name of the domain.
+        :param event_trigger_conditions: A list of conditions that determine when an event should trigger the destination.
+        :param event_trigger_name: The unique name of the event trigger.
+        :param object_type_name: The unique name of the object type.
+        :param description: The description of the event trigger.
+        :param event_trigger_limits: Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
+        :param segment_filter: The destination is triggered only for profiles that meet the criteria of a segment definition.
+        :param tags: An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_event_trigger_props = customerprofiles.CfnEventTriggerProps(
+                domain_name="domainName",
+                event_trigger_conditions=[customerprofiles.CfnEventTrigger.EventTriggerConditionProperty(
+                    event_trigger_dimensions=[customerprofiles.CfnEventTrigger.EventTriggerDimensionProperty(
+                        object_attributes=[customerprofiles.CfnEventTrigger.ObjectAttributeProperty(
+                            comparison_operator="comparisonOperator",
+                            values=["values"],
+            
+                            # the properties below are optional
+                            field_name="fieldName",
+                            source="source"
+                        )]
+                    )],
+                    logical_operator="logicalOperator"
+                )],
+                event_trigger_name="eventTriggerName",
+                object_type_name="objectTypeName",
+            
+                # the properties below are optional
+                description="description",
+                event_trigger_limits=customerprofiles.CfnEventTrigger.EventTriggerLimitsProperty(
+                    event_expiration=123,
+                    periods=[customerprofiles.CfnEventTrigger.PeriodProperty(
+                        unit="unit",
+                        value=123,
+            
+                        # the properties below are optional
+                        max_invocations_per_profile=123,
+                        unlimited=False
+                    )]
+                ),
+                segment_filter="segmentFilter",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9d2b6147273c603d09e90db3d8372049e484840bcff7a8dc8031fd2f0e0e756)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument event_trigger_conditions", value=event_trigger_conditions, expected_type=type_hints["event_trigger_conditions"])
+            check_type(argname="argument event_trigger_name", value=event_trigger_name, expected_type=type_hints["event_trigger_name"])
+            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument event_trigger_limits", value=event_trigger_limits, expected_type=type_hints["event_trigger_limits"])
+            check_type(argname="argument segment_filter", value=segment_filter, expected_type=type_hints["segment_filter"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+            "event_trigger_conditions": event_trigger_conditions,
+            "event_trigger_name": event_trigger_name,
+            "object_type_name": object_type_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if event_trigger_limits is not None:
+            self._values["event_trigger_limits"] = event_trigger_limits
+        if segment_filter is not None:
+            self._values["segment_filter"] = segment_filter
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_trigger_conditions(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerConditionProperty"]]]:
+        '''A list of conditions that determine when an event should trigger the destination.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-eventtriggerconditions
+        '''
+        result = self._values.get("event_trigger_conditions")
+        assert result is not None, "Required property 'event_trigger_conditions' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerConditionProperty"]]], result)
+
+    @builtins.property
+    def event_trigger_name(self) -> builtins.str:
+        '''The unique name of the event trigger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-eventtriggername
+        '''
+        result = self._values.get("event_trigger_name")
+        assert result is not None, "Required property 'event_trigger_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_type_name(self) -> builtins.str:
+        '''The unique name of the object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-objecttypename
+        '''
+        result = self._values.get("object_type_name")
+        assert result is not None, "Required property 'object_type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the event trigger.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def event_trigger_limits(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerLimitsProperty"]]:
+        '''Defines limits controlling whether an event triggers the destination, based on ingestion latency and the number of invocations per profile over specific time periods.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-eventtriggerlimits
+        '''
+        result = self._values.get("event_trigger_limits")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnEventTrigger.EventTriggerLimitsProperty"]], result)
+
+    @builtins.property
+    def segment_filter(self) -> typing.Optional[builtins.str]:
+        '''The destination is triggered only for profiles that meet the criteria of a segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-segmentfilter
+        '''
+        result = self._values.get("segment_filter")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-eventtrigger.html#cfn-customerprofiles-eventtrigger-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnEventTriggerProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IIntegrationRef_78469d92, _ITaggable_36806126)
 class CfnIntegration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -5808,6 +4516,7 @@ class CfnIntegration(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -5908,18 +4617,19 @@ class CfnIntegration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         domain_name: builtins.str,
         event_trigger_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-        flow_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        flow_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         object_type_name: typing.Optional[builtins.str] = None,
-        object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.ObjectTypeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        object_type_names: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ObjectTypeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         uri: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::Integration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param domain_name: The unique name of the domain.
@@ -5946,8 +4656,20 @@ class CfnIntegration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnIntegration")
+    @builtins.classmethod
+    def is_cfn_integration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnIntegration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__219d361ae34ba5e8296c11a603aafe56c39f2bbdbeeb976d7c2d8dfb54993f54)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnIntegration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -6001,15 +4723,15 @@ class CfnIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="integrationRef")
-    def integration_ref(self) -> IntegrationReference:
+    def integration_ref(self) -> "_IntegrationReference_7dc76a71":
         '''A reference to a Integration resource.'''
-        return typing.cast(IntegrationReference, jsii.get(self, "integrationRef"))
+        return typing.cast("_IntegrationReference_7dc76a71", jsii.get(self, "integrationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="domainName")
@@ -6044,14 +4766,14 @@ class CfnIntegration(
     @jsii.member(jsii_name="flowDefinition")
     def flow_definition(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.FlowDefinitionProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.FlowDefinitionProperty"]]:
         '''The configuration that controls how Customer Profiles retrieves data from the source.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.FlowDefinitionProperty"]], jsii.get(self, "flowDefinition"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.FlowDefinitionProperty"]], jsii.get(self, "flowDefinition"))
 
     @flow_definition.setter
     def flow_definition(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.FlowDefinitionProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.FlowDefinitionProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eda84696baed289de5f577073d9697fd7b0969af55567086ad86e6466b533e14)
@@ -6075,14 +4797,14 @@ class CfnIntegration(
     @jsii.member(jsii_name="objectTypeNames")
     def object_type_names(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ObjectTypeMappingProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ObjectTypeMappingProperty"]]]]:
         '''The object type mapping.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ObjectTypeMappingProperty"]]]], jsii.get(self, "objectTypeNames"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ObjectTypeMappingProperty"]]]], jsii.get(self, "objectTypeNames"))
 
     @object_type_names.setter
     def object_type_names(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ObjectTypeMappingProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ObjectTypeMappingProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d19e3d184d030db553288fb9b5bf060b201c3b429358e9c4818b39453b44a060)
@@ -6091,12 +4813,12 @@ class CfnIntegration(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55efe13391c8b01dcc8a4fc8cdb64b30e0590e3c2de5fbdfaf88656f9ad1a18e)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -6254,9 +4976,9 @@ class CfnIntegration(
             *,
             flow_name: builtins.str,
             kms_arn: builtins.str,
-            source_flow_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
-            tasks: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
-            trigger_config: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_flow_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.SourceFlowConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            tasks: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.TaskProperty", typing.Dict[builtins.str, typing.Any]]]]],
+            trigger_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.TriggerConfigProperty", typing.Dict[builtins.str, typing.Any]]],
             description: typing.Optional[builtins.str] = None,
         ) -> None:
             '''The configurations that control how Customer Profiles retrieves data from the source, Amazon AppFlow.
@@ -6399,38 +5121,38 @@ class CfnIntegration(
         @builtins.property
         def source_flow_config(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnIntegration.SourceFlowConfigProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnIntegration.SourceFlowConfigProperty"]:
             '''The configuration that controls how Customer Profiles retrieves data from the source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-flowdefinition.html#cfn-customerprofiles-integration-flowdefinition-sourceflowconfig
             '''
             result = self._values.get("source_flow_config")
             assert result is not None, "Required property 'source_flow_config' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIntegration.SourceFlowConfigProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIntegration.SourceFlowConfigProperty"], result)
 
         @builtins.property
         def tasks(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.TaskProperty"]]]:
+        ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.TaskProperty"]]]:
             '''A list of tasks that Customer Profiles performs while transferring the data in the flow run.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-flowdefinition.html#cfn-customerprofiles-integration-flowdefinition-tasks
             '''
             result = self._values.get("tasks")
             assert result is not None, "Required property 'tasks' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.TaskProperty"]]], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.TaskProperty"]]], result)
 
         @builtins.property
         def trigger_config(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnIntegration.TriggerConfigProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnIntegration.TriggerConfigProperty"]:
             '''The trigger settings that determine how and when the flow runs.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-flowdefinition.html#cfn-customerprofiles-integration-flowdefinition-triggerconfig
             '''
             result = self._values.get("trigger_config")
             assert result is not None, "Required property 'trigger_config' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIntegration.TriggerConfigProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIntegration.TriggerConfigProperty"], result)
 
         @builtins.property
         def description(self) -> typing.Optional[builtins.str]:
@@ -6712,8 +5434,8 @@ class CfnIntegration(
             self,
             *,
             object: builtins.str,
-            enable_dynamic_field_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            include_deleted_records: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+            enable_dynamic_field_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            include_deleted_records: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         ) -> None:
             '''The properties that are applied when Salesforce is being used as a source.
 
@@ -6764,24 +5486,24 @@ class CfnIntegration(
         @builtins.property
         def enable_dynamic_field_update(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''The flag that enables dynamic fetching of new (recently added) fields in the Salesforce objects while running a flow.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-salesforcesourceproperties.html#cfn-customerprofiles-integration-salesforcesourceproperties-enabledynamicfieldupdate
             '''
             result = self._values.get("enable_dynamic_field_update")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         @builtins.property
         def include_deleted_records(
             self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
             '''Indicates whether Amazon AppFlow includes deleted files in the flow run.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-salesforcesourceproperties.html#cfn-customerprofiles-integration-salesforcesourceproperties-includedeletedrecords
             '''
             result = self._values.get("include_deleted_records")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7021,11 +5743,11 @@ class CfnIntegration(
         def __init__(
             self,
             *,
-            marketo: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.MarketoSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            s3: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.S3SourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            salesforce: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.SalesforceSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            service_now: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.ServiceNowSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            zendesk: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.ZendeskSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            marketo: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.MarketoSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            s3: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.S3SourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            salesforce: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.SalesforceSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            service_now: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ServiceNowSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            zendesk: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ZendeskSourcePropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the information that is required to query a particular Amazon AppFlow connector.
 
@@ -7093,57 +5815,57 @@ class CfnIntegration(
         @builtins.property
         def marketo(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.MarketoSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.MarketoSourcePropertiesProperty"]]:
             '''The properties that are applied when Marketo is being used as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceconnectorproperties.html#cfn-customerprofiles-integration-sourceconnectorproperties-marketo
             '''
             result = self._values.get("marketo")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.MarketoSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.MarketoSourcePropertiesProperty"]], result)
 
         @builtins.property
         def s3(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.S3SourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.S3SourcePropertiesProperty"]]:
             '''The properties that are applied when Amazon S3 is being used as the flow source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceconnectorproperties.html#cfn-customerprofiles-integration-sourceconnectorproperties-s3
             '''
             result = self._values.get("s3")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.S3SourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.S3SourcePropertiesProperty"]], result)
 
         @builtins.property
         def salesforce(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.SalesforceSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.SalesforceSourcePropertiesProperty"]]:
             '''The properties that are applied when Salesforce is being used as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceconnectorproperties.html#cfn-customerprofiles-integration-sourceconnectorproperties-salesforce
             '''
             result = self._values.get("salesforce")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.SalesforceSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.SalesforceSourcePropertiesProperty"]], result)
 
         @builtins.property
         def service_now(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ServiceNowSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ServiceNowSourcePropertiesProperty"]]:
             '''The properties that are applied when ServiceNow is being used as a source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceconnectorproperties.html#cfn-customerprofiles-integration-sourceconnectorproperties-servicenow
             '''
             result = self._values.get("service_now")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ServiceNowSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ServiceNowSourcePropertiesProperty"]], result)
 
         @builtins.property
         def zendesk(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ZendeskSourcePropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ZendeskSourcePropertiesProperty"]]:
             '''The properties that are applied when using Zendesk as a flow source.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceconnectorproperties.html#cfn-customerprofiles-integration-sourceconnectorproperties-zendesk
             '''
             result = self._values.get("zendesk")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ZendeskSourcePropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ZendeskSourcePropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7171,9 +5893,9 @@ class CfnIntegration(
             self,
             *,
             connector_type: builtins.str,
-            source_connector_properties: typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.SourceConnectorPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
+            source_connector_properties: typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.SourceConnectorPropertiesProperty", typing.Dict[builtins.str, typing.Any]]],
             connector_profile_name: typing.Optional[builtins.str] = None,
-            incremental_pull_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.IncrementalPullConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            incremental_pull_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.IncrementalPullConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The configuration that controls how Customer Profiles retrieves data from the source.
 
@@ -7253,14 +5975,14 @@ class CfnIntegration(
         @builtins.property
         def source_connector_properties(
             self,
-        ) -> typing.Union[_IResolvable_da3f097b, "CfnIntegration.SourceConnectorPropertiesProperty"]:
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnIntegration.SourceConnectorPropertiesProperty"]:
             '''Specifies the information that is required to query a particular source connector.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceflowconfig.html#cfn-customerprofiles-integration-sourceflowconfig-sourceconnectorproperties
             '''
             result = self._values.get("source_connector_properties")
             assert result is not None, "Required property 'source_connector_properties' is missing"
-            return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnIntegration.SourceConnectorPropertiesProperty"], result)
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnIntegration.SourceConnectorPropertiesProperty"], result)
 
         @builtins.property
         def connector_profile_name(self) -> typing.Optional[builtins.str]:
@@ -7276,7 +5998,7 @@ class CfnIntegration(
         @builtins.property
         def incremental_pull_config(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.IncrementalPullConfigProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.IncrementalPullConfigProperty"]]:
             '''Defines the configuration for a scheduled incremental data pull.
 
             If a valid configuration is provided, the fields specified in the configuration are used when querying for the incremental data pull.
@@ -7284,7 +6006,7 @@ class CfnIntegration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-sourceflowconfig.html#cfn-customerprofiles-integration-sourceflowconfig-incrementalpullconfig
             '''
             result = self._values.get("incremental_pull_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.IncrementalPullConfigProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.IncrementalPullConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7390,9 +6112,9 @@ class CfnIntegration(
             *,
             source_fields: typing.Sequence[builtins.str],
             task_type: builtins.str,
-            connector_operator: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.ConnectorOperatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            connector_operator: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ConnectorOperatorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             destination_field: typing.Optional[builtins.str] = None,
-            task_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.TaskPropertiesMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            task_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.TaskPropertiesMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''The ``Task`` property type specifies the class for modeling different type of tasks.
 
@@ -7473,13 +6195,13 @@ class CfnIntegration(
         @builtins.property
         def connector_operator(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ConnectorOperatorProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ConnectorOperatorProperty"]]:
             '''The operation to be performed on the provided source fields.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-task.html#cfn-customerprofiles-integration-task-connectoroperator
             '''
             result = self._values.get("connector_operator")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ConnectorOperatorProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ConnectorOperatorProperty"]], result)
 
         @builtins.property
         def destination_field(self) -> typing.Optional[builtins.str]:
@@ -7493,7 +6215,7 @@ class CfnIntegration(
         @builtins.property
         def task_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.TaskPropertiesMapProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.TaskPropertiesMapProperty"]]]]:
             '''A map used to store task-related information.
 
             The service looks for particular information based on the TaskType.
@@ -7501,7 +6223,7 @@ class CfnIntegration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-task.html#cfn-customerprofiles-integration-task-taskproperties
             '''
             result = self._values.get("task_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnIntegration.TaskPropertiesMapProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.TaskPropertiesMapProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7527,7 +6249,7 @@ class CfnIntegration(
             self,
             *,
             trigger_type: builtins.str,
-            trigger_properties: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.TriggerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            trigger_properties: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.TriggerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The trigger settings that determine how and when Amazon AppFlow runs the specified flow.
 
@@ -7587,7 +6309,7 @@ class CfnIntegration(
         @builtins.property
         def trigger_properties(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.TriggerPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.TriggerPropertiesProperty"]]:
             '''Specifies the configuration details of a schedule-triggered flow that you define.
 
             Currently, these settings only apply to the Scheduled trigger type.
@@ -7595,7 +6317,7 @@ class CfnIntegration(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-triggerconfig.html#cfn-customerprofiles-integration-triggerconfig-triggerproperties
             '''
             result = self._values.get("trigger_properties")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.TriggerPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.TriggerPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7617,7 +6339,7 @@ class CfnIntegration(
         def __init__(
             self,
             *,
-            scheduled: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnIntegration.ScheduledTriggerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            scheduled: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ScheduledTriggerPropertiesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Specifies the configuration details that control the trigger for a flow.
 
@@ -7658,13 +6380,13 @@ class CfnIntegration(
         @builtins.property
         def scheduled(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ScheduledTriggerPropertiesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ScheduledTriggerPropertiesProperty"]]:
             '''Specifies the configuration details of a schedule-triggered flow that you define.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-integration-triggerproperties.html#cfn-customerprofiles-integration-triggerproperties-scheduled
             '''
             result = self._values.get("scheduled")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnIntegration.ScheduledTriggerPropertiesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ScheduledTriggerPropertiesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -7730,7 +6452,250 @@ class CfnIntegration(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IObjectTypeRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnIntegrationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "domain_name": "domainName",
+        "event_trigger_names": "eventTriggerNames",
+        "flow_definition": "flowDefinition",
+        "object_type_name": "objectTypeName",
+        "object_type_names": "objectTypeNames",
+        "tags": "tags",
+        "uri": "uri",
+    },
+)
+class CfnIntegrationProps:
+    def __init__(
+        self,
+        *,
+        domain_name: builtins.str,
+        event_trigger_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        flow_definition: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.FlowDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        object_type_name: typing.Optional[builtins.str] = None,
+        object_type_names: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIntegration.ObjectTypeMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        uri: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnIntegration``.
+
+        :param domain_name: The unique name of the domain.
+        :param event_trigger_names: A list of unique names for active event triggers associated with the integration.
+        :param flow_definition: The configuration that controls how Customer Profiles retrieves data from the source.
+        :param object_type_name: The name of the profile object type mapping to use.
+        :param object_type_names: The object type mapping.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        :param uri: The URI of the S3 bucket or any other type of data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_integration_props = customerprofiles.CfnIntegrationProps(
+                domain_name="domainName",
+            
+                # the properties below are optional
+                event_trigger_names=["eventTriggerNames"],
+                flow_definition=customerprofiles.CfnIntegration.FlowDefinitionProperty(
+                    flow_name="flowName",
+                    kms_arn="kmsArn",
+                    source_flow_config=customerprofiles.CfnIntegration.SourceFlowConfigProperty(
+                        connector_type="connectorType",
+                        source_connector_properties=customerprofiles.CfnIntegration.SourceConnectorPropertiesProperty(
+                            marketo=customerprofiles.CfnIntegration.MarketoSourcePropertiesProperty(
+                                object="object"
+                            ),
+                            s3=customerprofiles.CfnIntegration.S3SourcePropertiesProperty(
+                                bucket_name="bucketName",
+            
+                                # the properties below are optional
+                                bucket_prefix="bucketPrefix"
+                            ),
+                            salesforce=customerprofiles.CfnIntegration.SalesforceSourcePropertiesProperty(
+                                object="object",
+            
+                                # the properties below are optional
+                                enable_dynamic_field_update=False,
+                                include_deleted_records=False
+                            ),
+                            service_now=customerprofiles.CfnIntegration.ServiceNowSourcePropertiesProperty(
+                                object="object"
+                            ),
+                            zendesk=customerprofiles.CfnIntegration.ZendeskSourcePropertiesProperty(
+                                object="object"
+                            )
+                        ),
+            
+                        # the properties below are optional
+                        connector_profile_name="connectorProfileName",
+                        incremental_pull_config=customerprofiles.CfnIntegration.IncrementalPullConfigProperty(
+                            datetime_type_field_name="datetimeTypeFieldName"
+                        )
+                    ),
+                    tasks=[customerprofiles.CfnIntegration.TaskProperty(
+                        source_fields=["sourceFields"],
+                        task_type="taskType",
+            
+                        # the properties below are optional
+                        connector_operator=customerprofiles.CfnIntegration.ConnectorOperatorProperty(
+                            marketo="marketo",
+                            s3="s3",
+                            salesforce="salesforce",
+                            service_now="serviceNow",
+                            zendesk="zendesk"
+                        ),
+                        destination_field="destinationField",
+                        task_properties=[customerprofiles.CfnIntegration.TaskPropertiesMapProperty(
+                            operator_property_key="operatorPropertyKey",
+                            property="property"
+                        )]
+                    )],
+                    trigger_config=customerprofiles.CfnIntegration.TriggerConfigProperty(
+                        trigger_type="triggerType",
+            
+                        # the properties below are optional
+                        trigger_properties=customerprofiles.CfnIntegration.TriggerPropertiesProperty(
+                            scheduled=customerprofiles.CfnIntegration.ScheduledTriggerPropertiesProperty(
+                                schedule_expression="scheduleExpression",
+            
+                                # the properties below are optional
+                                data_pull_mode="dataPullMode",
+                                first_execution_from=123,
+                                schedule_end_time=123,
+                                schedule_offset=123,
+                                schedule_start_time=123,
+                                timezone="timezone"
+                            )
+                        )
+                    ),
+            
+                    # the properties below are optional
+                    description="description"
+                ),
+                object_type_name="objectTypeName",
+                object_type_names=[customerprofiles.CfnIntegration.ObjectTypeMappingProperty(
+                    key="key",
+                    value="value"
+                )],
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                uri="uri"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__52bfebce0bd12cb9d9ed6354b0627c3f2946899ecf1ba8120aa70c1e1e22428d)
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument event_trigger_names", value=event_trigger_names, expected_type=type_hints["event_trigger_names"])
+            check_type(argname="argument flow_definition", value=flow_definition, expected_type=type_hints["flow_definition"])
+            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
+            check_type(argname="argument object_type_names", value=object_type_names, expected_type=type_hints["object_type_names"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "domain_name": domain_name,
+        }
+        if event_trigger_names is not None:
+            self._values["event_trigger_names"] = event_trigger_names
+        if flow_definition is not None:
+            self._values["flow_definition"] = flow_definition
+        if object_type_name is not None:
+            self._values["object_type_name"] = object_type_name
+        if object_type_names is not None:
+            self._values["object_type_names"] = object_type_names
+        if tags is not None:
+            self._values["tags"] = tags
+        if uri is not None:
+            self._values["uri"] = uri
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def event_trigger_names(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''A list of unique names for active event triggers associated with the integration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-eventtriggernames
+        '''
+        result = self._values.get("event_trigger_names")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def flow_definition(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.FlowDefinitionProperty"]]:
+        '''The configuration that controls how Customer Profiles retrieves data from the source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-flowdefinition
+        '''
+        result = self._values.get("flow_definition")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIntegration.FlowDefinitionProperty"]], result)
+
+    @builtins.property
+    def object_type_name(self) -> typing.Optional[builtins.str]:
+        '''The name of the profile object type mapping to use.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-objecttypename
+        '''
+        result = self._values.get("object_type_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def object_type_names(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ObjectTypeMappingProperty"]]]]:
+        '''The object type mapping.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-objecttypenames
+        '''
+        result = self._values.get("object_type_names")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnIntegration.ObjectTypeMappingProperty"]]]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def uri(self) -> typing.Optional[builtins.str]:
+        '''The URI of the S3 bucket or any other type of data source.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-integration.html#cfn-customerprofiles-integration-uri
+        '''
+        result = self._values.get("uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnIntegrationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IObjectTypeRef_3e102175, _ITaggable_36806126)
 class CfnObjectType(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -7744,6 +6709,7 @@ class CfnObjectType(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -7784,23 +6750,24 @@ class CfnObjectType(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         description: builtins.str,
         domain_name: builtins.str,
         object_type_name: builtins.str,
-        allow_profile_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        allow_profile_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         encryption_key: typing.Optional[builtins.str] = None,
         expiration_days: typing.Optional[jsii.Number] = None,
-        fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.FieldMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.FieldMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         max_profile_object_count: typing.Optional[jsii.Number] = None,
         source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template_id: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::ObjectType``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param description: The description of the profile object type mapping.
@@ -7837,8 +6804,20 @@ class CfnObjectType(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="isCfnObjectType")
+    @builtins.classmethod
+    def is_cfn_object_type(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnObjectType.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4659769db4a4cc23cf2e2d11c9a47712d05bda0cd739cb1fda2de0ed4af2a243)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnObjectType", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -7901,15 +6880,15 @@ class CfnObjectType(
 
     @builtins.property
     @jsii.member(jsii_name="objectTypeRef")
-    def object_type_ref(self) -> ObjectTypeReference:
+    def object_type_ref(self) -> "_ObjectTypeReference_55463b5f":
         '''A reference to a ObjectType resource.'''
-        return typing.cast(ObjectTypeReference, jsii.get(self, "objectTypeRef"))
+        return typing.cast("_ObjectTypeReference_55463b5f", jsii.get(self, "objectTypeRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="description")
@@ -7954,14 +6933,14 @@ class CfnObjectType(
     @jsii.member(jsii_name="allowProfileCreation")
     def allow_profile_creation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Indicates whether a profile should be created when data is received if one doesn’t exist for an object of this type.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "allowProfileCreation"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "allowProfileCreation"))
 
     @allow_profile_creation.setter
     def allow_profile_creation(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9b0f4dc9c396c634c5fa55ab6032956c1c94c0dec83e089c60d92fb58640061c)
@@ -7998,14 +6977,14 @@ class CfnObjectType(
     @jsii.member(jsii_name="fields")
     def fields(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.FieldMapProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.FieldMapProperty"]]]]:
         '''A list of field definitions for the object type mapping.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.FieldMapProperty"]]]], jsii.get(self, "fields"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.FieldMapProperty"]]]], jsii.get(self, "fields"))
 
     @fields.setter
     def fields(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.FieldMapProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.FieldMapProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__eccf30ab38ee3158514f0243fca4f8f7f38ae86489a3784a2fee01eb15f10f58)
@@ -8016,14 +6995,14 @@ class CfnObjectType(
     @jsii.member(jsii_name="keys")
     def keys(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.KeyMapProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.KeyMapProperty"]]]]:
         '''A list of keys that can be used to map data to the profile or search for the profile.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.KeyMapProperty"]]]], jsii.get(self, "keys"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.KeyMapProperty"]]]], jsii.get(self, "keys"))
 
     @keys.setter
     def keys(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.KeyMapProperty"]]]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.KeyMapProperty"]]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__521c1a4bfa097c3b1f3951ecd6980736e1de35a3bfe50227b262534c59370624)
@@ -8061,12 +7040,12 @@ class CfnObjectType(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags used to organize, track, or control access for this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__034fbef34b9c45ddeef371cddf129b147eb3c6d5cb089d2a874dec871d849617)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8095,7 +7074,7 @@ class CfnObjectType(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            object_type_field: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.ObjectTypeFieldProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            object_type_field: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.ObjectTypeFieldProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''A map of the name and ObjectType field.
 
@@ -8142,13 +7121,13 @@ class CfnObjectType(
         @builtins.property
         def object_type_field(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObjectType.ObjectTypeFieldProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObjectType.ObjectTypeFieldProperty"]]:
             '''Represents a field in a ProfileObjectType.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-objecttype-fieldmap.html#cfn-customerprofiles-objecttype-fieldmap-objecttypefield
             '''
             result = self._values.get("object_type_field")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnObjectType.ObjectTypeFieldProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnObjectType.ObjectTypeFieldProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8171,7 +7150,7 @@ class CfnObjectType(
             self,
             *,
             name: typing.Optional[builtins.str] = None,
-            object_type_key_list: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnObjectType.ObjectTypeKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            object_type_key_list: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.ObjectTypeKeyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
             '''A unique key map that can be used to map data to the profile.
 
@@ -8217,13 +7196,13 @@ class CfnObjectType(
         @builtins.property
         def object_type_key_list(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.ObjectTypeKeyProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.ObjectTypeKeyProperty"]]]]:
             '''A list of ObjectTypeKey.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-objecttype-keymap.html#cfn-customerprofiles-objecttype-keymap-objecttypekeylist
             '''
             result = self._values.get("object_type_key_list")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnObjectType.ObjectTypeKeyProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.ObjectTypeKeyProperty"]]]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -8409,7 +7388,273 @@ class CfnObjectType(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ISegmentDefinitionRef, _ITaggableV2_4e6798f8)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnObjectTypeProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "description": "description",
+        "domain_name": "domainName",
+        "object_type_name": "objectTypeName",
+        "allow_profile_creation": "allowProfileCreation",
+        "encryption_key": "encryptionKey",
+        "expiration_days": "expirationDays",
+        "fields": "fields",
+        "keys": "keys",
+        "max_profile_object_count": "maxProfileObjectCount",
+        "source_last_updated_timestamp_format": "sourceLastUpdatedTimestampFormat",
+        "tags": "tags",
+        "template_id": "templateId",
+    },
+)
+class CfnObjectTypeProps:
+    def __init__(
+        self,
+        *,
+        description: builtins.str,
+        domain_name: builtins.str,
+        object_type_name: builtins.str,
+        allow_profile_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        encryption_key: typing.Optional[builtins.str] = None,
+        expiration_days: typing.Optional[jsii.Number] = None,
+        fields: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.FieldMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        keys: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnObjectType.KeyMapProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        max_profile_object_count: typing.Optional[jsii.Number] = None,
+        source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        template_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnObjectType``.
+
+        :param description: The description of the profile object type mapping.
+        :param domain_name: The unique name of the domain.
+        :param object_type_name: The name of the profile object type.
+        :param allow_profile_creation: Indicates whether a profile should be created when data is received if one doesn’t exist for an object of this type. The default is ``FALSE`` . If the AllowProfileCreation flag is set to ``FALSE`` , then the service tries to fetch a standard profile and associate this object with the profile. If it is set to ``TRUE`` , and if no match is found, then the service creates a new standard profile.
+        :param encryption_key: The customer-provided key to encrypt the profile object that will be created in this profile object type mapping. If not specified the system will use the encryption key of the domain.
+        :param expiration_days: The number of days until the data of this type expires.
+        :param fields: A list of field definitions for the object type mapping.
+        :param keys: A list of keys that can be used to map data to the profile or search for the profile.
+        :param max_profile_object_count: The amount of profile object max count assigned to the object type.
+        :param source_last_updated_timestamp_format: The format of your sourceLastUpdatedTimestamp that was previously set up.
+        :param tags: The tags used to organize, track, or control access for this resource.
+        :param template_id: A unique identifier for the template mapping. This can be used instead of specifying the Keys and Fields properties directly.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_object_type_props = customerprofiles.CfnObjectTypeProps(
+                description="description",
+                domain_name="domainName",
+                object_type_name="objectTypeName",
+            
+                # the properties below are optional
+                allow_profile_creation=False,
+                encryption_key="encryptionKey",
+                expiration_days=123,
+                fields=[customerprofiles.CfnObjectType.FieldMapProperty(
+                    name="name",
+                    object_type_field=customerprofiles.CfnObjectType.ObjectTypeFieldProperty(
+                        content_type="contentType",
+                        source="source",
+                        target="target"
+                    )
+                )],
+                keys=[customerprofiles.CfnObjectType.KeyMapProperty(
+                    name="name",
+                    object_type_key_list=[customerprofiles.CfnObjectType.ObjectTypeKeyProperty(
+                        field_names=["fieldNames"],
+                        standard_identifiers=["standardIdentifiers"]
+                    )]
+                )],
+                max_profile_object_count=123,
+                source_last_updated_timestamp_format="sourceLastUpdatedTimestampFormat",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                template_id="templateId"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2eea85954e)
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument object_type_name", value=object_type_name, expected_type=type_hints["object_type_name"])
+            check_type(argname="argument allow_profile_creation", value=allow_profile_creation, expected_type=type_hints["allow_profile_creation"])
+            check_type(argname="argument encryption_key", value=encryption_key, expected_type=type_hints["encryption_key"])
+            check_type(argname="argument expiration_days", value=expiration_days, expected_type=type_hints["expiration_days"])
+            check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
+            check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
+            check_type(argname="argument max_profile_object_count", value=max_profile_object_count, expected_type=type_hints["max_profile_object_count"])
+            check_type(argname="argument source_last_updated_timestamp_format", value=source_last_updated_timestamp_format, expected_type=type_hints["source_last_updated_timestamp_format"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument template_id", value=template_id, expected_type=type_hints["template_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "description": description,
+            "domain_name": domain_name,
+            "object_type_name": object_type_name,
+        }
+        if allow_profile_creation is not None:
+            self._values["allow_profile_creation"] = allow_profile_creation
+        if encryption_key is not None:
+            self._values["encryption_key"] = encryption_key
+        if expiration_days is not None:
+            self._values["expiration_days"] = expiration_days
+        if fields is not None:
+            self._values["fields"] = fields
+        if keys is not None:
+            self._values["keys"] = keys
+        if max_profile_object_count is not None:
+            self._values["max_profile_object_count"] = max_profile_object_count
+        if source_last_updated_timestamp_format is not None:
+            self._values["source_last_updated_timestamp_format"] = source_last_updated_timestamp_format
+        if tags is not None:
+            self._values["tags"] = tags
+        if template_id is not None:
+            self._values["template_id"] = template_id
+
+    @builtins.property
+    def description(self) -> builtins.str:
+        '''The description of the profile object type mapping.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-description
+        '''
+        result = self._values.get("description")
+        assert result is not None, "Required property 'description' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The unique name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def object_type_name(self) -> builtins.str:
+        '''The name of the profile object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-objecttypename
+        '''
+        result = self._values.get("object_type_name")
+        assert result is not None, "Required property 'object_type_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def allow_profile_creation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Indicates whether a profile should be created when data is received if one doesn’t exist for an object of this type.
+
+        The default is ``FALSE`` . If the AllowProfileCreation flag is set to ``FALSE`` , then the service tries to fetch a standard profile and associate this object with the profile. If it is set to ``TRUE`` , and if no match is found, then the service creates a new standard profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-allowprofilecreation
+        '''
+        result = self._values.get("allow_profile_creation")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def encryption_key(self) -> typing.Optional[builtins.str]:
+        '''The customer-provided key to encrypt the profile object that will be created in this profile object type mapping.
+
+        If not specified the system will use the encryption key of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-encryptionkey
+        '''
+        result = self._values.get("encryption_key")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expiration_days(self) -> typing.Optional[jsii.Number]:
+        '''The number of days until the data of this type expires.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-expirationdays
+        '''
+        result = self._values.get("expiration_days")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def fields(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.FieldMapProperty"]]]]:
+        '''A list of field definitions for the object type mapping.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-fields
+        '''
+        result = self._values.get("fields")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.FieldMapProperty"]]]], result)
+
+    @builtins.property
+    def keys(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.KeyMapProperty"]]]]:
+        '''A list of keys that can be used to map data to the profile or search for the profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-keys
+        '''
+        result = self._values.get("keys")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnObjectType.KeyMapProperty"]]]], result)
+
+    @builtins.property
+    def max_profile_object_count(self) -> typing.Optional[jsii.Number]:
+        '''The amount of profile object max count assigned to the object type.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-maxprofileobjectcount
+        '''
+        result = self._values.get("max_profile_object_count")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def source_last_updated_timestamp_format(self) -> typing.Optional[builtins.str]:
+        '''The format of your sourceLastUpdatedTimestamp that was previously set up.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-sourcelastupdatedtimestampformat
+        '''
+        result = self._values.get("source_last_updated_timestamp_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags used to organize, track, or control access for this resource.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def template_id(self) -> typing.Optional[builtins.str]:
+        '''A unique identifier for the template mapping.
+
+        This can be used instead of specifying the Keys and Fields properties directly.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-objecttype.html#cfn-customerprofiles-objecttype-templateid
+        '''
+        result = self._values.get("template_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnObjectTypeProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ISegmentDefinitionRef_fb9739e9, _ITaggableV2_4e6798f8)
 class CfnSegmentDefinition(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -8423,6 +7668,7 @@ class CfnSegmentDefinition(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_customerprofiles as customerprofiles
@@ -8431,6 +7677,9 @@ class CfnSegmentDefinition(
             display_name="displayName",
             domain_name="domainName",
             segment_definition_name="segmentDefinitionName",
+        
+            # the properties below are optional
+            description="description",
             segment_groups=customerprofiles.CfnSegmentDefinition.SegmentGroupProperty(
                 groups=[customerprofiles.CfnSegmentDefinition.GroupProperty(
                     dimensions=[customerprofiles.CfnSegmentDefinition.DimensionProperty(
@@ -8640,9 +7889,7 @@ class CfnSegmentDefinition(
                 )],
                 include="include"
             ),
-        
-            # the properties below are optional
-            description="description",
+            segment_sql_query="segmentSqlQuery",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -8652,24 +7899,27 @@ class CfnSegmentDefinition(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         display_name: builtins.str,
         domain_name: builtins.str,
         segment_definition_name: builtins.str,
-        segment_groups: typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.SegmentGroupProperty", typing.Dict[builtins.str, typing.Any]]],
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SegmentGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_sql_query: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::CustomerProfiles::SegmentDefinition``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param display_name: Display name of the segment definition.
         :param domain_name: The name of the domain.
         :param segment_definition_name: Name of the segment definition.
-        :param segment_groups: Contains all groups of the segment definition.
         :param description: The description of the segment definition.
+        :param segment_groups: Contains all groups of the segment definition.
+        :param segment_sql_query: The SQL query that defines the segment criteria.
         :param tags: The tags belonging to the segment definition.
         '''
         if __debug__:
@@ -8680,15 +7930,42 @@ class CfnSegmentDefinition(
             display_name=display_name,
             domain_name=domain_name,
             segment_definition_name=segment_definition_name,
-            segment_groups=segment_groups,
             description=description,
+            segment_groups=segment_groups,
+            segment_sql_query=segment_sql_query,
             tags=tags,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForSegmentDefinition")
+    @builtins.classmethod
+    def arn_for_segment_definition(
+        cls,
+        resource: "_ISegmentDefinitionRef_fb9739e9",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc55748b09dbe5999a8fd1fcfde799f88320a8e5324e8b6fd81a332e13f828cd)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForSegmentDefinition", [resource]))
+
+    @jsii.member(jsii_name="isCfnSegmentDefinition")
+    @builtins.classmethod
+    def is_cfn_segment_definition(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnSegmentDefinition.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5f3a127edae69b50521c71c67735a6582c72c56b523f5ad1edfe62d0f471171b)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnSegmentDefinition", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -8736,10 +8013,23 @@ class CfnSegmentDefinition(
         return typing.cast(builtins.str, jsii.get(self, "attrSegmentDefinitionArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrSegmentType")
+    def attr_segment_type(self) -> builtins.str:
+        '''The segment type.
+
+        Classic : Segments created using traditional SegmentGroup structure
+
+        Enhanced : Segments created using SQL queries
+
+        :cloudformationAttribute: SegmentType
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrSegmentType"))
+
+    @builtins.property
     @jsii.member(jsii_name="cdkTagManager")
-    def cdk_tag_manager(self) -> _TagManager_0a598cb3:
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "cdkTagManager"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -8748,9 +8038,9 @@ class CfnSegmentDefinition(
 
     @builtins.property
     @jsii.member(jsii_name="segmentDefinitionRef")
-    def segment_definition_ref(self) -> SegmentDefinitionReference:
+    def segment_definition_ref(self) -> "_SegmentDefinitionReference_019ca800":
         '''A reference to a SegmentDefinition resource.'''
-        return typing.cast(SegmentDefinitionReference, jsii.get(self, "segmentDefinitionRef"))
+        return typing.cast("_SegmentDefinitionReference_019ca800", jsii.get(self, "segmentDefinitionRef"))
 
     @builtins.property
     @jsii.member(jsii_name="displayName")
@@ -8792,24 +8082,6 @@ class CfnSegmentDefinition(
         jsii.set(self, "segmentDefinitionName", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="segmentGroups")
-    def segment_groups(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SegmentGroupProperty"]:
-        '''Contains all groups of the segment definition.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SegmentGroupProperty"], jsii.get(self, "segmentGroups"))
-
-    @segment_groups.setter
-    def segment_groups(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SegmentGroupProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "segmentGroups", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="description")
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the segment definition.'''
@@ -8823,13 +8095,44 @@ class CfnSegmentDefinition(
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="segmentGroups")
+    def segment_groups(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentGroupProperty"]]:
+        '''Contains all groups of the segment definition.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentGroupProperty"]], jsii.get(self, "segmentGroups"))
+
+    @segment_groups.setter
+    def segment_groups(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentGroupProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "segmentGroups", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="segmentSqlQuery")
+    def segment_sql_query(self) -> typing.Optional[builtins.str]:
+        '''The SQL query that defines the segment criteria.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "segmentSqlQuery"))
+
+    @segment_sql_query.setter
+    def segment_sql_query(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dace184319b94ab26365d2f38874f09e109779b2ee272b904f375e8d8d5320e8)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "segmentSqlQuery", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags belonging to the segment definition.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
 
     @tags.setter
-    def tags(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__238b83e5f2661e205fa241820b4292d8a4cb4f60bf75be3b31f1b17711318539)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -8851,12 +8154,12 @@ class CfnSegmentDefinition(
         def __init__(
             self,
             *,
-            city: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            country: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            county: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            postal_code: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            province: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            state: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            city: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            country: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            county: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            postal_code: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            province: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            state: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Object that segments on Customer Profile's address object.
 
@@ -8928,68 +8231,68 @@ class CfnSegmentDefinition(
         @builtins.property
         def city(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''The city belonging to the address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-addressdimension.html#cfn-customerprofiles-segmentdefinition-addressdimension-city
             '''
             result = self._values.get("city")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def country(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''The country belonging to the address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-addressdimension.html#cfn-customerprofiles-segmentdefinition-addressdimension-country
             '''
             result = self._values.get("country")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def county(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''The county belonging to the address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-addressdimension.html#cfn-customerprofiles-segmentdefinition-addressdimension-county
             '''
             result = self._values.get("county")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def postal_code(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''The postal code belonging to the address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-addressdimension.html#cfn-customerprofiles-segmentdefinition-addressdimension-postalcode
             '''
             result = self._values.get("postal_code")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def province(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''The province belonging to the address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-addressdimension.html#cfn-customerprofiles-segmentdefinition-addressdimension-province
             '''
             result = self._values.get("province")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def state(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''The state belonging to the address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-addressdimension.html#cfn-customerprofiles-segmentdefinition-addressdimension-state
             '''
             result = self._values.get("state")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9088,7 +8391,7 @@ class CfnSegmentDefinition(
             *,
             dimension_type: builtins.str,
             values: typing.Sequence[builtins.str],
-            condition_overrides: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ConditionOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            condition_overrides: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ConditionOverridesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Object that segments on Customer Profile's Calculated Attributes.
 
@@ -9156,13 +8459,13 @@ class CfnSegmentDefinition(
         @builtins.property
         def condition_overrides(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ConditionOverridesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ConditionOverridesProperty"]]:
             '''Applies the given condition over the initial Calculated Attribute's definition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-calculatedattributedimension.html#cfn-customerprofiles-segmentdefinition-calculatedattributedimension-conditionoverrides
             '''
             result = self._values.get("condition_overrides")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ConditionOverridesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ConditionOverridesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9184,7 +8487,7 @@ class CfnSegmentDefinition(
         def __init__(
             self,
             *,
-            range: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.RangeOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            range: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.RangeOverrideProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''An object to override the original condition block of a calculated attribute.
 
@@ -9219,13 +8522,13 @@ class CfnSegmentDefinition(
         @builtins.property
         def range(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.RangeOverrideProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.RangeOverrideProperty"]]:
             '''The relative time period over which data is included in the aggregation for this override.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-conditionoverrides.html#cfn-customerprofiles-segmentdefinition-conditionoverrides-range
             '''
             result = self._values.get("range")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.RangeOverrideProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.RangeOverrideProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9321,8 +8624,8 @@ class CfnSegmentDefinition(
         def __init__(
             self,
             *,
-            calculated_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.CalculatedAttributeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            profile_attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            calculated_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.CalculatedAttributeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            profile_attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileAttributesProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines the attribute to segment on.
 
@@ -9551,24 +8854,24 @@ class CfnSegmentDefinition(
         @builtins.property
         def calculated_attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.CalculatedAttributeDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.CalculatedAttributeDimensionProperty"]]]]:
             '''Object that holds the calculated attributes to segment on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-dimension.html#cfn-customerprofiles-segmentdefinition-dimension-calculatedattributes
             '''
             result = self._values.get("calculated_attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.CalculatedAttributeDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.CalculatedAttributeDimensionProperty"]]]], result)
 
         @builtins.property
         def profile_attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileAttributesProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileAttributesProperty"]]:
             '''Object that holds the profile attributes to segment on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-dimension.html#cfn-customerprofiles-segmentdefinition-dimension-profileattributes
             '''
             result = self._values.get("profile_attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileAttributesProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileAttributesProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -9666,8 +8969,8 @@ class CfnSegmentDefinition(
         def __init__(
             self,
             *,
-            dimensions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            source_segments: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.SourceSegmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            dimensions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.DimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            source_segments: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SourceSegmentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             source_type: typing.Optional[builtins.str] = None,
             type: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -9913,24 +9216,24 @@ class CfnSegmentDefinition(
         @builtins.property
         def dimensions(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.DimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.DimensionProperty"]]]]:
             '''Defines the attributes to segment on.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-group.html#cfn-customerprofiles-segmentdefinition-group-dimensions
             '''
             result = self._values.get("dimensions")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.DimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.DimensionProperty"]]]], result)
 
         @builtins.property
         def source_segments(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SourceSegmentProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SourceSegmentProperty"]]]]:
             '''Defines the starting source of data.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-group.html#cfn-customerprofiles-segmentdefinition-group-sourcesegments
             '''
             result = self._values.get("source_segments")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.SourceSegmentProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SourceSegmentProperty"]]]], result)
 
         @builtins.property
         def source_type(self) -> typing.Optional[builtins.str]:
@@ -9993,28 +9296,28 @@ class CfnSegmentDefinition(
         def __init__(
             self,
             *,
-            account_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            additional_information: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            attributes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.AttributeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            billing_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            birth_date: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.DateDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            business_email_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            business_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            business_phone_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            email_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            first_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            gender_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            home_phone_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            last_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            mailing_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            middle_name: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            mobile_phone_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            party_type_string: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            personal_email_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            phone_number: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            profile_type: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.ProfileTypeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-            shipping_address: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            account_number: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            additional_information: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            attributes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.AttributeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            billing_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            birth_date: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.DateDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            business_email_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            business_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            business_phone_number: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            email_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            first_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            gender_string: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            home_phone_number: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            last_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mailing_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            middle_name: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            mobile_phone_number: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            party_type_string: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            personal_email_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            phone_number: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            profile_type: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.ProfileTypeDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            shipping_address: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.AddressDimensionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The object used to segment on attributes within the customer profile.
 
@@ -10304,244 +9607,244 @@ class CfnSegmentDefinition(
         @builtins.property
         def account_number(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within account number.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-accountnumber
             '''
             result = self._values.get("account_number")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def additional_information(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty"]]:
             '''A field to describe values to segment on within additional information.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-additionalinformation
             '''
             result = self._values.get("additional_information")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty"]], result)
 
         @builtins.property
         def address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]]:
             '''A field to describe values to segment on within address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-address
             '''
             result = self._values.get("address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]], result)
 
         @builtins.property
         def attributes(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AttributeDimensionProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AttributeDimensionProperty"]]]]:
             '''A field to describe values to segment on within attributes.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-attributes
             '''
             result = self._values.get("attributes")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Mapping[builtins.str, typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AttributeDimensionProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Mapping[builtins.str, typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AttributeDimensionProperty"]]]], result)
 
         @builtins.property
         def billing_address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]]:
             '''A field to describe values to segment on within billing address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-billingaddress
             '''
             result = self._values.get("billing_address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]], result)
 
         @builtins.property
         def birth_date(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.DateDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.DateDimensionProperty"]]:
             '''A field to describe values to segment on within birthDate.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-birthdate
             '''
             result = self._values.get("birth_date")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.DateDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.DateDimensionProperty"]], result)
 
         @builtins.property
         def business_email_address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within business email address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-businessemailaddress
             '''
             result = self._values.get("business_email_address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def business_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within business name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-businessname
             '''
             result = self._values.get("business_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def business_phone_number(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within business phone number.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-businessphonenumber
             '''
             result = self._values.get("business_phone_number")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def email_address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within email address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-emailaddress
             '''
             result = self._values.get("email_address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def first_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within first name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-firstname
             '''
             result = self._values.get("first_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def gender_string(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within genderString.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-genderstring
             '''
             result = self._values.get("gender_string")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def home_phone_number(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within home phone number.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-homephonenumber
             '''
             result = self._values.get("home_phone_number")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def last_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within last name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-lastname
             '''
             result = self._values.get("last_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def mailing_address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]]:
             '''A field to describe values to segment on within mailing address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-mailingaddress
             '''
             result = self._values.get("mailing_address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]], result)
 
         @builtins.property
         def middle_name(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within middle name.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-middlename
             '''
             result = self._values.get("middle_name")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def mobile_phone_number(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within mobile phone number.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-mobilephonenumber
             '''
             result = self._values.get("mobile_phone_number")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def party_type_string(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within partyTypeString.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-partytypestring
             '''
             result = self._values.get("party_type_string")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def personal_email_address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within personal email address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-personalemailaddress
             '''
             result = self._values.get("personal_email_address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def phone_number(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]]:
             '''A field to describe values to segment on within phone number.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-phonenumber
             '''
             result = self._values.get("phone_number")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileDimensionProperty"]], result)
 
         @builtins.property
         def profile_type(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileTypeDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileTypeDimensionProperty"]]:
             '''The type of profile.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-profiletype
             '''
             result = self._values.get("profile_type")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.ProfileTypeDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.ProfileTypeDimensionProperty"]], result)
 
         @builtins.property
         def shipping_address(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]]:
             '''A field to describe values to segment on within shipping address.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-profileattributes.html#cfn-customerprofiles-segmentdefinition-profileattributes-shippingaddress
             '''
             result = self._values.get("shipping_address")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.AddressDimensionProperty"]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.AddressDimensionProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -10792,7 +10095,7 @@ class CfnSegmentDefinition(
         def __init__(
             self,
             *,
-            groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnSegmentDefinition.GroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.GroupProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             include: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains all groups of the segment definition.
@@ -11032,13 +10335,13 @@ class CfnSegmentDefinition(
         @builtins.property
         def groups(
             self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.GroupProperty"]]]]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.GroupProperty"]]]]:
             '''Holds the list of groups within the segment definition.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-customerprofiles-segmentdefinition-segmentgroup.html#cfn-customerprofiles-segmentdefinition-segmentgroup-groups
             '''
             result = self._values.get("groups")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnSegmentDefinition.GroupProperty"]]]], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.GroupProperty"]]]], result)
 
         @builtins.property
         def include(self) -> typing.Optional[builtins.str]:
@@ -11116,8 +10419,378 @@ class CfnSegmentDefinition(
             )
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_customerprofiles.CfnSegmentDefinitionProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "display_name": "displayName",
+        "domain_name": "domainName",
+        "segment_definition_name": "segmentDefinitionName",
+        "description": "description",
+        "segment_groups": "segmentGroups",
+        "segment_sql_query": "segmentSqlQuery",
+        "tags": "tags",
+    },
+)
+class CfnSegmentDefinitionProps:
+    def __init__(
+        self,
+        *,
+        display_name: builtins.str,
+        domain_name: builtins.str,
+        segment_definition_name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        segment_groups: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnSegmentDefinition.SegmentGroupProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        segment_sql_query: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnSegmentDefinition``.
+
+        :param display_name: Display name of the segment definition.
+        :param domain_name: The name of the domain.
+        :param segment_definition_name: Name of the segment definition.
+        :param description: The description of the segment definition.
+        :param segment_groups: Contains all groups of the segment definition.
+        :param segment_sql_query: The SQL query that defines the segment criteria.
+        :param tags: The tags belonging to the segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_customerprofiles as customerprofiles
+            
+            cfn_segment_definition_props = customerprofiles.CfnSegmentDefinitionProps(
+                display_name="displayName",
+                domain_name="domainName",
+                segment_definition_name="segmentDefinitionName",
+            
+                # the properties below are optional
+                description="description",
+                segment_groups=customerprofiles.CfnSegmentDefinition.SegmentGroupProperty(
+                    groups=[customerprofiles.CfnSegmentDefinition.GroupProperty(
+                        dimensions=[customerprofiles.CfnSegmentDefinition.DimensionProperty(
+                            calculated_attributes={
+                                "calculated_attributes_key": customerprofiles.CfnSegmentDefinition.CalculatedAttributeDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"],
+            
+                                    # the properties below are optional
+                                    condition_overrides=customerprofiles.CfnSegmentDefinition.ConditionOverridesProperty(
+                                        range=customerprofiles.CfnSegmentDefinition.RangeOverrideProperty(
+                                            start=123,
+                                            unit="unit",
+            
+                                            # the properties below are optional
+                                            end=123
+                                        )
+                                    )
+                                )
+                            },
+                            profile_attributes=customerprofiles.CfnSegmentDefinition.ProfileAttributesProperty(
+                                account_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                additional_information=customerprofiles.CfnSegmentDefinition.ExtraLengthValueProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
+                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    )
+                                ),
+                                attributes={
+                                    "attributes_key": customerprofiles.CfnSegmentDefinition.AttributeDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    )
+                                },
+                                billing_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
+                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    )
+                                ),
+                                birth_date=customerprofiles.CfnSegmentDefinition.DateDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                business_email_address=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                business_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                business_phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                email_address=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                first_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                gender_string=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                home_phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                last_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                mailing_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
+                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    )
+                                ),
+                                middle_name=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                mobile_phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                party_type_string=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                personal_email_address=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                phone_number=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                profile_type=customerprofiles.CfnSegmentDefinition.ProfileTypeDimensionProperty(
+                                    dimension_type="dimensionType",
+                                    values=["values"]
+                                ),
+                                shipping_address=customerprofiles.CfnSegmentDefinition.AddressDimensionProperty(
+                                    city=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    country=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    county=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    postal_code=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    province=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    ),
+                                    state=customerprofiles.CfnSegmentDefinition.ProfileDimensionProperty(
+                                        dimension_type="dimensionType",
+                                        values=["values"]
+                                    )
+                                )
+                            )
+                        )],
+                        source_segments=[customerprofiles.CfnSegmentDefinition.SourceSegmentProperty(
+                            segment_definition_name="segmentDefinitionName"
+                        )],
+                        source_type="sourceType",
+                        type="type"
+                    )],
+                    include="include"
+                ),
+                segment_sql_query="segmentSqlQuery",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bfe3927b013a59f4b37e001ce8d373fe3d8d8bc374ee6c206d37e74f69369348)
+            check_type(argname="argument display_name", value=display_name, expected_type=type_hints["display_name"])
+            check_type(argname="argument domain_name", value=domain_name, expected_type=type_hints["domain_name"])
+            check_type(argname="argument segment_definition_name", value=segment_definition_name, expected_type=type_hints["segment_definition_name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument segment_groups", value=segment_groups, expected_type=type_hints["segment_groups"])
+            check_type(argname="argument segment_sql_query", value=segment_sql_query, expected_type=type_hints["segment_sql_query"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "display_name": display_name,
+            "domain_name": domain_name,
+            "segment_definition_name": segment_definition_name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if segment_groups is not None:
+            self._values["segment_groups"] = segment_groups
+        if segment_sql_query is not None:
+            self._values["segment_sql_query"] = segment_sql_query
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def display_name(self) -> builtins.str:
+        '''Display name of the segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-displayname
+        '''
+        result = self._values.get("display_name")
+        assert result is not None, "Required property 'display_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def domain_name(self) -> builtins.str:
+        '''The name of the domain.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-domainname
+        '''
+        result = self._values.get("domain_name")
+        assert result is not None, "Required property 'domain_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def segment_definition_name(self) -> builtins.str:
+        '''Name of the segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-segmentdefinitionname
+        '''
+        result = self._values.get("segment_definition_name")
+        assert result is not None, "Required property 'segment_definition_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def segment_groups(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentGroupProperty"]]:
+        '''Contains all groups of the segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-segmentgroups
+        '''
+        result = self._values.get("segment_groups")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnSegmentDefinition.SegmentGroupProperty"]], result)
+
+    @builtins.property
+    def segment_sql_query(self) -> typing.Optional[builtins.str]:
+        '''The SQL query that defines the segment criteria.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-segmentsqlquery
+        '''
+        result = self._values.get("segment_sql_query")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags belonging to the segment definition.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-customerprofiles-segmentdefinition.html#cfn-customerprofiles-segmentdefinition-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnSegmentDefinitionProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
-    "CalculatedAttributeDefinitionReference",
     "CfnCalculatedAttributeDefinition",
     "CfnCalculatedAttributeDefinitionProps",
     "CfnDomain",
@@ -11132,174 +10805,9 @@ __all__ = [
     "CfnObjectTypeProps",
     "CfnSegmentDefinition",
     "CfnSegmentDefinitionProps",
-    "DomainReference",
-    "EventStreamReference",
-    "EventTriggerReference",
-    "ICalculatedAttributeDefinitionRef",
-    "IDomainRef",
-    "IEventStreamRef",
-    "IEventTriggerRef",
-    "IIntegrationRef",
-    "IObjectTypeRef",
-    "ISegmentDefinitionRef",
-    "IntegrationReference",
-    "ObjectTypeReference",
-    "SegmentDefinitionReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__78249ca7b9e7766f6c75731f511adb6f1637e310836a1d5ff16ada6e1b7172a8(
-    *,
-    calculated_attribute_name: builtins.str,
-    domain_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b490cf412d8b10ddc1ddbf98b6d852a5446deca7e9befe3439df8de5169c37dd(
-    *,
-    attribute_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.AttributeDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
-    calculated_attribute_name: builtins.str,
-    domain_name: builtins.str,
-    statistic: builtins.str,
-    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.ConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    description: typing.Optional[builtins.str] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__03a55eb0b8d16e4b2b2589908d65475847a28870949386381667b6572e627f96(
-    *,
-    default_expiration_days: jsii.Number,
-    domain_name: builtins.str,
-    dead_letter_queue_url: typing.Optional[builtins.str] = None,
-    default_encryption_key: typing.Optional[builtins.str] = None,
-    matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.MatchingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    rule_based_matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.RuleBasedMatchingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__813f95ba6287d3dc18d43b5b2ff35fbde17184e556360b280e3386143cfc00f0(
-    *,
-    domain_name: builtins.str,
-    event_stream_name: builtins.str,
-    uri: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a9d2b6147273c603d09e90db3d8372049e484840bcff7a8dc8031fd2f0e0e756(
-    *,
-    domain_name: builtins.str,
-    event_trigger_conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventTrigger.EventTriggerConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    event_trigger_name: builtins.str,
-    object_type_name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    event_trigger_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventTrigger.EventTriggerLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    segment_filter: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__52bfebce0bd12cb9d9ed6354b0627c3f2946899ecf1ba8120aa70c1e1e22428d(
-    *,
-    domain_name: builtins.str,
-    event_trigger_names: typing.Optional[typing.Sequence[builtins.str]] = None,
-    flow_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    object_type_name: typing.Optional[builtins.str] = None,
-    object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.ObjectTypeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    uri: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2eea85954e(
-    *,
-    description: builtins.str,
-    domain_name: builtins.str,
-    object_type_name: builtins.str,
-    allow_profile_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    encryption_key: typing.Optional[builtins.str] = None,
-    expiration_days: typing.Optional[jsii.Number] = None,
-    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.FieldMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    max_profile_object_count: typing.Optional[jsii.Number] = None,
-    source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    template_id: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__bfe3927b013a59f4b37e001ce8d373fe3d8d8bc374ee6c206d37e74f69369348(
-    *,
-    display_name: builtins.str,
-    domain_name: builtins.str,
-    segment_definition_name: builtins.str,
-    segment_groups: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentGroupProperty, typing.Dict[builtins.str, typing.Any]]],
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__a3a1999d01b266c1d01b0028abe3a51118d1af04385288d434e05f31733c9a17(
-    *,
-    domain_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d0f991f591998f685960c7eb34cf4f7c5c70e9dff42d888cfbc1914e186b229f(
-    *,
-    domain_name: builtins.str,
-    event_stream_arn: builtins.str,
-    event_stream_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7f176fa40aee0dbabac049b7a13287151e5bc28dfbb5123f9d0f928bd73f27f3(
-    *,
-    domain_name: builtins.str,
-    event_trigger_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__85f8cf51e74032dbb4ac02a97a87bde926541a71d0742742aabdf8634998149f(
-    *,
-    domain_name: builtins.str,
-    uri: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d400cf9ebf30fc2e14385c30ccb039ccc0ba40af2672b4b1573a2ee4cfbd12fc(
-    *,
-    domain_name: builtins.str,
-    object_type_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__446412fa29347667f1d83db542c90d172c46bff77d4a5a8ad85f44bbe8e16f56(
-    *,
-    domain_name: builtins.str,
-    segment_definition_arn: builtins.str,
-    segment_definition_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__3a09ab96caa4db6cfa4ebb0207c025a7f976cac18f814d69b882506cf2971669(
     scope: _constructs_77d1e7e8.Construct,
@@ -11314,6 +10822,12 @@ def _typecheckingstub__3a09ab96caa4db6cfa4ebb0207c025a7f976cac18f814d69b882506cf
     display_name: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c8163b7fc23feae673555a9075f0b9ecf4df3ad65182f649fbb16715b2686cd5(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11443,17 +10957,53 @@ def _typecheckingstub__4d18b8118549ce586fc14b0cc15f51e9a520330684bb4d883bbf10b82
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b490cf412d8b10ddc1ddbf98b6d852a5446deca7e9befe3439df8de5169c37dd(
+    *,
+    attribute_details: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.AttributeDetailsProperty, typing.Dict[builtins.str, typing.Any]]],
+    calculated_attribute_name: builtins.str,
+    domain_name: builtins.str,
+    statistic: builtins.str,
+    conditions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCalculatedAttributeDefinition.ConditionsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    description: typing.Optional[builtins.str] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    use_historical_data: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6cc1e612474254ea8edde86de3e08226c0c50e450782b3a99c92e87c31b99bad(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     default_expiration_days: jsii.Number,
     domain_name: builtins.str,
+    data_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DataStoreProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dead_letter_queue_url: typing.Optional[builtins.str] = None,
     default_encryption_key: typing.Optional[builtins.str] = None,
     matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.MatchingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     rule_based_matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.RuleBasedMatchingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be579f5475b5531cc36be176014d3fb7b28c19b561e96657ccba256cb937b531(
+    resource: _IDomainRef_05f5627e,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fd06f1031d674322ba6de287a0e9b6f98bcf7c1e63ca71ee399b0962fde84df9(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    domain_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__136e310007fbc1f10d97cd63d4a2ef7a5d9cadea6f915df4982ac387b2deefbd(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11478,6 +11028,12 @@ def _typecheckingstub__3d16654417fe9cbdb9f2b4f0145b59b3328699684a9b2c7ae7f2a3ad9
 
 def _typecheckingstub__5155d94ec0a92f02d3b08cff5971632f213635d3dd2577433bbe328e9fac1d90(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__51b1b6fd1de18b8d346c70161b7cb61979e8eba7a051f991a07d629d32e2c641(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnDomain.DataStoreProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11542,7 +11098,15 @@ def _typecheckingstub__39a5c699e09d6961f3eed32cb756eca983664193f4a0cdfbac7965404
 
 def _typecheckingstub__2f3fee71d236ee85937168636cf44627d0e12e7714908fdcc02548a6e6baa537(
     *,
-    matching_attributes_list: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Sequence[builtins.str]]],
+    matching_attributes_list: typing.Union[typing.Sequence[typing.Sequence[builtins.str]], _IResolvable_da3f097b],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ed05879fa75b88d4c3657e33fd8e55e1b9c53eaf50ce42de6ac2ea3eda11bf95(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    readiness: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ReadinessProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11589,6 +11153,14 @@ def _typecheckingstub__0d978c61e1b04215bb349c7460583b8296f0fc2a1f64e575731bf7ab3
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__324f198fba50eb0321211a19e771046aaca0bda28a6d38c0022aed9a86f8bf24(
+    *,
+    message: typing.Optional[builtins.str] = None,
+    progress_percentage: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__63470bb7c476b2fc82a2f0bc6e61f9a94630928b1d8427c1ec5400fd3523d282(
     *,
     enabled: typing.Union[builtins.bool, _IResolvable_da3f097b],
@@ -11611,6 +11183,20 @@ def _typecheckingstub__67d29e593ac1f40be9594826daeee9e088ed90a7a1c973d30de0a10f4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__03a55eb0b8d16e4b2b2589908d65475847a28870949386381667b6572e627f96(
+    *,
+    default_expiration_days: jsii.Number,
+    domain_name: builtins.str,
+    data_store: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.DataStoreProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    dead_letter_queue_url: typing.Optional[builtins.str] = None,
+    default_encryption_key: typing.Optional[builtins.str] = None,
+    matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.MatchingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    rule_based_matching: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.RuleBasedMatchingProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__ab29d0d747428994b84491cb3989a05a67bcb4cf0b84ebeba8fd19114b7cd61d(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11619,6 +11205,18 @@ def _typecheckingstub__ab29d0d747428994b84491cb3989a05a67bcb4cf0b84ebeba8fd19114
     event_stream_name: builtins.str,
     uri: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__41977b51f363c143032c0ed9e9887fcad8d2a49c96031285f4df1cdfe8af298c(
+    resource: _IEventStreamRef_2336759c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__30bb94bfb5ac46c1523171eba8ed13e3af1ab4a2327da671f8bd8266e59b3e78(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11667,6 +11265,16 @@ def _typecheckingstub__14be2a6e46acdc39b98267227ca646cdeba3edce7277e1499527949bd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__813f95ba6287d3dc18d43b5b2ff35fbde17184e556360b280e3386143cfc00f0(
+    *,
+    domain_name: builtins.str,
+    event_stream_name: builtins.str,
+    uri: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3238d15e8be30353d06e9f7813fb0d93d105339df1e3008dc6d5d889128103a4(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11679,6 +11287,12 @@ def _typecheckingstub__3238d15e8be30353d06e9f7813fb0d93d105339df1e3008dc6d5d8891
     event_trigger_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventTrigger.EventTriggerLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     segment_filter: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d36ef6ace0c9210cfa7cde81e61e4f8857ef14b3522029cf75c6098889004d56(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11786,6 +11400,20 @@ def _typecheckingstub__779555dd66a387de3220544cdb9e3846de45bce3e7a1615f8f0ecb0e7
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__a9d2b6147273c603d09e90db3d8372049e484840bcff7a8dc8031fd2f0e0e756(
+    *,
+    domain_name: builtins.str,
+    event_trigger_conditions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventTrigger.EventTriggerConditionProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    event_trigger_name: builtins.str,
+    object_type_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    event_trigger_limits: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnEventTrigger.EventTriggerLimitsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_filter: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b8211c08b95eabfe008b27ab5b3b74bab34f671b7bd9761e15cdb090da9d3d95(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -11797,6 +11425,12 @@ def _typecheckingstub__b8211c08b95eabfe008b27ab5b3b74bab34f671b7bd9761e15cdb090d
     object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.ObjectTypeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__219d361ae34ba5e8296c11a603aafe56c39f2bbdbeeb976d7c2d8dfb54993f54(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11999,6 +11633,19 @@ def _typecheckingstub__6fec16a3ec50ec7d597e7573ae1e24e531163b732505e322d5ef39e92
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__52bfebce0bd12cb9d9ed6354b0627c3f2946899ecf1ba8120aa70c1e1e22428d(
+    *,
+    domain_name: builtins.str,
+    event_trigger_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+    flow_definition: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.FlowDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    object_type_name: typing.Optional[builtins.str] = None,
+    object_type_names: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIntegration.ObjectTypeMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e58419cb0a7694b5c554275a8721df95dc40489e742a23c76f7830ca5210127a(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12015,6 +11662,12 @@ def _typecheckingstub__e58419cb0a7694b5c554275a8721df95dc40489e742a23c76f7830ca5
     source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4659769db4a4cc23cf2e2d11c9a47712d05bda0cd739cb1fda2de0ed4af2a243(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12136,6 +11789,24 @@ def _typecheckingstub__7448ca799e207118d55f0019b3c6c35b6416f32804761112746d00e40
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__674aff1f8e16a6059ac0e56bfd831b21c20b3b3358878f53ea82ff2eea85954e(
+    *,
+    description: builtins.str,
+    domain_name: builtins.str,
+    object_type_name: builtins.str,
+    allow_profile_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    encryption_key: typing.Optional[builtins.str] = None,
+    expiration_days: typing.Optional[jsii.Number] = None,
+    fields: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.FieldMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    keys: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnObjectType.KeyMapProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    max_profile_object_count: typing.Optional[jsii.Number] = None,
+    source_last_updated_timestamp_format: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    template_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__350e170fd13ca6586a78a39785ca961e3b7fa8982a5b03ff0799f34c2f12ea50(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -12143,9 +11814,22 @@ def _typecheckingstub__350e170fd13ca6586a78a39785ca961e3b7fa8982a5b03ff0799f34c2
     display_name: builtins.str,
     domain_name: builtins.str,
     segment_definition_name: builtins.str,
-    segment_groups: typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentGroupProperty, typing.Dict[builtins.str, typing.Any]]],
     description: typing.Optional[builtins.str] = None,
+    segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_sql_query: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc55748b09dbe5999a8fd1fcfde799f88320a8e5324e8b6fd81a332e13f828cd(
+    resource: _ISegmentDefinitionRef_fb9739e9,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5f3a127edae69b50521c71c67735a6582c72c56b523f5ad1edfe62d0f471171b(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12180,13 +11864,19 @@ def _typecheckingstub__6bc5bbfa19f04ef37dd74fe0dab060cbd192ee5bb1b47e5b1508f67f2
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340(
-    value: typing.Union[_IResolvable_da3f097b, CfnSegmentDefinition.SegmentGroupProperty],
+def _typecheckingstub__223f2ad9551b0ca745b7b727aa69f874d90c37d42f2d71a6e2b2fb44e7ade212(
+    value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__223f2ad9551b0ca745b7b727aa69f874d90c37d42f2d71a6e2b2fb44e7ade212(
+def _typecheckingstub__744689fb47e84da608e8ce7c410f0a6489728b4132c9e51efab1802d01b77340(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnSegmentDefinition.SegmentGroupProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dace184319b94ab26365d2f38874f09e109779b2ee272b904f375e8d8d5320e8(
     value: typing.Optional[builtins.str],
 ) -> None:
     """Type checking stubs"""
@@ -12332,6 +12022,19 @@ def _typecheckingstub__49a789743f5ac4162a8c53d6f5aae978c5989a590155f77804b52b379
 def _typecheckingstub__002c938fccce270fc597ae5653583b8a9910031239e0daaf523e0c4431d75ed7(
     *,
     segment_definition_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bfe3927b013a59f4b37e001ce8d373fe3d8d8bc374ee6c206d37e74f69369348(
+    *,
+    display_name: builtins.str,
+    domain_name: builtins.str,
+    segment_definition_name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    segment_groups: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnSegmentDefinition.SegmentGroupProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    segment_sql_query: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

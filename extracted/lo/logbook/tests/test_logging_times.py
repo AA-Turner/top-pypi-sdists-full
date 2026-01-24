@@ -14,10 +14,10 @@ def test_timedate_format(activation_strategy, logger):
     with activation_strategy(handler):
         logbook.set_datetime_format("utc")
         try:
-            logger.warn("This is a warning.")
+            logger.warning("This is a warning.")
             time_utc = handler.records[0].time
             logbook.set_datetime_format("local")
-            logger.warn("This is a warning.")
+            logger.warning("This is a warning.")
             time_local = handler.records[1].time
         finally:
             # put back the default time factory
@@ -38,7 +38,7 @@ def test_timedate_format(activation_strategy, logger):
     # get the difference between LogRecord local and utc times
     logbook_minutes_diff = (time_local - time_utc).total_seconds() / 60.0
     assert abs(logbook_minutes_diff) > 1, (
-        "Localtime does not differ from UTC by more than 1 "
+        "Localtime does not differ from UTC by more than 1 "  # noqa: UP031
         "minute (Local: %s, UTC: %s)" % (time_local, time_utc)
     )
 
@@ -73,7 +73,7 @@ def test_tz_aware(activation_strategy, logger):
     with activation_strategy(handler):
         logbook.set_datetime_format(utc_tz)
         try:
-            logger.warn("this is a warning.")
+            logger.warning("this is a warning.")
             record = handler.records[0]
         finally:
             # put back the default time factory

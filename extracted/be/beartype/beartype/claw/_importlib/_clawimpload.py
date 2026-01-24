@@ -49,19 +49,21 @@ class BeartypeSourceFileLoader(SourceFileLoader):
     importation of that package or module, complete with a reference back to
     this originating loader).
 
-    The :func:`beartype_package` function injects a low-level **import path
-    hook** (i.e., factory closure instantiating this class as an item of the
-    standard :mod:`sys.path_hooks` list) to the front of that list. When called
-    by a higher-level parent **import metapath hook** (i.e., object suitable for
-    use as an item of the standard :mod:`sys.meta_path` list), that closure:
+    The low-level :func:`beartype.claw._package.clawpkgmain.hook_packages`
+    import hook underlying *all* high-level :mod:`beartype.claw` import hooks
+    injects a lower-level **import path hook** (i.e., factory closure
+    instantiating this class as an item of the standard :mod:`sys.path_hooks`
+    list) to the front of that list. When called by a higher-level parent
+    **import metapath hook** (i.e., object suitable for use as an item of the
+    standard :mod:`sys.meta_path` list), that import path hook closure:
 
     #. Instantiates one instance of the standard
        :class:`importlib._bootstrap_external.FileFinder` class for each
        **imported Python package** (i.e., package on the :mod:`sys.path` list).
        The :meth:``importlib._bootstrap_external.FileFinder.find_spec` method of
-       that instance then returns this :class:`BeartypeSourceFileLoader` class
-       uninstantiated for each **imported Python package submodule** (i.e.,
-       submodule directly contained in that package).
+       that instance then returns this uninstantiated
+       :class:`.BeartypeSourceFileLoader` class for each **imported Python
+       package submodule** (i.e., submodule directly contained in that package).
     #. Adds a new key-value pair to the standard :mod:`sys.path_importer_cache`
        dictionary, whose:
 
@@ -110,7 +112,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
 
     Attributes
     ----------
-    _module_conf_beartype : Optional[BeartypeConf]
+    _module_conf : Optional[BeartypeConf]
         Either:
 
         * If the most recent call to the :meth:`get_code` method (which loads a
@@ -136,7 +138,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         :meth:`.source_to_code` is only called by :meth:`get_code` in the
         :mod:`importlib` codebase. Ergo, :meth:`source_to_code` should ideally
         have been privatized (e.g., as ``_source_to_code()``).
-    _module_name_beartype : str
+    _module_name : str
         Fully-qualified name of the module currently being imported by the
         :meth:`.get_code` method for subsequent reference in the lower-level
         :meth:`.source_to_code` method transitively called by the former.
@@ -171,8 +173,8 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         super().__init__(*args, **kwargs)
 
         # Nullify all subclass-specific instance variables for safety.
-        self._module_conf_beartype: Optional[BeartypeConf] = None
-        self._module_name_beartype: str = None  # type: ignore[assignment]
+        self._module_conf: Optional[BeartypeConf] = None
+        self._module_name: str = None  # type: ignore[assignment]
 
     # ..................{ LOADER API                         }..................
     # The importlib._bootstrap_external.*Loader API declares the low-level
@@ -197,7 +199,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         internally follows one of two distinct code paths, conditionally
         depending on whether a parent package transitively containing that
         module has been previously registered with the
-        :mod:`beartype.claw._package.clawpkghook` submodule (e.g., by a call to
+        :mod:`beartype.claw._package.clawpkgmain` submodule (e.g., by a call to
         the :func:`beartype.claw.beartype_package` function). Specifically:
 
         * If *no* parent package transitively containing that module has been
@@ -344,7 +346,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         #     # "None" otherwise (i.e., if that module is unhooked).
         #     get_package_conf_or_none(fullname)
         # )
-        # print(f'Imported module "{fullname}" package "{package_name}" conf: {repr(self._module_conf_beartype)}')
+        # print(f'Imported module "{fullname}" package "{package_name}" conf: {repr(self._module_conf)}')
 
         # If that module is unhooked, preserve that module as is by simply
         # deferring to the superclass method *WITHOUT* monkey-patching
@@ -364,8 +366,8 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         # Classify local attributes as instance variables for subsequent
         # reference in the lower-level source_to_code() method transitively
         # called by this higher-level method.
-        self._module_conf_beartype = conf
-        self._module_name_beartype = fullname
+        self._module_conf = conf
+        self._module_name = fullname
 
         # Expose this configuration to the "beartype.claw._ast" subpackage.
         claw_state.module_name_to_beartype_conf[fullname] = conf
@@ -378,6 +380,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
 
         # Attempt to defer to the superclass method.
         try:
+            # print(f'Importing module "{fullname}" with beartyping...')
             return super().get_code(fullname)
         # After doing so (and regardless of whether doing so raises an
         # exception), restore the original cache_from_source() function.
@@ -440,10 +443,16 @@ class BeartypeSourceFileLoader(SourceFileLoader):
             the original valid abstract syntax tree (AST) governing that Python
             package or module into a new invalid AST.
         '''
+        #NOTETOSELF: If you uncomment this and don't see any output, then
+        #bytecode caching is the culprit. Unit or integration tests are probably
+        #failing to properly clear the appropriate bytecode cache. *sigh*
+        # from sys import stderr
+        # print('!!!TRANSFORMING!!!', file=stderr)
+        # print('!!!TRANSFORMING!!!')
 
         # If that module has *NOT* been registered for type-checking, preserve
         # that module as is by simply deferring to the superclass method.
-        if self._module_conf_beartype is None:
+        if self._module_conf is None:
             return super().source_to_code(  # type: ignore[call-arg]
                 data=data, path=path, _optimize=_optimize)  # pyright: ignore
         # Else, that module has been registered for type-checking.
@@ -465,9 +474,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
 
         # AST transformer decorating typed callables and classes by @beartype.
         ast_beartyper = BeartypeNodeTransformer(
-            module_name_beartype=self._module_name_beartype,
-            conf_beartype=self._module_conf_beartype,
-        )
+            module_name=self._module_name, conf=self._module_conf)
 
         # Abstract syntax tree (AST) modified by this transformer.
         module_ast_beartyped = ast_beartyper.visit(module_ast)
@@ -479,7 +486,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         # from sys import stderr
         # print(
         #     (
-        #         f'Module "{self._module_name_beartype}" abstract syntax tree (AST) '
+        #         f'Module "{self._module_name}" abstract syntax tree (AST) '
         #         f'transformed by @beartype to:\n\n'
         #         f'{get_node_repr_indented(module_ast_beartyped)}'
         #     ),
@@ -504,7 +511,7 @@ class BeartypeSourceFileLoader(SourceFileLoader):
         # Doing so enables users to submit meaningful issues to our tracker.
         except Exception as exception:
             raise BeartypeClawImportAstException(
-                f'Module "{self._module_name_beartype}" unimportable, as '
+                f'Module "{self._module_name}" unimportable, as '
                 f'@beartype generated invalid '
                 f'abstract syntax tree (AST):\n\n'
                 f'{get_node_repr_indented(module_ast_beartyped)}\n\n'

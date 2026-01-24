@@ -1,0 +1,729 @@
+# Any copyright is dedicated to the public domain.
+# http://creativecommons.org/publicdomain/zero/1.0/
+
+import json
+import os
+import sys
+from pathlib import Path
+from textwrap import dedent
+
+import pytest
+
+import taskgraph
+from taskgraph.actions import registry
+from taskgraph.graph import Graph
+from taskgraph.main import format_kind_graph_mermaid, get_filtered_taskgraph
+from taskgraph.main import main as taskgraph_main
+from taskgraph.task import Task
+from taskgraph.taskgraph import TaskGraph
+from taskgraph.util.vcs import GitRepository, HgRepository
+from taskgraph.util.yaml import load_yaml
+
+
+@pytest.fixture
+def run_taskgraph(maketgg, monkeypatch):
+    def inner(args, **kwargs):
+        kwargs.setdefault("target_tasks", ["_fake-t-0", "_fake-t-1"])
+        tgg = maketgg(**kwargs)
+
+        def fake_get_taskgraph_generator(*args):
+            return tgg
+
+        monkeypatch.setattr(
+            taskgraph.main, "get_taskgraph_generator", fake_get_taskgraph_generator
+        )
+        try:
+            return taskgraph_main(args)
+        except SystemExit as e:
+            return e.code
+
+    return inner
+
+
+@pytest.mark.parametrize(
+    "attr,expected",
+    (
+        ("tasks", ["_fake-t-0", "_fake-t-1", "_fake-t-2"]),
+        ("full", ["_fake-t-0", "_fake-t-1", "_fake-t-2"]),
+        ("target", ["_fake-t-0", "_fake-t-1"]),
+        ("target-graph", ["_fake-t-0", "_fake-t-1"]),
+        ("optimized", ["_fake-t-0", "_fake-t-1"]),
+        ("morphed", ["_fake-t-0", "_fake-t-1"]),
+    ),
+)
+def test_show_taskgraph_attr(run_taskgraph, capsys, attr, expected):
+    res = run_taskgraph([attr])
+    assert res == 0
+
+    out, err = capsys.readouterr()
+    assert out.strip() == "\n".join(expected)
+    assert "Dumping result" in err
+
+    # Craft params to cause an exception
+    res = run_taskgraph(["full"], params={"_kinds": None})
+    assert res == 1
+
+
+def test_show_taskgraph_parallel(run_taskgraph):
+    # Test that parallel execution works correctly with valid parameters
+    res = run_taskgraph(["full", "-p", "taskcluster/test/params"])
+    assert res == 0
+
+
+def test_show_taskgraph_parallel_bad_params(tmp_path):
+    # Create parameter files that will cause processing errors
+    bad_params_dir = tmp_path / "bad_params"
+    bad_params_dir.mkdir()
+    (bad_params_dir / "invalid-yaml.yml").write_text("invalid: yaml: [syntax error")
+
+    try:
+        result = taskgraph_main(["full", "-p", str(bad_params_dir)])
+    except SystemExit as e:
+        result = e.code
+
+    assert result == 1
+
+
+def test_show_taskgraph_force_local_files_changed(mocker, run_taskgraph):
+    repo = mocker.MagicMock()
+    repo.get_changed_files.return_value = ["foo.txt"]
+
+    m = mocker.MagicMock()
+    m.get_repository.return_value = repo
+    mocker.patch.dict(sys.modules, {"taskgraph.util.vcs": m})
+
+    res = run_taskgraph(["full"])
+    assert res == 0
+    assert not repo.get_changed_files.called
+
+    res = run_taskgraph(["full", "--force-local-files-changed"])
+    assert res == 0
+    assert not repo.get_changed_files.called
+
+    res = run_taskgraph(
+        [
+            "full",
+            "--force-local-files-changed",
+            "-p",
+            "taskcluster/test/params/mc-onpush.yml",
+        ]
+    )
+    assert res == 0
+    assert repo.get_changed_files.call_count == 1
+
+
+def test_tasks_regex(run_taskgraph, capsys):
+    run_taskgraph(["full", "--tasks=_.*-t-1"])
+    out, _ = capsys.readouterr()
+    assert out.strip() == "_fake-t-1"
+
+
+def test_output_file(run_taskgraph, tmpdir):
+    output_file = tmpdir.join("out.txt")
+    assert not output_file.check()
+
+    run_taskgraph(["full", f"--output-file={output_file.strpath}"])
+    assert output_file.check()
+    assert output_file.read_text("utf-8").strip() == "\n".join(
+        ["_fake-t-0", "_fake-t-1", "_fake-t-2"]
+    )
+
+
+@pytest.mark.parametrize(
+    "regex,exclude,expected",
+    (
+        pytest.param(
+            None,
+            None,
+            {
+                "a": {
+                    "attributes": {"kind": "task"},
+                    "dependencies": {"dep": "b"},
+                    "description": "",
+                    "kind": "task",
+                    "label": "a",
+                    "optimization": None,
+                    "soft_dependencies": [],
+                    "if_dependencies": [],
+                    "task": {
+                        "foo": {"bar": 1},
+                    },
+                },
+                "b": {
+                    "attributes": {"kind": "task", "thing": True},
+                    "dependencies": {},
+                    "description": "",
+                    "kind": "task",
+                    "label": "b",
+                    "optimization": {"skip-unless-changed": True},
+                    "soft_dependencies": [],
+                    "if_dependencies": [],
+                    "task": {
+                        "foo": {"baz": 1},
+                    },
+                },
+            },
+            id="no-op",
+        ),
+        pytest.param(
+            "^b",
+            None,
+            {
+                "b": {
+                    "attributes": {"kind": "task", "thing": True},
+                    "dependencies": {},
+                    "description": "",
+                    "kind": "task",
+                    "label": "b",
+                    "optimization": {"skip-unless-changed": True},
+                    "soft_dependencies": [],
+                    "if_dependencies": [],
+                    "task": {
+                        "foo": {"baz": 1},
+                    },
+                },
+            },
+            id="regex-b-only",
+        ),
+        pytest.param(
+            None,
+            [
+                "attributes.thing",
+                "optimization.skip-unless-changed",
+                "task.foo.baz",
+            ],
+            {
+                "a": {
+                    "attributes": {"kind": "task"},
+                    "dependencies": {"dep": "b"},
+                    "description": "",
+                    "kind": "task",
+                    "label": "a",
+                    "optimization": None,
+                    "soft_dependencies": [],
+                    "if_dependencies": [],
+                    "task": {
+                        "foo": {"bar": 1},
+                    },
+                },
+                "b": {
+                    "attributes": {"kind": "task"},
+                    "dependencies": {},
+                    "description": "",
+                    "kind": "task",
+                    "label": "b",
+                    "optimization": {},
+                    "soft_dependencies": [],
+                    "if_dependencies": [],
+                    "task": {
+                        "foo": {},
+                    },
+                },
+            },
+            id="exclude-keys",
+        ),
+    ),
+)
+def test_get_filtered_taskgraph(regex, exclude, expected):
+    tasks = {
+        "a": Task(kind="task", label="a", attributes={}, task={"foo": {"bar": 1}}),
+        "b": Task(
+            kind="task",
+            label="b",
+            attributes={"thing": True},
+            optimization={"skip-unless-changed": True},
+            task={"foo": {"baz": 1}},
+        ),
+    }
+
+    graph = TaskGraph(tasks, Graph(set(tasks), {("a", "b", "dep")}))
+    filtered = get_filtered_taskgraph(graph, regex, exclude)
+    assert filtered.to_json() == expected
+
+
+def test_init_taskgraph(mocker, tmp_path, project_root, repo_with_upstream):
+    name = "bar"
+    repo, _ = repo_with_upstream
+
+    # Mock out upstream url to bypass the repo host check.
+    if repo.tool == "hg":
+        fake_url = f"https://hg.mozilla.org/foo/{name}"
+        mocker.patch.object(HgRepository, "get_url").return_value = fake_url
+    else:
+        fake_url = f"https://github.com/foo/{name}.git"
+        mocker.patch.object(GitRepository, "get_url").return_value = fake_url
+
+    # Point cookiecutter at temporary directories.
+    d = tmp_path / "cookiecutter"
+    d.mkdir()
+
+    config = d / "config.yml"
+    config.write_text(
+        dedent(
+            f"""
+        cookiecutters_dir: {d / "cookiecutters"}
+        replay_dir: {d / "replay"}
+    """
+        )
+    )
+    mocker.patch.dict("os.environ", {"COOKIECUTTER_CONFIG": str(config)})
+
+    repo_root = Path(repo.path)
+    oldcwd = Path.cwd()
+    try:
+        os.chdir(repo_root)
+        ret = taskgraph_main(["init", "--template", str(project_root)])
+    finally:
+        os.chdir(oldcwd)
+
+    if repo.tool == "hg":
+        assert ret == 1
+        assert not (repo_root / ".taskcluster.yml").exists()
+        return
+
+    # Make assertions about the repository state.
+    expected_files = [
+        ".taskcluster.yml",
+        "taskcluster/config.yml",
+        "taskcluster/kinds/docker-image/kind.yml",
+        "taskcluster/kinds/hello/kind.yml",
+        f"taskcluster/{name}_taskgraph/transforms/hello.py",
+    ]
+    for f in expected_files:
+        path = repo_root / f
+        assert path.is_file(), f"{str(path)} not found!"
+
+    c = load_yaml(str(repo_root / "taskcluster" / "config.yml"))
+    assert c["trust-domain"] == "mozilla"
+    assert c["taskgraph"]["cached-task-prefix"] == f"{c['trust-domain']}.v2.{name}"
+    assert c["taskgraph"]["repositories"] == {name: {"name": name}}
+
+    # Just assert we got the right .taskcluster.yml for the repo type
+    tc_yml = load_yaml(repo_root / ".taskcluster.yml")
+    if repo.tool == "hg":
+        assert "reporting" not in tc_yml
+    else:
+        assert tc_yml["reporting"] == "checks-v1"
+
+
+def test_init_taskgraph_unsupported(mocker, tmp_path, repo_with_upstream):
+    repo, _ = repo_with_upstream
+
+    # Point cookiecutter at temporary directories (in case test fails and
+    # something gets generated).
+    d = tmp_path / "cookiecutter"
+    d.mkdir()
+
+    config = d / "config.yml"
+    config.write_text(
+        dedent(
+            f"""
+        cookiecutters_dir: {d / "cookiecutters"}
+        replay_dir: {d / "replay"}
+    """
+        )
+    )
+    mocker.patch.dict("os.environ", {"COOKIECUTTER_CONFIG": str(config)})
+
+    repo_root = Path(repo.path)
+    oldcwd = Path.cwd()
+    try:
+        os.chdir(repo_root)
+        assert taskgraph_main(["init"]) == 1
+    finally:
+        os.chdir(oldcwd)
+
+
+def test_action_callback(mocker, run_taskgraph):
+    mocker.patch.dict(
+        "os.environ",
+        {
+            "ACTION_TASK_ID": "null",
+            "ACTION_TASK_GROUP_ID": "def",
+            "ACTION_INPUT": '{"ship": true}',
+            "ACTION_CALLBACK": "action",
+        },
+    )
+
+    params_mock = mocker.patch("taskgraph.actions.util.get_parameters")
+    params_mock.return_value = {"foo": "bar"}
+
+    trigger_mock = mocker.patch("taskgraph.actions.trigger_action_callback")
+    trigger_mock.return_value = "result"
+
+    result = run_taskgraph(["action-callback"])
+    assert result == "result"
+
+    params_mock.assert_called_once_with("def")
+    trigger_mock.assert_called_once_with(
+        task_group_id="def",
+        task_id=None,
+        callback="action",
+        input={"ship": True},
+        parameters={"foo": "bar"},
+        root="taskcluster",
+        test=False,
+    )
+    root = Path(trigger_mock.call_args.kwargs["root"])
+    assert root.joinpath("config.yml").is_file()
+
+
+FAKE_ACTION = {
+    "name": "test",
+    "title": "Test action",
+    "symbol": "ts",
+    "description": "A test action",
+}
+
+
+@pytest.mark.parametrize(
+    "with_generic_actions,new_action,expected",
+    (
+        pytest.param(True, {}, (9, None)),
+        pytest.param(False, {}, (0, None)),
+        pytest.param(False, FAKE_ACTION, (1, FAKE_ACTION)),
+    ),
+)
+def test_dump_actions_json(
+    monkeypatch, run_taskgraph, capsys, with_generic_actions, new_action, expected
+):
+    expected_actions_len, expected_fields = expected
+
+    if not with_generic_actions:
+        actions = []
+        callbacks = {}
+        monkeypatch.setattr(registry, "actions", actions)
+        monkeypatch.setattr(registry, "callbacks", callbacks)
+
+        def fake_actions_load(_graph_config):
+            return callbacks, actions
+
+        monkeypatch.setattr(registry, "_load", fake_actions_load)
+
+    if new_action:
+        registry.register_callback_action(**new_action)(lambda *args: None)
+
+    res = run_taskgraph(["actions"], target_tasks=[])
+    assert res == 0
+
+    output = json.loads(capsys.readouterr().out)
+
+    actions = output["actions"]
+    assert len(actions) == expected_actions_len
+    if expected_fields is not None:
+        action = actions[0]
+        for field_name in ("name", "title", "description"):
+            assert action[field_name] == expected_fields[field_name]
+
+
+@pytest.fixture
+def run_load_task(mocker, monkeypatch, run_taskgraph):
+    monkeypatch.setenv("TASKGRAPH_LOAD_TASK_NO_WARN", "1")
+
+    def inner(args, stdin_data=None):
+        # Mock the docker module functions
+        m_validate_docker = mocker.patch("taskgraph.main.validate_docker")
+        m_load_graph_config = mocker.patch("taskgraph.config.load_graph_config")
+        m_docker_load_task = mocker.patch("taskgraph.docker.load_task")
+
+        # Mock graph config
+        graph_config = mocker.MagicMock()
+        m_load_graph_config.return_value = graph_config
+
+        # Mock stdin if data provided
+        if stdin_data is not None:
+            mock_stdin = mocker.MagicMock()
+            mock_stdin.read.return_value = stdin_data
+            monkeypatch.setattr(sys, "stdin", mock_stdin)
+
+        # Set default return value for docker.load_task
+        m_docker_load_task.return_value = 0
+
+        mocks = {
+            "validate_docker": m_validate_docker,
+            "load_graph_config": m_load_graph_config,
+            "docker_load_task": m_docker_load_task,
+            "graph_config": graph_config,
+        }
+
+        # Run the command
+        result = run_taskgraph(args)
+
+        return result, mocks
+
+    return inner
+
+
+def test_load_task_command(run_load_task):
+    # Test normal task ID (default non-interactive)
+    result, mocks = run_load_task(["load-task", "task-id-123"])
+
+    assert result == 0
+    mocks["validate_docker"].assert_called_once()
+    mocks["load_graph_config"].assert_called_once_with("taskcluster")
+    mocks["docker_load_task"].assert_called_once_with(
+        mocks["graph_config"],
+        "task-id-123",
+        interactive=False,
+        remove=True,
+        user=None,
+        custom_image=None,
+        volumes=[],
+        develop=False,
+    )
+
+    # Test with interactive flag
+    result, mocks = run_load_task(["load-task", "-i", "task-id-456"])
+
+    assert result == 0
+    mocks["docker_load_task"].assert_called_once_with(
+        mocks["graph_config"],
+        "task-id-456",
+        interactive=True,
+        remove=True,
+        user=None,
+        custom_image=None,
+        volumes=[],
+        develop=False,
+    )
+
+    # Test with develop flag
+    result, mocks = run_load_task(["load-task", "--develop", "task-id-456"])
+
+    assert result == 0
+    mocks["docker_load_task"].assert_called_once_with(
+        mocks["graph_config"],
+        "task-id-456",
+        interactive=False,
+        remove=True,
+        user=None,
+        custom_image=None,
+        volumes=[],
+        develop=True,
+    )
+
+
+def test_load_task_command_with_volume(run_load_task):
+    # Test with correct volume specification
+    result, mocks = run_load_task(
+        ["load-task", "task-id-123", "-v", "/host/path:/builds/worker/checkouts"]
+    )
+
+    assert result == 0
+    mocks["validate_docker"].assert_called_once()
+    mocks["load_graph_config"].assert_called_once_with("taskcluster")
+    mocks["docker_load_task"].assert_called_once_with(
+        mocks["graph_config"],
+        "task-id-123",
+        interactive=False,
+        remove=True,
+        user=None,
+        custom_image=None,
+        volumes=[("/host/path", "/builds/worker/checkouts")],
+        develop=False,
+    )
+
+    # Test with no colon
+    result, mocks = run_load_task(
+        ["load-task", "task-id-123", "-v", "/builds/worker/checkouts"]
+    )
+    assert result == 1
+    mocks["validate_docker"].assert_called_once()
+    mocks["load_graph_config"].assert_not_called()
+    mocks["docker_load_task"].assert_not_called()
+
+    # Test with missing container path
+    result, mocks = run_load_task(["load-task", "task-id-123", "-v", "/host/path:"])
+    assert result == 1
+    mocks["validate_docker"].assert_called_once()
+    mocks["load_graph_config"].assert_not_called()
+    mocks["docker_load_task"].assert_not_called()
+
+
+def test_load_task_command_with_stdin(run_load_task):
+    # Test with JSON task definition from stdin
+    task_def = {
+        "metadata": {"name": "test-task"},
+        "payload": {
+            "image": {"type": "task-image", "taskId": "image-task-id"},
+            "command": ["echo", "hello"],
+        },
+    }
+    stdin_data = json.dumps(task_def)
+
+    result, mocks = run_load_task(["load-task", "-"], stdin_data=stdin_data)
+
+    assert result == 0
+    mocks["docker_load_task"].assert_called_once_with(
+        mocks["graph_config"],
+        task_def,
+        interactive=False,
+        remove=True,
+        user=None,
+        custom_image=None,
+        volumes=[],
+        develop=False,
+    )
+
+
+def test_load_task_command_with_task_id(run_load_task):
+    # Test with task ID from stdin (non-JSON)
+    stdin_data = "task-id-from-stdin"
+
+    result, mocks = run_load_task(["load-task", "-"], stdin_data=stdin_data)
+
+    assert result == 0
+    mocks["docker_load_task"].assert_called_once_with(
+        mocks["graph_config"],
+        "task-id-from-stdin",
+        interactive=False,
+        remove=True,
+        user=None,
+        custom_image=None,
+        volumes=[],
+        develop=False,
+    )
+
+
+def test_load_task_develop_warning(monkeypatch, run_load_task, mocker):
+    monkeypatch.delenv("TASKGRAPH_LOAD_TASK_NO_WARN", raising=False)
+    input_prompt = "Proceed? [y/N]: "
+
+    mock_input = mocker.patch("builtins.input", return_value="y")
+    result, mocks = run_load_task(["load-task", "--develop", "task-id-456"])
+    assert result == 0
+    mock_input.assert_called_once_with(input_prompt)
+    mocks["docker_load_task"].assert_called_once()
+
+    mock_input = mocker.patch("builtins.input", return_value="n")
+    result, mocks = run_load_task(["load-task", "--develop", "task-id-789"])
+    assert result == 1
+    mock_input.assert_called_once_with(input_prompt)
+    mocks["docker_load_task"].assert_not_called()
+
+    mock_input = mocker.patch("builtins.input", return_value="")
+    result, mocks = run_load_task(["load-task", "--develop", "task-id-000"])
+    assert result == 1
+    mock_input.assert_called_once_with(input_prompt)
+    mocks["docker_load_task"].assert_not_called()
+
+
+def test_format_kind_graph_mermaid():
+    """Test conversion of kind graph to Mermaid format"""
+    # Test with simple graph
+    kinds = frozenset(["docker-image"])
+    edges = frozenset()
+    kind_graph = Graph(kinds, edges)
+
+    output = format_kind_graph_mermaid(kind_graph)
+    assert "flowchart TD" in output
+    assert "docker_image[docker-image]" in output
+
+    # Test with complex graph with dependencies
+    kinds = frozenset(["docker-image", "build", "test", "lint"])
+    edges = frozenset(
+        [
+            ("build", "docker-image", "kind-dependency"),
+            ("test", "build", "kind-dependency"),
+            ("lint", "docker-image", "kind-dependency"),
+        ]
+    )
+    kind_graph = Graph(kinds, edges)
+
+    output = format_kind_graph_mermaid(kind_graph)
+    lines = output.split("\n")
+
+    assert lines[0] == "flowchart TD"
+    # Check all nodes are present
+    assert any("build[build]" in line for line in lines)
+    assert any("docker_image[docker-image]" in line for line in lines)
+    assert any("lint[lint]" in line for line in lines)
+    assert any("test[test]" in line for line in lines)
+    # Check edges are reversed (dependencies point to dependents)
+    assert any("docker_image --> build" in line for line in lines)
+    assert any("build --> test" in line for line in lines)
+    assert any("docker_image --> lint" in line for line in lines)
+
+
+def test_show_kinds_command(run_taskgraph, capsys):
+    """Test the kinds command outputs Mermaid format"""
+    res = run_taskgraph(
+        ["kind-graph"],
+        kinds=[
+            ("_fake", {"kind-dependencies": []}),
+        ],
+    )
+    assert res == 0
+
+    out, _ = capsys.readouterr()
+    assert "flowchart TD" in out
+    assert "_fake[_fake]" in out
+
+
+def test_show_kinds_with_dependencies(run_taskgraph, capsys):
+    """Test the kinds command with kind dependencies"""
+    res = run_taskgraph(
+        ["kind-graph"],
+        kinds=[
+            ("_fake3", {"kind-dependencies": ["_fake2"]}),
+            ("_fake2", {"kind-dependencies": ["_fake1"]}),
+            ("_fake1", {"kind-dependencies": []}),
+        ],
+    )
+    assert res == 0
+
+    out, _ = capsys.readouterr()
+    assert "flowchart TD" in out
+    # Check all kinds are present
+    assert "_fake1[_fake1]" in out
+    assert "_fake2[_fake2]" in out
+    assert "_fake3[_fake3]" in out
+    # Check edges are present and reversed
+    assert "_fake1 --> _fake2" in out
+    assert "_fake2 --> _fake3" in out
+
+
+def test_show_kinds_output_file(run_taskgraph, tmpdir):
+    """Test the kinds command writes to file"""
+    output_file = tmpdir.join("kinds.mmd")
+    assert not output_file.check()
+
+    res = run_taskgraph(
+        ["kind-graph", f"--output-file={output_file.strpath}"],
+        kinds=[
+            ("_fake", {"kind-dependencies": []}),
+        ],
+    )
+    assert res == 0
+    assert output_file.check()
+
+    content = output_file.read_text("utf-8")
+    assert "flowchart TD" in content
+    assert "_fake[_fake]" in content
+
+
+def test_show_kinds_with_target_kinds(run_taskgraph, capsys):
+    """Test the kinds command with --target-kind filter"""
+    res = run_taskgraph(
+        ["kind-graph", "-k", "_fake2"],
+        kinds=[
+            ("_fake3", {"kind-dependencies": ["_fake2"]}),
+            ("_fake2", {"kind-dependencies": ["_fake1"]}),
+            ("_fake1", {"kind-dependencies": []}),
+            ("_other", {"kind-dependencies": []}),
+            ("docker-image", {"kind-dependencies": []}),
+        ],
+        params={"target-kinds": ["_fake2"]},
+    )
+    assert res == 0
+
+    out, _ = capsys.readouterr()
+    assert "flowchart TD" in out
+    # Should include _fake2 and its dependencies
+    assert "_fake2[_fake2]" in out
+    assert "_fake1[_fake1]" in out
+    # Should include docker-image (implicit dependency for target_kinds)
+    assert "docker_image[docker-image]" in out
+    # Should not include _fake3 or _other
+    assert "_fake3" not in out
+    assert "_other" not in out

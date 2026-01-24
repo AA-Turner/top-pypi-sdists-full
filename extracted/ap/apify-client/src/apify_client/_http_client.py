@@ -5,6 +5,7 @@ import json as jsonlib
 import logging
 import os
 import sys
+from datetime import datetime, timezone
 from http import HTTPStatus
 from importlib import metadata
 from typing import TYPE_CHECKING, Any
@@ -76,6 +77,15 @@ class _BaseHTTPClient:
             # Our API needs lists passed as comma-separated strings
             elif isinstance(value, list):
                 parsed_params[key] = ','.join(value)
+            elif isinstance(value, datetime):
+                utc_aware_dt = value.astimezone(timezone.utc)
+
+                iso_str = utc_aware_dt.isoformat(timespec='milliseconds')
+
+                # Convert to ISO 8601 string in Zulu format
+                zulu_date_str = iso_str.replace('+00:00', 'Z')
+
+                parsed_params[key] = zulu_date_str
             elif value is not None:
                 parsed_params[key] = value
 

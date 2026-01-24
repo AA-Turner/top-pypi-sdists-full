@@ -3,6 +3,7 @@ from __future__ import annotations
 from logging import Logger, getLogger
 from types import TracebackType
 from typing import TYPE_CHECKING
+from urllib.parse import urlparse
 
 from requests import Response
 
@@ -10,6 +11,7 @@ from qbittorrentapi._version_support import Version
 from qbittorrentapi.definitions import APIKwargsT, APINames, ClientCache
 from qbittorrentapi.exceptions import (
     LoginFailed,
+    Unauthorized401Error,
     UnsupportedQbittorrentVersion,
 )
 from qbittorrentapi.request import Request
@@ -88,18 +90,26 @@ class AuthAPIMixIn(Request):
         self._initialize_context()
 
         creds = {"username": self.username, "password": self._password}
-        auth_response = self._post_cast(
-            _name=APINames.Authorization,
-            _method="login",
-            data=creds,
-            response_class=Response,
-            **kwargs,
-        )
+        try:
+            auth_response = self._post_cast(
+                _name=APINames.Authorization,
+                _method="login",
+                data=creds,
+                response_class=Response,
+                **kwargs,
+            )
+        except Unauthorized401Error:
+            success = False
+        else:
+            # after v5.1.2, failed auth attempts returned a 401 (or 403 if banned);
+            # previous versions still return Ok./Fails.
+            success = (auth_response.text == "") or (auth_response.text == "Ok.")
 
-        if auth_response.text != "Ok.":
+        if success:
+            logger.debug("Login successful")
+        else:
             logger.debug("Login failed")
             raise LoginFailed()
-        logger.debug("Login successful")
 
         # check if the connected qBittorrent is fully supported by this Client yet
         if self._RAISE_UNSUPPORTEDVERSIONERROR:
@@ -130,7 +140,16 @@ class AuthAPIMixIn(Request):
         :param cookie_name: Name of the authorization cookie; configurable after v4.5.0.
         """
         if self._http_session:
-            return self._http_session.cookies.get(cookie_name, None)
+            try:
+                return self._http_session.cookies[cookie_name]
+            except KeyError:
+                # cookie name started including WebUI port in v5.2.0
+                if self._url._base_url is not None:  # pragma: no branch
+                    try:
+                        port = urlparse(self._url._base_url).port
+                        return self._http_session.cookies[f"QBT_SID_{port}"]
+                    except KeyError:  # pragma: no cover
+                        return None
         return None
 
     def auth_log_out(self, **kwargs: APIKwargsT) -> None:

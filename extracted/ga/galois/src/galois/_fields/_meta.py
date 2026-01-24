@@ -13,6 +13,8 @@ from .._domains._array import ArrayMeta
 from .._modular import totatives
 from .._polys import Poly
 from .._polys._conversions import integer_to_poly, poly_to_str
+from ._normal_element import normal_element as get_normal_element
+from ._normal_element import normal_elements as get_normal_elements
 
 # Obtain forward references
 if TYPE_CHECKING:
@@ -48,6 +50,10 @@ class FieldArrayMeta(ArrayMeta):
         cls._irreducible_poly_str = poly_to_str(integer_to_poly(cls._irreducible_poly_int, cls._characteristic))
         cls._name = f"GF({cls._order_str})"
         cls._long_name = f"GF({cls._order_str}, primitive_element={cls._primitive_element_str!r}, irreducible_poly={cls._irreducible_poly_str!r})"
+
+    def __hash__(cls):
+        t = (cls.characteristic, cls.degree, cls._irreducible_poly_int, int(cls._primitive_element))
+        return hash(t)
 
     def __repr__(cls) -> str:
         if cls.order == 0:
@@ -194,7 +200,7 @@ class FieldArrayMeta(ArrayMeta):
 
                 GF = galois.GF(2**8)
                 print(GF.properties)
-                GF.is_primitive_poly
+                assert GF.is_primitive_poly
 
             The $\mathrm{GF}(2^8)$ field from AES uses a non-primitive polynomial.
 
@@ -202,7 +208,7 @@ class FieldArrayMeta(ArrayMeta):
 
                 GF = galois.GF(2**8, irreducible_poly="x^8 + x^4 + x^3 + x + 1")
                 print(GF.properties)
-                GF.is_primitive_poly
+                assert not GF.is_primitive_poly
         """
         return cls._is_primitive_poly
 
@@ -268,13 +274,15 @@ class FieldArrayMeta(ArrayMeta):
     @property
     def primitive_element(cls) -> FieldArray:
         r"""
-        A primitive element $\alpha$ of the Galois field $\mathrm{GF}(p^m)$.
+        A primitive element of the finite field $\mathrm{GF}(p^m)$.
 
         Notes:
-            A primitive element is a multiplicative generator of the field, such that
-            $\mathrm{GF}(p^m) = \{0, 1, \alpha, \alpha^2, \dots, \alpha^{p^m - 2}\}$. A primitive element is a
-            root of the primitive polynomial $f(x)$, such that $f(\alpha) = 0$ over
-            $\mathrm{GF}(p^m)$.
+            A primitive element $\alpha$ is a generator of the multiplicative group
+            $\mathrm{GF}(p^m)^\times$, which has order $p^m - 1$. Equivalently, every nonzero
+            field element can be written as $\alpha^k$ for some integer $k$.
+
+        See Also:
+            galois.is_primitive_element
 
         Examples:
             The smallest primitive element of the prime field $\mathrm{GF}(31)$.
@@ -302,13 +310,15 @@ class FieldArrayMeta(ArrayMeta):
     @property
     def primitive_elements(cls) -> FieldArray:
         r"""
-        All primitive elements $\alpha$ of the Galois field $\mathrm{GF}(p^m)$.
+        All primitive elements of the finite field $\mathrm{GF}(p^m)$.
 
         Notes:
-            A primitive element is a multiplicative generator of the field, such that
-            $\mathrm{GF}(p^m) = \{0, 1, \alpha, \alpha^2, \dots, \alpha^{p^m - 2}\}$. A primitive element is a
-            root of the primitive polynomial $f(x)$, such that $f(\alpha) = 0$ over
-            $\mathrm{GF}(p^m)$.
+            A primitive element $\alpha$ is a generator of the multiplicative group
+            $\mathrm{GF}(p^m)^\times$, which has order $p^m - 1$. Equivalently, every nonzero
+            field element can be written as $\alpha^k$ for some integer $k$.
+
+        See Also:
+            galois.is_primitive_element
 
         Examples:
             All primitive elements of the prime field $\mathrm{GF}(31)$ in increasing order.
@@ -338,6 +348,89 @@ class FieldArrayMeta(ArrayMeta):
         return cls._primitive_elements.copy()
 
     @property
+    def normal_element(cls) -> FieldArray | None:
+        r"""
+        A normal element of the finite field $\mathrm{GF}(p^m)$.
+
+        Notes:
+            A normal element $\beta$ is one whose Frobenius conjugates
+
+            $$
+            \{\beta, \beta^p, \beta^{p^2}, \dots, \beta^{p^{m-1}}\}
+            $$
+
+            form a basis of $\mathrm{GF}(p^m)$ over its base field $\mathrm{GF}(p)$.
+            Prime fields ($m = 1$) have no nontrivial normal elements.
+
+        See Also:
+            galois.is_normal_element
+
+        Examples:
+            The smallest normal element of the extension field $\mathrm{GF}(5^2)$.
+
+            .. ipython-with-reprs:: int,poly,power
+
+                GF = galois.GF(5**2)
+                GF.normal_element
+
+        Group:
+            Elements
+
+        Order:
+            22
+        """
+        if not hasattr(cls, "_normal_element"):
+            if cls.is_prime_field:
+                normal_element = None
+            else:
+                # Finding one is faster than selecting the first from the list of all normal elements
+                beta = get_normal_element(cls.irreducible_poly)
+                normal_element = cls.Vector(beta.coefficients(cls.degree))
+            cls._normal_element = normal_element
+        return cls._normal_element
+
+    @property
+    def normal_elements(cls) -> FieldArray:
+        r"""
+        All normal elements of the finite field $\mathrm{GF}(p^m)$.
+
+        Notes:
+            A normal element $\beta$ is one whose Frobenius conjugates
+
+            $$
+            \{\beta, \beta^p, \beta^{p^2}, \dots, \beta^{p^{m-1}}\}
+            $$
+
+            form a basis of $\mathrm{GF}(p^m)$ over its base field $\mathrm{GF}(p)$.
+            Prime fields ($m = 1$) have no nontrivial normal elements.
+
+        See Also:
+            galois.is_normal_element
+
+        Examples:
+            All normal elements of the extension field $\mathrm{GF}(5^2)$ in lexicographical order.
+
+            .. ipython-with-reprs:: int,poly,power
+
+                GF = galois.GF(5**2)
+                GF.normal_elements
+
+        Group:
+            Elements
+
+        Order:
+            22
+        """
+        if not hasattr(cls, "_normal_elements"):
+            if cls.is_prime_field:
+                normal_elements = cls([])
+            else:
+                betas = get_normal_elements(cls.irreducible_poly)
+                normal_elements = [cls.Vector(beta.coefficients(cls.degree)) for beta in betas]
+            cls._normal_elements = normal_elements
+        return cls._normal_elements.copy()
+
+    @property
     def squares(cls) -> FieldArray:
         r"""
         All squares in the finite field.
@@ -358,8 +451,8 @@ class FieldArrayMeta(ArrayMeta):
                 x = GF.squares; x
                 y1 = np.sqrt(x); y1
                 y2 = -y1; y2
-                np.array_equal(y1 ** 2, x)
-                np.array_equal(y2 ** 2, x)
+                assert np.array_equal(y1 ** 2, x)
+                assert np.array_equal(y2 ** 2, x)
 
             In fields with characteristic greater than 2, exactly half of the nonzero elements are squares
             (with two unique square roots).
@@ -370,8 +463,8 @@ class FieldArrayMeta(ArrayMeta):
                 x = GF.squares; x
                 y1 = np.sqrt(x); y1
                 y2 = -y1; y2
-                np.array_equal(y1 ** 2, x)
-                np.array_equal(y2 ** 2, x)
+                assert np.array_equal(y1 ** 2, x)
+                assert np.array_equal(y2 ** 2, x)
 
         Group:
             Elements
@@ -428,10 +521,10 @@ class FieldArrayMeta(ArrayMeta):
         Examples:
             .. ipython:: python
 
-                galois.GF(2).is_prime_field
-                galois.GF(2**8).is_prime_field
-                galois.GF(31).is_prime_field
-                galois.GF(7**5).is_prime_field
+                assert galois.GF(2).is_prime_field
+                assert not galois.GF(2**8).is_prime_field
+                assert galois.GF(31).is_prime_field
+                assert not galois.GF(7**5).is_prime_field
         """
         return cls._degree == 1
 
@@ -443,10 +536,10 @@ class FieldArrayMeta(ArrayMeta):
         Examples:
             .. ipython:: python
 
-                galois.GF(2).is_extension_field
-                galois.GF(2**8).is_extension_field
-                galois.GF(31).is_extension_field
-                galois.GF(7**5).is_extension_field
+                assert not galois.GF(2).is_extension_field
+                assert galois.GF(2**8).is_extension_field
+                assert not galois.GF(31).is_extension_field
+                assert galois.GF(7**5).is_extension_field
         """
         return cls._degree > 1
 

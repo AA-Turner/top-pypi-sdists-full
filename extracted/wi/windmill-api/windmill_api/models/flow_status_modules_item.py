@@ -9,6 +9,8 @@ from ..types import UNSET, Unset
 if TYPE_CHECKING:
     from ..models.flow_status_modules_item_agent_actions_item_type_0 import FlowStatusModulesItemAgentActionsItemType0
     from ..models.flow_status_modules_item_agent_actions_item_type_1 import FlowStatusModulesItemAgentActionsItemType1
+    from ..models.flow_status_modules_item_agent_actions_item_type_2 import FlowStatusModulesItemAgentActionsItemType2
+    from ..models.flow_status_modules_item_agent_actions_item_type_3 import FlowStatusModulesItemAgentActionsItemType3
     from ..models.flow_status_modules_item_approvers_item import FlowStatusModulesItemApproversItem
     from ..models.flow_status_modules_item_branch_chosen import FlowStatusModulesItemBranchChosen
     from ..models.flow_status_modules_item_branchall import FlowStatusModulesItemBranchall
@@ -38,7 +40,8 @@ class FlowStatusModulesItem:
         failed_retries (Union[Unset, List[str]]):
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset, List[Union['FlowStatusModulesItemAgentActionsItemType0',
-            'FlowStatusModulesItemAgentActionsItemType1']]]):
+            'FlowStatusModulesItemAgentActionsItemType1', 'FlowStatusModulesItemAgentActionsItemType2',
+            'FlowStatusModulesItemAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -57,7 +60,15 @@ class FlowStatusModulesItem:
     failed_retries: Union[Unset, List[str]] = UNSET
     skipped: Union[Unset, bool] = UNSET
     agent_actions: Union[
-        Unset, List[Union["FlowStatusModulesItemAgentActionsItemType0", "FlowStatusModulesItemAgentActionsItemType1"]]
+        Unset,
+        List[
+            Union[
+                "FlowStatusModulesItemAgentActionsItemType0",
+                "FlowStatusModulesItemAgentActionsItemType1",
+                "FlowStatusModulesItemAgentActionsItemType2",
+                "FlowStatusModulesItemAgentActionsItemType3",
+            ]
+        ],
     ] = UNSET
     agent_actions_success: Union[Unset, List[bool]] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -65,6 +76,12 @@ class FlowStatusModulesItem:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.flow_status_modules_item_agent_actions_item_type_0 import (
             FlowStatusModulesItemAgentActionsItemType0,
+        )
+        from ..models.flow_status_modules_item_agent_actions_item_type_1 import (
+            FlowStatusModulesItemAgentActionsItemType1,
+        )
+        from ..models.flow_status_modules_item_agent_actions_item_type_2 import (
+            FlowStatusModulesItemAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -117,6 +134,12 @@ class FlowStatusModulesItem:
                 agent_actions_item: Dict[str, Any]
 
                 if isinstance(agent_actions_item_data, FlowStatusModulesItemAgentActionsItemType0):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusModulesItemAgentActionsItemType1):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(agent_actions_item_data, FlowStatusModulesItemAgentActionsItemType2):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
                 else:
@@ -175,6 +198,12 @@ class FlowStatusModulesItem:
         )
         from ..models.flow_status_modules_item_agent_actions_item_type_1 import (
             FlowStatusModulesItemAgentActionsItemType1,
+        )
+        from ..models.flow_status_modules_item_agent_actions_item_type_2 import (
+            FlowStatusModulesItemAgentActionsItemType2,
+        )
+        from ..models.flow_status_modules_item_agent_actions_item_type_3 import (
+            FlowStatusModulesItemAgentActionsItemType3,
         )
         from ..models.flow_status_modules_item_approvers_item import FlowStatusModulesItemApproversItem
         from ..models.flow_status_modules_item_branch_chosen import FlowStatusModulesItemBranchChosen
@@ -242,7 +271,12 @@ class FlowStatusModulesItem:
 
             def _parse_agent_actions_item(
                 data: object,
-            ) -> Union["FlowStatusModulesItemAgentActionsItemType0", "FlowStatusModulesItemAgentActionsItemType1"]:
+            ) -> Union[
+                "FlowStatusModulesItemAgentActionsItemType0",
+                "FlowStatusModulesItemAgentActionsItemType1",
+                "FlowStatusModulesItemAgentActionsItemType2",
+                "FlowStatusModulesItemAgentActionsItemType3",
+            ]:
                 try:
                     if not isinstance(data, dict):
                         raise TypeError()
@@ -251,11 +285,27 @@ class FlowStatusModulesItem:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = FlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = FlowStatusModulesItemAgentActionsItemType2.from_dict(data)
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = FlowStatusModulesItemAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = FlowStatusModulesItemAgentActionsItemType3.from_dict(data)
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

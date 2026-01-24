@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import errno
 from collections.abc import Iterable, Mapping, MutableMapping
+from json import JSONDecodeError
 from logging import Logger, getLogger
 from os import path
 from os import strerror as os_strerror
@@ -196,6 +197,10 @@ class TagList(List[Tag]):
         super().__init__(list_entries, entry_class=Tag, client=client)
 
 
+class TorrentsAddedMetadata(Dictionary[Any]):
+    """Response to :meth:`~TorrentsAPIMixIn.torrents_add` for API v2.14.0+"""
+
+
 class TorrentsAPIMixIn(AppAPIMixIn):
     """
     Implementation of all Torrents API methods.
@@ -275,7 +280,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         is_stopped: bool | None = None,
         forced: bool | None = None,
         **kwargs: APIKwargsT,
-    ) -> str:
+    ) -> str | TorrentsAddedMetadata:
         """
         Add one or more torrents by URLs and/or torrent files.
 
@@ -284,6 +289,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         :raises UnsupportedMediaType415Error: if file is not a valid torrent file
         :raises TorrentFileNotFoundError: if a torrent file doesn't exist
         :raises TorrentFilePermissionError: if read permission is denied to torrent file
+        :raises Conflict409Error: torrent is already added to qBittorrent
 
         :param urls: single instance or an iterable of URLs (``http://``, ``https://``,
             ``magnet:``, ``bc://bt/``)
@@ -402,14 +408,17 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             "forced": (None, forced),
         }
 
-        return self._post_cast(
+        resp = self._post(
             _name=APINames.Torrents,
             _method="add",
             data=data,
             files=self._normalize_torrent_files(torrent_files),
-            response_class=str,
             **kwargs,
         )
+        try:
+            return TorrentsAddedMetadata(resp.json())
+        except JSONDecodeError:
+            return str(resp.text)
 
     @staticmethod
     def _normalize_torrent_files(
@@ -735,6 +744,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         torrent_hash: str | None = None,
         original_url: str | None = None,
         new_url: str | None = None,
+        tier: str | int | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """
@@ -748,11 +758,15 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         :param torrent_hash: hash for torrent
         :param original_url: URL for existing tracker
         :param new_url: new URL to replace
+        :param tier: tracker's tier (added in Web API v2.13.0)
         """
         data = {
             "hash": torrent_hash,
+            # send original as both since `url` replaced `origUrl`
+            "url": original_url,
             "origUrl": original_url,
             "newUrl": new_url,
+            "tier": tier,
         }
         self._post(
             _name=APINames.Torrents,
@@ -1001,6 +1015,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         tag: str | None = None,
         private: bool | None = None,
         include_trackers: bool | None = None,
+        include_files: bool | None = None,
         **kwargs: APIKwargsT,
     ) -> TorrentInfoList:
         """
@@ -1029,6 +1044,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             Web API v2.11.1)
         :param include_trackers: Include trackers in response; default False; (added in
             Web API v2.11.4)
+        :param include_files: Include files in response; default False; (added in Web API v2.11.7)
         """  # noqa: E501
         # convert filter for pre- and post-v2.11.0
         if status_filter in {"stopped", "paused", "running", "resumed"}:
@@ -1053,6 +1069,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             "includeTrackers": (
                 None if include_trackers is None else bool(include_trackers)
             ),
+            "includeFiles": None if include_files is None else bool(include_files),
         }
         return self._post_cast(
             _name=APINames.Torrents,
@@ -1273,6 +1290,10 @@ class TorrentsAPIMixIn(AppAPIMixIn):
         ratio_limit: str | int | None = None,
         seeding_time_limit: str | int | None = None,
         inactive_seeding_time_limit: str | int | None = None,
+        share_limit_action: Literal[
+            "Stop", "Remove", "RemoveWithContent", "EnableSuperSeeding"
+        ]
+        | None = None,
         torrent_hashes: str | Iterable[str] | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
@@ -1296,6 +1317,7 @@ class TorrentsAPIMixIn(AppAPIMixIn):
             "ratioLimit": ratio_limit,
             "seedingTimeLimit": seeding_time_limit,
             "inactiveSeedingTimeLimit": inactive_seeding_time_limit,
+            "shareLimitAction": share_limit_action,
         }
         self._post(
             _name=APINames.Torrents,
@@ -1895,13 +1917,20 @@ class TorrentDictionary(ClientCache[TorrentsAPIMixIn], ListEntry):
     Item in :class:`TorrentInfoList`. Allows interaction with individual torrents via
     the ``Torrents`` API endpoints.
 
+    All `torrent` attributes are listed in
+    https://github.com/qbittorrent/qBittorrent/blob/master/src/webui/api/serialize/serialize_torrent.h
+
     :Usage:
         >>> from qbittorrentapi import Client
         >>> client = Client(host="localhost:8080", username="admin", password="adminadmin")
         >>> # these are all the same attributes that are available as named in the
         >>> #  endpoints or the more pythonic names in Client (with or without 'transfer_' prepended)
         >>> torrent = client.torrents.info()[0]
-        >>> torrent_hash = torrent.info.hash
+        >>> torrent_id = torrent.hash # truncated v2 hash or v1 hash
+        >>> torrent_hash_v1 = torrent.infohash_v1
+        >>> torrent_hash_v2 = torrent.infohash_v2
+        >>> torrent_magnet = torrent.magnet_uri
+        >>> torrent_name = torrent.name
         >>> # Attributes without inputs and a return value are properties
         >>> properties = torrent.properties
         >>> trackers = torrent.trackers
@@ -2382,6 +2411,7 @@ class TorrentDictionary(ClientCache[TorrentsAPIMixIn], ListEntry):
         self,
         orig_url: str | None = None,
         new_url: str | None = None,
+        tier: str | int | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_edit_tracker`."""
@@ -2389,6 +2419,7 @@ class TorrentDictionary(ClientCache[TorrentsAPIMixIn], ListEntry):
             torrent_hash=self._torrent_hash,
             original_url=orig_url,
             new_url=new_url,
+            tier=tier,
             **kwargs,
         )
 
@@ -2628,6 +2659,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2641,6 +2673,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2655,6 +2688,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2668,6 +2702,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2682,6 +2717,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2695,6 +2731,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2709,6 +2746,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2722,6 +2760,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2736,6 +2775,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2749,6 +2789,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2763,6 +2804,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2776,6 +2818,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2792,6 +2835,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2805,6 +2849,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2819,6 +2864,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2832,6 +2878,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2846,6 +2893,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2859,6 +2907,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2873,6 +2922,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2886,6 +2936,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2900,6 +2951,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2913,6 +2965,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2927,6 +2980,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2940,6 +2994,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2954,6 +3009,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2967,6 +3023,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -2981,6 +3038,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -2994,6 +3052,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -3008,6 +3067,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             tag: str | None = None,
             private: bool | None = None,
             include_trackers: bool | None = None,
+            include_files: bool | None = None,
             **kwargs: APIKwargsT,
         ) -> TorrentInfoList:
             return self._client.torrents_info(
@@ -3021,6 +3081,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
                 tag=tag,
                 private=private,
                 include_trackers=include_trackers,
+                include_files=include_files,
                 **kwargs,
             )
 
@@ -3058,7 +3119,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
         ssl_dh_params: str | None = None,
         is_stopped: bool | None = None,
         **kwargs: APIKwargsT,
-    ) -> str:
+    ) -> str | TorrentsAddedMetadata:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_add`."""
         return self._client.torrents_add(
             urls=urls,
@@ -3215,6 +3276,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
         torrent_hash: str | None = None,
         original_url: str | None = None,
         new_url: str | None = None,
+        tier: str | int | None = None,
         **kwargs: APIKwargsT,
     ) -> None:
         """Implements :meth:`~TorrentsAPIMixIn.torrents_edit_tracker`."""
@@ -3222,6 +3284,7 @@ class Torrents(ClientCache[TorrentsAPIMixIn]):
             torrent_hash=torrent_hash,
             original_url=original_url,
             new_url=new_url,
+            tier=tier,
             **kwargs,
         )
 

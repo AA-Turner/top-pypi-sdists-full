@@ -18,29 +18,24 @@
 #
 """Custom addons for Hosted Weblate."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from django.utils.translation import gettext_lazy as _
-
-try:
-    # Weblate 5.4 and newer
-    from weblate.addons.events import AddonEvent
-except ImportError:
-    # Weblate 5.3 and older
-    from weblate.addons.events import EVENT_DAILY, EVENT_PRE_COMMIT
-
-    class AddonEvent:
-        EVENT_DAILY = EVENT_DAILY
-        EVENT_PRE_COMMIT = EVENT_PRE_COMMIT
-
-
+from weblate.addons.events import AddonEvent
 from weblate.addons.scripts import BaseAddon, BaseScriptAddon
+
+if TYPE_CHECKING:
+    from weblate.trans.models import Component, Project
 
 
 class UnknownHorizonsTemplateAddon(BaseScriptAddon):
     # Event used to trigger the script
-    events = (AddonEvent.EVENT_PRE_COMMIT,)
+    events = {AddonEvent.EVENT_PRE_COMMIT}
     # Name of the addon, has to be unique
     name = "weblate.hosted.uh_scenario"
-    # Verbose name and long descrption
+    # Verbose name and long description
     verbose = _("Generate Unknown Horizons scenario data")
     description = _("Generate Unknown Horizons scenario data")
 
@@ -51,27 +46,37 @@ class UnknownHorizonsTemplateAddon(BaseScriptAddon):
     add_file = "content/scenarios/*_{{ language_code }}.yaml"
 
     @classmethod
-    def can_install(cls, component, user):
+    def can_install(
+        cls,
+        *,
+        component: Component | None = None,
+        project: Project | None = None,
+    ) -> bool:
         """Only useful for Unknown Horizons project."""
-        if component.project.slug != "uh":
+        if component is None or component.project.slug != "uh":
             return False
-        return super().can_install(component, user)
+        return super().can_install(component=component, project=project)
 
 
 class ResetAddon(BaseAddon):
     # Event used to trigger the script
-    events = (AddonEvent.EVENT_DAILY,)
+    events = {AddonEvent.EVENT_DAILY}
     # Name of the addon, has to be unique
     name = "weblate.hosted.reset"
-    # Verbose name and long descrption
+    # Verbose name and long description
     verbose = _("Reset repository to upstream")
     description = _("Discards all changes in the Weblate repository each night.")
     repo_scope = True
 
     @classmethod
-    def can_install(cls, component, user):
+    def can_install(
+        cls,
+        *,
+        component: Component | None = None,
+        project: Project | None = None,
+    ) -> bool:
         # Only instalable on the sandbox project
-        return component.project.slug == "sandbox"
+        return component is not None and component.project.slug == "sandbox"
 
-    def daily(self, component) -> None:
+    def daily(self, component: Component, activity_log_id: int | None = None) -> None:
         component.do_reset()

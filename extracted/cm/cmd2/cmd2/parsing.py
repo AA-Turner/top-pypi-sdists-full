@@ -7,19 +7,14 @@ from dataclasses import (
     dataclass,
     field,
 )
-from typing import (
-    Any,
-    Optional,
-    Union,
-)
+from typing import Any
 
 from . import (
     constants,
     utils,
 )
-from .exceptions import (
-    Cmd2ShlexError,
-)
+from . import string_utils as su
+from .exceptions import Cmd2ShlexError
 
 
 def shlex_split(str_to_split: str) -> list[str]:
@@ -86,7 +81,7 @@ class Macro:
 
 
 @dataclass(frozen=True)
-class Statement(str):  # type: ignore[override]  # noqa: SLOT000
+class Statement(str):  # noqa: SLOT000
     """String subclass with additional attributes to store the results of parsing.
 
     The ``cmd`` module in the standard library passes commands around as a
@@ -110,10 +105,10 @@ class Statement(str):  # type: ignore[override]  # noqa: SLOT000
        whether positional or denoted with switches.
 
     2. For commands with simple positional arguments, use
-       [args][cmd2.Statement.args] or [arg_list][cmd2.Statement.arg_list]
+       [args][cmd2.parsing.Statement.args] or [arg_list][cmd2.parsing.Statement.arg_list]
 
     3. If you don't want to have to worry about quoted arguments, see
-       [argv][cmd2.Statement.argv] for a trick which strips quotes off for you.
+       [argv][cmd2.parsing.Statement.argv] for a trick which strips quotes off for you.
     """
 
     # the arguments, but not the command, nor the output redirection clauses.
@@ -198,7 +193,7 @@ class Statement(str):  # type: ignore[override]  # noqa: SLOT000
 
     @property
     def expanded_command_line(self) -> str:
-        """Concatenate [command_and_args][cmd2.Statement.command_and_args] and [post_command][cmd2.Statement.post_command]."""
+        """Concatenate [cmd2.parsing.Statement.command_and_args]() and [cmd2.parsing.Statement.post_command]()."""
         return self.command_and_args + self.post_command
 
     @property
@@ -213,8 +208,8 @@ class Statement(str):  # type: ignore[override]  # noqa: SLOT000
         If you want to strip quotes from the input, you can use ``argv[1:]``.
         """
         if self.command:
-            rtn = [utils.strip_quotes(self.command)]
-            rtn.extend(utils.strip_quotes(cur_token) for cur_token in self.arg_list)
+            rtn = [su.strip_quotes(self.command)]
+            rtn.extend(su.strip_quotes(cur_token) for cur_token in self.arg_list)
         else:
             rtn = []
 
@@ -250,10 +245,10 @@ class StatementParser:
 
     def __init__(
         self,
-        terminators: Optional[Iterable[str]] = None,
-        multiline_commands: Optional[Iterable[str]] = None,
-        aliases: Optional[dict[str, str]] = None,
-        shortcuts: Optional[dict[str, str]] = None,
+        terminators: Iterable[str] | None = None,
+        multiline_commands: Iterable[str] | None = None,
+        aliases: dict[str, str] | None = None,
+        shortcuts: dict[str, str] | None = None,
     ) -> None:
         """Initialize an instance of StatementParser.
 
@@ -490,7 +485,7 @@ class StatementParser:
 
             # Check if we are redirecting to a file
             if len(tokens) > output_index + 1:
-                unquoted_path = utils.strip_quotes(tokens[output_index + 1])
+                unquoted_path = su.strip_quotes(tokens[output_index + 1])
                 if unquoted_path:
                     output_to = utils.expand_user(tokens[output_index + 1])
 
@@ -585,7 +580,7 @@ class StatementParser:
         return Statement(args, raw=rawinput, command=command, multiline_command=multiline_command)
 
     def get_command_arg_list(
-        self, command_name: str, to_parse: Union[Statement, str], preserve_quotes: bool
+        self, command_name: str, to_parse: Statement | str, preserve_quotes: bool
     ) -> tuple[Statement, list[str]]:
         """Retrieve just the arguments being passed to their ``do_*`` methods as a list.
 

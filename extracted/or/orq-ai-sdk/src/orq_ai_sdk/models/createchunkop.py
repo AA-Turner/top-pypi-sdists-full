@@ -23,7 +23,7 @@ CreateChunkMetadataTypedDict = TypeAliasType(
 CreateChunkMetadata = TypeAliasType("CreateChunkMetadata", Union[str, float, bool])
 
 
-class CreateChunkRequestBodyTypedDict(TypedDict):
+class RequestBodyTypedDict(TypedDict):
     text: str
     r"""The text content of the chunk"""
     embedding: NotRequired[List[float]]
@@ -32,7 +32,7 @@ class CreateChunkRequestBodyTypedDict(TypedDict):
     r"""Metadata of the chunk"""
 
 
-class CreateChunkRequestBody(BaseModel):
+class RequestBody(BaseModel):
     text: str
     r"""The text content of the chunk"""
 
@@ -42,13 +42,29 @@ class CreateChunkRequestBody(BaseModel):
     metadata: Optional[Dict[str, CreateChunkMetadata]] = None
     r"""Metadata of the chunk"""
 
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["embedding", "metadata"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
+
 
 class CreateChunkRequestTypedDict(TypedDict):
     knowledge_id: str
     r"""Unique identifier of the knowledge"""
     datasource_id: str
     r"""Unique identifier of the datasource"""
-    request_body: NotRequired[List[CreateChunkRequestBodyTypedDict]]
+    request_body: NotRequired[List[RequestBodyTypedDict]]
 
 
 class CreateChunkRequest(BaseModel):
@@ -63,9 +79,25 @@ class CreateChunkRequest(BaseModel):
     r"""Unique identifier of the datasource"""
 
     request_body: Annotated[
-        Optional[List[CreateChunkRequestBody]],
+        Optional[List[RequestBody]],
         FieldMetadata(request=RequestMetadata(media_type="application/json")),
     ] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(["RequestBody"])
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m
 
 
 CreateChunkKnowledgeMetadataTypedDict = TypeAliasType(
@@ -88,7 +120,7 @@ CreateChunkStatus = Literal[
 r"""The status of the chunk"""
 
 
-class CreateChunkResponseBodyTypedDict(TypedDict):
+class ResponseBodyTypedDict(TypedDict):
     id: str
     r"""The unique identifier of the chunk"""
     text: str
@@ -109,7 +141,7 @@ class CreateChunkResponseBodyTypedDict(TypedDict):
     r"""The unique identifier of the user who updated the chunk"""
 
 
-class CreateChunkResponseBody(BaseModel):
+class ResponseBody(BaseModel):
     id: Annotated[str, pydantic.Field(alias="_id")]
     r"""The unique identifier of the chunk"""
 
@@ -139,30 +171,25 @@ class CreateChunkResponseBody(BaseModel):
 
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
-        optional_fields = ["metadata", "created_by_id", "update_by_id"]
-        nullable_fields = ["created_by_id", "update_by_id"]
-        null_default_fields = []
-
+        optional_fields = set(["metadata", "created_by_id", "update_by_id"])
+        nullable_fields = set(["created_by_id", "update_by_id"])
         serialized = handler(self)
-
         m = {}
 
         for n, f in type(self).model_fields.items():
             k = f.alias or n
             val = serialized.get(k)
-            serialized.pop(k, None)
+            is_nullable_and_explicitly_set = (
+                k in nullable_fields
+                and (self.__pydantic_fields_set__.intersection({n}))  # pylint: disable=no-member
+            )
 
-            optional_nullable = k in optional_fields and k in nullable_fields
-            is_set = (
-                self.__pydantic_fields_set__.intersection({n})
-                or k in null_default_fields
-            )  # pylint: disable=no-member
-
-            if val is not None and val != UNSET_SENTINEL:
-                m[k] = val
-            elif val != UNSET_SENTINEL and (
-                not k in optional_fields or (optional_nullable and is_set)
-            ):
-                m[k] = val
+            if val != UNSET_SENTINEL:
+                if (
+                    val is not None
+                    or k not in optional_fields
+                    or is_nullable_and_explicitly_set
+                ):
+                    m[k] = val
 
         return m

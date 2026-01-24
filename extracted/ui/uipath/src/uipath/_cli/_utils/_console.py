@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from contextlib import contextmanager
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Type, TypeVar
+from typing import Any, Iterator, Type
 
 import click
 from rich.console import Console
@@ -30,16 +32,13 @@ class LogLevel(Enum):
     MAGIC = "✨"
 
 
-T = TypeVar("T", bound="ConsoleLogger")
-
-
 class ConsoleLogger:
     """A singleton wrapper class for terminal output with emoji support and spinners."""
 
     # Class variable to hold the singleton instance
-    _instance: Optional["ConsoleLogger"] = None
+    _instance: ConsoleLogger | None = None
 
-    def __new__(cls: Type[T]) -> T:
+    def __new__(cls: Type[ConsoleLogger]) -> ConsoleLogger:
         """Ensure only one instance of ConsoleLogger is created.
 
         Returns:
@@ -48,17 +47,17 @@ class ConsoleLogger:
         if cls._instance is None:
             cls._instance = super(ConsoleLogger, cls).__new__(cls)
             cls._instance._initialized = False
-        return cls._instance  # type: ignore
+        return cls._instance
 
     def __init__(self):
         """Initialize the ConsoleLogger (only once)."""
         # Only initialize once
         if not getattr(self, "_initialized", False):
             self._console = Console()
-            self._spinner_live: Optional[Live] = None
+            self._spinner_live: Live | None = None
             self._spinner = RichSpinner("dots")
-            self._progress: Optional[Progress] = None
-            self._progress_tasks: Dict[str, TaskID] = {}
+            self._progress: Progress | None = None
+            self._progress_tasks: dict[str, TaskID] = {}
             self._initialized = True
 
     def _stop_spinner_if_active(self) -> None:
@@ -75,7 +74,7 @@ class ConsoleLogger:
             self._progress_tasks.clear()
 
     def log(
-        self, message: str, level: LogLevel = LogLevel.INFO, fg: Optional[str] = None
+        self, message: str, level: LogLevel = LogLevel.INFO, fg: str | None = None
     ) -> None:
         """Log a message with the specified level and optional color.
 
@@ -109,13 +108,18 @@ class ConsoleLogger:
             message: The error message to display
             include_traceback: Whether to include the current exception traceback
         """
-        self.log(message, LogLevel.ERROR, "red")
-
         if include_traceback:
+            import sys
             import traceback
 
-            click.echo(traceback.format_exc(), err=True)
+            exc_type, exc_value, exc_tb = sys.exc_info()
+            if exc_value is not None:
+                tb = "".join(
+                    traceback.format_exception(exc_type, exc_value, exc_tb, chain=False)
+                )
+                message = f"{message}\n{tb}"
 
+        self.log(message, LogLevel.ERROR, "red")
         click.get_current_context().exit(1)
 
     def warning(self, message: str) -> None:
@@ -170,8 +174,27 @@ class ConsoleLogger:
 
         return click.prompt(click.style(f"{message}", fg="yellow", bold=True), **kwargs)
 
+    def confirm(
+        self, message: str, default: bool = False, fg: str = "cyan", **kwargs: Any
+    ) -> bool:
+        """Wrapper for click.confirm with styled text.
+
+        Args:
+            message: The confirmation message
+            default: Default value if user just presses Enter
+            fg: Foreground color for the message (default: cyan)
+            **kwargs: Additional arguments to pass to click.confirm
+
+        Returns:
+            True if user confirms, False otherwise
+        """
+        # Stop any active spinner before prompting
+        self._stop_spinner_if_active()
+
+        return click.confirm(click.style(message, fg=fg), default=default, **kwargs)
+
     def display_options(
-        self, options: List[Any], message: str = "Select an option:"
+        self, options: list[Any], message: str = "Select an option:"
     ) -> None:
         """Display a list of options with indices.
 
@@ -221,7 +244,7 @@ class ConsoleLogger:
 
     @contextmanager
     def evaluation_progress(
-        self, evaluations: List[Dict[str, str]]
+        self, evaluations: list[dict[str, str]]
     ) -> Iterator["EvaluationProgressManager"]:
         """Context manager for evaluation progress tracking.
 
@@ -272,7 +295,7 @@ class ConsoleLogger:
 class EvaluationProgressManager:
     """Manager for evaluation progress updates."""
 
-    def __init__(self, progress: Progress, tasks: Dict[str, TaskID]):
+    def __init__(self, progress: Progress, tasks: dict[str, TaskID]):
         """Initialize the progress manager.
 
         Args:

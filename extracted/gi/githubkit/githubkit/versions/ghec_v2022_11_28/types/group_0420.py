@@ -11,15 +11,50 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from .group_0242 import LinkType
+
+class GitRefType(TypedDict):
+    """Git Reference
+
+    Git references within a repository
+    """
+
+    ref: str
+    node_id: str
+    url: str
+    object_: GitRefPropObjectType
 
 
-class ReviewCommentPropLinksType(TypedDict):
-    """ReviewCommentPropLinks"""
+class GitRefTypeForResponse(TypedDict):
+    """Git Reference
 
-    self_: LinkType
-    html: LinkType
-    pull_request: LinkType
+    Git references within a repository
+    """
+
+    ref: str
+    node_id: str
+    url: str
+    object_: GitRefPropObjectTypeForResponse
 
 
-__all__ = ("ReviewCommentPropLinksType",)
+class GitRefPropObjectType(TypedDict):
+    """GitRefPropObject"""
+
+    type: str
+    sha: str
+    url: str
+
+
+class GitRefPropObjectTypeForResponse(TypedDict):
+    """GitRefPropObject"""
+
+    type: str
+    sha: str
+    url: str
+
+
+__all__ = (
+    "GitRefPropObjectType",
+    "GitRefPropObjectTypeForResponse",
+    "GitRefType",
+    "GitRefTypeForResponse",
+)

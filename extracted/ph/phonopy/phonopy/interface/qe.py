@@ -34,11 +34,20 @@
 # ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import annotations
+
+import io
+import os
 import sys
+import typing
+import warnings
 from collections import OrderedDict
+from collections.abc import Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 
+from phonopy import Phonopy
 from phonopy.file_IO import (
     iter_collect_forces,
     write_FORCE_CONSTANTS,
@@ -52,10 +61,12 @@ from phonopy.interface.vasp import (
 )
 from phonopy.physical_units import get_physical_units
 from phonopy.structure.atoms import PhonopyAtoms, split_symbol_and_index, symbol_map
-from phonopy.structure.cells import get_primitive, get_supercell
+from phonopy.structure.cells import Primitive, get_primitive, get_supercell
 
 
-def parse_set_of_forces(num_atoms, forces_filenames, verbose=True):
+def parse_set_of_forces(
+    num_atoms: int, forces_filenames: Sequence[str | os.PathLike], verbose: bool = True
+) -> list[NDArray] | list:
     """Parse forces from output files."""
     hook = "Forces acting on atoms"
     is_parsed = True
@@ -153,7 +164,7 @@ def write_supercells_with_displacements(
 ):
     """Write supercells with displacements to files."""
     write_pwscf("%s.in" % pre_filename, supercell, pp_filenames)
-    for i, cell in zip(ids, cells_with_displacements):
+    for i, cell in zip(ids, cells_with_displacements, strict=True):
         filename = "{pre_filename}-{0:0{width}}.in".format(
             i, pre_filename=pre_filename, width=width
         )
@@ -162,13 +173,19 @@ def write_supercells_with_displacements(
 
 def get_pwscf_structure(cell, pp_filenames=None):
     """Return QE structure in text."""
+    if pp_filenames is None:
+        warnings.warn(
+            "Optional structure information (pp_filenames) is missing.\n"
+            "You will need to manually add pp filenames to the qe input file.",
+            stacklevel=2,
+        )
     lattice = cell.cell
     positions = cell.scaled_positions
     masses = cell.masses
     chemical_symbols = cell.symbols
     unique_symbols = []
     atomic_species = []
-    for symbol, m in zip(chemical_symbols, masses):
+    for symbol, m in zip(chemical_symbols, masses, strict=True):
         if symbol not in unique_symbols:
             unique_symbols.append(symbol)
             atomic_species.append((symbol, m))
@@ -188,7 +205,11 @@ def get_pwscf_structure(cell, pp_filenames=None):
             lines += " %2s %10.5f   %s\n" % (symbol, mass, pp_filenames[symbol])
     lines += "ATOMIC_POSITIONS crystal\n"
     for i, (symbol, pos_line) in enumerate(
-        zip(chemical_symbols, get_scaled_positions_lines(positions).split("\n"))
+        zip(
+            chemical_symbols,
+            get_scaled_positions_lines(positions).split("\n"),
+            strict=True,
+        )
     ):
         lines += (" %2s " % symbol) + pos_line
         if i < len(chemical_symbols) - 1:
@@ -318,7 +339,7 @@ class PwscfIn:
             raise RuntimeError("As a unit, alat, angstrom, and bohr can be only used.")
 
         if len(self._values[1:]) < 9:
-            raise RuntimeError("%s is wrongly set." % self._current_tag_name)
+            raise RuntimeError("%s is malformed." % self._current_tag_name)
 
         lattice = np.reshape([float(x) for x in self._values[1:10]], (3, 3))
         self._tags["cell_parameters"] = lattice * factor
@@ -463,18 +484,18 @@ class PH_Q2R:
 
     """
 
-    def __init__(self, filename, symprec=1e-5):
+    def __init__(self, filename: str | os.PathLike | typing.IO, symprec: float = 1e-5):
         """Init method."""
-        self.fc = None
-        self.dimension = None
-        self.epsilon = None
-        self.borns = None
-        self.primitive = None
-        self.supercell = None
+        self.fc: NDArray | None = None
+        self.dimension: NDArray | None = None
+        self.epsilon: NDArray | None = None
+        self.borns: NDArray | None = None
+        self.primitive: Primitive | None = None
+        self.supercell: PhonopyAtoms | None = None
         self._symprec = symprec
         self._filename = filename
 
-    def run(self, cell, is_full_fc=False, parse_fc=True):
+    def run(self, cell: PhonopyAtoms, is_full_fc: bool = False, parse_fc: bool = True):
         """Make supercell force constants readable for phonopy.
 
         Note
@@ -495,23 +516,44 @@ class PH_Q2R:
             False may be used when expected to parse only epsilon and born.
 
         """
-        with open(self._filename) as f:
-            fc_dct = self._parse_q2r(f)
-            self.dimension = fc_dct["dimension"]
-            self.epsilon = fc_dct["dielectric"]
-            self.borns = fc_dct["born"]
-            if parse_fc:
-                (self.fc, self.primitive, self.supercell) = self._arrange_supercell_fc(
-                    cell, fc_dct["fc"], is_full_fc=is_full_fc
-                )
+        if isinstance(self._filename, io.IOBase):
+            fc_dct = self._parse_q2r(self._filename)
+        else:
+            assert isinstance(self._filename, (str, os.PathLike))
+            with open(self._filename) as f:
+                fc_dct = self._parse_q2r(f)
 
-    def write_force_constants(self, fc_format="hdf5"):
+        self.dimension = fc_dct["dimension"]
+        self.epsilon = fc_dct["dielectric"]
+        self.borns = fc_dct["born"]
+        if parse_fc:
+            (self.fc, self.primitive, self.supercell) = self._get_phonopy_supercell_fc(
+                cell, fc_dct["fc"], is_full_fc=is_full_fc
+            )
+
+    def save(self, filename="phonopy_params_q2r.yaml"):
+        """Save the q2r output to a file."""
+        if self.primitive is None:
+            raise RuntimeError("Run PH_Q2R.run() before saving.")
+
+        ph = Phonopy(
+            self.primitive,
+            supercell_matrix=self.dimension,
+            calculator="qe",
+        )
+        ph.force_constants = self.fc
+        ph.save(filename)
+
+    def write_force_constants(self, fc_format: str = "hdf5"):
         """Write force constants to file in hdf5."""
+        if self.primitive is None:
+            raise RuntimeError("Run PH_Q2R.run() before writing force constants.")
+
         if self.fc is not None:
             if fc_format == "hdf5":
                 write_force_constants_to_hdf5(self.fc, p2s_map=self.primitive.p2s_map)
             else:
-                write_FORCE_CONSTANTS(self.fc)
+                write_FORCE_CONSTANTS(self.fc, p2s_map=self.primitive.p2s_map)
 
     def _parse_q2r(self, f):
         """Parse q2r output file.
@@ -567,39 +609,41 @@ class PH_Q2R:
     def _parse_fc(self, f, natom, dim):
         """Parse force constants part.
 
-        Physical unit of force cosntants in the file is Ry/au^2.
+        Physical unit of force constants in the file is Ry/au^2.
 
         """
         ndim = np.prod(dim)
         fc = np.zeros((natom, natom * ndim, 3, 3), dtype="double", order="C")
-        for k, ll, i, j in np.ndindex((3, 3, natom, natom)):
-            line = f.readline()
-            for i_dim in range(ndim):
+        for k, ll, i, j in np.ndindex((3, 3, natom, natom)):  # xyz2 xzy1 p2 p1
+            line = f.readline()  # xyz2 xzy1 p2 p1
+            for i_dim in range(ndim):  # lattice translation, see _get_q2r_positions
                 line = f.readline()
-                # fc[i, j * ndim + i_dim, k, l] = float(line.split()[3])
                 fc[j, i * ndim + i_dim, ll, k] = float(line.split()[3])
         return fc
 
-    def _arrange_supercell_fc(self, cell, q2r_fc, is_full_fc=False):
+    def _get_phonopy_supercell_fc(
+        self, cell: PhonopyAtoms, q2r_fc: NDArray, is_full_fc: bool = False
+    ):
         dim = self.dimension
         q2r_spos = self._get_q2r_positions(cell)
+        assert dim is not None
         scell = get_supercell(cell, np.diag(dim))
         pcell = get_primitive(scell, np.diag(1.0 / dim))
 
         diff = cell.scaled_positions - pcell.scaled_positions
         diff -= np.rint(diff)
         assert (np.abs(diff) < 1e-8).all()
-        assert len(cell) == len(q2r_spos)
+        assert len(scell) == len(q2r_spos)
 
         site_map = self._get_site_mapping(scell.scaled_positions, q2r_spos, scell.cell)
         natom = len(pcell)
+        assert dim is not None
         ndim = np.prod(dim)
         natom_s = natom * ndim
 
         if is_full_fc:
             fc = np.zeros((natom_s, natom_s, 3, 3), dtype="double", order="C")
-            p2s = pcell.get_primitive_to_supercell_map()
-            fc[p2s, :] = q2r_fc[:, site_map]
+            fc[pcell.p2s_map, :] = q2r_fc[:, site_map]
             distribute_force_constants_by_translations(fc, pcell)
         else:
             fc = np.zeros((natom, natom_s, 3, 3), dtype="double", order="C")
@@ -607,17 +651,40 @@ class PH_Q2R:
 
         return fc, pcell, scell
 
-    def _get_q2r_positions(self, cell):
+    def _get_q2r_positions(self, cell: PhonopyAtoms) -> NDArray:
+        """Define order of atomic positions in q2r.
+
+        In [1]: dim = np.array([2, 2, 2])
+        In [2]: trans = [x[::-1] for x in np.ndindex(tuple(dim[::-1]))]
+        In [3]: trans
+        Out[3]:
+        [(0, 0, 0),
+        (1, 0, 0),
+        (0, 1, 0),
+        (1, 1, 0),
+        (0, 0, 1),
+        (1, 0, 1),
+        (0, 1, 1),
+        (1, 1, 1)]
+
+        """
         dim = self.dimension
         natom = len(cell)
+        assert dim is not None
         ndim = np.prod(dim)
         spos = np.zeros((natom * np.prod(dim), 3), dtype="double", order="C")
+        # See the docstring for the order of lattice translation in QE.
         trans = [x[::-1] for x in np.ndindex(tuple(dim[::-1]))]
         for i, p in enumerate(cell.scaled_positions):
             spos[i * ndim : (i + 1) * ndim] = (trans + p) / dim
         return spos
 
-    def _get_site_mapping(self, spos, q2r_spos, lattice):
+    def _get_site_mapping(self, spos: NDArray, q2r_spos: NDArray, lattice: NDArray):
+        """Get mapping from supercell to q2r positions.
+
+        site_map[i] gives the index of q2r_spos corresponding to spos[i].
+
+        """
         site_map = []
         for _, p in enumerate(spos):
             diff = q2r_spos - p

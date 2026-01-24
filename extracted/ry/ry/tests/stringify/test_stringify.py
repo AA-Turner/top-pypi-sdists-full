@@ -41,9 +41,7 @@ class TestStringifyRecursion:
     def _depth(self, d: dict[str, t.Any] | tuple[t.Any, ...] | list[t.Any]) -> int:
         if isinstance(d, dict) and d:
             return 1 + self._depth(next(iter(d.values())))
-        elif isinstance(d, list) and d:
-            return 1 + self._depth(d[0])
-        elif isinstance(d, tuple) and d:
+        if (isinstance(d, list) and d) or (isinstance(d, tuple) and d):
             return 1 + self._depth(d[0])
         return 0
 
@@ -111,7 +109,6 @@ def test_stringify_pybytes_output() -> None:
 
 def _test_stringify_json(data: t.Any) -> None:
     """Test that stringify_json produces valid JSON strings."""
-
     json_bytes = ry.stringify(data)
     assert isinstance(json_bytes, ry.Bytes), "Result should be a `ry.Bytes`"
 
@@ -131,7 +128,6 @@ def _test_stringify_json(data: t.Any) -> None:
 
 def _test_stringify_json_orjson_compatible(data: t.Any) -> None:
     """Test that stringify_json produces valid JSON strings compatible with orjson."""
-
     json_bytes = ry.stringify(data)
     try:
         oj_res = oj_stringify(data)
@@ -265,6 +261,7 @@ PYTYPES_JSON_SER = [
     True,
     [1, 2, 3, 4, 5],
     (1, 2, 3, 4, 5),
+    (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17),
     [1, 2, 3, {"a": 1, "b": 2}],
     [],
     (),
@@ -281,7 +278,7 @@ PYTYPES_JSON_SER = [
         "datetime": pydt.datetime(2023, 10, 1, 12, 0, 0),
         "time": pydt.time(12, 0, 0),
         "timedelta": pydt.timedelta(days=1, seconds=3600),
-        # TODO: add tzinfo/timezone? "tzinfo": pydt.datetime.now(pydt.timezone.utc).tzinfo,
+        # TODO: add tzinfo/timezone? "tzinfo": pydt.datetime.now(pydt.timezone.utc).tzinfo
     },
 ]
 
@@ -427,7 +424,6 @@ class TestStringifyDefault:
 
     def test_stringify_custom_type_no_default_throws_err(self) -> None:
         """Test that stringify raises an error for custom types without a default."""
-
         with pytest.raises(TypeError, match="Failed to serialize"):
             ry.stringify(self.SomeSTupidCustomType("test"))
 
@@ -557,4 +553,59 @@ def test_stringify_dataclass_nested() -> None:
     assert parsed == {
         "shape1": {"name": "circle", "point": {"x": 1, "y": 2}},
         "shape2": {"name": "square", "point": {"x": 3, "y": 4}},
+    }
+
+
+def test_stringify_non_dict_like_mapping() -> None:
+    """Test that `stringify` raises an error for non-dict-like mappings."""
+
+    class NonDictLikeMapping(t.Mapping[str, str]):
+        def __init__(self, data: dict[str, str]) -> None:
+            self._data = data
+
+        def __getitem__(self, key: str) -> str:
+            return self._data[key]
+
+        def __iter__(self) -> t.Iterator[str]:
+            return iter(self._data)
+
+        def __len__(self) -> int:
+            return len(self._data)
+
+        def keys(self) -> t.KeysView[str]:
+            return self._data.keys()
+
+        def values(self) -> t.ValuesView[str]:
+            return self._data.values()
+
+        def items(self) -> t.ItemsView[str, str]:
+            return self._data.items()
+
+    data = NonDictLikeMapping({
+        "key1": "value1",
+        "key2": "value2",
+    })
+    res = ry.stringify(data, fmt=True)
+    parsed = ry.parse_json(res)
+    assert parsed == {
+        "key1": "value1",
+        "key2": "value2",
+    }
+
+
+def test_stringify_string_subclass() -> None:
+    """Test that `stringify` handles string subclasses correctly."""
+
+    class MyStr(str):
+        __slots__ = ()
+
+    data = {
+        "key1": MyStr("value1"),
+        "key2": MyStr("value2"),
+    }
+    res = ry.stringify(data, fmt=True)
+    parsed = ry.parse_json(res)
+    assert parsed == {
+        "key1": "value1",
+        "key2": "value2",
     }

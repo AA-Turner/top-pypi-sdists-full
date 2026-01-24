@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: © 2022-2024 Decompollaborate
+# SPDX-License-Identifier: MIT
+
+[project]
+name = "mapfile_parser"
+version = "2.12.1"
+description = "Map file parser library focusing decompilation projects"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "requests",
+    "decomp-settings==0.0.10",
+]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Decompollaborate/mapfile_parser"
+"Bug Tracker" = "https://github.com/Decompollaborate/mapfile_parser/issues"
+
+[build-system]
+requires = ["maturin>=1.2,<2.0"]
+build-backend = "maturin"
+
+[project.scripts]
+mapfile_parser = "mapfile_parser.__main__:mapfileParserMain"
+
+
+[tool.maturin]
+features = ["pyo3/extension-module", "python_bindings"]
+# https://github.com/PyO3/maturin/blob/0dee40510083c03607834c821eea76964140a126/Readme.md#mixed-rustpython-projects
+python-source = "src"

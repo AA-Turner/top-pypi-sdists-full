@@ -86,7 +86,9 @@ for mask_name in mask_names:
     print(f"Working on {mask_name}")
     # For decoding, standardizing is often very important
     mask_filename = haxby_dataset[mask_name][0]
-    masker = NiftiMasker(mask_img=mask_filename, standardize="zscore_sample")
+    masker = NiftiMasker(
+        mask_img=mask_filename, standardize="zscore_sample", verbose=1
+    )
     mask_scores[mask_name] = {}
     mask_chance_scores[mask_name] = {}
 
@@ -102,6 +104,7 @@ for mask_name in mask_names:
             mask=masker,
             scoring="roc_auc",
             standardize="zscore_sample",
+            verbose=1,
         )
 
         with warnings.catch_warnings():
@@ -121,6 +124,7 @@ for mask_name in mask_names:
             mask=masker,
             scoring="roc_auc",
             standardize="zscore_sample",
+            verbose=1,
         )
 
         with warnings.catch_warnings():
@@ -146,7 +150,7 @@ plt.figure(constrained_layout=True)
 tick_position = np.arange(len(categories))
 plt.xticks(tick_position, categories, rotation=45)
 
-for color, mask_name in zip("rgb", mask_names):
+for color, mask_name in zip("rgb", mask_names, strict=False):
     score_means = [
         np.mean(mask_scores[mask_name][category]) for category in categories
     ]

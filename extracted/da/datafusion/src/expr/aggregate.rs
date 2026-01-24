@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
+use std::fmt::{self, Display, Formatter};
+
 use datafusion::common::DataFusionError;
 use datafusion::logical_expr::expr::{AggregateFunction, AggregateFunctionParams, Alias};
 use datafusion::logical_expr::logical_plan::Aggregate;
 use datafusion::logical_expr::Expr;
-use pyo3::{prelude::*, IntoPyObjectExt};
-use std::fmt::{self, Display, Formatter};
+use pyo3::prelude::*;
+use pyo3::IntoPyObjectExt;
 
 use super::logical_node::LogicalNode;
 use crate::common::df_schema::PyDFSchema;
@@ -28,7 +30,7 @@ use crate::errors::py_type_err;
 use crate::expr::PyExpr;
 use crate::sql::logical::PyLogicalPlan;
 
-#[pyclass(name = "Aggregate", module = "datafusion.expr", subclass)]
+#[pyclass(frozen, name = "Aggregate", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PyAggregate {
     aggregate: Aggregate,

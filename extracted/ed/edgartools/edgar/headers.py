@@ -12,8 +12,8 @@ from rich.table import Column, Table
 from rich.text import Text
 
 from edgar._party import Address, get_addresses_as_columns
-from edgar.core import sec_dot_gov
-from edgar.formatting import display_size
+from edgar.config import SEC_BASE_URL
+from edgar.display.formatting import display_size
 from edgar.httprequests import download_file
 from edgar.reference import describe_form
 from edgar.richtools import repr_rich
@@ -40,7 +40,7 @@ class FilingDirectory:
 
     @property
     def index_headers(self):
-        return download_file(f"{sec_dot_gov}/{self.name}/{self.accession_number}-index-headers.html")
+        return download_file(f"{SEC_BASE_URL}/{self.name}/{self.accession_number}-index-headers.html")
 
     @classmethod
     def load(cls, basedir: str):

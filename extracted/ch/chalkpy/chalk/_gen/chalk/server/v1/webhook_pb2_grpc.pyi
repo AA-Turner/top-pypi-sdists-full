@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.webhook_pb2 import (
     GetWebhookResponse,
     ListWebhooksRequest,
     ListWebhooksResponse,
+    TestWebhookRequest,
+    TestWebhookResponse,
     UpdateWebhookRequest,
     UpdateWebhookResponse,
 )
@@ -47,6 +49,10 @@ class WebhookServiceStub:
     ListWebhooks: UnaryUnaryMultiCallable[
         ListWebhooksRequest,
         ListWebhooksResponse,
+    ]
+    TestWebhook: UnaryUnaryMultiCallable[
+        TestWebhookRequest,
+        TestWebhookResponse,
     ]
 
 class WebhookServiceServicer(metaclass=ABCMeta):
@@ -80,5 +86,11 @@ class WebhookServiceServicer(metaclass=ABCMeta):
         request: ListWebhooksRequest,
         context: ServicerContext,
     ) -> ListWebhooksResponse: ...
+    @abstractmethod
+    def TestWebhook(
+        self,
+        request: TestWebhookRequest,
+        context: ServicerContext,
+    ) -> TestWebhookResponse: ...
 
 def add_WebhookServiceServicer_to_server(servicer: WebhookServiceServicer, server: Server) -> None: ...

@@ -56,11 +56,11 @@ def main():
         package_dir={'': 'src'},
         package_data={'': ['pyodbc.pyi']},  # places pyodbc.pyi alongside pyodbc.{platform}.{pyd|so} in site-packages
         license='MIT-0',
-        python_requires='>=3.8',
+        python_requires='>=3.9',
         classifiers=['Development Status :: 5 - Production/Stable',
                      'Intended Audience :: Developers',
                      'Intended Audience :: System Administrators',
-                     'License :: OSI Approved :: MIT No Attribution License (MIT-0)',
+                     'License :: OSI Approved :: MIT-0',
                      'Operating System :: Microsoft :: Windows',
                      'Operating System :: POSIX',
                      'Programming Language :: Python',
@@ -147,10 +147,15 @@ def get_compiler_settings():
                 '/opt/homebrew/include',
                 expanduser('~/homebrew/include'),
             ]
+            _HOMEBREW_PREFIX = os.environ.get('HOMEBREW_PREFIX')
+            if _HOMEBREW_PREFIX is not None:
+                dirs.insert(0, os.path.join(_HOMEBREW_PREFIX, 'include'))
             settings['include_dirs'].extend(dir for dir in dirs if isdir(dir))
             # unixODBC make/install places libodbc.dylib in /usr/local/lib/ by default
             # ( also OS/X since El Capitan prevents /usr/lib from being accessed )
             settings['library_dirs'] = ['/usr/local/lib', '/opt/homebrew/lib']
+            if _HOMEBREW_PREFIX is not None:
+                settings['library_dirs'].insert(1, os.path.join(_HOMEBREW_PREFIX, 'lib'))
     else:
         # Other posix-like: Linux, Solaris, etc.
 

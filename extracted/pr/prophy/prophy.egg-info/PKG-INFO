@@ -1,0 +1,127 @@
+Metadata-Version: 2.1
+Name: prophy
+Version: 1.2.5
+Summary: prophy: fast serialization protocol
+Home-page: https://github.com/aurzenligl/prophy
+Author: Krzysztof Laskowski
+Author-email: aurzenligl@gmail.com
+Maintainer: Krzysztof Laskowski
+Maintainer-email: aurzenligl@gmail.com
+License: MIT license
+Description: .. image:: https://img.shields.io/pypi/v/prophy.svg
+            :target: https://pypi.python.org/pypi/prophy
+            :alt: Pypi Package Version
+        .. image:: https://img.shields.io/pypi/pyversions/prophy.svg
+            :target: https://pypi.python.org/pypi/prophy
+            :alt: Supported Python Versions
+        .. image:: https://readthedocs.org/projects/prophy/badge
+            :target: http://prophy.readthedocs.io/en/latest
+            :alt: Documentation Status
+        .. image:: https://coveralls.io/repos/github/aurzenligl/prophy/badge.svg?branch=master
+            :target: https://coveralls.io/github/aurzenligl/prophy?branch=master
+            :alt: Coverage Status
+        .. image:: https://github.com/aurzenligl/prophy/workflows/test/badge.svg
+            :target: https://github.com/aurzenligl/prophy/actions?query=workflow%3Atest
+        
+        Prophy is a statically typed, binary, tag-free, unpacked serialization protocol.
+        
+        You can define message schema::
+        
+            struct MyMsg
+            {
+                u16 x<>;
+            };
+        
+        generate codecs for chosen languages::
+        
+            prophyc --python_out . --cpp_full_out . --cpp_out . test.prophy
+        
+        and serialize data in Python::
+        
+            >>> import test
+            >>> msg = test.MyMsg()
+            >>> msg.x[:] = [1, 2, 3]
+            >>> msg.encode('<')
+            '\x03\x00\x00\x00\x01\x00\x02\x00\x03\x00\x00\x00'
+            >>> print msg
+            x: 1
+            x: 2
+            x: 3
+        
+        in C++::
+        
+            #include <iostream>
+            #include <iterator>
+            #include "test.ppf.hpp"
+        
+            int main()
+            {
+                prophy::generated::MyMsg msg{{1, 2, 3}};
+                std::vector<uint8_t> data = msg.encode();
+                std::copy(data.begin(), data.end(), std::ostream_iterator<unsigned>(std::cout, " "));
+                std::cout << '\n' << msg.print();
+                return 0;
+            }
+        
+        ::
+        
+            3 0 0 0 1 0 2 0 3 0 0 0
+            x: 1
+            x: 2
+            x: 3
+        
+        again in C++ (half hand-rolled, compiler-dependent, but fastest option)::
+        
+            #include <iostream>
+            #include <iterator>
+            #include <cstdlib>
+            #include "test.pp.hpp"
+        
+            int main()
+            {
+                MyMsg* msg = static_cast<MyMsg*>(std::malloc(12));
+                msg->num_of_x = 3;
+                msg->x[0] = 1;
+                msg->x[1] = 2;
+                msg->x[2] = 3;
+                std::copy((uint8_t*)msg, ((uint8_t*)msg) + 12, std::ostream_iterator<unsigned>(std::cout, " "));
+                std::cout << '\n';
+                return 0;
+            }
+        
+        ::
+        
+            3 0 0 0 1 0 2 0 3 0 0 0
+        
+        Documentation: http://prophy.readthedocs.org
+        
+        Issues: https://github.com/aurzenligl/prophy/issues
+        
+Keywords: idl codec binary data protocol compiler
+Platform: UNKNOWN
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Telecommunications Industry
+Classifier: Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator
+Classifier: Topic :: Software Development :: Code Generators
+Classifier: Topic :: Software Development :: Compilers
+Classifier: Topic :: Software Development :: Embedded Systems
+Classifier: Topic :: Software Development :: Testing
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Topic :: Utilities
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 2
+Classifier: Programming Language :: Python :: 2.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.6
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Classifier: Programming Language :: C++
+Classifier: Operating System :: OS Independent
+Classifier: License :: OSI Approved :: MIT License
+Description-Content-Type: text/x-rst

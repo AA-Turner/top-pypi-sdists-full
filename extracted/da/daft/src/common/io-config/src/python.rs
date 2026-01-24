@@ -168,22 +168,39 @@ pub struct UnityConfig {
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 #[pyclass(module = "daft.daft")]
+pub struct GravitinoConfig {
+    pub config: crate::GravitinoConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[pyclass(module = "daft.daft")]
 pub struct HuggingFaceConfig {
     pub config: crate::HuggingFaceConfig,
+}
+
+#[derive(Clone, Default, Serialize, Deserialize)]
+#[pyclass(module = "daft.daft")]
+pub struct TosConfig {
+    pub config: crate::TosConfig,
 }
 
 #[pymethods]
 impl IOConfig {
     #[new]
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (
         s3=None,
         azure=None,
         gcs=None,
         http=None,
         unity=None,
-        hf=None
+        hf=None,
+        disable_suffix_range=None,
+        tos=None,
+        gravitino=None
     ))]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         s3: Option<S3Config>,
         azure: Option<AzureConfig>,
@@ -191,6 +208,9 @@ impl IOConfig {
         http: Option<HTTPConfig>,
         unity: Option<UnityConfig>,
         hf: Option<HuggingFaceConfig>,
+        disable_suffix_range: Option<bool>,
+        tos: Option<TosConfig>,
+        gravitino: Option<GravitinoConfig>,
     ) -> Self {
         Self {
             config: config::IOConfig {
@@ -200,10 +220,14 @@ impl IOConfig {
                 http: http.unwrap_or_default().config,
                 unity: unity.unwrap_or_default().config,
                 hf: hf.unwrap_or_default().config,
+                disable_suffix_range: disable_suffix_range.unwrap_or_default(),
+                tos: tos.unwrap_or_default().config,
+                gravitino: gravitino.unwrap_or_default().config,
             },
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     #[must_use]
     #[pyo3(signature = (
         s3=None,
@@ -211,8 +235,12 @@ impl IOConfig {
         gcs=None,
         http=None,
         unity=None,
-        hf=None
+        hf=None,
+        disable_suffix_range=None,
+        tos=None,
+        gravitino=None
     ))]
+    #[allow(clippy::too_many_arguments)]
     pub fn replace(
         &self,
         s3: Option<S3Config>,
@@ -221,6 +249,9 @@ impl IOConfig {
         http: Option<HTTPConfig>,
         unity: Option<UnityConfig>,
         hf: Option<HuggingFaceConfig>,
+        disable_suffix_range: Option<bool>,
+        tos: Option<TosConfig>,
+        gravitino: Option<GravitinoConfig>,
     ) -> Self {
         Self {
             config: config::IOConfig {
@@ -242,6 +273,14 @@ impl IOConfig {
                 hf: hf
                     .map(|hf| hf.config)
                     .unwrap_or_else(|| self.config.hf.clone()),
+                disable_suffix_range: disable_suffix_range
+                    .unwrap_or(self.config.disable_suffix_range),
+                tos: tos
+                    .map(|tos| tos.config)
+                    .unwrap_or_else(|| self.config.tos.clone()),
+                gravitino: gravitino
+                    .map(|gravitino| gravitino.config)
+                    .unwrap_or_else(|| self.config.gravitino.clone()),
             },
         }
     }
@@ -290,9 +329,23 @@ impl IOConfig {
     }
 
     #[getter]
+    pub fn gravitino(&self) -> PyResult<GravitinoConfig> {
+        Ok(GravitinoConfig {
+            config: self.config.gravitino.clone(),
+        })
+    }
+
+    #[getter]
     pub fn hf(&self) -> PyResult<HuggingFaceConfig> {
         Ok(HuggingFaceConfig {
             config: self.config.hf.clone(),
+        })
+    }
+
+    #[getter]
+    pub fn tos(&self) -> PyResult<TosConfig> {
+        Ok(TosConfig {
+            config: self.config.tos.clone(),
         })
     }
 
@@ -331,7 +384,8 @@ impl S3Config {
         force_virtual_addressing=None,
         profile_name=None,
         multipart_size=None,
-        multipart_max_concurrency=None
+        multipart_max_concurrency=None,
+        custom_retry_msgs=None
     ))]
     pub fn new(
         region_name: Option<String>,
@@ -356,6 +410,7 @@ impl S3Config {
         profile_name: Option<String>,
         multipart_size: Option<u64>,
         multipart_max_concurrency: Option<u32>,
+        custom_retry_msgs: Option<Vec<String>>,
     ) -> PyResult<Self> {
         let def = crate::S3Config::default();
         Ok(Self {
@@ -395,6 +450,7 @@ impl S3Config {
                 multipart_size: multipart_size.unwrap_or(def.multipart_size),
                 multipart_max_concurrency: multipart_max_concurrency
                     .unwrap_or(def.multipart_max_concurrency),
+                custom_retry_msgs: custom_retry_msgs.unwrap_or(def.custom_retry_msgs),
             },
         })
     }
@@ -422,7 +478,8 @@ impl S3Config {
         force_virtual_addressing=None,
         profile_name=None,
         multipart_size=None,
-        multipart_max_concurrency=None
+        multipart_max_concurrency=None,
+        custom_retry_msgs=None
     ))]
     pub fn replace(
         &self,
@@ -448,6 +505,7 @@ impl S3Config {
         profile_name: Option<String>,
         multipart_size: Option<u64>,
         multipart_max_concurrency: Option<u32>,
+        custom_retry_msgs: Option<Vec<String>>,
     ) -> PyResult<Self> {
         Ok(Self {
             config: crate::S3Config {
@@ -488,6 +546,8 @@ impl S3Config {
                 multipart_size: multipart_size.unwrap_or(self.config.multipart_size),
                 multipart_max_concurrency: multipart_max_concurrency
                     .unwrap_or(self.config.multipart_max_concurrency),
+                custom_retry_msgs: custom_retry_msgs
+                    .unwrap_or_else(|| self.config.custom_retry_msgs.clone()),
             },
         })
     }
@@ -646,6 +706,12 @@ impl S3Config {
         Ok(self.config.profile_name.clone())
     }
 
+    /// Custom retry error messages that should trigger retry
+    #[getter]
+    pub fn custom_retry_msgs(&self) -> PyResult<Vec<String>> {
+        Ok(self.config.custom_retry_msgs.clone())
+    }
+
     pub fn provide_cached_credentials(&self) -> PyResult<Option<S3Credentials>> {
         self.config
             .credentials_provider
@@ -714,7 +780,7 @@ pub struct PyS3CredentialsProvider {
         serialize_with = "serialize_py_object",
         deserialize_with = "deserialize_py_object"
     )]
-    pub provider: Arc<PyObject>,
+    pub provider: Arc<Py<PyAny>>,
     pub hash: isize,
 }
 
@@ -761,7 +827,7 @@ impl S3CredentialsProvider for PyS3CredentialsProvider {
     }
 
     fn provide_credentials(&self) -> DaftResult<crate::S3Credentials> {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_creds = self.provider.call0(py)?;
             Ok(py_creds.extract::<S3Credentials>(py)?.credentials)
         })
@@ -1182,6 +1248,92 @@ impl UnityConfig {
 }
 
 #[pymethods]
+impl GravitinoConfig {
+    #[new]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (endpoint=None, metalake_name=None, auth_type=None, username=None, password=None, token=None))]
+    pub fn new(
+        endpoint: Option<String>,
+        metalake_name: Option<String>,
+        auth_type: Option<String>,
+        username: Option<String>,
+        password: Option<String>,
+        token: Option<String>,
+    ) -> Self {
+        let default = crate::GravitinoConfig::default();
+        Self {
+            config: crate::GravitinoConfig {
+                endpoint: endpoint.or(default.endpoint),
+                metalake_name: metalake_name.or(default.metalake_name),
+                auth_type: auth_type.or(default.auth_type),
+                username: username.or(default.username),
+                password: password.map(Into::into).or(default.password),
+                token: token.map(Into::into).or(default.token),
+            },
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (endpoint=None, metalake_name=None, auth_type=None, username=None, password=None, token=None))]
+    pub fn replace(
+        &self,
+        endpoint: Option<String>,
+        metalake_name: Option<String>,
+        auth_type: Option<String>,
+        username: Option<String>,
+        password: Option<String>,
+        token: Option<String>,
+    ) -> Self {
+        Self {
+            config: crate::GravitinoConfig {
+                endpoint: endpoint.or_else(|| self.config.endpoint.clone()),
+                metalake_name: metalake_name.or_else(|| self.config.metalake_name.clone()),
+                auth_type: auth_type.or_else(|| self.config.auth_type.clone()),
+                username: username.or_else(|| self.config.username.clone()),
+                password: password
+                    .map(Into::into)
+                    .or_else(|| self.config.password.clone()),
+                token: token.map(Into::into).or_else(|| self.config.token.clone()),
+            },
+        }
+    }
+
+    pub fn __repr__(&self) -> String {
+        format!("{}", self.config)
+    }
+
+    #[getter]
+    pub fn endpoint(&self) -> Option<String> {
+        self.config.endpoint.clone()
+    }
+
+    #[getter]
+    pub fn metalake_name(&self) -> Option<String> {
+        self.config.metalake_name.clone()
+    }
+
+    #[getter]
+    pub fn auth_type(&self) -> Option<String> {
+        self.config.auth_type.clone()
+    }
+
+    #[getter]
+    pub fn username(&self) -> Option<String> {
+        self.config.username.clone()
+    }
+
+    #[getter]
+    pub fn password(&self) -> Option<String> {
+        self.config.password.as_ref().map(|s| s.as_string().clone())
+    }
+
+    #[getter]
+    pub fn token(&self) -> Option<String> {
+        self.config.token.as_ref().map(|s| s.as_string().clone())
+    }
+}
+
+#[pymethods]
 impl HuggingFaceConfig {
     #[new]
     #[pyo3(signature = (
@@ -1281,6 +1433,206 @@ impl HuggingFaceConfig {
     }
 }
 
+#[pymethods]
+impl TosConfig {
+    #[allow(clippy::too_many_arguments)]
+    #[new]
+    #[pyo3(signature = (
+        region=None,
+        endpoint=None,
+        access_key=None,
+        secret_key=None,
+        security_token=None,
+        anonymous=None,
+        max_retries=None,
+        retry_timeout_ms=None,
+        connect_timeout_ms=None,
+        read_timeout_ms=None,
+        max_concurrent_requests=None,
+        max_connections=None,
+        multipart_size=None,
+        multipart_max_concurrency=None,
+    ))]
+    pub fn new(
+        region: Option<String>,
+        endpoint: Option<String>,
+        access_key: Option<String>,
+        secret_key: Option<String>,
+        security_token: Option<String>,
+        anonymous: Option<bool>,
+        max_retries: Option<u32>,
+        retry_timeout_ms: Option<u64>,
+        connect_timeout_ms: Option<u64>,
+        read_timeout_ms: Option<u64>,
+        max_concurrent_requests: Option<u32>,
+        max_connections: Option<u32>,
+        multipart_size: Option<u64>,
+        multipart_max_concurrency: Option<u32>,
+    ) -> PyResult<Self> {
+        let def = crate::TosConfig::default();
+        Ok(Self {
+            config: crate::TosConfig {
+                region: region.or(def.region),
+                endpoint: endpoint.or(def.endpoint),
+                access_key: access_key.or(def.access_key),
+                secret_key: secret_key.map(std::convert::Into::into).or(def.secret_key),
+                security_token: security_token
+                    .map(std::convert::Into::into)
+                    .or(def.security_token),
+                anonymous: anonymous.unwrap_or(def.anonymous),
+                max_retries: max_retries.unwrap_or(def.max_retries),
+                retry_timeout_ms: retry_timeout_ms.unwrap_or(def.retry_timeout_ms),
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(def.connect_timeout_ms),
+                read_timeout_ms: read_timeout_ms.unwrap_or(def.read_timeout_ms),
+                max_concurrent_requests: max_concurrent_requests
+                    .unwrap_or(def.max_concurrent_requests),
+                max_connections_per_io_thread: max_connections
+                    .unwrap_or(def.max_connections_per_io_thread),
+                multipart_size: multipart_size.unwrap_or(def.multipart_size),
+                multipart_max_concurrency: multipart_max_concurrency
+                    .unwrap_or(def.multipart_max_concurrency),
+            },
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        region=None,
+        endpoint=None,
+        access_key=None,
+        secret_key=None,
+        security_token=None,
+        anonymous=None,
+        max_retries=None,
+        retry_timeout_ms=None,
+        connect_timeout_ms=None,
+        read_timeout_ms=None,
+        max_concurrent_requests=None,
+        max_connections=None,
+        multipart_size=None,
+        multipart_max_concurrency=None,
+    ))]
+    pub fn replace(
+        &self,
+        region: Option<String>,
+        endpoint: Option<String>,
+        access_key: Option<String>,
+        secret_key: Option<String>,
+        security_token: Option<String>,
+        anonymous: Option<bool>,
+        max_retries: Option<u32>,
+        retry_timeout_ms: Option<u64>,
+        connect_timeout_ms: Option<u64>,
+        read_timeout_ms: Option<u64>,
+        max_concurrent_requests: Option<u32>,
+        max_connections: Option<u32>,
+        multipart_size: Option<u64>,
+        multipart_max_concurrency: Option<u32>,
+    ) -> PyResult<Self> {
+        Ok(Self {
+            config: crate::TosConfig {
+                region: region.or_else(|| self.config.region.clone()),
+                endpoint: endpoint.or_else(|| self.config.endpoint.clone()),
+                access_key: access_key.or_else(|| self.config.access_key.clone()),
+                secret_key: secret_key
+                    .map(std::convert::Into::into)
+                    .or_else(|| self.config.secret_key.clone()),
+                security_token: security_token
+                    .map(std::convert::Into::into)
+                    .or_else(|| self.config.security_token.clone()),
+                anonymous: anonymous.unwrap_or(self.config.anonymous),
+                max_retries: max_retries.unwrap_or(self.config.max_retries),
+                retry_timeout_ms: retry_timeout_ms.unwrap_or(self.config.retry_timeout_ms),
+                connect_timeout_ms: connect_timeout_ms.unwrap_or(self.config.connect_timeout_ms),
+                read_timeout_ms: read_timeout_ms.unwrap_or(self.config.read_timeout_ms),
+                max_concurrent_requests: max_concurrent_requests
+                    .unwrap_or(self.config.max_concurrent_requests),
+                max_connections_per_io_thread: max_connections
+                    .unwrap_or(self.config.max_connections_per_io_thread),
+                multipart_size: multipart_size.unwrap_or(self.config.multipart_size),
+                multipart_max_concurrency: multipart_max_concurrency
+                    .unwrap_or(self.config.multipart_max_concurrency),
+            },
+        })
+    }
+
+    #[staticmethod]
+    pub fn from_env(_py: Python) -> PyResult<Self> {
+        let endpoint = std::env::var("TOS_ENDPOINT").ok();
+        let region = std::env::var("TOS_REGION").ok();
+        let access_key: Option<String> = std::env::var("TOS_ACCESS_KEY").ok();
+        let secret_key: Option<String> = std::env::var("TOS_SECRET_KEY").ok();
+        let session_token: Option<String> = std::env::var("TOS_SESSION_TOKEN").ok();
+        let anonymous = access_key.is_none();
+
+        Ok(Self {
+            config: crate::TosConfig {
+                endpoint,
+                region,
+                access_key,
+                secret_key: secret_key.map(|s| s.into()),
+                security_token: session_token.map(|s| s.into()),
+                anonymous,
+                ..Default::default()
+            },
+        })
+    }
+
+    pub fn __repr__(&self) -> PyResult<String> {
+        Ok(format!("{}", self.config))
+    }
+
+    #[getter]
+    pub fn region_name(&self) -> PyResult<Option<String>> {
+        Ok(self.config.region.clone())
+    }
+
+    #[getter]
+    pub fn endpoint(&self) -> PyResult<Option<String>> {
+        Ok(self.config.endpoint.clone())
+    }
+
+    #[getter]
+    pub fn access_key(&self) -> PyResult<Option<String>> {
+        Ok(self.config.access_key.clone())
+    }
+
+    #[getter]
+    pub fn secret_key(&self) -> PyResult<Option<String>> {
+        Ok(self
+            .config
+            .secret_key
+            .as_ref()
+            .map(super::ObfuscatedString::as_string)
+            .cloned())
+    }
+
+    #[getter]
+    pub fn session_token(&self) -> PyResult<Option<String>> {
+        Ok(self
+            .config
+            .security_token
+            .as_ref()
+            .map(super::ObfuscatedString::as_string)
+            .cloned())
+    }
+
+    #[getter]
+    pub fn max_connections(&self) -> PyResult<u32> {
+        Ok(self.config.max_connections_per_io_thread)
+    }
+
+    #[getter]
+    pub fn multipart_size(&self) -> PyResult<u64> {
+        Ok(self.config.multipart_size)
+    }
+
+    #[getter]
+    pub fn multipart_max_concurrency(&self) -> PyResult<u32> {
+        Ok(self.config.multipart_max_concurrency)
+    }
+}
+
 impl_bincode_py_state_serialization!(IOConfig);
 impl_bincode_py_state_serialization!(S3Config);
 impl_bincode_py_state_serialization!(S3Credentials);
@@ -1289,6 +1641,8 @@ impl_bincode_py_state_serialization!(GCSConfig);
 impl_bincode_py_state_serialization!(HTTPConfig);
 impl_bincode_py_state_serialization!(UnityConfig);
 impl_bincode_py_state_serialization!(HuggingFaceConfig);
+impl_bincode_py_state_serialization!(TosConfig);
+impl_bincode_py_state_serialization!(GravitinoConfig);
 
 pub fn register_modules(parent: &Bound<PyModule>) -> PyResult<()> {
     parent.add_class::<AzureConfig>()?;
@@ -1296,8 +1650,10 @@ pub fn register_modules(parent: &Bound<PyModule>) -> PyResult<()> {
     parent.add_class::<S3Config>()?;
     parent.add_class::<HTTPConfig>()?;
     parent.add_class::<S3Credentials>()?;
+    parent.add_class::<TosConfig>()?;
     parent.add_class::<UnityConfig>()?;
     parent.add_class::<HuggingFaceConfig>()?;
+    parent.add_class::<GravitinoConfig>()?;
     parent.add_class::<IOConfig>()?;
     Ok(())
 }

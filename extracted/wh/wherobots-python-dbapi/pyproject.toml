@@ -1,0 +1,54 @@
+[project]
+name = "wherobots-python-dbapi"
+version = "0.22.0"
+description = "Python DB-API driver for Wherobots DB"
+authors = [{ name = "Maxime Petazzoni", email = "max@wherobots.com" }]
+requires-python = ">=3.8, <4"
+readme = "README.md"
+license = "Apache-2.0"
+dependencies = [
+    "packaging",
+    "requests>=2.31.0",
+    "websockets>=13.0",
+    "tenacity>=8.2.3",
+    "cbor2>=5.6.3",
+    "StrEnum>=0.4.15,<0.5",
+    "pyarrow>=14.0.2",
+    "pandas",
+    "types-requests>=2.32.0.20241016",
+    "pandas-stubs>=2.0.3.230814",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0.2"]
+
+[project.urls]
+Homepage = "https://github.com/wherobots/wherobots-python-dbapi-driver"
+Tracker = "https://github.com/wherobots/wherobots-python-dbapi-driver/issues"
+
+[dependency-groups]
+dev = [
+    "pre-commit",
+    "pytest>=8.0.2",
+    "pyarrow>=14.0.2",
+    "pandas",
+    "rich>=13.7.1",
+    "mypy>=1.14.1",
+]
+
+[tool.hatch.build.targets.sdist]
+include = ["wherobots"]
+
+[tool.hatch.build.targets.wheel]
+include = ["wherobots"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pylint.format]
+max-line-length = "88"
+
+[tool.mypy]
+strict = true
+show_error_codes = true

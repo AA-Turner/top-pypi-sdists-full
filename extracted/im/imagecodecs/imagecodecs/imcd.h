@@ -1,7 +1,7 @@
 /* imagecodecs/imcd.h */
 
 /*
-Copyright (c) 2008-2025, Christoph Gohlke.
+Copyright (c) 2008-2026, Christoph Gohlke.
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -34,7 +34,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #ifndef IMCD_H
 #define IMCD_H
 
-#define IMCD_VERSION "2025.3.30"
+#define IMCD_VERSION "2026.1.1"
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -245,7 +245,7 @@ ssize_t imcd_float24_decode(
     const uint8_t* src,
     const ssize_t srcsize,
     uint8_t* dst,
-    const char byteorder
+    const int islittle
 );
 
 
@@ -253,7 +253,24 @@ ssize_t imcd_float24_encode(
     const uint8_t* src,
     const ssize_t srcsize,
     uint8_t* dst,
-    const char byteorder,
+    const int islittle,
+    int rounding
+);
+
+
+ssize_t imcd_bfloat16_decode(
+    const uint8_t* src,
+    const ssize_t srcsize,
+    uint8_t* dst,
+    const int islittle
+);
+
+
+ssize_t imcd_bfloat16_encode(
+    const uint8_t* src,
+    const ssize_t srcsize,
+    uint8_t* dst,
+    const int islittle,
     int rounding
 );
 
@@ -264,10 +281,23 @@ ssize_t imcd_eer_decode(
     uint8_t* dst,
     const ssize_t height,
     const ssize_t width,
-    const int rlebits,
-    const int horzbits,
-    const int vertbits,
-    const bool superres
+    const uint32_t skipbits,
+    const uint32_t horzbits,
+    const uint32_t vertbits,
+    const uint32_t superres
+);
+
+
+ssize_t imcd_eer_decode_u2(
+    const uint8_t* src,
+    const ssize_t srcsize,
+    uint16_t* dst,
+    const ssize_t height,
+    const ssize_t width,
+    const uint32_t skipbits,
+    const uint32_t horzbits,
+    const uint32_t vertbits,
+    const uint32_t superres
 );
 
 
@@ -407,17 +437,17 @@ void imcd_stream_data(
 
 
 ssize_t imcd_memsearch(
-    const char *src,
+    const char* src,
     const ssize_t srclen,
-    const char *dst,
+    const char* dst,
     const ssize_t dstlen
 );
 
 
 ssize_t imcd_strsearch(
-    const char *src,
+    const char* src,
     const ssize_t srclen,
-    const char *dst,
+    const char* dst,
     const ssize_t dstlen
 );
 

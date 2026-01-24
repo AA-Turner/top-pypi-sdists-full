@@ -39,12 +39,14 @@ async def setup_logger(app: Sanic, *_):
 class SanicQueueHandler(QueueHandler):
     def emit(self, record: LogRecord) -> None:
         try:
-            return super().enqueue(record)
+            return self.enqueue(self.prepare(record))
         except Full:
             server_logger.warning(
                 "Background logger is full. Emitting log in process."
             )
             server_logger.handle(record)
+        except Exception:
+            self.handleError(record)
 
 
 async def setup_server_logging(app: Sanic):
@@ -54,8 +56,7 @@ async def setup_server_logging(app: Sanic):
 
     for logger_name in app.config.LOGGERS:
         logger_instance = logging.getLogger(logger_name)
-        for handler in logger_instance.handlers:
-            logger_instance.removeHandler(handler)
+        logger_instance.handlers.clear()
         logger_instance.addHandler(qhandler)
 
 

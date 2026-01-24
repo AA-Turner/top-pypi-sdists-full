@@ -150,6 +150,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileResponse.FromString,
         )
+        self.GetBranchServerStatus = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetBranchServerStatus",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchServerStatusRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchServerStatusResponse.FromString,
+        )
         self.GetNodepools = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetNodepools",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
@@ -210,6 +215,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentResponse.FromString,
         )
+        self.PrepareDeployment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/PrepareDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentResponse.FromString,
+        )
         self.GetTelemetryDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/GetTelemetryDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.SerializeToString,
@@ -220,10 +230,55 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentResponse.FromString,
         )
+        self.UpdateTelemetryDeployment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/UpdateTelemetryDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateTelemetryDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateTelemetryDeploymentResponse.FromString,
+        )
         self.DeleteTelemetryDeployment = channel.unary_unary(
             "/chalk.server.v1.BuilderService/DeleteTelemetryDeployment",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentResponse.FromString,
+        )
+        self.MigrateTelemetryDeployment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/MigrateTelemetryDeployment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateTelemetryDeploymentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateTelemetryDeploymentResponse.FromString,
+        )
+        self.GetEnvironmentKubeClusters = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetEnvironmentKubeClusters",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetEnvironmentKubeClustersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetEnvironmentKubeClustersResponse.FromString,
+        )
+        self.SuspendEnvironment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/SuspendEnvironment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendEnvironmentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendEnvironmentResponse.FromString,
+        )
+        self.ResumeEnvironment = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ResumeEnvironment",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeEnvironmentRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeEnvironmentResponse.FromString,
+        )
+        self.SuspendClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/SuspendClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterGatewayResponse.FromString,
+        )
+        self.ResumeClusterGateway = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ResumeClusterGateway",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterGatewayRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterGatewayResponse.FromString,
+        )
+        self.SuspendClusterBackgroundPersistence = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/SuspendClusterBackgroundPersistence",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterBackgroundPersistenceRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterBackgroundPersistenceResponse.FromString,
+        )
+        self.ResumeClusterBackgroundPersistence = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/ResumeClusterBackgroundPersistence",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceResponse.FromString,
         )
 
 
@@ -381,7 +436,11 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def StartBranch(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Initiates the branch server for the environment if it isn't already running.
+        If the branch server isn't running, it starts the branch server and returns
+        a state of IN_PROGRESS. This endpoint should be polled until the state
+        returns SUCCESS, or an error is returned.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -393,6 +452,12 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetBranchProfile(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBranchServerStatus(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -470,6 +535,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def PrepareDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def GetTelemetryDeployment(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -482,7 +553,61 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def UpdateTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def MigrateTelemetryDeployment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetEnvironmentKubeClusters(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SuspendEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ResumeEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SuspendClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ResumeClusterGateway(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SuspendClusterBackgroundPersistence(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ResumeClusterBackgroundPersistence(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -626,6 +751,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchProfileResponse.SerializeToString,
         ),
+        "GetBranchServerStatus": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBranchServerStatus,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchServerStatusRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchServerStatusResponse.SerializeToString,
+        ),
         "GetNodepools": grpc.unary_unary_rpc_method_handler(
             servicer.GetNodepools,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.FromString,
@@ -686,6 +816,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateDeploymentResponse.SerializeToString,
         ),
+        "PrepareDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.PrepareDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentResponse.SerializeToString,
+        ),
         "GetTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.GetTelemetryDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetTelemetryDeploymentRequest.FromString,
@@ -696,10 +831,55 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateTelemetryDeploymentResponse.SerializeToString,
         ),
+        "UpdateTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateTelemetryDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateTelemetryDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateTelemetryDeploymentResponse.SerializeToString,
+        ),
         "DeleteTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteTelemetryDeployment,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentResponse.SerializeToString,
+        ),
+        "MigrateTelemetryDeployment": grpc.unary_unary_rpc_method_handler(
+            servicer.MigrateTelemetryDeployment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateTelemetryDeploymentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateTelemetryDeploymentResponse.SerializeToString,
+        ),
+        "GetEnvironmentKubeClusters": grpc.unary_unary_rpc_method_handler(
+            servicer.GetEnvironmentKubeClusters,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetEnvironmentKubeClustersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetEnvironmentKubeClustersResponse.SerializeToString,
+        ),
+        "SuspendEnvironment": grpc.unary_unary_rpc_method_handler(
+            servicer.SuspendEnvironment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendEnvironmentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendEnvironmentResponse.SerializeToString,
+        ),
+        "ResumeEnvironment": grpc.unary_unary_rpc_method_handler(
+            servicer.ResumeEnvironment,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeEnvironmentRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeEnvironmentResponse.SerializeToString,
+        ),
+        "SuspendClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.SuspendClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterGatewayResponse.SerializeToString,
+        ),
+        "ResumeClusterGateway": grpc.unary_unary_rpc_method_handler(
+            servicer.ResumeClusterGateway,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterGatewayRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterGatewayResponse.SerializeToString,
+        ),
+        "SuspendClusterBackgroundPersistence": grpc.unary_unary_rpc_method_handler(
+            servicer.SuspendClusterBackgroundPersistence,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterBackgroundPersistenceRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterBackgroundPersistenceResponse.SerializeToString,
+        ),
+        "ResumeClusterBackgroundPersistence": grpc.unary_unary_rpc_method_handler(
+            servicer.ResumeClusterBackgroundPersistence,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.BuilderService", rpc_method_handlers)
@@ -1494,6 +1674,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def GetBranchServerStatus(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetBranchServerStatus",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchServerStatusRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetBranchServerStatusResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetNodepools(
         request,
         target,
@@ -1842,6 +2051,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def PrepareDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/PrepareDeployment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.PrepareDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def GetTelemetryDeployment(
         request,
         target,
@@ -1900,6 +2138,35 @@ class BuilderService(object):
         )
 
     @staticmethod
+    def UpdateTelemetryDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/UpdateTelemetryDeployment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateTelemetryDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
     def DeleteTelemetryDeployment(
         request,
         target,
@@ -1918,6 +2185,238 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/DeleteTelemetryDeployment",
             chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.DeleteTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def MigrateTelemetryDeployment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/MigrateTelemetryDeployment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.MigrateTelemetryDeploymentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.MigrateTelemetryDeploymentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetEnvironmentKubeClusters(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetEnvironmentKubeClusters",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetEnvironmentKubeClustersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetEnvironmentKubeClustersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SuspendEnvironment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/SuspendEnvironment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.SuspendEnvironmentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.SuspendEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ResumeEnvironment(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ResumeEnvironment",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResumeEnvironmentRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResumeEnvironmentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SuspendClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/SuspendClusterGateway",
+            chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ResumeClusterGateway(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ResumeClusterGateway",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterGatewayRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterGatewayResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SuspendClusterBackgroundPersistence(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/SuspendClusterBackgroundPersistence",
+            chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterBackgroundPersistenceRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.SuspendClusterBackgroundPersistenceResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ResumeClusterBackgroundPersistence(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/ResumeClusterBackgroundPersistence",
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.ResumeClusterBackgroundPersistenceResponse.FromString,
             options,
             channel_credentials,
             insecure,

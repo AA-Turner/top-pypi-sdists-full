@@ -2,7 +2,10 @@
 
 from typing import Any, Tuple, Union, Literal, Sequence, TypedDict
 
-AggregateBy = Union[Tuple[Literal["Count"]], Tuple[Literal["Count"], str]]
+from .bm25_clause_params import Bm25ClauseParams
+from .contains_all_tokens_filter_params import ContainsAllTokensFilterParams
+
+AggregateBy = Union[Tuple[Literal["Count"]], Tuple[Literal["Sum"], str], Tuple[Literal["Count"], str]]
 ExprRefNew = TypedDict("ExprRefNew", {"$ref_new": str})
 Expr = ExprRefNew
 Filter = Union[
@@ -29,6 +32,10 @@ Filter = Union[
     Tuple[str, Literal["Regex"], str],
     Tuple[str, Literal["ContainsAllTokens"], str],
     Tuple[str, Literal["ContainsAllTokens"], Sequence[str]],
+    Tuple[str, Literal["ContainsAllTokens"], str, ContainsAllTokensFilterParams],
+    Tuple[str, Literal["ContainsAllTokens"], Sequence[str], ContainsAllTokensFilterParams],
+    Tuple[str, Literal["ContainsTokenSequence"], str],
+    Tuple[str, Literal["ContainsTokenSequence"], Sequence[str]],
     Tuple[Literal["Not"], "Filter"],
     Tuple[Literal["And"], Sequence["Filter"]],
     Tuple[Literal["Or"], Sequence["Filter"]],
@@ -37,11 +44,19 @@ RankByVector = Tuple[str, Literal["ANN"], Sequence[float]]
 RankByText = Union[
     Tuple[str, Literal["BM25"], str],
     Tuple[str, Literal["BM25"], Sequence[str]],
+    Tuple[str, Literal["BM25"], str, Bm25ClauseParams],
+    Tuple[str, Literal["BM25"], Sequence[str], Bm25ClauseParams],
     Tuple[Literal["Sum"], Sequence["RankByText"]],
     Tuple[Literal["Max"], Sequence["RankByText"]],
-    Tuple[Literal["Product"], Tuple[float, "RankByText"]],
-    Tuple[Literal["Product"], Tuple["RankByText", float]],
+    Tuple[Literal["Product"], float, "RankByText"],
+    Tuple[Literal["Product"], "RankByText", float],
 ]
 RankByAttributeOrder = Union[Literal["asc"], Literal["desc"]]
 RankByAttribute = Tuple[str, RankByAttributeOrder]
-RankBy = Union[RankByVector, RankByText, RankByAttribute]
+RankByAttributes = Sequence[RankByAttribute]
+RankBy = Union[
+    RankByVector,
+    RankByText,
+    RankByAttribute,
+    RankByAttributes,
+]

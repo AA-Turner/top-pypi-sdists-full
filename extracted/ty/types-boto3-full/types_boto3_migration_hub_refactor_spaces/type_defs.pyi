@@ -3,7 +3,7 @@ Type annotations for migration-hub-refactor-spaces service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_migration_hub_refactor_spaces/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     ServiceStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -143,7 +138,7 @@ class ApiGatewayProxySummaryTypeDef(TypedDict):
 
 class ErrorResponseTypeDef(TypedDict):
     AccountId: NotRequired[str]
-    AdditionalDetails: NotRequired[Dict[str, str]]
+    AdditionalDetails: NotRequired[dict[str, str]]
     Code: NotRequired[ErrorCodeType]
     Message: NotRequired[str]
     ResourceIdentifier: NotRequired[str]
@@ -152,7 +147,7 @@ class ErrorResponseTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -171,7 +166,7 @@ class UriPathRouteInputOutputTypeDef(TypedDict):
     SourcePath: str
     AppendSourcePath: NotRequired[bool]
     IncludeChildPaths: NotRequired[bool]
-    Methods: NotRequired[List[HttpMethodType]]
+    Methods: NotRequired[list[HttpMethodType]]
 
 class LambdaEndpointInputTypeDef(TypedDict):
     Arn: str
@@ -202,7 +197,7 @@ class DeleteServiceRequestTypeDef(TypedDict):
 
 class EnvironmentVpcTypeDef(TypedDict):
     AccountId: NotRequired[str]
-    CidrBlocks: NotRequired[List[str]]
+    CidrBlocks: NotRequired[list[str]]
     CreatedTime: NotRequired[datetime]
     EnvironmentId: NotRequired[str]
     LastUpdatedTime: NotRequired[datetime]
@@ -324,7 +319,7 @@ class ApplicationSummaryTypeDef(TypedDict):
     OwnerAccountId: NotRequired[str]
     ProxyType: NotRequired[Literal["API_GATEWAY"]]
     State: NotRequired[ApplicationStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     VpcId: NotRequired[str]
 
 class EnvironmentSummaryTypeDef(TypedDict):
@@ -338,7 +333,7 @@ class EnvironmentSummaryTypeDef(TypedDict):
     NetworkFabricType: NotRequired[NetworkFabricTypeType]
     OwnerAccountId: NotRequired[str]
     State: NotRequired[EnvironmentStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     TransitGatewayId: NotRequired[str]
 
 class RouteSummaryTypeDef(TypedDict):
@@ -351,15 +346,15 @@ class RouteSummaryTypeDef(TypedDict):
     Error: NotRequired[ErrorResponseTypeDef]
     IncludeChildPaths: NotRequired[bool]
     LastUpdatedTime: NotRequired[datetime]
-    Methods: NotRequired[List[HttpMethodType]]
+    Methods: NotRequired[list[HttpMethodType]]
     OwnerAccountId: NotRequired[str]
-    PathResourceToId: NotRequired[Dict[str, str]]
+    PathResourceToId: NotRequired[dict[str, str]]
     RouteId: NotRequired[str]
     RouteType: NotRequired[RouteTypeType]
     ServiceId: NotRequired[str]
     SourcePath: NotRequired[str]
     State: NotRequired[RouteStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
 
 class CreateApplicationResponseTypeDef(TypedDict):
     ApiGatewayProxy: ApiGatewayProxyInputTypeDef
@@ -373,7 +368,7 @@ class CreateApplicationResponseTypeDef(TypedDict):
     OwnerAccountId: str
     ProxyType: Literal["API_GATEWAY"]
     State: ApplicationStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     VpcId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -387,7 +382,7 @@ class CreateEnvironmentResponseTypeDef(TypedDict):
     NetworkFabricType: NetworkFabricTypeType
     OwnerAccountId: str
     State: EnvironmentStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteApplicationResponseTypeDef(TypedDict):
@@ -439,7 +434,7 @@ class GetApplicationResponseTypeDef(TypedDict):
     OwnerAccountId: str
     ProxyType: Literal["API_GATEWAY"]
     State: ApplicationStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     VpcId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -454,7 +449,7 @@ class GetEnvironmentResponseTypeDef(TypedDict):
     NetworkFabricType: NetworkFabricTypeType
     OwnerAccountId: str
     State: EnvironmentStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     TransitGatewayId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -472,19 +467,19 @@ class GetRouteResponseTypeDef(TypedDict):
     Error: ErrorResponseTypeDef
     IncludeChildPaths: bool
     LastUpdatedTime: datetime
-    Methods: List[HttpMethodType]
+    Methods: list[HttpMethodType]
     OwnerAccountId: str
-    PathResourceToId: Dict[str, str]
+    PathResourceToId: dict[str, str]
     RouteId: str
     RouteType: RouteTypeType
     ServiceId: str
     SourcePath: str
     State: RouteStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateRouteResponseTypeDef(TypedDict):
@@ -507,7 +502,7 @@ class CreateRouteResponseTypeDef(TypedDict):
     RouteType: RouteTypeType
     ServiceId: str
     State: RouteStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UriPathRoute: UriPathRouteInputOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -537,13 +532,13 @@ class CreateServiceResponseTypeDef(TypedDict):
     OwnerAccountId: str
     ServiceId: str
     State: ServiceStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UrlEndpoint: UrlEndpointInputTypeDef
     VpcId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListEnvironmentVpcsResponseTypeDef(TypedDict):
-    EnvironmentVpcList: List[EnvironmentVpcTypeDef]
+    EnvironmentVpcList: list[EnvironmentVpcTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -562,7 +557,7 @@ class GetServiceResponseTypeDef(TypedDict):
     OwnerAccountId: str
     ServiceId: str
     State: ServiceStateType
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     UrlEndpoint: UrlEndpointConfigTypeDef
     VpcId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -603,29 +598,29 @@ class ServiceSummaryTypeDef(TypedDict):
     OwnerAccountId: NotRequired[str]
     ServiceId: NotRequired[str]
     State: NotRequired[ServiceStateType]
-    Tags: NotRequired[Dict[str, str]]
+    Tags: NotRequired[dict[str, str]]
     UrlEndpoint: NotRequired[UrlEndpointSummaryTypeDef]
     VpcId: NotRequired[str]
 
 UriPathRouteInputUnionTypeDef = Union[UriPathRouteInputTypeDef, UriPathRouteInputOutputTypeDef]
 
 class ListApplicationsResponseTypeDef(TypedDict):
-    ApplicationSummaryList: List[ApplicationSummaryTypeDef]
+    ApplicationSummaryList: list[ApplicationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListEnvironmentsResponseTypeDef(TypedDict):
-    EnvironmentSummaryList: List[EnvironmentSummaryTypeDef]
+    EnvironmentSummaryList: list[EnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListRoutesResponseTypeDef(TypedDict):
-    RouteSummaryList: List[RouteSummaryTypeDef]
+    RouteSummaryList: list[RouteSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class ListServicesResponseTypeDef(TypedDict):
-    ServiceSummaryList: List[ServiceSummaryTypeDef]
+    ServiceSummaryList: list[ServiceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

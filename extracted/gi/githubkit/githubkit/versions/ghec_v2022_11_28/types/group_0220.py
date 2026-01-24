@@ -9,22 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0221 import (
+    ReleaseEventPropReleaseType,
+    ReleaseEventPropReleaseTypeForResponse,
+)
 
 
-class ApiInsightsUserStatsItemsType(TypedDict):
-    """ApiInsightsUserStatsItems"""
+class ReleaseEventType(TypedDict):
+    """ReleaseEvent"""
 
-    actor_type: NotRequired[str]
-    actor_name: NotRequired[str]
-    actor_id: NotRequired[int]
-    integration_id: NotRequired[Union[int, None]]
-    oauth_application_id: NotRequired[Union[int, None]]
-    total_request_count: NotRequired[int]
-    rate_limited_request_count: NotRequired[int]
-    last_rate_limited_timestamp: NotRequired[Union[str, None]]
-    last_request_timestamp: NotRequired[str]
+    action: str
+    release: ReleaseEventPropReleaseType
 
 
-__all__ = ("ApiInsightsUserStatsItemsType",)
+class ReleaseEventTypeForResponse(TypedDict):
+    """ReleaseEvent"""
+
+    action: str
+    release: ReleaseEventPropReleaseTypeForResponse
+
+
+__all__ = (
+    "ReleaseEventType",
+    "ReleaseEventTypeForResponse",
+)

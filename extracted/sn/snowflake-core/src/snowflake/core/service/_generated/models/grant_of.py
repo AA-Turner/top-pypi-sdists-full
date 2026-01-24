@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class GrantOf(BaseModel):
@@ -30,15 +30,15 @@ class GrantOf(BaseModel):
     Parameters
     __________
     created_on : datetime, optional
-        Date and time when the grant was created
+        Date and time when the grant was created — **Read-only:** *any user-provided value will be ignored.*
     role : str, optional
-        The name of the service role
+        The name of the service role — **Read-only:** *any user-provided value will be ignored.*
     granted_to : str, optional
-        The type of the grantee, can be USER or ROLE
+        The type of the grantee, can be USER or ROLE — **Read-only:** *any user-provided value will be ignored.*
     grantee_name : str, optional
-        The name of the grantee
+        The name of the grantee — **Read-only:** *any user-provided value will be ignored.*
     granted_by : str, optional
-        The name of role that granted the service role to the grantee
+        The name of role that granted the service role to the grantee — **Read-only:** *any user-provided value will be ignored.*
     """
 
     created_on: Optional[datetime] = None
@@ -53,9 +53,10 @@ class GrantOf(BaseModel):
 
     __properties = ["created_on", "role", "granted_to", "grantee_name", "granted_by"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -88,7 +89,7 @@ class GrantOf(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -103,9 +104,9 @@ class GrantOf(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return GrantOf.parse_obj(obj)
+            return GrantOf.model_validate(obj)
 
-        _obj = GrantOf.parse_obj(
+        _obj = GrantOf.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "role": obj.get("role"),

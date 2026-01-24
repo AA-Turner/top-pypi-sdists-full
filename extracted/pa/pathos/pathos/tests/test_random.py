@@ -1,14 +1,18 @@
 #!/usr/bin/env python
 #
 # Author: Mike McKerns (mmckerns @caltech and @uqfoundation)
-# Copyright (c) 2023-2025 The Uncertainty Quantification Foundation.
+# Copyright (c) 2023-2026 The Uncertainty Quantification Foundation.
 # License: 3-clause BSD.  The full license text is available at:
 #  - https://github.com/uqfoundation/pathos/blob/master/LICENSE
 
 from pathos.pools import *
 try:
     import numpy
-    HASNUMPY = True
+    import sys
+    if numpy.__version__ < '2.4.0' and sys.hexversion == 0x30f00a3:
+        HASNUMPY = False #NOTE: numpy Segfaults for the above combination
+    else:
+        HASNUMPY = True
 except ImportError:
     HASNUMPY = False
 

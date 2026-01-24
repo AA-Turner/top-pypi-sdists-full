@@ -4,33 +4,34 @@ import torch
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, HUTCHINSON_G, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import HUTCHINSON_G, Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class AdaHessian(BaseOptimizer):
-    r"""An Adaptive Second Order Optimizer for Machine Learning.
+    """An Adaptive Second Order Optimizer for Machine Learning.
 
-        Requires `loss.backward(create_graph=True)` in order to calculate hessians.
+    Requires `loss.backward(create_graph=True)` in order to calculate Hessians.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param weight_decouple: bool. the optimizer uses decoupled weight decay as in AdamW.
-    :param fixed_decay: bool. fix weight decay.
-    :param hessian_power: float. exponent of the hessian trace.
-    :param update_period: int. number of steps after which to apply hessian approximation.
-    :param num_samples: int. times to sample `z` for the approximation of the hessian trace.
-    :param hessian_distribution: HUTCHINSON_G. type of distribution to initialize hessian.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        weight_decay (float): Weight decay (L2 penalty).
+        weight_decouple (bool): The optimizer uses decoupled weight decay as in AdamW.
+        fixed_decay (bool): Fix weight decay.
+        hessian_power (float): Exponent applied to the Hessian trace for scaling updates.
+        update_period (int): Number of steps after which to apply the Hessian approximation.
+        num_samples (int): Number of times to sample `z` when approximating the Hessian trace.
+        hessian_distribution (HUTCHINSON_G): Type of distribution used to initialize the Hutchinson trace estimator.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-1,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         weight_decay: float = 0.0,
         weight_decouple: bool = True,
         fixed_decay: bool = False,
@@ -53,7 +54,7 @@ class AdaHessian(BaseOptimizer):
         self.distribution = hessian_distribution
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'betas': betas,
             'weight_decay': weight_decay,
@@ -69,7 +70,10 @@ class AdaHessian(BaseOptimizer):
     def __str__(self) -> str:
         return 'AdaHessian'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -88,8 +92,8 @@ class AdaHessian(BaseOptimizer):
                 state['exp_hessian_diag_sq'] = torch.zeros_like(p)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None, hessian: Optional[List[torch.Tensor]] = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None, hessian: Optional[List[torch.Tensor]] = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -108,11 +112,8 @@ class AdaHessian(BaseOptimizer):
             )
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 

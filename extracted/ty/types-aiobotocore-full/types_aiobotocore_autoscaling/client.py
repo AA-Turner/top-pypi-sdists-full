@@ -3,7 +3,7 @@ Type annotations for autoscaling service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_autoscaling/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -111,6 +112,8 @@ from .type_defs import (
     LaunchConfigurationNamesTypeTypeDef,
     LaunchConfigurationNameTypeTypeDef,
     LaunchConfigurationsTypeTypeDef,
+    LaunchInstancesRequestTypeDef,
+    LaunchInstancesResultTypeDef,
     PoliciesTypeTypeDef,
     PolicyARNTypeTypeDef,
     ProcessesTypeTypeDef,
@@ -135,12 +138,6 @@ from .type_defs import (
     UpdateAutoScalingGroupTypeTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -151,17 +148,18 @@ __all__ = ("AutoScalingClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ActiveInstanceRefreshNotFoundFault: Type[BotocoreClientError]
-    AlreadyExistsFault: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InstanceRefreshInProgressFault: Type[BotocoreClientError]
-    InvalidNextToken: Type[BotocoreClientError]
-    IrreversibleInstanceRefreshFault: Type[BotocoreClientError]
-    LimitExceededFault: Type[BotocoreClientError]
-    ResourceContentionFault: Type[BotocoreClientError]
-    ResourceInUseFault: Type[BotocoreClientError]
-    ScalingActivityInProgressFault: Type[BotocoreClientError]
-    ServiceLinkedRoleFailure: Type[BotocoreClientError]
+    ActiveInstanceRefreshNotFoundFault: type[BotocoreClientError]
+    AlreadyExistsFault: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IdempotentParameterMismatchError: type[BotocoreClientError]
+    InstanceRefreshInProgressFault: type[BotocoreClientError]
+    InvalidNextToken: type[BotocoreClientError]
+    IrreversibleInstanceRefreshFault: type[BotocoreClientError]
+    LimitExceededFault: type[BotocoreClientError]
+    ResourceContentionFault: type[BotocoreClientError]
+    ResourceInUseFault: type[BotocoreClientError]
+    ScalingActivityInProgressFault: type[BotocoreClientError]
+    ServiceLinkedRoleFailure: type[BotocoreClientError]
 
 
 class AutoScalingClient(AioBaseClient):
@@ -211,7 +209,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def attach_load_balancer_target_groups(
         self, **kwargs: Unpack[AttachLoadBalancerTargetGroupsTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This API operation is superseded by <a
         href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html">AttachTrafficSources</a>,
@@ -223,7 +221,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def attach_load_balancers(
         self, **kwargs: Unpack[AttachLoadBalancersTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This API operation is superseded by <a
         href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html">https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_AttachTrafficSources.html</a>,
@@ -235,7 +233,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def attach_traffic_sources(
         self, **kwargs: Unpack[AttachTrafficSourcesTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches one or more traffic sources to the specified Auto Scaling group.
 
@@ -276,7 +274,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def complete_lifecycle_action(
         self, **kwargs: Unpack[CompleteLifecycleActionTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Completes the lifecycle action for the specified token or instance with the
         specified result.
@@ -338,7 +336,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def delete_lifecycle_hook(
         self, **kwargs: Unpack[DeleteLifecycleHookTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified lifecycle hook.
 
@@ -386,7 +384,7 @@ class AutoScalingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_autoscaling/client/#delete_tags)
         """
 
-    async def delete_warm_pool(self, **kwargs: Unpack[DeleteWarmPoolTypeTypeDef]) -> Dict[str, Any]:
+    async def delete_warm_pool(self, **kwargs: Unpack[DeleteWarmPoolTypeTypeDef]) -> dict[str, Any]:
         """
         Deletes the warm pool for the specified Auto Scaling group.
 
@@ -616,7 +614,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def detach_load_balancer_target_groups(
         self, **kwargs: Unpack[DetachLoadBalancerTargetGroupsTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This API operation is superseded by <a
         href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_DescribeTrafficSources.html">DetachTrafficSources</a>,
@@ -628,7 +626,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def detach_load_balancers(
         self, **kwargs: Unpack[DetachLoadBalancersTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This API operation is superseded by <a
         href="https://docs.aws.amazon.com/autoscaling/ec2/APIReference/API_DetachTrafficSources.html">DetachTrafficSources</a>,
@@ -640,7 +638,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def detach_traffic_sources(
         self, **kwargs: Unpack[DetachTrafficSourcesTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Detaches one or more traffic sources from the specified Auto Scaling group.
 
@@ -708,9 +706,19 @@ class AutoScalingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_autoscaling/client/#get_predictive_scaling_forecast)
         """
 
+    async def launch_instances(
+        self, **kwargs: Unpack[LaunchInstancesRequestTypeDef]
+    ) -> LaunchInstancesResultTypeDef:
+        """
+        Launches a specified number of instances in an Auto Scaling group.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/autoscaling/client/launch_instances.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_autoscaling/client/#launch_instances)
+        """
+
     async def put_lifecycle_hook(
         self, **kwargs: Unpack[PutLifecycleHookTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates a lifecycle hook for the specified Auto Scaling group.
 
@@ -749,7 +757,7 @@ class AutoScalingClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_autoscaling/client/#put_scheduled_update_group_action)
         """
 
-    async def put_warm_pool(self, **kwargs: Unpack[PutWarmPoolTypeTypeDef]) -> Dict[str, Any]:
+    async def put_warm_pool(self, **kwargs: Unpack[PutWarmPoolTypeTypeDef]) -> dict[str, Any]:
         """
         Creates or updates a warm pool for the specified Auto Scaling group.
 
@@ -759,7 +767,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def record_lifecycle_action_heartbeat(
         self, **kwargs: Unpack[RecordLifecycleActionHeartbeatTypeTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Records a heartbeat for the lifecycle action associated with the specified
         token or instance.
@@ -812,7 +820,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def set_instance_protection(
         self, **kwargs: Unpack[SetInstanceProtectionQueryTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the instance protection settings of the specified instances.
 
@@ -991,7 +999,7 @@ class AutoScalingClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

@@ -379,6 +379,9 @@ class StateVectorLQubit : public StateVectorBase<PrecisionT, Derived> {
                         const std::vector<std::size_t> &wires,
                         bool inverse = false,
                         const std::vector<PrecisionT> &params = {}) {
+        if (opName == "Identity") {
+            return;
+        }
         auto *arr = BaseType::getData();
         auto &dispatcher = DynamicDispatcher<PrecisionT>::getInstance();
         const auto gate_op = dispatcher.strToGateOp(opName);
@@ -908,8 +911,8 @@ class StateVectorLQubit : public StateVectorBase<PrecisionT, Derived> {
 
         // TODO: Waiting the decision from PL core about how to solve the issue
         // https://github.com/PennyLaneAI/pennylane/issues/6504
-        // PL_ABORT_IF(norm < std::numeric_limits<PrecisionT>::epsilon() * 1e2,
-        //             "vector has norm close to zero and can't be normalized");
+        PL_ABORT_IF(norm < std::numeric_limits<PrecisionT>::epsilon() * 1e2,
+                    "Vector has norm close to zero and cannot be normalized");
 
         ComplexT inv_norm = 1. / norm;
         for (std::size_t k = 0; k < BaseType::getLength(); k++) {

@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from typing import Any, Callable, Union
@@ -29,8 +29,6 @@ def python_print_transforms(
 def python_print_pandas(
     df_name: str, all_columns: list[str], transform: Transform
 ) -> str:
-    del all_columns
-
     def generate_where_clause(df_name: str, where: Condition) -> str:
         column_id, operator, value = (
             where.column_id,
@@ -58,8 +56,9 @@ def python_print_pandas(
             return f"{df_name}[{_as_literal(column_id)}].str.startswith({_as_literal(value)})"  # noqa: E501
         elif operator == "ends_with":
             return f"{df_name}[{_as_literal(column_id)}].str.endswith({_as_literal(value)})"  # noqa: E501
-        elif operator == "in":
-            return f"{df_name}[{_as_literal(column_id)}].isin({_list_of_strings(value)})"  # noqa: E501
+        elif operator == "in" or operator == "not_in":
+            result = f"{df_name}[{_as_literal(column_id)}].isin({_list_of_strings(value)})"  # noqa: E501
+            return result if operator == "in" else f"~{result}"
         elif operator == "!=":
             return (
                 f"{df_name}[{_as_literal(column_id)}].ne({_as_literal(value)})"
@@ -128,7 +127,15 @@ def python_print_pandas(
         )
         if not column_ids:
             return f"{df_name}.agg({_list_of_strings(aggregations)})"
-        return f"{df_name}.agg({{{', '.join(f'{_as_literal(column_id)}: {_list_of_strings(aggregations)}' for column_id in column_ids)}}})"  # noqa: E501
+        # Generate code that matches narwhals behavior: columns named like 'column_agg'
+        # Use pd.DataFrame to create a single-row dataframe with proper column names
+        agg_parts = []
+        for agg in aggregations:
+            for col in column_ids:
+                agg_parts.append(
+                    f"{_as_literal(f'{col}_{agg}')}: [{df_name}[{_as_literal(col)}].{agg}()]"
+                )
+        return f"pd.DataFrame({{{', '.join(agg_parts)}}})"
 
     elif transform.type == TransformType.GROUP_BY:
         column_ids, aggregation, drop_na = (
@@ -136,21 +143,49 @@ def python_print_pandas(
             transform.aggregation,
             transform.drop_na,
         )
+        # Use explicit aggregation columns if provided, otherwise all except group-by columns
+        # Filter out group-by columns from aggregation columns to match narwhals behavior
+        group_by_column_id_set = set(column_ids)
+        if transform.aggregation_column_ids:
+            aggregation_columns = [
+                col
+                for col in transform.aggregation_column_ids
+                if col not in group_by_column_id_set
+            ]
+        else:
+            aggregation_columns = [
+                col for col in all_columns if col not in group_by_column_id_set
+            ]
         args = _args_list(_list_of_strings(column_ids), f"dropna={drop_na}")
         group_by = f"{df_name}.groupby({args})"
+        # Narwhals adds suffixes to aggregated columns like 'column_count'
+        # We need to replicate this behavior by using agg() with explicit column names
         if aggregation == "count":
-            return f"{group_by}.count()"
+            agg_func = "count"
         elif aggregation == "sum":
-            return f"{group_by}.sum()"
+            agg_func = "sum"
         elif aggregation == "mean":
-            return f"{group_by}.mean(numeric_only=True)"
+            agg_func = "mean"
         elif aggregation == "median":
-            return f"{group_by}.median(numeric_only=True)"
+            agg_func = "median"
         elif aggregation == "min":
-            return f"{group_by}.min()"
+            agg_func = "min"
         elif aggregation == "max":
-            return f"{group_by}.max()"
-        assert_never(aggregation)
+            agg_func = "max"
+        else:
+            assert_never(aggregation)
+
+        # If aggregation_columns is empty after filtering, just return unique grouped columns
+        # This matches narwhals behavior when agg() is called with empty list
+        if not aggregation_columns:
+            return f"{df_name}[{_list_of_strings(column_ids)}].drop_duplicates().reset_index(drop=True)"
+
+        # If specific aggregation columns are provided, only aggregate those and rename explicitly.
+        agg_dict = ", ".join(
+            f"{_as_literal(f'{col}_{aggregation}')} : ({_as_literal(col)}, {_as_literal(agg_func)})"
+            for col in aggregation_columns
+        )
+        return f"{group_by}.agg(**{{{agg_dict}}}).reset_index()"
 
     elif transform.type == TransformType.SELECT_COLUMNS:
         column_ids = transform.column_ids
@@ -182,6 +217,64 @@ def python_print_pandas(
         column_ids = transform.column_ids
         return f"{df_name}.drop_duplicates({_list_of_strings(column_ids)}, keep={_as_literal(transform.keep)})"
 
+    elif transform.type == TransformType.PIVOT:
+        if not transform.index_column_ids:
+            index_columns = _list_of_strings(
+                list(
+                    filter(
+                        lambda col: col not in transform.column_ids
+                        and col not in transform.value_column_ids,
+                        all_columns,
+                    )
+                )
+            )
+        else:
+            index_columns = _list_of_strings(transform.index_column_ids)
+
+        if not transform.value_column_ids:
+            value_columns = _list_of_strings(
+                list(
+                    filter(
+                        lambda col: col not in transform.column_ids
+                        and col not in transform.index_column_ids,
+                        all_columns,
+                    )
+                )
+            )
+        else:
+            value_columns = _list_of_strings(transform.value_column_ids)
+        column_ids = transform.column_ids
+        agg_func = transform.aggregation
+
+        args = _args_list(
+            f"index={index_columns}",
+            f"columns={_list_of_strings(column_ids)}",
+            f"values={value_columns}",
+            f"aggfunc={_as_literal(agg_func)}",
+            "sort=False",
+        )
+        pivot_code = f"{df_name}.pivot_table({args}).sort_index(axis=0)"
+        # Fill NaN with 0 for count/sum aggregations to match narwhals behavior
+        fill_code = (
+            f"{df_name} = {df_name}.fillna(0)"
+            if agg_func in ("count", "sum")
+            else ""
+        )
+        flatten_columns_code = (
+            f"{df_name}.columns = ["
+            f"f\"{{'_'.join(map(str, col)).strip()}}_{agg_func}\" "
+            f'if isinstance(col, tuple) else f"{{col}}_{agg_func}" '
+            f"for col in {df_name}.columns]"
+        )
+        reset_index_code = f"{df_name} = {df_name}.reset_index()"
+        code_parts = [
+            pivot_code,
+            fill_code,
+            flatten_columns_code,
+            reset_index_code,
+        ]
+        return "\n".join(part for part in code_parts if part)
+
     assert_never(transform.type)
 
 
@@ -207,8 +300,9 @@ def python_print_polars(
             return f"pl.col({_as_literal(column_id)}).str.starts_with({_as_literal(value)})"  # noqa: E501
         elif operator == "ends_with":
             return f"pl.col({_as_literal(column_id)}).str.ends_with({_as_literal(value)})"  # noqa: E501
-        elif operator == "in":
-            return f"pl.col({_as_literal(column_id)}).is_in({_list_of_strings(value)})"  # noqa: E501
+        elif operator == "in" or operator == "not_in":
+            result = f"pl.col({_as_literal(column_id)}).is_in({_list_of_strings(value)})"  # noqa: E501
+            return result if operator == "in" else f"~{result}"
         elif operator in [">", ">=", "<", "<="]:
             return f"pl.col({_as_literal(column_id)}) {operator} {_as_literal(value)}"  # noqa: E501
         elif operator == "is_null":
@@ -270,49 +364,49 @@ def python_print_polars(
 
     elif transform.type == TransformType.AGGREGATE:
         column_ids, aggregations = transform.column_ids, transform.aggregations
-        selected_df = f"{df_name}.select({_list_of_strings(column_ids)})"
-        result_df = "pl.DataFrame()"
+        # Build aggregation expressions that match narwhals behavior
+        # Each column/aggregation combination produces a column named "column_agg"
+        agg_exprs = []
         for agg_func in aggregations:
-            agg_df = f"{selected_df}.{agg_func}()"
-            rename_dict = {
-                column: f"{column}_{agg_func}" for column in column_ids
-            }
-            agg_df = f"{agg_df}.rename({rename_dict})"
-            result_df = f"{result_df}.hstack({agg_df})"
-        return result_df
+            for column_id in column_ids:
+                agg_exprs.append(
+                    f"pl.col({_as_literal(column_id)}).{agg_func}().alias({_as_literal(f'{column_id}_{agg_func}')})"
+                )
+        return f"{df_name}.select([{', '.join(agg_exprs)}])"
 
     elif transform.type == TransformType.GROUP_BY:
         column_ids, aggregation = transform.column_ids, transform.aggregation
+        columns = transform.aggregation_column_ids or all_columns
+        aggregation_columns = [col for col in columns if col not in column_ids]
         aggs: list[str] = []
         # Use _as_literal to properly escape column names
-        for column_id in all_columns:
-            if column_id not in column_ids:
-                col_ref = _as_literal(column_id)
-                agg_alias = f"{column_id}_{aggregation}"
-                if aggregation == "count":
-                    aggs.append(
-                        f"pl.col({col_ref}).count().alias({_as_literal(agg_alias)})"
-                    )
-                elif aggregation == "sum":
-                    aggs.append(
-                        f"pl.col({col_ref}).sum().alias({_as_literal(agg_alias)})"
-                    )
-                elif aggregation == "mean":
-                    aggs.append(
-                        f"pl.col({col_ref}).mean().alias({_as_literal(agg_alias)})"
-                    )
-                elif aggregation == "median":
-                    aggs.append(
-                        f"pl.col({col_ref}).median().alias({_as_literal(agg_alias)})"
-                    )
-                elif aggregation == "min":
-                    aggs.append(
-                        f"pl.col({col_ref}).min().alias({_as_literal(agg_alias)})"
-                    )
-                elif aggregation == "max":
-                    aggs.append(
-                        f"pl.col({col_ref}).max().alias({_as_literal(agg_alias)})"
-                    )
+        for column_id in aggregation_columns:
+            col_ref = _as_literal(column_id)
+            agg_alias = f"{column_id}_{aggregation}"
+            if aggregation == "count":
+                aggs.append(
+                    f"pl.col({col_ref}).count().alias({_as_literal(agg_alias)})"
+                )
+            elif aggregation == "sum":
+                aggs.append(
+                    f"pl.col({col_ref}).sum().alias({_as_literal(agg_alias)})"
+                )
+            elif aggregation == "mean":
+                aggs.append(
+                    f"pl.col({col_ref}).mean().alias({_as_literal(agg_alias)})"
+                )
+            elif aggregation == "median":
+                aggs.append(
+                    f"pl.col({col_ref}).median().alias({_as_literal(agg_alias)})"
+                )
+            elif aggregation == "min":
+                aggs.append(
+                    f"pl.col({col_ref}).min().alias({_as_literal(agg_alias)})"
+                )
+            elif aggregation == "max":
+                aggs.append(
+                    f"pl.col({col_ref}).max().alias({_as_literal(agg_alias)})"
+                )
         group_cols = [f"pl.col({_as_literal(col)})" for col in column_ids]
         return f"{df_name}.group_by([{', '.join(group_cols)}], maintain_order=True).agg([{', '.join(aggs)}])"  # noqa: E501
 
@@ -341,6 +435,59 @@ def python_print_polars(
         column_ids = transform.column_ids
         return f"{df_name}.unique(subset={_list_of_strings(column_ids)}, keep={_as_literal(transform.keep)})"  # noqa: E501
 
+    elif transform.type == TransformType.PIVOT:
+        if not transform.index_column_ids:
+            index_column_ids = _list_of_strings(
+                list(
+                    filter(
+                        lambda col: col not in transform.column_ids
+                        and col not in transform.value_column_ids,
+                        all_columns,
+                    )
+                )
+            )
+        else:
+            index_column_ids = _list_of_strings(transform.index_column_ids)
+
+        if not transform.value_column_ids:
+            value_column_ids = _list_of_strings(
+                list(
+                    filter(
+                        lambda col: col not in transform.column_ids
+                        and col not in transform.index_column_ids,
+                        all_columns,
+                    )
+                )
+            )
+        else:
+            value_column_ids = _list_of_strings(transform.value_column_ids)
+
+        args = _args_list(
+            f"on={_list_of_strings(transform.column_ids)}",
+            f"index={index_column_ids}",
+            f"values={value_column_ids}",
+            f"aggregate_function={_as_literal(transform.aggregation) if transform.aggregation != 'count' else _as_literal('len')}",
+        )
+        pivot_code = f"{df_name}.pivot({args}).sort(by={index_column_ids})"
+        # Fill NaN with 0 for count/sum aggregations AFTER pivot to match narwhals behavior
+        # Only fill numeric columns (not index columns which retain original types)
+        fill_null_code = (
+            f"{df_name} = {df_name}.with_columns(pl.selectors.numeric().fill_null(0))"
+            if transform.aggregation in ["count", "sum"]
+            else ""
+        )
+        lambda_code = (
+            f'lambda col,replacements=replacements: f"{transform.value_column_ids[0]}_{{col.translate(replacements)}}_{transform.aggregation}"'  # noqa: E501
+            if len(transform.value_column_ids) == 1
+            else f"lambda col, replacements=replacements: f'{{col.translate(replacements)}}_{transform.aggregation}'"
+        ) + f" if col not in {index_column_ids} else col"
+        rename_code = (
+            'replacements = str.maketrans({"{": "", "}": "", \'"\': "", ",": "_"})\n'
+            f"{df_name} = {df_name}.rename({lambda_code})"
+        )
+        code_parts = [pivot_code, fill_null_code, rename_code]
+        return "\n".join(part for part in code_parts if part)
+
     assert_never(transform.type)
 
 
@@ -355,33 +502,30 @@ def python_print_ibis(
         )
 
         if operator == "==" or operator == "equals":
-            return (
-                f"{df_name}[{_as_literal(column_id)}] == {_as_literal(value)}"
-            )
+            return f"({df_name}[{_as_literal(column_id)}] == {_as_literal(value)})"
         elif operator == "does_not_equal" or operator == "!=":
-            return (
-                f"{df_name}[{_as_literal(column_id)}] != {_as_literal(value)})"  # noqa: E501
-            )
+            return f"({df_name}[{_as_literal(column_id)}] != {_as_literal(value)}))"  # noqa: E501
         elif operator == "contains":
-            return f"{df_name}[{_as_literal(column_id)}].contains({_as_literal(value)})"  # noqa: E501
+            return f"({df_name}[{_as_literal(column_id)}].contains({_as_literal(value)}))"  # noqa: E501
         elif operator == "regex":
-            return f"{df_name}[{_as_literal(column_id)}].re_search({_as_literal(value)})"  # noqa: E501
+            return f"({df_name}[{_as_literal(column_id)}].re_search({_as_literal(value)}))"  # noqa: E501
         elif operator == "starts_with":
-            return f"{df_name}[{_as_literal(column_id)}].startswith({_as_literal(value)})"  # noqa: E501
+            return f"({df_name}[{_as_literal(column_id)}].startswith({_as_literal(value)}))"  # noqa: E501
         elif operator == "ends_with":
-            return f"{df_name}[{_as_literal(column_id)}].endswith({_as_literal(value)})"  # noqa: E501
-        elif operator == "in":
-            return f"{df_name}[{_as_literal(column_id)}].isin({_list_of_strings(value)})"  # noqa: E501
+            return f"({df_name}[{_as_literal(column_id)}].endswith({_as_literal(value)}))"  # noqa: E501
+        elif operator == "in" or operator == "not_in":
+            result = f"({df_name}[{_as_literal(column_id)}].isin({_list_of_strings(value)}))"  # noqa: E501
+            return result if operator == "in" else f"~{result}"
         elif operator in [">", ">=", "<", "<="]:
-            return f"{df_name}[{_as_literal(column_id)}] {operator} {_as_literal(value)}"  # noqa: E501
+            return f"({df_name}[{_as_literal(column_id)}] {operator} {_as_literal(value)})"  # noqa: E501
         elif operator == "is_null":
-            return f"{df_name}[{_as_literal(column_id)}].isnull()"
+            return f"({df_name}[{_as_literal(column_id)}].isnull())"
         elif operator == "is_not_null":
-            return f"{df_name}[{_as_literal(column_id)}].notnull()"
+            return f"({df_name}[{_as_literal(column_id)}].notnull())"
         elif operator == "is_true":
-            return f"{df_name}[{_as_literal(column_id)}] == True"
+            return f"({df_name}[{_as_literal(column_id)}] == True)"
         elif operator == "is_false":
-            return f"{df_name}[{_as_literal(column_id)}] == False"
+            return f"({df_name}[{_as_literal(column_id)}] == False)"
         else:
             raise ValueError(f"Unknown operator: {operator}")
 
@@ -441,13 +585,14 @@ def python_print_ibis(
 
     elif transform.type == TransformType.GROUP_BY:
         column_ids, aggregation = transform.column_ids, transform.aggregation
+        columns = transform.aggregation_column_ids or all_columns
+        aggregation_columns = [col for col in columns if col not in column_ids]
         aggs: list[str] = []
-        for column_id in all_columns:
-            if column_id not in column_ids:
-                agg_alias = f"{column_id}_{aggregation}"
-                aggs.append(
-                    f'"{agg_alias}" : {df_name}["{column_id}"].{aggregation}()'
-                )
+        for column_id in aggregation_columns:
+            agg_alias = f"{column_id}_{aggregation}"
+            aggs.append(
+                f'"{agg_alias}" : {df_name}["{column_id}"].{aggregation}()'
+            )
         return f"{df_name}.group_by({_list_of_strings(column_ids)}).aggregate(**{{{','.join(aggs)}}})"  # noqa: E501
 
     elif transform.type == TransformType.SELECT_COLUMNS:
@@ -472,6 +617,48 @@ def python_print_ibis(
     elif transform.type == TransformType.UNIQUE:
         column_ids = transform.column_ids
         return f"{df_name}.distinct(on={_list_of_strings(column_ids)}, keep={_as_literal(transform.keep)})"  # noqa: E501
+
+    elif transform.type == TransformType.PIVOT:
+        if not transform.index_column_ids:
+            index_column_ids = _list_of_strings(
+                list(
+                    filter(
+                        lambda col: col not in transform.column_ids
+                        and col not in transform.value_column_ids,
+                        all_columns,
+                    )
+                )
+            )
+        else:
+            index_column_ids = _list_of_strings(transform.index_column_ids)
+
+        if not transform.value_column_ids:
+            value_column_ids = _list_of_strings(
+                list(
+                    filter(
+                        lambda col: col not in transform.column_ids
+                        and col not in transform.index_column_ids,
+                        all_columns,
+                    )
+                )
+            )
+        else:
+            value_column_ids = _list_of_strings(transform.value_column_ids)
+
+        column_ids = transform.column_ids
+        agg_func = transform.aggregation
+
+        pivot_code = (
+            f"{df_name}.pivot_wider("
+            f"names_from={_list_of_strings(column_ids)}, "
+            f"id_cols={_list_of_strings(index_column_ids)}, "
+            f"values_from={_list_of_strings(value_column_ids)}, "
+            f"names_prefix={_as_literal(value_column_ids[0]) if len(value_column_ids) == 1 else _as_literal('')}, "
+            f"values_agg={_as_literal(agg_func)})"
+        )
+
+        rename_code = f'{df_name} = {df_name}.rename(**{{f"{{col}}_{agg_func}": col for col in {df_name}.columns if col not in {_list_of_strings(index_column_ids)}}})'  # noqa: E501
+        return f"{pivot_code}\n{rename_code}"
 
     assert_never(transform.type)
 

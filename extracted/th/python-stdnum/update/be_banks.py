@@ -3,7 +3,7 @@
 
 # update/be_banks.py - script to download Bank list from Belgian National Bank
 #
-# Copyright (C) 2018-2025 Arthur de Jong
+# Copyright (C) 2018-2026 Arthur de Jong
 #
 # This library is free software; you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public
@@ -32,7 +32,11 @@ import requests
 
 # The location of the XLS version of the bank identification codes. Also see
 # https://www.nbb.be/en/payment-systems/payment-standards/bank-identification-codes
-download_url = 'https://www.nbb.be/doc/be/be/protocol/current_codes.xlsx'
+download_url = 'https://www.nbb.be/doc/be/be/protocol/grouped_list_current.xlsx'
+
+
+# The user agent that will be passed in requests
+user_agent = 'Mozilla/5.0 (compatible; python-stdnum updater; +https://arthurdejong.org/python-stdnum/)'
 
 
 # List of values that refer to non-existing, reserved or otherwise not-
@@ -48,6 +52,7 @@ not_applicable_values = (
     'VRIJ - LIBRE',
     'VRIJ',
     'nav',
+    'N/A',
 )
 
 
@@ -72,13 +77,13 @@ def get_values(sheet):
     for row in rows:
         row = [clean(column.value) for column in row]
         low, high, bic = row[:3]
-        bank = ([x for x in row[3:] if x] + [''])[0]
+        bank = ([''] + [x for x in row[2:] if x])[-1]
         if bic or bank:
             yield low, high, bic.replace(' ', ''), bank
 
 
 if __name__ == '__main__':
-    response = requests.get(download_url, timeout=30)
+    response = requests.get(download_url, timeout=30, headers={'User-Agent': user_agent})
     response.raise_for_status()
     workbook = openpyxl.load_workbook(io.BytesIO(response.content), read_only=True)
     sheet = workbook.worksheets[0]

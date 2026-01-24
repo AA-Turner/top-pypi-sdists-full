@@ -1,13 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: recurly
-Version: 4.63.0
+Version: 4.68.0
 Summary: Recurly v4
 Home-page: https://github.com/recurly/recurly-client-python
 Author: Developer Experience
 Author-email: dx@recurly.com
 Description-Content-Type: text/markdown
-Provides-Extra: test
 License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: coverage; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 # Recurly
 

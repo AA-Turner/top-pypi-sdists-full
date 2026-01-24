@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -44,6 +45,7 @@ from .literals import (
     AnalyticsUtteranceFieldType,
     AnalyticsUtteranceFilterNameType,
     AnalyticsUtteranceMetricNameType,
+    AssistedNluModeType,
     AssociatedTranscriptFilterNameType,
     BedrockTraceStatusType,
     BotAliasReplicationStatusType,
@@ -90,6 +92,8 @@ from .literals import (
     SlotTypeSortAttributeType,
     SlotValueResolutionStrategyType,
     SortOrderType,
+    SpeechDetectionSensitivityType,
+    SpeechModelPreferenceType,
     TestExecutionApiModeType,
     TestExecutionModalityType,
     TestExecutionSortAttributeType,
@@ -106,12 +110,6 @@ from .literals import (
     VoiceEngineType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -266,6 +264,7 @@ __all__ = (
     "DataSourceConfigurationTypeDef",
     "DateRangeFilterOutputTypeDef",
     "DateRangeFilterTypeDef",
+    "DeepgramSpeechModelConfigTypeDef",
     "DefaultConditionalBranchOutputTypeDef",
     "DefaultConditionalBranchTypeDef",
     "DeleteBotAliasRequestTypeDef",
@@ -396,6 +395,7 @@ __all__ = (
     "IntentConfirmationSettingOutputTypeDef",
     "IntentConfirmationSettingTypeDef",
     "IntentConfirmationSettingUnionTypeDef",
+    "IntentDisambiguationSettingsTypeDef",
     "IntentFilterTypeDef",
     "IntentLevelSlotResolutionTestResultItemTypeDef",
     "IntentLevelSlotResolutionTestResultsTypeDef",
@@ -553,6 +553,9 @@ __all__ = (
     "SlotValueTypeDef",
     "SpecificationsOutputTypeDef",
     "SpecificationsTypeDef",
+    "SpeechFoundationModelTypeDef",
+    "SpeechModelConfigTypeDef",
+    "SpeechRecognitionSettingsTypeDef",
     "StartBotRecommendationRequestTypeDef",
     "StartBotRecommendationResponseTypeDef",
     "StartBotResourceGenerationRequestTypeDef",
@@ -606,6 +609,7 @@ __all__ = (
     "TranscriptSourceSettingTypeDef",
     "TranscriptSourceSettingUnionTypeDef",
     "TurnSpecificationTypeDef",
+    "UnifiedSpeechSettingsTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateBotAliasRequestTypeDef",
     "UpdateBotAliasResponseTypeDef",
@@ -860,7 +864,7 @@ class FailedCustomVocabularyItemTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -885,7 +889,7 @@ class BotAliasReplicaSummaryTypeDef(TypedDict):
     botVersion: NotRequired[str]
     creationDateTime: NotRequired[datetime]
     lastUpdatedDateTime: NotRequired[datetime]
-    failureReasons: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
 
 class BotAliasSummaryTypeDef(TypedDict):
     botAliasId: NotRequired[str]
@@ -977,7 +981,7 @@ class BotReplicaSummaryTypeDef(TypedDict):
     replicaRegion: NotRequired[str]
     creationDateTime: NotRequired[datetime]
     botReplicaStatus: NotRequired[BotReplicaStatusType]
-    failureReasons: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
 
 class BotSortByTypeDef(TypedDict):
     attribute: Literal["BotName"]
@@ -1003,7 +1007,7 @@ class BotVersionReplicaSummaryTypeDef(TypedDict):
     botVersion: NotRequired[str]
     botVersionReplicationStatus: NotRequired[BotVersionReplicationStatusType]
     creationDateTime: NotRequired[datetime]
-    failureReasons: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
 
 class BotVersionSortByTypeDef(TypedDict):
     attribute: Literal["BotVersion"]
@@ -1141,6 +1145,10 @@ class QnAKendraConfigurationTypeDef(TypedDict):
 class DateRangeFilterOutputTypeDef(TypedDict):
     startDateTime: datetime
     endDateTime: datetime
+
+class DeepgramSpeechModelConfigTypeDef(TypedDict):
+    apiTokenSecretArn: str
+    modelId: NotRequired[str]
 
 class DeleteBotAliasRequestTypeDef(TypedDict):
     botAliasId: str
@@ -1394,8 +1402,13 @@ class ImportSummaryTypeDef(TypedDict):
 
 class IntentClassificationTestResultItemCountsTypeDef(TypedDict):
     totalResultCount: int
-    intentMatchResultCounts: Dict[TestResultMatchStatusType, int]
-    speechTranscriptionResultCounts: NotRequired[Dict[TestResultMatchStatusType, int]]
+    intentMatchResultCounts: dict[TestResultMatchStatusType, int]
+    speechTranscriptionResultCounts: NotRequired[dict[TestResultMatchStatusType, int]]
+
+class IntentDisambiguationSettingsTypeDef(TypedDict):
+    enabled: bool
+    maxDisambiguationIntents: NotRequired[int]
+    customDisambiguationMessage: NotRequired[str]
 
 IntentFilterTypeDef = TypedDict(
     "IntentFilterTypeDef",
@@ -1518,17 +1531,14 @@ class PlainTextMessageTypeDef(TypedDict):
 class SSMLMessageTypeDef(TypedDict):
     value: str
 
-class NluImprovementSpecificationTypeDef(TypedDict):
-    enabled: bool
-
 class OverallTestResultItemTypeDef(TypedDict):
     multiTurnConversation: bool
     totalResultCount: int
-    endToEndResultCounts: Dict[TestResultMatchStatusType, int]
-    speechTranscriptionResultCounts: NotRequired[Dict[TestResultMatchStatusType, int]]
+    endToEndResultCounts: dict[TestResultMatchStatusType, int]
+    speechTranscriptionResultCounts: NotRequired[dict[TestResultMatchStatusType, int]]
 
 class PathFormatOutputTypeDef(TypedDict):
-    objectPrefixes: NotRequired[List[str]]
+    objectPrefixes: NotRequired[list[str]]
 
 class PathFormatTypeDef(TypedDict):
     objectPrefixes: NotRequired[Sequence[str]]
@@ -1557,14 +1567,18 @@ class SlotResolutionSettingTypeDef(TypedDict):
 
 class SlotResolutionTestResultItemCountsTypeDef(TypedDict):
     totalResultCount: int
-    slotMatchResultCounts: Dict[TestResultMatchStatusType, int]
-    speechTranscriptionResultCounts: NotRequired[Dict[TestResultMatchStatusType, int]]
+    slotMatchResultCounts: dict[TestResultMatchStatusType, int]
+    speechTranscriptionResultCounts: NotRequired[dict[TestResultMatchStatusType, int]]
 
 class SlotValueTypeDef(TypedDict):
     interpretedValue: NotRequired[str]
 
 class SlotValueRegexFilterTypeDef(TypedDict):
     pattern: str
+
+class SpeechFoundationModelTypeDef(TypedDict):
+    modelArn: str
+    voiceId: NotRequired[str]
 
 class StartBotResourceGenerationRequestTypeDef(TypedDict):
     generationInputPrompt: str
@@ -1620,8 +1634,8 @@ class UpdateTestSetRequestTypeDef(TypedDict):
 
 class UserTurnSlotOutputTypeDef(TypedDict):
     value: NotRequired[str]
-    values: NotRequired[List[Dict[str, Any]]]
-    subSlots: NotRequired[Dict[str, Dict[str, Any]]]
+    values: NotRequired[list[dict[str, Any]]]
+    subSlots: NotRequired[dict[str, dict[str, Any]]]
 
 class UtteranceAudioInputSpecificationTypeDef(TypedDict):
     audioFileS3Location: str
@@ -1634,25 +1648,25 @@ class AgentTurnResultTypeDef(TypedDict):
     actualIntent: NotRequired[str]
 
 class AnalyticsIntentResultTypeDef(TypedDict):
-    binKeys: NotRequired[List[AnalyticsBinKeyTypeDef]]
-    groupByKeys: NotRequired[List[AnalyticsIntentGroupByKeyTypeDef]]
-    metricsResults: NotRequired[List[AnalyticsIntentMetricResultTypeDef]]
+    binKeys: NotRequired[list[AnalyticsBinKeyTypeDef]]
+    groupByKeys: NotRequired[list[AnalyticsIntentGroupByKeyTypeDef]]
+    metricsResults: NotRequired[list[AnalyticsIntentMetricResultTypeDef]]
 
 class AnalyticsIntentStageResultTypeDef(TypedDict):
-    binKeys: NotRequired[List[AnalyticsBinKeyTypeDef]]
-    groupByKeys: NotRequired[List[AnalyticsIntentStageGroupByKeyTypeDef]]
-    metricsResults: NotRequired[List[AnalyticsIntentStageMetricResultTypeDef]]
+    binKeys: NotRequired[list[AnalyticsBinKeyTypeDef]]
+    groupByKeys: NotRequired[list[AnalyticsIntentStageGroupByKeyTypeDef]]
+    metricsResults: NotRequired[list[AnalyticsIntentStageMetricResultTypeDef]]
 
 class AnalyticsSessionResultTypeDef(TypedDict):
-    binKeys: NotRequired[List[AnalyticsBinKeyTypeDef]]
-    groupByKeys: NotRequired[List[AnalyticsSessionGroupByKeyTypeDef]]
-    metricsResults: NotRequired[List[AnalyticsSessionMetricResultTypeDef]]
+    binKeys: NotRequired[list[AnalyticsBinKeyTypeDef]]
+    groupByKeys: NotRequired[list[AnalyticsSessionGroupByKeyTypeDef]]
+    metricsResults: NotRequired[list[AnalyticsSessionMetricResultTypeDef]]
 
 class AnalyticsUtteranceResultTypeDef(TypedDict):
-    binKeys: NotRequired[List[AnalyticsBinKeyTypeDef]]
-    groupByKeys: NotRequired[List[AnalyticsUtteranceGroupByKeyTypeDef]]
-    metricsResults: NotRequired[List[AnalyticsUtteranceMetricResultTypeDef]]
-    attributeResults: NotRequired[List[AnalyticsUtteranceAttributeResultTypeDef]]
+    binKeys: NotRequired[list[AnalyticsBinKeyTypeDef]]
+    groupByKeys: NotRequired[list[AnalyticsUtteranceGroupByKeyTypeDef]]
+    metricsResults: NotRequired[list[AnalyticsUtteranceMetricResultTypeDef]]
+    attributeResults: NotRequired[list[AnalyticsUtteranceAttributeResultTypeDef]]
 
 class SearchAssociatedTranscriptsRequestTypeDef(TypedDict):
     botId: str
@@ -1688,24 +1702,24 @@ class BatchCreateCustomVocabularyItemResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    errors: List[FailedCustomVocabularyItemTypeDef]
-    resources: List[CustomVocabularyItemTypeDef]
+    errors: list[FailedCustomVocabularyItemTypeDef]
+    resources: list[CustomVocabularyItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchDeleteCustomVocabularyItemResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    errors: List[FailedCustomVocabularyItemTypeDef]
-    resources: List[CustomVocabularyItemTypeDef]
+    errors: list[FailedCustomVocabularyItemTypeDef]
+    resources: list[CustomVocabularyItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BatchUpdateCustomVocabularyItemResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    errors: List[FailedCustomVocabularyItemTypeDef]
-    resources: List[CustomVocabularyItemTypeDef]
+    errors: list[FailedCustomVocabularyItemTypeDef]
+    resources: list[CustomVocabularyItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class BuildBotLocaleResponseTypeDef(TypedDict):
@@ -1802,7 +1816,7 @@ class DescribeBotReplicaResponseTypeDef(TypedDict):
     sourceRegion: str
     creationDateTime: datetime
     botReplicaStatus: BotReplicaStatusType
-    failureReasons: List[str]
+    failureReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBotResourceGenerationResponseTypeDef(TypedDict):
@@ -1810,7 +1824,7 @@ class DescribeBotResourceGenerationResponseTypeDef(TypedDict):
     botVersion: str
     localeId: str
     generationId: str
-    failureReasons: List[str]
+    failureReasons: list[str]
     generationStatus: GenerationStatusType
     generationInputPrompt: str
     generatedBotLocaleUrl: str
@@ -1846,16 +1860,16 @@ class ListCustomVocabularyItemsResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    customVocabularyItems: List[CustomVocabularyItemTypeDef]
+    customVocabularyItems: list[CustomVocabularyItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListIntentPathsResponseTypeDef(TypedDict):
-    nodeSummaries: List[AnalyticsIntentNodeSummaryTypeDef]
+    nodeSummaries: list[AnalyticsIntentNodeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchAssociatedTranscriptsResponseTypeDef(TypedDict):
@@ -1864,7 +1878,7 @@ class SearchAssociatedTranscriptsResponseTypeDef(TypedDict):
     localeId: str
     botRecommendationId: str
     nextIndex: int
-    associatedTranscripts: List[AssociatedTranscriptTypeDef]
+    associatedTranscripts: list[AssociatedTranscriptTypeDef]
     totalResults: int
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -1912,12 +1926,12 @@ class ListBotAliasReplicasResponseTypeDef(TypedDict):
     botId: str
     sourceRegion: str
     replicaRegion: str
-    botAliasReplicaSummaries: List[BotAliasReplicaSummaryTypeDef]
+    botAliasReplicaSummaries: list[BotAliasReplicaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListBotAliasesResponseTypeDef(TypedDict):
-    botAliasSummaries: List[BotAliasSummaryTypeDef]
+    botAliasSummaries: list[BotAliasSummaryTypeDef]
     botId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -1931,8 +1945,8 @@ class BotImportSpecificationOutputTypeDef(TypedDict):
     dataPrivacy: DataPrivacyTypeDef
     errorLogSettings: NotRequired[ErrorLogSettingsTypeDef]
     idleSessionTTLInSeconds: NotRequired[int]
-    botTags: NotRequired[Dict[str, str]]
-    testBotAliasTags: NotRequired[Dict[str, str]]
+    botTags: NotRequired[dict[str, str]]
+    testBotAliasTags: NotRequired[dict[str, str]]
 
 class BotImportSpecificationTypeDef(TypedDict):
     botName: str
@@ -1942,13 +1956,6 @@ class BotImportSpecificationTypeDef(TypedDict):
     idleSessionTTLInSeconds: NotRequired[int]
     botTags: NotRequired[Mapping[str, str]]
     testBotAliasTags: NotRequired[Mapping[str, str]]
-
-class BotLocaleImportSpecificationTypeDef(TypedDict):
-    botId: str
-    botVersion: str
-    localeId: str
-    nluIntentConfidenceThreshold: NotRequired[float]
-    voiceSettings: NotRequired[VoiceSettingsTypeDef]
 
 class ListBotLocalesRequestTypeDef(TypedDict):
     botId: str
@@ -1961,7 +1968,7 @@ class ListBotLocalesRequestTypeDef(TypedDict):
 class ListBotLocalesResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
-    botLocaleSummaries: List[BotLocaleSummaryTypeDef]
+    botLocaleSummaries: list[BotLocaleSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1986,10 +1993,10 @@ class CreateBotResponseTypeDef(TypedDict):
     idleSessionTTLInSeconds: int
     botStatus: BotStatusType
     creationDateTime: datetime
-    botTags: Dict[str, str]
-    testBotAliasTags: Dict[str, str]
+    botTags: dict[str, str]
+    testBotAliasTags: dict[str, str]
     botType: BotTypeType
-    botMembers: List[BotMemberTypeDef]
+    botMembers: list[BotMemberTypeDef]
     errorLogSettings: ErrorLogSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2004,8 +2011,8 @@ class DescribeBotResponseTypeDef(TypedDict):
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
     botType: BotTypeType
-    botMembers: List[BotMemberTypeDef]
-    failureReasons: List[str]
+    botMembers: list[BotMemberTypeDef]
+    failureReasons: list[str]
     errorLogSettings: ErrorLogSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2031,7 +2038,7 @@ class UpdateBotResponseTypeDef(TypedDict):
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
     botType: BotTypeType
-    botMembers: List[BotMemberTypeDef]
+    botMembers: list[BotMemberTypeDef]
     errorLogSettings: ErrorLogSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -2043,14 +2050,14 @@ class ListBotRecommendationsResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    botRecommendationSummaries: List[BotRecommendationSummaryTypeDef]
+    botRecommendationSummaries: list[BotRecommendationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListBotReplicasResponseTypeDef(TypedDict):
     botId: str
     sourceRegion: str
-    botReplicaSummaries: List[BotReplicaSummaryTypeDef]
+    botReplicaSummaries: list[BotReplicaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListBotsRequestTypeDef(TypedDict):
@@ -2060,7 +2067,7 @@ class ListBotsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListBotsResponseTypeDef(TypedDict):
-    botSummaries: List[BotSummaryTypeDef]
+    botSummaries: list[BotSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2073,7 +2080,7 @@ class CreateBotVersionResponseTypeDef(TypedDict):
     botId: str
     description: str
     botVersion: str
-    botVersionLocaleSpecification: Dict[str, BotVersionLocaleDetailsTypeDef]
+    botVersionLocaleSpecification: dict[str, BotVersionLocaleDetailsTypeDef]
     botStatus: BotStatusType
     creationDateTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2089,7 +2096,7 @@ class ListBotVersionReplicasResponseTypeDef(TypedDict):
     botId: str
     sourceRegion: str
     replicaRegion: str
-    botVersionReplicaSummaries: List[BotVersionReplicaSummaryTypeDef]
+    botVersionReplicaSummaries: list[BotVersionReplicaSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2101,7 +2108,7 @@ class ListBotVersionsRequestTypeDef(TypedDict):
 
 class ListBotVersionsResponseTypeDef(TypedDict):
     botId: str
-    botVersionSummaries: List[BotVersionSummaryTypeDef]
+    botVersionSummaries: list[BotVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2112,7 +2119,7 @@ class ListBuiltInIntentsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListBuiltInIntentsResponseTypeDef(TypedDict):
-    builtInIntentSummaries: List[BuiltInIntentSummaryTypeDef]
+    builtInIntentSummaries: list[BuiltInIntentSummaryTypeDef]
     localeId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -2124,7 +2131,7 @@ class ListBuiltInSlotTypesRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListBuiltInSlotTypesResponseTypeDef(TypedDict):
-    builtInSlotTypeSummaries: List[BuiltInSlotTypeSummaryTypeDef]
+    builtInSlotTypeSummaries: list[BuiltInSlotTypeSummaryTypeDef]
     localeId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -2133,7 +2140,7 @@ class ImageResponseCardOutputTypeDef(TypedDict):
     title: str
     subtitle: NotRequired[str]
     imageUrl: NotRequired[str]
-    buttons: NotRequired[List[ButtonTypeDef]]
+    buttons: NotRequired[list[ButtonTypeDef]]
 
 class ImageResponseCardTypeDef(TypedDict):
     title: str
@@ -2148,7 +2155,7 @@ class CodeHookSpecificationTypeDef(TypedDict):
     lambdaCodeHook: LambdaCodeHookTypeDef
 
 class CompositeSlotTypeSettingOutputTypeDef(TypedDict):
-    subSlots: NotRequired[List[SubSlotTypeCompositionTypeDef]]
+    subSlots: NotRequired[list[SubSlotTypeCompositionTypeDef]]
 
 class CompositeSlotTypeSettingTypeDef(TypedDict):
     subSlots: NotRequired[Sequence[SubSlotTypeCompositionTypeDef]]
@@ -2156,8 +2163,8 @@ class CompositeSlotTypeSettingTypeDef(TypedDict):
 class ConversationLevelTestResultItemTypeDef(TypedDict):
     conversationId: str
     endToEndResult: TestResultMatchStatusType
-    intentClassificationResults: List[ConversationLevelIntentClassificationResultItemTypeDef]
-    slotResolutionResults: List[ConversationLevelSlotResolutionResultItemTypeDef]
+    intentClassificationResults: list[ConversationLevelIntentClassificationResultItemTypeDef]
+    slotResolutionResults: list[ConversationLevelSlotResolutionResultItemTypeDef]
     speechTranscriptionResult: NotRequired[TestResultMatchStatusType]
 
 class TestExecutionResultFilterByTypeDef(TypedDict):
@@ -2238,10 +2245,11 @@ class ListUtteranceMetricsRequestTypeDef(TypedDict):
 class IntentSummaryTypeDef(TypedDict):
     intentId: NotRequired[str]
     intentName: NotRequired[str]
+    intentDisplayName: NotRequired[str]
     description: NotRequired[str]
     parentIntentSignature: NotRequired[str]
-    inputContexts: NotRequired[List[InputContextTypeDef]]
-    outputContexts: NotRequired[List[OutputContextTypeDef]]
+    inputContexts: NotRequired[list[InputContextTypeDef]]
+    outputContexts: NotRequired[list[OutputContextTypeDef]]
     lastUpdatedDateTime: NotRequired[datetime]
 
 class GenerateBotElementResponseTypeDef(TypedDict):
@@ -2249,7 +2257,7 @@ class GenerateBotElementResponseTypeDef(TypedDict):
     botVersion: str
     localeId: str
     intentId: str
-    sampleUtterances: List[SampleUtteranceTypeDef]
+    sampleUtterances: list[SampleUtteranceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateResourcePolicyStatementRequestTypeDef(TypedDict):
@@ -2263,6 +2271,9 @@ class CreateResourcePolicyStatementRequestTypeDef(TypedDict):
 
 class LexTranscriptFilterOutputTypeDef(TypedDict):
     dateRangeFilter: NotRequired[DateRangeFilterOutputTypeDef]
+
+class SpeechModelConfigTypeDef(TypedDict):
+    deepgramConfig: NotRequired[DeepgramSpeechModelConfigTypeDef]
 
 class DescribeBotAliasRequestWaitTypeDef(TypedDict):
     botAliasId: str
@@ -2313,11 +2324,11 @@ class DescribeBotVersionResponseTypeDef(TypedDict):
     dataPrivacy: DataPrivacyTypeDef
     idleSessionTTLInSeconds: int
     botStatus: BotStatusType
-    failureReasons: List[str]
+    failureReasons: list[str]
     creationDateTime: datetime
-    parentBotNetworks: List[ParentBotNetworkTypeDef]
+    parentBotNetworks: list[ParentBotNetworkTypeDef]
     botType: BotTypeType
-    botMembers: List[BotMemberTypeDef]
+    botMembers: list[BotMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateBotRecommendationRequestTypeDef(TypedDict):
@@ -2370,7 +2381,7 @@ class OpensearchConfigurationOutputTypeDef(TypedDict):
     indexName: str
     exactResponse: NotRequired[bool]
     exactResponseFields: NotRequired[ExactResponseFieldsTypeDef]
-    includeFields: NotRequired[List[str]]
+    includeFields: NotRequired[list[str]]
 
 class OpensearchConfigurationTypeDef(TypedDict):
     domainEndpoint: str
@@ -2406,7 +2417,7 @@ class ListBotResourceGenerationsResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    generationSummaries: List[GenerationSummaryTypeDef]
+    generationSummaries: list[GenerationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2425,7 +2436,7 @@ class ListImportsRequestTypeDef(TypedDict):
 class ListImportsResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
-    importSummaries: List[ImportSummaryTypeDef]
+    importSummaries: list[ImportSummaryTypeDef]
     localeId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -2434,6 +2445,11 @@ class IntentClassificationTestResultItemTypeDef(TypedDict):
     intentName: str
     multiTurnConversation: bool
     resultCounts: IntentClassificationTestResultItemCountsTypeDef
+
+class NluImprovementSpecificationTypeDef(TypedDict):
+    enabled: bool
+    assistedNluMode: NotRequired[AssistedNluModeType]
+    intentDisambiguationSettings: NotRequired[IntentDisambiguationSettingsTypeDef]
 
 class ListIntentsRequestTypeDef(TypedDict):
     botId: str
@@ -2456,7 +2472,7 @@ class SessionSpecificationTypeDef(TypedDict):
     conversationEndState: NotRequired[ConversationEndStateType]
     mode: NotRequired[AnalyticsModalityType]
     numberOfTurns: NotRequired[int]
-    invokedIntentSamples: NotRequired[List[InvokedIntentSampleTypeDef]]
+    invokedIntentSamples: NotRequired[list[InvokedIntentSampleTypeDef]]
     originatingRequestId: NotRequired[str]
 
 class ListRecommendedIntentsResponseTypeDef(TypedDict):
@@ -2464,7 +2480,7 @@ class ListRecommendedIntentsResponseTypeDef(TypedDict):
     botVersion: str
     localeId: str
     botRecommendationId: str
-    summaryList: List[RecommendedIntentSummaryTypeDef]
+    summaryList: list[RecommendedIntentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2490,7 +2506,7 @@ class ListSlotTypesResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    slotTypeSummaries: List[SlotTypeSummaryTypeDef]
+    slotTypeSummaries: list[SlotTypeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2524,7 +2540,7 @@ class ListUtteranceAnalyticsDataRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class OverallTestResultsTypeDef(TypedDict):
-    items: List[OverallTestResultItemTypeDef]
+    items: list[OverallTestResultItemTypeDef]
 
 class QInConnectIntentConfigurationTypeDef(TypedDict):
     qInConnectAssistantConfiguration: NotRequired[QInConnectAssistantConfigurationTypeDef]
@@ -2533,19 +2549,19 @@ class UtteranceAggregationDurationTypeDef(TypedDict):
     relativeAggregationDuration: RelativeAggregationDurationTypeDef
 
 class RuntimeHintDetailsTypeDef(TypedDict):
-    runtimeHintValues: NotRequired[List[RuntimeHintValueTypeDef]]
-    subSlotHints: NotRequired[Dict[str, Dict[str, Any]]]
+    runtimeHintValues: NotRequired[list[RuntimeHintValueTypeDef]]
+    subSlotHints: NotRequired[dict[str, dict[str, Any]]]
 
 class SlotTypeValueOutputTypeDef(TypedDict):
     sampleValue: NotRequired[SampleValueTypeDef]
-    synonyms: NotRequired[List[SampleValueTypeDef]]
+    synonyms: NotRequired[list[SampleValueTypeDef]]
 
 class SlotTypeValueTypeDef(TypedDict):
     sampleValue: NotRequired[SampleValueTypeDef]
     synonyms: NotRequired[Sequence[SampleValueTypeDef]]
 
 class SlotDefaultValueSpecificationOutputTypeDef(TypedDict):
-    defaultValueList: List[SlotDefaultValueTypeDef]
+    defaultValueList: list[SlotDefaultValueTypeDef]
 
 class SlotDefaultValueSpecificationTypeDef(TypedDict):
     defaultValueList: Sequence[SlotDefaultValueTypeDef]
@@ -2557,7 +2573,7 @@ class SlotResolutionTestResultItemTypeDef(TypedDict):
 class SlotValueOverrideOutputTypeDef(TypedDict):
     shape: NotRequired[SlotShapeType]
     value: NotRequired[SlotValueTypeDef]
-    values: NotRequired[List[Dict[str, Any]]]
+    values: NotRequired[list[dict[str, Any]]]
 
 class SlotValueOverrideTypeDef(TypedDict):
     shape: NotRequired[SlotShapeType]
@@ -2569,9 +2585,12 @@ class SlotValueSelectionSettingTypeDef(TypedDict):
     regexFilter: NotRequired[SlotValueRegexFilterTypeDef]
     advancedRecognitionSetting: NotRequired[AdvancedRecognitionSettingTypeDef]
 
+class UnifiedSpeechSettingsTypeDef(TypedDict):
+    speechFoundationModel: SpeechFoundationModelTypeDef
+
 class TestSetDiscrepancyErrorsTypeDef(TypedDict):
-    intentDiscrepancies: List[TestSetIntentDiscrepancyItemTypeDef]
-    slotDiscrepancies: List[TestSetSlotDiscrepancyItemTypeDef]
+    intentDiscrepancies: list[TestSetIntentDiscrepancyItemTypeDef]
+    slotDiscrepancies: list[TestSetSlotDiscrepancyItemTypeDef]
 
 class TestSetDiscrepancyReportResourceTargetTypeDef(TypedDict):
     botAliasTarget: NotRequired[TestSetDiscrepancyReportBotAliasTargetTypeDef]
@@ -2583,7 +2602,7 @@ class TestSetImportResourceSpecificationOutputTypeDef(TypedDict):
     importInputLocation: TestSetImportInputLocationTypeDef
     modality: TestSetModalityType
     description: NotRequired[str]
-    testSetTags: NotRequired[Dict[str, str]]
+    testSetTags: NotRequired[dict[str, str]]
 
 class TestSetImportResourceSpecificationTypeDef(TypedDict):
     testSetName: str
@@ -2596,7 +2615,7 @@ class TestSetImportResourceSpecificationTypeDef(TypedDict):
 
 class UserTurnIntentOutputTypeDef(TypedDict):
     name: str
-    slots: NotRequired[Dict[str, UserTurnSlotOutputTypeDef]]
+    slots: NotRequired[dict[str, UserTurnSlotOutputTypeDef]]
 
 class UtteranceInputSpecificationTypeDef(TypedDict):
     textInput: NotRequired[str]
@@ -2604,25 +2623,25 @@ class UtteranceInputSpecificationTypeDef(TypedDict):
 
 class ListIntentMetricsResponseTypeDef(TypedDict):
     botId: str
-    results: List[AnalyticsIntentResultTypeDef]
+    results: list[AnalyticsIntentResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListIntentStageMetricsResponseTypeDef(TypedDict):
     botId: str
-    results: List[AnalyticsIntentStageResultTypeDef]
+    results: list[AnalyticsIntentStageResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSessionMetricsResponseTypeDef(TypedDict):
     botId: str
-    results: List[AnalyticsSessionResultTypeDef]
+    results: list[AnalyticsSessionResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListUtteranceMetricsResponseTypeDef(TypedDict):
     botId: str
-    results: List[AnalyticsUtteranceResultTypeDef]
+    results: list[AnalyticsUtteranceResultTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2659,7 +2678,7 @@ class DescribeTestExecutionResponseTypeDef(TypedDict):
     target: TestExecutionTargetTypeDef
     apiMode: TestExecutionApiModeType
     testExecutionModality: TestExecutionModalityType
-    failureReasons: List[str]
+    failureReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartTestExecutionRequestTypeDef(TypedDict):
@@ -2724,7 +2743,7 @@ CompositeSlotTypeSettingUnionTypeDef = Union[
 ]
 
 class ConversationLevelTestResultsTypeDef(TypedDict):
-    items: List[ConversationLevelTestResultItemTypeDef]
+    items: list[ConversationLevelTestResultItemTypeDef]
 
 class ListTestExecutionResultItemsRequestTypeDef(TypedDict):
     testExecutionId: str
@@ -2752,15 +2771,19 @@ class ListIntentsResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
-    intentSummaries: List[IntentSummaryTypeDef]
+    intentSummaries: list[IntentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class TranscriptFilterOutputTypeDef(TypedDict):
     lexTranscriptFilter: NotRequired[LexTranscriptFilterOutputTypeDef]
 
+class SpeechRecognitionSettingsTypeDef(TypedDict):
+    speechModelPreference: NotRequired[SpeechModelPreferenceType]
+    speechModelConfig: NotRequired[SpeechModelConfigTypeDef]
+
 class ListTestSetsResponseTypeDef(TypedDict):
-    testSets: List[TestSetSummaryTypeDef]
+    testSets: list[TestSetSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2792,7 +2815,7 @@ class DescribeExportResponseTypeDef(TypedDict):
     resourceSpecification: ExportResourceSpecificationTypeDef
     fileFormat: ImportExportFileFormatType
     exportStatus: ExportStatusType
-    failureReasons: List[str]
+    failureReasons: list[str]
     downloadUrl: str
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
@@ -2819,11 +2842,11 @@ class ExternalSourceSettingTypeDef(TypedDict):
     grammarSlotTypeSetting: NotRequired[GrammarSlotTypeSettingTypeDef]
 
 class IntentClassificationTestResultsTypeDef(TypedDict):
-    items: List[IntentClassificationTestResultItemTypeDef]
+    items: list[IntentClassificationTestResultItemTypeDef]
 
 class ListSessionAnalyticsDataResponseTypeDef(TypedDict):
     botId: str
-    sessions: List[SessionSpecificationTypeDef]
+    sessions: list[SessionSpecificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2847,23 +2870,23 @@ class ListAggregatedUtterancesResponseTypeDef(TypedDict):
     aggregationWindowStartTime: datetime
     aggregationWindowEndTime: datetime
     aggregationLastRefreshedDateTime: datetime
-    aggregatedUtterancesSummaries: List[AggregatedUtterancesSummaryTypeDef]
+    aggregatedUtterancesSummaries: list[AggregatedUtterancesSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class RuntimeHintsTypeDef(TypedDict):
-    slotHints: NotRequired[Dict[str, Dict[str, RuntimeHintDetailsTypeDef]]]
+    slotHints: NotRequired[dict[str, dict[str, RuntimeHintDetailsTypeDef]]]
 
 SlotTypeValueUnionTypeDef = Union[SlotTypeValueTypeDef, SlotTypeValueOutputTypeDef]
 
 class IntentLevelSlotResolutionTestResultItemTypeDef(TypedDict):
     intentName: str
     multiTurnConversation: bool
-    slotResolutionResults: List[SlotResolutionTestResultItemTypeDef]
+    slotResolutionResults: list[SlotResolutionTestResultItemTypeDef]
 
 class IntentOverrideOutputTypeDef(TypedDict):
     name: NotRequired[str]
-    slots: NotRequired[Dict[str, SlotValueOverrideOutputTypeDef]]
+    slots: NotRequired[dict[str, SlotValueOverrideOutputTypeDef]]
 
 class IntentOverrideTypeDef(TypedDict):
     name: NotRequired[str]
@@ -2889,24 +2912,12 @@ class DescribeTestSetDiscrepancyReportResponseTypeDef(TypedDict):
     lastUpdatedDataTime: datetime
     testSetDiscrepancyTopErrors: TestSetDiscrepancyErrorsTypeDef
     testSetDiscrepancyRawOutputUrl: str
-    failureReasons: List[str]
+    failureReasons: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
-
-class ImportResourceSpecificationOutputTypeDef(TypedDict):
-    botImportSpecification: NotRequired[BotImportSpecificationOutputTypeDef]
-    botLocaleImportSpecification: NotRequired[BotLocaleImportSpecificationTypeDef]
-    customVocabularyImportSpecification: NotRequired[CustomVocabularyImportSpecificationTypeDef]
-    testSetImportResourceSpecification: NotRequired[TestSetImportResourceSpecificationOutputTypeDef]
-
-class ImportResourceSpecificationTypeDef(TypedDict):
-    botImportSpecification: NotRequired[BotImportSpecificationTypeDef]
-    botLocaleImportSpecification: NotRequired[BotLocaleImportSpecificationTypeDef]
-    customVocabularyImportSpecification: NotRequired[CustomVocabularyImportSpecificationTypeDef]
-    testSetImportResourceSpecification: NotRequired[TestSetImportResourceSpecificationTypeDef]
 
 class UserTurnOutputSpecificationTypeDef(TypedDict):
     intent: UserTurnIntentOutputTypeDef
-    activeContexts: NotRequired[List[ActiveContextTypeDef]]
+    activeContexts: NotRequired[list[ActiveContextTypeDef]]
     transcript: NotRequired[str]
 
 class BuildtimeSettingsTypeDef(TypedDict):
@@ -2918,13 +2929,13 @@ class RuntimeSettingsTypeDef(TypedDict):
     nluImprovement: NotRequired[NluImprovementSpecificationTypeDef]
 
 class ListTestExecutionsResponseTypeDef(TypedDict):
-    testExecutions: List[TestExecutionSummaryTypeDef]
+    testExecutions: list[TestExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class MessageGroupOutputTypeDef(TypedDict):
     message: MessageOutputTypeDef
-    variations: NotRequired[List[MessageOutputTypeDef]]
+    variations: NotRequired[list[MessageOutputTypeDef]]
 
 class UtteranceSpecificationTypeDef(TypedDict):
     botAliasId: NotRequired[str]
@@ -2948,15 +2959,15 @@ class UtteranceSpecificationTypeDef(TypedDict):
     botResponseAudioVoiceId: NotRequired[str]
     slotsFilledInSession: NotRequired[str]
     utteranceRequestId: NotRequired[str]
-    botResponses: NotRequired[List[UtteranceBotResponseTypeDef]]
+    botResponses: NotRequired[list[UtteranceBotResponseTypeDef]]
 
 class MessageGroupTypeDef(TypedDict):
     message: MessageTypeDef
     variations: NotRequired[Sequence[MessageTypeDef]]
 
 class ConversationLogSettingsOutputTypeDef(TypedDict):
-    textLogSettings: NotRequired[List[TextLogSettingTypeDef]]
-    audioLogSettings: NotRequired[List[AudioLogSettingTypeDef]]
+    textLogSettings: NotRequired[list[TextLogSettingTypeDef]]
+    audioLogSettings: NotRequired[list[AudioLogSettingTypeDef]]
 
 class ConversationLogSettingsTypeDef(TypedDict):
     textLogSettings: NotRequired[Sequence[TextLogSettingTypeDef]]
@@ -2965,7 +2976,7 @@ class ConversationLogSettingsTypeDef(TypedDict):
 class DescribeTestSetGenerationResponseTypeDef(TypedDict):
     testSetGenerationId: str
     testSetGenerationStatus: TestSetGenerationStatusType
-    failureReasons: List[str]
+    failureReasons: list[str]
     testSetId: str
     testSetName: str
     description: str
@@ -2985,7 +2996,7 @@ class StartTestSetGenerationResponseTypeDef(TypedDict):
     storageLocation: TestSetStorageLocationTypeDef
     generationDataSource: TestSetGenerationDataSourceOutputTypeDef
     roleArn: str
-    testSetTags: Dict[str, str]
+    testSetTags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TestSetGenerationDataSourceTypeDef(TypedDict):
@@ -3001,6 +3012,16 @@ class S3BucketTranscriptSourceOutputTypeDef(TypedDict):
     transcriptFilter: NotRequired[TranscriptFilterOutputTypeDef]
     kmsKeyArn: NotRequired[str]
 
+class BotLocaleImportSpecificationTypeDef(TypedDict):
+    botId: str
+    botVersion: str
+    localeId: str
+    nluIntentConfidenceThreshold: NotRequired[float]
+    voiceSettings: NotRequired[VoiceSettingsTypeDef]
+    speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
+    speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
+    unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
+
 class QnAIntentConfigurationOutputTypeDef(TypedDict):
     dataSourceConfiguration: NotRequired[DataSourceConfigurationOutputTypeDef]
     bedrockModelConfiguration: NotRequired[BedrockModelSpecificationTypeDef]
@@ -3012,7 +3033,7 @@ class QnAIntentConfigurationTypeDef(TypedDict):
 class ListExportsResponseTypeDef(TypedDict):
     botId: str
     botVersion: str
-    exportSummaries: List[ExportSummaryTypeDef]
+    exportSummaries: list[ExportSummaryTypeDef]
     localeId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -3021,7 +3042,7 @@ class CreateSlotTypeResponseTypeDef(TypedDict):
     slotTypeId: str
     slotTypeName: str
     description: str
-    slotTypeValues: List[SlotTypeValueOutputTypeDef]
+    slotTypeValues: list[SlotTypeValueOutputTypeDef]
     valueSelectionSetting: SlotValueSelectionSettingTypeDef
     parentSlotTypeSignature: str
     botId: str
@@ -3036,7 +3057,7 @@ class DescribeSlotTypeResponseTypeDef(TypedDict):
     slotTypeId: str
     slotTypeName: str
     description: str
-    slotTypeValues: List[SlotTypeValueOutputTypeDef]
+    slotTypeValues: list[SlotTypeValueOutputTypeDef]
     valueSelectionSetting: SlotValueSelectionSettingTypeDef
     parentSlotTypeSignature: str
     botId: str
@@ -3052,7 +3073,7 @@ class UpdateSlotTypeResponseTypeDef(TypedDict):
     slotTypeId: str
     slotTypeName: str
     description: str
-    slotTypeValues: List[SlotTypeValueOutputTypeDef]
+    slotTypeValues: list[SlotTypeValueOutputTypeDef]
     valueSelectionSetting: SlotValueSelectionSettingTypeDef
     parentSlotTypeSignature: str
     botId: str
@@ -3065,8 +3086,8 @@ class UpdateSlotTypeResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class InputSessionStateSpecificationTypeDef(TypedDict):
-    sessionAttributes: NotRequired[Dict[str, str]]
-    activeContexts: NotRequired[List[ActiveContextTypeDef]]
+    sessionAttributes: NotRequired[dict[str, str]]
+    activeContexts: NotRequired[list[ActiveContextTypeDef]]
     runtimeHints: NotRequired[RuntimeHintsTypeDef]
 
 class CreateSlotTypeRequestTypeDef(TypedDict):
@@ -3095,41 +3116,17 @@ class UpdateSlotTypeRequestTypeDef(TypedDict):
     compositeSlotTypeSetting: NotRequired[CompositeSlotTypeSettingUnionTypeDef]
 
 class IntentLevelSlotResolutionTestResultsTypeDef(TypedDict):
-    items: List[IntentLevelSlotResolutionTestResultItemTypeDef]
+    items: list[IntentLevelSlotResolutionTestResultItemTypeDef]
 
 class DialogStateOutputTypeDef(TypedDict):
     dialogAction: NotRequired[DialogActionTypeDef]
     intent: NotRequired[IntentOverrideOutputTypeDef]
-    sessionAttributes: NotRequired[Dict[str, str]]
+    sessionAttributes: NotRequired[dict[str, str]]
 
 class DialogStateTypeDef(TypedDict):
     dialogAction: NotRequired[DialogActionTypeDef]
     intent: NotRequired[IntentOverrideTypeDef]
     sessionAttributes: NotRequired[Mapping[str, str]]
-
-class DescribeImportResponseTypeDef(TypedDict):
-    importId: str
-    resourceSpecification: ImportResourceSpecificationOutputTypeDef
-    importedResourceId: str
-    importedResourceName: str
-    mergeStrategy: MergeStrategyType
-    importStatus: ImportStatusType
-    failureReasons: List[str]
-    creationDateTime: datetime
-    lastUpdatedDateTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class StartImportResponseTypeDef(TypedDict):
-    importId: str
-    resourceSpecification: ImportResourceSpecificationOutputTypeDef
-    mergeStrategy: MergeStrategyType
-    importStatus: ImportStatusType
-    creationDateTime: datetime
-    ResponseMetadata: ResponseMetadataTypeDef
-
-ImportResourceSpecificationUnionTypeDef = Union[
-    ImportResourceSpecificationTypeDef, ImportResourceSpecificationOutputTypeDef
-]
 
 class GenerativeAISettingsTypeDef(TypedDict):
     runtimeSettings: NotRequired[RuntimeSettingsTypeDef]
@@ -3137,36 +3134,36 @@ class GenerativeAISettingsTypeDef(TypedDict):
 
 class FulfillmentStartResponseSpecificationOutputTypeDef(TypedDict):
     delayInSeconds: int
-    messageGroups: List[MessageGroupOutputTypeDef]
+    messageGroups: list[MessageGroupOutputTypeDef]
     allowInterrupt: NotRequired[bool]
 
 class FulfillmentUpdateResponseSpecificationOutputTypeDef(TypedDict):
     frequencyInSeconds: int
-    messageGroups: List[MessageGroupOutputTypeDef]
+    messageGroups: list[MessageGroupOutputTypeDef]
     allowInterrupt: NotRequired[bool]
 
 class PromptSpecificationOutputTypeDef(TypedDict):
-    messageGroups: List[MessageGroupOutputTypeDef]
+    messageGroups: list[MessageGroupOutputTypeDef]
     maxRetries: int
     allowInterrupt: NotRequired[bool]
     messageSelectionStrategy: NotRequired[MessageSelectionStrategyType]
     promptAttemptsSpecification: NotRequired[
-        Dict[PromptAttemptType, PromptAttemptSpecificationTypeDef]
+        dict[PromptAttemptType, PromptAttemptSpecificationTypeDef]
     ]
 
 class ResponseSpecificationOutputTypeDef(TypedDict):
-    messageGroups: List[MessageGroupOutputTypeDef]
+    messageGroups: list[MessageGroupOutputTypeDef]
     allowInterrupt: NotRequired[bool]
 
 class StillWaitingResponseSpecificationOutputTypeDef(TypedDict):
-    messageGroups: List[MessageGroupOutputTypeDef]
+    messageGroups: list[MessageGroupOutputTypeDef]
     frequencyInSeconds: int
     timeoutInSeconds: int
     allowInterrupt: NotRequired[bool]
 
 class ListUtteranceAnalyticsDataResponseTypeDef(TypedDict):
     botId: str
-    utterances: List[UtteranceSpecificationTypeDef]
+    utterances: list[UtteranceSpecificationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3204,13 +3201,13 @@ class CreateBotAliasResponseTypeDef(TypedDict):
     botAliasName: str
     description: str
     botVersion: str
-    botAliasLocaleSettings: Dict[str, BotAliasLocaleSettingsTypeDef]
+    botAliasLocaleSettings: dict[str, BotAliasLocaleSettingsTypeDef]
     conversationLogSettings: ConversationLogSettingsOutputTypeDef
     sentimentAnalysisSettings: SentimentAnalysisSettingsTypeDef
     botAliasStatus: BotAliasStatusType
     botId: str
     creationDateTime: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBotAliasResponseTypeDef(TypedDict):
@@ -3218,15 +3215,15 @@ class DescribeBotAliasResponseTypeDef(TypedDict):
     botAliasName: str
     description: str
     botVersion: str
-    botAliasLocaleSettings: Dict[str, BotAliasLocaleSettingsTypeDef]
+    botAliasLocaleSettings: dict[str, BotAliasLocaleSettingsTypeDef]
     conversationLogSettings: ConversationLogSettingsOutputTypeDef
     sentimentAnalysisSettings: SentimentAnalysisSettingsTypeDef
-    botAliasHistoryEvents: List[BotAliasHistoryEventTypeDef]
+    botAliasHistoryEvents: list[BotAliasHistoryEventTypeDef]
     botAliasStatus: BotAliasStatusType
     botId: str
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
-    parentBotNetworks: List[ParentBotNetworkTypeDef]
+    parentBotNetworks: list[ParentBotNetworkTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateBotAliasResponseTypeDef(TypedDict):
@@ -3234,7 +3231,7 @@ class UpdateBotAliasResponseTypeDef(TypedDict):
     botAliasName: str
     description: str
     botVersion: str
-    botAliasLocaleSettings: Dict[str, BotAliasLocaleSettingsTypeDef]
+    botAliasLocaleSettings: dict[str, BotAliasLocaleSettingsTypeDef]
     conversationLogSettings: ConversationLogSettingsOutputTypeDef
     sentimentAnalysisSettings: SentimentAnalysisSettingsTypeDef
     botAliasStatus: BotAliasStatusType
@@ -3260,20 +3257,26 @@ class S3BucketTranscriptSourceTypeDef(TypedDict):
 class TranscriptSourceSettingOutputTypeDef(TypedDict):
     s3BucketTranscriptSource: NotRequired[S3BucketTranscriptSourceOutputTypeDef]
 
+class ImportResourceSpecificationOutputTypeDef(TypedDict):
+    botImportSpecification: NotRequired[BotImportSpecificationOutputTypeDef]
+    botLocaleImportSpecification: NotRequired[BotLocaleImportSpecificationTypeDef]
+    customVocabularyImportSpecification: NotRequired[CustomVocabularyImportSpecificationTypeDef]
+    testSetImportResourceSpecification: NotRequired[TestSetImportResourceSpecificationOutputTypeDef]
+
+class ImportResourceSpecificationTypeDef(TypedDict):
+    botImportSpecification: NotRequired[BotImportSpecificationTypeDef]
+    botLocaleImportSpecification: NotRequired[BotLocaleImportSpecificationTypeDef]
+    customVocabularyImportSpecification: NotRequired[CustomVocabularyImportSpecificationTypeDef]
+    testSetImportResourceSpecification: NotRequired[TestSetImportResourceSpecificationTypeDef]
+
 QnAIntentConfigurationUnionTypeDef = Union[
     QnAIntentConfigurationTypeDef, QnAIntentConfigurationOutputTypeDef
 ]
 
 class UserTurnInputSpecificationTypeDef(TypedDict):
     utteranceInput: UtteranceInputSpecificationTypeDef
-    requestAttributes: NotRequired[Dict[str, str]]
+    requestAttributes: NotRequired[dict[str, str]]
     sessionState: NotRequired[InputSessionStateSpecificationTypeDef]
-
-class StartImportRequestTypeDef(TypedDict):
-    importId: str
-    resourceSpecification: ImportResourceSpecificationUnionTypeDef
-    mergeStrategy: MergeStrategyType
-    filePassword: NotRequired[str]
 
 class CreateBotLocaleRequestTypeDef(TypedDict):
     botId: str
@@ -3282,7 +3285,10 @@ class CreateBotLocaleRequestTypeDef(TypedDict):
     nluIntentConfidenceThreshold: float
     description: NotRequired[str]
     voiceSettings: NotRequired[VoiceSettingsTypeDef]
+    unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
+    speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     generativeAISettings: NotRequired[GenerativeAISettingsTypeDef]
+    speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
 
 class CreateBotLocaleResponseTypeDef(TypedDict):
     botId: str
@@ -3292,9 +3298,12 @@ class CreateBotLocaleResponseTypeDef(TypedDict):
     description: str
     nluIntentConfidenceThreshold: float
     voiceSettings: VoiceSettingsTypeDef
+    unifiedSpeechSettings: UnifiedSpeechSettingsTypeDef
+    speechRecognitionSettings: SpeechRecognitionSettingsTypeDef
     botLocaleStatus: BotLocaleStatusType
     creationDateTime: datetime
     generativeAISettings: GenerativeAISettingsTypeDef
+    speechDetectionSensitivity: SpeechDetectionSensitivityType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBotLocaleResponseTypeDef(TypedDict):
@@ -3305,16 +3314,19 @@ class DescribeBotLocaleResponseTypeDef(TypedDict):
     description: str
     nluIntentConfidenceThreshold: float
     voiceSettings: VoiceSettingsTypeDef
+    unifiedSpeechSettings: UnifiedSpeechSettingsTypeDef
+    speechRecognitionSettings: SpeechRecognitionSettingsTypeDef
     intentsCount: int
     slotTypesCount: int
     botLocaleStatus: BotLocaleStatusType
-    failureReasons: List[str]
+    failureReasons: list[str]
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
     lastBuildSubmittedDateTime: datetime
-    botLocaleHistoryEvents: List[BotLocaleHistoryEventTypeDef]
-    recommendedActions: List[str]
+    botLocaleHistoryEvents: list[BotLocaleHistoryEventTypeDef]
+    recommendedActions: list[str]
     generativeAISettings: GenerativeAISettingsTypeDef
+    speechDetectionSensitivity: SpeechDetectionSensitivityType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateBotLocaleRequestTypeDef(TypedDict):
@@ -3324,7 +3336,10 @@ class UpdateBotLocaleRequestTypeDef(TypedDict):
     nluIntentConfidenceThreshold: float
     description: NotRequired[str]
     voiceSettings: NotRequired[VoiceSettingsTypeDef]
+    unifiedSpeechSettings: NotRequired[UnifiedSpeechSettingsTypeDef]
+    speechRecognitionSettings: NotRequired[SpeechRecognitionSettingsTypeDef]
     generativeAISettings: NotRequired[GenerativeAISettingsTypeDef]
+    speechDetectionSensitivity: NotRequired[SpeechDetectionSensitivityType]
 
 class UpdateBotLocaleResponseTypeDef(TypedDict):
     botId: str
@@ -3334,12 +3349,15 @@ class UpdateBotLocaleResponseTypeDef(TypedDict):
     description: str
     nluIntentConfidenceThreshold: float
     voiceSettings: VoiceSettingsTypeDef
+    unifiedSpeechSettings: UnifiedSpeechSettingsTypeDef
+    speechRecognitionSettings: SpeechRecognitionSettingsTypeDef
     botLocaleStatus: BotLocaleStatusType
-    failureReasons: List[str]
+    failureReasons: list[str]
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
-    recommendedActions: List[str]
+    recommendedActions: list[str]
     generativeAISettings: GenerativeAISettingsTypeDef
+    speechDetectionSensitivity: SpeechDetectionSensitivityType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FulfillmentUpdatesSpecificationOutputTypeDef(TypedDict):
@@ -3432,7 +3450,7 @@ class DescribeBotRecommendationResponseTypeDef(TypedDict):
     localeId: str
     botRecommendationStatus: BotRecommendationStatusType
     botRecommendationId: str
-    failureReasons: List[str]
+    failureReasons: list[str]
     creationDateTime: datetime
     lastUpdatedDateTime: datetime
     transcriptSourceSetting: TranscriptSourceSettingOutputTypeDef
@@ -3463,6 +3481,29 @@ class UpdateBotRecommendationResponseTypeDef(TypedDict):
     encryptionSetting: EncryptionSettingTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeImportResponseTypeDef(TypedDict):
+    importId: str
+    resourceSpecification: ImportResourceSpecificationOutputTypeDef
+    importedResourceId: str
+    importedResourceName: str
+    mergeStrategy: MergeStrategyType
+    importStatus: ImportStatusType
+    failureReasons: list[str]
+    creationDateTime: datetime
+    lastUpdatedDateTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartImportResponseTypeDef(TypedDict):
+    importId: str
+    resourceSpecification: ImportResourceSpecificationOutputTypeDef
+    mergeStrategy: MergeStrategyType
+    importStatus: ImportStatusType
+    creationDateTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ImportResourceSpecificationUnionTypeDef = Union[
+    ImportResourceSpecificationTypeDef, ImportResourceSpecificationOutputTypeDef
+]
 UserTurnResultTypeDef = TypedDict(
     "UserTurnResultTypeDef",
     {
@@ -3490,19 +3531,19 @@ class ListSlotsResponseTypeDef(TypedDict):
     botVersion: str
     localeId: str
     intentId: str
-    slotSummaries: List[SlotSummaryTypeDef]
+    slotSummaries: list[SlotSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ConditionalSpecificationOutputTypeDef(TypedDict):
     active: bool
-    conditionalBranches: List[ConditionalBranchOutputTypeDef]
+    conditionalBranches: list[ConditionalBranchOutputTypeDef]
     defaultBranch: DefaultConditionalBranchOutputTypeDef
 
 class SubSlotValueElicitationSettingOutputTypeDef(TypedDict):
     promptSpecification: PromptSpecificationOutputTypeDef
     defaultValueSpecification: NotRequired[SlotDefaultValueSpecificationOutputTypeDef]
-    sampleUtterances: NotRequired[List[SampleUtteranceTypeDef]]
+    sampleUtterances: NotRequired[list[SampleUtteranceTypeDef]]
     waitAndContinueSpecification: NotRequired[WaitAndContinueSpecificationOutputTypeDef]
 
 class ConditionalSpecificationTypeDef(TypedDict):
@@ -3519,6 +3560,12 @@ class SubSlotValueElicitationSettingTypeDef(TypedDict):
 TranscriptSourceSettingUnionTypeDef = Union[
     TranscriptSourceSettingTypeDef, TranscriptSourceSettingOutputTypeDef
 ]
+
+class StartImportRequestTypeDef(TypedDict):
+    importId: str
+    resourceSpecification: ImportResourceSpecificationUnionTypeDef
+    mergeStrategy: MergeStrategyType
+    filePassword: NotRequired[str]
 
 class TestSetTurnResultTypeDef(TypedDict):
     agent: NotRequired[AgentTurnResultTypeDef]
@@ -3624,7 +3671,7 @@ class FulfillmentCodeHookSettingsOutputTypeDef(TypedDict):
 
 class SubSlotSettingOutputTypeDef(TypedDict):
     expression: NotRequired[str]
-    slotSpecifications: NotRequired[Dict[str, SpecificationsOutputTypeDef]]
+    slotSpecifications: NotRequired[dict[str, SpecificationsOutputTypeDef]]
 
 IntentClosingSettingUnionTypeDef = Union[
     IntentClosingSettingTypeDef, IntentClosingSettingOutputTypeDef
@@ -3647,10 +3694,10 @@ class SubSlotSettingTypeDef(TypedDict):
     slotSpecifications: NotRequired[Mapping[str, SpecificationsTypeDef]]
 
 class UtteranceLevelTestResultsTypeDef(TypedDict):
-    items: List[UtteranceLevelTestResultItemTypeDef]
+    items: list[UtteranceLevelTestResultItemTypeDef]
 
 class ListTestSetRecordsResponseTypeDef(TypedDict):
-    testSetRecords: List[TestSetTurnRecordTypeDef]
+    testSetRecords: list[TestSetTurnRecordTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3731,15 +3778,16 @@ class TestExecutionResultItemsTypeDef(TypedDict):
 class CreateIntentResponseTypeDef(TypedDict):
     intentId: str
     intentName: str
+    intentDisplayName: str
     description: str
     parentIntentSignature: str
-    sampleUtterances: List[SampleUtteranceTypeDef]
+    sampleUtterances: list[SampleUtteranceTypeDef]
     dialogCodeHook: DialogCodeHookSettingsTypeDef
     fulfillmentCodeHook: FulfillmentCodeHookSettingsOutputTypeDef
     intentConfirmationSetting: IntentConfirmationSettingOutputTypeDef
     intentClosingSetting: IntentClosingSettingOutputTypeDef
-    inputContexts: List[InputContextTypeDef]
-    outputContexts: List[OutputContextTypeDef]
+    inputContexts: list[InputContextTypeDef]
+    outputContexts: list[OutputContextTypeDef]
     kendraConfiguration: KendraConfigurationTypeDef
     botId: str
     botVersion: str
@@ -3753,16 +3801,17 @@ class CreateIntentResponseTypeDef(TypedDict):
 class DescribeIntentResponseTypeDef(TypedDict):
     intentId: str
     intentName: str
+    intentDisplayName: str
     description: str
     parentIntentSignature: str
-    sampleUtterances: List[SampleUtteranceTypeDef]
+    sampleUtterances: list[SampleUtteranceTypeDef]
     dialogCodeHook: DialogCodeHookSettingsTypeDef
     fulfillmentCodeHook: FulfillmentCodeHookSettingsOutputTypeDef
-    slotPriorities: List[SlotPriorityTypeDef]
+    slotPriorities: list[SlotPriorityTypeDef]
     intentConfirmationSetting: IntentConfirmationSettingOutputTypeDef
     intentClosingSetting: IntentClosingSettingOutputTypeDef
-    inputContexts: List[InputContextTypeDef]
-    outputContexts: List[OutputContextTypeDef]
+    inputContexts: list[InputContextTypeDef]
+    outputContexts: list[OutputContextTypeDef]
     kendraConfiguration: KendraConfigurationTypeDef
     botId: str
     botVersion: str
@@ -3777,16 +3826,17 @@ class DescribeIntentResponseTypeDef(TypedDict):
 class UpdateIntentResponseTypeDef(TypedDict):
     intentId: str
     intentName: str
+    intentDisplayName: str
     description: str
     parentIntentSignature: str
-    sampleUtterances: List[SampleUtteranceTypeDef]
+    sampleUtterances: list[SampleUtteranceTypeDef]
     dialogCodeHook: DialogCodeHookSettingsTypeDef
     fulfillmentCodeHook: FulfillmentCodeHookSettingsOutputTypeDef
-    slotPriorities: List[SlotPriorityTypeDef]
+    slotPriorities: list[SlotPriorityTypeDef]
     intentConfirmationSetting: IntentConfirmationSettingOutputTypeDef
     intentClosingSetting: IntentClosingSettingOutputTypeDef
-    inputContexts: List[InputContextTypeDef]
-    outputContexts: List[OutputContextTypeDef]
+    inputContexts: list[InputContextTypeDef]
+    outputContexts: list[OutputContextTypeDef]
     kendraConfiguration: KendraConfigurationTypeDef
     botId: str
     botVersion: str
@@ -3802,7 +3852,7 @@ class SlotValueElicitationSettingOutputTypeDef(TypedDict):
     slotConstraint: SlotConstraintType
     defaultValueSpecification: NotRequired[SlotDefaultValueSpecificationOutputTypeDef]
     promptSpecification: NotRequired[PromptSpecificationOutputTypeDef]
-    sampleUtterances: NotRequired[List[SampleUtteranceTypeDef]]
+    sampleUtterances: NotRequired[list[SampleUtteranceTypeDef]]
     waitAndContinueSpecification: NotRequired[WaitAndContinueSpecificationOutputTypeDef]
     slotCaptureSetting: NotRequired[SlotCaptureSettingOutputTypeDef]
     slotResolutionSetting: NotRequired[SlotResolutionSettingTypeDef]
@@ -3883,6 +3933,7 @@ class CreateIntentRequestTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
+    intentDisplayName: NotRequired[str]
     description: NotRequired[str]
     parentIntentSignature: NotRequired[str]
     sampleUtterances: NotRequired[Sequence[SampleUtteranceTypeDef]]
@@ -3903,6 +3954,7 @@ class UpdateIntentRequestTypeDef(TypedDict):
     botId: str
     botVersion: str
     localeId: str
+    intentDisplayName: NotRequired[str]
     description: NotRequired[str]
     parentIntentSignature: NotRequired[str]
     sampleUtterances: NotRequired[Sequence[SampleUtteranceTypeDef]]

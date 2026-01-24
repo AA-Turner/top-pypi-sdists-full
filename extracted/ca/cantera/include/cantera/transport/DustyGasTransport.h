@@ -30,7 +30,7 @@ namespace Cantera
  *
  * @f[
  *     \sum_{j \ne k}{\frac{X_j J_k - X_k J_j}{D^e_{kj}}} + \frac{J_k}{\mathcal{D}^{e}_{k,knud}} =
- *             - \nabla C_k  - \frac{C_k}{\mathcal{D}^{e}_{k,knud}} \frac{\kappa}{\mu} \nabla p
+ *             - \nabla C_k  - \frac{C_k}{\mathcal{D}^{e}_{k,knud}} \frac{\kappa}{\eta} \nabla p
  * @f]
  *
  * @f$ j @f$ is a sum over all species in the gas.
@@ -63,7 +63,7 @@ public:
 
     void getMultiDiffCoeffs(const size_t ld, double* const d) override;
 
-    //! Get the molar fluxes [kmol/m^2/s], given the thermodynamic state at two nearby points.
+    //! Get the molar fluxes [kmol/m²/s], given the thermodynamic state at two nearby points.
     /*!
      *   @f[
      *       J_k = - \sum_{j = 1, N} \left[D^{multi}_{kj}\right]^{-1} \left( \nabla C_j  + \frac{C_j}{\mathcal{D}^{knud}_j} \frac{\kappa}{\mu} \nabla p \right)
@@ -73,51 +73,39 @@ public:
      * @param  state2  Array of temperature, density, and mass fractions for state 2.
      * @param  delta   Distance from state 1 to state 2 (m).
      *
-     * @param fluxes   Vector of species molar fluxes due to diffusional driving force
+     * @param fluxes   Vector of species molar fluxes due to diffusional driving force;
+     *     length is the number of species.
      */
     void getMolarFluxes(const double* const state1, const double* const state2,
                         const double delta, double* const fluxes) override;
 
     // new methods added in this class
 
-    //! Set the porosity (dimensionless)
-    /*!
-     * @param porosity  Set the value of the porosity
-     */
+    //! Set the porosity [dimensionless]
     void setPorosity(double porosity);
 
-    //! Set the tortuosity (dimensionless)
+    //! Set the tortuosity [dimensionless]
     /*!
      * Tortuosity is considered to be constant within the object
-     *
-     * @param tort  Value of the tortuosity
      */
     void setTortuosity(double tort);
 
-    //! Set the mean pore radius (m)
-    /*!
-     * @param rbar  Value of the pore radius ( m)
-     */
+    //! Set the mean pore radius [m]
     void setMeanPoreRadius(double rbar);
 
-    //! Set the mean particle diameter
-    /*!
-     * @param dbar  Set the mean particle diameter (m)
-     */
+    //! Set the mean particle diameter [m]
     void setMeanParticleDiameter(double dbar);
 
-    //! Set the permeability of the media
+    //! Set the permeability [m²] of the media
     /*!
      * If not set, the value for close-packed spheres will be used by default.
      *
-     * The value for close-packed spheres is given below, where p is the
-     * porosity, t is the tortuosity, and d is the diameter of the sphere
+     * The value for close-packed spheres is given below, where *p* is the
+     * porosity, *t* is the tortuosity, and *d* is the diameter of the sphere:
      *
      * @f[
      *     \kappa = \frac{p^3 d^2}{72 t (1 - p)^2}
      * @f]
-     *
-     * @param B  set the permeability of the media (units = m^2)
      */
     void setPermeability(double B);
 
@@ -209,10 +197,9 @@ private:
      */
     void eval_H_matrix();
 
-    //! Local copy of the species molecular weights
+    //! Local copy of the species molecular weights [kg/kmol]
     /*!
-     *  units kg /kmol
-     *  length = m_nsp;
+     *  length = #m_nsp;
      */
     vector<double> m_mw;
 
@@ -231,10 +218,10 @@ private:
     //! Multicomponent diffusion coefficients. @see eval_H_matrix()
     DenseMatrix m_multidiff;
 
-    //! work space of size m_nsp;
+    //! work space of size #m_nsp;
     vector<double> m_spwork;
 
-    //! work space of size m_nsp;
+    //! work space of size #m_nsp;
     vector<double> m_spwork2;
 
     //! Pressure Gradient

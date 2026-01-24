@@ -409,7 +409,7 @@ Keyword arguments:
 
 - yearsListFormat (string; optional):
     dayjs format for years list, `'YYYY'` by default."""
-    _children_props = ['nextIcon', 'previousIcon']
+    _children_props: typing.List[str] = ['nextIcon', 'previousIcon']
     _base_nodes = ['nextIcon', 'previousIcon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'DatePicker'

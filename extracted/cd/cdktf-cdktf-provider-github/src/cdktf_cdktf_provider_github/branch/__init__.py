@@ -1,7 +1,7 @@
 r'''
 # `github_branch`
 
-Refer to the Terraform Registry for docs: [`github_branch`](https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch).
+Refer to the Terraform Registry for docs: [`github_branch`](https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Branch(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-github.branch.Branch",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch github_branch}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch github_branch}.'''
 
     def __init__(
         self,
@@ -53,6 +53,7 @@ class Branch(
         *,
         branch: builtins.str,
         repository: builtins.str,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         source_branch: typing.Optional[builtins.str] = None,
         source_sha: typing.Optional[builtins.str] = None,
@@ -64,15 +65,16 @@ class Branch(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch github_branch} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch github_branch} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param branch: The repository branch to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#branch Branch#branch}
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#repository Branch#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#id Branch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param source_branch: The branch name to start from. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#source_branch Branch#source_branch}
-        :param source_sha: The commit hash to start from. Defaults to the tip of 'source_branch'. If provided, 'source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#source_sha Branch#source_sha}
+        :param branch: The repository branch to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#branch Branch#branch}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#repository Branch#repository}
+        :param etag: An etag representing the Branch object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#etag Branch#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#id Branch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param source_branch: The branch name to start from. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#source_branch Branch#source_branch}
+        :param source_sha: The commit hash to start from. Defaults to the tip of 'source_branch'. If provided, 'source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#source_sha Branch#source_sha}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -88,6 +90,7 @@ class Branch(
         config = BranchConfig(
             branch=branch,
             repository=repository,
+            etag=etag,
             id=id,
             source_branch=source_branch,
             source_sha=source_sha,
@@ -115,7 +118,7 @@ class Branch(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Branch to import.
-        :param import_from_id: The id of the existing Branch that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Branch that should be imported. Refer to the {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Branch to import is found.
         '''
         if __debug__:
@@ -125,6 +128,10 @@ class Branch(
             check_type(argname="argument import_from_id", value=import_from_id, expected_type=type_hints["import_from_id"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
+
+    @jsii.member(jsii_name="resetEtag")
+    def reset_etag(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEtag", []))
 
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
@@ -152,11 +159,6 @@ class Branch(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
-    @jsii.member(jsii_name="etag")
-    def etag(self) -> builtins.str:
-        return typing.cast(builtins.str, jsii.get(self, "etag"))
-
-    @builtins.property
     @jsii.member(jsii_name="ref")
     def ref(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "ref"))
@@ -170,6 +172,11 @@ class Branch(
     @jsii.member(jsii_name="branchInput")
     def branch_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "branchInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="etagInput")
+    def etag_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "etagInput"))
 
     @builtins.property
     @jsii.member(jsii_name="idInput")
@@ -202,6 +209,18 @@ class Branch(
             type_hints = typing.get_type_hints(_typecheckingstub__e5d245c104cf2167f66347b89382b61e5222361a3ef6f39d38e05cb478246205)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "branch", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="etag")
+    def etag(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "etag"))
+
+    @etag.setter
+    def etag(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1145a4a73ef66edc3e27e9ddbfd2b6eb4fd9ddd508f915c6786b3c3f0f64eeca)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "etag", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="id")
@@ -265,6 +284,7 @@ class Branch(
         "provisioners": "provisioners",
         "branch": "branch",
         "repository": "repository",
+        "etag": "etag",
         "id": "id",
         "source_branch": "sourceBranch",
         "source_sha": "sourceSha",
@@ -283,6 +303,7 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
         branch: builtins.str,
         repository: builtins.str,
+        etag: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         source_branch: typing.Optional[builtins.str] = None,
         source_sha: typing.Optional[builtins.str] = None,
@@ -295,11 +316,12 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param branch: The repository branch to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#branch Branch#branch}
-        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#repository Branch#repository}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#id Branch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param source_branch: The branch name to start from. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#source_branch Branch#source_branch}
-        :param source_sha: The commit hash to start from. Defaults to the tip of 'source_branch'. If provided, 'source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#source_sha Branch#source_sha}
+        :param branch: The repository branch to create. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#branch Branch#branch}
+        :param repository: The GitHub repository name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#repository Branch#repository}
+        :param etag: An etag representing the Branch object. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#etag Branch#etag}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#id Branch#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param source_branch: The branch name to start from. Defaults to 'main'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#source_branch Branch#source_branch}
+        :param source_sha: The commit hash to start from. Defaults to the tip of 'source_branch'. If provided, 'source_branch' is ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#source_sha Branch#source_sha}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -314,6 +336,7 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
+            check_type(argname="argument etag", value=etag, expected_type=type_hints["etag"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument source_branch", value=source_branch, expected_type=type_hints["source_branch"])
             check_type(argname="argument source_sha", value=source_sha, expected_type=type_hints["source_sha"])
@@ -335,6 +358,8 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provider"] = provider
         if provisioners is not None:
             self._values["provisioners"] = provisioners
+        if etag is not None:
+            self._values["etag"] = etag
         if id is not None:
             self._values["id"] = id
         if source_branch is not None:
@@ -410,7 +435,7 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def branch(self) -> builtins.str:
         '''The repository branch to create.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#branch Branch#branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#branch Branch#branch}
         '''
         result = self._values.get("branch")
         assert result is not None, "Required property 'branch' is missing"
@@ -420,15 +445,24 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def repository(self) -> builtins.str:
         '''The GitHub repository name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#repository Branch#repository}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#repository Branch#repository}
         '''
         result = self._values.get("repository")
         assert result is not None, "Required property 'repository' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
+    def etag(self) -> typing.Optional[builtins.str]:
+        '''An etag representing the Branch object.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#etag Branch#etag}
+        '''
+        result = self._values.get("etag")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#id Branch#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#id Branch#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -440,7 +474,7 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_branch(self) -> typing.Optional[builtins.str]:
         '''The branch name to start from. Defaults to 'main'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#source_branch Branch#source_branch}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#source_branch Branch#source_branch}
         '''
         result = self._values.get("source_branch")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -449,7 +483,7 @@ class BranchConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def source_sha(self) -> typing.Optional[builtins.str]:
         '''The commit hash to start from. Defaults to the tip of 'source_branch'. If provided, 'source_branch' is ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.6.0/docs/resources/branch#source_sha Branch#source_sha}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/integrations/github/6.9.0/docs/resources/branch#source_sha Branch#source_sha}
         '''
         result = self._values.get("source_sha")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -479,6 +513,7 @@ def _typecheckingstub__ad0696faa7ecea6194a565b8700d0d0306cf4f24641bfa80a54e0a551
     *,
     branch: builtins.str,
     repository: builtins.str,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     source_branch: typing.Optional[builtins.str] = None,
     source_sha: typing.Optional[builtins.str] = None,
@@ -503,6 +538,12 @@ def _typecheckingstub__0a42c658ea9a60e25787bc19c76c35993b168dda65d783020c004b323
     pass
 
 def _typecheckingstub__e5d245c104cf2167f66347b89382b61e5222361a3ef6f39d38e05cb478246205(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1145a4a73ef66edc3e27e9ddbfd2b6eb4fd9ddd508f915c6786b3c3f0f64eeca(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -543,6 +584,7 @@ def _typecheckingstub__866f33271d28c2fecb3644e64f7d82b4c5d79eda64ed00814190dc91d
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     branch: builtins.str,
     repository: builtins.str,
+    etag: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     source_branch: typing.Optional[builtins.str] = None,
     source_sha: typing.Optional[builtins.str] = None,

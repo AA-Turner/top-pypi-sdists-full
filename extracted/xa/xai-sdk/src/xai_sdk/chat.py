@@ -1,26 +1,29 @@
 import abc
 import datetime
 import json
-import time
-from typing import Any, Generic, Literal, Optional, Sequence, TypeVar, Union
+from collections import Counter, defaultdict
+from typing import Any, Generic, Optional, Sequence, TypeVar, Union
 
 import grpc
+from pydantic import BaseModel
 from typing_extensions import Self
 
 from .meta import ProtoDecorator
 from .proto import chat_pb2, chat_pb2_grpc, image_pb2, sample_pb2, usage_pb2
 from .search import SearchParameters
-
-Content = Union[str, chat_pb2.Content]
+from .telemetry import should_disable_sensitive_attributes
+from .types import (
+    ChatModel,
+    Content,
+    ImageDetail,
+    IncludeOption,
+    IncludeOptionMap,
+    ReasoningEffort,
+    ResponseFormat,
+    ToolMode,
+)
 
 T = TypeVar("T")
-
-
-ImageDetail = Literal["auto", "low", "high"]
-ReasoningEffort = Literal["low", "high"]
-ToolMode = Literal["auto", "none", "required"]
-# json_schema purposefully omitted, since the `parse` method should be used when needing json_schema responses.
-ResponseFormat = Literal["text", "json_object"]
 
 
 class BaseClient(abc.ABC, Generic[T]):
@@ -34,7 +37,7 @@ class BaseClient(abc.ABC, Generic[T]):
 
     def create(
         self,
-        model: str,
+        model: Union[ChatModel, str],
         *,
         conversation_id: Optional[str] = None,
         messages: Optional[Sequence[chat_pb2.Message]] = None,
@@ -49,13 +52,16 @@ class BaseClient(abc.ABC, Generic[T]):
         tools: Optional[Sequence[chat_pb2.Tool]] = None,
         tool_choice: Optional[Union[ToolMode, chat_pb2.ToolChoice]] = None,
         parallel_tool_calls: Optional[bool] = None,
-        response_format: Optional[Union[ResponseFormat, chat_pb2.ResponseFormat]] = None,
+        response_format: Optional[Union[ResponseFormat, chat_pb2.ResponseFormat, type[BaseModel]]] = None,
         frequency_penalty: Optional[float] = None,
         presence_penalty: Optional[float] = None,
         reasoning_effort: Optional[Union[ReasoningEffort, "chat_pb2.ReasoningEffort"]] = None,
         search_parameters: Optional[Union[SearchParameters, chat_pb2.SearchParameters]] = None,
         store_messages: Optional[bool] = None,
         previous_response_id: Optional[str] = None,
+        use_encrypted_content: Optional[bool] = None,
+        max_turns: Optional[int] = None,
+        include: Optional[Sequence[Union[IncludeOption, "chat_pb2.IncludeOption"]]] = None,
     ) -> T:
         """Creates a new chat conversation.
 
@@ -143,6 +149,21 @@ class BaseClient(abc.ABC, Generic[T]):
                 stored point. This prepending happens automatically on the server side and is opaque to the user.
                 Note: Adding `previous_response_id` to a chat instance will not update the local message list of the
                 chat instance (i.e., `chat.messages`).
+            use_encrypted_content: Whether to return encrypted reasoning content from the model response.
+                When enabled, encrypted reasoning content is included in responses, enabling optimal hydration
+                of reasoning traces in follow-up conversations. Calling `append(response)` automatically passes
+                this encrypted content back for subsequent requests. This is particularly useful for users with
+                zero data retention (ZDR) enabled who cannot use `store_messages` and `previous_response_id`
+                for conversation continuity. Defaults to False.
+            max_turns: The maximum number of agentic turns the model can take. When set, the model will automatically
+                iterate up to this many turns, calling tools and processing their results until it reaches a final
+                answer or hits the turn limit. Defaults to server-side maximum. Note: This parameter has no effect
+                on non-agentic requests (i.e. requests that do not use server-side tools). With parallel tool calls
+                enabled, multiple tool calls can occur within a single turn, so max_turns does not necessarily equal
+                the total number of tool calls.
+            include: A list of output options to include in the response.
+                Check the `IncludeOption` enum for all possible values.
+                Defaults to None.
 
         Returns:
             A new chat request bound to a client.
@@ -156,6 +177,11 @@ class BaseClient(abc.ABC, Generic[T]):
         response_format_pb: Optional[chat_pb2.ResponseFormat] = None
         if isinstance(response_format, str):
             response_format_pb = chat_pb2.ResponseFormat(format_type=_format_type_to_proto(response_format))
+        elif isinstance(response_format, type) and issubclass(response_format, BaseModel):
+            response_format_pb = chat_pb2.ResponseFormat(
+                format_type=chat_pb2.FORMAT_TYPE_JSON_SCHEMA,
+                schema=json.dumps(response_format.model_json_schema()),
+            )
         else:
             response_format_pb = response_format
 
@@ -170,6 +196,13 @@ class BaseClient(abc.ABC, Generic[T]):
             search_parameters_pb = search_parameters._to_proto()
         else:
             search_parameters_pb = search_parameters
+
+        include_pb: Optional[Sequence[chat_pb2.IncludeOption]] = None
+        if include is not None:
+            include_pb = [
+                _include_option_to_proto(include_option) if isinstance(include_option, str) else include_option
+                for include_option in include
+            ]
 
         return self._make_chat(
             conversation_id=conversation_id,
@@ -193,6 +226,9 @@ class BaseClient(abc.ABC, Generic[T]):
             search_parameters=search_parameters_pb,
             store_messages=store_messages,
             previous_response_id=previous_response_id,
+            use_encrypted_content=use_encrypted_content,
+            max_turns=max_turns,
+            include=include_pb,
         )
 
     @abc.abstractmethod
@@ -285,13 +321,28 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         if isinstance(message, chat_pb2.Message):
             self._proto.messages.append(message)
         elif isinstance(message, Response):
-            self._proto.messages.append(
-                chat_pb2.Message(
-                    role=message._choice.message.role,
-                    content=[text(message.content)],
-                    tool_calls=message.tool_calls,
+            if message._index is None:
+                # Every single output should be appended for agentic tool call responses.
+                for output in message.proto.outputs:
+                    self._proto.messages.append(
+                        chat_pb2.Message(
+                            role=output.message.role,
+                            content=[text(output.message.content)],
+                            reasoning_content=output.message.reasoning_content,
+                            encrypted_content=output.message.encrypted_content,
+                            tool_calls=output.message.tool_calls,
+                        )
+                    )
+            else:
+                self._proto.messages.append(
+                    chat_pb2.Message(
+                        role=message._get_output().message.role,
+                        content=[text(message.content)],
+                        reasoning_content=message.reasoning_content,
+                        encrypted_content=message.encrypted_content,
+                        tool_calls=message.tool_calls,
+                    )
                 )
-            )
         else:
             raise ValueError("Unrecognized message type.")
         return self
@@ -314,23 +365,29 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         request.n = n
         return request
 
-    def _make_span_request_attributes(self) -> dict[str, Any]:  # noqa: C901
+    def _make_span_request_attributes(self) -> dict[str, Any]:  # noqa: C901, PLR0912
         """Creates a dictionary with all relevant request attributes to be set on the span as it is created."""
-        # Initialize optional fields to their default values (as set server-side).
-        # Override with user-set values only if they are provided by the user.
         attributes: dict[str, Any] = {
             "gen_ai.operation.name": "chat",
             "gen_ai.system": "xai",
             "gen_ai.output.type": "text",
             "gen_ai.request.model": self._proto.model,
-            "gen_ai.request.logprobs": self._proto.logprobs,
-            "gen_ai.request.frequency_penalty": 0.0,
-            "gen_ai.request.presence_penalty": 0.0,
-            "gen_ai.request.temperature": 1.0,
-            "gen_ai.request.parallel_tool_calls": True,
-            "gen_ai.request.store_messages": False,
             "server.port": 443,
         }
+
+        if should_disable_sensitive_attributes():
+            return attributes
+
+        # Initialize optional fields to their default values (as set server-side).
+        # Override with user-set values only if they are provided by the user.
+        attributes["gen_ai.request.frequency_penalty"] = 0.0
+        attributes["gen_ai.request.presence_penalty"] = 0.0
+        attributes["gen_ai.request.temperature"] = 1.0
+        attributes["gen_ai.request.parallel_tool_calls"] = True
+        attributes["gen_ai.request.store_messages"] = False
+        attributes["gen_ai.request.use_encrypted_content"] = False
+
+        attributes["gen_ai.request.logprobs"] = self._proto.logprobs
 
         # Float fields that need rounding
         float_fields = [
@@ -379,6 +436,8 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
             attributes["gen_ai.request.store_messages"] = self._proto.store_messages
         if self._proto.previous_response_id:
             attributes["gen_ai.request.previous_response_id"] = self._proto.previous_response_id
+        if self._proto.use_encrypted_content:
+            attributes["gen_ai.request.use_encrypted_content"] = self._proto.use_encrypted_content
 
         prompt_attributes = self._get_span_prompt_attributes()
         attributes.update(prompt_attributes)
@@ -388,6 +447,10 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
     def _get_span_prompt_attributes(self) -> dict[str, Any]:
         """Creates a dictionary with prompt message attributes for span telemetry."""
         prompt_attributes: dict[str, Any] = {}
+
+        # Skip collecting sensitive attributes if disabled
+        if should_disable_sensitive_attributes():
+            return prompt_attributes
 
         # Only text content is included in span attributes.
         for index, message in enumerate(self._proto.messages):
@@ -424,6 +487,9 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         """Creates a dictionary with response metadata and completion attributes for span telemetry."""
         attributes: dict[str, Any] = {}
 
+        if should_disable_sensitive_attributes():
+            return attributes
+
         # All of these attributes are the same for all responses, so we can just use the first response to access them.
         response = responses[0]
         attributes["gen_ai.response.id"] = response.id
@@ -449,6 +515,10 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
         """Creates a dictionary with completion content attributes for span telemetry."""
         completion_attributes: dict[str, Any] = {}
 
+        # Skip collecting sensitive attributes if disabled
+        if should_disable_sensitive_attributes():
+            return completion_attributes
+
         for index, response in enumerate(responses):
             completion_attributes[f"gen_ai.completion.{index}.role"] = response.role.removeprefix("ROLE_").lower()
             completion_attributes[f"gen_ai.completion.{index}.content"] = response.content
@@ -470,6 +540,33 @@ class BaseChat(ProtoDecorator[chat_pb2.GetCompletionsRequest]):
                 )
 
         return completion_attributes
+
+    def _uses_server_side_tools(self) -> bool:
+        """Returns True if any server-side tools are specified in the completions request."""
+        return any(tool.WhichOneof("tool") != "function" for tool in self._proto.tools)
+
+    def _auto_detect_multi_output_mode(
+        self, index: Optional[int], outputs: Sequence[Union[chat_pb2.CompletionOutput, chat_pb2.CompletionOutputChunk]]
+    ) -> Optional[int]:
+        """Auto-detects if the server is using multi-output mode and updates the index accordingly.
+
+        When we expect single-output mode (index=0) but the server returns multiple outputs
+        (likely because it added tools implicitly), this method switches to multi-output mode
+        (index=None) to properly handle all outputs.
+
+        Args:
+            index: The current index value (0 for single-output, None for multi-output).
+            outputs: The outputs from the response or chunk to check.
+
+        Returns:
+            The potentially updated index value (None if multi-output mode is detected, otherwise unchanged).
+        """
+        if index == 0 and outputs:
+            max_output_index = max(output.index for output in outputs)
+            if max_output_index > 0:
+                # Server is using multi-output mode (likely added tools implicitly)
+                return None
+        return index
 
     @property
     def messages(self) -> Sequence[chat_pb2.Message]:
@@ -633,6 +730,22 @@ def image(image_url: str, *, detail: Optional[ImageDetail] = "auto") -> chat_pb2
     return chat_pb2.Content(image_url=image_pb2.ImageUrlContent(image_url=image_url, detail=pb_detail))
 
 
+def file(file_id: str) -> chat_pb2.Content:
+    """Creates a new content object of type file for use in chat messages.
+
+    This allows you to reference previously uploaded files in chat conversations.
+    The model can read and analyze the file content.
+
+    Args:
+        file_id: The ID of a previously uploaded file. You can obtain this ID by
+            uploading a file using the Files API (`client.files.upload(...)`).
+
+    Returns:
+        A `chat_pb2.Content` object representing the file reference.
+    """
+    return chat_pb2.Content(file=chat_pb2.FileContent(file_id=file_id))
+
+
 def _process_content(content: Content) -> chat_pb2.Content:
     """Converts a `Content` type to a proto."""
     if isinstance(content, str):
@@ -650,6 +763,13 @@ def _reasoning_effort_to_proto(effort: ReasoningEffort) -> chat_pb2.ReasoningEff
             return chat_pb2.ReasoningEffort.EFFORT_HIGH
         case _:
             raise ValueError(f"Invalid reasoning effort: {effort}. Must be one of: {ReasoningEffort.__args__}")
+
+
+def _include_option_to_proto(include_option: IncludeOption) -> chat_pb2.IncludeOption:
+    """Converts a `IncludeOption` literal to a proto."""
+    if include_option in IncludeOptionMap:
+        return IncludeOptionMap[include_option]
+    raise ValueError(f"Invalid include option: {include_option}. Must be one of: {IncludeOptionMap.keys()}")
 
 
 def _tool_mode_to_proto(mode: ToolMode) -> chat_pb2.ToolMode:
@@ -681,22 +801,32 @@ def _format_type_to_proto(format_type: ResponseFormat) -> chat_pb2.FormatType:
 class Chunk(ProtoDecorator[chat_pb2.GetChatCompletionChunk]):
     """Adds convenience functions to the chunk proto."""
 
-    _index: int
+    _index: int | None
 
-    def __init__(self, proto: chat_pb2.GetChatCompletionChunk, index: int):
+    def __init__(self, proto: chat_pb2.GetChatCompletionChunk, index: int | None):
         """Creates a new decorator instance.
 
         Args:
             proto: Chunk proto to wrap.
-            index: Index of the response to track.
+            index: Index of the response to track. If set to None, the chunk will expose all assistant outputs.
         """
         super().__init__(proto)
         self._index = index
 
     @property
-    def choices(self) -> Sequence["ChoiceChunk"]:
-        """Returns the choices belonging to this index."""
-        return [ChoiceChunk(c) for c in self.proto.choices if c.index == self._index]
+    def choices(self) -> Sequence["CompletionOutputChunk"]:
+        """Returns the completion output chunks belonging to this index."""
+        return [
+            CompletionOutputChunk(output)
+            for output in self.proto.outputs
+            if output.delta.role == chat_pb2.MessageRole.ROLE_ASSISTANT
+            and (output.index == self._index or self._index is None)
+        ]
+
+    @property
+    def created(self) -> datetime.datetime:
+        """Returns the creation timestamp of this chunk."""
+        return self.proto.created.ToDatetime()
 
     @property
     def output(self) -> str:
@@ -714,45 +844,135 @@ class Chunk(ProtoDecorator[chat_pb2.GetChatCompletionChunk]):
         return "".join(c.reasoning_content for c in self.choices)
 
     @property
+    def tool_calls(self) -> Sequence[chat_pb2.ToolCall]:
+        """Returns the tool calls of this chunk."""
+        tool_calls = []
+        for c in self.choices:
+            tool_calls.extend(c.tool_calls)
+        return tool_calls
+
+    @property
+    def server_side_tool_usage(self) -> dict[str, int]:
+        """Returns the server side tools used for this chunk."""
+        tools_used = [usage_pb2.ServerSideTool.Name(tool) for tool in self.proto.usage.server_side_tools_used]
+        return dict(Counter(tools_used))
+
+    @property
     def citations(self) -> Sequence[str]:
         """Returns the citations of this chunk."""
         return self.proto.citations
+
+    @property
+    def inline_citations(self) -> Sequence[chat_pb2.InlineCitation]:
+        """Returns the inline citations of this chunk.
+
+        Inline citations provide structured citation metadata with position information,
+        enabling you to know exactly where in the response text each citation appears.
+
+        Each InlineCitation contains:
+        - id: Display number as a string (e.g., "1", "2")
+        - start_index: Character position where the citation starts in the response text
+        - end_index: Character position where the citation ends (exclusive)
+        - web_citation: Present if the citation is from a web source
+        - x_citation: Present if the citation is from an X/Twitter source
+        - collections_citation: Present if the citation is from a collections search
+
+        Note: Inline citations are only populated when `include=["inline_citations"]`
+        is passed when creating the chat.
+        """
+        inline_citations = []
+        for c in self.choices:
+            inline_citations.extend(c.proto.delta.citations)
+        return inline_citations
+
+    @property
+    def tool_outputs(self) -> Sequence["CompletionOutputChunk"]:
+        """Returns the completion output chunks that contain the tool outputs."""
+        return [
+            CompletionOutputChunk(output)
+            for output in self.proto.outputs
+            if output.delta.role == chat_pb2.MessageRole.ROLE_TOOL
+            and (output.index == self._index or self._index is None)
+        ]
+
+    @property
+    def debug_output(self) -> chat_pb2.DebugOutput:
+        """Returns the debug output of this chunk."""
+        return self.proto.debug_output
 
     def __str__(self):
         """Concatenates all chunks into a single string."""
         return "".join(c.content + c.reasoning_content for c in self.choices)
 
 
-class ChoiceChunk(ProtoDecorator[chat_pb2.ChoiceChunk]):
-    """Adds convenience functions to the choice chunk proto."""
+class CompletionOutputChunk(ProtoDecorator[chat_pb2.CompletionOutputChunk]):
+    """Adds convenience functions to the completion output chunk proto."""
 
     @property
     def content(self) -> str:
-        """Returns the main content/answer of this choice chunk."""
+        """Returns the main content/answer of this completion output chunk."""
         return self.proto.delta.content
 
     @property
     def reasoning_content(self) -> str:
-        """Returns the reasoning content of this choice chunk."""
+        """Returns the reasoning content of this completion output chunk."""
         return self.proto.delta.reasoning_content
 
     @property
-    def role(self) -> chat_pb2.MessageRole:
-        """Returns the role of this choice chunk."""
-        return self.proto.delta.role
+    def role(self) -> str:
+        """Returns the role of this completion output chunk."""
+        return chat_pb2.MessageRole.Name(self.proto.delta.role)
 
     @property
     def tool_calls(self) -> Sequence[chat_pb2.ToolCall]:
-        """Returns the tool calls of this choice chunk."""
+        """Returns the tool calls of this completion output chunk."""
         return self.proto.delta.tool_calls
 
     @property
     def finish_reason(self) -> sample_pb2.FinishReason:
-        """Returns the finish reason of this choice chunk."""
+        """Returns the finish reason of this completion output chunk."""
         return self.proto.finish_reason
 
 
 class _ResponseProtoDecorator(ProtoDecorator[chat_pb2.GetChatCompletionResponse]):
+    def __init__(self, proto: chat_pb2.GetChatCompletionResponse) -> None:
+        """Initialize with proto and content buffers for efficient accumulation."""
+        super().__init__(proto)
+        # Buffers for efficient string accumulation: dict[output_index, [chunk_ones_content, chunk_twos_content, ...]]
+        # for chunks with the same index
+        self._content_buffers: dict[int, list[str]] = defaultdict(list)
+        self._reasoning_content_buffers: dict[int, list[str]] = defaultdict(list)
+        self._encrypted_content_buffers: dict[int, list[str]] = defaultdict(list)
+        self._proto_in_sync = True
+
+    def _sync_buffers_to_proto(self) -> None:
+        """Materialize buffered content into proto messages."""
+        if self._proto_in_sync:
+            return
+
+        for index, buffer in self._content_buffers.items():
+            if buffer and index < len(self._proto.outputs):
+                self._proto.outputs[index].message.content = "".join(buffer)
+                self._content_buffers[index] = [self._proto.outputs[index].message.content]
+
+        for index, buffer in self._reasoning_content_buffers.items():
+            if buffer and index < len(self._proto.outputs):
+                self._proto.outputs[index].message.reasoning_content = "".join(buffer)
+                self._reasoning_content_buffers[index] = [self._proto.outputs[index].message.reasoning_content]
+
+        for index, buffer in self._encrypted_content_buffers.items():
+            if buffer and index < len(self._proto.outputs):
+                self._proto.outputs[index].message.encrypted_content = "".join(buffer)
+                self._encrypted_content_buffers[index] = [self._proto.outputs[index].message.encrypted_content]
+
+        self._proto_in_sync = True
+
+    @property
+    def proto(self) -> chat_pb2.GetChatCompletionResponse:
+        """Ensure buffers are synced before returning proto."""
+        self._sync_buffers_to_proto()
+        return self._proto
+
     def process_chunk(self, chunk: chat_pb2.GetChatCompletionChunk):
         # Consolidate the response.
         self._proto.usage.CopyFrom(chunk.usage)
@@ -762,14 +982,35 @@ class _ResponseProtoDecorator(ProtoDecorator[chat_pb2.GetChatCompletionResponse]
         self._proto.system_fingerprint = chunk.system_fingerprint
         self._proto.citations.extend(chunk.citations)
 
-        for c in chunk.choices:
-            choice = self._proto.choices[c.index]
+        # Make sure all chunk outputs has corresponding response outputs.
+        if chunk.outputs:
+            max_index = max(c.index for c in chunk.outputs)
+            if max_index >= len(self._proto.outputs):
+                self._proto.outputs.extend(
+                    [chat_pb2.CompletionOutput() for _ in range(max_index + 1 - len(self._proto.outputs))]
+                )
+
+        for c in chunk.outputs:
+            choice = self._proto.outputs[c.index]
             choice.index = c.index
-            choice.message.content += c.delta.content
-            choice.message.reasoning_content += c.delta.reasoning_content
             choice.message.role = c.delta.role
             choice.message.tool_calls.extend(c.delta.tool_calls)
+            # c.delta.citations represents the inline citations on this chunk
+            choice.message.citations.extend(c.delta.citations)
             choice.finish_reason = c.finish_reason
+
+            # Accumulate content in buffers instead of concatenating strings
+            if c.delta.content:
+                self._content_buffers[c.index].append(c.delta.content)
+                self._proto_in_sync = False
+
+            if c.delta.reasoning_content:
+                self._reasoning_content_buffers[c.index].append(c.delta.reasoning_content)
+                self._proto_in_sync = False
+
+            if c.delta.encrypted_content:
+                self._encrypted_content_buffers[c.index].append(c.delta.encrypted_content)
+                self._proto_in_sync = False
 
 
 class Response(_ResponseProtoDecorator):
@@ -777,49 +1018,64 @@ class Response(_ResponseProtoDecorator):
 
     # A single request can produce multiple responses. This index is used to retrieve the content of
     # a single answer from the response proto.
-    _index: int
-    # Cache to the answer indexed by this response.
-    _choice: chat_pb2.Choice
+    _index: int | None
 
-    def __init__(self, response: chat_pb2.GetChatCompletionResponse, index: int) -> None:
+    def __init__(self, response: chat_pb2.GetChatCompletionResponse, index: int | None) -> None:
         """Initializes a new instance of the `Response` class.
 
         Args:
             response: The response proto, which can hold multiple answers.
             index: The index of the answer this class exposes via its convenience methods.
+                If set to None, the response will expose all answers, the content and reasoning content
+                will be only from the assistant response.
         """
         super().__init__(response)
         self._index = index
 
-        # Find and cache the answer identified by the index.
-        choices = [c for c in response.choices if c.index == index]
+    def _get_output(self, *, sync: bool = False) -> chat_pb2.CompletionOutput:
+        # Sync buffers to proto only when content is needed
+        if sync:
+            self._sync_buffers_to_proto()
 
-        if not choices:
-            raise ValueError(f"Invalid response proto or index. {response:} {index:}")
-        elif len(choices) > 1:
-            raise ValueError(f"More than one response for index {index:}. {response:}")
-        else:
-            self._choice = choices[0]
+        outputs = [
+            output
+            for output in self._proto.outputs
+            if output.message.role == chat_pb2.MessageRole.ROLE_ASSISTANT
+            and (output.index == self._index or self._index is None)
+        ]
+        if not outputs:
+            return chat_pb2.CompletionOutput()
+        return outputs[-1]
 
     @property
     def id(self) -> str:
         """Returns the id of this response."""
-        return self.proto.id
+        return self._proto.id
+
+    @property
+    def created(self) -> datetime.datetime:
+        """Returns the creation timestamp of this response."""
+        return self._proto.created.ToDatetime()
 
     @property
     def content(self) -> str:
         """Returns the answer content of this response."""
-        return self._choice.message.content
+        return self._get_output(sync=True).message.content
+
+    @property
+    def encrypted_content(self) -> str:
+        """Returns the encrypted reasoning content from the model response."""
+        return self._get_output(sync=True).message.encrypted_content
 
     @property
     def role(self) -> str:
         """Returns the role of this response."""
-        return chat_pb2.MessageRole.Name(self._choice.message.role)
+        return chat_pb2.MessageRole.Name(self._get_output(sync=False).message.role)
 
     @property
     def usage(self) -> usage_pb2.SamplingUsage:
         """Returns the usage of this response."""
-        return self.proto.usage
+        return self._proto.usage
 
     @property
     def reasoning_content(self) -> str:
@@ -827,17 +1083,17 @@ class Response(_ResponseProtoDecorator):
 
         This is only available for models that support reasoning.
         """
-        return self._choice.message.reasoning_content
+        return self._get_output(sync=True).message.reasoning_content
 
     @property
     def finish_reason(self) -> str:
         """Returns the finish reason of this response."""
-        return sample_pb2.FinishReason.Name(self._choice.finish_reason)
+        return sample_pb2.FinishReason.Name(self._get_output(sync=False).finish_reason)
 
     @property
     def logprobs(self) -> chat_pb2.LogProbs:
         """Returns the logprobs of this response."""
-        return self._choice.logprobs
+        return self._get_output(sync=False).logprobs
 
     @property
     def system_fingerprint(self) -> str:
@@ -846,8 +1102,13 @@ class Response(_ResponseProtoDecorator):
 
     @property
     def tool_calls(self) -> Sequence[chat_pb2.ToolCall]:
-        """Returns the tool calls of this response."""
-        return self._choice.message.tool_calls
+        """Returns the all tool calls of this response."""
+        return [
+            tc
+            for output in self.proto.outputs
+            if output.message.role == chat_pb2.MessageRole.ROLE_ASSISTANT
+            for tc in output.message.tool_calls
+        ]
 
     @property
     def citations(self) -> Sequence[str]:
@@ -855,42 +1116,47 @@ class Response(_ResponseProtoDecorator):
         return self.proto.citations
 
     @property
+    def inline_citations(self) -> Sequence[chat_pb2.InlineCitation]:
+        """Returns the inline citations of this response.
+
+        Inline citations provide structured citation metadata with position information,
+        enabling you to know exactly where in the response text each citation appears.
+
+        Each InlineCitation contains:
+        - id: Display number as a string (e.g., "1", "2")
+        - start_index: Character position where the citation starts in the response text
+        - end_index: Character position where the citation ends (exclusive)
+        - web_citation: Present if the citation is from a web source
+        - x_citation: Present if the citation is from an X/Twitter source
+        - collections_citation: Present if the citation is from a collections search
+
+        Note: Inline citations are only populated when `include=["inline_citations"]`
+        is passed when creating the chat.
+        """
+        return [
+            citation
+            for output in self.proto.outputs
+            if output.message.role == chat_pb2.MessageRole.ROLE_ASSISTANT
+            for citation in output.message.citations
+        ]
+
+    @property
+    def tool_outputs(self) -> Sequence[chat_pb2.CompletionOutput]:
+        """Returns the output entries that contain the tool outputs."""
+        return [output for output in self.proto.outputs if output.message.role == chat_pb2.MessageRole.ROLE_TOOL]
+
+    @property
+    def server_side_tool_usage(self) -> dict[str, int]:
+        """Returns the server side tools used for this response."""
+        tools_used = [usage_pb2.ServerSideTool.Name(tool) for tool in self.proto.usage.server_side_tools_used]
+        return dict(Counter(tools_used))
+
+    @property
     def request_settings(self) -> chat_pb2.RequestSettings:
         """Returns the request settings, i.e. the model parameters set on the request used to generate this response."""
         return self.proto.settings
 
-
-class PollTimer:
-    """Utility for making sure the request timeout is not exceeded when polling.
-
-    When polling, there is no persistent connection to the server that can time out. Instead, we
-    have to manually keep track of time.
-    """
-
-    def __init__(
-        self, timeout: Optional[datetime.timedelta] = None, interval: Optional[datetime.timedelta] = None
-    ) -> None:
-        """Creates a new instance of the `PollTimer` class.
-
-        Args:
-            timeout: Maximum time to wait before aborting the RPC.
-            interval: Time to wait between polls.
-        """
-        self._start = time.time()
-        self._timeout = timeout or datetime.timedelta(minutes=10)
-        self._interval = interval or datetime.timedelta(milliseconds=100)
-
-    def sleep_interval_or_raise(self) -> float:
-        """Returns the time to sleep until the next poll.
-
-        Returns:
-            Time to sleep until the next poll.
-
-        Raises:
-            TimeoutError when the total polling time is used up.
-        """
-        runtime = time.time() - self._start
-        if runtime > self._timeout.total_seconds():
-            raise TimeoutError(f"Polling timed out after {runtime} seconds.")
-        else:
-            return min(self._timeout.total_seconds() - runtime, self._interval.total_seconds())
+    @property
+    def debug_output(self) -> chat_pb2.DebugOutput:
+        """Returns the debug output of this response. Only available to trusted testers."""
+        return self.proto.debug_output

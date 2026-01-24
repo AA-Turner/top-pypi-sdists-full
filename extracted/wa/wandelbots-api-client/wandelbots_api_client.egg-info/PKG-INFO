@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wandelbots_api_client
-Version: 25.8.0
+Version: 25.10.0
 Summary: Wandelbots Python Client: Interact with robots in an easy and intuitive way. 
 Home-page: 
 Author: Copyright (c) 2025 Wandelbots GmbH
@@ -27,35 +27,36 @@ Requires-Dist: furl
 Requires-Dist: pyhumps
 Requires-Dist: pydantic_core
 Requires-Dist: annotated-types
+Requires-Dist: pydantic[email]
+Provides-Extra: dev
+Requires-Dist: pytest>=7.2.1; extra == "dev"
+Requires-Dist: tox>=3.9.0; extra == "dev"
+Requires-Dist: flake8>=4.0.0; extra == "dev"
+Requires-Dist: types-python-dateutil>=2.8.19.14; extra == "dev"
+Requires-Dist: mypy==1.4.1; extra == "dev"
 Dynamic: author
 Dynamic: license-file
 
 # wandelbots-api-client
 Interact with robots in an easy and intuitive way.
 
-- Compatible API version: 1.0.0 (can be found at the home screen of your instance -> API)
-- Package version: 25.8.0
-
-Sign up for our [Wandelbots Developers Beta program](https://www.wandelbots.com/developers-beta) to get access to the Wandelbots API.
-
-The documentation can be found here: [https://docs.wandelbots.io/24.3/fastapi/quickstart](https://docs.wandelbots.io/24.3/fastapi/quickstart)
-
-For more information, please visit [https://www.wandelbots.com](https://www.wandelbots.com)
+- Compatible API version: 1.1.0 (can be found at the home screen of your instance -> API)
+- Package version: 25.10.0
 
 ## Requirements.
-Python >=3.9, Python < 4.0
+Python >=3.11, Python < 4.0
 
 ## Installation
-```
+
+```bash
 pip install wandelbots-api-client
 ```
 
-OR
+OR with uv:
 
-pyproject.toml:
-```
-[tool.poetry.dependencies]
-wandelbots-api-client = "*"
+```bash
+uv init
+uv add wandelbots-api-client
 ```
 
 

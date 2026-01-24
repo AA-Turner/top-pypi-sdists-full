@@ -22,6 +22,7 @@ class DiffKeys(enum.Enum):
     JOINED = "joined"
     SUMMARY = "summary"
     CLEANED = "cleaned"
+    MISMATCHED = "mismatched"
     EXPECTED = "expected"
     GENERATED = "generated"
     KEY_COLUMNS = "keyCols"
@@ -840,11 +841,15 @@ class DataFrameDiff:
             right_df=processed_expected_df,
         )
 
+        # Create mismatched dataframe by filtering for non-matching rows only
+        mismatched_df = clean_joined_df.filter(F.col("row_matches") == False)
+
         # Register the diff results with the full DataFrames.
         cls.COMPUTED_DIFFS[diff_key] = {
             DiffKeys.JOINED.value: joined_df,
             DiffKeys.SUMMARY.value: summary_df,
             DiffKeys.CLEANED.value: clean_joined_df,
+            DiffKeys.MISMATCHED.value: mismatched_df,  # Only non-matching rows
             DiffKeys.EXPECTED.value: expected_df,  # full expected DataFrame registered.
             DiffKeys.GENERATED.value: generated_df,  # full generated DataFrame registered.
             DiffKeys.KEY_COLUMNS.value: key_columns,

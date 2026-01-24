@@ -16,7 +16,17 @@ from .. import _utilities
 from . import outputs
 
 __all__ = [
+    'ReleaseBlueprint',
+    'ReleaseInputVariable',
+    'ReleaseInputVariableDefault',
+    'ReleaseOutputVariable',
+    'ReleaseReleaseRequirements',
+    'RolloutKindErrorBudget',
     'SaaSLocation',
+    'UnitCondition',
+    'UnitDependency',
+    'UnitDependent',
+    'UnitInputVariable',
     'UnitKindDependency',
     'UnitKindInputVariableMapping',
     'UnitKindInputVariableMappingFrom',
@@ -24,7 +34,280 @@ __all__ = [
     'UnitKindOutputVariableMapping',
     'UnitKindOutputVariableMappingFrom',
     'UnitKindOutputVariableMappingTo',
+    'UnitMaintenance',
+    'UnitOutputVariable',
 ]
+
+@pulumi.output_type
+class ReleaseBlueprint(dict):
+    def __init__(__self__, *,
+                 engine: Optional[_builtins.str] = None,
+                 package: Optional[_builtins.str] = None,
+                 version: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str package: URI to a blueprint used by the Unit (required unless unitKind or release is
+               set).
+        :param _builtins.str version: (Output)
+               Version metadata if present on the blueprint.
+        """
+        if engine is not None:
+            pulumi.set(__self__, "engine", engine)
+        if package is not None:
+            pulumi.set(__self__, "package", package)
+        if version is not None:
+            pulumi.set(__self__, "version", version)
+
+    @_builtins.property
+    @pulumi.getter
+    def engine(self) -> Optional[_builtins.str]:
+        return pulumi.get(self, "engine")
+
+    @_builtins.property
+    @pulumi.getter
+    def package(self) -> Optional[_builtins.str]:
+        """
+        URI to a blueprint used by the Unit (required unless unitKind or release is
+        set).
+        """
+        return pulumi.get(self, "package")
+
+    @_builtins.property
+    @pulumi.getter
+    def version(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Version metadata if present on the blueprint.
+        """
+        return pulumi.get(self, "version")
+
+
+@pulumi.output_type
+class ReleaseInputVariable(dict):
+    def __init__(__self__, *,
+                 variable: _builtins.str,
+                 type: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str variable: Name of the variable from actuation configs.
+        :param _builtins.str type: Name of a supported variable type. Supported types are STRING, INT, BOOL.
+               Possible values are: `TYPE_UNSPECIFIED`, `STRING`, `INT`, `BOOL`.
+        :param _builtins.str value: String encoded value for the variable.
+        """
+        pulumi.set(__self__, "variable", variable)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def variable(self) -> _builtins.str:
+        """
+        Name of the variable from actuation configs.
+        """
+        return pulumi.get(self, "variable")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        Name of a supported variable type. Supported types are STRING, INT, BOOL.
+        Possible values are: `TYPE_UNSPECIFIED`, `STRING`, `INT`, `BOOL`.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        String encoded value for the variable.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ReleaseInputVariableDefault(dict):
+    def __init__(__self__, *,
+                 variable: _builtins.str,
+                 type: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str variable: Name of the variable from actuation configs.
+        :param _builtins.str type: Name of a supported variable type. Supported types are STRING, INT, BOOL.
+               Possible values are: `TYPE_UNSPECIFIED`, `STRING`, `INT`, `BOOL`.
+        :param _builtins.str value: String encoded value for the variable.
+        """
+        pulumi.set(__self__, "variable", variable)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def variable(self) -> _builtins.str:
+        """
+        Name of the variable from actuation configs.
+        """
+        return pulumi.get(self, "variable")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        Name of a supported variable type. Supported types are STRING, INT, BOOL.
+        Possible values are: `TYPE_UNSPECIFIED`, `STRING`, `INT`, `BOOL`.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        String encoded value for the variable.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ReleaseOutputVariable(dict):
+    def __init__(__self__, *,
+                 variable: _builtins.str,
+                 type: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str variable: Name of the variable from actuation configs.
+        :param _builtins.str type: Name of a supported variable type. Supported types are STRING, INT, BOOL.
+               Possible values are: `TYPE_UNSPECIFIED`, `STRING`, `INT`, `BOOL`.
+        :param _builtins.str value: String encoded value for the variable.
+        """
+        pulumi.set(__self__, "variable", variable)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def variable(self) -> _builtins.str:
+        """
+        Name of the variable from actuation configs.
+        """
+        return pulumi.get(self, "variable")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        Name of a supported variable type. Supported types are STRING, INT, BOOL.
+        Possible values are: `TYPE_UNSPECIFIED`, `STRING`, `INT`, `BOOL`.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        String encoded value for the variable.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class ReleaseReleaseRequirements(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "upgradeableFromReleases":
+            suggest = "upgradeable_from_releases"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReleaseReleaseRequirements. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReleaseReleaseRequirements.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReleaseReleaseRequirements.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 upgradeable_from_releases: Optional[Sequence[_builtins.str]] = None):
+        """
+        :param Sequence[_builtins.str] upgradeable_from_releases: A list of releases from which a unit can be upgraded to this one
+               (optional). If left empty no constraints will be applied. When provided,
+               unit upgrade requests to this release will check and enforce this
+               constraint.
+        """
+        if upgradeable_from_releases is not None:
+            pulumi.set(__self__, "upgradeable_from_releases", upgradeable_from_releases)
+
+    @_builtins.property
+    @pulumi.getter(name="upgradeableFromReleases")
+    def upgradeable_from_releases(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        A list of releases from which a unit can be upgraded to this one
+        (optional). If left empty no constraints will be applied. When provided,
+        unit upgrade requests to this release will check and enforce this
+        constraint.
+        """
+        return pulumi.get(self, "upgradeable_from_releases")
+
+
+@pulumi.output_type
+class RolloutKindErrorBudget(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allowedCount":
+            suggest = "allowed_count"
+        elif key == "allowedPercentage":
+            suggest = "allowed_percentage"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RolloutKindErrorBudget. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RolloutKindErrorBudget.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RolloutKindErrorBudget.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 allowed_count: Optional[_builtins.int] = None,
+                 allowed_percentage: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int allowed_count: The maximum number of failed units allowed in a location without pausing
+               the rollout.
+        :param _builtins.int allowed_percentage: The maximum percentage of units allowed to fail (0, 100] within a location
+               without pausing the rollout.
+        """
+        if allowed_count is not None:
+            pulumi.set(__self__, "allowed_count", allowed_count)
+        if allowed_percentage is not None:
+            pulumi.set(__self__, "allowed_percentage", allowed_percentage)
+
+    @_builtins.property
+    @pulumi.getter(name="allowedCount")
+    def allowed_count(self) -> Optional[_builtins.int]:
+        """
+        The maximum number of failed units allowed in a location without pausing
+        the rollout.
+        """
+        return pulumi.get(self, "allowed_count")
+
+    @_builtins.property
+    @pulumi.getter(name="allowedPercentage")
+    def allowed_percentage(self) -> Optional[_builtins.int]:
+        """
+        The maximum percentage of units allowed to fail (0, 100] within a location
+        without pausing the rollout.
+        """
+        return pulumi.get(self, "allowed_percentage")
+
 
 @pulumi.output_type
 class SaaSLocation(dict):
@@ -43,6 +326,221 @@ class SaaSLocation(dict):
         Name of location.
         """
         return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class UnitCondition(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "lastTransitionTime":
+            suggest = "last_transition_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in UnitCondition. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        UnitCondition.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        UnitCondition.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 last_transition_time: _builtins.str,
+                 message: _builtins.str,
+                 reason: _builtins.str,
+                 status: _builtins.str,
+                 type: _builtins.str):
+        """
+        :param _builtins.str last_transition_time: Last time the condition transited from one status to another.
+        :param _builtins.str message: Human readable message indicating details about the last transition.
+        :param _builtins.str reason: Brief reason for the condition's last transition.
+        :param _builtins.str status: Status of the condition.
+               Possible values:
+               STATUS_UNKNOWN
+               STATUS_TRUE
+               STATUS_FALSE
+        :param _builtins.str type: Name of a supported variable type. Supported types are string, int, bool.
+               Possible values:
+               STRING
+               INT
+               BOOL
+        """
+        pulumi.set(__self__, "last_transition_time", last_transition_time)
+        pulumi.set(__self__, "message", message)
+        pulumi.set(__self__, "reason", reason)
+        pulumi.set(__self__, "status", status)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter(name="lastTransitionTime")
+    def last_transition_time(self) -> _builtins.str:
+        """
+        Last time the condition transited from one status to another.
+        """
+        return pulumi.get(self, "last_transition_time")
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> _builtins.str:
+        """
+        Human readable message indicating details about the last transition.
+        """
+        return pulumi.get(self, "message")
+
+    @_builtins.property
+    @pulumi.getter
+    def reason(self) -> _builtins.str:
+        """
+        Brief reason for the condition's last transition.
+        """
+        return pulumi.get(self, "reason")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> _builtins.str:
+        """
+        Status of the condition.
+        Possible values:
+        STATUS_UNKNOWN
+        STATUS_TRUE
+        STATUS_FALSE
+        """
+        return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Name of a supported variable type. Supported types are string, int, bool.
+        Possible values:
+        STRING
+        INT
+        BOOL
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class UnitDependency(dict):
+    def __init__(__self__, *,
+                 alias: Optional[_builtins.str] = None,
+                 unit: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str alias: (Output)
+               Alias for the name of the dependency.
+        :param _builtins.str unit: (Output)
+               A reference to the Unit object.
+        """
+        if alias is not None:
+            pulumi.set(__self__, "alias", alias)
+        if unit is not None:
+            pulumi.set(__self__, "unit", unit)
+
+    @_builtins.property
+    @pulumi.getter
+    def alias(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Alias for the name of the dependency.
+        """
+        return pulumi.get(self, "alias")
+
+    @_builtins.property
+    @pulumi.getter
+    def unit(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        A reference to the Unit object.
+        """
+        return pulumi.get(self, "unit")
+
+
+@pulumi.output_type
+class UnitDependent(dict):
+    def __init__(__self__, *,
+                 alias: Optional[_builtins.str] = None,
+                 unit: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str alias: (Output)
+               Alias for the name of the dependency.
+        :param _builtins.str unit: (Output)
+               A reference to the Unit object.
+        """
+        if alias is not None:
+            pulumi.set(__self__, "alias", alias)
+        if unit is not None:
+            pulumi.set(__self__, "unit", unit)
+
+    @_builtins.property
+    @pulumi.getter
+    def alias(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Alias for the name of the dependency.
+        """
+        return pulumi.get(self, "alias")
+
+    @_builtins.property
+    @pulumi.getter
+    def unit(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        A reference to the Unit object.
+        """
+        return pulumi.get(self, "unit")
+
+
+@pulumi.output_type
+class UnitInputVariable(dict):
+    def __init__(__self__, *,
+                 variable: _builtins.str,
+                 type: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str variable: Name of the variable from actuation configs.
+        :param _builtins.str type: Name of a supported variable type. Supported types are string, int, bool.
+               Possible values:
+               STRING
+               INT
+               BOOL
+        :param _builtins.str value: String encoded value for the variable.
+        """
+        pulumi.set(__self__, "variable", variable)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def variable(self) -> _builtins.str:
+        """
+        Name of the variable from actuation configs.
+        """
+        return pulumi.get(self, "variable")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        Name of a supported variable type. Supported types are string, int, bool.
+        Possible values:
+        STRING
+        INT
+        BOOL
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        String encoded value for the variable.
+        """
+        return pulumi.get(self, "value")
 
 
 @pulumi.output_type
@@ -427,5 +925,95 @@ class UnitKindOutputVariableMappingTo(dict):
         Tells SaaS Runtime if this mapping should be used during lookup or not
         """
         return pulumi.get(self, "ignore_for_lookup")
+
+
+@pulumi.output_type
+class UnitMaintenance(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "pinnedUntilTime":
+            suggest = "pinned_until_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in UnitMaintenance. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        UnitMaintenance.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        UnitMaintenance.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 pinned_until_time: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str pinned_until_time: If present, it fixes the release on the unit until the given time; i.e.
+               changes to the release field will be rejected. Rollouts should and will
+               also respect this by not requesting an upgrade in the first place.
+        """
+        if pinned_until_time is not None:
+            pulumi.set(__self__, "pinned_until_time", pinned_until_time)
+
+    @_builtins.property
+    @pulumi.getter(name="pinnedUntilTime")
+    def pinned_until_time(self) -> Optional[_builtins.str]:
+        """
+        If present, it fixes the release on the unit until the given time; i.e.
+        changes to the release field will be rejected. Rollouts should and will
+        also respect this by not requesting an upgrade in the first place.
+        """
+        return pulumi.get(self, "pinned_until_time")
+
+
+@pulumi.output_type
+class UnitOutputVariable(dict):
+    def __init__(__self__, *,
+                 variable: _builtins.str,
+                 type: Optional[_builtins.str] = None,
+                 value: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str variable: Name of the variable from actuation configs.
+        :param _builtins.str type: Name of a supported variable type. Supported types are string, int, bool.
+               Possible values:
+               STRING
+               INT
+               BOOL
+        :param _builtins.str value: String encoded value for the variable.
+        """
+        pulumi.set(__self__, "variable", variable)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def variable(self) -> _builtins.str:
+        """
+        Name of the variable from actuation configs.
+        """
+        return pulumi.get(self, "variable")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        Name of a supported variable type. Supported types are string, int, bool.
+        Possible values:
+        STRING
+        INT
+        BOOL
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[_builtins.str]:
+        """
+        String encoded value for the variable.
+        """
+        return pulumi.get(self, "value")
 
 

@@ -266,9 +266,11 @@ class ConsumeGroupItem(AbstractModel):
         :type FullNamespaceV4: str
         :param _SubscribeTopicNum: 订阅的主题个数
         :type SubscribeTopicNum: int
-        :param _CreateTime: 1753153590
+        :param _CreateTime: 创建时间
 注意：此字段可能返回 null，表示取不到有效值。
         :type CreateTime: int
+        :param _TagList: 绑定的标签列表
+        :type TagList: list of Tag
         """
         self._InstanceId = None
         self._ConsumerGroup = None
@@ -282,6 +284,7 @@ class ConsumeGroupItem(AbstractModel):
         self._FullNamespaceV4 = None
         self._SubscribeTopicNum = None
         self._CreateTime = None
+        self._TagList = None
 
     @property
     def InstanceId(self):
@@ -411,7 +414,7 @@ class ConsumeGroupItem(AbstractModel):
 
     @property
     def CreateTime(self):
-        r"""1753153590
+        r"""创建时间
 注意：此字段可能返回 null，表示取不到有效值。
         :rtype: int
         """
@@ -420,6 +423,17 @@ class ConsumeGroupItem(AbstractModel):
     @CreateTime.setter
     def CreateTime(self, CreateTime):
         self._CreateTime = CreateTime
+
+    @property
+    def TagList(self):
+        r"""绑定的标签列表
+        :rtype: list of Tag
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
 
 
     def _deserialize(self, params):
@@ -435,6 +449,12 @@ class ConsumeGroupItem(AbstractModel):
         self._FullNamespaceV4 = params.get("FullNamespaceV4")
         self._SubscribeTopicNum = params.get("SubscribeTopicNum")
         self._CreateTime = params.get("CreateTime")
+        if params.get("TagList") is not None:
+            self._TagList = []
+            for item in params.get("TagList"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagList.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3163,6 +3183,8 @@ class DescribeConsumerGroupListRequest(AbstractModel):
         r"""
         :param _InstanceId: 腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
         :type InstanceId: str
+        :param _TagFilters: 标签过滤器
+        :type TagFilters: list of TagFilter
         :param _Filters: 过滤查询条件列表，请在引用此参数的API说明中了解使用方法。
         :type Filters: list of Filter
         :param _Offset: 查询起始位置，默认为0。
@@ -3181,6 +3203,7 @@ class DescribeConsumerGroupListRequest(AbstractModel):
         :type SortOrder: str
         """
         self._InstanceId = None
+        self._TagFilters = None
         self._Filters = None
         self._Offset = None
         self._Limit = None
@@ -3198,6 +3221,17 @@ class DescribeConsumerGroupListRequest(AbstractModel):
     @InstanceId.setter
     def InstanceId(self, InstanceId):
         self._InstanceId = InstanceId
+
+    @property
+    def TagFilters(self):
+        r"""标签过滤器
+        :rtype: list of TagFilter
+        """
+        return self._TagFilters
+
+    @TagFilters.setter
+    def TagFilters(self, TagFilters):
+        self._TagFilters = TagFilters
 
     @property
     def Filters(self):
@@ -3272,6 +3306,12 @@ class DescribeConsumerGroupListRequest(AbstractModel):
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
+        if params.get("TagFilters") is not None:
+            self._TagFilters = []
+            for item in params.get("TagFilters"):
+                obj = TagFilter()
+                obj._deserialize(item)
+                self._TagFilters.append(obj)
         if params.get("Filters") is not None:
             self._Filters = []
             for item in params.get("Filters"):
@@ -4161,6 +4201,12 @@ PLATINUM 铂金版
         :type TopicNumUpperLimit: int
         :param _ZoneIds: 所属可用区列表，参考 [DescribeZones](https://cloud.tencent.com/document/product/1596/77929) 接口返回中的 [ZoneInfo](https://cloud.tencent.com/document/api/1596/77932#ZoneInfo) 数据结构。
         :type ZoneIds: list of int
+        :param _NodeCount: proxy节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type NodeCount: int
+        :param _ZoneScheduledList: proxy调度详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ZoneScheduledList: list of ZoneScheduledItem
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
@@ -4195,6 +4241,8 @@ PLATINUM 铂金版
         self._TopicNumLowerLimit = None
         self._TopicNumUpperLimit = None
         self._ZoneIds = None
+        self._NodeCount = None
+        self._ZoneScheduledList = None
         self._RequestId = None
 
     @property
@@ -4564,6 +4612,30 @@ PLATINUM 铂金版
         self._ZoneIds = ZoneIds
 
     @property
+    def NodeCount(self):
+        r"""proxy节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._NodeCount
+
+    @NodeCount.setter
+    def NodeCount(self, NodeCount):
+        self._NodeCount = NodeCount
+
+    @property
+    def ZoneScheduledList(self):
+        r"""proxy调度详情
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of ZoneScheduledItem
+        """
+        return self._ZoneScheduledList
+
+    @ZoneScheduledList.setter
+    def ZoneScheduledList(self, ZoneScheduledList):
+        self._ZoneScheduledList = ZoneScheduledList
+
+    @property
     def RequestId(self):
         r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :rtype: str
@@ -4617,6 +4689,13 @@ PLATINUM 铂金版
         self._TopicNumLowerLimit = params.get("TopicNumLowerLimit")
         self._TopicNumUpperLimit = params.get("TopicNumUpperLimit")
         self._ZoneIds = params.get("ZoneIds")
+        self._NodeCount = params.get("NodeCount")
+        if params.get("ZoneScheduledList") is not None:
+            self._ZoneScheduledList = []
+            for item in params.get("ZoneScheduledList"):
+                obj = ZoneScheduledItem()
+                obj._deserialize(item)
+                self._ZoneScheduledList.append(obj)
         self._RequestId = params.get("RequestId")
 
 
@@ -7788,11 +7867,11 @@ class DescribeMigrationTaskListRequest(AbstractModel):
 
     def __init__(self):
         r"""
-        :param _Filters: 查询条件列表
+        :param _Filters: 过滤查询条件列表，请在引用此参数的API说明中了解使用方法。
         :type Filters: list of Filter
-        :param _Offset: 查询起始位置
+        :param _Offset: 查询起始位置，默认为0。
         :type Offset: int
-        :param _Limit: 查询结果限制数量
+        :param _Limit: 查询结果限制数量，默认20。
         :type Limit: int
         """
         self._Filters = None
@@ -7801,7 +7880,7 @@ class DescribeMigrationTaskListRequest(AbstractModel):
 
     @property
     def Filters(self):
-        r"""查询条件列表
+        r"""过滤查询条件列表，请在引用此参数的API说明中了解使用方法。
         :rtype: list of Filter
         """
         return self._Filters
@@ -7812,7 +7891,7 @@ class DescribeMigrationTaskListRequest(AbstractModel):
 
     @property
     def Offset(self):
-        r"""查询起始位置
+        r"""查询起始位置，默认为0。
         :rtype: int
         """
         return self._Offset
@@ -7823,7 +7902,7 @@ class DescribeMigrationTaskListRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""查询结果限制数量
+        r"""查询结果限制数量，默认20。
         :rtype: int
         """
         return self._Limit
@@ -8746,6 +8825,8 @@ class DescribeTopicListRequest(AbstractModel):
         r"""
         :param _InstanceId: 腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
         :type InstanceId: str
+        :param _TagFilters: 标签过滤器
+        :type TagFilters: list of TagFilter
         :param _Filters: 过滤查询条件列表，请在引用此参数的API说明中了解使用方法。
         :type Filters: list of Filter
         :param _Offset: 查询起始位置，默认为0。
@@ -8756,6 +8837,7 @@ class DescribeTopicListRequest(AbstractModel):
         :type FromGroup: str
         """
         self._InstanceId = None
+        self._TagFilters = None
         self._Filters = None
         self._Offset = None
         self._Limit = None
@@ -8771,6 +8853,17 @@ class DescribeTopicListRequest(AbstractModel):
     @InstanceId.setter
     def InstanceId(self, InstanceId):
         self._InstanceId = InstanceId
+
+    @property
+    def TagFilters(self):
+        r"""标签过滤器
+        :rtype: list of TagFilter
+        """
+        return self._TagFilters
+
+    @TagFilters.setter
+    def TagFilters(self, TagFilters):
+        self._TagFilters = TagFilters
 
     @property
     def Filters(self):
@@ -8819,6 +8912,12 @@ class DescribeTopicListRequest(AbstractModel):
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
+        if params.get("TagFilters") is not None:
+            self._TagFilters = []
+            for item in params.get("TagFilters"):
+                obj = TagFilter()
+                obj._deserialize(item)
+                self._TagFilters.append(obj)
         if params.get("Filters") is not None:
             self._Filters = []
             for item in params.get("Filters"):
@@ -9795,6 +9894,12 @@ DELETING，删除中
         :type ZoneIds: list of int
         :param _EnableDeletionProtection: 是否开启删除保护
         :type EnableDeletionProtection: bool
+        :param _CreateTime: 实例创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CreateTime: int
+        :param _ScaledTpsEnabled: 弹性TPS开关
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ScaledTpsEnabled: bool
         """
         self._InstanceId = None
         self._InstanceName = None
@@ -9819,6 +9924,8 @@ DELETING，删除中
         self._DestroyTime = None
         self._ZoneIds = None
         self._EnableDeletionProtection = None
+        self._CreateTime = None
+        self._ScaledTpsEnabled = None
 
     @property
     def InstanceId(self):
@@ -10101,6 +10208,30 @@ DELETING，删除中
     def EnableDeletionProtection(self, EnableDeletionProtection):
         self._EnableDeletionProtection = EnableDeletionProtection
 
+    @property
+    def CreateTime(self):
+        r"""实例创建时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+    @property
+    def ScaledTpsEnabled(self):
+        r"""弹性TPS开关
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._ScaledTpsEnabled
+
+    @ScaledTpsEnabled.setter
+    def ScaledTpsEnabled(self, ScaledTpsEnabled):
+        self._ScaledTpsEnabled = ScaledTpsEnabled
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -10133,6 +10264,8 @@ DELETING，删除中
         self._DestroyTime = params.get("DestroyTime")
         self._ZoneIds = params.get("ZoneIds")
         self._EnableDeletionProtection = params.get("EnableDeletionProtection")
+        self._CreateTime = params.get("CreateTime")
+        self._ScaledTpsEnabled = params.get("ScaledTpsEnabled")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12146,11 +12279,17 @@ class MessageTrackItem(AbstractModel):
         :param _ExceptionDesc: 异常信息
 注意：此字段可能返回 null，表示取不到有效值。
         :type ExceptionDesc: str
+        :param _ConsumeStatusSource: 消费状态来源，枚举值如下：
+
+- DIFF_OFFSET：通过服务端offset计算
+- TRACE_REPORT：通过上报的轨迹判断
+        :type ConsumeStatusSource: str
         """
         self._ConsumerGroup = None
         self._ConsumeStatus = None
         self._TrackType = None
         self._ExceptionDesc = None
+        self._ConsumeStatusSource = None
 
     @property
     def ConsumerGroup(self):
@@ -12197,12 +12336,27 @@ class MessageTrackItem(AbstractModel):
     def ExceptionDesc(self, ExceptionDesc):
         self._ExceptionDesc = ExceptionDesc
 
+    @property
+    def ConsumeStatusSource(self):
+        r"""消费状态来源，枚举值如下：
+
+- DIFF_OFFSET：通过服务端offset计算
+- TRACE_REPORT：通过上报的轨迹判断
+        :rtype: str
+        """
+        return self._ConsumeStatusSource
+
+    @ConsumeStatusSource.setter
+    def ConsumeStatusSource(self, ConsumeStatusSource):
+        self._ConsumeStatusSource = ConsumeStatusSource
+
 
     def _deserialize(self, params):
         self._ConsumerGroup = params.get("ConsumerGroup")
         self._ConsumeStatus = params.get("ConsumeStatus")
         self._TrackType = params.get("TrackType")
         self._ExceptionDesc = params.get("ExceptionDesc")
+        self._ConsumeStatusSource = params.get("ConsumeStatusSource")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -12522,22 +12676,22 @@ class ModifyConsumerGroupRequest(AbstractModel):
         r"""
         :param _InstanceId: 腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
         :type InstanceId: str
-        :param _ConsumerGroup: 消费组名称，从 [DescribeConsumerGroupList](https://cloud.tencent.com/document/api/1493/101535) 接口返回的 [ConsumeGroupItem](https://cloud.tencent.com/document/api/1493/96031#ConsumeGroupItem) 或控制台获得。
-        :type ConsumerGroup: str
         :param _ConsumeEnable: 是否开启消费
         :type ConsumeEnable: bool
         :param _ConsumeMessageOrderly: 顺序投递：true
 并发投递：false
         :type ConsumeMessageOrderly: bool
+        :param _ConsumerGroup: 消费组名称，从 [DescribeConsumerGroupList](https://cloud.tencent.com/document/api/1493/101535) 接口返回的 [ConsumeGroupItem](https://cloud.tencent.com/document/api/1493/96031#ConsumeGroupItem) 或控制台获得。
+        :type ConsumerGroup: str
         :param _MaxRetryTimes: 最大重试次数，取值范围0～1000
         :type MaxRetryTimes: int
         :param _Remark: 备注信息，最多 128 个字符
         :type Remark: str
         """
         self._InstanceId = None
-        self._ConsumerGroup = None
         self._ConsumeEnable = None
         self._ConsumeMessageOrderly = None
+        self._ConsumerGroup = None
         self._MaxRetryTimes = None
         self._Remark = None
 
@@ -12551,17 +12705,6 @@ class ModifyConsumerGroupRequest(AbstractModel):
     @InstanceId.setter
     def InstanceId(self, InstanceId):
         self._InstanceId = InstanceId
-
-    @property
-    def ConsumerGroup(self):
-        r"""消费组名称，从 [DescribeConsumerGroupList](https://cloud.tencent.com/document/api/1493/101535) 接口返回的 [ConsumeGroupItem](https://cloud.tencent.com/document/api/1493/96031#ConsumeGroupItem) 或控制台获得。
-        :rtype: str
-        """
-        return self._ConsumerGroup
-
-    @ConsumerGroup.setter
-    def ConsumerGroup(self, ConsumerGroup):
-        self._ConsumerGroup = ConsumerGroup
 
     @property
     def ConsumeEnable(self):
@@ -12585,6 +12728,17 @@ class ModifyConsumerGroupRequest(AbstractModel):
     @ConsumeMessageOrderly.setter
     def ConsumeMessageOrderly(self, ConsumeMessageOrderly):
         self._ConsumeMessageOrderly = ConsumeMessageOrderly
+
+    @property
+    def ConsumerGroup(self):
+        r"""消费组名称，从 [DescribeConsumerGroupList](https://cloud.tencent.com/document/api/1493/101535) 接口返回的 [ConsumeGroupItem](https://cloud.tencent.com/document/api/1493/96031#ConsumeGroupItem) 或控制台获得。
+        :rtype: str
+        """
+        return self._ConsumerGroup
+
+    @ConsumerGroup.setter
+    def ConsumerGroup(self, ConsumerGroup):
+        self._ConsumerGroup = ConsumerGroup
 
     @property
     def MaxRetryTimes(self):
@@ -12611,9 +12765,9 @@ class ModifyConsumerGroupRequest(AbstractModel):
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
-        self._ConsumerGroup = params.get("ConsumerGroup")
         self._ConsumeEnable = params.get("ConsumeEnable")
         self._ConsumeMessageOrderly = params.get("ConsumeMessageOrderly")
+        self._ConsumerGroup = params.get("ConsumerGroup")
         self._MaxRetryTimes = params.get("MaxRetryTimes")
         self._Remark = params.get("Remark")
         memeber_set = set(params.keys())
@@ -14974,6 +15128,145 @@ class RollbackMigratingTopicStageResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class SendMessageRequest(AbstractModel):
+    r"""SendMessage请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
+        :type InstanceId: str
+        :param _Topic: 主题名称，从 [DescribeTopicList](https://cloud.tencent.com/document/api/1493/96030) 接口返回的 [TopicItem](https://cloud.tencent.com/document/api/1493/96031#TopicItem) 或控制台获得。
+        :type Topic: str
+        :param _MsgBody: 消息内容
+        :type MsgBody: str
+        :param _MsgKey: 消息Key
+        :type MsgKey: str
+        :param _MsgTag: 消息Tag
+        :type MsgTag: str
+        """
+        self._InstanceId = None
+        self._Topic = None
+        self._MsgBody = None
+        self._MsgKey = None
+        self._MsgTag = None
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Topic(self):
+        r"""主题名称，从 [DescribeTopicList](https://cloud.tencent.com/document/api/1493/96030) 接口返回的 [TopicItem](https://cloud.tencent.com/document/api/1493/96031#TopicItem) 或控制台获得。
+        :rtype: str
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+    @property
+    def MsgBody(self):
+        r"""消息内容
+        :rtype: str
+        """
+        return self._MsgBody
+
+    @MsgBody.setter
+    def MsgBody(self, MsgBody):
+        self._MsgBody = MsgBody
+
+    @property
+    def MsgKey(self):
+        r"""消息Key
+        :rtype: str
+        """
+        return self._MsgKey
+
+    @MsgKey.setter
+    def MsgKey(self, MsgKey):
+        self._MsgKey = MsgKey
+
+    @property
+    def MsgTag(self):
+        r"""消息Tag
+        :rtype: str
+        """
+        return self._MsgTag
+
+    @MsgTag.setter
+    def MsgTag(self, MsgTag):
+        self._MsgTag = MsgTag
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Topic = params.get("Topic")
+        self._MsgBody = params.get("MsgBody")
+        self._MsgKey = params.get("MsgKey")
+        self._MsgTag = params.get("MsgTag")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SendMessageResponse(AbstractModel):
+    r"""SendMessage返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _MsgId: 消息ID
+        :type MsgId: str
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._MsgId = None
+        self._RequestId = None
+
+    @property
+    def MsgId(self):
+        r"""消息ID
+        :rtype: str
+        """
+        return self._MsgId
+
+    @MsgId.setter
+    def MsgId(self, MsgId):
+        self._MsgId = MsgId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._MsgId = params.get("MsgId")
+        self._RequestId = params.get("RequestId")
+
+
 class SmoothMigrationTaskItem(AbstractModel):
     r"""平滑迁移任务
 
@@ -16190,6 +16483,8 @@ TRANSACTION:事务消息
         :type FullNamespaceV4: str
         :param _MsgTTL: 消息保留时长
         :type MsgTTL: int
+        :param _TagList: 绑定的标签列表
+        :type TagList: list of Tag
         """
         self._InstanceId = None
         self._Topic = None
@@ -16201,6 +16496,7 @@ TRANSACTION:事务消息
         self._TopicV4 = None
         self._FullNamespaceV4 = None
         self._MsgTTL = None
+        self._TagList = None
 
     @property
     def InstanceId(self):
@@ -16320,6 +16616,17 @@ TRANSACTION:事务消息
     def MsgTTL(self, MsgTTL):
         self._MsgTTL = MsgTTL
 
+    @property
+    def TagList(self):
+        r"""绑定的标签列表
+        :rtype: list of Tag
+        """
+        return self._TagList
+
+    @TagList.setter
+    def TagList(self, TagList):
+        self._TagList = TagList
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -16332,6 +16639,12 @@ TRANSACTION:事务消息
         self._TopicV4 = params.get("TopicV4")
         self._FullNamespaceV4 = params.get("FullNamespaceV4")
         self._MsgTTL = params.get("MsgTTL")
+        if params.get("TagList") is not None:
+            self._TagList = []
+            for item in params.get("TagList"):
+                obj = Tag()
+                obj._deserialize(item)
+                self._TagList.append(obj)
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -16408,6 +16721,130 @@ class TopicStageChangeResult(AbstractModel):
         
 
 
+class VerifyMessageConsumptionRequest(AbstractModel):
+    r"""VerifyMessageConsumption请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
+        :type InstanceId: str
+        :param _Topic: 主题名称，从 [DescribeTopicList](https://cloud.tencent.com/document/api/1493/96030) 接口返回的 [TopicItem](https://cloud.tencent.com/document/api/1493/96031#TopicItem) 或控制台获得。
+        :type Topic: str
+        :param _ClientId: 客户端ID
+        :type ClientId: str
+        :param _MsgId: 消息ID
+        :type MsgId: str
+        :param _ConsumerGroup: 消费组名称，从 [DescribeConsumerGroupList](https://cloud.tencent.com/document/api/1493/101535) 接口返回的 [ConsumeGroupItem](https://cloud.tencent.com/document/api/1493/96031#ConsumeGroupItem) 或控制台获得。
+        :type ConsumerGroup: str
+        """
+        self._InstanceId = None
+        self._Topic = None
+        self._ClientId = None
+        self._MsgId = None
+        self._ConsumerGroup = None
+
+    @property
+    def InstanceId(self):
+        r"""腾讯云 RocketMQ 实例 ID，从 [DescribeFusionInstanceList](https://cloud.tencent.com/document/api/1493/106745) 接口或控制台获得。
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Topic(self):
+        r"""主题名称，从 [DescribeTopicList](https://cloud.tencent.com/document/api/1493/96030) 接口返回的 [TopicItem](https://cloud.tencent.com/document/api/1493/96031#TopicItem) 或控制台获得。
+        :rtype: str
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+    @property
+    def ClientId(self):
+        r"""客户端ID
+        :rtype: str
+        """
+        return self._ClientId
+
+    @ClientId.setter
+    def ClientId(self, ClientId):
+        self._ClientId = ClientId
+
+    @property
+    def MsgId(self):
+        r"""消息ID
+        :rtype: str
+        """
+        return self._MsgId
+
+    @MsgId.setter
+    def MsgId(self, MsgId):
+        self._MsgId = MsgId
+
+    @property
+    def ConsumerGroup(self):
+        r"""消费组名称，从 [DescribeConsumerGroupList](https://cloud.tencent.com/document/api/1493/101535) 接口返回的 [ConsumeGroupItem](https://cloud.tencent.com/document/api/1493/96031#ConsumeGroupItem) 或控制台获得。
+        :rtype: str
+        """
+        return self._ConsumerGroup
+
+    @ConsumerGroup.setter
+    def ConsumerGroup(self, ConsumerGroup):
+        self._ConsumerGroup = ConsumerGroup
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._Topic = params.get("Topic")
+        self._ClientId = params.get("ClientId")
+        self._MsgId = params.get("MsgId")
+        self._ConsumerGroup = params.get("ConsumerGroup")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class VerifyMessageConsumptionResponse(AbstractModel):
+    r"""VerifyMessageConsumption返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class VpcInfo(AbstractModel):
     r"""VPC信息
 
@@ -16449,6 +16886,57 @@ class VpcInfo(AbstractModel):
     def _deserialize(self, params):
         self._VpcId = params.get("VpcId")
         self._SubnetId = params.get("SubnetId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ZoneScheduledItem(AbstractModel):
+    r"""proxy调度时各个可用区有无调度任务
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ZoneId: 可用区ID
+        :type ZoneId: str
+        :param _NodePermWipeFlag: 有剔除的调度任务且没有切回的可用区时，该值为true，反之为false
+        :type NodePermWipeFlag: bool
+        """
+        self._ZoneId = None
+        self._NodePermWipeFlag = None
+
+    @property
+    def ZoneId(self):
+        r"""可用区ID
+        :rtype: str
+        """
+        return self._ZoneId
+
+    @ZoneId.setter
+    def ZoneId(self, ZoneId):
+        self._ZoneId = ZoneId
+
+    @property
+    def NodePermWipeFlag(self):
+        r"""有剔除的调度任务且没有切回的可用区时，该值为true，反之为false
+        :rtype: bool
+        """
+        return self._NodePermWipeFlag
+
+    @NodePermWipeFlag.setter
+    def NodePermWipeFlag(self, NodePermWipeFlag):
+        self._NodePermWipeFlag = NodePermWipeFlag
+
+
+    def _deserialize(self, params):
+        self._ZoneId = params.get("ZoneId")
+        self._NodePermWipeFlag = params.get("NodePermWipeFlag")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]

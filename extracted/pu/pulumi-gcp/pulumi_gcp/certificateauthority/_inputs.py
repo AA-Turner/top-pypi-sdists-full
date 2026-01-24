@@ -55,6 +55,8 @@ __all__ = [
     'AuthoritySubordinateConfigPemIssuerChainArgsDict',
     'AuthorityUserDefinedAccessUrlsArgs',
     'AuthorityUserDefinedAccessUrlsArgsDict',
+    'CaPoolEncryptionSpecArgs',
+    'CaPoolEncryptionSpecArgsDict',
     'CaPoolIamBindingConditionArgs',
     'CaPoolIamBindingConditionArgsDict',
     'CaPoolIamMemberConditionArgs',
@@ -1992,6 +1994,41 @@ class AuthorityUserDefinedAccessUrlsArgs:
 
 
 if not MYPY:
+    class CaPoolEncryptionSpecArgsDict(TypedDict):
+        cloud_kms_key: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The resource name for an existing Cloud KMS key in the format
+        `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
+        """
+elif False:
+    CaPoolEncryptionSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class CaPoolEncryptionSpecArgs:
+    def __init__(__self__, *,
+                 cloud_kms_key: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] cloud_kms_key: The resource name for an existing Cloud KMS key in the format
+               `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
+        """
+        if cloud_kms_key is not None:
+            pulumi.set(__self__, "cloud_kms_key", cloud_kms_key)
+
+    @_builtins.property
+    @pulumi.getter(name="cloudKmsKey")
+    def cloud_kms_key(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The resource name for an existing Cloud KMS key in the format
+        `projects/*/locations/*/keyRings/*/cryptoKeys/*`.
+        """
+        return pulumi.get(self, "cloud_kms_key")
+
+    @cloud_kms_key.setter
+    def cloud_kms_key(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "cloud_kms_key", value)
+
+
+if not MYPY:
     class CaPoolIamBindingConditionArgsDict(TypedDict):
         expression: pulumi.Input[_builtins.str]
         """
@@ -2127,7 +2164,7 @@ if not MYPY:
         allowed_key_types: NotRequired[pulumi.Input[Sequence[pulumi.Input['CaPoolIssuancePolicyAllowedKeyTypeArgsDict']]]]
         """
         If any AllowedKeyType is specified, then the certificate request's public key must match one of the key types listed here.
-        Otherwise, any key may be used.
+        Otherwise, any key may be used. You can specify only one key type of those listed here.
         Structure is documented below.
         """
         backdate_duration: NotRequired[pulumi.Input[_builtins.str]]
@@ -2173,7 +2210,7 @@ class CaPoolIssuancePolicyArgs:
         :param pulumi.Input['CaPoolIssuancePolicyAllowedIssuanceModesArgs'] allowed_issuance_modes: IssuanceModes specifies the allowed ways in which Certificates may be requested from this CaPool.
                Structure is documented below.
         :param pulumi.Input[Sequence[pulumi.Input['CaPoolIssuancePolicyAllowedKeyTypeArgs']]] allowed_key_types: If any AllowedKeyType is specified, then the certificate request's public key must match one of the key types listed here.
-               Otherwise, any key may be used.
+               Otherwise, any key may be used. You can specify only one key type of those listed here.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] backdate_duration: The duration to backdate all certificates issued from this CaPool. If not set, the
                certificates will be issued with a not_before_time of the issuance time (i.e. the current
@@ -2222,7 +2259,7 @@ class CaPoolIssuancePolicyArgs:
     def allowed_key_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['CaPoolIssuancePolicyAllowedKeyTypeArgs']]]]:
         """
         If any AllowedKeyType is specified, then the certificate request's public key must match one of the key types listed here.
-        Otherwise, any key may be used.
+        Otherwise, any key may be used. You can specify only one key type of those listed here.
         Structure is documented below.
         """
         return pulumi.get(self, "allowed_key_types")

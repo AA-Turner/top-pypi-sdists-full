@@ -12,7 +12,6 @@ from jsonargparse import (
     ArgumentError,
     ArgumentParser,
     Namespace,
-    strip_meta,
 )
 from jsonargparse_tests.conftest import get_parser_help, json_or_yaml_dump
 
@@ -238,11 +237,11 @@ def test_action_parser_parse_path(composed_parsers):
     cfg = parser.parse_path(yaml_main)
     assert "inner2.yaml" == str(cfg.inner2.__path__)
     assert "inner3.yaml" == str(cfg.inner2.inner3.__path__)
-    assert expected == strip_meta(cfg).as_dict()
+    assert expected == cfg.clone(with_meta=False).as_dict()
 
     yaml_main2 = yaml_main.parent / "main2.yaml"
     yaml_main2.write_text(parser.dump(cfg))
-    cfg2 = parser.parse_path(yaml_main2, with_meta=False)
+    cfg2 = parser.parse_path(yaml_main2).clone(with_meta=False)
     assert expected == cfg2.as_dict()
 
 
@@ -251,7 +250,7 @@ def test_action_parser_parse_env_inner(composed_parsers):
     assert "opt2_env" == parser.parse_env({"LV1_INNER2__OPT2": "opt2_env"}).inner2.opt2
     assert "opt3_env" == parser.parse_env({"LV1_INNER2__INNER3__OPT3": "opt3_env"}).inner2.inner3.opt3
     expected = {"opt1": "opt1_def", "inner2": {"opt2": "opt2_def", "inner3": {"opt3": "opt3_yaml"}}}
-    cfg = parser.parse_env({"LV1_INNER2__INNER3": str(yaml_inner3)}, with_meta=False)
+    cfg = parser.parse_env({"LV1_INNER2__INNER3": str(yaml_inner3)}).clone(with_meta=False)
     assert expected == cfg.as_dict()
     assert "opt2_yaml" == parser.parse_env({"LV1_INNER2": str(yaml_inner2)}).inner2.opt2
 
@@ -260,15 +259,17 @@ def test_action_parser_parse_args_subconfig_path(composed_parsers):
     parser, _, yaml_inner2, yaml_inner3 = composed_parsers
 
     expected = {"opt1": "opt1_arg", "inner2": {"opt2": "opt2_yaml", "inner3": {"opt3": "opt3_yaml"}}}
-    cfg = parser.parse_args(["--opt1", "opt1_arg", f"--inner2={yaml_inner2}"], with_meta=False)
+    cfg = parser.parse_args(["--opt1", "opt1_arg", f"--inner2={yaml_inner2}"]).clone(with_meta=False)
     assert expected == cfg.as_dict()
 
     expected = {"opt1": "opt1_def", "inner2": {"opt2": "opt2_arg", "inner3": {"opt3": "opt3_yaml"}}}
-    cfg = parser.parse_args(["--inner2.opt2", "opt2_arg", f"--inner2.inner3={yaml_inner3}"], with_meta=False)
+    cfg = parser.parse_args(["--inner2.opt2", "opt2_arg", f"--inner2.inner3={yaml_inner3}"]).clone(with_meta=False)
     assert expected == cfg.as_dict()
 
     expected = {"opt1": "opt1_def", "inner2": {"opt2": "opt2_def", "inner3": {"opt3": "opt3_arg"}}}
-    cfg = parser.parse_args([f"--inner2.inner3={yaml_inner3}", "--inner2.inner3.opt3", "opt3_arg"], with_meta=False)
+    cfg = parser.parse_args([f"--inner2.inner3={yaml_inner3}", "--inner2.inner3.opt3", "opt3_arg"]).clone(
+        with_meta=False
+    )
     assert expected == cfg.as_dict()
 
 
@@ -276,11 +277,11 @@ def test_action_parser_parse_args_subconfig_string(composed_parsers):
     parser = composed_parsers[0]
 
     expected = {"opt2": "opt2_str", "inner3": {"opt3": "opt3_str"}}
-    cfg = parser.parse_args([f"--inner2={json_or_yaml_dump(expected)}"], with_meta=False)
+    cfg = parser.parse_args([f"--inner2={json_or_yaml_dump(expected)}"]).clone(with_meta=False)
     assert expected == cfg.inner2.as_dict()
 
     expected = {"opt3": "opt3_str"}
-    cfg = parser.parse_args([f"--inner2.inner3={json_or_yaml_dump(expected)}"], with_meta=False)
+    cfg = parser.parse_args([f"--inner2.inner3={json_or_yaml_dump(expected)}"]).clone(with_meta=False)
     assert expected == cfg.inner2.inner3.as_dict()
 
 
@@ -289,7 +290,7 @@ def test_action_parser_parse_args_global_config(composed_parsers):
     parser.add_argument("--cfg", action="config")
 
     expected = {"opt1": "opt1_yaml", "inner2": {"opt2": "opt2_yaml", "inner3": {"opt3": "opt3_yaml"}}}
-    cfg = parser.parse_args([f"--cfg={yaml_main}"], with_meta=False)
+    cfg = parser.parse_args([f"--cfg={yaml_main}"]).clone(with_meta=False)
     delattr(cfg, "cfg")
     assert expected == cfg.as_dict()
 
@@ -304,7 +305,7 @@ def test_action_parser_required_argument(parser, subparser):
     assert "1" == parser.parse_args(["--op2.op1=1"]).op2.op1
     with pytest.raises(ArgumentError) as ctx:
         parser.parse_args([])
-    ctx.match('"op2.op1" is required')
+    ctx.match("'op2.op1' is required")
 
 
 def test_action_parser_init_failures(parser, subparser):
@@ -334,8 +335,7 @@ def test_action_parser_conflict_subparser_key(parser, subparser):
     pytest.raises(ValueError, lambda: parser.add_argument("--inner", action=ActionParser(subparser)))
 
 
-def test_action_parser_nested_dash_names(parser, subparser):
-    subsubparser = ArgumentParser()
+def test_action_parser_nested_dash_names(parser, subparser, subsubparser):
     subsubparser.add_argument("--op1-like")
     subparser.add_argument("--op2-like", action=ActionParser(parser=subsubparser))
     assert "a" == subparser.parse_args(["--op2-like.op1-like=a"]).op2_like.op1_like

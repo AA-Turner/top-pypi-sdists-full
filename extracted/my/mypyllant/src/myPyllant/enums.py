@@ -80,6 +80,7 @@ class ZoneOperatingType(MyPyllantEnum):
 
 
 class DHWCurrentSpecialFunction(MyPyllantEnum):
+    SYSTEM_OFF = "SYSTEM_OFF"
     CYLINDER_BOOST = "CYLINDER_BOOST"
     HOLIDAY = "HOLIDAY"
     REGULAR = "REGULAR"
@@ -134,3 +135,9 @@ class AmbisenseRoomOperationMode(MyPyllantEnum):
     MANUAL = "MANUAL"
     OFF = "OFF"
     AUTO = "AUTO"
+
+
+class EnergyManagerState(MyPyllantEnum):
+    STANDBY = "STANDBY"
+    DHW = "DHW"
+    HEATING = "HEATING"

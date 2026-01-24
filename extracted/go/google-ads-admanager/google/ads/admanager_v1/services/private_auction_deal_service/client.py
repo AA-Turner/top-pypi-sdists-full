@@ -157,6 +157,34 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
     _DEFAULT_ENDPOINT_TEMPLATE = "admanager.{UNIVERSE_DOMAIN}"
     _DEFAULT_UNIVERSE = "googleapis.com"
 
+    @staticmethod
+    def _use_client_cert_effective():
+        """Returns whether client certificate should be used for mTLS if the
+        google-auth version supports should_use_client_cert automatic mTLS enablement.
+
+        Alternatively, read from the GOOGLE_API_USE_CLIENT_CERTIFICATE env var.
+
+        Returns:
+            bool: whether client certificate should be used for mTLS
+        Raises:
+            ValueError: (If using a version of google-auth without should_use_client_cert and
+            GOOGLE_API_USE_CLIENT_CERTIFICATE is set to an unexpected value.)
+        """
+        # check if google-auth version supports should_use_client_cert for automatic mTLS enablement
+        if hasattr(mtls, "should_use_client_cert"):  # pragma: NO COVER
+            return mtls.should_use_client_cert()
+        else:  # pragma: NO COVER
+            # if unsupported, fallback to reading from env var
+            use_client_cert_str = os.getenv(
+                "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
+            ).lower()
+            if use_client_cert_str not in ("true", "false"):
+                raise ValueError(
+                    "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be"
+                    " either `true` or `false`"
+                )
+            return use_client_cert_str == "true"
+
     @classmethod
     def from_service_account_info(cls, info: dict, *args, **kwargs):
         """Creates an instance of this client using the provided credentials
@@ -222,6 +250,45 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
         return m.groupdict() if m else {}
 
     @staticmethod
+    def application_path(
+        network_code: str,
+        application: str,
+    ) -> str:
+        """Returns a fully-qualified application string."""
+        return "networks/{network_code}/applications/{application}".format(
+            network_code=network_code,
+            application=application,
+        )
+
+    @staticmethod
+    def parse_application_path(path: str) -> Dict[str, str]:
+        """Parses a application path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/applications/(?P<application>.+?)$", path
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def audience_segment_path(
+        network_code: str,
+        audience_segment: str,
+    ) -> str:
+        """Returns a fully-qualified audience_segment string."""
+        return "networks/{network_code}/audienceSegments/{audience_segment}".format(
+            network_code=network_code,
+            audience_segment=audience_segment,
+        )
+
+    @staticmethod
+    def parse_audience_segment_path(path: str) -> Dict[str, str]:
+        """Parses a audience_segment path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/audienceSegments/(?P<audience_segment>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def bandwidth_group_path(
         network_code: str,
         bandwidth_group: str,
@@ -237,6 +304,102 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
         """Parses a bandwidth_group path into its component segments."""
         m = re.match(
             r"^networks/(?P<network_code>.+?)/bandwidthGroups/(?P<bandwidth_group>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def browser_path(
+        network_code: str,
+        browser: str,
+    ) -> str:
+        """Returns a fully-qualified browser string."""
+        return "networks/{network_code}/browsers/{browser}".format(
+            network_code=network_code,
+            browser=browser,
+        )
+
+    @staticmethod
+    def parse_browser_path(path: str) -> Dict[str, str]:
+        """Parses a browser path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/browsers/(?P<browser>.+?)$", path
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def browser_language_path(
+        network_code: str,
+        browser_language: str,
+    ) -> str:
+        """Returns a fully-qualified browser_language string."""
+        return "networks/{network_code}/browserLanguages/{browser_language}".format(
+            network_code=network_code,
+            browser_language=browser_language,
+        )
+
+    @staticmethod
+    def parse_browser_language_path(path: str) -> Dict[str, str]:
+        """Parses a browser_language path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/browserLanguages/(?P<browser_language>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def cms_metadata_value_path(
+        network_code: str,
+        cms_metadata_value: str,
+    ) -> str:
+        """Returns a fully-qualified cms_metadata_value string."""
+        return "networks/{network_code}/cmsMetadataValues/{cms_metadata_value}".format(
+            network_code=network_code,
+            cms_metadata_value=cms_metadata_value,
+        )
+
+    @staticmethod
+    def parse_cms_metadata_value_path(path: str) -> Dict[str, str]:
+        """Parses a cms_metadata_value path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/cmsMetadataValues/(?P<cms_metadata_value>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def content_path(
+        network_code: str,
+        content: str,
+    ) -> str:
+        """Returns a fully-qualified content string."""
+        return "networks/{network_code}/content/{content}".format(
+            network_code=network_code,
+            content=content,
+        )
+
+    @staticmethod
+    def parse_content_path(path: str) -> Dict[str, str]:
+        """Parses a content path into its component segments."""
+        m = re.match(r"^networks/(?P<network_code>.+?)/content/(?P<content>.+?)$", path)
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def content_bundle_path(
+        network_code: str,
+        content_bundle: str,
+    ) -> str:
+        """Returns a fully-qualified content_bundle string."""
+        return "networks/{network_code}/contentBundles/{content_bundle}".format(
+            network_code=network_code,
+            content_bundle=content_bundle,
+        )
+
+    @staticmethod
+    def parse_content_bundle_path(path: str) -> Dict[str, str]:
+        """Parses a content_bundle path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/contentBundles/(?P<content_bundle>.+?)$",
             path,
         )
         return m.groupdict() if m else {}
@@ -284,6 +447,26 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
         return m.groupdict() if m else {}
 
     @staticmethod
+    def device_capability_path(
+        network_code: str,
+        device_capability: str,
+    ) -> str:
+        """Returns a fully-qualified device_capability string."""
+        return "networks/{network_code}/deviceCapabilities/{device_capability}".format(
+            network_code=network_code,
+            device_capability=device_capability,
+        )
+
+    @staticmethod
+    def parse_device_capability_path(path: str) -> Dict[str, str]:
+        """Parses a device_capability path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/deviceCapabilities/(?P<device_capability>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def device_category_path(
         network_code: str,
         device_category: str,
@@ -304,6 +487,28 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
         return m.groupdict() if m else {}
 
     @staticmethod
+    def device_manufacturer_path(
+        network_code: str,
+        device_manufacturer: str,
+    ) -> str:
+        """Returns a fully-qualified device_manufacturer string."""
+        return (
+            "networks/{network_code}/deviceManufacturers/{device_manufacturer}".format(
+                network_code=network_code,
+                device_manufacturer=device_manufacturer,
+            )
+        )
+
+    @staticmethod
+    def parse_device_manufacturer_path(path: str) -> Dict[str, str]:
+        """Parses a device_manufacturer path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/deviceManufacturers/(?P<device_manufacturer>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
     def geo_target_path(
         network_code: str,
         geo_target: str,
@@ -319,6 +524,66 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
         """Parses a geo_target path into its component segments."""
         m = re.match(
             r"^networks/(?P<network_code>.+?)/geoTargets/(?P<geo_target>.+?)$", path
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def mobile_carrier_path(
+        network_code: str,
+        mobile_carrier: str,
+    ) -> str:
+        """Returns a fully-qualified mobile_carrier string."""
+        return "networks/{network_code}/mobileCarriers/{mobile_carrier}".format(
+            network_code=network_code,
+            mobile_carrier=mobile_carrier,
+        )
+
+    @staticmethod
+    def parse_mobile_carrier_path(path: str) -> Dict[str, str]:
+        """Parses a mobile_carrier path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/mobileCarriers/(?P<mobile_carrier>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def mobile_device_path(
+        network_code: str,
+        mobile_device: str,
+    ) -> str:
+        """Returns a fully-qualified mobile_device string."""
+        return "networks/{network_code}/mobileDevices/{mobile_device}".format(
+            network_code=network_code,
+            mobile_device=mobile_device,
+        )
+
+    @staticmethod
+    def parse_mobile_device_path(path: str) -> Dict[str, str]:
+        """Parses a mobile_device path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/mobileDevices/(?P<mobile_device>.+?)$",
+            path,
+        )
+        return m.groupdict() if m else {}
+
+    @staticmethod
+    def mobile_device_submodel_path(
+        network_code: str,
+        mobile_device_submodel: str,
+    ) -> str:
+        """Returns a fully-qualified mobile_device_submodel string."""
+        return "networks/{network_code}/mobileDeviceSubmodels/{mobile_device_submodel}".format(
+            network_code=network_code,
+            mobile_device_submodel=mobile_device_submodel,
+        )
+
+    @staticmethod
+    def parse_mobile_device_submodel_path(path: str) -> Dict[str, str]:
+        """Parses a mobile_device_submodel path into its component segments."""
+        m = re.match(
+            r"^networks/(?P<network_code>.+?)/mobileDeviceSubmodels/(?P<mobile_device_submodel>.+?)$",
+            path,
         )
         return m.groupdict() if m else {}
 
@@ -536,12 +801,8 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
         )
         if client_options is None:
             client_options = client_options_lib.ClientOptions()
-        use_client_cert = os.getenv("GOOGLE_API_USE_CLIENT_CERTIFICATE", "false")
+        use_client_cert = PrivateAuctionDealServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
@@ -549,7 +810,7 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
 
         # Figure out the client cert source to use.
         client_cert_source = None
-        if use_client_cert == "true":
+        if use_client_cert:
             if client_options.client_cert_source:
                 client_cert_source = client_options.client_cert_source
             elif mtls.has_default_client_cert_source():
@@ -581,20 +842,14 @@ class PrivateAuctionDealServiceClient(metaclass=PrivateAuctionDealServiceClientM
             google.auth.exceptions.MutualTLSChannelError: If GOOGLE_API_USE_MTLS_ENDPOINT
                 is not any of ["auto", "never", "always"].
         """
-        use_client_cert = os.getenv(
-            "GOOGLE_API_USE_CLIENT_CERTIFICATE", "false"
-        ).lower()
+        use_client_cert = PrivateAuctionDealServiceClient._use_client_cert_effective()
         use_mtls_endpoint = os.getenv("GOOGLE_API_USE_MTLS_ENDPOINT", "auto").lower()
         universe_domain_env = os.getenv("GOOGLE_CLOUD_UNIVERSE_DOMAIN")
-        if use_client_cert not in ("true", "false"):
-            raise ValueError(
-                "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-            )
         if use_mtls_endpoint not in ("auto", "never", "always"):
             raise MutualTLSChannelError(
                 "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
             )
-        return use_client_cert == "true", use_mtls_endpoint, universe_domain_env
+        return use_client_cert, use_mtls_endpoint, universe_domain_env
 
     @staticmethod
     def _get_client_cert_source(provided_cert_source, use_cert_flag):

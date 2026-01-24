@@ -6,10 +6,13 @@ utility functions for asteval
 """
 import ast
 import io
+import os
+import sys
+import ctypes
 import math
 import numbers
 import re
-from sys import exc_info
+
 from tokenize import ENCODING as tk_ENCODING
 from tokenize import NAME as tk_NAME
 from tokenize import tokenize as generate_tokens
@@ -39,8 +42,8 @@ except ImportError:
 try:
     from _string import formatter_field_name_split
 except ImportError:
-    formatter_field_name_split = lambda \
-        x: x._formatter_field_name_split()
+    def formatter_field_name_split(x):
+        return x._formatter_field_name_split()
 
 
 
@@ -73,6 +76,9 @@ UNSAFE_ATTRS = ('__subclasses__', '__bases__', '__globals__', '__code__',
 # unsafe attributes for particular objects, by type
 UNSAFE_ATTRS_DTYPES = {str: ('format', 'format_map')}
 
+# unsafe modules that may be exposed in other modules
+# but should be prevented from being accessed
+UNSAFE_MODULES = (io, os, sys, ctypes)
 
 # inherit these from python's __builtins__
 FROM_PY = ('ArithmeticError', 'AssertionError', 'AttributeError',
@@ -135,7 +141,7 @@ FROM_NUMPY = ('abs', 'add', 'all', 'amax', 'amin', 'angle', 'any', 'append',
     'little_endian', 'loadtxt', 'log', 'log10', 'log1p', 'log2', 'logaddexp',
     'logaddexp2', 'logical_and', 'logical_not', 'logical_or', 'logical_xor',
     'logspace', 'longdouble', 'longlong', 'mask_indices', 'matrix', 'maximum',
-    'may_share_memory', 'mean', 'median', 'memmap', 'meshgrid', 'minimum',
+    'may_share_memory', 'mean', 'median', 'meshgrid', 'minimum',
     'mintypecode', 'mod', 'modf', 'msort', 'multiply', 'nan', 'nan_to_num',
     'nanargmax', 'nanargmin', 'nanmax', 'nanmin', 'nansum', 'ndarray',
     'ndenumerate', 'ndim', 'ndindex', 'negative', 'nextafter', 'nonzero',
@@ -277,13 +283,18 @@ OPERATORS = {ast.Is: lambda a, b: a is b,
 
 # Safe version of getattr
 
-def safe_getattr(obj, attr, raise_exc, node):
+def safe_getattr(obj, attr, raise_exc, node, allow_unsafe_modules=False):
     """safe version of getattr"""
     unsafe = (attr in UNSAFE_ATTRS or
             (attr.startswith('__') and attr.endswith('__')))
     if not unsafe:
         for dtype, attrlist in UNSAFE_ATTRS_DTYPES.items():
             unsafe = (isinstance(obj, dtype) or obj is dtype) and attr in attrlist
+            if unsafe:
+                break
+    if not unsafe and not allow_unsafe_modules:
+        for mod in UNSAFE_MODULES:
+            unsafe = obj is mod or getattr(obj, attr) is mod
             if unsafe:
                 break
     if unsafe:
@@ -380,9 +391,9 @@ class ExceptionHolder:
                 self.lineno = node.lineno
                 self.end_lineno = node.end_lineno
                 self.col_offset = node.col_offset
-            except:
+            except Exception:
                 pass
-        self.exc_info = exc_info()
+        self.exc_info = sys.exc_info()
         if self.exc is None and self.exc_info[0] is not None:
             self.exc = self.exc_info[0]
         if self.msg == '' and self.exc_info[1] is not None:
@@ -398,12 +409,12 @@ class ExceptionHolder:
             exc_name = 'UnknownError'
 
         out = []
-        self.code = [f'{l}' for l  in self.text.split('\n')]
-        self.codelines = [f'{i+1}: {l}' for i, l in enumerate(self.code)]
+        self.code = [f'{word}' for word  in self.text.split('\n')]
+        self.codelines = [f'{i+1}: {word}' for i, word in enumerate(self.code)]
 
         try:
             out.append('\n'.join(self.code[self.lineno-1:self.end_lineno]))
-        except:
+        except Exception:
             out.append(f"{self.expr}")
         if self.col_offset > 0:
             out.append(f"{self.col_offset*' '}^^^^")
@@ -560,7 +571,7 @@ class Procedure:
 
     def __init__(self, name, interp, doc=None, lineno=None,
                  body=None, text=None, args=None, kwargs=None,
-                 vararg=None, varkws=None):
+                 vararg=None, varkws=None, is_lambda=False):
         """TODO: docstring in public method."""
         self.__ininit__ = True
         self.name = name
@@ -575,6 +586,10 @@ class Procedure:
         self.__varkws__ = varkws
         self.lineno = lineno
         self.__text__ = text
+        self.__is_lambda__ = is_lambda
+        if is_lambda:
+            self.name = self.__name__ = 'lambda'
+
         if text is None:
             self.__text__ = f'{self.__signature__()}\n' + ast.unparse(self.__body__)
         self.__ininit__ = False
@@ -721,8 +736,11 @@ class Procedure:
         # evaluate script of function
         self.__asteval__.code_text.append(self.__text__)
         for node in self.__body__:
-            self.__asteval__.run(node, lineno=node.lineno)
+            out = self.__asteval__.run(node, lineno=node.lineno)
             if len(self.__asteval__.error) > 0:
+                break
+            if self.__is_lambda__:
+                retval = out
                 break
             if self.__asteval__.retval is not None:
                 retval = self.__asteval__.retval
@@ -734,5 +752,6 @@ class Procedure:
         self.__asteval__.symtable = save_symtable
         self.__asteval__.code_text.pop()
         self.__asteval__._calldepth -= 1
+        self.__asteval__._interrupt = None
         symlocals = None
         return retval

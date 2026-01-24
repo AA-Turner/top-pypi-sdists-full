@@ -1,30 +1,39 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: DateTime
-Version: 5.5
+Version: 6.0
 Summary: This package provides a DateTime data type, as known from Zope. Unless you need to communicate with Zope APIs, you're probably better off using Python's built-in datetime module.
 Home-page: https://github.com/zopefoundation/DateTime
 Author: Zope Foundation and Contributors
-Author-email: zope-dev@zope.org
-License: ZPL 2.1
+Author-email: zope-dev@zope.dev
+License: ZPL-2.1
 Classifier: Development Status :: 6 - Mature
 Classifier: Environment :: Web Environment
-Classifier: Framework :: Zope :: 4
+Classifier: Framework :: Zope :: 5
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 License-File: LICENSE.txt
 Requires-Dist: zope.interface
 Requires-Dist: pytz
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: https://github.com/zopefoundation/DateTime/workflows/tests/badge.svg
         :target: https://github.com/zopefoundation/DateTime/actions?query=workflow%3Atests
@@ -841,6 +850,18 @@ the epoch) and floats:
 
 Changelog
 =========
+
+6.0 (2025-11-25)
+----------------
+
+- Add support for Python 3.13, 3.14.
+
+- Drop support for Python 3.7, 3.8, 3.9.
+
+- Remove setuptools fossils.
+
+- Remove Python2 compatiblity code.
+
 
 5.5 (2024-03-21)
 ----------------

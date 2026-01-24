@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.aws-kinesisanalytics-flink-alpha
-Version: 2.216.0a0
+Version: 2.236.0a0
 Summary: A CDK Construct Library for Kinesis Analytics Flink applications
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,11 +22,11 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk-lib<3.0.0,>=2.216.0
+Requires-Dist: aws-cdk-lib<3.0.0,>=2.236.0
 Requires-Dist: constructs<11.0.0,>=10.0.0
-Requires-Dist: jsii<2.0.0,>=1.113.0
+Requires-Dist: jsii<2.0.0,>=1.125.0
 Requires-Dist: publication>=0.0.3
-Requires-Dist: typeguard<4.3.0,>=2.13.3
+Requires-Dist: typeguard==2.13.3
 
 # Kinesis Analytics Flink
 
@@ -55,9 +55,9 @@ To create a new Flink application, use the `Application` construct:
 
 ```python
 import path as path
-import aws_cdk.aws_cloudwatch as cloudwatch
-import aws_cdk as core
 import aws_cdk.integ_tests_alpha as integ
+import aws_cdk as core
+import aws_cdk.aws_cloudwatch as cloudwatch
 import aws_cdk.aws_kinesisanalytics_flink_alpha as flink
 
 app = core.App()

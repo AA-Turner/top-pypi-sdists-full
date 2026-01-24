@@ -40,7 +40,7 @@ from sqlalchemy.orm.scoping import scoped_session
 from sqlalchemy.orm.strategy_options import _AbstractLoad  # pyright: ignore[reportPrivateUsage]
 from sqlalchemy.sql import ColumnElement
 from sqlalchemy.sql.dml import ReturningDelete, ReturningUpdate
-from sqlalchemy.sql.selectable import ForUpdateParameter
+from sqlalchemy.sql.selectable import ForUpdateArg, ForUpdateParameter
 
 from advanced_alchemy.exceptions import ErrorMessages, NotFoundError, RepositoryError, wrap_sqlalchemy_exception
 from advanced_alchemy.filters import StatementFilter, StatementTypeT
@@ -50,8 +50,10 @@ from advanced_alchemy.repository._util import (
     FilterableRepositoryProtocol,
     LoadSpec,
     column_has_defaults,
+    compare_values,
     get_abstract_loader_options,
     get_instrumented_attr,
+    was_attribute_set,
 )
 from advanced_alchemy.repository.typing import MISSING, ModelT, OrderingPair, T
 from advanced_alchemy.service.typing import schema_dump
@@ -201,6 +203,7 @@ class SQLAlchemySyncRepositoryProtocol(FilterableRepositoryProtocol[ModelT], Pro
         error_messages: Optional[Union[ErrorMessages, EmptyType]] = Empty,
         load: Optional[LoadSpec] = None,
         execution_options: Optional[dict[str, Any]] = None,
+        with_for_update: ForUpdateParameter = None,
     ) -> ModelT: ...
 
     def get_one(
@@ -585,7 +588,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             error_messages = None
         if default_messages == Empty:
             default_messages = None
-        messages = DEFAULT_ERROR_MESSAGE_TEMPLATES
+        messages = cast("ErrorMessages", dict(DEFAULT_ERROR_MESSAGE_TEMPLATES))
         if default_messages and isinstance(default_messages, dict):
             messages.update(default_messages)
         if error_messages:
@@ -1032,6 +1035,31 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             statement = cast("StatementTypeT", statement.execution_options(**execution_options))
         return statement
 
+    def _apply_for_update_options(
+        self,
+        statement: Select[tuple[ModelT]],
+        with_for_update: ForUpdateParameter,
+    ) -> Select[tuple[ModelT]]:
+        """Apply FOR UPDATE options to a SELECT statement when requested."""
+
+        if with_for_update in (None, False):
+            return statement
+        if with_for_update is True:
+            return statement.with_for_update()
+        if isinstance(with_for_update, ForUpdateArg):
+            with_for_update_kwargs: dict[str, Any] = {
+                "nowait": with_for_update.nowait,
+                "read": with_for_update.read,
+                "skip_locked": with_for_update.skip_locked,
+                "key_share": with_for_update.key_share,
+            }
+            if getattr(with_for_update, "of", None):
+                with_for_update_kwargs["of"] = with_for_update.of
+            return statement.with_for_update(**with_for_update_kwargs)
+        if isinstance(with_for_update, dict):  # pyright: ignore
+            return statement.with_for_update(**with_for_update)
+        return statement
+
     def _get_delete_many_statement(
         self,
         *,
@@ -1070,6 +1098,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
         load: Optional[LoadSpec] = None,
         execution_options: Optional[dict[str, Any]] = None,
         uniquify: Optional[bool] = None,
+        with_for_update: ForUpdateParameter = None,
     ) -> ModelT:
         """Get instance identified by `item_id`.
 
@@ -1084,6 +1113,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             load: Set relationships to be loaded
             execution_options: Set default execution options
             uniquify: Optionally apply the ``unique()`` method to results before returning.
+            with_for_update: Optional FOR UPDATE clause / parameters to apply to the SELECT statement.
 
         Returns:
             The retrieved instance.
@@ -1106,6 +1136,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
                 execution_options=execution_options,
             )
             statement = self._filter_select_by_kwargs(statement, [(id_attribute, item_id)])
+            statement = self._apply_for_update_options(statement, with_for_update)
             instance = (self._execute(statement, uniquify=loader_options_have_wildcard)).scalar_one_or_none()
             instance = self.check_not_found(instance)
             self._expunge(instance, auto_expunge=auto_expunge)
@@ -1294,7 +1325,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             if upsert:
                 for field_name, new_field_value in kwargs.items():
                     field = getattr(existing, field_name, MISSING)
-                    if field is not MISSING and field != new_field_value:
+                    if field is not MISSING and not compare_values(field, new_field_value):  # pragma: no cover
                         setattr(existing, field_name, new_field_value)
                 existing = self._attach_to_session(existing, strategy="merge")
                 self._flush_or_commit(auto_commit=auto_commit)
@@ -1368,7 +1399,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             updated = False
             for field_name, new_field_value in kwargs.items():
                 field = getattr(existing, field_name, MISSING)
-                if field is not MISSING and field != new_field_value:
+                if field is not MISSING and not compare_values(field, new_field_value):  # pragma: no cover
                     updated = True
                     setattr(existing, field_name, new_field_value)
             existing = self._attach_to_session(existing, strategy="merge")
@@ -1485,7 +1516,11 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
                 id_attribute=id_attribute,
             )
             existing_instance = self.get(
-                item_id, id_attribute=id_attribute, load=load, execution_options=execution_options
+                item_id,
+                id_attribute=id_attribute,
+                load=load,
+                execution_options=execution_options,
+                with_for_update=with_for_update,
             )
             mapper = None
             with (
@@ -1502,23 +1537,29 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
                             # This prevents overwriting columns that should use their defaults
                             if new_field_value is None and column_has_defaults(column):
                                 continue
+                            # Only copy attributes that were explicitly set on the input instance
+                            # This prevents overwriting existing values with uninitialized None values
+                            if not was_attribute_set(data, mapper, field_name):
+                                continue
                             existing_field_value = getattr(existing_instance, field_name, MISSING)
-                            if existing_field_value is not MISSING and existing_field_value != new_field_value:
+                            if existing_field_value is not MISSING and not compare_values(
+                                existing_field_value, new_field_value
+                            ):
                                 setattr(existing_instance, field_name, new_field_value)
 
                     # Handle relationships by merging objects into session first
                     for relationship in mapper.mapper.relationships:
+                        if relationship.viewonly or relationship.lazy in {  # pragma: no cover
+                            "write_only",
+                            "dynamic",
+                            "raise",
+                            "raise_on_sql",
+                        }:
+                            # Skip relationships with incompatible lazy loading strategies
+                            continue
+
                         if (new_value := getattr(data, relationship.key, MISSING)) is not MISSING:
                             # Skip relationships that cannot be handled by generic merge operations
-                            if relationship.viewonly or relationship.lazy in {  # pragma: no cover
-                                "write_only",
-                                "dynamic",
-                                "raise",
-                                "raise_on_sql",
-                            }:
-                                # Skip relationships with incompatible lazy loading strategies
-                                continue
-
                             if isinstance(new_value, list):
                                 merged_values = [  # pyright: ignore
                                     self.session.merge(item, load=False)  # pyright: ignore
@@ -1579,12 +1620,17 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             error_messages=error_messages,
             default_messages=self.error_messages,
         )
+        supports_updated_at = hasattr(self.model_type, "updated_at")
         data_to_update: list[dict[str, Any]] = []
         for v in data:
             if isinstance(v, self.model_type) or (hasattr(v, "to_dict") and callable(v.to_dict)):
-                data_to_update.append(v.to_dict())
+                update_payload = v.to_dict()
             else:
-                data_to_update.append(cast("dict[str, Any]", schema_dump(v)))
+                update_payload = cast("dict[str, Any]", schema_dump(v))
+
+            if supports_updated_at and (update_payload.get("updated_at") is None):
+                update_payload["updated_at"] = datetime.datetime.now(datetime.timezone.utc)
+            data_to_update.append(update_payload)
         with wrap_sqlalchemy_exception(
             error_messages=error_messages, dialect_name=self._dialect.name, wrap_exceptions=self.wrap_exceptions
         ):
@@ -1702,11 +1748,36 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
             **kwargs,
         )
 
-    def _expunge(self, instance: ModelT, auto_expunge: Optional[bool]) -> None:
+    def _expunge(self, instance: "ModelT", auto_expunge: "Optional[bool]") -> None:
+        """Remove instance from session if auto_expunge is enabled.
+
+        Args:
+            instance: The model instance to expunge
+            auto_expunge: Whether to expunge the instance. If None, uses self.auto_expunge
+
+        Note:
+            Deleted objects that have been committed are automatically moved to the
+            detached state by SQLAlchemy. Objects returned from DELETE...RETURNING
+            statements are initially persistent but become detached after commit.
+            We skip expunge for objects that are already detached or marked for deletion
+            to avoid InvalidRequestError.
+        """
         if auto_expunge is None:
             auto_expunge = self.auto_expunge
 
-        return self.session.expunge(instance) if auto_expunge else None
+        if not auto_expunge:
+            return
+
+        # Check object state before expunging
+        state = inspect(instance)
+        if state is not None and (state.deleted or state.detached):
+            # Skip expunge for objects that are deleted or already detached
+            # - state.deleted: Object marked for deletion, will be detached on commit
+            # - state.detached: Object already removed from session (e.g., from DELETE...RETURNING)
+            return
+
+        self.session.expunge(instance)
+        return
 
     def _flush_or_commit(self, auto_commit: Optional[bool]) -> None:
         if auto_commit is None:
@@ -1939,7 +2010,7 @@ class SQLAlchemySyncRepository(SQLAlchemySyncRepositoryProtocol[ModelT], Filtera
         ):
             for field_name, new_field_value in data.to_dict(exclude={self.id_attribute}).items():
                 field = getattr(existing, field_name, MISSING)
-                if field is not MISSING and field != new_field_value:
+                if field is not MISSING and not compare_values(field, new_field_value):  # pragma: no cover
                     setattr(existing, field_name, new_field_value)
             instance = self._attach_to_session(existing, strategy="merge")
             self._flush_or_commit(auto_commit=auto_commit)

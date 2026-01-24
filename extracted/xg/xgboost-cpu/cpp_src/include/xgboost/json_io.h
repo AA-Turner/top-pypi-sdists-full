@@ -143,8 +143,11 @@ class JsonWriter {
   virtual void Visit(I8Array  const* arr);
   virtual void Visit(U8Array const* arr);
   virtual void Visit(I16Array const* arr);
+  virtual void Visit(U16Array const* arr);
   virtual void Visit(I32Array  const* arr);
+  virtual void Visit(U32Array  const* arr);
   virtual void Visit(I64Array  const* arr);
+  virtual void Visit(U64Array  const* arr);
   virtual void Visit(JsonObject const* obj);
   virtual void Visit(JsonNumber const* num);
   virtual void Visit(JsonInteger const* num);
@@ -223,7 +226,7 @@ class UBJReader : public JsonReader {
   auto ParseTypedArray(std::int64_t n) {
     TypedArray results{static_cast<size_t>(n)};
     for (int64_t i = 0; i < n; ++i) {
-      auto v = this->ReadPrimitive<typename TypedArray::Type>();
+      auto v = this->ReadPrimitive<typename TypedArray::value_type>();
       results.Set(i, v);
     }
     return Json{std::move(results)};

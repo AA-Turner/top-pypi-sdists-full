@@ -3,273 +3,478 @@
 # SPDX-FileCopyrightText: 2024 Ilya Egorov <0x42005e1f@gmail.com>
 # SPDX-License-Identifier: ISC
 
-from collections import deque
-from itertools import count
+from __future__ import annotations
 
+import os
+import sys
+
+from itertools import count
+from typing import TYPE_CHECKING, Any, Final
+
+from ._flag import Flag
 from .lowlevel import (
-    AsyncEvent,
-    Flag,
-    GreenEvent,
-    checkpoint,
+    ThreadOnceLock,
+    async_checkpoint,
+    create_async_event,
+    create_green_event,
     green_checkpoint,
+    lazydeque,
 )
+from .meta import DEFAULT, MISSING, DefaultType, MissingType, copies
+
+if sys.version_info >= (3, 11):
+    from typing import overload
+else:
+    from typing_extensions import overload
+
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 11):
+        from typing import Self
+    else:
+        from typing_extensions import Self
+
+    if sys.version_info >= (3, 9):
+        from collections.abc import Callable, Generator
+    else:
+        from typing import Callable, Generator
+
+try:
+    from sys import _is_gil_enabled
+except ImportError:
+    __GIL_ENABLED: Final[bool] = True
+else:
+    __GIL_ENABLED: Final[bool] = _is_gil_enabled()
+
+_PERFECT_FAIRNESS_ENABLED: Final[bool] = bool(
+    os.getenv(
+        "AIOLOGIC_PERFECT_FAIRNESS",
+        "1" if __GIL_ENABLED else "",
+    )
+)
+
+_USE_ONCELOCK: Final[bool] = _PERFECT_FAIRNESS_ENABLED and not __GIL_ENABLED
+_USE_ONCELOCK_FORCED: Final[bool] = not __GIL_ENABLED
 
 
 class Event:
+    """..."""
+
     __slots__ = (
-        "__is_unset",
-        "__waiters",
         "__weakref__",
+        "_is_unset",
+        "_waiters",
     )
 
-    def __new__(cls, /, is_set=False):
-        self = super().__new__(cls)
+    def __new__(cls, /) -> Self:
+        """..."""
 
-        self.__waiters = deque()
-        self.__is_unset = not is_set
+        self = object.__new__(cls)
+
+        self._is_unset = True
+        self._waiters = lazydeque()
 
         return self
 
-    def __getnewargs__(self, /):
-        if not self.__is_unset:
-            args = (True,)
+    def __getnewargs__(self, /) -> tuple[Any, ...]:
+        """
+        Returns arguments that can be used to create new instances with the
+        same initial values.
+
+        Used by:
+
+        * The :mod:`pickle` module for pickling.
+        * The :mod:`copy` module for copying.
+
+        The current state does not affect the arguments.
+
+        Example:
+            >>> orig = Event()
+            >>> copy = Event(*orig.__getnewargs__())
+        """
+
+        return ()
+
+    def __getstate__(self, /) -> None:
+        """
+        Disables the use of internal state for pickling and copying.
+        """
+
+        return None
+
+    def __copy__(self, /) -> Self:
+        """..."""
+
+        return self.__class__()
+
+    def __repr__(self, /) -> str:
+        """..."""
+
+        cls = self.__class__
+        cls_repr = f"{cls.__module__}.{cls.__qualname__}"
+
+        object_repr = f"{cls_repr}()"
+
+        if not self._is_unset:
+            extra = "set"
         else:
-            args = ()
+            extra = f"unset, waiting={len(self._waiters)}"
 
-        return args
+        return f"<{object_repr} at {id(self):#x} [{extra}]>"
 
-    def __repr__(self, /):
-        return f"Event(is_set={not self.__is_unset})"
+    def __bool__(self, /) -> bool:
+        """
+        Returns :data:`True` if the event is set.
 
-    def __bool__(self, /):
-        return not self.__is_unset
+        Used by the standard :ref:`truth testing procedure <truth>`.
 
-    def __await__(self, /):
-        rescheduled = False
+        Example:
+            >>> finished = Event()  # event is unset
+            >>> bool(finished)
+            False
+            >>> finished.set()  # event is set
+            >>> bool(finished)
+            True
+        """
 
-        if self.__is_unset:
-            self.__waiters.append(event := AsyncEvent())
+        return not self._is_unset
 
-            if self.__is_unset:
-                success = False
+    def __await__(self, /) -> Generator[Any, Any, bool]:
+        """..."""
 
+        if not self._is_unset:
+            yield from async_checkpoint().__await__()
+
+            self._wakeup()
+
+            return True
+
+        self._waiters.append(
+            event := create_async_event(locking=_USE_ONCELOCK)
+        )
+
+        if not self._is_unset:
+            if event.set():
                 try:
-                    success = yield from event.__await__()
-                finally:
-                    if not success:
-                        try:
-                            self.__waiters.remove(event)
-                        except ValueError:
-                            pass
-
-                rescheduled = True
-            else:
-                success = True
-        else:
-            success = True
-
-        if success:
-            self.__wakeup()
-
-        if not rescheduled:
-            yield from checkpoint().__await__()
-
-        return success
-
-    def wait(self, /, timeout=None):
-        rescheduled = False
-
-        if self.__is_unset:
-            self.__waiters.append(event := GreenEvent())
-
-            if self.__is_unset:
-                success = False
-
-                try:
-                    success = event.wait(timeout)
-                finally:
-                    if not success:
-                        try:
-                            self.__waiters.remove(event)
-                        except ValueError:
-                            pass
-
-                rescheduled = True
-            else:
-                success = True
-        else:
-            success = True
-
-        if success:
-            self.__wakeup()
-
-        if not rescheduled:
-            green_checkpoint()
-
-        return success
-
-    def set(self, /):
-        self.__is_unset = False
-        self.__wakeup()
-
-    def is_set(self, /):
-        return not self.__is_unset
-
-    def __wakeup(self, /):
-        waiters = self.__waiters
-
-        while waiters:
-            try:
-                event = waiters[0]
-            except IndexError:
-                break
-            else:
-                event.set()
-
-                try:
-                    waiters.remove(event)
+                    self._waiters.remove(event)
                 except ValueError:
                     pass
 
+        success = False
+
+        try:
+            success = yield from event.__await__()
+        finally:
+            if not success:
+                if event.cancelled():
+                    try:
+                        self._waiters.remove(event)
+                    except ValueError:
+                        pass
+
+        if success:
+            self._wakeup()
+
+        return success
+
+    def wait(self, /, timeout: float | None = None) -> bool:
+        """..."""
+
+        if not self._is_unset:
+            green_checkpoint()
+
+            self._wakeup()
+
+            return True
+
+        self._waiters.append(
+            event := create_green_event(locking=_USE_ONCELOCK)
+        )
+
+        if not self._is_unset:
+            if event.set():
+                try:
+                    self._waiters.remove(event)
+                except ValueError:
+                    pass
+
+        success = False
+
+        try:
+            success = event.wait(timeout)
+        finally:
+            if not success:
+                if event.cancelled():
+                    try:
+                        self._waiters.remove(event)
+                    except ValueError:
+                        pass
+
+        if success:
+            self._wakeup()
+
+        return success
+
+    def set(self, /) -> None:
+        """..."""
+
+        self._is_unset = False
+        self._wakeup()
+
+    def is_set(self, /) -> bool:
+        """
+        Return :data:`True` if the event is set.
+
+        Example:
+            >>> event = Event()
+            >>> event.is_set()
+            False
+            >>> event.set()
+            >>> event.is_set()
+            True
+        """
+
+        return not self._is_unset
+
+    def _wakeup(self, /) -> None:
+        waiters = self._waiters
+
+        while waiters:
+            try:
+                if _PERFECT_FAIRNESS_ENABLED:
+                    event = waiters[0]
+                else:
+                    event = waiters.popleft()
+            except IndexError:
+                break
+            else:
+                remove = event.set()
+
+                if _PERFECT_FAIRNESS_ENABLED:
+                    try:
+                        if remove or waiters[0] is event:
+                            if _USE_ONCELOCK:
+                                ThreadOnceLock.acquire(event)
+                                try:
+                                    if waiters[0] is event:
+                                        waiters.remove(event)
+                                finally:
+                                    ThreadOnceLock.release(event)
+                            else:
+                                waiters.remove(event)
+                    except ValueError:  # waiters does not contain event
+                        continue
+                    except IndexError:  # waiters is empty
+                        break
+
     @property
-    def waiting(self, /):
-        return len(self.__waiters)
+    def waiting(self, /) -> int:
+        """
+        The current number of tasks waiting for the event.
+
+        It represents the length of the waiting queue and thus changes
+        immediately.
+        """
+
+        return len(self._waiters)
 
 
-class REvent:
-    __slots__ = (
-        "__is_unset",
-        "__timer",
-        "__waiters",
-        "__weakref__",
-    )
+class REvent(Event):
+    """..."""
 
-    def __new__(cls, /, is_set=False):
-        self = super().__new__(cls)
+    __slots__ = ("_timer",)
 
-        self.__waiters = deque()
-        self.__is_unset = Flag()
+    def __new__(cls, /) -> Self:
+        """..."""
 
-        if not is_set:
-            self.__is_unset.set()
+        self = object.__new__(cls)
 
-        self.__timer = count().__next__
+        self._is_unset = Flag()
+        self._is_unset.set()
+
+        self._timer = count().__next__
+        self._waiters = lazydeque()
 
         return self
 
-    def __getnewargs__(self, /):
-        if not self.__is_unset:
-            args = (True,)
-        else:
-            args = ()
+    @copies(Event.__getnewargs__)
+    def __getnewargs__(self, /) -> tuple[Any, ...]:
+        """
+        Returns arguments that can be used to create new instances with the
+        same initial values.
 
-        return args
+        Used by:
 
-    def __repr__(self, /):
-        return f"REvent(is_set={not self.__is_unset})"
+        * The :mod:`pickle` module for pickling.
+        * The :mod:`copy` module for copying.
 
-    def __bool__(self, /):
-        return not self.__is_unset
+        The current state does not affect the arguments.
 
-    def __await__(self, /):
-        token = None
-        rescheduled = False
+        Example:
+            >>> orig = REvent()
+            >>> copy = REvent(*orig.__getnewargs__())
+        """
 
-        if (marker := self.__is_unset.get(None)) is not None:
-            self.__waiters.append(
-                token := [
-                    event := AsyncEvent(),
-                    marker,
-                    self.__timer(),
-                    None,
-                ]
-            )
+        return Event.__getnewargs__(self)
 
-            if marker is self.__is_unset.get(None):
-                success = False
+    @copies(Event.__getstate__)
+    def __getstate__(self, /) -> None:
+        """
+        Disables the use of internal state for pickling and copying.
+        """
 
+        return Event.__getstate__(self)
+
+    @copies(Event.__copy__)
+    def __copy__(self, /) -> Self:
+        """..."""
+
+        return Event.__copy__(self)
+
+    @copies(Event.__repr__)
+    def __repr__(self, /) -> str:
+        """..."""
+
+        return Event.__repr__(self)
+
+    @copies(Event.__bool__)
+    def __bool__(self, /) -> bool:
+        """
+        Returns :data:`True` if the event is set.
+
+        Used by the standard :ref:`truth testing procedure <truth>`.
+
+        Example:
+            >>> running = REvent()  # event is unset
+            >>> bool(running)
+            False
+            >>> running.set()  # event is set
+            >>> bool(running)
+            True
+            >>> running.clear()  # event is unset
+            >>> bool(running)
+            False
+        """
+
+        return Event.__bool__(self)
+
+    def __await__(self, /) -> Generator[Any, Any, bool]:
+        """..."""
+
+        if not self._is_unset:
+            yield from async_checkpoint().__await__()
+
+            self._wakeup()
+
+            return True
+
+        self._waiters.append(
+            token := [
+                event := create_async_event(locking=_USE_ONCELOCK_FORCED),
+                marker := self._is_unset.get(default_factory=object),
+                self._timer(),
+                None,
+            ]
+        )
+
+        if self._is_unset.get(None) is not marker:
+            if event.set():
                 try:
-                    success = yield from event.__await__()
-                finally:
-                    if not success:
-                        try:
-                            self.__waiters.remove(token)
-                        except ValueError:
-                            pass
+                    self._waiters.remove(token)
+                except ValueError:
+                    pass
 
-                rescheduled = True
-            else:
-                success = True
-        else:
-            success = True
+        success = False
+
+        try:
+            success = yield from event.__await__()
+        finally:
+            if not success:
+                if event.cancelled():
+                    try:
+                        self._waiters.remove(token)
+                    except ValueError:
+                        pass
 
         if success:
-            if token is not None:
-                self.__wakeup(token[3])
-            else:
-                self.__wakeup()
-
-        if not rescheduled:
-            yield from checkpoint().__await__()
+            self._wakeup(token[3])
 
         return success
 
-    def wait(self, /, timeout=None):
-        token = None
-        rescheduled = False
+    def wait(self, /, timeout: float | None = None) -> bool:
+        """..."""
 
-        if (marker := self.__is_unset.get(None)) is not None:
-            self.__waiters.append(
-                token := [
-                    event := GreenEvent(),
-                    marker,
-                    self.__timer(),
-                    None,
-                ]
-            )
-
-            if marker is self.__is_unset.get(None):
-                success = False
-
-                try:
-                    success = event.wait(timeout)
-                finally:
-                    if not success:
-                        try:
-                            self.__waiters.remove(token)
-                        except ValueError:
-                            pass
-
-                rescheduled = True
-            else:
-                success = True
-        else:
-            success = True
-
-        if success:
-            if token is not None:
-                self.__wakeup(token[3])
-            else:
-                self.__wakeup()
-
-        if not rescheduled:
+        if not self._is_unset:
             green_checkpoint()
 
+            self._wakeup()
+
+            return True
+
+        self._waiters.append(
+            token := [
+                event := create_green_event(locking=_USE_ONCELOCK_FORCED),
+                marker := self._is_unset.get(default_factory=object),
+                self._timer(),
+                None,
+            ]
+        )
+
+        if self._is_unset.get(None) is not marker:
+            if event.set():
+                try:
+                    self._waiters.remove(token)
+                except ValueError:
+                    pass
+
+        success = False
+
+        try:
+            success = event.wait(timeout)
+        finally:
+            if not success:
+                if event.cancelled():
+                    try:
+                        self._waiters.remove(token)
+                    except ValueError:
+                        pass
+
+        if success:
+            self._wakeup(token[3])
+
         return success
 
-    def clear(self, /):
-        self.__is_unset.set()
+    def clear(self, /) -> None:
+        """..."""
 
-    def set(self, /):
-        self.__is_unset.clear()
-        self.__wakeup()
+        self._is_unset.set()
 
-    def is_set(self, /):
-        return not self.__is_unset
+    def set(self, /) -> None:
+        """..."""
 
-    def __wakeup(self, /, deadline=None):
-        waiters = self.__waiters
-        is_unset = self.__is_unset
+        self._is_unset.clear()
+        self._wakeup()
+
+    @copies(Event.is_set)
+    def is_set(self, /) -> bool:
+        """
+        Return :data:`True` if the event is set.
+
+        Example:
+            >>> event = REvent()
+            >>> event.is_set()
+            False
+            >>> event.set()
+            >>> event.is_set()
+            True
+            >>> event.clear()
+            >>> event.is_set()
+            False
+        """
+
+        return Event.is_set(self)
+
+    def _wakeup(self, /, deadline: float | None = None) -> None:
+        waiters = self._waiters
 
         while waiters:
             try:
@@ -280,186 +485,303 @@ class REvent:
                 event, marker, time, _ = token
 
                 if deadline is None:
-                    deadline = self.__timer()
+                    deadline = self._timer()
 
-                if time <= deadline and marker is not is_unset.get(None):
-                    token[3] = deadline
+                if time > deadline:
+                    break
 
-                    event.set()
+                if self._is_unset.get(None) is marker:
+                    break
 
-                    try:
-                        waiters.remove(token)
-                    except ValueError:
-                        pass
-                else:
+                token[3] = deadline
+
+                remove = event.set()
+
+                try:
+                    if remove or waiters[0] is token:
+                        if _USE_ONCELOCK_FORCED:
+                            ThreadOnceLock.acquire(event)
+                            try:
+                                if waiters[0] is token:
+                                    waiters.remove(token)
+                            finally:
+                                ThreadOnceLock.release(event)
+                        else:
+                            waiters.remove(token)
+                except ValueError:  # waiters does not contain token
+                    continue
+                except IndexError:  # waiters is empty
                     break
 
     @property
-    def waiting(self, /):
-        return len(self.__waiters)
+    @copies(Event.waiting.fget)
+    def waiting(self, /) -> int:
+        """
+        The current number of tasks waiting for the event.
+
+        It represents the length of the waiting queue and thus changes
+        immediately.
+        """
+
+        return Event.waiting.fget(self)
 
 
 class CountdownEvent:
+    """..."""
+
     __slots__ = (
-        "__markers",
-        "__timer",
-        "__waiters",
         "__weakref__",
+        "_initial_value",
+        "_is_unset",
+        "_timer",
+        "_waiters",
     )
 
-    def __new__(cls, /, value=None):
-        self = super().__new__(cls)
+    def __new__(cls, /, initial_value: int | DefaultType = DEFAULT) -> Self:
+        """..."""
 
-        if value is None:
-            value = 0
-        elif value < 0:
-            msg = "value must be >= 0"
+        if initial_value is DEFAULT:
+            initial_value = 0
+        elif initial_value < 0:
+            msg = "initial_value must be >= 0"
             raise ValueError(msg)
 
-        self.__waiters = deque()
-        self.__markers = [object()] * value
+        self = object.__new__(cls)
 
-        self.__timer = count().__next__
+        self._initial_value = initial_value
+
+        self._is_unset = [object()] * initial_value
+        self._timer = count().__next__
+        self._waiters = lazydeque()
 
         return self
 
-    def __getnewargs__(self, /):
-        if value := len(self.__markers):
-            args = (value,)
+    def __getnewargs__(self, /) -> tuple[Any, ...]:
+        """
+        Returns arguments that can be used to create new instances with the
+        same initial values.
+
+        Used by:
+
+        * The :mod:`pickle` module for pickling.
+        * The :mod:`copy` module for copying.
+
+        The current state does not affect the arguments.
+
+        Example:
+            >>> orig = CountdownEvent(1)
+            >>> orig.initial_value
+            1
+            >>> copy = CountdownEvent(*orig.__getnewargs__())
+            >>> copy.initial_value
+            1
+        """
+
+        initial_value = self._initial_value
+
+        if initial_value != 0:
+            return (initial_value,)
+
+        return ()
+
+    def __getstate__(self, /) -> None:
+        """
+        Disables the use of internal state for pickling and copying.
+        """
+
+        return None
+
+    def __copy__(self, /) -> Self:
+        """..."""
+
+        return self.__class__(self._initial_value)
+
+    def __repr__(self, /) -> str:
+        """..."""
+
+        cls = self.__class__
+        cls_repr = f"{cls.__module__}.{cls.__qualname__}"
+
+        initial_value = self._initial_value
+
+        if initial_value == 0:
+            object_repr = f"{cls_repr}()"
         else:
-            args = ()
+            object_repr = f"{cls_repr}({initial_value!r})"
 
-        return args
+        value = len(self._is_unset)
 
-    def __repr__(self, /):
-        return f"CountdownEvent({len(self.__markers)!r})"
+        if value == 0:
+            extra = f"value={value}"
+        else:
+            extra = f"value={value}, waiting={len(self._waiters)}"
 
-    def __bool__(self, /):
-        return not self.__markers
+        return f"<{object_repr} at {id(self):#x} [{extra}]>"
 
-    def __await__(self, /):
-        token = None
-        rescheduled = False
+    def __bool__(self, /) -> bool:
+        """
+        Returns :data:`True` if the event is set.
 
-        if (marker := self.__get()) is not None:
-            self.__waiters.append(
-                token := [
-                    event := AsyncEvent(),
-                    marker,
-                    self.__timer(),
-                    None,
-                ]
-            )
+        Used by the standard :ref:`truth testing procedure <truth>`.
 
-            if marker is self.__get():
-                success = False
+        Example:
+            >>> done = CountdownEvent()  # event is set
+            >>> bool(done)
+            True
+            >>> done.up()  # event is unset
+            >>> bool(done)
+            False
+            >>> done.down()  # event is set
+            >>> bool(done)
+            True
+        """
 
+        return not self._is_unset
+
+    def __await__(self, /) -> Generator[Any, Any, bool]:
+        """..."""
+
+        if not self._is_unset:
+            yield from async_checkpoint().__await__()
+
+            self._wakeup()
+
+            return True
+
+        self._waiters.append(
+            token := [
+                event := create_async_event(locking=_USE_ONCELOCK_FORCED),
+                marker := self._get(default_factory=object),
+                self._timer(),
+                None,
+            ]
+        )
+
+        if self._get(None) is not marker:
+            if event.set():
                 try:
-                    success = yield from event.__await__()
-                finally:
-                    if not success:
-                        try:
-                            self.__waiters.remove(token)
-                        except ValueError:
-                            pass
+                    self._waiters.remove(token)
+                except ValueError:
+                    pass
 
-                rescheduled = True
-            else:
-                success = True
-        else:
-            success = True
+        success = False
+
+        try:
+            success = yield from event.__await__()
+        finally:
+            if not success:
+                if event.cancelled():
+                    try:
+                        self._waiters.remove(token)
+                    except ValueError:
+                        pass
 
         if success:
-            if token is not None:
-                self.__wakeup(token[3])
-            else:
-                self.__wakeup()
-
-        if not rescheduled:
-            yield from checkpoint().__await__()
+            self._wakeup(token[3])
 
         return success
 
-    def wait(self, /, timeout=None):
-        token = None
-        rescheduled = False
+    def wait(self, /, timeout: float | None = None) -> bool:
+        """..."""
 
-        if (marker := self.__get()) is not None:
-            self.__waiters.append(
-                token := [
-                    event := GreenEvent(),
-                    marker,
-                    self.__timer(),
-                    None,
-                ]
-            )
-
-            if marker is self.__get():
-                success = False
-
-                try:
-                    success = event.wait(timeout)
-                finally:
-                    if not success:
-                        try:
-                            self.__waiters.remove(token)
-                        except ValueError:
-                            pass
-
-                rescheduled = True
-            else:
-                success = True
-        else:
-            success = True
-
-        if success:
-            if token is not None:
-                self.__wakeup(token[3])
-            else:
-                self.__wakeup()
-
-        if not rescheduled:
+        if not self._is_unset:
             green_checkpoint()
 
+            self._wakeup()
+
+            return True
+
+        self._waiters.append(
+            token := [
+                event := create_green_event(locking=_USE_ONCELOCK_FORCED),
+                marker := self._get(default_factory=object),
+                self._timer(),
+                None,
+            ]
+        )
+
+        if self._get(None) is not marker:
+            if event.set():
+                try:
+                    self._waiters.remove(token)
+                except ValueError:
+                    pass
+
+        success = False
+
+        try:
+            success = event.wait(timeout)
+        finally:
+            if not success:
+                if event.cancelled():
+                    try:
+                        self._waiters.remove(token)
+                    except ValueError:
+                        pass
+
+        if success:
+            self._wakeup(token[3])
+
         return success
 
-    def up(self, /, count=1):
+    def up(self, /, count: int = 1) -> None:
+        """..."""
+
         if count == 1:
-            self.__markers.append(object())
+            self._is_unset.append(object())
         else:
-            self.__markers.extend([object()] * count)
+            self._is_unset.extend([object()] * count)
 
-    def down(self, /):
+    def down(self, /) -> None:
+        """..."""
+
         try:
-            self.__markers.pop()
+            self._is_unset.pop()
         except IndexError:
-            success = False
-        else:
-            success = True
-
-        if not success:
             msg = "down() called too many times"
-            raise RuntimeError(msg)
+            raise RuntimeError(msg) from None
 
-        self.__wakeup()
+        self._wakeup()
 
-    def clear(self, /):
-        self.__markers.clear()
-        self.__wakeup()
+    def clear(self, /) -> None:
+        """..."""
 
-    def __get(self, /):
-        if markers := self.__markers:
+        self._is_unset.clear()
+        self._wakeup()
+
+    @overload
+    def _get(
+        self,
+        /,
+        default: object = MISSING,
+        *,
+        default_factory: MissingType = MISSING,
+    ) -> object: ...
+    @overload
+    def _get(
+        self,
+        /,
+        default: MissingType = MISSING,
+        *,
+        default_factory: Callable[[], object],
+    ) -> object: ...
+    def _get(self, /, default=MISSING, *, default_factory=MISSING):
+        if self._is_unset:
             try:
-                marker = markers[0]
+                return self._is_unset[0]
             except IndexError:
-                marker = None
-        else:
-            marker = None
+                pass
 
-        return marker
+        if default is not MISSING:
+            return default
 
-    def __wakeup(self, /, deadline=None):
-        waiters = self.__waiters
+        if default_factory is not MISSING:
+            return default_factory()
+
+        raise LookupError(self)
+
+    def _wakeup(self, /, deadline: float | None = None) -> None:
+        waiters = self._waiters
 
         while waiters:
             try:
@@ -470,24 +792,57 @@ class CountdownEvent:
                 event, marker, time, _ = token
 
                 if deadline is None:
-                    deadline = self.__timer()
+                    deadline = self._timer()
 
-                if time <= deadline and marker is not self.__get():
-                    token[3] = deadline
+                if time > deadline:
+                    break
 
-                    event.set()
+                if self._get(None) is marker:
+                    break
 
-                    try:
-                        waiters.remove(token)
-                    except ValueError:
-                        pass
-                else:
+                token[3] = deadline
+
+                remove = event.set()
+
+                try:
+                    if remove or waiters[0] is token:
+                        if _USE_ONCELOCK_FORCED:
+                            ThreadOnceLock.acquire(event)
+                            try:
+                                if waiters[0] is token:
+                                    waiters.remove(token)
+                            finally:
+                                ThreadOnceLock.release(event)
+                        else:
+                            waiters.remove(token)
+                except ValueError:  # waiters does not contain token
+                    continue
+                except IndexError:  # waiters is empty
                     break
 
     @property
-    def waiting(self, /):
-        return len(self.__waiters)
+    def initial_value(self, /) -> int:
+        """
+        The initial number of :meth:`down` calls required to set the event.
+        """
+
+        return self._initial_value
 
     @property
-    def value(self, /):
-        return len(self.__markers)
+    def value(self, /) -> int:
+        """
+        The current number of :meth:`down` calls remaining to set the event.
+        """
+
+        return len(self._is_unset)
+
+    @property
+    def waiting(self, /) -> int:
+        """
+        The current number of tasks waiting for the event.
+
+        It represents the length of the waiting queue and thus changes
+        immediately.
+        """
+
+        return len(self._waiters)

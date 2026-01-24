@@ -74,6 +74,29 @@ class LkeapClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def GetEmbedding(self, request):
+        r"""This API is used to call the text representation model to convert text into a vector represented by numbers, which can be used in scenarios such as text retrieval, information recommendation, and knowledge mining. There is a single-account call limit control for this API. If you need to increase the concurrency limit, please contact us (https://cloud.tencent.com/act/event/Online_service).
+
+        :param request: Request instance for GetEmbedding.
+        :type request: :class:`tencentcloud.lkeap.v20240522.models.GetEmbeddingRequest`
+        :rtype: :class:`tencentcloud.lkeap.v20240522.models.GetEmbeddingResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("GetEmbedding", params, headers=headers)
+            response = json.loads(body)
+            model = models.GetEmbeddingResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def GetReconstructDocumentResult(self, request):
         r"""This is an asynchronous API for querying results, which is used to obtain the result of document parsing.
 
@@ -137,6 +160,24 @@ class LkeapClient(AbstractClient):
             model = models.QueryRewriteResponse()
             model._deserialize(response["Response"])
             return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ReconstructDocumentSSE(self, request):
+        r"""This API is used for quasi-real-time document parsing, using HTTP SSE protocol for communication.
+
+        :param request: Request instance for ReconstructDocumentSSE.
+        :type request: :class:`tencentcloud.lkeap.v20240522.models.ReconstructDocumentSSERequest`
+        :rtype: :class:`tencentcloud.lkeap.v20240522.models.ReconstructDocumentSSEResponse`
+
+        """
+        try:
+            params = request._serialize()
+            return self._call_and_deserialize("ReconstructDocumentSSE", params, models.ReconstructDocumentSSEResponse, headers=request.headers)
         except Exception as e:
             if isinstance(e, TencentCloudSDKException):
                 raise

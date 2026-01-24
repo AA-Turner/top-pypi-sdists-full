@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pprint import pformat
-from typing import Any, Dict, Optional, Sequence, Type, Union
+from typing import Any, Sequence, Type
 
 import numpy as np
 
@@ -28,7 +28,7 @@ __all__ = [
 
 DEFAULT_METRIC_NAME = "WQL"
 
-AVAILABLE_METRICS: Dict[str, Type[TimeSeriesScorer]] = {
+AVAILABLE_METRICS: dict[str, Type[TimeSeriesScorer]] = {
     "MASE": MASE,
     "MAPE": MAPE,
     "SMAPE": SMAPE,
@@ -48,22 +48,22 @@ DEPRECATED_METRICS = {
 }
 
 # Experimental metrics that are not yet user facing
-EXPERIMENTAL_METRICS: Dict[str, Type[TimeSeriesScorer]] = {
+EXPERIMENTAL_METRICS: dict[str, Type[TimeSeriesScorer]] = {
     "WCD": WCD,
 }
 
 
 def check_get_evaluation_metric(
-    eval_metric: Union[str, TimeSeriesScorer, Type[TimeSeriesScorer], None],
+    eval_metric: str | TimeSeriesScorer | Type[TimeSeriesScorer] | None,
     prediction_length: int,
-    seasonal_period: Optional[int] = None,
-    horizon_weight: Optional[Sequence[float] | np.ndarray] = None,
+    seasonal_period: int | None = None,
+    horizon_weight: Sequence[float] | np.ndarray | None = None,
 ) -> TimeSeriesScorer:
     """Factory method for TimeSeriesScorer objects.
 
     Returns
     -------
-    scorer :
+    scorer
         A `TimeSeriesScorer` object based on the provided `eval_metric`.
 
         `scorer.prediction_length` is always set to the `prediction_length` provided to this method.
@@ -75,7 +75,7 @@ def check_get_evaluation_metric(
         value of `horizon_weight` is kept.
     """
     scorer: TimeSeriesScorer
-    metric_kwargs: Dict[str, Any] = dict(
+    metric_kwargs: dict[str, Any] = dict(
         prediction_length=prediction_length, seasonal_period=seasonal_period, horizon_weight=horizon_weight
     )
     if isinstance(eval_metric, TimeSeriesScorer):

@@ -36,6 +36,26 @@ from datarobot.models.types import Schedule
 from datarobot.utils import from_api, to_api, underscorize
 from datarobot.utils.waiters import wait_for_async_resolution
 
+
+def _is_not_null(val: Any) -> bool:
+    """Check if a value is not null (None, NaN, NaT).
+
+    This helper safely handles both scalar and non-scalar types,
+    unlike pd.isna() which returns an array for list inputs.
+    """
+    if val is None:
+        return False
+    if isinstance(val, (list, dict)):
+        return True
+    try:
+        result = pd.isna(val)
+        if isinstance(result, bool):
+            return not result
+        return True
+    except (TypeError, ValueError):
+        return True
+
+
 if TYPE_CHECKING:
     from datarobot._compat import TypedDict
 
@@ -147,36 +167,30 @@ class CustomMetric(APIObject):
     """
 
     _path = "deployments/{}/customMetrics/"
-    _categories = t.Dict(
-        {
-            t.Key("directionality"): t.String,
-            t.Key("value"): t.String,
-            t.Key("baseline_count", optional=True): t.Or(t.Int, t.Null),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("units"): t.String(),
-            t.Key("baseline_values", optional=True): t.Or(
-                t.List(t.Dict().allow_extra("*")), t.Null
-            ),
-            t.Key("is_model_specific"): t.Bool(),
-            t.Key("type"): t.String(),
-            t.Key("directionality", optional=True): t.Or(t.String(), t.Null),
-            t.Key("time_step"): t.String(),
-            t.Key("description", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-            t.Key("association_id", optional=True): t.Dict().allow_extra("*"),
-            t.Key("value", optional=True): t.Dict().allow_extra("*"),
-            t.Key("sample_count", optional=True): t.Dict().allow_extra("*"),
-            t.Key("timestamp", optional=True): t.Dict().allow_extra("*"),
-            t.Key("batch", optional=True): t.Dict().allow_extra("*"),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-            t.Key("is_geospatial", optional=True): t.Or(t.Bool(), t.Null()),
-            t.Key("geospatial_segment_attribute", optional=True): t.Or(t.String(), t.Null()),
-        }
-    ).allow_extra("*")
+    _categories = t.Dict({
+        t.Key("directionality"): t.String,
+        t.Key("value"): t.String,
+        t.Key("baseline_count", optional=True): t.Or(t.Int, t.Null),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("units"): t.String(),
+        t.Key("baseline_values", optional=True): t.Or(t.List(t.Dict().allow_extra("*")), t.Null),
+        t.Key("is_model_specific"): t.Bool(),
+        t.Key("type"): t.String(),
+        t.Key("directionality", optional=True): t.Or(t.String(), t.Null),
+        t.Key("time_step"): t.String(),
+        t.Key("description", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+        t.Key("association_id", optional=True): t.Dict().allow_extra("*"),
+        t.Key("value", optional=True): t.Dict().allow_extra("*"),
+        t.Key("sample_count", optional=True): t.Dict().allow_extra("*"),
+        t.Key("timestamp", optional=True): t.Dict().allow_extra("*"),
+        t.Key("batch", optional=True): t.Dict().allow_extra("*"),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+        t.Key("is_geospatial", optional=True): t.Or(t.Bool(), t.Null()),
+        t.Key("geospatial_segment_attribute", optional=True): t.Or(t.String(), t.Null()),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -636,9 +650,7 @@ class CustomMetric(APIObject):
 
         """
         if not isinstance(data, (list, pd.DataFrame)):
-            raise ValueError(
-                "data should be either a list of dict-like objects or a pandas.DataFrame"
-            )
+            raise ValueError("data should be either a list of dict-like objects or a pandas.DataFrame")
 
         if isinstance(data, pd.DataFrame):
             data = data.to_dict(orient="records")
@@ -659,13 +671,13 @@ class CustomMetric(APIObject):
             if "batch" in row:
                 bucket["batch"] = row["batch"]
 
-            if "association_id" in row:
+            if "association_id" in row and _is_not_null(row["association_id"]):
                 bucket["associationId"] = row["association_id"]
-            if "segments" in row:
+            if "segments" in row and _is_not_null(row["segments"]):
                 bucket["segments"] = row["segments"]
-            if "geospatial_coordinate" in row:
+            if "geospatial_coordinate" in row and _is_not_null(row["geospatial_coordinate"]):
                 bucket["geospatialCoordinate"] = row["geospatial_coordinate"]
-            if "metadata" in row:
+            if "metadata" in row and _is_not_null(row["metadata"]):
                 bucket["metadata"] = row["metadata"]
 
             buckets.append(bucket)
@@ -1085,9 +1097,7 @@ class CustomMetric(APIObject):
             raise ValueError("Deployment ID is required to get custom metric values over time.")
 
         if not model_package_id and not model_id:
-            raise ValueError(
-                "For batch metrics either the modelPackageId or the modelId must be passed."
-            )
+            raise ValueError("For batch metrics either the modelPackageId or the modelId must be passed.")
 
         return CustomMetricValuesOverBatch.get(
             custom_metric_id=self.id,
@@ -1149,9 +1159,7 @@ class CustomMetric(APIObject):
             raise ValueError("Deployment ID is required to get custom metric values over time.")
 
         if not model_package_id and not model_id:
-            raise ValueError(
-                "For batch metrics either the modelPackageId or the modelId must be passed."
-            )
+            raise ValueError("For batch metrics either the modelPackageId or the modelId must be passed.")
 
         return CustomMetricBatchSummary.get(
             custom_metric_id=self.id,
@@ -1186,41 +1194,31 @@ class CustomMetricValuesOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/customMetrics/{}/valuesOverTime/"
-    _period = t.Dict(
-        {
+    _period = t.Dict({
+        t.Key("start"): t.String >> dateutil.parser.parse,
+        t.Key("end"): t.String >> dateutil.parser.parse,
+    })
+    _categories = t.Dict({
+        t.Key("category_name"): t.String,
+        t.Key("count"): t.Int,
+    }).allow_extra("*")
+    _bucket = t.Dict({
+        t.Key("period"): t.Or(_period, t.Null),
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("sample_size", optional=True): t.Or(t.Int, t.Null),
+        t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("buckets"): t.List(_bucket),
+        t.Key("summary"): t.Dict({
             t.Key("start"): t.String >> dateutil.parser.parse,
             t.Key("end"): t.String >> dateutil.parser.parse,
-        }
-    )
-    _categories = t.Dict(
-        {
-            t.Key("category_name"): t.String,
-            t.Key("count"): t.Int,
-        }
-    ).allow_extra("*")
-    _bucket = t.Dict(
-        {
-            t.Key("period"): t.Or(_period, t.Null),
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("sample_size", optional=True): t.Or(t.Int, t.Null),
-            t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("buckets"): t.List(_bucket),
-            t.Key("summary"): t.Dict(
-                {
-                    t.Key("start"): t.String >> dateutil.parser.parse,
-                    t.Key("end"): t.String >> dateutil.parser.parse,
-                }
-            ),
-            t.Key("metric"): t.Dict().allow_extra("*"),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.String(),
-        }
-    ).allow_extra("*")
+        }),
+        t.Key("metric"): t.Dict().allow_extra("*"),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.String(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -1310,11 +1308,7 @@ class CustomMetricValuesOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         bucket_values: Dict
         """
         if self.buckets:
-            return {
-                bucket["period"]["start"]: bucket["value"]
-                for bucket in self.buckets
-                if bucket.get("period")
-            }
+            return {bucket["period"]["start"]: bucket["value"] for bucket in self.buckets if bucket.get("period")}
         return {}
 
     @property
@@ -1326,11 +1320,7 @@ class CustomMetricValuesOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         bucket_sample_sizes: Dict
         """
         if self.buckets:
-            return {
-                bucket["period"]["start"]: bucket["sample_size"]
-                for bucket in self.buckets
-                if bucket.get("period")
-            }
+            return {bucket["period"]["start"]: bucket["sample_size"] for bucket in self.buckets if bucket.get("period")}
         return {}
 
     def get_buckets_as_dataframe(self) -> pd.DataFrame:
@@ -1343,14 +1333,12 @@ class CustomMetricValuesOverTime(APIObject, MonitoringDataQueryBuilderMixin):
         if self.buckets:
             rows = []
             for bucket in self.buckets:
-                rows.append(
-                    {
-                        "start": bucket["period"]["start"],
-                        "end": bucket["period"]["end"],
-                        "value": bucket["value"],
-                        "sample_size": bucket["sample_size"],
-                    }
-                )
+                rows.append({
+                    "start": bucket["period"]["start"],
+                    "end": bucket["period"]["end"],
+                    "value": bucket["value"],
+                    "sample_size": bucket["sample_size"],
+                })
             return pd.DataFrame(rows)
         return pd.DataFrame()
 
@@ -1377,30 +1365,24 @@ class CustomMetricValuesOverSpace(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/customMetrics/{}/valuesOverSpace/"
-    _categories = t.Dict(
-        {
-            t.Key("category_name"): t.String,
-            t.Key("count"): t.Int,
-        }
-    ).allow_extra("*")
-    _bucket = t.Dict(
-        {
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("sample_size", optional=True): t.Or(t.Int, t.Null),
-            t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-            t.Key("hexagon"): t.String(),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("buckets"): t.List(_bucket),
-            t.Key("metric"): t.Dict().allow_extra("*"),
-            t.Key("summary"): t.Dict().allow_extra("*"),
-            t.Key("model_id", optional=True): t.Or(t.String(), t.Null()),
-            t.Key("model_package_id", optional=True): t.Or(t.String(), t.Null()),
-        }
-    ).allow_extra("*")
+    _categories = t.Dict({
+        t.Key("category_name"): t.String,
+        t.Key("count"): t.Int,
+    }).allow_extra("*")
+    _bucket = t.Dict({
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("sample_size", optional=True): t.Or(t.Int, t.Null),
+        t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+        t.Key("hexagon"): t.String(),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("buckets"): t.List(_bucket),
+        t.Key("metric"): t.Dict().allow_extra("*"),
+        t.Key("summary"): t.Dict().allow_extra("*"),
+        t.Key("model_id", optional=True): t.Or(t.String(), t.Null()),
+        t.Key("model_package_id", optional=True): t.Or(t.String(), t.Null()),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -1476,39 +1458,31 @@ class CustomMetricSummary(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/customMetrics/{}/summary/"
-    _period = t.Dict(
-        {
-            t.Key("start"): t.String >> dateutil.parser.parse,
-            t.Key("end"): t.String >> dateutil.parser.parse,
-        }
-    ).allow_extra("*")
+    _period = t.Dict({
+        t.Key("start"): t.String >> dateutil.parser.parse,
+        t.Key("end"): t.String >> dateutil.parser.parse,
+    }).allow_extra("*")
 
-    _categories = t.Dict(
-        {
-            t.Key("category_name"): t.String,
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("baseline_value", optional=True): t.Or(t.Int, t.Null),
-            t.Key("percent_change", optional=True): t.Or(t.Int, t.Null),
-        }
-    ).allow_extra("*")
-    _metric = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("sample_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("baseline_value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("percent_change", optional=True): t.Or(t.Float, t.Null),
-            t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("period"): _period,
-            t.Key("metric"): _metric,
-        }
-    ).allow_extra("*")
+    _categories = t.Dict({
+        t.Key("category_name"): t.String,
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("baseline_value", optional=True): t.Or(t.Int, t.Null),
+        t.Key("percent_change", optional=True): t.Or(t.Int, t.Null),
+    }).allow_extra("*")
+    _metric = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("sample_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("baseline_value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("percent_change", optional=True): t.Or(t.Float, t.Null),
+        t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("period"): _period,
+        t.Key("metric"): _metric,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -1521,9 +1495,7 @@ class CustomMetricSummary(APIObject, MonitoringDataQueryBuilderMixin):
         self.deployment_id = deployment_id
 
     def __repr__(self) -> str:
-        return "CustomMetricSummary({} - {}: {})".format(
-            self.period.get("start"), self.period.get("end"), self.metric
-        )
+        return "CustomMetricSummary({} - {}: {})".format(self.period.get("start"), self.period.get("end"), self.metric)
 
     @classmethod
     def get(
@@ -1599,37 +1571,29 @@ class CustomMetricValuesOverBatch(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/customMetrics/{}/valuesOverBatch/"
-    _batch = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("created_at"): t.String >> dateutil.parser.parse,
-            t.Key("last_prediction_timestamp", optional=True): t.String >> dateutil.parser.parse,
-        }
-    ).allow_extra("*")
-    _categories = t.Dict(
-        {
-            t.Key("category_name"): t.String,
-            t.Key("count"): t.Int,
-        }
-    ).allow_extra("*")
-    _bucket = t.Dict(
-        {
-            t.Key("batch"): t.Or(_batch),
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("sample_size", optional=True): t.Or(t.Int, t.Null),
-            t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("buckets"): t.List(_bucket),
-            t.Key("metric"): t.Dict().allow_extra("*"),
-            t.Key("segment_attribute", optional=True): t.String(),
-            t.Key("segment_value", optional=True): t.String(),
-        }
-    ).allow_extra("*")
+    _batch = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("created_at"): t.String >> dateutil.parser.parse,
+        t.Key("last_prediction_timestamp", optional=True): t.String >> dateutil.parser.parse,
+    }).allow_extra("*")
+    _categories = t.Dict({
+        t.Key("category_name"): t.String,
+        t.Key("count"): t.Int,
+    }).allow_extra("*")
+    _bucket = t.Dict({
+        t.Key("batch"): t.Or(_batch),
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("sample_size", optional=True): t.Or(t.Int, t.Null),
+        t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("buckets"): t.List(_bucket),
+        t.Key("metric"): t.Dict().allow_extra("*"),
+        t.Key("segment_attribute", optional=True): t.String(),
+        t.Key("segment_value", optional=True): t.String(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -1736,14 +1700,12 @@ class CustomMetricValuesOverBatch(APIObject, MonitoringDataQueryBuilderMixin):
         if self.buckets:
             rows = []
             for bucket in self.buckets:
-                rows.append(
-                    {
-                        "batch_id": bucket["batch"]["id"],
-                        "batch_name": bucket["batch"]["name"],
-                        "value": bucket["value"],
-                        "sample_size": bucket["sample_size"],
-                    }
-                )
+                rows.append({
+                    "batch_id": bucket["batch"]["id"],
+                    "batch_name": bucket["batch"]["name"],
+                    "value": bucket["value"],
+                    "sample_size": bucket["sample_size"],
+                })
             return pd.DataFrame(rows)
         return pd.DataFrame()
 
@@ -1760,31 +1722,25 @@ class CustomMetricBatchSummary(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/customMetrics/{}/batchSummary/"
-    _categories = t.Dict(
-        {
-            t.Key("category_name"): t.String,
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("baseline_value", optional=True): t.Or(t.Int, t.Null),
-            t.Key("percent_change"): t.Or(t.Int, t.Null),
-        }
-    ).allow_extra("*")
-    _metric = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("sample_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("baseline_value", optional=True): t.Or(t.Float, t.Null),
-            t.Key("percent_change", optional=True): t.Or(t.Float, t.Null),
-            t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("metric"): _metric,
-        }
-    ).allow_extra("*")
+    _categories = t.Dict({
+        t.Key("category_name"): t.String,
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("baseline_value", optional=True): t.Or(t.Int, t.Null),
+        t.Key("percent_change"): t.Or(t.Int, t.Null),
+    }).allow_extra("*")
+    _metric = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("sample_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("baseline_value", optional=True): t.Or(t.Float, t.Null),
+        t.Key("percent_change", optional=True): t.Or(t.Float, t.Null),
+        t.Key("unknown_categories_count", optional=True): t.Or(t.Int, t.Null),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("metric"): _metric,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -1854,20 +1810,16 @@ class HostedCustomMetricTemplate(APIObject):
 
     _path = "customMetricsTemplates/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("description"): t.String(),
-            t.Key("custom_metric_metadata"): t.Dict().allow_extra("*"),
-            t.Key("default_environment"): t.Dict().allow_extra("*"),
-            t.Key("items"): t.List(t.Dict().allow_extra("*")),
-            t.Key("template_metric_type"): t.String(),
-            t.Key("default_resource_bundle_id", optional=True, default=None): t.Or(
-                t.Null, t.String()
-            ),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("description"): t.String(),
+        t.Key("custom_metric_metadata"): t.Dict().allow_extra("*"),
+        t.Key("default_environment"): t.Dict().allow_extra("*"),
+        t.Key("items"): t.List(t.Dict().allow_extra("*")),
+        t.Key("template_metric_type"): t.String(),
+        t.Key("default_resource_bundle_id", optional=True, default=None): t.Or(t.Null, t.String()),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -2024,100 +1976,76 @@ class HostedCustomMetric(APIObject):
     Hosted custom metric.
     """
 
-    _schedule = t.Dict(
-        {
-            t.Key("hour"): t.List(t.Or(t.String(), t.Int())),
-            t.Key("minute"): t.List(t.Or(t.String(), t.Int())),
-            t.Key("day_of_week"): t.List(t.Or(t.String(), t.Int())),
-            t.Key("day_of_month"): t.List(t.Or(t.String(), t.Int())),
-            t.Key("month"): t.List(t.Or(t.String(), t.Int())),
-        }
-    ).allow_extra("*")
-    _parameter_overrides = t.Dict(
-        {
-            t.Key("field_name"): t.String(),
-            t.Key("value", optional=True): t.Or(t.String(), t.Int(), t.Float(), t.Bool(), t.Null()),
-            t.Key("type"): t.String(),
-        }
-    ).allow_extra("*")
-    _baseline_values = t.Dict(
-        {
-            t.Key("value"): t.Float,
-        }
-    ).allow_extra("*")
-    _timestamp = t.Dict(
-        {
-            t.Key("column_name"): t.String(),
-            t.Key("time_format", optional=True): t.String(),
-        }
-    ).allow_extra("*")
-    _value = t.Dict(
-        {
-            t.Key("column_name"): t.String(),
-        }
-    ).allow_extra("*")
-    _sample_count = t.Dict(
-        {
-            t.Key("column_name"): t.String(),
-        }
-    ).allow_extra("*")
-    _batch = t.Dict(
-        {
-            t.Key("column_name"): t.String(),
-        }
-    ).allow_extra("*")
-    _deployment = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("created_at", optional=True): t.String(),
-            t.Key("creator_first_name", optional=True): t.String(),
-            t.Key("creator_last_name", optional=True): t.String(),
-            t.Key("creator_username", optional=True): t.String(),
-            t.Key("creator_gravatar_hash", optional=True): t.String(),
-        }
-    ).allow_extra("*")
+    _schedule = t.Dict({
+        t.Key("hour"): t.List(t.Or(t.String(), t.Int())),
+        t.Key("minute"): t.List(t.Or(t.String(), t.Int())),
+        t.Key("day_of_week"): t.List(t.Or(t.String(), t.Int())),
+        t.Key("day_of_month"): t.List(t.Or(t.String(), t.Int())),
+        t.Key("month"): t.List(t.Or(t.String(), t.Int())),
+    }).allow_extra("*")
+    _parameter_overrides = t.Dict({
+        t.Key("field_name"): t.String(),
+        t.Key("value", optional=True): t.Or(t.String(), t.Int(), t.Float(), t.Bool(), t.Null()),
+        t.Key("type"): t.String(),
+    }).allow_extra("*")
+    _baseline_values = t.Dict({
+        t.Key("value"): t.Float,
+    }).allow_extra("*")
+    _timestamp = t.Dict({
+        t.Key("column_name"): t.String(),
+        t.Key("time_format", optional=True): t.String(),
+    }).allow_extra("*")
+    _value = t.Dict({
+        t.Key("column_name"): t.String(),
+    }).allow_extra("*")
+    _sample_count = t.Dict({
+        t.Key("column_name"): t.String(),
+    }).allow_extra("*")
+    _batch = t.Dict({
+        t.Key("column_name"): t.String(),
+    }).allow_extra("*")
+    _deployment = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("created_at", optional=True): t.String(),
+        t.Key("creator_first_name", optional=True): t.String(),
+        t.Key("creator_last_name", optional=True): t.String(),
+        t.Key("creator_username", optional=True): t.String(),
+        t.Key("creator_gravatar_hash", optional=True): t.String(),
+    }).allow_extra("*")
 
-    _user = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("username", optional=True): t.String(),
-            t.Key("first_name", optional=True): t.String(),
-            t.Key("last_name", optional=True): t.String(),
-            t.Key("gravatar_hash", optional=True): t.String(),
-        }
-    ).allow_extra("*")
+    _user = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("username", optional=True): t.String(),
+        t.Key("first_name", optional=True): t.String(),
+        t.Key("last_name", optional=True): t.String(),
+        t.Key("gravatar_hash", optional=True): t.String(),
+    }).allow_extra("*")
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("deployment"): _deployment,
-            t.Key("schedule", optional=True): t.Or(_schedule, t.Null()),
-            t.Key("units"): t.String(),
-            t.Key("type"): t.String(),
-            t.Key("is_model_specific"): t.Bool(),
-            t.Key("directionality"): t.String(),
-            t.Key("time_step"): t.String(),
-            t.Key("created_at"): t.String(),
-            t.Key("created_by"): t.Dict().allow_extra("*"),
-            t.Key("name"): t.String(),
-            t.Key(
-                "description",
-                optional=True,
-            ): t.Or(t.String(allow_blank=True), t.Null()),
-            t.Key("baseline_values", optional=True): t.Or(
-                t.List(t.Dict().allow_extra("*")), t.Null()
-            ),
-            t.Key("timestamp", optional=True): t.Or(_timestamp, t.Null()),
-            t.Key("value", optional=True): t.Or(_value, t.Null()),
-            t.Key("sample_count", optional=True): t.Or(_sample_count, t.Null()),
-            t.Key("batch", optional=True): t.Or(_batch, t.Null()),
-            t.Key("parameter_overrides", optional=True): t.Or(
-                t.List(_parameter_overrides), t.Null()
-            ),
-            t.Key("custom_job_id"): t.String(),
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("deployment"): _deployment,
+        t.Key("schedule", optional=True): t.Or(_schedule, t.Null()),
+        t.Key("units"): t.String(),
+        t.Key("type"): t.String(),
+        t.Key("is_model_specific"): t.Bool(),
+        t.Key("directionality"): t.String(),
+        t.Key("time_step"): t.String(),
+        t.Key("created_at"): t.String(),
+        t.Key("created_by"): t.Dict().allow_extra("*"),
+        t.Key("name"): t.String(),
+        t.Key(
+            "description",
+            optional=True,
+        ): t.Or(t.String(allow_blank=True), t.Null()),
+        t.Key("baseline_values", optional=True): t.Or(t.List(t.Dict().allow_extra("*")), t.Null()),
+        t.Key("timestamp", optional=True): t.Or(_timestamp, t.Null()),
+        t.Key("value", optional=True): t.Or(_value, t.Null()),
+        t.Key("sample_count", optional=True): t.Or(_sample_count, t.Null()),
+        t.Key("batch", optional=True): t.Or(_batch, t.Null()),
+        t.Key("parameter_overrides", optional=True): t.Or(t.List(_parameter_overrides), t.Null()),
+        t.Key("custom_job_id"): t.String(),
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -2215,27 +2143,19 @@ class HostedCustomMetric(APIObject):
         self.name = name
         self.custom_job_id = custom_job_id
         self.description = description
-        self.baseline_values = (
-            [MetricBaselineValue(**value) for value in baseline_values] if baseline_values else None
-        )
+        self.baseline_values = [MetricBaselineValue(**value) for value in baseline_values] if baseline_values else None
         self.timestamp = (
-            MetricTimestampSpoofing(
-                column_name=timestamp["column_name"], time_format=timestamp.get("time_format")
-            )
+            MetricTimestampSpoofing(column_name=timestamp["column_name"], time_format=timestamp.get("time_format"))
             if timestamp
             else None
         )
         self.value = ValueField(column_name=value["column_name"]) if value else None
-        self.sample_count = (
-            SampleCountField(column_name=sample_count["column_name"]) if sample_count else None
-        )
+        self.sample_count = SampleCountField(column_name=sample_count["column_name"]) if sample_count else None
         self.batch = BatchField(column_name=batch["column_name"]) if batch else None
         parameter_overrides = self._impute_null_runtime_parameter_values(parameter_overrides)
         self.parameter_overrides = (
             [
-                RuntimeParameterValue(
-                    field_name=param["field_name"], value=param["value"], type=param["type"]
-                )
+                RuntimeParameterValue(field_name=param["field_name"], value=param["value"], type=param["type"])
                 for param in parameter_overrides
             ]
             if parameter_overrides
@@ -2534,30 +2454,26 @@ class HostedCustomMetricBlueprint(APIObject):
     deployment, all the custom metric parameters from the blueprint are automatically copied.
     """
 
-    _categories = t.Dict(
-        {
-            t.Key("directionality"): t.String,
-            t.Key("value"): t.String,
-            t.Key("baseline_count", optional=True): t.Or(t.Int, t.Null),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("directionality"): t.String(),
-            t.Key("units"): t.String(),
-            t.Key("type"): t.String(),
-            t.Key("time_step"): t.String(),
-            t.Key("is_model_specific"): t.Bool(),
-            t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
-            t.Key("custom_job_id"): t.String(),
-            t.Key("created_at"): t.String(),
-            t.Key("updated_at"): t.String(),
-            t.Key("created_by"): t.String(),
-            t.Key("updated_by"): t.String(),
-            t.Key("is_geospatial", optional=True): t.Or(t.Bool, t.Null()),
-        }
-    ).allow_extra("*")
+    _categories = t.Dict({
+        t.Key("directionality"): t.String,
+        t.Key("value"): t.String,
+        t.Key("baseline_count", optional=True): t.Or(t.Int, t.Null),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("directionality"): t.String(),
+        t.Key("units"): t.String(),
+        t.Key("type"): t.String(),
+        t.Key("time_step"): t.String(),
+        t.Key("is_model_specific"): t.Bool(),
+        t.Key("categories", optional=True): t.Or(t.List(_categories), t.Null),
+        t.Key("custom_job_id"): t.String(),
+        t.Key("created_at"): t.String(),
+        t.Key("updated_at"): t.String(),
+        t.Key("created_by"): t.String(),
+        t.Key("updated_by"): t.String(),
+        t.Key("is_geospatial", optional=True): t.Or(t.Bool, t.Null()),
+    }).allow_extra("*")
 
     def __init__(
         self,

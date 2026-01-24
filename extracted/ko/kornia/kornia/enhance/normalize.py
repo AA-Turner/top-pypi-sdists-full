@@ -258,12 +258,20 @@ def denormalize(data: Tensor, mean: Union[Tensor, float], std: Union[Tensor, flo
         mean = torch.as_tensor(mean, device=data.device, dtype=data.dtype)
         std = torch.as_tensor(std, device=data.device, dtype=data.dtype)
 
-    mean = mean[..., None]
-    std = std[..., None]
+    if mean.dim() == 1:
+        mean = mean.view(1, -1, *([1] * (data.dim() - 2)))
+    # If the tensor is >1D (e.g., (B, C)), reshape to (B, C, 1, ...)
+    else:
+        while len(mean.shape) < data.dim():
+            mean = mean.unsqueeze(-1)
 
-    out: Tensor = (data.view(shape[0], shape[1], -1) * std) + mean
+    if std.dim() == 1:
+        std = std.view(1, -1, *([1] * (data.dim() - 2)))
+    else:
+        while len(std.shape) < data.dim():
+            std = std.unsqueeze(-1)
 
-    return out.view(shape)
+    return torch.addcmul(mean, data, std)
 
 
 def normalize_min_max(x: Tensor, min_val: float = 0.0, max_val: float = 1.0, eps: float = 1e-6) -> Tensor:
@@ -309,8 +317,9 @@ def normalize_min_max(x: Tensor, min_val: float = 0.0, max_val: float = 1.0, eps
     shape = x.shape
     B, C = shape[0], shape[1]
 
-    x_min: Tensor = x.view(B, C, -1).min(-1)[0].view(B, C, 1)
-    x_max: Tensor = x.view(B, C, -1).max(-1)[0].view(B, C, 1)
+    x_reshaped = x.view(B, C, -1)
+    x_min = x_reshaped.min(-1, keepdim=True)[0]  # Shape: (B, C, 1)
+    x_max = x_reshaped.max(-1, keepdim=True)[0]  # Shape: (B, C, 1)
 
-    x_out: Tensor = (max_val - min_val) * (x.view(B, C, -1) - x_min) / (x_max - x_min + eps) + min_val
+    x_out = (max_val - min_val) * (x_reshaped - x_min) / (x_max - x_min + eps) + min_val
     return x_out.view(shape)

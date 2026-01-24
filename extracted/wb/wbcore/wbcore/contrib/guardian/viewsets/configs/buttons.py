@@ -2,6 +2,7 @@ from contextlib import suppress
 
 from django.dispatch import receiver
 from rest_framework.reverse import reverse
+
 from wbcore.contrib.guardian.models.mixins import PermissionObjectModelMixin
 from wbcore.contrib.icons.icons import WBIcon
 from wbcore.metadata.configs.buttons import ButtonViewConfig

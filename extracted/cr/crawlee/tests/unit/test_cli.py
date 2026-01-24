@@ -30,6 +30,7 @@ def test_create_interactive(mock_cookiecutter: Mock, monkeypatch: pytest.MonkeyP
             readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
+            readchar.key.ENTER,
         ]
     )
     monkeypatch.setattr(target=readchar, name='readkey', value=lambda: next(mock_input))
@@ -44,9 +45,10 @@ def test_create_interactive(mock_cookiecutter: Mock, monkeypatch: pytest.MonkeyP
             'project_name': 'my_project',
             'package_manager': 'poetry',
             'crawler_type': 'beautifulsoup',
-            'http_client': 'httpx',
+            'http_client': 'impit',
             'enable_apify_integration': False,
             'start_url': 'https://crawlee.dev',
+            'install_project': True,
         },
     )
 
@@ -57,6 +59,7 @@ def test_create_interactive_non_default_template(mock_cookiecutter: Mock, monkey
             *'my_project',
             readchar.key.ENTER,
             readchar.key.DOWN,
+            readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
@@ -76,9 +79,10 @@ def test_create_interactive_non_default_template(mock_cookiecutter: Mock, monkey
             'project_name': 'my_project',
             'package_manager': 'poetry',
             'crawler_type': 'parsel',
-            'http_client': 'httpx',
+            'http_client': 'impit',
             'enable_apify_integration': False,
             'start_url': 'https://crawlee.dev',
+            'install_project': True,
         },
     )
 
@@ -92,12 +96,13 @@ def test_create_non_interactive(mock_cookiecutter: Mock) -> None:
             '--crawler-type',
             'playwright',
             '--http-client',
-            'curl-impersonate',
+            'httpx',
             '--package-manager',
             'pip',
             '--start-url',
             'https://yr.no',
             '--no-apify',
+            '--no-install',
         ],
     )
 
@@ -108,9 +113,10 @@ def test_create_non_interactive(mock_cookiecutter: Mock) -> None:
             'project_name': 'my_project',
             'package_manager': 'pip',
             'crawler_type': 'playwright',
-            'http_client': 'curl-impersonate',
+            'http_client': 'httpx',
             'start_url': 'https://yr.no',
             'enable_apify_integration': False,
+            'install_project': False,
         },
     )
 
@@ -138,12 +144,13 @@ def test_create_existing_folder(
             '--crawler-type',
             'playwright',
             '--http-client',
-            'curl-impersonate',
+            'httpx',
             '--package-manager',
             'pip',
             '--start-url',
             'https://yr.no',
             '--no-apify',
+            '--install',
         ],
     )
     assert 'existing_project already exists' in result.output
@@ -155,9 +162,10 @@ def test_create_existing_folder(
             'project_name': 'my_project',
             'package_manager': 'pip',
             'crawler_type': 'playwright',
-            'http_client': 'curl-impersonate',
+            'http_client': 'httpx',
             'start_url': 'https://yr.no',
             'enable_apify_integration': False,
+            'install_project': True,
         },
     )
 
@@ -170,6 +178,7 @@ def test_create_existing_folder_interactive(
             *'existing_project',
             readchar.key.ENTER,
             *'my_project',
+            readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
@@ -193,9 +202,10 @@ def test_create_existing_folder_interactive(
             'project_name': 'my_project',
             'package_manager': 'poetry',
             'crawler_type': 'playwright',
-            'http_client': 'httpx',
+            'http_client': 'impit',
             'start_url': 'https://crawlee.dev',
             'enable_apify_integration': False,
+            'install_project': True,
         },
     )
 
@@ -210,6 +220,7 @@ def test_create_existing_folder_interactive_multiple_attempts(
             *'existing_project_2',
             readchar.key.ENTER,
             *'my_project',
+            readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
             readchar.key.ENTER,
@@ -234,8 +245,9 @@ def test_create_existing_folder_interactive_multiple_attempts(
             'project_name': 'my_project',
             'package_manager': 'poetry',
             'crawler_type': 'playwright',
-            'http_client': 'httpx',
+            'http_client': 'impit',
             'start_url': 'https://crawlee.dev',
             'enable_apify_integration': False,
+            'install_project': True,
         },
     )

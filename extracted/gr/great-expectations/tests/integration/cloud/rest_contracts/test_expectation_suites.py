@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Callable, Final
 import pact
 import pytest
 
-from great_expectations.data_context import CloudDataContext
 from great_expectations.exceptions import DataContextError
 from tests.integration.cloud.rest_contracts.conftest import (
     EXISTING_ORGANIZATION_ID,
@@ -17,6 +16,7 @@ from tests.integration.cloud.rest_contracts.conftest import (
 if TYPE_CHECKING:
     from requests import Session
 
+    from great_expectations.data_context import CloudDataContext
     from tests.integration.cloud.rest_contracts.conftest import PactBody
 
 
@@ -120,7 +120,7 @@ def test_get_expectation_suite(
     path = pathlib.Path(
         "/",
         "api",
-        "v1",
+        "v2",
         "organizations",
         EXISTING_ORGANIZATION_ID,
         "workspaces",
@@ -160,7 +160,7 @@ def test_get_non_existent_expectation_suite(
     path = pathlib.Path(
         "/",
         "api",
-        "v1",
+        "v2",
         "organizations",
         EXISTING_ORGANIZATION_ID,
         "workspaces",
@@ -201,7 +201,7 @@ def test_get_expectation_suites(
     path = pathlib.Path(
         "/",
         "api",
-        "v1",
+        "v2",
         "organizations",
         EXISTING_ORGANIZATION_ID,
         "workspaces",
@@ -238,7 +238,7 @@ def test_get_expectation_suites(
             request_path=pathlib.Path(
                 "/",
                 "api",
-                "v1",
+                "v2",
                 "organizations",
                 EXISTING_ORGANIZATION_ID,
                 "workspaces",
@@ -281,7 +281,8 @@ def test_post_expectation_suite_request(
             request_path=pathlib.Path(
                 "/",
                 "api",
-                "v1organizations",
+                "v2",
+                "organizations",
                 EXISTING_ORGANIZATION_ID,
                 "workspaces",
                 EXISTING_WORKSPACE_ID,
@@ -324,7 +325,7 @@ def test_put_expectation_suite_request(
             request_path=pathlib.Path(
                 "/",
                 "api",
-                "v1",
+                "v2",
                 "organizations",
                 EXISTING_ORGANIZATION_ID,
                 "workspaces",

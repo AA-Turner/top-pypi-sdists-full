@@ -27,7 +27,7 @@ from .site import Site, SiteState
 from .throttler import Throttler
 from .utils import convert_stream_data
 
-__VERSION__ = "0.8.15"
+__VERSION__ = "0.8.16"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -298,6 +298,12 @@ class Easee:
         for data in stuff:
             await self._sr_callback(data)
 
+    async def _sr_command_response_cb(self, stuff: List[Dict[str, Any]]) -> None:
+        """
+        Signalr command response callback - called from signalr thread, internal use only
+        """
+        _LOGGER.debug("CommandResponse: %s", stuff)
+
     async def _sr_callback(self, stuff: List[Dict[str, Any]]):
         """
         Signalr callback handler - internal use only
@@ -340,6 +346,7 @@ class Easee:
                 self.sr_connection.on_close(self._sr_close_cb)
                 self.sr_connection.on_error(self._sr_error_cb)
                 self.sr_connection.on("ProductUpdate", self._sr_product_update_cb)
+                self.sr_connection.on("CommandResponse", self._sr_command_response_cb)
                 _LOGGER.debug("SR run")
                 await self.sr_connection.run()
             except AuthorizationError as ex:

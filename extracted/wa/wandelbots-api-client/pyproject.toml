@@ -1,6 +1,6 @@
 [project]
 name = "wandelbots_api_client"
-version = "25.8.0"
+version = "25.10.0"
 description = "Wandelbots Python Client: Interact with robots in an easy and intuitive way. "
 authors = [{ name="Copyright (c) 2025 Wandelbots GmbH", email="contact@wandelbots.com" }]
 license = "Apache-2.0"
@@ -30,18 +30,20 @@ dependencies = [
   "pyhumps",
   "pydantic_core",
   "annotated-types",
+  "pydantic[email]",
 ]
 
 [tool.setuptools.package-data]
 wandelbots_api_client = ["py.typed"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = ">=7.2.1"
-tox = ">=3.9.0"
-flake8 = ">=4.0.0"
-types-python-dateutil = ">=2.8.19.14"
-mypy = "1.4.1"
-
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.2.1",
+    "tox>=3.9.0",
+    "flake8>=4.0.0",
+    "types-python-dateutil>=2.8.19.14",
+    "mypy==1.4.1"
+]
 
 [build-system]
 requires = ["setuptools"]

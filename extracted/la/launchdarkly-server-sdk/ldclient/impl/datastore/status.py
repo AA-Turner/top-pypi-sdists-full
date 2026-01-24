@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Protocol
 
 from ldclient.impl.listeners import Listeners
 from ldclient.impl.rwlock import ReadWriteLock
-from ldclient.interfaces import (DataStoreStatus, DataStoreStatusProvider,
-                                 DataStoreUpdateSink)
+from ldclient.interfaces import (
+    DataStoreStatus,
+    DataStoreStatusProvider,
+    DataStoreUpdateSink
+)
 
 if TYPE_CHECKING:
     from ldclient.client import _FeatureStoreClientWrapper

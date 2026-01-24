@@ -46,6 +46,8 @@ from neptune_scale.api.validation import (
     verify_max_length,
     verify_non_empty,
     verify_project_qualified_name,
+    verify_run_id,
+    verify_step,
     verify_type,
     verify_value_between,
 )
@@ -79,7 +81,6 @@ from neptune_scale.sync.operations_repository import (
 )
 from neptune_scale.sync.parameters import (
     MAX_EXPERIMENT_NAME_LENGTH,
-    MAX_RUN_ID_LENGTH,
     OPERATION_REPOSITORY_POLL_SLEEP_TIME,
 )
 from neptune_scale.sync.supervisor import ProcessSupervisor
@@ -181,6 +182,7 @@ class Run(AbstractContextManager):
         enable_console_log_capture: bool = True,
         runtime_namespace: Optional[str] = None,
         source_tracking_config: Optional[SourceTrackingConfig] = SourceTrackingConfig(),
+        inherit_configs: bool = True,
         **kwargs: Any,
     ) -> None:
         """
@@ -215,6 +217,7 @@ class Run(AbstractContextManager):
             runtime_namespace: Attribute path prefix for the captured logs. If not provided, defaults to "runtime".
             source_tracking_config: Change or disable the logging of source code and Git information. To specify what
                 information to log, pass a `SourceTrackingConfig` object. To disable logging, set to `None`.
+            inherit_configs: Whether to inherit configuration settings from the parent run. Defaults to True.
         """
 
         if run_id is None:
@@ -271,16 +274,14 @@ class Run(AbstractContextManager):
 
         mode = mode or os.environ.get(MODE_ENV_NAME, "async")  # type: ignore
 
-        verify_non_empty("run_id", run_id)
-        verify_max_length("run_id", run_id, MAX_RUN_ID_LENGTH)
+        verify_run_id("run_id", run_id)
 
         if experiment_name is not None:
             verify_non_empty("experiment_name", experiment_name)
             verify_max_length("experiment_name", experiment_name, MAX_EXPERIMENT_NAME_LENGTH)
 
         if fork_run_id is not None:
-            verify_non_empty("fork_run_id", fork_run_id)
-            verify_max_length("fork_run_id", fork_run_id, MAX_RUN_ID_LENGTH)
+            verify_run_id("fork_run_id", fork_run_id)
 
         # This flag is used to signal that we're closed or being closed (and most likely waiting for sync), and no
         # new data should be logged.
@@ -399,6 +400,7 @@ class Run(AbstractContextManager):
                 experiment_name=experiment_name,
                 fork_run_id=fork_run_id,
                 fork_step=fork_step,
+                inherit_configs=inherit_configs,
             )
             self._write_source_tracking_attributes(source_tracking_config)
 
@@ -537,6 +539,7 @@ class Run(AbstractContextManager):
         experiment_name: Optional[str],
         fork_run_id: Optional[str],
         fork_step: Optional[Union[int, float]],
+        inherit_configs: bool,
     ) -> None:
         if self._operations_repo is None:
             logger.debug("Run is in mode that doesn't support creating runs.")
@@ -555,6 +558,7 @@ class Run(AbstractContextManager):
             fork_point=fork_point,
             experiment_id=experiment_name,
             creation_time=None if creation_time is None else datetime_to_proto(creation_time),
+            inherit_configs=inherit_configs,
         )
 
         self._operations_repo.save_create_run(create_run)
@@ -1010,7 +1014,7 @@ class Run(AbstractContextManager):
         verify_type("files", files, (dict, type(None)))
 
         if metrics is not None:
-            verify_type("step", step, (float, int, type(None)))
+            verify_step("step", step, optional=True)
             verify_type("metrics", metrics, Metrics)
             verify_type("metrics", metrics.data, dict)
             verify_type("preview", metrics.preview, bool)
@@ -1027,16 +1031,16 @@ class Run(AbstractContextManager):
                 verify_value_between("preview_completion", metrics.preview_completion, 0.0, 1.0)
 
         if string_series is not None:
-            verify_type("step", step, (float, int))
+            verify_step("step", step)
             verify_type("string_series", string_series, dict)
 
         if file_series is not None:
-            verify_type("step", step, (float, int))
+            verify_step("step", step)
             verify_type("file_series", file_series, dict)
 
         if histograms is not None:
+            verify_step("step", step)
             verify_type("histograms", histograms, dict)
-            verify_type("step", step, (float, int))
 
         # Don't log anything after we've been stopped. This allows continuing the training script
         # after a non-recoverable error happened. Note we don't to use self._lock in this check,

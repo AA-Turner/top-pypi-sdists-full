@@ -70,11 +70,11 @@ class JsonHttpClient:
                 await res.aclose()
 
 
-_http_client: JsonHttpClient
+_http_client: JsonHttpClient | None = None
 _loopback_client: JsonHttpClient | None = None
 
 
-async def start_http_client() -> None:
+async def start_http_client() -> JsonHttpClient:
     global _http_client
     _http_client = JsonHttpClient(
         client=httpx.AsyncClient(
@@ -86,15 +86,26 @@ async def start_http_client() -> None:
             ),
         ),
     )
+    return _http_client
 
 
 async def stop_http_client() -> None:
     global _http_client
+    if _http_client is None:
+        return
     await _http_client.client.aclose()
-    del _http_client
+    _http_client = None
 
 
-def get_http_client() -> JsonHttpClient:
+def get_http_client() -> JsonHttpClient | None:
+    global _http_client
+    return _http_client
+
+
+async def ensure_http_client() -> JsonHttpClient:
+    global _http_client
+    if _http_client is None:
+        return await start_http_client()
     return _http_client
 
 
@@ -168,7 +179,7 @@ async def http_request(
     if not path.startswith(("http://", "https://", "/")):
         raise ValueError("path must start with / or http")
 
-    client = client or get_http_client()
+    client = client or (await ensure_http_client())
 
     content = None
     if body is not None:

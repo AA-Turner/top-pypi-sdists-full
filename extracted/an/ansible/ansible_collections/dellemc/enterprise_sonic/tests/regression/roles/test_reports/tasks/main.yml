@@ -1,3 +1,6 @@
+---
+- name: "Report combined action facts"
+  ansible.builtin.include_tasks: all_tasks_log_template.yaml
 - set_fact:
     time: "{{ lookup('pipe', 'date +%H-%M-%S') }}"
     date: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
@@ -5,7 +8,7 @@
 - debug: var=report_dir
 - blockinfile:
     path: "{{ report_dir }}/regression-{{ file_suffix }}.html"
-    block: "{{ lookup('template', 'regression_html_report.j2')}}"
+    block: "{{ lookup('template', 'regression_html_report.j2') }}"
     mode: 00777
     create: true
     marker: ""

@@ -13,7 +13,6 @@
 #include "include/core/SkCanvas.h"
 #include "include/core/SkColor.h"
 #include "include/core/SkDocument.h"
-#include "include/core/SkFlattenable.h"
 #include "include/core/SkFont.h"
 #include "include/core/SkFontStyle.h"
 #include "include/core/SkFontTypes.h"
@@ -29,15 +28,15 @@
 #include "include/core/SkString.h"
 #include "include/core/SkTypes.h"
 #include "include/docs/SkPDFDocument.h"
+#include "include/docs/SkPDFJpegHelpers.h"
 #include "include/effects/SkImageFilters.h"
 #include "include/effects/SkPerlinNoiseShader.h"
 #include "include/private/base/SkDebug.h"
 #include "include/private/base/SkFloatingPoint.h"
 #include "include/private/base/SkTo.h"
 #include "src/base/SkRandom.h"
+#include "src/core/SkImageFilterTypes.h"
 #include "src/core/SkImageFilter_Base.h"
-#include "src/core/SkReadBuffer.h"
-#include "src/core/SkSpecialImage.h"
 #include "src/pdf/SkClusterator.h"
 #include "src/pdf/SkPDFDocumentPriv.h"
 #include "src/pdf/SkPDFFont.h"
@@ -48,6 +47,7 @@
 #include "src/utils/SkFloatToDecimal.h"
 #include "tools/Resources.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <cfloat>
 #include <cmath>
@@ -56,6 +56,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <optional>
 #include <utility>
 
 class SkTypeface;
@@ -104,11 +105,12 @@ static void assert_emit_eq(skiatest::Reporter* reporter,
 // and there is no assert on input data in Debug mode.
 static void test_issue1083() {
     SkDynamicMemoryWStream outStream;
-    auto doc = SkPDF::MakeDocument(&outStream);
+    auto doc = SkPDF::MakeDocument(&outStream, SkPDF::JPEG::MetadataWithCallbacks());
     SkCanvas* canvas = doc->beginPage(100.0f, 100.0f);
 
     uint16_t glyphID = 65000;
-    canvas->drawSimpleText(&glyphID, 2, SkTextEncoding::kGlyphID, 0, 0, SkFont(), SkPaint());
+    SkFont font = ToolUtils::DefaultFont();
+    canvas->drawSimpleText(&glyphID, 2, SkTextEncoding::kGlyphID, 0, 0, font, SkPaint());
 
     doc->close();
 }
@@ -275,33 +277,37 @@ namespace {
 
 class TestImageFilter : public SkImageFilter_Base {
 public:
-    static sk_sp<TestImageFilter> Make(bool visited = false) {
-        return sk_sp<TestImageFilter>(new TestImageFilter(visited));
-    }
+    TestImageFilter() : SkImageFilter_Base(nullptr, 0), fVisited(false) {}
 
     bool visited() const { return fVisited; }
 
-protected:
-    sk_sp<SkSpecialImage> onFilterImage(const Context& ctx, SkIPoint* offset) const override {
+private:
+    Factory getFactory() const override {
+        SK_ABORT("Does not participate in serialization");
+        return nullptr;
+    }
+    const char* getTypeName() const override { return "TestImageFilter"; }
+
+    skif::FilterResult onFilterImage(const skif::Context& ctx) const override {
         fVisited = true;
-        offset->fX = offset->fY = 0;
-        return sk_ref_sp<SkSpecialImage>(ctx.sourceImage());
+        return ctx.source();
     }
 
-private:
-    SK_FLATTENABLE_HOOKS(TestImageFilter)
-    TestImageFilter(bool visited) : INHERITED(nullptr, 0, nullptr), fVisited(visited) {}
+    skif::LayerSpace<SkIRect> onGetInputLayerBounds(
+            const skif::Mapping& mapping,
+            const skif::LayerSpace<SkIRect>& desiredOutput,
+            std::optional<skif::LayerSpace<SkIRect>> contentBounds) const override {
+        return desiredOutput;
+    }
+
+    std::optional<skif::LayerSpace<SkIRect>> onGetOutputLayerBounds(
+            const skif::Mapping& mapping,
+            std::optional<skif::LayerSpace<SkIRect>> contentBounds) const override {
+        return contentBounds;
+    }
 
     mutable bool fVisited;
-
-    using INHERITED = SkImageFilter_Base;
 };
-
-sk_sp<SkFlattenable> TestImageFilter::CreateProc(SkReadBuffer& buffer) {
-    SK_IMAGEFILTER_UNFLATTEN_COMMON(common, 0);
-    bool visited = buffer.readBool();
-    return TestImageFilter::Make(visited);
-}
 
 }  // namespace
 
@@ -310,10 +316,10 @@ sk_sp<SkFlattenable> TestImageFilter::CreateProc(SkReadBuffer& buffer) {
 DEF_TEST(SkPDF_ImageFilter, reporter) {
     REQUIRE_PDF_DOCUMENT(SkPDF_ImageFilter, reporter);
     SkDynamicMemoryWStream stream;
-    auto doc = SkPDF::MakeDocument(&stream);
+    auto doc = SkPDF::MakeDocument(&stream, SkPDF::JPEG::MetadataWithCallbacks());
     SkCanvas* canvas = doc->beginPage(100.0f, 100.0f);
 
-    sk_sp<TestImageFilter> filter(TestImageFilter::Make());
+    sk_sp<TestImageFilter> filter(new TestImageFilter());
 
     // Filter just created; should be unvisited.
     REPORTER_ASSERT(reporter, !filter->visited());
@@ -333,14 +339,14 @@ DEF_TEST(SkPDF_FontCanEmbedTypeface, reporter) {
     SkPDFDocument doc(&nullWStream, SkPDF::Metadata());
 
     const char resource[] = "fonts/Roboto2-Regular_NoEmbed.ttf";
-    sk_sp<SkTypeface> noEmbedTypeface(MakeResourceAsTypeface(resource));
+    sk_sp<SkTypeface> noEmbedTypeface(ToolUtils::CreateTypefaceFromResource(resource));
     if (noEmbedTypeface) {
         REPORTER_ASSERT(reporter,
-                        !SkPDFFont::CanEmbedTypeface(noEmbedTypeface.get(), &doc));
+                        !SkPDFFont::CanEmbedTypeface(*noEmbedTypeface, &doc));
     }
-    sk_sp<SkTypeface> portableTypeface(ToolUtils::create_portable_typeface(nullptr, SkFontStyle()));
+    sk_sp<SkTypeface> portableTypeface(ToolUtils::DefaultTypeface());
     REPORTER_ASSERT(reporter,
-                    SkPDFFont::CanEmbedTypeface(portableTypeface.get(), &doc));
+                    SkPDFFont::CanEmbedTypeface(*portableTypeface, &doc));
 }
 
 
@@ -365,7 +371,7 @@ static void check_pdf_scalar_serialization(
         ERRORF(reporter, "unscannable result: %s", floatString);
         return;
     }
-    if (std::isfinite(inputFloat) && roundTripFloat != inputFloat) {
+    if (SkIsFinite(inputFloat) && roundTripFloat != inputFloat) {
         ERRORF(reporter, "roundTripFloat (%.9g) != inputFloat (%.9g)",
                roundTripFloat, inputFloat);
     }
@@ -417,7 +423,7 @@ static sktext::GlyphRun make_run(size_t len, const SkGlyphID* glyphs, SkPoint* p
 }
 
 DEF_TEST(SkPDF_Clusterator, reporter) {
-    SkFont font;
+    SkFont font = ToolUtils::DefaultFont();
     {
         constexpr unsigned len = 11;
         const uint32_t clusters[len] = { 3, 2, 2, 1, 0, 4, 4, 7, 6, 6, 5 };
@@ -466,7 +472,7 @@ DEF_TEST(SkPDF_Clusterator, reporter) {
 
 DEF_TEST(fuzz875632f0, reporter) {
     SkNullWStream stream;
-    auto doc = SkPDF::MakeDocument(&stream);
+    auto doc = SkPDF::MakeDocument(&stream, SkPDF::JPEG::MetadataWithCallbacks());
     REPORTER_ASSERT(reporter, doc);
     SkCanvas* canvas = doc->beginPage(128, 160);
 
@@ -481,7 +487,7 @@ DEF_TEST(fuzz875632f0, reporter) {
 
     SkPaint paint;
     paint.setBlendMode(SkBlendMode::kDarken);
-    paint.setShader(SkPerlinNoiseShader::MakeFractalNoise(0, 0, 2, 0, nullptr));
+    paint.setShader(SkShaders::MakeFractalNoise(0, 0, 2, 0, nullptr));
     paint.setColor4f(SkColor4f{0, 0, 0 ,0});
 
     canvas->drawPath(SkPath(), paint);

@@ -37,6 +37,7 @@ if typing.TYPE_CHECKING:
         ListFieldMethod,
         ParserMethod,
         Subcast,
+        TimeDeltaFieldMethod,
     )
 
     try:
@@ -134,7 +135,7 @@ def _field2method(
             self._errors[parsed_key].extend(error.messages)
         else:
             self._values[parsed_key] = value
-        return typing.cast("typing.Optional[_T]", value)
+        return typing.cast("_T | None", value)
 
     method.__name__ = method_name
     return method
@@ -181,7 +182,7 @@ def _func2method(func: typing.Callable[..., _T], method_name: str) -> typing.Any
             self._errors[parsed_key].extend(messages)
         else:
             self._values[parsed_key] = value
-        return typing.cast("typing.Optional[_T]", value)
+        return typing.cast("_T | None", value)
 
     method.__name__ = method_name
     return method
@@ -345,7 +346,7 @@ class Env:
     datetime: FieldMethod[dt.datetime] = _field2method(ma.fields.DateTime, "datetime")
     date: FieldMethod[dt.date] = _field2method(ma.fields.Date, "date")
     time: FieldMethod[dt.time] = _field2method(ma.fields.Time, "time")
-    timedelta: FieldMethod[dt.timedelta] = _field2method(fields.TimeDelta, "timedelta")
+    timedelta: TimeDeltaFieldMethod = _field2method(fields.TimeDelta, "timedelta")
     path: FieldMethod[Path] = _field2method(fields.Path, "path")
     log_level: FieldMethod[_IntType] = _field2method(fields.LogLevel, "log_level")
 
@@ -583,8 +584,10 @@ class FileAwareEnv(Env):
         eager: _BoolType = True,
         expand_vars: _BoolType = False,
         prefix: _StrType | None = None,
+        strip_whitespace: _BoolType = False,
     ):
-        self.file_suffix = file_suffix
+        self.file_suffix: _StrType = file_suffix
+        self.strip_whitespace: _BoolType = strip_whitespace
         super().__init__(eager=eager, expand_vars=expand_vars, prefix=prefix)
 
     def _get_value(self, env_key: _StrType, default: typing.Any) -> typing.Any:
@@ -592,7 +595,8 @@ class FileAwareEnv(Env):
         file_key = f"{env_key}{self.file_suffix}"
         if file_path := os.environ.get(file_key, None):
             try:
-                return Path(file_path).read_text()
+                value: _StrType = Path(file_path).read_text()
+                return value.strip() if self.strip_whitespace else value
             except (FileNotFoundError, IsADirectoryError, PermissionError) as err:
                 raise ValueError(
                     f"The value of {file_key} must be a readable file path."

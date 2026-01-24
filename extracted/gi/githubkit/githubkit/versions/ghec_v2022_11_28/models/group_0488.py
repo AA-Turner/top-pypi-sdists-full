@@ -9,8 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+from typing import Literal
 
 from pydantic import Field
 
@@ -18,139 +17,29 @@ from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0019 import LicenseSimple
-from .group_0482 import SearchResultTextMatchesItems
+from .group_0145 import RepositoryRuleBranchNamePatternPropParameters
 
 
-class RepoSearchResultItem(GitHubModel):
-    """Repo Search Result Item
+class RepositoryRuleDetailedOneof13(GitHubModel):
+    """RepositoryRuleDetailedOneof13"""
 
-    Repo Search Result Item
-    """
-
-    id: int = Field()
-    node_id: str = Field()
-    name: str = Field()
-    full_name: str = Field()
-    owner: Union[None, SimpleUser] = Field()
-    private: bool = Field()
-    html_url: str = Field()
-    description: Union[str, None] = Field()
-    fork: bool = Field()
-    url: str = Field()
-    created_at: datetime = Field()
-    updated_at: datetime = Field()
-    pushed_at: datetime = Field()
-    homepage: Union[str, None] = Field()
-    size: int = Field()
-    stargazers_count: int = Field()
-    watchers_count: int = Field()
-    language: Union[str, None] = Field()
-    forks_count: int = Field()
-    open_issues_count: int = Field()
-    master_branch: Missing[str] = Field(default=UNSET)
-    default_branch: str = Field()
-    score: float = Field()
-    forks_url: str = Field()
-    keys_url: str = Field()
-    collaborators_url: str = Field()
-    teams_url: str = Field()
-    hooks_url: str = Field()
-    issue_events_url: str = Field()
-    events_url: str = Field()
-    assignees_url: str = Field()
-    branches_url: str = Field()
-    tags_url: str = Field()
-    blobs_url: str = Field()
-    git_tags_url: str = Field()
-    git_refs_url: str = Field()
-    trees_url: str = Field()
-    statuses_url: str = Field()
-    languages_url: str = Field()
-    stargazers_url: str = Field()
-    contributors_url: str = Field()
-    subscribers_url: str = Field()
-    subscription_url: str = Field()
-    commits_url: str = Field()
-    git_commits_url: str = Field()
-    comments_url: str = Field()
-    issue_comment_url: str = Field()
-    contents_url: str = Field()
-    compare_url: str = Field()
-    merges_url: str = Field()
-    archive_url: str = Field()
-    downloads_url: str = Field()
-    issues_url: str = Field()
-    pulls_url: str = Field()
-    milestones_url: str = Field()
-    notifications_url: str = Field()
-    labels_url: str = Field()
-    releases_url: str = Field()
-    deployments_url: str = Field()
-    git_url: str = Field()
-    ssh_url: str = Field()
-    clone_url: str = Field()
-    svn_url: str = Field()
-    forks: int = Field()
-    open_issues: int = Field()
-    watchers: int = Field()
-    topics: Missing[list[str]] = Field(default=UNSET)
-    mirror_url: Union[str, None] = Field()
-    has_issues: bool = Field()
-    has_projects: bool = Field()
-    has_pages: bool = Field()
-    has_wiki: bool = Field()
-    has_downloads: bool = Field()
-    has_discussions: Missing[bool] = Field(default=UNSET)
-    archived: bool = Field()
-    disabled: bool = Field(
-        description="Returns whether or not this repository disabled."
+    type: Literal["branch_name_pattern"] = Field()
+    parameters: Missing[RepositoryRuleBranchNamePatternPropParameters] = Field(
+        default=UNSET
     )
-    visibility: Missing[str] = Field(
+    ruleset_source_type: Missing[Literal["Repository", "Organization"]] = Field(
         default=UNSET,
-        description="The repository visibility: public, private, or internal.",
+        description="The type of source for the ruleset that includes this rule.",
     )
-    license_: Union[None, LicenseSimple] = Field(alias="license")
-    permissions: Missing[RepoSearchResultItemPropPermissions] = Field(default=UNSET)
-    text_matches: Missing[list[SearchResultTextMatchesItems]] = Field(
-        default=UNSET, title="Search Result Text Matches"
+    ruleset_source: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the source of the ruleset that includes this rule.",
     )
-    temp_clone_token: Missing[Union[str, None]] = Field(default=UNSET)
-    allow_merge_commit: Missing[bool] = Field(default=UNSET)
-    allow_squash_merge: Missing[bool] = Field(default=UNSET)
-    allow_rebase_merge: Missing[bool] = Field(default=UNSET)
-    allow_auto_merge: Missing[bool] = Field(default=UNSET)
-    delete_branch_on_merge: Missing[bool] = Field(default=UNSET)
-    allow_forking: Missing[bool] = Field(default=UNSET)
-    is_template: Missing[bool] = Field(default=UNSET)
-    web_commit_signoff_required: Missing[bool] = Field(default=UNSET)
+    ruleset_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the ruleset that includes this rule."
+    )
 
 
-class RepoSearchResultItemPropPermissions(GitHubModel):
-    """RepoSearchResultItemPropPermissions"""
+model_rebuild(RepositoryRuleDetailedOneof13)
 
-    admin: bool = Field()
-    maintain: Missing[bool] = Field(default=UNSET)
-    push: bool = Field()
-    triage: Missing[bool] = Field(default=UNSET)
-    pull: bool = Field()
-
-
-class SearchRepositoriesGetResponse200(GitHubModel):
-    """SearchRepositoriesGetResponse200"""
-
-    total_count: int = Field()
-    incomplete_results: bool = Field()
-    items: list[RepoSearchResultItem] = Field()
-
-
-model_rebuild(RepoSearchResultItem)
-model_rebuild(RepoSearchResultItemPropPermissions)
-model_rebuild(SearchRepositoriesGetResponse200)
-
-__all__ = (
-    "RepoSearchResultItem",
-    "RepoSearchResultItemPropPermissions",
-    "SearchRepositoriesGetResponse200",
-)
+__all__ = ("RepositoryRuleDetailedOneof13",)

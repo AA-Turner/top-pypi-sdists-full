@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json as jsonlib
 from typing import TYPE_CHECKING, Any, Literal
 
 from apify_client._utils import (
@@ -60,6 +59,7 @@ def get_actor_representation(
     actor_standby_build: str | None = None,
     actor_standby_memory_mbytes: int | None = None,
     pricing_infos: list[dict] | None = None,
+    actor_permission_level: ActorPermissionLevel | None = None,
 ) -> dict:
     """Get dictionary representation of the Actor."""
     return {
@@ -69,7 +69,6 @@ def get_actor_representation(
         'seoTitle': seo_title,
         'seoDescription': seo_description,
         'versions': versions,
-        'restartOnError': restart_on_error,
         'isPublic': is_public,
         'isDeprecated': is_deprecated,
         'isAnonymouslyRunnable': is_anonymously_runnable,
@@ -79,6 +78,7 @@ def get_actor_representation(
             'maxItems': default_run_max_items,
             'memoryMbytes': default_run_memory_mbytes,
             'timeoutSecs': default_run_timeout_secs,
+            'restartOnError': restart_on_error,
             'forcePermissionLevel': default_run_force_permission_level,
         },
         'exampleRunInput': {
@@ -94,6 +94,7 @@ def get_actor_representation(
             'memoryMbytes': actor_standby_memory_mbytes,
         },
         'pricingInfos': pricing_infos,
+        'actorPermissionLevel': actor_permission_level,
     }
 
 
@@ -141,6 +142,7 @@ class ActorClient(ResourceClient):
         actor_standby_build: str | None = None,
         actor_standby_memory_mbytes: int | None = None,
         pricing_infos: list[dict] | None = None,
+        actor_permission_level: ActorPermissionLevel | None = None,
     ) -> dict:
         """Update the Actor with the specified fields.
 
@@ -153,7 +155,7 @@ class ActorClient(ResourceClient):
             seo_title: The title of the Actor optimized for search engines.
             seo_description: The description of the Actor optimized for search engines.
             versions: The list of Actor versions.
-            restart_on_error: If true, the main Actor run process will be restarted whenever it exits with
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             is_public: Whether the Actor is public.
             is_deprecated: Whether the Actor is deprecated.
@@ -176,6 +178,7 @@ class ActorClient(ResourceClient):
             actor_standby_build: The build tag or number to run when the Actor is in Standby mode.
             actor_standby_memory_mbytes: The memory in megabytes to use when the Actor is in Standby mode.
             pricing_infos: A list of objects that describes the pricing of the Actor.
+            actor_permission_level: The permission level of the Actor on Apify platform.
 
         Returns:
             The updated Actor.
@@ -205,6 +208,7 @@ class ActorClient(ResourceClient):
             actor_standby_build=actor_standby_build,
             actor_standby_memory_mbytes=actor_standby_memory_mbytes,
             pricing_infos=pricing_infos,
+            actor_permission_level=actor_permission_level,
         )
 
         return self._update(filter_out_none_values_recursively(actor_representation))
@@ -224,6 +228,7 @@ class ActorClient(ResourceClient):
         build: str | None = None,
         max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout_secs: int | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
@@ -242,6 +247,8 @@ class ActorClient(ResourceClient):
             max_items: Maximum number of results that will be returned by this run. If the Actor is charged
                 per result, you will not be charged for more results than the given limit.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event actors.
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit
                 specified in the default run configuration for the Actor.
             timeout_secs: Optional timeout for the run, in seconds. By default, the run uses timeout specified
@@ -267,6 +274,7 @@ class ActorClient(ResourceClient):
             build=build,
             maxItems=max_items,
             maxTotalChargeUsd=max_total_charge_usd,
+            restartOnError=restart_on_error,
             memory=memory_mbytes,
             timeout=timeout_secs,
             waitForFinish=wait_for_finish,
@@ -282,7 +290,7 @@ class ActorClient(ResourceClient):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def call(
         self,
@@ -292,6 +300,7 @@ class ActorClient(ResourceClient):
         build: str | None = None,
         max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout_secs: int | None = None,
         webhooks: list[dict] | None = None,
@@ -313,6 +322,8 @@ class ActorClient(ResourceClient):
             max_items: Maximum number of results that will be returned by this run. If the Actor is charged
                 per result, you will not be charged for more results than the given limit.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event actors.
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit
                 specified in the default run configuration for the Actor.
             timeout_secs: Optional timeout for the run, in seconds. By default, the run uses timeout specified
@@ -338,6 +349,7 @@ class ActorClient(ResourceClient):
             build=build,
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout_secs=timeout_secs,
             webhooks=webhooks,
@@ -396,7 +408,7 @@ class ActorClient(ResourceClient):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def builds(self) -> BuildCollectionClient:
         """Retrieve a client for the builds of this Actor."""
@@ -427,7 +439,7 @@ class ActorClient(ResourceClient):
         )
 
         response = self.http_client.call(url=self._url('builds/default'), method='GET', params=request_params)
-        data = pluck_data(jsonlib.loads(response.text))
+        data = pluck_data(response.json())
 
         return BuildClient(
             base_url=self.base_url,
@@ -553,6 +565,7 @@ class ActorClientAsync(ResourceClientAsync):
         actor_standby_build: str | None = None,
         actor_standby_memory_mbytes: int | None = None,
         pricing_infos: list[dict] | None = None,
+        actor_permission_level: ActorPermissionLevel | None = None,
     ) -> dict:
         """Update the Actor with the specified fields.
 
@@ -565,7 +578,7 @@ class ActorClientAsync(ResourceClientAsync):
             seo_title: The title of the Actor optimized for search engines.
             seo_description: The description of the Actor optimized for search engines.
             versions: The list of Actor versions.
-            restart_on_error: If true, the main Actor run process will be restarted whenever it exits with
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
                 a non-zero status code.
             is_public: Whether the Actor is public.
             is_deprecated: Whether the Actor is deprecated.
@@ -588,6 +601,7 @@ class ActorClientAsync(ResourceClientAsync):
             actor_standby_build: The build tag or number to run when the Actor is in Standby mode.
             actor_standby_memory_mbytes: The memory in megabytes to use when the Actor is in Standby mode.
             pricing_infos: A list of objects that describes the pricing of the Actor.
+            actor_permission_level: The permission level of the Actor on Apify platform.
 
         Returns:
             The updated Actor.
@@ -617,6 +631,7 @@ class ActorClientAsync(ResourceClientAsync):
             actor_standby_build=actor_standby_build,
             actor_standby_memory_mbytes=actor_standby_memory_mbytes,
             pricing_infos=pricing_infos,
+            actor_permission_level=actor_permission_level,
         )
 
         return await self._update(filter_out_none_values_recursively(actor_representation))
@@ -636,6 +651,7 @@ class ActorClientAsync(ResourceClientAsync):
         build: str | None = None,
         max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout_secs: int | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
@@ -654,6 +670,8 @@ class ActorClientAsync(ResourceClientAsync):
             max_items: Maximum number of results that will be returned by this run. If the Actor is charged
                 per result, you will not be charged for more results than the given limit.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event actors.
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit
                 specified in the default run configuration for the Actor.
             timeout_secs: Optional timeout for the run, in seconds. By default, the run uses timeout specified
@@ -679,10 +697,11 @@ class ActorClientAsync(ResourceClientAsync):
             build=build,
             maxItems=max_items,
             maxTotalChargeUsd=max_total_charge_usd,
+            restartOnError=restart_on_error,
             memory=memory_mbytes,
             timeout=timeout_secs,
             waitForFinish=wait_for_finish,
-            forcePermissionLevel=force_permission_level,
+            forcePermissionLevel=force_permission_level.value if force_permission_level is not None else None,
             webhooks=encode_webhook_list_to_base64(webhooks) if webhooks is not None else None,
         )
 
@@ -694,7 +713,7 @@ class ActorClientAsync(ResourceClientAsync):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     async def call(
         self,
@@ -704,6 +723,7 @@ class ActorClientAsync(ResourceClientAsync):
         build: str | None = None,
         max_items: int | None = None,
         max_total_charge_usd: Decimal | None = None,
+        restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
         timeout_secs: int | None = None,
         webhooks: list[dict] | None = None,
@@ -725,6 +745,8 @@ class ActorClientAsync(ResourceClientAsync):
             max_items: Maximum number of results that will be returned by this run. If the Actor is charged
                 per result, you will not be charged for more results than the given limit.
             max_total_charge_usd: A limit on the total charged amount for pay-per-event actors.
+            restart_on_error: If true, the Actor run process will be restarted whenever it exits with
+                a non-zero status code.
             memory_mbytes: Memory limit for the run, in megabytes. By default, the run uses a memory limit
                 specified in the default run configuration for the Actor.
             timeout_secs: Optional timeout for the run, in seconds. By default, the run uses timeout specified
@@ -750,6 +772,7 @@ class ActorClientAsync(ResourceClientAsync):
             build=build,
             max_items=max_items,
             max_total_charge_usd=max_total_charge_usd,
+            restart_on_error=restart_on_error,
             memory_mbytes=memory_mbytes,
             timeout_secs=timeout_secs,
             webhooks=webhooks,
@@ -812,7 +835,7 @@ class ActorClientAsync(ResourceClientAsync):
             params=request_params,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
     def builds(self) -> BuildCollectionClientAsync:
         """Retrieve a client for the builds of this Actor."""
@@ -847,7 +870,7 @@ class ActorClientAsync(ResourceClientAsync):
             method='GET',
             params=request_params,
         )
-        data = pluck_data(jsonlib.loads(response.text))
+        data = pluck_data(response.json())
 
         return BuildClientAsync(
             base_url=self.base_url,

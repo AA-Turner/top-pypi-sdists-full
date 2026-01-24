@@ -3,16 +3,20 @@ import json
 import logging
 import re
 import traceback
+from io import BytesIO
 from json import JSONDecodeError
+from traceback import format_exc
 from typing import Optional, List, Any, Dict, Callable, Generator, Literal
 
 import requests
+from atlassian.errors import ApiError
 from langchain_community.document_loaders.confluence import ContentFormat
 from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import ToolException
 from markdownify import markdownify
 from pydantic import Field, PrivateAttr, model_validator, create_model, SecretStr
+from requests import HTTPError
 from tenacity import retry, stop_after_attempt, wait_exponential, before_sleep_log
 
 from alita_sdk.tools.non_code_indexer_toolkit import NonCodeIndexerToolkit
@@ -116,7 +120,7 @@ getPagesWithLabel = create_model(
 
 searchPages = create_model(
     "searchPages",
-    query=(str, Field(description="Query text to search pages")),
+    query=(str, Field(description="Query text to search pages", min_length=1)),
     skip_images=(Optional[bool], Field(description="Whether we need to skip existing images or not", default=False))
 )
 
@@ -161,6 +165,15 @@ GetPageAttachmentsInput = create_model(
     name_pattern=(Optional[str], Field(default=None, description="Regex pattern to filter attachment names (e.g. '^report_.*\\.pdf$'). If None, all names are included.", examples=["^report_.*\\.pdf$"])),
 )
 
+AddFileToPage = create_model(
+    "AddFileToPage",
+    page_id=(str, Field(description="Confluence page ID to add file to")),
+    artifact_id=(str, Field(description="Artifact ID containing the file to upload")),
+    filename=(Optional[str], Field(description="Filename to use for the upload. If not provided, uses the original filename from artifact.", default=None)),
+    alt_text=(Optional[str], Field(description="Alternative text for images (optional)", default=None)),
+    position=(Optional[str], Field(description="Position to add file reference: 'append' or 'prepend'", default="append")),
+)
+
 
 def parse_payload_params(params: Optional[str]) -> Dict[str, Any]:
     if params:
@@ -194,6 +207,7 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
     keep_markdown_format: Optional[bool] = True
     ocr_languages: Optional[str] = None
     keep_newlines: Optional[bool] = True
+    _errors: Optional[list[str]] = None
     _image_cache: ImageDescriptionCache = PrivateAttr(default_factory=ImageDescriptionCache)
 
     @model_validator(mode='before')
@@ -268,13 +282,13 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
         created_page = self.temp_create_page(space=user_space, title=title, body=body, status=status,
                                              parent_id=parent_id_filled, representation=representation)
 
+        webui_path = created_page['_links']['edit'] if status == 'draft' else created_page['_links']['webui']
         page_details = {
             'title': created_page['title'],
             'id': created_page['id'],
             'space key': created_page['space']['key'],
             'author': created_page['version']['by']['displayName'],
-            'link': created_page['_links']['base'] + (
-                created_page['_links']['edit'] if status == 'draft' else created_page['_links']['webui'])
+            'link': self._build_page_url(webui_path)
         }
 
         logger.info(f"Page created: {page_details['link']}")
@@ -359,7 +373,7 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
 
         updated_page = self.client.update_page(page_id=page_id, title=title_to_use, body=body_to_use,
                                                representation=representation_to_use)
-        webui_link = updated_page['_links']['base'] + updated_page['_links']['webui']
+        webui_link = self._build_page_url(updated_page['_links']['webui'])
         logger.info(f"Page updated: {webui_link}")
 
         next_version = updated_page['version']['number']
@@ -371,7 +385,7 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
             'id': updated_page['id'],
             'space key': updated_page['space']['key'],
             'author': updated_page['version']['by']['displayName'],
-            'link': updated_page['_links']['base'] + updated_page['_links']['webui'],
+            'link': webui_link,
             'version': next_version,
             'diff': diff_link
         }
@@ -477,28 +491,78 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
         """Gets pages with specific label in the Confluence space."""
 
         start = 0
-        pages_info = []
-        for _ in range((self.max_pages + self.limit - 1) // self.limit):
-            pages = self.client.get_all_pages_by_label(label, start=start,
-                                                       limit=self.limit)  # , expand="body.view.value"
+        pages_info: List[Dict[str, Any]] = []
+        seen_ids: set[str] = set()
+
+        # Use a while-loop driven by unique pages collected and
+        # presence of additional results instead of a fixed number
+        # of iterations based purely on max_pages/limit.
+        while len(pages_info) < (self.max_pages or 0):
+            pages = self.client.get_all_pages_by_label(
+                label,
+                start=start,
+                limit=self.limit,
+            )  # , expand="body.view.value"
             if not pages:
                 break
 
-            pages_info += [{
-                'page_id': page.metadata['id'],
-                'page_title': page.metadata['title'],
-                'page_url': page.metadata['source'],
-                'content': page.page_content
-            } for page in self.get_pages_by_id([page["id"] for page in pages])]
+            # Collect only ids we haven't processed yet to avoid
+            # calling get_page_by_id multiple times for the same
+            # Confluence page.
+            new_ids: List[str] = []
+            for p in pages:
+                page_id = p["id"] if isinstance(p, dict) else getattr(p, "id", None)
+                if page_id is None:
+                    continue
+                if page_id in seen_ids:
+                    continue
+                seen_ids.add(page_id)
+                new_ids.append(page_id)
+
+            if new_ids:
+                for page in self.get_pages_by_id(new_ids):
+                    meta = getattr(page, "metadata", {}) or {}
+                    page_id = meta.get("id")
+                    page_title = meta.get("title")
+                    page_url = meta.get("source")
+                    content = getattr(page, "page_content", None)
+
+                    if page_id is None:
+                        continue
+
+                    pages_info.append(
+                        {
+                            "page_id": page_id,
+                            "page_title": page_title,
+                            "page_url": page_url,
+                            "content": content,
+                        }
+                    )
+
+                    # Respect max_pages on unique pages collected.
+                    if len(pages_info) >= (self.max_pages or 0):
+                        break
+
+            # Advance the offset by the requested page size.
             start += self.limit
-        return pages_info
+
+            # Defensive break: if the API returns fewer items than
+            # requested, there are likely no more pages to fetch.
+            if len(pages) < self.limit:
+                break
+
+        # Slice as an extra safety net in case of any race conditions
+        # around the max_pages guard in the loop above.
+        return pages_info[: (self.max_pages or len(pages_info))]
 
     def is_public_page(self, page: dict) -> bool:
         """Check if a page is publicly accessible."""
         restrictions = self.client.get_all_restrictions_for_content(page["id"])
 
         return (
-                page["status"] == "current"
+                (page["status"] == "current"
+                # allow user to see archived content if needed
+                 or page["status"] == "archived")
                 and not restrictions["read"]["restrictions"]["user"]["results"]
                 and not restrictions["read"]["restrictions"]["group"]["results"]
         )
@@ -518,18 +582,35 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
                 ),
                 before_sleep=before_sleep_log(logger, logging.WARNING),
             )(self.client.get_page_by_id)
-            page = get_page(
-                page_id=page_id, expand=f"{self.content_format.value},version"
-            )
-            if not self.include_restricted_content and not self.is_public_page(page):
-                continue
+            try:
+                page = get_page(
+                    page_id=page_id, expand=f"{self.content_format.value},version"
+                )
+            except (ApiError, HTTPError) as e:
+                logger.error(f"Error fetching page with ID {page_id}: {e}")
+                page_content_temp = f"Confluence API Error: cannot fetch the page with ID {page_id}: {e}"
+                # store errors
+                if self._errors is None:
+                    self._errors = []
+                self._errors.append(page_content_temp)
+                return Document(page_content=page_content_temp,
+                                metadata={})
+            # TODO: update on toolkit advanced settings level as a separate feature
+            # if not self.include_restricted_content and not self.is_public_page(page):
+            #     continue
             yield self.process_page(page, skip_images)
+
+    def _log_errors(self):
+        """ Log errors encountered during toolkit execution. """
+        if self._errors:
+            logger.info(f"Errors encountered during toolkit execution: {self._errors}")
 
     def read_page_by_id(self, page_id: str, skip_images: bool = False):
         """Reads a page by its id in the Confluence space. If id is not available, but there is a title - use get_page_id first."""
         result = list(self.get_pages_by_id([page_id], skip_images))
         if not result:
-            "Page not found"
+            return f"Pages not found. Errors: {self._errors}" if self._errors \
+                else "Pages not found or you do not have access to them."
         return result[0].page_content
         # return self._strip_base64_images(result[0].page_content) if skip_images else result[0].page_content
 
@@ -550,11 +631,18 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
     def _process_search(self, cql, skip_images: bool = False):
         start = 0
         pages_info = []
+        seen_ids: set = set()  # Track seen page IDs to avoid duplicates
         for _ in range((self.max_pages + self.limit - 1) // self.limit):
             pages = self.client.cql(cql, start=start, limit=self.limit).get("results", [])
             if not pages:
                 break
-            page_ids = [page['content']['id'] for page in pages]
+            # Deduplicate page IDs before processing
+            page_ids = []
+            for page in pages:
+                page_id = page['content']['id']
+                if page_id not in seen_ids:
+                    seen_ids.add(page_id)
+                    page_ids.append(page_id)
             for page in self.get_pages_by_id(page_ids, skip_images):
                 page_info = {
                     'content': page.page_content,
@@ -568,6 +656,10 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
 
     def search_pages(self, query: str, skip_images: bool = False):
         """Search pages in Confluence by query text in title or page content."""
+
+        if not query:
+            raise ToolException("Search query text is empty. Query parameter is required for Confluence search.")
+
         if not self.space:
             cql = f'(type=page) and (title~"{query}" or text~"{query}")'
         else:
@@ -665,7 +757,7 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
         metadata = {
             "title": page["title"],
             "id": page["id"],
-            "source": self.base_url.strip("/") + page["_links"]["webui"],
+            "source": self._build_page_url(page["_links"]["webui"]),
         }
 
         if "version" in page and "when" in page["version"]:
@@ -815,6 +907,10 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
         from .loader import AlitaConfluenceLoader
         from copy import copy
         content_format = kwargs.get('content_format', 'view').lower()
+
+        self._index_include_attachments = kwargs.get('include_attachments', False)
+        self._include_extensions = kwargs.get('include_extensions', [])
+        self._skip_extensions = kwargs.get('skip_extensions', [])
         base_params = {
             'url': self.base_url,
             'space_key': self.space,
@@ -847,65 +943,78 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
 
     def _process_document(self, document: Document) -> Generator[Document, None, None]:
         try:
-            page_id = document.metadata.get('id')
-            attachments = self.client.get_attachments_from_content(page_id)
-            if not attachments or not attachments.get('results'):
-                return f"No attachments found for page ID {page_id}."
+            if self._index_include_attachments:
+                page_id = document.metadata.get('id')
+                attachments = self.client.get_attachments_from_content(page_id)
+                if not attachments or not attachments.get('results'):
+                    return f"No attachments found for page ID {page_id}."
 
-            # Get attachment history for created/updated info
-            history_map = {}
-            for attachment in attachments['results']:
-                try:
-                    hist = self.client.history(attachment['id'])
-                    history_map[attachment['id']] = hist
-                except Exception as e:
-                    logger.warning(f"Failed to fetch history for attachment {attachment.get('title', '')}: {str(e)}")
-                    history_map[attachment['id']] = None
+                # Get attachment history for created/updated info
+                history_map = {}
+                for attachment in attachments['results']:
+                    try:
+                        hist = self.client.history(attachment['id'])
+                        history_map[attachment['id']] = hist
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch history for attachment {attachment.get('title', '')}: {str(e)}")
+                        history_map[attachment['id']] = None
 
-            import re
-            for attachment in attachments['results']:
-                title = attachment.get('title', '')
-                file_ext = title.lower().split('.')[-1] if '.' in title else ''
+                import re
+                for attachment in attachments['results']:
+                    title = attachment.get('title', '')
+                    file_ext = title.lower().split('.')[-1] if '.' in title else ''
 
-                media_type = attachment.get('metadata', {}).get('mediaType', '')
-                # Core metadata extraction with history
-                hist = history_map.get(attachment['id']) or {}
-                created_by = hist.get('createdBy', {}).get('displayName', '') if hist else attachment.get('creator', {}).get('displayName', '')
-                created_date = hist.get('createdDate', '') if hist else attachment.get('created', '')
-                last_updated = hist.get('lastUpdated', {}).get('when', '') if hist else ''
+                    # Re-verify extension filters
+                    # Check if file should be skipped based on skip_extensions
+                    if any(re.match(re.escape(pattern).replace(r'\*', '.*') + '$', title, re.IGNORECASE)
+                           for pattern in self._skip_extensions):
+                        continue
 
-                metadata = {
-                    'name': title,
-                    'size': attachment.get('extensions', {}).get('fileSize', None),
-                    'creator': created_by,
-                    'created': created_date,
-                    'updated': last_updated,
-                    'media_type': media_type,
-                    'labels': [label['name'] for label in
-                               attachment.get('metadata', {}).get('labels', {}).get('results', [])],
-                    'download_url': self.base_url.rstrip('/') + attachment['_links']['download'] if attachment.get(
-                        '_links', {}).get('download') else None
-                }
+                    # Check if file should be included based on include_extensions
+                    # If include_extensions is empty, process all files (that weren't skipped)
+                    if self._include_extensions and not (
+                    any(re.match(re.escape(pattern).replace(r'\*', '.*') + '$', title, re.IGNORECASE)
+                        for pattern in self._include_extensions)):
+                        continue
 
-                download_url = self.base_url.rstrip('/') + attachment['_links']['download']
+                    media_type = attachment.get('metadata', {}).get('mediaType', '')
+                    # Core metadata extraction with history
+                    hist = history_map.get(attachment['id']) or {}
+                    created_by = hist.get('createdBy', {}).get('displayName', '') if hist else attachment.get('creator', {}).get('displayName', '')
+                    created_date = hist.get('createdDate', '') if hist else attachment.get('created', '')
+                    last_updated = hist.get('lastUpdated', {}).get('when', '') if hist else ''
 
-                try:
-                    resp = self.client.request(method="GET", path=download_url[len(self.base_url):], advanced_mode=True)
-                    if resp.status_code == 200:
-                        content = resp.content
+                    attachment_path = attachment['_links']['download'] if attachment.get(
+                            '_links', {}).get('download') else ''
+                    download_url = self.client.url.rstrip('/') + attachment_path
+                    metadata = {
+                        'name': title,
+                        'size': attachment.get('extensions', {}).get('fileSize', None),
+                        'creator': created_by,
+                        'created': created_date,
+                        'updated': last_updated,
+                        'media_type': media_type,
+                        'labels': [label['name'] for label in
+                                   attachment.get('metadata', {}).get('labels', {}).get('results', [])],
+                        'download_url': download_url
+                    }
+                    try:
+                        resp = self.client.request(method="GET", path=attachment_path, advanced_mode=True)
+                        if resp.status_code == 200:
+                            content = resp.content
+                        else:
+                            content = f"[Failed to download {download_url}: HTTP status code {resp.status_code}]"
+                    except Exception as e:
+                        content = f"[Error downloading content: {str(e)}]"
+
+                    if isinstance(content, str):
+                        yield Document(page_content=content, metadata=metadata)
                     else:
-                        content = f"[Failed to download {download_url}: HTTP status code {resp.status_code}]"
-                except Exception as e:
-                    content = f"[Error downloading content: {str(e)}]"
-
-                if isinstance(content, str):
-                    yield Document(page_content=content, metadata=metadata)
-                else:
-                    yield Document(page_content="", metadata={
-                        **metadata,
-                        IndexerKeywords.CONTENT_FILE_NAME.value: f".{file_ext}",
-                        IndexerKeywords.CONTENT_IN_BYTES.value: content
-                    })
+                        yield Document(page_content="", metadata={
+                            **metadata,
+                            IndexerKeywords.CONTENT_FILE_NAME.value: f".{file_ext}",
+                            IndexerKeywords.CONTENT_IN_BYTES.value: content
+                        })
         except Exception as e:
             yield from ()
 
@@ -1635,6 +1744,147 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
             logger.error(f"Error retrieving attachments for page {page_id}: {str(e)}")
             return f"Error retrieving attachments: {str(e)}"
 
+    def _upload_file_from_artifact(self, page_id: str, artifact_id: str, filename: str = None) -> Dict[str, Any]:
+        """Download file from artifact storage and upload to Confluence page."""
+        try:
+            # Download file from artifact storage using artifact_id
+            if not self.alita:
+                raise ToolException("Alita client is not initialized. Cannot download artifact.")
+
+            artifact_client = self.alita.artifact('__temp__')
+            file_bytes, artifact_filename = artifact_client.get_raw_content_by_artifact_id(artifact_id)
+            
+            # Use provided filename or fallback to artifact filename
+            filename = filename or artifact_filename
+
+            if not file_bytes:
+                raise ToolException(f"Failed to download artifact {artifact_id}")
+
+            # Detect MIME type
+            try:
+                import filetype
+                kind = filetype.guess(file_bytes)
+                mime_type = kind.mime if kind else 'application/octet-stream'
+            except Exception:
+                # Fallback to basic detection from extension
+                mime_type = 'application/octet-stream'
+                if filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+                    mime_type = 'image/jpeg' if filename.lower().endswith(('.jpg', '.jpeg')) else 'image/png'
+                elif filename.lower().endswith('.gif'):
+                    mime_type = 'image/gif'
+                elif filename.lower().endswith('.pdf'):
+                    mime_type = 'application/pdf'
+            
+            # Upload to Confluence as attachment
+            file_io = BytesIO(file_bytes)
+            file_io.name = filename
+            
+            try:
+                # Use attach_content for BytesIO upload
+                attachment_response = self.client.attach_content(
+                    content=file_io,
+                    name=filename,
+                    content_type=mime_type,
+                    page_id=page_id
+                )
+            except Exception as e:
+                raise ToolException(f"Failed to upload attachment to page {page_id}: {str(e)}")
+            
+            # Extract attachment info from response
+            # The attach_content response contains all necessary attachment metadata
+            uploaded_filename = attachment_response.get('title', filename)
+            download_link = attachment_response.get('_links', {}).get('download', '')
+            download_url = self.base_url.rstrip('/') + download_link if download_link else ''
+            
+            return {
+                'filename': uploaded_filename,
+                'mime_type': mime_type,
+                'size': len(file_bytes),
+                'download_url': download_url
+            }
+        except ToolException:
+            raise
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(f"Error uploading file from artifact: {stacktrace}")
+            raise ToolException(f"Failed to upload file from artifact: {str(e)}")
+
+    def _build_page_url(self, webui_path: str) -> str:
+        """Build correct page URL for both cloud and self-hosted Confluence instances."""
+        # Add /wiki prefix for Atlassian Cloud URLs
+        if self.cloud and not webui_path.startswith('/wiki/'):
+            webui_path = '/wiki' + webui_path
+        return self.base_url.rstrip('/') + webui_path
+
+    def _get_confluence_image_markup(self, filename: str) -> str:
+        """Generate Confluence storage format for inline image."""
+        return f'<ac:image><ri:attachment ri:filename="{filename}"/></ac:image>'
+
+    def _get_confluence_file_link(self, filename: str, alt_text: Optional[str] = None) -> str:
+        """Generate Confluence storage format for file attachment link."""
+        display = alt_text or filename
+        return f'<ac:link><ri:attachment ri:filename="{filename}"/><ac:plain-text-link-body><![CDATA[{display}]]></ac:plain-text-link-body></ac:link>'
+
+    def add_file_to_page(
+        self,
+        page_id: str,
+        artifact_id: str,
+        filename: str,
+        alt_text: Optional[str] = None,
+        position: Literal["append", "prepend"] = "append"
+    ) -> str:
+        """Upload file from artifact and add to Confluence page content. Images display inline, other files as links."""
+        try:
+            # Upload file to Confluence
+            upload_info = self._upload_file_from_artifact(page_id, artifact_id, filename)
+            uploaded_filename = upload_info['filename']
+            mime_type = upload_info['mime_type']
+            
+            # Get current page content
+            page = self.client.get_page_by_id(page_id, expand='body.storage,version')
+            current_body = page.get('body', {}).get('storage', {}).get('value', '')
+            current_version = page.get('version', {}).get('number', 1)
+            
+            # Create appropriate markup based on file type
+            if mime_type.startswith('image/') or mime_type.startswith('video/'):
+                file_markup = self._get_confluence_image_markup(uploaded_filename)
+            else:
+                file_markup = self._get_confluence_file_link(uploaded_filename, alt_text)
+            
+            # Add the file markup to page content
+            if position == "prepend":
+                new_body = f"{file_markup}<p></p>{current_body}"
+            else:
+                new_body = f"{current_body}<p></p>{file_markup}"
+            
+            # Update the page
+            self.client.update_page(
+                page_id=page_id,
+                title=page['title'],
+                body=new_body,
+                parent_id=None,
+                type='page',
+                representation='storage',
+                minor_edit=False,
+                version_comment=f"Added file: {uploaded_filename}",
+                full_width=False
+            )
+            
+            # Return success message
+            page_url = self._build_page_url(page['_links']['webui'])
+            file_type = "image" if mime_type.startswith('image/') else "video" if mime_type.startswith('video/') else "file"
+            return (
+                f"File '{filename}' uploaded and added to page {page_id} as {file_type}. "
+                f"View at: {page_url}"
+            )
+            
+        except ToolException:
+            raise
+        except Exception as e:
+            stacktrace = format_exc()
+            logger.error(f"Error adding file to page: {stacktrace}")
+            raise ToolException(f"Failed to add file to page: {str(e)}")
+
     def _index_tool_params(self):
         """Return the parameters for indexing data."""
         return {
@@ -1643,13 +1893,20 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
             "page_ids": (Optional[List[str]], Field(description="List of page IDs to retrieve.", default=None)),
             "label": (Optional[str], Field(description="Label to filter pages.", default=None)),
             "cql": (Optional[str], Field(description="CQL query to filter pages.", default=None)),
-            "limit": (Optional[int], Field(description="Limit the number of results.", default=10)),
-            "max_pages": (Optional[int], Field(description="Maximum number of pages to retrieve.", default=1000)),
+            "limit": (Optional[int], Field(description="Limit the number of results.", default=10, gt=0)),
+            "max_pages": (Optional[int], Field(description="Maximum number of pages to retrieve.", default=1000, gt=0)),
             "include_restricted_content": (Optional[bool], Field(description="Include restricted content.", default=False)),
             "include_archived_content": (Optional[bool], Field(description="Include archived content.", default=False)),
             "include_attachments": (Optional[bool], Field(description="Include attachments.", default=False)),
+            'include_extensions': (Optional[List[str]], Field(
+                description="List of file extensions to include when processing attachments: i.e. ['*.png', '*.jpg']. "
+                            "If empty, all files will be processed (except skip_extensions).",
+                default=[])),
+            'skip_extensions': (Optional[List[str]], Field(
+                description="List of file extensions to skip when processing attachments: i.e. ['*.png', '*.jpg']",
+                default=[])),
             "include_comments": (Optional[bool], Field(description="Include comments.", default=False)),
-            "include_labels": (Optional[bool], Field(description="Include labels.", default=True)),
+            "include_labels": (Optional[bool], Field(description="Include labels.", default=False)),
             "ocr_languages": (Optional[str], Field(description="OCR languages for processing attachments.", default='eng')),
             "keep_markdown_format": (Optional[bool], Field(description="Keep the markdown format.", default=True)),
             "keep_newlines": (Optional[bool], Field(description="Keep newlines in the content.", default=True)),
@@ -1772,5 +2029,12 @@ class ConfluenceAPIWrapper(NonCodeIndexerToolkit):
                 "ref": self.get_page_attachments,
                 "description": self.get_page_attachments.__doc__,
                 "args_schema": GetPageAttachmentsInput,
+            },
+            {
+                "name": "add_file_to_page",
+                "ref": self.add_file_to_page,
+                "description": self.add_file_to_page.__doc__,
+                "args_schema": AddFileToPage,
             }
         ]
+

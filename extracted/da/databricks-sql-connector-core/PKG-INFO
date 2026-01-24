@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: databricks-sql-connector-core
+Version: 4.0.1
+Summary: Databricks SQL Connector core for Python
+Author: Databricks
+Author-email: databricks-sql-connector-maintainers@databricks.com
+Requires-Python: >=3.8.0,<4.0.0
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Provides-Extra: pyarrow
+Requires-Dist: alembic (>=1.0.11,<2.0.0)
+Requires-Dist: lz4 (>=4.0.2,<5.0.0)
+Requires-Dist: oauthlib (>=3.1.0,<4.0.0)
+Requires-Dist: openpyxl (>=3.0.10,<4.0.0)
+Requires-Dist: pandas (>=1.2.5,<2.3.0) ; python_version >= "3.8"
+Requires-Dist: pyarrow (>=14.0.1,<17) ; extra == "pyarrow"
+Requires-Dist: requests (>=2.18.1,<3.0.0)
+Requires-Dist: thrift (>=0.16.0,<0.21.0)
+Requires-Dist: urllib3 (>=1.26)
+Project-URL: Bug Tracker, https://github.com/databricks/databricks-sql-python/issues
+Project-URL: Homepage, https://github.com/databricks/databricks-sql-python

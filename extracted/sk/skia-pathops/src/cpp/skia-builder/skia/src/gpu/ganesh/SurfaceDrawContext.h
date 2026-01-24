@@ -4,54 +4,76 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
 #ifndef SurfaceDrawContext_v1_DEFINED
 #define SurfaceDrawContext_v1_DEFINED
 
 #include "include/core/SkCanvas.h"
+#include "include/core/SkColor.h"
 #include "include/core/SkDrawable.h"
+#include "include/core/SkMatrix.h"
+#include "include/core/SkPaint.h"
+#include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
-#include "include/core/SkSurface.h"
+#include "include/core/SkRegion.h"
+#include "include/core/SkSpan.h"
+#include "include/core/SkStrokeRec.h"
 #include "include/core/SkSurfaceProps.h"
+#include "include/gpu/GpuTypes.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/private/base/SkPoint_impl.h"
+#include "include/private/base/SkTArray.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
-#include "src/core/SkDevice.h"
+#include "src/core/SkColorData.h"
+#include "src/gpu/ganesh/GrColorSpaceXform.h"
 #include "src/gpu/ganesh/GrPaint.h"
 #include "src/gpu/ganesh/GrRenderTargetProxy.h"
+#include "src/gpu/ganesh/GrSamplerState.h"
+#include "src/gpu/ganesh/GrSurfaceProxy.h"
 #include "src/gpu/ganesh/GrSurfaceProxyView.h"
-#include "src/gpu/ganesh/GrXferProcessor.h"
 #include "src/gpu/ganesh/SurfaceFillContext.h"
 #include "src/gpu/ganesh/geometry/GrQuad.h"
+#include "src/gpu/ganesh/ops/GrOp.h"
 #include "src/gpu/ganesh/ops/OpsTask.h"
 
+#include <cstdint>
+#include <functional>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+class GrBackendFormat;
 class GrBackendSemaphore;
+class GrBackendTexture;
 class GrClip;
-class GrColorSpaceXform;
-class GrDrawOp;
 class GrDstProxyView;
+class GrFragmentProcessor;
 class GrHardClip;
-class GrOp;
-struct GrQuadSetEntry;
+class GrRecordingContext;
 class GrRenderTarget;
-class GrStyledShape;
 class GrStyle;
-class GrTextureProxy;
+class GrStyledShape;
+class SkColorSpace;
+class SkLatticeIter;
+class SkMesh;
+class SkPath;
+class SkRRect;
+class SkVertices;
+enum SkAlphaType : int;
+enum class SkBackingFit;
+enum class SkBlendMode;
+struct GrQuadSetEntry;
 struct GrTextureSetEntry;
 struct GrUserStencilSettings;
+struct SkArc;
 struct SkDrawShadowRec;
-struct SkIPoint;
-struct SkIRect;
-class SkLatticeIter;
-class SkMatrixProvider;
-class SkMatrix;
-class SkPaint;
-class SkPath;
-struct SkPoint;
-struct SkRect;
-class SkRegion;
-class SkRRect;
+struct SkISize;
 struct SkRSXform;
-class SkTextBlob;
-class SkVertices;
+struct SkStrikeDeviceInfo;
+
+namespace skgpu {
+class RefCntedCallback;
+class Swizzle;
+}  // namespace skgpu
 
 namespace sktext {
 class GlyphRunList;
@@ -115,9 +137,9 @@ public:
             SkBackingFit,
             SkISize dimensions,
             const SkSurfaceProps&,
-            int sampleCnt = 1,
-            skgpu::Mipmapped = skgpu::Mipmapped::kNo,
-            skgpu::Protected = skgpu::Protected::kNo,
+            int sampleCnt,
+            skgpu::Mipmapped,
+            skgpu::Protected,
             GrSurfaceOrigin = kBottomLeft_GrSurfaceOrigin,
             skgpu::Budgeted = skgpu::Budgeted::kYes);
 
@@ -373,7 +395,7 @@ public:
      */
     void drawVertices(const GrClip*,
                       GrPaint&& paint,
-                      const SkMatrixProvider& matrixProvider,
+                      const SkMatrix& viewMatrix,
                       sk_sp<SkVertices> vertices,
                       GrPrimitiveType* overridePrimType = nullptr,
                       bool skipColorXform = false);
@@ -381,14 +403,16 @@ public:
     /**
      * Draws a custom mesh with a paint.
      *
-     * @param   paint            describes how to color pixels.
-     * @param   matrixProvider   provides the transformation matrix
-     * @param   mesh             the mesh to draw.
+     * @param   paint      describes how to color pixels.
+     * @param   viewMatrix transformation matrix
+     * @param   mesh       the mesh to draw.
+     * @param   children   child effects referenced by SkMesh shaders
      */
     void drawMesh(const GrClip*,
                   GrPaint&& paint,
-                  const SkMatrixProvider& matrixProvider,
-                  const SkMesh& mesh);
+                  const SkMatrix& viewMatrix,
+                  const SkMesh& mesh,
+                  skia_private::TArray<std::unique_ptr<GrFragmentProcessor>> children);
 
     /**
      * Draws textured sprites from an atlas with a paint. This currently does not support AA for the
@@ -405,10 +429,9 @@ public:
     void drawAtlas(const GrClip*,
                    GrPaint&& paint,
                    const SkMatrix& viewMatrix,
-                   int spriteCount,
-                   const SkRSXform xform[],
-                   const SkRect texRect[],
-                   const SkColor colors[]);
+                   SkSpan<const SkRSXform> xform,
+                   SkSpan<const SkRect> texRect,
+                   SkSpan<const SkColor> colors);
 
     /**
      * Draws a region.
@@ -462,10 +485,7 @@ public:
                  GrPaint&& paint,
                  GrAA,
                  const SkMatrix& viewMatrix,
-                 const SkRect& oval,
-                 SkScalar startAngle,
-                 SkScalar sweepAngle,
-                 bool useCenter,
+                 const SkArc& arc,
                  const GrStyle& style);
 
     /**
@@ -484,12 +504,12 @@ public:
     /**
      * Draw the text specified by the GlyphRunList.
      *
-     * @param viewMatrix      transformationMatrix
+     * @param viewMatrix      transformation matrix
      * @param glyphRunList    text, text positions, and paint.
      */
     void drawGlyphRunList(SkCanvas*,
                           const GrClip*,
-                          const SkMatrixProvider& viewMatrix,
+                          const SkMatrix& viewMatrix,
                           const sktext::GlyphRunList& glyphRunList,
                           SkStrikeDeviceInfo strikeDeviceInfo,
                           const SkPaint& paint);
@@ -613,7 +633,7 @@ public:
     // instantiated.
     GrRenderTarget* accessRenderTarget() { return this->asSurfaceProxy()->peekRenderTarget(); }
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     void testingOnly_SetPreserveOpsOnFullClear() { fPreserveOpsOnFullClear_TestingOnly = true; }
 #endif
 
@@ -680,9 +700,9 @@ private:
     // value is false then a texture copy could not be made.
     //
     // The op should have already had setClippedBounds called on it.
-    bool SK_WARN_UNUSED_RESULT setupDstProxyView(const SkRect& opBounds,
-                                                 bool opRequiresMSAA,
-                                                 GrDstProxyView* result);
+    [[nodiscard]] bool setupDstProxyView(const SkRect& opBounds,
+                                         bool opRequiresMSAA,
+                                         GrDstProxyView* result);
 
     OpsTask* replaceOpsTaskIfModifiesColor();
 
@@ -691,7 +711,7 @@ private:
 
     bool fNeedsStencil = false;
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
     bool fPreserveOpsOnFullClear_TestingOnly = false;
 #endif
 };

@@ -23,7 +23,8 @@ from couchbase.exceptions import (CollectionAlreadyExistsException,
                                   EventingFunctionNotBootstrappedException,
                                   EventingFunctionNotDeployedException,
                                   EventingFunctionNotFoundException,
-                                  EventingFunctionNotUnDeployedException)
+                                  EventingFunctionNotUnDeployedException,
+                                  InternalServerFailureException)
 from couchbase.management.collections import CollectionSpec
 from couchbase.management.eventing import (EventingFunction,
                                            EventingFunctionBucketAccess,
@@ -33,7 +34,6 @@ from couchbase.management.eventing import (EventingFunction,
                                            EventingFunctionDeploymentStatus,
                                            EventingFunctionKeyspace,
                                            EventingFunctionLanguageCompatibility,
-                                           EventingFunctionProcessingStatus,
                                            EventingFunctionSettings,
                                            EventingFunctionsStatus,
                                            EventingFunctionState,
@@ -77,44 +77,58 @@ class EventingManagementTestSuite:
     def create_and_drop_eventing_function(self, cb_env):
         cb_env.efm.upsert_function(cb_env.BASIC_FUNC)
         yield
-        cb_env.efm.drop_function(cb_env.BASIC_FUNC.name)
-        TestEnvironment.try_n_times_till_exception(10,
-                                                   1,
-                                                   cb_env.efm.get_function,
-                                                   cb_env.BASIC_FUNC.name,
-                                                   EventingFunctionNotFoundException)
+        try:
+            cb_env.efm.drop_function(cb_env.BASIC_FUNC.name)
+        except EventingFunctionNotFoundException:
+            pass
+        else:
+            TestEnvironment.try_n_times_till_exception(10,
+                                                       1,
+                                                       cb_env.efm.get_function,
+                                                       cb_env.BASIC_FUNC.name,
+                                                       EventingFunctionNotFoundException)
 
     @pytest.fixture()
     def create_eventing_function(self, cb_env):
         cb_env.efm.upsert_function(cb_env.BASIC_FUNC)
 
     @pytest.fixture()
-    def drop_eventing_function(self, cb_env):
+    def drop_eventing_functions(self, cb_env):
         yield
-        cb_env.efm.drop_function(cb_env.TEST_EVT_NAME)
-        TestEnvironment.try_n_times_till_exception(10,
-                                                   1,
-                                                   cb_env.efm.get_function,
-                                                   cb_env.BASIC_FUNC.name,
-                                                   EventingFunctionNotFoundException)
+        for fn_name in cb_env.function_names:
+            try:
+                cb_env.efm.drop_function(fn_name)
+            except EventingFunctionNotFoundException:
+                continue
+            TestEnvironment.try_n_times_till_exception(10,
+                                                       1,
+                                                       cb_env.efm.get_function,
+                                                       fn_name,
+                                                       EventingFunctionNotFoundException)
+        cb_env.function_names = []
 
     @pytest.fixture()
     def undeploy_and_drop_eventing_function(self, cb_env):
         yield
         cb_env.efm.undeploy_function(cb_env.TEST_EVT_NAME)
         cb_env.wait_until_status(15, 2, EventingFunctionState.Undeployed, cb_env.BASIC_FUNC.name)
-        cb_env.efm.drop_function(cb_env.TEST_EVT_NAME)
-        TestEnvironment.try_n_times_till_exception(10,
-                                                   1,
-                                                   cb_env.efm.get_function,
-                                                   cb_env.BASIC_FUNC.name,
-                                                   EventingFunctionNotFoundException)
+        try:
+            cb_env.efm.drop_function(cb_env.TEST_EVT_NAME)
+        except EventingFunctionNotFoundException:
+            pass
+        else:
+            TestEnvironment.try_n_times_till_exception(10,
+                                                       1,
+                                                       cb_env.efm.get_function,
+                                                       cb_env.BASIC_FUNC.name,
+                                                       EventingFunctionNotFoundException)
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_constant_bindings(self, cb_env):
-        # TODO:  look into why timeout occurs when providing > 1 constant
-        # binding
+        # TODO:  look into why timeout occurs when providing > 1 constant binding
+        cb_env.function_names = ['test-evt-const-func']
         local_func = EventingFunction(
-            'test-evt-const-func',
+            cb_env.function_names[0],
             cb_env.SIMPLE_EVT_CODE,
             cb_env.evt_version,
             metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -165,8 +179,13 @@ class EventingManagementTestSuite:
         cb_env.wait_until_status(10, 1, EventingFunctionState.Undeployed, cb_env.BASIC_FUNC.name)
         cb_env.efm.deploy_function(cb_env.BASIC_FUNC.name)
         cb_env.wait_until_status(20, 3, EventingFunctionState.Deployed, cb_env.BASIC_FUNC.name)
-        with pytest.raises(EventingFunctionAlreadyDeployedException):
+        if cb_env.server_version_short >= 8.0:
+            # no longer a failure in 8.0+
             cb_env.efm.deploy_function(cb_env.BASIC_FUNC.name)
+            cb_env.wait_until_status(20, 3, EventingFunctionState.Deployed, cb_env.BASIC_FUNC.name)
+        else:
+            with pytest.raises(EventingFunctionAlreadyDeployedException):
+                cb_env.efm.deploy_function(cb_env.BASIC_FUNC.name)
 
     @pytest.mark.usefixtures('create_eventing_function')
     def test_drop_function(self, cb_env):
@@ -195,10 +214,15 @@ class EventingManagementTestSuite:
         with pytest.raises(EventingFunctionNotUnDeployedException):
             cb_env.efm.drop_function(cb_env.BASIC_FUNC.name)
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_functions_status(self, cb_env):
+        cb_env.function_names = [
+            'test-evt-func-1',
+            'test-evt-func-2',
+        ]
         new_funcs = [
             EventingFunction(
-                'test-evt-func-1',
+                cb_env.function_names[0],
                 cb_env.SIMPLE_EVT_CODE,
                 cb_env.evt_version,
                 metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -215,7 +239,7 @@ class EventingManagementTestSuite:
                 ]
             ),
             EventingFunction(
-                'test-evt-func-2',
+                cb_env.function_names[1],
                 cb_env.SIMPLE_EVT_CODE,
                 cb_env.evt_version,
                 metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -241,10 +265,15 @@ class EventingManagementTestSuite:
         for func in funcs.functions:
             assert isinstance(func, EventingFunctionStatus)
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_get_all_functions(self, cb_env):
+        cb_env.function_names = [
+            'test-evt-func-1',
+            'test-evt-func-2',
+        ]
         new_funcs = [
             EventingFunction(
-                'test-evt-func-1',
+                cb_env.function_names[0],
                 cb_env.SIMPLE_EVT_CODE,
                 cb_env.evt_version,
                 metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -261,7 +290,7 @@ class EventingManagementTestSuite:
                 ]
             ),
             EventingFunction(
-                'test-evt-func-2',
+                cb_env.function_names[1],
                 cb_env.SIMPLE_EVT_CODE,
                 cb_env.evt_version,
                 metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -295,9 +324,11 @@ class EventingManagementTestSuite:
         with pytest.raises(EventingFunctionNotFoundException):
             cb_env.efm.get_function('not-a-function')
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_options_simple(self, cb_env):
+        cb_env.function_names = ['test-evt-func-1']
         local_func = EventingFunction(
-            'test-evt-func-1',
+            cb_env.function_names[0],
             cb_env.SIMPLE_EVT_CODE,
             cb_env.evt_version,
             metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -328,8 +359,12 @@ class EventingManagementTestSuite:
         with pytest.raises(EventingFunctionNotFoundException):
             cb_env.efm.pause_function('not-a-function')
 
-        with pytest.raises(EventingFunctionNotBootstrappedException):
-            cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
+        if cb_env.server_version_short >= 8.0:
+            with pytest.raises(InternalServerFailureException):
+                cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
+        else:
+            with pytest.raises(EventingFunctionNotBootstrappedException):
+                cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
 
     @pytest.mark.usefixtures('create_eventing_function')
     @pytest.mark.usefixtures('undeploy_and_drop_eventing_function')
@@ -342,15 +377,11 @@ class EventingManagementTestSuite:
         cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
         func = TestEnvironment.try_n_times(5, 1, cb_env.efm.get_function, cb_env.BASIC_FUNC.name)
         cb_env.validate_eventing_function(func, shallow=True)
-        # verify function processing status
-        assert func.settings.processing_status == EventingFunctionProcessingStatus.Paused
         cb_env.wait_until_status(15, 2, EventingFunctionState.Paused, cb_env.BASIC_FUNC.name)
         # resume function
         cb_env.efm.resume_function(cb_env.BASIC_FUNC.name)
         func = TestEnvironment.try_n_times(5, 1, cb_env.efm.get_function, cb_env.BASIC_FUNC.name)
         cb_env.validate_eventing_function(func, shallow=True)
-        # verify function processing status
-        assert func.settings.processing_status == EventingFunctionProcessingStatus.Running
         # verify function state
         cb_env.wait_until_status(20, 3, EventingFunctionState.Deployed, cb_env.BASIC_FUNC.name)
 
@@ -361,8 +392,12 @@ class EventingManagementTestSuite:
         with pytest.raises(EventingFunctionNotFoundException):
             cb_env.efm.pause_function('not-a-function')
 
-        with pytest.raises(EventingFunctionNotBootstrappedException):
-            cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
+        if cb_env.server_version_short >= 8.0:
+            with pytest.raises(InternalServerFailureException):
+                cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
+        else:
+            with pytest.raises(EventingFunctionNotBootstrappedException):
+                cb_env.efm.pause_function(cb_env.BASIC_FUNC.name)
 
     @pytest.mark.usefixtures('create_and_drop_eventing_function')
     def test_undeploy_function(self, cb_env):
@@ -389,9 +424,11 @@ class EventingManagementTestSuite:
         ):
             cb_env.efm.undeploy_function('not-a-function')
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_upsert_function(self, cb_env):
+        cb_env.function_names = ['test-evt-func-1']
         local_func = EventingFunction(
-            'test-evt-func-1',
+            cb_env.function_names[0],
             cb_env.SIMPLE_EVT_CODE,
             cb_env.evt_version,
             metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -411,10 +448,12 @@ class EventingManagementTestSuite:
         func = TestEnvironment.try_n_times(5, 3, cb_env.efm.get_function, local_func.name)
         cb_env.validate_eventing_function(func, shallow=True)
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_upsert_function_fail(self, cb_env):
+        cb_env.function_names = ['test-evt-func-1']
         # bad appcode
         local_func = EventingFunction(
-            'test-evt-func-1',
+            cb_env.function_names[0],
             'func OnUpdate(doc, meta) {\n    log("Doc created/updated", meta.id);\n}\n\n',
             cb_env.evt_version,
             metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -431,20 +470,23 @@ class EventingManagementTestSuite:
             ]
         )
 
-        # @TODO:  couchbase++ seg faults on this...
-        # with pytest.raises(EventingFunctionCompilationFailureException):
-        #     cb_env.efm.upsert_function(local_func)
-
         local_func.code = cb_env.SIMPLE_EVT_CODE
         local_func.source_keyspace = EventingFunctionKeyspace(
             'beer-sample', "test-scope", "test-collection"
         )
-        with pytest.raises(EventingFunctionCollectionNotFoundException):
-            cb_env.efm.upsert_function(local_func)
+        if cb_env.server_version_short >= 8.0:
+            with pytest.raises((InternalServerFailureException, EventingFunctionCollectionNotFoundException)):
+                cb_env.efm.upsert_function(local_func)
+                cb_env.efm.deploy_function(local_func.name)
+        else:
+            with pytest.raises(EventingFunctionCollectionNotFoundException):
+                cb_env.efm.upsert_function(local_func)
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_url_bindings(self, cb_env):
+        cb_env.function_names = ['test-evt-url-func']
         local_func = EventingFunction(
-            "test-evt-url-func",
+            cb_env.function_names[0],
             cb_env.SIMPLE_EVT_CODE,
             cb_env.evt_version,
             metadata_keyspace=EventingFunctionKeyspace('default'),
@@ -499,6 +541,7 @@ class EventingManagementTestSuite:
         func = TestEnvironment.try_n_times(5, 3, cb_env.efm.get_function, local_func.name)
         cb_env.validate_eventing_function(func)
 
+    @pytest.mark.usefixtures('drop_eventing_functions')
     def test_with_scope_and_collection(self, cb_env):
         EnvironmentFeatures.check_if_feature_supported('collections',
                                                        cb_env.server_version_short,
@@ -514,8 +557,9 @@ class EventingManagementTestSuite:
                                                    collection_spec,
                                                    expected_exceptions=(CollectionAlreadyExistsException,))
 
+        cb_env.function_names = ['test-evt-func-coll']
         local_func = EventingFunction(
-            'test-evt-func-coll',
+            cb_env.function_names[0],
             cb_env.SIMPLE_EVT_CODE,
             cb_env.evt_version,
             metadata_keyspace=EventingFunctionKeyspace(
@@ -545,8 +589,6 @@ class EventingManagementTestSuite:
         func = TestEnvironment.try_n_times(5, 3, cb_env.efm.get_function, local_func.name)
         cb_env.validate_eventing_function(func)
 
-        cb_env.efm.drop_function(local_func.name)
-
 
 @pytest.mark.flaky(reruns=5, reruns_delay=1)
 class ClassicEventingManagementTests(EventingManagementTestSuite):
@@ -571,7 +613,7 @@ class ClassicEventingManagementTests(EventingManagementTestSuite):
         cb_env.teardown()
 
 
-@pytest.mark.flaky(reruns=5, reruns_delay=1)
+@pytest.mark.flaky(reruns=2, reruns_delay=1)
 class ClassicScopeEventingManagementTests(EventingManagementTestSuite):
 
     @pytest.fixture(scope='class')

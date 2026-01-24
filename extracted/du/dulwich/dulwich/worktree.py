@@ -23,18 +23,38 @@
 
 from __future__ import annotations
 
+__all__ = [
+    "WorkTree",
+    "WorkTreeContainer",
+    "WorkTreeInfo",
+    "add_worktree",
+    "list_worktrees",
+    "lock_worktree",
+    "move_worktree",
+    "prune_worktrees",
+    "read_worktree_lock_reason",
+    "remove_worktree",
+    "repair_worktree",
+    "temporary_worktree",
+    "unlock_worktree",
+]
+
 import builtins
 import os
 import shutil
 import stat
 import sys
+import tempfile
 import time
 import warnings
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
 
 from .errors import CommitError, HookError
-from .objects import Commit, ObjectID, Tag, Tree
-from .refs import SYMREF, Ref
+from .objects import Blob, Commit, ObjectID, Tag, Tree
+from .refs import SYMREF, Ref, local_branch_name
 from .repo import (
     GITDIR,
     WORKTREES,
@@ -42,6 +62,7 @@ from .repo import (
     check_user_identity,
     get_user_identity,
 )
+from .trailers import add_trailer_to_message
 
 
 class WorkTreeInfo:
@@ -62,13 +83,25 @@ class WorkTreeInfo:
         self,
         path: str,
         head: bytes | None = None,
-        branch: bytes | None = None,
+        branch: Ref | None = None,
         bare: bool = False,
         detached: bool = False,
         locked: bool = False,
         prunable: bool = False,
         lock_reason: str | None = None,
     ):
+        """Initialize WorkTreeInfo.
+
+        Args:
+          path: Path to the worktree
+          head: Current HEAD commit SHA
+          branch: Current branch (if not detached)
+          bare: Whether this is a bare repository
+          detached: Whether HEAD is detached
+          locked: Whether the worktree is locked
+          prunable: Whether the worktree can be pruned
+          lock_reason: Reason for locking (if locked)
+        """
         self.path = path
         self.head = head
         self.branch = branch
@@ -79,9 +112,11 @@ class WorkTreeInfo:
         self.lock_reason = lock_reason
 
     def __repr__(self) -> str:
+        """Return string representation of WorkTreeInfo."""
         return f"WorkTreeInfo(path={self.path!r}, branch={self.branch!r}, detached={self.detached})"
 
     def __eq__(self, other: object) -> bool:
+        """Check equality with another WorkTreeInfo."""
         if not isinstance(other, WorkTreeInfo):
             return NotImplemented
         return (
@@ -135,11 +170,12 @@ class WorkTreeContainer:
 
     def add(
         self,
-        path: str | bytes | os.PathLike,
+        path: str | bytes | os.PathLike[str],
         branch: str | bytes | None = None,
         commit: ObjectID | None = None,
         force: bool = False,
         detach: bool = False,
+        exist_ok: bool = False,
     ) -> Repo:
         """Add a new worktree.
 
@@ -149,15 +185,22 @@ class WorkTreeContainer:
             commit: Specific commit to checkout (results in detached HEAD)
             force: Force creation even if branch is already checked out elsewhere
             detach: Detach HEAD in the new worktree
+            exist_ok: If True, do not raise an error if the directory already exists
 
         Returns:
             The newly created worktree repository
         """
         return add_worktree(
-            self._repo, path, branch=branch, commit=commit, force=force, detach=detach
+            self._repo,
+            path,
+            branch=branch,
+            commit=commit,
+            force=force,
+            detach=detach,
+            exist_ok=exist_ok,
         )
 
-    def remove(self, path: str | bytes | os.PathLike, force: bool = False) -> None:
+    def remove(self, path: str | bytes | os.PathLike[str], force: bool = False) -> None:
         """Remove a worktree.
 
         Args:
@@ -181,7 +224,9 @@ class WorkTreeContainer:
         return prune_worktrees(self._repo, expire=expire, dry_run=dry_run)
 
     def move(
-        self, old_path: str | bytes | os.PathLike, new_path: str | bytes | os.PathLike
+        self,
+        old_path: str | bytes | os.PathLike[str],
+        new_path: str | bytes | os.PathLike[str],
     ) -> None:
         """Move a worktree to a new location.
 
@@ -191,7 +236,9 @@ class WorkTreeContainer:
         """
         move_worktree(self._repo, old_path, new_path)
 
-    def lock(self, path: str | bytes | os.PathLike, reason: str | None = None) -> None:
+    def lock(
+        self, path: str | bytes | os.PathLike[str], reason: str | None = None
+    ) -> None:
         """Lock a worktree to prevent it from being pruned.
 
         Args:
@@ -200,7 +247,7 @@ class WorkTreeContainer:
         """
         lock_worktree(self._repo, path, reason=reason)
 
-    def unlock(self, path: str | bytes | os.PathLike) -> None:
+    def unlock(self, path: str | bytes | os.PathLike[str]) -> None:
         """Unlock a worktree.
 
         Args:
@@ -208,7 +255,21 @@ class WorkTreeContainer:
         """
         unlock_worktree(self._repo, path)
 
-    def __iter__(self):
+    def repair(
+        self, paths: Sequence[str | bytes | os.PathLike[str]] | None = None
+    ) -> builtins.list[str]:
+        """Repair worktree administrative files.
+
+        Args:
+            paths: Optional list of worktree paths to repair. If None, repairs
+                   connections from the main repository to all linked worktrees.
+
+        Returns:
+            List of repaired worktree paths
+        """
+        return repair_worktree(self._repo, paths=paths)
+
+    def __iter__(self) -> Iterator[WorkTreeInfo]:
         """Iterate over all worktrees."""
         yield from self.list()
 
@@ -220,7 +281,7 @@ class WorkTree:
     such as staging files, committing changes, and resetting the index.
     """
 
-    def __init__(self, repo: Repo, path: str | bytes | os.PathLike) -> None:
+    def __init__(self, repo: Repo, path: str | bytes | os.PathLike[str]) -> None:
         """Initialize a WorkTree for the given repository.
 
         Args:
@@ -237,7 +298,10 @@ class WorkTree:
 
     def stage(
         self,
-        fs_paths: str | bytes | os.PathLike | Iterable[str | bytes | os.PathLike],
+        fs_paths: str
+        | bytes
+        | os.PathLike[str]
+        | Iterable[str | bytes | os.PathLike[str]],
     ) -> None:
         """Stage a set of paths.
 
@@ -299,8 +363,9 @@ class WorkTree:
                     index[tree_path] = index_entry_from_stat(st, blob.id)
         index.write()
 
-    def unstage(self, fs_paths: list[str]) -> None:
-        """Unstage specific file in the index
+    def unstage(self, fs_paths: Sequence[str]) -> None:
+        """Unstage specific file in the index.
+
         Args:
           fs_paths: a list of files to unstage,
             relative to the repository path.
@@ -309,7 +374,7 @@ class WorkTree:
 
         index = self._repo.open_index()
         try:
-            tree_id = self._repo[b"HEAD"].tree
+            commit = self._repo[Ref(b"HEAD")]
         except KeyError:
             # no head mean no commit in the repo
             for fs_path in fs_paths:
@@ -317,6 +382,9 @@ class WorkTree:
                 del index[tree_path]
             index.write()
             return
+        else:
+            assert isinstance(commit, Commit), "HEAD must be a commit"
+            tree_id = commit.tree
 
         for fs_path in fs_paths:
             tree_path = _fs_to_tree_path(fs_path)
@@ -341,15 +409,19 @@ class WorkTree:
             except FileNotFoundError:
                 pass
 
+            blob_obj = self._repo[tree_entry[1]]
+            assert isinstance(blob_obj, Blob)
+            blob_size = len(blob_obj.data)
+
             index_entry = IndexEntry(
-                ctime=(self._repo[b"HEAD"].commit_time, 0),
-                mtime=(self._repo[b"HEAD"].commit_time, 0),
+                ctime=(commit.commit_time, 0),
+                mtime=(commit.commit_time, 0),
                 dev=st.st_dev if st else 0,
                 ino=st.st_ino if st else 0,
                 mode=tree_entry[0],
                 uid=st.st_uid if st else 0,
                 gid=st.st_gid if st else 0,
-                size=len(self._repo[tree_entry[1]].data),
+                size=blob_size,
                 sha=tree_entry[1],
                 flags=0,
                 extended_flags=0,
@@ -360,20 +432,21 @@ class WorkTree:
 
     def commit(
         self,
-        message: bytes | None = None,
+        message: str | bytes | Callable[[Any, Commit], bytes] | None = None,
         committer: bytes | None = None,
         author: bytes | None = None,
-        commit_timestamp=None,
-        commit_timezone=None,
-        author_timestamp=None,
-        author_timezone=None,
+        commit_timestamp: float | None = None,
+        commit_timezone: int | None = None,
+        author_timestamp: float | None = None,
+        author_timezone: int | None = None,
         tree: ObjectID | None = None,
         encoding: bytes | None = None,
-        ref: Ref | None = b"HEAD",
-        merge_heads: list[ObjectID] | None = None,
+        ref: Ref | None = Ref(b"HEAD"),
+        merge_heads: Sequence[ObjectID] | None = None,
         no_verify: bool = False,
-        sign: bool = False,
-    ):
+        sign: bool | None = None,
+        signoff: bool | None = None,
+    ) -> ObjectID:
         """Create a new commit.
 
         If not specified, committer and author default to
@@ -401,6 +474,8 @@ class WorkTree:
           sign: GPG Sign the commit (bool, defaults to False,
             pass True to use default GPG key,
             pass a str containing Key ID to use a specific GPG key)
+          signoff: Add Signed-off-by line (DCO) to commit message.
+            If None, uses format.signoff config.
 
         Returns:
           New commit SHA1
@@ -460,15 +535,25 @@ class WorkTree:
         message = None  # Will be set later after parents are set
 
         # Check if we should sign the commit
-        should_sign = sign
         if sign is None:
             # Check commit.gpgSign configuration when sign is not explicitly set
-            config = self._repo.get_config_stack()
             try:
-                should_sign = config.get_boolean((b"commit",), b"gpgSign")
+                should_sign = config.get_boolean(
+                    (b"commit",), b"gpgsign", default=False
+                )
             except KeyError:
                 should_sign = False  # Default to not signing if no config
-        keyid = sign if isinstance(sign, str) else None
+        else:
+            should_sign = sign
+
+        # Get the signing key from config if signing is enabled
+        keyid = None
+        if should_sign:
+            try:
+                keyid_bytes = config.get((b"user",), b"signingkey")
+                keyid = keyid_bytes.decode() if keyid_bytes else None
+            except KeyError:
+                keyid = None
 
         if ref is None:
             # Create a dangling commit
@@ -492,6 +577,39 @@ class WorkTree:
             # FIXME: Try to read commit message from .git/MERGE_MSG
             raise ValueError("No commit message specified")
 
+        # Handle signoff
+        should_signoff = signoff
+        if should_signoff is None:
+            # Check format.signOff configuration
+            try:
+                should_signoff = config.get_boolean(
+                    (b"format",), b"signoff", default=False
+                )
+            except KeyError:
+                should_signoff = False
+
+        if should_signoff:
+            # Add Signed-off-by trailer
+            # Get the committer identity for the signoff
+            signoff_identity = committer
+            if isinstance(message, bytes):
+                message_bytes = message
+            else:
+                message_bytes = message.encode("utf-8")
+
+            message_bytes = add_trailer_to_message(
+                message_bytes,
+                "Signed-off-by",
+                signoff_identity.decode("utf-8")
+                if isinstance(signoff_identity, bytes)
+                else signoff_identity,
+                separator=":",
+                where="end",
+                if_exists="addIfDifferentNeighbor",
+                if_missing="add",
+            )
+            message = message_bytes
+
         try:
             if no_verify:
                 c.message = message
@@ -507,34 +625,53 @@ class WorkTree:
         if ref is None:
             # Create a dangling commit
             if should_sign:
-                c.sign(keyid)
+                from dulwich.signature import get_signature_vendor
+
+                vendor = get_signature_vendor(config=config)
+                c.gpgsig = vendor.sign(c.as_raw_string(), keyid=keyid)
             self._repo.object_store.add_object(c)
         else:
             try:
                 old_head = self._repo.refs[ref]
                 if should_sign:
-                    c.sign(keyid)
+                    from dulwich.signature import get_signature_vendor
+
+                    vendor = get_signature_vendor(config=config)
+                    c.gpgsig = vendor.sign(c.as_raw_string(), keyid=keyid)
                 self._repo.object_store.add_object(c)
+                message_bytes = (
+                    message.encode() if isinstance(message, str) else message
+                )
                 ok = self._repo.refs.set_if_equals(
                     ref,
                     old_head,
                     c.id,
-                    message=b"commit: " + message,
+                    message=b"commit: " + message_bytes,
                     committer=committer,
-                    timestamp=commit_timestamp,
+                    timestamp=int(commit_timestamp)
+                    if commit_timestamp is not None
+                    else None,
                     timezone=commit_timezone,
                 )
             except KeyError:
                 c.parents = merge_heads
                 if should_sign:
-                    c.sign(keyid)
+                    from dulwich.signature import get_signature_vendor
+
+                    vendor = get_signature_vendor(config=config)
+                    c.gpgsig = vendor.sign(c.as_raw_string(), keyid=keyid)
                 self._repo.object_store.add_object(c)
+                message_bytes = (
+                    message.encode() if isinstance(message, str) else message
+                )
                 ok = self._repo.refs.add_if_new(
                     ref,
                     c.id,
-                    message=b"commit: " + message,
+                    message=b"commit: " + message_bytes,
                     committer=committer,
-                    timestamp=commit_timestamp,
+                    timestamp=int(commit_timestamp)
+                    if commit_timestamp is not None
+                    else None,
                     timezone=commit_timezone,
                 )
             if not ok:
@@ -558,7 +695,7 @@ class WorkTree:
 
         return c.id
 
-    def reset_index(self, tree: bytes | None = None):
+    def reset_index(self, tree: ObjectID | None = None) -> None:
         """Reset the index back to a specific tree.
 
         Args:
@@ -573,10 +710,13 @@ class WorkTree:
         )
 
         if tree is None:
-            head = self._repo[b"HEAD"]
+            head = self._repo[Ref(b"HEAD")]
             if isinstance(head, Tag):
                 _cls, obj = head.object
                 head = self._repo.get_object(obj)
+            from .objects import Commit
+
+            assert isinstance(head, Commit)
             tree = head.tree
         config = self._repo.get_config()
         honor_filemode = config.get_boolean(b"core", b"filemode", os.name != "nt")
@@ -590,11 +730,15 @@ class WorkTree:
             symlink_fn = symlink
         else:
 
-            def symlink_fn(source, target) -> None:  # type: ignore
-                with open(
-                    target, "w" + ("b" if isinstance(source, bytes) else "")
-                ) as f:
-                    f.write(source)
+            def symlink_fn(  # type: ignore[misc,unused-ignore]
+                src: str | bytes,
+                dst: str | bytes,
+                target_is_directory: bool = False,
+                *,
+                dir_fd: int | None = None,
+            ) -> None:
+                with open(dst, "w" + ("b" if isinstance(src, bytes) else "")) as f:
+                    f.write(src)
 
         blob_normalizer = self._repo.get_blob_normalizer()
         return build_index_from_tree(
@@ -604,7 +748,7 @@ class WorkTree:
             tree,
             honor_filemode=honor_filemode,
             validate_path_element=validate_path_element,
-            symlink_fn=symlink_fn,
+            symlink_fn=symlink_fn,  # type: ignore[arg-type,unused-ignore]
             blob_normalizer=blob_normalizer,
         )
 
@@ -642,7 +786,7 @@ class WorkTree:
         except FileNotFoundError:
             return []
 
-    def set_sparse_checkout_patterns(self, patterns: list[str]) -> None:
+    def set_sparse_checkout_patterns(self, patterns: Sequence[str]) -> None:
         """Write the given sparse-checkout patterns into info/sparse-checkout.
 
         Creates the info/ directory if it does not exist.
@@ -658,7 +802,7 @@ class WorkTree:
             for pat in patterns:
                 f.write(pat + "\n")
 
-    def set_cone_mode_patterns(self, dirs: list[str] | None = None) -> None:
+    def set_cone_mode_patterns(self, dirs: Sequence[str] | None = None) -> None:
         """Write the given cone-mode directory patterns into info/sparse-checkout.
 
         For each directory to include, add an inclusion line that "undoes" the prior
@@ -721,7 +865,7 @@ def list_worktrees(repo: Repo) -> list[WorkTreeInfo]:
         with open(os.path.join(repo.controldir(), "HEAD"), "rb") as f:
             head_contents = f.read().strip()
             if head_contents.startswith(SYMREF):
-                ref_name = head_contents[len(SYMREF) :].strip()
+                ref_name = Ref(head_contents[len(SYMREF) :].strip())
                 main_wt_info.branch = ref_name
             else:
                 main_wt_info.detached = True
@@ -773,7 +917,7 @@ def list_worktrees(repo: Repo) -> list[WorkTreeInfo]:
                 with open(head_path, "rb") as f:
                     head_contents = f.read().strip()
                     if head_contents.startswith(SYMREF):
-                        ref_name = head_contents[len(SYMREF) :].strip()
+                        ref_name = Ref(head_contents[len(SYMREF) :].strip())
                         wt_info.branch = ref_name
                         # Resolve ref to get commit sha
                         try:
@@ -801,11 +945,12 @@ def list_worktrees(repo: Repo) -> list[WorkTreeInfo]:
 
 def add_worktree(
     repo: Repo,
-    path: str | bytes | os.PathLike,
+    path: str | bytes | os.PathLike[str],
     branch: str | bytes | None = None,
     commit: ObjectID | None = None,
     force: bool = False,
     detach: bool = False,
+    exist_ok: bool = False,
 ) -> Repo:
     """Add a new worktree to the repository.
 
@@ -816,12 +961,13 @@ def add_worktree(
         commit: Specific commit to checkout (results in detached HEAD)
         force: Force creation even if branch is already checked out elsewhere
         detach: Detach HEAD in the new worktree
+        exist_ok: If True, do not raise an error if the directory already exists
 
     Returns:
         The newly created worktree repository
 
     Raises:
-        ValueError: If the path already exists or branch is already checked out
+        ValueError: If the path already exists (and exist_ok is False) or branch is already checked out
     """
     from .repo import Repo as RepoClass
 
@@ -830,15 +976,14 @@ def add_worktree(
         path = os.fsdecode(path)
 
     # Check if path already exists
-    if os.path.exists(path):
+    if os.path.exists(path) and not exist_ok:
         raise ValueError(f"Path already exists: {path}")
 
     # Normalize branch name
     if branch is not None:
         if isinstance(branch, str):
             branch = branch.encode()
-        if not branch.startswith(b"refs/heads/"):
-            branch = b"refs/heads/" + branch
+        branch = local_branch_name(branch)
 
     # Check if branch is already checked out in another worktree
     if branch and not force:
@@ -871,7 +1016,7 @@ def add_worktree(
         detach = True
 
     # Create the worktree directory
-    os.makedirs(path)
+    os.makedirs(path, exist_ok=exist_ok)
 
     # Initialize the worktree
     identifier = os.path.basename(path)
@@ -884,7 +1029,10 @@ def add_worktree(
             f.write(checkout_ref + b"\n")
     else:
         # Point to branch
-        wt_repo.refs.set_symbolic_ref(b"HEAD", branch)
+        assert branch is not None  # Should be guaranteed by logic above
+        from dulwich.refs import HEADREF
+
+        wt_repo.refs.set_symbolic_ref(HEADREF, branch)
 
     # Reset index to match HEAD
     wt_repo.get_worktree().reset_index()
@@ -893,7 +1041,7 @@ def add_worktree(
 
 
 def remove_worktree(
-    repo: Repo, path: str | bytes | os.PathLike, force: bool = False
+    repo: Repo, path: str | bytes | os.PathLike[str], force: bool = False
 ) -> None:
     """Remove a worktree.
 
@@ -1025,7 +1173,7 @@ def prune_worktrees(
 
 
 def lock_worktree(
-    repo: Repo, path: str | bytes | os.PathLike, reason: str | None = None
+    repo: Repo, path: str | bytes | os.PathLike[str], reason: str | None = None
 ) -> None:
     """Lock a worktree to prevent it from being pruned.
 
@@ -1043,7 +1191,7 @@ def lock_worktree(
             f.write(reason)
 
 
-def unlock_worktree(repo: Repo, path: str | bytes | os.PathLike) -> None:
+def unlock_worktree(repo: Repo, path: str | bytes | os.PathLike[str]) -> None:
     """Unlock a worktree.
 
     Args:
@@ -1058,7 +1206,7 @@ def unlock_worktree(repo: Repo, path: str | bytes | os.PathLike) -> None:
         os.remove(lock_path)
 
 
-def _find_worktree_id(repo: Repo, path: str | bytes | os.PathLike) -> str:
+def _find_worktree_id(repo: Repo, path: str | bytes | os.PathLike[str]) -> str:
     """Find the worktree identifier for the given path.
 
     Args:
@@ -1100,8 +1248,8 @@ def _find_worktree_id(repo: Repo, path: str | bytes | os.PathLike) -> str:
 
 def move_worktree(
     repo: Repo,
-    old_path: str | bytes | os.PathLike,
-    new_path: str | bytes | os.PathLike,
+    old_path: str | bytes | os.PathLike[str],
+    new_path: str | bytes | os.PathLike[str],
 ) -> None:
     """Move a worktree to a new location.
 
@@ -1141,3 +1289,152 @@ def move_worktree(
     # Update the gitdir pointer in the control directory
     with open(os.path.join(worktree_control_dir, GITDIR), "wb") as f:
         f.write(os.fsencode(gitdir_file) + b"\n")
+
+
+def repair_worktree(
+    repo: Repo, paths: Sequence[str | bytes | os.PathLike[str]] | None = None
+) -> list[str]:
+    """Repair worktree administrative files.
+
+    This repairs the connection between worktrees and the main repository
+    when they have been moved or become corrupted.
+
+    Args:
+        repo: The main repository
+        paths: Optional list of worktree paths to repair. If None, repairs
+               connections from the main repository to all linked worktrees.
+
+    Returns:
+        List of repaired worktree paths
+
+    Raises:
+        ValueError: If a specified path is not a valid worktree
+    """
+    repaired: list[str] = []
+    worktrees_dir = os.path.join(repo.controldir(), WORKTREES)
+
+    if paths:
+        # Repair specific worktrees
+        for path in paths:
+            path_str = os.fspath(path)
+            if isinstance(path_str, bytes):
+                path_str = os.fsdecode(path_str)
+            path_str = os.path.abspath(path_str)
+
+            # Check if this is a linked worktree
+            gitdir_file = os.path.join(path_str, ".git")
+            if not os.path.exists(gitdir_file):
+                raise ValueError(f"Not a valid worktree: {path_str}")
+
+            # Read the .git file to get the worktree control directory
+            try:
+                with open(gitdir_file, "rb") as f:
+                    gitdir_content = f.read().strip()
+                    if gitdir_content.startswith(b"gitdir: "):
+                        worktree_control_path = gitdir_content[8:].decode()
+                    else:
+                        raise ValueError(f"Invalid .git file in worktree: {path_str}")
+            except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
+                raise ValueError(
+                    f"Cannot read .git file in worktree: {path_str}"
+                ) from e
+
+            # Make the path absolute if it's relative
+            if not os.path.isabs(worktree_control_path):
+                worktree_control_path = os.path.abspath(
+                    os.path.join(path_str, worktree_control_path)
+                )
+
+            # Update the gitdir file in the worktree control directory
+            gitdir_pointer = os.path.join(worktree_control_path, GITDIR)
+            if os.path.exists(gitdir_pointer):
+                # Update to point to the current location
+                with open(gitdir_pointer, "wb") as f:
+                    f.write(os.fsencode(gitdir_file) + b"\n")
+                repaired.append(path_str)
+    else:
+        # Repair from main repository to all linked worktrees
+        if not os.path.isdir(worktrees_dir):
+            return repaired
+
+        for entry in os.listdir(worktrees_dir):
+            worktree_control_path = os.path.join(worktrees_dir, entry)
+            if not os.path.isdir(worktree_control_path):
+                continue
+
+            # Read the gitdir file to find where the worktree thinks it is
+            gitdir_path = os.path.join(worktree_control_path, GITDIR)
+            try:
+                with open(gitdir_path, "rb") as f:
+                    gitdir_contents = f.read().strip()
+                    old_gitdir_location = os.fsdecode(gitdir_contents)
+            except (FileNotFoundError, PermissionError):
+                # Can't repair if we can't read the gitdir file
+                continue
+
+            # Get the worktree directory (remove .git suffix)
+            old_worktree_path = os.path.dirname(old_gitdir_location)
+
+            # Check if the .git file exists at the old location
+            if os.path.exists(old_gitdir_location):
+                # Try to read and update the .git file to ensure it points back correctly
+                try:
+                    with open(old_gitdir_location, "rb") as f:
+                        content = f.read().strip()
+                        if content.startswith(b"gitdir: "):
+                            current_pointer = content[8:].decode()
+                            if not os.path.isabs(current_pointer):
+                                current_pointer = os.path.abspath(
+                                    os.path.join(old_worktree_path, current_pointer)
+                                )
+
+                            # If it doesn't point to the right place, fix it
+                            expected_pointer = worktree_control_path
+                            if os.path.abspath(current_pointer) != os.path.abspath(
+                                expected_pointer
+                            ):
+                                # Update the .git file to point to the correct location
+                                with open(old_gitdir_location, "wb") as wf:
+                                    wf.write(
+                                        b"gitdir: "
+                                        + os.fsencode(worktree_control_path)
+                                        + b"\n"
+                                    )
+                                repaired.append(old_worktree_path)
+                except (PermissionError, UnicodeDecodeError):
+                    continue
+
+    return repaired
+
+
+@contextmanager
+def temporary_worktree(repo: Repo, prefix: str = "tmp-worktree-") -> Iterator[Repo]:
+    """Create a temporary worktree that is automatically cleaned up.
+
+    Args:
+        repo: Dulwich repository object
+        prefix: Prefix for the temporary directory name
+
+    Yields:
+        Worktree object
+    """
+    temp_dir = None
+    worktree = None
+
+    try:
+        # Create temporary directory
+        temp_dir = tempfile.mkdtemp(prefix=prefix)
+
+        # Add worktree
+        worktree = repo.worktrees.add(temp_dir, exist_ok=True)
+
+        yield worktree
+
+    finally:
+        # Clean up worktree registration
+        if worktree:
+            repo.worktrees.remove(worktree.path)
+
+        # Clean up temporary directory
+        if temp_dir and Path(temp_dir).exists():
+            shutil.rmtree(temp_dir)

@@ -19,6 +19,7 @@ from OpenSSL import crypto
 from appstoreserverlibrary.models.AppTransaction import AppTransaction
 from appstoreserverlibrary.models.LibraryUtility import _get_cattrs_converter
 
+from .models.DecodedRealtimeRequestBody import DecodedRealtimeRequestBody
 from .models.Environment import Environment
 from .models.ResponseBodyV2DecodedPayload import ResponseBodyV2DecodedPayload
 from .models.JWSTransactionDecodedPayload import JWSTransactionDecodedPayload
@@ -131,6 +132,23 @@ class SignedDataVerifier:
             raise VerificationException(VerificationStatus.INVALID_ENVIRONMENT)
         return decoded_app_transaction
 
+    def verify_and_decode_realtime_request(self, signed_payload: str) -> DecodedRealtimeRequestBody:
+        """
+        Verifies and decodes a Retention Messaging API signedPayload
+        See https://developer.apple.com/documentation/retentionmessaging/signedpayload
+
+        :param signedPayload: The payload received by your server
+        :return: The decoded payload after verification
+        :throws VerificationException: Thrown if the data could not be verified
+        """
+        decoded_dict = self._decode_signed_object(signed_payload)
+        decoded_realtime_request = _get_cattrs_converter(DecodedRealtimeRequestBody).structure(decoded_dict, DecodedRealtimeRequestBody)
+        if self._environment == Environment.PRODUCTION and decoded_realtime_request.appAppleId != self._app_apple_id:
+            raise VerificationException(VerificationStatus.INVALID_APP_IDENTIFIER)
+        if decoded_realtime_request.environment != self._environment:
+            raise VerificationException(VerificationStatus.INVALID_ENVIRONMENT)
+        return decoded_realtime_request
+
     def _decode_signed_object(self, signed_obj: str) -> dict:
         try:
             decoded_jwt = jwt.decode(signed_obj, options={"verify_signature": False})
@@ -226,12 +244,18 @@ class _ChainVerifier:
         )
         ocsps = [val for val in authority_values if val.access_method == x509.oid.AuthorityInformationAccessOID.OCSP]
         for o in ocsps:
-            r = requests.post(
-                o.access_location.value,
-                headers={"Content-Type": "application/ocsp-request"},
-                data=req.public_bytes(serialization.Encoding.DER),
-            )
-            if r.status_code == 200:
+            try:
+                r = requests.post(
+                    o.access_location.value,
+                    headers={"Content-Type": "application/ocsp-request"},
+                    data=req.public_bytes(serialization.Encoding.DER),
+                    timeout=30,
+                )
+            except (requests.exceptions.RequestException, OSError) as e:
+                raise VerificationException(VerificationStatus.RETRYABLE_VERIFICATION_FAILURE) from e
+            if r.status_code != 200:
+                raise VerificationException(VerificationStatus.RETRYABLE_VERIFICATION_FAILURE)
+            else:
                 ocsp_resp = ocsp.load_der_ocsp_response(r.content)
                 if ocsp_resp.response_status == ocsp.OCSPResponseStatus.SUCCESSFUL:
                     certs = [issuer]
@@ -334,6 +358,7 @@ class VerificationStatus(IntEnum):
     INVALID_CHAIN_LENGTH = 4
     INVALID_CHAIN = 5
     INVALID_ENVIRONMENT = 6
+    RETRYABLE_VERIFICATION_FAILURE = 7
 
 
 class VerificationException(Exception):

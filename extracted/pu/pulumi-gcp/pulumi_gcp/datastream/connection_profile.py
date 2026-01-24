@@ -29,6 +29,7 @@ class ConnectionProfileArgs:
                  forward_ssh_connectivity: Optional[pulumi.Input['ConnectionProfileForwardSshConnectivityArgs']] = None,
                  gcs_profile: Optional[pulumi.Input['ConnectionProfileGcsProfileArgs']] = None,
                  labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 mongodb_profile: Optional[pulumi.Input['ConnectionProfileMongodbProfileArgs']] = None,
                  mysql_profile: Optional[pulumi.Input['ConnectionProfileMysqlProfileArgs']] = None,
                  oracle_profile: Optional[pulumi.Input['ConnectionProfileOracleProfileArgs']] = None,
                  postgresql_profile: Optional[pulumi.Input['ConnectionProfilePostgresqlProfileArgs']] = None,
@@ -50,6 +51,8 @@ class ConnectionProfileArgs:
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels.
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
+        :param pulumi.Input['ConnectionProfileMongodbProfileArgs'] mongodb_profile: Configuration for connecting to a MongoDB database.
+               Structure is documented below.
         :param pulumi.Input['ConnectionProfileMysqlProfileArgs'] mysql_profile: MySQL database profile.
                Structure is documented below.
         :param pulumi.Input['ConnectionProfileOracleProfileArgs'] oracle_profile: Oracle database profile.
@@ -78,6 +81,8 @@ class ConnectionProfileArgs:
             pulumi.set(__self__, "gcs_profile", gcs_profile)
         if labels is not None:
             pulumi.set(__self__, "labels", labels)
+        if mongodb_profile is not None:
+            pulumi.set(__self__, "mongodb_profile", mongodb_profile)
         if mysql_profile is not None:
             pulumi.set(__self__, "mysql_profile", mysql_profile)
         if oracle_profile is not None:
@@ -194,6 +199,19 @@ class ConnectionProfileArgs:
         pulumi.set(self, "labels", value)
 
     @_builtins.property
+    @pulumi.getter(name="mongodbProfile")
+    def mongodb_profile(self) -> Optional[pulumi.Input['ConnectionProfileMongodbProfileArgs']]:
+        """
+        Configuration for connecting to a MongoDB database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_profile")
+
+    @mongodb_profile.setter
+    def mongodb_profile(self, value: Optional[pulumi.Input['ConnectionProfileMongodbProfileArgs']]):
+        pulumi.set(self, "mongodb_profile", value)
+
+    @_builtins.property
     @pulumi.getter(name="mysqlProfile")
     def mysql_profile(self) -> Optional[pulumi.Input['ConnectionProfileMysqlProfileArgs']]:
         """
@@ -297,6 +315,7 @@ class _ConnectionProfileState:
                  gcs_profile: Optional[pulumi.Input['ConnectionProfileGcsProfileArgs']] = None,
                  labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
+                 mongodb_profile: Optional[pulumi.Input['ConnectionProfileMongodbProfileArgs']] = None,
                  mysql_profile: Optional[pulumi.Input['ConnectionProfileMysqlProfileArgs']] = None,
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  oracle_profile: Optional[pulumi.Input['ConnectionProfileOracleProfileArgs']] = None,
@@ -321,6 +340,8 @@ class _ConnectionProfileState:
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
         :param pulumi.Input[_builtins.str] location: The name of the location this connection profile is located in.
+        :param pulumi.Input['ConnectionProfileMongodbProfileArgs'] mongodb_profile: Configuration for connecting to a MongoDB database.
+               Structure is documented below.
         :param pulumi.Input['ConnectionProfileMysqlProfileArgs'] mysql_profile: MySQL database profile.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] name: The resource's name.
@@ -357,6 +378,8 @@ class _ConnectionProfileState:
             pulumi.set(__self__, "labels", labels)
         if location is not None:
             pulumi.set(__self__, "location", location)
+        if mongodb_profile is not None:
+            pulumi.set(__self__, "mongodb_profile", mongodb_profile)
         if mysql_profile is not None:
             pulumi.set(__self__, "mysql_profile", mysql_profile)
         if name is not None:
@@ -489,6 +512,19 @@ class _ConnectionProfileState:
         pulumi.set(self, "location", value)
 
     @_builtins.property
+    @pulumi.getter(name="mongodbProfile")
+    def mongodb_profile(self) -> Optional[pulumi.Input['ConnectionProfileMongodbProfileArgs']]:
+        """
+        Configuration for connecting to a MongoDB database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_profile")
+
+    @mongodb_profile.setter
+    def mongodb_profile(self, value: Optional[pulumi.Input['ConnectionProfileMongodbProfileArgs']]):
+        pulumi.set(self, "mongodb_profile", value)
+
+    @_builtins.property
     @pulumi.getter(name="mysqlProfile")
     def mysql_profile(self) -> Optional[pulumi.Input['ConnectionProfileMysqlProfileArgs']]:
         """
@@ -619,6 +655,7 @@ class ConnectionProfile(pulumi.CustomResource):
                  gcs_profile: Optional[pulumi.Input[Union['ConnectionProfileGcsProfileArgs', 'ConnectionProfileGcsProfileArgsDict']]] = None,
                  labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
+                 mongodb_profile: Optional[pulumi.Input[Union['ConnectionProfileMongodbProfileArgs', 'ConnectionProfileMongodbProfileArgsDict']]] = None,
                  mysql_profile: Optional[pulumi.Input[Union['ConnectionProfileMysqlProfileArgs', 'ConnectionProfileMysqlProfileArgsDict']]] = None,
                  oracle_profile: Optional[pulumi.Input[Union['ConnectionProfileOracleProfileArgs', 'ConnectionProfileOracleProfileArgsDict']]] = None,
                  postgresql_profile: Optional[pulumi.Input[Union['ConnectionProfilePostgresqlProfileArgs', 'ConnectionProfilePostgresqlProfileArgsDict']]] = None,
@@ -693,13 +730,13 @@ class ConnectionProfile(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.RandomPassword("pwd",
+        pwd = random.index.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
             name="user",
             instance=instance.name,
-            password=pwd.result)
+            password=pwd["result"])
         nat_vm = gcp.compute.Instance("nat_vm",
             name="nat-vm",
             machine_type="e2-medium",
@@ -722,16 +759,16 @@ class ConnectionProfile(pulumi.CustomResource):
         export DB_ADDR={public_ip_address}
         export DB_PORT=5432
         echo 1 > /proc/sys/net/ipv4/ip_forward
-        md_url_prefix="http://169.254.169.254/computeMetadata/v1/instance"
-        vm_nic_ip="$(curl -H "Metadata-Flavor: Google" ${{md_url_prefix}}/network-interfaces/0/ip)"
+        md_url_prefix=\\"http://169.254.169.254/computeMetadata/v1/instance\\"
+        vm_nic_ip=\\"$(curl -H \\"Metadata-Flavor: Google\\" ${{md_url_prefix}}/network-interfaces/0/ip)\\"
         iptables -t nat -F
-        iptables -t nat -A PREROUTING \\
-             -p tcp --dport $DB_PORT \\
-             -j DNAT \\
+        iptables -t nat -A PREROUTING \\\\
+             -p tcp --dport $DB_PORT \\\\
+             -j DNAT \\\\
              --to-destination $DB_ADDR
-        iptables -t nat -A POSTROUTING \\
-             -p tcp --dport $DB_PORT \\
-             -j SNAT \\
+        iptables -t nat -A POSTROUTING \\\\
+             -p tcp --dport $DB_PORT \\\\
+             -j SNAT \\\\
              --to-source $vm_nic_ip
         iptables-save
         \"\"\"))
@@ -821,13 +858,13 @@ class ConnectionProfile(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.RandomPassword("pwd",
+        pwd = random.index.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
             name="user",
             instance=instance.name,
-            password=pwd.result)
+            password=pwd["result"])
         default = gcp.datastream.ConnectionProfile("default",
             display_name="Connection profile",
             location="us-central1",
@@ -892,6 +929,64 @@ class ConnectionProfile(pulumi.CustomResource):
                 "database": db.name,
             })
         ```
+        ### Datastream Stream Postgresql Sslconfig Server And Client Verification
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+        import pulumi_random as random
+        import pulumi_std as std
+
+        datastream_ips = gcp.datastream.get_static_ips(location="us-central1")
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="my-instance",
+            database_version="POSTGRES_15",
+            region="us-central1",
+            settings={
+                "tier": "db-f1-micro",
+                "ip_configuration": {
+                    "authorized_networks": [{"key": k, "value": v} for k, v in datastream_ips.static_ips].apply(lambda entries: [{
+                        "name": std.format(input="datastream-%d",
+                            args=[entry["key"]]).result,
+                        "value": entry["value"],
+                    } for entry in entries]),
+                    "ipv4_enabled": True,
+                    "ssl_mode": "TRUSTED_CLIENT_CERTIFICATE_REQUIRED",
+                },
+            },
+            deletion_protection=True)
+        db = gcp.sql.Database("db",
+            instance=instance.name,
+            name="db")
+        pwd = random.index.Password("pwd",
+            length=16,
+            special=False)
+        user = gcp.sql.User("user",
+            name="user",
+            instance=instance.name,
+            password=pwd["result"])
+        client_cert = gcp.sql.SslCert("client_cert",
+            common_name="client-name",
+            instance=instance.name)
+        default = gcp.datastream.ConnectionProfile("default",
+            display_name="Connection Profile",
+            location="us-central1",
+            connection_profile_id="profile-id",
+            postgresql_profile={
+                "hostname": instance.public_ip_address,
+                "port": 5432,
+                "username": "user",
+                "password": pwd["result"],
+                "database": db.name,
+                "ssl_config": {
+                    "server_and_client_verification": {
+                        "client_certificate": client_cert.cert,
+                        "client_key": client_cert.private_key,
+                        "ca_certificate": client_cert.server_ca_cert,
+                    },
+                },
+            })
+        ```
         ### Datastream Connection Profile Salesforce
 
         ```python
@@ -929,6 +1024,28 @@ class ConnectionProfile(pulumi.CustomResource):
                 "username": "fake-username",
                 "secret_manager_stored_password": "projects/fake-project/secrets/fake-secret/versions/1",
                 "database": "fake-database",
+            })
+        ```
+        ### Datastream Connection Profile Mongodb
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.datastream.ConnectionProfile("default",
+            display_name="Mongodb Source",
+            location="us-central1",
+            connection_profile_id="source-profile",
+            mongodb_profile={
+                "host_addresses": [{
+                    "hostname": "mongodb-primary.example.com",
+                    "port": 27017,
+                }],
+                "replica_set": "myReplicaSet",
+                "username": "mongoUser",
+                "password": "mongoPassword",
+                "database": "myDatabase",
+                "standard_connection_format": {}[0],
             })
         ```
 
@@ -970,6 +1087,8 @@ class ConnectionProfile(pulumi.CustomResource):
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
         :param pulumi.Input[_builtins.str] location: The name of the location this connection profile is located in.
+        :param pulumi.Input[Union['ConnectionProfileMongodbProfileArgs', 'ConnectionProfileMongodbProfileArgsDict']] mongodb_profile: Configuration for connecting to a MongoDB database.
+               Structure is documented below.
         :param pulumi.Input[Union['ConnectionProfileMysqlProfileArgs', 'ConnectionProfileMysqlProfileArgsDict']] mysql_profile: MySQL database profile.
                Structure is documented below.
         :param pulumi.Input[Union['ConnectionProfileOracleProfileArgs', 'ConnectionProfileOracleProfileArgsDict']] oracle_profile: Oracle database profile.
@@ -1057,13 +1176,13 @@ class ConnectionProfile(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.RandomPassword("pwd",
+        pwd = random.index.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
             name="user",
             instance=instance.name,
-            password=pwd.result)
+            password=pwd["result"])
         nat_vm = gcp.compute.Instance("nat_vm",
             name="nat-vm",
             machine_type="e2-medium",
@@ -1086,16 +1205,16 @@ class ConnectionProfile(pulumi.CustomResource):
         export DB_ADDR={public_ip_address}
         export DB_PORT=5432
         echo 1 > /proc/sys/net/ipv4/ip_forward
-        md_url_prefix="http://169.254.169.254/computeMetadata/v1/instance"
-        vm_nic_ip="$(curl -H "Metadata-Flavor: Google" ${{md_url_prefix}}/network-interfaces/0/ip)"
+        md_url_prefix=\\"http://169.254.169.254/computeMetadata/v1/instance\\"
+        vm_nic_ip=\\"$(curl -H \\"Metadata-Flavor: Google\\" ${{md_url_prefix}}/network-interfaces/0/ip)\\"
         iptables -t nat -F
-        iptables -t nat -A PREROUTING \\
-             -p tcp --dport $DB_PORT \\
-             -j DNAT \\
+        iptables -t nat -A PREROUTING \\\\
+             -p tcp --dport $DB_PORT \\\\
+             -j DNAT \\\\
              --to-destination $DB_ADDR
-        iptables -t nat -A POSTROUTING \\
-             -p tcp --dport $DB_PORT \\
-             -j SNAT \\
+        iptables -t nat -A POSTROUTING \\\\
+             -p tcp --dport $DB_PORT \\\\
+             -j SNAT \\\\
              --to-source $vm_nic_ip
         iptables-save
         \"\"\"))
@@ -1185,13 +1304,13 @@ class ConnectionProfile(pulumi.CustomResource):
         db = gcp.sql.Database("db",
             instance=instance.name,
             name="db")
-        pwd = random.RandomPassword("pwd",
+        pwd = random.index.Password("pwd",
             length=16,
             special=False)
         user = gcp.sql.User("user",
             name="user",
             instance=instance.name,
-            password=pwd.result)
+            password=pwd["result"])
         default = gcp.datastream.ConnectionProfile("default",
             display_name="Connection profile",
             location="us-central1",
@@ -1256,6 +1375,64 @@ class ConnectionProfile(pulumi.CustomResource):
                 "database": db.name,
             })
         ```
+        ### Datastream Stream Postgresql Sslconfig Server And Client Verification
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+        import pulumi_random as random
+        import pulumi_std as std
+
+        datastream_ips = gcp.datastream.get_static_ips(location="us-central1")
+        instance = gcp.sql.DatabaseInstance("instance",
+            name="my-instance",
+            database_version="POSTGRES_15",
+            region="us-central1",
+            settings={
+                "tier": "db-f1-micro",
+                "ip_configuration": {
+                    "authorized_networks": [{"key": k, "value": v} for k, v in datastream_ips.static_ips].apply(lambda entries: [{
+                        "name": std.format(input="datastream-%d",
+                            args=[entry["key"]]).result,
+                        "value": entry["value"],
+                    } for entry in entries]),
+                    "ipv4_enabled": True,
+                    "ssl_mode": "TRUSTED_CLIENT_CERTIFICATE_REQUIRED",
+                },
+            },
+            deletion_protection=True)
+        db = gcp.sql.Database("db",
+            instance=instance.name,
+            name="db")
+        pwd = random.index.Password("pwd",
+            length=16,
+            special=False)
+        user = gcp.sql.User("user",
+            name="user",
+            instance=instance.name,
+            password=pwd["result"])
+        client_cert = gcp.sql.SslCert("client_cert",
+            common_name="client-name",
+            instance=instance.name)
+        default = gcp.datastream.ConnectionProfile("default",
+            display_name="Connection Profile",
+            location="us-central1",
+            connection_profile_id="profile-id",
+            postgresql_profile={
+                "hostname": instance.public_ip_address,
+                "port": 5432,
+                "username": "user",
+                "password": pwd["result"],
+                "database": db.name,
+                "ssl_config": {
+                    "server_and_client_verification": {
+                        "client_certificate": client_cert.cert,
+                        "client_key": client_cert.private_key,
+                        "ca_certificate": client_cert.server_ca_cert,
+                    },
+                },
+            })
+        ```
         ### Datastream Connection Profile Salesforce
 
         ```python
@@ -1293,6 +1470,28 @@ class ConnectionProfile(pulumi.CustomResource):
                 "username": "fake-username",
                 "secret_manager_stored_password": "projects/fake-project/secrets/fake-secret/versions/1",
                 "database": "fake-database",
+            })
+        ```
+        ### Datastream Connection Profile Mongodb
+
+        ```python
+        import pulumi
+        import pulumi_gcp as gcp
+
+        default = gcp.datastream.ConnectionProfile("default",
+            display_name="Mongodb Source",
+            location="us-central1",
+            connection_profile_id="source-profile",
+            mongodb_profile={
+                "host_addresses": [{
+                    "hostname": "mongodb-primary.example.com",
+                    "port": 27017,
+                }],
+                "replica_set": "myReplicaSet",
+                "username": "mongoUser",
+                "password": "mongoPassword",
+                "database": "myDatabase",
+                "standard_connection_format": {}[0],
             })
         ```
 
@@ -1343,6 +1542,7 @@ class ConnectionProfile(pulumi.CustomResource):
                  gcs_profile: Optional[pulumi.Input[Union['ConnectionProfileGcsProfileArgs', 'ConnectionProfileGcsProfileArgsDict']]] = None,
                  labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
+                 mongodb_profile: Optional[pulumi.Input[Union['ConnectionProfileMongodbProfileArgs', 'ConnectionProfileMongodbProfileArgsDict']]] = None,
                  mysql_profile: Optional[pulumi.Input[Union['ConnectionProfileMysqlProfileArgs', 'ConnectionProfileMysqlProfileArgsDict']]] = None,
                  oracle_profile: Optional[pulumi.Input[Union['ConnectionProfileOracleProfileArgs', 'ConnectionProfileOracleProfileArgsDict']]] = None,
                  postgresql_profile: Optional[pulumi.Input[Union['ConnectionProfilePostgresqlProfileArgs', 'ConnectionProfilePostgresqlProfileArgsDict']]] = None,
@@ -1373,6 +1573,7 @@ class ConnectionProfile(pulumi.CustomResource):
             if location is None and not opts.urn:
                 raise TypeError("Missing required property 'location'")
             __props__.__dict__["location"] = location
+            __props__.__dict__["mongodb_profile"] = mongodb_profile
             __props__.__dict__["mysql_profile"] = mysql_profile
             __props__.__dict__["oracle_profile"] = oracle_profile
             __props__.__dict__["postgresql_profile"] = postgresql_profile
@@ -1404,6 +1605,7 @@ class ConnectionProfile(pulumi.CustomResource):
             gcs_profile: Optional[pulumi.Input[Union['ConnectionProfileGcsProfileArgs', 'ConnectionProfileGcsProfileArgsDict']]] = None,
             labels: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
             location: Optional[pulumi.Input[_builtins.str]] = None,
+            mongodb_profile: Optional[pulumi.Input[Union['ConnectionProfileMongodbProfileArgs', 'ConnectionProfileMongodbProfileArgsDict']]] = None,
             mysql_profile: Optional[pulumi.Input[Union['ConnectionProfileMysqlProfileArgs', 'ConnectionProfileMysqlProfileArgsDict']]] = None,
             name: Optional[pulumi.Input[_builtins.str]] = None,
             oracle_profile: Optional[pulumi.Input[Union['ConnectionProfileOracleProfileArgs', 'ConnectionProfileOracleProfileArgsDict']]] = None,
@@ -1433,6 +1635,8 @@ class ConnectionProfile(pulumi.CustomResource):
                **Note**: This field is non-authoritative, and will only manage the labels present in your configuration.
                Please refer to the field `effective_labels` for all of the labels present on the resource.
         :param pulumi.Input[_builtins.str] location: The name of the location this connection profile is located in.
+        :param pulumi.Input[Union['ConnectionProfileMongodbProfileArgs', 'ConnectionProfileMongodbProfileArgsDict']] mongodb_profile: Configuration for connecting to a MongoDB database.
+               Structure is documented below.
         :param pulumi.Input[Union['ConnectionProfileMysqlProfileArgs', 'ConnectionProfileMysqlProfileArgsDict']] mysql_profile: MySQL database profile.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] name: The resource's name.
@@ -1464,6 +1668,7 @@ class ConnectionProfile(pulumi.CustomResource):
         __props__.__dict__["gcs_profile"] = gcs_profile
         __props__.__dict__["labels"] = labels
         __props__.__dict__["location"] = location
+        __props__.__dict__["mongodb_profile"] = mongodb_profile
         __props__.__dict__["mysql_profile"] = mysql_profile
         __props__.__dict__["name"] = name
         __props__.__dict__["oracle_profile"] = oracle_profile
@@ -1550,6 +1755,15 @@ class ConnectionProfile(pulumi.CustomResource):
         The name of the location this connection profile is located in.
         """
         return pulumi.get(self, "location")
+
+    @_builtins.property
+    @pulumi.getter(name="mongodbProfile")
+    def mongodb_profile(self) -> pulumi.Output[Optional['outputs.ConnectionProfileMongodbProfile']]:
+        """
+        Configuration for connecting to a MongoDB database.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "mongodb_profile")
 
     @_builtins.property
     @pulumi.getter(name="mysqlProfile")

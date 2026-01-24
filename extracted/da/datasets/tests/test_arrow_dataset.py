@@ -4114,6 +4114,16 @@ def test_dataset_from_generator_split(split, data_generator, tmp_path):
     _check_generator_dataset(dataset, expected_features, expected_split)
 
 
+@pytest.mark.parametrize("fingerprint", [None, "test-dataset"])
+def test_dataset_from_generator_fingerprint(fingerprint, data_generator, tmp_path):
+    cache_dir = tmp_path / "cache"
+    expected_features = {"col_1": "string", "col_2": "int64", "col_3": "float64"}
+    dataset = Dataset.from_generator(data_generator, cache_dir=cache_dir, fingerprint=fingerprint)
+    _check_generator_dataset(dataset, expected_features, NamedSplit("train"))
+    if fingerprint:
+        assert dataset._fingerprint == fingerprint
+
+
 @require_not_windows
 @require_dill_gt_0_3_2
 @require_pyspark
@@ -4773,3 +4783,35 @@ def test_from_polars_save_to_disk_and_load_from_disk_round_trip_with_large_list(
 def test_polars_round_trip():
     ds = Dataset.from_dict({"x": [[1, 2], [3, 4, 5]], "y": ["a", "b"]})
     assert isinstance(Dataset.from_polars(ds.to_polars()), Dataset)
+
+
+def test_add_column():
+    from datasets import Dataset
+
+    ds = Dataset.from_dict({"a": [1, 2]})
+    ds = ds.add_column("b", [3, 4])
+    assert "b" in ds.features
+    assert ds[0] == {"a": 1, "b": 3}
+    assert ds[1] == {"a": 2, "b": 4}
+
+
+def test_process_large_few_examples(tmp_path):
+    # GH 7911
+    from datasets import Dataset
+
+    target_size = 2 * 1024
+
+    base_text = "This is a sample sentence that will be repeated many times to create a large dataset. " * 100
+    large_text = ""
+
+    while len(large_text.encode("utf-8")) < target_size:
+        large_text += base_text
+
+    data = {"text": [large_text], "label": [0], "id": [1]}
+
+    ds = Dataset.from_dict(data)
+
+    dataset_path = tmp_path / "sample_dataset"
+    # make sure this is split into 2 shards
+    ds.save_to_disk(dataset_path, max_shard_size="1KB")
+    assert (dataset_path / "data-00000-of-00001.arrow").exists()

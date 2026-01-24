@@ -22,9 +22,11 @@ class TestMySQL(Validator):
         self.validate_identity("CREATE TABLE temp (id SERIAL PRIMARY KEY)")
         self.validate_identity("UPDATE items SET items.price = 0 WHERE items.id >= 5 LIMIT 10")
         self.validate_identity("DELETE FROM t WHERE a <= 10 LIMIT 10")
+        self.validate_identity("DELETE FROM t FORCE INDEX (idx) WHERE a > 5 ORDER BY id")
         self.validate_identity("CREATE TABLE foo (a BIGINT, INDEX USING BTREE (b))")
         self.validate_identity("CREATE TABLE foo (a BIGINT, FULLTEXT INDEX (b))")
         self.validate_identity("CREATE TABLE foo (a BIGINT, SPATIAL INDEX (b))")
+        self.validate_identity("CREATE TABLE foo (a INT UNSIGNED ZEROFILL)")
         self.validate_identity("ALTER TABLE t1 ADD COLUMN x INT, ALGORITHM=INPLACE, LOCK=EXCLUSIVE")
         self.validate_identity("ALTER TABLE t ADD INDEX `i` (`c`)")
         self.validate_identity("ALTER TABLE t ADD UNIQUE `i` (`c`)")
@@ -37,6 +39,12 @@ class TestMySQL(Validator):
         self.validate_identity(
             "ALTER DEFINER = 'admin'@'localhost' VIEW v AS SELECT * FROM foo",
             check_command_warning=True,
+        )
+        self.validate_identity(
+            "CREATE SQL SECURITY INVOKER VIEW id_test (id, foo) AS SELECT 0, foo FROM test"
+        )
+        self.validate_identity(
+            "CREATE SQL SECURITY DEFINER VIEW id_test (id, foo) AS SELECT 0, foo FROM test"
         )
         self.validate_identity(
             "ALTER SQL SECURITY = DEFINER VIEW v AS SELECT * FROM foo", check_command_warning=True
@@ -89,6 +97,13 @@ class TestMySQL(Validator):
         self.validate_identity(
             "CREATE TABLE test_table (id INT AUTO_INCREMENT, PRIMARY KEY (id) USING HASH)"
         )
+        self.validate_identity("CREATE TABLE test (id INT, PRIMARY KEY pk_name (id))")
+        self.validate_identity("CREATE TABLE test (id INT, PRIMARY KEY `pk_name` (id))")
+        self.validate_identity(
+            'CREATE TABLE test (id INT, PRIMARY KEY "pk_name" (id))',
+            "CREATE TABLE test (id INT, PRIMARY KEY `pk_name` (id))",
+        )
+        self.validate_identity("CREATE TABLE test (id INT, CONSTRAINT pk_name PRIMARY KEY (id))")
         self.validate_identity(
             "CREATE TABLE test (a INT, b INT GENERATED ALWAYS AS (a + a) STORED)"
         )
@@ -178,6 +193,9 @@ class TestMySQL(Validator):
         self.validate_identity("ALTER TABLE t ALTER INDEX i VISIBLE")
         self.validate_identity("ALTER TABLE t ALTER COLUMN c SET INVISIBLE")
         self.validate_identity("ALTER TABLE t ALTER COLUMN c SET VISIBLE")
+        self.validate_identity(
+            "UPDATE foo JOIN bar ON TRUE SET foo.a = bar.a WHERE foo.id = bar.id"
+        )
 
     def test_identity(self):
         self.validate_identity("SELECT HIGH_PRIORITY STRAIGHT_JOIN SQL_CALC_FOUND_ROWS * FROM t")
@@ -199,6 +217,7 @@ class TestMySQL(Validator):
         self.validate_identity("""SELECT 'ab' MEMBER OF('[23, "abc", 17, "ab", 10]')""")
         self.validate_identity("""SELECT * FROM foo WHERE 'ab' MEMBER OF(content)""")
         self.validate_identity("SELECT CURRENT_TIMESTAMP(6)")
+        self.validate_identity("SELECT CURRENT_ROLE()")
         self.validate_identity("x ->> '$.name'")
         self.validate_identity("SELECT CAST(`a`.`b` AS CHAR) FROM foo")
         self.validate_identity("SELECT TRIM(LEADING 'bla' FROM ' XXX ')")
@@ -209,6 +228,9 @@ class TestMySQL(Validator):
         self.validate_identity("CREATE TABLE A LIKE B")
         self.validate_identity("SELECT * FROM t1, t2 FOR SHARE OF t1, t2 SKIP LOCKED")
         self.validate_identity("SELECT a || b", "SELECT a OR b")
+        self.validate_identity(
+            "SELECT * FROM source, JSON_TABLE(source.links, '$.org[*]' COLUMNS(row_id FOR ORDINALITY, link VARCHAR(255) PATH '$.link')) AS links"
+        )
         self.validate_identity(
             "SELECT * FROM x ORDER BY BINARY a", "SELECT * FROM x ORDER BY CAST(a AS BINARY)"
         )
@@ -298,6 +320,7 @@ class TestMySQL(Validator):
         self.validate_identity("SELECT @var1 := 1, @var2")
         self.validate_identity("SELECT @var1, @var2 := @var1")
         self.validate_identity("SELECT @var1 := COUNT(*) FROM t1")
+        self.validate_identity("SET @var1 := 1", "SET @var1 = 1")
 
         self.validate_identity(
             "SELECT DISTINCTROW tbl.col FROM tbl", "SELECT DISTINCT tbl.col FROM tbl"
@@ -311,6 +334,8 @@ class TestMySQL(Validator):
             "SELECT 'foo' NOT SOUNDS LIKE 'bar'", "SELECT NOT SOUNDEX('foo') = SOUNDEX('bar')"
         )
         self.validate_identity("SELECT SUBSTR(1 FROM 2 FOR 3)", "SELECT SUBSTRING(1, 2, 3)")
+        self.validate_identity("SELECT ELT(2, 'foo', 'bar', 'baz') AS Result")
+        self.validate_identity("SELECT CHARSET(CHAR(100 USING utf8))")
 
     def test_types(self):
         for char_type in MySQL.Generator.CHAR_CAST_MAPPING:
@@ -412,6 +437,20 @@ class TestMySQL(Validator):
             },
         )
 
+        self.validate_identity(
+            r"'\"'",
+            """\'"\'""",
+        )
+        self.validate_identity("'\\\\\"a'")
+        self.validate_identity(
+            "'\t'",
+            "'\\t'",
+        )
+        self.validate_identity(
+            r"'\j'",
+            "'j'",
+        )
+
     def test_introducers(self):
         self.validate_all(
             "_utf8mb4 'hola'",
@@ -447,7 +486,7 @@ class TestMySQL(Validator):
             "clickhouse": UnsupportedError,
             "databricks": "SELECT X'CC'",
             "drill": "SELECT 204",
-            "duckdb": "SELECT FROM_HEX('CC')",
+            "duckdb": "SELECT UNHEX('CC')",
             "hive": "SELECT 204",
             "mysql": "SELECT x'CC'",
             "oracle": "SELECT 204",
@@ -468,7 +507,7 @@ class TestMySQL(Validator):
             "clickhouse": UnsupportedError,
             "databricks": "SELECT X'0000CC'",
             "drill": "SELECT 204",
-            "duckdb": "SELECT FROM_HEX('0000CC')",
+            "duckdb": "SELECT UNHEX('0000CC')",
             "hive": "SELECT 204",
             "mysql": "SELECT x'0000CC'",
             "oracle": "SELECT 204",
@@ -537,6 +576,9 @@ class TestMySQL(Validator):
             write={
                 "mysql": "CAST(x AS CHAR CHARACTER SET latin1)",
             },
+        )
+        self.validate_identity(
+            "CONVERT('a' USING binary)", "CAST('a' AS CHAR CHARACTER SET binary)"
         )
 
     def test_match_against(self):
@@ -800,7 +842,7 @@ class TestMySQL(Validator):
             },
             write={
                 "mysql": "SELECT CONCAT('11', '22')",
-                "postgres": "SELECT CONCAT('11', '22')",
+                "postgres": "SELECT '11' || '22'",
             },
         )
         self.validate_all(
@@ -979,8 +1021,8 @@ class TestMySQL(Validator):
             write={
                 "mysql": "GROUP_CONCAT(CONCAT(a, b, c) SEPARATOR ',')",
                 "sqlite": "GROUP_CONCAT(a || b || c, ',')",
-                "tsql": "STRING_AGG(CONCAT(a, b, c), ',')",
-                "postgres": "STRING_AGG(CONCAT(a, b, c), ',')",
+                "tsql": "STRING_AGG(a + b + c, ',')",
+                "postgres": "STRING_AGG(a || b || c, ',')",
                 "databricks": "LISTAGG(CONCAT(a, b, c), ',')",
                 "presto": "ARRAY_JOIN(ARRAY_AGG(CONCAT(CAST(a AS VARCHAR), CAST(b AS VARCHAR), CAST(c AS VARCHAR))), ',')",
             },
@@ -990,9 +1032,9 @@ class TestMySQL(Validator):
             write={
                 "mysql": "GROUP_CONCAT(CONCAT(a, b, c) SEPARATOR '')",
                 "sqlite": "GROUP_CONCAT(a || b || c, '')",
-                "tsql": "STRING_AGG(CONCAT(a, b, c), '')",
+                "tsql": "STRING_AGG(a + b + c, '')",
                 "databricks": "LISTAGG(CONCAT(a, b, c), '')",
-                "postgres": "STRING_AGG(CONCAT(a, b, c), '')",
+                "postgres": "STRING_AGG(a || b || c, '')",
             },
         )
         self.validate_all(
@@ -1000,9 +1042,9 @@ class TestMySQL(Validator):
             write={
                 "mysql": "GROUP_CONCAT(DISTINCT CONCAT(a, b, c) SEPARATOR '')",
                 "sqlite": "GROUP_CONCAT(DISTINCT a || b || c, '')",
-                "tsql": "STRING_AGG(CONCAT(a, b, c), '')",
+                "tsql": "STRING_AGG(a + b + c, '')",
                 "databricks": "LISTAGG(DISTINCT CONCAT(a, b, c), '')",
-                "postgres": "STRING_AGG(DISTINCT CONCAT(a, b, c), '')",
+                "postgres": "STRING_AGG(DISTINCT a || b || c, '')",
             },
         )
         self.validate_all(
@@ -1010,9 +1052,9 @@ class TestMySQL(Validator):
             write={
                 "mysql": "GROUP_CONCAT(CONCAT(a, b, c) ORDER BY d SEPARATOR '')",
                 "sqlite": "GROUP_CONCAT(a || b || c, '')",
-                "tsql": "STRING_AGG(CONCAT(a, b, c), '') WITHIN GROUP (ORDER BY d)",
+                "tsql": "STRING_AGG(a + b + c, '') WITHIN GROUP (ORDER BY d)",
                 "databricks": "LISTAGG(CONCAT(a, b, c), '') WITHIN GROUP (ORDER BY d)",
-                "postgres": "STRING_AGG(CONCAT(a, b, c), '' ORDER BY d NULLS FIRST)",
+                "postgres": "STRING_AGG(a || b || c, '' ORDER BY d NULLS FIRST)",
             },
         )
         self.validate_all(
@@ -1020,9 +1062,9 @@ class TestMySQL(Validator):
             write={
                 "mysql": "GROUP_CONCAT(DISTINCT CONCAT(a, b, c) ORDER BY d SEPARATOR '')",
                 "sqlite": "GROUP_CONCAT(DISTINCT a || b || c, '')",
-                "tsql": "STRING_AGG(CONCAT(a, b, c), '') WITHIN GROUP (ORDER BY d)",
+                "tsql": "STRING_AGG(a + b + c, '') WITHIN GROUP (ORDER BY d)",
                 "databricks": "LISTAGG(DISTINCT CONCAT(a, b, c), '') WITHIN GROUP (ORDER BY d)",
-                "postgres": "STRING_AGG(DISTINCT CONCAT(a, b, c), '' ORDER BY d NULLS FIRST)",
+                "postgres": "STRING_AGG(DISTINCT a || b || c, '' ORDER BY d NULLS FIRST)",
             },
         )
         self.validate_identity(
@@ -1486,3 +1528,20 @@ COMMENT='客户账户表'"""
         self.validate_identity("x % y").assert_is(exp.Mod)
         self.validate_identity("x MOD y", "x % y").assert_is(exp.Mod)
         self.validate_identity("MOD(x, y)", "x % y").assert_is(exp.Mod)
+
+    def test_valid_interval_units(self):
+        for unit in (
+            "SECOND_MICROSECOND",
+            "MINUTE_MICROSECOND",
+            "MINUTE_SECOND",
+            "HOUR_MICROSECOND",
+            "HOUR_SECOND",
+            "HOUR_MINUTE",
+            "DAY_MICROSECOND",
+            "DAY_SECOND",
+            "DAY_MINUTE",
+            "DAY_HOUR",
+            "YEAR_MONTH",
+        ):
+            with self.subTest(f"Testing INTERVAL unit: {unit}"):
+                self.validate_identity(f"DATE_ADD(base_date, INTERVAL day_interval {unit})")

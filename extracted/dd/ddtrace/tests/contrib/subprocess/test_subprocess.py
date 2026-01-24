@@ -16,30 +16,22 @@ from tests.utils import override_config
 from tests.utils import override_global_config
 
 
+BASE_CONFIG = dict(_is_testing_instrumentation_for_waf=True)
+
 PATCH_ENABLED_CONFIGURATIONS = (
-    dict(_asm_enabled=True),
-    dict(_iast_enabled=True),
-    dict(_asm_enabled=True, _iast_enabled=True),
-    dict(_asm_enabled=True, _iast_enabled=False),
-    dict(_asm_enabled=False, _iast_enabled=True),
-    dict(_bypass_instrumentation_for_waf=False, _asm_enabled=True, _iast_enabled=True),
-    dict(_bypass_instrumentation_for_waf=False, _asm_enabled=False, _iast_enabled=True),
-    dict(_bypass_instrumentation_for_waf=False, _asm_enabled=True, _iast_enabled=False),
+    dict(BASE_CONFIG, **dict(_asm_enabled=True)),
+    dict(BASE_CONFIG, **dict(_asm_enabled=True, _iast_enabled=True)),
+    dict(BASE_CONFIG, **dict(_asm_enabled=True, _iast_enabled=False)),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=False, _asm_enabled=True, _iast_enabled=True)),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=False, _asm_enabled=True, _iast_enabled=False)),
 )
 
-PATCH_SPECIALS = (dict(_remote_config_enabled=True),)
-
 PATCH_DISABLED_CONFIGURATIONS = (
-    dict(),
-    dict(_asm_enabled=False),
-    dict(_iast_enabled=False),
-    dict(_remote_config_enabled=False),
-    dict(_asm_enabled=False, _iast_enabled=False),
-    dict(_bypass_instrumentation_for_waf=True, _asm_enabled=False, _iast_enabled=False),
-    dict(_bypass_instrumentation_for_waf=True),
-    dict(_bypass_instrumentation_for_waf=False, _asm_enabled=False, _iast_enabled=False),
-    dict(_bypass_instrumentation_for_waf=True, _asm_enabled=True, _iast_enabled=False),
-    dict(_bypass_instrumentation_for_waf=True, _asm_enabled=False, _iast_enabled=True),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=True, _asm_enabled=False, _iast_enabled=False)),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=True, _asm_enabled=True)),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=True, _asm_enabled=None)),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=True, _asm_enabled=False, _iast_enabled=True)),
+    dict(BASE_CONFIG, **dict(_bypass_instrumentation_for_waf=False, _asm_enabled=False, _iast_enabled=True)),
 )
 
 CONFIGURATIONS = PATCH_ENABLED_CONFIGURATIONS + PATCH_DISABLED_CONFIGURATIONS
@@ -47,14 +39,31 @@ CONFIGURATIONS = PATCH_ENABLED_CONFIGURATIONS + PATCH_DISABLED_CONFIGURATIONS
 
 @pytest.fixture(autouse=True)
 def auto_unpatch():
+    from ddtrace.appsec._processor import AppSecSpanProcessor
+    from ddtrace.internal.settings.asm import config as asm_config
+
     SubprocessCmdLine._clear_cache()
-    yield
-    SubprocessCmdLine._clear_cache()
+    # Aggressively clean up before the test to ensure no state pollution
     try:
         unpatch()
     except AttributeError:
-        # Tests with appsec disabled or that didn't patch
         pass
+    # Disable AppSec and reset config to ensure clean state
+    AppSecSpanProcessor.disable()
+    # Reset ASM config to defaults to prevent config leakage
+    asm_config._bypass_instrumentation_for_waf = False
+
+    yield
+
+    SubprocessCmdLine._clear_cache()
+    # Clean up after the test
+    try:
+        unpatch()
+    except AttributeError:
+        pass
+    AppSecSpanProcessor.disable()
+    # Reset bypass flag to default
+    asm_config._bypass_instrumentation_for_waf = False
 
 
 allowed_envvars_fixture_list = []
@@ -249,14 +258,14 @@ def test_ossystem(tracer, config):
         assert span.get_tag(COMMANDS.COMPONENT) == "os"
 
 
-@pytest.mark.parametrize("config", PATCH_DISABLED_CONFIGURATIONS + PATCH_SPECIALS)
+@pytest.mark.parametrize("config", PATCH_DISABLED_CONFIGURATIONS)
 def test_ossystem_disabled(tracer, config):
     with override_global_config(config):
         patch()
         pin = Pin.get_from(os)
-        # TODO(APPSEC-57964): PIN is None in GitLab with py3.12 and this config:
-        #  {'_asm_enabled': False, '_bypass_instrumentation_for_waf': False, '_iast_enabled': False}
-        if pin:
+        # Pin may be None if _load_modules is False (patch returns early)
+        # Pin will be set if _load_modules is True but instrumentation is disabled
+        if pin is not None:
             pin._clone(tracer=tracer).onto(os)
         with tracer.trace("ossystem_test"):
             ret = os.system("dir -l /")
@@ -264,12 +273,8 @@ def test_ossystem_disabled(tracer, config):
 
         spans = tracer.pop()
         assert spans
-        # TODO(APPSEC-57964): GitLab with py3.12 returns two spans for those configurations.
-        #  Is override_global_config not triggering a restart?
-        #  {'_remote_config_enabled': True}
-        #  {'_remote_config_enabled': False}
-        #  {'_iast_enabled': False}
-        assert len(spans) >= 1
+
+        assert len(spans) == 1
         _assert_root_span_empty_system_data(spans[0])
 
 
@@ -317,6 +322,9 @@ def test_unpatch(tracer):
 
     unpatch()
     with override_global_config(dict(_ep_enabled=False)):
+        # After unpatch, Pin is removed, so we need to create a new one
+        # to verify that even with a Pin set, no subprocess spans are created
+        Pin().onto(os)
         Pin.get_from(os)._clone(tracer=tracer).onto(os)
         with tracer.trace("os.system_unpatch"):
             ret = os.system("dir -l /")
@@ -410,17 +418,10 @@ def test_osspawn_variants(tracer, function, mode, arguments):
                     ret = function(mode, arguments[0], arguments)
             else:
                 ret = function(mode, arguments[0], *arguments)
-            # TODO(APPSEC-57964): Gitlab raises at some point
-            #  Traceback (most recent call last):
-            #    File "/3.10.16/lib/python3.10/multiprocessing/util.py", line 357, in _exit_function
-            #      p.join()
-            #    File "/root/.pyenv/versions/3.10.16/lib/python3.10/multiprocessing/process.py", line 147, in join
-            #      assert self._parent_pid == os.getpid(), 'can only join a child process'
-            #  AssertionError: can only join a child process
-            # if mode == os.P_WAIT:
-            #     assert ret == 0
-            # else:
-            #     assert ret > 0  # for P_NOWAIT returned value is the pid
+            if mode == os.P_WAIT:
+                assert ret == 0
+            else:
+                assert ret > 0  # for P_NOWAIT returned value is the pid
 
         spans = tracer.pop()
         assert spans

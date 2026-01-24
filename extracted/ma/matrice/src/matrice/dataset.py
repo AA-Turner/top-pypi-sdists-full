@@ -3,7 +3,7 @@
 import os
 import sys
 import requests
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 from datetime import datetime, timedelta
 
 

@@ -210,7 +210,7 @@ class OVNClient:
         subnet_opt = subnet_opts.get(opt)
         if not subnet_opt:
             return port_opt
-        return '{{{}, {}}}'.format(subnet_opt[1:-1], port_opt[1:-1])
+        return f'{{{subnet_opt[1:-1]}, {port_opt[1:-1]}}}'
 
     def _get_port_dhcp_options(self, port, ip_version):
         """Return dhcp options for port.
@@ -590,9 +590,11 @@ class OVNClient:
         # controller does not yet see that network in its local cache of the
         # OVN northbound database.  Check if the logical switch is present
         # or not in the idl's local copy of the database before creating
-        # the lswitch port.
-        self._nb_idl.check_for_row_by_value_and_retry(
-            'Logical_Switch', 'name', lswitch_name)
+        # the lswitch port. Once we require an ovs version with working
+        # persist_uuid support, this can be removed.
+        if not utils.ovs_persist_uuid_supported(self._nb_idl):
+            self._nb_idl.check_for_row_by_value_and_retry(
+                'Logical_Switch', 'name', lswitch_name)
 
         with self._nb_idl.transaction(check_error=True) as txn:
             dhcpv4_options, dhcpv6_options = self.update_port_dhcp_options(
@@ -604,6 +606,7 @@ class OVNClient:
             kwargs = {
                 'lport_name': port['id'],
                 'lswitch_name': lswitch_name,
+                'network_id': port['network_id'],
                 'addresses': port_info.addresses,
                 'external_ids': external_ids,
                 'parent_name': port_info.parent_name,
@@ -921,19 +924,29 @@ class OVNClient:
             ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY: gw_lrouter_name,
             ovn_const.OVN_FIP_EXT_MAC_KEY: port_db['mac_address'],
             ovn_const.OVN_FIP_NET_ID: floatingip['floating_network_id']}
+        stateless_nat = ('true' if ovn_conf.is_stateless_nat_enabled() else
+                         'false')
+        options = {'stateless': stateless_nat}
         columns = {'type': 'dnat_and_snat',
                    'logical_ip': floatingip['fixed_ip_address'],
                    'external_ip': floatingip['floating_ip_address'],
                    'logical_port': floatingip['port_id'],
-                   'external_ids': ext_ids}
+                   'external_ids': ext_ids,
+                   'options': options,
+                   }
 
         # If OVN supports gateway_port column for NAT rules set gateway port
-        # uuid to any floating IP without gw port reference - LP#2035281.
+        # uuid to floating IP without gw port reference - LP#2035281.
         if utils.is_nat_gateway_port_supported(self._nb_idl):
             router_db = self._l3_plugin.get_router(admin_context, router_id)
             gw_port_id = router_db.get('gw_port_id')
             lrp = self._nb_idl.get_lrouter_port(gw_port_id)
-            columns['gateway_port'] = lrp.uuid
+            # If LRP is not bound to a chassis, it means that router can be
+            # bound instead. In this case we do not want to define
+            # gateway_port LP#2083527.
+            if lrp.options.get(
+                    ovn_const.LRP_OPTIONS_RESIDE_REDIR_CH) == 'true':
+                columns['gateway_port'] = lrp.uuid
 
         if ovn_conf.is_ovn_distributed_floating_ip():
             if self._nb_idl.lsp_get_up(floatingip['port_id']).execute():
@@ -1672,7 +1685,8 @@ class OVNClient:
                 utils.ovn_name(port['network_id']),
             ovn_const.OVN_ROUTER_IS_EXT_GW:
                 str(const.DEVICE_OWNER_ROUTER_GW == port.get('device_owner')),
-            ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY: router_id,
+            ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY:
+                utils.ovn_name(router_id),
         }
 
     def _get_reside_redir_for_gateway_port(self, device_id):
@@ -1878,7 +1892,8 @@ class OVNClient:
         external_ids = self._nb_idl.db_get(
             'Logical_Router_Port', lrp_name,
             'external_ids').execute(check_error=True)
-        router_id = external_ids[ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY]
+        router_id = external_ids[ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY].replace(
+            ovn_const.OVN_NAME_PREFIX, '')
         commands = [
             self._nb_idl.update_lrouter_port(
                 name=lrp_name,
@@ -1957,7 +1972,8 @@ class OVNClient:
                 port_removed = True
 
             router_id = ovn_port.external_ids[
-                ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY]
+                ovn_const.OVN_ROUTER_NAME_EXT_ID_KEY].replace(
+                    ovn_const.OVN_NAME_PREFIX, '')
             router = None
             gw_ports = []
             try:
@@ -2074,6 +2090,7 @@ class OVNClient:
         cmd = self._nb_idl.create_lswitch_port(
             lport_name=utils.ovn_provnet_port_name(segment['id']),
             lswitch_name=utils.ovn_name(network_id),
+            network_id=network_id,
             addresses=[ovn_const.UNKNOWN_ADDR],
             external_ids={},
             type=ovn_const.LSP_TYPE_LOCALNET,
@@ -2136,14 +2153,13 @@ class OVNClient:
         # UUID.  This provides an easy way to refer to the logical switch
         # without having to track what UUID OVN assigned to it.
         lswitch_params = self._gen_network_parameters(network)
-        lswitch_name = utils.ovn_name(network['id'])
         # NOTE(mjozefcz): Remove this workaround when bug
         # 1869877 will be fixed.
         segments = segments_db.get_network_segments(
             context, network['id'])
         with self._nb_idl.transaction(check_error=True) as txn:
-            txn.add(self._nb_idl.ls_add(lswitch_name, **lswitch_params,
-                                        may_exist=True))
+            txn.add(self._nb_idl.ls_add(network_id=network['id'],
+                                        **lswitch_params, may_exist=True))
             for segment in segments:
                 if segment.get(segment_def.PHYSICAL_NETWORK):
                     self.create_provnet_port(network['id'], segment, txn=txn,

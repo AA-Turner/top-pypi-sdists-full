@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -31,12 +32,6 @@ from .literals import (
     TriggerResourceUpdateOnType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -129,7 +124,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -198,8 +193,8 @@ class GetHostInputTypeDef(TypedDict):
 
 class VpcConfigurationOutputTypeDef(TypedDict):
     VpcId: str
-    SubnetIds: List[str]
-    SecurityGroupIds: List[str]
+    SubnetIds: list[str]
+    SecurityGroupIds: list[str]
     TlsCertificate: NotRequired[str]
 
 
@@ -361,13 +356,13 @@ class TagResourceInputTypeDef(TypedDict):
 
 class CreateConnectionOutputTypeDef(TypedDict):
     ConnectionArn: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class CreateHostOutputTypeDef(TypedDict):
     HostArn: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -377,13 +372,13 @@ class GetConnectionOutputTypeDef(TypedDict):
 
 
 class ListConnectionsOutputTypeDef(TypedDict):
-    Connections: List[ConnectionTypeDef]
+    Connections: list[ConnectionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -398,7 +393,7 @@ class GetRepositoryLinkOutputTypeDef(TypedDict):
 
 
 class ListRepositoryLinksOutputTypeDef(TypedDict):
-    RepositoryLinks: List[RepositoryLinkInfoTypeDef]
+    RepositoryLinks: list[RepositoryLinkInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -419,7 +414,7 @@ class GetSyncConfigurationOutputTypeDef(TypedDict):
 
 
 class ListSyncConfigurationsOutputTypeDef(TypedDict):
-    SyncConfigurations: List[SyncConfigurationTypeDef]
+    SyncConfigurations: list[SyncConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -449,7 +444,7 @@ class HostTypeDef(TypedDict):
 
 
 class ListRepositorySyncDefinitionsOutputTypeDef(TypedDict):
-    RepositorySyncDefinitions: List[RepositorySyncDefinitionTypeDef]
+    RepositorySyncDefinitions: list[RepositorySyncDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -457,11 +452,11 @@ class ListRepositorySyncDefinitionsOutputTypeDef(TypedDict):
 class RepositorySyncAttemptTypeDef(TypedDict):
     StartedAt: datetime
     Status: RepositorySyncStatusType
-    Events: List[RepositorySyncEventTypeDef]
+    Events: list[RepositorySyncEventTypeDef]
 
 
 class ResourceSyncAttemptTypeDef(TypedDict):
-    Events: List[ResourceSyncEventTypeDef]
+    Events: list[ResourceSyncEventTypeDef]
     InitialRevision: RevisionTypeDef
     StartedAt: datetime
     Status: ResourceSyncStatusType
@@ -477,7 +472,7 @@ SyncBlockerTypeDef = TypedDict(
         "Status": BlockerStatusType,
         "CreatedReason": str,
         "CreatedAt": datetime,
-        "Contexts": NotRequired[List[SyncBlockerContextTypeDef]],
+        "Contexts": NotRequired[list[SyncBlockerContextTypeDef]],
         "ResolvedReason": NotRequired[str],
         "ResolvedAt": NotRequired[datetime],
     },
@@ -486,7 +481,7 @@ VpcConfigurationUnionTypeDef = Union[VpcConfigurationTypeDef, VpcConfigurationOu
 
 
 class ListHostsOutputTypeDef(TypedDict):
-    Hosts: List[HostTypeDef]
+    Hosts: list[HostTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -506,7 +501,7 @@ class GetResourceSyncStatusOutputTypeDef(TypedDict):
 class SyncBlockerSummaryTypeDef(TypedDict):
     ResourceName: str
     ParentResourceName: NotRequired[str]
-    LatestBlockers: NotRequired[List[SyncBlockerTypeDef]]
+    LatestBlockers: NotRequired[list[SyncBlockerTypeDef]]
 
 
 class UpdateSyncBlockerOutputTypeDef(TypedDict):

@@ -12,14 +12,14 @@ Visit <https://github.com/wheelodex/entry-points-txt> for more information.
 
 from __future__ import annotations
 from collections.abc import Iterable
+from dataclasses import dataclass
 from importlib import import_module
 from io import StringIO
 from keyword import iskeyword
 import re
-from typing import Any, Dict, IO, NamedTuple, Optional
-from warnings import warn
+from typing import Any, IO
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 __author__ = "John Thorvald Wodder II"
 __author_email__ = "entry-points-txt@varonathe.org"
 __license__ = "MIT"
@@ -38,8 +38,9 @@ __all__ = [
 ]
 
 
-class EntryPoint(NamedTuple):
-    """A representation of an entry point as a namedtuple."""
+@dataclass
+class EntryPoint:
+    """A representation of an entry point as a dataclass"""
 
     #: The name of the entry point group (e.g., ``"console_scripts"``)
     group: str
@@ -50,25 +51,9 @@ class EntryPoint(NamedTuple):
     module: str
     #: The attribute/object portion of the attribute reference (the part after
     #: the colon), or `None` if not specified
-    #:
-    #: .. versionadded:: 0.2.0
-    attr: Optional[str]
+    attr: str | None
     #: Extras required for the entry point
     extras: tuple[str, ...]
-
-    @property
-    def object(self) -> Optional[str]:
-        """
-        Alias for `attr`
-
-        .. deprecated:: 0.2.0
-            Use `attr` instead
-        """
-        warn(
-            "EntryPoint.object is deprecated.  Use EntryPoint.attr instead.",
-            DeprecationWarning,
-        )
-        return self.attr
 
     def load(self) -> Any:
         """Returns the object referred to by the entry point"""
@@ -92,7 +77,7 @@ class EntryPoint(NamedTuple):
         return s
 
 
-EntryPointSet = Dict[str, Dict[str, EntryPoint]]
+EntryPointSet = dict[str, dict[str, EntryPoint]]
 
 GROUP_RGX = re.compile(r"\w+(?:\.\w+)*")
 EXTRA_RGX = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")
@@ -173,7 +158,7 @@ def load(fp: IO[str]) -> EntryPointSet:
             if not name:
                 raise ParseError("Empty entry point name")
             pre_bracket, bracket, post_bracket = spec.partition("[")
-            objname: Optional[str]
+            objname: str | None
             module, colon, objname = pre_bracket.strip().partition(":")
             module = module.strip()
             if not module:

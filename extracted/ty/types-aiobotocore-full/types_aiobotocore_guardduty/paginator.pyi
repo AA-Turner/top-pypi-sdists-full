@@ -3,7 +3,7 @@ Type annotations for guardduty service client paginators.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
         ListFindingsPaginator,
         ListIPSetsPaginator,
         ListInvitationsPaginator,
+        ListMalwareScansPaginator,
         ListMembersPaginator,
         ListOrganizationAdminAccountsPaginator,
         ListThreatEntitySetsPaginator,
@@ -37,6 +38,7 @@ Usage::
         list_findings_paginator: ListFindingsPaginator = client.get_paginator("list_findings")
         list_ip_sets_paginator: ListIPSetsPaginator = client.get_paginator("list_ip_sets")
         list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
+        list_malware_scans_paginator: ListMalwareScansPaginator = client.get_paginator("list_malware_scans")
         list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
         list_organization_admin_accounts_paginator: ListOrganizationAdminAccountsPaginator = client.get_paginator("list_organization_admin_accounts")
         list_threat_entity_sets_paginator: ListThreatEntitySetsPaginator = client.get_paginator("list_threat_entity_sets")
@@ -67,6 +69,8 @@ from .type_defs import (
     ListInvitationsResponseTypeDef,
     ListIPSetsRequestPaginateTypeDef,
     ListIPSetsResponseTypeDef,
+    ListMalwareScansRequestPaginateTypeDef,
+    ListMalwareScansResponseTypeDef,
     ListMembersRequestPaginateTypeDef,
     ListMembersResponseTypeDef,
     ListOrganizationAdminAccountsRequestPaginateTypeDef,
@@ -92,6 +96,7 @@ __all__ = (
     "ListFindingsPaginator",
     "ListIPSetsPaginator",
     "ListInvitationsPaginator",
+    "ListMalwareScansPaginator",
     "ListMembersPaginator",
     "ListOrganizationAdminAccountsPaginator",
     "ListThreatEntitySetsPaginator",
@@ -223,6 +228,24 @@ class ListInvitationsPaginator(_ListInvitationsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListInvitations.html#GuardDuty.Paginator.ListInvitations.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listinvitationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListMalwareScansPaginatorBase = AioPaginator[ListMalwareScansResponseTypeDef]
+else:
+    _ListMalwareScansPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListMalwareScansPaginator(_ListMalwareScansPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListMalwareScans.html#GuardDuty.Paginator.ListMalwareScans)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listmalwarescanspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListMalwareScansRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListMalwareScansResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/guardduty/paginator/ListMalwareScans.html#GuardDuty.Paginator.ListMalwareScans.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_guardduty/paginators/#listmalwarescanspaginator)
         """
 
 if TYPE_CHECKING:

@@ -23,9 +23,9 @@ from qtpy.QtWidgets import (QAbstractItemView, QCheckBox, QDialog,
 
 # Local imports
 from spyder.api.fonts import SpyderFontsMixin, SpyderFontType
+from spyder.api.translations import _
 from spyder.api.widgets.comboboxes import SpyderComboBox
 from spyder.api.widgets.dialogs import SpyderDialogButtonBox
-from spyder.config.base import _
 from spyder.plugins.completion.api import SUPPORTED_LANGUAGES
 from spyder.utils.snippets.ast import build_snippet_ast
 from spyder.widgets.helperwidgets import ItemDelegate
@@ -228,7 +228,7 @@ class SnippetEditor(QDialog, SpyderFontsMixin):
     def __init__(self, parent, language=None, trigger_text='', description='',
                  snippet_text='', remove_trigger=False, trigger_texts=[],
                  descriptions=[], get_option=None, set_option=None):
-        super(SnippetEditor, self).__init__(parent)
+        super().__init__(parent)
 
         snippet_description = _(
             "To add a new text snippet, you need to define the text "
@@ -498,7 +498,8 @@ class SnippetModelsProxy:
             model.delete_queue = list(model.snippets)
             self.load_snippets(language, model, defaults)
 
-    def load_snippets(self, language, model, snippets=None, to_add=[]):
+    def load_snippets(self, language, model, snippets=None, to_add=None):
+        to_add = [] if to_add is None else to_add
         snippets = iter_snippets(language, self.parent.get_option,
                                  self.parent.set_option,
                                  snippets=snippets)
@@ -651,7 +652,7 @@ class SnippetModelsProxy:
 
 class SnippetTable(QTableView):
     def __init__(self, parent, proxy, language=None):
-        super(SnippetTable, self).__init__()
+        super().__init__()
         self._parent = parent
         self.language = language
         self.proxy = proxy
@@ -671,11 +672,11 @@ class SnippetTable(QTableView):
         """Qt Override."""
         # self.source_model.update_active_row()
         # self._parent.delete_btn.setEnabled(False)
-        super(SnippetTable, self).focusOutEvent(e)
+        super().focusOutEvent(e)
 
     def focusInEvent(self, e):
         """Qt Override."""
-        super(SnippetTable, self).focusInEvent(e)
+        super().focusInEvent(e)
         self.selectRow(self.currentIndex().row())
 
     def selection(self, index):
@@ -773,9 +774,9 @@ class SnippetTable(QTableView):
         elif key in [Qt.Key_Backtab]:
             self.parent().reset_btn.setFocus()
         elif key in [Qt.Key_Up, Qt.Key_Down, Qt.Key_Left, Qt.Key_Right]:
-            super(SnippetTable, self).keyPressEvent(event)
+            super().keyPressEvent(event)
         else:
-            super(SnippetTable, self).keyPressEvent(event)
+            super().keyPressEvent(event)
 
     def mouseDoubleClickEvent(self, event):
         """Qt Override."""

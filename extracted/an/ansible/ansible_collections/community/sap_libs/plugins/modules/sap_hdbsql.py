@@ -152,7 +152,7 @@ query_result:
 
 import csv
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.six import StringIO
+from io import StringIO
 from ansible.module_utils.common.text.converters import to_native
 
 
@@ -223,7 +223,7 @@ def main():
         command.extend(['-x', '-i', instance, '-u', user, '-p', password])
 
     if filepath is not None:
-        command.extend(['-I'])
+        command.extend(['-E 3', '-I'])
         for p in filepath:
             # makes a command like hdbsql -i 01 -u SYSTEM -p secret123# -I /tmp/HANA_CPU_UtilizationPerCore_2.00.020+.txt,
             # iterates through files and append the output to var out.

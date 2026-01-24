@@ -6,18 +6,19 @@ import struct
 import warnings
 from abc import ABC
 from math import isclose
+from os import PathLike
 from typing import Any, Callable, Literal, Optional, Union, get_args
 
 import autograd.numpy as np
 import pydantic.v1 as pd
 import xarray as xr
-from pandas import DataFrame
-from xarray.core.types import Self
+from pandas import DataFrame, Index
 
-from tidy3d.components.base import TYPE_TAG_STR, cached_property, skip_if_fields_missing
+from tidy3d.components.base import cached_property, skip_if_fields_missing
 from tidy3d.components.base_sim.data.monitor_data import AbstractMonitorData
 from tidy3d.components.grid.grid import Coords, Grid
 from tidy3d.components.medium import Medium, MediumType
+from tidy3d.components.mode_spec import ModeSortSpec, ModeSpec
 from tidy3d.components.monitor import (
     AuxFieldTimeMonitor,
     DiffractionMonitor,
@@ -30,9 +31,9 @@ from tidy3d.components.monitor import (
     FieldTimeMonitor,
     FluxMonitor,
     FluxTimeMonitor,
+    MediumMonitor,
     ModeMonitor,
     ModeSolverMonitor,
-    MonitorType,
     PermittivityMonitor,
 )
 from tidy3d.components.source.base import Source
@@ -40,11 +41,14 @@ from tidy3d.components.source.current import CustomCurrentSource, PointDipole
 from tidy3d.components.source.field import CustomFieldSource, ModeSource, PlaneWave
 from tidy3d.components.source.time import GaussianPulse, SourceTimeType
 from tidy3d.components.types import (
+    TYPE_TAG_STR,
     ArrayFloat1D,
     ArrayFloat2D,
     Coordinate,
+    Direction,
     EMField,
     EpsSpecType,
+    FreqArray,
     Numpy,
     PolarizationBasis,
     Size,
@@ -52,6 +56,7 @@ from tidy3d.components.types import (
     TrackFreq,
     UnitsZBF,
 )
+from tidy3d.components.types.monitor import MonitorType
 from tidy3d.components.validators import (
     enforce_monitor_fields_present,
     required_if_symmetry_present,
@@ -75,6 +80,7 @@ from .data_array import (
     MixedModeDataArray,
     ModeAmpsDataArray,
     ModeDispersionDataArray,
+    ModeIndexDataArray,
     ScalarFieldDataArray,
     ScalarFieldTimeDataArray,
     TimeDataArray,
@@ -86,6 +92,7 @@ from .dataset import (
     ElectromagneticFieldDataset,
     FieldDataset,
     FieldTimeDataset,
+    MediumDataset,
     ModeSolverDataset,
     PermittivityDataset,
 )
@@ -97,6 +104,9 @@ SHIFT_VALUE_ADJ_FLD_SRC = 1e-5
 AXIAL_RATIO_CAP = 100
 # At this sampling rate, the computed area of a sphere is within ~1% of the true value.
 MIN_ANGULAR_SAMPLES_SPHERE = 10
+# Threshold for cos(theta) to avoid unphysically large amplitudes near grazing angles
+COS_THETA_THRESH = 1e-5
+MODE_INTERP_EXTRAPOLATION_TOLERANCE = 1e-2
 
 
 class MonitorData(AbstractMonitorData, ABC):
@@ -145,20 +155,6 @@ class MonitorData(AbstractMonitorData, ABC):
 
         return self.normalize(amplitude_fn)
 
-    def _updated(self, update: dict) -> MonitorData:
-        """Similar to ``updated_copy``, but does not actually copy components, for speed.
-
-        Note
-        ----
-            This does **not** produce a copy of mutable objects, so e.g. if some of the data arrays
-            are not updated, they will point to the values in the original data. This method should
-            thus be used carefully.
-
-        """
-        data_dict = self.dict()
-        data_dict.update(update)
-        return type(self).parse_obj(data_dict)
-
     def _make_adjoint_sources(self, dataset_names: list[str], fwidth: float) -> list[Source]:
         """Generate adjoint sources for this ``MonitorData`` instance."""
 
@@ -194,7 +190,12 @@ class AbstractFieldData(MonitorData, AbstractFieldDataset, ABC):
     """Collection of scalar fields with some symmetry properties."""
 
     monitor: Union[
-        FieldMonitor, FieldTimeMonitor, AuxFieldTimeMonitor, PermittivityMonitor, ModeMonitor
+        FieldMonitor,
+        FieldTimeMonitor,
+        AuxFieldTimeMonitor,
+        PermittivityMonitor,
+        ModeMonitor,
+        MediumMonitor,
     ]
 
     symmetry: tuple[Symmetry, Symmetry, Symmetry] = pd.Field(
@@ -252,7 +253,7 @@ class AbstractFieldData(MonitorData, AbstractFieldDataset, ABC):
         if all(sym == 0 for sym in self.symmetry):
             return self
 
-        return self._updated(self._symmetry_update_dict)
+        return self.updated_copy(**self._symmetry_update_dict, deep=False, validate=False)
 
     @property
     def symmetry_expanded_copy(self) -> AbstractFieldData:
@@ -308,7 +309,7 @@ class AbstractFieldData(MonitorData, AbstractFieldDataset, ABC):
                 # then we need to interpolate, which is slower.
                 use_sel = (
                     len(scalar_data.coords[dim_name]) == 1
-                    or coords[-1] in scalar_data.coords[dim_name]
+                    or coords_interp[-1] in scalar_data.coords[dim_name]
                 )
                 if use_sel:
                     scalar_data = scalar_data.sel(**{dim_name: coords_interp}, method="nearest")
@@ -686,11 +687,14 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
         return self.complex_poynting.real
 
     def package_flux_results(self, flux_values: DataArray) -> Any:
-        """How to package flux"""
+        """How to package flux based on the coordinates present in the data."""
+        # Choose appropriate data array type based on coordinates
+        if "mode_index" in flux_values.dims:
+            return FreqModeDataArray(flux_values)
         return FluxDataArray(flux_values)
 
     @cached_property
-    def complex_flux(self) -> FluxDataArray:
+    def complex_flux(self) -> Union[FluxDataArray, FreqModeDataArray]:
         """Flux for data corresponding to a 2D monitor."""
 
         # Compute flux by integrating Poynting vector in-plane
@@ -703,7 +707,7 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
         return self.package_flux_results(flux_values)
 
     @cached_property
-    def flux(self) -> FluxDataArray:
+    def flux(self) -> Union[FluxDataArray, FreqModeDataArray]:
         """Flux for data corresponding to a 2D monitor."""
         return self.complex_flux.real
 
@@ -771,22 +775,50 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
             fields_self = {key: field.conj() for key, field in fields_self.items()}
 
         fields_other = field_data._interpolated_tangential_fields(self._plane_grid_boundaries)
-
-        # Drop size-1 dimensions in the other data
-        fields_other = {key: field.squeeze(drop=True) for key, field in fields_other.items()}
-
-        # Cross products of fields
         dim1, dim2 = self._tangential_dims
-        e_self_x_h_other = fields_self["E" + dim1] * fields_other["H" + dim2]
-        e_self_x_h_other -= fields_self["E" + dim2] * fields_other["H" + dim1]
-        h_self_x_e_other = fields_self["H" + dim1] * fields_other["E" + dim2]
-        h_self_x_e_other -= fields_self["H" + dim2] * fields_other["E" + dim1]
+        d_area = self._diff_area
+
+        # After interpolation, the tangential coordinates should match. However, the two arrays
+        # may either have the same shape along other dimensions, or be broadcastable.
+        if (
+            fields_self[next(iter(fields_self))].shape
+            == fields_other[next(iter(fields_other))].shape
+        ):
+            # Arrays are same shape, so we can use numpy
+            e_self_x_h_other = fields_self["E" + dim1].values * fields_other["H" + dim2].values
+            e_self_x_h_other -= fields_self["E" + dim2].values * fields_other["H" + dim1].values
+            h_self_x_e_other = fields_self["H" + dim1].values * fields_other["E" + dim2].values
+            h_self_x_e_other -= fields_self["H" + dim2].values * fields_other["E" + dim1].values
+            integrand = xr.DataArray(
+                e_self_x_h_other - h_self_x_e_other, coords=fields_self["E" + dim1].coords
+            )
+            integrand *= d_area
+        else:
+            # Broadcasting is needed, which may be complicated depending on the dimensions order.
+            # Use xarray to handle robustly.
+
+            # Drop size-1 dimensions in the other data
+            fields_other = {key: field.squeeze(drop=True) for key, field in fields_other.items()}
+
+            # Cross products of fields
+            e_self_x_h_other = fields_self["E" + dim1] * fields_other["H" + dim2]
+            e_self_x_h_other -= fields_self["E" + dim2] * fields_other["H" + dim1]
+            h_self_x_e_other = fields_self["H" + dim1] * fields_other["E" + dim2]
+            h_self_x_e_other -= fields_self["H" + dim2] * fields_other["E" + dim1]
+            integrand = (e_self_x_h_other - h_self_x_e_other) * d_area
 
         # Integrate over plane
-        d_area = self._diff_area
-        integrand = (e_self_x_h_other - h_self_x_e_other) * d_area
-
         return ModeAmpsDataArray(0.25 * integrand.sum(dim=d_area.dims))
+
+    def _tangential_fields_match_coords(self, coords: ArrayFloat2D) -> bool:
+        """Check if the tangential fields already match given coords in the tangential plane."""
+        for field in self._tangential_fields.values():
+            for idim, dim in enumerate(self._tangential_dims):
+                if field.coords[dim].values.size != coords[idim].size or not np.all(
+                    field.coords[dim].values == coords[idim]
+                ):
+                    return False
+        return True
 
     def _interpolated_tangential_fields(self, coords: ArrayFloat2D) -> dict[str, DataArray]:
         """For 2D monitors, interpolate this fields to given coords in the tangential plane.
@@ -801,6 +833,10 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
             Dictionary with interpolated fields.
         """
         fields = self._tangential_fields
+
+        # If coords already match, just return the tangential fields directly.
+        if self._tangential_fields_match_coords(coords):
+            return fields
 
         # Interpolate if data has more than one coordinate along a dimension
         interp_dict = {"assume_sorted": True}
@@ -880,9 +916,13 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
         coords = (arrays[0].coords, arrays[1].coords)
 
         # Common frequencies to both data arrays
-        f = np.array(sorted(set(coords[0]["f"].values).intersection(coords[1]["f"].values)))
-        isel1 = [list(coords[0]["f"].values).index(freq) for freq in f]
-        isel2 = [list(coords[1]["f"].values).index(freq) for freq in f]
+        freq_self = Index(coords[0]["f"].values)
+        freq_other = Index(coords[1]["f"].values)
+        common_freqs = freq_self.intersection(freq_other, sort=False)
+        f = common_freqs.to_numpy()
+        # Keep frequency order consistent with the current data while aligning the other dataset.
+        isel1 = freq_self.get_indexer(common_freqs)
+        isel2 = freq_other.get_indexer(common_freqs)
 
         # Mode indices, if available
         modes_in_self = "mode_index" in coords[0]
@@ -1021,7 +1061,7 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
                 new_data[comp] = np.conj(field)
         return self.copy(update=new_data)
 
-    def _check_fields_stored(self, components: list[str]):
+    def _check_fields_stored(self, components: list[str]) -> None:
         """Check that all requested field components are stored in the data."""
         missing_comps = [comp for comp in components if comp not in self.field_components.keys()]
         if len(missing_comps) > 0:
@@ -1072,7 +1112,7 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
 
     def to_zbf(
         self,
-        fname: str,
+        fname: PathLike,
         units: UnitsZBF = "mm",
         background_refractive_index: float = 1,
         n_x: Optional[int] = None,
@@ -1093,7 +1133,7 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
 
         Parameters
         ----------
-        fname : str
+        fname : PathLike
             Full path to the ``.zbf`` file to be written.
         units : UnitsZBF = "mm"
             Spatial units used for the ``.zbf`` file. Options are ``"mm"``, ``"cm"``, ``"in"``, or ``"m"``.
@@ -1253,6 +1293,22 @@ class ElectromagneticFieldData(AbstractFieldData, ElectromagneticFieldDataset, A
 
         return e_x, e_y
 
+    def _interpolated_copies_if_needed(
+        self, other: ElectromagneticFieldData
+    ) -> tuple[ElectromagneticFieldData, ElectromagneticFieldData]:
+        """Return interpolated copies of self, other if needed (different interp_spec)."""
+        mode_spec1 = self.monitor.mode_spec if isinstance(self, ModeSolverData) else None
+        mode_spec2 = other.monitor.mode_spec if isinstance(other, ModeSolverData) else None
+        if (
+            mode_spec1 is not None
+            and mode_spec2 is not None
+            and self.monitor.mode_spec._same_nontrivial_interp_spec(other=other.monitor.mode_spec)
+        ):
+            return self, other
+        self_copy = self.interpolated_copy if isinstance(self, ModeSolverData) else self
+        other_copy = other.interpolated_copy if isinstance(other, ModeSolverData) else other
+        return self_copy, other_copy
+
 
 class FieldData(FieldDataset, ElectromagneticFieldData):
     """
@@ -1309,7 +1365,7 @@ class FieldData(FieldDataset, ElectromagneticFieldData):
         return self.copy(update=fields_norm)
 
     def to_source(
-        self, source_time: SourceTimeType, center: Coordinate, size: Size = None, **kwargs
+        self, source_time: SourceTimeType, center: Coordinate, size: Size = None, **kwargs: Any
     ) -> CustomFieldSource:
         """Create a :class:`.CustomFieldSource` from the fields stored in the :class:`.FieldData`.
 
@@ -1558,6 +1614,36 @@ class PermittivityData(PermittivityDataset, AbstractFieldData):
     )
 
 
+class MediumData(MediumDataset, AbstractFieldData):
+    """Data for a :class:`.MediumMonitor`: diagonal components of the permittivity and permeability tensor.
+
+    Notes
+    -----
+
+        The data is stored as a `DataArray <https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html>`_
+        object using the `xarray <https://docs.xarray.dev/en/stable/index.html>`_ package.
+
+    Example
+    -------
+    >>> from tidy3d import ScalarFieldDataArray
+    >>> x = [-1,1,3]
+    >>> y = [-2,0,2,4]
+    >>> z = [-3,-1,1,3,5]
+    >>> f = [2e14, 3e14]
+    >>> coords = dict(x=x[:-1], y=y[:-1], z=z[:-1], f=f)
+    >>> grid = Grid(boundaries=Coords(x=x, y=y, z=z))
+    >>> sclr_fld = ScalarFieldDataArray((1+1j) * np.random.random((2,3,4,2)), coords=coords)
+    >>> monitor = MediumMonitor(size=(2,4,6), freqs=[2e14, 3e14], name='medium')
+    >>> data = MediumData(
+    ...     monitor=monitor, eps_xx=sclr_fld, eps_yy=sclr_fld, eps_zz=sclr_fld, mu_xx=sclr_fld, mu_yy=sclr_fld, mu_zz=sclr_fld, grid_expanded=grid
+    ... )
+    """
+
+    monitor: MediumMonitor = pd.Field(
+        ..., title="Monitor", description="Medium property monitor associated with the data."
+    )
+
+
 class ModeData(ModeSolverDataset, ElectromagneticFieldData):
     """
     Data associated with a :class:`.ModeMonitor`: modal amplitudes, propagation indices and mode profiles.
@@ -1607,17 +1693,17 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
 
     eps_spec: list[EpsSpecType] = pd.Field(
         None,
-        title="Permettivity Specification",
+        title="Permittivity Specification",
         description="Characterization of the permittivity profile on the plane where modes are "
         "computed. Possible values are 'diagonal', 'tensorial_real', 'tensorial_complex'.",
     )
 
     @pd.validator("eps_spec", always=True)
-    @skip_if_fields_missing(["monitor"])
+    @skip_if_fields_missing(["n_complex"])
     def eps_spec_match_mode_spec(cls, val, values):
         """Raise validation error if frequencies in eps_spec does not match frequency list"""
         if val:
-            mode_data_freqs = values["monitor"].freqs
+            mode_data_freqs = values["n_complex"].coords["f"].values
             if len(val) != len(mode_data_freqs):
                 raise ValidationError(
                     "eps_spec must be provided at the same frequencies as mode solver data."
@@ -1639,7 +1725,13 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
         frequency according to their overlap values with the modes at the previous frequency.
         That is, it attempts to rearrange modes in such a way that a given ``mode_index``
         corresponds to physically the same mode at all frequencies. Modes with overlap values over
-        ``overlap_tresh`` are considered matching and not rearranged.
+        ``overlap_thresh`` are considered matching and not rearranged.
+
+        Note
+        ----
+            The monitor associated to this data is updated so that the deprecated
+            ``monitor.mode_spec.track_freq`` is set to ``None``, while
+            ``monitor.mode_spec.sort_spec.track_freq`` is set to the provided ``track_freq``.
 
         Parameters
         ----------
@@ -1654,7 +1746,8 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
         """
         if len(self.field_components) == 0:
             return self.copy()
-        num_freqs = len(self.monitor.freqs)
+
+        num_freqs = len(self.monitor._stored_freqs)
         num_modes = self.monitor.mode_spec.num_modes
 
         if track_freq == "lowest":
@@ -1664,27 +1757,39 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
         elif track_freq == "central":
             f0_ind = num_freqs // 2
 
+        # Normalizing the flux to 1, does not guarantee self terms of overlap integrals
+        # are also normalized to 1 when the non-conjugated product is used.
+        data_expanded = self.symmetry_expanded
+        if data_expanded.monitor.conjugated_dot_product:
+            self_overlap = np.ones((num_freqs, num_modes))
+        else:
+            self_overlap = data_expanded.dot(data_expanded, self.monitor.conjugated_dot_product)
+            self_overlap = np.abs(self_overlap.values)
+            threshold_array = overlap_thresh * self_overlap
+
         # Compute sorting order and overlaps with neighboring frequencies
         sorting = -np.ones((num_freqs, num_modes), dtype=int)
         overlap = np.zeros((num_freqs, num_modes))
         phase = np.zeros((num_freqs, num_modes))
         sorting[f0_ind, :] = np.arange(num_modes)  # base frequency won't change
-        overlap[f0_ind, :] = np.ones(num_modes)
+        overlap[f0_ind, :] = self_overlap[f0_ind, :]
 
         # Sort in two directions from the base frequency
         for step, last_ind in zip([-1, 1], [-1, num_freqs]):
             # Start with the base frequency
-            data_template = self._isel(f=[f0_ind])
+            data_template = data_expanded._isel(f=[f0_ind])
 
             # March to lower/higher frequencies
             for freq_id in range(f0_ind + step, last_ind, step):
+                # Calculate threshold array for this frequency
+                if not data_expanded.monitor.conjugated_dot_product:
+                    overlap_thresh = threshold_array[freq_id, :]
                 # Get next frequency to sort
-                data_to_sort = self._isel(f=[freq_id])
+                data_to_sort = data_expanded._isel(f=[freq_id])
                 # Assign to the base frequency so that outer_dot will compare them
-                data_to_sort = data_to_sort._assign_coords(f=[self.monitor.freqs[f0_ind]])
+                data_to_sort = data_to_sort._assign_coords(f=[self.monitor._stored_freqs[f0_ind]])
 
                 # Compute "sorting w.r.t. to neighbor" and overlap values
-
                 sorting_one_mode, amps_one_mode = data_template._find_ordering_one_freq(
                     data_to_sort, overlap_thresh
                 )
@@ -1700,8 +1805,8 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
                 for mode_ind in list(np.nonzero(overlap[freq_id, :] < overlap_thresh)[0]):
                     log.warning(
                         f"Mode '{mode_ind}' appears to undergo a discontinuous change "
-                        f"between frequencies '{self.monitor.freqs[freq_id]}' "
-                        f"and '{self.monitor.freqs[freq_id - step]}' "
+                        f"between frequencies '{self.monitor._stored_freqs[freq_id]}' "
+                        f"and '{self.monitor._stored_freqs[freq_id - step]}' "
                         f"(overlap: '{overlap[freq_id, mode_ind]:.2f}')."
                     )
 
@@ -1709,15 +1814,26 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
                 data_template = data_to_sort
 
         # Rearrange modes using computed sorting values
-        mode_data_sorted = self._reorder_modes(
-            sorting=sorting,
-            phase=phase,
-            track_freq=track_freq,
+
+        # 1) Reorder using the shared implementation (creates a copy)
+        data_reordered = self._apply_mode_reorder(sorting)
+
+        # 2) Apply phase shifts to field components in-place (data_reordered is already a copy)
+        for field in data_reordered.field_components.values():
+            phase_fact = np.exp(-1j * phase[None, None, None, :, :]).astype(field.data.dtype)
+            field.values *= phase_fact
+
+        # 3) Update mode_spec: prefer sort_spec.track_freq; clear deprecated track_freq
+        mspec = data_reordered.monitor.mode_spec
+        sort_spec = mspec.sort_spec.updated_copy(track_freq=track_freq)
+        mspec_updated = mspec.updated_copy(sort_spec=sort_spec, track_freq=None, validate=False)
+        monitor_updated = data_reordered.monitor.updated_copy(
+            mode_spec=mspec_updated, validate=False
         )
 
-        return mode_data_sorted
+        return data_reordered.updated_copy(monitor=monitor_updated, deep=False, validate=False)
 
-    def _isel(self, **isel_kwargs):
+    def _isel(self, **isel_kwargs: Any):
         """Wraps ``xarray.DataArray.isel`` for all data fields that are defined over frequency and
         mode index. Used in ``overlap_sort`` but not officially supported since for example
         ``self.monitor.mode_spec`` and ``self.monitor.freqs`` will no longer be matching the
@@ -1729,9 +1845,9 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
             for key, field in update_dict.items()
             if isinstance(field, DataArray)
         }
-        return self._updated(update=update_dict)
+        return self.updated_copy(**update_dict, deep=False, validate=False)
 
-    def _assign_coords(self, **assign_coords_kwargs):
+    def _assign_coords(self, **assign_coords_kwargs: Any):
         """Wraps ``xarray.DataArray.assign_coords`` for all data fields that are defined over frequency and
         mode index. Used in ``overlap_sort`` but not officially supported since for example
         ``self.monitor.mode_spec`` and ``self.monitor.freqs`` will no longer be matching the
@@ -1741,20 +1857,19 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
         update_dict = {
             key: field.assign_coords(**assign_coords_kwargs) for key, field in update_dict.items()
         }
-        return self._updated(update=update_dict)
+        return self.updated_copy(**update_dict, deep=False, validate=False)
 
     def _find_ordering_one_freq(
         self,
         data_to_sort: ModeData,
-        overlap_thresh: float,
+        overlap_thresh: Union[float, np.array],
     ) -> tuple[Numpy, Numpy]:
         """Find new ordering of modes in data_to_sort based on their similarity to own modes."""
-
         num_modes = self.n_complex.sizes["mode_index"]
 
         # Current pairs and their overlaps
         pairs = np.arange(num_modes)
-        complex_amps = self.dot(data_to_sort).data.ravel()
+        complex_amps = self.dot(data_to_sort, self.monitor.conjugated_dot_product).data.ravel()
         if self.monitor.store_fields_direction == "-":
             complex_amps *= -1
 
@@ -1768,7 +1883,7 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
         data_template_reduced = self._isel(mode_index=modes_to_sort)
 
         amps_reduced = data_template_reduced.outer_dot(
-            data_to_sort._isel(mode_index=modes_to_sort)
+            data_to_sort._isel(mode_index=modes_to_sort), self.monitor.conjugated_dot_product
         ).to_numpy()[0, :, :]
 
         if self.monitor.store_fields_direction == "-":
@@ -1803,48 +1918,23 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
 
         return pairs, values
 
-    def _reorder_modes(
-        self,
-        sorting: Numpy,
-        phase: Numpy,
-        track_freq: TrackFreq,
-    ) -> ModeData:
-        """Rearrange modes for the i-th frequency according to sorting[i, :] and apply phase
-        shifts."""
+    def _group_index_freq_slices(self) -> tuple[slice, slice, slice]:
+        """Get frequency slices for group index numerical differentiation.
 
-        num_freqs, _ = np.shape(sorting)
+        Group index calculation uses three-point finite differences, requiring
+        backward, center, and forward frequency points organized as triplets.
 
-        # Create new dict with rearranged field components
-        update_dict = {}
-        for field_name, field in self.field_components.items():
-            field_sorted = field.copy()
-
-            # Rearrange modes
-            for freq_id in range(num_freqs):
-                field_sorted.data[..., freq_id, :] = field_sorted.data[
-                    ..., freq_id, sorting[freq_id, :]
-                ]
-
-            # Apply phase shift
-            phase_fact = np.exp(-1j * phase[None, None, None, :, :]).astype(field_sorted.data.dtype)
-            field_sorted.data = field_sorted.data * phase_fact
-
-            update_dict[field_name] = field_sorted
-
-        # Rearrange data over f and mode_index
-        data_dict = dict(**self._grid_correction_dict, n_complex=self.n_complex)
-        for key, data in data_dict.items():
-            update_dict[key] = data.copy()
-            for freq_id in range(num_freqs):
-                update_dict[key].data[freq_id, :] = update_dict[key].data[
-                    freq_id, sorting[freq_id, :]
-                ]
-
-        # Update mode_spec in the monitor
-        mode_spec = self.monitor.mode_spec.copy(update={"track_freq": track_freq})
-        update_dict["monitor"] = self.monitor.copy(update={"mode_spec": mode_spec})
-
-        return self.copy(update=update_dict)
+        Returns
+        -------
+        tuple[slice, slice, slice]
+            Slices for (backward, center, forward) frequencies from the frequency array.
+        """
+        freqs = self.n_complex.coords["f"].values
+        num_freqs = freqs.size
+        back = slice(0, num_freqs, 3)
+        center = slice(1, num_freqs, 3)
+        fwd = slice(2, num_freqs, 3)
+        return back, center, fwd
 
     def _group_index_post_process(self, frequency_step: float) -> ModeData:
         """Calculate group index and remove added frequencies used only for this calculation.
@@ -1860,12 +1950,8 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
             Filtered data with calculated group index.
         """
 
-        freqs = self.n_complex.coords["f"].values
-        num_freqs = freqs.size
-        back = slice(0, num_freqs, 3)
-        center = slice(1, num_freqs, 3)
-        fwd = slice(2, num_freqs, 3)
-        freqs = freqs[center]
+        back, center, fwd = self._group_index_freq_slices()
+        freqs = self.n_complex.coords["f"].values[center]
 
         # calculate group index
         n_center = self.n_eff.isel(f=center).values
@@ -2032,6 +2118,26 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
         return xr.Dataset(data_vars={"te": te_frac, "tm": tm_frac})
 
     @property
+    def TE_fraction(self) -> xr.DataArray:
+        """Alias for ``pol_fraction.te``."""
+        return self.pol_fraction["te"]
+
+    @property
+    def TM_fraction(self) -> xr.DataArray:
+        """Alias for ``pol_fraction.tm``."""
+        return self.pol_fraction["tm"]
+
+    @property
+    def wg_TE_fraction(self) -> xr.DataArray:
+        """Alias for ``pol_fraction_waveguide.te``."""
+        return self.pol_fraction_waveguide["te"]
+
+    @property
+    def wg_TM_fraction(self) -> xr.DataArray:
+        """Alias for ``pol_fraction_waveguide.tm``."""
+        return self.pol_fraction_waveguide["tm"]
+
+    @property
     def modes_info(self) -> xr.Dataset:
         """Dataset collecting various properties of the stored modes."""
 
@@ -2056,9 +2162,9 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
 
         if len(self.field_components) == 6:
             info["mode area"] = self.mode_area
-            info[f"TE (E{self._tangential_dims[0]}) fraction"] = self.pol_fraction["te"]
-            info["wg TE fraction"] = self.pol_fraction_waveguide["te"]
-            info["wg TM fraction"] = self.pol_fraction_waveguide["tm"]
+            info[f"TE (E{self._tangential_dims[0]}) fraction"] = self.TE_fraction
+            info["wg TE fraction"] = self.wg_TE_fraction
+            info["wg TM fraction"] = self.wg_TM_fraction
 
         return xr.Dataset(data_vars=info)
 
@@ -2078,7 +2184,7 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
 
         return dataset.drop_vars(drop).to_dataframe()
 
-    def _check_fields_stored(self, components: list[EMField]):
+    def _check_fields_stored(self, components: list[EMField]) -> None:
         """Check that all requested field components are stored in the data."""
 
         # ModeData can either have all field components or none
@@ -2162,6 +2268,169 @@ class ModeData(ModeSolverDataset, ElectromagneticFieldData):
 
         return src_adj
 
+    def _apply_mode_reorder(self, sort_inds_2d):
+        """Apply a mode reordering along mode_index for all frequency indices.
+
+        Parameters
+        ----------
+        sort_inds_2d : np.ndarray
+            Array of shape (num_freqs, num_modes) where each row is the
+            permutation to apply to the mode_index for that frequency.
+        """
+        sort_inds_2d = np.asarray(sort_inds_2d, dtype=int)
+        num_freqs, num_modes = sort_inds_2d.shape
+
+        # Fast no-op
+        identity = np.arange(num_modes)
+        if np.all(sort_inds_2d == identity[None, :]):
+            return self
+
+        modify_data = {}
+        new_mode_index_coord = identity
+
+        for key, data in self.data_arrs.items():
+            if "mode_index" not in data.dims or "f" not in data.dims:
+                continue
+
+            dims_orig = tuple(data.dims)
+            # Preserve coords (as numpy)
+            coords_out = {
+                k: (v.values if hasattr(v, "values") else np.asarray(v))
+                for k, v in data.coords.items()
+            }
+            f_axis = data.get_axis_num("f")
+            m_axis = data.get_axis_num("mode_index")
+
+            # Move axes directly to (f, ..., mode)
+            src_order = (
+                [f_axis] + [ax for ax in range(data.ndim) if ax not in (f_axis, m_axis)] + [m_axis]
+            )
+            arr = np.moveaxis(data.data, src_order, range(data.ndim))
+            nf, nm = arr.shape[0], arr.shape[-1]
+            if nf != num_freqs or nm != num_modes:
+                raise DataError(
+                    "sort_inds_2d shape does not match array shape in _apply_mode_reorder."
+                )
+
+            # Apply sorting
+            arr2 = arr.reshape(nf, -1, nm)  # (nf, Nlead, nm)
+            inds = sort_inds_2d[:, None, :]  # (nf, 1, nm)
+            arr2_sorted = np.take_along_axis(arr2, inds, axis=2)
+            arr_sorted = arr2_sorted.reshape(arr.shape)
+
+            # Move axes back to original order
+            arr_sorted = np.moveaxis(arr_sorted, range(data.ndim), src_order)
+
+            # Update coords: keep f, reset mode_index to 0..num_modes-1
+            coords_out["mode_index"] = new_mode_index_coord
+            coords_out["f"] = data.coords["f"].values
+
+            modify_data[key] = DataArray(arr_sorted, coords=coords_out, dims=dims_orig)
+
+        return self.updated_copy(**modify_data)
+
+    def sort_modes(
+        self, sort_spec: Optional[ModeSortSpec] = None, track_freq: Optional[TrackFreq] = None
+    ) -> ModeSolverData:
+        """Sort modes per frequency according to ``sort_spec``.
+
+        The modes are first filtered if ``sort_spec.filter_key`` is provided. They are then sorted
+        within each filtered group according to ``sort_spec.sort_key``. if provided. Finally,
+        if a tracking frequency is also provided either in ``sort_spec`` or as a separate argument,
+        the tracking is applied . The tracking could reshuffle the filter/sort criteria at
+        frequencies away from the tracking frequency.
+
+        Parameters
+        ----------
+        sort_spec : Optional[:class:`.ModeSortSpec`]
+            Specification of how to sort the modes.
+        track_freq : Optional[Literal["central", "lowest", "highest"]]
+            Specifies that modes should be tracked across frequencies. Overrides
+            ``sort_spec.track_freq``, but the returned data will have
+            ``monitor.mode_spec.sort_spec.track_freq`` set to the provided value, while
+            ``self.monitor.mode_spec.track_freq`` will be set to ``None``.
+
+        Returns
+        -------
+        :class:`.ModeSolverData`
+            Copy of self with modes sorted according to ``sort_spec``.
+        """
+
+        # Return the original data if no new sorting / tracking required
+        if track_freq is None and sort_spec is None:
+            return self
+
+        num_freqs = self.n_eff["f"].size
+        num_modes = self.n_eff["mode_index"].size
+        all_inds = np.arange(num_modes)
+        identity = np.arange(num_modes)
+        sort_inds_2d = np.tile(identity, (num_freqs, 1))
+
+        # Helper to compute ordered indices within a subset
+        def _order_indices(indices, vals_all):
+            if indices.size == 0:
+                return indices
+            vals = vals_all.isel(mode_index=indices)
+            order = np.argsort(vals)
+            if sort_spec.sort_order == "descending":
+                order = order[::-1]
+            return indices[order]
+
+        # Precompute metrics if provided
+        filter_metric = None
+        sort_metric = None
+        if sort_spec.filter_key is not None:
+            filter_metric = getattr(self, sort_spec.filter_key)
+        if sort_spec.sort_key is not None:
+            sort_metric = getattr(self, sort_spec.sort_key)
+
+        for ifreq in range(num_freqs):
+            # Build groups according to filter if requested
+            if filter_metric is not None:
+                vals_filt = filter_metric.isel(f=ifreq).values
+                # Boolean mask for modes in the first group
+                if sort_spec.filter_order == "over":
+                    mask_first = vals_filt >= sort_spec.filter_reference
+                else:
+                    mask_first = vals_filt <= sort_spec.filter_reference
+                group1 = all_inds[mask_first]
+                group2 = all_inds[~mask_first]
+            else:
+                group1 = all_inds
+                group2 = np.array([], dtype=int)
+
+            # Sorting within each group if requested
+            if sort_metric is not None:
+                vals_sort = sort_metric.isel(f=ifreq)
+                if sort_spec.sort_reference is not None:
+                    vals_sort = np.abs(vals_sort - sort_spec.sort_reference)
+                g1 = _order_indices(group1, vals_sort)
+                g2 = _order_indices(group2, vals_sort)
+                sort_inds = np.concatenate([g1, g2])
+            else:
+                # only filtering applied, keep original ordering within groups
+                sort_inds = np.concatenate([group1, group2])
+
+            sort_inds_2d[ifreq, : len(sort_inds)] = sort_inds
+
+        # If all rows are identity, skip
+        if np.all(sort_inds_2d == np.tile(identity, (num_freqs, 1))):
+            data_sorted = self
+        else:
+            data_sorted = self._apply_mode_reorder(sort_inds_2d)  # this creates a copy
+            data_sorted = data_sorted.updated_copy(
+                path="monitor/mode_spec", sort_spec=sort_spec, deep=False, validate=False
+            )
+
+        # Sort modes across frequencies if requested.
+        # Note: after sorting, ``track_freq`` is set in ``sort_spec`` regardless of how it was
+        # provided. The deprecated ``mode_spec.track_freq`` is cleared.
+        track_freq = track_freq or sort_spec.track_freq
+        if track_freq and num_freqs > 1:
+            data_sorted = data_sorted.overlap_sort(track_freq)
+
+        return data_sorted
+
 
 class ModeSolverData(ModeData):
     """
@@ -2214,9 +2483,243 @@ class ModeSolverData(ModeData):
         None, title="Amplitudes", description="Unused for ModeSolverData."
     )
 
+    grid_distances_primal: Union[tuple[float], tuple[float, float]] = pd.Field(
+        (0.0,),
+        title="Distances to the Primal Grid",
+        description="Relative distances to the primal grid locations along the normal direction in "
+        "the original simulation grid. Needed to recalculate grid corrections after "
+        "interpolating in frequency.",
+    )
+
+    grid_distances_dual: Union[tuple[float], tuple[float, float]] = pd.Field(
+        (0.0,),
+        title="Distances to the Dual Grid",
+        description="Relative distances to the dual grid locations along the normal direction in "
+        "the original simulation grid. Needed to recalculate grid corrections after "
+        "interpolating in frequency.",
+    )
+
     def normalize(self, source_spectrum_fn: Callable[[float], complex]) -> ModeSolverData:
         """Return copy of self after normalization is applied using source spectrum function."""
         return self.copy()
+
+    def _normalize_modes(self):
+        """Normalize modes. Note: this modifies ``self`` in-place."""
+        scaling = np.sqrt(np.abs(self.flux))
+        for field in self.field_components.values():
+            field /= scaling
+
+    @staticmethod
+    def _grid_correction_factors(
+        primal_distances: tuple[float, ...],
+        dual_distances: tuple[float, ...],
+        mode_spec: ModeSpec,
+        n_complex: ModeIndexDataArray,
+        direction: Direction,
+        normal_dim: str,
+    ) -> tuple[FreqModeDataArray, FreqModeDataArray]:
+        """Calculate the grid correction factors for the primal and dual grid.
+
+        Parameters
+        ----------
+        primal_distances : tuple[float, ...]
+            Relative distances to the primal grid locations along the normal direction in the original simulation grid.
+        dual_distances : tuple[float, ...]
+            Relative distances to the dual grid locations along the normal direction in the original simulation grid.
+        mode_spec : ModeSpec
+            Mode specification.
+        n_complex : ModeIndexDataArray
+            Effective indices of the modes.
+        direction : Direction
+            Direction of the propagation.
+        normal_dim : str
+            Name of the normal dimension.
+
+        Returns
+        -------
+        tuple[FreqModeDataArray, FreqModeDataArray]
+            Grid correction factors for the primal and dual grid.
+        """
+
+        distances_primal = xr.DataArray(primal_distances, coords={normal_dim: primal_distances})
+        distances_dual = xr.DataArray(dual_distances, coords={normal_dim: dual_distances})
+
+        # Propagation phase at the primal and dual locations. The k-vector is along the propagation
+        # direction, so angle_theta has to be taken into account. The distance along the propagation
+        # direction is the distance along the normal direction over cosine(theta).
+        cos_theta = np.cos(mode_spec.angle_theta)
+        k_vec = cos_theta * 2 * np.pi * n_complex * n_complex.f / C_0
+        if direction == "-":
+            k_vec *= -1
+        phase_primal = np.exp(1j * k_vec * distances_primal)
+        phase_dual = np.exp(1j * k_vec * distances_dual)
+
+        # Fields are modified by a linear interpolation to the exact monitor position
+        if distances_primal.size > 1:
+            phase_primal = phase_primal.interp(**{normal_dim: 0}).drop_vars(normal_dim)
+        else:
+            phase_primal = phase_primal.squeeze(dim=normal_dim)
+        if distances_dual.size > 1:
+            phase_dual = phase_dual.interp(**{normal_dim: 0}).drop_vars(normal_dim)
+        else:
+            phase_dual = phase_dual.squeeze(dim=normal_dim)
+
+        return FreqModeDataArray(phase_primal), FreqModeDataArray(phase_dual)
+
+    def interp_in_freq(
+        self,
+        freqs: FreqArray,
+        method: Literal["linear", "cubic", "poly"] = "linear",
+        renormalize: bool = True,
+        recalculate_grid_correction: bool = True,
+        assume_sorted: bool = False,
+    ) -> ModeSolverData:
+        """Interpolate mode data to new frequency points.
+
+        Interpolates all stored mode data (effective indices, field components, group indices,
+        and dispersion) from the current frequency grid to a new set of frequencies. This is
+        useful for obtaining mode data at many frequencies from computations at fewer frequencies,
+        when modes vary smoothly with frequency.
+
+        Parameters
+        ----------
+        freqs : FreqArray
+            New frequency points to interpolate to. Should generally span a similar range
+            as the original frequencies to avoid extrapolation.
+        method : Literal["linear", "cubic", "poly"]
+            Interpolation method. ``"linear"`` for linear interpolation (requires 2+ source
+            frequencies), ``"cubic"`` for cubic spline interpolation (requires 4+ source
+            frequencies), ``"poly"`` for polynomial interpolation using barycentric
+            formula (requires 3+ source frequencies).
+            For complex-valued data, real and imaginary parts are interpolated independently.
+        renormalize : bool = True
+            Whether to renormalize the mode profiles to unity power after interpolation.
+        recalculate_grid_correction : bool = True
+            Whether to recalculate the grid correction factors after interpolation or use interpolated
+            grid corrections.
+        assume_sorted: bool = False,
+            Whether to assume the frequency points are sorted.
+
+        Returns
+        -------
+        ModeSolverData
+            New :class:`ModeSolverData` object with data interpolated to the requested frequencies.
+
+        Note
+        ----
+            Interpolation assumes modes vary smoothly with frequency. Results may be inaccurate
+            near mode crossings or regions of rapid mode variation. Use frequency tracking
+            (``mode_spec.sort_spec.track_freq``) to help maintain mode ordering consistency.
+
+        Example
+        -------
+        >>> # Compute modes at 5 frequencies
+        >>> import numpy as np
+        >>> freqs_sparse = np.linspace(1e14, 2e14, 5)
+        >>> # ... create mode_solver and compute modes ...
+        >>> # mode_data = mode_solver.solve()
+        >>> # Interpolate to 50 frequencies
+        >>> freqs_dense = np.linspace(1e14, 2e14, 50)
+        >>> # mode_data_interp = mode_data.interp(freqs=freqs_dense, method='linear')
+        """
+        # Validate input
+        freqs = np.array(freqs)
+
+        source_freqs = self.monitor._stored_freqs
+
+        # Validate method-specific requirements
+        if method == "cubic" and len(source_freqs) < 4:
+            raise DataError(
+                f"Cubic interpolation requires at least 4 source frequency points. "
+                f"Got {len(source_freqs)}. Use method='linear' instead."
+            )
+
+        if method == "poly":
+            if len(source_freqs) < 3:
+                raise DataError(
+                    f"Polynomial interpolation requires at least 3 source frequency points. "
+                    f"Got {len(source_freqs)}. Use method='linear' instead."
+                )
+
+        if method not in ["linear", "cubic", "poly"]:
+            raise DataError(
+                f"Invalid interpolation method '{method}'. Use 'linear', 'cubic', or 'poly'."
+            )
+
+        # Check if we're extrapolating significantly and warn
+        freq_min, freq_max = np.min(source_freqs), np.max(source_freqs)
+        new_freq_min, new_freq_max = np.min(freqs), np.max(freqs)
+
+        if new_freq_min < freq_min * (
+            1 - MODE_INTERP_EXTRAPOLATION_TOLERANCE
+        ) or new_freq_max > freq_max * (1 + MODE_INTERP_EXTRAPOLATION_TOLERANCE):
+            log.warning(
+                f"Interpolating to frequencies outside original range "
+                f"[{freq_min:.3e}, {freq_max:.3e}] Hz. New range: "
+                f"[{new_freq_min:.3e}, {new_freq_max:.3e}] Hz. "
+                "Results may be inaccurate due to extrapolation."
+            )
+
+        # Build update dictionary
+        update_dict = self._interp_in_freq_update_dict(freqs, method, assume_sorted)
+
+        # Handle eps_spec if present - use nearest neighbor interpolation
+        if self.eps_spec is not None:
+            update_dict["eps_spec"] = list(
+                self._interp_dataarray_in_freq(
+                    FreqDataArray(self.eps_spec, coords={"f": source_freqs}),
+                    freqs,
+                    "nearest",
+                ).data
+            )
+
+        # Update monitor with new frequencies, remove interp_spece
+        update_dict["monitor"] = self.monitor.updated_copy(
+            freqs=list(freqs),
+            mode_spec=self.monitor.mode_spec.updated_copy(interp_spec=None),
+        )
+
+        if recalculate_grid_correction:
+            update_dict["grid_primal_correction"], update_dict["grid_dual_correction"] = (
+                self._grid_correction_factors(
+                    list(self.grid_distances_primal),
+                    list(self.grid_distances_dual),
+                    self.monitor.mode_spec,
+                    update_dict["n_complex"],
+                    self.monitor.direction,
+                    "xyz"[self.monitor._normal_axis],
+                )
+            )
+
+        updated_data = self.updated_copy(**update_dict)
+        if renormalize:
+            updated_data._normalize_modes()
+
+        return updated_data
+
+    @property
+    def _reduced_data(self) -> bool:
+        """Whether data will be stored at fewer frequencies than the original number of frequencies."""
+        return (
+            self.monitor.mode_spec._is_interp_spec_applied(self.monitor.freqs)
+            and self.monitor.mode_spec.interp_spec.reduce_data
+        )
+
+    @property
+    def interpolated_copy(self) -> ModeSolverData:
+        """Return a copy of the data with interpolated fields."""
+        if self.monitor.mode_spec.interp_spec is None:
+            return self
+        if not self._reduced_data:
+            return self
+        interpolated_data = self.interp_in_freq(
+            freqs=self.monitor.freqs,
+            method=self.monitor.mode_spec.interp_spec.method,
+            renormalize=True,
+            recalculate_grid_correction=True,
+            assume_sorted=True,
+        )
+        return interpolated_data
 
     @property
     def time_reversed_copy(self) -> FieldData:
@@ -2237,7 +2740,7 @@ class ModeSolverData(ModeData):
         new_data["monitor"] = mnt.updated_copy(direction=new_dir, store_fields_direction=new_dir)
         return self.copy(update=new_data)
 
-    def _check_fields_stored(self, components: list[str]):
+    def _check_fields_stored(self, components: list[str]) -> None:
         """Check that all requested field components are stored in the data."""
         missing_comps = [comp for comp in components if comp not in self.field_components.keys()]
         if len(missing_comps) > 0:
@@ -2605,8 +3108,10 @@ class AbstractFieldProjectionData(MonitorData):
         if not np.all(index_k == 0):
             raise SetupError("Can't compute RCS for a lossy background medium.")
 
-        k = self.k[None, None, None, ...]
-        eta = self.eta[None, None, None, ...]
+        n_leading = max(0, len(self.dims) - 1)
+        expand_idx = (None,) * n_leading + (Ellipsis,)
+        k = self.k[expand_idx]
+        eta = self.eta[expand_idx]
 
         if self.is_2d_simulation:
             constant = k**2 / (16 * np.pi * eta)
@@ -2768,13 +3273,13 @@ class FieldProjectionAngleData(AbstractFieldProjectionData):
         return tangential_dims
 
     @staticmethod
-    def _check_coords_sorted(coord: np.ndarray, name: str):
+    def _check_coords_sorted(coord: np.ndarray, name: str) -> None:
         """Helper for checking whether an array is sorted and raises an exception if it is not."""
         is_sorted = np.all(np.diff(coord) >= 0)
         if not is_sorted:
             raise ValueError(f"{name} was not provided as a sorted array.")
 
-    def _check_integration_suitability(self):
+    def _check_integration_suitability(self) -> None:
         """Checks whether the sampling of ``theta`` and ``phi`` is suitable for
         integrating over a spherical surface."""
         if (
@@ -2940,7 +3445,7 @@ class FieldProjectionCartesianData(AbstractFieldProjectionData):
         return tangential_dims
 
     @property
-    def poynting(self) -> DataArray:
+    def poynting(self) -> ScalarFieldDataArray:
         """Time-averaged Poynting vector for field data associated to a Cartesian field projection monitor."""
         fc = self.fields_cartesian
         dim1, dim2 = self.tangential_dims
@@ -3136,6 +3641,17 @@ class DiffractionData(AbstractFieldProjectionData):
         to x, P(S) corresponds to ``Ex``(``Ez``) polarization for monitor normal to y, and P(S)
         corresponds to ``Ex``(``Ey``) polarization for monitor normal to z.
 
+    Note
+    ----
+
+        The power amplitudes per polarization and diffraction order, and correspondingly the power
+        per diffraction order, correspond to the power carried by each diffraction order in the
+        monitor normal direction. They are not to be confused with power carried by plane waves
+        in the propagation direction of each diffraction order, which can be obtained from the
+        spherical-coordinate fields which are also stored. The power definition is such that the
+        grating efficiency is the recorded power over the input source power, and the direct sum
+        over the power in all orders should equal the total power flowing through the monitor.
+
 
     Example
     -------
@@ -3302,10 +3818,10 @@ class DiffractionData(AbstractFieldProjectionData):
         """Complex power amplitude in each order for 's' and 'p' polarizations, normalized so that
         the power carried by the wave of that order and polarization equals ``abs(amps)^2``.
         """
+        # use a small threshold to avoid blow-up near grazing angles
         cos_theta = np.cos(np.nan_to_num(self.angles[0]))
-
-        # will set amplitudes to 0 for glancing or negative angles
-        cos_theta[cos_theta <= 0] = np.inf
+        # set amplitudes to 0 for angles with cos(theta) <= COS_THETA_THRESH (glancing or negative)
+        cos_theta[cos_theta <= COS_THETA_THRESH] = np.inf
 
         norm = 1.0 / np.sqrt(2.0 * self.eta) / np.sqrt(cos_theta)
         amp_theta = self.Etheta.values * norm
@@ -3320,9 +3836,14 @@ class DiffractionData(AbstractFieldProjectionData):
         return DataArray(np.stack([amp_phi, amp_theta], axis=3), coords=coords)
 
     @property
-    def power(self) -> Self:
+    def power(self) -> DataArray:
         """Total power in each order, summed over both polarizations."""
         return (np.abs(self.amps) ** 2).sum(dim="polarization")
+
+    @property
+    def radar_cross_section(self) -> DataArray:
+        """Radar cross section in units of incident power."""
+        raise ValueError("RCS is not a well-defined quantity for diffraction data.")
 
     @property
     def fields_spherical(self) -> xr.Dataset:
@@ -3496,9 +4017,9 @@ class DirectivityData(FieldProjectionAngleData):
     >>> values = (1+1j) * np.random.random((len(r), len(theta), len(phi), len(f)))
     >>> flux_data = FluxDataArray(np.random.random(len(f)), coords=coords_flux)
     >>> scalar_field = FieldProjectionAngleDataArray(values, coords=coords)
-    >>> monitor = DirectivityMonitor(center=(1,2,3), size=(2,2,2), freqs=f, name='n2f_monitor', phi=phi, theta=theta) # doctest: +SKIP
+    >>> monitor = DirectivityMonitor(center=(1,2,3), size=(2,2,2), freqs=f, name='n2f_monitor', phi=phi, theta=theta)
     >>> data = DirectivityData(monitor=monitor, flux=flux_data, Er=scalar_field, Etheta=scalar_field, Ephi=scalar_field,
-    ...     Hr=scalar_field, Htheta=scalar_field, Hphi=scalar_field, projection_surfaces=monitor.projection_surfaces) # doctest: +SKIP
+    ...     Hr=scalar_field, Htheta=scalar_field, Hphi=scalar_field, projection_surfaces=monitor.projection_surfaces)
     """
 
     monitor: DirectivityMonitor = pd.Field(
@@ -3583,7 +4104,7 @@ class DirectivityData(FieldProjectionAngleData):
         return self.copy(update=dict(fields_norm, flux=new_flux))
 
     @staticmethod
-    def _check_valid_pol_basis(pol_basis: PolarizationBasis, tilt_angle: float):
+    def _check_valid_pol_basis(pol_basis: PolarizationBasis, tilt_angle: float) -> None:
         if pol_basis != "linear" and pol_basis != "circular":
             raise ValueError("'pol_basis' must be either 'linear' or 'circular'")
         if tilt_angle is not None and pol_basis == "circular":
@@ -3894,22 +4415,3 @@ class DirectivityData(FieldProjectionAngleData):
         keys = ("Eleft", "Eright", "Hleft", "Hright")
         data_arrays = (Eleft, Eright, Hleft, Hright)
         return xr.Dataset(dict(zip(keys, data_arrays)))
-
-
-MonitorDataTypes = (
-    FieldData,
-    FieldTimeData,
-    PermittivityData,
-    ModeSolverData,
-    ModeData,
-    FluxData,
-    FluxTimeData,
-    AuxFieldTimeData,
-    FieldProjectionKSpaceData,
-    FieldProjectionCartesianData,
-    FieldProjectionAngleData,
-    DiffractionData,
-    DirectivityData,
-)
-
-MonitorDataType = Union[MonitorDataTypes]

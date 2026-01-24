@@ -5,11 +5,11 @@ class ConfirmationType:
     """
     Константы, представляющие тип пользовательского процесса подтверждения платежа. Возможные значения:
 
-    * yookassa.domain.common.ConfirmationType.EXTERNAL
-    * yookassa.domain.common.ConfirmationType.REDIRECT
-    * yookassa.domain.common.ConfirmationType.EMBEDDED
-    * yookassa.domain.common.ConfirmationType.QR
-    * yookassa.domain.common.ConfirmationType.MOBILE_APPLICATION
+    * embedded - Необходимо получить одноразовый код от плательщика для подтверждения платежа
+    * external - Для подтверждения платежа пользователю необходимо совершить действия во внешней системе (например, ответить на смс)
+    * redirect - Необходимо направить плательщика на страницу партнера
+    * qr - Необходимо получить QR-код
+    * mobile_application - Необходимо совершить действия в мобильном приложении
     """  # noqa: E501
 
     """

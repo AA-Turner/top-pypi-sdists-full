@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: pythainlp
-Version: 5.1.2
+Version: 5.2.0
 Summary: Thai Natural Language Processing library
 Home-page: https://github.com/PyThaiNLP/pythainlp
 Author: PyThaiNLP
 Author-email: wannaphong@pythainlp.org
 License: Apache-2.0
-Project-URL: Documentation, https://pythainlp.org/docs/5.1/
+Project-URL: Documentation, https://pythainlp.org/docs/5.2/
 Project-URL: Tutorials, https://pythainlp.org/tutorials/
 Project-URL: Source Code, https://github.com/PyThaiNLP/pythainlp
 Project-URL: Bug Tracker, https://github.com/PyThaiNLP/pythainlp/issues
@@ -25,6 +25,9 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: backports.zoneinfo; python_version < "3.9"
 Requires-Dist: requests>=2.31
+Requires-Dist: PyYAML>=5.4.1
+Requires-Dist: pandas>=0.24
+Requires-Dist: numpy>=1.22
 Requires-Dist: tzdata; sys_platform == "win32"
 Provides-Extra: abbreviation
 Requires-Dist: khamyo>=0.2.0; extra == "abbreviation"
@@ -73,7 +76,6 @@ Provides-Extra: spacy-thai
 Requires-Dist: spacy_thai>=0.7.1; extra == "spacy-thai"
 Provides-Extra: spell
 Requires-Dist: phunspell>=0.1.6; extra == "spell"
-Requires-Dist: spylls>=0.1.5; extra == "spell"
 Requires-Dist: symspellpy>=6.7.6; extra == "spell"
 Provides-Extra: ssg
 Requires-Dist: ssg>=0.0.8; extra == "ssg"
@@ -89,12 +91,16 @@ Requires-Dist: numpy>=1.22; extra == "thai2fit"
 Provides-Extra: thai2rom
 Requires-Dist: numpy>=1.22; extra == "thai2rom"
 Requires-Dist: torch>=1.0.0; extra == "thai2rom"
+Provides-Extra: budoux
+Requires-Dist: budoux>=0.7.0; extra == "budoux"
 Provides-Extra: translate
-Requires-Dist: fairseq>=0.10.0; extra == "translate"
+Requires-Dist: fairseq<0.13,>=0.10.0; python_version < "3.11" and extra == "translate"
+Requires-Dist: fairseq-fixed<0.13,==0.12.3.1; python_version >= "3.11" and extra == "translate"
 Requires-Dist: sacremoses>=0.0.41; extra == "translate"
 Requires-Dist: sentencepiece>=0.1.91; extra == "translate"
 Requires-Dist: torch>=1.0.0; extra == "translate"
 Requires-Dist: transformers>=4.6.0; extra == "translate"
+Requires-Dist: word2word>=1.0.0; extra == "translate"
 Provides-Extra: transformers-ud
 Requires-Dist: transformers>=4.22.1; extra == "transformers-ud"
 Requires-Dist: ufal.chu-liu-edmonds>=1.0.2; extra == "transformers-ud"
@@ -128,7 +134,8 @@ Requires-Dist: attacut>=1.0.4; extra == "full"
 Requires-Dist: bpemb>=0.3.2; extra == "full"
 Requires-Dist: emoji>=0.5.1; extra == "full"
 Requires-Dist: epitran>=1.1; extra == "full"
-Requires-Dist: fairseq>=0.10.0; extra == "full"
+Requires-Dist: fairseq<0.13,>=0.10.0; python_version < "3.11" and extra == "full"
+Requires-Dist: fairseq-fixed<0.13,==0.12.3.1; python_version >= "3.11" and extra == "full"
 Requires-Dist: fastai<2.0; extra == "full"
 Requires-Dist: fastcoref>=2.1.5; extra == "full"
 Requires-Dist: gensim>=4.0.0; extra == "full"
@@ -148,7 +155,6 @@ Requires-Dist: sentencepiece>=0.1.91; extra == "full"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "full"
 Requires-Dist: spacy>=3.0; extra == "full"
 Requires-Dist: spacy_thai>=0.7.1; extra == "full"
-Requires-Dist: spylls>=0.1.5; extra == "full"
 Requires-Dist: ssg>=0.0.8; extra == "full"
 Requires-Dist: symspellpy>=6.7.6; extra == "full"
 Requires-Dist: thai_nner; extra == "full"
@@ -157,6 +163,8 @@ Requires-Dist: transformers>=4.22.1; extra == "full"
 Requires-Dist: ufal.chu-liu-edmonds>=1.0.2; extra == "full"
 Requires-Dist: wtpsplit>=1.0.1; extra == "full"
 Requires-Dist: wunsen>=0.0.3; extra == "full"
+Requires-Dist: word2word>=1.0.0; extra == "full"
+Requires-Dist: budoux>=0.7.0; extra == "full"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -2,7 +2,7 @@
 
 #from mayhemmonkey import MayhemMonkey
 #mayhemmonkey = MayhemMonkey()
-#mayhemmonkey.set_function_fail_after_count("open", 201)
+#mayhemmonkey.set_function_fail_after_count("open", 10)
 #mayhemmonkey.set_function_error_rate("open", 0.1)
 #mayhemmonkey.set_function_group_error_rate(["io", "math"], 0.8)
 #mayhemmonkey.install_faulty()
@@ -29,7 +29,14 @@ import resource
 from urllib.parse import urlencode
 import psutil
 
+IN_TEST_MODE = os.getenv("OO_MAIN_TESTS") == "1"
+
 FORCE_EXIT: bool = False
+
+LAST_LOG_TIME: int = 0
+last_msg_progressbar = ""
+last_msg_raw = None
+last_lock_print_debug = threading.Lock()
 
 def force_exit(signal_number: Any, frame: Any) -> Any:
     global FORCE_EXIT
@@ -83,6 +90,7 @@ log_nr_gen_jobs: list[int] = []
 generation_strategy_human_readable: str = ""
 oo_call: str = "./omniopt"
 progress_bar_length: int = 0
+worker_usage_file = 'worker_usage.csv'
 
 if os.environ.get("CUSTOM_VIRTUAL_ENV") == "1":
     oo_call = "omniopt"
@@ -150,12 +158,6 @@ try:
         warnings.filterwarnings(
             "ignore",
             message="Ax currently requires a sqlalchemy version below 2.0.*",
-        )
-
-        warnings.filterwarnings(
-            "ignore",
-            category=RuntimeWarning,
-            message="coroutine 'start_logging_daemon' was never awaited"
         )
 
     with spinner("Importing argparse..."):
@@ -239,9 +241,6 @@ try:
     with spinner("Importing uuid..."):
         import uuid
 
-    #with spinner("Importing qrcode..."):
-    #    import qrcode
-
     with spinner("Importing cowsay..."):
         import cowsay
 
@@ -271,6 +270,9 @@ try:
 
     with spinner("Importing beartype..."):
         from beartype import beartype
+
+    with spinner("Importing rendering stuff..."):
+        from ax.plot.base import AxPlotConfig
 
     with spinner("Importing statistics..."):
         import statistics
@@ -383,16 +385,9 @@ def _record_stats(func_name: str, elapsed: float, mem_diff: float, mem_after: fl
         call_path_str = " -> ".join(short_stack)
         _func_call_paths[func_name][call_path_str] += 1
 
-        print(
-            f"Function '{func_name}' took {elapsed:.4f}s "
-            f"(total {percent_if_added:.1f}% of tracked time)"
-        )
-        print(
-            f"Memory before: {mem_after - mem_diff:.2f} MB, after: {mem_after:.2f} MB, "
-            f"diff: {mem_diff:+.2f} MB, peak during call: {mem_peak:.2f} MB"
-        )
+        print(f"Function '{func_name}' took {elapsed:.4f}s (total {percent_if_added:.1f}% of tracked time)")
+        print(f"Memory before: {mem_after - mem_diff:.2f} MB, after: {mem_after:.2f} MB, diff: {mem_diff:+.2f} MB, peak during call: {mem_peak:.2f} MB")
 
-        # NEU: Runtime Stats
         runtime_stats = collect_runtime_stats()
         print("=== Runtime Stats ===")
         print(f"RSS: {runtime_stats['rss_MB']:.2f} MB, VMS: {runtime_stats['vms_MB']:.2f} MB")
@@ -439,7 +434,7 @@ def makedirs(p: str) -> bool:
         try:
             os.makedirs(p, exist_ok=True)
         except Exception as ee:
-            print(f"Failed to create >{p}<. Error: {ee}")
+            print_red_if_not_in_test_mode(f"Failed to create >{p}<. Error: {ee}")
 
     if os.path.exists(p):
         return True
@@ -504,6 +499,24 @@ try:
         dier: FunctionType = helpers.dier
         is_equal: FunctionType = helpers.is_equal
         is_not_equal: FunctionType = helpers.is_not_equal
+    with spinner("Importing pareto..."):
+        pareto_file: str = f"{script_dir}/.pareto.py"
+        spec = importlib.util.spec_from_file_location(
+            name="pareto",
+            location=pareto_file,
+        )
+        if spec is not None and spec.loader is not None:
+            pareto = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(pareto)
+        else:
+            raise ImportError(f"Could not load module from {pareto_file}")
+
+        pareto_front_table_filter_rows: FunctionType = pareto.pareto_front_table_filter_rows
+        pareto_front_table_add_headers: FunctionType = pareto.pareto_front_table_add_headers
+        pareto_front_table_add_rows: FunctionType = pareto.pareto_front_table_add_rows
+        pareto_front_filter_complete_points: FunctionType = pareto.pareto_front_filter_complete_points
+        pareto_front_select_pareto_points: FunctionType = pareto.pareto_front_select_pareto_points
+
 except KeyboardInterrupt:
     print("You pressed CTRL-c while importing the helpers file")
     sys.exit(0)
@@ -545,6 +558,17 @@ logfile_progressbar: str = f'{log_uuid_dir}_progressbar'
 logfile_worker_creation_logs: str = f'{log_uuid_dir}_worker_creation_logs'
 logfile_trial_index_to_param_logs: str = f'{log_uuid_dir}_trial_index_to_param_logs'
 LOGFILE_DEBUG_GET_NEXT_TRIALS: Union[str, None] = None
+
+def error_without_print(text: str) -> None:
+    print_debug(text)
+
+    if get_current_run_folder():
+        try:
+            with open(get_current_run_folder("oo_errors.txt"), mode="a", encoding="utf-8") as myfile:
+                myfile.write(text + "\n\n")
+        except (OSError, FileNotFoundError) as e:
+            helpers.print_color("red", f"Error: {e}. This may mean that the {get_current_run_folder()} was deleted during the run. Could not write '{text} to {get_current_run_folder()}/oo_errors.txt'")
+            sys.exit(99)
 
 def print_red(text: str) -> None:
     helpers.print_color("red", text)
@@ -717,11 +741,23 @@ def print_yellow(text: str) -> None:
 
     print_debug(text)
 
+def print_yellow_if_not_in_test_mode(text: str) -> None:
+    if not IN_TEST_MODE:
+        print_yellow(text)
+
+def print_red_if_not_in_test_mode(text: str) -> None:
+    if not IN_TEST_MODE:
+        print_red(text)
+
+def original_print_if_not_in_test_mode(text: str) -> None:
+    if not IN_TEST_MODE:
+        original_print(text)
+
 def get_min_max_from_file(continue_path: str, n: int, _default_min_max: str) -> str:
     path = f"{continue_path}/result_min_max.txt"
 
     if not os.path.exists(path):
-        print_yellow(f"File '{path}' not found, will use {_default_min_max}")
+        print_yellow_if_not_in_test_mode(f"File '{path}' not found, will use {_default_min_max}")
         return _default_min_max
 
     with open(path, encoding="utf-8", mode='r') as file:
@@ -1349,14 +1385,14 @@ try:
     with spinner("Importing ExternalGenerationNode..."):
         from ax.generation_strategy.external_generation_node import ExternalGenerationNode
 
-    with spinner("Importing MaxTrials..."):
-        from ax.generation_strategy.transition_criterion import MaxTrials
+    with spinner("Importing MinTrials..."):
+        from ax.generation_strategy.transition_criterion import MinTrials
 
     with spinner("Importing GeneratorSpec..."):
         from ax.generation_strategy.generator_spec import GeneratorSpec
 
-    with spinner("Importing Models from ax.generation_strategy.registry..."):
-        from ax.adapter.registry import Models
+    with spinner("Importing Generators from ax.generation_strategy.registry..."):
+        from ax.adapter.registry import Generators
 
     with spinner("Importing get_pending_observation_features..."):
         from ax.core.utils import get_pending_observation_features
@@ -1442,7 +1478,7 @@ class RandomForestGenerationNode(ExternalGenerationNode):
     def __init__(self: Any, regressor_options: Dict[str, Any] = {}, seed: Optional[int] = None, num_samples: int = 1) -> None:
         print_debug("Initializing RandomForestGenerationNode...")
         t_init_start = time.monotonic()
-        super().__init__(node_name="RANDOMFOREST")
+        super().__init__(name="RANDOMFOREST")
         self.num_samples: int = num_samples
         self.seed: int = seed
 
@@ -1675,10 +1711,10 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
 
     def __init__(
         self: Any,
-        node_name: str = "INTERACTIVE_GENERATOR",
+        name: str = "INTERACTIVE_GENERATOR",
     ) -> None:
         t0 = time.monotonic()
-        super().__init__(node_name=node_name)
+        super().__init__(name=name)
         self.parameters = None
         self.minimize = None
         self.data = None
@@ -1834,10 +1870,10 @@ class InteractiveCLIGenerationNode(ExternalGenerationNode):
 
 @dataclass(init=False)
 class ExternalProgramGenerationNode(ExternalGenerationNode):
-    def __init__(self: Any, external_generator: str = args.external_generator, node_name: str = "EXTERNAL_GENERATOR") -> None:
+    def __init__(self: Any, external_generator: str = args.external_generator, name: str = "EXTERNAL_GENERATOR") -> None:
         print_debug("Initializing ExternalProgramGenerationNode...")
         t_init_start = time.monotonic()
-        super().__init__(node_name=node_name)
+        super().__init__(name=name)
         self.seed: int = args.seed
         self.external_generator: str = decode_if_base64(external_generator)
         self.constraints = None
@@ -1919,7 +1955,7 @@ class ExternalProgramGenerationNode(ExternalGenerationNode):
             temp_dir_counter = temp_dir_counter + 1
             temp_dir = os.path.join(get_current_run_folder(), "external_generator_tmp", str(temp_dir_counter))
 
-        os.makedirs(temp_dir, exist_ok=True)
+        makedirs(temp_dir)
 
         print_debug(f"Created temporary directory: {temp_dir}")
 
@@ -2058,9 +2094,9 @@ def run_live_share_command(force: bool = False) -> Tuple[str, str]:
             return str(result.stdout), str(result.stderr)
         except subprocess.CalledProcessError as e:
             if e.stderr:
-                original_print(f"run_live_share_command: command failed with error: {e}, stderr: {e.stderr}")
+                print_debug(f"run_live_share_command: command failed with error: {e}, stderr: {e.stderr}")
             else:
-                original_print(f"run_live_share_command: command failed with error: {e}")
+                print_debug(f"run_live_share_command: command failed with error: {e}")
             return "", str(e.stderr)
         except Exception as e:
             print(f"run_live_share_command: An error occurred: {e}")
@@ -2074,6 +2110,8 @@ def force_live_share() -> bool:
     return False
 
 def live_share(force: bool = False, text_and_qr: bool = False) -> bool:
+    log_data()
+
     if not get_current_run_folder():
         print(f"live_share: get_current_run_folder was empty or false: {get_current_run_folder()}")
         return False
@@ -2087,17 +2125,23 @@ def live_share(force: bool = False, text_and_qr: bool = False) -> bool:
         if stderr:
             print_green(stderr)
         else:
-            print_red(f"This call should have shown the CURL, but didnt. Stderr: {stderr}, stdout: {stdout}")
+            if stderr and stdout:
+                print_red(f"This call should have shown the CURL, but didnt. Stderr: {stderr}, stdout: {stdout}")
+            elif stderr:
+                print_red(f"This call should have shown the CURL, but didnt. Stderr: {stderr}")
+            elif stdout:
+                print_red(f"This call should have shown the CURL, but didnt. Stdout: {stdout}")
+            else:
+                print_red("This call should have shown the CURL, but didnt.")
     if stdout:
         print_debug(f"live_share stdout: {stdout}")
 
     return True
 
 def init_live_share() -> bool:
-    with spinner("Initializing live share..."):
-        ret = live_share(True, True)
+    ret = live_share(True, True)
 
-        return ret
+    return ret
 
 def init_storage(db_url: str) -> None:
     init_engine_and_session_factory(url=db_url, force_init=True)
@@ -2158,6 +2202,8 @@ def merge_with_job_infos(df: pd.DataFrame) -> pd.DataFrame:
     return merged
 
 def save_results_csv() -> Optional[str]:
+    log_data()
+
     if args.dryrun:
         return None
 
@@ -2208,12 +2254,7 @@ def fetch_and_prepare_trials() -> Optional[pd.DataFrame]:
 
     ax_client.experiment.fetch_data()
     df = ax_client_get_trials_data_frame()
-    #print("========================")
-    #print("BEFORE merge_with_job_infos:")
-    #print(df["generation_node"])
     df = merge_with_job_infos(df)
-    #print("AFTER merge_with_job_infos:")
-    #print(df["generation_node"])
 
     return df
 
@@ -2441,7 +2482,7 @@ def set_nr_inserted_jobs(new_nr_inserted_jobs: int) -> None:
 
 def write_worker_usage() -> None:
     if len(WORKER_PERCENTAGE_USAGE):
-        csv_filename = get_current_run_folder('worker_usage.csv')
+        csv_filename = get_current_run_folder(worker_usage_file)
 
         csv_columns = ['time', 'num_parallel_jobs', 'nr_current_workers', 'percentage']
 
@@ -2451,35 +2492,39 @@ def write_worker_usage() -> None:
                 csv_writer.writerow(row)
     else:
         if is_slurm_job():
-            print_debug("WORKER_PERCENTAGE_USAGE seems to be empty. Not writing worker_usage.csv")
+            print_debug(f"WORKER_PERCENTAGE_USAGE seems to be empty. Not writing {worker_usage_file}")
 
 def log_system_usage() -> None:
+    global LAST_LOG_TIME
+
+    now = time.time()
+    if now - LAST_LOG_TIME < 30:
+        return
+
+    LAST_LOG_TIME = int(now)
+
     if not get_current_run_folder():
         return
 
     ram_cpu_csv_file_path = os.path.join(get_current_run_folder(), "cpu_ram_usage.csv")
-
     makedirs(os.path.dirname(ram_cpu_csv_file_path))
 
     file_exists = os.path.isfile(ram_cpu_csv_file_path)
 
+    mem_proc = process.memory_info() if process else None
+    if not mem_proc:
+        return
+
+    ram_usage_mb = mem_proc.rss / (1024 * 1024)
+    cpu_usage_percent = psutil.cpu_percent(percpu=False)
+    if ram_usage_mb <= 0 or cpu_usage_percent <= 0:
+        return
+
     with open(ram_cpu_csv_file_path, mode='a', newline='', encoding="utf-8") as file:
         writer = csv.writer(file)
-
-        current_time = int(time.time())
-
-        if process is not None:
-            mem_proc = process.memory_info()
-
-            if mem_proc is not None:
-                ram_usage_mb = mem_proc.rss / (1024 * 1024)
-                cpu_usage_percent = psutil.cpu_percent(percpu=False)
-
-                if ram_usage_mb > 0 and cpu_usage_percent > 0:
-                    if not file_exists:
-                        writer.writerow(["timestamp", "ram_usage_mb", "cpu_usage_percent"])
-
-                    writer.writerow([current_time, ram_usage_mb, cpu_usage_percent])
+        if not file_exists:
+            writer.writerow(["timestamp", "ram_usage_mb", "cpu_usage_percent"])
+        writer.writerow([int(now), ram_usage_mb, cpu_usage_percent])
 
 def write_process_info() -> None:
     try:
@@ -2829,10 +2874,20 @@ def print_debug_get_next_trials(got: int, requested: int, _line: int) -> None:
     log_message_to_file(LOGFILE_DEBUG_GET_NEXT_TRIALS, msg, 0, "")
 
 def print_debug_progressbar(msg: str) -> None:
-    time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    msg = f"{time_str} ({worker_generator_uuid}): {msg}"
+    global last_msg_progressbar, last_msg_raw
 
-    _debug_progressbar(msg)
+    try:
+        with last_lock_print_debug:
+            if msg != last_msg_raw:
+                time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                full_msg = f"{time_str} ({worker_generator_uuid}): {msg}"
+
+                _debug_progressbar(full_msg)
+
+                last_msg_raw = msg
+                last_msg_progressbar = full_msg
+    except Exception as e:
+        print(f"Error in print_debug_progressbar: {e}", flush=True)
 
 def get_process_info(pid: Any) -> str:
     try:
@@ -2957,7 +3012,7 @@ def get_program_code_from_out_file(f: str) -> str:
         if alt and os.path.exists(alt):
             f = alt
         else:
-            print_red(f"\nget_program_code_from_out_file: {f} not found")
+            print_red_if_not_in_test_mode(f"\nget_program_code_from_out_file: {f} not found")
             return ""
 
     fs = get_file_as_string(f)
@@ -3339,6 +3394,328 @@ def parse_experiment_parameters() -> None:
 
     experiment_parameters = params # type: ignore[assignment]
 
+def job_calculate_pareto_front(path_to_calculate: str, disable_sixel_and_table: bool = False) -> bool:
+    pf_start_time = time.time()
+
+    if not path_to_calculate:
+        return False
+
+    global CURRENT_RUN_FOLDER
+    global RESULT_CSV_FILE
+    global arg_result_names
+
+    if not path_to_calculate:
+        print_red("Can only calculate pareto front of previous job when --calculate_pareto_front_of_job is set")
+        return False
+
+    if not os.path.exists(path_to_calculate):
+        print_red(f"Path '{path_to_calculate}' does not exist")
+        return False
+
+    ax_client_json = f"{path_to_calculate}/state_files/ax_client.experiment.json"
+
+    if not os.path.exists(ax_client_json):
+        print_red(f"Path '{ax_client_json}' not found")
+        return False
+
+    checkpoint_file: str = f"{path_to_calculate}/state_files/checkpoint.json"
+    if not os.path.exists(checkpoint_file):
+        print_red(f"The checkpoint file '{checkpoint_file}' does not exist")
+        return False
+
+    RESULT_CSV_FILE = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
+    if not os.path.exists(RESULT_CSV_FILE):
+        print_red(f"{RESULT_CSV_FILE} not found")
+        return False
+
+    res_names = []
+
+    res_names_file = f"{path_to_calculate}/result_names.txt"
+    if not os.path.exists(res_names_file):
+        print_red(f"File '{res_names_file}' does not exist")
+        return False
+
+    try:
+        with open(res_names_file, "r", encoding="utf-8") as file:
+            lines = file.readlines()
+    except Exception as e:
+        print_red(f"Error reading file '{res_names_file}': {e}")
+        return False
+
+    for line in lines:
+        entry = line.strip()
+        if entry != "":
+            res_names.append(entry)
+
+    if len(res_names) < 2:
+        print_red(f"Error: There are less than 2 result names (is: {len(res_names)}, {', '.join(res_names)}) in {path_to_calculate}. Cannot continue calculating the pareto front.")
+        return False
+
+    load_username_to_args(path_to_calculate)
+
+    CURRENT_RUN_FOLDER = path_to_calculate
+
+    arg_result_names = res_names
+
+    load_experiment_parameters_from_checkpoint_file(checkpoint_file, False)
+
+    if experiment_parameters is None:
+        return False
+
+    show_pareto_or_error_msg(path_to_calculate, res_names, disable_sixel_and_table)
+
+    pf_end_time = time.time()
+
+    print_debug(f"Calculating the Pareto-front took {pf_end_time - pf_start_time} seconds")
+
+    return True
+
+def show_pareto_or_error_msg(path_to_calculate: str, res_names: list = arg_result_names, disable_sixel_and_table: bool = False) -> None:
+    if args.dryrun:
+        print_debug("Not showing Pareto-frontier data with --dryrun")
+        return None
+
+    if len(res_names) > 1:
+        try:
+            show_pareto_frontier_data(path_to_calculate, res_names, disable_sixel_and_table)
+        except Exception as e:
+            inner_tb = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+            print_red(f"show_pareto_frontier_data() failed with exception '{e}':\n{inner_tb}")
+    else:
+        print_debug(f"show_pareto_frontier_data will NOT be executed because len(arg_result_names) is {len(arg_result_names)}")
+    return None
+
+def get_pareto_front_data(path_to_calculate: str, res_names: list) -> dict:
+    pareto_front_data: dict = {}
+
+    all_combinations = list(combinations(range(len(arg_result_names)), 2))
+
+    skip = False
+
+    for i, j in all_combinations:
+        if not skip:
+            metric_x = arg_result_names[i]
+            metric_y = arg_result_names[j]
+
+            x_minimize = get_result_minimize_flag(path_to_calculate, metric_x)
+            y_minimize = get_result_minimize_flag(path_to_calculate, metric_y)
+
+            try:
+                if metric_x not in pareto_front_data:
+                    pareto_front_data[metric_x] = {}
+
+                pareto_front_data[metric_x][metric_y] = get_calculated_frontier(path_to_calculate, metric_x, metric_y, x_minimize, y_minimize, res_names)
+            except ax.exceptions.core.DataRequiredError as e:
+                print_red(f"Error computing Pareto frontier for {metric_x} and {metric_y}: {e}")
+            except SignalINT:
+                print_red("Calculating Pareto-fronts was cancelled by pressing CTRL-c")
+                skip = True
+
+    return pareto_front_data
+
+def pareto_front_transform_objectives(
+    points: List[Tuple[Any, float, float]],
+    primary_name: str,
+    secondary_name: str
+) -> Tuple[np.ndarray, np.ndarray]:
+    primary_idx = arg_result_names.index(primary_name)
+    secondary_idx = arg_result_names.index(secondary_name)
+
+    x = np.array([p[1] for p in points])
+    y = np.array([p[2] for p in points])
+
+    if arg_result_min_or_max[primary_idx] == "max":
+        x = -x
+    elif arg_result_min_or_max[primary_idx] != "min":
+        raise ValueError(f"Unknown mode for {primary_name}: {arg_result_min_or_max[primary_idx]}")
+
+    if arg_result_min_or_max[secondary_idx] == "max":
+        y = -y
+    elif arg_result_min_or_max[secondary_idx] != "min":
+        raise ValueError(f"Unknown mode for {secondary_name}: {arg_result_min_or_max[secondary_idx]}")
+
+    return x, y
+
+def get_pareto_frontier_points(
+    path_to_calculate: str,
+    primary_objective: str,
+    secondary_objective: str,
+    x_minimize: bool,
+    y_minimize: bool,
+    absolute_metrics: List[str],
+    num_points: int
+) -> Optional[dict]:
+    records = pareto_front_aggregate_data(path_to_calculate)
+
+    if records is None:
+        return None
+
+    points = pareto_front_filter_complete_points(path_to_calculate, records, primary_objective, secondary_objective)
+    x, y = pareto_front_transform_objectives(points, primary_objective, secondary_objective)
+    selected_points = pareto_front_select_pareto_points(x, y, x_minimize, y_minimize, points, num_points)
+    result = pareto_front_build_return_structure(path_to_calculate, selected_points, records, absolute_metrics, primary_objective, secondary_objective)
+
+    return result
+
+def pareto_front_table_read_csv() -> List[Dict[str, str]]:
+    with open(RESULT_CSV_FILE, mode="r", encoding="utf-8", newline="") as f:
+        return list(csv.DictReader(f))
+
+def create_pareto_front_table(idxs: List[int], metric_x: str, metric_y: str) -> Table:
+    table = Table(title=f"Pareto-Front for {metric_y}/{metric_x}:", show_lines=True)
+
+    rows = pareto_front_table_read_csv()
+    if not rows:
+        table.add_column("No data found")
+        return table
+
+    filtered_rows = pareto_front_table_filter_rows(rows, idxs)
+    if not filtered_rows:
+        table.add_column("No matching entries")
+        return table
+
+    param_cols, result_cols = pareto_front_table_get_columns(filtered_rows[0])
+
+    pareto_front_table_add_headers(table, param_cols, result_cols)
+    pareto_front_table_add_rows(table, filtered_rows, param_cols, result_cols)
+
+    return table
+
+def pareto_front_build_return_structure(
+    path_to_calculate: str,
+    selected_points: List[Tuple[Any, float, float]],
+    records: Dict[Tuple[int, str], Dict[str, Dict[str, float]]],
+    absolute_metrics: List[str],
+    primary_name: str,
+    secondary_name: str
+) -> dict:
+    results_csv_file = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
+    result_names_file = f"{path_to_calculate}/result_names.txt"
+
+    with open(result_names_file, mode="r", encoding="utf-8") as f:
+        result_names = [line.strip() for line in f if line.strip()]
+
+    csv_rows = {}
+    with open(results_csv_file, mode="r", encoding="utf-8", newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            trial_index = int(row['trial_index'])
+            csv_rows[trial_index] = row
+
+    ignored_columns = {'trial_index', 'arm_name', 'trial_status', 'generation_node'}
+    ignored_columns.update(result_names)
+
+    param_dicts = []
+    idxs = []
+    means_dict = defaultdict(list)
+
+    for (trial_index, arm_name), _, _ in selected_points:
+        row = csv_rows.get(trial_index, {})
+        if row == {} or row is None or row['arm_name'] != arm_name:
+            continue
+
+        idxs.append(int(row["trial_index"]))
+
+        param_dict: dict[str, int | float | str] = {}
+        for key, value in row.items():
+            if key not in ignored_columns:
+                try:
+                    param_dict[key] = int(value)
+                except ValueError:
+                    try:
+                        param_dict[key] = float(value)
+                    except ValueError:
+                        param_dict[key] = value
+
+        param_dicts.append(param_dict)
+
+        for metric in absolute_metrics:
+            means_dict[metric].append(records[(trial_index, arm_name)]['means'].get(metric, float("nan")))
+
+    ret = {
+        primary_name: {
+            secondary_name: {
+                "absolute_metrics": absolute_metrics,
+                "param_dicts": param_dicts,
+                "means": dict(means_dict),
+                "idxs": idxs
+            },
+            "absolute_metrics": absolute_metrics
+        }
+    }
+
+    return ret
+
+def pareto_front_aggregate_data(path_to_calculate: str) -> Optional[Dict[Tuple[int, str], Dict[str, Dict[str, float]]]]:
+    results_csv_file = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
+    result_names_file = f"{path_to_calculate}/result_names.txt"
+
+    if not os.path.exists(results_csv_file) or not os.path.exists(result_names_file):
+        return None
+
+    with open(result_names_file, mode="r", encoding="utf-8") as f:
+        result_names = [line.strip() for line in f if line.strip()]
+
+    records: dict = defaultdict(lambda: {'means': {}})
+
+    with open(results_csv_file, encoding="utf-8", mode="r", newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        for row in reader:
+            trial_index = int(row['trial_index'])
+            arm_name = row['arm_name']
+            key = (trial_index, arm_name)
+
+            for metric in result_names:
+                if metric in row:
+                    try:
+                        records[key]['means'][metric] = float(row[metric])
+                    except ValueError:
+                        continue
+
+    return records
+
+def plot_pareto_frontier_sixel(data: Any, x_metric: str, y_metric: str) -> None:
+    if data is None:
+        print("[italic yellow]The data seems to be empty. Cannot plot pareto frontier.[/]")
+        return
+
+    if not supports_sixel():
+        print(f"[italic yellow]Your console does not support sixel-images. Will not print Pareto-frontier as a matplotlib-sixel-plot for {x_metric}/{y_metric}.[/]")
+        return
+
+    import matplotlib.pyplot as plt
+
+    means = data[x_metric][y_metric]["means"]
+
+    x_values = means[x_metric]
+    y_values = means[y_metric]
+
+    fig, _ax = plt.subplots()
+
+    _ax.scatter(x_values, y_values, s=50, marker='x', c='blue', label='Data Points')
+
+    _ax.set_xlabel(x_metric)
+    _ax.set_ylabel(y_metric)
+
+    _ax.set_title(f'Pareto-Front {x_metric}/{y_metric}')
+
+    _ax.ticklabel_format(style='plain', axis='both', useOffset=False)
+
+    with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmp_file:
+        plt.savefig(tmp_file.name, dpi=300)
+
+        print_image_to_cli(tmp_file.name, 1000)
+
+    plt.close(fig)
+
+def pareto_front_table_get_columns(first_row: Dict[str, str]) -> Tuple[List[str], List[str]]:
+    all_columns = list(first_row.keys())
+    ignored_cols = set(special_col_names) - {"trial_index"}
+
+    param_cols = [col for col in all_columns if col not in ignored_cols and col not in arg_result_names and not col.startswith("OO_Info_")]
+    result_cols = [col for col in arg_result_names if col in all_columns]
+    return param_cols, result_cols
+
 def check_factorial_range() -> None:
     if args.model and args.model == "FACTORIAL":
         _fatal_error("\n⚠ --model FACTORIAL cannot be used with range parameter", 181)
@@ -3382,7 +3759,7 @@ def replace_parameters_in_string(
 ) -> str:
     try:
         prefixes = ['$', '%'] + additional_prefixes
-        patterns = ['{key}', '({key})'] + additional_patterns
+        patterns = ['{' + 'key' + '}', '(' + '{' + 'key' + '}' + ')'] + additional_patterns
 
         for key, value in parameters.items():
             replacement = format_value(value, float_format=float_format)
@@ -3427,7 +3804,7 @@ class MonitorProcess:
                 if crf and crf != "":
                     log_file_path = os.path.join(crf, "eval_nodes_cpu_ram_logs.txt")
 
-                    os.makedirs(os.path.dirname(log_file_path), exist_ok=True)
+                    makedirs(os.path.dirname(log_file_path))
 
                     with open(log_file_path, mode="a", encoding="utf-8") as log_file:
                         hostname = socket.gethostname()
@@ -3590,7 +3967,7 @@ def _add_to_csv_acquire_lock(lockfile: str, dir_path: str) -> bool:
             time.sleep(wait_time)
             max_wait -= wait_time
         except Exception as e:
-            print("Lock error:", e)
+            print_red(f"Lock error: {e}")
             return False
     return False
 
@@ -3663,12 +4040,12 @@ def find_file_paths(_text: str) -> List[str]:
 def check_file_info(file_path: str) -> str:
     if not os.path.exists(file_path):
         if not args.tests:
-            print(f"check_file_info: The file {file_path} does not exist.")
+            print_red(f"check_file_info: The file {file_path} does not exist.")
         return ""
 
     if not os.access(file_path, os.R_OK):
         if not args.tests:
-            print(f"check_file_info: The file {file_path} is not readable.")
+            print_red(f"check_file_info: The file {file_path} is not readable.")
         return ""
 
     file_stat = os.stat(file_path)
@@ -3782,7 +4159,7 @@ def count_defective_nodes(file_path: Union[str, None] = None, entry: Any = None)
         return sorted(set(entries))
 
     except Exception as e:
-        print(f"An error has occurred: {e}")
+        print_red(f"An error has occurred: {e}")
         return []
 
 def test_gpu_before_evaluate(return_in_case_of_error: dict) -> Union[None, dict]:
@@ -3793,7 +4170,7 @@ def test_gpu_before_evaluate(return_in_case_of_error: dict) -> Union[None, dict]
 
                 fool_linter(tmp)
         except RuntimeError:
-            print(f"Node {socket.gethostname()} was detected as faulty. It should have had a GPU, but there is an error initializing the CUDA driver. Adding this node to the --exclude list.")
+            print_red(f"Node {socket.gethostname()} was detected as faulty. It should have had a GPU, but there is an error initializing the CUDA driver. Adding this node to the --exclude list.")
             count_defective_nodes(None, socket.gethostname())
             return return_in_case_of_error
         except Exception:
@@ -4503,7 +4880,7 @@ def replace_string_with_params(input_string: str, params: list) -> str:
         return replaced_string
     except AssertionError as e:
         error_text = f"Error in replace_string_with_params: {e}"
-        print(error_text)
+        print_red(error_text)
         raise
 
     return ""
@@ -4606,7 +4983,7 @@ def get_best_params(res_name: str = "RESULT") -> Optional[dict]:
 
 def _count_sobol_or_completed(this_csv_file_path: str, _type: str) -> int:
     if _type not in ["Sobol", "COMPLETED", "SOBOL"]:
-        print_red(f"_type is not in Sobol, SOBOL or COMPLETED, but is '{_type}'")
+        print_red_if_not_in_test_mode(f"_type is not in Sobol, SOBOL or COMPLETED, but is '{_type}'")
         return 0
 
     count = 0
@@ -4780,9 +5157,7 @@ def get_sixel_graphics_data(_pd_csv: str, _force: bool = False) -> list:
             _params = [_command, plot, _tmp, plot_type, tmp_file, _width]
             data.append(_params)
         except Exception as e:
-            tb = traceback.format_exc()
-            print_red(f"Error trying to print {plot_type} to CLI: {e}, {tb}")
-            print_debug(f"Error trying to print {plot_type} to CLI: {e}")
+            print_red(f"Error trying to print {plot_type} to CLI: {e}")
 
     return data
 
@@ -4977,14 +5352,13 @@ def abandon_job(job: Job, trial_index: int, reason: str) -> bool:
                 if _trial is None:
                     return False
 
-                _trial.mark_abandoned(reason=reason)
+                mark_abandoned(_trial, reason, trial_index)
                 print_debug(f"abandon_job: removing job {job}, trial_index: {trial_index}")
                 global_vars["jobs"].remove((job, trial_index))
             else:
                 _fatal_error("ax_client could not be found", 101)
         except Exception as e:
-            print(f"ERROR in line {get_line_info()}: {e}")
-            print_debug(f"ERROR in line {get_line_info()}: {e}")
+            print_red(f"ERROR in line {get_line_info()}: {e}")
             return False
         job.cancel()
         return True
@@ -4997,22 +5371,119 @@ def abandon_all_jobs() -> None:
         if not abandoned:
             print_debug(f"Job {job} could not be abandoned.")
 
-def show_pareto_or_error_msg(path_to_calculate: str, res_names: list = arg_result_names, disable_sixel_and_table: bool = False) -> None:
-    if args.dryrun:
-        print_debug("Not showing Pareto-frontier data with --dryrun")
+def write_result_to_trace_file(res: str) -> bool:
+    if res is None:
+        sys.stderr.write("Provided result is None, nothing to write\n")
+        return False
+
+    target_folder = get_current_run_folder()
+    target_file = os.path.join(target_folder, "optimization_trace.html")
+
+    try:
+        file_handle = open(target_file, "w", encoding="utf-8")
+    except OSError as error:
+        sys.stderr.write("Unable to open target file for writing\n")
+        sys.stderr.write(str(error) + "\n")
+        return False
+
+    try:
+        written = file_handle.write(str(res))
+        file_handle.flush()
+
+        if written == 0:
+            sys.stderr.write("No data was written to the file\n")
+            file_handle.close()
+            return False
+    except Exception as error:
+        sys.stderr.write("Error occurred while writing to file\n")
+        sys.stderr.write(str(error) + "\n")
+        file_handle.close()
+        return False
+
+    try:
+        file_handle.close()
+    except Exception as error:
+        sys.stderr.write("Failed to properly close file\n")
+        sys.stderr.write(str(error) + "\n")
+        return False
+
+    return True
+
+def render(plot_config: AxPlotConfig) -> None:
+    if plot_config is None or "data" not in plot_config:
         return None
 
-    if len(res_names) > 1:
-        try:
-            show_pareto_frontier_data(path_to_calculate, res_names, disable_sixel_and_table)
-        except Exception as e:
-            print_red(f"show_pareto_frontier_data() failed with exception '{e}'")
-    else:
-        print_debug(f"show_pareto_frontier_data will NOT be executed because len(arg_result_names) is {len(arg_result_names)}")
+    res: str = plot_config.data # type: ignore
+
+    repair_funcs = """
+function decodeBData(obj) {
+        if (!obj || typeof obj !== "object") {
+            return obj;
+        }
+
+        if (obj.bdata && obj.dtype) {
+            var binary_string = atob(obj.bdata);
+            var len = binary_string.length;
+            var bytes = new Uint8Array(len);
+
+            for (var i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+
+            switch (obj.dtype) {
+                case "i1": return Array.from(new Int8Array(bytes.buffer));
+                case "i2": return Array.from(new Int16Array(bytes.buffer));
+                case "i4": return Array.from(new Int32Array(bytes.buffer));
+                case "f4": return Array.from(new Float32Array(bytes.buffer));
+                case "f8": return Array.from(new Float64Array(bytes.buffer));
+                default:
+                    console.error("Unknown dtype:", obj.dtype);
+                    return [];
+            }
+        }
+
+        return obj;
+}
+
+function repairTraces(traces) {
+        var fixed = [];
+
+        for (var i = 0; i < traces.length; i++) {
+            var t = traces[i];
+
+            if (t.x) {
+                t.x = decodeBData(t.x);
+            }
+
+            if (t.y) {
+                t.y = decodeBData(t.y);
+            }
+
+            fixed.push(t);
+        }
+
+        return fixed;
+}
+    """
+
+    res = str(res)
+
+    res = f"<div id='plot' style='width:100%;height:600px;'></div>\n<script type='text/javascript' src='https://cdn.plot.ly/plotly-latest.min.js'></script><script>{repair_funcs}\nconst True = true;\nconst False = false;\nconst data = {res};\ndata.data = repairTraces(data.data);\nPlotly.newPlot(document.getElementById('plot'), data.data, data.layout);</script>"
+
+    write_result_to_trace_file(res)
+
     return None
 
 def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None) -> None:
     global END_PROGRAM_RAN
+
+    #dier(global_gs.current_node.generator_specs[0]._fitted_adapter.generator._surrogate.training_data[0].X)
+    #dier(global_gs.current_node.generator_specs[0]._fitted_adapter.generator._surrogate.training_data[0].Y)
+    #dier(global_gs.current_node.generator_specs[0]._fitted_adapter.generator._surrogate.outcomes)
+
+    if ax_client is not None:
+        if len(arg_result_names) == 1:
+            render(ax_client.get_optimization_trace())
 
     wait_for_jobs_to_complete()
 
@@ -5047,7 +5518,7 @@ def end_program(_force: Optional[bool] = False, exit_code: Optional[int] = None)
             _exit = new_exit
     except (SignalUSR, SignalINT, SignalCONT, KeyboardInterrupt):
         print_red("\n⚠ You pressed CTRL+C or a signal was sent. Program execution halted while ending program.")
-        print("\n⚠ KeyboardInterrupt signal was sent. Ending program will still run.")
+        print_red("\n⚠ KeyboardInterrupt signal was sent. Ending program will still run.")
         new_exit = show_end_table_and_save_end_files()
         if new_exit > 0:
             _exit = new_exit
@@ -5081,9 +5552,9 @@ def save_ax_client_to_json_file(checkpoint_filepath: str) -> None:
 def save_checkpoint(trial_nr: int = 0, eee: Union[None, str, Exception] = None) -> None:
     if trial_nr > 3:
         if eee:
-            print(f"Error during saving checkpoint: {eee}")
+            print_red(f"Error during saving checkpoint: {eee}")
         else:
-            print("Error during saving checkpoint")
+            print_red("Error during saving checkpoint")
         return
 
     try:
@@ -5253,7 +5724,7 @@ def parse_equation_item(comparer_found: bool, item: str, parsed: list, parsed_or
         })
     elif item in [">=", "<="]:
         if comparer_found:
-            print("There is already one comparison operator! Cannot have more than one in an equation!")
+            print_red("There is already one comparison operator! Cannot have more than one in an equation!")
             return_totally = True
         comparer_found = True
 
@@ -5464,20 +5935,9 @@ def check_equation(variables: list, equation: str) -> Union[str, bool]:
 def set_objectives() -> dict:
     objectives = {}
 
-    for rn in arg_result_names:
-        key, value = "", ""
-
-        if "=" in rn:
-            key, value = rn.split('=', 1)
-        else:
-            key = rn
-            value = ""
-
-        if value not in ["min", "max"]:
-            if value:
-                print_yellow(f"Value '{value}' for --result_names {rn} is not a valid value. Must be min or max. Will be set to min.")
-
-            value = "min"
+    k = 0
+    for key in arg_result_names:
+        value = arg_result_min_or_max[k]
 
         _min = True
 
@@ -5485,6 +5945,7 @@ def set_objectives() -> dict:
             _min = False
 
         objectives[key] = ObjectiveProperties(minimize=_min)
+        k = k + 1
 
     return objectives
 
@@ -5513,7 +5974,7 @@ def set_experiment_constraints(experiment_constraints: Optional[list], experimen
 
                 file_path = os.path.join(get_current_run_folder(), "state_files", "constraints")
 
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
+                makedirs(os.path.dirname(file_path))
 
                 with open(file_path, "a", encoding="utf-8") as f:
                     f.write(constraints_string + "\n")
@@ -5750,7 +6211,7 @@ def get_generate_and_test_random_function_str() -> str:
     )
 
     return f"""
-def generate_and_test_random_parameters(n):
+def generate_and_test_random_parameters(n: int) -> None:
     for _ in range(n):
         print("======================================")
         parameters, trial_index = ax_client.get_next_trial()
@@ -5951,7 +6412,6 @@ def parse_single_experiment_parameter_table(classic_params: Optional[Union[list,
                 _upper = param["bounds"][1]
 
             _possible_int_lower = str(helpers.to_int_when_possible(_lower))
-            #print(f"name: {_name}, _possible_int_lower: {_possible_int_lower}, lower: {_lower}")
             _possible_int_upper = str(helpers.to_int_when_possible(_upper))
 
             rows.append([_name, _short_type, _possible_int_lower, _possible_int_upper, "", value_type, log_scale])
@@ -6178,11 +6638,13 @@ def print_overview_tables(classic_params: Optional[Union[list, dict]], experimen
     print_result_names_overview_table()
 
 def update_progress_bar(nr: int) -> None:
+    log_data()
+
     if progress_bar is not None:
         try:
             progress_bar.update(nr)
         except Exception as e:
-            print(f"Error updating progress bar: {e}")
+            print_red(f"Error updating progress bar: {e}")
     else:
         print_red("update_progress_bar: progress_bar was None")
 
@@ -6190,19 +6652,17 @@ def get_current_model_name() -> str:
     if overwritten_to_random:
         return "Random*"
 
+    gs_model = "unknown model"
+
     if ax_client:
         try:
             if args.generation_strategy:
-                idx = getattr(ax_client.generation_strategy, "current_step_index", None)
+                idx = getattr(global_gs, "current_step_index", None)
                 if isinstance(idx, int):
                     if 0 <= idx < len(generation_strategy_names):
                         gs_model = generation_strategy_names[int(idx)]
-                    else:
-                        gs_model = "unknown model"
-                else:
-                    gs_model = "unknown model"
             else:
-                gs_model = getattr(ax_client.generation_strategy, "current_node_name", "unknown model")
+                gs_model = getattr(global_gs, "current_node_name", "unknown model")
 
             if gs_model:
                 return str(gs_model)
@@ -6309,7 +6769,7 @@ def count_jobs_in_squeue() -> tuple[int, str]:
     global _last_count_time, _last_count_result
 
     now = int(time.time())
-    if _last_count_result != (0, "") and now - _last_count_time < 15:
+    if _last_count_result != (0, "") and now - _last_count_time < 5:
         return _last_count_result
 
     _len = len(global_vars["jobs"])
@@ -6331,6 +6791,7 @@ def count_jobs_in_squeue() -> tuple[int, str]:
             check=True,
             text=True
         )
+
         if "slurm_load_jobs error" in result.stderr:
             _last_count_result = (_len, "Detected slurm_load_jobs error in stderr.")
             _last_count_time = now
@@ -6370,6 +6831,8 @@ def log_worker_numbers() -> None:
 
         if len(WORKER_PERCENTAGE_USAGE) == 0 or WORKER_PERCENTAGE_USAGE[len(WORKER_PERCENTAGE_USAGE) - 1] != this_values:
             WORKER_PERCENTAGE_USAGE.append(this_values)
+
+        write_worker_usage()
 
 def get_slurm_in_brackets(in_brackets: list) -> list:
     if is_slurm_job():
@@ -6454,6 +6917,8 @@ def _get_desc_progress_text_new_msgs(new_msgs: List[str]) -> List[str]:
 def progressbar_description(new_msgs: Union[str, List[str]] = []) -> None:
     global last_progress_bar_desc
     global last_progress_bar_refresh_time
+
+    log_data()
 
     if isinstance(new_msgs, str):
         new_msgs = [new_msgs]
@@ -6617,7 +7082,7 @@ def get_generation_node_for_index(
 
         return generation_node
     except Exception as e:
-        print(f"Error while get_generation_node_for_index: {e}")
+        print_red(f"Error while get_generation_node_for_index: {e}")
         return "MANUAL"
 
 def _get_generation_node_for_index_index_valid(
@@ -7232,7 +7697,7 @@ def get_parameters_from_outfile(stdout_path: str) -> Union[None, dict, str]:
         if not args.tests:
             original_print(f"get_parameters_from_outfile: The file '{stdout_path}' was not found.")
     except Exception as e:
-        print(f"get_parameters_from_outfile: There was an error: {e}")
+        print_red(f"get_parameters_from_outfile: There was an error: {e}")
 
     return None
 
@@ -7247,10 +7712,10 @@ def get_hostname_from_outfile(stdout_path: Optional[str]) -> Optional[str]:
                     return hostname
         return None
     except FileNotFoundError:
-        original_print(f"The file '{stdout_path}' was not found.")
+        original_print_if_not_in_test_mode(f"The file '{stdout_path}' was not found.")
         return None
     except Exception as e:
-        print(f"There was an error: {e}")
+        print_red(f"There was an error: {e}")
         return None
 
 def add_to_global_error_list(msg: str) -> None:
@@ -7293,15 +7758,41 @@ def mark_trial_as_failed(trial_index: int, _trial: Any) -> None:
 
     return None
 
-def check_valid_result(result: Union[None, list, int, float, tuple]) -> bool:
+def check_valid_result(result: Union[None, dict]) -> bool:
     possible_val_not_found_values = [
         VAL_IF_NOTHING_FOUND,
         -VAL_IF_NOTHING_FOUND,
         -99999999999999997168788049560464200849936328366177157906432,
         99999999999999997168788049560464200849936328366177157906432
     ]
-    values_to_check = result if isinstance(result, list) else [result]
-    return result is not None and all(r not in possible_val_not_found_values for r in values_to_check)
+
+    def flatten_values(obj: Any) -> Any:
+        values = []
+        try:
+            if isinstance(obj, dict):
+                for v in obj.values():
+                    values.extend(flatten_values(v))
+            elif isinstance(obj, (list, tuple, set)):
+                for v in obj:
+                    values.extend(flatten_values(v))
+            else:
+                values.append(obj)
+        except Exception as e:
+            print_red(f"Error while flattening values: {e}")
+        return values
+
+    if result is None:
+        return False
+
+    try:
+        all_values = flatten_values(result)
+        for val in all_values:
+            if val in possible_val_not_found_values:
+                return False
+        return True
+    except Exception as e:
+        print_red(f"Error while checking result validity: {e}")
+        return False
 
 def update_ax_client_trial(trial_idx: int, result: Union[list, dict]) -> None:
     if not ax_client:
@@ -7309,7 +7800,9 @@ def update_ax_client_trial(trial_idx: int, result: Union[list, dict]) -> None:
 
         return None
 
-    ax_client.update_trial_data(trial_index=trial_idx, raw_data=result)
+    trial = get_trial_by_index(trial_idx)
+
+    trial.update_trial_data(raw_data=result)
 
     return None
 
@@ -7342,13 +7835,52 @@ def _finish_job_core_helper_complete_trial(trial_index: int, raw_result: dict) -
 
     return None
 
-def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: Union[float, int, tuple]) -> None:
+def format_result_for_display(result: dict) -> str:
+    def safe_float(v: Any) -> str:
+        try:
+            if v is None:
+                return "None"
+            if isinstance(v, (int, float)):
+                if math.isnan(v):
+                    return "NaN"
+                if math.isinf(v):
+                    return "∞" if v > 0 else "-∞"
+                return f"{v:.6f}"
+            return str(v)
+        except Exception as e:
+            return f"<error: {e}>"
+
+    try:
+        if not isinstance(result, dict):
+            return safe_float(result)
+
+        parts = []
+        for key, val in result.items():
+            try:
+                if isinstance(val, (list, tuple)) and len(val) == 2:
+                    main, sem = val
+                    main_str = safe_float(main)
+                    if sem is not None:
+                        sem_str = safe_float(sem)
+                        parts.append(f"{key}: {main_str} (SEM: {sem_str})")
+                    else:
+                        parts.append(f"{key}: {main_str}")
+                else:
+                    parts.append(f"{key}: {safe_float(val)}")
+            except Exception as e:
+                parts.append(f"{key}: <error: {e}>")
+
+        return ", ".join(parts)
+    except Exception as e:
+        return f"<error formatting result: {e}>"
+
+def _finish_job_core_helper_mark_success(_trial: ax.core.trial.Trial, result: dict) -> None:
     print_debug(f"Marking trial {_trial} as completed")
     _trial.mark_completed(unsafe=True)
 
     succeeded_jobs(1)
 
-    progressbar_description(f"new result: {result}")
+    progressbar_description(f"new result: {format_result_for_display(result)}")
     update_progress_bar(1)
 
     save_results_csv()
@@ -7380,9 +7912,6 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
     result = job.result()
     print_debug(f"finish_job_core: trial-index: {trial_index}, job.result(): {result}, state: {state_from_job(job)}")
 
-    raw_result = result
-    result_keys = list(result.keys())
-    result = result[result_keys[0]]
     this_jobs_finished += 1
 
     if ax_client:
@@ -7392,7 +7921,7 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
             return 0
 
         if check_valid_result(result):
-            _finish_job_core_helper_complete_trial(trial_index, raw_result)
+            _finish_job_core_helper_complete_trial(trial_index, result)
 
             try:
                 _finish_job_core_helper_mark_success(_trial, result)
@@ -7400,7 +7929,7 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
                 if len(arg_result_names) > 1 and count_done_jobs() > 1 and not job_calculate_pareto_front(get_current_run_folder(), True):
                     print_red("job_calculate_pareto_front post job failed")
             except Exception as e:
-                print(f"ERROR in line {get_line_info()}: {e}")
+                print_red(f"ERROR in line {get_line_info()}: {e}")
         else:
             _finish_job_core_helper_mark_failure(job, trial_index, _trial)
     else:
@@ -7408,6 +7937,8 @@ def finish_job_core(job: Any, trial_index: int, this_jobs_finished: int) -> int:
 
     print_debug(f"finish_job_core: removing job {job}, trial_index: {trial_index}")
     global_vars["jobs"].remove((job, trial_index))
+
+    log_data()
 
     force_live_share()
 
@@ -7428,7 +7959,7 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
             log_ax_client_trial_failure(trial_index)
             mark_trial_as_failed(trial_index, _trial)
         except Exception as e:
-            print(f"ERROR in line {get_line_info()}: {e}")
+            print_debug(f"ERROR in line {get_line_info()}: {e}")
         job.cancel()
         orchestrate_job(job, trial_index)
 
@@ -7443,10 +7974,12 @@ def _finish_previous_jobs_helper_handle_failed_job(job: Any, trial_index: int) -
 
 def _finish_previous_jobs_helper_handle_exception(job: Any, trial_index: int, error: Exception) -> int:
     if "None for metric" in str(error):
-        print_red(
-            f"\n⚠ It seems like the program that was about to be run didn't have 'RESULT: <FLOAT>' in it's output string."
-            f"\nError: {error}\nJob-result: {job.result()}"
-        )
+        err_msg = f"\n⚠ It seems like the program that was about to be run didn't have 'RESULT: <FLOAT>' in it's output string.\nError: {error}\nJob-result: {job.result()}"
+
+        if count_done_jobs() == 0:
+            print_red(err_msg)
+        else:
+            print_debug(err_msg)
     else:
         print_red(f"\n⚠ {error}")
 
@@ -7493,7 +8026,7 @@ def finish_previous_jobs(new_msgs: List[str] = []) -> None:
 
     jobs_copy = global_vars["jobs"][:]
 
-    finishing_jobs_start_time = time.time()
+    #finishing_jobs_start_time = time.time()
 
     with ThreadPoolExecutor() as finish_job_executor:
         futures = [finish_job_executor.submit(_finish_previous_jobs_helper_check_and_process, (job, trial_index)) for job, trial_index in jobs_copy]
@@ -7504,11 +8037,11 @@ def finish_previous_jobs(new_msgs: List[str] = []) -> None:
             except Exception as e:
                 print_red(f"⚠ Exception in parallel job handling: {e}")
 
-    finishing_jobs_end_time = time.time()
+    #finishing_jobs_end_time = time.time()
 
-    finishing_jobs_runtime = finishing_jobs_end_time - finishing_jobs_start_time
+    #finishing_jobs_runtime = finishing_jobs_end_time - finishing_jobs_start_time
 
-    print_debug(f"Finishing jobs took {finishing_jobs_runtime} second(s)")
+    #print_debug(f"Finishing jobs took {finishing_jobs_runtime} second(s)")
 
     if this_jobs_finished > 0:
         save_results_csv()
@@ -7674,6 +8207,8 @@ def submit_new_job(parameters: Union[dict, str], trial_index: int) -> Any:
 
     print_debug(f"Done submitting new job, took {elapsed} seconds")
 
+    log_data()
+
     return new_job
 
 def get_ax_client_trial(trial_index: int) -> Optional[ax.core.trial.Trial]:
@@ -7682,7 +8217,13 @@ def get_ax_client_trial(trial_index: int) -> Optional[ax.core.trial.Trial]:
 
         return None
 
-    return ax_client.get_trial(trial_index)
+    try:
+        log_data()
+
+        return ax_client.get_trial(trial_index)
+    except KeyError:
+        error_without_print(f"get_ax_client_trial: trial_index {trial_index} failed")
+        return None
 
 def orchestrator_start_trial(parameters: Union[dict, str], trial_index: int) -> None:
     if submitit_executor and ax_client:
@@ -7727,7 +8268,7 @@ def handle_restart(stdout_path: str, trial_index: int) -> None:
     if parameters:
         orchestrator_start_trial(parameters, trial_index)
     else:
-        print(f"Could not determine parameters from outfile {stdout_path} for restarting job")
+        print_red(f"Could not determine parameters from outfile {stdout_path} for restarting job")
 
 def check_alternate_path(path: str) -> str:
     if os.path.exists(path):
@@ -7826,7 +8367,7 @@ def execute_evaluation(_params: list) -> Optional[int]:
     _trial = get_ax_client_trial(trial_index)
 
     if _trial is None:
-        print_red("_trial was not in execute_evaluation")
+        error_without_print(f"execute_evaluation: _trial was not in execute_evaluation for params {_params}")
         return None
 
     def mark_trial_stage(stage: str, error_msg: str) -> None:
@@ -7895,7 +8436,7 @@ def handle_failed_job(error: Union[None, Exception, str], trial_index: int, new_
             my_exit(144)
 
     if new_job is None:
-        print_red("handle_failed_job: job is None")
+        print_debug("handle_failed_job: job is None")
 
         return None
 
@@ -7923,7 +8464,7 @@ def cancel_failed_job(trial_index: int, new_job: Job) -> None:
             else:
                 _fatal_error("ax_client not defined", 101)
         except Exception as e:
-            print(f"ERROR in line {get_line_info()}: {e}")
+            print_red(f"ERROR in line {get_line_info()}: {e}")
         new_job.cancel()
 
         print_debug(f"cancel_failed_job: removing job {new_job}, trial_index: {trial_index}")
@@ -7977,6 +8518,8 @@ def break_run_search(_name: str, _max_eval: Optional[int]) -> bool:
     _submitted_jobs = submitted_jobs()
     _failed_jobs = failed_jobs()
 
+    log_data()
+
     max_failed_jobs = max_eval
 
     if args.max_failed_jobs is not None and args.max_failed_jobs > 0:
@@ -8008,7 +8551,7 @@ def break_run_search(_name: str, _max_eval: Optional[int]) -> bool:
 
     return _ret
 
-def _calculate_nr_of_jobs_to_get(simulated_jobs: int, currently_running_jobs: int) -> int:
+def calculate_nr_of_jobs_to_get(simulated_jobs: int, currently_running_jobs: int) -> int:
     """Calculates the number of jobs to retrieve."""
     return min(
         max_eval + simulated_jobs - count_done_jobs(),
@@ -8017,11 +8560,9 @@ def _calculate_nr_of_jobs_to_get(simulated_jobs: int, currently_running_jobs: in
     )
 
 def remove_extra_spaces(text: str) -> str:
-    if not isinstance(text, str):
-        raise ValueError("Input must be a string")
     return re.sub(r'\s+', ' ', text).strip()
 
-def _get_trials_message(nr_of_jobs_to_get: int, full_nr_of_jobs_to_get: int, trial_durations: List[float]) -> str:
+def get_trials_message(nr_of_jobs_to_get: int, full_nr_of_jobs_to_get: int, trial_durations: List[float]) -> str:
     """Generates the appropriate message for the number of trials being retrieved."""
     ret = ""
     if full_nr_of_jobs_to_get > 1:
@@ -8114,15 +8655,16 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
                         f"(got {len(batched_arms)} out of {nr_of_jobs_to_get}).")
             break
 
-        print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting 1 more arm")
+        #print_debug(f"get_batched_arms: Attempt {attempts + 1}: requesting 1 more arm")
 
-        t0 = time.time()
-        pending_observations = get_pending_observation_features(experiment=ax_client.experiment)
-        dt = time.time() - t0
-        print_debug(f"got pending observations: {pending_observations} (took {dt:.2f} seconds)")
+        pending_observations = get_pending_observation_features(
+            experiment=ax_client.experiment,
+            include_out_of_design_points=True
+        )
 
         try:
-            print_debug("getting global_gs.gen() with n=1")
+            #print_debug("getting global_gs.gen() with n=1")
+
             batched_generator_run: Any = global_gs.gen(
                 experiment=ax_client.experiment,
                 n=1,
@@ -8137,12 +8679,12 @@ def get_batched_arms(nr_of_jobs_to_get: int) -> list:
         depth = 0
         path = "batched_generator_run"
         while isinstance(batched_generator_run, (list, tuple)) and len(batched_generator_run) == 1:
-            print_debug(f"Depth {depth}, path {path}, type {type(batched_generator_run).__name__}, length {len(batched_generator_run)}: {batched_generator_run}")
+            #print_debug(f"Depth {depth}, path {path}, type {type(batched_generator_run).__name__}, length {len(batched_generator_run)}: {batched_generator_run}")
             batched_generator_run = batched_generator_run[0]
             path += "[0]"
             depth += 1
 
-        print_debug(f"Final flat object at depth {depth}, path {path}: {batched_generator_run} (type {type(batched_generator_run).__name__})")
+        #print_debug(f"Final flat object at depth {depth}, path {path}: {batched_generator_run} (type {type(batched_generator_run).__name__})")
 
         new_arms = getattr(batched_generator_run, "arms", [])
         if not new_arms:
@@ -8189,7 +8731,7 @@ def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
                     retries += 1
                     continue
 
-                progressbar_description(_get_trials_message(cnt + 1, n, trial_durations))
+                progressbar_description(get_trials_message(cnt + 1, n, trial_durations))
 
                 try:
                     result = create_and_handle_trial(arm)
@@ -8211,10 +8753,17 @@ def generate_trials(n: int, recursion: bool) -> Tuple[Dict[int, Any], bool]:
         return finalized
 
     except Exception as e:
-        return _handle_generation_failure(e, n, recursion)
+        return handle_generation_failure(e, n, recursion)
 
 class TrialRejected(Exception):
     pass
+
+def mark_abandoned(trial: Any, reason: str, trial_index: int) -> None:
+    try:
+        print_debug(f"[INFO] Marking trial {trial.index} ({trial.arm.name}) as abandoned, trial-index: {trial_index}. Reason: {reason}")
+        trial.mark_abandoned(reason)
+    except Exception as e:
+        print_red(f"[ERROR] Could not mark trial as abandoned: {e}")
 
 def create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     if ax_client is None:
@@ -8241,7 +8790,7 @@ def create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
     arm = trial.arms[0]
     if deduplicated_arm(arm):
         print_debug(f"Duplicated arm: {arm}")
-        trial.mark_abandoned(reason="Duplication detected")
+        mark_abandoned(trial, "Duplication detected", trial_index)
         raise TrialRejected("Duplicate arm.")
 
     arms_by_name_for_deduplication[arm.name] = arm
@@ -8250,7 +8799,7 @@ def create_and_handle_trial(arm: Any) -> Optional[Tuple[int, float, bool]]:
 
     if not has_no_post_generation_constraints_or_matches_constraints(post_generation_constraints, params):
         print_debug(f"Trial {trial_index} does not meet post-generation constraints. Marking abandoned. Params: {params}, constraints: {post_generation_constraints}")
-        trial.mark_abandoned(reason="Post-Generation-Constraint failed")
+        mark_abandoned(trial, "Post-Generation-Constraint failed", trial_index)
         abandoned_trial_indices.append(trial_index)
         raise TrialRejected("Post-generation constraints not met.")
 
@@ -8269,7 +8818,7 @@ def finalize_generation(trials_dict: Dict[int, Any], cnt: int, requested: int, s
 
     return trials_dict, False
 
-def _handle_generation_failure(
+def handle_generation_failure(
     e: Exception,
     requested: int,
     recursion: bool
@@ -8285,19 +8834,19 @@ def _handle_generation_failure(
     )):
         msg = str(e)
         if msg not in error_8_saved:
-            _print_exhaustion_warning(e, recursion)
+            print_exhaustion_warning(e, recursion)
             error_8_saved.append(msg)
 
         if not recursion and args.revert_to_random_when_seemingly_exhausted:
             print_debug("Switching to random search strategy.")
-            set_global_gs_to_random()
+            set_global_gs_to_sobol()
             return fetch_next_trials(requested, True)
 
-    print_red(f"_handle_generation_failure: General Exception: {e}")
+    print_red(f"handle_generation_failure: General Exception: {e}")
 
     return {}, True
 
-def _print_exhaustion_warning(e: Exception, recursion: bool) -> None:
+def print_exhaustion_warning(e: Exception, recursion: bool) -> None:
     if not recursion and args.revert_to_random_when_seemingly_exhausted:
         print_yellow(f"\n⚠Error 8: {e} From now (done jobs: {count_done_jobs()}) on, random points will be generated.")
     else:
@@ -8342,18 +8891,21 @@ def get_model_gen_kwargs() -> dict:
         "fit_out_of_design": args.fit_out_of_design
     }
 
-def set_global_gs_to_random() -> None:
+def set_global_gs_to_sobol() -> None:
     global global_gs
     global overwritten_to_random
+
+    print("Reverting to SOBOL")
 
     global_gs = GenerationStrategy(
         name="Random*",
         nodes=[
             GenerationNode(
-                node_name="Sobol",
+                name="Sobol",
+                should_deduplicate=True,
                 generator_specs=[ # type: ignore[arg-type]
                     GeneratorSpec( # type: ignore[arg-type]
-                        Models.SOBOL, # type: ignore[arg-type]
+                        Generators.SOBOL, # type: ignore[arg-type]
                         model_gen_kwargs=get_model_gen_kwargs() # type: ignore[arg-type]
                     ) # type: ignore[arg-type]
                 ] # type: ignore[arg-type]
@@ -8741,10 +9293,10 @@ def parse_generation_strategy_string(gen_strat_str: str) -> tuple[list[dict[str,
 
     for s in splitted_by_comma:
         if "=" not in s:
-            print(f"'{s}' does not contain '='")
+            print_red(f"'{s}' does not contain '='")
             my_exit(123)
         if s.count("=") != 1:
-            print(f"There can only be one '=' in the gen_strat_str's element '{s}'")
+            print_red(f"There can only be one '=' in the gen_strat_str's element '{s}'")
             my_exit(123)
 
         model_name, nr_str = s.split("=")
@@ -8754,13 +9306,13 @@ def parse_generation_strategy_string(gen_strat_str: str) -> tuple[list[dict[str,
             _fatal_error(f"Model {matching_model} is not valid for custom generation strategy.", 56)
 
         if not matching_model:
-            print(f"'{model_name}' not found in SUPPORTED_MODELS")
+            print_red(f"'{model_name}' not found in SUPPORTED_MODELS")
             my_exit(123)
 
         try:
             nr = int(nr_str)
         except ValueError:
-            print(f"Invalid number of generations '{nr_str}' for model '{model_name}'")
+            print_red(f"Invalid number of generations '{nr_str}' for model '{model_name}'")
             my_exit(123)
 
         gen_strat_list.append({matching_model: nr})
@@ -8884,7 +9436,7 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
     if model_name == "TPE":
         if len(arg_result_names) != 1:
             _fatal_error(f"Has {len(arg_result_names)} results. TPE currently only supports single-objective-optimization.", 108)
-        return ExternalProgramGenerationNode(external_generator=f"python3 {script_dir}/.tpe.py", node_name="EXTERNAL_GENERATOR")
+        return ExternalProgramGenerationNode(external_generator=f"python3 {script_dir}/.tpe.py", name="EXTERNAL_GENERATOR")
 
     external_generators = {
         "PSEUDORANDOM": f"python3 {script_dir}/.random_generator.py",
@@ -8898,10 +9450,10 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
         cmd = external_generators[model_name]
         if model_name == "EXTERNAL_GENERATOR" and not cmd:
             _fatal_error("--external_generator is missing. Cannot create points for EXTERNAL_GENERATOR without it.", 204)
-        return ExternalProgramGenerationNode(external_generator=cmd, node_name="EXTERNAL_GENERATOR")
+        return ExternalProgramGenerationNode(external_generator=cmd, name="EXTERNAL_GENERATOR")
 
     trans_crit = [
-        MaxTrials(
+        MinTrials(
             threshold=threshold,
             block_transition_if_unmet=True,
             transition_to=target_model,
@@ -8920,8 +9472,9 @@ def create_node(model_name: str, threshold: int, next_model_name: Optional[str])
     model_spec = [GeneratorSpec(selected_model, **kwargs)] # type: ignore[arg-type]
 
     res = GenerationNode(
-        node_name=model_name,
+        name=model_name,
         generator_specs=model_spec,
+        should_deduplicate=True,
         transition_criteria=trans_crit
     )
 
@@ -8947,17 +9500,16 @@ def create_step(model_name: str, _num_trials: int, index: int) -> GenerationStep
     )
 
 def set_global_generation_strategy() -> None:
-    with spinner("Setting global generation strategy"):
-        continue_not_supported_on_custom_generation_strategy()
+    continue_not_supported_on_custom_generation_strategy()
 
-        try:
-            if args.generation_strategy is None:
-                setup_default_generation_strategy()
-            else:
-                setup_custom_generation_strategy()
-        except Exception as e:
-            print_red(f"Unexpected error in generation strategy setup: {e}")
-            my_exit(111)
+    try:
+        if args.generation_strategy is None:
+            setup_default_generation_strategy()
+        else:
+            setup_custom_generation_strategy()
+    except Exception as e:
+        print_red(f"Unexpected error in generation strategy setup: {e}")
+        my_exit(111)
 
     if global_gs is None:
         print_red("global_gs is None after setup!")
@@ -9114,6 +9666,8 @@ def execute_trials(
 
     end_time = time.time()
 
+    log_data()
+
     duration = float(end_time - start_time)
     job_submit_durations.append(duration)
     job_submit_nrs.append(cnt)
@@ -9147,20 +9701,20 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
     done_optimizing: bool = False
 
     try:
-        done_optimizing, trial_index_to_param = _create_and_execute_next_runs_run_loop(_max_eval, phase)
-        _create_and_execute_next_runs_finish(done_optimizing)
+        done_optimizing, trial_index_to_param = create_and_execute_next_runs_run_loop(_max_eval, phase)
+        create_and_execute_next_runs_finish(done_optimizing)
     except Exception as e:
         stacktrace = traceback.format_exc()
         print_debug(f"Warning: create_and_execute_next_runs encountered an exception: {e}\n{stacktrace}")
         return handle_exceptions_create_and_execute_next_runs(e)
 
-    return _create_and_execute_next_runs_return_value(trial_index_to_param)
+    return create_and_execute_next_runs_return_value(trial_index_to_param)
 
-def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Optional[str]) -> Tuple[bool, Optional[Dict]]:
+def create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Optional[str]) -> Tuple[bool, Optional[Dict]]:
     done_optimizing = False
     trial_index_to_param: Optional[Dict] = None
 
-    nr_of_jobs_to_get = _calculate_nr_of_jobs_to_get(get_nr_of_imported_jobs(), len(global_vars["jobs"]))
+    nr_of_jobs_to_get = calculate_nr_of_jobs_to_get(get_nr_of_imported_jobs(), len(global_vars["jobs"]))
 
     __max_eval = _max_eval if _max_eval is not None else 0
     new_nr_of_jobs_to_get = min(__max_eval - (submitted_jobs() - failed_jobs()), nr_of_jobs_to_get)
@@ -9174,6 +9728,7 @@ def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Opti
 
     for _ in range(range_nr):
         trial_index_to_param, done_optimizing = get_next_trials(get_next_trials_nr)
+        log_data()
         if done_optimizing:
             continue
 
@@ -9198,13 +9753,13 @@ def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Opti
 
     return done_optimizing, trial_index_to_param
 
-def _create_and_execute_next_runs_finish(done_optimizing: bool) -> None:
+def create_and_execute_next_runs_finish(done_optimizing: bool) -> None:
     finish_previous_jobs(["finishing jobs"])
 
     if done_optimizing:
         end_program(False, 0)
 
-def _create_and_execute_next_runs_return_value(trial_index_to_param: Optional[Dict]) -> int:
+def create_and_execute_next_runs_return_value(trial_index_to_param: Optional[Dict]) -> int:
     try:
         if trial_index_to_param:
             res = len(trial_index_to_param.keys())
@@ -9315,7 +9870,7 @@ def execute_nvidia_smi() -> None:
                 if not host:
                     print_debug("host not defined")
         except Exception as e:
-            print(f"execute_nvidia_smi: An error occurred: {e}")
+            print_red(f"execute_nvidia_smi: An error occurred: {e}")
         if is_slurm_job() and not args.force_local_execution:
             _sleep(30)
 
@@ -9352,11 +9907,6 @@ def run_search() -> bool:
     finalize_jobs()
 
     return False
-
-async def start_logging_daemon() -> None:
-    while True:
-        log_data()
-        time.sleep(30)
 
 def should_break_search() -> bool:
     ret = False
@@ -9421,7 +9971,7 @@ def finalize_jobs() -> None:
         handle_slurm_execution()
 
 def go_through_jobs_that_are_not_completed_yet() -> None:
-    print_debug(f"Waiting for jobs to finish (currently, len(global_vars['jobs']) = {len(global_vars['jobs'])}")
+    #print_debug(f"Waiting for jobs to finish (currently, len(global_vars['jobs']) = {len(global_vars['jobs'])}")
 
     nr_jobs_left = len(global_vars['jobs'])
     if nr_jobs_left == 1:
@@ -9491,7 +10041,7 @@ def parse_orchestrator_file(_f: str, _test: bool = False) -> Union[dict, None]:
 
                 return data
             except Exception as e:
-                print(f"Error while parse_experiment_parameters({_f}): {e}")
+                print_red(f"Error while parse_experiment_parameters({_f}): {e}")
     else:
         print_red(f"{_f} could not be found")
 
@@ -9532,69 +10082,6 @@ def parse_parameters() -> Any:
 
     return cli_params_experiment_parameters
 
-def create_pareto_front_table(idxs: List[int], metric_x: str, metric_y: str) -> Table:
-    table = Table(title=f"Pareto-Front for {metric_y}/{metric_x}:", show_lines=True)
-
-    rows = _pareto_front_table_read_csv()
-    if not rows:
-        table.add_column("No data found")
-        return table
-
-    filtered_rows = _pareto_front_table_filter_rows(rows, idxs)
-    if not filtered_rows:
-        table.add_column("No matching entries")
-        return table
-
-    param_cols, result_cols = _pareto_front_table_get_columns(filtered_rows[0])
-
-    _pareto_front_table_add_headers(table, param_cols, result_cols)
-    _pareto_front_table_add_rows(table, filtered_rows, param_cols, result_cols)
-
-    return table
-
-def _pareto_front_table_read_csv() -> List[Dict[str, str]]:
-    with open(RESULT_CSV_FILE, mode="r", encoding="utf-8", newline="") as f:
-        return list(csv.DictReader(f))
-
-def _pareto_front_table_filter_rows(rows: List[Dict[str, str]], idxs: List[int]) -> List[Dict[str, str]]:
-    result = []
-    for row in rows:
-        try:
-            trial_index = int(row["trial_index"])
-        except (KeyError, ValueError):
-            continue
-
-        if row.get("trial_status", "").strip().upper() == "COMPLETED" and trial_index in idxs:
-            result.append(row)
-    return result
-
-def _pareto_front_table_get_columns(first_row: Dict[str, str]) -> Tuple[List[str], List[str]]:
-    all_columns = list(first_row.keys())
-    ignored_cols = set(special_col_names) - {"trial_index"}
-
-    param_cols = [col for col in all_columns if col not in ignored_cols and col not in arg_result_names and not col.startswith("OO_Info_")]
-    result_cols = [col for col in arg_result_names if col in all_columns]
-    return param_cols, result_cols
-
-def _pareto_front_table_add_headers(table: Table, param_cols: List[str], result_cols: List[str]) -> None:
-    for col in param_cols:
-        table.add_column(col, justify="center")
-    for col in result_cols:
-        table.add_column(Text(f"{col}", style="cyan"), justify="center")
-
-def _pareto_front_table_add_rows(table: Table, rows: List[Dict[str, str]], param_cols: List[str], result_cols: List[str]) -> None:
-    for row in rows:
-        values = [str(helpers.to_int_when_possible(row[col])) for col in param_cols]
-        result_values = [Text(str(helpers.to_int_when_possible(row[col])), style="cyan") for col in result_cols]
-        table.add_row(*values, *result_values, style="bold green")
-
-def pareto_front_as_rich_table(idxs: list, metric_x: str, metric_y: str) -> Optional[Table]:
-    if not os.path.exists(RESULT_CSV_FILE):
-        print_debug(f"pareto_front_as_rich_table: File '{RESULT_CSV_FILE}' not found")
-        return None
-
-    return create_pareto_front_table(idxs, metric_x, metric_y)
-
 def supports_sixel() -> bool:
     term = os.environ.get("TERM", "").lower()
     if "xterm" in term or "mlterm" in term:
@@ -9609,255 +10096,6 @@ def supports_sixel() -> bool:
 
     return False
 
-def plot_pareto_frontier_sixel(data: Any, x_metric: str, y_metric: str) -> None:
-    if data is None:
-        print("[italic yellow]The data seems to be empty. Cannot plot pareto frontier.[/]")
-        return
-
-    if not supports_sixel():
-        print(f"[italic yellow]Your console does not support sixel-images. Will not print Pareto-frontier as a matplotlib-sixel-plot for {x_metric}/{y_metric}.[/]")
-        return
-
-    import matplotlib.pyplot as plt
-
-    means = data[x_metric][y_metric]["means"]
-
-    x_values = means[x_metric]
-    y_values = means[y_metric]
-
-    fig, _ax = plt.subplots()
-
-    _ax.scatter(x_values, y_values, s=50, marker='x', c='blue', label='Data Points')
-
-    _ax.set_xlabel(x_metric)
-    _ax.set_ylabel(y_metric)
-
-    _ax.set_title(f'Pareto-Front {x_metric}/{y_metric}')
-
-    _ax.ticklabel_format(style='plain', axis='both', useOffset=False)
-
-    with tempfile.NamedTemporaryFile(suffix=".png", delete=True) as tmp_file:
-        plt.savefig(tmp_file.name, dpi=300)
-
-        print_image_to_cli(tmp_file.name, 1000)
-
-    plt.close(fig)
-
-def _pareto_front_general_validate_shapes(x: np.ndarray, y: np.ndarray) -> None:
-    if x.shape != y.shape:
-        raise ValueError("Input arrays x and y must have the same shape.")
-
-def _pareto_front_general_compare(
-    xi: float, yi: float, xj: float, yj: float,
-    x_minimize: bool, y_minimize: bool
-) -> bool:
-    x_better_eq = xj <= xi if x_minimize else xj >= xi
-    y_better_eq = yj <= yi if y_minimize else yj >= yi
-    x_strictly_better = xj < xi if x_minimize else xj > xi
-    y_strictly_better = yj < yi if y_minimize else yj > yi
-
-    return bool(x_better_eq and y_better_eq and (x_strictly_better or y_strictly_better))
-
-def _pareto_front_general_find_dominated(
-    x: np.ndarray, y: np.ndarray, x_minimize: bool, y_minimize: bool
-) -> np.ndarray:
-    num_points = len(x)
-    is_dominated = np.zeros(num_points, dtype=bool)
-
-    for i in range(num_points):
-        for j in range(num_points):
-            if i == j:
-                continue
-
-            if _pareto_front_general_compare(x[i], y[i], x[j], y[j], x_minimize, y_minimize):
-                is_dominated[i] = True
-                break
-
-    return is_dominated
-
-def pareto_front_general(
-    x: np.ndarray,
-    y: np.ndarray,
-    x_minimize: bool = True,
-    y_minimize: bool = True
-) -> np.ndarray:
-    try:
-        _pareto_front_general_validate_shapes(x, y)
-        is_dominated = _pareto_front_general_find_dominated(x, y, x_minimize, y_minimize)
-        return np.where(~is_dominated)[0]
-    except Exception as e:
-        print("Error in pareto_front_general:", str(e))
-        return np.array([], dtype=int)
-
-def _pareto_front_aggregate_data(path_to_calculate: str) -> Optional[Dict[Tuple[int, str], Dict[str, Dict[str, float]]]]:
-    results_csv_file = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
-    result_names_file = f"{path_to_calculate}/result_names.txt"
-
-    if not os.path.exists(results_csv_file) or not os.path.exists(result_names_file):
-        return None
-
-    with open(result_names_file, mode="r", encoding="utf-8") as f:
-        result_names = [line.strip() for line in f if line.strip()]
-
-    records: dict = defaultdict(lambda: {'means': {}})
-
-    with open(results_csv_file, encoding="utf-8", mode="r", newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            trial_index = int(row['trial_index'])
-            arm_name = row['arm_name']
-            key = (trial_index, arm_name)
-
-            for metric in result_names:
-                if metric in row:
-                    try:
-                        records[key]['means'][metric] = float(row[metric])
-                    except ValueError:
-                        continue
-
-    return records
-
-def _pareto_front_filter_complete_points(
-    path_to_calculate: str,
-    records: Dict[Tuple[int, str], Dict[str, Dict[str, float]]],
-    primary_name: str,
-    secondary_name: str
-) -> List[Tuple[Tuple[int, str], float, float]]:
-    points = []
-    for key, metrics in records.items():
-        means = metrics['means']
-        if primary_name in means and secondary_name in means:
-            x_val = means[primary_name]
-            y_val = means[secondary_name]
-            points.append((key, x_val, y_val))
-    if len(points) == 0:
-        raise ValueError(f"No full data points with both objectives found in {path_to_calculate}.")
-    return points
-
-def _pareto_front_transform_objectives(
-    points: List[Tuple[Any, float, float]],
-    primary_name: str,
-    secondary_name: str
-) -> Tuple[np.ndarray, np.ndarray]:
-    primary_idx = arg_result_names.index(primary_name)
-    secondary_idx = arg_result_names.index(secondary_name)
-
-    x = np.array([p[1] for p in points])
-    y = np.array([p[2] for p in points])
-
-    if arg_result_min_or_max[primary_idx] == "max":
-        x = -x
-    elif arg_result_min_or_max[primary_idx] != "min":
-        raise ValueError(f"Unknown mode for {primary_name}: {arg_result_min_or_max[primary_idx]}")
-
-    if arg_result_min_or_max[secondary_idx] == "max":
-        y = -y
-    elif arg_result_min_or_max[secondary_idx] != "min":
-        raise ValueError(f"Unknown mode for {secondary_name}: {arg_result_min_or_max[secondary_idx]}")
-
-    return x, y
-
-def _pareto_front_select_pareto_points(
-    x: np.ndarray,
-    y: np.ndarray,
-    x_minimize: bool,
-    y_minimize: bool,
-    points: List[Tuple[Any, float, float]],
-    num_points: int
-) -> List[Tuple[Any, float, float]]:
-    indices = pareto_front_general(x, y, x_minimize, y_minimize)
-    sorted_indices = indices[np.argsort(x[indices])]
-    sorted_indices = sorted_indices[:num_points]
-    selected_points = [points[i] for i in sorted_indices]
-    return selected_points
-
-def _pareto_front_build_return_structure(
-    path_to_calculate: str,
-    selected_points: List[Tuple[Any, float, float]],
-    records: Dict[Tuple[int, str], Dict[str, Dict[str, float]]],
-    absolute_metrics: List[str],
-    primary_name: str,
-    secondary_name: str
-) -> dict:
-    results_csv_file = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
-    result_names_file = f"{path_to_calculate}/result_names.txt"
-
-    with open(result_names_file, mode="r", encoding="utf-8") as f:
-        result_names = [line.strip() for line in f if line.strip()]
-
-    csv_rows = {}
-    with open(results_csv_file, mode="r", encoding="utf-8", newline='') as csvfile:
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            trial_index = int(row['trial_index'])
-            csv_rows[trial_index] = row
-
-    ignored_columns = {'trial_index', 'arm_name', 'trial_status', 'generation_node'}
-    ignored_columns.update(result_names)
-
-    param_dicts = []
-    idxs = []
-    means_dict = defaultdict(list)
-
-    for (trial_index, arm_name), _, _ in selected_points:
-        row = csv_rows.get(trial_index, {})
-        if row == {} or row is None or row['arm_name'] != arm_name:
-            print_debug(f"_pareto_front_build_return_structure: trial_index '{trial_index}' could not be found and row returned as None")
-            continue
-
-        idxs.append(int(row["trial_index"]))
-
-        param_dict: dict[str, int | float | str] = {}
-        for key, value in row.items():
-            if key not in ignored_columns:
-                try:
-                    param_dict[key] = int(value)
-                except ValueError:
-                    try:
-                        param_dict[key] = float(value)
-                    except ValueError:
-                        param_dict[key] = value
-
-        param_dicts.append(param_dict)
-
-        for metric in absolute_metrics:
-            means_dict[metric].append(records[(trial_index, arm_name)]['means'].get(metric, float("nan")))
-
-    ret = {
-        primary_name: {
-            secondary_name: {
-                "absolute_metrics": absolute_metrics,
-                "param_dicts": param_dicts,
-                "means": dict(means_dict),
-                "idxs": idxs
-            },
-            "absolute_metrics": absolute_metrics
-        }
-    }
-
-    return ret
-
-def get_pareto_frontier_points(
-    path_to_calculate: str,
-    primary_objective: str,
-    secondary_objective: str,
-    x_minimize: bool,
-    y_minimize: bool,
-    absolute_metrics: List[str],
-    num_points: int
-) -> Optional[dict]:
-    records = _pareto_front_aggregate_data(path_to_calculate)
-
-    if records is None:
-        return None
-
-    points = _pareto_front_filter_complete_points(path_to_calculate, records, primary_objective, secondary_objective)
-    x, y = _pareto_front_transform_objectives(points, primary_objective, secondary_objective)
-    selected_points = _pareto_front_select_pareto_points(x, y, x_minimize, y_minimize, points, num_points)
-    result = _pareto_front_build_return_structure(path_to_calculate, selected_points, records, absolute_metrics, primary_objective, secondary_objective)
-
-    return result
-
 def save_experiment_state() -> None:
     try:
         if ax_client is None or ax_client.experiment is None:
@@ -9866,12 +10104,12 @@ def save_experiment_state() -> None:
         state_path = get_current_run_folder("experiment_state.json")
         save_ax_client_to_json_file(state_path)
     except Exception as e:
-        print(f"Error saving experiment state: {e}")
+        print_debug(f"Error saving experiment state: {e}")
 
 def wait_for_state_file(state_path: str, min_size: int = 5, max_wait_seconds: int = 60) -> bool:
     try:
         if not os.path.exists(state_path):
-            print(f"[ERROR] File '{state_path}' does not exist.")
+            print_debug(f"[ERROR] File '{state_path}' does not exist.")
             return False
 
         i = 0
@@ -10008,7 +10246,7 @@ def set_arg_min_or_max_if_required(path_to_calculate: str) -> None:
 def get_calculated_frontier(path_to_calculate: str, metric_x: str, metric_y: str, x_minimize: bool, y_minimize: bool, res_names: list) -> Any:
     try:
         state_dir = os.path.join(get_current_run_folder(), "state_files")
-        os.makedirs(state_dir, exist_ok=True)
+        makedirs(state_dir)
 
         json_file = os.path.join(state_dir, "pareto_front_data.json")
 
@@ -10090,38 +10328,47 @@ def get_result_minimize_flag(path_to_calculate: str, resname: str) -> bool:
 
     return minmax[index] == "min"
 
-def get_pareto_front_data(path_to_calculate: str, res_names: list) -> dict:
-    pareto_front_data: dict = {}
+def post_job_calculate_pareto_front() -> None:
+    if not args.calculate_pareto_front_of_job:
+        return
 
-    all_combinations = list(combinations(range(len(arg_result_names)), 2))
+    failure = False
 
-    skip = False
+    _paths_to_calculate = []
 
-    for i, j in all_combinations:
-        if not skip:
-            metric_x = arg_result_names[i]
-            metric_y = arg_result_names[j]
+    for _path_to_calculate in list(set(args.calculate_pareto_front_of_job)):
+        try:
+            found_paths = find_results_paths(_path_to_calculate)
 
-            x_minimize = get_result_minimize_flag(path_to_calculate, metric_x)
-            y_minimize = get_result_minimize_flag(path_to_calculate, metric_y)
+            for _fp in found_paths:
+                if _fp not in _paths_to_calculate:
+                    _paths_to_calculate.append(_fp)
+        except (FileNotFoundError, NotADirectoryError) as e:
+            print_red(f"post_job_calculate_pareto_front: find_results_paths('{_path_to_calculate}') failed with {e}")
 
-            try:
-                if metric_x not in pareto_front_data:
-                    pareto_front_data[metric_x] = {}
+            failure = True
 
-                pareto_front_data[metric_x][metric_y] = get_calculated_frontier(path_to_calculate, metric_x, metric_y, x_minimize, y_minimize, res_names)
-            except ax.exceptions.core.DataRequiredError as e:
-                print_red(f"Error computing Pareto frontier for {metric_x} and {metric_y}: {e}")
-            except SignalINT:
-                print_red("Calculating Pareto-fronts was cancelled by pressing CTRL-c")
-                skip = True
+    for _path_to_calculate in _paths_to_calculate:
+        for path_to_calculate in found_paths:
+            if not job_calculate_pareto_front(path_to_calculate):
+                failure = True
 
-    return pareto_front_data
+    if failure:
+        my_exit(24)
+
+    my_exit(0)
+
+def pareto_front_as_rich_table(idxs: list, metric_x: str, metric_y: str) -> Optional[Table]:
+    if not os.path.exists(RESULT_CSV_FILE):
+        print_debug(f"pareto_front_as_rich_table: File '{RESULT_CSV_FILE}' not found")
+        return None
+
+    return create_pareto_front_table(idxs, metric_x, metric_y)
 
 def show_pareto_frontier_data(path_to_calculate: str, res_names: list, disable_sixel_and_table: bool = False) -> None:
     if len(res_names) <= 1:
         print_debug(f"--result_names (has {len(res_names)} entries) must be at least 2.")
-        return
+        return None
 
     pareto_front_data: dict = get_pareto_front_data(path_to_calculate, res_names)
 
@@ -10142,8 +10389,16 @@ def show_pareto_frontier_data(path_to_calculate: str, res_names: list, disable_s
                 else:
                     print(f"Not showing Pareto-front-sixel for {path_to_calculate}")
 
-            if len(calculated_frontier[metric_x][metric_y]["idxs"]):
-                pareto_points[metric_x][metric_y] = sorted(calculated_frontier[metric_x][metric_y]["idxs"])
+            if calculated_frontier is None:
+                print_debug("ERROR: calculated_frontier is None")
+                return None
+
+            try:
+                if len(calculated_frontier[metric_x][metric_y]["idxs"]):
+                    pareto_points[metric_x][metric_y] = sorted(calculated_frontier[metric_x][metric_y]["idxs"])
+            except AttributeError:
+                print_debug(f"ERROR: calculated_frontier structure invalid for ({metric_x}, {metric_y})")
+                return None
 
             rich_table = pareto_front_as_rich_table(
                 calculated_frontier[metric_x][metric_y]["idxs"],
@@ -10167,6 +10422,8 @@ def show_pareto_frontier_data(path_to_calculate: str, res_names: list, disable_s
         json.dump(pareto_points, pareto_idxs_json_handle)
 
     live_share_after_pareto()
+
+    return None
 
 def show_available_hardware_and_generation_strategy_string(gpu_string: str, gpu_color: str) -> None:
     cpu_count = os.cpu_count()
@@ -10256,7 +10513,7 @@ def write_files_and_show_overviews() -> None:
 def write_git_version() -> None:
     with spinner("Writing git information"):
         folder = get_current_run_folder()
-        os.makedirs(folder, exist_ok=True)
+        makedirs(folder)
         file_path = os.path.join(folder, "git_version")
 
         try:
@@ -10291,30 +10548,22 @@ def write_live_share_file_if_needed() -> None:
         if args.live_share:
             write_state_file("live_share", "1\n")
 
+def write_file_and_make_sure_dir_exists(file_path: str, text: str) -> None:
+    try:
+        makedirs(os.path.dirname(file_path))
+        with open(file_path, mode="w", encoding="utf-8") as f:
+            f.write(text)
+    except Exception as e:
+        print_red(f"Error writing '{text}' to file {file_path}: {e}")
+
 def write_username_statefile() -> None:
     with spinner("Writing username state file..."):
-        _path = get_current_run_folder()
         if args.username:
-            file_path = f"{_path}/state_files/username"
-
-            try:
-                os.makedirs(os.path.dirname(file_path), exist_ok=True)
-                with open(file_path, mode="w", encoding="utf-8") as f:
-                    f.write(args.username)
-            except Exception as e:
-                print_red(f"Error writing to file: {e}")
+            write_file_and_make_sure_dir_exists(f"{get_current_run_folder()}/state_files/username", args.username)
 
 def write_revert_to_random_when_seemingly_exhausted_file() -> None:
     with spinner("Writing revert_to_random_when_seemingly_exhausted file ..."):
-        _path = get_current_run_folder()
-        file_path = f"{_path}/state_files/revert_to_random_when_seemingly_exhausted"
-
-        try:
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            with open(file_path, mode="w", encoding="utf-8") as f:
-                f.write("1\n")
-        except Exception as e:
-            print_red(f"Error writing to file: {e}")
+        write_file_and_make_sure_dir_exists(f"{get_current_run_folder()}/state_files/revert_to_random_when_seemingly_exhausted", '1\n')
 
 def debug_vars_unused_by_python_for_linter() -> None:
     print_debug(
@@ -10450,112 +10699,6 @@ def find_results_paths(base_path: str) -> list:
 
     return list(set(found_paths))
 
-def post_job_calculate_pareto_front() -> None:
-    if not args.calculate_pareto_front_of_job:
-        return
-
-    failure = False
-
-    _paths_to_calculate = []
-
-    for _path_to_calculate in list(set(args.calculate_pareto_front_of_job)):
-        try:
-            found_paths = find_results_paths(_path_to_calculate)
-
-            for _fp in found_paths:
-                if _fp not in _paths_to_calculate:
-                    _paths_to_calculate.append(_fp)
-        except (FileNotFoundError, NotADirectoryError) as e:
-            print_red(f"post_job_calculate_pareto_front: find_results_paths('{_path_to_calculate}') failed with {e}")
-
-            failure = True
-
-    for _path_to_calculate in _paths_to_calculate:
-        for path_to_calculate in found_paths:
-            if not job_calculate_pareto_front(path_to_calculate):
-                failure = True
-
-    if failure:
-        my_exit(24)
-
-    my_exit(0)
-
-def job_calculate_pareto_front(path_to_calculate: str, disable_sixel_and_table: bool = False) -> bool:
-    pf_start_time = time.time()
-
-    if not path_to_calculate:
-        return False
-
-    global CURRENT_RUN_FOLDER
-    global RESULT_CSV_FILE
-    global arg_result_names
-
-    if not path_to_calculate:
-        print_red("Can only calculate pareto front of previous job when --calculate_pareto_front_of_job is set")
-        return False
-
-    if not os.path.exists(path_to_calculate):
-        print_red(f"Path '{path_to_calculate}' does not exist")
-        return False
-
-    ax_client_json = f"{path_to_calculate}/state_files/ax_client.experiment.json"
-
-    if not os.path.exists(ax_client_json):
-        print_red(f"Path '{ax_client_json}' not found")
-        return False
-
-    checkpoint_file: str = f"{path_to_calculate}/state_files/checkpoint.json"
-    if not os.path.exists(checkpoint_file):
-        print_red(f"The checkpoint file '{checkpoint_file}' does not exist")
-        return False
-
-    RESULT_CSV_FILE = f"{path_to_calculate}/{RESULTS_CSV_FILENAME}"
-    if not os.path.exists(RESULT_CSV_FILE):
-        print_red(f"{RESULT_CSV_FILE} not found")
-        return False
-
-    res_names = []
-
-    res_names_file = f"{path_to_calculate}/result_names.txt"
-    if not os.path.exists(res_names_file):
-        print_red(f"File '{res_names_file}' does not exist")
-        return False
-
-    try:
-        with open(res_names_file, "r", encoding="utf-8") as file:
-            lines = file.readlines()
-    except Exception as e:
-        print_red(f"Error reading file '{res_names_file}': {e}")
-        return False
-
-    for line in lines:
-        entry = line.strip()
-        if entry != "":
-            res_names.append(entry)
-
-    if len(res_names) < 2:
-        print_red(f"Error: There are less than 2 result names (is: {len(res_names)}, {', '.join(res_names)}) in {path_to_calculate}. Cannot continue calculating the pareto front.")
-        return False
-
-    load_username_to_args(path_to_calculate)
-
-    CURRENT_RUN_FOLDER = path_to_calculate
-
-    arg_result_names = res_names
-
-    load_experiment_parameters_from_checkpoint_file(checkpoint_file, False)
-
-    if experiment_parameters is None:
-        return False
-
-    show_pareto_or_error_msg(path_to_calculate, res_names, disable_sixel_and_table)
-
-    pf_end_time = time.time()
-
-    print_debug(f"Calculating the Pareto-front took {pf_end_time - pf_start_time} seconds")
-
-    return True
-
 def set_arg_states_from_continue() -> None:
     if args.continue_previous_job and not args.num_random_steps:
         num_random_steps_file = f"{args.continue_previous_job}/state_files/num_random_steps"
@@ -10598,27 +10741,27 @@ def run_program_once(params: Optional[dict] = None) -> None:
         params = {}
 
     if isinstance(args.run_program_once, str):
-        command_str = args.run_program_once
+        command_str = decode_if_base64(args.run_program_once)
         for k, v in params.items():
             placeholder = f"%({k})"
             command_str = command_str.replace(placeholder, str(v))
 
-        with spinner(f"Executing command: [cyan]{command_str}[/cyan]"):
-            result = subprocess.run(command_str, shell=True, check=True)
-            if result.returncode == 0:
-                console.log("[bold green]Setup script completed successfully ✅[/bold green]")
-            else:
-                console.log(f"[bold red]Setup script failed with exit code {result.returncode} ❌[/bold red]")
+        print(f"Executing command: [cyan]{command_str}[/cyan]")
+        result = subprocess.run(command_str, shell=True, check=True)
+        if result.returncode == 0:
+            print("[bold green]Setup script completed successfully ✅[/bold green]")
+        else:
+            print(f"[bold red]Setup script failed with exit code {result.returncode} ❌[/bold red]")
 
-                my_exit(57)
+            my_exit(57)
 
     elif isinstance(args.run_program_once, (list, tuple)):
         with spinner("run_program_once: Executing command list: [cyan]{args.run_program_once}[/cyan]"):
             result = subprocess.run(args.run_program_once, check=True)
             if result.returncode == 0:
-                console.log("[bold green]Setup script completed successfully ✅[/bold green]")
+                print("[bold green]Setup script completed successfully ✅[/bold green]")
             else:
-                console.log(f"[bold red]Setup script failed with exit code {result.returncode} ❌[/bold red]")
+                print(f"[bold red]Setup script failed with exit code {result.returncode} ❌[/bold red]")
 
                 my_exit(57)
 
@@ -10635,6 +10778,12 @@ def show_omniopt_call() -> None:
     cleaned = remove_ui_url(original_argv)
 
     original_print(oo_call + " " + cleaned)
+
+    if args.dependency is not None and args.dependency != "":
+        print(f"Dependency: {args.dependency}")
+
+    if args.ui_url is not None and args.ui_url != "":
+        print_yellow("--ui_url is deprecated. Do not use it anymore. It will be ignored and one day be removed.")
 
 def main() -> None:
     global RESULT_CSV_FILE, LOGFILE_DEBUG_GET_NEXT_TRIALS
@@ -10739,6 +10888,8 @@ def main() -> None:
         print_overview_tables(experiment_parameters, experiment_args)
 
         write_files_and_show_overviews()
+
+        live_share()
 
         #if args.continue_previous_job:
         #    insert_jobs_from_csv(f"{args.continue_previous_job}/{RESULTS_CSV_FILENAME}")
@@ -10959,8 +11110,6 @@ def run_search_with_progress_bar() -> None:
     wait_for_jobs_to_complete()
 
 def complex_tests(_program_name: str, wanted_stderr: str, wanted_exit_code: int, wanted_signal: Union[int, None], res_is_none: bool = False) -> int:
-    #print_yellow(f"Test suite: {_program_name}")
-
     nr_errors: int = 0
 
     program_path: str = f"./.tests/test_wronggoing_stuff.bin/bin/{_program_name}"
@@ -11043,8 +11192,6 @@ def run_tests() -> None:
     print_red("This should be red")
     print_yellow("This should be yellow")
     print_green("This should be green")
-
-    print(f"Printing test from current line {get_line_info()}")
 
     nr_errors: int = 0
 
@@ -11420,9 +11567,8 @@ def main_wrapper() -> None:
 
     auto_wrap_namespace(globals())
 
-    print_logo()
-
-    start_logging_daemon() # type: ignore[unused-coroutine]
+    if not args.tests:
+        print_logo()
 
     fool_linter(args.num_cpus_main_job)
     fool_linter(args.flame_graph)
@@ -11494,7 +11640,6 @@ def auto_wrap_namespace(namespace: Any) -> Any:
         "_record_stats",
         "_open",
         "_check_memory_leak",
-        "start_logging_daemon",
         "get_current_run_folder",
         "show_func_name_wrapper"
     }

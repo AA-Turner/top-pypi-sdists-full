@@ -1,0 +1,206 @@
+# https://peps.python.org/pep-0517/
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+# https://peps.python.org/pep-0621/
+[project]
+name = "cmap"
+description = "Scientific colormaps for python, without dependencies"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = ["LICENSE/*"]
+authors = [{ email = "talley.lambert@gmail.com", name = "Talley Lambert" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dynamic = ["version"]
+dependencies = ["numpy"]
+
+[dependency-groups]
+test_min = ["pytest>=6.0"]
+test = [{ include-group = "test_min" }, "pytest-cov"]
+test_thirdparty = [
+    { include-group = "test" },
+    "bokeh",
+    "colorspacious",
+    "colour",
+    "matplotlib",
+    "napari>=0.5.0; python_version<'3.14'",
+    "PyQt6==6.8.1",
+    "numba",
+    "numba<0.61; python_version<'3.12'",
+    "plotly",
+    "pydantic-extra-types>=2,!=2.10.1",
+    "pydantic",
+    "pygfx",
+    "pyqtgraph",
+    "pytest-qt",
+    "qtpy",
+    "rich",
+    "viscm; python_version<'3.13'",
+    "vispy>=0.14",
+]
+dev = [
+    { include-group = "test_thirdparty" },
+    "ipython",
+    "mypy",
+    "pdbpp",
+    "pre-commit-uv",
+    "pytest",
+    "rich",
+    "ruff",
+    "pyqt6",
+]
+docs = [
+    'colorcet',
+    'colorspacious',
+    'imageio',
+    'mkdocs-gen-files',
+    'mkdocs-literate-nav',
+    'mkdocs-api-autonav',
+    'mkdocs-material',
+    'mkdocs-minify-plugin',
+    'mkdocs',
+    'mkdocstrings-python',
+    'natsort',
+]
+
+[tool.uv.sources]
+cmap = { workspace = true }
+
+[project.entry-points."pyinstaller40"]
+hook-dirs = "cmap.__pyinstaller:get_hook_dirs"
+tests = "cmap.__pyinstaller:get_test_dirs"
+
+[project.urls]
+Homepage = "https://github.com/pyapp-kit/cmap"
+Repository = "https://github.com/pyapp-kit/cmap"
+"Bug Tracker" = "https://github.com/pyapp-kit/cmap/issues"
+Documentation = "https://cmap-docs.rtfd.io/"
+
+# https://hatch.pypa.io/latest/config/metadata/
+[tool.hatch.version]
+source = "vcs"
+
+# https://hatch.pypa.io/latest/config/build/#file-selection
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "CHANGELOG.md"]
+
+
+# https://github.com/charliermarsh/ruff
+[tool.ruff]
+line-length = 88
+target-version = "py39"
+src = ["src"]
+fix = true
+unsafe-fixes = true
+
+[tool.ruff.lint]
+pydocstyle = { convention = "numpy" }
+select = [
+    "E",    # style errors
+    "F",    # flakes
+    "D",    # pydocstyle
+    "D417", # Missing argument descriptions in Docstrings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "S",    # bandit
+    "C4",   # flake8-comprehensions
+    "B",    # flake8-bugbear
+    "ISC",  # implicit-str-concat
+    "TID",  # tidy-imports
+    "RUF",  # ruff-specific rules
+    "TC",   # flake8-type-checking
+    "TID",  # flake8-tidy-imports
+]
+ignore = [
+    "D100",   # Missing docstring in public module
+    "D104",   # Missing docstring in public module
+    "D401",   # First line should be in imperative mood (remove to opt in)
+    "ISC001", # conflicts with formatter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*.py" = ["D", "S101"]
+"src/cmap/data/**/*.py" = ["E501"]
+"docs/*.py" = ["E501"]
+
+
+# https://docs.pytest.org/en/6.2.x/customize.html
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-v", "--color", "yes"]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore:distutils Version classes are deprecated",
+    "ignore:`np.bool8` is a deprecated:DeprecationWarning",
+    "ignore:datetime.datetime.utcfromtimestamp:DeprecationWarning",
+    "ignore::DeprecationWarning:docstring_parser",
+    "ignore:Pyarrow will become a required dependency of pandas",
+    "ignore::DeprecationWarning:Pyinstaller",
+    "ignore::DeprecationWarning:pkg_resources",
+    "ignore::DeprecationWarning:altgraph",
+    "ignore::DeprecationWarning:pyparsing",
+    "ignore::DeprecationWarning:matplotlib._mathtext",
+    "ignore::DeprecationWarning:matplotlib._fontconfig_pattern",
+]
+
+# https://mypy.readthedocs.io/en/stable/config_file.html
+[tool.mypy]
+files = "src/**/"
+strict = true
+disallow_any_generics = false
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = ["matplotlib.*", "vispy.*", "napari.*", "pygfx"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["cmap.data.gnuplot"]
+disallow_untyped_defs = false
+
+
+# https://coverage.readthedocs.io/en/6.4/config.html
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@overload",
+    "except ImportError",
+    "return _external.",  # skip calls to external functions in colormap
+    "\\.\\.\\.",
+]
+show_missing = true
+skip_covered = true
+
+[tool.coverage.run]
+source = ["src"]
+
+
+# https://github.com/mgedmin/check-manifest#configuration
+[tool.check-manifest]
+ignore = [
+    ".github_changelog_generator",
+    ".pre-commit-config.yaml",
+    "tests/**/*",
+    "setup.py",
+    "docs/**/*",
+    "mkdocs.yml",
+    ".readthedocs.yaml",
+]
+
+[tool.check-wheel-contents]
+ignore = ["W004"]

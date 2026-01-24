@@ -1,33 +1,36 @@
-# type: ignore
 import ast
 import asyncio
+import logging
 import os
-import uuid
-from typing import List, Optional
+from typing import Any
 
 import click
+from uipath.core.tracing import UiPathTraceManager
+from uipath.runtime import UiPathRuntimeContext, UiPathRuntimeFactoryRegistry
 
+from uipath._cli._evals._console_progress_reporter import ConsoleProgressReporter
+from uipath._cli._evals._evaluate import evaluate
+from uipath._cli._evals._live_tracking_processor import LiveTrackingSpanProcessor
 from uipath._cli._evals._progress_reporter import StudioWebProgressReporter
 from uipath._cli._evals._runtime import (
     UiPathEvalContext,
-    UiPathEvalRuntime,
 )
-from uipath._cli._runtime._contracts import (
-    UiPathRuntimeContext,
-    UiPathRuntimeFactory,
-)
-from uipath._cli._runtime._runtime import UiPathScriptRuntime
+from uipath._cli._evals._telemetry import EvalTelemetrySubscriber
 from uipath._cli._utils._folders import get_personal_workspace_key_async
+from uipath._cli._utils._studio_project import StudioClient
 from uipath._cli.middlewares import Middlewares
 from uipath._events._event_bus import EventBus
+from uipath._utils._bindings import ResourceOverwritesContext
 from uipath.eval._helpers import auto_discover_entrypoint
-from uipath.tracing import LlmOpsHttpExporter
+from uipath.platform.chat import set_llm_concurrency
+from uipath.platform.common import UiPathConfig
+from uipath.telemetry._track import flush_events
+from uipath.tracing import JsonLinesFileExporter, LlmOpsHttpExporter
 
-from .._utils.constants import ENV_JOB_ID
-from ..telemetry import track
 from ._utils._console import ConsoleLogger
 from ._utils._eval_set import EvalHelpers
 
+logger = logging.getLogger(__name__)
 console = ConsoleLogger()
 
 
@@ -39,10 +42,33 @@ class LiteralOption(click.Option):
             raise click.BadParameter(value) from e
 
 
+def setup_reporting_prereq(no_report: bool) -> bool:
+    if no_report:
+        return False
+
+    if not UiPathConfig.is_studio_project:
+        console.warning(
+            "UIPATH_PROJECT_ID environment variable not set. Results will not be reported to Studio Web."
+        )
+        return False
+
+    if not UiPathConfig.folder_key:
+        folder_key = asyncio.run(get_personal_workspace_key_async())
+        if folder_key:
+            os.environ["UIPATH_FOLDER_KEY"] = folder_key
+    return True
+
+
 @click.command()
 @click.argument("entrypoint", required=False)
 @click.argument("eval_set", required=False)
 @click.option("--eval-ids", cls=LiteralOption, default="[]")
+@click.option(
+    "--eval-set-run-id",
+    required=False,
+    type=str,
+    help="Custom evaluation set run ID (if not provided, a UUID will be generated)",
+)
 @click.option(
     "--no-report",
     is_flag=True,
@@ -52,8 +78,8 @@ class LiteralOption(click.Option):
 @click.option(
     "--workers",
     type=int,
-    default=8,
-    help="Number of parallel workers for running evaluations (default: 8)",
+    default=1,
+    help="Number of parallel workers for running evaluations (default: 1)",
 )
 @click.option(
     "--output-file",
@@ -61,14 +87,63 @@ class LiteralOption(click.Option):
     type=click.Path(exists=False),
     help="File path where the output will be written",
 )
-@track(when=lambda *_a, **_kw: os.getenv(ENV_JOB_ID) is None)
+@click.option(
+    "--enable-mocker-cache",
+    is_flag=True,
+    default=False,
+    help="Enable caching for LLM mocker responses",
+)
+@click.option(
+    "--report-coverage",
+    is_flag=True,
+    default=False,
+    help="Report evaluation coverage",
+)
+@click.option(
+    "--model-settings-id",
+    type=str,
+    default="default",
+    help="Model settings ID from evaluation set to override agent settings (default: 'default')",
+)
+@click.option(
+    "--trace-file",
+    required=False,
+    type=click.Path(exists=False),
+    help="File path where traces will be written in JSONL format",
+)
+@click.option(
+    "--max-llm-concurrency",
+    type=int,
+    default=20,
+    help="Maximum concurrent LLM requests (default: 20)",
+)
+@click.option(
+    "--input-overrides",
+    cls=LiteralOption,
+    default="{}",
+    help='Input field overrides per evaluation ID: \'{"eval-1": {"operator": "*"}, "eval-2": {"a": 100}}\'. Supports deep merge for nested objects.',
+)
+@click.option(
+    "--resume",
+    is_flag=True,
+    default=False,
+    help="Resume execution from a previous suspended state",
+)
 def eval(
-    entrypoint: Optional[str],
-    eval_set: Optional[str],
-    eval_ids: List[str],
+    entrypoint: str | None,
+    eval_set: str | None,
+    eval_ids: list[str],
+    eval_set_run_id: str | None,
     no_report: bool,
     workers: int,
-    output_file: Optional[str],
+    output_file: str | None,
+    enable_mocker_cache: bool,
+    report_coverage: bool,
+    model_settings_id: str,
+    trace_file: str | None,
+    max_llm_concurrency: int,
+    input_overrides: dict[str, Any],
+    resume: bool,
 ) -> None:
     """Run an evaluation set against the agent.
 
@@ -76,77 +151,164 @@ def eval(
         entrypoint: Path to the agent script to evaluate (optional, will auto-discover if not specified)
         eval_set: Path to the evaluation set JSON file (optional, will auto-discover if not specified)
         eval_ids: Optional list of evaluation IDs
+        eval_set_run_id: Custom evaluation set run ID (optional, will generate UUID if not specified)
         workers: Number of parallel workers for running evaluations
         no_report: Do not report the evaluation results
+        enable_mocker_cache: Enable caching for LLM mocker responses
+        report_coverage: Report evaluation coverage
+        model_settings_id: Model settings ID to override agent settings
+        trace_file: File path where traces will be written in JSONL format
+        max_llm_concurrency: Maximum concurrent LLM requests
+        input_overrides: Input field overrides mapping (direct field override with deep merge)
+        resume: Resume execution from a previous suspended state
     """
-    if not no_report and not os.getenv("UIPATH_FOLDER_KEY"):
-        os.environ["UIPATH_FOLDER_KEY"] = asyncio.run(
-            get_personal_workspace_key_async()
-        )
+    set_llm_concurrency(max_llm_concurrency)
+
+    should_register_progress_reporter = setup_reporting_prereq(no_report)
 
     result = Middlewares.next(
         "eval",
         entrypoint,
         eval_set,
         eval_ids,
+        eval_set_run_id=eval_set_run_id,
         no_report=no_report,
         workers=workers,
-        execution_output_file=output_file,
+        output_file=output_file,
+        register_progress_reporter=should_register_progress_reporter,
     )
 
     if result.error_message:
         console.error(result.error_message)
 
     if result.should_continue:
-        event_bus = EventBus()
+        eval_context = UiPathEvalContext()
 
-        if not no_report:
-            progress_reporter = StudioWebProgressReporter()
-            asyncio.run(progress_reporter.subscribe_to_eval_runtime_events(event_bus))
-
-        def generate_runtime_context(**context_kwargs) -> UiPathRuntimeContext:
-            runtime_context = UiPathRuntimeContext.with_defaults(**context_kwargs)
-            runtime_context.entrypoint = runtime_entrypoint
-            return runtime_context
-
-        runtime_entrypoint = entrypoint or auto_discover_entrypoint()
-
-        eval_context = UiPathEvalContext.with_defaults(
-            execution_output_file=output_file,
-            entrypoint=runtime_entrypoint,
-            execution_id=str(uuid.uuid4()),
-        )
-
+        eval_context.entrypoint = entrypoint or auto_discover_entrypoint()
         eval_context.no_report = no_report
         eval_context.workers = workers
-        eval_context.eval_set = eval_set or EvalHelpers.auto_discover_eval_set()
+        eval_context.eval_set_run_id = eval_set_run_id
+        eval_context.enable_mocker_cache = enable_mocker_cache
+
+        # Load eval set to resolve the path
+        eval_set_path = eval_set or EvalHelpers.auto_discover_eval_set()
+        _, resolved_eval_set_path = EvalHelpers.load_eval_set(eval_set_path, eval_ids)
+
+        eval_context.eval_set = resolved_eval_set_path
         eval_context.eval_ids = eval_ids
+        eval_context.report_coverage = report_coverage
+        eval_context.model_settings_id = model_settings_id
+        eval_context.input_overrides = input_overrides
+        eval_context.resume = resume
 
         try:
-            runtime_factory = UiPathRuntimeFactory(
-                UiPathScriptRuntime,
-                UiPathRuntimeContext,
-                context_generator=generate_runtime_context,
-            )
-            if eval_context.job_id:
-                runtime_factory.add_span_exporter(LlmOpsHttpExporter())
 
-            async def execute():
-                async with UiPathEvalRuntime.from_eval_context(
-                    factory=runtime_factory,
-                    context=eval_context,
-                    event_bus=event_bus,
-                ) as eval_runtime:
-                    await eval_runtime.execute()
-                    await event_bus.wait_for_all(timeout=10)
+            async def execute_eval():
+                event_bus = EventBus()
 
-            asyncio.run(execute())
+                is_low_code = eval_context.entrypoint == "agent.json"
+
+                # Only create studio web exporter when reporting to Studio Web
+                studio_web_tracking_exporter = None
+                if should_register_progress_reporter:
+                    studio_web_tracking_exporter = LlmOpsHttpExporter(
+                        is_low_code=is_low_code
+                    )
+                    if eval_context.eval_set_run_id:
+                        studio_web_tracking_exporter.trace_id = (
+                            eval_context.eval_set_run_id
+                        )
+
+                    progress_reporter = StudioWebProgressReporter(
+                        studio_web_tracking_exporter
+                    )
+                    await progress_reporter.subscribe_to_eval_runtime_events(event_bus)
+
+                console_reporter = ConsoleProgressReporter()
+                await console_reporter.subscribe_to_eval_runtime_events(event_bus)
+
+                telemetry_subscriber = EvalTelemetrySubscriber()
+                await telemetry_subscriber.subscribe_to_eval_runtime_events(event_bus)
+
+                trace_manager = UiPathTraceManager()
+
+                with UiPathRuntimeContext.with_defaults(
+                    output_file=output_file,
+                    trace_manager=trace_manager,
+                    command="eval",
+                    resume=resume,
+                ) as ctx:
+                    # Set job_id in eval context for single runtime runs
+                    eval_context.job_id = ctx.job_id
+
+                    # Create job exporter for live tracking
+                    job_exporter = None
+                    if ctx.job_id:
+                        job_exporter = LlmOpsHttpExporter(is_low_code=is_low_code)
+                        trace_manager.add_span_exporter(job_exporter)
+                        # Add live tracking processor for real-time span updates
+                        job_tracking_processor = LiveTrackingSpanProcessor(job_exporter)
+                        trace_manager.tracer_span_processors.append(
+                            job_tracking_processor
+                        )
+                        trace_manager.tracer_provider.add_span_processor(
+                            job_tracking_processor
+                        )
+
+                    # Add studio web tracking processor if reporting to Studio Web
+                    if studio_web_tracking_exporter:
+                        studio_web_tracking_processor = LiveTrackingSpanProcessor(
+                            studio_web_tracking_exporter
+                        )
+                        trace_manager.tracer_span_processors.append(
+                            studio_web_tracking_processor
+                        )
+                        trace_manager.tracer_provider.add_span_processor(
+                            studio_web_tracking_processor
+                        )
+
+                    if trace_file:
+                        trace_manager.add_span_exporter(
+                            JsonLinesFileExporter(trace_file)
+                        )
+
+                    project_id = UiPathConfig.project_id
+
+                    runtime_factory = UiPathRuntimeFactoryRegistry.get(context=ctx)
+
+                    try:
+                        if project_id:
+                            studio_client = StudioClient(project_id)
+
+                            async with ResourceOverwritesContext(
+                                lambda: studio_client.get_resource_overwrites()
+                            ):
+                                ctx.result = await evaluate(
+                                    runtime_factory,
+                                    trace_manager,
+                                    eval_context,
+                                    event_bus,
+                                )
+                        else:
+                            # Fall back to execution without overwrites
+                            ctx.result = await evaluate(
+                                runtime_factory,
+                                trace_manager,
+                                eval_context,
+                                event_bus,
+                            )
+                    finally:
+                        if runtime_factory:
+                            await runtime_factory.dispose()
+
+            asyncio.run(execute_eval())
+
         except Exception as e:
             console.error(
-                f"Error: Unexpected error occurred - {str(e)}", include_traceback=True
+                f"Error occurred: {e or 'Execution failed'}", include_traceback=True
             )
-
-    console.success("Evaluation completed successfully")
+        finally:
+            flush_events()
 
 
 if __name__ == "__main__":

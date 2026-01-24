@@ -59,48 +59,38 @@ class FairnessScoresOverTime(APIObject, MonitoringDataQueryBuilderMixin):
     """
 
     _path = "deployments/{}/fairnessScoresOverTime/"
-    _period = t.Dict(
-        {
-            t.Key("start"): String >> dateutil.parser.parse,
-            t.Key("end"): String >> dateutil.parser.parse,
-        }
-    )
-    _bucket = t.Dict(
-        {
-            t.Key("period"): t.Or(_period, t.Null),
-            t.Key("metric_name"): t.Or(t.String(), t.Null),
-            t.Key("scores"): t.Or(
-                t.List(
-                    t.Dict(
-                        {
-                            t.Key("label"): t.String(),
-                            t.Key("absolute_value"): t.Or(t.Int(), t.Float()),
-                            t.Key("classes_count"): t.Int(),
-                            t.Key("healthy_classes_count"): t.Int(),
-                            t.Key("is_statistically_significant"): t.Bool(),
-                            t.Key("privileged_class", optional=True): t.String(),
-                            t.Key("sample_size"): t.Int(),
-                            t.Key("value"): t.Or(t.Int(), t.Float()),
-                        }
-                    )
-                ),
-                t.Null,
+    _period = t.Dict({
+        t.Key("start"): String >> dateutil.parser.parse,
+        t.Key("end"): String >> dateutil.parser.parse,
+    })
+    _bucket = t.Dict({
+        t.Key("period"): t.Or(_period, t.Null),
+        t.Key("metric_name"): t.Or(t.String(), t.Null),
+        t.Key("scores"): t.Or(
+            t.List(
+                t.Dict({
+                    t.Key("label"): t.String(),
+                    t.Key("absolute_value"): t.Or(t.Int(), t.Float()),
+                    t.Key("classes_count"): t.Int(),
+                    t.Key("healthy_classes_count"): t.Int(),
+                    t.Key("is_statistically_significant"): t.Bool(),
+                    t.Key("privileged_class", optional=True): t.String(),
+                    t.Key("sample_size"): t.Int(),
+                    t.Key("value"): t.Or(t.Int(), t.Float()),
+                })
             ),
-        }
-    ).allow_extra("*")
-    _converter = t.Dict(
-        {
-            t.Key("protected_feature", optional=True): t.Or(String(), t.Null),
-            t.Key("fairness_threshold", optional=True): t.Or(Float(), t.Null),
-            t.Key("model_id"): t.Or(String(), t.Null),
-            t.Key("model_package_id"): t.Or(String(), t.Null),
-            t.Key("favorable_target_outcome", optional=True): t.Or(
-                Bool(), String(), t.Int(), t.Null
-            ),
-            t.Key("summary"): _bucket,
-            t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
-        }
-    )
+            t.Null,
+        ),
+    }).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("protected_feature", optional=True): t.Or(String(), t.Null),
+        t.Key("fairness_threshold", optional=True): t.Or(Float(), t.Null),
+        t.Key("model_id"): t.Or(String(), t.Null),
+        t.Key("model_package_id"): t.Or(String(), t.Null),
+        t.Key("favorable_target_outcome", optional=True): t.Or(Bool(), String(), t.Int(), t.Null),
+        t.Key("summary"): _bucket,
+        t.Key("buckets"): t.List(t.Dict({"period": _period}).allow_extra("*")),
+    })
 
     def __init__(
         self,

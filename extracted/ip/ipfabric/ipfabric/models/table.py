@@ -55,6 +55,7 @@ class BaseTable(BaseModel):
         sort: Optional[dict] = None,
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -68,6 +69,7 @@ class BaseTable(BaseModel):
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -80,6 +82,7 @@ class BaseTable(BaseModel):
         sort: Optional[dict] = None,
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def fetch(
@@ -92,6 +95,7 @@ class BaseTable(BaseModel):
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from corresponding endpoint
 
@@ -105,6 +109,9 @@ class BaseTable(BaseModel):
             start: Starts at 0
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pd.DataFrame]: List of dict if json, bytes string if CSV, DataFrame if df
         """
@@ -119,6 +126,7 @@ class BaseTable(BaseModel):
             start=start,
             snapshot=False,
             csv_tz=csv_tz,
+            api_version=api_version,
         )
 
     @overload
@@ -129,6 +137,7 @@ class BaseTable(BaseModel):
         filters: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -140,6 +149,7 @@ class BaseTable(BaseModel):
         attr_filters: Optional[dict[str, list[str]]] = None,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -150,6 +160,7 @@ class BaseTable(BaseModel):
         filters: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def all(
@@ -160,6 +171,7 @@ class BaseTable(BaseModel):
         attr_filters: Optional[dict[str, list[str]]] = None,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from corresponding endpoint
 
@@ -171,6 +183,9 @@ class BaseTable(BaseModel):
             sort: Dictionary to apply sorting: {"order": "desc", "column": "lastChange"}
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pd.DataFrame]: List of dict if json, bytes string if CSV, DataFrame if df
         """
@@ -183,20 +198,26 @@ class BaseTable(BaseModel):
             sort=sort,
             snapshot=False,
             csv_tz=csv_tz,
+            api_version=api_version,
         )
 
     def count(
         self,
         filters: Optional[dict] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> int:
         """
         Gets count of table
         :param filters: dict: Optional filters
         :param attr_filters: dict: Optional dictionary of Attribute filters
+        :param api_version: Optional API version to use for this request's X-API-Version header,
+                            default None will use latest version.
         :return: int: Count
         """
-        return self.client.get_count(self.endpoint, filters=filters, attr_filters=attr_filters, snapshot=False)
+        return self.client.get_count(
+            self.endpoint, filters=filters, attr_filters=attr_filters, snapshot=False, api_version=api_version
+        )
 
 
 class Table(BaseTable, BaseModel):
@@ -206,7 +227,7 @@ class Table(BaseTable, BaseModel):
 
     def _dev_filters(self, url, columns=None, filters=None):
         if self.sn:
-            all_columns, f = create_filter(self.client, url, filters=filters, sn=self.sn)
+            all_columns, f = create_filter(self.client, self.client._check_url(url), filters=filters, sn=self.sn)
             return columns or all_columns, f
         return columns, filters
 
@@ -222,6 +243,7 @@ class Table(BaseTable, BaseModel):
         sort: Optional[dict] = None,
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -236,6 +258,7 @@ class Table(BaseTable, BaseModel):
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -250,6 +273,7 @@ class Table(BaseTable, BaseModel):
         sort: Optional[dict] = None,
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def fetch(
@@ -264,6 +288,7 @@ class Table(BaseTable, BaseModel):
         limit: Optional[int] = 1000,
         start: Optional[int] = 0,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from corresponding endpoint
 
@@ -279,6 +304,9 @@ class Table(BaseTable, BaseModel):
             start: Starts at 0
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pd.DataFrame]: List of dict if json, bytes string if CSV, DataFrame if df
         """
@@ -295,6 +323,7 @@ class Table(BaseTable, BaseModel):
             limit=limit,
             start=start,
             csv_tz=csv_tz,
+            api_version=api_version,
         )
 
     @overload
@@ -307,6 +336,7 @@ class Table(BaseTable, BaseModel):
         snapshot_id: Optional[str] = None,
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> list[dict]: ...
 
     @overload
@@ -319,6 +349,7 @@ class Table(BaseTable, BaseModel):
         snapshot_id: Optional[str] = None,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        # api_version: Optional[Union[str, int]] = None,  # TODO: NIM-21720
     ) -> bytes: ...
 
     @overload
@@ -331,6 +362,7 @@ class Table(BaseTable, BaseModel):
         snapshot_id: Optional[str] = None,
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> DataFrame: ...
 
     def all(
@@ -343,6 +375,7 @@ class Table(BaseTable, BaseModel):
         reports: Optional[Union[bool, list, str]] = False,
         sort: Optional[dict] = None,
         csv_tz: Optional[str] = None,
+        api_version: Optional[Union[str, int]] = None,
     ):
         """Gets all data from corresponding endpoint
 
@@ -356,6 +389,9 @@ class Table(BaseTable, BaseModel):
             sort: Dictionary to apply sorting: {"order": "desc", "column": "lastChange"}
             csv_tz: str: Default None, set a timezone to return human-readable dates when using CSV;
                          see `ipfabric.tools.shared.TIMEZONES`
+            api_version: Optional API version to use for this request's X-API-Version header,
+                         default None will use latest version. Values other than None will not use streaming requests
+                         and will switch to pagination. API Version is not supported with CSV export.
         Returns:
             Union[list[dict], bytes, pd.DataFrame]: List of dict if json, bytes string if CSV, DataFrame if df
         """
@@ -370,6 +406,7 @@ class Table(BaseTable, BaseModel):
             reports=reports,
             sort=sort,
             csv_tz=csv_tz,
+            api_version=api_version,
         )
 
     def count(
@@ -377,6 +414,7 @@ class Table(BaseTable, BaseModel):
         filters: Optional[dict] = None,
         snapshot_id: Optional[str] = None,
         attr_filters: Optional[dict[str, list[str]]] = None,
+        api_version: Optional[Union[str, int]] = None,
     ) -> int:
         """
         Gets count of table
@@ -384,12 +422,15 @@ class Table(BaseTable, BaseModel):
             filters: dict: Optional filters
             snapshot_id: str: Optional snapshot ID to override class
             attr_filters: dict: Optional dictionary of Attribute filters
+            api_version: Optional API version to use for this request's X-API-Version header, default latest.
 
         Returns:
             int: Count of rows
         """
         _, filters = self._dev_filters(self.endpoint, filters=filters)
-        return self.client.get_count(self.endpoint, filters=filters, attr_filters=attr_filters, snapshot_id=snapshot_id)
+        return self.client.get_count(
+            self.endpoint, filters=filters, attr_filters=attr_filters, snapshot_id=snapshot_id, api_version=api_version
+        )
 
     @staticmethod
     def _ignore_columns(columns: set, columns_ignore: set):
@@ -470,7 +511,7 @@ class Table(BaseTable, BaseModel):
             dict[str]: dictionary with hash as key and values as the original data
         """
         # loop over each obj, turn the obj into a string, and hash it
-        return_json = dict()
+        return_json = {}
         # user passes unique_keys
         if unique_keys:
             # loop over each response
@@ -527,7 +568,7 @@ class Table(BaseTable, BaseModel):
             dict : dictionary containing the differences between the two snapshots.
                    Possible keys are 'added', 'removed' and 'changed'.
         """
-        return_dict = dict()
+        return_dict = {}
 
         # determine which columns to use in query
         columns = self._make_set(columns)

@@ -1,22 +1,14 @@
-# type: ignore
 import asyncio
 import logging
 import os
-from typing import Optional
+import tomllib
 
 import click
 import httpx
 
-from ._utils._console import ConsoleLogger
-
-try:
-    import tomllib
-except ImportError:
-    import tomli as tomllib
-
 from .._utils._ssl_context import get_httpx_client_kwargs
-from ..telemetry import track
 from ._utils._common import get_env_vars
+from ._utils._console import ConsoleLogger
 from ._utils._folders import get_personal_workspace_info_async
 from ._utils._processes import get_release_info
 from .middlewares import Middlewares
@@ -25,7 +17,7 @@ logger = logging.getLogger(__name__)
 console = ConsoleLogger()
 
 
-def _read_project_details() -> [str, str]:
+def _read_project_details() -> tuple[str, str]:
     current_path = os.getcwd()
     toml_path = os.path.join(current_path, "pyproject.toml")
     if not os.path.isfile(toml_path):
@@ -51,10 +43,7 @@ def _read_project_details() -> [str, str]:
     type=click.Path(exists=True),
     help="File path for the .json input",
 )
-@track
-def invoke(
-    entrypoint: Optional[str], input: Optional[str], file: Optional[str]
-) -> None:
+def invoke(entrypoint: str | None, input: str | None, file: str | None) -> None:
     """Invoke an agent published in my workspace."""
     if file:
         _, file_extension = os.path.splitext(file)
@@ -74,6 +63,7 @@ def invoke(
             console.error(
                 "No personal workspace found for user. Please try reauthenticating."
             )
+            return
 
         _, release_key = get_release_info(
             base_url, token, project_name, project_version, personal_workspace_folder_id

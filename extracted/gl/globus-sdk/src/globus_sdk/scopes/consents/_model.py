@@ -31,6 +31,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
+from ..parser import ScopeParser
 from ..representation import Scope
 from ._errors import ConsentParseError, ConsentTreeConstructionError
 
@@ -107,7 +108,7 @@ class ConsentForest:
     It exists to expose a simple interface for evaluating whether resource server grant
         requirements, as defined by a scope object are satisfied.
 
-    Consents should be retrieved from the AuthClient's `get_consents` method.
+    Consents should be retrieved from the AuthClient's ``get_consents`` method.
 
     Example usage:
 
@@ -115,10 +116,10 @@ class ConsentForest:
     >>> identity_id = ...
     >>> forest = auth_client.get_consents(identity_id).to_forest()
     >>>
-    >>> # Check whether the forest contains a scope relationship
-    >>> dependent_scope = GCSCollectionScopeBuilder(collection_id).data_access
-    >>> scope = f"{TransferScopes.all}[{dependent_scope}]"
-    >>> forest.contains_scopes(scope)
+    >>> # Check whether the forest meets a scope requirement
+    >>> data_access_scope = GCSCollectionScopes(collection_id).data_access
+    >>> scope = TransferScopes.all.with_dependency(data_access_scope)
+    >>> forest.meets_scope_requirements(scope)
 
 
     The following diagram demonstrates a Consent Forest in which a user has consented
@@ -312,7 +313,7 @@ def _normalize_scope_types(
     """
     Normalize the input scope types into a list of Scope objects.
 
-    Strings are parsed into 1 or more Scopes using `Scope.parse`.
+    Strings are parsed into 1 or more Scopes using `ScopeParser.parse`.
 
     :param scopes: Some collection of 0 or more scopes as Scope or scope strings.
     :returns: A list of Scope objects.
@@ -321,12 +322,12 @@ def _normalize_scope_types(
     if isinstance(scopes, Scope):
         return [scopes]
     elif isinstance(scopes, str):
-        return Scope.parse(scopes)
+        return ScopeParser.parse(scopes)
     else:
         scope_list = []
         for scope in scopes:
             if isinstance(scope, str):
-                scope_list.extend(Scope.parse(scope))
+                scope_list.extend(ScopeParser.parse(scope))
             else:
                 scope_list.append(scope)
         return scope_list

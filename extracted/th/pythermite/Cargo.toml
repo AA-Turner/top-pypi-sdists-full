@@ -1,0 +1,31 @@
+[package]
+name = "pythermite"
+version = "0.4.2"
+edition = "2021"
+readme = "README.md"
+
+[lib]
+name = "PyThermite"
+path = "PyThermite/src/lib.rs"
+# "cdylib" is necessary to produce a shared library for Python to import from.
+crate-type = ["cdylib"]
+
+[[bin]]
+name = "test"
+path = "PyThermite/src/main.rs"
+
+[profile.release]
+opt-level = 3
+
+[dependencies]
+croaring = "2.3.1"
+pyo3 = { version = "0.25.1", features = ["extension-module"] }
+ordered-float = "5.0.0"
+rayon = "1.10.0"
+rustc-hash = "2.1.1"
+smallvec = "1.15.1"
+once_cell = "1.21.3"
+smol_str = "0.3.2"
+arc-swap = "1.7.1"
+hashbrown = "0.16.1"
+bumpalo = "3.19.1"

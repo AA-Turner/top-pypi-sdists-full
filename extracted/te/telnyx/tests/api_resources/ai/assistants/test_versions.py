@@ -11,11 +11,7 @@ from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types.ai import (
     AssistantsList,
-)
-from telnyx.types.ai.assistants import (
-    VersionUpdateResponse,
-    VersionPromoteResponse,
-    VersionRetrieveResponse,
+    InferenceEmbedding,
 )
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -31,7 +27,7 @@ class TestVersions:
             version_id="version_id",
             assistant_id="assistant_id",
         )
-        assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -41,7 +37,7 @@ class TestVersions:
             assistant_id="assistant_id",
             include_mcp_servers=True,
         )
-        assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -54,7 +50,7 @@ class TestVersions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         version = response.parse()
-        assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -67,7 +63,7 @@ class TestVersions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             version = response.parse()
-            assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+            assert_matches_type(InferenceEmbedding, version, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -93,7 +89,7 @@ class TestVersions:
             version_id="version_id",
             assistant_id="assistant_id",
         )
-        assert_matches_type(VersionUpdateResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -110,6 +106,7 @@ class TestVersions:
             instructions="instructions",
             llm_api_key_ref="llm_api_key_ref",
             messaging_settings={
+                "conversation_inactivity_minutes": 1,
                 "default_messaging_profile_id": "default_messaging_profile_id",
                 "delivery_status_webhook_url": "delivery_status_webhook_url",
             },
@@ -118,7 +115,24 @@ class TestVersions:
             privacy_settings={"data_retention": True},
             telephony_settings={
                 "default_texml_app_id": "default_texml_app_id",
+                "noise_suppression": "krisp",
+                "noise_suppression_config": {
+                    "attenuation_limit": 0,
+                    "mode": "advanced",
+                },
                 "supports_unauthenticated_web_calls": True,
+                "time_limit_secs": 30,
+                "user_idle_timeout_secs": 30,
+                "voicemail_detection": {
+                    "on_voicemail_detected": {
+                        "action": "stop_assistant",
+                        "voicemail_message": {
+                            "message": "message",
+                            "prompt": "prompt",
+                            "type": "prompt",
+                        },
+                    }
+                },
             },
             tools=[
                 {
@@ -127,6 +141,7 @@ class TestVersions:
                         "description": "description",
                         "name": "name",
                         "url": "https://example.com/api/v1/function",
+                        "async": True,
                         "body_parameters": {
                             "properties": {
                                 "age": "bar",
@@ -152,20 +167,54 @@ class TestVersions:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "timeout_ms": 500,
                     },
                 }
             ],
             transcription={
                 "language": "language",
-                "model": "model",
+                "model": "deepgram/flux",
+                "region": "region",
+                "settings": {
+                    "eager_eot_threshold": 0.3,
+                    "eot_threshold": 0,
+                    "eot_timeout_ms": 0,
+                    "numerals": True,
+                    "smart_format": True,
+                },
             },
             voice_settings={
                 "voice": "voice",
                 "api_key_ref": "api_key_ref",
+                "background_audio": {
+                    "type": "predefined_media",
+                    "value": "silence",
+                },
+                "similarity_boost": 0,
+                "speed": 0,
+                "style": 0,
+                "temperature": 0,
+                "use_speaker_boost": True,
                 "voice_speed": 0,
             },
+            widget_settings={
+                "agent_thinking_text": "agent_thinking_text",
+                "audio_visualizer_config": {
+                    "color": "verdant",
+                    "preset": "preset",
+                },
+                "default_state": "expanded",
+                "give_feedback_url": "give_feedback_url",
+                "logo_icon_url": "logo_icon_url",
+                "position": "fixed",
+                "report_issue_url": "report_issue_url",
+                "speak_to_interrupt_text": "speak_to_interrupt_text",
+                "start_call_text": "start_call_text",
+                "theme": "light",
+                "view_history_url": "view_history_url",
+            },
         )
-        assert_matches_type(VersionUpdateResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -178,7 +227,7 @@ class TestVersions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         version = response.parse()
-        assert_matches_type(VersionUpdateResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -191,7 +240,7 @@ class TestVersions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             version = response.parse()
-            assert_matches_type(VersionUpdateResponse, version, path=["response"])
+            assert_matches_type(InferenceEmbedding, version, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -311,7 +360,7 @@ class TestVersions:
             version_id="version_id",
             assistant_id="assistant_id",
         )
-        assert_matches_type(VersionPromoteResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -324,7 +373,7 @@ class TestVersions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         version = response.parse()
-        assert_matches_type(VersionPromoteResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -337,7 +386,7 @@ class TestVersions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             version = response.parse()
-            assert_matches_type(VersionPromoteResponse, version, path=["response"])
+            assert_matches_type(InferenceEmbedding, version, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -369,7 +418,7 @@ class TestAsyncVersions:
             version_id="version_id",
             assistant_id="assistant_id",
         )
-        assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -379,7 +428,7 @@ class TestAsyncVersions:
             assistant_id="assistant_id",
             include_mcp_servers=True,
         )
-        assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -392,7 +441,7 @@ class TestAsyncVersions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         version = await response.parse()
-        assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -405,7 +454,7 @@ class TestAsyncVersions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             version = await response.parse()
-            assert_matches_type(VersionRetrieveResponse, version, path=["response"])
+            assert_matches_type(InferenceEmbedding, version, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -431,7 +480,7 @@ class TestAsyncVersions:
             version_id="version_id",
             assistant_id="assistant_id",
         )
-        assert_matches_type(VersionUpdateResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -448,6 +497,7 @@ class TestAsyncVersions:
             instructions="instructions",
             llm_api_key_ref="llm_api_key_ref",
             messaging_settings={
+                "conversation_inactivity_minutes": 1,
                 "default_messaging_profile_id": "default_messaging_profile_id",
                 "delivery_status_webhook_url": "delivery_status_webhook_url",
             },
@@ -456,7 +506,24 @@ class TestAsyncVersions:
             privacy_settings={"data_retention": True},
             telephony_settings={
                 "default_texml_app_id": "default_texml_app_id",
+                "noise_suppression": "krisp",
+                "noise_suppression_config": {
+                    "attenuation_limit": 0,
+                    "mode": "advanced",
+                },
                 "supports_unauthenticated_web_calls": True,
+                "time_limit_secs": 30,
+                "user_idle_timeout_secs": 30,
+                "voicemail_detection": {
+                    "on_voicemail_detected": {
+                        "action": "stop_assistant",
+                        "voicemail_message": {
+                            "message": "message",
+                            "prompt": "prompt",
+                            "type": "prompt",
+                        },
+                    }
+                },
             },
             tools=[
                 {
@@ -465,6 +532,7 @@ class TestAsyncVersions:
                         "description": "description",
                         "name": "name",
                         "url": "https://example.com/api/v1/function",
+                        "async": True,
                         "body_parameters": {
                             "properties": {
                                 "age": "bar",
@@ -490,20 +558,54 @@ class TestAsyncVersions:
                             "required": ["page"],
                             "type": "object",
                         },
+                        "timeout_ms": 500,
                     },
                 }
             ],
             transcription={
                 "language": "language",
-                "model": "model",
+                "model": "deepgram/flux",
+                "region": "region",
+                "settings": {
+                    "eager_eot_threshold": 0.3,
+                    "eot_threshold": 0,
+                    "eot_timeout_ms": 0,
+                    "numerals": True,
+                    "smart_format": True,
+                },
             },
             voice_settings={
                 "voice": "voice",
                 "api_key_ref": "api_key_ref",
+                "background_audio": {
+                    "type": "predefined_media",
+                    "value": "silence",
+                },
+                "similarity_boost": 0,
+                "speed": 0,
+                "style": 0,
+                "temperature": 0,
+                "use_speaker_boost": True,
                 "voice_speed": 0,
             },
+            widget_settings={
+                "agent_thinking_text": "agent_thinking_text",
+                "audio_visualizer_config": {
+                    "color": "verdant",
+                    "preset": "preset",
+                },
+                "default_state": "expanded",
+                "give_feedback_url": "give_feedback_url",
+                "logo_icon_url": "logo_icon_url",
+                "position": "fixed",
+                "report_issue_url": "report_issue_url",
+                "speak_to_interrupt_text": "speak_to_interrupt_text",
+                "start_call_text": "start_call_text",
+                "theme": "light",
+                "view_history_url": "view_history_url",
+            },
         )
-        assert_matches_type(VersionUpdateResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -516,7 +618,7 @@ class TestAsyncVersions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         version = await response.parse()
-        assert_matches_type(VersionUpdateResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -529,7 +631,7 @@ class TestAsyncVersions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             version = await response.parse()
-            assert_matches_type(VersionUpdateResponse, version, path=["response"])
+            assert_matches_type(InferenceEmbedding, version, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -649,7 +751,7 @@ class TestAsyncVersions:
             version_id="version_id",
             assistant_id="assistant_id",
         )
-        assert_matches_type(VersionPromoteResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -662,7 +764,7 @@ class TestAsyncVersions:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         version = await response.parse()
-        assert_matches_type(VersionPromoteResponse, version, path=["response"])
+        assert_matches_type(InferenceEmbedding, version, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -675,7 +777,7 @@ class TestAsyncVersions:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             version = await response.parse()
-            assert_matches_type(VersionPromoteResponse, version, path=["response"])
+            assert_matches_type(InferenceEmbedding, version, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

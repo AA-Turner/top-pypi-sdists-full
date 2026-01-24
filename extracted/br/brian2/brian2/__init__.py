@@ -55,8 +55,8 @@ except ImportError:
 
 # Make sure that Brian's unit-aware functions are used, even when directly
 # using names prefixed with numpy or np
-import brian2.numpy_ as numpy
 import brian2.numpy_ as np
+import brian2.numpy_ as numpy
 
 try:
     from ._version import __version__, __version_tuple__
@@ -91,39 +91,6 @@ __docformat__ = "restructuredtext en"
 
 from brian2.only import *
 from brian2.only import test
-
-
-# Check for outdated dependency versions
-def _check_dependency_version(name, version):
-    import sys
-
-    from packaging.version import Version
-
-    from .core.preferences import prefs
-    from .utils.logger import get_logger
-
-    logger = get_logger(__name__)
-
-    module = sys.modules[name]
-    if not isinstance(module.__version__, str):  # mocked module
-        return
-    if not Version(module.__version__) >= Version(version):
-        message = (
-            f"{name} is outdated (got version {module.__version__}, need version"
-            f" {version})"
-        )
-        if prefs.core.outdated_dependency_error:
-            raise ImportError(message)
-        else:
-            logger.warn(message, "outdated_dependency")
-
-
-def _check_dependency_versions():
-    for name, version in [("numpy", "1.10"), ("sympy", "1.2"), ("jinja2", "2.7")]:
-        _check_dependency_version(name, version)
-
-
-_check_dependency_versions()
 
 # Initialize the logging system
 BrianLogger.initialize()
@@ -206,9 +173,13 @@ def clear_cache(target):
                     "will therefore not be removed. Delete files in "
                     f"'{cache_dir}' manually"
                 )
-
-    logger.debug(f"Clearing cache for target '{target}' (directory '{cache_dir}').")
-    shutil.rmtree(cache_dir)
+    if os.path.exists(cache_dir):
+        logger.debug(f"Clearing cache for target '{target}' (directory '{cache_dir}').")
+        shutil.rmtree(cache_dir)
+    else:
+        logger.debug(
+            f"Cache for target '{target}' (directory '{cache_dir}') does not exist, nothing to clear."
+        )
 
 
 def _check_caches():

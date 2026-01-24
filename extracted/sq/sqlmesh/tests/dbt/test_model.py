@@ -1,5 +1,6 @@
 import datetime
-import typing as t
+import logging
+
 import pytest
 
 from pathlib import Path
@@ -7,60 +8,22 @@ from pathlib import Path
 from sqlglot import exp
 from sqlglot.errors import SchemaError
 from sqlmesh import Context
+from sqlmesh.core.console import NoopConsole, get_console
 from sqlmesh.core.model import TimeColumn, IncrementalByTimeRangeKind
-from sqlmesh.core.model.kind import OnDestructiveChange, OnAdditiveChange
+from sqlmesh.core.model.kind import OnDestructiveChange, OnAdditiveChange, SCDType2ByColumnKind
 from sqlmesh.core.state_sync.db.snapshot import _snapshot_to_json
+from sqlmesh.core.config.common import VirtualEnvironmentMode
+from sqlmesh.core.model.meta import GrantsTargetLayer
 from sqlmesh.dbt.common import Dependencies
 from sqlmesh.dbt.context import DbtContext
 from sqlmesh.dbt.model import ModelConfig
-from sqlmesh.dbt.target import PostgresConfig
+from sqlmesh.dbt.target import BigQueryConfig, DuckDbConfig, PostgresConfig
 from sqlmesh.dbt.test import TestConfig
 from sqlmesh.utils.yaml import YAML
+from sqlmesh.utils.date import to_ds
+import typing as t
 
 pytestmark = pytest.mark.dbt
-
-
-@pytest.fixture
-def create_empty_project(tmp_path: Path) -> t.Callable[[], t.Tuple[Path, Path]]:
-    def _create_empty_project() -> t.Tuple[Path, Path]:
-        yaml = YAML()
-        dbt_project_dir = tmp_path / "dbt"
-        dbt_project_dir.mkdir()
-        dbt_model_dir = dbt_project_dir / "models"
-        dbt_model_dir.mkdir()
-        dbt_project_config = {
-            "name": "empty_project",
-            "version": "1.0.0",
-            "config-version": 2,
-            "profile": "test",
-            "model-paths": ["models"],
-        }
-        dbt_project_file = dbt_project_dir / "dbt_project.yml"
-        with open(dbt_project_file, "w", encoding="utf-8") as f:
-            YAML().dump(dbt_project_config, f)
-        sqlmesh_config = {
-            "model_defaults": {
-                "start": "2025-01-01",
-            }
-        }
-        sqlmesh_config_file = dbt_project_dir / "sqlmesh.yaml"
-        with open(sqlmesh_config_file, "w", encoding="utf-8") as f:
-            YAML().dump(sqlmesh_config, f)
-        dbt_data_dir = tmp_path / "dbt_data"
-        dbt_data_dir.mkdir()
-        dbt_data_file = dbt_data_dir / "local.db"
-        dbt_profile_config = {
-            "test": {
-                "outputs": {"duckdb": {"type": "duckdb", "path": str(dbt_data_file)}},
-                "target": "duckdb",
-            }
-        }
-        db_profile_file = dbt_project_dir / "profiles.yml"
-        with open(db_profile_file, "w", encoding="utf-8") as f:
-            yaml.dump(dbt_profile_config, f)
-        return dbt_project_dir, dbt_model_dir
-
-    return _create_empty_project
 
 
 def test_test_config_is_standalone_behavior() -> None:
@@ -174,7 +137,7 @@ def test_manifest_filters_standalone_tests_from_models(
 ) -> None:
     """Integration test that verifies models only contain non-standalone tests after manifest loading."""
     yaml = YAML()
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
 
     # Create two models
     model1_contents = "SELECT 1 as id"
@@ -233,23 +196,23 @@ def test_manifest_filters_standalone_tests_from_models(
     # Should only have "not_null" test, not the "relationships" test
     model1_audit_names = [audit[0] for audit in model1_snapshot.model.audits]
     assert len(model1_audit_names) == 1
-    assert model1_audit_names[0] == "not_null_model1_id"
+    assert model1_audit_names[0] == "local.not_null_model1_id"
 
     # Verify model2 has its non-standalone test
     model2_audit_names = [audit[0] for audit in model2_snapshot.model.audits]
     assert len(model2_audit_names) == 1
-    assert model2_audit_names[0] == "not_null_model2_id"
+    assert model2_audit_names[0] == "local.not_null_model2_id"
 
     # Verify the standalone test (relationships) exists as a StandaloneAudit
     all_non_standalone_audits = [name for name in context._audits]
     assert sorted(all_non_standalone_audits) == [
-        "not_null_model1_id",
-        "not_null_model2_id",
+        "local.not_null_model1_id",
+        "local.not_null_model2_id",
     ]
 
     standalone_audits = [name for name in context._standalone_audits]
     assert len(standalone_audits) == 1
-    assert standalone_audits[0] == "relationships_model1_id__id__ref_model2_"
+    assert standalone_audits[0] == "local.relationships_model1_id__id__ref_model2_"
 
     plan_builder = context.plan_builder()
     dag = plan_builder._build_dag()
@@ -265,7 +228,7 @@ def test_load_invalid_ref_audit_constraints(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
     yaml = YAML()
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     full_model_contents = """{{ config(tags=["blah"], tests=[{"blah": {"to": "ref('completely_ignored')", "field": "blah2"} }]) }} SELECT 1 as cola"""
     full_model_file = model_dir / "full_model.sql"
@@ -313,7 +276,9 @@ def test_load_invalid_ref_audit_constraints(
     with open(model_schema_file, "w", encoding="utf-8") as f:
         yaml.dump(model_schema, f)
 
-    context = Context(paths=project_dir)
+    assert isinstance(get_console(), NoopConsole)
+    with caplog.at_level(logging.DEBUG):
+        context = Context(paths=project_dir)
     assert (
         "Skipping audit 'relationships_full_model_cola__cola__ref_not_real_model_' because model 'not_real_model' is not a valid ref"
         in caplog.text
@@ -332,7 +297,7 @@ def test_load_invalid_ref_audit_constraints(
 def test_load_microbatch_all_defined(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     microbatch_contents = """
     {{
@@ -373,7 +338,7 @@ def test_load_microbatch_all_defined(
 def test_load_microbatch_all_defined_diff_values(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     microbatch_contents = """
     {{
@@ -415,7 +380,7 @@ def test_load_microbatch_all_defined_diff_values(
 def test_load_microbatch_required_only(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     microbatch_contents = """
     {{
@@ -454,7 +419,7 @@ def test_load_microbatch_required_only(
 def test_load_incremental_time_range_strategy_required_only(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local", start="2025-01-01")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     incremental_time_range_contents = """
     {{
@@ -476,7 +441,7 @@ def test_load_incremental_time_range_strategy_required_only(
     snapshot = context.snapshots[snapshot_fqn]
     model = snapshot.model
     # Validate model-level attributes
-    assert model.start == "2025-01-01"
+    assert to_ds(model.start or "") == "2025-01-01"
     assert model.interval_unit.is_day
     # Validate model kind attributes
     assert isinstance(model.kind, IncrementalByTimeRangeKind)
@@ -496,7 +461,7 @@ def test_load_incremental_time_range_strategy_required_only(
 def test_load_incremental_time_range_strategy_all_defined(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local", start="2025-01-01")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     incremental_time_range_contents = """
     {{
@@ -532,7 +497,7 @@ def test_load_incremental_time_range_strategy_all_defined(
     snapshot = context.snapshots[snapshot_fqn]
     model = snapshot.model
     # Validate model-level attributes
-    assert model.start == "2025-01-01"
+    assert to_ds(model.start or "") == "2025-01-01"
     assert model.interval_unit.is_day
     # Validate model kind attributes
     assert isinstance(model.kind, IncrementalByTimeRangeKind)
@@ -559,7 +524,7 @@ def test_load_incremental_time_range_strategy_all_defined(
 def test_load_deprecated_incremental_time_column(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local", start="2025-01-01")
     # add `tests` to model config since this is loaded by dbt and ignored and we shouldn't error when loading it
     incremental_time_range_contents = """
     {{
@@ -577,13 +542,15 @@ def test_load_deprecated_incremental_time_column(
         f.write(incremental_time_range_contents)
 
     snapshot_fqn = '"local"."main"."incremental_time_range"'
-    context = Context(paths=project_dir)
+    assert isinstance(get_console(), NoopConsole)
+    with caplog.at_level(logging.DEBUG):
+        context = Context(paths=project_dir)
     model = context.snapshots[snapshot_fqn].model
     # Validate model-level attributes
-    assert model.start == "2025-01-01"
+    assert to_ds(model.start or "") == "2025-01-01"
     assert model.interval_unit.is_day
     # Validate model-level attributes
-    assert model.start == "2025-01-01"
+    assert to_ds(model.start or "") == "2025-01-01"
     assert model.interval_unit.is_day
     # Validate model kind attributes
     assert isinstance(model.kind, IncrementalByTimeRangeKind)
@@ -606,7 +573,7 @@ def test_load_microbatch_with_ref(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
     yaml = YAML()
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
     source_schema = {
         "version": 2,
         "sources": [
@@ -672,7 +639,7 @@ def test_load_microbatch_with_ref_no_filter(
     tmp_path: Path, caplog, dbt_dummy_postgres_config: PostgresConfig, create_empty_project
 ) -> None:
     yaml = YAML()
-    project_dir, model_dir = create_empty_project()
+    project_dir, model_dir = create_empty_project(project_name="local")
     source_schema = {
         "version": 2,
         "sources": [
@@ -746,23 +713,31 @@ def test_load_multiple_snapshots_defined_in_same_file(sushi_test_dbt_context: Co
 
 
 @pytest.mark.slow
+def test_dbt_snapshot_with_check_cols_expressions(sushi_test_dbt_context: Context) -> None:
+    context = sushi_test_dbt_context
+    model = context.get_model("snapshots.items_check_with_cast_snapshot")
+    assert model is not None
+    assert isinstance(model.kind, SCDType2ByColumnKind)
+
+    columns = model.kind.columns
+    assert isinstance(columns, list)
+    assert len(columns) == 1
+
+    # expression in check_cols is: ds::DATE
+    assert isinstance(columns[0], exp.Cast)
+    assert columns[0].sql() == 'CAST("ds" AS DATE)'
+
+    context.load()
+    cached_model = context.get_model("snapshots.items_check_with_cast_snapshot")
+    assert cached_model is not None
+    assert isinstance(cached_model.kind, SCDType2ByColumnKind)
+    assert isinstance(cached_model.kind.columns, list)
+    assert len(cached_model.kind.columns) == 1
+
+
+@pytest.mark.slow
 def test_dbt_jinja_macro_undefined_variable_error(create_empty_project):
     project_dir, model_dir = create_empty_project()
-
-    dbt_profile_config = {
-        "test": {
-            "outputs": {
-                "duckdb": {
-                    "type": "duckdb",
-                    "path": str(project_dir.parent / "dbt_data" / "main.db"),
-                }
-            },
-            "target": "duckdb",
-        }
-    }
-    db_profile_file = project_dir / "profiles.yml"
-    with open(db_profile_file, "w", encoding="utf-8") as f:
-        YAML().dump(dbt_profile_config, f)
 
     macros_dir = project_dir / "macros"
     macros_dir.mkdir()
@@ -801,6 +776,8 @@ def test_dbt_jinja_macro_undefined_variable_error(create_empty_project):
 @pytest.mark.slow
 def test_node_name_populated_for_dbt_models(dbt_dummy_postgres_config: PostgresConfig) -> None:
     model_config = ModelConfig(
+        unique_id="model.test_package.test_model",
+        fqn=["test_package", "test_model"],
         name="test_model",
         package_name="test_package",
         sql="SELECT 1 as id",
@@ -815,7 +792,8 @@ def test_node_name_populated_for_dbt_models(dbt_dummy_postgres_config: PostgresC
 
     # check after convert to SQLMesh model that node_name is populated correctly
     sqlmesh_model = model_config.to_sqlmesh(context)
-    assert sqlmesh_model.dbt_name == "model.test_package.test_model"
+    assert sqlmesh_model.dbt_unique_id == "model.test_package.test_model"
+    assert sqlmesh_model.dbt_fqn == "test_package.test_model"
 
 
 @pytest.mark.slow
@@ -872,12 +850,15 @@ def test_load_model_dbt_node_name(tmp_path: Path) -> None:
 
     # Verify that node_name is the equivalent dbt one
     model = context.snapshots[model_fqn].model
-    assert model.dbt_name == "model.test_project.simple_model"
+    assert model.dbt_unique_id == "model.test_project.simple_model"
+    assert model.dbt_fqn == "test_project.simple_model"
+    assert model.dbt_node_info
+    assert model.dbt_node_info.name == "simple_model"
 
 
 @pytest.mark.slow
-def test_jinja_config_no_query(tmp_path, create_empty_project):
-    project_dir, model_dir = create_empty_project()
+def test_jinja_config_no_query(create_empty_project):
+    project_dir, model_dir = create_empty_project(project_name="local")
 
     # model definition contains only a comment and non-SQL jinja
     model_contents = "/* comment */ {{ config(materialized='table') }}"
@@ -894,3 +875,242 @@ def test_jinja_config_no_query(tmp_path, create_empty_project):
 
     # loads without error and contains empty query (which will error at runtime)
     assert not context.snapshots['"local"."main"."comment_config_model"'].model.render_query()
+
+
+@pytest.mark.slow
+def test_load_custom_materialisations(sushi_test_dbt_context: Context) -> None:
+    context = sushi_test_dbt_context
+    assert context.get_model("sushi.custom_incremental_model")
+    assert context.get_model("sushi.custom_incremental_with_filter")
+
+    context.load()
+    assert context.get_model("sushi.custom_incremental_model")
+    assert context.get_model("sushi.custom_incremental_with_filter")
+
+
+def test_model_grants_to_sqlmesh_grants_config() -> None:
+    grants_config = {
+        "select": ["user1", "user2"],
+        "insert": ["admin_user"],
+        "update": ["power_user"],
+    }
+    model_config = ModelConfig(
+        name="test_model",
+        sql="SELECT 1 as id",
+        grants=grants_config,
+        path=Path("test_model.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = DuckDbConfig(name="target", schema="test_schema")
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    model_grants = sqlmesh_model.grants
+    assert model_grants == grants_config
+
+    assert sqlmesh_model.grants_target_layer == GrantsTargetLayer.default
+
+
+def test_model_grants_empty_permissions() -> None:
+    model_config = ModelConfig(
+        name="test_model_empty",
+        sql="SELECT 1 as id",
+        grants={"select": [], "insert": ["admin_user"]},
+        path=Path("test_model_empty.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = DuckDbConfig(name="target", schema="test_schema")
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    model_grants = sqlmesh_model.grants
+    expected_grants = {"select": [], "insert": ["admin_user"]}
+    assert model_grants == expected_grants
+
+
+def test_model_no_grants() -> None:
+    model_config = ModelConfig(
+        name="test_model_no_grants",
+        sql="SELECT 1 as id",
+        path=Path("test_model_no_grants.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = DuckDbConfig(name="target", schema="test_schema")
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    grants_config = sqlmesh_model.grants
+    assert grants_config is None
+
+
+def test_model_empty_grants() -> None:
+    model_config = ModelConfig(
+        name="test_model_empty_grants",
+        sql="SELECT 1 as id",
+        grants={},
+        path=Path("test_model_empty_grants.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = DuckDbConfig(name="target", schema="test_schema")
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    grants_config = sqlmesh_model.grants
+    assert grants_config is None
+
+
+def test_model_grants_valid_special_characters() -> None:
+    valid_grantees = [
+        "user@domain.com",
+        "service-account@project.iam.gserviceaccount.com",
+        "group:analysts",
+        '"quoted user"',
+        "`backtick user`",
+        "user_with_underscores",
+        "user.with.dots",
+    ]
+
+    model_config = ModelConfig(
+        name="test_model_special_chars",
+        sql="SELECT 1 as id",
+        grants={"select": valid_grantees},
+        path=Path("test_model.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = DuckDbConfig(name="target", schema="test_schema")
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    grants_config = sqlmesh_model.grants
+    assert grants_config is not None
+    assert "select" in grants_config
+    assert grants_config["select"] == valid_grantees
+
+
+def test_model_grants_engine_specific_bigquery() -> None:
+    model_config = ModelConfig(
+        name="test_model_bigquery",
+        sql="SELECT 1 as id",
+        grants={
+            "bigquery.dataviewer": ["user@domain.com"],
+            "select": ["analyst@company.com"],
+        },
+        path=Path("test_model.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = BigQueryConfig(
+        name="bigquery_target",
+        project="test-project",
+        dataset="test_dataset",
+        location="US",
+        database="test-project",
+        schema="test_dataset",
+    )
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    grants_config = sqlmesh_model.grants
+    assert grants_config is not None
+    assert grants_config["bigquery.dataviewer"] == ["user@domain.com"]
+    assert grants_config["select"] == ["analyst@company.com"]
+
+
+def test_ephemeral_model_ignores_grants() -> None:
+    """Test that ephemeral models ignore grants configuration."""
+    model_config = ModelConfig(
+        name="ephemeral_model",
+        sql="SELECT 1 as id",
+        materialized="ephemeral",
+        grants={"select": ["reporter", "analyst"]},
+        path=Path("ephemeral_model.sql"),
+    )
+
+    context = DbtContext()
+    context.project_name = "test_project"
+    context.target = DuckDbConfig(name="target", schema="test_schema")
+
+    sqlmesh_model = model_config.to_sqlmesh(
+        context, virtual_environment_mode=VirtualEnvironmentMode.FULL
+    )
+
+    assert sqlmesh_model.kind.is_embedded
+    assert sqlmesh_model.grants is None  # grants config is skipped for ephemeral / embedded models
+
+
+def test_conditional_ref_in_unexecuted_branch(copy_to_temp_path: t.Callable):
+    path = copy_to_temp_path("tests/fixtures/dbt/sushi_test")
+    temp_project = path[0]
+
+    models_dir = temp_project / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    test_model_content = """
+{{ config(
+    materialized='table',
+) }}
+
+{% if true %}
+    WITH source AS (
+        SELECT *
+        FROM {{ ref('simple_model_a') }}
+    )
+{% else %}
+    WITH source AS (
+        SELECT *
+        FROM {{ ref('nonexistent_model') }} -- this doesn't exist but is in unexecuted branch
+    )
+{% endif %}
+
+SELECT * FROM source
+""".strip()
+
+    (models_dir / "conditional_ref_model.sql").write_text(test_model_content)
+    sushi_context = Context(paths=[str(temp_project)])
+
+    # the model should load successfully without raising MissingModelError
+    model = sushi_context.get_model("sushi.conditional_ref_model")
+    assert model is not None
+
+    # Verify only the executed ref is in the dependencies
+    assert len(model.depends_on) == 1
+    assert '"memory"."sushi"."simple_model_a"' in model.depends_on
+
+    # Also the model can be rendered successfully with the executed ref
+    rendered = model.render_query()
+    assert rendered is not None
+    assert (
+        rendered.sql()
+        == 'WITH "source" AS (SELECT "simple_model_a"."a" AS "a" FROM "memory"."sushi"."simple_model_a" AS "simple_model_a") SELECT "source"."a" AS "a" FROM "source" AS "source"'
+    )
+
+    # And run plan with this conditional model for good measure
+    plan = sushi_context.plan(select_models=["sushi.conditional_ref_model", "sushi.simple_model_a"])
+    sushi_context.apply(plan)
+    upstream_ref = sushi_context.engine_adapter.fetchone("SELECT * FROM sushi.simple_model_a")
+    assert upstream_ref == (1,)
+    result = sushi_context.engine_adapter.fetchone("SELECT * FROM sushi.conditional_ref_model")
+    assert result == (1,)

@@ -3,7 +3,7 @@ Main interface for connect service.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,12 +17,20 @@ Usage::
         ListApprovedOriginsPaginator,
         ListAuthenticationProfilesPaginator,
         ListBotsPaginator,
+        ListChildHoursOfOperationsPaginator,
         ListContactEvaluationsPaginator,
+        ListContactFlowModuleAliasesPaginator,
+        ListContactFlowModuleVersionsPaginator,
         ListContactFlowModulesPaginator,
         ListContactFlowVersionsPaginator,
         ListContactFlowsPaginator,
         ListContactReferencesPaginator,
+        ListDataTableAttributesPaginator,
+        ListDataTablePrimaryValuesPaginator,
+        ListDataTableValuesPaginator,
+        ListDataTablesPaginator,
         ListDefaultVocabulariesPaginator,
+        ListEntitySecurityProfilesPaginator,
         ListEvaluationFormVersionsPaginator,
         ListEvaluationFormsPaginator,
         ListFlowAssociationsPaginator,
@@ -41,14 +49,17 @@ Usage::
         ListQueueQuickConnectsPaginator,
         ListQueuesPaginator,
         ListQuickConnectsPaginator,
+        ListRoutingProfileManualAssignmentQueuesPaginator,
         ListRoutingProfileQueuesPaginator,
         ListRoutingProfilesPaginator,
         ListRulesPaginator,
         ListSecurityKeysPaginator,
         ListSecurityProfileApplicationsPaginator,
+        ListSecurityProfileFlowModulesPaginator,
         ListSecurityProfilePermissionsPaginator,
         ListSecurityProfilesPaginator,
         ListTaskTemplatesPaginator,
+        ListTestCasesPaginator,
         ListTrafficDistributionGroupUsersPaginator,
         ListTrafficDistributionGroupsPaginator,
         ListUseCasesPaginator,
@@ -57,11 +68,14 @@ Usage::
         ListUsersPaginator,
         ListViewVersionsPaginator,
         ListViewsPaginator,
+        ListWorkspacePagesPaginator,
+        ListWorkspacesPaginator,
         SearchAgentStatusesPaginator,
         SearchAvailablePhoneNumbersPaginator,
         SearchContactFlowModulesPaginator,
         SearchContactFlowsPaginator,
         SearchContactsPaginator,
+        SearchDataTablesPaginator,
         SearchHoursOfOperationOverridesPaginator,
         SearchHoursOfOperationsPaginator,
         SearchPredefinedAttributesPaginator,
@@ -71,9 +85,13 @@ Usage::
         SearchResourceTagsPaginator,
         SearchRoutingProfilesPaginator,
         SearchSecurityProfilesPaginator,
+        SearchTestCasesPaginator,
         SearchUserHierarchyGroupsPaginator,
         SearchUsersPaginator,
+        SearchViewsPaginator,
         SearchVocabulariesPaginator,
+        SearchWorkspaceAssociationsPaginator,
+        SearchWorkspacesPaginator,
     )
 
     session = Session()
@@ -84,12 +102,20 @@ Usage::
     list_approved_origins_paginator: ListApprovedOriginsPaginator = client.get_paginator("list_approved_origins")
     list_authentication_profiles_paginator: ListAuthenticationProfilesPaginator = client.get_paginator("list_authentication_profiles")
     list_bots_paginator: ListBotsPaginator = client.get_paginator("list_bots")
+    list_child_hours_of_operations_paginator: ListChildHoursOfOperationsPaginator = client.get_paginator("list_child_hours_of_operations")
     list_contact_evaluations_paginator: ListContactEvaluationsPaginator = client.get_paginator("list_contact_evaluations")
+    list_contact_flow_module_aliases_paginator: ListContactFlowModuleAliasesPaginator = client.get_paginator("list_contact_flow_module_aliases")
+    list_contact_flow_module_versions_paginator: ListContactFlowModuleVersionsPaginator = client.get_paginator("list_contact_flow_module_versions")
     list_contact_flow_modules_paginator: ListContactFlowModulesPaginator = client.get_paginator("list_contact_flow_modules")
     list_contact_flow_versions_paginator: ListContactFlowVersionsPaginator = client.get_paginator("list_contact_flow_versions")
     list_contact_flows_paginator: ListContactFlowsPaginator = client.get_paginator("list_contact_flows")
     list_contact_references_paginator: ListContactReferencesPaginator = client.get_paginator("list_contact_references")
+    list_data_table_attributes_paginator: ListDataTableAttributesPaginator = client.get_paginator("list_data_table_attributes")
+    list_data_table_primary_values_paginator: ListDataTablePrimaryValuesPaginator = client.get_paginator("list_data_table_primary_values")
+    list_data_table_values_paginator: ListDataTableValuesPaginator = client.get_paginator("list_data_table_values")
+    list_data_tables_paginator: ListDataTablesPaginator = client.get_paginator("list_data_tables")
     list_default_vocabularies_paginator: ListDefaultVocabulariesPaginator = client.get_paginator("list_default_vocabularies")
+    list_entity_security_profiles_paginator: ListEntitySecurityProfilesPaginator = client.get_paginator("list_entity_security_profiles")
     list_evaluation_form_versions_paginator: ListEvaluationFormVersionsPaginator = client.get_paginator("list_evaluation_form_versions")
     list_evaluation_forms_paginator: ListEvaluationFormsPaginator = client.get_paginator("list_evaluation_forms")
     list_flow_associations_paginator: ListFlowAssociationsPaginator = client.get_paginator("list_flow_associations")
@@ -108,14 +134,17 @@ Usage::
     list_queue_quick_connects_paginator: ListQueueQuickConnectsPaginator = client.get_paginator("list_queue_quick_connects")
     list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
     list_quick_connects_paginator: ListQuickConnectsPaginator = client.get_paginator("list_quick_connects")
+    list_routing_profile_manual_assignment_queues_paginator: ListRoutingProfileManualAssignmentQueuesPaginator = client.get_paginator("list_routing_profile_manual_assignment_queues")
     list_routing_profile_queues_paginator: ListRoutingProfileQueuesPaginator = client.get_paginator("list_routing_profile_queues")
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
     list_rules_paginator: ListRulesPaginator = client.get_paginator("list_rules")
     list_security_keys_paginator: ListSecurityKeysPaginator = client.get_paginator("list_security_keys")
     list_security_profile_applications_paginator: ListSecurityProfileApplicationsPaginator = client.get_paginator("list_security_profile_applications")
+    list_security_profile_flow_modules_paginator: ListSecurityProfileFlowModulesPaginator = client.get_paginator("list_security_profile_flow_modules")
     list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
     list_security_profiles_paginator: ListSecurityProfilesPaginator = client.get_paginator("list_security_profiles")
     list_task_templates_paginator: ListTaskTemplatesPaginator = client.get_paginator("list_task_templates")
+    list_test_cases_paginator: ListTestCasesPaginator = client.get_paginator("list_test_cases")
     list_traffic_distribution_group_users_paginator: ListTrafficDistributionGroupUsersPaginator = client.get_paginator("list_traffic_distribution_group_users")
     list_traffic_distribution_groups_paginator: ListTrafficDistributionGroupsPaginator = client.get_paginator("list_traffic_distribution_groups")
     list_use_cases_paginator: ListUseCasesPaginator = client.get_paginator("list_use_cases")
@@ -124,11 +153,14 @@ Usage::
     list_users_paginator: ListUsersPaginator = client.get_paginator("list_users")
     list_view_versions_paginator: ListViewVersionsPaginator = client.get_paginator("list_view_versions")
     list_views_paginator: ListViewsPaginator = client.get_paginator("list_views")
+    list_workspace_pages_paginator: ListWorkspacePagesPaginator = client.get_paginator("list_workspace_pages")
+    list_workspaces_paginator: ListWorkspacesPaginator = client.get_paginator("list_workspaces")
     search_agent_statuses_paginator: SearchAgentStatusesPaginator = client.get_paginator("search_agent_statuses")
     search_available_phone_numbers_paginator: SearchAvailablePhoneNumbersPaginator = client.get_paginator("search_available_phone_numbers")
     search_contact_flow_modules_paginator: SearchContactFlowModulesPaginator = client.get_paginator("search_contact_flow_modules")
     search_contact_flows_paginator: SearchContactFlowsPaginator = client.get_paginator("search_contact_flows")
     search_contacts_paginator: SearchContactsPaginator = client.get_paginator("search_contacts")
+    search_data_tables_paginator: SearchDataTablesPaginator = client.get_paginator("search_data_tables")
     search_hours_of_operation_overrides_paginator: SearchHoursOfOperationOverridesPaginator = client.get_paginator("search_hours_of_operation_overrides")
     search_hours_of_operations_paginator: SearchHoursOfOperationsPaginator = client.get_paginator("search_hours_of_operations")
     search_predefined_attributes_paginator: SearchPredefinedAttributesPaginator = client.get_paginator("search_predefined_attributes")
@@ -138,9 +170,13 @@ Usage::
     search_resource_tags_paginator: SearchResourceTagsPaginator = client.get_paginator("search_resource_tags")
     search_routing_profiles_paginator: SearchRoutingProfilesPaginator = client.get_paginator("search_routing_profiles")
     search_security_profiles_paginator: SearchSecurityProfilesPaginator = client.get_paginator("search_security_profiles")
+    search_test_cases_paginator: SearchTestCasesPaginator = client.get_paginator("search_test_cases")
     search_user_hierarchy_groups_paginator: SearchUserHierarchyGroupsPaginator = client.get_paginator("search_user_hierarchy_groups")
     search_users_paginator: SearchUsersPaginator = client.get_paginator("search_users")
+    search_views_paginator: SearchViewsPaginator = client.get_paginator("search_views")
     search_vocabularies_paginator: SearchVocabulariesPaginator = client.get_paginator("search_vocabularies")
+    search_workspace_associations_paginator: SearchWorkspaceAssociationsPaginator = client.get_paginator("search_workspace_associations")
+    search_workspaces_paginator: SearchWorkspacesPaginator = client.get_paginator("search_workspaces")
     ```
 """
 
@@ -151,12 +187,20 @@ from .paginator import (
     ListApprovedOriginsPaginator,
     ListAuthenticationProfilesPaginator,
     ListBotsPaginator,
+    ListChildHoursOfOperationsPaginator,
     ListContactEvaluationsPaginator,
+    ListContactFlowModuleAliasesPaginator,
     ListContactFlowModulesPaginator,
+    ListContactFlowModuleVersionsPaginator,
     ListContactFlowsPaginator,
     ListContactFlowVersionsPaginator,
     ListContactReferencesPaginator,
+    ListDataTableAttributesPaginator,
+    ListDataTablePrimaryValuesPaginator,
+    ListDataTablesPaginator,
+    ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
+    ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListFlowAssociationsPaginator,
@@ -175,14 +219,17 @@ from .paginator import (
     ListQueueQuickConnectsPaginator,
     ListQueuesPaginator,
     ListQuickConnectsPaginator,
+    ListRoutingProfileManualAssignmentQueuesPaginator,
     ListRoutingProfileQueuesPaginator,
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
     ListSecurityProfileApplicationsPaginator,
+    ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
     ListSecurityProfilesPaginator,
     ListTaskTemplatesPaginator,
+    ListTestCasesPaginator,
     ListTrafficDistributionGroupsPaginator,
     ListTrafficDistributionGroupUsersPaginator,
     ListUseCasesPaginator,
@@ -191,11 +238,14 @@ from .paginator import (
     ListUsersPaginator,
     ListViewsPaginator,
     ListViewVersionsPaginator,
+    ListWorkspacePagesPaginator,
+    ListWorkspacesPaginator,
     SearchAgentStatusesPaginator,
     SearchAvailablePhoneNumbersPaginator,
     SearchContactFlowModulesPaginator,
     SearchContactFlowsPaginator,
     SearchContactsPaginator,
+    SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
     SearchPredefinedAttributesPaginator,
@@ -205,9 +255,13 @@ from .paginator import (
     SearchResourceTagsPaginator,
     SearchRoutingProfilesPaginator,
     SearchSecurityProfilesPaginator,
+    SearchTestCasesPaginator,
     SearchUserHierarchyGroupsPaginator,
     SearchUsersPaginator,
+    SearchViewsPaginator,
     SearchVocabulariesPaginator,
+    SearchWorkspaceAssociationsPaginator,
+    SearchWorkspacesPaginator,
 )
 
 Client = ConnectClient
@@ -221,12 +275,20 @@ __all__ = (
     "ListApprovedOriginsPaginator",
     "ListAuthenticationProfilesPaginator",
     "ListBotsPaginator",
+    "ListChildHoursOfOperationsPaginator",
     "ListContactEvaluationsPaginator",
+    "ListContactFlowModuleAliasesPaginator",
+    "ListContactFlowModuleVersionsPaginator",
     "ListContactFlowModulesPaginator",
     "ListContactFlowVersionsPaginator",
     "ListContactFlowsPaginator",
     "ListContactReferencesPaginator",
+    "ListDataTableAttributesPaginator",
+    "ListDataTablePrimaryValuesPaginator",
+    "ListDataTableValuesPaginator",
+    "ListDataTablesPaginator",
     "ListDefaultVocabulariesPaginator",
+    "ListEntitySecurityProfilesPaginator",
     "ListEvaluationFormVersionsPaginator",
     "ListEvaluationFormsPaginator",
     "ListFlowAssociationsPaginator",
@@ -245,14 +307,17 @@ __all__ = (
     "ListQueueQuickConnectsPaginator",
     "ListQueuesPaginator",
     "ListQuickConnectsPaginator",
+    "ListRoutingProfileManualAssignmentQueuesPaginator",
     "ListRoutingProfileQueuesPaginator",
     "ListRoutingProfilesPaginator",
     "ListRulesPaginator",
     "ListSecurityKeysPaginator",
     "ListSecurityProfileApplicationsPaginator",
+    "ListSecurityProfileFlowModulesPaginator",
     "ListSecurityProfilePermissionsPaginator",
     "ListSecurityProfilesPaginator",
     "ListTaskTemplatesPaginator",
+    "ListTestCasesPaginator",
     "ListTrafficDistributionGroupUsersPaginator",
     "ListTrafficDistributionGroupsPaginator",
     "ListUseCasesPaginator",
@@ -261,11 +326,14 @@ __all__ = (
     "ListUsersPaginator",
     "ListViewVersionsPaginator",
     "ListViewsPaginator",
+    "ListWorkspacePagesPaginator",
+    "ListWorkspacesPaginator",
     "SearchAgentStatusesPaginator",
     "SearchAvailablePhoneNumbersPaginator",
     "SearchContactFlowModulesPaginator",
     "SearchContactFlowsPaginator",
     "SearchContactsPaginator",
+    "SearchDataTablesPaginator",
     "SearchHoursOfOperationOverridesPaginator",
     "SearchHoursOfOperationsPaginator",
     "SearchPredefinedAttributesPaginator",
@@ -275,7 +343,11 @@ __all__ = (
     "SearchResourceTagsPaginator",
     "SearchRoutingProfilesPaginator",
     "SearchSecurityProfilesPaginator",
+    "SearchTestCasesPaginator",
     "SearchUserHierarchyGroupsPaginator",
     "SearchUsersPaginator",
+    "SearchViewsPaginator",
     "SearchVocabulariesPaginator",
+    "SearchWorkspaceAssociationsPaginator",
+    "SearchWorkspacesPaginator",
 )

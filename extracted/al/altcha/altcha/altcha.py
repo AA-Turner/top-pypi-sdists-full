@@ -426,13 +426,26 @@ def create_challenge(
         salt_params = dict(urllib.parse.parse_qsl(salt_query))
 
     if options.expires:
-        salt_params["expires"] = str(int(time.mktime(options.expires.timetuple())))
+        expires = options.expires
+
+        if expires.tzinfo is None:
+            # Backward compatibility: assume naive datetimes are local time
+            timestamp = int(time.mktime(expires.timetuple()))
+        else:
+            # Aware datetimes: use true UTC timestamp
+            timestamp = int(expires.timestamp())
+
+        salt_params["expires"] = str(timestamp)
 
     if options.params:
         salt_params.update(options.params)
 
     if salt_params:
         salt += "?" + urllib.parse.urlencode(salt_params)
+
+    # Add a delimiter to prevent parameter splicing
+    if not salt.endswith("&"):
+        salt += "&"
 
     challenge = hash_hex(algorithm, (salt + str(number)).encode())
     signature = hmac_hex(algorithm, challenge.encode(), options.hmac_key)

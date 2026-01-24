@@ -91,6 +91,7 @@ class AliasedGroup(click.Group):
     "--relay-url",
     default=public_relay.RENDEZVOUS_RELAY,
     envvar='WORMHOLE_RELAY_URL',
+    show_envvar=True,
     metavar="URL",
     help="rendezvous relay to use",
 )
@@ -98,6 +99,7 @@ class AliasedGroup(click.Group):
     "--transit-helper",
     default=public_relay.TRANSIT_RELAY,
     envvar='WORMHOLE_TRANSIT_HELPER',
+    show_envvar=True,
     metavar="tcp:HOST:PORT",
     help="transit relay to use",
 )
@@ -273,7 +275,10 @@ def help(context, **kwargs):
 @click.option(
     "--qr/--no-qr",
     default=True,
-    help="Generate and show ASCII-based QR code.")
+    help="Generate and show ASCII-based QR code.",
+    envvar="WORMHOLE_QR",
+    show_envvar=True,
+)
 @click.argument("what", required=False, type=click.Path(path_type=str))
 @click.pass_obj
 def send(cfg, **kwargs):
@@ -309,6 +314,7 @@ def go(f, cfg):
     "--accept-file",
     is_flag=True,
     envvar="WORMHOLE_ACCEPT_FILE",
+    show_envvar=True,
     help="accept file transfer without asking for confirmation",
 )
 @click.option(
@@ -316,7 +322,9 @@ def go(f, cfg):
     "-o",
     metavar="FILENAME|DIRNAME",
     help=("The file or directory to create, overriding the name suggested"
-          " by the sender."),
+          " by the sender. If the directory exists already, the incoming transfer"
+          " will be put inside the specified directory."
+    ),
 )
 @click.option(
     "--allocate",

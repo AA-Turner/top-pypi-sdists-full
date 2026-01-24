@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, StrictStr, field_validator
 
 
 class ConvertToManagedIcebergTableRequest(BaseModel):
@@ -48,9 +48,10 @@ class ConvertToManagedIcebergTableRequest(BaseModel):
             raise ValueError("must validate the enum values ('COMPATIBLE','OPTIMIZED')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -75,7 +76,7 @@ class ConvertToManagedIcebergTableRequest(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -90,9 +91,9 @@ class ConvertToManagedIcebergTableRequest(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ConvertToManagedIcebergTableRequest.parse_obj(obj)
+            return ConvertToManagedIcebergTableRequest.model_validate(obj)
 
-        _obj = ConvertToManagedIcebergTableRequest.parse_obj(
+        _obj = ConvertToManagedIcebergTableRequest.model_validate(
             {
                 "base_location": obj.get("base_location"),
                 "storage_serialization_policy": obj.get("storage_serialization_policy"),

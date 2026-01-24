@@ -60,13 +60,6 @@ def _add_telemetry_record(
             bound_args.apply_defaults()
 
             arguments = dict(bound_args.arguments)
-            if "self" in arguments:
-                del arguments["self"]
-
-            params = list(arguments.keys())
-            if params and params[0] == "cls" and isinstance(arguments["cls"], type):
-                del arguments["cls"]
-
             record_params = event.parse(arguments) or {}
             if hasattr(event, "parse_result"):
                 record_params.update(event.parse_result(result))

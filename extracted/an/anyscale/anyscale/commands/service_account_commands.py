@@ -106,24 +106,3 @@ def delete(email: Optional[str], name: Optional[str]) -> None:
         log.info(f"Service account {email or name} deleted successfully.")
     except ValueError as e:
         log.error(f"Error deleting service account: {e}")
-
-
-@service_account_cli.command(
-    name="rotate-api-keys", help="Rotate all api keys of a service account."
-)
-@click.option(
-    "--email", help="Rotate API keys for the service account with this email.", type=str
-)
-@click.option(
-    "--name", help="Rotate API keys for the service account with this name.", type=str
-)
-def rotate_api_keys(email: Optional[str], name: Optional[str]) -> None:
-    try:
-        api_key = anyscale.service_account.rotate_api_keys(email, name)
-
-        log.info(
-            f"\nAll API keys for service account {email or name} rotated successfully."
-        )
-        _print_new_api_key(api_key)
-    except ValueError as e:
-        log.error(f"Error rotating API keys: {e}")

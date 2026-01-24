@@ -1,4 +1,5 @@
 import collections.abc
+import modal._utils.task_command_router_client
 import modal.client
 import modal.stream_type
 import typing
@@ -17,29 +18,10 @@ def _container_process_logs_iterator(
 
 T = typing.TypeVar("T")
 
-class _StreamReader(typing.Generic[T]):
-    """Retrieve logs from a stream (`stdout` or `stderr`).
+class _StreamReaderThroughServer(typing.Generic[T]):
+    """A StreamReader implementation that reads from the server."""
 
-    As an asynchronous iterable, the object supports the `for` and `async for`
-    statements. Just loop over the object to read in chunks.
-
-    **Usage**
-
-    ```python fixture:running_app
-    from modal import Sandbox
-
-    sandbox = Sandbox.create(
-        "bash",
-        "-c",
-        "for i in $(seq 1 10); do echo foo; sleep 0.1; done",
-        app=running_app,
-    )
-    for message in sandbox.stdout:
-        print(f"Message: {message}")
-    ```
-    """
-
-    _stream: typing.Optional[collections.abc.AsyncGenerator[typing.Optional[bytes], None]]
+    _stream: typing.Optional[collections.abc.AsyncGenerator[T, None]]
 
     def __init__(
         self,
@@ -61,19 +43,7 @@ class _StreamReader(typing.Generic[T]):
         ...
 
     async def read(self) -> T:
-        """Fetch the entire contents of the stream until EOF.
-
-        **Usage**
-
-        ```python fixture:running_app
-        from modal import Sandbox
-
-        sandbox = Sandbox.create("echo", "hello", app=running_app)
-        sandbox.wait()
-
-        print(sandbox.stdout.read())
-        ```
-        """
+        """Fetch the entire contents of the stream until EOF."""
         ...
 
     async def _consume_container_process_stream(self):
@@ -84,9 +54,7 @@ class _StreamReader(typing.Generic[T]):
         """Streams the container process buffer to the reader."""
         ...
 
-    def _get_logs(
-        self, skip_empty_messages: bool = True
-    ) -> collections.abc.AsyncGenerator[typing.Optional[bytes], None]:
+    def _get_logs(self, skip_empty_messages: bool = True) -> collections.abc.AsyncGenerator[bytes, None]:
         """Streams sandbox or process logs from the server to the reader.
 
         Logs returned by this method may contain partial or multiple lines at a time.
@@ -96,24 +64,194 @@ class _StreamReader(typing.Generic[T]):
         """
         ...
 
-    def _get_logs_by_line(self) -> collections.abc.AsyncGenerator[typing.Optional[bytes], None]:
+    def _get_logs_by_line(self) -> collections.abc.AsyncGenerator[bytes, None]:
         """Process logs from the server and yield complete lines only."""
         ...
 
-    def _ensure_stream(self) -> collections.abc.AsyncGenerator[typing.Optional[bytes], None]: ...
-    def __aiter__(self) -> collections.abc.AsyncIterator[T]:
+    def __aiter__(self) -> collections.abc.AsyncGenerator[T, None]: ...
+    async def aclose(self):
         """mdmd:hidden"""
         ...
 
-    async def __anext__(self) -> T:
+def _decode_bytes_stream_to_str(
+    stream: collections.abc.AsyncGenerator[bytes, None],
+) -> collections.abc.AsyncGenerator[str, None]:
+    """Incrementally decode a bytes async generator as UTF-8 without breaking on chunk boundaries.
+
+    This function uses a streaming UTF-8 decoder so that multi-byte characters split across
+    chunks are handled correctly instead of raising ``UnicodeDecodeError``.
+    """
+    ...
+
+def _stream_by_line(stream: collections.abc.AsyncGenerator[bytes, None]) -> collections.abc.AsyncGenerator[bytes, None]:
+    """Yield complete lines only (ending with
+    ), buffering partial lines until complete.
+
+        When this generator returns, the underlying generator is closed.
+
+    """
+    ...
+
+class _StreamReaderThroughCommandRouterParams:
+    """_StreamReaderThroughCommandRouterParams(file_descriptor: 'api_pb2.FileDescriptor.ValueType', task_id: str, object_id: str, command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient, deadline: Optional[float])"""
+
+    file_descriptor: int
+    task_id: str
+    object_id: str
+    command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient
+    deadline: typing.Optional[float]
+
+    def __init__(
+        self,
+        file_descriptor: int,
+        task_id: str,
+        object_id: str,
+        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        deadline: typing.Optional[float],
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+def _stdio_stream_from_command_router(
+    params: _StreamReaderThroughCommandRouterParams,
+) -> collections.abc.AsyncGenerator[bytes, None]:
+    """Stream raw bytes from the router client."""
+    ...
+
+class _BytesStreamReaderThroughCommandRouter:
+    """StreamReader implementation that will read directly from the worker that
+    hosts the sandbox.
+
+    This implementation is used for non-text streams.
+    """
+    def __init__(self, params: _StreamReaderThroughCommandRouterParams) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    @property
+    def file_descriptor(self) -> int: ...
+    async def read(self) -> bytes: ...
+    def __aiter__(self) -> collections.abc.AsyncGenerator[bytes, None]: ...
+    async def _print_all(self, output_stream: typing.TextIO) -> None: ...
+
+class _TextStreamReaderThroughCommandRouter:
+    """StreamReader implementation that will read directly from the worker
+    that hosts the sandbox.
+
+    This implementation is used for text streams.
+    """
+    def __init__(self, params: _StreamReaderThroughCommandRouterParams, by_line: bool) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    @property
+    def file_descriptor(self) -> int: ...
+    async def read(self) -> str: ...
+    def __aiter__(self) -> collections.abc.AsyncGenerator[str, None]: ...
+    async def _print_all(self, output_stream: typing.TextIO) -> None: ...
+
+class _StdoutPrintingStreamReaderThroughCommandRouter(typing.Generic[T]):
+    """StreamReader implementation for StreamType.STDOUT when using the task command router.
+
+    This mirrors the behavior from the server-backed implementation: the stream is printed to
+    the local stdout immediately and is not readable via StreamReader methods.
+    """
+
+    _reader: typing.Union[_TextStreamReaderThroughCommandRouter, _BytesStreamReaderThroughCommandRouter]
+
+    def __init__(
+        self, reader: typing.Union[_TextStreamReaderThroughCommandRouter, _BytesStreamReaderThroughCommandRouter]
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    @property
+    def file_descriptor(self) -> int: ...
+    def _start_printing_task(self) -> None: ...
+    async def read(self) -> T: ...
+    def __aiter__(self) -> collections.abc.AsyncIterator[T]: ...
+    async def __anext__(self) -> T: ...
+    async def aclose(self): ...
+
+class _DevnullStreamReader(typing.Generic[T]):
+    """StreamReader implementation for a stream configured with
+    StreamType.DEVNULL. Throws an error if read or any other method is
+    called.
+    """
+    def __init__(self, file_descriptor: int) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    @property
+    def file_descriptor(self) -> int: ...
+    async def read(self) -> T: ...
+    def __aiter__(self) -> collections.abc.AsyncIterator[T]: ...
+    async def __anext__(self) -> T: ...
+    async def aclose(self): ...
+
+class _StreamReader(typing.Generic[T]):
+    """Retrieve logs from a stream (`stdout` or `stderr`).
+
+    As an asynchronous iterable, the object supports the `for` and `async for`
+    statements. Just loop over the object to read in chunks.
+    """
+
+    _impl: typing.Union[
+        _StreamReaderThroughServer,
+        _DevnullStreamReader,
+        _TextStreamReaderThroughCommandRouter,
+        _BytesStreamReaderThroughCommandRouter,
+        _StdoutPrintingStreamReaderThroughCommandRouter,
+    ]
+    _read_gen: typing.Optional[collections.abc.AsyncGenerator[T, None]]
+
+    def __init__(
+        self,
+        file_descriptor: int,
+        object_id: str,
+        object_type: typing.Literal["sandbox", "container_process"],
+        client: modal.client._Client,
+        stream_type: modal.stream_type.StreamType = modal.stream_type.StreamType.PIPE,
+        text: bool = True,
+        by_line: bool = False,
+        deadline: typing.Optional[float] = None,
+        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
+        task_id: typing.Optional[str] = None,
+    ) -> None:
         """mdmd:hidden"""
+        ...
+
+    @property
+    def file_descriptor(self) -> int:
+        """Possible values are `1` for stdout and `2` for stderr."""
+        ...
+
+    async def read(self) -> T:
+        """Fetch the entire contents of the stream until EOF."""
+        ...
+
+    def __aiter__(self) -> collections.abc.AsyncGenerator[T, None]: ...
+    async def __anext__(self) -> T:
+        """Deprecated: This exists for backwards compatibility and will be removed in a future version of Modal
+
+        Only use next/anext on the return value of iter/aiter on the StreamReader object (treat streamreader as
+        an iterable, not an iterator).
+        """
         ...
 
     async def aclose(self):
         """mdmd:hidden"""
         ...
 
-class _StreamWriter:
+class _StreamWriterThroughServer:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
     def __init__(
         self, object_id: str, object_type: typing.Literal["sandbox", "container_process"], client: modal.client._Client
@@ -127,24 +265,71 @@ class _StreamWriter:
 
         This is non-blocking and queues the data to an internal buffer. Must be
         used along with the `drain()` method, which flushes the buffer.
+        """
+        ...
+
+    def write_eof(self) -> None:
+        """Close the write end of the stream after the buffered data is drained.
+
+        If the process was blocked on input, it will become unblocked after
+        `write_eof()`. This method needs to be used along with the `drain()`
+        method, which flushes the EOF to the process.
+        """
+        ...
+
+    async def drain(self) -> None:
+        """Flush the write buffer and send data to the running process.
+
+        This is a flow control method that blocks until data is sent. It returns
+        when it is appropriate to continue writing data to the stream.
+        """
+        ...
+
+class _StreamWriterThroughCommandRouter:
+    def __init__(
+        self,
+        object_id: str,
+        command_router_client: modal._utils.task_command_router_client.TaskCommandRouterClient,
+        task_id: str,
+    ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def write(self, data: typing.Union[bytes, bytearray, memoryview, str]) -> None: ...
+    def write_eof(self) -> None: ...
+    async def drain(self) -> None: ...
+
+class _StreamWriter:
+    """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
+    def __init__(
+        self,
+        object_id: str,
+        object_type: typing.Literal["sandbox", "container_process"],
+        client: modal.client._Client,
+        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
+        task_id: typing.Optional[str] = None,
+    ) -> None:
+        """mdmd:hidden"""
+        ...
+
+    def write(self, data: typing.Union[bytes, bytearray, memoryview, str]) -> None:
+        """Write data to the stream but does not send it immediately.
+
+        This is non-blocking and queues the data to an internal buffer. Must be
+        used along with the `drain()` method, which flushes the buffer.
 
         **Usage**
 
-        ```python fixture:running_app
-        from modal import Sandbox
-
-        sandbox = Sandbox.create(
+        ```python fixture:sandbox
+        proc = sandbox.exec(
             "bash",
             "-c",
             "while read line; do echo $line; done",
-            app=running_app,
         )
-        sandbox.stdin.write(b"foo\n")
-        sandbox.stdin.write(b"bar\n")
-        sandbox.stdin.write_eof()
-
-        sandbox.stdin.drain()
-        sandbox.wait()
+        proc.stdin.write(b"foo\n")
+        proc.stdin.write(b"bar\n")
+        proc.stdin.write_eof()
+        proc.stdin.drain()
         ```
         """
         ...
@@ -181,31 +366,21 @@ class _StreamWriter:
 
 T_INNER = typing.TypeVar("T_INNER", covariant=True)
 
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
-
 class StreamReader(typing.Generic[T]):
     """Retrieve logs from a stream (`stdout` or `stderr`).
 
     As an asynchronous iterable, the object supports the `for` and `async for`
     statements. Just loop over the object to read in chunks.
-
-    **Usage**
-
-    ```python fixture:running_app
-    from modal import Sandbox
-
-    sandbox = Sandbox.create(
-        "bash",
-        "-c",
-        "for i in $(seq 1 10); do echo foo; sleep 0.1; done",
-        app=running_app,
-    )
-    for message in sandbox.stdout:
-        print(f"Message: {message}")
-    ```
     """
 
-    _stream: typing.Optional[collections.abc.AsyncGenerator[typing.Optional[bytes], None]]
+    _impl: typing.Union[
+        _StreamReaderThroughServer,
+        _DevnullStreamReader,
+        _TextStreamReaderThroughCommandRouter,
+        _BytesStreamReaderThroughCommandRouter,
+        _StdoutPrintingStreamReaderThroughCommandRouter,
+    ]
+    _read_gen: typing.Optional[collections.abc.AsyncGenerator[T, None]]
 
     def __init__(
         self,
@@ -217,6 +392,8 @@ class StreamReader(typing.Generic[T]):
         text: bool = True,
         by_line: bool = False,
         deadline: typing.Optional[float] = None,
+        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
+        task_id: typing.Optional[str] = None,
     ) -> None:
         """mdmd:hidden"""
         ...
@@ -226,119 +403,33 @@ class StreamReader(typing.Generic[T]):
         """Possible values are `1` for stdout and `2` for stderr."""
         ...
 
-    class __read_spec(typing_extensions.Protocol[T_INNER, SUPERSELF]):
+    class __read_spec(typing_extensions.Protocol[T_INNER]):
         def __call__(self, /) -> T_INNER:
-            """Fetch the entire contents of the stream until EOF.
-
-            **Usage**
-
-            ```python fixture:running_app
-            from modal import Sandbox
-
-            sandbox = Sandbox.create("echo", "hello", app=running_app)
-            sandbox.wait()
-
-            print(sandbox.stdout.read())
-            ```
-            """
+            """Fetch the entire contents of the stream until EOF."""
             ...
 
         async def aio(self, /) -> T_INNER:
-            """Fetch the entire contents of the stream until EOF.
-
-            **Usage**
-
-            ```python fixture:running_app
-            from modal import Sandbox
-
-            sandbox = Sandbox.create("echo", "hello", app=running_app)
-            sandbox.wait()
-
-            print(sandbox.stdout.read())
-            ```
-            """
+            """Fetch the entire contents of the stream until EOF."""
             ...
 
-    read: __read_spec[T, typing_extensions.Self]
+    read: __read_spec[T]
 
-    class ___consume_container_process_stream_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /):
-            """Consume the container process stream and store messages in the buffer."""
-            ...
-
-        async def aio(self, /):
-            """Consume the container process stream and store messages in the buffer."""
-            ...
-
-    _consume_container_process_stream: ___consume_container_process_stream_spec[typing_extensions.Self]
-
-    class ___stream_container_process_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> typing.Generator[tuple[typing.Optional[bytes], str], None, None]:
-            """Streams the container process buffer to the reader."""
-            ...
-
-        def aio(self, /) -> collections.abc.AsyncGenerator[tuple[typing.Optional[bytes], str], None]:
-            """Streams the container process buffer to the reader."""
-            ...
-
-    _stream_container_process: ___stream_container_process_spec[typing_extensions.Self]
-
-    class ___get_logs_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /, skip_empty_messages: bool = True) -> typing.Generator[typing.Optional[bytes], None, None]:
-            """Streams sandbox or process logs from the server to the reader.
-
-            Logs returned by this method may contain partial or multiple lines at a time.
-
-            When the stream receives an EOF, it yields None. Once an EOF is received,
-            subsequent invocations will not yield logs.
-            """
-            ...
-
-        def aio(
-            self, /, skip_empty_messages: bool = True
-        ) -> collections.abc.AsyncGenerator[typing.Optional[bytes], None]:
-            """Streams sandbox or process logs from the server to the reader.
-
-            Logs returned by this method may contain partial or multiple lines at a time.
-
-            When the stream receives an EOF, it yields None. Once an EOF is received,
-            subsequent invocations will not yield logs.
-            """
-            ...
-
-    _get_logs: ___get_logs_spec[typing_extensions.Self]
-
-    class ___get_logs_by_line_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> typing.Generator[typing.Optional[bytes], None, None]:
-            """Process logs from the server and yield complete lines only."""
-            ...
-
-        def aio(self, /) -> collections.abc.AsyncGenerator[typing.Optional[bytes], None]:
-            """Process logs from the server and yield complete lines only."""
-            ...
-
-    _get_logs_by_line: ___get_logs_by_line_spec[typing_extensions.Self]
-
-    class ___ensure_stream_spec(typing_extensions.Protocol[SUPERSELF]):
-        def __call__(self, /) -> typing.Generator[typing.Optional[bytes], None, None]: ...
-        def aio(self, /) -> collections.abc.AsyncGenerator[typing.Optional[bytes], None]: ...
-
-    _ensure_stream: ___ensure_stream_spec[typing_extensions.Self]
-
-    def __iter__(self) -> typing.Iterator[T]:
-        """mdmd:hidden"""
-        ...
-
-    def __aiter__(self) -> collections.abc.AsyncIterator[T]:
-        """mdmd:hidden"""
-        ...
-
+    def __iter__(self) -> typing.Generator[T, None, None]: ...
+    def __aiter__(self) -> collections.abc.AsyncGenerator[T, None]: ...
     def __next__(self) -> T:
-        """mdmd:hidden"""
+        """Deprecated: This exists for backwards compatibility and will be removed in a future version of Modal
+
+        Only use next/anext on the return value of iter/aiter on the StreamReader object (treat streamreader as
+        an iterable, not an iterator).
+        """
         ...
 
     async def __anext__(self) -> T:
-        """mdmd:hidden"""
+        """Deprecated: This exists for backwards compatibility and will be removed in a future version of Modal
+
+        Only use next/anext on the return value of iter/aiter on the StreamReader object (treat streamreader as
+        an iterable, not an iterator).
+        """
         ...
 
     def close(self):
@@ -352,12 +443,16 @@ class StreamReader(typing.Generic[T]):
 class StreamWriter:
     """Provides an interface to buffer and write logs to a sandbox or container process stream (`stdin`)."""
     def __init__(
-        self, object_id: str, object_type: typing.Literal["sandbox", "container_process"], client: modal.client.Client
+        self,
+        object_id: str,
+        object_type: typing.Literal["sandbox", "container_process"],
+        client: modal.client.Client,
+        command_router_client: typing.Optional[modal._utils.task_command_router_client.TaskCommandRouterClient] = None,
+        task_id: typing.Optional[str] = None,
     ) -> None:
         """mdmd:hidden"""
         ...
 
-    def _get_next_index(self) -> int: ...
     def write(self, data: typing.Union[bytes, bytearray, memoryview, str]) -> None:
         """Write data to the stream but does not send it immediately.
 
@@ -366,21 +461,16 @@ class StreamWriter:
 
         **Usage**
 
-        ```python fixture:running_app
-        from modal import Sandbox
-
-        sandbox = Sandbox.create(
+        ```python fixture:sandbox
+        proc = sandbox.exec(
             "bash",
             "-c",
             "while read line; do echo $line; done",
-            app=running_app,
         )
-        sandbox.stdin.write(b"foo\n")
-        sandbox.stdin.write(b"bar\n")
-        sandbox.stdin.write_eof()
-
-        sandbox.stdin.drain()
-        sandbox.wait()
+        proc.stdin.write(b"foo\n")
+        proc.stdin.write(b"bar\n")
+        proc.stdin.write_eof()
+        proc.stdin.drain()
         ```
         """
         ...
@@ -394,7 +484,7 @@ class StreamWriter:
         """
         ...
 
-    class __drain_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __drain_spec(typing_extensions.Protocol):
         def __call__(self, /) -> None:
             """Flush the write buffer and send data to the running process.
 
@@ -437,4 +527,4 @@ class StreamWriter:
             """
             ...
 
-    drain: __drain_spec[typing_extensions.Self]
+    drain: __drain_spec

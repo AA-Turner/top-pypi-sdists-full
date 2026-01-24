@@ -5,10 +5,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-pub mod features;
-pub mod lsp;
 pub mod module_helpers;
-pub mod queue;
-pub mod server;
-pub mod transaction_manager;
-pub mod workspace;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub mod non_wasm;
+pub mod wasm;

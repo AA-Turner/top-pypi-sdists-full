@@ -33,6 +33,7 @@ from checkov.terraform.graph_builder.local_graph import TerraformLocalGraph
 from checkov.terraform.tag_providers import get_resource_tags
 from checkov.common.runners.base_runner import strtobool
 from checkov.terraform.tf_parser import TFParser
+from checkov.common.util.env_vars_config import env_vars_config
 
 if TYPE_CHECKING:
     from checkov.common.typing import _SkippedCheck, LibraryGraph, LibraryGraphConnector
@@ -126,7 +127,7 @@ class Runner(BaseTerraformRunner[_TerraformDefinitions, _TerraformContext, TFDef
                     root_folder)
         else:
             logging.info("Scanning root folder using existing tf_definitions")
-            if root_folder is None:
+            if root_folder is None and files is None:
                 # this shouldn't happen
                 raise Exception("Root directory was not specified")
 
@@ -205,7 +206,7 @@ class Runner(BaseTerraformRunner[_TerraformDefinitions, _TerraformContext, TFDef
     def check_tf_definition(
         self,
         report: Report,
-        root_folder: str,
+        root_folder: str | None,
         runner_filter: RunnerFilter,
         collect_skip_comments: bool = True,
     ) -> None:
@@ -297,7 +298,7 @@ class Runner(BaseTerraformRunner[_TerraformDefinitions, _TerraformContext, TFDef
         definition: dict[str, list[dict[str, Any]]],
         definitions_context: _TerraformContext,
         full_file_path: TFDefinitionKey,
-        root_folder: str,
+        root_folder: str | None,
         report: Report,
         scanned_file: str,
         runner_filter: RunnerFilter,
@@ -326,7 +327,7 @@ class Runner(BaseTerraformRunner[_TerraformDefinitions, _TerraformContext, TFDef
         entities: list[dict[str, Any]],
         definition_context: _TerraformContext,
         full_file_path: TFDefinitionKey,
-        root_folder: str,
+        root_folder: str | None ,
         report: Report,
         scanned_file: str,
         block_type: str,
@@ -339,6 +340,12 @@ class Runner(BaseTerraformRunner[_TerraformDefinitions, _TerraformContext, TFDef
             return
 
         for entity in entities:
+            virtual_resources = entity.get("virtual_resources")
+            if (env_vars_config.RAW_TF_IN_GRAPH_ENV and virtual_resources
+                    and isinstance(virtual_resources, list) and len(virtual_resources) > 0):
+                # We want to skip violations for raw TF resources and keep only virtual one's. The raw resource
+                # should have an array of attached virtual resources so we check it and skip if needed
+                continue
             entity_evaluations = None
             context_parser = parser_registry.context_parsers[block_type]
             definition_path = context_parser.get_entity_context_path(entity)

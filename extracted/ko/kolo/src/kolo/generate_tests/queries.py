@@ -7,7 +7,7 @@ from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from enum import Enum, auto
 from functools import total_ordering
-from itertools import chain, product
+from itertools import product
 from textwrap import dedent
 from typing import Any, Dict, List, Set, Tuple, Union
 
@@ -36,6 +36,15 @@ TIMEDELTA_REPR_REGEX = re.compile(
 )
 TIMEDELTA_STR_REGEX = re.compile(r"(-?\d+) days (\d+)\.(\d+) seconds")
 TIMEDELTA_MICROSECONDS_REGEX = re.compile(r"\d+")
+
+
+def has_column_expression(expr):
+    """Check if an expression is or contains a Column (handles Django 5.2+ aliases)"""
+    if isinstance(expr, sqlglot.exp.Column):
+        return True
+    if isinstance(expr, sqlglot.exp.Alias):
+        return isinstance(expr.this, sqlglot.exp.Column)
+    return False
 
 
 def is_auto_now(field):
@@ -691,6 +700,8 @@ class SQLParser:
         ]
         returning = parsed_query.find(sqlglot.expressions.Returning)
         values = parsed_query.find(sqlglot.expressions.Values)
+        if values is None:
+            return  # Django 5.2+ may use different SQL format for bulk inserts
         for sql_values_tuple in values.expressions:
             value_columns = [column for column in sql_values_tuple.iter_expressions()]
             zipped_columns = list(zip(schema_columns, value_columns))
@@ -768,6 +779,10 @@ class SQLParser:
     def parse_columns(self, columns, row, schema_data):
         columns_by_table: Dict[str, List[DjangoField]] = {}
         for column, value in zip(columns, row):
+            # Handle aliases (Django 5.2+ adds AS aliases to column names)
+            if isinstance(column, sqlglot.exp.Alias):
+                column = column.this
+
             if not isinstance(column, sqlglot.exp.Column):
                 continue
 
@@ -847,9 +862,7 @@ class SQLParser:
             if isinstance(parsed_query, sqlglot.exp.Select):
                 columns = [column for column in parsed_query.iter_expressions()]
                 # Skip queries with no columns, eg .count(), .exists()
-                if not any(
-                    isinstance(column, sqlglot.exp.Column) for column in columns
-                ):
+                if not any(has_column_expression(column) for column in columns):
                     alias = parsed_query.find(sqlglot.expressions.Alias)
                     count = parsed_query.find(sqlglot.expressions.Count)
                     where = parsed_query.find(sqlglot.expressions.Where)

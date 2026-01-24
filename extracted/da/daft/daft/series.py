@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import daft.daft as native
 from daft.arrow_utils import ensure_array, ensure_chunked_array
@@ -12,6 +12,7 @@ from daft.utils import pyarrow_supports_fixed_shape_tensor
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Callable
 
     from daft.daft import PyDataType
 
@@ -47,10 +48,12 @@ class Series:
                 DataType from the data.
         """
         _ensure_registered_super_ext_type()
-        if (dtype and dtype.is_python()) or DataType.from_arrow_type(array.type).is_python():
+        try:
+            DataType.from_arrow_type(array.type, python_fallback=False)
+        except TypeError:
             # If the Arrow type is not natively supported, go through the Python list path.
             return Series.from_pylist(array.to_pylist(), name=name, pyobj="force")
-        elif isinstance(array, pa.Array):
+        if isinstance(array, pa.Array):
             array = ensure_array(array)
             if isinstance(array.type, getattr(pa, "FixedShapeTensorType", ())):
                 series = Series.from_arrow(array.storage, name=name)
@@ -80,8 +83,8 @@ class Series:
         """Construct a Series from a Python list.
 
         If `dtype` is not defined, then the resulting type depends on the setting of `pyobj`:
-            - ``"allow"``: Arrow-backed types if possible, else PyObject;
-            - ``"disallow"``: Arrow-backed types only, raising error if not convertible;
+            - ``"allow"``: Daft-native types if possible, else PyObject;
+            - ``"disallow"``: Daft-native types only, raising error if not convertible;
             - ``"force"``: Always store as PyObject types. Equivalent to `dtype=daft.DataType.python()`.
 
         Args:
@@ -98,31 +101,16 @@ class Series:
         if pyobj not in {"allow", "disallow", "force"}:
             raise ValueError(f"pyobj: expected either 'allow', 'disallow', or 'force', but got {pyobj})")
 
-        # If output is Python objects, we can just use the Python list directly.
-        if (dtype and dtype == DataType.python()) or pyobj == "force":
-            pys = PySeries.from_pylist(name, data, DataType.python()._dtype)
-            return Series._from_pyseries(pys)
+        if pyobj == "force":
+            dtype = DataType.python()
 
-        # Otherwise, try to infer from parameters provided
-        try:
-            # Workaround: wrap list of np.datetime64 in an np.array
-            #   - https://github.com/apache/arrow/issues/40580
-            #   - https://github.com/Eventual-Inc/Daft/issues/3826
-            if data and np.module_available() and isinstance(data[0], np.datetime64):  # type: ignore[attr-defined]
-                np_arr = np.array(data)
-                arrow_array = pa.array(np_arr)
-            elif data and isinstance(data[0], tuple):
-                dtype = DataType._infer_dtype_from_pylist(data)
-                arrow_array = pa.array(data, type=dtype.to_arrow_dtype() if dtype else None)
-            else:
-                arrow_array = pa.array(data, type=dtype.to_arrow_dtype() if dtype else None)
-            return Series.from_arrow(arrow_array, name=name, dtype=dtype)
-        except (pa.lib.ArrowInvalid, pa.lib.ArrowTypeError, pa.lib.ArrowNotImplementedError):
-            if pyobj == "disallow":
-                raise
-            dtype = dtype or DataType._infer_dtype_from_pylist(data) or DataType.python()
-            pys = PySeries.from_pylist(name, data, dtype._dtype)
-            return Series._from_pyseries(pys)
+        pys = PySeries.from_pylist(data, name, None if dtype is None else dtype._dtype)
+        series = Series._from_pyseries(pys)
+
+        if pyobj == "disallow" and series.datatype().is_python():
+            raise TypeError("Could not convert Python list to a Daft-native type, and pyobj='disallow' was set.")
+
+        return series
 
     @classmethod
     def from_numpy(
@@ -151,8 +139,7 @@ class Series:
                 return cls.from_arrow(arrow_array, name=name, dtype=dtype)
         # TODO(Clark): Represent the tensor series with an Arrow extension type in order
         # to keep the series data contiguous.
-        list_ndarray = [np.asarray(item) for item in data]
-        return cls.from_pylist(list_ndarray, name=name, dtype=dtype)
+        return cls.from_pylist(list(data), name=name, dtype=dtype)
 
     @classmethod
     def from_pandas(cls, data: pd.Series[Any], name: str = "pd_series", dtype: DataType | None = None) -> Series:
@@ -289,8 +276,36 @@ class Series:
     def __repr__(self) -> str:
         return repr(self._series)
 
-    def __getitem__(self, index: int) -> Any:
-        return self._series[index]
+    def __getitem__(self, index: int | builtins.slice) -> Any | Series:
+        if isinstance(index, slice):
+            if index.step is not None:
+                raise IndexError("slice step not supported: use `Series[start:stop]`")
+            n = len(self)
+            start = index.start if index.start is not None else 0
+            end = index.stop if index.stop is not None else n
+
+            # Normalize negative indices
+            start = start + n if start < 0 else start
+            end = end + n if end < 0 else end
+
+            # Clamp to bounds
+            start = max(0, min(start, n))
+            end = max(0, min(end, n))
+
+            # Empty slice if start >= end
+            if start >= end:
+                return self.slice(start, start)
+
+            return self.slice(start, end)
+        elif isinstance(index, int):
+            n = len(self)
+            if index < 0:
+                index += n
+            if index < 0 or index >= n:
+                raise IndexError("Series index out of range")
+            return self._series[index]
+        else:
+            raise TypeError(f"expected int or slice for index, got {type(index)}")
 
     def __bool__(self) -> bool:
         raise ValueError(
@@ -325,17 +340,9 @@ class Series:
         """The sign of a numeric series."""
         return self._eval_expressions("sign")
 
-    def signum(self) -> Series:
-        """The signum of a numeric series."""
-        return self._eval_expressions("sign")
-
     def negate(self) -> Series:
         """The negative of a numeric series."""
-        return self._eval_expressions("negative")
-
-    def negative(self) -> Series:
-        """The negative of a numeric series."""
-        return self._eval_expressions("negative")
+        return self._eval_expressions("negate")
 
     def round(self, decimals: int = 0) -> Series:
         return self._eval_expressions("round", decimals=decimals)
@@ -438,6 +445,22 @@ class Series:
             base: The base of the logarithm.
         """
         return self._eval_expressions("log", base=base)
+
+    def pow(self, exp: float) -> Series:
+        """The elementwise exponentiation of a series.
+
+        Args:
+            exp: The exponent to raise each element to.
+        """
+        return self._eval_expressions("pow", exp=exp)
+
+    def power(self, exp: float) -> Series:
+        """The elementwise exponentiation of a series.
+
+        Args:
+            exp: The exponent to raise each element to.
+        """
+        return self._eval_expressions("power", exp=exp)
 
     def ln(self) -> Series:
         """The elementwise ln of a numeric series."""
@@ -585,6 +608,10 @@ class Series:
         assert self._series is not None
         return Series._from_pyseries(self._series.sum())
 
+    def product(self) -> Series:
+        assert self._series is not None
+        return Series._from_pyseries(self._series.product())
+
     def shift_right(self, bits: Series) -> Series:
         if not isinstance(bits, Series):
             raise TypeError(f"expected another Series but got {type(bits)}")
@@ -634,7 +661,7 @@ class Series:
         num_hashes: int,
         ngram_size: int,
         seed: int = 1,
-        hash_function: Literal["murmurhash3", "xxhash", "sha1"] = "murmurhash3",
+        hash_function: Literal["murmurhash3", "xxhash", "xxhash3_64", "xxhash64", "xxhash32", "sha1"] = "murmurhash3",
     ) -> Series:
         """Runs the MinHash algorithm on the series.
 
@@ -648,7 +675,7 @@ class Series:
             num_hashes: The number of hash permutations to compute.
             ngram_size: The number of tokens in each shingle/ngram.
             seed (optional): Seed used for generating permutations and the initial string hashes. Defaults to 1.
-            hash_function (optional): Hash function to use for initial string hashing. One of "murmur3", "xxhash", or "sha1". Defaults to "murmur3".
+            hash_function (optional): Hash function to use for initial string hashing. One of "murmur3", "xxhash3_64" (or alias "xxhash"), "xxhash64", "xxhash32", or "sha1". Defaults to "murmur3".
         """
         if not isinstance(num_hashes, int):
             raise ValueError(f"expected an integer for num_hashes but got {type(num_hashes)}")
@@ -661,8 +688,13 @@ class Series:
         assert hash_function in [
             "murmurhash3",
             "xxhash",
+            "xxhash3_64",
+            "xxhash64",
+            "xxhash32",
             "sha1",
-        ], f"hash_function must be one of 'murmurhash3', 'xxhash', 'sha1', got {hash_function}"
+        ], (
+            f"hash_function must be one of 'murmurhash3', 'xxhash', 'xxhash3_64', 'xxhash64', 'xxhash32', 'sha1', got {hash_function}"
+        )
 
         return Series._from_pyseries(self._series.minhash(num_hashes, ngram_size, seed, hash_function))
 
@@ -720,10 +752,7 @@ class Series:
             tuple[pa.Array | pa.ChunkedArray, builtins.str, DataType],
         ]
     ):
-        if self.datatype().is_python():
-            return (Series.from_pylist, (self.to_pylist(), self.name(), self.datatype()))
-        else:
-            return (Series.from_arrow, (self.to_arrow(), self.name(), self.datatype()))
+        return (Series.from_arrow, (self.to_arrow(), self.name(), self.datatype()))
 
     def _debug_bincode_serialize(self) -> bytes:
         return self._series._debug_bincode_serialize()
@@ -845,25 +874,15 @@ class SeriesStringNamespace(SeriesNamespace):
     def match(self, pattern: Series) -> Series:
         return self._eval_expressions("regexp_match", pattern)
 
-    def split(self, pattern: Series, regex: bool = False) -> Series:
+    def split(self, pattern: Series) -> Series:
         """Splits each string on the given literal pattern, into a list of strings.
 
         Args:
             pattern: The literal pattern on which each string should be split.
-            regex: DEPRECATED. Use regexp_split() instead for regex patterns.
 
         Returns:
-            Series: A List[Utf8] series containing the string splits for each string.
+            Series: A List[String] series containing the string splits for each string.
         """
-        if regex:
-            import warnings
-
-            warnings.warn(
-                "The 'regex' parameter in str.split() is deprecated and will be removed in v0.7.0. Use str.regexp_split() instead for regex patterns.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            return self.regexp_split(pattern)
         return self._eval_expressions("split", pattern)
 
     def regexp_split(self, pattern: Series) -> Series:
@@ -873,7 +892,7 @@ class SeriesStringNamespace(SeriesNamespace):
             pattern: The regex pattern on which each string should be split.
 
         Returns:
-            Series: A List[Utf8] series containing the string splits for each string.
+            Series: A List[String] series containing the string splits for each string.
         """
         return self._eval_expressions("regexp_split", pattern)
 
@@ -1104,7 +1123,7 @@ class SeriesImageNamespace(SeriesNamespace):
     def decode(
         self,
         on_error: Literal["raise", "null"] = "raise",
-        mode: str | ImageMode | None = None,
+        mode: str | ImageMode | None = ImageMode.RGB,
     ) -> Series:
         return self._eval_expressions("image_decode", on_error=on_error, mode=mode)
 
@@ -1120,3 +1139,6 @@ class SeriesImageNamespace(SeriesNamespace):
         if not isinstance(mode, ImageMode):
             raise ValueError(f"mode must be a string or ImageMode variant, but got: {mode}")
         return self._eval_expressions("to_mode", mode=mode)
+
+    def to_tensor(self) -> Series:
+        return self._eval_expressions("to_tensor")

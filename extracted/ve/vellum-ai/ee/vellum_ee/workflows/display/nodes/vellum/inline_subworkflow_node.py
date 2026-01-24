@@ -7,13 +7,14 @@ from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.nodes import InlineSubworkflowNode
 from vellum.workflows.nodes.displayable.bases.utils import primitive_to_vellum_value
 from vellum.workflows.types.core import JsonObject
+from vellum.workflows.types.generics import is_workflow_class
 from vellum.workflows.workflows.base import BaseWorkflow
-from vellum_ee.workflows.display.exceptions import NodeValidationError
 from vellum_ee.workflows.display.nodes.base_node_display import BaseNodeDisplay
 from vellum_ee.workflows.display.nodes.utils import raise_if_descriptor
 from vellum_ee.workflows.display.nodes.vellum.utils import create_node_input
 from vellum_ee.workflows.display.types import WorkflowDisplayContext
-from vellum_ee.workflows.display.utils.vellum import infer_vellum_variable_type
+from vellum_ee.workflows.display.utils.exceptions import NodeValidationError
+from vellum_ee.workflows.display.utils.vellum import compile_descriptor_annotation, infer_vellum_variable_type
 from vellum_ee.workflows.display.vellum import NodeInput
 from vellum_ee.workflows.display.workflows.get_vellum_workflow_display_class import get_workflow_display
 
@@ -34,7 +35,7 @@ class BaseInlineSubworkflowNodeDisplay(
         node_id = self.node_id
 
         subworkflow_class = raise_if_descriptor(node.subworkflow)
-        if subworkflow_class is None:
+        if subworkflow_class is undefined or not is_workflow_class(subworkflow_class):
             display_context.add_error(
                 NodeValidationError(
                     "InlineSubworkflowNode requires a subworkflow to be defined",
@@ -68,7 +69,7 @@ class BaseInlineSubworkflowNodeDisplay(
                 "input_variables": [workflow_input.dict() for workflow_input in workflow_inputs],
                 "output_variables": [workflow_output.dict() for workflow_output in workflow_outputs],
             },
-            **self.serialize_generic_fields(display_context),
+            **self.serialize_generic_fields(display_context, exclude=["outputs"]),
         }
 
     def _generate_node_and_workflow_inputs(
@@ -78,6 +79,9 @@ class BaseInlineSubworkflowNodeDisplay(
         display_context: WorkflowDisplayContext,
         subworkflow: Type[BaseWorkflow],
     ) -> Tuple[List[NodeInput], List[VellumVariable]]:
+        if subworkflow is undefined or not is_workflow_class(subworkflow):
+            subworkflow = BaseWorkflow
+
         subworkflow_inputs_class = subworkflow.get_inputs_class()
         subworkflow_inputs = raise_if_descriptor(node.subworkflow_inputs)
 
@@ -107,20 +111,23 @@ class BaseInlineSubworkflowNodeDisplay(
             for variable_name, variable_value in subworkflow_entries
         ]
         node_inputs_by_key = {node_input.key: node_input for node_input in node_inputs}
-        workflow_inputs = [
-            VellumVariable(
-                id=node_inputs_by_key[descriptor.name].id,
-                key=descriptor.name,
-                type=infer_vellum_variable_type(descriptor),
-                required=descriptor.instance is undefined,
-                default=(
-                    primitive_to_vellum_value(descriptor.instance).dict()
-                    if descriptor.instance is not undefined
-                    else None
-                ),
+        workflow_inputs = []
+        for descriptor in subworkflow_inputs_class:
+            schema = compile_descriptor_annotation(descriptor)
+            workflow_inputs.append(
+                VellumVariable(
+                    id=node_inputs_by_key[descriptor.name].id,
+                    key=descriptor.name,
+                    type=infer_vellum_variable_type(descriptor),
+                    required=descriptor.instance is undefined,
+                    default=(
+                        primitive_to_vellum_value(descriptor.instance).dict()
+                        if descriptor.instance is not undefined
+                        else None
+                    ),
+                    schema=schema,
+                )
             )
-            for descriptor in subworkflow_inputs_class
-        ]
 
         return node_inputs, workflow_inputs
 

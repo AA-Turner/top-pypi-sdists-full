@@ -1,13 +1,13 @@
 Metadata-Version: 2.1
 Name: phrase-api
-Version: 3.7.0
+Version: 3.15.1
 Summary: Phrase Strings API Reference
 Home-page: https://github.com/phrase/phrase-python
 Author: Phrase Support
 Author-email: support@phrase.com
 License: MIT
 Keywords: OpenAPI,OpenAPI-Generator,Phrase Strings API Reference
-Requires-Dist: urllib3>=1.15
+Requires-Dist: urllib3<2.6,>=1.15
 Requires-Dist: six>=1.10
 Requires-Dist: certifi
 Requires-Dist: python-dateutil

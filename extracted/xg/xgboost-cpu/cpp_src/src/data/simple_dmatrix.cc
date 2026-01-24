@@ -1,5 +1,5 @@
 /**
- * Copyright 2014-2024, XGBoost Contributors
+ * Copyright 2014-2025, XGBoost Contributors
  * \file simple_dmatrix.cc
  * \brief the input data structure for gradient boosting
  * \author Tianqi Chen
@@ -12,14 +12,16 @@
 #include <type_traits>
 #include <vector>
 
-#include "../collective/communicator-inl.h"  // for GetWorldSize, GetRank, Allgather
 #include "../collective/allgather.h"
+#include "../collective/communicator-inl.h"  // for GetWorldSize, GetRank, Allgather
 #include "../common/error_msg.h"             // for InconsistentMaxBin
 #include "./simple_batch_iterator.h"
 #include "adapter.h"
-#include "batch_utils.h"   // for CheckEmpty, RegenGHist
-#include "ellpack_page.h"  // for EllpackPage
+#include "batch_utils.h"    // for CheckEmpty, RegenGHist
+#include "cat_container.h"  // for CatContainer
+#include "ellpack_page.h"   // for EllpackPage
 #include "gradient_index.h"
+#include "proxy_dmatrix.h"  // for DispatchAny
 #include "xgboost/c_api.h"
 #include "xgboost/data.h"
 
@@ -49,10 +51,15 @@ DMatrix* SimpleDMatrix::Slice(common::Span<int32_t const> ridxs) {
     out->Info() = this->Info().Slice(&ctx, h_ridx, h_offset.back());
   }
   out->fmat_ctx_ = this->fmat_ctx_;
+
+  out->Info().Cats()->Copy(&fmat_ctx_, *this->Info().Cats());
   return out;
 }
 
 DMatrix* SimpleDMatrix::SliceCol(int num_slices, int slice_id) {
+  if (this->Cats()->HasCategorical()) {
+    LOG(FATAL) << "Slicing column is not supported for DataFrames with categorical columns.";
+  }
   auto out = new SimpleDMatrix;
   SparsePage& out_page = *out->sparse_page_;
   auto const slice_size = info_.num_col_ / num_slices;
@@ -225,22 +232,31 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread,
                              DataSplitMode data_split_mode) {
   Context ctx;
   ctx.Init(Args{{"nthread", std::to_string(nthread)}});
-
   std::vector<uint64_t> qids;
   uint64_t default_max = std::numeric_limits<uint64_t>::max();
   uint64_t last_group_id = default_max;
   bst_uint group_size = 0;
   auto& offset_vec = sparse_page_->offset.HostVector();
   auto& data_vec = sparse_page_->data.HostVector();
+  // batch_size is either number of rows or cols, depending on data layout
   uint64_t inferred_num_columns = 0;
   uint64_t total_batch_size = 0;
-  // batch_size is either number of rows or cols, depending on data layout
 
   adapter->BeforeFirst();
   // Iterate over batches of input data
   while (adapter->Next()) {
+    bool type_error = false;
+    auto push = [&](auto const& batch) {
+      return sparse_page_->Push(batch, missing, ctx.Threads());
+    };
+    bst_idx_t batch_max_columns =
+        cpu_impl::DispatchAny<true, std::add_pointer_t>(&ctx, adapter, push, &type_error);
     auto& batch = adapter->Value();
-    auto batch_max_columns = sparse_page_->Push(batch, missing, ctx.Threads());
+    if (type_error) {
+      // Not supported by the dispatch function.
+      batch_max_columns = push(batch);
+    }
+
     inferred_num_columns = std::max(batch_max_columns, inferred_num_columns);
     total_batch_size += batch.Size();
     // Append meta information if available
@@ -287,6 +303,14 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread,
     info_.num_col_ = adapter->NumColumns();
   }
 
+  if constexpr (std::is_same_v<AdapterT, ColumnarAdapter>) {
+    if (adapter->HasRefCategorical()) {
+      info_.Cats(std::make_shared<CatContainer>(adapter->RefCats(), true));
+    } else if (adapter->HasCategorical()) {
+      info_.Cats(std::make_shared<CatContainer>(adapter->Cats(), false));
+    }
+  }
+
   // Must called before sync column
   this->ReindexFeatures(&ctx, data_split_mode);
   this->info_.SynchronizeNumberOfColumns(&ctx, data_split_mode);
@@ -303,8 +327,7 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread,
         offset_vec.emplace_back(offset_vec.back());
       }
     } else {
-      CHECK((std::is_same_v<AdapterT, CSCAdapter> || std::is_same_v<AdapterT, CSCArrayAdapter>))
-          << "Expecting CSCAdapter";
+      CHECK((std::is_same_v<AdapterT, CSCArrayAdapter>)) << "Expecting a CSC adapter.";
       info_.num_row_ = offset_vec.size() - 1;
     }
   } else {
@@ -317,6 +340,8 @@ SimpleDMatrix::SimpleDMatrix(AdapterT* adapter, float missing, int nthread,
     info_.num_row_ = adapter->NumRows();
   }
   info_.num_nonzero_ = data_vec.size();
+
+  SyncCategories(&ctx, info_.Cats(), info_.num_row_ == 0);
 
   // Sort the index for row partitioners used by variuos tree methods.
   if (!sparse_page_->IsIndicesSorted(ctx.Threads())) {
@@ -344,23 +369,20 @@ void SimpleDMatrix::SaveToLocalFile(const std::string& fname) {
   fo->Write(sparse_page_->data.HostVector());
 }
 
-template SimpleDMatrix::SimpleDMatrix(DenseAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(ArrayAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(CSRAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(CSRArrayAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(CSCArrayAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(CSCAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(FileAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(ColumnarAdapter* adapter, float missing, int nthread,
-                                      DataSplitMode data_split_mode);
-template SimpleDMatrix::SimpleDMatrix(
-    IteratorAdapter<DataIterHandle, XGBCallbackDataIterNext, XGBoostBatchCSR>* adapter,
-    float missing, int nthread, DataSplitMode data_split_mode);
+#define INSTANTIATE_SDCTOR(__ADAPTER_T)                                                            \
+  template SimpleDMatrix::SimpleDMatrix(__ADAPTER_T* adapter, float missing, std::int32_t nthread, \
+                                        DataSplitMode data_split_mode);
+
+INSTANTIATE_SDCTOR(DenseAdapter)
+INSTANTIATE_SDCTOR(ArrayAdapter)
+INSTANTIATE_SDCTOR(CSRArrayAdapter)
+INSTANTIATE_SDCTOR(CSCArrayAdapter)
+INSTANTIATE_SDCTOR(FileAdapter)
+INSTANTIATE_SDCTOR(ColumnarAdapter)
+namespace {
+using IterAdapterT = IteratorAdapter<DataIterHandle, XGBCallbackDataIterNext, XGBoostBatchCSR>;
+}
+INSTANTIATE_SDCTOR(IterAdapterT)
+
+#undef INSTANTIATE_SDCTOR
 }  // namespace xgboost::data

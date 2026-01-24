@@ -1,0 +1,126 @@
+---
+version: 1
+reporting: checks-v1
+policy:
+    pullRequests: collaborators
+tasks:
+    - $let:
+          # Variable definitions
+          trustDomain: my-project
+
+          # Normalize some variables that differ across Github events
+          ownerEmail:
+              $if: 'tasks_for == "github-push"'
+              then: '${event.pusher.email}'
+              else:
+                  $if: 'tasks_for == "github-pull-request"'
+                  then: '${event.pull_request.user.login}@users.noreply.github.com'
+                  else:
+                      $if: 'tasks_for == "github-release"'
+                      then: '${event.sender.login}@users.noreply.github.com'
+          baseRepoUrl:
+              $if: 'tasks_for == "github-push"'
+              then: '${event.repository.html_url}'
+              else:
+                  $if: 'tasks_for == "github-pull-request"'
+                  then: '${event.pull_request.base.repo.html_url}'
+          repoUrl:
+              $if: 'tasks_for == "github-push"'
+              then: '${event.repository.html_url}'
+              else:
+                  $if: 'tasks_for == "github-pull-request"'
+                  then: '${event.pull_request.head.repo.html_url}'
+          project:
+              $if: 'tasks_for == "github-push"'
+              then: '${event.repository.name}'
+              else:
+                  $if: 'tasks_for == "github-pull-request"'
+                  then: '${event.pull_request.head.repo.name}'
+          headBranch:
+              $if: 'tasks_for == "github-pull-request"'
+              then: ${event.pull_request.head.ref}
+              else:
+                  $if: 'tasks_for == "github-push"'
+                  then: ${event.ref}
+          headSha:
+              $if: 'tasks_for == "github-push"'
+              then: '${event.after}'
+              else:
+                  $if: 'tasks_for == "github-pull-request"'
+                  then: '${event.pull_request.head.sha}'
+      in:
+          # Guard that controls when to schedule tasks.
+          $if: >
+              tasks_for == "github-push" && headBranch == "main"
+              || (tasks_for == "github-pull-request" && ${event.action} in ["opened", "reopened", "synchronize"])
+          then:
+              # Task Definition
+              taskId: '${ownTaskId}'
+              taskGroupId: '${ownTaskId}'
+              created: {$fromNow: ''}
+              deadline: {$fromNow: '1 day'}
+              expires: {$fromNow: '1 year 1 second'}  # 1 second so artifacts expire first, despite rounding errors
+              metadata:
+                  owner: "${ownerEmail}"
+                  name: "Decision Task"
+                  description: "Task that generates a taskgraph and submits it to Taskcluster"
+                  source: '${repoUrl}/raw/${headSha}/.taskcluster.yml'
+              provisionerId: "${trustDomain}-provisioner"
+              workerType: "decision"
+              scopes:
+                  $if: 'tasks_for == "github-push"'
+                  then:
+                      # ${repoUrl[8:]} strips out the leading 'https://'
+                      # while ${headBranch[11:]} strips out 'refs/heads/'
+                      - 'assume:repo:${repoUrl[8:]}:branch:${headBranch[11:]}'
+                  else:
+                      $if: 'tasks_for == "github-pull-request"'
+                      then:
+                          - 'assume:repo:github.com/${event.pull_request.base.repo.full_name}:pull-request'
+              payload:
+                  image:
+                      mozillareleases/taskgraph:decision-cf4b4b4baff57d84c1f9ec8fcd70c9839b70a7d66e6430a6c41ffe67252faa19@sha256:425e07f6813804483bc5a7258288a7684d182617ceeaa0176901ccc7702dfe28
+                  features:
+                      taskclusterProxy: true
+                  maxRunTime: 300
+                  env:
+                      $merge:
+                          # run-task uses these environment variables to clone your
+                          # repo and checkout the proper revision
+                          - MYREPO_BASE_REPOSITORY: '${baseRepoUrl}'
+                            MYREPO_HEAD_REPOSITORY: '${repoUrl}'
+                            MYREPO_HEAD_REF: '${headBranch}'
+                            MYREPO_HEAD_REV: '${headSha}'
+                            MYREPO_REPOSITORY_TYPE: git
+                            # run-task installs this requirements.txt before
+                            # running your command, this is how taskgraph gets
+                            # bootstrapped
+                            MYREPO_PIP_REQUIREMENTS: taskcluster/requirements.txt
+                            REPOSITORIES: {$json: {myrepo: "MyRepo"}}
+                          - $if: 'tasks_for in ["github-pull-request"]'
+                            then:
+                                MYREPO_PULL_REQUEST_NUMBER: '${event.pull_request.number}'
+                  command:
+                      - /usr/local/bin/run-task
+                      # This 'myrepo' gets uppercased and is how `run-task`
+                      # knows to look for 'MYREPO_*' environment variables.
+                      - '--myrepo-checkout=/builds/worker/checkouts/myrepo'
+                      - '--task-cwd=/builds/worker/checkouts/myrepo'
+                      - '--'
+                      # Now for the actual command.
+                      - bash
+                      - -cx
+                      - >
+                        ~/.local/bin/taskgraph decision
+                        --pushlog-id='0'
+                        --pushdate='0'
+                        --project='${project}'
+                        --message=""
+                        --owner='${ownerEmail}'
+                        --level='1'
+                        --base-repository="$MYREPO_BASE_REPOSITORY"
+                        --head-repository="$MYREPO_HEAD_REPOSITORY"
+                        --head-ref="$MYREPO_HEAD_REF"
+                        --head-rev="$MYREPO_HEAD_REV"
+                        --repository-type="$MYREPO_REPOSITORY_TYPE"
+                        --tasks-for='${tasks_for}'

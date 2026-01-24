@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable
 from functools import wraps
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
+
+from google.cloud.aiplatform_v1beta1.types import content as gapic_content_types
+from google.cloud.aiplatform_v1beta1.types import (
+    prediction_service as gapic_prediction_service_types,
+)
+from vertexai.generative_models import GenerationResponse
 
 import weave
 from weave.integrations.patcher import MultiPatcher, NoOpPatcher, SymbolPatcher
@@ -12,7 +19,7 @@ from weave.trace.op import _add_accumulator
 from weave.trace.serialization.serialize import dictify
 
 if TYPE_CHECKING:
-    from vertexai.generative_models import GenerationResponse
+    pass
 
 
 _vertexai_patcher: MultiPatcher | None = None
@@ -33,12 +40,6 @@ def vertexai_postprocess_inputs(inputs: dict[str, Any]) -> dict[str, Any]:
 def vertexai_accumulator(
     acc: GenerationResponse | None, value: GenerationResponse
 ) -> GenerationResponse:
-    from google.cloud.aiplatform_v1beta1.types import content as gapic_content_types
-    from google.cloud.aiplatform_v1beta1.types import (
-        prediction_service as gapic_prediction_service_types,
-    )
-    from vertexai.generative_models import GenerationResponse
-
     if acc is None:
         return value
 
@@ -146,19 +147,34 @@ def get_vertexai_patcher(
     base = settings.op_settings
 
     generate_content_settings = base.model_copy(
-        update={"name": base.name or "vertexai.GenerativeModel.generate_content"}
+        update={
+            "name": base.name or "vertexai.GenerativeModel.generate_content",
+            "kind": base.kind or "llm",
+        }
     )
     generate_content_async_settings = base.model_copy(
-        update={"name": base.name or "vertexai.GenerativeModel.generate_content_async"}
+        update={
+            "name": base.name or "vertexai.GenerativeModel.generate_content_async",
+            "kind": base.kind or "llm",
+        }
     )
     send_message_settings = base.model_copy(
-        update={"name": base.name or "vertexai.ChatSession.send_message"}
+        update={
+            "name": base.name or "vertexai.ChatSession.send_message",
+            "kind": base.kind or "llm",
+        }
     )
     send_message_async_settings = base.model_copy(
-        update={"name": base.name or "vertexai.ChatSession.send_message_async"}
+        update={
+            "name": base.name or "vertexai.ChatSession.send_message_async",
+            "kind": base.kind or "llm",
+        }
     )
     generate_images_settings = base.model_copy(
-        update={"name": base.name or "vertexai.ImageGenerationModel.generate_images"}
+        update={
+            "name": base.name or "vertexai.ImageGenerationModel.generate_images",
+            "kind": base.kind or "llm",
+        }
     )
 
     _vertexai_patcher = MultiPatcher(

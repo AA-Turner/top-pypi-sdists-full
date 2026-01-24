@@ -66,6 +66,7 @@ class Index:
         primary_key: Optional[str] = None,
         created_at: Optional[Union[datetime, str]] = None,
         updated_at: Optional[Union[datetime, str]] = None,
+        custom_headers: Optional[Mapping[str, str]] = None,
     ) -> None:
         """
         Parameters
@@ -78,15 +79,20 @@ class Index:
             Primary-key of the index.
         """
         self.config = config
-        self.http = HttpRequests(config)
-        self.task_handler = TaskHandler(config)
+        self.http = HttpRequests(config, custom_headers)
+        self.task_handler = TaskHandler(config, custom_headers)
         self.uid = uid
         self.primary_key = primary_key
         self.created_at = iso_to_date_time(created_at)
         self.updated_at = iso_to_date_time(updated_at)
 
-    def delete(self) -> TaskInfo:
+    def delete(self, *, metadata: Optional[str] = None) -> TaskInfo:
         """Delete the index.
+
+        Parameters
+        ----------
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -100,17 +106,39 @@ class Index:
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
 
-        task = self.http.delete(f"{self.config.paths.index}/{self.uid}")
+        url = f"{self.config.paths.index}/{self.uid}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        task = self.http.delete(url)
 
         return TaskInfo(**task)
 
-    def update(self, primary_key: str) -> TaskInfo:
+    def update(
+        self,
+        primary_key: Optional[str] = None,
+        new_uid: Optional[str] = None,
+        *,
+        metadata: Optional[str] = None,
+    ) -> TaskInfo:
         """Update the index primary-key.
 
         Parameters
         ----------
         primary_key:
             The primary key to use for the index.
+        new_uid : str, optional
+            The new UID to rename the index.
+        metadata (optional):
+            Custom metadata string to attach to the task.
+
+        Renaming behavior
+        -----------------
+        When ``new_uid`` is provided, this method sends a PATCH request to rename
+        the index. After the task completes, the index exists under the new UID,
+        but this ``Index`` instance still contains the old ``self.uid``, making it
+        **stale**. Further operations with this instance will fail until a fresh
+        instance is obtained. After the rename task completes, obtain a new ``Index``
+        instance via ``client.index(new_uid)`` before making further requests.
 
         Returns
         -------
@@ -123,8 +151,22 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        payload = {"primaryKey": primary_key}
-        task = self.http.patch(f"{self.config.paths.index}/{self.uid}", payload)
+        if primary_key is None and new_uid is None:
+            raise ValueError(
+                "You must provide either 'primary_key' or 'new_uid' to update the index."
+            )
+
+        payload = {}
+        if primary_key is not None:
+            payload["primaryKey"] = primary_key
+
+        if new_uid is not None:
+            payload["uid"] = new_uid  # This enables renaming
+
+        url = f"{self.config.paths.index}/{self.uid}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        task = self.http.patch(url, payload)
 
         return TaskInfo(**task)
 
@@ -153,7 +195,14 @@ class Index:
         return self.fetch_info().primary_key
 
     @staticmethod
-    def create(config: Config, uid: str, options: Optional[Mapping[str, Any]] = None) -> TaskInfo:
+    def create(
+        config: Config,
+        uid: str,
+        options: Optional[Mapping[str, Any]] = None,
+        custom_headers: Optional[Mapping[str, str]] = None,
+        *,
+        metadata: Optional[str] = None,
+    ) -> TaskInfo:
         """Create the index.
 
         Parameters
@@ -162,6 +211,8 @@ class Index:
             UID of the index.
         options:
             Options passed during index creation (ex: { 'primaryKey': 'name' }).
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -177,7 +228,10 @@ class Index:
         if options is None:
             options = {}
         payload = {**options, "uid": uid}
-        task = HttpRequests(config).post(config.paths.index, payload)
+        url = config.paths.index
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        task = HttpRequests(config, custom_headers).post(url, payload)
 
         return TaskInfo(**task)
 
@@ -403,6 +457,7 @@ class Index:
             - offset
             - limit
             - results : list of Document instances containing the documents information
+            - sort:  A list of attributes written as an array or as a comma-separated string
 
         Raises
         ------
@@ -411,6 +466,12 @@ class Index:
         """
         if parameters is None:
             parameters = {}
+
+        # convert comma-separated sort string to list
+        sort = parameters.get("sort")
+        if isinstance(sort, str):
+            parameters["sort"] = [s.strip() for s in sort.split(",") if s.strip()]
+
         response = self.http.post(
             f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/fetch",
             body=parameters,
@@ -447,6 +508,8 @@ class Index:
         primary_key: Optional[str] = None,
         *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Add documents to the index.
 
@@ -459,6 +522,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -471,7 +539,7 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        url = self._build_url(primary_key)
+        url = self._build_url(primary_key, skip_creation=skip_creation, metadata=metadata)
         add_document_task = self.http.post(url, documents, serializer=serializer)
         return TaskInfo(**add_document_task)
 
@@ -482,6 +550,8 @@ class Index:
         primary_key: Optional[str] = None,
         *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> List[TaskInfo]:
         """Add documents to the index in batches.
 
@@ -496,6 +566,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -513,7 +588,13 @@ class Index:
         tasks: List[TaskInfo] = []
 
         for document_batch in self._batch(documents, batch_size):
-            task = self.add_documents(document_batch, primary_key, serializer=serializer)
+            task = self.add_documents(
+                document_batch,
+                primary_key,
+                serializer=serializer,
+                skip_creation=skip_creation,
+                metadata=metadata,
+            )
             tasks.append(task)
 
         return tasks
@@ -524,6 +605,8 @@ class Index:
         primary_key: Optional[str] = None,
         *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Add documents to the index from a byte-encoded JSON string.
 
@@ -536,6 +619,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -549,7 +637,12 @@ class Index:
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
         return self.add_documents_raw(
-            str_documents, primary_key, "application/json", serializer=serializer
+            str_documents,
+            primary_key,
+            "application/json",
+            serializer=serializer,
+            skip_creation=skip_creation,
+            metadata=metadata,
         )
 
     def add_documents_csv(
@@ -557,6 +650,9 @@ class Index:
         str_documents: bytes,
         primary_key: Optional[str] = None,
         csv_delimiter: Optional[str] = None,
+        *,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Add documents to the index from a byte-encoded CSV string.
 
@@ -568,6 +664,11 @@ class Index:
             The primary-key used in index. Ignored if already set up.
         csv_delimiter:
             One ASCII character used to customize the delimiter for CSV. Comma used by default.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -580,12 +681,22 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return self.add_documents_raw(str_documents, primary_key, "text/csv", csv_delimiter)
+        return self.add_documents_raw(
+            str_documents,
+            primary_key,
+            "text/csv",
+            csv_delimiter,
+            skip_creation=skip_creation,
+            metadata=metadata,
+        )
 
     def add_documents_ndjson(
         self,
         str_documents: bytes,
         primary_key: Optional[str] = None,
+        *,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Add documents to the index from a byte-encoded NDJSON string.
 
@@ -595,6 +706,11 @@ class Index:
             Byte-encoded NDJSON string.
         primary_key (optional):
             The primary-key used in index. Ignored if already set up.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -607,7 +723,13 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return self.add_documents_raw(str_documents, primary_key, "application/x-ndjson")
+        return self.add_documents_raw(
+            str_documents,
+            primary_key,
+            "application/x-ndjson",
+            skip_creation=skip_creation,
+            metadata=metadata,
+        )
 
     def add_documents_raw(
         self,
@@ -617,6 +739,8 @@ class Index:
         csv_delimiter: Optional[str] = None,
         *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Add documents to the index from a byte-encoded string.
 
@@ -634,6 +758,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -646,7 +775,12 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        url = self._build_url(primary_key=primary_key, csv_delimiter=csv_delimiter)
+        url = self._build_url(
+            primary_key=primary_key,
+            csv_delimiter=csv_delimiter,
+            skip_creation=skip_creation,
+            metadata=metadata,
+        )
         response = self.http.post(url, str_documents, content_type, serializer=serializer)
         return TaskInfo(**response)
 
@@ -656,6 +790,8 @@ class Index:
         primary_key: Optional[str] = None,
         *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Update documents in the index.
 
@@ -668,6 +804,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -680,7 +821,7 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        url = self._build_url(primary_key)
+        url = self._build_url(primary_key, skip_creation=skip_creation, metadata=metadata)
         response = self.http.put(url, documents, serializer=serializer)
         return TaskInfo(**response)
 
@@ -688,6 +829,9 @@ class Index:
         self,
         str_documents: str,
         primary_key: Optional[str] = None,
+        *,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Update documents as a ndjson string in the index.
 
@@ -697,38 +841,11 @@ class Index:
             String of document from a NDJSON file.
         primary_key (optional):
             The primary-key used in index. Ignored if already set up
-
-        Returns
-        -------
-        task_info:
-            TaskInfo instance containing information about a task to track the progress of an asynchronous process.
-            https://www.meilisearch.com/docs/reference/api/tasks#get-one-task
-
-        Raises
-        ------
-        MeilisearchApiError
-            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
-        """
-        return self.update_documents_raw(str_documents, primary_key, "application/x-ndjson")
-
-    def update_documents_json(
-        self,
-        str_documents: str,
-        primary_key: Optional[str] = None,
-        *,
-        serializer: Optional[Type[JSONEncoder]] = None,
-    ) -> TaskInfo:
-        """Update documents as a json string in the index.
-
-        Parameters
-        ----------
-        str_documents:
-            String of document from a JSON file.
-        primary_key (optional):
-            The primary-key used in index. Ignored if already set up
-        serializer (optional):
-            A custom JSONEncode to handle serializing fields that the build in json.dumps
-            cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -742,25 +859,38 @@ class Index:
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
         return self.update_documents_raw(
-            str_documents, primary_key, "application/json", serializer=serializer
+            str_documents,
+            primary_key,
+            "application/x-ndjson",
+            skip_creation=skip_creation,
+            metadata=metadata,
         )
 
-    def update_documents_csv(
+    def update_documents_json(
         self,
         str_documents: str,
         primary_key: Optional[str] = None,
-        csv_delimiter: Optional[str] = None,
+        *,
+        serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
-        """Update documents as a csv string in the index.
+        """Update documents as a json string in the index.
 
         Parameters
         ----------
         str_documents:
-            String of document from a CSV file.
+            String of document from a JSON file.
         primary_key (optional):
-            The primary-key used in index. Ignored if already set up.
-        csv_delimiter:
-            One ASCII character used to customize the delimiter for CSV. Comma used by default.
+            The primary-key used in index. Ignored if already set up
+        serializer (optional):
+            A custom JSONEncode to handle serializing fields that the build in json.dumps
+            cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -773,7 +903,59 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        return self.update_documents_raw(str_documents, primary_key, "text/csv", csv_delimiter)
+        return self.update_documents_raw(
+            str_documents,
+            primary_key,
+            "application/json",
+            serializer=serializer,
+            skip_creation=skip_creation,
+            metadata=metadata,
+        )
+
+    def update_documents_csv(
+        self,
+        str_documents: str,
+        primary_key: Optional[str] = None,
+        csv_delimiter: Optional[str] = None,
+        *,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
+    ) -> TaskInfo:
+        """Update documents as a csv string in the index.
+
+        Parameters
+        ----------
+        str_documents:
+            String of document from a CSV file.
+        primary_key (optional):
+            The primary-key used in index. Ignored if already set up.
+        csv_delimiter:
+            One ASCII character used to customize the delimiter for CSV. Comma used by default.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
+
+        Returns
+        -------
+        task_info:
+            TaskInfo instance containing information about a task to track the progress of an asynchronous process.
+            https://www.meilisearch.com/docs/reference/api/tasks#get-one-task
+
+        Raises
+        ------
+        MeilisearchApiError
+            An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
+        """
+        return self.update_documents_raw(
+            str_documents,
+            primary_key,
+            "text/csv",
+            csv_delimiter,
+            skip_creation=skip_creation,
+            metadata=metadata,
+        )
 
     def update_documents_raw(
         self,
@@ -783,6 +965,8 @@ class Index:
         csv_delimiter: Optional[str] = None,
         *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Update documents as a string in the index.
 
@@ -800,6 +984,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -812,7 +1001,12 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        url = self._build_url(primary_key=primary_key, csv_delimiter=csv_delimiter)
+        url = self._build_url(
+            primary_key=primary_key,
+            csv_delimiter=csv_delimiter,
+            skip_creation=skip_creation,
+            metadata=metadata,
+        )
         response = self.http.put(url, str_documents, content_type, serializer=serializer)
         return TaskInfo(**response)
 
@@ -821,7 +1015,10 @@ class Index:
         documents: Sequence[Mapping[str, Any]],
         batch_size: int = 1000,
         primary_key: Optional[str] = None,
+        *,
         serializer: Optional[Type[JSONEncoder]] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> List[TaskInfo]:
         """Update documents to the index in batches.
 
@@ -836,6 +1033,11 @@ class Index:
         serializer (optional):
             A custom JSONEncode to handle serializing fields that the build in json.dumps
             cannot handle, for example UUID and datetime.
+        skip_creation (optional):
+            If True, documents that don't exist in the index are silently ignored rather
+            than created. If False or None (default), existing behavior is preserved.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -853,18 +1055,28 @@ class Index:
         tasks = []
 
         for document_batch in self._batch(documents, batch_size):
-            update_task = self.update_documents(document_batch, primary_key, serializer=serializer)
+            update_task = self.update_documents(
+                document_batch,
+                primary_key,
+                serializer=serializer,
+                skip_creation=skip_creation,
+                metadata=metadata,
+            )
             tasks.append(update_task)
 
         return tasks
 
-    def delete_document(self, document_id: Union[str, int]) -> TaskInfo:
+    def delete_document(
+        self, document_id: Union[str, int], *, metadata: Optional[str] = None
+    ) -> TaskInfo:
         """Delete one document from the index.
 
         Parameters
         ----------
         document_id:
             Unique identifier of the document.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -877,9 +1089,10 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        response = self.http.delete(
-            f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/{document_id}"
-        )
+        url = f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/{document_id}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        response = self.http.delete(url)
         return TaskInfo(**response)
 
     @version_error_hint_message
@@ -890,6 +1103,7 @@ class Index:
         filter: Optional[  # pylint: disable=redefined-builtin
             Union[str, List[Union[str, List[str]]]]
         ] = None,
+        metadata: Optional[str] = None,
     ) -> TaskInfo:
         """Delete multiple documents from the index by id or filter.
 
@@ -900,6 +1114,8 @@ class Index:
             removed in a future version.
         filter:
             The filter value information.
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -917,19 +1133,30 @@ class Index:
                 "The use of ids is depreciated and will be removed in the future",
                 DeprecationWarning,
             )
+            url = f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/delete-batch"
+            if metadata is not None:
+                url += f"?{parse.urlencode({'customMetadata': metadata})}"
             response = self.http.post(
-                f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/delete-batch",
+                url,
                 [str(i) for i in ids],
             )
         else:
+            url = f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/delete"
+            if metadata is not None:
+                url += f"?{parse.urlencode({'customMetadata': metadata})}"
             response = self.http.post(
-                f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}/delete",
+                url,
                 body={"filter": filter},
             )
         return TaskInfo(**response)
 
-    def delete_all_documents(self) -> TaskInfo:
+    def delete_all_documents(self, *, metadata: Optional[str] = None) -> TaskInfo:
         """Delete all documents from the index.
+
+        Parameters
+        ----------
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -942,9 +1169,10 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        response = self.http.delete(
-            f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}"
-        )
+        url = f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        response = self.http.delete(url)
         return TaskInfo(**response)
 
     # GENERAL SETTINGS ROUTES
@@ -988,7 +1216,9 @@ class Index:
 
         return settings
 
-    def update_settings(self, body: MutableMapping[str, Any]) -> TaskInfo:
+    def update_settings(
+        self, body: MutableMapping[str, Any], *, metadata: Optional[str] = None
+    ) -> TaskInfo:
         """Update settings of the index.
 
         https://www.meilisearch.com/docs/reference/api/settings#update-settings
@@ -1019,6 +1249,8 @@ class Index:
 
             More information:
             https://www.meilisearch.com/docs/reference/api/settings#update-settings
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -1037,16 +1269,22 @@ class Index:
                 if "documentTemplateMaxBytes" in v and v["documentTemplateMaxBytes"] is None:
                     del v["documentTemplateMaxBytes"]
 
-        task = self.http.patch(
-            f"{self.config.paths.index}/{self.uid}/{self.config.paths.setting}", body
-        )
+        url = f"{self.config.paths.index}/{self.uid}/{self.config.paths.setting}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        task = self.http.patch(url, body)
 
         return TaskInfo(**task)
 
-    def reset_settings(self) -> TaskInfo:
+    def reset_settings(self, *, metadata: Optional[str] = None) -> TaskInfo:
         """Reset settings of the index to default values.
 
         https://www.meilisearch.com/docs/reference/api/settings#reset-settings
+
+        Parameters
+        ----------
+        metadata (optional):
+            Custom metadata string to attach to the task.
 
         Returns
         -------
@@ -1059,7 +1297,10 @@ class Index:
         MeilisearchApiError
             An error containing details about why Meilisearch can't process your request. Meilisearch error codes are described here: https://www.meilisearch.com/docs/reference/errors/error_codes#meilisearch-errors
         """
-        task = self.http.delete(f"{self.config.paths.index}/{self.uid}/{self.config.paths.setting}")
+        url = f"{self.config.paths.index}/{self.uid}/{self.config.paths.setting}"
+        if metadata is not None:
+            url += f"?{parse.urlencode({'customMetadata': metadata})}"
+        task = self.http.delete(url)
 
         return TaskInfo(**task)
 
@@ -2324,12 +2565,32 @@ class Index:
         self,
         primary_key: Optional[str] = None,
         csv_delimiter: Optional[str] = None,
+        skip_creation: Optional[bool] = None,
+        metadata: Optional[str] = None,
     ) -> str:
         parameters = {}
         if primary_key:
             parameters["primaryKey"] = primary_key
         if csv_delimiter:
             parameters["csvDelimiter"] = csv_delimiter
-        if primary_key is None and csv_delimiter is None:
+        if skip_creation is True:
+            parameters["skipCreation"] = "true"
+        if metadata is not None:
+            parameters["customMetadata"] = metadata
+        if not parameters:
             return f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}"
         return f"{self.config.paths.index}/{self.uid}/{self.config.paths.document}?{parse.urlencode(parameters)}"
+
+    def compact(self) -> TaskInfo:
+        """
+        Trigger the compaction of the index.
+        This is an asynchronous operation in Meilisearch.
+
+        Returns
+        -------
+        task_info: TaskInfo
+            Contains information to track the progress of the compaction task.
+        """
+        path = f"{self.config.paths.index}/{self.uid}/compact"
+        task = self.http.post(path)
+        return TaskInfo(**task)

@@ -6,13 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 
-	"github.com/hashicorp/go-retryablehttp"
 	"github.com/wandb/wandb/core/internal/nullify"
-	"github.com/wandb/wandb/core/internal/observability"
 	spb "github.com/wandb/wandb/core/pkg/service_go_proto"
 )
 
@@ -24,7 +20,8 @@ type Manifest struct {
 }
 
 type StoragePolicyConfig struct {
-	StorageLayout string `json:"storageLayout"`
+	StorageLayout string  `json:"storageLayout"`
+	StorageRegion *string `json:"storageRegion,omitempty"`
 }
 
 type ManifestEntry struct {
@@ -40,6 +37,9 @@ type ManifestEntry struct {
 	DownloadURL *string `json:"-"`
 }
 
+// NewManifestFromProto is used by [ArtifactSaver] to decode manifest sent
+// from python process. If the manifest JSON is too big for proto, python
+// side will save it as a local file and read using [ManifestContentsFromFile].
 func NewManifestFromProto(proto *spb.ArtifactManifest) (Manifest, error) {
 	if proto == nil {
 		return Manifest{}, errors.New("nil ArtifactManifest proto")
@@ -50,6 +50,16 @@ func NewManifestFromProto(proto *spb.ArtifactManifest) (Manifest, error) {
 		StoragePolicy:       proto.StoragePolicy,
 		StoragePolicyConfig: StoragePolicyConfig{StorageLayout: "V2"},
 		Contents:            make(map[string]ManifestEntry),
+	}
+	// TODO: why are we doing `json.dumps` on python side when sending the config?
+	for _, cfg := range proto.StoragePolicyConfig {
+		if cfg.Key == "storageRegion" {
+			var s string
+			if err := json.Unmarshal([]byte(cfg.ValueJson), &s); err != nil {
+				return Manifest{}, fmt.Errorf("error unmarshalling storageRegion: %w", err)
+			}
+			manifest.StoragePolicyConfig.StorageRegion = &s
+		}
 	}
 
 	if proto.ManifestFilePath != "" {
@@ -181,30 +191,4 @@ func (m *Manifest) GetManifestEntryFromArtifactFilePath(path string) (ManifestEn
 		return ManifestEntry{}, fmt.Errorf("path not contained in artifact: %s", path)
 	}
 	return manifestEntry, nil
-}
-
-func loadManifestFromURL(url string) (Manifest, error) {
-	client := retryablehttp.NewClient()
-	client.Logger = observability.NewNoOpLogger()
-	resp, err := client.Get(url)
-
-	if err != nil {
-		return Manifest{}, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-	manifest := Manifest{}
-	if resp.StatusCode != http.StatusOK {
-		return Manifest{}, fmt.Errorf("request to get manifest from url failed with status code: %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return Manifest{}, fmt.Errorf("error reading response body: %v", err)
-	}
-	err = json.Unmarshal(body, &manifest)
-	if err != nil {
-		return Manifest{}, nil
-	}
-	return manifest, nil
 }

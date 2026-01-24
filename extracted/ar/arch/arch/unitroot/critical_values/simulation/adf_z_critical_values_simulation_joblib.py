@@ -20,7 +20,7 @@ import numpy as np
 from numpy.random import PCG64, Generator, SeedSequence
 import psutil
 
-from arch.typing import UnitRootTrend
+from arch._typing import UnitRootTrend
 
 GREEN = colorama.Fore.GREEN
 BLUE = colorama.Fore.BLUE
@@ -69,7 +69,7 @@ def single_experiment(trend: str, gen: Generator, file_name: str) -> None:
 
     res = np.zeros(EX_SIZE)
     output: np.ndarray = np.zeros(
-        (len(cast(np.ndarray, PERCENTILES)), len(TIME_SERIES_LENGTHS))
+        (len(cast("np.ndarray", PERCENTILES)), len(TIME_SERIES_LENGTHS))
     )
     for col, nobs in enumerate(TIME_SERIES_LENGTHS):
         remaining = EX_SIZE

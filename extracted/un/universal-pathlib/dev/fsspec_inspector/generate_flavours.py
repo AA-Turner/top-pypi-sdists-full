@@ -105,7 +105,6 @@ SKIP_PROTOCOLS = [
     "dir",
     "blockcache",
     "cached",
-    "simplecache",
     "filecache",
 ]
 
@@ -116,6 +115,7 @@ FIX_PROTOCOLS = {
 
 FIX_METHODS = {
     "GCSFileSystem": ["_strip_protocol", "_get_kwargs_from_urls", "_split_path"],
+    "SimpleCacheFileSystem": [],
 }
 
 
@@ -140,6 +140,15 @@ def _fix_azure_blob_file_system(x: str) -> str:
         x,
     )
     return x
+
+
+def _fix_data_file_system(x: str) -> str:
+    return re.sub(
+        "sep = '/'",
+        "sep = ''  # type: ignore[assignment]\n    "
+        "altsep = ' '  # type: ignore[assignment]",
+        x,
+    )
 
 
 def _fix_memfs_file_system(x: str) -> str:
@@ -184,6 +193,7 @@ def _fix_xrootd_file_system(x: str) -> str:
 FIX_SOURCE = {
     "AbstractFileSystem": _fix_abstract_file_system,
     "AzureBlobFileSystem": _fix_azure_blob_file_system,
+    "DataFileSystem": _fix_data_file_system,
     "MemFS": _fix_memfs_file_system,
     "MemoryFileSystem": _fix_memory_file_system,
     "OSSFileSystem": _fix_oss_file_system,

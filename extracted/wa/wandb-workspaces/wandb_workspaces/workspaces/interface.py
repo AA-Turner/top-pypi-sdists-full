@@ -26,13 +26,13 @@ workspace.save()
 """
 
 import os
-from typing import Dict, Iterable, Literal, Optional
+from typing import Dict, Iterable, Literal, Optional, Union
 from typing import List as LList
 from urllib.parse import parse_qs, urlparse, urlunparse
 
 import wandb
 from annotated_types import Annotated, Ge
-from pydantic import AfterValidator, ConfigDict, Field, PositiveInt
+from pydantic import AfterValidator, ConfigDict, Field, PositiveInt, model_validator
 from pydantic.dataclasses import dataclass
 
 from wandb_workspaces.reports.v2.interface import PanelTypes, _lookup_panel
@@ -99,18 +99,8 @@ class SectionLayoutSettings(Base):
     top right of the section of the W&B App Workspace UI.
 
     Attributes:
-        layout (Literal["standard", "custom"]): The layout of panels in the section. `standard`
-            follows the default grid layout, `custom` allows per per-panel layouts controlled
-            by the individual panel settings.
-        columns (int): In a standard layout, the number of columns in the layout. Default is 3.
-        rows (int): In a standard layout, the number of rows in the layout. Default is 2.
-    """
-
-    layout: Literal["standard", "custom"] = "standard"
-    """
-    The layout of panels in the section
-        - `standard`: Follows the default grid layout
-        - `custom`: Allows per per-panel layouts controlled by the individual panel settings
+        columns (int): The number of columns in the layout. Default is 3.
+        rows (int): The number of rows in the layout. Default is 2.
     """
 
     columns: int = 3
@@ -119,14 +109,13 @@ class SectionLayoutSettings(Base):
     @classmethod
     def _from_model(cls, model: internal.FlowConfig):
         return cls(
-            layout="standard" if model.snap_to_columns else "custom",
             columns=model.columns_per_page,
             rows=model.rows_per_page,
         )
 
     def _to_model(self):
         return internal.FlowConfig(
-            snap_to_columns=self.layout == "standard",
+            snap_to_columns=True,
             columns_per_page=self.columns,
             rows_per_page=self.rows,
         )
@@ -190,13 +179,15 @@ class Section(Base):
         name (str): The name/title of the section.
         panels (LList[PanelTypes]): An ordered list of panels in the section. By default, first is top-left and last is bottom-right.
         is_open (bool): Whether the section is open or closed. Default is closed.
-        layout_settings (Literal["standard", "custom"]): Settings for panel layout in the section.
+        pinned (bool): Whether the section is pinned. Pinned sections appear at the top of the workspace. Default is False.
+        layout_settings (SectionLayoutSettings): Settings for panel layout in the section.
         panel_settings: Panel-level settings applied to all panels in the section, similar to `WorkspaceSettings` for a `Section`.
     """
 
     name: str
     panels: LList[PanelTypes] = Field(default_factory=list)
     is_open: bool = False
+    pinned: bool = False
 
     layout_settings: SectionLayoutSettings = Field(
         default_factory=SectionLayoutSettings
@@ -209,6 +200,7 @@ class Section(Base):
             name=model.name,
             panels=[_lookup_panel(p) for p in model.panels],
             is_open=model.is_open,
+            pinned=model.pinned if model.pinned is not None else False,
             layout_settings=SectionLayoutSettings._from_model(model.flow_config),
             panel_settings=SectionPanelSettings._from_model(model.local_panel_settings),
         )
@@ -224,6 +216,7 @@ class Section(Base):
             name=self.name,
             panels=panel_models,
             is_open=self.is_open,
+            pinned=self.pinned,
             flow_config=flow_config,
             local_panel_settings=local_panel_settings,
         )
@@ -330,18 +323,39 @@ class RunsetSettings(Base):
     Attributes:
         query (str): A query to filter the runset (can be a regex expr, see next param).
         regex_query (bool): Controls whether the query (above) is a regex expr. Default is set to `False`.
-        filters (LList[expr.FilterExpr]): A list of filters to apply to the runset.
-            Filters are AND'd together. See FilterExpr for more information on creating filters.
+        filters (Union[str, LList[expr.FilterExpr]]): A list of filters to apply to the runset or a string expression.
+            - As a list: Filters are AND'd together. See FilterExpr for more information on creating filters.
+            - As a string: Use Python-like expressions, e.g., "Config('lr') = 0.001 and State = 'finished'"
+              Supports operators: =, ==, !=, <, >, <=, >=, in, not in
         groupby (LList[expr.MetricType]): A list of metrics to group by in the runset. Set to
             `Metric`, `Summary`, `Config`, `Tags`, or `KeysInfo`.
         order (LList[expr.Ordering]): A list of metrics and ordering to apply to the runset.
         run_settings (Dict[str, RunSettings]): A dictionary of run settings, where the key
             is the run's ID and the value is a RunSettings object.
+        pinned_columns (LList[str]): List of column names to pin.
+            Column names use format: "run:displayName", "summary:metric", "config:param".
+            run:displayName is automatically added if not present.
+            Example: ["summary:accuracy", "summary:loss"]
+
+    Example:
+        ```python
+        # Using string filters (new)
+        RunsetSettings(
+            filters="Config('learning_rate') = 0.001 and State = 'finished'",
+            pinned_columns=["summary:accuracy", "summary:loss"],
+        )
+
+        # Using FilterExpr list (original way)
+        RunsetSettings(
+            filters=[expr.Config("learning_rate") == 0.001],
+            pinned_columns=["summary:accuracy", "summary:loss"],
+        )
+        ```
     """
 
     query: str = ""
     regex_query: bool = False
-    filters: LList[expr.FilterExpr] = Field(default_factory=list)
+    filters: Union[str, LList[expr.FilterExpr]] = ""
     groupby: LList[expr.MetricType] = Field(default_factory=list)
     "A list of metrics to group by in the runset."
 
@@ -362,6 +376,47 @@ class RunsetSettings(Base):
     }
     ```
     """
+
+    # Column management
+    pinned_columns: LList[str] = Field(default_factory=list)
+
+    # Internal fields for backend serialization (not user-facing)
+    _visible_columns: LList[str] = Field(default_factory=list, init=False, repr=False)
+    _column_order: LList[str] = Field(default_factory=list, init=False, repr=False)
+
+    @model_validator(mode="after")
+    def validate_and_setup_columns(self):
+        """Ensure run:displayName is present and set up internal column fields."""
+        if self.pinned_columns:
+            # Ensure run:displayName is in pinned_columns
+            if "run:displayName" not in self.pinned_columns:
+                # Add it as the first element
+                self.pinned_columns.insert(0, "run:displayName")
+            elif self.pinned_columns[0] != "run:displayName":
+                # Move it to the first position
+                self.pinned_columns.remove("run:displayName")
+                self.pinned_columns.insert(0, "run:displayName")
+
+            # Set internal fields to match pinned_columns
+            # Use object.__setattr__ to avoid recursion with Pydantic validation
+            object.__setattr__(self, "_visible_columns", list(self.pinned_columns))
+            object.__setattr__(self, "_column_order", list(self.pinned_columns))
+
+        return self
+
+    @model_validator(mode="after")
+    def convert_filterexpr_list_to_string(self):
+        """Convert FilterExpr list to string expression (unified internal format)."""
+        # Inline the normalization logic to avoid circular import with expr module
+        if isinstance(self.filters, list):
+            # Import locally to avoid circular import at module level
+            # Convert FilterExpr list to internal Filters tree
+            filters_tree = expr.filter_expr_to_filters_tree(self.filters)
+            # Convert Filters tree to string expression
+            filter_string = expr.filters_to_expr(filters_tree)
+            # Update the filters field
+            object.__setattr__(self, "filters", filter_string)
+        return self
 
 
 @dataclass(config=dataclass_config, repr=False)
@@ -498,6 +553,13 @@ class Workspace(Base):
             group_by_prefix=group_by_prefix,
         )
 
+        # Extract column settings from run_feed
+        run_feed = model.spec.section.run_sets[0].run_feed
+        # Only extract pinned_columns - visible_columns and column_order are derived from it
+        pinned_columns = [
+            col for col, is_pinned in run_feed.column_pinned.items() if is_pinned
+        ]
+
         # then construct the Workspace object
         obj = cls(
             entity=model.entity,
@@ -511,9 +573,7 @@ class Workspace(Base):
             runset_settings=RunsetSettings(
                 query=model.spec.section.run_sets[0].search.query,
                 regex_query=regex_query,
-                filters=expr.filters_tree_to_filter_expr(
-                    model.spec.section.run_sets[0].filters
-                ),
+                filters=expr.filters_to_expr(model.spec.section.run_sets[0].filters),
                 groupby=[
                     expr.BaseMetric.from_key(v)
                     for v in model.spec.section.run_sets[0].grouping
@@ -523,6 +583,7 @@ class Workspace(Base):
                     for s in model.spec.section.run_sets[0].sort.keys
                 ],
                 run_settings=run_settings,
+                pinned_columns=pinned_columns,
             ),
         )
         obj._internal_name = model.name
@@ -566,6 +627,18 @@ class Workspace(Base):
             should_auto_generate_panels=self.auto_generate_panels,
         )
 
+        # Convert list format (SDK) to dict format (backend) for columns
+        # column_visible and column_pinned are the same (pinned columns are the only visible ones. We pass this for consistency but other columns will be visibile in the FE)
+        column_pinned_dict = {col: True for col in self.runset_settings.pinned_columns}
+        column_visible_dict = column_pinned_dict  # Same as pinned
+
+        # Use internal _column_order if set, otherwise use pinned_columns as order
+        column_order = (
+            self.runset_settings._column_order
+            if self.runset_settings._column_order
+            else list(self.runset_settings.pinned_columns)
+        )
+
         return internal.View(
             entity=self.entity,
             project=self.project,
@@ -589,12 +662,18 @@ class Workspace(Base):
                     run_sets=[
                         internal.Runset(
                             id=self._internal_runset_id,
+                            run_feed=internal.RunFeed(
+                                column_pinned=column_pinned_dict,
+                                column_visible=column_visible_dict,
+                                column_order=column_order,
+                                column_widths={},  # No column widths support
+                            ),
                             search=internal.RunsetSearch(
                                 query=self.runset_settings.query,
                                 is_regex=is_regex,
                             ),
-                            filters=expr.filter_expr_to_filters_tree(
-                                self.runset_settings.filters
+                            filters=expr.expr_to_filters(
+                                self.runset_settings.filters  # type: ignore[arg-type]  # validator ensures this is always str
                             ),
                             grouping=[g.to_key() for g in self.runset_settings.groupby],
                             sort=internal.Sort(

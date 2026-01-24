@@ -90,8 +90,8 @@ class FunctionHook(
 
     def __init__(
         self,
-        fn: _IFunction_6adb0ab8,
-        encryption_key: typing.Optional[_IKey_5f11635f] = None,
+        fn: "_IFunction_6adb0ab8",
+        encryption_key: typing.Optional["_IKey_5f11635f"] = None,
     ) -> None:
         '''
         :param fn: Function to invoke in response to a lifecycle event.
@@ -106,11 +106,11 @@ class FunctionHook(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
+        _scope: "_constructs_77d1e7e8.Construct",
         *,
-        lifecycle_hook: _LifecycleHook_875787d2,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-    ) -> _LifecycleHookTargetConfig_184f760b:
+        lifecycle_hook: "_LifecycleHook_875787d2",
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+    ) -> "_LifecycleHookTargetConfig_184f760b":
         '''If the ``IRole`` does not exist in ``options``, will create an ``IRole`` and an SNS Topic and attach both to the lifecycle hook.
 
         If the ``IRole`` does exist in ``options``, will only create an SNS Topic and attach it to the lifecycle hook.
@@ -126,7 +126,7 @@ class FunctionHook(
             lifecycle_hook=lifecycle_hook, role=role
         )
 
-        return typing.cast(_LifecycleHookTargetConfig_184f760b, jsii.invoke(self, "bind", [_scope, options]))
+        return typing.cast("_LifecycleHookTargetConfig_184f760b", jsii.invoke(self, "bind", [_scope, options]))
 
 
 @jsii.implements(_ILifecycleHookTarget_733c0e5a)
@@ -150,7 +150,7 @@ class QueueHook(
         queue_hook = autoscaling_hooktargets.QueueHook(queue)
     '''
 
-    def __init__(self, queue: _IQueue_7ed6f679) -> None:
+    def __init__(self, queue: "_IQueue_7ed6f679") -> None:
         '''
         :param queue: -
         '''
@@ -162,11 +162,11 @@ class QueueHook(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
+        _scope: "_constructs_77d1e7e8.Construct",
         *,
-        lifecycle_hook: _LifecycleHook_875787d2,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-    ) -> _LifecycleHookTargetConfig_184f760b:
+        lifecycle_hook: "_LifecycleHook_875787d2",
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+    ) -> "_LifecycleHookTargetConfig_184f760b":
         '''If an ``IRole`` is found in ``options``, grant it access to send messages.
 
         Otherwise, create a new ``IRole`` and grant it access to send messages.
@@ -184,7 +184,7 @@ class QueueHook(
             lifecycle_hook=lifecycle_hook, role=role
         )
 
-        return typing.cast(_LifecycleHookTargetConfig_184f760b, jsii.invoke(self, "bind", [_scope, options]))
+        return typing.cast("_LifecycleHookTargetConfig_184f760b", jsii.invoke(self, "bind", [_scope, options]))
 
 
 @jsii.implements(_ILifecycleHookTarget_733c0e5a)
@@ -208,7 +208,7 @@ class TopicHook(
         topic_hook = autoscaling_hooktargets.TopicHook(topic)
     '''
 
-    def __init__(self, topic: _ITopic_9eca4852) -> None:
+    def __init__(self, topic: "_ITopic_9eca4852") -> None:
         '''
         :param topic: -
         '''
@@ -220,11 +220,11 @@ class TopicHook(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
+        _scope: "_constructs_77d1e7e8.Construct",
         *,
-        lifecycle_hook: _LifecycleHook_875787d2,
-        role: typing.Optional[_IRole_235f5d8e] = None,
-    ) -> _LifecycleHookTargetConfig_184f760b:
+        lifecycle_hook: "_LifecycleHook_875787d2",
+        role: typing.Optional["_IRole_235f5d8e"] = None,
+    ) -> "_LifecycleHookTargetConfig_184f760b":
         '''If an ``IRole`` is found in ``options``, grant it topic publishing permissions.
 
         Otherwise, create a new ``IRole`` and grant it topic publishing permissions.
@@ -242,7 +242,7 @@ class TopicHook(
             lifecycle_hook=lifecycle_hook, role=role
         )
 
-        return typing.cast(_LifecycleHookTargetConfig_184f760b, jsii.invoke(self, "bind", [_scope, options]))
+        return typing.cast("_LifecycleHookTargetConfig_184f760b", jsii.invoke(self, "bind", [_scope, options]))
 
 
 __all__ = [

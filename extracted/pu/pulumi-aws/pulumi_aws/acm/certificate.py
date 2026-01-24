@@ -637,23 +637,23 @@ class Certificate(pulumi.CustomResource):
         import pulumi_aws as aws
         import pulumi_tls as tls
 
-        example = tls.index.PrivateKey("example", algorithm=RSA)
-        example_self_signed_cert = tls.index.SelfSignedCert("example",
-            key_algorithm=RSA,
+        example = tls.PrivateKey("example", algorithm="RSA")
+        example_self_signed_cert = tls.SelfSignedCert("example",
+            key_algorithm="RSA",
             private_key_pem=example.private_key_pem,
             subject=[{
-                commonName: example.com,
-                organization: ACME Examples, Inc,
+                "commonName": "example.com",
+                "organization": "ACME Examples, Inc",
             }],
             validity_period_hours=12,
             allowed_uses=[
-                key_encipherment,
-                digital_signature,
-                server_auth,
+                "key_encipherment",
+                "digital_signature",
+                "server_auth",
             ])
         cert = aws.acm.Certificate("cert",
-            private_key=example["privateKeyPem"],
-            certificate_body=example_self_signed_cert["certPem"])
+            private_key=example.private_key_pem,
+            certificate_body=example_self_signed_cert.cert_pem)
         ```
 
         ### Referencing domain_validation_options With for_each Based Resources
@@ -681,11 +681,15 @@ class Certificate(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) ARN of the certificate.
+
         Using `pulumi import`, import certificates using their ARN. For example:
 
-        ```sh
-        $ pulumi import aws:acm/certificate:Certificate cert arn:aws:acm:eu-central-1:123456789012:certificate/7e7a28d2-163f-4b8f-b9cd-822f96c08d6a
-        ```
+        % pulumi import aws_acm_certificate.example arn:aws:acm:eu-central-1:123456789012:certificate/7e7a28d2-163f-4b8f-b9cd-822f96c08d6a
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -763,23 +767,23 @@ class Certificate(pulumi.CustomResource):
         import pulumi_aws as aws
         import pulumi_tls as tls
 
-        example = tls.index.PrivateKey("example", algorithm=RSA)
-        example_self_signed_cert = tls.index.SelfSignedCert("example",
-            key_algorithm=RSA,
+        example = tls.PrivateKey("example", algorithm="RSA")
+        example_self_signed_cert = tls.SelfSignedCert("example",
+            key_algorithm="RSA",
             private_key_pem=example.private_key_pem,
             subject=[{
-                commonName: example.com,
-                organization: ACME Examples, Inc,
+                "commonName": "example.com",
+                "organization": "ACME Examples, Inc",
             }],
             validity_period_hours=12,
             allowed_uses=[
-                key_encipherment,
-                digital_signature,
-                server_auth,
+                "key_encipherment",
+                "digital_signature",
+                "server_auth",
             ])
         cert = aws.acm.Certificate("cert",
-            private_key=example["privateKeyPem"],
-            certificate_body=example_self_signed_cert["certPem"])
+            private_key=example.private_key_pem,
+            certificate_body=example_self_signed_cert.cert_pem)
         ```
 
         ### Referencing domain_validation_options With for_each Based Resources
@@ -807,11 +811,15 @@ class Certificate(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) ARN of the certificate.
+
         Using `pulumi import`, import certificates using their ARN. For example:
 
-        ```sh
-        $ pulumi import aws:acm/certificate:Certificate cert arn:aws:acm:eu-central-1:123456789012:certificate/7e7a28d2-163f-4b8f-b9cd-822f96c08d6a
-        ```
+        % pulumi import aws_acm_certificate.example arn:aws:acm:eu-central-1:123456789012:certificate/7e7a28d2-163f-4b8f-b9cd-822f96c08d6a
 
         :param str resource_name: The name of the resource.
         :param CertificateArgs args: The arguments to use to populate this resource's properties.

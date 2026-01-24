@@ -9,29 +9,32 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0469 import Meta
-from .group_0479 import ScimEnterpriseUserResponseAllof1PropGroupsItems
 
+class RepositoryRuleDetailedOneof3(GitHubModel):
+    """RepositoryRuleDetailedOneof3"""
 
-class ScimEnterpriseUserResponseAllof1(GitHubModel):
-    """ScimEnterpriseUserResponseAllof1"""
-
-    id: str = Field(description="The internally generated id for the user object.")
-    groups: Missing[list[ScimEnterpriseUserResponseAllof1PropGroupsItems]] = Field(
+    type: Literal["required_linear_history"] = Field()
+    ruleset_source_type: Missing[Literal["Repository", "Organization"]] = Field(
         default=UNSET,
-        description="Provisioned SCIM groups that the user is a member of.",
+        description="The type of source for the ruleset that includes this rule.",
     )
-    meta: Meta = Field(
-        description="The metadata associated with the creation/updates to the user."
+    ruleset_source: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the source of the ruleset that includes this rule.",
+    )
+    ruleset_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the ruleset that includes this rule."
     )
 
 
-model_rebuild(ScimEnterpriseUserResponseAllof1)
+model_rebuild(RepositoryRuleDetailedOneof3)
 
-__all__ = ("ScimEnterpriseUserResponseAllof1",)
+__all__ = ("RepositoryRuleDetailedOneof3",)

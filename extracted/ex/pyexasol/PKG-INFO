@@ -1,12 +1,12 @@
 Metadata-Version: 2.3
 Name: pyexasol
-Version: 1.1.1
+Version: 2.0.0
 Summary: Exasol python driver with extra features
 License: MIT
 Keywords: exasol,sql,database,performance,websocket,import,export
 Author: Vitaly Markov
 Author-email: wild.desu@gmail.com
-Requires-Python: >=3.9.2,<4.0.0
+Requires-Python: >=3.10,<3.15
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -15,27 +15,32 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Database
 Provides-Extra: all
 Provides-Extra: examples
-Provides-Extra: numpy
 Provides-Extra: orjson
 Provides-Extra: pandas
 Provides-Extra: polars
+Provides-Extra: pyarrow
 Provides-Extra: rapidjson
 Provides-Extra: ujson
 Requires-Dist: cryptography (>=45.0.7)
-Requires-Dist: numpy (>1.26.0,<2) ; extra == "numpy" or extra == "all"
-Requires-Dist: orjson (>=3.6) ; extra == "orjson" or extra == "all"
-Requires-Dist: packaging
-Requires-Dist: pandas[numpy] (>=2,<3) ; extra == "pandas" or extra == "all"
-Requires-Dist: polars (>=1.10,<2.0) ; extra == "polars" or extra == "all"
-Requires-Dist: pproxy ; extra == "examples" or extra == "all"
-Requires-Dist: python-rapidjson ; extra == "rapidjson" or extra == "all"
-Requires-Dist: rsa
-Requires-Dist: ujson ; extra == "ujson" or extra == "all"
-Requires-Dist: websocket-client (>=1.0.1)
+Requires-Dist: orjson (>=3.6,<4.0) ; extra == "all"
+Requires-Dist: orjson (>=3.6,<4.0) ; extra == "orjson"
+Requires-Dist: packaging (>=24.1.0,<26.0.0)
+Requires-Dist: pandas (>=2.0.0,<3.0.0) ; extra == "all"
+Requires-Dist: pandas (>=2.0.0,<3.0.0) ; extra == "pandas"
+Requires-Dist: polars (>=1.10.0,<2.0.0) ; extra == "all"
+Requires-Dist: polars (>=1.10.0,<2.0.0) ; extra == "polars"
+Requires-Dist: pproxy ; extra == "all"
+Requires-Dist: pproxy ; extra == "examples"
+Requires-Dist: pyarrow (>=21.0.0) ; extra == "all"
+Requires-Dist: pyarrow (>=21.0.0) ; extra == "pyarrow"
+Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "all"
+Requires-Dist: python-rapidjson (>=1.21.0,<2.0.0) ; extra == "rapidjson"
+Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "all"
+Requires-Dist: ujson (>=5.10.0,<6.0.0) ; extra == "ujson"
+Requires-Dist: websocket-client (>=1.0.1,<1.9.0)
 Project-URL: Changelog, https://github.com/exasol/pyexasol/blob/master/CHANGELOG.md
 Project-URL: Documentation, https://github.com/exasol/pyexasol/
 Project-URL: Homepage, https://www.exasol.com/
@@ -64,7 +69,7 @@ Description-Content-Type: text/markdown
 
 PyExasol is the officially supported Python connector for [Exasol](https://www.exasol.com). It helps to handle massive volumes of data commonly associated with this DBMS.
 
-You may expect significant performance improvement over ODBC in a single process scenario involving pandas or polars.
+You may expect significant performance improvement over ODBC in a single process scenario involving pandas, parquet, or polars.
 
 PyExasol provides an [API](https://exasol.github.io/pyexasol/master/api.html) to read & write multiple data streams in parallel using separate processes, which is necessary to fully utilize hardware and achieve linear scalability. With PyExasol you are no longer limited to a single CPU core.
 
@@ -77,14 +82,14 @@ PyExasol provides an [API](https://exasol.github.io/pyexasol/master/api.html) to
 
 - Based on [WebSocket protocol](https://github.com/exasol/websocket-api);
 - Optimized for minimum overhead;
-- Easy integration with pandas and polars via HTTP transport;
+- Easy integration with pandas, parquet, and polars via HTTP transport;
 - Compression to reduce network bottleneck;
 
 
 ## System Requirements
 
 - Exasol >= 7.1
-- Python >= 3.9
+- Python >= 3.10
 
 ## Getting Started
 

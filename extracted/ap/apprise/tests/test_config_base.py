@@ -25,19 +25,59 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
+from datetime import datetime, timezone as _tz, tzinfo
 from inspect import cleandoc
 
 # Disable logging for a cleaner testing output
 import logging
+from typing import Any
+from unittest.mock import Mock
 
 import pytest
+from pytest_mock import MockerFixture
+import requests
 import yaml
 
-from apprise import Apprise, AppriseAsset, ConfigFormat
+from apprise import Apprise, AppriseAsset, AppriseConfig, ConfigFormat
 from apprise.config import ConfigBase
 from apprise.plugins.email import NotifyEmail
+from apprise.utils.time import zoneinfo
 
 logging.disable(logging.CRITICAL)
+
+
+@pytest.fixture
+def requests_remote_config(mocker: MockerFixture) -> Mock:
+    """
+    Patch requests.post globally.
+
+    The config loader will still go through its normal HTTP logic, but all
+    outbound GETs will receive controlled in-memory responses.
+    """
+
+    def fake_post(url: str, *args: Any, **kwargs: Any) -> requests.Response:
+        if url == "http://localhost:8000/get/test-001":
+            body = cleandoc("""
+                json://localhost
+                form://localhost
+                """)
+        elif url == "http://localhost:8000/get/test-002":
+            body = cleandoc("""
+                xml://localhost
+                """)
+        else:
+            pytest.fail(f"Unexpected URL fetched: {url!r}")
+
+        resp = requests.Response()
+        resp.status_code = requests.codes.ok
+        resp.url = url
+        resp._content = body.encode("utf-8")  # type: ignore[attr-defined]
+        resp.encoding = "utf-8"
+        return resp
+
+    # Patch the actual requests.post symbol that ConfigHTTP uses internally
+    mock_post: Mock = mocker.patch("requests.post", side_effect=fake_post)
+    return mock_post
 
 
 def test_config_base():
@@ -1005,6 +1045,9 @@ asset:
 
   image_path_mask: tmp/path
 
+  # Timezone (supports tz keyword too)
+  tz: America/Montreal
+
   # invalid entry
   theme:
     -
@@ -1042,6 +1085,10 @@ urls:
     # Boolean types stay boolean
     assert asset.async_mode is False
 
+    # Our TimeZone
+    assert isinstance(asset.tzinfo, tzinfo)
+    assert asset.tzinfo.key == zoneinfo("America/Montreal").key
+
     # the theme was not updated and remains the same as it was
     assert asset.theme == AppriseAsset().theme
 
@@ -1066,6 +1113,9 @@ asset:
   app_id: AppriseTest
   app_desc: Apprise Test Notifications
   app_url: http://nuxref.com
+
+  # An invalid timezone
+  timezone: invalid
 
 # Optionally define some global tags to associate with ALL of your
 # urls below.
@@ -1235,6 +1285,48 @@ include:
     assert "http://localhost/apprise/cfg01" in config
     assert "http://localhost/apprise/cfg02" in config
     assert "http://localhost/apprise/cfg03" in config
+
+
+def test_config_base_config_parse_yaml_includes(
+    requests_remote_config: Mock,
+) -> None:
+    """
+    API: ConfigBase.config_parse_yaml_includes
+
+    Verify that HTTP include entries are fetched via requests.get and that
+    the remote config bodies are parsed into json:// and xml:// notifiers.
+    """
+
+    # general reference used below
+    asset = AppriseAsset()
+
+    # Initialize our apprise configuration
+    ac = AppriseConfig(asset=asset, recursion=1)
+
+    # Add our entry
+    ac.add_config(cleandoc("""
+        # Include our Apprise Configuration from 2 locations
+        include:
+           - http://localhost:8000/get/test-001
+           - http://localhost:8000/get/test-002
+
+        # no further URLs defined
+    """))
+
+    # Force a fresh parse and get the loaded plugin
+    servers = ac.servers()
+
+    # the following will return
+    assert len(servers) == 3
+
+    # representation for NotifyBase subclasses.
+    urls = {n.url() for n in servers}
+
+    # The *exact* URL string may include extra params depending on defaults,
+    # so we check using containment instead of strict equality.
+    assert any(u.startswith("json://localhost") for u in urls)
+    assert any(u.startswith("xml://localhost") for u in urls)
+    assert any(u.startswith("form://localhost") for u in urls)
 
 
 def test_yaml_vs_text_tagging():
@@ -1580,3 +1672,230 @@ include: [file:///absolute/path/, relative/path, http://test.com]
     assert "file:///absolute/path/" in config
     assert "relative/path" in config
     assert "http://test.com" in config
+
+
+def test_yaml_asset_timezone_and_asset_tokens(tmpdir):
+    """
+    Covers: valid tz, reserved keys, invalid key, bool coercion, None->"",
+    invalid type for string, and %z formatting path used later by plugins.
+    """
+    cfg = tmpdir.join("asset-tz.yml")
+    cfg.write(
+        """
+version: 1
+asset:
+  tz: "  america/toronto  "     # case-insensitive + whitespace cleanup
+  _private: "ignored"           # reserved (starts with _)
+  name_: "ignored"              # reserved (ends with _)
+  not_a_field: "ignored"        # invalid asset key
+  secure_logging: "yes"         # string -> bool via parse_bool
+  app_id: null                  # None becomes empty string
+  app_desc: [ "list" ]          # invalid type for string -> warning path
+urls:
+  - json://localhost
+"""
+    )
+
+    ac = AppriseConfig(paths=str(cfg))
+    # Force a fresh parse and get the loaded plugin
+    servers = ac.servers()
+    assert len(servers) == 1
+
+    plugin = servers[0]
+    asset = plugin.asset
+
+    # tz was accepted and normalised
+    # lower() is required since Mac and Window are not case sensitive and will
+    # See output as it was passed in and not corrected per IANA
+    assert getattr(asset.tzinfo, "key", None).lower() == "america/toronto"
+    # boolean coercion applied
+    assert asset.secure_logging is True
+    # None -> ""
+    assert asset.app_id == ""
+
+
+def test_yaml_asset_timezone_invalid_and_precedence(tmpdir):
+    """
+    If 'timezone' is present but invalid, it takes precedence over 'tz'
+    and MUST NOT set the asset to the 'tz' value. We assert that London
+    was not applied. We deliberately avoid asserting the exact fallback,
+    since environments may surface a system tz (datetime.timezone) that
+    lacks a `.key` attribute.
+    """
+    cfg = tmpdir.join("asset-tz-invalid.yml")
+    cfg.write(
+        """
+version: 1
+asset:
+  timezone: null                # invalid (will be seen as "None")
+  tz: Europe/London             # would be valid, but 'timezone' wins
+urls:
+  - json://localhost
+"""
+    )
+
+    base_asset = AppriseAsset(timezone="UTC")
+    ac = AppriseConfig(paths=str(cfg))
+    servers = ac.servers(asset=base_asset)
+    assert len(servers) == 1
+
+    tzinfo = servers[0].asset.tzinfo
+
+    # The key assertion: 'tz' MUST NOT have been applied
+    assert getattr(tzinfo, "key", "").lower() != "europe/london"
+
+    # Sanity check that something sensible is set
+    # Compare offsets at a fixed instant instead of object identity
+    dt = datetime(2024, 1, 1, 12, 0, tzinfo=_tz.utc)
+    assert tzinfo.utcoffset(dt) is not None
+
+
+@pytest.mark.parametrize("garbage_yaml", [
+    "123", "3.1415", "true", "[UTC]", "{x: UTC}",
+])
+def test_yaml_asset_tz_garbage_types_only(tmpdir, garbage_yaml):
+    """
+    If only 'tz' is present and it is non-string, it is ignored.
+    We assert it didn't become a real IANA zone (e.g., Europe/London),
+    and that the tzinfo is usable.
+    """
+    cfg = tmpdir.join("asset-tz-garbage-only.yml")
+    cfg.write(
+        f"""
+version: 1
+asset:
+  tz: {garbage_yaml}            # non-string -> warning path
+urls:
+  - json://localhost
+"""
+    )
+
+    base_asset = AppriseAsset(timezone="UTC")
+    ac = AppriseConfig(paths=str(cfg))
+    servers = ac.servers(asset=base_asset)
+    assert len(servers) == 1
+
+    tzinfo = servers[0].asset.tzinfo
+
+    # 1) Did not “accidentally” become a valid IANA from elsewhere.
+    assert getattr(tzinfo, "key", "").lower() != "europe/london"
+
+    # 2) tzinfo is usable (offset resolves at a fixed instant).
+    dt = datetime(2024, 1, 1, 12, 0, tzinfo=_tz.utc)
+    assert tzinfo.utcoffset(dt) is not None
+    # also stable tzname resolution
+    assert isinstance(tzinfo.tzname(dt), str)
+
+def test_config_base_parse_yaml_file05_tags_alias_dict_form(tmpdir):
+    """
+    API: ConfigBase.parse_yaml_file (#5)
+
+    Validate `tags` is accepted as an alias of `tag` in the dict form:
+      - "schema://...":
+           tags: a-tag
+
+    Also implicitly verifies `tags` does not leak into plugin kwargs, because
+    plugin instantiation would fail if an unexpected kwarg is passed through.
+    """
+    t = tmpdir.mkdir("tags-alias-dict-form").join("apprise.yml")
+    t.write("""urls:
+  - pover://nsisxnvnqixq39t0cw54pxieyvtdd9@2jevtmstfg5a7hfxndiybasttxxfku:
+      tags: test1
+  - pover://rg8ta87qngcrkc6t4qbykxktou0uug@tqs3i88xlufexwl8t4asglt4zp5wfn:
+      tags: test2
+  - pover://jcqgnlyq2oetea4qg3iunahj8d5ijm@evalvutkhc8ipmz2lcgc70wtsm0qpb:
+      tags: test3
+""")
+
+    ac = AppriseConfig(paths=str(t))
+
+    # The number of configuration files that exist
+    assert len(ac) == 1
+
+    # All entries should load
+    assert len(ac.servers()) == 3
+
+    a = Apprise()
+    assert a.add(servers=ac) is True
+    assert len(a) == 3
+
+    # Verify tag matching works
+    assert sum(1 for _ in a.find("no-match")) == 0
+    assert sum(1 for _ in a.find("all")) == 3
+    assert sum(1 for _ in a.find("test1")) == 1
+    assert sum(1 for _ in a.find("test2")) == 1
+    assert sum(1 for _ in a.find("test3")) == 1
+    assert sum(1 for _ in a.find("test1, test3")) == 2
+
+
+def test_config_base_parse_yaml_file06_tags_alias_list_form(tmpdir):
+    """
+    API: ConfigBase.parse_yaml_file (#6)
+
+    Validate `tags` is accepted as an alias of `tag` in the list-of-dicts form:
+      - "schema://...":
+          - tags: a-tag
+          - tags: another-tag
+
+    Expected behaviour: expands into multiple entries (one per list item),
+    and each is tagged appropriately.
+    """
+    t = tmpdir.mkdir("tags-alias-list-form").join("apprise.yml")
+    t.write("""urls:
+  - pover://nsisxnvnqixq39t0cw54pxieyvtdd9@2jevtmstfg5a7hfxndiybasttxxfku:
+    - tags: test1
+    - tags: test2
+  - pover://jcqgnlyq2oetea4qg3iunahj8d5ijm@evalvutkhc8ipmz2lcgc70wtsm0qpb:
+    - tags: test3
+""")
+
+    ac = AppriseConfig(paths=str(t))
+
+    # The number of configuration files that exist
+    assert len(ac) == 1
+
+    # First URL expands to 2, second expands to 1
+    assert len(ac.servers()) == 3
+
+    a = Apprise()
+    assert a.add(servers=ac) is True
+    assert len(a) == 3
+
+    # Verify tag matching works across expanded entries
+    assert sum(1 for _ in a.find("test1")) == 1
+    assert sum(1 for _ in a.find("test2")) == 1
+    assert sum(1 for _ in a.find("test3")) == 1
+    assert sum(1 for _ in a.find("test1, test2")) == 2
+
+
+def test_config_base_parse_yaml_file07_tag_priority_over_tags(tmpdir):
+    """
+    API: ConfigBase.parse_yaml_file (#7)
+
+    Validate priority: when both `tag` and `tags` are present, `tag` wins.
+
+    This must remain true to preserve the original documented behaviour.
+    """
+    t = tmpdir.mkdir("tag-priority-over-tags").join("apprise.yml")
+    t.write("""urls:
+  - pover://nsisxnvnqixq39t0cw54pxieyvtdd9@2jevtmstfg5a7hfxndiybasttxxfku:
+      tag: primary
+      tags: secondary
+""")
+
+    ac = AppriseConfig(paths=str(t))
+
+    # The number of configuration files that exist
+    assert len(ac) == 1
+
+    # Entry should load successfully
+    assert len(ac.servers()) == 1
+
+    a = Apprise()
+    assert a.add(servers=ac) is True
+    assert len(a) == 1
+
+    # Tag priority check
+    assert sum(1 for _ in a.find("primary")) == 1
+    assert sum(1 for _ in a.find("secondary")) == 0
+

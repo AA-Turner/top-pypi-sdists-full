@@ -6,6 +6,7 @@ from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
 from ..models.gcp_trigger_delivery_type import GcpTriggerDeliveryType
+from ..models.gcp_trigger_mode import GcpTriggerMode
 from ..models.gcp_trigger_subscription_mode import GcpTriggerSubscriptionMode
 from ..types import UNSET, Unset
 
@@ -29,7 +30,6 @@ class GcpTrigger:
         delivery_type (GcpTriggerDeliveryType):
         subscription_mode (GcpTriggerSubscriptionMode): The mode of subscription. 'existing' means using an existing GCP
             subscription, while 'create_update' involves creating or updating a new subscription.
-        enabled (bool):
         path (str):
         script_path (str):
         email (str):
@@ -38,13 +38,14 @@ class GcpTrigger:
         edited_by (str):
         edited_at (datetime.datetime):
         is_flow (bool):
+        mode (GcpTriggerMode): job trigger mode
         server_id (Union[Unset, str]):
         delivery_config (Union[Unset, GcpTriggerDeliveryConfig]):
         last_server_ping (Union[Unset, datetime.datetime]):
         error (Union[Unset, str]):
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, GcpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, GcpTriggerRetry]):
+        retry (Union[Unset, GcpTriggerRetry]): Retry configuration for failed module executions
     """
 
     gcp_resource_path: str
@@ -52,7 +53,6 @@ class GcpTrigger:
     subscription_id: str
     delivery_type: GcpTriggerDeliveryType
     subscription_mode: GcpTriggerSubscriptionMode
-    enabled: bool
     path: str
     script_path: str
     email: str
@@ -61,6 +61,7 @@ class GcpTrigger:
     edited_by: str
     edited_at: datetime.datetime
     is_flow: bool
+    mode: GcpTriggerMode
     server_id: Union[Unset, str] = UNSET
     delivery_config: Union[Unset, "GcpTriggerDeliveryConfig"] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
@@ -78,7 +79,6 @@ class GcpTrigger:
 
         subscription_mode = self.subscription_mode.value
 
-        enabled = self.enabled
         path = self.path
         script_path = self.script_path
         email = self.email
@@ -89,6 +89,8 @@ class GcpTrigger:
         edited_at = self.edited_at.isoformat()
 
         is_flow = self.is_flow
+        mode = self.mode.value
+
         server_id = self.server_id
         delivery_config: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.delivery_config, Unset):
@@ -117,7 +119,6 @@ class GcpTrigger:
                 "subscription_id": subscription_id,
                 "delivery_type": delivery_type,
                 "subscription_mode": subscription_mode,
-                "enabled": enabled,
                 "path": path,
                 "script_path": script_path,
                 "email": email,
@@ -126,6 +127,7 @@ class GcpTrigger:
                 "edited_by": edited_by,
                 "edited_at": edited_at,
                 "is_flow": is_flow,
+                "mode": mode,
             }
         )
         if server_id is not UNSET:
@@ -163,8 +165,6 @@ class GcpTrigger:
 
         subscription_mode = GcpTriggerSubscriptionMode(d.pop("subscription_mode"))
 
-        enabled = d.pop("enabled")
-
         path = d.pop("path")
 
         script_path = d.pop("script_path")
@@ -180,6 +180,8 @@ class GcpTrigger:
         edited_at = isoparse(d.pop("edited_at"))
 
         is_flow = d.pop("is_flow")
+
+        mode = GcpTriggerMode(d.pop("mode"))
 
         server_id = d.pop("server_id", UNSET)
 
@@ -221,7 +223,6 @@ class GcpTrigger:
             subscription_id=subscription_id,
             delivery_type=delivery_type,
             subscription_mode=subscription_mode,
-            enabled=enabled,
             path=path,
             script_path=script_path,
             email=email,
@@ -230,6 +231,7 @@ class GcpTrigger:
             edited_by=edited_by,
             edited_at=edited_at,
             is_flow=is_flow,
+            mode=mode,
             server_id=server_id,
             delivery_config=delivery_config,
             last_server_ping=last_server_ping,

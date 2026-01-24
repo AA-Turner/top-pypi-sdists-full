@@ -1,17 +1,16 @@
 Metadata-Version: 2.3
 Name: langchain-weaviate
-Version: 0.0.5
+Version: 0.0.6
 Summary: An integration package connecting Weaviate and LangChain
 License: MIT
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: langchain-core (>=0.1.33,<0.4)
+Requires-Dist: langchain-core (>=0.1.33,<2.0)
 Requires-Dist: numpy (>=1.26.2,<3.0)
 Requires-Dist: simsimd (>=6.2.1,<7.0.0)
 Requires-Dist: weaviate-client (>=4.0.0,<5.0.0)

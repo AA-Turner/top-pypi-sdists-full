@@ -180,6 +180,12 @@ class RedshiftCredentials(Credentials):
         metadata={"description": "If using IAM auth, the AWS account id"},
     )
 
+    # TCP keepalive settings
+    tcp_keepalive: Optional[bool] = True
+    tcp_keepalive_idle: Optional[int] = None
+    tcp_keepalive_interval: Optional[int] = None
+    tcp_keepalive_count: Optional[int] = None
+
     _ALIASES = {"dbname": "database", "pass": "password"}
 
     @property
@@ -212,6 +218,10 @@ class RedshiftCredentials(Credentials):
             "is_serverless",
             "serverless_work_group",
             "serverless_acct_id",
+            "tcp_keepalive",
+            "tcp_keepalive_idle",
+            "tcp_keepalive_interval",
+            "tcp_keepalive_count",
         )
 
     @property
@@ -243,7 +253,9 @@ def get_connection_method(
         redshift_ssl_config: Dict[str, Any] = RedshiftSSLConfig.parse(
             credentials.sslmode
         ).to_dict()
-        return {
+
+        # Base connection parameters
+        base_kwargs = {
             "host": credentials.host,
             "port": int(credentials.port) if credentials.port else 5439,
             "database": credentials.database,
@@ -254,6 +266,18 @@ def get_connection_method(
             "is_serverless": is_serverless(credentials),
             **redshift_ssl_config,
         }
+
+        # Add TCP keepalive parameters if enabled
+        if credentials.tcp_keepalive:
+            base_kwargs["tcp_keepalive"] = True
+            if credentials.tcp_keepalive_idle is not None:
+                base_kwargs["tcp_keepalive_idle"] = credentials.tcp_keepalive_idle
+            if credentials.tcp_keepalive_interval is not None:
+                base_kwargs["tcp_keepalive_interval"] = credentials.tcp_keepalive_interval
+            if credentials.tcp_keepalive_count is not None:
+                base_kwargs["tcp_keepalive_count"] = credentials.tcp_keepalive_count
+
+        return base_kwargs
 
     def __iam_kwargs(credentials) -> Dict[str, Any]:
 
@@ -551,7 +575,7 @@ class RedshiftConnectionManager(SQLConnectionManager):
                 raise e
             if oid_not_found_msg in str(e):
                 pass
-            elif isinstance(e, redshift_connector.Error) and retry_all:
+            elif isinstance(e, DbtDatabaseError) and retry_all:
                 pass
             else:
                 logger.debug(f"Not retrying error: {e}")
@@ -564,7 +588,7 @@ class RedshiftConnectionManager(SQLConnectionManager):
             self.open(self.get_thread_connection())
             time.sleep(backoff)
             # return with exponential backoff
-            return retries, min(backoff * 2, 60)
+            return retries, min(max(backoff * 2, 2), 60)
 
         def _execute_internal(
             sql: str,
@@ -618,8 +642,6 @@ class RedshiftConnectionManager(SQLConnectionManager):
             redshift_connector.InterfaceError,
             redshift_connector.InternalError,
         )
-        if self.profile.credentials.retry_all:
-            redshift_retryable_exceptions = redshift_connector.Error
 
         for query in queries:
             # Strip off comments from the current query

@@ -1,5 +1,5 @@
 import sys
-from typing import TYPE_CHECKING, Any, ClassVar, Dict, Optional, Protocol, Type, Union, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Dict, Mapping, Optional, Protocol, Sequence, Type, Union, cast
 from weakref import WeakKeyDictionary
 
 import django.urls
@@ -38,32 +38,76 @@ def get_component_url(
     component: Union[Type["Component"], "Component"],
     query: Optional[Dict] = None,
     fragment: Optional[str] = None,
+    args: Optional[Sequence[Any]] = None,
+    kwargs: Optional[Mapping[str, Any]] = None,
 ) -> str:
     """
     Get the URL for a [`Component`](../api#django_components.Component).
 
     Raises `RuntimeError` if the component is not public.
 
+    Component is public when:
+
+    - You set any of the HTTP methods in the [`Component.View`](../api#django_components.ComponentView) class,
+    - Or you explicitly set [`Component.View.public = True`](../api#django_components.ComponentView.public).
+
     Read more about [Component views and URLs](../../concepts/fundamentals/component_views_urls).
 
     `get_component_url()` optionally accepts `query` and `fragment` arguments.
+
+    `get_component_url()` also accepts optionally `args` and `kwargs` arguments
+    that will be transmitted to `django.urls.reverse`.
+
+    **Query parameter handling:**
+
+    - `True` values are rendered as flag parameters without values (e.g., `?enabled`)
+    - `False` and `None` values are omitted from the URL
+    - Other values are rendered normally (e.g., `?foo=bar`)
 
     **Example:**
 
     ```py
     from django_components import Component, get_component_url
 
-    class MyComponent(Component):
+    class MyTable(Component):
         class View:
-            public = True
+            def get(self, request: HttpRequest, **kwargs: Any):
+                return MyTable.render_to_response()
 
     # Get the URL for the component
     url = get_component_url(
         MyComponent,
-        query={"foo": "bar"},
+        query={"foo": "bar", "enabled": True, "debug": False, "unused": None},
         fragment="baz",
     )
-    # /components/ext/view/components/c1ab2c3?foo=bar#baz
+    # /components/ext/view/components/c1ab2c3/?foo=bar&enabled#baz
+    ```
+
+    **Example with route parameters:**
+
+    If your component defines a custom route path with parameters using
+    [`get_route_path()`](../api#django_components.ComponentView.get_route_path),
+    you can pass `args` and `kwargs` to fill those parameters:
+
+    ```py
+    from django_components import Component, get_component_url
+
+    class UserProfile(Component):
+        class View:
+            @classmethod
+            def get_route_path(cls):
+                return f"users/{cls.component_cls.class_id}/<str:username>/<int:user_id>/"
+
+            def get(self, request: HttpRequest, username: str, user_id: int, **kwargs: Any):
+                return UserProfile.render_to_response()
+
+    # Get the URL with route parameters filled
+    url = get_component_url(
+        UserProfile,
+        kwargs={"username": "john", "user_id": 42},
+        query={"tab": "settings"},
+    )
+    # /components/ext/view/components/c1ab2c3/john/42/?tab=settings
     ```
     """
     view_cls: Optional[Type[ComponentView]] = getattr(component, "View", None)
@@ -71,7 +115,7 @@ def get_component_url(
         raise RuntimeError("Component URL is not available - Component is not public")
 
     route_name = _get_component_route_name(component)
-    url = django.urls.reverse(route_name)
+    url = django.urls.reverse(route_name, args=args, kwargs=kwargs)
     return format_url(url, query=query, fragment=fragment)
 
 
@@ -83,14 +127,17 @@ class ComponentView(ExtensionComponentConfig, View):
 
     This class is a subclass of
     [`django.views.View`](https://docs.djangoproject.com/en/5.2/ref/class-based-views/base/#view).
-    The [`Component`](../api#django_components.Component) class is available
-    via `self.component_cls`.
 
     Override the methods of this class to define the behavior of the component.
 
     Read more about [Component views and URLs](../../concepts/fundamentals/component_views_urls).
 
+    The [`Component`](../api#django_components.Component) class is available
+    via `self.component_cls`.
+
     **Example:**
+
+    Define a handler that runs for GET HTTP requests:
 
     ```python
     class MyComponent(Component):
@@ -101,27 +148,29 @@ class ComponentView(ExtensionComponentConfig, View):
 
     **Component URL:**
 
-    If the `public` attribute is set to `True`, the component will have its own URL
-    that will point to the Component's View.
+    Use [`get_component_url()`](../api#django_components.get_component_url) to retrieve
+    the component URL - an anonymous HTTP endpoint that triggers the component's handlers without having to register
+    the component in `urlpatterns`.
+
+    A component is automatically exposed when you define at least one HTTP handler. To explicitly
+    expose/hide the component, use
+    [`Component.View.public = True`](../api#django_components.ComponentView.public).
 
     ```py
-    from django_components import Component
+    from django_components import Component, get_component_url
 
     class MyComponent(Component):
         class View:
-            public = True
-
             def get(self, request, *args, **kwargs):
                 return HttpResponse("Hello, world!")
-    ```
 
-    Will create a URL route like `/components/ext/view/components/a1b2c3/`.
-
-    To get the URL for the component, use [`get_component_url()`](../api#django_components.get_component_url):
-
-    ```py
     url = get_component_url(MyComponent)
     ```
+
+    This will create a URL route like `/components/ext/view/components/a1b2c3/`.
+
+    The component URL route can be customized by overriding
+    [`get_route_path()`](../api#django_components.ComponentView.get_route_path).
     """
 
     # NOTE: The `component` / `component_cls` attributes are NOT user input, but still must be declared
@@ -161,21 +210,52 @@ class ComponentView(ExtensionComponentConfig, View):
         ComponentExtension.ComponentConfig.__init__(self, component)
         View.__init__(self, **kwargs)
 
+        # TODO_v1 - Remove. Superseded by `component_cls`. This was used for backwards compatibility.
+        self.component = component
+
+    @classmethod
+    def get_route_path(cls) -> str:
+        """
+        Get the route path for the component.
+
+        By default, this is `components/{component.class_id}/`.
+
+        You can override this method to customize the route path.
+
+        **Example:**
+        ```py
+        from django_components import Component, get_component_url
+
+        class MyComponent(Component):
+            class View:
+                @classmethod
+                def get_route_path(cls):
+                    return f"my/custom/path/{cls.component_cls.class_id}/<int:pk>/"
+
+        # Get the URL with route parameters filled
+        url = get_component_url(MyComponent, kwargs={"pk": 123})
+        # /components/ext/view/my/custom/path/c1ab2c3/123/
+        ```
+        """
+        return f"components/{cls.component_cls.class_id}/"
+
     @property
     def url(self) -> str:
         """
         The URL for the component.
 
         Raises `RuntimeError` if the component is not public.
+        See [`Component.View.public`](../api#django_components.ComponentView.public).
 
         This is the same as calling [`get_component_url()`](../api#django_components.get_component_url)
-        with the parent [`Component`](../api#django_components.Component) class:
+        with the current [`Component`](../api#django_components.Component) class:
 
         ```py
         class MyComponent(Component):
             class View:
                 def get(self, request):
-                    assert self.url == get_component_url(self.component_cls)
+                    component_url = get_component_url(self.component_cls)
+                    assert self.url == component_url
         ```
         """
         return get_component_url(self.component_cls)
@@ -184,26 +264,42 @@ class ComponentView(ExtensionComponentConfig, View):
     # PUBLIC API (Configurable by users)
     # #####################################
 
-    public: ClassVar[bool] = False
+    public: ClassVar[Optional[bool]] = None
     """
-    Whether the component should be available via a URL.
+    Whether the component HTTP handlers should be available via a URL.
+
+    By default (`None`), the component HTTP handlers are available via a URL
+    if any of the HTTP methods are defined.
+
+    You can explicitly set `public` to `True` or `False` to override this behaviour.
 
     **Example:**
 
+    Define the component HTTP handlers and get its URL using
+    [`get_component_url()`](../api#django_components.get_component_url):
+
     ```py
-    from django_components import Component
+    from django_components import Component, get_component_url
 
     class MyComponent(Component):
         class View:
-            public = True
+            def get(self, request):
+                return self.component_cls.render_to_response(request=request)
+
+    url = get_component_url(MyComponent)
     ```
 
-    Will create a URL route like `/components/ext/view/components/a1b2c3/`.
+    This will create a URL route like `/components/ext/view/components/a1b2c3/`.
 
-    To get the URL for the component, use [`get_component_url()`](../api#django_components.get_component_url):
+    To explicitly hide the component, set `public = False`:
 
     ```py
-    url = get_component_url(MyComponent)
+    class MyComponent(Component):
+        class View:
+            public = False
+
+            def get(self, request):
+                return self.component_cls.render_to_response(request=request)
     ```
     """
 
@@ -213,10 +309,13 @@ class ComponentView(ExtensionComponentConfig, View):
     # Each method actually delegates to the component's method of the same name.
     # E.g. When `get()` is called, it delegates to `component.get()`.
 
-    # TODO_V1 - In v1 handlers like `get()` should be defined on the Component.View class,
-    #           not the Component class directly. This is to align Views with the extensions API
-    #           where each extension should keep its methods in the extension class.
-    #           Instead, the defaults for these methods should be something like
+    # TODO_V1 - For backwards compatibility, the HTTP methods can be defined directly on
+    #           the Component class, e.g. `Component.post()`.
+    #           This should be no longer supported in v1.
+    #           In v1, handlers like `get()` should be defined on the Component.View class.
+    #           This is to align Views with the extensions API, where each extension should
+    #           keep its methods in the extension class.
+    #           And instead, the defaults for these methods should be something like
     #           `return self.component_cls.render_to_response(request, *args, **kwargs)` or similar
     #           or raise NotImplementedError.
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
@@ -268,13 +367,13 @@ class ViewExtension(ComponentExtension):
     def on_component_class_created(self, ctx: OnComponentClassCreatedContext) -> None:
         comp_cls = ctx.component_cls
         view_cls: Optional[Type[ComponentView]] = getattr(comp_cls, "View", None)
-        if not _is_view_public(view_cls):
+        if not view_cls or not _is_view_public(view_cls):
             return
 
         # Create a URL route like `components/MyTable_a1b2c3/`
         # And since this is within the `view` extension, the full URL path will then be:
         # `/components/ext/view/components/MyTable_a1b2c3/`
-        route_path = f"components/{comp_cls.class_id}/"
+        route_path = view_cls.get_route_path()
         route_name = _get_component_route_name(comp_cls)
         route = URLRoute(
             path=route_path,
@@ -297,4 +396,25 @@ class ViewExtension(ComponentExtension):
 def _is_view_public(view_cls: Optional[Type[ComponentView]]) -> bool:
     if view_cls is None:
         return False
-    return getattr(view_cls, "public", False)
+
+    # Allow users to skip setting `View.public = True` if any of the HTTP methods
+    # are defined. Users can still opt-out by explicitly setting `View.public` to `True` or `False`.
+    public = getattr(view_cls, "public", None)
+    if public is not None:
+        return public
+
+    # Auto-decide whether the view is public by checking if any of the HTTP methods
+    # are overridden in the user's View class.
+    # We do this only once, so if user dynamically adds or removes the methods,
+    # we will not pick up on that.
+    http_methods = ["get", "post", "put", "patch", "delete", "head", "options", "trace"]
+    for method in http_methods:
+        if not hasattr(view_cls, method):
+            continue
+        did_change_method = getattr(view_cls, method) != getattr(ComponentView, method)
+        if did_change_method:
+            view_cls.public = True
+            return True
+
+    view_cls.public = False
+    return False

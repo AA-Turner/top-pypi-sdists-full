@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "3.90.0"
+__version__ = "3.101.0"
 
 # Define package exports
 __all__ = [
@@ -37,6 +37,7 @@ __all__ = [
     "ApiException",
     "AsyncOperationResponse",
     "ContentSummaryResponse",
+    "FileContentUploadResponse",
     "FileFileAlternateContentSource",
     "FileFileAlternateContentSourceResponse",
     "FileFileContentResponse",
@@ -99,6 +100,7 @@ from pulpcore.client.pulp_file.exceptions import ApiException as ApiException
 # import models into sdk package
 from pulpcore.client.pulp_file.models.async_operation_response import AsyncOperationResponse as AsyncOperationResponse
 from pulpcore.client.pulp_file.models.content_summary_response import ContentSummaryResponse as ContentSummaryResponse
+from pulpcore.client.pulp_file.models.file_content_upload_response import FileContentUploadResponse as FileContentUploadResponse
 from pulpcore.client.pulp_file.models.file_file_alternate_content_source import FileFileAlternateContentSource as FileFileAlternateContentSource
 from pulpcore.client.pulp_file.models.file_file_alternate_content_source_response import FileFileAlternateContentSourceResponse as FileFileAlternateContentSourceResponse
 from pulpcore.client.pulp_file.models.file_file_content_response import FileFileContentResponse as FileFileContentResponse

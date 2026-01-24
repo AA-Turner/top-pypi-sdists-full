@@ -2,6 +2,7 @@ use rumdl_lib::lint_context::LintContext;
 
 #[test]
 fn test_escaped_brackets_in_lint_context() {
+    // Test content with various escaped bracket patterns
     let content = r#"This is not a link: \[escaped text\]
 This is a real link: [actual link](https://example.com)
 Reference style: \[not a reference\][ref]
@@ -12,11 +13,19 @@ Real reference: [real reference][ref]
 Images too: \![not an image](image.jpg)
 Real image: ![actual image](image.jpg)"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
-    // LintContext correctly handles escaped brackets
-    assert_eq!(ctx.links.len(), 2, "Should only detect 2 real links");
-    assert_eq!(ctx.images.len(), 1, "Should only detect 1 real image");
+    // Per CommonMark spec, pulldown-cmark 0.13.0 correctly handles escaped brackets:
+    // - \[escaped text\] → NOT a link (escaped brackets produce literal text)
+    // - [actual link](url) → LINK
+    // - \[not a reference\][ref] → literal text + shortcut reference [ref] → LINK
+    // - [real reference][ref] → LINK (reference style)
+    // - \![not an image](url) → literal "!" + LINK (escape only affects the "!")
+    // - ![actual image](url) → IMAGE
+    //
+    // Total: 4 links, 1 image
+    assert_eq!(ctx.links.len(), 4, "Should detect 4 links");
+    assert_eq!(ctx.images.len(), 1, "Should detect 1 real image");
 }
 
 #[test]
@@ -27,18 +36,15 @@ fn test_complex_escaped_brackets() {
 Text with \[brackets\] in the middle
 Multiple \[escaped\] \[brackets\] on same line"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
-    // Currently, LintContext doesn't handle double backslash escapes
-    // This is a potential future enhancement: when \\ precedes [, the first \ escapes the second \
-    // making the bracket not escaped. For now, the implementation doesn't detect this.
-    assert_eq!(
-        ctx.links.len(),
-        0,
-        "Current behavior: doesn't handle double backslash escapes"
-    );
-
-    // LintContext behavior is now the canonical implementation
+    // Per CommonMark spec:
+    // - \\[text](url) → literal "\" + LINK (first \ escapes second \, leaving [text](url))
+    // - \\\[text\] → literal "\" + literal "[text]" (two \ become one, third \ escapes [)
+    // - \[brackets\] → literal text, not a link
+    //
+    // pulldown-cmark 0.13.0 correctly handles these cases
+    assert_eq!(ctx.links.len(), 1, "Should detect 1 link from \\\\[...](url)");
 }
 
 #[test]
@@ -47,7 +53,7 @@ fn test_nested_brackets_with_escapes() {
 Nested reference: [text with \[brackets\]][ref]
 [ref]: https://example.com"#;
 
-    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard);
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
 
     // Should correctly parse links with escaped brackets inside
     assert_eq!(ctx.links.len(), 2);

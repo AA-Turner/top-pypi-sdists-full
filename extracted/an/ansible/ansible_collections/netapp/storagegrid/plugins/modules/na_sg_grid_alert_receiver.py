@@ -54,12 +54,24 @@ options:
     type: int
   username:
     description:
-    - Username for the SMTP server.
+    - Use C(smtp_username) instead.
+    - This parameter has been deprecated.
     type: str
   password:
     description:
+    - Use C(smtp_password) instead.
+    - This parameter has been deprecated.
+    type: str
+  smtp_username:
+    description:
+    - Username for the SMTP server.
+    type: str
+    version_added: 21.16.0
+  smtp_password:
+    description:
     - Password for the SMTP server.
     type: str
+    version_added: 21.16.0
   from_email:
     description:
     - Sender email address.
@@ -90,7 +102,7 @@ options:
 
 EXAMPLES = """
 - name: Create alert receiver
-  netapp.storagegrid.na_sg_alert_receiver:
+  netapp.storagegrid.na_sg_grid_alert_receiver:
     api_url: "https://<storagegrid-endpoint-url>"
     auth_token: "storagegrid-auth-token"
     validate_certs: false
@@ -99,8 +111,8 @@ EXAMPLES = """
     enable: true
     smtp_host: "smtp.example.com"
     smtp_port: 25
-    username: "smtp-user"
-    password: "smtp-password"
+    smtp_username: "smtp-user"
+    smtp_password: "smtp-password"
     from_email: "user@example.com"
     to_emails:
       - "user@example.com"
@@ -167,6 +179,8 @@ class SgAlertReceiver:
                 smtp_port=dict(required=False, type="int"),
                 username=dict(required=False, type="str"),
                 password=dict(required=False, type="str", no_log=True),
+                smtp_username=dict(required=False, type="str"),
+                smtp_password=dict(required=False, type="str", no_log=True),
                 from_email=dict(required=False, type="str"),
                 to_emails=dict(required=False, type="list", elements="str"),
                 minimum_severity=dict(required=False, type="str", choices=["minor", "major", "critical"]),
@@ -186,6 +200,10 @@ class SgAlertReceiver:
         self.parameters = self.na_helper.set_parameters(self.module.params)
         # Calling generic SG rest_api class
         self.rest_api = SGRestAPI(self.module)
+        # Get API version
+        self.rest_api.get_sg_product_version()
+        self.api_version = self.rest_api.get_api_version()
+
         # Checking for the parameters passed and create new parameters list
         self.data = {}
         self.data["type"] = self.parameters["type"]
@@ -206,6 +224,10 @@ class SgAlertReceiver:
             self.data["username"] = self.parameters["username"]
         if self.parameters.get("password"):
             self.data["password"] = self.parameters["password"]
+        if self.parameters.get("smtp_username"):
+            self.data["username"] = self.parameters["smtp_username"]
+        if self.parameters.get("smtp_password"):
+            self.data["password"] = self.parameters["smtp_password"]
         if self.parameters.get("ca_cert"):
             self.data["caCert"] = self.parameters.get("ca_cert")
         if self.parameters.get("client_cert"):
@@ -215,7 +237,7 @@ class SgAlertReceiver:
 
     def get_alert_receiver(self):
         ''' Get alert receiver '''
-        api = "api/v3/grid/alert-receivers"
+        api = "api/%s/grid/alert-receivers" % self.api_version
         response, error = self.rest_api.get(api)
         if error:
             self.module.fail_json(msg=error)
@@ -228,7 +250,7 @@ class SgAlertReceiver:
 
     def create_alert_receiver(self):
         ''' Create alert receiver '''
-        api = "api/v3/grid/alert-receivers"
+        api = "api/%s/grid/alert-receivers" % self.api_version
         response, error = self.rest_api.post(api, self.data)
         if error:
             self.module.fail_json(msg=error)
@@ -237,14 +259,14 @@ class SgAlertReceiver:
 
     def delete_alert_receiver(self, alert_receiver_id):
         ''' Delete alert receiver '''
-        api = "api/v3/grid/alert-receivers/%s" % alert_receiver_id
+        api = "api/%s/grid/alert-receivers/%s" % (self.api_version, alert_receiver_id)
         response, error = self.rest_api.delete(api, self.data)
         if error:
             self.module.fail_json(msg=error)
 
     def update_alert_receiver(self, alert_receiver_id):
         ''' Update alert receiver '''
-        api = "api/v3/grid/alert-receivers/%s" % alert_receiver_id
+        api = "api/%s/grid/alert-receivers/%s" % (self.api_version, alert_receiver_id)
         response, error = self.rest_api.put(api, self.data)
         if error:
             self.module.fail_json(msg=error)

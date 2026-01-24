@@ -1,5 +1,5 @@
 use itertools::iproduct;
-use regex_syntax::hir::{self, visit, Hir, HirKind, Visitor};
+use regex_syntax::hir::{self, Hir, HirKind, Visitor, visit};
 use std::cell::Cell;
 use std::fmt::{Display, Formatter, Write};
 use std::str::Utf8Error;
@@ -282,7 +282,7 @@ fn simplify_string_set(strings: SSet) -> impl Iterator<Item = String> {
 
     std::iter::zip(to_keep, strings)
         .filter(|v| v.0)
-        .map(|v| v.1 .0)
+        .map(|v| v.1.0)
 }
 
 /// Intermediate information about the set of strings a regex matches,
@@ -382,7 +382,7 @@ impl Visitor for InfoVisitor {
                     } else {
                         Info::Exact(
                             c.iter()
-                                .flat_map(|r| (r.start()..=r.end()))
+                                .flat_map(|r| r.start()..=r.end())
                                 .map(char::to_lowercase)
                                 .map(String::from_iter)
                                 .map(LengthThenLex)
@@ -453,12 +453,7 @@ impl Visitor for InfoVisitor {
                     if !exacts.is_empty() {
                         matches.push(Model::or_strings(exacts));
                     }
-                    Info::Match(
-                        matches
-                            .into_iter()
-                            .map(From::from)
-                            .fold(Model::none(), Model::or),
-                    )
+                    Info::Match(matches.into_iter().fold(Model::none(), Model::or))
                 });
             }
             // and this one gets really painful, like above we need to

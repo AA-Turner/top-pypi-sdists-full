@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "textual-dev"
-version = "1.7.0"
+version = "1.8.0"
 homepage = "https://github.com/Textualize/textual-dev"
 description = "Development tools for working with Textual"
 authors = [
@@ -10,23 +10,25 @@ authors = [
 license = "MIT"
 readme = "README.md"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Operating System :: Microsoft :: Windows :: Windows 10",
     "Operating System :: Microsoft :: Windows :: Windows 11",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Typing :: Typed",
 ]
 include = ["src/textual_dev/py.typed", { path = "tests", format = "sdist" }]
 
 [tool.poetry.dependencies]
-python = "^3.8.1"
+python = "^3.9"
 textual = ">=0.86.2"
 textual_serve = ">=1.0.3"
 aiohttp = ">=3.8.1"

@@ -1,9 +1,8 @@
 Metadata-Version: 2.4
 Name: caio
-Version: 0.9.24
+Version: 0.9.25
 Summary: Asynchronous file IO for Linux MacOS or Windows.
 Author-email: Dmitry Orlov <me@mosquito.su>
-License-Expression: Apache-2.0
 Project-URL: Source Code, https://github.com/mosquito/caio/
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
@@ -14,13 +13,13 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
 Provides-Extra: develop

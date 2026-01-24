@@ -3,14 +3,14 @@ Type annotations for billing service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_billing/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_billing.literals import BillingViewTypeType
+    from mypy_boto3_billing.literals import BillingViewStatusReasonType
 
-    data: BillingViewTypeType = "BILLING_GROUP"
+    data: BillingViewStatusReasonType = "AGGREGATE_SOURCE"
     ```
 """
 
@@ -24,20 +24,37 @@ else:
 
 __all__ = (
     "BillingServiceName",
+    "BillingViewStatusReasonType",
+    "BillingViewStatusType",
     "BillingViewTypeType",
     "DimensionType",
     "ListBillingViewsPaginatorName",
     "ListSourceViewsForBillingViewPaginatorName",
     "PaginatorName",
     "ResourceServiceName",
+    "SearchOptionType",
     "ServiceName",
 )
 
 
-BillingViewTypeType = Literal["BILLING_GROUP", "CUSTOM", "PRIMARY"]
+BillingViewStatusReasonType = Literal[
+    "AGGREGATE_SOURCE",
+    "CYCLIC_DEPENDENCY",
+    "SOURCE_VIEW_ACCESS_DENIED",
+    "SOURCE_VIEW_DEPTH_EXCEEDED",
+    "SOURCE_VIEW_NOT_FOUND",
+    "SOURCE_VIEW_UNHEALTHY",
+    "SOURCE_VIEW_UPDATING",
+    "VIEW_OWNER_NOT_MANAGEMENT_ACCOUNT",
+]
+BillingViewStatusType = Literal["CREATING", "HEALTHY", "UNHEALTHY", "UPDATING"]
+BillingViewTypeType = Literal[
+    "BILLING_GROUP", "BILLING_TRANSFER", "BILLING_TRANSFER_SHOWBACK", "CUSTOM", "PRIMARY"
+]
 DimensionType = Literal["LINKED_ACCOUNT"]
 ListBillingViewsPaginatorName = Literal["list_billing_views"]
 ListSourceViewsForBillingViewPaginatorName = Literal["list_source_views_for_billing_view"]
+SearchOptionType = Literal["STARTS_WITH"]
 BillingServiceName = Literal["billing"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -65,7 +82,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -135,6 +151,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -180,7 +197,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -233,7 +249,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -272,8 +287,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -308,6 +321,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -317,18 +331,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -350,8 +366,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -366,15 +380,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -405,8 +420,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -446,6 +461,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -457,15 +473,6 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal["list_billing_views", "list_source_views_for_billing_view"]

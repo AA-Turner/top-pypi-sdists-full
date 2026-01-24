@@ -20,7 +20,7 @@ from beartype.typing import (
 from beartype._cave._cavemap import NoneTypeOr
 from beartype._check.code.snip.codesnipcls import HINT_INDEX_TO_HINT_PLACEHOLDER
 from beartype._check.metadata.hint.hintsane import HintSane
-from beartype._data.hint.pep.sign.datapepsigncls import HintSign
+from beartype._data.hint.sign.datahintsigncls import HintSign
 from beartype._data.kind.datakindiota import SENTINEL
 
 # ....................{ DATACLASSES                        }....................
@@ -31,7 +31,7 @@ class HintMeta(object):
     metadata describing the possibly nested type hint visited by the current
     iteration of the breadth-first search (BFS) dynamically generating
     pure-Python type-checking code snippets in the
-    :func:`beartype._check.code.codemake.make_check_expr` factory).
+    :func:`beartype._check.code.codemain.make_check_expr` factory).
 
     Attributes
     ----------
@@ -39,14 +39,14 @@ class HintMeta(object):
         **Type-checking placeholder substring** to be globally replaced in the
         **type-checking wrapper function code snippet** (i.e., the
         ``func_wrapper_code`` local defined by the
-        :func:`beartype._check.code.codemake.make_check_expr` factory) by a
+        :func:`beartype._check.code.codemain.make_check_expr` factory) by a
         Python code snippet type-checking the **current pith expression** (i.e.,
         the ``pith_var_name`` local) against the **currently visited type hint**
         (i.e., the :attr:`hint` instance variable).
     hint_sane : HintSane
         **Sanified type hint metadata** (i.e., immutable and thus hashable
         object encapsulating *all* metadata returned by
-        :mod:`beartype._check.convert.convsanify` sanifiers after sanitizing
+        :mod:`beartype._check.convert.convmain` sanifiers after sanitizing
         this possibly PEP-noncompliant hint into a fully PEP-compliant hint)
         describing the type hint currently visited by this BFS.
     hint_sign : Optional[HintSign]

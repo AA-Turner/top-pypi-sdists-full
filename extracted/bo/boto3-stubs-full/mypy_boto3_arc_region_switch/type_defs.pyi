@@ -3,7 +3,7 @@ Type annotations for arc-region-switch service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_arc_region_switch/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -24,6 +25,7 @@ from .literals import (
     AlarmConditionType,
     AlarmTypeType,
     ApprovalType,
+    DocumentDbDefaultBehaviorType,
     Ec2AsgCapacityMonitoringApproachType,
     EcsCapacityMonitoringApproachType,
     EvaluationStatusType,
@@ -32,10 +34,12 @@ from .literals import (
     ExecutionEventTypeType,
     ExecutionModeType,
     ExecutionStateType,
+    FailedReportErrorCodeType,
     GlobalAuroraDefaultBehaviorType,
     RecoveryApproachType,
     RegionToRunInType,
     ResourceWarningStatusType,
+    Route53HealthCheckStatusType,
     RoutingControlStateChangeType,
     StepStatusType,
     UpdatePlanExecutionActionType,
@@ -43,12 +47,6 @@ from .literals import (
     WorkflowTargetActionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -71,6 +69,10 @@ __all__ = (
     "CustomActionLambdaConfigurationTypeDef",
     "CustomActionLambdaConfigurationUnionTypeDef",
     "DeletePlanRequestTypeDef",
+    "DocumentDbConfigurationOutputTypeDef",
+    "DocumentDbConfigurationTypeDef",
+    "DocumentDbConfigurationUnionTypeDef",
+    "DocumentDbUngracefulTypeDef",
     "Ec2AsgCapacityIncreaseConfigurationOutputTypeDef",
     "Ec2AsgCapacityIncreaseConfigurationTypeDef",
     "Ec2AsgCapacityIncreaseConfigurationUnionTypeDef",
@@ -90,6 +92,8 @@ __all__ = (
     "ExecutionBlockConfigurationTypeDef",
     "ExecutionBlockConfigurationUnionTypeDef",
     "ExecutionEventTypeDef",
+    "FailedReportOutputTypeDef",
+    "GeneratedReportTypeDef",
     "GetPlanEvaluationStatusRequestPaginateTypeDef",
     "GetPlanEvaluationStatusRequestTypeDef",
     "GetPlanEvaluationStatusRequestWaitTypeDef",
@@ -123,6 +127,9 @@ __all__ = (
     "ListPlansRequestPaginateTypeDef",
     "ListPlansRequestTypeDef",
     "ListPlansResponseTypeDef",
+    "ListRoute53HealthChecksInRegionRequestPaginateTypeDef",
+    "ListRoute53HealthChecksInRegionRequestTypeDef",
+    "ListRoute53HealthChecksInRegionResponseTypeDef",
     "ListRoute53HealthChecksRequestPaginateTypeDef",
     "ListRoute53HealthChecksRequestTypeDef",
     "ListRoute53HealthChecksResponseTypeDef",
@@ -137,6 +144,11 @@ __all__ = (
     "PlanPaginatorTypeDef",
     "PlanTypeDef",
     "RegionSwitchPlanConfigurationTypeDef",
+    "ReportConfigurationOutputTypeDef",
+    "ReportConfigurationTypeDef",
+    "ReportConfigurationUnionTypeDef",
+    "ReportOutputConfigurationTypeDef",
+    "ReportOutputTypeDef",
     "ResourceWarningTypeDef",
     "ResponseMetadataTypeDef",
     "Route53HealthCheckConfigurationOutputTypeDef",
@@ -144,6 +156,8 @@ __all__ = (
     "Route53HealthCheckConfigurationUnionTypeDef",
     "Route53HealthCheckTypeDef",
     "Route53ResourceRecordSetTypeDef",
+    "S3ReportOutputConfigurationTypeDef",
+    "S3ReportOutputTypeDef",
     "ServiceTypeDef",
     "StartPlanExecutionRequestTypeDef",
     "StartPlanExecutionResponseTypeDef",
@@ -187,7 +201,7 @@ class AbbreviatedPlanTypeDef(TypedDict):
     arn: str
     owner: str
     name: str
-    regions: List[str]
+    regions: list[str]
     recoveryApproach: RecoveryApproachType
     primaryRegion: NotRequired[str]
     version: NotRequired[str]
@@ -227,7 +241,7 @@ class CancelPlanExecutionRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -241,6 +255,9 @@ class LambdasTypeDef(TypedDict):
 
 class DeletePlanRequestTypeDef(TypedDict):
     arn: str
+
+class DocumentDbUngracefulTypeDef(TypedDict):
+    ungraceful: NotRequired[Literal["failover"]]
 
 class Ec2UngracefulTypeDef(TypedDict):
     minimumSuccessPercentage: int
@@ -276,7 +293,7 @@ class ExecutionApprovalConfigurationTypeDef(TypedDict):
     timeoutMinutes: NotRequired[int]
 
 class ParallelExecutionBlockConfigurationOutputTypeDef(TypedDict):
-    steps: List[Dict[str, Any]]
+    steps: list[dict[str, Any]]
 
 class RegionSwitchPlanConfigurationTypeDef(TypedDict):
     arn: str
@@ -284,7 +301,7 @@ class RegionSwitchPlanConfigurationTypeDef(TypedDict):
     externalId: NotRequired[str]
 
 class ParallelExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
-    steps: List[Dict[str, Any]]
+    steps: list[dict[str, Any]]
 
 ExecutionEventTypeDef = TypedDict(
     "ExecutionEventTypeDef",
@@ -294,12 +311,16 @@ ExecutionEventTypeDef = TypedDict(
         "type": NotRequired[ExecutionEventTypeType],
         "stepName": NotRequired[str],
         "executionBlockType": NotRequired[ExecutionBlockTypeType],
-        "resources": NotRequired[List[str]],
+        "resources": NotRequired[list[str]],
         "error": NotRequired[str],
         "description": NotRequired[str],
         "previousEventId": NotRequired[str],
     },
 )
+
+class FailedReportOutputTypeDef(TypedDict):
+    errorCode: NotRequired[FailedReportErrorCodeType]
+    errorMessage: NotRequired[str]
 
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
@@ -358,7 +379,7 @@ class ListPlansRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
-class ListRoute53HealthChecksRequestTypeDef(TypedDict):
+class ListRoute53HealthChecksInRegionRequestTypeDef(TypedDict):
     arn: str
     hostedZoneId: NotRequired[str]
     recordName: NotRequired[str]
@@ -370,6 +391,14 @@ class Route53HealthCheckTypeDef(TypedDict):
     recordName: str
     region: str
     healthCheckId: NotRequired[str]
+    status: NotRequired[Route53HealthCheckStatusType]
+
+class ListRoute53HealthChecksRequestTypeDef(TypedDict):
+    arn: str
+    hostedZoneId: NotRequired[str]
+    recordName: NotRequired[str]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     arn: str
@@ -380,6 +409,13 @@ class MinimalWorkflowTypeDef(TypedDict):
 
 class ParallelExecutionBlockConfigurationTypeDef(TypedDict):
     steps: Sequence[Mapping[str, Any]]
+
+class S3ReportOutputConfigurationTypeDef(TypedDict):
+    bucketPath: NotRequired[str]
+    bucketOwner: NotRequired[str]
+
+class S3ReportOutputTypeDef(TypedDict):
+    s3ObjectKey: NotRequired[str]
 
 class Route53ResourceRecordSetTypeDef(TypedDict):
     recordSetIdentifier: NotRequired[str]
@@ -419,7 +455,7 @@ class UpdatePlanExecutionStepRequestTypeDef(TypedDict):
     actionToTake: UpdatePlanExecutionStepActionType
 
 class ArcRoutingControlConfigurationOutputTypeDef(TypedDict):
-    regionAndRoutingControls: Dict[str, List[ArcRoutingControlStateTypeDef]]
+    regionAndRoutingControls: dict[str, list[ArcRoutingControlStateTypeDef]]
     timeoutMinutes: NotRequired[int]
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
@@ -431,22 +467,22 @@ class ArcRoutingControlConfigurationTypeDef(TypedDict):
     externalId: NotRequired[str]
 
 class ListPlanExecutionsResponseTypeDef(TypedDict):
-    items: List[AbbreviatedExecutionTypeDef]
+    items: list[AbbreviatedExecutionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPlansInRegionResponseTypeDef(TypedDict):
-    plans: List[AbbreviatedPlanTypeDef]
+    plans: list[AbbreviatedPlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListPlansResponseTypeDef(TypedDict):
-    plans: List[AbbreviatedPlanTypeDef]
+    plans: list[AbbreviatedPlanTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    resourceTags: Dict[str, str]
+    resourceTags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartPlanExecutionResponseTypeDef(TypedDict):
@@ -458,7 +494,7 @@ class StartPlanExecutionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CustomActionLambdaConfigurationOutputTypeDef(TypedDict):
-    lambdas: List[LambdasTypeDef]
+    lambdas: list[LambdasTypeDef]
     retryIntervalMinutes: float
     regionToRun: RegionToRunInType
     timeoutMinutes: NotRequired[int]
@@ -471,8 +507,26 @@ class CustomActionLambdaConfigurationTypeDef(TypedDict):
     timeoutMinutes: NotRequired[int]
     ungraceful: NotRequired[LambdaUngracefulTypeDef]
 
+class DocumentDbConfigurationOutputTypeDef(TypedDict):
+    behavior: DocumentDbDefaultBehaviorType
+    globalClusterIdentifier: str
+    databaseClusterArns: list[str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    ungraceful: NotRequired[DocumentDbUngracefulTypeDef]
+
+class DocumentDbConfigurationTypeDef(TypedDict):
+    behavior: DocumentDbDefaultBehaviorType
+    globalClusterIdentifier: str
+    databaseClusterArns: Sequence[str]
+    timeoutMinutes: NotRequired[int]
+    crossAccountRole: NotRequired[str]
+    externalId: NotRequired[str]
+    ungraceful: NotRequired[DocumentDbUngracefulTypeDef]
+
 class Ec2AsgCapacityIncreaseConfigurationOutputTypeDef(TypedDict):
-    asgs: List[AsgTypeDef]
+    asgs: list[AsgTypeDef]
     timeoutMinutes: NotRequired[int]
     ungraceful: NotRequired[Ec2UngracefulTypeDef]
     targetPercent: NotRequired[int]
@@ -486,7 +540,7 @@ class Ec2AsgCapacityIncreaseConfigurationTypeDef(TypedDict):
     capacityMonitoringApproach: NotRequired[Ec2AsgCapacityMonitoringApproachType]
 
 class EcsCapacityIncreaseConfigurationOutputTypeDef(TypedDict):
-    services: List[ServiceTypeDef]
+    services: list[ServiceTypeDef]
     timeoutMinutes: NotRequired[int]
     ungraceful: NotRequired[EcsUngracefulTypeDef]
     targetPercent: NotRequired[int]
@@ -502,8 +556,8 @@ class EcsCapacityIncreaseConfigurationTypeDef(TypedDict):
 class EksResourceScalingConfigurationOutputTypeDef(TypedDict):
     kubernetesResourceType: KubernetesResourceTypeTypeDef
     timeoutMinutes: NotRequired[int]
-    scalingResources: NotRequired[List[Dict[str, Dict[str, KubernetesScalingResourceTypeDef]]]]
-    eksClusters: NotRequired[List[EksClusterTypeDef]]
+    scalingResources: NotRequired[list[dict[str, dict[str, KubernetesScalingResourceTypeDef]]]]
+    eksClusters: NotRequired[list[EksClusterTypeDef]]
     ungraceful: NotRequired[EksResourceScalingUngracefulTypeDef]
     targetPercent: NotRequired[int]
     capacityMonitoringApproach: NotRequired[Literal["sampledMaxInLast24Hours"]]
@@ -520,7 +574,7 @@ class EksResourceScalingConfigurationTypeDef(TypedDict):
     capacityMonitoringApproach: NotRequired[Literal["sampledMaxInLast24Hours"]]
 
 class ListPlanExecutionEventsResponseTypeDef(TypedDict):
-    items: List[ExecutionEventTypeDef]
+    items: list[ExecutionEventTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -550,6 +604,12 @@ class ListPlansInRegionRequestPaginateTypeDef(TypedDict):
 class ListPlansRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListRoute53HealthChecksInRegionRequestPaginateTypeDef(TypedDict):
+    arn: str
+    hostedZoneId: NotRequired[str]
+    recordName: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListRoute53HealthChecksRequestPaginateTypeDef(TypedDict):
     arn: str
     hostedZoneId: NotRequired[str]
@@ -572,7 +632,7 @@ class GetPlanExecutionRequestWaitTypeDef(TypedDict):
 class GlobalAuroraConfigurationOutputTypeDef(TypedDict):
     behavior: GlobalAuroraDefaultBehaviorType
     globalClusterIdentifier: str
-    databaseClusterArns: List[str]
+    databaseClusterArns: list[str]
     timeoutMinutes: NotRequired[int]
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
@@ -587,8 +647,13 @@ class GlobalAuroraConfigurationTypeDef(TypedDict):
     externalId: NotRequired[str]
     ungraceful: NotRequired[GlobalAuroraUngracefulTypeDef]
 
+class ListRoute53HealthChecksInRegionResponseTypeDef(TypedDict):
+    healthChecks: list[Route53HealthCheckTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListRoute53HealthChecksResponseTypeDef(TypedDict):
-    healthChecks: List[Route53HealthCheckTypeDef]
+    healthChecks: list[Route53HealthCheckTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -605,13 +670,20 @@ ParallelExecutionBlockConfigurationUnionTypeDef = Union[
     ParallelExecutionBlockConfigurationTypeDef, ParallelExecutionBlockConfigurationOutputTypeDef
 ]
 
+class ReportOutputConfigurationTypeDef(TypedDict):
+    s3Configuration: NotRequired[S3ReportOutputConfigurationTypeDef]
+
+class ReportOutputTypeDef(TypedDict):
+    s3ReportOutput: NotRequired[S3ReportOutputTypeDef]
+    failedReportOutput: NotRequired[FailedReportOutputTypeDef]
+
 class Route53HealthCheckConfigurationOutputTypeDef(TypedDict):
     hostedZoneId: str
     recordName: str
     timeoutMinutes: NotRequired[int]
     crossAccountRole: NotRequired[str]
     externalId: NotRequired[str]
-    recordSets: NotRequired[List[Route53ResourceRecordSetTypeDef]]
+    recordSets: NotRequired[list[Route53ResourceRecordSetTypeDef]]
 
 class Route53HealthCheckConfigurationTypeDef(TypedDict):
     hostedZoneId: str
@@ -624,7 +696,7 @@ class Route53HealthCheckConfigurationTypeDef(TypedDict):
 class TriggerOutputTypeDef(TypedDict):
     targetRegion: str
     action: WorkflowTargetActionType
-    conditions: List[TriggerConditionTypeDef]
+    conditions: list[TriggerConditionTypeDef]
     minDelayMinutesBetweenExecutions: int
     description: NotRequired[str]
 
@@ -640,6 +712,9 @@ ArcRoutingControlConfigurationUnionTypeDef = Union[
 ]
 CustomActionLambdaConfigurationUnionTypeDef = Union[
     CustomActionLambdaConfigurationTypeDef, CustomActionLambdaConfigurationOutputTypeDef
+]
+DocumentDbConfigurationUnionTypeDef = Union[
+    DocumentDbConfigurationTypeDef, DocumentDbConfigurationOutputTypeDef
 ]
 Ec2AsgCapacityIncreaseConfigurationUnionTypeDef = Union[
     Ec2AsgCapacityIncreaseConfigurationTypeDef, Ec2AsgCapacityIncreaseConfigurationOutputTypeDef
@@ -660,9 +735,19 @@ class GetPlanEvaluationStatusResponseTypeDef(TypedDict):
     lastEvaluatedVersion: str
     region: str
     evaluationState: EvaluationStatusType
-    warnings: List[ResourceWarningTypeDef]
+    warnings: list[ResourceWarningTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ReportConfigurationOutputTypeDef(TypedDict):
+    reportOutput: NotRequired[list[ReportOutputConfigurationTypeDef]]
+
+class ReportConfigurationTypeDef(TypedDict):
+    reportOutput: NotRequired[Sequence[ReportOutputConfigurationTypeDef]]
+
+class GeneratedReportTypeDef(TypedDict):
+    reportGenerationTime: NotRequired[datetime]
+    reportOutput: NotRequired[ReportOutputTypeDef]
 
 class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -675,6 +760,7 @@ class ExecutionBlockConfigurationOutputTypeDef(TypedDict):
     ecsCapacityIncreaseConfig: NotRequired[EcsCapacityIncreaseConfigurationOutputTypeDef]
     eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationOutputTypeDef]
     route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationOutputTypeDef]
+    documentDbConfig: NotRequired[DocumentDbConfigurationOutputTypeDef]
 
 class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     customActionLambdaConfig: NotRequired[CustomActionLambdaConfigurationOutputTypeDef]
@@ -687,11 +773,15 @@ class ExecutionBlockConfigurationPaginatorTypeDef(TypedDict):
     ecsCapacityIncreaseConfig: NotRequired[EcsCapacityIncreaseConfigurationOutputTypeDef]
     eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationOutputTypeDef]
     route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationOutputTypeDef]
+    documentDbConfig: NotRequired[DocumentDbConfigurationOutputTypeDef]
 
 Route53HealthCheckConfigurationUnionTypeDef = Union[
     Route53HealthCheckConfigurationTypeDef, Route53HealthCheckConfigurationOutputTypeDef
 ]
 TriggerUnionTypeDef = Union[TriggerTypeDef, TriggerOutputTypeDef]
+ReportConfigurationUnionTypeDef = Union[
+    ReportConfigurationTypeDef, ReportConfigurationOutputTypeDef
+]
 
 class StepOutputTypeDef(TypedDict):
     name: str
@@ -716,16 +806,17 @@ class ExecutionBlockConfigurationTypeDef(TypedDict):
     ecsCapacityIncreaseConfig: NotRequired[EcsCapacityIncreaseConfigurationUnionTypeDef]
     eksResourceScalingConfig: NotRequired[EksResourceScalingConfigurationUnionTypeDef]
     route53HealthCheckConfig: NotRequired[Route53HealthCheckConfigurationUnionTypeDef]
+    documentDbConfig: NotRequired[DocumentDbConfigurationUnionTypeDef]
 
 class WorkflowOutputTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType
-    steps: NotRequired[List[StepOutputTypeDef]]
+    steps: NotRequired[list[StepOutputTypeDef]]
     workflowTargetRegion: NotRequired[str]
     workflowDescription: NotRequired[str]
 
 class WorkflowPaginatorTypeDef(TypedDict):
     workflowTargetAction: WorkflowTargetActionType
-    steps: NotRequired[List[StepPaginatorTypeDef]]
+    steps: NotRequired[list[StepPaginatorTypeDef]]
     workflowTargetRegion: NotRequired[str]
     workflowDescription: NotRequired[str]
 
@@ -735,32 +826,34 @@ ExecutionBlockConfigurationUnionTypeDef = Union[
 
 class PlanTypeDef(TypedDict):
     arn: str
-    workflows: List[WorkflowOutputTypeDef]
+    workflows: list[WorkflowOutputTypeDef]
     executionRole: str
     name: str
-    regions: List[str]
+    regions: list[str]
     recoveryApproach: RecoveryApproachType
     owner: str
     description: NotRequired[str]
     recoveryTimeObjectiveMinutes: NotRequired[int]
-    associatedAlarms: NotRequired[Dict[str, AssociatedAlarmTypeDef]]
-    triggers: NotRequired[List[TriggerOutputTypeDef]]
+    associatedAlarms: NotRequired[dict[str, AssociatedAlarmTypeDef]]
+    triggers: NotRequired[list[TriggerOutputTypeDef]]
+    reportConfiguration: NotRequired[ReportConfigurationOutputTypeDef]
     primaryRegion: NotRequired[str]
     version: NotRequired[str]
     updatedAt: NotRequired[datetime]
 
 class PlanPaginatorTypeDef(TypedDict):
     arn: str
-    workflows: List[WorkflowPaginatorTypeDef]
+    workflows: list[WorkflowPaginatorTypeDef]
     executionRole: str
     name: str
-    regions: List[str]
+    regions: list[str]
     recoveryApproach: RecoveryApproachType
     owner: str
     description: NotRequired[str]
     recoveryTimeObjectiveMinutes: NotRequired[int]
-    associatedAlarms: NotRequired[Dict[str, AssociatedAlarmTypeDef]]
-    triggers: NotRequired[List[TriggerOutputTypeDef]]
+    associatedAlarms: NotRequired[dict[str, AssociatedAlarmTypeDef]]
+    triggers: NotRequired[list[TriggerOutputTypeDef]]
+    reportConfiguration: NotRequired[ReportConfigurationOutputTypeDef]
     primaryRegion: NotRequired[str]
     version: NotRequired[str]
     updatedAt: NotRequired[datetime]
@@ -787,9 +880,10 @@ class GetPlanExecutionResponseTypeDef(TypedDict):
     executionState: ExecutionStateType
     executionAction: ExecutionActionType
     executionRegion: str
-    stepStates: List[StepStateTypeDef]
+    stepStates: list[StepStateTypeDef]
     plan: PlanTypeDef
     actualRecoveryTime: str
+    generatedReportDetails: list[GeneratedReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -817,9 +911,10 @@ class GetPlanExecutionResponsePaginatorTypeDef(TypedDict):
     executionState: ExecutionStateType
     executionAction: ExecutionActionType
     executionRegion: str
-    stepStates: List[StepStateTypeDef]
+    stepStates: list[StepStateTypeDef]
     plan: PlanPaginatorTypeDef
     actualRecoveryTime: str
+    generatedReportDetails: list[GeneratedReportTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -843,6 +938,7 @@ class CreatePlanRequestTypeDef(TypedDict):
     recoveryTimeObjectiveMinutes: NotRequired[int]
     associatedAlarms: NotRequired[Mapping[str, AssociatedAlarmTypeDef]]
     triggers: NotRequired[Sequence[TriggerUnionTypeDef]]
+    reportConfiguration: NotRequired[ReportConfigurationUnionTypeDef]
     primaryRegion: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -854,3 +950,4 @@ class UpdatePlanRequestTypeDef(TypedDict):
     recoveryTimeObjectiveMinutes: NotRequired[int]
     associatedAlarms: NotRequired[Mapping[str, AssociatedAlarmTypeDef]]
     triggers: NotRequired[Sequence[TriggerUnionTypeDef]]
+    reportConfiguration: NotRequired[ReportConfigurationUnionTypeDef]

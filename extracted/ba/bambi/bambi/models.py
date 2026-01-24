@@ -1,5 +1,6 @@
 # pylint: disable=no-name-in-module
 # pylint: disable=too-many-lines
+# pylint: disable=too-many-positional-arguments
 import logging
 import warnings
 
@@ -10,7 +11,8 @@ import formulae as fm
 import pymc as pm
 import pandas as pd
 
-from arviz.plots import plot_posterior
+from arviz_plots import plot_dist
+from arviz_stats import residual_r2
 
 from bambi.backend import PyMCModel
 from bambi.defaults import get_builtin_family
@@ -40,54 +42,54 @@ class Model:
 
     Parameters
     ----------
-    formula : str or bambi.formula.Formula
+    formula : str or Formula
         A model description written using the formula syntax from the `formulae` library.
-    data : pandas.DataFrame
+    data : pd.DataFrame
         A pandas dataframe containing the data on which the model will be fit, with column
         names matching variables defined in the formula.
-    family : str or bambi.families.Family
+    family : str or bambi.Family, optional
         A specification of the model family (analogous to the family object in R). Either
-        a string, or an instance of class `bambi.families.Family`. If a string is passed, a
+        a string, or an instance of class [](`bambi.Family`). If a string is passed, a
         family with the corresponding name must be defined in the defaults loaded at `Model`
         initialization. Valid pre-defined families are `"bernoulli"`, `"beta"`,
         `"binomial"`, `"categorical"`, `"gamma"`, `"gaussian"`, `"negativebinomial"`,
         `"poisson"`, `"t"`, and `"wald"`. Defaults to `"gaussian"`.
-    priors : dict
+    priors : dict, optional
         Optional specification of priors for one or more terms. A dictionary where the keys are
         the names of terms in the model, "common," or "group_specific" and the values are
-        instances of class `Prior`. If priors are unset, uses automatic priors inspired by
+        instances of class `Prior`. If priors are unset, use automatic priors inspired by
         the R rstanarm library.
-    link : str or Dict[str, str]
+    link : str or dict of str to str, optional
         The name of the link function to use. Valid names are `"cloglog"`, `"identity"`,
         `"inverse_squared"`, `"inverse"`, `"log"`, `"logit"`, `"probit"`, and
         `"softmax"`. Not all the link functions can be used with all the families.
         If a dictionary, keys are the names of the target parameters and the values are the names
         of the link functions.
-    categorical : str or list
+    categorical : str or list of str, optional
         The names of any variables to treat as categorical. Can be either a single variable
         name, or a list of names. If categorical is `None`, the data type of the columns in
         the `data` will be used to infer handling. In cases where numeric columns are
         to be treated as categorical (e.g., group specific factors coded as numerical IDs),
         explicitly passing variable names via this argument is recommended.
-    potentials : A list of 2-tuples.
+    potentials : A list of 2-tuples, optional
         Optional specification of potentials. A potential is an arbitrary expression added to the
         likelihood, this is generally useful to add constrains to models, that are difficult to
         express otherwise. The first term of a 2-tuple is the name of a variable in the model, the
         second a lambda function expressing the desired constraint.
         If a constraint involves n variables, you can pass n 2-tuples or pass a tuple which first
-        element is a n-tuple and second element is a lambda function with n arguments. The number
+        element is an n-tuple and second element is a lambda function with n arguments. The number
         and order of the lambda function has to match the number and order of the variables names.
-    dropna : bool
+    dropna : bool, optional
         When `True`, rows with any missing values in either the predictors or outcome are
-        automatically dropped from the dataset in a listwise manner.
+        automatically dropped from t, optionalhe dataset in a listwise manner.
     auto_scale : bool
         If `True` (default), priors are automatically rescaled to the data
         (to be weakly informative) any time default priors are used. Note that any priors
         explicitly set by the user will always take precedence over default priors.
-    noncentered : bool
+    noncentered : bool, optional
         If `True` (default), uses a non-centered parameterization for normal hyperpriors on
         grouped parameters. If `False`, naive (centered) parameterization is used.
-    center_predictors : bool
+    center_predictors : bool, optional
         If `True` (default), and if there is an intercept in the common terms, the data is
         centered by subtracting the mean. The centering is undone after sampling to provide
         the actual intercept in all distributional components that have an intercept. Note
@@ -234,7 +236,7 @@ class Model:
         omit_offsets=True,
         include_mean=None,
         include_response_params=False,
-        inference_method="mcmc",
+        inference_method="pymc",
         init="auto",
         n_init=50000,
         chains=None,
@@ -246,38 +248,36 @@ class Model:
 
         Parameters
         ----------
-        draws: int
+        draws : int, optional
             The number of samples to draw from the posterior distribution. Defaults to 1000.
-        tune : int
+        tune : int, optional
             Number of iterations to tune. Defaults to 1000. Samplers adjust the step sizes,
             scalings or similar during tuning. These tuning samples are be drawn in addition to the
             number specified in the `draws` argument, and will be discarded unless
             `discard_tuned_samples` is set to `False`.
-        discard_tuned_samples : bool
+        discard_tuned_samples : bool, optional
             Whether to discard posterior samples of the tune interval. Defaults to `True`.
-        omit_offsets : bool
+        omit_offsets : bool, optional
             Omits offset terms in the `InferenceData` object returned when the model includes
             group specific effects. Defaults to `True`.
-        include_mean : bool
-            Deprecated. Use `include_response_params`.
-        include_response_params : bool
+        include_mean : bool, optional, deprecated
+            **This argument is deprecated and will be removed in future versions**.
+            Use `include_response_params`.
+        include_response_params : bool, optional
             Include parameters of the response distribution in the output. These usually take more
             space than other parameters as there's one of them per observation. Defaults to `False`.
-        inference_method : str
-            The method to use for fitting the model. By default, `"mcmc"`. This automatically
-            assigns a MCMC method best suited for each kind of variables, like NUTS for continuous
-            variables and Metropolis for non-binary discrete ones. Alternatively, `"vi"`, in
-            which case the model will be fitted using variational inference as implemented in PyMC
-            using the `fit` function.
-            Finally, `"laplace"`, in which case a Laplace approximation is used and is not
-            recommended other than for pedagogical use.
-            To get a list of JAX based inference methods, call
-            `bmb.inference_methods.names['bayeux']`. This will return a dictionary of the
-            available methods such as `blackjax_nuts`, `numpyro_nuts`, among others.
-        init : str
+        inference_method : str, optional
+            The method to use for fitting the model. By default, `"pymc"`. This automatically
+            assigns an MCMC method best suited for each kind of variables, like NUTS for continuous
+            variables and Metropolis for non-binary discrete ones. NUTS implementations include
+            `"pymc"`, `"nutpie"`, `"blackjax"`, and `"numpyro"`. Alternatively, `"vi"`, in which
+            case the model will be fitted using variational inference as implemented in PyMC using
+            the `fit` function. Finally, `"laplace"`, in which case a Laplace approximation is used
+            and is not recommended other than for pedagogical use.
+        init : str, optional
             Initialization method. Defaults to `"auto"`. The available methods are:
             * auto: Use `"jitter+adapt_diag"` and if this method fails it uses `"adapt_diag"`.
-            * adapt_diag: Start with a identity mass matrix and then adapt a diagonal based on the
+            * adapt_diag: Start with an identity mass matrix and then adapt a diagonal based on the
             variance of the tuning samples. All chains use the test value (usually the prior mean)
             as starting point.
             * jitter+adapt_diag: Same as `"adapt_diag"`, but use test value plus a uniform jitter
@@ -294,26 +294,25 @@ class Model:
             test value (usually the prior mean) as starting point.
             * jitter+adapt_full: Same as `"adapt_full"`, but use test value plus a uniform jitter
             in [-1, 1] as starting point in each chain.
-        n_init : int
+        n_init : int, optional
             Number of initialization iterations. Only works for `"advi"` init methods.
-        chains : int
+        chains : int, optional
             The number of chains to sample. Running independent chains is important for some
             convergence statistics and can also reveal multiple modes in the posterior. If `None`,
             then set to either `cores` or 2, whichever is larger.
-        cores : int
+        cores : int, optional
             The number of chains to run in parallel. If `None`, it is equal to the number of CPUs
             in the system unless there are more than 4 CPUs, in which case it is set to 4.
-        random_seed : int or list of ints
+        random_seed : int or list of ints, optional
             A list is accepted if cores is greater than one.
-        **kwargs :
+        kwargs : dict
             For other kwargs see the documentation for `PyMC.sample()`.
 
         Returns
         -------
-        An ArviZ `InferenceData` instance if inference_method is  `"mcmc"` (default),
-        "laplace", or one of the MCMC methods in
-        `bmb.inference_methods.names['bayeux']['mcmc]`.
-        An `Approximation` object if  `"vi"`.
+        `InferenceData` or `Approximation`
+            It returns an `InferenceData` if `inference_method` is `"pymc"`, `"nutpie"`,
+            `"blackjax"`, `"numpyro"`, or `"laplace"`, and an `Approximation` object if  `"vi"`.
         """
         method = kwargs.pop("method", None)
         if method is not None:
@@ -364,31 +363,23 @@ class Model:
         """Set up the model for sampling/fitting
 
         Creates an instance of the underlying PyMC model and adds all the necessary terms to it.
-
-        Returns
-        -------
-        `None`.
         """
         self.backend = PyMCModel()
         self.backend.build(self)
         self.built = True
 
     def set_priors(self, priors=None, common=None, group_specific=None):
-        """Set priors for one or more existing terms
+        """Set priors for one or more existing terms.
 
         Parameters
         ----------
-        priors : dict
+        priors : dict or None, optional
             Dictionary of priors to update. Keys are names of terms to update; values are the new
             priors (either a `Prior` instance, or an int or float that scales the default priors).
-        common : Prior, int, or float
+        common : Prior, int, float or None, optional
             A prior specification to apply to all common terms included in the model.
-        group_specific : Prior, int, or float
+        group_specific : Prior, int, float or None, optional
             A prior specification to apply to all group specific terms included in the model.
-
-        Returns
-        -------
-        `None`.
         """
         kwargs = dict(zip(["priors", "common", "group_specific"], [priors, common, group_specific]))
         self._added_priors.update(kwargs)
@@ -466,7 +457,7 @@ class Model:
             Either a string, or an instance of class `families.Family`.
             If a string is passed, a family with the corresponding name must be defined in the
             defaults loaded at model initialization.
-        link : str or Dict[str, str]
+        link : str or dict of str to str
             The name of the link function to use. Valid names are `"cloglog"`, `"identity"`,
             `"inverse_squared"`, `"inverse"`, `"log"`, `"logit"`, `"probit"`, and
             `"softmax"`. Not all the link functions can be used with all the families.
@@ -475,7 +466,7 @@ class Model:
 
         Returns
         -------
-        `None`.
+        `None`
         """
 
         # If string, get builtin family
@@ -505,12 +496,12 @@ class Model:
 
         Parameters
         ----------
-        aliases : dict
+        aliases : dict of str to str
             A dictionary where key represents the original term name and the value is the alias.
 
         Returns
         -------
-        `None`.
+        `None`
         """
         if not isinstance(aliases, dict):
             raise ValueError(f"'aliases' must be a dictionary, not a {type(aliases)}.")
@@ -628,72 +619,139 @@ class Model:
         self,
         draws=5000,
         var_names=None,
-        random_seed=None,
-        figsize=None,
-        textsize=None,
-        hdi_prob=None,
-        round_to=2,
-        point_estimate="mean",
+        filter_vars=None,
         kind="kde",
-        bins=None,
+        ci_kind=None,
+        ci_prob=None,
+        point_estimate=None,
+        plot_collection=None,
+        backend=None,
+        labeller=None,
+        aes_by_visuals=None,
+        visuals=None,
+        stats=None,
+        figsize=None,
         omit_offsets=True,
         omit_group_specific=True,
-        ax=None,
-        **kwargs,
+        random_seed=None,
+        bins=None,
+        hdi_prob=None,
+        round_to=None,
+        **pc_kwargs,
     ):
-        """
-        Samples from the prior distribution and plots its marginals.
+        """Samples from the prior distribution and plots its marginals.
 
         Parameters
         ----------
-        draws : int
+        draws : int, optional
             Number of draws to sample from the prior predictive distribution. Defaults to 5000.
-        var_names : str or list
+        var_names : str or list of str, optional
             A list of names of variables for which to compute the prior predictive
             distribution. Defaults to `None` which means to include both observed and
             unobserved RVs.
-        random_seed : int
-            Seed for the random number generator.
-        figsize : tuple
-            Figure size. If `None` it will be defined automatically.
-        textsize : float
-            Text size scaling factor for labels, titles and lines. If `None` it will be
-            autoscaled based on `figsize`.
-        hdi_prob : float or str
-            Plots highest density interval for chosen percentage of density.
-            Use `"hide"` to hide the highest density interval. Defaults to 0.94.
-        round_to : int
-            Controls formatting of floats. Defaults to 2 or the integer part, whichever is bigger.
-        point_estimate : str
+        filter_vars : {"like", "regex"} or None, optional
+            If `None`, interpret `var_names` as the real variables names.
+            If `"like"`, interpret `var_names` as substrings of the real variables names.
+            If `"regex"`, interpret `var_names` as regular expressions on the real variables names.
+            Forwarded to [](`arviz_plots.plot_dist`).
+        kind : str, optional
+            Type of plot to display (`"kde"` or `"hist"`). For discrete variables this argument
+            is ignored and a histogram is always used. Forwarded to [](`arviz_plots.plot_dist`).
+        ci_kind : {"eti", "hdi"}, optional,
+            Which credible interval to use. Defaults to `arviz_base.rcParams["stats.ci_kind"]`.
+            Forwarded to [](`arviz_plots.plot_dist`).
+        ci_prob : float, optional
+            Indicates the probability that should be contained within the plotted credible interval.
+            Defaults to `arviz_base.rcParams["stats.ci_prob"]`.
+            Forwarded to [](`arviz_plots.plot_dist`).
+        point_estimate : str, optional
             Plot point estimate per variable. Values should be `"mean"`, `"median"`, `"mode"`
-            or `None`. Defaults to `"auto"` i.e. it falls back to default set in
-            ArviZ's rcParams.
-        kind : str
-            Type of plot to display (`"kde"` or `"hist"`) For discrete variables this argument
-            is ignored and a histogram is always used.
-        bins : integer or sequence or "auto"
-            Controls the number of bins, accepts the same keywords `matplotlib.pyplot.hist()`
-            does. Only works if `kind == "hist"`. If `None` (default) it will use `"auto"`
-            for continuous variables and `range(xmin, xmax + 1)` for discrete variables.
+            or `None`. When `None` (default) use `arviz_base.rcParams["stats.point_estimate"]`.
+            Forwarded to [](`arviz_plots.plot_dist`).
+        plot_collection : arviz_plots.PlotCollection, optional
+            The plot collection to use. Forwarded to [](`arviz_plots.plot_dist`).
+        backend : {"matplotlib", "plotly", "bokeh"}, optional
+            The backend to use for plotting.
+            If `None`, it inspects whether `plot_connection` is not `None`.
+            If it's not, it uses `plot_collection.backend`.
+            Otherweise, it uses `arviz_base.rcParams["plot.backend"]`.
+            Forwarded to [](`arviz_plots.plot_dist`).
+        labeller : arviz_base.labels.BaseLabeller, optional
+            The labeller. If `None`, it uses [](`arviz_base.labels.BaseLabeller`).
+            Forwarded to [](`arviz_plots.plot_dist`).
+        aes_by_visuals : mapping of {str : sequence of str}, optional
+            Forwarded to [](`arviz_plots.plot_dist`). See `aes_by_visuals` in there.
+        visuals : mapping of {str : mapping or bool}, optional
+            Forwarded to [](`arviz_plots.plot_dist`). See `visuals` in there.
+        stats : mapping, optional
+            Forwarded to [](`arviz_plots.plot_dist`). See `stats` in there.
+        figsize : tuple, optional
+            Figure size. If `None` it will be defined automatically.
         omit_offsets : bool
             Whether to omit offset terms in the plot. Defaults to `True`.
-        omit_group_specific : bool
+        omit_group_specific : bool, optional
             Whether to omit group specific effects in the plot. Defaults to `True`.
-        ax : numpy array-like of matplotlib axes or bokeh figures
-            A 2D array of locations into which to plot the densities. If not supplied, ArviZ will
-            create its own array of plot areas (and return it).
-        **kwargs
-            Passed as-is to `matplotlib.pyplot.hist()` or `matplotlib.pyplot.plot()` function
-            depending on the value of `kind`.
+        random_seed : int or None, optional
+            Seed for random number generator.
+            Passed down to [Model.prior_predictive](`bambi.Model.prior_predictive`).
+        bins : int, optional, deprecated
+            **This argument is deprecated and will be removed in future versions**.
+        hdi_prob : float or str, optional, deprecated
+            Plots highest density interval for chosen percentage of density.
+            Use `"hide"` to hide the highest density interval.
+            **This argument is deprecated and will be removed in future versions**.
+        round_to : int, optional, deprecated
+            Controls formatting of floats. Defaults to 2 or the integer part, whichever is bigger.
+            **This argument is deprecated and will be removed in future versions**.
+        pc_kwargs : dict
+            Passed to [](`arviz_plots.PlotCollection.wrap`)
 
         Returns
         -------
-        axes: matplotlib axes.
+        pc : arviz_plots.PlotCollection
+
         """
         self._check_built()
 
+        if stats is None:
+            stats = {}
+        else:
+            stats = stats.copy()
+            stats["dist"] = stats.get("dist", {}).copy()
+
         unobserved_rvs_names = []
         flat_rvs = []
+
+        if hdi_prob is not None:
+            warnings.warn(
+                "'hdi_prob' has been renamed to 'ci_prob' and will be removed in future versions",
+                FutureWarning,
+            )
+            ci_prob = hdi_prob
+
+        if bins is not None:
+            warnings.warn(
+                """'bins' argument is deprecated and will be removed in future versions
+                please use `stats={"dist": {"bins": bins}}`
+                """,
+                FutureWarning,
+            )
+            stats.get("dist", {}).setdefault("bins", bins)
+
+        if round_to is not None:
+            warnings.warn(
+                """'round_to' argument is deprecated and will be removed in future versions
+                please use `stats={"dist": {"round_to": round_to}}`""",
+                FutureWarning,
+            )
+            stats.get("dist", {}).setdefault("round_to", round_to)
+
+        if pc_kwargs is None:
+            pc_kwargs = {}
+
+        pc_kwargs["figure_kwargs"] = pc_kwargs.get("figure_kwargs", {}).copy()
+        if figsize is not None:
+            pc_kwargs["figure_kwargs"]["figsize"] = figsize
 
         for unobserved in self.backend.model.unobserved_RVs:
             if "Flat" in str(unobserved):
@@ -730,42 +788,45 @@ class Model:
             ]
             var_names = [name for name in var_names if name not in group_specific_var_names]
 
-        axes = None
+        pc = None
         if var_names:
             # Sort variable names so Intercept is in the beginning
             if "Intercept" in var_names:
                 var_names.insert(0, var_names.pop(var_names.index("Intercept")))
             pps = self.prior_predictive(draws=draws, var_names=var_names, random_seed=random_seed)
 
-            axes = plot_posterior(
+            pc = plot_dist(
                 pps,
                 group="prior",
                 var_names=var_names,
-                figsize=figsize,
-                textsize=textsize,
-                hdi_prob=hdi_prob,
-                round_to=round_to,
-                point_estimate=point_estimate,
+                filter_vars=filter_vars,
                 kind=kind,
-                bins=bins,
-                ax=ax,
-                **kwargs,
+                point_estimate=point_estimate,
+                ci_kind=ci_kind,
+                ci_prob=ci_prob,
+                plot_collection=plot_collection,
+                backend=backend,
+                labeller=labeller,
+                aes_by_visuals=aes_by_visuals,
+                visuals=visuals,
+                stats=stats,
+                **pc_kwargs,
             )
-        return axes
+        return pc
 
     def prior_predictive(self, draws=500, var_names=None, omit_offsets=True, random_seed=None):
         """Generate samples from the prior predictive distribution.
 
         Parameters
         ----------
-        draws : int
+        draws : int, optional
             Number of draws to sample from the prior predictive distribution. Defaults to 500.
-        var_names : str or list
+        var_names : str, list of str or None, optional
             A list of names of variables for which to compute the prior predictive distribution.
             Defaults to `None` which means both observed and unobserved RVs.
-        omit_offsets : bool
+        omit_offsets : bool, optional
             Whether to omit offset terms in the plot. Defaults to `True`.
-        random_seed : int
+        random_seed : int or None, optional
             Seed for the random number generator.
 
         Returns
@@ -802,6 +863,7 @@ class Model:
         inplace=True,
         include_group_specific=True,
         sample_new_groups=False,
+        random_seed=None,
     ):
         """Predict method for Bambi models
 
@@ -811,33 +873,35 @@ class Model:
         ----------
         idata : InferenceData
             The `InferenceData` instance returned by `.fit()`.
-        kind : str
+        kind : str, optional
             Indicates the type of prediction required. Can be `"response_params"` or
             `"response"`. The first returns draws from the posterior distribution of the
             likelihood parameters, while the latter returns the draws from the posterior
             predictive distribution (i.e. the posterior probability distribution for a new
             observation) in addition to the posterior distribution. Defaults to
             `"response_params"`.
-        data : pandas.DataFrame or None
+        data : pd.DataFrame or None, optional
             An optional data frame with values for the predictors that are used to obtain
             out-of-sample predictions. If omitted, the original dataset is used.
-        inplace : bool
+        inplace : bool, optional
             If `True` it will modify `idata` in-place. Otherwise, it will return a copy of
             `idata` with the predictions added. If `kind="response_params"`, a new variable
-            with the name of the parent parameter, e.g. `"mu"` and `"sigma" for a Gaussian
+            with the name of the parent parameter, e.g. `"mu"` and `"sigma"` for a Gaussian
             likelihood, or `"p"` for a Bernoulli likelihood, is added to the `posterior` group.
             If `kind="response"`, it appends a `posterior_predictive` group to `idata`. If
             any of these already exist, it will be overwritten.
-        include_group_specific : bool
+        include_group_specific : bool, optional
             Determines if predictions incorporate group-specific effects. If `False`, predictions
             are made with common effects only (i.e. group specific are set to zero). Defaults to
             `True`.
-        sample_new_groups : bool
+        sample_new_groups : bool, optional
             Specifies if it is allowed to obtain predictions for new groups of group-specific terms.
             When `True`, each posterior sample for the new groups is drawn from the posterior
             draws of a randomly selected existing group. Since different groups may be selected at
             each draw, the end result represents the variation across existing groups.
-            The method implemented is quivalent to `sample_new_levels="uncertainty"` in brms.
+            The method implemented is equivalent to `sample_new_levels="uncertainty"` in brms.
+        random_seed : int, RandomState or Generator, optional
+            Seed for the random number generator.
 
         Returns
         -------
@@ -865,13 +929,21 @@ class Model:
 
         # Populate the posterior in the InferenceData object with the likelihood parameters
         idata = self._compute_likelihood_params(
-            idata, data, include_group_specific, sample_new_groups
+            idata=idata,
+            data=data,
+            include_group_specific=include_group_specific,
+            sample_new_groups=sample_new_groups,
+            random_seed=random_seed,
         )
 
         # Only if requested predict the predictive distribution
         if kind == "response":
             response_aliased_name = get_aliased_name(self.response_component.term)
-            required_kwargs = {"model": self, "posterior": idata.posterior}
+            required_kwargs = {
+                "model": self,
+                "posterior": idata.posterior,
+                "random_seed": random_seed,
+            }
             optional_kwargs = {"data": data}
 
             posterior_predictive = self.family.posterior_predictive(
@@ -892,21 +964,62 @@ class Model:
         else:
             return idata
 
+    def r2_score(self, idata, summary=True):
+        """R² for Bayesian regression models.
+
+        The R², or coefficient of determination, is defined as the proportion of variance
+        in the data that is explained by the model. It is computed as the variance of the
+        predicted values divided by the variance of the predicted values plus the variance
+        of the residuals. For details of the Bayesian R² see [1]_.
+
+        Parameters
+        ----------
+        idata : InferenceData
+            The `InferenceData` instance returned by `.fit()`. It should contain the
+            `posterior_predictive` group, otherwise it will be computed and added to `idata`.
+        summary : bool, optional
+            If `True`, it returns a summary of the Bayesian R². Otherwise, it returns the
+            posterior samples of the Bayesian R².
+
+        Returns
+        -------
+        pandas.Series
+            A series with the following indices:
+            r2: mean value for the Bayesian R²
+            r2_std: standard deviation of the Bayesian R².
+
+        References
+        ----------
+        .. [1] Gelman et al. *R-squared for Bayesian regression models*.
+            The American Statistician. 73(3) (2019). <https://doi.org/10.1080/00031305.2018.1549100>
+            preprint <http://www.stat.columbia.edu/~gelman/research/published/bayes_R2_v3.pdf]>.
+        """
+        response_name = self.response_component.term.name
+        pred_mean = self.family.likelihood.parent
+
+        if pred_mean not in idata.posterior:
+            self.predict(idata, kind="response_params", inplace=True)
+
+        # We should change this to use bayesian_r2 ensuring we pass the correct scale for each
+        # family we could use residual_r2 as a fallback for families we don't have implemented
+        # yet we may want to have an argument to compute the loo_r2 as well or a separate method
+        return residual_r2(idata, pred_mean=pred_mean, obs_name=response_name, summary=summary)
+
     def compute_log_likelihood(self, idata, data=None, inplace=True):
         """Compute the model's log-likelihood
 
-        NOTE: This is a new feature and it may not work in all cases.
+        **NOTE**: This is a new feature and it may not work in all cases.
 
         Parameters
         ----------
         idata : InferenceData
             The `InferenceData` instance returned by `.fit()`.
-        data : pandas.DataFrame or None
+        data : pd.DataFrame or None, optional
             An optional data frame with values for the predictors and the response on which
             the model's log-likelihood function is evaluated.
             If omitted, the original dataset is used.
-        inplace : bool
-            If True` it will modify `idata` in-place. Otherwise, it will return a copy of
+        inplace : bool, optional
+            If `True` it will modify `idata` in-place. Otherwise, it will return a copy of
             `idata` with the `log_likelihood` group added.
 
         Returns
@@ -928,7 +1041,10 @@ class Model:
 
         # Populate the posterior in the InferenceData object with the likelihood parameters
         idata = self._compute_likelihood_params(
-            idata, data, include_group_specific, sample_new_groups
+            idata=idata,
+            data=data,
+            include_group_specific=include_group_specific,
+            sample_new_groups=sample_new_groups,
         )
 
         required_kwargs = {"model": self, "posterior": idata.posterior, "data": data}
@@ -954,6 +1070,7 @@ class Model:
         data=None,
         include_group_specific=True,
         sample_new_groups=False,
+        random_seed=None,
     ):
         """Computes the parameters of the likelihood (response distribution)
 
@@ -970,7 +1087,7 @@ class Model:
         for name, component in self.distributional_components.items():
             var_name = component.alias if component.alias else name
             means_dict[var_name] = component.predict(
-                idata, data, include_group_specific, hsgp_dict, sample_new_groups
+                idata, data, include_group_specific, hsgp_dict, sample_new_groups, random_seed
             )
 
             # Drop var/dim if already present. Needed for out-of-sample predictions.
@@ -1003,28 +1120,30 @@ class Model:
     def graph(self, formatting="plain", name=None, figsize=None, dpi=300, fmt="png"):
         """Produce a graphviz Digraph from a built Bambi model.
 
-        Requires graphviz, which may be installed most easily with
-            `conda install -c conda-forge python-graphviz`
+        Requires graphviz, which may be installed most easily with:
+        ```cmd
+        conda install -c conda-forge python-graphviz
+        ```
 
         Alternatively, you may install the `graphviz` binaries yourself, and then
         `pip install graphviz` to get the python bindings.
-        See http://graphviz.readthedocs.io/en/stable/manual.html for more information.
+        See <http://graphviz.readthedocs.io/en/stable/manual.html> for more information.
 
         Parameters
         ----------
-        formatting : str
+        formatting : str, optional
             One of `"plain"` or `"plain_with_params"`. Defaults to `"plain"`.
-        name : str
+        name : str, optional
             Name of the figure to save. Defaults to `None`, no figure is saved.
-        figsize : tuple
+        figsize : tuple, optional
             Maximum width and height of figure in inches. Defaults to `None`, the figure size is
             set automatically. If defined and the drawing is larger than the given size, the drawing
             is uniformly scaled down so that it fits within the given size.  Only works if `name`
             is not `None`.
-        dpi : int
+        dpi : int, optional
             Point per inch of the figure to save.
             Defaults to 300. Only works if `name` is not `None`.
-        fmt : str
+        fmt : str, optional
             Format of the figure to save.
             Defaults to `"png"`. Only works if `name` is not `None`.
 
@@ -1033,15 +1152,13 @@ class Model:
         graphviz.Digraph
             The graph
 
-        Example
+        Examples
         --------
-        >>> model = Model("y ~ x + (1|z)")
-        >>> model.build()
-        >>> model.graph()
-
-        >>> model = Model("y ~ x + (1|z)")
-        >>> model.fit()
-        >>> model.graph()
+        ```python
+        model = Model("y ~ x + (1|z)")
+        model.fit()
+        model.graph()
+        ```
         """
         self._check_built()
 

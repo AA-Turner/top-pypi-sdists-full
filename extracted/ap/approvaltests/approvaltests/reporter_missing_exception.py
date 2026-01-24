@@ -3,7 +3,7 @@ from typing_extensions import override
 
 class ReporterMissingException(BaseException):
     def __init__(self, key: str) -> None:
-        super().__init__(self)
+        super().__init__(key)
         self.value = key
 
     @override

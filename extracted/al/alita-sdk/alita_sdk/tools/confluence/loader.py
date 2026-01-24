@@ -3,6 +3,7 @@ from typing import Optional, List
 from logging import getLogger
 
 import requests
+from langchain_core.documents import Document
 
 logger = getLogger(__name__)
 from PIL import Image
@@ -47,7 +48,8 @@ class AlitaConfluenceLoader(ConfluenceLoader):
                 del kwargs[key]
             except:
                 pass
-        self.base_url = kwargs.get('url')
+        # utilize adjusted URL from Confluence instance for base_url
+        self.base_url = confluence_client.url
         self.space_key = kwargs.get('space_key')
         self.page_ids = kwargs.get('page_ids')
         self.label = kwargs.get('label')
@@ -107,7 +109,8 @@ class AlitaConfluenceLoader(ConfluenceLoader):
         texts = []
         for attachment in attachments:
             media_type = attachment["metadata"]["mediaType"]
-            absolute_url = self.base_url + attachment["_links"]["download"]
+            # utilize adjusted URL from Confluence instance for attachment download URL
+            absolute_url = self.confluence.url + attachment["_links"]["download"]
             title = attachment["title"]
             try:
                 if media_type == "application/pdf":
@@ -192,6 +195,15 @@ class AlitaConfluenceLoader(ConfluenceLoader):
             return result
         else:
             return super().process_image(link, ocr_languages)
+
+    def process_page(self, page: dict, include_attachments: bool, include_comments: bool, include_labels: bool,
+                     content_format: ContentFormat, ocr_languages: Optional[str] = None,
+                     keep_markdown_format: Optional[bool] = False, keep_newlines: bool = False) -> Document:
+        if not page.get("title"):
+            # if 'include_restricted_content' set to True, draft pages are loaded and can have no title
+            page["title"] = "Untitled"
+        return super().process_page(page, include_attachments, include_comments, include_labels, content_format,
+                                    ocr_languages, keep_markdown_format, keep_newlines)
 
     # TODO review usage
     # def process_svg(

@@ -343,14 +343,14 @@ class ConversationsResource(SyncAPIResource):
         sent_at: Union[str, datetime] | Omit = omit,
         tool_call_id: str | Omit = omit,
         tool_calls: Iterable[Dict[str, object]] | Omit = omit,
-        tool_choice: Union[str, object] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> None:
         """Add a new message to the conversation.
 
         Used to insert a new messages to a
@@ -369,6 +369,7 @@ class ConversationsResource(SyncAPIResource):
         """
         if not conversation_id:
             raise ValueError(f"Expected a non-empty value for `conversation_id` but received {conversation_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return self._post(
             f"/ai/conversations/{conversation_id}/message",
             body=maybe_transform(
@@ -387,7 +388,7 @@ class ConversationsResource(SyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=NoneType,
         )
 
     def retrieve_conversations_insights(
@@ -710,14 +711,14 @@ class AsyncConversationsResource(AsyncAPIResource):
         sent_at: Union[str, datetime] | Omit = omit,
         tool_call_id: str | Omit = omit,
         tool_calls: Iterable[Dict[str, object]] | Omit = omit,
-        tool_choice: Union[str, object] | Omit = omit,
+        tool_choice: Union[str, Dict[str, object]] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> object:
+    ) -> None:
         """Add a new message to the conversation.
 
         Used to insert a new messages to a
@@ -736,6 +737,7 @@ class AsyncConversationsResource(AsyncAPIResource):
         """
         if not conversation_id:
             raise ValueError(f"Expected a non-empty value for `conversation_id` but received {conversation_id!r}")
+        extra_headers = {"Accept": "*/*", **(extra_headers or {})}
         return await self._post(
             f"/ai/conversations/{conversation_id}/message",
             body=await async_maybe_transform(
@@ -754,7 +756,7 @@ class AsyncConversationsResource(AsyncAPIResource):
             options=make_request_options(
                 extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
             ),
-            cast_to=object,
+            cast_to=NoneType,
         )
 
     async def retrieve_conversations_insights(

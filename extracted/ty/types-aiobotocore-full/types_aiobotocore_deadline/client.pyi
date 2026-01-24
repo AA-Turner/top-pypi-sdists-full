@@ -3,7 +3,7 @@ Type annotations for deadline service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -249,7 +250,9 @@ from .type_defs import (
 )
 from .waiter import (
     FleetActiveWaiter,
+    JobCompleteWaiter,
     JobCreateCompleteWaiter,
+    JobSucceededWaiter,
     LicenseEndpointDeletedWaiter,
     LicenseEndpointValidWaiter,
     QueueFleetAssociationStoppedWaiter,
@@ -258,12 +261,6 @@ from .waiter import (
     QueueSchedulingWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -272,14 +269,14 @@ else:
 __all__ = ("DeadlineCloudClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class DeadlineCloudClient(AioBaseClient):
     """
@@ -318,7 +315,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def associate_member_to_farm(
         self, **kwargs: Unpack[AssociateMemberToFarmRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a farm membership level to a member.
 
@@ -328,7 +325,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def associate_member_to_fleet(
         self, **kwargs: Unpack[AssociateMemberToFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a fleet membership level to a member.
 
@@ -338,7 +335,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def associate_member_to_job(
         self, **kwargs: Unpack[AssociateMemberToJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a job membership level to a member.
 
@@ -348,7 +345,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def associate_member_to_queue(
         self, **kwargs: Unpack[AssociateMemberToQueueRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Assigns a queue membership level to a member.
 
@@ -521,7 +518,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def create_queue_fleet_association(
         self, **kwargs: Unpack[CreateQueueFleetAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an association between a queue and a fleet.
 
@@ -531,7 +528,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def create_queue_limit_association(
         self, **kwargs: Unpack[CreateQueueLimitAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates a limit with a particular queue.
 
@@ -560,7 +557,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#create_worker)
         """
 
-    async def delete_budget(self, **kwargs: Unpack[DeleteBudgetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_budget(self, **kwargs: Unpack[DeleteBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a budget.
 
@@ -568,7 +565,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#delete_budget)
         """
 
-    async def delete_farm(self, **kwargs: Unpack[DeleteFarmRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_farm(self, **kwargs: Unpack[DeleteFarmRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a farm.
 
@@ -576,7 +573,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#delete_farm)
         """
 
-    async def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_fleet(self, **kwargs: Unpack[DeleteFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a fleet.
 
@@ -586,7 +583,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def delete_license_endpoint(
         self, **kwargs: Unpack[DeleteLicenseEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a license endpoint.
 
@@ -594,7 +591,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#delete_license_endpoint)
         """
 
-    async def delete_limit(self, **kwargs: Unpack[DeleteLimitRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_limit(self, **kwargs: Unpack[DeleteLimitRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a limit from the specified farm.
 
@@ -604,7 +601,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def delete_metered_product(
         self, **kwargs: Unpack[DeleteMeteredProductRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a metered product.
 
@@ -612,7 +609,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#delete_metered_product)
         """
 
-    async def delete_monitor(self, **kwargs: Unpack[DeleteMonitorRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_monitor(self, **kwargs: Unpack[DeleteMonitorRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a Deadline Cloud monitor.
 
@@ -620,7 +617,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#delete_monitor)
         """
 
-    async def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_queue(self, **kwargs: Unpack[DeleteQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a queue.
 
@@ -630,7 +627,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def delete_queue_environment(
         self, **kwargs: Unpack[DeleteQueueEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a queue environment.
 
@@ -640,7 +637,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def delete_queue_fleet_association(
         self, **kwargs: Unpack[DeleteQueueFleetAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a queue-fleet association.
 
@@ -650,7 +647,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def delete_queue_limit_association(
         self, **kwargs: Unpack[DeleteQueueLimitAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the association between a queue and a limit.
 
@@ -660,7 +657,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def delete_storage_profile(
         self, **kwargs: Unpack[DeleteStorageProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a storage profile.
 
@@ -668,7 +665,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#delete_storage_profile)
         """
 
-    async def delete_worker(self, **kwargs: Unpack[DeleteWorkerRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_worker(self, **kwargs: Unpack[DeleteWorkerRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a worker.
 
@@ -678,7 +675,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def disassociate_member_from_farm(
         self, **kwargs: Unpack[DisassociateMemberFromFarmRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a farm.
 
@@ -688,7 +685,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def disassociate_member_from_fleet(
         self, **kwargs: Unpack[DisassociateMemberFromFleetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a fleet.
 
@@ -698,7 +695,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def disassociate_member_from_job(
         self, **kwargs: Unpack[DisassociateMemberFromJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a job.
 
@@ -708,7 +705,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def disassociate_member_from_queue(
         self, **kwargs: Unpack[DisassociateMemberFromQueueRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a member from a queue.
 
@@ -1182,7 +1179,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def put_metered_product(
         self, **kwargs: Unpack[PutMeteredProductRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a metered product.
 
@@ -1241,7 +1238,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#start_sessions_statistics_aggregation)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Tags a resource using the resource's ARN and desired tags.
 
@@ -1249,7 +1246,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource using the resource's ARN and tag to remove.
 
@@ -1257,7 +1254,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#untag_resource)
         """
 
-    async def update_budget(self, **kwargs: Unpack[UpdateBudgetRequestTypeDef]) -> Dict[str, Any]:
+    async def update_budget(self, **kwargs: Unpack[UpdateBudgetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a budget that sets spending thresholds for rendering activity.
 
@@ -1265,7 +1262,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_budget)
         """
 
-    async def update_farm(self, **kwargs: Unpack[UpdateFarmRequestTypeDef]) -> Dict[str, Any]:
+    async def update_farm(self, **kwargs: Unpack[UpdateFarmRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a farm.
 
@@ -1273,7 +1270,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_farm)
         """
 
-    async def update_fleet(self, **kwargs: Unpack[UpdateFleetRequestTypeDef]) -> Dict[str, Any]:
+    async def update_fleet(self, **kwargs: Unpack[UpdateFleetRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a fleet.
 
@@ -1281,7 +1278,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_fleet)
         """
 
-    async def update_job(self, **kwargs: Unpack[UpdateJobRequestTypeDef]) -> Dict[str, Any]:
+    async def update_job(self, **kwargs: Unpack[UpdateJobRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a job.
 
@@ -1289,7 +1286,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_job)
         """
 
-    async def update_limit(self, **kwargs: Unpack[UpdateLimitRequestTypeDef]) -> Dict[str, Any]:
+    async def update_limit(self, **kwargs: Unpack[UpdateLimitRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the properties of the specified limit.
 
@@ -1297,7 +1294,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_limit)
         """
 
-    async def update_monitor(self, **kwargs: Unpack[UpdateMonitorRequestTypeDef]) -> Dict[str, Any]:
+    async def update_monitor(self, **kwargs: Unpack[UpdateMonitorRequestTypeDef]) -> dict[str, Any]:
         """
         Modifies the settings for a Deadline Cloud monitor.
 
@@ -1305,7 +1302,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_monitor)
         """
 
-    async def update_queue(self, **kwargs: Unpack[UpdateQueueRequestTypeDef]) -> Dict[str, Any]:
+    async def update_queue(self, **kwargs: Unpack[UpdateQueueRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a queue.
 
@@ -1315,7 +1312,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def update_queue_environment(
         self, **kwargs: Unpack[UpdateQueueEnvironmentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the queue environment.
 
@@ -1325,7 +1322,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def update_queue_fleet_association(
         self, **kwargs: Unpack[UpdateQueueFleetAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a queue-fleet association.
 
@@ -1335,7 +1332,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def update_queue_limit_association(
         self, **kwargs: Unpack[UpdateQueueLimitAssociationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the status of the queue.
 
@@ -1343,7 +1340,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_queue_limit_association)
         """
 
-    async def update_session(self, **kwargs: Unpack[UpdateSessionRequestTypeDef]) -> Dict[str, Any]:
+    async def update_session(self, **kwargs: Unpack[UpdateSessionRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a session.
 
@@ -1351,7 +1348,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_session)
         """
 
-    async def update_step(self, **kwargs: Unpack[UpdateStepRequestTypeDef]) -> Dict[str, Any]:
+    async def update_step(self, **kwargs: Unpack[UpdateStepRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a step.
 
@@ -1361,7 +1358,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def update_storage_profile(
         self, **kwargs: Unpack[UpdateStorageProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a storage profile.
 
@@ -1369,7 +1366,7 @@ class DeadlineCloudClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#update_storage_profile)
         """
 
-    async def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> Dict[str, Any]:
+    async def update_task(self, **kwargs: Unpack[UpdateTaskRequestTypeDef]) -> dict[str, Any]:
         """
         Updates a task.
 
@@ -1729,8 +1726,30 @@ class DeadlineCloudClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["job_complete"]
+    ) -> JobCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["job_create_complete"]
     ) -> JobCreateCompleteWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/deadline/client/get_waiter.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_deadline/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["job_succeeded"]
+    ) -> JobSucceededWaiter:
         """
         Returns an object that can wait for some condition.
 
@@ -1812,7 +1831,7 @@ class DeadlineCloudClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

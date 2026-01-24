@@ -247,6 +247,52 @@ class VodClient(AbstractClient):
                 raise TencentCloudSDKException(type(e).__name__, str(e))
 
 
+    def CreateAigcImageTask(self, request):
+        r"""This API is used to generate AIGC images. <b>The API is in beta. If needed, contact us. API calls will incur actual fees.</b>
+
+        :param request: Request instance for CreateAigcImageTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateAigcImageTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateAigcImageTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcImageTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcImageTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateAigcVideoTask(self, request):
+        r"""This API is used to generate AIGC videos. <b>The API is in beta. If needed, contact us. API calls will incur actual fees.</b>
+
+        :param request: Request instance for CreateAigcVideoTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateAigcVideoTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateAigcVideoTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateAigcVideoTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateAigcVideoTaskResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
     def CreateAnimatedGraphicsTemplate(self, request):
         r"""This API is used to create a custom animated image generating template. Up to 16 templates can be created.
 
@@ -669,6 +715,29 @@ class VodClient(AbstractClient):
             body = self.call("CreateSampleSnapshotTemplate", params, headers=headers)
             response = json.loads(body)
             model = models.CreateSampleSnapshotTemplateResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def CreateSceneAigcImageTask(self, request):
+        r"""This API is used to generate scenario-based AIGC images. <b>This interface is in beta. If you need to use it, please contact us. API calls will incur actual fees.</b>
+
+        :param request: Request instance for CreateSceneAigcImageTask.
+        :type request: :class:`tencentcloud.vod.v20180717.models.CreateSceneAigcImageTaskRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.CreateSceneAigcImageTaskResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("CreateSceneAigcImageTask", params, headers=headers)
+            response = json.loads(body)
+            model = models.CreateSceneAigcImageTaskResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -1640,7 +1709,7 @@ class VodClient(AbstractClient):
 
     def DescribeCDNUsageData(self, request):
         r"""This API is used to query the CDN statistics of VOD such as traffic and bandwidth.
-           1. Only CDN usage data for the last 365 days can be queried.
+           1. CDN usage data is retained on the system side for 13 months, while you can only query the CDN usage data for the most recent 365 days via the API.If you need to retrieve historical usage data beyond 365 days, please contact us.
            2. The query time range cannot be more than 90 days.
            3. The time granularity of usage data can be specified, including 5-minute, 1-hour, and 1-day.
            4. Traffic refers to the total traffic within the query time granularity, while bandwidth the peak bandwidth.
@@ -2094,7 +2163,7 @@ class VodClient(AbstractClient):
 
     def DescribeMediaProcessUsageData(self, request):
         r"""This API is used to query the information of video processing usage within the specified time range.
-           1. Statistics on video processing for the last 365 days can be queried.
+           1. Video processing usage data is retained on the system side for 13 months, and you may only query the usage data for the most recent 365 days via the API. If you need to retrieve historical usage data beyond 365 days, please contact us.
            2. The query time range cannot be more than 90 days.
 
         :param request: Request instance for DescribeMediaProcessUsageData.
@@ -2355,7 +2424,7 @@ class VodClient(AbstractClient):
 
     def DescribeStorageDetails(self, request):
         r"""This API is used to query VOD storage usage in bytes within the query period.
-            1. You can only query storage usage for the last 365 days.
+            1. Storage usage data is retained on the system side for 13 months, and you may only query the usage data for the most recent 365 days via the API. If you need to retrieve historical usage data beyond 365 days, please contact us.
             2. The query period is up to 90 days.
             3. The query period at minute-level granularity is up to 7 days.
 
@@ -2805,6 +2874,29 @@ class VodClient(AbstractClient):
             body = self.call("HandleCurrentPlaylist", params, headers=headers)
             response = json.loads(body)
             model = models.HandleCurrentPlaylistResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def ImportMediaKnowledge(self, request):
+        r"""This API is used to import AI analysis results into the knowledge base.
+
+        :param request: Request instance for ImportMediaKnowledge.
+        :type request: :class:`tencentcloud.vod.v20180717.models.ImportMediaKnowledgeRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.ImportMediaKnowledgeResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("ImportMediaKnowledge", params, headers=headers)
+            response = json.loads(body)
+            model = models.ImportMediaKnowledgeResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:
@@ -4081,6 +4173,29 @@ class VodClient(AbstractClient):
             body = self.call("SearchMedia", params, headers=headers)
             response = json.loads(body)
             model = models.SearchMediaResponse()
+            model._deserialize(response["Response"])
+            return model
+        except Exception as e:
+            if isinstance(e, TencentCloudSDKException):
+                raise
+            else:
+                raise TencentCloudSDKException(type(e).__name__, str(e))
+
+
+    def SearchMediaBySemantics(self, request):
+        r"""This API is used to conduct semantic search on media using natural language.
+
+        :param request: Request instance for SearchMediaBySemantics.
+        :type request: :class:`tencentcloud.vod.v20180717.models.SearchMediaBySemanticsRequest`
+        :rtype: :class:`tencentcloud.vod.v20180717.models.SearchMediaBySemanticsResponse`
+
+        """
+        try:
+            params = request._serialize()
+            headers = request.headers
+            body = self.call("SearchMediaBySemantics", params, headers=headers)
+            response = json.loads(body)
+            model = models.SearchMediaBySemanticsResponse()
             model._deserialize(response["Response"])
             return model
         except Exception as e:

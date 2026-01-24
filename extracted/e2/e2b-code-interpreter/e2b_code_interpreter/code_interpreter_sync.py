@@ -1,7 +1,7 @@
 import logging
 import httpx
 
-from typing import Optional, Dict, overload, Literal, Union
+from typing import Optional, Dict, overload, Literal, Union, List
 from httpx import Client
 from e2b import Sandbox as BaseSandbox, InvalidArgumentException
 
@@ -189,6 +189,12 @@ class Sandbox(BaseSandbox):
         context_id = context.id if context else None
 
         try:
+            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            if self._envd_access_token:
+                headers["X-Access-Token"] = self._envd_access_token
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
             with self._client.stream(
                 "POST",
                 f"{self._jupyter_url}/execute",
@@ -198,7 +204,7 @@ class Sandbox(BaseSandbox):
                     "language": language,
                     "env_vars": envs,
                 },
-                headers={"X-Access-Token": self._envd_access_token},
+                headers=headers,
                 timeout=(request_timeout, timeout, request_timeout, request_timeout),
             ) as response:
                 err = extract_exception(response)
@@ -247,10 +253,16 @@ class Sandbox(BaseSandbox):
             data["cwd"] = cwd
 
         try:
+            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            if self._envd_access_token:
+                headers["X-Access-Token"] = self._envd_access_token
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
             response = self._client.post(
                 f"{self._jupyter_url}/contexts",
                 json=data,
-                headers={"X-Access-Token": self._envd_access_token},
+                headers=headers,
                 timeout=request_timeout or self.connection_config.request_timeout,
             )
 
@@ -260,5 +272,97 @@ class Sandbox(BaseSandbox):
 
             data = response.json()
             return Context.from_json(data)
+        except httpx.TimeoutException:
+            raise format_request_timeout_error()
+
+    def remove_code_context(
+        self,
+        context: Union[Context, str],
+    ) -> None:
+        """
+        Removes a context.
+
+        :param context: Context to remove. Can be a Context object or a context ID string.
+
+        :return: None
+        """
+        context_id = context.id if isinstance(context, Context) else context
+
+        try:
+            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            if self._envd_access_token:
+                headers["X-Access-Token"] = self._envd_access_token
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
+            response = self._client.delete(
+                f"{self._jupyter_url}/contexts/{context_id}",
+                headers=headers,
+                timeout=self.connection_config.request_timeout,
+            )
+
+            err = extract_exception(response)
+            if err:
+                raise err
+        except httpx.TimeoutException:
+            raise format_request_timeout_error()
+
+    def list_code_contexts(self) -> List[Context]:
+        """
+        List all contexts.
+
+        :return: List of contexts.
+        """
+        try:
+            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            if self._envd_access_token:
+                headers["X-Access-Token"] = self._envd_access_token
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
+            response = self._client.get(
+                f"{self._jupyter_url}/contexts",
+                headers=headers,
+                timeout=self.connection_config.request_timeout,
+            )
+
+            err = extract_exception(response)
+            if err:
+                raise err
+
+            data = response.json()
+            return [Context.from_json(context_data) for context_data in data]
+        except httpx.TimeoutException:
+            raise format_request_timeout_error()
+
+    def restart_code_context(
+        self,
+        context: Union[Context, str],
+    ) -> None:
+        """
+        Restart a context.
+
+        :param context: Context to restart. Can be a Context object or a context ID string.
+
+        :return: None
+        """
+        context_id = context.id if isinstance(context, Context) else context
+
+        try:
+            headers: Dict[str, str] = {"Content-Type": "application/json"}
+            if self._envd_access_token:
+                headers["X-Access-Token"] = self._envd_access_token
+            if self.traffic_access_token:
+                headers["E2B-Traffic-Access-Token"] = self.traffic_access_token
+
+            response = self._client.post(
+                f"{self._jupyter_url}/contexts/{context_id}/restart",
+                headers=headers,
+                timeout=self.connection_config.request_timeout,
+            )
+
+            err = extract_exception(response)
+            if err:
+                raise err
         except httpx.TimeoutException:
             raise format_request_timeout_error()

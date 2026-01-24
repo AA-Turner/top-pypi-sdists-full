@@ -19,6 +19,16 @@ __all__ = [
     'AclConfigIdpConfigArgsDict',
     'AclConfigIdpConfigExternalIdpConfigArgs',
     'AclConfigIdpConfigExternalIdpConfigArgsDict',
+    'AssistantCustomerPolicyArgs',
+    'AssistantCustomerPolicyArgsDict',
+    'AssistantCustomerPolicyBannedPhraseArgs',
+    'AssistantCustomerPolicyBannedPhraseArgsDict',
+    'AssistantCustomerPolicyModelArmorConfigArgs',
+    'AssistantCustomerPolicyModelArmorConfigArgsDict',
+    'AssistantGenerationConfigArgs',
+    'AssistantGenerationConfigArgsDict',
+    'AssistantGenerationConfigSystemInstructionArgs',
+    'AssistantGenerationConfigSystemInstructionArgsDict',
     'ChatEngineChatEngineConfigArgs',
     'ChatEngineChatEngineConfigArgsDict',
     'ChatEngineChatEngineConfigAgentCreationConfigArgs',
@@ -29,6 +39,32 @@ __all__ = [
     'ChatEngineCommonConfigArgsDict',
     'CmekConfigSingleRegionKeyArgs',
     'CmekConfigSingleRegionKeyArgsDict',
+    'ControlBoostActionArgs',
+    'ControlBoostActionArgsDict',
+    'ControlBoostActionInterpolationBoostSpecArgs',
+    'ControlBoostActionInterpolationBoostSpecArgsDict',
+    'ControlBoostActionInterpolationBoostSpecControlPointArgs',
+    'ControlBoostActionInterpolationBoostSpecControlPointArgsDict',
+    'ControlConditionArgs',
+    'ControlConditionArgsDict',
+    'ControlConditionActiveTimeRangeArgs',
+    'ControlConditionActiveTimeRangeArgsDict',
+    'ControlConditionQueryTermArgs',
+    'ControlConditionQueryTermArgsDict',
+    'ControlFilterActionArgs',
+    'ControlFilterActionArgsDict',
+    'ControlPromoteActionArgs',
+    'ControlPromoteActionArgsDict',
+    'ControlPromoteActionSearchLinkPromotionArgs',
+    'ControlPromoteActionSearchLinkPromotionArgsDict',
+    'ControlRedirectActionArgs',
+    'ControlRedirectActionArgsDict',
+    'ControlSynonymsActionArgs',
+    'ControlSynonymsActionArgsDict',
+    'DataConnectorEntityArgs',
+    'DataConnectorEntityArgsDict',
+    'DataConnectorErrorArgs',
+    'DataConnectorErrorArgsDict',
     'DataStoreAdvancedSiteSearchConfigArgs',
     'DataStoreAdvancedSiteSearchConfigArgsDict',
     'DataStoreDocumentProcessingConfigArgs',
@@ -53,6 +89,10 @@ __all__ = [
     'DataStoreDocumentProcessingConfigParsingConfigOverrideLayoutParsingConfigArgsDict',
     'DataStoreDocumentProcessingConfigParsingConfigOverrideOcrParsingConfigArgs',
     'DataStoreDocumentProcessingConfigParsingConfigOverrideOcrParsingConfigArgsDict',
+    'LicenseConfigEndDateArgs',
+    'LicenseConfigEndDateArgsDict',
+    'LicenseConfigStartDateArgs',
+    'LicenseConfigStartDateArgsDict',
     'RecommendationEngineCommonConfigArgs',
     'RecommendationEngineCommonConfigArgsDict',
     'RecommendationEngineMediaRecommendationEngineConfigArgs',
@@ -75,6 +115,28 @@ __all__ = [
     'TargetSiteFailureReasonQuotaFailureArgsDict',
     'TargetSiteSiteVerificationInfoArgs',
     'TargetSiteSiteVerificationInfoArgsDict',
+    'WidgetConfigAccessSettingsArgs',
+    'WidgetConfigAccessSettingsArgsDict',
+    'WidgetConfigHomepageSettingArgs',
+    'WidgetConfigHomepageSettingArgsDict',
+    'WidgetConfigHomepageSettingShortcutArgs',
+    'WidgetConfigHomepageSettingShortcutArgsDict',
+    'WidgetConfigHomepageSettingShortcutIconArgs',
+    'WidgetConfigHomepageSettingShortcutIconArgsDict',
+    'WidgetConfigUiBrandingArgs',
+    'WidgetConfigUiBrandingArgsDict',
+    'WidgetConfigUiBrandingLogoArgs',
+    'WidgetConfigUiBrandingLogoArgsDict',
+    'WidgetConfigUiSettingsArgs',
+    'WidgetConfigUiSettingsArgsDict',
+    'WidgetConfigUiSettingsDataStoreUiConfigArgs',
+    'WidgetConfigUiSettingsDataStoreUiConfigArgsDict',
+    'WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgs',
+    'WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgsDict',
+    'WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgs',
+    'WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgsDict',
+    'WidgetConfigUiSettingsGenerativeAnswerConfigArgs',
+    'WidgetConfigUiSettingsGenerativeAnswerConfigArgsDict',
 ]
 
 MYPY = False
@@ -167,6 +229,331 @@ class AclConfigIdpConfigExternalIdpConfigArgs:
     @workforce_pool_name.setter
     def workforce_pool_name(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "workforce_pool_name", value)
+
+
+if not MYPY:
+    class AssistantCustomerPolicyArgsDict(TypedDict):
+        banned_phrases: NotRequired[pulumi.Input[Sequence[pulumi.Input['AssistantCustomerPolicyBannedPhraseArgsDict']]]]
+        """
+        List of banned phrases.
+        Structure is documented below.
+        """
+        model_armor_config: NotRequired[pulumi.Input['AssistantCustomerPolicyModelArmorConfigArgsDict']]
+        """
+        Model Armor configuration to be used for sanitizing user prompts and assistant responses.
+        Structure is documented below.
+        """
+elif False:
+    AssistantCustomerPolicyArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AssistantCustomerPolicyArgs:
+    def __init__(__self__, *,
+                 banned_phrases: Optional[pulumi.Input[Sequence[pulumi.Input['AssistantCustomerPolicyBannedPhraseArgs']]]] = None,
+                 model_armor_config: Optional[pulumi.Input['AssistantCustomerPolicyModelArmorConfigArgs']] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['AssistantCustomerPolicyBannedPhraseArgs']]] banned_phrases: List of banned phrases.
+               Structure is documented below.
+        :param pulumi.Input['AssistantCustomerPolicyModelArmorConfigArgs'] model_armor_config: Model Armor configuration to be used for sanitizing user prompts and assistant responses.
+               Structure is documented below.
+        """
+        if banned_phrases is not None:
+            pulumi.set(__self__, "banned_phrases", banned_phrases)
+        if model_armor_config is not None:
+            pulumi.set(__self__, "model_armor_config", model_armor_config)
+
+    @_builtins.property
+    @pulumi.getter(name="bannedPhrases")
+    def banned_phrases(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['AssistantCustomerPolicyBannedPhraseArgs']]]]:
+        """
+        List of banned phrases.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "banned_phrases")
+
+    @banned_phrases.setter
+    def banned_phrases(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['AssistantCustomerPolicyBannedPhraseArgs']]]]):
+        pulumi.set(self, "banned_phrases", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelArmorConfig")
+    def model_armor_config(self) -> Optional[pulumi.Input['AssistantCustomerPolicyModelArmorConfigArgs']]:
+        """
+        Model Armor configuration to be used for sanitizing user prompts and assistant responses.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "model_armor_config")
+
+    @model_armor_config.setter
+    def model_armor_config(self, value: Optional[pulumi.Input['AssistantCustomerPolicyModelArmorConfigArgs']]):
+        pulumi.set(self, "model_armor_config", value)
+
+
+if not MYPY:
+    class AssistantCustomerPolicyBannedPhraseArgsDict(TypedDict):
+        phrase: pulumi.Input[_builtins.str]
+        """
+        The raw string content to be banned.
+        """
+        ignore_diacritics: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If true, diacritical marks (e.g., accents, umlauts) are ignored when
+        matching banned phrases. For example, "cafe" would match "café".
+        """
+        match_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Match type for the banned phrase.
+        The supported values: 'SIMPLE_STRING_MATCH', 'WORD_BOUNDARY_STRING_MATCH'.
+        """
+elif False:
+    AssistantCustomerPolicyBannedPhraseArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AssistantCustomerPolicyBannedPhraseArgs:
+    def __init__(__self__, *,
+                 phrase: pulumi.Input[_builtins.str],
+                 ignore_diacritics: Optional[pulumi.Input[_builtins.bool]] = None,
+                 match_type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] phrase: The raw string content to be banned.
+        :param pulumi.Input[_builtins.bool] ignore_diacritics: If true, diacritical marks (e.g., accents, umlauts) are ignored when
+               matching banned phrases. For example, "cafe" would match "café".
+        :param pulumi.Input[_builtins.str] match_type: Match type for the banned phrase.
+               The supported values: 'SIMPLE_STRING_MATCH', 'WORD_BOUNDARY_STRING_MATCH'.
+        """
+        pulumi.set(__self__, "phrase", phrase)
+        if ignore_diacritics is not None:
+            pulumi.set(__self__, "ignore_diacritics", ignore_diacritics)
+        if match_type is not None:
+            pulumi.set(__self__, "match_type", match_type)
+
+    @_builtins.property
+    @pulumi.getter
+    def phrase(self) -> pulumi.Input[_builtins.str]:
+        """
+        The raw string content to be banned.
+        """
+        return pulumi.get(self, "phrase")
+
+    @phrase.setter
+    def phrase(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "phrase", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreDiacritics")
+    def ignore_diacritics(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If true, diacritical marks (e.g., accents, umlauts) are ignored when
+        matching banned phrases. For example, "cafe" would match "café".
+        """
+        return pulumi.get(self, "ignore_diacritics")
+
+    @ignore_diacritics.setter
+    def ignore_diacritics(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ignore_diacritics", value)
+
+    @_builtins.property
+    @pulumi.getter(name="matchType")
+    def match_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Match type for the banned phrase.
+        The supported values: 'SIMPLE_STRING_MATCH', 'WORD_BOUNDARY_STRING_MATCH'.
+        """
+        return pulumi.get(self, "match_type")
+
+    @match_type.setter
+    def match_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "match_type", value)
+
+
+if not MYPY:
+    class AssistantCustomerPolicyModelArmorConfigArgsDict(TypedDict):
+        response_template: pulumi.Input[_builtins.str]
+        """
+        The resource name of the Model Armor template for sanitizing assistant
+        responses. Format:
+        `projects/{project}/locations/{location}/templates/{template_id}`
+        If not specified, no sanitization will be applied to the assistant
+        response.
+        """
+        user_prompt_template: pulumi.Input[_builtins.str]
+        """
+        The resource name of the Model Armor template for sanitizing user
+        prompts. Format:
+        `projects/{project}/locations/{location}/templates/{template_id}`
+        If not specified, no sanitization will be applied to the user prompt.
+        """
+        failure_mode: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Defines the failure mode for Model Armor sanitization.
+        The supported values: 'FAIL_OPEN', 'FAIL_CLOSED'.
+        """
+elif False:
+    AssistantCustomerPolicyModelArmorConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AssistantCustomerPolicyModelArmorConfigArgs:
+    def __init__(__self__, *,
+                 response_template: pulumi.Input[_builtins.str],
+                 user_prompt_template: pulumi.Input[_builtins.str],
+                 failure_mode: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] response_template: The resource name of the Model Armor template for sanitizing assistant
+               responses. Format:
+               `projects/{project}/locations/{location}/templates/{template_id}`
+               If not specified, no sanitization will be applied to the assistant
+               response.
+        :param pulumi.Input[_builtins.str] user_prompt_template: The resource name of the Model Armor template for sanitizing user
+               prompts. Format:
+               `projects/{project}/locations/{location}/templates/{template_id}`
+               If not specified, no sanitization will be applied to the user prompt.
+        :param pulumi.Input[_builtins.str] failure_mode: Defines the failure mode for Model Armor sanitization.
+               The supported values: 'FAIL_OPEN', 'FAIL_CLOSED'.
+        """
+        pulumi.set(__self__, "response_template", response_template)
+        pulumi.set(__self__, "user_prompt_template", user_prompt_template)
+        if failure_mode is not None:
+            pulumi.set(__self__, "failure_mode", failure_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="responseTemplate")
+    def response_template(self) -> pulumi.Input[_builtins.str]:
+        """
+        The resource name of the Model Armor template for sanitizing assistant
+        responses. Format:
+        `projects/{project}/locations/{location}/templates/{template_id}`
+        If not specified, no sanitization will be applied to the assistant
+        response.
+        """
+        return pulumi.get(self, "response_template")
+
+    @response_template.setter
+    def response_template(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "response_template", value)
+
+    @_builtins.property
+    @pulumi.getter(name="userPromptTemplate")
+    def user_prompt_template(self) -> pulumi.Input[_builtins.str]:
+        """
+        The resource name of the Model Armor template for sanitizing user
+        prompts. Format:
+        `projects/{project}/locations/{location}/templates/{template_id}`
+        If not specified, no sanitization will be applied to the user prompt.
+        """
+        return pulumi.get(self, "user_prompt_template")
+
+    @user_prompt_template.setter
+    def user_prompt_template(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "user_prompt_template", value)
+
+    @_builtins.property
+    @pulumi.getter(name="failureMode")
+    def failure_mode(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Defines the failure mode for Model Armor sanitization.
+        The supported values: 'FAIL_OPEN', 'FAIL_CLOSED'.
+        """
+        return pulumi.get(self, "failure_mode")
+
+    @failure_mode.setter
+    def failure_mode(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "failure_mode", value)
+
+
+if not MYPY:
+    class AssistantGenerationConfigArgsDict(TypedDict):
+        default_language: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The default language to use for the generation of the assistant response.
+        Use an ISO 639-1 language code such as `en`.
+        If not specified, the language will be automatically detected.
+        """
+        system_instruction: NotRequired[pulumi.Input['AssistantGenerationConfigSystemInstructionArgsDict']]
+        """
+        System instruction, also known as the prompt preamble for LLM calls.
+        See also https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/system-instructions
+        Structure is documented below.
+        """
+elif False:
+    AssistantGenerationConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AssistantGenerationConfigArgs:
+    def __init__(__self__, *,
+                 default_language: Optional[pulumi.Input[_builtins.str]] = None,
+                 system_instruction: Optional[pulumi.Input['AssistantGenerationConfigSystemInstructionArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.str] default_language: The default language to use for the generation of the assistant response.
+               Use an ISO 639-1 language code such as `en`.
+               If not specified, the language will be automatically detected.
+        :param pulumi.Input['AssistantGenerationConfigSystemInstructionArgs'] system_instruction: System instruction, also known as the prompt preamble for LLM calls.
+               See also https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/system-instructions
+               Structure is documented below.
+        """
+        if default_language is not None:
+            pulumi.set(__self__, "default_language", default_language)
+        if system_instruction is not None:
+            pulumi.set(__self__, "system_instruction", system_instruction)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultLanguage")
+    def default_language(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The default language to use for the generation of the assistant response.
+        Use an ISO 639-1 language code such as `en`.
+        If not specified, the language will be automatically detected.
+        """
+        return pulumi.get(self, "default_language")
+
+    @default_language.setter
+    def default_language(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "default_language", value)
+
+    @_builtins.property
+    @pulumi.getter(name="systemInstruction")
+    def system_instruction(self) -> Optional[pulumi.Input['AssistantGenerationConfigSystemInstructionArgs']]:
+        """
+        System instruction, also known as the prompt preamble for LLM calls.
+        See also https://cloud.google.com/vertex-ai/generative-ai/docs/learn/prompts/system-instructions
+        Structure is documented below.
+        """
+        return pulumi.get(self, "system_instruction")
+
+    @system_instruction.setter
+    def system_instruction(self, value: Optional[pulumi.Input['AssistantGenerationConfigSystemInstructionArgs']]):
+        pulumi.set(self, "system_instruction", value)
+
+
+if not MYPY:
+    class AssistantGenerationConfigSystemInstructionArgsDict(TypedDict):
+        additional_system_instruction: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Additional system instruction that will be added to the default system instruction.
+        """
+elif False:
+    AssistantGenerationConfigSystemInstructionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class AssistantGenerationConfigSystemInstructionArgs:
+    def __init__(__self__, *,
+                 additional_system_instruction: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] additional_system_instruction: Additional system instruction that will be added to the default system instruction.
+        """
+        if additional_system_instruction is not None:
+            pulumi.set(__self__, "additional_system_instruction", additional_system_instruction)
+
+    @_builtins.property
+    @pulumi.getter(name="additionalSystemInstruction")
+    def additional_system_instruction(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Additional system instruction that will be added to the default system instruction.
+        """
+        return pulumi.get(self, "additional_system_instruction")
+
+    @additional_system_instruction.setter
+    def additional_system_instruction(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "additional_system_instruction", value)
 
 
 if not MYPY:
@@ -460,6 +847,917 @@ class CmekConfigSingleRegionKeyArgs:
     @kms_key.setter
     def kms_key(self, value: pulumi.Input[_builtins.str]):
         pulumi.set(self, "kms_key", value)
+
+
+if not MYPY:
+    class ControlBoostActionArgsDict(TypedDict):
+        data_store: pulumi.Input[_builtins.str]
+        """
+        The data store to boost.
+        """
+        filter: pulumi.Input[_builtins.str]
+        """
+        The filter to apply to the search results.
+        """
+        fixed_boost: NotRequired[pulumi.Input[_builtins.float]]
+        """
+        The fixed boost value to apply to the search results. Positive values will increase the relevance of the results, while negative values will decrease the relevance. The value must be between -100 and 100.
+        """
+        interpolation_boost_spec: NotRequired[pulumi.Input['ControlBoostActionInterpolationBoostSpecArgsDict']]
+        """
+        The interpolation boost specification to apply to the search results.
+        Structure is documented below.
+        """
+elif False:
+    ControlBoostActionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlBoostActionArgs:
+    def __init__(__self__, *,
+                 data_store: pulumi.Input[_builtins.str],
+                 filter: pulumi.Input[_builtins.str],
+                 fixed_boost: Optional[pulumi.Input[_builtins.float]] = None,
+                 interpolation_boost_spec: Optional[pulumi.Input['ControlBoostActionInterpolationBoostSpecArgs']] = None):
+        """
+        :param pulumi.Input[_builtins.str] data_store: The data store to boost.
+        :param pulumi.Input[_builtins.str] filter: The filter to apply to the search results.
+        :param pulumi.Input[_builtins.float] fixed_boost: The fixed boost value to apply to the search results. Positive values will increase the relevance of the results, while negative values will decrease the relevance. The value must be between -100 and 100.
+        :param pulumi.Input['ControlBoostActionInterpolationBoostSpecArgs'] interpolation_boost_spec: The interpolation boost specification to apply to the search results.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "data_store", data_store)
+        pulumi.set(__self__, "filter", filter)
+        if fixed_boost is not None:
+            pulumi.set(__self__, "fixed_boost", fixed_boost)
+        if interpolation_boost_spec is not None:
+            pulumi.set(__self__, "interpolation_boost_spec", interpolation_boost_spec)
+
+    @_builtins.property
+    @pulumi.getter(name="dataStore")
+    def data_store(self) -> pulumi.Input[_builtins.str]:
+        """
+        The data store to boost.
+        """
+        return pulumi.get(self, "data_store")
+
+    @data_store.setter
+    def data_store(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "data_store", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> pulumi.Input[_builtins.str]:
+        """
+        The filter to apply to the search results.
+        """
+        return pulumi.get(self, "filter")
+
+    @filter.setter
+    def filter(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "filter", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fixedBoost")
+    def fixed_boost(self) -> Optional[pulumi.Input[_builtins.float]]:
+        """
+        The fixed boost value to apply to the search results. Positive values will increase the relevance of the results, while negative values will decrease the relevance. The value must be between -100 and 100.
+        """
+        return pulumi.get(self, "fixed_boost")
+
+    @fixed_boost.setter
+    def fixed_boost(self, value: Optional[pulumi.Input[_builtins.float]]):
+        pulumi.set(self, "fixed_boost", value)
+
+    @_builtins.property
+    @pulumi.getter(name="interpolationBoostSpec")
+    def interpolation_boost_spec(self) -> Optional[pulumi.Input['ControlBoostActionInterpolationBoostSpecArgs']]:
+        """
+        The interpolation boost specification to apply to the search results.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "interpolation_boost_spec")
+
+    @interpolation_boost_spec.setter
+    def interpolation_boost_spec(self, value: Optional[pulumi.Input['ControlBoostActionInterpolationBoostSpecArgs']]):
+        pulumi.set(self, "interpolation_boost_spec", value)
+
+
+if not MYPY:
+    class ControlBoostActionInterpolationBoostSpecArgsDict(TypedDict):
+        attribute_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The attribute type to be used to determine the boost amount.
+        Possible values are: `NUMERICAL`, `FRESHNESS`.
+        """
+        control_point: NotRequired[pulumi.Input['ControlBoostActionInterpolationBoostSpecControlPointArgsDict']]
+        """
+        The control points used to define the curve.
+        Structure is documented below.
+        """
+        field_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the field whose value will be used to determine the boost amount.
+        """
+        interpolation_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The interpolation type to be applied to connect the control points.
+        Possible values are: `LINEAR`.
+        """
+elif False:
+    ControlBoostActionInterpolationBoostSpecArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlBoostActionInterpolationBoostSpecArgs:
+    def __init__(__self__, *,
+                 attribute_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 control_point: Optional[pulumi.Input['ControlBoostActionInterpolationBoostSpecControlPointArgs']] = None,
+                 field_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 interpolation_type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] attribute_type: The attribute type to be used to determine the boost amount.
+               Possible values are: `NUMERICAL`, `FRESHNESS`.
+        :param pulumi.Input['ControlBoostActionInterpolationBoostSpecControlPointArgs'] control_point: The control points used to define the curve.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] field_name: The name of the field whose value will be used to determine the boost amount.
+        :param pulumi.Input[_builtins.str] interpolation_type: The interpolation type to be applied to connect the control points.
+               Possible values are: `LINEAR`.
+        """
+        if attribute_type is not None:
+            pulumi.set(__self__, "attribute_type", attribute_type)
+        if control_point is not None:
+            pulumi.set(__self__, "control_point", control_point)
+        if field_name is not None:
+            pulumi.set(__self__, "field_name", field_name)
+        if interpolation_type is not None:
+            pulumi.set(__self__, "interpolation_type", interpolation_type)
+
+    @_builtins.property
+    @pulumi.getter(name="attributeType")
+    def attribute_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The attribute type to be used to determine the boost amount.
+        Possible values are: `NUMERICAL`, `FRESHNESS`.
+        """
+        return pulumi.get(self, "attribute_type")
+
+    @attribute_type.setter
+    def attribute_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "attribute_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="controlPoint")
+    def control_point(self) -> Optional[pulumi.Input['ControlBoostActionInterpolationBoostSpecControlPointArgs']]:
+        """
+        The control points used to define the curve.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "control_point")
+
+    @control_point.setter
+    def control_point(self, value: Optional[pulumi.Input['ControlBoostActionInterpolationBoostSpecControlPointArgs']]):
+        pulumi.set(self, "control_point", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fieldName")
+    def field_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the field whose value will be used to determine the boost amount.
+        """
+        return pulumi.get(self, "field_name")
+
+    @field_name.setter
+    def field_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "field_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="interpolationType")
+    def interpolation_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The interpolation type to be applied to connect the control points.
+        Possible values are: `LINEAR`.
+        """
+        return pulumi.get(self, "interpolation_type")
+
+    @interpolation_type.setter
+    def interpolation_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "interpolation_type", value)
+
+
+if not MYPY:
+    class ControlBoostActionInterpolationBoostSpecControlPointArgsDict(TypedDict):
+        attribute_value: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The attribute value of the control point.
+        """
+        boost_amount: NotRequired[pulumi.Input[_builtins.float]]
+        """
+        The value between -1 to 1 by which to boost the score if the attributeValue
+        evaluates to the value specified above.
+        """
+elif False:
+    ControlBoostActionInterpolationBoostSpecControlPointArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlBoostActionInterpolationBoostSpecControlPointArgs:
+    def __init__(__self__, *,
+                 attribute_value: Optional[pulumi.Input[_builtins.str]] = None,
+                 boost_amount: Optional[pulumi.Input[_builtins.float]] = None):
+        """
+        :param pulumi.Input[_builtins.str] attribute_value: The attribute value of the control point.
+        :param pulumi.Input[_builtins.float] boost_amount: The value between -1 to 1 by which to boost the score if the attributeValue
+               evaluates to the value specified above.
+        """
+        if attribute_value is not None:
+            pulumi.set(__self__, "attribute_value", attribute_value)
+        if boost_amount is not None:
+            pulumi.set(__self__, "boost_amount", boost_amount)
+
+    @_builtins.property
+    @pulumi.getter(name="attributeValue")
+    def attribute_value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The attribute value of the control point.
+        """
+        return pulumi.get(self, "attribute_value")
+
+    @attribute_value.setter
+    def attribute_value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "attribute_value", value)
+
+    @_builtins.property
+    @pulumi.getter(name="boostAmount")
+    def boost_amount(self) -> Optional[pulumi.Input[_builtins.float]]:
+        """
+        The value between -1 to 1 by which to boost the score if the attributeValue
+        evaluates to the value specified above.
+        """
+        return pulumi.get(self, "boost_amount")
+
+    @boost_amount.setter
+    def boost_amount(self, value: Optional[pulumi.Input[_builtins.float]]):
+        pulumi.set(self, "boost_amount", value)
+
+
+if not MYPY:
+    class ControlConditionArgsDict(TypedDict):
+        active_time_ranges: NotRequired[pulumi.Input[Sequence[pulumi.Input['ControlConditionActiveTimeRangeArgsDict']]]]
+        """
+        The time range when the condition is active.
+        Structure is documented below.
+        """
+        query_regex: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The regular expression that the query must match for this condition to be met.
+        """
+        query_terms: NotRequired[pulumi.Input[Sequence[pulumi.Input['ControlConditionQueryTermArgsDict']]]]
+        """
+        The query terms that must be present in the search request for this condition to be met.
+        Structure is documented below.
+        """
+elif False:
+    ControlConditionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlConditionArgs:
+    def __init__(__self__, *,
+                 active_time_ranges: Optional[pulumi.Input[Sequence[pulumi.Input['ControlConditionActiveTimeRangeArgs']]]] = None,
+                 query_regex: Optional[pulumi.Input[_builtins.str]] = None,
+                 query_terms: Optional[pulumi.Input[Sequence[pulumi.Input['ControlConditionQueryTermArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['ControlConditionActiveTimeRangeArgs']]] active_time_ranges: The time range when the condition is active.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] query_regex: The regular expression that the query must match for this condition to be met.
+        :param pulumi.Input[Sequence[pulumi.Input['ControlConditionQueryTermArgs']]] query_terms: The query terms that must be present in the search request for this condition to be met.
+               Structure is documented below.
+        """
+        if active_time_ranges is not None:
+            pulumi.set(__self__, "active_time_ranges", active_time_ranges)
+        if query_regex is not None:
+            pulumi.set(__self__, "query_regex", query_regex)
+        if query_terms is not None:
+            pulumi.set(__self__, "query_terms", query_terms)
+
+    @_builtins.property
+    @pulumi.getter(name="activeTimeRanges")
+    def active_time_ranges(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ControlConditionActiveTimeRangeArgs']]]]:
+        """
+        The time range when the condition is active.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "active_time_ranges")
+
+    @active_time_ranges.setter
+    def active_time_ranges(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ControlConditionActiveTimeRangeArgs']]]]):
+        pulumi.set(self, "active_time_ranges", value)
+
+    @_builtins.property
+    @pulumi.getter(name="queryRegex")
+    def query_regex(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The regular expression that the query must match for this condition to be met.
+        """
+        return pulumi.get(self, "query_regex")
+
+    @query_regex.setter
+    def query_regex(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "query_regex", value)
+
+    @_builtins.property
+    @pulumi.getter(name="queryTerms")
+    def query_terms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ControlConditionQueryTermArgs']]]]:
+        """
+        The query terms that must be present in the search request for this condition to be met.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "query_terms")
+
+    @query_terms.setter
+    def query_terms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ControlConditionQueryTermArgs']]]]):
+        pulumi.set(self, "query_terms", value)
+
+
+if not MYPY:
+    class ControlConditionActiveTimeRangeArgsDict(TypedDict):
+        end_time: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The end time of the active time range.
+        """
+        start_time: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The start time of the active time range.
+        """
+elif False:
+    ControlConditionActiveTimeRangeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlConditionActiveTimeRangeArgs:
+    def __init__(__self__, *,
+                 end_time: Optional[pulumi.Input[_builtins.str]] = None,
+                 start_time: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] end_time: The end time of the active time range.
+        :param pulumi.Input[_builtins.str] start_time: The start time of the active time range.
+        """
+        if end_time is not None:
+            pulumi.set(__self__, "end_time", end_time)
+        if start_time is not None:
+            pulumi.set(__self__, "start_time", start_time)
+
+    @_builtins.property
+    @pulumi.getter(name="endTime")
+    def end_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The end time of the active time range.
+        """
+        return pulumi.get(self, "end_time")
+
+    @end_time.setter
+    def end_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "end_time", value)
+
+    @_builtins.property
+    @pulumi.getter(name="startTime")
+    def start_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The start time of the active time range.
+        """
+        return pulumi.get(self, "start_time")
+
+    @start_time.setter
+    def start_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "start_time", value)
+
+
+if not MYPY:
+    class ControlConditionQueryTermArgsDict(TypedDict):
+        full_match: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If true, the query term must be an exact match. Otherwise, the query term can be a partial match.
+        """
+        value: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The value of the query term.
+        """
+elif False:
+    ControlConditionQueryTermArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlConditionQueryTermArgs:
+    def __init__(__self__, *,
+                 full_match: Optional[pulumi.Input[_builtins.bool]] = None,
+                 value: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] full_match: If true, the query term must be an exact match. Otherwise, the query term can be a partial match.
+        :param pulumi.Input[_builtins.str] value: The value of the query term.
+        """
+        if full_match is not None:
+            pulumi.set(__self__, "full_match", full_match)
+        if value is not None:
+            pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fullMatch")
+    def full_match(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If true, the query term must be an exact match. Otherwise, the query term can be a partial match.
+        """
+        return pulumi.get(self, "full_match")
+
+    @full_match.setter
+    def full_match(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "full_match", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The value of the query term.
+        """
+        return pulumi.get(self, "value")
+
+    @value.setter
+    def value(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "value", value)
+
+
+if not MYPY:
+    class ControlFilterActionArgsDict(TypedDict):
+        data_store: pulumi.Input[_builtins.str]
+        """
+        The data store to filter.
+        """
+        filter: pulumi.Input[_builtins.str]
+        """
+        The filter to apply to the search results.
+        """
+elif False:
+    ControlFilterActionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlFilterActionArgs:
+    def __init__(__self__, *,
+                 data_store: pulumi.Input[_builtins.str],
+                 filter: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] data_store: The data store to filter.
+        :param pulumi.Input[_builtins.str] filter: The filter to apply to the search results.
+        """
+        pulumi.set(__self__, "data_store", data_store)
+        pulumi.set(__self__, "filter", filter)
+
+    @_builtins.property
+    @pulumi.getter(name="dataStore")
+    def data_store(self) -> pulumi.Input[_builtins.str]:
+        """
+        The data store to filter.
+        """
+        return pulumi.get(self, "data_store")
+
+    @data_store.setter
+    def data_store(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "data_store", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def filter(self) -> pulumi.Input[_builtins.str]:
+        """
+        The filter to apply to the search results.
+        """
+        return pulumi.get(self, "filter")
+
+    @filter.setter
+    def filter(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "filter", value)
+
+
+if not MYPY:
+    class ControlPromoteActionArgsDict(TypedDict):
+        data_store: pulumi.Input[_builtins.str]
+        """
+        The data store to promote.
+        """
+        search_link_promotion: pulumi.Input['ControlPromoteActionSearchLinkPromotionArgsDict']
+        """
+        The search link promotion to apply to the search results.
+        Structure is documented below.
+        """
+elif False:
+    ControlPromoteActionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlPromoteActionArgs:
+    def __init__(__self__, *,
+                 data_store: pulumi.Input[_builtins.str],
+                 search_link_promotion: pulumi.Input['ControlPromoteActionSearchLinkPromotionArgs']):
+        """
+        :param pulumi.Input[_builtins.str] data_store: The data store to promote.
+        :param pulumi.Input['ControlPromoteActionSearchLinkPromotionArgs'] search_link_promotion: The search link promotion to apply to the search results.
+               Structure is documented below.
+        """
+        pulumi.set(__self__, "data_store", data_store)
+        pulumi.set(__self__, "search_link_promotion", search_link_promotion)
+
+    @_builtins.property
+    @pulumi.getter(name="dataStore")
+    def data_store(self) -> pulumi.Input[_builtins.str]:
+        """
+        The data store to promote.
+        """
+        return pulumi.get(self, "data_store")
+
+    @data_store.setter
+    def data_store(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "data_store", value)
+
+    @_builtins.property
+    @pulumi.getter(name="searchLinkPromotion")
+    def search_link_promotion(self) -> pulumi.Input['ControlPromoteActionSearchLinkPromotionArgs']:
+        """
+        The search link promotion to apply to the search results.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "search_link_promotion")
+
+    @search_link_promotion.setter
+    def search_link_promotion(self, value: pulumi.Input['ControlPromoteActionSearchLinkPromotionArgs']):
+        pulumi.set(self, "search_link_promotion", value)
+
+
+if not MYPY:
+    class ControlPromoteActionSearchLinkPromotionArgsDict(TypedDict):
+        title: pulumi.Input[_builtins.str]
+        """
+        The title of the promoted link.
+        """
+        description: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The description of the promoted link.
+        """
+        document: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The document to promote.
+        """
+        enabled: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Return promotions for basic site search.
+        """
+        image_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The image URI of the promoted link.
+        """
+        uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The URI to promote.
+        """
+elif False:
+    ControlPromoteActionSearchLinkPromotionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlPromoteActionSearchLinkPromotionArgs:
+    def __init__(__self__, *,
+                 title: pulumi.Input[_builtins.str],
+                 description: Optional[pulumi.Input[_builtins.str]] = None,
+                 document: Optional[pulumi.Input[_builtins.str]] = None,
+                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 image_uri: Optional[pulumi.Input[_builtins.str]] = None,
+                 uri: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] title: The title of the promoted link.
+        :param pulumi.Input[_builtins.str] description: The description of the promoted link.
+        :param pulumi.Input[_builtins.str] document: The document to promote.
+        :param pulumi.Input[_builtins.bool] enabled: Return promotions for basic site search.
+        :param pulumi.Input[_builtins.str] image_uri: The image URI of the promoted link.
+        :param pulumi.Input[_builtins.str] uri: The URI to promote.
+        """
+        pulumi.set(__self__, "title", title)
+        if description is not None:
+            pulumi.set(__self__, "description", description)
+        if document is not None:
+            pulumi.set(__self__, "document", document)
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+        if image_uri is not None:
+            pulumi.set(__self__, "image_uri", image_uri)
+        if uri is not None:
+            pulumi.set(__self__, "uri", uri)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> pulumi.Input[_builtins.str]:
+        """
+        The title of the promoted link.
+        """
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "title", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The description of the promoted link.
+        """
+        return pulumi.get(self, "description")
+
+    @description.setter
+    def description(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "description", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def document(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The document to promote.
+        """
+        return pulumi.get(self, "document")
+
+    @document.setter
+    def document(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "document", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Return promotions for basic site search.
+        """
+        return pulumi.get(self, "enabled")
+
+    @enabled.setter
+    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imageUri")
+    def image_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The image URI of the promoted link.
+        """
+        return pulumi.get(self, "image_uri")
+
+    @image_uri.setter
+    def image_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "image_uri", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The URI to promote.
+        """
+        return pulumi.get(self, "uri")
+
+    @uri.setter
+    def uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "uri", value)
+
+
+if not MYPY:
+    class ControlRedirectActionArgsDict(TypedDict):
+        redirect_uri: pulumi.Input[_builtins.str]
+        """
+        The URI to redirect to.
+        """
+elif False:
+    ControlRedirectActionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlRedirectActionArgs:
+    def __init__(__self__, *,
+                 redirect_uri: pulumi.Input[_builtins.str]):
+        """
+        :param pulumi.Input[_builtins.str] redirect_uri: The URI to redirect to.
+        """
+        pulumi.set(__self__, "redirect_uri", redirect_uri)
+
+    @_builtins.property
+    @pulumi.getter(name="redirectUri")
+    def redirect_uri(self) -> pulumi.Input[_builtins.str]:
+        """
+        The URI to redirect to.
+        """
+        return pulumi.get(self, "redirect_uri")
+
+    @redirect_uri.setter
+    def redirect_uri(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "redirect_uri", value)
+
+
+if not MYPY:
+    class ControlSynonymsActionArgsDict(TypedDict):
+        synonyms: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        The synonyms to apply to the search results.
+        """
+elif False:
+    ControlSynonymsActionArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ControlSynonymsActionArgs:
+    def __init__(__self__, *,
+                 synonyms: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] synonyms: The synonyms to apply to the search results.
+        """
+        if synonyms is not None:
+            pulumi.set(__self__, "synonyms", synonyms)
+
+    @_builtins.property
+    @pulumi.getter
+    def synonyms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        The synonyms to apply to the search results.
+        """
+        return pulumi.get(self, "synonyms")
+
+    @synonyms.setter
+    def synonyms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "synonyms", value)
+
+
+if not MYPY:
+    class DataConnectorEntityArgsDict(TypedDict):
+        data_store: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The full resource name of the associated data store for the source
+        entity.
+        Format: `projects/*/locations/*/collections/*/dataStores/*`.
+        When the connector is initialized by the DataConnectorService.SetUpDataConnector
+        method, a DataStore is automatically created for each source entity.
+        """
+        entity_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the entity. Supported values by data source:
+        * Salesforce: `Lead`, `Opportunity`, `Contact`, `Account`, `Case`, `Contract`, `Campaign`
+        * Jira: project, issue, attachment, comment, worklog
+        * Confluence: `Content`, `Space`
+        """
+        key_property_mappings: NotRequired[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]
+        """
+        Attributes for indexing.
+        Key: Field name.
+        Value: The key property to map a field to, such as `title`, and
+        `description`. Supported key properties:
+        """
+        params: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The parameters for the entity to facilitate data ingestion.
+        """
+elif False:
+    DataConnectorEntityArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DataConnectorEntityArgs:
+    def __init__(__self__, *,
+                 data_store: Optional[pulumi.Input[_builtins.str]] = None,
+                 entity_name: Optional[pulumi.Input[_builtins.str]] = None,
+                 key_property_mappings: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 params: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] data_store: (Output)
+               The full resource name of the associated data store for the source
+               entity.
+               Format: `projects/*/locations/*/collections/*/dataStores/*`.
+               When the connector is initialized by the DataConnectorService.SetUpDataConnector
+               method, a DataStore is automatically created for each source entity.
+        :param pulumi.Input[_builtins.str] entity_name: The name of the entity. Supported values by data source:
+               * Salesforce: `Lead`, `Opportunity`, `Contact`, `Account`, `Case`, `Contract`, `Campaign`
+               * Jira: project, issue, attachment, comment, worklog
+               * Confluence: `Content`, `Space`
+        :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] key_property_mappings: Attributes for indexing.
+               Key: Field name.
+               Value: The key property to map a field to, such as `title`, and
+               `description`. Supported key properties:
+        :param pulumi.Input[_builtins.str] params: The parameters for the entity to facilitate data ingestion.
+        """
+        if data_store is not None:
+            pulumi.set(__self__, "data_store", data_store)
+        if entity_name is not None:
+            pulumi.set(__self__, "entity_name", entity_name)
+        if key_property_mappings is not None:
+            pulumi.set(__self__, "key_property_mappings", key_property_mappings)
+        if params is not None:
+            pulumi.set(__self__, "params", params)
+
+    @_builtins.property
+    @pulumi.getter(name="dataStore")
+    def data_store(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The full resource name of the associated data store for the source
+        entity.
+        Format: `projects/*/locations/*/collections/*/dataStores/*`.
+        When the connector is initialized by the DataConnectorService.SetUpDataConnector
+        method, a DataStore is automatically created for each source entity.
+        """
+        return pulumi.get(self, "data_store")
+
+    @data_store.setter
+    def data_store(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "data_store", value)
+
+    @_builtins.property
+    @pulumi.getter(name="entityName")
+    def entity_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the entity. Supported values by data source:
+        * Salesforce: `Lead`, `Opportunity`, `Contact`, `Account`, `Case`, `Contract`, `Campaign`
+        * Jira: project, issue, attachment, comment, worklog
+        * Confluence: `Content`, `Space`
+        """
+        return pulumi.get(self, "entity_name")
+
+    @entity_name.setter
+    def entity_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "entity_name", value)
+
+    @_builtins.property
+    @pulumi.getter(name="keyPropertyMappings")
+    def key_property_mappings(self) -> Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]:
+        """
+        Attributes for indexing.
+        Key: Field name.
+        Value: The key property to map a field to, such as `title`, and
+        `description`. Supported key properties:
+        """
+        return pulumi.get(self, "key_property_mappings")
+
+    @key_property_mappings.setter
+    def key_property_mappings(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "key_property_mappings", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def params(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The parameters for the entity to facilitate data ingestion.
+        """
+        return pulumi.get(self, "params")
+
+    @params.setter
+    def params(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "params", value)
+
+
+if not MYPY:
+    class DataConnectorErrorArgsDict(TypedDict):
+        code: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        (Output)
+        The status code, which should be an enum value of google.rpc.Code.
+        """
+        message: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        A developer-facing error message, which should be in English.
+        """
+elif False:
+    DataConnectorErrorArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DataConnectorErrorArgs:
+    def __init__(__self__, *,
+                 code: Optional[pulumi.Input[_builtins.int]] = None,
+                 message: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.int] code: (Output)
+               The status code, which should be an enum value of google.rpc.Code.
+        :param pulumi.Input[_builtins.str] message: (Output)
+               A developer-facing error message, which should be in English.
+        """
+        if code is not None:
+            pulumi.set(__self__, "code", code)
+        if message is not None:
+            pulumi.set(__self__, "message", message)
+
+    @_builtins.property
+    @pulumi.getter
+    def code(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        (Output)
+        The status code, which should be an enum value of google.rpc.Code.
+        """
+        return pulumi.get(self, "code")
+
+    @code.setter
+    def code(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "code", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def message(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        A developer-facing error message, which should be in English.
+        """
+        return pulumi.get(self, "message")
+
+    @message.setter
+    def message(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "message", value)
 
 
 if not MYPY:
@@ -1245,6 +2543,150 @@ class DataStoreDocumentProcessingConfigParsingConfigOverrideOcrParsingConfigArgs
 
 
 if not MYPY:
+    class LicenseConfigEndDateArgsDict(TypedDict):
+        day: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant.
+        """
+        month: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day.
+        """
+        year: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
+        """
+elif False:
+    LicenseConfigEndDateArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class LicenseConfigEndDateArgs:
+    def __init__(__self__, *,
+                 day: Optional[pulumi.Input[_builtins.int]] = None,
+                 month: Optional[pulumi.Input[_builtins.int]] = None,
+                 year: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant.
+        :param pulumi.Input[_builtins.int] month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day.
+        :param pulumi.Input[_builtins.int] year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
+        """
+        if day is not None:
+            pulumi.set(__self__, "day", day)
+        if month is not None:
+            pulumi.set(__self__, "month", month)
+        if year is not None:
+            pulumi.set(__self__, "year", year)
+
+    @_builtins.property
+    @pulumi.getter
+    def day(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant.
+        """
+        return pulumi.get(self, "day")
+
+    @day.setter
+    def day(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "day", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def month(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day.
+        """
+        return pulumi.get(self, "month")
+
+    @month.setter
+    def month(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "month", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def year(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
+        """
+        return pulumi.get(self, "year")
+
+    @year.setter
+    def year(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "year", value)
+
+
+if not MYPY:
+    class LicenseConfigStartDateArgsDict(TypedDict):
+        day: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant.
+        """
+        month: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day.
+        """
+        year: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
+        """
+elif False:
+    LicenseConfigStartDateArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class LicenseConfigStartDateArgs:
+    def __init__(__self__, *,
+                 day: Optional[pulumi.Input[_builtins.int]] = None,
+                 month: Optional[pulumi.Input[_builtins.int]] = None,
+                 year: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.int] day: Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant.
+        :param pulumi.Input[_builtins.int] month: Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day.
+        :param pulumi.Input[_builtins.int] year: Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
+        """
+        if day is not None:
+            pulumi.set(__self__, "day", day)
+        if month is not None:
+            pulumi.set(__self__, "month", month)
+        if year is not None:
+            pulumi.set(__self__, "year", year)
+
+    @_builtins.property
+    @pulumi.getter
+    def day(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Day of a month. Must be from 1 to 31 and valid for the year and month, or 0 to specify a year by itself or a year and month where the day isn't significant.
+        """
+        return pulumi.get(self, "day")
+
+    @day.setter
+    def day(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "day", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def month(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Month of a year. Must be from 1 to 12, or 0 to specify a year without a month and day.
+        """
+        return pulumi.get(self, "month")
+
+    @month.setter
+    def month(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "month", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def year(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Year of the date. Must be from 1 to 9999, or 0 to specify a date without a year.
+        """
+        return pulumi.get(self, "year")
+
+    @year.setter
+    def year(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "year", value)
+
+
+if not MYPY:
     class RecommendationEngineCommonConfigArgsDict(TypedDict):
         company_name: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -1874,5 +3316,1101 @@ class TargetSiteSiteVerificationInfoArgs:
     @verify_time.setter
     def verify_time(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "verify_time", value)
+
+
+if not MYPY:
+    class WidgetConfigAccessSettingsArgsDict(TypedDict):
+        allow_public_access: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Whether public unauthenticated access is allowed.
+        """
+        allowlisted_domains: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        List of domains that are allowed to integrate the search widget.
+        """
+        enable_web_app: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Whether web app access is enabled.
+        """
+        language_code: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Language code for user interface. Use language tags defined by
+        [BCP47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt). If unset, the
+        default language code is "en-US".
+        """
+        workforce_identity_pool_provider: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The workforce identity pool provider used to access the widget.
+        """
+elif False:
+    WidgetConfigAccessSettingsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigAccessSettingsArgs:
+    def __init__(__self__, *,
+                 allow_public_access: Optional[pulumi.Input[_builtins.bool]] = None,
+                 allowlisted_domains: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 enable_web_app: Optional[pulumi.Input[_builtins.bool]] = None,
+                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
+                 workforce_identity_pool_provider: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] allow_public_access: Whether public unauthenticated access is allowed.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] allowlisted_domains: List of domains that are allowed to integrate the search widget.
+        :param pulumi.Input[_builtins.bool] enable_web_app: Whether web app access is enabled.
+        :param pulumi.Input[_builtins.str] language_code: Language code for user interface. Use language tags defined by
+               [BCP47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt). If unset, the
+               default language code is "en-US".
+        :param pulumi.Input[_builtins.str] workforce_identity_pool_provider: The workforce identity pool provider used to access the widget.
+        """
+        if allow_public_access is not None:
+            pulumi.set(__self__, "allow_public_access", allow_public_access)
+        if allowlisted_domains is not None:
+            pulumi.set(__self__, "allowlisted_domains", allowlisted_domains)
+        if enable_web_app is not None:
+            pulumi.set(__self__, "enable_web_app", enable_web_app)
+        if language_code is not None:
+            pulumi.set(__self__, "language_code", language_code)
+        if workforce_identity_pool_provider is not None:
+            pulumi.set(__self__, "workforce_identity_pool_provider", workforce_identity_pool_provider)
+
+    @_builtins.property
+    @pulumi.getter(name="allowPublicAccess")
+    def allow_public_access(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether public unauthenticated access is allowed.
+        """
+        return pulumi.get(self, "allow_public_access")
+
+    @allow_public_access.setter
+    def allow_public_access(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "allow_public_access", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allowlistedDomains")
+    def allowlisted_domains(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        List of domains that are allowed to integrate the search widget.
+        """
+        return pulumi.get(self, "allowlisted_domains")
+
+    @allowlisted_domains.setter
+    def allowlisted_domains(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "allowlisted_domains", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableWebApp")
+    def enable_web_app(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether web app access is enabled.
+        """
+        return pulumi.get(self, "enable_web_app")
+
+    @enable_web_app.setter
+    def enable_web_app(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_web_app", value)
+
+    @_builtins.property
+    @pulumi.getter(name="languageCode")
+    def language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Language code for user interface. Use language tags defined by
+        [BCP47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt). If unset, the
+        default language code is "en-US".
+        """
+        return pulumi.get(self, "language_code")
+
+    @language_code.setter
+    def language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "language_code", value)
+
+    @_builtins.property
+    @pulumi.getter(name="workforceIdentityPoolProvider")
+    def workforce_identity_pool_provider(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The workforce identity pool provider used to access the widget.
+        """
+        return pulumi.get(self, "workforce_identity_pool_provider")
+
+    @workforce_identity_pool_provider.setter
+    def workforce_identity_pool_provider(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "workforce_identity_pool_provider", value)
+
+
+if not MYPY:
+    class WidgetConfigHomepageSettingArgsDict(TypedDict):
+        shortcuts: NotRequired[pulumi.Input[Sequence[pulumi.Input['WidgetConfigHomepageSettingShortcutArgsDict']]]]
+        """
+        The shortcuts to display on the homepage.
+        Structure is documented below.
+        """
+elif False:
+    WidgetConfigHomepageSettingArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigHomepageSettingArgs:
+    def __init__(__self__, *,
+                 shortcuts: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigHomepageSettingShortcutArgs']]]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['WidgetConfigHomepageSettingShortcutArgs']]] shortcuts: The shortcuts to display on the homepage.
+               Structure is documented below.
+        """
+        if shortcuts is not None:
+            pulumi.set(__self__, "shortcuts", shortcuts)
+
+    @_builtins.property
+    @pulumi.getter
+    def shortcuts(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigHomepageSettingShortcutArgs']]]]:
+        """
+        The shortcuts to display on the homepage.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "shortcuts")
+
+    @shortcuts.setter
+    def shortcuts(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigHomepageSettingShortcutArgs']]]]):
+        pulumi.set(self, "shortcuts", value)
+
+
+if not MYPY:
+    class WidgetConfigHomepageSettingShortcutArgsDict(TypedDict):
+        destination_uri: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Destination URL of shortcut.
+        """
+        icon: NotRequired[pulumi.Input['WidgetConfigHomepageSettingShortcutIconArgsDict']]
+        """
+        Icon URL of shortcut.
+        Structure is documented below.
+        """
+        title: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Title of the shortcut.
+        """
+elif False:
+    WidgetConfigHomepageSettingShortcutArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigHomepageSettingShortcutArgs:
+    def __init__(__self__, *,
+                 destination_uri: Optional[pulumi.Input[_builtins.str]] = None,
+                 icon: Optional[pulumi.Input['WidgetConfigHomepageSettingShortcutIconArgs']] = None,
+                 title: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] destination_uri: Destination URL of shortcut.
+        :param pulumi.Input['WidgetConfigHomepageSettingShortcutIconArgs'] icon: Icon URL of shortcut.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] title: Title of the shortcut.
+        """
+        if destination_uri is not None:
+            pulumi.set(__self__, "destination_uri", destination_uri)
+        if icon is not None:
+            pulumi.set(__self__, "icon", icon)
+        if title is not None:
+            pulumi.set(__self__, "title", title)
+
+    @_builtins.property
+    @pulumi.getter(name="destinationUri")
+    def destination_uri(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Destination URL of shortcut.
+        """
+        return pulumi.get(self, "destination_uri")
+
+    @destination_uri.setter
+    def destination_uri(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "destination_uri", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def icon(self) -> Optional[pulumi.Input['WidgetConfigHomepageSettingShortcutIconArgs']]:
+        """
+        Icon URL of shortcut.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "icon")
+
+    @icon.setter
+    def icon(self, value: Optional[pulumi.Input['WidgetConfigHomepageSettingShortcutIconArgs']]):
+        pulumi.set(self, "icon", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def title(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Title of the shortcut.
+        """
+        return pulumi.get(self, "title")
+
+    @title.setter
+    def title(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "title", value)
+
+
+if not MYPY:
+    class WidgetConfigHomepageSettingShortcutIconArgsDict(TypedDict):
+        url: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Image URL.
+        """
+elif False:
+    WidgetConfigHomepageSettingShortcutIconArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigHomepageSettingShortcutIconArgs:
+    def __init__(__self__, *,
+                 url: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] url: Image URL.
+        """
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Image URL.
+        """
+        return pulumi.get(self, "url")
+
+    @url.setter
+    def url(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "url", value)
+
+
+if not MYPY:
+    class WidgetConfigUiBrandingArgsDict(TypedDict):
+        logo: NotRequired[pulumi.Input['WidgetConfigUiBrandingLogoArgsDict']]
+        """
+        Logo image.
+        Structure is documented below.
+        """
+elif False:
+    WidgetConfigUiBrandingArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiBrandingArgs:
+    def __init__(__self__, *,
+                 logo: Optional[pulumi.Input['WidgetConfigUiBrandingLogoArgs']] = None):
+        """
+        :param pulumi.Input['WidgetConfigUiBrandingLogoArgs'] logo: Logo image.
+               Structure is documented below.
+        """
+        if logo is not None:
+            pulumi.set(__self__, "logo", logo)
+
+    @_builtins.property
+    @pulumi.getter
+    def logo(self) -> Optional[pulumi.Input['WidgetConfigUiBrandingLogoArgs']]:
+        """
+        Logo image.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "logo")
+
+    @logo.setter
+    def logo(self, value: Optional[pulumi.Input['WidgetConfigUiBrandingLogoArgs']]):
+        pulumi.set(self, "logo", value)
+
+
+if not MYPY:
+    class WidgetConfigUiBrandingLogoArgsDict(TypedDict):
+        url: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Image URL.
+        """
+elif False:
+    WidgetConfigUiBrandingLogoArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiBrandingLogoArgs:
+    def __init__(__self__, *,
+                 url: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] url: Image URL.
+        """
+        if url is not None:
+            pulumi.set(__self__, "url", url)
+
+    @_builtins.property
+    @pulumi.getter
+    def url(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Image URL.
+        """
+        return pulumi.get(self, "url")
+
+    @url.setter
+    def url(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "url", value)
+
+
+if not MYPY:
+    class WidgetConfigUiSettingsArgsDict(TypedDict):
+        data_store_ui_configs: NotRequired[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigArgsDict']]]]
+        """
+        Per data store configuration.
+        Structure is documented below.
+        """
+        default_search_request_order_by: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The default ordering for search results if specified.
+        Used to set SearchRequest#orderBy on applicable requests.
+        """
+        disable_user_events_collection: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If set to true, the widget will not collect user events.
+        """
+        enable_autocomplete: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Whether or not to enable autocomplete.
+        """
+        enable_create_agent_button: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If set to true, the widget will enable the create agent button.
+        """
+        enable_people_search: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If set to true, the widget will enable people search.
+        """
+        enable_quality_feedback: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Turn on or off collecting the search result quality feedback from end users.
+        """
+        enable_safe_search: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Whether to enable safe search.
+        """
+        enable_search_as_you_type: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Whether to enable search-as-you-type behavior for the search widget.
+        """
+        enable_visual_content_summary: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        If set to true, the widget will enable visual content summary on applicable
+        search requests. Only used by healthcare search.
+        """
+        generative_answer_config: NotRequired[pulumi.Input['WidgetConfigUiSettingsGenerativeAnswerConfigArgsDict']]
+        """
+        Describes generative answer configuration.
+        Structure is documented below.
+        """
+        interaction_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Describes widget (or web app) interaction type
+        Possible values are: `SEARCH_ONLY`, `SEARCH_WITH_ANSWER`, `SEARCH_WITH_FOLLOW_UPS`.
+        """
+        result_description_type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Controls whether result extract is display and how (snippet or extractive answer).
+        Default to no result if unspecified.
+        Possible values are: `SNIPPET`, `EXTRACTIVE_ANSWER`.
+        """
+elif False:
+    WidgetConfigUiSettingsArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiSettingsArgs:
+    def __init__(__self__, *,
+                 data_store_ui_configs: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigArgs']]]] = None,
+                 default_search_request_order_by: Optional[pulumi.Input[_builtins.str]] = None,
+                 disable_user_events_collection: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_autocomplete: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_create_agent_button: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_people_search: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_quality_feedback: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_safe_search: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_search_as_you_type: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enable_visual_content_summary: Optional[pulumi.Input[_builtins.bool]] = None,
+                 generative_answer_config: Optional[pulumi.Input['WidgetConfigUiSettingsGenerativeAnswerConfigArgs']] = None,
+                 interaction_type: Optional[pulumi.Input[_builtins.str]] = None,
+                 result_description_type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigArgs']]] data_store_ui_configs: Per data store configuration.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] default_search_request_order_by: The default ordering for search results if specified.
+               Used to set SearchRequest#orderBy on applicable requests.
+        :param pulumi.Input[_builtins.bool] disable_user_events_collection: If set to true, the widget will not collect user events.
+        :param pulumi.Input[_builtins.bool] enable_autocomplete: Whether or not to enable autocomplete.
+        :param pulumi.Input[_builtins.bool] enable_create_agent_button: If set to true, the widget will enable the create agent button.
+        :param pulumi.Input[_builtins.bool] enable_people_search: If set to true, the widget will enable people search.
+        :param pulumi.Input[_builtins.bool] enable_quality_feedback: Turn on or off collecting the search result quality feedback from end users.
+        :param pulumi.Input[_builtins.bool] enable_safe_search: Whether to enable safe search.
+        :param pulumi.Input[_builtins.bool] enable_search_as_you_type: Whether to enable search-as-you-type behavior for the search widget.
+        :param pulumi.Input[_builtins.bool] enable_visual_content_summary: If set to true, the widget will enable visual content summary on applicable
+               search requests. Only used by healthcare search.
+        :param pulumi.Input['WidgetConfigUiSettingsGenerativeAnswerConfigArgs'] generative_answer_config: Describes generative answer configuration.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] interaction_type: Describes widget (or web app) interaction type
+               Possible values are: `SEARCH_ONLY`, `SEARCH_WITH_ANSWER`, `SEARCH_WITH_FOLLOW_UPS`.
+        :param pulumi.Input[_builtins.str] result_description_type: Controls whether result extract is display and how (snippet or extractive answer).
+               Default to no result if unspecified.
+               Possible values are: `SNIPPET`, `EXTRACTIVE_ANSWER`.
+        """
+        if data_store_ui_configs is not None:
+            pulumi.set(__self__, "data_store_ui_configs", data_store_ui_configs)
+        if default_search_request_order_by is not None:
+            pulumi.set(__self__, "default_search_request_order_by", default_search_request_order_by)
+        if disable_user_events_collection is not None:
+            pulumi.set(__self__, "disable_user_events_collection", disable_user_events_collection)
+        if enable_autocomplete is not None:
+            pulumi.set(__self__, "enable_autocomplete", enable_autocomplete)
+        if enable_create_agent_button is not None:
+            pulumi.set(__self__, "enable_create_agent_button", enable_create_agent_button)
+        if enable_people_search is not None:
+            pulumi.set(__self__, "enable_people_search", enable_people_search)
+        if enable_quality_feedback is not None:
+            pulumi.set(__self__, "enable_quality_feedback", enable_quality_feedback)
+        if enable_safe_search is not None:
+            pulumi.set(__self__, "enable_safe_search", enable_safe_search)
+        if enable_search_as_you_type is not None:
+            pulumi.set(__self__, "enable_search_as_you_type", enable_search_as_you_type)
+        if enable_visual_content_summary is not None:
+            pulumi.set(__self__, "enable_visual_content_summary", enable_visual_content_summary)
+        if generative_answer_config is not None:
+            pulumi.set(__self__, "generative_answer_config", generative_answer_config)
+        if interaction_type is not None:
+            pulumi.set(__self__, "interaction_type", interaction_type)
+        if result_description_type is not None:
+            pulumi.set(__self__, "result_description_type", result_description_type)
+
+    @_builtins.property
+    @pulumi.getter(name="dataStoreUiConfigs")
+    def data_store_ui_configs(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigArgs']]]]:
+        """
+        Per data store configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "data_store_ui_configs")
+
+    @data_store_ui_configs.setter
+    def data_store_ui_configs(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigArgs']]]]):
+        pulumi.set(self, "data_store_ui_configs", value)
+
+    @_builtins.property
+    @pulumi.getter(name="defaultSearchRequestOrderBy")
+    def default_search_request_order_by(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The default ordering for search results if specified.
+        Used to set SearchRequest#orderBy on applicable requests.
+        """
+        return pulumi.get(self, "default_search_request_order_by")
+
+    @default_search_request_order_by.setter
+    def default_search_request_order_by(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "default_search_request_order_by", value)
+
+    @_builtins.property
+    @pulumi.getter(name="disableUserEventsCollection")
+    def disable_user_events_collection(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If set to true, the widget will not collect user events.
+        """
+        return pulumi.get(self, "disable_user_events_collection")
+
+    @disable_user_events_collection.setter
+    def disable_user_events_collection(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "disable_user_events_collection", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableAutocomplete")
+    def enable_autocomplete(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether or not to enable autocomplete.
+        """
+        return pulumi.get(self, "enable_autocomplete")
+
+    @enable_autocomplete.setter
+    def enable_autocomplete(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_autocomplete", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableCreateAgentButton")
+    def enable_create_agent_button(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If set to true, the widget will enable the create agent button.
+        """
+        return pulumi.get(self, "enable_create_agent_button")
+
+    @enable_create_agent_button.setter
+    def enable_create_agent_button(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_create_agent_button", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enablePeopleSearch")
+    def enable_people_search(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If set to true, the widget will enable people search.
+        """
+        return pulumi.get(self, "enable_people_search")
+
+    @enable_people_search.setter
+    def enable_people_search(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_people_search", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableQualityFeedback")
+    def enable_quality_feedback(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Turn on or off collecting the search result quality feedback from end users.
+        """
+        return pulumi.get(self, "enable_quality_feedback")
+
+    @enable_quality_feedback.setter
+    def enable_quality_feedback(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_quality_feedback", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableSafeSearch")
+    def enable_safe_search(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether to enable safe search.
+        """
+        return pulumi.get(self, "enable_safe_search")
+
+    @enable_safe_search.setter
+    def enable_safe_search(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_safe_search", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableSearchAsYouType")
+    def enable_search_as_you_type(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether to enable search-as-you-type behavior for the search widget.
+        """
+        return pulumi.get(self, "enable_search_as_you_type")
+
+    @enable_search_as_you_type.setter
+    def enable_search_as_you_type(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_search_as_you_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="enableVisualContentSummary")
+    def enable_visual_content_summary(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        If set to true, the widget will enable visual content summary on applicable
+        search requests. Only used by healthcare search.
+        """
+        return pulumi.get(self, "enable_visual_content_summary")
+
+    @enable_visual_content_summary.setter
+    def enable_visual_content_summary(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enable_visual_content_summary", value)
+
+    @_builtins.property
+    @pulumi.getter(name="generativeAnswerConfig")
+    def generative_answer_config(self) -> Optional[pulumi.Input['WidgetConfigUiSettingsGenerativeAnswerConfigArgs']]:
+        """
+        Describes generative answer configuration.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "generative_answer_config")
+
+    @generative_answer_config.setter
+    def generative_answer_config(self, value: Optional[pulumi.Input['WidgetConfigUiSettingsGenerativeAnswerConfigArgs']]):
+        pulumi.set(self, "generative_answer_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="interactionType")
+    def interaction_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Describes widget (or web app) interaction type
+        Possible values are: `SEARCH_ONLY`, `SEARCH_WITH_ANSWER`, `SEARCH_WITH_FOLLOW_UPS`.
+        """
+        return pulumi.get(self, "interaction_type")
+
+    @interaction_type.setter
+    def interaction_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "interaction_type", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resultDescriptionType")
+    def result_description_type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Controls whether result extract is display and how (snippet or extractive answer).
+        Default to no result if unspecified.
+        Possible values are: `SNIPPET`, `EXTRACTIVE_ANSWER`.
+        """
+        return pulumi.get(self, "result_description_type")
+
+    @result_description_type.setter
+    def result_description_type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "result_description_type", value)
+
+
+if not MYPY:
+    class WidgetConfigUiSettingsDataStoreUiConfigArgsDict(TypedDict):
+        facet_fields: NotRequired[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgsDict']]]]
+        """
+        Structure is documented below.
+        """
+        fields_ui_components_maps: NotRequired[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgsDict']]]]
+        """
+        'The key is the UI component. Currently supported `title`, `thumbnail`,
+        `url`, `custom1`, `custom2`, `custom3`. The value is the name of
+        the field along with its device visibility. The 3 custom fields are optional
+        and can be added or removed.
+        `title`, `thumbnail`, `url` are required UI components that cannot be removed.
+        Structure is documented below.
+        """
+        name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the data store. It should be data store resource name. Format:
+        `projects/{project}/locations/{location}/collections/{collectionId}/dataStores/{dataStoreId}`.
+        For APIs under `WidgetService`, such as [WidgetService.LookUpWidgetConfig][],
+        the project number and location part is erased in this field.
+        """
+elif False:
+    WidgetConfigUiSettingsDataStoreUiConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiSettingsDataStoreUiConfigArgs:
+    def __init__(__self__, *,
+                 facet_fields: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgs']]]] = None,
+                 fields_ui_components_maps: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgs']]]] = None,
+                 name: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgs']]] facet_fields: Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgs']]] fields_ui_components_maps: 'The key is the UI component. Currently supported `title`, `thumbnail`,
+               `url`, `custom1`, `custom2`, `custom3`. The value is the name of
+               the field along with its device visibility. The 3 custom fields are optional
+               and can be added or removed.
+               `title`, `thumbnail`, `url` are required UI components that cannot be removed.
+               Structure is documented below.
+        :param pulumi.Input[_builtins.str] name: The name of the data store. It should be data store resource name. Format:
+               `projects/{project}/locations/{location}/collections/{collectionId}/dataStores/{dataStoreId}`.
+               For APIs under `WidgetService`, such as [WidgetService.LookUpWidgetConfig][],
+               the project number and location part is erased in this field.
+        """
+        if facet_fields is not None:
+            pulumi.set(__self__, "facet_fields", facet_fields)
+        if fields_ui_components_maps is not None:
+            pulumi.set(__self__, "fields_ui_components_maps", fields_ui_components_maps)
+        if name is not None:
+            pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter(name="facetFields")
+    def facet_fields(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgs']]]]:
+        """
+        Structure is documented below.
+        """
+        return pulumi.get(self, "facet_fields")
+
+    @facet_fields.setter
+    def facet_fields(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgs']]]]):
+        pulumi.set(self, "facet_fields", value)
+
+    @_builtins.property
+    @pulumi.getter(name="fieldsUiComponentsMaps")
+    def fields_ui_components_maps(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgs']]]]:
+        """
+        'The key is the UI component. Currently supported `title`, `thumbnail`,
+        `url`, `custom1`, `custom2`, `custom3`. The value is the name of
+        the field along with its device visibility. The 3 custom fields are optional
+        and can be added or removed.
+        `title`, `thumbnail`, `url` are required UI components that cannot be removed.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "fields_ui_components_maps")
+
+    @fields_ui_components_maps.setter
+    def fields_ui_components_maps(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgs']]]]):
+        pulumi.set(self, "fields_ui_components_maps", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the data store. It should be data store resource name. Format:
+        `projects/{project}/locations/{location}/collections/{collectionId}/dataStores/{dataStoreId}`.
+        For APIs under `WidgetService`, such as [WidgetService.LookUpWidgetConfig][],
+        the project number and location part is erased in this field.
+        """
+        return pulumi.get(self, "name")
+
+    @name.setter
+    def name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "name", value)
+
+
+if not MYPY:
+    class WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgsDict(TypedDict):
+        field: pulumi.Input[_builtins.str]
+        """
+        Registered field name. The format is `field.abc`.
+        """
+        display_name: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The field name that end users will see.
+        """
+elif False:
+    WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiSettingsDataStoreUiConfigFacetFieldArgs:
+    def __init__(__self__, *,
+                 field: pulumi.Input[_builtins.str],
+                 display_name: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] field: Registered field name. The format is `field.abc`.
+        :param pulumi.Input[_builtins.str] display_name: The field name that end users will see.
+        """
+        pulumi.set(__self__, "field", field)
+        if display_name is not None:
+            pulumi.set(__self__, "display_name", display_name)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> pulumi.Input[_builtins.str]:
+        """
+        Registered field name. The format is `field.abc`.
+        """
+        return pulumi.get(self, "field")
+
+    @field.setter
+    def field(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "field", value)
+
+    @_builtins.property
+    @pulumi.getter(name="displayName")
+    def display_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The field name that end users will see.
+        """
+        return pulumi.get(self, "display_name")
+
+    @display_name.setter
+    def display_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "display_name", value)
+
+
+if not MYPY:
+    class WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgsDict(TypedDict):
+        field: pulumi.Input[_builtins.str]
+        """
+        Registered field name. The format is `field.abc`.
+        """
+        ui_component: pulumi.Input[_builtins.str]
+        """
+        The identifier for this object. Format specified above.
+        """
+        device_visibilities: NotRequired[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]
+        """
+        Each value may be one of: `MOBILE`, `DESKTOP`.
+        """
+        display_template: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The template to customize how the field is displayed.
+        An example value would be a string that looks like: "Price: {value}".
+        """
+elif False:
+    WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiSettingsDataStoreUiConfigFieldsUiComponentsMapArgs:
+    def __init__(__self__, *,
+                 field: pulumi.Input[_builtins.str],
+                 ui_component: pulumi.Input[_builtins.str],
+                 device_visibilities: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
+                 display_template: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] field: Registered field name. The format is `field.abc`.
+        :param pulumi.Input[_builtins.str] ui_component: The identifier for this object. Format specified above.
+        :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] device_visibilities: Each value may be one of: `MOBILE`, `DESKTOP`.
+        :param pulumi.Input[_builtins.str] display_template: The template to customize how the field is displayed.
+               An example value would be a string that looks like: "Price: {value}".
+        """
+        pulumi.set(__self__, "field", field)
+        pulumi.set(__self__, "ui_component", ui_component)
+        if device_visibilities is not None:
+            pulumi.set(__self__, "device_visibilities", device_visibilities)
+        if display_template is not None:
+            pulumi.set(__self__, "display_template", display_template)
+
+    @_builtins.property
+    @pulumi.getter
+    def field(self) -> pulumi.Input[_builtins.str]:
+        """
+        Registered field name. The format is `field.abc`.
+        """
+        return pulumi.get(self, "field")
+
+    @field.setter
+    def field(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "field", value)
+
+    @_builtins.property
+    @pulumi.getter(name="uiComponent")
+    def ui_component(self) -> pulumi.Input[_builtins.str]:
+        """
+        The identifier for this object. Format specified above.
+        """
+        return pulumi.get(self, "ui_component")
+
+    @ui_component.setter
+    def ui_component(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "ui_component", value)
+
+    @_builtins.property
+    @pulumi.getter(name="deviceVisibilities")
+    def device_visibilities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
+        """
+        Each value may be one of: `MOBILE`, `DESKTOP`.
+        """
+        return pulumi.get(self, "device_visibilities")
+
+    @device_visibilities.setter
+    def device_visibilities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]):
+        pulumi.set(self, "device_visibilities", value)
+
+    @_builtins.property
+    @pulumi.getter(name="displayTemplate")
+    def display_template(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The template to customize how the field is displayed.
+        An example value would be a string that looks like: "Price: {value}".
+        """
+        return pulumi.get(self, "display_template")
+
+    @display_template.setter
+    def display_template(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "display_template", value)
+
+
+if not MYPY:
+    class WidgetConfigUiSettingsGenerativeAnswerConfigArgsDict(TypedDict):
+        disable_related_questions: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Whether generated answer contains suggested related questions.
+        """
+        ignore_adversarial_query: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Specifies whether to filter out queries that are adversarial.
+        """
+        ignore_low_relevant_content: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Specifies whether to filter out queries that are not relevant to the content.
+        """
+        ignore_non_answer_seeking_query: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        Specifies whether to filter out queries that are not answer-seeking.
+        The default value is `false`. No answer is returned if the search query
+        is classified as a non-answer seeking query.
+        If this field is set to `true`, we skip generating answers for
+        non-answer seeking queries and return fallback messages instead.
+        """
+        image_source: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Source of image returned in the answer.
+        Possible values are: `ALL_AVAILABLE_SOURCES`, `CORPUS_IMAGE_ONLY`, `FIGURE_GENERATION_ONLY`.
+        """
+        language_code: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Language code for Summary. Use language tags defined by
+        [BCP47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt). Note: This
+        is an experimental feature.
+        """
+        max_rephrase_steps: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Max rephrase steps. The max number is 5 steps. If not set or
+        set to < 1, it will be set to 1 by default.
+        """
+        model_prompt_preamble: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Text at the beginning of the prompt that instructs the model that generates the answer.
+        """
+        model_version: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The model version used to generate the answer.
+        """
+        result_count: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        The number of top results to generate the answer from. Up to 10.
+        """
+elif False:
+    WidgetConfigUiSettingsGenerativeAnswerConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WidgetConfigUiSettingsGenerativeAnswerConfigArgs:
+    def __init__(__self__, *,
+                 disable_related_questions: Optional[pulumi.Input[_builtins.bool]] = None,
+                 ignore_adversarial_query: Optional[pulumi.Input[_builtins.bool]] = None,
+                 ignore_low_relevant_content: Optional[pulumi.Input[_builtins.bool]] = None,
+                 ignore_non_answer_seeking_query: Optional[pulumi.Input[_builtins.bool]] = None,
+                 image_source: Optional[pulumi.Input[_builtins.str]] = None,
+                 language_code: Optional[pulumi.Input[_builtins.str]] = None,
+                 max_rephrase_steps: Optional[pulumi.Input[_builtins.int]] = None,
+                 model_prompt_preamble: Optional[pulumi.Input[_builtins.str]] = None,
+                 model_version: Optional[pulumi.Input[_builtins.str]] = None,
+                 result_count: Optional[pulumi.Input[_builtins.int]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] disable_related_questions: Whether generated answer contains suggested related questions.
+        :param pulumi.Input[_builtins.bool] ignore_adversarial_query: Specifies whether to filter out queries that are adversarial.
+        :param pulumi.Input[_builtins.bool] ignore_low_relevant_content: Specifies whether to filter out queries that are not relevant to the content.
+        :param pulumi.Input[_builtins.bool] ignore_non_answer_seeking_query: Specifies whether to filter out queries that are not answer-seeking.
+               The default value is `false`. No answer is returned if the search query
+               is classified as a non-answer seeking query.
+               If this field is set to `true`, we skip generating answers for
+               non-answer seeking queries and return fallback messages instead.
+        :param pulumi.Input[_builtins.str] image_source: Source of image returned in the answer.
+               Possible values are: `ALL_AVAILABLE_SOURCES`, `CORPUS_IMAGE_ONLY`, `FIGURE_GENERATION_ONLY`.
+        :param pulumi.Input[_builtins.str] language_code: Language code for Summary. Use language tags defined by
+               [BCP47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt). Note: This
+               is an experimental feature.
+        :param pulumi.Input[_builtins.int] max_rephrase_steps: Max rephrase steps. The max number is 5 steps. If not set or
+               set to < 1, it will be set to 1 by default.
+        :param pulumi.Input[_builtins.str] model_prompt_preamble: Text at the beginning of the prompt that instructs the model that generates the answer.
+        :param pulumi.Input[_builtins.str] model_version: The model version used to generate the answer.
+        :param pulumi.Input[_builtins.int] result_count: The number of top results to generate the answer from. Up to 10.
+        """
+        if disable_related_questions is not None:
+            pulumi.set(__self__, "disable_related_questions", disable_related_questions)
+        if ignore_adversarial_query is not None:
+            pulumi.set(__self__, "ignore_adversarial_query", ignore_adversarial_query)
+        if ignore_low_relevant_content is not None:
+            pulumi.set(__self__, "ignore_low_relevant_content", ignore_low_relevant_content)
+        if ignore_non_answer_seeking_query is not None:
+            pulumi.set(__self__, "ignore_non_answer_seeking_query", ignore_non_answer_seeking_query)
+        if image_source is not None:
+            pulumi.set(__self__, "image_source", image_source)
+        if language_code is not None:
+            pulumi.set(__self__, "language_code", language_code)
+        if max_rephrase_steps is not None:
+            pulumi.set(__self__, "max_rephrase_steps", max_rephrase_steps)
+        if model_prompt_preamble is not None:
+            pulumi.set(__self__, "model_prompt_preamble", model_prompt_preamble)
+        if model_version is not None:
+            pulumi.set(__self__, "model_version", model_version)
+        if result_count is not None:
+            pulumi.set(__self__, "result_count", result_count)
+
+    @_builtins.property
+    @pulumi.getter(name="disableRelatedQuestions")
+    def disable_related_questions(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Whether generated answer contains suggested related questions.
+        """
+        return pulumi.get(self, "disable_related_questions")
+
+    @disable_related_questions.setter
+    def disable_related_questions(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "disable_related_questions", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreAdversarialQuery")
+    def ignore_adversarial_query(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Specifies whether to filter out queries that are adversarial.
+        """
+        return pulumi.get(self, "ignore_adversarial_query")
+
+    @ignore_adversarial_query.setter
+    def ignore_adversarial_query(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ignore_adversarial_query", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreLowRelevantContent")
+    def ignore_low_relevant_content(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Specifies whether to filter out queries that are not relevant to the content.
+        """
+        return pulumi.get(self, "ignore_low_relevant_content")
+
+    @ignore_low_relevant_content.setter
+    def ignore_low_relevant_content(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ignore_low_relevant_content", value)
+
+    @_builtins.property
+    @pulumi.getter(name="ignoreNonAnswerSeekingQuery")
+    def ignore_non_answer_seeking_query(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Specifies whether to filter out queries that are not answer-seeking.
+        The default value is `false`. No answer is returned if the search query
+        is classified as a non-answer seeking query.
+        If this field is set to `true`, we skip generating answers for
+        non-answer seeking queries and return fallback messages instead.
+        """
+        return pulumi.get(self, "ignore_non_answer_seeking_query")
+
+    @ignore_non_answer_seeking_query.setter
+    def ignore_non_answer_seeking_query(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ignore_non_answer_seeking_query", value)
+
+    @_builtins.property
+    @pulumi.getter(name="imageSource")
+    def image_source(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Source of image returned in the answer.
+        Possible values are: `ALL_AVAILABLE_SOURCES`, `CORPUS_IMAGE_ONLY`, `FIGURE_GENERATION_ONLY`.
+        """
+        return pulumi.get(self, "image_source")
+
+    @image_source.setter
+    def image_source(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "image_source", value)
+
+    @_builtins.property
+    @pulumi.getter(name="languageCode")
+    def language_code(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Language code for Summary. Use language tags defined by
+        [BCP47](https://www.rfc-editor.org/rfc/bcp/bcp47.txt). Note: This
+        is an experimental feature.
+        """
+        return pulumi.get(self, "language_code")
+
+    @language_code.setter
+    def language_code(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "language_code", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxRephraseSteps")
+    def max_rephrase_steps(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Max rephrase steps. The max number is 5 steps. If not set or
+        set to < 1, it will be set to 1 by default.
+        """
+        return pulumi.get(self, "max_rephrase_steps")
+
+    @max_rephrase_steps.setter
+    def max_rephrase_steps(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_rephrase_steps", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelPromptPreamble")
+    def model_prompt_preamble(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Text at the beginning of the prompt that instructs the model that generates the answer.
+        """
+        return pulumi.get(self, "model_prompt_preamble")
+
+    @model_prompt_preamble.setter
+    def model_prompt_preamble(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "model_prompt_preamble", value)
+
+    @_builtins.property
+    @pulumi.getter(name="modelVersion")
+    def model_version(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The model version used to generate the answer.
+        """
+        return pulumi.get(self, "model_version")
+
+    @model_version.setter
+    def model_version(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "model_version", value)
+
+    @_builtins.property
+    @pulumi.getter(name="resultCount")
+    def result_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        The number of top results to generate the answer from. Up to 10.
+        """
+        return pulumi.get(self, "result_count")
+
+    @result_count.setter
+    def result_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "result_count", value)
 
 

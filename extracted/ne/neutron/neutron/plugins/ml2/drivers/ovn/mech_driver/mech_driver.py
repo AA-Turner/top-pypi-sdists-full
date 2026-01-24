@@ -18,6 +18,7 @@ import copy
 import datetime
 import functools
 import multiprocessing
+import netaddr
 import operator
 import threading
 import types
@@ -34,6 +35,7 @@ from neutron_lib import context as n_context
 from neutron_lib.db import api as db_api
 from neutron_lib import exceptions as n_exc
 from neutron_lib.exceptions import availability_zone as az_exc
+from neutron_lib.placement import constants as place_const
 from neutron_lib.placement import utils as place_utils
 from neutron_lib.plugins import directory
 from neutron_lib.plugins.ml2 import api
@@ -69,6 +71,7 @@ from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import impl_idl_ovn
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import maintenance
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import ovn_client
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import ovn_db_sync
+from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import ovs_fixes
 from neutron.plugins.ml2.drivers.ovn.mech_driver.ovsdb import worker
 from neutron import service
 from neutron.services.logapi.drivers.ovn import driver as log_driver
@@ -79,9 +82,6 @@ from neutron.services.trunk.drivers.ovn import trunk_driver
 
 LOG = log.getLogger(__name__)
 OVN_MIN_GENEVE_MAX_HEADER_SIZE = 38
-
-# TODO(ralonsoh): rehome this to ``neutron_lib.placement.constants``.
-ALLOCATION = 'allocation'
 
 
 class OVNPortUpdateError(n_exc.BadRequest):
@@ -305,6 +305,9 @@ class OVNMechanismDriver(api.MechanismDriver):
         registry.subscribe(self.delete_segment_provnet_port,
                            resources.SEGMENT,
                            events.AFTER_DELETE)
+        registry.subscribe(self._validate_allowed_address_pairs,
+                           resources.ALLOWED_ADDRESS_PAIR,
+                           events.BEFORE_CREATE)
 
         # Handle security group/rule or address group notifications
         if self.sg_enabled:
@@ -413,6 +416,9 @@ class OVNMechanismDriver(api.MechanismDriver):
         self._post_fork_event.clear()
         self._ovn_client_inst = None
 
+        # Patch python-ovs for fixes not yet released
+        ovs_fixes.apply_ovs_fixes()
+
         if worker_class == wsgi.WorkerService:
             self._setup_hash_ring()
 
@@ -445,7 +451,8 @@ class OVNMechanismDriver(api.MechanismDriver):
                 self.nb_ovn,
                 self.sb_ovn,
                 ovn_conf.get_ovn_neutron_sync_mode(),
-                self
+                self,
+                is_maintenance=True,
             )
             self.nb_synchronizer.sync()
 
@@ -622,6 +629,49 @@ class OVNMechanismDriver(api.MechanismDriver):
                     max_tunid
                 )
                 raise n_exc.InvalidInput(error_message=m)
+
+    def _validate_allowed_address_pairs(self, resource, event, trigger,
+                                        payload):
+        context = payload.desired_state['context']
+        allowed_address_pairs = payload.desired_state['allowed_address_pairs']
+        network_id = payload.desired_state['network_id']
+        if not allowed_address_pairs:
+            return
+
+        port_allowed_address_pairs_ip_addresses = [
+            netaddr.IPNetwork(pair['ip_address'])
+            for pair in allowed_address_pairs]
+
+        distributed_ports = self._plugin.get_ports(
+            context.elevated(),
+            filters={'device_owner': [const.DEVICE_OWNER_DISTRIBUTED],
+                     'network_id': [network_id]})
+        if not distributed_ports:
+            return
+
+        def _get_common_ips(ip_addresses, ip_networks):
+            common_ips = set()
+            for ip_address in ip_addresses:
+                if any(ip_address in ip_net for ip_net in ip_networks):
+                    common_ips.add(str(ip_address))
+            return common_ips
+
+        for distributed_port in distributed_ports:
+            distributed_port_ip_addresses = [
+                netaddr.IPAddress(fixed_ip['ip_address']) for fixed_ip in
+                distributed_port.get('fixed_ips', [])]
+
+            common_ips = _get_common_ips(
+                distributed_port_ip_addresses,
+                port_allowed_address_pairs_ip_addresses)
+
+            if common_ips:
+                err_msg = (
+                    _("IP addresses '%s' already used by the '%s' port(s) in "
+                      "the same network" % (";".join(common_ips),
+                                            const.DEVICE_OWNER_DISTRIBUTED))
+                )
+                raise n_exc.InvalidInput(error_message=err_msg)
 
     def create_segment_provnet_port(self, resource, event, trigger,
                                     payload=None):
@@ -1469,7 +1519,8 @@ class OVNMechanismDriver(api.MechanismDriver):
         if uuid_ns is None:
             return False
         try:
-            allocation = context.current['binding:profile'][ALLOCATION]
+            allocation = context.current['binding:profile'][
+                place_const.ALLOCATION]
         except KeyError:
             return False
 
@@ -1552,14 +1603,11 @@ def delete_agent(self, context, id, _driver=None):
     chassis_name = agent['configurations']['chassis_name']
     _driver.sb_ovn.chassis_del(chassis_name, if_exists=True).execute(
         check_error=True)
-    if _driver.sb_ovn.is_table_present('Chassis_Private'):
-        # TODO(ralonsoh): implement the corresponding chassis_private
-        # commands in ovsdbapp.
-        try:
-            _driver.sb_ovn.db_destroy('Chassis_Private', chassis_name).execute(
-                check_error=True)
-        except idlutils.RowNotFound:
-            pass
+    try:
+        _driver.sb_ovn.db_destroy('Chassis_Private', chassis_name).execute(
+            check_error=True)
+    except idlutils.RowNotFound:
+        pass
     # Send a specific event that all API workers can get to delete the agent
     # from their caches. Ideally we could send a single transaction that both
     # created and deleted the key, but alas python-ovs is too "smart"

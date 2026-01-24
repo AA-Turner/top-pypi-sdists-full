@@ -57,16 +57,26 @@ class SimpleCustomIconType(enum.Enum):
     CUSTOM_ICON_TYPE_FTP = f"{ICONS_BUCKET}/ftp.svg"
     CUSTOM_ICON_TYPE_GOOGLE_ADS = f"{ICONS_BUCKET}/google_ads.svg"
     CUSTOM_ICON_TYPE_GOOGLE_ANALYTICS = f"{ICONS_BUCKET}/google_analytics.svg"
+    CUSTOM_ICON_TYPE_DBT = f"{ICONS_BUCKET}/dbt.svg"
+    CUSTOM_ICON_TYPE_ADF = f"{ICONS_BUCKET}/adf.svg"
+    CUSTOM_ICON_TYPE_SAP_HANA = f"{ICONS_BUCKET}/sap-hana.svg"
+    CUSTOM_ICON_TYPE_ATSCALE = f"{ICONS_BUCKET}/AtScale.svg"
+    CUSTOM_ICON_TYPE_LOOKER = f"{ICONS_BUCKET}/looker.svg"
 
 
 class SimpleCustomNode(YamlModelWithValidatorContext):
     name: str
     container_name: str = "Python"
     data_node_id: Optional[int] = None
+    entity_id: Optional[int] = None
     container_node_id: Optional[int] = None
+    container_entity_id: Optional[int] = None
     node_type: DataNodeType = DataNodeType.DATA_NODE_TYPE_CUSTOM
     node_icon: Optional[Union[str, SimpleCustomIconType]] = None
+    custom_repository_id: Optional[int] = None
+    custom_node_type_id: Optional[int] = None
     metadata: Optional[dict] = None
+    container_metadata: Optional[dict] = None
 
     @property
     def node_icon_url(self):

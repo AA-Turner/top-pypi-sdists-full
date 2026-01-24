@@ -4,8 +4,21 @@ import logging
 import os
 import typing
 import uuid
+from collections import defaultdict
+from collections.abc import AsyncIterator, Callable
+from typing import Any
 
-from langgraph.checkpoint.memory import MemorySaver, PersistentDict
+from langgraph.checkpoint.memory import (
+    InMemorySaver as InMemorySaverBase,
+)
+from langgraph.checkpoint.memory import (
+    PersistentDict,
+)
+
+from langgraph_runtime_inmem._persistence import (
+    register_persistent_dict,
+    stop_flush_loop,
+)
 
 if typing.TYPE_CHECKING:
     from langchain_core.runnables import RunnableConfig
@@ -19,18 +32,31 @@ if typing.TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 _EXCLUDED_KEYS = {"checkpoint_ns", "checkpoint_id", "run_id", "thread_id"}
+
+# Configurable keys that are transient (per-request) and should not be persisted in checkpoints
+_TRANSIENT_CONFIGURABLE_KEYS = frozenset(
+    {
+        "langgraph_request_id",
+        "langgraph_auth_user",
+        "langgraph_auth_user_id",
+        "langgraph_auth_permissions",
+    }
+)
+
 DISABLE_FILE_PERSISTENCE = (
     os.getenv("LANGGRAPH_DISABLE_FILE_PERSISTENCE", "false").lower() == "true"
 )
 
 
-class InMemorySaver(MemorySaver):
+class InMemorySaver(InMemorySaverBase):
     def __init__(
         self,
         *,
         serde: SerializerProtocol | None = None,
+        __persistence_hook__: Callable[[PersistentDict], None] | None = None,
     ) -> None:
         self.filename = os.path.join(".langgraph_api", ".langgraph_checkpoint.")
+        self.latest_iter: AsyncIterator[CheckpointTuple] | None = None
         i = 0
 
         def factory(*args):
@@ -41,6 +67,8 @@ class InMemorySaver(MemorySaver):
                 os.mkdir(".langgraph_api")
             thisfname = self.filename + str(i) + ".pckl"
             d = PersistentDict(*args, filename=thisfname)
+            if __persistence_hook__:
+                __persistence_hook__(d)
 
             try:
                 d.load()
@@ -71,7 +99,7 @@ class InMemorySaver(MemorySaver):
 
         super().__init__(
             serde=serde if serde is not None else Serializer(),
-            factory=factory if not DISABLE_FILE_PERSISTENCE else None,
+            factory=factory if not DISABLE_FILE_PERSISTENCE else defaultdict,
         )
 
     def put(
@@ -82,14 +110,26 @@ class InMemorySaver(MemorySaver):
         new_versions: dict[str, str | int | float],
     ) -> RunnableConfig:
         # TODO: Should this be done in OSS as well?
+        # Filter out transient fields that are request-scoped, not checkpoint-scoped
+        config_metadata = config.get("metadata", {})
         metadata = {
             **{
                 k: v
                 for k, v in config["configurable"].items()
-                if not k.startswith("__") and k not in _EXCLUDED_KEYS
+                if not k.startswith("__")
+                and k not in _EXCLUDED_KEYS
+                and k not in _TRANSIENT_CONFIGURABLE_KEYS
             },
-            **config.get("metadata", {}),
-            **metadata,
+            **{
+                k: v
+                for k, v in config_metadata.items()
+                if k not in _TRANSIENT_CONFIGURABLE_KEYS
+            },
+            **{
+                k: v
+                for k, v in metadata.items()
+                if k not in _TRANSIENT_CONFIGURABLE_KEYS
+            },
         }
         if not isinstance(checkpoint["id"], uuid.UUID):
             # Avoid type inconsistencies
@@ -116,6 +156,71 @@ class InMemorySaver(MemorySaver):
             if os.path.exists(file_path):
                 os.remove(file_path)
 
+    async def _decrypt_json(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Decrypt a dict if custom encryption is configured."""
+        from langgraph_api import config as api_config
+
+        if not api_config.LANGGRAPH_ENCRYPTION:
+            return data
+        from langgraph_api.encryption import get_encryption
+        from langgraph_api.encryption.middleware import decrypt_json_if_needed
+
+        result = await decrypt_json_if_needed(data, get_encryption(), "checkpoint")
+        if result is None:
+            raise ValueError("decrypt_json_if_needed returned None for non-None input")
+        return result
+
+    async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
+        """Get checkpoint tuple with decrypted metadata."""
+        tuple_ = self.get_tuple(config)
+        if tuple_ is None:
+            return None
+
+        # Decrypt metadata if encryption is enabled
+        decrypted_metadata = await self._decrypt_json(tuple_.metadata)
+
+        from langgraph.checkpoint.base import CheckpointTuple as CPTuple
+
+        return CPTuple(
+            config=tuple_.config,
+            checkpoint=tuple_.checkpoint,
+            metadata=decrypted_metadata,
+            parent_config=tuple_.parent_config,
+            pending_writes=tuple_.pending_writes,
+        )
+
+    async def alist(
+        self,
+        config: RunnableConfig | None,
+        *,
+        filter: dict[str, Any] | None = None,
+        before: RunnableConfig | None = None,
+        limit: int | None = None,
+    ) -> AsyncIterator[CheckpointTuple]:
+        """List checkpoints with decrypted metadata."""
+        from langgraph.checkpoint.base import CheckpointTuple as CPTuple
+
+        for tuple_ in self.list(config, filter=filter, before=before, limit=limit):
+            # Decrypt metadata if encryption is enabled
+            decrypted_metadata = await self._decrypt_json(tuple_.metadata)
+
+            yield CPTuple(
+                config=tuple_.config,
+                checkpoint=tuple_.checkpoint,
+                metadata=decrypted_metadata,
+                parent_config=tuple_.parent_config,
+                pending_writes=tuple_.pending_writes,
+            )
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        stop_flush_loop()
+        await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    async def aget_iter(self, config: RunnableConfig) -> AsyncIterator[CheckpointTuple]:
+        tup = await self.aget_tuple(config)
+        if tup is not None:
+            yield tup
+
 
 MEMORY = None
 
@@ -123,12 +228,16 @@ MEMORY = None
 def Checkpointer(*args, unpack_hook=None, **kwargs):
     global MEMORY
     if MEMORY is None:
-        MEMORY = InMemorySaver()
+        MEMORY = InMemorySaver(
+            __persistence_hook__=register_persistent_dict,
+        )
     if unpack_hook is not None:
         from langgraph_api.serde import Serializer
 
         saver = InMemorySaver(
-            serde=Serializer(__unpack_ext_hook__=unpack_hook), **kwargs
+            serde=Serializer(__unpack_ext_hook__=unpack_hook),
+            __persistence_hook__=register_persistent_dict,
+            **kwargs,
         )
         saver.writes = MEMORY.writes
         saver.blobs = MEMORY.blobs

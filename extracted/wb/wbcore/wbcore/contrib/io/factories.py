@@ -154,6 +154,7 @@ class SourceFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = Source
+        skip_postgeneration_save = True
 
     @factory.post_generation
     def parser_handler(self, create, extracted, **kwargs):
@@ -192,6 +193,7 @@ class ImportModelFactory(factory.django.DjangoModelFactory):
 
     class Meta:
         model = ImportModel
+        skip_postgeneration_save = True
 
     @factory.post_generation
     def many_relationships(self, create, extracted, **kwargs):

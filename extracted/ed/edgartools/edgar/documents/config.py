@@ -7,10 +7,31 @@ from typing import Any, Dict, List, Optional
 
 
 @dataclass
+class DetectionThresholds:
+    """
+    Configurable thresholds for section detection strategies.
+
+    Attributes:
+        min_confidence: Minimum confidence score to include a section (0.0-1.0)
+        cross_validation_boost: Multiplier when multiple methods agree (>1.0)
+        disagreement_penalty: Multiplier when methods disagree (<1.0)
+        boundary_overlap_penalty: Multiplier for overlapping sections (<1.0)
+        enable_cross_validation: Whether to run cross-validation (slower but more accurate)
+        thresholds_by_form: Filing-specific threshold overrides
+    """
+    min_confidence: float = 0.6
+    cross_validation_boost: float = 1.2
+    disagreement_penalty: float = 0.8
+    boundary_overlap_penalty: float = 0.9
+    enable_cross_validation: bool = False  # Disabled by default for performance
+    thresholds_by_form: Dict[str, Dict[str, float]] = field(default_factory=dict)
+
+
+@dataclass
 class ParserConfig:
     """
     Configuration for HTML parser.
-
+    
     Attributes:
         max_document_size: Maximum document size in bytes
         streaming_threshold: Document size threshold for streaming mode
@@ -26,7 +47,7 @@ class ParserConfig:
     """
 
     # Performance settings
-    max_document_size: int = 50 * 1024 * 1024  # 50MB
+    max_document_size: int = 130 * 1024 * 1024  # 110MB (handles large filings like NPORT-P)
     streaming_threshold: int = 10 * 1024 * 1024  # 10MB
     cache_size: int = 1000
     enable_parallel: bool = True
@@ -51,9 +72,13 @@ class ParserConfig:
     table_extraction: bool = True
     detect_table_types: bool = True
     extract_table_relationships: bool = True
+    fast_table_rendering: bool = True  # Fast renderer is now production-ready (7-10x faster than Rich)
 
     # Section detection
     detect_sections: bool = True
+    eager_section_extraction: bool = False  # Extract sections during parsing vs. on first access (default: lazy)
+    form: Optional[str] = None  # Required for section detection (e.g. '10-K', '10-Q', '8-K')
+    detection_thresholds: DetectionThresholds = field(default_factory=DetectionThresholds)
     section_patterns: Dict[str, List[str]] = field(default_factory=lambda: {
         'business': [
             r'item\s+1\.?\s*business',
@@ -139,6 +164,8 @@ class ParserConfig:
             extract_xbrl=False,
             enable_parallel=True,
             cache_size=5000,
+            eager_section_extraction=False,  # Skip expensive section extraction
+            fast_table_rendering=True,  # Fast renderer (enabled by default now)
             features={
                 'ml_header_detection': False,
                 'semantic_analysis': False,

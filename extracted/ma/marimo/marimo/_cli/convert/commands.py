@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from pathlib import Path
@@ -61,6 +61,12 @@ def convert(
     or
 
         marimo convert script.py -o your_nb.py
+
+    You can also pass global flags to the main marimo command.
+    For example, use `-q` to suppress output or `-y`
+    to automatically accept all prompts of the command.
+
+        marimo -q -y convert script.py -o your_nb.py
 
     After conversion:
 

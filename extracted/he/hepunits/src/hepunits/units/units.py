@@ -67,7 +67,6 @@ Typical use cases::
 """
 
 from math import pi as _pi
-from typing import List
 
 from . import prefixes as _pre
 
@@ -214,6 +213,10 @@ MeV = megaelectronvolt
 keV = kiloelectronvolt
 eV = electronvolt
 
+electronvolt2 = electronvolt * electronvolt
+
+eV2 = electronvolt2
+
 # --------------------------------------------------------------------
 # Units of electric charge
 # --------------------------------------------------------------------
@@ -260,16 +263,17 @@ deg = degree
 # Derived units
 # --------------------------------------------------------------------
 
-# Positron charge [Coulomb]
+# Positron charge
 e_SI = 1.602176634e-19  # exact value, taken from PDG 2022
 
 
-# Electric charge [Q]
+# Electric charge
 # --------------------------------------------------------------------
 coulomb = eplus / e_SI
 
-# Electric current [Q][T^-1]
-# -------------------------
+C = coulomb
+
+# Electric current
 ampere = coulomb / second
 
 milliampere = _pre.milli * ampere
@@ -278,24 +282,39 @@ nanoampere = _pre.nano * ampere
 
 A = ampere
 
-# Energy [E]
-# ----------
+mA = milliampere
+uA = microampere
+nA = nanoampere
+
+# Energy
 joule = electronvolt / e_SI  # joule = 6.24151e+12 * MeV
+
+gigajoule = _pre.giga * joule
+megajoule = _pre.mega * joule
+kilojoule = _pre.kilo * joule
 
 J = joule
 
+GJ = gigajoule
+MJ = megajoule
+kJ = kilojoule
+
 erg = 1.0e-7 * joule
 
-# Power [M][L^2][T^-3]
+# Power
 watt = joule / second
+
+gigawatt = _pre.giga * watt
+megawatt = _pre.mega * watt
+kilowatt = _pre.kilo * watt
 
 W = watt
 
-kW = _pre.kilo * watt
-MW = _pre.mega * watt
-GW = _pre.giga * watt
+GW = gigawatt
+MW = megawatt
+kW = kilowatt
 
-# Force [E][L^-1]
+# Force
 newton = joule / meter
 
 N = newton
@@ -309,21 +328,38 @@ Pa = pascal
 
 bar = 1.0e5 * pascal
 
-atmosphere = 101325 * pascal
+millibar = _pre.milli * bar
+
+mbar = millibar
+
+atmosphere = 101325.0 * pascal
+
+atm = atmosphere
 
 # Mass [E][T^2][L^-2]
-kilogram = joule * second * second / (meter * meter)
+kilogram = joule * second * second / meter2
 gram = _pre.milli * kilogram
-milligram = _pre.milli * gram
 
+quettagram = _pre.quetta * gram
+ronnagram = _pre.ronna * gram
+milligram = _pre.milli * gram
+rontogram = _pre.ronto * gram
+
+Qg = quettagram
+Rg = ronnagram
 kg = kilogram
 g = gram
 mg = milligram
+rg = rontogram
 
 # Electric potential
 megavolt = megaelectronvolt / eplus
 volt = _pre.micro * megavolt
 kilovolt = _pre.kilo * volt
+
+MV = megavolt
+kV = kilovolt
+V = volt
 
 # Electric capacitance
 farad = coulomb / volt
@@ -333,18 +369,31 @@ microfarad = _pre.micro * farad
 nanofarad = _pre.nano * farad
 picofarad = _pre.pico * farad
 
+F = farad
+mF = millifarad
+uF = microfarad
+nF = nanofarad
+pF = picofarad
+
 # Electric resistance
 ohm = volt / ampere
 
 # Magnetic Field
 tesla = volt * second / meter2
 
+T = tesla
+
 gauss = 1.0e-4 * tesla
 
 kilogauss = _pre.kilo * gauss
 
+G = gauss
+Gs = gauss
+kG = kilogauss
+kGs = kilogauss
+
 # Magnetic Flux
-weber = volt * second  # weber = 1000*megavolt*ns
+weber = volt * second
 
 milliweber = _pre.milli * weber
 microweber = _pre.micro * weber
@@ -365,17 +414,21 @@ H = henry
 # Units derived from luminous intensity
 # --------------------------------------------------------------------
 
-# Luminous flux [I]
+# Luminous flux
 lumen = candela * steradian
 
-# Illuminance, i.e. amount of luminous flux per unit area [I][L^-2]
+lm = lumen
+
+# Illuminance, i.e. amount of luminous flux per unit area
 lux = lumen / meter2
+
+lx = lux
 
 # --------------------------------------------------------------------
 # Units for radiation
 # --------------------------------------------------------------------
 
-# Activity [T^-1]
+# Activity
 becquerel = 1.0 / second
 
 kilobecquerel = _pre.kilo * becquerel
@@ -400,7 +453,7 @@ mCi = millicurie
 uCi = microcurie
 nCi = nanocurie
 
-# Absorbed dose [L^2][T^-2]
+# Absorbed dose
 gray = joule / kilogram
 
 megagray = _pre.mega * gray
@@ -421,15 +474,23 @@ sievert = joule / kilogram
 Sv = sievert
 
 __all__ = (
+    "GJ",
     "GW",
+    "MJ",
+    "MV",
+    "MW",
     "MW",
     "A",
     "Bq",
+    "C",
     "Ci",
     "EeV",
+    "F",
+    "G",
     "GBq",
     "GHz",
     "GeV",
+    "Gs",
     "Gy",
     "H",
     "Hz",
@@ -442,15 +503,20 @@ __all__ = (
     "N",
     "Pa",
     "PeV",
+    "Qg",
+    "Rg",
     "Sv",
+    "T",
     "THz",
     "TeV",
+    "V",
     "W",
     "Wb",
     "ZeV",
     "ab",
     "ampere",
     "angstrom",
+    "atm",
     "atmosphere",
     "attobarn",
     "attosecond",
@@ -473,8 +539,10 @@ __all__ = (
     "degree",
     "dyne",
     "eV",
+    "eV2",
     "e_SI",
     "electronvolt",
+    "electronvolt2",
     "eplus",
     "erg",
     "exaelectronvolt",
@@ -493,6 +561,8 @@ __all__ = (
     "gigabecquerel",
     "gigaelectronvolt",
     "gigahertz",
+    "gigajoule",
+    "gigawatt",
     "gram",
     "gray",
     "h",
@@ -507,8 +577,12 @@ __all__ = (
     "invub",
     "joule",
     "kBq",
+    "kG",
+    "kGs",
     "kGy",
     "kHz",
+    "kJ",
+    "kV",
     "kW",
     "keV",
     "kelvin",
@@ -519,27 +593,36 @@ __all__ = (
     "kilogram",
     "kilogray",
     "kilohertz",
+    "kilojoule",
     "kilometer",
     "kilometer2",
     "kilometer3",
     "kilovolt",
+    "kilowatt",
     "km",
     "km2",
     "km3",
+    "lm",
     "lumen",
     "lux",
+    "lx",
     "m",
     "m2",
     "m3",
+    "mA",
     "mCi",
+    "mF",
     "mGy",
     "mWb",
     "mb",
+    "mbar",
     "megabecquerel",
     "megaelectronvolt",
     "megagray",
     "megahertz",
+    "megajoule",
     "megavolt",
+    "megawatt",
     "meter",
     "meter2",
     "meter3",
@@ -554,6 +637,7 @@ __all__ = (
     "microsecond",
     "microweber",
     "milliampere",
+    "millibar",
     "millibarn",
     "millicurie",
     "millifarad",
@@ -573,7 +657,9 @@ __all__ = (
     "mole",
     "mrad",
     "ms",
+    "nA",
     "nCi",
+    "nF",
     "nWb",
     "nanoampere",
     "nanobarn",
@@ -586,6 +672,7 @@ __all__ = (
     "newton",
     "ns",
     "ohm",
+    "pF",
     "pascal",
     "pb",
     "petaelectronvolt",
@@ -593,8 +680,12 @@ __all__ = (
     "picofarad",
     "picosecond",
     "ps",
+    "quettagram",
     "rad",
     "radian",
+    "rg",
+    "ronnagram",
+    "rontogram",
     "s",
     "second",
     "sievert",
@@ -603,7 +694,9 @@ __all__ = (
     "teraelectronvolt",
     "terahertz",
     "tesla",
+    "uA",
     "uCi",
+    "uF",
     "uGy",
     "uWb",
     "ub",
@@ -621,5 +714,5 @@ __all__ = (
 )
 
 
-def __dir__() -> List[str]:
+def __dir__() -> list[str]:
     return list(__all__)

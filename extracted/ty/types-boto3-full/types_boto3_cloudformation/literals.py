@@ -3,7 +3,7 @@ Type annotations for cloudformation service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,7 +25,12 @@ else:
 __all__ = (
     "AccountFilterTypeType",
     "AccountGateStatusType",
+    "AfterValueFromType",
+    "AnnotationSeverityLevelType",
+    "AnnotationStatusType",
     "AttributeChangeTypeType",
+    "BeaconStackOperationStatusType",
+    "BeforeValueFromType",
     "CallAsType",
     "CapabilityType",
     "CategoryType",
@@ -39,14 +44,18 @@ __all__ = (
     "CloudFormationServiceName",
     "ConcurrencyModeType",
     "DeletionModeType",
+    "DeploymentModeType",
     "DeprecatedStatusType",
     "DescribeAccountLimitsPaginatorName",
     "DescribeChangeSetPaginatorName",
+    "DescribeEventsPaginatorName",
     "DescribeStackEventsPaginatorName",
     "DescribeStacksPaginatorName",
     "DetailedStatusType",
     "DifferenceTypeType",
+    "DriftIgnoredReasonType",
     "EvaluationTypeType",
+    "EventTypeType",
     "ExecutionStatusType",
     "GeneratedTemplateDeletionPolicyType",
     "GeneratedTemplateResourceStatusType",
@@ -56,6 +65,7 @@ __all__ = (
     "HookFailureModeType",
     "HookInvocationPointType",
     "HookStatusType",
+    "HookTargetActionType",
     "HookTargetTypeType",
     "IdentityProviderType",
     "ListChangeSetsPaginatorName",
@@ -79,6 +89,7 @@ __all__ = (
     "OnStackFailureType",
     "OperationResultFilterNameType",
     "OperationStatusType",
+    "OperationTypeType",
     "OrganizationStatusType",
     "PaginatorName",
     "PermissionModelsType",
@@ -129,6 +140,7 @@ __all__ = (
     "ThirdPartyTypeType",
     "TypeRegistrationCompleteWaiterName",
     "TypeTestsStatusType",
+    "ValidationStatusType",
     "VersionBumpType",
     "VisibilityType",
     "WaiterName",
@@ -138,11 +150,16 @@ __all__ = (
 
 AccountFilterTypeType = Literal["DIFFERENCE", "INTERSECTION", "NONE", "UNION"]
 AccountGateStatusType = Literal["FAILED", "SKIPPED", "SUCCEEDED"]
-AttributeChangeTypeType = Literal["Add", "Modify", "Remove"]
+AfterValueFromType = Literal["TEMPLATE"]
+AnnotationSeverityLevelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM"]
+AnnotationStatusType = Literal["FAILED", "PASSED", "SKIPPED"]
+AttributeChangeTypeType = Literal["Add", "Modify", "Remove", "SyncWithActual"]
+BeaconStackOperationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+BeforeValueFromType = Literal["ACTUAL_STATE", "PREVIOUS_DEPLOYMENT_STATE"]
 CallAsType = Literal["DELEGATED_ADMIN", "SELF"]
 CapabilityType = Literal["CAPABILITY_AUTO_EXPAND", "CAPABILITY_IAM", "CAPABILITY_NAMED_IAM"]
 CategoryType = Literal["ACTIVATED", "AWS_TYPES", "REGISTERED", "THIRD_PARTY"]
-ChangeActionType = Literal["Add", "Dynamic", "Import", "Modify", "Remove"]
+ChangeActionType = Literal["Add", "Dynamic", "Import", "Modify", "Remove", "SyncWithActual"]
 ChangeSetCreateCompleteWaiterName = Literal["change_set_create_complete"]
 ChangeSetHooksStatusType = Literal["PLANNED", "PLANNING", "UNAVAILABLE"]
 ChangeSetStatusType = Literal[
@@ -159,6 +176,7 @@ ChangeSetTypeType = Literal["CREATE", "IMPORT", "UPDATE"]
 ChangeSourceType = Literal[
     "Automatic",
     "DirectModification",
+    "NoModification",
     "ParameterReference",
     "ResourceAttribute",
     "ResourceReference",
@@ -166,14 +184,24 @@ ChangeSourceType = Literal[
 ChangeTypeType = Literal["Resource"]
 ConcurrencyModeType = Literal["SOFT_FAILURE_TOLERANCE", "STRICT_FAILURE_TOLERANCE"]
 DeletionModeType = Literal["FORCE_DELETE_STACK", "STANDARD"]
+DeploymentModeType = Literal["REVERT_DRIFT"]
 DeprecatedStatusType = Literal["DEPRECATED", "LIVE"]
 DescribeAccountLimitsPaginatorName = Literal["describe_account_limits"]
 DescribeChangeSetPaginatorName = Literal["describe_change_set"]
+DescribeEventsPaginatorName = Literal["describe_events"]
 DescribeStackEventsPaginatorName = Literal["describe_stack_events"]
 DescribeStacksPaginatorName = Literal["describe_stacks"]
 DetailedStatusType = Literal["CONFIGURATION_COMPLETE", "VALIDATION_FAILED"]
 DifferenceTypeType = Literal["ADD", "NOT_EQUAL", "REMOVE"]
+DriftIgnoredReasonType = Literal["MANAGED_BY_AWS", "WRITE_ONLY_PROPERTY"]
 EvaluationTypeType = Literal["Dynamic", "Static"]
+EventTypeType = Literal[
+    "HOOK_INVOCATION_ERROR",
+    "PROGRESS_EVENT",
+    "PROVISIONING_ERROR",
+    "STACK_EVENT",
+    "VALIDATION_ERROR",
+]
 ExecutionStatusType = Literal[
     "AVAILABLE",
     "EXECUTE_COMPLETE",
@@ -221,6 +249,7 @@ HookInvocationPointType = Literal["PRE_PROVISION"]
 HookStatusType = Literal[
     "HOOK_COMPLETE_FAILED", "HOOK_COMPLETE_SUCCEEDED", "HOOK_FAILED", "HOOK_IN_PROGRESS"
 ]
+HookTargetActionType = Literal["CREATE", "DELETE", "IMPORT", "UPDATE"]
 HookTargetTypeType = Literal["RESOURCE"]
 IdentityProviderType = Literal["AWS_Marketplace", "Bitbucket", "GitHub"]
 ListChangeSetsPaginatorName = Literal["list_change_sets"]
@@ -244,6 +273,14 @@ OnFailureType = Literal["DELETE", "DO_NOTHING", "ROLLBACK"]
 OnStackFailureType = Literal["DELETE", "DO_NOTHING", "ROLLBACK"]
 OperationResultFilterNameType = Literal["OPERATION_RESULT_STATUS"]
 OperationStatusType = Literal["FAILED", "IN_PROGRESS", "PENDING", "SUCCESS"]
+OperationTypeType = Literal[
+    "CONTINUE_ROLLBACK",
+    "CREATE_CHANGESET",
+    "CREATE_STACK",
+    "DELETE_STACK",
+    "ROLLBACK",
+    "UPDATE_STACK",
+]
 OrganizationStatusType = Literal["DISABLED", "DISABLED_PERMANENTLY", "ENABLED"]
 PermissionModelsType = Literal["SELF_MANAGED", "SERVICE_MANAGED"]
 PolicyActionType = Literal[
@@ -342,7 +379,9 @@ StackRefactorStatusType = Literal[
     "DELETE_FAILED",
     "DELETE_IN_PROGRESS",
 ]
-StackResourceDriftStatusType = Literal["DELETED", "IN_SYNC", "MODIFIED", "NOT_CHECKED", "UNKNOWN"]
+StackResourceDriftStatusType = Literal[
+    "DELETED", "IN_SYNC", "MODIFIED", "NOT_CHECKED", "UNKNOWN", "UNSUPPORTED"
+]
 StackRollbackCompleteWaiterName = Literal["stack_rollback_complete"]
 StackSetDriftDetectionStatusType = Literal[
     "COMPLETED", "FAILED", "IN_PROGRESS", "PARTIAL_SUCCESS", "STOPPED"
@@ -387,10 +426,12 @@ TemplateStageType = Literal["Original", "Processed"]
 ThirdPartyTypeType = Literal["HOOK", "MODULE", "RESOURCE"]
 TypeRegistrationCompleteWaiterName = Literal["type_registration_complete"]
 TypeTestsStatusType = Literal["FAILED", "IN_PROGRESS", "NOT_TESTED", "PASSED"]
+ValidationStatusType = Literal["FAILED", "SKIPPED"]
 VersionBumpType = Literal["MAJOR", "MINOR"]
 VisibilityType = Literal["PRIVATE", "PUBLIC"]
 WarningTypeType = Literal[
     "EXCLUDED_PROPERTIES",
+    "EXCLUDED_RESOURCES",
     "MUTUALLY_EXCLUSIVE_PROPERTIES",
     "MUTUALLY_EXCLUSIVE_TYPES",
     "UNSUPPORTED_PROPERTIES",
@@ -422,7 +463,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -492,6 +532,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -537,7 +578,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -590,7 +630,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -629,8 +668,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -665,6 +702,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -674,6 +712,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -684,6 +723,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -705,8 +747,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -721,15 +761,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -760,6 +801,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -800,6 +842,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -816,6 +859,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "describe_account_limits",
     "describe_change_set",
+    "describe_events",
     "describe_stack_events",
     "describe_stacks",
     "list_change_sets",

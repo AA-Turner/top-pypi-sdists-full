@@ -1,0 +1,169 @@
+Metadata-Version: 2.4
+Name: curl_adapter
+Version: 1.1.0
+Summary: A curl HTTP adapter switch for requests library — make browser-like requests with custom TLS fingerprints.
+Author-email: "Elis K." <github@elis.cc>
+License: MIT License
+        
+        Copyright (c) 2025 Elis K.
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
+Project-URL: Homepage, https://github.com/el1s7/curl-adapter
+Keywords: curl,requests,adapter,tls fingerprint,pycurl,curl_cffi,curl impersonate
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: requests
+Requires-Dist: curl_cffi>=0.11.0
+Requires-Dist: pycurl>=7.45.5
+Requires-Dist: brotli
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Dynamic: license-file
+
+# Curl Adapter
+[![PyPI Downloads](https://static.pepy.tech/badge/curl-adapter/month)](https://pypi.org/project/curl-adapter/)
+
+A module that plugs directly into the Python *[requests](https://github.com/psf/requests)* library and replaces the default *urllib3* HTTP adapter with **cURL**,  equipped with TLS fingerprint-changing capabilities.
+
+## Why?
+
+Specifically, this module is meant to be used with the "curl impersonate" python bindings ([lexiforest/curl_cffi](https://github.com/lexiforest/curl_cffi)), in order to send HTTP requests with custom, browser-like TLS & HTTP/2 fingerprints for bypassing sites that detect and block normal python requests (such as [Cloudflare](https://www.nstbrowser.io/en/blog/how-does-cloudflare-detect-bots) for example).
+
+<details>
+  <summary>Note</summary>
+Even though <i><a href="https://github.com/lexiforest/curl_cffi">curl_cffi</a></i> already has an API that *mimicks* the <i>requests</i>  library, it comes with some compatibility issues (e.g. response.raw not available, response.history, differences in headers, cookies, json, etc.).
+<br><br>
+    With curl-adapter, instead of copying and mimicking the <i>requests</i> library API, the low level HTTP adapter is changed with a custom crafted one, and everything else is exactly the same (even the exceptions are mapped). 
+<br><br>
+With a single switch you can enable/disable curl for your requests, without needing to worry about changing the way you normally work with requests.
+<br><br>
+Though, if you're looking for async support or websockets, you should definitely checkout the <i>curl_cffi</i> instead, since by default, the requests library is only sync.
+</details>
+<br>
+
+You can also use curl-adapter with [pycurl](https://github.com/pycurl/pycurl). 
+
+Additionally, this module is optimized for seamless integration with [Gevent](https://github.com/gevent/gevent).
+
+
+## Installation
+```console
+pip install curl-adapter --upgrade --ignore-installed
+```
+
+## Usage
+Basic example:
+```python
+import requests
+from curl_adapter import CurlCffiAdapter
+
+session = requests.Session()
+session.mount("http://", CurlCffiAdapter())
+session.mount("https://", CurlCffiAdapter())
+
+# just use requests session like you normally would
+session.get("https://example.com")
+```
+
+Configuring curl impersonate options:
+
+```python
+import requests
+from curl_adapter import CurlCffiAdapter
+
+curl_cffi_adapter = CurlCffiAdapter(
+    # This is the default
+    impersonate_browser_type="chrome", 
+
+    # Optionally set additional options
+    tls_configuration_options={
+        "ja3_str": "...",
+        "akamai_str": "...",
+        "extra_fp": ExtraFingerprints(...),
+    }
+)
+
+# you can use 'with ...' for just making a single request
+with requests.Session() as s:
+    s.mount("http://", curl_cffi_adapter)
+    s.mount("https://", curl_cffi_adapter)
+
+    s.get("https://example.com")
+```
+
+Using it with [pycurl](https://github.com/pycurl/pycurl):
+
+```python
+import requests
+from curl_adapter import PyCurlAdapter
+
+with requests.Session() as s:
+    s.mount("http://", PyCurlAdapter())
+    s.mount("https://", PyCurlAdapter())
+
+    s.get("https://example.com")
+```
+
+## More
+You can get extra information from the curl response info:
+```python
+import requests
+from curl_adapter import PyCurlAdapter, CurlInfo
+
+with requests.Session() as s:
+    s.mount("http://", PyCurlAdapter())
+    s.mount("https://", PyCurlAdapter())
+
+    response = s.get("https://example.com")
+
+    body = response.text
+
+    curl_info: CurlInfo = response.curl_info
+
+    print(
+        curl_info
+    )
+```
+
+Returns a simple dict:
+```python
+{
+    'local_ip':'192.168.1.1',
+    'local_port':19219,
+    'primary_ip':'142.250.200.142',
+    'primary_port':443,
+    'request_size':0,
+    'request_body_size':0,
+    'response_header_size':418,
+    'ssl_verify_result':0,
+    'proxy_ssl_verify_result':0,
+    'starttransfer_time':171335,
+    'connect_time':33231,
+    'appconnect_time':47274,
+    'pretransfer_time':47378,
+    'namelookup_time':1025,
+    'has_used_proxy':0,
+    'speed_download':52081115, # only available after the body has been read
+    'speed_upload':0, # only available after the body has been read
+    'response_body_size':519958376, # only available after the body has been read
+    'total_time':9983626, # only available after the body has been read
+}
+```
+Note that some cURL information fields are only availabe after the body stream has been fully consumed, so keep that in mind when using `stream=True` option.

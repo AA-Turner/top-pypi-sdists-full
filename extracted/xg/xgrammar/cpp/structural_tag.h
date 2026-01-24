@@ -83,11 +83,12 @@ struct RegexFormat {
 
 struct AnyTextFormat {
   static constexpr const char* type = "any_text";
-  AnyTextFormat() {}
+  std::vector<std::string> excludes;
+  AnyTextFormat(std::vector<std::string> excluded_strs) : excludes(std::move(excluded_strs)) {}
 
  private:
-  // Detected in StructuralTagAnalyzer
-  std::optional<std::string> detected_end_str_ = std::nullopt;
+  // Detected in StructuralTagAnalyzer - supports multiple end strings
+  std::vector<std::string> detected_end_strs_;
   friend class StructuralTagAnalyzer;
   friend class StructuralTagGrammarConverter;
 };
@@ -122,9 +123,9 @@ struct TagFormat {
   static constexpr const char* type = "tag";
   std::string begin;
   std::shared_ptr<Format> content;
-  std::string end;
+  std::vector<std::string> end;  // Supports multiple end tokens
 
-  TagFormat(std::string begin, std::shared_ptr<Format> content, std::string end)
+  TagFormat(std::string begin, std::shared_ptr<Format> content, std::vector<std::string> end)
       : begin(std::move(begin)), content(std::move(content)), end(std::move(end)) {}
 };
 
@@ -132,23 +133,26 @@ struct TriggeredTagsFormat {
   static constexpr const char* type = "triggered_tags";
   std::vector<std::string> triggers;
   std::vector<TagFormat> tags;
+  std::vector<std::string> excludes;
   bool at_least_one = false;
   bool stop_after_first = false;
 
   TriggeredTagsFormat(
       std::vector<std::string> triggers,
       std::vector<TagFormat> tags,
+      std::vector<std::string> excludes,
       bool at_least_one,
       bool stop_after_first
   )
       : triggers(std::move(triggers)),
         tags(std::move(tags)),
+        excludes(std::move(excludes)),
         at_least_one(at_least_one),
         stop_after_first(stop_after_first) {}
 
  private:
-  // Detected in StructuralTagAnalyzer
-  std::optional<std::string> detected_end_str_ = std::nullopt;
+  // Detected in StructuralTagAnalyzer - supports multiple end strings
+  std::vector<std::string> detected_end_strs_;
   friend class StructuralTagAnalyzer;
   friend class StructuralTagGrammarConverter;
 };
@@ -169,8 +173,8 @@ struct TagsWithSeparatorFormat {
         stop_after_first(stop_after_first) {}
 
  private:
-  // Detected in StructuralTagAnalyzer
-  std::optional<std::string> detected_end_str_ = std::nullopt;
+  // Detected in StructuralTagAnalyzer - supports multiple end strings
+  std::vector<std::string> detected_end_strs_;
   friend class StructuralTagAnalyzer;
   friend class StructuralTagGrammarConverter;
 };

@@ -11,23 +11,26 @@ from __future__ import annotations
 
 from typing_extensions import NotRequired, TypedDict
 
-from .group_0087 import RunnerLabelType
 
+class ActionsCacheStorageLimitForOrganizationType(TypedDict):
+    """Actions cache storage limit for an organization
 
-class RunnerType(TypedDict):
-    """Self hosted runners
-
-    A self hosted runner
+    GitHub Actions cache storage policy for an organization.
     """
 
-    id: int
-    runner_group_id: NotRequired[int]
-    name: str
-    os: str
-    status: str
-    busy: bool
-    labels: list[RunnerLabelType]
-    ephemeral: NotRequired[bool]
+    max_cache_size_gb: NotRequired[int]
 
 
-__all__ = ("RunnerType",)
+class ActionsCacheStorageLimitForOrganizationTypeForResponse(TypedDict):
+    """Actions cache storage limit for an organization
+
+    GitHub Actions cache storage policy for an organization.
+    """
+
+    max_cache_size_gb: NotRequired[int]
+
+
+__all__ = (
+    "ActionsCacheStorageLimitForOrganizationType",
+    "ActionsCacheStorageLimitForOrganizationTypeForResponse",
+)

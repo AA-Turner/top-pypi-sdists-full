@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from contextlib import ExitStack
+from contextlib import nullcontext
 from copy import deepcopy
+from importlib.metadata import version
 from operator import mul
 from typing import TYPE_CHECKING
 
@@ -22,7 +23,7 @@ from anndata._core.views import (
     SparseCSRArrayView,
     SparseCSRMatrixView,
 )
-from anndata.compat import CupyCSCMatrix, DaskArray
+from anndata.compat import CSArray, CupyCSCMatrix, DaskArray
 from anndata.tests.helpers import (
     BASE_MATRIX_PARAMS,
     CUPY_MATRIX_PARAMS,
@@ -144,20 +145,7 @@ def test_convert_error():
     adata = ad.AnnData(np.array([[1, 2], [3, 0]]))
     no_array = [[1], []]
 
-    if Version(np.__version__) >= Version("1.24"):
-        stack = pytest.raises(ValueError, match=r"Failed to convert")
-    else:
-        stack = ExitStack()
-        stack.enter_context(
-            pytest.warns(
-                np.VisibleDeprecationWarning,
-                match=r"ndarray from ragged.*is deprecated",
-            )
-        )
-        stack.enter_context(
-            pytest.raises(ValueError, match=r"setting an array element with a sequence")
-        )
-    with stack:
+    with pytest.raises(ValueError, match=r"Failed to convert"):
         adata[:, 0].X = no_array
 
 
@@ -189,13 +177,26 @@ def test_modify_view_component(matrix_type, mapping_name, request):
     with pytest.warns(ad.ImplicitModificationWarning, match=rf".*\.{mapping_name}.*"):
         m[0, 0] = 100
     assert not subset.is_view
-    assert getattr(subset, mapping_name)["m"][0, 0] == 100
+    # TODO: Remove `raises` after https://github.com/scipy/scipy/pull/23626 becomes minimum version i.e., scipy 1.17.
+
+    is_dask_with_broken_view_setting = (
+        "sparse_dask" in request.node.callspec.id
+        and Version(version("dask")) >= Version("2025.02.0")
+    )
+    is_sparse_array_in_lower_dask_version = (
+        not is_dask_with_broken_view_setting
+        and isinstance(m, DaskArray)
+        and isinstance(m._meta, CSArray)
+    )
+    with (
+        pytest.raises(ValueError, match=r"shape mismatch")
+        if Version(version("scipy")) < Version("1.17.0rc0")
+        and (is_sparse_array_in_lower_dask_version or is_dask_with_broken_view_setting)
+        else nullcontext()
+    ):
+        assert getattr(subset, mapping_name)["m"][0, 0] == 100
 
     assert init_hash == hash_func(adata)
-
-    if "sparse_array_dask_array" in request.node.callspec.id:
-        msg = "sparse arrays in dask are generally expected to fail but in this case they do not"
-        pytest.fail(msg)
 
 
 @pytest.mark.parametrize("attr", ["obsm", "varm"])

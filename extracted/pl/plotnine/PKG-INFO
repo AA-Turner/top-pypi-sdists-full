@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plotnine
-Version: 0.15.0
+Version: 0.15.2
 Summary: A Grammar of Graphics for Python
 Author-email: Hassan Kibirige <has2k1@gmail.com>
 License: The MIT License (MIT)
@@ -82,7 +82,7 @@ Requires-Dist: twine; extra == "dev"
 Requires-Dist: plotnine[typing]; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Provides-Extra: typing
-Requires-Dist: pyright==1.1.403; extra == "typing"
+Requires-Dist: pyright==1.1.404; extra == "typing"
 Requires-Dist: ipython; extra == "typing"
 Requires-Dist: pandas-stubs; extra == "typing"
 Dynamic: license-file

@@ -1,6 +1,7 @@
 # Copyright (c) 2025 Lakshya A Agrawal and the GEPA contributors
 # https://github.com/gepa-ai/gepa
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Generic, Protocol, TypeVar
 
@@ -8,6 +9,8 @@ from typing import Any, Generic, Protocol, TypeVar
 RolloutOutput = TypeVar("RolloutOutput")
 Trajectory = TypeVar("Trajectory")
 DataInst = TypeVar("DataInst")
+Candidate = dict[str, str]
+
 
 @dataclass
 class EvaluationBatch(Generic[Trajectory, RolloutOutput]):
@@ -21,16 +24,21 @@ class EvaluationBatch(Generic[Trajectory, RolloutOutput]):
     - trajectories: optional per-example traces used by make_reflective_dataset to build
       a reflective dataset (See `GEPAAdapter.make_reflective_dataset`). If capture_traces=True is passed to `evaluate`, trajectories
       should be provided and align one-to-one with `outputs` and `scores`.
+    - objective_scores: optional per-example maps of objective name -> score. Leave None when
+      the evaluator does not expose multi-objective metrics.
     """
+
     outputs: list[RolloutOutput]
     scores: list[float]
     trajectories: list[Trajectory] | None = None
+    objective_scores: list[dict[str, float]] | None = None
+
 
 class ProposalFn(Protocol):
     def __call__(
         self,
         candidate: dict[str, str],
-        reflective_dataset: dict[str, list[dict[str, Any]]],
+        reflective_dataset: Mapping[str, Sequence[Mapping[str, Any]]],
         components_to_update: list[str],
     ) -> dict[str, str]:
         """
@@ -45,6 +53,7 @@ class ProposalFn(Protocol):
         - Dict[str, str] mapping component names to newly proposed component texts.
         """
         ...
+
 
 class GEPAAdapter(Protocol[DataInst, Trajectory, RolloutOutput]):
     """
@@ -139,7 +148,7 @@ class GEPAAdapter(Protocol[DataInst, Trajectory, RolloutOutput]):
         candidate: dict[str, str],
         eval_batch: EvaluationBatch[Trajectory, RolloutOutput],
         components_to_update: list[str],
-    ) -> dict[str, list[dict[str, Any]]]:
+    ) -> Mapping[str, Sequence[Mapping[str, Any]]]:
         """
         Build a small, JSON-serializable dataset (per component) to drive instruction
         refinement by a teacher LLM.

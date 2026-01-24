@@ -1,13 +1,12 @@
 //! http python conversions
-//!
-//! TODO: figure out how to `intern!()` the strings...
-
 use crate::HttpHeaderNameRef;
-use crate::http_types::{HttpHeaderName, HttpHeaderValue, HttpMethod, HttpVersion};
-use pyo3::exceptions::PyValueError;
+use crate::http_types::{
+    HttpHeaderName, HttpHeaderValue, HttpHeaderValueRef, HttpMethod, HttpVersion,
+};
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyString};
 use pyo3::{IntoPyObjectExt, intern};
+use ryo3_core::{py_type_err, py_value_err, py_value_error};
 
 impl<'py> IntoPyObject<'py> for &HttpMethod {
     type Target = PyString;
@@ -25,9 +24,7 @@ impl<'py> IntoPyObject<'py> for &HttpMethod {
             http::Method::CONNECT => Ok(intern!(py, "CONNECT")),
             http::Method::PATCH => Ok(intern!(py, "PATCH")),
             http::Method::TRACE => Ok(intern!(py, "TRACE")),
-            _ => Err(PyErr::new::<PyValueError, _>(
-                "UNSUPPORTED HTTP METHOD".to_string(),
-            )),
+            _ => py_value_err!("UNSUPPORTED HTTP METHOD"),
         }?;
         let b = s.as_borrowed();
         Ok(b)
@@ -44,31 +41,27 @@ impl<'py> IntoPyObject<'py> for HttpMethod {
     }
 }
 
-const HTTP_METHOD_STRINGS: &str =
-    "'GET', 'POST', 'PUT', 'DELETE', 'HEAD', 'OPTIONS', 'CONNECT', 'PATCH', 'TRACE'";
+const HTTP_METHOD_STRINGS: &str = "'GET'/'get', 'POST'/'post', 'PUT'/'put', 'DELETE'/'delete', 'HEAD'/'head', 'OPTIONS'/'options', 'CONNECT'/'connect', 'PATCH'/'patch', 'TRACE'/'trace'";
 
-impl FromPyObject<'_> for HttpMethod {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string().to_ascii_uppercase();
-            match s.as_str() {
-                "GET" => Ok(Self(http::Method::GET)),
-                "POST" => Ok(Self(http::Method::POST)),
-                "PUT" => Ok(Self(http::Method::PUT)),
-                "DELETE" => Ok(Self(http::Method::DELETE)),
-                "HEAD" => Ok(Self(http::Method::HEAD)),
-                "OPTIONS" => Ok(Self(http::Method::OPTIONS)),
-                "CONNECT" => Ok(Self(http::Method::CONNECT)),
-                "PATCH" => Ok(Self(http::Method::PATCH)),
-                "TRACE" => Ok(Self(http::Method::TRACE)),
-                _ => Err(PyErr::new::<PyValueError, _>(format!(
-                    "Invalid HTTP method: {s} (options: {HTTP_METHOD_STRINGS})"
-                ))),
+impl<'py> FromPyObject<'_, 'py> for HttpMethod {
+    type Error = pyo3::PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(s) = obj.extract::<&str>() {
+            match s {
+                "GET" | "get" => Ok(Self(http::Method::GET)),
+                "POST" | "post" => Ok(Self(http::Method::POST)),
+                "PUT" | "put" => Ok(Self(http::Method::PUT)),
+                "DELETE" | "delete" => Ok(Self(http::Method::DELETE)),
+                "HEAD" | "head" => Ok(Self(http::Method::HEAD)),
+                "OPTIONS" | "options" => Ok(Self(http::Method::OPTIONS)),
+                "CONNECT" | "connect" => Ok(Self(http::Method::CONNECT)),
+                "PATCH" | "patch" => Ok(Self(http::Method::PATCH)),
+                "TRACE" | "trace" => Ok(Self(http::Method::TRACE)),
+                _ => py_value_err!("Invalid HTTP method: {s} (options: {HTTP_METHOD_STRINGS})"),
             }
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                "Invalid unit: {ob} (options: {HTTP_METHOD_STRINGS})"
-            )))
+            py_type_err!("Invalid method: (options: {HTTP_METHOD_STRINGS})")
         }
     }
 }
@@ -106,17 +99,19 @@ impl<'py> IntoPyObject<'py> for HttpVersion {
 }
 
 const HTTP_VERSION_STRING: &str = "Invalid HTTP version ~ must be one of 'HTTP/0.9'|'0.9', 'HTTP/1.0'|'HTTP/1'|'1.0'|'1', 'HTTP/1.1'|'1.1', 'HTTP/2.0'|'HTTP/2'|'2.0'|'2'|'2.2', 'HTTP/3.0'|'HTTP/3'|'3.0'|'3'";
-impl FromPyObject<'_> for HttpVersion {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string();
-            match s.as_str().to_ascii_uppercase().as_str() {
+
+impl<'py> FromPyObject<'_, 'py> for HttpVersion {
+    type Error = pyo3::PyErr;
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(s) = ob.cast_exact::<PyString>() {
+            let s = s.extract::<&str>()?;
+            match s.to_ascii_uppercase().as_str() {
                 "HTTP/0.9" | "0.9" => Ok(Self(http::Version::HTTP_09)),
                 "HTTP/1.0" | "HTTP/1" | "1.0" | "1" => Ok(Self(http::Version::HTTP_10)),
                 "HTTP/1.1" | "1.1" => Ok(Self(http::Version::HTTP_11)),
                 "HTTP/2.0" | "HTTP/2" | "2.0" | "2" => Ok(Self(http::Version::HTTP_2)),
                 "HTTP/3" | "HTTP/3.0" | "3.0" | "3" => Ok(Self(http::Version::HTTP_3)),
-                _ => Err(PyErr::new::<PyValueError, _>(HTTP_VERSION_STRING)),
+                _ => py_value_err!("{HTTP_VERSION_STRING}"),
             }
         } else if let Ok(i) = ob.extract::<u8>() {
             match i {
@@ -125,14 +120,12 @@ impl FromPyObject<'_> for HttpVersion {
                 1 | 11 => Ok(Self(http::Version::HTTP_11)),
                 2 | 20 => Ok(Self(http::Version::HTTP_2)),
                 3 | 30 => Ok(Self(http::Version::HTTP_3)),
-                _ => Err(PyErr::new::<PyValueError, _>(format!(
+                _ => py_value_err!(
                     "Invalid HTTP version: {i} (options: 0= HTTP/0.0, 1 | 10 = HTTP/1.0, 11 = HTTP/1.1, 2 | 20 = HTTP/2.0, 3 | 30 = HTTP/3.0)"
-                ))),
+                ),
             }
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(format!(
-                "Invalid unit: {ob} (options: {HTTP_VERSION_STRING})"
-            )))
+            py_type_err!("Invalid HTTP-version (options: {HTTP_VERSION_STRING})")
         }
     }
 }
@@ -254,7 +247,7 @@ pub(crate) fn header_name_to_pystring<'py>(
 impl<'py> IntoPyObject<'py> for &HttpHeaderName {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
-    type Error = PyErr; // the conversion error type, has to be convertible to `PyErr`
+    type Error = PyErr;
     #[inline]
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         header_name_to_pystring(py, &self.0)
@@ -270,22 +263,21 @@ impl<'py> IntoPyObject<'py> for HttpHeaderName {
     }
 }
 
-impl FromPyObject<'_> for HttpHeaderName {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string();
+impl<'py> FromPyObject<'_, 'py> for HttpHeaderName {
+    type Error = pyo3::PyErr;
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(s) = ob.cast_exact::<PyString>() {
+            let s = s.extract::<&str>()?;
             http::HeaderName::from_bytes(s.as_bytes())
                 .map(HttpHeaderName)
-                .map_err(|e| PyValueError::new_err(format!("invalid-header-name: {e}")))
+                .map_err(|e| py_value_error!("invalid-header-name: {e}"))
         } else if let Ok(pyb) = ob.cast::<PyBytes>() {
             let s = pyb.as_bytes();
             http::HeaderName::from_bytes(s)
                 .map(HttpHeaderName)
-                .map_err(|e| PyValueError::new_err(format!("invalid-header-name: {e}")))
+                .map_err(|e| py_value_error!("invalid-header-name: {e}"))
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "invalid-header-name".to_string(),
-            ))
+            py_type_err!("invalid-header-name")
         }
     }
 }
@@ -293,7 +285,7 @@ impl FromPyObject<'_> for HttpHeaderName {
 impl<'py> IntoPyObject<'py> for &HttpHeaderNameRef<'_> {
     type Target = PyAny;
     type Output = Bound<'py, Self::Target>;
-    type Error = PyErr; // the conversion error type, has to be convertible to `PyErr`
+    type Error = PyErr;
     #[inline]
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         header_name_to_pystring(py, self.0)
@@ -301,12 +293,9 @@ impl<'py> IntoPyObject<'py> for &HttpHeaderNameRef<'_> {
 }
 
 impl<'py> IntoPyObject<'py> for HttpHeaderNameRef<'_> {
-    // #[cfg(Py_LIMITED_API)]
     type Target = PyAny;
-    // #[cfg(not(Py_LIMITED_API))]
-    // type Target = PyString;
     type Output = Bound<'py, Self::Target>;
-    type Error = PyErr; // the conversion error type, has to be convertible to `PyErr`
+    type Error = PyErr;
     #[inline]
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         header_name_to_pystring(py, self.0)
@@ -323,14 +312,33 @@ pub(crate) fn header_value_to_pystring<'py>(
 ) -> PyResult<Bound<'py, PyString>> {
     let s = value
         .to_str()
-        .map_err(|e| PyValueError::new_err(format!("{e}")))?;
+        .map_err(|e| py_value_error!("invalid-header-value: {e}"))?;
     Ok(PyString::new(py, s))
+}
+
+impl<'py> IntoPyObject<'py> for &HttpHeaderValueRef<'_> {
+    type Target = PyString;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+    #[inline]
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        header_value_to_pystring(py, self.0)
+    }
+}
+
+impl<'py> IntoPyObject<'py> for HttpHeaderValueRef<'_> {
+    type Target = PyString;
+    type Output = Bound<'py, Self::Target>;
+    type Error = PyErr;
+    fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+        (&self).into_pyobject(py)
+    }
 }
 
 impl<'py> IntoPyObject<'py> for &HttpHeaderValue {
     type Target = PyString;
     type Output = Bound<'py, Self::Target>;
-    type Error = PyErr; // the conversion error type, has to be convertible to `PyErr`
+    type Error = PyErr;
     #[inline]
     fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
         header_value_to_pystring(py, &self.0)
@@ -346,22 +354,20 @@ impl<'py> IntoPyObject<'py> for HttpHeaderValue {
     }
 }
 
-impl FromPyObject<'_> for HttpHeaderValue {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = ob.cast::<PyString>() {
-            let s = s.to_string();
-            http::HeaderValue::from_str(&s)
+impl<'py> FromPyObject<'_, 'py> for HttpHeaderValue {
+    type Error = pyo3::PyErr;
+    fn extract(ob: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        if let Ok(s) = ob.extract::<&str>() {
+            http::HeaderValue::from_str(s)
                 .map(Self::from)
-                .map_err(|e| PyValueError::new_err(format!("invalid-header-value: {e}")))
+                .map_err(|e| py_value_error!("invalid-header-value: {e}"))
         } else if let Ok(pyb) = ob.cast::<PyBytes>() {
             let s = pyb.as_bytes();
             http::HeaderValue::from_bytes(s)
                 .map(Self::from)
-                .map_err(|e| PyValueError::new_err(format!("invalid-header-value: {e}")))
+                .map_err(|e| py_value_error!("invalid-header-value: {e}"))
         } else {
-            Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "invalid-header-value".to_string(),
-            ))
+            py_type_err!("invalid-header-value")
         }
     }
 }

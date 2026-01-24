@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timezonefinder
-Version: 8.1.0
+Version: 8.2.1
 Summary: python package for finding the timezone of any point on earth (coordinates) offline
 Author-email: jannikmi <github@michelfe.it>
 License: The MIT License (MIT)
@@ -35,18 +35,21 @@ Classifier: Intended Audience :: Information Technology
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Localization
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: <4,>=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: numpy<3,>=1.23; python_version >= "3.9"
-Requires-Dist: h3>4
+Requires-Dist: numpy>=2
+Requires-Dist: h3>=4
 Requires-Dist: cffi<3,>=1.15.1
 Requires-Dist: flatbuffers>=25.2.10
+Provides-Extra: numba
+Requires-Dist: numba<1,>=0.56; extra == "numba"
+Provides-Extra: pytz
+Requires-Dist: pytz>=2022.7.1; extra == "pytz"
 Dynamic: license-file
 
 ==============
@@ -127,8 +130,7 @@ It is recommended to install it together with the optional `Numba <https://numba
 
 
 
-**Note:** This library uses the `"same since now dataset" <https://github.com/evansiroky/timezone-boundary-builder?tab=readme-ov-file#same-since-now>`__ optimized for the primary use case of timezone determination for current/future time calculations.
-For applications requiring historical accuracy or resolving to precise locations, consider parsing the original dataset (cf. `Documentation <https://timezonefinder.readthedocs.io/en/latest/data_format.html#reduced-dataset-caveats>`__).
+**Note:** This library uses the full original timezone dataset with all >440 timezone names, providing full localization capabilities and historical timezone accuracy. For applications that prefer a smaller memory footprint, the reduced "timezones-now" dataset is available via the ``parse_data.sh`` script (cf. `Documentation <https://timezonefinder.readthedocs.io/en/latest/data_format.html#alternative-dataset-options>`__).
 
 
 **Alternative:** Need maximum speed at the cost of accuracy? Check out `tzfpy <https://github.com/ringsaturn/tzfpy>`__ - a fast and lightweight alternative based on Rust.

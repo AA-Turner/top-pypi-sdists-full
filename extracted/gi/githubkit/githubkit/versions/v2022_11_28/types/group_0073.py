@@ -9,57 +9,130 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
-from typing_extensions import NotRequired, TypedDict
+import datetime as _dt
+from typing import Any, Union
+from typing_extensions import NotRequired, TypeAlias, TypedDict
 
-from .group_0072 import ActionsHostedRunnerMachineSpecType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class ActionsHostedRunnerType(TypedDict):
-    """GitHub-hosted hosted runner
+class GistHistoryType(TypedDict):
+    """Gist History
 
-    A Github-hosted hosted runner.
+    Gist History
     """
 
-    id: int
-    name: str
-    runner_group_id: NotRequired[int]
-    image_details: Union[None, ActionsHostedRunnerPoolImageType]
-    machine_size_details: ActionsHostedRunnerMachineSpecType
-    status: Literal["Ready", "Provisioning", "Shutdown", "Deleting", "Stuck"]
-    platform: str
-    maximum_runners: NotRequired[int]
-    public_ip_enabled: bool
-    public_ips: NotRequired[list[PublicIpType]]
-    last_active_on: NotRequired[Union[datetime, None]]
+    user: NotRequired[Union[None, SimpleUserType]]
+    version: NotRequired[str]
+    committed_at: NotRequired[_dt.datetime]
+    change_status: NotRequired[GistHistoryPropChangeStatusType]
+    url: NotRequired[str]
 
 
-class ActionsHostedRunnerPoolImageType(TypedDict):
-    """GitHub-hosted runner image details.
+class GistHistoryTypeForResponse(TypedDict):
+    """Gist History
 
-    Provides details of a hosted runner image
+    Gist History
     """
 
+    user: NotRequired[Union[None, SimpleUserTypeForResponse]]
+    version: NotRequired[str]
+    committed_at: NotRequired[str]
+    change_status: NotRequired[GistHistoryPropChangeStatusTypeForResponse]
+    url: NotRequired[str]
+
+
+class GistHistoryPropChangeStatusType(TypedDict):
+    """GistHistoryPropChangeStatus"""
+
+    total: NotRequired[int]
+    additions: NotRequired[int]
+    deletions: NotRequired[int]
+
+
+class GistHistoryPropChangeStatusTypeForResponse(TypedDict):
+    """GistHistoryPropChangeStatus"""
+
+    total: NotRequired[int]
+    additions: NotRequired[int]
+    deletions: NotRequired[int]
+
+
+class GistSimplePropForkOfType(TypedDict):
+    """Gist
+
+    Gist
+    """
+
+    url: str
+    forks_url: str
+    commits_url: str
     id: str
-    size_gb: int
-    display_name: str
-    source: Literal["github", "partner", "custom"]
+    node_id: str
+    git_pull_url: str
+    git_push_url: str
+    html_url: str
+    files: GistSimplePropForkOfPropFilesType
+    public: bool
+    created_at: _dt.datetime
+    updated_at: _dt.datetime
+    description: Union[str, None]
+    comments: int
+    comments_enabled: NotRequired[bool]
+    user: Union[None, SimpleUserType]
+    comments_url: str
+    owner: NotRequired[Union[None, SimpleUserType]]
+    truncated: NotRequired[bool]
+    forks: NotRequired[list[Any]]
+    history: NotRequired[list[Any]]
 
 
-class PublicIpType(TypedDict):
-    """Public IP for a GitHub-hosted larger runners.
+class GistSimplePropForkOfTypeForResponse(TypedDict):
+    """Gist
 
-    Provides details of Public IP for a GitHub-hosted larger runners
+    Gist
     """
 
-    enabled: NotRequired[bool]
-    prefix: NotRequired[str]
-    length: NotRequired[int]
+    url: str
+    forks_url: str
+    commits_url: str
+    id: str
+    node_id: str
+    git_pull_url: str
+    git_push_url: str
+    html_url: str
+    files: GistSimplePropForkOfPropFilesTypeForResponse
+    public: bool
+    created_at: str
+    updated_at: str
+    description: Union[str, None]
+    comments: int
+    comments_enabled: NotRequired[bool]
+    user: Union[None, SimpleUserTypeForResponse]
+    comments_url: str
+    owner: NotRequired[Union[None, SimpleUserTypeForResponse]]
+    truncated: NotRequired[bool]
+    forks: NotRequired[list[Any]]
+    history: NotRequired[list[Any]]
+
+
+GistSimplePropForkOfPropFilesType: TypeAlias = dict[str, Any]
+"""GistSimplePropForkOfPropFiles
+"""
+
+
+GistSimplePropForkOfPropFilesTypeForResponse: TypeAlias = dict[str, Any]
+"""GistSimplePropForkOfPropFiles
+"""
 
 
 __all__ = (
-    "ActionsHostedRunnerPoolImageType",
-    "ActionsHostedRunnerType",
-    "PublicIpType",
+    "GistHistoryPropChangeStatusType",
+    "GistHistoryPropChangeStatusTypeForResponse",
+    "GistHistoryType",
+    "GistHistoryTypeForResponse",
+    "GistSimplePropForkOfPropFilesType",
+    "GistSimplePropForkOfPropFilesTypeForResponse",
+    "GistSimplePropForkOfType",
+    "GistSimplePropForkOfTypeForResponse",
 )

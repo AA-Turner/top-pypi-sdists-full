@@ -1,7 +1,8 @@
 import contextlib
 import dataclasses
 import io
-from typing import Any, Generic, NewType, Optional, Tuple, TypeVar, Union
+import sys
+from typing import Any, Generic, List, NewType, Optional, Tuple, TypeVar, Union
 
 import pytest
 from helptext_utils import get_helptext_with_checks
@@ -28,6 +29,7 @@ def test_nested() -> None:
     def main(x: Nested):
         return x
 
+    print(get_helptext_with_checks(main))
     assert "Helptext for b" in get_helptext_with_checks(main)
 
 
@@ -253,19 +255,26 @@ def test_optional_nested_multiple() -> None:
 
     assert tyro.cli(
         ModelSettings,
-        args="output-head-settings:None optimizer-settings:None".split(" "),
+        args="output-head-settings:none optimizer-settings:none".split(" "),
     ) == ModelSettings(None, None)
 
-    with pytest.raises(SystemExit):
-        # Order cannot be flipped, unfortunately.
-        tyro.cli(
+    # With the argparse backend, order cannot be flipped.
+    # With the tyro backend, flexible ordering is supported.
+    if tyro._experimental_options["backend"] == "argparse":
+        with pytest.raises(SystemExit):
+            tyro.cli(
+                ModelSettings,
+                args="optimizer-settings:none output-head-settings:none".split(" "),
+            )
+    else:
+        assert tyro.cli(
             ModelSettings,
-            args="optimizer-settings:None output-head-settings:None".split(" "),
-        )
+            args="optimizer-settings:none output-head-settings:none".split(" "),
+        ) == ModelSettings(None, None)
 
     assert tyro.cli(
         ModelSettings,
-        args="output-head-settings:output-head-settings optimizer-settings:None".split(
+        args="output-head-settings:output-head-settings optimizer-settings:none".split(
             " "
         ),
     ) == ModelSettings(OutputHeadSettings(1), None)
@@ -274,22 +283,40 @@ def test_optional_nested_multiple() -> None:
         ModelSettings,
         args=(
             "output-head-settings:output-head-settings"
-            " --output-head-settings.number-of-outputs 5 optimizer-settings:None".split(
+            " --output-head-settings.number-of-outputs 5 optimizer-settings:none".split(
                 " "
             )
         ),
     ) == ModelSettings(OutputHeadSettings(5), None)
+    if tyro._experimental_options["backend"] == "tyro":
+        assert tyro.cli(
+            ModelSettings,
+            args=(
+                "output-head-settings:output-head-settings"
+                " --output-head-settings.number-of-outputs 5 optimizer-settings:None".split(
+                    " "
+                )
+            ),
+        ) == ModelSettings(OutputHeadSettings(5), None)
 
     assert tyro.cli(
         tyro.conf.OmitSubcommandPrefixes[
-            tyro.conf.ConsolidateSubcommandArgs[ModelSettings]
+            tyro.conf.CascadeSubcommandArgs[ModelSettings]
         ],
-        args=("output-head-settings None --number-of-outputs 5".split(" ")),
+        args=("output-head-settings none --number-of-outputs 5".split(" ")),
     ) == ModelSettings(OutputHeadSettings(5), None)
 
+    if tyro._experimental_options["backend"] == "tyro":
+        assert tyro.cli(
+            tyro.conf.OmitSubcommandPrefixes[
+                tyro.conf.CascadeSubcommandArgs[ModelSettings]
+            ],
+            args=("output-head-settings None --number-of-outputs 5".split(" ")),
+        ) == ModelSettings(OutputHeadSettings(5), None)
+
     assert tyro.cli(
         tyro.conf.OmitSubcommandPrefixes[
-            tyro.conf.ConsolidateSubcommandArgs[ModelSettings]
+            tyro.conf.CascadeSubcommandArgs[ModelSettings]
         ],
         args=(
             "output-head-settings"
@@ -607,7 +634,7 @@ def test_optional_subparser() -> None:
         OptionalSubparser, args=["--x", "1", "bc:optional-smtp-server", "--bc.z", "3"]
     ) == OptionalSubparser(x=1, bc=OptionalSMTPServer(z=3))
     assert tyro.cli(
-        OptionalSubparser, args=["--x", "1", "bc:None"]
+        OptionalSubparser, args=["--x", "1", "bc:none"]
     ) == OptionalSubparser(x=1, bc=None)
 
     with pytest.raises(SystemExit):
@@ -1376,7 +1403,17 @@ def test_subcommand_default_with_conf_annotation() -> None:
             Annotated[SGDConfig, tyro.conf.subcommand(name="sgd")],
             Annotated[AdamConfig, tyro.conf.subcommand(name="adam")],
         ]
-        return Union.__getitem__(tuple(cfgs))  # type: ignore
+        # Python 3.14+ requires different approach for Union construction from tuple
+        import typing
+
+        if sys.version_info >= (3, 14) and hasattr(typing, "_UnionGenericAlias"):
+            # Python 3.14: construct using internal API or use | operator chain
+            import operator
+            from functools import reduce
+
+            return reduce(operator.or_, cfgs)  # type: ignore
+        else:
+            return getattr(Union, "__getitem__")(tuple(cfgs))  # type: ignore
 
     @dataclasses.dataclass(frozen=True)
     class Config1:
@@ -1406,6 +1443,9 @@ def test_subcommand_dict_helper_with_pydantic_basemodel() -> None:
     where Pydantic BaseModel subcommands were not using the dictionary key as
     the subcommand name.
     """
+    if tyro._experimental_options["backend"] == "argparse":
+        pytest.skip("Running in argparse backend")
+
     from dataclasses import dataclass
 
     try:
@@ -1475,3 +1515,33 @@ def test_subcommand_dict_helper_with_pydantic_basemodel() -> None:
     )
     assert isinstance(result, FourthCommand)
     assert result.a == 7
+
+
+def test_nargs_then_subcommand() -> None:
+    """Test that nargs='*' arguments can be followed by subcommands.
+
+    This is not supported by the argparse backend due to argparse's greedy
+    consumption of variable-length arguments. This test is intended for the
+    tyro backend which will support flexible argument ordering.
+    """
+    # Skip this test when using argparse backend.
+
+    if tyro._experimental_options["backend"] == "argparse":
+        pytest.skip("nargs followed by subcommands not supported in argparse backend")
+
+    @dataclasses.dataclass
+    class SubconfigA:
+        pass
+
+    @dataclasses.dataclass
+    class SubconfigB:
+        pass
+
+    @dataclasses.dataclass
+    class Config:
+        x: List[str]
+        y: Union[SubconfigA, SubconfigB]
+
+    assert tyro.cli(Config, args=["--x", "a", "b", "c", "y:subconfig-a"]) == Config(
+        ["a", "b", "c"], SubconfigA()
+    )

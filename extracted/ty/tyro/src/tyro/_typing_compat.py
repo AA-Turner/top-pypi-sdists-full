@@ -11,6 +11,10 @@ UnionTypes = {
     getattr(types, "UnionType", typing.Union),
 }
 FinalTypes = {typing.Final, typing_extensions.Final}
+ReadOnlyTypes = {
+    getattr(typing, "ReadOnly", typing_extensions.ReadOnly),
+    typing_extensions.ReadOnly,
+}
 AnnotatedTypes = {
     getattr(typing, "Annotated", typing_extensions.Annotated),
     typing_extensions.Annotated,
@@ -33,6 +37,10 @@ TypeAliasTypes = {
     getattr(typing, "TypeAliasType", typing_extensions.TypeAliasType),
     typing_extensions.TypeAliasType,
 }
+UnpackTypes = {
+    getattr(typing, "Unpack", typing_extensions.Unpack),
+    typing_extensions.Unpack,
+}
 
 
 def is_typing_literal(obj: Any) -> bool:
@@ -45,6 +53,10 @@ def is_typing_union(obj: Any) -> bool:
 
 def is_typing_final(obj: Any) -> bool:
     return obj in FinalTypes
+
+
+def is_typing_readonly(obj: Any) -> bool:
+    return obj in ReadOnlyTypes
 
 
 def is_typing_annotated(obj: Any) -> bool:
@@ -73,3 +85,7 @@ def is_typing_classvar(obj: Any) -> bool:
 
 def is_typing_typealiastype(obj: Any) -> bool:
     return obj in TypeAliasTypes
+
+
+def is_typing_unpack(obj: Any) -> bool:
+    return obj in UnpackTypes

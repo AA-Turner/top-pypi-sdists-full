@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
+import bisect
 from datetime import datetime, timedelta, timezone
 from logging import getLogger
-from operator import attrgetter
 from typing import TYPE_CHECKING, TypeVar, cast
-
-from sortedcontainers import SortedList
 
 from crawlee import service_locator
 from crawlee._autoscaling._types import ClientSnapshot, CpuSnapshot, EventLoopSnapshot, MemorySnapshot, Snapshot
@@ -15,7 +13,7 @@ from crawlee._utils.byte_size import ByteSize
 from crawlee._utils.context import ensure_context
 from crawlee._utils.docs import docs_group
 from crawlee._utils.recurring_task import RecurringTask
-from crawlee._utils.system import get_memory_info
+from crawlee._utils.system import MemoryInfo, get_memory_info
 from crawlee.events._types import Event, EventSystemInfoData
 
 if TYPE_CHECKING:
@@ -25,10 +23,18 @@ if TYPE_CHECKING:
 
 logger = getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar('T', bound=Snapshot)
 
 
-@docs_group('Classes')
+class SortedSnapshotList(list[T]):
+    """A list that maintains sorted order by `created_at` attribute for snapshot objects."""
+
+    def add(self, item: T) -> None:
+        """Add an item to the list maintaining sorted order by `created_at` using binary search."""
+        bisect.insort(self, item, key=lambda item: item.created_at)
+
+
+@docs_group('Autoscaling')
 class Snapshotter:
     """Monitors and logs system resource usage at predefined intervals for performance optimization.
 
@@ -107,7 +113,7 @@ class Snapshotter:
         Args:
             config: The `Configuration` instance. Uses the global (default) one if not provided.
         """
-        config = service_locator.get_configuration()
+        config = config or service_locator.get_configuration()
 
         # Compute the maximum memory size based on the provided configuration. If `memory_mbytes` is provided,
         # it uses that value. Otherwise, it calculates the `max_memory_size` as a proportion of the system's
@@ -127,8 +133,14 @@ class Snapshotter:
         )
 
     @staticmethod
-    def _get_sorted_list_by_created_at(input_list: list[T]) -> SortedList[T]:
-        return SortedList(input_list, key=attrgetter('created_at'))
+    def _get_sorted_list_by_created_at(input_list: list[T]) -> SortedSnapshotList[T]:
+        """Create a sorted list from the input list.
+
+        Returns a custom list that maintains sorted order by created_at when items are added.
+        """
+        result = SortedSnapshotList[T]()
+        result.extend(input_list)
+        return result
 
     @property
     def active(self) -> bool:
@@ -273,7 +285,13 @@ class Snapshotter:
             max_memory_size=self._max_memory_size,
             max_used_memory_ratio=self._max_used_memory_ratio,
             created_at=event_data.memory_info.created_at,
+            system_wide_used_size=None,
+            system_wide_memory_size=None,
         )
+
+        if isinstance(memory_info := event_data.memory_info, MemoryInfo):
+            snapshot.system_wide_used_size = memory_info.system_wide_used_size
+            snapshot.system_wide_memory_size = memory_info.total_size
 
         snapshots = cast('list[Snapshot]', self._memory_snapshots)
         self._prune_snapshots(snapshots, snapshot.created_at)

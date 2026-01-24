@@ -18,7 +18,6 @@ from ragas.metrics.base import (
 )
 from ragas.prompt import PydanticPrompt
 from ragas.run_config import RunConfig
-from ragas.utils import deprecated
 
 if t.TYPE_CHECKING:
     from langchain_core.callbacks import Callbacks
@@ -161,17 +160,6 @@ class LLMContextRecall(MetricWithLLM, SingleTurnMetric):
 class ContextRecall(LLMContextRecall):
     name: str = "context_recall"
 
-    @deprecated(since="0.2", removal="0.3", alternative="LLMContextRecall")
-    async def _single_turn_ascore(
-        self, sample: SingleTurnSample, callbacks: Callbacks
-    ) -> float:
-        row = sample.to_dict()
-        return await self._ascore(row, callbacks)
-
-    @deprecated(since="0.2", removal="0.3", alternative="LLMContextRecall")
-    async def _ascore(self, row: t.Dict, callbacks: Callbacks) -> float:
-        return await super()._ascore(row, callbacks)
-
 
 @dataclass
 class NonLLMContextRecall(SingleTurnMetric):
@@ -233,6 +221,65 @@ class NonLLMContextRecall(SingleTurnMetric):
         numerator = sum(response)
         score = numerator / denom if denom > 0 else np.nan
         return score
+
+
+@dataclass
+class IDBasedContextRecall(SingleTurnMetric):
+    """
+    Calculates context recall by directly comparing retrieved context IDs with reference context IDs.
+    The score represents what proportion of the reference IDs were successfully retrieved.
+
+    This metric works with both string and integer IDs.
+
+    Attributes
+    ----------
+    name : str
+        Name of the metric
+    """
+
+    name: str = "id_based_context_recall"
+    _required_columns: t.Dict[MetricType, t.Set[str]] = field(
+        default_factory=lambda: {
+            MetricType.SINGLE_TURN: {
+                "retrieved_context_ids",
+                "reference_context_ids",
+            }
+        }
+    )
+    output_type: MetricOutputType = MetricOutputType.CONTINUOUS
+
+    def init(self, run_config: RunConfig) -> None: ...
+
+    async def _single_turn_ascore(
+        self, sample: SingleTurnSample, callbacks: Callbacks
+    ) -> float:
+        retrieved_context_ids = sample.retrieved_context_ids
+        reference_context_ids = sample.reference_context_ids
+        assert retrieved_context_ids is not None, "retrieved_context_ids is empty"
+        assert reference_context_ids is not None, "reference_context_ids is empty"
+
+        # Convert all IDs to strings to ensure consistent comparison
+        retrieved_ids_set = set(str(id) for id in retrieved_context_ids)
+        reference_ids_set = set(str(id) for id in reference_context_ids)
+
+        # Calculate how many reference IDs appear in retrieved IDs
+        hits = sum(
+            1 for ref_id in reference_ids_set if str(ref_id) in retrieved_ids_set
+        )
+
+        # Calculate recall score
+        total_refs = len(reference_ids_set)
+        score = hits / total_refs if total_refs > 0 else np.nan
+
+        if np.isnan(score):
+            logger.warning(
+                "No reference context IDs provided, cannot calculate recall."
+            )
+
+        return score
+
+    async def _ascore(self, row: t.Dict, callbacks: Callbacks) -> float:
+        return await self._single_turn_ascore(SingleTurnSample(**row), callbacks)
 
 
 context_recall = ContextRecall()

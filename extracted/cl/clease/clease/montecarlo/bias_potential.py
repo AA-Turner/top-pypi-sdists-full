@@ -1,5 +1,5 @@
 # XXX: Some funny imports here. This file needs to be cleaned up some
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 from scipy.interpolate import interp1d
@@ -55,7 +55,7 @@ class BiasPotential:
 
         with open(fname, "wb") as outfile:
             dill.dump(self, outfile)
-        print(f"Pseudo binary free energy bias potential written to " f"{fname}")
+        print(f"Pseudo binary free energy bias potential written to {fname}")
 
     @staticmethod
     def load(fname="bias_potential.pkl"):
@@ -175,16 +175,14 @@ class PseudoBinaryFreeEnergyBias(SampledBiasPotential):
 
     def __init__(self, pseudo_bin_conc_init=None, reac_crd=(), free_eng=()):
         self._conc_init = pseudo_bin_conc_init
-        super(PseudoBinaryFreeEnergyBias, self).__init__(reac_crd, free_eng)
+        super().__init__(reac_crd, free_eng)
 
     @property
     def conc_init(self):
         from cemc.mcmc import PseudoBinaryConcInitializer
 
         if not isinstance(self._conc_init, PseudoBinaryConcInitializer):
-            raise TypeError(
-                "pseudo_bin_conc_init has to be of type " "PseudoBinaryConcInitializer!"
-            )
+            raise TypeError("pseudo_bin_conc_init has to be of type PseudoBinaryConcInitializer!")
         return self._conc_init
 
     @conc_init.setter
@@ -192,9 +190,7 @@ class PseudoBinaryFreeEnergyBias(SampledBiasPotential):
         from cemc.mcmc import PseudoBinaryConcInitializer
 
         if not isinstance(init, PseudoBinaryConcInitializer):
-            raise TypeError(
-                "pseudo_bin_conc_init has to be of type " "PseudoBinaryConcInitializer!"
-            )
+            raise TypeError("pseudo_bin_conc_init has to be of type PseudoBinaryConcInitializer!")
         self._conc_init = init
 
     def __call__(self, system_changes: Sequence[SystemChange]):
@@ -248,7 +244,7 @@ class CovarianceBiasPotential(SampledBiasPotential):
     """
 
     def __init__(self, cov_range=None, reac_crd=(), free_eng=()):
-        super(CovarianceBiasPotential, self).__init__(reac_crd, free_eng)
+        super().__init__(reac_crd, free_eng)
         self._cov_range = cov_range
 
     @property

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -27,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListAccessLogSubscriptionsPaginator,
+    ListDomainVerificationsPaginator,
     ListListenersPaginator,
     ListResourceConfigurationsPaginator,
     ListResourceEndpointAssociationsPaginator,
@@ -68,6 +70,7 @@ from .type_defs import (
     CreateTargetGroupResponseTypeDef,
     DeleteAccessLogSubscriptionRequestTypeDef,
     DeleteAuthPolicyRequestTypeDef,
+    DeleteDomainVerificationRequestTypeDef,
     DeleteListenerRequestTypeDef,
     DeleteResourceConfigurationRequestTypeDef,
     DeleteResourceEndpointAssociationRequestTypeDef,
@@ -93,6 +96,8 @@ from .type_defs import (
     GetAccessLogSubscriptionResponseTypeDef,
     GetAuthPolicyRequestTypeDef,
     GetAuthPolicyResponseTypeDef,
+    GetDomainVerificationRequestTypeDef,
+    GetDomainVerificationResponseTypeDef,
     GetListenerRequestTypeDef,
     GetListenerResponseTypeDef,
     GetResourceConfigurationRequestTypeDef,
@@ -117,6 +122,8 @@ from .type_defs import (
     GetTargetGroupResponseTypeDef,
     ListAccessLogSubscriptionsRequestTypeDef,
     ListAccessLogSubscriptionsResponseTypeDef,
+    ListDomainVerificationsRequestTypeDef,
+    ListDomainVerificationsResponseTypeDef,
     ListListenersRequestTypeDef,
     ListListenersResponseTypeDef,
     ListResourceConfigurationsRequestTypeDef,
@@ -150,6 +157,8 @@ from .type_defs import (
     PutResourcePolicyRequestTypeDef,
     RegisterTargetsRequestTypeDef,
     RegisterTargetsResponseTypeDef,
+    StartDomainVerificationRequestTypeDef,
+    StartDomainVerificationResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
     UpdateAccessLogSubscriptionRequestTypeDef,
@@ -172,12 +181,6 @@ from .type_defs import (
     UpdateTargetGroupResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -186,14 +189,14 @@ else:
 __all__ = ("VPCLatticeClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class VPCLatticeClient(BaseClient):
     """
@@ -275,7 +278,7 @@ class VPCLatticeClient(BaseClient):
         self, **kwargs: Unpack[CreateResourceGatewayRequestTypeDef]
     ) -> CreateResourceGatewayResponseTypeDef:
         """
-        Creates a resource gateway.
+        A resource gateway is a point of ingress into the VPC where a resource resides.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/create_resource_gateway.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#create_resource_gateway)
@@ -352,7 +355,7 @@ class VPCLatticeClient(BaseClient):
 
     def delete_access_log_subscription(
         self, **kwargs: Unpack[DeleteAccessLogSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified access log subscription.
 
@@ -362,7 +365,7 @@ class VPCLatticeClient(BaseClient):
 
     def delete_auth_policy(
         self, **kwargs: Unpack[DeleteAuthPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified auth policy.
 
@@ -370,7 +373,17 @@ class VPCLatticeClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#delete_auth_policy)
         """
 
-    def delete_listener(self, **kwargs: Unpack[DeleteListenerRequestTypeDef]) -> Dict[str, Any]:
+    def delete_domain_verification(
+        self, **kwargs: Unpack[DeleteDomainVerificationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified domain verification.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/delete_domain_verification.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#delete_domain_verification)
+        """
+
+    def delete_listener(self, **kwargs: Unpack[DeleteListenerRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified listener.
 
@@ -380,7 +393,7 @@ class VPCLatticeClient(BaseClient):
 
     def delete_resource_configuration(
         self, **kwargs: Unpack[DeleteResourceConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified resource configuration.
 
@@ -410,7 +423,7 @@ class VPCLatticeClient(BaseClient):
 
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified resource policy.
 
@@ -418,7 +431,7 @@ class VPCLatticeClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#delete_resource_policy)
         """
 
-    def delete_rule(self, **kwargs: Unpack[DeleteRuleRequestTypeDef]) -> Dict[str, Any]:
+    def delete_rule(self, **kwargs: Unpack[DeleteRuleRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes a listener rule.
 
@@ -438,7 +451,7 @@ class VPCLatticeClient(BaseClient):
 
     def delete_service_network(
         self, **kwargs: Unpack[DeleteServiceNetworkRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a service network.
 
@@ -515,6 +528,16 @@ class VPCLatticeClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/get_auth_policy.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#get_auth_policy)
+        """
+
+    def get_domain_verification(
+        self, **kwargs: Unpack[GetDomainVerificationRequestTypeDef]
+    ) -> GetDomainVerificationResponseTypeDef:
+        """
+        Retrieves information about a domain verification.ß.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/get_domain_verification.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#get_domain_verification)
         """
 
     def get_listener(
@@ -634,6 +657,16 @@ class VPCLatticeClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/list_access_log_subscriptions.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#list_access_log_subscriptions)
+        """
+
+    def list_domain_verifications(
+        self, **kwargs: Unpack[ListDomainVerificationsRequestTypeDef]
+    ) -> ListDomainVerificationsResponseTypeDef:
+        """
+        Lists the domain verifications.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/list_domain_verifications.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#list_domain_verifications)
         """
 
     def list_listeners(
@@ -787,7 +820,7 @@ class VPCLatticeClient(BaseClient):
 
     def put_resource_policy(
         self, **kwargs: Unpack[PutResourcePolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Attaches a resource-based permission policy to a service or service network.
 
@@ -805,7 +838,17 @@ class VPCLatticeClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#register_targets)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def start_domain_verification(
+        self, **kwargs: Unpack[StartDomainVerificationRequestTypeDef]
+    ) -> StartDomainVerificationResponseTypeDef:
+        """
+        Starts the domain verification process for a custom domain name.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/start_domain_verification.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#start_domain_verification)
+        """
+
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the specified resource.
 
@@ -813,7 +856,7 @@ class VPCLatticeClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the specified resource.
 
@@ -913,6 +956,17 @@ class VPCLatticeClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_access_log_subscriptions"]
     ) -> ListAccessLogSubscriptionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/vpc-lattice/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_vpc_lattice/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_domain_verifications"]
+    ) -> ListDomainVerificationsPaginator:
         """
         Create a paginator for an operation.
 

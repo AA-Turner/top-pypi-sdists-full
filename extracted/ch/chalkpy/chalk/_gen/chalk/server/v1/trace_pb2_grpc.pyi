@@ -8,8 +8,14 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.trace_pb2 import (
+    GetSpanRequest,
+    GetSpanResponse,
     GetTraceRequest,
     GetTraceResponse,
+    ListSpanRequest,
+    ListSpanResponse,
+    ListTraceRequest,
+    ListTraceResponse,
 )
 from grpc import (
     Channel,
@@ -27,6 +33,21 @@ class TraceServiceStub:
         GetTraceResponse,
     ]
     """GetTrace retrieves a trace, optionally by operation ID"""
+    ListTrace: UnaryUnaryMultiCallable[
+        ListTraceRequest,
+        ListTraceResponse,
+    ]
+    """ListTrace retrieves a list of traces with optional filtering"""
+    GetSpan: UnaryUnaryMultiCallable[
+        GetSpanRequest,
+        GetSpanResponse,
+    ]
+    """GetSpan retrieves a specific span by span ID and trace ID"""
+    ListSpan: UnaryUnaryMultiCallable[
+        ListSpanRequest,
+        ListSpanResponse,
+    ]
+    """ListSpan retrieves a list of spans for a specific trace with optional filtering"""
 
 class TraceServiceServicer(metaclass=ABCMeta):
     """TraceService provides methods for retrieving trace data"""
@@ -38,5 +59,26 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetTraceResponse:
         """GetTrace retrieves a trace, optionally by operation ID"""
+    @abstractmethod
+    def ListTrace(
+        self,
+        request: ListTraceRequest,
+        context: ServicerContext,
+    ) -> ListTraceResponse:
+        """ListTrace retrieves a list of traces with optional filtering"""
+    @abstractmethod
+    def GetSpan(
+        self,
+        request: GetSpanRequest,
+        context: ServicerContext,
+    ) -> GetSpanResponse:
+        """GetSpan retrieves a specific span by span ID and trace ID"""
+    @abstractmethod
+    def ListSpan(
+        self,
+        request: ListSpanRequest,
+        context: ServicerContext,
+    ) -> ListSpanResponse:
+        """ListSpan retrieves a list of spans for a specific trace with optional filtering"""
 
 def add_TraceServiceServicer_to_server(servicer: TraceServiceServicer, server: Server) -> None: ...

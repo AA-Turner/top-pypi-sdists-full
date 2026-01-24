@@ -1,0 +1,50 @@
+[package]
+name = "migrate-to-uv"
+version = "0.10.0"
+edition = "2024"
+rust-version = "1.92"
+license = "MIT"
+authors = ["Mathieu Kniewallner <mathieu.kniewallner@gmail.com>"]
+default-run = "migrate-to-uv"
+readme = "README.md"
+
+[dependencies]
+clap = { version = "=4.5.54", features = ["derive"] }
+clap-verbosity-flag = "=3.0.4"
+env_logger = "=0.11.8"
+indexmap = { version = "=2.13.0", features = ["serde"] }
+log = "=0.4.29"
+owo-colors = "=4.2.3"
+pep440_rs = "=0.7.3"
+pep508_rs = "=0.9.2"
+regex = "=1.12.2"
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.149"
+toml = { version = "=0.9.10", features = ["preserve_order"] }
+toml_edit = { version = "=0.24.0", features = ["display", "serde"] }
+url = "=2.5.8"
+which = "=8.0.0"
+
+[dev-dependencies]
+dircpy = "=0.3.19"
+flate2 = "=1.1.5"
+insta = { version = "=1.46.0", features = ["filters"] }
+insta-cmd = "=0.6.0"
+rstest = "=0.26.1"
+tar = "=0.4.44"
+tempfile = "=3.24.0"
+walkdir = "=2.5.0"
+zip = "=7.0.0"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+too_many_lines = "allow"
+
+[profile.dev.package]
+insta.opt-level = 3
+similar.opt-level = 3
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+panic = "abort"

@@ -13,14 +13,19 @@
 # limitations under the License.
 
 import abc
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from typing import Optional, Union
 
 from kubeflow.trainer.constants import constants
 from kubeflow.trainer.types import types
 
 
-class ExecutionBackend(abc.ABC):
+class RuntimeBackend(abc.ABC):
+    """Base class for runtime backends.
+
+    Options self-validate by checking the backend instance type in their __call__ method.
+    """
+
     @abc.abstractmethod
     def list_runtimes(self) -> list[types.Runtime]:
         raise NotImplementedError()
@@ -36,9 +41,12 @@ class ExecutionBackend(abc.ABC):
     @abc.abstractmethod
     def train(
         self,
-        runtime: Optional[types.Runtime] = None,
+        runtime: Optional[Union[str, types.Runtime]] = None,
         initializer: Optional[types.Initializer] = None,
-        trainer: Optional[Union[types.CustomTrainer, types.BuiltinTrainer]] = None,
+        trainer: Optional[
+            Union[types.CustomTrainer, types.CustomTrainerContainer, types.BuiltinTrainer]
+        ] = None,
+        options: Optional[list] = None,
     ) -> str:
         raise NotImplementedError()
 
@@ -54,10 +62,21 @@ class ExecutionBackend(abc.ABC):
     def get_job_logs(
         self,
         name: str,
-        follow: Optional[bool] = False,
+        follow: bool = False,
         step: str = constants.NODE + "-0",
     ) -> Iterator[str]:
         raise NotImplementedError()
+
+    def get_job_events(self, name: str) -> list[types.Event]:
+        """Get events for a TrainJob.
+
+        Args:
+            name: Name of the TrainJob.
+
+        Returns:
+            A list of Event objects associated with the TrainJob.
+        """
+        return []
 
     @abc.abstractmethod
     def wait_for_job_status(
@@ -66,6 +85,7 @@ class ExecutionBackend(abc.ABC):
         status: set[str] = {constants.TRAINJOB_COMPLETE},
         timeout: int = 600,
         polling_interval: int = 2,
+        callbacks: Optional[list[Callable[[types.TrainJob], None]]] = None,
     ) -> types.TrainJob:
         raise NotImplementedError()
 

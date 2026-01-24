@@ -1,47 +1,32 @@
 Metadata-Version: 2.4
 Name: newrelic
-Version: 10.17.0
+Version: 11.3.0
 Summary: New Relic Python Agent
-Home-page: https://docs.newrelic.com/docs/apm/agents/python-agent/
-Author: New Relic
-Author-email: support@newrelic.com
-Maintainer: New Relic
-Maintainer-email: support@newrelic.com
+Author-email: New Relic <support@newrelic.com>
+Maintainer-email: New Relic <support@newrelic.com>
 License: Apache-2.0
-Project-URL: Source, https://github.com/newrelic/newrelic-python-agent
+Project-URL: Homepage, https://docs.newrelic.com/docs/apm/agents/python-agent/
+Project-URL: GitHub, https://github.com/newrelic/newrelic-python-agent
+Project-URL: Release Notes, https://docs.newrelic.com/docs/release-notes/agent-release-notes/python-release-notes/
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Monitoring
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: THIRD_PARTY_NOTICES.md
 Provides-Extra: infinite-tracing
 Requires-Dist: grpcio; extra == "infinite-tracing"
 Requires-Dist: protobuf; extra == "infinite-tracing"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
 Dynamic: license
 Dynamic: license-file
-Dynamic: maintainer
-Dynamic: maintainer-email
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-python
-Dynamic: summary
 
 <a href="https://opensource.newrelic.com/oss-category/#community-project"><picture>
 <source media="(prefers-color-scheme: dark)" srcset="https://github.com/newrelic/opensource-website/raw/main/src/images/categories/dark/Community_Plus.png">

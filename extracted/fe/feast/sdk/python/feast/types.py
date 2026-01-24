@@ -24,6 +24,7 @@ PRIMITIVE_FEAST_TYPES_TO_VALUE_TYPES = {
     "INVALID": "UNKNOWN",
     "BYTES": "BYTES",
     "PDF_BYTES": "PDF_BYTES",
+    "IMAGE_BYTES": "IMAGE_BYTES",
     "STRING": "STRING",
     "INT32": "INT32",
     "INT64": "INT64",
@@ -31,6 +32,7 @@ PRIMITIVE_FEAST_TYPES_TO_VALUE_TYPES = {
     "FLOAT32": "FLOAT",
     "BOOL": "BOOL",
     "UNIX_TIMESTAMP": "UNIX_TIMESTAMP",
+    "MAP": "MAP",
 }
 
 
@@ -81,6 +83,8 @@ class PrimitiveFeastType(Enum):
     BOOL = 7
     UNIX_TIMESTAMP = 8
     PDF_BYTES = 9
+    IMAGE_BYTES = 10
+    MAP = 11
 
     def to_value_type(self) -> ValueType:
         """
@@ -105,6 +109,7 @@ class PrimitiveFeastType(Enum):
 Invalid = PrimitiveFeastType.INVALID
 Bytes = PrimitiveFeastType.BYTES
 PdfBytes = PrimitiveFeastType.PDF_BYTES
+ImageBytes = PrimitiveFeastType.IMAGE_BYTES
 String = PrimitiveFeastType.STRING
 Bool = PrimitiveFeastType.BOOL
 Int32 = PrimitiveFeastType.INT32
@@ -112,18 +117,21 @@ Int64 = PrimitiveFeastType.INT64
 Float32 = PrimitiveFeastType.FLOAT32
 Float64 = PrimitiveFeastType.FLOAT64
 UnixTimestamp = PrimitiveFeastType.UNIX_TIMESTAMP
+Map = PrimitiveFeastType.MAP
 
 SUPPORTED_BASE_TYPES = [
     Invalid,
     String,
     Bytes,
     PdfBytes,
+    ImageBytes,
     Bool,
     Int32,
     Int64,
     Float32,
     Float64,
     UnixTimestamp,
+    Map,
 ]
 
 PRIMITIVE_FEAST_TYPES_TO_STRING = {
@@ -131,12 +139,14 @@ PRIMITIVE_FEAST_TYPES_TO_STRING = {
     "STRING": "String",
     "BYTES": "Bytes",
     "PDF_BYTES": "PdfBytes",
+    "IMAGE_BYTES": "ImageBytes",
     "BOOL": "Bool",
     "INT32": "Int32",
     "INT64": "Int64",
     "FLOAT32": "Float32",
     "FLOAT64": "Float64",
     "UNIX_TIMESTAMP": "UnixTimestamp",
+    "MAP": "Map",
 }
 
 
@@ -174,6 +184,7 @@ VALUE_TYPES_TO_FEAST_TYPES: Dict["ValueType", FeastType] = {
     ValueType.UNKNOWN: Invalid,
     ValueType.BYTES: Bytes,
     ValueType.PDF_BYTES: PdfBytes,
+    ValueType.IMAGE_BYTES: ImageBytes,
     ValueType.STRING: String,
     ValueType.INT32: Int32,
     ValueType.INT64: Int64,
@@ -189,6 +200,8 @@ VALUE_TYPES_TO_FEAST_TYPES: Dict["ValueType", FeastType] = {
     ValueType.FLOAT_LIST: Array(Float32),
     ValueType.BOOL_LIST: Array(Bool),
     ValueType.UNIX_TIMESTAMP_LIST: Array(UnixTimestamp),
+    ValueType.MAP: Map,
+    ValueType.MAP_LIST: Array(Map),
 }
 
 FEAST_TYPES_TO_PYARROW_TYPES = {
@@ -208,6 +221,7 @@ FEAST_VECTOR_TYPES: List[Union[ValueType, PrimitiveFeastType, ComplexFeastType]]
     ValueType.INT64_LIST,
     ValueType.FLOAT_LIST,
     ValueType.BOOL_LIST,
+    ValueType.MAP_LIST,
 ]
 for k in VALUE_TYPES_TO_FEAST_TYPES:
     if k in FEAST_VECTOR_TYPES:

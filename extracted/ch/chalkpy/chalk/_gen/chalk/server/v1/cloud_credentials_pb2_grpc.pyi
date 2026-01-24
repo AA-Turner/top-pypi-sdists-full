@@ -16,6 +16,10 @@ from chalk._gen.chalk.server.v1.cloud_credentials_pb2 import (
     GetCloudCredentialsResponse,
     ListCloudCredentialsRequest,
     ListCloudCredentialsResponse,
+    TestCloudCredentialsRequest,
+    TestCloudCredentialsResponse,
+    UpdateCloudCredentialsRequest,
+    UpdateCloudCredentialsResponse,
 )
 from grpc import (
     Channel,
@@ -38,9 +42,17 @@ class CloudAccountCredentialsServiceStub:
         CreateCloudCredentialsRequest,
         CreateCloudCredentialsResponse,
     ]
+    UpdateCloudCredentials: UnaryUnaryMultiCallable[
+        UpdateCloudCredentialsRequest,
+        UpdateCloudCredentialsResponse,
+    ]
     DeleteCloudCredentials: UnaryUnaryMultiCallable[
         DeleteCloudCredentialsRequest,
         DeleteCloudCredentialsResponse,
+    ]
+    TestCloudCredentials: UnaryUnaryMultiCallable[
+        TestCloudCredentialsRequest,
+        TestCloudCredentialsResponse,
     ]
 
 class CloudAccountCredentialsServiceServicer(metaclass=ABCMeta):
@@ -63,11 +75,23 @@ class CloudAccountCredentialsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CreateCloudCredentialsResponse: ...
     @abstractmethod
+    def UpdateCloudCredentials(
+        self,
+        request: UpdateCloudCredentialsRequest,
+        context: ServicerContext,
+    ) -> UpdateCloudCredentialsResponse: ...
+    @abstractmethod
     def DeleteCloudCredentials(
         self,
         request: DeleteCloudCredentialsRequest,
         context: ServicerContext,
     ) -> DeleteCloudCredentialsResponse: ...
+    @abstractmethod
+    def TestCloudCredentials(
+        self,
+        request: TestCloudCredentialsRequest,
+        context: ServicerContext,
+    ) -> TestCloudCredentialsResponse: ...
 
 def add_CloudAccountCredentialsServiceServicer_to_server(
     servicer: CloudAccountCredentialsServiceServicer, server: Server

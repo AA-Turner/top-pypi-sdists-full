@@ -9,17 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0195 import LabelType, LabelTypeForResponse
+from .group_0204 import PullRequestMinimalType, PullRequestMinimalTypeForResponse
 
 
-class RepositoryFineGrainedPermissionType(TypedDict):
-    """Repository Fine-Grained Permission
+class PullRequestEventType(TypedDict):
+    """PullRequestEvent"""
 
-    A fine-grained permission that protects repository resources.
-    """
+    action: str
+    number: int
+    pull_request: PullRequestMinimalType
+    assignee: NotRequired[SimpleUserType]
+    assignees: NotRequired[list[SimpleUserType]]
+    label: NotRequired[LabelType]
+    labels: NotRequired[list[LabelType]]
 
-    name: str
-    description: str
+
+class PullRequestEventTypeForResponse(TypedDict):
+    """PullRequestEvent"""
+
+    action: str
+    number: int
+    pull_request: PullRequestMinimalTypeForResponse
+    assignee: NotRequired[SimpleUserTypeForResponse]
+    assignees: NotRequired[list[SimpleUserTypeForResponse]]
+    label: NotRequired[LabelTypeForResponse]
+    labels: NotRequired[list[LabelTypeForResponse]]
 
 
-__all__ = ("RepositoryFineGrainedPermissionType",)
+__all__ = (
+    "PullRequestEventType",
+    "PullRequestEventTypeForResponse",
+)

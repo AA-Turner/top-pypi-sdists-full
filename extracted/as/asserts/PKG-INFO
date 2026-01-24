@@ -1,26 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asserts
-Version: 0.13.1
+Version: 0.14.0
 Summary: Stand-alone Assertions
-Home-page: https://github.com/srittau/python-asserts
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: Sebastian Rittau
-Author-email: srittau@rittau.biz
-Requires-Python: >=3.8.1
+Author-email: sebastian.rittau@zfutura.de
+Requires-Python: >= 3.10
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Dist: typing-extensions (>=4.10.0,<5.0.0)
+Requires-Dist: typing-extensions (>=4.10.0,<5)
 Project-URL: Bug Tracker, https://github.com/srittau/python-asserts/issues
 Project-URL: Changes, https://github.com/srittau/python-asserts/blob/main/CHANGELOG.md
 Project-URL: GitHub, https://github.com/srittau/python-asserts
+Project-URL: Homepage, https://github.com/srittau/python-asserts
 Project-URL: Repository, https://github.com/srittau/python-asserts
 Description-Content-Type: text/markdown
 
@@ -30,7 +25,7 @@ Description-Content-Type: text/markdown
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/asserts)](https://pypi.python.org/pypi/asserts/)
 [![GitHub](https://img.shields.io/github/release/srittau/python-asserts/all.svg)](https://github.com/srittau/python-asserts/releases/)
 [![pypi](https://img.shields.io/pypi/v/asserts.svg)](https://pypi.python.org/pypi/asserts/)
-[![GitHub Actions](https://img.shields.io/github/workflow/status/srittau/python-asserts/Test%20and%20lint)](https://github.com/srittau/python-asserts/actions/workflows/test-and-lint.yml)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/srittau/python-asserts/test-and-lint.yml)](https://github.com/srittau/python-asserts/actions/workflows/test-and-lint.yml)
 
 Stand-alone Assertions for Python
 

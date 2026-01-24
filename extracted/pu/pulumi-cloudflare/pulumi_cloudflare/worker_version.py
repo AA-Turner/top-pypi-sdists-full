@@ -37,7 +37,7 @@ class WorkerVersionArgs:
         """
         The set of arguments for constructing a WorkerVersion resource.
         :param pulumi.Input[_builtins.str] account_id: Identifier.
-        :param pulumi.Input[_builtins.str] worker_id: Identifier.
+        :param pulumi.Input[_builtins.str] worker_id: Identifier for the Worker, which can be ID or name.
         :param pulumi.Input['WorkerVersionAnnotationsArgs'] annotations: Metadata about the version.
         :param pulumi.Input['WorkerVersionAssetsArgs'] assets: Configuration for assets within a Worker.
         :param pulumi.Input[Sequence[pulumi.Input['WorkerVersionBindingArgs']]] bindings: List of bindings attached to a Worker. You can find more about bindings on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
@@ -47,6 +47,11 @@ class WorkerVersionArgs:
         :param pulumi.Input[_builtins.str] main_module: The name of the main module in the `modules` array (e.g. the name of the module that exports a `fetch` handler).
         :param pulumi.Input['WorkerVersionMigrationsArgs'] migrations: Migrations for Durable Objects associated with the version. Migrations are applied when the version is deployed.
         :param pulumi.Input[Sequence[pulumi.Input['WorkerVersionModuleArgs']]] modules: Code, sourcemaps, and other content used at runtime.
+               
+               This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+               [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+               [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+               included as modules named `_headers` and `_redirects` with content type `text/plain`.
         :param pulumi.Input['WorkerVersionPlacementArgs'] placement: Placement settings for the version.
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the version.
                Available values: "standard", "bundled", "unbound".
@@ -95,7 +100,7 @@ class WorkerVersionArgs:
     @pulumi.getter(name="workerId")
     def worker_id(self) -> pulumi.Input[_builtins.str]:
         """
-        Identifier.
+        Identifier for the Worker, which can be ID or name.
         """
         return pulumi.get(self, "worker_id")
 
@@ -204,6 +209,11 @@ class WorkerVersionArgs:
     def modules(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkerVersionModuleArgs']]]]:
         """
         Code, sourcemaps, and other content used at runtime.
+
+        This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+        [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+        [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+        included as modules named `_headers` and `_redirects` with content type `text/plain`.
         """
         return pulumi.get(self, "modules")
 
@@ -250,11 +260,13 @@ class _WorkerVersionState:
                  created_on: Optional[pulumi.Input[_builtins.str]] = None,
                  limits: Optional[pulumi.Input['WorkerVersionLimitsArgs']] = None,
                  main_module: Optional[pulumi.Input[_builtins.str]] = None,
+                 main_script_base64: Optional[pulumi.Input[_builtins.str]] = None,
                  migrations: Optional[pulumi.Input['WorkerVersionMigrationsArgs']] = None,
                  modules: Optional[pulumi.Input[Sequence[pulumi.Input['WorkerVersionModuleArgs']]]] = None,
                  number: Optional[pulumi.Input[_builtins.int]] = None,
                  placement: Optional[pulumi.Input['WorkerVersionPlacementArgs']] = None,
                  source: Optional[pulumi.Input[_builtins.str]] = None,
+                 startup_time_ms: Optional[pulumi.Input[_builtins.int]] = None,
                  usage_model: Optional[pulumi.Input[_builtins.str]] = None,
                  worker_id: Optional[pulumi.Input[_builtins.str]] = None):
         """
@@ -268,14 +280,21 @@ class _WorkerVersionState:
         :param pulumi.Input[_builtins.str] created_on: When the version was created.
         :param pulumi.Input['WorkerVersionLimitsArgs'] limits: Resource limits enforced at runtime.
         :param pulumi.Input[_builtins.str] main_module: The name of the main module in the `modules` array (e.g. the name of the module that exports a `fetch` handler).
+        :param pulumi.Input[_builtins.str] main_script_base64: The base64-encoded main script content. This is only returned for service worker syntax workers (not ES modules). Used when importing existing workers that use the older service worker syntax.
         :param pulumi.Input['WorkerVersionMigrationsArgs'] migrations: Migrations for Durable Objects associated with the version. Migrations are applied when the version is deployed.
         :param pulumi.Input[Sequence[pulumi.Input['WorkerVersionModuleArgs']]] modules: Code, sourcemaps, and other content used at runtime.
+               
+               This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+               [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+               [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+               included as modules named `_headers` and `_redirects` with content type `text/plain`.
         :param pulumi.Input[_builtins.int] number: The integer version number, starting from one.
         :param pulumi.Input['WorkerVersionPlacementArgs'] placement: Placement settings for the version.
         :param pulumi.Input[_builtins.str] source: The client used to create the version.
+        :param pulumi.Input[_builtins.int] startup_time_ms: Time in milliseconds spent on [Worker startup](https://developers.cloudflare.com/workers/platform/limits/#worker-startup-time).
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the version.
                Available values: "standard", "bundled", "unbound".
-        :param pulumi.Input[_builtins.str] worker_id: Identifier.
+        :param pulumi.Input[_builtins.str] worker_id: Identifier for the Worker, which can be ID or name.
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -295,6 +314,8 @@ class _WorkerVersionState:
             pulumi.set(__self__, "limits", limits)
         if main_module is not None:
             pulumi.set(__self__, "main_module", main_module)
+        if main_script_base64 is not None:
+            pulumi.set(__self__, "main_script_base64", main_script_base64)
         if migrations is not None:
             pulumi.set(__self__, "migrations", migrations)
         if modules is not None:
@@ -305,6 +326,8 @@ class _WorkerVersionState:
             pulumi.set(__self__, "placement", placement)
         if source is not None:
             pulumi.set(__self__, "source", source)
+        if startup_time_ms is not None:
+            pulumi.set(__self__, "startup_time_ms", startup_time_ms)
         if usage_model is not None:
             warnings.warn("""This attribute is deprecated.""", DeprecationWarning)
             pulumi.log.warn("""usage_model is deprecated: This attribute is deprecated.""")
@@ -422,6 +445,18 @@ class _WorkerVersionState:
         pulumi.set(self, "main_module", value)
 
     @_builtins.property
+    @pulumi.getter(name="mainScriptBase64")
+    def main_script_base64(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The base64-encoded main script content. This is only returned for service worker syntax workers (not ES modules). Used when importing existing workers that use the older service worker syntax.
+        """
+        return pulumi.get(self, "main_script_base64")
+
+    @main_script_base64.setter
+    def main_script_base64(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "main_script_base64", value)
+
+    @_builtins.property
     @pulumi.getter
     def migrations(self) -> Optional[pulumi.Input['WorkerVersionMigrationsArgs']]:
         """
@@ -438,6 +473,11 @@ class _WorkerVersionState:
     def modules(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkerVersionModuleArgs']]]]:
         """
         Code, sourcemaps, and other content used at runtime.
+
+        This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+        [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+        [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+        included as modules named `_headers` and `_redirects` with content type `text/plain`.
         """
         return pulumi.get(self, "modules")
 
@@ -482,6 +522,18 @@ class _WorkerVersionState:
         pulumi.set(self, "source", value)
 
     @_builtins.property
+    @pulumi.getter(name="startupTimeMs")
+    def startup_time_ms(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Time in milliseconds spent on [Worker startup](https://developers.cloudflare.com/workers/platform/limits/#worker-startup-time).
+        """
+        return pulumi.get(self, "startup_time_ms")
+
+    @startup_time_ms.setter
+    def startup_time_ms(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "startup_time_ms", value)
+
+    @_builtins.property
     @pulumi.getter(name="usageModel")
     @_utilities.deprecated("""This attribute is deprecated.""")
     def usage_model(self) -> Optional[pulumi.Input[_builtins.str]]:
@@ -499,7 +551,7 @@ class _WorkerVersionState:
     @pulumi.getter(name="workerId")
     def worker_id(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Identifier.
+        Identifier for the Worker, which can be ID or name.
         """
         return pulumi.get(self, "worker_id")
 
@@ -531,6 +583,62 @@ class WorkerVersion(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_worker_version = cloudflare.WorkerVersion("example_worker_version",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            worker_id="worker_id",
+            annotations={
+                "workers_message": "Fixed bug.",
+                "workers_tag": "v1.0.1",
+            },
+            assets={
+                "config": {
+                    "html_handling": "auto-trailing-slash",
+                    "not_found_handling": "404-page",
+                    "run_worker_first": ["string"],
+                },
+                "jwt": "jwt",
+            },
+            bindings=[{
+                "name": "MY_ENV_VAR",
+                "text": "my_data",
+                "type": "plain_text",
+            }],
+            compatibility_date="2021-01-01",
+            compatibility_flags=["nodejs_compat"],
+            limits={
+                "cpu_ms": 50,
+            },
+            main_module="index.js",
+            migrations={
+                "deleted_classes": ["string"],
+                "new_classes": ["string"],
+                "new_sqlite_classes": ["string"],
+                "new_tag": "v2",
+                "old_tag": "v1",
+                "renamed_classes": [{
+                    "from_": "from",
+                    "to": "to",
+                }],
+                "transferred_classes": [{
+                    "from_": "from",
+                    "from_script": "from_script",
+                    "to": "to",
+                }],
+            },
+            modules=[{
+                "content_file": "dist/index.js",
+                "content_type": "application/javascript+module",
+                "name": "index.js",
+            }],
+            placement={
+                "mode": "smart",
+            })
+        ```
+
         ## Import
 
         ```sh
@@ -549,10 +657,15 @@ class WorkerVersion(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] main_module: The name of the main module in the `modules` array (e.g. the name of the module that exports a `fetch` handler).
         :param pulumi.Input[Union['WorkerVersionMigrationsArgs', 'WorkerVersionMigrationsArgsDict']] migrations: Migrations for Durable Objects associated with the version. Migrations are applied when the version is deployed.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkerVersionModuleArgs', 'WorkerVersionModuleArgsDict']]]] modules: Code, sourcemaps, and other content used at runtime.
+               
+               This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+               [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+               [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+               included as modules named `_headers` and `_redirects` with content type `text/plain`.
         :param pulumi.Input[Union['WorkerVersionPlacementArgs', 'WorkerVersionPlacementArgsDict']] placement: Placement settings for the version.
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the version.
                Available values: "standard", "bundled", "unbound".
-        :param pulumi.Input[_builtins.str] worker_id: Identifier.
+        :param pulumi.Input[_builtins.str] worker_id: Identifier for the Worker, which can be ID or name.
         """
         ...
     @overload
@@ -562,6 +675,62 @@ class WorkerVersion(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_worker_version = cloudflare.WorkerVersion("example_worker_version",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            worker_id="worker_id",
+            annotations={
+                "workers_message": "Fixed bug.",
+                "workers_tag": "v1.0.1",
+            },
+            assets={
+                "config": {
+                    "html_handling": "auto-trailing-slash",
+                    "not_found_handling": "404-page",
+                    "run_worker_first": ["string"],
+                },
+                "jwt": "jwt",
+            },
+            bindings=[{
+                "name": "MY_ENV_VAR",
+                "text": "my_data",
+                "type": "plain_text",
+            }],
+            compatibility_date="2021-01-01",
+            compatibility_flags=["nodejs_compat"],
+            limits={
+                "cpu_ms": 50,
+            },
+            main_module="index.js",
+            migrations={
+                "deleted_classes": ["string"],
+                "new_classes": ["string"],
+                "new_sqlite_classes": ["string"],
+                "new_tag": "v2",
+                "old_tag": "v1",
+                "renamed_classes": [{
+                    "from_": "from",
+                    "to": "to",
+                }],
+                "transferred_classes": [{
+                    "from_": "from",
+                    "from_script": "from_script",
+                    "to": "to",
+                }],
+            },
+            modules=[{
+                "content_file": "dist/index.js",
+                "content_type": "application/javascript+module",
+                "name": "index.js",
+            }],
+            placement={
+                "mode": "smart",
+            })
+        ```
 
         ## Import
 
@@ -624,8 +793,10 @@ class WorkerVersion(pulumi.CustomResource):
                 raise TypeError("Missing required property 'worker_id'")
             __props__.__dict__["worker_id"] = worker_id
             __props__.__dict__["created_on"] = None
+            __props__.__dict__["main_script_base64"] = None
             __props__.__dict__["number"] = None
             __props__.__dict__["source"] = None
+            __props__.__dict__["startup_time_ms"] = None
         super(WorkerVersion, __self__).__init__(
             'cloudflare:index/workerVersion:WorkerVersion',
             resource_name,
@@ -645,11 +816,13 @@ class WorkerVersion(pulumi.CustomResource):
             created_on: Optional[pulumi.Input[_builtins.str]] = None,
             limits: Optional[pulumi.Input[Union['WorkerVersionLimitsArgs', 'WorkerVersionLimitsArgsDict']]] = None,
             main_module: Optional[pulumi.Input[_builtins.str]] = None,
+            main_script_base64: Optional[pulumi.Input[_builtins.str]] = None,
             migrations: Optional[pulumi.Input[Union['WorkerVersionMigrationsArgs', 'WorkerVersionMigrationsArgsDict']]] = None,
             modules: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WorkerVersionModuleArgs', 'WorkerVersionModuleArgsDict']]]]] = None,
             number: Optional[pulumi.Input[_builtins.int]] = None,
             placement: Optional[pulumi.Input[Union['WorkerVersionPlacementArgs', 'WorkerVersionPlacementArgsDict']]] = None,
             source: Optional[pulumi.Input[_builtins.str]] = None,
+            startup_time_ms: Optional[pulumi.Input[_builtins.int]] = None,
             usage_model: Optional[pulumi.Input[_builtins.str]] = None,
             worker_id: Optional[pulumi.Input[_builtins.str]] = None) -> 'WorkerVersion':
         """
@@ -668,14 +841,21 @@ class WorkerVersion(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] created_on: When the version was created.
         :param pulumi.Input[Union['WorkerVersionLimitsArgs', 'WorkerVersionLimitsArgsDict']] limits: Resource limits enforced at runtime.
         :param pulumi.Input[_builtins.str] main_module: The name of the main module in the `modules` array (e.g. the name of the module that exports a `fetch` handler).
+        :param pulumi.Input[_builtins.str] main_script_base64: The base64-encoded main script content. This is only returned for service worker syntax workers (not ES modules). Used when importing existing workers that use the older service worker syntax.
         :param pulumi.Input[Union['WorkerVersionMigrationsArgs', 'WorkerVersionMigrationsArgsDict']] migrations: Migrations for Durable Objects associated with the version. Migrations are applied when the version is deployed.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkerVersionModuleArgs', 'WorkerVersionModuleArgsDict']]]] modules: Code, sourcemaps, and other content used at runtime.
+               
+               This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+               [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+               [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+               included as modules named `_headers` and `_redirects` with content type `text/plain`.
         :param pulumi.Input[_builtins.int] number: The integer version number, starting from one.
         :param pulumi.Input[Union['WorkerVersionPlacementArgs', 'WorkerVersionPlacementArgsDict']] placement: Placement settings for the version.
         :param pulumi.Input[_builtins.str] source: The client used to create the version.
+        :param pulumi.Input[_builtins.int] startup_time_ms: Time in milliseconds spent on [Worker startup](https://developers.cloudflare.com/workers/platform/limits/#worker-startup-time).
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the version.
                Available values: "standard", "bundled", "unbound".
-        :param pulumi.Input[_builtins.str] worker_id: Identifier.
+        :param pulumi.Input[_builtins.str] worker_id: Identifier for the Worker, which can be ID or name.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -690,11 +870,13 @@ class WorkerVersion(pulumi.CustomResource):
         __props__.__dict__["created_on"] = created_on
         __props__.__dict__["limits"] = limits
         __props__.__dict__["main_module"] = main_module
+        __props__.__dict__["main_script_base64"] = main_script_base64
         __props__.__dict__["migrations"] = migrations
         __props__.__dict__["modules"] = modules
         __props__.__dict__["number"] = number
         __props__.__dict__["placement"] = placement
         __props__.__dict__["source"] = source
+        __props__.__dict__["startup_time_ms"] = startup_time_ms
         __props__.__dict__["usage_model"] = usage_model
         __props__.__dict__["worker_id"] = worker_id
         return WorkerVersion(resource_name, opts=opts, __props__=__props__)
@@ -772,6 +954,14 @@ class WorkerVersion(pulumi.CustomResource):
         return pulumi.get(self, "main_module")
 
     @_builtins.property
+    @pulumi.getter(name="mainScriptBase64")
+    def main_script_base64(self) -> pulumi.Output[_builtins.str]:
+        """
+        The base64-encoded main script content. This is only returned for service worker syntax workers (not ES modules). Used when importing existing workers that use the older service worker syntax.
+        """
+        return pulumi.get(self, "main_script_base64")
+
+    @_builtins.property
     @pulumi.getter
     def migrations(self) -> pulumi.Output[Optional['outputs.WorkerVersionMigrations']]:
         """
@@ -784,6 +974,11 @@ class WorkerVersion(pulumi.CustomResource):
     def modules(self) -> pulumi.Output[Optional[Sequence['outputs.WorkerVersionModule']]]:
         """
         Code, sourcemaps, and other content used at runtime.
+
+        This includes [`_headers`](https://developers.cloudflare.com/workers/static-assets/headers/#custom-headers) and
+        [`_redirects`](https://developers.cloudflare.com/workers/static-assets/redirects/) files used to configure 
+        [Static Assets](https://developers.cloudflare.com/workers/static-assets/). `_headers` and `_redirects` files should be 
+        included as modules named `_headers` and `_redirects` with content type `text/plain`.
         """
         return pulumi.get(self, "modules")
 
@@ -812,6 +1007,14 @@ class WorkerVersion(pulumi.CustomResource):
         return pulumi.get(self, "source")
 
     @_builtins.property
+    @pulumi.getter(name="startupTimeMs")
+    def startup_time_ms(self) -> pulumi.Output[_builtins.int]:
+        """
+        Time in milliseconds spent on [Worker startup](https://developers.cloudflare.com/workers/platform/limits/#worker-startup-time).
+        """
+        return pulumi.get(self, "startup_time_ms")
+
+    @_builtins.property
     @pulumi.getter(name="usageModel")
     @_utilities.deprecated("""This attribute is deprecated.""")
     def usage_model(self) -> pulumi.Output[_builtins.str]:
@@ -825,7 +1028,7 @@ class WorkerVersion(pulumi.CustomResource):
     @pulumi.getter(name="workerId")
     def worker_id(self) -> pulumi.Output[_builtins.str]:
         """
-        Identifier.
+        Identifier for the Worker, which can be ID or name.
         """
         return pulumi.get(self, "worker_id")
 

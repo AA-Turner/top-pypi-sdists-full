@@ -2,6 +2,8 @@ from chalk._gen.chalk.aggregate.v1 import backfill_pb2 as _backfill_pb2
 from chalk._gen.chalk.aggregate.v1 import timeseries_pb2 as _timeseries_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.common.v1 import chalk_error_pb2 as _chalk_error_pb2
+from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -133,4 +135,58 @@ class GetActiveCronAggregateBackfillsResponse(_message.Message):
     cron_aggregate_backfills: _containers.RepeatedCompositeFieldContainer[CronAggregateBackfillWithLatestRun]
     def __init__(
         self, cron_aggregate_backfills: _Optional[_Iterable[_Union[CronAggregateBackfillWithLatestRun, _Mapping]]] = ...
+    ) -> None: ...
+
+class CreateAggregateBackfillJobRequest(_message.Message):
+    __slots__ = (
+        "features",
+        "lower_bound",
+        "upper_bound",
+        "resolver",
+        "bucket_feature",
+        "enable_profiling",
+        "aggregate_backfill_id",
+        "resource_group",
+    )
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
+    RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    BUCKET_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    AGGREGATE_BACKFILL_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    features: _containers.RepeatedScalarFieldContainer[str]
+    lower_bound: _timestamp_pb2.Timestamp
+    upper_bound: _timestamp_pb2.Timestamp
+    resolver: str
+    bucket_feature: str
+    enable_profiling: bool
+    aggregate_backfill_id: str
+    resource_group: str
+    def __init__(
+        self,
+        features: _Optional[_Iterable[str]] = ...,
+        lower_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        upper_bound: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        resolver: _Optional[str] = ...,
+        bucket_feature: _Optional[str] = ...,
+        enable_profiling: bool = ...,
+        aggregate_backfill_id: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+    ) -> None: ...
+
+class CreateAggregateBackfillJobResponse(_message.Message):
+    __slots__ = ("job_id", "features", "errors")
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    FEATURES_FIELD_NUMBER: _ClassVar[int]
+    ERRORS_FIELD_NUMBER: _ClassVar[int]
+    job_id: str
+    features: _containers.RepeatedScalarFieldContainer[str]
+    errors: _containers.RepeatedCompositeFieldContainer[_chalk_error_pb2.ChalkError]
+    def __init__(
+        self,
+        job_id: _Optional[str] = ...,
+        features: _Optional[_Iterable[str]] = ...,
+        errors: _Optional[_Iterable[_Union[_chalk_error_pb2.ChalkError, _Mapping]]] = ...,
     ) -> None: ...

@@ -189,19 +189,33 @@ class IndexLineConfig(object):
     :type chinese: bool
     :param chinese: enable Chinese words segmentation
 
+    :type auto_key_detect: bool
+    :param auto_key_detect: enable auto key detection
+
+    :type auto_key_count_limit: int
+    :param auto_key_count_limit: limit for auto key count, only effective when auto_key_detect is True
+
     """
 
-    def __init__(self, token_list=None, case_sensitive=False, include_keys=None, exclude_keys=None, chinese=None):
+    def __init__(self, token_list=None, case_sensitive=False, include_keys=None, exclude_keys=None, chinese=None, 
+                 auto_key_detect=None, auto_key_count_limit=None):
         if token_list is None:
             token_list = []
         self.token_list = token_list
         self.case_sensitive = case_sensitive
         self.chn = bool(chinese)
+        self.auto_key_detect = auto_key_detect
+        self.auto_key_count_limit = auto_key_count_limit
 
     def to_json(self):
         json_value = {"token": self.token_list, "caseSensitive": bool(self.case_sensitive)}
         if self.chn is not None:
             json_value["chn"] = bool(self.chn)
+
+        if self.auto_key_detect is not None:
+            json_value["auto_key_detect"] = bool(self.auto_key_detect)
+            if self.auto_key_detect and self.auto_key_count_limit is not None:
+                json_value["auto_key_count_limit"] = int(self.auto_key_count_limit)
 
         return json_value
 
@@ -209,6 +223,8 @@ class IndexLineConfig(object):
         self.token_list = json_value["token"]
         self.case_sensitive = bool(json_value.get("caseSensitive", False))
         self.chn = bool(json_value["chn"]) if "chn" in json_value else None
+        self.auto_key_detect = bool(json_value["auto_key_detect"]) if "auto_key_detect" in json_value else None
+        self.auto_key_count_limit = int(json_value["auto_key_count_limit"]) if "auto_key_count_limit" in json_value else None
 
 
 class IndexConfig(object):
@@ -229,9 +245,12 @@ class IndexConfig(object):
     :type log_reduce: bool
     :param log_reduce: if to enable logreduce
 
+    :type scan_index: bool
+    :param scan_index: if to enable scan index
+
     """
 
-    def __init__(self, ttl=1, line_config=None, key_config_list=None, all_keys_config=None, log_reduce=None):
+    def __init__(self, ttl=1, line_config=None, key_config_list=None, all_keys_config=None, log_reduce=None, scan_index=None):
         if key_config_list is None:
             key_config_list = {}
         self.ttl = ttl
@@ -243,7 +262,7 @@ class IndexConfig(object):
         self.log_reduce_black_list = None
         self.log_reduce_white_list = None
         self.docvalue_max_text_len = 0
-
+        self.scan_index = scan_index
     '''
     :type max_len : int
     :param max_len : the max len  of the docvalue
@@ -268,6 +287,9 @@ class IndexConfig(object):
     def set_log_reduce_white_list(self, white_list):
         self.log_reduce_white_list = white_list
 
+    def set_scan_index(self, scan_index):
+        self.scan_index = scan_index
+
     def to_json(self):
         json_value = {}
         if self.line_config is not None:
@@ -289,6 +311,9 @@ class IndexConfig(object):
 
         elif self.log_reduce_black_list != None:
             json_value["log_reduce_black_list"] = self.log_reduce_black_list
+        
+        if self.scan_index is not None:
+            json_value["scan_index"] = self.scan_index
 
         return json_value
 
@@ -314,3 +339,6 @@ class IndexConfig(object):
         self.docvalue_max_text_len = json_value.get('max_text_len', 0)
 
         self.modify_time = json_value.get("lastModifyTime", int(time.time()))
+
+        if 'scan_index' in json_value:
+            self.scan_index = json_value['scan_index']

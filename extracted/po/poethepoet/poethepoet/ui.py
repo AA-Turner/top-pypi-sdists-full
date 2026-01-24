@@ -2,7 +2,7 @@ import os
 import sys
 from collections.abc import Mapping, Sequence
 from contextlib import redirect_stderr
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from .__version__ import __version__
 from .exceptions import ConfigValidationError, ExecutionError, PoeException
@@ -118,6 +118,26 @@ class PoeUi:
             help=maybe_suppress("executor", "Override the default task executor"),
         )
 
+        def key_value_pair(input_str: str) -> tuple[str, str]:
+            if "=" in input_str:
+                key, val = input_str.split("=", 1)
+                return key, val
+            return input_str, "1"
+
+        parser.add_argument(
+            "-X",
+            "--executor-opt",
+            dest="executor_options",
+            action="append",
+            metavar="KEY[=VALUE]",
+            default=[],
+            type=key_value_pair,
+            help=maybe_suppress(
+                "executor_options",
+                "Set executor configuration for this run.",
+            ),
+        )
+
         # legacy --root parameter, keep for backwards compatibility but help output is
         # suppressed
         parser.add_argument(
@@ -147,7 +167,7 @@ class PoeUi:
             help=maybe_suppress("ansi", "Force disable ANSI output"),
         )
 
-        parser.add_argument("task", default=tuple(), nargs=argparse.REMAINDER)
+        parser.add_argument("task", default=(), nargs=argparse.REMAINDER)
 
         return parser
 
@@ -167,11 +187,11 @@ class PoeUi:
 
     def print_help(
         self,
-        tasks: Optional[
-            Mapping[str, tuple[str, Sequence[tuple[tuple[str, ...], str, str]]]]
-        ] = None,
-        info: Optional[str] = None,
-        error: Optional[PoeException] = None,
+        tasks: (
+            Mapping[str, tuple[str, Sequence[tuple[tuple[str, ...], str, str]]]] | None
+        ) = None,
+        info: str | None = None,
+        error: PoeException | None = None,
     ):
         # Ignore verbosity mode if help flag is set
         help_flag_set = self["help"] is None
@@ -183,7 +203,7 @@ class PoeUi:
         if not error and not self.io.verbosity_offset_was_set:
             verbosity = min(0, self.io.verbosity)
 
-        result: list[Union[str, Sequence[str]]] = []
+        result: list[str | Sequence[str]] = []
         if verbosity >= 0 and not help_single_task:
             result.append((f"<h2>Poe the Poet</h2> (version <em>{__version__}</em>)",))
 
@@ -261,7 +281,11 @@ class PoeUi:
         if error and self.io.is_debug_enabled():
             import traceback
 
-            result.append("".join(traceback.format_exception(error)).strip())
+            result.append(
+                "".join(
+                    traceback.format_exception(type(error), error, error.__traceback__)
+                ).strip()
+            )
 
         self.io.print(
             "\n\n".join(
@@ -332,7 +356,7 @@ class PoeUi:
             formatted_options = ", ".join(str(opt) for opt in options)
             task_arg_help = [
                 " " * indent,
-                f"<em3>{self._padr(formatted_options, col_width-1)}</em3>",
+                f"<em3>{self._padr(formatted_options, col_width - 1)}</em3>",
             ]
             if arg_help_text:
                 task_arg_help.append(self._align(arg_help_text, col_width))
@@ -356,7 +380,7 @@ class PoeUi:
             return text
         return text + " " * (width - len(text))
 
-    def print_error(self, error: Union[PoeException, ExecutionError]):
+    def print_error(self, error: PoeException | ExecutionError):
         error_lines = error.msg.split("\n")
         if error.cause:
             error_lines.append(f"From: {error.cause}")
@@ -369,7 +393,11 @@ class PoeUi:
         if self.io.is_debug_enabled():
             import traceback
 
-            self.io.print_debug("".join(traceback.format_exception(error)).strip())
+            self.io.print_debug(
+                "".join(
+                    traceback.format_exception(type(error), error, error.__traceback__)
+                ).strip()
+            )
 
     def _format_error_lines(self, lines: Sequence[str]) -> tuple[str, ...]:
         return (

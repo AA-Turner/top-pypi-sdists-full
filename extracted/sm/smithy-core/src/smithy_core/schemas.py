@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any, NotRequired, Required, Self, TypedDict, overload
 
-from .exceptions import ExpectationNotMetException, SmithyException
+from .exceptions import ExpectationNotMetError, SmithyError
 from .shapes import ShapeID, ShapeType
 from .traits import DynamicTrait, IdempotencyTokenTrait, StreamingTrait, Trait
 
@@ -20,8 +20,10 @@ class Schema:
 
     id: ShapeID
     shape_type: ShapeType
-    traits: dict[ShapeID, "Trait | DynamicTrait"] = field(default_factory=dict)
-    members: dict[str, "Schema"] = field(default_factory=dict)
+    traits: dict[ShapeID, "Trait | DynamicTrait"] = field(
+        default_factory=dict[ShapeID, "Trait | DynamicTrait"]
+    )
+    members: dict[str, "Schema"] = field(default_factory=dict[str, "Schema"])
     member_target: "Schema | None" = None
     member_index: int | None = None
 
@@ -55,7 +57,7 @@ class Schema:
             member_index is not None,
         ]
         if any(_member_props) and not all(_member_props):
-            raise SmithyException(
+            raise SmithyError(
                 "If any member property is set, all member properties must be set. "
                 f"member_name: {id.member!r}, member_target: "
                 f"{member_target!r}, member_index: {member_index!r}"
@@ -72,14 +74,13 @@ class Schema:
             traits = {}
         object.__setattr__(self, "traits", traits)
 
-        if members:
-            if isinstance(members, list):
-                m: dict[str, Schema] = {}
-                for member in members:
-                    m[member.expect_member_name()] = member
-                members = m
-        else:
+        if members is None:
             members = {}
+        elif isinstance(members, list):
+            m: dict[str, Schema] = {}
+            for member in sorted(members, key=lambda m: m.expect_member_index()):
+                m[member.expect_member_name()] = member
+            members = m
         object.__setattr__(self, "members", members)
 
         if member_target is not None:
@@ -96,7 +97,7 @@ class Schema:
     def expect_member_name(self) -> str:
         """Assert the schema is a member schema and return its member name.
 
-        :raises ExpectationNotMetException: If member_name wasn't set.
+        :raises ExpectationNotMetError: If member_name wasn't set.
         :returns: Returns the member name.
         """
         return self.id.expect_member()
@@ -107,11 +108,11 @@ class Schema:
         If the target is a class containing a schema, the schema is extracted and
         returned.
 
-        :raises ExpectationNotMetException: If member_target wasn't set.
+        :raises ExpectationNotMetError: If member_target wasn't set.
         :returns: Returns the target schema.
         """
         if self.member_target is None:
-            raise ExpectationNotMetException(
+            raise ExpectationNotMetError(
                 "Expected member_target to be set, but was None."
             )
         return self.member_target
@@ -119,11 +120,11 @@ class Schema:
     def expect_member_index(self) -> int:
         """Assert the schema is a member schema and return its member index.
 
-        :raises ExpectationNotMetException: If member_index wasn't set.
+        :raises ExpectationNotMetError: If member_index wasn't set.
         :returns: Returns the member index.
         """
         if self.member_index is None:
-            raise ExpectationNotMetException(
+            raise ExpectationNotMetError(
                 "Expected member_index to be set, but was None."
             )
         return self.member_index
@@ -192,7 +193,7 @@ class Schema:
         id: ShapeID,
         shape_type: ShapeType = ShapeType.STRUCTURE,
         traits: list["Trait | DynamicTrait"] | None = None,
-        members: Mapping[str, "MemberSchema"] | None = None,
+        members: Mapping[str, "MemberSchema | None"] | None = None,
     ) -> Self:
         """Create a schema for a collection shape.
 
@@ -203,15 +204,23 @@ class Schema:
             properties, map keys/values, and union variants. In contrast to the main
             constructor, this is a dict of member names to a simplified dict containing
             only ``traits`` and a ``target``. Member schemas will be generated from this.
+
+            If the value is None, it MUST be populated later. This is to allow a preservation
+            of modeled order without having to explicitly provide it and therefore generate
+            a ton of boilerplate.
         """
         struct_members: dict[str, Schema] = {}
         if members:
-            for k in members.keys():
+            for i, (k, member) in enumerate(members.items()):
+                if member is None:
+                    struct_members[k] = None  # type: ignore
+                    continue
+
                 struct_members[k] = cls.member(
                     id=id.with_member(k),
-                    target=members[k]["target"],
-                    index=members[k]["index"],
-                    member_traits=members[k].get("traits"),
+                    target=member["target"],
+                    index=i,
+                    member_traits=member.get("traits"),
                 )
 
         result = cls(
@@ -243,7 +252,7 @@ class Schema:
         """
         id.expect_member()
         if target.member_target is not None:
-            raise ExpectationNotMetException("Member targets must not be members.")
+            raise ExpectationNotMetError("Member targets must not be members.")
         resolved_traits = target.traits.copy()
         if member_traits:
             resolved_traits.update({t.id: t for t in member_traits})
@@ -266,7 +275,6 @@ class MemberSchema(TypedDict):
     """
 
     target: Required[Schema]
-    index: Required[int]
     traits: NotRequired[list["Trait | DynamicTrait"]]
 
 
@@ -280,13 +288,13 @@ class APIOperation[I: "SerializeableShape", O: "DeserializeableShape"]:
     output: type[O]
     """The output type of the operation."""
 
-    schema: Schema
+    schema: Schema = field(repr=False)
     """The schema of the operation."""
 
-    input_schema: Schema
+    input_schema: Schema = field(repr=False)
     """The schema of the operation's input shape."""
 
-    output_schema: Schema
+    output_schema: Schema = field(repr=False)
     """The schema of the operation's output shape."""
 
     error_registry: "TypeRegistry"

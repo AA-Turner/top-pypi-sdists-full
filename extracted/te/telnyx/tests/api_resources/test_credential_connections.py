@@ -10,12 +10,13 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    CredentialConnectionListResponse,
+    CredentialConnection,
     CredentialConnectionCreateResponse,
     CredentialConnectionDeleteResponse,
     CredentialConnectionUpdateResponse,
     CredentialConnectionRetrieveResponse,
 )
+from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -43,6 +44,7 @@ class TestCredentialConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             default_on_hold_comfort_noise_enabled=False,
             dtmf_type="RFC 2833",
             encode_contact_header_enabled=True,
@@ -50,17 +52,23 @@ class TestCredentialConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
                 "prack_enabled": True,
                 "shaken_stir_enabled": True,
+                "simultaneous_ringing": "disabled",
                 "sip_compact_headers_enabled": True,
                 "timeout_1xx_secs": 10,
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "always",
@@ -175,6 +183,7 @@ class TestCredentialConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             connection_name="my name",
             default_on_hold_comfort_noise_enabled=False,
             dtmf_type="RFC 2833",
@@ -183,17 +192,23 @@ class TestCredentialConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
                 "prack_enabled": True,
                 "shaken_stir_enabled": True,
+                "simultaneous_ringing": "disabled",
                 "sip_compact_headers_enabled": True,
                 "timeout_1xx_secs": 10,
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "always",
@@ -260,7 +275,7 @@ class TestCredentialConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         credential_connection = client.credential_connections.list()
-        assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -277,7 +292,7 @@ class TestCredentialConnections:
             },
             sort="connection_name",
         )
-        assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -287,7 +302,7 @@ class TestCredentialConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         credential_connection = response.parse()
-        assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -297,7 +312,7 @@ class TestCredentialConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             credential_connection = response.parse()
-            assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+            assert_matches_type(SyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -369,6 +384,7 @@ class TestAsyncCredentialConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             default_on_hold_comfort_noise_enabled=False,
             dtmf_type="RFC 2833",
             encode_contact_header_enabled=True,
@@ -376,17 +392,23 @@ class TestAsyncCredentialConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
                 "prack_enabled": True,
                 "shaken_stir_enabled": True,
+                "simultaneous_ringing": "disabled",
                 "sip_compact_headers_enabled": True,
                 "timeout_1xx_secs": 10,
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "always",
@@ -501,6 +523,7 @@ class TestAsyncCredentialConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             connection_name="my name",
             default_on_hold_comfort_noise_enabled=False,
             dtmf_type="RFC 2833",
@@ -509,17 +532,23 @@ class TestAsyncCredentialConnections:
             inbound={
                 "ani_number_format": "+E.164",
                 "channel_limit": 10,
-                "codecs": ["string"],
+                "codecs": ["G722"],
                 "dnis_number_format": "+e164",
                 "generate_ringback_tone": True,
                 "isup_headers_enabled": True,
                 "prack_enabled": True,
                 "shaken_stir_enabled": True,
+                "simultaneous_ringing": "disabled",
                 "sip_compact_headers_enabled": True,
                 "timeout_1xx_secs": 10,
                 "timeout_2xx_secs": 20,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "always",
@@ -586,7 +615,7 @@ class TestAsyncCredentialConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         credential_connection = await async_client.credential_connections.list()
-        assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -603,7 +632,7 @@ class TestAsyncCredentialConnections:
             },
             sort="connection_name",
         )
-        assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -613,7 +642,7 @@ class TestAsyncCredentialConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         credential_connection = await response.parse()
-        assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -623,7 +652,7 @@ class TestAsyncCredentialConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             credential_connection = await response.parse()
-            assert_matches_type(CredentialConnectionListResponse, credential_connection, path=["response"])
+            assert_matches_type(AsyncDefaultPagination[CredentialConnection], credential_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

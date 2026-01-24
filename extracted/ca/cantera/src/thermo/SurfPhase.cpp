@@ -127,6 +127,8 @@ double SurfPhase::logStandardConc(size_t k) const
 
 void SurfPhase::getPureGibbs(double* g) const
 {
+    warn_deprecated("SurfPhase::getPureGibbs",
+        "To be removed after Cantera 3.2. Use getStandardChemPotentials instead.");
     _updateThermo();
     copy(m_mu0.begin(), m_mu0.end(), g);
 }
@@ -208,8 +210,8 @@ void SurfPhase::setSiteDensity(double n0)
                            "Site density must be positive. Got {}", n0);
     }
     m_n0 = n0;
-    assignDensity(n0 * meanMolecularWeight());
     m_logn0 = log(m_n0);
+    compositionChanged(); // trigger update of density
 }
 
 void SurfPhase::setCoverages(const double* theta)
@@ -297,7 +299,16 @@ void SurfPhase::setState(const AnyMap& state) {
 void SurfPhase::compositionChanged()
 {
     ThermoPhase::compositionChanged();
-    assignDensity(m_n0 * meanMolecularWeight());
+    getMoleFractions(m_work.data());
+    double q = 0;
+    double sumX = 0;
+    for (size_t k = 0; k < m_kk; k++) {
+        q += m_work[k] * size(k);
+        // This term accounts for unnormalized coverages used in calculation of
+        // derivatives using finite differences.
+        sumX += m_work[k];
+    }
+    assignDensity(m_n0 * meanMolecularWeight() * sumX / q);
 }
 
 void SurfPhase::_updateThermo(bool force) const

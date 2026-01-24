@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_1 import (
         ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1,
     )
+    from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2,
+    )
+    from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_3 import (
+        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType3,
+    )
     from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_approvers_item import (
         ListJobsResponse200ItemType1FlowStatusPreprocessorModuleApproversItem,
     )
@@ -55,7 +61,9 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset,
             List[Union['ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0',
-            'ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1']]]):
+            'ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1',
+            'ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2',
+            'ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -79,6 +87,8 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
             Union[
                 "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0",
                 "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1",
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2",
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -88,6 +98,12 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_0 import (
             ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0,
+        )
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_1 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -142,6 +158,18 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
                 if isinstance(
                     agent_actions_item_data,
                     ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0,
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data,
+                    ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1,
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data,
+                    ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2,
                 ):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
@@ -201,6 +229,12 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
         )
         from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_1 import (
             ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2,
+        )
+        from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_agent_actions_item_type_3 import (
+            ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType3,
         )
         from ..models.list_jobs_response_200_item_type_1_flow_status_preprocessor_module_approvers_item import (
             ListJobsResponse200ItemType1FlowStatusPreprocessorModuleApproversItem,
@@ -287,6 +321,8 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
             ) -> Union[
                 "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType0",
                 "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1",
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2",
+                "ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -298,13 +334,33 @@ class ListJobsResponse200ItemType1FlowStatusPreprocessorModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = (
+                        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = (
+                        ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType2.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = (
-                    ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = (
+                    ListJobsResponse200ItemType1FlowStatusPreprocessorModuleAgentActionsItemType3.from_dict(data)
                 )
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

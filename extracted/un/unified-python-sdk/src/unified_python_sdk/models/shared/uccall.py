@@ -5,17 +5,21 @@ from .property_uccall_telephone import (
     PropertyUcCallTelephone,
     PropertyUcCallTelephoneTypedDict,
 )
+from .uccontact import UcContact, UcContactTypedDict
 from datetime import datetime
-from typing import Any, Dict, Optional
+from pydantic import model_serializer
+from typing import Any, Dict, List, Optional
 from typing_extensions import NotRequired, TypedDict
-from unified_python_sdk.types import BaseModel
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class UcCallTypedDict(TypedDict):
     contact_id: NotRequired[str]
+    contacts: NotRequired[List[UcContactTypedDict]]
     created_at: NotRequired[datetime]
     end_at: NotRequired[datetime]
     id: NotRequired[str]
+    is_private: NotRequired[bool]
     raw: NotRequired[Dict[str, Any]]
     start_at: NotRequired[datetime]
     telephone: NotRequired[PropertyUcCallTelephoneTypedDict]
@@ -27,11 +31,15 @@ class UcCallTypedDict(TypedDict):
 class UcCall(BaseModel):
     contact_id: Optional[str] = None
 
+    contacts: Optional[List[UcContact]] = None
+
     created_at: Optional[datetime] = None
 
     end_at: Optional[datetime] = None
 
     id: Optional[str] = None
+
+    is_private: Optional[bool] = None
 
     raw: Optional[Dict[str, Any]] = None
 
@@ -43,3 +51,33 @@ class UcCall(BaseModel):
     updated_at: Optional[datetime] = None
 
     user_id: Optional[str] = None
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "contact_id",
+                "contacts",
+                "created_at",
+                "end_at",
+                "id",
+                "is_private",
+                "raw",
+                "start_at",
+                "telephone",
+                "updated_at",
+                "user_id",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

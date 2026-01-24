@@ -1,5 +1,5 @@
 """
-Get a list of attachments returns "OK" response
+List incident attachments returns "OK" response
 """
 
 from datadog_api_client import ApiClient, Configuration

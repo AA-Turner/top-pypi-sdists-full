@@ -3,41 +3,12 @@
 # Licensed originally under the Apache License, Version 2.0: http://www.apache.org/licenses/LICENSE-2.0
 
 
-import datetime as _dt
 import io as _io
 
 import numpy as np
 import pandas as pd
 
 from . import stats as _stats
-
-
-def _mtd(df: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
-    return df[df.index >= _dt.datetime.now().strftime("%Y-%m-01")]
-
-
-def _qtd(df: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
-    date = _dt.datetime.now()
-    for q in [1, 4, 7, 10]:
-        if date.month <= q:
-            return df[df.index >= _dt.datetime(date.year, q, 1).strftime("%Y-%m-01")]
-    return df[df.index >= date.strftime("%Y-%m-01")]
-
-
-def _ytd(df: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
-    return df[df.index >= _dt.datetime.now().strftime("%Y-01-01")]
-
-
-def _pandas_date(df: pd.Series | pd.DataFrame, dates):
-    if not isinstance(dates, list):
-        dates = [dates]
-    return df[df.index.isin(dates)]
-
-
-def _pandas_current_month(df: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
-    n = _dt.datetime.now()
-    daterange = pd.date_range(_dt.date(n.year, n.month, 1), n)
-    return df[df.index.isin(daterange)]
 
 
 def multi_shift(df: pd.Series | pd.DataFrame, shift: int = 3) -> pd.DataFrame:
@@ -51,9 +22,7 @@ def multi_shift(df: pd.Series | pd.DataFrame, shift: int = 3) -> pd.DataFrame:
     return pd.concat(dfs, 1, sort=True)
 
 
-def to_returns(
-    prices: pd.Series | pd.DataFrame, rf: float = 0.0
-) -> pd.Series | pd.DataFrame:
+def to_returns(prices: pd.Series | pd.DataFrame) -> pd.Series | pd.DataFrame:
     """Calculates the simple arithmetic returns of a price series"""
     return prices.pct_change().replace([np.inf, -np.inf], float("NaN"))
 
@@ -67,16 +36,7 @@ def to_prices(
     return base + base * _stats.compsum(returns)
 
 
-def log_returns(
-    returns: pd.Series | pd.DataFrame, rf: float = 0.0, nperiods: int | None = None
-) -> pd.Series | float:
-    """Shorthand for to_log_returns"""
-    return to_log_returns(returns, rf, nperiods)
-
-
-def to_log_returns(
-    returns: pd.Series | pd.DataFrame, rf: float = 0.0, nperiods: int | None = None
-) -> pd.Series | float:
+def to_log_returns(returns: pd.Series | pd.DataFrame) -> pd.Series | float:
     """Converts returns series to log returns"""
     try:
         return np.log(returns + 1).replace([np.inf, -np.inf], float("NaN"))
@@ -221,8 +181,3 @@ def _count_consecutive(data: pd.Series | pd.DataFrame):
             data[col] = _count(data[col])
         return data
     return _count(data)
-
-
-def _score_str(val: str) -> str:
-    """Returns + sign for positive values (used in plots)"""
-    return ("" if "-" in val else "+") + str(val)

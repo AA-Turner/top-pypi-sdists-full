@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-connector-python-nightly
-Version: 2025.9.24
+Version: 2025.12.13
 Summary: Nigthly build of Snowflake Connector for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -39,42 +39,55 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 License-File: NOTICE
 Requires-Dist: asn1crypto<2.0.0,>0.24.0
-Requires-Dist: boto3>=1.24
-Requires-Dist: botocore>=1.24
-Requires-Dist: cffi<2.0.0,>=1.9
-Requires-Dist: cryptography>=3.1.0
-Requires-Dist: pyOpenSSL<26.0.0,>=22.0.0
-Requires-Dist: pyjwt<3.0.0
+Requires-Dist: cryptography>=44.0.1
+Requires-Dist: pyOpenSSL<26.0.0,>=24.0.0
+Requires-Dist: pyjwt<3.0.0,>=2.10.1
 Requires-Dist: pytz
-Requires-Dist: requests<3.0.0
+Requires-Dist: requests<3.0.0,>=2.32.4
 Requires-Dist: packaging
 Requires-Dist: charset_normalizer<4,>=2
-Requires-Dist: idna<4,>=2.5
-Requires-Dist: urllib3<2.0.0,>=1.21.1; python_version < "3.10"
-Requires-Dist: certifi>=2017.4.17
+Requires-Dist: idna<4,>=3.7
+Requires-Dist: urllib3<2.0.0,>=1.26.5; python_version < "3.10"
+Requires-Dist: certifi>=2024.7.4
 Requires-Dist: typing_extensions<5,>=4.3
 Requires-Dist: filelock<4,>=3.5
 Requires-Dist: sortedcontainers>=2.4.0
 Requires-Dist: platformdirs<5.0.0,>=2.6.0
 Requires-Dist: tomlkit
+Requires-Dist: boto3>=1.24
+Requires-Dist: botocore>=1.24
+Provides-Extra: boto
+Requires-Dist: boto3>=1.24; extra == "boto"
+Requires-Dist: botocore>=1.24; extra == "boto"
 Provides-Extra: development
 Requires-Dist: Cython; extra == "development"
 Requires-Dist: coverage; extra == "development"
+Requires-Dist: mitmproxy>=6.0.0; python_version >= "3.10" and extra == "development"
 Requires-Dist: more-itertools; extra == "development"
 Requires-Dist: numpy<=2.2.4; extra == "development"
 Requires-Dist: pendulum!=2.1.1; extra == "development"
 Requires-Dist: pexpect; extra == "development"
 Requires-Dist: pytest<7.5.0; extra == "development"
+Requires-Dist: pytest-asyncio; extra == "development"
 Requires-Dist: pytest-cov; extra == "development"
 Requires-Dist: pytest-rerunfailures<16.0; extra == "development"
 Requires-Dist: pytest-timeout; extra == "development"
 Requires-Dist: pytest-xdist; extra == "development"
 Requires-Dist: pytzdata; extra == "development"
+Requires-Dist: responses; extra == "development"
 Provides-Extra: pandas
-Requires-Dist: pandas<3.0.0,>=2.1.2; extra == "pandas"
-Requires-Dist: pyarrow; extra == "pandas"
+Requires-Dist: pandas<3.0.0,>=1.0.0; python_version < "3.13" and extra == "pandas"
+Requires-Dist: pandas<3.0.0,>=2.1.2; python_version >= "3.13" and extra == "pandas"
+Requires-Dist: pyarrow>=14.0.1; extra == "pandas"
 Provides-Extra: secure-local-storage
 Requires-Dist: keyring<26.0.0,>=23.1.0; extra == "secure-local-storage"
+Provides-Extra: aio
+Requires-Dist: aiohttp>=3.12.14; extra == "aio"
+Requires-Dist: aioboto3>=15.0.0; extra == "aio"
+Provides-Extra: aioboto
+Requires-Dist: aioboto3>=15.0.0; extra == "aioboto"
 Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
 
 Nigthly build of Snowflake Connector for Python

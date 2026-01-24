@@ -36,8 +36,9 @@
 //! value is longer than 5 characters
 //! ```
 use crate::{
-    paths::Location,
+    paths::{LazyLocation, Location},
     types::{JsonType, JsonTypeSet},
+    validator::LazyEvaluationPath,
 };
 use serde_json::{Map, Number, Value};
 use std::{
@@ -45,20 +46,26 @@ use std::{
     error,
     fmt::{self, Formatter, Write},
     iter::{empty, once},
+    slice,
     string::FromUtf8Error,
+    vec,
 };
 
 /// An error that can occur during validation.
 #[derive(Debug)]
 pub struct ValidationError<'a> {
-    /// Value of the property that failed validation.
-    pub instance: Cow<'a, Value>,
-    /// Type of validation error.
-    pub kind: ValidationErrorKind,
-    /// Path to the value that failed validation.
-    pub instance_path: Location,
-    /// Path to the JSON Schema keyword that failed validation.
-    pub schema_path: Location,
+    repr: Box<ValidationErrorRepr<'a>>,
+}
+
+#[derive(Debug)]
+struct ValidationErrorRepr<'a> {
+    instance: Cow<'a, Value>,
+    kind: ValidationErrorKind,
+    instance_path: Location,
+    /// Canonical schema location without $ref traversals (JSON Schema "keywordLocation")
+    schema_path: Location,
+    /// Dynamic path including $ref traversals.
+    tracker: LazyEvaluationPath,
 }
 
 /// An iterator over instances of [`ValidationError`] that represent validation error for the
@@ -78,15 +85,153 @@ pub struct ValidationError<'a> {
 ///     }
 /// }
 /// ```
-pub type ErrorIterator<'a> = Box<dyn Iterator<Item = ValidationError<'a>> + Sync + Send + 'a>;
+#[doc(hidden)]
+pub trait ValidationErrorIterator<'a>: Iterator<Item = ValidationError<'a>> + Send + Sync {}
+
+impl<'a, T> ValidationErrorIterator<'a> for T where
+    T: Iterator<Item = ValidationError<'a>> + Send + Sync
+{
+}
+
+/// A lazily-evaluated iterator over validation errors.
+///
+/// Use [`into_errors()`](Self::into_errors) to convert into [`ValidationErrors`],
+/// which implements [`std::error::Error`] for integration with error handling libraries.
+pub struct ErrorIterator<'a> {
+    iter: Box<dyn ValidationErrorIterator<'a> + 'a>,
+}
+
+impl<'a> ErrorIterator<'a> {
+    #[inline]
+    pub(crate) fn from_iterator<T>(iterator: T) -> Self
+    where
+        T: ValidationErrorIterator<'a> + 'a,
+    {
+        Self {
+            iter: Box::new(iterator),
+        }
+    }
+
+    /// Collects all errors into [`ValidationErrors`], which implements [`std::error::Error`].
+    #[inline]
+    #[must_use]
+    pub fn into_errors(self) -> ValidationErrors<'a> {
+        ValidationErrors {
+            errors: self.collect(),
+        }
+    }
+}
+
+/// An owned collection of validation errors that implements [`std::error::Error`].
+///
+/// Obtain this by calling [`ErrorIterator::into_errors()`].
+pub struct ValidationErrors<'a> {
+    errors: Vec<ValidationError<'a>>,
+}
+
+impl<'a> ValidationErrors<'a> {
+    #[inline]
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.errors.len()
+    }
+
+    #[inline]
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.errors.is_empty()
+    }
+
+    /// Returns the errors as a slice.
+    #[inline]
+    #[must_use]
+    pub fn as_slice(&self) -> &[ValidationError<'a>] {
+        &self.errors
+    }
+
+    #[inline]
+    pub fn iter(&self) -> slice::Iter<'_, ValidationError<'a>> {
+        self.errors.iter()
+    }
+
+    #[inline]
+    pub fn iter_mut(&mut self) -> slice::IterMut<'_, ValidationError<'a>> {
+        self.errors.iter_mut()
+    }
+}
+
+impl fmt::Display for ValidationErrors<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        if self.errors.is_empty() {
+            f.write_str("Validation succeeded")
+        } else {
+            writeln!(f, "Validation errors:")?;
+            for (idx, error) in self.errors.iter().enumerate() {
+                writeln!(f, "{:02}: {error}", idx + 1)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+impl fmt::Debug for ValidationErrors<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ValidationErrors")
+            .field("errors", &self.errors)
+            .finish()
+    }
+}
+
+impl error::Error for ValidationErrors<'_> {}
+
+impl<'a> Iterator for ErrorIterator<'a> {
+    type Item = ValidationError<'a>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.as_mut().next()
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        self.iter.size_hint()
+    }
+}
+
+impl<'a> IntoIterator for ValidationErrors<'a> {
+    type Item = ValidationError<'a>;
+    type IntoIter = vec::IntoIter<ValidationError<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.errors.into_iter()
+    }
+}
+
+impl<'a, 'b> IntoIterator for &'b ValidationErrors<'a> {
+    type Item = &'b ValidationError<'a>;
+    type IntoIter = slice::Iter<'b, ValidationError<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.errors.iter()
+    }
+}
+
+impl<'a, 'b> IntoIterator for &'b mut ValidationErrors<'a> {
+    type Item = &'b mut ValidationError<'a>;
+    type IntoIter = slice::IterMut<'b, ValidationError<'a>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.errors.iter_mut()
+    }
+}
 
 // Empty iterator means no error happened
 pub(crate) fn no_error<'a>() -> ErrorIterator<'a> {
-    Box::new(empty())
+    ErrorIterator::from_iterator(empty())
 }
 // A wrapper for one error
 pub(crate) fn error(instance: ValidationError) -> ErrorIterator {
-    Box::new(once(instance))
+    ErrorIterator::from_iterator(once(instance))
 }
 
 /// Kinds of errors that may happen during validation
@@ -142,7 +287,12 @@ pub enum ValidationErrorKind {
     /// Not enough properties in an object.
     MinProperties { limit: u64 },
     /// When some number is not a multiple of another number.
-    MultipleOf { multiple_of: f64 },
+    MultipleOf {
+        #[cfg(feature = "arbitrary-precision")]
+        multiple_of: Value,
+        #[cfg(not(feature = "arbitrary-precision"))]
+        multiple_of: f64,
+    },
     /// Negated schema failed validation.
     Not { schema: Value },
     /// The given schema is valid under more than one of the schemas listed in the 'oneOf' keyword.
@@ -173,6 +323,49 @@ pub enum ValidationErrorKind {
     Referencing(referencing::Error),
 }
 
+impl ValidationErrorKind {
+    pub(crate) fn keyword(&self) -> &'static str {
+        match self {
+            ValidationErrorKind::AdditionalItems { .. } => "additionalItems",
+            ValidationErrorKind::AdditionalProperties { .. } => "additionalProperties",
+            ValidationErrorKind::AnyOf { .. } => "anyOf",
+            ValidationErrorKind::BacktrackLimitExceeded { .. }
+            | ValidationErrorKind::Pattern { .. } => "pattern",
+            ValidationErrorKind::Constant { .. } => "const",
+            ValidationErrorKind::Contains => "contains",
+            ValidationErrorKind::ContentEncoding { .. } | ValidationErrorKind::FromUtf8 { .. } => {
+                "contentEncoding"
+            }
+            ValidationErrorKind::ContentMediaType { .. } => "contentMediaType",
+            ValidationErrorKind::Custom { .. } => "custom",
+            ValidationErrorKind::Enum { .. } => "enum",
+            ValidationErrorKind::ExclusiveMaximum { .. } => "exclusiveMaximum",
+            ValidationErrorKind::ExclusiveMinimum { .. } => "exclusiveMinimum",
+            ValidationErrorKind::FalseSchema => "falseSchema",
+            ValidationErrorKind::Format { .. } => "format",
+            ValidationErrorKind::MaxItems { .. } => "maxItems",
+            ValidationErrorKind::Maximum { .. } => "maximum",
+            ValidationErrorKind::MaxLength { .. } => "maxLength",
+            ValidationErrorKind::MaxProperties { .. } => "maxProperties",
+            ValidationErrorKind::MinItems { .. } => "minItems",
+            ValidationErrorKind::Minimum { .. } => "minimum",
+            ValidationErrorKind::MinLength { .. } => "minLength",
+            ValidationErrorKind::MinProperties { .. } => "minProperties",
+            ValidationErrorKind::MultipleOf { .. } => "multipleOf",
+            ValidationErrorKind::Not { .. } => "not",
+            ValidationErrorKind::OneOfMultipleValid { .. }
+            | ValidationErrorKind::OneOfNotValid { .. } => "oneOf",
+            ValidationErrorKind::PropertyNames { .. } => "propertyNames",
+            ValidationErrorKind::Required { .. } => "required",
+            ValidationErrorKind::Type { .. } => "type",
+            ValidationErrorKind::UnevaluatedItems { .. } => "unevaluatedItems",
+            ValidationErrorKind::UnevaluatedProperties { .. } => "unevaluatedProperties",
+            ValidationErrorKind::UniqueItems => "uniqueItems",
+            ValidationErrorKind::Referencing(_) => "$ref",
+        }
+    }
+}
+
 #[derive(Debug)]
 #[allow(missing_docs)]
 pub enum TypeKind {
@@ -182,6 +375,110 @@ pub enum TypeKind {
 
 /// Shortcuts for creation of specific error kinds.
 impl<'a> ValidationError<'a> {
+    /// Creates a new validation error from parts.
+    #[inline]
+    #[must_use]
+    pub(crate) fn new(
+        instance: Cow<'a, Value>,
+        kind: ValidationErrorKind,
+        instance_path: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
+    ) -> Self {
+        Self {
+            repr: Box::new(ValidationErrorRepr {
+                instance,
+                kind,
+                instance_path,
+                schema_path,
+                tracker: tracker.into(),
+            }),
+        }
+    }
+
+    /// Returns a reference to the instance that failed validation.
+    #[inline]
+    #[must_use]
+    pub fn instance(&self) -> &Cow<'a, Value> {
+        &self.repr.instance
+    }
+
+    /// Returns the kind of validation error.
+    #[inline]
+    #[must_use]
+    pub fn kind(&self) -> &ValidationErrorKind {
+        &self.repr.kind
+    }
+
+    /// Returns the JSON Pointer to the instance location that failed validation.
+    #[inline]
+    #[must_use]
+    pub fn instance_path(&self) -> &Location {
+        &self.repr.instance_path
+    }
+
+    /// Returns the canonical schema location without `$ref` traversals.
+    ///
+    /// This corresponds to JSON Schema's "keywordLocation" in output formats.
+    /// See JSON Schema 2020-12 Core, Section 12.4.2.
+    #[inline]
+    #[must_use]
+    pub fn schema_path(&self) -> &Location {
+        &self.repr.schema_path
+    }
+
+    /// Returns the dynamic evaluation path including `$ref` traversals.
+    ///
+    /// This corresponds to JSON Schema's "evaluationPath" - the actual path taken
+    /// through the schema including by-reference applicators (`$ref`, `$dynamicRef`).
+    /// See JSON Schema 2020-12 Core, Section 12.4.2.
+    #[inline]
+    #[must_use]
+    pub fn evaluation_path(&self) -> &Location {
+        self.repr.tracker.resolve(&self.repr.schema_path)
+    }
+
+    /// Decomposes the error into owned parts.
+    /// Returns (instance, kind, `instance_path`, `schema_path`, `evaluation_path`).
+    #[inline]
+    #[must_use]
+    pub fn into_parts(
+        self,
+    ) -> (
+        Cow<'a, Value>,
+        ValidationErrorKind,
+        Location,
+        Location,
+        Location,
+    ) {
+        let repr = *self.repr;
+        let evaluation_path = repr.tracker.into_owned(repr.schema_path.clone());
+        (
+            repr.instance,
+            repr.kind,
+            repr.instance_path,
+            repr.schema_path,
+            evaluation_path,
+        )
+    }
+
+    #[inline]
+    fn borrowed(
+        instance: &'a Value,
+        kind: ValidationErrorKind,
+        instance_path: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
+    ) -> Self {
+        Self::new(
+            Cow::Borrowed(instance),
+            kind,
+            instance_path,
+            schema_path,
+            tracker,
+        )
+    }
+
     /// Returns a wrapper that masks instance values in error messages.
     /// Uses "value" as a default placeholder.
     #[must_use]
@@ -202,569 +499,747 @@ impl<'a> ValidationError<'a> {
     /// Converts the `ValidationError` into an owned version with `'static` lifetime.
     #[must_use]
     pub fn to_owned(self) -> ValidationError<'static> {
-        ValidationError {
-            instance_path: self.instance_path,
-            instance: Cow::Owned(self.instance.into_owned()),
-            kind: self.kind,
-            schema_path: self.schema_path,
-        }
+        let (instance, kind, instance_path, schema_path, tracker) = self.into_parts();
+        ValidationError::new(
+            Cow::Owned(instance.into_owned()),
+            kind,
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
 
-    pub(crate) const fn additional_items(
-        location: Location,
+    pub(crate) fn additional_items(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: usize,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::AdditionalItems { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::AdditionalItems { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn additional_properties(
-        location: Location,
+    pub(crate) fn additional_properties(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         unexpected: Vec<String>,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::AdditionalProperties { unexpected },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::AdditionalProperties { unexpected },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn any_of(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         context: Vec<Vec<ValidationError<'a>>>,
     ) -> ValidationError<'a> {
-        ValidationError {
+        let context = context
+            .into_iter()
+            .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
+            .collect::<Vec<_>>();
+
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::AnyOf { context },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::AnyOf {
-                context: context
-                    .into_iter()
-                    .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
-                    .collect(),
-            },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn backtrack_limit(
-        location: Location,
+    pub(crate) fn backtrack_limit(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         error: fancy_regex::Error,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::BacktrackLimitExceeded { error },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::BacktrackLimitExceeded { error },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn constant_array(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         expected_value: &[Value],
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Constant {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Constant {
                 expected_value: Value::Array(expected_value.to_vec()),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn constant_boolean(
-        location: Location,
+    pub(crate) fn constant_boolean(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         expected_value: bool,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Constant {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Constant {
                 expected_value: Value::Bool(expected_value),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn constant_null(
-        location: Location,
+    pub(crate) fn constant_null(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Constant {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Constant {
                 expected_value: Value::Null,
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn constant_number(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         expected_value: &Number,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Constant {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Constant {
                 expected_value: Value::Number(expected_value.clone()),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn constant_object(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         expected_value: &Map<String, Value>,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Constant {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Constant {
                 expected_value: Value::Object(expected_value.clone()),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn constant_string(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         expected_value: &str,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Constant {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Constant {
                 expected_value: Value::String(expected_value.to_string()),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn contains(
-        location: Location,
+    pub(crate) fn contains(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Contains,
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Contains,
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn content_encoding(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         encoding: &str,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::ContentEncoding {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::ContentEncoding {
                 content_encoding: encoding.to_string(),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn content_media_type(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         media_type: &str,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::ContentMediaType {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::ContentMediaType {
                 content_media_type: media_type.to_string(),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn enumeration(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         options: &Value,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Enum {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Enum {
                 options: options.clone(),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn exclusive_maximum(
-        location: Location,
+    pub(crate) fn exclusive_maximum(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::ExclusiveMaximum { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::ExclusiveMaximum { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn exclusive_minimum(
-        location: Location,
+    pub(crate) fn exclusive_minimum(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::ExclusiveMinimum { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::ExclusiveMinimum { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn false_schema(
-        location: Location,
+    pub(crate) fn false_schema(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::FalseSchema,
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::FalseSchema,
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn format(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         format: impl Into<String>,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Format {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Format {
                 format: format.into(),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn from_utf8(error: FromUtf8Error) -> ValidationError<'a> {
-        ValidationError {
-            instance_path: Location::new(),
-            instance: Cow::Owned(Value::Null),
-            kind: ValidationErrorKind::FromUtf8 { error },
-            schema_path: Location::new(),
-        }
+        ValidationError::new(
+            Cow::Owned(Value::Null),
+            ValidationErrorKind::FromUtf8 { error },
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        )
     }
-    pub(crate) const fn max_items(
-        location: Location,
+    pub(crate) fn max_items(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: u64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MaxItems { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MaxItems { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn maximum(
-        location: Location,
+    pub(crate) fn maximum(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Maximum { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Maximum { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn max_length(
-        location: Location,
+    pub(crate) fn max_length(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: u64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MaxLength { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MaxLength { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn max_properties(
-        location: Location,
+    pub(crate) fn max_properties(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: u64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MaxProperties { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MaxProperties { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn min_items(
-        location: Location,
+    pub(crate) fn min_items(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: u64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MinItems { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MinItems { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn minimum(
-        location: Location,
+    pub(crate) fn minimum(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Minimum { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Minimum { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn min_length(
-        location: Location,
+    pub(crate) fn min_length(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: u64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MinLength { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MinLength { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn min_properties(
-        location: Location,
+    pub(crate) fn min_properties(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         limit: u64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MinProperties { limit },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MinProperties { limit },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn multiple_of(
-        location: Location,
+    #[cfg(feature = "arbitrary-precision")]
+    pub(crate) fn multiple_of(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
+        instance_path: Location,
+        instance: &'a Value,
+        multiple_of: Value,
+    ) -> ValidationError<'a> {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MultipleOf { multiple_of },
+            instance_path,
+            schema_path,
+            tracker,
+        )
+    }
+
+    #[cfg(not(feature = "arbitrary-precision"))]
+    pub(crate) fn multiple_of(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         multiple_of: f64,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::MultipleOf { multiple_of },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::MultipleOf { multiple_of },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn not(
-        location: Location,
+    pub(crate) fn not(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         schema: Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Not { schema },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Not { schema },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn one_of_multiple_valid(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         context: Vec<Vec<ValidationError<'a>>>,
     ) -> ValidationError<'a> {
-        ValidationError {
+        let context = context
+            .into_iter()
+            .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
+            .collect::<Vec<_>>();
+
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::OneOfMultipleValid { context },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::OneOfMultipleValid {
-                context: context
-                    .into_iter()
-                    .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
-                    .collect(),
-            },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn one_of_not_valid(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         context: Vec<Vec<ValidationError<'a>>>,
     ) -> ValidationError<'a> {
-        ValidationError {
+        let context = context
+            .into_iter()
+            .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
+            .collect::<Vec<_>>();
+
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::OneOfNotValid { context },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::OneOfNotValid {
-                context: context
-                    .into_iter()
-                    .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
-                    .collect(),
-            },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn pattern(
-        location: Location,
+    pub(crate) fn pattern(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         pattern: String,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Pattern { pattern },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Pattern { pattern },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
     pub(crate) fn property_names(
-        location: Location,
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         error: ValidationError<'a>,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::PropertyNames {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::PropertyNames {
                 error: Box::new(error.to_owned()),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn required(
-        location: Location,
+    pub(crate) fn required(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         property: Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Required { property },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Required { property },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
 
-    pub(crate) const fn single_type_error(
-        location: Location,
+    pub(crate) fn single_type_error(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         type_name: JsonType,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Type {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Type {
                 kind: TypeKind::Single(type_name),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn multiple_type_error(
-        location: Location,
+    pub(crate) fn multiple_type_error(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         types: JsonTypeSet,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Type {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Type {
                 kind: TypeKind::Multiple(types),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn unevaluated_items(
-        location: Location,
+    pub(crate) fn unevaluated_items(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         unexpected: Vec<String>,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::UnevaluatedItems { unexpected },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::UnevaluatedItems { unexpected },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn unevaluated_properties(
-        location: Location,
+    pub(crate) fn unevaluated_properties(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         unexpected: Vec<String>,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::UnevaluatedProperties { unexpected },
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::UnevaluatedProperties { unexpected },
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    pub(crate) const fn unique_items(
-        location: Location,
+    pub(crate) fn unique_items(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
     ) -> ValidationError<'a> {
-        ValidationError {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::UniqueItems,
             instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::UniqueItems,
-            schema_path: location,
-        }
+            schema_path,
+            tracker,
+        )
     }
-    /// Create a new custom validation error.
-    pub fn custom(
-        location: Location,
+    /// Create a custom validation error with just a message.
+    ///
+    /// Use this in [`Keyword::validate`](crate::Keyword::validate) implementations.
+    /// The actual instance, instance path, and schema path are filled in automatically.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use jsonschema::ValidationError;
+    ///
+    /// fn validate_even(n: u64) -> Result<(), ValidationError<'static>> {
+    ///     if n % 2 != 0 {
+    ///         return Err(ValidationError::custom("number must be even"));
+    ///     }
+    ///     Ok(())
+    /// }
+    /// ```
+    pub fn custom(message: impl Into<String>) -> ValidationError<'static> {
+        ValidationError::new(
+            Cow::Owned(Value::Null),
+            ValidationErrorKind::Custom {
+                message: message.into(),
+            },
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        )
+    }
+
+    /// Create an error for invalid schema values in keyword factories.
+    ///
+    /// Use this in custom keyword factory functions when the schema value
+    /// is invalid for your custom keyword.
+    pub fn schema(message: impl Into<String>) -> ValidationError<'static> {
+        ValidationError::new(
+            Cow::Owned(Value::Null),
+            ValidationErrorKind::Custom {
+                message: message.into(),
+            },
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        )
+    }
+
+    /// Fill in context for a placeholder validation error.
+    ///
+    /// Used by custom keywords, which never involve `$ref` traversal,
+    /// so evaluation path equals schema path.
+    pub(crate) fn with_context<'i>(
+        self,
+        instance: &'i Value,
+        instance_path: &LazyLocation,
+        schema_path: &Location,
+    ) -> ValidationError<'i> {
+        ValidationError::new(
+            Cow::Borrowed(instance),
+            self.repr.kind,
+            instance_path.into(),
+            schema_path.clone(),
+            // Custom keywords are never reached via $ref, so evaluation path = schema path
+            LazyEvaluationPath::SameAsSchemaPath,
+        )
+    }
+
+    /// Fill in context for a placeholder schema error (used in keyword factories).
+    pub(crate) fn with_schema_context(
+        self,
+        schema_value: &Value,
+        schema_path: Location,
+    ) -> ValidationError<'_> {
+        ValidationError::new(
+            Cow::Borrowed(schema_value),
+            self.repr.kind,
+            Location::new(),
+            schema_path.clone(),
+            schema_path,
+        )
+    }
+
+    pub(crate) fn compile_error(
+        schema_path: Location,
+        tracker: impl Into<LazyEvaluationPath>,
         instance_path: Location,
         instance: &'a Value,
         message: impl Into<String>,
     ) -> ValidationError<'a> {
-        ValidationError {
-            instance_path,
-            instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::Custom {
+        Self::borrowed(
+            instance,
+            ValidationErrorKind::Custom {
                 message: message.into(),
             },
-            schema_path: location,
-        }
+            instance_path,
+            schema_path,
+            tracker,
+        )
     }
 }
 
@@ -772,12 +1247,13 @@ impl error::Error for ValidationError<'_> {}
 impl From<referencing::Error> for ValidationError<'_> {
     #[inline]
     fn from(err: referencing::Error) -> Self {
-        ValidationError {
-            instance_path: Location::new(),
-            instance: Cow::Owned(Value::Null),
-            kind: ValidationErrorKind::Referencing(err),
-            schema_path: Location::new(),
-        }
+        ValidationError::new(
+            Cow::Owned(Value::Null),
+            ValidationErrorKind::Referencing(err),
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        )
     }
 }
 impl From<FromUtf8Error> for ValidationError<'_> {
@@ -857,15 +1333,15 @@ fn write_enum_message(
 impl fmt::Display for ValidationError<'_> {
     #[allow(clippy::too_many_lines)] // The function is long but it does formatting only
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match &self.kind {
+        match self.kind() {
             ValidationErrorKind::Referencing(error) => error.fmt(f),
             ValidationErrorKind::BacktrackLimitExceeded { error } => error.fmt(f),
             ValidationErrorKind::Format { format } => {
-                write!(f, r#"{} is not a "{}""#, self.instance, format)
+                write!(f, r#"{} is not a "{}""#, self.instance(), format)
             }
             ValidationErrorKind::AdditionalItems { limit } => {
                 f.write_str("Additional items are not allowed (")?;
-                let array = self.instance.as_array().expect("Always valid");
+                let array = self.instance().as_array().expect("Always valid");
                 let mut iter = array.iter().skip(*limit);
 
                 if let Some(item) = iter.next() {
@@ -886,17 +1362,17 @@ impl fmt::Display for ValidationError<'_> {
             ValidationErrorKind::AnyOf { context: _ } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'anyOf' keyword",
-                self.instance
+                self.instance()
             ),
             ValidationErrorKind::OneOfNotValid { context: _ } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'oneOf' keyword",
-                self.instance
+                self.instance()
             ),
             ValidationErrorKind::Contains => write!(
                 f,
                 "None of {} are valid under the given schema",
-                self.instance
+                self.instance()
             ),
             ValidationErrorKind::Constant { expected_value } => {
                 write!(f, "{expected_value} was expected")
@@ -905,98 +1381,115 @@ impl fmt::Display for ValidationError<'_> {
                 write!(
                     f,
                     r#"{} is not compliant with "{}" content encoding"#,
-                    self.instance, content_encoding
+                    self.instance(),
+                    content_encoding
                 )
             }
             ValidationErrorKind::ContentMediaType { content_media_type } => {
                 write!(
                     f,
                     r#"{} is not compliant with "{}" media type"#,
-                    self.instance, content_media_type
+                    self.instance(),
+                    content_media_type
                 )
             }
             ValidationErrorKind::FromUtf8 { error } => error.fmt(f),
-            ValidationErrorKind::Enum { options } => write_enum_message(f, &self.instance, options),
+            ValidationErrorKind::Enum { options } => {
+                write_enum_message(f, self.instance(), options)
+            }
             ValidationErrorKind::ExclusiveMaximum { limit } => write!(
                 f,
                 "{} is greater than or equal to the maximum of {}",
-                self.instance, limit
+                self.instance(),
+                limit
             ),
             ValidationErrorKind::ExclusiveMinimum { limit } => write!(
                 f,
                 "{} is less than or equal to the minimum of {}",
-                self.instance, limit
+                self.instance(),
+                limit
             ),
             ValidationErrorKind::FalseSchema => {
-                write!(f, "False schema does not allow {}", self.instance)
+                write!(f, "False schema does not allow {}", self.instance())
             }
             ValidationErrorKind::Maximum { limit } => write!(
                 f,
                 "{} is greater than the maximum of {}",
-                self.instance, limit
+                self.instance(),
+                limit
             ),
             ValidationErrorKind::Minimum { limit } => {
-                write!(f, "{} is less than the minimum of {}", self.instance, limit)
+                write!(
+                    f,
+                    "{} is less than the minimum of {}",
+                    self.instance(),
+                    limit
+                )
             }
             ValidationErrorKind::MaxLength { limit } => write!(
                 f,
                 "{} is longer than {} character{}",
-                self.instance,
+                self.instance(),
                 limit,
                 if *limit == 1 { "" } else { "s" }
             ),
             ValidationErrorKind::MinLength { limit } => write!(
                 f,
                 "{} is shorter than {} character{}",
-                self.instance,
+                self.instance(),
                 limit,
                 if *limit == 1 { "" } else { "s" }
             ),
             ValidationErrorKind::MaxItems { limit } => write!(
                 f,
                 "{} has more than {} item{}",
-                self.instance,
+                self.instance(),
                 limit,
                 if *limit == 1 { "" } else { "s" }
             ),
             ValidationErrorKind::MinItems { limit } => write!(
                 f,
                 "{} has less than {} item{}",
-                self.instance,
+                self.instance(),
                 limit,
                 if *limit == 1 { "" } else { "s" }
             ),
             ValidationErrorKind::MaxProperties { limit } => write!(
                 f,
                 "{} has more than {} propert{}",
-                self.instance,
+                self.instance(),
                 limit,
                 if *limit == 1 { "y" } else { "ies" }
             ),
             ValidationErrorKind::MinProperties { limit } => write!(
                 f,
                 "{} has less than {} propert{}",
-                self.instance,
+                self.instance(),
                 limit,
                 if *limit == 1 { "y" } else { "ies" }
             ),
             ValidationErrorKind::Not { schema } => {
-                write!(f, "{} is not allowed for {}", schema, self.instance)
+                write!(f, "{} is not allowed for {}", schema, self.instance())
             }
             ValidationErrorKind::OneOfMultipleValid { .. } => write!(
                 f,
                 "{} is valid under more than one of the schemas listed in the 'oneOf' keyword",
-                self.instance
+                self.instance()
             ),
             ValidationErrorKind::Pattern { pattern } => {
-                write!(f, r#"{} does not match "{}""#, self.instance, pattern)
+                write!(f, r#"{} does not match "{}""#, self.instance(), pattern)
             }
             ValidationErrorKind::PropertyNames { error } => error.fmt(f),
             ValidationErrorKind::Required { property } => {
                 write!(f, "{property} is a required property")
             }
             ValidationErrorKind::MultipleOf { multiple_of } => {
-                write!(f, "{} is not a multiple of {}", self.instance, multiple_of)
+                write!(
+                    f,
+                    "{} is not a multiple of {}",
+                    self.instance(),
+                    multiple_of
+                )
             }
             ValidationErrorKind::UnevaluatedItems { unexpected } => {
                 f.write_str("Unevaluated items are not allowed (")?;
@@ -1009,15 +1502,15 @@ impl fmt::Display for ValidationError<'_> {
                 write_unexpected_suffix(f, unexpected.len())
             }
             ValidationErrorKind::UniqueItems => {
-                write!(f, "{} has non-unique elements", self.instance)
+                write!(f, "{} has non-unique elements", self.instance())
             }
             ValidationErrorKind::Type {
                 kind: TypeKind::Single(type_),
-            } => write!(f, r#"{} is not of type "{}""#, self.instance, type_),
+            } => write!(f, r#"{} is not of type "{}""#, self.instance(), type_),
             ValidationErrorKind::Type {
                 kind: TypeKind::Multiple(types),
             } => {
-                write!(f, "{} is not of types ", self.instance)?;
+                write!(f, "{} is not of types ", self.instance())?;
                 let mut iter = types.iter();
                 if let Some(t) = iter.next() {
                     f.write_char('"')?;
@@ -1046,7 +1539,7 @@ pub struct MaskedValidationError<'a, 'b, 'c> {
 impl fmt::Display for MaskedValidationError<'_, '_, '_> {
     #[allow(clippy::too_many_lines)]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match &self.error.kind {
+        match self.error.kind() {
             ValidationErrorKind::Referencing(error) => error.fmt(f),
             ValidationErrorKind::BacktrackLimitExceeded { error } => error.fmt(f),
             ValidationErrorKind::Format { format } => {
@@ -1230,12 +1723,180 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
 mod tests {
     use super::*;
     use serde_json::json;
+
     use test_case::test_case;
+
+    fn owned_error(instance: Value, kind: ValidationErrorKind) -> ValidationError<'static> {
+        ValidationError::new(
+            Cow::Owned(instance),
+            kind,
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        )
+    }
+
+    #[test]
+    fn error_iterator_into_errors_collects_all_errors() {
+        let iterator = ErrorIterator::from_iterator(
+            vec![
+                owned_error(json!(1), ValidationErrorKind::Minimum { limit: json!(2) }),
+                owned_error(json!(3), ValidationErrorKind::Maximum { limit: json!(2) }),
+            ]
+            .into_iter(),
+        );
+        let validation_errors = iterator.into_errors();
+        let collected: Vec<_> = validation_errors.into_iter().collect();
+        assert_eq!(collected.len(), 2);
+        assert_eq!(collected[0].to_string(), "1 is less than the minimum of 2");
+        assert_eq!(
+            collected[1].to_string(),
+            "3 is greater than the maximum of 2"
+        );
+    }
+
+    #[test]
+    fn validation_errors_display_reports_success() {
+        let errors = ValidationErrors { errors: Vec::new() };
+        assert_eq!(format!("{errors}"), "Validation succeeded");
+    }
+
+    #[test]
+    fn validation_errors_display_lists_messages() {
+        let errors = ValidationErrors {
+            errors: vec![
+                owned_error(json!(1), ValidationErrorKind::Minimum { limit: json!(2) }),
+                owned_error(json!(3), ValidationErrorKind::Maximum { limit: json!(2) }),
+            ],
+        };
+        let rendered = format!("{errors}");
+        assert!(rendered.contains("Validation errors:"));
+        assert!(rendered.contains("01: 1 is less than the minimum of 2"));
+        assert!(rendered.contains("02: 3 is greater than the maximum of 2"));
+    }
+
+    #[test]
+    fn validation_errors_len_and_is_empty() {
+        let empty = ValidationErrors { errors: vec![] };
+        assert_eq!(empty.len(), 0);
+        assert!(empty.is_empty());
+
+        let errors = ValidationErrors {
+            errors: vec![owned_error(
+                json!(1),
+                ValidationErrorKind::Minimum { limit: json!(2) },
+            )],
+        };
+        assert_eq!(errors.len(), 1);
+        assert!(!errors.is_empty());
+    }
+
+    #[test]
+    fn validation_errors_as_slice() {
+        let errors = ValidationErrors {
+            errors: vec![
+                owned_error(json!(1), ValidationErrorKind::Minimum { limit: json!(2) }),
+                owned_error(json!(3), ValidationErrorKind::Maximum { limit: json!(2) }),
+            ],
+        };
+
+        let slice = errors.as_slice();
+        assert_eq!(slice.len(), 2);
+        assert_eq!(slice[0].to_string(), "1 is less than the minimum of 2");
+        assert_eq!(slice[1].to_string(), "3 is greater than the maximum of 2");
+    }
+
+    #[test]
+    fn validation_errors_iter() {
+        let errors = ValidationErrors {
+            errors: vec![
+                owned_error(json!(1), ValidationErrorKind::Minimum { limit: json!(2) }),
+                owned_error(json!(3), ValidationErrorKind::Maximum { limit: json!(2) }),
+            ],
+        };
+
+        let collected: Vec<_> = errors.iter().map(ValidationError::to_string).collect();
+        assert_eq!(collected.len(), 2);
+        assert_eq!(collected[0], "1 is less than the minimum of 2");
+        assert_eq!(collected[1], "3 is greater than the maximum of 2");
+    }
+
+    #[test]
+    #[allow(clippy::explicit_iter_loop)]
+    fn validation_errors_iter_mut() {
+        let mut errors = ValidationErrors {
+            errors: vec![owned_error(
+                json!(1),
+                ValidationErrorKind::Minimum { limit: json!(2) },
+            )],
+        };
+
+        // Verify we can get mutable references via iter_mut()
+        for error in errors.iter_mut() {
+            let _ = error.to_string();
+        }
+    }
+
+    #[test]
+    fn validation_errors_into_iterator_by_ref() {
+        let errors = ValidationErrors {
+            errors: vec![owned_error(
+                json!(1),
+                ValidationErrorKind::Minimum { limit: json!(2) },
+            )],
+        };
+
+        let collected: Vec<_> = (&errors).into_iter().collect();
+        assert_eq!(collected.len(), 1);
+        // Verify errors is still usable
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[test]
+    fn validation_errors_into_iterator_by_mut_ref() {
+        let mut errors = ValidationErrors {
+            errors: vec![owned_error(
+                json!(1),
+                ValidationErrorKind::Minimum { limit: json!(2) },
+            )],
+        };
+
+        let collected: Vec<_> = (&mut errors).into_iter().collect();
+        assert_eq!(collected.len(), 1);
+        // Verify errors is still usable
+        assert_eq!(errors.len(), 1);
+    }
+
+    #[test]
+    fn error_iterator_size_hint() {
+        let vec = vec![
+            owned_error(json!(1), ValidationErrorKind::Minimum { limit: json!(2) }),
+            owned_error(json!(3), ValidationErrorKind::Maximum { limit: json!(2) }),
+        ];
+        let iterator = ErrorIterator::from_iterator(vec.into_iter());
+        let (lower, upper) = iterator.size_hint();
+        assert_eq!(lower, 2);
+        assert_eq!(upper, Some(2));
+    }
+
+    #[test]
+    fn validation_errors_debug() {
+        let errors = ValidationErrors {
+            errors: vec![owned_error(
+                json!(1),
+                ValidationErrorKind::Minimum { limit: json!(2) },
+            )],
+        };
+        let debug_output = format!("{errors:?}");
+        assert!(debug_output.contains("ValidationErrors"));
+        assert!(debug_output.contains("errors"));
+    }
 
     #[test]
     fn single_type_error() {
         let instance = json!(42);
         let err = ValidationError::single_type_error(
+            Location::new(),
             Location::new(),
             Location::new(),
             &instance,
@@ -1251,6 +1912,7 @@ mod tests {
             .insert(JsonType::String)
             .insert(JsonType::Number);
         let err = ValidationError::multiple_type_error(
+            Location::new(),
             Location::new(),
             Location::new(),
             &instance,
@@ -1285,7 +1947,7 @@ mod tests {
         let error = result.next().expect("validation error");
 
         assert!(result.next().is_none());
-        assert_eq!(error.instance_path.as_str(), expected);
+        assert_eq!(error.instance_path().as_str(), expected);
     }
 
     #[test_case(true, &json!([1, {"foo": ["42"]}]), "/0")]
@@ -1326,7 +1988,7 @@ mod tests {
         let error = result.next().expect("validation error");
 
         assert!(result.next().is_none());
-        assert_eq!(error.instance_path.as_str(), expected);
+        assert_eq!(error.instance_path().as_str(), expected);
     }
 
     #[test_case(true, &json!([[1, 2, 3], [4, "5", 6], [7, 8, 9]]), "/1/1")]
@@ -1351,7 +2013,7 @@ mod tests {
         let error = result.next().expect("validation error");
 
         assert!(result.next().is_none());
-        assert_eq!(error.instance_path.as_str(), expected);
+        assert_eq!(error.instance_path().as_str(), expected);
     }
 
     #[test_case(true, &json!([1, "a"]), "/1")]
@@ -1373,12 +2035,14 @@ mod tests {
         let error = result.next().expect("validation error");
 
         assert!(result.next().is_none());
-        assert_eq!(error.instance_path.as_str(), expected);
+        assert_eq!(error.instance_path().as_str(), expected);
     }
 
     #[test_case(
         json!("2023-13-45"), 
-        ValidationErrorKind::Format { format: "date".to_string() },
+        ValidationErrorKind::Format {
+            format: "date".to_string(),
+        },
         "value is not a \"date\""
     )]
     #[test_case(
@@ -1400,7 +2064,9 @@ mod tests {
     )]
     #[test_case(
         json!("secret_key_123"),
-        ValidationErrorKind::Pattern { pattern: "^[A-Z0-9]{32}$".to_string() },
+        ValidationErrorKind::Pattern {
+            pattern: "^[A-Z0-9]{32}$".to_string(),
+        },
         "value does not match \"^[A-Z0-9]{32}$\""
     )]
     #[test_case(
@@ -1414,12 +2080,13 @@ mod tests {
         "value is not of type \"string\""
     )]
     fn test_masked_error_messages(instance: Value, kind: ValidationErrorKind, expected: &str) {
-        let error = ValidationError {
-            instance: Cow::Owned(instance),
+        let error = ValidationError::new(
+            Cow::Owned(instance),
             kind,
-            instance_path: Location::new(),
-            schema_path: Location::new(),
-        };
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        );
         assert_eq!(error.masked().to_string(), expected);
     }
 
@@ -1443,12 +2110,13 @@ mod tests {
         placeholder: &str,
         expected: &str,
     ) {
-        let error = ValidationError {
-            instance: Cow::Owned(instance),
+        let error = ValidationError::new(
+            Cow::Owned(instance),
             kind,
-            instance_path: Location::new(),
-            schema_path: Location::new(),
-        };
+            Location::new(),
+            Location::new(),
+            Location::new(),
+        );
         assert_eq!(error.masked_with(placeholder).to_string(), expected);
     }
 }

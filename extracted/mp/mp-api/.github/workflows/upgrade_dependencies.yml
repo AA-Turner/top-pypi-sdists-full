@@ -23,9 +23,9 @@ jobs:
       - name: Upgrade Python dependencies
         shell: bash
         run: |
-          python -m pip install --upgrade pip pip-tools
-          python -m piptools compile -q --upgrade --resolver=backtracking -o requirements/requirements-${{ matrix.os }}_py${{ matrix.python-version }}.txt pyproject.toml
-          python -m piptools compile -q --upgrade --resolver=backtracking --all-extras -o requirements/requirements-${{ matrix.os }}_py${{ matrix.python-version }}_extras.txt pyproject.toml
+          python -m pip install --upgrade "pip<25.3" pip-tools
+          python -m piptools compile -q --upgrade -o requirements/requirements-${{ matrix.os }}_py${{ matrix.python-version }}.txt pyproject.toml
+          python -m piptools compile -q --upgrade --all-extras -o requirements/requirements-${{ matrix.os }}_py${{ matrix.python-version }}_extras.txt pyproject.toml
       - name: Detect changes
         id: changes
         shell: bash
@@ -68,6 +68,8 @@ jobs:
           git checkout -b auto-dependency-upgrades
           git branch -r | grep auto-dependency-upgrades- | xargs -I {} git merge {}
           git rebase ${GITHUB_REF##*/}
+          git reset $(git merge-base ${GITHUB_REF##*/} HEAD)
+          git commit -a -m "auto dependency upgrades"
           git push -f origin auto-dependency-upgrades
           git branch -r | grep auto-dependency-upgrades- | cut -d/ -f2 | xargs -I {} git push origin :{}
       - name: Open pull request if needed

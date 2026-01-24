@@ -97,7 +97,7 @@ pub trait GetHeaderAccessors {
 impl GetHeaderAccessors for crate::Table {
     fn get_header_accessors(&self, toml_version: TomlVersion) -> Option<Vec<Accessor>> {
         let array_of_tables_keys = self
-            .array_of_tables_keys(toml_version)
+            .parent_array_of_tables_keys(toml_version)
             .map(|keys| {
                 keys.into_iter()
                     .map(|key| key.to_raw_text(toml_version))
@@ -127,7 +127,7 @@ impl GetHeaderAccessors for crate::Table {
 impl GetHeaderAccessors for crate::ArrayOfTable {
     fn get_header_accessors(&self, toml_version: TomlVersion) -> Option<Vec<Accessor>> {
         let array_of_tables_keys = self
-            .array_of_tables_keys()
+            .parrent_array_of_tables_keys()
             .map(|keys| {
                 keys.into_iter()
                     .map(|key| key.to_raw_text(toml_version))
@@ -137,11 +137,16 @@ impl GetHeaderAccessors for crate::ArrayOfTable {
 
         let mut accessors = vec![];
         let mut header_keys = vec![];
-        for key in self.header()?.keys() {
+        let keys = self.header()?.keys().collect_vec();
+        let keys_len = keys.len();
+        for key in keys {
             let key_text = key.to_raw_text(toml_version);
             accessors.push(Accessor::Key(key_text.clone()));
             header_keys.push(key_text);
 
+            if header_keys.len() == keys_len {
+                break;
+            }
             if let Some(index) = array_of_tables_keys
                 .get(&header_keys)
                 .map(|count| count - 1)

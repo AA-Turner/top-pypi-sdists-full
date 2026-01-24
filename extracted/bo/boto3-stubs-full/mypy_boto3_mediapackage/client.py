@@ -3,7 +3,7 @@ Type annotations for mediapackage service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediapackage/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -64,12 +65,6 @@ from .type_defs import (
     UpdateOriginEndpointResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -80,13 +75,13 @@ __all__ = ("MediaPackageClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ForbiddenException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ServiceUnavailableException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UnprocessableEntityException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ForbiddenException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ServiceUnavailableException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
 
 
 class MediaPackageClient(BaseClient):
@@ -164,7 +159,7 @@ class MediaPackageClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediapackage/client/#create_origin_endpoint)
         """
 
-    def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> Dict[str, Any]:
+    def delete_channel(self, **kwargs: Unpack[DeleteChannelRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an existing Channel.
 
@@ -174,7 +169,7 @@ class MediaPackageClient(BaseClient):
 
     def delete_origin_endpoint(
         self, **kwargs: Unpack[DeleteOriginEndpointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an existing OriginEndpoint.
 

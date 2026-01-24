@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2024-2025.
+#  (C) Copyright IBM Corp. 2024-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 import gzip
@@ -7,12 +7,13 @@ import io
 import json
 import time
 from copy import deepcopy
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 from pandas import DataFrame
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.foundation_models import Embeddings, ModelInference
+from ibm_watsonx_ai.foundation_models.schema._api import AutoAIRAGDeploymentConfig
 from ibm_watsonx_ai.helpers.connections import DataConnection
 from ibm_watsonx_ai.messages.messages import Messages
 from ibm_watsonx_ai.metanames import EmbedTextParamsMetaNames as EmbedParams
@@ -22,8 +23,12 @@ from ibm_watsonx_ai.utils import (
     StatusLogger,
     print_text_header_h1,
 )
+from ibm_watsonx_ai.utils.autoai.knowledge_base import BaseKnowledgeBase
 from ibm_watsonx_ai.utils.autoai.utils import is_ipython, run_id_required
+from ibm_watsonx_ai.utils.utils import get_from_json
 from ibm_watsonx_ai.wml_client_error import (
+    InvalidMultipleArguments,
+    InvalidValue,
     MissingValue,
     UnsupportedOperation,
     WMLClientError,
@@ -63,28 +68,32 @@ class RAGEngine(WMLResource):
     def run(
         self,
         *,
-        input_data_references: list[DataConnection],
+        input_data_references: list[DataConnection] | None,
         results_reference: DataConnection,
         test_data_references: list[DataConnection] | None = None,
         vector_store_references: list[DataConnection] | None = None,
         background_mode: bool = True,
+        knowledge_base_references: list[BaseKnowledgeBase] | None = None,
     ) -> dict:
         """Engine for create an AutoAI RAG job that will find the best RAG pattern.
 
-        :param input_data_references: Data storage connection details to inform where training data is stored
-        :type input_data_references: list[DataConnection]
+        :param input_data_references: data storage connection details to inform where training data is stored
+        :type input_data_references: list[DataConnection], optional
 
-        :param results_reference: The training results
+        :param results_reference: the training results
         :type results_reference: DataConnection
 
-        :param test_data_references: A set of test data references
+        :param test_data_references: set of test data references
         :type test_data_references: list[DataConnection], optional
 
-        :param vector_store_references: A set of vector store references
+        :param vector_store_references: set of vector store references
         :type vector_store_references: list[DataConnection], optional
 
-        :param background_mode: Indicator if run() method will run in background (async) or (sync)
+        :param background_mode: indicator if run() method will run in background (async) or (sync)
         :type background_mode: bool, optional
+
+        :param knowledge_base_references: collection of knowledge base references
+        :type knowledge_base_references: list[BaseKnowledgeBase], optional
 
         :return: run details
         :rtype: dict
@@ -93,14 +102,15 @@ class RAGEngine(WMLResource):
         self._cached_details = (
             None  # attribute set to None for correct catching _cached_details
         )
-        for input_conn in input_data_references:
-            if self.workspace.api_client.project_type == "local_git_storage":
-                input_conn.location.userfs = "true"  # type: ignore[union-attr]
-            input_conn.set_client(self.workspace.api_client)
+        if input_data_references:
+            for input_conn in input_data_references:
+                if self.workspace.api_client.is_git_based_project:
+                    input_conn.location.userfs = "true"  # type: ignore[union-attr]
+                input_conn.set_client(self.workspace.api_client)
 
-        if test_data_references is not None:
+        if test_data_references:
             for test_conn in test_data_references:
-                if self.workspace.api_client.project_type == "local_git_storage":
+                if self.workspace.api_client.is_git_based_project:
                     input_conn.location.userfs = "true"  # type: ignore[union-attr]
                 test_conn.set_client(self.workspace.api_client)
 
@@ -109,11 +119,12 @@ class RAGEngine(WMLResource):
             results_reference=results_reference,
             test_data_references=test_data_references,
             vector_store_references=vector_store_references,
+            knowledge_base_references=knowledge_base_references,
         )
 
         url = self._client._href_definitions.get_autoai_rag_href()
 
-        response_train_post = requests.post(
+        response_train_post = self._client.httpx_client.post(
             url=url,
             json=self._training_metadata,
             params=self._client._params(skip_for_create=True),
@@ -134,7 +145,7 @@ class RAGEngine(WMLResource):
                     status = details["entity"]["status"]["state"]
                 except KeyError:
                     # Valid case for CPD 5.1
-                    status = details.get("entity", {}).get("state", "error")
+                    status = get_from_json(details, ["entity", "state"], "error")
                 return status
 
             details = self.get_run_details()
@@ -154,15 +165,12 @@ class RAGEngine(WMLResource):
                     )
                 )
             else:
-                error_msg = (
-                    details.get("entity", {})
-                    .get("status", {})
-                    .get("message", {})
-                    .get("text")
+                error_msg = get_from_json(
+                    details, ["entity", "status", "message", "text"]
                 )
 
                 if error_msg is not None:
-                    prepared_error_message = "Error message: '{}'".format(error_msg)
+                    prepared_error_message = f"Error message: '{error_msg}'"
                 else:
                     prepared_error_message = (
                         "No error message was returned from the service."
@@ -201,14 +209,14 @@ class RAGEngine(WMLResource):
         self._client._check_if_either_is_set()
 
         url = self._client._href_definitions.get_autoai_rag_id_href(
-            self._current_run_id
+            self._current_run_id  # type: ignore[arg-type]
         )
         params = self._client._params()
 
         if hard_delete is True:
             params.update({"hard_delete": "true"})
 
-        response_delete = requests.delete(
+        response_delete = self._client.httpx_client.delete(
             url=url,
             params=params,
             headers=self._client._get_headers(),
@@ -229,10 +237,10 @@ class RAGEngine(WMLResource):
         :param run_id: ID of the fit/run
         :type run_id: str, optional
 
-        :param limit:  limit number of fetched records
+        :param limit: limit number of fetched records
         :type limit: int, optional
 
-        :param get_all:  if `True`, it will get all entries in 'limited' chunks, defaults to `False`
+        :param get_all: if `True`, it will get all entries in 'limited' chunks, defaults to `False`
         :type get_all: bool, optional
 
         :return: RAGOptimizer details
@@ -267,12 +275,12 @@ class RAGEngine(WMLResource):
             try:
                 with DisableWarningsLogger():
                     status = WMLResource._get_required_element_from_dict(
-                        details, "details", ["entity", "status", "state"]
+                        details, "details", ["entity", "status", "state"], str
                     )
             except MissingValue:
                 # Valid case for CPD 5.1
                 status = WMLResource._get_required_element_from_dict(
-                    details, "details", ["entity", "state"]
+                    details, "details", ["entity", "state"], str
                 )
             return status
         else:
@@ -299,12 +307,12 @@ class RAGEngine(WMLResource):
             try:
                 with DisableWarningsLogger():
                     status = WMLResource._get_required_element_from_dict(
-                        details, "details", ["entity", "status", "state"]
+                        details, "details", ["entity", "status", "state"], str
                     )
             except MissingValue:
                 # Valid case for CPD 5.1
                 status = WMLResource._get_required_element_from_dict(
-                    details, "details", ["entity", "state"]
+                    details, "details", ["entity", "state"], str
                 )
 
             if status in ["completed", "failed"]:
@@ -325,12 +333,12 @@ class RAGEngine(WMLResource):
         :param metric_name: metrics name to be sorted by
         :type metric_name: dict
 
-        :return: clist of sorted metrics
+        :return: list of sorted metrics
         :rtype: list
 
         """
 
-        results = details.get("entity", {}).get("results")
+        results = get_from_json(details, ["entity", "results"])
 
         def get_mean_value(test_data: list, inner_metric_name: str) -> float:
             for metric in test_data:
@@ -366,26 +374,37 @@ class RAGEngine(WMLResource):
         elif isinstance(scoring, list):
             optimization_metrics = scoring
         else:
-            optimization_metrics = self._params.get("optimization_metrics", None)
-            if optimization_metrics is None:
-                optimization_metrics = [
-                    details.get("entity", {})
-                    .get("results", [])[0]
-                    .get("metrics", {})
-                    .get("test_data", [])[0]
-                    .get("metric_name")
-                ]
+            raw_metrics = self._params.get("optimization_metrics")
+            if isinstance(raw_metrics, list) and all(
+                isinstance(m, str) for m in raw_metrics
+            ):
+                optimization_metrics = raw_metrics
+            else:
+                results = get_from_json(details, ["entity", "results"], [])
+                if not (
+                    results
+                    and isinstance(results[0], dict)
+                    and isinstance(results[0].get("metrics"), dict)
+                ):
+                    raise ValueError("Missing results in entity")
+
+                test_data = results[0]["metrics"].get("test_data", [])
+                if not (test_data and isinstance(test_data[0], dict)):
+                    raise ValueError("Missing test_data in metrics")
+
+                metric_name = test_data[0].get("metric_name")
+                if not isinstance(metric_name, str):
+                    raise ValueError("Unable to determine optimization metric name")
+
+                optimization_metrics = [metric_name]
 
         results = self.sort_results_by_metric(details, optimization_metrics[0])
 
         rag_pattern_names = [name["context"]["rag_pattern"]["name"] for name in results]
 
-        ordered_columns = [
-            "mean_answer_correctness",
-            "mean_faithfulness",
-            "mean_context_correctness",
-        ]
-        data_sorted_by_value: dict = {col: [] for col in ordered_columns}
+        data_sorted_by_value: dict = {
+            f"mean_{metric}": [] for metric in optimization_metrics
+        }
 
         setting_keys = {
             "chunking": ["method", "chunk_size", "chunk_overlap"],
@@ -397,6 +416,7 @@ class RAGEngine(WMLResource):
                 "hybrid_ranker",
             ],
             "generation": ["model_id"],
+            "agent": ["type"],
         }
         data_sorted_by_value.update(
             {
@@ -410,10 +430,12 @@ class RAGEngine(WMLResource):
             """Helper function to add values to the dictionary."""
             data_dict.setdefault(dict_key, []).append(dict_value)
 
+        default_cell_value = "N/A"
+
         for result in results:
             for metric_item in result["metrics"]["test_data"]:
                 metric_name = metric_item["metric_name"]
-                if "mean" in metric_item:
+                if "mean" in metric_item and metric_name in optimization_metrics:
                     add_to_data(
                         data_sorted_by_value, f"mean_{metric_name}", metric_item["mean"]
                     )
@@ -425,23 +447,18 @@ class RAGEngine(WMLResource):
                     "deployment_id"
                 )
 
-            def get_nested_value(data_dict: dict, dict_key: str) -> dict | str:
-                keys = dict_key.split(".")
-                for key in keys:
-                    if isinstance(data_dict, dict) and key in data_dict:
-                        data_dict = data_dict[key]
-                    else:
-                        return ""
-                return data_dict
-
             for key, sub_keys in setting_keys.items():
                 if key in settings:
                     for sub_key in sub_keys:
                         full_key = f"{key}.{sub_key}"
-                        value = get_nested_value(settings[key], sub_key)
+                        value = get_from_json(
+                            settings, [key, sub_key], default_cell_value
+                        )
                         add_to_data(data_sorted_by_value, full_key, value)
 
-        data_sorted_by_optimization_metrics: dict = {"Pattern_Name": rag_pattern_names}
+        data_sorted_by_optimization_metrics: dict[str, list] = {
+            "Pattern_Name": rag_pattern_names
+        }
 
         for optimization_metric in optimization_metrics:
             for sorted_metric in data_sorted_by_value:
@@ -451,6 +468,13 @@ class RAGEngine(WMLResource):
                     )
 
         data_sorted_by_optimization_metrics.update(data_sorted_by_value)
+
+        # Remove keys with empty list (or list with defaults only) and normalize in case of missing >= 1 values
+        data_sorted_by_optimization_metrics = {
+            k: v + [default_cell_value] * (len(rag_pattern_names) - len(v))
+            for k, v in data_sorted_by_optimization_metrics.items()
+            if any(x != default_cell_value for x in v)
+        }
 
         data_frame = DataFrame(data=data_sorted_by_optimization_metrics)
         data_frame.set_index("Pattern_Name", inplace=True)
@@ -517,8 +541,8 @@ class RAGEngine(WMLResource):
 
         if hybrid_ranker := retrieval_settings.get("hybrid_ranker"):
             strategy: str = hybrid_ranker["strategy"]
-            model_id: str | None = hybrid_ranker.get("sparse_vectors", {}).get(
-                "model_id"
+            model_id: str | None = get_from_json(
+                hybrid_ranker, ["sparse_vectors", "model_id"]
             )
             alpha: float | None = hybrid_ranker.get("alpha")
             k: int | None = hybrid_ranker.get("k")
@@ -531,6 +555,7 @@ class RAGEngine(WMLResource):
 
         if datasource_type == "elasticsearch":
             from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores import (
+                BaseVectorStore,
                 ElasticsearchVectorStore,
                 VectorStore,
             )
@@ -596,7 +621,7 @@ class RAGEngine(WMLResource):
                     use_rrf=use_rrf,
                     rrf_params=rrf_params,
                 )
-                vector_store = ElasticsearchVectorStore(
+                vector_store: BaseVectorStore = ElasticsearchVectorStore(
                     connection_id=connection_id,
                     index_name=vector_store_settings.get("index_name"),
                     strategy=hybrid_strategy,
@@ -637,8 +662,8 @@ class RAGEngine(WMLResource):
 
                     bm25_builtin_func = MilvusBM25BuiltinFunction(
                         output_field_names=(
-                            sparse_vector_field or {"name": "sparse"}
-                        ).get("name")
+                            (sparse_vector_field or {}).get("name") or "sparse"
+                        )
                     )
 
                 if strategy == "weighted":
@@ -772,13 +797,13 @@ class RAGEngine(WMLResource):
             details=details, pattern_name=pattern_name
         )
 
-        return pattern_details.get("context", {}).get("rag_pattern")
+        return get_from_json(pattern_details, ["context", "rag_pattern"])
 
     def get_inference_notebook(
         self,
         pattern_name: str | None = None,
-        local_path: str = ".",
-        filename: str | None = None,
+        local_path: str | Path = ".",
+        filename: str | Path | None = None,
     ) -> str:
         """Engine for download specified inference notebook from Service.
 
@@ -787,15 +812,17 @@ class RAGEngine(WMLResource):
         :type pattern_name: str, optional
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param filename: filename under which the pattern notebook will be saved
-        :type filename: str, optional
+        :type filename: str, Path, optional
 
         :return: path to saved inference notebook
         :rtype: str
 
         """
+        if isinstance(local_path, str):
+            local_path = Path(local_path)
 
         return self._get_specific_notebook(
             type_of_notebook="inference_notebook",
@@ -807,8 +834,8 @@ class RAGEngine(WMLResource):
     def get_indexing_notebook(
         self,
         pattern_name: str | None = None,
-        local_path: str = ".",
-        filename: str | None = None,
+        local_path: str | Path = ".",
+        filename: str | Path | None = None,
     ) -> str:
         """Engine for download specified indexing notebook from Service.
 
@@ -817,15 +844,17 @@ class RAGEngine(WMLResource):
         :type pattern_name: str, optional
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str | Path, optional
 
         :param filename: filename under which the pattern notebook will be saved
-        :type filename: str, optional
+        :type filename: str, Path, optional
 
         :return: path to saved indexing notebook
         :rtype: str
 
         """
+        if isinstance(local_path, Path):
+            local_path = str(local_path)
 
         return self._get_specific_notebook(
             type_of_notebook="indexing_notebook",
@@ -838,8 +867,8 @@ class RAGEngine(WMLResource):
         self,
         type_of_notebook: Literal["indexing_notebook", "inference_notebook"],
         pattern_name: str | None = None,
-        local_path: str = ".",
-        filename: str | None = None,
+        local_path: str | Path = ".",
+        filename: str | Path | None = None,
     ) -> str:
         """
         Abstract class for get specific notebook
@@ -852,15 +881,20 @@ class RAGEngine(WMLResource):
         :type pattern_name: str, optional
 
         :param local_path: local filesystem path, if not specified, current directory is used
-        :type local_path: str, optional
+        :type local_path: str, Path, optional
 
         :param filename: filename under which the pattern notebook will be saved
-        :type filename: str, optional
+        :type filename: str, Path, optional
 
         :return: path to saved notebook
         :rtype: str
 
         """
+        if isinstance(local_path, str):
+            local_path = Path(local_path)
+        if isinstance(filename, str):
+            filename = Path(filename)
+
         details = self.get_run_details()
 
         pattern_details = self.get_best_pattern_details(
@@ -888,12 +922,12 @@ class RAGEngine(WMLResource):
         data_connection.set_client(self._client)
 
         if not filename:
-            filename = f"{pattern_name}_{type_of_notebook}.ipynb"
+            filename = Path(f"{pattern_name}_{type_of_notebook}.ipynb")
 
-        if not filename.endswith(".ipynb"):
-            filename += ".ipynb"
+        if not filename.suffix == ".ipynb":
+            filename = filename.with_suffix(".ipynb")
 
-        filename = f"{local_path}/{filename}"
+        filename = local_path / filename
 
         data_connection.download(filename=filename)
 
@@ -904,11 +938,11 @@ class RAGEngine(WMLResource):
 
             display(create_download_link(filename))
 
-        return filename
+        return str(filename)
 
     def get_best_pattern_details(
-        self, details: dict, pattern_name: str | None = None
-    ) -> dict:
+        self, details: dict[str, Any], pattern_name: str | None = None
+    ) -> dict[str, Any]:
         """
         Return best pattern details
 
@@ -926,7 +960,7 @@ class RAGEngine(WMLResource):
 
         self._check_if_metrics_available(details)
 
-        results = deepcopy(details.get("entity", {}).get("results"))
+        results = deepcopy(get_from_json(details, ["entity", "results"], []))
 
         if pattern_name:
             pattern_details = next(
@@ -941,35 +975,60 @@ class RAGEngine(WMLResource):
                 raise WMLClientError(
                     f"Invalid pattern name. Available pattern name: {[name['context']['rag_pattern']['name'] for name in results]}"
                 )
-
         else:
-            if self._params.get("optimization_metrics", None):
-                optimization_metric = self._params.get("optimization_metrics", None)
-            else:
-                optimization_metric = [
-                    details.get("entity", {})
-                    .get("results", [])[0]
-                    .get("metrics", {})
-                    .get("test_data", [])[0]
-                    .get("metric_name")
-                ]
+            optimization_metric = self._params.get("optimization_metrics") or [
+                get_from_json(
+                    details,
+                    [
+                        "entity",
+                        "results",
+                        0,
+                        "metrics",
+                        "test_data",
+                        0,
+                        "metric_name",
+                    ],
+                )
+            ]
 
             pattern_details = None
-            metrics_best_score = -1  # to avoid skipping `0.0` metric score
+            metrics_best_score = -1.0  # to avoid skipping `0.0` metric score
+
             for pattern in results:
-                for test_data in pattern["metrics"]["test_data"]:
+                metrics = pattern.get("metrics")
+                if not isinstance(metrics, dict):
+                    continue
+
+                test_data_list = metrics.get("test_data")
+                if not isinstance(test_data_list, list):
+                    continue
+
+                for test_data in test_data_list:
+                    if not isinstance(test_data, dict):
+                        continue
+
+                    metric_name = test_data.get("metric_name")
+                    mean_score = test_data.get("mean")
+
                     if (
-                        test_data["metric_name"] == optimization_metric[0]
-                        and test_data["mean"] > metrics_best_score
+                        isinstance(metric_name, str)
+                        and isinstance(mean_score, (int, float))
+                        and isinstance(optimization_metric, list)
+                        and optimization_metric
+                        and metric_name == optimization_metric[0]
+                        and mean_score > metrics_best_score
                     ):
                         pattern_details = pattern
-                        metrics_best_score = test_data["mean"]
+                        metrics_best_score = mean_score
 
-        if (
-            settings_importance := pattern_details.get("context", {})
-            .get("rag_pattern", {})
-            .get("settings_importance")
-        ):
+        if not isinstance(pattern_details, dict):
+            raise ValueError("pattern_details is not a valid dictionary")
+
+        settings_importance = get_from_json(
+            pattern_details, ["context", "rag_pattern", "settings_importance"]
+        )
+
+        if settings_importance is not None:
             pattern_details["context"]["rag_pattern"]["settings_importance"] = (
                 self._process_settings_importance(settings_importance)
             )
@@ -1101,14 +1160,6 @@ class RAGEngine(WMLResource):
         if optimization:
             parameters["optimization"] = optimization
 
-        parameters.update({"output_logs": True})
-
-        if parameters:
-            self._training_metadata["parameters"] = parameters
-
-        if kwargs.get("custom") is not None:
-            self._training_metadata["custom"] = kwargs["custom"]
-
         if (
             self._client.default_space_id is None
             and self._client.default_project_id is None
@@ -1124,41 +1175,81 @@ class RAGEngine(WMLResource):
             elif self._client.default_project_id is not None:
                 self._training_metadata["project_id"] = self._client.default_project_id
 
+        if params.get("deployment") is not None:
+            deployment = params["deployment"]
+            if isinstance(deployment, dict):
+                parameters["deployment"] = deployment
+            elif isinstance(deployment, AutoAIRAGDeploymentConfig):
+                parameters["deployment"] = deployment.to_dict()
+            else:
+                raise InvalidValue(
+                    "deployment",
+                    "Value should either be a dictionary or a AutoAIRAGDeploymentConfig instance.",
+                )
+
+        parameters["output_logs"] = True
+
+        if parameters:
+            self._training_metadata["parameters"] = parameters
+
+        if kwargs.get("custom") is not None:
+            self._training_metadata["custom"] = kwargs["custom"]
+
     def _initialize_training_metadata(
         self,
-        input_data_references: list[DataConnection],
+        input_data_references: list[DataConnection] | None,
         results_reference: DataConnection,
         test_data_references: list[DataConnection] | None = None,
         vector_store_references: list[DataConnection] | None = None,
+        knowledge_base_references: list[BaseKnowledgeBase] | None = None,
     ) -> None:
         """Initialization of training metadata.
 
-        :param input_data_references: Data storage connection details to inform where training data is stored
+        :param input_data_references: data storage connection details to inform where training data is stored
         :type input_data_references: list[DataConnection]
 
-        :param results_reference: The training results
+        :param results_reference: the training results
         :type results_reference: DataConnection
 
-        :param test_data_references: A set of test data references
+        :param test_data_references: set of test data references
         :type test_data_references: list[DataConnection], optional
 
-        :param vector_store_references: A set of vector store references
+        :param vector_store_references: set of vector store references
         :type vector_store_references: list[DataConnection], optional
+
+        :param knowledge_base_references: collection of knowledge base references
+        :type knowledge_base_references: list[BaseKnowledgeBase], optional
 
         """
 
-        self._training_metadata[self.ConfigurationMetaNames.INPUT_DATA_REFERENCES] = [
-            connection._to_dict() for connection in input_data_references
-        ]
+        if input_data_references is not None and knowledge_base_references is not None:
+            raise InvalidMultipleArguments(
+                ["input_data_references", "knowledge_base_references"],
+                "`input_data_references` or `knowledge_base_references` cannot be provided at once.",
+            )
+
+        if input_data_references is not None:
+            self._training_metadata[
+                self.ConfigurationMetaNames.INPUT_DATA_REFERENCES
+            ] = list(map(lambda x: x.to_dict(), input_data_references))
+        elif knowledge_base_references is not None:
+            self._training_metadata[
+                self.ConfigurationMetaNames.KNOWLEDGE_BASE_REFERENCES
+            ] = list(map(lambda x: x.to_dict(), knowledge_base_references))
+        else:
+            raise InvalidMultipleArguments(
+                ["input_data_references", "knowledge_base_references"],
+                "Either `input_data_references` or `knowledge_base_references` must be provided.",
+            )
 
         self._training_metadata[self.ConfigurationMetaNames.RESULTS_REFERENCE] = (
-            results_reference._to_dict()
+            results_reference.to_dict()
         )
 
         if test_data_references is not None:
             self._training_metadata[
                 self.ConfigurationMetaNames.TEST_DATA_REFERENCES
-            ] = [connection._to_dict() for connection in test_data_references]
+            ] = list(map(lambda x: x.to_dict(), test_data_references))
 
         hardware_specifications_name = "L"  # Added as a default
         hardware_specifications_id = (
@@ -1175,13 +1266,13 @@ class RAGEngine(WMLResource):
         if vector_store_references is not None:
             self._training_metadata[
                 self.ConfigurationMetaNames.VECTOR_STORE_REFERENCES
-            ] = [connection._to_dict() for connection in vector_store_references]
+            ] = list(map(lambda x: x.to_dict(), vector_store_references))
 
     @staticmethod
     def _check_if_metrics_available(details: dict) -> None:
         """Method for checking if metrics available"""
         try:
-            if not details.get("entity", {}).get("results", [])[0].get("context", {}):
+            if not get_from_json(details, ["entity", "results", 0, "context"], {}):
                 raise WMLClientError(
                     Messages.get_message(message_id="rag_optimizer_no_metrics")
                 )
@@ -1194,7 +1285,7 @@ class RAGEngine(WMLResource):
         try:
             url = self._client._href_definitions.get_autoai_rag_href()
 
-            response_autoai_rag_api = self._client._session.get(
+            response_autoai_rag_api = self._client.httpx_client.get(
                 url=f"{url}?limit=1",
                 params=self._client._params(),
                 headers=self._client._get_headers(),
@@ -1219,7 +1310,9 @@ class RAGEngine(WMLResource):
         if self._client.CPD_version < 5.3:
             return None
 
-        code_compressed = bytes(code_connection.read(binary=True))
+        code_compressed = code_connection.read(binary=True)
+        if not isinstance(code_compressed, bytes):
+            raise ValueError("Code connection returned type other than bytes!")
 
         with gzip.GzipFile(fileobj=io.BytesIO(code_compressed)) as gz_file:
             source_code = gz_file.read()
@@ -1239,7 +1332,9 @@ class RAGEngine(WMLResource):
         if not connection:
             return None
 
-        metadata_binary = bytes(connection.read(binary=True))
+        metadata_binary = connection.read(binary=True)
+        if not isinstance(metadata_binary, bytes):
+            raise ValueError("Code connection returned type other than bytes!")
 
         return json.loads(metadata_binary.decode("utf-8"))
 
@@ -1253,16 +1348,13 @@ class RAGEngine(WMLResource):
             details=details, pattern_name=pattern_name
         )
 
-        file_location = (
-            pattern_details.get("context", {})
-            .get("rag_pattern", {})
-            .get("location", {})
-            .get(location_key)
+        file_location = get_from_json(
+            pattern_details, ["context", "rag_pattern", "location", location_key]
         )
 
         if not file_location:  # Older CPD versions may not contain `location_key`
             self._logger.debug(
-                f"Could not find specific location for `{location_key}`."
+                "Could not find specific location for `%s`.", location_key
             )
             return None
 

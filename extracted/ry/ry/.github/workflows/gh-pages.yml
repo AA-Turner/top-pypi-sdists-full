@@ -2,13 +2,12 @@ name: gh-pages
 
 on:
   push:
-    branches: [main, jkrdev]
+    branches: [main]
   pull_request:
     branches: [main]
 
 concurrency:
-  group:
-    ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 env:
@@ -22,15 +21,12 @@ jobs:
       contents: write # To push a branch
       pull-requests: write # To create a PR from that branch
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@nightly
       - name: Install the latest version of uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      # - uses: actions/setup-python@v5
-      #   with:
-      #     python-version: '3.12'
       - name: Setup mdBook
         uses: taiki-e/install-action@v2
         with:
@@ -38,7 +34,7 @@ jobs:
       - name: build-docs
         run: cd docs && mdbook build && lychee book --exclude=http://www.adobe.com/
       - name: upload-artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: book
           path: docs/book

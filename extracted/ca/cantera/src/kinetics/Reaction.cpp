@@ -28,11 +28,19 @@ Reaction::Reaction(const Composition& reactants_,
                    const Composition& products_,
                    shared_ptr<ReactionRate> rate_,
                    shared_ptr<ThirdBody> tbody_)
-    : reactants(reactants_)
-    , products(products_)
-    , m_from_composition(true)
+    : m_from_composition(true)
     , m_third_body(tbody_)
 {
+    for (auto& [species, stoich] : reactants_) {
+        if (stoich != 0.0) {
+            reactants[species] = stoich;
+        }
+    }
+    for (auto& [species, stoich] : products_) {
+        if (stoich != 0.0) {
+            products[species] = stoich;
+        }
+    }
     if (reactants.count("M") || products.count("M")) {
         throw CanteraError("Reaction::Reaction",
             "Third body 'M' must not be included in either reactant or product maps.");
@@ -56,7 +64,9 @@ Reaction::Reaction(const Composition& reactants_,
         if (name != "M") {
             m_third_body->explicit_3rd = true;
         }
-    } else if (!tbody_ && third.size() == 1) {
+    } else if (!tbody_ && third.size() == 1
+               && m_rate->type() != "electron-collision-plasma")
+    {
         // implicit third body
         string name = third.begin()->first;
         m_third_body = make_shared<ThirdBody>(name);
@@ -285,7 +295,7 @@ void Reaction::setParameters(const AnyMap& node, const Kinetics& kin)
     if (node.hasKey("orders")) {
         for (const auto& [name, order] : node["orders"].asMap<double>()) {
             orders[name] = order;
-            if (kin.kineticsSpeciesIndex(name) == npos) {
+            if (kin.kineticsSpeciesIndex(name, false) == npos) {
                 setValid(false);
             }
         }
@@ -316,6 +326,19 @@ void Reaction::setRate(shared_ptr<ReactionRate> rate)
             "Reaction rate for reaction '{}' must not be empty.", equation());
     }
     m_rate = rate;
+    for (const auto& [id, callback] : m_setRateCallbacks) {
+        callback();
+    }
+}
+
+void Reaction::registerSetRateCallback(void* id, const function<void()>& callback)
+{
+    m_setRateCallbacks[id] = callback;
+}
+
+void Reaction::removeSetRateCallback(void* id)
+{
+    m_setRateCallbacks.erase(id);
 }
 
 string Reaction::reactantString() const
@@ -385,10 +408,13 @@ void Reaction::setEquation(const string& equation, const Kinetics* kin)
     string third_body;
     size_t count = 0;
     size_t countM = 0;
+    size_t countF = 0; // falloff third body, (+M) or (+name)
     for (const auto& [name, stoich] : reactants) {
         // detect explicitly specified collision partner
         if (products.count(name)) {
-            third_body = name;
+            if (countF == 0) {
+                third_body = name; // Explicit falloff-style takes precedence
+            }
             size_t generic = third_body == "M"
                 || third_body == "(+M)"  || third_body == "(+ M)";
             count++;
@@ -396,6 +422,9 @@ void Reaction::setEquation(const string& equation, const Kinetics* kin)
             if (stoich > 1 && products[third_body] > 1) {
                 count++;
                 countM += generic;
+            }
+            if (ba::starts_with(name, "(+") && ba::ends_with(name, ")")) {
+                countF++;
             }
         }
     }
@@ -408,12 +437,14 @@ void Reaction::setEquation(const string& equation, const Kinetics* kin)
         }
         return;
 
+    } else if (countF == 1) {
+        // Falloff-style third body takes precedence and resolves ambiguity in case of
+        // multiple apparent third-body colliders
     } else if (countM > 1) {
         throw InputFileError("Reaction::setEquation", input,
             "Multiple generic third body colliders 'M' are not supported", equation);
-
     } else if (count > 1) {
-        // equations with more than one explicit third-body collider are handled as a
+        // equations with more than one specific third-body collider are handled as a
         // regular elementary reaction unless the equation contains a generic third body
         if (countM) {
             // generic collider 'M' is selected as third body
@@ -500,6 +531,10 @@ void Reaction::setEquation(const string& equation, const Kinetics* kin)
 
     // adjust reactant coefficients
     auto reac = reactants.find(third_body);
+    if (reac == reactants.end()) {
+        throw InputFileError("Reaction::setEquation", input,
+            "Logic error interpreting apparent third-body reaction");
+    }
     if (trunc(reac->second) != 1) {
         reac->second -= 1.;
     } else {
@@ -508,6 +543,10 @@ void Reaction::setEquation(const string& equation, const Kinetics* kin)
 
     // adjust product coefficients
     auto prod = products.find(third_body);
+    if (prod == products.end()) {
+        throw InputFileError("Reaction::setEquation", input,
+            "Logic error interpreting apparent third-body reaction");
+    }
     if (trunc(prod->second) != 1) {
         prod->second -= 1.;
     } else {
@@ -581,7 +620,7 @@ void updateUndeclared(vector<string>& undeclared,
                       const Composition& comp, const Kinetics& kin)
 {
     for (const auto& [name, stoich]: comp) {
-        if (kin.kineticsSpeciesIndex(name) == npos) {
+        if (kin.kineticsSpeciesIndex(name, false) == npos) {
             undeclared.emplace_back(name);
         }
     }
@@ -594,7 +633,7 @@ void Reaction::checkBalance(const Kinetics& kin) const
     // iterate over products and reactants
     for (const auto& [name, stoich] : products) {
         const ThermoPhase& ph = kin.speciesPhase(name);
-        size_t k = ph.speciesIndex(name);
+        size_t k = ph.speciesIndex(name, true);
         for (size_t m = 0; m < ph.nElements(); m++) {
             balr[ph.elementName(m)] = 0.0; // so that balr contains all species
             balp[ph.elementName(m)] += stoich * ph.nAtoms(k, m);
@@ -602,7 +641,7 @@ void Reaction::checkBalance(const Kinetics& kin) const
     }
     for (const auto& [name, stoich] : reactants) {
         const ThermoPhase& ph = kin.speciesPhase(name);
-        size_t k = ph.speciesIndex(name);
+        size_t k = ph.speciesIndex(name, true);
         for (size_t m = 0; m < ph.nElements(); m++) {
             balr[ph.elementName(m)] += stoich * ph.nAtoms(k, m);
         }
@@ -611,9 +650,9 @@ void Reaction::checkBalance(const Kinetics& kin) const
     string msg;
     bool ok = true;
     for (const auto& [elem, balance] : balr) {
-        double elemsum = balr[elem] + balp[elem];
+        double scale = std::max(std::abs(balr[elem]), std::abs(balp[elem]));
         double elemdiff = fabs(balp[elem] - balr[elem]);
-        if (elemsum > 0.0 && elemdiff / elemsum > 1e-4) {
+        if (elemdiff > 1e-4 * scale) {
             ok = false;
             msg += fmt::format("  {}           {}           {}\n",
                                elem, balr[elem], balp[elem]);
@@ -635,13 +674,13 @@ void Reaction::checkBalance(const Kinetics& kin) const
     double prod_sites = 0.0;
     auto& surf = dynamic_cast<const SurfPhase&>(kin.thermo(0));
     for (const auto& [name, stoich] : reactants) {
-        size_t k = surf.speciesIndex(name);
+        size_t k = surf.speciesIndex(name, false);
         if (k != npos) {
             reac_sites += stoich * surf.size(k);
         }
     }
     for (const auto& [name, stoich] : products) {
-        size_t k = surf.speciesIndex(name);
+        size_t k = surf.speciesIndex(name, false);
         if (k != npos) {
             prod_sites += stoich * surf.size(k);
         }
@@ -707,7 +746,7 @@ bool Reaction::usesElectrochemistry(const Kinetics& kin) const
     for (const auto& [name, stoich] : products) {
         size_t kkin = kin.kineticsSpeciesIndex(name);
         size_t i = kin.speciesPhaseIndex(kkin);
-        size_t kphase = kin.thermo(i).speciesIndex(name);
+        size_t kphase = kin.thermo(i).speciesIndex(name, true);
         e_counter[i] += stoich * kin.thermo(i).charge(kphase);
     }
 
@@ -715,7 +754,7 @@ bool Reaction::usesElectrochemistry(const Kinetics& kin) const
     for (const auto& [name, stoich] : reactants) {
         size_t kkin = kin.kineticsSpeciesIndex(name);
         size_t i = kin.speciesPhaseIndex(kkin);
-        size_t kphase = kin.thermo(i).speciesIndex(name);
+        size_t kphase = kin.thermo(i).speciesIndex(name, true);
         e_counter[i] -= stoich * kin.thermo(i).charge(kphase);
     }
 
@@ -845,6 +884,7 @@ bool ThirdBody::checkSpecies(const Reaction& rxn, const Kinetics& kin) const
 
 unique_ptr<Reaction> newReaction(const string& type)
 {
+    warn_deprecated("newReaction(string)", "To be removed after Cantera 3.2.");
     return make_unique<Reaction>();
 }
 
@@ -897,7 +937,7 @@ void parseReactionEquation(Reaction& R, const string& equation,
                     equation, tokens[i],
                     (last_used == npos) ? "n/a" : tokens[last_used]);
             }
-            if (!kin || (kin->kineticsSpeciesIndex(species) == npos
+            if (!kin || (kin->kineticsSpeciesIndex(species, false) == npos
                          && mass_action && species != "M"))
             {
                 R.setValid(false);

@@ -14,7 +14,7 @@ from setuptools import Extension, find_packages, setup  # type: ignore
 # the pre-commit checks through check_init_and_setup_coincide.py.
 setup(
     name="crosshair-tool",
-    version="0.0.96",  # Update this in crosshair/__init__.py too
+    version="0.0.102",  # Update this in crosshair/__init__.py too
     author="Phillip Schanely",
     author_email="pschanely+vE7F@gmail.com",
     ext_modules=[
@@ -51,14 +51,13 @@ setup(
     extras_require={
         "dev": [
             "autodocsumm>=0.2.2,<1",
-            "black==22.3.0",  # sync this with .pre-commit-config.yml
+            "black==25.9.0",  # sync this with .pre-commit-config.yml
             "deal>=4.13.0",
             "icontract>=2.4.0",
             "isort==5.11.5",  # sync this with .pre-commit-config.yml
-            "mypy==0.990",
-            "numpy==1.23.4; python_version < '3.12'",
-            "numpy==1.26.0; python_version >= '3.12' and python_version < '3.13'",
-            "numpy==2.0.1; python_version >= '3.13'",
+            "mypy==1.18.1",  # sync this with .pre-commit-config.yml
+            "numpy==1.24.0; python_version < '3.12'",
+            "numpy==2.3.3; python_version >= '3.12'",
             "pre-commit~=2.20",
             "pytest",
             "pytest-xdist",
@@ -66,13 +65,12 @@ setup(
             "sphinx>=3.4.3",
             "sphinx-rtd-theme>=0.5.1",
             "rst2pdf>=0.102",
-            "z3-solver==4.14.1.0",  # TODO: the 4.15 release has significant performance improvements
+            "z3-solver==4.15.4.0",
         ]
     },
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",

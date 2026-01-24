@@ -174,25 +174,24 @@ class Predictions(APIObject):
         self.max_explanations = max_explanations
         self.shap_warnings = shap_warnings
 
-    _metadata_trafaret = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("url"): String(),
-            t.Key("model_id"): String(),
-            t.Key("prediction_dataset_id"): String(),
-            t.Key("includes_prediction_intervals"): t.Bool(),
-            t.Key("prediction_intervals_size", optional=True): Int(),
-            t.Key("forecast_point", optional=True): parse_time,
-            t.Key("predictions_start_date", optional=True): parse_time,
-            t.Key("predictions_end_date", optional=True): parse_time,
-            t.Key("actual_value_column", optional=True): String(),
-            t.Key("explanation_algorithm", optional=True): String(),
-            t.Key("max_explanations", optional=True): Int(),
-            t.Key("shap_warnings", optional=True): t.Dict(
-                {t.Key("mismatch_row_count"): Int(), t.Key("max_normalized_mismatch"): t.Float()}
-            ),
-        }
-    ).ignore_extra("*")
+    _metadata_trafaret = t.Dict({
+        t.Key("id"): String(),
+        t.Key("url"): String(),
+        t.Key("model_id"): String(),
+        t.Key("prediction_dataset_id"): String(),
+        t.Key("includes_prediction_intervals"): t.Bool(),
+        t.Key("prediction_intervals_size", optional=True): Int(),
+        t.Key("forecast_point", optional=True): parse_time,
+        t.Key("predictions_start_date", optional=True): parse_time,
+        t.Key("predictions_end_date", optional=True): parse_time,
+        t.Key("actual_value_column", optional=True): String(),
+        t.Key("explanation_algorithm", optional=True): String(),
+        t.Key("max_explanations", optional=True): Int(),
+        t.Key("shap_warnings", optional=True): t.Dict({
+            t.Key("mismatch_row_count"): Int(),
+            t.Key("max_normalized_mismatch"): t.Float(),
+        }),
+    }).ignore_extra("*")
 
     @classmethod
     def _build_list_path(  # pylint: disable=missing-function-docstring
@@ -347,9 +346,7 @@ class Predictions(APIObject):
                 resp.status_code,
             )
 
-    def download_to_csv(
-        self, filename: Union[str, bool], encoding: str = "utf-8", serializer: str = "json"
-    ) -> None:
+    def download_to_csv(self, filename: Union[str, bool], encoding: str = "utf-8", serializer: str = "json") -> None:
         """
         Save prediction rows into CSV file.
 
@@ -363,7 +360,7 @@ class Predictions(APIObject):
         serializer : Optional[str]
             Serializer to use for the download. Options: ``json`` (default) or ``csv``.
         """
-        df = self.get_all_as_dataframe(serializer=serializer)
+        df = self.get_all_as_dataframe(serializer=serializer)  # noqa: PD901
         df.to_csv(
             path_or_buf=filename,
             header=True,

@@ -9,54 +9,41 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0032 import SimpleRepository
+from .group_0274 import BranchProtection
 
 
-class CodeScanningVariantAnalysisRepoTask(GitHubModel):
-    """CodeScanningVariantAnalysisRepoTask"""
+class ShortBranch(GitHubModel):
+    """Short Branch
 
-    repository: SimpleRepository = Field(
-        title="Simple Repository", description="A GitHub repository."
+    Short Branch
+    """
+
+    name: str = Field()
+    commit: ShortBranchPropCommit = Field()
+    protected: bool = Field()
+    protection: Missing[BranchProtection] = Field(
+        default=UNSET, title="Branch Protection", description="Branch Protection"
     )
-    analysis_status: Literal[
-        "pending", "in_progress", "succeeded", "failed", "canceled", "timed_out"
-    ] = Field(
-        description="The new status of the CodeQL variant analysis repository task."
-    )
-    artifact_size_in_bytes: Missing[int] = Field(
-        default=UNSET,
-        description="The size of the artifact. This is only available for successful analyses.",
-    )
-    result_count: Missing[int] = Field(
-        default=UNSET,
-        description="The number of results in the case of a successful analysis. This is only available for successful analyses.",
-    )
-    failure_message: Missing[str] = Field(
-        default=UNSET,
-        description="The reason of the failure of this repo task. This is only available if the repository task has failed.",
-    )
-    database_commit_sha: Missing[str] = Field(
-        default=UNSET,
-        description="The SHA of the commit the CodeQL database was built against. This is only available for successful analyses.",
-    )
-    source_location_prefix: Missing[str] = Field(
-        default=UNSET,
-        description="The source location prefix to use. This is only available for successful analyses.",
-    )
-    artifact_url: Missing[str] = Field(
-        default=UNSET,
-        description="The URL of the artifact. This is only available for successful analyses.",
-    )
+    protection_url: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(CodeScanningVariantAnalysisRepoTask)
+class ShortBranchPropCommit(GitHubModel):
+    """ShortBranchPropCommit"""
 
-__all__ = ("CodeScanningVariantAnalysisRepoTask",)
+    sha: str = Field()
+    url: str = Field()
+
+
+model_rebuild(ShortBranch)
+model_rebuild(ShortBranchPropCommit)
+
+__all__ = (
+    "ShortBranch",
+    "ShortBranchPropCommit",
+)

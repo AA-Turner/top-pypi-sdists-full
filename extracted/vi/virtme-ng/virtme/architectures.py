@@ -6,7 +6,6 @@
 # 8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643
 
 import os
-from typing import List, Optional
 
 
 class Arch:
@@ -27,7 +26,7 @@ class Arch:
         return True
 
     @staticmethod
-    def qemuargs(is_native, use_kvm, use_gpu) -> List[str]:
+    def qemuargs(is_native, use_kvm, use_gpu) -> list[str]:
         _ = is_native
         _ = use_kvm
         _ = use_gpu
@@ -44,51 +43,51 @@ class Arch:
         return f"vhost-{vhosttype}-pci"
 
     @staticmethod
-    def earlyconsole_args() -> List[str]:
+    def earlyconsole_args() -> list[str]:
         return []
 
     @staticmethod
-    def serial_console_args() -> List[str]:
+    def serial_console_args() -> list[str]:
         return []
 
     @staticmethod
-    def qemu_nodisplay_args() -> List[str]:
+    def qemu_nodisplay_args() -> list[str]:
         return ["-vga", "none", "-display", "none"]
 
     @staticmethod
-    def qemu_nodisplay_nvgpu_args() -> List[str]:
+    def qemu_nodisplay_nvgpu_args() -> list[str]:
         return ["-display", "none"]
 
     @staticmethod
-    def qemu_display_args() -> List[str]:
+    def qemu_display_args() -> list[str]:
         return ["-device", "virtio-gpu-pci"]
 
     @staticmethod
-    def qemu_sound_args() -> List[str]:
+    def qemu_sound_args() -> list[str]:
         return []
 
     @staticmethod
-    def qemu_vmcoreinfo_args() -> List[str]:
+    def qemu_vmcoreinfo_args() -> list[str]:
         return ["-device", "vmcoreinfo"]
 
     @staticmethod
-    def qemu_serial_console_args() -> List[str]:
+    def qemu_serial_console_args() -> list[str]:
         # We should be using the new-style -device serialdev,chardev=xyz,
         # but many architecture-specific serial devices don't support that.
         return ["-serial", "chardev:console"]
 
     @staticmethod
-    def config_base() -> List[str]:
+    def config_base() -> list[str]:
         return []
 
     def kimg_path(self) -> str:
         return f"arch/{self.linuxname}/boot/bzImage"
 
-    def img_name(self) -> List[str]:
+    def img_name(self) -> list[str]:
         return ["vmlinuz"]
 
     @staticmethod
-    def dtb_path() -> Optional[str]:
+    def dtb_path() -> str | None:
         return None
 
 
@@ -122,6 +121,10 @@ class Arch_x86(Arch):
             cpu_str = "host"
             if use_gpu:
                 cpu_str += ",host-phys-bits-limit=0x28"
+            # Enable AMD topology extensions (this should be ignored on
+            # non-AMD CPUs, so it is safe to always enable it).
+            cpu_str += ",topoext=on"
+
             ret.extend(["-cpu", cpu_str])
         else:
             ret.extend(["-machine", "q35"])
@@ -129,7 +132,7 @@ class Arch_x86(Arch):
         return ret
 
     @staticmethod
-    def qemu_sound_args() -> List[str]:
+    def qemu_sound_args() -> list[str]:
         return [
             "-audiodev",
             "sdl,id=snd0",
@@ -185,7 +188,7 @@ class Arch_microvm(Arch_x86):
         return f"vhost-{vhosttype}-device"
 
     @staticmethod
-    def qemu_display_args() -> List[str]:
+    def qemu_display_args() -> list[str]:
         return [
             "-device",
             "virtio-keyboard-device",
@@ -205,9 +208,15 @@ class Arch_microvm(Arch_x86):
         ret.extend(["-M", "microvm,accel=kvm,pcie=on,rtc=on"])
 
         if is_native and use_kvm:
+            cpu_str = "host"
+
+            # Enable AMD topology extensions (this should be ignored on
+            # non-AMD CPUs, so it is safe to always enable it).
+            cpu_str += ",topoext=on"
+
             # If we're likely to use KVM, request a full-featured CPU.
             # (NB: if KVM fails, this will cause problems.  We should probe.)
-            ret.extend(["-cpu", "host"])  # We can't migrate regardless.
+            ret.extend(["-cpu", cpu_str])
 
         return ret
 
@@ -233,7 +242,7 @@ class Arch_arm(Arch):
         return ret
 
     @staticmethod
-    def qemu_display_args() -> List[str]:
+    def qemu_display_args() -> list[str]:
         return ["-device", "virtio-gpu-device"]
 
     @staticmethod
@@ -335,7 +344,7 @@ class Arch_ppc(Arch):
         # Apparently SLOF (QEMU's bundled firmware?) can't boot a zImage.
         return "vmlinux"
 
-    def img_name(self) -> List[str]:
+    def img_name(self) -> list[str]:
         return ["vmlinux"]
 
 
@@ -428,7 +437,7 @@ class Arch_s390x(Arch):
         return ret
 
     @staticmethod
-    def qemu_display_args() -> List[str]:
+    def qemu_display_args() -> list[str]:
         return ["-device", "virtio-gpu-ccw,devno=fe.0.0101"]
 
     @staticmethod
@@ -436,7 +445,7 @@ class Arch_s390x(Arch):
         return ["CONFIG_MARCH_Z900=y", "CONFIG_DIAG288_WATCHDOG=y"]
 
     @staticmethod
-    def serial_console_args() -> List[str]:
+    def serial_console_args() -> list[str]:
         return ["ttysclp0"]
 
     @staticmethod
@@ -444,14 +453,14 @@ class Arch_s390x(Arch):
         return ["-device", "sclpconsole,chardev=console"]
 
     @staticmethod
-    def earlyconsole_args() -> List[str]:
+    def earlyconsole_args() -> list[str]:
         return ["earlyprintk=sclp"]
 
     @staticmethod
-    def qemu_vmcoreinfo_args() -> List[str]:
+    def qemu_vmcoreinfo_args() -> list[str]:
         return []
 
-    def img_name(self) -> List[str]:
+    def img_name(self) -> list[str]:
         return ["vmlinuz", "image"]
 
 

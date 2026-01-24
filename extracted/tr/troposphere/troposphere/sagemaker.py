@@ -137,12 +137,25 @@ class AppImageConfig(AWSObject):
     }
 
 
+class ClusterAutoScalingConfig(AWSProperty):
+    """
+    `ClusterAutoScalingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterautoscalingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AutoScalerType": (str, False),
+        "Mode": (str, True),
+    }
+
+
 class ClusterEbsVolumeConfig(AWSProperty):
     """
     `ClusterEbsVolumeConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterebsvolumeconfig.html>`__
     """
 
     props: PropsDictType = {
+        "RootVolume": (boolean, False),
+        "VolumeKmsKeyId": (str, False),
         "VolumeSizeInGB": (integer, False),
     }
 
@@ -354,6 +367,17 @@ class Orchestrator(AWSProperty):
     }
 
 
+class TieredStorageConfig(AWSProperty):
+    """
+    `TieredStorageConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-tieredstorageconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "InstanceMemoryAllocationPercentage": (integer, False),
+        "Mode": (str, True),
+    }
+
+
 class Cluster(AWSObject):
     """
     `Cluster <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-cluster.html>`__
@@ -362,13 +386,16 @@ class Cluster(AWSObject):
     resource_type = "AWS::SageMaker::Cluster"
 
     props: PropsDictType = {
+        "AutoScaling": (ClusterAutoScalingConfig, False),
         "ClusterName": (str, False),
+        "ClusterRole": (str, False),
         "InstanceGroups": ([ClusterInstanceGroup], False),
         "NodeProvisioningMode": (str, False),
         "NodeRecovery": (str, False),
         "Orchestrator": (Orchestrator, False),
         "RestrictedInstanceGroups": ([ClusterRestrictedInstanceGroup], False),
         "Tags": (Tags, False),
+        "TieredStorageConfig": (TieredStorageConfig, False),
         "VpcConfig": (VpcConfig, False),
     }
 
@@ -896,6 +923,7 @@ class DomainSettings(AWSProperty):
     props: PropsDictType = {
         "DockerSettings": (DockerSettings, False),
         "ExecutionRoleIdentityConfig": (str, False),
+        "IpAddressType": (str, False),
         "RStudioServerProDomainSettings": (RStudioServerProDomainSettings, False),
         "SecurityGroupIds": ([str], False),
         "UnifiedStudioSettings": (UnifiedStudioSettings, False),
@@ -2965,8 +2993,10 @@ class PartnerApp(AWSObject):
     resource_type = "AWS::SageMaker::PartnerApp"
 
     props: PropsDictType = {
+        "AppVersion": (str, False),
         "ApplicationConfig": (PartnerAppConfig, False),
         "AuthType": (str, True),
+        "EnableAutoMinorVersionUpgrade": (boolean, False),
         "EnableIamSessionBasedIdentity": (boolean, False),
         "ExecutionRoleArn": (str, True),
         "KmsKeyId": (str, False),

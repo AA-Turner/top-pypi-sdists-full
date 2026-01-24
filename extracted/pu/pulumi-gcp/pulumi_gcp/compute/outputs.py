@@ -211,6 +211,7 @@ __all__ = [
     'InstanceGroupManagerAllInstancesConfig',
     'InstanceGroupManagerAutoHealingPolicies',
     'InstanceGroupManagerInstanceLifecyclePolicy',
+    'InstanceGroupManagerInstanceLifecyclePolicyOnRepair',
     'InstanceGroupManagerNamedPort',
     'InstanceGroupManagerParams',
     'InstanceGroupManagerResourcePolicies',
@@ -306,6 +307,7 @@ __all__ = [
     'InterconnectGroupPhysicalStructureMetroFacilityZone',
     'InterconnectMacsec',
     'InterconnectMacsecPreSharedKey',
+    'InterconnectParams',
     'MachineImageIamBindingCondition',
     'MachineImageIamMemberCondition',
     'MachineImageMachineImageEncryptionKey',
@@ -388,6 +390,8 @@ __all__ = [
     'RegionBackendServiceIamMemberCondition',
     'RegionBackendServiceIap',
     'RegionBackendServiceLogConfig',
+    'RegionBackendServiceNetworkPassThroughLbTrafficPolicy',
+    'RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity',
     'RegionBackendServiceOutlierDetection',
     'RegionBackendServiceOutlierDetectionBaseEjectionTime',
     'RegionBackendServiceOutlierDetectionInterval',
@@ -395,6 +399,8 @@ __all__ = [
     'RegionBackendServiceStrongSessionAffinityCookie',
     'RegionBackendServiceStrongSessionAffinityCookieTtl',
     'RegionBackendServiceSubsetting',
+    'RegionBackendServiceTlsSettings',
+    'RegionBackendServiceTlsSettingsSubjectAltName',
     'RegionCommitmentLicenseResource',
     'RegionCommitmentResource',
     'RegionDiskAsyncPrimaryDisk',
@@ -415,7 +421,14 @@ __all__ = [
     'RegionInstanceGroupManagerAutoHealingPolicies',
     'RegionInstanceGroupManagerInstanceFlexibilityPolicy',
     'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelection',
+    'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk',
+    'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey',
+    'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabel',
+    'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTag',
+    'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey',
+    'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey',
     'RegionInstanceGroupManagerInstanceLifecyclePolicy',
+    'RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair',
     'RegionInstanceGroupManagerNamedPort',
     'RegionInstanceGroupManagerParams',
     'RegionInstanceGroupManagerStandbyPolicy',
@@ -604,6 +617,11 @@ __all__ = [
     'RegionUrlMapTest',
     'ReservationDeleteAfterDuration',
     'ReservationReservationSharingPolicy',
+    'ReservationResourceStatus',
+    'ReservationResourceStatusHealthInfo',
+    'ReservationResourceStatusReservationMaintenance',
+    'ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance',
+    'ReservationResourceStatusSpecificSkuAllocation',
     'ReservationShareSettings',
     'ReservationShareSettingsProjectMap',
     'ReservationSpecificReservation',
@@ -707,6 +725,8 @@ __all__ = [
     'SecurityScanConfigSchedule',
     'ServiceAttachmentConnectedEndpoint',
     'ServiceAttachmentConsumerAcceptList',
+    'ServiceAttachmentPscServiceAttachmentId',
+    'ServiceAttachmentTunnelingConfig',
     'SnapshotIamBindingCondition',
     'SnapshotIamMemberCondition',
     'SnapshotSettingsStorageLocation',
@@ -903,6 +923,7 @@ __all__ = [
     'GetInstanceGroupManagerAllInstancesConfigResult',
     'GetInstanceGroupManagerAutoHealingPolicyResult',
     'GetInstanceGroupManagerInstanceLifecyclePolicyResult',
+    'GetInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult',
     'GetInstanceGroupManagerNamedPortResult',
     'GetInstanceGroupManagerParamResult',
     'GetInstanceGroupManagerResourcePolicyResult',
@@ -963,6 +984,7 @@ __all__ = [
     'GetInstanceTemplateSchedulingOnInstanceStopActionResult',
     'GetInstanceTemplateServiceAccountResult',
     'GetInstanceTemplateShieldedInstanceConfigResult',
+    'GetInterconnectLocationsLocationResult',
     'GetMachineTypesMachineTypeResult',
     'GetMachineTypesMachineTypeAcceleratorResult',
     'GetMachineTypesMachineTypeBundledLocalSsdResult',
@@ -988,6 +1010,8 @@ __all__ = [
     'GetRegionBackendServiceHaPolicyLeaderNetworkEndpointResult',
     'GetRegionBackendServiceIapResult',
     'GetRegionBackendServiceLogConfigResult',
+    'GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyResult',
+    'GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinityResult',
     'GetRegionBackendServiceOutlierDetectionResult',
     'GetRegionBackendServiceOutlierDetectionBaseEjectionTimeResult',
     'GetRegionBackendServiceOutlierDetectionIntervalResult',
@@ -995,6 +1019,8 @@ __all__ = [
     'GetRegionBackendServiceStrongSessionAffinityCookyResult',
     'GetRegionBackendServiceStrongSessionAffinityCookyTtlResult',
     'GetRegionBackendServiceSubsettingResult',
+    'GetRegionBackendServiceTlsSettingResult',
+    'GetRegionBackendServiceTlsSettingSubjectAltNameResult',
     'GetRegionDiskAsyncPrimaryDiskResult',
     'GetRegionDiskDiskEncryptionKeyResult',
     'GetRegionDiskGuestOsFeatureResult',
@@ -1005,7 +1031,14 @@ __all__ = [
     'GetRegionInstanceGroupManagerAutoHealingPolicyResult',
     'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyResult',
     'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionResult',
+    'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResult',
+    'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKeyResult',
+    'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabelResult',
+    'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTagResult',
+    'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKeyResult',
+    'GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKeyResult',
     'GetRegionInstanceGroupManagerInstanceLifecyclePolicyResult',
+    'GetRegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult',
     'GetRegionInstanceGroupManagerNamedPortResult',
     'GetRegionInstanceGroupManagerParamResult',
     'GetRegionInstanceGroupManagerStandbyPolicyResult',
@@ -1048,14 +1081,45 @@ __all__ = [
     'GetRegionNetworkEndpointGroupCloudRunResult',
     'GetRegionNetworkEndpointGroupPscDataResult',
     'GetRegionNetworkEndpointGroupServerlessDeploymentResult',
+    'GetRegionSecurityPolicyAdvancedOptionsConfigResult',
+    'GetRegionSecurityPolicyAdvancedOptionsConfigJsonCustomConfigResult',
+    'GetRegionSecurityPolicyDdosProtectionConfigResult',
+    'GetRegionSecurityPolicyRuleResult',
+    'GetRegionSecurityPolicyRuleMatchResult',
+    'GetRegionSecurityPolicyRuleMatchConfigResult',
+    'GetRegionSecurityPolicyRuleMatchExprResult',
+    'GetRegionSecurityPolicyRuleNetworkMatchResult',
+    'GetRegionSecurityPolicyRuleNetworkMatchUserDefinedFieldResult',
+    'GetRegionSecurityPolicyRulePreconfiguredWafConfigResult',
+    'GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionResult',
+    'GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyResult',
+    'GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderResult',
+    'GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamResult',
+    'GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriResult',
+    'GetRegionSecurityPolicyRuleRateLimitOptionResult',
+    'GetRegionSecurityPolicyRuleRateLimitOptionBanThresholdResult',
+    'GetRegionSecurityPolicyRuleRateLimitOptionEnforceOnKeyConfigResult',
+    'GetRegionSecurityPolicyRuleRateLimitOptionRateLimitThresholdResult',
+    'GetRegionSecurityPolicyUserDefinedFieldResult',
+    'GetReservationBlockHealthInfoResult',
+    'GetReservationBlockPhysicalTopologyResult',
+    'GetReservationBlockReservationMaintenanceResult',
     'GetReservationDeleteAfterDurationResult',
     'GetReservationReservationSharingPolicyResult',
+    'GetReservationResourceStatusResult',
+    'GetReservationResourceStatusHealthInfoResult',
+    'GetReservationResourceStatusReservationMaintenanceResult',
+    'GetReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceResult',
+    'GetReservationResourceStatusSpecificSkuAllocationResult',
     'GetReservationShareSettingResult',
     'GetReservationShareSettingProjectMapResult',
     'GetReservationSpecificReservationResult',
     'GetReservationSpecificReservationInstancePropertyResult',
     'GetReservationSpecificReservationInstancePropertyGuestAcceleratorResult',
     'GetReservationSpecificReservationInstancePropertyLocalSsdResult',
+    'GetReservationSubBlockHealthInfoResult',
+    'GetReservationSubBlockPhysicalTopologyResult',
+    'GetReservationSubBlockReservationSubBlockMaintenanceResult',
     'GetResourcePolicyDiskConsistencyGroupPolicyResult',
     'GetResourcePolicyGroupPlacementPolicyResult',
     'GetResourcePolicyInstanceSchedulePolicyResult',
@@ -1089,6 +1153,13 @@ __all__ = [
     'GetRouterStatusBestRoutesForRouterParamResult',
     'GetRouterStatusBestRoutesForRouterWarningResult',
     'GetRouterStatusBestRoutesForRouterWarningDataResult',
+    'GetRoutersRouterResult',
+    'GetRoutersRouterBgpResult',
+    'GetRoutersRouterBgpAdvertisedIpRangeResult',
+    'GetRoutersRouterBgpPeerResult',
+    'GetRoutersRouterInterfaceResult',
+    'GetRoutersRouterMd5AuthenticationKeyResult',
+    'GetRoutersRouterNatResult',
     'GetSecurityPolicyAdaptiveProtectionConfigResult',
     'GetSecurityPolicyAdaptiveProtectionConfigAutoDeployConfigResult',
     'GetSecurityPolicyAdaptiveProtectionConfigLayer7DdosDefenseConfigResult',
@@ -1119,6 +1190,8 @@ __all__ = [
     'GetSecurityPolicyRuleRedirectOptionResult',
     'GetSnapshotSnapshotEncryptionKeyResult',
     'GetSnapshotSourceDiskEncryptionKeyResult',
+    'GetStoragePoolResourceStatusResult',
+    'GetStoragePoolStatusResult',
     'GetStoragePoolTypesDeprecatedResult',
     'GetSubnetworkSecondaryIpRangeResult',
     'GetSubnetworksSubnetworkResult',
@@ -2338,6 +2411,12 @@ class BackendServiceBackend(dict):
             suggest = "max_connections_per_endpoint"
         elif key == "maxConnectionsPerInstance":
             suggest = "max_connections_per_instance"
+        elif key == "maxInFlightRequests":
+            suggest = "max_in_flight_requests"
+        elif key == "maxInFlightRequestsPerEndpoint":
+            suggest = "max_in_flight_requests_per_endpoint"
+        elif key == "maxInFlightRequestsPerInstance":
+            suggest = "max_in_flight_requests_per_instance"
         elif key == "maxRate":
             suggest = "max_rate"
         elif key == "maxRatePerEndpoint":
@@ -2346,6 +2425,8 @@ class BackendServiceBackend(dict):
             suggest = "max_rate_per_instance"
         elif key == "maxUtilization":
             suggest = "max_utilization"
+        elif key == "trafficDuration":
+            suggest = "traffic_duration"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in BackendServiceBackend. Access the value via the '{suggest}' property getter instead.")
@@ -2367,11 +2448,15 @@ class BackendServiceBackend(dict):
                  max_connections: Optional[_builtins.int] = None,
                  max_connections_per_endpoint: Optional[_builtins.int] = None,
                  max_connections_per_instance: Optional[_builtins.int] = None,
+                 max_in_flight_requests: Optional[_builtins.int] = None,
+                 max_in_flight_requests_per_endpoint: Optional[_builtins.int] = None,
+                 max_in_flight_requests_per_instance: Optional[_builtins.int] = None,
                  max_rate: Optional[_builtins.int] = None,
                  max_rate_per_endpoint: Optional[_builtins.float] = None,
                  max_rate_per_instance: Optional[_builtins.float] = None,
                  max_utilization: Optional[_builtins.float] = None,
-                 preference: Optional[_builtins.str] = None):
+                 preference: Optional[_builtins.str] = None,
+                 traffic_duration: Optional[_builtins.str] = None):
         """
         :param _builtins.str group: The fully-qualified URL of an Instance Group or Network Endpoint
                Group resource. In case of instance group this defines the list
@@ -2394,7 +2479,7 @@ class BackendServiceBackend(dict):
                See the [Backend Services Overview](https://cloud.google.com/load-balancing/docs/backend-service#balancing-mode)
                for an explanation of load balancing modes.
                Default value is `UTILIZATION`.
-               Possible values are: `UTILIZATION`, `RATE`, `CONNECTION`, `CUSTOM_METRICS`.
+               Possible values are: `UTILIZATION`, `RATE`, `CONNECTION`, `CUSTOM_METRICS`, `IN_FLIGHT`.
         :param _builtins.float capacity_scaler: A multiplier applied to the group's maximum servicing capacity
                (based on UTILIZATION, RATE or CONNECTION).
                Default value is 1, which means the group will serve up to 100%
@@ -2422,6 +2507,13 @@ class BackendServiceBackend(dict):
                UTILIZATION balancing modes.
                For CONNECTION mode, either maxConnections or
                maxConnectionsPerInstance must be set.
+        :param _builtins.int max_in_flight_requests: Defines a maximum number of in-flight requests for the whole NEG
+               or instance group. Not available if backend's balancingMode is RATE
+               or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_endpoint: Defines a maximum number of in-flight requests for a single endpoint.
+               Not available if backend's balancingMode is RATE or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_instance: Defines a maximum number of in-flight requests for a single VM.
+               Not available if backend's balancingMode is RATE or CONNECTION.
         :param _builtins.int max_rate: The max requests per second (RPS) of the group.
                Can be used with either RATE or UTILIZATION balancing modes,
                but required if RATE mode. For RATE mode, either maxRate or one
@@ -2444,6 +2536,11 @@ class BackendServiceBackend(dict):
                - DEFAULT: If preferred backends don't have enough capacity, backends in this layer would be used and
                traffic would be assigned based on the load balancing algorithm you use. This is the default
                Possible values are: `PREFERRED`, `DEFAULT`.
+        :param _builtins.str traffic_duration: This field specifies how long a connection should be kept alive for:
+               - LONG: Most of the requests are expected to take more than multiple
+               seconds to finish.
+               - SHORT: Most requests are expected to finish with a sub-second latency.
+               Possible values are: `LONG`, `SHORT`.
         """
         pulumi.set(__self__, "group", group)
         if balancing_mode is not None:
@@ -2460,6 +2557,12 @@ class BackendServiceBackend(dict):
             pulumi.set(__self__, "max_connections_per_endpoint", max_connections_per_endpoint)
         if max_connections_per_instance is not None:
             pulumi.set(__self__, "max_connections_per_instance", max_connections_per_instance)
+        if max_in_flight_requests is not None:
+            pulumi.set(__self__, "max_in_flight_requests", max_in_flight_requests)
+        if max_in_flight_requests_per_endpoint is not None:
+            pulumi.set(__self__, "max_in_flight_requests_per_endpoint", max_in_flight_requests_per_endpoint)
+        if max_in_flight_requests_per_instance is not None:
+            pulumi.set(__self__, "max_in_flight_requests_per_instance", max_in_flight_requests_per_instance)
         if max_rate is not None:
             pulumi.set(__self__, "max_rate", max_rate)
         if max_rate_per_endpoint is not None:
@@ -2470,6 +2573,8 @@ class BackendServiceBackend(dict):
             pulumi.set(__self__, "max_utilization", max_utilization)
         if preference is not None:
             pulumi.set(__self__, "preference", preference)
+        if traffic_duration is not None:
+            pulumi.set(__self__, "traffic_duration", traffic_duration)
 
     @_builtins.property
     @pulumi.getter
@@ -2503,7 +2608,7 @@ class BackendServiceBackend(dict):
         See the [Backend Services Overview](https://cloud.google.com/load-balancing/docs/backend-service#balancing-mode)
         for an explanation of load balancing modes.
         Default value is `UTILIZATION`.
-        Possible values are: `UTILIZATION`, `RATE`, `CONNECTION`, `CUSTOM_METRICS`.
+        Possible values are: `UTILIZATION`, `RATE`, `CONNECTION`, `CUSTOM_METRICS`, `IN_FLIGHT`.
         """
         return pulumi.get(self, "balancing_mode")
 
@@ -2577,6 +2682,34 @@ class BackendServiceBackend(dict):
         return pulumi.get(self, "max_connections_per_instance")
 
     @_builtins.property
+    @pulumi.getter(name="maxInFlightRequests")
+    def max_in_flight_requests(self) -> Optional[_builtins.int]:
+        """
+        Defines a maximum number of in-flight requests for the whole NEG
+        or instance group. Not available if backend's balancingMode is RATE
+        or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerEndpoint")
+    def max_in_flight_requests_per_endpoint(self) -> Optional[_builtins.int]:
+        """
+        Defines a maximum number of in-flight requests for a single endpoint.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerInstance")
+    def max_in_flight_requests_per_instance(self) -> Optional[_builtins.int]:
+        """
+        Defines a maximum number of in-flight requests for a single VM.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_instance")
+
+    @_builtins.property
     @pulumi.getter(name="maxRate")
     def max_rate(self) -> Optional[_builtins.int]:
         """
@@ -2632,6 +2765,18 @@ class BackendServiceBackend(dict):
         Possible values are: `PREFERRED`, `DEFAULT`.
         """
         return pulumi.get(self, "preference")
+
+    @_builtins.property
+    @pulumi.getter(name="trafficDuration")
+    def traffic_duration(self) -> Optional[_builtins.str]:
+        """
+        This field specifies how long a connection should be kept alive for:
+        - LONG: Most of the requests are expected to take more than multiple
+        seconds to finish.
+        - SHORT: Most requests are expected to finish with a sub-second latency.
+        Possible values are: `LONG`, `SHORT`.
+        """
+        return pulumi.get(self, "traffic_duration")
 
 
 @pulumi.output_type
@@ -6509,7 +6654,7 @@ class FirewallPolicyWithRulesPredefinedRuleMatchSrcSecureTag(dict):
                `INEFFECTIVE`. A secure tag is `INEFFECTIVE` when it is deleted
                or its network is deleted.
                
-               <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+               <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         if name is not None:
             pulumi.set(__self__, "name", name)
@@ -6534,7 +6679,7 @@ class FirewallPolicyWithRulesPredefinedRuleMatchSrcSecureTag(dict):
         `INEFFECTIVE`. A secure tag is `INEFFECTIVE` when it is deleted
         or its network is deleted.
 
-        <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+        <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "state")
 
@@ -7184,7 +7329,7 @@ class FirewallPolicyWithRulesRuleMatchSrcSecureTag(dict):
                `INEFFECTIVE`. A secure tag is `INEFFECTIVE` when it is deleted
                or its network is deleted.
                
-               <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+               <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         if name is not None:
             pulumi.set(__self__, "name", name)
@@ -7209,7 +7354,7 @@ class FirewallPolicyWithRulesRuleMatchSrcSecureTag(dict):
         `INEFFECTIVE`. A secure tag is `INEFFECTIVE` when it is deleted
         or its network is deleted.
 
-        <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+        <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "state")
 
@@ -13613,6 +13758,8 @@ class InstanceFromMachineImageScheduling(dict):
             suggest = "on_instance_stop_action"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
+        elif key == "skipGuestOsShutdown":
+            suggest = "skip_guest_os_shutdown"
         elif key == "terminationTime":
             suggest = "termination_time"
 
@@ -13642,6 +13789,7 @@ class InstanceFromMachineImageScheduling(dict):
                  on_instance_stop_action: Optional['outputs.InstanceFromMachineImageSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
                  provisioning_model: Optional[_builtins.str] = None,
+                 skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
         """
         :param _builtins.bool automatic_restart: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user).
@@ -13660,6 +13808,7 @@ class InstanceFromMachineImageScheduling(dict):
         :param 'InstanceFromMachineImageSchedulingOnInstanceStopActionArgs' on_instance_stop_action: Defines the behaviour for instances with the instance_termination_action.
         :param _builtins.bool preemptible: Whether the instance is preemptible.
         :param _builtins.str provisioning_model: Whether the instance is spot. If this is set as SPOT.
+        :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
                will be performed at the termination time.
@@ -13692,6 +13841,8 @@ class InstanceFromMachineImageScheduling(dict):
             pulumi.set(__self__, "preemptible", preemptible)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
+        if skip_guest_os_shutdown is not None:
+            pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         if termination_time is not None:
             pulumi.set(__self__, "termination_time", termination_time)
 
@@ -13806,6 +13957,14 @@ class InstanceFromMachineImageScheduling(dict):
         Whether the instance is spot. If this is set as SPOT.
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> Optional[_builtins.bool]:
+        """
+        Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -15898,6 +16057,8 @@ class InstanceFromTemplateScheduling(dict):
             suggest = "on_instance_stop_action"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
+        elif key == "skipGuestOsShutdown":
+            suggest = "skip_guest_os_shutdown"
         elif key == "terminationTime":
             suggest = "termination_time"
 
@@ -15927,6 +16088,7 @@ class InstanceFromTemplateScheduling(dict):
                  on_instance_stop_action: Optional['outputs.InstanceFromTemplateSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
                  provisioning_model: Optional[_builtins.str] = None,
+                 skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
         """
         :param _builtins.bool automatic_restart: Specifies if the instance should be restarted if it was terminated by Compute Engine (not a user).
@@ -15945,6 +16107,7 @@ class InstanceFromTemplateScheduling(dict):
         :param 'InstanceFromTemplateSchedulingOnInstanceStopActionArgs' on_instance_stop_action: Defines the behaviour for instances with the instance_termination_action.
         :param _builtins.bool preemptible: Whether the instance is preemptible.
         :param _builtins.str provisioning_model: Whether the instance is spot. If this is set as SPOT.
+        :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
                will be performed at the termination time.
@@ -15977,6 +16140,8 @@ class InstanceFromTemplateScheduling(dict):
             pulumi.set(__self__, "preemptible", preemptible)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
+        if skip_guest_os_shutdown is not None:
+            pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         if termination_time is not None:
             pulumi.set(__self__, "termination_time", termination_time)
 
@@ -16091,6 +16256,14 @@ class InstanceFromTemplateScheduling(dict):
         Whether the instance is spot. If this is set as SPOT.
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> Optional[_builtins.bool]:
+        """
+        Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -16579,6 +16752,8 @@ class InstanceGroupManagerInstanceLifecyclePolicy(dict):
             suggest = "force_update_on_repair"
         elif key == "onFailedHealthCheck":
             suggest = "on_failed_health_check"
+        elif key == "onRepair":
+            suggest = "on_repair"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in InstanceGroupManagerInstanceLifecyclePolicy. Access the value via the '{suggest}' property getter instead.")
@@ -16594,12 +16769,13 @@ class InstanceGroupManagerInstanceLifecyclePolicy(dict):
     def __init__(__self__, *,
                  default_action_on_failure: Optional[_builtins.str] = None,
                  force_update_on_repair: Optional[_builtins.str] = None,
-                 on_failed_health_check: Optional[_builtins.str] = None):
+                 on_failed_health_check: Optional[_builtins.str] = None,
+                 on_repair: Optional['outputs.InstanceGroupManagerInstanceLifecyclePolicyOnRepair'] = None):
         """
         :param _builtins.str default_action_on_failure: , Specifies the action that a MIG performs on a failed VM. If the value of the `on_failed_health_check` field is `DEFAULT_ACTION`, then the same action also applies to the VMs on which your application fails a health check. Valid options are: `DO_NOTHING`, `REPAIR`. If `DO_NOTHING`, then MIG does not repair a failed VM. If `REPAIR` (default), then MIG automatically repairs a failed VM by recreating it. For more information, see about repairing VMs in a MIG.
         :param _builtins.str force_update_on_repair: , Specifies whether to apply the group's latest configuration when repairing a VM. Valid options are: `YES`, `NO`. If `YES` and you updated the group's instance template or per-instance configurations after the VM was created, then these changes are applied when VM is repaired. If `NO` (default), then updates are applied in accordance with the group's update policy type.
         :param _builtins.str on_failed_health_check: , Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid options are: `DEFAULT_ACTION`, `DO_NOTHING`, `REPAIR`. If `DEFAULT_ACTION` (default), then MIG uses the same action configured for the  `default_action_on_failure` field. If `DO_NOTHING`, then MIG does not repair unhealthy VM. If `REPAIR`, then MIG automatically repairs an unhealthy VM by recreating it. For more information, see about repairing VMs in a MIG.
-               
+        :param 'InstanceGroupManagerInstanceLifecyclePolicyOnRepairArgs' on_repair: , Configuration for VM repairs in the MIG. Structure is documented below.
                - - -
         """
         if default_action_on_failure is not None:
@@ -16608,6 +16784,8 @@ class InstanceGroupManagerInstanceLifecyclePolicy(dict):
             pulumi.set(__self__, "force_update_on_repair", force_update_on_repair)
         if on_failed_health_check is not None:
             pulumi.set(__self__, "on_failed_health_check", on_failed_health_check)
+        if on_repair is not None:
+            pulumi.set(__self__, "on_repair", on_repair)
 
     @_builtins.property
     @pulumi.getter(name="defaultActionOnFailure")
@@ -16630,10 +16808,57 @@ class InstanceGroupManagerInstanceLifecyclePolicy(dict):
     def on_failed_health_check(self) -> Optional[_builtins.str]:
         """
         , Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid options are: `DEFAULT_ACTION`, `DO_NOTHING`, `REPAIR`. If `DEFAULT_ACTION` (default), then MIG uses the same action configured for the  `default_action_on_failure` field. If `DO_NOTHING`, then MIG does not repair unhealthy VM. If `REPAIR`, then MIG automatically repairs an unhealthy VM by recreating it. For more information, see about repairing VMs in a MIG.
+        """
+        return pulumi.get(self, "on_failed_health_check")
+
+    @_builtins.property
+    @pulumi.getter(name="onRepair")
+    def on_repair(self) -> Optional['outputs.InstanceGroupManagerInstanceLifecyclePolicyOnRepair']:
+        """
+        , Configuration for VM repairs in the MIG. Structure is documented below.
+        - - -
+        """
+        return pulumi.get(self, "on_repair")
+
+
+@pulumi.output_type
+class InstanceGroupManagerInstanceLifecyclePolicyOnRepair(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allowChangingZone":
+            suggest = "allow_changing_zone"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InstanceGroupManagerInstanceLifecyclePolicyOnRepair. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InstanceGroupManagerInstanceLifecyclePolicyOnRepair.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InstanceGroupManagerInstanceLifecyclePolicyOnRepair.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 allow_changing_zone: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str allow_changing_zone: , Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
+               
+               - - -
+        """
+        if allow_changing_zone is not None:
+            pulumi.set(__self__, "allow_changing_zone", allow_changing_zone)
+
+    @_builtins.property
+    @pulumi.getter(name="allowChangingZone")
+    def allow_changing_zone(self) -> Optional[_builtins.str]:
+        """
+        , Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
 
         - - -
         """
-        return pulumi.get(self, "on_failed_health_check")
+        return pulumi.get(self, "allow_changing_zone")
 
 
 @pulumi.output_type
@@ -18366,6 +18591,8 @@ class InstanceScheduling(dict):
             suggest = "on_instance_stop_action"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
+        elif key == "skipGuestOsShutdown":
+            suggest = "skip_guest_os_shutdown"
         elif key == "terminationTime":
             suggest = "termination_time"
 
@@ -18395,6 +18622,7 @@ class InstanceScheduling(dict):
                  on_instance_stop_action: Optional['outputs.InstanceSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
                  provisioning_model: Optional[_builtins.str] = None,
+                 skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
         """
         :param _builtins.bool automatic_restart: Specifies if the instance should be
@@ -18427,6 +18655,7 @@ class InstanceScheduling(dict):
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
                `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+        :param _builtins.bool skip_guest_os_shutdown: Boolean parameter. Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time.
         """
         if automatic_restart is not None:
@@ -18457,6 +18686,8 @@ class InstanceScheduling(dict):
             pulumi.set(__self__, "preemptible", preemptible)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
+        if skip_guest_os_shutdown is not None:
+            pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         if termination_time is not None:
             pulumi.set(__self__, "termination_time", termination_time)
 
@@ -18587,6 +18818,14 @@ class InstanceScheduling(dict):
         `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> Optional[_builtins.bool]:
+        """
+        Boolean parameter. Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -20557,6 +20796,8 @@ class InstanceTemplateScheduling(dict):
             suggest = "on_instance_stop_action"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
+        elif key == "skipGuestOsShutdown":
+            suggest = "skip_guest_os_shutdown"
         elif key == "terminationTime":
             suggest = "termination_time"
 
@@ -20586,6 +20827,7 @@ class InstanceTemplateScheduling(dict):
                  on_instance_stop_action: Optional['outputs.InstanceTemplateSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
                  provisioning_model: Optional[_builtins.str] = None,
+                 skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
         """
         :param _builtins.bool automatic_restart: Specifies whether the instance should be
@@ -20617,6 +20859,7 @@ class InstanceTemplateScheduling(dict):
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
                `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+        :param _builtins.bool skip_guest_os_shutdown: Boolean parameter. Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time.
         """
         if automatic_restart is not None:
@@ -20647,6 +20890,8 @@ class InstanceTemplateScheduling(dict):
             pulumi.set(__self__, "preemptible", preemptible)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
+        if skip_guest_os_shutdown is not None:
+            pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         if termination_time is not None:
             pulumi.set(__self__, "termination_time", termination_time)
 
@@ -20776,6 +21021,14 @@ class InstanceTemplateScheduling(dict):
         `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> Optional[_builtins.bool]:
+        """
+        Boolean parameter. Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -22889,6 +23142,46 @@ class InterconnectMacsecPreSharedKey(dict):
 
 
 @pulumi.output_type
+class InterconnectParams(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in InterconnectParams. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        InterconnectParams.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        InterconnectParams.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 resource_manager_tags: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param Mapping[str, _builtins.str] resource_manager_tags: Resource manager tags to be bound to the interconnect. Tag keys and values have the
+               same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+               and values are in the format tagValues/456.
+        """
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        Resource manager tags to be bound to the interconnect. Tag keys and values have the
+        same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id},
+        and values are in the format tagValues/456.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+
+@pulumi.output_type
 class MachineImageIamBindingCondition(dict):
     def __init__(__self__, *,
                  expression: _builtins.str,
@@ -24121,7 +24414,7 @@ class NetworkFirewallPolicyWithRulesPredefinedRuleMatch(dict):
                Structure is documented below.
                
                
-               <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+               <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         :param Sequence[_builtins.str] src_threat_intelligences: Names of Network Threat Intelligence lists.
                The IPs in these lists will be matched against traffic source.
         """
@@ -24256,7 +24549,7 @@ class NetworkFirewallPolicyWithRulesPredefinedRuleMatch(dict):
         Structure is documented below.
 
 
-        <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+        <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "src_secure_tags")
 
@@ -24748,7 +25041,7 @@ class NetworkFirewallPolicyWithRulesRuleMatch(dict):
                Structure is documented below.
                
                
-               <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+               <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         :param Sequence[_builtins.str] src_threat_intelligences: Names of Network Threat Intelligence lists.
                The IPs in these lists will be matched against traffic source.
         """
@@ -24914,7 +25207,7 @@ class NetworkFirewallPolicyWithRulesRuleMatch(dict):
         Structure is documented below.
 
 
-        <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+        <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "src_secure_tags")
 
@@ -26375,6 +26668,8 @@ class PublicDelegatedPrefixPublicDelegatedSubPrefix(dict):
             suggest = "delegatee_project"
         elif key == "ipCidrRange":
             suggest = "ip_cidr_range"
+        elif key == "ipv6AccessType":
+            suggest = "ipv6_access_type"
         elif key == "isAddress":
             suggest = "is_address"
 
@@ -26394,6 +26689,7 @@ class PublicDelegatedPrefixPublicDelegatedSubPrefix(dict):
                  delegatee_project: Optional[_builtins.str] = None,
                  description: Optional[_builtins.str] = None,
                  ip_cidr_range: Optional[_builtins.str] = None,
+                 ipv6_access_type: Optional[_builtins.str] = None,
                  is_address: Optional[_builtins.bool] = None,
                  mode: Optional[_builtins.str] = None,
                  name: Optional[_builtins.str] = None,
@@ -26404,10 +26700,21 @@ class PublicDelegatedPrefixPublicDelegatedSubPrefix(dict):
         :param _builtins.str delegatee_project: Name of the project scoping this PublicDelegatedSubPrefix.
         :param _builtins.str description: An optional description of this resource.
         :param _builtins.str ip_cidr_range: The IP address range, in CIDR format, represented by this public delegated prefix.
+        :param _builtins.str ipv6_access_type: (Output)
+               The internet access type for IPv6 Public Delegated Prefixes. Inherited
+               from parent prefix and can be one of following:
+               * EXTERNAL: The prefix will be announced to the internet. All children
+               PDPs will have access type as EXTERNAL.
+               * INTERNAL: The prefix won’t be announced to the internet. Prefix will
+               be used privately within Google Cloud. All children PDPs will have
+               access type as INTERNAL.
         :param _builtins.bool is_address: Whether the sub prefix is delegated for address creation.
-        :param _builtins.str mode: Specifies the mode of this IPv6 PDP. MODE must be one of: DELEGATION,
-               EXTERNAL_IPV6_FORWARDING_RULE_CREATION and EXTERNAL_IPV6_SUBNETWORK_CREATION.
-               Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`.
+        :param _builtins.str mode: Specifies the mode of this IPv6 PDP. MODE must be one of:
+               * DELEGATION
+               * EXTERNAL_IPV6_FORWARDING_RULE_CREATION
+               * EXTERNAL_IPV6_SUBNETWORK_CREATION
+               * INTERNAL_IPV6_SUBNETWORK_CREATION
+               Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`, `INTERNAL_IPV6_SUBNETWORK_CREATION`.
         :param _builtins.str name: Name of the resource. The name must be 1-63 characters long, and
                comply with RFC1035. Specifically, the name must be 1-63 characters
                long and match the regular expression `a-z?`
@@ -26426,6 +26733,8 @@ class PublicDelegatedPrefixPublicDelegatedSubPrefix(dict):
             pulumi.set(__self__, "description", description)
         if ip_cidr_range is not None:
             pulumi.set(__self__, "ip_cidr_range", ip_cidr_range)
+        if ipv6_access_type is not None:
+            pulumi.set(__self__, "ipv6_access_type", ipv6_access_type)
         if is_address is not None:
             pulumi.set(__self__, "is_address", is_address)
         if mode is not None:
@@ -26470,6 +26779,21 @@ class PublicDelegatedPrefixPublicDelegatedSubPrefix(dict):
         return pulumi.get(self, "ip_cidr_range")
 
     @_builtins.property
+    @pulumi.getter(name="ipv6AccessType")
+    def ipv6_access_type(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The internet access type for IPv6 Public Delegated Prefixes. Inherited
+        from parent prefix and can be one of following:
+        * EXTERNAL: The prefix will be announced to the internet. All children
+        PDPs will have access type as EXTERNAL.
+        * INTERNAL: The prefix won’t be announced to the internet. Prefix will
+        be used privately within Google Cloud. All children PDPs will have
+        access type as INTERNAL.
+        """
+        return pulumi.get(self, "ipv6_access_type")
+
+    @_builtins.property
     @pulumi.getter(name="isAddress")
     def is_address(self) -> Optional[_builtins.bool]:
         """
@@ -26481,9 +26805,12 @@ class PublicDelegatedPrefixPublicDelegatedSubPrefix(dict):
     @pulumi.getter
     def mode(self) -> Optional[_builtins.str]:
         """
-        Specifies the mode of this IPv6 PDP. MODE must be one of: DELEGATION,
-        EXTERNAL_IPV6_FORWARDING_RULE_CREATION and EXTERNAL_IPV6_SUBNETWORK_CREATION.
-        Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`.
+        Specifies the mode of this IPv6 PDP. MODE must be one of:
+        * DELEGATION
+        * EXTERNAL_IPV6_FORWARDING_RULE_CREATION
+        * EXTERNAL_IPV6_SUBNETWORK_CREATION
+        * INTERNAL_IPV6_SUBNETWORK_CREATION
+        Possible values are: `DELEGATION`, `EXTERNAL_IPV6_FORWARDING_RULE_CREATION`, `EXTERNAL_IPV6_SUBNETWORK_CREATION`, `INTERNAL_IPV6_SUBNETWORK_CREATION`.
         """
         return pulumi.get(self, "mode")
 
@@ -27301,6 +27628,12 @@ class RegionBackendServiceBackend(dict):
             suggest = "max_connections_per_endpoint"
         elif key == "maxConnectionsPerInstance":
             suggest = "max_connections_per_instance"
+        elif key == "maxInFlightRequests":
+            suggest = "max_in_flight_requests"
+        elif key == "maxInFlightRequestsPerEndpoint":
+            suggest = "max_in_flight_requests_per_endpoint"
+        elif key == "maxInFlightRequestsPerInstance":
+            suggest = "max_in_flight_requests_per_instance"
         elif key == "maxRate":
             suggest = "max_rate"
         elif key == "maxRatePerEndpoint":
@@ -27309,6 +27642,8 @@ class RegionBackendServiceBackend(dict):
             suggest = "max_rate_per_instance"
         elif key == "maxUtilization":
             suggest = "max_utilization"
+        elif key == "trafficDuration":
+            suggest = "traffic_duration"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RegionBackendServiceBackend. Access the value via the '{suggest}' property getter instead.")
@@ -27331,10 +27666,14 @@ class RegionBackendServiceBackend(dict):
                  max_connections: Optional[_builtins.int] = None,
                  max_connections_per_endpoint: Optional[_builtins.int] = None,
                  max_connections_per_instance: Optional[_builtins.int] = None,
+                 max_in_flight_requests: Optional[_builtins.int] = None,
+                 max_in_flight_requests_per_endpoint: Optional[_builtins.int] = None,
+                 max_in_flight_requests_per_instance: Optional[_builtins.int] = None,
                  max_rate: Optional[_builtins.int] = None,
                  max_rate_per_endpoint: Optional[_builtins.float] = None,
                  max_rate_per_instance: Optional[_builtins.float] = None,
-                 max_utilization: Optional[_builtins.float] = None):
+                 max_utilization: Optional[_builtins.float] = None,
+                 traffic_duration: Optional[_builtins.str] = None):
         """
         :param _builtins.str group: The fully-qualified URL of an Instance Group or Network Endpoint
                Group resource. In case of instance group this defines the list
@@ -27391,6 +27730,13 @@ class RegionBackendServiceBackend(dict):
                Can be used in either CONNECTION or UTILIZATION balancing modes.
                For CONNECTION mode, either maxConnections or
                maxConnectionsPerInstance must be set.
+        :param _builtins.int max_in_flight_requests: Defines a maximum number of in-flight requests for the whole NEG
+               or instance group. Not available if backend's balancingMode is RATE
+               or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_endpoint: Defines a maximum number of in-flight requests for a single endpoint.
+               Not available if backend's balancingMode is RATE or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_instance: Defines a maximum number of in-flight requests for a single VM.
+               Not available if backend's balancingMode is RATE or CONNECTION.
         :param _builtins.int max_rate: The max requests per second (RPS) of the group. Cannot be set
                for INTERNAL backend services.
                Can be used with either RATE or UTILIZATION balancing modes,
@@ -27410,6 +27756,11 @@ class RegionBackendServiceBackend(dict):
         :param _builtins.float max_utilization: Used when balancingMode is UTILIZATION. This ratio defines the
                CPU utilization target for the group. Valid range is [0.0, 1.0].
                Cannot be set for INTERNAL backend services.
+        :param _builtins.str traffic_duration: This field specifies how long a connection should be kept alive for:
+               - LONG: Most of the requests are expected to take more than multiple
+               seconds to finish.
+               - SHORT: Most requests are expected to finish with a sub-second latency.
+               Possible values are: `LONG`, `SHORT`.
         """
         pulumi.set(__self__, "group", group)
         if balancing_mode is not None:
@@ -27428,6 +27779,12 @@ class RegionBackendServiceBackend(dict):
             pulumi.set(__self__, "max_connections_per_endpoint", max_connections_per_endpoint)
         if max_connections_per_instance is not None:
             pulumi.set(__self__, "max_connections_per_instance", max_connections_per_instance)
+        if max_in_flight_requests is not None:
+            pulumi.set(__self__, "max_in_flight_requests", max_in_flight_requests)
+        if max_in_flight_requests_per_endpoint is not None:
+            pulumi.set(__self__, "max_in_flight_requests_per_endpoint", max_in_flight_requests_per_endpoint)
+        if max_in_flight_requests_per_instance is not None:
+            pulumi.set(__self__, "max_in_flight_requests_per_instance", max_in_flight_requests_per_instance)
         if max_rate is not None:
             pulumi.set(__self__, "max_rate", max_rate)
         if max_rate_per_endpoint is not None:
@@ -27436,6 +27793,8 @@ class RegionBackendServiceBackend(dict):
             pulumi.set(__self__, "max_rate_per_instance", max_rate_per_instance)
         if max_utilization is not None:
             pulumi.set(__self__, "max_utilization", max_utilization)
+        if traffic_duration is not None:
+            pulumi.set(__self__, "traffic_duration", traffic_duration)
 
     @_builtins.property
     @pulumi.getter
@@ -27556,6 +27915,34 @@ class RegionBackendServiceBackend(dict):
         return pulumi.get(self, "max_connections_per_instance")
 
     @_builtins.property
+    @pulumi.getter(name="maxInFlightRequests")
+    def max_in_flight_requests(self) -> Optional[_builtins.int]:
+        """
+        Defines a maximum number of in-flight requests for the whole NEG
+        or instance group. Not available if backend's balancingMode is RATE
+        or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerEndpoint")
+    def max_in_flight_requests_per_endpoint(self) -> Optional[_builtins.int]:
+        """
+        Defines a maximum number of in-flight requests for a single endpoint.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerInstance")
+    def max_in_flight_requests_per_instance(self) -> Optional[_builtins.int]:
+        """
+        Defines a maximum number of in-flight requests for a single VM.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_instance")
+
+    @_builtins.property
     @pulumi.getter(name="maxRate")
     def max_rate(self) -> Optional[_builtins.int]:
         """
@@ -27601,6 +27988,18 @@ class RegionBackendServiceBackend(dict):
         Cannot be set for INTERNAL backend services.
         """
         return pulumi.get(self, "max_utilization")
+
+    @_builtins.property
+    @pulumi.getter(name="trafficDuration")
+    def traffic_duration(self) -> Optional[_builtins.str]:
+        """
+        This field specifies how long a connection should be kept alive for:
+        - LONG: Most of the requests are expected to take more than multiple
+        seconds to finish.
+        - SHORT: Most requests are expected to finish with a sub-second latency.
+        Possible values are: `LONG`, `SHORT`.
+        """
+        return pulumi.get(self, "traffic_duration")
 
 
 @pulumi.output_type
@@ -29085,6 +29484,104 @@ class RegionBackendServiceLogConfig(dict):
 
 
 @pulumi.output_type
+class RegionBackendServiceNetworkPassThroughLbTrafficPolicy(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "zonalAffinity":
+            suggest = "zonal_affinity"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionBackendServiceNetworkPassThroughLbTrafficPolicy. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionBackendServiceNetworkPassThroughLbTrafficPolicy.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionBackendServiceNetworkPassThroughLbTrafficPolicy.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 zonal_affinity: Optional['outputs.RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity'] = None):
+        """
+        :param 'RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinityArgs' zonal_affinity: When configured, new connections are load balanced across healthy backend endpoints in the local zone.
+               Structure is documented below.
+        """
+        if zonal_affinity is not None:
+            pulumi.set(__self__, "zonal_affinity", zonal_affinity)
+
+    @_builtins.property
+    @pulumi.getter(name="zonalAffinity")
+    def zonal_affinity(self) -> Optional['outputs.RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity']:
+        """
+        When configured, new connections are load balanced across healthy backend endpoints in the local zone.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "zonal_affinity")
+
+
+@pulumi.output_type
+class RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "spilloverRatio":
+            suggest = "spillover_ratio"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinity.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 spillover: Optional[_builtins.str] = None,
+                 spillover_ratio: Optional[_builtins.float] = None):
+        """
+        :param _builtins.str spillover: This field indicates whether zonal affinity is enabled or not.
+               Default value is `ZONAL_AFFINITY_DISABLED`.
+               Possible values are: `ZONAL_AFFINITY_DISABLED`, `ZONAL_AFFINITY_SPILL_CROSS_ZONE`, `ZONAL_AFFINITY_STAY_WITHIN_ZONE`.
+        :param _builtins.float spillover_ratio: The value of the field must be in [0, 1]. When the ratio of the count of healthy backend endpoints in a zone
+               to the count of backend endpoints in that same zone is equal to or above this threshold, the load balancer
+               distributes new connections to all healthy endpoints in the local zone only. When the ratio of the count
+               of healthy backend endpoints in a zone to the count of backend endpoints in that same zone is below this
+               threshold, the load balancer distributes all new connections to all healthy endpoints across all zones.
+        """
+        if spillover is not None:
+            pulumi.set(__self__, "spillover", spillover)
+        if spillover_ratio is not None:
+            pulumi.set(__self__, "spillover_ratio", spillover_ratio)
+
+    @_builtins.property
+    @pulumi.getter
+    def spillover(self) -> Optional[_builtins.str]:
+        """
+        This field indicates whether zonal affinity is enabled or not.
+        Default value is `ZONAL_AFFINITY_DISABLED`.
+        Possible values are: `ZONAL_AFFINITY_DISABLED`, `ZONAL_AFFINITY_SPILL_CROSS_ZONE`, `ZONAL_AFFINITY_STAY_WITHIN_ZONE`.
+        """
+        return pulumi.get(self, "spillover")
+
+    @_builtins.property
+    @pulumi.getter(name="spilloverRatio")
+    def spillover_ratio(self) -> Optional[_builtins.float]:
+        """
+        The value of the field must be in [0, 1]. When the ratio of the count of healthy backend endpoints in a zone
+        to the count of backend endpoints in that same zone is equal to or above this threshold, the load balancer
+        distributes new connections to all healthy endpoints in the local zone only. When the ratio of the count
+        of healthy backend endpoints in a zone to the count of backend endpoints in that same zone is below this
+        threshold, the load balancer distributes all new connections to all healthy endpoints across all zones.
+        """
+        return pulumi.get(self, "spillover_ratio")
+
+
+@pulumi.output_type
 class RegionBackendServiceOutlierDetection(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -29568,6 +30065,138 @@ class RegionBackendServiceSubsetting(dict):
         Must be greater than 0. If subsetSize is larger than the number of backends/endpoints, then subsetting is disabled.
         """
         return pulumi.get(self, "subset_size")
+
+
+@pulumi.output_type
+class RegionBackendServiceTlsSettings(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "authenticationConfig":
+            suggest = "authentication_config"
+        elif key == "subjectAltNames":
+            suggest = "subject_alt_names"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionBackendServiceTlsSettings. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionBackendServiceTlsSettings.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionBackendServiceTlsSettings.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 authentication_config: Optional[_builtins.str] = None,
+                 sni: Optional[_builtins.str] = None,
+                 subject_alt_names: Optional[Sequence['outputs.RegionBackendServiceTlsSettingsSubjectAltName']] = None):
+        """
+        :param _builtins.str authentication_config: Reference to the BackendAuthenticationConfig resource from the networksecurity.googleapis.com namespace.
+               Can be used in authenticating TLS connections to the backend, as specified by the authenticationMode field.
+               Can only be specified if authenticationMode is not NONE.
+        :param _builtins.str sni: Server Name Indication - see RFC3546 section 3.1. If set, the load balancer sends this string as the SNI hostname in the
+               TLS connection to the backend, and requires that this string match a Subject Alternative Name (SAN) in the backend's
+               server certificate. With a Regional Internet NEG backend, if the SNI is specified here, the load balancer uses it
+               regardless of whether the Regional Internet NEG is specified with FQDN or IP address and port.
+        :param Sequence['RegionBackendServiceTlsSettingsSubjectAltNameArgs'] subject_alt_names: A list of Subject Alternative Names (SANs) that the Load Balancer verifies during a TLS handshake with the backend.
+               When the server presents its X.509 certificate to the Load Balancer, the Load Balancer inspects the certificate's SAN field,
+               and requires that at least one SAN match one of the subjectAltNames in the list. This field is limited to 5 entries.
+               When both sni and subjectAltNames are specified, the load balancer matches the backend certificate's SAN only to
+               subjectAltNames.
+               Structure is documented below.
+        """
+        if authentication_config is not None:
+            pulumi.set(__self__, "authentication_config", authentication_config)
+        if sni is not None:
+            pulumi.set(__self__, "sni", sni)
+        if subject_alt_names is not None:
+            pulumi.set(__self__, "subject_alt_names", subject_alt_names)
+
+    @_builtins.property
+    @pulumi.getter(name="authenticationConfig")
+    def authentication_config(self) -> Optional[_builtins.str]:
+        """
+        Reference to the BackendAuthenticationConfig resource from the networksecurity.googleapis.com namespace.
+        Can be used in authenticating TLS connections to the backend, as specified by the authenticationMode field.
+        Can only be specified if authenticationMode is not NONE.
+        """
+        return pulumi.get(self, "authentication_config")
+
+    @_builtins.property
+    @pulumi.getter
+    def sni(self) -> Optional[_builtins.str]:
+        """
+        Server Name Indication - see RFC3546 section 3.1. If set, the load balancer sends this string as the SNI hostname in the
+        TLS connection to the backend, and requires that this string match a Subject Alternative Name (SAN) in the backend's
+        server certificate. With a Regional Internet NEG backend, if the SNI is specified here, the load balancer uses it
+        regardless of whether the Regional Internet NEG is specified with FQDN or IP address and port.
+        """
+        return pulumi.get(self, "sni")
+
+    @_builtins.property
+    @pulumi.getter(name="subjectAltNames")
+    def subject_alt_names(self) -> Optional[Sequence['outputs.RegionBackendServiceTlsSettingsSubjectAltName']]:
+        """
+        A list of Subject Alternative Names (SANs) that the Load Balancer verifies during a TLS handshake with the backend.
+        When the server presents its X.509 certificate to the Load Balancer, the Load Balancer inspects the certificate's SAN field,
+        and requires that at least one SAN match one of the subjectAltNames in the list. This field is limited to 5 entries.
+        When both sni and subjectAltNames are specified, the load balancer matches the backend certificate's SAN only to
+        subjectAltNames.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "subject_alt_names")
+
+
+@pulumi.output_type
+class RegionBackendServiceTlsSettingsSubjectAltName(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dnsName":
+            suggest = "dns_name"
+        elif key == "uniformResourceIdentifier":
+            suggest = "uniform_resource_identifier"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionBackendServiceTlsSettingsSubjectAltName. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionBackendServiceTlsSettingsSubjectAltName.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionBackendServiceTlsSettingsSubjectAltName.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 dns_name: Optional[_builtins.str] = None,
+                 uniform_resource_identifier: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str dns_name: The SAN specified as a DNS Name.
+        :param _builtins.str uniform_resource_identifier: The SAN specified as a URI.
+        """
+        if dns_name is not None:
+            pulumi.set(__self__, "dns_name", dns_name)
+        if uniform_resource_identifier is not None:
+            pulumi.set(__self__, "uniform_resource_identifier", uniform_resource_identifier)
+
+    @_builtins.property
+    @pulumi.getter(name="dnsName")
+    def dns_name(self) -> Optional[_builtins.str]:
+        """
+        The SAN specified as a DNS Name.
+        """
+        return pulumi.get(self, "dns_name")
+
+    @_builtins.property
+    @pulumi.getter(name="uniformResourceIdentifier")
+    def uniform_resource_identifier(self) -> Optional[_builtins.str]:
+        """
+        The SAN specified as a URI.
+        """
+        return pulumi.get(self, "uniform_resource_identifier")
 
 
 @pulumi.output_type
@@ -30918,8 +31547,10 @@ class RegionInstanceGroupManagerAllInstancesConfig(dict):
                  labels: Optional[Mapping[str, _builtins.str]] = None,
                  metadata: Optional[Mapping[str, _builtins.str]] = None):
         """
-        :param Mapping[str, _builtins.str] labels: The label key-value pairs that you want to patch onto the instance,
-        :param Mapping[str, _builtins.str] metadata: The metadata key-value pairs that you want to patch onto the instance. For more information, see Project and instance metadata,
+        :param Mapping[str, _builtins.str] labels: , The label key-value pairs that you want to patch onto the instance.
+               
+               - - -
+        :param Mapping[str, _builtins.str] metadata: , The metadata key-value pairs that you want to patch onto the instance. For more information, see [Project and instance metadata](https://cloud.google.com/compute/docs/metadata#project_and_instance_metadata).
         """
         if labels is not None:
             pulumi.set(__self__, "labels", labels)
@@ -30930,7 +31561,9 @@ class RegionInstanceGroupManagerAllInstancesConfig(dict):
     @pulumi.getter
     def labels(self) -> Optional[Mapping[str, _builtins.str]]:
         """
-        The label key-value pairs that you want to patch onto the instance,
+        , The label key-value pairs that you want to patch onto the instance.
+
+        - - -
         """
         return pulumi.get(self, "labels")
 
@@ -30938,7 +31571,7 @@ class RegionInstanceGroupManagerAllInstancesConfig(dict):
     @pulumi.getter
     def metadata(self) -> Optional[Mapping[str, _builtins.str]]:
         """
-        The metadata key-value pairs that you want to patch onto the instance. For more information, see Project and instance metadata,
+        , The metadata key-value pairs that you want to patch onto the instance. For more information, see [Project and instance metadata](https://cloud.google.com/compute/docs/metadata#project_and_instance_metadata).
         """
         return pulumi.get(self, "metadata")
 
@@ -31036,6 +31669,8 @@ class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelection(dict)
         suggest = None
         if key == "machineTypes":
             suggest = "machine_types"
+        elif key == "minCpuPlatform":
+            suggest = "min_cpu_platform"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelection. Access the value via the '{suggest}' property getter instead.")
@@ -31051,6 +31686,8 @@ class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelection(dict)
     def __init__(__self__, *,
                  machine_types: Sequence[_builtins.str],
                  name: _builtins.str,
+                 disks: Optional[Sequence['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk']] = None,
+                 min_cpu_platform: Optional[_builtins.str] = None,
                  rank: Optional[_builtins.int] = None):
         """
         :param Sequence[_builtins.str] machine_types: Full machine-type names, e.g. "n1-standard-16"
@@ -31058,10 +31695,16 @@ class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelection(dict)
                characters long and comply with
                [RFC1035](https://www.ietf.org/rfc/rfc1035.txt). Supported characters
                include lowercase letters, numbers, and hyphens.
+        :param Sequence['RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskArgs'] disks: List of disks to be attached to the instances created from this selection.
+        :param _builtins.str min_cpu_platform: Name of the minimum CPU platform to be used by this instance selection. e.g. 'Intel Ice Lake'
         :param _builtins.int rank: Preference of this instance selection. Lower number means higher preference. MIG will first try to create a VM based on the machine-type with lowest rank and fallback to next rank based on availability. Machine types and instance selections with the same rank have the same preference.
         """
         pulumi.set(__self__, "machine_types", machine_types)
         pulumi.set(__self__, "name", name)
+        if disks is not None:
+            pulumi.set(__self__, "disks", disks)
+        if min_cpu_platform is not None:
+            pulumi.set(__self__, "min_cpu_platform", min_cpu_platform)
         if rank is not None:
             pulumi.set(__self__, "rank", rank)
 
@@ -31086,11 +31729,647 @@ class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelection(dict)
 
     @_builtins.property
     @pulumi.getter
+    def disks(self) -> Optional[Sequence['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk']]:
+        """
+        List of disks to be attached to the instances created from this selection.
+        """
+        return pulumi.get(self, "disks")
+
+    @_builtins.property
+    @pulumi.getter(name="minCpuPlatform")
+    def min_cpu_platform(self) -> Optional[_builtins.str]:
+        """
+        Name of the minimum CPU platform to be used by this instance selection. e.g. 'Intel Ice Lake'
+        """
+        return pulumi.get(self, "min_cpu_platform")
+
+    @_builtins.property
+    @pulumi.getter
     def rank(self) -> Optional[_builtins.int]:
         """
         Preference of this instance selection. Lower number means higher preference. MIG will first try to create a VM based on the machine-type with lowest rank and fallback to next rank based on availability. Machine types and instance selections with the same rank have the same preference.
         """
         return pulumi.get(self, "rank")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "autoDelete":
+            suggest = "auto_delete"
+        elif key == "deviceName":
+            suggest = "device_name"
+        elif key == "diskEncryptionKey":
+            suggest = "disk_encryption_key"
+        elif key == "diskName":
+            suggest = "disk_name"
+        elif key == "diskSizeGb":
+            suggest = "disk_size_gb"
+        elif key == "diskType":
+            suggest = "disk_type"
+        elif key == "guestOsFeatures":
+            suggest = "guest_os_features"
+        elif key == "provisionedIops":
+            suggest = "provisioned_iops"
+        elif key == "provisionedThroughput":
+            suggest = "provisioned_throughput"
+        elif key == "resourceManagerTags":
+            suggest = "resource_manager_tags"
+        elif key == "resourcePolicies":
+            suggest = "resource_policies"
+        elif key == "sourceImage":
+            suggest = "source_image"
+        elif key == "sourceImageEncryptionKey":
+            suggest = "source_image_encryption_key"
+        elif key == "sourceSnapshot":
+            suggest = "source_snapshot"
+        elif key == "sourceSnapshotEncryptionKey":
+            suggest = "source_snapshot_encryption_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDisk.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 architecture: Optional[_builtins.str] = None,
+                 auto_delete: Optional[_builtins.bool] = None,
+                 boot: Optional[_builtins.bool] = None,
+                 device_name: Optional[_builtins.str] = None,
+                 disk_encryption_key: Optional['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey'] = None,
+                 disk_name: Optional[_builtins.str] = None,
+                 disk_size_gb: Optional[_builtins.int] = None,
+                 disk_type: Optional[_builtins.str] = None,
+                 guest_os_features: Optional[Sequence[_builtins.str]] = None,
+                 interface: Optional[_builtins.str] = None,
+                 labels: Optional[Sequence['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabel']] = None,
+                 mode: Optional[_builtins.str] = None,
+                 provisioned_iops: Optional[_builtins.int] = None,
+                 provisioned_throughput: Optional[_builtins.int] = None,
+                 resource_manager_tags: Optional[Sequence['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTag']] = None,
+                 resource_policies: Optional[_builtins.str] = None,
+                 source: Optional[_builtins.str] = None,
+                 source_image: Optional[_builtins.str] = None,
+                 source_image_encryption_key: Optional['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey'] = None,
+                 source_snapshot: Optional[_builtins.str] = None,
+                 source_snapshot_encryption_key: Optional['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey'] = None,
+                 type: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str architecture: , The architecture of the image. Allowed values are ARM64 or X86_64.
+        :param _builtins.bool auto_delete: , Whether or not the disk should be auto-deleted. This defaults to true.
+        :param _builtins.bool boot: , Indicates that this is a boot disk. This defaults to false.
+        :param _builtins.str device_name: , A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance. If not specified, the server chooses a default device name to apply to this disk.
+        :param 'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKeyArgs' disk_encryption_key: , Encrypts or decrypts a disk using a customer-supplied encryption key.  Structure is documented below.
+        :param _builtins.str disk_name: , Name of the disk. When not provided, this defaults to the name of the instance.
+        :param _builtins.int disk_size_gb: , The size of the image in gigabytes. If not specified, it will inherit the size of its base image. For SCRATCH disks, the size must be one of 375 or 3000 GB, with a default of 375 GB.
+        :param _builtins.str disk_type: , The Google Compute Engine disk type. Such as "pd-ssd", "local-ssd", "pd-balanced" or "pd-standard".
+        :param Sequence[_builtins.str] guest_os_features: , A list of features to enable on the guest operating system. Applicable only for bootable images.
+        :param _builtins.str interface: , Specifies the disk interface to use for attaching this disk.
+        :param Sequence['RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabelArgs'] labels: , A set of key/value label pairs to assign to disks. Structure is documented below.
+        :param _builtins.str mode: , The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If you are attaching or creating a boot disk, this must read-write mode.
+        :param _builtins.int provisioned_iops: , Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. For more details, see the [Extreme persistent disk documentation](https://cloud.google.com/compute/docs/disks/extreme-persistent-disk) or the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks) depending on the selected disk_type.
+        :param _builtins.int provisioned_throughput: , Indicates how much throughput to provision for the disk, in MB/s. This sets the amount of data that can be read or written from the disk per second. Values must greater than or equal to 1. For more details, see the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks).
+        :param Sequence['RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTagArgs'] resource_manager_tags: , A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Structure is documented below.
+        :param _builtins.str resource_policies: , A list (short name or id) of resource policies to attach to this disk. Currently a max of 1 resource policy is supported.
+        :param _builtins.str source: , The name (not self_link) of the disk (such as those managed by google_compute_disk) to attach. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        :param _builtins.str source_image: , The image from which to initialize this disk. This can be one of: the image's self_link, projects/{project}/global/images/{image}, projects/{project}/global/images/family/{family}, global/images/{image}, global/images/family/{family}, family/{family}, {project}/{family}, {project}/{image}, {family}, or {image}. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        :param 'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKeyArgs' source_image_encryption_key: , The customer-supplied encryption key of the source image. Required if the source image is protected by a customer-supplied encryption key. Instance templates do not store customer-supplied encryption keys, so you cannot create disks for instances in a managed instance group if the source images are encrypted with your own keys. Structure is documented below.
+        :param _builtins.str source_snapshot: , The source snapshot to create this disk. When creating a new instance, one of initializeParams.sourceSnapshot, initializeParams.sourceImage, or disks.source is required except for local SSD.
+        :param 'RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKeyArgs' source_snapshot_encryption_key: , The customer-supplied encryption key of the source snapshot. Structure is documented below.
+               - - -
+        :param _builtins.str type: , The type of Google Compute Engine disk, can be either "SCRATCH" or "PERSISTENT".
+        """
+        if architecture is not None:
+            pulumi.set(__self__, "architecture", architecture)
+        if auto_delete is not None:
+            pulumi.set(__self__, "auto_delete", auto_delete)
+        if boot is not None:
+            pulumi.set(__self__, "boot", boot)
+        if device_name is not None:
+            pulumi.set(__self__, "device_name", device_name)
+        if disk_encryption_key is not None:
+            pulumi.set(__self__, "disk_encryption_key", disk_encryption_key)
+        if disk_name is not None:
+            pulumi.set(__self__, "disk_name", disk_name)
+        if disk_size_gb is not None:
+            pulumi.set(__self__, "disk_size_gb", disk_size_gb)
+        if disk_type is not None:
+            pulumi.set(__self__, "disk_type", disk_type)
+        if guest_os_features is not None:
+            pulumi.set(__self__, "guest_os_features", guest_os_features)
+        if interface is not None:
+            pulumi.set(__self__, "interface", interface)
+        if labels is not None:
+            pulumi.set(__self__, "labels", labels)
+        if mode is not None:
+            pulumi.set(__self__, "mode", mode)
+        if provisioned_iops is not None:
+            pulumi.set(__self__, "provisioned_iops", provisioned_iops)
+        if provisioned_throughput is not None:
+            pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        if resource_manager_tags is not None:
+            pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+        if resource_policies is not None:
+            pulumi.set(__self__, "resource_policies", resource_policies)
+        if source is not None:
+            pulumi.set(__self__, "source", source)
+        if source_image is not None:
+            pulumi.set(__self__, "source_image", source_image)
+        if source_image_encryption_key is not None:
+            pulumi.set(__self__, "source_image_encryption_key", source_image_encryption_key)
+        if source_snapshot is not None:
+            pulumi.set(__self__, "source_snapshot", source_snapshot)
+        if source_snapshot_encryption_key is not None:
+            pulumi.set(__self__, "source_snapshot_encryption_key", source_snapshot_encryption_key)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def architecture(self) -> Optional[_builtins.str]:
+        """
+        , The architecture of the image. Allowed values are ARM64 or X86_64.
+        """
+        return pulumi.get(self, "architecture")
+
+    @_builtins.property
+    @pulumi.getter(name="autoDelete")
+    def auto_delete(self) -> Optional[_builtins.bool]:
+        """
+        , Whether or not the disk should be auto-deleted. This defaults to true.
+        """
+        return pulumi.get(self, "auto_delete")
+
+    @_builtins.property
+    @pulumi.getter
+    def boot(self) -> Optional[_builtins.bool]:
+        """
+        , Indicates that this is a boot disk. This defaults to false.
+        """
+        return pulumi.get(self, "boot")
+
+    @_builtins.property
+    @pulumi.getter(name="deviceName")
+    def device_name(self) -> Optional[_builtins.str]:
+        """
+        , A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance. If not specified, the server chooses a default device name to apply to this disk.
+        """
+        return pulumi.get(self, "device_name")
+
+    @_builtins.property
+    @pulumi.getter(name="diskEncryptionKey")
+    def disk_encryption_key(self) -> Optional['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey']:
+        """
+        , Encrypts or decrypts a disk using a customer-supplied encryption key.  Structure is documented below.
+        """
+        return pulumi.get(self, "disk_encryption_key")
+
+    @_builtins.property
+    @pulumi.getter(name="diskName")
+    def disk_name(self) -> Optional[_builtins.str]:
+        """
+        , Name of the disk. When not provided, this defaults to the name of the instance.
+        """
+        return pulumi.get(self, "disk_name")
+
+    @_builtins.property
+    @pulumi.getter(name="diskSizeGb")
+    def disk_size_gb(self) -> Optional[_builtins.int]:
+        """
+        , The size of the image in gigabytes. If not specified, it will inherit the size of its base image. For SCRATCH disks, the size must be one of 375 or 3000 GB, with a default of 375 GB.
+        """
+        return pulumi.get(self, "disk_size_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="diskType")
+    def disk_type(self) -> Optional[_builtins.str]:
+        """
+        , The Google Compute Engine disk type. Such as "pd-ssd", "local-ssd", "pd-balanced" or "pd-standard".
+        """
+        return pulumi.get(self, "disk_type")
+
+    @_builtins.property
+    @pulumi.getter(name="guestOsFeatures")
+    def guest_os_features(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        , A list of features to enable on the guest operating system. Applicable only for bootable images.
+        """
+        return pulumi.get(self, "guest_os_features")
+
+    @_builtins.property
+    @pulumi.getter
+    def interface(self) -> Optional[_builtins.str]:
+        """
+        , Specifies the disk interface to use for attaching this disk.
+        """
+        return pulumi.get(self, "interface")
+
+    @_builtins.property
+    @pulumi.getter
+    def labels(self) -> Optional[Sequence['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabel']]:
+        """
+        , A set of key/value label pairs to assign to disks. Structure is documented below.
+        """
+        return pulumi.get(self, "labels")
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> Optional[_builtins.str]:
+        """
+        , The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If you are attaching or creating a boot disk, this must read-write mode.
+        """
+        return pulumi.get(self, "mode")
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedIops")
+    def provisioned_iops(self) -> Optional[_builtins.int]:
+        """
+        , Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. For more details, see the [Extreme persistent disk documentation](https://cloud.google.com/compute/docs/disks/extreme-persistent-disk) or the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks) depending on the selected disk_type.
+        """
+        return pulumi.get(self, "provisioned_iops")
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedThroughput")
+    def provisioned_throughput(self) -> Optional[_builtins.int]:
+        """
+        , Indicates how much throughput to provision for the disk, in MB/s. This sets the amount of data that can be read or written from the disk per second. Values must greater than or equal to 1. For more details, see the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks).
+        """
+        return pulumi.get(self, "provisioned_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Optional[Sequence['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTag']]:
+        """
+        , A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty. Structure is documented below.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="resourcePolicies")
+    def resource_policies(self) -> Optional[_builtins.str]:
+        """
+        , A list (short name or id) of resource policies to attach to this disk. Currently a max of 1 resource policy is supported.
+        """
+        return pulumi.get(self, "resource_policies")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> Optional[_builtins.str]:
+        """
+        , The name (not self_link) of the disk (such as those managed by google_compute_disk) to attach. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        """
+        return pulumi.get(self, "source")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceImage")
+    def source_image(self) -> Optional[_builtins.str]:
+        """
+        , The image from which to initialize this disk. This can be one of: the image's self_link, projects/{project}/global/images/{image}, projects/{project}/global/images/family/{family}, global/images/{image}, global/images/family/{family}, family/{family}, {project}/{family}, {project}/{image}, {family}, or {image}. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        """
+        return pulumi.get(self, "source_image")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceImageEncryptionKey")
+    def source_image_encryption_key(self) -> Optional['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey']:
+        """
+        , The customer-supplied encryption key of the source image. Required if the source image is protected by a customer-supplied encryption key. Instance templates do not store customer-supplied encryption keys, so you cannot create disks for instances in a managed instance group if the source images are encrypted with your own keys. Structure is documented below.
+        """
+        return pulumi.get(self, "source_image_encryption_key")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceSnapshot")
+    def source_snapshot(self) -> Optional[_builtins.str]:
+        """
+        , The source snapshot to create this disk. When creating a new instance, one of initializeParams.sourceSnapshot, initializeParams.sourceImage, or disks.source is required except for local SSD.
+        """
+        return pulumi.get(self, "source_snapshot")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceSnapshotEncryptionKey")
+    def source_snapshot_encryption_key(self) -> Optional['outputs.RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey']:
+        """
+        , The customer-supplied encryption key of the source snapshot. Structure is documented below.
+        - - -
+        """
+        return pulumi.get(self, "source_snapshot_encryption_key")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        , The type of Google Compute Engine disk, can be either "SCRATCH" or "PERSISTENT".
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeySelfLink":
+            suggest = "kms_key_self_link"
+        elif key == "kmsKeyServiceAccount":
+            suggest = "kms_key_service_account"
+        elif key == "rawKey":
+            suggest = "raw_key"
+        elif key == "rsaEncryptedKey":
+            suggest = "rsa_encrypted_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKey.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_self_link: Optional[_builtins.str] = None,
+                 kms_key_service_account: Optional[_builtins.str] = None,
+                 raw_key: Optional[_builtins.str] = None,
+                 rsa_encrypted_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str kms_key_self_link: , The self link of the encryption key that is stored in Google Cloud KMS.
+               - - -
+        :param _builtins.str kms_key_service_account: , The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        :param _builtins.str raw_key: , Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str rsa_encrypted_key: , Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        if kms_key_self_link is not None:
+            pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
+        if kms_key_service_account is not None:
+            pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        if raw_key is not None:
+            pulumi.set(__self__, "raw_key", raw_key)
+        if rsa_encrypted_key is not None:
+            pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeySelfLink")
+    def kms_key_self_link(self) -> Optional[_builtins.str]:
+        """
+        , The self link of the encryption key that is stored in Google Cloud KMS.
+        - - -
+        """
+        return pulumi.get(self, "kms_key_self_link")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> Optional[_builtins.str]:
+        """
+        , The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> Optional[_builtins.str]:
+        """
+        , Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> Optional[_builtins.str]:
+        """
+        , Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabel(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str key: , The unique key of the label to assign to disks.
+        :param _builtins.str value: , The value of the label to assign to disks.
+               - - -
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        , The unique key of the label to assign to disks.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        , The value of the label to assign to disks.
+        - - -
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTag(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str key: , The unique key of the resource manager tag to assign to disks. Keys must be in the format tagKeys/{tag_key_id}.
+        :param _builtins.str value: , The value of the resource manager tag to assign to disks. Values must be in the format tagValues/456.
+               - - -
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        , The unique key of the resource manager tag to assign to disks. Keys must be in the format tagKeys/{tag_key_id}.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        , The value of the resource manager tag to assign to disks. Values must be in the format tagValues/456.
+        - - -
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeySelfLink":
+            suggest = "kms_key_self_link"
+        elif key == "kmsKeyServiceAccount":
+            suggest = "kms_key_service_account"
+        elif key == "rawKey":
+            suggest = "raw_key"
+        elif key == "rsaEncryptedKey":
+            suggest = "rsa_encrypted_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKey.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_self_link: Optional[_builtins.str] = None,
+                 kms_key_service_account: Optional[_builtins.str] = None,
+                 raw_key: Optional[_builtins.str] = None,
+                 rsa_encrypted_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str kms_key_self_link: , The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+               - - -
+        :param _builtins.str kms_key_service_account: , The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        :param _builtins.str raw_key: , Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str rsa_encrypted_key: , Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        if kms_key_self_link is not None:
+            pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
+        if kms_key_service_account is not None:
+            pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        if raw_key is not None:
+            pulumi.set(__self__, "raw_key", raw_key)
+        if rsa_encrypted_key is not None:
+            pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeySelfLink")
+    def kms_key_self_link(self) -> Optional[_builtins.str]:
+        """
+        , The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        - - -
+        """
+        return pulumi.get(self, "kms_key_self_link")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> Optional[_builtins.str]:
+        """
+        , The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> Optional[_builtins.str]:
+        """
+        , Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> Optional[_builtins.str]:
+        """
+        , Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "kmsKeySelfLink":
+            suggest = "kms_key_self_link"
+        elif key == "kmsKeyServiceAccount":
+            suggest = "kms_key_service_account"
+        elif key == "rawKey":
+            suggest = "raw_key"
+        elif key == "rsaEncryptedKey":
+            suggest = "rsa_encrypted_key"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKey.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 kms_key_self_link: Optional[_builtins.str] = None,
+                 kms_key_service_account: Optional[_builtins.str] = None,
+                 raw_key: Optional[_builtins.str] = None,
+                 rsa_encrypted_key: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str kms_key_self_link: , The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+               - - -
+        :param _builtins.str kms_key_service_account: , The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        :param _builtins.str raw_key: , Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str rsa_encrypted_key: , Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        if kms_key_self_link is not None:
+            pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
+        if kms_key_service_account is not None:
+            pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        if raw_key is not None:
+            pulumi.set(__self__, "raw_key", raw_key)
+        if rsa_encrypted_key is not None:
+            pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeySelfLink")
+    def kms_key_self_link(self) -> Optional[_builtins.str]:
+        """
+        , The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        - - -
+        """
+        return pulumi.get(self, "kms_key_self_link")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> Optional[_builtins.str]:
+        """
+        , The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> Optional[_builtins.str]:
+        """
+        , Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> Optional[_builtins.str]:
+        """
+        , Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
 
 
 @pulumi.output_type
@@ -31104,6 +32383,8 @@ class RegionInstanceGroupManagerInstanceLifecyclePolicy(dict):
             suggest = "force_update_on_repair"
         elif key == "onFailedHealthCheck":
             suggest = "on_failed_health_check"
+        elif key == "onRepair":
+            suggest = "on_repair"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceLifecyclePolicy. Access the value via the '{suggest}' property getter instead.")
@@ -31119,14 +32400,14 @@ class RegionInstanceGroupManagerInstanceLifecyclePolicy(dict):
     def __init__(__self__, *,
                  default_action_on_failure: Optional[_builtins.str] = None,
                  force_update_on_repair: Optional[_builtins.str] = None,
-                 on_failed_health_check: Optional[_builtins.str] = None):
+                 on_failed_health_check: Optional[_builtins.str] = None,
+                 on_repair: Optional['outputs.RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair'] = None):
         """
         :param _builtins.str default_action_on_failure: , Specifies the action that a MIG performs on a failed VM. If the value of the `on_failed_health_check` field is `DEFAULT_ACTION`, then the same action also applies to the VMs on which your application fails a health check. Valid options are: `DO_NOTHING`, `REPAIR`. If `DO_NOTHING`, then MIG does not repair a failed VM. If `REPAIR` (default), then MIG automatically repairs a failed VM by recreating it. For more information, see about repairing VMs in a MIG.
         :param _builtins.str force_update_on_repair: , Specifies whether to apply the group's latest configuration when repairing a VM. Valid options are: `YES`, `NO`. If `YES` and you updated the group's instance template or per-instance configurations after the VM was created, then these changes are applied when VM is repaired. If `NO` (default), then updates are applied in accordance with the group's update policy type.
-        :param _builtins.str on_failed_health_check: , Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid options are: `DEFAULT_ACTION`, `DO_NOTHING`, `REPAIR`. If `DEFAULT_ACTION` (default), then MIG uses the same action configured for the  `default_action_on_failure` field. If `DO_NOTHING`, then MIG does not repair unhealthy VM. If `REPAIR`, then MIG automatically repairs an unhealthy VM by recreating it. For more information, see about repairing VMs in a MIG. 
-               
+        :param _builtins.str on_failed_health_check: , Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid options are: `DEFAULT_ACTION`, `DO_NOTHING`, `REPAIR`. If `DEFAULT_ACTION` (default), then MIG uses the same action configured for the  `default_action_on_failure` field. If `DO_NOTHING`, then MIG does not repair unhealthy VM. If `REPAIR`, then MIG automatically repairs an unhealthy VM by recreating it. For more information, see about repairing VMs in a MIG.
+        :param 'RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairArgs' on_repair: , Configuration for VM repairs in the MIG. Structure is documented below.
                - - -
-               <a name="nested_instance_flexibility_policy"></a>The `instance_flexibility_policy` block supports:
         """
         if default_action_on_failure is not None:
             pulumi.set(__self__, "default_action_on_failure", default_action_on_failure)
@@ -31134,6 +32415,8 @@ class RegionInstanceGroupManagerInstanceLifecyclePolicy(dict):
             pulumi.set(__self__, "force_update_on_repair", force_update_on_repair)
         if on_failed_health_check is not None:
             pulumi.set(__self__, "on_failed_health_check", on_failed_health_check)
+        if on_repair is not None:
+            pulumi.set(__self__, "on_repair", on_repair)
 
     @_builtins.property
     @pulumi.getter(name="defaultActionOnFailure")
@@ -31155,12 +32438,60 @@ class RegionInstanceGroupManagerInstanceLifecyclePolicy(dict):
     @pulumi.getter(name="onFailedHealthCheck")
     def on_failed_health_check(self) -> Optional[_builtins.str]:
         """
-        , Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid options are: `DEFAULT_ACTION`, `DO_NOTHING`, `REPAIR`. If `DEFAULT_ACTION` (default), then MIG uses the same action configured for the  `default_action_on_failure` field. If `DO_NOTHING`, then MIG does not repair unhealthy VM. If `REPAIR`, then MIG automatically repairs an unhealthy VM by recreating it. For more information, see about repairing VMs in a MIG. 
+        , Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid options are: `DEFAULT_ACTION`, `DO_NOTHING`, `REPAIR`. If `DEFAULT_ACTION` (default), then MIG uses the same action configured for the  `default_action_on_failure` field. If `DO_NOTHING`, then MIG does not repair unhealthy VM. If `REPAIR`, then MIG automatically repairs an unhealthy VM by recreating it. For more information, see about repairing VMs in a MIG.
+        """
+        return pulumi.get(self, "on_failed_health_check")
+
+    @_builtins.property
+    @pulumi.getter(name="onRepair")
+    def on_repair(self) -> Optional['outputs.RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair']:
+        """
+        , Configuration for VM repairs in the MIG. Structure is documented below.
+        - - -
+        """
+        return pulumi.get(self, "on_repair")
+
+
+@pulumi.output_type
+class RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "allowChangingZone":
+            suggest = "allow_changing_zone"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        RegionInstanceGroupManagerInstanceLifecyclePolicyOnRepair.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 allow_changing_zone: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str allow_changing_zone: , Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
+               
+               - - -
+               <a name="nested_instance_flexibility_policy"></a>The `instance_flexibility_policy` block supports:
+        """
+        if allow_changing_zone is not None:
+            pulumi.set(__self__, "allow_changing_zone", allow_changing_zone)
+
+    @_builtins.property
+    @pulumi.getter(name="allowChangingZone")
+    def allow_changing_zone(self) -> Optional[_builtins.str]:
+        """
+        , Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
 
         - - -
         <a name="nested_instance_flexibility_policy"></a>The `instance_flexibility_policy` block supports:
         """
-        return pulumi.get(self, "on_failed_health_check")
+        return pulumi.get(self, "allow_changing_zone")
 
 
 @pulumi.output_type
@@ -33362,6 +34693,8 @@ class RegionInstanceTemplateScheduling(dict):
             suggest = "on_instance_stop_action"
         elif key == "provisioningModel":
             suggest = "provisioning_model"
+        elif key == "skipGuestOsShutdown":
+            suggest = "skip_guest_os_shutdown"
         elif key == "terminationTime":
             suggest = "termination_time"
 
@@ -33391,6 +34724,7 @@ class RegionInstanceTemplateScheduling(dict):
                  on_instance_stop_action: Optional['outputs.RegionInstanceTemplateSchedulingOnInstanceStopAction'] = None,
                  preemptible: Optional[_builtins.bool] = None,
                  provisioning_model: Optional[_builtins.str] = None,
+                 skip_guest_os_shutdown: Optional[_builtins.bool] = None,
                  termination_time: Optional[_builtins.str] = None):
         """
         :param _builtins.bool automatic_restart: Specifies whether the instance should be
@@ -33422,6 +34756,7 @@ class RegionInstanceTemplateScheduling(dict):
                `preemptible` should be `true` and `automatic_restart` should be
                `false`. For more info about
                `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
+        :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated, in RFC3339 text format. If specified, the instance termination action will be performed at the termination time.
         """
         if automatic_restart is not None:
@@ -33452,6 +34787,8 @@ class RegionInstanceTemplateScheduling(dict):
             pulumi.set(__self__, "preemptible", preemptible)
         if provisioning_model is not None:
             pulumi.set(__self__, "provisioning_model", provisioning_model)
+        if skip_guest_os_shutdown is not None:
+            pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         if termination_time is not None:
             pulumi.set(__self__, "termination_time", termination_time)
 
@@ -33581,6 +34918,14 @@ class RegionInstanceTemplateScheduling(dict):
         `SPOT`, read [here](https://cloud.google.com/compute/docs/instances/spot)
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> Optional[_builtins.bool]:
+        """
+        Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -35002,7 +36347,7 @@ class RegionNetworkFirewallPolicyWithRulesPredefinedRuleMatch(dict):
                Structure is documented below.
                
                
-               <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+               <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         :param Sequence[_builtins.str] src_threat_intelligences: Names of Network Threat Intelligence lists.
                The IPs in these lists will be matched against traffic source.
         """
@@ -35137,7 +36482,7 @@ class RegionNetworkFirewallPolicyWithRulesPredefinedRuleMatch(dict):
         Structure is documented below.
 
 
-        <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+        <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "src_secure_tags")
 
@@ -35629,7 +36974,7 @@ class RegionNetworkFirewallPolicyWithRulesRuleMatch(dict):
                Structure is documented below.
                
                
-               <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+               <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         :param Sequence[_builtins.str] src_threat_intelligences: Names of Network Threat Intelligence lists.
                The IPs in these lists will be matched against traffic source.
         """
@@ -35795,7 +37140,7 @@ class RegionNetworkFirewallPolicyWithRulesRuleMatch(dict):
         Structure is documented below.
 
 
-        <a name="nested_rule_rule_match_layer4_config"></a>The `layer4_config` block supports:
+        <a name="nested_rule_match_layer4_config"></a>The `layer4_config` block supports:
         """
         return pulumi.get(self, "src_secure_tags")
 
@@ -45430,6 +46775,520 @@ class ReservationReservationSharingPolicy(dict):
 
 
 @pulumi.output_type
+class ReservationResourceStatus(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "healthInfos":
+            suggest = "health_infos"
+        elif key == "reservationBlockCount":
+            suggest = "reservation_block_count"
+        elif key == "reservationMaintenances":
+            suggest = "reservation_maintenances"
+        elif key == "specificSkuAllocations":
+            suggest = "specific_sku_allocations"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReservationResourceStatus. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReservationResourceStatus.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReservationResourceStatus.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 health_infos: Optional[Sequence['outputs.ReservationResourceStatusHealthInfo']] = None,
+                 reservation_block_count: Optional[_builtins.int] = None,
+                 reservation_maintenances: Optional[Sequence['outputs.ReservationResourceStatusReservationMaintenance']] = None,
+                 specific_sku_allocations: Optional[Sequence['outputs.ReservationResourceStatusSpecificSkuAllocation']] = None):
+        """
+        :param Sequence['ReservationResourceStatusHealthInfoArgs'] health_infos: (Output)
+               Health information for the reservation.
+               Structure is documented below.
+        :param _builtins.int reservation_block_count: (Output)
+               The number of reservation blocks associated with this reservation.
+        :param Sequence['ReservationResourceStatusReservationMaintenanceArgs'] reservation_maintenances: (Output)
+               Maintenance information for this reservation
+               Structure is documented below.
+        :param Sequence['ReservationResourceStatusSpecificSkuAllocationArgs'] specific_sku_allocations: (Output)
+               Allocation Properties of this reservation.
+               Structure is documented below.
+        """
+        if health_infos is not None:
+            pulumi.set(__self__, "health_infos", health_infos)
+        if reservation_block_count is not None:
+            pulumi.set(__self__, "reservation_block_count", reservation_block_count)
+        if reservation_maintenances is not None:
+            pulumi.set(__self__, "reservation_maintenances", reservation_maintenances)
+        if specific_sku_allocations is not None:
+            pulumi.set(__self__, "specific_sku_allocations", specific_sku_allocations)
+
+    @_builtins.property
+    @pulumi.getter(name="healthInfos")
+    def health_infos(self) -> Optional[Sequence['outputs.ReservationResourceStatusHealthInfo']]:
+        """
+        (Output)
+        Health information for the reservation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "health_infos")
+
+    @_builtins.property
+    @pulumi.getter(name="reservationBlockCount")
+    def reservation_block_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        The number of reservation blocks associated with this reservation.
+        """
+        return pulumi.get(self, "reservation_block_count")
+
+    @_builtins.property
+    @pulumi.getter(name="reservationMaintenances")
+    def reservation_maintenances(self) -> Optional[Sequence['outputs.ReservationResourceStatusReservationMaintenance']]:
+        """
+        (Output)
+        Maintenance information for this reservation
+        Structure is documented below.
+        """
+        return pulumi.get(self, "reservation_maintenances")
+
+    @_builtins.property
+    @pulumi.getter(name="specificSkuAllocations")
+    def specific_sku_allocations(self) -> Optional[Sequence['outputs.ReservationResourceStatusSpecificSkuAllocation']]:
+        """
+        (Output)
+        Allocation Properties of this reservation.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "specific_sku_allocations")
+
+
+@pulumi.output_type
+class ReservationResourceStatusHealthInfo(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "degradedBlockCount":
+            suggest = "degraded_block_count"
+        elif key == "healthStatus":
+            suggest = "health_status"
+        elif key == "healthyBlockCount":
+            suggest = "healthy_block_count"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReservationResourceStatusHealthInfo. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReservationResourceStatusHealthInfo.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReservationResourceStatusHealthInfo.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 degraded_block_count: Optional[_builtins.int] = None,
+                 health_status: Optional[_builtins.str] = None,
+                 healthy_block_count: Optional[_builtins.int] = None):
+        """
+        :param _builtins.int degraded_block_count: (Output)
+               The number of reservation blocks that are degraded.
+        :param _builtins.str health_status: (Output)
+               The health status of the reservation.
+        :param _builtins.int healthy_block_count: (Output)
+               The number of reservation blocks that are healthy.
+        """
+        if degraded_block_count is not None:
+            pulumi.set(__self__, "degraded_block_count", degraded_block_count)
+        if health_status is not None:
+            pulumi.set(__self__, "health_status", health_status)
+        if healthy_block_count is not None:
+            pulumi.set(__self__, "healthy_block_count", healthy_block_count)
+
+    @_builtins.property
+    @pulumi.getter(name="degradedBlockCount")
+    def degraded_block_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        The number of reservation blocks that are degraded.
+        """
+        return pulumi.get(self, "degraded_block_count")
+
+    @_builtins.property
+    @pulumi.getter(name="healthStatus")
+    def health_status(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The health status of the reservation.
+        """
+        return pulumi.get(self, "health_status")
+
+    @_builtins.property
+    @pulumi.getter(name="healthyBlockCount")
+    def healthy_block_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        The number of reservation blocks that are healthy.
+        """
+        return pulumi.get(self, "healthy_block_count")
+
+
+@pulumi.output_type
+class ReservationResourceStatusReservationMaintenance(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "instanceMaintenanceOngoingCount":
+            suggest = "instance_maintenance_ongoing_count"
+        elif key == "instanceMaintenancePendingCount":
+            suggest = "instance_maintenance_pending_count"
+        elif key == "maintenanceOngoingCount":
+            suggest = "maintenance_ongoing_count"
+        elif key == "maintenancePendingCount":
+            suggest = "maintenance_pending_count"
+        elif key == "schedulingType":
+            suggest = "scheduling_type"
+        elif key == "subblockInfraMaintenanceOngoingCount":
+            suggest = "subblock_infra_maintenance_ongoing_count"
+        elif key == "subblockInfraMaintenancePendingCount":
+            suggest = "subblock_infra_maintenance_pending_count"
+        elif key == "upcomingGroupMaintenances":
+            suggest = "upcoming_group_maintenances"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReservationResourceStatusReservationMaintenance. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReservationResourceStatusReservationMaintenance.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReservationResourceStatusReservationMaintenance.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 instance_maintenance_ongoing_count: Optional[_builtins.int] = None,
+                 instance_maintenance_pending_count: Optional[_builtins.int] = None,
+                 maintenance_ongoing_count: Optional[_builtins.int] = None,
+                 maintenance_pending_count: Optional[_builtins.int] = None,
+                 scheduling_type: Optional[_builtins.str] = None,
+                 subblock_infra_maintenance_ongoing_count: Optional[_builtins.int] = None,
+                 subblock_infra_maintenance_pending_count: Optional[_builtins.int] = None,
+                 upcoming_group_maintenances: Optional[Sequence['outputs.ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance']] = None):
+        """
+        :param _builtins.int instance_maintenance_ongoing_count: (Output)
+               Describes number of instances that have ongoing maintenance.
+        :param _builtins.int instance_maintenance_pending_count: (Output)
+               Describes number of instances that have pending maintenance.
+        :param _builtins.int maintenance_ongoing_count: (Output)
+               Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have ongoing maintenance.
+        :param _builtins.int maintenance_pending_count: (Output)
+               Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have pending maintenance.
+        :param _builtins.str scheduling_type: (Output)
+               The type of maintenance for the reservation.
+        :param _builtins.int subblock_infra_maintenance_ongoing_count: (Output)
+               Describes number of subblock Infrastructure that has ongoing maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family(e.g. NVLink Domains). Not all VM Families will support this field.
+        :param _builtins.int subblock_infra_maintenance_pending_count: (Output)
+               Describes number of subblock Infrastructure that has pending maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family (e.g. NVLink Domains). Not all VM Families will support this field.
+        :param Sequence['ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceArgs'] upcoming_group_maintenances: (Output)
+               Maintenance information on this group of VMs.
+               Structure is documented below.
+        """
+        if instance_maintenance_ongoing_count is not None:
+            pulumi.set(__self__, "instance_maintenance_ongoing_count", instance_maintenance_ongoing_count)
+        if instance_maintenance_pending_count is not None:
+            pulumi.set(__self__, "instance_maintenance_pending_count", instance_maintenance_pending_count)
+        if maintenance_ongoing_count is not None:
+            pulumi.set(__self__, "maintenance_ongoing_count", maintenance_ongoing_count)
+        if maintenance_pending_count is not None:
+            pulumi.set(__self__, "maintenance_pending_count", maintenance_pending_count)
+        if scheduling_type is not None:
+            pulumi.set(__self__, "scheduling_type", scheduling_type)
+        if subblock_infra_maintenance_ongoing_count is not None:
+            pulumi.set(__self__, "subblock_infra_maintenance_ongoing_count", subblock_infra_maintenance_ongoing_count)
+        if subblock_infra_maintenance_pending_count is not None:
+            pulumi.set(__self__, "subblock_infra_maintenance_pending_count", subblock_infra_maintenance_pending_count)
+        if upcoming_group_maintenances is not None:
+            pulumi.set(__self__, "upcoming_group_maintenances", upcoming_group_maintenances)
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenanceOngoingCount")
+    def instance_maintenance_ongoing_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Describes number of instances that have ongoing maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenancePendingCount")
+    def instance_maintenance_pending_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Describes number of instances that have pending maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceOngoingCount")
+    def maintenance_ongoing_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have ongoing maintenance.
+        """
+        return pulumi.get(self, "maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenancePendingCount")
+    def maintenance_pending_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have pending maintenance.
+        """
+        return pulumi.get(self, "maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulingType")
+    def scheduling_type(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The type of maintenance for the reservation.
+        """
+        return pulumi.get(self, "scheduling_type")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenanceOngoingCount")
+    def subblock_infra_maintenance_ongoing_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Describes number of subblock Infrastructure that has ongoing maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family(e.g. NVLink Domains). Not all VM Families will support this field.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenancePendingCount")
+    def subblock_infra_maintenance_pending_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Describes number of subblock Infrastructure that has pending maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family (e.g. NVLink Domains). Not all VM Families will support this field.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="upcomingGroupMaintenances")
+    def upcoming_group_maintenances(self) -> Optional[Sequence['outputs.ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance']]:
+        """
+        (Output)
+        Maintenance information on this group of VMs.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "upcoming_group_maintenances")
+
+
+@pulumi.output_type
+class ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "canReschedule":
+            suggest = "can_reschedule"
+        elif key == "latestWindowStartTime":
+            suggest = "latest_window_start_time"
+        elif key == "maintenanceOnShutdown":
+            suggest = "maintenance_on_shutdown"
+        elif key == "maintenanceReasons":
+            suggest = "maintenance_reasons"
+        elif key == "maintenanceStatus":
+            suggest = "maintenance_status"
+        elif key == "windowEndTime":
+            suggest = "window_end_time"
+        elif key == "windowStartTime":
+            suggest = "window_start_time"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenance.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 can_reschedule: Optional[_builtins.bool] = None,
+                 latest_window_start_time: Optional[_builtins.str] = None,
+                 maintenance_on_shutdown: Optional[_builtins.bool] = None,
+                 maintenance_reasons: Optional[Sequence[_builtins.str]] = None,
+                 maintenance_status: Optional[_builtins.str] = None,
+                 type: Optional[_builtins.str] = None,
+                 window_end_time: Optional[_builtins.str] = None,
+                 window_start_time: Optional[_builtins.str] = None):
+        """
+        :param _builtins.bool can_reschedule: (Output)
+               Indicates if the maintenance can be customer triggered.
+        :param _builtins.str latest_window_start_time: (Output)
+               The latest time for the planned maintenance window to start. This timestamp value is in RFC3339 text format.
+        :param _builtins.bool maintenance_on_shutdown: (Output)
+               Indicates whether the UpcomingMaintenance will be triggered on VM shutdown.
+        :param Sequence[_builtins.str] maintenance_reasons: (Output)
+               The reasons for the maintenance. Only valid for vms.
+        :param _builtins.str maintenance_status: (Output)
+               Status of the maintenance.
+        :param _builtins.str type: (Output)
+               Defines the type of maintenance.
+        :param _builtins.str window_end_time: (Output)
+               The time by which the maintenance disruption will be completed. This timestamp value is in RFC3339 text format.
+        :param _builtins.str window_start_time: (Output)
+               The current start time of the maintenance window. This timestamp value is in RFC3339 text format.
+        """
+        if can_reschedule is not None:
+            pulumi.set(__self__, "can_reschedule", can_reschedule)
+        if latest_window_start_time is not None:
+            pulumi.set(__self__, "latest_window_start_time", latest_window_start_time)
+        if maintenance_on_shutdown is not None:
+            pulumi.set(__self__, "maintenance_on_shutdown", maintenance_on_shutdown)
+        if maintenance_reasons is not None:
+            pulumi.set(__self__, "maintenance_reasons", maintenance_reasons)
+        if maintenance_status is not None:
+            pulumi.set(__self__, "maintenance_status", maintenance_status)
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+        if window_end_time is not None:
+            pulumi.set(__self__, "window_end_time", window_end_time)
+        if window_start_time is not None:
+            pulumi.set(__self__, "window_start_time", window_start_time)
+
+    @_builtins.property
+    @pulumi.getter(name="canReschedule")
+    def can_reschedule(self) -> Optional[_builtins.bool]:
+        """
+        (Output)
+        Indicates if the maintenance can be customer triggered.
+        """
+        return pulumi.get(self, "can_reschedule")
+
+    @_builtins.property
+    @pulumi.getter(name="latestWindowStartTime")
+    def latest_window_start_time(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The latest time for the planned maintenance window to start. This timestamp value is in RFC3339 text format.
+        """
+        return pulumi.get(self, "latest_window_start_time")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceOnShutdown")
+    def maintenance_on_shutdown(self) -> Optional[_builtins.bool]:
+        """
+        (Output)
+        Indicates whether the UpcomingMaintenance will be triggered on VM shutdown.
+        """
+        return pulumi.get(self, "maintenance_on_shutdown")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceReasons")
+    def maintenance_reasons(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (Output)
+        The reasons for the maintenance. Only valid for vms.
+        """
+        return pulumi.get(self, "maintenance_reasons")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceStatus")
+    def maintenance_status(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Status of the maintenance.
+        """
+        return pulumi.get(self, "maintenance_status")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        Defines the type of maintenance.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="windowEndTime")
+    def window_end_time(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The time by which the maintenance disruption will be completed. This timestamp value is in RFC3339 text format.
+        """
+        return pulumi.get(self, "window_end_time")
+
+    @_builtins.property
+    @pulumi.getter(name="windowStartTime")
+    def window_start_time(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The current start time of the maintenance window. This timestamp value is in RFC3339 text format.
+        """
+        return pulumi.get(self, "window_start_time")
+
+
+@pulumi.output_type
+class ReservationResourceStatusSpecificSkuAllocation(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "sourceInstanceTemplateId":
+            suggest = "source_instance_template_id"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ReservationResourceStatusSpecificSkuAllocation. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ReservationResourceStatusSpecificSkuAllocation.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ReservationResourceStatusSpecificSkuAllocation.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 source_instance_template_id: Optional[_builtins.str] = None,
+                 utilizations: Optional[Mapping[str, _builtins.str]] = None):
+        """
+        :param _builtins.str source_instance_template_id: (Output)
+               ID of the instance template used to populate reservation properties.
+        :param Mapping[str, _builtins.str] utilizations: (Output)
+               Per service utilization breakdown. The Key is the Google Cloud managed service name.
+        """
+        if source_instance_template_id is not None:
+            pulumi.set(__self__, "source_instance_template_id", source_instance_template_id)
+        if utilizations is not None:
+            pulumi.set(__self__, "utilizations", utilizations)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceInstanceTemplateId")
+    def source_instance_template_id(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        ID of the instance template used to populate reservation properties.
+        """
+        return pulumi.get(self, "source_instance_template_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def utilizations(self) -> Optional[Mapping[str, _builtins.str]]:
+        """
+        (Output)
+        Per service utilization breakdown. The Key is the Google Cloud managed service name.
+        """
+        return pulumi.get(self, "utilizations")
+
+
+@pulumi.output_type
 class ReservationShareSettings(dict):
     @staticmethod
     def __key_warning(key: str):
@@ -45547,7 +47406,9 @@ class ReservationSpecificReservation(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "inUseCount":
+        if key == "assuredCount":
+            suggest = "assured_count"
+        elif key == "inUseCount":
             suggest = "in_use_count"
         elif key == "instanceProperties":
             suggest = "instance_properties"
@@ -45567,11 +47428,14 @@ class ReservationSpecificReservation(dict):
 
     def __init__(__self__, *,
                  count: _builtins.int,
+                 assured_count: Optional[_builtins.int] = None,
                  in_use_count: Optional[_builtins.int] = None,
                  instance_properties: Optional['outputs.ReservationSpecificReservationInstanceProperties'] = None,
                  source_instance_template: Optional[_builtins.str] = None):
         """
         :param _builtins.int count: The number of resources that are allocated.
+        :param _builtins.int assured_count: (Output)
+               Indicates how many instances are actually usable currently.
         :param _builtins.int in_use_count: (Output)
                How many instances are in use.
         :param 'ReservationSpecificReservationInstancePropertiesArgs' instance_properties: The instance properties for the reservation.
@@ -45580,6 +47444,8 @@ class ReservationSpecificReservation(dict):
                instanceProperties field.
         """
         pulumi.set(__self__, "count", count)
+        if assured_count is not None:
+            pulumi.set(__self__, "assured_count", assured_count)
         if in_use_count is not None:
             pulumi.set(__self__, "in_use_count", in_use_count)
         if instance_properties is not None:
@@ -45594,6 +47460,15 @@ class ReservationSpecificReservation(dict):
         The number of resources that are allocated.
         """
         return pulumi.get(self, "count")
+
+    @_builtins.property
+    @pulumi.getter(name="assuredCount")
+    def assured_count(self) -> Optional[_builtins.int]:
+        """
+        (Output)
+        Indicates how many instances are actually usable currently.
+        """
+        return pulumi.get(self, "assured_count")
 
     @_builtins.property
     @pulumi.getter(name="inUseCount")
@@ -45634,6 +47509,8 @@ class ReservationSpecificReservationInstanceProperties(dict):
             suggest = "guest_accelerators"
         elif key == "localSsds":
             suggest = "local_ssds"
+        elif key == "locationHint":
+            suggest = "location_hint"
         elif key == "maintenanceInterval":
             suggest = "maintenance_interval"
         elif key == "minCpuPlatform":
@@ -45654,6 +47531,7 @@ class ReservationSpecificReservationInstanceProperties(dict):
                  machine_type: _builtins.str,
                  guest_accelerators: Optional[Sequence['outputs.ReservationSpecificReservationInstancePropertiesGuestAccelerator']] = None,
                  local_ssds: Optional[Sequence['outputs.ReservationSpecificReservationInstancePropertiesLocalSsd']] = None,
+                 location_hint: Optional[_builtins.str] = None,
                  maintenance_interval: Optional[_builtins.str] = None,
                  min_cpu_platform: Optional[_builtins.str] = None):
         """
@@ -45663,6 +47541,8 @@ class ReservationSpecificReservationInstanceProperties(dict):
         :param Sequence['ReservationSpecificReservationInstancePropertiesLocalSsdArgs'] local_ssds: The amount of local ssd to reserve with each instance. This
                reserves disks of type `local-ssd`.
                Structure is documented below.
+        :param _builtins.str location_hint: (Output)
+               An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API.
         :param _builtins.str maintenance_interval: Specifies the frequency of planned maintenance events.
                Possible values are: `AS_NEEDED`, `PERIODIC`, `RECURRENT`.
         :param _builtins.str min_cpu_platform: The minimum CPU platform for the reservation. For example,
@@ -45675,6 +47555,8 @@ class ReservationSpecificReservationInstanceProperties(dict):
             pulumi.set(__self__, "guest_accelerators", guest_accelerators)
         if local_ssds is not None:
             pulumi.set(__self__, "local_ssds", local_ssds)
+        if location_hint is not None:
+            pulumi.set(__self__, "location_hint", location_hint)
         if maintenance_interval is not None:
             pulumi.set(__self__, "maintenance_interval", maintenance_interval)
         if min_cpu_platform is not None:
@@ -45706,6 +47588,15 @@ class ReservationSpecificReservationInstanceProperties(dict):
         Structure is documented below.
         """
         return pulumi.get(self, "local_ssds")
+
+    @_builtins.property
+    @pulumi.getter(name="locationHint")
+    def location_hint(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API.
+        """
+        return pulumi.get(self, "location_hint")
 
     @_builtins.property
     @pulumi.getter(name="maintenanceInterval")
@@ -51795,6 +53686,8 @@ class ServiceAttachmentConnectedEndpoint(dict):
         suggest = None
         if key == "consumerNetwork":
             suggest = "consumer_network"
+        elif key == "natIps":
+            suggest = "nat_ips"
         elif key == "propagatedConnectionCount":
             suggest = "propagated_connection_count"
         elif key == "pscConnectionId":
@@ -51814,6 +53707,7 @@ class ServiceAttachmentConnectedEndpoint(dict):
     def __init__(__self__, *,
                  consumer_network: Optional[_builtins.str] = None,
                  endpoint: Optional[_builtins.str] = None,
+                 nat_ips: Optional[Sequence[_builtins.str]] = None,
                  propagated_connection_count: Optional[_builtins.int] = None,
                  psc_connection_id: Optional[_builtins.str] = None,
                  status: Optional[_builtins.str] = None):
@@ -51822,6 +53716,8 @@ class ServiceAttachmentConnectedEndpoint(dict):
                The url of the consumer network.
         :param _builtins.str endpoint: (Output)
                The URL of the consumer forwarding rule.
+        :param Sequence[_builtins.str] nat_ips: (Output)
+               The nat IPs of the connected endpoint.
         :param _builtins.int propagated_connection_count: (Output)
                The number of consumer Network Connectivity Center spokes that the connected Private Service Connect endpoint has propagated to.
         :param _builtins.str psc_connection_id: (Output)
@@ -51834,6 +53730,8 @@ class ServiceAttachmentConnectedEndpoint(dict):
             pulumi.set(__self__, "consumer_network", consumer_network)
         if endpoint is not None:
             pulumi.set(__self__, "endpoint", endpoint)
+        if nat_ips is not None:
+            pulumi.set(__self__, "nat_ips", nat_ips)
         if propagated_connection_count is not None:
             pulumi.set(__self__, "propagated_connection_count", propagated_connection_count)
         if psc_connection_id is not None:
@@ -51858,6 +53756,15 @@ class ServiceAttachmentConnectedEndpoint(dict):
         The URL of the consumer forwarding rule.
         """
         return pulumi.get(self, "endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="natIps")
+    def nat_ips(self) -> Optional[Sequence[_builtins.str]]:
+        """
+        (Output)
+        The nat IPs of the connected endpoint.
+        """
+        return pulumi.get(self, "nat_ips")
 
     @_builtins.property
     @pulumi.getter(name="propagatedConnectionCount")
@@ -51955,6 +53862,91 @@ class ServiceAttachmentConsumerAcceptList(dict):
         Only one of project_id_or_num and network_url may be set.
         """
         return pulumi.get(self, "project_id_or_num")
+
+
+@pulumi.output_type
+class ServiceAttachmentPscServiceAttachmentId(dict):
+    def __init__(__self__, *,
+                 high: Optional[_builtins.str] = None,
+                 low: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str high: (Output)
+               The high 64 bits of the PSC service attachment ID.
+        :param _builtins.str low: (Output)
+               The low 64 bits of the PSC service attachment ID.
+        """
+        if high is not None:
+            pulumi.set(__self__, "high", high)
+        if low is not None:
+            pulumi.set(__self__, "low", low)
+
+    @_builtins.property
+    @pulumi.getter
+    def high(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The high 64 bits of the PSC service attachment ID.
+        """
+        return pulumi.get(self, "high")
+
+    @_builtins.property
+    @pulumi.getter
+    def low(self) -> Optional[_builtins.str]:
+        """
+        (Output)
+        The low 64 bits of the PSC service attachment ID.
+        """
+        return pulumi.get(self, "low")
+
+
+@pulumi.output_type
+class ServiceAttachmentTunnelingConfig(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "encapsulationProfile":
+            suggest = "encapsulation_profile"
+        elif key == "routingMode":
+            suggest = "routing_mode"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServiceAttachmentTunnelingConfig. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServiceAttachmentTunnelingConfig.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServiceAttachmentTunnelingConfig.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 encapsulation_profile: Optional[_builtins.str] = None,
+                 routing_mode: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str encapsulation_profile: The encapsulation profile for tunneling traffic.
+        :param _builtins.str routing_mode: The routing mode for tunneling traffic.
+        """
+        if encapsulation_profile is not None:
+            pulumi.set(__self__, "encapsulation_profile", encapsulation_profile)
+        if routing_mode is not None:
+            pulumi.set(__self__, "routing_mode", routing_mode)
+
+    @_builtins.property
+    @pulumi.getter(name="encapsulationProfile")
+    def encapsulation_profile(self) -> Optional[_builtins.str]:
+        """
+        The encapsulation profile for tunneling traffic.
+        """
+        return pulumi.get(self, "encapsulation_profile")
+
+    @_builtins.property
+    @pulumi.getter(name="routingMode")
+    def routing_mode(self) -> Optional[_builtins.str]:
+        """
+        The routing mode for tunneling traffic.
+        """
+        return pulumi.get(self, "routing_mode")
 
 
 @pulumi.output_type
@@ -61277,7 +63269,9 @@ class WireGroupWireProperties(dict):
     @staticmethod
     def __key_warning(key: str):
         suggest = None
-        if key == "bandwidthUnmetered":
+        if key == "bandwidthAllocation":
+            suggest = "bandwidth_allocation"
+        elif key == "bandwidthUnmetered":
             suggest = "bandwidth_unmetered"
         elif key == "faultResponse":
             suggest = "fault_response"
@@ -61294,18 +63288,35 @@ class WireGroupWireProperties(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 bandwidth_allocation: _builtins.str,
                  bandwidth_unmetered: Optional[_builtins.int] = None,
                  fault_response: Optional[_builtins.str] = None):
         """
+        :param _builtins.str bandwidth_allocation: The configuration of a wire's bandwidth allocation.
+               ALLOCATE_PER_WIRE: configures a separate unmetered bandwidth allocation (and associated charges) for each wire in the group.
+               SHARED_WITH_WIRE_GROUP: this is the default behavior, which configures one unmetered bandwidth allocation for the wire group. The unmetered bandwidth is divided equally across each wire in the group, but dynamic
+               throttling reallocates unused unmetered bandwidth from unused or underused wires to other wires in the group.
         :param _builtins.int bandwidth_unmetered: The unmetered bandwidth setting.
         :param _builtins.str fault_response: Response when a fault is detected in a pseudowire:
                NONE: default.
                DISABLE_PORT: set the port line protocol down when inline probes detect a fault. This setting is only permitted on port mode pseudowires.
         """
+        pulumi.set(__self__, "bandwidth_allocation", bandwidth_allocation)
         if bandwidth_unmetered is not None:
             pulumi.set(__self__, "bandwidth_unmetered", bandwidth_unmetered)
         if fault_response is not None:
             pulumi.set(__self__, "fault_response", fault_response)
+
+    @_builtins.property
+    @pulumi.getter(name="bandwidthAllocation")
+    def bandwidth_allocation(self) -> _builtins.str:
+        """
+        The configuration of a wire's bandwidth allocation.
+        ALLOCATE_PER_WIRE: configures a separate unmetered bandwidth allocation (and associated charges) for each wire in the group.
+        SHARED_WITH_WIRE_GROUP: this is the default behavior, which configures one unmetered bandwidth allocation for the wire group. The unmetered bandwidth is divided equally across each wire in the group, but dynamic
+        throttling reallocates unused unmetered bandwidth from unused or underused wires to other wires in the group.
+        """
+        return pulumi.get(self, "bandwidth_allocation")
 
     @_builtins.property
     @pulumi.getter(name="bandwidthUnmetered")
@@ -61388,6 +63399,7 @@ class GetAddressesAddressResult(dict):
                  description: _builtins.str,
                  labels: Mapping[str, _builtins.str],
                  name: _builtins.str,
+                 prefix_length: _builtins.int,
                  region: _builtins.str,
                  self_link: _builtins.str,
                  status: _builtins.str):
@@ -61397,6 +63409,7 @@ class GetAddressesAddressResult(dict):
         :param _builtins.str description: The IP address description.
         :param Mapping[str, _builtins.str] labels: A map containing IP labels.
         :param _builtins.str name: The IP address name.
+        :param _builtins.int prefix_length: The prefix length of the IP range. If not present, it means the address field is a single IP address.
         :param _builtins.str region: Region that should be considered to search addresses.
                All regions are considered if missing.
         :param _builtins.str self_link: The URI of the created resource.
@@ -61407,6 +63420,7 @@ class GetAddressesAddressResult(dict):
         pulumi.set(__self__, "description", description)
         pulumi.set(__self__, "labels", labels)
         pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "prefix_length", prefix_length)
         pulumi.set(__self__, "region", region)
         pulumi.set(__self__, "self_link", self_link)
         pulumi.set(__self__, "status", status)
@@ -61450,6 +63464,14 @@ class GetAddressesAddressResult(dict):
         The IP address name.
         """
         return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="prefixLength")
+    def prefix_length(self) -> _builtins.int:
+        """
+        The prefix length of the IP range. If not present, it means the address field is a single IP address.
+        """
+        return pulumi.get(self, "prefix_length")
 
     @_builtins.property
     @pulumi.getter
@@ -61750,11 +63772,15 @@ class GetBackendServiceBackendResult(dict):
                  max_connections: _builtins.int,
                  max_connections_per_endpoint: _builtins.int,
                  max_connections_per_instance: _builtins.int,
+                 max_in_flight_requests: _builtins.int,
+                 max_in_flight_requests_per_endpoint: _builtins.int,
+                 max_in_flight_requests_per_instance: _builtins.int,
                  max_rate: _builtins.int,
                  max_rate_per_endpoint: _builtins.float,
                  max_rate_per_instance: _builtins.float,
                  max_utilization: _builtins.float,
-                 preference: _builtins.str):
+                 preference: _builtins.str,
+                 traffic_duration: _builtins.str):
         """
         :param _builtins.str balancing_mode: Specifies the balancing mode for this backend.
                
@@ -61763,7 +63789,7 @@ class GetBackendServiceBackendResult(dict):
                CUSTOM_METRICS (for HTTP(s)) and CONNECTION (for TCP/SSL).
                
                See the [Backend Services Overview](https://cloud.google.com/load-balancing/docs/backend-service#balancing-mode)
-               for an explanation of load balancing modes. Default value: "UTILIZATION" Possible values: ["UTILIZATION", "RATE", "CONNECTION", "CUSTOM_METRICS"]
+               for an explanation of load balancing modes. Default value: "UTILIZATION" Possible values: ["UTILIZATION", "RATE", "CONNECTION", "CUSTOM_METRICS", "IN_FLIGHT"]
         :param _builtins.float capacity_scaler: A multiplier applied to the group's maximum servicing capacity
                (based on UTILIZATION, RATE or CONNECTION).
                
@@ -61810,6 +63836,13 @@ class GetBackendServiceBackendResult(dict):
                
                For CONNECTION mode, either maxConnections or
                maxConnectionsPerInstance must be set.
+        :param _builtins.int max_in_flight_requests: Defines a maximum number of in-flight requests for the whole NEG
+               or instance group. Not available if backend's balancingMode is RATE
+               or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_endpoint: Defines a maximum number of in-flight requests for a single endpoint.
+               Not available if backend's balancingMode is RATE or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_instance: Defines a maximum number of in-flight requests for a single VM.
+               Not available if backend's balancingMode is RATE or CONNECTION.
         :param _builtins.int max_rate: The max requests per second (RPS) of the group.
                
                Can be used with either RATE or UTILIZATION balancing modes,
@@ -61832,6 +63865,10 @@ class GetBackendServiceBackendResult(dict):
                    based on RTT.
                  - DEFAULT: If preferred backends don't have enough capacity, backends in this layer would be used and
                    traffic would be assigned based on the load balancing algorithm you use. This is the default Possible values: ["PREFERRED", "DEFAULT"]
+        :param _builtins.str traffic_duration: This field specifies how long a connection should be kept alive for:
+               - LONG: Most of the requests are expected to take more than multiple
+                 seconds to finish.
+               - SHORT: Most requests are expected to finish with a sub-second latency. Possible values: ["LONG", "SHORT"]
         """
         pulumi.set(__self__, "balancing_mode", balancing_mode)
         pulumi.set(__self__, "capacity_scaler", capacity_scaler)
@@ -61841,11 +63878,15 @@ class GetBackendServiceBackendResult(dict):
         pulumi.set(__self__, "max_connections", max_connections)
         pulumi.set(__self__, "max_connections_per_endpoint", max_connections_per_endpoint)
         pulumi.set(__self__, "max_connections_per_instance", max_connections_per_instance)
+        pulumi.set(__self__, "max_in_flight_requests", max_in_flight_requests)
+        pulumi.set(__self__, "max_in_flight_requests_per_endpoint", max_in_flight_requests_per_endpoint)
+        pulumi.set(__self__, "max_in_flight_requests_per_instance", max_in_flight_requests_per_instance)
         pulumi.set(__self__, "max_rate", max_rate)
         pulumi.set(__self__, "max_rate_per_endpoint", max_rate_per_endpoint)
         pulumi.set(__self__, "max_rate_per_instance", max_rate_per_instance)
         pulumi.set(__self__, "max_utilization", max_utilization)
         pulumi.set(__self__, "preference", preference)
+        pulumi.set(__self__, "traffic_duration", traffic_duration)
 
     @_builtins.property
     @pulumi.getter(name="balancingMode")
@@ -61858,7 +63899,7 @@ class GetBackendServiceBackendResult(dict):
         CUSTOM_METRICS (for HTTP(s)) and CONNECTION (for TCP/SSL).
 
         See the [Backend Services Overview](https://cloud.google.com/load-balancing/docs/backend-service#balancing-mode)
-        for an explanation of load balancing modes. Default value: "UTILIZATION" Possible values: ["UTILIZATION", "RATE", "CONNECTION", "CUSTOM_METRICS"]
+        for an explanation of load balancing modes. Default value: "UTILIZATION" Possible values: ["UTILIZATION", "RATE", "CONNECTION", "CUSTOM_METRICS", "IN_FLIGHT"]
         """
         return pulumi.get(self, "balancing_mode")
 
@@ -61958,6 +63999,34 @@ class GetBackendServiceBackendResult(dict):
         return pulumi.get(self, "max_connections_per_instance")
 
     @_builtins.property
+    @pulumi.getter(name="maxInFlightRequests")
+    def max_in_flight_requests(self) -> _builtins.int:
+        """
+        Defines a maximum number of in-flight requests for the whole NEG
+        or instance group. Not available if backend's balancingMode is RATE
+        or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerEndpoint")
+    def max_in_flight_requests_per_endpoint(self) -> _builtins.int:
+        """
+        Defines a maximum number of in-flight requests for a single endpoint.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerInstance")
+    def max_in_flight_requests_per_instance(self) -> _builtins.int:
+        """
+        Defines a maximum number of in-flight requests for a single VM.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_instance")
+
+    @_builtins.property
     @pulumi.getter(name="maxRate")
     def max_rate(self) -> _builtins.int:
         """
@@ -62013,6 +64082,17 @@ class GetBackendServiceBackendResult(dict):
             traffic would be assigned based on the load balancing algorithm you use. This is the default Possible values: ["PREFERRED", "DEFAULT"]
         """
         return pulumi.get(self, "preference")
+
+    @_builtins.property
+    @pulumi.getter(name="trafficDuration")
+    def traffic_duration(self) -> _builtins.str:
+        """
+        This field specifies how long a connection should be kept alive for:
+        - LONG: Most of the requests are expected to take more than multiple
+          seconds to finish.
+        - SHORT: Most requests are expected to finish with a sub-second latency. Possible values: ["LONG", "SHORT"]
+        """
+        return pulumi.get(self, "traffic_duration")
 
 
 @pulumi.output_type
@@ -66527,15 +68607,18 @@ class GetInstanceGroupManagerInstanceLifecyclePolicyResult(dict):
     def __init__(__self__, *,
                  default_action_on_failure: _builtins.str,
                  force_update_on_repair: _builtins.str,
-                 on_failed_health_check: _builtins.str):
+                 on_failed_health_check: _builtins.str,
+                 on_repairs: Sequence['outputs.GetInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult']):
         """
         :param _builtins.str default_action_on_failure: Specifies the action that a MIG performs on a failed VM. If the value of the "on_failed_health_check" field is DEFAULT_ACTION, then the same action also applies to the VMs on which your application fails a health check. Valid values are: REPAIR, DO_NOTHING. If REPAIR (default), then MIG automatically repairs a failed VM by recreating it. For more information, see about repairing VMs in a MIG. If DO_NOTHING, then MIG does not repair a failed VM.
         :param _builtins.str force_update_on_repair: Specifies whether to apply the group's latest configuration when repairing a VM. Valid options are: YES, NO. If YES and you updated the group's instance template or per-instance configurations after the VM was created, then these changes are applied when VM is repaired. If NO (default), then updates are applied in accordance with the group's update policy type.
         :param _builtins.str on_failed_health_check: Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid values are: DEFAULT_ACTION, DO_NOTHING, REPAIR. If DEFAULT_ACTION (default), then MIG uses the same action configured for the  "default_action_on_failure" field. If DO_NOTHING, then MIG does not repair unhealthy VM. If REPAIR, then MIG automatically repairs an unhealthy VM by recreating it.
+        :param Sequence['GetInstanceGroupManagerInstanceLifecyclePolicyOnRepairArgs'] on_repairs: Configuration for VM repairs in the MIG.
         """
         pulumi.set(__self__, "default_action_on_failure", default_action_on_failure)
         pulumi.set(__self__, "force_update_on_repair", force_update_on_repair)
         pulumi.set(__self__, "on_failed_health_check", on_failed_health_check)
+        pulumi.set(__self__, "on_repairs", on_repairs)
 
     @_builtins.property
     @pulumi.getter(name="defaultActionOnFailure")
@@ -66560,6 +68643,32 @@ class GetInstanceGroupManagerInstanceLifecyclePolicyResult(dict):
         Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid values are: DEFAULT_ACTION, DO_NOTHING, REPAIR. If DEFAULT_ACTION (default), then MIG uses the same action configured for the  "default_action_on_failure" field. If DO_NOTHING, then MIG does not repair unhealthy VM. If REPAIR, then MIG automatically repairs an unhealthy VM by recreating it.
         """
         return pulumi.get(self, "on_failed_health_check")
+
+    @_builtins.property
+    @pulumi.getter(name="onRepairs")
+    def on_repairs(self) -> Sequence['outputs.GetInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult']:
+        """
+        Configuration for VM repairs in the MIG.
+        """
+        return pulumi.get(self, "on_repairs")
+
+
+@pulumi.output_type
+class GetInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult(dict):
+    def __init__(__self__, *,
+                 allow_changing_zone: _builtins.str):
+        """
+        :param _builtins.str allow_changing_zone: Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
+        """
+        pulumi.set(__self__, "allow_changing_zone", allow_changing_zone)
+
+    @_builtins.property
+    @pulumi.getter(name="allowChangingZone")
+    def allow_changing_zone(self) -> _builtins.str:
+        """
+        Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
+        """
+        return pulumi.get(self, "allow_changing_zone")
 
 
 @pulumi.output_type
@@ -67650,6 +69759,7 @@ class GetInstanceSchedulingResult(dict):
                  on_instance_stop_actions: Sequence['outputs.GetInstanceSchedulingOnInstanceStopActionResult'],
                  preemptible: _builtins.bool,
                  provisioning_model: _builtins.str,
+                 skip_guest_os_shutdown: _builtins.bool,
                  termination_time: _builtins.str):
         """
         :param _builtins.bool automatic_restart: Specifies if the instance should be
@@ -67671,6 +69781,7 @@ class GetInstanceSchedulingResult(dict):
         :param Sequence['GetInstanceSchedulingOnInstanceStopActionArgs'] on_instance_stop_actions: Defines the behaviour for instances with the instance_termination_action.
         :param _builtins.bool preemptible: Whether the instance is preemptible.
         :param _builtins.str provisioning_model: Describe the type of preemptible VM.
+        :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
                will be performed at the termination time.
@@ -67689,6 +69800,7 @@ class GetInstanceSchedulingResult(dict):
         pulumi.set(__self__, "on_instance_stop_actions", on_instance_stop_actions)
         pulumi.set(__self__, "preemptible", preemptible)
         pulumi.set(__self__, "provisioning_model", provisioning_model)
+        pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         pulumi.set(__self__, "termination_time", termination_time)
 
     @_builtins.property
@@ -67805,6 +69917,14 @@ class GetInstanceSchedulingResult(dict):
         Describe the type of preemptible VM.
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> _builtins.bool:
+        """
+        Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -69153,6 +71273,7 @@ class GetInstanceTemplateSchedulingResult(dict):
                  on_instance_stop_actions: Sequence['outputs.GetInstanceTemplateSchedulingOnInstanceStopActionResult'],
                  preemptible: _builtins.bool,
                  provisioning_model: _builtins.str,
+                 skip_guest_os_shutdown: _builtins.bool,
                  termination_time: _builtins.str):
         """
         :param _builtins.bool automatic_restart: Specifies whether the instance should be
@@ -69181,6 +71302,7 @@ class GetInstanceTemplateSchedulingResult(dict):
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
         :param _builtins.str provisioning_model: Describe the type of preemptible VM.
+        :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
                will be performed at the termination time.
@@ -69199,6 +71321,7 @@ class GetInstanceTemplateSchedulingResult(dict):
         pulumi.set(__self__, "on_instance_stop_actions", on_instance_stop_actions)
         pulumi.set(__self__, "preemptible", preemptible)
         pulumi.set(__self__, "provisioning_model", provisioning_model)
+        pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         pulumi.set(__self__, "termination_time", termination_time)
 
     @_builtins.property
@@ -69324,6 +71447,14 @@ class GetInstanceTemplateSchedulingResult(dict):
         Describe the type of preemptible VM.
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> _builtins.bool:
+        """
+        Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -69609,6 +71740,163 @@ class GetInstanceTemplateShieldedInstanceConfigResult(dict):
         - Use a virtualized trusted platform module, which is a specialized computer chip you can use to encrypt objects like keys and certificates. Defaults to true.
         """
         return pulumi.get(self, "enable_vtpm")
+
+
+@pulumi.output_type
+class GetInterconnectLocationsLocationResult(dict):
+    def __init__(__self__, *,
+                 address: _builtins.str,
+                 availability_zone: _builtins.str,
+                 available_features: Sequence[_builtins.str],
+                 available_link_types: Sequence[_builtins.str],
+                 city: _builtins.str,
+                 continent: _builtins.str,
+                 description: _builtins.str,
+                 facility_provider: _builtins.str,
+                 facility_provider_facility_id: _builtins.str,
+                 name: _builtins.str,
+                 peeringdb_facility_id: _builtins.str,
+                 self_link: _builtins.str,
+                 status: _builtins.str,
+                 supports_pzs: _builtins.bool):
+        """
+        :param _builtins.str address: The postal address of the Point of Presence.
+        :param _builtins.str availability_zone: The availability zone for this InterconnectLocation.
+        :param Sequence[_builtins.str] available_features: A list of features available at this InterconnectLocation.
+        :param Sequence[_builtins.str] available_link_types: A list of link types available at this InterconnectLocation.
+        :param _builtins.str city: The city for this location.
+        :param _builtins.str continent: The continent for this location.
+        :param _builtins.str description: A textual description of the resource.
+        :param _builtins.str facility_provider: The name of the provider for this facility.
+        :param _builtins.str facility_provider_facility_id: A provider-assigned Identifier for this facility.
+        :param _builtins.str peeringdb_facility_id: The PeeringDB facility ID for this facility.
+        :param _builtins.str self_link: The URI of the created resource.
+        :param _builtins.str status: The status of this InterconnectLocation.
+        :param _builtins.bool supports_pzs: Reserved for future use.
+        """
+        pulumi.set(__self__, "address", address)
+        pulumi.set(__self__, "availability_zone", availability_zone)
+        pulumi.set(__self__, "available_features", available_features)
+        pulumi.set(__self__, "available_link_types", available_link_types)
+        pulumi.set(__self__, "city", city)
+        pulumi.set(__self__, "continent", continent)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "facility_provider", facility_provider)
+        pulumi.set(__self__, "facility_provider_facility_id", facility_provider_facility_id)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "peeringdb_facility_id", peeringdb_facility_id)
+        pulumi.set(__self__, "self_link", self_link)
+        pulumi.set(__self__, "status", status)
+        pulumi.set(__self__, "supports_pzs", supports_pzs)
+
+    @_builtins.property
+    @pulumi.getter
+    def address(self) -> _builtins.str:
+        """
+        The postal address of the Point of Presence.
+        """
+        return pulumi.get(self, "address")
+
+    @_builtins.property
+    @pulumi.getter(name="availabilityZone")
+    def availability_zone(self) -> _builtins.str:
+        """
+        The availability zone for this InterconnectLocation.
+        """
+        return pulumi.get(self, "availability_zone")
+
+    @_builtins.property
+    @pulumi.getter(name="availableFeatures")
+    def available_features(self) -> Sequence[_builtins.str]:
+        """
+        A list of features available at this InterconnectLocation.
+        """
+        return pulumi.get(self, "available_features")
+
+    @_builtins.property
+    @pulumi.getter(name="availableLinkTypes")
+    def available_link_types(self) -> Sequence[_builtins.str]:
+        """
+        A list of link types available at this InterconnectLocation.
+        """
+        return pulumi.get(self, "available_link_types")
+
+    @_builtins.property
+    @pulumi.getter
+    def city(self) -> _builtins.str:
+        """
+        The city for this location.
+        """
+        return pulumi.get(self, "city")
+
+    @_builtins.property
+    @pulumi.getter
+    def continent(self) -> _builtins.str:
+        """
+        The continent for this location.
+        """
+        return pulumi.get(self, "continent")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        A textual description of the resource.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="facilityProvider")
+    def facility_provider(self) -> _builtins.str:
+        """
+        The name of the provider for this facility.
+        """
+        return pulumi.get(self, "facility_provider")
+
+    @_builtins.property
+    @pulumi.getter(name="facilityProviderFacilityId")
+    def facility_provider_facility_id(self) -> _builtins.str:
+        """
+        A provider-assigned Identifier for this facility.
+        """
+        return pulumi.get(self, "facility_provider_facility_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="peeringdbFacilityId")
+    def peeringdb_facility_id(self) -> _builtins.str:
+        """
+        The PeeringDB facility ID for this facility.
+        """
+        return pulumi.get(self, "peeringdb_facility_id")
+
+    @_builtins.property
+    @pulumi.getter(name="selfLink")
+    def self_link(self) -> _builtins.str:
+        """
+        The URI of the created resource.
+        """
+        return pulumi.get(self, "self_link")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> _builtins.str:
+        """
+        The status of this InterconnectLocation.
+        """
+        return pulumi.get(self, "status")
+
+    @_builtins.property
+    @pulumi.getter(name="supportsPzs")
+    def supports_pzs(self) -> _builtins.bool:
+        """
+        Reserved for future use.
+        """
+        return pulumi.get(self, "supports_pzs")
 
 
 @pulumi.output_type
@@ -69900,10 +72188,14 @@ class GetRegionBackendServiceBackendResult(dict):
                  max_connections: _builtins.int,
                  max_connections_per_endpoint: _builtins.int,
                  max_connections_per_instance: _builtins.int,
+                 max_in_flight_requests: _builtins.int,
+                 max_in_flight_requests_per_endpoint: _builtins.int,
+                 max_in_flight_requests_per_instance: _builtins.int,
                  max_rate: _builtins.int,
                  max_rate_per_endpoint: _builtins.float,
                  max_rate_per_instance: _builtins.float,
-                 max_utilization: _builtins.float):
+                 max_utilization: _builtins.float,
+                 traffic_duration: _builtins.str):
         """
         :param _builtins.str balancing_mode: Specifies the balancing mode for this backend.
                
@@ -69967,6 +72259,13 @@ class GetRegionBackendServiceBackendResult(dict):
                Can be used in either CONNECTION or UTILIZATION balancing modes.
                For CONNECTION mode, either maxConnections or
                maxConnectionsPerInstance must be set.
+        :param _builtins.int max_in_flight_requests: Defines a maximum number of in-flight requests for the whole NEG
+               or instance group. Not available if backend's balancingMode is RATE
+               or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_endpoint: Defines a maximum number of in-flight requests for a single endpoint.
+               Not available if backend's balancingMode is RATE or CONNECTION.
+        :param _builtins.int max_in_flight_requests_per_instance: Defines a maximum number of in-flight requests for a single VM.
+               Not available if backend's balancingMode is RATE or CONNECTION.
         :param _builtins.int max_rate: The max requests per second (RPS) of the group. Cannot be set
                for INTERNAL backend services.
                
@@ -69987,6 +72286,10 @@ class GetRegionBackendServiceBackendResult(dict):
         :param _builtins.float max_utilization: Used when balancingMode is UTILIZATION. This ratio defines the
                CPU utilization target for the group. Valid range is [0.0, 1.0].
                Cannot be set for INTERNAL backend services.
+        :param _builtins.str traffic_duration: This field specifies how long a connection should be kept alive for:
+               - LONG: Most of the requests are expected to take more than multiple
+                 seconds to finish.
+               - SHORT: Most requests are expected to finish with a sub-second latency. Possible values: ["LONG", "SHORT"]
         """
         pulumi.set(__self__, "balancing_mode", balancing_mode)
         pulumi.set(__self__, "capacity_scaler", capacity_scaler)
@@ -69997,10 +72300,14 @@ class GetRegionBackendServiceBackendResult(dict):
         pulumi.set(__self__, "max_connections", max_connections)
         pulumi.set(__self__, "max_connections_per_endpoint", max_connections_per_endpoint)
         pulumi.set(__self__, "max_connections_per_instance", max_connections_per_instance)
+        pulumi.set(__self__, "max_in_flight_requests", max_in_flight_requests)
+        pulumi.set(__self__, "max_in_flight_requests_per_endpoint", max_in_flight_requests_per_endpoint)
+        pulumi.set(__self__, "max_in_flight_requests_per_instance", max_in_flight_requests_per_instance)
         pulumi.set(__self__, "max_rate", max_rate)
         pulumi.set(__self__, "max_rate_per_endpoint", max_rate_per_endpoint)
         pulumi.set(__self__, "max_rate_per_instance", max_rate_per_instance)
         pulumi.set(__self__, "max_utilization", max_utilization)
+        pulumi.set(__self__, "traffic_duration", traffic_duration)
 
     @_builtins.property
     @pulumi.getter(name="balancingMode")
@@ -70128,6 +72435,34 @@ class GetRegionBackendServiceBackendResult(dict):
         return pulumi.get(self, "max_connections_per_instance")
 
     @_builtins.property
+    @pulumi.getter(name="maxInFlightRequests")
+    def max_in_flight_requests(self) -> _builtins.int:
+        """
+        Defines a maximum number of in-flight requests for the whole NEG
+        or instance group. Not available if backend's balancingMode is RATE
+        or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerEndpoint")
+    def max_in_flight_requests_per_endpoint(self) -> _builtins.int:
+        """
+        Defines a maximum number of in-flight requests for a single endpoint.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_endpoint")
+
+    @_builtins.property
+    @pulumi.getter(name="maxInFlightRequestsPerInstance")
+    def max_in_flight_requests_per_instance(self) -> _builtins.int:
+        """
+        Defines a maximum number of in-flight requests for a single VM.
+        Not available if backend's balancingMode is RATE or CONNECTION.
+        """
+        return pulumi.get(self, "max_in_flight_requests_per_instance")
+
+    @_builtins.property
     @pulumi.getter(name="maxRate")
     def max_rate(self) -> _builtins.int:
         """
@@ -70174,6 +72509,17 @@ class GetRegionBackendServiceBackendResult(dict):
         Cannot be set for INTERNAL backend services.
         """
         return pulumi.get(self, "max_utilization")
+
+    @_builtins.property
+    @pulumi.getter(name="trafficDuration")
+    def traffic_duration(self) -> _builtins.str:
+        """
+        This field specifies how long a connection should be kept alive for:
+        - LONG: Most of the requests are expected to take more than multiple
+          seconds to finish.
+        - SHORT: Most requests are expected to finish with a sub-second latency. Possible values: ["LONG", "SHORT"]
+        """
+        return pulumi.get(self, "traffic_duration")
 
 
 @pulumi.output_type
@@ -71206,6 +73552,61 @@ class GetRegionBackendServiceLogConfigResult(dict):
 
 
 @pulumi.output_type
+class GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyResult(dict):
+    def __init__(__self__, *,
+                 zonal_affinities: Sequence['outputs.GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinityResult']):
+        """
+        :param Sequence['GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinityArgs'] zonal_affinities: When configured, new connections are load balanced across healthy backend endpoints in the local zone.
+        """
+        pulumi.set(__self__, "zonal_affinities", zonal_affinities)
+
+    @_builtins.property
+    @pulumi.getter(name="zonalAffinities")
+    def zonal_affinities(self) -> Sequence['outputs.GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinityResult']:
+        """
+        When configured, new connections are load balanced across healthy backend endpoints in the local zone.
+        """
+        return pulumi.get(self, "zonal_affinities")
+
+
+@pulumi.output_type
+class GetRegionBackendServiceNetworkPassThroughLbTrafficPolicyZonalAffinityResult(dict):
+    def __init__(__self__, *,
+                 spillover: _builtins.str,
+                 spillover_ratio: _builtins.float):
+        """
+        :param _builtins.str spillover: This field indicates whether zonal affinity is enabled or not. Default value: "ZONAL_AFFINITY_DISABLED" Possible values: ["ZONAL_AFFINITY_DISABLED", "ZONAL_AFFINITY_SPILL_CROSS_ZONE", "ZONAL_AFFINITY_STAY_WITHIN_ZONE"]
+        :param _builtins.float spillover_ratio: The value of the field must be in [0, 1]. When the ratio of the count of healthy backend endpoints in a zone
+               to the count of backend endpoints in that same zone is equal to or above this threshold, the load balancer
+               distributes new connections to all healthy endpoints in the local zone only. When the ratio of the count
+               of healthy backend endpoints in a zone to the count of backend endpoints in that same zone is below this
+               threshold, the load balancer distributes all new connections to all healthy endpoints across all zones.
+        """
+        pulumi.set(__self__, "spillover", spillover)
+        pulumi.set(__self__, "spillover_ratio", spillover_ratio)
+
+    @_builtins.property
+    @pulumi.getter
+    def spillover(self) -> _builtins.str:
+        """
+        This field indicates whether zonal affinity is enabled or not. Default value: "ZONAL_AFFINITY_DISABLED" Possible values: ["ZONAL_AFFINITY_DISABLED", "ZONAL_AFFINITY_SPILL_CROSS_ZONE", "ZONAL_AFFINITY_STAY_WITHIN_ZONE"]
+        """
+        return pulumi.get(self, "spillover")
+
+    @_builtins.property
+    @pulumi.getter(name="spilloverRatio")
+    def spillover_ratio(self) -> _builtins.float:
+        """
+        The value of the field must be in [0, 1]. When the ratio of the count of healthy backend endpoints in a zone
+        to the count of backend endpoints in that same zone is equal to or above this threshold, the load balancer
+        distributes new connections to all healthy endpoints in the local zone only. When the ratio of the count
+        of healthy backend endpoints in a zone to the count of backend endpoints in that same zone is below this
+        threshold, the load balancer distributes all new connections to all healthy endpoints across all zones.
+        """
+        return pulumi.get(self, "spillover_ratio")
+
+
+@pulumi.output_type
 class GetRegionBackendServiceOutlierDetectionResult(dict):
     def __init__(__self__, *,
                  base_ejection_times: Sequence['outputs.GetRegionBackendServiceOutlierDetectionBaseEjectionTimeResult'],
@@ -71596,6 +73997,93 @@ class GetRegionBackendServiceSubsettingResult(dict):
 
 
 @pulumi.output_type
+class GetRegionBackendServiceTlsSettingResult(dict):
+    def __init__(__self__, *,
+                 authentication_config: _builtins.str,
+                 sni: _builtins.str,
+                 subject_alt_names: Sequence['outputs.GetRegionBackendServiceTlsSettingSubjectAltNameResult']):
+        """
+        :param _builtins.str authentication_config: Reference to the BackendAuthenticationConfig resource from the networksecurity.googleapis.com namespace.
+               Can be used in authenticating TLS connections to the backend, as specified by the authenticationMode field.
+               Can only be specified if authenticationMode is not NONE.
+        :param _builtins.str sni: Server Name Indication - see RFC3546 section 3.1. If set, the load balancer sends this string as the SNI hostname in the
+               TLS connection to the backend, and requires that this string match a Subject Alternative Name (SAN) in the backend's
+               server certificate. With a Regional Internet NEG backend, if the SNI is specified here, the load balancer uses it
+               regardless of whether the Regional Internet NEG is specified with FQDN or IP address and port.
+        :param Sequence['GetRegionBackendServiceTlsSettingSubjectAltNameArgs'] subject_alt_names: A list of Subject Alternative Names (SANs) that the Load Balancer verifies during a TLS handshake with the backend.
+               When the server presents its X.509 certificate to the Load Balancer, the Load Balancer inspects the certificate's SAN field,
+               and requires that at least one SAN match one of the subjectAltNames in the list. This field is limited to 5 entries.
+               When both sni and subjectAltNames are specified, the load balancer matches the backend certificate's SAN only to
+               subjectAltNames.
+        """
+        pulumi.set(__self__, "authentication_config", authentication_config)
+        pulumi.set(__self__, "sni", sni)
+        pulumi.set(__self__, "subject_alt_names", subject_alt_names)
+
+    @_builtins.property
+    @pulumi.getter(name="authenticationConfig")
+    def authentication_config(self) -> _builtins.str:
+        """
+        Reference to the BackendAuthenticationConfig resource from the networksecurity.googleapis.com namespace.
+        Can be used in authenticating TLS connections to the backend, as specified by the authenticationMode field.
+        Can only be specified if authenticationMode is not NONE.
+        """
+        return pulumi.get(self, "authentication_config")
+
+    @_builtins.property
+    @pulumi.getter
+    def sni(self) -> _builtins.str:
+        """
+        Server Name Indication - see RFC3546 section 3.1. If set, the load balancer sends this string as the SNI hostname in the
+        TLS connection to the backend, and requires that this string match a Subject Alternative Name (SAN) in the backend's
+        server certificate. With a Regional Internet NEG backend, if the SNI is specified here, the load balancer uses it
+        regardless of whether the Regional Internet NEG is specified with FQDN or IP address and port.
+        """
+        return pulumi.get(self, "sni")
+
+    @_builtins.property
+    @pulumi.getter(name="subjectAltNames")
+    def subject_alt_names(self) -> Sequence['outputs.GetRegionBackendServiceTlsSettingSubjectAltNameResult']:
+        """
+        A list of Subject Alternative Names (SANs) that the Load Balancer verifies during a TLS handshake with the backend.
+        When the server presents its X.509 certificate to the Load Balancer, the Load Balancer inspects the certificate's SAN field,
+        and requires that at least one SAN match one of the subjectAltNames in the list. This field is limited to 5 entries.
+        When both sni and subjectAltNames are specified, the load balancer matches the backend certificate's SAN only to
+        subjectAltNames.
+        """
+        return pulumi.get(self, "subject_alt_names")
+
+
+@pulumi.output_type
+class GetRegionBackendServiceTlsSettingSubjectAltNameResult(dict):
+    def __init__(__self__, *,
+                 dns_name: _builtins.str,
+                 uniform_resource_identifier: _builtins.str):
+        """
+        :param _builtins.str dns_name: The SAN specified as a DNS Name.
+        :param _builtins.str uniform_resource_identifier: The SAN specified as a URI.
+        """
+        pulumi.set(__self__, "dns_name", dns_name)
+        pulumi.set(__self__, "uniform_resource_identifier", uniform_resource_identifier)
+
+    @_builtins.property
+    @pulumi.getter(name="dnsName")
+    def dns_name(self) -> _builtins.str:
+        """
+        The SAN specified as a DNS Name.
+        """
+        return pulumi.get(self, "dns_name")
+
+    @_builtins.property
+    @pulumi.getter(name="uniformResourceIdentifier")
+    def uniform_resource_identifier(self) -> _builtins.str:
+        """
+        The SAN specified as a URI.
+        """
+        return pulumi.get(self, "uniform_resource_identifier")
+
+
+@pulumi.output_type
 class GetRegionDiskAsyncPrimaryDiskResult(dict):
     def __init__(__self__, *,
                  disk: _builtins.str):
@@ -71882,17 +74370,31 @@ class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyResult(dict):
 @pulumi.output_type
 class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionResult(dict):
     def __init__(__self__, *,
+                 disks: Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResult'],
                  machine_types: Sequence[_builtins.str],
+                 min_cpu_platform: _builtins.str,
                  name: _builtins.str,
                  rank: _builtins.int):
         """
+        :param Sequence['GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskArgs'] disks: List of disks to be attached to the instances created from this selection.
         :param Sequence[_builtins.str] machine_types: Full machine-type names, e.g. "n1-standard-16"
+        :param _builtins.str min_cpu_platform: Name of the minimum CPU platform to be used by this instance selection. e.g. 'Intel Ice Lake'
         :param _builtins.str name: The name of the instance group. Either `name` or `self_link` must be provided.
         :param _builtins.int rank: Preference of this instance selection. Lower number means higher preference. MIG will first try to create a VM based on the machine-type with lowest rank and fallback to next rank based on availability. Machine types and instance selections with the same rank have the same preference.
         """
+        pulumi.set(__self__, "disks", disks)
         pulumi.set(__self__, "machine_types", machine_types)
+        pulumi.set(__self__, "min_cpu_platform", min_cpu_platform)
         pulumi.set(__self__, "name", name)
         pulumi.set(__self__, "rank", rank)
+
+    @_builtins.property
+    @pulumi.getter
+    def disks(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResult']:
+        """
+        List of disks to be attached to the instances created from this selection.
+        """
+        return pulumi.get(self, "disks")
 
     @_builtins.property
     @pulumi.getter(name="machineTypes")
@@ -71901,6 +74403,14 @@ class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionRes
         Full machine-type names, e.g. "n1-standard-16"
         """
         return pulumi.get(self, "machine_types")
+
+    @_builtins.property
+    @pulumi.getter(name="minCpuPlatform")
+    def min_cpu_platform(self) -> _builtins.str:
+        """
+        Name of the minimum CPU platform to be used by this instance selection. e.g. 'Intel Ice Lake'
+        """
+        return pulumi.get(self, "min_cpu_platform")
 
     @_builtins.property
     @pulumi.getter
@@ -71920,19 +74430,482 @@ class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionRes
 
 
 @pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResult(dict):
+    def __init__(__self__, *,
+                 architecture: _builtins.str,
+                 auto_delete: _builtins.bool,
+                 boot: _builtins.bool,
+                 device_name: _builtins.str,
+                 disk_encryption_keys: Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKeyResult'],
+                 disk_name: _builtins.str,
+                 disk_size_gb: _builtins.int,
+                 disk_type: _builtins.str,
+                 guest_os_features: Sequence[_builtins.str],
+                 interface: _builtins.str,
+                 labels: Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabelResult'],
+                 mode: _builtins.str,
+                 provisioned_iops: _builtins.int,
+                 provisioned_throughput: _builtins.int,
+                 resource_manager_tags: Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTagResult'],
+                 resource_policies: Sequence[_builtins.str],
+                 source: _builtins.str,
+                 source_image: _builtins.str,
+                 source_image_encryption_keys: Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKeyResult'],
+                 source_snapshot: _builtins.str,
+                 source_snapshot_encryption_keys: Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKeyResult'],
+                 type: _builtins.str):
+        """
+        :param _builtins.str architecture: The architecture of the image. Allowed values are ARM64 or X86_64.
+        :param _builtins.bool auto_delete: Whether or not the disk should be auto-deleted. This defaults to true.
+        :param _builtins.bool boot: Indicates that this is a boot disk. This defaults to false.
+        :param _builtins.str device_name: A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance. If not specified, the server chooses a default device name to apply to this disk.
+        :param Sequence['GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKeyArgs'] disk_encryption_keys: Encrypts or decrypts a disk using a customer-supplied encryption key.
+        :param _builtins.str disk_name: Name of the disk. When not provided, this defaults to the name of the instance.
+        :param _builtins.int disk_size_gb: The size of the image in gigabytes. If not specified, it will inherit the size of its base image. For SCRATCH disks, the size must be one of 375 or 3000 GB, with a default of 375 GB.
+        :param _builtins.str disk_type: The Google Compute Engine disk type. Such as "pd-ssd", "local-ssd", "pd-balanced" or "pd-standard".
+        :param Sequence[_builtins.str] guest_os_features: A list of features to enable on the guest operating system. Applicable only for bootable images.
+        :param _builtins.str interface: Specifies the disk interface to use for attaching this disk.
+        :param Sequence['GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabelArgs'] labels: A set of key/value label pairs to assign to disks.
+        :param _builtins.str mode: The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If you are attaching or creating a boot disk, this must read-write mode.
+        :param _builtins.int provisioned_iops: Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. For more details, see the [Extreme persistent disk documentation](https://cloud.google.com/compute/docs/disks/extreme-persistent-disk) or the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks) depending on the selected disk_type.
+        :param _builtins.int provisioned_throughput: Indicates how much throughput to provision for the disk, in MB/s. This sets the amount of data that can be read or written from the disk per second. Values must greater than or equal to 1. For more details, see the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks).
+        :param Sequence['GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTagArgs'] resource_manager_tags: A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
+        :param Sequence[_builtins.str] resource_policies: A list (short name or id) of resource policies to attach to this disk. Currently a max of 1 resource policy is supported.
+        :param _builtins.str source: The name (not self_link) of the disk (such as those managed by google_compute_disk) to attach. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        :param _builtins.str source_image: The image from which to initialize this disk. This can be one of: the image's self_link, projects/{project}/global/images/{image}, projects/{project}/global/images/family/{family}, global/images/{image}, global/images/family/{family}, family/{family}, {project}/{family}, {project}/{image}, {family}, or {image}. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        :param Sequence['GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKeyArgs'] source_image_encryption_keys: The customer-supplied encryption key of the source image. Required if the source image is protected by a customer-supplied encryption key. Instance templates do not store customer-supplied encryption keys, so you cannot create disks for instances in a managed instance group if the source images are encrypted with your own keys.
+        :param _builtins.str source_snapshot: The source snapshot to create this disk. When creating a new instance, one of initializeParams.sourceSnapshot, initializeParams.sourceImage, or disks.source is required except for local SSD.
+        :param Sequence['GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKeyArgs'] source_snapshot_encryption_keys: The customer-supplied encryption key of the source snapshot.
+        :param _builtins.str type: The type of Google Compute Engine disk, can be either "SCRATCH" or "PERSISTENT".
+        """
+        pulumi.set(__self__, "architecture", architecture)
+        pulumi.set(__self__, "auto_delete", auto_delete)
+        pulumi.set(__self__, "boot", boot)
+        pulumi.set(__self__, "device_name", device_name)
+        pulumi.set(__self__, "disk_encryption_keys", disk_encryption_keys)
+        pulumi.set(__self__, "disk_name", disk_name)
+        pulumi.set(__self__, "disk_size_gb", disk_size_gb)
+        pulumi.set(__self__, "disk_type", disk_type)
+        pulumi.set(__self__, "guest_os_features", guest_os_features)
+        pulumi.set(__self__, "interface", interface)
+        pulumi.set(__self__, "labels", labels)
+        pulumi.set(__self__, "mode", mode)
+        pulumi.set(__self__, "provisioned_iops", provisioned_iops)
+        pulumi.set(__self__, "provisioned_throughput", provisioned_throughput)
+        pulumi.set(__self__, "resource_manager_tags", resource_manager_tags)
+        pulumi.set(__self__, "resource_policies", resource_policies)
+        pulumi.set(__self__, "source", source)
+        pulumi.set(__self__, "source_image", source_image)
+        pulumi.set(__self__, "source_image_encryption_keys", source_image_encryption_keys)
+        pulumi.set(__self__, "source_snapshot", source_snapshot)
+        pulumi.set(__self__, "source_snapshot_encryption_keys", source_snapshot_encryption_keys)
+        pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def architecture(self) -> _builtins.str:
+        """
+        The architecture of the image. Allowed values are ARM64 or X86_64.
+        """
+        return pulumi.get(self, "architecture")
+
+    @_builtins.property
+    @pulumi.getter(name="autoDelete")
+    def auto_delete(self) -> _builtins.bool:
+        """
+        Whether or not the disk should be auto-deleted. This defaults to true.
+        """
+        return pulumi.get(self, "auto_delete")
+
+    @_builtins.property
+    @pulumi.getter
+    def boot(self) -> _builtins.bool:
+        """
+        Indicates that this is a boot disk. This defaults to false.
+        """
+        return pulumi.get(self, "boot")
+
+    @_builtins.property
+    @pulumi.getter(name="deviceName")
+    def device_name(self) -> _builtins.str:
+        """
+        A unique device name that is reflected into the /dev/ tree of a Linux operating system running within the instance. If not specified, the server chooses a default device name to apply to this disk.
+        """
+        return pulumi.get(self, "device_name")
+
+    @_builtins.property
+    @pulumi.getter(name="diskEncryptionKeys")
+    def disk_encryption_keys(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKeyResult']:
+        """
+        Encrypts or decrypts a disk using a customer-supplied encryption key.
+        """
+        return pulumi.get(self, "disk_encryption_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="diskName")
+    def disk_name(self) -> _builtins.str:
+        """
+        Name of the disk. When not provided, this defaults to the name of the instance.
+        """
+        return pulumi.get(self, "disk_name")
+
+    @_builtins.property
+    @pulumi.getter(name="diskSizeGb")
+    def disk_size_gb(self) -> _builtins.int:
+        """
+        The size of the image in gigabytes. If not specified, it will inherit the size of its base image. For SCRATCH disks, the size must be one of 375 or 3000 GB, with a default of 375 GB.
+        """
+        return pulumi.get(self, "disk_size_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="diskType")
+    def disk_type(self) -> _builtins.str:
+        """
+        The Google Compute Engine disk type. Such as "pd-ssd", "local-ssd", "pd-balanced" or "pd-standard".
+        """
+        return pulumi.get(self, "disk_type")
+
+    @_builtins.property
+    @pulumi.getter(name="guestOsFeatures")
+    def guest_os_features(self) -> Sequence[_builtins.str]:
+        """
+        A list of features to enable on the guest operating system. Applicable only for bootable images.
+        """
+        return pulumi.get(self, "guest_os_features")
+
+    @_builtins.property
+    @pulumi.getter
+    def interface(self) -> _builtins.str:
+        """
+        Specifies the disk interface to use for attaching this disk.
+        """
+        return pulumi.get(self, "interface")
+
+    @_builtins.property
+    @pulumi.getter
+    def labels(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabelResult']:
+        """
+        A set of key/value label pairs to assign to disks.
+        """
+        return pulumi.get(self, "labels")
+
+    @_builtins.property
+    @pulumi.getter
+    def mode(self) -> _builtins.str:
+        """
+        The mode in which to attach this disk, either READ_WRITE or READ_ONLY. If you are attaching or creating a boot disk, this must read-write mode.
+        """
+        return pulumi.get(self, "mode")
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedIops")
+    def provisioned_iops(self) -> _builtins.int:
+        """
+        Indicates how many IOPS to provision for the disk. This sets the number of I/O operations per second that the disk can handle. For more details, see the [Extreme persistent disk documentation](https://cloud.google.com/compute/docs/disks/extreme-persistent-disk) or the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks) depending on the selected disk_type.
+        """
+        return pulumi.get(self, "provisioned_iops")
+
+    @_builtins.property
+    @pulumi.getter(name="provisionedThroughput")
+    def provisioned_throughput(self) -> _builtins.int:
+        """
+        Indicates how much throughput to provision for the disk, in MB/s. This sets the amount of data that can be read or written from the disk per second. Values must greater than or equal to 1. For more details, see the [Hyperdisk documentation](https://cloud.google.com/compute/docs/disks/hyperdisks).
+        """
+        return pulumi.get(self, "provisioned_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="resourceManagerTags")
+    def resource_manager_tags(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTagResult']:
+        """
+        A map of resource manager tags. Resource manager tag keys and values have the same definition as resource manager tags. Keys must be in the format tagKeys/{tag_key_id}, and values are in the format tagValues/456. The field is ignored (both PUT & PATCH) when empty.
+        """
+        return pulumi.get(self, "resource_manager_tags")
+
+    @_builtins.property
+    @pulumi.getter(name="resourcePolicies")
+    def resource_policies(self) -> Sequence[_builtins.str]:
+        """
+        A list (short name or id) of resource policies to attach to this disk. Currently a max of 1 resource policy is supported.
+        """
+        return pulumi.get(self, "resource_policies")
+
+    @_builtins.property
+    @pulumi.getter
+    def source(self) -> _builtins.str:
+        """
+        The name (not self_link) of the disk (such as those managed by google_compute_disk) to attach. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        """
+        return pulumi.get(self, "source")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceImage")
+    def source_image(self) -> _builtins.str:
+        """
+        The image from which to initialize this disk. This can be one of: the image's self_link, projects/{project}/global/images/{image}, projects/{project}/global/images/family/{family}, global/images/{image}, global/images/family/{family}, family/{family}, {project}/{family}, {project}/{image}, {family}, or {image}. > Note: Either source or source_image is required when creating a new instance except for when creating a local SSD.
+        """
+        return pulumi.get(self, "source_image")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceImageEncryptionKeys")
+    def source_image_encryption_keys(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKeyResult']:
+        """
+        The customer-supplied encryption key of the source image. Required if the source image is protected by a customer-supplied encryption key. Instance templates do not store customer-supplied encryption keys, so you cannot create disks for instances in a managed instance group if the source images are encrypted with your own keys.
+        """
+        return pulumi.get(self, "source_image_encryption_keys")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceSnapshot")
+    def source_snapshot(self) -> _builtins.str:
+        """
+        The source snapshot to create this disk. When creating a new instance, one of initializeParams.sourceSnapshot, initializeParams.sourceImage, or disks.source is required except for local SSD.
+        """
+        return pulumi.get(self, "source_snapshot")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceSnapshotEncryptionKeys")
+    def source_snapshot_encryption_keys(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKeyResult']:
+        """
+        The customer-supplied encryption key of the source snapshot.
+        """
+        return pulumi.get(self, "source_snapshot_encryption_keys")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        The type of Google Compute Engine disk, can be either "SCRATCH" or "PERSISTENT".
+        """
+        return pulumi.get(self, "type")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskDiskEncryptionKeyResult(dict):
+    def __init__(__self__, *,
+                 kms_key_self_link: _builtins.str,
+                 kms_key_service_account: _builtins.str,
+                 raw_key: _builtins.str,
+                 rsa_encrypted_key: _builtins.str):
+        """
+        :param _builtins.str kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS.
+        :param _builtins.str kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
+        pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        pulumi.set(__self__, "raw_key", raw_key)
+        pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeySelfLink")
+    def kms_key_self_link(self) -> _builtins.str:
+        """
+        The self link of the encryption key that is stored in Google Cloud KMS.
+        """
+        return pulumi.get(self, "kms_key_self_link")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> _builtins.str:
+        """
+        The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> _builtins.str:
+        """
+        Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> _builtins.str:
+        """
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskLabelResult(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str key: The unique key of the label to assign to disks.
+        :param _builtins.str value: The value of the label to assign to disks.
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        The unique key of the label to assign to disks.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value of the label to assign to disks.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskResourceManagerTagResult(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str key: The unique key of the resource manager tag to assign to disks. Keys must be in the format tagKeys/{tag_key_id}.
+        :param _builtins.str value: The value of the resource manager tag to assign to disks. Values must be in the format tagValues/456.
+        """
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        """
+        The unique key of the resource manager tag to assign to disks. Keys must be in the format tagKeys/{tag_key_id}.
+        """
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        The value of the resource manager tag to assign to disks. Values must be in the format tagValues/456.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceImageEncryptionKeyResult(dict):
+    def __init__(__self__, *,
+                 kms_key_self_link: _builtins.str,
+                 kms_key_service_account: _builtins.str,
+                 raw_key: _builtins.str,
+                 rsa_encrypted_key: _builtins.str):
+        """
+        :param _builtins.str kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
+        pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        pulumi.set(__self__, "raw_key", raw_key)
+        pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeySelfLink")
+    def kms_key_self_link(self) -> _builtins.str:
+        """
+        The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "kms_key_self_link")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> _builtins.str:
+        """
+        The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> _builtins.str:
+        """
+        Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> _builtins.str:
+        """
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceFlexibilityPolicyInstanceSelectionDiskSourceSnapshotEncryptionKeyResult(dict):
+    def __init__(__self__, *,
+                 kms_key_self_link: _builtins.str,
+                 kms_key_service_account: _builtins.str,
+                 raw_key: _builtins.str,
+                 rsa_encrypted_key: _builtins.str):
+        """
+        :param _builtins.str kms_key_self_link: The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str kms_key_service_account: The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        :param _builtins.str raw_key: Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        :param _builtins.str rsa_encrypted_key: Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        pulumi.set(__self__, "kms_key_self_link", kms_key_self_link)
+        pulumi.set(__self__, "kms_key_service_account", kms_key_service_account)
+        pulumi.set(__self__, "raw_key", raw_key)
+        pulumi.set(__self__, "rsa_encrypted_key", rsa_encrypted_key)
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeySelfLink")
+    def kms_key_self_link(self) -> _builtins.str:
+        """
+        The self link of the encryption key that is stored in Google Cloud KMS. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "kms_key_self_link")
+
+    @_builtins.property
+    @pulumi.getter(name="kmsKeyServiceAccount")
+    def kms_key_service_account(self) -> _builtins.str:
+        """
+        The service account being used for the encryption request for the given KMS key. If absent, the Compute Engine default service account is used.
+        """
+        return pulumi.get(self, "kms_key_service_account")
+
+    @_builtins.property
+    @pulumi.getter(name="rawKey")
+    def raw_key(self) -> _builtins.str:
+        """
+        Specifies a 256-bit customer-supplied encryption key, encoded in RFC 4648 base64 to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "raw_key")
+
+    @_builtins.property
+    @pulumi.getter(name="rsaEncryptedKey")
+    def rsa_encrypted_key(self) -> _builtins.str:
+        """
+        Specifies an RFC 4648 base64 encoded, RSA-wrapped 2048-bit customer-supplied encryption key to either encrypt or decrypt this resource. Only one of kms_key_self_link, rsa_encrypted_key and raw_key may be set.
+        """
+        return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
 class GetRegionInstanceGroupManagerInstanceLifecyclePolicyResult(dict):
     def __init__(__self__, *,
                  default_action_on_failure: _builtins.str,
                  force_update_on_repair: _builtins.str,
-                 on_failed_health_check: _builtins.str):
+                 on_failed_health_check: _builtins.str,
+                 on_repairs: Sequence['outputs.GetRegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult']):
         """
         :param _builtins.str default_action_on_failure: Specifies the action that a MIG performs on a failed VM. If the value of the "on_failed_health_check" field is DEFAULT_ACTION, then the same action also applies to the VMs on which your application fails a health check. Valid values are: REPAIR, DO_NOTHING. If REPAIR (default), then MIG automatically repairs a failed VM by recreating it. For more information, see about repairing VMs in a MIG. If DO_NOTHING, then MIG does not repair a failed VM.
         :param _builtins.str force_update_on_repair: Specifies whether to apply the group's latest configuration when repairing a VM. Valid options are: YES, NO. If YES and you updated the group's instance template or per-instance configurations after the VM was created, then these changes are applied when VM is repaired. If NO (default), then updates are applied in accordance with the group's update policy type.
         :param _builtins.str on_failed_health_check: Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid values are: DEFAULT_ACTION, DO_NOTHING, REPAIR. If DEFAULT_ACTION (default), then MIG uses the same action configured for the  "default_action_on_failure" field. If DO_NOTHING, then MIG does not repair unhealthy VM. If REPAIR, then MIG automatically repairs an unhealthy VM by recreating it.
+        :param Sequence['GetRegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairArgs'] on_repairs: Configuration for VM repairs in the MIG.
         """
         pulumi.set(__self__, "default_action_on_failure", default_action_on_failure)
         pulumi.set(__self__, "force_update_on_repair", force_update_on_repair)
         pulumi.set(__self__, "on_failed_health_check", on_failed_health_check)
+        pulumi.set(__self__, "on_repairs", on_repairs)
 
     @_builtins.property
     @pulumi.getter(name="defaultActionOnFailure")
@@ -71957,6 +74930,32 @@ class GetRegionInstanceGroupManagerInstanceLifecyclePolicyResult(dict):
         Specifies the action that a MIG performs on an unhealthy VM. A VM is marked as unhealthy when the application running on that VM fails a health check. Valid values are: DEFAULT_ACTION, DO_NOTHING, REPAIR. If DEFAULT_ACTION (default), then MIG uses the same action configured for the  "default_action_on_failure" field. If DO_NOTHING, then MIG does not repair unhealthy VM. If REPAIR, then MIG automatically repairs an unhealthy VM by recreating it.
         """
         return pulumi.get(self, "on_failed_health_check")
+
+    @_builtins.property
+    @pulumi.getter(name="onRepairs")
+    def on_repairs(self) -> Sequence['outputs.GetRegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult']:
+        """
+        Configuration for VM repairs in the MIG.
+        """
+        return pulumi.get(self, "on_repairs")
+
+
+@pulumi.output_type
+class GetRegionInstanceGroupManagerInstanceLifecyclePolicyOnRepairResult(dict):
+    def __init__(__self__, *,
+                 allow_changing_zone: _builtins.str):
+        """
+        :param _builtins.str allow_changing_zone: Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
+        """
+        pulumi.set(__self__, "allow_changing_zone", allow_changing_zone)
+
+    @_builtins.property
+    @pulumi.getter(name="allowChangingZone")
+    def allow_changing_zone(self) -> _builtins.str:
+        """
+        Specifies whether the MIG can change a VM's zone during a repair. If "YES", MIG can select a different zone for the VM during a repair. Else if "NO", MIG cannot change a VM's zone during a repair. The default value of allow_changing_zone is "NO".
+        """
+        return pulumi.get(self, "allow_changing_zone")
 
 
 @pulumi.output_type
@@ -73465,6 +76464,7 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
                  on_instance_stop_actions: Sequence['outputs.GetRegionInstanceTemplateSchedulingOnInstanceStopActionResult'],
                  preemptible: _builtins.bool,
                  provisioning_model: _builtins.str,
+                 skip_guest_os_shutdown: _builtins.bool,
                  termination_time: _builtins.str):
         """
         :param _builtins.bool automatic_restart: Specifies whether the instance should be
@@ -73493,6 +76493,7 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
                false. Read more on this
                [here](https://cloud.google.com/compute/docs/instances/preemptible).
         :param _builtins.str provisioning_model: Describe the type of preemptible VM.
+        :param _builtins.bool skip_guest_os_shutdown: Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
         :param _builtins.str termination_time: Specifies the timestamp, when the instance will be terminated,
                in RFC3339 text format. If specified, the instance termination action
                will be performed at the termination time.
@@ -73511,6 +76512,7 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
         pulumi.set(__self__, "on_instance_stop_actions", on_instance_stop_actions)
         pulumi.set(__self__, "preemptible", preemptible)
         pulumi.set(__self__, "provisioning_model", provisioning_model)
+        pulumi.set(__self__, "skip_guest_os_shutdown", skip_guest_os_shutdown)
         pulumi.set(__self__, "termination_time", termination_time)
 
     @_builtins.property
@@ -73636,6 +76638,14 @@ class GetRegionInstanceTemplateSchedulingResult(dict):
         Describe the type of preemptible VM.
         """
         return pulumi.get(self, "provisioning_model")
+
+    @_builtins.property
+    @pulumi.getter(name="skipGuestOsShutdown")
+    def skip_guest_os_shutdown(self) -> _builtins.bool:
+        """
+        Default is false and there will be 120 seconds between GCE ACPI G2 Soft Off and ACPI G3 Mechanical Off for Standard VMs and 30 seconds for Spot VMs.
+        """
+        return pulumi.get(self, "skip_guest_os_shutdown")
 
     @_builtins.property
     @pulumi.getter(name="terminationTime")
@@ -74184,6 +77194,1195 @@ class GetRegionNetworkEndpointGroupServerlessDeploymentResult(dict):
 
 
 @pulumi.output_type
+class GetRegionSecurityPolicyAdvancedOptionsConfigResult(dict):
+    def __init__(__self__, *,
+                 json_custom_configs: Sequence['outputs.GetRegionSecurityPolicyAdvancedOptionsConfigJsonCustomConfigResult'],
+                 json_parsing: _builtins.str,
+                 log_level: _builtins.str,
+                 request_body_inspection_size: _builtins.str,
+                 user_ip_request_headers: Sequence[_builtins.str]):
+        """
+        :param Sequence['GetRegionSecurityPolicyAdvancedOptionsConfigJsonCustomConfigArgs'] json_custom_configs: Custom configuration to apply the JSON parsing. Only applicable when JSON parsing is set to STANDARD.
+        :param _builtins.str json_parsing: JSON body parsing. Supported values include: "DISABLED", "STANDARD", "STANDARD_WITH_GRAPHQL". Possible values: ["DISABLED", "STANDARD", "STANDARD_WITH_GRAPHQL"]
+        :param _builtins.str log_level: Logging level. Supported values include: "NORMAL", "VERBOSE". Possible values: ["NORMAL", "VERBOSE"]
+        :param _builtins.str request_body_inspection_size: The maximum request size chosen by the customer with Waf enabled. Values supported are "8KB", "16KB, "32KB", "48KB" and "64KB".
+               Values are case insensitive. Possible values: ["8KB", "16KB", "32KB", "48KB", "64KB"]
+        :param Sequence[_builtins.str] user_ip_request_headers: An optional list of case-insensitive request header names to use for resolving the callers client IP address.
+        """
+        pulumi.set(__self__, "json_custom_configs", json_custom_configs)
+        pulumi.set(__self__, "json_parsing", json_parsing)
+        pulumi.set(__self__, "log_level", log_level)
+        pulumi.set(__self__, "request_body_inspection_size", request_body_inspection_size)
+        pulumi.set(__self__, "user_ip_request_headers", user_ip_request_headers)
+
+    @_builtins.property
+    @pulumi.getter(name="jsonCustomConfigs")
+    def json_custom_configs(self) -> Sequence['outputs.GetRegionSecurityPolicyAdvancedOptionsConfigJsonCustomConfigResult']:
+        """
+        Custom configuration to apply the JSON parsing. Only applicable when JSON parsing is set to STANDARD.
+        """
+        return pulumi.get(self, "json_custom_configs")
+
+    @_builtins.property
+    @pulumi.getter(name="jsonParsing")
+    def json_parsing(self) -> _builtins.str:
+        """
+        JSON body parsing. Supported values include: "DISABLED", "STANDARD", "STANDARD_WITH_GRAPHQL". Possible values: ["DISABLED", "STANDARD", "STANDARD_WITH_GRAPHQL"]
+        """
+        return pulumi.get(self, "json_parsing")
+
+    @_builtins.property
+    @pulumi.getter(name="logLevel")
+    def log_level(self) -> _builtins.str:
+        """
+        Logging level. Supported values include: "NORMAL", "VERBOSE". Possible values: ["NORMAL", "VERBOSE"]
+        """
+        return pulumi.get(self, "log_level")
+
+    @_builtins.property
+    @pulumi.getter(name="requestBodyInspectionSize")
+    def request_body_inspection_size(self) -> _builtins.str:
+        """
+        The maximum request size chosen by the customer with Waf enabled. Values supported are "8KB", "16KB, "32KB", "48KB" and "64KB".
+        Values are case insensitive. Possible values: ["8KB", "16KB", "32KB", "48KB", "64KB"]
+        """
+        return pulumi.get(self, "request_body_inspection_size")
+
+    @_builtins.property
+    @pulumi.getter(name="userIpRequestHeaders")
+    def user_ip_request_headers(self) -> Sequence[_builtins.str]:
+        """
+        An optional list of case-insensitive request header names to use for resolving the callers client IP address.
+        """
+        return pulumi.get(self, "user_ip_request_headers")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyAdvancedOptionsConfigJsonCustomConfigResult(dict):
+    def __init__(__self__, *,
+                 content_types: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] content_types: A list of custom Content-Type header values to apply the JSON parsing.
+        """
+        pulumi.set(__self__, "content_types", content_types)
+
+    @_builtins.property
+    @pulumi.getter(name="contentTypes")
+    def content_types(self) -> Sequence[_builtins.str]:
+        """
+        A list of custom Content-Type header values to apply the JSON parsing.
+        """
+        return pulumi.get(self, "content_types")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyDdosProtectionConfigResult(dict):
+    def __init__(__self__, *,
+                 ddos_protection: _builtins.str):
+        """
+        :param _builtins.str ddos_protection: Google Cloud Armor offers the following options to help protect systems against DDoS attacks:
+               - STANDARD: basic always-on protection for network load balancers, protocol forwarding, or VMs with public IP addresses.
+               - ADVANCED: additional protections for Managed Protection Plus subscribers who use network load balancers, protocol forwarding, or VMs with public IP addresses.
+               - ADVANCED_PREVIEW: flag to enable the security policy in preview mode. Possible values: ["ADVANCED", "ADVANCED_PREVIEW", "STANDARD"]
+        """
+        pulumi.set(__self__, "ddos_protection", ddos_protection)
+
+    @_builtins.property
+    @pulumi.getter(name="ddosProtection")
+    def ddos_protection(self) -> _builtins.str:
+        """
+        Google Cloud Armor offers the following options to help protect systems against DDoS attacks:
+        - STANDARD: basic always-on protection for network load balancers, protocol forwarding, or VMs with public IP addresses.
+        - ADVANCED: additional protections for Managed Protection Plus subscribers who use network load balancers, protocol forwarding, or VMs with public IP addresses.
+        - ADVANCED_PREVIEW: flag to enable the security policy in preview mode. Possible values: ["ADVANCED", "ADVANCED_PREVIEW", "STANDARD"]
+        """
+        return pulumi.get(self, "ddos_protection")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleResult(dict):
+    def __init__(__self__, *,
+                 action: _builtins.str,
+                 description: _builtins.str,
+                 matches: Sequence['outputs.GetRegionSecurityPolicyRuleMatchResult'],
+                 network_matches: Sequence['outputs.GetRegionSecurityPolicyRuleNetworkMatchResult'],
+                 preconfigured_waf_configs: Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigResult'],
+                 preview: _builtins.bool,
+                 priority: _builtins.int,
+                 rate_limit_options: Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionResult']):
+        """
+        :param _builtins.str action: The Action to perform when the rule is matched. The following are the valid actions:
+               
+               * allow: allow access to target.
+               
+               * deny(STATUS): deny access to target, returns the HTTP response code specified. Valid values for STATUS are 403, 404, and 502.
+               
+               * rate_based_ban: limit client traffic to the configured threshold and ban the client if the traffic exceeds the threshold. Configure parameters for this action in RateLimitOptions. Requires rateLimitOptions to be set.
+               
+               * redirect: redirect to a different target. This can either be an internal reCAPTCHA redirect, or an external URL-based redirect via a 302 response. Parameters for this action can be configured via redirectOptions. This action is only supported in Global Security Policies of type CLOUD_ARMOR.
+               
+               * throttle: limit client traffic to the configured threshold. Configure parameters for this action in rateLimitOptions. Requires rateLimitOptions to be set for this.
+        :param _builtins.str description: An optional description of this resource. Provide this property when you create the resource.
+        :param Sequence['GetRegionSecurityPolicyRuleMatchArgs'] matches: A match condition that incoming traffic is evaluated against.
+               If it evaluates to true, the corresponding 'action' is enforced.
+        :param Sequence['GetRegionSecurityPolicyRuleNetworkMatchArgs'] network_matches: A match condition that incoming packets are evaluated against for CLOUD_ARMOR_NETWORK security policies. If it matches, the corresponding 'action' is enforced.
+               The match criteria for a rule consists of built-in match fields (like 'srcIpRanges') and potentially multiple user-defined match fields ('userDefinedFields').
+               Field values may be extracted directly from the packet or derived from it (e.g. 'srcRegionCodes'). Some fields may not be present in every packet (e.g. 'srcPorts'). A user-defined field is only present if the base header is found in the packet and the entire field is in bounds.
+               Each match field may specify which values can match it, listing one or more ranges, prefixes, or exact values that are considered a match for the field. A field value must be present in order to match a specified match field. If no match values are specified for a match field, then any field value is considered to match it, and it's not required to be present. For strings specifying '*' is also equivalent to match all.
+               For a packet to match a rule, all specified match fields must match the corresponding field values derived from the packet.
+               Example:
+               networkMatch: srcIpRanges: - "192.0.2.0/24" - "198.51.100.0/24" userDefinedFields: - name: "ipv4_fragment_offset" values: - "1-0x1fff"
+               The above match condition matches packets with a source IP in 192.0.2.0/24 or 198.51.100.0/24 and a user-defined field named "ipv4_fragment_offset" with a value between 1 and 0x1fff inclusive
+        :param Sequence['GetRegionSecurityPolicyRulePreconfiguredWafConfigArgs'] preconfigured_waf_configs: Preconfigured WAF configuration to be applied for the rule.
+               If the rule does not evaluate preconfigured WAF rules, i.e., if evaluatePreconfiguredWaf() is not used, this field will have no effect.
+        :param _builtins.bool preview: If set to true, the specified action is not enforced.
+        :param _builtins.int priority: An integer indicating the priority of a rule in the list.
+               The priority must be a positive value between 0 and 2147483647.
+               Rules are evaluated from highest to lowest priority where 0 is the highest priority and 2147483647 is the lowest priority.
+        :param Sequence['GetRegionSecurityPolicyRuleRateLimitOptionArgs'] rate_limit_options: Must be specified if the action is "rate_based_ban" or "throttle". Cannot be specified for any other actions.
+        """
+        pulumi.set(__self__, "action", action)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "matches", matches)
+        pulumi.set(__self__, "network_matches", network_matches)
+        pulumi.set(__self__, "preconfigured_waf_configs", preconfigured_waf_configs)
+        pulumi.set(__self__, "preview", preview)
+        pulumi.set(__self__, "priority", priority)
+        pulumi.set(__self__, "rate_limit_options", rate_limit_options)
+
+    @_builtins.property
+    @pulumi.getter
+    def action(self) -> _builtins.str:
+        """
+        The Action to perform when the rule is matched. The following are the valid actions:
+
+        * allow: allow access to target.
+
+        * deny(STATUS): deny access to target, returns the HTTP response code specified. Valid values for STATUS are 403, 404, and 502.
+
+        * rate_based_ban: limit client traffic to the configured threshold and ban the client if the traffic exceeds the threshold. Configure parameters for this action in RateLimitOptions. Requires rateLimitOptions to be set.
+
+        * redirect: redirect to a different target. This can either be an internal reCAPTCHA redirect, or an external URL-based redirect via a 302 response. Parameters for this action can be configured via redirectOptions. This action is only supported in Global Security Policies of type CLOUD_ARMOR.
+
+        * throttle: limit client traffic to the configured threshold. Configure parameters for this action in rateLimitOptions. Requires rateLimitOptions to be set for this.
+        """
+        return pulumi.get(self, "action")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        """
+        An optional description of this resource. Provide this property when you create the resource.
+        """
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def matches(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleMatchResult']:
+        """
+        A match condition that incoming traffic is evaluated against.
+        If it evaluates to true, the corresponding 'action' is enforced.
+        """
+        return pulumi.get(self, "matches")
+
+    @_builtins.property
+    @pulumi.getter(name="networkMatches")
+    def network_matches(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleNetworkMatchResult']:
+        """
+        A match condition that incoming packets are evaluated against for CLOUD_ARMOR_NETWORK security policies. If it matches, the corresponding 'action' is enforced.
+        The match criteria for a rule consists of built-in match fields (like 'srcIpRanges') and potentially multiple user-defined match fields ('userDefinedFields').
+        Field values may be extracted directly from the packet or derived from it (e.g. 'srcRegionCodes'). Some fields may not be present in every packet (e.g. 'srcPorts'). A user-defined field is only present if the base header is found in the packet and the entire field is in bounds.
+        Each match field may specify which values can match it, listing one or more ranges, prefixes, or exact values that are considered a match for the field. A field value must be present in order to match a specified match field. If no match values are specified for a match field, then any field value is considered to match it, and it's not required to be present. For strings specifying '*' is also equivalent to match all.
+        For a packet to match a rule, all specified match fields must match the corresponding field values derived from the packet.
+        Example:
+        networkMatch: srcIpRanges: - "192.0.2.0/24" - "198.51.100.0/24" userDefinedFields: - name: "ipv4_fragment_offset" values: - "1-0x1fff"
+        The above match condition matches packets with a source IP in 192.0.2.0/24 or 198.51.100.0/24 and a user-defined field named "ipv4_fragment_offset" with a value between 1 and 0x1fff inclusive
+        """
+        return pulumi.get(self, "network_matches")
+
+    @_builtins.property
+    @pulumi.getter(name="preconfiguredWafConfigs")
+    def preconfigured_waf_configs(self) -> Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigResult']:
+        """
+        Preconfigured WAF configuration to be applied for the rule.
+        If the rule does not evaluate preconfigured WAF rules, i.e., if evaluatePreconfiguredWaf() is not used, this field will have no effect.
+        """
+        return pulumi.get(self, "preconfigured_waf_configs")
+
+    @_builtins.property
+    @pulumi.getter
+    def preview(self) -> _builtins.bool:
+        """
+        If set to true, the specified action is not enforced.
+        """
+        return pulumi.get(self, "preview")
+
+    @_builtins.property
+    @pulumi.getter
+    def priority(self) -> _builtins.int:
+        """
+        An integer indicating the priority of a rule in the list.
+        The priority must be a positive value between 0 and 2147483647.
+        Rules are evaluated from highest to lowest priority where 0 is the highest priority and 2147483647 is the lowest priority.
+        """
+        return pulumi.get(self, "priority")
+
+    @_builtins.property
+    @pulumi.getter(name="rateLimitOptions")
+    def rate_limit_options(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionResult']:
+        """
+        Must be specified if the action is "rate_based_ban" or "throttle". Cannot be specified for any other actions.
+        """
+        return pulumi.get(self, "rate_limit_options")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleMatchResult(dict):
+    def __init__(__self__, *,
+                 configs: Sequence['outputs.GetRegionSecurityPolicyRuleMatchConfigResult'],
+                 exprs: Sequence['outputs.GetRegionSecurityPolicyRuleMatchExprResult'],
+                 versioned_expr: _builtins.str):
+        """
+        :param Sequence['GetRegionSecurityPolicyRuleMatchConfigArgs'] configs: The configuration options available when specifying versionedExpr.
+               This field must be specified if versionedExpr is specified and cannot be specified if versionedExpr is not specified.
+        :param Sequence['GetRegionSecurityPolicyRuleMatchExprArgs'] exprs: User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header. See [Sample expressions](https://cloud.google.com/armor/docs/configure-security-policies#sample-expressions) for examples.
+        :param _builtins.str versioned_expr: Preconfigured versioned expression. If this field is specified, config must also be specified.
+               Available preconfigured expressions along with their requirements are: SRC_IPS_V1 - must specify the corresponding srcIpRange field in config. Possible values: ["SRC_IPS_V1"]
+        """
+        pulumi.set(__self__, "configs", configs)
+        pulumi.set(__self__, "exprs", exprs)
+        pulumi.set(__self__, "versioned_expr", versioned_expr)
+
+    @_builtins.property
+    @pulumi.getter
+    def configs(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleMatchConfigResult']:
+        """
+        The configuration options available when specifying versionedExpr.
+        This field must be specified if versionedExpr is specified and cannot be specified if versionedExpr is not specified.
+        """
+        return pulumi.get(self, "configs")
+
+    @_builtins.property
+    @pulumi.getter
+    def exprs(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleMatchExprResult']:
+        """
+        User defined CEVAL expression. A CEVAL expression is used to specify match criteria such as origin.ip, source.region_code and contents in the request header. See [Sample expressions](https://cloud.google.com/armor/docs/configure-security-policies#sample-expressions) for examples.
+        """
+        return pulumi.get(self, "exprs")
+
+    @_builtins.property
+    @pulumi.getter(name="versionedExpr")
+    def versioned_expr(self) -> _builtins.str:
+        """
+        Preconfigured versioned expression. If this field is specified, config must also be specified.
+        Available preconfigured expressions along with their requirements are: SRC_IPS_V1 - must specify the corresponding srcIpRange field in config. Possible values: ["SRC_IPS_V1"]
+        """
+        return pulumi.get(self, "versioned_expr")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleMatchConfigResult(dict):
+    def __init__(__self__, *,
+                 src_ip_ranges: Sequence[_builtins.str]):
+        """
+        :param Sequence[_builtins.str] src_ip_ranges: CIDR IP address range. Maximum number of srcIpRanges allowed is 10.
+        """
+        pulumi.set(__self__, "src_ip_ranges", src_ip_ranges)
+
+    @_builtins.property
+    @pulumi.getter(name="srcIpRanges")
+    def src_ip_ranges(self) -> Sequence[_builtins.str]:
+        """
+        CIDR IP address range. Maximum number of srcIpRanges allowed is 10.
+        """
+        return pulumi.get(self, "src_ip_ranges")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleMatchExprResult(dict):
+    def __init__(__self__, *,
+                 expression: _builtins.str):
+        """
+        :param _builtins.str expression: Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+        """
+        pulumi.set(__self__, "expression", expression)
+
+    @_builtins.property
+    @pulumi.getter
+    def expression(self) -> _builtins.str:
+        """
+        Textual representation of an expression in Common Expression Language syntax. The application context of the containing message determines which well-known feature set of CEL is supported.
+        """
+        return pulumi.get(self, "expression")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleNetworkMatchResult(dict):
+    def __init__(__self__, *,
+                 dest_ip_ranges: Sequence[_builtins.str],
+                 dest_ports: Sequence[_builtins.str],
+                 ip_protocols: Sequence[_builtins.str],
+                 src_asns: Sequence[_builtins.int],
+                 src_ip_ranges: Sequence[_builtins.str],
+                 src_ports: Sequence[_builtins.str],
+                 src_region_codes: Sequence[_builtins.str],
+                 user_defined_fields: Sequence['outputs.GetRegionSecurityPolicyRuleNetworkMatchUserDefinedFieldResult']):
+        """
+        :param Sequence[_builtins.str] dest_ip_ranges: Destination IPv4/IPv6 addresses or CIDR prefixes, in standard text format.
+        :param Sequence[_builtins.str] dest_ports: Destination port numbers for TCP/UDP/SCTP. Each element can be a 16-bit unsigned decimal number (e.g. "80") or range (e.g. "0-1023").
+        :param Sequence[_builtins.str] ip_protocols: IPv4 protocol / IPv6 next header (after extension headers). Each element can be an 8-bit unsigned decimal number (e.g. "6"), range (e.g. "253-254"), or one of the following protocol names: "tcp", "udp", "icmp", "esp", "ah", "ipip", or "sctp".
+        :param Sequence[_builtins.int] src_asns: BGP Autonomous System Number associated with the source IP address.
+        :param Sequence[_builtins.str] src_ip_ranges: Source IPv4/IPv6 addresses or CIDR prefixes, in standard text format.
+        :param Sequence[_builtins.str] src_ports: Source port numbers for TCP/UDP/SCTP. Each element can be a 16-bit unsigned decimal number (e.g. "80") or range (e.g. "0-1023").
+        :param Sequence[_builtins.str] src_region_codes: Two-letter ISO 3166-1 alpha-2 country code associated with the source IP address.
+        :param Sequence['GetRegionSecurityPolicyRuleNetworkMatchUserDefinedFieldArgs'] user_defined_fields: User-defined fields. Each element names a defined field and lists the matching values for that field.
+        """
+        pulumi.set(__self__, "dest_ip_ranges", dest_ip_ranges)
+        pulumi.set(__self__, "dest_ports", dest_ports)
+        pulumi.set(__self__, "ip_protocols", ip_protocols)
+        pulumi.set(__self__, "src_asns", src_asns)
+        pulumi.set(__self__, "src_ip_ranges", src_ip_ranges)
+        pulumi.set(__self__, "src_ports", src_ports)
+        pulumi.set(__self__, "src_region_codes", src_region_codes)
+        pulumi.set(__self__, "user_defined_fields", user_defined_fields)
+
+    @_builtins.property
+    @pulumi.getter(name="destIpRanges")
+    def dest_ip_ranges(self) -> Sequence[_builtins.str]:
+        """
+        Destination IPv4/IPv6 addresses or CIDR prefixes, in standard text format.
+        """
+        return pulumi.get(self, "dest_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="destPorts")
+    def dest_ports(self) -> Sequence[_builtins.str]:
+        """
+        Destination port numbers for TCP/UDP/SCTP. Each element can be a 16-bit unsigned decimal number (e.g. "80") or range (e.g. "0-1023").
+        """
+        return pulumi.get(self, "dest_ports")
+
+    @_builtins.property
+    @pulumi.getter(name="ipProtocols")
+    def ip_protocols(self) -> Sequence[_builtins.str]:
+        """
+        IPv4 protocol / IPv6 next header (after extension headers). Each element can be an 8-bit unsigned decimal number (e.g. "6"), range (e.g. "253-254"), or one of the following protocol names: "tcp", "udp", "icmp", "esp", "ah", "ipip", or "sctp".
+        """
+        return pulumi.get(self, "ip_protocols")
+
+    @_builtins.property
+    @pulumi.getter(name="srcAsns")
+    def src_asns(self) -> Sequence[_builtins.int]:
+        """
+        BGP Autonomous System Number associated with the source IP address.
+        """
+        return pulumi.get(self, "src_asns")
+
+    @_builtins.property
+    @pulumi.getter(name="srcIpRanges")
+    def src_ip_ranges(self) -> Sequence[_builtins.str]:
+        """
+        Source IPv4/IPv6 addresses or CIDR prefixes, in standard text format.
+        """
+        return pulumi.get(self, "src_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter(name="srcPorts")
+    def src_ports(self) -> Sequence[_builtins.str]:
+        """
+        Source port numbers for TCP/UDP/SCTP. Each element can be a 16-bit unsigned decimal number (e.g. "80") or range (e.g. "0-1023").
+        """
+        return pulumi.get(self, "src_ports")
+
+    @_builtins.property
+    @pulumi.getter(name="srcRegionCodes")
+    def src_region_codes(self) -> Sequence[_builtins.str]:
+        """
+        Two-letter ISO 3166-1 alpha-2 country code associated with the source IP address.
+        """
+        return pulumi.get(self, "src_region_codes")
+
+    @_builtins.property
+    @pulumi.getter(name="userDefinedFields")
+    def user_defined_fields(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleNetworkMatchUserDefinedFieldResult']:
+        """
+        User-defined fields. Each element names a defined field and lists the matching values for that field.
+        """
+        return pulumi.get(self, "user_defined_fields")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleNetworkMatchUserDefinedFieldResult(dict):
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 values: Sequence[_builtins.str]):
+        """
+        :param _builtins.str name: The name of the Region Security Policy.
+        :param Sequence[_builtins.str] values: Matching values of the field. Each element can be a 32-bit unsigned decimal or hexadecimal (starting with "0x") number (e.g. "64") or range (e.g. "0x400-0x7ff").
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the Region Security Policy.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Sequence[_builtins.str]:
+        """
+        Matching values of the field. Each element can be a 32-bit unsigned decimal or hexadecimal (starting with "0x") number (e.g. "64") or range (e.g. "0x400-0x7ff").
+        """
+        return pulumi.get(self, "values")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRulePreconfiguredWafConfigResult(dict):
+    def __init__(__self__, *,
+                 exclusions: Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionResult']):
+        """
+        :param Sequence['GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionArgs'] exclusions: An exclusion to apply during preconfigured WAF evaluation.
+        """
+        pulumi.set(__self__, "exclusions", exclusions)
+
+    @_builtins.property
+    @pulumi.getter
+    def exclusions(self) -> Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionResult']:
+        """
+        An exclusion to apply during preconfigured WAF evaluation.
+        """
+        return pulumi.get(self, "exclusions")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionResult(dict):
+    def __init__(__self__, *,
+                 request_cookies: Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyResult'],
+                 request_headers: Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderResult'],
+                 request_query_params: Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamResult'],
+                 request_uris: Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriResult'],
+                 target_rule_ids: Sequence[_builtins.str],
+                 target_rule_set: _builtins.str):
+        """
+        :param Sequence['GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyArgs'] request_cookies: Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
+        :param Sequence['GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderArgs'] request_headers: Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
+        :param Sequence['GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamArgs'] request_query_params: Request query parameter whose value will be excluded from inspection during preconfigured WAF evaluation.
+               Note that the parameter can be in the query string or in the POST body.
+        :param Sequence['GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriArgs'] request_uris: Request URI from the request line to be excluded from inspection during preconfigured WAF evaluation.
+               When specifying this field, the query or fragment part should be excluded.
+        :param Sequence[_builtins.str] target_rule_ids: A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion.
+               If omitted, it refers to all the rule IDs under the WAF rule set.
+        :param _builtins.str target_rule_set: Target WAF rule set to apply the preconfigured WAF exclusion.
+        """
+        pulumi.set(__self__, "request_cookies", request_cookies)
+        pulumi.set(__self__, "request_headers", request_headers)
+        pulumi.set(__self__, "request_query_params", request_query_params)
+        pulumi.set(__self__, "request_uris", request_uris)
+        pulumi.set(__self__, "target_rule_ids", target_rule_ids)
+        pulumi.set(__self__, "target_rule_set", target_rule_set)
+
+    @_builtins.property
+    @pulumi.getter(name="requestCookies")
+    def request_cookies(self) -> Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyResult']:
+        """
+        Request cookie whose value will be excluded from inspection during preconfigured WAF evaluation.
+        """
+        return pulumi.get(self, "request_cookies")
+
+    @_builtins.property
+    @pulumi.getter(name="requestHeaders")
+    def request_headers(self) -> Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderResult']:
+        """
+        Request header whose value will be excluded from inspection during preconfigured WAF evaluation.
+        """
+        return pulumi.get(self, "request_headers")
+
+    @_builtins.property
+    @pulumi.getter(name="requestQueryParams")
+    def request_query_params(self) -> Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamResult']:
+        """
+        Request query parameter whose value will be excluded from inspection during preconfigured WAF evaluation.
+        Note that the parameter can be in the query string or in the POST body.
+        """
+        return pulumi.get(self, "request_query_params")
+
+    @_builtins.property
+    @pulumi.getter(name="requestUris")
+    def request_uris(self) -> Sequence['outputs.GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriResult']:
+        """
+        Request URI from the request line to be excluded from inspection during preconfigured WAF evaluation.
+        When specifying this field, the query or fragment part should be excluded.
+        """
+        return pulumi.get(self, "request_uris")
+
+    @_builtins.property
+    @pulumi.getter(name="targetRuleIds")
+    def target_rule_ids(self) -> Sequence[_builtins.str]:
+        """
+        A list of target rule IDs under the WAF rule set to apply the preconfigured WAF exclusion.
+        If omitted, it refers to all the rule IDs under the WAF rule set.
+        """
+        return pulumi.get(self, "target_rule_ids")
+
+    @_builtins.property
+    @pulumi.getter(name="targetRuleSet")
+    def target_rule_set(self) -> _builtins.str:
+        """
+        Target WAF rule set to apply the preconfigured WAF exclusion.
+        """
+        return pulumi.get(self, "target_rule_set")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestCookyResult(dict):
+    def __init__(__self__, *,
+                 operator: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        :param _builtins.str value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> _builtins.str:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        """
+        return pulumi.get(self, "operator")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestHeaderResult(dict):
+    def __init__(__self__, *,
+                 operator: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        :param _builtins.str value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> _builtins.str:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        """
+        return pulumi.get(self, "operator")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestQueryParamResult(dict):
+    def __init__(__self__, *,
+                 operator: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        :param _builtins.str value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> _builtins.str:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        """
+        return pulumi.get(self, "operator")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRulePreconfiguredWafConfigExclusionRequestUriResult(dict):
+    def __init__(__self__, *,
+                 operator: _builtins.str,
+                 value: _builtins.str):
+        """
+        :param _builtins.str operator: You can specify an exact match or a partial match by using a field operator and a field value.
+               Available options:
+               EQUALS: The operator matches if the field value equals the specified value.
+               STARTS_WITH: The operator matches if the field value starts with the specified value.
+               ENDS_WITH: The operator matches if the field value ends with the specified value.
+               CONTAINS: The operator matches if the field value contains the specified value.
+               EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        :param _builtins.str value: A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+               The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        pulumi.set(__self__, "operator", operator)
+        pulumi.set(__self__, "value", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def operator(self) -> _builtins.str:
+        """
+        You can specify an exact match or a partial match by using a field operator and a field value.
+        Available options:
+        EQUALS: The operator matches if the field value equals the specified value.
+        STARTS_WITH: The operator matches if the field value starts with the specified value.
+        ENDS_WITH: The operator matches if the field value ends with the specified value.
+        CONTAINS: The operator matches if the field value contains the specified value.
+        EQUALS_ANY: The operator matches if the field value is any value. Possible values: ["CONTAINS", "ENDS_WITH", "EQUALS", "EQUALS_ANY", "STARTS_WITH"]
+        """
+        return pulumi.get(self, "operator")
+
+    @_builtins.property
+    @pulumi.getter
+    def value(self) -> _builtins.str:
+        """
+        A request field matching the specified value will be excluded from inspection during preconfigured WAF evaluation.
+        The field value must be given if the field operator is not EQUALS_ANY, and cannot be given if the field operator is EQUALS_ANY.
+        """
+        return pulumi.get(self, "value")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleRateLimitOptionResult(dict):
+    def __init__(__self__, *,
+                 ban_duration_sec: _builtins.int,
+                 ban_thresholds: Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionBanThresholdResult'],
+                 conform_action: _builtins.str,
+                 enforce_on_key: _builtins.str,
+                 enforce_on_key_configs: Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionEnforceOnKeyConfigResult'],
+                 enforce_on_key_name: _builtins.str,
+                 exceed_action: _builtins.str,
+                 rate_limit_thresholds: Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionRateLimitThresholdResult']):
+        """
+        :param _builtins.int ban_duration_sec: Can only be specified if the action for the rule is "rate_based_ban".
+               If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold.
+        :param Sequence['GetRegionSecurityPolicyRuleRateLimitOptionBanThresholdArgs'] ban_thresholds: Can only be specified if the action for the rule is "rate_based_ban".
+               If specified, the key will be banned for the configured 'banDurationSec' when the number of requests that exceed the 'rateLimitThreshold' also exceed this 'banThreshold'.
+        :param _builtins.str conform_action: Action to take for requests that are under the configured rate limit threshold.
+               Valid option is "allow" only.
+        :param _builtins.str enforce_on_key: Determines the key to enforce the rateLimitThreshold on. Possible values are:
+               * ALL: A single rate limit threshold is applied to all the requests matching this rule. This is the default value if "enforceOnKey" is not configured.
+               * IP: The source IP address of the request is the key. Each IP has this limit enforced separately.
+               * HTTP_HEADER: The value of the HTTP header whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the header value. If no such header is present in the request, the key type defaults to ALL.
+               * XFF_IP: The first IP address (i.e. the originating client IP address) specified in the list of IPs under X-Forwarded-For HTTP header. If no such header is present or the value is not a valid IP, the key defaults to the source IP address of the request i.e. key type IP.
+               * HTTP_COOKIE: The value of the HTTP cookie whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the cookie value. If no such cookie is present in the request, the key type defaults to ALL.
+               * HTTP_PATH: The URL path of the HTTP request. The key value is truncated to the first 128 bytes.
+               * SNI: Server name indication in the TLS session of the HTTPS request. The key value is truncated to the first 128 bytes. The key type defaults to ALL on a HTTP session.
+               * REGION_CODE: The country/region from which the request originates.
+               * TLS_JA3_FINGERPRINT: JA3 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+               * TLS_JA4_FINGERPRINT: JA4 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+               * USER_IP: The IP address of the originating client, which is resolved based on "userIpRequestHeaders" configured with the security policy. If there is no "userIpRequestHeaders" configuration or an IP address cannot be resolved from it, the key type defaults to IP. Possible values: ["ALL", "IP", "HTTP_HEADER", "XFF_IP", "HTTP_COOKIE", "HTTP_PATH", "SNI", "REGION_CODE", "TLS_JA3_FINGERPRINT", "TLS_JA4_FINGERPRINT", "USER_IP"]
+        :param Sequence['GetRegionSecurityPolicyRuleRateLimitOptionEnforceOnKeyConfigArgs'] enforce_on_key_configs: If specified, any combination of values of enforceOnKeyType/enforceOnKeyName is treated as the key on which ratelimit threshold/action is enforced.
+               You can specify up to 3 enforceOnKeyConfigs.
+               If enforceOnKeyConfigs is specified, enforceOnKey must not be specified.
+        :param _builtins.str enforce_on_key_name: Rate limit key name applicable only for the following key types:
+               HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value.
+               HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value.
+        :param _builtins.str exceed_action: Action to take for requests that are above the configured rate limit threshold, to deny with a specified HTTP response code.
+               Valid options are deny(STATUS), where valid values for STATUS are 403, 404, 429, and 502.
+        :param Sequence['GetRegionSecurityPolicyRuleRateLimitOptionRateLimitThresholdArgs'] rate_limit_thresholds: Threshold at which to begin ratelimiting.
+        """
+        pulumi.set(__self__, "ban_duration_sec", ban_duration_sec)
+        pulumi.set(__self__, "ban_thresholds", ban_thresholds)
+        pulumi.set(__self__, "conform_action", conform_action)
+        pulumi.set(__self__, "enforce_on_key", enforce_on_key)
+        pulumi.set(__self__, "enforce_on_key_configs", enforce_on_key_configs)
+        pulumi.set(__self__, "enforce_on_key_name", enforce_on_key_name)
+        pulumi.set(__self__, "exceed_action", exceed_action)
+        pulumi.set(__self__, "rate_limit_thresholds", rate_limit_thresholds)
+
+    @_builtins.property
+    @pulumi.getter(name="banDurationSec")
+    def ban_duration_sec(self) -> _builtins.int:
+        """
+        Can only be specified if the action for the rule is "rate_based_ban".
+        If specified, determines the time (in seconds) the traffic will continue to be banned by the rate limit after the rate falls below the threshold.
+        """
+        return pulumi.get(self, "ban_duration_sec")
+
+    @_builtins.property
+    @pulumi.getter(name="banThresholds")
+    def ban_thresholds(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionBanThresholdResult']:
+        """
+        Can only be specified if the action for the rule is "rate_based_ban".
+        If specified, the key will be banned for the configured 'banDurationSec' when the number of requests that exceed the 'rateLimitThreshold' also exceed this 'banThreshold'.
+        """
+        return pulumi.get(self, "ban_thresholds")
+
+    @_builtins.property
+    @pulumi.getter(name="conformAction")
+    def conform_action(self) -> _builtins.str:
+        """
+        Action to take for requests that are under the configured rate limit threshold.
+        Valid option is "allow" only.
+        """
+        return pulumi.get(self, "conform_action")
+
+    @_builtins.property
+    @pulumi.getter(name="enforceOnKey")
+    def enforce_on_key(self) -> _builtins.str:
+        """
+        Determines the key to enforce the rateLimitThreshold on. Possible values are:
+        * ALL: A single rate limit threshold is applied to all the requests matching this rule. This is the default value if "enforceOnKey" is not configured.
+        * IP: The source IP address of the request is the key. Each IP has this limit enforced separately.
+        * HTTP_HEADER: The value of the HTTP header whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the header value. If no such header is present in the request, the key type defaults to ALL.
+        * XFF_IP: The first IP address (i.e. the originating client IP address) specified in the list of IPs under X-Forwarded-For HTTP header. If no such header is present or the value is not a valid IP, the key defaults to the source IP address of the request i.e. key type IP.
+        * HTTP_COOKIE: The value of the HTTP cookie whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the cookie value. If no such cookie is present in the request, the key type defaults to ALL.
+        * HTTP_PATH: The URL path of the HTTP request. The key value is truncated to the first 128 bytes.
+        * SNI: Server name indication in the TLS session of the HTTPS request. The key value is truncated to the first 128 bytes. The key type defaults to ALL on a HTTP session.
+        * REGION_CODE: The country/region from which the request originates.
+        * TLS_JA3_FINGERPRINT: JA3 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+        * TLS_JA4_FINGERPRINT: JA4 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+        * USER_IP: The IP address of the originating client, which is resolved based on "userIpRequestHeaders" configured with the security policy. If there is no "userIpRequestHeaders" configuration or an IP address cannot be resolved from it, the key type defaults to IP. Possible values: ["ALL", "IP", "HTTP_HEADER", "XFF_IP", "HTTP_COOKIE", "HTTP_PATH", "SNI", "REGION_CODE", "TLS_JA3_FINGERPRINT", "TLS_JA4_FINGERPRINT", "USER_IP"]
+        """
+        return pulumi.get(self, "enforce_on_key")
+
+    @_builtins.property
+    @pulumi.getter(name="enforceOnKeyConfigs")
+    def enforce_on_key_configs(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionEnforceOnKeyConfigResult']:
+        """
+        If specified, any combination of values of enforceOnKeyType/enforceOnKeyName is treated as the key on which ratelimit threshold/action is enforced.
+        You can specify up to 3 enforceOnKeyConfigs.
+        If enforceOnKeyConfigs is specified, enforceOnKey must not be specified.
+        """
+        return pulumi.get(self, "enforce_on_key_configs")
+
+    @_builtins.property
+    @pulumi.getter(name="enforceOnKeyName")
+    def enforce_on_key_name(self) -> _builtins.str:
+        """
+        Rate limit key name applicable only for the following key types:
+        HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value.
+        HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value.
+        """
+        return pulumi.get(self, "enforce_on_key_name")
+
+    @_builtins.property
+    @pulumi.getter(name="exceedAction")
+    def exceed_action(self) -> _builtins.str:
+        """
+        Action to take for requests that are above the configured rate limit threshold, to deny with a specified HTTP response code.
+        Valid options are deny(STATUS), where valid values for STATUS are 403, 404, 429, and 502.
+        """
+        return pulumi.get(self, "exceed_action")
+
+    @_builtins.property
+    @pulumi.getter(name="rateLimitThresholds")
+    def rate_limit_thresholds(self) -> Sequence['outputs.GetRegionSecurityPolicyRuleRateLimitOptionRateLimitThresholdResult']:
+        """
+        Threshold at which to begin ratelimiting.
+        """
+        return pulumi.get(self, "rate_limit_thresholds")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleRateLimitOptionBanThresholdResult(dict):
+    def __init__(__self__, *,
+                 count: _builtins.int,
+                 interval_sec: _builtins.int):
+        """
+        :param _builtins.int count: Number of HTTP(S) requests for calculating the threshold.
+        :param _builtins.int interval_sec: Interval over which the threshold is computed.
+        """
+        pulumi.set(__self__, "count", count)
+        pulumi.set(__self__, "interval_sec", interval_sec)
+
+    @_builtins.property
+    @pulumi.getter
+    def count(self) -> _builtins.int:
+        """
+        Number of HTTP(S) requests for calculating the threshold.
+        """
+        return pulumi.get(self, "count")
+
+    @_builtins.property
+    @pulumi.getter(name="intervalSec")
+    def interval_sec(self) -> _builtins.int:
+        """
+        Interval over which the threshold is computed.
+        """
+        return pulumi.get(self, "interval_sec")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleRateLimitOptionEnforceOnKeyConfigResult(dict):
+    def __init__(__self__, *,
+                 enforce_on_key_name: _builtins.str,
+                 enforce_on_key_type: _builtins.str):
+        """
+        :param _builtins.str enforce_on_key_name: Rate limit key name applicable only for the following key types:
+               HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value.
+               HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value.
+        :param _builtins.str enforce_on_key_type: Determines the key to enforce the rateLimitThreshold on. Possible values are:
+               * ALL: A single rate limit threshold is applied to all the requests matching this rule. This is the default value if "enforceOnKeyConfigs" is not configured.
+               * IP: The source IP address of the request is the key. Each IP has this limit enforced separately.
+               * HTTP_HEADER: The value of the HTTP header whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the header value. If no such header is present in the request, the key type defaults to ALL.
+               * XFF_IP: The first IP address (i.e. the originating client IP address) specified in the list of IPs under X-Forwarded-For HTTP header. If no such header is present or the value is not a valid IP, the key defaults to the source IP address of the request i.e. key type IP.
+               * HTTP_COOKIE: The value of the HTTP cookie whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the cookie value. If no such cookie is present in the request, the key type defaults to ALL.
+               * HTTP_PATH: The URL path of the HTTP request. The key value is truncated to the first 128 bytes.
+               * SNI: Server name indication in the TLS session of the HTTPS request. The key value is truncated to the first 128 bytes. The key type defaults to ALL on a HTTP session.
+               * REGION_CODE: The country/region from which the request originates.
+               * TLS_JA3_FINGERPRINT: JA3 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+               * TLS_JA4_FINGERPRINT: JA4 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+               * USER_IP: The IP address of the originating client, which is resolved based on "userIpRequestHeaders" configured with the security policy. If there is no "userIpRequestHeaders" configuration or an IP address cannot be resolved from it, the key type defaults to IP. Possible values: ["ALL", "IP", "HTTP_HEADER", "XFF_IP", "HTTP_COOKIE", "HTTP_PATH", "SNI", "REGION_CODE", "TLS_JA3_FINGERPRINT", "TLS_JA4_FINGERPRINT", "USER_IP"]
+        """
+        pulumi.set(__self__, "enforce_on_key_name", enforce_on_key_name)
+        pulumi.set(__self__, "enforce_on_key_type", enforce_on_key_type)
+
+    @_builtins.property
+    @pulumi.getter(name="enforceOnKeyName")
+    def enforce_on_key_name(self) -> _builtins.str:
+        """
+        Rate limit key name applicable only for the following key types:
+        HTTP_HEADER -- Name of the HTTP header whose value is taken as the key value.
+        HTTP_COOKIE -- Name of the HTTP cookie whose value is taken as the key value.
+        """
+        return pulumi.get(self, "enforce_on_key_name")
+
+    @_builtins.property
+    @pulumi.getter(name="enforceOnKeyType")
+    def enforce_on_key_type(self) -> _builtins.str:
+        """
+        Determines the key to enforce the rateLimitThreshold on. Possible values are:
+        * ALL: A single rate limit threshold is applied to all the requests matching this rule. This is the default value if "enforceOnKeyConfigs" is not configured.
+        * IP: The source IP address of the request is the key. Each IP has this limit enforced separately.
+        * HTTP_HEADER: The value of the HTTP header whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the header value. If no such header is present in the request, the key type defaults to ALL.
+        * XFF_IP: The first IP address (i.e. the originating client IP address) specified in the list of IPs under X-Forwarded-For HTTP header. If no such header is present or the value is not a valid IP, the key defaults to the source IP address of the request i.e. key type IP.
+        * HTTP_COOKIE: The value of the HTTP cookie whose name is configured under "enforceOnKeyName". The key value is truncated to the first 128 bytes of the cookie value. If no such cookie is present in the request, the key type defaults to ALL.
+        * HTTP_PATH: The URL path of the HTTP request. The key value is truncated to the first 128 bytes.
+        * SNI: Server name indication in the TLS session of the HTTPS request. The key value is truncated to the first 128 bytes. The key type defaults to ALL on a HTTP session.
+        * REGION_CODE: The country/region from which the request originates.
+        * TLS_JA3_FINGERPRINT: JA3 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+        * TLS_JA4_FINGERPRINT: JA4 TLS/SSL fingerprint if the client connects using HTTPS, HTTP/2 or HTTP/3. If not available, the key type defaults to ALL.
+        * USER_IP: The IP address of the originating client, which is resolved based on "userIpRequestHeaders" configured with the security policy. If there is no "userIpRequestHeaders" configuration or an IP address cannot be resolved from it, the key type defaults to IP. Possible values: ["ALL", "IP", "HTTP_HEADER", "XFF_IP", "HTTP_COOKIE", "HTTP_PATH", "SNI", "REGION_CODE", "TLS_JA3_FINGERPRINT", "TLS_JA4_FINGERPRINT", "USER_IP"]
+        """
+        return pulumi.get(self, "enforce_on_key_type")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyRuleRateLimitOptionRateLimitThresholdResult(dict):
+    def __init__(__self__, *,
+                 count: _builtins.int,
+                 interval_sec: _builtins.int):
+        """
+        :param _builtins.int count: Number of HTTP(S) requests for calculating the threshold.
+        :param _builtins.int interval_sec: Interval over which the threshold is computed.
+        """
+        pulumi.set(__self__, "count", count)
+        pulumi.set(__self__, "interval_sec", interval_sec)
+
+    @_builtins.property
+    @pulumi.getter
+    def count(self) -> _builtins.int:
+        """
+        Number of HTTP(S) requests for calculating the threshold.
+        """
+        return pulumi.get(self, "count")
+
+    @_builtins.property
+    @pulumi.getter(name="intervalSec")
+    def interval_sec(self) -> _builtins.int:
+        """
+        Interval over which the threshold is computed.
+        """
+        return pulumi.get(self, "interval_sec")
+
+
+@pulumi.output_type
+class GetRegionSecurityPolicyUserDefinedFieldResult(dict):
+    def __init__(__self__, *,
+                 base: _builtins.str,
+                 mask: _builtins.str,
+                 name: _builtins.str,
+                 offset: _builtins.int,
+                 size: _builtins.int):
+        """
+        :param _builtins.str base: The base relative to which 'offset' is measured. Possible values are:
+               - IPV4: Points to the beginning of the IPv4 header.
+               - IPV6: Points to the beginning of the IPv6 header.
+               - TCP: Points to the beginning of the TCP header, skipping over any IPv4 options or IPv6 extension headers. Not present for non-first fragments.
+               - UDP: Points to the beginning of the UDP header, skipping over any IPv4 options or IPv6 extension headers. Not present for non-first fragments. Possible values: ["IPV4", "IPV6", "TCP", "UDP"]
+        :param _builtins.str mask: If specified, apply this mask (bitwise AND) to the field to ignore bits before matching.
+               Encoded as a hexadecimal number (starting with "0x").
+               The last byte of the field (in network byte order) corresponds to the least significant byte of the mask.
+        :param _builtins.str name: The name of the Region Security Policy.
+        :param _builtins.int offset: Offset of the first byte of the field (in network byte order) relative to 'base'.
+        :param _builtins.int size: Size of the field in bytes. Valid values: 1-4.
+        """
+        pulumi.set(__self__, "base", base)
+        pulumi.set(__self__, "mask", mask)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "offset", offset)
+        pulumi.set(__self__, "size", size)
+
+    @_builtins.property
+    @pulumi.getter
+    def base(self) -> _builtins.str:
+        """
+        The base relative to which 'offset' is measured. Possible values are:
+        - IPV4: Points to the beginning of the IPv4 header.
+        - IPV6: Points to the beginning of the IPv6 header.
+        - TCP: Points to the beginning of the TCP header, skipping over any IPv4 options or IPv6 extension headers. Not present for non-first fragments.
+        - UDP: Points to the beginning of the UDP header, skipping over any IPv4 options or IPv6 extension headers. Not present for non-first fragments. Possible values: ["IPV4", "IPV6", "TCP", "UDP"]
+        """
+        return pulumi.get(self, "base")
+
+    @_builtins.property
+    @pulumi.getter
+    def mask(self) -> _builtins.str:
+        """
+        If specified, apply this mask (bitwise AND) to the field to ignore bits before matching.
+        Encoded as a hexadecimal number (starting with "0x").
+        The last byte of the field (in network byte order) corresponds to the least significant byte of the mask.
+        """
+        return pulumi.get(self, "mask")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the Region Security Policy.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def offset(self) -> _builtins.int:
+        """
+        Offset of the first byte of the field (in network byte order) relative to 'base'.
+        """
+        return pulumi.get(self, "offset")
+
+    @_builtins.property
+    @pulumi.getter
+    def size(self) -> _builtins.int:
+        """
+        Size of the field in bytes. Valid values: 1-4.
+        """
+        return pulumi.get(self, "size")
+
+
+@pulumi.output_type
+class GetReservationBlockHealthInfoResult(dict):
+    def __init__(__self__, *,
+                 degraded_sub_block_count: _builtins.int,
+                 health_status: _builtins.str,
+                 healthy_sub_block_count: _builtins.int):
+        """
+        :param _builtins.int degraded_sub_block_count: The number of sub-blocks that are degraded.
+        :param _builtins.str health_status: The health status of the reservation block.
+        :param _builtins.int healthy_sub_block_count: The number of sub-blocks that are healthy.
+        """
+        pulumi.set(__self__, "degraded_sub_block_count", degraded_sub_block_count)
+        pulumi.set(__self__, "health_status", health_status)
+        pulumi.set(__self__, "healthy_sub_block_count", healthy_sub_block_count)
+
+    @_builtins.property
+    @pulumi.getter(name="degradedSubBlockCount")
+    def degraded_sub_block_count(self) -> _builtins.int:
+        """
+        The number of sub-blocks that are degraded.
+        """
+        return pulumi.get(self, "degraded_sub_block_count")
+
+    @_builtins.property
+    @pulumi.getter(name="healthStatus")
+    def health_status(self) -> _builtins.str:
+        """
+        The health status of the reservation block.
+        """
+        return pulumi.get(self, "health_status")
+
+    @_builtins.property
+    @pulumi.getter(name="healthySubBlockCount")
+    def healthy_sub_block_count(self) -> _builtins.int:
+        """
+        The number of sub-blocks that are healthy.
+        """
+        return pulumi.get(self, "healthy_sub_block_count")
+
+
+@pulumi.output_type
+class GetReservationBlockPhysicalTopologyResult(dict):
+    def __init__(__self__, *,
+                 block: _builtins.str,
+                 cluster: _builtins.str):
+        """
+        :param _builtins.str block: The hash of the capacity block within the cluster.
+        :param _builtins.str cluster: The cluster name of the reservation block.
+        """
+        pulumi.set(__self__, "block", block)
+        pulumi.set(__self__, "cluster", cluster)
+
+    @_builtins.property
+    @pulumi.getter
+    def block(self) -> _builtins.str:
+        """
+        The hash of the capacity block within the cluster.
+        """
+        return pulumi.get(self, "block")
+
+    @_builtins.property
+    @pulumi.getter
+    def cluster(self) -> _builtins.str:
+        """
+        The cluster name of the reservation block.
+        """
+        return pulumi.get(self, "cluster")
+
+
+@pulumi.output_type
+class GetReservationBlockReservationMaintenanceResult(dict):
+    def __init__(__self__, *,
+                 instance_maintenance_ongoing_count: _builtins.int,
+                 instance_maintenance_pending_count: _builtins.int,
+                 maintenance_ongoing_count: _builtins.int,
+                 maintenance_pending_count: _builtins.int,
+                 scheduling_type: _builtins.str,
+                 subblock_infra_maintenance_ongoing_count: _builtins.int,
+                 subblock_infra_maintenance_pending_count: _builtins.int):
+        """
+        :param _builtins.int instance_maintenance_ongoing_count: Number of instances that have ongoing maintenance.
+        :param _builtins.int instance_maintenance_pending_count: Number of instances that have pending maintenance.
+        :param _builtins.int maintenance_ongoing_count: Number of hosts in the block that have ongoing maintenance.
+        :param _builtins.int maintenance_pending_count: Number of hosts in the block that have pending maintenance.
+        :param _builtins.str scheduling_type: The type of maintenance for the reservation.
+        :param _builtins.int subblock_infra_maintenance_ongoing_count: Number of sub-block infrastructure that has ongoing maintenance.
+        :param _builtins.int subblock_infra_maintenance_pending_count: Number of sub-block infrastructure that has pending maintenance.
+        """
+        pulumi.set(__self__, "instance_maintenance_ongoing_count", instance_maintenance_ongoing_count)
+        pulumi.set(__self__, "instance_maintenance_pending_count", instance_maintenance_pending_count)
+        pulumi.set(__self__, "maintenance_ongoing_count", maintenance_ongoing_count)
+        pulumi.set(__self__, "maintenance_pending_count", maintenance_pending_count)
+        pulumi.set(__self__, "scheduling_type", scheduling_type)
+        pulumi.set(__self__, "subblock_infra_maintenance_ongoing_count", subblock_infra_maintenance_ongoing_count)
+        pulumi.set(__self__, "subblock_infra_maintenance_pending_count", subblock_infra_maintenance_pending_count)
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenanceOngoingCount")
+    def instance_maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Number of instances that have ongoing maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenancePendingCount")
+    def instance_maintenance_pending_count(self) -> _builtins.int:
+        """
+        Number of instances that have pending maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceOngoingCount")
+    def maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Number of hosts in the block that have ongoing maintenance.
+        """
+        return pulumi.get(self, "maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenancePendingCount")
+    def maintenance_pending_count(self) -> _builtins.int:
+        """
+        Number of hosts in the block that have pending maintenance.
+        """
+        return pulumi.get(self, "maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulingType")
+    def scheduling_type(self) -> _builtins.str:
+        """
+        The type of maintenance for the reservation.
+        """
+        return pulumi.get(self, "scheduling_type")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenanceOngoingCount")
+    def subblock_infra_maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Number of sub-block infrastructure that has ongoing maintenance.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenancePendingCount")
+    def subblock_infra_maintenance_pending_count(self) -> _builtins.int:
+        """
+        Number of sub-block infrastructure that has pending maintenance.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_pending_count")
+
+
+@pulumi.output_type
 class GetReservationDeleteAfterDurationResult(dict):
     def __init__(__self__, *,
                  nanos: _builtins.int,
@@ -74228,6 +78427,316 @@ class GetReservationReservationSharingPolicyResult(dict):
         Sharing config for all Google Cloud services. Possible values: ["ALLOW_ALL", "DISALLOW_ALL"]
         """
         return pulumi.get(self, "service_share_type")
+
+
+@pulumi.output_type
+class GetReservationResourceStatusResult(dict):
+    def __init__(__self__, *,
+                 health_infos: Sequence['outputs.GetReservationResourceStatusHealthInfoResult'],
+                 reservation_block_count: _builtins.int,
+                 reservation_maintenances: Sequence['outputs.GetReservationResourceStatusReservationMaintenanceResult'],
+                 specific_sku_allocations: Sequence['outputs.GetReservationResourceStatusSpecificSkuAllocationResult']):
+        """
+        :param Sequence['GetReservationResourceStatusHealthInfoArgs'] health_infos: Health information for the reservation.
+        :param _builtins.int reservation_block_count: The number of reservation blocks associated with this reservation.
+        :param Sequence['GetReservationResourceStatusReservationMaintenanceArgs'] reservation_maintenances: Maintenance information for this reservation
+        :param Sequence['GetReservationResourceStatusSpecificSkuAllocationArgs'] specific_sku_allocations: Allocation Properties of this reservation.
+        """
+        pulumi.set(__self__, "health_infos", health_infos)
+        pulumi.set(__self__, "reservation_block_count", reservation_block_count)
+        pulumi.set(__self__, "reservation_maintenances", reservation_maintenances)
+        pulumi.set(__self__, "specific_sku_allocations", specific_sku_allocations)
+
+    @_builtins.property
+    @pulumi.getter(name="healthInfos")
+    def health_infos(self) -> Sequence['outputs.GetReservationResourceStatusHealthInfoResult']:
+        """
+        Health information for the reservation.
+        """
+        return pulumi.get(self, "health_infos")
+
+    @_builtins.property
+    @pulumi.getter(name="reservationBlockCount")
+    def reservation_block_count(self) -> _builtins.int:
+        """
+        The number of reservation blocks associated with this reservation.
+        """
+        return pulumi.get(self, "reservation_block_count")
+
+    @_builtins.property
+    @pulumi.getter(name="reservationMaintenances")
+    def reservation_maintenances(self) -> Sequence['outputs.GetReservationResourceStatusReservationMaintenanceResult']:
+        """
+        Maintenance information for this reservation
+        """
+        return pulumi.get(self, "reservation_maintenances")
+
+    @_builtins.property
+    @pulumi.getter(name="specificSkuAllocations")
+    def specific_sku_allocations(self) -> Sequence['outputs.GetReservationResourceStatusSpecificSkuAllocationResult']:
+        """
+        Allocation Properties of this reservation.
+        """
+        return pulumi.get(self, "specific_sku_allocations")
+
+
+@pulumi.output_type
+class GetReservationResourceStatusHealthInfoResult(dict):
+    def __init__(__self__, *,
+                 degraded_block_count: _builtins.int,
+                 health_status: _builtins.str,
+                 healthy_block_count: _builtins.int):
+        """
+        :param _builtins.int degraded_block_count: The number of reservation blocks that are degraded.
+        :param _builtins.str health_status: The health status of the reservation.
+        :param _builtins.int healthy_block_count: The number of reservation blocks that are healthy.
+        """
+        pulumi.set(__self__, "degraded_block_count", degraded_block_count)
+        pulumi.set(__self__, "health_status", health_status)
+        pulumi.set(__self__, "healthy_block_count", healthy_block_count)
+
+    @_builtins.property
+    @pulumi.getter(name="degradedBlockCount")
+    def degraded_block_count(self) -> _builtins.int:
+        """
+        The number of reservation blocks that are degraded.
+        """
+        return pulumi.get(self, "degraded_block_count")
+
+    @_builtins.property
+    @pulumi.getter(name="healthStatus")
+    def health_status(self) -> _builtins.str:
+        """
+        The health status of the reservation.
+        """
+        return pulumi.get(self, "health_status")
+
+    @_builtins.property
+    @pulumi.getter(name="healthyBlockCount")
+    def healthy_block_count(self) -> _builtins.int:
+        """
+        The number of reservation blocks that are healthy.
+        """
+        return pulumi.get(self, "healthy_block_count")
+
+
+@pulumi.output_type
+class GetReservationResourceStatusReservationMaintenanceResult(dict):
+    def __init__(__self__, *,
+                 instance_maintenance_ongoing_count: _builtins.int,
+                 instance_maintenance_pending_count: _builtins.int,
+                 maintenance_ongoing_count: _builtins.int,
+                 maintenance_pending_count: _builtins.int,
+                 scheduling_type: _builtins.str,
+                 subblock_infra_maintenance_ongoing_count: _builtins.int,
+                 subblock_infra_maintenance_pending_count: _builtins.int,
+                 upcoming_group_maintenances: Sequence['outputs.GetReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceResult']):
+        """
+        :param _builtins.int instance_maintenance_ongoing_count: Describes number of instances that have ongoing maintenance.
+        :param _builtins.int instance_maintenance_pending_count: Describes number of instances that have pending maintenance.
+        :param _builtins.int maintenance_ongoing_count: Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have ongoing maintenance.
+        :param _builtins.int maintenance_pending_count: Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have pending maintenance.
+        :param _builtins.str scheduling_type: The type of maintenance for the reservation.
+        :param _builtins.int subblock_infra_maintenance_ongoing_count: Describes number of subblock Infrastructure that has ongoing maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family(e.g. NVLink Domains). Not all VM Families will support this field.
+        :param _builtins.int subblock_infra_maintenance_pending_count: Describes number of subblock Infrastructure that has pending maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family (e.g. NVLink Domains). Not all VM Families will support this field.
+        :param Sequence['GetReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceArgs'] upcoming_group_maintenances: Maintenance information on this group of VMs.
+        """
+        pulumi.set(__self__, "instance_maintenance_ongoing_count", instance_maintenance_ongoing_count)
+        pulumi.set(__self__, "instance_maintenance_pending_count", instance_maintenance_pending_count)
+        pulumi.set(__self__, "maintenance_ongoing_count", maintenance_ongoing_count)
+        pulumi.set(__self__, "maintenance_pending_count", maintenance_pending_count)
+        pulumi.set(__self__, "scheduling_type", scheduling_type)
+        pulumi.set(__self__, "subblock_infra_maintenance_ongoing_count", subblock_infra_maintenance_ongoing_count)
+        pulumi.set(__self__, "subblock_infra_maintenance_pending_count", subblock_infra_maintenance_pending_count)
+        pulumi.set(__self__, "upcoming_group_maintenances", upcoming_group_maintenances)
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenanceOngoingCount")
+    def instance_maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Describes number of instances that have ongoing maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenancePendingCount")
+    def instance_maintenance_pending_count(self) -> _builtins.int:
+        """
+        Describes number of instances that have pending maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceOngoingCount")
+    def maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have ongoing maintenance.
+        """
+        return pulumi.get(self, "maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenancePendingCount")
+    def maintenance_pending_count(self) -> _builtins.int:
+        """
+        Progress for ongoing maintenance for this group of VMs/hosts. Describes number of hosts in the block that have pending maintenance.
+        """
+        return pulumi.get(self, "maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulingType")
+    def scheduling_type(self) -> _builtins.str:
+        """
+        The type of maintenance for the reservation.
+        """
+        return pulumi.get(self, "scheduling_type")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenanceOngoingCount")
+    def subblock_infra_maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Describes number of subblock Infrastructure that has ongoing maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family(e.g. NVLink Domains). Not all VM Families will support this field.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenancePendingCount")
+    def subblock_infra_maintenance_pending_count(self) -> _builtins.int:
+        """
+        Describes number of subblock Infrastructure that has pending maintenance. Here, Subblock Infrastructure Maintenance pertains to upstream hardware contained in the Subblock that is necessary for a VM Family (e.g. NVLink Domains). Not all VM Families will support this field.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="upcomingGroupMaintenances")
+    def upcoming_group_maintenances(self) -> Sequence['outputs.GetReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceResult']:
+        """
+        Maintenance information on this group of VMs.
+        """
+        return pulumi.get(self, "upcoming_group_maintenances")
+
+
+@pulumi.output_type
+class GetReservationResourceStatusReservationMaintenanceUpcomingGroupMaintenanceResult(dict):
+    def __init__(__self__, *,
+                 can_reschedule: _builtins.bool,
+                 latest_window_start_time: _builtins.str,
+                 maintenance_on_shutdown: _builtins.bool,
+                 maintenance_reasons: Sequence[_builtins.str],
+                 maintenance_status: _builtins.str,
+                 type: _builtins.str,
+                 window_end_time: _builtins.str,
+                 window_start_time: _builtins.str):
+        """
+        :param _builtins.bool can_reschedule: Indicates if the maintenance can be customer triggered.
+        :param _builtins.str latest_window_start_time: The latest time for the planned maintenance window to start. This timestamp value is in RFC3339 text format.
+        :param _builtins.bool maintenance_on_shutdown: Indicates whether the UpcomingMaintenance will be triggered on VM shutdown.
+        :param Sequence[_builtins.str] maintenance_reasons: The reasons for the maintenance. Only valid for vms.
+        :param _builtins.str maintenance_status: Status of the maintenance.
+        :param _builtins.str type: Defines the type of maintenance.
+        :param _builtins.str window_end_time: The time by which the maintenance disruption will be completed. This timestamp value is in RFC3339 text format.
+        :param _builtins.str window_start_time: The current start time of the maintenance window. This timestamp value is in RFC3339 text format.
+        """
+        pulumi.set(__self__, "can_reschedule", can_reschedule)
+        pulumi.set(__self__, "latest_window_start_time", latest_window_start_time)
+        pulumi.set(__self__, "maintenance_on_shutdown", maintenance_on_shutdown)
+        pulumi.set(__self__, "maintenance_reasons", maintenance_reasons)
+        pulumi.set(__self__, "maintenance_status", maintenance_status)
+        pulumi.set(__self__, "type", type)
+        pulumi.set(__self__, "window_end_time", window_end_time)
+        pulumi.set(__self__, "window_start_time", window_start_time)
+
+    @_builtins.property
+    @pulumi.getter(name="canReschedule")
+    def can_reschedule(self) -> _builtins.bool:
+        """
+        Indicates if the maintenance can be customer triggered.
+        """
+        return pulumi.get(self, "can_reschedule")
+
+    @_builtins.property
+    @pulumi.getter(name="latestWindowStartTime")
+    def latest_window_start_time(self) -> _builtins.str:
+        """
+        The latest time for the planned maintenance window to start. This timestamp value is in RFC3339 text format.
+        """
+        return pulumi.get(self, "latest_window_start_time")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceOnShutdown")
+    def maintenance_on_shutdown(self) -> _builtins.bool:
+        """
+        Indicates whether the UpcomingMaintenance will be triggered on VM shutdown.
+        """
+        return pulumi.get(self, "maintenance_on_shutdown")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceReasons")
+    def maintenance_reasons(self) -> Sequence[_builtins.str]:
+        """
+        The reasons for the maintenance. Only valid for vms.
+        """
+        return pulumi.get(self, "maintenance_reasons")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceStatus")
+    def maintenance_status(self) -> _builtins.str:
+        """
+        Status of the maintenance.
+        """
+        return pulumi.get(self, "maintenance_status")
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> _builtins.str:
+        """
+        Defines the type of maintenance.
+        """
+        return pulumi.get(self, "type")
+
+    @_builtins.property
+    @pulumi.getter(name="windowEndTime")
+    def window_end_time(self) -> _builtins.str:
+        """
+        The time by which the maintenance disruption will be completed. This timestamp value is in RFC3339 text format.
+        """
+        return pulumi.get(self, "window_end_time")
+
+    @_builtins.property
+    @pulumi.getter(name="windowStartTime")
+    def window_start_time(self) -> _builtins.str:
+        """
+        The current start time of the maintenance window. This timestamp value is in RFC3339 text format.
+        """
+        return pulumi.get(self, "window_start_time")
+
+
+@pulumi.output_type
+class GetReservationResourceStatusSpecificSkuAllocationResult(dict):
+    def __init__(__self__, *,
+                 source_instance_template_id: _builtins.str,
+                 utilizations: Mapping[str, _builtins.str]):
+        """
+        :param _builtins.str source_instance_template_id: ID of the instance template used to populate reservation properties.
+        :param Mapping[str, _builtins.str] utilizations: Per service utilization breakdown. The Key is the Google Cloud managed service name.
+        """
+        pulumi.set(__self__, "source_instance_template_id", source_instance_template_id)
+        pulumi.set(__self__, "utilizations", utilizations)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceInstanceTemplateId")
+    def source_instance_template_id(self) -> _builtins.str:
+        """
+        ID of the instance template used to populate reservation properties.
+        """
+        return pulumi.get(self, "source_instance_template_id")
+
+    @_builtins.property
+    @pulumi.getter
+    def utilizations(self) -> Mapping[str, _builtins.str]:
+        """
+        Per service utilization breakdown. The Key is the Google Cloud managed service name.
+        """
+        return pulumi.get(self, "utilizations")
 
 
 @pulumi.output_type
@@ -74298,21 +78807,32 @@ class GetReservationShareSettingProjectMapResult(dict):
 @pulumi.output_type
 class GetReservationSpecificReservationResult(dict):
     def __init__(__self__, *,
+                 assured_count: _builtins.int,
                  count: _builtins.int,
                  in_use_count: _builtins.int,
                  instance_properties: Sequence['outputs.GetReservationSpecificReservationInstancePropertyResult'],
                  source_instance_template: _builtins.str):
         """
+        :param _builtins.int assured_count: Indicates how many instances are actually usable currently.
         :param _builtins.int count: The number of resources that are allocated.
         :param _builtins.int in_use_count: How many instances are in use.
         :param Sequence['GetReservationSpecificReservationInstancePropertyArgs'] instance_properties: The instance properties for the reservation.
         :param _builtins.str source_instance_template: Specifies the instance template to create the reservation. If you use this field, you must exclude the
                instanceProperties field.
         """
+        pulumi.set(__self__, "assured_count", assured_count)
         pulumi.set(__self__, "count", count)
         pulumi.set(__self__, "in_use_count", in_use_count)
         pulumi.set(__self__, "instance_properties", instance_properties)
         pulumi.set(__self__, "source_instance_template", source_instance_template)
+
+    @_builtins.property
+    @pulumi.getter(name="assuredCount")
+    def assured_count(self) -> _builtins.int:
+        """
+        Indicates how many instances are actually usable currently.
+        """
+        return pulumi.get(self, "assured_count")
 
     @_builtins.property
     @pulumi.getter
@@ -74353,6 +78873,7 @@ class GetReservationSpecificReservationInstancePropertyResult(dict):
     def __init__(__self__, *,
                  guest_accelerators: Sequence['outputs.GetReservationSpecificReservationInstancePropertyGuestAcceleratorResult'],
                  local_ssds: Sequence['outputs.GetReservationSpecificReservationInstancePropertyLocalSsdResult'],
+                 location_hint: _builtins.str,
                  machine_type: _builtins.str,
                  maintenance_interval: _builtins.str,
                  min_cpu_platform: _builtins.str):
@@ -74360,6 +78881,7 @@ class GetReservationSpecificReservationInstancePropertyResult(dict):
         :param Sequence['GetReservationSpecificReservationInstancePropertyGuestAcceleratorArgs'] guest_accelerators: Guest accelerator type and count.
         :param Sequence['GetReservationSpecificReservationInstancePropertyLocalSsdArgs'] local_ssds: The amount of local ssd to reserve with each instance. This
                reserves disks of type 'local-ssd'.
+        :param _builtins.str location_hint: An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API.
         :param _builtins.str machine_type: The name of the machine type to reserve.
         :param _builtins.str maintenance_interval: Specifies the frequency of planned maintenance events. Possible values: ["AS_NEEDED", "PERIODIC", "RECURRENT"]
         :param _builtins.str min_cpu_platform: The minimum CPU platform for the reservation. For example,
@@ -74369,6 +78891,7 @@ class GetReservationSpecificReservationInstancePropertyResult(dict):
         """
         pulumi.set(__self__, "guest_accelerators", guest_accelerators)
         pulumi.set(__self__, "local_ssds", local_ssds)
+        pulumi.set(__self__, "location_hint", location_hint)
         pulumi.set(__self__, "machine_type", machine_type)
         pulumi.set(__self__, "maintenance_interval", maintenance_interval)
         pulumi.set(__self__, "min_cpu_platform", min_cpu_platform)
@@ -74389,6 +78912,14 @@ class GetReservationSpecificReservationInstancePropertyResult(dict):
         reserves disks of type 'local-ssd'.
         """
         return pulumi.get(self, "local_ssds")
+
+    @_builtins.property
+    @pulumi.getter(name="locationHint")
+    def location_hint(self) -> _builtins.str:
+        """
+        An opaque location hint used to place the allocation close to other resources. This field is for use by internal tools that use the public API.
+        """
+        return pulumi.get(self, "location_hint")
 
     @_builtins.property
     @pulumi.getter(name="machineType")
@@ -74484,6 +79015,192 @@ class GetReservationSpecificReservationInstancePropertyLocalSsdResult(dict):
         The disk interface to use for attaching this disk. Default value: "SCSI" Possible values: ["SCSI", "NVME"]
         """
         return pulumi.get(self, "interface")
+
+
+@pulumi.output_type
+class GetReservationSubBlockHealthInfoResult(dict):
+    def __init__(__self__, *,
+                 degraded_host_count: _builtins.int,
+                 degraded_infra_count: _builtins.int,
+                 health_status: _builtins.str,
+                 healthy_host_count: _builtins.int,
+                 healthy_infra_count: _builtins.int):
+        """
+        :param _builtins.int degraded_host_count: The number of degraded hosts in the reservation sub-block.
+        :param _builtins.int degraded_infra_count: The number of degraded infrastructure (e.g. NVLink domain) in the reservation sub-block.
+        :param _builtins.str health_status: The health status of the reservation sub-block.
+        :param _builtins.int healthy_host_count: The number of healthy hosts in the reservation sub-block.
+        :param _builtins.int healthy_infra_count: The number of healthy infrastructure (e.g. NVLink domain) in the reservation sub-block.
+        """
+        pulumi.set(__self__, "degraded_host_count", degraded_host_count)
+        pulumi.set(__self__, "degraded_infra_count", degraded_infra_count)
+        pulumi.set(__self__, "health_status", health_status)
+        pulumi.set(__self__, "healthy_host_count", healthy_host_count)
+        pulumi.set(__self__, "healthy_infra_count", healthy_infra_count)
+
+    @_builtins.property
+    @pulumi.getter(name="degradedHostCount")
+    def degraded_host_count(self) -> _builtins.int:
+        """
+        The number of degraded hosts in the reservation sub-block.
+        """
+        return pulumi.get(self, "degraded_host_count")
+
+    @_builtins.property
+    @pulumi.getter(name="degradedInfraCount")
+    def degraded_infra_count(self) -> _builtins.int:
+        """
+        The number of degraded infrastructure (e.g. NVLink domain) in the reservation sub-block.
+        """
+        return pulumi.get(self, "degraded_infra_count")
+
+    @_builtins.property
+    @pulumi.getter(name="healthStatus")
+    def health_status(self) -> _builtins.str:
+        """
+        The health status of the reservation sub-block.
+        """
+        return pulumi.get(self, "health_status")
+
+    @_builtins.property
+    @pulumi.getter(name="healthyHostCount")
+    def healthy_host_count(self) -> _builtins.int:
+        """
+        The number of healthy hosts in the reservation sub-block.
+        """
+        return pulumi.get(self, "healthy_host_count")
+
+    @_builtins.property
+    @pulumi.getter(name="healthyInfraCount")
+    def healthy_infra_count(self) -> _builtins.int:
+        """
+        The number of healthy infrastructure (e.g. NVLink domain) in the reservation sub-block.
+        """
+        return pulumi.get(self, "healthy_infra_count")
+
+
+@pulumi.output_type
+class GetReservationSubBlockPhysicalTopologyResult(dict):
+    def __init__(__self__, *,
+                 block: _builtins.str,
+                 cluster: _builtins.str,
+                 sub_block: _builtins.str):
+        """
+        :param _builtins.str block: The hash of the capacity block within the cluster.
+        :param _builtins.str cluster: The cluster name of the reservation sub-block.
+        :param _builtins.str sub_block: The hash of the capacity sub-block within the capacity block.
+        """
+        pulumi.set(__self__, "block", block)
+        pulumi.set(__self__, "cluster", cluster)
+        pulumi.set(__self__, "sub_block", sub_block)
+
+    @_builtins.property
+    @pulumi.getter
+    def block(self) -> _builtins.str:
+        """
+        The hash of the capacity block within the cluster.
+        """
+        return pulumi.get(self, "block")
+
+    @_builtins.property
+    @pulumi.getter
+    def cluster(self) -> _builtins.str:
+        """
+        The cluster name of the reservation sub-block.
+        """
+        return pulumi.get(self, "cluster")
+
+    @_builtins.property
+    @pulumi.getter(name="subBlock")
+    def sub_block(self) -> _builtins.str:
+        """
+        The hash of the capacity sub-block within the capacity block.
+        """
+        return pulumi.get(self, "sub_block")
+
+
+@pulumi.output_type
+class GetReservationSubBlockReservationSubBlockMaintenanceResult(dict):
+    def __init__(__self__, *,
+                 instance_maintenance_ongoing_count: _builtins.int,
+                 instance_maintenance_pending_count: _builtins.int,
+                 maintenance_ongoing_count: _builtins.int,
+                 maintenance_pending_count: _builtins.int,
+                 scheduling_type: _builtins.str,
+                 subblock_infra_maintenance_ongoing_count: _builtins.int,
+                 subblock_infra_maintenance_pending_count: _builtins.int):
+        """
+        :param _builtins.int instance_maintenance_ongoing_count: Number of instances that have ongoing maintenance.
+        :param _builtins.int instance_maintenance_pending_count: Number of instances that have pending maintenance.
+        :param _builtins.int maintenance_ongoing_count: Number of hosts in the sub-block that have ongoing maintenance.
+        :param _builtins.int maintenance_pending_count: Number of hosts in the sub-block that have pending maintenance.
+        :param _builtins.str scheduling_type: The type of maintenance for the reservation.
+        :param _builtins.int subblock_infra_maintenance_ongoing_count: Number of sub-block infrastructure that has ongoing maintenance.
+        :param _builtins.int subblock_infra_maintenance_pending_count: Number of sub-block infrastructure that has pending maintenance.
+        """
+        pulumi.set(__self__, "instance_maintenance_ongoing_count", instance_maintenance_ongoing_count)
+        pulumi.set(__self__, "instance_maintenance_pending_count", instance_maintenance_pending_count)
+        pulumi.set(__self__, "maintenance_ongoing_count", maintenance_ongoing_count)
+        pulumi.set(__self__, "maintenance_pending_count", maintenance_pending_count)
+        pulumi.set(__self__, "scheduling_type", scheduling_type)
+        pulumi.set(__self__, "subblock_infra_maintenance_ongoing_count", subblock_infra_maintenance_ongoing_count)
+        pulumi.set(__self__, "subblock_infra_maintenance_pending_count", subblock_infra_maintenance_pending_count)
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenanceOngoingCount")
+    def instance_maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Number of instances that have ongoing maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="instanceMaintenancePendingCount")
+    def instance_maintenance_pending_count(self) -> _builtins.int:
+        """
+        Number of instances that have pending maintenance.
+        """
+        return pulumi.get(self, "instance_maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenanceOngoingCount")
+    def maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Number of hosts in the sub-block that have ongoing maintenance.
+        """
+        return pulumi.get(self, "maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="maintenancePendingCount")
+    def maintenance_pending_count(self) -> _builtins.int:
+        """
+        Number of hosts in the sub-block that have pending maintenance.
+        """
+        return pulumi.get(self, "maintenance_pending_count")
+
+    @_builtins.property
+    @pulumi.getter(name="schedulingType")
+    def scheduling_type(self) -> _builtins.str:
+        """
+        The type of maintenance for the reservation.
+        """
+        return pulumi.get(self, "scheduling_type")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenanceOngoingCount")
+    def subblock_infra_maintenance_ongoing_count(self) -> _builtins.int:
+        """
+        Number of sub-block infrastructure that has ongoing maintenance.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_ongoing_count")
+
+    @_builtins.property
+    @pulumi.getter(name="subblockInfraMaintenancePendingCount")
+    def subblock_infra_maintenance_pending_count(self) -> _builtins.int:
+        """
+        Number of sub-block infrastructure that has pending maintenance.
+        """
+        return pulumi.get(self, "subblock_infra_maintenance_pending_count")
 
 
 @pulumi.output_type
@@ -76485,6 +81202,370 @@ class GetRouterStatusBestRoutesForRouterWarningDataResult(dict):
 
 
 @pulumi.output_type
+class GetRoutersRouterResult(dict):
+    def __init__(__self__, *,
+                 bgp_peers: Sequence['outputs.GetRoutersRouterBgpPeerResult'],
+                 bgps: Sequence['outputs.GetRoutersRouterBgpResult'],
+                 creation_timestamp: _builtins.str,
+                 description: _builtins.str,
+                 encrypted_interconnect_router: _builtins.bool,
+                 interfaces: Sequence['outputs.GetRoutersRouterInterfaceResult'],
+                 md5_authentication_keys: Sequence['outputs.GetRoutersRouterMd5AuthenticationKeyResult'],
+                 name: _builtins.str,
+                 nats: Sequence['outputs.GetRoutersRouterNatResult'],
+                 network: _builtins.str,
+                 self_link: _builtins.str):
+        pulumi.set(__self__, "bgp_peers", bgp_peers)
+        pulumi.set(__self__, "bgps", bgps)
+        pulumi.set(__self__, "creation_timestamp", creation_timestamp)
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "encrypted_interconnect_router", encrypted_interconnect_router)
+        pulumi.set(__self__, "interfaces", interfaces)
+        pulumi.set(__self__, "md5_authentication_keys", md5_authentication_keys)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "nats", nats)
+        pulumi.set(__self__, "network", network)
+        pulumi.set(__self__, "self_link", self_link)
+
+    @_builtins.property
+    @pulumi.getter(name="bgpPeers")
+    def bgp_peers(self) -> Sequence['outputs.GetRoutersRouterBgpPeerResult']:
+        return pulumi.get(self, "bgp_peers")
+
+    @_builtins.property
+    @pulumi.getter
+    def bgps(self) -> Sequence['outputs.GetRoutersRouterBgpResult']:
+        return pulumi.get(self, "bgps")
+
+    @_builtins.property
+    @pulumi.getter(name="creationTimestamp")
+    def creation_timestamp(self) -> _builtins.str:
+        return pulumi.get(self, "creation_timestamp")
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter(name="encryptedInterconnectRouter")
+    def encrypted_interconnect_router(self) -> _builtins.bool:
+        return pulumi.get(self, "encrypted_interconnect_router")
+
+    @_builtins.property
+    @pulumi.getter
+    def interfaces(self) -> Sequence['outputs.GetRoutersRouterInterfaceResult']:
+        return pulumi.get(self, "interfaces")
+
+    @_builtins.property
+    @pulumi.getter(name="md5AuthenticationKeys")
+    def md5_authentication_keys(self) -> Sequence['outputs.GetRoutersRouterMd5AuthenticationKeyResult']:
+        return pulumi.get(self, "md5_authentication_keys")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def nats(self) -> Sequence['outputs.GetRoutersRouterNatResult']:
+        return pulumi.get(self, "nats")
+
+    @_builtins.property
+    @pulumi.getter
+    def network(self) -> _builtins.str:
+        return pulumi.get(self, "network")
+
+    @_builtins.property
+    @pulumi.getter(name="selfLink")
+    def self_link(self) -> _builtins.str:
+        return pulumi.get(self, "self_link")
+
+
+@pulumi.output_type
+class GetRoutersRouterBgpResult(dict):
+    def __init__(__self__, *,
+                 advertise_mode: _builtins.str,
+                 advertised_groups: Sequence[_builtins.str],
+                 advertised_ip_ranges: Sequence['outputs.GetRoutersRouterBgpAdvertisedIpRangeResult'],
+                 asn: _builtins.int,
+                 keepalive_interval: _builtins.int):
+        pulumi.set(__self__, "advertise_mode", advertise_mode)
+        pulumi.set(__self__, "advertised_groups", advertised_groups)
+        pulumi.set(__self__, "advertised_ip_ranges", advertised_ip_ranges)
+        pulumi.set(__self__, "asn", asn)
+        pulumi.set(__self__, "keepalive_interval", keepalive_interval)
+
+    @_builtins.property
+    @pulumi.getter(name="advertiseMode")
+    def advertise_mode(self) -> _builtins.str:
+        return pulumi.get(self, "advertise_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="advertisedGroups")
+    def advertised_groups(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "advertised_groups")
+
+    @_builtins.property
+    @pulumi.getter(name="advertisedIpRanges")
+    def advertised_ip_ranges(self) -> Sequence['outputs.GetRoutersRouterBgpAdvertisedIpRangeResult']:
+        return pulumi.get(self, "advertised_ip_ranges")
+
+    @_builtins.property
+    @pulumi.getter
+    def asn(self) -> _builtins.int:
+        return pulumi.get(self, "asn")
+
+    @_builtins.property
+    @pulumi.getter(name="keepaliveInterval")
+    def keepalive_interval(self) -> _builtins.int:
+        return pulumi.get(self, "keepalive_interval")
+
+
+@pulumi.output_type
+class GetRoutersRouterBgpAdvertisedIpRangeResult(dict):
+    def __init__(__self__, *,
+                 description: _builtins.str,
+                 range: _builtins.str):
+        pulumi.set(__self__, "description", description)
+        pulumi.set(__self__, "range", range)
+
+    @_builtins.property
+    @pulumi.getter
+    def description(self) -> _builtins.str:
+        return pulumi.get(self, "description")
+
+    @_builtins.property
+    @pulumi.getter
+    def range(self) -> _builtins.str:
+        return pulumi.get(self, "range")
+
+
+@pulumi.output_type
+class GetRoutersRouterBgpPeerResult(dict):
+    def __init__(__self__, *,
+                 advertise_mode: _builtins.str,
+                 advertised_route_priority: _builtins.int,
+                 enable: _builtins.str,
+                 enable_ipv6: _builtins.bool,
+                 interface_name: _builtins.str,
+                 ip_address: _builtins.str,
+                 management_type: _builtins.str,
+                 name: _builtins.str,
+                 peer_asn: _builtins.int,
+                 peer_ip_address: _builtins.str):
+        pulumi.set(__self__, "advertise_mode", advertise_mode)
+        pulumi.set(__self__, "advertised_route_priority", advertised_route_priority)
+        pulumi.set(__self__, "enable", enable)
+        pulumi.set(__self__, "enable_ipv6", enable_ipv6)
+        pulumi.set(__self__, "interface_name", interface_name)
+        pulumi.set(__self__, "ip_address", ip_address)
+        pulumi.set(__self__, "management_type", management_type)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "peer_asn", peer_asn)
+        pulumi.set(__self__, "peer_ip_address", peer_ip_address)
+
+    @_builtins.property
+    @pulumi.getter(name="advertiseMode")
+    def advertise_mode(self) -> _builtins.str:
+        return pulumi.get(self, "advertise_mode")
+
+    @_builtins.property
+    @pulumi.getter(name="advertisedRoutePriority")
+    def advertised_route_priority(self) -> _builtins.int:
+        return pulumi.get(self, "advertised_route_priority")
+
+    @_builtins.property
+    @pulumi.getter
+    def enable(self) -> _builtins.str:
+        return pulumi.get(self, "enable")
+
+    @_builtins.property
+    @pulumi.getter(name="enableIpv6")
+    def enable_ipv6(self) -> _builtins.bool:
+        return pulumi.get(self, "enable_ipv6")
+
+    @_builtins.property
+    @pulumi.getter(name="interfaceName")
+    def interface_name(self) -> _builtins.str:
+        return pulumi.get(self, "interface_name")
+
+    @_builtins.property
+    @pulumi.getter(name="ipAddress")
+    def ip_address(self) -> _builtins.str:
+        return pulumi.get(self, "ip_address")
+
+    @_builtins.property
+    @pulumi.getter(name="managementType")
+    def management_type(self) -> _builtins.str:
+        return pulumi.get(self, "management_type")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="peerAsn")
+    def peer_asn(self) -> _builtins.int:
+        return pulumi.get(self, "peer_asn")
+
+    @_builtins.property
+    @pulumi.getter(name="peerIpAddress")
+    def peer_ip_address(self) -> _builtins.str:
+        return pulumi.get(self, "peer_ip_address")
+
+
+@pulumi.output_type
+class GetRoutersRouterInterfaceResult(dict):
+    def __init__(__self__, *,
+                 ip_range: _builtins.str,
+                 linked_interconnect_attachment: _builtins.str,
+                 linked_vpn_tunnel: _builtins.str,
+                 name: _builtins.str,
+                 private_ip_address: _builtins.str,
+                 redundant_interface: _builtins.str,
+                 subnetwork: _builtins.str):
+        pulumi.set(__self__, "ip_range", ip_range)
+        pulumi.set(__self__, "linked_interconnect_attachment", linked_interconnect_attachment)
+        pulumi.set(__self__, "linked_vpn_tunnel", linked_vpn_tunnel)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "private_ip_address", private_ip_address)
+        pulumi.set(__self__, "redundant_interface", redundant_interface)
+        pulumi.set(__self__, "subnetwork", subnetwork)
+
+    @_builtins.property
+    @pulumi.getter(name="ipRange")
+    def ip_range(self) -> _builtins.str:
+        return pulumi.get(self, "ip_range")
+
+    @_builtins.property
+    @pulumi.getter(name="linkedInterconnectAttachment")
+    def linked_interconnect_attachment(self) -> _builtins.str:
+        return pulumi.get(self, "linked_interconnect_attachment")
+
+    @_builtins.property
+    @pulumi.getter(name="linkedVpnTunnel")
+    def linked_vpn_tunnel(self) -> _builtins.str:
+        return pulumi.get(self, "linked_vpn_tunnel")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="privateIpAddress")
+    def private_ip_address(self) -> _builtins.str:
+        return pulumi.get(self, "private_ip_address")
+
+    @_builtins.property
+    @pulumi.getter(name="redundantInterface")
+    def redundant_interface(self) -> _builtins.str:
+        return pulumi.get(self, "redundant_interface")
+
+    @_builtins.property
+    @pulumi.getter
+    def subnetwork(self) -> _builtins.str:
+        return pulumi.get(self, "subnetwork")
+
+
+@pulumi.output_type
+class GetRoutersRouterMd5AuthenticationKeyResult(dict):
+    def __init__(__self__, *,
+                 key: _builtins.str,
+                 name: _builtins.str):
+        pulumi.set(__self__, "key", key)
+        pulumi.set(__self__, "name", name)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> _builtins.str:
+        return pulumi.get(self, "key")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+
+@pulumi.output_type
+class GetRoutersRouterNatResult(dict):
+    def __init__(__self__, *,
+                 enable_endpoint_independent_mapping: _builtins.bool,
+                 icmp_idle_timeout_sec: _builtins.int,
+                 min_ports_per_vm: _builtins.int,
+                 name: _builtins.str,
+                 nat_ip_allocate_option: _builtins.str,
+                 nat_ips: Sequence[_builtins.str],
+                 source_subnetwork_ip_ranges_to_nat: _builtins.str,
+                 tcp_established_idle_timeout_sec: _builtins.int,
+                 tcp_transitory_idle_timeout_sec: _builtins.int,
+                 udp_idle_timeout_sec: _builtins.int):
+        pulumi.set(__self__, "enable_endpoint_independent_mapping", enable_endpoint_independent_mapping)
+        pulumi.set(__self__, "icmp_idle_timeout_sec", icmp_idle_timeout_sec)
+        pulumi.set(__self__, "min_ports_per_vm", min_ports_per_vm)
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "nat_ip_allocate_option", nat_ip_allocate_option)
+        pulumi.set(__self__, "nat_ips", nat_ips)
+        pulumi.set(__self__, "source_subnetwork_ip_ranges_to_nat", source_subnetwork_ip_ranges_to_nat)
+        pulumi.set(__self__, "tcp_established_idle_timeout_sec", tcp_established_idle_timeout_sec)
+        pulumi.set(__self__, "tcp_transitory_idle_timeout_sec", tcp_transitory_idle_timeout_sec)
+        pulumi.set(__self__, "udp_idle_timeout_sec", udp_idle_timeout_sec)
+
+    @_builtins.property
+    @pulumi.getter(name="enableEndpointIndependentMapping")
+    def enable_endpoint_independent_mapping(self) -> _builtins.bool:
+        return pulumi.get(self, "enable_endpoint_independent_mapping")
+
+    @_builtins.property
+    @pulumi.getter(name="icmpIdleTimeoutSec")
+    def icmp_idle_timeout_sec(self) -> _builtins.int:
+        return pulumi.get(self, "icmp_idle_timeout_sec")
+
+    @_builtins.property
+    @pulumi.getter(name="minPortsPerVm")
+    def min_ports_per_vm(self) -> _builtins.int:
+        return pulumi.get(self, "min_ports_per_vm")
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter(name="natIpAllocateOption")
+    def nat_ip_allocate_option(self) -> _builtins.str:
+        return pulumi.get(self, "nat_ip_allocate_option")
+
+    @_builtins.property
+    @pulumi.getter(name="natIps")
+    def nat_ips(self) -> Sequence[_builtins.str]:
+        return pulumi.get(self, "nat_ips")
+
+    @_builtins.property
+    @pulumi.getter(name="sourceSubnetworkIpRangesToNat")
+    def source_subnetwork_ip_ranges_to_nat(self) -> _builtins.str:
+        return pulumi.get(self, "source_subnetwork_ip_ranges_to_nat")
+
+    @_builtins.property
+    @pulumi.getter(name="tcpEstablishedIdleTimeoutSec")
+    def tcp_established_idle_timeout_sec(self) -> _builtins.int:
+        return pulumi.get(self, "tcp_established_idle_timeout_sec")
+
+    @_builtins.property
+    @pulumi.getter(name="tcpTransitoryIdleTimeoutSec")
+    def tcp_transitory_idle_timeout_sec(self) -> _builtins.int:
+        return pulumi.get(self, "tcp_transitory_idle_timeout_sec")
+
+    @_builtins.property
+    @pulumi.getter(name="udpIdleTimeoutSec")
+    def udp_idle_timeout_sec(self) -> _builtins.int:
+        return pulumi.get(self, "udp_idle_timeout_sec")
+
+
+@pulumi.output_type
 class GetSecurityPolicyAdaptiveProtectionConfigResult(dict):
     def __init__(__self__, *,
                  auto_deploy_configs: Sequence['outputs.GetSecurityPolicyAdaptiveProtectionConfigAutoDeployConfigResult'],
@@ -77686,6 +82767,258 @@ class GetSnapshotSourceDiskEncryptionKeyResult(dict):
         RFC 4648 base64 to either encrypt or decrypt this resource.
         """
         return pulumi.get(self, "rsa_encrypted_key")
+
+
+@pulumi.output_type
+class GetStoragePoolResourceStatusResult(dict):
+    def __init__(__self__, *,
+                 disk_count: _builtins.str,
+                 last_resize_timestamp: _builtins.str,
+                 max_total_provisioned_disk_capacity_gb: _builtins.str,
+                 pool_used_capacity_bytes: _builtins.str,
+                 pool_used_iops: _builtins.str,
+                 pool_used_throughput: _builtins.str,
+                 pool_user_written_bytes: _builtins.str,
+                 total_provisioned_disk_capacity_gb: _builtins.str,
+                 total_provisioned_disk_iops: _builtins.str,
+                 total_provisioned_disk_throughput: _builtins.str):
+        """
+        :param _builtins.str disk_count: Number of disks used.
+        :param _builtins.str last_resize_timestamp: Timestamp of the last successful resize in RFC3339 text format.
+        :param _builtins.str max_total_provisioned_disk_capacity_gb: Maximum allowed aggregate disk size in gigabytes.
+        :param _builtins.str pool_used_capacity_bytes: Space used by data stored in disks within the storage pool (in bytes).
+               This will reflect the total number of bytes written to the disks in the pool,
+               in contrast to the capacity of those disks.
+        :param _builtins.str pool_used_iops: Sum of all the disks' provisioned IOPS, minus some amount
+               that is allowed per disk that is not counted towards pool's IOPS capacity.
+               For more information, see https://cloud.google.com/compute/docs/disks/storage-pools.
+        :param _builtins.str pool_used_throughput: Sum of all the disks' provisioned throughput in MB/s.
+        :param _builtins.str pool_user_written_bytes: Amount of data written into the pool, before it is compacted.
+        :param _builtins.str total_provisioned_disk_capacity_gb: Sum of all the capacity provisioned in disks in this storage pool.
+               A disk's provisioned capacity is the same as its total capacity.
+        :param _builtins.str total_provisioned_disk_iops: Sum of all the disks' provisioned IOPS.
+        :param _builtins.str total_provisioned_disk_throughput: Sum of all the disks' provisioned throughput in MB/s,
+               minus some amount that is allowed per disk that is not counted towards pool's throughput capacity.
+        """
+        pulumi.set(__self__, "disk_count", disk_count)
+        pulumi.set(__self__, "last_resize_timestamp", last_resize_timestamp)
+        pulumi.set(__self__, "max_total_provisioned_disk_capacity_gb", max_total_provisioned_disk_capacity_gb)
+        pulumi.set(__self__, "pool_used_capacity_bytes", pool_used_capacity_bytes)
+        pulumi.set(__self__, "pool_used_iops", pool_used_iops)
+        pulumi.set(__self__, "pool_used_throughput", pool_used_throughput)
+        pulumi.set(__self__, "pool_user_written_bytes", pool_user_written_bytes)
+        pulumi.set(__self__, "total_provisioned_disk_capacity_gb", total_provisioned_disk_capacity_gb)
+        pulumi.set(__self__, "total_provisioned_disk_iops", total_provisioned_disk_iops)
+        pulumi.set(__self__, "total_provisioned_disk_throughput", total_provisioned_disk_throughput)
+
+    @_builtins.property
+    @pulumi.getter(name="diskCount")
+    def disk_count(self) -> _builtins.str:
+        """
+        Number of disks used.
+        """
+        return pulumi.get(self, "disk_count")
+
+    @_builtins.property
+    @pulumi.getter(name="lastResizeTimestamp")
+    def last_resize_timestamp(self) -> _builtins.str:
+        """
+        Timestamp of the last successful resize in RFC3339 text format.
+        """
+        return pulumi.get(self, "last_resize_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTotalProvisionedDiskCapacityGb")
+    def max_total_provisioned_disk_capacity_gb(self) -> _builtins.str:
+        """
+        Maximum allowed aggregate disk size in gigabytes.
+        """
+        return pulumi.get(self, "max_total_provisioned_disk_capacity_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUsedCapacityBytes")
+    def pool_used_capacity_bytes(self) -> _builtins.str:
+        """
+        Space used by data stored in disks within the storage pool (in bytes).
+        This will reflect the total number of bytes written to the disks in the pool,
+        in contrast to the capacity of those disks.
+        """
+        return pulumi.get(self, "pool_used_capacity_bytes")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUsedIops")
+    def pool_used_iops(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned IOPS, minus some amount
+        that is allowed per disk that is not counted towards pool's IOPS capacity.
+        For more information, see https://cloud.google.com/compute/docs/disks/storage-pools.
+        """
+        return pulumi.get(self, "pool_used_iops")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUsedThroughput")
+    def pool_used_throughput(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned throughput in MB/s.
+        """
+        return pulumi.get(self, "pool_used_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUserWrittenBytes")
+    def pool_user_written_bytes(self) -> _builtins.str:
+        """
+        Amount of data written into the pool, before it is compacted.
+        """
+        return pulumi.get(self, "pool_user_written_bytes")
+
+    @_builtins.property
+    @pulumi.getter(name="totalProvisionedDiskCapacityGb")
+    def total_provisioned_disk_capacity_gb(self) -> _builtins.str:
+        """
+        Sum of all the capacity provisioned in disks in this storage pool.
+        A disk's provisioned capacity is the same as its total capacity.
+        """
+        return pulumi.get(self, "total_provisioned_disk_capacity_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="totalProvisionedDiskIops")
+    def total_provisioned_disk_iops(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned IOPS.
+        """
+        return pulumi.get(self, "total_provisioned_disk_iops")
+
+    @_builtins.property
+    @pulumi.getter(name="totalProvisionedDiskThroughput")
+    def total_provisioned_disk_throughput(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned throughput in MB/s,
+        minus some amount that is allowed per disk that is not counted towards pool's throughput capacity.
+        """
+        return pulumi.get(self, "total_provisioned_disk_throughput")
+
+
+@pulumi.output_type
+class GetStoragePoolStatusResult(dict):
+    def __init__(__self__, *,
+                 disk_count: _builtins.str,
+                 last_resize_timestamp: _builtins.str,
+                 max_total_provisioned_disk_capacity_gb: _builtins.str,
+                 pool_used_capacity_bytes: _builtins.str,
+                 pool_used_iops: _builtins.str,
+                 pool_used_throughput: _builtins.str,
+                 pool_user_written_bytes: _builtins.str,
+                 total_provisioned_disk_capacity_gb: _builtins.str,
+                 total_provisioned_disk_iops: _builtins.str,
+                 total_provisioned_disk_throughput: _builtins.str):
+        """
+        :param _builtins.str disk_count: Number of disks used.
+        :param _builtins.str last_resize_timestamp: Timestamp of the last successful resize in RFC3339 text format.
+        :param _builtins.str max_total_provisioned_disk_capacity_gb: Maximum allowed aggregate disk size in gigabytes.
+        :param _builtins.str pool_used_capacity_bytes: Space used by data stored in disks within the storage pool (in bytes).
+               This will reflect the total number of bytes written to the disks in the pool, in contrast to the capacity of those disks.
+        :param _builtins.str pool_used_iops: Sum of all the disks' provisioned IOPS, minus some amount that is allowed per disk that is not counted towards pool's IOPS capacity. For more information, see https://cloud.google.com/compute/docs/disks/storage-pools.
+        :param _builtins.str pool_used_throughput: Sum of all the disks' provisioned throughput in MB/s.
+        :param _builtins.str pool_user_written_bytes: Amount of data written into the pool, before it is compacted.
+        :param _builtins.str total_provisioned_disk_capacity_gb: Sum of all the capacity provisioned in disks in this storage pool.
+               A disk's provisioned capacity is the same as its total capacity.
+        :param _builtins.str total_provisioned_disk_iops: Sum of all the disks' provisioned IOPS.
+        :param _builtins.str total_provisioned_disk_throughput: Sum of all the disks' provisioned throughput in MB/s,
+               minus some amount that is allowed per disk that is not counted towards pool's throughput capacity.
+        """
+        pulumi.set(__self__, "disk_count", disk_count)
+        pulumi.set(__self__, "last_resize_timestamp", last_resize_timestamp)
+        pulumi.set(__self__, "max_total_provisioned_disk_capacity_gb", max_total_provisioned_disk_capacity_gb)
+        pulumi.set(__self__, "pool_used_capacity_bytes", pool_used_capacity_bytes)
+        pulumi.set(__self__, "pool_used_iops", pool_used_iops)
+        pulumi.set(__self__, "pool_used_throughput", pool_used_throughput)
+        pulumi.set(__self__, "pool_user_written_bytes", pool_user_written_bytes)
+        pulumi.set(__self__, "total_provisioned_disk_capacity_gb", total_provisioned_disk_capacity_gb)
+        pulumi.set(__self__, "total_provisioned_disk_iops", total_provisioned_disk_iops)
+        pulumi.set(__self__, "total_provisioned_disk_throughput", total_provisioned_disk_throughput)
+
+    @_builtins.property
+    @pulumi.getter(name="diskCount")
+    def disk_count(self) -> _builtins.str:
+        """
+        Number of disks used.
+        """
+        return pulumi.get(self, "disk_count")
+
+    @_builtins.property
+    @pulumi.getter(name="lastResizeTimestamp")
+    def last_resize_timestamp(self) -> _builtins.str:
+        """
+        Timestamp of the last successful resize in RFC3339 text format.
+        """
+        return pulumi.get(self, "last_resize_timestamp")
+
+    @_builtins.property
+    @pulumi.getter(name="maxTotalProvisionedDiskCapacityGb")
+    def max_total_provisioned_disk_capacity_gb(self) -> _builtins.str:
+        """
+        Maximum allowed aggregate disk size in gigabytes.
+        """
+        return pulumi.get(self, "max_total_provisioned_disk_capacity_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUsedCapacityBytes")
+    def pool_used_capacity_bytes(self) -> _builtins.str:
+        """
+        Space used by data stored in disks within the storage pool (in bytes).
+        This will reflect the total number of bytes written to the disks in the pool, in contrast to the capacity of those disks.
+        """
+        return pulumi.get(self, "pool_used_capacity_bytes")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUsedIops")
+    def pool_used_iops(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned IOPS, minus some amount that is allowed per disk that is not counted towards pool's IOPS capacity. For more information, see https://cloud.google.com/compute/docs/disks/storage-pools.
+        """
+        return pulumi.get(self, "pool_used_iops")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUsedThroughput")
+    def pool_used_throughput(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned throughput in MB/s.
+        """
+        return pulumi.get(self, "pool_used_throughput")
+
+    @_builtins.property
+    @pulumi.getter(name="poolUserWrittenBytes")
+    def pool_user_written_bytes(self) -> _builtins.str:
+        """
+        Amount of data written into the pool, before it is compacted.
+        """
+        return pulumi.get(self, "pool_user_written_bytes")
+
+    @_builtins.property
+    @pulumi.getter(name="totalProvisionedDiskCapacityGb")
+    def total_provisioned_disk_capacity_gb(self) -> _builtins.str:
+        """
+        Sum of all the capacity provisioned in disks in this storage pool.
+        A disk's provisioned capacity is the same as its total capacity.
+        """
+        return pulumi.get(self, "total_provisioned_disk_capacity_gb")
+
+    @_builtins.property
+    @pulumi.getter(name="totalProvisionedDiskIops")
+    def total_provisioned_disk_iops(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned IOPS.
+        """
+        return pulumi.get(self, "total_provisioned_disk_iops")
+
+    @_builtins.property
+    @pulumi.getter(name="totalProvisionedDiskThroughput")
+    def total_provisioned_disk_throughput(self) -> _builtins.str:
+        """
+        Sum of all the disks' provisioned throughput in MB/s,
+        minus some amount that is allowed per disk that is not counted towards pool's throughput capacity.
+        """
+        return pulumi.get(self, "total_provisioned_disk_throughput")
 
 
 @pulumi.output_type

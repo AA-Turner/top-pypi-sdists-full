@@ -49,6 +49,7 @@ def _has_legacy_condition(condition: AutomationCondition):
 
 @dataclass(frozen=True)
 class AutomationContext(Generic[T_EntityKey]):
+    evaluation_id: int
     condition: AutomationCondition
     condition_unique_ids: Sequence[str]
     candidate_subset: EntitySubset[T_EntityKey]
@@ -72,7 +73,9 @@ class AutomationContext(Generic[T_EntityKey]):
         condition = check.not_none(
             evaluator.asset_graph.get(key).automation_condition or evaluator.default_condition
         )
-        unique_ids = condition.get_node_unique_ids(parent_unique_ids=[None], child_indices=[None])
+        unique_ids = condition.get_node_unique_ids(
+            parent_unique_ids=[None], child_indices=[None], target_key=None
+        )
 
         return AutomationContext(
             condition=condition,
@@ -82,6 +85,7 @@ class AutomationContext(Generic[T_EntityKey]):
             asset_graph_view=asset_graph_view,
             request_subsets_by_key=evaluator.request_subsets_by_key,
             parent_context=None,
+            evaluation_id=evaluator.evaluation_id,
             _cursor=evaluator.cursor.get_previous_condition_cursor(key),
             _full_cursor=evaluator.cursor,
             _legacy_context=LegacyRuleEvaluationContext.create(key, evaluator)
@@ -99,7 +103,11 @@ class AutomationContext(Generic[T_EntityKey]):
         check.invariant(len(child_indices) > 0, "Must be at least one child index")
 
         unique_ids = child_condition.get_node_unique_ids(
-            parent_unique_ids=self.condition_unique_ids, child_indices=child_indices
+            parent_unique_ids=self.condition_unique_ids,
+            child_indices=child_indices,
+            target_key=candidate_subset.key
+            if candidate_subset.key != self.root_context.key
+            else None,
         )
         return AutomationContext(
             condition=child_condition,
@@ -109,6 +117,7 @@ class AutomationContext(Generic[T_EntityKey]):
             asset_graph_view=self.asset_graph_view,
             request_subsets_by_key=self.request_subsets_by_key,
             parent_context=self,
+            evaluation_id=self.evaluation_id,
             _cursor=self._cursor,
             _full_cursor=self._full_cursor,
             _legacy_context=self._legacy_context.for_child(
@@ -223,13 +232,6 @@ class AutomationContext(Generic[T_EntityKey]):
     def previous_temporal_context(self) -> Optional[TemporalContext]:
         """The `temporal_context` value used on the previous tick's evaluation."""
         return self._cursor.temporal_context if self._cursor else None
-
-    @property
-    def evaluation_id(self) -> int:
-        """Returns the current evaluation ID. This ID is incremented for each tick
-        and is global across all conditions.
-        """
-        return self._full_cursor.evaluation_id
 
     @property
     def legacy_context(self) -> LegacyRuleEvaluationContext:

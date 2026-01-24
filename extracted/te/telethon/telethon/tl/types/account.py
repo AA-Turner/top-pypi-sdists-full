@@ -269,10 +269,10 @@ class BusinessChatLinks(TLObject):
 
 
 class ChatThemes(TLObject):
-    CONSTRUCTOR_ID = 0x16484857
+    CONSTRUCTOR_ID = 0xbe098173
     SUBCLASS_OF_ID = 0x15c14aa8
 
-    def __init__(self, hash: int, themes: List['TypeChatTheme'], chats: List['TypeChat'], users: List['TypeUser'], next_offset: Optional[int]=None):
+    def __init__(self, hash: int, themes: List['TypeChatTheme'], chats: List['TypeChat'], users: List['TypeUser'], next_offset: Optional[str]=None):
         """
         Constructor for account.ChatThemes: Instance of either ChatThemesNotModified, ChatThemes.
         """
@@ -294,13 +294,13 @@ class ChatThemes(TLObject):
 
     def _bytes(self):
         return b''.join((
-            b'WHH\x16',
+            b's\x81\t\xbe',
             struct.pack('<I', (0 if self.next_offset is None or self.next_offset is False else 1)),
             struct.pack('<q', self.hash),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.themes)),b''.join(x._bytes() for x in self.themes),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.chats)),b''.join(x._bytes() for x in self.chats),
             b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.users)),b''.join(x._bytes() for x in self.users),
-            b'' if self.next_offset is None or self.next_offset is False else (struct.pack('<i', self.next_offset)),
+            b'' if self.next_offset is None or self.next_offset is False else (self.serialize_bytes(self.next_offset)),
         ))
 
     @classmethod
@@ -327,7 +327,7 @@ class ChatThemes(TLObject):
             _users.append(_x)
 
         if flags & 1:
-            _next_offset = reader.read_int()
+            _next_offset = reader.tgread_string()
         else:
             _next_offset = None
         return cls(hash=_hash, themes=_themes, chats=_chats, users=_users, next_offset=_next_offset)

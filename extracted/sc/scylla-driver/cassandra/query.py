@@ -345,6 +345,9 @@ class Statement(object):
     def _del_serial_consistency_level(self):
         self._serial_consistency_level = None
 
+    def is_lwt(self):
+        return False
+
     serial_consistency_level = property(
         _get_serial_consistency_level,
         _set_serial_consistency_level,
@@ -454,10 +457,11 @@ class PreparedStatement(object):
     routing_key_indexes = None
     _routing_key_index_set = None
     serial_consistency_level = None  # TODO never used?
+    _is_lwt = False
 
     def __init__(self, column_metadata, query_id, routing_key_indexes, query,
                  keyspace, protocol_version, result_metadata, result_metadata_id,
-                 column_encryption_policy=None):
+                 is_lwt=False, column_encryption_policy=None):
         self.column_metadata = column_metadata
         self.query_id = query_id
         self.routing_key_indexes = routing_key_indexes
@@ -468,15 +472,16 @@ class PreparedStatement(object):
         self.result_metadata_id = result_metadata_id
         self.column_encryption_policy = column_encryption_policy
         self.is_idempotent = False
+        self._is_lwt = is_lwt
 
     @classmethod
     def from_message(cls, query_id, column_metadata, pk_indexes, cluster_metadata,
                      query, prepared_keyspace, protocol_version, result_metadata,
-                     result_metadata_id, column_encryption_policy=None):
+                     result_metadata_id, is_lwt, column_encryption_policy=None):
         if not column_metadata:
             return PreparedStatement(column_metadata, query_id, None,
                                      query, prepared_keyspace, protocol_version, result_metadata,
-                                     result_metadata_id, column_encryption_policy)
+                                     result_metadata_id, is_lwt, column_encryption_policy)
 
         if pk_indexes:
             routing_key_indexes = pk_indexes
@@ -502,7 +507,7 @@ class PreparedStatement(object):
 
         return PreparedStatement(column_metadata, query_id, routing_key_indexes,
                                  query, prepared_keyspace, protocol_version, result_metadata,
-                                 result_metadata_id, column_encryption_policy)
+                                 result_metadata_id, is_lwt, column_encryption_policy)
 
     def bind(self, values):
         """
@@ -516,6 +521,9 @@ class PreparedStatement(object):
         if self._routing_key_index_set is None:
             self._routing_key_index_set = set(self.routing_key_indexes) if self.routing_key_indexes else set()
         return i in self._routing_key_index_set
+
+    def is_lwt(self):
+        return self._is_lwt
 
     def __str__(self):
         consistency = ConsistencyLevel.value_to_name.get(self.consistency_level, 'Not Set')
@@ -682,6 +690,9 @@ class BoundStatement(Statement):
 
         return self._routing_key
 
+    def is_lwt(self):
+        return self.prepared_statement.is_lwt()
+
     def __str__(self):
         consistency = ConsistencyLevel.value_to_name.get(self.consistency_level, 'Not Set')
         return (u'<BoundStatement query="%s", values=%s, consistency=%s>' %
@@ -750,6 +761,7 @@ class BatchStatement(Statement):
 
     _statements_and_parameters = None
     _session = None
+    _is_lwt = False
 
     def __init__(self, batch_type=BatchType.LOGGED, retry_policy=None,
                  consistency_level=None, serial_consistency_level=None,
@@ -834,6 +846,8 @@ class BatchStatement(Statement):
             query_id = statement.query_id
             bound_statement = statement.bind(() if parameters is None else parameters)
             self._update_state(bound_statement)
+            if statement.is_lwt():
+                self._is_lwt = True
             self._add_statement_and_params(True, query_id, bound_statement.values)
         elif isinstance(statement, BoundStatement):
             if parameters:
@@ -841,6 +855,8 @@ class BatchStatement(Statement):
                     "Parameters cannot be passed with a BoundStatement "
                     "to BatchStatement.add()")
             self._update_state(statement)
+            if statement.is_lwt():
+                self._is_lwt = True
             self._add_statement_and_params(True, statement.prepared_statement.query_id, statement.values)
         else:
             # it must be a SimpleStatement
@@ -849,6 +865,8 @@ class BatchStatement(Statement):
                 encoder = Encoder() if self._session is None else self._session.encoder
                 query_string = bind_params(query_string, parameters, encoder)
             self._update_state(statement)
+            if statement.is_lwt():
+                self._is_lwt = True
             self._add_statement_and_params(False, query_string, ())
         return self
 
@@ -881,6 +899,9 @@ class BatchStatement(Statement):
     def _update_state(self, statement):
         self._maybe_set_routing_attributes(statement)
         self._update_custom_payload(statement)
+
+    def is_lwt(self):
+        return self._is_lwt
 
     def __len__(self):
         return len(self._statements_and_parameters)

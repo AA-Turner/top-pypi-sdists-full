@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2024–2025, Daily
+# Copyright (c) 2024-2026, Daily
 #
 # SPDX-License-Identifier: BSD 2-Clause License
 #
@@ -42,6 +42,11 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
     to the specific format required by Anthropic's Claude models for function calling.
     """
 
+    @property
+    def id_for_llm_specific_messages(self) -> str:
+        """Get the identifier used in LLMSpecificMessage instances for Anthropic."""
+        return "anthropic"
+
     def get_llm_invocation_params(
         self, context: LLMContext, enable_prompt_caching: bool
     ) -> AnthropicLLMInvocationParams:
@@ -54,7 +59,7 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
         Returns:
             Dictionary of parameters for invoking Anthropic's LLM API.
         """
-        messages = self._from_universal_context_messages(self._get_messages(context))
+        messages = self._from_universal_context_messages(self.get_messages(context))
         return {
             "system": messages.system,
             "messages": (
@@ -78,7 +83,7 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
             List of messages in a format ready for logging about Anthropic.
         """
         # Get messages in Anthropic's format
-        messages = self._from_universal_context_messages(self._get_messages(context)).messages
+        messages = self._from_universal_context_messages(self.get_messages(context)).messages
 
         # Sanitize messages for logging
         messages_for_logging = []
@@ -89,11 +94,10 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
                     for item in msg["content"]:
                         if item["type"] == "image":
                             item["source"]["data"] = "..."
+                        if item["type"] == "thinking" and item.get("signature"):
+                            item["signature"] = "..."
             messages_for_logging.append(msg)
         return messages_for_logging
-
-    def _get_messages(self, context: LLMContext) -> List[LLMContextMessage]:
-        return context.get_messages("anthropic")
 
     @dataclass
     class ConvertedMessages:
@@ -108,7 +112,7 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
         system = NOT_GIVEN
         messages = []
 
-        # first, map messages using self._from_universal_context_message(m)
+        # First, map messages using self._from_universal_context_message(m)
         try:
             messages = [self._from_universal_context_message(m) for m in universal_context_messages]
         except Exception as e:
@@ -163,8 +167,43 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
 
     def _from_universal_context_message(self, message: LLMContextMessage) -> MessageParam:
         if isinstance(message, LLMSpecificMessage):
-            return copy.deepcopy(message.message)
+            return self._from_anthropic_specific_message(message)
         return self._from_standard_message(message)
+
+    def _from_anthropic_specific_message(self, message: LLMSpecificMessage) -> MessageParam:
+        """Convert LLMSpecificMessage to Anthropic format.
+
+        Anthropic-specific messages may either be special thought messages that
+        need to be handled in a special way, or messages already in Anthropic
+        format.
+
+        Args:
+            message: Anthropic-specific message.
+        """
+        # Handle special case of thought messages.
+        # These can be converted to standalone "assistant" messages; later
+        # these thinking messages will be properly merged into the assistant
+        # response messages before the context is sent to Anthropic for the
+        # next turn.
+        if (
+            isinstance(message.message, dict)
+            and message.message.get("type") == "thought"
+            and (text := message.message.get("text"))
+            and (signature := message.message.get("signature"))
+        ):
+            return {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "thinking",
+                        "thinking": text,
+                        "signature": signature,
+                    }
+                ],
+            }
+
+        # Fall back to assuming that the message is already in Anthropic format
+        return copy.deepcopy(message.message)
 
     def _from_standard_message(self, message: LLMStandardMessage) -> MessageParam:
         """Convert standard universal context message to Anthropic format.
@@ -243,13 +282,28 @@ class AnthropicLLMAdapter(BaseLLMAdapter[AnthropicLLMInvocationParams]):
                     item["text"] = "(empty)"
                 # handle image_url -> image conversion
                 if item["type"] == "image_url":
-                    item["type"] = "image"
-                    item["source"] = {
-                        "type": "base64",
-                        "media_type": "image/jpeg",
-                        "data": item["image_url"]["url"].split(",")[1],
-                    }
-                    del item["image_url"]
+                    if item["image_url"]["url"].startswith("data:"):
+                        # Extract MIME type from data URL (format: "data:image/jpeg;base64,...")
+                        url = item["image_url"]["url"]
+                        mime_type = url.split(":")[1].split(";")[0]
+                        item["type"] = "image"
+                        item["source"] = {
+                            "type": "base64",
+                            "media_type": mime_type,
+                            "data": url.split(",")[1],
+                        }
+                        del item["image_url"]
+                    elif item["image_url"]["url"].startswith("http"):
+                        item["type"] = "image"
+                        item["source"] = {
+                            "type": "url",
+                            "url": item["image_url"]["url"],
+                        }
+                        del item["image_url"]
+                    else:
+                        url = item["image_url"]["url"]
+                        logger.warning(f"Unsupported 'image_url': {url}")
+
             # In the case where there's a single image in the list (like what
             # would result from a UserImageRawFrame), ensure that the image
             # comes before text, as recommended by Anthropic docs

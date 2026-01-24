@@ -9,17 +9,36 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import TypedDict
+from typing_extensions import NotRequired, TypedDict
+
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
+from .group_0043 import LabelType, LabelTypeForResponse
+from .group_0050 import IssueType, IssueTypeForResponse
 
 
-class GitignoreTemplateType(TypedDict):
-    """Gitignore Template
+class IssuesEventType(TypedDict):
+    """IssuesEvent"""
 
-    Gitignore Template
-    """
+    action: str
+    issue: IssueType
+    assignee: NotRequired[SimpleUserType]
+    assignees: NotRequired[list[SimpleUserType]]
+    label: NotRequired[LabelType]
+    labels: NotRequired[list[LabelType]]
 
-    name: str
-    source: str
+
+class IssuesEventTypeForResponse(TypedDict):
+    """IssuesEvent"""
+
+    action: str
+    issue: IssueTypeForResponse
+    assignee: NotRequired[SimpleUserTypeForResponse]
+    assignees: NotRequired[list[SimpleUserTypeForResponse]]
+    label: NotRequired[LabelTypeForResponse]
+    labels: NotRequired[list[LabelTypeForResponse]]
 
 
-__all__ = ("GitignoreTemplateType",)
+__all__ = (
+    "IssuesEventType",
+    "IssuesEventTypeForResponse",
+)

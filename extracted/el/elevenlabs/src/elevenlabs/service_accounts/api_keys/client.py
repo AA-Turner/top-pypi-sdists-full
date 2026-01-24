@@ -107,7 +107,6 @@ class ApiKeysClient:
         client.service_accounts.api_keys.create(
             service_account_user_id="service_account_user_id",
             name="name",
-            permissions=["text_to_speech"],
         )
         """
         _response = self._raw_client.create(
@@ -121,7 +120,7 @@ class ApiKeysClient:
 
     def delete(
         self, service_account_user_id: str, api_key_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Delete an existing API key for a service account
 
@@ -136,7 +135,7 @@ class ApiKeysClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -164,7 +163,7 @@ class ApiKeysClient:
         permissions: BodyEditServiceAccountApiKeyV1ServiceAccountsServiceAccountUserIdApiKeysApiKeyIdPatchPermissions,
         character_limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Update an existing API key for a service account
 
@@ -191,7 +190,7 @@ class ApiKeysClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -206,7 +205,6 @@ class ApiKeysClient:
             api_key_id="api_key_id",
             is_enabled=True,
             name="Sneaky Fox",
-            permissions=["text_to_speech"],
         )
         """
         _response = self._raw_client.update(
@@ -323,7 +321,6 @@ class AsyncApiKeysClient:
             await client.service_accounts.api_keys.create(
                 service_account_user_id="service_account_user_id",
                 name="name",
-                permissions=["text_to_speech"],
             )
 
 
@@ -340,7 +337,7 @@ class AsyncApiKeysClient:
 
     async def delete(
         self, service_account_user_id: str, api_key_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Delete an existing API key for a service account
 
@@ -355,7 +352,7 @@ class AsyncApiKeysClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -391,7 +388,7 @@ class AsyncApiKeysClient:
         permissions: BodyEditServiceAccountApiKeyV1ServiceAccountsServiceAccountUserIdApiKeysApiKeyIdPatchPermissions,
         character_limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.Optional[typing.Any]:
+    ) -> typing.Any:
         """
         Update an existing API key for a service account
 
@@ -418,7 +415,7 @@ class AsyncApiKeysClient:
 
         Returns
         -------
-        typing.Optional[typing.Any]
+        typing.Any
             Successful Response
 
         Examples
@@ -438,7 +435,6 @@ class AsyncApiKeysClient:
                 api_key_id="api_key_id",
                 is_enabled=True,
                 name="Sneaky Fox",
-                permissions=["text_to_speech"],
             )
 
 

@@ -3,7 +3,7 @@ Type annotations for pi service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pi/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -32,12 +33,6 @@ from .literals import (
     TextFormatType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -104,7 +99,7 @@ TimestampTypeDef = Union[datetime, str]
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -117,8 +112,8 @@ class DataPointTypeDef(TypedDict):
 class PerformanceInsightsMetricTypeDef(TypedDict):
     Metric: NotRequired[str]
     DisplayName: NotRequired[str]
-    Dimensions: NotRequired[Dict[str, str]]
-    Filter: NotRequired[Dict[str, str]]
+    Dimensions: NotRequired[dict[str, str]]
+    Filter: NotRequired[dict[str, str]]
     Value: NotRequired[float]
 
 
@@ -135,14 +130,14 @@ class DimensionGroupTypeDef(TypedDict):
 
 
 class DimensionKeyDescriptionTypeDef(TypedDict):
-    Dimensions: NotRequired[Dict[str, str]]
+    Dimensions: NotRequired[dict[str, str]]
     Total: NotRequired[float]
-    AdditionalMetrics: NotRequired[Dict[str, float]]
-    Partitions: NotRequired[List[float]]
+    AdditionalMetrics: NotRequired[dict[str, float]]
+    Partitions: NotRequired[list[float]]
 
 
 class ResponsePartitionKeyTypeDef(TypedDict):
-    Dimensions: Dict[str, str]
+    Dimensions: dict[str, str]
 
 
 class DimensionDetailTypeDef(TypedDict):
@@ -223,7 +218,7 @@ class ListTagsForResourceRequestTypeDef(TypedDict):
 
 class ResponseResourceMetricKeyTypeDef(TypedDict):
     Metric: str
-    Dimensions: NotRequired[Dict[str, str]]
+    Dimensions: NotRequired[dict[str, str]]
 
 
 class UntagResourceRequestTypeDef(TypedDict):
@@ -238,7 +233,7 @@ class AnalysisReportSummaryTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     Status: NotRequired[AnalysisStatusType]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -261,7 +256,7 @@ class CreatePerformanceAnalysisReportResponseTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -293,41 +288,41 @@ class MetricQueryTypeDef(TypedDict):
 class DescribeDimensionKeysResponseTypeDef(TypedDict):
     AlignedStartTime: datetime
     AlignedEndTime: datetime
-    PartitionKeys: List[ResponsePartitionKeyTypeDef]
-    Keys: List[DimensionKeyDescriptionTypeDef]
+    PartitionKeys: list[ResponsePartitionKeyTypeDef]
+    Keys: list[DimensionKeyDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DimensionGroupDetailTypeDef(TypedDict):
     Group: NotRequired[str]
-    Dimensions: NotRequired[List[DimensionDetailTypeDef]]
+    Dimensions: NotRequired[list[DimensionDetailTypeDef]]
 
 
 class GetDimensionKeyDetailsResponseTypeDef(TypedDict):
-    Dimensions: List[DimensionKeyDetailTypeDef]
+    Dimensions: list[DimensionKeyDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetResourceMetadataResponseTypeDef(TypedDict):
     Identifier: str
-    Features: Dict[str, FeatureMetadataTypeDef]
+    Features: dict[str, FeatureMetadataTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAvailableResourceMetricsResponseTypeDef(TypedDict):
-    Metrics: List[ResponseResourceMetricTypeDef]
+    Metrics: list[ResponseResourceMetricTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class MetricKeyDataPointsTypeDef(TypedDict):
     Key: NotRequired[ResponseResourceMetricKeyTypeDef]
-    DataPoints: NotRequired[List[DataPointTypeDef]]
+    DataPoints: NotRequired[list[DataPointTypeDef]]
 
 
 class ListPerformanceAnalysisReportsResponseTypeDef(TypedDict):
-    AnalysisReports: List[AnalysisReportSummaryTypeDef]
+    AnalysisReports: list[AnalysisReportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -339,11 +334,11 @@ class InsightTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     Severity: NotRequired[SeverityType]
-    SupportingInsights: NotRequired[List[Dict[str, Any]]]
+    SupportingInsights: NotRequired[list[dict[str, Any]]]
     Description: NotRequired[str]
-    Recommendations: NotRequired[List[RecommendationTypeDef]]
-    InsightData: NotRequired[List[DataTypeDef]]
-    BaselineData: NotRequired[List[DataTypeDef]]
+    Recommendations: NotRequired[list[RecommendationTypeDef]]
+    InsightData: NotRequired[list[DataTypeDef]]
+    BaselineData: NotRequired[list[DataTypeDef]]
 
 
 class GetResourceMetricsRequestTypeDef(TypedDict):
@@ -360,14 +355,14 @@ class GetResourceMetricsRequestTypeDef(TypedDict):
 
 class MetricDimensionGroupsTypeDef(TypedDict):
     Metric: NotRequired[str]
-    Groups: NotRequired[List[DimensionGroupDetailTypeDef]]
+    Groups: NotRequired[list[DimensionGroupDetailTypeDef]]
 
 
 class GetResourceMetricsResponseTypeDef(TypedDict):
     AlignedStartTime: datetime
     AlignedEndTime: datetime
     Identifier: str
-    MetricList: List[MetricKeyDataPointsTypeDef]
+    MetricList: list[MetricKeyDataPointsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -380,11 +375,11 @@ class AnalysisReportTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
     Status: NotRequired[AnalysisStatusType]
-    Insights: NotRequired[List[InsightTypeDef]]
+    Insights: NotRequired[list[InsightTypeDef]]
 
 
 class ListAvailableResourceDimensionsResponseTypeDef(TypedDict):
-    MetricDimensions: List[MetricDimensionGroupsTypeDef]
+    MetricDimensions: list[MetricDimensionGroupsTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

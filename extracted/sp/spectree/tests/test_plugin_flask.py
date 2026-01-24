@@ -20,6 +20,8 @@ from .common import (
     Query,
     QueryList,
     Resp,
+    RespFromAttrs,
+    RespObject,
     RootResp,
     StrDict,
     UserXmlData,
@@ -209,7 +211,7 @@ def query_list():
 def return_list():
     pre_serialize = bool(int(request.args.get("pre_serialize", default=0)))
     data = [JSON(name="user1", limit=1), JSON(name="user2", limit=2)]
-    return [entry.dict() if pre_serialize else entry for entry in data]
+    return [entry.model_dump() if pre_serialize else entry for entry in data]
 
 
 @app.route("/api/return_make_response", methods=["POST"])
@@ -218,7 +220,7 @@ def return_make_response_post():
     model_data = request.context.json
     headers = request.context.headers
     response = make_response(
-        Resp(name=model_data.name, score=[model_data.limit]).dict(), 201, headers
+        Resp(name=model_data.name, score=[model_data.limit]).model_dump(), 201, headers
     )
     response.set_cookie(
         key="test_cookie",
@@ -236,7 +238,7 @@ def return_make_response_get():
     model_data = request.context.query
     headers = request.context.headers
     response = make_response(
-        Resp(name=model_data.name, score=[model_data.limit]).dict(), 201, headers
+        Resp(name=model_data.name, score=[model_data.limit]).model_dump(), 201, headers
     )
     response.set_cookie(
         key="test_cookie",
@@ -282,6 +284,12 @@ def return_optional_alias_resp():
 @api.validate(resp=Response(HTTP_200=CustomError))
 def custom_error(json: CustomError):
     return {"foo": "bar"}
+
+
+@app.route("/api/force_serialize", methods=["GET"])
+@api.validate(resp=Response(HTTP_200=RespFromAttrs), force_resp_serialize=True)
+def force_serialize():
+    return RespObject(name="flask", score=[1, 2, 3], comment="hello")
 
 
 # INFO: ensures that spec is calculated and cached _after_ registering

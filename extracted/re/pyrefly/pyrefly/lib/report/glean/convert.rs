@@ -17,14 +17,19 @@ use num_traits::ToPrimitive;
 use pyrefly_build::handle::Handle;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::docstring::Docstring;
+use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
+use pyrefly_types::types::Union;
 use pyrefly_util::visit::Visit;
+use regex::RegexBuilder;
 use ruff_python_ast::Decorator;
 use ruff_python_ast::ExceptHandler;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprStringLiteral;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Parameter;
 use ruff_python_ast::ParameterWithDefault;
@@ -46,13 +51,54 @@ use crate::state::lsp::FindPreference;
 use crate::state::state::Transaction;
 use crate::types::types::Type;
 
+trait UnwrapOrDefaultAndLog<T: Default> {
+    fn unwrap_or_default_and_log(self) -> T;
+}
+
+impl<T: Default> UnwrapOrDefaultAndLog<T> for Option<T> {
+    #[track_caller]
+    fn unwrap_or_default_and_log(self) -> T {
+        match self {
+            Some(x) => x,
+            None => {
+                tracing::warn!("unexpected None");
+                Default::default()
+            }
+        }
+    }
+}
+
+const TYPE_SEPARATORS: [char; 12] = [',', '|', '[', ']', '{', '}', '(', ')', '=', ':', '\'', '"'];
+
 fn hash(x: &[u8]) -> String {
     // Glean uses blake3
     blake3::hash(x).to_string()
 }
 
 fn join_names(base_name: &str, name: &str) -> String {
-    base_name.to_owned() + "." + name
+    if base_name.is_empty() {
+        name.to_owned()
+    } else {
+        base_name.to_owned() + "." + name
+    }
+}
+
+fn all_modules(module_name: ModuleName) -> impl Iterator<Item = String> {
+    module_name
+        .components()
+        .into_iter()
+        .scan("".to_owned(), |module, component| {
+            *module = join_names(module, component.as_str());
+            Some(module.to_owned())
+        })
+}
+
+fn all_modules_with_range(module_id: &Identifier) -> impl Iterator<Item = (String, TextRange)> {
+    let offset = module_id.range().start();
+    all_modules(ModuleName::from_name(module_id.id())).map(move |name| {
+        let range = TextRange::at(offset, TextSize::try_from(name.len()).unwrap());
+        (name, range)
+    })
 }
 
 fn range_without_decorators(range: TextRange, decorators: &[Decorator]) -> TextRange {
@@ -165,6 +211,13 @@ struct GleanState<'a> {
     facts: Facts,
     names: HashSet<Arc<String>>,
     locations_fqnames: HashMap<TextSize, Arc<String>>,
+    import_names: HashMap<Arc<String>, Arc<String>>,
+}
+
+struct AssignInfo<'a> {
+    range: TextRange,
+    annotation: Option<&'a Expr>,
+    value: Option<&'a Expr>,
 }
 
 impl Facts {
@@ -201,6 +254,7 @@ impl GleanState<'_> {
             ),
             names: HashSet::new(),
             locations_fqnames: HashMap::new(),
+            import_names: HashMap::new(),
         }
     }
 
@@ -220,36 +274,78 @@ impl GleanState<'_> {
         digest::FileDigest::new(self.file_fact(), digest)
     }
 
-    fn all_modules(&mut self, module_name: ModuleName) -> Vec<ModuleName> {
-        let mut module_names = vec![];
-        let components = module_name.components();
-        let mut module = None;
-        for component in components.into_iter() {
-            let name = module.map_or(ModuleName::from_name(&component), |x: ModuleName| {
-                x.append(&component)
-            });
-            self.record_name(name.to_string(), None);
-            module = Some(name);
-            module_names.push(name);
-        }
+    fn gencode_fact(&mut self) -> Option<gencode::GenCode> {
+        let generated_pattern = RegexBuilder::new(
+            r"^.*@(?P<tag>(partially-)?generated)( SignedSource<<(?P<sign>[0-9a-f]+)>>)?$",
+        )
+        .multi_line(true)
+        .build()
+        .unwrap();
 
-        module_names
+        let codegen_pattern = RegexBuilder::new(
+            r"^.*@codegen-(?P<key>(command|class|source))\s*.*?\s+(?P<value>[A-Za-z0-9_\/\.\-\\\\]+)\n?$",
+        )
+        .multi_line(true)
+        .build()
+        .unwrap();
+
+        let contents = self.module.contents();
+        let generated_tag_match = generated_pattern.captures(contents);
+        generated_tag_match.map(|tag_match| {
+            let codegen_details = codegen_pattern
+                .captures_iter(contents)
+                .filter_map(|codegen_match| {
+                    codegen_match.name("key").and_then(|key| {
+                        codegen_match
+                            .name("value")
+                            .map(|value| (key.as_str().to_owned(), value.as_str().to_owned()))
+                    })
+                })
+                .collect::<HashMap<String, String>>();
+
+            let tag = tag_match.name("tag").map(|x| x.as_str());
+
+            let variant = if Some(&"generated") == tag.as_ref() {
+                gencode::GenCodeVariant::Full
+            } else {
+                gencode::GenCodeVariant::Partial
+            };
+
+            let signature = tag_match
+                .name("sign")
+                .map(|x| gencode::GenCodeSignature::new(x.as_str().to_owned()));
+
+            let source = codegen_details
+                .get("source")
+                .map(|x| src::File::new(x.to_owned()));
+
+            let class_ = codegen_details
+                .get("class")
+                .map(|x| gencode::GenCodeClass::new(x.to_owned()));
+
+            let command = codegen_details
+                .get("command")
+                .map(|x| gencode::GenCodeCommand::new(x.to_owned()));
+
+            gencode::GenCode::new(
+                self.file_fact(),
+                variant,
+                source,
+                command,
+                class_,
+                signature,
+            )
+        })
     }
 
     fn module_facts(&mut self, range: TextRange) {
         let module_docstring_range = self.transaction.get_module_docstring_range(self.handle);
-        let components = self.module_name.components();
-        let mut module = None;
 
-        for component in components.into_iter() {
-            let name = module.map_or(ModuleName::from_name(&component), |x: ModuleName| {
-                x.append(&component)
-            });
-            self.record_name(name.to_string(), None);
+        for name in all_modules(self.module_name) {
+            self.record_name(name.clone());
             self.facts
                 .modules
-                .push(python::Module::new(python::Name::new(name.to_string())));
-            module = Some(name);
+                .push(python::Module::new(python::Name::new(name)));
         }
 
         let mod_decl_info = DeclarationInfo {
@@ -318,7 +414,7 @@ impl GleanState<'_> {
         }
     }
 
-    fn record_name(&mut self, name: String, position: Option<TextSize>) -> python::Name {
+    fn record_name(&mut self, name: String) -> Arc<String> {
         let arc_name = Arc::new(name.clone());
         if self.names.insert(arc_name.dupe()) {
             self.facts.name_to_sname.push(python::NameToSName::new(
@@ -326,9 +422,19 @@ impl GleanState<'_> {
                 create_sname(&name),
             ));
         }
-        position.map(|x| self.locations_fqnames.insert(x, arc_name.dupe()));
+        arc_name
+    }
 
+    fn record_name_with_position(&mut self, name: String, position: TextSize) -> python::Name {
+        let arc_name = self.record_name(name.clone());
+        self.locations_fqnames.insert(position, arc_name.dupe());
         python::Name::new(name)
+    }
+
+    fn record_name_for_import(&mut self, name: String, import_name: &str) {
+        let arc_name = self.record_name(name);
+        let arc_import_name = Arc::new(import_name.to_owned());
+        self.import_names.insert(arc_name.dupe(), arc_import_name);
     }
 
     fn make_fq_name_for_declaration(
@@ -359,27 +465,20 @@ impl GleanState<'_> {
             }
         };
         if !self.names.contains(&scope) {
-            self.record_name(scope.clone(), None);
+            self.record_name(scope.clone());
         }
-        self.record_name(join_names(&scope, name), Some(name.range.start()))
-    }
-
-    fn make_fq_names_for_expr(&self, expr: &Expr) -> Vec<python::Name> {
-        self.fq_names_for_name_or_attr(expr)
-            .into_iter()
-            .map(python::Name::new)
-            .collect()
+        self.record_name_with_position(join_names(&scope, name), name.range.start())
     }
 
     fn fq_name_for_xref_definition(
         &self,
-        name: &Name,
         def_range: TextRange,
         module: &ModuleInfo,
     ) -> Option<String> {
+        let local_name = module.code_at(def_range);
         let module_name = module.name();
         if module_name == ModuleName::builtins() {
-            Some(name.to_string())
+            Some(local_name.to_owned())
         } else if module_name == self.module_name {
             self.locations_fqnames
                 .get(&def_range.start())
@@ -395,39 +494,76 @@ impl GleanState<'_> {
         }
     }
 
-    fn fq_names_for_name_or_attr(&self, expr: &Expr) -> Vec<String> {
+    fn fq_names_for_expr(&self, expr: &Expr) -> Vec<String> {
         match expr {
+            Expr::Subscript(expr_subscript) => self.fq_names_for_expr(&expr_subscript.value),
             Expr::Attribute(attr) => self.fq_names_for_attribute(attr),
-            Expr::Name(name) => self.fq_name_for_name_use(name).map_or(vec![], |x| vec![x]),
+            Expr::Name(name) => self.fq_name_for_expr_name(name).map_or(vec![], |x| vec![x]),
             _ => vec![],
         }
     }
 
-    fn fq_name_for_name_use(&self, expr_name: &ExprName) -> Option<String> {
-        let name = expr_name.id();
+    fn fq_name_for_expr_name(&self, expr_name: &ExprName) -> Option<String> {
         let identifier = Ast::expr_name_identifier(expr_name.clone());
+        self.fq_name_for_name_use(identifier)
+    }
 
+    fn fq_name_for_name_use(&self, identifier: Identifier) -> Option<String> {
         let definition = self.transaction.find_definition_for_name_use(
             self.handle,
             &identifier,
-            &FindPreference {
-                jump_through_renamed_import: false,
-                ..Default::default()
-            },
+            FindPreference::default(),
         );
 
-        definition.and_then(|def| {
-            self.fq_name_for_xref_definition(name, def.definition_range, &def.module)
-        })
+        definition
+            .and_then(|def| self.fq_name_for_xref_definition(def.definition_range, &def.module))
     }
 
-    fn fq_name_for_type(&self, ty: Type) -> Option<String> {
-        if let Some(module) = ty.as_module() {
-            Some(module.parts().join("."))
-        } else {
-            ty.qname().and_then(|qname| {
-                self.fq_name_for_xref_definition(qname.id(), qname.range(), qname.module())
+    fn fq_name_for_type(&self, ty: Type, range: TextRange) -> Option<String> {
+        match ty {
+            Type::Module(module) => Some(module.parts().join(".")),
+            Type::None => Some("None".to_owned()),
+            Type::Type(inner_ty) => self.fq_name_for_type(*inner_ty, range),
+            Type::SpecialForm(x) => {
+                let identifier = Identifier::new(x.to_string(), range);
+                self.fq_name_for_name_use(identifier)
+            }
+            _ => ty
+                .qname()
+                .and_then(|qname| self.fq_name_for_xref_definition(qname.range(), qname.module())),
+        }
+    }
+
+    fn get_xrefs_types_for_str_lit(&self, expr: &ExprStringLiteral) -> Vec<(String, TextRange)> {
+        let sep_indexes: Vec<usize> = self
+            .module
+            .code_at(expr.range())
+            .match_indices(|x: char| x.is_whitespace() || TYPE_SEPARATORS.contains(&x))
+            .map(|m| m.0)
+            .collect();
+
+        let ranges = (1..sep_indexes.len())
+            .map(|i| {
+                let start = TextSize::try_from(sep_indexes[i - 1] + 1).ok().unwrap();
+                let end = TextSize::try_from(sep_indexes[i]).ok().unwrap();
+                TextRange::new(start, end) + expr.range().start()
             })
+            .filter(|range| !range.is_empty());
+
+        if let Some(answers) = self.transaction.get_answers(self.handle) {
+            ranges
+                .filter_map(|range| {
+                    if let Some(ty) = answers.get_type_trace(range)
+                        && let Some(name) = self.fq_name_for_type(ty, range)
+                    {
+                        Some((name, range))
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        } else {
+            vec![]
         }
     }
 
@@ -440,15 +576,16 @@ impl GleanState<'_> {
         {
             self.transaction
                 .ad_hoc_solve(self.handle, |solver| match base_type {
-                    Type::Union(tys) | Type::Intersect(tys) => tys
-                        .into_iter()
-                        .filter(|ty: &Type| {
-                            solver
-                                .completions(ty.clone(), Some(name.id()), false)
-                                .into_iter()
-                                .any(|attr| &attr.name == name.id())
-                        })
-                        .collect(),
+                    Type::Union(box Union { members: tys, .. }) | Type::Intersect(box (tys, _)) => {
+                        tys.into_iter()
+                            .filter(|ty: &Type| {
+                                solver
+                                    .completions(ty.clone(), Some(name.id()), false)
+                                    .into_iter()
+                                    .any(|attr| &attr.name == name.id())
+                            })
+                            .collect()
+                    }
                     ty => vec![ty],
                 })
                 .unwrap_or_default()
@@ -457,13 +594,16 @@ impl GleanState<'_> {
         };
 
         if base_types.is_empty() {
-            let base_fq_names = self.fq_names_for_name_or_attr(base_expr);
-            base_fq_names.into_iter().map(|base| base + name).collect()
+            let base_fq_names = self.fq_names_for_expr(base_expr);
+            base_fq_names
+                .into_iter()
+                .map(|base| join_names(&base, name))
+                .collect()
         } else {
             base_types
                 .into_iter()
                 .filter_map(|ty| {
-                    self.fq_name_for_type(ty)
+                    self.fq_name_for_type(ty, base_expr.range())
                         .as_deref()
                         .map(|base| join_names(base, name))
                 })
@@ -472,10 +612,9 @@ impl GleanState<'_> {
     }
 
     fn make_decorators(&self, decorators: &[Decorator]) -> Option<Vec<String>> {
-        let lined_buffer = self.module.lined_buffer();
         let glean_decorators: Vec<String> = decorators
             .iter()
-            .map(|x| lined_buffer.code_at(x.range()).to_owned())
+            .map(|x| self.module.code_at(x.range()).to_owned())
             .collect();
 
         if glean_decorators.is_empty() {
@@ -495,8 +634,11 @@ impl GleanState<'_> {
             arguments
                 .args
                 .iter()
-                .flat_map(|expr| self.fq_names_for_name_or_attr(expr))
-                .map(|name| python::ClassDeclaration::new(python::Name::new(name), None))
+                .flat_map(|expr| {
+                    self.fq_names_for_expr(expr)
+                        .into_iter()
+                        .map(|name| python::ClassDeclaration::new(python::Name::new(name), None))
+                })
                 .collect()
         } else {
             vec![]
@@ -521,30 +663,39 @@ impl GleanState<'_> {
     }
 
     fn make_xrefs(&self, expr: &Expr, offset: Option<TextSize>) -> Vec<python::XRefViaName> {
-        let (names, range) = match expr {
+        let xrefs = match expr {
             Expr::Attribute(attr) => {
-                let fq_names = if attr.ctx.is_load() {
+                if attr.ctx.is_load() {
                     self.fq_names_for_attribute(attr)
+                        .into_iter()
+                        .map(|name| (name, attr.attr.range()))
+                        .collect()
                 } else {
                     vec![]
-                };
-                (fq_names, attr.attr.range())
+                }
             }
             Expr::Name(name) => {
-                let fq_names = if name.ctx.is_load() {
-                    self.fq_name_for_name_use(name).map_or(vec![], |x| vec![x])
+                if name.ctx.is_load() {
+                    self.fq_name_for_expr_name(name)
+                        .map_or(vec![], |x| vec![(x, name.range())])
                 } else {
                     vec![]
-                };
-                (fq_names, name.range())
+                }
             }
-            Expr::NoneLiteral(none) => (vec!["None".to_owned()], none.range()),
-            _ => (vec![], expr.range()),
+            Expr::StringLiteral(str_lit) => self.get_xrefs_types_for_str_lit(str_lit),
+            Expr::BooleanLiteral(bool_lit) => {
+                let name = if bool_lit.value { "True" } else { "False" };
+                vec![(name.to_owned(), bool_lit.range())]
+            }
+            Expr::NoneLiteral(none) => vec![("None".to_owned(), none.range())],
+            _ => {
+                vec![]
+            }
         };
 
-        names
+        xrefs
             .into_iter()
-            .map(|name| python::XRefViaName {
+            .map(|(name, range)| python::XRefViaName {
                 target: python::Name::new(name),
                 source: to_span_with_offset(range, offset),
             })
@@ -574,14 +725,13 @@ impl GleanState<'_> {
     }
 
     fn display_type_info(&self, range: TextRange) -> python::Type {
-        let lined_buffer = self.module.lined_buffer();
-        let separators = [',', '|', '[', ']', '{', '}', '(', ')', '=', ':'];
-        let parts: Vec<&str> = lined_buffer
+        let parts: Vec<&str> = self
+            .module
             .code_at(range)
             .split_whitespace()
-            .flat_map(|x| x.split_inclusive(separators))
+            .flat_map(|x| x.split_inclusive(TYPE_SEPARATORS))
             .flat_map(|x| {
-                if x.ends_with(separators) {
+                if x.ends_with(TYPE_SEPARATORS) {
                     let (name, sep) = x.split_at(x.len() - 1);
                     vec![name, sep].into_iter()
                 } else {
@@ -667,7 +817,7 @@ impl GleanState<'_> {
             self.make_fq_name_for_declaration(&param.name, &context.container, ScopeType::Local);
         decl_infos.push(self.variable_info(
             fqname,
-            param.range(),
+            param.name.range(),
             type_info.clone(),
             None,
             context,
@@ -685,11 +835,10 @@ impl GleanState<'_> {
         context: &NodeContext,
         decl_infos: &mut Vec<DeclarationInfo>,
     ) -> python::Parameter {
-        let lined_buffer = self.module.lined_buffer();
         let value: Option<String> = parameter_with_default
             .default
             .as_ref()
-            .map(|x| lined_buffer.code_at(x.range()).to_owned());
+            .map(|x| self.module.code_at(x.range()).to_owned());
         self.parameter_info(
             &parameter_with_default.parameter,
             value,
@@ -761,11 +910,33 @@ impl GleanState<'_> {
         decl_infos
     }
 
+    fn add_xrefs_for_explicit_exports(&mut self, exprs_list: &[Expr]) {
+        let exports = exprs_list
+            .iter()
+            .filter_map(|e| e.as_string_literal_expr())
+            .map(|str_lit| (str_lit.value.to_str(), str_lit.range()));
+
+        for (local_name, source) in exports {
+            let name = join_names(self.module_name.as_str(), local_name);
+            if self.names.contains(&name) {
+                let fqname = self
+                    .import_names
+                    .get(&name)
+                    .map(|n| (**n).clone())
+                    .unwrap_or(name);
+
+                self.add_xref(python::XRefViaName {
+                    target: python::Name::new(fqname),
+                    source: to_span(source),
+                });
+            }
+        }
+    }
+
     fn variable_facts(
         &mut self,
         expr: &Expr,
-        range: TextRange,
-        annotation: Option<&Expr>,
+        info: &AssignInfo,
         ctx: &NodeContext,
         next: Option<&Stmt>,
         def_infos: &mut Vec<DeclarationInfo>,
@@ -785,85 +956,56 @@ impl GleanState<'_> {
                 next.and_then(|stmt| Docstring::range_from_stmts(slice::from_ref(stmt)));
             def_infos.push(self.variable_info(
                 fqname,
-                range,
-                self.type_info(annotation),
+                info.range,
+                self.type_info(info.annotation),
                 docstring_range,
                 ctx,
             ));
+
+            if name.id() == &dunder::ALL
+                && let Some(value) = info.value
+                && let Expr::List(ExprList { elts, .. }) = value
+            {
+                self.add_xrefs_for_explicit_exports(elts);
+            }
         }
-        expr.recurse(&mut |expr| {
-            self.variable_facts(expr, range, annotation, ctx, next, def_infos)
-        });
+        expr.recurse(&mut |expr| self.variable_facts(expr, info, ctx, next, def_infos));
+    }
+
+    fn find_fqname_definition_at_position(&self, position: TextSize) -> Vec<String> {
+        let definitions =
+            self.transaction
+                .find_definition(self.handle, position, FindPreference::default());
+
+        definitions
+            .into_iter()
+            .filter_map(|def| self.fq_name_for_xref_definition(def.definition_range, &def.module))
+            .collect()
     }
 
     fn make_import_fact(
         &mut self,
-        from_name: &str,
-        from_name_range: TextRange,
-        as_name: &str,
-        as_name_range: TextRange,
+        from_name: &Identifier,
+        as_name: &Identifier,
+        resolved_name: Option<&str>,
         top_level_declaration: &python::Declaration,
     ) -> DeclarationInfo {
         let as_name_fqname = join_names(self.module_name.as_str(), as_name);
-        self.record_name(from_name.to_owned(), Some(as_name_range.start()));
-        self.record_name(as_name_fqname.clone(), None);
+        let from_name_fact = python::Name::new(from_name.id().to_string());
+        let as_name_fact = python::Name::new(as_name_fqname.clone());
 
-        let from_name_fact = python::Name::new(from_name.to_owned());
-        let as_name_fact = python::Name::new(as_name_fqname);
-        self.add_xref(python::XRefViaName {
-            target: from_name_fact.clone(),
-            source: to_span(from_name_range),
-        });
+        self.record_name_with_position(from_name.id().to_string(), as_name.range.start());
+        self.record_name_for_import(as_name_fqname, resolved_name.unwrap_or(from_name));
         let import_fact = python::ImportStatement::new(from_name_fact, as_name_fact);
 
         DeclarationInfo {
             declaration: python::Declaration::imp(import_fact),
-            decl_span: to_span(from_name_range),
+            decl_span: to_span(from_name.range),
             definition: None,
             def_span: None,
             top_level_decl: top_level_declaration.clone(),
             docstring_range: None,
         }
-    }
-
-    fn make_import_fact_with_alias(
-        &mut self,
-        from_name: &str,
-        from_name_range: TextRange,
-        as_name: &Identifier,
-        top_level_declaration: &python::Declaration,
-    ) -> DeclarationInfo {
-        self.make_import_fact(
-            from_name,
-            from_name_range,
-            as_name.as_str(),
-            as_name.range(),
-            top_level_declaration,
-        )
-    }
-
-    fn make_import_facts_for_module(
-        &mut self,
-        import_module: &Identifier,
-        top_level_declaration: &python::Declaration,
-    ) -> Vec<DeclarationInfo> {
-        let parts = import_module.id().split(".");
-
-        self.all_modules(ModuleName::from_parts(parts))
-            .into_iter()
-            .map(|module| {
-                let range = TextRange::empty(import_module.range().start())
-                    .add_end(TextSize::from(module.as_str().len().to_u32().unwrap()));
-
-                self.make_import_fact(
-                    module.as_str(),
-                    range,
-                    module.as_str(),
-                    range,
-                    top_level_declaration,
-                )
-            })
-            .collect()
     }
 
     fn import_facts(
@@ -876,18 +1018,68 @@ impl GleanState<'_> {
             .iter()
             .flat_map(|import| {
                 let from_name = &import.name;
+
+                for (module, range) in all_modules_with_range(from_name) {
+                    self.record_name(module.clone());
+                    self.add_xref(python::XRefViaName {
+                        target: python::Name::new(module),
+                        source: to_span(range),
+                    });
+                }
+
                 if let Some(as_name) = &import.asname {
-                    vec![self.make_import_fact_with_alias(
-                        from_name.as_str(),
-                        from_name.range,
-                        as_name,
-                        top_level_declaration,
-                    )]
+                    vec![self.make_import_fact(from_name, as_name, None, top_level_declaration)]
                 } else {
-                    self.make_import_facts_for_module(&import.name, top_level_declaration)
+                    all_modules_with_range(from_name)
+                        .map(|(module, range)| {
+                            let mod_id = Identifier::new(Name::new(module), range);
+                            self.make_import_fact(&mod_id, &mod_id, None, top_level_declaration)
+                        })
+                        .collect()
                 }
             })
             .collect()
+    }
+
+    fn get_from_module(&mut self, import_from: &StmtImportFrom) -> Option<String> {
+        let from_module_name = import_from.module.as_ref().map(|x| x.id());
+
+        let (from_module, dots_range) = if import_from.level > 0 {
+            let module = self
+                .module_name
+                .new_maybe_relative(
+                    self.module.path().is_init(),
+                    import_from.level,
+                    from_module_name,
+                )
+                .map(|x| x.to_string());
+
+            let range = self
+                .module
+                .code_at(import_from.range())
+                .match_indices(['.'])
+                .next()
+                .map(|(s, _)| {
+                    let offset = TextSize::try_from(s).unwrap();
+                    let len = TextSize::from(import_from.level);
+                    TextRange::at(import_from.range().start() + offset, len)
+                });
+            (module, range)
+        } else {
+            (from_module_name.map(|x| x.to_string()), None)
+        };
+
+        let from_module_range = import_from.module.as_ref().map(|id| id.range());
+        let range = from_module_range
+            .and_then(|x| dots_range.map(|y| x.cover(y)))
+            .or(from_module_range)
+            .or(dots_range);
+
+        self.add_xref(python::XRefViaName {
+            target: python::Name::new(from_module.clone().unwrap_or_default_and_log()),
+            source: to_span(range.unwrap_or_default_and_log()),
+        });
+        from_module
     }
 
     fn import_from_facts(
@@ -895,27 +1087,7 @@ impl GleanState<'_> {
         import_from: &StmtImportFrom,
         top_level_declaration: &python::Declaration,
     ) -> Vec<DeclarationInfo> {
-        let from_module_name = import_from.module.as_ref().map(|x| x.id());
-
-        let from_module = if import_from.level > 0 {
-            self.module_name
-                .new_maybe_relative(
-                    self.module.path().is_init(),
-                    import_from.level,
-                    from_module_name,
-                )
-                .map(|x| x.to_string())
-        } else {
-            from_module_name.map(|x| x.to_string())
-        };
-
-        let from_module_fact = python::Name::new(from_module.clone().unwrap_or_default());
-        if let Some(module) = &import_from.module {
-            self.add_xref(python::XRefViaName {
-                target: from_module_fact.clone(),
-                source: to_span(module.range()),
-            });
-        }
+        let from_module = self.get_from_module(import_from);
 
         let mut decl_infos = vec![];
         for import in &import_from.names {
@@ -924,7 +1096,7 @@ impl GleanState<'_> {
 
             if *from_name.id.as_str() == *star_import {
                 let import_star = python::ImportStarStatement::new(
-                    from_module_fact.clone(),
+                    python::Name::new(from_module.clone().unwrap_or_default()),
                     self.facts.module.clone(),
                 );
                 self.facts
@@ -932,7 +1104,7 @@ impl GleanState<'_> {
                     .push(python::ImportStarLocation::new(
                         import_star,
                         self.facts.file.clone(),
-                        to_span(import.range),
+                        to_span(import_from.range),
                     ));
             } else {
                 let from_name_string = from_module
@@ -941,11 +1113,22 @@ impl GleanState<'_> {
                         join_names(x, from_name.id())
                     });
                 let as_name = import.asname.as_ref().unwrap_or(from_name);
+
+                let resolved_name = self
+                    .find_fqname_definition_at_position(from_name.range.start())
+                    .first()
+                    .map_or(from_name.id().to_string(), |name| name.to_owned());
+
+                self.add_xref(python::XRefViaName {
+                    target: python::Name::new(resolved_name.clone()),
+                    source: to_span(from_name.range),
+                });
+
+                let from_name_id = Identifier::new(Name::new(from_name_string), from_name.range);
                 decl_infos.push(self.make_import_fact(
-                    &from_name_string,
-                    from_name.range,
-                    as_name.as_str(),
-                    as_name.range,
+                    &from_name_id,
+                    as_name,
+                    Some(&resolved_name),
                     top_level_declaration,
                 ));
             }
@@ -1004,12 +1187,12 @@ impl GleanState<'_> {
 
     fn callee_to_caller_facts(&mut self, call: &ExprCall, caller: &python::FunctionDeclaration) {
         let caller_fact = &caller.key.name;
-        let callee_names = self.make_fq_names_for_expr(call.func.as_ref());
-        for callee_fact in callee_names {
+        let callee_names = self.fq_names_for_expr(call.func.as_ref());
+        for callee_name in callee_names {
             self.facts
                 .callee_to_callers
                 .push(python::CalleeToCaller::new(
-                    callee_fact,
+                    python::Name::new(callee_name),
                     caller_fact.clone(),
                 ));
         }
@@ -1106,39 +1289,33 @@ impl GleanState<'_> {
                 decl_infos.append(&mut func_decl_infos);
             }
             Stmt::Assign(assign) => {
+                let info = AssignInfo {
+                    range: assign.range(),
+                    annotation: None,
+                    value: Some(assign.value.as_ref()),
+                };
                 assign.targets.visit(&mut |target| {
-                    self.variable_facts(
-                        target,
-                        assign.range(),
-                        None,
-                        context,
-                        next,
-                        &mut decl_infos,
-                    )
+                    self.variable_facts(target, &info, context, next, &mut decl_infos)
                 });
                 self.visit_exprs(&assign.value, container);
             }
             Stmt::AnnAssign(assign) => {
-                self.variable_facts(
-                    &assign.target,
-                    assign.range(),
-                    Some(&assign.annotation),
-                    context,
-                    next,
-                    &mut decl_infos,
-                );
+                let info = AssignInfo {
+                    range: assign.range(),
+                    annotation: Some(&assign.annotation),
+                    value: assign.value.as_ref().map(|v| v.as_ref()),
+                };
+                self.variable_facts(&assign.target, &info, context, next, &mut decl_infos);
                 self.visit_exprs(&assign.annotation, container);
                 self.visit_exprs(&assign.value, container);
             }
             Stmt::AugAssign(assign) => {
-                self.variable_facts(
-                    &assign.target,
-                    assign.range(),
-                    None,
-                    context,
-                    next,
-                    &mut decl_infos,
-                );
+                let info = AssignInfo {
+                    range: assign.range(),
+                    annotation: None,
+                    value: Some(assign.value.as_ref()),
+                };
+                self.variable_facts(&assign.target, &info, context, next, &mut decl_infos);
                 self.visit_exprs(&assign.value, container);
             }
             Stmt::Import(import) => {
@@ -1151,14 +1328,12 @@ impl GleanState<'_> {
             }
             Stmt::For(stmt_for) => {
                 stmt_for.target.visit(&mut |target| {
-                    self.variable_facts(
-                        target,
-                        target.range(),
-                        None,
-                        context,
-                        next,
-                        &mut decl_infos,
-                    )
+                    let info = AssignInfo {
+                        range: target.range(),
+                        annotation: None,
+                        value: None,
+                    };
+                    self.variable_facts(target, &info, context, next, &mut decl_infos)
                 });
                 self.visit_exprs(&stmt_for.iter, container);
             }
@@ -1173,14 +1348,12 @@ impl GleanState<'_> {
                 for item in &stmt_with.items {
                     self.visit_exprs(&item.context_expr, container);
                     item.optional_vars.visit(&mut |target| {
-                        self.variable_facts(
-                            target,
-                            target.range(),
-                            None,
-                            context,
-                            next,
-                            &mut decl_infos,
-                        )
+                        let info = AssignInfo {
+                            range: target.range(),
+                            annotation: None,
+                            value: None,
+                        };
+                        self.variable_facts(target, &info, context, next, &mut decl_infos)
                     });
                 }
             }
@@ -1226,7 +1399,7 @@ impl Glean {
         let ast = &*transaction.get_ast(handle).unwrap();
         let mut glean_state = GleanState::new(transaction, handle);
 
-        glean_state.record_name("".to_owned(), None);
+        glean_state.record_name("".to_owned());
         let file_language_fact =
             src::FileLanguage::new(glean_state.file_fact(), src::Language::Python);
         let digest_fact = glean_state.digest_fact();
@@ -1234,6 +1407,8 @@ impl Glean {
         glean_state.generate_facts(&ast.body, ast.range());
 
         let file_fact = glean_state.file_fact();
+        let gencode_fact = glean_state.gencode_fact();
+
         let facts = glean_state.facts;
 
         let xrefs_via_name_by_file_fact =
@@ -1318,6 +1493,10 @@ impl Glean {
             GleanEntry::Predicate {
                 predicate: python::NameToSName::GLEAN_name(),
                 facts: facts.name_to_sname.into_iter().map(json).collect(),
+            },
+            GleanEntry::Predicate {
+                predicate: gencode::GenCode::GLEAN_name(),
+                facts: gencode_fact.map_or(vec![], |f| vec![json(f)]),
             },
         ];
         Glean { entries }

@@ -4,9 +4,11 @@ import base64
 import datetime
 import json
 from calendar import timegm
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import jwt
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
 from jwt import (
     ExpiredSignatureError,
     InvalidAudienceError,
@@ -19,10 +21,14 @@ from social_core.backends.oauth import BaseOAuth2
 from social_core.exceptions import (
     AuthInvalidParameter,
     AuthMissingParameter,
-    AuthNotImplementedParameter,
     AuthTokenError,
 )
 from social_core.utils import cache
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from requests.auth import AuthBase
 
 
 class OpenIdConnectAssociation:
@@ -62,6 +68,8 @@ class OpenIdConnectAuth(BaseOAuth2):
     JWT_ALGORITHMS = ["RS256"]
     JWT_DECODE_OPTIONS: dict[str, Any] = {}
     JWT_LEEWAY: float = 1.0  # seconds
+    VALIDATE_AT_HASH: bool = True
+    CUSTOM_AT_HASH_ALGO: str | None = None
     # When these options are unspecified, server will choose via openid autoconfiguration
     ID_TOKEN_ISSUER = ""
     ACCESS_TOKEN_URL = ""
@@ -79,9 +87,9 @@ class OpenIdConnectAuth(BaseOAuth2):
     LOGIN_HINT = None
     ACR_VALUES = None
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, strategy=None, redirect_uri: str | None = None) -> None:
+        super().__init__(strategy, redirect_uri=redirect_uri)
         self.id_token = None
-        super().__init__(*args, **kwargs)
 
     def get_setting_config(
         self, setting_name: str, oidc_name: str, default: str
@@ -150,7 +158,7 @@ class OpenIdConnectAuth(BaseOAuth2):
         response = self.request(self.jwks_uri())
         return json.loads(response.text)["keys"]
 
-    def auth_params(self, state=None):  # noqa: C901
+    def auth_params(self, state=None):  # noqa: C901, PLR0912
         """Return extra arguments needed on auth process."""
         params = super().auth_params(state)
         params["nonce"] = self.get_and_store_nonce(self.authorization_url(), state)
@@ -189,19 +197,31 @@ class OpenIdConnectAuth(BaseOAuth2):
 
         ui_locales = self.setting("UI_LOCALES", default=self.UI_LOCALES)
         if ui_locales is not None:
-            raise AuthNotImplementedParameter(self, "ui_locales")
+            if not ui_locales:
+                raise AuthInvalidParameter(self, "ui_locales")
+
+            params["ui_locales"] = ui_locales
 
         id_token_hint = self.setting("ID_TOKEN_HINT", default=self.ID_TOKEN_HINT)
         if id_token_hint is not None:
-            raise AuthNotImplementedParameter(self, "id_token_hint")
+            if not id_token_hint:
+                raise AuthInvalidParameter(self, "id_token_hint")
+
+            params["id_token_hint"] = id_token_hint
 
         login_hint = self.setting("LOGIN_HINT", default=self.LOGIN_HINT)
         if login_hint is not None:
-            raise AuthNotImplementedParameter(self, "login_hint")
+            if not login_hint:
+                raise AuthInvalidParameter(self, "login_hint")
+
+            params["login_hint"] = login_hint
 
         acr_values = self.setting("ACR_VALUES", default=self.ACR_VALUES)
         if acr_values is not None:
-            raise AuthNotImplementedParameter(self, "acr_values")
+            if not acr_values:
+                raise AuthInvalidParameter(self, "acr_values")
+
+            params["acr_values"] = acr_values
 
         return params
 
@@ -279,7 +299,7 @@ class OpenIdConnectAuth(BaseOAuth2):
         Validates the id_token according to the steps at
         http://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation.
         """
-        client_id, client_secret = self.get_key_and_secret()
+        client_id, _client_secret = self.get_key_and_secret()
 
         key = self.find_valid_key(id_token)
 
@@ -310,52 +330,103 @@ class OpenIdConnectAuth(BaseOAuth2):
 
         # pyjwt does not validate OIDC claims
         # see https://github.com/jpadilla/pyjwt/pull/296
-        if "at_hash" in claims and claims["at_hash"] != self.calc_at_hash(
-            access_token, key["alg"]
-        ):
+        if not self.validate_at_hash(claims, access_token, key):
             raise AuthTokenError(self, "Invalid access token")
 
         self.validate_claims(claims)
 
         return claims
 
-    def request_access_token(self, *args, **kwargs):
+    def request_access_token(
+        self,
+        url: str,
+        method: Literal["GET", "POST", "DELETE"] = "GET",
+        headers: Mapping[str, str | bytes] | None = None,
+        data: dict | bytes | str | None = None,
+        auth: tuple[str, str] | AuthBase | None = None,
+        params: dict | None = None,
+    ) -> dict[Any, Any]:
         """
         Retrieve the access token. Also, validate the id_token and
         store it (temporarily).
         """
-        response = self.get_json(*args, **kwargs)
+        response = super().request_access_token(
+            url, method, headers, data, auth, params
+        )
         self.id_token = self.validate_and_return_id_token(
             response["id_token"], response["access_token"]
         )
         return response
 
-    def user_data(self, access_token, *args, **kwargs):
+    def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         return self.get_json(
             self.userinfo_url(), headers={"Authorization": f"Bearer {access_token}"}
         )
 
     def get_user_details(self, response):
         username_key = self.setting("USERNAME_KEY", self.USERNAME_KEY)
+
+        def get_value(key):
+            if key in response:
+                return response.get(key)
+            if self.id_token is not None:
+                return self.id_token.get(key)
+            return None
+
         return {
-            "username": response.get(username_key),
-            "email": response.get("email"),
-            "fullname": response.get("name"),
-            "first_name": response.get("given_name"),
-            "last_name": response.get("family_name"),
+            "username": get_value(username_key),
+            "email": get_value("email"),
+            "fullname": get_value("name"),
+            "first_name": get_value("given_name"),
+            "last_name": get_value("family_name"),
         }
 
+    def validate_at_hash(self, claims, access_token, key):
+        """
+        Validate the 'at_hash' claim according to OpenID Connect specs.
+
+        See: https://openid.net/specs/openid-connect-core-1_0.html#CodeIDToken
+        """
+
+        if not self.VALIDATE_AT_HASH:
+            return True
+        if "at_hash" not in claims:
+            return True
+
+        expected_hash = claims["at_hash"]
+        calculated_hash = self.calc_at_hash(
+            access_token, key["alg"], self.CUSTOM_AT_HASH_ALGO
+        )
+        return expected_hash == calculated_hash
+
     @staticmethod
-    def calc_at_hash(access_token, algorithm):
+    def calc_at_hash(access_token, algorithm, custom_at_hash_algo: str | None = None):
         """
         Calculates "at_hash" claim which is not done by pyjwt.
+        Custom "at_hash" algorithm is used for non-standard token.
 
         See https://pyjwt.readthedocs.io/en/stable/usage.html#oidc-login-flow
+        See https://github.com/python-social-auth/social-core/issues/1306
         """
-        alg_obj = jwt.get_algorithm_by_name(algorithm)
-        digest = alg_obj.compute_hash_digest(access_token.encode("utf-8"))
-        return (
-            base64.urlsafe_b64encode(digest[: (len(digest) // 2)])
-            .decode("utf-8")
-            .rstrip("=")
-        )
+
+        if not custom_at_hash_algo:
+            alg_obj = jwt.get_algorithm_by_name(algorithm)
+            digest = alg_obj.compute_hash_digest(access_token.encode("utf-8"))
+            return (
+                base64.urlsafe_b64encode(digest[: (len(digest) // 2)])
+                .decode("utf-8")
+                .rstrip("=")
+            )
+
+        algo_class_name = custom_at_hash_algo.upper()
+        algo_class = getattr(hashes, algo_class_name, None)
+        if algo_class is None:
+            raise NotImplementedError(
+                f"Unsupported custom at hash algorithm: {custom_at_hash_algo}"
+            )
+
+        hasher = hashes.Hash(algo_class(), backend=default_backend())
+        hasher.update(access_token.encode("utf-8"))
+        digest = hasher.finalize()
+        half = digest[: (len(digest) // 2)]
+        return base64.urlsafe_b64encode(half).decode("utf-8").rstrip("=")

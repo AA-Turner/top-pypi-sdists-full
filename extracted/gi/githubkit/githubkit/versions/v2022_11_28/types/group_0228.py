@@ -9,17 +9,38 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+import datetime as _dt
+from typing_extensions import TypedDict
+
+from .group_0229 import (
+    RulesetVersionPropActorType,
+    RulesetVersionPropActorTypeForResponse,
+)
 
 
-class ActionsRepositoryPermissionsType(TypedDict):
-    """ActionsRepositoryPermissions"""
+class RulesetVersionType(TypedDict):
+    """Ruleset version
 
-    enabled: bool
-    allowed_actions: NotRequired[Literal["all", "local_only", "selected"]]
-    selected_actions_url: NotRequired[str]
-    sha_pinning_required: NotRequired[bool]
+    The historical version of a ruleset
+    """
+
+    version_id: int
+    actor: RulesetVersionPropActorType
+    updated_at: _dt.datetime
 
 
-__all__ = ("ActionsRepositoryPermissionsType",)
+class RulesetVersionTypeForResponse(TypedDict):
+    """Ruleset version
+
+    The historical version of a ruleset
+    """
+
+    version_id: int
+    actor: RulesetVersionPropActorTypeForResponse
+    updated_at: str
+
+
+__all__ = (
+    "RulesetVersionType",
+    "RulesetVersionTypeForResponse",
+)

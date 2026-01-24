@@ -1,6 +1,6 @@
 [build-system]
 requires = [
-    "setuptools>=61.2",
+    "setuptools",
 ]
 
 build-backend = "setuptools.build_meta"
@@ -61,3 +61,6 @@ pydisasm = "xdis.bin.pydisasm:main"
 
 [tool.setuptools.dynamic]
 version = {attr = "xdis.version.__version__"}
+
+[tool.setuptools.packages.find]
+include = ["xdis*"]  # Include all subpackages

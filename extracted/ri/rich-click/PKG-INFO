@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rich-click
-Version: 1.9.1
+Version: 1.9.6
 Summary: Format click help output nicely with rich
 Author-email: Phil Ewels <phil@ewels.co.uk>
 Maintainer-email: Phil Ewels <phil@ewels.co.uk>, Daniel Reeves <xdanielreeves@gmail.com>
@@ -44,6 +44,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: click>=8
+Requires-Dist: colorama; platform_system == "Windows"
 Requires-Dist: rich>=12
 Requires-Dist: typing-extensions>=4; python_version < "3.11"
 Provides-Extra: dev
@@ -148,7 +149,7 @@ if __name__ == '__main__':
 
 ![`python examples/11_hello.py --help`](docs/images/hello.svg)
 
-_Screenshot from [`examples/11_hello.py`](examples/11_hello.py)_
+_Screenshot from [`examples/11_hello.py`](https://github.com/ewels/rich-click/blob/main/examples/11_hello.py)_
 
 ### More complex example
 
@@ -158,7 +159,7 @@ Below is a more complex example of what **rich-click** is capable of, utilizing 
 
 ![`python examples/03_groups_sorting.py --help`](docs/images/command_groups.svg)
 
-_Screenshot from [`examples/03_groups_sorting.py`](examples/03_groups_sorting.py)_
+_Screenshot from [`examples/03_groups_sorting.py`](https://github.com/ewels/rich-click/blob/main/examples/03_groups_sorting.py)_
 
 ## Usage
 

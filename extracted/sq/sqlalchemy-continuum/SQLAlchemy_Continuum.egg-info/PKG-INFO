@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: SQLAlchemy-Continuum
-Version: 1.5.0
+Version: 1.6.0
 Summary: Versioning and auditing extension for SQLAlchemy.
 Author: Mark Steward, Jose Soto
 Author-email: Konsta Vesterinen <konsta@fastmonkeys.com>
@@ -16,13 +16,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: SQLAlchemy<2.1,>=1.4.53
-Requires-Dist: SQLAlchemy-Utils>=0.42.0
 Provides-Extra: test
 Requires-Dist: pytest>=2.3.5; extra == "test"
 Requires-Dist: psycopg2>=2.4.6; extra == "test"
@@ -41,6 +41,9 @@ Provides-Extra: dev
 Requires-Dist: ruff>=0.1.0; extra == "dev"
 Requires-Dist: tox>=4.0.0; extra == "dev"
 Requires-Dist: pre-commit>=3.0.0; extra == "dev"
+Provides-Extra: docs
+Requires-Dist: sphinx>=4.0.0; extra == "docs"
+Requires-Dist: furo>=2021.11.0; extra == "docs"
 Dynamic: license-file
 
 SQLAlchemy-Continuum

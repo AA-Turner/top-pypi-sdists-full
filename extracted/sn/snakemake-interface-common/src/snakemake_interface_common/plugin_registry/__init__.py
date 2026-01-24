@@ -112,6 +112,9 @@ class PluginRegistryBase(ABC, Generic[TPlugin]):
 
         self.plugins[plugin_name] = self.load_plugin(plugin_name, plugin)
 
+    def is_valid_plugin_package_name(self, name: str) -> bool:
+        return True
+
     def validate_plugin(self, name: str, module: types.ModuleType) -> None:
         """Validate a plugin for attributes and naming"""
         expected_attributes = self.expected_attributes()

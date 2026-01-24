@@ -11,7 +11,7 @@ jobs:
     name: Build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: hynek/build-and-inspect-python-package@v2
 
   tests:
@@ -31,10 +31,10 @@ jobs:
           - name: "pytest (3.13)"
             python: "3.13"
             tox: "3.13"
-            coverage: true
           - name: "pytest (3.14)"
             python: "3.14"
             tox: "3.14"
+            coverage: true
           - name: "mypy"
             python: "3.13"
             tox: mypy
@@ -55,10 +55,11 @@ jobs:
     runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python }}
+          activate-environment: true
       - run: uv pip install tox tox-uv
       - run: tox -e ${{ matrix.tox }}
         if: ${{ ! matrix.coverage }}

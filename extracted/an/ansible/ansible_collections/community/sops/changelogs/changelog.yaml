@@ -535,3 +535,72 @@ releases:
       - 260-deprecations.yml
       - 262-local-keyservice.yml
     release_date: '2025-08-31'
+  2.2.3:
+    changes:
+      bugfixes:
+        - Avoid using ``ansible.module_utils.six`` to avoid deprecation warnings with
+          ansible-core 2.20 (https://github.com/ansible-collections/community.sops/pull/268).
+      minor_changes:
+        - Note that some new code in ``plugins/module_utils/_six.py`` is MIT licensed
+          (https://github.com/ansible-collections/community.sops/pull/268).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.3.yml
+      - 268-six.yml
+    release_date: '2025-10-03'
+  2.2.4:
+    changes:
+      bugfixes:
+        - Fix accidental type extensions (https://github.com/ansible-collections/community.sops/pull/269).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.4.yml
+      - 269-fix.yml
+    release_date: '2025-10-05'
+  2.2.5:
+    changes:
+      bugfixes:
+        - load_vars action - avoid another deprecated module utils from ansible-core
+          (https://github.com/ansible-collections/community.sops/pull/270).
+        - load_vars action - avoid deprecated import from ansible-core that will be
+          removed in ansible-core 2.21 (https://github.com/ansible-collections/community.sops/pull/272).
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.5.yml
+      - 270-deprecate.yml
+      - 272-ansible-core-2.21.yml
+    release_date: '2025-10-25'
+  2.2.6:
+    changes:
+      bugfixes:
+        - Clean up plugin code that does not run on the target (https://github.com/ansible-collections/community.sops/pull/275).
+        - Note that the MIT licenced code in ``plugins/module_utils/_six.py`` has
+          been removed (https://github.com/ansible-collections/community.sops/pull/275).
+        - sops vars plugin - ensure that loaded vars are evaluated also with ansible-core
+          2.19+ (https://github.com/ansible-collections/community.sops/pull/273).
+      release_summary: Bugfix and maintenance release.
+    fragments:
+      - 2.2.6.yml
+      - 273-vars-eval.yml
+      - 275-py3.yml
+    release_date: '2025-10-25'
+  2.2.7:
+    changes:
+      known_issues:
+        - When using the ``community.sops.load_vars`` with ansible-core 2.20, note
+          that the deprecation of ``INJECT_FACTS_AS_VARS`` causes deprecation warnings
+          to be shown every time a variable loaded with ``community.sops.load_vars``
+          is used. This is due to ansible-core deprecating ``INJECT_FACTS_AS_VARS``
+          without providing an alternative for modules like ``community.sops.load_vars``
+          to use. If you do not like these deprecation warnings, you have to explicitly
+          set ``INJECT_FACTS_AS_VARS`` to ``true``. **DO NOT** change the use of SOPS
+          encrypted variables to ``ansible_facts``. The situation will hopefully improve
+          in ansible-core 2.21 through the promised API that allows action plugins
+          to set variables; community.sops will adapt to use it, which will make the
+          warning go away. (The API was originally promised for ansible-core 2.20,
+          but then delayed.)
+      release_summary: Maintenance release.
+    fragments:
+      - 2.2.7.yml
+      - ansible-core-2.20-warning.yml
+    release_date: '2025-11-02'

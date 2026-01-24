@@ -10,6 +10,7 @@ from pathlib import Path
 
 import fsspec
 import pytest
+from fsspec import get_filesystem_class
 from fsspec.implementations.local import LocalFileSystem
 from fsspec.implementations.local import make_path_posix
 from fsspec.implementations.smb import SMBFileSystem
@@ -34,6 +35,9 @@ class DummyTestFS(LocalFileSystem):
             path = path[5:]
         return make_path_posix(path).rstrip("/") or cls.root_marker
 
+    def unstrip_protocol(self, path):
+        return f"mock://{self._strip_protocol(path)}"
+
 
 @pytest.fixture(scope="session")
 def clear_registry():
@@ -42,6 +46,34 @@ def clear_registry():
         yield
     finally:
         _registry.clear()
+
+
+@pytest.fixture(scope="function")
+def windows_working_directory_drive_sync(monkeypatch, tmp_path, tmp_path_factory):
+    cwd_old = os.getcwd()
+    drive_cwd = os.path.splitdrive(cwd_old)[0]
+    drive_tmp = os.path.splitdrive(tmp_path)[0]
+    if drive_tmp != drive_cwd:
+        cwd_new = tmp_path_factory.mktemp("cwd_on_tmp_drive")
+        os.chdir(cwd_new)
+        try:
+            yield
+        finally:
+            os.chdir(cwd_old)
+    else:
+        yield
+
+
+@pytest.fixture(scope="function")
+def clear_fsspec_memory_cache():
+    fs_cls = get_filesystem_class("memory")
+    pseudo_dirs = fs_cls.pseudo_dirs.copy()
+    store = fs_cls.store.copy()
+    try:
+        yield
+    finally:
+        fs_cls.pseudo_dirs = pseudo_dirs
+        fs_cls.store = store
 
 
 @pytest.fixture(scope="function")
@@ -206,9 +238,19 @@ def docker_gcs():
         pytest.skip("docker not installed")
 
     container = "gcsfs_test"
-    cmd = (
-        "docker run -d -p 4443:4443 --name gcsfs_test fsouza/fake-gcs-server:latest -scheme "  # noqa: E501
-        "http -public-host http://localhost:4443 -external-url http://localhost:4443"  # noqa: E501
+    cmd = " ".join(
+        [
+            "docker",
+            "run",
+            "-d",
+            "-p 4443:4443",
+            "--name gcsfs_test",
+            "fsouza/fake-gcs-server:latest",
+            "-scheme http",
+            "-public-host http://localhost:4443",
+            "-external-url http://localhost:4443",
+            "-backend memory",
+        ]
     )
     stop_docker(container)
     subprocess.check_output(shlex.split(cmd))
@@ -254,10 +296,10 @@ def http_server(tmp_path_factory):
     requests = pytest.importorskip("requests")
     pytest.importorskip("http.server")
     proc = subprocess.Popen(
-        shlex.split(f"python -m http.server --directory {http_tempdir} 8080")
+        shlex.split(f"{sys.executable} -m http.server --directory {http_tempdir} 18080")
     )
     try:
-        url = "http://127.0.0.1:8080/folder"
+        url = "http://127.0.0.1:18080/folder"
         path = Path(http_tempdir) / "folder"
         path.mkdir()
         timeout = 10
@@ -353,8 +395,8 @@ def docker_azurite(azurite_credentials):
     image = "mcr.microsoft.com/azure-storage/azurite"
     container_name = "azure_test"
     cmd = (
-        f"docker run --rm -d -p {AZURITE_PORT}:10000 --name {container_name} {image}"  # noqa: E501
-        " azurite-blob --loose --blobHost 0.0.0.0"  # noqa: E501
+        f"docker run --rm -d -p {AZURITE_PORT}:10000 --name {container_name} {image}:latest"  # noqa: E501
+        " azurite-blob --loose --blobHost 0.0.0.0 --skipApiVersionCheck"  # noqa: E501
     )
     url = f"http://localhost:{AZURITE_PORT}"
 
@@ -537,3 +579,166 @@ def ssh_fixture(ssh_container, local_testdir, monkeypatch):
         )
     finally:
         fs.delete("/app/testdir", recursive=True)
+
+
+@pytest.fixture
+def hf_test_repo():
+    # "__username__" is an invalid username so we can use it for tests
+    return "__username__/test_repo"
+
+
+@pytest.fixture
+def mock_hf_api(pathlib_base, monkeypatch, hf_test_repo):  # noqa: C901
+    huggingface_hub = pytest.importorskip(
+        "huggingface_hub", reason="hf tests require huggingface_hub"
+    )
+    hf_file_system = pytest.importorskip(
+        "huggingface_hub.hf_file_system", reason="hf tests require huggingface_hub"
+    )
+    httpx = pytest.importorskip("httpx")
+
+    class MockedHfApi(huggingface_hub.HfApi):
+
+        def repo_info(self, repo_id, *args, repo_type=None, **kwargs):
+            if repo_id != hf_test_repo:
+                raise huggingface_hub.errors.RepositoryNotFoundError(
+                    repo_id,
+                    response=httpx.Response(404, request=...),
+                )
+            elif repo_type is None or repo_type == "model":
+                return huggingface_hub.hf_api.ModelInfo(id=repo_id)
+            elif repo_type == "dataset":
+                return huggingface_hub.hf_api.DatasetInfo(id=repo_id)
+            elif repo_type == "space":
+                return huggingface_hub.hf_api.SpaceInfo(id=repo_id)
+            else:
+                raise ValueError("Unsupported repo type.")
+
+        def get_paths_info(self, repo_id, paths, *args, **kwargs):
+            if repo_id != hf_test_repo:
+                raise huggingface_hub.errors.RepositoryNotFoundError(
+                    repo_id,
+                    response=httpx.Response(404, request=...),
+                )
+            paths_info = []
+            for path in paths:
+                if path:
+                    path = pathlib_base / path
+                    if path.is_file():
+                        paths_info.append(
+                            huggingface_hub.hf_api.RepoFile(
+                                path=path.relative_to(pathlib_base).as_posix(),
+                                blob_id="blob_id",
+                                size=path.stat().st_size,
+                            )
+                        )
+                    elif path.is_dir():
+                        paths_info.append(
+                            huggingface_hub.hf_api.RepoFolder(
+                                path=path.relative_to(pathlib_base).as_posix(),
+                                tree_id="tree_id",
+                            )
+                        )
+            return paths_info
+
+        def list_repo_tree(
+            self, repo_id, path_in_repo, *args, recursive=False, **kwargs
+        ):
+            if repo_id != hf_test_repo:
+                raise huggingface_hub.errors.RepositoryNotFoundError(
+                    repo_id, response=httpx.Response(404, request=...)
+                )
+            pathlib_dir = pathlib_base / path_in_repo if path_in_repo else pathlib_base
+            for path in pathlib_dir.rglob("*") if recursive else pathlib_dir.glob("*"):
+                if path.is_file():
+                    yield huggingface_hub.hf_api.RepoFile(
+                        path=path.relative_to(pathlib_base).as_posix(),
+                        oid="oid",
+                        size=path.stat().st_size,
+                    )
+                else:
+                    yield huggingface_hub.hf_api.RepoFolder(
+                        path=path.relative_to(pathlib_base).as_posix(),
+                        oid="oid",
+                    )
+
+    hf_file_system.HfFileSystem.clear_instance_cache()
+    monkeypatch.setattr(hf_file_system, "HfApi", MockedHfApi)
+
+
+@pytest.fixture
+def mock_hf_filesystem_open(pathlib_base, monkeypatch):
+    hf_file_system = pytest.importorskip(
+        "huggingface_hub.hf_file_system", reason="hf tests require huggingface_hub"
+    )
+
+    def mocked_open(fs, path, mode="rb", *args, **kwargs):
+        resolved_path = fs.resolve_path(path)
+        return (pathlib_base / resolved_path.path_in_repo).open(mode)
+
+    monkeypatch.setattr(hf_file_system.HfFileSystem, "_open", mocked_open)
+
+
+@pytest.fixture
+def hf_fixture_with_readonly_mocked_hf_api(
+    hf_test_repo, mock_hf_api, mock_hf_filesystem_open
+):
+    return "hf://" + hf_test_repo
+
+
+@pytest.fixture(scope="module")
+def ftp_server_process(tmp_path_factory):
+    """Fixture providing a writable FTP filesystem."""
+    pytest.importorskip("pyftpdlib")
+
+    tmp_path = tmp_path_factory.mktemp("ftp-server")
+
+    P = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "pyftpdlib",
+            "-d",
+            str(tmp_path),
+            "-u",
+            "user",
+            "-P",
+            "pass",
+            "-w",
+        ]
+    )
+    try:
+        time.sleep(1)
+        yield str(tmp_path), {
+            "host": "localhost",
+            "port": 2121,
+            "username": "user",
+            "password": "pass",
+        }
+    finally:
+        P.terminate()
+        P.wait()
+        try:
+            shutil.rmtree(tmp_path)
+        except Exception:
+            pass
+
+
+@pytest.fixture(scope="function")
+def ftp_server(ftp_server_process):
+    """Fixture providing a writable FTP filesystem."""
+    tmp_path, storage_options = ftp_server_process
+
+    try:
+        yield storage_options
+    finally:
+        for filename in os.listdir(tmp_path):
+            file_path = os.path.join(tmp_path, filename)
+            if os.path.isdir(file_path):
+                del_func = shutil.rmtree
+            else:
+                del_func = os.unlink
+            try:
+                del_func(file_path)
+            except Exception:
+                pass

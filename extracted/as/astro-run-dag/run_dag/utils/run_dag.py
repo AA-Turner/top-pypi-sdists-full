@@ -10,7 +10,6 @@ from airflow.models.connection import Connection
 from airflow.models.dag import DAG
 from airflow.models.dagrun import DagRun
 from airflow.models.taskinstance import TaskInstance
-from airflow.models.variable import Variable
 from airflow.secrets.local_filesystem import LocalFilesystemBackend
 from airflow.utils import timezone
 from airflow.utils.session import NEW_SESSION, provide_session
@@ -32,12 +31,12 @@ class AstroFilesystemBackend(LocalFilesystemBackend):
     def __init__(
         self,
         connections: dict[str, Connection] | None = None,
-        variables: dict[str, Variable] | None = None,
+        variables: dict[str, str] | None = None,
         variables_file_path: str | None = None,
         connections_file_path: str | None = None,
     ):
         self._local_conns: dict[str, Connection] = connections or {}
-        self._local_vars: dict[str, Variable] = variables or {}
+        self._local_vars: dict[str, str] = variables or {}
         super().__init__(
             variables_file_path=variables_file_path,
             connections_file_path=connections_file_path,
@@ -50,7 +49,7 @@ class AstroFilesystemBackend(LocalFilesystemBackend):
         return conns
 
     @property
-    def _local_variables(self) -> dict[str, Variable]:
+    def _local_variables(self) -> dict[str, str]:
         local_vars = self._local_vars
         local_vars.update(super()._local_variables)
         return local_vars
@@ -64,7 +63,7 @@ def run_dag(
     conn_file_path: str | None = None,
     variable_file_path: str | None = None,
     connections: dict[str, Connection] | None = None,
-    variables: dict[str, Variable] | None = None,
+    variables: dict[str, str] | None = None,
     verbose: bool = False,
     session: Session = NEW_SESSION,
 ) -> DagRun:
@@ -76,8 +75,10 @@ def run_dag(
     :param run_conf: configuration to pass to newly created dagrun
     :param conn_file_path: file path to a connection file in either yaml or json
     :param variable_file_path: file path to a variable file in either yaml or json
-    :param session: database connection (optional)
+    :param connections: loaded connections
+    :param variables: loaded variables
     :param verbose: whether to print out the logs of the tasks
+    :param session: database connection (optional)
 
     :return: the dag run object
     """

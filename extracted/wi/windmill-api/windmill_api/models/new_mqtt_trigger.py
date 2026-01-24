@@ -4,6 +4,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.new_mqtt_trigger_client_version import NewMqttTriggerClientVersion
+from ..models.new_mqtt_trigger_mode import NewMqttTriggerMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -30,10 +31,10 @@ class NewMqttTrigger:
         v3_config (Union[Unset, NewMqttTriggerV3Config]):
         v5_config (Union[Unset, NewMqttTriggerV5Config]):
         client_version (Union[Unset, NewMqttTriggerClientVersion]):
-        enabled (Union[Unset, bool]):
+        mode (Union[Unset, NewMqttTriggerMode]): job trigger mode
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, NewMqttTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
-        retry (Union[Unset, NewMqttTriggerRetry]):
+        retry (Union[Unset, NewMqttTriggerRetry]): Retry configuration for failed module executions
     """
 
     mqtt_resource_path: str
@@ -45,7 +46,7 @@ class NewMqttTrigger:
     v3_config: Union[Unset, "NewMqttTriggerV3Config"] = UNSET
     v5_config: Union[Unset, "NewMqttTriggerV5Config"] = UNSET
     client_version: Union[Unset, NewMqttTriggerClientVersion] = UNSET
-    enabled: Union[Unset, bool] = UNSET
+    mode: Union[Unset, NewMqttTriggerMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewMqttTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "NewMqttTriggerRetry"] = UNSET
@@ -75,7 +76,10 @@ class NewMqttTrigger:
         if not isinstance(self.client_version, Unset):
             client_version = self.client_version.value
 
-        enabled = self.enabled
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.error_handler_args, Unset):
@@ -104,8 +108,8 @@ class NewMqttTrigger:
             field_dict["v5_config"] = v5_config
         if client_version is not UNSET:
             field_dict["client_version"] = client_version
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if error_handler_path is not UNSET:
             field_dict["error_handler_path"] = error_handler_path
         if error_handler_args is not UNSET:
@@ -162,7 +166,12 @@ class NewMqttTrigger:
         else:
             client_version = NewMqttTriggerClientVersion(_client_version)
 
-        enabled = d.pop("enabled", UNSET)
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, NewMqttTriggerMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = NewMqttTriggerMode(_mode)
 
         error_handler_path = d.pop("error_handler_path", UNSET)
 
@@ -190,7 +199,7 @@ class NewMqttTrigger:
             v3_config=v3_config,
             v5_config=v5_config,
             client_version=client_version,
-            enabled=enabled,
+            mode=mode,
             error_handler_path=error_handler_path,
             error_handler_args=error_handler_args,
             retry=retry,

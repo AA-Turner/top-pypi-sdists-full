@@ -9,27 +9,27 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
 
 
-class DeployKeyType(TypedDict):
-    """Deploy Key
+class HookResponseType(TypedDict):
+    """Hook Response"""
 
-    An SSH key granting access to a single repository.
-    """
-
-    id: int
-    key: str
-    url: str
-    title: str
-    verified: bool
-    created_at: str
-    read_only: bool
-    added_by: NotRequired[Union[str, None]]
-    last_used: NotRequired[Union[datetime, None]]
-    enabled: NotRequired[bool]
+    code: Union[int, None]
+    status: Union[str, None]
+    message: Union[str, None]
 
 
-__all__ = ("DeployKeyType",)
+class HookResponseTypeForResponse(TypedDict):
+    """Hook Response"""
+
+    code: Union[int, None]
+    status: Union[str, None]
+    message: Union[str, None]
+
+
+__all__ = (
+    "HookResponseType",
+    "HookResponseTypeForResponse",
+)

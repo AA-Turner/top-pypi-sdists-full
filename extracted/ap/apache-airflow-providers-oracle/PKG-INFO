@@ -1,12 +1,13 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-oracle
-Version: 4.2.0
+Version: 4.3.1
 Summary: Provider package apache-airflow-providers-oracle for Apache Airflow
 Keywords: airflow-provider,oracle,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
 Maintainer-email: Apache Software Foundation <dev@airflow.apache.org>
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
+License-Expression: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
@@ -14,13 +15,15 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Framework :: Apache Airflow
 Classifier: Framework :: Apache Airflow :: Provider
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: System :: Monitoring
-Requires-Dist: apache-airflow>=2.10.0
+License-File: LICENSE
+License-File: NOTICE
+Requires-Dist: apache-airflow>=2.11.0
+Requires-Dist: apache-airflow-providers-common-compat>=1.8.0
 Requires-Dist: apache-airflow-providers-common-sql>=1.20.0
 Requires-Dist: oracledb>=2.0.0
 Requires-Dist: numpy>=1.22.4 ; extra == "numpy" and ( python_version<'3.11')
@@ -29,8 +32,8 @@ Requires-Dist: numpy>=1.26.0 ; extra == "numpy" and ( python_version=='3.12')
 Requires-Dist: numpy>=2.1.0 ; extra == "numpy" and ( python_version>='3.13')
 Requires-Dist: apache-airflow-providers-openlineage ; extra == "openlineage"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.2.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.2.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.3.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.3.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -63,10 +66,10 @@ Provides-Extra: openlineage
 
 Package ``apache-airflow-providers-oracle``
 
-Release: ``4.2.0``
+Release: ``4.3.1``
 
 
-`Oracle <https://www.oracle.com/en/database/>`__
+`Oracle <https://www.oracle.com/database/technologies/>`__
 
 
 Provider package
@@ -76,7 +79,7 @@ This is a provider package for ``oracle`` provider. All classes for this provide
 are in ``airflow.providers.oracle`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.2.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.3.1/>`_.
 
 Installation
 ------------
@@ -90,13 +93,14 @@ The package supports the following python versions: 3.10,3.11,3.12,3.13
 Requirements
 ------------
 
-=======================================  ==================
-PIP package                              Version required
-=======================================  ==================
-``apache-airflow``                       ``>=2.10.0``
-``apache-airflow-providers-common-sql``  ``>=1.20.0``
-``oracledb``                             ``>=2.0.0``
-=======================================  ==================
+==========================================  ==================
+PIP package                                 Version required
+==========================================  ==================
+``apache-airflow``                          ``>=2.11.0``
+``apache-airflow-providers-common-compat``  ``>=1.8.0``
+``apache-airflow-providers-common-sql``     ``>=1.20.0``
+``oracledb``                                ``>=2.0.0``
+==========================================  ==================
 
 Cross provider package dependencies
 -----------------------------------
@@ -108,16 +112,27 @@ You can install such cross-provider dependencies when installing from PyPI. For 
 
 .. code-block:: bash
 
-    pip install apache-airflow-providers-oracle[common.sql]
+    pip install apache-airflow-providers-oracle[common.compat]
 
 
-==============================================================================================================  ===============
-Dependent package                                                                                               Extra
-==============================================================================================================  ===============
-`apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_    ``common.sql``
-`apache-airflow-providers-openlineage <https://airflow.apache.org/docs/apache-airflow-providers-openlineage>`_  ``openlineage``
-==============================================================================================================  ===============
+==================================================================================================================  =================
+Dependent package                                                                                                   Extra
+==================================================================================================================  =================
+`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
+`apache-airflow-providers-common-sql <https://airflow.apache.org/docs/apache-airflow-providers-common-sql>`_        ``common.sql``
+`apache-airflow-providers-openlineage <https://airflow.apache.org/docs/apache-airflow-providers-openlineage>`_      ``openlineage``
+==================================================================================================================  =================
+
+Optional dependencies
+----------------------
+
+===============  ========================================================================================================================================================================
+Extra            Dependencies
+===============  ========================================================================================================================================================================
+``numpy``        ``numpy>=1.22.4; python_version<'3.11'``, ``numpy>=1.23.2; python_version=='3.11'``, ``numpy>=1.26.0; python_version=='3.12'``, ``numpy>=2.1.0; python_version>='3.13'``
+``openlineage``  ``apache-airflow-providers-openlineage``
+===============  ========================================================================================================================================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.2.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-oracle/4.3.1/changelog.html>`_.
 

@@ -62,14 +62,12 @@ class _lil_base(_spbase[_ScalarT_co, tuple[int, int]], IndexMixin[_ScalarT_co, t
     def __imul__(self, other: onp.ToComplex, /) -> Self: ...  # type: ignore[override]
     @override
     def __itruediv__(self, other: onp.ToComplex, /) -> Self: ...  # type: ignore[override]
-    @override
-    def __idiv__(self, other: onp.ToComplex, /) -> Self: ...
 
     #
     @override
-    def tolil(self, /, copy: bool = False) -> Self: ...  # type: ignore[override]
+    def tolil(self, /, copy: bool = False) -> Self: ...  # type: ignore[override]  # ty: ignore[invalid-method-override]
     @override
-    def resize(self, /, *shape: int) -> None: ...  # pyright: ignore[reportIncompatibleMethodOverride]
+    def resize(self, /, *shape: int) -> None: ...  # pyright: ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]
 
     # NOTE: Adding `@override` here will crash stubtest (mypy 1.15.0)
     @overload

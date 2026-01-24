@@ -1,14 +1,16 @@
+
 [build-system]
-requires = ["scikit-build-core", "cython >= 3.0"]
+requires = ["scikit-build-core >=0.11", "cython >=3.0"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyhmmer"
-version = "0.11.1"
+version = "0.12.0"
 description = "Cython bindings and Python interface to HMMER3."
 readme = "README.md"
 requires-python = ">=3.7"
-license = { file = "COPYING" }
+license = "MIT"
+license-files = ["COPYING"]
 authors = [
   { name = "Martin Larralde", email = "martin.larralde@embl.de" },
 ]
@@ -17,7 +19,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX",
     "Programming Language :: C",
     "Programming Language :: Cython",
@@ -28,6 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
@@ -35,7 +37,8 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "psutil >=6.0,<8.0"
+    "psutil >=5.0,<8.0 ; python_version >= '3.9'",
+    "psutil >=5.0,<7.0 ; python_version <= '3.8'"
 ]
 
 [project.urls]
@@ -51,13 +54,18 @@ dependencies = [
 [project.optional-dependencies]
 test = ["importlib-resources ; python_version < '3.9'"]
 
+[project.entry-points."cmake.root"]
+PyHMMER = "pyhmmer"
+
 [tool.scikit-build]
 build-dir = "build/{build_type}"
+wheel.py-api = "cp312"
 editable.rebuild = true
 editable.verbose = false
 sdist.exclude = [
     "build",
     "benches",
+    "docs",
     "vendor/easel/documentation",
     "vendor/easel/demotic",
     "vendor/easel/miniapps",
@@ -65,6 +73,10 @@ sdist.exclude = [
     "vendor/**/*.ai",
     "vendor/**/*.pl",
 ]
+
+[tool.scikit-build.cmake.define]
+PYHMMER_INSTALL_LIBS = { env = "PYHMMER_INSTALL_LIBS", default = true }
+BUILD_SHARED_LIBS = { env = "BUILD_SHARED_LIBS", default = true }
 
 [[tool.scikit-build.generate]]
 path = "src/pyhmmer/_version.py"
@@ -75,12 +87,16 @@ location = 'source'
 if.state = "editable"
 cmake.build-type = "Debug"
 
-[[tool.scikit-build-overrides]]
+[[tool.scikit-build.overrides]]
+if.env.READTHEDOCS = "True"
+cmake.build-type = "Debug"
+
+[[tool.scikit-build.overrides]]
 if.env.SCCACHE = true
 cmake.define.CMAKE_C_COMPILER_LAUNCHER = "sccache"
 cmake.define.CMAKE_CXX_COMPILER_LAUNCHER = "sccache"
 
-[[tool.scikit-build-overrides]]
+[[tool.scikit-build.overrides]]
 if.env.MOLD = true
 cmake.define.CMAKE_LINKER_TYPE = "mold"
 
@@ -88,12 +104,15 @@ cmake.define.CMAKE_LINKER_TYPE = "mold"
 plugins = ["Cython.Coverage"]
 
 [tool.cibuildwheel]
-before-build = "pip install scikit-build-core cython"
-build-frontend = { name = "pip", args = ["--no-build-isolation"] }
+before-build = "pip install scikit-build-core cython ninja"
+build-frontend = { name = "build" }
 build-verbosity = 1
 test-command = "python -m unittest pyhmmer.tests -v"
 test-extras = ["test"]
-free-threaded-support = false
+config-settings = { cmake.define.PYHMMER_INSTALL_LIBS = false }
+
+[tool.cibuildwheel.windows]
+skip = "cp3??t-win*"
 
 [tool.coverage.report]
 include = ["src/pyhmmer/*"]
@@ -122,5 +141,5 @@ warn_unused_ignores = true
 warn_return_any = true
 exclude = ["tests/.*\\.py"]
 
-["tool.mypy-pyhmmer.tests.*"]
+[tool."mypy-pyhmmer.tests.*"]
 ignore_errors = true

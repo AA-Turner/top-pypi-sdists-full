@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 
 from .regression import LinearRegression
@@ -38,7 +36,7 @@ class ConstrainedRidge(LinearRegression):
             "c": c,
         }
 
-    def kkt_system(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def kkt_system(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """
         Return the Karush-Kuhn-Tucker (KKT) system of equations. By solving
         the KKT system, one solves the problem

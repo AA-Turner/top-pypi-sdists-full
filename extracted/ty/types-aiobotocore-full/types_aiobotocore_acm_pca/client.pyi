@@ -3,7 +3,7 @@ Type annotations for acm-pca service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_acm_pca/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -77,11 +78,6 @@ from .waiter import (
     CertificateIssuedWaiter,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -90,26 +86,26 @@ else:
 __all__ = ("ACMPCAClient",)
 
 class Exceptions(BaseClientExceptions):
-    CertificateMismatchException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    InvalidArgsException: Type[BotocoreClientError]
-    InvalidArnException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidPolicyException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    InvalidStateException: Type[BotocoreClientError]
-    InvalidTagException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    LockoutPreventedException: Type[BotocoreClientError]
-    MalformedCSRException: Type[BotocoreClientError]
-    MalformedCertificateException: Type[BotocoreClientError]
-    PermissionAlreadyExistsException: Type[BotocoreClientError]
-    RequestAlreadyProcessedException: Type[BotocoreClientError]
-    RequestFailedException: Type[BotocoreClientError]
-    RequestInProgressException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    CertificateMismatchException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    InvalidArgsException: type[BotocoreClientError]
+    InvalidArnException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidPolicyException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    InvalidStateException: type[BotocoreClientError]
+    InvalidTagException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    LockoutPreventedException: type[BotocoreClientError]
+    MalformedCSRException: type[BotocoreClientError]
+    MalformedCertificateException: type[BotocoreClientError]
+    PermissionAlreadyExistsException: type[BotocoreClientError]
+    RequestAlreadyProcessedException: type[BotocoreClientError]
+    RequestFailedException: type[BotocoreClientError]
+    RequestInProgressException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 class ACMPCAClient(AioBaseClient):
     """
@@ -462,7 +458,7 @@ class ACMPCAClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

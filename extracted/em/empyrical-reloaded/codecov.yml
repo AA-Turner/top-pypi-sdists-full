@@ -1,4 +1,0 @@
-ignore:
-  - "**/__init__.py"
-  - "**/_version.py"
-  - "**/deprecate.py"

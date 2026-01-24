@@ -1,8 +1,7 @@
 """
 """
-from __future__ import annotations
-
 import contextlib
+import json
 import os
 from contextvars import ContextVar
 from io import BytesIO
@@ -17,6 +16,8 @@ from packaging import version
 if version.parse(torch.__version__) < version.parse('2.8'): # pragma: no cover
     raise RuntimeError("ZeroGPU AoTI reuqires PyTorch 2.8+")
 
+import torch._inductor.codecache # https://github.com/pytorch/pytorch/pull/165157
+from torch._functorch._aot_autograd.subclass_parametrization import unwrap_tensor_subclass_parameters
 from torch._inductor.package.package import package_aoti
 from torch.export.pt2_archive._package import AOTICompiledModel
 from torch.export.pt2_archive._package_weights import Weights
@@ -24,15 +25,20 @@ from torch.export.pt2_archive._package_weights import Weights
 from ..utils import register_cleanup
 
 
-INDUCTOR_CONFIGS_OVERRIDES = {
+INDUCTOR_CONFIGS_OVERRIDES: dict[str, Any] = {
     'aot_inductor.package_constants_in_so': False,
     'aot_inductor.package_constants_on_disk': True,
     'aot_inductor.package': True,
     'always_keep_tensor_constants': True,
 }
 
+if version.parse(version.parse(torch.__version__).base_version) >= version.parse('2.10'): # pragma: no cover
+    del INDUCTOR_CONFIGS_OVERRIDES['aot_inductor.package_constants_on_disk']
+    INDUCTOR_CONFIGS_OVERRIDES['aot_inductor.package_constants_on_disk_format'] = "pickle_weights"
 
 ARCHIVE_SO_PATTERN = '/tmp/*/archive/data/aotinductor/model/*.wrapper.so'
+
+PACKAGE_FILENAME = 'package.pt2'
 
 
 @contextlib.contextmanager
@@ -148,3 +154,101 @@ def aoti_capture(
         except CapturedCallException as e:
             captured_call.args = e.args
             captured_call.kwargs = e.kwargs
+
+
+class LazyAOTIModel:
+    def __init__(self, archive_file: torch.types.FileLike):
+        self.archive_file = archive_file
+        self.compiled_model: ContextVar[AOTICompiledModel | None] = ContextVar('compiled_model', default=None)
+        self.loaded_weights: ContextVar[dict[str, torch.Tensor] | None] = ContextVar('loaded_weights', default=None)
+    def __call__(self, weights: dict[str, torch.Tensor], check_full_update: bool, *args, **kwargs):
+        if (compiled_model := self.compiled_model.get()) is None:
+            with _register_aoti_cleanup():
+                compiled_model = torch._inductor.aoti_load_package(self.archive_file)
+            compiled_model = cast(AOTICompiledModel, compiled_model)
+            self.compiled_model.set(compiled_model)
+        if (loaded_weights := self.loaded_weights.get()) is None or loaded_weights is not weights:
+            compiled_model.load_constants(weights, check_full_update=check_full_update, user_managed=True)
+            self.loaded_weights.set(weights)
+        return compiled_model(*args, **kwargs)
+    def with_weights(self, weights: dict[str, torch.Tensor]):
+        return LazyAOTIModelWithWeights(self, weights)
+
+
+class LazyAOTIModelWithWeights:
+    def __init__(self, model: LazyAOTIModel, weights: dict[str, torch.Tensor]):
+        self.model = model
+        self.weights = weights
+        self.first_call = True
+    def __call__(self, *args, **kwargs):
+        check_full_update = self.first_call
+        self.first_call = False
+        return self.model(self.weights, check_full_update, *args, **kwargs)
+
+
+def _shallow_clone_module(module: torch.nn.Module) -> torch.nn.Module:
+    clone = object.__new__(module.__class__)
+    clone.__dict__ = module.__dict__.copy()
+    clone._parameters = module._parameters.copy()
+    clone._buffers = module._buffers.copy()
+    clone._modules = {k: _shallow_clone_module(v) for k, v in module._modules.items() if v is not None}
+    return clone
+
+
+def aoti_blocks_load(module: torch.nn.Module, repo_id: str, variant: str | None = None):
+    """
+    Loads AOTI-compiled blocks for a given module from the Hugging Face Hub.
+    This function expects the module to expose a `_repeated_blocks` attribute.
+    This attribute is present on most models from the diffusers library.
+
+    Args:
+        module (torch.nn.Module): The module containing repeated blocks to be replaced.
+        repo_id (str): The Hugging Face Hub repository ID where the compiled blocks are stored.
+        variant (str | None, optional): Variant suffix to append to block names. Defaults to None.
+
+    Returns:
+        None: The function mutates the given module in place.
+
+    Example:
+        >>> import spaces
+        >>> import torch
+        >>> from diffusers import FluxPipeline
+        >>> pipeline = FluxPipeline.from_pretrained('black-forest-labs/FLUX.1-dev')
+        >>> spaces.aoti_blocks_load(pipeline.transformer, 'zerogpu-aoti/FLUX.1')
+    """
+
+    from huggingface_hub import hf_hub_download
+    from huggingface_hub.errors import EntryNotFoundError
+
+    if (repeated_blocks := getattr(module, '_repeated_blocks', None)) is None:
+        raise RuntimeError("aoti_blocks_load only works with modules that expose _repeated_blocks")
+
+    #region: Quick and dirty config support
+    try:
+        config_path = hf_hub_download(repo_id, f"{_variant('config', variant)}.json")
+    except EntryNotFoundError:
+        config_path = None
+    config = json.loads(Path(config_path).read_text() if config_path is not None else '{}')
+    if (kernels_config := config.get('kernels', None)) is not None:
+        for kernels_kwargs in kernels_config:
+            from kernels import get_kernel
+            get_kernel(**kernels_kwargs) # Load custom ops
+    #endregion
+
+    repeated_blocks = cast(list[str], repeated_blocks)
+    aoti_models = {name: LazyAOTIModel(hf_hub_download(
+        repo_id=repo_id,
+        filename=PACKAGE_FILENAME,
+        subfolder=_variant(name, variant),
+    )) for name in repeated_blocks}
+
+    for block_name, aoti_model in aoti_models.items():
+        for block in module.modules():
+            if block.__class__.__name__ == block_name:
+                block_ = _shallow_clone_module(block) # Prevent original block mutation
+                unwrap_tensor_subclass_parameters(block_) # https://github.com/pytorch/pytorch/issues/159918
+                block.forward = aoti_model.with_weights(block_.state_dict())
+
+
+def _variant(name: str, variant: str | None):
+    return f'{name}.{variant}' if variant else name

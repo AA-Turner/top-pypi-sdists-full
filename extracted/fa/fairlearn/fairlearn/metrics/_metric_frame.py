@@ -40,7 +40,7 @@ _INVALID_COMPARE_METHOD = "Unrecognised comparison method: {0}"
 _BOOTSTRAP_NEED_N_AND_CI = "Must specify both n_boot and ci_quantiles"
 _BOOTSTRAP_N_BOOT_INT_GT_ZERO = "Must have n_boot be a positive integer"
 _BOOTSTRAP_CI_INVALID = "Must have all ci_quantiles be floats in (0, 1)"
-_BOOTSTRAP_NOT_INIITIALIZED = (
+_BOOTSTRAP_NOT_INITIALIZED = (
     "Could not compute confidence intervals:"
     " Bootstrapping parameters n_boot and ci_quantiles were not specified"
     " in the MetricFrame constructor."
@@ -136,7 +136,7 @@ class MetricFrame:
         metric function name, with the values being the string-to-array-like dictionaries.
 
     n_boot : int | None
-        If set to a postive integer, generate this number of bootstrap samples of the
+        If set to a positive integer, generate this number of bootstrap samples of the
         supplied data, and use to estimate confidence intervals for all of the metrics.
         Must be set with `ci_quantiles`.
 
@@ -243,7 +243,7 @@ class MetricFrame:
 
         all_data = pd.DataFrame.from_dict({"y_true": list(y_t), "y_pred": list(y_p)})
 
-        annotated_funcs = self._process_functions(metrics, sample_params, all_data)
+        annotated_funcs = self._get_annotated_metric_functions(metrics, sample_params, all_data)
 
         # Now, prepare the sensitive features
         sf_list = self._process_features("sensitive_feature_", sensitive_features, y_t)
@@ -360,7 +360,7 @@ class MetricFrame:
             for err_string in _VALID_ERROR_STRING:
                 try:
                     self._result_cache[k][err_string] = self._group(raw_result, v, err_string)
-                except Exception as e:  # noqa: B902
+                except Exception as e:
                     # Store any exception for later
                     self._result_cache[k][err_string] = e
 
@@ -385,7 +385,7 @@ class MetricFrame:
                         self._result_cache[c_t][c_m][err_string] = self._extract_result(
                             result, no_control_levels=False
                         )
-                    except Exception as e:  # noqa: B902
+                    except Exception as e:
                         # Store any exception for later
                         self._result_cache[c_t][c_m][err_string] = e
 
@@ -481,7 +481,7 @@ class MetricFrame:
 
             The distinction applies even if the dictionary contains a
             single metric function. This is to allow for a consistent
-            interface when calling programatically, while also reducing
+            interface when calling programmatically, while also reducing
             typing for those using Fairlearn interactively.
         """
         return self._result_cache["overall"]
@@ -894,80 +894,77 @@ class MetricFrame:
 
         return self._result_cache["ratio_ci"][method]
 
-    def _process_functions(
+    def _get_annotated_metric_functions(
         self,
         metric: Callable | dict[str, Callable],
-        sample_params,
+        sample_params: dict[str, Any] | dict[str, dict[str, Any]] | None,
         all_data: pd.DataFrame,
     ) -> dict[str, AnnotatedMetricFunction]:
         """Get the metrics into :class:`fairlearn.metrics.AnnotatedMetricFunction`."""
-        self._user_supplied_callable = True
-        func_dict = dict()
+        if sample_params is not None and not isinstance(sample_params, dict):
+            raise ValueError(_SAMPLE_PARAMS_NOT_DICT)
 
-        # The supplied 'metric' may be a dictionary of functions
-        if isinstance(metric, dict):
-            self._user_supplied_callable = False
-            s_p = dict()
+        annotated_functions = {}
+        sample_params = sample_params or {}
 
-            if sample_params is not None:
-                # If we have sample_params, they had better be a dictionary
-                if not isinstance(sample_params, dict):
-                    raise ValueError(_SAMPLE_PARAMS_NOT_DICT)
-
-                # The keys of the sample_params dictionary must be a
-                # subset of our supplied metric functions
-                sp_keys = set(sample_params.keys())
-                mf_keys = set(metric.keys())
-                if not sp_keys.issubset(mf_keys):
-                    raise ValueError(_SAMPLE_PARAM_KEYS_NOT_IN_FUNC_DICT)
-                s_p = sample_params
-
-            for name, func in metric.items():
-                curr_s_p = None
-                if name in s_p:
-                    curr_s_p = s_p[name]
-
-                amf = self._process_one_function(func, name, curr_s_p, all_data)
-                func_dict[amf.name] = amf
-        else:
+        if not isinstance(metric, dict):
             # This is the case where the user has supplied a single metric function
-            amf = self._process_one_function(metric, None, sample_params, all_data)
-            func_dict[amf.name] = amf
-        return func_dict
+            self._user_supplied_callable = True
 
-    def _process_one_function(
+            annotated_metric_function = self._construct_annotated_metric_function(
+                func=metric, name=None, sample_params=sample_params, all_data=all_data
+            )
+            annotated_functions[annotated_metric_function.name] = annotated_metric_function
+            return annotated_functions
+
+        # The supplied 'metric' is a dictionary of functions
+        self._user_supplied_callable = False
+
+        # The keys of sample_params must be a subset of the supplied metric dictionary
+        sample_params_keys = set(sample_params.keys())
+        metric_functions_keys = set(metric.keys())
+        if not sample_params_keys.issubset(metric_functions_keys):
+            raise ValueError(_SAMPLE_PARAM_KEYS_NOT_IN_FUNC_DICT)
+
+        for name, metric_function in metric.items():
+            associated_sample_params = sample_params.get(name, {})
+
+            annotated_metric_function = self._construct_annotated_metric_function(
+                func=metric_function,
+                name=name,
+                sample_params=associated_sample_params,
+                all_data=all_data,
+            )
+            annotated_functions[annotated_metric_function.name] = annotated_metric_function
+
+        return annotated_functions
+
+    def _construct_annotated_metric_function(
         self,
         func: Callable,
         name: str | None,
-        sample_parameters: dict[str, Any] | None,
+        sample_params: dict[str, Any],
         all_data: pd.DataFrame,
     ) -> AnnotatedMetricFunction:
-        # Deal with the sample parameters
-        _sample_param_arrays = dict()
-        if sample_parameters is not None:
-            if not isinstance(sample_parameters, dict):
-                raise ValueError(_SAMPLE_PARAMS_NOT_DICT)
-            for k, v in sample_parameters.items():
-                if v is not None:
-                    # Coerce any sample_params to being ndarrays for easy masking
-                    _sample_param_arrays[k] = np.asarray(v)
+        if not isinstance(sample_params, dict):
+            raise ValueError(_SAMPLE_PARAMS_NOT_DICT)
 
-        # Build the kwargs
-        kwarg_dict = dict()
-        for param_name, param_values in _sample_param_arrays.items():
+        kw_argument_mapping = {}
+
+        for param_name, param_value in sample_params.items():
+            if param_value is None:
+                continue
+
             col_name = f"{name}_{param_name}"
-            all_data[col_name] = param_values
-            kwarg_dict[param_name] = col_name
+            all_data[col_name] = np.asarray(param_value)
+            kw_argument_mapping[param_name] = col_name
 
-        # Construct the return object
-        amf = AnnotatedMetricFunction(
+        return AnnotatedMetricFunction(
             func=func,
             name=name,
             positional_argument_names=["y_true", "y_pred"],
-            kw_argument_mapping=kwarg_dict,
+            kw_argument_mapping=kw_argument_mapping,
         )
-
-        return amf
 
     def _process_features(self, base_name, features, sample_array) -> list[GroupFeature]:
         """Extract the features into :class:`fairlearn.metrics.GroupFeature` objects."""
@@ -1026,4 +1023,4 @@ class MetricFrame:
     def _check_bootstrap_initialized(self):
         """Check that the bootstrap parameters n_boot and ci_quantiles were correctly initialized."""
         if self._ci_quantiles is None or len(self._ci_quantiles) == 0 or self._n_boot is None:
-            raise ValueError(_BOOTSTRAP_NOT_INIITIALIZED)
+            raise ValueError(_BOOTSTRAP_NOT_INITIALIZED)

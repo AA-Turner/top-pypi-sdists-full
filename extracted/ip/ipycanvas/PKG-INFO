@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipycanvas
-Version: 0.14.1
+Version: 0.14.3
 Summary: Interactive widgets library exposing the browser's Canvas API
 Project-URL: Homepage, https://github.com/jupyter-widgets-contrib/ipycanvas
 Author-email: Martin Renou <martin.renou@gmail.com>
@@ -32,18 +32,19 @@ License: Copyright (c) 2019 Martin Renou
         OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
         OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE.txt
-Keywords: IPython,Jupyter,Widgets
+Keywords: Canvas,IPython,Jupyter,Widgets
 Classifier: Framework :: Jupyter
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: ipywidgets<9,>=7.6.0
 Requires-Dist: numpy
 Requires-Dist: pillow>=6.0
@@ -53,6 +54,7 @@ Description-Content-Type: text/markdown
 <h1 align="center">ipycanvas</h1>
 <h2 align="center"> Interactive Canvas in Jupyter </h1>
 
+[![ipycanvas](https://img.shields.io/badge/notebook-link-e2d610?logo=jupyter&logoColor=white)](https://notebook.link/github/jupyter-widgets-contrib/ipycanvas/tree/main/lab/)
 [![Documentation](http://readthedocs.org/projects/ipycanvas/badge/?version=latest)](https://ipycanvas.readthedocs.io/en/latest/?badge=latest)
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/jupyter-widgets-contrib/ipycanvas/stable?urlpath=lab%2Ftree%2Fexamples)
 [![JupyterLite](https://jupyterlite.rtfd.io/en/latest/_static/badge-launch.svg)](https://ipycanvas.readthedocs.io/en/latest/lite/lab)

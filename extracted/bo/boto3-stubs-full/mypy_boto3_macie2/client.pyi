@@ -3,7 +3,7 @@ Type annotations for macie2 service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -173,12 +174,6 @@ from .type_defs import (
 )
 from .waiter import FindingRevealedWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -187,15 +182,15 @@ else:
 __all__ = ("Macie2Client",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    UnprocessableEntityException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    UnprocessableEntityException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class Macie2Client(BaseClient):
     """
@@ -232,7 +227,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#generate_presigned_url)
         """
 
-    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> Dict[str, Any]:
+    def accept_invitation(self, **kwargs: Unpack[AcceptInvitationRequestTypeDef]) -> dict[str, Any]:
         """
         Accepts an Amazon Macie membership invitation that was received from a specific
         account.
@@ -325,7 +320,7 @@ class Macie2Client(BaseClient):
 
     def create_sample_findings(
         self, **kwargs: Unpack[CreateSampleFindingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates sample findings.
 
@@ -344,7 +339,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#decline_invitations)
         """
 
-    def delete_allow_list(self, **kwargs: Unpack[DeleteAllowListRequestTypeDef]) -> Dict[str, Any]:
+    def delete_allow_list(self, **kwargs: Unpack[DeleteAllowListRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an allow list.
 
@@ -354,7 +349,7 @@ class Macie2Client(BaseClient):
 
     def delete_custom_data_identifier(
         self, **kwargs: Unpack[DeleteCustomDataIdentifierRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Soft deletes a custom data identifier.
 
@@ -364,7 +359,7 @@ class Macie2Client(BaseClient):
 
     def delete_findings_filter(
         self, **kwargs: Unpack[DeleteFindingsFilterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a findings filter.
 
@@ -383,7 +378,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#delete_invitations)
         """
 
-    def delete_member(self, **kwargs: Unpack[DeleteMemberRequestTypeDef]) -> Dict[str, Any]:
+    def delete_member(self, **kwargs: Unpack[DeleteMemberRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the association between an Amazon Macie administrator account and an
         account.
@@ -424,7 +419,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#describe_organization_configuration)
         """
 
-    def disable_macie(self) -> Dict[str, Any]:
+    def disable_macie(self) -> dict[str, Any]:
         """
         Disables Amazon Macie and deletes all settings and resources for a Macie
         account.
@@ -435,7 +430,7 @@ class Macie2Client(BaseClient):
 
     def disable_organization_admin_account(
         self, **kwargs: Unpack[DisableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disables an account as the delegated Amazon Macie administrator account for an
         organization in Organizations.
@@ -444,7 +439,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#disable_organization_admin_account)
         """
 
-    def disassociate_from_administrator_account(self) -> Dict[str, Any]:
+    def disassociate_from_administrator_account(self) -> dict[str, Any]:
         """
         Disassociates a member account from its Amazon Macie administrator account.
 
@@ -452,7 +447,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#disassociate_from_administrator_account)
         """
 
-    def disassociate_from_master_account(self) -> Dict[str, Any]:
+    def disassociate_from_master_account(self) -> dict[str, Any]:
         """
         (Deprecated) Disassociates a member account from its Amazon Macie administrator
         account.
@@ -463,7 +458,7 @@ class Macie2Client(BaseClient):
 
     def disassociate_member(
         self, **kwargs: Unpack[DisassociateMemberRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an Amazon Macie administrator account from a member account.
 
@@ -471,7 +466,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#disassociate_member)
         """
 
-    def enable_macie(self, **kwargs: Unpack[EnableMacieRequestTypeDef]) -> Dict[str, Any]:
+    def enable_macie(self, **kwargs: Unpack[EnableMacieRequestTypeDef]) -> dict[str, Any]:
         """
         Enables Amazon Macie and specifies the configuration settings for a Macie
         account.
@@ -482,7 +477,7 @@ class Macie2Client(BaseClient):
 
     def enable_organization_admin_account(
         self, **kwargs: Unpack[EnableOrganizationAdminAccountRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Designates an account as the delegated Amazon Macie administrator account for
         an organization in Organizations.
@@ -880,7 +875,7 @@ class Macie2Client(BaseClient):
 
     def put_findings_publication_configuration(
         self, **kwargs: Unpack[PutFindingsPublicationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the configuration settings for publishing findings to Security Hub.
 
@@ -899,7 +894,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#search_resources)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates one or more tags (keys and values) that are associated with an
         Amazon Macie resource.
@@ -918,7 +913,7 @@ class Macie2Client(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_macie2/client/#test_custom_data_identifier)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags (keys and values) from an Amazon Macie resource.
 
@@ -938,7 +933,7 @@ class Macie2Client(BaseClient):
 
     def update_automated_discovery_configuration(
         self, **kwargs: Unpack[UpdateAutomatedDiscoveryConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Changes the configuration settings and status of automated sensitive data
         discovery for an organization or standalone account.
@@ -949,7 +944,7 @@ class Macie2Client(BaseClient):
 
     def update_classification_job(
         self, **kwargs: Unpack[UpdateClassificationJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Changes the status of a classification job.
 
@@ -959,7 +954,7 @@ class Macie2Client(BaseClient):
 
     def update_classification_scope(
         self, **kwargs: Unpack[UpdateClassificationScopeRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the classification scope settings for an account.
 
@@ -979,7 +974,7 @@ class Macie2Client(BaseClient):
 
     def update_macie_session(
         self, **kwargs: Unpack[UpdateMacieSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Suspends or re-enables Amazon Macie, or updates the configuration settings for
         a Macie account.
@@ -990,7 +985,7 @@ class Macie2Client(BaseClient):
 
     def update_member_session(
         self, **kwargs: Unpack[UpdateMemberSessionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables an Amazon Macie administrator to suspend or re-enable Macie for a
         member account.
@@ -1001,7 +996,7 @@ class Macie2Client(BaseClient):
 
     def update_organization_configuration(
         self, **kwargs: Unpack[UpdateOrganizationConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the Amazon Macie configuration settings for an organization in
         Organizations.
@@ -1012,7 +1007,7 @@ class Macie2Client(BaseClient):
 
     def update_resource_profile(
         self, **kwargs: Unpack[UpdateResourceProfileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the sensitivity score for an S3 bucket.
 
@@ -1022,7 +1017,7 @@ class Macie2Client(BaseClient):
 
     def update_resource_profile_detections(
         self, **kwargs: Unpack[UpdateResourceProfileDetectionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the sensitivity scoring settings for an S3 bucket.
 
@@ -1043,7 +1038,7 @@ class Macie2Client(BaseClient):
 
     def update_sensitivity_inspection_template(
         self, **kwargs: Unpack[UpdateSensitivityInspectionTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the settings for the sensitivity inspection template for an account.
 

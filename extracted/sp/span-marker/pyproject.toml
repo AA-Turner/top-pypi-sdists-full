@@ -1,0 +1,135 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "span_marker"
+description = "Named Entity Recognition using Span Markers"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "Apache-2.0"}
+keywords = [
+    "data-science",
+    "natural-language-processing",
+    "artificial-intelligence",
+    "mlops",
+    "nlp",
+    "machine-learning",
+    "transformers"
+]
+authors = [
+    {name = "Tom Aarsen"}
+]
+maintainers = [
+    {name = "Tom Aarsen"}
+]
+dependencies = [
+    "torch",
+    "accelerate",
+    "transformers>=4.23.0,<5", # required for EvalPrediction.inputs
+    "datasets>=2.14.0", # required for sorting with multiple columns
+    "packaging>=20.0",
+    "evaluate",
+    "seqeval",
+    "scikit-learn",
+    "jinja2",
+    "huggingface_hub>=0.24.0"
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "ruff",
+    "black",
+    "pytest",
+    "pytest-cov",
+    "spacy"
+]
+docs = [
+    "nltk_theme",
+    "sphinx==6.1.3",
+    "lxml==4.9.2",
+    "m2r2==0.3.3.post2",
+    "better-apidoc==0.3.2",
+    "nbsphinx==0.9.1",
+    "nbconvert<7",
+    "pandoc<3",
+    "ipython",
+    "spacy" # Required to build the spaCy integration docs
+]
+wandb = [
+    "wandb"
+]
+codecarbon = [
+    "codecarbon"
+]
+
+[project.urls]
+Documentation = "https://tomaarsen.github.io/SpanMarkerNER"
+Repository = "https://github.com/tomaarsen/SpanMarkerNER"
+
+[tool.setuptools.packages.find]
+include = ["span_marker"]
+
+[tool.setuptools.dynamic]
+version = {attr = "span_marker.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = [
+    "tests"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:tensorboard.*:"
+]
+addopts = "--cov=span_marker --durations=10"
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "def __str__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if _TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:"
+]
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+# Ignore line length violations
+ignore = ["E501"]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+]
+
+[tool.ruff.per-file-ignores]
+# Ignore imported but unused;
+"__init__.py" = ["F401"]
+
+[tool.black]
+line-length = 120

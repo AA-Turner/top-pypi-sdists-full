@@ -294,23 +294,23 @@ class ListDocumentsRequest(proto.Message):
             The filter expression used to filter documents returned by
             the list method. The expression has the following syntax:
 
-             [AND ] ...
+            [AND ] ...
 
             The following fields and operators are supported:
 
-            -  knowledge_types with has(:) operator
-            -  display_name with has(:) operator
-            -  state with equals(=) operator
+            - knowledge_types with has(:) operator
+            - display_name with has(:) operator
+            - state with equals(=) operator
 
             Examples:
 
-            -  "knowledge_types:FAQ" matches documents with FAQ
-               knowledge type.
-            -  "display_name:customer" matches documents whose display
-               name contains "customer".
-            -  "state=ACTIVE" matches documents with ACTIVE state.
-            -  "knowledge_types:FAQ AND state=ACTIVE" matches all active
-               FAQ documents.
+            - "knowledge_types:FAQ" matches documents with FAQ knowledge
+              type.
+            - "display_name:customer" matches documents whose display
+              name contains "customer".
+            - "state=ACTIVE" matches documents with ACTIVE state.
+            - "knowledge_types:FAQ AND state=ACTIVE" matches all active
+              FAQ documents.
 
             For more information about filtering, see `API
             Filtering <https://aip.dev/160>`__.
@@ -655,6 +655,8 @@ class KnowledgeOperationMetadata(proto.Message):
             as the destination of export.
 
             This field is a member of `oneof`_ ``operation_metadata``.
+        done_time (google.protobuf.timestamp_pb2.Timestamp):
+            The time when the operation finished.
     """
 
     class State(proto.Enum):
@@ -690,6 +692,11 @@ class KnowledgeOperationMetadata(proto.Message):
         number=4,
         oneof="operation_metadata",
         message="ExportOperationMetadata",
+    )
+    done_time: timestamp_pb2.Timestamp = proto.Field(
+        proto.MESSAGE,
+        number=5,
+        message=timestamp_pb2.Timestamp,
     )
 
 

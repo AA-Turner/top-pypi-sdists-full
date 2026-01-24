@@ -1,6 +1,6 @@
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "1.18.0"
+version = "1.19.1"
 tag_format = "$version"
 version_files = [
     "pyproject.toml:version",
@@ -349,7 +349,7 @@ classifiers = [
     "Topic :: Utilities",
     "Natural Language :: English",
 ]
-version = "1.18.0"
+version = "1.19.1"
 
 [project.license]
 text = "GPL-3.0-only"

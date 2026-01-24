@@ -6,6 +6,7 @@ from typing import Any, List, Optional, Tuple
 import mlx.core as mx
 import mlx.nn as nn
 
+from .activations import swiglu
 from .base import (
     BaseModelArgs,
     create_attention_mask,
@@ -20,6 +21,7 @@ from .switch_layers import SwitchGLU
 
 @dataclass
 class ModelArgs(BaseModelArgs):
+    # Required fields (no defaults)
     model_type: str
     vocab_size: int
     hidden_size: int
@@ -29,33 +31,41 @@ class ModelArgs(BaseModelArgs):
     num_attention_heads: int
     num_key_value_heads: int
     attention_bias: bool
-
-    # Scalar multipliers
     embedding_multiplier: float
     attention_multiplier: float
     logits_scaling: float
     residual_multiplier: float
-
-    # MoE parameters
-    num_local_experts: int
-    num_experts_per_tok: int
-    shared_intermediate_size: int
-
-    # Mamba parameters
-    mamba_n_heads: int
-    mamba_d_head: int
-    mamba_proj_bias: bool
-    mamba_d_state: int
-    mamba_d_conv: int
-    mamba_n_groups: int
-    mamba_conv_bias: bool
-
     layer_types: List[str]
     rms_norm_eps: float
     rope_theta: float
+
+    # Optional fields (with defaults)
+    # MoE parameters (optional for dense mode)
+    num_local_experts: Optional[int] = None
+    num_experts_per_tok: Optional[int] = None
+    shared_intermediate_size: Optional[int] = None
+
+    # Mamba parameters (optional for non-hybrid mode)
+    mamba_n_heads: Optional[int] = None
+    mamba_d_head: Optional[int] = None
+    mamba_proj_bias: Optional[bool] = None
+    mamba_d_state: Optional[int] = None
+    mamba_d_conv: Optional[int] = None
+    mamba_n_groups: Optional[int] = None
+    mamba_conv_bias: Optional[bool] = None
+
+    # Dense MLP parameters (for non-MoE mode)
+    mlp_bias: bool = False
+
+    # Other optional parameters
     position_embedding_type: str = "rope"
     tie_word_embeddings: bool = True
     time_step_limit: Tuple[float, float] = (0.001, 100.0)
+
+    # Mode flags - inferred from num_local_experts
+    @property
+    def use_moe(self) -> bool:
+        return bool(self.num_local_experts)
 
 
 class GraniteMoeHybridRMSNormGated(nn.Module):
@@ -66,7 +76,7 @@ class GraniteMoeHybridRMSNormGated(nn.Module):
 
     def __call__(self, hidden_states: mx.array, gate: mx.array = None) -> mx.array:
         if gate is not None:
-            hidden_states = hidden_states * nn.silu(gate)
+            hidden_states = swiglu(gate, hidden_states)
         return mx.fast.rms_norm(hidden_states, self.weight, self.eps)
 
 
@@ -110,21 +120,36 @@ class GraniteMoeHybridMamba2Mixer(nn.Module):
             self.intermediate_size, self.hidden_size, bias=args.mamba_proj_bias
         )
 
-    def _apply_conv(
-        self, conv_input: mx.array, cache: Optional[MambaCache] = None
+    def _conv(
+        self,
+        conv_input: mx.array,
+        cache: Optional[MambaCache],
+        mask: Optional[mx.array],
     ) -> mx.array:
-        if cache is None or cache[0] is None:
-            conv_state = mx.zeros(
-                (conv_input.shape[0], self.conv_kernel_size - 1, self.conv_dim),
-                dtype=conv_input.dtype,
-            )
-        else:
-            conv_state = cache[0]
-
-        padded_input = mx.concatenate([conv_state, conv_input], axis=1)
+        if mask is not None:
+            conv_input = mx.where(mask[..., None], conv_input, 0)
 
         if cache is not None:
-            cache[0] = padded_input[:, -(self.conv_kernel_size - 1) :]
+            if cache[0] is None:
+                conv_state = mx.zeros(
+                    (conv_input.shape[0], self.conv_kernel_size - 1, self.conv_dim),
+                    dtype=conv_input.dtype,
+                )
+            else:
+                conv_state = cache[0]
+            padded_input = mx.concatenate([conv_state, conv_input], axis=1)
+            n_keep = self.conv_kernel_size - 1
+            if cache.lengths is not None:
+                t = padded_input.shape[1]
+                ends = mx.clip(cache.lengths, 0, t - n_keep)
+                positions = (ends[:, None] + mx.arange(n_keep))[..., None]
+                cache[0] = mx.take_along_axis(padded_input, positions, axis=1)
+            else:
+                cache[0] = padded_input[:, -n_keep:, :]
+        else:
+            padded_input = mx.pad(
+                conv_input, [(0, 0), (self.conv_kernel_size - 1, 0), (0, 0)]
+            )
 
         conv_output = self.conv1d(padded_input)
         return nn.silu(conv_output)
@@ -135,8 +160,8 @@ class GraniteMoeHybridMamba2Mixer(nn.Module):
         B: mx.array,
         C: mx.array,
         dt: mx.array,
-        state: Optional[mx.array] = None,
-        mask: Optional[mx.array] = None,
+        cache: Optional[MambaCache],
+        mask: Optional[mx.array],
     ) -> mx.array:
         batch_size, seq_len, _ = hidden_states.shape
 
@@ -145,26 +170,33 @@ class GraniteMoeHybridMamba2Mixer(nn.Module):
         )
         B = B.reshape(batch_size, seq_len, self.n_groups, self.ssm_state_size)
         C = C.reshape(batch_size, seq_len, self.n_groups, self.ssm_state_size)
+        if cache:
+            state = cache[1]
+            lengths = cache.lengths
+        else:
+            state, lengths = None, None
 
         y, state = ssm_update(
             hidden_states,
             self.A_log,
             B,
             C,
-            self.D,
+            self.D.astype(hidden_states.dtype),
             dt,
             self.dt_bias,
             state,
             self.time_step_limit,
             mask,
         )
+        if cache:
+            cache[1] = state
 
-        return y.reshape(batch_size, seq_len, self.intermediate_size), state
+        return y.reshape(batch_size, seq_len, self.intermediate_size)
 
     def __call__(
         self,
         hidden_states: mx.array,
-        mask: Optional[mx.array] = None,
+        mask: Optional[mx.array],
         cache: Optional[MambaCache] = None,
     ) -> mx.array:
 
@@ -175,11 +207,7 @@ class GraniteMoeHybridMamba2Mixer(nn.Module):
             [self.intermediate_size, self.intermediate_size + self.conv_dim],
             axis=-1,
         )
-
-        if mask is not None:
-            conv_input = mx.where(mask[..., None], conv_input, 0)
-        conv_output = self._apply_conv(conv_input, cache)
-
+        conv_output = self._conv(conv_input, cache, mask)
         hidden_states_ssm, B, C = mx.split(
             conv_output,
             [
@@ -188,10 +216,9 @@ class GraniteMoeHybridMamba2Mixer(nn.Module):
             ],
             axis=-1,
         )
-        state = cache[1] if cache else None
-        y, state = self._ssm(hidden_states_ssm, B, C, dt, state, mask)
+        y = self._ssm(hidden_states_ssm, B, C, dt, cache, mask)
         if cache:
-            cache[1] = state
+            cache.advance(y.shape[1])
         y = self.norm(y, gate)
         return self.out_proj(y)
 
@@ -311,7 +338,22 @@ class GraniteMoeHybridSharedMLP(nn.Module):
 
     def __call__(self, x: mx.array) -> mx.array:
         gate, up = mx.split(self.input_linear(x), 2, axis=-1)
-        return self.output_linear(nn.silu(gate) * up)
+        return self.output_linear(swiglu(gate, up))
+
+
+class GraniteMoeHybridMLP(nn.Module):
+    def __init__(self, args: ModelArgs):
+        super().__init__()
+        dim = args.hidden_size
+        hidden_dim = args.intermediate_size
+        mlp_bias = args.mlp_bias
+
+        self.gate_proj = nn.Linear(dim, hidden_dim, bias=mlp_bias)
+        self.down_proj = nn.Linear(hidden_dim, dim, bias=mlp_bias)
+        self.up_proj = nn.Linear(dim, hidden_dim, bias=mlp_bias)
+
+    def __call__(self, x) -> mx.array:
+        return self.down_proj(swiglu(self.gate_proj(x), self.up_proj(x)))
 
 
 class GraniteMoeHybridLayer(nn.Module):
@@ -319,6 +361,7 @@ class GraniteMoeHybridLayer(nn.Module):
         super().__init__()
         self.layer_type = layer_type
         self.residual_multiplier = args.residual_multiplier
+        self.use_moe = args.use_moe
 
         self.input_layernorm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
 
@@ -329,8 +372,14 @@ class GraniteMoeHybridLayer(nn.Module):
         else:
             raise ValueError(f"Unknown layer type: {layer_type}")
 
-        self.shared_mlp = GraniteMoeHybridSharedMLP(args)
-        self.block_sparse_moe = GraniteMoeHybridMoE(args)
+        # MoE or dense MLP after attention/mamba
+        if self.use_moe:
+            self.shared_mlp = GraniteMoeHybridSharedMLP(args)
+            self.block_sparse_moe = GraniteMoeHybridMoE(args)
+        else:
+            # Dense MLP mode
+            self.mlp = GraniteMoeHybridMLP(args)
+
         self.post_attention_layernorm = nn.RMSNorm(
             args.hidden_size, eps=args.rms_norm_eps
         )
@@ -352,13 +401,16 @@ class GraniteMoeHybridLayer(nn.Module):
 
         hidden_states = residual + hidden_states * self.residual_multiplier
 
-        # Second block: MoE + shared_mlp
+        # Second block: MoE + shared_mlp OR dense MLP
         residual = hidden_states
         normed = self.post_attention_layernorm(hidden_states)
 
-        moe_out = self.block_sparse_moe(normed)
-        shared_out = self.shared_mlp(normed)
-        mlp_out = moe_out + shared_out
+        if self.use_moe:
+            moe_out = self.block_sparse_moe(normed)
+            shared_out = self.shared_mlp(normed)
+            mlp_out = moe_out + shared_out
+        else:
+            mlp_out = self.mlp(normed)
 
         hidden_states = residual + mlp_out * self.residual_multiplier
 
@@ -375,9 +427,16 @@ class GraniteMoeHybridModel(nn.Module):
         ]
         self.norm = nn.RMSNorm(args.hidden_size, eps=args.rms_norm_eps)
         self.embedding_multiplier = args.embedding_multiplier
-        self.fa_idx = args.layer_types.index("attention")
-        self.ssm_idx = args.layer_types.index("mamba")
-        self.layer_types = args.layer_types
+
+        # Handle hybrid vs non-hybrid mode
+        self.fa_idx = (
+            args.layer_types.index("attention")
+            if "attention" in args.layer_types
+            else None
+        )
+        self.ssm_idx = (
+            args.layer_types.index("mamba") if "mamba" in args.layer_types else None
+        )
 
     def __call__(
         self,
@@ -389,11 +448,16 @@ class GraniteMoeHybridModel(nn.Module):
         if cache is None:
             cache = [None] * len(self.layers)
 
-        attn_mask = create_attention_mask(hidden_states, cache[self.fa_idx])
-        mamba_mask = create_ssm_mask(hidden_states, cache[self.ssm_idx])
+        # Create masks based on what layer types exist
+        attn_mask = None
+        mamba_mask = None
 
-        cache_counter = 0
-        for layer, c, layer_type in zip(self.layers, cache, self.layer_types):
+        if self.fa_idx is not None:
+            attn_mask = create_attention_mask(hidden_states, cache[self.fa_idx])
+        if self.ssm_idx is not None:
+            mamba_mask = create_ssm_mask(hidden_states, cache[self.ssm_idx])
+
+        for layer, c in zip(self.layers, cache):
             mask = attn_mask if layer.layer_type == "attention" else mamba_mask
             hidden_states = layer(hidden_states, mask=mask, cache=c)
 
@@ -443,8 +507,11 @@ class Model(nn.Module):
             if "conv1d.weight" in k and v.shape[-1] != 1:
                 weights[k] = v.moveaxis(2, 1)
 
-        # Handle MoE weight transformation to SwitchGLU format
-        if "model.layers.0.block_sparse_moe.input_linear.weight" in weights:
+        # Handle MoE weight transformation to SwitchGLU format (only for MoE models)
+        if (
+            self.args.use_moe
+            and "model.layers.0.block_sparse_moe.input_linear.weight" in weights
+        ):
             for l in range(self.args.num_hidden_layers):
                 prefix = f"model.layers.{l}.block_sparse_moe"
 
@@ -461,12 +528,31 @@ class Model(nn.Module):
                     f"{prefix}.output_linear.weight"
                 )
 
+        # Handle dense MLP weight transformation (for dense models)
+        elif (
+            not self.args.use_moe
+            and "model.layers.0.shared_mlp.input_linear.weight" in weights
+        ):
+            for l in range(self.args.num_hidden_layers):
+                prefix = f"model.layers.{l}.shared_mlp"
+
+                # Transform shared_mlp weights to standard mlp weights
+                input_weight = weights.pop(f"{prefix}.input_linear.weight")
+                # Split into gate and up projections (each half)
+                gate_proj, up_proj = mx.split(input_weight, 2, axis=0)
+                weights[f"model.layers.{l}.mlp.gate_proj.weight"] = gate_proj
+                weights[f"model.layers.{l}.mlp.up_proj.weight"] = up_proj
+
+                weights[f"model.layers.{l}.mlp.down_proj.weight"] = weights.pop(
+                    f"{prefix}.output_linear.weight"
+                )
+
         return weights
 
     @property
     def quant_predicate(self):
         def predicate(path, _):
-            if path.endswith("router.layer"):
+            if self.args.use_moe and path.endswith("router.layer"):
                 return {"group_size": 64, "bits": 8}
             return True
 

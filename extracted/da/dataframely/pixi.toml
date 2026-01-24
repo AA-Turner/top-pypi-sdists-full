@@ -1,0 +1,151 @@
+[workspace]
+channels = ["conda-forge"]
+description = "A declarative, polars-native data frame validation library."
+name = "dataframely"
+platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
+
+[tasks]
+postinstall = "maturin develop"
+postinstall-release = "pip install --no-build-isolation --no-deps --disable-pip-version-check -v -e ."
+
+[dependencies]
+python = ">=3.10"
+
+fsspec = ">=2025.9"
+numpy = "*"
+
+# NOTE: This is the oldest supported polars version.
+# It should always match the version in feature.polars-minimal.
+# The latest polars version is in feature.polars-latest.
+polars = ">=1.35"
+
+maturin = ">=1.7,<2"
+pip = "*"
+
+[feature.dev.dependencies]
+jupyter = "*"
+
+[feature.docs.dependencies]
+autodocsumm = "*"
+ipython = "*"
+myst-parser = "*"
+nbsphinx = "*"
+numpydoc = "*"
+pydata-sphinx-theme = "*"
+sphinx = ">=8.2"
+sphinx-copybutton = "*"
+sphinx-design = "*"
+sphinx-toolbox = "*"
+[feature.docs.tasks]
+docs = { cmd = "rm -rf _build && find . -name _gen -type d -exec rm -rf \"{}\" + && sphinx-build -M html . _build --fail-on-warning", cwd = "docs", depends-on = "postinstall" }
+readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r docs/_build/html $READTHEDOCS_OUTPUT/html", depends-on = "docs" }
+
+[feature.test.dependencies]
+boto3 = "*"
+moto = "*"
+mypy = ">=1.13"
+pandas = "*"
+pandas-stubs = "*"
+pyodbc = "*"
+pytest = ">=6"
+pytest-benchmark = "*"
+pytest-cov = "*"
+pytest-md = "*"
+pytest-mock = ">=3.14.1,<4"
+s3fs = ">=2025.9"
+scikit-learn = "*"
+
+[feature.test.tasks]
+test = "pytest"
+test-bench = "pytest tests/benches --benchmark-only --benchmark-sort mean --benchmark-columns min,max,mean,rounds"
+test-coverage = "pytest --cov=dataframely --cov-report=xml --cov-report=term-missing"
+test-no-optional = "pytest -m 'not with_optionals'"
+
+[feature.optionals.dependencies]
+deltalake = "*"
+pyarrow = "*"
+pydantic = ">=2.11.9,<3"
+pydantic-core = ">=2.33.2,<3"
+sqlalchemy = ">=2"
+
+[feature.build.dependencies]
+python-build = "*"
+setuptools-scm = "*"
+twine = "*"
+wheel = "*"
+[feature.build.target.unix.dependencies]
+sed = "*"
+
+[feature.build.tasks]
+build-sdist = "python -m build --sdist --no-isolation ."
+build-wheel = "python -m build --wheel --no-isolation ."
+check-wheel = "twine check dist/*"
+set-version = "sed -i \"s/0.0.0/$(python -m setuptools_scm)/\" pyproject.toml"
+
+[feature.lint.dependencies]
+docformatter = "*"
+insert-license-header = "*"
+pre-commit = "*"
+pre-commit-hooks = "*"
+prettier = "*"
+ruff = "*"
+taplo = "*"
+typos = "*"
+[feature.lint.tasks]
+pre-commit-install = "pre-commit install"
+pre-commit-run = "pre-commit run -a"
+
+[feature.py310.dependencies]
+python = "3.10.*"
+typing-extensions = "*"
+
+[feature.py311.dependencies]
+python = "3.11.*"
+
+[feature.py312.dependencies]
+python = "3.12.*"
+
+[feature.py313.dependencies]
+python = "3.13.*"
+
+[feature.py314.dependencies]
+python = "3.14.*"
+
+[feature.polars-minimal.dependencies]
+# NOTE: Update docs/faq.md when updating this.
+polars = "1.35.*"
+
+[feature.polars-latest.dependencies]
+# NOTE: Update docs/faq.md when updating this.
+polars = "1.36.*"
+
+[feature.nightly.tasks]
+install-polars-nightly = "pip install --pre --no-deps --upgrade --only-binary :all: polars polars-runtime-32"
+
+[environments]
+build = ["build"]
+default = ["dev", "lint", "optionals", "py314", "test", "polars-latest"]
+docs = ["docs"]
+lint = { features = ["lint"], no-default-feature = true }
+nightly = ["nightly", "optionals", "test"]
+
+# Different python versions with the latest polars
+py310 = ["py310", "test", "polars-latest"]
+py311 = ["py311", "test", "polars-latest"]
+py312 = ["py312", "test", "polars-latest"]
+py313 = ["py313", "test", "polars-latest"]
+py314 = ["py314", "test", "polars-latest"]
+
+# Test with optional dependencies
+py314-optionals = ["optionals", "py314", "test", "polars-latest"]
+
+# Polars compatibility envs
+polars-minimal = ["py314", "test", "polars-minimal"]
+default-polars-minimal = [
+  "dev",
+  "lint",
+  "optionals",
+  "py314",
+  "test",
+  "polars-minimal",
+]

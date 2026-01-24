@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -129,6 +129,7 @@ class InstanceFleetState(StrEnum):
     BOOTSTRAPPING = "BOOTSTRAPPING"
     RUNNING = "RUNNING"
     RESIZING = "RESIZING"
+    RECONFIGURING = "RECONFIGURING"
     SUSPENDED = "SUSPENDED"
     TERMINATING = "TERMINATING"
     TERMINATED = "TERMINATED"
@@ -397,7 +398,7 @@ class InvalidRequestException(ServiceException):
     code: str = "InvalidRequestException"
     sender_fault: bool = False
     status_code: int = 400
-    ErrorCode: Optional[ErrorCode]
+    ErrorCode: ErrorCode | None
 
 
 class OnDemandCapacityReservationOptions(TypedDict, total=False):
@@ -405,9 +406,9 @@ class OnDemandCapacityReservationOptions(TypedDict, total=False):
     fulfilling On-Demand capacity.
     """
 
-    UsageStrategy: Optional[OnDemandCapacityReservationUsageStrategy]
-    CapacityReservationPreference: Optional[OnDemandCapacityReservationPreference]
-    CapacityReservationResourceGroupArn: Optional[XmlStringMaxLen256]
+    UsageStrategy: OnDemandCapacityReservationUsageStrategy | None
+    CapacityReservationPreference: OnDemandCapacityReservationPreference | None
+    CapacityReservationResourceGroupArn: XmlStringMaxLen256 | None
 
 
 class OnDemandResizingSpecification(TypedDict, total=False):
@@ -415,9 +416,9 @@ class OnDemandResizingSpecification(TypedDict, total=False):
     which contains the resize timeout period.
     """
 
-    TimeoutDurationMinutes: Optional[WholeNumber]
-    AllocationStrategy: Optional[OnDemandProvisioningAllocationStrategy]
-    CapacityReservationOptions: Optional[OnDemandCapacityReservationOptions]
+    TimeoutDurationMinutes: WholeNumber | None
+    AllocationStrategy: OnDemandProvisioningAllocationStrategy | None
+    CapacityReservationOptions: OnDemandCapacityReservationOptions | None
 
 
 class SpotResizingSpecification(TypedDict, total=False):
@@ -425,15 +426,15 @@ class SpotResizingSpecification(TypedDict, total=False):
     contains the resize timeout period.
     """
 
-    TimeoutDurationMinutes: Optional[WholeNumber]
-    AllocationStrategy: Optional[SpotProvisioningAllocationStrategy]
+    TimeoutDurationMinutes: WholeNumber | None
+    AllocationStrategy: SpotProvisioningAllocationStrategy | None
 
 
 class InstanceFleetResizingSpecifications(TypedDict, total=False):
     """The resize specification for On-Demand and Spot Instances in the fleet."""
 
-    SpotResizeSpecification: Optional[SpotResizingSpecification]
-    OnDemandResizeSpecification: Optional[OnDemandResizingSpecification]
+    SpotResizeSpecification: SpotResizingSpecification | None
+    OnDemandResizeSpecification: OnDemandResizingSpecification | None
 
 
 class OnDemandProvisioningSpecification(TypedDict, total=False):
@@ -447,7 +448,7 @@ class OnDemandProvisioningSpecification(TypedDict, total=False):
     """
 
     AllocationStrategy: OnDemandProvisioningAllocationStrategy
-    CapacityReservationOptions: Optional[OnDemandCapacityReservationOptions]
+    CapacityReservationOptions: OnDemandCapacityReservationOptions | None
 
 
 class SpotProvisioningSpecification(TypedDict, total=False):
@@ -468,8 +469,8 @@ class SpotProvisioningSpecification(TypedDict, total=False):
 
     TimeoutDurationMinutes: WholeNumber
     TimeoutAction: SpotProvisioningTimeoutAction
-    BlockDurationMinutes: Optional[WholeNumber]
-    AllocationStrategy: Optional[SpotProvisioningAllocationStrategy]
+    BlockDurationMinutes: WholeNumber | None
+    AllocationStrategy: SpotProvisioningAllocationStrategy | None
 
 
 class InstanceFleetProvisioningSpecifications(TypedDict, total=False):
@@ -481,12 +482,12 @@ class InstanceFleetProvisioningSpecifications(TypedDict, total=False):
     5.12.1 and later.
     """
 
-    SpotSpecification: Optional[SpotProvisioningSpecification]
-    OnDemandSpecification: Optional[OnDemandProvisioningSpecification]
+    SpotSpecification: SpotProvisioningSpecification | None
+    OnDemandSpecification: OnDemandProvisioningSpecification | None
 
 
-StringMap = Dict[String, String]
-ConfigurationList = List["Configuration"]
+StringMap = dict[String, String]
+ConfigurationList = list["Configuration"]
 
 
 class Configuration(TypedDict, total=False):
@@ -502,9 +503,9 @@ class Configuration(TypedDict, total=False):
     Applications <https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-configure-apps.html>`__.
     """
 
-    Classification: Optional[String]
-    Configurations: Optional[ConfigurationList]
-    Properties: Optional[StringMap]
+    Classification: String | None
+    Configurations: ConfigurationList | None
+    Properties: StringMap | None
 
 
 class VolumeSpecification(TypedDict, total=False):
@@ -514,9 +515,9 @@ class VolumeSpecification(TypedDict, total=False):
     """
 
     VolumeType: String
-    Iops: Optional[Integer]
+    Iops: Integer | None
     SizeInGB: Integer
-    Throughput: Optional[ThroughputVal]
+    Throughput: ThroughputVal | None
 
 
 class EbsBlockDeviceConfig(TypedDict, total=False):
@@ -525,17 +526,17 @@ class EbsBlockDeviceConfig(TypedDict, total=False):
     """
 
     VolumeSpecification: VolumeSpecification
-    VolumesPerInstance: Optional[Integer]
+    VolumesPerInstance: Integer | None
 
 
-EbsBlockDeviceConfigList = List[EbsBlockDeviceConfig]
+EbsBlockDeviceConfigList = list[EbsBlockDeviceConfig]
 
 
 class EbsConfiguration(TypedDict, total=False):
     """The Amazon EBS configuration of a cluster instance."""
 
-    EbsBlockDeviceConfigs: Optional[EbsBlockDeviceConfigList]
-    EbsOptimized: Optional[BooleanObject]
+    EbsBlockDeviceConfigs: EbsBlockDeviceConfigList | None
+    EbsOptimized: BooleanObject | None
 
 
 class InstanceTypeConfig(TypedDict, total=False):
@@ -554,16 +555,16 @@ class InstanceTypeConfig(TypedDict, total=False):
     """
 
     InstanceType: InstanceType
-    WeightedCapacity: Optional[WholeNumber]
-    BidPrice: Optional[XmlStringMaxLen256]
-    BidPriceAsPercentageOfOnDemandPrice: Optional[NonNegativeDouble]
-    EbsConfiguration: Optional[EbsConfiguration]
-    Configurations: Optional[ConfigurationList]
-    CustomAmiId: Optional[XmlStringMaxLen256]
-    Priority: Optional[NonNegativeDouble]
+    WeightedCapacity: WholeNumber | None
+    BidPrice: XmlStringMaxLen256 | None
+    BidPriceAsPercentageOfOnDemandPrice: NonNegativeDouble | None
+    EbsConfiguration: EbsConfiguration | None
+    Configurations: ConfigurationList | None
+    CustomAmiId: XmlStringMaxLen256 | None
+    Priority: NonNegativeDouble | None
 
 
-InstanceTypeConfigList = List[InstanceTypeConfig]
+InstanceTypeConfigList = list[InstanceTypeConfig]
 
 
 class InstanceFleetConfig(TypedDict, total=False):
@@ -573,14 +574,14 @@ class InstanceFleetConfig(TypedDict, total=False):
     releases 4.8.0 and later, excluding 5.0.x versions.
     """
 
-    Name: Optional[XmlStringMaxLen256]
+    Name: XmlStringMaxLen256 | None
     InstanceFleetType: InstanceFleetType
-    TargetOnDemandCapacity: Optional[WholeNumber]
-    TargetSpotCapacity: Optional[WholeNumber]
-    InstanceTypeConfigs: Optional[InstanceTypeConfigList]
-    LaunchSpecifications: Optional[InstanceFleetProvisioningSpecifications]
-    ResizeSpecifications: Optional[InstanceFleetResizingSpecifications]
-    Context: Optional[XmlStringMaxLen256]
+    TargetOnDemandCapacity: WholeNumber | None
+    TargetSpotCapacity: WholeNumber | None
+    InstanceTypeConfigs: InstanceTypeConfigList | None
+    LaunchSpecifications: InstanceFleetProvisioningSpecifications | None
+    ResizeSpecifications: InstanceFleetResizingSpecifications | None
+    Context: XmlStringMaxLen256 | None
 
 
 class AddInstanceFleetInput(ServiceRequest):
@@ -589,9 +590,9 @@ class AddInstanceFleetInput(ServiceRequest):
 
 
 class AddInstanceFleetOutput(TypedDict, total=False):
-    ClusterId: Optional[XmlStringMaxLen256]
-    InstanceFleetId: Optional[InstanceFleetId]
-    ClusterArn: Optional[ArnType]
+    ClusterId: XmlStringMaxLen256 | None
+    InstanceFleetId: InstanceFleetId | None
+    ClusterArn: ArnType | None
 
 
 class MetricDimension(TypedDict, total=False):
@@ -602,11 +603,11 @@ class MetricDimension(TypedDict, total=False):
     the rule to bootstrap when the cluster ID becomes available.
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-MetricDimensionList = List[MetricDimension]
+MetricDimensionList = list[MetricDimension]
 
 
 class CloudWatchAlarmDefinition(TypedDict, total=False):
@@ -616,14 +617,14 @@ class CloudWatchAlarmDefinition(TypedDict, total=False):
     """
 
     ComparisonOperator: ComparisonOperator
-    EvaluationPeriods: Optional[Integer]
+    EvaluationPeriods: Integer | None
     MetricName: String
-    Namespace: Optional[String]
+    Namespace: String | None
     Period: Integer
-    Statistic: Optional[Statistic]
+    Statistic: Statistic | None
     Threshold: NonNegativeDouble
-    Unit: Optional[Unit]
-    Dimensions: Optional[MetricDimensionList]
+    Unit: Unit | None
+    Dimensions: MetricDimensionList | None
 
 
 class ScalingTrigger(TypedDict, total=False):
@@ -639,9 +640,9 @@ class SimpleScalingPolicyConfiguration(TypedDict, total=False):
     condition is satisfied.
     """
 
-    AdjustmentType: Optional[AdjustmentType]
+    AdjustmentType: AdjustmentType | None
     ScalingAdjustment: Integer
-    CoolDown: Optional[Integer]
+    CoolDown: Integer | None
 
 
 class ScalingAction(TypedDict, total=False):
@@ -649,7 +650,7 @@ class ScalingAction(TypedDict, total=False):
     triggered, and the periodicity of the adjustment.
     """
 
-    Market: Optional[MarketType]
+    Market: MarketType | None
     SimpleScalingPolicyConfiguration: SimpleScalingPolicyConfiguration
 
 
@@ -662,12 +663,12 @@ class ScalingRule(TypedDict, total=False):
     """
 
     Name: String
-    Description: Optional[String]
+    Description: String | None
     Action: ScalingAction
     Trigger: ScalingTrigger
 
 
-ScalingRuleList = List[ScalingRule]
+ScalingRuleList = list[ScalingRule]
 
 
 class ScalingConstraints(TypedDict, total=False):
@@ -696,19 +697,19 @@ class AutoScalingPolicy(TypedDict, total=False):
 class InstanceGroupConfig(TypedDict, total=False):
     """Configuration defining a new instance group."""
 
-    Name: Optional[XmlStringMaxLen256]
-    Market: Optional[MarketType]
+    Name: XmlStringMaxLen256 | None
+    Market: MarketType | None
     InstanceRole: InstanceRoleType
-    BidPrice: Optional[XmlStringMaxLen256]
+    BidPrice: XmlStringMaxLen256 | None
     InstanceType: InstanceType
     InstanceCount: Integer
-    Configurations: Optional[ConfigurationList]
-    EbsConfiguration: Optional[EbsConfiguration]
-    AutoScalingPolicy: Optional[AutoScalingPolicy]
-    CustomAmiId: Optional[XmlStringMaxLen256]
+    Configurations: ConfigurationList | None
+    EbsConfiguration: EbsConfiguration | None
+    AutoScalingPolicy: AutoScalingPolicy | None
+    CustomAmiId: XmlStringMaxLen256 | None
 
 
-InstanceGroupConfigList = List[InstanceGroupConfig]
+InstanceGroupConfigList = list[InstanceGroupConfig]
 
 
 class AddInstanceGroupsInput(ServiceRequest):
@@ -718,28 +719,46 @@ class AddInstanceGroupsInput(ServiceRequest):
     JobFlowId: XmlStringMaxLen256
 
 
-InstanceGroupIdsList = List[XmlStringMaxLen256]
+InstanceGroupIdsList = list[XmlStringMaxLen256]
 
 
 class AddInstanceGroupsOutput(TypedDict, total=False):
     """Output from an AddInstanceGroups call."""
 
-    JobFlowId: Optional[XmlStringMaxLen256]
-    InstanceGroupIds: Optional[InstanceGroupIdsList]
-    ClusterArn: Optional[ArnType]
+    JobFlowId: XmlStringMaxLen256 | None
+    InstanceGroupIds: InstanceGroupIdsList | None
+    ClusterArn: ArnType | None
 
 
-XmlStringList = List[XmlString]
+class S3MonitoringConfiguration(TypedDict, total=False):
+    """The Amazon S3 configuration for monitoring log publishing. You can
+    configure your step to send log information to Amazon S3. When it's
+    specified, it takes precedence over the cluster's logging configuration.
+    If you don't specify this configuration entirely, or omit individual
+    fields, EMR falls back to cluster-level logging behavior.
+    """
+
+    LogUri: XmlString | None
+    EncryptionKeyArn: XmlString | None
+
+
+class StepMonitoringConfiguration(TypedDict, total=False):
+    """Object that holds configuration properties for logging."""
+
+    S3MonitoringConfiguration: S3MonitoringConfiguration | None
+
+
+XmlStringList = list[XmlString]
 
 
 class KeyValue(TypedDict, total=False):
     """A key-value pair."""
 
-    Key: Optional[XmlString]
-    Value: Optional[XmlString]
+    Key: XmlString | None
+    Value: XmlString | None
 
 
-KeyValueList = List[KeyValue]
+KeyValueList = list[KeyValue]
 
 
 class HadoopJarStepConfig(TypedDict, total=False):
@@ -748,21 +767,22 @@ class HadoopJarStepConfig(TypedDict, total=False):
     waits for the job to finish or fail.
     """
 
-    Properties: Optional[KeyValueList]
+    Properties: KeyValueList | None
     Jar: XmlString
-    MainClass: Optional[XmlString]
-    Args: Optional[XmlStringList]
+    MainClass: XmlString | None
+    Args: XmlStringList | None
 
 
 class StepConfig(TypedDict, total=False):
     """Specification for a cluster (job flow) step."""
 
     Name: XmlStringMaxLen256
-    ActionOnFailure: Optional[ActionOnFailure]
+    ActionOnFailure: ActionOnFailure | None
     HadoopJarStep: HadoopJarStepConfig
+    StepMonitoringConfiguration: StepMonitoringConfiguration | None
 
 
-StepConfigList = List[StepConfig]
+StepConfigList = list[StepConfig]
 
 
 class AddJobFlowStepsInput(ServiceRequest):
@@ -770,16 +790,16 @@ class AddJobFlowStepsInput(ServiceRequest):
 
     JobFlowId: XmlStringMaxLen256
     Steps: StepConfigList
-    ExecutionRoleArn: Optional[ArnType]
+    ExecutionRoleArn: ArnType | None
 
 
-StepIdsList = List[XmlStringMaxLen256]
+StepIdsList = list[XmlStringMaxLen256]
 
 
 class AddJobFlowStepsOutput(TypedDict, total=False):
     """The output for the AddJobFlowSteps operation."""
 
-    StepIds: Optional[StepIdsList]
+    StepIds: StepIdsList | None
 
 
 class Tag(TypedDict, total=False):
@@ -790,11 +810,11 @@ class Tag(TypedDict, total=False):
     Clusters <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-tags.html>`__.
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
+    Key: String | None
+    Value: String | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class AddTagsInput(ServiceRequest):
@@ -812,7 +832,7 @@ class AddTagsOutput(TypedDict, total=False):
     pass
 
 
-StringList = List[String]
+StringList = list[String]
 
 
 class Application(TypedDict, total=False):
@@ -830,27 +850,27 @@ class Application(TypedDict, total=False):
     bootstrap action argument.
     """
 
-    Name: Optional[String]
-    Version: Optional[String]
-    Args: Optional[StringList]
-    AdditionalInfo: Optional[StringMap]
+    Name: String | None
+    Version: String | None
+    Args: StringList | None
+    AdditionalInfo: StringMap | None
 
 
-ApplicationList = List[Application]
+ApplicationList = list[Application]
 
 
 class AutoScalingPolicyStateChangeReason(TypedDict, total=False):
     """The reason for an AutoScalingPolicyStatus change."""
 
-    Code: Optional[AutoScalingPolicyStateChangeReasonCode]
-    Message: Optional[String]
+    Code: AutoScalingPolicyStateChangeReasonCode | None
+    Message: String | None
 
 
 class AutoScalingPolicyStatus(TypedDict, total=False):
     """The status of an automatic scaling policy."""
 
-    State: Optional[AutoScalingPolicyState]
-    StateChangeReason: Optional[AutoScalingPolicyStateChangeReason]
+    State: AutoScalingPolicyState | None
+    StateChangeReason: AutoScalingPolicyStateChangeReason | None
 
 
 class AutoScalingPolicyDescription(TypedDict, total=False):
@@ -861,9 +881,9 @@ class AutoScalingPolicyDescription(TypedDict, total=False):
     PutAutoScalingPolicy.
     """
 
-    Status: Optional[AutoScalingPolicyStatus]
-    Constraints: Optional[ScalingConstraints]
-    Rules: Optional[ScalingRuleList]
+    Status: AutoScalingPolicyStatus | None
+    Constraints: ScalingConstraints | None
+    Rules: ScalingRuleList | None
 
 
 Long = int
@@ -877,7 +897,7 @@ class AutoTerminationPolicy(TypedDict, total=False):
     termination <https://docs.aws.amazon.com/emr/latest/ManagementGuide/emr-plan-termination.html>`__.
     """
 
-    IdleTimeout: Optional[Long]
+    IdleTimeout: Long | None
 
 
 class PortRange(TypedDict, total=False):
@@ -887,10 +907,10 @@ class PortRange(TypedDict, total=False):
     """
 
     MinRange: Port
-    MaxRange: Optional[Port]
+    MaxRange: Port | None
 
 
-PortRanges = List[PortRange]
+PortRanges = list[PortRange]
 
 
 class BlockPublicAccessConfiguration(TypedDict, total=False):
@@ -903,7 +923,7 @@ class BlockPublicAccessConfiguration(TypedDict, total=False):
     """
 
     BlockPublicSecurityGroupRules: Boolean
-    PermittedPublicSecurityGroupRuleRanges: Optional[PortRanges]
+    PermittedPublicSecurityGroupRuleRanges: PortRanges | None
 
 
 Date = datetime
@@ -925,7 +945,7 @@ class ScriptBootstrapActionConfig(TypedDict, total=False):
     """Configuration of the script to run during a bootstrap action."""
 
     Path: XmlString
-    Args: Optional[XmlStringList]
+    Args: XmlStringList | None
 
 
 class BootstrapActionConfig(TypedDict, total=False):
@@ -935,16 +955,16 @@ class BootstrapActionConfig(TypedDict, total=False):
     ScriptBootstrapAction: ScriptBootstrapActionConfig
 
 
-BootstrapActionConfigList = List[BootstrapActionConfig]
+BootstrapActionConfigList = list[BootstrapActionConfig]
 
 
 class BootstrapActionDetail(TypedDict, total=False):
     """Reports the configuration of a bootstrap action in a cluster (job flow)."""
 
-    BootstrapActionConfig: Optional[BootstrapActionConfig]
+    BootstrapActionConfig: BootstrapActionConfig | None
 
 
-BootstrapActionDetailList = List[BootstrapActionDetail]
+BootstrapActionDetailList = list[BootstrapActionDetail]
 
 
 class CancelStepsInfo(TypedDict, total=False):
@@ -952,12 +972,12 @@ class CancelStepsInfo(TypedDict, total=False):
     Amazon EMR version 4.8.0 and later, excluding version 5.0.0.
     """
 
-    StepId: Optional[StepId]
-    Status: Optional[CancelStepsRequestStatus]
-    Reason: Optional[String]
+    StepId: StepId | None
+    Status: CancelStepsRequestStatus | None
+    Reason: String | None
 
 
-CancelStepsInfoList = List[CancelStepsInfo]
+CancelStepsInfoList = list[CancelStepsInfo]
 
 
 class CancelStepsInput(ServiceRequest):
@@ -965,13 +985,34 @@ class CancelStepsInput(ServiceRequest):
 
     ClusterId: XmlStringMaxLen256
     StepIds: StepIdsList
-    StepCancellationOption: Optional[StepCancellationOption]
+    StepCancellationOption: StepCancellationOption | None
 
 
 class CancelStepsOutput(TypedDict, total=False):
     """The output for the CancelSteps operation."""
 
-    CancelStepsInfoList: Optional[CancelStepsInfoList]
+    CancelStepsInfoList: CancelStepsInfoList | None
+
+
+LogTypesMap = dict[XmlString, XmlStringList]
+
+
+class CloudWatchLogConfiguration(TypedDict, total=False):
+    """Holds CloudWatch log configuration settings and metadata that specify
+    settings like log files to monitor and where to send them.
+    """
+
+    Enabled: Boolean
+    LogGroupName: XmlString | None
+    LogStreamNamePrefix: XmlString | None
+    EncryptionKeyArn: XmlString | None
+    LogTypes: LogTypesMap | None
+
+
+class MonitoringConfiguration(TypedDict, total=False):
+    """Contains CloudWatch log configuration metadata and settings."""
+
+    CloudWatchLogConfiguration: CloudWatchLogConfiguration | None
 
 
 class PlacementGroupConfig(TypedDict, total=False):
@@ -984,10 +1025,10 @@ class PlacementGroupConfig(TypedDict, total=False):
     """
 
     InstanceRole: InstanceRoleType
-    PlacementStrategy: Optional[PlacementGroupStrategy]
+    PlacementStrategy: PlacementGroupStrategy | None
 
 
-PlacementGroupConfigList = List[PlacementGroupConfig]
+PlacementGroupConfigList = list[PlacementGroupConfig]
 
 
 class KerberosAttributes(TypedDict, total=False):
@@ -1000,12 +1041,12 @@ class KerberosAttributes(TypedDict, total=False):
 
     Realm: XmlStringMaxLen256
     KdcAdminPassword: XmlStringMaxLen256
-    CrossRealmTrustPrincipalPassword: Optional[XmlStringMaxLen256]
-    ADDomainJoinUser: Optional[XmlStringMaxLen256]
-    ADDomainJoinPassword: Optional[XmlStringMaxLen256]
+    CrossRealmTrustPrincipalPassword: XmlStringMaxLen256 | None
+    ADDomainJoinUser: XmlStringMaxLen256 | None
+    ADDomainJoinPassword: XmlStringMaxLen256 | None
 
 
-XmlStringMaxLen256List = List[XmlStringMaxLen256]
+XmlStringMaxLen256List = list[XmlStringMaxLen256]
 
 
 class Ec2InstanceAttributes(TypedDict, total=False):
@@ -1014,20 +1055,20 @@ class Ec2InstanceAttributes(TypedDict, total=False):
     so on.
     """
 
-    Ec2KeyName: Optional[String]
-    Ec2SubnetId: Optional[String]
-    RequestedEc2SubnetIds: Optional[XmlStringMaxLen256List]
-    Ec2AvailabilityZone: Optional[String]
-    RequestedEc2AvailabilityZones: Optional[XmlStringMaxLen256List]
-    IamInstanceProfile: Optional[String]
-    EmrManagedMasterSecurityGroup: Optional[String]
-    EmrManagedSlaveSecurityGroup: Optional[String]
-    ServiceAccessSecurityGroup: Optional[String]
-    AdditionalMasterSecurityGroups: Optional[StringList]
-    AdditionalSlaveSecurityGroups: Optional[StringList]
+    Ec2KeyName: String | None
+    Ec2SubnetId: String | None
+    RequestedEc2SubnetIds: XmlStringMaxLen256List | None
+    Ec2AvailabilityZone: String | None
+    RequestedEc2AvailabilityZones: XmlStringMaxLen256List | None
+    IamInstanceProfile: String | None
+    EmrManagedMasterSecurityGroup: String | None
+    EmrManagedSlaveSecurityGroup: String | None
+    ServiceAccessSecurityGroup: String | None
+    AdditionalMasterSecurityGroups: StringList | None
+    AdditionalSlaveSecurityGroups: StringList | None
 
 
-ErrorData = List[StringMap]
+ErrorData = list[StringMap]
 
 
 class ErrorDetail(TypedDict, total=False):
@@ -1035,104 +1076,105 @@ class ErrorDetail(TypedDict, total=False):
     to terminate.
     """
 
-    ErrorCode: Optional[String]
-    ErrorData: Optional[ErrorData]
-    ErrorMessage: Optional[String]
+    ErrorCode: String | None
+    ErrorData: ErrorData | None
+    ErrorMessage: String | None
 
 
-ErrorDetailList = List[ErrorDetail]
+ErrorDetailList = list[ErrorDetail]
 
 
 class ClusterTimeline(TypedDict, total=False):
     """Represents the timeline of the cluster's lifecycle."""
 
-    CreationDateTime: Optional[Date]
-    ReadyDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
+    CreationDateTime: Date | None
+    ReadyDateTime: Date | None
+    EndDateTime: Date | None
 
 
 class ClusterStateChangeReason(TypedDict, total=False):
     """The reason that the cluster changed to its current state."""
 
-    Code: Optional[ClusterStateChangeReasonCode]
-    Message: Optional[String]
+    Code: ClusterStateChangeReasonCode | None
+    Message: String | None
 
 
 class ClusterStatus(TypedDict, total=False):
     """The detailed status of the cluster."""
 
-    State: Optional[ClusterState]
-    StateChangeReason: Optional[ClusterStateChangeReason]
-    Timeline: Optional[ClusterTimeline]
-    ErrorDetails: Optional[ErrorDetailList]
+    State: ClusterState | None
+    StateChangeReason: ClusterStateChangeReason | None
+    Timeline: ClusterTimeline | None
+    ErrorDetails: ErrorDetailList | None
 
 
 class Cluster(TypedDict, total=False):
     """The detailed description of the cluster."""
 
-    Id: Optional[ClusterId]
-    Name: Optional[String]
-    Status: Optional[ClusterStatus]
-    Ec2InstanceAttributes: Optional[Ec2InstanceAttributes]
-    InstanceCollectionType: Optional[InstanceCollectionType]
-    LogUri: Optional[String]
-    LogEncryptionKmsKeyId: Optional[String]
-    RequestedAmiVersion: Optional[String]
-    RunningAmiVersion: Optional[String]
-    ReleaseLabel: Optional[String]
-    AutoTerminate: Optional[Boolean]
-    TerminationProtected: Optional[Boolean]
-    UnhealthyNodeReplacement: Optional[BooleanObject]
-    VisibleToAllUsers: Optional[Boolean]
-    Applications: Optional[ApplicationList]
-    Tags: Optional[TagList]
-    ServiceRole: Optional[String]
-    NormalizedInstanceHours: Optional[Integer]
-    MasterPublicDnsName: Optional[String]
-    Configurations: Optional[ConfigurationList]
-    SecurityConfiguration: Optional[XmlString]
-    AutoScalingRole: Optional[XmlString]
-    ScaleDownBehavior: Optional[ScaleDownBehavior]
-    CustomAmiId: Optional[XmlStringMaxLen256]
-    EbsRootVolumeSize: Optional[Integer]
-    RepoUpgradeOnBoot: Optional[RepoUpgradeOnBoot]
-    KerberosAttributes: Optional[KerberosAttributes]
-    ClusterArn: Optional[ArnType]
-    OutpostArn: Optional[OptionalArnType]
-    StepConcurrencyLevel: Optional[Integer]
-    PlacementGroups: Optional[PlacementGroupConfigList]
-    OSReleaseLabel: Optional[String]
-    EbsRootVolumeIops: Optional[Integer]
-    EbsRootVolumeThroughput: Optional[Integer]
-    ExtendedSupport: Optional[BooleanObject]
+    Id: ClusterId | None
+    Name: String | None
+    Status: ClusterStatus | None
+    Ec2InstanceAttributes: Ec2InstanceAttributes | None
+    InstanceCollectionType: InstanceCollectionType | None
+    LogUri: String | None
+    LogEncryptionKmsKeyId: String | None
+    RequestedAmiVersion: String | None
+    RunningAmiVersion: String | None
+    ReleaseLabel: String | None
+    AutoTerminate: Boolean | None
+    TerminationProtected: Boolean | None
+    UnhealthyNodeReplacement: BooleanObject | None
+    VisibleToAllUsers: Boolean | None
+    Applications: ApplicationList | None
+    Tags: TagList | None
+    ServiceRole: String | None
+    NormalizedInstanceHours: Integer | None
+    MasterPublicDnsName: String | None
+    Configurations: ConfigurationList | None
+    SecurityConfiguration: XmlString | None
+    AutoScalingRole: XmlString | None
+    ScaleDownBehavior: ScaleDownBehavior | None
+    CustomAmiId: XmlStringMaxLen256 | None
+    EbsRootVolumeSize: Integer | None
+    RepoUpgradeOnBoot: RepoUpgradeOnBoot | None
+    KerberosAttributes: KerberosAttributes | None
+    ClusterArn: ArnType | None
+    OutpostArn: OptionalArnType | None
+    StepConcurrencyLevel: Integer | None
+    PlacementGroups: PlacementGroupConfigList | None
+    OSReleaseLabel: String | None
+    EbsRootVolumeIops: Integer | None
+    EbsRootVolumeThroughput: Integer | None
+    ExtendedSupport: BooleanObject | None
+    MonitoringConfiguration: MonitoringConfiguration | None
 
 
-ClusterStateList = List[ClusterState]
+ClusterStateList = list[ClusterState]
 
 
 class ClusterSummary(TypedDict, total=False):
     """The summary description of the cluster."""
 
-    Id: Optional[ClusterId]
-    Name: Optional[String]
-    Status: Optional[ClusterStatus]
-    NormalizedInstanceHours: Optional[Integer]
-    ClusterArn: Optional[ArnType]
-    OutpostArn: Optional[OptionalArnType]
+    Id: ClusterId | None
+    Name: String | None
+    Status: ClusterStatus | None
+    NormalizedInstanceHours: Integer | None
+    ClusterArn: ArnType | None
+    OutpostArn: OptionalArnType | None
 
 
-ClusterSummaryList = List[ClusterSummary]
+ClusterSummaryList = list[ClusterSummary]
 
 
 class Command(TypedDict, total=False):
     """An entity describing an executable that runs on a cluster."""
 
-    Name: Optional[String]
-    ScriptPath: Optional[String]
-    Args: Optional[StringList]
+    Name: String | None
+    ScriptPath: String | None
+    Args: StringList | None
 
 
-CommandList = List[Command]
+CommandList = list[Command]
 
 
 class ComputeLimits(TypedDict, total=False):
@@ -1145,27 +1187,27 @@ class ComputeLimits(TypedDict, total=False):
     UnitType: ComputeLimitsUnitType
     MinimumCapacityUnits: Integer
     MaximumCapacityUnits: Integer
-    MaximumOnDemandCapacityUnits: Optional[Integer]
-    MaximumCoreCapacityUnits: Optional[Integer]
+    MaximumOnDemandCapacityUnits: Integer | None
+    MaximumCoreCapacityUnits: Integer | None
 
 
 class EMRContainersConfig(TypedDict, total=False):
     """The EMR container configuration."""
 
-    JobRunId: Optional[XmlStringMaxLen256]
+    JobRunId: XmlStringMaxLen256 | None
 
 
 class CreatePersistentAppUIInput(ServiceRequest):
     TargetResourceArn: ArnType
-    EMRContainersConfig: Optional[EMRContainersConfig]
-    Tags: Optional[TagList]
-    XReferer: Optional[String]
-    ProfilerType: Optional[ProfilerType]
+    EMRContainersConfig: EMRContainersConfig | None
+    Tags: TagList | None
+    XReferer: String | None
+    ProfilerType: ProfilerType | None
 
 
 class CreatePersistentAppUIOutput(TypedDict, total=False):
-    PersistentAppUIId: Optional[XmlStringMaxLen256]
-    RuntimeRoleEnabledCluster: Optional[Boolean]
+    PersistentAppUIId: XmlStringMaxLen256 | None
+    RuntimeRoleEnabledCluster: Boolean | None
 
 
 class CreateSecurityConfigurationInput(ServiceRequest):
@@ -1178,38 +1220,38 @@ class CreateSecurityConfigurationOutput(TypedDict, total=False):
     CreationDateTime: Date
 
 
-SubnetIdList = List[String]
+SubnetIdList = list[String]
 
 
 class CreateStudioInput(ServiceRequest):
     Name: XmlStringMaxLen256
-    Description: Optional[XmlStringMaxLen256]
+    Description: XmlStringMaxLen256 | None
     AuthMode: AuthMode
     VpcId: XmlStringMaxLen256
     SubnetIds: SubnetIdList
     ServiceRole: XmlString
-    UserRole: Optional[XmlString]
+    UserRole: XmlString | None
     WorkspaceSecurityGroupId: XmlStringMaxLen256
     EngineSecurityGroupId: XmlStringMaxLen256
     DefaultS3Location: XmlString
-    IdpAuthUrl: Optional[XmlString]
-    IdpRelayStateParameterName: Optional[XmlStringMaxLen256]
-    Tags: Optional[TagList]
-    TrustedIdentityPropagationEnabled: Optional[BooleanObject]
-    IdcUserAssignment: Optional[IdcUserAssignment]
-    IdcInstanceArn: Optional[ArnType]
-    EncryptionKeyArn: Optional[XmlString]
+    IdpAuthUrl: XmlString | None
+    IdpRelayStateParameterName: XmlStringMaxLen256 | None
+    Tags: TagList | None
+    TrustedIdentityPropagationEnabled: BooleanObject | None
+    IdcUserAssignment: IdcUserAssignment | None
+    IdcInstanceArn: ArnType | None
+    EncryptionKeyArn: XmlString | None
 
 
 class CreateStudioOutput(TypedDict, total=False):
-    StudioId: Optional[XmlStringMaxLen256]
-    Url: Optional[XmlString]
+    StudioId: XmlStringMaxLen256 | None
+    Url: XmlString | None
 
 
 class CreateStudioSessionMappingInput(ServiceRequest):
     StudioId: XmlStringMaxLen256
-    IdentityId: Optional[XmlStringMaxLen256]
-    IdentityName: Optional[XmlStringMaxLen256]
+    IdentityId: XmlStringMaxLen256 | None
+    IdentityName: XmlStringMaxLen256 | None
     IdentityType: IdentityType
     SessionPolicyArn: XmlStringMaxLen256
 
@@ -1217,8 +1259,8 @@ class CreateStudioSessionMappingInput(ServiceRequest):
 class UsernamePassword(TypedDict, total=False):
     """The username and password that you use to connect to cluster endpoints."""
 
-    Username: Optional[XmlStringMaxLen256]
-    Password: Optional[XmlStringMaxLen256]
+    Username: XmlStringMaxLen256 | None
+    Password: XmlStringMaxLen256 | None
 
 
 class Credentials(TypedDict, total=False):
@@ -1226,7 +1268,7 @@ class Credentials(TypedDict, total=False):
     Credentials consist of a username and a password.
     """
 
-    UsernamePassword: Optional[UsernamePassword]
+    UsernamePassword: UsernamePassword | None
 
 
 class DeleteSecurityConfigurationInput(ServiceRequest):
@@ -1243,8 +1285,8 @@ class DeleteStudioInput(ServiceRequest):
 
 class DeleteStudioSessionMappingInput(ServiceRequest):
     StudioId: XmlStringMaxLen256
-    IdentityId: Optional[XmlStringMaxLen256]
-    IdentityName: Optional[XmlStringMaxLen256]
+    IdentityId: XmlStringMaxLen256 | None
+    IdentityName: XmlStringMaxLen256 | None
     IdentityType: IdentityType
 
 
@@ -1257,22 +1299,22 @@ class DescribeClusterInput(ServiceRequest):
 class DescribeClusterOutput(TypedDict, total=False):
     """This output contains the description of the cluster."""
 
-    Cluster: Optional[Cluster]
+    Cluster: Cluster | None
 
 
-JobFlowExecutionStateList = List[JobFlowExecutionState]
+JobFlowExecutionStateList = list[JobFlowExecutionState]
 
 
 class DescribeJobFlowsInput(ServiceRequest):
     """The input for the DescribeJobFlows operation."""
 
-    CreatedAfter: Optional[Date]
-    CreatedBefore: Optional[Date]
-    JobFlowIds: Optional[XmlStringList]
-    JobFlowStates: Optional[JobFlowExecutionStateList]
+    CreatedAfter: Date | None
+    CreatedBefore: Date | None
+    JobFlowIds: XmlStringList | None
+    JobFlowStates: JobFlowExecutionStateList | None
 
 
-SupportedProductsList = List[XmlStringMaxLen256]
+SupportedProductsList = list[XmlStringMaxLen256]
 
 
 class StepExecutionStatusDetail(TypedDict, total=False):
@@ -1280,9 +1322,9 @@ class StepExecutionStatusDetail(TypedDict, total=False):
 
     State: StepExecutionState
     CreationDateTime: Date
-    StartDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
-    LastStateChangeReason: Optional[XmlString]
+    StartDateTime: Date | None
+    EndDateTime: Date | None
+    LastStateChangeReason: XmlString | None
 
 
 class StepDetail(TypedDict, total=False):
@@ -1292,7 +1334,7 @@ class StepDetail(TypedDict, total=False):
     ExecutionStatusDetail: StepExecutionStatusDetail
 
 
-StepDetailList = List[StepDetail]
+StepDetailList = list[StepDetail]
 
 
 class PlacementType(TypedDict, total=False):
@@ -1300,31 +1342,31 @@ class PlacementType(TypedDict, total=False):
     flow).
     """
 
-    AvailabilityZone: Optional[XmlString]
-    AvailabilityZones: Optional[XmlStringMaxLen256List]
+    AvailabilityZone: XmlString | None
+    AvailabilityZones: XmlStringMaxLen256List | None
 
 
 class InstanceGroupDetail(TypedDict, total=False):
     """Detailed information about an instance group."""
 
-    InstanceGroupId: Optional[XmlStringMaxLen256]
-    Name: Optional[XmlStringMaxLen256]
+    InstanceGroupId: XmlStringMaxLen256 | None
+    Name: XmlStringMaxLen256 | None
     Market: MarketType
     InstanceRole: InstanceRoleType
-    BidPrice: Optional[XmlStringMaxLen256]
+    BidPrice: XmlStringMaxLen256 | None
     InstanceType: InstanceType
     InstanceRequestCount: Integer
     InstanceRunningCount: Integer
     State: InstanceGroupState
-    LastStateChangeReason: Optional[XmlString]
+    LastStateChangeReason: XmlString | None
     CreationDateTime: Date
-    StartDateTime: Optional[Date]
-    ReadyDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
-    CustomAmiId: Optional[XmlStringMaxLen256]
+    StartDateTime: Date | None
+    ReadyDateTime: Date | None
+    EndDateTime: Date | None
+    CustomAmiId: XmlStringMaxLen256 | None
 
 
-InstanceGroupDetailList = List[InstanceGroupDetail]
+InstanceGroupDetailList = list[InstanceGroupDetail]
 
 
 class JobFlowInstancesDetail(TypedDict, total=False):
@@ -1333,19 +1375,19 @@ class JobFlowInstancesDetail(TypedDict, total=False):
     """
 
     MasterInstanceType: InstanceType
-    MasterPublicDnsName: Optional[XmlString]
-    MasterInstanceId: Optional[XmlString]
+    MasterPublicDnsName: XmlString | None
+    MasterInstanceId: XmlString | None
     SlaveInstanceType: InstanceType
     InstanceCount: Integer
-    InstanceGroups: Optional[InstanceGroupDetailList]
-    NormalizedInstanceHours: Optional[Integer]
-    Ec2KeyName: Optional[XmlStringMaxLen256]
-    Ec2SubnetId: Optional[XmlStringMaxLen256]
-    Placement: Optional[PlacementType]
-    KeepJobFlowAliveWhenNoSteps: Optional[Boolean]
-    TerminationProtected: Optional[Boolean]
-    UnhealthyNodeReplacement: Optional[BooleanObject]
-    HadoopVersion: Optional[XmlStringMaxLen256]
+    InstanceGroups: InstanceGroupDetailList | None
+    NormalizedInstanceHours: Integer | None
+    Ec2KeyName: XmlStringMaxLen256 | None
+    Ec2SubnetId: XmlStringMaxLen256 | None
+    Placement: PlacementType | None
+    KeepJobFlowAliveWhenNoSteps: Boolean | None
+    TerminationProtected: Boolean | None
+    UnhealthyNodeReplacement: BooleanObject | None
+    HadoopVersion: XmlStringMaxLen256 | None
 
 
 class JobFlowExecutionStatusDetail(TypedDict, total=False):
@@ -1353,10 +1395,10 @@ class JobFlowExecutionStatusDetail(TypedDict, total=False):
 
     State: JobFlowExecutionState
     CreationDateTime: Date
-    StartDateTime: Optional[Date]
-    ReadyDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
-    LastStateChangeReason: Optional[XmlString]
+    StartDateTime: Date | None
+    ReadyDateTime: Date | None
+    EndDateTime: Date | None
+    LastStateChangeReason: XmlString | None
 
 
 class JobFlowDetail(TypedDict, total=False):
@@ -1364,49 +1406,49 @@ class JobFlowDetail(TypedDict, total=False):
 
     JobFlowId: XmlStringMaxLen256
     Name: XmlStringMaxLen256
-    LogUri: Optional[XmlString]
-    LogEncryptionKmsKeyId: Optional[XmlString]
-    AmiVersion: Optional[XmlStringMaxLen256]
+    LogUri: XmlString | None
+    LogEncryptionKmsKeyId: XmlString | None
+    AmiVersion: XmlStringMaxLen256 | None
     ExecutionStatusDetail: JobFlowExecutionStatusDetail
     Instances: JobFlowInstancesDetail
-    Steps: Optional[StepDetailList]
-    BootstrapActions: Optional[BootstrapActionDetailList]
-    SupportedProducts: Optional[SupportedProductsList]
-    VisibleToAllUsers: Optional[Boolean]
-    JobFlowRole: Optional[XmlString]
-    ServiceRole: Optional[XmlString]
-    AutoScalingRole: Optional[XmlString]
-    ScaleDownBehavior: Optional[ScaleDownBehavior]
+    Steps: StepDetailList | None
+    BootstrapActions: BootstrapActionDetailList | None
+    SupportedProducts: SupportedProductsList | None
+    VisibleToAllUsers: Boolean | None
+    JobFlowRole: XmlString | None
+    ServiceRole: XmlString | None
+    AutoScalingRole: XmlString | None
+    ScaleDownBehavior: ScaleDownBehavior | None
 
 
-JobFlowDetailList = List[JobFlowDetail]
+JobFlowDetailList = list[JobFlowDetail]
 
 
 class DescribeJobFlowsOutput(TypedDict, total=False):
     """The output for the DescribeJobFlows operation."""
 
-    JobFlows: Optional[JobFlowDetailList]
+    JobFlows: JobFlowDetailList | None
 
 
 class DescribeNotebookExecutionInput(ServiceRequest):
     NotebookExecutionId: XmlStringMaxLen256
 
 
-EnvironmentVariablesMap = Dict[XmlStringMaxLen256, XmlString]
+EnvironmentVariablesMap = dict[XmlStringMaxLen256, XmlString]
 
 
 class OutputNotebookS3LocationForOutput(TypedDict, total=False):
     """The Amazon S3 location that stores the notebook execution output."""
 
-    Bucket: Optional[XmlStringMaxLen256]
-    Key: Optional[UriString]
+    Bucket: XmlStringMaxLen256 | None
+    Key: UriString | None
 
 
 class NotebookS3LocationForOutput(TypedDict, total=False):
     """The Amazon S3 location that stores the notebook execution input."""
 
-    Bucket: Optional[XmlStringMaxLen256]
-    Key: Optional[UriString]
+    Bucket: XmlStringMaxLen256 | None
+    Key: UriString | None
 
 
 class ExecutionEngineConfig(TypedDict, total=False):
@@ -1415,9 +1457,9 @@ class ExecutionEngineConfig(TypedDict, total=False):
     """
 
     Id: XmlStringMaxLen256
-    Type: Optional[ExecutionEngineType]
-    MasterInstanceSecurityGroupId: Optional[XmlStringMaxLen256]
-    ExecutionRoleArn: Optional[IAMRoleArn]
+    Type: ExecutionEngineType | None
+    MasterInstanceSecurityGroupId: XmlStringMaxLen256 | None
+    ExecutionRoleArn: IAMRoleArn | None
 
 
 class NotebookExecution(TypedDict, total=False):
@@ -1425,34 +1467,34 @@ class NotebookExecution(TypedDict, total=False):
     EMR Notebook is run using the ``StartNotebookExecution`` action.
     """
 
-    NotebookExecutionId: Optional[XmlStringMaxLen256]
-    EditorId: Optional[XmlStringMaxLen256]
-    ExecutionEngine: Optional[ExecutionEngineConfig]
-    NotebookExecutionName: Optional[XmlStringMaxLen256]
-    NotebookParams: Optional[XmlString]
-    Status: Optional[NotebookExecutionStatus]
-    StartTime: Optional[Date]
-    EndTime: Optional[Date]
-    Arn: Optional[XmlStringMaxLen256]
-    OutputNotebookURI: Optional[XmlString]
-    LastStateChangeReason: Optional[XmlString]
-    NotebookInstanceSecurityGroupId: Optional[XmlStringMaxLen256]
-    Tags: Optional[TagList]
-    NotebookS3Location: Optional[NotebookS3LocationForOutput]
-    OutputNotebookS3Location: Optional[OutputNotebookS3LocationForOutput]
-    OutputNotebookFormat: Optional[OutputNotebookFormat]
-    EnvironmentVariables: Optional[EnvironmentVariablesMap]
+    NotebookExecutionId: XmlStringMaxLen256 | None
+    EditorId: XmlStringMaxLen256 | None
+    ExecutionEngine: ExecutionEngineConfig | None
+    NotebookExecutionName: XmlStringMaxLen256 | None
+    NotebookParams: XmlString | None
+    Status: NotebookExecutionStatus | None
+    StartTime: Date | None
+    EndTime: Date | None
+    Arn: XmlStringMaxLen256 | None
+    OutputNotebookURI: XmlString | None
+    LastStateChangeReason: XmlString | None
+    NotebookInstanceSecurityGroupId: XmlStringMaxLen256 | None
+    Tags: TagList | None
+    NotebookS3Location: NotebookS3LocationForOutput | None
+    OutputNotebookS3Location: OutputNotebookS3LocationForOutput | None
+    OutputNotebookFormat: OutputNotebookFormat | None
+    EnvironmentVariables: EnvironmentVariablesMap | None
 
 
 class DescribeNotebookExecutionOutput(TypedDict, total=False):
-    NotebookExecution: Optional[NotebookExecution]
+    NotebookExecution: NotebookExecution | None
 
 
 class DescribePersistentAppUIInput(ServiceRequest):
     PersistentAppUIId: XmlStringMaxLen256
 
 
-PersistentAppUITypeList = List[PersistentAppUIType]
+PersistentAppUITypeList = list[PersistentAppUIType]
 
 
 class PersistentAppUI(TypedDict, total=False):
@@ -1461,24 +1503,24 @@ class PersistentAppUI(TypedDict, total=False):
     to monitor cluster activity.
     """
 
-    PersistentAppUIId: Optional[XmlStringMaxLen256]
-    PersistentAppUITypeList: Optional[PersistentAppUITypeList]
-    PersistentAppUIStatus: Optional[XmlStringMaxLen256]
-    AuthorId: Optional[XmlStringMaxLen256]
-    CreationTime: Optional[Date]
-    LastModifiedTime: Optional[Date]
-    LastStateChangeReason: Optional[XmlString]
-    Tags: Optional[TagList]
+    PersistentAppUIId: XmlStringMaxLen256 | None
+    PersistentAppUITypeList: PersistentAppUITypeList | None
+    PersistentAppUIStatus: XmlStringMaxLen256 | None
+    AuthorId: XmlStringMaxLen256 | None
+    CreationTime: Date | None
+    LastModifiedTime: Date | None
+    LastStateChangeReason: XmlString | None
+    Tags: TagList | None
 
 
 class DescribePersistentAppUIOutput(TypedDict, total=False):
-    PersistentAppUI: Optional[PersistentAppUI]
+    PersistentAppUI: PersistentAppUI | None
 
 
 class DescribeReleaseLabelInput(ServiceRequest):
-    ReleaseLabel: Optional[String]
-    NextToken: Optional[String]
-    MaxResults: Optional[MaxResultsNumber]
+    ReleaseLabel: String | None
+    NextToken: String | None
+    MaxResults: MaxResultsNumber | None
 
 
 class OSRelease(TypedDict, total=False):
@@ -1486,27 +1528,27 @@ class OSRelease(TypedDict, total=False):
     request.
     """
 
-    Label: Optional[String]
+    Label: String | None
 
 
-OSReleaseList = List[OSRelease]
+OSReleaseList = list[OSRelease]
 
 
 class SimplifiedApplication(TypedDict, total=False):
     """The returned release label application names or versions."""
 
-    Name: Optional[String]
-    Version: Optional[String]
+    Name: String | None
+    Version: String | None
 
 
-SimplifiedApplicationList = List[SimplifiedApplication]
+SimplifiedApplicationList = list[SimplifiedApplication]
 
 
 class DescribeReleaseLabelOutput(TypedDict, total=False):
-    ReleaseLabel: Optional[String]
-    Applications: Optional[SimplifiedApplicationList]
-    NextToken: Optional[String]
-    AvailableOSReleases: Optional[OSReleaseList]
+    ReleaseLabel: String | None
+    Applications: SimplifiedApplicationList | None
+    NextToken: String | None
+    AvailableOSReleases: OSReleaseList | None
 
 
 class DescribeSecurityConfigurationInput(ServiceRequest):
@@ -1514,9 +1556,9 @@ class DescribeSecurityConfigurationInput(ServiceRequest):
 
 
 class DescribeSecurityConfigurationOutput(TypedDict, total=False):
-    Name: Optional[XmlString]
-    SecurityConfiguration: Optional[String]
-    CreationDateTime: Optional[Date]
+    Name: XmlString | None
+    SecurityConfiguration: String | None
+    CreationDateTime: Date | None
 
 
 class DescribeStepInput(ServiceRequest):
@@ -1529,9 +1571,9 @@ class DescribeStepInput(ServiceRequest):
 class StepTimeline(TypedDict, total=False):
     """The timeline of the cluster step lifecycle."""
 
-    CreationDateTime: Optional[Date]
-    StartDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
+    CreationDateTime: Date | None
+    StartDateTime: Date | None
+    EndDateTime: Date | None
 
 
 class FailureDetails(TypedDict, total=False):
@@ -1539,25 +1581,25 @@ class FailureDetails(TypedDict, total=False):
     cause for many common failures.
     """
 
-    Reason: Optional[String]
-    Message: Optional[String]
-    LogFile: Optional[String]
+    Reason: String | None
+    Message: String | None
+    LogFile: String | None
 
 
 class StepStateChangeReason(TypedDict, total=False):
     """The details of the step state change reason."""
 
-    Code: Optional[StepStateChangeReasonCode]
-    Message: Optional[String]
+    Code: StepStateChangeReasonCode | None
+    Message: String | None
 
 
 class StepStatus(TypedDict, total=False):
     """The execution status details of the cluster step."""
 
-    State: Optional[StepState]
-    StateChangeReason: Optional[StepStateChangeReason]
-    FailureDetails: Optional[FailureDetails]
-    Timeline: Optional[StepTimeline]
+    State: StepState | None
+    StateChangeReason: StepStateChangeReason | None
+    FailureDetails: FailureDetails | None
+    Timeline: StepTimeline | None
 
 
 class HadoopStepConfig(TypedDict, total=False):
@@ -1566,27 +1608,29 @@ class HadoopStepConfig(TypedDict, total=False):
     waits for the job to finish or fail.
     """
 
-    Jar: Optional[String]
-    Properties: Optional[StringMap]
-    MainClass: Optional[String]
-    Args: Optional[StringList]
+    Jar: String | None
+    Properties: StringMap | None
+    MainClass: String | None
+    Args: StringList | None
 
 
 class Step(TypedDict, total=False):
     """This represents a step in a cluster."""
 
-    Id: Optional[StepId]
-    Name: Optional[String]
-    Config: Optional[HadoopStepConfig]
-    ActionOnFailure: Optional[ActionOnFailure]
-    Status: Optional[StepStatus]
-    ExecutionRoleArn: Optional[OptionalArnType]
+    Id: StepId | None
+    Name: String | None
+    Config: HadoopStepConfig | None
+    ActionOnFailure: ActionOnFailure | None
+    Status: StepStatus | None
+    ExecutionRoleArn: OptionalArnType | None
+    LogUri: String | None
+    EncryptionKeyArn: String | None
 
 
 class DescribeStepOutput(TypedDict, total=False):
     """This output contains the description of the cluster step."""
 
-    Step: Optional[Step]
+    Step: Step | None
 
 
 class DescribeStudioInput(ServiceRequest):
@@ -1598,35 +1642,35 @@ class Studio(TypedDict, total=False):
     so on.
     """
 
-    StudioId: Optional[XmlStringMaxLen256]
-    StudioArn: Optional[XmlStringMaxLen256]
-    Name: Optional[XmlStringMaxLen256]
-    Description: Optional[XmlStringMaxLen256]
-    AuthMode: Optional[AuthMode]
-    VpcId: Optional[XmlStringMaxLen256]
-    SubnetIds: Optional[SubnetIdList]
-    ServiceRole: Optional[XmlString]
-    UserRole: Optional[XmlString]
-    WorkspaceSecurityGroupId: Optional[XmlStringMaxLen256]
-    EngineSecurityGroupId: Optional[XmlStringMaxLen256]
-    Url: Optional[XmlString]
-    CreationTime: Optional[Date]
-    DefaultS3Location: Optional[XmlString]
-    IdpAuthUrl: Optional[XmlString]
-    IdpRelayStateParameterName: Optional[XmlStringMaxLen256]
-    Tags: Optional[TagList]
-    IdcInstanceArn: Optional[ArnType]
-    TrustedIdentityPropagationEnabled: Optional[BooleanObject]
-    IdcUserAssignment: Optional[IdcUserAssignment]
-    EncryptionKeyArn: Optional[XmlString]
+    StudioId: XmlStringMaxLen256 | None
+    StudioArn: XmlStringMaxLen256 | None
+    Name: XmlStringMaxLen256 | None
+    Description: XmlStringMaxLen256 | None
+    AuthMode: AuthMode | None
+    VpcId: XmlStringMaxLen256 | None
+    SubnetIds: SubnetIdList | None
+    ServiceRole: XmlString | None
+    UserRole: XmlString | None
+    WorkspaceSecurityGroupId: XmlStringMaxLen256 | None
+    EngineSecurityGroupId: XmlStringMaxLen256 | None
+    Url: XmlString | None
+    CreationTime: Date | None
+    DefaultS3Location: XmlString | None
+    IdpAuthUrl: XmlString | None
+    IdpRelayStateParameterName: XmlStringMaxLen256 | None
+    Tags: TagList | None
+    IdcInstanceArn: ArnType | None
+    TrustedIdentityPropagationEnabled: BooleanObject | None
+    IdcUserAssignment: IdcUserAssignment | None
+    EncryptionKeyArn: XmlString | None
 
 
 class DescribeStudioOutput(TypedDict, total=False):
-    Studio: Optional[Studio]
+    Studio: Studio | None
 
 
-EC2InstanceIdsList = List[InstanceId]
-EC2InstanceIdsToTerminateList = List[InstanceId]
+EC2InstanceIdsList = list[InstanceId]
+EC2InstanceIdsToTerminateList = list[InstanceId]
 
 
 class EbsBlockDevice(TypedDict, total=False):
@@ -1634,21 +1678,21 @@ class EbsBlockDevice(TypedDict, total=False):
     group.
     """
 
-    VolumeSpecification: Optional[VolumeSpecification]
-    Device: Optional[String]
+    VolumeSpecification: VolumeSpecification | None
+    Device: String | None
 
 
-EbsBlockDeviceList = List[EbsBlockDevice]
+EbsBlockDeviceList = list[EbsBlockDevice]
 
 
 class EbsVolume(TypedDict, total=False):
     """EBS block device that's attached to an Amazon EC2 instance."""
 
-    Device: Optional[String]
-    VolumeId: Optional[String]
+    Device: String | None
+    VolumeId: String | None
 
 
-EbsVolumeList = List[EbsVolume]
+EbsVolumeList = list[EbsVolume]
 
 
 class GetAutoTerminationPolicyInput(ServiceRequest):
@@ -1656,7 +1700,7 @@ class GetAutoTerminationPolicyInput(ServiceRequest):
 
 
 class GetAutoTerminationPolicyOutput(TypedDict, total=False):
-    AutoTerminationPolicy: Optional[AutoTerminationPolicy]
+    AutoTerminationPolicy: AutoTerminationPolicy | None
 
 
 class GetBlockPublicAccessConfigurationInput(ServiceRequest):
@@ -1670,12 +1714,12 @@ class GetBlockPublicAccessConfigurationOutput(TypedDict, total=False):
 
 class GetClusterSessionCredentialsInput(ServiceRequest):
     ClusterId: XmlStringMaxLen256
-    ExecutionRoleArn: Optional[ArnType]
+    ExecutionRoleArn: ArnType | None
 
 
 class GetClusterSessionCredentialsOutput(TypedDict, total=False):
-    Credentials: Optional[Credentials]
-    ExpiresAt: Optional[Date]
+    Credentials: Credentials | None
+    ExpiresAt: Date | None
 
 
 class GetManagedScalingPolicyInput(ServiceRequest):
@@ -1689,45 +1733,45 @@ class ManagedScalingPolicy(TypedDict, total=False):
     cannot be scaled after initial configuration.
     """
 
-    ComputeLimits: Optional[ComputeLimits]
-    UtilizationPerformanceIndex: Optional[UtilizationPerformanceIndexInteger]
-    ScalingStrategy: Optional[ScalingStrategy]
+    ComputeLimits: ComputeLimits | None
+    UtilizationPerformanceIndex: UtilizationPerformanceIndexInteger | None
+    ScalingStrategy: ScalingStrategy | None
 
 
 class GetManagedScalingPolicyOutput(TypedDict, total=False):
-    ManagedScalingPolicy: Optional[ManagedScalingPolicy]
+    ManagedScalingPolicy: ManagedScalingPolicy | None
 
 
 class GetOnClusterAppUIPresignedURLInput(ServiceRequest):
     ClusterId: XmlStringMaxLen256
-    OnClusterAppUIType: Optional[OnClusterAppUIType]
-    ApplicationId: Optional[XmlStringMaxLen256]
-    DryRun: Optional[BooleanObject]
-    ExecutionRoleArn: Optional[ArnType]
+    OnClusterAppUIType: OnClusterAppUIType | None
+    ApplicationId: XmlStringMaxLen256 | None
+    DryRun: BooleanObject | None
+    ExecutionRoleArn: ArnType | None
 
 
 class GetOnClusterAppUIPresignedURLOutput(TypedDict, total=False):
-    PresignedURLReady: Optional[Boolean]
-    PresignedURL: Optional[XmlString]
+    PresignedURLReady: Boolean | None
+    PresignedURL: XmlString | None
 
 
 class GetPersistentAppUIPresignedURLInput(ServiceRequest):
     PersistentAppUIId: XmlStringMaxLen256
-    PersistentAppUIType: Optional[PersistentAppUIType]
-    ApplicationId: Optional[XmlStringMaxLen256]
-    AuthProxyCall: Optional[BooleanObject]
-    ExecutionRoleArn: Optional[ArnType]
+    PersistentAppUIType: PersistentAppUIType | None
+    ApplicationId: XmlStringMaxLen256 | None
+    AuthProxyCall: BooleanObject | None
+    ExecutionRoleArn: ArnType | None
 
 
 class GetPersistentAppUIPresignedURLOutput(TypedDict, total=False):
-    PresignedURLReady: Optional[Boolean]
-    PresignedURL: Optional[XmlString]
+    PresignedURLReady: Boolean | None
+    PresignedURL: XmlString | None
 
 
 class GetStudioSessionMappingInput(ServiceRequest):
     StudioId: XmlStringMaxLen256
-    IdentityId: Optional[XmlStringMaxLen256]
-    IdentityName: Optional[XmlStringMaxLen256]
+    IdentityId: XmlStringMaxLen256 | None
+    IdentityName: XmlStringMaxLen256 | None
     IdentityType: IdentityType
 
 
@@ -1736,57 +1780,57 @@ class SessionMappingDetail(TypedDict, total=False):
     time, user or group ID, Studio ID, and so on.
     """
 
-    StudioId: Optional[XmlStringMaxLen256]
-    IdentityId: Optional[XmlStringMaxLen256]
-    IdentityName: Optional[XmlStringMaxLen256]
-    IdentityType: Optional[IdentityType]
-    SessionPolicyArn: Optional[XmlStringMaxLen256]
-    CreationTime: Optional[Date]
-    LastModifiedTime: Optional[Date]
+    StudioId: XmlStringMaxLen256 | None
+    IdentityId: XmlStringMaxLen256 | None
+    IdentityName: XmlStringMaxLen256 | None
+    IdentityType: IdentityType | None
+    SessionPolicyArn: XmlStringMaxLen256 | None
+    CreationTime: Date | None
+    LastModifiedTime: Date | None
 
 
 class GetStudioSessionMappingOutput(TypedDict, total=False):
-    SessionMapping: Optional[SessionMappingDetail]
+    SessionMapping: SessionMappingDetail | None
 
 
 class InstanceTimeline(TypedDict, total=False):
     """The timeline of the instance lifecycle."""
 
-    CreationDateTime: Optional[Date]
-    ReadyDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
+    CreationDateTime: Date | None
+    ReadyDateTime: Date | None
+    EndDateTime: Date | None
 
 
 class InstanceStateChangeReason(TypedDict, total=False):
     """The details of the status change reason for the instance."""
 
-    Code: Optional[InstanceStateChangeReasonCode]
-    Message: Optional[String]
+    Code: InstanceStateChangeReasonCode | None
+    Message: String | None
 
 
 class InstanceStatus(TypedDict, total=False):
     """The instance status details."""
 
-    State: Optional[InstanceState]
-    StateChangeReason: Optional[InstanceStateChangeReason]
-    Timeline: Optional[InstanceTimeline]
+    State: InstanceState | None
+    StateChangeReason: InstanceStateChangeReason | None
+    Timeline: InstanceTimeline | None
 
 
 class Instance(TypedDict, total=False):
     """Represents an Amazon EC2 instance provisioned as part of cluster."""
 
-    Id: Optional[InstanceId]
-    Ec2InstanceId: Optional[InstanceId]
-    PublicDnsName: Optional[String]
-    PublicIpAddress: Optional[String]
-    PrivateDnsName: Optional[String]
-    PrivateIpAddress: Optional[String]
-    Status: Optional[InstanceStatus]
-    InstanceGroupId: Optional[String]
-    InstanceFleetId: Optional[InstanceFleetId]
-    Market: Optional[MarketType]
-    InstanceType: Optional[InstanceType]
-    EbsVolumes: Optional[EbsVolumeList]
+    Id: InstanceId | None
+    Ec2InstanceId: InstanceId | None
+    PublicDnsName: String | None
+    PublicIpAddress: String | None
+    PrivateDnsName: String | None
+    PrivateIpAddress: String | None
+    Status: InstanceStatus | None
+    InstanceGroupId: String | None
+    InstanceFleetId: InstanceFleetId | None
+    Market: MarketType | None
+    InstanceType: InstanceType | None
+    EbsVolumes: EbsVolumeList | None
 
 
 class InstanceTypeSpecification(TypedDict, total=False):
@@ -1797,18 +1841,18 @@ class InstanceTypeSpecification(TypedDict, total=False):
     releases 4.8.0 and later, excluding 5.0.x versions.
     """
 
-    InstanceType: Optional[InstanceType]
-    WeightedCapacity: Optional[WholeNumber]
-    BidPrice: Optional[XmlStringMaxLen256]
-    BidPriceAsPercentageOfOnDemandPrice: Optional[NonNegativeDouble]
-    Configurations: Optional[ConfigurationList]
-    EbsBlockDevices: Optional[EbsBlockDeviceList]
-    EbsOptimized: Optional[BooleanObject]
-    CustomAmiId: Optional[XmlStringMaxLen256]
-    Priority: Optional[NonNegativeDouble]
+    InstanceType: InstanceType | None
+    WeightedCapacity: WholeNumber | None
+    BidPrice: XmlStringMaxLen256 | None
+    BidPriceAsPercentageOfOnDemandPrice: NonNegativeDouble | None
+    Configurations: ConfigurationList | None
+    EbsBlockDevices: EbsBlockDeviceList | None
+    EbsOptimized: BooleanObject | None
+    CustomAmiId: XmlStringMaxLen256 | None
+    Priority: NonNegativeDouble | None
 
 
-InstanceTypeSpecificationList = List[InstanceTypeSpecification]
+InstanceTypeSpecificationList = list[InstanceTypeSpecification]
 
 
 class InstanceFleetTimeline(TypedDict, total=False):
@@ -1820,9 +1864,9 @@ class InstanceFleetTimeline(TypedDict, total=False):
     releases 4.8.0 and later, excluding 5.0.x versions.
     """
 
-    CreationDateTime: Optional[Date]
-    ReadyDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
+    CreationDateTime: Date | None
+    ReadyDateTime: Date | None
+    EndDateTime: Date | None
 
 
 class InstanceFleetStateChangeReason(TypedDict, total=False):
@@ -1832,8 +1876,8 @@ class InstanceFleetStateChangeReason(TypedDict, total=False):
     releases 4.8.0 and later, excluding 5.0.x versions.
     """
 
-    Code: Optional[InstanceFleetStateChangeReasonCode]
-    Message: Optional[String]
+    Code: InstanceFleetStateChangeReasonCode | None
+    Message: String | None
 
 
 class InstanceFleetStatus(TypedDict, total=False):
@@ -1843,9 +1887,9 @@ class InstanceFleetStatus(TypedDict, total=False):
     releases 4.8.0 and later, excluding 5.0.x versions.
     """
 
-    State: Optional[InstanceFleetState]
-    StateChangeReason: Optional[InstanceFleetStateChangeReason]
-    Timeline: Optional[InstanceFleetTimeline]
+    State: InstanceFleetState | None
+    StateChangeReason: InstanceFleetStateChangeReason | None
+    Timeline: InstanceFleetTimeline | None
 
 
 class InstanceFleet(TypedDict, total=False):
@@ -1859,22 +1903,22 @@ class InstanceFleet(TypedDict, total=False):
     releases 4.8.0 and later, excluding 5.0.x versions.
     """
 
-    Id: Optional[InstanceFleetId]
-    Name: Optional[XmlStringMaxLen256]
-    Status: Optional[InstanceFleetStatus]
-    InstanceFleetType: Optional[InstanceFleetType]
-    TargetOnDemandCapacity: Optional[WholeNumber]
-    TargetSpotCapacity: Optional[WholeNumber]
-    ProvisionedOnDemandCapacity: Optional[WholeNumber]
-    ProvisionedSpotCapacity: Optional[WholeNumber]
-    InstanceTypeSpecifications: Optional[InstanceTypeSpecificationList]
-    LaunchSpecifications: Optional[InstanceFleetProvisioningSpecifications]
-    ResizeSpecifications: Optional[InstanceFleetResizingSpecifications]
-    Context: Optional[XmlStringMaxLen256]
+    Id: InstanceFleetId | None
+    Name: XmlStringMaxLen256 | None
+    Status: InstanceFleetStatus | None
+    InstanceFleetType: InstanceFleetType | None
+    TargetOnDemandCapacity: WholeNumber | None
+    TargetSpotCapacity: WholeNumber | None
+    ProvisionedOnDemandCapacity: WholeNumber | None
+    ProvisionedSpotCapacity: WholeNumber | None
+    InstanceTypeSpecifications: InstanceTypeSpecificationList | None
+    LaunchSpecifications: InstanceFleetProvisioningSpecifications | None
+    ResizeSpecifications: InstanceFleetResizingSpecifications | None
+    Context: XmlStringMaxLen256 | None
 
 
-InstanceFleetConfigList = List[InstanceFleetConfig]
-InstanceFleetList = List[InstanceFleet]
+InstanceFleetConfigList = list[InstanceFleetConfig]
+InstanceFleetList = list[InstanceFleet]
 
 
 class InstanceFleetModifyConfig(TypedDict, total=False):
@@ -1885,11 +1929,11 @@ class InstanceFleetModifyConfig(TypedDict, total=False):
     """
 
     InstanceFleetId: InstanceFleetId
-    TargetOnDemandCapacity: Optional[WholeNumber]
-    TargetSpotCapacity: Optional[WholeNumber]
-    ResizeSpecifications: Optional[InstanceFleetResizingSpecifications]
-    InstanceTypeConfigs: Optional[InstanceTypeConfigList]
-    Context: Optional[XmlStringMaxLen256]
+    TargetOnDemandCapacity: WholeNumber | None
+    TargetSpotCapacity: WholeNumber | None
+    ResizeSpecifications: InstanceFleetResizingSpecifications | None
+    InstanceTypeConfigs: InstanceTypeConfigList | None
+    Context: XmlStringMaxLen256 | None
 
 
 class InstanceResizePolicy(TypedDict, total=False):
@@ -1897,9 +1941,9 @@ class InstanceResizePolicy(TypedDict, total=False):
     specific instances when shrinking an instance group.
     """
 
-    InstancesToTerminate: Optional[EC2InstanceIdsList]
-    InstancesToProtect: Optional[EC2InstanceIdsList]
-    InstanceTerminationTimeout: Optional[Integer]
+    InstancesToTerminate: EC2InstanceIdsList | None
+    InstancesToProtect: EC2InstanceIdsList | None
+    InstanceTerminationTimeout: Integer | None
 
 
 class ShrinkPolicy(TypedDict, total=False):
@@ -1907,31 +1951,31 @@ class ShrinkPolicy(TypedDict, total=False):
     decommissioning timeout and targeted instance shrinking.
     """
 
-    DecommissionTimeout: Optional[Integer]
-    InstanceResizePolicy: Optional[InstanceResizePolicy]
+    DecommissionTimeout: Integer | None
+    InstanceResizePolicy: InstanceResizePolicy | None
 
 
 class InstanceGroupTimeline(TypedDict, total=False):
     """The timeline of the instance group lifecycle."""
 
-    CreationDateTime: Optional[Date]
-    ReadyDateTime: Optional[Date]
-    EndDateTime: Optional[Date]
+    CreationDateTime: Date | None
+    ReadyDateTime: Date | None
+    EndDateTime: Date | None
 
 
 class InstanceGroupStateChangeReason(TypedDict, total=False):
     """The status change reason details for the instance group."""
 
-    Code: Optional[InstanceGroupStateChangeReasonCode]
-    Message: Optional[String]
+    Code: InstanceGroupStateChangeReasonCode | None
+    Message: String | None
 
 
 class InstanceGroupStatus(TypedDict, total=False):
     """The details of the instance group status."""
 
-    State: Optional[InstanceGroupState]
-    StateChangeReason: Optional[InstanceGroupStateChangeReason]
-    Timeline: Optional[InstanceGroupTimeline]
+    State: InstanceGroupState | None
+    StateChangeReason: InstanceGroupStateChangeReason | None
+    Timeline: InstanceGroupTimeline | None
 
 
 class InstanceGroup(TypedDict, total=False):
@@ -1940,45 +1984,45 @@ class InstanceGroup(TypedDict, total=False):
     HDFS.
     """
 
-    Id: Optional[InstanceGroupId]
-    Name: Optional[String]
-    Market: Optional[MarketType]
-    InstanceGroupType: Optional[InstanceGroupType]
-    BidPrice: Optional[String]
-    InstanceType: Optional[InstanceType]
-    RequestedInstanceCount: Optional[Integer]
-    RunningInstanceCount: Optional[Integer]
-    Status: Optional[InstanceGroupStatus]
-    Configurations: Optional[ConfigurationList]
-    ConfigurationsVersion: Optional[Long]
-    LastSuccessfullyAppliedConfigurations: Optional[ConfigurationList]
-    LastSuccessfullyAppliedConfigurationsVersion: Optional[Long]
-    EbsBlockDevices: Optional[EbsBlockDeviceList]
-    EbsOptimized: Optional[BooleanObject]
-    ShrinkPolicy: Optional[ShrinkPolicy]
-    AutoScalingPolicy: Optional[AutoScalingPolicyDescription]
-    CustomAmiId: Optional[XmlStringMaxLen256]
+    Id: InstanceGroupId | None
+    Name: String | None
+    Market: MarketType | None
+    InstanceGroupType: InstanceGroupType | None
+    BidPrice: String | None
+    InstanceType: InstanceType | None
+    RequestedInstanceCount: Integer | None
+    RunningInstanceCount: Integer | None
+    Status: InstanceGroupStatus | None
+    Configurations: ConfigurationList | None
+    ConfigurationsVersion: Long | None
+    LastSuccessfullyAppliedConfigurations: ConfigurationList | None
+    LastSuccessfullyAppliedConfigurationsVersion: Long | None
+    EbsBlockDevices: EbsBlockDeviceList | None
+    EbsOptimized: BooleanObject | None
+    ShrinkPolicy: ShrinkPolicy | None
+    AutoScalingPolicy: AutoScalingPolicyDescription | None
+    CustomAmiId: XmlStringMaxLen256 | None
 
 
-InstanceGroupList = List[InstanceGroup]
+InstanceGroupList = list[InstanceGroup]
 
 
 class InstanceGroupModifyConfig(TypedDict, total=False):
     """Modify the size or configurations of an instance group."""
 
     InstanceGroupId: XmlStringMaxLen256
-    InstanceCount: Optional[Integer]
-    EC2InstanceIdsToTerminate: Optional[EC2InstanceIdsToTerminateList]
-    ShrinkPolicy: Optional[ShrinkPolicy]
-    ReconfigurationType: Optional[ReconfigurationType]
-    Configurations: Optional[ConfigurationList]
+    InstanceCount: Integer | None
+    EC2InstanceIdsToTerminate: EC2InstanceIdsToTerminateList | None
+    ShrinkPolicy: ShrinkPolicy | None
+    ReconfigurationType: ReconfigurationType | None
+    Configurations: ConfigurationList | None
 
 
-InstanceGroupModifyConfigList = List[InstanceGroupModifyConfig]
-InstanceGroupTypeList = List[InstanceGroupType]
-InstanceList = List[Instance]
-InstanceStateList = List[InstanceState]
-SecurityGroupsList = List[XmlStringMaxLen256]
+InstanceGroupModifyConfigList = list[InstanceGroupModifyConfig]
+InstanceGroupTypeList = list[InstanceGroupType]
+InstanceList = list[Instance]
+InstanceStateList = list[InstanceState]
+SecurityGroupsList = list[XmlStringMaxLen256]
 
 
 class JobFlowInstancesConfig(TypedDict, total=False):
@@ -1989,38 +2033,38 @@ class JobFlowInstancesConfig(TypedDict, total=False):
     be present), but we don't recommend this configuration.
     """
 
-    MasterInstanceType: Optional[InstanceType]
-    SlaveInstanceType: Optional[InstanceType]
-    InstanceCount: Optional[Integer]
-    InstanceGroups: Optional[InstanceGroupConfigList]
-    InstanceFleets: Optional[InstanceFleetConfigList]
-    Ec2KeyName: Optional[XmlStringMaxLen256]
-    Placement: Optional[PlacementType]
-    KeepJobFlowAliveWhenNoSteps: Optional[Boolean]
-    TerminationProtected: Optional[Boolean]
-    UnhealthyNodeReplacement: Optional[BooleanObject]
-    HadoopVersion: Optional[XmlStringMaxLen256]
-    Ec2SubnetId: Optional[XmlStringMaxLen256]
-    Ec2SubnetIds: Optional[XmlStringMaxLen256List]
-    EmrManagedMasterSecurityGroup: Optional[XmlStringMaxLen256]
-    EmrManagedSlaveSecurityGroup: Optional[XmlStringMaxLen256]
-    ServiceAccessSecurityGroup: Optional[XmlStringMaxLen256]
-    AdditionalMasterSecurityGroups: Optional[SecurityGroupsList]
-    AdditionalSlaveSecurityGroups: Optional[SecurityGroupsList]
+    MasterInstanceType: InstanceType | None
+    SlaveInstanceType: InstanceType | None
+    InstanceCount: Integer | None
+    InstanceGroups: InstanceGroupConfigList | None
+    InstanceFleets: InstanceFleetConfigList | None
+    Ec2KeyName: XmlStringMaxLen256 | None
+    Placement: PlacementType | None
+    KeepJobFlowAliveWhenNoSteps: Boolean | None
+    TerminationProtected: Boolean | None
+    UnhealthyNodeReplacement: BooleanObject | None
+    HadoopVersion: XmlStringMaxLen256 | None
+    Ec2SubnetId: XmlStringMaxLen256 | None
+    Ec2SubnetIds: XmlStringMaxLen256List | None
+    EmrManagedMasterSecurityGroup: XmlStringMaxLen256 | None
+    EmrManagedSlaveSecurityGroup: XmlStringMaxLen256 | None
+    ServiceAccessSecurityGroup: XmlStringMaxLen256 | None
+    AdditionalMasterSecurityGroups: SecurityGroupsList | None
+    AdditionalSlaveSecurityGroups: SecurityGroupsList | None
 
 
 class ListBootstrapActionsInput(ServiceRequest):
     """This input determines which bootstrap actions to retrieve."""
 
     ClusterId: ClusterId
-    Marker: Optional[Marker]
+    Marker: Marker | None
 
 
 class ListBootstrapActionsOutput(TypedDict, total=False):
     """This output contains the bootstrap actions detail."""
 
-    BootstrapActions: Optional[CommandList]
-    Marker: Optional[Marker]
+    BootstrapActions: CommandList | None
+    Marker: Marker | None
 
 
 class ListClustersInput(ServiceRequest):
@@ -2028,10 +2072,10 @@ class ListClustersInput(ServiceRequest):
     clusters that it returns.
     """
 
-    CreatedAfter: Optional[Date]
-    CreatedBefore: Optional[Date]
-    ClusterStates: Optional[ClusterStateList]
-    Marker: Optional[Marker]
+    CreatedAfter: Date | None
+    CreatedBefore: Date | None
+    ClusterStates: ClusterStateList | None
+    Marker: Marker | None
 
 
 class ListClustersOutput(TypedDict, total=False):
@@ -2039,60 +2083,60 @@ class ListClustersOutput(TypedDict, total=False):
     example, the cluster IDs, names, and status.
     """
 
-    Clusters: Optional[ClusterSummaryList]
-    Marker: Optional[Marker]
+    Clusters: ClusterSummaryList | None
+    Marker: Marker | None
 
 
 class ListInstanceFleetsInput(ServiceRequest):
     ClusterId: ClusterId
-    Marker: Optional[Marker]
+    Marker: Marker | None
 
 
 class ListInstanceFleetsOutput(TypedDict, total=False):
-    InstanceFleets: Optional[InstanceFleetList]
-    Marker: Optional[Marker]
+    InstanceFleets: InstanceFleetList | None
+    Marker: Marker | None
 
 
 class ListInstanceGroupsInput(ServiceRequest):
     """This input determines which instance groups to retrieve."""
 
     ClusterId: ClusterId
-    Marker: Optional[Marker]
+    Marker: Marker | None
 
 
 class ListInstanceGroupsOutput(TypedDict, total=False):
     """This input determines which instance groups to retrieve."""
 
-    InstanceGroups: Optional[InstanceGroupList]
-    Marker: Optional[Marker]
+    InstanceGroups: InstanceGroupList | None
+    Marker: Marker | None
 
 
 class ListInstancesInput(ServiceRequest):
     """This input determines which instances to list."""
 
     ClusterId: ClusterId
-    InstanceGroupId: Optional[InstanceGroupId]
-    InstanceGroupTypes: Optional[InstanceGroupTypeList]
-    InstanceFleetId: Optional[InstanceFleetId]
-    InstanceFleetType: Optional[InstanceFleetType]
-    InstanceStates: Optional[InstanceStateList]
-    Marker: Optional[Marker]
+    InstanceGroupId: InstanceGroupId | None
+    InstanceGroupTypes: InstanceGroupTypeList | None
+    InstanceFleetId: InstanceFleetId | None
+    InstanceFleetType: InstanceFleetType | None
+    InstanceStates: InstanceStateList | None
+    Marker: Marker | None
 
 
 class ListInstancesOutput(TypedDict, total=False):
     """This output contains the list of instances."""
 
-    Instances: Optional[InstanceList]
-    Marker: Optional[Marker]
+    Instances: InstanceList | None
+    Marker: Marker | None
 
 
 class ListNotebookExecutionsInput(ServiceRequest):
-    EditorId: Optional[XmlStringMaxLen256]
-    Status: Optional[NotebookExecutionStatus]
-    From: Optional[Date]
-    To: Optional[Date]
-    Marker: Optional[Marker]
-    ExecutionEngineId: Optional[XmlString]
+    EditorId: XmlStringMaxLen256 | None
+    Status: NotebookExecutionStatus | None
+    From: Date | None
+    To: Date | None
+    Marker: Marker | None
+    ExecutionEngineId: XmlString | None
 
 
 class NotebookExecutionSummary(TypedDict, total=False):
@@ -2100,84 +2144,86 @@ class NotebookExecutionSummary(TypedDict, total=False):
     as the unique ID and status of the notebook execution.
     """
 
-    NotebookExecutionId: Optional[XmlStringMaxLen256]
-    EditorId: Optional[XmlStringMaxLen256]
-    NotebookExecutionName: Optional[XmlStringMaxLen256]
-    Status: Optional[NotebookExecutionStatus]
-    StartTime: Optional[Date]
-    EndTime: Optional[Date]
-    NotebookS3Location: Optional[NotebookS3LocationForOutput]
-    ExecutionEngineId: Optional[XmlString]
+    NotebookExecutionId: XmlStringMaxLen256 | None
+    EditorId: XmlStringMaxLen256 | None
+    NotebookExecutionName: XmlStringMaxLen256 | None
+    Status: NotebookExecutionStatus | None
+    StartTime: Date | None
+    EndTime: Date | None
+    NotebookS3Location: NotebookS3LocationForOutput | None
+    ExecutionEngineId: XmlString | None
 
 
-NotebookExecutionSummaryList = List[NotebookExecutionSummary]
+NotebookExecutionSummaryList = list[NotebookExecutionSummary]
 
 
 class ListNotebookExecutionsOutput(TypedDict, total=False):
-    NotebookExecutions: Optional[NotebookExecutionSummaryList]
-    Marker: Optional[Marker]
+    NotebookExecutions: NotebookExecutionSummaryList | None
+    Marker: Marker | None
 
 
 class ReleaseLabelFilter(TypedDict, total=False):
     """The release label filters by application or version prefix."""
 
-    Prefix: Optional[String]
-    Application: Optional[String]
+    Prefix: String | None
+    Application: String | None
 
 
 class ListReleaseLabelsInput(ServiceRequest):
-    Filters: Optional[ReleaseLabelFilter]
-    NextToken: Optional[String]
-    MaxResults: Optional[MaxResultsNumber]
+    Filters: ReleaseLabelFilter | None
+    NextToken: String | None
+    MaxResults: MaxResultsNumber | None
 
 
 class ListReleaseLabelsOutput(TypedDict, total=False):
-    ReleaseLabels: Optional[StringList]
-    NextToken: Optional[String]
+    ReleaseLabels: StringList | None
+    NextToken: String | None
 
 
 class ListSecurityConfigurationsInput(ServiceRequest):
-    Marker: Optional[Marker]
+    Marker: Marker | None
 
 
 class SecurityConfigurationSummary(TypedDict, total=False):
     """The creation date and time, and name, of a security configuration."""
 
-    Name: Optional[XmlString]
-    CreationDateTime: Optional[Date]
+    Name: XmlString | None
+    CreationDateTime: Date | None
 
 
-SecurityConfigurationList = List[SecurityConfigurationSummary]
+SecurityConfigurationList = list[SecurityConfigurationSummary]
 
 
 class ListSecurityConfigurationsOutput(TypedDict, total=False):
-    SecurityConfigurations: Optional[SecurityConfigurationList]
-    Marker: Optional[Marker]
+    SecurityConfigurations: SecurityConfigurationList | None
+    Marker: Marker | None
 
 
-StepStateList = List[StepState]
+StepStateList = list[StepState]
 
 
 class ListStepsInput(ServiceRequest):
     """This input determines which steps to list."""
 
     ClusterId: ClusterId
-    StepStates: Optional[StepStateList]
-    StepIds: Optional[XmlStringList]
-    Marker: Optional[Marker]
+    StepStates: StepStateList | None
+    StepIds: XmlStringList | None
+    Marker: Marker | None
 
 
 class StepSummary(TypedDict, total=False):
     """The summary of the cluster step."""
 
-    Id: Optional[StepId]
-    Name: Optional[String]
-    Config: Optional[HadoopStepConfig]
-    ActionOnFailure: Optional[ActionOnFailure]
-    Status: Optional[StepStatus]
+    Id: StepId | None
+    Name: String | None
+    Config: HadoopStepConfig | None
+    ActionOnFailure: ActionOnFailure | None
+    Status: StepStatus | None
+    LogUri: String | None
+    EncryptionKeyArn: String | None
 
 
-StepSummaryList = List[StepSummary]
+StepSummaryList = list[StepSummary]
 
 
 class ListStepsOutput(TypedDict, total=False):
@@ -2185,14 +2231,14 @@ class ListStepsOutput(TypedDict, total=False):
     means that the last step is the first element in the list.
     """
 
-    Steps: Optional[StepSummaryList]
-    Marker: Optional[Marker]
+    Steps: StepSummaryList | None
+    Marker: Marker | None
 
 
 class ListStudioSessionMappingsInput(ServiceRequest):
-    StudioId: Optional[XmlStringMaxLen256]
-    IdentityType: Optional[IdentityType]
-    Marker: Optional[Marker]
+    StudioId: XmlStringMaxLen256 | None
+    IdentityType: IdentityType | None
+    Marker: Marker | None
 
 
 class SessionMappingSummary(TypedDict, total=False):
@@ -2200,24 +2246,24 @@ class SessionMappingSummary(TypedDict, total=False):
     include the time the session mapping was last modified.
     """
 
-    StudioId: Optional[XmlStringMaxLen256]
-    IdentityId: Optional[XmlStringMaxLen256]
-    IdentityName: Optional[XmlStringMaxLen256]
-    IdentityType: Optional[IdentityType]
-    SessionPolicyArn: Optional[XmlStringMaxLen256]
-    CreationTime: Optional[Date]
+    StudioId: XmlStringMaxLen256 | None
+    IdentityId: XmlStringMaxLen256 | None
+    IdentityName: XmlStringMaxLen256 | None
+    IdentityType: IdentityType | None
+    SessionPolicyArn: XmlStringMaxLen256 | None
+    CreationTime: Date | None
 
 
-SessionMappingSummaryList = List[SessionMappingSummary]
+SessionMappingSummaryList = list[SessionMappingSummary]
 
 
 class ListStudioSessionMappingsOutput(TypedDict, total=False):
-    SessionMappings: Optional[SessionMappingSummaryList]
-    Marker: Optional[Marker]
+    SessionMappings: SessionMappingSummaryList | None
+    Marker: Marker | None
 
 
 class ListStudiosInput(ServiceRequest):
-    Marker: Optional[Marker]
+    Marker: Marker | None
 
 
 class StudioSummary(TypedDict, total=False):
@@ -2226,61 +2272,61 @@ class StudioSummary(TypedDict, total=False):
     security groups, and tags for the Studio, use the DescribeStudio API.
     """
 
-    StudioId: Optional[XmlStringMaxLen256]
-    Name: Optional[XmlStringMaxLen256]
-    VpcId: Optional[XmlStringMaxLen256]
-    Description: Optional[XmlStringMaxLen256]
-    Url: Optional[XmlStringMaxLen256]
-    AuthMode: Optional[AuthMode]
-    CreationTime: Optional[Date]
+    StudioId: XmlStringMaxLen256 | None
+    Name: XmlStringMaxLen256 | None
+    VpcId: XmlStringMaxLen256 | None
+    Description: XmlStringMaxLen256 | None
+    Url: XmlStringMaxLen256 | None
+    AuthMode: AuthMode | None
+    CreationTime: Date | None
 
 
-StudioSummaryList = List[StudioSummary]
+StudioSummaryList = list[StudioSummary]
 
 
 class ListStudiosOutput(TypedDict, total=False):
-    Studios: Optional[StudioSummaryList]
-    Marker: Optional[Marker]
+    Studios: StudioSummaryList | None
+    Marker: Marker | None
 
 
 class ListSupportedInstanceTypesInput(ServiceRequest):
     ReleaseLabel: String
-    Marker: Optional[String]
+    Marker: String | None
 
 
 class SupportedInstanceType(TypedDict, total=False):
     """An instance type that the specified Amazon EMR release supports."""
 
-    Type: Optional[String]
-    MemoryGB: Optional[Float]
-    StorageGB: Optional[Integer]
-    VCPU: Optional[Integer]
-    Is64BitsOnly: Optional[Boolean]
-    InstanceFamilyId: Optional[String]
-    EbsOptimizedAvailable: Optional[Boolean]
-    EbsOptimizedByDefault: Optional[Boolean]
-    NumberOfDisks: Optional[Integer]
-    EbsStorageOnly: Optional[Boolean]
-    Architecture: Optional[String]
+    Type: String | None
+    MemoryGB: Float | None
+    StorageGB: Integer | None
+    VCPU: Integer | None
+    Is64BitsOnly: Boolean | None
+    InstanceFamilyId: String | None
+    EbsOptimizedAvailable: Boolean | None
+    EbsOptimizedByDefault: Boolean | None
+    NumberOfDisks: Integer | None
+    EbsStorageOnly: Boolean | None
+    Architecture: String | None
 
 
-SupportedInstanceTypesList = List[SupportedInstanceType]
+SupportedInstanceTypesList = list[SupportedInstanceType]
 
 
 class ListSupportedInstanceTypesOutput(TypedDict, total=False):
-    SupportedInstanceTypes: Optional[SupportedInstanceTypesList]
-    Marker: Optional[String]
+    SupportedInstanceTypes: SupportedInstanceTypesList | None
+    Marker: String | None
 
 
 class ModifyClusterInput(ServiceRequest):
     ClusterId: String
-    StepConcurrencyLevel: Optional[Integer]
-    ExtendedSupport: Optional[BooleanObject]
+    StepConcurrencyLevel: Integer | None
+    ExtendedSupport: BooleanObject | None
 
 
 class ModifyClusterOutput(TypedDict, total=False):
-    StepConcurrencyLevel: Optional[Integer]
-    ExtendedSupport: Optional[BooleanObject]
+    StepConcurrencyLevel: Integer | None
+    ExtendedSupport: BooleanObject | None
 
 
 class ModifyInstanceFleetInput(ServiceRequest):
@@ -2291,8 +2337,8 @@ class ModifyInstanceFleetInput(ServiceRequest):
 class ModifyInstanceGroupsInput(ServiceRequest):
     """Change the size of some instance groups."""
 
-    ClusterId: Optional[ClusterId]
-    InstanceGroups: Optional[InstanceGroupModifyConfigList]
+    ClusterId: ClusterId | None
+    InstanceGroups: InstanceGroupModifyConfigList | None
 
 
 class SupportedProductConfig(TypedDict, total=False):
@@ -2301,25 +2347,25 @@ class SupportedProductConfig(TypedDict, total=False):
     corresponding installation script as bootstrap action arguments.
     """
 
-    Name: Optional[XmlStringMaxLen256]
-    Args: Optional[XmlStringList]
+    Name: XmlStringMaxLen256 | None
+    Args: XmlStringList | None
 
 
-NewSupportedProductsList = List[SupportedProductConfig]
+NewSupportedProductsList = list[SupportedProductConfig]
 
 
 class NotebookS3LocationFromInput(TypedDict, total=False):
     """The Amazon S3 location that stores the notebook execution input."""
 
-    Bucket: Optional[XmlStringMaxLen256]
-    Key: Optional[UriString]
+    Bucket: XmlStringMaxLen256 | None
+    Key: UriString | None
 
 
 class OutputNotebookS3LocationFromInput(TypedDict, total=False):
     """The Amazon S3 location that stores the notebook execution output."""
 
-    Bucket: Optional[XmlStringMaxLen256]
-    Key: Optional[UriString]
+    Bucket: XmlStringMaxLen256 | None
+    Key: UriString | None
 
 
 class PutAutoScalingPolicyInput(ServiceRequest):
@@ -2329,15 +2375,15 @@ class PutAutoScalingPolicyInput(ServiceRequest):
 
 
 class PutAutoScalingPolicyOutput(TypedDict, total=False):
-    ClusterId: Optional[ClusterId]
-    InstanceGroupId: Optional[InstanceGroupId]
-    AutoScalingPolicy: Optional[AutoScalingPolicyDescription]
-    ClusterArn: Optional[ArnType]
+    ClusterId: ClusterId | None
+    InstanceGroupId: InstanceGroupId | None
+    AutoScalingPolicy: AutoScalingPolicyDescription | None
+    ClusterArn: ArnType | None
 
 
 class PutAutoTerminationPolicyInput(ServiceRequest):
     ClusterId: ClusterId
-    AutoTerminationPolicy: Optional[AutoTerminationPolicy]
+    AutoTerminationPolicy: AutoTerminationPolicy | None
 
 
 class PutAutoTerminationPolicyOutput(TypedDict, total=False):
@@ -2405,44 +2451,45 @@ class RunJobFlowInput(ServiceRequest):
     """Input to the RunJobFlow operation."""
 
     Name: XmlStringMaxLen256
-    LogUri: Optional[XmlString]
-    LogEncryptionKmsKeyId: Optional[XmlString]
-    AdditionalInfo: Optional[XmlString]
-    AmiVersion: Optional[XmlStringMaxLen256]
-    ReleaseLabel: Optional[XmlStringMaxLen256]
+    LogUri: XmlString | None
+    LogEncryptionKmsKeyId: XmlString | None
+    AdditionalInfo: XmlString | None
+    AmiVersion: XmlStringMaxLen256 | None
+    ReleaseLabel: XmlStringMaxLen256 | None
     Instances: JobFlowInstancesConfig
-    Steps: Optional[StepConfigList]
-    BootstrapActions: Optional[BootstrapActionConfigList]
-    SupportedProducts: Optional[SupportedProductsList]
-    NewSupportedProducts: Optional[NewSupportedProductsList]
-    Applications: Optional[ApplicationList]
-    Configurations: Optional[ConfigurationList]
-    VisibleToAllUsers: Optional[Boolean]
-    JobFlowRole: Optional[XmlString]
-    ServiceRole: Optional[XmlString]
-    Tags: Optional[TagList]
-    SecurityConfiguration: Optional[XmlString]
-    AutoScalingRole: Optional[XmlString]
-    ScaleDownBehavior: Optional[ScaleDownBehavior]
-    CustomAmiId: Optional[XmlStringMaxLen256]
-    EbsRootVolumeSize: Optional[Integer]
-    RepoUpgradeOnBoot: Optional[RepoUpgradeOnBoot]
-    KerberosAttributes: Optional[KerberosAttributes]
-    StepConcurrencyLevel: Optional[Integer]
-    ManagedScalingPolicy: Optional[ManagedScalingPolicy]
-    PlacementGroupConfigs: Optional[PlacementGroupConfigList]
-    AutoTerminationPolicy: Optional[AutoTerminationPolicy]
-    OSReleaseLabel: Optional[XmlStringMaxLen256]
-    EbsRootVolumeIops: Optional[Integer]
-    EbsRootVolumeThroughput: Optional[Integer]
-    ExtendedSupport: Optional[BooleanObject]
+    Steps: StepConfigList | None
+    BootstrapActions: BootstrapActionConfigList | None
+    SupportedProducts: SupportedProductsList | None
+    NewSupportedProducts: NewSupportedProductsList | None
+    Applications: ApplicationList | None
+    Configurations: ConfigurationList | None
+    VisibleToAllUsers: Boolean | None
+    JobFlowRole: XmlString | None
+    ServiceRole: XmlString | None
+    Tags: TagList | None
+    SecurityConfiguration: XmlString | None
+    AutoScalingRole: XmlString | None
+    ScaleDownBehavior: ScaleDownBehavior | None
+    CustomAmiId: XmlStringMaxLen256 | None
+    EbsRootVolumeSize: Integer | None
+    RepoUpgradeOnBoot: RepoUpgradeOnBoot | None
+    KerberosAttributes: KerberosAttributes | None
+    StepConcurrencyLevel: Integer | None
+    ManagedScalingPolicy: ManagedScalingPolicy | None
+    PlacementGroupConfigs: PlacementGroupConfigList | None
+    AutoTerminationPolicy: AutoTerminationPolicy | None
+    OSReleaseLabel: XmlStringMaxLen256 | None
+    EbsRootVolumeIops: Integer | None
+    EbsRootVolumeThroughput: Integer | None
+    ExtendedSupport: BooleanObject | None
+    MonitoringConfiguration: MonitoringConfiguration | None
 
 
 class RunJobFlowOutput(TypedDict, total=False):
     """The result of the RunJobFlow operation."""
 
-    JobFlowId: Optional[XmlStringMaxLen256]
-    ClusterArn: Optional[ArnType]
+    JobFlowId: XmlStringMaxLen256 | None
+    ClusterArn: ArnType | None
 
 
 class SetKeepJobFlowAliveWhenNoStepsInput(ServiceRequest):
@@ -2470,22 +2517,22 @@ class SetVisibleToAllUsersInput(ServiceRequest):
 
 
 class StartNotebookExecutionInput(ServiceRequest):
-    EditorId: Optional[XmlStringMaxLen256]
-    RelativePath: Optional[XmlString]
-    NotebookExecutionName: Optional[XmlStringMaxLen256]
-    NotebookParams: Optional[XmlString]
+    EditorId: XmlStringMaxLen256 | None
+    RelativePath: XmlString | None
+    NotebookExecutionName: XmlStringMaxLen256 | None
+    NotebookParams: XmlString | None
     ExecutionEngine: ExecutionEngineConfig
     ServiceRole: XmlString
-    NotebookInstanceSecurityGroupId: Optional[XmlStringMaxLen256]
-    Tags: Optional[TagList]
-    NotebookS3Location: Optional[NotebookS3LocationFromInput]
-    OutputNotebookS3Location: Optional[OutputNotebookS3LocationFromInput]
-    OutputNotebookFormat: Optional[OutputNotebookFormat]
-    EnvironmentVariables: Optional[EnvironmentVariablesMap]
+    NotebookInstanceSecurityGroupId: XmlStringMaxLen256 | None
+    Tags: TagList | None
+    NotebookS3Location: NotebookS3LocationFromInput | None
+    OutputNotebookS3Location: OutputNotebookS3LocationFromInput | None
+    OutputNotebookFormat: OutputNotebookFormat | None
+    EnvironmentVariables: EnvironmentVariablesMap | None
 
 
 class StartNotebookExecutionOutput(TypedDict, total=False):
-    NotebookExecutionId: Optional[XmlStringMaxLen256]
+    NotebookExecutionId: XmlStringMaxLen256 | None
 
 
 class StopNotebookExecutionInput(ServiceRequest):
@@ -2500,24 +2547,24 @@ class TerminateJobFlowsInput(ServiceRequest):
 
 class UpdateStudioInput(ServiceRequest):
     StudioId: XmlStringMaxLen256
-    Name: Optional[XmlStringMaxLen256]
-    Description: Optional[XmlStringMaxLen256]
-    SubnetIds: Optional[SubnetIdList]
-    DefaultS3Location: Optional[XmlString]
-    EncryptionKeyArn: Optional[XmlString]
+    Name: XmlStringMaxLen256 | None
+    Description: XmlStringMaxLen256 | None
+    SubnetIds: SubnetIdList | None
+    DefaultS3Location: XmlString | None
+    EncryptionKeyArn: XmlString | None
 
 
 class UpdateStudioSessionMappingInput(ServiceRequest):
     StudioId: XmlStringMaxLen256
-    IdentityId: Optional[XmlStringMaxLen256]
-    IdentityName: Optional[XmlStringMaxLen256]
+    IdentityId: XmlStringMaxLen256 | None
+    IdentityName: XmlStringMaxLen256 | None
     IdentityType: IdentityType
     SessionPolicyArn: XmlStringMaxLen256
 
 
 class EmrApi:
-    service = "emr"
-    version = "2009-03-31"
+    service: str = "emr"
+    version: str = "2009-03-31"
 
     @handler("AddInstanceFleet")
     def add_instance_fleet(
@@ -3608,6 +3655,7 @@ class EmrApi:
         ebs_root_volume_iops: Integer | None = None,
         ebs_root_volume_throughput: Integer | None = None,
         extended_support: BooleanObject | None = None,
+        monitoring_configuration: MonitoringConfiguration | None = None,
         **kwargs,
     ) -> RunJobFlowOutput:
         """RunJobFlow creates and starts running a new cluster (job flow). The
@@ -3681,6 +3729,7 @@ class EmrApi:
         :param ebs_root_volume_throughput: The throughput, in MiB/s, of the Amazon EBS root device volume of the
         Linux AMI that is used for each Amazon EC2 instance.
         :param extended_support: Reserved.
+        :param monitoring_configuration: Contains CloudWatch log configuration metadata and settings.
         :returns: RunJobFlowOutput
         :raises InternalServerError:
         """

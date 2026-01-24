@@ -47,6 +47,7 @@ func convertCollectionToProto(collection *model.Collection) *coordinatorpb.Colle
 		Id:                         collection.ID.String(),
 		Name:                       collection.Name,
 		ConfigurationJsonStr:       collection.ConfigurationJsonStr,
+		SchemaStr:                  collection.SchemaStr,
 		Dimension:                  collection.Dimension,
 		Tenant:                     collection.TenantID,
 		Database:                   collection.DatabaseName,
@@ -61,7 +62,8 @@ func convertCollectionToProto(collection *model.Collection) *coordinatorpb.Colle
 			Seconds: collection.UpdatedAt,
 			Nanos:   0,
 		},
-		DatabaseId: &dbId,
+		DatabaseId:             &dbId,
+		CompactionFailureCount: collection.CompactionFailureCount,
 	}
 
 	if collection.RootCollectionID != nil {
@@ -135,6 +137,7 @@ func convertToCreateCollectionModel(req *coordinatorpb.CreateCollectionRequest) 
 		ID:                   collectionID,
 		Name:                 req.Name,
 		ConfigurationJsonStr: req.ConfigurationJsonStr,
+		SchemaStr:            req.SchemaStr,
 		Dimension:            req.Dimension,
 		Metadata:             metadata,
 		GetOrCreate:          req.GetGetOrCreate(),

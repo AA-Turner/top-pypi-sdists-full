@@ -9,6 +9,8 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
@@ -16,38 +18,26 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 
-class UserNameResponse(GitHubModel):
-    """UserNameResponse"""
+class RepositoryRuleRulesetInfo(GitHubModel):
+    """repository ruleset data for rule
 
-    formatted: Missing[str] = Field(
+    User-defined metadata to store domain-specific information limited to 8 keys
+    with scalar values.
+    """
+
+    ruleset_source_type: Missing[Literal["Repository", "Organization"]] = Field(
         default=UNSET,
-        description="The full name, including all middle names, titles, and suffixes as appropriate, formatted for display.",
+        description="The type of source for the ruleset that includes this rule.",
     )
-    family_name: Missing[str] = Field(
-        default=UNSET, alias="familyName", description="The family name of the user."
+    ruleset_source: Missing[str] = Field(
+        default=UNSET,
+        description="The name of the source of the ruleset that includes this rule.",
     )
-    given_name: Missing[str] = Field(
-        default=UNSET, alias="givenName", description="The given name of the user."
-    )
-    middle_name: Missing[str] = Field(
-        default=UNSET, alias="middleName", description="The middle name(s) of the user."
+    ruleset_id: Missing[int] = Field(
+        default=UNSET, description="The ID of the ruleset that includes this rule."
     )
 
 
-class UserEmailsResponseItems(GitHubModel):
-    """UserEmailsResponseItems"""
+model_rebuild(RepositoryRuleRulesetInfo)
 
-    value: str = Field(description="The email address.")
-    type: Missing[str] = Field(default=UNSET, description="The type of email address.")
-    primary: Missing[bool] = Field(
-        default=UNSET, description="Whether this email address is the primary address."
-    )
-
-
-model_rebuild(UserNameResponse)
-model_rebuild(UserEmailsResponseItems)
-
-__all__ = (
-    "UserEmailsResponseItems",
-    "UserNameResponse",
-)
+__all__ = ("RepositoryRuleRulesetInfo",)

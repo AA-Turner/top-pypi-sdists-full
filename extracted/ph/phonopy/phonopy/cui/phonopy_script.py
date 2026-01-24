@@ -56,8 +56,16 @@ from phonopy.cui.load_helper import (
     select_and_extract_force_constants,
     select_and_load_dataset,
 )
-from phonopy.cui.phonopy_argparse import get_parser, show_deprecated_option_warnings
-from phonopy.cui.settings import PhonopyConfParser, PhonopySettings, Settings
+from phonopy.cui.phonopy_argparse import (
+    PhonopyMockArgs,
+    get_parser,
+    show_deprecated_option_warnings,
+)
+from phonopy.cui.settings import (
+    PhonopyConfParser,
+    PhonopySettings,
+    Settings,
+)
 from phonopy.cui.show_symmetry import check_symmetry
 from phonopy.exception import (
     CellNotFoundError,
@@ -882,7 +890,7 @@ def _create_random_displacements_at_finite_temperature(
             "(number of integrated modes):"
         )
         for q, integrated_modes, freqs in zip(
-            rd_comm_points, rd_integrated_modes, rd_frequencies
+            rd_comm_points, rd_integrated_modes, rd_frequencies, strict=True
         ):
             print(f"{q} ({integrated_modes.sum()})")
             if log_level > 1:
@@ -955,7 +963,7 @@ def store_nac_params(
                 print("         %12.7f %12.7f %12.7f" % tuple(v))
             print("-" * 26 + " Born effective charges " + "-" * 26)
             symbols = phonon.primitive.symbols
-            for i, (z, s) in enumerate(zip(nac_params["born"], symbols)):
+            for i, (z, s) in enumerate(zip(nac_params["born"], symbols, strict=True)):
                 for j, v in enumerate(z):
                     if j == 0:
                         text = "%5d %-2s" % (i + 1, s)
@@ -1001,7 +1009,7 @@ def _run_calculation(
         )
 
         if settings.is_hdf5 or settings.qpoints_format == "hdf5":
-            phonon.write_hdf5_qpoints_phonon()
+            phonon.write_hdf5_qpoints_phonon(compression=settings.hdf5_compression)
         else:
             phonon.write_yaml_qpoints_phonon()
 
@@ -1015,6 +1023,8 @@ def _run_calculation(
             npoints = settings.band_points
         band_paths = settings.band_paths
 
+        assert band_paths is not None
+
         if _is_band_auto(settings):
             print("SeeK-path is used to generate band paths.")
             print(
@@ -1027,6 +1037,13 @@ def _run_calculation(
                 is_const_interval=settings.is_band_const_interval,
             )
         else:
+            if isinstance(band_paths, str):
+                if log_level:
+                    msg = f'Incorrect band paths "{band_paths}" specified.'
+                    print_error_message(msg)
+                print_error()
+                sys.exit(1)
+
             is_legacy_plot = settings.is_legacy_plot
             if settings.is_band_const_interval:
                 reclat = np.linalg.inv(phonon.primitive.cell)
@@ -1049,8 +1066,13 @@ def _run_calculation(
             for band in bands:
                 print(
                     "[%6.3f %6.3f %6.3f] --> [%6.3f %6.3f %6.3f]"
-                    % (tuple(band[0]) + tuple(band[-1]))
+                    % (tuple(band[0]) + tuple(band[-1])),
+                    end="",
                 )
+                if settings.is_band_const_interval:
+                    print(f"   ({len(band)} points)")
+                else:
+                    print("")
 
         phonon.run_band_structure(
             bands,
@@ -1070,7 +1092,9 @@ def _run_calculation(
             }
 
         if settings.is_hdf5 or settings.band_format == "hdf5":
-            phonon.write_hdf5_band_structure(comment=comment)
+            phonon.write_hdf5_band_structure(
+                comment=comment, compression=settings.hdf5_compression
+            )
         else:
             phonon.write_yaml_band_structure(comment=comment)
 
@@ -1145,7 +1169,7 @@ def _run_calculation(
 
             if settings.write_mesh:
                 if settings.is_hdf5 or settings.mesh_format == "hdf5":
-                    phonon.write_hdf5_mesh()
+                    phonon.write_hdf5_mesh(compression=settings.hdf5_compression)
                 else:
                     phonon.write_yaml_mesh()
 
@@ -1202,7 +1226,7 @@ def _run_calculation(
                 fe = tp["free_energy"]
                 entropy = tp["entropy"]
                 heat_capacity = tp["heat_capacity"]
-                for T, F, S, CV in zip(temps, fe, entropy, heat_capacity):
+                for T, F, S, CV in zip(temps, fe, entropy, heat_capacity, strict=True):
                     print(("%12.3f " + "%15.7f" * 4) % (T, F, S, CV, F + T * S / 1000))
 
             if plot_conf["plot_graph"]:
@@ -1816,7 +1840,7 @@ def _init_phonopy(
     return phonon
 
 
-def main(**argparse_control):
+def main(**argparse_control: bool | PhonopyMockArgs):
     """Start phonopy.
 
     The argparse_control parameter is used to modify the behavior of this
@@ -1845,11 +1869,18 @@ def main(**argparse_control):
     ############################################
     # Parse phonopy conf and crystal structure #
     ############################################
-    load_phonopy_yaml = argparse_control.get("load_phonopy_yaml", False)
+    if "load_phonopy_yaml" in argparse_control:
+        assert isinstance(argparse_control["load_phonopy_yaml"], bool)
+        load_phonopy_yaml = argparse_control["load_phonopy_yaml"]
+    else:
+        load_phonopy_yaml = False
 
     if "args" in argparse_control:  # For pytest
+        assert isinstance(argparse_control["args"], PhonopyMockArgs)
         args = argparse_control["args"]
         log_level = args.log_level
+        if log_level is None:
+            log_level = 1
     else:
         args, log_level = _start_phonopy(**argparse_control)
 
@@ -2160,7 +2191,7 @@ def main(**argparse_control):
         print("*" * 76)
 
         print(
-            ' The "phonopy" command for running phonon calculations'
+            ' The "phonopy" command for running phonon calculations '
             "will be phased out in "
         )
         print(

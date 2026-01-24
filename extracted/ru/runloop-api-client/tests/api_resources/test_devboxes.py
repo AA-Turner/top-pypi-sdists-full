@@ -36,6 +36,8 @@ from runloop_api_client._exceptions import RunloopError, APIStatusError
 from runloop_api_client.lib.polling import PollingConfig, PollingTimeout
 from runloop_api_client.types.shared.launch_parameters import LaunchParameters
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -75,6 +77,7 @@ class TestDevboxes:
                 "custom_gb_memory": 0,
                 "keep_alive_time_seconds": 0,
                 "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
                 "required_services": ["string"],
                 "resource_size_request": "X_SMALL",
                 "user_parameters": {
@@ -83,6 +86,13 @@ class TestDevboxes:
                 },
             },
             metadata={"foo": "string"},
+            mounts=[
+                {
+                    "object_id": "object_id",
+                    "object_path": "object_path",
+                    "type": "object_mount",
+                }
+            ],
             name="name",
             repo_connection_id="repo_connection_id",
             secrets={"foo": "string"},
@@ -420,6 +430,8 @@ class TestDevboxes:
             id="id",
             command="command",
             command_id="command_id",
+            last_n="last_n",
+            optimistic_timeout=0,
             shell_name="shell_name",
         )
         assert_matches_type(DevboxAsyncExecutionDetailView, devbox, path=["response"])
@@ -474,6 +486,7 @@ class TestDevboxes:
         devbox = client.devboxes.execute_async(
             id="id",
             command="command",
+            attach_stdin=True,
             shell_name="shell_name",
         )
         assert_matches_type(DevboxAsyncExecutionDetailView, devbox, path=["response"])
@@ -514,27 +527,33 @@ class TestDevboxes:
 
     @parametrize
     def test_method_execute_sync(self, client: Runloop) -> None:
-        devbox = client.devboxes.execute_sync(
-            id="id",
-            command="command",
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = client.devboxes.execute_sync(
+                id="id",
+                command="command",
+            )
+
         assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
 
     @parametrize
     def test_method_execute_sync_with_all_params(self, client: Runloop) -> None:
-        devbox = client.devboxes.execute_sync(
-            id="id",
-            command="command",
-            shell_name="shell_name",
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = client.devboxes.execute_sync(
+                id="id",
+                command="command",
+                attach_stdin=True,
+                shell_name="shell_name",
+            )
+
         assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
 
     @parametrize
     def test_raw_response_execute_sync(self, client: Runloop) -> None:
-        response = client.devboxes.with_raw_response.execute_sync(
-            id="id",
-            command="command",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.devboxes.with_raw_response.execute_sync(
+                id="id",
+                command="command",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -543,25 +562,27 @@ class TestDevboxes:
 
     @parametrize
     def test_streaming_response_execute_sync(self, client: Runloop) -> None:
-        with client.devboxes.with_streaming_response.execute_sync(
-            id="id",
-            command="command",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.devboxes.with_streaming_response.execute_sync(
+                id="id",
+                command="command",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            devbox = response.parse()
-            assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
+                devbox = response.parse()
+                assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_execute_sync(self, client: Runloop) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
-            client.devboxes.with_raw_response.execute_sync(
-                id="",
-                command="command",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+                client.devboxes.with_raw_response.execute_sync(
+                    id="",
+                    command="command",
+                )
 
     @parametrize
     def test_method_keep_alive(self, client: Runloop) -> None:
@@ -613,6 +634,7 @@ class TestDevboxes:
             limit=0,
             metadata_key="metadata[key]",
             metadata_key_in="metadata[key][in]",
+            source_blueprint_id="source_blueprint_id",
             starting_after="starting_after",
         )
         assert_matches_type(SyncDiskSnapshotsCursorIDPage[DevboxSnapshotView], devbox, path=["response"])
@@ -808,6 +830,7 @@ class TestDevboxes:
     def test_method_snapshot_disk_with_all_params(self, client: Runloop) -> None:
         devbox = client.devboxes.snapshot_disk(
             id="id",
+            commit_message="commit_message",
             metadata={"foo": "string"},
             name="name",
         )
@@ -855,6 +878,7 @@ class TestDevboxes:
     def test_method_snapshot_disk_async_with_all_params(self, client: Runloop) -> None:
         devbox = client.devboxes.snapshot_disk_async(
             id="id",
+            commit_message="commit_message",
             metadata={"foo": "string"},
             name="name",
         )
@@ -995,6 +1019,7 @@ class TestDevboxes:
             execution_id="execution_id",
             devbox_id="devbox_id",
             statuses=["queued"],
+            last_n="last_n",
             timeout_seconds=0,
         )
         assert_matches_type(DevboxAsyncExecutionDetailView, devbox, path=["response"])
@@ -1375,6 +1400,193 @@ class TestDevboxes:
                         name="test",
                     )
 
+    @parametrize
+    def test_method_await_suspended_success(self, client: Runloop) -> None:
+        """Test await_suspended with successful polling to suspended state"""
+
+        # Mock the wait_for_status calls - first returns running, then suspended
+        mock_devbox_running = DevboxView(
+            id="test_id",
+            status="running",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.side_effect = [mock_devbox_running, mock_devbox_suspended]
+
+            result = client.devboxes.await_suspended("test_id")
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+            assert mock_post.call_count == 2
+
+    @parametrize
+    def test_method_await_suspended_immediate_success(self, client: Runloop) -> None:
+        """Test await_suspended when devbox is already suspended"""
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_suspended
+
+            result = client.devboxes.await_suspended("test_id")
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+            assert mock_post.call_count == 1
+
+    @parametrize
+    def test_method_await_suspended_failure_state(self, client: Runloop) -> None:
+        """Test await_suspended when devbox enters failure state"""
+
+        mock_devbox_failed = DevboxView(
+            id="test_id",
+            status="failure",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_failed
+
+            with pytest.raises(RunloopError, match="Devbox entered non-suspended terminal state: failure"):
+                client.devboxes.await_suspended("test_id")
+
+    @parametrize
+    def test_method_await_suspended_shutdown_state(self, client: Runloop) -> None:
+        """Test await_suspended when devbox enters shutdown state"""
+
+        mock_devbox_shutdown = DevboxView(
+            id="test_id",
+            status="shutdown",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_shutdown
+
+            with pytest.raises(RunloopError, match="Devbox entered non-suspended terminal state: shutdown"):
+                client.devboxes.await_suspended("test_id")
+
+    @parametrize
+    def test_method_await_suspended_timeout_handling(self, client: Runloop) -> None:
+        """Test await_suspended handles 408 timeouts correctly"""
+
+        # Create a mock 408 response
+        mock_response = Mock()
+        mock_response.status_code = 408
+        mock_408_error = APIStatusError("Request timeout", response=mock_response, body=None)
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            # First call raises 408, second call succeeds
+            mock_post.side_effect = [mock_408_error, mock_devbox_suspended]
+
+            result = client.devboxes.await_suspended("test_id")
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+            assert mock_post.call_count == 2
+
+    @parametrize
+    def test_method_await_suspended_other_error(self, client: Runloop) -> None:
+        """Test await_suspended re-raises non-408 errors"""
+
+        # Create a mock 500 response
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_500_error = APIStatusError("Internal server error", response=mock_response, body=None)
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.side_effect = mock_500_error
+
+            with pytest.raises(APIStatusError, match="Internal server error"):
+                client.devboxes.await_suspended("test_id")
+
+    @parametrize
+    def test_method_await_suspended_with_config(self, client: Runloop) -> None:
+        """Test await_suspended with custom polling configuration"""
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        config = PollingConfig(interval_seconds=0.1, max_attempts=10)
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_suspended
+
+            result = client.devboxes.await_suspended("test_id", polling_config=config)
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+
+    @parametrize
+    def test_method_await_suspended_polling_timeout(self, client: Runloop) -> None:
+        """Test await_suspended raises PollingTimeout when max attempts exceeded"""
+
+        mock_devbox_running = DevboxView(
+            id="test_id",
+            status="running",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        config = PollingConfig(interval_seconds=0.01, max_attempts=2)
+
+        with patch.object(client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_running
+
+            with pytest.raises(PollingTimeout):
+                client.devboxes.await_suspended("test_id", polling_config=config)
+
 
 class TestAsyncDevboxes:
     parametrize = pytest.mark.parametrize(
@@ -1414,6 +1626,7 @@ class TestAsyncDevboxes:
                 "custom_gb_memory": 0,
                 "keep_alive_time_seconds": 0,
                 "launch_commands": ["string"],
+                "network_policy_id": "network_policy_id",
                 "required_services": ["string"],
                 "resource_size_request": "X_SMALL",
                 "user_parameters": {
@@ -1422,6 +1635,13 @@ class TestAsyncDevboxes:
                 },
             },
             metadata={"foo": "string"},
+            mounts=[
+                {
+                    "object_id": "object_id",
+                    "object_path": "object_path",
+                    "type": "object_mount",
+                }
+            ],
             name="name",
             repo_connection_id="repo_connection_id",
             secrets={"foo": "string"},
@@ -1759,6 +1979,8 @@ class TestAsyncDevboxes:
             id="id",
             command="command",
             command_id="command_id",
+            last_n="last_n",
+            optimistic_timeout=0,
             shell_name="shell_name",
         )
         assert_matches_type(DevboxAsyncExecutionDetailView, devbox, path=["response"])
@@ -1813,6 +2035,7 @@ class TestAsyncDevboxes:
         devbox = await async_client.devboxes.execute_async(
             id="id",
             command="command",
+            attach_stdin=True,
             shell_name="shell_name",
         )
         assert_matches_type(DevboxAsyncExecutionDetailView, devbox, path=["response"])
@@ -1853,27 +2076,33 @@ class TestAsyncDevboxes:
 
     @parametrize
     async def test_method_execute_sync(self, async_client: AsyncRunloop) -> None:
-        devbox = await async_client.devboxes.execute_sync(
-            id="id",
-            command="command",
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = await async_client.devboxes.execute_sync(
+                id="id",
+                command="command",
+            )
+
         assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
 
     @parametrize
     async def test_method_execute_sync_with_all_params(self, async_client: AsyncRunloop) -> None:
-        devbox = await async_client.devboxes.execute_sync(
-            id="id",
-            command="command",
-            shell_name="shell_name",
-        )
+        with pytest.warns(DeprecationWarning):
+            devbox = await async_client.devboxes.execute_sync(
+                id="id",
+                command="command",
+                attach_stdin=True,
+                shell_name="shell_name",
+            )
+
         assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
 
     @parametrize
     async def test_raw_response_execute_sync(self, async_client: AsyncRunloop) -> None:
-        response = await async_client.devboxes.with_raw_response.execute_sync(
-            id="id",
-            command="command",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.devboxes.with_raw_response.execute_sync(
+                id="id",
+                command="command",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -1882,25 +2111,27 @@ class TestAsyncDevboxes:
 
     @parametrize
     async def test_streaming_response_execute_sync(self, async_client: AsyncRunloop) -> None:
-        async with async_client.devboxes.with_streaming_response.execute_sync(
-            id="id",
-            command="command",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.devboxes.with_streaming_response.execute_sync(
+                id="id",
+                command="command",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            devbox = await response.parse()
-            assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
+                devbox = await response.parse()
+                assert_matches_type(DevboxExecutionDetailView, devbox, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_execute_sync(self, async_client: AsyncRunloop) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
-            await async_client.devboxes.with_raw_response.execute_sync(
-                id="",
-                command="command",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `id` but received ''"):
+                await async_client.devboxes.with_raw_response.execute_sync(
+                    id="",
+                    command="command",
+                )
 
     @parametrize
     async def test_method_keep_alive(self, async_client: AsyncRunloop) -> None:
@@ -1952,6 +2183,7 @@ class TestAsyncDevboxes:
             limit=0,
             metadata_key="metadata[key]",
             metadata_key_in="metadata[key][in]",
+            source_blueprint_id="source_blueprint_id",
             starting_after="starting_after",
         )
         assert_matches_type(AsyncDiskSnapshotsCursorIDPage[DevboxSnapshotView], devbox, path=["response"])
@@ -2147,6 +2379,7 @@ class TestAsyncDevboxes:
     async def test_method_snapshot_disk_with_all_params(self, async_client: AsyncRunloop) -> None:
         devbox = await async_client.devboxes.snapshot_disk(
             id="id",
+            commit_message="commit_message",
             metadata={"foo": "string"},
             name="name",
         )
@@ -2194,6 +2427,7 @@ class TestAsyncDevboxes:
     async def test_method_snapshot_disk_async_with_all_params(self, async_client: AsyncRunloop) -> None:
         devbox = await async_client.devboxes.snapshot_disk_async(
             id="id",
+            commit_message="commit_message",
             metadata={"foo": "string"},
             name="name",
         )
@@ -2334,6 +2568,7 @@ class TestAsyncDevboxes:
             execution_id="execution_id",
             devbox_id="devbox_id",
             statuses=["queued"],
+            last_n="last_n",
             timeout_seconds=0,
         )
         assert_matches_type(DevboxAsyncExecutionDetailView, devbox, path=["response"])
@@ -2427,3 +2662,191 @@ class TestAsyncDevboxes:
                 contents="contents",
                 file_path="file_path",
             )
+
+    # Polling method tests
+    @parametrize
+    async def test_method_await_suspended_success(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended with successful polling to suspended state"""
+
+        # Mock the wait_for_status calls - first returns running, then suspended
+        mock_devbox_running = DevboxView(
+            id="test_id",
+            status="running",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.side_effect = [mock_devbox_running, mock_devbox_suspended]
+
+            result = await async_client.devboxes.await_suspended("test_id")
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+            assert mock_post.call_count == 2
+
+    @parametrize
+    async def test_method_await_suspended_immediate_success(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended when devbox is already suspended"""
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_suspended
+
+            result = await async_client.devboxes.await_suspended("test_id")
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+            assert mock_post.call_count == 1
+
+    @parametrize
+    async def test_method_await_suspended_failure_state(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended when devbox enters failure state"""
+
+        mock_devbox_failed = DevboxView(
+            id="test_id",
+            status="failure",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_failed
+
+            with pytest.raises(RunloopError, match="Devbox entered non-suspended terminal state: failure"):
+                await async_client.devboxes.await_suspended("test_id")
+
+    @parametrize
+    async def test_method_await_suspended_shutdown_state(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended when devbox enters shutdown state"""
+
+        mock_devbox_shutdown = DevboxView(
+            id="test_id",
+            status="shutdown",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_shutdown
+
+            with pytest.raises(RunloopError, match="Devbox entered non-suspended terminal state: shutdown"):
+                await async_client.devboxes.await_suspended("test_id")
+
+    @parametrize
+    async def test_method_await_suspended_timeout_handling(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended handles 408 timeouts correctly"""
+
+        # Create a mock 408 response
+        mock_response = Mock()
+        mock_response.status_code = 408
+        mock_408_error = APIStatusError("Request timeout", response=mock_response, body=None)
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            # First call raises 408, second call succeeds
+            mock_post.side_effect = [mock_408_error, mock_devbox_suspended]
+
+            result = await async_client.devboxes.await_suspended("test_id")
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+            assert mock_post.call_count == 2
+
+    @parametrize
+    async def test_method_await_suspended_other_error(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended re-raises non-408 errors"""
+
+        # Create a mock 500 response
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_500_error = APIStatusError("Internal server error", response=mock_response, body=None)
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.side_effect = mock_500_error
+
+            with pytest.raises(APIStatusError, match="Internal server error"):
+                await async_client.devboxes.await_suspended("test_id")
+
+    @parametrize
+    async def test_method_await_suspended_with_config(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended with custom polling configuration"""
+
+        mock_devbox_suspended = DevboxView(
+            id="test_id",
+            status="suspended",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        config = PollingConfig(interval_seconds=0.1, max_attempts=10)
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_suspended
+
+            result = await async_client.devboxes.await_suspended("test_id", polling_config=config)
+
+            assert result.id == "test_id"
+            assert result.status == "suspended"
+
+    @parametrize
+    async def test_method_await_suspended_polling_timeout(self, async_client: AsyncRunloop) -> None:
+        """Test await_suspended raises PollingTimeout when max attempts exceeded"""
+
+        mock_devbox_running = DevboxView(
+            id="test_id",
+            status="running",
+            capabilities=[],
+            create_time_ms=1234567890,
+            launch_parameters=LaunchParameters(resource_size_request="X_SMALL"),
+            metadata={},
+            state_transitions=[],
+        )
+
+        config = PollingConfig(interval_seconds=0.01, max_attempts=2)
+
+        with patch.object(async_client.devboxes, "_post") as mock_post:
+            mock_post.return_value = mock_devbox_running
+
+            with pytest.raises(PollingTimeout):
+                await async_client.devboxes.await_suspended("test_id", polling_config=config)

@@ -195,3 +195,134 @@ test('`allowedUntypedLibraries` on overloaded functions', () => {
     analysisResults = typeAnalyzeSampleFiles(['based_overloaded_functions_module_name/foobar.py'], configOptions);
     validateResultsButBased(analysisResults, {});
 });
+
+test('`reportInvalidTypeVarUse`', () => {
+    const configOptions = new BasedConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportUnusedParameter = 'none';
+    const analysisResults = typeAnalyzeSampleFiles(['typeVarBased.py'], configOptions);
+    validateResultsButBased(analysisResults, {
+        warnings: [
+            {
+                line: 0,
+                code: DiagnosticRule.reportInvalidTypeVarUse,
+                message: 'TypeVar "T" appears only once in generic function signature\n  Use "Never" instead',
+            },
+            {
+                line: 1,
+                code: DiagnosticRule.reportInvalidTypeVarUse,
+                message: 'TypeVar "T" appears only once in generic function signature\n  Use "Never" instead',
+            },
+            {
+                line: 2,
+                code: DiagnosticRule.reportInvalidTypeVarUse,
+                message: 'TypeVar "T" appears only once in generic function signature\n  Use "object" instead',
+            },
+        ],
+    });
+});
+
+describe('dataclass_transform', () => {
+    test('skip_replace', () => {
+        const configOptions = new ConfigOptions(Uri.empty());
+        configOptions.diagnosticRuleSet.enableBasedFeatures = true;
+        const analysisResults = typeAnalyzeSampleFiles(['based_dataclass_skip_replace/sample.py'], configOptions);
+        validateResultsButBased(analysisResults, {
+            errors: [
+                {
+                    code: DiagnosticRule.reportCallIssue,
+                    line: 28,
+                    message: 'No parameter named "z"',
+                },
+                {
+                    code: DiagnosticRule.reportAttributeAccessIssue,
+                    line: 39,
+                    message:
+                        'Cannot access attribute "__replace__" for class "B"\n' +
+                        '  Attribute "__replace__" is unknown',
+                },
+                {
+                    code: DiagnosticRule.reportAttributeAccessIssue,
+                    line: 50,
+                    message:
+                        'Cannot access attribute "__replace__" for class "C"\n' +
+                        '  Attribute "__replace__" is unknown',
+                },
+                {
+                    code: DiagnosticRule.reportAttributeAccessIssue,
+                    line: 62,
+                    message:
+                        'Cannot access attribute "__replace__" for class "D"\n' +
+                        '  Attribute "__replace__" is unknown',
+                },
+                {
+                    code: DiagnosticRule.reportAssignmentType,
+                    line: 74,
+                    message:
+                        'Type "Box[int]" is not assignable to declared type "Box[bool]"\n' +
+                        '  "Box[int]" is not assignable to "Box[bool]"\n' +
+                        '    Type parameter "T@Box" is covariant, but "int" is not a subtype of "bool"\n' +
+                        '      "int" is not assignable to "bool"',
+                },
+            ],
+        });
+    });
+    test('returns a callable protocol', () => {
+        // test for an issue that was fixed upstream but didn't have a test. see https://github.com/microsoft/pyright/issues/11015
+        const configOptions = new ConfigOptions(Uri.empty());
+        const analysisResults = typeAnalyzeSampleFiles(['dataclass_transform_callable_protocol.py'], configOptions);
+        validateResultsButBased(analysisResults, {});
+    });
+    test('changes return type to something else', () => {
+        // when the function decorated with `@dataclass_transform` is annotated as returning a different type, we want to ignore it
+        // because `dataclass_transform`'s purpose is to transform the decorated class into a dataclass, not some other type.
+        // ideally this should be an error, but pydantic (and presumably other libraries that use dataclass_transform) depend on
+        // the behavior prior to pyright 1.1.407, which fixed the scenario in the 'returns a callable protocol' test but broke this one.
+        // in basedpyright we modify the logic to fix the original issue without introducing a breaking change.
+        const configOptions = new ConfigOptions(Uri.empty());
+        const analysisResults = typeAnalyzeSampleFiles(
+            ['based_dataclass_transform_changes_return_type.py'],
+            configOptions
+        );
+        validateResultsButBased(analysisResults, {});
+    });
+});
+
+test('enableBasedFeatures', () => {
+    const analysisResults = typeAnalyzeSampleFiles(['enable_based_features.py']);
+    validateResultsButBased(analysisResults, {
+        errors: [
+            {
+                code: DiagnosticRule.reportGeneralTypeIssues,
+                line: 4,
+                message:
+                    'Argument "skip_replace" is not supported by dataclass_transform\n' +
+                    '  set the `enableBasedFeatures` configuration option to `true` to enable this feature',
+            },
+        ],
+    });
+});
+
+test('self cannot have default value', () => {
+    const configOptions = new ConfigOptions(Uri.empty());
+    configOptions.diagnosticRuleSet.reportSelfClsDefault = 'error';
+    const analysisResults = typeAnalyzeSampleFiles(['based_self_default.py'], configOptions);
+    validateResultsButBased(analysisResults, {
+        errors: [
+            {
+                code: DiagnosticRule.reportSelfClsDefault,
+                line: 6,
+                message: 'Parameter "self" must not have a default value',
+            },
+            {
+                code: DiagnosticRule.reportSelfClsDefault,
+                line: 9,
+                message: 'Parameter "self" must not have a default value',
+            },
+            {
+                code: DiagnosticRule.reportSelfClsDefault,
+                line: 13,
+                message: 'Parameter "cls" must not have a default value',
+            },
+        ],
+    });
+});

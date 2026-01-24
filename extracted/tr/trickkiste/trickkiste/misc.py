@@ -30,10 +30,12 @@ import logging
 import os
 import re
 import shlex
+import time
 from collections.abc import (
     AsyncIterable,
     Awaitable,
     Callable,
+    Coroutine,
     Iterable,
     Iterator,
     Mapping,
@@ -44,9 +46,18 @@ from datetime import datetime
 from functools import partial, reduce, wraps
 from pathlib import Path
 from subprocess import DEVNULL, check_output
-from typing import NoReturn, ParamSpec, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    NoReturn,
+    ParamSpec,
+    TypeVar,
+    overload,
+)
 
 from dateutil import tz
+
+ReturnT = TypeVar("ReturnT")
+ArgumentsP = ParamSpec("ArgumentsP")
 
 
 def log() -> logging.Logger:
@@ -264,16 +275,20 @@ def multi_replace(string: str, *substitutions: tuple[str, str]) -> str:
     return reduce(lambda s, r: s.replace(*r), substitutions, string)
 
 
-def split_params(string: str) -> Mapping[str, str]:
+def split_params(
+    string: str, delimiter: str = ",", assign_char: str = "="
+) -> Mapping[str, str]:
     """Splits a 'string packed map' into a dict
     >>> split_params("foo=23,bar=42,true='pi=3,14'")
+    {'foo': '23', 'bar': '42', 'true': "'pi=3,14'"}
+    >>> split_params("foo:23;bar:42;true:'pi=3,14'", delimiter=";", assign_char=":")
     {'foo': '23', 'bar': '42', 'true': "'pi=3,14'"}
     """
     return {
         k: v
-        for p in smart_split(string, ",")
+        for p in smart_split(string, delimiter)
         if p
-        for k, v in (p.split("=", 1),)
+        for k, v in (p.split(assign_char, 1),)
     }
 
 
@@ -314,22 +329,18 @@ def process_output(cmd: str) -> str:
     )
 
 
-AsyncifyT = TypeVar("AsyncifyT")
-AsyncifyP = ParamSpec("AsyncifyP")
-
-
 def asyncify(
-    func: Callable[AsyncifyP, AsyncifyT],
-) -> Callable[AsyncifyP, Awaitable[AsyncifyT]]:
+    func: Callable[ArgumentsP, ReturnT],
+) -> Callable[ArgumentsP, Awaitable[ReturnT]]:
     """Turns a synchronous function into an asynchronous one"""
 
     @wraps(func)
     async def run(  # type: ignore[valid-type]
-        *args: AsyncifyP.args,
+        *args: ArgumentsP.args,
         loop: None | asyncio.AbstractEventLoop = None,
         executor: None | Executor = None,
-        **kwargs: AsyncifyP.kwargs,
-    ) -> AsyncifyT:
+        **kwargs: ArgumentsP.kwargs,
+    ) -> ReturnT:
         return await (loop or asyncio.get_event_loop()).run_in_executor(
             executor, partial(func, *args, **kwargs)
         )
@@ -337,25 +348,150 @@ def asyncify(
     return run  # type: ignore[return-value]  # (no clue yet how to solve this)
 
 
-ChainT = TypeVar("ChainT")
+if TYPE_CHECKING:
+
+    @overload
+    def awatch_duration(
+        function: (Callable[ArgumentsP, Awaitable[ReturnT]]),
+        *,
+        warn_timeout: float = 1.0,
+    ) -> Callable[ArgumentsP, Coroutine[None, None, ReturnT]]: ...
+
+    @overload
+    def awatch_duration(
+        *,
+        warn_timeout: float = 1.0,
+    ) -> Callable[
+        [Callable[ArgumentsP, Awaitable[ReturnT]]],
+        Callable[ArgumentsP, Coroutine[None, None, ReturnT]],
+    ]: ...
+
+
+def awatch_duration(
+    function: (Callable[ArgumentsP, Awaitable[ReturnT]] | None) = None,
+    *,
+    warn_timeout: float = 1.0,
+) -> (
+    Callable[
+        [Callable[ArgumentsP, Awaitable[ReturnT]]],
+        Callable[ArgumentsP, Coroutine[None, None, ReturnT]],
+    ]
+    | Callable[ArgumentsP, Coroutine[None, None, ReturnT]]
+):
+    """Decorator for async functions which must not take too long to finish"""
+
+    def decorator(
+        afunc: Callable[ArgumentsP, Awaitable[ReturnT]],
+    ) -> Callable[ArgumentsP, Coroutine[None, None, ReturnT]]:
+        @wraps(afunc)
+        async def decorated(
+            *args: ArgumentsP.args, **kwargs: ArgumentsP.kwargs
+        ) -> ReturnT:
+            time_start = time.time()
+            result = await afunc(*args, **kwargs)
+            duration = time.time() - time_start
+            if duration > warn_timeout:
+                log().warning("%s took %.2fms", afunc, duration * 1000)
+            return result
+
+        return decorated
+
+    if function is None:
+        return decorator
+    return decorator(function)
+
+
+_default_logger = logging.getLogger(__name__)
+
+
+if TYPE_CHECKING:
+
+    @overload
+    def async_retry(
+        function: Callable[ArgumentsP, Awaitable[ReturnT]],
+        *,
+        exceptions: type[BaseException] = Exception,
+        tries: int = -1,
+        delay: float = 0,
+        logger: logging.Logger = _default_logger,
+    ) -> Callable[ArgumentsP, Coroutine[None, None, ReturnT]]: ...
+
+    @overload
+    def async_retry(
+        *,
+        exceptions: type[BaseException] = Exception,
+        tries: int = -1,
+        delay: float = 0,
+        logger: logging.Logger = _default_logger,
+    ) -> Callable[
+        [Callable[ArgumentsP, Awaitable[ReturnT]]],
+        Callable[ArgumentsP, Coroutine[None, None, ReturnT]],
+    ]: ...
+
+
+def async_retry(
+    function: Callable[ArgumentsP, Awaitable[ReturnT]] | None = None,
+    *,
+    exceptions: type[BaseException] = Exception,
+    tries: int = -1,
+    delay: float = 0,
+    logger: logging.Logger = _default_logger,
+) -> (
+    Callable[
+        [Callable[ArgumentsP, Awaitable[ReturnT]]],
+        Callable[ArgumentsP, Coroutine[None, None, ReturnT]],
+    ]
+    | Callable[ArgumentsP, Coroutine[None, None, ReturnT]]
+):
+    """Decorator for async functions which have to be retried on error"""
+
+    def decorator(
+        afunc: Callable[ArgumentsP, Awaitable[ReturnT]],
+    ) -> Callable[ArgumentsP, Coroutine[None, None, ReturnT]]:
+        @wraps(afunc)
+        async def decorated(
+            *args: ArgumentsP.args, **kwargs: ArgumentsP.kwargs
+        ) -> ReturnT:
+            attempt = 0
+            while True:
+                attempt += 1
+                try:
+                    return await afunc(*args, **kwargs)
+                except exceptions as exc:
+                    if attempt == tries:
+                        raise
+                    if logger is not None:
+                        logger.warning(
+                            "%s raised an exception %d times now (this time: %r)."
+                            " retrying in %s seconds...",
+                            afunc,
+                            attempt,
+                            exc,
+                            delay,
+                        )
+                    await asyncio.sleep(delay)
+            raise RuntimeError("make ruff(RET503) and mypy (return) happy")
+
+        return decorated
+
+    if function is None:
+        return decorator
+    return decorator(function)
 
 
 async def async_chain(
-    iterator: AsyncIterable[Iterable[ChainT]],
-) -> AsyncIterable[ChainT]:
+    iterator: AsyncIterable[Iterable[ReturnT]],
+) -> AsyncIterable[ReturnT]:
     """Turns a nested async iterable into a flattened iterable"""
     async for elems in iterator:
         for elem in elems:
             yield elem
 
 
-FilterT = TypeVar("FilterT")
-
-
 async def async_filter(
-    filter_fn: Callable[[FilterT], bool],
-    iterator: AsyncIterable[Iterable[FilterT]],
-) -> AsyncIterable[Iterable[FilterT]]:
+    filter_fn: Callable[[ReturnT], bool],
+    iterator: AsyncIterable[Iterable[ReturnT]],
+) -> AsyncIterable[Iterable[ReturnT]]:
     """Applies filter() to nested iterables"""
     async for elems in iterator:
         # don't return empty lists

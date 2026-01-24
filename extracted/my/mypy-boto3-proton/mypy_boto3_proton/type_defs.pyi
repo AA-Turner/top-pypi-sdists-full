@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import (
@@ -41,12 +42,6 @@ from .literals import (
     TemplateVersionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -337,7 +332,7 @@ EnvironmentAccountConnectionTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -587,7 +582,7 @@ class ServiceInstanceStateTypeDef(TypedDict):
     templateMajorVersion: str
     templateMinorVersion: str
     templateName: str
-    lastSuccessfulComponentDeploymentIds: NotRequired[List[str]]
+    lastSuccessfulComponentDeploymentIds: NotRequired[list[str]]
     lastSuccessfulEnvironmentDeploymentId: NotRequired[str]
     lastSuccessfulServicePipelineDeploymentId: NotRequired[str]
 
@@ -1183,7 +1178,7 @@ class UpdateServiceTemplateVersionInputTypeDef(TypedDict):
 
 class ServiceTemplateVersionTypeDef(TypedDict):
     arn: str
-    compatibleEnvironmentTemplates: List[CompatibleEnvironmentTemplateTypeDef]
+    compatibleEnvironmentTemplates: list[CompatibleEnvironmentTemplateTypeDef]
     createdAt: datetime
     lastModifiedAt: datetime
     majorVersion: str
@@ -1194,10 +1189,10 @@ class ServiceTemplateVersionTypeDef(TypedDict):
     recommendedMinorVersion: NotRequired[str]
     schema: NotRequired[str]
     statusMessage: NotRequired[str]
-    supportedComponentSources: NotRequired[List[Literal["DIRECTLY_DEFINED"]]]
+    supportedComponentSources: NotRequired[list[Literal["DIRECTLY_DEFINED"]]]
 
 class ListComponentsOutputTypeDef(TypedDict):
-    components: List[ComponentSummaryTypeDef]
+    components: list[ComponentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1276,7 +1271,7 @@ class CreateServiceTemplateInputTypeDef(TypedDict):
     tags: NotRequired[Sequence[TagTypeDef]]
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1416,17 +1411,17 @@ class DeploymentStateTypeDef(TypedDict):
     servicePipeline: NotRequired[ServicePipelineStateTypeDef]
 
 class ListDeploymentsOutputTypeDef(TypedDict):
-    deployments: List[DeploymentSummaryTypeDef]
+    deployments: list[DeploymentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListEnvironmentAccountConnectionsOutputTypeDef(TypedDict):
-    environmentAccountConnections: List[EnvironmentAccountConnectionSummaryTypeDef]
+    environmentAccountConnections: list[EnvironmentAccountConnectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListEnvironmentsOutputTypeDef(TypedDict):
-    environments: List[EnvironmentSummaryTypeDef]
+    environments: list[EnvironmentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1436,12 +1431,12 @@ class ListEnvironmentsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ListEnvironmentTemplatesOutputTypeDef(TypedDict):
-    templates: List[EnvironmentTemplateSummaryTypeDef]
+    templates: list[EnvironmentTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListEnvironmentTemplateVersionsOutputTypeDef(TypedDict):
-    templateVersions: List[EnvironmentTemplateVersionSummaryTypeDef]
+    templateVersions: list[EnvironmentTemplateVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1584,22 +1579,22 @@ class ListTagsForResourceInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListComponentOutputsOutputTypeDef(TypedDict):
-    outputs: List[OutputTypeDef]
+    outputs: list[OutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListEnvironmentOutputsOutputTypeDef(TypedDict):
-    outputs: List[OutputTypeDef]
+    outputs: list[OutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServiceInstanceOutputsOutputTypeDef(TypedDict):
-    outputs: List[OutputTypeDef]
+    outputs: list[OutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServicePipelineOutputsOutputTypeDef(TypedDict):
-    outputs: List[OutputTypeDef]
+    outputs: list[OutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1611,32 +1606,32 @@ class NotifyResourceDeploymentStatusChangeInputTypeDef(TypedDict):
     statusMessage: NotRequired[str]
 
 class ListComponentProvisionedResourcesOutputTypeDef(TypedDict):
-    provisionedResources: List[ProvisionedResourceTypeDef]
+    provisionedResources: list[ProvisionedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListEnvironmentProvisionedResourcesOutputTypeDef(TypedDict):
-    provisionedResources: List[ProvisionedResourceTypeDef]
+    provisionedResources: list[ProvisionedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServiceInstanceProvisionedResourcesOutputTypeDef(TypedDict):
-    provisionedResources: List[ProvisionedResourceTypeDef]
+    provisionedResources: list[ProvisionedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServicePipelineProvisionedResourcesOutputTypeDef(TypedDict):
-    provisionedResources: List[ProvisionedResourceTypeDef]
+    provisionedResources: list[ProvisionedResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRepositoriesOutputTypeDef(TypedDict):
-    repositories: List[RepositorySummaryTypeDef]
+    repositories: list[RepositorySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListRepositorySyncDefinitionsOutputTypeDef(TypedDict):
-    syncDefinitions: List[RepositorySyncDefinitionTypeDef]
+    syncDefinitions: list[RepositorySyncDefinitionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1656,32 +1651,32 @@ class ListServiceInstancesInputTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
 
 class ListServiceInstancesOutputTypeDef(TypedDict):
-    serviceInstances: List[ServiceInstanceSummaryTypeDef]
+    serviceInstances: list[ServiceInstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServiceTemplateVersionsOutputTypeDef(TypedDict):
-    templateVersions: List[ServiceTemplateVersionSummaryTypeDef]
+    templateVersions: list[ServiceTemplateVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServiceTemplatesOutputTypeDef(TypedDict):
-    templates: List[ServiceTemplateSummaryTypeDef]
+    templates: list[ServiceTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListServicesOutputTypeDef(TypedDict):
-    services: List[ServiceSummaryTypeDef]
+    services: list[ServiceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class RepositorySyncAttemptTypeDef(TypedDict):
-    events: List[RepositorySyncEventTypeDef]
+    events: list[RepositorySyncEventTypeDef]
     startedAt: datetime
     status: RepositorySyncStatusType
 
 class ResourceSyncAttemptTypeDef(TypedDict):
-    events: List[ResourceSyncEventTypeDef]
+    events: list[ResourceSyncEventTypeDef]
     initialRevision: RevisionTypeDef
     startedAt: datetime
     status: ResourceSyncStatusType
@@ -1699,7 +1694,7 @@ SyncBlockerTypeDef = TypedDict(
         "id": str,
         "status": BlockerStatusType,
         "type": Literal["AUTOMATED"],
-        "contexts": NotRequired[List[SyncBlockerContextTypeDef]],
+        "contexts": NotRequired[list[SyncBlockerContextTypeDef]],
         "resolvedAt": NotRequired[datetime],
         "resolvedReason": NotRequired[str],
     },
@@ -1829,7 +1824,7 @@ class CreateServiceTemplateVersionInputTypeDef(TypedDict):
 
 class ServiceSyncBlockerSummaryTypeDef(TypedDict):
     serviceName: str
-    latestBlockers: NotRequired[List[SyncBlockerTypeDef]]
+    latestBlockers: NotRequired[list[SyncBlockerTypeDef]]
     serviceInstanceName: NotRequired[str]
 
 class UpdateServiceSyncBlockerOutputTypeDef(TypedDict):

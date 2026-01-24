@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 
 class Image(BaseModel):
@@ -29,15 +29,15 @@ class Image(BaseModel):
     Parameters
     __________
     created_on : str, optional
-        Date and time when the image was uploaded to the image repository.
+        Date and time when the image was uploaded to the image repository — **Read-only:** *any user-provided value will be ignored.*
     image_name : str, optional
-        Image name.
+        Image name — **Read-only:** *any user-provided value will be ignored.*
     tags : str, optional
-        Image tags.
+        Image tags — **Read-only:** *any user-provided value will be ignored.*
     digest : str, optional
-        SHA256 digest of the image.
+        SHA256 digest of the image — **Read-only:** *any user-provided value will be ignored.*
     image_path : str, optional
-        Image path (database_name/schema_name/repository_name/image_name:image_tag).
+        Image path (database_name/schema_name/repository_name/image_name:image_tag) — **Read-only:** *any user-provided value will be ignored.*
     """
 
     created_on: Optional[StrictStr] = None
@@ -52,9 +52,10 @@ class Image(BaseModel):
 
     __properties = ["created_on", "image_name", "tags", "digest", "image_path"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -87,7 +88,7 @@ class Image(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 
@@ -102,9 +103,9 @@ class Image(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Image.parse_obj(obj)
+            return Image.model_validate(obj)
 
-        _obj = Image.parse_obj(
+        _obj = Image.model_validate(
             {
                 "created_on": obj.get("created_on"),
                 "image_name": obj.get("image_name"),

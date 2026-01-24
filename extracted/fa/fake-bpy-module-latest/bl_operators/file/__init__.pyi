@@ -18,14 +18,12 @@ class WM_OT_blend_strings_utf8_validate(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, _context) -> None:
@@ -54,14 +52,12 @@ class WM_OT_previews_batch_clear(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:
@@ -90,14 +86,12 @@ class WM_OT_previews_batch_generate(_bpy_types.Operator):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def execute(self, context) -> None:

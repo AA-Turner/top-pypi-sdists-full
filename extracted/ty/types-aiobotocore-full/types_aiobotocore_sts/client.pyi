@@ -3,7 +3,7 @@ Type annotations for sts service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sts/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any
 
@@ -42,17 +43,16 @@ from .type_defs import (
     GetAccessKeyInfoRequestTypeDef,
     GetAccessKeyInfoResponseTypeDef,
     GetCallerIdentityResponseTypeDef,
+    GetDelegatedAccessTokenRequestTypeDef,
+    GetDelegatedAccessTokenResponseTypeDef,
     GetFederationTokenRequestTypeDef,
     GetFederationTokenResponseTypeDef,
     GetSessionTokenRequestTypeDef,
     GetSessionTokenResponseTypeDef,
+    GetWebIdentityTokenRequestTypeDef,
+    GetWebIdentityTokenResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Self, Unpack
 else:
@@ -61,15 +61,19 @@ else:
 __all__ = ("STSClient",)
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ExpiredTokenException: Type[BotocoreClientError]
-    IDPCommunicationErrorException: Type[BotocoreClientError]
-    IDPRejectedClaimException: Type[BotocoreClientError]
-    InvalidAuthorizationMessageException: Type[BotocoreClientError]
-    InvalidIdentityTokenException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    PackedPolicyTooLargeException: Type[BotocoreClientError]
-    RegionDisabledException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ExpiredTokenException: type[BotocoreClientError]
+    ExpiredTradeInTokenException: type[BotocoreClientError]
+    IDPCommunicationErrorException: type[BotocoreClientError]
+    IDPRejectedClaimException: type[BotocoreClientError]
+    InvalidAuthorizationMessageException: type[BotocoreClientError]
+    InvalidIdentityTokenException: type[BotocoreClientError]
+    JWTPayloadSizeExceededException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    OutboundWebIdentityFederationDisabledException: type[BotocoreClientError]
+    PackedPolicyTooLargeException: type[BotocoreClientError]
+    RegionDisabledException: type[BotocoreClientError]
+    SessionDurationEscalationException: type[BotocoreClientError]
 
 class STSClient(AioBaseClient):
     """
@@ -180,6 +184,17 @@ class STSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sts/client/#get_caller_identity)
         """
 
+    async def get_delegated_access_token(
+        self, **kwargs: Unpack[GetDelegatedAccessTokenRequestTypeDef]
+    ) -> GetDelegatedAccessTokenResponseTypeDef:
+        """
+        Exchanges a trade-in token for temporary Amazon Web Services credentials with
+        the permissions associated with the assumed principal.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts/client/get_delegated_access_token.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sts/client/#get_delegated_access_token)
+        """
+
     async def get_federation_token(
         self, **kwargs: Unpack[GetFederationTokenRequestTypeDef]
     ) -> GetFederationTokenResponseTypeDef:
@@ -202,6 +217,17 @@ class STSClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sts/client/#get_session_token)
         """
 
+    async def get_web_identity_token(
+        self, **kwargs: Unpack[GetWebIdentityTokenRequestTypeDef]
+    ) -> GetWebIdentityTokenResponseTypeDef:
+        """
+        Returns a signed JSON Web Token (JWT) that represents the calling Amazon Web
+        Services identity.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts/client/get_web_identity_token.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sts/client/#get_web_identity_token)
+        """
+
     async def __aenter__(self) -> Self:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client)
@@ -210,7 +236,7 @@ class STSClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

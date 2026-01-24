@@ -143,13 +143,13 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"if-not-plugin", required_argument, 0, "(opt logic) check for plugin", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_plugin, UWSGI_OPT_IMMEDIATE},
 	{"ifplugin", required_argument, 0, "(opt logic) check for plugin", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_plugin, UWSGI_OPT_IMMEDIATE},
 
-	{"if-file", required_argument, 0, "(opt logic) check for file existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_file, UWSGI_OPT_IMMEDIATE},
-	{"if-not-file", required_argument, 0, "(opt logic) check for file existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_file, UWSGI_OPT_IMMEDIATE},
-	{"if-dir", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
-	{"if-not-dir", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_dir, UWSGI_OPT_IMMEDIATE},
+	{"if-file", required_argument, 0, "(opt logic) check for file existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_file, UWSGI_OPT_IMMEDIATE},
+	{"if-not-file", required_argument, 0, "(opt logic) check for file existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_file, UWSGI_OPT_IMMEDIATE},
+	{"if-dir", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
+	{"if-not-dir", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_not_dir, UWSGI_OPT_IMMEDIATE},
 
-	{"ifdir", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
-	{"if-directory", required_argument, 0, "(opt logic) check for directory existance", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
+	{"ifdir", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
+	{"if-directory", required_argument, 0, "(opt logic) check for directory existence", uwsgi_opt_logic, (void *) uwsgi_logic_opt_if_dir, UWSGI_OPT_IMMEDIATE},
 
 	{"endif", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
 	{"end-if", optional_argument, 0, "(opt logic) end if", uwsgi_opt_noop, NULL, UWSGI_OPT_IMMEDIATE},
@@ -226,7 +226,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"emperor-tyrant-nofollow", no_argument, 0, "do not follow symlinks when checking for uid/gid in Tyrant mode", uwsgi_opt_true, &uwsgi.emperor_tyrant_nofollow, 0},
 	{"emperor-stats", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
 	{"emperor-stats-server", required_argument, 0, "run the Emperor stats server", uwsgi_opt_set_str, &uwsgi.emperor_stats, 0},
-	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possibile", uwsgi_opt_true, &uwsgi.early_emperor, 0},
+	{"early-emperor", no_argument, 0, "spawn the emperor as soon as possible", uwsgi_opt_true, &uwsgi.early_emperor, 0},
 	{"emperor-broodlord", required_argument, 0, "run the emperor in BroodLord mode", uwsgi_opt_set_int, &uwsgi.emperor_broodlord, 0},
 	{"emperor-throttle", required_argument, 0, "set throttling level (in milliseconds) for bad behaving vassals (default 1000)", uwsgi_opt_set_int, &uwsgi.emperor_throttle, 0},
 	{"emperor-max-throttle", required_argument, 0, "set max throttling level (in milliseconds) for bad behaving vassals (default 3 minutes)", uwsgi_opt_set_int, &uwsgi.emperor_max_throttle, 0},
@@ -763,7 +763,7 @@ static struct uwsgi_option uwsgi_base_options[] = {
 	{"log-slow", required_argument, 0, "log requests slower than the specified number of milliseconds", uwsgi_opt_set_int, &uwsgi.logging_options.slow, 0},
 	{"log-4xx", no_argument, 0, "log requests with a 4xx response", uwsgi_opt_true, &uwsgi.logging_options._4xx, 0},
 	{"log-5xx", no_argument, 0, "log requests with a 5xx response", uwsgi_opt_true, &uwsgi.logging_options._5xx, 0},
-	{"log-big", required_argument, 0, "log requestes bigger than the specified size", uwsgi_opt_set_64bit,  &uwsgi.logging_options.big, 0},
+	{"log-big", required_argument, 0, "log requests bigger than the specified size", uwsgi_opt_set_64bit,  &uwsgi.logging_options.big, 0},
 	{"log-sendfile", required_argument, 0, "log sendfile requests", uwsgi_opt_true, &uwsgi.logging_options.sendfile, 0},
 	{"log-ioerror", required_argument, 0, "log requests with io errors", uwsgi_opt_true, &uwsgi.logging_options.ioerror, 0},
 	{"log-micros", no_argument, 0, "report response time in microseconds instead of milliseconds", uwsgi_opt_true, &uwsgi.log_micros, 0},
@@ -1319,38 +1319,57 @@ void kill_them_all(int signum) {
 
 // gracefully destroy
 void gracefully_kill_them_all(int signum) {
+	if (uwsgi_instance_is_dying) return;
+	uwsgi.status.gracefully_destroying = 1;
 
-        int waitpid_status;
+	// unsubscribe if needed
+	uwsgi_unsubscribe_all();
 
-        if (uwsgi_instance_is_dying) return;
-        uwsgi.status.gracefully_destroying = 1;
+	uwsgi_log_verbose("graceful shutdown triggered...\n");
 
-        // unsubscribe if needed
-        uwsgi_unsubscribe_all();
-
-        uwsgi_log_verbose("graceful shutdown triggered...\n");
-
-        int i;
-        for (i = 1; i <= uwsgi.numproc; i++) {
-                if (uwsgi.workers[i].pid > 0) {
+	int i;
+	for (i = 1; i <= uwsgi.numproc; i++) {
+		if (uwsgi.workers[i].pid > 0) {
 			if (uwsgi.shutdown_sockets)
 				uwsgi.workers[i].shutdown_sockets = 1;
-                        uwsgi_curse(i, SIGHUP);
-                }
-        }
-        for (i = 0; i < uwsgi.mules_cnt; i++) {
-                if (uwsgi.mules[i].pid > 0) {
-                        uwsgi_curse_mule(i, SIGHUP);
-                }
-        }
+			uwsgi_curse(i, SIGHUP);
+		}
+	}
 
-        for (i = 1; i <= uwsgi.numproc; i++) {
-            if (uwsgi.workers[i].pid > 0) {
-                waitpid(uwsgi.workers[i].pid, &waitpid_status, 0);
-            }
-        }
+	for (i = 0; i < uwsgi.mules_cnt; i++) {
+		if (uwsgi.mules[i].pid > 0) {
+			uwsgi_curse_mule(i, SIGHUP);
+		}
+	}
 
-        uwsgi_destroy_processes();
+	// avoid breaking other child process signal handling logic by doing nohang checks on the workers
+	// until they are all done.
+	int keep_waiting = 1;
+	while (keep_waiting == 1) {
+		int still_running = 0;
+		int errors = 0;
+		for (i = 1; i <= uwsgi.numproc; i++) {
+			if (uwsgi.workers[i].pid > 0) {
+				pid_t rval = waitpid(uwsgi.workers[i].pid, NULL, WNOHANG);
+				if (rval == uwsgi.workers[i].pid) {
+					uwsgi.workers[i].pid = 0;
+				} else if (rval == 0) {
+					still_running++;
+				} else if (rval < 0) {
+					errors++;
+				}
+			}
+		}
+
+		// exit out if everything is done or we got errors as we can't do much about the errors at this point
+		if (still_running == 0 || errors > 0) {
+			keep_waiting = 0;
+			break;
+		}
+		sleep(1);
+	}
+
+	uwsgi_destroy_processes();
 }
 
 

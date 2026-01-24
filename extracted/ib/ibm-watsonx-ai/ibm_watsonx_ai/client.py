@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 """
@@ -12,22 +12,27 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import copy
 import json
 import logging
 import os
+from functools import cached_property
+from pathlib import Path
 from types import MappingProxyType
-from typing import Any, TypeAlias, cast
+from typing import Any, cast
+from urllib.parse import urlparse
 from warnings import warn
 
 import httpx
-from requests.exceptions import ConnectionError as ConnectionErrorRequests
 
 import ibm_watsonx_ai.utils
-from ibm_watsonx_ai._wrappers.requests import (
-    _get_async_client,
+from ibm_watsonx_ai._wrappers import httpx_wrapper
+from ibm_watsonx_ai._wrappers.httpx_wrapper import (
+    _get_async_httpx_client,
     _get_httpx_client,
+    _httpx_async_transport_params,
     _httpx_transport_params,
 )
 from ibm_watsonx_ai.ai_services import AIServices
@@ -50,7 +55,6 @@ from ibm_watsonx_ai.parameter_sets import ParameterSets
 from ibm_watsonx_ai.pipelines import Pipelines
 from ibm_watsonx_ai.pkg_extn import PkgExtn
 from ibm_watsonx_ai.projects import Projects
-from ibm_watsonx_ai.remote_training_system import RemoteTrainingSystem
 from ibm_watsonx_ai.repository import Repository
 from ibm_watsonx_ai.runtime_definitions import RuntimeDefinitions
 from ibm_watsonx_ai.script import Script
@@ -68,18 +72,11 @@ from ibm_watsonx_ai.utils.auth.base_auth import TokenRemovedDuringClientCopyPlac
 from ibm_watsonx_ai.utils.utils import (
     DEFAULT_HTTP_CLIENT_CONFIG,
     HttpClientConfig,
-    _APIClientSession,
     _create_href_definitions,
     _validate_gov_cloud_env,
 )
 from ibm_watsonx_ai.volumes import Volume
-from ibm_watsonx_ai.wml_client_error import (
-    NoWMLCredentialsProvided,
-    WMLClientError,
-)
-
-# requests module or requests.Session
-RequestsLikeType: TypeAlias = Any
+from ibm_watsonx_ai.wml_client_error import NoWMLCredentialsProvided, WMLClientError
 
 
 class APIClient:
@@ -103,7 +100,7 @@ class APIClient:
     :type space_id: str, optional
 
     :param verify: certificate verification flag, deprecated, use Credentials(verify=...) to set `verify`
-    :type verify: bool, optional
+    :type verify: bool | str | Path, optional
 
     :param httpx_client: A customizable `httpx.Client` for ModelInference, Embeddings and methods related to the deployments management and scoring.
         The `httpx.Client` is used to improve performance across deployments, foundation models, and embeddings. This parameter accepts two types of input:
@@ -117,9 +114,7 @@ class APIClient:
 
             from ibm_watsonx_ai.utils.utils import HttpClientConfig
 
-            limits=httpx.Limits(
-                max_connections=5
-            )
+            limits = httpx.Limits(max_connections=5)
             timeout = httpx.Timeout(7)
             http_config = HttpClientConfig(timeout=timeout, limits=limits)
 
@@ -129,7 +124,7 @@ class APIClient:
             If you need to adjust timeouts or limits, using ``HttpClientConfig`` is the recommended approach.
             When the ``proxies`` parameter is provided in credentials, ``httpx.Client`` will use these proxies.
             However, if you want to create a separate ``httpx.Client``, all parameters must be provided by the user.
-    :type httpx_client: httpx.Client, HttpClientConfig, optional
+    :type httpx_client: httpx.Client | HttpClientConfig, optional
 
     :param async_httpx_client: A customizable `httpx.AsyncClient` for ModelInference. The `httpx.AsyncClient` is used to improve performance of foundation models inference. This parameter accepts two types of input:
 
@@ -142,9 +137,7 @@ class APIClient:
 
             from ibm_watsonx_ai.utils.utils import HttpClientConfig
 
-            limits=httpx.Limits(
-                max_connections=5
-            )
+            limits = httpx.Limits(max_connections=5)
             timeout = httpx.Timeout(7)
             http_config = HttpClientConfig(timeout=timeout, limits=limits)
 
@@ -155,7 +148,7 @@ class APIClient:
             When the ``proxies`` parameter is provided in credentials, ``httpx.Client`` will use these proxies.
             However, if you want to create a separate ``httpx.Client``, all parameters must be provided by the user.
 
-    :type async_httpx_client: httpx.AsyncClient, HttpClientConfig, optional
+    :type async_httpx_client: httpx.AsyncClient | HttpClientConfig, optional
 
     **Example:**
 
@@ -163,10 +156,7 @@ class APIClient:
 
         from ibm_watsonx_ai import APIClient, Credentials
 
-        credentials = Credentials(
-            url = "<url>",
-            api_key = IAM_API_KEY
-        )
+        credentials = Credentials(url="<url>", api_key=IAM_API_KEY)
 
         client = APIClient(credentials, space_id="<space_id>")
 
@@ -247,7 +237,7 @@ class APIClient:
         credentials: Credentials | dict[str, str] | None = None,
         project_id: str | None = None,
         space_id: str | None = None,
-        verify: str | bool | None = None,
+        verify: str | Path | bool | None = None,
         httpx_client: httpx.Client | HttpClientConfig = DEFAULT_HTTP_CLIENT_CONFIG,
         async_httpx_client: (
             httpx.AsyncClient | HttpClientConfig
@@ -275,6 +265,9 @@ class APIClient:
             )
             warn(verify_parameter_deprecated_warning, category=DeprecationWarning)
 
+        if isinstance(verify, Path):
+            verify = str(verify)
+
         if isinstance(credentials, dict):
             credentials_parameter_as_dict_deprecated_warning = (
                 "`credentials` parameter as dict is deprecated. "
@@ -288,40 +281,52 @@ class APIClient:
                 "`project_id` parameter and `space_id` parameter cannot be set at the same time."
             )
 
-        credentials._set_env_vars_from_credentials()
-
-        if isinstance(credentials.verify, str):
-            credentials.verify = True
-
-        from ibm_watsonx_ai._wrappers import requests
-
-        if credentials.proxies is not None:
-            requests.additional_settings["proxies"] = credentials.proxies
-        elif requests.additional_settings.get("proxies") is not None:
-            del requests.additional_settings["proxies"]
-
         # At this stage `credentials` has type ibm_watsonx_ai.credentials.Credentials
         credentials = cast(Credentials, credentials)
 
+        credentials._set_env_vars_from_credentials()
+
+        self._scope_validation = kwargs.get("scope_validation", True)
+
+        if not self._scope_validation:
+            warn_msg = """
+When setting `scope_validation` to False, the following parameters need to be set manually or when initializing  APIClient instance:
+    - `is_git_based_project` (default: False)
+    - `WCA` (default: False)
+Furthermore, when trying to get details of associated service, one need to pass instance_id explicitly
+to `APIClient.service_instance.get_details` method.
+"""
+            warn(warn_msg)
+
+        if credentials.proxies is not None:
+            # Validate that proxies is a dictionary
+            if not isinstance(credentials.proxies, dict):
+                # Trigger the same error that would occur when trying to use .get() on a non-dict
+                _ = credentials.proxies.get(
+                    "http"
+                )  # This will raise AttributeError for non-dict types
+            httpx_wrapper.additional_settings["proxies"] = credentials.proxies
+        elif httpx_wrapper.additional_settings.get("proxies") is not None:
+            del httpx_wrapper.additional_settings["proxies"]
+
         self.credentials = copy.deepcopy(credentials)
-        self.default_space_id = None
-        self.default_project_id = None
-        self.project_type = None
+        self._default_space_id: str | None = None
+        self._default_project_id: str | None = None
+        self._project_type: str | None = None
         self.CLOUD_PLATFORM_SPACES = False
-        self.PLATFORM_URL = None
+        self.PLATFORM_URL: str | None = None
         self.version_param = self._get_api_version_param()
         self.ICP_PLATFORM_SPACES = False  # This will be applicable for 3.5 and later and specific to convergence functionalities
         self.CPD_version = CPDVersion()
         self._iam_id = None
         self._spec_ids_per_state: dict = {}
         self.generate_ux_tag = True
-        self.WCA: bool = False
+        self.is_git_based_project = kwargs.get("is_git_based_project", False)
+        self.WCA: bool = kwargs.get("WCA", False)
         self._user_headers: dict | None = None  # Used in set_headers() method
-        self.__session = None
 
-        self.PLATFORM_URLS_MAP = dict(APIClient.PLATFORM_URLS_MAP)
-
-        requests.packages.urllib3.disable_warnings()  # type: ignore[attr-defined]
+        # Create instance-specific copy of PLATFORM_URLS_MAP
+        self._platform_urls_map: dict[str, str] = dict(APIClient.PLATFORM_URLS_MAP)
 
         if credentials is None:
             raise NoWMLCredentialsProvided()
@@ -335,246 +340,337 @@ class APIClient:
         # check whether it is Gov Cloud
         _validate_gov_cloud_env(cast(str, credentials.url), self._logger)
 
-        with self._session:
-            if self.credentials.instance_id is not None:
-                warn(
-                    "The `instance_id` parameter is deprecated and will no longer be utilized. "
-                    "It is not considered in environment detection. "
-                    "The environment type, whether Cloud or CPD, is now automatically determined from "
-                    "the `credentials.url` parameter. Please update your configuration accordingly.",
-                    category=DeprecationWarning,
-                )
-
-            is_cloud_url = (
-                self.credentials.url in self.PLATFORM_URLS_MAP
-                or self.credentials.url in self.PLATFORM_URLS_MAP.values()
+        if isinstance(httpx_client, HttpClientConfig):
+            self._httpx_client: httpx.Client = _get_httpx_client(
+                transport=_httpx_transport_params(self, limits=httpx_client.limits),
+                timeout=httpx_client.timeout,
             )
-
-            if is_cloud_url or self.credentials.platform_url:
-                self.CLOUD_PLATFORM_SPACES = True
-                self.ICP_PLATFORM_SPACES = False
-
-                if self._internal:
-                    self.PLATFORM_URL = self.credentials.url
-                elif self.credentials.platform_url:
-                    if not self.credentials.platform_url.startswith("https://"):
-                        raise WMLClientError(
-                            Messages.get_message(message_id="invalid_platform_url")
-                        )
-                    self.PLATFORM_URL = self.credentials.platform_url
-                elif self.credentials.url in self.PLATFORM_URLS_MAP:
-                    self.PLATFORM_URL = self.PLATFORM_URLS_MAP[self.credentials.url]
-                else:
-                    raise WMLClientError(
-                        Messages.get_message(message_id="invalid_url_provided")
-                    )
-
-                if not self._is_IAM():
-                    raise WMLClientError(
-                        Messages.get_message(message_id="apikey_not_provided")
-                    )
-            else:
-                self.CLOUD_PLATFORM_SPACES = False
-                self.ICP_PLATFORM_SPACES = True
-                os.environ["DEPLOYMENT_PLATFORM"] = "private"
-
-                # Validate the cpd version:
-                try:
-                    response_get_wml_services = self._session.get(
-                        f"{self.credentials.url}/ml/wml_services/version",
-                        headers={"User-Agent": get_user_agent_header()},
-                    )
-                except ConnectionErrorRequests as e:
-                    if type(e) is ConnectionErrorRequests:
-                        raise WMLClientError(
-                            Messages.get_message(message_id="invalid_url_provided")
-                        ) from e
-                    raise
-                if (
-                    response_get_wml_services.status_code != 200
-                ):  # retry with endpoint for cpd 4.8 and higher
-                    response_get_wml_services = self._session.get(
-                        f"{self.credentials.url}/ml/wml_services/v2/version",
-                        headers={"User-Agent": get_user_agent_header()},
-                    )
-
-                if response_get_wml_services.status_code == 200:
-                    wml_full_version = response_get_wml_services.json().get(
-                        "version", ""
-                    )
-                    if wml_full_version:
-                        wml_version = ".".join(wml_full_version.split(".")[:2])
-                        if self.credentials.version is None:
-                            self.credentials.version = wml_version
-                        elif self.credentials.version != wml_version:
-                            cpd_version_mismatch_warning = (
-                                f"The provided version: {self.credentials.version} "
-                                f"is different from the current CP4D version: {wml_version}. "
-                                f"Correct the credentials with proper CP4D version number."
-                            )
-                            warn(cpd_version_mismatch_warning)
-
-                        if (
-                            self.credentials.version
-                            not in CPDVersion.supported_version_list
-                        ):
-                            raise WMLClientError(
-                                Messages.get_message(
-                                    self.credentials.version,
-                                    self.version,
-                                    message_id="invalid_version_from_automated_check",
-                                )
-                            )
-                else:
-                    self._logger.debug(
-                        "GET /ml/wml_services/version failed with status code: %s.",
-                        response_get_wml_services.status_code,
-                    )
-                    raise WMLClientError(
-                        Messages.get_message(message_id="invalid_url_provided")
-                    )
-
-                # Condition for CAMS related changes to take effect (Might change)
-                if self.credentials.version is None:
-                    raise WMLClientError(
-                        Messages.get_message(
-                            CPDVersion.supported_version_list,
-                            message_id="version_not_provided",
-                        )
-                    )
-
-                if (
-                    self.credentials.version.lower()
-                    in CPDVersion.supported_version_list
-                ):
-                    self.CPD_version.cpd_version = self.credentials.version.lower()
-                    os.environ["DEPLOYMENT_PRIVATE"] = "icp4d"
-
-                    if self.credentials.bedrock_url is None and self.CPD_version:
-                        if self.CPD_version < 4.7:
-                            bedrock_prefix = "https://cp-console"
-                        else:
-                            namespace_from_url = "-".join(
-                                self.credentials.url.split(".")[0].split("-")[1:]
-                            )
-                            route = "cpd" if self.CPD_version >= 5.1 else "cp-console"
-                            bedrock_prefix = f"https://{route}-{namespace_from_url}"
-                        self.credentials.bedrock_url = ".".join(
-                            [bedrock_prefix] + self.credentials.url.split(".")[1:]
-                        )
-                        self._is_bedrock_url_autogenerated = True
-
-                else:
-                    self.ICP_PLATFORM_SPACES = False
-                    raise WMLClientError(
-                        Messages.get_message(
-                            ", ".join(CPDVersion.supported_version_list),
-                            message_id="invalid_version",
-                        )
-                    )
-
-            self._use_fm_ga_api = self.CLOUD_PLATFORM_SPACES or (
-                self._check_if_fm_ga_api_available()
-                if self.CPD_version <= 4.8
-                else True
-            )
-
-            self._use_pta_ga_api = self.CLOUD_PLATFORM_SPACES or (
-                self.CPD_version >= 5.0
-            )
-
-            self._href_definitions = _create_href_definitions(self)
-
-            self._auth_method = get_auth_method(self)
-            self._auth_method.get_token()
-
-            # For cloud, service_instance.details will be set during space creation( if instance is associated ) or
-            # while patching a space with an instance
-
-            self.service_instance: ServiceInstance = ServiceInstance(self)
-            self.volumes = Volume(self)
-            if self._use_fm_ga_api:
-                self.foundation_models = FoundationModelsManager(self)
-
-            if self.ICP_PLATFORM_SPACES:
-                self.service_instance._refresh_details = True
-
-            self.set = Set(self)
-
-            if project_id:
-                self.set.default_project(project_id)  # recognizes project type
-            elif space_id:
-                self.set.default_space(space_id)
-
-            self.spaces = Spaces(self)
-            self.projects = Projects(self)
-
-            self.export_assets = Export(self)
-            self.import_assets = Import(self)
-
-            if self.ICP_PLATFORM_SPACES:
-                self.shiny = Shiny(self)
-                self.trashed_assets = TrashedAssets(self)
-                self.runtime_definitions = RuntimeDefinitions(self)
-
-            self.script = Script(self)
-            self.model_definitions = ModelDefinition(self)
-
-            self.package_extensions = PkgExtn(self)
-            self.software_specifications = SwSpec(self)
-
-            self.hardware_specifications = HwSpec(self)
-
-            self.connections = Connections(self)
-            self.training: Training = Training(self)
-
-            self.data_assets = Assets(self)
-            self.folder_assets = FolderAssets(self)
-
-            self.deployments = Deployments(self)
-
-            if self.CLOUD_PLATFORM_SPACES:
-                self.factsheets = Factsheets(self)
-                self.task_credentials = TaskCredentials(self)
-
-            if self.CPD_version < 5.1 or wml_full_version == "5.1.0":
-                pass  # AI services available only on CLOUD and CPD 5.1.1 or higher
-            else:
-                self.__ai_services = AIServices(self)
-
-            self.remote_training_systems = RemoteTrainingSystem(self)
-
-            self.repository = Repository(self)
-            self._models = Models(self)
-
-            self.pipelines = Pipelines(self)
-            self.experiments = Experiments(self)
-            self._functions = Functions(self)
-
-            self.parameter_sets = ParameterSets(self)
-            self._logger.info(
-                Messages.get_message(message_id="client_successfully_initialized")
-            )
-
-            if isinstance(httpx_client, HttpClientConfig):
-                httpx_client = _get_httpx_client(
-                    transport_params=_httpx_transport_params(
-                        self, limits=httpx_client.limits
-                    ),
-                    timeout=httpx_client.timeout,
-                )
-
+        else:
             self._httpx_client = httpx_client
 
-            if isinstance(async_httpx_client, HttpClientConfig):
-                async_httpx_client = _get_async_client(
-                    transport_params=_httpx_transport_params(
-                        self, limits=async_httpx_client.limits
-                    ),
-                    timeout=async_httpx_client.timeout,
+        if isinstance(async_httpx_client, HttpClientConfig):
+            self._async_httpx_client: httpx.AsyncClient = _get_async_httpx_client(
+                transport=_httpx_async_transport_params(
+                    self, limits=async_httpx_client.limits
+                ),
+                timeout=async_httpx_client.timeout,
+            )
+        else:
+            self._async_httpx_client = async_httpx_client
+
+        if self.credentials.instance_id is not None:
+            warn(
+                "The `instance_id` parameter is deprecated and will no longer be utilized. "
+                "It is not considered in environment detection. "
+                "The environment type, whether Cloud or CPD, is now automatically determined from "
+                "the `credentials.url` parameter. Please update your configuration accordingly.",
+                category=DeprecationWarning,
+            )
+
+        parsed_url = urlparse(self.credentials.url)
+        url_base = f"{parsed_url.scheme}://{parsed_url.hostname}"
+        is_cloud_url = (
+            url_base in self._platform_urls_map
+            or url_base in self._platform_urls_map.values()
+        )
+
+        if is_cloud_url or self.credentials.platform_url:
+            self.CLOUD_PLATFORM_SPACES = True
+            self.ICP_PLATFORM_SPACES = False
+
+            if self._internal:
+                self.PLATFORM_URL = self.credentials.url
+            elif self.credentials.platform_url:
+                if not self.credentials.platform_url.startswith("https://"):
+                    raise WMLClientError(
+                        Messages.get_message(message_id="invalid_platform_url")
+                    )
+                self.PLATFORM_URL = self.credentials.platform_url
+            elif self.credentials.url in self._platform_urls_map:
+                self.PLATFORM_URL = self._platform_urls_map[self.credentials.url]
+            else:
+                raise WMLClientError(
+                    Messages.get_message(message_id="invalid_url_provided")
                 )
 
-            self._async_httpx_client = async_httpx_client
+            if not self._is_IAM():
+                raise WMLClientError(
+                    Messages.get_message(message_id="apikey_not_provided")
+                )
+        else:
+            self.CLOUD_PLATFORM_SPACES = False
+            self.ICP_PLATFORM_SPACES = True
+            os.environ["DEPLOYMENT_PLATFORM"] = "private"
+
+            try:
+                response_get_wml_services = self.httpx_client.get(
+                    f"{self.credentials.url}/ml/wml_services/v2/version",
+                    headers={"User-Agent": get_user_agent_header()},
+                )
+
+            except Exception as e:
+                if isinstance(e, httpx.ConnectError):
+                    raise WMLClientError(
+                        Messages.get_message(message_id="invalid_url_provided")
+                    ) from e
+                raise
+
+            if response_get_wml_services.status_code == 200:
+                wml_full_version = response_get_wml_services.json().get("version", "")
+                if wml_full_version:
+                    wml_version = ".".join(wml_full_version.split(".")[:2])
+                    if self.credentials.version is None:
+                        self.credentials.version = wml_version
+                    elif self.credentials.version != wml_version:
+                        cpd_version_mismatch_warning = (
+                            f"The provided version: {self.credentials.version} "
+                            f"is different from the current CP4D version: {wml_version}. "
+                            f"Correct the credentials with proper CP4D version number."
+                        )
+                        warn(cpd_version_mismatch_warning)
+
+                    if (
+                        self.credentials.version
+                        not in CPDVersion.supported_version_list
+                    ):
+                        raise WMLClientError(
+                            Messages.get_message(
+                                self.credentials.version,
+                                self.version,
+                                message_id="invalid_version_from_automated_check",
+                            )
+                        )
+            else:
+                self._logger.debug(
+                    "GET /ml/wml_services/v2/version failed with status code: %s.",
+                    response_get_wml_services.status_code,
+                )
+                if (
+                    response_get_wml_services.status_code >= 500
+                ):  # raise the error only if hostname is not reachable
+                    raise WMLClientError(
+                        Messages.get_message(message_id="invalid_url_provided")
+                    )
+
+            # Condition for CAMS related changes to take effect (Might change)
+            if self.credentials.version is None:
+                raise WMLClientError(
+                    Messages.get_message(
+                        CPDVersion.supported_version_list,
+                        message_id="version_not_provided",
+                    )
+                )
+
+            if self.credentials.version.lower() in CPDVersion.supported_version_list:
+                self.CPD_version.cpd_version = self.credentials.version.lower()
+                os.environ["DEPLOYMENT_PRIVATE"] = "icp4d"
+
+                if self.credentials.bedrock_url is None and self.CPD_version:
+                    namespace_from_url = "-".join(
+                        self.credentials.url.split(".")[0].split("-")[1:]
+                    )
+                    route = "cpd" if self.CPD_version >= 5.1 else "cp-console"
+                    bedrock_prefix = f"https://{route}-{namespace_from_url}"
+                    self.credentials.bedrock_url = ".".join(
+                        [bedrock_prefix] + self.credentials.url.split(".")[1:]
+                    )
+                    self._is_bedrock_url_autogenerated = True
+
+            else:
+                self.ICP_PLATFORM_SPACES = False
+                raise WMLClientError(
+                    Messages.get_message(
+                        ", ".join(CPDVersion.supported_version_list),
+                        message_id="invalid_version",
+                    )
+                )
+
+        self._href_definitions = _create_href_definitions(self)
+
+        self._auth_method = get_auth_method(self)
+        self._auth_method.get_token()
+
+        # For cloud, service_instance.details will be set during space creation( if instance is associated ) or
+        # while patching a space with an instance
+
+        self._service_instance: ServiceInstance | None = None
+        self._set: Set | None = None
+        self.__ai_services: AIServices | None = None
+
+        self._wml_full_version = wml_full_version
+
+        if project_id:
+            if self._scope_validation:
+                self.set.default_project(project_id)  # recognizes project type
+            else:
+                self.default_project_id = project_id
+        elif space_id:
+            if self._scope_validation:
+                self.set.default_space(space_id)
+            else:
+                self.default_space_id = space_id
+
+        self._logger.info(
+            Messages.get_message(message_id="client_successfully_initialized")
+        )
+
+    @property
+    def service_instance(self) -> ServiceInstance:
+        if self._service_instance is None:
+            self._service_instance = ServiceInstance(self)
+            if self.ICP_PLATFORM_SPACES:
+                self._service_instance._refresh_details = True
+        return self._service_instance
+
+    @service_instance.setter
+    def service_instance(self, value: ServiceInstance) -> None:
+        self._service_instance = value
+
+    @cached_property
+    def volumes(self) -> Volume:
+        return Volume(self)
+
+    @cached_property
+    def foundation_models(self) -> FoundationModelsManager:
+        return FoundationModelsManager(self)
+
+    @cached_property
+    def set(self) -> Set:
+        return Set(self)
+
+    @cached_property
+    def spaces(self) -> Spaces:
+        return Spaces(self)
+
+    @cached_property
+    def projects(self) -> Projects:
+        return Projects(self)
+
+    @cached_property
+    def export_assets(self) -> Export:
+        return Export(self)
+
+    @cached_property
+    def import_assets(self) -> Import:
+        return Import(self)
+
+    @cached_property
+    def shiny(self) -> Shiny:
+        if not self.ICP_PLATFORM_SPACES:
+            raise WMLClientError("Shiny is only available for ICP platform spaces")
+        return Shiny(self)
+
+    @cached_property
+    def trashed_assets(self) -> TrashedAssets:
+        if not self.ICP_PLATFORM_SPACES:
+            raise WMLClientError(
+                "Trashed assets is only available for ICP platform spaces"
+            )
+        return TrashedAssets(self)
+
+    @cached_property
+    def runtime_definitions(self) -> RuntimeDefinitions:
+        if not self.ICP_PLATFORM_SPACES:
+            raise WMLClientError(
+                "Runtime definitions is only available for ICP platform spaces"
+            )
+        return RuntimeDefinitions(self)
+
+    @cached_property
+    def script(self) -> Script:
+        return Script(self)
+
+    @cached_property
+    def model_definitions(self) -> ModelDefinition:
+        return ModelDefinition(self)
+
+    @cached_property
+    def package_extensions(self) -> PkgExtn:
+        return PkgExtn(self)
+
+    @cached_property
+    def software_specifications(self) -> SwSpec:
+        return SwSpec(self)
+
+    @cached_property
+    def hardware_specifications(self) -> HwSpec:
+        return HwSpec(self)
+
+    @cached_property
+    def connections(self) -> Connections:
+        return Connections(self)
+
+    @cached_property
+    def training(self) -> Training:
+        return Training(self)
+
+    @cached_property
+    def data_assets(self) -> Assets:
+        return Assets(self)
+
+    @cached_property
+    def folder_assets(self) -> FolderAssets:
+        return FolderAssets(self)
+
+    @cached_property
+    def deployments(self) -> Deployments:
+        return Deployments(self)
+
+    @cached_property
+    def factsheets(self) -> Factsheets:
+        if not self.CLOUD_PLATFORM_SPACES:
+            raise WMLClientError(
+                "Factsheets is only available for Cloud platform spaces"
+            )
+        return Factsheets(self)
+
+    @cached_property
+    def task_credentials(self) -> TaskCredentials:
+        if not self.CLOUD_PLATFORM_SPACES:
+            raise WMLClientError(
+                "Task credentials is only available for Cloud platform spaces"
+            )
+        return TaskCredentials(self)
+
+    @cached_property
+    def repository(self) -> Repository:
+        return Repository(self)
+
+    @cached_property
+    def _models(self) -> Models:
+        return Models(self)
+
+    @cached_property
+    def pipelines(self) -> Pipelines:
+        return Pipelines(self)
+
+    @cached_property
+    def experiments(self) -> Experiments:
+        return Experiments(self)
+
+    @cached_property
+    def _functions(self) -> Functions:
+        return Functions(self)
+
+    @cached_property
+    def parameter_sets(self) -> ParameterSets:
+        return ParameterSets(self)
+
+    @property
+    def default_space_id(self) -> str | None:
+        return self._default_space_id
+
+    @default_space_id.setter
+    def default_space_id(self, value: str | None) -> None:
+        self._default_space_id = value
+
+    @property
+    def default_project_id(self) -> str | None:
+        return self._default_project_id
+
+    @default_project_id.setter
+    def default_project_id(self, value: str | None) -> None:
+        self._default_project_id = value
 
     def get_copy(self) -> APIClient:
         """Prepares clean copy of APIClient. The clean copy contains no token, password, api key data. It is used
@@ -589,8 +685,7 @@ class APIClient:
 
         .. code-block:: python
 
-            def deployable_ai_service(context, params={"k1":"v1"}, **kwargs):
-
+            def deployable_ai_service(context, params={"k1": "v1"}, **kwargs):
                 # imports
                 from ibm_watsonx_ai import Credentials, APIClient
                 from ibm_watsonx_ai.foundation_models import ModelInference
@@ -599,10 +694,11 @@ class APIClient:
 
                 outer_context = context
 
-                client = APIClient(Credentials(
-                    url = "https://us-south.ml.cloud.ibm.com",
-                    token = task_token
-                ))
+                client = APIClient(
+                    Credentials(
+                        url="https://us-south.ml.cloud.ibm.com", token=task_token
+                    )
+                )
 
                 # operations with client
 
@@ -612,15 +708,17 @@ class APIClient:
 
                     # operations with user_client
 
-                    return {'body': response_body}
+                    return {"body": response_body}
 
                 return generate
 
-            stored_ai_service_details = client._ai_services.store(deployable_ai_service, meta_props)
+
+            stored_ai_service_details = client._ai_services.store(
+                deployable_ai_service, meta_props
+            )
 
         """
         excluded = [
-            "_APIClient__session",
             "_href_definitions",
             "_httpx_client",
             "_async_httpx_client",
@@ -693,20 +791,16 @@ class APIClient:
         self._auth_method._token = value
 
     @property
-    def _session(self) -> RequestsLikeType:
-        if self.__session is None:
-            self.__session = _APIClientSession(self)
-        return self.__session
-
-    @_session.setter
-    def _session(self, value: RequestsLikeType):
-        self.__session = value
-
-    @property
     def _ai_services(self) -> AIServices:
         if self.CLOUD_PLATFORM_SPACES or (
             self.CPD_version >= 5.1 and self._is_ai_services_endpoint_available()
         ):
+            if self.__ai_services is None:
+                if self.CPD_version < 5.1 or self._wml_full_version == "5.1.0":
+                    raise WMLClientError(
+                        error_msg="AI service is unsupported for this release."
+                    )
+                self.__ai_services = AIServices(self)
             return self.__ai_services
         else:
             raise WMLClientError(
@@ -725,14 +819,25 @@ class APIClient:
         return isinstance(self._auth_method, TokenAuth)
 
     @property
+    def is_git_based_project(self) -> bool:
+        return self.project_type == "local_git_storage"
+
+    @is_git_based_project.setter
+    def is_git_based_project(self, value: bool) -> None:
+        if value is True:
+            self.project_type = "local_git_storage"
+        elif value is False and self.is_git_based_project:
+            self.project_type = None
+
+    @property
     def project_type(self) -> str | None:
         return self._project_type
 
     @project_type.setter
-    def project_type(self, value: str) -> None:
+    def project_type(self, value: str | None) -> None:
         self._project_type = value
 
-        if hasattr(self, "_href_definitions"):
+        if hasattr(self, "_href_definitions") and self._project_type is not None:
             self._href_definitions.project_type = (
                 self._project_type
             )  # update information about project type in HrefDefinition
@@ -742,8 +847,8 @@ class APIClient:
         return self._httpx_client
 
     @httpx_client.setter
-    def httpx_client(self, value: httpx.Client):
-        if self._httpx_client:
+    def httpx_client(self, value: httpx.Client) -> None:
+        if hasattr(self, "_httpx_client") and self._httpx_client is not None:
             self._httpx_client.close()
         self._httpx_client = value
 
@@ -752,18 +857,19 @@ class APIClient:
         return self._async_httpx_client
 
     @async_httpx_client.setter
-    def async_httpx_client(self, value: httpx.AsyncClient):
-        if self._async_httpx_client:
-            self._async_httpx_client.aclose()
+    def async_httpx_client(self, value: httpx.AsyncClient) -> None:
+        old_async_httpx_client = self._async_httpx_client
         self._async_httpx_client = value
+
+        if old_async_httpx_client:
+            asyncio.create_task(old_async_httpx_client.aclose())
 
     @staticmethod
     def _get_api_version_param() -> str:
         try:
             file_name = "API_VERSION_PARAM"
-            path = os.path.dirname(ibm_watsonx_ai.utils.__file__)
-            with open(os.path.join(path, file_name)) as file:
-                return file.read().strip()
+            path = Path(ibm_watsonx_ai.utils.__file__).parent
+            return (path / file_name).read_text().strip()
         except Exception:
             return "2021-06-21"
 
@@ -803,19 +909,13 @@ class APIClient:
                         )
                     )
 
-        if (
-            self.default_project_id
-            and self.project_type == "local_git_storage"
-            and not skip_userfs
-        ):
+        if self.default_project_id and self.is_git_based_project and not skip_userfs:
             params.update({"userfs": "true"})
             if self._iam_id:
                 params.update({"iam_id": str(self._iam_id)})
 
         if (
-            not self.default_project_id
-            or self.project_type != "local_git_storage"
-            or skip_userfs
+            not self.default_project_id or not self.is_git_based_project or skip_userfs
         ) and "userfs" in params:
             del params["userfs"]
 
@@ -827,41 +927,59 @@ class APIClient:
         no_content_type: bool = False,
         zen: bool = False,
         projects_token: bool = False,
+        _token: str | None = None,
     ) -> dict:
         headers = {}
 
         if not no_content_type:
             headers["Content-Type"] = content_type
 
-        token_to_use = (
-            self.credentials.projects_token
-            if projects_token and self.credentials.projects_token is not None
-            else self.token
-        )
+        if projects_token and self.credentials.projects_token is not None:
+            token_to_use = self.credentials.projects_token
+        elif _token is not None:
+            token_to_use = _token
+        else:
+            token_to_use = self.token
 
         if len(token_to_use.split(".")) == 1:
-            headers["Authorization"] = "Basic " + token_to_use
+            headers["Authorization"] = f"Basic {token_to_use}"
         else:
-            headers["Authorization"] = "Bearer " + token_to_use
+            headers["Authorization"] = f"Bearer {token_to_use}"
 
         if not zen:
             headers["User-Agent"] = get_user_agent_header()
 
         if not self.generate_ux_tag:
-            headers.update({"X-WX-UX": "true"})
+            headers["X-WX-UX"] = "true"
             self.generate_ux_tag = True
 
         if self.WCA:
-            headers.update({"IBM-WATSONXAI-CONSUMER": "wca"})
+            headers["IBM-WATSONXAI-CONSUMER"] = "wca"
 
-        if (env_variable := os.environ.get("IBM_SDK_API_CLIENT_HEADERS")) is not None:
-            headers = headers | json.loads(
-                base64.b64decode(env_variable).decode("utf-8")
+        if client_headers_env := os.environ.get("IBM_SDK_API_CLIENT_HEADERS"):
+            headers.update(
+                json.loads(base64.b64decode(client_headers_env).decode("utf-8"))
             )
+
         if self._user_headers:
-            headers = headers | self._user_headers
+            headers.update(self._user_headers)
 
         return headers
+
+    async def _aget_headers(
+        self,
+        content_type: str = "application/json",
+        no_content_type: bool = False,
+        zen: bool = False,
+        projects_token: bool = False,
+    ) -> dict:
+        return self._get_headers(
+            content_type,
+            no_content_type,
+            zen,
+            projects_token,
+            _token=await self._auth_method.aget_token(),
+        )
 
     def get_headers(
         self,
@@ -940,9 +1058,9 @@ class APIClient:
         .. code-block:: python
 
             headers = {
-                'Authorization': 'Bearer <USER AUTHORIZATION TOKEN>',
-                'User-Agent': 'ibm-watsonx-ai/1.0.1 (lang=python; arch=x86_64; os=darwin; python.version=3.10.13)',
-                'Content-Type': 'application/json'
+                "Authorization": "Bearer <USER AUTHORIZATION TOKEN>",
+                "User-Agent": "ibm-watsonx-ai/1.0.1 (lang=python; arch=x86_64; os=darwin; python.version=3.10.13)",
+                "Content-Type": "application/json",
             }
 
             client.set_headers(headers)
@@ -976,20 +1094,11 @@ class APIClient:
         else:
             return False
 
-    def _check_if_fm_ga_api_available(self) -> bool:
-        response_ga_api = self._session.get(
-            url="{}/ml/v1/foundation_model_specs?limit={}".format(
-                self.credentials.url, "1"
-            ),
-            params={"version": self.version_param},
-        )
-        return response_ga_api.status_code == 200
-
     def _is_ai_services_endpoint_available(self) -> bool:
         try:
             url = self._href_definitions.get_ai_services_href()
 
-            response_ai_services_api = self._session.get(
+            response_ai_services_api = self.httpx_client.get(
                 url=f"{url}?limit=1",
                 params=self._params(),
                 headers=self._get_headers(),

@@ -1,16 +1,15 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: openplantbook-sdk
-Version: 0.4.7
+Version: 0.6.0
 Summary: Open Plantbook SDK for Python
 Home-page: https://github.com/slaxor505/openplantbook-sdk-py
 Author: Slava Pisarevskiy
 Author-email: slava@plantbook.io
-License: MIT
+License: "MIT"
 Project-URL: Documentation, https://openplantbook-sdk-py.readthedocs.io
 Project-URL: Source, https://github.com/slaxor505/openplantbook-sdk-py
 Keywords: json,timeseries,iot,jts
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -20,6 +19,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
 Requires-Dist: json-timeseries
+Dynamic: license-file
 
 # Open Plantbook SDK for Python
 
@@ -48,7 +48,27 @@ from openplantbook_sdk import OpenPlantBookApi
 
 ## Usage
 
-See [demo.py](demo.py)
+Quick example (async):
+
+```python
+import asyncio
+from openplantbook_sdk import OpenPlantBookApi
+
+async def main():
+    api = OpenPlantBookApi("YOUR_CLIENT_ID", "YOUR_CLIENT_SECRET")
+    # Retrieve plant details with optional ISO 639-1 language code
+    details = await api.async_plant_detail_get("abelia chinensis", lang="de")
+    print(details["display_pid"])
+    # Search plants
+    results = await api.async_plant_search("abelia")
+    print(results["count"]) 
+
+asyncio.run(main())
+```
+
+- The `lang` parameter is optional; pass an ISO 639-1 code like "en", "de", "es" to localize fields when supported by the API.
+
+See [demo.py](examples/demo.py) for a more complete walkthrough.
 
 
 ## License

@@ -55,6 +55,7 @@ class Transaction(Resource):
             "amount": "100.00",
             "order_id": "123",
             "channel": "MyShoppingCartProvider",
+            "processing_merchant_category_code": "5411",
             "credit_card": {
                 "number": "5105105105105100",
                 "expiration_date": "05/2011",
@@ -580,12 +581,6 @@ class Transaction(Resource):
                             "currency_amount",
                             "currency_iso_code"
                         ],
-                        "venmo_merchant_data": [
-                            "venmo_merchant_public_id",
-                            "originating_transaction_id",
-                            "originating_merchant_id",
-                            "originating_merchant_kind"
-                        ],
                         "venmo": [
                             "profile_id"
                         ],
@@ -607,7 +602,7 @@ class Transaction(Resource):
                 ]
             },
             "order_id",
-            "payment_method_nonce", "payment_method_token", "product_sku", "purchase_order_number",
+            "payment_method_nonce", "payment_method_token", "processing_merchant_category_code", "product_sku", "purchase_order_number",
             {"paypal_account": ["payee_id", "payee_email", "payer_id", "payment_id"]},
             "recurring",
             {
@@ -666,9 +661,46 @@ class Transaction(Resource):
             {
                 "transfer":[
                     "type",
+                    {
+                        "sender": [
+                            "account_reference_number",
+                            "date_of_birth",
+                            "first_name",
+                            "last_name",
+                            "middle_name",
+                            "tax_id",
+                            {
+                                "address": [
+                                    "street_address", "extended_address", "locality", "region", "country_code_alpha2", "postal_code",
+                                    {"international_phone": ["country_code", "national_number"]}
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "receiver": [
+                            "account_reference_number",
+                            "first_name",
+                            "last_name",
+                            "middle_name",
+                            "tax_id",
+                            {
+                                "address": [
+                                    "street_address", "extended_address", "locality", "region", "country_code_alpha2", "postal_code",
+                                    {"international_phone": ["country_code", "national_number"]}
+                                ]
+                            }
+                        ]
+                    }
                 ]
             },
             "type", "venmo_sdk_payment_method_code",  # NEXT_MJOR_VERSION remove venmo_sdk_payment_method_code
+            {
+                "us_bank_account": [
+                    "ach_mandate_text",
+                    "ach_mandate_accepted_at"
+                ]
+            },
         ]
 
     @staticmethod

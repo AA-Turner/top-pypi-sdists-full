@@ -4,13 +4,10 @@ import typing  # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal  # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
 
+ComponentSingleType = typing.Union[str, int, float, Component, None]
 ComponentType = typing.Union[
-    str,
-    int,
-    float,
-    Component,
-    None,
-    typing.Sequence[typing.Union[str, int, float, Component, None]],
+    ComponentSingleType,
+    typing.Sequence[ComponentSingleType],
 ]
 
 NumberType = typing.Union[
@@ -59,9 +56,6 @@ class Meter(Component):
 
     - draggable (string; optional):
         Defines whether the element can be dragged.
-
-    - form (string; optional):
-        Indicates the form that is the owner of the element.
 
     - hidden (a value equal to: 'hidden', 'HIDDEN' | boolean; optional):
         Prevents rendering of given element, while keeping child elements,
@@ -117,7 +111,7 @@ class Meter(Component):
         Defines a default value which will be displayed in the element on
         page load."""
 
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ["children"]
     _namespace = "dash_html_components"
     _type = "Meter"
@@ -130,7 +124,6 @@ class Meter(Component):
         n_clicks_timestamp: typing.Optional[NumberType] = None,
         disable_n_clicks: typing.Optional[bool] = None,
         key: typing.Optional[str] = None,
-        form: typing.Optional[str] = None,
         high: typing.Optional[str] = None,
         low: typing.Optional[str] = None,
         max: typing.Optional[typing.Union[str, NumberType]] = None,
@@ -162,7 +155,6 @@ class Meter(Component):
             "dir",
             "disable_n_clicks",
             "draggable",
-            "form",
             "hidden",
             "high",
             "key",
@@ -192,7 +184,6 @@ class Meter(Component):
             "dir",
             "disable_n_clicks",
             "draggable",
-            "form",
             "hidden",
             "high",
             "key",

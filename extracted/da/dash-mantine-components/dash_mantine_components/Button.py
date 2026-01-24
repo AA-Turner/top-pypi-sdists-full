@@ -500,7 +500,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['leftSection', 'rightSection', 'loaderProps.children']
+    _children_props: typing.List[str] = ['leftSection', 'rightSection', 'loaderProps.children']
     _base_nodes = ['leftSection', 'rightSection', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'Button'

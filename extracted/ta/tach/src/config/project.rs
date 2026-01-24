@@ -4,6 +4,7 @@ use std::iter;
 use std::ops::Not;
 use std::path::PathBuf;
 
+use crate::config::RespectGitIgnore;
 use crate::filesystem::{self, module_path_is_included_in_paths};
 use crate::resolvers::SourceRootResolver;
 
@@ -15,7 +16,7 @@ use super::external::ExternalDependencyConfig;
 use super::interfaces::InterfaceConfig;
 use super::layers::LayerConfig;
 use super::map::MapConfig;
-use super::modules::{deserialize_modules, serialize_modules, DependencyConfig, ModuleConfig};
+use super::modules::{DependencyConfig, ModuleConfig, deserialize_modules, serialize_modules};
 use super::plugins::PluginsConfig;
 use super::root_module::RootModuleTreatment;
 use super::rules::RulesConfig;
@@ -72,9 +73,6 @@ pub struct ProjectConfig {
     #[serde(default, skip_serializing_if = "Not::not")]
     #[pyo3(get)]
     pub exact: bool,
-    #[serde(default, skip_serializing_if = "Not::not")]
-    #[pyo3(get)]
-    pub disable_logging: bool,
     #[serde(
         default = "utils::default_true",
         skip_serializing_if = "utils::is_true"
@@ -87,12 +85,12 @@ pub struct ProjectConfig {
     #[serde(default, skip_serializing_if = "Not::not")]
     #[pyo3(get)]
     pub forbid_circular_dependencies: bool,
-    #[serde(
-        default = "utils::default_true",
-        skip_serializing_if = "utils::is_true"
-    )]
-    #[pyo3(get, set)]
-    pub respect_gitignore: bool,
+    #[serde(default, skip_serializing_if = "Not::not")]
+    #[pyo3(get)]
+    pub layers_explicit_depends_on: bool,
+    #[serde(default, skip_serializing_if = "utils::is_default")]
+    #[pyo3(get)]
+    pub respect_gitignore: RespectGitIgnore,
     #[serde(skip)]
     #[pyo3(get)]
     pub use_regex_matching: bool,
@@ -147,10 +145,10 @@ impl Default for ProjectConfig {
             cache: Default::default(),
             external: Default::default(),
             exact: Default::default(),
-            disable_logging: Default::default(),
             include_string_imports: Default::default(),
             forbid_circular_dependencies: Default::default(),
-            respect_gitignore: true,
+            layers_explicit_depends_on: Default::default(),
+            respect_gitignore: RespectGitIgnore::True,
             use_regex_matching: Default::default(),
             root_module: Default::default(),
             rules: Default::default(),
@@ -496,7 +494,7 @@ impl ProjectConfig {
     }
 
     fn __str__(&self) -> String {
-        format!("{:#?}", self)
+        format!("{self:#?}")
     }
 
     fn serialize_json(&self) -> String {

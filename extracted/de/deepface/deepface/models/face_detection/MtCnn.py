@@ -1,12 +1,14 @@
 # built-in dependencies
-from typing import List
+from typing import List, Any
+import warnings
 
 # 3rd party dependencies
-import numpy as np
+from numpy.typing import NDArray
 from mtcnn import MTCNN
 
 # project dependencies
 from deepface.models.Detector import Detector, FacialAreaRegion
+
 
 # pylint: disable=too-few-public-methods
 class MtCnnClient(Detector):
@@ -14,10 +16,12 @@ class MtCnnClient(Detector):
     Class to cover common face detection functionalitiy for MtCnn backend
     """
 
-    def __init__(self):
-        self.model = MTCNN()
+    def __init__(self) -> None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", ResourceWarning)
+            self.model = MTCNN()
 
-    def detect_faces(self, img: np.ndarray) -> List[FacialAreaRegion]:
+    def detect_faces(self, img: NDArray[Any]) -> List[FacialAreaRegion]:
         """
         Detect and align face with mtcnn
 

@@ -8,10 +8,10 @@ def read(filename):
 
 setuptools.setup(
     name="python-whois",
-    version="0.9.5",
+    version="0.9.6",
     description="Whois querying and parsing of domain registration information.",
     long_description=read("README.md"),
-    long_description_content_type='text/markdown',
+    long_description_content_type="text/markdown",
     classifiers=[
         "Environment :: Web Environment",
         "Intended Audience :: Developers",

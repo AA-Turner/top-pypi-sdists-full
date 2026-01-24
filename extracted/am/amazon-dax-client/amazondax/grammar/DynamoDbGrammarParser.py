@@ -1,4 +1,4 @@
-# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.9.3
+# Generated from grammar/DynamoDbGrammar.g4 by ANTLR 4.13.2
 # encoding: utf-8
 # pylint: skip-file
 from antlr4 import *
@@ -9,107 +9,89 @@ if sys.version_info[1] > 5:
 else:
 	from typing.io import TextIO
 
-
 def serializedATN():
-    with StringIO() as buf:
-        buf.write("\3\u608b\ua72a\u8133\ub9ed\u417c\u3be7\u7786\u5964\3 ")
-        buf.write("\u00f1\4\2\t\2\4\3\t\3\4\4\t\4\4\5\t\5\4\6\t\6\4\7\t\7")
-        buf.write("\4\b\t\b\4\t\t\t\4\n\t\n\4\13\t\13\4\f\t\f\4\r\t\r\4\16")
-        buf.write("\t\16\4\17\t\17\4\20\t\20\4\21\t\21\4\22\t\22\4\23\t\23")
-        buf.write("\4\24\t\24\4\25\t\25\4\26\t\26\4\27\t\27\4\30\t\30\4\31")
-        buf.write("\t\31\4\32\t\32\4\33\t\33\3\2\3\2\3\2\3\3\3\3\3\3\7\3")
-        buf.write("=\n\3\f\3\16\3@\13\3\3\4\3\4\3\4\3\5\3\5\3\5\3\5\3\5\3")
-        buf.write("\5\3\5\3\5\3\5\3\5\3\5\7\5P\n\5\f\5\16\5S\13\5\3\5\3\5")
-        buf.write("\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3\5\3")
-        buf.write("\5\5\5e\n\5\3\5\3\5\3\5\3\5\3\5\3\5\7\5m\n\5\f\5\16\5")
-        buf.write("p\13\5\3\6\3\6\3\7\3\7\3\7\3\b\3\b\3\b\3\b\6\b{\n\b\r")
-        buf.write("\b\16\b|\3\t\3\t\3\t\3\t\7\t\u0083\n\t\f\t\16\t\u0086")
-        buf.write("\13\t\3\n\3\n\3\n\3\n\3\13\3\13\3\13\3\13\7\13\u0090\n")
-        buf.write("\13\f\13\16\13\u0093\13\13\3\f\3\f\3\f\3\r\3\r\3\r\3\r")
-        buf.write("\7\r\u009c\n\r\f\r\16\r\u009f\13\r\3\16\3\16\3\16\3\17")
-        buf.write("\3\17\3\17\3\17\7\17\u00a8\n\17\f\17\16\17\u00ab\13\17")
-        buf.write("\3\20\3\20\3\21\3\21\5\21\u00b1\n\21\3\22\3\22\3\22\3")
-        buf.write("\22\3\22\3\22\3\22\3\22\3\22\5\22\u00bc\n\22\3\23\3\23")
-        buf.write("\3\23\3\23\3\23\3\23\3\23\3\23\5\23\u00c6\n\23\3\24\3")
-        buf.write("\24\3\24\3\24\3\24\7\24\u00cd\n\24\f\24\16\24\u00d0\13")
-        buf.write("\24\3\24\3\24\3\25\3\25\7\25\u00d6\n\25\f\25\16\25\u00d9")
-        buf.write("\13\25\3\26\3\26\3\27\3\27\3\27\3\27\3\27\5\27\u00e2\n")
-        buf.write("\27\3\30\3\30\3\31\3\31\3\31\3\32\3\32\3\32\3\33\6\33")
-        buf.write("\u00ed\n\33\r\33\16\33\u00ee\3\33\2\3\b\34\2\4\6\b\n\f")
-        buf.write("\16\20\22\24\26\30\32\34\36 \"$&(*,.\60\62\64\2\5\3\2")
-        buf.write("\n\17\3\2\20\21\3\2\34\35\2\u00f0\2\66\3\2\2\2\49\3\2")
-        buf.write("\2\2\6A\3\2\2\2\bd\3\2\2\2\nq\3\2\2\2\fs\3\2\2\2\16z\3")
-        buf.write("\2\2\2\20~\3\2\2\2\22\u0087\3\2\2\2\24\u008b\3\2\2\2\26")
-        buf.write("\u0094\3\2\2\2\30\u0097\3\2\2\2\32\u00a0\3\2\2\2\34\u00a3")
-        buf.write("\3\2\2\2\36\u00ac\3\2\2\2 \u00b0\3\2\2\2\"\u00bb\3\2\2")
-        buf.write("\2$\u00c5\3\2\2\2&\u00c7\3\2\2\2(\u00d3\3\2\2\2*\u00da")
-        buf.write("\3\2\2\2,\u00e1\3\2\2\2.\u00e3\3\2\2\2\60\u00e5\3\2\2")
-        buf.write("\2\62\u00e8\3\2\2\2\64\u00ec\3\2\2\2\66\67\5\4\3\2\67")
-        buf.write("8\7\2\2\38\3\3\2\2\29>\5(\25\2:;\7\3\2\2;=\5(\25\2<:\3")
-        buf.write("\2\2\2=@\3\2\2\2><\3\2\2\2>?\3\2\2\2?\5\3\2\2\2@>\3\2")
-        buf.write("\2\2AB\5\b\5\2BC\7\2\2\3C\7\3\2\2\2DE\b\5\1\2EF\5$\23")
-        buf.write("\2FG\5\n\6\2GH\5$\23\2He\3\2\2\2IJ\5$\23\2JK\7\22\2\2")
-        buf.write("KL\7\4\2\2LQ\5$\23\2MN\7\3\2\2NP\5$\23\2OM\3\2\2\2PS\3")
-        buf.write("\2\2\2QO\3\2\2\2QR\3\2\2\2RT\3\2\2\2SQ\3\2\2\2TU\7\5\2")
-        buf.write("\2Ue\3\2\2\2VW\5$\23\2WX\7\23\2\2XY\5$\23\2YZ\7\25\2\2")
-        buf.write("Z[\5$\23\2[e\3\2\2\2\\e\5&\24\2]^\7\4\2\2^_\5\b\5\2_`")
-        buf.write("\7\5\2\2`a\b\5\1\2ae\3\2\2\2bc\7\24\2\2ce\5\b\5\5dD\3")
-        buf.write("\2\2\2dI\3\2\2\2dV\3\2\2\2d\\\3\2\2\2d]\3\2\2\2db\3\2")
-        buf.write("\2\2en\3\2\2\2fg\f\4\2\2gh\7\25\2\2hm\5\b\5\4ij\f\3\2")
-        buf.write("\2jk\7\26\2\2km\5\b\5\3lf\3\2\2\2li\3\2\2\2mp\3\2\2\2")
-        buf.write("nl\3\2\2\2no\3\2\2\2o\t\3\2\2\2pn\3\2\2\2qr\t\2\2\2r\13")
-        buf.write("\3\2\2\2st\5\16\b\2tu\7\2\2\3u\r\3\2\2\2v{\5\20\t\2w{")
-        buf.write("\5\24\13\2x{\5\30\r\2y{\5\34\17\2zv\3\2\2\2zw\3\2\2\2")
-        buf.write("zx\3\2\2\2zy\3\2\2\2{|\3\2\2\2|z\3\2\2\2|}\3\2\2\2}\17")
-        buf.write("\3\2\2\2~\177\7\27\2\2\177\u0084\5\22\n\2\u0080\u0081")
-        buf.write("\7\3\2\2\u0081\u0083\5\22\n\2\u0082\u0080\3\2\2\2\u0083")
-        buf.write("\u0086\3\2\2\2\u0084\u0082\3\2\2\2\u0084\u0085\3\2\2\2")
-        buf.write("\u0085\21\3\2\2\2\u0086\u0084\3\2\2\2\u0087\u0088\5(\25")
-        buf.write("\2\u0088\u0089\7\n\2\2\u0089\u008a\5 \21\2\u008a\23\3")
-        buf.write("\2\2\2\u008b\u008c\7\30\2\2\u008c\u0091\5\26\f\2\u008d")
-        buf.write("\u008e\7\3\2\2\u008e\u0090\5\26\f\2\u008f\u008d\3\2\2")
-        buf.write("\2\u0090\u0093\3\2\2\2\u0091\u008f\3\2\2\2\u0091\u0092")
-        buf.write("\3\2\2\2\u0092\25\3\2\2\2\u0093\u0091\3\2\2\2\u0094\u0095")
-        buf.write("\5(\25\2\u0095\u0096\5.\30\2\u0096\27\3\2\2\2\u0097\u0098")
-        buf.write("\7\31\2\2\u0098\u009d\5\32\16\2\u0099\u009a\7\3\2\2\u009a")
-        buf.write("\u009c\5\32\16\2\u009b\u0099\3\2\2\2\u009c\u009f\3\2\2")
-        buf.write("\2\u009d\u009b\3\2\2\2\u009d\u009e\3\2\2\2\u009e\31\3")
-        buf.write("\2\2\2\u009f\u009d\3\2\2\2\u00a0\u00a1\5(\25\2\u00a1\u00a2")
-        buf.write("\5.\30\2\u00a2\33\3\2\2\2\u00a3\u00a4\7\32\2\2\u00a4\u00a9")
-        buf.write("\5\36\20\2\u00a5\u00a6\7\3\2\2\u00a6\u00a8\5\36\20\2\u00a7")
-        buf.write("\u00a5\3\2\2\2\u00a8\u00ab\3\2\2\2\u00a9\u00a7\3\2\2\2")
-        buf.write("\u00a9\u00aa\3\2\2\2\u00aa\35\3\2\2\2\u00ab\u00a9\3\2")
-        buf.write("\2\2\u00ac\u00ad\5(\25\2\u00ad\37\3\2\2\2\u00ae\u00b1")
-        buf.write("\5$\23\2\u00af\u00b1\5\"\22\2\u00b0\u00ae\3\2\2\2\u00b0")
-        buf.write("\u00af\3\2\2\2\u00b1!\3\2\2\2\u00b2\u00b3\5$\23\2\u00b3")
-        buf.write("\u00b4\t\3\2\2\u00b4\u00b5\5$\23\2\u00b5\u00bc\3\2\2\2")
-        buf.write("\u00b6\u00b7\7\4\2\2\u00b7\u00b8\5\"\22\2\u00b8\u00b9")
-        buf.write("\7\5\2\2\u00b9\u00ba\b\22\1\2\u00ba\u00bc\3\2\2\2\u00bb")
-        buf.write("\u00b2\3\2\2\2\u00bb\u00b6\3\2\2\2\u00bc#\3\2\2\2\u00bd")
-        buf.write("\u00c6\5(\25\2\u00be\u00c6\5.\30\2\u00bf\u00c6\5&\24\2")
-        buf.write("\u00c0\u00c1\7\4\2\2\u00c1\u00c2\5$\23\2\u00c2\u00c3\7")
-        buf.write("\5\2\2\u00c3\u00c4\b\23\1\2\u00c4\u00c6\3\2\2\2\u00c5")
-        buf.write("\u00bd\3\2\2\2\u00c5\u00be\3\2\2\2\u00c5\u00bf\3\2\2\2")
-        buf.write("\u00c5\u00c0\3\2\2\2\u00c6%\3\2\2\2\u00c7\u00c8\7\34\2")
-        buf.write("\2\u00c8\u00c9\7\4\2\2\u00c9\u00ce\5$\23\2\u00ca\u00cb")
-        buf.write("\7\3\2\2\u00cb\u00cd\5$\23\2\u00cc\u00ca\3\2\2\2\u00cd")
-        buf.write("\u00d0\3\2\2\2\u00ce\u00cc\3\2\2\2\u00ce\u00cf\3\2\2\2")
-        buf.write("\u00cf\u00d1\3\2\2\2\u00d0\u00ce\3\2\2\2\u00d1\u00d2\7")
-        buf.write("\5\2\2\u00d2\'\3\2\2\2\u00d3\u00d7\5*\26\2\u00d4\u00d6")
-        buf.write("\5,\27\2\u00d5\u00d4\3\2\2\2\u00d6\u00d9\3\2\2\2\u00d7")
-        buf.write("\u00d5\3\2\2\2\u00d7\u00d8\3\2\2\2\u00d8)\3\2\2\2\u00d9")
-        buf.write("\u00d7\3\2\2\2\u00da\u00db\t\4\2\2\u00db+\3\2\2\2\u00dc")
-        buf.write("\u00dd\7\6\2\2\u00dd\u00e2\5*\26\2\u00de\u00df\7\7\2\2")
-        buf.write("\u00df\u00e0\7\33\2\2\u00e0\u00e2\7\b\2\2\u00e1\u00dc")
-        buf.write("\3\2\2\2\u00e1\u00de\3\2\2\2\u00e2-\3\2\2\2\u00e3\u00e4")
-        buf.write("\7\36\2\2\u00e4/\3\2\2\2\u00e5\u00e6\7\35\2\2\u00e6\u00e7")
-        buf.write("\7\2\2\3\u00e7\61\3\2\2\2\u00e8\u00e9\7\36\2\2\u00e9\u00ea")
-        buf.write("\7\2\2\3\u00ea\63\3\2\2\2\u00eb\u00ed\7 \2\2\u00ec\u00eb")
-        buf.write("\3\2\2\2\u00ed\u00ee\3\2\2\2\u00ee\u00ec\3\2\2\2\u00ee")
-        buf.write("\u00ef\3\2\2\2\u00ef\65\3\2\2\2\24>Qdlnz|\u0084\u0091")
-        buf.write("\u009d\u00a9\u00b0\u00bb\u00c5\u00ce\u00d7\u00e1\u00ee")
-        return buf.getvalue()
-
+    return [
+        4,1,30,239,2,0,7,0,2,1,7,1,2,2,7,2,2,3,7,3,2,4,7,4,2,5,7,5,2,6,7,
+        6,2,7,7,7,2,8,7,8,2,9,7,9,2,10,7,10,2,11,7,11,2,12,7,12,2,13,7,13,
+        2,14,7,14,2,15,7,15,2,16,7,16,2,17,7,17,2,18,7,18,2,19,7,19,2,20,
+        7,20,2,21,7,21,2,22,7,22,2,23,7,23,2,24,7,24,2,25,7,25,1,0,1,0,1,
+        0,1,1,1,1,1,1,5,1,59,8,1,10,1,12,1,62,9,1,1,2,1,2,1,2,1,3,1,3,1,
+        3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,5,3,78,8,3,10,3,12,3,81,9,3,1,
+        3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,1,3,3,
+        3,99,8,3,1,3,1,3,1,3,1,3,1,3,1,3,5,3,107,8,3,10,3,12,3,110,9,3,1,
+        4,1,4,1,5,1,5,1,5,1,6,1,6,1,6,1,6,4,6,121,8,6,11,6,12,6,122,1,7,
+        1,7,1,7,1,7,5,7,129,8,7,10,7,12,7,132,9,7,1,8,1,8,1,8,1,8,1,9,1,
+        9,1,9,1,9,5,9,142,8,9,10,9,12,9,145,9,9,1,10,1,10,1,10,1,11,1,11,
+        1,11,1,11,5,11,154,8,11,10,11,12,11,157,9,11,1,12,1,12,1,12,1,13,
+        1,13,1,13,1,13,5,13,166,8,13,10,13,12,13,169,9,13,1,14,1,14,1,15,
+        1,15,3,15,175,8,15,1,16,1,16,1,16,1,16,1,16,1,16,1,16,1,16,1,16,
+        3,16,186,8,16,1,17,1,17,1,17,1,17,1,17,1,17,1,17,1,17,3,17,196,8,
+        17,1,18,1,18,1,18,1,18,1,18,5,18,203,8,18,10,18,12,18,206,9,18,1,
+        18,1,18,1,19,1,19,5,19,212,8,19,10,19,12,19,215,9,19,1,20,1,20,1,
+        21,1,21,1,21,1,21,1,21,3,21,224,8,21,1,22,1,22,1,23,1,23,1,23,1,
+        24,1,24,1,24,1,25,4,25,235,8,25,11,25,12,25,236,1,25,0,1,6,26,0,
+        2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42,44,46,
+        48,50,0,3,1,0,8,13,1,0,14,15,1,0,26,27,238,0,52,1,0,0,0,2,55,1,0,
+        0,0,4,63,1,0,0,0,6,98,1,0,0,0,8,111,1,0,0,0,10,113,1,0,0,0,12,120,
+        1,0,0,0,14,124,1,0,0,0,16,133,1,0,0,0,18,137,1,0,0,0,20,146,1,0,
+        0,0,22,149,1,0,0,0,24,158,1,0,0,0,26,161,1,0,0,0,28,170,1,0,0,0,
+        30,174,1,0,0,0,32,185,1,0,0,0,34,195,1,0,0,0,36,197,1,0,0,0,38,209,
+        1,0,0,0,40,216,1,0,0,0,42,223,1,0,0,0,44,225,1,0,0,0,46,227,1,0,
+        0,0,48,230,1,0,0,0,50,234,1,0,0,0,52,53,3,2,1,0,53,54,5,0,0,1,54,
+        1,1,0,0,0,55,60,3,38,19,0,56,57,5,1,0,0,57,59,3,38,19,0,58,56,1,
+        0,0,0,59,62,1,0,0,0,60,58,1,0,0,0,60,61,1,0,0,0,61,3,1,0,0,0,62,
+        60,1,0,0,0,63,64,3,6,3,0,64,65,5,0,0,1,65,5,1,0,0,0,66,67,6,3,-1,
+        0,67,68,3,34,17,0,68,69,3,8,4,0,69,70,3,34,17,0,70,99,1,0,0,0,71,
+        72,3,34,17,0,72,73,5,16,0,0,73,74,5,2,0,0,74,79,3,34,17,0,75,76,
+        5,1,0,0,76,78,3,34,17,0,77,75,1,0,0,0,78,81,1,0,0,0,79,77,1,0,0,
+        0,79,80,1,0,0,0,80,82,1,0,0,0,81,79,1,0,0,0,82,83,5,3,0,0,83,99,
+        1,0,0,0,84,85,3,34,17,0,85,86,5,17,0,0,86,87,3,34,17,0,87,88,5,19,
+        0,0,88,89,3,34,17,0,89,99,1,0,0,0,90,99,3,36,18,0,91,92,5,2,0,0,
+        92,93,3,6,3,0,93,94,5,3,0,0,94,95,6,3,-1,0,95,99,1,0,0,0,96,97,5,
+        18,0,0,97,99,3,6,3,3,98,66,1,0,0,0,98,71,1,0,0,0,98,84,1,0,0,0,98,
+        90,1,0,0,0,98,91,1,0,0,0,98,96,1,0,0,0,99,108,1,0,0,0,100,101,10,
+        2,0,0,101,102,5,19,0,0,102,107,3,6,3,2,103,104,10,1,0,0,104,105,
+        5,20,0,0,105,107,3,6,3,1,106,100,1,0,0,0,106,103,1,0,0,0,107,110,
+        1,0,0,0,108,106,1,0,0,0,108,109,1,0,0,0,109,7,1,0,0,0,110,108,1,
+        0,0,0,111,112,7,0,0,0,112,9,1,0,0,0,113,114,3,12,6,0,114,115,5,0,
+        0,1,115,11,1,0,0,0,116,121,3,14,7,0,117,121,3,18,9,0,118,121,3,22,
+        11,0,119,121,3,26,13,0,120,116,1,0,0,0,120,117,1,0,0,0,120,118,1,
+        0,0,0,120,119,1,0,0,0,121,122,1,0,0,0,122,120,1,0,0,0,122,123,1,
+        0,0,0,123,13,1,0,0,0,124,125,5,21,0,0,125,130,3,16,8,0,126,127,5,
+        1,0,0,127,129,3,16,8,0,128,126,1,0,0,0,129,132,1,0,0,0,130,128,1,
+        0,0,0,130,131,1,0,0,0,131,15,1,0,0,0,132,130,1,0,0,0,133,134,3,38,
+        19,0,134,135,5,8,0,0,135,136,3,30,15,0,136,17,1,0,0,0,137,138,5,
+        22,0,0,138,143,3,20,10,0,139,140,5,1,0,0,140,142,3,20,10,0,141,139,
+        1,0,0,0,142,145,1,0,0,0,143,141,1,0,0,0,143,144,1,0,0,0,144,19,1,
+        0,0,0,145,143,1,0,0,0,146,147,3,38,19,0,147,148,3,44,22,0,148,21,
+        1,0,0,0,149,150,5,23,0,0,150,155,3,24,12,0,151,152,5,1,0,0,152,154,
+        3,24,12,0,153,151,1,0,0,0,154,157,1,0,0,0,155,153,1,0,0,0,155,156,
+        1,0,0,0,156,23,1,0,0,0,157,155,1,0,0,0,158,159,3,38,19,0,159,160,
+        3,44,22,0,160,25,1,0,0,0,161,162,5,24,0,0,162,167,3,28,14,0,163,
+        164,5,1,0,0,164,166,3,28,14,0,165,163,1,0,0,0,166,169,1,0,0,0,167,
+        165,1,0,0,0,167,168,1,0,0,0,168,27,1,0,0,0,169,167,1,0,0,0,170,171,
+        3,38,19,0,171,29,1,0,0,0,172,175,3,34,17,0,173,175,3,32,16,0,174,
+        172,1,0,0,0,174,173,1,0,0,0,175,31,1,0,0,0,176,177,3,34,17,0,177,
+        178,7,1,0,0,178,179,3,34,17,0,179,186,1,0,0,0,180,181,5,2,0,0,181,
+        182,3,32,16,0,182,183,5,3,0,0,183,184,6,16,-1,0,184,186,1,0,0,0,
+        185,176,1,0,0,0,185,180,1,0,0,0,186,33,1,0,0,0,187,196,3,38,19,0,
+        188,196,3,44,22,0,189,196,3,36,18,0,190,191,5,2,0,0,191,192,3,34,
+        17,0,192,193,5,3,0,0,193,194,6,17,-1,0,194,196,1,0,0,0,195,187,1,
+        0,0,0,195,188,1,0,0,0,195,189,1,0,0,0,195,190,1,0,0,0,196,35,1,0,
+        0,0,197,198,5,26,0,0,198,199,5,2,0,0,199,204,3,34,17,0,200,201,5,
+        1,0,0,201,203,3,34,17,0,202,200,1,0,0,0,203,206,1,0,0,0,204,202,
+        1,0,0,0,204,205,1,0,0,0,205,207,1,0,0,0,206,204,1,0,0,0,207,208,
+        5,3,0,0,208,37,1,0,0,0,209,213,3,40,20,0,210,212,3,42,21,0,211,210,
+        1,0,0,0,212,215,1,0,0,0,213,211,1,0,0,0,213,214,1,0,0,0,214,39,1,
+        0,0,0,215,213,1,0,0,0,216,217,7,2,0,0,217,41,1,0,0,0,218,219,5,4,
+        0,0,219,224,3,40,20,0,220,221,5,5,0,0,221,222,5,25,0,0,222,224,5,
+        6,0,0,223,218,1,0,0,0,223,220,1,0,0,0,224,43,1,0,0,0,225,226,5,28,
+        0,0,226,45,1,0,0,0,227,228,5,27,0,0,228,229,5,0,0,1,229,47,1,0,0,
+        0,230,231,5,28,0,0,231,232,5,0,0,1,232,49,1,0,0,0,233,235,5,30,0,
+        0,234,233,1,0,0,0,235,236,1,0,0,0,236,234,1,0,0,0,236,237,1,0,0,
+        0,237,51,1,0,0,0,18,60,79,98,106,108,120,122,130,143,155,167,174,
+        185,195,204,213,223,236
+    ]
 
 class DynamoDbGrammarParser ( Parser ):
 
@@ -201,7 +183,7 @@ class DynamoDbGrammarParser ( Parser ):
 
     def __init__(self, input:TokenStream, output:TextIO = sys.stdout):
         super().__init__(input, output)
-        self.checkVersion("4.9.3")
+        self.checkVersion("4.13.2")
         self._interp = ParserATNSimulator(self, self.atn, self.decisionsToDFA, self.sharedContextCache)
         self._predicates = None
 
@@ -300,7 +282,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 60
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==DynamoDbGrammarParser.T__0:
+            while _la==1:
                 self.state = 56
                 self.match(DynamoDbGrammarParser.T__0)
                 self.state = 57
@@ -608,7 +590,7 @@ class DynamoDbGrammarParser ( Parser ):
                 self.state = 79
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                while _la==DynamoDbGrammarParser.T__0:
+                while _la==1:
                     self.state = 75
                     self.match(DynamoDbGrammarParser.T__0)
                     self.state = 76
@@ -772,7 +754,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 111
             _la = self._input.LA(1)
-            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << DynamoDbGrammarParser.EQ) | (1 << DynamoDbGrammarParser.NE) | (1 << DynamoDbGrammarParser.LT) | (1 << DynamoDbGrammarParser.LE) | (1 << DynamoDbGrammarParser.GT) | (1 << DynamoDbGrammarParser.GE))) != 0)):
+            if not((((_la) & ~0x3f) == 0 and ((1 << _la) & 16128) != 0)):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -896,19 +878,19 @@ class DynamoDbGrammarParser ( Parser ):
                 self.state = 120
                 self._errHandler.sync(self)
                 token = self._input.LA(1)
-                if token in [DynamoDbGrammarParser.SET]:
+                if token in [21]:
                     self.state = 116
                     self.set_section()
                     pass
-                elif token in [DynamoDbGrammarParser.ADD]:
+                elif token in [22]:
                     self.state = 117
                     self.add_section()
                     pass
-                elif token in [DynamoDbGrammarParser.DELETE]:
+                elif token in [23]:
                     self.state = 118
                     self.delete_section()
                     pass
-                elif token in [DynamoDbGrammarParser.REMOVE]:
+                elif token in [24]:
                     self.state = 119
                     self.remove_section()
                     pass
@@ -918,7 +900,7 @@ class DynamoDbGrammarParser ( Parser ):
                 self.state = 122 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not ((((_la) & ~0x3f) == 0 and ((1 << _la) & ((1 << DynamoDbGrammarParser.SET) | (1 << DynamoDbGrammarParser.ADD) | (1 << DynamoDbGrammarParser.DELETE) | (1 << DynamoDbGrammarParser.REMOVE))) != 0)):
+                if not ((((_la) & ~0x3f) == 0 and ((1 << _la) & 31457280) != 0)):
                     break
 
         except RecognitionException as re:
@@ -975,7 +957,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 130
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==DynamoDbGrammarParser.T__0:
+            while _la==1:
                 self.state = 126
                 self.match(DynamoDbGrammarParser.T__0)
                 self.state = 127
@@ -1091,7 +1073,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 143
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==DynamoDbGrammarParser.T__0:
+            while _la==1:
                 self.state = 139
                 self.match(DynamoDbGrammarParser.T__0)
                 self.state = 140
@@ -1202,7 +1184,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 155
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==DynamoDbGrammarParser.T__0:
+            while _la==1:
                 self.state = 151
                 self.match(DynamoDbGrammarParser.T__0)
                 self.state = 152
@@ -1313,7 +1295,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 167
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==DynamoDbGrammarParser.T__0:
+            while _la==1:
                 self.state = 163
                 self.match(DynamoDbGrammarParser.T__0)
                 self.state = 164
@@ -1543,7 +1525,7 @@ class DynamoDbGrammarParser ( Parser ):
                 self.operand()
                 self.state = 177
                 _la = self._input.LA(1)
-                if not(_la==DynamoDbGrammarParser.PLUS or _la==DynamoDbGrammarParser.MINUS):
+                if not(_la==14 or _la==15):
                     self._errHandler.recoverInline(self)
                 else:
                     self._errHandler.reportMatch(self)
@@ -1787,7 +1769,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 204
             self._errHandler.sync(self)
             _la = self._input.LA(1)
-            while _la==DynamoDbGrammarParser.T__0:
+            while _la==1:
                 self.state = 200
                 self.match(DynamoDbGrammarParser.T__0)
                 self.state = 201
@@ -1903,7 +1885,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.enterOuterAlt(localctx, 1)
             self.state = 216
             _la = self._input.LA(1)
-            if not(_la==DynamoDbGrammarParser.ID or _la==DynamoDbGrammarParser.ATTRIBUTE_NAME_SUB):
+            if not(_la==26 or _la==27):
                 self._errHandler.recoverInline(self)
             else:
                 self._errHandler.reportMatch(self)
@@ -1980,7 +1962,7 @@ class DynamoDbGrammarParser ( Parser ):
             self.state = 223
             self._errHandler.sync(self)
             token = self._input.LA(1)
-            if token in [DynamoDbGrammarParser.T__3]:
+            if token in [4]:
                 localctx = DynamoDbGrammarParser.MapAccessContext(self, localctx)
                 self.enterOuterAlt(localctx, 1)
                 self.state = 218
@@ -1988,7 +1970,7 @@ class DynamoDbGrammarParser ( Parser ):
                 self.state = 219
                 self.id_()
                 pass
-            elif token in [DynamoDbGrammarParser.T__4]:
+            elif token in [5]:
                 localctx = DynamoDbGrammarParser.ListAccessContext(self, localctx)
                 self.enterOuterAlt(localctx, 2)
                 self.state = 220
@@ -2199,7 +2181,7 @@ class DynamoDbGrammarParser ( Parser ):
                 self.state = 236 
                 self._errHandler.sync(self)
                 _la = self._input.LA(1)
-                if not (_la==DynamoDbGrammarParser.UNKNOWN):
+                if not (_la==30):
                     break
 
         except RecognitionException as re:

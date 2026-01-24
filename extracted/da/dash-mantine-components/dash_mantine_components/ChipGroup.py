@@ -83,7 +83,7 @@ Keyword arguments:
 
 - value (string | list of strings; optional):
     When using multiple=True, value must be a list."""
-    _children_props = []
+    _children_props: typing.List[str] = []
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'ChipGroup'

@@ -46,6 +46,7 @@ class DocumentModelSerializer(serializers.ModelSerializer):
             "created",
             "valid_from",
             "valid_until",
+            "permission_type",
             "_additional_resources",
         )
 

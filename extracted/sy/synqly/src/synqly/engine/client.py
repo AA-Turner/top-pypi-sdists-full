@@ -7,9 +7,11 @@ from .core.client_wrapper import SyncClientWrapper
 from .appsec.client import AppsecClient
 from .assets.client import AssetsClient
 from .cloudsecurity.client import CloudsecurityClient
+from .custom.client import CustomClient
 from .edr.client import EdrClient
 from .hooks.client import HooksClient
 from .identity.client import IdentityClient
+from .incidentresponse.client import IncidentresponseClient
 from .integration_webhooks.client import IntegrationWebhooksClient
 from .notifications.client import NotificationsClient
 from .operations.client import OperationsClient
@@ -22,9 +24,11 @@ from .core.client_wrapper import AsyncClientWrapper
 from .appsec.client import AsyncAppsecClient
 from .assets.client import AsyncAssetsClient
 from .cloudsecurity.client import AsyncCloudsecurityClient
+from .custom.client import AsyncCustomClient
 from .edr.client import AsyncEdrClient
 from .hooks.client import AsyncHooksClient
 from .identity.client import AsyncIdentityClient
+from .incidentresponse.client import AsyncIncidentresponseClient
 from .integration_webhooks.client import AsyncIntegrationWebhooksClient
 from .notifications.client import AsyncNotificationsClient
 from .operations.client import AsyncOperationsClient
@@ -100,9 +104,13 @@ class SynqlyEngine:
         self.appsec = AppsecClient(client_wrapper=self._client_wrapper)
         self.assets = AssetsClient(client_wrapper=self._client_wrapper)
         self.cloudsecurity = CloudsecurityClient(client_wrapper=self._client_wrapper)
+        self.custom = CustomClient(client_wrapper=self._client_wrapper)
         self.edr = EdrClient(client_wrapper=self._client_wrapper)
         self.hooks = HooksClient(client_wrapper=self._client_wrapper)
         self.identity = IdentityClient(client_wrapper=self._client_wrapper)
+        self.incidentresponse = IncidentresponseClient(
+            client_wrapper=self._client_wrapper
+        )
         self.integration_webhooks = IntegrationWebhooksClient(
             client_wrapper=self._client_wrapper
         )
@@ -184,9 +192,13 @@ class AsyncSynqlyEngine:
         self.cloudsecurity = AsyncCloudsecurityClient(
             client_wrapper=self._client_wrapper
         )
+        self.custom = AsyncCustomClient(client_wrapper=self._client_wrapper)
         self.edr = AsyncEdrClient(client_wrapper=self._client_wrapper)
         self.hooks = AsyncHooksClient(client_wrapper=self._client_wrapper)
         self.identity = AsyncIdentityClient(client_wrapper=self._client_wrapper)
+        self.incidentresponse = AsyncIncidentresponseClient(
+            client_wrapper=self._client_wrapper
+        )
         self.integration_webhooks = AsyncIntegrationWebhooksClient(
             client_wrapper=self._client_wrapper
         )

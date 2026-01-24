@@ -18,15 +18,17 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.instance_execution_reference_id import InstanceExecutionReferenceId
 
 class IntegrationRerunResponse(BaseModel):
     """
     IntegrationRerunResponse
     """
-    run_id: InstanceExecutionReferenceId = Field(..., alias="runId")
+    run_id: InstanceExecutionReferenceId = Field(alias="runId")
     __properties = ["runId"]
 
     class Config:
@@ -79,3 +81,5 @@ class IntegrationRerunResponse(BaseModel):
             "run_id": InstanceExecutionReferenceId.from_dict(obj.get("runId")) if obj.get("runId") is not None else None
         })
         return _obj
+
+IntegrationRerunResponse.update_forward_refs()

@@ -1,5 +1,3 @@
-from typing import Dict
-
 from clease.datastructures import SystemChanges
 from clease.montecarlo.observers.mc_observer import MCObserver
 
@@ -45,7 +43,7 @@ class AcceptanceRate(MCObserver):
             self.num_accept += 1
         self.num_calls += 1
 
-    def get_averages(self) -> Dict[str, float]:
+    def get_averages(self) -> dict[str, float]:
         """
         Return dictionary with the rate such that it is added to thermodynaic quantities
         """

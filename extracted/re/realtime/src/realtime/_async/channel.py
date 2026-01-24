@@ -85,7 +85,7 @@ class AsyncRealtimeChannel:
             else {
                 "config": {
                     "broadcast": {"ack": False, "self": False},
-                    "presence": {"key": ""},
+                    "presence": {"key": "", "enabled": False},
                     "private": False,
                 }
             }
@@ -191,8 +191,15 @@ class AsyncRealtimeChannel:
         else:
             config: RealtimeChannelConfig = self.params["config"]
             broadcast = config.get("broadcast")
-            presence = config.get("presence")
+            presence = config.get("presence") or RealtimeChannelPresenceConfig(
+                key="", enabled=False
+            )
             private = config.get("private", False)
+
+            presence_enabled = self.presence._has_callback_attached or presence.get(
+                "enabled", False
+            )
+            presence["enabled"] = presence_enabled
 
             config_payload: Dict[str, Any] = {
                 "config": {
@@ -229,7 +236,7 @@ class AsyncRealtimeChannel:
 
                         if (
                             server_binding
-                            and server_binding.events == postgres_callback.event
+                            and server_binding.event == postgres_callback.event
                             and server_binding.schema_ == postgres_callback.schema
                             and server_binding.table == postgres_callback.table
                             and server_binding.filter == postgres_callback.filter
@@ -429,6 +436,13 @@ class AsyncRealtimeChannel:
         :return: The Channel instance for method chaining.
         """
         self.presence.on_sync(callback)
+
+        if self.is_joined:
+            logger.info(
+                f"channel {self.topic} resubscribe due to change in presence callbacks on joined channel"
+            )
+            asyncio.create_task(self._resubscribe())
+
         return self
 
     def on_presence_join(
@@ -441,6 +455,12 @@ class AsyncRealtimeChannel:
         :return: The Channel instance for method chaining.
         """
         self.presence.on_join(callback)
+        if self.is_joined:
+            logger.info(
+                f"channel {self.topic} resubscribe due to change in presence callbacks on joined channel"
+            )
+            asyncio.create_task(self._resubscribe())
+
         return self
 
     def on_presence_leave(
@@ -453,6 +473,11 @@ class AsyncRealtimeChannel:
         :return: The Channel instance for method chaining.
         """
         self.presence.on_leave(callback)
+        if self.is_joined:
+            logger.info(
+                f"channel {self.topic} resubscribe due to change in presence callbacks on joined channel"
+            )
+            asyncio.create_task(self._resubscribe())
         return self
 
     # Broadcast methods
@@ -469,13 +494,18 @@ class AsyncRealtimeChannel:
         )
 
     # Internal methods
+
+    async def _resubscribe(self) -> None:
+        await self.unsubscribe()
+        await self.subscribe()
+
     def _broadcast_endpoint_url(self):
         return f"{http_endpoint_url(self.socket.http_endpoint)}/api/broadcast"
 
     async def _rejoin(self) -> None:
         if self.is_leaving:
             return
-        await self.socket._leave_open_topic(self.topic)
+        logger.info(f"Rejoining channel after reconnection: {self.topic}")
         self.state = ChannelStates.JOINING
         await self.join_push.resend()
 
@@ -486,7 +516,7 @@ class AsyncRealtimeChannel:
         await self.push(ChannelEvents.presence, {"event": event, "payload": data})
 
     def _handle_message(self, message: ServerMessage):
-        logger.info(f"{self.topic} : {message}")
+        logger.info(f"{self.topic} : {message!r}")
         if isinstance(message, SystemMessage):
             if isinstance(message.payload, SuccessSystemPayload):
                 for callback in self.system_callbacks:

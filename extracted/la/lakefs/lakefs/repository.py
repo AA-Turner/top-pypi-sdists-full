@@ -48,10 +48,12 @@ class Repository(_BaseLakeFSObject):
         :raise NotAuthorizedException: if user is not authorized to perform this operation
         :raise ServerException: for any other errors
         """
+        storage_id = kwargs.pop("storage_id", None)
         repository_creation = lakefs_sdk.RepositoryCreation(name=self._id,
                                                             storage_namespace=storage_namespace,
                                                             default_branch=default_branch,
-                                                            sample_data=include_samples)
+                                                            sample_data=include_samples,
+                                                            storage_id=storage_id)
 
         def handle_conflict(e: LakeFSException):
             if isinstance(e, ConflictException) and exist_ok:
@@ -66,16 +68,17 @@ class Repository(_BaseLakeFSObject):
             self._properties = RepositoryProperties(**repo.dict())
         return self
 
-    def delete(self) -> None:
+    def delete(self, **kwargs) -> None:
         """
         Delete repository from lakeFS server
 
+        :param kwargs: Additional Keyword Arguments to send to the server
         :raise NotFoundException: if repository by this id does not exist
         :raise NotAuthorizedException: if user is not authorized to perform this operation
         :raise ServerException: for any other errors
         """
         with api_exception_handler():
-            self._client.sdk_client.repositories_api.delete_repository(self._id)
+            self._client.sdk_client.repositories_api.delete_repository(self._id, **kwargs)
 
     def branch(self, branch_id: str) -> Branch:
         """
@@ -172,7 +175,7 @@ class Repository(_BaseLakeFSObject):
         return f'Repository(id="{self.id}")'
 
     def __str__(self):
-        return str(self.properties)
+        return self.id
 
 
 def repositories(client: Client = None,

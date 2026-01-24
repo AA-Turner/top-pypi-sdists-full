@@ -151,7 +151,7 @@ Keyword arguments:
         Determines whether component should be hidden in dark color
         scheme with `display: none`.
 
-    - mod (string; optional):
+    - mod (string | dict with strings as keys and values of type boolean | number | string | dict | list; optional):
         Element modifiers transformed into `data-` attributes, for
         example, `{ 'data-size': 'xl' }`, falsy values are removed.
 
@@ -357,7 +357,7 @@ Keyword arguments:
 - ml (number; optional):
     MarginLeft, theme key: theme.spacing.
 
-- mod (string; optional):
+- mod (string | dict with strings as keys and values of type boolean | number | string | dict | list; optional):
     Element modifiers transformed into `data-` attributes, for
     example, `{ 'data-size': 'xl' }`, falsy values are removed.
 
@@ -437,7 +437,7 @@ Keyword arguments:
         Determines whether component should be hidden in dark color
         scheme with `display: none`.
 
-    - mod (string; optional):
+    - mod (string | dict with strings as keys and values of type boolean | number | string | dict | list; optional):
         Element modifiers transformed into `data-` attributes, for
         example, `{ 'data-size': 'xl' }`, falsy values are removed.
 
@@ -696,7 +696,7 @@ Keyword arguments:
 
 - zIndex (string | number; optional):
     Controls overlay `z-index`, `400` by default."""
-    _children_props = ['loaderProps.children', 'overlayProps.children']
+    _children_props: typing.List[str] = ['loaderProps.children', 'overlayProps.children']
     _base_nodes = ['children']
     _namespace = 'dash_mantine_components'
     _type = 'LoadingOverlay'
@@ -725,7 +725,7 @@ Keyword arguments:
             "visibleFrom": NotRequired[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "lightHidden": NotRequired[bool],
             "darkHidden": NotRequired[bool],
-            "mod": NotRequired[typing.Union[str]],
+            "mod": NotRequired[typing.Union[str, typing.Dict[typing.Union[str, float, int], typing.Any]]],
             "m": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "my": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "mx": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
@@ -802,7 +802,7 @@ Keyword arguments:
             "visibleFrom": NotRequired[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "lightHidden": NotRequired[bool],
             "darkHidden": NotRequired[bool],
-            "mod": NotRequired[typing.Union[str]],
+            "mod": NotRequired[typing.Union[str, typing.Dict[typing.Union[str, float, int], typing.Any]]],
             "m": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "my": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
             "mx": NotRequired[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]],
@@ -884,7 +884,7 @@ Keyword arguments:
         visibleFrom: typing.Optional[typing.Union[Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         lightHidden: typing.Optional[bool] = None,
         darkHidden: typing.Optional[bool] = None,
-        mod: typing.Optional[typing.Union[str]] = None,
+        mod: typing.Optional[typing.Union[str, typing.Dict[typing.Union[str, float, int], typing.Any]]] = None,
         m: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         my: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,
         mx: typing.Optional[typing.Union[NumberType, Literal["xs"], Literal["sm"], Literal["md"], Literal["lg"], Literal["xl"]]] = None,

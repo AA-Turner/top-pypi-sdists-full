@@ -3,12 +3,18 @@
 
 import argparse
 
+import rich.box
+from rich.style import Style
+from rich.table import Table
+from rich.text import Text
+
 from cmd2 import (
     Cmd,
     Cmd2ArgumentParser,
+    Cmd2Style,
+    Color,
     CompletionError,
     CompletionItem,
-    ansi,
     with_argparser,
 )
 
@@ -17,8 +23,8 @@ food_item_strs = ['Pizza', 'Ham', 'Ham Sandwich', 'Potato']
 
 
 class ArgparseCompletion(Cmd):
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self) -> None:
+        super().__init__(include_ipy=True)
         self.sport_item_strs = ['Bat', 'Basket', 'Basketball', 'Football', 'Space Ball']
 
     def choices_provider(self) -> list[str]:
@@ -38,10 +44,28 @@ class ArgparseCompletion(Cmd):
 
     def choices_completion_item(self) -> list[CompletionItem]:
         """Return CompletionItem instead of strings. These give more context to what's being tab completed."""
-        fancy_item = "These things can\ncontain newlines and\n"
-        fancy_item += ansi.style("styled text!!", fg=ansi.Fg.LIGHT_YELLOW, underline=True)
-        items = {1: "My item", 2: "Another item", 3: "Yet another item", 4: fancy_item}
-        return [CompletionItem(item_id, description) for item_id, description in items.items()]
+        fancy_item = Text.assemble(
+            "These things can\ncontain newlines and\n",
+            Text("styled text!!", style=Style(color=Color.BRIGHT_YELLOW, underline=True)),
+        )
+
+        table_item = Table(
+            "Left Column",
+            "Right Column",
+            box=rich.box.ROUNDED,
+            border_style=Cmd2Style.TABLE_BORDER,
+        )
+        table_item.add_row("Yes, it's true.", "CompletionItems can")
+        table_item.add_row("even display description", "data in tables!")
+
+        items = {
+            1: "My item",
+            2: "Another item",
+            3: "Yet another item",
+            4: fancy_item,
+            5: table_item,
+        }
+        return [CompletionItem(item_id, [description]) for item_id, description in items.items()]
 
     def choices_arg_tokens(self, arg_tokens: dict[str, list[str]]) -> list[str]:
         """If a choices or completer function/method takes a value called arg_tokens, then it will be
@@ -86,7 +110,7 @@ class ArgparseCompletion(Cmd):
         '--completion_item',
         choices_provider=choices_completion_item,
         metavar="ITEM_ID",
-        descriptive_header="Description",
+        descriptive_headers=["Description"],
         help="demonstrate use of CompletionItems",
     )
 

@@ -16,7 +16,6 @@ short_description: Configure connector.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.0.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -141,8 +140,8 @@ EXAMPLES = '''
     - name: Configure connector.
       fortinet.fortimanager.fmgr_system_connector:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         system_connector:
@@ -222,7 +221,7 @@ def main():
                 'faznotify-msg-queue-max': {'v_range': [['7.4.2', '']], 'type': 'int'},
                 'faznotify-msg-timeout': {'v_range': [['7.4.2', '']], 'type': 'int'},
                 'conn-ssl-protocol': {
-                    'v_range': [['7.4.4', '7.4.7'], ['7.6.2', '']],
+                    'v_range': [['7.4.4', '7.4.8'], ['7.6.2', '']],
                     'choices': ['follow-global-ssl-protocol', 'sslv3', 'tlsv1.0', 'tlsv1.1', 'tlsv1.2', 'tlsv1.3'],
                     'type': 'str'
                 }

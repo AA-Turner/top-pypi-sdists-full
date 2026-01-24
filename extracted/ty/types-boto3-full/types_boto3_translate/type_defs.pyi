@@ -3,7 +3,7 @@ Type annotations for translate service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_translate/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -32,12 +33,6 @@ from .literals import (
     TerminologyDataFormatType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -130,7 +125,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -211,7 +206,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 
 class AppliedTerminologyTypeDef(TypedDict):
     Name: NotRequired[str]
-    Terms: NotRequired[List[TermTypeDef]]
+    Terms: NotRequired[list[TermTypeDef]]
 
 class DocumentTypeDef(TypedDict):
     Content: BlobTypeDef
@@ -231,7 +226,7 @@ class TerminologyPropertiesTypeDef(TypedDict):
     Description: NotRequired[str]
     Arn: NotRequired[str]
     SourceLanguageCode: NotRequired[str]
-    TargetLanguageCodes: NotRequired[List[str]]
+    TargetLanguageCodes: NotRequired[list[str]]
     EncryptionKey: NotRequired[EncryptionKeyTypeDef]
     SizeBytes: NotRequired[int]
     TermCount: NotRequired[int]
@@ -248,7 +243,7 @@ class ParallelDataPropertiesTypeDef(TypedDict):
     Description: NotRequired[str]
     Status: NotRequired[ParallelDataStatusType]
     SourceLanguageCode: NotRequired[str]
-    TargetLanguageCodes: NotRequired[List[str]]
+    TargetLanguageCodes: NotRequired[list[str]]
     ParallelDataConfig: NotRequired[ParallelDataConfigTypeDef]
     Message: NotRequired[str]
     ImportedDataSize: NotRequired[int]
@@ -293,7 +288,7 @@ class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartTextTranslationJobResponseTypeDef(TypedDict):
@@ -314,7 +309,7 @@ class UpdateParallelDataResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListLanguagesResponseTypeDef(TypedDict):
-    Languages: List[LanguageTypeDef]
+    Languages: list[LanguageTypeDef]
     DisplayLanguageCode: DisplayLanguageCodeType
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
@@ -343,7 +338,7 @@ class TranslateDocumentResponseTypeDef(TypedDict):
     TranslatedDocument: TranslatedDocumentTypeDef
     SourceLanguageCode: str
     TargetLanguageCode: str
-    AppliedTerminologies: List[AppliedTerminologyTypeDef]
+    AppliedTerminologies: list[AppliedTerminologyTypeDef]
     AppliedSettings: TranslationSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -351,7 +346,7 @@ class TranslateTextResponseTypeDef(TypedDict):
     TranslatedText: str
     SourceLanguageCode: str
     TargetLanguageCode: str
-    AppliedTerminologies: List[AppliedTerminologyTypeDef]
+    AppliedTerminologies: list[AppliedTerminologyTypeDef]
     AppliedSettings: TranslationSettingsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -388,9 +383,9 @@ class TextTranslationJobPropertiesTypeDef(TypedDict):
     JobStatus: NotRequired[JobStatusType]
     JobDetails: NotRequired[JobDetailsTypeDef]
     SourceLanguageCode: NotRequired[str]
-    TargetLanguageCodes: NotRequired[List[str]]
-    TerminologyNames: NotRequired[List[str]]
-    ParallelDataNames: NotRequired[List[str]]
+    TargetLanguageCodes: NotRequired[list[str]]
+    TerminologyNames: NotRequired[list[str]]
+    ParallelDataNames: NotRequired[list[str]]
     Message: NotRequired[str]
     SubmittedTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
@@ -411,7 +406,7 @@ class ImportTerminologyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTerminologiesResponseTypeDef(TypedDict):
-    TerminologyPropertiesList: List[TerminologyPropertiesTypeDef]
+    TerminologyPropertiesList: list[TerminologyPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -423,7 +418,7 @@ class GetParallelDataResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListParallelDataResponseTypeDef(TypedDict):
-    ParallelDataPropertiesList: List[ParallelDataPropertiesTypeDef]
+    ParallelDataPropertiesList: list[ParallelDataPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -437,6 +432,6 @@ class DescribeTextTranslationJobResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTextTranslationJobsResponseTypeDef(TypedDict):
-    TextTranslationJobPropertiesList: List[TextTranslationJobPropertiesTypeDef]
+    TextTranslationJobPropertiesList: list[TextTranslationJobPropertiesTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

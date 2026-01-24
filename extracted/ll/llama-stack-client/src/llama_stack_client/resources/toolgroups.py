@@ -1,13 +1,20 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from __future__ import annotations
 
-from typing import Dict, Type, Union, Iterable, cast
+import typing_extensions
+from typing import Dict, Type, Optional, cast
 
 import httpx
 
 from ..types import toolgroup_register_params
-from .._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven
+from .._types import Body, Omit, Query, Headers, NoneType, NotGiven, omit, not_given
 from .._utils import maybe_transform, async_maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
@@ -45,6 +52,7 @@ class ToolgroupsResource(SyncAPIResource):
         """
         return ToolgroupsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
@@ -53,7 +61,7 @@ class ToolgroupsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolgroupListResponse:
         """List tool groups with optional provider."""
         return self._get(
@@ -68,6 +76,7 @@ class ToolgroupsResource(SyncAPIResource):
             cast_to=cast(Type[ToolgroupListResponse], DataWrapper[ToolgroupListResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     def get(
         self,
         toolgroup_id: str,
@@ -77,7 +86,7 @@ class ToolgroupsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolGroup:
         """
         Get a tool group by its ID.
@@ -101,31 +110,26 @@ class ToolgroupsResource(SyncAPIResource):
             cast_to=ToolGroup,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def register(
         self,
         *,
         provider_id: str,
         toolgroup_id: str,
-        args: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        mcp_endpoint: toolgroup_register_params.McpEndpoint | NotGiven = NOT_GIVEN,
+        args: Optional[Dict[str, object]] | Omit = omit,
+        mcp_endpoint: Optional[toolgroup_register_params.McpEndpoint] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Register a tool group.
 
         Args:
-          provider_id: The ID of the provider to use for the tool group.
-
-          toolgroup_id: The ID of the tool group to register.
-
-          args: A dictionary of arguments to pass to the tool group.
-
-          mcp_endpoint: The MCP endpoint to use for the tool group.
+          mcp_endpoint: A URL reference to external content.
 
           extra_headers: Send extra headers
 
@@ -153,6 +157,7 @@ class ToolgroupsResource(SyncAPIResource):
             cast_to=NoneType,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def unregister(
         self,
         toolgroup_id: str,
@@ -162,7 +167,7 @@ class ToolgroupsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Unregister a tool group.
@@ -208,6 +213,7 @@ class AsyncToolgroupsResource(AsyncAPIResource):
         """
         return AsyncToolgroupsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def list(
         self,
         *,
@@ -216,7 +222,7 @@ class AsyncToolgroupsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolgroupListResponse:
         """List tool groups with optional provider."""
         return await self._get(
@@ -231,6 +237,7 @@ class AsyncToolgroupsResource(AsyncAPIResource):
             cast_to=cast(Type[ToolgroupListResponse], DataWrapper[ToolgroupListResponse]),
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def get(
         self,
         toolgroup_id: str,
@@ -240,7 +247,7 @@ class AsyncToolgroupsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> ToolGroup:
         """
         Get a tool group by its ID.
@@ -264,31 +271,26 @@ class AsyncToolgroupsResource(AsyncAPIResource):
             cast_to=ToolGroup,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def register(
         self,
         *,
         provider_id: str,
         toolgroup_id: str,
-        args: Dict[str, Union[bool, float, str, Iterable[object], object, None]] | NotGiven = NOT_GIVEN,
-        mcp_endpoint: toolgroup_register_params.McpEndpoint | NotGiven = NOT_GIVEN,
+        args: Optional[Dict[str, object]] | Omit = omit,
+        mcp_endpoint: Optional[toolgroup_register_params.McpEndpoint] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Register a tool group.
 
         Args:
-          provider_id: The ID of the provider to use for the tool group.
-
-          toolgroup_id: The ID of the tool group to register.
-
-          args: A dictionary of arguments to pass to the tool group.
-
-          mcp_endpoint: The MCP endpoint to use for the tool group.
+          mcp_endpoint: A URL reference to external content.
 
           extra_headers: Send extra headers
 
@@ -316,6 +318,7 @@ class AsyncToolgroupsResource(AsyncAPIResource):
             cast_to=NoneType,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def unregister(
         self,
         toolgroup_id: str,
@@ -325,7 +328,7 @@ class AsyncToolgroupsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Unregister a tool group.
@@ -355,17 +358,25 @@ class ToolgroupsResourceWithRawResponse:
     def __init__(self, toolgroups: ToolgroupsResource) -> None:
         self._toolgroups = toolgroups
 
-        self.list = to_raw_response_wrapper(
-            toolgroups.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                toolgroups.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_raw_response_wrapper(
-            toolgroups.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                toolgroups.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.register = to_raw_response_wrapper(
-            toolgroups.register,
+        self.register = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                toolgroups.register,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unregister = to_raw_response_wrapper(
-            toolgroups.unregister,
+        self.unregister = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                toolgroups.unregister,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -373,17 +384,25 @@ class AsyncToolgroupsResourceWithRawResponse:
     def __init__(self, toolgroups: AsyncToolgroupsResource) -> None:
         self._toolgroups = toolgroups
 
-        self.list = async_to_raw_response_wrapper(
-            toolgroups.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                toolgroups.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_raw_response_wrapper(
-            toolgroups.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                toolgroups.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.register = async_to_raw_response_wrapper(
-            toolgroups.register,
+        self.register = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                toolgroups.register,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unregister = async_to_raw_response_wrapper(
-            toolgroups.unregister,
+        self.unregister = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                toolgroups.unregister,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -391,17 +410,25 @@ class ToolgroupsResourceWithStreamingResponse:
     def __init__(self, toolgroups: ToolgroupsResource) -> None:
         self._toolgroups = toolgroups
 
-        self.list = to_streamed_response_wrapper(
-            toolgroups.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                toolgroups.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = to_streamed_response_wrapper(
-            toolgroups.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                toolgroups.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.register = to_streamed_response_wrapper(
-            toolgroups.register,
+        self.register = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                toolgroups.register,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unregister = to_streamed_response_wrapper(
-            toolgroups.unregister,
+        self.unregister = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                toolgroups.unregister,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -409,15 +436,23 @@ class AsyncToolgroupsResourceWithStreamingResponse:
     def __init__(self, toolgroups: AsyncToolgroupsResource) -> None:
         self._toolgroups = toolgroups
 
-        self.list = async_to_streamed_response_wrapper(
-            toolgroups.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                toolgroups.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.get = async_to_streamed_response_wrapper(
-            toolgroups.get,
+        self.get = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                toolgroups.get,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.register = async_to_streamed_response_wrapper(
-            toolgroups.register,
+        self.register = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                toolgroups.register,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.unregister = async_to_streamed_response_wrapper(
-            toolgroups.unregister,
+        self.unregister = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                toolgroups.unregister,  # pyright: ignore[reportDeprecated],
+            )
         )

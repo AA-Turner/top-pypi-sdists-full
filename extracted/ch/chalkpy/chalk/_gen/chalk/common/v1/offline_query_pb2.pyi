@@ -99,6 +99,27 @@ class OfflineQueryInputs(_message.Message):
         sharded_parquet_upload_inputs: _Optional[_Union[OfflineQueryShardedParquetUploadInput, _Mapping]] = ...,
     ) -> None: ...
 
+class ResourceRequests(_message.Message):
+    __slots__ = ("cpu", "memory", "ephemeral_volume_size", "ephemeral_storage", "resource_group")
+    CPU_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_FIELD_NUMBER: _ClassVar[int]
+    EPHEMERAL_VOLUME_SIZE_FIELD_NUMBER: _ClassVar[int]
+    EPHEMERAL_STORAGE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
+    cpu: str
+    memory: str
+    ephemeral_volume_size: str
+    ephemeral_storage: str
+    resource_group: str
+    def __init__(
+        self,
+        cpu: _Optional[str] = ...,
+        memory: _Optional[str] = ...,
+        ephemeral_volume_size: _Optional[str] = ...,
+        ephemeral_storage: _Optional[str] = ...,
+        resource_group: _Optional[str] = ...,
+    ) -> None: ...
+
 class OfflineQueryRequest(_message.Message):
     __slots__ = (
         "inputs",
@@ -121,6 +142,7 @@ class OfflineQueryRequest(_message.Message):
         "observed_at_lower_bound",
         "observed_at_upper_bound",
         "planner_options",
+        "env_overrides",
         "store_online",
         "store_offline",
         "use_multiple_computers",
@@ -130,6 +152,7 @@ class OfflineQueryRequest(_message.Message):
         "overlay_graph",
         "query_name",
         "query_name_version",
+        "resources",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -140,6 +163,14 @@ class OfflineQueryRequest(_message.Message):
         def __init__(
             self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
         ) -> None: ...
+
+    class EnvOverridesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
     class QueryContextEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -171,6 +202,7 @@ class OfflineQueryRequest(_message.Message):
     OBSERVED_AT_LOWER_BOUND_FIELD_NUMBER: _ClassVar[int]
     OBSERVED_AT_UPPER_BOUND_FIELD_NUMBER: _ClassVar[int]
     PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    ENV_OVERRIDES_FIELD_NUMBER: _ClassVar[int]
     STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
     STORE_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     USE_MULTIPLE_COMPUTERS_FIELD_NUMBER: _ClassVar[int]
@@ -180,6 +212,7 @@ class OfflineQueryRequest(_message.Message):
     OVERLAY_GRAPH_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    RESOURCES_FIELD_NUMBER: _ClassVar[int]
     inputs: OfflineQueryInputs
     outputs: _containers.RepeatedScalarFieldContainer[str]
     required_outputs: _containers.RepeatedScalarFieldContainer[str]
@@ -200,6 +233,7 @@ class OfflineQueryRequest(_message.Message):
     observed_at_lower_bound: str
     observed_at_upper_bound: str
     planner_options: _containers.MessageMap[str, _struct_pb2.Value]
+    env_overrides: _containers.ScalarMap[str, str]
     store_online: bool
     store_offline: bool
     use_multiple_computers: bool
@@ -209,6 +243,7 @@ class OfflineQueryRequest(_message.Message):
     overlay_graph: _graph_pb2.OverlayGraph
     query_name: str
     query_name_version: str
+    resources: ResourceRequests
     def __init__(
         self,
         inputs: _Optional[_Union[OfflineQueryInputs, _Mapping]] = ...,
@@ -231,6 +266,7 @@ class OfflineQueryRequest(_message.Message):
         observed_at_lower_bound: _Optional[str] = ...,
         observed_at_upper_bound: _Optional[str] = ...,
         planner_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        env_overrides: _Optional[_Mapping[str, str]] = ...,
         store_online: bool = ...,
         store_offline: bool = ...,
         use_multiple_computers: bool = ...,
@@ -240,6 +276,7 @@ class OfflineQueryRequest(_message.Message):
         overlay_graph: _Optional[_Union[_graph_pb2.OverlayGraph, _Mapping]] = ...,
         query_name: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
+        resources: _Optional[_Union[ResourceRequests, _Mapping]] = ...,
     ) -> None: ...
 
 class ColumnMetadataList(_message.Message):

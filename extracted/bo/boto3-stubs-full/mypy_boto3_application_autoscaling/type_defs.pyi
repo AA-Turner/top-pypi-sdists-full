@@ -3,7 +3,7 @@ Type annotations for application-autoscaling service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_application_autoscaling/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -33,12 +34,6 @@ from .literals import (
     ServiceNamespaceType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -126,8 +121,8 @@ class AlarmTypeDef(TypedDict):
     AlarmARN: str
 
 class CapacityForecastTypeDef(TypedDict):
-    Timestamps: List[datetime]
-    Values: List[float]
+    Timestamps: list[datetime]
+    Values: list[float]
 
 class MetricDimensionTypeDef(TypedDict):
     Name: str
@@ -165,7 +160,7 @@ class DescribeScalableTargetsRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -278,12 +273,12 @@ class DescribeScheduledActionsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: Dict[str, str]
+    Tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PutScalingPolicyResponseTypeDef(TypedDict):
     PolicyARN: str
-    Alarms: List[AlarmTypeDef]
+    Alarms: list[AlarmTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class RegisterScalableTargetResponseTypeDef(TypedDict):
@@ -310,10 +305,10 @@ class ScalingActivityTypeDef(TypedDict):
     EndTime: NotRequired[datetime]
     StatusMessage: NotRequired[str]
     Details: NotRequired[str]
-    NotScaledReasons: NotRequired[List[NotScaledReasonTypeDef]]
+    NotScaledReasons: NotRequired[list[NotScaledReasonTypeDef]]
 
 class PredictiveScalingMetricOutputTypeDef(TypedDict):
-    Dimensions: NotRequired[List[PredictiveScalingMetricDimensionTypeDef]]
+    Dimensions: NotRequired[list[PredictiveScalingMetricDimensionTypeDef]]
     MetricName: NotRequired[str]
     Namespace: NotRequired[str]
 
@@ -370,7 +365,7 @@ class ScalableTargetTypeDef(TypedDict):
 
 class StepScalingPolicyConfigurationOutputTypeDef(TypedDict):
     AdjustmentType: NotRequired[AdjustmentTypeType]
-    StepAdjustments: NotRequired[List[StepAdjustmentTypeDef]]
+    StepAdjustments: NotRequired[list[StepAdjustmentTypeDef]]
     MinAdjustmentMagnitude: NotRequired[int]
     Cooldown: NotRequired[int]
     MetricAggregationType: NotRequired[MetricAggregationTypeType]
@@ -383,7 +378,7 @@ class StepScalingPolicyConfigurationTypeDef(TypedDict):
     MetricAggregationType: NotRequired[MetricAggregationTypeType]
 
 class TargetTrackingMetricOutputTypeDef(TypedDict):
-    Dimensions: NotRequired[List[TargetTrackingMetricDimensionTypeDef]]
+    Dimensions: NotRequired[list[TargetTrackingMetricDimensionTypeDef]]
     MetricName: NotRequired[str]
     Namespace: NotRequired[str]
 
@@ -393,7 +388,7 @@ class TargetTrackingMetricTypeDef(TypedDict):
     Namespace: NotRequired[str]
 
 class DescribeScalingActivitiesResponseTypeDef(TypedDict):
-    ScalingActivities: List[ScalingActivityTypeDef]
+    ScalingActivities: list[ScalingActivityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -408,12 +403,12 @@ class PredictiveScalingMetricStatTypeDef(TypedDict):
     Unit: NotRequired[str]
 
 class DescribeScheduledActionsResponseTypeDef(TypedDict):
-    ScheduledActions: List[ScheduledActionTypeDef]
+    ScheduledActions: list[ScheduledActionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 class DescribeScalableTargetsResponseTypeDef(TypedDict):
-    ScalableTargets: List[ScalableTargetTypeDef]
+    ScalableTargets: list[ScalableTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -460,7 +455,7 @@ class TargetTrackingMetricDataQueryTypeDef(TypedDict):
     ReturnData: NotRequired[bool]
 
 class PredictiveScalingCustomizedMetricSpecificationOutputTypeDef(TypedDict):
-    MetricDataQueries: List[PredictiveScalingMetricDataQueryOutputTypeDef]
+    MetricDataQueries: list[PredictiveScalingMetricDataQueryOutputTypeDef]
 
 class PredictiveScalingCustomizedMetricSpecificationTypeDef(TypedDict):
     MetricDataQueries: Sequence[PredictiveScalingMetricDataQueryTypeDef]
@@ -468,10 +463,10 @@ class PredictiveScalingCustomizedMetricSpecificationTypeDef(TypedDict):
 class CustomizedMetricSpecificationOutputTypeDef(TypedDict):
     MetricName: NotRequired[str]
     Namespace: NotRequired[str]
-    Dimensions: NotRequired[List[MetricDimensionTypeDef]]
+    Dimensions: NotRequired[list[MetricDimensionTypeDef]]
     Statistic: NotRequired[MetricStatisticType]
     Unit: NotRequired[str]
-    Metrics: NotRequired[List[TargetTrackingMetricDataQueryOutputTypeDef]]
+    Metrics: NotRequired[list[TargetTrackingMetricDataQueryOutputTypeDef]]
 
 class CustomizedMetricSpecificationTypeDef(TypedDict):
     MetricName: NotRequired[str]
@@ -540,12 +535,12 @@ class TargetTrackingScalingPolicyConfigurationTypeDef(TypedDict):
     DisableScaleIn: NotRequired[bool]
 
 class LoadForecastTypeDef(TypedDict):
-    Timestamps: List[datetime]
-    Values: List[float]
+    Timestamps: list[datetime]
+    Values: list[float]
     MetricSpecification: PredictiveScalingMetricSpecificationOutputTypeDef
 
 class PredictiveScalingPolicyConfigurationOutputTypeDef(TypedDict):
-    MetricSpecifications: List[PredictiveScalingMetricSpecificationOutputTypeDef]
+    MetricSpecifications: list[PredictiveScalingMetricSpecificationOutputTypeDef]
     Mode: NotRequired[PredictiveScalingModeType]
     SchedulingBufferTime: NotRequired[int]
     MaxCapacityBreachBehavior: NotRequired[PredictiveScalingMaxCapacityBreachBehaviorType]
@@ -564,7 +559,7 @@ TargetTrackingScalingPolicyConfigurationUnionTypeDef = Union[
 ]
 
 class GetPredictiveScalingForecastResponseTypeDef(TypedDict):
-    LoadForecast: List[LoadForecastTypeDef]
+    LoadForecast: list[LoadForecastTypeDef]
     CapacityForecast: CapacityForecastTypeDef
     UpdateTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -584,14 +579,14 @@ class ScalingPolicyTypeDef(TypedDict):
     PredictiveScalingPolicyConfiguration: NotRequired[
         PredictiveScalingPolicyConfigurationOutputTypeDef
     ]
-    Alarms: NotRequired[List[AlarmTypeDef]]
+    Alarms: NotRequired[list[AlarmTypeDef]]
 
 PredictiveScalingPolicyConfigurationUnionTypeDef = Union[
     PredictiveScalingPolicyConfigurationTypeDef, PredictiveScalingPolicyConfigurationOutputTypeDef
 ]
 
 class DescribeScalingPoliciesResponseTypeDef(TypedDict):
-    ScalingPolicies: List[ScalingPolicyTypeDef]
+    ScalingPolicies: list[ScalingPolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

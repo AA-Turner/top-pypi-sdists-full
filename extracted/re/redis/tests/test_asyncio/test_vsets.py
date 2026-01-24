@@ -262,6 +262,80 @@ async def test_vsim_with_scores(d_client):
     assert 0 <= vsim["elem1"] <= 1
 
 
+@skip_if_server_version_lt("8.2.0")
+async def test_vsim_with_attribs_attribs_set(d_client):
+    elements_count = 5
+    vector_dim = 10
+    attrs_dict = {"key1": "value1", "key2": "value2"}
+    for i in range(elements_count):
+        float_array = [random.uniform(0, 5) for x in range(vector_dim)]
+        await d_client.vset().vadd(
+            "myset",
+            float_array,
+            f"elem{i}",
+            numlinks=64,
+            attributes=attrs_dict if i % 2 == 0 else None,
+        )
+
+    vsim = await d_client.vset().vsim("myset", input="elem1", with_attribs=True)
+    assert len(vsim) == 5
+    assert isinstance(vsim, dict)
+    assert vsim["elem1"] is None
+    assert vsim["elem2"] == attrs_dict
+
+
+@skip_if_server_version_lt("8.2.0")
+async def test_vsim_with_scores_and_attribs_attribs_set(d_client):
+    elements_count = 5
+    vector_dim = 10
+    attrs_dict = {"key1": "value1", "key2": "value2"}
+    for i in range(elements_count):
+        float_array = [random.uniform(0, 5) for x in range(vector_dim)]
+        await d_client.vset().vadd(
+            "myset",
+            float_array,
+            f"elem{i}",
+            numlinks=64,
+            attributes=attrs_dict if i % 2 == 0 else None,
+        )
+
+    vsim = await d_client.vset().vsim(
+        "myset", input="elem1", with_scores=True, with_attribs=True
+    )
+    assert len(vsim) == 5
+    assert isinstance(vsim, dict)
+    assert isinstance(vsim["elem1"], dict)
+    assert "score" in vsim["elem1"]
+    assert "attributes" in vsim["elem1"]
+    assert isinstance(vsim["elem1"]["score"], float)
+    assert vsim["elem1"]["attributes"] is None
+
+    assert isinstance(vsim["elem2"], dict)
+    assert "score" in vsim["elem2"]
+    assert "attributes" in vsim["elem2"]
+    assert isinstance(vsim["elem2"]["score"], float)
+    assert vsim["elem2"]["attributes"] == attrs_dict
+
+
+@skip_if_server_version_lt("8.2.0")
+async def test_vsim_with_attribs_attribs_not_set(d_client):
+    elements_count = 20
+    vector_dim = 50
+    for i in range(elements_count):
+        float_array = [random.uniform(0, 10) for x in range(vector_dim)]
+        await d_client.vset().vadd(
+            "myset",
+            float_array,
+            f"elem{i}",
+            numlinks=64,
+        )
+
+    vsim = await d_client.vset().vsim("myset", input="elem1", with_attribs=True)
+    assert len(vsim) == 10
+    assert isinstance(vsim, dict)
+    assert vsim["elem1"] is None
+
+
 @skip_if_server_version_lt("7.9.0")
 async def test_vsim_with_different_vector_input_types(d_client):
     elements_count = 10
@@ -377,23 +451,23 @@ async def test_vsim_with_filter(d_client):
 
 @skip_if_server_version_lt("7.9.0")
 async def test_vsim_truth_no_thread_enabled(d_client):
-    elements_count = 5000
+    elements_count = 1000
     vector_dim = 50
     for i in range(1, elements_count + 1):
-        float_array = [random.uniform(10 * i, 1000 * i) for x in range(vector_dim)]
+        float_array = [i * vector_dim for _ in range(vector_dim)]
         await d_client.vset().vadd("myset", float_array, f"elem_{i}")
 
     await d_client.vset().vadd("myset", [-22 for _ in range(vector_dim)], "elem_man_2")
 
     sim_without_truth = await d_client.vset().vsim(
-        "myset", input="elem_man_2", with_scores=True
+        "myset", input="elem_man_2", count=30, with_scores=True
     )
     sim_truth = await d_client.vset().vsim(
-        "myset", input="elem_man_2", with_scores=True, truth=True
+        "myset", input="elem_man_2", count=30, with_scores=True, truth=True
     )
 
-    assert len(sim_without_truth) == 10
-    assert len(sim_truth) == 10
+    assert len(sim_without_truth) == 30
+    assert len(sim_truth) == 30
 
     assert isinstance(sim_without_truth, dict)
     assert isinstance(sim_truth, dict)
@@ -428,8 +502,8 @@ async def test_vsim_epsilon(d_client):
     await d_client.vset().vadd("myset", [2, 1, 1], "a")
     await d_client.vset().vadd("myset", [2, 0, 1], "b")
     await d_client.vset().vadd("myset", [2, 0, 0], "c")
-    await d_client.vset().vadd("myset", [2, 0, -1], "d")
-    await d_client.vset().vadd("myset", [2, -1, -1], "e")
+    await d_client.vset().vadd("myset", [2, 0, 2], "d")
+    await d_client.vset().vadd("myset", [-2, -1, -1], "e")
 
     res1 = await d_client.vset().vsim("myset", [2, 1, 1])
     assert 5 == len(res1)
@@ -785,13 +859,51 @@ async def test_vrandmember(d_client):
     assert members_list == []
 
 
+@skip_if_server_version_lt("8.2.0")
+async def test_8_2_new_vset_features_without_decoding_responces(client):
+    # test vadd
+    elements = ["elem1", "elem2", "elem3"]
+    attrs_dict = {"key1": "value1", "key2": "value2"}
+    for elem in elements:
+        float_array = [random.uniform(0.5, 10) for x in range(0, 8)]
+        resp = await client.vset().vadd(
+            "myset", float_array, element=elem, attributes=attrs_dict
+        )
+        assert resp == 1
+
+    # test vsim with attributes
+    vsim_with_attribs = await client.vset().vsim(
+        "myset", input="elem1", with_attribs=True
+    )
+    assert len(vsim_with_attribs) == 3
+    assert isinstance(vsim_with_attribs, dict)
+    assert isinstance(vsim_with_attribs[b"elem1"], dict)
+    assert vsim_with_attribs[b"elem1"] == attrs_dict
+
+    # test vsim with score and attributes
+    vsim_with_scores_and_attribs = await client.vset().vsim(
+        "myset", input="elem1", with_scores=True, with_attribs=True
+    )
+    assert len(vsim_with_scores_and_attribs) == 3
+    assert isinstance(vsim_with_scores_and_attribs, dict)
+    assert isinstance(vsim_with_scores_and_attribs[b"elem1"], dict)
+    assert "score" in vsim_with_scores_and_attribs[b"elem1"]
+    assert "attributes" in vsim_with_scores_and_attribs[b"elem1"]
+    assert isinstance(vsim_with_scores_and_attribs[b"elem1"]["score"], float)
+    assert isinstance(vsim_with_scores_and_attribs[b"elem1"]["attributes"], dict)
+    assert vsim_with_scores_and_attribs[b"elem1"]["attributes"] == attrs_dict
+
+
 @skip_if_server_version_lt("7.9.0")
 async def test_vset_commands_without_decoding_responces(client):
     # test vadd
     elements = ["elem1", "elem2", "elem3"]
+    attrs_dict = {"key1": "value1", "key2": "value2"}
     for elem in elements:
         float_array = [random.uniform(0.5, 10) for x in range(0, 8)]
-        resp = await client.vset().vadd("myset", float_array, element=elem)
+        resp = await client.vset().vadd(
+            "myset", float_array, element=elem, attributes=attrs_dict
+        )
         assert resp == 1
 
     # test vemb

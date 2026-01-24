@@ -1,3 +1,4 @@
+from json import dumps as json_dumps
 from json import loads as json_loads
 
 import click
@@ -24,7 +25,10 @@ def curl(url: str, request, data, json, json_output):
             url = f"{cloud.server}{url}"
         response = sync_request(cloud, url, method=request, data=all_data, json=json, json_output=json_output)
 
-    print(response)
+    if json_output:
+        print(json_dumps(response, indent=4))
+    else:
+        print(response)
 
 
 def sync_request(cloud, url, method, data=None, json: bool = False, json_output: bool = False):

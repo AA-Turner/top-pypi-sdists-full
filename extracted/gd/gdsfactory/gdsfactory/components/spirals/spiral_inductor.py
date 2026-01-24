@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["spiral_inductor"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
 
@@ -29,23 +31,6 @@ def spiral_inductor(
 
     Returns:
         Component: A GDSFactory component containing the spiral inductor pattern.
-
-    Example:
-        ```python
-        import gdsfactory as gf
-
-        # Create a standard spiral inductor
-        inductor = gf.components.spiral_inductor()
-
-        # Create a custom spiral inductor with specific parameters
-        custom_inductor = gf.components.spiral_inductor(
-            width=2.0,
-            pitch=2.5,
-            turns=12,
-            outer_diameter=600,
-            tail=40.0
-        )
-        ```
     """
     # create the outer tail
     P = gf.path.straight(length=tail)
@@ -65,6 +50,10 @@ def spiral_inductor(
 
 if __name__ == "__main__":
     import math
+
+    from gdsfactory.gpdk import PDK
+
+    PDK.activate()
 
     c = spiral_inductor()
     print(c.info["length"])

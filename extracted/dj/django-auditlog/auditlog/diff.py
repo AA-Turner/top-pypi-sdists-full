@@ -1,13 +1,15 @@
 import json
+from collections.abc import Callable
 from datetime import timezone
-from typing import Callable, Optional
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db.models import NOT_PROVIDED, DateTimeField, ForeignKey, JSONField, Model
 from django.utils import timezone as django_timezone
 from django.utils.encoding import smart_str
 from django.utils.module_loading import import_string
+
+from auditlog import get_logentry_model
 
 
 def track_field(field):
@@ -21,7 +23,6 @@ def track_field(field):
     :return: Whether the given field should be tracked.
     :rtype: bool
     """
-    from auditlog.models import LogEntry
 
     # Do not track many to many relations
     if field.many_to_many:
@@ -30,7 +31,7 @@ def track_field(field):
     # Do not track relations to LogEntry
     if (
         getattr(field, "remote_field", None) is not None
-        and field.remote_field.model == LogEntry
+        and field.remote_field.model == get_logentry_model()
     ):
         return False
 
@@ -73,15 +74,15 @@ def get_field_value(obj, field, use_json_for_changes=False):
         try:
             model_field = obj._meta.get_field(field.name)
             default = model_field.default
-            if default is NOT_PROVIDED:
-                return None
+        except (AttributeError, FieldDoesNotExist):
+            default = NOT_PROVIDED
 
-            if callable(default):
-                return default()
+        if default is NOT_PROVIDED:
+            default = None
+        elif callable(default):
+            default = default()
 
-            return default
-        except AttributeError:
-            return None
+        return smart_str(default) if not use_json_for_changes else default
 
     try:
         if isinstance(field, DateTimeField):
@@ -105,7 +106,11 @@ def get_field_value(obj, field, use_json_for_changes=False):
                     value = json.dumps(value, sort_keys=True, cls=field.encoder)
                 except TypeError:
                     pass
-        elif (field.one_to_one or field.many_to_one) and hasattr(field, "rel_class"):
+        elif (
+            not settings.AUDITLOG_USE_FK_STRING_REPRESENTATION
+            and (field.one_to_one or field.many_to_one)
+            and hasattr(field, "rel_class")
+        ):
             value = smart_str(getattr(obj, field.get_attname()), strings_only=True)
         else:
             value = getattr(obj, field.name)
@@ -131,7 +136,7 @@ def is_primitive(obj) -> bool:
     return isinstance(obj, primitive_types)
 
 
-def get_mask_function(mask_callable: Optional[str] = None) -> Callable[[str], str]:
+def get_mask_function(mask_callable: str | None = None) -> Callable[[str], str]:
     """
     Get the masking function to use based on the following priority:
     1. Model-specific mask_callable if provided
@@ -168,8 +173,8 @@ def mask_str(value: str) -> str:
 
 
 def model_instance_diff(
-    old: Optional[Model],
-    new: Optional[Model],
+    old: Model | None,
+    new: Model | None,
     fields_to_check=None,
     use_json_for_changes=False,
 ):

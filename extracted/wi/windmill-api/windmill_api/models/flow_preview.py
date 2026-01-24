@@ -18,7 +18,7 @@ T = TypeVar("T", bound="FlowPreview")
 class FlowPreview:
     """
     Attributes:
-        value (FlowPreviewValue):
+        value (FlowPreviewValue): The flow structure containing modules and optional preprocessor/failure handlers
         args (FlowPreviewArgs): The arguments to pass to the script or flow
         path (Union[Unset, str]):
         tag (Union[Unset, str]):

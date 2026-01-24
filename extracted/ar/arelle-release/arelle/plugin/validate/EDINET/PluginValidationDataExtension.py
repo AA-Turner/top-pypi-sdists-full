@@ -4,6 +4,7 @@ See COPYRIGHT.md for copyright information.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Callable, Hashable, Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 from functools import lru_cache
@@ -11,13 +12,13 @@ from pathlib import Path
 
 from lxml.etree import DTD, XML
 from operator import attrgetter
-from typing import Callable, Hashable, Iterable, cast
+from typing import cast
 
 import os
-import regex
 
+from arelle import XbrlConst
 from arelle.LinkbaseType import LinkbaseType
-from arelle.ModelDocument import Type as ModelDocumentType, ModelDocument
+from arelle.ModelDocument import Type as ModelDocumentType, ModelDocument, load as modelDocumentLoad
 from arelle.ModelDtsObject import ModelConcept
 from arelle.ModelInstanceObject import ModelFact, ModelUnit, ModelContext, ModelInlineFact
 from arelle.ModelObject import ModelObject
@@ -30,32 +31,21 @@ from arelle.XhtmlValidate import htmlEltUriAttrs
 from arelle.XmlValidate import VALID
 from arelle.typing import TypeGetText
 from arelle.utils.PluginData import PluginData
-from .Constants import xhtmlDtdExtension, PROHIBITED_HTML_TAGS, PROHIBITED_HTML_ATTRIBUTES
+from .Constants import xhtmlDtdExtension, PROHIBITED_HTML_TAGS, PROHIBITED_HTML_ATTRIBUTES, STANDARD_TAXONOMY_URL_PREFIXES
 from .ControllerPluginData import ControllerPluginData
-from .CoverPageRequirements import CoverPageRequirements, COVER_PAGE_ITEM_LOCAL_NAMES
-from .FilingFormat import FilingFormat, FILING_FORMATS
+from .DeiRequirements import DeiRequirements, DEI_LOCAL_NAMES
+from .FilingFormat import FilingFormat, FILING_FORMATS, DocumentType, Ordinance
 from .FormType import FormType
 from .ManifestInstance import ManifestInstance
+from .NamespaceConfig import NamespaceConfig
+from .ReportFolderType import HTML_EXTENSIONS
 from .Statement import Statement, STATEMENTS, BalanceSheet, StatementInstance, StatementType
-from .UploadContents import UploadContents
+from .UploadContents import UploadContents, UploadPathInfo
 
 _: TypeGetText
 
 
-STANDARD_TAXONOMY_URL_PREFIXES = frozenset((
-    'http://disclosure.edinet-fsa.go.jp/taxonomy/',
-    'https://disclosure.edinet-fsa.go.jp/taxonomy/',
-    'http://www.xbrl.org/20',
-    'https://www.xbrl.org/20',
-    'http://www.xbrl.org/lrr/',
-    'https://www.xbrl.org/lrr/',
-    'http://xbrl.org/20',
-    'https://xbrl.org/20',
-    'http://www.xbrl.org/dtr/',
-    'https://www.xbrl.org/dtr/',
-    'http://www.w3.org/1999/xlink',
-    'https://www.w3.org/1999/xlink'
-))
+
 
 @dataclass(frozen=True)
 class UriReference:
@@ -67,64 +57,65 @@ class UriReference:
 
 @dataclass
 class PluginValidationDataExtension(PluginData):
+    namespaces: NamespaceConfig
+
     accountingStandardsDeiQn: QName
     assetsIfrsQn: QName
+    categoriesOfDirectorsAndOtherOfficersAxisQn: QName
     consolidatedOrNonConsolidatedAxisQn: QName
+    corporateGovernanceCompanyWithAuditAndSupervisoryCommitteeTextBlockQn: QName
+    corporateGovernanceCompanyWithCorporateAuditorsTextBlockQn: QName
+    corporateGovernanceCompanyWithNominatingAndOtherCommitteesTextBlockQn: QName
     documentTypeDeiQn: QName
+    executiveOfficersMemberQn: QName
     jpcrpEsrFilingDateCoverPageQn: QName
-    jpcrpEsrNamespace: str
     jpcrpFilingDateCoverPageQn: QName
-    jpcrpNamespace: str
-    jpdeiNamespace: str
-    jpigpNamespace: str
-    jppfsNamespace: str
     jpspsFilingDateCoverPageQn: QName
-    jpspsNamespace: str
+    issuedSharesTotalNumberOfSharesEtcQn: QName
     nonConsolidatedMemberQn: QName
     ratioOfFemaleDirectorsAndOtherOfficersQn: QName
 
-    contextIdPattern: regex.Pattern[str]
-    coverPageItems: tuple[QName, ...]
-    coverPageRequirementsPath: Path
+    coverItemRequirementsPath: Path
     coverPageTitleQns: tuple[QName, ...]
+    deiItems: tuple[QName, ...]
+    deiRequirementsPath: Path
 
     _uriReferences: list[UriReference]
 
     def __init__(self, name: str, validateXbrl: ValidateXbrl):
         super().__init__(name)
 
-        # Namespaces
-        self.jpcrpEsrNamespace = "http://disclosure.edinet-fsa.go.jp/taxonomy/jpcrp-esr/2024-11-01/jpcrp-esr_cor"
-        self.jpcrpNamespace = 'http://disclosure.edinet-fsa.go.jp/taxonomy/jpcrp/2024-11-01/jpcrp_cor'
-        self.jpdeiNamespace = 'http://disclosure.edinet-fsa.go.jp/taxonomy/jpdei/2013-08-31/jpdei_cor'
-        self.jpigpNamespace = "http://disclosure.edinet-fsa.go.jp/taxonomy/jpigp/2024-11-01/jpigp_cor"
-        self.jppfsNamespace = "http://disclosure.edinet-fsa.go.jp/taxonomy/jppfs/2024-11-01/jppfs_cor"
-        self.jpspsNamespace = 'http://disclosure.edinet-fsa.go.jp/taxonomy/jpsps/2024-11-01/jpsps_cor'
+        self.namespaces = NamespaceConfig()
 
         # QNames
-        self.accountingStandardsDeiQn = qname(self.jpdeiNamespace, 'AccountingStandardsDEI')
-        self.assetsIfrsQn = qname(self.jpigpNamespace, 'AssetsIFRS')
-        self.consolidatedOrNonConsolidatedAxisQn = qname(self.jppfsNamespace, 'ConsolidatedOrNonConsolidatedAxis')
-        self.documentTypeDeiQn = qname(self.jpdeiNamespace, 'DocumentTypeDEI')
-        self.issuedSharesTotalNumberOfSharesEtcQn = qname(self.jpcrpNamespace, 'IssuedSharesTotalNumberOfSharesEtcTextBlock')
-        self.jpcrpEsrFilingDateCoverPageQn = qname(self.jpcrpEsrNamespace, 'FilingDateCoverPage')
-        self.jpcrpFilingDateCoverPageQn = qname(self.jpcrpNamespace, 'FilingDateCoverPage')
-        self.jpspsFilingDateCoverPageQn = qname(self.jpspsNamespace, 'FilingDateCoverPage')
-        self.nonConsolidatedMemberQn = qname(self.jppfsNamespace, "NonConsolidatedMember")
-        self.ratioOfFemaleDirectorsAndOtherOfficersQn = qname(self.jpcrpNamespace, "RatioOfFemaleDirectorsAndOtherOfficers")
+        self.accountingStandardsDeiQn = qname(self.namespaces.jpdei, 'AccountingStandardsDEI')
+        self.assetsIfrsQn = qname(self.namespaces.jpigp, 'AssetsIFRS')
+        self.categoriesOfDirectorsAndOtherOfficersAxisQn = qname(self.namespaces.jpcrp, 'CategoriesOfDirectorsAndOtherOfficersAxis')
+        self.consolidatedOrNonConsolidatedAxisQn = qname(self.namespaces.jppfs, 'ConsolidatedOrNonConsolidatedAxis')
+        self.corporateGovernanceCompanyWithAuditAndSupervisoryCommitteeTextBlockQn = qname(self.namespaces.jpcrp, 'CorporateGovernanceCompanyWithAuditAndSupervisoryCommitteeTextBlock')
+        self.corporateGovernanceCompanyWithCorporateAuditorsTextBlockQn = qname(self.namespaces.jpcrp, 'CorporateGovernanceCompanyWithCorporateAuditorsTextBlock')
+        self.corporateGovernanceCompanyWithNominatingAndOtherCommitteesTextBlockQn = qname(self.namespaces.jpcrp, 'CorporateGovernanceCompanyWithNominatingAndOtherCommitteesTextBlock')
+        self.documentTypeDeiQn = qname(self.namespaces.jpdei, 'DocumentTypeDEI')
+        self.executiveOfficersMemberQn = qname(self.namespaces.jpcrp, 'ExecutiveOfficersMember')
+        self.issuedSharesTotalNumberOfSharesEtcQn = qname(self.namespaces.jpcrp, 'IssuedSharesTotalNumberOfSharesEtcTextBlock')
+        self.jpcrpEsrFilingDateCoverPageQn = qname(self.namespaces.jpcrpEsr, 'FilingDateCoverPage')
+        self.jpcrpFilingDateCoverPageQn = qname(self.namespaces.jpcrp, 'FilingDateCoverPage')
+        self.jpspsFilingDateCoverPageQn = qname(self.namespaces.jpsps, 'FilingDateCoverPage')
+        self.nonConsolidatedMemberQn = qname(self.namespaces.jppfs, "NonConsolidatedMember")
+        self.ratioOfFemaleDirectorsAndOtherOfficersQn = qname(self.namespaces.jpcrp, "RatioOfFemaleDirectorsAndOtherOfficers")
 
-        self.contextIdPattern = regex.compile(r'(Prior[1-9]Year|CurrentYear|Prior[1-9]Interim|Interim)(Duration|Instant)')
-        self.coverPageItems = tuple(
-            qname(self.jpdeiNamespace, localName)
-            for localName in COVER_PAGE_ITEM_LOCAL_NAMES
-        )
-        self.coverPageRequirementsPath = Path(__file__).parent / "resources" / "cover-page-requirements.csv"
+        self.coverItemRequirementsPath = Path(__file__).parent / "resources" / "cover-item-requirements.json"
         self.coverPageTitleQns = (
-            qname(self.jpspsNamespace, "DocumentTitleAnnualSecuritiesReportCoverPage"),
-            qname(self.jpcrpNamespace, "DocumentTitleCoverPage"),
-            qname(self.jpcrpEsrNamespace, "DocumentTitleCoverPage"),
-            qname(self.jpspsNamespace, "DocumentTitleCoverPage"),
+            qname(self.namespaces.jpsps, "DocumentTitleAnnualSecuritiesReportCoverPage"),
+            qname(self.namespaces.jpcrp, "DocumentTitleCoverPage"),
+            qname(self.namespaces.jpcrpEsr, "DocumentTitleCoverPage"),
+            qname(self.namespaces.jpsps, "DocumentTitleCoverPage"),
         )
+        self.deiItems = tuple(
+            qname(self.namespaces.jpdei, localName)
+            for localName in DEI_LOCAL_NAMES
+        )
+        self.deiRequirementsPath = Path(__file__).parent / "resources" / "dei-requirements.csv"
 
         self._uriReferences = []
         self._initialize(validateXbrl.modelXbrl)
@@ -148,38 +139,74 @@ class PluginValidationDataExtension(PluginData):
         contextIsConsolidated = memberValue != self.nonConsolidatedMemberQn
         return bool(statement.isConsolidated == contextIsConsolidated)
 
+    def _initializeDocument(self, uri: str, modelDocument: ModelDocument, modelXbrl: ModelXbrl) -> None:
+        docPath = Path(uri)
+        basePath = Path(str(modelXbrl.fileSource.basefile))
+        if not docPath.is_relative_to(basePath):
+            return
+        controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
+        controllerPluginData.addUsedFilepath(docPath.relative_to(basePath))
+        for elt, name, value in self.getUriAttributeValues(modelDocument):
+            self._uriReferences.append(UriReference(
+                attributeName=name,
+                attributeValue=value,
+                document=modelDocument,
+                element=elt,
+            ))
+            fullPath = (Path(modelDocument.uri).parent / value).resolve()
+            if fullPath.is_relative_to(basePath):
+                fileSourcePath = fullPath.relative_to(basePath)
+                controllerPluginData.addUsedFilepath(fileSourcePath)
+            referenceUri = str(fullPath)
+            if (
+                    fullPath.suffix in HTML_EXTENSIONS and
+                    referenceUri not in modelXbrl.urlDocs and
+                    modelXbrl.fileSource.exists(referenceUri)
+            ):
+                referenceModelDocument = modelDocumentLoad(
+                    modelXbrl,
+                    referenceUri,
+                    referringElement=elt
+                )
+                if referenceModelDocument is not None:
+                    self._initializeDocument(referenceUri, referenceModelDocument, modelXbrl)
+
     def _initialize(self, modelXbrl: ModelXbrl) -> None:
         if not isinstance(modelXbrl.fileSource.basefile, str):
             return
+        # Additional documents may be loaded, so make a copy to iterate over.
+        urlDocs = list(modelXbrl.urlDocs.items())
+        for uri, modelDocument in urlDocs:
+            self._initializeDocument(uri, modelDocument, modelXbrl)
+
+    def addToTableOfContents(self, modelXbrl: ModelXbrl) -> None:
+        uploadContents = self.getUploadContents(modelXbrl)
+        if uploadContents is None:
+            return
         controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
-        basePath = Path(modelXbrl.fileSource.basefile)
-        for uri, doc in modelXbrl.urlDocs.items():
-            docPath = Path(uri)
-            if not docPath.is_relative_to(basePath):
+        tocBuilder = controllerPluginData.getTableOfContentsBuilder()
+        for modelDocument in modelXbrl.urlDocs.values():
+            path = Path(modelDocument.uri)
+            if modelDocument.type != ModelDocumentType.INLINEXBRL:
                 continue
-            controllerPluginData.addUsedFilepath(docPath.relative_to(basePath))
-            for elt, name, value in self.getUriAttributeValues(doc):
-                self._uriReferences.append(UriReference(
-                    attributeName=name,
-                    attributeValue=value,
-                    document=doc,
-                    element=elt,
-                ))
-                fullPath = Path(doc.uri).parent / value
-                if fullPath.is_relative_to(basePath):
-                    fileSourcePath = fullPath.relative_to(basePath)
-                    controllerPluginData.addUsedFilepath(fileSourcePath)
+            pathInfo = uploadContents.uploadPathsByFullPath.get(path)
+            if pathInfo is not None and not pathInfo.isCoverPage:
+                tocBuilder.addDocument(modelDocument)
+
+    def qname(self, prefix: str, localName: str) -> QName:
+        ns = self.namespaces.get(prefix)
+        assert ns is not None, f"Unknown namespace prefix: {prefix}"
+        return qname(ns, localName)
 
     @lru_cache(1)
     def isCorporateForm(self, modelXbrl: ModelXbrl) -> bool:
-        formTypes = self.getFormTypes(modelXbrl)
-        return any(
-            formType.isCorporateForm
-            for formType in formTypes
-        )
+        formType = self.getFormType(modelXbrl)
+        if formType is None:
+            return False
+        return formType.isCorporateForm
 
     def isCorporateReport(self, modelXbrl: ModelXbrl) -> bool:
-        return self.jpcrpNamespace in modelXbrl.namespaceDocs
+        return self.namespaces.jpcrp in modelXbrl.namespaceDocs
 
     def isExtensionUri(self, uri: str, modelXbrl: ModelXbrl) -> bool:
         if uri.startswith(modelXbrl.uriDir):
@@ -188,23 +215,23 @@ class PluginValidationDataExtension(PluginData):
 
     @lru_cache(1)
     def isStockForm(self, modelXbrl: ModelXbrl) -> bool:
-        formTypes = self.getFormTypes(modelXbrl)
-        return any(
-            formType.isStockReport
-            for formType in formTypes
-        )
+        formType = self.getFormType(modelXbrl)
+        if formType is None:
+            return False
+        return formType.isStockReport
+
 
     @lru_cache(1)
-    def getExtensionConcepts(self, modelXbrl: ModelXbrl) -> list[ModelConcept]:
+    def getUsedConcepts(self, modelXbrl: ModelXbrl) -> set[ModelConcept]:
         """
-        Returns a list of extension concepts in the DTS.
+        Returns a set of concepts used on facts and in explicit dimensions
         """
-        extensionConcepts = []
-        for concepts in modelXbrl.nameConcepts.values():
-            for concept in concepts:
-                if self.isExtensionUri(concept.qname.namespaceURI, modelXbrl):
-                    extensionConcepts.append(concept)
-        return extensionConcepts
+        usedConcepts = {fact.concept for fact in modelXbrl.facts if fact.concept is not None}
+        for context in modelXbrl.contextsInUse:
+            for dim in context.scenDimValues.values():
+                if dim.isExplicit:
+                    usedConcepts.update([dim.dimension, dim.member])
+        return usedConcepts
 
     def getBalanceSheets(self, modelXbrl: ModelXbrl, statement: Statement) -> list[BalanceSheet]:
         """
@@ -261,9 +288,60 @@ class PluginValidationDataExtension(PluginData):
             )
         return balanceSheets
 
-    def getCoverPageRequirements(self, modelXbrl: ModelXbrl) -> CoverPageRequirements:
+    @lru_cache(1)
+    def getCoverItemRequirements(self, modelXbrl: ModelXbrl) -> list[QName] | None:
+        manifestInstance = self.getManifestInstance(modelXbrl)
+        if manifestInstance is None:
+            return None
+        if any(e is not None and e.startswith('EDINET.EC5800E') for e in modelXbrl.errors):
+            # Manifest TOC parsing failed, so cannot determine cover items.
+            return None
+        assert len(manifestInstance.tocItems) == 1, _("Only one TOC item should be associated with this instance.")
+        roleUri = manifestInstance.tocItems[0].extrole
+        roleUri = roleUri.replace("_std_", "_")
         controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
-        return controllerPluginData.getCoverPageRequirements(self.coverPageRequirementsPath, self.coverPageItems, FILING_FORMATS)
+        coverItemRequirements = controllerPluginData.getCoverItemRequirements(self.coverItemRequirementsPath)
+        coverItems = coverItemRequirements.get(roleUri)
+        return [
+            self.qname(prefix, localName)
+            for prefix, localName in
+            [name.split(':') for name in coverItems]
+        ]
+
+    @lru_cache(1)
+    def getCoverItems(self, modelXbrl: ModelXbrl) -> frozenset[QName]:
+        controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
+        coverItemRequirements = controllerPluginData.getCoverItemRequirements(self.coverItemRequirementsPath)
+        coverItems = coverItemRequirements.all()
+        return frozenset(
+            self.qname(prefix, localName)
+            for prefix, localName in
+            [name.split(':') for name in coverItems]
+        )
+
+    def getDeiRequirements(self, modelXbrl: ModelXbrl) -> DeiRequirements:
+        controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
+        return controllerPluginData.getDeiRequirements(self.deiRequirementsPath, self.deiItems, FILING_FORMATS)
+
+    @lru_cache(1)
+    def getExtensionSchemas(self, modelXbrl: ModelXbrl) -> dict[str, UploadPathInfo]:
+        namespacePathInfos: dict[str, UploadPathInfo] = {}
+        uploadContents = self.getUploadContents(modelXbrl)
+        if uploadContents is None:
+            return namespacePathInfos
+        for modelDocument in modelXbrl.urlDocs.values():
+            if modelDocument.type != ModelDocumentType.SCHEMA:
+                continue # Not a schema
+            if modelDocument.targetNamespace is None:
+                continue # No target namespace
+            if not self.isExtensionUri(modelDocument.uri, modelXbrl):
+                continue # Not an extension schema
+            path = Path(modelDocument.uri)
+            pathInfo = uploadContents.uploadPathsByFullPath.get(path)
+            if pathInfo is None or pathInfo.reportFolderType is None:
+                continue # Not part of the filing, error will be caught elsewhere
+            namespacePathInfos[modelDocument.targetNamespace] = pathInfo
+        return namespacePathInfos
 
     def getProblematicTextBlocks(self, modelXbrl: ModelXbrl) -> list[ModelInlineFact]:
         problematicTextBlocks: list[ModelInlineFact] = []
@@ -305,6 +383,18 @@ class PluginValidationDataExtension(PluginData):
     @lru_cache(1)
     def getDeduplicatedFacts(self, modelXbrl: ModelXbrl) -> list[ModelFact]:
         return getDeduplicatedFacts(modelXbrl, DeduplicationType.CONSISTENT_PAIRS)
+
+    @lru_cache(1)
+    def getDocumentType(self, modelXbrl: ModelXbrl) -> DocumentType | None:
+        """
+        Retrieves document type value from the instance.
+        :param modelXbrl: Instance to get document type from.
+        :return: document type parsed from filename.
+        """
+        filingFormat = self.getFilingFormat(modelXbrl)
+        if filingFormat is None:
+            return None
+        return filingFormat.documentType
 
     def getFactsByContextAndUnit(
             self, modelXbrl: ModelXbrl,
@@ -348,82 +438,39 @@ class PluginValidationDataExtension(PluginData):
 
     @lru_cache(1)
     def getFilingFormat(self, modelXbrl: ModelXbrl) ->  FilingFormat | None:
-        # This function attempts to identify the filing format based on form number and title concepts.
-        # The provided form number value directly informs the format.
-        # However, the document title is not necessarily an explicit setting of the format's
-        # document type. In the samples available to us and in a handful of public filings,
-        # it is effective to match the first segment of the title value against document type
-        # values assigned to the various FilingFormats. This may only be by coincidence or convention.
-        # If it doesn't end up being reliable, we may need to find another way to identify the form.
-        # For example, by disclosure system selection or CLI argument.
-        documentTitleFacts = []
-        for qname in self.coverPageTitleQns:
-            for fact in self.iterValidNonNilFacts(modelXbrl, qname):
-                documentTitleFacts.append(fact)
-        formTypes = self.getFormTypes(modelXbrl)
-        filingFormats = []
-        for filingFormatIndex, filingFormat in enumerate(FILING_FORMATS):
-            if filingFormat.formType not in formTypes:
-                continue
-            prefixes = {taxonomy.value for taxonomy in filingFormat.taxonomies}
-            if not any(
-                str(fact.xValue).startswith(filingFormat.documentType.value) and
-                fact.concept.qname.prefix.split('_')[0] in prefixes
-                for fact in documentTitleFacts
-            ):
-                continue
-            filingFormats.append((filingFormat, filingFormatIndex))
-        if len(filingFormats) == 0:
-            modelXbrl.error(
-                "arelle:NoMatchingEdinetFormat",
-                _("No matching EDINET filing formats could be identified based on form "
-                  "type (%(formTypes)s) and title."),
-                formTypes=formTypes,
-                modelObject=documentTitleFacts,
-            )
+        manifestInstance = self.getManifestInstance(modelXbrl)
+        if manifestInstance is None:
             return None
-        if len(filingFormats) > 1:
-            formatIndexes = [str(idx + 1) for _, idx in filingFormats]
-            modelXbrl.error(
-                "arelle:MultipleMatchingEdinetFormats",
-                _("Multiple EDINET filing formats (%(formatIndexes)s) matched based on form "
-                  "type %(formTypes)s and title."),
-                formatIndexes=formatIndexes,
-                formTypes=formTypes,
-                modelObject=documentTitleFacts,
-            )
-            return None
-        filingFormat, filingFormatIndex = filingFormats[0]
-        modelXbrl.modelManager.cntlr.addToLog("Identified filing format: #{}, {}, {}, {}, {}".format(
-            filingFormatIndex + 1,
-            filingFormat.ordinance.value,
-            filingFormat.documentType.value,
-            filingFormat.formType.value,
-            ', '.join(taxonomy.value for taxonomy in filingFormat.taxonomies)
-        ), messageCode="info")
-        return filingFormat
+        return manifestInstance.filingFormat
 
     @lru_cache(1)
-    def getFormTypes(self, modelXbrl: ModelXbrl) -> set[FormType]:
+    def getFormType(self, modelXbrl: ModelXbrl) -> FormType | None:
         """
-        Retrieves form type values from the instance.
-        Note that the underlying concept is labeled "DocumentTypeDEI",
-        but "Document Type" refers to something else in EDINET documentation.
-        In practice, the value of this field is the form number / form type.
-        :param modelXbrl: Instance to get form types from.
-        :return: Set of discovered form types.
+        Retrieves form type value from the instance.
+        :param modelXbrl: Instance to get form type from.
+        :return: Form type parsed from filename.
         """
-        formTypes = set()
-        for fact in self.iterValidNonNilFacts(modelXbrl, self.documentTypeDeiQn):
-            formType = FormType.parse(fact.textValue)
-            if formType is not None:
-                formTypes.add(formType)
-        return formTypes
+        filingFormat = self.getFilingFormat(modelXbrl)
+        if filingFormat is None:
+            return None
+        return filingFormat.formType
 
     @lru_cache(1)
     def getManifestInstance(self, modelXbrl: ModelXbrl) -> ManifestInstance | None:
         controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
-        return controllerPluginData.matchManifestInstance(modelXbrl.ixdsDocUrls)
+        return controllerPluginData.getManifestInstance(modelXbrl)
+
+    @lru_cache(1)
+    def getOrdinance(self, modelXbrl: ModelXbrl) -> Ordinance | None:
+        """
+        Retrieves ordinance value from the instance.
+        :param modelXbrl: Instance to get ordinance from.
+        :return: Ordinance parsed from filename.
+        """
+        filingFormat = self.getFilingFormat(modelXbrl)
+        if filingFormat is None:
+            return None
+        return filingFormat.ordinance
 
     @lru_cache(1)
     def getProhibitedAttributeElements(self, modelDocument: ModelDocument) -> list[tuple[ModelObject, str]]:
@@ -451,6 +498,20 @@ class PluginValidationDataExtension(PluginData):
                 elts.append(elt)
         return elts
 
+    def getStandardTaxonomyExtensionLinks(self, linkbaseType: LinkbaseType, modelXbrl: ModelXbrl) -> list[ModelObject]:
+        elts: list[ModelObject] = []
+        for modelDocument in modelXbrl.urlDocs.values():
+            if self.isStandardTaxonomyUrl(modelDocument.uri, modelXbrl) or not modelDocument.type == ModelDocumentType.SCHEMA:
+                continue
+            rootElt = modelDocument.xmlRootElement
+            for elt in rootElt.iterdescendants(XbrlConst.qnLinkLinkbaseRef.clarkNotation):
+                uri = elt.attrib.get(XbrlConst.qnXlinkHref.clarkNotation)
+                role = elt.attrib.get(XbrlConst.qnXlinkRole.clarkNotation)
+                if not role == linkbaseType.getRefUri() or self.isExtensionUri(uri, modelXbrl):
+                    continue
+                elts.append(elt)
+        return elts
+
     def getUploadContents(self, modelXbrl: ModelXbrl) -> UploadContents | None:
         controllerPluginData = ControllerPluginData.get(modelXbrl.modelManager.cntlr, self.name)
         return controllerPluginData.getUploadContents()
@@ -458,9 +519,16 @@ class PluginValidationDataExtension(PluginData):
     @lru_cache(1)
     def getUriAttributeValues(self, modelDocument: ModelDocument) -> list[tuple[ModelObject, str, str]]:
         results: list[tuple[ModelObject, str, str]] = []
-        if modelDocument.type not in (ModelDocumentType.INLINEXBRL, ModelDocumentType.HTML):
+        modelDocumentType = modelDocument.type
+        # Normal document parsing does not assign the HTML type to HTML files.
+        # Use ModelDocumentType.identify to check for HTML files.
+        if modelDocumentType == ModelDocumentType.UnknownXML:
+            modelDocumentType = ModelDocumentType.identify(modelDocument.modelXbrl.fileSource, modelDocument.uri)
+        if modelDocumentType not in (ModelDocumentType.INLINEXBRL, ModelDocumentType.HTML):
             return results
         for elt in modelDocument.xmlRootElement.iter():
+            if not isinstance(elt, ModelObject):
+                continue
             for name in htmlEltUriAttrs.get(elt.localName, ()):
                 value = elt.get(name)
                 if value is not None:

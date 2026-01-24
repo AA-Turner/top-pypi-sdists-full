@@ -3,6 +3,7 @@ Functionality to read and write the Newick serialization format for trees.
 
 .. seealso:: https://en.wikipedia.org/wiki/Newick_format
 """
+
 import re
 import enum
 import typing
@@ -10,12 +11,12 @@ import pathlib
 import itertools
 import dataclasses
 
-__version__ = "1.1ß.0"
+__version__ = "1.11.0"
 
 QUOTE = "'"
 ESCAPE = {"'", "\\"}
-COMMENT = {'[': 1, ']': -1}
-WHITESPACE = '\t\r\n '
+COMMENT = {"[": 1, "]": -1}
+WHITESPACE = "\t\r\n "
 
 
 class TokenType(enum.Enum):
@@ -37,43 +38,43 @@ RESERVED_PUNCTUATION = {
     "(": TokenType.OBRACE,
     ")": TokenType.CBRACE,
 }
-RP_PATTERN = re.compile('|'.join(re.escape(c) for c in RESERVED_PUNCTUATION))
+RP_PATTERN = re.compile("|".join(re.escape(c) for c in RESERVED_PUNCTUATION))
 
 
 def _iter_properties(c):
     """
     Parse key-value properties from known comment formats.
     """
-    NHX_KV_PATTERN = re.compile(r':(?P<key>[^=]+)=(?P<value>[^:]+)')
-    if c.startswith('&&NHX'):
+    NHX_KV_PATTERN = re.compile(r":(?P<key>[^=]+)=(?P<value>[^:]+)")
+    if c.startswith("&&NHX"):
         c = c[5:]
         m = NHX_KV_PATTERN.match(c)
         while m:
-            yield (m.groupdict()['key'], m.groupdict()['value'])
-            c = c[m.end():]
+            yield (m.groupdict()["key"], m.groupdict()["value"])
+            c = c[m.end() :]
             m = NHX_KV_PATTERN.match(c)
-    elif c.startswith('&'):
+    elif c.startswith("&"):
         # MrBayes comment.
         kv = []
         inquote, bracketlevel = False, 0
         for cc in c[1:]:
-            if cc == ',':
+            if cc == ",":
                 if not (inquote or bracketlevel != 0):
                     assert kv
-                    k, _, v = ''.join(kv).partition('=')
+                    k, _, v = "".join(kv).partition("=")
                     yield k, v
                     kv = []
                     inquote, bracketlevel = False, 0
                     continue
-            elif cc == '{':
+            elif cc == "{":
                 bracketlevel += 1
-            elif cc == '}':
+            elif cc == "}":
                 bracketlevel -= 1
             elif cc == '"':
                 inquote = not inquote
             kv.append(cc)
         if kv:
-            k, _, v = ''.join(kv).partition('=')
+            k, _, v = "".join(kv).partition("=")
             yield k, v
 
 
@@ -82,7 +83,7 @@ def length_parser(x: str) -> float:
 
 
 def length_formatter(x: float) -> str:
-    return '%s' % x
+    return "%s" % x
 
 
 def check_string(n, type_):
@@ -97,14 +98,17 @@ class Node:
     :ivar typing.Optional[Node] ancestor: `None` if the node is the root node of a tree.
     :ivar typing.List[Node] descendants: List of immediate children of the node.
     """
-    def __init__(self,
-                 name: typing.Optional[str] = None,
-                 length: typing.Optional[typing.Union[str, float]] = None,
-                 comment: typing.Optional[str] = None,
-                 comments: typing.Optional[list] = None,
-                 descendants: typing.Optional[typing.Iterable] = None,
-                 auto_quote: bool = False,
-                 **kw):
+
+    def __init__(
+        self,
+        name: typing.Optional[str] = None,
+        length: typing.Optional[typing.Union[str, float]] = None,
+        comment: typing.Optional[str] = None,
+        comments: typing.Optional[list] = None,
+        descendants: typing.Optional[typing.Iterable] = None,
+        auto_quote: bool = False,
+        **kw
+    ):
         """
         :param name: Node label.
         :param length: Branch length from the new node to its parent.
@@ -120,9 +124,9 @@ class Node:
         self.comments = comments or ([comment] if comment else [])
         self.descendants = descendants or []
         self.ancestor = None
-        self._length_parser = kw.pop('length_parser', length_parser)
-        self._length_formatter = kw.pop('length_formatter', length_formatter)
-        self._colon_before_comment = kw.pop('colon_before_comment', False)
+        self._length_parser = kw.pop("length_parser", length_parser)
+        self._length_formatter = kw.pop("length_formatter", length_formatter)
+        self._colon_before_comment = kw.pop("colon_before_comment", False)
         self.length = length
 
     @property
@@ -140,13 +144,16 @@ class Node:
     def name(self, n):
         quoted = n and n.startswith(QUOTE) and n.endswith(QUOTE)
 
-        if (not quoted) and self._auto_quote and \
-                any(char in n for char in ''.join(RESERVED_PUNCTUATION) + QUOTE + WHITESPACE):
+        if (
+            (not quoted)
+            and self._auto_quote
+            and any(char in n for char in "".join(RESERVED_PUNCTUATION) + QUOTE + WHITESPACE)
+        ):
             n = "{}{}{}".format(QUOTE, n.replace("'", "''"), QUOTE)
             quoted = True
 
         if n and not quoted:
-            check_string(n, 'unquoted string')
+            check_string(n, "unquoted string")
         self._name = n
 
     def __repr__(self):
@@ -172,7 +179,7 @@ class Node:
         else:
             if isinstance(length_, str):
                 length_ = length_.strip()
-                check_string(length_, 'branch length')
+                check_string(length_, "branch length")
             self._length = self._length_formatter(length_)
 
     @property
@@ -180,11 +187,11 @@ class Node:
         return self.comments[0] if self.comments else None
 
     @classmethod
-    def create(cls, **kw) -> 'Node':  # Backwards compatibility.
+    def create(cls, **kw) -> "Node":  # Backwards compatibility.
         return cls(**kw)
 
     @property
-    def descendants(self) -> typing.Iterable['Node']:
+    def descendants(self) -> typing.Iterable["Node"]:
         return self._descendants
 
     @descendants.setter
@@ -193,7 +200,7 @@ class Node:
         for node in nodes:
             self.add_descendant(node)
 
-    def add_descendant(self, node: 'Node'):
+    def add_descendant(self, node: "Node"):
         node.ancestor = self
         self._descendants.append(node)
 
@@ -201,61 +208,59 @@ class Node:
     def newick(self) -> str:
         """The representation of the Node in Newick format."""
         colon_done = False
-        label = self.name or ''
+        label = self.name or ""
         if self.comments:
             if self._length and len(self.comments) == 2 and not self._colon_before_comment:
                 # We assume that's the variant where one comment comes before and one after the ":".
-                label += '[{}]:[{}]'.format(*self.comments)
+                label += "[{}]:[{}]".format(*self.comments)
                 colon_done = True
             else:
                 if self._length and self._colon_before_comment:
-                    label += ':'
+                    label += ":"
                     colon_done = True
-                label += '[{}]'.format('|'.join(self.comments))
+                label += "[{}]".format("|".join(self.comments))
         if self._length:
             if not colon_done:
-                label += ':'
+                label += ":"
             label += self._length
-        descendants = ','.join([n.newick for n in self.descendants])
+        descendants = ",".join([n.newick for n in self.descendants])
         if descendants:
-            descendants = '(' + descendants + ')'
+            descendants = "(" + descendants + ")"
         return descendants + label
 
-    def _ascii_art(self, char1='\u2500', show_internal=True, maxlen=None):
+    def _ascii_art(self, char1="\u2500", show_internal=True, maxlen=None):
         if maxlen is None:
             maxlen = max(
-                len((n.name or '') + '    ') for n in self.walk() if show_internal or n.is_leaf)
-        pad = ' ' * (maxlen - 1)
-        namestr = '\u2500' + (self.name or '')
+                len((n.name or "") + "    ") for n in self.walk() if show_internal or n.is_leaf
+            )
+        pad = " " * (maxlen - 1)
+        namestr = "\u2500" + (self.name or "")
 
         if self.descendants:
             mids = []
             result = []
             for i, c in enumerate(self.descendants):
                 if len(self.descendants) == 1:
-                    char2 = '\u2500'
+                    char2 = "\u2500"
                 elif i == 0:
-                    char2 = '\u250c'
+                    char2 = "\u250c"
                 elif i == len(self.descendants) - 1:
-                    char2 = '\u2514'
+                    char2 = "\u2514"
                 else:
-                    char2 = '\u2500'
-                clines, mid = c._ascii_art(
-                    char1=char2, show_internal=show_internal, maxlen=maxlen)
+                    char2 = "\u2500"
+                clines, mid = c._ascii_art(char1=char2, show_internal=show_internal, maxlen=maxlen)
                 mids.append(mid + len(result))
                 result.extend(clines)
-                result.append('')
+                result.append("")
             result.pop()
             lo, hi, end = mids[0], mids[-1], len(result)
-            prefixes = [pad] * (lo + 1) +\
-                       [pad + '\u2502'] * (hi - lo - 1) + \
-                       [pad] * (end - hi)
+            prefixes = [pad] * (lo + 1) + [pad + "\u2502"] * (hi - lo - 1) + [pad] * (end - hi)
             mid = (lo + hi) // 2
-            prefixes[mid] = char1 + '\u2500' * (len(prefixes[mid]) - 2) + prefixes[mid][-1]
+            prefixes[mid] = char1 + "\u2500" * (len(prefixes[mid]) - 2) + prefixes[mid][-1]
             result = [p + l for p, l in zip(prefixes, result)]
             if show_internal:
                 stem = result[mid]
-                result[mid] = stem[0] + namestr + stem[len(namestr) + 1:]
+                result[mid] = stem[0] + namestr + stem[len(namestr) + 1 :]
             return result, mid
         return [char1 + namestr], 0
 
@@ -280,28 +285,31 @@ class Node:
                 \-H
         """
         cmap = {
-            '\u2500': '-',
-            '\u2502': '|',
-            '\u250c': '/',
-            '\u2514': '\\',
-            '\u251c': '|',
-            '\u2524': '|',
-            '\u253c': '+',
+            "\u2500": "-",
+            "\u2502": "|",
+            "\u250c": "/",
+            "\u2514": "\\",
+            "\u251c": "|",
+            "\u2524": "|",
+            "\u253c": "+",
         }
 
         def normalize(line):
-            m = re.compile(r'(?<=\u2502)(?P<s>\s+)(?=[\u250c\u2514\u2502])')
-            line = m.sub(lambda m: m.group('s')[1:], line)
-            line = re.sub('\u2500\u2502', '\u2500\u2524', line)  # -|
-            line = re.sub('\u2502\u2500', '\u251c', line)  # |-
-            line = re.sub('\u2524\u2500', '\u253c', line)  # -|-
+            m = re.compile(r"(?<=\u2502)(?P<s>\s+)(?=[\u250c\u2514\u2502])")
+            line = m.sub(lambda m: m.group("s")[1:], line)
+            line = re.sub("\u2500\u2502", "\u2500\u2524", line)  # -|
+            line = re.sub("\u2502\u2500", "\u251c", line)  # |-
+            line = re.sub("\u2524\u2500", "\u253c", line)  # -|-
             if strict:
                 for u, a in cmap.items():
                     line = line.replace(u, a)
             return line
-        return '\n'.join(
-            normalize(line) for line in self._ascii_art(show_internal=show_internal)[0]
-            if set(line) != {' ', '\u2502'})  # remove lines of only spaces and pipes
+
+        return "\n".join(
+            normalize(line)
+            for line in self._ascii_art(show_internal=show_internal)[0]
+            if set(line) != {" ", "\u2502"}
+        )  # remove lines of only spaces and pipes
 
     @property
     def is_leaf(self) -> bool:
@@ -311,7 +319,7 @@ class Node:
     def is_binary(self) -> bool:
         return all([len(n.descendants) in (0, 2) for n in self.walk()])
 
-    def walk(self, mode=None) -> typing.Generator['Node', None, None]:
+    def walk(self, mode=None) -> typing.Generator["Node", None, None]:
         """
         Traverses the (sub)tree rooted at self, yielding each visited Node.
 
@@ -322,7 +330,7 @@ class Node:
         search.
         :return: Generator of the visited Nodes.
         """
-        if mode == 'postorder':
+        if mode == "postorder":
             for n in self._postorder():
                 yield n
         else:  # default to a breadth-first search
@@ -331,10 +339,12 @@ class Node:
                 for n in node.walk():
                     yield n
 
-    def visit(self,
-              visitor: typing.Callable[['Node'], None],
-              predicate: typing.Optional[typing.Callable[['Node'], bool]] = None,
-              **kw):
+    def visit(
+        self,
+        visitor: typing.Callable[["Node"], None],
+        predicate: typing.Optional[typing.Callable[["Node"], bool]] = None,
+        **kw
+    ):
         """
         Apply a function to matching nodes in the (sub)tree rooted at self.
 
@@ -349,7 +359,7 @@ class Node:
             if predicate(n):
                 visitor(n)
 
-    def rename(self, auto_quote: bool = False, **names: str) -> 'Node':
+    def rename(self, auto_quote: bool = False, **names: str) -> "Node":
         """
         Rename nodes according to the mapping `names`.
 
@@ -369,7 +379,7 @@ class Node:
         self.visit(visitor)
         return self
 
-    def strip_comments(self) -> 'Node':
+    def strip_comments(self) -> "Node":
         """
         Remove comments from all nodes of a tree.
 
@@ -379,8 +389,10 @@ class Node:
             >>> n.strip_comments().newick
             '(a,b)c'
         """
+
         def strip(n):
             n.comments = []
+
         self.visit(strip)
         return self
 
@@ -401,7 +413,7 @@ class Node:
             else:
                 stack.append(descendants[0])
 
-    def get_leaves(self) -> typing.List['Node']:
+    def get_leaves(self) -> typing.List["Node"]:
         """
         Get all the leaf nodes of the subtree descending from this node.
 
@@ -409,7 +421,7 @@ class Node:
         """
         return [n for n in self.walk() if n.is_leaf]
 
-    def get_node(self, label: str) -> 'Node':
+    def get_node(self, label: str) -> "Node":
         """
         Gets the specified node by name.
 
@@ -428,7 +440,7 @@ class Node:
         """
         return [n.name for n in self.get_leaves()]
 
-    def prune(self, nodes: typing.List['Node'], inverse: bool = False):
+    def prune(self, nodes: typing.List["Node"], inverse: bool = False):
         """
         Remove all those nodes in the specified list, or if inverse=True,
         remove all those nodes not in the specified list. The specified nodes
@@ -441,9 +453,13 @@ class Node:
             lambda n: n.ancestor.descendants.remove(n),
             # We won't prune the root node, even if it is a leave and requested to
             # be pruned!
-            lambda n: ((not inverse and n in nodes) or  # noqa: W504
-                       (inverse and n.is_leaf and n not in nodes)) and n.ancestor,
-            mode="postorder")
+            lambda n: (
+                (not inverse and n in nodes)  # noqa: W504
+                or (inverse and n.is_leaf and n not in nodes)
+            )
+            and n.ancestor,
+            mode="postorder",
+        )
 
     def prune_by_names(self, node_names: typing.List[str], inverse: bool = False):
         """
@@ -464,7 +480,7 @@ class Node:
         :param keep_leave_name: If `True`, the name of the leaf on a branch with redundant \
         nodes will be kept; otherwise, the name of the node closest to the root will be used.
         """
-        for n in self.walk(mode='postorder'):
+        for n in self.walk(mode="postorder"):
             while n.ancestor and len(n.ancestor.descendants) == 1:
                 grandfather = n.ancestor.ancestor
                 father = n.ancestor
@@ -490,8 +506,9 @@ class Node:
         that all non-leaf nodes have only 2 descendants, i.e. the tree becomes
         a fully resolved binary tree.
         """
+
         def _resolve_polytomies(n):
-            new = Node(length=self._length_formatter(self._length_parser('0')))
+            new = Node(length=self._length_formatter(self._length_parser("0")))
             while len(n.descendants) > 1:
                 new.add_descendant(n.descendants.pop())
             n.descendants.append(new)
@@ -502,29 +519,30 @@ class Node:
         """
         Set the name of all nodes in the subtree to None.
         """
-        self.visit(lambda n: setattr(n, 'name', None))
+        self.visit(lambda n: setattr(n, "name", None))
 
     def remove_internal_names(self):
         """
         Set the name of all non-leaf nodes in the subtree to None.
         """
-        self.visit(lambda n: setattr(n, 'name', None), lambda n: not n.is_leaf)
+        self.visit(lambda n: setattr(n, "name", None), lambda n: not n.is_leaf)
 
     def remove_leaf_names(self):
         """
         Set the name of all leaf nodes in the subtree to None.
         """
-        self.visit(lambda n: setattr(n, 'name', None), lambda n: n.is_leaf)
+        self.visit(lambda n: setattr(n, "name", None), lambda n: n.is_leaf)
 
     def remove_lengths(self):
         """
         Set the length of all nodes in the subtree to None.
         """
-        self.visit(lambda n: setattr(n, 'length', None))
+        self.visit(lambda n: setattr(n, "length", None))
 
 
-def loads(s: typing.Union[str, typing.Iterable[str]], strip_comments: bool = False, **kw) \
-        -> typing.List[Node]:
+def loads(
+    s: typing.Union[str, typing.Iterable[str]], strip_comments: bool = False, **kw
+) -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted string.
 
@@ -546,7 +564,7 @@ def dumps(trees: typing.Union[Node, typing.Iterable[Node]]) -> str:
     """
     if isinstance(trees, Node):
         trees = [trees]
-    return ';\n'.join([tree.newick for tree in trees]) + ';'
+    return ";\n".join([tree.newick for tree in trees]) + ";"
 
 
 def load(fp, strip_comments=False, **kw) -> typing.List[Node]:
@@ -559,7 +577,7 @@ def load(fp, strip_comments=False, **kw) -> typing.List[Node]:
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
-    kw['strip_comments'] = strip_comments
+    kw["strip_comments"] = strip_comments
     return loads(itertools.chain.from_iterable(fp), **kw)
 
 
@@ -567,7 +585,7 @@ def dump(tree: typing.Union[Node, typing.Iterable[Node]], fp):
     fp.write(dumps(tree))
 
 
-def read(fname, encoding='utf8', strip_comments=False, **kw) -> typing.List[Node]:
+def read(fname, encoding="utf8", strip_comments=False, **kw) -> typing.List[Node]:
     """
     Load a list of trees from a Newick formatted file.
 
@@ -577,13 +595,13 @@ def read(fname, encoding='utf8', strip_comments=False, **kw) -> typing.List[Node
     :param kw: Keyword arguments are passed through to `Node.create`.
     :return: List of Node objects.
     """
-    kw['strip_comments'] = strip_comments
+    kw["strip_comments"] = strip_comments
     with pathlib.Path(fname).open(encoding=encoding) as fp:
         return load(fp, **kw)
 
 
-def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding='utf8'):
-    with pathlib.Path(fname).open(encoding=encoding, mode='w') as fp:
+def write(tree: typing.Union[Node, typing.Iterable[Node]], fname, encoding="utf8"):
+    with pathlib.Path(fname).open(encoding=encoding, mode="w") as fp:
         dump(tree, fp)
 
 
@@ -593,10 +611,11 @@ class Token:
     We parse Newick in one pass, storing the data as list of tokens with enough
     information to extract relevant parts from this list lateron.
     """
+
     __slots__ = [
-        'char',
-        'level',
-        'type',
+        "char",
+        "level",
+        "type",
     ]
     char: str  # The character, i.e. string of length 1.
     type: TokenType
@@ -607,6 +626,7 @@ class NewickString(list):
     """
     A list of tokens with methods to access newick constituents.
     """
+
     def __init__(self, s: typing.Union[str, typing.Iterable, typing.List[Token]]):
         list.__init__(self, s if isinstance(s, list) else [])
 
@@ -643,11 +663,11 @@ class NewickString(list):
                                     doublequote = True  # Yep, mark it.
                                 else:  # End of quoted string
                                     inquote = False
-                                    self.append(Token(''.join(n), TokenType.QWORD, level))
+                                    self.append(Token("".join(n), TokenType.QWORD, level))
                                     break
                         continue
 
-                    if c == '[':  # Start of a comment - we read to the end immediately.
+                    if c == "[":  # Start of a comment - we read to the end immediately.
                         incomment, commentlevel = True, 1
                         n = [c]  # Accumulate all characters in the comment.
                         while 1:
@@ -659,37 +679,37 @@ class NewickString(list):
                             commentlevel += COMMENT[c]
                             if commentlevel == 0:  # End of comment.
                                 incomment = False
-                                self.append(Token(''.join(n), TokenType.COMMENT, level))
+                                self.append(Token("".join(n), TokenType.COMMENT, level))
                                 break
                         continue
 
                     if c in WHITESPACE:
                         # Outside of quotes and comments, whitespace splits words.
                         if word:
-                            self.append(Token(''.join(word), TokenType.WORD, level))
+                            self.append(Token("".join(word), TokenType.WORD, level))
                             word = []
                         self.append(Token(c, TokenType.WHITESPACE, level))
                         continue
 
-                    if c == ']':
-                        raise ValueError('invalid comment nesting')
+                    if c == "]":
+                        raise ValueError("invalid comment nesting")
 
                     if c in RESERVED_PUNCTUATION:
                         # Punctuation separates words:
                         if word:
-                            self.append(Token(''.join(word), TokenType.WORD, level))
+                            self.append(Token("".join(word), TokenType.WORD, level))
                             word = []
 
                         # Outside of quoted strings and comments we keep track of node nesting.
                         # Note: The enclosing brackets have lower level than the content.
-                        if c == ')':
+                        if c == ")":
                             level -= 1
                             if level < 0:
-                                raise ValueError('invalid brace nesting')
+                                raise ValueError("invalid brace nesting")
                             self.append(Token(c, TokenType.CBRACE, level))
                             continue
 
-                        if c == '(':
+                        if c == "(":
                             self.append(Token(c, TokenType.OBRACE, level))
                             level += 1
                             continue
@@ -700,12 +720,12 @@ class NewickString(list):
                     word.append(c)  # All other characters are just accumulated into a word.
                 except StopIteration:
                     if inquote:
-                        raise ValueError('Unterminated quote!')
+                        raise ValueError("Unterminated quote!")
                     if incomment:
-                        raise ValueError('Unterminated comment!')
+                        raise ValueError("Unterminated comment!")
                     break
             if word:
-                self.append(Token(''.join(word), TokenType.WORD, level))
+                self.append(Token("".join(word), TokenType.WORD, level))
 
         # The minimal bracket level of the list of tokens:
         # This becomes important when splitting a NewickString into nodes by - essentially -
@@ -714,8 +734,7 @@ class NewickString(list):
 
     def to_node(self) -> Node:
         # Parse label and length of the root node:
-        tokens = list(
-            itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self)))
+        tokens = list(itertools.takewhile(lambda t: t.level == self.minlevel, reversed(self)))
         if tokens and tokens[-1].type == TokenType.CBRACE:
             tokens = tokens[:-1]
         tokens.reverse()
@@ -738,16 +757,17 @@ class NewickString(list):
                     else:
                         length.append(t.char)
         if len(name) > 1:
-            raise ValueError('Node names must not contain whitespace or punctuation')
+            raise ValueError("Node names must not contain whitespace or punctuation")
 
         return Node.create(
-            name=''.join(name).strip() or None,
-            length=''.join(length) or None,
+            name="".join(name).strip() or None,
+            length="".join(length) or None,
             comments=[c[1:-1] for c in comments],
             colon_before_comment=icolon < icomment,
-            descendants=[d.to_node() for d in self.iter_descendants()])
+            descendants=[d.to_node() for d in self.iter_descendants()],
+        )
 
-    def iter_descendants(self) -> typing.Generator['NewickString', None, None]:
+    def iter_descendants(self) -> typing.Generator["NewickString", None, None]:
         tokens, comma = [], False
         for t in self:
             if t.type == TokenType.COMMA and t.level == self.minlevel + 1:
@@ -759,11 +779,11 @@ class NewickString(list):
         if comma or tokens:
             yield NewickString(tokens)
 
-    def iter_subtrees(self, strip_comments=False) -> typing.Generator['NewickString', None, None]:
+    def iter_subtrees(self, strip_comments=False) -> typing.Generator["NewickString", None, None]:
         def checked(t):
             if t:
                 if t[0].level != t[-1].level:
-                    raise ValueError('different number of opening and closing braces')
+                    raise ValueError("different number of opening and closing braces")
             return NewickString(t)
 
         tokens = []

@@ -11,9 +11,9 @@ use std::hash::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io;
-use std::path::PathBuf;
 use std::process::ExitCode;
 
+use crate::cmd::Input;
 use crate::{
     Reporter,
     file::{sql_from_path, sql_from_stdin},
@@ -91,10 +91,6 @@ fn render_lint_error<W: std::io::Write>(
     sql: &str,
 ) -> Result<()> {
     let renderer = Renderer::styled().decor_style(DecorStyle::Unicode);
-    let error_name = &err.rule_name;
-
-    let title = &err.message;
-
     let level = match err.level {
         ViolationLevel::Warning => Level::WARNING,
         ViolationLevel::Error => Level::ERROR,
@@ -105,7 +101,10 @@ fn render_lint_error<W: std::io::Write>(
         .fold(true)
         .annotation(AnnotationKind::Primary.span(err.range.into()));
 
-    let mut group = level.primary_title(title).id(error_name).element(snippet);
+    let mut group = level
+        .primary_title(&err.message)
+        .id(&err.rule_name)
+        .element(snippet);
 
     if let Some(help) = &err.help {
         group = group.element(Level::HELP.message(help));
@@ -128,73 +127,60 @@ fn render_lint_error<W: std::io::Write>(
     Ok(())
 }
 
-pub fn check_files(
-    path_patterns: &[PathBuf],
-    read_stdin: bool,
-    stdin_path: Option<String>,
-    excluded_rules: &[Rule],
-    pg_version: Option<Version>,
-    assume_in_transaction: bool,
-) -> Result<Vec<CheckReport>> {
+pub(crate) struct LintArgs {
+    pub(crate) input: Input,
+    pub(crate) excluded_rules: Vec<Rule>,
+    pub(crate) pg_version: Option<Version>,
+    pub(crate) assume_in_transaction: bool,
+    pub(crate) reporter: Reporter,
+    pub(crate) github_annotations: bool,
+}
+
+pub fn lint_files(args: &LintArgs) -> Result<Vec<CheckReport>> {
     let mut violations = vec![];
-    if read_stdin {
-        info!("reading content from stdin");
-        let sql = sql_from_stdin()?;
-        // ignore stdin if it's empty.
-        if sql.trim().is_empty() {
-            info!("ignoring empty stdin");
-        } else {
-            let path = stdin_path.unwrap_or_else(|| "stdin".into());
-            let content = check_sql(
-                &sql,
-                &path,
-                excluded_rules,
-                pg_version,
-                assume_in_transaction,
-            );
-            violations.push(content);
+    match &args.input {
+        Input::Stdin(stdin) => {
+            info!("reading content from stdin");
+            let sql = sql_from_stdin()?;
+            // ignore stdin if it's empty.
+            if sql.trim().is_empty() {
+                info!("ignoring empty stdin");
+            } else {
+                let path = stdin.path.clone().unwrap_or_else(|| "stdin".into());
+                let content = check_sql(
+                    &sql,
+                    &path,
+                    &args.excluded_rules,
+                    args.pg_version,
+                    args.assume_in_transaction,
+                );
+                violations.push(content);
+            }
+        }
+        Input::Paths(path_bufs) => {
+            for path in path_bufs {
+                info!("checking file path: {}", path.display());
+                let sql = sql_from_path(path)?;
+                let content = check_sql(
+                    &sql,
+                    path.to_str().unwrap(),
+                    &args.excluded_rules,
+                    args.pg_version,
+                    args.assume_in_transaction,
+                );
+                violations.push(content);
+            }
         }
     }
-
-    for path in path_patterns {
-        info!("checking file path: {}", path.display());
-        let sql = sql_from_path(path)?;
-        let content = check_sql(
-            &sql,
-            path.to_str().unwrap(),
-            excluded_rules,
-            pg_version,
-            assume_in_transaction,
-        );
-        violations.push(content);
-    }
-
     Ok(violations)
 }
 
-pub fn check_and_dump_files<W: io::Write>(
-    f: &mut W,
-    path_patterns: &[PathBuf],
-    read_stdin: bool,
-    stdin_path: Option<String>,
-    excluded_rules: &[Rule],
-    pg_version: Option<Version>,
-    assume_in_transaction: bool,
-    reporter: &Reporter,
-    github_annotations: bool,
-) -> Result<ExitCode> {
-    let violations = check_files(
-        path_patterns,
-        read_stdin,
-        stdin_path,
-        excluded_rules,
-        pg_version,
-        assume_in_transaction,
-    )?;
+pub fn lint_and_report<W: io::Write>(f: &mut W, args: LintArgs) -> Result<ExitCode> {
+    let violations = lint_files(&args)?;
 
     let ok = violations.iter().map(|x| x.violations.len()).sum::<usize>() == 0;
 
-    print_violations(f, violations, reporter, github_annotations)?;
+    print_violations(f, violations, &args.reporter, args.github_annotations)?;
 
     Ok(if ok {
         ExitCode::SUCCESS
@@ -528,14 +514,16 @@ SELECT 1;
         );
         assert!(res.is_ok());
 
-        assert_snapshot!(String::from_utf8_lossy(&buff), @r###"
+        assert_snapshot!(String::from_utf8_lossy(&buff), @r"
+        main.sql:1:3: warning: require-timeout-settings Missing `set lock_timeout` before potentially slow operations
+        main.sql:1:3: warning: require-timeout-settings Missing `set statement_timeout` before potentially slow operations
         main.sql:1:29: warning: adding-required-field Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required.
         main.sql:1:29: warning: prefer-robust-stmts Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.
         main.sql:1:46: warning: prefer-bigint-over-int Using 32-bit integer fields can result in hitting the max `int` limit.
         main.sql:2:23: warning: adding-required-field Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required.
         main.sql:2:23: warning: prefer-robust-stmts Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.
         main.sql:2:40: warning: prefer-bigint-over-int Using 32-bit integer fields can result in hitting the max `int` limit.
-        "###);
+        ");
     }
 
     #[test]
@@ -619,7 +607,7 @@ SELECT 1;
         );
 
         assert!(res.is_ok());
-        assert_snapshot!(String::from_utf8_lossy(&buff), @r#"[{"file":"main.sql","line":1,"column":29,"level":"Warning","message":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required.","help":"Make the field nullable or add a non-VOLATILE DEFAULT","rule_name":"adding-required-field","column_end":62,"line_end":1},{"file":"main.sql","line":1,"column":29,"level":"Warning","message":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","help":null,"rule_name":"prefer-robust-stmts","column_end":62,"line_end":1},{"file":"main.sql","line":1,"column":46,"level":"Warning","message":"Using 32-bit integer fields can result in hitting the max `int` limit.","help":"Use 64-bit integer values instead to prevent hitting this limit.","rule_name":"prefer-bigint-over-int","column_end":53,"line_end":1},{"file":"main.sql","line":2,"column":23,"level":"Warning","message":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required.","help":"Make the field nullable or add a non-VOLATILE DEFAULT","rule_name":"adding-required-field","column_end":56,"line_end":2},{"file":"main.sql","line":2,"column":23,"level":"Warning","message":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","help":null,"rule_name":"prefer-robust-stmts","column_end":56,"line_end":2},{"file":"main.sql","line":2,"column":40,"level":"Warning","message":"Using 32-bit integer fields can result in hitting the max `int` limit.","help":"Use 64-bit integer values instead to prevent hitting this limit.","rule_name":"prefer-bigint-over-int","column_end":47,"line_end":2}]"#);
+        assert_snapshot!(String::from_utf8_lossy(&buff), @r#"[{"file":"main.sql","line":1,"column":3,"level":"Warning","message":"Missing `set lock_timeout` before potentially slow operations","help":"Configure a `lock_timeout` before this statement.","rule_name":"require-timeout-settings","column_end":62,"line_end":1},{"file":"main.sql","line":1,"column":3,"level":"Warning","message":"Missing `set statement_timeout` before potentially slow operations","help":"Configure a `statement_timeout` before this statement","rule_name":"require-timeout-settings","column_end":62,"line_end":1},{"file":"main.sql","line":1,"column":29,"level":"Warning","message":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required.","help":"Make the field nullable or add a non-VOLATILE DEFAULT","rule_name":"adding-required-field","column_end":62,"line_end":1},{"file":"main.sql","line":1,"column":29,"level":"Warning","message":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","help":null,"rule_name":"prefer-robust-stmts","column_end":62,"line_end":1},{"file":"main.sql","line":1,"column":46,"level":"Warning","message":"Using 32-bit integer fields can result in hitting the max `int` limit.","help":"Use 64-bit integer values instead to prevent hitting this limit.","rule_name":"prefer-bigint-over-int","column_end":53,"line_end":1},{"file":"main.sql","line":2,"column":23,"level":"Warning","message":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required.","help":"Make the field nullable or add a non-VOLATILE DEFAULT","rule_name":"adding-required-field","column_end":56,"line_end":2},{"file":"main.sql","line":2,"column":23,"level":"Warning","message":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","help":null,"rule_name":"prefer-robust-stmts","column_end":56,"line_end":2},{"file":"main.sql","line":2,"column":40,"level":"Warning","message":"Using 32-bit integer fields can result in hitting the max `int` limit.","help":"Use 64-bit integer values instead to prevent hitting this limit.","rule_name":"prefer-bigint-over-int","column_end":47,"line_end":2}]"#);
     }
 
     #[test]
@@ -641,9 +629,7 @@ SELECT 1;
 
         assert!(res.is_ok());
 
-        assert_snapshot!(String::from_utf8_lossy(&buff), @r###"
-        [{"description":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required. Suggestion: Make the field nullable or add a non-VOLATILE DEFAULT","severity":"minor","fingerprint":"87fbb54d93cdb8c9","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"adding-required-field"},{"description":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","severity":"minor","fingerprint":"21df0ee3817ad84","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"prefer-robust-stmts"},{"description":"Using 32-bit integer fields can result in hitting the max `int` limit. Suggestion: Use 64-bit integer values instead to prevent hitting this limit.","severity":"minor","fingerprint":"3d0e81dc13bc8757","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"prefer-bigint-over-int"},{"description":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required. Suggestion: Make the field nullable or add a non-VOLATILE DEFAULT","severity":"minor","fingerprint":"4bdd655ad8e102ad","location":{"path":"main.sql","lines":{"begin":2,"end":2}},"check_name":"adding-required-field"},{"description":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","severity":"minor","fingerprint":"1b2e8c81e717c442","location":{"path":"main.sql","lines":{"begin":2,"end":2}},"check_name":"prefer-robust-stmts"},{"description":"Using 32-bit integer fields can result in hitting the max `int` limit. Suggestion: Use 64-bit integer values instead to prevent hitting this limit.","severity":"minor","fingerprint":"2bed2a431803b811","location":{"path":"main.sql","lines":{"begin":2,"end":2}},"check_name":"prefer-bigint-over-int"}]
-        "###);
+        assert_snapshot!(String::from_utf8_lossy(&buff), @r#"[{"description":"Missing `set lock_timeout` before potentially slow operations Suggestion: Configure a `lock_timeout` before this statement.","severity":"minor","fingerprint":"106496a54f0e1a20","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"require-timeout-settings"},{"description":"Missing `set statement_timeout` before potentially slow operations Suggestion: Configure a `statement_timeout` before this statement","severity":"minor","fingerprint":"2904632bf27251d2","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"require-timeout-settings"},{"description":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required. Suggestion: Make the field nullable or add a non-VOLATILE DEFAULT","severity":"minor","fingerprint":"87fbb54d93cdb8c9","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"adding-required-field"},{"description":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","severity":"minor","fingerprint":"21df0ee3817ad84","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"prefer-robust-stmts"},{"description":"Using 32-bit integer fields can result in hitting the max `int` limit. Suggestion: Use 64-bit integer values instead to prevent hitting this limit.","severity":"minor","fingerprint":"3d0e81dc13bc8757","location":{"path":"main.sql","lines":{"begin":1,"end":1}},"check_name":"prefer-bigint-over-int"},{"description":"Adding a new column that is `NOT NULL` and has no default value to an existing table effectively makes it required. Suggestion: Make the field nullable or add a non-VOLATILE DEFAULT","severity":"minor","fingerprint":"4bdd655ad8e102ad","location":{"path":"main.sql","lines":{"begin":2,"end":2}},"check_name":"adding-required-field"},{"description":"Missing `IF NOT EXISTS`, the migration can't be rerun if it fails part way through.","severity":"minor","fingerprint":"1b2e8c81e717c442","location":{"path":"main.sql","lines":{"begin":2,"end":2}},"check_name":"prefer-robust-stmts"},{"description":"Using 32-bit integer fields can result in hitting the max `int` limit. Suggestion: Use 64-bit integer values instead to prevent hitting this limit.","severity":"minor","fingerprint":"2bed2a431803b811","location":{"path":"main.sql","lines":{"begin":2,"end":2}},"check_name":"prefer-bigint-over-int"}]"#);
     }
 
     #[test]

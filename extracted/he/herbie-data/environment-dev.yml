@@ -1,0 +1,104 @@
+## Used by Brian for developing Herbie
+
+name: herbie-dev
+channels:
+  - conda-forge
+dependencies:
+  - eccodes>=2.31
+  - git
+  - pip
+  - python>=3.13
+  - rclone
+  - uv
+  - wgrib2 # Linux only
+
+  # ============
+  # Dependencies
+  # ============
+  - cartopy>=0.22
+  - cfgrib>=0.9.10.4
+  - geopandas
+  - h5py
+  - jupyter
+  - matplotlib>=3.4.3
+  - metpy
+  - netcdf4
+  - numpy>=1.25
+  - pandas>=2.0
+  - polars>=1.17.1
+  - pygrib>=2.1.4
+  - pylint
+  - pyproj>=3.6
+  - requests>=2.31
+  - s3fs
+  - scipy>=1.15.1
+  - scikit-learn
+  - toml
+  - xarray>=2023.7
+  - zarr
+
+  # ===========
+  # Development
+  # ===========
+  - ruff
+  - pytest
+  - pytest-cov
+
+  # =============
+  # Documentation
+  # =============
+  - sphinx>=4.4.0
+  - nbsphinx
+  - nbconvert>=6.5
+  - pydata-sphinx-theme
+  - sphinx-design
+  - recommonmark
+  - sphinx-markdown-tables
+  - sphinxcontrib-mermaid
+  - autodocsumm
+  - sphinx-autosummary-accessors
+  - latexmk
+  - myst-parser
+  - linkify-it-py
+
+# =============================================================================
+#                                Setup Steps
+# =============================================================================
+# mamba activate herbie-dev
+# git clone https://github.com/blaylockbk/Herbie.git
+# cd Herbie
+# pip install -e .
+#
+# cd ~
+# git clone https://github.com/blaylockbk/Carpenter_Workshop.git
+# cd Carpenter_Workshop
+# pi install -e .
+
+# =============================================================================
+#                                 Notes
+# =============================================================================
+# Being more specific with versions *may* help speed up conda
+# creating/updating environments
+# https://www.anaconda.com/blog/understanding-and-improving-condas-performance
+#
+
+# =============================================================================
+#                              Conda Tips
+# =============================================================================
+# To create this environment
+#
+#     curl -O https://raw.githubusercontent.com/blaylockbk/Herbie/main/environment-dev.yml
+#     conda env create -f environment-dev.yml
+#
+# To update this environment
+#
+#     conda env update -f environment-dev.yml --prune
+#
+# To remove this environment
+#
+#     conda env remove --name herbie-dev
+#
+# To do a conda clean
+#
+#     conda clean -tp
+# =============================================================================

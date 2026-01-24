@@ -7,7 +7,7 @@ name = "labelme"
 description = "Image Polygonal Annotation with Python"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.9"
-version = "5.8.3"
+version = "5.10.1"
 authors = [{ name = "Kentaro Wada", email = "www.kentaro.wada@gmail.com" }]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -29,7 +29,7 @@ dependencies = [
   "matplotlib",
   "natsort>=7.1.0",
   "numpy",
-  "osam>=0.2.4",
+  "osam>=0.2.5",
   "pillow>=2.8",
   "pyqt5>=5.14.0",
   "pyqt5-qt5!=5.15.13 ; sys_platform == 'linux'",
@@ -48,7 +48,7 @@ dev = [
   "pyqt5-stubs>=5.15.6.0",
   "pytest>=8.3.4",
   "pytest-qt>=4.4.0",
-  "ruff==0.1.9",
+  "ruff~=0.12.11",
   "twine>=6.1.0",
   "types-pillow>=10.2.0.20240822",
   "types-pyyaml>=6.0.12.20241230",
@@ -68,10 +68,18 @@ markers = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = [
+  "E",  # pycodestyle
+  "F",  # pyflakes
+  "I",  # isort
+  "UP",  # pyupgrade
+]
 
 [tool.ruff.lint.isort]
 force-single-line = true
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
 
 [tool.mypy]
 check_untyped_defs = true

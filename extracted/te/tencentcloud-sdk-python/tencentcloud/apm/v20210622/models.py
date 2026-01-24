@@ -120,6 +120,78 @@ class APMKVItem(AbstractModel):
         
 
 
+class AgentOperationConfigView(AbstractModel):
+    r"""探针有关接口的相关配置
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RetentionValid: 当前接口配置是否开启了接口白名单配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RetentionValid: bool
+        :param _IgnoreOperation: RetentionValid为false时生效，接口配置中的黑名单配置，配置中的接口不采集
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IgnoreOperation: str
+        :param _RetentionOperation: RetentionValid为true时生效，接口配置中的白名单配置，仅采集配置中的接口
+注意：此字段可能返回 null，表示取不到有效值。
+        :type RetentionOperation: str
+        """
+        self._RetentionValid = None
+        self._IgnoreOperation = None
+        self._RetentionOperation = None
+
+    @property
+    def RetentionValid(self):
+        r"""当前接口配置是否开启了接口白名单配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._RetentionValid
+
+    @RetentionValid.setter
+    def RetentionValid(self, RetentionValid):
+        self._RetentionValid = RetentionValid
+
+    @property
+    def IgnoreOperation(self):
+        r"""RetentionValid为false时生效，接口配置中的黑名单配置，配置中的接口不采集
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._IgnoreOperation
+
+    @IgnoreOperation.setter
+    def IgnoreOperation(self, IgnoreOperation):
+        self._IgnoreOperation = IgnoreOperation
+
+    @property
+    def RetentionOperation(self):
+        r"""RetentionValid为true时生效，接口配置中的白名单配置，仅采集配置中的接口
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._RetentionOperation
+
+    @RetentionOperation.setter
+    def RetentionOperation(self, RetentionOperation):
+        self._RetentionOperation = RetentionOperation
+
+
+    def _deserialize(self, params):
+        self._RetentionValid = params.get("RetentionValid")
+        self._IgnoreOperation = params.get("IgnoreOperation")
+        self._RetentionOperation = params.get("RetentionOperation")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ApmAgentInfo(AbstractModel):
     r"""APM Agent 信息
 
@@ -231,6 +303,940 @@ class ApmAgentInfo(AbstractModel):
         
 
 
+class ApmAppConfig(AbstractModel):
+    r"""查询应用配置返回参数
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceKey: 实例ID
+        :type InstanceKey: str
+        :param _ServiceName: 服务名
+        :type ServiceName: str
+        :param _UrlConvergenceSwitch: URL收敛开关
+        :type UrlConvergenceSwitch: int
+        :param _UrlConvergenceThreshold: URL收敛阈值
+        :type UrlConvergenceThreshold: int
+        :param _UrlConvergence: URL收敛正则
+        :type UrlConvergence: str
+        :param _ExceptionFilter: 异常过滤正则
+        :type ExceptionFilter: str
+        :param _ErrorCodeFilter: 错误码过滤
+        :type ErrorCodeFilter: str
+        :param _Components: 服务组件类型
+        :type Components: str
+        :param _UrlExclude: URL排除正则
+        :type UrlExclude: str
+        :param _LogSource: 日志来源
+        :type LogSource: str
+        :param _LogRegion: 日志所在地域
+        :type LogRegion: str
+        :param _IsRelatedLog: 是否开启日志 0 关 1 开
+        :type IsRelatedLog: int
+        :param _LogTopicID: 日志主题ID
+        :type LogTopicID: str
+        :param _IgnoreOperationName: 需过滤的接口名
+        :type IgnoreOperationName: str
+        :param _LogSet: CLS日志集 | ES集群ID
+        :type LogSet: str
+        :param _TraceRateLimit: 探针每秒上报trace数
+        :type TraceRateLimit: int
+        :param _EnableSnapshot: 是否开启线程剖析
+        :type EnableSnapshot: bool
+        :param _SnapshotTimeout: 线程剖析超时阈值
+        :type SnapshotTimeout: int
+        :param _AgentEnable: 是否开启agent
+        :type AgentEnable: bool
+        :param _InstrumentList: 组件列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InstrumentList: list of Instrument
+        :param _TraceSquash: 是否开启链路压缩
+        :type TraceSquash: bool
+        :param _EventEnable: 是否开启应用诊断开关
+        :type EventEnable: bool
+        :param _AgentOperationConfigView: 探针接口相关配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type AgentOperationConfigView: :class:`tencentcloud.apm.v20210622.models.AgentOperationConfigView`
+        :param _EnableLogConfig: 是否开启应用日志配置
+        :type EnableLogConfig: bool
+        :param _ServiceID: 应用ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ServiceID: str
+        :param _EnableDashboardConfig: 应用是否开启dashboard配置： false 关（与业务系统保持一致）/true 开（应用级配置）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EnableDashboardConfig: bool
+        :param _IsRelatedDashboard: 是否关联dashboard： 0 关 1 开
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsRelatedDashboard: int
+        :param _DashboardTopicID: dashboard ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type DashboardTopicID: str
+        :param _EnableSecurityConfig: 是否开启应用级别配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type EnableSecurityConfig: bool
+        :param _IsInstrumentationVulnerabilityScan: 是否开启组件漏洞检测
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsInstrumentationVulnerabilityScan: int
+        :param _IsSqlInjectionAnalysis: 是否开启SQL注入分析
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsSqlInjectionAnalysis: int
+        :param _IsRemoteCommandExecutionAnalysis: 是否开启远程命令执行分析
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsRemoteCommandExecutionAnalysis: int
+        :param _IsMemoryHijackingAnalysis: 是否开启内存马检测分析
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsMemoryHijackingAnalysis: int
+        :param _LogIndexType: CLS索引类型(0=全文索引，1=键值索引)
+        :type LogIndexType: int
+        :param _LogTraceIdKey: traceId的索引key: 当CLS索引类型为键值索引时生效
+        :type LogTraceIdKey: str
+        :param _IsDeleteAnyFileAnalysis: 是否开启删除任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsDeleteAnyFileAnalysis: int
+        :param _IsReadAnyFileAnalysis: 是否开启读取任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsReadAnyFileAnalysis: int
+        :param _IsUploadAnyFileAnalysis: 是否开启上传任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsUploadAnyFileAnalysis: int
+        :param _IsIncludeAnyFileAnalysis: 是否开启包含任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsIncludeAnyFileAnalysis: int
+        :param _IsDirectoryTraversalAnalysis: 是否开启目录遍历检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsDirectoryTraversalAnalysis: int
+        :param _IsTemplateEngineInjectionAnalysis: 是否开启模板引擎注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsTemplateEngineInjectionAnalysis: int
+        :param _IsScriptEngineInjectionAnalysis: 是否开启脚本引擎注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsScriptEngineInjectionAnalysis: int
+        :param _IsExpressionInjectionAnalysis: 是否开启表达式注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsExpressionInjectionAnalysis: int
+        :param _IsJNDIInjectionAnalysis: 是否开启JNDI注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsJNDIInjectionAnalysis: int
+        :param _IsJNIInjectionAnalysis: 是否开启JNI注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsJNIInjectionAnalysis: int
+        :param _IsWebshellBackdoorAnalysis: 是否开启Webshell后门检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsWebshellBackdoorAnalysis: int
+        :param _IsDeserializationAnalysis: 是否开启反序列化检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsDeserializationAnalysis: int
+        :param _UrlAutoConvergenceEnable: 接口名称自动收敛开关（0-关闭，1-开启）
+        :type UrlAutoConvergenceEnable: bool
+        :param _UrlLongSegmentThreshold: URL长分段收敛阈值
+        :type UrlLongSegmentThreshold: int
+        :param _UrlNumberSegmentThreshold: URL数字分段收敛阈值
+        :type UrlNumberSegmentThreshold: int
+        :param _DisableMemoryUsed: 探针熔断内存阈值
+        :type DisableMemoryUsed: int
+        :param _DisableCpuUsed: 探针熔断CPU阈值
+        :type DisableCpuUsed: int
+        :param _DbStatementParametersEnabled: 是否开启SQL参数获取
+        :type DbStatementParametersEnabled: bool
+        :param _SlowSQLThresholds: 慢SQL阈值
+        :type SlowSQLThresholds: list of ApmTag
+        :param _EnableDesensitizationRule: 是否开启脱敏规则
+        :type EnableDesensitizationRule: int
+        :param _DesensitizationRule: 脱敏规则
+        :type DesensitizationRule: str
+        :param _LogSpanIdKey: spanId的索引key: 当CLS索引类型为键值索引时生效
+        :type LogSpanIdKey: str
+        """
+        self._InstanceKey = None
+        self._ServiceName = None
+        self._UrlConvergenceSwitch = None
+        self._UrlConvergenceThreshold = None
+        self._UrlConvergence = None
+        self._ExceptionFilter = None
+        self._ErrorCodeFilter = None
+        self._Components = None
+        self._UrlExclude = None
+        self._LogSource = None
+        self._LogRegion = None
+        self._IsRelatedLog = None
+        self._LogTopicID = None
+        self._IgnoreOperationName = None
+        self._LogSet = None
+        self._TraceRateLimit = None
+        self._EnableSnapshot = None
+        self._SnapshotTimeout = None
+        self._AgentEnable = None
+        self._InstrumentList = None
+        self._TraceSquash = None
+        self._EventEnable = None
+        self._AgentOperationConfigView = None
+        self._EnableLogConfig = None
+        self._ServiceID = None
+        self._EnableDashboardConfig = None
+        self._IsRelatedDashboard = None
+        self._DashboardTopicID = None
+        self._EnableSecurityConfig = None
+        self._IsInstrumentationVulnerabilityScan = None
+        self._IsSqlInjectionAnalysis = None
+        self._IsRemoteCommandExecutionAnalysis = None
+        self._IsMemoryHijackingAnalysis = None
+        self._LogIndexType = None
+        self._LogTraceIdKey = None
+        self._IsDeleteAnyFileAnalysis = None
+        self._IsReadAnyFileAnalysis = None
+        self._IsUploadAnyFileAnalysis = None
+        self._IsIncludeAnyFileAnalysis = None
+        self._IsDirectoryTraversalAnalysis = None
+        self._IsTemplateEngineInjectionAnalysis = None
+        self._IsScriptEngineInjectionAnalysis = None
+        self._IsExpressionInjectionAnalysis = None
+        self._IsJNDIInjectionAnalysis = None
+        self._IsJNIInjectionAnalysis = None
+        self._IsWebshellBackdoorAnalysis = None
+        self._IsDeserializationAnalysis = None
+        self._UrlAutoConvergenceEnable = None
+        self._UrlLongSegmentThreshold = None
+        self._UrlNumberSegmentThreshold = None
+        self._DisableMemoryUsed = None
+        self._DisableCpuUsed = None
+        self._DbStatementParametersEnabled = None
+        self._SlowSQLThresholds = None
+        self._EnableDesensitizationRule = None
+        self._DesensitizationRule = None
+        self._LogSpanIdKey = None
+
+    @property
+    def InstanceKey(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceKey
+
+    @InstanceKey.setter
+    def InstanceKey(self, InstanceKey):
+        self._InstanceKey = InstanceKey
+
+    @property
+    def ServiceName(self):
+        r"""服务名
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def UrlConvergenceSwitch(self):
+        r"""URL收敛开关
+        :rtype: int
+        """
+        return self._UrlConvergenceSwitch
+
+    @UrlConvergenceSwitch.setter
+    def UrlConvergenceSwitch(self, UrlConvergenceSwitch):
+        self._UrlConvergenceSwitch = UrlConvergenceSwitch
+
+    @property
+    def UrlConvergenceThreshold(self):
+        r"""URL收敛阈值
+        :rtype: int
+        """
+        return self._UrlConvergenceThreshold
+
+    @UrlConvergenceThreshold.setter
+    def UrlConvergenceThreshold(self, UrlConvergenceThreshold):
+        self._UrlConvergenceThreshold = UrlConvergenceThreshold
+
+    @property
+    def UrlConvergence(self):
+        r"""URL收敛正则
+        :rtype: str
+        """
+        return self._UrlConvergence
+
+    @UrlConvergence.setter
+    def UrlConvergence(self, UrlConvergence):
+        self._UrlConvergence = UrlConvergence
+
+    @property
+    def ExceptionFilter(self):
+        r"""异常过滤正则
+        :rtype: str
+        """
+        return self._ExceptionFilter
+
+    @ExceptionFilter.setter
+    def ExceptionFilter(self, ExceptionFilter):
+        self._ExceptionFilter = ExceptionFilter
+
+    @property
+    def ErrorCodeFilter(self):
+        r"""错误码过滤
+        :rtype: str
+        """
+        return self._ErrorCodeFilter
+
+    @ErrorCodeFilter.setter
+    def ErrorCodeFilter(self, ErrorCodeFilter):
+        self._ErrorCodeFilter = ErrorCodeFilter
+
+    @property
+    def Components(self):
+        r"""服务组件类型
+        :rtype: str
+        """
+        return self._Components
+
+    @Components.setter
+    def Components(self, Components):
+        self._Components = Components
+
+    @property
+    def UrlExclude(self):
+        r"""URL排除正则
+        :rtype: str
+        """
+        return self._UrlExclude
+
+    @UrlExclude.setter
+    def UrlExclude(self, UrlExclude):
+        self._UrlExclude = UrlExclude
+
+    @property
+    def LogSource(self):
+        r"""日志来源
+        :rtype: str
+        """
+        return self._LogSource
+
+    @LogSource.setter
+    def LogSource(self, LogSource):
+        self._LogSource = LogSource
+
+    @property
+    def LogRegion(self):
+        r"""日志所在地域
+        :rtype: str
+        """
+        return self._LogRegion
+
+    @LogRegion.setter
+    def LogRegion(self, LogRegion):
+        self._LogRegion = LogRegion
+
+    @property
+    def IsRelatedLog(self):
+        r"""是否开启日志 0 关 1 开
+        :rtype: int
+        """
+        return self._IsRelatedLog
+
+    @IsRelatedLog.setter
+    def IsRelatedLog(self, IsRelatedLog):
+        self._IsRelatedLog = IsRelatedLog
+
+    @property
+    def LogTopicID(self):
+        r"""日志主题ID
+        :rtype: str
+        """
+        return self._LogTopicID
+
+    @LogTopicID.setter
+    def LogTopicID(self, LogTopicID):
+        self._LogTopicID = LogTopicID
+
+    @property
+    def IgnoreOperationName(self):
+        r"""需过滤的接口名
+        :rtype: str
+        """
+        return self._IgnoreOperationName
+
+    @IgnoreOperationName.setter
+    def IgnoreOperationName(self, IgnoreOperationName):
+        self._IgnoreOperationName = IgnoreOperationName
+
+    @property
+    def LogSet(self):
+        r"""CLS日志集 | ES集群ID
+        :rtype: str
+        """
+        return self._LogSet
+
+    @LogSet.setter
+    def LogSet(self, LogSet):
+        self._LogSet = LogSet
+
+    @property
+    def TraceRateLimit(self):
+        r"""探针每秒上报trace数
+        :rtype: int
+        """
+        return self._TraceRateLimit
+
+    @TraceRateLimit.setter
+    def TraceRateLimit(self, TraceRateLimit):
+        self._TraceRateLimit = TraceRateLimit
+
+    @property
+    def EnableSnapshot(self):
+        r"""是否开启线程剖析
+        :rtype: bool
+        """
+        return self._EnableSnapshot
+
+    @EnableSnapshot.setter
+    def EnableSnapshot(self, EnableSnapshot):
+        self._EnableSnapshot = EnableSnapshot
+
+    @property
+    def SnapshotTimeout(self):
+        r"""线程剖析超时阈值
+        :rtype: int
+        """
+        return self._SnapshotTimeout
+
+    @SnapshotTimeout.setter
+    def SnapshotTimeout(self, SnapshotTimeout):
+        self._SnapshotTimeout = SnapshotTimeout
+
+    @property
+    def AgentEnable(self):
+        r"""是否开启agent
+        :rtype: bool
+        """
+        return self._AgentEnable
+
+    @AgentEnable.setter
+    def AgentEnable(self, AgentEnable):
+        self._AgentEnable = AgentEnable
+
+    @property
+    def InstrumentList(self):
+        r"""组件列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of Instrument
+        """
+        return self._InstrumentList
+
+    @InstrumentList.setter
+    def InstrumentList(self, InstrumentList):
+        self._InstrumentList = InstrumentList
+
+    @property
+    def TraceSquash(self):
+        r"""是否开启链路压缩
+        :rtype: bool
+        """
+        return self._TraceSquash
+
+    @TraceSquash.setter
+    def TraceSquash(self, TraceSquash):
+        self._TraceSquash = TraceSquash
+
+    @property
+    def EventEnable(self):
+        r"""是否开启应用诊断开关
+        :rtype: bool
+        """
+        return self._EventEnable
+
+    @EventEnable.setter
+    def EventEnable(self, EventEnable):
+        self._EventEnable = EventEnable
+
+    @property
+    def AgentOperationConfigView(self):
+        r"""探针接口相关配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.apm.v20210622.models.AgentOperationConfigView`
+        """
+        return self._AgentOperationConfigView
+
+    @AgentOperationConfigView.setter
+    def AgentOperationConfigView(self, AgentOperationConfigView):
+        self._AgentOperationConfigView = AgentOperationConfigView
+
+    @property
+    def EnableLogConfig(self):
+        r"""是否开启应用日志配置
+        :rtype: bool
+        """
+        return self._EnableLogConfig
+
+    @EnableLogConfig.setter
+    def EnableLogConfig(self, EnableLogConfig):
+        self._EnableLogConfig = EnableLogConfig
+
+    @property
+    def ServiceID(self):
+        r"""应用ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ServiceID
+
+    @ServiceID.setter
+    def ServiceID(self, ServiceID):
+        self._ServiceID = ServiceID
+
+    @property
+    def EnableDashboardConfig(self):
+        r"""应用是否开启dashboard配置： false 关（与业务系统保持一致）/true 开（应用级配置）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._EnableDashboardConfig
+
+    @EnableDashboardConfig.setter
+    def EnableDashboardConfig(self, EnableDashboardConfig):
+        self._EnableDashboardConfig = EnableDashboardConfig
+
+    @property
+    def IsRelatedDashboard(self):
+        r"""是否关联dashboard： 0 关 1 开
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsRelatedDashboard
+
+    @IsRelatedDashboard.setter
+    def IsRelatedDashboard(self, IsRelatedDashboard):
+        self._IsRelatedDashboard = IsRelatedDashboard
+
+    @property
+    def DashboardTopicID(self):
+        r"""dashboard ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._DashboardTopicID
+
+    @DashboardTopicID.setter
+    def DashboardTopicID(self, DashboardTopicID):
+        self._DashboardTopicID = DashboardTopicID
+
+    @property
+    def EnableSecurityConfig(self):
+        r"""是否开启应用级别配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._EnableSecurityConfig
+
+    @EnableSecurityConfig.setter
+    def EnableSecurityConfig(self, EnableSecurityConfig):
+        self._EnableSecurityConfig = EnableSecurityConfig
+
+    @property
+    def IsInstrumentationVulnerabilityScan(self):
+        r"""是否开启组件漏洞检测
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsInstrumentationVulnerabilityScan
+
+    @IsInstrumentationVulnerabilityScan.setter
+    def IsInstrumentationVulnerabilityScan(self, IsInstrumentationVulnerabilityScan):
+        self._IsInstrumentationVulnerabilityScan = IsInstrumentationVulnerabilityScan
+
+    @property
+    def IsSqlInjectionAnalysis(self):
+        r"""是否开启SQL注入分析
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsSqlInjectionAnalysis
+
+    @IsSqlInjectionAnalysis.setter
+    def IsSqlInjectionAnalysis(self, IsSqlInjectionAnalysis):
+        self._IsSqlInjectionAnalysis = IsSqlInjectionAnalysis
+
+    @property
+    def IsRemoteCommandExecutionAnalysis(self):
+        r"""是否开启远程命令执行分析
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsRemoteCommandExecutionAnalysis
+
+    @IsRemoteCommandExecutionAnalysis.setter
+    def IsRemoteCommandExecutionAnalysis(self, IsRemoteCommandExecutionAnalysis):
+        self._IsRemoteCommandExecutionAnalysis = IsRemoteCommandExecutionAnalysis
+
+    @property
+    def IsMemoryHijackingAnalysis(self):
+        r"""是否开启内存马检测分析
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsMemoryHijackingAnalysis
+
+    @IsMemoryHijackingAnalysis.setter
+    def IsMemoryHijackingAnalysis(self, IsMemoryHijackingAnalysis):
+        self._IsMemoryHijackingAnalysis = IsMemoryHijackingAnalysis
+
+    @property
+    def LogIndexType(self):
+        r"""CLS索引类型(0=全文索引，1=键值索引)
+        :rtype: int
+        """
+        return self._LogIndexType
+
+    @LogIndexType.setter
+    def LogIndexType(self, LogIndexType):
+        self._LogIndexType = LogIndexType
+
+    @property
+    def LogTraceIdKey(self):
+        r"""traceId的索引key: 当CLS索引类型为键值索引时生效
+        :rtype: str
+        """
+        return self._LogTraceIdKey
+
+    @LogTraceIdKey.setter
+    def LogTraceIdKey(self, LogTraceIdKey):
+        self._LogTraceIdKey = LogTraceIdKey
+
+    @property
+    def IsDeleteAnyFileAnalysis(self):
+        r"""是否开启删除任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsDeleteAnyFileAnalysis
+
+    @IsDeleteAnyFileAnalysis.setter
+    def IsDeleteAnyFileAnalysis(self, IsDeleteAnyFileAnalysis):
+        self._IsDeleteAnyFileAnalysis = IsDeleteAnyFileAnalysis
+
+    @property
+    def IsReadAnyFileAnalysis(self):
+        r"""是否开启读取任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsReadAnyFileAnalysis
+
+    @IsReadAnyFileAnalysis.setter
+    def IsReadAnyFileAnalysis(self, IsReadAnyFileAnalysis):
+        self._IsReadAnyFileAnalysis = IsReadAnyFileAnalysis
+
+    @property
+    def IsUploadAnyFileAnalysis(self):
+        r"""是否开启上传任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsUploadAnyFileAnalysis
+
+    @IsUploadAnyFileAnalysis.setter
+    def IsUploadAnyFileAnalysis(self, IsUploadAnyFileAnalysis):
+        self._IsUploadAnyFileAnalysis = IsUploadAnyFileAnalysis
+
+    @property
+    def IsIncludeAnyFileAnalysis(self):
+        r"""是否开启包含任意文件检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsIncludeAnyFileAnalysis
+
+    @IsIncludeAnyFileAnalysis.setter
+    def IsIncludeAnyFileAnalysis(self, IsIncludeAnyFileAnalysis):
+        self._IsIncludeAnyFileAnalysis = IsIncludeAnyFileAnalysis
+
+    @property
+    def IsDirectoryTraversalAnalysis(self):
+        r"""是否开启目录遍历检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsDirectoryTraversalAnalysis
+
+    @IsDirectoryTraversalAnalysis.setter
+    def IsDirectoryTraversalAnalysis(self, IsDirectoryTraversalAnalysis):
+        self._IsDirectoryTraversalAnalysis = IsDirectoryTraversalAnalysis
+
+    @property
+    def IsTemplateEngineInjectionAnalysis(self):
+        r"""是否开启模板引擎注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsTemplateEngineInjectionAnalysis
+
+    @IsTemplateEngineInjectionAnalysis.setter
+    def IsTemplateEngineInjectionAnalysis(self, IsTemplateEngineInjectionAnalysis):
+        self._IsTemplateEngineInjectionAnalysis = IsTemplateEngineInjectionAnalysis
+
+    @property
+    def IsScriptEngineInjectionAnalysis(self):
+        r"""是否开启脚本引擎注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsScriptEngineInjectionAnalysis
+
+    @IsScriptEngineInjectionAnalysis.setter
+    def IsScriptEngineInjectionAnalysis(self, IsScriptEngineInjectionAnalysis):
+        self._IsScriptEngineInjectionAnalysis = IsScriptEngineInjectionAnalysis
+
+    @property
+    def IsExpressionInjectionAnalysis(self):
+        r"""是否开启表达式注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsExpressionInjectionAnalysis
+
+    @IsExpressionInjectionAnalysis.setter
+    def IsExpressionInjectionAnalysis(self, IsExpressionInjectionAnalysis):
+        self._IsExpressionInjectionAnalysis = IsExpressionInjectionAnalysis
+
+    @property
+    def IsJNDIInjectionAnalysis(self):
+        r"""是否开启JNDI注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsJNDIInjectionAnalysis
+
+    @IsJNDIInjectionAnalysis.setter
+    def IsJNDIInjectionAnalysis(self, IsJNDIInjectionAnalysis):
+        self._IsJNDIInjectionAnalysis = IsJNDIInjectionAnalysis
+
+    @property
+    def IsJNIInjectionAnalysis(self):
+        r"""是否开启JNI注入检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsJNIInjectionAnalysis
+
+    @IsJNIInjectionAnalysis.setter
+    def IsJNIInjectionAnalysis(self, IsJNIInjectionAnalysis):
+        self._IsJNIInjectionAnalysis = IsJNIInjectionAnalysis
+
+    @property
+    def IsWebshellBackdoorAnalysis(self):
+        r"""是否开启Webshell后门检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsWebshellBackdoorAnalysis
+
+    @IsWebshellBackdoorAnalysis.setter
+    def IsWebshellBackdoorAnalysis(self, IsWebshellBackdoorAnalysis):
+        self._IsWebshellBackdoorAnalysis = IsWebshellBackdoorAnalysis
+
+    @property
+    def IsDeserializationAnalysis(self):
+        r"""是否开启反序列化检测（0-关闭，1-开启）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._IsDeserializationAnalysis
+
+    @IsDeserializationAnalysis.setter
+    def IsDeserializationAnalysis(self, IsDeserializationAnalysis):
+        self._IsDeserializationAnalysis = IsDeserializationAnalysis
+
+    @property
+    def UrlAutoConvergenceEnable(self):
+        r"""接口名称自动收敛开关（0-关闭，1-开启）
+        :rtype: bool
+        """
+        return self._UrlAutoConvergenceEnable
+
+    @UrlAutoConvergenceEnable.setter
+    def UrlAutoConvergenceEnable(self, UrlAutoConvergenceEnable):
+        self._UrlAutoConvergenceEnable = UrlAutoConvergenceEnable
+
+    @property
+    def UrlLongSegmentThreshold(self):
+        r"""URL长分段收敛阈值
+        :rtype: int
+        """
+        return self._UrlLongSegmentThreshold
+
+    @UrlLongSegmentThreshold.setter
+    def UrlLongSegmentThreshold(self, UrlLongSegmentThreshold):
+        self._UrlLongSegmentThreshold = UrlLongSegmentThreshold
+
+    @property
+    def UrlNumberSegmentThreshold(self):
+        r"""URL数字分段收敛阈值
+        :rtype: int
+        """
+        return self._UrlNumberSegmentThreshold
+
+    @UrlNumberSegmentThreshold.setter
+    def UrlNumberSegmentThreshold(self, UrlNumberSegmentThreshold):
+        self._UrlNumberSegmentThreshold = UrlNumberSegmentThreshold
+
+    @property
+    def DisableMemoryUsed(self):
+        r"""探针熔断内存阈值
+        :rtype: int
+        """
+        return self._DisableMemoryUsed
+
+    @DisableMemoryUsed.setter
+    def DisableMemoryUsed(self, DisableMemoryUsed):
+        self._DisableMemoryUsed = DisableMemoryUsed
+
+    @property
+    def DisableCpuUsed(self):
+        r"""探针熔断CPU阈值
+        :rtype: int
+        """
+        return self._DisableCpuUsed
+
+    @DisableCpuUsed.setter
+    def DisableCpuUsed(self, DisableCpuUsed):
+        self._DisableCpuUsed = DisableCpuUsed
+
+    @property
+    def DbStatementParametersEnabled(self):
+        r"""是否开启SQL参数获取
+        :rtype: bool
+        """
+        return self._DbStatementParametersEnabled
+
+    @DbStatementParametersEnabled.setter
+    def DbStatementParametersEnabled(self, DbStatementParametersEnabled):
+        self._DbStatementParametersEnabled = DbStatementParametersEnabled
+
+    @property
+    def SlowSQLThresholds(self):
+        r"""慢SQL阈值
+        :rtype: list of ApmTag
+        """
+        return self._SlowSQLThresholds
+
+    @SlowSQLThresholds.setter
+    def SlowSQLThresholds(self, SlowSQLThresholds):
+        self._SlowSQLThresholds = SlowSQLThresholds
+
+    @property
+    def EnableDesensitizationRule(self):
+        r"""是否开启脱敏规则
+        :rtype: int
+        """
+        return self._EnableDesensitizationRule
+
+    @EnableDesensitizationRule.setter
+    def EnableDesensitizationRule(self, EnableDesensitizationRule):
+        self._EnableDesensitizationRule = EnableDesensitizationRule
+
+    @property
+    def DesensitizationRule(self):
+        r"""脱敏规则
+        :rtype: str
+        """
+        return self._DesensitizationRule
+
+    @DesensitizationRule.setter
+    def DesensitizationRule(self, DesensitizationRule):
+        self._DesensitizationRule = DesensitizationRule
+
+    @property
+    def LogSpanIdKey(self):
+        r"""spanId的索引key: 当CLS索引类型为键值索引时生效
+        :rtype: str
+        """
+        return self._LogSpanIdKey
+
+    @LogSpanIdKey.setter
+    def LogSpanIdKey(self, LogSpanIdKey):
+        self._LogSpanIdKey = LogSpanIdKey
+
+
+    def _deserialize(self, params):
+        self._InstanceKey = params.get("InstanceKey")
+        self._ServiceName = params.get("ServiceName")
+        self._UrlConvergenceSwitch = params.get("UrlConvergenceSwitch")
+        self._UrlConvergenceThreshold = params.get("UrlConvergenceThreshold")
+        self._UrlConvergence = params.get("UrlConvergence")
+        self._ExceptionFilter = params.get("ExceptionFilter")
+        self._ErrorCodeFilter = params.get("ErrorCodeFilter")
+        self._Components = params.get("Components")
+        self._UrlExclude = params.get("UrlExclude")
+        self._LogSource = params.get("LogSource")
+        self._LogRegion = params.get("LogRegion")
+        self._IsRelatedLog = params.get("IsRelatedLog")
+        self._LogTopicID = params.get("LogTopicID")
+        self._IgnoreOperationName = params.get("IgnoreOperationName")
+        self._LogSet = params.get("LogSet")
+        self._TraceRateLimit = params.get("TraceRateLimit")
+        self._EnableSnapshot = params.get("EnableSnapshot")
+        self._SnapshotTimeout = params.get("SnapshotTimeout")
+        self._AgentEnable = params.get("AgentEnable")
+        if params.get("InstrumentList") is not None:
+            self._InstrumentList = []
+            for item in params.get("InstrumentList"):
+                obj = Instrument()
+                obj._deserialize(item)
+                self._InstrumentList.append(obj)
+        self._TraceSquash = params.get("TraceSquash")
+        self._EventEnable = params.get("EventEnable")
+        if params.get("AgentOperationConfigView") is not None:
+            self._AgentOperationConfigView = AgentOperationConfigView()
+            self._AgentOperationConfigView._deserialize(params.get("AgentOperationConfigView"))
+        self._EnableLogConfig = params.get("EnableLogConfig")
+        self._ServiceID = params.get("ServiceID")
+        self._EnableDashboardConfig = params.get("EnableDashboardConfig")
+        self._IsRelatedDashboard = params.get("IsRelatedDashboard")
+        self._DashboardTopicID = params.get("DashboardTopicID")
+        self._EnableSecurityConfig = params.get("EnableSecurityConfig")
+        self._IsInstrumentationVulnerabilityScan = params.get("IsInstrumentationVulnerabilityScan")
+        self._IsSqlInjectionAnalysis = params.get("IsSqlInjectionAnalysis")
+        self._IsRemoteCommandExecutionAnalysis = params.get("IsRemoteCommandExecutionAnalysis")
+        self._IsMemoryHijackingAnalysis = params.get("IsMemoryHijackingAnalysis")
+        self._LogIndexType = params.get("LogIndexType")
+        self._LogTraceIdKey = params.get("LogTraceIdKey")
+        self._IsDeleteAnyFileAnalysis = params.get("IsDeleteAnyFileAnalysis")
+        self._IsReadAnyFileAnalysis = params.get("IsReadAnyFileAnalysis")
+        self._IsUploadAnyFileAnalysis = params.get("IsUploadAnyFileAnalysis")
+        self._IsIncludeAnyFileAnalysis = params.get("IsIncludeAnyFileAnalysis")
+        self._IsDirectoryTraversalAnalysis = params.get("IsDirectoryTraversalAnalysis")
+        self._IsTemplateEngineInjectionAnalysis = params.get("IsTemplateEngineInjectionAnalysis")
+        self._IsScriptEngineInjectionAnalysis = params.get("IsScriptEngineInjectionAnalysis")
+        self._IsExpressionInjectionAnalysis = params.get("IsExpressionInjectionAnalysis")
+        self._IsJNDIInjectionAnalysis = params.get("IsJNDIInjectionAnalysis")
+        self._IsJNIInjectionAnalysis = params.get("IsJNIInjectionAnalysis")
+        self._IsWebshellBackdoorAnalysis = params.get("IsWebshellBackdoorAnalysis")
+        self._IsDeserializationAnalysis = params.get("IsDeserializationAnalysis")
+        self._UrlAutoConvergenceEnable = params.get("UrlAutoConvergenceEnable")
+        self._UrlLongSegmentThreshold = params.get("UrlLongSegmentThreshold")
+        self._UrlNumberSegmentThreshold = params.get("UrlNumberSegmentThreshold")
+        self._DisableMemoryUsed = params.get("DisableMemoryUsed")
+        self._DisableCpuUsed = params.get("DisableCpuUsed")
+        self._DbStatementParametersEnabled = params.get("DbStatementParametersEnabled")
+        if params.get("SlowSQLThresholds") is not None:
+            self._SlowSQLThresholds = []
+            for item in params.get("SlowSQLThresholds"):
+                obj = ApmTag()
+                obj._deserialize(item)
+                self._SlowSQLThresholds.append(obj)
+        self._EnableDesensitizationRule = params.get("EnableDesensitizationRule")
+        self._DesensitizationRule = params.get("DesensitizationRule")
+        self._LogSpanIdKey = params.get("LogSpanIdKey")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class ApmApplicationConfigView(AbstractModel):
     r"""应用相关的配置列表项
 
@@ -280,6 +1286,14 @@ class ApmApplicationConfigView(AbstractModel):
         :type DisableMemoryUsed: int
         :param _DisableCpuUsed: 探针熔断CPU阈值
         :type DisableCpuUsed: int
+        :param _DbStatementParametersEnabled: 是否开启SQL参数获取
+        :type DbStatementParametersEnabled: bool
+        :param _SlowSQLThresholds: 慢SQL阈值
+        :type SlowSQLThresholds: list of ApmTag
+        :param _EnableDesensitizationRule: 是否开启脱敏规则
+        :type EnableDesensitizationRule: int
+        :param _DesensitizationRule: 脱敏规则
+        :type DesensitizationRule: str
         """
         self._InstanceKey = None
         self._ServiceName = None
@@ -302,6 +1316,10 @@ class ApmApplicationConfigView(AbstractModel):
         self._TraceSquash = None
         self._DisableMemoryUsed = None
         self._DisableCpuUsed = None
+        self._DbStatementParametersEnabled = None
+        self._SlowSQLThresholds = None
+        self._EnableDesensitizationRule = None
+        self._DesensitizationRule = None
 
     @property
     def InstanceKey(self):
@@ -534,6 +1552,50 @@ class ApmApplicationConfigView(AbstractModel):
     def DisableCpuUsed(self, DisableCpuUsed):
         self._DisableCpuUsed = DisableCpuUsed
 
+    @property
+    def DbStatementParametersEnabled(self):
+        r"""是否开启SQL参数获取
+        :rtype: bool
+        """
+        return self._DbStatementParametersEnabled
+
+    @DbStatementParametersEnabled.setter
+    def DbStatementParametersEnabled(self, DbStatementParametersEnabled):
+        self._DbStatementParametersEnabled = DbStatementParametersEnabled
+
+    @property
+    def SlowSQLThresholds(self):
+        r"""慢SQL阈值
+        :rtype: list of ApmTag
+        """
+        return self._SlowSQLThresholds
+
+    @SlowSQLThresholds.setter
+    def SlowSQLThresholds(self, SlowSQLThresholds):
+        self._SlowSQLThresholds = SlowSQLThresholds
+
+    @property
+    def EnableDesensitizationRule(self):
+        r"""是否开启脱敏规则
+        :rtype: int
+        """
+        return self._EnableDesensitizationRule
+
+    @EnableDesensitizationRule.setter
+    def EnableDesensitizationRule(self, EnableDesensitizationRule):
+        self._EnableDesensitizationRule = EnableDesensitizationRule
+
+    @property
+    def DesensitizationRule(self):
+        r"""脱敏规则
+        :rtype: str
+        """
+        return self._DesensitizationRule
+
+    @DesensitizationRule.setter
+    def DesensitizationRule(self, DesensitizationRule):
+        self._DesensitizationRule = DesensitizationRule
+
 
     def _deserialize(self, params):
         self._InstanceKey = params.get("InstanceKey")
@@ -562,6 +1624,85 @@ class ApmApplicationConfigView(AbstractModel):
         self._TraceSquash = params.get("TraceSquash")
         self._DisableMemoryUsed = params.get("DisableMemoryUsed")
         self._DisableCpuUsed = params.get("DisableCpuUsed")
+        self._DbStatementParametersEnabled = params.get("DbStatementParametersEnabled")
+        if params.get("SlowSQLThresholds") is not None:
+            self._SlowSQLThresholds = []
+            for item in params.get("SlowSQLThresholds"):
+                obj = ApmTag()
+                obj._deserialize(item)
+                self._SlowSQLThresholds.append(obj)
+        self._EnableDesensitizationRule = params.get("EnableDesensitizationRule")
+        self._DesensitizationRule = params.get("DesensitizationRule")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApmAssociation(AbstractModel):
+    r"""展示apm业务系统与其他云产品关联关系返回体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _PeerId: 关联产品的实例ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type PeerId: str
+        :param _Status: 关联关系状态：1（启用）、2（不启用）、3（已失效）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Status: int
+        :param _Topic: CKafka消息主题
+        :type Topic: str
+        """
+        self._PeerId = None
+        self._Status = None
+        self._Topic = None
+
+    @property
+    def PeerId(self):
+        r"""关联产品的实例ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._PeerId
+
+    @PeerId.setter
+    def PeerId(self, PeerId):
+        self._PeerId = PeerId
+
+    @property
+    def Status(self):
+        r"""关联关系状态：1（启用）、2（不启用）、3（已失效）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Topic(self):
+        r"""CKafka消息主题
+        :rtype: str
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+
+    def _deserialize(self, params):
+        self._PeerId = params.get("PeerId")
+        self._Status = params.get("Status")
+        self._Topic = params.get("Topic")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -852,6 +1993,8 @@ class ApmInstanceDetail(AbstractModel):
         :type UrlLongSegmentThreshold: int
         :param _UrlNumberSegmentThreshold: URL数字分段收敛阈值
         :type UrlNumberSegmentThreshold: int
+        :param _LogSpanIdKey: spanId的索引key: 当CLS索引类型为键值索引时生效
+        :type LogSpanIdKey: str
         """
         self._InstanceId = None
         self._Name = None
@@ -909,6 +2052,7 @@ class ApmInstanceDetail(AbstractModel):
         self._Token = None
         self._UrlLongSegmentThreshold = None
         self._UrlNumberSegmentThreshold = None
+        self._LogSpanIdKey = None
 
     @property
     def InstanceId(self):
@@ -1532,6 +2676,17 @@ class ApmInstanceDetail(AbstractModel):
     def UrlNumberSegmentThreshold(self, UrlNumberSegmentThreshold):
         self._UrlNumberSegmentThreshold = UrlNumberSegmentThreshold
 
+    @property
+    def LogSpanIdKey(self):
+        r"""spanId的索引key: 当CLS索引类型为键值索引时生效
+        :rtype: str
+        """
+        return self._LogSpanIdKey
+
+    @LogSpanIdKey.setter
+    def LogSpanIdKey(self, LogSpanIdKey):
+        self._LogSpanIdKey = LogSpanIdKey
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -1595,6 +2750,7 @@ class ApmInstanceDetail(AbstractModel):
         self._Token = params.get("Token")
         self._UrlLongSegmentThreshold = params.get("UrlLongSegmentThreshold")
         self._UrlNumberSegmentThreshold = params.get("UrlNumberSegmentThreshold")
+        self._LogSpanIdKey = params.get("LogSpanIdKey")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1656,6 +2812,309 @@ class ApmMetricRecord(AbstractModel):
                 obj = ApmTag()
                 obj._deserialize(item)
                 self._Tags.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApmPrometheusRules(AbstractModel):
+    r"""展示apm业务系统关联prometheus关系返回体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 指标匹配规则ID
+        :type Id: int
+        :param _Name: 指标匹配规则名
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Name: str
+        :param _ServiceName: 规则生效的应用。生效于全部应用就传空字符串
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ServiceName: str
+        :param _Status: 指标匹配规则状态：1(启用)、2（不启用）
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Status: int
+        :param _MetricNameRule: 指标匹配规则
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MetricNameRule: str
+        :param _MetricMatchType: 匹配类型：0精准匹配，1前缀匹配，2后缀匹配
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MetricMatchType: int
+        """
+        self._Id = None
+        self._Name = None
+        self._ServiceName = None
+        self._Status = None
+        self._MetricNameRule = None
+        self._MetricMatchType = None
+
+    @property
+    def Id(self):
+        r"""指标匹配规则ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Name(self):
+        r"""指标匹配规则名
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ServiceName(self):
+        r"""规则生效的应用。生效于全部应用就传空字符串
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def Status(self):
+        r"""指标匹配规则状态：1(启用)、2（不启用）
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def MetricNameRule(self):
+        r"""指标匹配规则
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._MetricNameRule
+
+    @MetricNameRule.setter
+    def MetricNameRule(self, MetricNameRule):
+        self._MetricNameRule = MetricNameRule
+
+    @property
+    def MetricMatchType(self):
+        r"""匹配类型：0精准匹配，1前缀匹配，2后缀匹配
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._MetricMatchType
+
+    @MetricMatchType.setter
+    def MetricMatchType(self, MetricMatchType):
+        self._MetricMatchType = MetricMatchType
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._Name = params.get("Name")
+        self._ServiceName = params.get("ServiceName")
+        self._Status = params.get("Status")
+        self._MetricNameRule = params.get("MetricNameRule")
+        self._MetricMatchType = params.get("MetricMatchType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ApmSampleConfig(AbstractModel):
+    r"""采样配置信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceKey: 实例ID
+        :type InstanceKey: str
+        :param _ServiceName: 服务名
+        :type ServiceName: str
+        :param _SampleName: 采样名字
+        :type SampleName: str
+        :param _OperationName: 接口名
+        :type OperationName: str
+        :param _SpanNum: 采样的span数
+        :type SpanNum: int
+        :param _Status: 采样配置开关 0 关 1 开
+        :type Status: int
+        :param _Tags: tags数组
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Tags: list of APMKVItem
+        :param _SampleRate: 采样率
+        :type SampleRate: int
+        :param _OperationType: 0=精确匹配（默认）；1=前缀匹配；2=后缀匹配
+注意：此字段可能返回 null，表示取不到有效值。
+        :type OperationType: int
+        :param _Id: 配置Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Id: int
+        """
+        self._InstanceKey = None
+        self._ServiceName = None
+        self._SampleName = None
+        self._OperationName = None
+        self._SpanNum = None
+        self._Status = None
+        self._Tags = None
+        self._SampleRate = None
+        self._OperationType = None
+        self._Id = None
+
+    @property
+    def InstanceKey(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceKey
+
+    @InstanceKey.setter
+    def InstanceKey(self, InstanceKey):
+        self._InstanceKey = InstanceKey
+
+    @property
+    def ServiceName(self):
+        r"""服务名
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def SampleName(self):
+        r"""采样名字
+        :rtype: str
+        """
+        return self._SampleName
+
+    @SampleName.setter
+    def SampleName(self, SampleName):
+        self._SampleName = SampleName
+
+    @property
+    def OperationName(self):
+        r"""接口名
+        :rtype: str
+        """
+        return self._OperationName
+
+    @OperationName.setter
+    def OperationName(self, OperationName):
+        self._OperationName = OperationName
+
+    @property
+    def SpanNum(self):
+        r"""采样的span数
+        :rtype: int
+        """
+        return self._SpanNum
+
+    @SpanNum.setter
+    def SpanNum(self, SpanNum):
+        self._SpanNum = SpanNum
+
+    @property
+    def Status(self):
+        r"""采样配置开关 0 关 1 开
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Tags(self):
+        r"""tags数组
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of APMKVItem
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def SampleRate(self):
+        r"""采样率
+        :rtype: int
+        """
+        return self._SampleRate
+
+    @SampleRate.setter
+    def SampleRate(self, SampleRate):
+        self._SampleRate = SampleRate
+
+    @property
+    def OperationType(self):
+        r"""0=精确匹配（默认）；1=前缀匹配；2=后缀匹配
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._OperationType
+
+    @OperationType.setter
+    def OperationType(self, OperationType):
+        self._OperationType = OperationType
+
+    @property
+    def Id(self):
+        r"""配置Id
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+
+    def _deserialize(self, params):
+        self._InstanceKey = params.get("InstanceKey")
+        self._ServiceName = params.get("ServiceName")
+        self._SampleName = params.get("SampleName")
+        self._OperationName = params.get("OperationName")
+        self._SpanNum = params.get("SpanNum")
+        self._Status = params.get("Status")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = APMKVItem()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._SampleRate = params.get("SampleRate")
+        self._OperationType = params.get("OperationType")
+        self._Id = params.get("Id")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1791,6 +3250,133 @@ class ApmTag(AbstractModel):
     def _deserialize(self, params):
         self._Key = params.get("Key")
         self._Value = params.get("Value")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CVMMeta(AbstractModel):
+    r"""CVM元数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Region: str
+        :param _InstanceID: 实例ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :type InstanceID: str
+        """
+        self._Region = None
+        self._InstanceID = None
+
+    @property
+    def Region(self):
+        r"""地域
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def InstanceID(self):
+        r"""实例ID
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._InstanceID
+
+    @InstanceID.setter
+    def InstanceID(self, InstanceID):
+        self._InstanceID = InstanceID
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        self._InstanceID = params.get("InstanceID")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ComponentTopologyView(AbstractModel):
+    r"""包含了视图中节点组件类型的数量
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Service: 服务纬度的节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Service: int
+        :param _Database: 数据库节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Database: int
+        :param _MQ: 消息队列节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type MQ: int
+        """
+        self._Service = None
+        self._Database = None
+        self._MQ = None
+
+    @property
+    def Service(self):
+        r"""服务纬度的节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Service
+
+    @Service.setter
+    def Service(self, Service):
+        self._Service = Service
+
+    @property
+    def Database(self):
+        r"""数据库节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._Database
+
+    @Database.setter
+    def Database(self, Database):
+        self._Database = Database
+
+    @property
+    def MQ(self):
+        r"""消息队列节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._MQ
+
+    @MQ.setter
+    def MQ(self, MQ):
+        self._MQ = MQ
+
+
+    def _deserialize(self, params):
+        self._Service = params.get("Service")
+        self._Database = params.get("Database")
+        self._MQ = params.get("MQ")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -1972,6 +3558,321 @@ class CreateApmInstanceResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateApmPrometheusRuleRequest(AbstractModel):
+    r"""CreateApmPrometheusRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Name: 指标匹配规则名
+        :type Name: str
+        :param _ServiceName: 规则生效的应用。作用全部应用就传空字符串
+        :type ServiceName: str
+        :param _MetricMatchType: 指标匹配类型：0精准匹配，1前缀匹配，2后缀匹配
+        :type MetricMatchType: int
+        :param _MetricNameRule: 客户定义的命中指标名规则。
+        :type MetricNameRule: str
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        """
+        self._Name = None
+        self._ServiceName = None
+        self._MetricMatchType = None
+        self._MetricNameRule = None
+        self._InstanceId = None
+
+    @property
+    def Name(self):
+        r"""指标匹配规则名
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def ServiceName(self):
+        r"""规则生效的应用。作用全部应用就传空字符串
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def MetricMatchType(self):
+        r"""指标匹配类型：0精准匹配，1前缀匹配，2后缀匹配
+        :rtype: int
+        """
+        return self._MetricMatchType
+
+    @MetricMatchType.setter
+    def MetricMatchType(self, MetricMatchType):
+        self._MetricMatchType = MetricMatchType
+
+    @property
+    def MetricNameRule(self):
+        r"""客户定义的命中指标名规则。
+        :rtype: str
+        """
+        return self._MetricNameRule
+
+    @MetricNameRule.setter
+    def MetricNameRule(self, MetricNameRule):
+        self._MetricNameRule = MetricNameRule
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._Name = params.get("Name")
+        self._ServiceName = params.get("ServiceName")
+        self._MetricMatchType = params.get("MetricMatchType")
+        self._MetricNameRule = params.get("MetricNameRule")
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateApmPrometheusRuleResponse(AbstractModel):
+    r"""CreateApmPrometheusRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RuleId: 指标匹配规则的ID
+        :type RuleId: int
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RuleId = None
+        self._RequestId = None
+
+    @property
+    def RuleId(self):
+        r"""指标匹配规则的ID
+        :rtype: int
+        """
+        return self._RuleId
+
+    @RuleId.setter
+    def RuleId(self, RuleId):
+        self._RuleId = RuleId
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RuleId = params.get("RuleId")
+        self._RequestId = params.get("RequestId")
+
+
+class CreateApmSampleConfigRequest(AbstractModel):
+    r"""CreateApmSampleConfig请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        :param _SampleRate: 采样率
+        :type SampleRate: int
+        :param _ServiceName: 应用名
+        :type ServiceName: str
+        :param _SampleName: 采样规则名
+        :type SampleName: str
+        :param _Tags: 采样Tags
+        :type Tags: list of APMKVItem
+        :param _OperationName: 接口名
+        :type OperationName: str
+        :param _OperationType: 0=精确匹配（默认）；1=前缀匹配；2=后缀匹配
+        :type OperationType: int
+        """
+        self._InstanceId = None
+        self._SampleRate = None
+        self._ServiceName = None
+        self._SampleName = None
+        self._Tags = None
+        self._OperationName = None
+        self._OperationType = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def SampleRate(self):
+        r"""采样率
+        :rtype: int
+        """
+        return self._SampleRate
+
+    @SampleRate.setter
+    def SampleRate(self, SampleRate):
+        self._SampleRate = SampleRate
+
+    @property
+    def ServiceName(self):
+        r"""应用名
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def SampleName(self):
+        r"""采样规则名
+        :rtype: str
+        """
+        return self._SampleName
+
+    @SampleName.setter
+    def SampleName(self, SampleName):
+        self._SampleName = SampleName
+
+    @property
+    def Tags(self):
+        r"""采样Tags
+        :rtype: list of APMKVItem
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def OperationName(self):
+        r"""接口名
+        :rtype: str
+        """
+        return self._OperationName
+
+    @OperationName.setter
+    def OperationName(self, OperationName):
+        self._OperationName = OperationName
+
+    @property
+    def OperationType(self):
+        r"""0=精确匹配（默认）；1=前缀匹配；2=后缀匹配
+        :rtype: int
+        """
+        return self._OperationType
+
+    @OperationType.setter
+    def OperationType(self, OperationType):
+        self._OperationType = OperationType
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._SampleRate = params.get("SampleRate")
+        self._ServiceName = params.get("ServiceName")
+        self._SampleName = params.get("SampleName")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = APMKVItem()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._OperationName = params.get("OperationName")
+        self._OperationType = params.get("OperationType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateApmSampleConfigResponse(AbstractModel):
+    r"""CreateApmSampleConfig返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ApmSampleConfig: 采样配置参数
+        :type ApmSampleConfig: :class:`tencentcloud.apm.v20210622.models.ApmSampleConfig`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ApmSampleConfig = None
+        self._RequestId = None
+
+    @property
+    def ApmSampleConfig(self):
+        r"""采样配置参数
+        :rtype: :class:`tencentcloud.apm.v20210622.models.ApmSampleConfig`
+        """
+        return self._ApmSampleConfig
+
+    @ApmSampleConfig.setter
+    def ApmSampleConfig(self, ApmSampleConfig):
+        self._ApmSampleConfig = ApmSampleConfig
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ApmSampleConfig") is not None:
+            self._ApmSampleConfig = ApmSampleConfig()
+            self._ApmSampleConfig._deserialize(params.get("ApmSampleConfig"))
         self._RequestId = params.get("RequestId")
 
 
@@ -2159,6 +4060,85 @@ class CreateProfileTaskResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DeleteApmSampleConfigRequest(AbstractModel):
+    r"""DeleteApmSampleConfig请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        :param _SampleName: 采样规则名
+        :type SampleName: str
+        """
+        self._InstanceId = None
+        self._SampleName = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def SampleName(self):
+        r"""采样规则名
+        :rtype: str
+        """
+        return self._SampleName
+
+    @SampleName.setter
+    def SampleName(self, SampleName):
+        self._SampleName = SampleName
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._SampleName = params.get("SampleName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DeleteApmSampleConfigResponse(AbstractModel):
+    r"""DeleteApmSampleConfig返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeApmAgentRequest(AbstractModel):
     r"""DescribeApmAgent请求参数结构体
 
@@ -2297,6 +4277,200 @@ class DescribeApmAgentResponse(AbstractModel):
         if params.get("ApmAgent") is not None:
             self._ApmAgent = ApmAgentInfo()
             self._ApmAgent._deserialize(params.get("ApmAgent"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeApmApplicationConfigRequest(AbstractModel):
+    r"""DescribeApmApplicationConfig请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 实例ID
+        :type InstanceId: str
+        :param _ServiceName: 服务名称
+        :type ServiceName: str
+        """
+        self._InstanceId = None
+        self._ServiceName = None
+
+    @property
+    def InstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ServiceName(self):
+        r"""服务名称
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ServiceName = params.get("ServiceName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeApmApplicationConfigResponse(AbstractModel):
+    r"""DescribeApmApplicationConfig返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ApmAppConfig: Apm应用配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ApmAppConfig: :class:`tencentcloud.apm.v20210622.models.ApmAppConfig`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ApmAppConfig = None
+        self._RequestId = None
+
+    @property
+    def ApmAppConfig(self):
+        r"""Apm应用配置
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.apm.v20210622.models.ApmAppConfig`
+        """
+        return self._ApmAppConfig
+
+    @ApmAppConfig.setter
+    def ApmAppConfig(self, ApmAppConfig):
+        self._ApmAppConfig = ApmAppConfig
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ApmAppConfig") is not None:
+            self._ApmAppConfig = ApmAppConfig()
+            self._ApmAppConfig._deserialize(params.get("ApmAppConfig"))
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeApmAssociationRequest(AbstractModel):
+    r"""DescribeApmAssociation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ProductName: 关联的产品名，当前只支持Prometheus
+        :type ProductName: str
+        :param _InstanceId: 业务系统名
+        :type InstanceId: str
+        """
+        self._ProductName = None
+        self._InstanceId = None
+
+    @property
+    def ProductName(self):
+        r"""关联的产品名，当前只支持Prometheus
+        :rtype: str
+        """
+        return self._ProductName
+
+    @ProductName.setter
+    def ProductName(self, ProductName):
+        self._ProductName = ProductName
+
+    @property
+    def InstanceId(self):
+        r"""业务系统名
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._ProductName = params.get("ProductName")
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeApmAssociationResponse(AbstractModel):
+    r"""DescribeApmAssociation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ApmAssociation: 关联的产品实例ID
+        :type ApmAssociation: :class:`tencentcloud.apm.v20210622.models.ApmAssociation`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ApmAssociation = None
+        self._RequestId = None
+
+    @property
+    def ApmAssociation(self):
+        r"""关联的产品实例ID
+        :rtype: :class:`tencentcloud.apm.v20210622.models.ApmAssociation`
+        """
+        return self._ApmAssociation
+
+    @ApmAssociation.setter
+    def ApmAssociation(self, ApmAssociation):
+        self._ApmAssociation = ApmAssociation
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ApmAssociation") is not None:
+            self._ApmAssociation = ApmAssociation()
+            self._ApmAssociation._deserialize(params.get("ApmAssociation"))
         self._RequestId = params.get("RequestId")
 
 
@@ -2464,6 +4638,191 @@ class DescribeApmInstancesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeApmPrometheusRuleRequest(AbstractModel):
+    r"""DescribeApmPrometheusRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        """
+        self._InstanceId = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeApmPrometheusRuleResponse(AbstractModel):
+    r"""DescribeApmPrometheusRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ApmPrometheusRules: 指标匹配规则
+        :type ApmPrometheusRules: list of ApmPrometheusRules
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ApmPrometheusRules = None
+        self._RequestId = None
+
+    @property
+    def ApmPrometheusRules(self):
+        r"""指标匹配规则
+        :rtype: list of ApmPrometheusRules
+        """
+        return self._ApmPrometheusRules
+
+    @ApmPrometheusRules.setter
+    def ApmPrometheusRules(self, ApmPrometheusRules):
+        self._ApmPrometheusRules = ApmPrometheusRules
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ApmPrometheusRules") is not None:
+            self._ApmPrometheusRules = []
+            for item in params.get("ApmPrometheusRules"):
+                obj = ApmPrometheusRules()
+                obj._deserialize(item)
+                self._ApmPrometheusRules.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
+class DescribeApmSampleConfigRequest(AbstractModel):
+    r"""DescribeApmSampleConfig请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        :param _SampleName: 采样规则名
+        :type SampleName: str
+        """
+        self._InstanceId = None
+        self._SampleName = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def SampleName(self):
+        r"""采样规则名
+        :rtype: str
+        """
+        return self._SampleName
+
+    @SampleName.setter
+    def SampleName(self, SampleName):
+        self._SampleName = SampleName
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._SampleName = params.get("SampleName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeApmSampleConfigResponse(AbstractModel):
+    r"""DescribeApmSampleConfig返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ApmSampleConfigs: 采样配置列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ApmSampleConfigs: list of ApmSampleConfig
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._ApmSampleConfigs = None
+        self._RequestId = None
+
+    @property
+    def ApmSampleConfigs(self):
+        r"""采样配置列表
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of ApmSampleConfig
+        """
+        return self._ApmSampleConfigs
+
+    @ApmSampleConfigs.setter
+    def ApmSampleConfigs(self, ApmSampleConfigs):
+        self._ApmSampleConfigs = ApmSampleConfigs
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("ApmSampleConfigs") is not None:
+            self._ApmSampleConfigs = []
+            for item in params.get("ApmSampleConfigs"):
+                obj = ApmSampleConfig()
+                obj._deserialize(item)
+                self._ApmSampleConfigs.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class DescribeApmServiceMetricRequest(AbstractModel):
     r"""DescribeApmServiceMetric请求参数结构体
 
@@ -2485,7 +4844,7 @@ class DescribeApmServiceMetricRequest(AbstractModel):
         :type OrderBy: :class:`tencentcloud.apm.v20210622.models.OrderBy`
         :param _Demo: 是否demo模式
         :type Demo: bool
-        :param _ServiceStatus: 应用状态筛选，可枚举的值为：health、warning、error。如果选中多个状态用逗号隔开，比如："warning,error"
+        :param _ServiceStatus: 应用状态筛选，可枚举的值为：health、warning、error。如果选中多个状态用逗号隔开，例如："warning,error"
         :type ServiceStatus: str
         :param _Tags: 标签列表
         :type Tags: list of ApmTag
@@ -2588,7 +4947,7 @@ class DescribeApmServiceMetricRequest(AbstractModel):
 
     @property
     def ServiceStatus(self):
-        r"""应用状态筛选，可枚举的值为：health、warning、error。如果选中多个状态用逗号隔开，比如："warning,error"
+        r"""应用状态筛选，可枚举的值为：health、warning、error。如果选中多个状态用逗号隔开，例如："warning,error"
         :rtype: str
         """
         return self._ServiceStatus
@@ -3433,7 +5792,7 @@ class DescribeGeneralSpanListRequest(AbstractModel):
         :type OrderBy: :class:`tencentcloud.apm.v20210622.models.OrderBy`
         :param _BusinessName: 业务自身服务名，控制台用户请填写taw
         :type BusinessName: str
-        :param _Limit: 单页项目个数，默认为10000，合法取值范围为0～10000
+        :param _Limit: 单页项目个数，默认为1000，合法取值范围为1～1000
         :type Limit: int
         :param _Offset: 分页
         :type Offset: int
@@ -3525,7 +5884,7 @@ class DescribeGeneralSpanListRequest(AbstractModel):
 
     @property
     def Limit(self):
-        r"""单页项目个数，默认为10000，合法取值范围为0～10000
+        r"""单页项目个数，默认为1000，合法取值范围为1～1000
         :rtype: int
         """
         return self._Limit
@@ -4367,6 +6726,402 @@ class DescribeTagValuesResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DescribeTopologyNewRequest(AbstractModel):
+    r"""DescribeTopologyNew请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统 ID
+        :type InstanceId: str
+        :param _StartTime: 查询开始时间
+        :type StartTime: int
+        :param _EndTime: 查询结束时间
+        :type EndTime: int
+        :param _ServiceName: 应用名
+        :type ServiceName: str
+        :param _UpLevel: 上游层级
+        :type UpLevel: int
+        :param _ServiceInstance: 应用实例信息
+        :type ServiceInstance: str
+        :param _DownLevel: 下游层级
+        :type DownLevel: int
+        :param _View: 视角
+        :type View: str
+        :param _Filters: 过滤器
+        :type Filters: list of Filter
+        :param _Topic: 表示Topic（MQ拓扑图用）
+        :type Topic: str
+        :param _Selectors: 视图筛选列表
+        :type Selectors: :class:`tencentcloud.apm.v20210622.models.Selectors`
+        :param _Id: 视图ID
+        :type Id: str
+        :param _TraceID: TraceID
+        :type TraceID: str
+        :param _IsSlowTopFive: 查询top5慢响应节点
+        :type IsSlowTopFive: bool
+        :param _GetResource: 是否获取资源层信息
+        :type GetResource: bool
+        :param _Tags: 根据应用标签过滤
+        :type Tags: list of ApmTag
+        :param _Hidden: 不显示的节点类型
+        :type Hidden: :class:`tencentcloud.apm.v20210622.models.Selectors`
+        """
+        self._InstanceId = None
+        self._StartTime = None
+        self._EndTime = None
+        self._ServiceName = None
+        self._UpLevel = None
+        self._ServiceInstance = None
+        self._DownLevel = None
+        self._View = None
+        self._Filters = None
+        self._Topic = None
+        self._Selectors = None
+        self._Id = None
+        self._TraceID = None
+        self._IsSlowTopFive = None
+        self._GetResource = None
+        self._Tags = None
+        self._Hidden = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统 ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def StartTime(self):
+        r"""查询开始时间
+        :rtype: int
+        """
+        return self._StartTime
+
+    @StartTime.setter
+    def StartTime(self, StartTime):
+        self._StartTime = StartTime
+
+    @property
+    def EndTime(self):
+        r"""查询结束时间
+        :rtype: int
+        """
+        return self._EndTime
+
+    @EndTime.setter
+    def EndTime(self, EndTime):
+        self._EndTime = EndTime
+
+    @property
+    def ServiceName(self):
+        r"""应用名
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def UpLevel(self):
+        r"""上游层级
+        :rtype: int
+        """
+        return self._UpLevel
+
+    @UpLevel.setter
+    def UpLevel(self, UpLevel):
+        self._UpLevel = UpLevel
+
+    @property
+    def ServiceInstance(self):
+        r"""应用实例信息
+        :rtype: str
+        """
+        return self._ServiceInstance
+
+    @ServiceInstance.setter
+    def ServiceInstance(self, ServiceInstance):
+        self._ServiceInstance = ServiceInstance
+
+    @property
+    def DownLevel(self):
+        r"""下游层级
+        :rtype: int
+        """
+        return self._DownLevel
+
+    @DownLevel.setter
+    def DownLevel(self, DownLevel):
+        self._DownLevel = DownLevel
+
+    @property
+    def View(self):
+        r"""视角
+        :rtype: str
+        """
+        return self._View
+
+    @View.setter
+    def View(self, View):
+        self._View = View
+
+    @property
+    def Filters(self):
+        r"""过滤器
+        :rtype: list of Filter
+        """
+        return self._Filters
+
+    @Filters.setter
+    def Filters(self, Filters):
+        self._Filters = Filters
+
+    @property
+    def Topic(self):
+        r"""表示Topic（MQ拓扑图用）
+        :rtype: str
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+    @property
+    def Selectors(self):
+        r"""视图筛选列表
+        :rtype: :class:`tencentcloud.apm.v20210622.models.Selectors`
+        """
+        return self._Selectors
+
+    @Selectors.setter
+    def Selectors(self, Selectors):
+        self._Selectors = Selectors
+
+    @property
+    def Id(self):
+        r"""视图ID
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def TraceID(self):
+        r"""TraceID
+        :rtype: str
+        """
+        return self._TraceID
+
+    @TraceID.setter
+    def TraceID(self, TraceID):
+        self._TraceID = TraceID
+
+    @property
+    def IsSlowTopFive(self):
+        r"""查询top5慢响应节点
+        :rtype: bool
+        """
+        return self._IsSlowTopFive
+
+    @IsSlowTopFive.setter
+    def IsSlowTopFive(self, IsSlowTopFive):
+        self._IsSlowTopFive = IsSlowTopFive
+
+    @property
+    def GetResource(self):
+        r"""是否获取资源层信息
+        :rtype: bool
+        """
+        return self._GetResource
+
+    @GetResource.setter
+    def GetResource(self, GetResource):
+        self._GetResource = GetResource
+
+    @property
+    def Tags(self):
+        r"""根据应用标签过滤
+        :rtype: list of ApmTag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def Hidden(self):
+        r"""不显示的节点类型
+        :rtype: :class:`tencentcloud.apm.v20210622.models.Selectors`
+        """
+        return self._Hidden
+
+    @Hidden.setter
+    def Hidden(self, Hidden):
+        self._Hidden = Hidden
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._StartTime = params.get("StartTime")
+        self._EndTime = params.get("EndTime")
+        self._ServiceName = params.get("ServiceName")
+        self._UpLevel = params.get("UpLevel")
+        self._ServiceInstance = params.get("ServiceInstance")
+        self._DownLevel = params.get("DownLevel")
+        self._View = params.get("View")
+        if params.get("Filters") is not None:
+            self._Filters = []
+            for item in params.get("Filters"):
+                obj = Filter()
+                obj._deserialize(item)
+                self._Filters.append(obj)
+        self._Topic = params.get("Topic")
+        if params.get("Selectors") is not None:
+            self._Selectors = Selectors()
+            self._Selectors._deserialize(params.get("Selectors"))
+        self._Id = params.get("Id")
+        self._TraceID = params.get("TraceID")
+        self._IsSlowTopFive = params.get("IsSlowTopFive")
+        self._GetResource = params.get("GetResource")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = ApmTag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        if params.get("Hidden") is not None:
+            self._Hidden = Selectors()
+            self._Hidden._deserialize(params.get("Hidden"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DescribeTopologyNewResponse(AbstractModel):
+    r"""DescribeTopologyNew返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Nodes: 节点集合
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Nodes: list of TopologyNode
+        :param _Edges: 边集合
+        :type Edges: list of TopologyEdgeNew
+        :param _TopologyModifyFlag: 拓扑图是否有修改
+注意：此字段可能返回 null，表示取不到有效值。
+        :type TopologyModifyFlag: int
+        :param _Selectors: 节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Selectors: :class:`tencentcloud.apm.v20210622.models.SelectorView`
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Nodes = None
+        self._Edges = None
+        self._TopologyModifyFlag = None
+        self._Selectors = None
+        self._RequestId = None
+
+    @property
+    def Nodes(self):
+        r"""节点集合
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of TopologyNode
+        """
+        return self._Nodes
+
+    @Nodes.setter
+    def Nodes(self, Nodes):
+        self._Nodes = Nodes
+
+    @property
+    def Edges(self):
+        r"""边集合
+        :rtype: list of TopologyEdgeNew
+        """
+        return self._Edges
+
+    @Edges.setter
+    def Edges(self, Edges):
+        self._Edges = Edges
+
+    @property
+    def TopologyModifyFlag(self):
+        r"""拓扑图是否有修改
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: int
+        """
+        return self._TopologyModifyFlag
+
+    @TopologyModifyFlag.setter
+    def TopologyModifyFlag(self, TopologyModifyFlag):
+        self._TopologyModifyFlag = TopologyModifyFlag
+
+    @property
+    def Selectors(self):
+        r"""节点数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.apm.v20210622.models.SelectorView`
+        """
+        return self._Selectors
+
+    @Selectors.setter
+    def Selectors(self, Selectors):
+        self._Selectors = Selectors
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        if params.get("Nodes") is not None:
+            self._Nodes = []
+            for item in params.get("Nodes"):
+                obj = TopologyNode()
+                obj._deserialize(item)
+                self._Nodes.append(obj)
+        if params.get("Edges") is not None:
+            self._Edges = []
+            for item in params.get("Edges"):
+                obj = TopologyEdgeNew()
+                obj._deserialize(item)
+                self._Edges.append(obj)
+        self._TopologyModifyFlag = params.get("TopologyModifyFlag")
+        if params.get("Selectors") is not None:
+            self._Selectors = SelectorView()
+            self._Selectors._deserialize(params.get("Selectors"))
+        self._RequestId = params.get("RequestId")
+
+
 class Filter(AbstractModel):
     r"""查询过滤参数
 
@@ -4651,6 +7406,1001 @@ class Line(AbstractModel):
         
 
 
+class ModifyApmApplicationConfigRequest(AbstractModel):
+    r"""ModifyApmApplicationConfig请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统 ID
+        :type InstanceId: str
+        :param _ServiceName: 应用名
+        :type ServiceName: str
+        :param _UrlConvergenceSwitch: URL收敛开关,0 关 | 1 开
+        :type UrlConvergenceSwitch: int
+        :param _UrlConvergenceThreshold: URL收敛阈值
+        :type UrlConvergenceThreshold: int
+        :param _ExceptionFilter: 异常过滤正则规则，逗号分隔
+        :type ExceptionFilter: str
+        :param _UrlConvergence: URL收敛正则规则，逗号分隔
+        :type UrlConvergence: str
+        :param _ErrorCodeFilter: 错误码过滤，逗号分隔
+        :type ErrorCodeFilter: str
+        :param _UrlExclude: URL排除正则规则，逗号分隔
+        :type UrlExclude: str
+        :param _IsRelatedLog: 日志开关 0 关 1 开
+        :type IsRelatedLog: int
+        :param _LogRegion: 日志地域
+        :type LogRegion: str
+        :param _LogTopicID: 日志主题ID
+        :type LogTopicID: str
+        :param _LogSet: CLS 日志集 | ES 集群ID
+        :type LogSet: str
+        :param _LogSource: 日志来源 CLS | ES
+        :type LogSource: str
+        :param _IgnoreOperationName: 需过滤的接口
+        :type IgnoreOperationName: str
+        :param _EnableSnapshot: 是否开启线程剖析
+        :type EnableSnapshot: bool
+        :param _SnapshotTimeout: 线程剖析超时阈值
+        :type SnapshotTimeout: int
+        :param _AgentEnable: 是否开启agent
+        :type AgentEnable: bool
+        :param _TraceSquash: 是否开启链路压缩
+        :type TraceSquash: bool
+        :param _EventEnable: 是否开启应用诊断的开关
+        :type EventEnable: bool
+        :param _InstrumentList: 组件列表
+        :type InstrumentList: list of Instrument
+        :param _AgentOperationConfigView: 探针接口相关配置
+        :type AgentOperationConfigView: :class:`tencentcloud.apm.v20210622.models.AgentOperationConfigView`
+        :param _EnableLogConfig: 是否开启应用日志配置
+        :type EnableLogConfig: bool
+        :param _EnableDashboardConfig: 应用是否开启dashboard配置： false 关（与业务系统保持一致）/true 开（应用级配置）
+        :type EnableDashboardConfig: bool
+        :param _IsRelatedDashboard: 是否关联dashboard： 0 关 1 开
+        :type IsRelatedDashboard: int
+        :param _DashboardTopicID: dashboard ID
+        :type DashboardTopicID: str
+        :param _LogIndexType: CLS索引类型(0=全文索引，1=键值索引)
+        :type LogIndexType: int
+        :param _LogTraceIdKey: traceId的索引key: 当CLS索引类型为键值索引时生效
+        :type LogTraceIdKey: str
+        :param _EnableSecurityConfig: 是否开启应用安全配置
+        :type EnableSecurityConfig: bool
+        :param _IsSqlInjectionAnalysis: 是否开启SQL注入分析
+        :type IsSqlInjectionAnalysis: int
+        :param _IsInstrumentationVulnerabilityScan: 是否开启组件漏洞检测
+        :type IsInstrumentationVulnerabilityScan: int
+        :param _IsRemoteCommandExecutionAnalysis: 是否开启远程命令检测
+        :type IsRemoteCommandExecutionAnalysis: int
+        :param _IsMemoryHijackingAnalysis: 是否开启内存马检测
+        :type IsMemoryHijackingAnalysis: int
+        :param _IsDeleteAnyFileAnalysis: 是否开启删除任意文件检测（0-关闭，1-开启）
+        :type IsDeleteAnyFileAnalysis: int
+        :param _IsReadAnyFileAnalysis: 是否开启读取任意文件检测（0-关闭，1-开启）
+        :type IsReadAnyFileAnalysis: int
+        :param _IsUploadAnyFileAnalysis: 是否开启上传任意文件检测（0-关闭，1-开启）
+        :type IsUploadAnyFileAnalysis: int
+        :param _IsIncludeAnyFileAnalysis: 是否开启包含任意文件检测（0-关闭，1-开启）
+        :type IsIncludeAnyFileAnalysis: int
+        :param _IsDirectoryTraversalAnalysis: 是否开启目录遍历检测（0-关闭，1-开启）
+        :type IsDirectoryTraversalAnalysis: int
+        :param _IsTemplateEngineInjectionAnalysis: 是否开启模板引擎注入检测（0-关闭，1-开启）
+        :type IsTemplateEngineInjectionAnalysis: int
+        :param _IsScriptEngineInjectionAnalysis: 是否开启脚本引擎注入检测（0-关闭，1-开启）
+        :type IsScriptEngineInjectionAnalysis: int
+        :param _IsExpressionInjectionAnalysis: 是否开启表达式注入检测（0-关闭，1-开启）
+        :type IsExpressionInjectionAnalysis: int
+        :param _IsJNDIInjectionAnalysis: 是否开启JNDI注入检测（0-关闭，1-开启）
+        :type IsJNDIInjectionAnalysis: int
+        :param _IsJNIInjectionAnalysis: 是否开启JNI注入检测（0-关闭，1-开启）
+        :type IsJNIInjectionAnalysis: int
+        :param _IsWebshellBackdoorAnalysis: 是否开启Webshell后门检测（0-关闭，1-开启）
+        :type IsWebshellBackdoorAnalysis: int
+        :param _IsDeserializationAnalysis: 是否开启反序列化检测（0-关闭，1-开启）
+        :type IsDeserializationAnalysis: int
+        :param _UrlAutoConvergenceEnable: 接口自动收敛开关,0 关 | 1 开
+        :type UrlAutoConvergenceEnable: bool
+        :param _UrlLongSegmentThreshold: URL长分段收敛阈值
+        :type UrlLongSegmentThreshold: int
+        :param _UrlNumberSegmentThreshold: URL数字分段收敛阈值
+        :type UrlNumberSegmentThreshold: int
+        :param _DisableMemoryUsed: 探针熔断内存阈值
+        :type DisableMemoryUsed: int
+        :param _DisableCpuUsed: 探针熔断CPU阈值
+        :type DisableCpuUsed: int
+        :param _DbStatementParametersEnabled: 是否开启SQL参数获取
+        :type DbStatementParametersEnabled: bool
+        :param _SlowSQLThresholds: 慢SQL阈值
+        :type SlowSQLThresholds: list of ApmTag
+        :param _EnableDesensitizationRule: 是否开启脱敏规则
+        :type EnableDesensitizationRule: int
+        :param _DesensitizationRule: 脱敏规则
+        :type DesensitizationRule: str
+        :param _LogSpanIdKey: spanId的索引key: 当CLS索引类型为键值索引时生效
+        :type LogSpanIdKey: str
+        """
+        self._InstanceId = None
+        self._ServiceName = None
+        self._UrlConvergenceSwitch = None
+        self._UrlConvergenceThreshold = None
+        self._ExceptionFilter = None
+        self._UrlConvergence = None
+        self._ErrorCodeFilter = None
+        self._UrlExclude = None
+        self._IsRelatedLog = None
+        self._LogRegion = None
+        self._LogTopicID = None
+        self._LogSet = None
+        self._LogSource = None
+        self._IgnoreOperationName = None
+        self._EnableSnapshot = None
+        self._SnapshotTimeout = None
+        self._AgentEnable = None
+        self._TraceSquash = None
+        self._EventEnable = None
+        self._InstrumentList = None
+        self._AgentOperationConfigView = None
+        self._EnableLogConfig = None
+        self._EnableDashboardConfig = None
+        self._IsRelatedDashboard = None
+        self._DashboardTopicID = None
+        self._LogIndexType = None
+        self._LogTraceIdKey = None
+        self._EnableSecurityConfig = None
+        self._IsSqlInjectionAnalysis = None
+        self._IsInstrumentationVulnerabilityScan = None
+        self._IsRemoteCommandExecutionAnalysis = None
+        self._IsMemoryHijackingAnalysis = None
+        self._IsDeleteAnyFileAnalysis = None
+        self._IsReadAnyFileAnalysis = None
+        self._IsUploadAnyFileAnalysis = None
+        self._IsIncludeAnyFileAnalysis = None
+        self._IsDirectoryTraversalAnalysis = None
+        self._IsTemplateEngineInjectionAnalysis = None
+        self._IsScriptEngineInjectionAnalysis = None
+        self._IsExpressionInjectionAnalysis = None
+        self._IsJNDIInjectionAnalysis = None
+        self._IsJNIInjectionAnalysis = None
+        self._IsWebshellBackdoorAnalysis = None
+        self._IsDeserializationAnalysis = None
+        self._UrlAutoConvergenceEnable = None
+        self._UrlLongSegmentThreshold = None
+        self._UrlNumberSegmentThreshold = None
+        self._DisableMemoryUsed = None
+        self._DisableCpuUsed = None
+        self._DbStatementParametersEnabled = None
+        self._SlowSQLThresholds = None
+        self._EnableDesensitizationRule = None
+        self._DesensitizationRule = None
+        self._LogSpanIdKey = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统 ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def ServiceName(self):
+        r"""应用名
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def UrlConvergenceSwitch(self):
+        r"""URL收敛开关,0 关 | 1 开
+        :rtype: int
+        """
+        return self._UrlConvergenceSwitch
+
+    @UrlConvergenceSwitch.setter
+    def UrlConvergenceSwitch(self, UrlConvergenceSwitch):
+        self._UrlConvergenceSwitch = UrlConvergenceSwitch
+
+    @property
+    def UrlConvergenceThreshold(self):
+        r"""URL收敛阈值
+        :rtype: int
+        """
+        return self._UrlConvergenceThreshold
+
+    @UrlConvergenceThreshold.setter
+    def UrlConvergenceThreshold(self, UrlConvergenceThreshold):
+        self._UrlConvergenceThreshold = UrlConvergenceThreshold
+
+    @property
+    def ExceptionFilter(self):
+        r"""异常过滤正则规则，逗号分隔
+        :rtype: str
+        """
+        return self._ExceptionFilter
+
+    @ExceptionFilter.setter
+    def ExceptionFilter(self, ExceptionFilter):
+        self._ExceptionFilter = ExceptionFilter
+
+    @property
+    def UrlConvergence(self):
+        r"""URL收敛正则规则，逗号分隔
+        :rtype: str
+        """
+        return self._UrlConvergence
+
+    @UrlConvergence.setter
+    def UrlConvergence(self, UrlConvergence):
+        self._UrlConvergence = UrlConvergence
+
+    @property
+    def ErrorCodeFilter(self):
+        r"""错误码过滤，逗号分隔
+        :rtype: str
+        """
+        return self._ErrorCodeFilter
+
+    @ErrorCodeFilter.setter
+    def ErrorCodeFilter(self, ErrorCodeFilter):
+        self._ErrorCodeFilter = ErrorCodeFilter
+
+    @property
+    def UrlExclude(self):
+        r"""URL排除正则规则，逗号分隔
+        :rtype: str
+        """
+        return self._UrlExclude
+
+    @UrlExclude.setter
+    def UrlExclude(self, UrlExclude):
+        self._UrlExclude = UrlExclude
+
+    @property
+    def IsRelatedLog(self):
+        r"""日志开关 0 关 1 开
+        :rtype: int
+        """
+        return self._IsRelatedLog
+
+    @IsRelatedLog.setter
+    def IsRelatedLog(self, IsRelatedLog):
+        self._IsRelatedLog = IsRelatedLog
+
+    @property
+    def LogRegion(self):
+        r"""日志地域
+        :rtype: str
+        """
+        return self._LogRegion
+
+    @LogRegion.setter
+    def LogRegion(self, LogRegion):
+        self._LogRegion = LogRegion
+
+    @property
+    def LogTopicID(self):
+        r"""日志主题ID
+        :rtype: str
+        """
+        return self._LogTopicID
+
+    @LogTopicID.setter
+    def LogTopicID(self, LogTopicID):
+        self._LogTopicID = LogTopicID
+
+    @property
+    def LogSet(self):
+        r"""CLS 日志集 | ES 集群ID
+        :rtype: str
+        """
+        return self._LogSet
+
+    @LogSet.setter
+    def LogSet(self, LogSet):
+        self._LogSet = LogSet
+
+    @property
+    def LogSource(self):
+        r"""日志来源 CLS | ES
+        :rtype: str
+        """
+        return self._LogSource
+
+    @LogSource.setter
+    def LogSource(self, LogSource):
+        self._LogSource = LogSource
+
+    @property
+    def IgnoreOperationName(self):
+        r"""需过滤的接口
+        :rtype: str
+        """
+        return self._IgnoreOperationName
+
+    @IgnoreOperationName.setter
+    def IgnoreOperationName(self, IgnoreOperationName):
+        self._IgnoreOperationName = IgnoreOperationName
+
+    @property
+    def EnableSnapshot(self):
+        r"""是否开启线程剖析
+        :rtype: bool
+        """
+        return self._EnableSnapshot
+
+    @EnableSnapshot.setter
+    def EnableSnapshot(self, EnableSnapshot):
+        self._EnableSnapshot = EnableSnapshot
+
+    @property
+    def SnapshotTimeout(self):
+        r"""线程剖析超时阈值
+        :rtype: int
+        """
+        return self._SnapshotTimeout
+
+    @SnapshotTimeout.setter
+    def SnapshotTimeout(self, SnapshotTimeout):
+        self._SnapshotTimeout = SnapshotTimeout
+
+    @property
+    def AgentEnable(self):
+        r"""是否开启agent
+        :rtype: bool
+        """
+        return self._AgentEnable
+
+    @AgentEnable.setter
+    def AgentEnable(self, AgentEnable):
+        self._AgentEnable = AgentEnable
+
+    @property
+    def TraceSquash(self):
+        r"""是否开启链路压缩
+        :rtype: bool
+        """
+        return self._TraceSquash
+
+    @TraceSquash.setter
+    def TraceSquash(self, TraceSquash):
+        self._TraceSquash = TraceSquash
+
+    @property
+    def EventEnable(self):
+        r"""是否开启应用诊断的开关
+        :rtype: bool
+        """
+        return self._EventEnable
+
+    @EventEnable.setter
+    def EventEnable(self, EventEnable):
+        self._EventEnable = EventEnable
+
+    @property
+    def InstrumentList(self):
+        r"""组件列表
+        :rtype: list of Instrument
+        """
+        return self._InstrumentList
+
+    @InstrumentList.setter
+    def InstrumentList(self, InstrumentList):
+        self._InstrumentList = InstrumentList
+
+    @property
+    def AgentOperationConfigView(self):
+        r"""探针接口相关配置
+        :rtype: :class:`tencentcloud.apm.v20210622.models.AgentOperationConfigView`
+        """
+        return self._AgentOperationConfigView
+
+    @AgentOperationConfigView.setter
+    def AgentOperationConfigView(self, AgentOperationConfigView):
+        self._AgentOperationConfigView = AgentOperationConfigView
+
+    @property
+    def EnableLogConfig(self):
+        r"""是否开启应用日志配置
+        :rtype: bool
+        """
+        return self._EnableLogConfig
+
+    @EnableLogConfig.setter
+    def EnableLogConfig(self, EnableLogConfig):
+        self._EnableLogConfig = EnableLogConfig
+
+    @property
+    def EnableDashboardConfig(self):
+        r"""应用是否开启dashboard配置： false 关（与业务系统保持一致）/true 开（应用级配置）
+        :rtype: bool
+        """
+        return self._EnableDashboardConfig
+
+    @EnableDashboardConfig.setter
+    def EnableDashboardConfig(self, EnableDashboardConfig):
+        self._EnableDashboardConfig = EnableDashboardConfig
+
+    @property
+    def IsRelatedDashboard(self):
+        r"""是否关联dashboard： 0 关 1 开
+        :rtype: int
+        """
+        return self._IsRelatedDashboard
+
+    @IsRelatedDashboard.setter
+    def IsRelatedDashboard(self, IsRelatedDashboard):
+        self._IsRelatedDashboard = IsRelatedDashboard
+
+    @property
+    def DashboardTopicID(self):
+        r"""dashboard ID
+        :rtype: str
+        """
+        return self._DashboardTopicID
+
+    @DashboardTopicID.setter
+    def DashboardTopicID(self, DashboardTopicID):
+        self._DashboardTopicID = DashboardTopicID
+
+    @property
+    def LogIndexType(self):
+        r"""CLS索引类型(0=全文索引，1=键值索引)
+        :rtype: int
+        """
+        return self._LogIndexType
+
+    @LogIndexType.setter
+    def LogIndexType(self, LogIndexType):
+        self._LogIndexType = LogIndexType
+
+    @property
+    def LogTraceIdKey(self):
+        r"""traceId的索引key: 当CLS索引类型为键值索引时生效
+        :rtype: str
+        """
+        return self._LogTraceIdKey
+
+    @LogTraceIdKey.setter
+    def LogTraceIdKey(self, LogTraceIdKey):
+        self._LogTraceIdKey = LogTraceIdKey
+
+    @property
+    def EnableSecurityConfig(self):
+        r"""是否开启应用安全配置
+        :rtype: bool
+        """
+        return self._EnableSecurityConfig
+
+    @EnableSecurityConfig.setter
+    def EnableSecurityConfig(self, EnableSecurityConfig):
+        self._EnableSecurityConfig = EnableSecurityConfig
+
+    @property
+    def IsSqlInjectionAnalysis(self):
+        r"""是否开启SQL注入分析
+        :rtype: int
+        """
+        return self._IsSqlInjectionAnalysis
+
+    @IsSqlInjectionAnalysis.setter
+    def IsSqlInjectionAnalysis(self, IsSqlInjectionAnalysis):
+        self._IsSqlInjectionAnalysis = IsSqlInjectionAnalysis
+
+    @property
+    def IsInstrumentationVulnerabilityScan(self):
+        r"""是否开启组件漏洞检测
+        :rtype: int
+        """
+        return self._IsInstrumentationVulnerabilityScan
+
+    @IsInstrumentationVulnerabilityScan.setter
+    def IsInstrumentationVulnerabilityScan(self, IsInstrumentationVulnerabilityScan):
+        self._IsInstrumentationVulnerabilityScan = IsInstrumentationVulnerabilityScan
+
+    @property
+    def IsRemoteCommandExecutionAnalysis(self):
+        r"""是否开启远程命令检测
+        :rtype: int
+        """
+        return self._IsRemoteCommandExecutionAnalysis
+
+    @IsRemoteCommandExecutionAnalysis.setter
+    def IsRemoteCommandExecutionAnalysis(self, IsRemoteCommandExecutionAnalysis):
+        self._IsRemoteCommandExecutionAnalysis = IsRemoteCommandExecutionAnalysis
+
+    @property
+    def IsMemoryHijackingAnalysis(self):
+        r"""是否开启内存马检测
+        :rtype: int
+        """
+        return self._IsMemoryHijackingAnalysis
+
+    @IsMemoryHijackingAnalysis.setter
+    def IsMemoryHijackingAnalysis(self, IsMemoryHijackingAnalysis):
+        self._IsMemoryHijackingAnalysis = IsMemoryHijackingAnalysis
+
+    @property
+    def IsDeleteAnyFileAnalysis(self):
+        r"""是否开启删除任意文件检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsDeleteAnyFileAnalysis
+
+    @IsDeleteAnyFileAnalysis.setter
+    def IsDeleteAnyFileAnalysis(self, IsDeleteAnyFileAnalysis):
+        self._IsDeleteAnyFileAnalysis = IsDeleteAnyFileAnalysis
+
+    @property
+    def IsReadAnyFileAnalysis(self):
+        r"""是否开启读取任意文件检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsReadAnyFileAnalysis
+
+    @IsReadAnyFileAnalysis.setter
+    def IsReadAnyFileAnalysis(self, IsReadAnyFileAnalysis):
+        self._IsReadAnyFileAnalysis = IsReadAnyFileAnalysis
+
+    @property
+    def IsUploadAnyFileAnalysis(self):
+        r"""是否开启上传任意文件检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsUploadAnyFileAnalysis
+
+    @IsUploadAnyFileAnalysis.setter
+    def IsUploadAnyFileAnalysis(self, IsUploadAnyFileAnalysis):
+        self._IsUploadAnyFileAnalysis = IsUploadAnyFileAnalysis
+
+    @property
+    def IsIncludeAnyFileAnalysis(self):
+        r"""是否开启包含任意文件检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsIncludeAnyFileAnalysis
+
+    @IsIncludeAnyFileAnalysis.setter
+    def IsIncludeAnyFileAnalysis(self, IsIncludeAnyFileAnalysis):
+        self._IsIncludeAnyFileAnalysis = IsIncludeAnyFileAnalysis
+
+    @property
+    def IsDirectoryTraversalAnalysis(self):
+        r"""是否开启目录遍历检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsDirectoryTraversalAnalysis
+
+    @IsDirectoryTraversalAnalysis.setter
+    def IsDirectoryTraversalAnalysis(self, IsDirectoryTraversalAnalysis):
+        self._IsDirectoryTraversalAnalysis = IsDirectoryTraversalAnalysis
+
+    @property
+    def IsTemplateEngineInjectionAnalysis(self):
+        r"""是否开启模板引擎注入检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsTemplateEngineInjectionAnalysis
+
+    @IsTemplateEngineInjectionAnalysis.setter
+    def IsTemplateEngineInjectionAnalysis(self, IsTemplateEngineInjectionAnalysis):
+        self._IsTemplateEngineInjectionAnalysis = IsTemplateEngineInjectionAnalysis
+
+    @property
+    def IsScriptEngineInjectionAnalysis(self):
+        r"""是否开启脚本引擎注入检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsScriptEngineInjectionAnalysis
+
+    @IsScriptEngineInjectionAnalysis.setter
+    def IsScriptEngineInjectionAnalysis(self, IsScriptEngineInjectionAnalysis):
+        self._IsScriptEngineInjectionAnalysis = IsScriptEngineInjectionAnalysis
+
+    @property
+    def IsExpressionInjectionAnalysis(self):
+        r"""是否开启表达式注入检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsExpressionInjectionAnalysis
+
+    @IsExpressionInjectionAnalysis.setter
+    def IsExpressionInjectionAnalysis(self, IsExpressionInjectionAnalysis):
+        self._IsExpressionInjectionAnalysis = IsExpressionInjectionAnalysis
+
+    @property
+    def IsJNDIInjectionAnalysis(self):
+        r"""是否开启JNDI注入检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsJNDIInjectionAnalysis
+
+    @IsJNDIInjectionAnalysis.setter
+    def IsJNDIInjectionAnalysis(self, IsJNDIInjectionAnalysis):
+        self._IsJNDIInjectionAnalysis = IsJNDIInjectionAnalysis
+
+    @property
+    def IsJNIInjectionAnalysis(self):
+        r"""是否开启JNI注入检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsJNIInjectionAnalysis
+
+    @IsJNIInjectionAnalysis.setter
+    def IsJNIInjectionAnalysis(self, IsJNIInjectionAnalysis):
+        self._IsJNIInjectionAnalysis = IsJNIInjectionAnalysis
+
+    @property
+    def IsWebshellBackdoorAnalysis(self):
+        r"""是否开启Webshell后门检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsWebshellBackdoorAnalysis
+
+    @IsWebshellBackdoorAnalysis.setter
+    def IsWebshellBackdoorAnalysis(self, IsWebshellBackdoorAnalysis):
+        self._IsWebshellBackdoorAnalysis = IsWebshellBackdoorAnalysis
+
+    @property
+    def IsDeserializationAnalysis(self):
+        r"""是否开启反序列化检测（0-关闭，1-开启）
+        :rtype: int
+        """
+        return self._IsDeserializationAnalysis
+
+    @IsDeserializationAnalysis.setter
+    def IsDeserializationAnalysis(self, IsDeserializationAnalysis):
+        self._IsDeserializationAnalysis = IsDeserializationAnalysis
+
+    @property
+    def UrlAutoConvergenceEnable(self):
+        r"""接口自动收敛开关,0 关 | 1 开
+        :rtype: bool
+        """
+        return self._UrlAutoConvergenceEnable
+
+    @UrlAutoConvergenceEnable.setter
+    def UrlAutoConvergenceEnable(self, UrlAutoConvergenceEnable):
+        self._UrlAutoConvergenceEnable = UrlAutoConvergenceEnable
+
+    @property
+    def UrlLongSegmentThreshold(self):
+        r"""URL长分段收敛阈值
+        :rtype: int
+        """
+        return self._UrlLongSegmentThreshold
+
+    @UrlLongSegmentThreshold.setter
+    def UrlLongSegmentThreshold(self, UrlLongSegmentThreshold):
+        self._UrlLongSegmentThreshold = UrlLongSegmentThreshold
+
+    @property
+    def UrlNumberSegmentThreshold(self):
+        r"""URL数字分段收敛阈值
+        :rtype: int
+        """
+        return self._UrlNumberSegmentThreshold
+
+    @UrlNumberSegmentThreshold.setter
+    def UrlNumberSegmentThreshold(self, UrlNumberSegmentThreshold):
+        self._UrlNumberSegmentThreshold = UrlNumberSegmentThreshold
+
+    @property
+    def DisableMemoryUsed(self):
+        r"""探针熔断内存阈值
+        :rtype: int
+        """
+        return self._DisableMemoryUsed
+
+    @DisableMemoryUsed.setter
+    def DisableMemoryUsed(self, DisableMemoryUsed):
+        self._DisableMemoryUsed = DisableMemoryUsed
+
+    @property
+    def DisableCpuUsed(self):
+        r"""探针熔断CPU阈值
+        :rtype: int
+        """
+        return self._DisableCpuUsed
+
+    @DisableCpuUsed.setter
+    def DisableCpuUsed(self, DisableCpuUsed):
+        self._DisableCpuUsed = DisableCpuUsed
+
+    @property
+    def DbStatementParametersEnabled(self):
+        r"""是否开启SQL参数获取
+        :rtype: bool
+        """
+        return self._DbStatementParametersEnabled
+
+    @DbStatementParametersEnabled.setter
+    def DbStatementParametersEnabled(self, DbStatementParametersEnabled):
+        self._DbStatementParametersEnabled = DbStatementParametersEnabled
+
+    @property
+    def SlowSQLThresholds(self):
+        r"""慢SQL阈值
+        :rtype: list of ApmTag
+        """
+        return self._SlowSQLThresholds
+
+    @SlowSQLThresholds.setter
+    def SlowSQLThresholds(self, SlowSQLThresholds):
+        self._SlowSQLThresholds = SlowSQLThresholds
+
+    @property
+    def EnableDesensitizationRule(self):
+        r"""是否开启脱敏规则
+        :rtype: int
+        """
+        return self._EnableDesensitizationRule
+
+    @EnableDesensitizationRule.setter
+    def EnableDesensitizationRule(self, EnableDesensitizationRule):
+        self._EnableDesensitizationRule = EnableDesensitizationRule
+
+    @property
+    def DesensitizationRule(self):
+        r"""脱敏规则
+        :rtype: str
+        """
+        return self._DesensitizationRule
+
+    @DesensitizationRule.setter
+    def DesensitizationRule(self, DesensitizationRule):
+        self._DesensitizationRule = DesensitizationRule
+
+    @property
+    def LogSpanIdKey(self):
+        r"""spanId的索引key: 当CLS索引类型为键值索引时生效
+        :rtype: str
+        """
+        return self._LogSpanIdKey
+
+    @LogSpanIdKey.setter
+    def LogSpanIdKey(self, LogSpanIdKey):
+        self._LogSpanIdKey = LogSpanIdKey
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._ServiceName = params.get("ServiceName")
+        self._UrlConvergenceSwitch = params.get("UrlConvergenceSwitch")
+        self._UrlConvergenceThreshold = params.get("UrlConvergenceThreshold")
+        self._ExceptionFilter = params.get("ExceptionFilter")
+        self._UrlConvergence = params.get("UrlConvergence")
+        self._ErrorCodeFilter = params.get("ErrorCodeFilter")
+        self._UrlExclude = params.get("UrlExclude")
+        self._IsRelatedLog = params.get("IsRelatedLog")
+        self._LogRegion = params.get("LogRegion")
+        self._LogTopicID = params.get("LogTopicID")
+        self._LogSet = params.get("LogSet")
+        self._LogSource = params.get("LogSource")
+        self._IgnoreOperationName = params.get("IgnoreOperationName")
+        self._EnableSnapshot = params.get("EnableSnapshot")
+        self._SnapshotTimeout = params.get("SnapshotTimeout")
+        self._AgentEnable = params.get("AgentEnable")
+        self._TraceSquash = params.get("TraceSquash")
+        self._EventEnable = params.get("EventEnable")
+        if params.get("InstrumentList") is not None:
+            self._InstrumentList = []
+            for item in params.get("InstrumentList"):
+                obj = Instrument()
+                obj._deserialize(item)
+                self._InstrumentList.append(obj)
+        if params.get("AgentOperationConfigView") is not None:
+            self._AgentOperationConfigView = AgentOperationConfigView()
+            self._AgentOperationConfigView._deserialize(params.get("AgentOperationConfigView"))
+        self._EnableLogConfig = params.get("EnableLogConfig")
+        self._EnableDashboardConfig = params.get("EnableDashboardConfig")
+        self._IsRelatedDashboard = params.get("IsRelatedDashboard")
+        self._DashboardTopicID = params.get("DashboardTopicID")
+        self._LogIndexType = params.get("LogIndexType")
+        self._LogTraceIdKey = params.get("LogTraceIdKey")
+        self._EnableSecurityConfig = params.get("EnableSecurityConfig")
+        self._IsSqlInjectionAnalysis = params.get("IsSqlInjectionAnalysis")
+        self._IsInstrumentationVulnerabilityScan = params.get("IsInstrumentationVulnerabilityScan")
+        self._IsRemoteCommandExecutionAnalysis = params.get("IsRemoteCommandExecutionAnalysis")
+        self._IsMemoryHijackingAnalysis = params.get("IsMemoryHijackingAnalysis")
+        self._IsDeleteAnyFileAnalysis = params.get("IsDeleteAnyFileAnalysis")
+        self._IsReadAnyFileAnalysis = params.get("IsReadAnyFileAnalysis")
+        self._IsUploadAnyFileAnalysis = params.get("IsUploadAnyFileAnalysis")
+        self._IsIncludeAnyFileAnalysis = params.get("IsIncludeAnyFileAnalysis")
+        self._IsDirectoryTraversalAnalysis = params.get("IsDirectoryTraversalAnalysis")
+        self._IsTemplateEngineInjectionAnalysis = params.get("IsTemplateEngineInjectionAnalysis")
+        self._IsScriptEngineInjectionAnalysis = params.get("IsScriptEngineInjectionAnalysis")
+        self._IsExpressionInjectionAnalysis = params.get("IsExpressionInjectionAnalysis")
+        self._IsJNDIInjectionAnalysis = params.get("IsJNDIInjectionAnalysis")
+        self._IsJNIInjectionAnalysis = params.get("IsJNIInjectionAnalysis")
+        self._IsWebshellBackdoorAnalysis = params.get("IsWebshellBackdoorAnalysis")
+        self._IsDeserializationAnalysis = params.get("IsDeserializationAnalysis")
+        self._UrlAutoConvergenceEnable = params.get("UrlAutoConvergenceEnable")
+        self._UrlLongSegmentThreshold = params.get("UrlLongSegmentThreshold")
+        self._UrlNumberSegmentThreshold = params.get("UrlNumberSegmentThreshold")
+        self._DisableMemoryUsed = params.get("DisableMemoryUsed")
+        self._DisableCpuUsed = params.get("DisableCpuUsed")
+        self._DbStatementParametersEnabled = params.get("DbStatementParametersEnabled")
+        if params.get("SlowSQLThresholds") is not None:
+            self._SlowSQLThresholds = []
+            for item in params.get("SlowSQLThresholds"):
+                obj = ApmTag()
+                obj._deserialize(item)
+                self._SlowSQLThresholds.append(obj)
+        self._EnableDesensitizationRule = params.get("EnableDesensitizationRule")
+        self._DesensitizationRule = params.get("DesensitizationRule")
+        self._LogSpanIdKey = params.get("LogSpanIdKey")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyApmApplicationConfigResponse(AbstractModel):
+    r"""ModifyApmApplicationConfig返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyApmAssociationRequest(AbstractModel):
+    r"""ModifyApmAssociation请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ProductName: 关联的产品名，当前只支持Prometheus、CKafka
+        :type ProductName: str
+        :param _Status: 关联关系的状态：// 关联关系状态：1（启用）、2（不启用）
+        :type Status: int
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        :param _PeerId: 关联的产品实例ID
+        :type PeerId: str
+        :param _Topic: CKafka消息主题
+        :type Topic: str
+        """
+        self._ProductName = None
+        self._Status = None
+        self._InstanceId = None
+        self._PeerId = None
+        self._Topic = None
+
+    @property
+    def ProductName(self):
+        r"""关联的产品名，当前只支持Prometheus、CKafka
+        :rtype: str
+        """
+        return self._ProductName
+
+    @ProductName.setter
+    def ProductName(self, ProductName):
+        self._ProductName = ProductName
+
+    @property
+    def Status(self):
+        r"""关联关系的状态：// 关联关系状态：1（启用）、2（不启用）
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def PeerId(self):
+        r"""关联的产品实例ID
+        :rtype: str
+        """
+        return self._PeerId
+
+    @PeerId.setter
+    def PeerId(self, PeerId):
+        self._PeerId = PeerId
+
+    @property
+    def Topic(self):
+        r"""CKafka消息主题
+        :rtype: str
+        """
+        return self._Topic
+
+    @Topic.setter
+    def Topic(self, Topic):
+        self._Topic = Topic
+
+
+    def _deserialize(self, params):
+        self._ProductName = params.get("ProductName")
+        self._Status = params.get("Status")
+        self._InstanceId = params.get("InstanceId")
+        self._PeerId = params.get("PeerId")
+        self._Topic = params.get("Topic")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyApmAssociationResponse(AbstractModel):
+    r"""ModifyApmAssociation返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class ModifyApmInstanceRequest(AbstractModel):
     r"""ModifyApmInstance请求参数结构体
 
@@ -4742,6 +8492,8 @@ class ModifyApmInstanceRequest(AbstractModel):
         :type UrlLongSegmentThreshold: int
         :param _UrlNumberSegmentThreshold: URL数字分段收敛阈值
         :type UrlNumberSegmentThreshold: int
+        :param _LogSpanIdKey: spanId的索引key: 当CLS索引类型为键值索引时生效
+        :type LogSpanIdKey: str
         """
         self._InstanceId = None
         self._Name = None
@@ -4785,6 +8537,7 @@ class ModifyApmInstanceRequest(AbstractModel):
         self._IsDeserializationAnalysis = None
         self._UrlLongSegmentThreshold = None
         self._UrlNumberSegmentThreshold = None
+        self._LogSpanIdKey = None
 
     @property
     def InstanceId(self):
@@ -5248,6 +9001,17 @@ class ModifyApmInstanceRequest(AbstractModel):
     def UrlNumberSegmentThreshold(self, UrlNumberSegmentThreshold):
         self._UrlNumberSegmentThreshold = UrlNumberSegmentThreshold
 
+    @property
+    def LogSpanIdKey(self):
+        r"""spanId的索引key: 当CLS索引类型为键值索引时生效
+        :rtype: str
+        """
+        return self._LogSpanIdKey
+
+    @LogSpanIdKey.setter
+    def LogSpanIdKey(self, LogSpanIdKey):
+        self._LogSpanIdKey = LogSpanIdKey
+
 
     def _deserialize(self, params):
         self._InstanceId = params.get("InstanceId")
@@ -5297,6 +9061,7 @@ class ModifyApmInstanceRequest(AbstractModel):
         self._IsDeserializationAnalysis = params.get("IsDeserializationAnalysis")
         self._UrlLongSegmentThreshold = params.get("UrlLongSegmentThreshold")
         self._UrlNumberSegmentThreshold = params.get("UrlNumberSegmentThreshold")
+        self._LogSpanIdKey = params.get("LogSpanIdKey")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -5309,6 +9074,349 @@ class ModifyApmInstanceRequest(AbstractModel):
 
 class ModifyApmInstanceResponse(AbstractModel):
     r"""ModifyApmInstance返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyApmPrometheusRuleRequest(AbstractModel):
+    r"""ModifyApmPrometheusRule请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Id: 规则ID
+        :type Id: int
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        :param _Name: 所要修改的规则名
+        :type Name: str
+        :param _Status: 规则状态：1(启用)、2（不启用）、3（删除）
+        :type Status: int
+        :param _ServiceName: 规则生效的应用。生效于全部应用就传空（这个如果不修改也要传旧的规则）
+        :type ServiceName: str
+        :param _MetricMatchType: 匹配类型：0精准匹配，1前缀匹配，2后缀匹配（这个如果不修改也要传旧的规则）
+        :type MetricMatchType: int
+        :param _MetricNameRule: 客户定义的命中指标名规则。
+        :type MetricNameRule: str
+        """
+        self._Id = None
+        self._InstanceId = None
+        self._Name = None
+        self._Status = None
+        self._ServiceName = None
+        self._MetricMatchType = None
+        self._MetricNameRule = None
+
+    @property
+    def Id(self):
+        r"""规则ID
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def Name(self):
+        r"""所要修改的规则名
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Status(self):
+        r"""规则状态：1(启用)、2（不启用）、3（删除）
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def ServiceName(self):
+        r"""规则生效的应用。生效于全部应用就传空（这个如果不修改也要传旧的规则）
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def MetricMatchType(self):
+        r"""匹配类型：0精准匹配，1前缀匹配，2后缀匹配（这个如果不修改也要传旧的规则）
+        :rtype: int
+        """
+        return self._MetricMatchType
+
+    @MetricMatchType.setter
+    def MetricMatchType(self, MetricMatchType):
+        self._MetricMatchType = MetricMatchType
+
+    @property
+    def MetricNameRule(self):
+        r"""客户定义的命中指标名规则。
+        :rtype: str
+        """
+        return self._MetricNameRule
+
+    @MetricNameRule.setter
+    def MetricNameRule(self, MetricNameRule):
+        self._MetricNameRule = MetricNameRule
+
+
+    def _deserialize(self, params):
+        self._Id = params.get("Id")
+        self._InstanceId = params.get("InstanceId")
+        self._Name = params.get("Name")
+        self._Status = params.get("Status")
+        self._ServiceName = params.get("ServiceName")
+        self._MetricMatchType = params.get("MetricMatchType")
+        self._MetricNameRule = params.get("MetricNameRule")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyApmPrometheusRuleResponse(AbstractModel):
+    r"""ModifyApmPrometheusRule返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
+class ModifyApmSampleConfigRequest(AbstractModel):
+    r"""ModifyApmSampleConfig请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _InstanceId: 业务系统ID
+        :type InstanceId: str
+        :param _SampleName: 采样规则名
+        :type SampleName: str
+        :param _SampleRate: 采样率
+        :type SampleRate: int
+        :param _ServiceName: 应用名，生效于所有应用则填空
+        :type ServiceName: str
+        :param _OperationName: 接口名
+        :type OperationName: str
+        :param _Tags: 采样tag
+        :type Tags: list of APMKVItem
+        :param _Status: 采样开关 0关 1开 2删除
+        :type Status: int
+        :param _Id: 配置Id
+        :type Id: int
+        :param _OperationType: 0=精确匹配（默认）；1=前缀匹配；2=后缀匹配
+        :type OperationType: int
+        """
+        self._InstanceId = None
+        self._SampleName = None
+        self._SampleRate = None
+        self._ServiceName = None
+        self._OperationName = None
+        self._Tags = None
+        self._Status = None
+        self._Id = None
+        self._OperationType = None
+
+    @property
+    def InstanceId(self):
+        r"""业务系统ID
+        :rtype: str
+        """
+        return self._InstanceId
+
+    @InstanceId.setter
+    def InstanceId(self, InstanceId):
+        self._InstanceId = InstanceId
+
+    @property
+    def SampleName(self):
+        r"""采样规则名
+        :rtype: str
+        """
+        return self._SampleName
+
+    @SampleName.setter
+    def SampleName(self, SampleName):
+        self._SampleName = SampleName
+
+    @property
+    def SampleRate(self):
+        r"""采样率
+        :rtype: int
+        """
+        return self._SampleRate
+
+    @SampleRate.setter
+    def SampleRate(self, SampleRate):
+        self._SampleRate = SampleRate
+
+    @property
+    def ServiceName(self):
+        r"""应用名，生效于所有应用则填空
+        :rtype: str
+        """
+        return self._ServiceName
+
+    @ServiceName.setter
+    def ServiceName(self, ServiceName):
+        self._ServiceName = ServiceName
+
+    @property
+    def OperationName(self):
+        r"""接口名
+        :rtype: str
+        """
+        return self._OperationName
+
+    @OperationName.setter
+    def OperationName(self, OperationName):
+        self._OperationName = OperationName
+
+    @property
+    def Tags(self):
+        r"""采样tag
+        :rtype: list of APMKVItem
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def Status(self):
+        r"""采样开关 0关 1开 2删除
+        :rtype: int
+        """
+        return self._Status
+
+    @Status.setter
+    def Status(self, Status):
+        self._Status = Status
+
+    @property
+    def Id(self):
+        r"""配置Id
+        :rtype: int
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def OperationType(self):
+        r"""0=精确匹配（默认）；1=前缀匹配；2=后缀匹配
+        :rtype: int
+        """
+        return self._OperationType
+
+    @OperationType.setter
+    def OperationType(self, OperationType):
+        self._OperationType = OperationType
+
+
+    def _deserialize(self, params):
+        self._InstanceId = params.get("InstanceId")
+        self._SampleName = params.get("SampleName")
+        self._SampleRate = params.get("SampleRate")
+        self._ServiceName = params.get("ServiceName")
+        self._OperationName = params.get("OperationName")
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = APMKVItem()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._Status = params.get("Status")
+        self._Id = params.get("Id")
+        self._OperationType = params.get("OperationType")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class ModifyApmSampleConfigResponse(AbstractModel):
+    r"""ModifyApmSampleConfig返回参数结构体
 
     """
 
@@ -5502,6 +9610,61 @@ class OrderBy(AbstractModel):
         
 
 
+class Position(AbstractModel):
+    r"""节点位置信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _X: 节点位置横坐标
+注意：此字段可能返回 null，表示取不到有效值。
+        :type X: float
+        :param _Y: 节点位置纵坐标
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Y: float
+        """
+        self._X = None
+        self._Y = None
+
+    @property
+    def X(self):
+        r"""节点位置横坐标
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._X
+
+    @X.setter
+    def X(self, X):
+        self._X = X
+
+    @property
+    def Y(self):
+        r"""节点位置纵坐标
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Y
+
+    @Y.setter
+    def Y(self, Y):
+        self._Y = Y
+
+
+    def _deserialize(self, params):
+        self._X = params.get("X")
+        self._Y = params.get("Y")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
 class QueryMetricItem(AbstractModel):
     r"""查询
 
@@ -5558,6 +9721,164 @@ class QueryMetricItem(AbstractModel):
         self._MetricName = params.get("MetricName")
         self._Compares = params.get("Compares")
         self._Compare = params.get("Compare")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Resource(AbstractModel):
+    r"""资源层信息
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Type: 资源类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Type: list of str
+        :param _TKEMeta: tke资源层信息
+        :type TKEMeta: list of TkeMeta
+        :param _CVMMeta: cvm资源信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CVMMeta: list of CVMMeta
+        """
+        self._Type = None
+        self._TKEMeta = None
+        self._CVMMeta = None
+
+    @property
+    def Type(self):
+        r"""资源类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def TKEMeta(self):
+        r"""tke资源层信息
+        :rtype: list of TkeMeta
+        """
+        return self._TKEMeta
+
+    @TKEMeta.setter
+    def TKEMeta(self, TKEMeta):
+        self._TKEMeta = TKEMeta
+
+    @property
+    def CVMMeta(self):
+        r"""cvm资源信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of CVMMeta
+        """
+        return self._CVMMeta
+
+    @CVMMeta.setter
+    def CVMMeta(self, CVMMeta):
+        self._CVMMeta = CVMMeta
+
+
+    def _deserialize(self, params):
+        self._Type = params.get("Type")
+        if params.get("TKEMeta") is not None:
+            self._TKEMeta = []
+            for item in params.get("TKEMeta"):
+                obj = TkeMeta()
+                obj._deserialize(item)
+                self._TKEMeta.append(obj)
+        if params.get("CVMMeta") is not None:
+            self._CVMMeta = []
+            for item in params.get("CVMMeta"):
+                obj = CVMMeta()
+                obj._deserialize(item)
+                self._CVMMeta.append(obj)
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class SelectorView(AbstractModel):
+    r"""包含了节点的组件数量和健康度数量
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Component: 组件数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Component: :class:`tencentcloud.apm.v20210622.models.ComponentTopologyView`
+        """
+        self._Component = None
+
+    @property
+    def Component(self):
+        r"""组件数量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.apm.v20210622.models.ComponentTopologyView`
+        """
+        return self._Component
+
+    @Component.setter
+    def Component(self, Component):
+        self._Component = Component
+
+
+    def _deserialize(self, params):
+        if params.get("Component") is not None:
+            self._Component = ComponentTopologyView()
+            self._Component._deserialize(params.get("Component"))
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class Selectors(AbstractModel):
+    r"""视图方案勾选情况
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Component: 组件勾选情况
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Component: list of str
+        """
+        self._Component = None
+
+    @property
+    def Component(self):
+        r"""组件勾选情况
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of str
+        """
+        return self._Component
+
+    @Component.setter
+    def Component(self, Component):
+        self._Component = Component
+
+
+    def _deserialize(self, params):
+        self._Component = params.get("Component")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -6274,3 +10595,717 @@ class TerminateApmInstanceResponse(AbstractModel):
 
     def _deserialize(self, params):
         self._RequestId = params.get("RequestId")
+
+
+class TkeMeta(AbstractModel):
+    r"""tke资源元数据
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Region: 地域
+        :type Region: str
+        :param _ClusterID: 集群ID
+        :type ClusterID: str
+        :param _PodName: pod name
+        :type PodName: str
+        :param _Namespace: 命名空间
+        :type Namespace: str
+        :param _Deployment: 工作负载
+        :type Deployment: str
+        :param _PodIP: pod ip
+        :type PodIP: str
+        :param _NodeIP: node ip
+        :type NodeIP: str
+        """
+        self._Region = None
+        self._ClusterID = None
+        self._PodName = None
+        self._Namespace = None
+        self._Deployment = None
+        self._PodIP = None
+        self._NodeIP = None
+
+    @property
+    def Region(self):
+        r"""地域
+        :rtype: str
+        """
+        return self._Region
+
+    @Region.setter
+    def Region(self, Region):
+        self._Region = Region
+
+    @property
+    def ClusterID(self):
+        r"""集群ID
+        :rtype: str
+        """
+        return self._ClusterID
+
+    @ClusterID.setter
+    def ClusterID(self, ClusterID):
+        self._ClusterID = ClusterID
+
+    @property
+    def PodName(self):
+        r"""pod name
+        :rtype: str
+        """
+        return self._PodName
+
+    @PodName.setter
+    def PodName(self, PodName):
+        self._PodName = PodName
+
+    @property
+    def Namespace(self):
+        r"""命名空间
+        :rtype: str
+        """
+        return self._Namespace
+
+    @Namespace.setter
+    def Namespace(self, Namespace):
+        self._Namespace = Namespace
+
+    @property
+    def Deployment(self):
+        r"""工作负载
+        :rtype: str
+        """
+        return self._Deployment
+
+    @Deployment.setter
+    def Deployment(self, Deployment):
+        self._Deployment = Deployment
+
+    @property
+    def PodIP(self):
+        r"""pod ip
+        :rtype: str
+        """
+        return self._PodIP
+
+    @PodIP.setter
+    def PodIP(self, PodIP):
+        self._PodIP = PodIP
+
+    @property
+    def NodeIP(self):
+        r"""node ip
+        :rtype: str
+        """
+        return self._NodeIP
+
+    @NodeIP.setter
+    def NodeIP(self, NodeIP):
+        self._NodeIP = NodeIP
+
+
+    def _deserialize(self, params):
+        self._Region = params.get("Region")
+        self._ClusterID = params.get("ClusterID")
+        self._PodName = params.get("PodName")
+        self._Namespace = params.get("Namespace")
+        self._Deployment = params.get("Deployment")
+        self._PodIP = params.get("PodIP")
+        self._NodeIP = params.get("NodeIP")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class TopologyEdgeNew(AbstractModel):
+    r"""拓扑图边定义
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Source: 源节点
+        :type Source: str
+        :param _Id: 边ID
+        :type Id: str
+        :param _Weight: 边权重
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Weight: float
+        :param _Target: 目标节点
+        :type Target: str
+        :param _Duration: 响应时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Duration: float
+        :param _ErrRate: 错误率
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ErrRate: float
+        :param _Qps: 吞吐量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Qps: float
+        :param _Type: 边类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Type: str
+        :param _Color: 边颜色
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Color: str
+        :param _SqlRequestCount: Sql调用数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SqlRequestCount: float
+        :param _SqlErrorRequestCount: Sql调用错误数
+注意：此字段可能返回 null，表示取不到有效值。
+        :type SqlErrorRequestCount: float
+        :param _SourceComp: 边上源节点类型 应用/MQ/DB
+        :type SourceComp: str
+        :param _TargetComp: 边上目标节点类型 应用/MQ/DB
+        :type TargetComp: str
+        """
+        self._Source = None
+        self._Id = None
+        self._Weight = None
+        self._Target = None
+        self._Duration = None
+        self._ErrRate = None
+        self._Qps = None
+        self._Type = None
+        self._Color = None
+        self._SqlRequestCount = None
+        self._SqlErrorRequestCount = None
+        self._SourceComp = None
+        self._TargetComp = None
+
+    @property
+    def Source(self):
+        r"""源节点
+        :rtype: str
+        """
+        return self._Source
+
+    @Source.setter
+    def Source(self, Source):
+        self._Source = Source
+
+    @property
+    def Id(self):
+        r"""边ID
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Weight(self):
+        r"""边权重
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+    @property
+    def Target(self):
+        r"""目标节点
+        :rtype: str
+        """
+        return self._Target
+
+    @Target.setter
+    def Target(self, Target):
+        self._Target = Target
+
+    @property
+    def Duration(self):
+        r"""响应时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def ErrRate(self):
+        r"""错误率
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._ErrRate
+
+    @ErrRate.setter
+    def ErrRate(self, ErrRate):
+        self._ErrRate = ErrRate
+
+    @property
+    def Qps(self):
+        r"""吞吐量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Qps
+
+    @Qps.setter
+    def Qps(self, Qps):
+        self._Qps = Qps
+
+    @property
+    def Type(self):
+        r"""边类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Color(self):
+        r"""边颜色
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Color
+
+    @Color.setter
+    def Color(self, Color):
+        self._Color = Color
+
+    @property
+    def SqlRequestCount(self):
+        r"""Sql调用数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._SqlRequestCount
+
+    @SqlRequestCount.setter
+    def SqlRequestCount(self, SqlRequestCount):
+        self._SqlRequestCount = SqlRequestCount
+
+    @property
+    def SqlErrorRequestCount(self):
+        r"""Sql调用错误数
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._SqlErrorRequestCount
+
+    @SqlErrorRequestCount.setter
+    def SqlErrorRequestCount(self, SqlErrorRequestCount):
+        self._SqlErrorRequestCount = SqlErrorRequestCount
+
+    @property
+    def SourceComp(self):
+        r"""边上源节点类型 应用/MQ/DB
+        :rtype: str
+        """
+        return self._SourceComp
+
+    @SourceComp.setter
+    def SourceComp(self, SourceComp):
+        self._SourceComp = SourceComp
+
+    @property
+    def TargetComp(self):
+        r"""边上目标节点类型 应用/MQ/DB
+        :rtype: str
+        """
+        return self._TargetComp
+
+    @TargetComp.setter
+    def TargetComp(self, TargetComp):
+        self._TargetComp = TargetComp
+
+
+    def _deserialize(self, params):
+        self._Source = params.get("Source")
+        self._Id = params.get("Id")
+        self._Weight = params.get("Weight")
+        self._Target = params.get("Target")
+        self._Duration = params.get("Duration")
+        self._ErrRate = params.get("ErrRate")
+        self._Qps = params.get("Qps")
+        self._Type = params.get("Type")
+        self._Color = params.get("Color")
+        self._SqlRequestCount = params.get("SqlRequestCount")
+        self._SqlErrorRequestCount = params.get("SqlErrorRequestCount")
+        self._SourceComp = params.get("SourceComp")
+        self._TargetComp = params.get("TargetComp")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class TopologyNode(AbstractModel):
+    r"""拓扑图边节点
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _ErrRate: 错误率
+注意：此字段可能返回 null，表示取不到有效值。
+        :type ErrRate: float
+        :param _Kind: 节点类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Kind: str
+        :param _Name: 节点名
+        :type Name: str
+        :param _Weight: 节点权重
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Weight: float
+        :param _Color: 节点颜色
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Color: str
+        :param _Duration: 响应时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Duration: float
+        :param _Qps: 吞吐量
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Qps: float
+        :param _Type: 节点类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Type: str
+        :param _Id: 节点ID
+        :type Id: str
+        :param _Size: 节点大小
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Size: str
+        :param _IsModule: 节点是否为组件类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :type IsModule: bool
+        :param _Position: 节点位置信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Position: :class:`tencentcloud.apm.v20210622.models.Position`
+        :param _Tags: 节点标签
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Tags: list of ApmTag
+        :param _CanDrillDown: 节点是否可以下钻
+注意：此字段可能返回 null，表示取不到有效值。
+        :type CanDrillDown: bool
+        :param _Resource: 资源层信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :type Resource: :class:`tencentcloud.apm.v20210622.models.Resource`
+        :param _NodeView: 拓扑节点视图名字
+        :type NodeView: str
+        :param _ConsumerDuration: MQ 消费者视角的响应时间 ms
+        :type ConsumerDuration: float
+        :param _ConsumerErrRate: MQ 消费者视角的错误率 %
+        :type ConsumerErrRate: float
+        :param _ConsumerQps: MQ 消费者视角的吞吐量
+        :type ConsumerQps: float
+        :param _ServiceId: 应用 ID
+        :type ServiceId: str
+        """
+        self._ErrRate = None
+        self._Kind = None
+        self._Name = None
+        self._Weight = None
+        self._Color = None
+        self._Duration = None
+        self._Qps = None
+        self._Type = None
+        self._Id = None
+        self._Size = None
+        self._IsModule = None
+        self._Position = None
+        self._Tags = None
+        self._CanDrillDown = None
+        self._Resource = None
+        self._NodeView = None
+        self._ConsumerDuration = None
+        self._ConsumerErrRate = None
+        self._ConsumerQps = None
+        self._ServiceId = None
+
+    @property
+    def ErrRate(self):
+        r"""错误率
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._ErrRate
+
+    @ErrRate.setter
+    def ErrRate(self, ErrRate):
+        self._ErrRate = ErrRate
+
+    @property
+    def Kind(self):
+        r"""节点类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Kind
+
+    @Kind.setter
+    def Kind(self, Kind):
+        self._Kind = Kind
+
+    @property
+    def Name(self):
+        r"""节点名
+        :rtype: str
+        """
+        return self._Name
+
+    @Name.setter
+    def Name(self, Name):
+        self._Name = Name
+
+    @property
+    def Weight(self):
+        r"""节点权重
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Weight
+
+    @Weight.setter
+    def Weight(self, Weight):
+        self._Weight = Weight
+
+    @property
+    def Color(self):
+        r"""节点颜色
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Color
+
+    @Color.setter
+    def Color(self, Color):
+        self._Color = Color
+
+    @property
+    def Duration(self):
+        r"""响应时间
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Duration
+
+    @Duration.setter
+    def Duration(self, Duration):
+        self._Duration = Duration
+
+    @property
+    def Qps(self):
+        r"""吞吐量
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: float
+        """
+        return self._Qps
+
+    @Qps.setter
+    def Qps(self, Qps):
+        self._Qps = Qps
+
+    @property
+    def Type(self):
+        r"""节点类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Type
+
+    @Type.setter
+    def Type(self, Type):
+        self._Type = Type
+
+    @property
+    def Id(self):
+        r"""节点ID
+        :rtype: str
+        """
+        return self._Id
+
+    @Id.setter
+    def Id(self, Id):
+        self._Id = Id
+
+    @property
+    def Size(self):
+        r"""节点大小
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: str
+        """
+        return self._Size
+
+    @Size.setter
+    def Size(self, Size):
+        self._Size = Size
+
+    @property
+    def IsModule(self):
+        r"""节点是否为组件类型
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._IsModule
+
+    @IsModule.setter
+    def IsModule(self, IsModule):
+        self._IsModule = IsModule
+
+    @property
+    def Position(self):
+        r"""节点位置信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.apm.v20210622.models.Position`
+        """
+        return self._Position
+
+    @Position.setter
+    def Position(self, Position):
+        self._Position = Position
+
+    @property
+    def Tags(self):
+        r"""节点标签
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: list of ApmTag
+        """
+        return self._Tags
+
+    @Tags.setter
+    def Tags(self, Tags):
+        self._Tags = Tags
+
+    @property
+    def CanDrillDown(self):
+        r"""节点是否可以下钻
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: bool
+        """
+        return self._CanDrillDown
+
+    @CanDrillDown.setter
+    def CanDrillDown(self, CanDrillDown):
+        self._CanDrillDown = CanDrillDown
+
+    @property
+    def Resource(self):
+        r"""资源层信息
+注意：此字段可能返回 null，表示取不到有效值。
+        :rtype: :class:`tencentcloud.apm.v20210622.models.Resource`
+        """
+        return self._Resource
+
+    @Resource.setter
+    def Resource(self, Resource):
+        self._Resource = Resource
+
+    @property
+    def NodeView(self):
+        r"""拓扑节点视图名字
+        :rtype: str
+        """
+        return self._NodeView
+
+    @NodeView.setter
+    def NodeView(self, NodeView):
+        self._NodeView = NodeView
+
+    @property
+    def ConsumerDuration(self):
+        r"""MQ 消费者视角的响应时间 ms
+        :rtype: float
+        """
+        return self._ConsumerDuration
+
+    @ConsumerDuration.setter
+    def ConsumerDuration(self, ConsumerDuration):
+        self._ConsumerDuration = ConsumerDuration
+
+    @property
+    def ConsumerErrRate(self):
+        r"""MQ 消费者视角的错误率 %
+        :rtype: float
+        """
+        return self._ConsumerErrRate
+
+    @ConsumerErrRate.setter
+    def ConsumerErrRate(self, ConsumerErrRate):
+        self._ConsumerErrRate = ConsumerErrRate
+
+    @property
+    def ConsumerQps(self):
+        r"""MQ 消费者视角的吞吐量
+        :rtype: float
+        """
+        return self._ConsumerQps
+
+    @ConsumerQps.setter
+    def ConsumerQps(self, ConsumerQps):
+        self._ConsumerQps = ConsumerQps
+
+    @property
+    def ServiceId(self):
+        r"""应用 ID
+        :rtype: str
+        """
+        return self._ServiceId
+
+    @ServiceId.setter
+    def ServiceId(self, ServiceId):
+        self._ServiceId = ServiceId
+
+
+    def _deserialize(self, params):
+        self._ErrRate = params.get("ErrRate")
+        self._Kind = params.get("Kind")
+        self._Name = params.get("Name")
+        self._Weight = params.get("Weight")
+        self._Color = params.get("Color")
+        self._Duration = params.get("Duration")
+        self._Qps = params.get("Qps")
+        self._Type = params.get("Type")
+        self._Id = params.get("Id")
+        self._Size = params.get("Size")
+        self._IsModule = params.get("IsModule")
+        if params.get("Position") is not None:
+            self._Position = Position()
+            self._Position._deserialize(params.get("Position"))
+        if params.get("Tags") is not None:
+            self._Tags = []
+            for item in params.get("Tags"):
+                obj = ApmTag()
+                obj._deserialize(item)
+                self._Tags.append(obj)
+        self._CanDrillDown = params.get("CanDrillDown")
+        if params.get("Resource") is not None:
+            self._Resource = Resource()
+            self._Resource._deserialize(params.get("Resource"))
+        self._NodeView = params.get("NodeView")
+        self._ConsumerDuration = params.get("ConsumerDuration")
+        self._ConsumerErrRate = params.get("ConsumerErrRate")
+        self._ConsumerQps = params.get("ConsumerQps")
+        self._ServiceId = params.get("ServiceId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        

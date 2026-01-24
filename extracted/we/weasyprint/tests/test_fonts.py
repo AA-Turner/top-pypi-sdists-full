@@ -54,7 +54,7 @@ def test_kerning_deactivate():
         @font-face {
           src: url(weasyprint.otf);
           font-family: no-kern;
-          font-feature-settings: 'kern' off;
+          font-feature-settings: 'kern' 0;
         }
         @font-face {
           src: url(weasyprint.otf);
@@ -132,7 +132,7 @@ def test_font_face_descriptors():
 
 @assert_no_logs
 def test_woff_simple():
-    page, = render_pages((
+    page, = render_pages(
       '''
       <style>
         @font-face {
@@ -155,7 +155,7 @@ def test_woff_simple():
       '<span>woff font</span>'
       '<span>woff font</span>'
       '<span>woff font</span>'
-      '<span>woff font</span>'))
+      '<span>woff font</span>')
     html, = page.children
     body, = html.children
     line, = body.children

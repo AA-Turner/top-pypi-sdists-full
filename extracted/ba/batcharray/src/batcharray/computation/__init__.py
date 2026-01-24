@@ -25,15 +25,15 @@ from batcharray.computation.auto import (
     register_computation_models,
 )
 from batcharray.computation.base import BaseComputationModel
+from batcharray.computation.interface import max  # noqa: A004
+from batcharray.computation.interface import min  # noqa: A004
 from batcharray.computation.interface import (
     argmax,
     argmin,
     argsort,
     concatenate,
-    max,
     mean,
     median,
-    min,
     sort,
 )
 from batcharray.computation.masked_array import MaskedArrayComputationModel

@@ -17,7 +17,7 @@ from claripy.operations import backend_operations_vsa_compliant, expression_set_
 
 from .bool_result import BoolResult, FalseResult, TrueResult
 from .discrete_strided_interval_set import DiscreteStridedIntervalSet
-from .strided_interval import CreateStridedInterval, StridedInterval
+from .strided_interval import StridedInterval
 from .valueset import ValueSet
 
 log = logging.getLogger(__name__)
@@ -127,7 +127,7 @@ class BackendVSA(Backend):
         if isinstance(e, StridedInterval):
             if e.is_top:
                 return claripy.TSI(e.bits, explicit_name=e.name)
-            if e.is_bottom:
+            if e.is_empty:
                 return claripy.ESI(e.bits)
             if e.stride in {0, 1} and e.lower_bound == e.upper_bound:
                 return claripy.BVV(e.lower_bound, e.bits)
@@ -151,6 +151,12 @@ class BackendVSA(Backend):
                     name=e.name,
                 )
             raise ClaripyVSAError("Cannot abstract ValueSet with multiple regions")
+        if isinstance(e, BoolResult):
+            if e.is_true:
+                return claripy.BoolV(True)
+            if e.is_false:
+                return claripy.BoolV(False)
+            return claripy.BoolS("maybe")
         raise BackendError(f"Don't know how to abstract {type(e)}")
 
     def _eval(self, expr, n, extra_constraints=(), solver=None, model_callback=None):
@@ -161,30 +167,14 @@ class BackendVSA(Backend):
         raise BackendError(f"Unsupported type {type(expr)}")
 
     def _min(self, expr, extra_constraints=(), signed=False, solver=None, model_callback=None):
-        # TODO: signed min
-        if isinstance(expr, StridedInterval):
-            if expr.is_top:
-                # TODO: Return
-                return 0
-
-            return expr.min
-
-        if isinstance(expr, ValueSet):
-            return expr.min
+        if isinstance(expr, StridedInterval | ValueSet):
+            return expr.min(signed=signed)
 
         raise BackendError(f"Unsupported expr type {type(expr)}")
 
     def _max(self, expr, extra_constraints=(), signed=False, solver=None, model_callback=None):
-        # TODO: signed max
-        if isinstance(expr, StridedInterval):
-            if expr.is_top:
-                # TODO:
-                return StridedInterval.max_int(expr.bits)
-
-            return expr.max
-
-        if isinstance(expr, ValueSet):
-            return expr.max
+        if isinstance(expr, StridedInterval | ValueSet):
+            return expr.max(signed=signed)
 
         raise BackendError(f"Unsupported expr type {type(expr)}")
 
@@ -221,12 +211,6 @@ class BackendVSA(Backend):
             return False
         return a.identical(b)
 
-    @staticmethod
-    def _unique(obj):
-        if isinstance(obj, StridedInterval | ValueSet):
-            return obj.unique
-        raise BackendError(f"Not supported type of operand {type(obj)}")
-
     def _cardinality(self, a):
         return a.cardinality
 
@@ -248,7 +232,7 @@ class BackendVSA(Backend):
 
         if isinstance(o, StridedInterval):
             if isinstance(a, StridedIntervalAnnotation):
-                return CreateStridedInterval(
+                return StridedInterval(
                     bits=o.bits,
                     stride=a.stride,
                     lower_bound=a.lower_bound,
@@ -276,7 +260,7 @@ class BackendVSA(Backend):
                 return o2
 
         if isinstance(o, ValueSet) and isinstance(a, StridedIntervalAnnotation):
-            si = CreateStridedInterval(
+            si = StridedInterval(
                 bits=o.bits,
                 stride=a.stride,
                 lower_bound=a.lower_bound,
@@ -297,7 +281,7 @@ class BackendVSA(Backend):
     def BVV(ast):
         if ast.args[0] is None:
             return StridedInterval.empty(ast.args[1])
-        return CreateStridedInterval(bits=ast.args[1], stride=0, lower_bound=ast.args[0], upper_bound=ast.args[0])
+        return StridedInterval(bits=ast.args[1], stride=0, lower_bound=ast.args[0], upper_bound=ast.args[0])
 
     @staticmethod
     def BoolV(ast):
@@ -353,7 +337,7 @@ class BackendVSA(Backend):
 
     @staticmethod
     def BVS(ast: BV):
-        return CreateStridedInterval(name=ast.args[0], bits=ast.size())
+        return StridedInterval(name=ast.args[0], bits=ast.size())
 
     def If(self, cond, t, f):
         if not self.has_true(cond):

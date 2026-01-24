@@ -259,9 +259,22 @@ class PythonIdentity(object):
         supported_tags = tuple(tags.sys_tags())
         preferred_tag = supported_tags[0]
 
+        sys_config_vars = sysconfig.get_config_vars()
+
         configured_macosx_deployment_target = cls._normalize_macosx_deployment_target(
-            sysconfig.get_config_var("MACOSX_DEPLOYMENT_TARGET")
+            sys_config_vars.get("MACOSX_DEPLOYMENT_TARGET")
         )
+
+        pypy_version = cast(
+            "Optional[Tuple[int, int, int]]",
+            tuple(getattr(sys, "pypy_version_info", ())[:3]) or None,
+        )
+        if pypy_version is None:
+            free_threaded = (
+                sys.version_info[:2] >= (3, 13) and sys_config_vars.get("Py_GIL_DISABLED", 0) == 1
+            )  # type: Optional[bool]
+        else:
+            free_threaded = None
 
         # Pex identifies interpreters using a bit of Pex code injected via an extraction of that
         # code under the `PEX_ROOT` adjoined to `sys.path` via `PYTHONPATH`. Pex also exposes the
@@ -306,13 +319,11 @@ class PythonIdentity(object):
             abi_tag=preferred_tag.abi,
             platform_tag=preferred_tag.platform,
             version=cast("Tuple[int, int, int]", tuple(sys.version_info[:3])),
-            pypy_version=cast(
-                "Optional[Tuple[int, int, int]]",
-                tuple(getattr(sys, "pypy_version_info", ())[:3]) or None,
-            ),
+            pypy_version=pypy_version,
             supported_tags=supported_tags,
             env_markers=MarkerEnvironment.default(),
             configured_macosx_deployment_target=configured_macosx_deployment_target,
+            free_threaded=free_threaded,
         )
 
     # Increment this integer version number when changing the encode / decode format or content.
@@ -323,7 +334,7 @@ class PythonIdentity(object):
         # type: (Text) -> PythonIdentity
         TRACER.log("creating PythonIdentity from encoded: {encoded}".format(encoded=encoded), V=9)
         values = json.loads(encoded)
-        if len(values) != 19:
+        if len(values) != 20:
             raise cls.InvalidError(
                 "Invalid interpreter identity: {encoded}".format(encoded=encoded)
             )
@@ -394,10 +405,19 @@ class PythonIdentity(object):
         )
 
     @classmethod
-    def _find_implementation(cls, python_tag):
-        # type: (str) -> InterpreterImplementation.Value
+    def _find_implementation(
+        cls,
+        python_tag,  # type: str
+        free_threaded,  # type: Optional[bool]
+        version,  # type: Tuple[int, int, int]
+    ):
+        # type: (...) -> InterpreterImplementation.Value
         for implementation in InterpreterImplementation.values():
-            if python_tag.startswith(implementation.abbr):
+            if (
+                implementation.applies(version)
+                and python_tag.startswith(implementation.abbr)
+                and (implementation.free_threaded == free_threaded)
+            ):
                 return implementation
         raise ValueError("Unknown interpreter: {}".format(python_tag))
 
@@ -419,10 +439,11 @@ class PythonIdentity(object):
         supported_tags,  # type: Iterable[tags.Tag]
         env_markers,  # type: MarkerEnvironment
         configured_macosx_deployment_target,  # type: Optional[str]
+        free_threaded,  # type: Optional[bool]
     ):
         # type: (...) -> None
 
-        self._implementation = self._find_implementation(python_tag)
+        self._implementation = self._find_implementation(python_tag, free_threaded, version)
         production_assert(
             not pypy_version or self._implementation is InterpreterImplementation.PYPY
         )
@@ -443,6 +464,7 @@ class PythonIdentity(object):
         self._supported_tags = CompatibilityTags(tags=supported_tags)
         self._env_markers = env_markers
         self._configured_macosx_deployment_target = configured_macosx_deployment_target
+        self._free_threaded = free_threaded
 
     def encode(self):
         # type: () -> str
@@ -482,8 +504,9 @@ class PythonIdentity(object):
             ],
             env_markers=self._env_markers.as_dict(),
             configured_macosx_deployment_target=self._configured_macosx_deployment_target,
+            free_threaded=self._free_threaded,
         )
-        return json.dumps(values, sort_keys=True)
+        return json.dumps(values, sort_keys=True, separators=(",", ":"))
 
     @property
     def binary(self):
@@ -563,6 +586,11 @@ class PythonIdentity(object):
     def is_pypy(self):
         # type: () -> bool
         return self._implementation is InterpreterImplementation.PYPY
+
+    @property
+    def free_threaded(self):
+        # type: () -> Optional[bool]
+        return self._free_threaded
 
     @property
     def version_str(self):
@@ -1036,6 +1064,7 @@ class PythonInterpreter(object):
         cls,
         binary,  # type: str
         pyenv=None,  # type: Optional[Pyenv]
+        cwd=None,  # type: Optional[str]
     ):
         # type: (...) -> Optional[str]
 
@@ -1043,7 +1072,7 @@ class PythonInterpreter(object):
         if pyenv is not None:
             shim = pyenv.as_shim(binary)
             if shim is not None:
-                python = shim.select_version()
+                python = shim.select_version(search_dir=cwd)
                 if python is None:
                     TRACER.log("Detected inactive pyenv shim: {}.".format(shim), V=3)
                 else:
@@ -1201,6 +1230,7 @@ class PythonInterpreter(object):
         cls,
         binary,  # type: str
         pyenv=None,  # type: Optional[Pyenv]
+        cwd=None,  # type: Optional[str]
     ):
         # type: (...) -> PythonInterpreter
         """Create an interpreter from the given `binary`.
@@ -1208,9 +1238,11 @@ class PythonInterpreter(object):
         :param binary: The path to the python interpreter binary.
         :param pyenv: A custom Pyenv installation for handling pyenv shim identification.
                       Auto-detected by default.
+        :param cwd: The cwd to use as a base to look for python version files from. The process cwd
+                    by default.
         :return: an interpreter created from the given `binary`.
         """
-        python = cls._resolve_pyenv_shim(binary, pyenv=pyenv)
+        python = cls._resolve_pyenv_shim(binary, pyenv=pyenv, cwd=cwd)
         if python is None:
             raise cls.IdentificationError("The pyenv shim at {} is not active.".format(binary))
 
@@ -1496,6 +1528,11 @@ class PythonInterpreter(object):
         return self._identity.is_pypy
 
     @property
+    def free_threaded(self):
+        # type: () -> Optional[bool]
+        return self._identity.free_threaded
+
+    @property
     def python(self):
         return self._identity.python
 
@@ -1525,13 +1562,19 @@ class PythonInterpreter(object):
             self._supported_platforms = frozenset(self._identity.iter_supported_platforms())
         return self._supported_platforms
 
-    def shebang(self, args=None):
-        # type: (Optional[Text]) -> Text
+    def shebang(
+        self,
+        args=None,  # type: Optional[Text]
+        encoding_line="",  # type: str
+    ):
+        # type: (...) -> Text
         """Return the contents of an appropriate shebang for this interpreter and args.
 
         The shebang will include the leading `#!` but will not include a trailing new line character.
         """
-        return create_shebang(self._binary, python_args=args)
+        return create_shebang(
+            adjust_to_final_path(self._binary), python_args=args, encoding_line=encoding_line
+        )
 
     def create_isolated_cmd(
         self,
@@ -1637,6 +1680,7 @@ def create_shebang(
     python_exe,  # type: Text
     python_args=None,  # type: Optional[Text]
     max_shebang_length=MAX_SHEBANG_LENGTH,  # type: int
+    encoding_line="",  # type: str
 ):
     # type: (...) -> Text
     """Return the contents of an appropriate shebang for the given Python interpreter and args.
@@ -1662,6 +1706,7 @@ def create_shebang(
         dedent(
             """\
             #!/bin/sh
+            {encoding_line}
             # N.B.: This python script executes via a /bin/sh re-exec as a hack to work around a
             # potential maximum shebang length of {max_shebang_length} bytes on this system which
             # the python interpreter `exec`ed below would violate.
@@ -1669,6 +1714,10 @@ def create_shebang(
             '''
             """
         )
-        .format(max_shebang_length=max_shebang_length, python=python)
+        .format(
+            encoding_line=encoding_line.rstrip(),
+            max_shebang_length=max_shebang_length,
+            python=python,
+        )
         .strip()
     )

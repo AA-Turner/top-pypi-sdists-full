@@ -12,9 +12,16 @@ from typing import Any, List, Optional
 from addict import Dict
 import deepdiff
 import msgpack
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_serializer
 
-from kodexa.model.objects import ContentObject, FeatureSet, DocumentTaxonValidation
+from kodexa.model.base import StandardDateTime
+from kodexa.model.objects import (
+    ContentObject,
+    FeatureSet,
+    DocumentTaxonValidation,
+    DocumentKnowledgeFeature,
+    KnowledgeItem,
+)
 
 
 class Ref:
@@ -2418,10 +2425,14 @@ class FeatureSetDiff:
 class ProcessingStep(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str
+    start_timestamp: Optional[StandardDateTime] = Field(None, alias="startTimestamp")
+    duration: Optional[int] = Field(None, alias="duration")
     metadata: dict = Field(default_factory=lambda: {})
+    applied_knowledge_items: List[KnowledgeItem] = Field(default_factory=list, alias="knowledgeItems")
     presentation_metadata: dict = Field(default_factory=lambda: {}, alias='presentationMetadata')
     children: List['ProcessingStep'] = Field(default_factory=list)
     parents: List['ProcessingStep'] = Field(default_factory=list)
+    internal_steps: List['ProcessingStep'] = Field(default_factory=list, alias='internalSteps')
 
     def add_child(self, child_step: 'ProcessingStep'):
         self.children.append(child_step)
@@ -2435,11 +2446,11 @@ class ProcessingStep(BaseModel):
             merged_step.parents.append(step)
         return merged_step
 
-    class Config:
-        arbitrary_types_allowed = True
-        json_encoders = {
-            'ProcessingStep': lambda step: step.to_dict()
-        }
+    model_config = ConfigDict(arbitrary_types_allowed=True, populate_by_name=True)
+
+    @model_serializer(mode='plain')
+    def _serialize(self):
+        return self.to_dict()
 
     def to_dict(self, seen=None):
         if seen is None:
@@ -2451,11 +2462,31 @@ class ProcessingStep(BaseModel):
 
         seen.add(self.id)
 
+        knowledge_items = []
+
+        knowledge_items = []
+        if self.applied_knowledge_items:
+            for knowledge_item in self.applied_knowledge_items:
+                # Use model_dump() if it's a pydantic model
+                if hasattr(knowledge_item, "model_dump") and callable(getattr(knowledge_item, "model_dump")):
+                    knowledge_items.append(knowledge_item.model_dump())
+                # If it's already a dict, accept as is
+                elif isinstance(knowledge_item, dict):
+                    knowledge_items.append(knowledge_item)
+                else:
+                    raise TypeError(
+                        f"Item in applied_knowledge_items must be a Pydantic model or dict, got {type(knowledge_item)}"
+                    )
+
         return {
             'id': self.id,
             'name': self.name,
             'metadata': self.metadata,
+            'knowledgeItems': knowledge_items,
+            'startTimestamp': self.start_timestamp.isoformat() if self.start_timestamp else None,
+            'duration': self.duration,
             'presentationMetadata': self.presentation_metadata,
+            'internalSteps': [step.to_dict(seen) for step in self.internal_steps],
             'children': [child.to_dict(seen) for child in self.children],
             'parents': [{'id': parent.id, 'name': parent.name} for parent in self.parents],  # or parent.to_dict(seen) if full structure is needed
         }
@@ -2503,8 +2534,46 @@ class Document(object):
     def set_steps(self, steps: list[ProcessingStep]):
         self._persistence_layer.set_steps(steps)
 
+    def get_knowledge(self) -> list[KnowledgeItem]:
+        return self._persistence_layer.get_knowledge()
+
+    def set_knowledge(self, knowledge: list[KnowledgeItem]):
+        self._persistence_layer.set_knowledge(knowledge)
+
+    def get_document_knowledge_features(self) -> list[DocumentKnowledgeFeature]:
+        return self._persistence_layer.get_document_knowledge_features()
+
+    def set_document_knowledge_features(
+        self, features: list[DocumentKnowledgeFeature]
+    ):
+        self._persistence_layer.set_document_knowledge_features(features)
+
     def replace_exceptions(self, exceptions: List[ContentException]):
         self._persistence_layer.replace_exceptions(exceptions)
+
+    def find_nodes_by_uuid(self, uuid: str) -> List[ContentNode]:
+        """
+        Finds the nodes by the uuid.
+
+        Args:
+            uuid (str): The uuid of the node to find.
+
+        Returns:
+            List[ContentNode]: A list of the nodes with the given uuid.
+        """
+        return self._persistence_layer.find_nodes_by_uuid(uuid)
+
+    def find_nodes_by_tag_uuid(self, tag_uuid: str) -> List[ContentNode]:
+        """
+        Finds the nodes tagged with the provided tag UUID.
+
+        Args:
+            tag_uuid (str): The UUID of the tag to search for.
+
+        Returns:
+            List[ContentNode]: A list of nodes tagged with the given UUID.
+        """
+        return self._persistence_layer.find_nodes_by_tag_uuid(tag_uuid)
 
     def __init__(
             self,

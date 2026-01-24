@@ -5,7 +5,8 @@ from dataclasses import asdict
 from typing import TYPE_CHECKING
 
 import fal.cli.runners as runners
-from fal.sdk import RunnerState
+from fal.api.client import SyncServerlessClient
+from fal.sdk import RunnerState, deconstruct_alias
 
 from ._utils import get_client
 from .parser import FalClientParser, SinceAction, get_output_parser
@@ -13,17 +14,25 @@ from .parser import FalClientParser, SinceAction, get_output_parser
 if TYPE_CHECKING:
     from fal.sdk import AliasInfo, ApplicationInfo
 
+CODE_SPECIFIC_SCALING_PARAMS = [
+    "max_multiplexing",
+    "startup_timeout",
+    "machine_types",
+]
+
 
 def _apps_table(apps: list[AliasInfo]):
     from rich.table import Table
 
     table = Table()
     table.add_column("Name", no_wrap=True)
+    table.add_column("Env")
     table.add_column("Revision")
     table.add_column("Auth")
     table.add_column("Min Concurrency")
     table.add_column("Max Concurrency")
     table.add_column("Concurrency Buffer")
+    table.add_column("Scaling Delay")
     table.add_column("Max Multiplexing")
     table.add_column("Keep Alive")
     table.add_column("Request Timeout")
@@ -33,13 +42,24 @@ def _apps_table(apps: list[AliasInfo]):
     table.add_column("Regions")
 
     for app in apps:
+        if app.concurrency_buffer_perc > 0:
+            concurrency_buffer_str = (
+                f"{app.concurrency_buffer_perc}%, min {app.concurrency_buffer}"
+            )
+        else:
+            concurrency_buffer_str = str(app.concurrency_buffer)
+
+        display_name = deconstruct_alias(app.alias, app.environment_name)
+
         table.add_row(
-            app.alias,
+            display_name,
+            app.environment_name or "main",
             app.revision,
             app.auth_mode,
             str(app.min_concurrency),
             str(app.max_concurrency),
-            str(app.concurrency_buffer),
+            concurrency_buffer_str,
+            str(app.scaling_delay),
             str(app.max_multiplexing),
             str(app.keep_alive),
             str(app.request_timeout),
@@ -53,27 +73,23 @@ def _apps_table(apps: list[AliasInfo]):
 
 
 def _list(args):
-    client = get_client(args.host, args.team)
-    with client.connect() as connection:
-        apps = connection.list_aliases()
+    client = SyncServerlessClient(host=args.host, team=args.team)
+    apps = client.apps.list(filter=args.filter, environment_name=args.env)
 
-        if args.filter:
-            apps = [app for app in apps if args.filter in app.alias]
+    if args.sort_by_runners:
+        apps.sort(key=lambda x: x.active_runners)
+    else:
+        apps.sort(key=lambda x: x.alias)
 
-        if args.sort_by_runners:
-            apps.sort(key=lambda x: x.active_runners)
-        else:
-            apps.sort(key=lambda x: x.alias)
-
-        if args.output == "pretty":
-            table = _apps_table(apps)
-            args.console.print(table)
-        elif args.output == "json":
-            apps_as_dicts = [asdict(a) for a in apps]
-            res = json.dumps({"apps": apps_as_dicts})
-            args.console.print(res)
-        else:
-            raise AssertionError(f"Invalid output format: {args.output}")
+    if args.output == "pretty":
+        table = _apps_table(apps)
+        args.console.print(table)
+    elif args.output == "json":
+        apps_as_dicts = [asdict(a) for a in apps]
+        json_res = json.dumps({"apps": apps_as_dicts})
+        args.console.print(json_res)
+    else:
+        raise AssertionError(f"Invalid output format: {args.output}")
 
 
 def _add_list_parser(subparsers, parents):
@@ -94,6 +110,11 @@ def _add_list_parser(subparsers, parents):
         type=str,
         help="Filter applications by alias contents",
     )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
+    )
     parser.set_defaults(func=_list)
 
 
@@ -102,6 +123,7 @@ def _app_rev_table(revs: list[ApplicationInfo]):
 
     table = Table()
     table.add_column("Revision", no_wrap=True)
+    table.add_column("Env")
     table.add_column("Min Concurrency")
     table.add_column("Max Concurrency")
     table.add_column("Max Multiplexing")
@@ -116,6 +138,7 @@ def _app_rev_table(revs: list[ApplicationInfo]):
     for rev in revs:
         table.add_row(
             rev.application_id,
+            rev.environment_name or "main",
             str(rev.min_concurrency),
             str(rev.max_concurrency),
             str(rev.max_multiplexing),
@@ -134,7 +157,7 @@ def _app_rev_table(revs: list[ApplicationInfo]):
 def _list_rev(args):
     client = get_client(args.host, args.team)
     with client.connect() as connection:
-        revs = connection.list_applications(args.app_name)
+        revs = connection.list_applications(args.app_name, environment_name=args.env)
         table = _app_rev_table(revs)
 
     args.console.print(table)
@@ -153,41 +176,62 @@ def _add_list_rev_parser(subparsers, parents):
         nargs="?",
         help="Application name.",
     )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
+    )
     parser.set_defaults(func=_list_rev)
 
 
 def _scale(args):
-    client = get_client(args.host, args.team)
-    with client.connect() as connection:
-        if (
-            args.keep_alive is None
-            and args.max_multiplexing is None
-            and args.max_concurrency is None
-            and args.min_concurrency is None
-            and args.concurrency_buffer is None
-            and args.request_timeout is None
-            and args.startup_timeout is None
-            and args.machine_types is None
-            and args.regions is None
-        ):
-            args.console.log("No parameters for update were provided, ignoring.")
-            return
+    client = SyncServerlessClient(host=args.host, team=args.team)
+    if (
+        args.keep_alive is None
+        and args.max_multiplexing is None
+        and args.max_concurrency is None
+        and args.min_concurrency is None
+        and args.concurrency_buffer is None
+        and args.concurrency_buffer_perc is None
+        and args.scaling_delay is None
+        and args.request_timeout is None
+        and args.startup_timeout is None
+        and args.machine_types is None
+        and args.regions is None
+    ):
+        args.console.log("No parameters for update were provided, ignoring.")
+        return
 
-        alias_info = connection.update_application(
-            application_name=args.app_name,
-            keep_alive=args.keep_alive,
-            max_multiplexing=args.max_multiplexing,
-            max_concurrency=args.max_concurrency,
-            min_concurrency=args.min_concurrency,
-            concurrency_buffer=args.concurrency_buffer,
-            request_timeout=args.request_timeout,
-            startup_timeout=args.startup_timeout,
-            machine_types=args.machine_types,
-            valid_regions=args.regions,
-        )
-        table = _apps_table([alias_info])
+    app_info = client.apps.scale(
+        args.app_name,
+        keep_alive=args.keep_alive,
+        max_multiplexing=args.max_multiplexing,
+        max_concurrency=args.max_concurrency,
+        min_concurrency=args.min_concurrency,
+        concurrency_buffer=args.concurrency_buffer,
+        concurrency_buffer_perc=args.concurrency_buffer_perc,
+        scaling_delay=args.scaling_delay,
+        request_timeout=args.request_timeout,
+        startup_timeout=args.startup_timeout,
+        machine_types=args.machine_types,
+        regions=args.regions,
+        environment_name=args.env,
+    )
+    table = _apps_table([app_info])
 
     args.console.print(table)
+
+    code_specific_changes = set()
+    for param in CODE_SPECIFIC_SCALING_PARAMS:
+        if getattr(args, param) is not None:
+            code_specific_changes.add(f"[bold]{param}[/bold]")
+
+    if len(code_specific_changes) > 0:
+        args.console.print(
+            "[bold yellow]Note:[/bold yellow] Please be aware that "
+            f"{', '.join(code_specific_changes)} will be reset on the next deployment. "
+            "See https://docs.fal.ai/serverless/deployment-operations/scale-your-application#code-specific-settings-reset-on-deploy for details."  # noqa: E501
+        )
 
 
 def _add_scale_parser(subparsers, parents):
@@ -225,12 +269,23 @@ def _add_scale_parser(subparsers, parents):
     parser.add_argument(
         "--concurrency-buffer",
         type=int,
-        help="Concurrency buffer",
+        help="Concurrency buffer (min)",
+    )
+    parser.add_argument(
+        "--concurrency-buffer-perc",
+        type=int,
+        help="Concurrency buffer %%",
+    )
+    parser.add_argument(
+        "--scaling-delay",
+        type=int,
+        help="Scaling delay (seconds).",
     )
     parser.add_argument(
         "--request-timeout",
         type=int,
-        help="Request timeout (seconds).",
+        help="Request timeout (seconds). If a request takes longer, it is aborted and "
+        "the runner gracefully stopped as it could be in a bad state.",
     )
     parser.add_argument(
         "--startup-timeout",
@@ -249,13 +304,51 @@ def _add_scale_parser(subparsers, parents):
         nargs="+",
         help="Valid regions (pass several items to set multiple).",
     )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
+    )
     parser.set_defaults(func=_scale)
+
+
+def _rollout(args):
+    client = SyncServerlessClient(host=args.host, team=args.team)
+    client.apps.rollout(args.app_name, force=args.force, environment_name=args.env)
+    args.console.log(f"Rolled out application {args.app_name}")
+
+
+def _add_rollout_parser(subparsers, parents):
+    rollout_help = "Rollout application."
+    parser = subparsers.add_parser(
+        "rollout",
+        description=rollout_help,
+        help=rollout_help,
+        parents=parents,
+    )
+    parser.add_argument(
+        "app_name",
+        help="Application name.",
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force rollout.",
+    )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
+    )
+    parser.set_defaults(func=_rollout)
 
 
 def _set_rev(args):
     client = get_client(args.host, args.team)
     with client.connect() as connection:
-        alias_info = connection.create_alias(args.app_name, args.app_rev, args.auth)
+        alias_info = connection.create_alias(
+            args.app_name, args.app_rev, args.auth, environment_name=args.env
+        )
         table = _apps_table([alias_info])
 
     args.console.print(table)
@@ -285,20 +378,20 @@ def _add_set_rev_parser(subparsers, parents):
         default=None,
         help="Application authentication mode.",
     )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
+    )
     parser.set_defaults(func=_set_rev)
 
 
 def _runners(args):
-    client = get_client(args.host, args.team)
-    with client.connect() as connection:
-        start_time = getattr(args, "since", None)
-        alias_runners = connection.list_alias_runners(
-            alias=args.app_name, start_time=start_time
-        )
-    if getattr(args, "state", None):
-        states = set(args.state)
-        if "all" not in states:
-            alias_runners = [r for r in alias_runners if r.state.value in states]
+    client = SyncServerlessClient(host=args.host, team=args.team)
+    start_time = args.since
+    alias_runners = client.apps.runners(
+        args.app_name, since=start_time, state=args.state, environment_name=args.env
+    )
     if args.output == "pretty":
         runners_table = runners.runners_table(alias_runners)
         pending_runners = [
@@ -343,17 +436,22 @@ def _add_runners_parser(subparsers, parents):
         action=SinceAction,
         limit="1 day",
         help=(
-            "Show dead runners since the given time. "
+            "Show terminated runners since the given time. "
             "Accepts 'now', relative like '30m', '1h', '1d', "
             "or an ISO timestamp. Max 24 hours."
         ),
     )
     parser.add_argument(
         "--state",
-        choices=["all", "running", "pending", "setup", "dead"],
+        choices=["all", "running", "pending", "setup", "terminated"],
         nargs="+",
         default=None,
         help=("Filter by runner state(s). Choose one or more, or 'all'(default)."),
+    )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
     )
     parser.set_defaults(func=_runners)
 
@@ -361,7 +459,7 @@ def _add_runners_parser(subparsers, parents):
 def _delete(args):
     client = get_client(args.host, args.team)
     with client.connect() as connection:
-        res = connection.delete_alias(args.app_name)
+        res = connection.delete_alias(args.app_name, environment_name=args.env)
         if res is None:
             args.console.print(f"Application {args.app_name!r} not found.")
         else:
@@ -379,6 +477,11 @@ def _add_delete_parser(subparsers, parents):
     parser.add_argument(
         "app_name",
         help="Application name.",
+    )
+    parser.add_argument(
+        "--env",
+        dest="env",
+        help="Target environment (defaults to main).",
     )
     parser.set_defaults(func=_delete)
 
@@ -426,6 +529,7 @@ def add_parser(main_subparsers, parents):
     _add_list_rev_parser(subparsers, parents)
     _add_set_rev_parser(subparsers, parents)
     _add_scale_parser(subparsers, parents)
+    _add_rollout_parser(subparsers, parents)
     _add_runners_parser(subparsers, parents)
     _add_delete_parser(subparsers, parents)
     _add_delete_rev_parser(subparsers, parents)

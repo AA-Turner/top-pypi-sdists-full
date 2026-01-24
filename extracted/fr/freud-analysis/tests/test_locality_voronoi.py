@@ -264,7 +264,7 @@ class TestVoronoi:
         # Drop the tiny facets that come from numerical imprecision
         nlist = nlist.filter(nlist.weights > 1e-5)
 
-        unique_indices, counts = np.unique(
+        _unique_indices, counts = np.unique(
             nlist.query_point_indices, return_counts=True
         )
 
@@ -340,7 +340,7 @@ class TestVoronoi:
             vor.polytopes
         with pytest.raises(AttributeError):
             vor.volumes
-        box, points = freud.data.make_random_system(L, N, is2D=False)
+        box, points = freud.data.make_random_system(L, N, is2D=False, seed=1)
         vor.compute((box, points))
 
         # Ensure attributes are accessible after calling compute

@@ -7,10 +7,12 @@ See [Line API](/guide/widgets#line-api) for how to use Strips.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Iterable, Iterator, Sequence
 
 import rich.repr
 from rich.cells import cell_len, set_cell_size
+from rich.color import ColorSystem
 from rich.console import Console, ConsoleOptions, RenderResult
 from rich.measure import Measurement
 from rich.segment import Segment
@@ -21,6 +23,8 @@ from textual.cache import FIFOCache
 from textual.color import Color
 from textual.css.types import AlignHorizontal, AlignVertical
 from textual.filter import LineFilter
+
+SGR_STYLES = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "21", "51", "52", "53"]
 
 
 def get_line_length(segments: Iterable[Segment]) -> int:
@@ -131,6 +135,7 @@ class Strip:
         return self._link_ids
 
     @classmethod
+    @lru_cache(maxsize=1024)
     def blank(cls, cell_length: int, style: StyleType | None = None) -> Strip:
         """Create a blank strip.
 
@@ -286,14 +291,21 @@ class Strip:
         Returns:
             A new combined strip.
         """
-        join_strips = [strip for strip in strips if strip is not None]
+        join_strips = [
+            strip for strip in strips if strip is not None and strip.cell_count
+        ]
         segments = [segment for strip in join_strips for segment in strip._segments]
         cell_length: int | None = None
         if any([strip._cell_length is None for strip in join_strips]):
             cell_length = None
         else:
             cell_length = sum([strip._cell_length or 0 for strip in join_strips])
-        return cls(segments, cell_length)
+        joined_strip = cls(segments, cell_length)
+        if all(strip._render_cache is not None for strip in join_strips):
+            joined_strip._render_cache = "".join(
+                [strip._render_cache for strip in join_strips]
+            )
+        return joined_strip
 
     def __add__(self, other: Strip) -> Strip:
         return Strip.join([self, other])
@@ -575,9 +587,7 @@ class Strip:
         cell_length = self.cell_length
         cuts = [cut for cut in cuts if cut <= cell_length]
         cache_key = tuple(cuts)
-        cached = self._divide_cache.get(cache_key)
-
-        if cached is not None:
+        if (cached := self._divide_cache.get(cache_key)) is not None:
             return cached
 
         strips: list[Strip]
@@ -645,6 +655,56 @@ class Strip:
         ]
         return Strip(segments, self._cell_length)
 
+    @classmethod
+    @lru_cache(maxsize=16384)
+    def render_ansi(cls, style: Style, color_system: ColorSystem) -> str:
+        """Render ANSI codes for a give style.
+
+        Args:
+            style: A Rich style.
+            color_system: Color system enumeration.
+
+        Returns:
+            A string of ANSI escape sequences to render the style.
+        """
+        sgr: list[str]
+        if attributes := style._attributes & style._set_attributes:
+            _style_map = SGR_STYLES
+            sgr = [
+                _style_map[bit_offset]
+                for bit_offset in range(attributes.bit_length())
+                if attributes & (1 << bit_offset)
+            ]
+        else:
+            sgr = []
+        if (color := style._color) is not None:
+            sgr.extend(color.downgrade(color_system).get_ansi_codes())
+        if (bgcolor := style._bgcolor) is not None:
+            sgr.extend(bgcolor.downgrade(color_system).get_ansi_codes(False))
+        ansi = style._ansi = ";".join(sgr)
+        return ansi
+
+    @classmethod
+    def render_style(cls, style: Style, text: str, color_system: ColorSystem) -> str:
+        """Render a Rich style and text.
+
+        Args:
+            style: Style to render.
+            text: Content string.
+            color_system: Color system enumeration.
+
+        Returns:
+            Text with ANSI escape sequences.
+        """
+        if (ansi := style._ansi) is None:
+            ansi = cls.render_ansi(style, color_system)
+        output = f"\x1b[{ansi}m{text}\x1b[0m" if ansi else text
+        if style._link:
+            output = (
+                f"\x1b]8;id={style._link_id};{style._link}\x1b\\{output}\x1b]8;;\x1b\\"
+            )
+        return output
+
     def render(self, console: Console) -> str:
         """Render the strip into terminal sequences.
 
@@ -655,15 +715,19 @@ class Strip:
             Rendered sequences.
         """
         if self._render_cache is None:
-            color_system = console._color_system
-            render = Style.render
+            color_system = console._color_system or ColorSystem.TRUECOLOR
+            render = self.render_style
             self._render_cache = "".join(
                 [
-                    render(style, text, color_system=color_system)
+                    (
+                        text
+                        if style is None
+                        else render(style, text, color_system=color_system)
+                    )
                     for text, style, _ in self._segments
-                    if style is not None
                 ]
             )
+
         return self._render_cache
 
     def crop_pad(self, cell_length: int, left: int, right: int, style: Style) -> Strip:
@@ -748,5 +812,6 @@ class Strip:
             )
             x += len(segment.text)
         strip = Strip(strip_segments, self._cell_length)
+        strip._render_cache = self._render_cache
         self._offsets_cache[cache_key] = strip
         return strip

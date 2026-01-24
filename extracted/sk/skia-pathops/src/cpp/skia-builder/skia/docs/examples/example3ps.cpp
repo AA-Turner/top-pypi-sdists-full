@@ -13,13 +13,14 @@ void draw(SkCanvas* canvas) {
     canvas->save();
     canvas->scale(15, -15);
     canvas->translate(0, -28);
-    SkPath path;
-    path.moveTo(2, 2);
-    path.lineTo(3, 3);
-    path.lineTo(3, 4);
-    path.lineTo(2, 4);
-    path.lineTo(1, 5);
-    path.close();
+    SkPath path = SkPathBuilder()
+                  .moveTo(2, 2)
+                  .lineTo(3, 3)
+                  .lineTo(3, 4)
+                  .lineTo(2, 4)
+                  .lineTo(1, 5)
+                  .close()
+                  .detach();
     SkPaint p;
     p.setAntiAlias(true);
     p.setStrokeWidth(0.1f);
@@ -61,7 +62,7 @@ void draw(SkCanvas* canvas) {
     sk_sp<SkData> data = SkData::MakeWithoutCopy((unsigned char*)d, sizeof(d));
     SkImageInfo info =
             SkImageInfo::Make(3, 2, SkColorType::kGray_8_SkColorType, kOpaque_SkAlphaType);
-    sk_sp<SkImage> image = SkImage::MakeRasterData(info, data, 3);
+    sk_sp<SkImage> image = SkImages::RasterFromData(info, data, 3);
 
     canvas->save();
     m = setpsmatrix(1, 0, 0, 1, -1, -24, 2);

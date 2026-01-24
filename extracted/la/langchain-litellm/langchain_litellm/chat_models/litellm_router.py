@@ -10,13 +10,17 @@ from langchain_core.language_models.chat_models import (
     agenerate_from_stream,
     generate_from_stream,
 )
-from langchain_core.messages import AIMessageChunk, BaseMessage
+from langchain_core.messages import (
+    AIMessageChunk,
+    BaseMessage,
+)
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 
 from langchain_litellm.chat_models.litellm import (
     ChatLiteLLM,
     _convert_delta_to_message_chunk,
     _convert_dict_to_message,
+    _create_usage_metadata,
 )
 
 token_usage_key_name = "token_usage"  # nosec # incorrectly flagged as password
@@ -91,6 +95,7 @@ class ChatLiteLLMRouter(ChatLiteLLM):
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
+        params = {k:v for k, v in params.items() if v is not None}
         self._prepare_params_for_router(params)
 
         response = self.router.completion(
@@ -109,13 +114,20 @@ class ChatLiteLLMRouter(ChatLiteLLM):
         default_chunk_class = AIMessageChunk
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs, "stream": True}
+        params = {k:v for k, v in params.items() if v is not None}
+        params["stream_options"] = self.stream_options
         self._prepare_params_for_router(params)
 
         for chunk in self.router.completion(messages=message_dicts, **params):
             if len(chunk["choices"]) == 0:
                 continue
+            usage_metadata = None
+            if "usage" in chunk and chunk["usage"]:
+                usage_metadata = _create_usage_metadata(chunk["usage"])
             delta = chunk["choices"][0]["delta"]
             chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+            if usage_metadata and isinstance(chunk, AIMessageChunk):
+                chunk.usage_metadata = usage_metadata
             default_chunk_class = chunk.__class__
             cg_chunk = ChatGenerationChunk(message=chunk)
             if run_manager:
@@ -132,6 +144,8 @@ class ChatLiteLLMRouter(ChatLiteLLM):
         default_chunk_class = AIMessageChunk
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs, "stream": True}
+        params = {k:v for k, v in params.items() if v is not None}
+        params["stream_options"] = self.stream_options
         self._prepare_params_for_router(params)
 
         async for chunk in await self.router.acompletion(
@@ -139,8 +153,13 @@ class ChatLiteLLMRouter(ChatLiteLLM):
         ):
             if len(chunk["choices"]) == 0:
                 continue
+            usage_metadata = None
+            if "usage" in chunk and chunk["usage"]:
+                usage_metadata = _create_usage_metadata(chunk["usage"])
             delta = chunk["choices"][0]["delta"]
             chunk = _convert_delta_to_message_chunk(delta, default_chunk_class)
+            if usage_metadata and isinstance(chunk, AIMessageChunk):
+                chunk.usage_metadata = usage_metadata
             default_chunk_class = chunk.__class__
             cg_chunk = ChatGenerationChunk(message=chunk)
             if run_manager:
@@ -166,6 +185,7 @@ class ChatLiteLLMRouter(ChatLiteLLM):
 
         message_dicts, params = self._create_message_dicts(messages, stop)
         params = {**params, **kwargs}
+        params = {k:v for k, v in params.items() if v is not None}
         self._prepare_params_for_router(params)
 
         response = await self.router.acompletion(
@@ -214,4 +234,14 @@ class ChatLiteLLMRouter(ChatLiteLLM):
             generations.append(gen)
         token_usage = response.get("usage", Usage(prompt_tokens=0, total_tokens=0))
         llm_output = get_llm_output(token_usage, **params)
+
+        # Check standard field first, then fallback to Vertex specific field
+        provider_specific_fields = response.get("provider_specific_fields")
+        if not provider_specific_fields:
+            provider_specific_fields = response.get("vertex_ai_grounding_metadata")
+
+        # Add top-level provider_specific_fields if present in response
+        if provider_specific_fields:
+            llm_output["provider_specific_fields"] = provider_specific_fields
+            
         return ChatResult(generations=generations, llm_output=llm_output)

@@ -13,14 +13,14 @@ This private submodule is *not* intended for importation by downstream callers.
 '''
 
 # ....................{ IMPORTS                            }....................
-from beartype._data.hint.pep.sign.datapepsigns import (
-    HintSignPep484585GenericUnsubscripted)
+from beartype._data.hint.sign.datahintsigns import (
+    HintSignPep484585GenericUnsubbed)
 from beartype._check.error.errcause import ViolationCause
 from beartype._check.error._errtype import find_cause_instance_type
 from beartype._check.pep.checkpep484585generic import (
-    iter_hint_pep484585_generic_unsubbed_bases_unerased)
+    get_hint_pep484585_generic_unsubbed_bases_unerased_kwargs)
 from beartype._util.hint.pep.proposal.pep484585.generic.pep484585genget import (
-    get_hint_pep484585_generic_type)
+    get_hint_pep484585_generic_type_isinstanceable)
 from beartype._util.text.utiltextansi import color_hint
 
 # ....................{ GETTERS                            }....................
@@ -40,19 +40,19 @@ def find_cause_pep484585_generic_unsubbed(
         Input cause providing this data.
 
     Returns
-    ----------
+    -------
     ViolationCause
         Output cause type-checking this data.
     '''
     assert isinstance(cause, ViolationCause), f'{repr(cause)} not cause.'
-    assert cause.hint_sign is HintSignPep484585GenericUnsubscripted, (
+    assert cause.hint_sign is HintSignPep484585GenericUnsubbed, (
         f'{repr(cause.hint_sign)} not generic.')
     # print(f'[find_cause_generic] cause.pith: {cause.pith}')
     # print(f'[find_cause_generic] cause.hint [pre-reduction]: {cause.hint}')
 
     # Origin type originating this generic, deduced by stripping all child type
     # hints subscripting this hint from this hint.
-    hint_type = get_hint_pep484585_generic_type(
+    hint_type = get_hint_pep484585_generic_type_isinstanceable(
         hint=cause.hint, exception_prefix=cause.exception_prefix)
 
     # Shallow output cause to be returned, type-checking only whether this pith
@@ -70,8 +70,9 @@ def find_cause_pep484585_generic_unsubbed(
     # transitive pseudo-superclass originally declared as a superclass of this
     # unsubscripted generic *AND* the sign identifying this pseudo-superclass...
     for hint_child_sane, hint_child_sign in (
-        iter_hint_pep484585_generic_unsubbed_bases_unerased(
+        get_hint_pep484585_generic_unsubbed_bases_unerased_kwargs(
             hint_sane=cause.hint_sane,
+            cls_stack=cause.cls_stack,
             conf=cause.conf,
             exception_prefix=cause.exception_prefix,
         )

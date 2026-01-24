@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 
 import pytest
 
@@ -15,9 +14,10 @@ from poetry.utils.env import EnvManager
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from collections.abc import Iterable
 
-    import httpretty
+    import responses
 
     from cleo.io.io import IO
     from pytest_mock import MockerFixture
@@ -69,7 +69,7 @@ def setup_mocks(
     tmp_venv: VirtualEnv,
     installed: Repository,
     pool: RepositoryPool,
-    http: type[httpretty.httpretty],
+    http: responses.RequestsMock,
     repo: Repository,
 ) -> None:
     mocker.patch.object(EnvManager, "get_system_env", return_value=tmp_venv)

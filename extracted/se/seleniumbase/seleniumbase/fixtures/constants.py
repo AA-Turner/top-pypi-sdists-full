@@ -264,16 +264,13 @@ class Reveal:
 
 
 class HighCharts:
+    LIB = "https://cdn.jsdelivr.net/npm/highcharts"
     VER = "10.3.3"
-    HC_CSS = "https://code.highcharts.com/%s/css/highcharts.css" % VER
-    HC_JS = "https://code.highcharts.com/%s/highcharts.js" % VER
-    EXPORTING_JS = "https://code.highcharts.com/%s/modules/exporting.js" % VER
-    EXPORT_DATA_JS = (
-        "https://code.highcharts.com/%s/modules/export-data.js" % VER
-    )
-    ACCESSIBILITY_JS = (
-        "https://code.highcharts.com/%s/modules/accessibility.js" % VER
-    )
+    HC_CSS = "%s@%s/css/highcharts.css" % (LIB, VER)
+    HC_JS = "%s@%s/highcharts.js" % (LIB, VER)
+    EXPORTING_JS = "%s@%s/modules/exporting.js" % (LIB, VER)
+    EXPORT_DATA_JS = "%s@%s/modules/export-data.js" % (LIB, VER)
+    ACCESSIBILITY_JS = "%s@%s/modules/accessibility.js" % (LIB, VER)
 
 
 class BootstrapTour:
@@ -387,6 +384,20 @@ class ValidBrowsers:
         "ie",
         "safari",
         "remote",
+        "opera",
+        "brave",
+        "comet",
+        "atlas",
+    ]
+
+
+class ChromiumSubs:
+    # Chromium browsers that still use chromedriver
+    chromium_subs = [
+        "opera",
+        "brave",
+        "comet",
+        "atlas",
     ]
 
 
@@ -406,7 +417,14 @@ class ValidBinaries:
         "brave",
         "opera",
         "opera-stable",
+        "comet",
+        "comet-browser",
+        "comet-stable",
+        "atlas",
+        "atlas-browser",
+        "atlas-stable",
         "chrome.exe",  # WSL (Windows Subsystem for Linux)
+        "chromium.exe",  # WSL (Windows Subsystem for Linux)
     ]
     valid_edge_binaries_on_linux = [
         "microsoft-edge",
@@ -423,7 +441,14 @@ class ValidBinaries:
         "Google Chrome Beta",
         "Google Chrome Dev",
         "Brave Browser",
+        "Brave",
+        "Opera Browser",
         "Opera",
+        "Comet Browser",
+        "Comet",
+        "ChatGPT Atlas",
+        "Atlas Browser",
+        "Atlas",
     ]
     valid_edge_binaries_on_macos = [
         "Microsoft Edge",
@@ -434,6 +459,8 @@ class ValidBinaries:
         "chrome-headless-shell.exe",
         "brave.exe",
         "opera.exe",
+        "comet.exe",
+        "atlas.exe",
     ]
     valid_edge_binaries_on_windows = [
         "msedge.exe",

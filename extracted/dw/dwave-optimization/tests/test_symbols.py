@@ -38,9 +38,11 @@ from dwave.optimization import (
     logical_or,
     logical_not,
     logical_xor,
+    matmul,
     mod,
     put,
     rint,
+    roll,
     safe_divide,
     sqrt,
     stack,
@@ -155,13 +157,84 @@ class TestAdd(utils.BinaryOpTests):
         return lhs + rhs
 
     def test_broadcasting(self):
-        # todo: allow array broadcasting, for now just test that it raises
-        # an error
         model = Model()
         a = model.integer(5)
-        b = model.integer((5, 5))
+        b = model.integer((4, 5))
+        c = a + b
+        self.assertEqual(c.shape(), (4, 5))
+
+        # We don't yet support broadcasting with dynamic arrays
+        d = model.constant([[[1]]])
+        e = model.set(5)
         with self.assertRaises(ValueError):
-            a + b
+            d + e
+
+        f = a + d
+        self.assertEqual(f.shape(), (1, 1, 5))
+
+    def test_promotion(self):
+        model = Model()
+        model.states.resize(1)
+
+        a = model.integer(3)  # fixed shape
+        a.set_state(0, [0, 2, 1])
+
+        with self.subTest("model.integer(3) + 5"):
+            x = a + 5
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + 5)
+
+        with self.subTest("5 + model.integer(3)"):
+            x = 5 + a
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + 5)
+
+        with self.subTest("model.integer(3) + np.float64(3.2)"):
+            x = a + np.float64(3.2)
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + 3.2)
+
+        with self.subTest("model.integer(3) + np.float64(3.2)"):
+            x = np.float64(3.2) + a
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + 3.2)
+
+        with self.subTest("model.integer(3) + [5, 1.2, -1]"):
+            x = a + [5, 1.2, -1]
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + [5, 1.2, -1])
+
+        with self.subTest("[5, 1.2, -1] + model.integer(3)"):
+            x = [5, 1.2, -1] + a
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + [5, 1.2, -1])
+
+        with self.subTest("model.integer(3) + np.asarray([5, 1.2, -1])"):
+            x = a + np.asarray([5, 1.2, -1])
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + [5, 1.2, -1])
+
+        with self.subTest("np.asarray([5, 1.2, -1]) + model.integer(3)"):
+            x = np.asarray([5, 1.2, -1]) + a
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), a.state() + [5, 1.2, -1])
+
+        s = model.set(3)
+        s.set_state(0, [0, 2, 1])
+
+        with self.subTest("model.set(3) + 5"):
+            x = s + 5
+            self.assertIsInstance(x, dwave.optimization.symbols.Add)
+            with model.lock():
+                np.testing.assert_array_equal(x.state(), s.state() + 5)
 
     def test_scalar_addition(self):
         model = Model()
@@ -180,8 +253,6 @@ class TestAdd(utils.BinaryOpTests):
         self.assertEqual(x.state(0), 12)
 
     def test_scalar_broadcasting(self):
-        # todo: allow array broadcasting, for now just test that it raises
-        # an error
         model = Model()
         a = model.integer(1)
         b = model.integer(5)
@@ -493,6 +564,20 @@ class TestARange(utils.SymbolTests):
                 with model.lock():
                     np.testing.assert_array_equal(ar.state(), np.arange(1, 5, 1))
 
+    def test_sizenode_awareness(self):
+        model = Model()
+        set = model.set(3)
+        indices = arange(set.size())
+        array = model.constant([-1] * 3)
+        # requires that `indices` knows that it gets it's size from `set`
+        array = put(array, indices, set)
+
+        # not necessary for this test but helpful for clarity
+        with model.lock():
+            model.states.resize(1)
+            set.set_state(0, [2])
+            np.testing.assert_array_equal(array.state(0), [2, -1, -1])
+
 
 class TestArgSort(utils.SymbolTests):
     def generate_symbols(self):
@@ -615,6 +700,25 @@ class TestBinaryVariable(utils.SymbolTests):
 
         model.binary([10])
 
+    def test_bounds(self):
+        model = Model()
+        x = model.binary(lower_bound=0, upper_bound=1)
+        self.assertEqual(x.lower_bound(), 0)
+        self.assertEqual(x.upper_bound(), 1)
+
+        x = model.binary((2, 2), upper_bound=0)
+        self.assertTrue(x.upper_bound() == 0)
+
+        x = model.binary((2, 3), -3, [[1, 0, 0], [1, 0, 0]])
+        self.assertEqual(x.lower_bound(), 0.0)
+        self.assertTrue(np.all(x.upper_bound() == [[1, 0, 0], [1, 0, 0]]))
+
+        with self.assertRaises(ValueError):
+            model.integer((2, 3), upper_bound=np.nan)
+
+        with self.assertRaises(ValueError):
+            model.integer((2, 3), upper_bound=np.arange(6))
+
     def test_no_shape(self):
         model = Model()
         x = model.binary()
@@ -643,6 +747,25 @@ class TestBinaryVariable(utils.SymbolTests):
         with self.assertRaises(ValueError):
             model.binary([0.5])
 
+    def test_serialization(self):
+        model = Model()
+        binary_vars = [
+            model.binary((5, 2)),
+            model.binary(),
+            model.binary(3, lower_bound=1),
+            model.binary(2, upper_bound=[0,1]),
+        ]
+
+        model.lock()
+        with model.to_file() as f:
+            copy = Model.from_file(f)
+
+        for old, new in zip(binary_vars, copy.iter_decisions()):
+            self.assertEqual(old.shape(), new.shape())
+            for i in range(old.size()):
+                self.assertTrue(np.all(old.lower_bound() == new.lower_bound()))
+                self.assertTrue(np.all(old.upper_bound() == new.upper_bound()))
+
     def test_set_state(self):
         with self.subTest("array-like"):
             model = Model()
@@ -653,6 +776,26 @@ class TestBinaryVariable(utils.SymbolTests):
             np.testing.assert_array_equal(x.state(), np.arange(25).reshape((5, 5)) % 2)
             x.set_state(0, 1 - np.arange(25).reshape((5, 5)) % 2)
             np.testing.assert_array_equal(x.state(), 1 - np.arange(25).reshape((5, 5)) % 2)
+
+        with self.subTest("Default bounds test"):
+            model = Model()
+            model.states.resize(1)
+            x = model.binary(1)
+            x.set_state(0, 0)
+            with np.testing.assert_raises(ValueError):
+                x.set_state(0, -1)
+            with np.testing.assert_raises(ValueError):
+                x.set_state(0, 2)
+
+        with self.subTest("Simple bounds test"):
+            model = Model()
+            model.states.resize(1)
+            x = model.binary(2, lower_bound=[-1, 0.9], upper_bound=[1.1, 1.2])
+            x.set_state(0, [0, 1])
+            with np.testing.assert_raises(ValueError):
+                x.set_state(0, 2)
+            with np.testing.assert_raises(ValueError):
+                x.set_state(1, 0)
 
         with self.subTest("invalid state index"):
             model = Model()
@@ -718,6 +861,12 @@ class TestBroadcastTo(utils.SymbolTests):
             r"array of shape \(5,\) could not be broadcast to \(5, 1\)",
         ):
             broadcast_to(x, (5, 1))
+
+        with self.assertRaisesRegex(
+            ValueError,
+            r"cannot broadcast an array with a fixed shape \(5,\) to a dynamic shape \(-1, 5\)"
+        ):
+            broadcast_to(x, (-1, 5))
 
         with self.assertRaises(ValueError):
             broadcast_to(x, "hello")
@@ -980,7 +1129,7 @@ class TestConstant(utils.SymbolTests):
         A = model.constant(arr)
 
         np.testing.assert_array_equal(A, arr)
-        self.assertTrue(np.shares_memory(A, arr))
+        self.assertTrue(np.shares_memory(np.asarray(A), arr))
 
     def test_index(self):
         model = Model()
@@ -996,6 +1145,23 @@ class TestConstant(utils.SymbolTests):
 
         with self.assertRaises(TypeError):
             int(model.constant([0]))  # not a scalar
+
+    def test_info(self):
+        model = Model()
+
+        with self.subTest(5):
+            info = model.constant(5).info()
+            self.assertEqual(info.min, 5)
+            self.assertEqual(info.max, 5)
+            self.assertTrue(info.integral)
+            self.assertEqual(info.size, 1)
+
+        with self.subTest([0, 2.4, 4.2]):
+            info = model.constant([0, 2.4, 4.2]).info()
+            self.assertEqual(info.min, 0)
+            self.assertEqual(info.max, 4.2)
+            self.assertFalse(info.integral)
+            self.assertEqual(info.size, 3)
 
     def test_noncontiguous(self):
         model = Model()
@@ -1065,6 +1231,7 @@ class TestConstant(utils.SymbolTests):
         self.assertEqual(model.num_symbols(), 5)
         self.assertEqual(z.shape(), (4, 2))
         self.assertNotEqual(x.id(), z.id())
+
 
 class TestCopy(utils.SymbolTests):
     def generate_symbols(self):
@@ -1216,50 +1383,80 @@ class TestDisjointListsVariable(utils.SymbolTests):
 
     def generate_symbols(self):
         model = Model()
-        d, ds = model.disjoint_lists(10, 4)
+        d = model.disjoint_lists_symbol(10, 4)
         model.lock()
         yield d
-        yield from ds
+        yield from d
 
     def test(self):
         model = Model()
 
-        model.disjoint_lists(10, 4)
+        dls = model.disjoint_lists_symbol(10, 4)
+
+        self.assertEqual(dls.primary_set_size(), 10)
+        self.assertEqual(dls.num_disjoint_lists(), 4)
+
+    def test_deprecated_creation_method(self):
+        model = Model()
+        with self.assertWarnsRegex(
+            DeprecationWarning,
+            r"The return behavior of Model.disjoint_lists\(\) is deprecated"
+        ):
+            d, dls = model.disjoint_lists(10, 4)
+
+        self.assertIsInstance(d, dwave.optimization.symbols.DisjointLists)
+        self.assertEqual(len(dls), 4)
+        self.assertIsInstance(dls[0], dwave.optimization.symbols.DisjointList)
+
+    def test_indexing(self):
+        model = Model()
+
+        dls = model.disjoint_lists_symbol(10, 4)
+
+        self.assertEqual(len(list(dls)), 4)
+        self.assertIsInstance(dls[0], dwave.optimization.symbols.DisjointList)
+        self.assertIsInstance(dls[3], dwave.optimization.symbols.DisjointList)
+
+        with self.assertRaises(IndexError):
+            dls[4]
 
     def test_construction(self):
         model = Model()
 
         with self.assertRaises(ValueError):
-            model.disjoint_lists(-5, 1)
+            model.disjoint_lists_symbol(-5, 1)
         with self.assertRaises(ValueError):
-            model.disjoint_lists(1, -5)
+            model.disjoint_lists_symbol(1, -5)
 
         model.states.resize(1)
 
-        ds, (x,) = model.disjoint_lists(0, 1)
-        self.assertEqual(x.shape(), (-1,))  # todo: handle this special case
+        ds = model.disjoint_lists_symbol(0, 1)
+        self.assertEqual(ds[0].shape(), (-1,))  # todo: handle this special case
 
     def test_num_returned_nodes(self):
         model = Model()
 
-        d, ds = model.disjoint_lists(10, 4)
+        model.disjoint_lists_symbol(10, 4)
+
+        # One DisjointListsNode, and one node for each of the 4 successor lists
+        self.assertEqual(model.num_nodes(), 5)
 
     def test_set_state(self):
         with self.subTest("array-like output lists"):
             model = Model()
             model.states.resize(1)
-            x, ys = model.disjoint_lists(5, 3)
+            x = model.disjoint_lists_symbol(5, 3)
             model.lock()
 
             x.set_state(0, [[0, 1], [2, 3], [4]])
 
-            np.testing.assert_array_equal(ys[0].state(), [0, 1])
-            np.testing.assert_array_equal(ys[1].state(), [2, 3])
-            np.testing.assert_array_equal(ys[2].state(), [4])
+            np.testing.assert_array_equal(x[0].state(), [0, 1])
+            np.testing.assert_array_equal(x[1].state(), [2, 3])
+            np.testing.assert_array_equal(x[2].state(), [4])
 
         with self.subTest("invalid state index"):
             model = Model()
-            x, _ = model.disjoint_lists(5, 3)
+            x = model.disjoint_lists_symbol(5, 3)
 
             state = [[0, 1, 2, 3, 4], [], []]
 
@@ -1280,16 +1477,16 @@ class TestDisjointListsVariable(utils.SymbolTests):
             # gets translated into integer according to NumPy rules
             model = Model()
             model.states.resize(1)
-            x, ys = model.disjoint_lists(5, 3)
+            x = model.disjoint_lists_symbol(5, 3)
             model.lock()
 
             x.set_state(0, [[4.5, 3, 2, 1, 0], [], []])
-            np.testing.assert_array_equal(ys[0].state(), [4, 3, 2, 1, 0])
+            np.testing.assert_array_equal(x[0].state(), [4, 3, 2, 1, 0])
 
         with self.subTest("invalid"):
             model = Model()
             model.states.resize(1)
-            x, ys = model.disjoint_lists(5, 3)
+            x = model.disjoint_lists_symbol(5, 3)
             model.lock()
 
             with self.assertRaisesRegex(
@@ -1318,10 +1515,10 @@ class TestDisjointListsVariable(utils.SymbolTests):
     def test_state_size(self):
         model = Model()
 
-        d, ds = model.disjoint_lists(10, 4)
+        d = model.disjoint_lists_symbol(10, 4)
 
         self.assertEqual(d.state_size(), 0)
-        for s in ds:
+        for s in d:
             self.assertEqual(s.state_size(), 10 * 8)
 
 
@@ -1628,15 +1825,18 @@ class TestIntegerVariable(utils.SymbolTests):
         self.assertEqual(x.lower_bound(), 4)
         self.assertEqual(x.upper_bound(), 5)
 
-    def test_lower_bound(self):
-        model = Model()
-        x = model.integer(lower_bound=5)
-        self.assertEqual(x.lower_bound(), 5)
+        x = model.integer((2, 2), upper_bound=7)
+        self.assertTrue(x.upper_bound() == 7)
 
-    def test_upper_bound(self):
-        model = Model()
-        x = model.integer(upper_bound=5)
-        self.assertEqual(x.upper_bound(), 5)
+        x = model.integer((2, 3), -3, [[1, 2, 3], [4, 5, 6]])
+        self.assertTrue(np.all(x.upper_bound() == [[1, 2, 3], [4, 5, 6]]))
+        self.assertTrue(x.lower_bound() == -3)
+
+        with self.assertRaises(ValueError):
+            model.integer((2, 3), upper_bound=np.nan)
+
+        with self.assertRaises(ValueError):
+            model.integer((2, 3), upper_bound=np.arange(6))
 
     # Todo: we can generalize many of these tests for all decisions that can have
     # their state set
@@ -1657,6 +1857,7 @@ class TestIntegerVariable(utils.SymbolTests):
             model.integer(3, lower_bound=-1),
             model.integer(upper_bound=105),
             model.integer(15, lower_bound=4, upper_bound=6),
+            model.integer(2, lower_bound=[1, 2], upper_bound=[3, 4]),
         ]
 
         model.lock()
@@ -1665,8 +1866,9 @@ class TestIntegerVariable(utils.SymbolTests):
 
         for old, new in zip(integers, copy.iter_decisions()):
             self.assertEqual(old.shape(), new.shape())
-            self.assertEqual(old.lower_bound(), new.lower_bound())
-            self.assertEqual(old.upper_bound(), new.upper_bound())
+            for i in range(old.size()):
+                self.assertTrue(np.all(old.lower_bound() == new.lower_bound()))
+                self.assertTrue(np.all(old.upper_bound() == new.upper_bound()))
 
     def test_set_state(self):
         with self.subTest("Simple positive integer"):
@@ -1729,6 +1931,36 @@ class TestIntegerVariable(utils.SymbolTests):
 
             x.set_state(0, [-0.5, -0.75, -0.5, -1.0, -0.1])
             np.testing.assert_array_equal(x.state(), [0, 0, 0, -1, 0])
+
+
+class TestIsIn(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+        element = model.constant([-1.9, -2, 1.7, 1.6])
+        test_elements = model.constant([0, -2, 9.5, 3.2])
+        contains = dwave.optimization.symbols.IsIn(element, test_elements)
+
+        with model.lock():
+            yield contains
+
+    def test(self):
+        from dwave.optimization.symbols import IsIn
+        model = Model()
+        element = model.constant([-1.9, -2, 1.7, 1.6])
+        test_elements = model.constant([0, -2, 9.5, 3.2])
+        contains = dwave.optimization.isin(element, test_elements)
+
+        self.assertIsInstance(contains, IsIn)
+
+    def test_state(self):
+        model = Model()
+        element = model.constant([-1.9, -2, 1.7, 1.6])
+        test_elements = model.constant([0, -2, 9.5, -1.9])
+        contains = dwave.optimization.symbols.IsIn(element, test_elements)
+        model.states.resize(1)
+        with model.lock():
+            expected = np.array([1.0, 1.0, 0.0, 0.0])
+            np.testing.assert_array_almost_equal(contains.state(0), expected)
 
 
 class TestLessEqual(utils.SymbolTests):
@@ -2122,6 +2354,152 @@ class TestLinearProgram(utils.SymbolTests):
             np.testing.assert_array_equal(lp.state(1), [1, 0])
             self.assertFalse(lp.has_state(2))
             np.testing.assert_array_equal(lp.state(3), [1, 1])
+
+
+class TestMatrixMultiply(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+        c = model.constant(self._shaped_range(3, 4))
+        c_reshape = c.reshape((4, 3))
+        mm = dwave.optimization.symbols.MatrixMultiply(c, c_reshape)
+
+        with model.lock():
+            yield mm
+
+    def test_blas(self):
+        self.assertIn(
+            dwave.optimization.symbols.MatrixMultiply.implementation(),
+            ("blas", "fallback"),
+        )
+
+    def test_matmul(self):
+        model = Model()
+        c = model.constant(self._shaped_range(3, 4))
+        c_reshape = c.reshape((4, 3))
+        mm = matmul(c, c_reshape)
+        self.assertIsInstance(mm, dwave.optimization.symbols.MatrixMultiply)
+
+    def test_matmul_overload(self):
+        model = Model()
+
+        x = model.integer(10)
+        y = model.integer((10, 5))
+        mm = x @ y
+        self.assertIsInstance(mm, dwave.optimization.symbols.MatrixMultiply)
+        self.assertEqual(mm.shape(), (5,))
+        with self.assertRaises(ValueError):
+            y @ x
+
+        # We can also use with numpy arrays
+        y_with_np = y @ np.ones((5, 7))
+        self.assertIsInstance(y_with_np, dwave.optimization.symbols.MatrixMultiply)
+        self.assertEqual(y_with_np.shape(), (10, 7))
+
+        with self.assertRaises(ValueError):
+            y @ np.ones((3, 5))
+
+        np_with_y = np.ones((3, 10)) @ y
+        self.assertIsInstance(np_with_y, dwave.optimization.symbols.MatrixMultiply)
+        self.assertEqual(np_with_y.shape(), (3, 5))
+
+        with self.assertRaises(ValueError):
+            np.ones((4, 4)) @ y
+
+        # Check that broadcast works
+        self.assertIsInstance(
+            model.integer((1, 7, 4, 2)) @ np.ones((5, 1, 2, 3)),
+            dwave.optimization.symbols.MatrixMultiply
+        )
+        self.assertIsInstance(
+            np.ones((5, 1, 3, 2)) @ model.integer((1, 7, 2, 4)),
+            dwave.optimization.symbols.MatrixMultiply
+        )
+
+    def test_matmul_scalar(self):
+        model = Model()
+        with self.assertRaises(ValueError):
+            matmul(model.constant(np.arange(4)), model.constant(2))
+        with self.assertRaises(ValueError):
+            matmul(model.constant(2), model.constant(np.arange(4)))
+        with self.assertRaises(ValueError):
+            matmul(model.constant(self._shaped_range(2, 3)), model.constant(2))
+        with self.assertRaises(ValueError):
+            matmul(model.constant(2), model.constant(self._shaped_range(2, 3)))
+
+    def test_matmul_broadcast_x(self):
+        model = Model()
+        x_data = self._shaped_range(5, 2, 3, 4)
+        x = model.constant(x_data)
+
+        for shape in [
+            (4,),
+            (4, 6),
+            (1, 4, 3),
+            (5, 2, 4, 3),
+            (5, 1, 4, 3),
+            (2, 1, 1, 4, 3),
+        ]:
+            y_data = self._shaped_range(*shape)
+            np_res = np.matmul(x_data, y_data)
+            y = model.constant(y_data)
+            mm = matmul(x, y)
+            with model.lock():
+                model.states.resize(1)
+                self.assertTrue(np.array_equal(mm.state(0), np_res))
+
+        with self.assertRaises(ValueError):
+            matmul(x, model.constant(np.ones((5, 7, 4, 3))))
+
+    def test_matmul_broadcast_y(self):
+        model = Model()
+        y_data = self._shaped_range(5, 2, 3, 4)
+        y = model.constant(y_data)
+
+        for shape in [
+            (3,),
+            (6, 3),
+            (1, 2, 3),
+            (5, 2, 4, 3),
+            (5, 1, 4, 3),
+            (2, 1, 1, 4, 3),
+        ]:
+            x_data = self._shaped_range(*shape)
+            np_res = np.matmul(x_data, y_data)
+            x = model.constant(x_data)
+            mm = matmul(x, y)
+            with model.lock():
+                model.states.resize(1)
+                self.assertTrue(np.array_equal(mm.state(0), np_res))
+
+        with self.assertRaises(ValueError):
+            matmul(y, model.constant(np.ones((5, 7, 4, 3))))
+
+    def test_matmul_broadcast_both_operands(self):
+        model = Model()
+
+        for x_shape, y_shape in [
+            [(3,), (3,)],
+            [(7, 3, 2), (1, 2, 5)],
+            [(5, 7, 3, 2), (1, 1, 2, 5)],
+            [(1, 7, 3, 2), (5, 1, 2, 5)],
+            [(1, 7, 3, 2), (4, 5, 1, 2, 5)],
+        ]:
+            x_data = self._shaped_range(*x_shape)
+            x = model.constant(x_data)
+
+            y_data = self._shaped_range(*y_shape)
+            y = model.constant(y_data)
+
+            np_res = np.matmul(x_data, y_data)
+
+            mm = matmul(x, y)
+            with model.lock():
+                model.states.resize(1)
+                self.assertTrue(np.array_equal(mm.state(0), np_res))
+
+    @staticmethod
+    def _shaped_range(*shape):
+        return np.arange(np.prod(shape)).reshape(shape)
 
 
 class TestMax(utils.ReduceTests):
@@ -3054,6 +3432,56 @@ class TestRint(utils.SymbolTests):
         self.assertEqual(sixteen.state(0), 16)
 
 
+class TestRoll(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+
+        x = model.constant(np.arange(10))
+        x2 = model.constant(np.arange(10).reshape(5, 2))
+        one = model.constant(1)
+
+        symbols = [
+            roll(x, shift=1),
+            roll(x, shift=one),
+            roll(x, shift=-1),
+            roll(x, shift=-one),
+            roll(x2, (1, 1), axis=(1, 0)),
+            roll(x2, -1, axis=1),
+            roll(x2, one, axis=(0, 1)),
+            roll(x2, 2, axis=(0, 1)),
+        ]
+
+        with model.lock():
+            yield from symbols
+
+    def test_exceptions(self):
+        model = Model()
+
+        x = model.constant(np.arange(10))
+
+        # Shift typing
+        with self.assertRaises(TypeError):
+            roll(x, shift="a")
+        with self.assertRaises(TypeError):
+            roll(x, shift=1.5)
+
+        # Invalid shifts
+        with self.assertRaises(ValueError):
+            roll(x, shift=[0, 1, 2])
+        with self.assertRaises(ValueError):
+            roll(x, shift=model.integer(3))
+        with self.assertRaises(ValueError):
+            roll(x, shift=model.integer((3, 1, 1, 1, 1)))
+        with self.assertRaises(ValueError):
+            roll(x, shift=model.set(10))
+        with self.assertRaises(ValueError):
+            roll(x, shift=(0, 1), axis=(0, 0, 0))
+
+        # Out of bound axis
+        with self.assertRaises(ValueError):
+            roll(x, shift=1, axis=[1])
+
+
 class TestSafeDivide(utils.BinaryOpTests):
     def generate_symbols(self):
         model = Model()
@@ -3070,7 +3498,7 @@ class TestSafeDivide(utils.BinaryOpTests):
             yield from (w, x, y, z)
 
     def op(self, lhs, rhs):
-        return np.divide(lhs, rhs, where=(rhs != 0))
+        return np.divide(lhs, rhs, out=None, where=(rhs != 0))
 
     def symbol_op(self, lhs, rhs):
         return safe_divide(lhs, rhs)
@@ -3179,6 +3607,22 @@ class TestSetVariable(utils.SymbolTests):
         s = model.set(5, 5)
         model.lock()
         yield s
+
+    def test_info(self):
+        model = Model()
+
+        s = model.set(7)
+        info = s.info()
+        self.assertEqual(info.min, 0)
+        self.assertEqual(info.max, 6)
+        self.assertTrue(info.integral)
+
+        sizeinfo: dwave.optimization._model.ArraySizeInfo = info.size
+        self.assertEqual(sizeinfo.multiplier, 1)
+        self.assertEqual(sizeinfo.offset, 0)
+        self.assertEqual(sizeinfo.symbol.id(), s.id())
+        self.assertEqual(sizeinfo.min, 0)
+        self.assertEqual(sizeinfo.max, 7)
 
     def test_shape(self):
         model = Model()
@@ -3333,6 +3777,12 @@ class TestSubtract(utils.BinaryOpTests):
         with self.assertRaises(ValueError):
             a - b
 
+        a = model.constant(np.zeros((4, 5)))
+        b = model.constant(np.zeros((5, 4)))
+
+        with self.assertRaises(ValueError):
+            a - b
+
 
 class TestSum(utils.ReduceTests):
     empty_requires_initial = False
@@ -3340,14 +3790,62 @@ class TestSum(utils.ReduceTests):
     def op(self, x, *args, **kwargs):
         return x.sum(*args, **kwargs)
 
+    def test_axis(self):
+        model = Model()
+        model.states.resize(1)
+
+        threeD = model.constant(np.arange(2 * 3 * 4).reshape(4, 2, 3))
+        
+        x = threeD.sum(axis=(0, 1))
+        self.assertEqual(x.shape(), (3,))
+        with model.lock():
+            np.testing.assert_array_equal(x.state(), [84, 92, 100])
+
+        y = threeD.sum(axis=(1, -3))
+        self.assertEqual(x.shape(), (3,))
+        with model.lock():
+            self.assertEqual(y.shape(), (3,))
+            np.testing.assert_array_equal(y.state(), [84, 92, 100])
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "axis -4 is out of bounds for array of dimension 3",
+        ):
+            threeD.sum(axis=(2, -4))
+        with self.assertRaisesRegex(
+            ValueError,
+            "axis 3 is out of bounds for array of dimension 3",
+        ):
+            threeD.sum(axis=(-3, 3))
+
     def test_empty(self):
         model = Model()
         empty = model.constant([]).sum()
+
+        with self.assertRaises(ValueError):
+            model.constant([]).sum(initial=None)
+
         model.lock()
         model.states.resize(1)
 
         self.assertEqual(empty.state(), 0)
         self.assertEqual(empty.state(), np.asarray([]).sum())  # confirm consistency with NumPy
+
+    def test_exceptions(self):
+        model = Model()
+
+        with self.assertRaises(ValueError):
+            model.constant(np.ones((5, 3))).sum(axis=100)
+        with self.assertRaises(ValueError):
+            model.constant(np.ones((5, 3))).sum(axis=-100)
+
+    def test_initial(self):
+        model = Model()
+
+        empty = model.constant([])
+
+        with self.assertRaises(ValueError):
+            empty.sum(initial=None)
 
     def test_state(self):
         model = Model()
@@ -3361,6 +3859,41 @@ class TestSum(utils.ReduceTests):
 
         self.assertEqual(a.state(0), np.arange(5).sum())
         self.assertEqual(b.state(0), np.arange(5, 10).sum())
+
+
+class TestTanh(utils.UnaryOpTests):
+    def op(self, x):
+        return np.tanh(x)
+
+    def symbol_op(self, x):
+        return dwave.optimization.tanh(x)
+
+
+class TestTranspose(utils.SymbolTests):
+    def generate_symbols(self):
+        model = Model()
+        array = model.constant([[0, 1], [2, 3]])
+        transpose = dwave.optimization.symbols.Transpose(array)
+
+        with model.lock():
+            yield transpose
+
+    def test(self):
+        from dwave.optimization.symbols import Transpose
+        model = Model()
+        array = model.constant([[0, 1], [2, 3]])
+        contains = dwave.optimization.transpose(array)
+
+        self.assertIsInstance(contains, Transpose)
+
+    def test_state(self):
+        model = Model()
+        array = model.constant([[0, 1, 2], [3, 4, 5]])
+        transpose = dwave.optimization.symbols.Transpose(array)
+        model.states.resize(1)
+        with model.lock():
+            expected = np.array([[0, 3], [1, 4], [2, 5]])
+            np.testing.assert_array_almost_equal(transpose.state(0), expected)
 
 
 class TestWhere(utils.SymbolTests):

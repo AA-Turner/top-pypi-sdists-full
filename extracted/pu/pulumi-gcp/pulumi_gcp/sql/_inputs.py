@@ -21,6 +21,8 @@ __all__ = [
     'DatabaseInstanceDnsNameArgsDict',
     'DatabaseInstanceIpAddressArgs',
     'DatabaseInstanceIpAddressArgsDict',
+    'DatabaseInstancePointInTimeRestoreContextArgs',
+    'DatabaseInstancePointInTimeRestoreContextArgsDict',
     'DatabaseInstanceReplicaConfigurationArgs',
     'DatabaseInstanceReplicaConfigurationArgsDict',
     'DatabaseInstanceReplicationClusterArgs',
@@ -67,6 +69,10 @@ __all__ = [
     'DatabaseInstanceSettingsMaintenanceWindowArgsDict',
     'DatabaseInstanceSettingsPasswordValidationPolicyArgs',
     'DatabaseInstanceSettingsPasswordValidationPolicyArgsDict',
+    'DatabaseInstanceSettingsReadPoolAutoScaleConfigArgs',
+    'DatabaseInstanceSettingsReadPoolAutoScaleConfigArgsDict',
+    'DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgs',
+    'DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgsDict',
     'DatabaseInstanceSettingsSqlServerAuditConfigArgs',
     'DatabaseInstanceSettingsSqlServerAuditConfigArgsDict',
     'UserPasswordPolicyArgs',
@@ -103,6 +109,12 @@ if not MYPY:
         """
         (Point-in-time recovery for PostgreSQL only) Clone to an instance in the specified zone. If no zone is specified, clone to the same zone as the source instance. [clone-unavailable-instance](https://cloud.google.com/sql/docs/postgres/clone-instance#clone-unavailable-instance)
         """
+        source_instance_deletion_time: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The timestamp of when the source instance was deleted for a clone from a deleted instance.
+
+        A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        """
 elif False:
     DatabaseInstanceCloneArgsDict: TypeAlias = Mapping[str, Any]
 
@@ -113,7 +125,8 @@ class DatabaseInstanceCloneArgs:
                  allocated_ip_range: Optional[pulumi.Input[_builtins.str]] = None,
                  database_names: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  point_in_time: Optional[pulumi.Input[_builtins.str]] = None,
-                 preferred_zone: Optional[pulumi.Input[_builtins.str]] = None):
+                 preferred_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 source_instance_deletion_time: Optional[pulumi.Input[_builtins.str]] = None):
         """
         :param pulumi.Input[_builtins.str] source_instance_name: Name of the source instance which will be cloned.
         :param pulumi.Input[_builtins.str] allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with [RFC 1035](https://tools.ietf.org/html/rfc1035). Specifically, the name must be 1-63 characters long and match the regular expression a-z?.
@@ -122,6 +135,9 @@ class DatabaseInstanceCloneArgs:
                
                A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         :param pulumi.Input[_builtins.str] preferred_zone: (Point-in-time recovery for PostgreSQL only) Clone to an instance in the specified zone. If no zone is specified, clone to the same zone as the source instance. [clone-unavailable-instance](https://cloud.google.com/sql/docs/postgres/clone-instance#clone-unavailable-instance)
+        :param pulumi.Input[_builtins.str] source_instance_deletion_time: The timestamp of when the source instance was deleted for a clone from a deleted instance.
+               
+               A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
         """
         pulumi.set(__self__, "source_instance_name", source_instance_name)
         if allocated_ip_range is not None:
@@ -132,6 +148,8 @@ class DatabaseInstanceCloneArgs:
             pulumi.set(__self__, "point_in_time", point_in_time)
         if preferred_zone is not None:
             pulumi.set(__self__, "preferred_zone", preferred_zone)
+        if source_instance_deletion_time is not None:
+            pulumi.set(__self__, "source_instance_deletion_time", source_instance_deletion_time)
 
     @_builtins.property
     @pulumi.getter(name="sourceInstanceName")
@@ -194,6 +212,20 @@ class DatabaseInstanceCloneArgs:
     @preferred_zone.setter
     def preferred_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "preferred_zone", value)
+
+    @_builtins.property
+    @pulumi.getter(name="sourceInstanceDeletionTime")
+    def source_instance_deletion_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The timestamp of when the source instance was deleted for a clone from a deleted instance.
+
+        A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        """
+        return pulumi.get(self, "source_instance_deletion_time")
+
+    @source_instance_deletion_time.setter
+    def source_instance_deletion_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "source_instance_deletion_time", value)
 
 
 if not MYPY:
@@ -350,6 +382,123 @@ class DatabaseInstanceIpAddressArgs:
     @type.setter
     def type(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "type", value)
+
+
+if not MYPY:
+    class DatabaseInstancePointInTimeRestoreContextArgsDict(TypedDict):
+        datasource: pulumi.Input[_builtins.str]
+        """
+        The Google Cloud Backup and Disaster Recovery Datasource URI.
+        """
+        allocated_ip_range: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with [RFC 1035](https://tools.ietf.org/html/rfc1035). Specifically, the name must be 1-63 characters long and match the regular expression a-z?.
+        """
+        point_in_time: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The timestamp of the point in time that should be restored.
+
+        A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        """
+        preferred_zone: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Point-in-time recovery of an instance to the specified zone. If no zone is specified, then clone to the same primary zone as the source instance.
+        """
+        target_instance: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The name of the target instance.
+        """
+elif False:
+    DatabaseInstancePointInTimeRestoreContextArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DatabaseInstancePointInTimeRestoreContextArgs:
+    def __init__(__self__, *,
+                 datasource: pulumi.Input[_builtins.str],
+                 allocated_ip_range: Optional[pulumi.Input[_builtins.str]] = None,
+                 point_in_time: Optional[pulumi.Input[_builtins.str]] = None,
+                 preferred_zone: Optional[pulumi.Input[_builtins.str]] = None,
+                 target_instance: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] datasource: The Google Cloud Backup and Disaster Recovery Datasource URI.
+        :param pulumi.Input[_builtins.str] allocated_ip_range: The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with [RFC 1035](https://tools.ietf.org/html/rfc1035). Specifically, the name must be 1-63 characters long and match the regular expression a-z?.
+        :param pulumi.Input[_builtins.str] point_in_time: The timestamp of the point in time that should be restored.
+               
+               A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        :param pulumi.Input[_builtins.str] preferred_zone: Point-in-time recovery of an instance to the specified zone. If no zone is specified, then clone to the same primary zone as the source instance.
+        :param pulumi.Input[_builtins.str] target_instance: The name of the target instance.
+        """
+        pulumi.set(__self__, "datasource", datasource)
+        if allocated_ip_range is not None:
+            pulumi.set(__self__, "allocated_ip_range", allocated_ip_range)
+        if point_in_time is not None:
+            pulumi.set(__self__, "point_in_time", point_in_time)
+        if preferred_zone is not None:
+            pulumi.set(__self__, "preferred_zone", preferred_zone)
+        if target_instance is not None:
+            pulumi.set(__self__, "target_instance", target_instance)
+
+    @_builtins.property
+    @pulumi.getter
+    def datasource(self) -> pulumi.Input[_builtins.str]:
+        """
+        The Google Cloud Backup and Disaster Recovery Datasource URI.
+        """
+        return pulumi.get(self, "datasource")
+
+    @datasource.setter
+    def datasource(self, value: pulumi.Input[_builtins.str]):
+        pulumi.set(self, "datasource", value)
+
+    @_builtins.property
+    @pulumi.getter(name="allocatedIpRange")
+    def allocated_ip_range(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the allocated ip range for the private ip CloudSQL instance. For example: "google-managed-services-default". If set, the cloned instance ip will be created in the allocated range. The range name must comply with [RFC 1035](https://tools.ietf.org/html/rfc1035). Specifically, the name must be 1-63 characters long and match the regular expression a-z?.
+        """
+        return pulumi.get(self, "allocated_ip_range")
+
+    @allocated_ip_range.setter
+    def allocated_ip_range(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "allocated_ip_range", value)
+
+    @_builtins.property
+    @pulumi.getter(name="pointInTime")
+    def point_in_time(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The timestamp of the point in time that should be restored.
+
+        A timestamp in RFC3339 UTC "Zulu" format, with nanosecond resolution and up to nine fractional digits. Examples: "2014-10-02T15:01:23Z" and "2014-10-02T15:01:23.045123456Z".
+        """
+        return pulumi.get(self, "point_in_time")
+
+    @point_in_time.setter
+    def point_in_time(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "point_in_time", value)
+
+    @_builtins.property
+    @pulumi.getter(name="preferredZone")
+    def preferred_zone(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Point-in-time recovery of an instance to the specified zone. If no zone is specified, then clone to the same primary zone as the source instance.
+        """
+        return pulumi.get(self, "preferred_zone")
+
+    @preferred_zone.setter
+    def preferred_zone(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "preferred_zone", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetInstance")
+    def target_instance(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The name of the target instance.
+        """
+        return pulumi.get(self, "target_instance")
+
+    @target_instance.setter
+    def target_instance(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "target_instance", value)
 
 
 if not MYPY:
@@ -1016,6 +1165,10 @@ if not MYPY:
         """
         Pricing plan for this instance, can only be `PER_USE`.
         """
+        read_pool_auto_scale_config: NotRequired[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigArgsDict']]
+        """
+        Configuration of Read Pool Auto Scale.
+        """
         retain_backups_on_delete: NotRequired[pulumi.Input[_builtins.bool]]
         """
         When this parameter is set to true, Cloud SQL retains backups of the instance even after the instance is deleted. The `ON_DEMAND` backup will be retained until customer deletes the backup or the project. The `AUTOMATED` backup will be retained based on the backups retention setting.
@@ -1070,6 +1223,7 @@ class DatabaseInstanceSettingsArgs:
                  maintenance_window: Optional[pulumi.Input['DatabaseInstanceSettingsMaintenanceWindowArgs']] = None,
                  password_validation_policy: Optional[pulumi.Input['DatabaseInstanceSettingsPasswordValidationPolicyArgs']] = None,
                  pricing_plan: Optional[pulumi.Input[_builtins.str]] = None,
+                 read_pool_auto_scale_config: Optional[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigArgs']] = None,
                  retain_backups_on_delete: Optional[pulumi.Input[_builtins.bool]] = None,
                  sql_server_audit_config: Optional[pulumi.Input['DatabaseInstanceSettingsSqlServerAuditConfigArgs']] = None,
                  time_zone: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1112,6 +1266,7 @@ class DatabaseInstanceSettingsArgs:
         :param pulumi.Input['DatabaseInstanceSettingsInsightsConfigArgs'] insights_config: Configuration of Query Insights.
         :param pulumi.Input['DatabaseInstanceSettingsMaintenanceWindowArgs'] maintenance_window: Declares a one-hour maintenance window when an Instance can automatically restart to apply updates. The maintenance window is specified in UTC time.
         :param pulumi.Input[_builtins.str] pricing_plan: Pricing plan for this instance, can only be `PER_USE`.
+        :param pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigArgs'] read_pool_auto_scale_config: Configuration of Read Pool Auto Scale.
         :param pulumi.Input[_builtins.bool] retain_backups_on_delete: When this parameter is set to true, Cloud SQL retains backups of the instance even after the instance is deleted. The `ON_DEMAND` backup will be retained until customer deletes the backup or the project. The `AUTOMATED` backup will be retained based on the backups retention setting.
         :param pulumi.Input[_builtins.str] time_zone: The time_zone to be used by the database engine (supported only for SQL Server), in SQL Server timezone format.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] user_labels: A set of key/value user label pairs to assign to the instance.
@@ -1177,6 +1332,8 @@ class DatabaseInstanceSettingsArgs:
             pulumi.set(__self__, "password_validation_policy", password_validation_policy)
         if pricing_plan is not None:
             pulumi.set(__self__, "pricing_plan", pricing_plan)
+        if read_pool_auto_scale_config is not None:
+            pulumi.set(__self__, "read_pool_auto_scale_config", read_pool_auto_scale_config)
         if retain_backups_on_delete is not None:
             pulumi.set(__self__, "retain_backups_on_delete", retain_backups_on_delete)
         if sql_server_audit_config is not None:
@@ -1539,6 +1696,18 @@ class DatabaseInstanceSettingsArgs:
         pulumi.set(self, "pricing_plan", value)
 
     @_builtins.property
+    @pulumi.getter(name="readPoolAutoScaleConfig")
+    def read_pool_auto_scale_config(self) -> Optional[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigArgs']]:
+        """
+        Configuration of Read Pool Auto Scale.
+        """
+        return pulumi.get(self, "read_pool_auto_scale_config")
+
+    @read_pool_auto_scale_config.setter
+    def read_pool_auto_scale_config(self, value: Optional[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigArgs']]):
+        pulumi.set(self, "read_pool_auto_scale_config", value)
+
+    @_builtins.property
     @pulumi.getter(name="retainBackupsOnDelete")
     def retain_backups_on_delete(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
@@ -1669,6 +1838,10 @@ if not MYPY:
         """
         Backup retention settings. The configuration is detailed below.
         """
+        backup_tier: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        The backup tier that manages the backups for the instance.
+        """
         binary_log_enabled: NotRequired[pulumi.Input[_builtins.bool]]
         """
         True if binary logging is enabled.
@@ -1702,6 +1875,7 @@ elif False:
 class DatabaseInstanceSettingsBackupConfigurationArgs:
     def __init__(__self__, *,
                  backup_retention_settings: Optional[pulumi.Input['DatabaseInstanceSettingsBackupConfigurationBackupRetentionSettingsArgs']] = None,
+                 backup_tier: Optional[pulumi.Input[_builtins.str]] = None,
                  binary_log_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1710,6 +1884,7 @@ class DatabaseInstanceSettingsBackupConfigurationArgs:
                  transaction_log_retention_days: Optional[pulumi.Input[_builtins.int]] = None):
         """
         :param pulumi.Input['DatabaseInstanceSettingsBackupConfigurationBackupRetentionSettingsArgs'] backup_retention_settings: Backup retention settings. The configuration is detailed below.
+        :param pulumi.Input[_builtins.str] backup_tier: The backup tier that manages the backups for the instance.
         :param pulumi.Input[_builtins.bool] binary_log_enabled: True if binary logging is enabled.
                Can only be used with MySQL.
         :param pulumi.Input[_builtins.bool] enabled: True if backup configuration is enabled.
@@ -1721,6 +1896,8 @@ class DatabaseInstanceSettingsBackupConfigurationArgs:
         """
         if backup_retention_settings is not None:
             pulumi.set(__self__, "backup_retention_settings", backup_retention_settings)
+        if backup_tier is not None:
+            pulumi.set(__self__, "backup_tier", backup_tier)
         if binary_log_enabled is not None:
             pulumi.set(__self__, "binary_log_enabled", binary_log_enabled)
         if enabled is not None:
@@ -1745,6 +1922,18 @@ class DatabaseInstanceSettingsBackupConfigurationArgs:
     @backup_retention_settings.setter
     def backup_retention_settings(self, value: Optional[pulumi.Input['DatabaseInstanceSettingsBackupConfigurationBackupRetentionSettingsArgs']]):
         pulumi.set(self, "backup_retention_settings", value)
+
+    @_builtins.property
+    @pulumi.getter(name="backupTier")
+    def backup_tier(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        The backup tier that manages the backups for the instance.
+        """
+        return pulumi.get(self, "backup_tier")
+
+    @backup_tier.setter
+    def backup_tier(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "backup_tier", value)
 
     @_builtins.property
     @pulumi.getter(name="binaryLogEnabled")
@@ -1981,7 +2170,7 @@ if not MYPY:
     class DatabaseInstanceSettingsDataCacheConfigArgsDict(TypedDict):
         data_cache_enabled: NotRequired[pulumi.Input[_builtins.bool]]
         """
-        Whether data cache is enabled for the instance. Defaults to `false`. Can be used with MYSQL and PostgreSQL only.
+        Whether data cache is enabled for the instance. Defaults to `true` for MYSQL Enterprise Plus and PostgreSQL Enterprise Plus instances only. For SQL Server Enterprise Plus instances it defaults to `false`.
         """
 elif False:
     DatabaseInstanceSettingsDataCacheConfigArgsDict: TypeAlias = Mapping[str, Any]
@@ -1991,7 +2180,7 @@ class DatabaseInstanceSettingsDataCacheConfigArgs:
     def __init__(__self__, *,
                  data_cache_enabled: Optional[pulumi.Input[_builtins.bool]] = None):
         """
-        :param pulumi.Input[_builtins.bool] data_cache_enabled: Whether data cache is enabled for the instance. Defaults to `false`. Can be used with MYSQL and PostgreSQL only.
+        :param pulumi.Input[_builtins.bool] data_cache_enabled: Whether data cache is enabled for the instance. Defaults to `true` for MYSQL Enterprise Plus and PostgreSQL Enterprise Plus instances only. For SQL Server Enterprise Plus instances it defaults to `false`.
         """
         if data_cache_enabled is not None:
             pulumi.set(__self__, "data_cache_enabled", data_cache_enabled)
@@ -2000,7 +2189,7 @@ class DatabaseInstanceSettingsDataCacheConfigArgs:
     @pulumi.getter(name="dataCacheEnabled")
     def data_cache_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
         """
-        Whether data cache is enabled for the instance. Defaults to `false`. Can be used with MYSQL and PostgreSQL only.
+        Whether data cache is enabled for the instance. Defaults to `true` for MYSQL Enterprise Plus and PostgreSQL Enterprise Plus instances only. For SQL Server Enterprise Plus instances it defaults to `false`.
         """
         return pulumi.get(self, "data_cache_enabled")
 
@@ -3077,6 +3266,210 @@ class DatabaseInstanceSettingsPasswordValidationPolicyArgs:
     @reuse_interval.setter
     def reuse_interval(self, value: Optional[pulumi.Input[_builtins.int]]):
         pulumi.set(self, "reuse_interval", value)
+
+
+if not MYPY:
+    class DatabaseInstanceSettingsReadPoolAutoScaleConfigArgsDict(TypedDict):
+        disable_scale_in: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        True if auto scale in is disabled.
+        """
+        enabled: NotRequired[pulumi.Input[_builtins.bool]]
+        """
+        True if Read Pool Auto Scale is enabled.
+        """
+        max_node_count: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Maximum number of nodes in the read pool. If set to lower than current node count, node count will be updated.
+        """
+        min_node_count: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        Minimum number of nodes in the read pool. If set to higher than current node count, node count will be updated.
+        """
+        scale_in_cooldown_seconds: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        The cooldown period for scale in operations.
+        """
+        scale_out_cooldown_seconds: NotRequired[pulumi.Input[_builtins.int]]
+        """
+        The cooldown period for scale out operations.
+        """
+        target_metrics: NotRequired[pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgsDict']]]]
+        """
+        Target metrics for Read Pool Auto Scale. Must specify `target_metrics.metric` and `target_metrics.target_value` in subblock.
+        """
+elif False:
+    DatabaseInstanceSettingsReadPoolAutoScaleConfigArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DatabaseInstanceSettingsReadPoolAutoScaleConfigArgs:
+    def __init__(__self__, *,
+                 disable_scale_in: Optional[pulumi.Input[_builtins.bool]] = None,
+                 enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 max_node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 min_node_count: Optional[pulumi.Input[_builtins.int]] = None,
+                 scale_in_cooldown_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 scale_out_cooldown_seconds: Optional[pulumi.Input[_builtins.int]] = None,
+                 target_metrics: Optional[pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.bool] disable_scale_in: True if auto scale in is disabled.
+        :param pulumi.Input[_builtins.bool] enabled: True if Read Pool Auto Scale is enabled.
+        :param pulumi.Input[_builtins.int] max_node_count: Maximum number of nodes in the read pool. If set to lower than current node count, node count will be updated.
+        :param pulumi.Input[_builtins.int] min_node_count: Minimum number of nodes in the read pool. If set to higher than current node count, node count will be updated.
+        :param pulumi.Input[_builtins.int] scale_in_cooldown_seconds: The cooldown period for scale in operations.
+        :param pulumi.Input[_builtins.int] scale_out_cooldown_seconds: The cooldown period for scale out operations.
+        :param pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgs']]] target_metrics: Target metrics for Read Pool Auto Scale. Must specify `target_metrics.metric` and `target_metrics.target_value` in subblock.
+        """
+        if disable_scale_in is not None:
+            pulumi.set(__self__, "disable_scale_in", disable_scale_in)
+        if enabled is not None:
+            pulumi.set(__self__, "enabled", enabled)
+        if max_node_count is not None:
+            pulumi.set(__self__, "max_node_count", max_node_count)
+        if min_node_count is not None:
+            pulumi.set(__self__, "min_node_count", min_node_count)
+        if scale_in_cooldown_seconds is not None:
+            pulumi.set(__self__, "scale_in_cooldown_seconds", scale_in_cooldown_seconds)
+        if scale_out_cooldown_seconds is not None:
+            pulumi.set(__self__, "scale_out_cooldown_seconds", scale_out_cooldown_seconds)
+        if target_metrics is not None:
+            pulumi.set(__self__, "target_metrics", target_metrics)
+
+    @_builtins.property
+    @pulumi.getter(name="disableScaleIn")
+    def disable_scale_in(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        True if auto scale in is disabled.
+        """
+        return pulumi.get(self, "disable_scale_in")
+
+    @disable_scale_in.setter
+    def disable_scale_in(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "disable_scale_in", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        True if Read Pool Auto Scale is enabled.
+        """
+        return pulumi.get(self, "enabled")
+
+    @enabled.setter
+    def enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="maxNodeCount")
+    def max_node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Maximum number of nodes in the read pool. If set to lower than current node count, node count will be updated.
+        """
+        return pulumi.get(self, "max_node_count")
+
+    @max_node_count.setter
+    def max_node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "max_node_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="minNodeCount")
+    def min_node_count(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        Minimum number of nodes in the read pool. If set to higher than current node count, node count will be updated.
+        """
+        return pulumi.get(self, "min_node_count")
+
+    @min_node_count.setter
+    def min_node_count(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "min_node_count", value)
+
+    @_builtins.property
+    @pulumi.getter(name="scaleInCooldownSeconds")
+    def scale_in_cooldown_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        The cooldown period for scale in operations.
+        """
+        return pulumi.get(self, "scale_in_cooldown_seconds")
+
+    @scale_in_cooldown_seconds.setter
+    def scale_in_cooldown_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "scale_in_cooldown_seconds", value)
+
+    @_builtins.property
+    @pulumi.getter(name="scaleOutCooldownSeconds")
+    def scale_out_cooldown_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
+        """
+        The cooldown period for scale out operations.
+        """
+        return pulumi.get(self, "scale_out_cooldown_seconds")
+
+    @scale_out_cooldown_seconds.setter
+    def scale_out_cooldown_seconds(self, value: Optional[pulumi.Input[_builtins.int]]):
+        pulumi.set(self, "scale_out_cooldown_seconds", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetMetrics")
+    def target_metrics(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgs']]]]:
+        """
+        Target metrics for Read Pool Auto Scale. Must specify `target_metrics.metric` and `target_metrics.target_value` in subblock.
+        """
+        return pulumi.get(self, "target_metrics")
+
+    @target_metrics.setter
+    def target_metrics(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgs']]]]):
+        pulumi.set(self, "target_metrics", value)
+
+
+if not MYPY:
+    class DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgsDict(TypedDict):
+        metric: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        Metric name for Read Pool Auto Scale.
+        """
+        target_value: NotRequired[pulumi.Input[_builtins.float]]
+        """
+        Target value for Read Pool Auto Scale.
+        """
+elif False:
+    DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class DatabaseInstanceSettingsReadPoolAutoScaleConfigTargetMetricArgs:
+    def __init__(__self__, *,
+                 metric: Optional[pulumi.Input[_builtins.str]] = None,
+                 target_value: Optional[pulumi.Input[_builtins.float]] = None):
+        """
+        :param pulumi.Input[_builtins.str] metric: Metric name for Read Pool Auto Scale.
+        :param pulumi.Input[_builtins.float] target_value: Target value for Read Pool Auto Scale.
+        """
+        if metric is not None:
+            pulumi.set(__self__, "metric", metric)
+        if target_value is not None:
+            pulumi.set(__self__, "target_value", target_value)
+
+    @_builtins.property
+    @pulumi.getter
+    def metric(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Metric name for Read Pool Auto Scale.
+        """
+        return pulumi.get(self, "metric")
+
+    @metric.setter
+    def metric(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "metric", value)
+
+    @_builtins.property
+    @pulumi.getter(name="targetValue")
+    def target_value(self) -> Optional[pulumi.Input[_builtins.float]]:
+        """
+        Target value for Read Pool Auto Scale.
+        """
+        return pulumi.get(self, "target_value")
+
+    @target_value.setter
+    def target_value(self, value: Optional[pulumi.Input[_builtins.float]]):
+        pulumi.set(self, "target_value", value)
 
 
 if not MYPY:

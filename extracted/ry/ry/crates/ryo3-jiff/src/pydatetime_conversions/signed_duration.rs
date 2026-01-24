@@ -6,14 +6,19 @@ use pyo3::types::PyDelta;
 #[cfg(not(Py_LIMITED_API))]
 use pyo3::types::PyDeltaAccess;
 
-use pyo3::exceptions::PyOverflowError;
+use ryo3_macro_rules::py_overflow_error;
 const SECONDS_PER_DAY: i64 = 86_400;
 
 pub fn signed_duration_to_pyobject<'py>(
     py: Python<'py>,
     duration: &SignedDuration,
 ) -> PyResult<Bound<'py, PyDelta>> {
-    duration.into_pyobject(py)
+    let total_seconds = duration.as_secs();
+    let days: i32 = (total_seconds / (24 * 60 * 60)).try_into()?;
+    let seconds: i32 = (total_seconds % (24 * 60 * 60)).try_into()?;
+    let microseconds = duration.subsec_micros();
+
+    PyDelta::new(py, days, seconds, microseconds, true)
 }
 
 pub fn signed_duration_from_pyobject(obj: &Bound<'_, PyAny>) -> PyResult<SignedDuration> {
@@ -46,12 +51,12 @@ pub fn signed_duration_from_pyobject(obj: &Bound<'_, PyAny>) -> PyResult<SignedD
     let total_seconds = days
         .checked_mul(SECONDS_PER_DAY)
         .and_then(|d| d.checked_add(seconds))
-        .ok_or_else(|| PyErr::new::<PyOverflowError, _>("Overflow in total_seconds calculation"))?;
+        .ok_or_else(|| py_overflow_error!("Overflow in total_seconds calculation"))?;
 
     // Convert microseconds to nanoseconds
     let nanoseconds = microseconds
         .checked_mul(1_000)
-        .ok_or_else(|| PyErr::new::<PyOverflowError, _>("Overflow in nanoseconds calculation"))?;
+        .ok_or_else(|| py_overflow_error!("Overflow in nanoseconds calculation"))?;
     Ok(SignedDuration::new(total_seconds, nanoseconds))
 }
 
@@ -76,9 +81,11 @@ impl<'py> IntoPyObject<'py> for &JiffSignedDuration {
     }
 }
 
-impl FromPyObject<'_> for JiffSignedDuration {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let sdur: SignedDuration = signed_duration_from_pyobject(ob)?;
+impl<'py> FromPyObject<'_, 'py> for JiffSignedDuration {
+    type Error = PyErr;
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> PyResult<Self> {
+        #[expect(clippy::explicit_auto_deref)]
+        let sdur: SignedDuration = signed_duration_from_pyobject(&*obj)?;
         Ok(Self(sdur))
     }
 }

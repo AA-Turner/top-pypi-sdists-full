@@ -450,7 +450,7 @@ class ssh_connecter(sock):
             try:
                 self.sock = parent.transport.open_channel('direct-tcpip', (host, port), ('127.0.0.1', 0))
             except Exception as e:
-                self.exception(e.message)
+                self.exception(str(e))
                 raise
 
             try:
@@ -1359,7 +1359,11 @@ from ctypes import *; libc = CDLL('libc.so.6'); print(libc.getenv(%r))
             update(len(data), total)
 
         result = c.wait()
-        if result != 0:
+
+        if result == -1:
+            self.warn_once("Could not verify success of file download %r, no error code" % (remote))
+
+        if result != 0 and result != -1:
             h.failure('Could not download file %r (%r)' % (remote, result))
             return
 
@@ -1539,7 +1543,11 @@ from ctypes import *; libc = CDLL('libc.so.6'); print(libc.getenv(%r))
             s.shutdown('send')
             data   = s.recvall()
             result = s.wait()
-            if result != 0:
+
+            if result == -1:
+                self.warn_once("Could not verify success of file upload %r, no error code" % (remote))
+
+            if result != 0 and result != -1:
                 self.error("Could not upload file %r (%r)\n%s" % (remote, result, data))
 
     def upload_file(self, filename, remote = None):

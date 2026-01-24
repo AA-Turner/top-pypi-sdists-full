@@ -173,11 +173,13 @@ class StagerTest(unittest.TestCase):
 
   # xdist adds unpicklable modules to the main session.
   @pytest.mark.no_xdist
+  @pytest.mark.uses_dill
   @unittest.skipIf(
       sys.platform == "win32" and sys.version_info < (3, 8),
       'https://github.com/apache/beam/issues/20659: pytest on Windows pulls '
       'in a zipimporter, unpicklable before py3.8')
   def test_with_main_session(self):
+    pytest.importorskip("dill")
     staging_dir = self.make_temp_dir()
     options = PipelineOptions()
 
@@ -198,7 +200,7 @@ class StagerTest(unittest.TestCase):
   # (https://github.com/apache/beam/issues/21457): Remove the decorator once
   # cloudpickle is default pickle library
   @pytest.mark.no_xdist
-  def test_main_session_not_staged_when_using_cloudpickle(self):
+  def test_main_session_staged_when_using_cloudpickle(self):
     staging_dir = self.make_temp_dir()
     options = PipelineOptions()
 
@@ -207,7 +209,10 @@ class StagerTest(unittest.TestCase):
     # session is saved when pickle_library==cloudpickle.
     options.view_as(SetupOptions).pickle_library = pickler.USE_CLOUDPICKLE
     self.update_options(options)
-    self.assertEqual([stager.SUBMISSION_ENV_DEPENDENCIES_FILE],
+    self.assertEqual([
+        names.PICKLED_MAIN_SESSION_FILE,
+        stager.SUBMISSION_ENV_DEPENDENCIES_FILE
+    ],
                      self.stager.create_and_stage_job_resources(
                          options, staging_location=staging_dir)[1])
 

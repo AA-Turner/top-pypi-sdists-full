@@ -1,7 +1,7 @@
 from dataclasses import dataclass, asdict
 from typing import Optional, Union, List, Dict
 
-from seeq.spy import _common, _login
+from seeq.spy import _common, _version
 from seeq.spy._errors import SPyValueError, SPyRuntimeError, get_api_exception_message
 from seeq.spy._session import Session
 from seeq.spy._status import Status
@@ -70,7 +70,8 @@ AttachmentType = Union[EmailAttachment, List[EmailAttachment]]
 
 def _create_email_request_input(to: RecipientType, subject: str, content: str,
                                 cc: Optional[RecipientType], bcc: Optional[RecipientType],
-                                attachments: Optional[AttachmentType], reply_to: Optional[RecipientType]) -> EmailRequestInput:
+                                attachments: Optional[AttachmentType],
+                                reply_to: Optional[RecipientType]) -> EmailRequestInput:
     def standardize_recipient_list(recipients: Optional[RecipientType]) -> Optional[List[EmailRecipient]]:
         if recipients is None:
             return None
@@ -100,7 +101,7 @@ def _create_email_request_input(to: RecipientType, subject: str, content: str,
 
 
 def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> None:
-    if _login.is_server_version_at_least(61, session=session):
+    if _version.is_server_version_at_least(61, session=session):
         # The NotifierApi items types were added in R61 so we can't import them in the universal case (CRAB-31685)
         from seeq.sdk import NotifierApi, SendEmailInputV1, SendEmailContactV1, SendEmailAttachmentV1
         from seeq.sdk.rest import ApiException
@@ -138,7 +139,7 @@ def _call_send_email_api(session: Session, email_body: EmailRequestInput) -> Non
             converted_body = _convert_input_spy_to_sdk(email_body)
 
             # Check if reply-to is supported and remove it if not
-            if email_body.replyToEmails is not None and not _login.is_sdk_module_version_at_least(66, 37):
+            if email_body.replyToEmails is not None and not _version.is_sdk_module_version_at_least(66, 37):
                 # Remove reply_to from the converted body if SDK doesn't support it
                 converted_body.reply_to = None
 
@@ -194,7 +195,10 @@ def send_email(to: RecipientType, subject: str, content: str, *,
         Blank Carbon Copy recipients list
 
     attachments : EmailAttachment, List[EmailAttachment], default None
-        Attachments to be sent with the email.
+        Attachments to be sent with the email. Must be of type 'application/pdf'.
+        Attachments must be enabled on the Seeq server, and have a default limit
+        of 1 attachment per email. Open a support request to authorize changes to
+        these settings.
 
     reply_to : str, EmailRecipient, List[str or EmailRecipient], default None
         Reply-To recipients list. Only one reply-to email address is allowed.
@@ -240,16 +244,29 @@ def send_email(to: RecipientType, subject: str, content: str, *,
     >>>            content='Email content',
     >>>            reply_to="reply@seeq.com")
 
-    An example with an attachment:
+    An example with an attachment (only PDF attachments allowed):
 
     >>> import base64
+    >>> import io
+    >>> import matplotlib.pyplot as plt
     >>> from seeq.spy.notifications import send_email, EmailAttachment
+    >>> # generate an example pdf with matplotlib that says 'Hello World'.
+    >>> # this could be replaced with e.g. reading an existing pdf
+    >>> with io.BytesIO() as buf:
+    >>>     fig, ax = plt.subplots()
+    >>>     ax.axis("off")
+    >>>     ax.text(0, 0, "Hello world")
+    >>>     fig.savefig(buf, format="pdf")
+    >>>     plt.close(fig)
+    >>>     # attachment content must be a base64 encoded string
+    >>>     attachment_content = base64.b64encode(buf.getvalue()).decode('ascii')
+    >>>
     >>> send_email(to="test@seeq.com",
     >>>            subject="Email with attachment",
     >>>            content="See attachment",
-    >>>            attachments=EmailAttachment(content=base64.b64encode(b"My message attachment").decode("ascii"),
-    >>>                                        type="text/plain",
-    >>>                                        filename="attachment.txt"))
+    >>>            attachments=EmailAttachment(content=attachment_content,
+    >>>                                        type="application/pdf",
+    >>>                                        filename="attachment.pdf"))
 
     """
 
@@ -267,9 +284,10 @@ def send_email(to: RecipientType, subject: str, content: str, *,
         (session, 'session', Session)
     ])
 
-    _login.validate_login(session, status)
+    Status.validate_login(session, status)
 
-    email_request_body: EmailRequestInput = _create_email_request_input(to, subject, content, cc, bcc, attachments, reply_to)
+    email_request_body: EmailRequestInput = _create_email_request_input(to, subject, content, cc, bcc, attachments,
+                                                                        reply_to)
 
     status.update('Sending...', Status.RUNNING)
 

@@ -11,6 +11,7 @@ from .....schema_classes import AssertionActionClass
 from .....schema_classes import AssertionActionTypeClass
 from .....schema_classes import AssertionActionsClass
 from .....schema_classes import AssertionInfoClass
+from .....schema_classes import AssertionNoteClass
 from .....schema_classes import AssertionResultClass
 from .....schema_classes import AssertionResultErrorClass
 from .....schema_classes import AssertionResultErrorTypeClass
@@ -64,6 +65,7 @@ AssertionAction = AssertionActionClass
 AssertionActionType = AssertionActionTypeClass
 AssertionActions = AssertionActionsClass
 AssertionInfo = AssertionInfoClass
+AssertionNote = AssertionNoteClass
 AssertionResult = AssertionResultClass
 AssertionResultError = AssertionResultErrorClass
 AssertionResultErrorType = AssertionResultErrorTypeClass

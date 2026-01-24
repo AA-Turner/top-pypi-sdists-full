@@ -7,6 +7,7 @@
 
 use itertools::Itertools;
 use pyrefly_python::dunder;
+use pyrefly_types::callable::FunctionKind;
 use pyrefly_types::typed_dict::ExtraItems;
 use pyrefly_types::types::TArgs;
 use pyrefly_types::types::TParams;
@@ -39,13 +40,11 @@ use crate::error::context::TypeCheckKind;
 use crate::error::display::function_suffix;
 use crate::solver::solver::QuantifiedHandle;
 use crate::types::callable::Callable;
-use crate::types::callable::FuncId;
 use crate::types::callable::Param;
 use crate::types::callable::ParamList;
 use crate::types::callable::Params;
 use crate::types::callable::Required;
 use crate::types::quantified::Quantified;
-use crate::types::tuple::Tuple;
 use crate::types::types::Type;
 use crate::types::types::Var;
 
@@ -146,6 +145,36 @@ impl<'a> CallKeyword<'a> {
             value: TypeOrExpr::Expr(&x.value),
         }
     }
+
+    pub fn materialize<Ans: LookupAnswer>(
+        &self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+    ) -> (Self, bool) {
+        let transformation = |ty: &Type| {
+            if self.arg.is_none() && ty.is_any() {
+                // See test::overload::test_kwargs_materialization - we need to turn this
+                // into Mapping[str, Any] to correctly materialize the `**kwargs` type.
+                solver
+                    .stdlib
+                    .mapping(solver.stdlib.str().clone().to_type(), ty.clone())
+                    .to_type()
+                    .materialize()
+            } else {
+                ty.materialize()
+            }
+        };
+        let (materialized, changed) = self.value.transform(solver, errors, owner, transformation);
+        (
+            Self {
+                range: self.range,
+                arg: self.arg,
+                value: materialized,
+            },
+            changed,
+        )
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -183,6 +212,33 @@ impl<'a> CallArg<'a> {
         }
     }
 
+    pub fn materialize<Ans: LookupAnswer>(
+        &self,
+        solver: &AnswersSolver<Ans>,
+        errors: &ErrorCollector,
+        owner: &'a Owner<Type>,
+    ) -> (Self, bool) {
+        match self {
+            Self::Arg(value) => {
+                let (materialized, changed) =
+                    value.transform(solver, errors, owner, |ty| ty.materialize());
+                (Self::Arg(materialized), changed)
+            }
+            Self::Star(value, range) => {
+                let (materialized, changed) = value.transform(solver, errors, owner, |ty| {
+                    if ty.is_any() {
+                        // See test::overload::test_varargs_materialization - we need to turn this
+                        // into Iterable[Any] to correctly materialize the `*args` type.
+                        solver.stdlib.iterable(ty.clone()).to_type().materialize()
+                    } else {
+                        ty.materialize()
+                    }
+                });
+                (Self::Star(materialized, *range), changed)
+            }
+        }
+    }
+
     // Splat arguments might be fixed-length tuples, which are handled precisely, or have unknown
     // length. This function evaluates splat args to determine how many params should be consumed,
     // but does not evaluate other expressions, which might be contextually typed.
@@ -196,14 +252,14 @@ impl<'a> CallArg<'a> {
             Self::Arg(TypeOrExpr::Expr(e)) => CallArgPreEval::Expr(e, false),
             Self::Star(e, range) => {
                 let ty = e.infer(solver, arg_errors);
-                let iterables = solver.iterate(&ty, *range, arg_errors);
+                let iterables = solver.iterate(&ty, *range, arg_errors, None);
                 // If we have a union of iterables, use a fixed length only if every iterable is
                 // fixed and has the same length. Otherwise, use star.
                 let mut fixed_lens = Vec::new();
                 for x in iterables.iter() {
                     match x {
                         Iterable::FixedLen(xs) => fixed_lens.push(xs.len()),
-                        Iterable::OfType(_) => {}
+                        Iterable::OfType(_) | Iterable::OfTypeVarTuple(_) => {}
                     }
                 }
                 if !fixed_lens.is_empty()
@@ -221,14 +277,7 @@ impl<'a> CallArg<'a> {
                     let tys = fixed_tys.into_map(|tys| solver.unions(tys));
                     CallArgPreEval::Fixed(tys, 0)
                 } else {
-                    let mut star_tys = Vec::new();
-                    for x in iterables {
-                        match x {
-                            Iterable::OfType(ty) => star_tys.push(ty.clone()),
-                            Iterable::FixedLen(tys) => star_tys.extend(tys),
-                        }
-                    }
-                    let ty = solver.unions(star_tys);
+                    let ty = solver.get_produced_type(iterables);
                     CallArgPreEval::Star(ty, false)
                 }
             }
@@ -261,7 +310,7 @@ impl CallArgPreEval<'_> {
     fn post_check<Ans: LookupAnswer>(
         &mut self,
         solver: &AnswersSolver<Ans>,
-        callable_name: Option<&FuncId>,
+        callable_name: Option<&FunctionKind>,
         hint: &Type,
         param_name: Option<&Name>,
         vararg: bool,
@@ -378,8 +427,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         match x {
             CallArg::Star(x, _) => {
                 let mut ty = x.infer(self, errors);
-                self.expand_type_mut(&mut ty);
-                matches!(ty, Type::Args(q2) if &*q2 == q)
+                self.expand_vars_mut(&mut ty);
+                // This can either be `P.args` or `tuple[Any, ...]`
+                matches!(&ty, Type::Args(q2) if &**q2 == q)
+                    || self.is_subset_eq(&ty, &Type::unbounded_tuple(Type::never()))
             }
             _ => false,
         }
@@ -392,14 +443,22 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> bool {
         let mut ty = x.value.infer(self, errors);
-        self.expand_type_mut(&mut ty);
-        matches!(ty, Type::Kwargs(q2) if &*q2 == q)
+        self.expand_vars_mut(&mut ty);
+        // This can either be `P.kwargs` or `dict[str, Any]`
+        matches!(&ty, Type::Kwargs(q2) if &**q2 == q)
+            || self.is_subset_eq(
+                &ty,
+                &self
+                    .stdlib
+                    .dict(self.stdlib.str().clone().to_type(), Type::never())
+                    .to_type(),
+            )
     }
 
     // See comment on `callable_infer` about `arg_errors` and `call_errors`.
     fn callable_infer_params(
         &self,
-        callable_name: Option<FuncId>,
+        callable_name: Option<&FunctionKind>,
         params: &ParamList,
         // A ParamSpec Var (if any) that comes at the end of the parameter list.
         // See test::paramspec::test_paramspec_twice for an example of this.
@@ -426,7 +485,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 format!(
                     "{}{}",
                     msg,
-                    function_suffix(callable_name.as_ref(), self.module().name())
+                    function_suffix(callable_name, self.module().name())
                 ),
             )
         };
@@ -494,7 +553,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                         arg_pre.post_check(
                             self,
-                            callable_name.as_ref(),
+                            callable_name,
                             ty,
                             name,
                             false,
@@ -521,7 +580,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         kind: PosParamKind::Variadic,
                     }) => arg_pre.post_check(
                         self,
-                        callable_name.as_ref(),
+                        callable_name,
                         ty,
                         name,
                         true,
@@ -580,17 +639,27 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 }
             }
             let unpacked_args_ty = match middle.len() {
-                0 => Type::tuple(prefix),
-                1 => Type::Tuple(Tuple::unpacked(
+                0 => Type::concrete_tuple(prefix),
+                1 => Type::unpacked_tuple(
                     prefix,
-                    Type::Tuple(Tuple::unbounded(middle.pop().unwrap())),
+                    Type::unbounded_tuple(middle.pop().unwrap()),
                     suffix,
-                )),
-                _ => Type::Tuple(Tuple::unpacked(
-                    prefix,
-                    Type::Tuple(Tuple::Unbounded(Box::new(self.unions(middle)))),
-                    suffix,
-                )),
+                ),
+                _ => {
+                    let unpacked_variadic_args_count = middle
+                        .iter()
+                        .filter(|x| matches!(x, Type::ElementOfTypeVarTuple(_)))
+                        .count();
+                    if unpacked_variadic_args_count > 1 {
+                        error(
+                            arg_errors,
+                            range,
+                            ErrorKind::BadArgumentType,
+                            "Expected at most one unpacked variadic argument".to_owned(),
+                        );
+                    }
+                    Type::unpacked_tuple(prefix, Type::unbounded_tuple(self.unions(middle)), suffix)
+                }
             };
             self.check_type(
                 &unpacked_args_ty,
@@ -601,7 +670,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     kind: TypeCheckKind::CallVarArgs(
                         true,
                         unpacked_name.cloned(),
-                        callable_name.clone(),
+                        callable_name.cloned(),
                     ),
                     context: context.map(|ctx| ctx()),
                 },
@@ -638,6 +707,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         }
                     }
                 }
+                Param::VarArg(_, Type::Unpack(box unpacked)) => {
+                    // If we have a TypeVarTuple *args with no matched arguments, resolve it to empty tuple
+                    self.is_subset_eq(unpacked, &Type::concrete_tuple(Vec::new()));
+                }
                 Param::VarArg(..) => {}
                 Param::Pos(name, ty, required) | Param::KwOnly(name, ty, required) => {
                     kwparams.insert(name, (ty, required == &Required::Required));
@@ -651,9 +724,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                 (type_owner.push(field.ty), field.required),
                             );
                         });
-                    if let ExtraItems::Extra(extra) =
-                        self.typed_dict_extra_items(typed_dict.class_object())
-                    {
+                    if let ExtraItems::Extra(extra) = self.typed_dict_extra_items(typed_dict) {
                         kwargs = Some((name.as_ref(), type_owner.push(extra.ty)))
                     }
                     kwargs_is_unpack = true;
@@ -697,16 +768,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     format!("Multiple values for argument `{name}`"),
                                 );
                                 hint = Some(*ty);
-                            } else if let Some((ty, required)) = kwparams.get(name) {
+                            } else if let Some((ty, _)) = kwparams.get(name) {
                                 seen_names.insert(name, *ty);
-                                if *required && !field.required {
-                                    error(
-                                        call_errors,
-                                        kw.range,
-                                        ErrorKind::MissingArgument,
-                                        format!("Expected key `{name}` to be required"),
-                                    );
-                                }
                                 hint = Some(*ty)
                             } else if kwargs.is_none() && !kwargs_is_unpack {
                                 unexpected_keyword_error(name, kw.range);
@@ -716,7 +779,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                     TypeCheckContext {
                                         kind: TypeCheckKind::CallArgument(
                                             Some(name.clone()),
-                                            callable_name.clone(),
+                                            callable_name.cloned(),
                                         ),
                                         context: context.map(|ctx| ctx()),
                                     }
@@ -737,7 +800,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                                                 kind: TypeCheckKind::CallKwArgs(
                                                     None,
                                                     name.cloned(),
-                                                    callable_name.clone(),
+                                                    callable_name.cloned(),
                                                 ),
                                                 context: context.map(|ctx| ctx()),
                                             },
@@ -791,12 +854,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     }
                     let tcc: &dyn Fn() -> TypeCheckContext = &|| TypeCheckContext {
                         kind: if has_matching_param {
-                            TypeCheckKind::CallArgument(Some(id.id.clone()), callable_name.clone())
+                            TypeCheckKind::CallArgument(Some(id.id.clone()), callable_name.cloned())
                         } else {
                             TypeCheckKind::CallKwArgs(
                                 Some(id.id.clone()),
                                 kwargs.as_ref().and_then(|(name, _)| name.cloned()),
-                                callable_name.clone(),
+                                callable_name.cloned(),
                             )
                         },
                         context: context.map(|ctx| ctx()),
@@ -878,7 +941,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     self.check_type(ty, want, *range, call_errors, &|| TypeCheckContext {
                         kind: TypeCheckKind::CallUnpackKwArg(
                             (*name).clone(),
-                            callable_name.clone(),
+                            callable_name.cloned(),
                         ),
                         context: context.map(|ctx| ctx()),
                     });
@@ -921,7 +984,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn callable_infer(
         &self,
         callable: Callable,
-        callable_name: Option<FuncId>,
+        callable_name: Option<&FunctionKind>,
         tparams: Option<&TParams>,
         mut self_obj: Option<Type>,
         mut args: &[CallArg],
@@ -939,7 +1002,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             // By invariant, hint will be None if we are calling a constructor.
             if let Some(hint) = hint {
                 let (qs_, callable_) = self.instantiate_fresh_callable(tparams, callable.clone());
-                if self.is_subset_eq(&callable_.ret, hint.ty()) {
+                if self.is_subset_eq(&callable_.ret, hint.ty())
+                    && !self.solver().has_instantiation_errors(&qs_)
+                {
                     (qs_, callable_)
                 } else {
                     self.instantiate_fresh_callable(tparams, callable)
@@ -956,8 +1021,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             callable.params.visit_mut(&mut |t| t.subst_mut(&mp));
             if let Some(obj) = self_obj.as_mut() {
                 obj.subst_mut(&mp);
-            } else if let Some(id) = callable_name.as_ref()
-                && id.func == dunder::NEW
+            } else if let Some(id) = callable_name
+                && id.function_name().as_ref() == &dunder::NEW
                 && let Some((first, rest)) = args.split_first()
                 && let CallArg::Arg(TypeOrExpr::Type(obj, _)) = first
             {
@@ -982,14 +1047,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     context,
                 );
             }
-            Params::Ellipsis => {
+            Params::Ellipsis | Params::Materialization => {
                 // Deal with Callable[..., R]
                 for arg in self_arg.iter().chain(args.iter()) {
                     arg.pre_eval(self, arg_errors).post_infer(self, arg_errors)
                 }
             }
             Params::ParamSpec(concatenate, p) => {
-                let p = self.solver().expand(p);
+                let p = self.solver().expand_vars(p);
                 match p {
                     Type::ParamSpecValue(params) => self.callable_infer_params(
                         callable_name,
@@ -1073,10 +1138,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     call_errors,
                     range,
                     ErrorInfo::new(kind.as_error_kind(), context),
-                    kind.format_error(&e.got, &e.want, self.module().name()),
+                    kind.format_error(
+                        &self.for_display(e.got),
+                        &self.for_display(e.want),
+                        self.module().name(),
+                    ),
                 );
             }
         }
-        self.solver().expand(callable.ret)
+        self.solver().finish_function_return(callable.ret)
     }
 }

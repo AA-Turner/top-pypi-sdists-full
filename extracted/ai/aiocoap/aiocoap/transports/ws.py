@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 """
-This moduel implements a TokenInterface for `CoAP over WebSockets`_.
+This module implements a TokenInterface for `CoAP over WebSockets`_.
 
 .. _`CoAP over WebSockets`: https://tools.ietf.org/html/rfc8323#section-4
 
@@ -74,6 +74,7 @@ from aiocoap import Message, interfaces, ABORT, util, error
 from aiocoap.transports import rfc8323common
 from ..credentials import CredentialsMap
 from ..defaults import is_pyodide
+from ..message import Direction
 
 if not is_pyodide:
     import websockets.asyncio.connection
@@ -92,9 +93,10 @@ def _decode_message(data: bytes) -> Message:
     code = data[codeoffset]
     token = data[tokenoffset : tokenoffset + tkl]
 
-    msg = Message(code=code, token=token)
+    msg = Message(code=code, _token=token)
 
     msg.payload = msg.opt.decode(data[tokenoffset + tkl :])
+    msg.direction = Direction.INCOMING
 
     return msg
 

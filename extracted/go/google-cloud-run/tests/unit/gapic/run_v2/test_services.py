@@ -166,12 +166,19 @@ def test__read_environment_variables():
     with mock.patch.dict(
         os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
     ):
-        with pytest.raises(ValueError) as excinfo:
-            ServicesClient._read_environment_variables()
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
+        if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            with pytest.raises(ValueError) as excinfo:
+                ServicesClient._read_environment_variables()
+            assert (
+                str(excinfo.value)
+                == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
+            )
+        else:
+            assert ServicesClient._read_environment_variables() == (
+                False,
+                "auto",
+                None,
+            )
 
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         assert ServicesClient._read_environment_variables() == (False, "never", None)
@@ -196,6 +203,105 @@ def test__read_environment_variables():
             "auto",
             "foo.com",
         )
+
+
+def test_use_client_cert_effective():
+    # Test case 1: Test when `should_use_client_cert` returns True.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=True
+        ):
+            assert ServicesClient._use_client_cert_effective() is True
+
+    # Test case 2: Test when `should_use_client_cert` returns False.
+    # We mock the `should_use_client_cert` function to simulate a scenario where
+    # the google-auth library supports automatic mTLS and determines that a
+    # client certificate should NOT be used.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch(
+            "google.auth.transport.mtls.should_use_client_cert", return_value=False
+        ):
+            assert ServicesClient._use_client_cert_effective() is False
+
+    # Test case 3: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "true".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "true"}):
+            assert ServicesClient._use_client_cert_effective() is True
+
+    # Test case 4: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "false"}
+        ):
+            assert ServicesClient._use_client_cert_effective() is False
+
+    # Test case 5: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "True".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "True"}):
+            assert ServicesClient._use_client_cert_effective() is True
+
+    # Test case 6: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "False".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "False"}
+        ):
+            assert ServicesClient._use_client_cert_effective() is False
+
+    # Test case 7: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "TRUE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "TRUE"}):
+            assert ServicesClient._use_client_cert_effective() is True
+
+    # Test case 8: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to "FALSE".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "FALSE"}
+        ):
+            assert ServicesClient._use_client_cert_effective() is False
+
+    # Test case 9: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is not set.
+    # In this case, the method should return False, which is the default value.
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, clear=True):
+            assert ServicesClient._use_client_cert_effective() is False
+
+    # Test case 10: Test when `should_use_client_cert` is unavailable and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should raise a ValueError as the environment variable must be either
+    # "true" or "false".
+    if not hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            with pytest.raises(ValueError):
+                ServicesClient._use_client_cert_effective()
+
+    # Test case 11: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is set to an invalid value.
+    # The method should return False as the environment variable is set to an invalid value.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(
+            os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "unsupported"}
+        ):
+            assert ServicesClient._use_client_cert_effective() is False
+
+    # Test case 12: Test when `should_use_client_cert` is available and the
+    # `GOOGLE_API_USE_CLIENT_CERTIFICATE` environment variable is unset. Also,
+    # the GOOGLE_API_CONFIG environment variable is unset.
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        with mock.patch.dict(os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": ""}):
+            with mock.patch.dict(os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": ""}):
+                assert ServicesClient._use_client_cert_effective() is False
 
 
 def test__get_client_cert_source():
@@ -554,17 +660,6 @@ def test_services_client_client_options(client_class, transport_class, transport
         == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
     )
 
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client = client_class(transport=transport_name)
-    assert (
-        str(excinfo.value)
-        == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
-    )
-
     # Check the case quota_project_id is provided
     options = client_options.ClientOptions(quota_project_id="octopus")
     with mock.patch.object(transport_class, "__init__") as patched:
@@ -776,6 +871,119 @@ def test_services_client_get_mtls_endpoint_and_cert_source(client_class):
         assert api_endpoint == mock_api_endpoint
         assert cert_source is None
 
+    # Test the case GOOGLE_API_USE_CLIENT_CERTIFICATE is "Unsupported".
+    with mock.patch.dict(
+        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
+    ):
+        if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+            mock_client_cert_source = mock.Mock()
+            mock_api_endpoint = "foo"
+            options = client_options.ClientOptions(
+                client_cert_source=mock_client_cert_source,
+                api_endpoint=mock_api_endpoint,
+            )
+            api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source(
+                options
+            )
+            assert api_endpoint == mock_api_endpoint
+            assert cert_source is None
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset.
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", None)
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
+    # Test cases for mTLS enablement when GOOGLE_API_USE_CLIENT_CERTIFICATE is unset(empty).
+    test_cases = [
+        (
+            # With workloads present in config, mTLS is enabled.
+            {
+                "version": 1,
+                "cert_configs": {
+                    "workload": {
+                        "cert_path": "path/to/cert/file",
+                        "key_path": "path/to/key/file",
+                    }
+                },
+            },
+            mock_client_cert_source,
+        ),
+        (
+            # With workloads not present in config, mTLS is disabled.
+            {
+                "version": 1,
+                "cert_configs": {},
+            },
+            None,
+        ),
+    ]
+    if hasattr(google.auth.transport.mtls, "should_use_client_cert"):
+        for config_data, expected_cert_source in test_cases:
+            env = os.environ.copy()
+            env.pop("GOOGLE_API_USE_CLIENT_CERTIFICATE", "")
+            with mock.patch.dict(os.environ, env, clear=True):
+                config_filename = "mock_certificate_config.json"
+                config_file_content = json.dumps(config_data)
+                m = mock.mock_open(read_data=config_file_content)
+                with mock.patch("builtins.open", m):
+                    with mock.patch.dict(
+                        os.environ, {"GOOGLE_API_CERTIFICATE_CONFIG": config_filename}
+                    ):
+                        mock_api_endpoint = "foo"
+                        options = client_options.ClientOptions(
+                            client_cert_source=mock_client_cert_source,
+                            api_endpoint=mock_api_endpoint,
+                        )
+                        (
+                            api_endpoint,
+                            cert_source,
+                        ) = client_class.get_mtls_endpoint_and_cert_source(options)
+                        assert api_endpoint == mock_api_endpoint
+                        assert cert_source is expected_cert_source
+
     # Test the case GOOGLE_API_USE_MTLS_ENDPOINT is "never".
     with mock.patch.dict(os.environ, {"GOOGLE_API_USE_MTLS_ENDPOINT": "never"}):
         api_endpoint, cert_source = client_class.get_mtls_endpoint_and_cert_source()
@@ -824,18 +1032,6 @@ def test_services_client_get_mtls_endpoint_and_cert_source(client_class):
         assert (
             str(excinfo.value)
             == "Environment variable `GOOGLE_API_USE_MTLS_ENDPOINT` must be `never`, `auto` or `always`"
-        )
-
-    # Check the case GOOGLE_API_USE_CLIENT_CERTIFICATE has unsupported value.
-    with mock.patch.dict(
-        os.environ, {"GOOGLE_API_USE_CLIENT_CERTIFICATE": "Unsupported"}
-    ):
-        with pytest.raises(ValueError) as excinfo:
-            client_class.get_mtls_endpoint_and_cert_source()
-
-        assert (
-            str(excinfo.value)
-            == "Environment variable `GOOGLE_API_USE_CLIENT_CERTIFICATE` must be either `true` or `false`"
         )
 
 
@@ -1398,12 +1594,14 @@ def test_get_service(request_type, transport: str = "grpc"):
             invoker_iam_disabled=True,
             default_uri_disabled=True,
             urls=["urls_value"],
+            iap_enabled=True,
             custom_audiences=["custom_audiences_value"],
             observed_generation=2021,
             latest_ready_revision="latest_ready_revision_value",
             latest_created_revision="latest_created_revision_value",
             uri="uri_value",
             satisfies_pzs=True,
+            threat_detection_enabled=True,
             reconciling=True,
             etag="etag_value",
         )
@@ -1430,12 +1628,14 @@ def test_get_service(request_type, transport: str = "grpc"):
     assert response.invoker_iam_disabled is True
     assert response.default_uri_disabled is True
     assert response.urls == ["urls_value"]
+    assert response.iap_enabled is True
     assert response.custom_audiences == ["custom_audiences_value"]
     assert response.observed_generation == 2021
     assert response.latest_ready_revision == "latest_ready_revision_value"
     assert response.latest_created_revision == "latest_created_revision_value"
     assert response.uri == "uri_value"
     assert response.satisfies_pzs is True
+    assert response.threat_detection_enabled is True
     assert response.reconciling is True
     assert response.etag == "etag_value"
 
@@ -1576,12 +1776,14 @@ async def test_get_service_async(
                 invoker_iam_disabled=True,
                 default_uri_disabled=True,
                 urls=["urls_value"],
+                iap_enabled=True,
                 custom_audiences=["custom_audiences_value"],
                 observed_generation=2021,
                 latest_ready_revision="latest_ready_revision_value",
                 latest_created_revision="latest_created_revision_value",
                 uri="uri_value",
                 satisfies_pzs=True,
+                threat_detection_enabled=True,
                 reconciling=True,
                 etag="etag_value",
             )
@@ -1609,12 +1811,14 @@ async def test_get_service_async(
     assert response.invoker_iam_disabled is True
     assert response.default_uri_disabled is True
     assert response.urls == ["urls_value"]
+    assert response.iap_enabled is True
     assert response.custom_audiences == ["custom_audiences_value"]
     assert response.observed_generation == 2021
     assert response.latest_ready_revision == "latest_ready_revision_value"
     assert response.latest_created_revision == "latest_created_revision_value"
     assert response.uri == "uri_value"
     assert response.satisfies_pzs is True
+    assert response.threat_detection_enabled is True
     assert response.reconciling is True
     assert response.etag == "etag_value"
 
@@ -1726,6 +1930,7 @@ def test_list_services(request_type, transport: str = "grpc"):
         # Designate an appropriate return value for the call.
         call.return_value = service.ListServicesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
         response = client.list_services(request)
 
@@ -1738,6 +1943,7 @@ def test_list_services(request_type, transport: str = "grpc"):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListServicesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 def test_list_services_non_empty_request_with_auto_populated_field():
@@ -1866,6 +2072,7 @@ async def test_list_services_async(
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             service.ListServicesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         response = await client.list_services(request)
@@ -1879,6 +2086,7 @@ async def test_list_services_async(
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListServicesAsyncPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.asyncio
@@ -5381,12 +5589,14 @@ async def test_get_service_empty_call_grpc_asyncio():
                 invoker_iam_disabled=True,
                 default_uri_disabled=True,
                 urls=["urls_value"],
+                iap_enabled=True,
                 custom_audiences=["custom_audiences_value"],
                 observed_generation=2021,
                 latest_ready_revision="latest_ready_revision_value",
                 latest_created_revision="latest_created_revision_value",
                 uri="uri_value",
                 satisfies_pzs=True,
+                threat_detection_enabled=True,
                 reconciling=True,
                 etag="etag_value",
             )
@@ -5416,6 +5626,7 @@ async def test_list_services_empty_call_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             service.ListServicesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_services(request=None)
@@ -5620,12 +5831,14 @@ async def test_get_service_routing_parameters_request_1_grpc_asyncio():
                 invoker_iam_disabled=True,
                 default_uri_disabled=True,
                 urls=["urls_value"],
+                iap_enabled=True,
                 custom_audiences=["custom_audiences_value"],
                 observed_generation=2021,
                 latest_ready_revision="latest_ready_revision_value",
                 latest_created_revision="latest_created_revision_value",
                 uri="uri_value",
                 satisfies_pzs=True,
+                threat_detection_enabled=True,
                 reconciling=True,
                 etag="etag_value",
             )
@@ -5662,6 +5875,7 @@ async def test_list_services_routing_parameters_request_1_grpc_asyncio():
         call.return_value = grpc_helpers_async.FakeUnaryUnaryCall(
             service.ListServicesResponse(
                 next_page_token="next_page_token_value",
+                unreachable=["unreachable_value"],
             )
         )
         await client.list_services(
@@ -5835,6 +6049,13 @@ def test_create_service_rest_call_success(request_type):
                 {
                     "name": "name_value",
                     "image": "image_value",
+                    "source_code": {
+                        "cloud_storage_source": {
+                            "bucket": "bucket_value",
+                            "object_": "object__value",
+                            "generation": 1068,
+                        }
+                    },
                     "command": ["command_value1", "command_value2"],
                     "args": ["args_value1", "args_value2"],
                     "env": [
@@ -5856,7 +6077,11 @@ def test_create_service_rest_call_success(request_type):
                     },
                     "ports": [{"name": "name_value", "container_port": 1511}],
                     "volume_mounts": [
-                        {"name": "name_value", "mount_path": "mount_path_value"}
+                        {
+                            "name": "name_value",
+                            "mount_path": "mount_path_value",
+                            "sub_path": "sub_path_value",
+                        }
                     ],
                     "working_dir": "working_dir_value",
                     "liveness_probe": {
@@ -5875,6 +6100,7 @@ def test_create_service_rest_call_success(request_type):
                         "grpc": {"port": 453, "service": "service_value"},
                     },
                     "startup_probe": {},
+                    "readiness_probe": {},
                     "depends_on": ["depends_on_value1", "depends_on_value2"],
                     "base_image_uri": "base_image_uri_value",
                     "build_info": {
@@ -5938,11 +6164,17 @@ def test_create_service_rest_call_success(request_type):
         "scaling": {
             "min_instance_count": 1920,
             "scaling_mode": 1,
+            "max_instance_count": 1922,
             "manual_instance_count": 2234,
         },
         "invoker_iam_disabled": True,
         "default_uri_disabled": True,
         "urls": ["urls_value1", "urls_value2"],
+        "iap_enabled": True,
+        "multi_region_settings": {
+            "regions": ["regions_value1", "regions_value2"],
+            "multi_region_id": "multi_region_id_value",
+        },
         "custom_audiences": ["custom_audiences_value1", "custom_audiences_value2"],
         "observed_generation": 2021,
         "terminal_condition": {
@@ -5969,6 +6201,7 @@ def test_create_service_rest_call_success(request_type):
         ],
         "uri": "uri_value",
         "satisfies_pzs": True,
+        "threat_detection_enabled": True,
         "build_config": {
             "name": "name_value",
             "source_location": "source_location_value",
@@ -6188,12 +6421,14 @@ def test_get_service_rest_call_success(request_type):
             invoker_iam_disabled=True,
             default_uri_disabled=True,
             urls=["urls_value"],
+            iap_enabled=True,
             custom_audiences=["custom_audiences_value"],
             observed_generation=2021,
             latest_ready_revision="latest_ready_revision_value",
             latest_created_revision="latest_created_revision_value",
             uri="uri_value",
             satisfies_pzs=True,
+            threat_detection_enabled=True,
             reconciling=True,
             etag="etag_value",
         )
@@ -6225,12 +6460,14 @@ def test_get_service_rest_call_success(request_type):
     assert response.invoker_iam_disabled is True
     assert response.default_uri_disabled is True
     assert response.urls == ["urls_value"]
+    assert response.iap_enabled is True
     assert response.custom_audiences == ["custom_audiences_value"]
     assert response.observed_generation == 2021
     assert response.latest_ready_revision == "latest_ready_revision_value"
     assert response.latest_created_revision == "latest_created_revision_value"
     assert response.uri == "uri_value"
     assert response.satisfies_pzs is True
+    assert response.threat_detection_enabled is True
     assert response.reconciling is True
     assert response.etag == "etag_value"
 
@@ -6337,6 +6574,7 @@ def test_list_services_rest_call_success(request_type):
         # Designate an appropriate value for the returned response.
         return_value = service.ListServicesResponse(
             next_page_token="next_page_token_value",
+            unreachable=["unreachable_value"],
         )
 
         # Wrap the value into a proper Response obj
@@ -6354,6 +6592,7 @@ def test_list_services_rest_call_success(request_type):
     # Establish that the response is the type that we expect.
     assert isinstance(response, pagers.ListServicesPager)
     assert response.next_page_token == "next_page_token_value"
+    assert response.unreachable == ["unreachable_value"]
 
 
 @pytest.mark.parametrize("null_interceptor", [True, False])
@@ -6501,6 +6740,13 @@ def test_update_service_rest_call_success(request_type):
                 {
                     "name": "name_value",
                     "image": "image_value",
+                    "source_code": {
+                        "cloud_storage_source": {
+                            "bucket": "bucket_value",
+                            "object_": "object__value",
+                            "generation": 1068,
+                        }
+                    },
                     "command": ["command_value1", "command_value2"],
                     "args": ["args_value1", "args_value2"],
                     "env": [
@@ -6522,7 +6768,11 @@ def test_update_service_rest_call_success(request_type):
                     },
                     "ports": [{"name": "name_value", "container_port": 1511}],
                     "volume_mounts": [
-                        {"name": "name_value", "mount_path": "mount_path_value"}
+                        {
+                            "name": "name_value",
+                            "mount_path": "mount_path_value",
+                            "sub_path": "sub_path_value",
+                        }
                     ],
                     "working_dir": "working_dir_value",
                     "liveness_probe": {
@@ -6541,6 +6791,7 @@ def test_update_service_rest_call_success(request_type):
                         "grpc": {"port": 453, "service": "service_value"},
                     },
                     "startup_probe": {},
+                    "readiness_probe": {},
                     "depends_on": ["depends_on_value1", "depends_on_value2"],
                     "base_image_uri": "base_image_uri_value",
                     "build_info": {
@@ -6604,11 +6855,17 @@ def test_update_service_rest_call_success(request_type):
         "scaling": {
             "min_instance_count": 1920,
             "scaling_mode": 1,
+            "max_instance_count": 1922,
             "manual_instance_count": 2234,
         },
         "invoker_iam_disabled": True,
         "default_uri_disabled": True,
         "urls": ["urls_value1", "urls_value2"],
+        "iap_enabled": True,
+        "multi_region_settings": {
+            "regions": ["regions_value1", "regions_value2"],
+            "multi_region_id": "multi_region_id_value",
+        },
         "custom_audiences": ["custom_audiences_value1", "custom_audiences_value2"],
         "observed_generation": 2021,
         "terminal_condition": {
@@ -6635,6 +6892,7 @@ def test_update_service_rest_call_success(request_type):
         ],
         "uri": "uri_value",
         "satisfies_pzs": True,
+        "threat_detection_enabled": True,
         "build_config": {
             "name": "name_value",
             "source_location": "source_location_value",
@@ -8206,6 +8464,7 @@ def test_services_grpc_asyncio_transport_channel():
 
 # Remove this test when deprecated arguments (api_mtls_endpoint, client_cert_source) are
 # removed from grpc/grpc_asyncio transport constructor.
+@pytest.mark.filterwarnings("ignore::FutureWarning")
 @pytest.mark.parametrize(
     "transport_class",
     [transports.ServicesGrpcTransport, transports.ServicesGrpcAsyncIOTransport],

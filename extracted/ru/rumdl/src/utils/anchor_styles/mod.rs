@@ -9,7 +9,10 @@
 //!
 //! Each style is implemented in a separate module with comprehensive tests
 //! verified against the official tools/platforms.
+//!
+//! Common utilities are shared via the `common` module to avoid duplication.
 
+pub mod common;
 pub mod github;
 pub mod kramdown;
 pub mod kramdown_gfm; // Renamed from jekyll for clarity
@@ -26,8 +29,8 @@ pub enum AnchorStyle {
     #[serde(rename = "github")]
     GitHub,
     /// Kramdown with GFM input: matches Jekyll/GitHub Pages behavior
-    /// Accepts both "kramdown-gfm" and "jekyll" (for backward compatibility)
-    #[serde(rename = "kramdown-gfm", alias = "jekyll")]
+    /// Accepts "kramdown-gfm", "kramdown_gfm", and "jekyll" (for backward compatibility)
+    #[serde(rename = "kramdown-gfm", alias = "kramdown_gfm", alias = "jekyll")]
     KramdownGfm,
     /// Pure kramdown style: removes underscores and punctuation
     #[serde(rename = "kramdown")]
@@ -59,7 +62,7 @@ mod tests {
         );
         assert_eq!(serde_json::to_string(&AnchorStyle::Kramdown).unwrap(), "\"kramdown\"");
 
-        // Test deserialization with primary names
+        // Test deserialization with primary names (kebab-case)
         assert_eq!(
             serde_json::from_str::<AnchorStyle>("\"github\"").unwrap(),
             AnchorStyle::GitHub
@@ -71,6 +74,12 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<AnchorStyle>("\"kramdown\"").unwrap(),
             AnchorStyle::Kramdown
+        );
+
+        // Test snake_case alias
+        assert_eq!(
+            serde_json::from_str::<AnchorStyle>("\"kramdown_gfm\"").unwrap(),
+            AnchorStyle::KramdownGfm
         );
 
         // Test backward compatibility: "jekyll" alias still works

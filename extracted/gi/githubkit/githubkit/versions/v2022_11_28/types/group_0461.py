@@ -9,25 +9,35 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+from typing import Union
+from typing_extensions import TypedDict
 
 
-class WebhooksChangesType(TypedDict):
-    """WebhooksChanges
+class EmailType(TypedDict):
+    """Email
 
-    The changes to the comment.
+    Email
     """
 
-    body: NotRequired[WebhooksChangesPropBodyType]
+    email: str
+    primary: bool
+    verified: bool
+    visibility: Union[str, None]
 
 
-class WebhooksChangesPropBodyType(TypedDict):
-    """WebhooksChangesPropBody"""
+class EmailTypeForResponse(TypedDict):
+    """Email
 
-    from_: str
+    Email
+    """
+
+    email: str
+    primary: bool
+    verified: bool
+    visibility: Union[str, None]
 
 
 __all__ = (
-    "WebhooksChangesPropBodyType",
-    "WebhooksChangesType",
+    "EmailType",
+    "EmailTypeForResponse",
 )

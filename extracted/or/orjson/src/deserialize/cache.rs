@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: (Apache-2.0 OR MIT)
+// Copyright ijl (2019-2025)
 
 use crate::str::PyStr;
 use associative_cache::{AssociativeCache, Capacity2048, HashDirectMapped, RoundRobinReplacement};
-use once_cell::unsync::OnceCell;
+use core::cell::OnceCell;
 
 #[repr(transparent)]
 pub(crate) struct CachedKey {
@@ -26,7 +27,7 @@ impl CachedKey {
 
 impl Drop for CachedKey {
     fn drop(&mut self) {
-        ffi!(Py_DECREF(self.ptr.as_ptr().cast::<pyo3_ffi::PyObject>()));
+        ffi!(Py_DECREF(self.ptr.as_ptr().cast::<crate::ffi::PyObject>()));
     }
 }
 

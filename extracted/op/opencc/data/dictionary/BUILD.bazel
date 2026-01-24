@@ -1,18 +1,5 @@
 package(default_visibility = ["//visibility:public"])
 
-genrule(
-    name = "merge_TWPhrases",
-    srcs = [
-        "TWPhrasesIT.txt",
-        "TWPhrasesName.txt",
-        "TWPhrasesOther.txt",
-    ],
-    outs = ["TWPhrases.txt"],
-    cmd = "$(location //data/scripts:merge) " +
-          "$(SRCS) $(OUTS)",
-    tools = ["//data/scripts:merge"],
-)
-
 [
     genrule(
         name = "reverse_" + txt,
@@ -24,16 +11,13 @@ genrule(
     )
     for txt in [
         "TWVariants",
-        "TWPhrases",
         "HKVariants",
         "JPVariants",
     ]
 ]
 
 TEXT_DICTS = glob(["*.txt"]) + [
-    "TWPhrases.txt",
     "TWVariantsRev.txt",
-    "TWPhrasesRev.txt",
     "HKVariantsRev.txt",
     "JPVariantsRev.txt",
 ]

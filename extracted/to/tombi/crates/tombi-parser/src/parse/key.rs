@@ -1,7 +1,7 @@
 use tombi_syntax::{SyntaxKind::*, T};
 
 use super::Parse;
-use crate::{parser::Parser, token_set::TS_KEY_FIRST, ErrorKind::*};
+use crate::{ErrorKind::*, parser::Parser, token_set::TS_KEY_FIRST};
 
 impl Parse for tombi_ast::Keys {
     fn parse(p: &mut Parser<'_>) {
@@ -47,7 +47,7 @@ pub fn eat_key(p: &mut Parser<'_>) -> bool {
             m.complete(p, kind);
             true
         }
-        INTEGER_DEC | BOOLEAN => {
+        INTEGER_DEC | INTEGER_HEX | INTEGER_OCT | INTEGER_BIN | BOOLEAN | LOCAL_DATE => {
             let m = p.start();
             p.bump_remap(BARE_KEY);
             m.complete(p, BARE_KEY);

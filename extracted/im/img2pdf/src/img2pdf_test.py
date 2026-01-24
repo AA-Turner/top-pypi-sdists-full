@@ -276,7 +276,7 @@ def compress(data):
 
 def write_png(data, path, bitdepth, colortype, palette=None, iccp=None):
     with open(str(path), "wb") as f:
-        f.write(b"\x89PNG\r\n\x1A\n")
+        f.write(b"\x89PNG\r\n\x1a\n")
         # PNG image type        Colour type Allowed bit depths
         # Greyscale             0           1, 2, 4, 8, 16
         # Truecolour            2           8, 16
@@ -467,6 +467,22 @@ def compare_pdfimages_jp2(tmpdir, img, pdf):
 
 def compare_pdfimages_tiff(tmpdir, img, pdf):
     subprocess.check_call(["pdfimages", "-tiff", str(pdf), str(tmpdir / "images")])
+    if os.path.isfile(tmpdir / "images-001.tif"):
+        # if images-001.tif exists, then it should be the smask for transparency
+        subprocess.check_call(
+            CONVERT
+            + [
+                str(tmpdir / "images-000.tif"),
+                str(tmpdir / "images-001.tif"),
+                "-compose",
+                "copy-opacity",
+                "-composite",
+                str(tmpdir / "composite.tif"),
+            ]
+        )
+        (tmpdir / "images-000.tif").unlink()
+        (tmpdir / "images-001.tif").unlink()
+        os.rename(tmpdir / "composite.tif", tmpdir / "images-000.tif")
     subprocess.check_call(
         COMPARE
         + [
@@ -484,6 +500,7 @@ def compare_pdfimages_png(tmpdir, img, pdf, exact=True, icc=False):
     subprocess.check_call(["pdfimages", "-png", str(pdf), str(tmpdir / "images")])
     # images-001.png is the grayscale SMask image (the original alpha channel)
     if os.path.isfile(tmpdir / "images-001.png"):
+        # if images-001.png exists, then it should be the smask for transparency
         subprocess.check_call(
             CONVERT
             + [
@@ -1061,7 +1078,11 @@ def jpg_img(tmp_path_factory, tmp_normal_png):
         "x": 0,
         "y": 0,
     }, str(identify)
-    assert "resolution" not in identify[0]["image"]
+    # Starting with imagemagick commit d9890211607c7a9eee8fd0a4dbc533ceab10ea46
+    # the resolution field will always be populated
+    assert "resolution" not in identify[0]["image"] or identify[0]["image"][
+        "resolution"
+    ] == {"x": 1, "y": 1}, identify[0]["image"]["resolution"]
     assert identify[0]["image"].get("units") == "Undefined", str(identify)
     assert identify[0]["image"].get("type") == "TrueColor", str(identify)
     endian = "endianess" if identify[0].get("version", "0") < "1.0" else "endianness"
@@ -4873,6 +4894,45 @@ def tiff_rgb8_pdf(tmp_path_factory, tiff_rgb8_img, request):
 
 
 @pytest.fixture(scope="session", params=["internal", "pikepdf"])
+def tiff_rgba8_pdf(tmp_path_factory, tiff_rgba8_img, request):
+    out_pdf = tmp_path_factory.mktemp("tiff_rgba8_pdf") / "out.pdf"
+    subprocess.check_call(
+        [
+            img2pdfprog,
+            "--producer=",
+            "--nodate",
+            "--engine=" + request.param,
+            "--output=" + str(out_pdf),
+            str(tiff_rgba8_img),
+        ]
+    )
+    with pikepdf.open(str(out_pdf)) as p:
+        assert (
+            p.pages[0].Contents.read_bytes()
+            == b"q\n45.0000 0 0 45.0000 0.0000 0.0000 cm\n/Im0 Do\nQ"
+        )
+        assert p.pages[0].Resources.XObject.Im0.BitsPerComponent == 8
+        assert p.pages[0].Resources.XObject.Im0.ColorSpace == "/DeviceRGB"
+        assert p.pages[0].Resources.XObject.Im0.DecodeParms.BitsPerComponent == 8
+        assert p.pages[0].Resources.XObject.Im0.DecodeParms.Colors == 3
+        assert p.pages[0].Resources.XObject.Im0.DecodeParms.Predictor == 15
+        assert p.pages[0].Resources.XObject.Im0.Filter == "/FlateDecode"
+        assert p.pages[0].Resources.XObject.Im0.Height == 60
+        assert p.pages[0].Resources.XObject.Im0.Width == 60
+        assert p.pages[0].Resources.XObject.Im0.SMask is not None
+
+        assert p.pages[0].Resources.XObject.Im0.SMask.BitsPerComponent == 8
+        assert p.pages[0].Resources.XObject.Im0.SMask.ColorSpace == "/DeviceGray"
+        assert p.pages[0].Resources.XObject.Im0.SMask.DecodeParms.BitsPerComponent == 8
+        assert p.pages[0].Resources.XObject.Im0.SMask.DecodeParms.Colors == 1
+        assert p.pages[0].Resources.XObject.Im0.SMask.DecodeParms.Predictor == 15
+        assert p.pages[0].Resources.XObject.Im0.SMask.Filter == "/FlateDecode"
+        assert p.pages[0].Resources.XObject.Im0.SMask.Height == 60
+        assert p.pages[0].Resources.XObject.Im0.SMask.Width == 60
+    return out_pdf
+
+
+@pytest.fixture(scope="session", params=["internal", "pikepdf"])
 def tiff_gray1_pdf(tmp_path_factory, tiff_gray1_img, request):
     out_pdf = tmp_path_factory.mktemp("tiff_gray1_pdf") / "out.pdf"
     subprocess.check_call(
@@ -6002,23 +6062,12 @@ def test_tiff_rgb16(tmp_path_factory, tiff_rgb16_img, engine):
     sys.platform in ["win32"],
     reason="test utilities not available on Windows and MacOS",
 )
-@pytest.mark.parametrize("engine", ["internal", "pikepdf"])
-def test_tiff_rgba8(tmp_path_factory, tiff_rgba8_img, engine):
-    out_pdf = tmp_path_factory.mktemp("tiff_rgba8") / "out.pdf"
-    assert (
-        0
-        != subprocess.run(
-            [
-                img2pdfprog,
-                "--producer=",
-                "--nodate",
-                "--engine=" + engine,
-                "--output=" + str(out_pdf),
-                str(tiff_rgba8_img),
-            ]
-        ).returncode
-    )
-    out_pdf.unlink()
+def test_tiff_rgba8(tmp_path_factory, tiff_rgba8_img, tiff_rgba8_pdf):
+    tmpdir = tmp_path_factory.mktemp("tiff_rgba8")
+    # compare_ghostscript(tmpdir, tiff_rgba8_img, tiff_rgba8_pdf, gsdevice="tiff24nc")
+    # compare_poppler(tmpdir, tiff_rgba8_img, tiff_rgba8_pdf)
+    # compare_mupdf(tmpdir, tiff_rgba8_img, tiff_rgba8_pdf)
+    compare_pdfimages_tiff(tmpdir, tiff_rgba8_img, tiff_rgba8_pdf)
 
 
 @pytest.mark.skipif(
@@ -6028,6 +6077,7 @@ def test_tiff_rgba8(tmp_path_factory, tiff_rgba8_img, engine):
 @pytest.mark.parametrize("engine", ["internal", "pikepdf"])
 def test_tiff_rgba16(tmp_path_factory, tiff_rgba16_img, engine):
     out_pdf = tmp_path_factory.mktemp("tiff_rgba16") / "out.pdf"
+    # PIL is unable to preserve more than 8 bits per sample
     assert (
         0
         != subprocess.run(
@@ -6752,7 +6802,7 @@ f_enlarge = img2pdf.FitMode.enlarge
                                        (972, 504),  (864, 432)),
     (poster, None, None, f_fill,    0, (97200, 50400), (151200, 50400),
                                        (97200, 50400), (100800, 50400)),
-    ]
+    ],
     # fmt: on
 )
 def test_layout(layout_test_cases):

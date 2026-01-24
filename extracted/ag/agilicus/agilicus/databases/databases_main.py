@@ -5,6 +5,7 @@ from ..output.table import output_entry
 from agilicus.command_helpers import Command
 
 from . import databases
+from ..input_helpers import page_sort_order_values, search_direction_values
 
 cmd = Command()
 
@@ -18,6 +19,16 @@ cmd = Command()
 @click.option("--updated-since", default=None, type=click.DateTime())
 @click.option("--resource-id", default=None)
 @click.option("--limit", default=500)
+@click.option(
+    "--page-on", multiple=True, type=click.Choice(databases.page_fields), default=None
+)
+@click.option("--page-at-key", multiple=True, type=str, default=None)
+@click.option(
+    "--page-sort", multiple=True, type=click.Choice(page_sort_order_values), default=None
+)
+@click.option(
+    "--search-direction", type=click.Choice(search_direction_values), default=None
+)
 @click.pass_context
 def list_database_resources(ctx, name=None, **kwargs):
     resources = databases.list_database_resources(ctx, name=name, **kwargs)

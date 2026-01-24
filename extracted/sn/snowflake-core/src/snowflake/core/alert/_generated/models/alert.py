@@ -19,7 +19,7 @@ import re  # noqa: F401
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 from snowflake.core.alert._generated.models.schedule import Schedule, ScheduleModel
 
@@ -44,17 +44,17 @@ class Alert(BaseModel):
     warehouse : str, optional
         The warehouse the alert runs in
     created_on : datetime, optional
-        Date and time when the alert was created.
+        Date and time when the alert was created — **Read-only:** *any user-provided value will be ignored.*
     database_name : str, optional
-        Database in which the alert is stored
+        Database in which the alert is stored — **Read-only:** *any user-provided value will be ignored.*
     schema_name : str, optional
-        Schema in which the alert is stored
+        Schema in which the alert is stored — **Read-only:** *any user-provided value will be ignored.*
     owner : str, optional
-        Role that owns the alert
+        Role that owns the alert — **Read-only:** *any user-provided value will be ignored.*
     owner_role_type : str, optional
-        The type of role that owns the alert
+        The type of role that owns the alert — **Read-only:** *any user-provided value will be ignored.*
     state : str, optional
-        The current state of the alert
+        The current state of the alert — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: StrictStr
@@ -96,9 +96,10 @@ class Alert(BaseModel):
         "state",
     ]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -132,7 +133,7 @@ class Alert(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of schedule
         if self.schedule:
@@ -151,9 +152,9 @@ class Alert(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Alert.parse_obj(obj)
+            return Alert.model_validate(obj)
 
-        _obj = Alert.parse_obj(
+        _obj = Alert.model_validate(
             {
                 "name": obj.get("name"),
                 "comment": obj.get("comment"),

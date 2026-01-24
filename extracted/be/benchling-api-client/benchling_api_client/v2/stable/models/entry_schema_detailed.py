@@ -1,6 +1,8 @@
+import datetime
 from typing import Any, cast, Dict, List, Optional, Type, TypeVar, Union
 
 import attr
+from dateutil.parser import isoparse
 
 from ..extensions import NotPresentError, UnknownType
 from ..models.archive_record import ArchiveRecord
@@ -19,6 +21,7 @@ T = TypeVar("T", bound="EntrySchemaDetailed")
 class EntrySchemaDetailed:
     """  """
 
+    _modified_at: Union[Unset, datetime.datetime] = UNSET
     _type: Union[Unset, EntrySchemaDetailedType] = UNSET
     _prefix: Union[Unset, str] = UNSET
     _registry_id: Union[Unset, str] = UNSET
@@ -42,6 +45,7 @@ class EntrySchemaDetailed:
 
     def __repr__(self):
         fields = []
+        fields.append("modified_at={}".format(repr(self._modified_at)))
         fields.append("type={}".format(repr(self._type)))
         fields.append("prefix={}".format(repr(self._prefix)))
         fields.append("registry_id={}".format(repr(self._registry_id)))
@@ -53,6 +57,10 @@ class EntrySchemaDetailed:
         return "EntrySchemaDetailed({})".format(", ".join(fields))
 
     def to_dict(self) -> Dict[str, Any]:
+        modified_at: Union[Unset, str] = UNSET
+        if not isinstance(self._modified_at, Unset):
+            modified_at = self._modified_at.isoformat()
+
         type: Union[Unset, int] = UNSET
         if not isinstance(self._type, Unset):
             type = self._type.value
@@ -92,6 +100,8 @@ class EntrySchemaDetailed:
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
+        if modified_at is not UNSET:
+            field_dict["modifiedAt"] = modified_at
         if type is not UNSET:
             field_dict["type"] = type
         if prefix is not UNSET:
@@ -112,6 +122,21 @@ class EntrySchemaDetailed:
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any], strict: bool = False) -> T:
         d = src_dict.copy()
+
+        def get_modified_at() -> Union[Unset, datetime.datetime]:
+            modified_at: Union[Unset, datetime.datetime] = UNSET
+            _modified_at = d.pop("modifiedAt")
+            if _modified_at is not None and not isinstance(_modified_at, Unset):
+                modified_at = isoparse(cast(str, _modified_at))
+
+            return modified_at
+
+        try:
+            modified_at = get_modified_at()
+        except KeyError:
+            if strict:
+                raise
+            modified_at = cast(Union[Unset, datetime.datetime], UNSET)
 
         def get_type() -> Union[Unset, EntrySchemaDetailedType]:
             type = UNSET
@@ -297,6 +322,7 @@ class EntrySchemaDetailed:
             name = cast(Union[Unset, str], UNSET)
 
         entry_schema_detailed = cls(
+            modified_at=modified_at,
             type=type,
             prefix=prefix,
             registry_id=registry_id,
@@ -327,6 +353,21 @@ class EntrySchemaDetailed:
 
     def get(self, key, default=None) -> Optional[Any]:
         return self.additional_properties.get(key, default)
+
+    @property
+    def modified_at(self) -> datetime.datetime:
+        """ DateTime the Entry Schema was last modified """
+        if isinstance(self._modified_at, Unset):
+            raise NotPresentError(self, "modified_at")
+        return self._modified_at
+
+    @modified_at.setter
+    def modified_at(self, value: datetime.datetime) -> None:
+        self._modified_at = value
+
+    @modified_at.deleter
+    def modified_at(self) -> None:
+        self._modified_at = UNSET
 
     @property
     def type(self) -> EntrySchemaDetailedType:

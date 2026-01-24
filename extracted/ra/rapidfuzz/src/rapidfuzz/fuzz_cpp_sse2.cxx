@@ -2798,7 +2798,7 @@ static CYTHON_SMALL_CODE int __pyx_m_traverse(PyObject *m, visitproc visit, void
 #endif
 /* #### Code section: module_code ### */
 
-/* "cpp_common.pxd":254
+/* "cpp_common.pxd":252
  *     void validate_string(object py_str, const char* err) except +
  * 
  * cdef inline bool hash_array(arr, RF_String* s_proc) except False:             # <<<<<<<<<<<<<<
@@ -2840,30 +2840,30 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("hash_array", 0);
 
-  /* "cpp_common.pxd":256
+  /* "cpp_common.pxd":254
  * cdef inline bool hash_array(arr, RF_String* s_proc) except False:
  *     # TODO on Cpython this does not require any copies
  *     cdef Py_UCS4 typecode = <Py_UCS4>arr.typecode             # <<<<<<<<<<<<<<
  *     s_proc.length = <int64_t>len(arr)
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr, __pyx_mstate_global->__pyx_n_u_typecode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 256, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_arr, __pyx_mstate_global->__pyx_n_u_typecode); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 254, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_AsPy_UCS4(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_UCS4)-1) && PyErr_Occurred())) __PYX_ERR(1, 256, __pyx_L1_error)
+  __pyx_t_2 = __Pyx_PyObject_AsPy_UCS4(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_UCS4)-1) && PyErr_Occurred())) __PYX_ERR(1, 254, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   __pyx_v_typecode = ((Py_UCS4)__pyx_t_2);
 
-  /* "cpp_common.pxd":257
+  /* "cpp_common.pxd":255
  *     # TODO on Cpython this does not require any copies
  *     cdef Py_UCS4 typecode = <Py_UCS4>arr.typecode
  *     s_proc.length = <int64_t>len(arr)             # <<<<<<<<<<<<<<
  * 
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))
 */
-  __pyx_t_3 = PyObject_Length(__pyx_v_arr); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(1, 257, __pyx_L1_error)
+  __pyx_t_3 = PyObject_Length(__pyx_v_arr); if (unlikely(__pyx_t_3 == ((Py_ssize_t)-1))) __PYX_ERR(1, 255, __pyx_L1_error)
   __pyx_v_s_proc->length = ((int64_t)__pyx_t_3);
 
-  /* "cpp_common.pxd":259
+  /* "cpp_common.pxd":257
  *     s_proc.length = <int64_t>len(arr)
  * 
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))             # <<<<<<<<<<<<<<
@@ -2872,7 +2872,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
   __pyx_v_s_proc->data = malloc((__pyx_v_s_proc->length * (sizeof(uint64_t))));
 
-  /* "cpp_common.pxd":261
+  /* "cpp_common.pxd":259
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))
  * 
  *     if s_proc.data == NULL:             # <<<<<<<<<<<<<<
@@ -2882,16 +2882,16 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
   __pyx_t_4 = (__pyx_v_s_proc->data == NULL);
   if (unlikely(__pyx_t_4)) {
 
-    /* "cpp_common.pxd":262
+    /* "cpp_common.pxd":260
  * 
  *     if s_proc.data == NULL:
  *         raise MemoryError             # <<<<<<<<<<<<<<
  * 
  *     try:
 */
-    PyErr_NoMemory(); __PYX_ERR(1, 262, __pyx_L1_error)
+    PyErr_NoMemory(); __PYX_ERR(1, 260, __pyx_L1_error)
 
-    /* "cpp_common.pxd":261
+    /* "cpp_common.pxd":259
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))
  * 
  *     if s_proc.data == NULL:             # <<<<<<<<<<<<<<
@@ -2900,7 +2900,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
   }
 
-  /* "cpp_common.pxd":264
+  /* "cpp_common.pxd":262
  *         raise MemoryError
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -2916,7 +2916,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
     __Pyx_XGOTREF(__pyx_t_7);
     /*try:*/ {
 
-      /* "cpp_common.pxd":266
+      /* "cpp_common.pxd":264
  *     try:
  *         # ignore signed/unsigned, since it is not relevant in any of the algorithms
  *         if typecode in {'f', 'd'}: # float/double are hashed             # <<<<<<<<<<<<<<
@@ -2927,7 +2927,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         case 0x66:
         case 0x64:
 
-        /* "cpp_common.pxd":267
+        /* "cpp_common.pxd":265
  *         # ignore signed/unsigned, since it is not relevant in any of the algorithms
  *         if typecode in {'f', 'd'}: # float/double are hashed
  *             s_proc.kind = RF_StringType.RF_UINT64             # <<<<<<<<<<<<<<
@@ -2936,7 +2936,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
         __pyx_v_s_proc->kind = RF_UINT64;
 
-        /* "cpp_common.pxd":268
+        /* "cpp_common.pxd":266
  *         if typecode in {'f', 'd'}: # float/double are hashed
  *             s_proc.kind = RF_StringType.RF_UINT64
  *             for i in range(s_proc.length):             # <<<<<<<<<<<<<<
@@ -2948,21 +2948,21 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
           __pyx_v_i = __pyx_t_10;
 
-          /* "cpp_common.pxd":269
+          /* "cpp_common.pxd":267
  *             s_proc.kind = RF_StringType.RF_UINT64
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(arr[i])             # <<<<<<<<<<<<<<
  *         elif typecode in ('u', 'w'): # 'u' wchar_t
  *             s_proc.kind = RF_StringType.RF_UINT64
 */
-          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_arr, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 269, __pyx_L4_error)
+          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_arr, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 267, __pyx_L4_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_11 = PyObject_Hash(__pyx_t_1); if (unlikely(__pyx_t_11 == ((Py_hash_t)-1))) __PYX_ERR(1, 269, __pyx_L4_error)
+          __pyx_t_11 = PyObject_Hash(__pyx_t_1); if (unlikely(__pyx_t_11 == ((Py_hash_t)-1))) __PYX_ERR(1, 267, __pyx_L4_error)
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           (((uint64_t *)__pyx_v_s_proc->data)[__pyx_v_i]) = ((uint64_t)__pyx_t_11);
         }
 
-        /* "cpp_common.pxd":266
+        /* "cpp_common.pxd":264
  *     try:
  *         # ignore signed/unsigned, since it is not relevant in any of the algorithms
  *         if typecode in {'f', 'd'}: # float/double are hashed             # <<<<<<<<<<<<<<
@@ -2972,7 +2972,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         break;
         case 0x75:
 
-        /* "cpp_common.pxd":270
+        /* "cpp_common.pxd":268
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(arr[i])
  *         elif typecode in ('u', 'w'): # 'u' wchar_t             # <<<<<<<<<<<<<<
@@ -2981,7 +2981,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
         case 0x77:
 
-        /* "cpp_common.pxd":271
+        /* "cpp_common.pxd":269
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(arr[i])
  *         elif typecode in ('u', 'w'): # 'u' wchar_t
  *             s_proc.kind = RF_StringType.RF_UINT64             # <<<<<<<<<<<<<<
@@ -2990,7 +2990,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
         __pyx_v_s_proc->kind = RF_UINT64;
 
-        /* "cpp_common.pxd":272
+        /* "cpp_common.pxd":270
  *         elif typecode in ('u', 'w'): # 'u' wchar_t
  *             s_proc.kind = RF_StringType.RF_UINT64
  *             for i in range(s_proc.length):             # <<<<<<<<<<<<<<
@@ -3002,21 +3002,21 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
           __pyx_v_i = __pyx_t_10;
 
-          /* "cpp_common.pxd":273
+          /* "cpp_common.pxd":271
  *             s_proc.kind = RF_StringType.RF_UINT64
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t><Py_UCS4>arr[i]             # <<<<<<<<<<<<<<
  *         else:
  *             s_proc.kind = RF_StringType.RF_UINT64
 */
-          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_arr, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 273, __pyx_L4_error)
+          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_arr, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 271, __pyx_L4_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_2 = __Pyx_PyObject_AsPy_UCS4(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_UCS4)-1) && PyErr_Occurred())) __PYX_ERR(1, 273, __pyx_L4_error)
+          __pyx_t_2 = __Pyx_PyObject_AsPy_UCS4(__pyx_t_1); if (unlikely((__pyx_t_2 == (Py_UCS4)-1) && PyErr_Occurred())) __PYX_ERR(1, 271, __pyx_L4_error)
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           (((uint64_t *)__pyx_v_s_proc->data)[__pyx_v_i]) = ((uint64_t)((Py_UCS4)__pyx_t_2));
         }
 
-        /* "cpp_common.pxd":270
+        /* "cpp_common.pxd":268
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(arr[i])
  *         elif typecode in ('u', 'w'): # 'u' wchar_t             # <<<<<<<<<<<<<<
@@ -3026,7 +3026,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         break;
         default:
 
-        /* "cpp_common.pxd":275
+        /* "cpp_common.pxd":273
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t><Py_UCS4>arr[i]
  *         else:
  *             s_proc.kind = RF_StringType.RF_UINT64             # <<<<<<<<<<<<<<
@@ -3035,7 +3035,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
         __pyx_v_s_proc->kind = RF_UINT64;
 
-        /* "cpp_common.pxd":276
+        /* "cpp_common.pxd":274
  *         else:
  *             s_proc.kind = RF_StringType.RF_UINT64
  *             for i in range(s_proc.length):             # <<<<<<<<<<<<<<
@@ -3047,23 +3047,23 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
           __pyx_v_i = __pyx_t_10;
 
-          /* "cpp_common.pxd":277
+          /* "cpp_common.pxd":275
  *             s_proc.kind = RF_StringType.RF_UINT64
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>arr[i]             # <<<<<<<<<<<<<<
  *     except Exception as e:
  *         free(s_proc.data)
 */
-          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_arr, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 277, __pyx_L4_error)
+          __pyx_t_1 = __Pyx_GetItemInt(__pyx_v_arr, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 275, __pyx_L4_error)
           __Pyx_GOTREF(__pyx_t_1);
-          __pyx_t_12 = __Pyx_PyLong_As_uint64_t(__pyx_t_1); if (unlikely((__pyx_t_12 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(1, 277, __pyx_L4_error)
+          __pyx_t_12 = __Pyx_PyLong_As_uint64_t(__pyx_t_1); if (unlikely((__pyx_t_12 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(1, 275, __pyx_L4_error)
           __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
           (((uint64_t *)__pyx_v_s_proc->data)[__pyx_v_i]) = ((uint64_t)__pyx_t_12);
         }
         break;
       }
 
-      /* "cpp_common.pxd":264
+      /* "cpp_common.pxd":262
  *         raise MemoryError
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -3078,7 +3078,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
     __pyx_L4_error:;
     __Pyx_XDECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-    /* "cpp_common.pxd":278
+    /* "cpp_common.pxd":276
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>arr[i]
  *     except Exception as e:             # <<<<<<<<<<<<<<
@@ -3088,7 +3088,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
     __pyx_t_13 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_13) {
       __Pyx_AddTraceback("cpp_common.hash_array", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_14, &__pyx_t_15) < 0) __PYX_ERR(1, 278, __pyx_L6_except_error)
+      if (__Pyx_GetException(&__pyx_t_1, &__pyx_t_14, &__pyx_t_15) < 0) __PYX_ERR(1, 276, __pyx_L6_except_error)
       __Pyx_XGOTREF(__pyx_t_1);
       __Pyx_XGOTREF(__pyx_t_14);
       __Pyx_XGOTREF(__pyx_t_15);
@@ -3096,7 +3096,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
       __pyx_v_e = __pyx_t_14;
       /*try:*/ {
 
-        /* "cpp_common.pxd":279
+        /* "cpp_common.pxd":277
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>arr[i]
  *     except Exception as e:
  *         free(s_proc.data)             # <<<<<<<<<<<<<<
@@ -3105,7 +3105,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
         free(__pyx_v_s_proc->data);
 
-        /* "cpp_common.pxd":280
+        /* "cpp_common.pxd":278
  *     except Exception as e:
  *         free(s_proc.data)
  *         s_proc.data = NULL             # <<<<<<<<<<<<<<
@@ -3114,7 +3114,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
         __pyx_v_s_proc->data = NULL;
 
-        /* "cpp_common.pxd":281
+        /* "cpp_common.pxd":279
  *         free(s_proc.data)
  *         s_proc.data = NULL
  *         raise             # <<<<<<<<<<<<<<
@@ -3126,10 +3126,10 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
         __Pyx_XGIVEREF(__pyx_t_15);
         __Pyx_ErrRestoreWithState(__pyx_t_1, __pyx_t_14, __pyx_t_15);
         __pyx_t_1 = 0;  __pyx_t_14 = 0;  __pyx_t_15 = 0; 
-        __PYX_ERR(1, 281, __pyx_L21_error)
+        __PYX_ERR(1, 279, __pyx_L21_error)
       }
 
-      /* "cpp_common.pxd":278
+      /* "cpp_common.pxd":276
  *             for i in range(s_proc.length):
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>arr[i]
  *     except Exception as e:             # <<<<<<<<<<<<<<
@@ -3170,7 +3170,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
     }
     goto __pyx_L6_except_error;
 
-    /* "cpp_common.pxd":264
+    /* "cpp_common.pxd":262
  *         raise MemoryError
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -3186,7 +3186,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
     __pyx_L9_try_end:;
   }
 
-  /* "cpp_common.pxd":283
+  /* "cpp_common.pxd":281
  *         raise
  * 
  *     s_proc.dtor = default_string_deinit             # <<<<<<<<<<<<<<
@@ -3195,7 +3195,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
 */
   __pyx_v_s_proc->dtor = default_string_deinit;
 
-  /* "cpp_common.pxd":284
+  /* "cpp_common.pxd":282
  * 
  *     s_proc.dtor = default_string_deinit
  *     return True             # <<<<<<<<<<<<<<
@@ -3205,7 +3205,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":254
+  /* "cpp_common.pxd":252
  *     void validate_string(object py_str, const char* err) except +
  * 
  * cdef inline bool hash_array(arr, RF_String* s_proc) except False:             # <<<<<<<<<<<<<<
@@ -3226,7 +3226,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_array(PyObject *__pyx_v_arr,
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":287
+/* "cpp_common.pxd":285
  * 
  * 
  * cdef inline bool hash_sequence(seq, RF_String* s_proc) except False:             # <<<<<<<<<<<<<<
@@ -3268,17 +3268,17 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("hash_sequence", 0);
 
-  /* "cpp_common.pxd":288
+  /* "cpp_common.pxd":286
  * 
  * cdef inline bool hash_sequence(seq, RF_String* s_proc) except False:
  *     s_proc.length = <int64_t>len(seq)             # <<<<<<<<<<<<<<
  * 
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))
 */
-  __pyx_t_1 = PyObject_Length(__pyx_v_seq); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(1, 288, __pyx_L1_error)
+  __pyx_t_1 = PyObject_Length(__pyx_v_seq); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(1, 286, __pyx_L1_error)
   __pyx_v_s_proc->length = ((int64_t)__pyx_t_1);
 
-  /* "cpp_common.pxd":290
+  /* "cpp_common.pxd":288
  *     s_proc.length = <int64_t>len(seq)
  * 
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))             # <<<<<<<<<<<<<<
@@ -3287,7 +3287,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
   __pyx_v_s_proc->data = malloc((__pyx_v_s_proc->length * (sizeof(uint64_t))));
 
-  /* "cpp_common.pxd":292
+  /* "cpp_common.pxd":290
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))
  * 
  *     if s_proc.data == NULL:             # <<<<<<<<<<<<<<
@@ -3297,16 +3297,16 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
   __pyx_t_2 = (__pyx_v_s_proc->data == NULL);
   if (unlikely(__pyx_t_2)) {
 
-    /* "cpp_common.pxd":293
+    /* "cpp_common.pxd":291
  * 
  *     if s_proc.data == NULL:
  *         raise MemoryError             # <<<<<<<<<<<<<<
  * 
  *     try:
 */
-    PyErr_NoMemory(); __PYX_ERR(1, 293, __pyx_L1_error)
+    PyErr_NoMemory(); __PYX_ERR(1, 291, __pyx_L1_error)
 
-    /* "cpp_common.pxd":292
+    /* "cpp_common.pxd":290
  *     s_proc.data = malloc(s_proc.length * sizeof(uint64_t))
  * 
  *     if s_proc.data == NULL:             # <<<<<<<<<<<<<<
@@ -3315,7 +3315,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
   }
 
-  /* "cpp_common.pxd":295
+  /* "cpp_common.pxd":293
  *         raise MemoryError
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -3331,7 +3331,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
     __Pyx_XGOTREF(__pyx_t_5);
     /*try:*/ {
 
-      /* "cpp_common.pxd":296
+      /* "cpp_common.pxd":294
  * 
  *     try:
  *         s_proc.kind = RF_StringType.RF_UINT64             # <<<<<<<<<<<<<<
@@ -3340,7 +3340,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
       __pyx_v_s_proc->kind = RF_UINT64;
 
-      /* "cpp_common.pxd":297
+      /* "cpp_common.pxd":295
  *     try:
  *         s_proc.kind = RF_StringType.RF_UINT64
  *         for i in range(s_proc.length):             # <<<<<<<<<<<<<<
@@ -3352,19 +3352,19 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
       for (__pyx_t_8 = 0; __pyx_t_8 < __pyx_t_7; __pyx_t_8+=1) {
         __pyx_v_i = __pyx_t_8;
 
-        /* "cpp_common.pxd":298
+        /* "cpp_common.pxd":296
  *         s_proc.kind = RF_StringType.RF_UINT64
  *         for i in range(s_proc.length):
  *             elem = seq[i]             # <<<<<<<<<<<<<<
  *             # this is required so e.g. a list of char can be compared to a string
  *             if isinstance(elem, str) and len(elem) == 1:
 */
-        __pyx_t_9 = __Pyx_GetItemInt(__pyx_v_seq, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 298, __pyx_L4_error)
+        __pyx_t_9 = __Pyx_GetItemInt(__pyx_v_seq, __pyx_v_i, int64_t, 1, __Pyx_PyLong_From_int64_t, 0, 1, 1, 1); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 296, __pyx_L4_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_XDECREF_SET(__pyx_v_elem, __pyx_t_9);
         __pyx_t_9 = 0;
 
-        /* "cpp_common.pxd":300
+        /* "cpp_common.pxd":298
  *             elem = seq[i]
  *             # this is required so e.g. a list of char can be compared to a string
  *             if isinstance(elem, str) and len(elem) == 1:             # <<<<<<<<<<<<<<
@@ -3377,23 +3377,23 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
           __pyx_t_2 = __pyx_t_10;
           goto __pyx_L13_bool_binop_done;
         }
-        __pyx_t_1 = PyObject_Length(__pyx_v_elem); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(1, 300, __pyx_L4_error)
+        __pyx_t_1 = PyObject_Length(__pyx_v_elem); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(1, 298, __pyx_L4_error)
         __pyx_t_10 = (__pyx_t_1 == 1);
         __pyx_t_2 = __pyx_t_10;
         __pyx_L13_bool_binop_done:;
         if (__pyx_t_2) {
 
-          /* "cpp_common.pxd":301
+          /* "cpp_common.pxd":299
  *             # this is required so e.g. a list of char can be compared to a string
  *             if isinstance(elem, str) and len(elem) == 1:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t><Py_UCS4>elem             # <<<<<<<<<<<<<<
  *             elif isinstance(elem, int) and elem == -1:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>-1
 */
-          __pyx_t_11 = __Pyx_PyObject_AsPy_UCS4(__pyx_v_elem); if (unlikely((__pyx_t_11 == (Py_UCS4)-1) && PyErr_Occurred())) __PYX_ERR(1, 301, __pyx_L4_error)
+          __pyx_t_11 = __Pyx_PyObject_AsPy_UCS4(__pyx_v_elem); if (unlikely((__pyx_t_11 == (Py_UCS4)-1) && PyErr_Occurred())) __PYX_ERR(1, 299, __pyx_L4_error)
           (((uint64_t *)__pyx_v_s_proc->data)[__pyx_v_i]) = ((uint64_t)((Py_UCS4)__pyx_t_11));
 
-          /* "cpp_common.pxd":300
+          /* "cpp_common.pxd":298
  *             elem = seq[i]
  *             # this is required so e.g. a list of char can be compared to a string
  *             if isinstance(elem, str) and len(elem) == 1:             # <<<<<<<<<<<<<<
@@ -3403,7 +3403,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
           goto __pyx_L12;
         }
 
-        /* "cpp_common.pxd":302
+        /* "cpp_common.pxd":300
  *             if isinstance(elem, str) and len(elem) == 1:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t><Py_UCS4>elem
  *             elif isinstance(elem, int) and elem == -1:             # <<<<<<<<<<<<<<
@@ -3416,12 +3416,12 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
           __pyx_t_2 = __pyx_t_10;
           goto __pyx_L15_bool_binop_done;
         }
-        __pyx_t_10 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_elem, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(1, 302, __pyx_L4_error)
+        __pyx_t_10 = (__Pyx_PyLong_BoolEqObjC(__pyx_v_elem, __pyx_mstate_global->__pyx_int_neg_1, -1L, 0)); if (unlikely((__pyx_t_10 < 0))) __PYX_ERR(1, 300, __pyx_L4_error)
         __pyx_t_2 = __pyx_t_10;
         __pyx_L15_bool_binop_done:;
         if (__pyx_t_2) {
 
-          /* "cpp_common.pxd":303
+          /* "cpp_common.pxd":301
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t><Py_UCS4>elem
  *             elif isinstance(elem, int) and elem == -1:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>-1             # <<<<<<<<<<<<<<
@@ -3430,7 +3430,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
           (((uint64_t *)__pyx_v_s_proc->data)[__pyx_v_i]) = ((uint64_t)-1L);
 
-          /* "cpp_common.pxd":302
+          /* "cpp_common.pxd":300
  *             if isinstance(elem, str) and len(elem) == 1:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t><Py_UCS4>elem
  *             elif isinstance(elem, int) and elem == -1:             # <<<<<<<<<<<<<<
@@ -3440,7 +3440,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
           goto __pyx_L12;
         }
 
-        /* "cpp_common.pxd":305
+        /* "cpp_common.pxd":303
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>-1
  *             else:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(elem)             # <<<<<<<<<<<<<<
@@ -3448,13 +3448,13 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
  *         free(s_proc.data)
 */
         /*else*/ {
-          __pyx_t_12 = PyObject_Hash(__pyx_v_elem); if (unlikely(__pyx_t_12 == ((Py_hash_t)-1))) __PYX_ERR(1, 305, __pyx_L4_error)
+          __pyx_t_12 = PyObject_Hash(__pyx_v_elem); if (unlikely(__pyx_t_12 == ((Py_hash_t)-1))) __PYX_ERR(1, 303, __pyx_L4_error)
           (((uint64_t *)__pyx_v_s_proc->data)[__pyx_v_i]) = ((uint64_t)__pyx_t_12);
         }
         __pyx_L12:;
       }
 
-      /* "cpp_common.pxd":295
+      /* "cpp_common.pxd":293
  *         raise MemoryError
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -3469,7 +3469,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
     __pyx_L4_error:;
     __Pyx_XDECREF(__pyx_t_9); __pyx_t_9 = 0;
 
-    /* "cpp_common.pxd":306
+    /* "cpp_common.pxd":304
  *             else:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(elem)
  *     except Exception as e:             # <<<<<<<<<<<<<<
@@ -3479,7 +3479,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
     __pyx_t_13 = __Pyx_PyErr_ExceptionMatches(((PyObject *)(((PyTypeObject*)PyExc_Exception))));
     if (__pyx_t_13) {
       __Pyx_AddTraceback("cpp_common.hash_sequence", __pyx_clineno, __pyx_lineno, __pyx_filename);
-      if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_14, &__pyx_t_15) < 0) __PYX_ERR(1, 306, __pyx_L6_except_error)
+      if (__Pyx_GetException(&__pyx_t_9, &__pyx_t_14, &__pyx_t_15) < 0) __PYX_ERR(1, 304, __pyx_L6_except_error)
       __Pyx_XGOTREF(__pyx_t_9);
       __Pyx_XGOTREF(__pyx_t_14);
       __Pyx_XGOTREF(__pyx_t_15);
@@ -3487,7 +3487,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
       __pyx_v_e = __pyx_t_14;
       /*try:*/ {
 
-        /* "cpp_common.pxd":307
+        /* "cpp_common.pxd":305
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(elem)
  *     except Exception as e:
  *         free(s_proc.data)             # <<<<<<<<<<<<<<
@@ -3496,7 +3496,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
         free(__pyx_v_s_proc->data);
 
-        /* "cpp_common.pxd":308
+        /* "cpp_common.pxd":306
  *     except Exception as e:
  *         free(s_proc.data)
  *         s_proc.data = NULL             # <<<<<<<<<<<<<<
@@ -3505,7 +3505,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
         __pyx_v_s_proc->data = NULL;
 
-        /* "cpp_common.pxd":309
+        /* "cpp_common.pxd":307
  *         free(s_proc.data)
  *         s_proc.data = NULL
  *         raise             # <<<<<<<<<<<<<<
@@ -3517,10 +3517,10 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
         __Pyx_XGIVEREF(__pyx_t_15);
         __Pyx_ErrRestoreWithState(__pyx_t_9, __pyx_t_14, __pyx_t_15);
         __pyx_t_9 = 0;  __pyx_t_14 = 0;  __pyx_t_15 = 0; 
-        __PYX_ERR(1, 309, __pyx_L22_error)
+        __PYX_ERR(1, 307, __pyx_L22_error)
       }
 
-      /* "cpp_common.pxd":306
+      /* "cpp_common.pxd":304
  *             else:
  *                 (<uint64_t*>s_proc.data)[i] = <uint64_t>hash(elem)
  *     except Exception as e:             # <<<<<<<<<<<<<<
@@ -3561,7 +3561,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
     }
     goto __pyx_L6_except_error;
 
-    /* "cpp_common.pxd":295
+    /* "cpp_common.pxd":293
  *         raise MemoryError
  * 
  *     try:             # <<<<<<<<<<<<<<
@@ -3577,7 +3577,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
     __pyx_L9_try_end:;
   }
 
-  /* "cpp_common.pxd":311
+  /* "cpp_common.pxd":309
  *         raise
  * 
  *     s_proc.dtor = default_string_deinit             # <<<<<<<<<<<<<<
@@ -3586,7 +3586,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
 */
   __pyx_v_s_proc->dtor = default_string_deinit;
 
-  /* "cpp_common.pxd":312
+  /* "cpp_common.pxd":310
  * 
  *     s_proc.dtor = default_string_deinit
  *     return True             # <<<<<<<<<<<<<<
@@ -3596,7 +3596,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":287
+  /* "cpp_common.pxd":285
  * 
  * 
  * cdef inline bool hash_sequence(seq, RF_String* s_proc) except False:             # <<<<<<<<<<<<<<
@@ -3618,7 +3618,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_hash_sequence(PyObject *__pyx_v_s
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":314
+/* "cpp_common.pxd":312
  *     return True
  * 
  * cdef inline bool is_none(s) noexcept:             # <<<<<<<<<<<<<<
@@ -3638,7 +3638,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("is_none", 0);
 
-  /* "cpp_common.pxd":315
+  /* "cpp_common.pxd":313
  * 
  * cdef inline bool is_none(s) noexcept:
  *     if s is None or s is pandas_NA:             # <<<<<<<<<<<<<<
@@ -3651,7 +3651,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L4_bool_binop_done;
   }
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_pandas_NA); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 315, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_pandas_NA); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 313, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_2 = (__pyx_v_s == __pyx_t_3);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
@@ -3659,7 +3659,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
   __pyx_L4_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "cpp_common.pxd":316
+    /* "cpp_common.pxd":314
  * cdef inline bool is_none(s) noexcept:
  *     if s is None or s is pandas_NA:
  *         return True             # <<<<<<<<<<<<<<
@@ -3669,7 +3669,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "cpp_common.pxd":315
+    /* "cpp_common.pxd":313
  * 
  * cdef inline bool is_none(s) noexcept:
  *     if s is None or s is pandas_NA:             # <<<<<<<<<<<<<<
@@ -3678,7 +3678,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
 */
   }
 
-  /* "cpp_common.pxd":318
+  /* "cpp_common.pxd":316
  *         return True
  * 
  *     if isinstance(s, float) and isnan(<double>s):             # <<<<<<<<<<<<<<
@@ -3691,18 +3691,18 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
     __pyx_t_1 = __pyx_t_2;
     goto __pyx_L7_bool_binop_done;
   }
-  __pyx_t_4 = __Pyx_PyFloat_AsDouble(__pyx_v_s); if (unlikely((__pyx_t_4 == (double)-1) && PyErr_Occurred())) __PYX_ERR(1, 318, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyFloat_AsDouble(__pyx_v_s); if (unlikely((__pyx_t_4 == (double)-1) && PyErr_Occurred())) __PYX_ERR(1, 316, __pyx_L1_error)
   try {
     __pyx_t_2 = std::isnan(((double)__pyx_t_4));
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(1, 318, __pyx_L1_error)
+    __PYX_ERR(1, 316, __pyx_L1_error)
   }
   __pyx_t_1 = __pyx_t_2;
   __pyx_L7_bool_binop_done:;
   if (__pyx_t_1) {
 
-    /* "cpp_common.pxd":319
+    /* "cpp_common.pxd":317
  * 
  *     if isinstance(s, float) and isnan(<double>s):
  *         return True             # <<<<<<<<<<<<<<
@@ -3712,7 +3712,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
     __pyx_r = 1;
     goto __pyx_L0;
 
-    /* "cpp_common.pxd":318
+    /* "cpp_common.pxd":316
  *         return True
  * 
  *     if isinstance(s, float) and isnan(<double>s):             # <<<<<<<<<<<<<<
@@ -3721,7 +3721,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
 */
   }
 
-  /* "cpp_common.pxd":321
+  /* "cpp_common.pxd":319
  *         return True
  * 
  *     return False             # <<<<<<<<<<<<<<
@@ -3731,7 +3731,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
   __pyx_r = 0;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":314
+  /* "cpp_common.pxd":312
  *     return True
  * 
  * cdef inline bool is_none(s) noexcept:             # <<<<<<<<<<<<<<
@@ -3749,7 +3749,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_is_none(PyObject *__pyx_v_s) {
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":326
+/* "cpp_common.pxd":324
  * # converting strings. This has to be done carefully, since especially with preprocessor functions
  * # the none check is often required before calling the preprocessing functions to keep the current behaviour
  * cdef inline bool conv_sequence_with_none(seq, RF_String* c_seq) except False:             # <<<<<<<<<<<<<<
@@ -3769,7 +3769,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("conv_sequence_with_none", 0);
 
-  /* "cpp_common.pxd":327
+  /* "cpp_common.pxd":325
  * # the none check is often required before calling the preprocessing functions to keep the current behaviour
  * cdef inline bool conv_sequence_with_none(seq, RF_String* c_seq) except False:
  *     if is_valid_string(seq):             # <<<<<<<<<<<<<<
@@ -3780,12 +3780,12 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
     __pyx_t_1 = is_valid_string(__pyx_v_seq);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(1, 327, __pyx_L1_error)
+    __PYX_ERR(1, 325, __pyx_L1_error)
   }
   __pyx_t_2 = (__pyx_t_1 != 0);
   if (__pyx_t_2) {
 
-    /* "cpp_common.pxd":328
+    /* "cpp_common.pxd":326
  * cdef inline bool conv_sequence_with_none(seq, RF_String* c_seq) except False:
  *     if is_valid_string(seq):
  *         c_seq[0] = move(convert_string(seq))             # <<<<<<<<<<<<<<
@@ -3794,7 +3794,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
 */
     (__pyx_v_c_seq[0]) = cython_std::move<RF_String>(convert_string(__pyx_v_seq));
 
-    /* "cpp_common.pxd":327
+    /* "cpp_common.pxd":325
  * # the none check is often required before calling the preprocessing functions to keep the current behaviour
  * cdef inline bool conv_sequence_with_none(seq, RF_String* c_seq) except False:
  *     if is_valid_string(seq):             # <<<<<<<<<<<<<<
@@ -3804,7 +3804,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
     goto __pyx_L3;
   }
 
-  /* "cpp_common.pxd":329
+  /* "cpp_common.pxd":327
  *     if is_valid_string(seq):
  *         c_seq[0] = move(convert_string(seq))
  *     elif is_none(seq):             # <<<<<<<<<<<<<<
@@ -3814,7 +3814,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
   __pyx_t_2 = (__pyx_f_10cpp_common_is_none(__pyx_v_seq) != 0);
   if (__pyx_t_2) {
 
-    /* "cpp_common.pxd":330
+    /* "cpp_common.pxd":328
  *         c_seq[0] = move(convert_string(seq))
  *     elif is_none(seq):
  *         c_seq.length = 0             # <<<<<<<<<<<<<<
@@ -3823,7 +3823,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
 */
     __pyx_v_c_seq->length = 0;
 
-    /* "cpp_common.pxd":331
+    /* "cpp_common.pxd":329
  *     elif is_none(seq):
  *         c_seq.length = 0
  *         c_seq.data = NULL             # <<<<<<<<<<<<<<
@@ -3832,7 +3832,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
 */
     __pyx_v_c_seq->data = NULL;
 
-    /* "cpp_common.pxd":329
+    /* "cpp_common.pxd":327
  *     if is_valid_string(seq):
  *         c_seq[0] = move(convert_string(seq))
  *     elif is_none(seq):             # <<<<<<<<<<<<<<
@@ -3842,29 +3842,29 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
     goto __pyx_L3;
   }
 
-  /* "cpp_common.pxd":332
+  /* "cpp_common.pxd":330
  *         c_seq.length = 0
  *         c_seq.data = NULL
  *     elif isinstance(seq, array):             # <<<<<<<<<<<<<<
  *         hash_array(seq, c_seq)
  *     else:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 332, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 330, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_seq, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 332, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_seq, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 330, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_2) {
 
-    /* "cpp_common.pxd":333
+    /* "cpp_common.pxd":331
  *         c_seq.data = NULL
  *     elif isinstance(seq, array):
  *         hash_array(seq, c_seq)             # <<<<<<<<<<<<<<
  *     else:
  *         hash_sequence(seq, c_seq)
 */
-    __pyx_t_4 = __pyx_f_10cpp_common_hash_array(__pyx_v_seq, __pyx_v_c_seq); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 333, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_10cpp_common_hash_array(__pyx_v_seq, __pyx_v_c_seq); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 331, __pyx_L1_error)
 
-    /* "cpp_common.pxd":332
+    /* "cpp_common.pxd":330
  *         c_seq.length = 0
  *         c_seq.data = NULL
  *     elif isinstance(seq, array):             # <<<<<<<<<<<<<<
@@ -3874,7 +3874,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
     goto __pyx_L3;
   }
 
-  /* "cpp_common.pxd":335
+  /* "cpp_common.pxd":333
  *         hash_array(seq, c_seq)
  *     else:
  *         hash_sequence(seq, c_seq)             # <<<<<<<<<<<<<<
@@ -3882,11 +3882,11 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
  *     return True
 */
   /*else*/ {
-    __pyx_t_4 = __pyx_f_10cpp_common_hash_sequence(__pyx_v_seq, __pyx_v_c_seq); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 335, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_10cpp_common_hash_sequence(__pyx_v_seq, __pyx_v_c_seq); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 333, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "cpp_common.pxd":337
+  /* "cpp_common.pxd":335
  *         hash_sequence(seq, c_seq)
  * 
  *     return True             # <<<<<<<<<<<<<<
@@ -3896,7 +3896,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":326
+  /* "cpp_common.pxd":324
  * # converting strings. This has to be done carefully, since especially with preprocessor functions
  * # the none check is often required before calling the preprocessing functions to keep the current behaviour
  * cdef inline bool conv_sequence_with_none(seq, RF_String* c_seq) except False:             # <<<<<<<<<<<<<<
@@ -3914,7 +3914,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_conv_sequence_with_none(PyObject 
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":339
+/* "cpp_common.pxd":337
  *     return True
  * 
  * cdef inline RF_String conv_sequence(seq) except *:             # <<<<<<<<<<<<<<
@@ -3935,7 +3935,7 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("conv_sequence", 0);
 
-  /* "cpp_common.pxd":341
+  /* "cpp_common.pxd":339
  * cdef inline RF_String conv_sequence(seq) except *:
  *     cdef RF_String c_seq
  *     if is_valid_string(seq):             # <<<<<<<<<<<<<<
@@ -3946,12 +3946,12 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
     __pyx_t_1 = is_valid_string(__pyx_v_seq);
   } catch(...) {
     __Pyx_CppExn2PyErr();
-    __PYX_ERR(1, 341, __pyx_L1_error)
+    __PYX_ERR(1, 339, __pyx_L1_error)
   }
   __pyx_t_2 = (__pyx_t_1 != 0);
   if (__pyx_t_2) {
 
-    /* "cpp_common.pxd":342
+    /* "cpp_common.pxd":340
  *     cdef RF_String c_seq
  *     if is_valid_string(seq):
  *         c_seq = move(convert_string(seq))             # <<<<<<<<<<<<<<
@@ -3960,7 +3960,7 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
 */
     __pyx_v_c_seq = cython_std::move<RF_String>(convert_string(__pyx_v_seq));
 
-    /* "cpp_common.pxd":341
+    /* "cpp_common.pxd":339
  * cdef inline RF_String conv_sequence(seq) except *:
  *     cdef RF_String c_seq
  *     if is_valid_string(seq):             # <<<<<<<<<<<<<<
@@ -3970,29 +3970,29 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
     goto __pyx_L3;
   }
 
-  /* "cpp_common.pxd":343
+  /* "cpp_common.pxd":341
  *     if is_valid_string(seq):
  *         c_seq = move(convert_string(seq))
  *     elif isinstance(seq, array):             # <<<<<<<<<<<<<<
  *         hash_array(seq, &c_seq)
  *     else:
 */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 343, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_mstate_global->__pyx_n_u_array); if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 341, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_2 = PyObject_IsInstance(__pyx_v_seq, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 343, __pyx_L1_error)
+  __pyx_t_2 = PyObject_IsInstance(__pyx_v_seq, __pyx_t_3); if (unlikely(__pyx_t_2 == ((int)-1))) __PYX_ERR(1, 341, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
   if (__pyx_t_2) {
 
-    /* "cpp_common.pxd":344
+    /* "cpp_common.pxd":342
  *         c_seq = move(convert_string(seq))
  *     elif isinstance(seq, array):
  *         hash_array(seq, &c_seq)             # <<<<<<<<<<<<<<
  *     else:
  *         hash_sequence(seq, &c_seq)
 */
-    __pyx_t_4 = __pyx_f_10cpp_common_hash_array(__pyx_v_seq, (&__pyx_v_c_seq)); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 344, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_10cpp_common_hash_array(__pyx_v_seq, (&__pyx_v_c_seq)); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 342, __pyx_L1_error)
 
-    /* "cpp_common.pxd":343
+    /* "cpp_common.pxd":341
  *     if is_valid_string(seq):
  *         c_seq = move(convert_string(seq))
  *     elif isinstance(seq, array):             # <<<<<<<<<<<<<<
@@ -4002,7 +4002,7 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
     goto __pyx_L3;
   }
 
-  /* "cpp_common.pxd":346
+  /* "cpp_common.pxd":344
  *         hash_array(seq, &c_seq)
  *     else:
  *         hash_sequence(seq, &c_seq)             # <<<<<<<<<<<<<<
@@ -4010,11 +4010,11 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
  *     return move(c_seq)
 */
   /*else*/ {
-    __pyx_t_4 = __pyx_f_10cpp_common_hash_sequence(__pyx_v_seq, (&__pyx_v_c_seq)); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 346, __pyx_L1_error)
+    __pyx_t_4 = __pyx_f_10cpp_common_hash_sequence(__pyx_v_seq, (&__pyx_v_c_seq)); if (unlikely(__pyx_t_4 == ((bool)0))) __PYX_ERR(1, 344, __pyx_L1_error)
   }
   __pyx_L3:;
 
-  /* "cpp_common.pxd":348
+  /* "cpp_common.pxd":346
  *         hash_sequence(seq, &c_seq)
  * 
  *     return move(c_seq)             # <<<<<<<<<<<<<<
@@ -4024,7 +4024,7 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
   __pyx_r = cython_std::move<RF_String>(__pyx_v_c_seq);
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":339
+  /* "cpp_common.pxd":337
  *     return True
  * 
  * cdef inline RF_String conv_sequence(seq) except *:             # <<<<<<<<<<<<<<
@@ -4042,7 +4042,7 @@ static CYTHON_INLINE RF_String __pyx_f_10cpp_common_conv_sequence(PyObject *__py
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":350
+/* "cpp_common.pxd":348
  *     return move(c_seq)
  * 
  * cdef inline double get_score_cutoff_f64(score_cutoff, float worst_score, float optimal_score) except *:             # <<<<<<<<<<<<<<
@@ -4070,7 +4070,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_score_cutoff_f64", 0);
 
-  /* "cpp_common.pxd":351
+  /* "cpp_common.pxd":349
  * 
  * cdef inline double get_score_cutoff_f64(score_cutoff, float worst_score, float optimal_score) except *:
  *     cdef float c_score_cutoff = worst_score             # <<<<<<<<<<<<<<
@@ -4079,7 +4079,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
 */
   __pyx_v_c_score_cutoff = __pyx_v_worst_score;
 
-  /* "cpp_common.pxd":353
+  /* "cpp_common.pxd":351
  *     cdef float c_score_cutoff = worst_score
  * 
  *     if score_cutoff is not None:             # <<<<<<<<<<<<<<
@@ -4089,17 +4089,17 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
   __pyx_t_1 = (__pyx_v_score_cutoff != Py_None);
   if (__pyx_t_1) {
 
-    /* "cpp_common.pxd":354
+    /* "cpp_common.pxd":352
  * 
  *     if score_cutoff is not None:
  *         c_score_cutoff = score_cutoff             # <<<<<<<<<<<<<<
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
 */
-    __pyx_t_2 = __Pyx_PyFloat_AsFloat(__pyx_v_score_cutoff); if (unlikely((__pyx_t_2 == (float)-1) && PyErr_Occurred())) __PYX_ERR(1, 354, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyFloat_AsFloat(__pyx_v_score_cutoff); if (unlikely((__pyx_t_2 == (float)-1) && PyErr_Occurred())) __PYX_ERR(1, 352, __pyx_L1_error)
     __pyx_v_c_score_cutoff = __pyx_t_2;
 
-    /* "cpp_common.pxd":355
+    /* "cpp_common.pxd":353
  *     if score_cutoff is not None:
  *         c_score_cutoff = score_cutoff
  *         if optimal_score > worst_score:             # <<<<<<<<<<<<<<
@@ -4109,7 +4109,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
     __pyx_t_1 = (__pyx_v_optimal_score > __pyx_v_worst_score);
     if (__pyx_t_1) {
 
-      /* "cpp_common.pxd":357
+      /* "cpp_common.pxd":355
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:             # <<<<<<<<<<<<<<
@@ -4127,7 +4127,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
       __pyx_L6_bool_binop_done:;
       if (unlikely(__pyx_t_1)) {
 
-        /* "cpp_common.pxd":358
+        /* "cpp_common.pxd":356
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:
  *                 raise TypeError("score_cutoff has to be in the range of %s - %s" % (worst_score, optimal_score))             # <<<<<<<<<<<<<<
@@ -4137,14 +4137,14 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
         __pyx_t_5 = NULL;
         __Pyx_INCREF(__pyx_builtin_TypeError);
         __pyx_t_6 = __pyx_builtin_TypeError; 
-        __pyx_t_7 = PyFloat_FromDouble(__pyx_v_worst_score); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 358, __pyx_L1_error)
+        __pyx_t_7 = PyFloat_FromDouble(__pyx_v_worst_score); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_t_7), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 358, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_t_7), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        __pyx_t_7 = PyFloat_FromDouble(__pyx_v_optimal_score); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 358, __pyx_L1_error)
+        __pyx_t_7 = PyFloat_FromDouble(__pyx_v_optimal_score); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_9 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_t_7), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 358, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyObject_FormatSimpleAndDecref(PyObject_Str(__pyx_t_7), __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __pyx_t_10[0] = __pyx_mstate_global->__pyx_kp_u_score_cutoff_has_to_be_in_the_ra;
@@ -4152,7 +4152,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
         __pyx_t_10[2] = __pyx_mstate_global->__pyx_kp_u_;
         __pyx_t_10[3] = __pyx_t_9;
         __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_10, 4, 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9));
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 358, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 356, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
@@ -4163,14 +4163,14 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 358, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 356, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_Raise(__pyx_t_4, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __PYX_ERR(1, 358, __pyx_L1_error)
+        __PYX_ERR(1, 356, __pyx_L1_error)
 
-        /* "cpp_common.pxd":357
+        /* "cpp_common.pxd":355
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:             # <<<<<<<<<<<<<<
@@ -4179,7 +4179,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
 */
       }
 
-      /* "cpp_common.pxd":355
+      /* "cpp_common.pxd":353
  *     if score_cutoff is not None:
  *         c_score_cutoff = score_cutoff
  *         if optimal_score > worst_score:             # <<<<<<<<<<<<<<
@@ -4189,7 +4189,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
       goto __pyx_L4;
     }
 
-    /* "cpp_common.pxd":361
+    /* "cpp_common.pxd":359
  *         else:
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:             # <<<<<<<<<<<<<<
@@ -4208,7 +4208,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
       __pyx_L9_bool_binop_done:;
       if (unlikely(__pyx_t_1)) {
 
-        /* "cpp_common.pxd":362
+        /* "cpp_common.pxd":360
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:
  *                 raise TypeError(f"score_cutoff has to be in the range of {optimal_score} - {worst_score}")             # <<<<<<<<<<<<<<
@@ -4218,14 +4218,14 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
         __pyx_t_6 = NULL;
         __Pyx_INCREF(__pyx_builtin_TypeError);
         __pyx_t_7 = __pyx_builtin_TypeError; 
-        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_optimal_score); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 362, __pyx_L1_error)
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_optimal_score); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 360, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 362, __pyx_L1_error)
+        __pyx_t_9 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_9)) __PYX_ERR(1, 360, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_9);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_worst_score); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 362, __pyx_L1_error)
+        __pyx_t_5 = PyFloat_FromDouble(__pyx_v_worst_score); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 360, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 362, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_5, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 360, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __pyx_t_10[0] = __pyx_mstate_global->__pyx_kp_u_score_cutoff_has_to_be_in_the_ra;
@@ -4233,7 +4233,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
         __pyx_t_10[2] = __pyx_mstate_global->__pyx_kp_u_;
         __pyx_t_10[3] = __pyx_t_8;
         __pyx_t_5 = __Pyx_PyUnicode_Join(__pyx_t_10, 4, 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_9) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_9) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-        if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 362, __pyx_L1_error)
+        if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 360, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
         __Pyx_DECREF(__pyx_t_9); __pyx_t_9 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -4244,14 +4244,14 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 362, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 360, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_Raise(__pyx_t_4, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __PYX_ERR(1, 362, __pyx_L1_error)
+        __PYX_ERR(1, 360, __pyx_L1_error)
 
-        /* "cpp_common.pxd":361
+        /* "cpp_common.pxd":359
  *         else:
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:             # <<<<<<<<<<<<<<
@@ -4262,7 +4262,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
     }
     __pyx_L4:;
 
-    /* "cpp_common.pxd":353
+    /* "cpp_common.pxd":351
  *     cdef float c_score_cutoff = worst_score
  * 
  *     if score_cutoff is not None:             # <<<<<<<<<<<<<<
@@ -4271,7 +4271,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
 */
   }
 
-  /* "cpp_common.pxd":364
+  /* "cpp_common.pxd":362
  *                 raise TypeError(f"score_cutoff has to be in the range of {optimal_score} - {worst_score}")
  * 
  *     return c_score_cutoff             # <<<<<<<<<<<<<<
@@ -4281,7 +4281,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
   __pyx_r = __pyx_v_c_score_cutoff;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":350
+  /* "cpp_common.pxd":348
  *     return move(c_seq)
  * 
  * cdef inline double get_score_cutoff_f64(score_cutoff, float worst_score, float optimal_score) except *:             # <<<<<<<<<<<<<<
@@ -4304,7 +4304,7 @@ static CYTHON_INLINE double __pyx_f_10cpp_common_get_score_cutoff_f64(PyObject *
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":366
+/* "cpp_common.pxd":364
  *     return c_score_cutoff
  * 
  * cdef inline int64_t get_score_cutoff_i64(score_cutoff, int64_t worst_score, int64_t optimal_score) except *:             # <<<<<<<<<<<<<<
@@ -4331,7 +4331,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_score_cutoff_i64", 0);
 
-  /* "cpp_common.pxd":367
+  /* "cpp_common.pxd":365
  * 
  * cdef inline int64_t get_score_cutoff_i64(score_cutoff, int64_t worst_score, int64_t optimal_score) except *:
  *     cdef int64_t c_score_cutoff = worst_score             # <<<<<<<<<<<<<<
@@ -4340,7 +4340,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
 */
   __pyx_v_c_score_cutoff = __pyx_v_worst_score;
 
-  /* "cpp_common.pxd":369
+  /* "cpp_common.pxd":367
  *     cdef int64_t c_score_cutoff = worst_score
  * 
  *     if score_cutoff is not None:             # <<<<<<<<<<<<<<
@@ -4350,7 +4350,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
   __pyx_t_1 = (__pyx_v_score_cutoff != Py_None);
   if (__pyx_t_1) {
 
-    /* "cpp_common.pxd":370
+    /* "cpp_common.pxd":368
  * 
  *     if score_cutoff is not None:
  *         if optimal_score > worst_score:             # <<<<<<<<<<<<<<
@@ -4360,7 +4360,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
     __pyx_t_1 = (__pyx_v_optimal_score > __pyx_v_worst_score);
     if (__pyx_t_1) {
 
-      /* "cpp_common.pxd":372
+      /* "cpp_common.pxd":370
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:             # <<<<<<<<<<<<<<
@@ -4378,7 +4378,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
       __pyx_L6_bool_binop_done:;
       if (unlikely(__pyx_t_1)) {
 
-        /* "cpp_common.pxd":373
+        /* "cpp_common.pxd":371
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:
  *                 raise TypeError(f"score_cutoff has to be in the range of {worst_score} - {optimal_score}")             # <<<<<<<<<<<<<<
@@ -4388,14 +4388,14 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
         __pyx_t_4 = NULL;
         __Pyx_INCREF(__pyx_builtin_TypeError);
         __pyx_t_5 = __pyx_builtin_TypeError; 
-        __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_worst_score); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 373, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_worst_score); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 371, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 373, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 371, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-        __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_optimal_score); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 373, __pyx_L1_error)
+        __pyx_t_6 = __Pyx_PyLong_From_int64_t(__pyx_v_optimal_score); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 371, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
-        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 373, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_6, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 371, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
         __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_score_cutoff_has_to_be_in_the_ra;
@@ -4403,7 +4403,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
         __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u_;
         __pyx_t_9[3] = __pyx_t_8;
         __pyx_t_6 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8));
-        if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 373, __pyx_L1_error)
+        if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 371, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_6);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -4414,14 +4414,14 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
           __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 373, __pyx_L1_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 371, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_Raise(__pyx_t_3, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __PYX_ERR(1, 373, __pyx_L1_error)
+        __PYX_ERR(1, 371, __pyx_L1_error)
 
-        /* "cpp_common.pxd":372
+        /* "cpp_common.pxd":370
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:             # <<<<<<<<<<<<<<
@@ -4430,7 +4430,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
 */
       }
 
-      /* "cpp_common.pxd":370
+      /* "cpp_common.pxd":368
  * 
  *     if score_cutoff is not None:
  *         if optimal_score > worst_score:             # <<<<<<<<<<<<<<
@@ -4440,7 +4440,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
       goto __pyx_L4;
     }
 
-    /* "cpp_common.pxd":376
+    /* "cpp_common.pxd":374
  *         else:
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:             # <<<<<<<<<<<<<<
@@ -4459,7 +4459,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
       __pyx_L9_bool_binop_done:;
       if (unlikely(__pyx_t_1)) {
 
-        /* "cpp_common.pxd":377
+        /* "cpp_common.pxd":375
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:
  *                 raise TypeError(f"score_cutoff has to be in the range of {optimal_score} - {worst_score}")             # <<<<<<<<<<<<<<
@@ -4469,14 +4469,14 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
         __pyx_t_5 = NULL;
         __Pyx_INCREF(__pyx_builtin_TypeError);
         __pyx_t_6 = __pyx_builtin_TypeError; 
-        __pyx_t_4 = __Pyx_PyLong_From_int64_t(__pyx_v_optimal_score); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 377, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyLong_From_int64_t(__pyx_v_optimal_score); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 375, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 377, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 375, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __pyx_t_4 = __Pyx_PyLong_From_int64_t(__pyx_v_worst_score); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 377, __pyx_L1_error)
+        __pyx_t_4 = __Pyx_PyLong_From_int64_t(__pyx_v_worst_score); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 375, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
-        __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 377, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyObject_FormatSimple(__pyx_t_4, __pyx_mstate_global->__pyx_empty_unicode); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 375, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
         __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_score_cutoff_has_to_be_in_the_ra;
@@ -4484,7 +4484,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
         __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u_;
         __pyx_t_9[3] = __pyx_t_7;
         __pyx_t_4 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7), 127 | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_8) | __Pyx_PyUnicode_MAX_CHAR_VALUE(__pyx_t_7));
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 377, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 375, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
@@ -4495,14 +4495,14 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 377, __pyx_L1_error)
+          if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 375, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_3);
         }
         __Pyx_Raise(__pyx_t_3, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-        __PYX_ERR(1, 377, __pyx_L1_error)
+        __PYX_ERR(1, 375, __pyx_L1_error)
 
-        /* "cpp_common.pxd":376
+        /* "cpp_common.pxd":374
  *         else:
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:             # <<<<<<<<<<<<<<
@@ -4513,7 +4513,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
     }
     __pyx_L4:;
 
-    /* "cpp_common.pxd":369
+    /* "cpp_common.pxd":367
  *     cdef int64_t c_score_cutoff = worst_score
  * 
  *     if score_cutoff is not None:             # <<<<<<<<<<<<<<
@@ -4522,7 +4522,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
 */
   }
 
-  /* "cpp_common.pxd":379
+  /* "cpp_common.pxd":377
  *                 raise TypeError(f"score_cutoff has to be in the range of {optimal_score} - {worst_score}")
  * 
  *     return c_score_cutoff             # <<<<<<<<<<<<<<
@@ -4532,7 +4532,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
   __pyx_r = __pyx_v_c_score_cutoff;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":366
+  /* "cpp_common.pxd":364
  *     return c_score_cutoff
  * 
  * cdef inline int64_t get_score_cutoff_i64(score_cutoff, int64_t worst_score, int64_t optimal_score) except *:             # <<<<<<<<<<<<<<
@@ -4555,7 +4555,7 @@ static CYTHON_INLINE int64_t __pyx_f_10cpp_common_get_score_cutoff_i64(PyObject 
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":381
+/* "cpp_common.pxd":379
  *     return c_score_cutoff
  * 
  * cdef inline size_t get_score_cutoff_size_t(score_cutoff, size_t worst_score, size_t optimal_score) except *:             # <<<<<<<<<<<<<<
@@ -4583,7 +4583,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("get_score_cutoff_size_t", 0);
 
-  /* "cpp_common.pxd":382
+  /* "cpp_common.pxd":380
  * 
  * cdef inline size_t get_score_cutoff_size_t(score_cutoff, size_t worst_score, size_t optimal_score) except *:
  *     cdef uint64_t c_score_cutoff = worst_score             # <<<<<<<<<<<<<<
@@ -4592,7 +4592,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
 */
   __pyx_v_c_score_cutoff = __pyx_v_worst_score;
 
-  /* "cpp_common.pxd":384
+  /* "cpp_common.pxd":382
  *     cdef uint64_t c_score_cutoff = worst_score
  * 
  *     if score_cutoff is not None:             # <<<<<<<<<<<<<<
@@ -4602,17 +4602,17 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
   __pyx_t_1 = (__pyx_v_score_cutoff != Py_None);
   if (__pyx_t_1) {
 
-    /* "cpp_common.pxd":385
+    /* "cpp_common.pxd":383
  * 
  *     if score_cutoff is not None:
  *         c_score_cutoff = score_cutoff             # <<<<<<<<<<<<<<
  *         if c_score_cutoff > SIZE_MAX:
  *             c_score_cutoff = SIZE_MAX
 */
-    __pyx_t_2 = __Pyx_PyLong_As_uint64_t(__pyx_v_score_cutoff); if (unlikely((__pyx_t_2 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(1, 385, __pyx_L1_error)
+    __pyx_t_2 = __Pyx_PyLong_As_uint64_t(__pyx_v_score_cutoff); if (unlikely((__pyx_t_2 == ((uint64_t)-1)) && PyErr_Occurred())) __PYX_ERR(1, 383, __pyx_L1_error)
     __pyx_v_c_score_cutoff = __pyx_t_2;
 
-    /* "cpp_common.pxd":386
+    /* "cpp_common.pxd":384
  *     if score_cutoff is not None:
  *         c_score_cutoff = score_cutoff
  *         if c_score_cutoff > SIZE_MAX:             # <<<<<<<<<<<<<<
@@ -4622,7 +4622,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
     __pyx_t_1 = (__pyx_v_c_score_cutoff > SIZE_MAX);
     if (__pyx_t_1) {
 
-      /* "cpp_common.pxd":387
+      /* "cpp_common.pxd":385
  *         c_score_cutoff = score_cutoff
  *         if c_score_cutoff > SIZE_MAX:
  *             c_score_cutoff = SIZE_MAX             # <<<<<<<<<<<<<<
@@ -4631,7 +4631,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
 */
       __pyx_v_c_score_cutoff = SIZE_MAX;
 
-      /* "cpp_common.pxd":386
+      /* "cpp_common.pxd":384
  *     if score_cutoff is not None:
  *         c_score_cutoff = score_cutoff
  *         if c_score_cutoff > SIZE_MAX:             # <<<<<<<<<<<<<<
@@ -4640,7 +4640,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
 */
     }
 
-    /* "cpp_common.pxd":389
+    /* "cpp_common.pxd":387
  *             c_score_cutoff = SIZE_MAX
  * 
  *         if optimal_score > worst_score:             # <<<<<<<<<<<<<<
@@ -4650,7 +4650,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
     __pyx_t_1 = (__pyx_v_optimal_score > __pyx_v_worst_score);
     if (__pyx_t_1) {
 
-      /* "cpp_common.pxd":391
+      /* "cpp_common.pxd":389
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:             # <<<<<<<<<<<<<<
@@ -4668,7 +4668,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
       __pyx_L7_bool_binop_done:;
       if (unlikely(__pyx_t_1)) {
 
-        /* "cpp_common.pxd":392
+        /* "cpp_common.pxd":390
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:
  *                 raise TypeError(f"score_cutoff has to be in the range of {worst_score} - {optimal_score}")             # <<<<<<<<<<<<<<
@@ -4678,16 +4678,16 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
         __pyx_t_5 = NULL;
         __Pyx_INCREF(__pyx_builtin_TypeError);
         __pyx_t_6 = __pyx_builtin_TypeError; 
-        __pyx_t_7 = __Pyx_PyUnicode_From_size_t(__pyx_v_worst_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 392, __pyx_L1_error)
+        __pyx_t_7 = __Pyx_PyUnicode_From_size_t(__pyx_v_worst_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 390, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
-        __pyx_t_8 = __Pyx_PyUnicode_From_size_t(__pyx_v_optimal_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 392, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyUnicode_From_size_t(__pyx_v_optimal_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 390, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_score_cutoff_has_to_be_in_the_ra;
         __pyx_t_9[1] = __pyx_t_7;
         __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u_;
         __pyx_t_9[3] = __pyx_t_8;
         __pyx_t_10 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_7) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 127);
-        if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 392, __pyx_L1_error)
+        if (unlikely(!__pyx_t_10)) __PYX_ERR(1, 390, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_10);
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -4698,14 +4698,14 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
           __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
           __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 392, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 390, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_Raise(__pyx_t_4, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __PYX_ERR(1, 392, __pyx_L1_error)
+        __PYX_ERR(1, 390, __pyx_L1_error)
 
-        /* "cpp_common.pxd":391
+        /* "cpp_common.pxd":389
  *         if optimal_score > worst_score:
  *             # e.g. 0.0 - 100.0
  *             if c_score_cutoff < worst_score or c_score_cutoff > optimal_score:             # <<<<<<<<<<<<<<
@@ -4714,7 +4714,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
 */
       }
 
-      /* "cpp_common.pxd":389
+      /* "cpp_common.pxd":387
  *             c_score_cutoff = SIZE_MAX
  * 
  *         if optimal_score > worst_score:             # <<<<<<<<<<<<<<
@@ -4724,7 +4724,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
       goto __pyx_L5;
     }
 
-    /* "cpp_common.pxd":395
+    /* "cpp_common.pxd":393
  *         else:
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:             # <<<<<<<<<<<<<<
@@ -4743,7 +4743,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
       __pyx_L10_bool_binop_done:;
       if (unlikely(__pyx_t_1)) {
 
-        /* "cpp_common.pxd":396
+        /* "cpp_common.pxd":394
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:
  *                 raise TypeError(f"score_cutoff has to be in the range of {optimal_score} - {worst_score}")             # <<<<<<<<<<<<<<
@@ -4753,16 +4753,16 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
         __pyx_t_6 = NULL;
         __Pyx_INCREF(__pyx_builtin_TypeError);
         __pyx_t_10 = __pyx_builtin_TypeError; 
-        __pyx_t_5 = __Pyx_PyUnicode_From_size_t(__pyx_v_optimal_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 396, __pyx_L1_error)
+        __pyx_t_5 = __Pyx_PyUnicode_From_size_t(__pyx_v_optimal_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_5)) __PYX_ERR(1, 394, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_5);
-        __pyx_t_8 = __Pyx_PyUnicode_From_size_t(__pyx_v_worst_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 396, __pyx_L1_error)
+        __pyx_t_8 = __Pyx_PyUnicode_From_size_t(__pyx_v_worst_score, 0, ' ', 'd'); if (unlikely(!__pyx_t_8)) __PYX_ERR(1, 394, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_8);
         __pyx_t_9[0] = __pyx_mstate_global->__pyx_kp_u_score_cutoff_has_to_be_in_the_ra;
         __pyx_t_9[1] = __pyx_t_5;
         __pyx_t_9[2] = __pyx_mstate_global->__pyx_kp_u_;
         __pyx_t_9[3] = __pyx_t_8;
         __pyx_t_7 = __Pyx_PyUnicode_Join(__pyx_t_9, 4, 39 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_5) + 3 + __Pyx_PyUnicode_GET_LENGTH(__pyx_t_8), 127);
-        if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 396, __pyx_L1_error)
+        if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 394, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_7);
         __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
@@ -4773,14 +4773,14 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
           __Pyx_XDECREF(__pyx_t_6); __pyx_t_6 = 0;
           __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
           __Pyx_DECREF(__pyx_t_10); __pyx_t_10 = 0;
-          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 396, __pyx_L1_error)
+          if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 394, __pyx_L1_error)
           __Pyx_GOTREF(__pyx_t_4);
         }
         __Pyx_Raise(__pyx_t_4, 0, 0, 0);
         __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
-        __PYX_ERR(1, 396, __pyx_L1_error)
+        __PYX_ERR(1, 394, __pyx_L1_error)
 
-        /* "cpp_common.pxd":395
+        /* "cpp_common.pxd":393
  *         else:
  *             # e.g. DBL_MAX - 0
  *             if c_score_cutoff > worst_score or c_score_cutoff < optimal_score:             # <<<<<<<<<<<<<<
@@ -4791,7 +4791,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
     }
     __pyx_L5:;
 
-    /* "cpp_common.pxd":384
+    /* "cpp_common.pxd":382
  *     cdef uint64_t c_score_cutoff = worst_score
  * 
  *     if score_cutoff is not None:             # <<<<<<<<<<<<<<
@@ -4800,7 +4800,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
 */
   }
 
-  /* "cpp_common.pxd":398
+  /* "cpp_common.pxd":396
  *                 raise TypeError(f"score_cutoff has to be in the range of {optimal_score} - {worst_score}")
  * 
  *     return <size_t>c_score_cutoff             # <<<<<<<<<<<<<<
@@ -4810,7 +4810,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
   __pyx_r = ((size_t)__pyx_v_c_score_cutoff);
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":381
+  /* "cpp_common.pxd":379
  *     return c_score_cutoff
  * 
  * cdef inline size_t get_score_cutoff_size_t(score_cutoff, size_t worst_score, size_t optimal_score) except *:             # <<<<<<<<<<<<<<
@@ -4833,7 +4833,7 @@ static CYTHON_INLINE size_t __pyx_f_10cpp_common_get_score_cutoff_size_t(PyObjec
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":400
+/* "cpp_common.pxd":398
  *     return <size_t>c_score_cutoff
  * 
  * cdef inline bool preprocess_strings(s1, s2, processor, RF_StringWrapper* s1_proc, RF_StringWrapper* s2_proc) except False:             # <<<<<<<<<<<<<<
@@ -4862,7 +4862,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
   __Pyx_INCREF(__pyx_v_s1);
   __Pyx_INCREF(__pyx_v_s2);
 
-  /* "cpp_common.pxd":401
+  /* "cpp_common.pxd":399
  * 
  * cdef inline bool preprocess_strings(s1, s2, processor, RF_StringWrapper* s1_proc, RF_StringWrapper* s2_proc) except False:
  *     cdef RF_Preprocessor* preprocess_context = NULL             # <<<<<<<<<<<<<<
@@ -4871,38 +4871,38 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
 */
   __pyx_v_preprocess_context = NULL;
 
-  /* "cpp_common.pxd":403
+  /* "cpp_common.pxd":401
  *     cdef RF_Preprocessor* preprocess_context = NULL
  * 
  *     if not processor:             # <<<<<<<<<<<<<<
  *         s1_proc[0] = RF_StringWrapper(conv_sequence(s1))
  *         s2_proc[0] = RF_StringWrapper(conv_sequence(s2))
 */
-  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_processor); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(1, 403, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_IsTrue(__pyx_v_processor); if (unlikely((__pyx_t_1 < 0))) __PYX_ERR(1, 401, __pyx_L1_error)
   __pyx_t_2 = (!__pyx_t_1);
   if (__pyx_t_2) {
 
-    /* "cpp_common.pxd":404
+    /* "cpp_common.pxd":402
  * 
  *     if not processor:
  *         s1_proc[0] = RF_StringWrapper(conv_sequence(s1))             # <<<<<<<<<<<<<<
  *         s2_proc[0] = RF_StringWrapper(conv_sequence(s2))
  *     else:
 */
-    __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 404, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 402, __pyx_L1_error)
     (__pyx_v_s1_proc[0]) = RF_StringWrapper(__pyx_t_3);
 
-    /* "cpp_common.pxd":405
+    /* "cpp_common.pxd":403
  *     if not processor:
  *         s1_proc[0] = RF_StringWrapper(conv_sequence(s1))
  *         s2_proc[0] = RF_StringWrapper(conv_sequence(s2))             # <<<<<<<<<<<<<<
  *     else:
  *         processor_capsule = getattr(processor, '_RF_Preprocess', processor)
 */
-    __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s2); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 405, __pyx_L1_error)
+    __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s2); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 403, __pyx_L1_error)
     (__pyx_v_s2_proc[0]) = RF_StringWrapper(__pyx_t_3);
 
-    /* "cpp_common.pxd":403
+    /* "cpp_common.pxd":401
  *     cdef RF_Preprocessor* preprocess_context = NULL
  * 
  *     if not processor:             # <<<<<<<<<<<<<<
@@ -4912,7 +4912,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
     goto __pyx_L3;
   }
 
-  /* "cpp_common.pxd":407
+  /* "cpp_common.pxd":405
  *         s2_proc[0] = RF_StringWrapper(conv_sequence(s2))
  *     else:
  *         processor_capsule = getattr(processor, '_RF_Preprocess', processor)             # <<<<<<<<<<<<<<
@@ -4920,12 +4920,12 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
  *             preprocess_context = <RF_Preprocessor*>PyCapsule_GetPointer(processor_capsule, NULL)
 */
   /*else*/ {
-    __pyx_t_4 = __Pyx_GetAttr3(__pyx_v_processor, __pyx_mstate_global->__pyx_n_u_RF_Preprocess, __pyx_v_processor); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 407, __pyx_L1_error)
+    __pyx_t_4 = __Pyx_GetAttr3(__pyx_v_processor, __pyx_mstate_global->__pyx_n_u_RF_Preprocess, __pyx_v_processor); if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 405, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_4);
     __pyx_v_processor_capsule = __pyx_t_4;
     __pyx_t_4 = 0;
 
-    /* "cpp_common.pxd":408
+    /* "cpp_common.pxd":406
  *     else:
  *         processor_capsule = getattr(processor, '_RF_Preprocess', processor)
  *         if PyCapsule_IsValid(processor_capsule, NULL):             # <<<<<<<<<<<<<<
@@ -4935,17 +4935,17 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
     __pyx_t_2 = PyCapsule_IsValid(__pyx_v_processor_capsule, NULL);
     if (__pyx_t_2) {
 
-      /* "cpp_common.pxd":409
+      /* "cpp_common.pxd":407
  *         processor_capsule = getattr(processor, '_RF_Preprocess', processor)
  *         if PyCapsule_IsValid(processor_capsule, NULL):
  *             preprocess_context = <RF_Preprocessor*>PyCapsule_GetPointer(processor_capsule, NULL)             # <<<<<<<<<<<<<<
  * 
  *         if preprocess_context != NULL and preprocess_context.version == 1:
 */
-      __pyx_t_5 = PyCapsule_GetPointer(__pyx_v_processor_capsule, NULL); if (unlikely(__pyx_t_5 == ((void *)0) && PyErr_Occurred())) __PYX_ERR(1, 409, __pyx_L1_error)
+      __pyx_t_5 = PyCapsule_GetPointer(__pyx_v_processor_capsule, NULL); if (unlikely(__pyx_t_5 == ((void *)0) && PyErr_Occurred())) __PYX_ERR(1, 407, __pyx_L1_error)
       __pyx_v_preprocess_context = ((RF_Preprocessor *)__pyx_t_5);
 
-      /* "cpp_common.pxd":408
+      /* "cpp_common.pxd":406
  *     else:
  *         processor_capsule = getattr(processor, '_RF_Preprocess', processor)
  *         if PyCapsule_IsValid(processor_capsule, NULL):             # <<<<<<<<<<<<<<
@@ -4954,7 +4954,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
 */
     }
 
-    /* "cpp_common.pxd":411
+    /* "cpp_common.pxd":409
  *             preprocess_context = <RF_Preprocessor*>PyCapsule_GetPointer(processor_capsule, NULL)
  * 
  *         if preprocess_context != NULL and preprocess_context.version == 1:             # <<<<<<<<<<<<<<
@@ -4972,25 +4972,25 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
     __pyx_L6_bool_binop_done:;
     if (__pyx_t_2) {
 
-      /* "cpp_common.pxd":412
+      /* "cpp_common.pxd":410
  * 
  *         if preprocess_context != NULL and preprocess_context.version == 1:
  *             preprocess_context.preprocess(s1, &(s1_proc[0].string))             # <<<<<<<<<<<<<<
  *             preprocess_context.preprocess(s2, &(s2_proc[0].string))
  *         else:
 */
-      __pyx_t_6 = __pyx_v_preprocess_context->preprocess(__pyx_v_s1, (&(__pyx_v_s1_proc[0]).string)); if (unlikely(__pyx_t_6 == ((bool)0))) __PYX_ERR(1, 412, __pyx_L1_error)
+      __pyx_t_6 = __pyx_v_preprocess_context->preprocess(__pyx_v_s1, (&(__pyx_v_s1_proc[0]).string)); if (unlikely(__pyx_t_6 == ((bool)0))) __PYX_ERR(1, 410, __pyx_L1_error)
 
-      /* "cpp_common.pxd":413
+      /* "cpp_common.pxd":411
  *         if preprocess_context != NULL and preprocess_context.version == 1:
  *             preprocess_context.preprocess(s1, &(s1_proc[0].string))
  *             preprocess_context.preprocess(s2, &(s2_proc[0].string))             # <<<<<<<<<<<<<<
  *         else:
  *             s1 = processor(s1)
 */
-      __pyx_t_6 = __pyx_v_preprocess_context->preprocess(__pyx_v_s2, (&(__pyx_v_s2_proc[0]).string)); if (unlikely(__pyx_t_6 == ((bool)0))) __PYX_ERR(1, 413, __pyx_L1_error)
+      __pyx_t_6 = __pyx_v_preprocess_context->preprocess(__pyx_v_s2, (&(__pyx_v_s2_proc[0]).string)); if (unlikely(__pyx_t_6 == ((bool)0))) __PYX_ERR(1, 411, __pyx_L1_error)
 
-      /* "cpp_common.pxd":411
+      /* "cpp_common.pxd":409
  *             preprocess_context = <RF_Preprocessor*>PyCapsule_GetPointer(processor_capsule, NULL)
  * 
  *         if preprocess_context != NULL and preprocess_context.version == 1:             # <<<<<<<<<<<<<<
@@ -5000,7 +5000,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
       goto __pyx_L5;
     }
 
-    /* "cpp_common.pxd":415
+    /* "cpp_common.pxd":413
  *             preprocess_context.preprocess(s2, &(s2_proc[0].string))
  *         else:
  *             s1 = processor(s1)             # <<<<<<<<<<<<<<
@@ -5028,23 +5028,23 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_8, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_7); __pyx_t_7 = 0;
         __Pyx_DECREF(__pyx_t_8); __pyx_t_8 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 415, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 413, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF_SET(__pyx_v_s1, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "cpp_common.pxd":416
+      /* "cpp_common.pxd":414
  *         else:
  *             s1 = processor(s1)
  *             s1_proc[0] = RF_StringWrapper(conv_sequence(s1), s1)             # <<<<<<<<<<<<<<
  *             s2 = processor(s2)
  *             s2_proc[0] = RF_StringWrapper(conv_sequence(s2), s2)
 */
-      __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 416, __pyx_L1_error)
+      __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s1); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 414, __pyx_L1_error)
       (__pyx_v_s1_proc[0]) = RF_StringWrapper(__pyx_t_3, __pyx_v_s1);
 
-      /* "cpp_common.pxd":417
+      /* "cpp_common.pxd":415
  *             s1 = processor(s1)
  *             s1_proc[0] = RF_StringWrapper(conv_sequence(s1), s1)
  *             s2 = processor(s2)             # <<<<<<<<<<<<<<
@@ -5071,27 +5071,27 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
         __pyx_t_4 = __Pyx_PyObject_FastCall(__pyx_t_7, __pyx_callargs+__pyx_t_9, (2-__pyx_t_9) | (__pyx_t_9*__Pyx_PY_VECTORCALL_ARGUMENTS_OFFSET));
         __Pyx_XDECREF(__pyx_t_8); __pyx_t_8 = 0;
         __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
-        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 417, __pyx_L1_error)
+        if (unlikely(!__pyx_t_4)) __PYX_ERR(1, 415, __pyx_L1_error)
         __Pyx_GOTREF(__pyx_t_4);
       }
       __Pyx_DECREF_SET(__pyx_v_s2, __pyx_t_4);
       __pyx_t_4 = 0;
 
-      /* "cpp_common.pxd":418
+      /* "cpp_common.pxd":416
  *             s1_proc[0] = RF_StringWrapper(conv_sequence(s1), s1)
  *             s2 = processor(s2)
  *             s2_proc[0] = RF_StringWrapper(conv_sequence(s2), s2)             # <<<<<<<<<<<<<<
  * 
  *     return True
 */
-      __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s2); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 418, __pyx_L1_error)
+      __pyx_t_3 = __pyx_f_10cpp_common_conv_sequence(__pyx_v_s2); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 416, __pyx_L1_error)
       (__pyx_v_s2_proc[0]) = RF_StringWrapper(__pyx_t_3, __pyx_v_s2);
     }
     __pyx_L5:;
   }
   __pyx_L3:;
 
-  /* "cpp_common.pxd":420
+  /* "cpp_common.pxd":418
  *             s2_proc[0] = RF_StringWrapper(conv_sequence(s2), s2)
  * 
  *     return True             # <<<<<<<<<<<<<<
@@ -5101,7 +5101,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":400
+  /* "cpp_common.pxd":398
  *     return <size_t>c_score_cutoff
  * 
  * cdef inline bool preprocess_strings(s1, s2, processor, RF_StringWrapper* s1_proc, RF_StringWrapper* s2_proc) except False:             # <<<<<<<<<<<<<<
@@ -5124,7 +5124,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_preprocess_strings(PyObject *__py
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":422
+/* "cpp_common.pxd":420
  *     return True
  * 
  * cdef inline bool NoKwargsInit(RF_Kwargs* self, dict kwargs) except False:             # <<<<<<<<<<<<<<
@@ -5148,7 +5148,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("NoKwargsInit", 0);
 
-  /* "cpp_common.pxd":423
+  /* "cpp_common.pxd":421
  * 
  * cdef inline bool NoKwargsInit(RF_Kwargs* self, dict kwargs) except False:
  *     if len(kwargs):             # <<<<<<<<<<<<<<
@@ -5157,13 +5157,13 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
 */
   if (unlikely(__pyx_v_kwargs == Py_None)) {
     PyErr_SetString(PyExc_TypeError, "object of type 'NoneType' has no len()");
-    __PYX_ERR(1, 423, __pyx_L1_error)
+    __PYX_ERR(1, 421, __pyx_L1_error)
   }
-  __pyx_t_1 = PyDict_Size(__pyx_v_kwargs); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(1, 423, __pyx_L1_error)
+  __pyx_t_1 = PyDict_Size(__pyx_v_kwargs); if (unlikely(__pyx_t_1 == ((Py_ssize_t)-1))) __PYX_ERR(1, 421, __pyx_L1_error)
   __pyx_t_2 = (__pyx_t_1 != 0);
   if (unlikely(__pyx_t_2)) {
 
-    /* "cpp_common.pxd":424
+    /* "cpp_common.pxd":422
  * cdef inline bool NoKwargsInit(RF_Kwargs* self, dict kwargs) except False:
  *     if len(kwargs):
  *         raise TypeError("Got unexpected keyword arguments: ", ", ".join(kwargs.keys()))             # <<<<<<<<<<<<<<
@@ -5175,11 +5175,11 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
     __pyx_t_5 = __pyx_builtin_TypeError; 
     if (unlikely(__pyx_v_kwargs == Py_None)) {
       PyErr_Format(PyExc_AttributeError, "'NoneType' object has no attribute '%.30s'", "keys");
-      __PYX_ERR(1, 424, __pyx_L1_error)
+      __PYX_ERR(1, 422, __pyx_L1_error)
     }
-    __pyx_t_6 = __Pyx_PyDict_Keys(__pyx_v_kwargs); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 424, __pyx_L1_error)
+    __pyx_t_6 = __Pyx_PyDict_Keys(__pyx_v_kwargs); if (unlikely(!__pyx_t_6)) __PYX_ERR(1, 422, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_6);
-    __pyx_t_7 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__2, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 424, __pyx_L1_error)
+    __pyx_t_7 = PyUnicode_Join(__pyx_mstate_global->__pyx_kp_u__2, __pyx_t_6); if (unlikely(!__pyx_t_7)) __PYX_ERR(1, 422, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_7);
     __Pyx_DECREF(__pyx_t_6); __pyx_t_6 = 0;
     __pyx_t_8 = 1;
@@ -5189,14 +5189,14 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
       __Pyx_XDECREF(__pyx_t_4); __pyx_t_4 = 0;
       __Pyx_DECREF(__pyx_t_7); __pyx_t_7 = 0;
       __Pyx_DECREF(__pyx_t_5); __pyx_t_5 = 0;
-      if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 424, __pyx_L1_error)
+      if (unlikely(!__pyx_t_3)) __PYX_ERR(1, 422, __pyx_L1_error)
       __Pyx_GOTREF(__pyx_t_3);
     }
     __Pyx_Raise(__pyx_t_3, 0, 0, 0);
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    __PYX_ERR(1, 424, __pyx_L1_error)
+    __PYX_ERR(1, 422, __pyx_L1_error)
 
-    /* "cpp_common.pxd":423
+    /* "cpp_common.pxd":421
  * 
  * cdef inline bool NoKwargsInit(RF_Kwargs* self, dict kwargs) except False:
  *     if len(kwargs):             # <<<<<<<<<<<<<<
@@ -5205,7 +5205,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
 */
   }
 
-  /* "cpp_common.pxd":426
+  /* "cpp_common.pxd":424
  *         raise TypeError("Got unexpected keyword arguments: ", ", ".join(kwargs.keys()))
  * 
  *     self.context = NULL             # <<<<<<<<<<<<<<
@@ -5214,7 +5214,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
 */
   __pyx_v_self->context = NULL;
 
-  /* "cpp_common.pxd":427
+  /* "cpp_common.pxd":425
  * 
  *     self.context = NULL
  *     self.dtor = NULL             # <<<<<<<<<<<<<<
@@ -5223,7 +5223,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
 */
   __pyx_v_self->dtor = NULL;
 
-  /* "cpp_common.pxd":428
+  /* "cpp_common.pxd":426
  *     self.context = NULL
  *     self.dtor = NULL
  *     return True             # <<<<<<<<<<<<<<
@@ -5233,7 +5233,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
   __pyx_r = 1;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":422
+  /* "cpp_common.pxd":420
  *     return True
  * 
  * cdef inline bool NoKwargsInit(RF_Kwargs* self, dict kwargs) except False:             # <<<<<<<<<<<<<<
@@ -5255,7 +5255,7 @@ static CYTHON_INLINE bool __pyx_f_10cpp_common_NoKwargsInit(RF_Kwargs *__pyx_v_s
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":430
+/* "cpp_common.pxd":428
  *     return True
  * 
  * cdef inline RF_Scorer CreateScorerContext(RF_KwargsInit kwargs_init, RF_GetScorerFlags get_scorer_flags, RF_ScorerFuncInit scorer_func_init, RF_UncachedScorerFunc uncached_scorer_func) noexcept:             # <<<<<<<<<<<<<<
@@ -5267,7 +5267,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
   RF_Scorer __pyx_v_context;
   RF_Scorer __pyx_r;
 
-  /* "cpp_common.pxd":432
+  /* "cpp_common.pxd":430
  * cdef inline RF_Scorer CreateScorerContext(RF_KwargsInit kwargs_init, RF_GetScorerFlags get_scorer_flags, RF_ScorerFuncInit scorer_func_init, RF_UncachedScorerFunc uncached_scorer_func) noexcept:
  *     cdef RF_Scorer context
  *     context.version = SCORER_STRUCT_VERSION             # <<<<<<<<<<<<<<
@@ -5276,7 +5276,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
 */
   __pyx_v_context.version = SCORER_STRUCT_VERSION;
 
-  /* "cpp_common.pxd":433
+  /* "cpp_common.pxd":431
  *     cdef RF_Scorer context
  *     context.version = SCORER_STRUCT_VERSION
  *     context.kwargs_init = kwargs_init             # <<<<<<<<<<<<<<
@@ -5285,7 +5285,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
 */
   __pyx_v_context.kwargs_init = __pyx_v_kwargs_init;
 
-  /* "cpp_common.pxd":434
+  /* "cpp_common.pxd":432
  *     context.version = SCORER_STRUCT_VERSION
  *     context.kwargs_init = kwargs_init
  *     context.get_scorer_flags = get_scorer_flags             # <<<<<<<<<<<<<<
@@ -5294,7 +5294,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
 */
   __pyx_v_context.get_scorer_flags = __pyx_v_get_scorer_flags;
 
-  /* "cpp_common.pxd":435
+  /* "cpp_common.pxd":433
  *     context.kwargs_init = kwargs_init
  *     context.get_scorer_flags = get_scorer_flags
  *     context.scorer_func_init = scorer_func_init             # <<<<<<<<<<<<<<
@@ -5303,7 +5303,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
 */
   __pyx_v_context.scorer_func_init = __pyx_v_scorer_func_init;
 
-  /* "cpp_common.pxd":436
+  /* "cpp_common.pxd":434
  *     context.get_scorer_flags = get_scorer_flags
  *     context.scorer_func_init = scorer_func_init
  *     context.uncached_scorer_func = uncached_scorer_func             # <<<<<<<<<<<<<<
@@ -5312,7 +5312,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
 */
   __pyx_v_context.uncached_scorer_func = __pyx_v_uncached_scorer_func;
 
-  /* "cpp_common.pxd":437
+  /* "cpp_common.pxd":435
  *     context.scorer_func_init = scorer_func_init
  *     context.uncached_scorer_func = uncached_scorer_func
  *     return context             # <<<<<<<<<<<<<<
@@ -5322,7 +5322,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
   __pyx_r = __pyx_v_context;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":430
+  /* "cpp_common.pxd":428
  *     return True
  * 
  * cdef inline RF_Scorer CreateScorerContext(RF_KwargsInit kwargs_init, RF_GetScorerFlags get_scorer_flags, RF_ScorerFuncInit scorer_func_init, RF_UncachedScorerFunc uncached_scorer_func) noexcept:             # <<<<<<<<<<<<<<
@@ -5335,7 +5335,7 @@ static CYTHON_INLINE RF_Scorer __pyx_f_10cpp_common_CreateScorerContext(RF_Kwarg
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":439
+/* "cpp_common.pxd":437
  *     return context
  * 
  * cdef inline void SetFuncAttrs(cpp_func, py_func) except *:             # <<<<<<<<<<<<<<
@@ -5351,43 +5351,43 @@ static CYTHON_INLINE void __pyx_f_10cpp_common_SetFuncAttrs(PyObject *__pyx_v_cp
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("SetFuncAttrs", 0);
 
-  /* "cpp_common.pxd":440
+  /* "cpp_common.pxd":438
  * 
  * cdef inline void SetFuncAttrs(cpp_func, py_func) except *:
  *     cpp_func.__name__ = py_func.__name__             # <<<<<<<<<<<<<<
  *     cpp_func.__qualname__ = py_func.__qualname__
  *     cpp_func.__doc__ = py_func.__doc__
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 440, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_name); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 438, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_name, __pyx_t_1) < 0) __PYX_ERR(1, 440, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_name, __pyx_t_1) < 0) __PYX_ERR(1, 438, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cpp_common.pxd":441
+  /* "cpp_common.pxd":439
  * cdef inline void SetFuncAttrs(cpp_func, py_func) except *:
  *     cpp_func.__name__ = py_func.__name__
  *     cpp_func.__qualname__ = py_func.__qualname__             # <<<<<<<<<<<<<<
  *     cpp_func.__doc__ = py_func.__doc__
  * 
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_qualname); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 441, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_qualname); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 439, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_qualname, __pyx_t_1) < 0) __PYX_ERR(1, 441, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_qualname, __pyx_t_1) < 0) __PYX_ERR(1, 439, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cpp_common.pxd":442
+  /* "cpp_common.pxd":440
  *     cpp_func.__name__ = py_func.__name__
  *     cpp_func.__qualname__ = py_func.__qualname__
  *     cpp_func.__doc__ = py_func.__doc__             # <<<<<<<<<<<<<<
  * 
  * cdef inline void SetScorerAttrs(cpp_func, py_func, RF_Scorer* context) except *:
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_doc); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 442, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_doc); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 440, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_doc, __pyx_t_1) < 0) __PYX_ERR(1, 442, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_doc, __pyx_t_1) < 0) __PYX_ERR(1, 440, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cpp_common.pxd":439
+  /* "cpp_common.pxd":437
  *     return context
  * 
  * cdef inline void SetFuncAttrs(cpp_func, py_func) except *:             # <<<<<<<<<<<<<<
@@ -5404,7 +5404,7 @@ static CYTHON_INLINE void __pyx_f_10cpp_common_SetFuncAttrs(PyObject *__pyx_v_cp
   __Pyx_RefNannyFinishContext();
 }
 
-/* "cpp_common.pxd":444
+/* "cpp_common.pxd":442
  *     cpp_func.__doc__ = py_func.__doc__
  * 
  * cdef inline void SetScorerAttrs(cpp_func, py_func, RF_Scorer* context) except *:             # <<<<<<<<<<<<<<
@@ -5420,49 +5420,49 @@ static CYTHON_INLINE void __pyx_f_10cpp_common_SetScorerAttrs(PyObject *__pyx_v_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("SetScorerAttrs", 0);
 
-  /* "cpp_common.pxd":445
+  /* "cpp_common.pxd":443
  * 
  * cdef inline void SetScorerAttrs(cpp_func, py_func, RF_Scorer* context) except *:
  *     SetFuncAttrs(cpp_func, py_func)             # <<<<<<<<<<<<<<
  *     cpp_func._RF_Scorer = PyCapsule_New(context, NULL, NULL)
  *     cpp_func._RF_ScorerPy = py_func._RF_ScorerPy
 */
-  __pyx_f_10cpp_common_SetFuncAttrs(__pyx_v_cpp_func, __pyx_v_py_func); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 445, __pyx_L1_error)
+  __pyx_f_10cpp_common_SetFuncAttrs(__pyx_v_cpp_func, __pyx_v_py_func); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 443, __pyx_L1_error)
 
-  /* "cpp_common.pxd":446
+  /* "cpp_common.pxd":444
  * cdef inline void SetScorerAttrs(cpp_func, py_func, RF_Scorer* context) except *:
  *     SetFuncAttrs(cpp_func, py_func)
  *     cpp_func._RF_Scorer = PyCapsule_New(context, NULL, NULL)             # <<<<<<<<<<<<<<
  *     cpp_func._RF_ScorerPy = py_func._RF_ScorerPy
  * 
 */
-  __pyx_t_1 = PyCapsule_New(__pyx_v_context, NULL, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 446, __pyx_L1_error)
+  __pyx_t_1 = PyCapsule_New(__pyx_v_context, NULL, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 444, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_Scorer, __pyx_t_1) < 0) __PYX_ERR(1, 446, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_Scorer, __pyx_t_1) < 0) __PYX_ERR(1, 444, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cpp_common.pxd":447
+  /* "cpp_common.pxd":445
  *     SetFuncAttrs(cpp_func, py_func)
  *     cpp_func._RF_Scorer = PyCapsule_New(context, NULL, NULL)
  *     cpp_func._RF_ScorerPy = py_func._RF_ScorerPy             # <<<<<<<<<<<<<<
  * 
  *     # used to detect the function hasn't been wrapped afterwards
 */
-  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_RF_ScorerPy); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 447, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyObject_GetAttrStr(__pyx_v_py_func, __pyx_mstate_global->__pyx_n_u_RF_ScorerPy); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 445, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_ScorerPy, __pyx_t_1) < 0) __PYX_ERR(1, 447, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_ScorerPy, __pyx_t_1) < 0) __PYX_ERR(1, 445, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cpp_common.pxd":450
+  /* "cpp_common.pxd":448
  * 
  *     # used to detect the function hasn't been wrapped afterwards
  *     cpp_func._RF_OriginalScorer = cpp_func             # <<<<<<<<<<<<<<
  * 
  * cdef inline RF_Preprocessor CreateProcessorContext(RF_Preprocess preprocess) except *:
 */
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_OriginalScorer, __pyx_v_cpp_func) < 0) __PYX_ERR(1, 450, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_OriginalScorer, __pyx_v_cpp_func) < 0) __PYX_ERR(1, 448, __pyx_L1_error)
 
-  /* "cpp_common.pxd":444
+  /* "cpp_common.pxd":442
  *     cpp_func.__doc__ = py_func.__doc__
  * 
  * cdef inline void SetScorerAttrs(cpp_func, py_func, RF_Scorer* context) except *:             # <<<<<<<<<<<<<<
@@ -5479,7 +5479,7 @@ static CYTHON_INLINE void __pyx_f_10cpp_common_SetScorerAttrs(PyObject *__pyx_v_
   __Pyx_RefNannyFinishContext();
 }
 
-/* "cpp_common.pxd":452
+/* "cpp_common.pxd":450
  *     cpp_func._RF_OriginalScorer = cpp_func
  * 
  * cdef inline RF_Preprocessor CreateProcessorContext(RF_Preprocess preprocess) except *:             # <<<<<<<<<<<<<<
@@ -5491,7 +5491,7 @@ static CYTHON_INLINE RF_Preprocessor __pyx_f_10cpp_common_CreateProcessorContext
   RF_Preprocessor __pyx_v_context;
   RF_Preprocessor __pyx_r;
 
-  /* "cpp_common.pxd":454
+  /* "cpp_common.pxd":452
  * cdef inline RF_Preprocessor CreateProcessorContext(RF_Preprocess preprocess) except *:
  *     cdef RF_Preprocessor context
  *     context.version = PREPROCESSOR_STRUCT_VERSION             # <<<<<<<<<<<<<<
@@ -5500,7 +5500,7 @@ static CYTHON_INLINE RF_Preprocessor __pyx_f_10cpp_common_CreateProcessorContext
 */
   __pyx_v_context.version = PREPROCESSOR_STRUCT_VERSION;
 
-  /* "cpp_common.pxd":455
+  /* "cpp_common.pxd":453
  *     cdef RF_Preprocessor context
  *     context.version = PREPROCESSOR_STRUCT_VERSION
  *     context.preprocess = preprocess             # <<<<<<<<<<<<<<
@@ -5509,7 +5509,7 @@ static CYTHON_INLINE RF_Preprocessor __pyx_f_10cpp_common_CreateProcessorContext
 */
   __pyx_v_context.preprocess = __pyx_v_preprocess;
 
-  /* "cpp_common.pxd":456
+  /* "cpp_common.pxd":454
  *     context.version = PREPROCESSOR_STRUCT_VERSION
  *     context.preprocess = preprocess
  *     return context             # <<<<<<<<<<<<<<
@@ -5519,7 +5519,7 @@ static CYTHON_INLINE RF_Preprocessor __pyx_f_10cpp_common_CreateProcessorContext
   __pyx_r = __pyx_v_context;
   goto __pyx_L0;
 
-  /* "cpp_common.pxd":452
+  /* "cpp_common.pxd":450
  *     cpp_func._RF_OriginalScorer = cpp_func
  * 
  * cdef inline RF_Preprocessor CreateProcessorContext(RF_Preprocess preprocess) except *:             # <<<<<<<<<<<<<<
@@ -5532,7 +5532,7 @@ static CYTHON_INLINE RF_Preprocessor __pyx_f_10cpp_common_CreateProcessorContext
   return __pyx_r;
 }
 
-/* "cpp_common.pxd":458
+/* "cpp_common.pxd":456
  *     return context
  * 
  * cdef inline void SetProcessorAttrs(cpp_func, py_func, RF_Preprocessor* context) except *:             # <<<<<<<<<<<<<<
@@ -5548,25 +5548,25 @@ static CYTHON_INLINE void __pyx_f_10cpp_common_SetProcessorAttrs(PyObject *__pyx
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("SetProcessorAttrs", 0);
 
-  /* "cpp_common.pxd":459
+  /* "cpp_common.pxd":457
  * 
  * cdef inline void SetProcessorAttrs(cpp_func, py_func, RF_Preprocessor* context) except *:
  *     SetFuncAttrs(cpp_func, py_func)             # <<<<<<<<<<<<<<
  *     cpp_func._RF_Preprocess = PyCapsule_New(context, NULL, NULL)
 */
-  __pyx_f_10cpp_common_SetFuncAttrs(__pyx_v_cpp_func, __pyx_v_py_func); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 459, __pyx_L1_error)
+  __pyx_f_10cpp_common_SetFuncAttrs(__pyx_v_cpp_func, __pyx_v_py_func); if (unlikely(PyErr_Occurred())) __PYX_ERR(1, 457, __pyx_L1_error)
 
-  /* "cpp_common.pxd":460
+  /* "cpp_common.pxd":458
  * cdef inline void SetProcessorAttrs(cpp_func, py_func, RF_Preprocessor* context) except *:
  *     SetFuncAttrs(cpp_func, py_func)
  *     cpp_func._RF_Preprocess = PyCapsule_New(context, NULL, NULL)             # <<<<<<<<<<<<<<
 */
-  __pyx_t_1 = PyCapsule_New(__pyx_v_context, NULL, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 460, __pyx_L1_error)
+  __pyx_t_1 = PyCapsule_New(__pyx_v_context, NULL, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(1, 458, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
-  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_Preprocess, __pyx_t_1) < 0) __PYX_ERR(1, 460, __pyx_L1_error)
+  if (__Pyx_PyObject_SetAttrStr(__pyx_v_cpp_func, __pyx_mstate_global->__pyx_n_u_RF_Preprocess, __pyx_t_1) < 0) __PYX_ERR(1, 458, __pyx_L1_error)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-  /* "cpp_common.pxd":458
+  /* "cpp_common.pxd":456
  *     return context
  * 
  * cdef inline void SetProcessorAttrs(cpp_func, py_func, RF_Preprocessor* context) except *:             # <<<<<<<<<<<<<<
@@ -8676,7 +8676,7 @@ static PyModuleDef_Slot __pyx_moduledef_slots[] = {
   {Py_mod_create, (void*)__pyx_pymod_create},
   {Py_mod_exec, (void*)__pyx_pymod_exec_fuzz_cpp_sse2},
   #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-  {Py_mod_gil, Py_MOD_GIL_USED},
+  {Py_mod_gil, Py_MOD_GIL_NOT_USED},
   #endif
   #if PY_VERSION_HEX >= 0x030C0000 && CYTHON_USE_MODULE_STATE
   {Py_mod_multiple_interpreters, Py_MOD_MULTIPLE_INTERPRETERS_NOT_SUPPORTED},
@@ -8878,7 +8878,7 @@ static CYTHON_SMALL_CODE int __pyx_pymod_exec_fuzz_cpp_sse2(PyObject *__pyx_pyin
   __pyx_m = __pyx_t_1;
   #endif
   #if CYTHON_COMPILING_IN_CPYTHON_FREETHREADING
-  PyUnstable_Module_SetGIL(__pyx_m, Py_MOD_GIL_USED);
+  PyUnstable_Module_SetGIL(__pyx_m, Py_MOD_GIL_NOT_USED);
   #endif
   __pyx_mstate = __pyx_mstate_global;
   CYTHON_UNUSED_VAR(__pyx_t_1);
@@ -8954,7 +8954,7 @@ __Pyx_RefNannySetupContext("PyInit_fuzz_cpp_sse2", 0);
   /*--- Execution code ---*/
 
   /* "src/rapidfuzz/fuzz_cpp.pyx":3
- * # distutils: language=c++
+ * #cython: freethreading_compatible = True
  * 
  * from . import fuzz_py             # <<<<<<<<<<<<<<
  * from .distance._initialize_cpp import ScoreAlignment
@@ -9503,7 +9503,7 @@ __Pyx_RefNannySetupContext("PyInit_fuzz_cpp_sse2", 0);
   __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
 
   /* "rapidfuzz/fuzz_cpp_sse2.pyx":1
- * # distutils: language=c++             # <<<<<<<<<<<<<<
+ * #cython: freethreading_compatible = True             # <<<<<<<<<<<<<<
  * 
  * # this is a hack since I could not get this to build in cmake without it
 */
@@ -9642,9 +9642,9 @@ static int __Pyx_InitStrings(__Pyx_StringTabEntry const *t, PyObject **target, c
 
 static int __Pyx_InitCachedBuiltins(__pyx_mstatetype *__pyx_mstate) {
   CYTHON_UNUSED_VAR(__pyx_mstate);
-  __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(1, 262, __pyx_L1_error)
-  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(1, 268, __pyx_L1_error)
-  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 358, __pyx_L1_error)
+  __pyx_builtin_MemoryError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_MemoryError); if (!__pyx_builtin_MemoryError) __PYX_ERR(1, 260, __pyx_L1_error)
+  __pyx_builtin_range = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_range); if (!__pyx_builtin_range) __PYX_ERR(1, 266, __pyx_L1_error)
+  __pyx_builtin_TypeError = __Pyx_GetBuiltinName(__pyx_mstate->__pyx_n_u_TypeError); if (!__pyx_builtin_TypeError) __PYX_ERR(1, 356, __pyx_L1_error)
   return 0;
   __pyx_L1_error:;
   return -1;

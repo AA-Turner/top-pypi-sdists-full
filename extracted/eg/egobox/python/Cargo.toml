@@ -1,0 +1,57 @@
+[package]
+name = "egobox"
+authors.workspace = true
+version = "0.35.1"
+license.workspace = true
+edition.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "A python binding for egobox crates"
+readme = "README.md"
+publish = false
+
+[lib]
+name = "egobox"
+crate-type = ["cdylib", "rlib"]
+doctest = false                 # do not doctest as doc uses Python style for Python API doc
+
+[features]
+default = []
+
+nlopt = ["egobox-ego/nlopt", "egobox-gp/nlopt"]
+serializable-gp = ["egobox-gp/serializable"]
+persistent-moe = ["egobox-moe/persistent"]
+blas = ["ndarray/blas", "egobox-gp/blas", "egobox-moe/blas", "egobox-ego/blas"]
+
+[dependencies]
+egobox-doe = { version = "0.35.0", path = "../crates/doe" }
+egobox-gp = { version = "0.35.0", path = "../crates/gp" }
+egobox-moe = { version = "0.35.0", path = "../crates/moe", features = [
+  "persistent",
+] }
+egobox-ego = { version = "0.35.1", path = "../crates/ego", features = [
+  "persistent",
+] }
+
+pyo3 = { version = "0.26" }
+pyo3-log = "0.13"
+numpy = "0.26"
+
+linfa.workspace = true
+ndarray.workspace = true
+ndarray-rand.workspace = true
+
+rand_xoshiro.workspace = true
+env_logger.workspace = true
+log.workspace = true
+
+serde.workspace = true
+serde_json.workspace = true
+ctrlc.workspace = true
+
+argmin_testfunctions.workspace = true
+pyo3-stub-gen = { version = "0.17", features = ["numpy"] }
+
+[[bin]]
+name = "stub_gen"
+doc = false

@@ -76,20 +76,18 @@ class CalendarFile(APIObject):
     _from_dataset_url = _base_url + "fromDataset/"
     _allowed_countries_list_url = "calendarCountryCodes/"
 
-    _converter = t.Dict(
-        {
-            t.Key("calendar_end_date"): String,
-            t.Key("calendar_start_date"): String,
-            t.Key("created"): String,
-            t.Key("id"): String,
-            t.Key("name"): String,
-            t.Key("num_event_types"): Int,
-            t.Key("num_events"): Int,
-            t.Key("project_ids"): t.List(String),
-            t.Key("role"): String,
-            t.Key("multiseries_id_columns", optional=True): t.Or(t.List(String), t.Null),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("calendar_end_date"): String,
+        t.Key("calendar_start_date"): String,
+        t.Key("created"): String,
+        t.Key("id"): String,
+        t.Key("name"): String,
+        t.Key("num_event_types"): Int,
+        t.Key("num_events"): Int,
+        t.Key("project_ids"): t.List(String),
+        t.Key("role"): String,
+        t.Key("multiseries_id_columns", optional=True): t.Or(t.List(String), t.Null),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -220,9 +218,7 @@ class CalendarFile(APIObject):
             file_path=file_path,
             form_data=form_data,
         )
-        new_calendar_url = wait_for_async_resolution(
-            cls._client, upload_response.headers["Location"]
-        )
+        new_calendar_url = wait_for_async_resolution(cls._client, upload_response.headers["Location"])
 
         return cls.from_location(new_calendar_url)
 
@@ -322,9 +318,7 @@ class CalendarFile(APIObject):
         generation_response = cls._client.post(
             cls._from_dataset_url, data=payload, headers={"Content-Type": "application/json"}
         )
-        generated_calendar_url = wait_for_async_resolution(
-            cls._client, generation_response.headers["Location"]
-        )
+        generated_calendar_url = wait_for_async_resolution(cls._client, generation_response.headers["Location"])
 
         return cls.from_location(generated_calendar_url)
 
@@ -360,15 +354,11 @@ class CalendarFile(APIObject):
         generation_response = cls._client.post(
             cls._from_country_code_url, data=payload, headers={"Content-Type": "application/json"}
         )
-        generated_calendar_url = wait_for_async_resolution(
-            cls._client, generation_response.headers["Location"]
-        )
+        generated_calendar_url = wait_for_async_resolution(cls._client, generation_response.headers["Location"])
         return cls.from_location(generated_calendar_url)
 
     @classmethod
-    def get_allowed_country_codes(
-        cls, offset: Optional[int] = None, limit: Optional[int] = None
-    ) -> List[CountryCode]:
+    def get_allowed_country_codes(cls, offset: Optional[int] = None, limit: Optional[int] = None) -> List[CountryCode]:
         """
         Retrieves the list of allowed country codes that can be used for generating the preloaded
         calendars.
@@ -429,9 +419,7 @@ class CalendarFile(APIObject):
         return cls.from_location(cls._calendar_url.format(calendar_id))
 
     @classmethod
-    def list(
-        cls, project_id: Optional[str] = None, batch_size: Optional[int] = None
-    ) -> List[CalendarFile]:
+    def list(cls, project_id: Optional[str] = None, batch_size: Optional[int] = None) -> List[CalendarFile]:
         """
         Gets the details of all calendars this user has view access for.
 
@@ -593,9 +581,9 @@ class CalendarFile(APIObject):
         # ensure access_list is a list
         assert isinstance(access_list, list), "access_list must be a list"
         # ensure each item in access_list is a SharingAccess object
-        assert all(
-            isinstance(access, SharingAccess) for access in access_list
-        ), "access_list must be a list of dr.SharingAccess objects"
+        assert all(isinstance(access, SharingAccess) for access in access_list), (
+            "access_list must be a list of dr.SharingAccess objects"
+        )
 
         payload = {"users": [access.collect_payload() for access in access_list]}
         response_data: Response = cls._client.patch(
@@ -604,9 +592,7 @@ class CalendarFile(APIObject):
         return response_data.status_code
 
     @classmethod
-    def get_access_list(
-        cls, calendar_id: str, batch_size: Optional[int] = None
-    ) -> List[SharingAccess]:
+    def get_access_list(cls, calendar_id: str, batch_size: Optional[int] = None) -> List[SharingAccess]:
         """
         Retrieve a list of users that have access to this calendar.
 
@@ -634,9 +620,7 @@ class CalendarFile(APIObject):
         if batch_size is not None:
             params["limit"] = batch_size
         url = cls._access_control_url.format(calendar_id)
-        return [
-            SharingAccess.from_server_data(datum) for datum in unpaginate(url, params, cls._client)
-        ]
+        return [SharingAccess.from_server_data(datum) for datum in unpaginate(url, params, cls._client)]
 
     @classmethod
     def _validate_calendar_name(cls, calendar_name: str) -> None:
@@ -652,8 +636,4 @@ class CalendarFile(APIObject):
     @classmethod
     def _validate_multiseries_id_columns(cls, multiseries_id_columns: Iterable[str]) -> None:
         if not isinstance(multiseries_id_columns, (list, tuple)):
-            raise ValueError(
-                "Expected list of str for multiseries_id_columns, got: {}".format(
-                    multiseries_id_columns
-                )
-            )
+            raise ValueError("Expected list of str for multiseries_id_columns, got: {}".format(multiseries_id_columns))

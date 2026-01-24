@@ -1,5 +1,6 @@
 import json
 import os
+from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from difflib import ndiff
 from gettext import gettext
@@ -7,12 +8,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import (
     Any,
-    Dict,
-    Iterator,
-    List,
-    Optional,
-    Sequence,
-    Union,
 )
 
 from .constants import (
@@ -34,7 +29,7 @@ def is_xdist_controller() -> bool:
 
 
 def walk_snapshot_dir(
-    root: Union[str, Path], *, ignore_extensions: Optional[List[str]] = None
+    root: str | Path, *, ignore_extensions: list[str] | None = None
 ) -> Iterator[str]:
     ignore_exts: set[str] = set(ignore_extensions or [])
 
@@ -91,13 +86,13 @@ def env_context(**kwargs: str) -> Iterator[None]:
         os.environ.update(prev_env)
 
 
-def set_attrs(obj: Any, attrs: Dict[str, Any]) -> Any:
+def set_attrs(obj: Any, attrs: dict[str, Any]) -> Any:
     for k in attrs:
         setattr(obj, k, attrs[k])
 
 
 @contextmanager
-def obj_attrs(obj: Any, attrs: Dict[str, Any]) -> Iterator[None]:
+def obj_attrs(obj: Any, attrs: dict[str, Any]) -> Iterator[None]:
     prev_attrs = {k: getattr(obj, k, None) for k in attrs}
     try:
         yield set_attrs(obj, attrs)

@@ -33,7 +33,7 @@ class ZeroTrustDevicePostureRuleArgs:
         The set of arguments for constructing a ZeroTrustDevicePostureRule resource.
         :param pulumi.Input[_builtins.str] name: The name of the device posture rule.
         :param pulumi.Input[_builtins.str] type: The type of device posture rule.
-               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         :param pulumi.Input[_builtins.str] description: The description of the device posture rule.
         :param pulumi.Input[_builtins.str] expiration: Sets the expiration time for a posture check result. If empty, the result remains valid until it is overwritten by new data from the WARP client.
         :param pulumi.Input['ZeroTrustDevicePostureRuleInputArgs'] input: The value to be checked against.
@@ -80,7 +80,7 @@ class ZeroTrustDevicePostureRuleArgs:
     def type(self) -> pulumi.Input[_builtins.str]:
         """
         The type of device posture rule.
-        Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+        Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         """
         return pulumi.get(self, "type")
 
@@ -169,7 +169,7 @@ class _ZeroTrustDevicePostureRuleState:
         :param pulumi.Input[_builtins.str] name: The name of the device posture rule.
         :param pulumi.Input[_builtins.str] schedule: Polling frequency for the WARP client posture check. Default: `5m` (poll every five minutes). Minimum: `1m`.
         :param pulumi.Input[_builtins.str] type: The type of device posture rule.
-               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         """
         if account_id is not None:
             pulumi.set(__self__, "account_id", account_id)
@@ -274,7 +274,7 @@ class _ZeroTrustDevicePostureRuleState:
     def type(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         The type of device posture rule.
-        Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+        Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         """
         return pulumi.get(self, "type")
 
@@ -301,6 +301,29 @@ class ZeroTrustDevicePostureRule(pulumi.CustomResource):
         """
         ## Example Usage
 
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_device_posture_rule = cloudflare.ZeroTrustDevicePostureRule("example_zero_trust_device_posture_rule",
+            account_id="699d98642c564d2e855e9661899b7252",
+            name="Admin Serial Numbers",
+            type="file",
+            description="The rule for admin serial numbers",
+            expiration="1h",
+            input={
+                "operating_system": "linux",
+                "path": "/bin/cat",
+                "exists": True,
+                "sha256": "https://api.us-2.crowdstrike.com",
+                "thumbprint": "0aabab210bdb998e9cf45da2c9ce352977ab531c681b74cf1e487be1bbe9fe6e",
+            },
+            matches=[{
+                "platform": "windows",
+            }],
+            schedule="1h")
+        ```
+
         ## Import
 
         ```sh
@@ -316,7 +339,7 @@ class ZeroTrustDevicePostureRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: The name of the device posture rule.
         :param pulumi.Input[_builtins.str] schedule: Polling frequency for the WARP client posture check. Default: `5m` (poll every five minutes). Minimum: `1m`.
         :param pulumi.Input[_builtins.str] type: The type of device posture rule.
-               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         """
         ...
     @overload
@@ -326,6 +349,29 @@ class ZeroTrustDevicePostureRule(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+
+        example_zero_trust_device_posture_rule = cloudflare.ZeroTrustDevicePostureRule("example_zero_trust_device_posture_rule",
+            account_id="699d98642c564d2e855e9661899b7252",
+            name="Admin Serial Numbers",
+            type="file",
+            description="The rule for admin serial numbers",
+            expiration="1h",
+            input={
+                "operating_system": "linux",
+                "path": "/bin/cat",
+                "exists": True,
+                "sha256": "https://api.us-2.crowdstrike.com",
+                "thumbprint": "0aabab210bdb998e9cf45da2c9ce352977ab531c681b74cf1e487be1bbe9fe6e",
+            },
+            matches=[{
+                "platform": "windows",
+            }],
+            schedule="1h")
+        ```
 
         ## Import
 
@@ -413,7 +459,7 @@ class ZeroTrustDevicePostureRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] name: The name of the device posture rule.
         :param pulumi.Input[_builtins.str] schedule: Polling frequency for the WARP client posture check. Default: `5m` (poll every five minutes). Minimum: `1m`.
         :param pulumi.Input[_builtins.str] type: The type of device posture rule.
-               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+               Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -436,7 +482,7 @@ class ZeroTrustDevicePostureRule(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter
-    def description(self) -> pulumi.Output[_builtins.str]:
+    def description(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
         The description of the device posture rule.
         """
@@ -487,7 +533,7 @@ class ZeroTrustDevicePostureRule(pulumi.CustomResource):
     def type(self) -> pulumi.Output[_builtins.str]:
         """
         The type of device posture rule.
-        Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
+        Available values: "file", "application", "tanium", "gateway", "warp", "disk*encryption", "serial*number", "sentinelone", "carbonblack", "firewall", "os*version", "domain*joined", "client*certificate", "client*certificate*v2", "antivirus", "unique*client*id", "kolide", "tanium*s2s", "crowdstrike*s2s", "intune", "workspace*one", "sentinelone*s2s", "custom*s2s".
         """
         return pulumi.get(self, "type")
 

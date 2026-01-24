@@ -2,6 +2,7 @@
 
 import logging
 import os
+import sys
 from functools import partial
 from os import getenv
 from pathlib import Path
@@ -11,7 +12,11 @@ import click
 import flytekit
 from click import Group
 from flytekit.clis.sdk_in_container.utils import get_level_from_cli_verbosity, pretty_print_exception
-from importlib_metadata import version
+
+if sys.version_info < (3, 10):
+    from importlib_metadata import version
+else:
+    from importlib.metadata import version
 
 import union
 

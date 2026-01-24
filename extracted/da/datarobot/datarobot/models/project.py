@@ -167,6 +167,9 @@ if TYPE_CHECKING:
         azureTenantId: Optional[str]
         configId: Optional[str]
 
+    class ExternalOAuthProviderCredentialsDataDict(BaseCredentialsDataDict):
+        authenticationId: str
+
     class CredentialIdCredentialsDict(TypedDict):
         credentialId: str
 
@@ -247,130 +250,111 @@ class Project(APIObject, BrowserMixin):
     _path = "projects/"
     _clone_path = "projectClones/"
     _scaleout_modeling_mode_converter = String()
-    _advanced_options_converter = t.Dict(
-        {
-            t.Key("weights", optional=True): String(),
-            t.Key("blueprint_threshold", optional=True): Int(),
-            t.Key("response_cap", optional=True): t.Or(t.Bool(), t.Float()),
-            t.Key("seed", optional=True): Int(),
-            t.Key("smart_downsampled", optional=True): t.Bool(),
-            t.Key("majority_downsampling_rate", optional=True): t.Float(),
-            t.Key("offset", optional=True): t.List(String()),
-            t.Key("exposure", optional=True): String(),
-            t.Key("events_count", optional=True): String(),
-            t.Key("scaleout_modeling_mode", optional=True): _scaleout_modeling_mode_converter,
-            t.Key("only_include_monotonic_blueprints", optional=True): t.Bool(),
-            t.Key("default_monotonic_decreasing_featurelist_id", optional=True): t.Or(
-                String(), t.Null()
-            ),
-            t.Key("default_monotonic_increasing_featurelist_id", optional=True): t.Or(
-                String(), t.Null()
-            ),
-            t.Key("allowed_pairwise_interaction_groups", optional=True): t.List(t.List(String))
-            | t.Null(),
-            t.Key("blend_best_models", optional=True): t.Bool(),
-            t.Key("scoring_code_only", optional=True): t.Bool(),
-            t.Key("shap_only_mode", optional=True): t.Bool(),
-            t.Key("prepare_model_for_deployment", optional=True): t.Bool(),
-            t.Key("consider_blenders_in_recommendation", optional=True): t.Bool(),
-            t.Key("min_secondary_validation_model_count", optional=True): Int(),
-            t.Key("autopilot_data_sampling_method", optional=True): String(),
-            t.Key("run_leakage_removed_feature_list", optional=True): t.Bool(),
-            t.Key("autopilot_with_feature_discovery", optional=True): t.Bool(),
-            t.Key("feature_discovery_supervised_feature_reduction", optional=True): t.Bool(),
-            t.Key("exponentially_weighted_moving_alpha", optional=True): t.Float(gt=0.0, lte=1.0),
-            t.Key("external_time_series_baseline_dataset_id", optional=True): t.String(),
-            t.Key("bias_mitigation_feature_name", optional=True): t.String(),
-            t.Key("bias_mitigation_technique", optional=True): t.String(),
-            t.Key("include_bias_mitigation_feature_as_predictor_variable", optional=True): t.Bool(),
-            t.Key("series_id", optional=True): String(),
-            t.Key("forecast_distance", optional=True): String(),
-            t.Key("forecast_offsets", optional=True): t.List(String()),
-            t.Key("incremental_learning_only_mode", optional=True): t.Bool(),
-            t.Key("incremental_learning_on_best_model", optional=True): t.Bool(),
-            t.Key(
-                "number_of_incremental_learning_iterations_before_best_model_selection",
-                optional=True,
-            ): t.Int(gte=1, lte=10),
-            t.Key("chunk_definition_id", optional=True): t.String(),
-            t.Key("incremental_learning_early_stopping_rounds", optional=True): Int(),
-        }
-    ).ignore_extra("*")
+    _advanced_options_converter = t.Dict({
+        t.Key("weights", optional=True): String(),
+        t.Key("blueprint_threshold", optional=True): Int(),
+        t.Key("response_cap", optional=True): t.Or(t.Bool(), t.Float()),
+        t.Key("seed", optional=True): Int(),
+        t.Key("smart_downsampled", optional=True): t.Bool(),
+        t.Key("majority_downsampling_rate", optional=True): t.Float(),
+        t.Key("offset", optional=True): t.List(String()),
+        t.Key("exposure", optional=True): String(),
+        t.Key("events_count", optional=True): String(),
+        t.Key("scaleout_modeling_mode", optional=True): _scaleout_modeling_mode_converter,
+        t.Key("only_include_monotonic_blueprints", optional=True): t.Bool(),
+        t.Key("default_monotonic_decreasing_featurelist_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("default_monotonic_increasing_featurelist_id", optional=True): t.Or(String(), t.Null()),
+        t.Key("allowed_pairwise_interaction_groups", optional=True): t.List(t.List(String)) | t.Null(),
+        t.Key("blend_best_models", optional=True): t.Bool(),
+        t.Key("scoring_code_only", optional=True): t.Bool(),
+        t.Key("shap_only_mode", optional=True): t.Bool(),
+        t.Key("prepare_model_for_deployment", optional=True): t.Bool(),
+        t.Key("consider_blenders_in_recommendation", optional=True): t.Bool(),
+        t.Key("min_secondary_validation_model_count", optional=True): Int(),
+        t.Key("autopilot_data_sampling_method", optional=True): String(),
+        t.Key("run_leakage_removed_feature_list", optional=True): t.Bool(),
+        t.Key("autopilot_with_feature_discovery", optional=True): t.Bool(),
+        t.Key("feature_discovery_supervised_feature_reduction", optional=True): t.Bool(),
+        t.Key("exponentially_weighted_moving_alpha", optional=True): t.Float(gt=0.0, lte=1.0),
+        t.Key("external_time_series_baseline_dataset_id", optional=True): t.String(),
+        t.Key("bias_mitigation_feature_name", optional=True): t.String(),
+        t.Key("bias_mitigation_technique", optional=True): t.String(),
+        t.Key("include_bias_mitigation_feature_as_predictor_variable", optional=True): t.Bool(),
+        t.Key("series_id", optional=True): String(),
+        t.Key("forecast_distance", optional=True): String(),
+        t.Key("forecast_offsets", optional=True): t.List(String()),
+        t.Key("incremental_learning_only_mode", optional=True): t.Bool(),
+        t.Key("incremental_learning_on_best_model", optional=True): t.Bool(),
+        t.Key(
+            "number_of_incremental_learning_iterations_before_best_model_selection",
+            optional=True,
+        ): t.Int(gte=1, lte=10),
+        t.Key("chunk_definition_id", optional=True): t.String(),
+        t.Key("incremental_learning_early_stopping_rounds", optional=True): Int(),
+    }).ignore_extra("*")
 
-    _feature_engineering_graph_converter = t.Dict(
-        {
-            t.Key("id"): String(),
-            t.Key("linkage_keys", optional=True): t.List(String, min_length=1, max_length=10),
-        }
-    ).ignore_extra("*")
+    _feature_engineering_graph_converter = t.Dict({
+        t.Key("id"): String(),
+        t.Key("linkage_keys", optional=True): t.List(String, min_length=1, max_length=10),
+    }).ignore_extra("*")
 
-    _common_credentials = t.Dict(
-        {
-            t.Key("catalog_version_id", optional=True): String(),
-            t.Key("url", optional=True): String(),
-        }
-    )
+    _common_credentials = t.Dict({
+        t.Key("catalog_version_id", optional=True): String(),
+        t.Key("url", optional=True): String(),
+    })
 
-    _password_credentials = (
-        t.Dict({t.Key("user"): String(), t.Key("password"): String()}) + _common_credentials
-    )
+    _password_credentials = t.Dict({t.Key("user"): String(), t.Key("password"): String()}) + _common_credentials
 
     _stored_credentials = t.Dict({t.Key("credential_id"): String()}) + _common_credentials
 
     _feg_credentials_converter = t.List(_password_credentials | _stored_credentials, max_length=50)
 
-    _segmentation_converter = t.Dict(
-        {
-            t.Key("segmentation_task_id", optional=True): t.String(),
-            t.Key("parent_project_id", optional=True): t.String(),
-            t.Key("segment", optional=True): t.String(),
-        }
-    ).ignore_extra("*")
+    _segmentation_converter = t.Dict({
+        t.Key("segmentation_task_id", optional=True): t.String(),
+        t.Key("parent_project_id", optional=True): t.String(),
+        t.Key("segment", optional=True): t.String(),
+    }).ignore_extra("*")
 
-    _partitioning_method_converter = t.Dict(
-        {
-            t.Key("cv_method"): t.String(),
-            t.Key("validation_type"): t.String(),
-        }
-    ).allow_extra("*")
+    _partitioning_method_converter = t.Dict({
+        t.Key("cv_method"): t.String(),
+        t.Key("validation_type"): t.String(),
+    }).allow_extra("*")
 
     _use_case_converter = t.Dict({"name": String(), "id": String()}) & (lambda x: str(x["id"]))
 
-    _converter = t.Dict(
-        {
-            t.Key("_id", optional=True) >> "id": String(allow_blank=True),
-            t.Key("id", optional=True) >> "id": String(allow_blank=True),
-            t.Key("project_name", optional=True) >> "project_name": String(allow_blank=True),
-            t.Key("project_description", optional=True): String(),
-            t.Key("autopilot_mode", optional=True) >> "mode": Int,
-            t.Key("target", optional=True): String(),
-            t.Key("target_type", optional=True): String(allow_blank=True),
-            t.Key("holdout_unlocked", optional=True): t.Bool(),
-            t.Key("metric", optional=True) >> "metric": String(allow_blank=True),
-            t.Key("stage", optional=True) >> "stage": String(allow_blank=True),
-            t.Key("partition", optional=True): t.Dict().allow_extra("*"),
-            t.Key("positive_class", optional=True): t.Or(Int(), t.Float(), String()),
-            t.Key("created", optional=True): parse_time,
-            t.Key("advanced_options", optional=True): _advanced_options_converter,
-            t.Key("max_train_pct", optional=True): t.Float(),
-            t.Key("max_train_rows", optional=True): Int(),
-            t.Key("file_name", optional=True): String(allow_blank=True),
-            t.Key("credentials", optional=True): _feg_credentials_converter,
-            t.Key("feature_engineering_prediction_point", optional=True): String(),
-            t.Key("use_gpu", optional=True): t.Bool(),
-            t.Key("unsupervised_mode", default=False): t.Bool(),
-            t.Key("use_feature_discovery", optional=True, default=False): t.Bool(),
-            t.Key("relationships_configuration_id", optional=True): String(),
-            t.Key("query_generator_id", optional=True): String(),
-            t.Key("segmentation", optional=True): _segmentation_converter,
-            t.Key("partitioning_method", optional=True): t.Or(
-                _partitioning_method_converter, DatetimePartitioning._converter
-            ),
-            t.Key("catalog_id", optional=True): String(),
-            t.Key("catalog_version_id", optional=True): String(),
-            t.Key("use_case", optional=True) >> "use_case_id": _use_case_converter,
-        }
-    ).allow_extra("*")
+    _converter = t.Dict({
+        t.Key("_id", optional=True) >> "id": String(allow_blank=True),
+        t.Key("id", optional=True) >> "id": String(allow_blank=True),
+        t.Key("project_name", optional=True) >> "project_name": String(allow_blank=True),
+        t.Key("project_description", optional=True): String(),
+        t.Key("autopilot_mode", optional=True) >> "mode": Int,
+        t.Key("target", optional=True): String(),
+        t.Key("target_type", optional=True): String(allow_blank=True),
+        t.Key("holdout_unlocked", optional=True): t.Bool(),
+        t.Key("metric", optional=True) >> "metric": String(allow_blank=True),
+        t.Key("stage", optional=True) >> "stage": String(allow_blank=True),
+        t.Key("partition", optional=True): t.Dict().allow_extra("*"),
+        t.Key("positive_class", optional=True): t.Or(Int(), t.Float(), String()),
+        t.Key("created", optional=True): parse_time,
+        t.Key("advanced_options", optional=True): _advanced_options_converter,
+        t.Key("max_train_pct", optional=True): t.Float(),
+        t.Key("max_train_rows", optional=True): Int(),
+        t.Key("file_name", optional=True): String(allow_blank=True),
+        t.Key("credentials", optional=True): _feg_credentials_converter,
+        t.Key("feature_engineering_prediction_point", optional=True): String(),
+        t.Key("use_gpu", optional=True): t.Bool(),
+        t.Key("unsupervised_mode", default=False): t.Bool(),
+        t.Key("use_feature_discovery", optional=True, default=False): t.Bool(),
+        t.Key("relationships_configuration_id", optional=True): String(),
+        t.Key("query_generator_id", optional=True): String(),
+        t.Key("segmentation", optional=True): _segmentation_converter,
+        t.Key("partitioning_method", optional=True): t.Or(
+            _partitioning_method_converter, DatetimePartitioning._converter
+        ),
+        t.Key("catalog_id", optional=True): String(),
+        t.Key("catalog_version_id", optional=True): String(),
+        t.Key("use_case", optional=True) >> "use_case_id": _use_case_converter,
+    }).allow_extra("*")
 
     def __init__(
         self,
@@ -442,9 +426,7 @@ class Project(APIObject, BrowserMixin):
 
     @property
     def calendar_id(self) -> Optional[str]:
-        return (
-            self.partition.get("calendar_id") if self.partition and self.use_time_series else None
-        )
+        return self.partition.get("calendar_id") if self.partition and self.use_time_series else None
 
     @property
     def is_datetime_partitioned(self) -> bool:
@@ -494,9 +476,7 @@ OR individual keyword arguments. You cannot pass both."
 
         # Retrieve project options that have previously been set from the /options endpoint
         project_options: ProjectOptions = self._options
-        options_to_be_set = self._reconcile_options(
-            options=options, options_previously_set=project_options, **kwargs
-        )
+        options_to_be_set = self._reconcile_options(options=options, options_previously_set=project_options, **kwargs)
 
         # Update the ProjectOptions instance
         project_options.update_individual_options(**options_to_be_set)
@@ -531,7 +511,7 @@ OR individual keyword arguments. You cannot pass both."
         options_warn_non_persistable = set()
         options_previously_set_warn_overwritten: Dict[str, OldAndNewValue] = {}
 
-        for option in options_dict:
+        for option in options_dict:  # noqa: PLC0206
             if getattr(options_previously_set, option) is not None:
                 # populate `options_previously_set_warn_overwritten` dict of the form
                 # {"option_name": (old value, new value)}
@@ -1003,8 +983,7 @@ OR individual keyword arguments. You cannot pass both."
             The created project
         """
         prepare_model_package_path = (
-            f"{cls._path}{clustering_project_id}/models/"
-            f"{clustering_model_id}/prepareSegmentedModelPackages/"
+            f"{cls._path}{clustering_project_id}/models/{clustering_model_id}/prepareSegmentedModelPackages/"
         )
         prepare_project_path = f"{cls._path}{clustering_project_id}/prepareSegmentedProject/"
 
@@ -1018,9 +997,7 @@ OR individual keyword arguments. You cannot pass both."
             "target": target,
         }
         response = cls._client.post(prepare_project_path, json=payload)
-        location = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait=max_wait
-        )
+        location = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait=max_wait)
         response = cls._client.get(location)
         response_json = response.json()
         return cls.get(response_json["id"])
@@ -1076,9 +1053,7 @@ OR individual keyword arguments. You cannot pass both."
         return cls.from_async(async_location, max_wait)
 
     @classmethod
-    def from_async(
-        cls: Type[TProject], async_location: str, max_wait: int = DEFAULT_MAX_WAIT
-    ) -> TProject:
+    def from_async(cls: Type[TProject], async_location: str, max_wait: int = DEFAULT_MAX_WAIT) -> TProject:
         """
         Given a temporary async status location poll for no more than max_wait seconds
         until the async process (project creation or setting the target, for example)
@@ -1110,9 +1085,7 @@ OR individual keyword arguments. You cannot pass both."
             specified
         """
         try:
-            finished_location = wait_for_async_resolution(
-                cls._client, async_location, max_wait=max_wait
-            )
+            finished_location = wait_for_async_resolution(cls._client, async_location, max_wait=max_wait)
             proj_id = get_id_from_location(finished_location)
             return cls.get(proj_id)
         except AppPlatformError as e:
@@ -1419,9 +1392,7 @@ OR individual keyword arguments. You cannot pass both."
                 get_params.update(search_params)
             else:
                 raise TypeError(
-                    "Provided search_params argument {} is invalid type {}".format(
-                        search_params, type(search_params)
-                    )
+                    "Provided search_params argument {} is invalid type {}".format(search_params, type(search_params))
                 )
         # This is a special case we needed to cover. A user could pass in "use_case_id" themselves to
         # `search_params`, so we need to check for that and default to `use_cases` if that was passed in.
@@ -1658,9 +1629,7 @@ OR individual keyword arguments. You cannot pass both."
 
         aim_payload = self._construct_aim_payload(target, mode, metric)
 
-        self._load_autopilot_options(
-            opts=advanced_options if advanced_options else self._options, payload=aim_payload
-        )
+        self._load_autopilot_options(opts=advanced_options if advanced_options else self._options, payload=aim_payload)
         if positive_class is not None:
             aim_payload["positive_class"] = positive_class
         if target_type is not None:
@@ -1670,9 +1639,7 @@ OR individual keyword arguments. You cannot pass both."
         if credentials is not None:
             aim_payload["credentials"] = credentials
         if feature_engineering_prediction_point is not None:
-            aim_payload["feature_engineering_prediction_point"] = (
-                feature_engineering_prediction_point
-            )
+            aim_payload["feature_engineering_prediction_point"] = feature_engineering_prediction_point
         # DSX-2275 if user passes in partitioning_method, use that
         # otherwise use existing one
         if partitioning_method is not None:
@@ -1705,9 +1672,7 @@ OR individual keyword arguments. You cannot pass both."
             target_type in {TARGET_TYPE.MULTICLASS, TARGET_TYPE.MULTILABEL}
             and class_mapping_aggregation_settings is not None
         ):
-            aim_payload["class_mapping_aggregation_settings"] = (
-                class_mapping_aggregation_settings.collect_payload()
-            )
+            aim_payload["class_mapping_aggregation_settings"] = class_mapping_aggregation_settings.collect_payload()
 
         if segmentation_task_id is not None:
             if max_wait == DEFAULT_MAX_WAIT:
@@ -1717,9 +1682,7 @@ OR individual keyword arguments. You cannot pass both."
             elif isinstance(segmentation_task_id, str):
                 aim_payload["segmentation_task_id"] = segmentation_task_id
             else:
-                raise ValueError(
-                    "segmentation_task_id must be either a string id or a SegmentationTask object"
-                )
+                raise ValueError("segmentation_task_id must be either a string id or a SegmentationTask object")
         if use_gpu is not None:
             aim_payload["use_gpu"] = use_gpu
 
@@ -2185,16 +2148,10 @@ OR individual keyword arguments. You cannot pass both."
         # Create list of the form [(4.31236, Model("RMSE"))] where the first element is the score
         # and the second is the Model
         ScoreAndModel = collections.namedtuple("ScoreAndModel", "score model")
-        scores_and_models = [
-            ScoreAndModel(model.metrics[metric]["validation"], model) for model in models
-        ]
+        scores_and_models = [ScoreAndModel(model.metrics[metric]["validation"], model) for model in models]
 
         sorted_filtered_scores_and_models = sorted(
-            [
-                score_and_model
-                for score_and_model in scores_and_models
-                if score_and_model.score is not None
-            ],
+            [score_and_model for score_and_model in scores_and_models if score_and_model.score is not None],
             key=lambda score_and_model: score_and_model.score,
             reverse=(not is_ascending),
         )
@@ -2413,8 +2370,7 @@ OR individual keyword arguments. You cannot pass both."
 
         if forecast_point and predictions_start_date or forecast_point and predictions_end_date:
             raise ValueError(
-                "forecast_point can not be provided together with "
-                "predictions_start_date or predictions_end_date"
+                "forecast_point can not be provided together with predictions_start_date or predictions_end_date"
             )
 
         if predictions_start_date and predictions_end_date:
@@ -2425,17 +2381,12 @@ OR individual keyword arguments. You cannot pass both."
             form_data["predictions_start_date"] = predictions_start_date
             form_data["predictions_end_date"] = predictions_end_date
         elif predictions_start_date or predictions_end_date:
-            raise ValueError(
-                "Both prediction_start_date and prediction_end_date "
-                "must be provided at the same time"
-            )
+            raise ValueError("Both prediction_start_date and prediction_end_date must be provided at the same time")
 
         if actual_value_column:
             form_data["actual_value_column"] = actual_value_column
         if relax_known_in_advance_features_check:
-            form_data["relax_known_in_advance_features_check"] = str(
-                relax_known_in_advance_features_check
-            )
+            form_data["relax_known_in_advance_features_check"] = str(relax_known_in_advance_features_check)
 
         if credentials:
             form_data["credentials"] = json.dumps(credentials)
@@ -2566,15 +2517,15 @@ OR individual keyword arguments. You cannot pass both."
                 SnowflakeKeyPairCredentialsDataDict,
                 DatabricksAccessTokenCredentialsDataDict,
                 DatabricksServicePrincipalCredentialsDataDict,
+                AzureServicePrincipalCredentialsDataDict,
+                ExternalOAuthProviderCredentialsDataDict,
             ]
         ] = None,
         dataset_version_id: Optional[str] = None,
         max_wait: Optional[int] = DEFAULT_MAX_WAIT,
         forecast_point: Optional[datetime] = None,
         relax_known_in_advance_features_check: Optional[bool] = None,
-        credentials: Optional[
-            List[Union[BasicCredentialsDict, CredentialIdCredentialsDict]]
-        ] = None,
+        credentials: Optional[List[Union[BasicCredentialsDict, CredentialIdCredentialsDict]]] = None,
         predictions_start_date: Optional[datetime] = None,
         predictions_end_date: Optional[datetime] = None,
         actual_value_column: Optional[str] = None,
@@ -2674,6 +2625,13 @@ OR individual keyword arguments. You cannot pass both."
                 - configId (`Optional[str]`)
                     The ID of the saved shared secure configuration. If specified, cannot include clientId
                     and clientSecret.
+
+            External OAuth provider credentials
+                - credentialType (`str`)
+                    The credential type. For external OAuth provider credentials, this value must be
+                    CredentialTypes.EXTERNAL_OAUTH_PROVIDER.
+                - authenticationId (`str`)
+                    The authorization identifier returned by the external OAuth provider service.
         dataset_version_id : Optional[str]
             The version id of the dataset to use.
         max_wait : Optional[int]
@@ -2815,9 +2773,7 @@ OR individual keyword arguments. You cannot pass both."
         params = {}
         if batch_size is not None:
             params["limit"] = batch_size
-        return [
-            ModelingFeature.from_server_data(item) for item in unpaginate(url, params, self._client)
-        ]
+        return [ModelingFeature.from_server_data(item) for item in unpaginate(url, params, self._client)]
 
     def get_featurelists(self) -> List[Featurelist]:
         """
@@ -2925,9 +2881,7 @@ OR individual keyword arguments. You cannot pass both."
         )
         return feature_association_matrix_details.to_dict()
 
-    def get_modeling_featurelists(
-        self, batch_size: Optional[int] = None
-    ) -> List[ModelingFeaturelist]:
+    def get_modeling_featurelists(self, batch_size: Optional[int] = None) -> List[ModelingFeaturelist]:
         """List all modeling featurelists created for this project
 
         Modeling featurelists can only be created after the target and partitioning options have
@@ -2952,10 +2906,7 @@ OR individual keyword arguments. You cannot pass both."
         params = {}
         if batch_size is not None:
             params["limit"] = batch_size
-        return [
-            ModelingFeaturelist.from_server_data(item)
-            for item in unpaginate(url, params, self._client)
-        ]
+        return [ModelingFeaturelist.from_server_data(item) for item in unpaginate(url, params, self._client)]
 
     def get_discarded_features(self) -> DiscardedFeaturesInfo:
         """Retrieve discarded during feature generation features. Applicable for time
@@ -3069,9 +3020,7 @@ OR individual keyword arguments. You cannot pass both."
             payload["dateExtraction"] = date_extraction
 
         response = self._client.post(transform_url, json=payload)
-        result = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        result = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
         return Feature.from_location(result)
 
     def get_featurelist_by_name(self, name: str) -> Optional[Featurelist]:
@@ -3185,17 +3134,11 @@ OR individual keyword arguments. You cannot pass both."
 
         url = f"{self._path}{self.id}/featurelists/"
 
-        if features is not None and (
-            features_to_include is not None or features_to_exclude is not None
-        ):
-            raise InvalidUsageError(
-                '"features" may not be used with "features_to_include" or "features_to_exclude"'
-            )
+        if features is not None and (features_to_include is not None or features_to_exclude is not None):
+            raise InvalidUsageError('"features" may not be used with "features_to_include" or "features_to_exclude"')
 
         if features_to_include is not None and features_to_exclude is not None:
-            raise InvalidUsageError(
-                'Both "features_to_include" and "features_to_exclude" may not be used together.'
-            )
+            raise InvalidUsageError('Both "features_to_include" and "features_to_exclude" may not be used together.')
 
         # Check if supplied more than one of the following params
         try:
@@ -3227,32 +3170,22 @@ OR individual keyword arguments. You cannot pass both."
             )
         elif features is None:
             starting_featurelist_name = (
-                starting_featurelist_name
-                if starting_featurelist_name is not None
-                else "Raw Features"
+                starting_featurelist_name if starting_featurelist_name is not None else "Raw Features"
             )
             existing_featurelist = self.get_featurelist_by_name(
                 name=starting_featurelist_name,
             )
             if existing_featurelist is None:
-                raise InvalidUsageError(
-                    f"Featurelist not found with name ({starting_featurelist_name})"
-                )
+                raise InvalidUsageError(f"Featurelist not found with name ({starting_featurelist_name})")
 
         if existing_featurelist is not None:
             if existing_featurelist.features is None:
                 raise ValueError(f"Featurelist ({existing_featurelist.name}) has no features.")
 
             if features_to_include:
-                features_to_create = [
-                    feat for feat in existing_featurelist.features if feat in features_to_include
-                ]
+                features_to_create = [feat for feat in existing_featurelist.features if feat in features_to_include]
             elif features_to_exclude:
-                features_to_create = [
-                    feat
-                    for feat in existing_featurelist.features
-                    if feat not in features_to_exclude
-                ]
+                features_to_create = [feat for feat in existing_featurelist.features if feat not in features_to_exclude]
             else:
                 features_to_create = existing_featurelist.features
         elif features is not None:
@@ -3260,19 +3193,13 @@ OR individual keyword arguments. You cannot pass both."
 
         duplicate_features = get_duplicate_features(features_to_create)
         if duplicate_features:
-            err_msg = "Can't create featurelist with duplicate features - {}".format(
-                duplicate_features
-            )
+            err_msg = "Can't create featurelist with duplicate features - {}".format(duplicate_features)
             raise DuplicateFeaturesError(err_msg)
 
         if name is None:
             # If we're using an existing featurelist use that as part of name otherwise just use date
             name_date = datetime.now().strftime("%Y-%m-%d")
-            name = (
-                name_date
-                if existing_featurelist is None
-                else f"{existing_featurelist.name} - {name_date}"
-            )
+            name = name_date if existing_featurelist is None else f"{existing_featurelist.name} - {name_date}"
 
         payload = {
             "name": name,
@@ -3990,15 +3917,10 @@ OR individual keyword arguments. You cannot pass both."
         if combined_model_id is None:
             combined_model_list = self.get_combined_models()
             if len(combined_model_list) > 1:
-                raise ValueError(
-                    "More than 1 combined_model_id was found, please specify the id "
-                    "that you wish to use."
-                )
+                raise ValueError("More than 1 combined_model_id was found, please specify the id that you wish to use.")
             combined_model = combined_model_list[0]
         else:
-            combined_model = CombinedModel.get(
-                project_id=self.id, combined_model_id=combined_model_id
-            )
+            combined_model = CombinedModel.get(project_id=self.id, combined_model_id=combined_model_id)
 
         segments = combined_model.get_segments_info()
         segments_models = []
@@ -4007,15 +3929,13 @@ OR individual keyword arguments. You cannot pass both."
             project = Project.get(project_id)
             project_models = project.get_models()
 
-            segments_models.append(
-                {
-                    "segment": segment.segment,
-                    "project_id": project_id,
-                    "parent_project_id": self.id,
-                    "combined_model_id": combined_model.id,
-                    "models": project_models,
-                }
-            )
+            segments_models.append({
+                "segment": segment.segment,
+                "project_id": project_id,
+                "parent_project_id": self.id,
+                "combined_model_id": combined_model.id,
+                "models": project_models,
+            })
 
         return segments_models
 
@@ -4117,9 +4037,7 @@ OR individual keyword arguments. You cannot pass both."
             if verbosity > VERBOSITY_LEVEL.SILENT:
                 num_inprogress, num_queued = self._get_job_status_counts()
                 logger.info(
-                    "In progress: {}, queued: {} (waited: {:.0f}s)".format(
-                        num_inprogress, num_queued, seconds_waited
-                    )
+                    "In progress: {}, queued: {} (waited: {:.0f}s)".format(num_inprogress, num_queued, seconds_waited)
                 )
             status = self._autopilot_status_check()
             if status["autopilot_done"]:
@@ -4147,8 +4065,7 @@ OR individual keyword arguments. You cannot pass both."
         # Project modes are: 0=full, 1=semi, 2=manual, 3=quick, 4=comprehensive
         if self.mode not in {0, 3, 4}:
             raise RuntimeError(
-                "Autopilot mode is not full auto, quick or comprehensive, autopilot will not "
-                "complete on its own"
+                "Autopilot mode is not full auto, quick or comprehensive, autopilot will not complete on its own"
             )
         return status
 
@@ -4205,9 +4122,7 @@ OR individual keyword arguments. You cannot pass both."
         will_remove_version="3.2",
         message="The method 'set_advanced_options' is deprecated. Please use the method 'set_options' instead.",
     )
-    def set_advanced_options(
-        self, advanced_options: Optional[AdvancedOptions] = None, **kwargs: Any
-    ) -> None:
+    def set_advanced_options(self, advanced_options: Optional[AdvancedOptions] = None, **kwargs: Any) -> None:
         """Update the advanced options of this project.
 
         Notes
@@ -4465,9 +4380,7 @@ OR individual keyword arguments. You cannot pass both."
         project : Project
             The instance with updated attributes.
         """
-        argValues = {
-            k: v for k, v in locals().items() if k in BasePartitioningMethod.keys and v is not None
-        }
+        argValues = {k: v for k, v in locals().items() if k in BasePartitioningMethod.keys and v is not None}
 
         if self.stage == PROJECT_STAGE.MODELING:
             raise InvalidUsageError("Cannot set partitioning method once project target is set.")
@@ -4483,13 +4396,11 @@ OR individual keyword arguments. You cannot pass both."
             # cv_method and validation_type are actually required
             # Purposely checking not only against `None` here to include a possible empty string values
             if not cv_method or not validation_type:
-                raise TypeError(
-                    "cv_method and validation_type are required unless partitioning_method is set"
-                )
+                raise TypeError("cv_method and validation_type are required unless partitioning_method is set")
             try:
                 _partitioning_method = BasePartitioningMethod.from_data(argValues)
             except TypeError:
-                err_msg = f"Unable to create {get_partition_class(cv_method,validation_type).__name__} \
+                err_msg = f"Unable to create {get_partition_class(cv_method, validation_type).__name__} \
                     with the current args."
                 raise InvalidUsageError(err_msg)
 
@@ -4541,9 +4452,7 @@ OR individual keyword arguments. You cannot pass both."
         list of :class:`SharingAccess <datarobot.SharingAccess>`
         """
         url = f"{self._path}{self.id}/accessControl/"
-        return [
-            SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)
-        ]
+        return [SharingAccess.from_server_data(datum) for datum in unpaginate(url, {}, self._client)]
 
     def share(
         self,
@@ -4598,9 +4507,7 @@ OR individual keyword arguments. You cannot pass both."
             payload["sendNotification"] = send_notification
         if include_feature_discovery_entities is not None:
             payload["includeFeatureDiscoveryEntities"] = include_feature_discovery_entities
-        self._client.patch(
-            f"{self._path}{self.id}/accessControl/", data=payload, keep_attrs={"role"}
-        )
+        self._client.patch(f"{self._path}{self.id}/accessControl/", data=payload, keep_attrs={"role"})
 
     def batch_features_type_transform(
         self,
@@ -4772,9 +4679,7 @@ OR individual keyword arguments. You cannot pass both."
             If the resource did not resolve in time
         """
         if not isinstance(features, list):
-            msg = 'List of two existing categorical feature names expected, got "{}"'.format(
-                features
-            )
+            msg = 'List of two existing categorical feature names expected, got "{}"'.format(features)
             raise TypeError(msg)
 
         if len(features) != 2:
@@ -4786,9 +4691,7 @@ OR individual keyword arguments. You cannot pass both."
 
         response = self._client.post(interaction_url, json=payload)
 
-        feature_location = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        feature_location = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
 
         return InteractionFeature.from_location(feature_location)
 
@@ -4869,9 +4772,7 @@ OR individual keyword arguments. You cannot pass both."
 
         response = self._client.post(export_url, json=payload)
 
-        download_location = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        download_location = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
 
         response = self._client.get(download_location, stream=True)
         with open(file_name, "wb") as f:
@@ -4950,9 +4851,7 @@ OR individual keyword arguments. You cannot pass both."
         }
         url = f"projects/{self.id}/externalTimeSeriesBaselineDataValidationJobs/"
         response = self._client.post(url, data=payload)
-        result_url = wait_for_async_resolution(
-            self._client, response.headers["Location"], max_wait=max_wait
-        )
+        result_url = wait_for_async_resolution(self._client, response.headers["Location"], max_wait=max_wait)
         return ExternalBaselineValidationInfo.from_server_data(self._client.get(result_url).json())
 
     def download_multicategorical_data_format_errors(self, file_name: str) -> None:
@@ -5092,9 +4991,7 @@ OR individual keyword arguments. You cannot pass both."
             "biasMitigationFeature": bias_mitigation_feature_name,
             "biasMitigationParentLid": bias_mitigation_parent_leaderboard_id,
             "biasMitigationTechnique": bias_mitigation_technique,
-            "includeBiasMitigationFeatureAsPredictorVariable": (
-                include_bias_mitigation_feature_as_predictor_variable
-            ),
+            "includeBiasMitigationFeatureAsPredictorVariable": (include_bias_mitigation_feature_as_predictor_variable),
         }
         response = self._client.post(url, data=payload)
         job_id = get_id_from_response(response)
@@ -5126,9 +5023,7 @@ OR individual keyword arguments. You cannot pass both."
         BiasMitigationFeatureInfo
             Bias mitigation feature info model for the requested feature
         """
-        url = "{}{}/biasMitigationFeatureInfo/{}".format(
-            self._path, self.id, bias_mitigation_feature_name
-        )
+        url = "{}{}/biasMitigationFeatureInfo/{}".format(self._path, self.id, bias_mitigation_feature_name)
         initial_project_post_response = self._client.post(url)
         async_loc = initial_project_post_response.headers["Location"]
         dataset_loc = wait_for_async_resolution(self._client, async_loc)
@@ -5161,9 +5056,7 @@ OR individual keyword arguments. You cannot pass both."
         BiasMitigationFeatureInfo
             Bias mitigation feature info model for the requested feature
         """
-        url = "{}{}/biasMitigationFeatureInfo/?featureName={}".format(
-            self._path, self.id, bias_mitigation_feature_name
-        )
+        url = "{}{}/biasMitigationFeatureInfo/?featureName={}".format(self._path, self.id, bias_mitigation_feature_name)
         feature_info_data = self._client.get(url).json()
 
         return BiasMitigationFeatureInfo.from_server_data(feature_info_data)
@@ -5218,9 +5111,7 @@ OR individual keyword arguments. You cannot pass both."
                 )
             self.partitioning_method = spec
 
-        full_partitioning = DatetimePartitioning.generate(
-            self.id, self.partitioning_method, target=self.target
-        )
+        full_partitioning = DatetimePartitioning.generate(self.id, self.partitioning_method, target=self.target)
         return full_partitioning
 
     def list_datetime_partition_spec(self) -> Optional[DatetimePartitioningSpecification]:

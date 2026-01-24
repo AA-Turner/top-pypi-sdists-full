@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astroid
-Version: 3.3.11
+Version: 4.0.3
 Summary: An abstract syntax tree for Python with inference support.
 License-Expression: LGPL-2.1-or-later
 Project-URL: Bug tracker, https://github.com/pylint-dev/astroid/issues
@@ -14,17 +14,17 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: CONTRIBUTORS.txt

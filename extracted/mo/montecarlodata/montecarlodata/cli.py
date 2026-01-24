@@ -15,6 +15,7 @@ from montecarlodata.insights.commands import insights
 from montecarlodata.integrations.commands import integrations
 from montecarlodata.keys.commands import keys
 from montecarlodata.management.commands import management
+from montecarlodata.mcp.commands import mcp
 from montecarlodata.platform.commands import platform
 from montecarlodata.secrets.commands import secrets
 from montecarlodata.tools import dump_help
@@ -113,6 +114,7 @@ entry_point.add_command(keys)
 entry_point.add_command(secrets)
 entry_point.add_command(platform)
 entry_point.add_command(export)
+entry_point.add_command(mcp)
 
 # to allow this to be run as a script within an IDE (for debugging)
 if __name__ == "__main__":

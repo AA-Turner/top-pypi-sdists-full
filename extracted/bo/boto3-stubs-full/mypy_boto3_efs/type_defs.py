@@ -3,7 +3,7 @@ Type annotations for efs service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_efs/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -35,12 +36,6 @@ from .literals import (
     TransitionToIARulesType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -127,13 +122,13 @@ __all__ = (
 class PosixUserOutputTypeDef(TypedDict):
     Uid: int
     Gid: int
-    SecondaryGids: NotRequired[List[int]]
+    SecondaryGids: NotRequired[list[int]]
 
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -216,7 +211,7 @@ class DescribeAccountPreferencesRequestTypeDef(TypedDict):
 
 class ResourceIdPreferenceTypeDef(TypedDict):
     ResourceIdType: NotRequired[ResourceIdTypeType]
-    Resources: NotRequired[List[ResourceType]]
+    Resources: NotRequired[list[ResourceType]]
 
 
 class DescribeBackupPolicyRequestTypeDef(TypedDict):
@@ -348,7 +343,7 @@ class UpdateFileSystemRequestTypeDef(TypedDict):
 
 
 class DescribeMountTargetSecurityGroupsResponseTypeDef(TypedDict):
-    SecurityGroups: List[str]
+    SecurityGroups: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -401,13 +396,13 @@ class CreateTagsRequestTypeDef(TypedDict):
 
 class DescribeTagsResponseTypeDef(TypedDict):
     Marker: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -479,7 +474,7 @@ class PutAccountPreferencesResponseTypeDef(TypedDict):
 
 class DescribeMountTargetsResponseTypeDef(TypedDict):
     Marker: str
-    MountTargets: List[MountTargetDescriptionTypeDef]
+    MountTargets: list[MountTargetDescriptionTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -490,7 +485,7 @@ class ReplicationConfigurationDescriptionResponseTypeDef(TypedDict):
     SourceFileSystemArn: str
     OriginalSourceFileSystemArn: str
     CreationTime: datetime
-    Destinations: List[DestinationTypeDef]
+    Destinations: list[DestinationTypeDef]
     SourceFileSystemOwnerId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -501,7 +496,7 @@ class ReplicationConfigurationDescriptionTypeDef(TypedDict):
     SourceFileSystemArn: str
     OriginalSourceFileSystemArn: str
     CreationTime: datetime
-    Destinations: List[DestinationTypeDef]
+    Destinations: list[DestinationTypeDef]
     SourceFileSystemOwnerId: NotRequired[str]
 
 
@@ -522,7 +517,7 @@ class FileSystemDescriptionResponseTypeDef(TypedDict):
     ProvisionedThroughputInMibps: float
     AvailabilityZoneName: str
     AvailabilityZoneId: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     FileSystemProtection: FileSystemProtectionDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -536,7 +531,7 @@ class FileSystemDescriptionTypeDef(TypedDict):
     NumberOfMountTargets: int
     SizeInBytes: FileSystemSizeTypeDef
     PerformanceMode: PerformanceModeType
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     FileSystemArn: NotRequired[str]
     Name: NotRequired[str]
     Encrypted: NotRequired[bool]
@@ -549,7 +544,7 @@ class FileSystemDescriptionTypeDef(TypedDict):
 
 
 class LifecycleConfigurationDescriptionTypeDef(TypedDict):
-    LifecyclePolicies: List[LifecyclePolicyTypeDef]
+    LifecyclePolicies: list[LifecyclePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -564,7 +559,7 @@ PosixUserUnionTypeDef = Union[PosixUserTypeDef, PosixUserOutputTypeDef]
 class AccessPointDescriptionResponseTypeDef(TypedDict):
     ClientToken: str
     Name: str
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     AccessPointId: str
     AccessPointArn: str
     FileSystemId: str
@@ -578,7 +573,7 @@ class AccessPointDescriptionResponseTypeDef(TypedDict):
 class AccessPointDescriptionTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     Name: NotRequired[str]
-    Tags: NotRequired[List[TagTypeDef]]
+    Tags: NotRequired[list[TagTypeDef]]
     AccessPointId: NotRequired[str]
     AccessPointArn: NotRequired[str]
     FileSystemId: NotRequired[str]
@@ -589,14 +584,14 @@ class AccessPointDescriptionTypeDef(TypedDict):
 
 
 class DescribeReplicationConfigurationsResponseTypeDef(TypedDict):
-    Replications: List[ReplicationConfigurationDescriptionTypeDef]
+    Replications: list[ReplicationConfigurationDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeFileSystemsResponseTypeDef(TypedDict):
     Marker: str
-    FileSystems: List[FileSystemDescriptionTypeDef]
+    FileSystems: list[FileSystemDescriptionTypeDef]
     NextMarker: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -610,6 +605,6 @@ class CreateAccessPointRequestTypeDef(TypedDict):
 
 
 class DescribeAccessPointsResponseTypeDef(TypedDict):
-    AccessPoints: List[AccessPointDescriptionTypeDef]
+    AccessPoints: list[AccessPointDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

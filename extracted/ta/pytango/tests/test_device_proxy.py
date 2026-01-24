@@ -18,6 +18,7 @@ and is even likely to crash the device (!)
 import asyncio
 import gc
 import multiprocessing
+import sys
 import time
 import weakref
 
@@ -28,17 +29,20 @@ from tango import (
     AttributeInfoEx,
     AttributeInfoList,
     AttributeInfoListEx,
+    AttrWriteType,
     DeviceInfo,
     DeviceProxy,
+    DevFailed,
     EventType,
     ExtractAs,
     GreenMode,
     Group,
     PyTangoUserWarning,
     constants,
+    EventSubMode,
 )
 from tango.constants import AllAttr
-from tango.server import Device, attribute
+from tango.server import Device, attribute, command
 from tango.test_utils import (
     DeviceTestContext,
     assert_close,
@@ -200,7 +204,11 @@ def test_info(tango_test):
     assert info.dev_class == "TangoTest"
     info_dict = info.version_info
     assert isinstance(info_dict, dict)
-    assert len(info_dict) > 0
+    # version_info only populated from IDL v6
+    if info.server_version >= 6:
+        assert len(info_dict) > 0
+    else:
+        assert len(info_dict) == 0
 
 
 def test_read_attribute(tango_test, readable_attribute):
@@ -217,11 +225,87 @@ def test_read_attribute(tango_test, readable_attribute):
 
 def test_read_write_attribute_with_green_modes(tango_test_with_green_modes):
     """
-    Check that attributes can be read/write with all green modes
+    Check read/write to attributes one at a time with all green modes
     """
     for attr_name, write_value in TEST_DOUBLE_ATTRIBUTES:
         tango_test_with_green_modes.write_attribute(attr_name, write_value, wait=True)
         read_attr = tango_test_with_green_modes.read_attribute(attr_name, wait=True)
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+
+def test_read_write_attribute_with_attr_info(tango_test):
+    for attr_name, write_value in TEST_DOUBLE_ATTRIBUTES:
+        attr_info = tango_test.get_attribute_config(attr_name, wait=True)
+        tango_test.write_attribute(attr_info, write_value, wait=True)
+        read_attr = tango_test.read_attribute(attr_name, wait=True)
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+
+def test_read_write_attributes_with_green_modes(tango_test_with_green_modes):
+    """
+    Check read/write to multiple attributes with all green modes
+    """
+    tango_test_with_green_modes.write_attributes(TEST_DOUBLE_ATTRIBUTES, wait=True)
+    attr_names = [name for name, _ in TEST_DOUBLE_ATTRIBUTES]
+    read_attrs = tango_test_with_green_modes.read_attributes(attr_names, wait=True)
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+        assert read_attr.name == attr_name
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+
+def test_read_write_attributes_with_attr_info(tango_test):
+    attr_names = [name for name, _ in TEST_DOUBLE_ATTRIBUTES]
+    attr_infos = tango_test.get_attribute_config_ex(attr_names)
+
+    value_to_write = [
+        (attr_info, value)
+        for (attr_info, (_, value)) in zip(attr_infos, TEST_DOUBLE_ATTRIBUTES)
+    ]
+
+    tango_test.write_attributes(value_to_write, wait=True)
+    read_attrs = tango_test.read_attributes(attr_names, wait=True)
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+        assert read_attr.name == attr_name
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+
+@pytest.mark.parametrize("sequence_type", ["tuple", "list"])
+def test_read_write_attributes_different_sequences(tango_test, sequence_type):
+    """
+    Check read/write to multiple attributes with different sequences
+    """
+    attr_names_values = ((name, value) for (name, value) in TEST_DOUBLE_ATTRIBUTES)
+    attr_names = (name for name, _ in TEST_DOUBLE_ATTRIBUTES)
+
+    if sequence_type == "tuple":
+        attr_names_values = tuple(attr_names_values)
+        attr_names = tuple(attr_names)
+    elif sequence_type == "list":
+        attr_names_values = list(attr_names_values)
+        attr_names = list(attr_names)
+
+    tango_test.write_attributes(attr_names_values, wait=True)
+    read_attrs = tango_test.read_attributes(attr_names, wait=True)
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+        assert read_attr.name == attr_name
+        assert_close(read_attr.value, write_value)
+        assert_close(read_attr.w_value, write_value)
+
+
+def test_write_read_attributes_with_green_modes(tango_test_with_green_modes):
+    """
+    Check write and read multiple attributes in a single call with all green modes
+    """
+    attr_names = [name for name, _ in TEST_DOUBLE_ATTRIBUTES]
+    read_attrs = tango_test_with_green_modes.write_read_attributes(
+        TEST_DOUBLE_ATTRIBUTES, attr_names, wait=True
+    )
+    for (attr_name, write_value), read_attr in zip(TEST_DOUBLE_ATTRIBUTES, read_attrs):
+        assert read_attr.name == attr_name
         assert_close(read_attr.value, write_value)
         assert_close(read_attr.w_value, write_value)
 
@@ -397,7 +481,7 @@ def test_dynamic_interface_unfreeze_generates_a_user_warning(tango_test):
         tango_test.unfreeze_dynamic_interface()
 
 
-def test_read_attribute_config(tango_test):
+def test_get_attribute_config(tango_test):
     all_conf = tango_test.get_attribute_config(ATTRIBUTES)
     assert len(all_conf) == len(ATTRIBUTES)
     assert set([conf.name for conf in all_conf]) == set(ATTRIBUTES)
@@ -406,7 +490,7 @@ def test_read_attribute_config(tango_test):
         tango_test.get_attribute_config(attr)
 
 
-def test_read_attribute_config_ex():
+def test_get_attribute_config_ex():
     class TestDevice(Device):
 
         @attribute(dtype=int, unit="mA")
@@ -445,6 +529,42 @@ def test_read_attribute_config_ex():
         assert_multiple_attrs_config_ok(proxy)
 
 
+def test_set_attribute_config():
+    class TestDevice(Device):
+
+        @attribute(dtype=int, unit="mA")
+        def attr_config(self):
+            return 1
+
+    with DeviceTestContext(TestDevice) as proxy:
+        attr_info = proxy.get_attribute_config("attr_config")
+        attr_info.unit = "testing"
+        proxy.set_attribute_config(attr_info)
+
+        updated_attr_info = proxy.get_attribute_config("attr_config")
+        assert updated_attr_info.unit == "testing"
+
+
+def test_set_attribute_config_signatures(tango_test):
+    settable_attrs = ATTRIBUTES.copy()
+    settable_attrs.remove("State")
+    settable_attrs.remove("Status")
+    all_conf = tango_test.get_attribute_config(settable_attrs)
+    all_conf_ex = tango_test.get_attribute_config_ex(settable_attrs)
+
+    tango_test.set_attribute_config(all_conf)
+    tango_test.set_attribute_config(all_conf[0])
+    tango_test.set_attribute_config(all_conf_ex)
+    tango_test.set_attribute_config(all_conf_ex[0])
+    tango_test.set_attribute_config([all_conf[0], all_conf[1]])
+    tango_test.set_attribute_config([all_conf_ex[0], all_conf_ex[1]])
+
+    with pytest.raises(TypeError, match=r"AttributeInfo.*AttributeInfoEx"):
+        tango_test.set_attribute_config("invalid_item")
+    with pytest.raises(TypeError, match=r"AttributeInfo.*AttributeInfoEx"):
+        tango_test.set_attribute_config(["invalid", "list", "of", "items"])
+
+
 def test_attribute_list_query(tango_test):
     attrs = tango_test.attribute_list_query()
     assert isinstance(attrs, AttributeInfoList)
@@ -463,8 +583,6 @@ def test_device_proxy_dir_method(tango_test):
     lst = dir(tango_test)
     attrs = tango_test.get_attribute_list()
     cmds = tango_test.get_command_list()
-    with pytest.warns(DeprecationWarning):
-        pipes = tango_test.get_pipe_list()
     methods = dir(type(tango_test))
     internals = tango_test.__dict__.keys()
     # Check attributes
@@ -473,9 +591,6 @@ def test_device_proxy_dir_method(tango_test):
     # Check commands
     assert set(cmds) < set(lst)
     assert set(map(str.lower, cmds)) < set(lst)
-    # Check pipes
-    assert set(pipes) < set(lst)
-    assert set(map(str.lower, pipes)) < set(lst)
     # Check internals
     assert set(methods) <= set(lst)
     # Check internals
@@ -485,15 +600,15 @@ def test_device_proxy_dir_method(tango_test):
 def test_device_polling_command(tango_test):
     dct = {"SwitchStates": 1000, "DevVoid": 10000, "DumpExecutionState": 5000}
 
-    for command, period in dct.items():
-        tango_test.poll_command(command, period)
+    for cmd, period in dct.items():
+        tango_test.poll_command(cmd, period)
 
     ans = tango_test.polling_status()
     for info in ans:
         lines = info.split("\n")
-        command = lines[0].split("= ")[1]
+        cmd = lines[0].split("= ")[1]
         period = int(lines[1].split("= ")[1])
-        assert dct[command] == period
+        assert dct[cmd] == period
 
 
 def test_device_polling_attribute(tango_test):
@@ -715,7 +830,7 @@ def continuously_call_subject_during_not_connected_event(
     proxy = DeviceProxy(device_trl)
     proxy_created.set()
     eid = proxy.subscribe_event(
-        "boolean_scalar", EventType.CHANGE_EVENT, cb, stateless=True
+        "boolean_scalar", EventType.CHANGE_EVENT, cb, sub_mode=EventSubMode.Stateless
     )
     assert eid > 0
 
@@ -745,3 +860,80 @@ def assert_object_released_without_gc(weak_ref):
             pytest.xfail("Sometimes fails with a concurrent.Future ref cycle")
         else:
             raise
+
+
+@pytest.fixture
+def uninitialized_dev_proxy():
+    """
+    This could happen if there was an exception in the DeviceProxy __init__ method,
+    and the user is running through pytest.  pytest will have a reference to the frame
+    and try to print out all the objects from the failed test.
+    """
+    proxy_instance = None
+    try:
+        DeviceProxy("not/existing/device")
+    except DevFailed:
+        traceback = sys.exc_info()[2]
+        for v in traceback.tb_next.tb_frame.f_locals.values():
+            if isinstance(v, DeviceProxy):
+                proxy_instance = v
+
+    assert proxy_instance is not None
+    yield proxy_instance
+
+
+def test_pytest_report_on_failed_device_proxy_does_not_crash(uninitialized_dev_proxy):
+    safe_repr = repr(uninitialized_dev_proxy)
+    assert "DeviceProxy" in safe_repr
+    assert "Unknown" in safe_repr
+
+    safe_str = str(uninitialized_dev_proxy)
+    assert "DeviceProxy" in safe_str
+    assert "Unknown" in safe_str
+
+
+def test_dunder_methods_on_failed_device_proxy_do_not_crash(uninitialized_dev_proxy):
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        dir(uninitialized_dev_proxy)
+
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        getattr(uninitialized_dev_proxy, "dummy")
+
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        setattr(uninitialized_dev_proxy, "dummy", 123)
+
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        _ = uninitialized_dev_proxy["dummy"]
+
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        uninitialized_dev_proxy["dummy"] = 123
+
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        _ = "dummy" in uninitialized_dev_proxy
+
+    with pytest.raises(RuntimeError, match="not fully initialized"):
+        dir(uninitialized_dev_proxy)
+
+
+def test_getattr_does_not_raise_for_removed_attribute():
+    class TestDevice(Device):
+
+        def initialize_dynamic_attributes(self):
+            attr = attribute(
+                name="dyn_attr",
+                access=AttrWriteType.READ,
+                fget=self.read_dyn_attr,
+            )
+            self.add_attribute(attr)
+
+        def read_dyn_attr(self, attr) -> int:
+            return 1
+
+        @command
+        def delete_attr(self):
+            self.remove_attribute("dyn_attr")
+
+    with DeviceTestContext(TestDevice) as proxy:
+        assert hasattr(proxy, "dyn_attr")
+        proxy.delete_attr()
+        assert not hasattr(proxy, "dyn_attr")

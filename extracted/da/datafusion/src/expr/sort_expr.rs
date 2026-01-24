@@ -15,12 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-use crate::expr::PyExpr;
-use datafusion::logical_expr::SortExpr;
-use pyo3::prelude::*;
 use std::fmt::{self, Display, Formatter};
 
-#[pyclass(name = "SortExpr", module = "datafusion.expr", subclass)]
+use datafusion::logical_expr::SortExpr;
+use pyo3::prelude::*;
+
+use crate::expr::PyExpr;
+
+#[pyclass(frozen, name = "SortExpr", module = "datafusion.expr", subclass)]
 #[derive(Clone)]
 pub struct PySortExpr {
     pub(crate) sort: SortExpr,

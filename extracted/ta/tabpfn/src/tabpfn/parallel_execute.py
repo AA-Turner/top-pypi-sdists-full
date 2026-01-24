@@ -5,7 +5,7 @@ from __future__ import annotations
 import queue
 from collections.abc import Generator, Iterable, Sequence
 from multiprocessing.pool import ThreadPool
-from typing import Generic, Protocol, TypeVar
+from typing import Callable, Generic, Protocol, TypeVar
 
 import torch
 
@@ -15,19 +15,14 @@ R_co = TypeVar("R_co", covariant=True)
 class ParallelFunction(Protocol, Generic[R_co]):
     """Interface that functions submitted to `parallel_execute()` should implement."""
 
-    def __call__(self, *, device: torch.device, is_parallel: bool) -> R_co:
+    def __call__(self, *, device: torch.device) -> R_co:
         """Execute the function.
 
         Args:
             device: PyTorch device that all computation should be performed on.
-            is_parallel: Indicates whether this function is being executed in parallel
-                with other functions. If True, then the function should take care to
-                copy any state shared with other functions before mutating it. For
-                example, any nn.Modules should be deep copied before moving them to
-                `device`. If False, then copying can be avoided to reduce overhead.
 
         Returns:
-            Any desired value. Any Tensors in the returned value can be on any device.
+            Any desired value. Any Tensors in the returned value should be on `device`.
         """
         ...
 
@@ -64,7 +59,7 @@ def _execute_in_current_thread(
     device: torch.device, functions: Iterable[ParallelFunction[R_co]]
 ) -> Generator[R_co]:
     for function in functions:
-        yield function(device=device, is_parallel=False)
+        yield function(device=device)
 
 
 def _execute_with_multithreading(
@@ -81,27 +76,38 @@ def _execute_with_multithreading(
             for func in functions
         ]
         for async_result in async_results:
-            yield async_result.get()
+            sync_and_get_output = async_result.get()
+            yield sync_and_get_output()
 
 
 def _execute_function_in_thread(
     all_devices: Sequence[torch.device],
     free_devices: queue.Queue[int],
     function: ParallelFunction[R_co],
-) -> R_co:
+) -> Callable[[], R_co]:
     device_index = free_devices.get(block=True)
     try:
         device = all_devices[device_index]
         if device.type == "cuda":
-            # We use a separate stream per thread so that threads can execute kernels in
-            # parallel.
-            with (
-                torch.cuda.stream(torch.cuda.Stream(device)),
-                torch.cuda.device(device),
-            ):
-                return function(device=device, is_parallel=True)
+            with torch.cuda.device(device):
+                output = function(device=device)
+
+                # The output will be consumed on a different cuda stream, which needs to
+                # wait for the computation on this stream to be complete. Thus we insert
+                # "ready" event after the model evaluation, and return a function to the
+                # consumer that waits on this event.
+                output_ready_event = torch.cuda.Event()
+                output_ready_event.record()
+
+                def sync_stream_and_get_output() -> R_co:
+                    output_ready_event.synchronize()
+                    return output
+
+                return sync_stream_and_get_output
+
         # Theoretically it is possible to parallelise over classes of device other than
         # GPUs, but mainly this is useful for unit testing with multiple CPU devices.
-        return function(device=device, is_parallel=True)
+        output = function(device=device)
+        return lambda: output
     finally:
         free_devices.put(device_index)

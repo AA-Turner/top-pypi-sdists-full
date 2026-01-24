@@ -24,11 +24,13 @@ import sys
 import time
 from socket import gaierror
 from typing import Iterable, Optional, Union
+import re
 
 import msgpack
 from websockets import ConnectionClosed
 
 from gs_quant.api.risk import RiskApi
+from gs_quant.errors import MqValueError
 from gs_quant.risk import RiskRequest
 from gs_quant.target.risk import OptimizationRequest
 from gs_quant.tracing import Tracer, TracingSpan
@@ -168,9 +170,22 @@ class GsRiskApi(RiskApi):
                         request_id = None
                         try:
                             raw_res = result_listener.result()
-                            parsed_res = raw_res.decode() if isinstance(raw_res, bytes) else raw_res
-                            request_id, status_result_str = parsed_res.split(';', 1)
-                            status, result_str = status_result_str[0], status_result_str[1:]
+                            # Message of the form <REQUEST_ID>;<STATUS_CHAR><DATA>
+                            # The status char tells us the format of the data:
+                            # 'E' - an error string - encoded as utf-8 bytes
+                            # 'R' - json data encoded as utf-8 string
+                            # 'M' - msgpack data encoded as base64 string
+                            # 'B' - msgpack data (raw binary)
+                            is_bytes_response = isinstance(raw_res, bytes)
+                            separator = b';' if is_bytes_response else ';'
+                            # Use partition to split the byte or char sequence at the first semicolon
+                            request_id_raw, _, result_data_raw = raw_res.partition(separator)
+                            if is_bytes_response:
+                                request_id = request_id_raw.decode()
+                                status, risk_data = chr(result_data_raw[0]), result_data_raw[1:]
+                            else:
+                                request_id = request_id_raw
+                                status, risk_data = result_data_raw[0], result_data_raw[1:]
                         except ConnectionClosed as conn_closed:
                             if conn_closed.rcvd and conn_closed.rcvd.code in cls.WEBSOCKET_RETRY_ON_CLOSE_CODES:
                                 # websocket closed, but we can retry
@@ -187,19 +202,20 @@ class GsRiskApi(RiskApi):
                                 # Now re-raise connection closed to be handled and potentially we'll try again
                                 raise
                             status = 'E'
-                            result_str = str(conn_closed)
+                            risk_data = str(conn_closed)
                         except Exception as ee:
                             status = 'E'
-                            result_str = str(ee)
+                            risk_data = str(ee)
 
                         if status == 'E':
                             # An error
-                            result = RuntimeError(result_str)
+                            result = RuntimeError(risk_data.decode() if isinstance(risk_data, bytes) else risk_data)
                         else:
                             # Unpack the result
                             try:
-                                result = msgpack.unpackb(base64.b64decode(result_str), raw=False) \
-                                    if cls.USE_MSGPACK else json.loads(result_str)
+                                result = msgpack.unpackb(risk_data) if status == 'B' else msgpack.unpackb(
+                                    base64.b64decode(risk_data), raw=False) if status == 'M' else json.loads(
+                                    risk_data)
                             except Exception as ee:
                                 result = ee
                         if request_id is None:
@@ -267,7 +283,15 @@ class GsRiskApi(RiskApi):
                 risk_session = cls.get_session()
                 api_version = GsRiskApi.PRICING_API_VERSION or risk_session.api_version
                 ws_url = f'/{api_version}/risk/calculate/results/subscribe'
-                async with risk_session._connect_websocket(ws_url, include_version=False) as ws:
+                subprotocols = ["msgpack-binary"] if cls.USE_MSGPACK else None
+                # we set a 50ms timeout for the websocket close to avoid manually waiting for marquee
+                # to acknowledge the close and close the underlying TCP stream. We have seen delays of up to 1000ms here
+                ws_close_timeout = 0.05
+                async with risk_session._connect_websocket(
+                        ws_url,
+                        include_version=False,
+                        subprotocols=subprotocols,
+                        close_timeout=ws_close_timeout) as ws:
                     error = await handle_websocket()
 
                 attempts = max_attempts
@@ -333,3 +357,82 @@ class GsRiskApi(RiskApi):
         else:
             _logger.info('Optimization is fetched in {:.3f}s.'.format(time.perf_counter() - start))
             return results
+
+    @classmethod
+    def get_liquidity_and_factor_analysis(cls,
+                                          positions: list,
+                                          risk_model: str,
+                                          date: dt.date,
+                                          currency: str = 'USD',
+                                          participation_rate: float = 0.1,
+                                          measures: Optional[list] = None,
+                                          notional: Optional[float] = None,
+                                          time_series_benchmark_ids: Optional[list] = None):
+        """
+        Get liquidity and factor analysis for a portfolio using the /risk/liquidity endpoint.
+
+        :param positions: List of positions with assetId and quantity/weight
+        :param risk_model: Risk model identifier (e.g., 'BARRA_EFM_USALTL', 'AXIOMA_AXUS4S')
+        :param date: Analysis date
+        :param currency: Currency for analysis (default: USD)
+        :param participation_rate: Market participation rate (default: 0.1 = 10%)
+        :param measures: List of measures to include (default: all available measures)
+        :param notional: Optional reference notional
+        :param time_series_benchmark_ids: Optional benchmark IDs for time series comparison
+        :return: Dictionary with liquidity and factor analysis results
+        """
+        if measures is None:
+            measures = [
+                "Time Series Data",
+                "Risk Buckets",
+                "Factor Risk Buckets",
+                "Factor Exposure Buckets",
+                "Exposure Buckets"
+            ]
+
+        payload = {
+            "currency": currency,
+            "date": date.isoformat() if isinstance(date, dt.date) else date,
+            "positions": positions,
+            "participationRate": participation_rate,
+            "riskModel": risk_model,
+            "timeSeriesBenchmarkIds": time_series_benchmark_ids or [],
+            "measures": measures
+        }
+
+        if notional is not None:
+            payload["notional"] = notional
+
+        try:
+            response = cls.get_session()._post('/risk/liquidity', payload)
+
+            if isinstance(response, dict) and 'errorMessage' in response:
+                error_msg = response['errorMessage']
+
+                asset_ids_pattern = (r'Assets with the following ids are missing in marquee:'
+                                     r'\s*\[\s*([^\]]+)\s*\]')
+                asset_ids_match = re.search(asset_ids_pattern, error_msg, re.IGNORECASE)
+                if asset_ids_match:
+                    clean_error_pattern = (r'(Assets with the following ids are missing in '
+                                           r'marquee:\s*\[[^\]]+\])')
+                    clean_error_line = re.search(clean_error_pattern, error_msg, re.IGNORECASE)
+                    if clean_error_line:
+                        clean_message = (f"ERROR: liquidity analysis failed\n"
+                                         f"{clean_error_line.group(1)}")
+                        _logger.error(clean_message)
+                        raise MqValueError(clean_message)
+                    else:
+                        missing_assets = asset_ids_match.group(1).strip()
+                        clean_message = (f"ERROR: liquidity analysis failed\n"
+                                         f"Assets with the following ids are missing in marquee: "
+                                         f"[ {missing_assets} ]")
+                        _logger.error(clean_message)
+                        raise MqValueError(clean_message)
+                else:
+                    _logger.error(f'Liquidity analysis failed: {error_msg}')
+                    raise MqValueError("ERROR: liquidity analysis failed")
+
+            _logger.info('Liquidity analysis completed successfully')
+            return response
+        except Exception:
+            raise

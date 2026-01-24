@@ -17,7 +17,6 @@
 # This file has been modified by NetworktoCode, LLC.
 
 import requests
-from packaging import version
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -42,16 +41,25 @@ class Api:
         retries (int, optional): The number of retries for HTTP status codes
             429, 500, 502, 503, and 504. Defaults to 0 (no retries).
         verify (bool, optional): Whether to verify SSL certificates. Defaults to `True`.
+        exclude_m2m (bool, optional): (Nautobot 2.4+) Whether to exclude/include
+            many-to-many relationships for get/filter/all requests. Defaults to `None`.
+        include_default (str, optional): A comma-separated list of items to include
+            by default for get/filter/all requests. Defaults to `None`.
+            For example, `include_default="config_context,computed_fields"` will include
+            the `config_context` and `computed_fields` for all get/filter/all responses.
 
     Attributes:
-        dcim: An instance of the `App` class providing access to DCIM endpoints.
-        cloud: An instance of the `App` class providing access to Cloud endpoints.
-        ipam: An instance of the `App` class providing access to IPAM endpoints.
         circuits: An instance of the `App` class providing access to Circuits endpoints.
-        tenancy: An instance of the `App` class providing access to Tenancy endpoints.
+        cloud: An instance of the `App` class providing access to Cloud endpoints.
+        data_validation: An instance of the `App` class providing access to Data Validation endpoints.
+        dcim: An instance of the `App` class providing access to DCIM endpoints.
         extras: An instance of the `App` class providing access to Extras endpoints.
-        virtualization: An instance of the `App` class providing access to Virtualization endpoints.
+        ipam: An instance of the `App` class providing access to IPAM endpoints.
+        load_balancers: An instance of the `App` class providing access to Load Balancers endpoints.
+        tenancy: An instance of the `App` class providing access to Tenancy endpoints.
         users: An instance of the `App` class providing access to User endpoints.
+        virtualization: An instance of the `App` class providing access to Virtualization endpoints.
+        vpn: An instance of the `App` class providing access to VPN endpoints.
         wireless: An instance of the `App` class providing access to Wireless endpoints.
         http_session (requests.Session): The underlying HTTP session object used for
             making requests to Nautobot. You can override the default session with your
@@ -80,6 +88,8 @@ class Api:
         api_version=None,
         retries=0,
         verify=True,
+        exclude_m2m=None,
+        include_default=None,
     ):
         """Initialize the Api object."""
         from pynautobot import __version__  # pylint: disable=import-outside-toplevel
@@ -105,25 +115,26 @@ class Api:
         self.threading = threading
         self.max_workers = max_workers
         self.api_version = api_version
+        self.default_filters = {}
+        if exclude_m2m is not None:
+            self.default_filters["exclude_m2m"] = exclude_m2m
+        if include_default is not None:
+            self.default_filters["include"] = include_default
 
-        self.dcim = App(self, "dcim")
-        self.ipam = App(self, "ipam")
-        self.cloud = App(self, "cloud")
         self.circuits = App(self, "circuits")
-        self.tenancy = App(self, "tenancy")
+        self.cloud = App(self, "cloud")
+        self.data_validation = App(self, "data-validation")
+        self.dcim = App(self, "dcim")
         self.extras = App(self, "extras")
-        self.virtualization = App(self, "virtualization")
+        self.ipam = App(self, "ipam")
+        self.load_balancers = App(self, "load-balancers")
+        self.tenancy = App(self, "tenancy")
         self.users = App(self, "users")
+        self.virtualization = App(self, "virtualization")
+        self.vpn = App(self, "vpn")
         self.wireless = App(self, "wireless")
         self.plugins = PluginsApp(self)
         self.graphql = GraphQLQuery(self)
-        self._validate_version()
-
-    def _validate_version(self):
-        """Validate API version if eq or ge than 2.0 raise an error."""
-        api_version = self.version
-        if api_version.replace(".", "").isnumeric() and version.parse(api_version) < version.parse("2.0"):
-            raise ValueError("Nautobot version 1 detected, please downgrade pynautobot to version 1.x")
 
     @property
     def version(self):

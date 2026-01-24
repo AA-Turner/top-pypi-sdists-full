@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import docutils
 import pytest
 from docutils import nodes
 from docutils.nodes import bullet_list, list_item, literal, reference, title
@@ -11,8 +12,15 @@ from docutils.nodes import bullet_list, list_item, literal, reference, title
 from sphinx import addnodes
 from sphinx.addnodes import compact_paragraph, only
 from sphinx.builders.html import StandaloneHTMLBuilder
-from sphinx.environment.adapters.toctree import document_toc, global_toctree_for_doc
+from sphinx.environment.adapters.toctree import (
+    _toctree_copy,
+    document_toc,
+    global_toctree_for_doc,
+)
 from sphinx.testing.util import assert_node
+from sphinx.util.tags import Tags
+
+from tests.utils import extract_node
 
 if TYPE_CHECKING:
     from sphinx.testing.util import SphinxTestApp
@@ -62,12 +70,12 @@ def test_process_doc(app):
     )
 
     assert_node(
-        toctree[0][0],
+        extract_node(toctree, 0, 0),
         [compact_paragraph, reference, 'Welcome to Sphinx Tests’s documentation!'],
     )
-    assert_node(toctree[0][0][0], reference, anchorname='')
+    assert_node(extract_node(toctree, 0, 0, 0), reference, anchorname='')
     assert_node(
-        toctree[0][1][0],
+        extract_node(toctree, 0, 1, 0),
         addnodes.toctree,
         caption='Table of Contents',
         glob=False,
@@ -85,9 +93,9 @@ def test_process_doc(app):
     )
 
     # only branch
-    assert_node(toctree[0][1][1], addnodes.only, expr='html')
+    assert_node(extract_node(toctree, 0, 1, 1), addnodes.only, expr='html')
     assert_node(
-        toctree[0][1][1],
+        extract_node(toctree, 0, 1, 1),
         [
             only,
             list_item,
@@ -97,9 +105,13 @@ def test_process_doc(app):
             ),
         ],
     )
-    assert_node(toctree[0][1][1][0][0][0], reference, anchorname='#section-for-html')
     assert_node(
-        toctree[0][1][1][0][1][0],
+        extract_node(toctree, 0, 1, 1, 0, 0, 0),
+        reference,
+        anchorname='#section-for-html',
+    )
+    assert_node(
+        extract_node(toctree, 0, 1, 1, 0, 1, 0),
         addnodes.toctree,
         caption=None,
         glob=False,
@@ -111,7 +123,7 @@ def test_process_doc(app):
         numbered=0,
     )
     assert_node(
-        toctree[0][1][2],
+        extract_node(toctree, 0, 1, 2),
         (
             [compact_paragraph, reference, 'subsection'],
             [bullet_list, list_item, compact_paragraph, reference, 'subsubsection'],
@@ -119,7 +131,7 @@ def test_process_doc(app):
     )
 
     assert_node(
-        toctree[1][0],
+        extract_node(toctree, 1, 0),
         [
             compact_paragraph,
             reference,
@@ -127,12 +139,12 @@ def test_process_doc(app):
         ],
     )
     assert_node(
-        toctree[1][0][0],
+        extract_node(toctree, 1, 0, 0),
         reference,
         anchorname='#test-for-combination-of-globaltoc-html-and-hidden-toctree',
     )
     assert_node(
-        toctree[1][1][0],
+        extract_node(toctree, 1, 1, 0),
         addnodes.toctree,
         caption=None,
         entries=[],
@@ -143,7 +155,7 @@ def test_process_doc(app):
         numbered=0,
     )
     assert_node(
-        toctree[1][1][1],
+        extract_node(toctree, 1, 1, 1),
         addnodes.toctree,
         caption=None,
         glob=False,
@@ -157,7 +169,10 @@ def test_process_doc(app):
         ],
     )
 
-    assert_node(toctree[2][0], [compact_paragraph, reference, 'Indices and tables'])
+    assert_node(
+        extract_node(toctree, 2, 0),
+        [compact_paragraph, reference, 'Indices and tables'],
+    )
 
     # other collections
     assert app.env.toc_num_entries['index'] == 6
@@ -209,9 +224,11 @@ def test_glob(app):
         ],
     )
 
-    assert_node(toctree[0][0], [compact_paragraph, reference, 'test-toctree-glob'])
     assert_node(
-        toctree[0][1][0],
+        extract_node(toctree, 0, 0), [compact_paragraph, reference, 'test-toctree-glob']
+    )
+    assert_node(
+        extract_node(toctree, 0, 1, 0),
         [
             list_item,
             (
@@ -221,7 +238,7 @@ def test_glob(app):
         ],
     )
     assert_node(
-        toctree[0][1][0][1][0],
+        extract_node(toctree, 0, 1, 0, 1, 0),
         addnodes.toctree,
         caption=None,
         glob=True,
@@ -242,7 +259,7 @@ def test_glob(app):
         ],
     )
     assert_node(
-        toctree[0][1][1],
+        extract_node(toctree, 0, 1, 1),
         [
             list_item,
             (
@@ -252,7 +269,7 @@ def test_glob(app):
         ],
     )
     assert_node(
-        toctree[0][1][1][1][0],
+        extract_node(toctree, 0, 1, 1, 1, 0),
         addnodes.toctree,
         caption=None,
         glob=True,
@@ -330,15 +347,18 @@ def test_domain_objects(app):
         ],
     )
 
-    assert_node(toctree[0][0], [compact_paragraph, reference, 'test-domain-objects'])
+    assert_node(
+        extract_node(toctree, 0, 0),
+        [compact_paragraph, reference, 'test-domain-objects'],
+    )
 
     assert_node(
-        toctree[0][1][0],
+        extract_node(toctree, 0, 1, 0),
         [list_item, ([compact_paragraph, reference, literal, 'world()'])],
     )
 
     assert_node(
-        toctree[0][1][1][1][3],
+        extract_node(toctree, 0, 1, 1, 1, 3),
         [
             list_item,
             ([compact_paragraph, reference, literal, 'HelloWorldPrinter.print()']),
@@ -500,25 +520,28 @@ def test_document_toc(app):
         ],
     )
     assert_node(
-        toctree[0][0],
+        extract_node(toctree, 0, 0),
         [compact_paragraph, reference, 'Welcome to Sphinx Tests’s documentation!'],
     )
     assert_node(
-        toctree[0][1][1],
+        extract_node(toctree, 0, 1, 1),
         (
             [compact_paragraph, reference, 'subsection'],
             [bullet_list, list_item, compact_paragraph, reference, 'subsubsection'],
         ),
     )
     assert_node(
-        toctree[1][0],
+        extract_node(toctree, 1, 0),
         [
             compact_paragraph,
             reference,
             'Test for combination of ‘globaltoc.html’ and hidden toctree',
         ],
     )
-    assert_node(toctree[2][0], [compact_paragraph, reference, 'Indices and tables'])
+    assert_node(
+        extract_node(toctree, 2, 0),
+        [compact_paragraph, reference, 'Indices and tables'],
+    )
 
 
 @pytest.mark.sphinx('xml', testroot='toctree')
@@ -559,32 +582,35 @@ def test_document_toc_only(app):
         ],
     )
     assert_node(
-        toctree[0][0],
+        extract_node(toctree, 0, 0),
         [compact_paragraph, reference, 'Welcome to Sphinx Tests’s documentation!'],
     )
     assert_node(
-        toctree[0][1][1],
+        extract_node(toctree, 0, 1, 1),
         (
             [compact_paragraph, reference, 'Section for HTML'],
             [bullet_list, addnodes.toctree],
         ),
     )
     assert_node(
-        toctree[0][1][2],
+        extract_node(toctree, 0, 1, 2),
         (
             [compact_paragraph, reference, 'subsection'],
             [bullet_list, list_item, compact_paragraph, reference, 'subsubsection'],
         ),
     )
     assert_node(
-        toctree[1][0],
+        extract_node(toctree, 1, 0),
         [
             compact_paragraph,
             reference,
             'Test for combination of ‘globaltoc.html’ and hidden toctree',
         ],
     )
-    assert_node(toctree[2][0], [compact_paragraph, reference, 'Indices and tables'])
+    assert_node(
+        extract_node(toctree, 2, 0),
+        [compact_paragraph, reference, 'Indices and tables'],
+    )
 
 
 @pytest.mark.sphinx('xml', testroot='toctree')
@@ -604,9 +630,10 @@ def test_document_toc_tocdepth(app):
             ),
         ],
     )
-    assert_node(toctree[0][0], [compact_paragraph, reference, 'level 1'])
+    assert_node(extract_node(toctree, 0, 0), [compact_paragraph, reference, 'level 1'])
     assert_node(
-        toctree[0][1], [bullet_list, list_item, compact_paragraph, reference, 'level 2']
+        extract_node(toctree, 0, 1),
+        [bullet_list, list_item, compact_paragraph, reference, 'level 2'],
     )
 
 
@@ -614,7 +641,9 @@ def test_document_toc_tocdepth(app):
 @pytest.mark.test_params(shared_result='test_environment_toctree_basic')
 def test_global_toctree_for_doc(app):
     app.build()
-    toctree = global_toctree_for_doc(app.env, 'index', app.builder, collapse=False)
+    toctree = global_toctree_for_doc(
+        app.env, 'index', app.builder, tags=app.tags, collapse=False
+    )
     assert_node(
         toctree,
         [
@@ -638,7 +667,7 @@ def test_global_toctree_for_doc(app):
         ),
     )
     assert_node(
-        toctree[1][0][1],
+        extract_node(toctree, 1, 0, 1),
         (
             [list_item, compact_paragraph, reference, 'quux'],
             [list_item, compact_paragraph, reference, 'foo.1'],
@@ -646,17 +675,34 @@ def test_global_toctree_for_doc(app):
         ),
     )
 
-    assert_node(toctree[1][0][0][0], reference, refuri='foo', secnumber=[1])
-    assert_node(toctree[1][0][1][0][0][0], reference, refuri='quux', secnumber=[1, 1])
     assert_node(
-        toctree[1][0][1][1][0][0], reference, refuri='foo#foo-1', secnumber=[1, 2]
+        extract_node(toctree, 1, 0, 0, 0), reference, refuri='foo', secnumber=[1]
     )
     assert_node(
-        toctree[1][0][1][2][0][0], reference, refuri='foo#foo-2', secnumber=[1, 3]
+        extract_node(toctree, 1, 0, 1, 0, 0, 0),
+        reference,
+        refuri='quux',
+        secnumber=[1, 1],
     )
-    assert_node(toctree[1][1][0][0], reference, refuri='bar', secnumber=[2])
-    assert_node(toctree[1][2][0][0], reference, refuri='https://sphinx-doc.org/')
-    assert_node(toctree[1][3][0][0], reference, refuri='')
+    assert_node(
+        extract_node(toctree, 1, 0, 1, 1, 0, 0),
+        reference,
+        refuri='foo#foo-1',
+        secnumber=[1, 2],
+    )
+    assert_node(
+        extract_node(toctree, 1, 0, 1, 2, 0, 0),
+        reference,
+        refuri='foo#foo-2',
+        secnumber=[1, 3],
+    )
+    assert_node(
+        extract_node(toctree, 1, 1, 0, 0), reference, refuri='bar', secnumber=[2]
+    )
+    assert_node(
+        extract_node(toctree, 1, 2, 0, 0), reference, refuri='https://sphinx-doc.org/'
+    )
+    assert_node(extract_node(toctree, 1, 3, 0, 0), reference, refuri='')
 
     assert_node(
         toctree[2], [bullet_list, list_item, compact_paragraph, reference, 'baz']
@@ -668,15 +714,23 @@ def test_global_toctree_for_doc(app):
             [list_item, compact_paragraph, reference, 'Python'],
         ),
     )
-    assert_node(toctree[3][0][0][0], reference, refuri='https://sphinx-doc.org/latest/')
-    assert_node(toctree[3][1][0][0], reference, refuri='https://python.org/')
+    assert_node(
+        extract_node(toctree, 3, 0, 0, 0),
+        reference,
+        refuri='https://sphinx-doc.org/latest/',
+    )
+    assert_node(
+        extract_node(toctree, 3, 1, 0, 0), reference, refuri='https://python.org/'
+    )
 
 
 @pytest.mark.sphinx('xml', testroot='toctree')
 @pytest.mark.test_params(shared_result='test_environment_toctree_basic')
 def test_global_toctree_for_doc_collapse(app):
     app.build()
-    toctree = global_toctree_for_doc(app.env, 'index', app.builder, collapse=True)
+    toctree = global_toctree_for_doc(
+        app.env, 'index', app.builder, tags=app.tags, collapse=True
+    )
     assert_node(
         toctree,
         [
@@ -699,10 +753,16 @@ def test_global_toctree_for_doc_collapse(app):
             ],
         ),
     )
-    assert_node(toctree[1][0][0][0], reference, refuri='foo', secnumber=[1])
-    assert_node(toctree[1][1][0][0], reference, refuri='bar', secnumber=[2])
-    assert_node(toctree[1][2][0][0], reference, refuri='https://sphinx-doc.org/')
-    assert_node(toctree[1][3][0][0], reference, refuri='')
+    assert_node(
+        extract_node(toctree, 1, 0, 0, 0), reference, refuri='foo', secnumber=[1]
+    )
+    assert_node(
+        extract_node(toctree, 1, 1, 0, 0), reference, refuri='bar', secnumber=[2]
+    )
+    assert_node(
+        extract_node(toctree, 1, 2, 0, 0), reference, refuri='https://sphinx-doc.org/'
+    )
+    assert_node(extract_node(toctree, 1, 3, 0, 0), reference, refuri='')
 
     assert_node(
         toctree[2], [bullet_list, list_item, compact_paragraph, reference, 'baz']
@@ -714,8 +774,14 @@ def test_global_toctree_for_doc_collapse(app):
             [list_item, compact_paragraph, reference, 'Python'],
         ),
     )
-    assert_node(toctree[3][0][0][0], reference, refuri='https://sphinx-doc.org/latest/')
-    assert_node(toctree[3][1][0][0], reference, refuri='https://python.org/')
+    assert_node(
+        extract_node(toctree, 3, 0, 0, 0),
+        reference,
+        refuri='https://sphinx-doc.org/latest/',
+    )
+    assert_node(
+        extract_node(toctree, 3, 1, 0, 0), reference, refuri='https://python.org/'
+    )
 
 
 @pytest.mark.sphinx('xml', testroot='toctree')
@@ -723,7 +789,7 @@ def test_global_toctree_for_doc_collapse(app):
 def test_global_toctree_for_doc_maxdepth(app):
     app.build()
     toctree = global_toctree_for_doc(
-        app.env, 'index', app.builder, collapse=False, maxdepth=3
+        app.env, 'index', app.builder, tags=app.tags, collapse=False, maxdepth=3
     )
     assert_node(
         toctree,
@@ -759,7 +825,7 @@ def test_global_toctree_for_doc_maxdepth(app):
         ),
     )
     assert_node(
-        toctree[1][0][1],
+        extract_node(toctree, 1, 0, 1),
         (
             [list_item, compact_paragraph, reference, 'quux'],
             [
@@ -773,27 +839,44 @@ def test_global_toctree_for_doc_maxdepth(app):
         ),
     )
     assert_node(
-        toctree[1][0][1][1][1],
+        extract_node(toctree, 1, 0, 1, 1, 1),
         [bullet_list, list_item, compact_paragraph, reference, 'foo.1-1'],
     )
 
-    assert_node(toctree[1][0][0][0], reference, refuri='foo', secnumber=[1])
-    assert_node(toctree[1][0][1][0][0][0], reference, refuri='quux', secnumber=[1, 1])
     assert_node(
-        toctree[1][0][1][1][0][0], reference, refuri='foo#foo-1', secnumber=[1, 2]
+        extract_node(toctree, 1, 0, 0, 0), reference, refuri='foo', secnumber=[1]
     )
     assert_node(
-        toctree[1][0][1][1][1][0][0][0],
+        extract_node(toctree, 1, 0, 1, 0, 0, 0),
+        reference,
+        refuri='quux',
+        secnumber=[1, 1],
+    )
+    assert_node(
+        extract_node(toctree, 1, 0, 1, 1, 0, 0),
+        reference,
+        refuri='foo#foo-1',
+        secnumber=[1, 2],
+    )
+    assert_node(
+        extract_node(toctree, 1, 0, 1, 1, 1, 0, 0, 0),
         reference,
         refuri='foo#foo-1-1',
         secnumber=[1, 2, 1],
     )
     assert_node(
-        toctree[1][0][1][2][0][0], reference, refuri='foo#foo-2', secnumber=[1, 3]
+        extract_node(toctree, 1, 0, 1, 2, 0, 0),
+        reference,
+        refuri='foo#foo-2',
+        secnumber=[1, 3],
     )
-    assert_node(toctree[1][1][0][0], reference, refuri='bar', secnumber=[2])
-    assert_node(toctree[1][2][0][0], reference, refuri='https://sphinx-doc.org/')
-    assert_node(toctree[1][3][0][0], reference, refuri='')
+    assert_node(
+        extract_node(toctree, 1, 1, 0, 0), reference, refuri='bar', secnumber=[2]
+    )
+    assert_node(
+        extract_node(toctree, 1, 2, 0, 0), reference, refuri='https://sphinx-doc.org/'
+    )
+    assert_node(extract_node(toctree, 1, 3, 0, 0), reference, refuri='')
 
     assert_node(
         toctree[2], [bullet_list, list_item, compact_paragraph, reference, 'baz']
@@ -805,8 +888,14 @@ def test_global_toctree_for_doc_maxdepth(app):
             [list_item, compact_paragraph, reference, 'Python'],
         ),
     )
-    assert_node(toctree[3][0][0][0], reference, refuri='https://sphinx-doc.org/latest/')
-    assert_node(toctree[3][1][0][0], reference, refuri='https://python.org/')
+    assert_node(
+        extract_node(toctree, 3, 0, 0, 0),
+        reference,
+        refuri='https://sphinx-doc.org/latest/',
+    )
+    assert_node(
+        extract_node(toctree, 3, 1, 0, 0), reference, refuri='https://python.org/'
+    )
 
 
 @pytest.mark.sphinx('xml', testroot='toctree')
@@ -814,7 +903,12 @@ def test_global_toctree_for_doc_maxdepth(app):
 def test_global_toctree_for_doc_includehidden(app):
     app.build()
     toctree = global_toctree_for_doc(
-        app.env, 'index', app.builder, collapse=False, includehidden=False
+        app.env,
+        'index',
+        app.builder,
+        tags=app.tags,
+        collapse=False,
+        includehidden=False,
     )
     assert_node(
         toctree,
@@ -849,7 +943,7 @@ def test_global_toctree_for_doc_includehidden(app):
         ),
     )
     assert_node(
-        toctree[1][0][1],
+        extract_node(toctree, 1, 0, 1),
         (
             [list_item, compact_paragraph, reference, 'quux'],
             [list_item, compact_paragraph, reference, 'foo.1'],
@@ -857,16 +951,33 @@ def test_global_toctree_for_doc_includehidden(app):
         ),
     )
 
-    assert_node(toctree[1][0][0][0], reference, refuri='foo', secnumber=[1])
-    assert_node(toctree[1][0][1][0][0][0], reference, refuri='quux', secnumber=[1, 1])
     assert_node(
-        toctree[1][0][1][1][0][0], reference, refuri='foo#foo-1', secnumber=[1, 2]
+        extract_node(toctree, 1, 0, 0, 0), reference, refuri='foo', secnumber=[1]
     )
     assert_node(
-        toctree[1][0][1][2][0][0], reference, refuri='foo#foo-2', secnumber=[1, 3]
+        extract_node(toctree, 1, 0, 1, 0, 0, 0),
+        reference,
+        refuri='quux',
+        secnumber=[1, 1],
     )
-    assert_node(toctree[1][1][0][0], reference, refuri='bar', secnumber=[2])
-    assert_node(toctree[1][2][0][0], reference, refuri='https://sphinx-doc.org/')
+    assert_node(
+        extract_node(toctree, 1, 0, 1, 1, 0, 0),
+        reference,
+        refuri='foo#foo-1',
+        secnumber=[1, 2],
+    )
+    assert_node(
+        extract_node(toctree, 1, 0, 1, 2, 0, 0),
+        reference,
+        refuri='foo#foo-2',
+        secnumber=[1, 3],
+    )
+    assert_node(
+        extract_node(toctree, 1, 1, 0, 0), reference, refuri='bar', secnumber=[2]
+    )
+    assert_node(
+        extract_node(toctree, 1, 2, 0, 0), reference, refuri='https://sphinx-doc.org/'
+    )
 
     assert_node(
         toctree[2], [bullet_list, list_item, compact_paragraph, reference, 'baz']
@@ -897,7 +1008,7 @@ def test_toctree_index(app):
         ],
     )
     assert_node(
-        toctree[0][1][1],
+        extract_node(toctree, 0, 1, 1),
         addnodes.toctree,
         caption='Indices',
         glob=False,
@@ -907,3 +1018,87 @@ def test_toctree_index(app):
         numbered=0,
         entries=[(None, 'genindex'), (None, 'modindex'), (None, 'search')],
     )
+
+
+@pytest.mark.sphinx('dummy', testroot='toctree-only')
+def test_toctree_only(app):
+    # regression test for https://github.com/sphinx-doc/sphinx/issues/13022
+    # we mainly care that this doesn't fail
+
+    if docutils.__version_info__[:2] >= (0, 22):
+        true = '1'
+    else:
+        true = 'True'
+    expected_pformat = f"""\
+<bullet_list>
+  <list_item>
+    <compact_paragraph>
+      <reference anchorname="" internal="{true}" refuri="#">
+        test-toctree-only
+    <bullet_list>
+      <list_item>
+        <compact_paragraph skip_section_number="{true}">
+          <reference anchorname="#test_toctree_only1" internal="{true}" refuri="#test_toctree_only1">
+            <literal>
+              test_toctree_only1
+      <list_item>
+        <compact_paragraph skip_section_number="{true}">
+          <reference anchorname="#test_toctree_only2" internal="{true}" refuri="#test_toctree_only2">
+            <literal>
+              test_toctree_only2
+      <list_item>
+        <compact_paragraph skip_section_number="{true}">
+          <reference anchorname="#id0" internal="{true}" refuri="#id0">
+            <literal>
+              test_toctree_only2
+"""
+    app.build()
+    toc = document_toc(app.env, 'index', app.tags)
+    assert toc.pformat('  ') == expected_pformat
+
+
+def test_toctree_copy_only():
+    # regression test for https://github.com/sphinx-doc/sphinx/issues/13022
+    # ensure ``_toctree_copy()`` properly filters out ``only`` nodes,
+    # including nested nodes.
+    node = nodes.literal('lobster!', 'lobster!')
+    node = nodes.reference('', '', node, anchorname='', internal=True, refuri='index')
+    node = addnodes.only('', node, expr='lobster')
+    node = addnodes.compact_paragraph('', '', node, skip_section_number=True)
+    node = nodes.list_item('', node)
+    node = addnodes.only('', node, expr='not spam')
+    node = addnodes.only('', node, expr='lobster')
+    node = addnodes.only('', node, expr='not ham')
+    node = nodes.bullet_list('', node)
+    # this is a tree of the shape:
+    # <bullet_list>
+    #   <only expr="not ham">
+    #     <only expr="lobster">
+    #       <only expr="not spam">
+    #         <list_item>
+    #           <compact_paragraph skip_section_number="True">
+    #             <only expr="lobster">
+    #               <reference anchorname="" internal="True" refuri="index">
+    #                 <literal>
+    #                   lobster!
+
+    tags = Tags({'lobster'})
+    toc = _toctree_copy(node, 2, 0, False, tags)
+    # the filtered ToC should look like:
+    # <bullet_list>
+    #   <list_item>
+    #     <compact_paragraph skip_section_number="True">
+    #       <reference anchorname="" internal="True" refuri="index">
+    #         <literal>
+    #           lobster!
+
+    # no only nodes should remain
+    assert list(toc.findall(addnodes.only)) == []
+
+    # the tree is preserved
+    assert isinstance(toc, nodes.bullet_list)
+    assert isinstance(toc[0], nodes.list_item)
+    assert isinstance(extract_node(toc, 0, 0), addnodes.compact_paragraph)
+    assert isinstance(extract_node(toc, 0, 0, 0), nodes.reference)
+    assert isinstance(extract_node(toc, 0, 0, 0, 0), nodes.literal)
+    assert extract_node(toc, 0, 0, 0, 0, 0) == nodes.Text('lobster!')

@@ -431,7 +431,7 @@ export class SigmaView extends DOMWidgetView {
 
     // NOTE: ipywidget is performing shitty white magic in static embeds...
     if (backgroundColor === "white") {
-      backgroundColor = "rgb(255, 255, 255);"
+      backgroundColor = "rgb(255, 255, 255)"
     }
 
     const name = this.model.get('name');
@@ -820,7 +820,7 @@ export class SigmaView extends DOMWidgetView {
 
         if (nodePictogramsEnabled) {
           displayData.pictogram = pictogramToUrl(
-            scales.nodePictogram(data) as string
+            shapeToPicto(scales.nodePictogram(data) as string) || 'circle'
           );
 
           displayData.pictogramColor = scales.nodePictogramColor(

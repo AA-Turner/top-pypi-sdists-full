@@ -121,6 +121,7 @@ apprise_url_tests = (
                     "id": "11668787484950529",
                 }
             },
+            "force_debug": True,
         },
     ),
     (
@@ -317,7 +318,7 @@ apprise_url_tests = (
         "sparkpost://user@localhost.localdomain/{}".format("o" * 32),
         {
             "instance": NotifySparkPost,
-            # throw a bizzare code forcing us to fail to look it up
+            # throw a bizarre code forcing us to fail to look it up
             "response": False,
             "requests_response_code": 999,
         },
@@ -327,7 +328,7 @@ apprise_url_tests = (
         {
             "instance": NotifySparkPost,
             # Throws a series of i/o exceptions with this flag
-            # is set and tests that we gracfully handle them
+            # is set and tests that we gracefully handle them
             "test_requests_exceptions": True,
         },
     ),

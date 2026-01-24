@@ -10,7 +10,8 @@ from .conversation_initiation_client_data_request_input import ConversationIniti
 
 class OutboundCallRecipient(UncheckedBaseModel):
     id: typing.Optional[str] = None
-    phone_number: str
+    phone_number: typing.Optional[str] = None
+    whatsapp_user_id: typing.Optional[str] = None
     conversation_initiation_client_data: typing.Optional[ConversationInitiationClientDataRequestInput] = None
 
     if IS_PYDANTIC_V2:

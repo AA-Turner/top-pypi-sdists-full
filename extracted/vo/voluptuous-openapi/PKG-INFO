@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: voluptuous-openapi
-Version: 0.2.0
+Version: 0.3.0
 Summary: Convert voluptuous schemas to OpenAPI Schema object
 Author-email: Denis Shulyaka <Shulyaka@gmail.com>
 License-Expression: Apache-2.0

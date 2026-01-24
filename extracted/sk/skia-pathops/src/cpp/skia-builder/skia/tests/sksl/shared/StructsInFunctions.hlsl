@@ -18,8 +18,8 @@ struct Compound
 
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _14_colorRed : packoffset(c0);
-    float4 _14_colorGreen : packoffset(c1);
+    float4 _15_colorRed : packoffset(c0);
+    float4 _15_colorGreen : packoffset(c1);
 };
 
 
@@ -75,124 +75,124 @@ float4 main(float2 _65)
     n3.b = _90;
     Compound _104 = { float4(1.0f, 2.0f, 3.0f, 4.0f), int3(5, 6, 7) };
     Compound c1 = _104;
-    float4 _110 = float4(_14_colorGreen.y, 2.0f, 3.0f, 4.0f);
+    float4 _110 = float4(_15_colorGreen.y, 2.0f, 3.0f, 4.0f);
     Compound _111 = { _110, int3(5, 6, 7) };
     Compound c2 = _111;
-    float4 _116 = float4(_14_colorGreen.x, 2.0f, 3.0f, 4.0f);
+    float4 _116 = float4(_15_colorGreen.x, 2.0f, 3.0f, 4.0f);
     Compound _117 = { _116, int3(5, 6, 7) };
     Compound c3 = _117;
-    bool _128 = false;
+    bool _129 = false;
     if (x == 3.0f)
     {
-        _128 = s.x == 2.0f;
+        _129 = s.x == 2.0f;
     }
     else
     {
-        _128 = false;
+        _129 = false;
     }
-    bool _134 = false;
-    if (_128)
+    bool _135 = false;
+    if (_129)
     {
-        _134 = s.y == 3;
+        _135 = s.y == 3;
     }
     else
     {
-        _134 = false;
+        _135 = false;
     }
-    bool _146 = false;
-    if (_134)
+    bool _147 = false;
+    if (_135)
     {
-        _146 = (s.y == expected.y) && (s.x == expected.x);
+        _147 = (s.y == expected.y) && (s.x == expected.x);
     }
     else
     {
-        _146 = false;
+        _147 = false;
     }
-    bool _156 = false;
-    if (_146)
+    bool _157 = false;
+    if (_147)
     {
-        S _150 = { 2.0f, 3 };
-        _156 = (s.y == 3) && (s.x == 2.0f);
+        S _151 = { 2.0f, 3 };
+        _157 = (s.y == 3) && (s.x == 2.0f);
     }
     else
     {
-        _156 = false;
+        _157 = false;
     }
-    bool _168 = false;
-    if (_156)
+    bool _169 = false;
+    if (_157)
     {
-        S _160 = returns_a_struct_S();
-        _168 = (s.y != _160.y) || (s.x != _160.x);
+        S _161 = returns_a_struct_S();
+        _169 = (s.y != _161.y) || (s.x != _161.x);
     }
     else
     {
-        _168 = false;
+        _169 = false;
     }
-    bool _192 = false;
-    if (_168)
+    bool _193 = false;
+    if (_169)
     {
-        _192 = ((n1.b.y == n2.b.y) && (n1.b.x == n2.b.x)) && ((n1.a.y == n2.a.y) && (n1.a.x == n2.a.x));
+        _193 = ((n1.b.y == n2.b.y) && (n1.b.x == n2.b.x)) && ((n1.a.y == n2.a.y) && (n1.a.x == n2.a.x));
     }
     else
     {
-        _192 = false;
+        _193 = false;
     }
-    bool _216 = false;
-    if (_192)
+    bool _217 = false;
+    if (_193)
     {
-        _216 = ((n1.b.y != n3.b.y) || (n1.b.x != n3.b.x)) || ((n1.a.y != n3.a.y) || (n1.a.x != n3.a.x));
+        _217 = ((n1.b.y != n3.b.y) || (n1.b.x != n3.b.x)) || ((n1.a.y != n3.a.y) || (n1.a.x != n3.a.x));
     }
     else
     {
-        _216 = false;
+        _217 = false;
     }
-    bool _236 = false;
-    if (_216)
+    bool _237 = false;
+    if (_217)
     {
-        S _220 = { 1.0f, 2 };
-        S _221 = { 2.0f, 3 };
-        Nested _222 = { _220, _221 };
-        _236 = ((n3.b.y == 3) && (n3.b.x == 2.0f)) && ((n3.a.y == 2) && (n3.a.x == 1.0f));
+        S _221 = { 1.0f, 2 };
+        S _222 = { 2.0f, 3 };
+        Nested _223 = { _221, _222 };
+        _237 = ((n3.b.y == 3) && (n3.b.x == 2.0f)) && ((n3.a.y == 2) && (n3.a.x == 1.0f));
     }
     else
     {
-        _236 = false;
+        _237 = false;
     }
-    bool _244 = false;
-    if (_236)
+    bool _245 = false;
+    if (_237)
     {
-        _244 = true && all(bool4(float4(1.0f, 2.0f, 3.0f, 4.0f).x == _110.x, float4(1.0f, 2.0f, 3.0f, 4.0f).y == _110.y, float4(1.0f, 2.0f, 3.0f, 4.0f).z == _110.z, float4(1.0f, 2.0f, 3.0f, 4.0f).w == _110.w));
+        _245 = true && all(bool4(float4(1.0f, 2.0f, 3.0f, 4.0f).x == _110.x, float4(1.0f, 2.0f, 3.0f, 4.0f).y == _110.y, float4(1.0f, 2.0f, 3.0f, 4.0f).z == _110.z, float4(1.0f, 2.0f, 3.0f, 4.0f).w == _110.w));
     }
     else
     {
-        _244 = false;
+        _245 = false;
     }
-    bool _250 = false;
-    if (_244)
+    bool _251 = false;
+    if (_245)
     {
-        _250 = false || any(bool4(_110.x != _116.x, _110.y != _116.y, _110.z != _116.z, _110.w != _116.w));
+        _251 = false || any(bool4(_110.x != _116.x, _110.y != _116.y, _110.z != _116.z, _110.w != _116.w));
     }
     else
     {
-        _250 = false;
+        _251 = false;
     }
-    bool valid = _250;
-    float4 _251 = 0.0f.xxxx;
-    if (_250)
+    bool valid = _251;
+    float4 _252 = 0.0f.xxxx;
+    if (_251)
     {
-        _251 = _14_colorGreen;
+        _252 = _15_colorGreen;
     }
     else
     {
-        _251 = _14_colorRed;
+        _252 = _15_colorRed;
     }
-    return _251;
+    return _252;
 }
 
 void frag_main()
 {
-    float2 _24 = 0.0f.xx;
-    sk_FragColor = main(_24);
+    float2 _25 = 0.0f.xx;
+    sk_FragColor = main(_25);
 }
 
 SPIRV_Cross_Output main()

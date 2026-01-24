@@ -34,11 +34,12 @@ class FilterException(EvoException):
     pass
 
 
-IdPairs = typing.List[typing.Tuple[int, int]]
+IdPairs = list[tuple[int, int]]
 
 
-def filter_pairs_by_index(poses: typing.Sequence[np.ndarray], delta: int,
-                          all_pairs: bool = False) -> IdPairs:
+def filter_pairs_by_index(
+    poses: typing.Sequence[np.ndarray], delta: int, all_pairs: bool = False
+) -> IdPairs:
     """
     filters pairs in a list of SE(3) poses by their index distance
     :param poses: list of SE(3) poses
@@ -48,15 +49,21 @@ def filter_pairs_by_index(poses: typing.Sequence[np.ndarray], delta: int,
     """
     if all_pairs:
         ids = np.arange(len(poses), dtype=int)
-        id_pairs = [(i, i + delta) for i in ids if i + delta < len(poses)]
+        id_pairs = [
+            (int(i), int(i + delta)) for i in ids if i + delta < len(poses)
+        ]
     else:
         ids = np.arange(0, len(poses), delta, dtype=int)
-        id_pairs = [(i, j) for i, j in zip(ids, ids[1:])]
+        id_pairs = [(int(i), int(j)) for i, j in zip(ids, ids[1:])]
     return id_pairs
 
 
-def filter_pairs_by_path(poses: typing.Sequence[np.ndarray], delta: float,
-                         tol: float = 0.0, all_pairs: bool = False) -> IdPairs:
+def filter_pairs_by_path(
+    poses: typing.Sequence[np.ndarray],
+    delta: float,
+    tol: float = 0.0,
+    all_pairs: bool = False,
+) -> IdPairs:
     """
     filters pairs in a list of SE(3) poses by their path distance in meters
      - the accumulated, traveled path distance between the two pair points
@@ -76,8 +83,9 @@ def filter_pairs_by_path(poses: typing.Sequence[np.ndarray], delta: float,
             offset = i + 1
             distances_from_here = distances[offset:] - distances[i]
             candidate_index = int(
-                np.argmin(np.abs(distances_from_here - delta)))
-            if (np.abs(distances_from_here[candidate_index] - delta) > tol):
+                np.argmin(np.abs(distances_from_here - delta))
+            )
+            if np.abs(distances_from_here[candidate_index] - delta) > tol:
                 continue
             id_pairs.append((i, candidate_index + offset))
     else:
@@ -86,7 +94,8 @@ def filter_pairs_by_path(poses: typing.Sequence[np.ndarray], delta: float,
         current_path = 0.0
         for i, current_pose in enumerate(poses):
             current_path += float(
-                np.linalg.norm(current_pose[:3, 3] - previous_pose[:3, 3]))
+                np.linalg.norm(current_pose[:3, 3] - previous_pose[:3, 3])
+            )
             previous_pose = current_pose
             if current_path >= delta:
                 ids.append(i)
@@ -95,9 +104,13 @@ def filter_pairs_by_path(poses: typing.Sequence[np.ndarray], delta: float,
     return id_pairs
 
 
-def filter_pairs_by_angle(poses: typing.Sequence[np.ndarray], delta: float,
-                          tol: float = 0.0, degrees: bool = False,
-                          all_pairs: bool = False) -> IdPairs:
+def filter_pairs_by_angle(
+    poses: typing.Sequence[np.ndarray],
+    delta: float,
+    tol: float = 0.0,
+    degrees: bool = False,
+    all_pairs: bool = False,
+) -> IdPairs:
     """
     filters pairs in a list of SE(3) poses by their relative angle
      - by default, the angle accumulated on the path between the two pair poses
@@ -113,7 +126,7 @@ def filter_pairs_by_angle(poses: typing.Sequence[np.ndarray], delta: float,
     :return: list of index tuples of the filtered pairs
     """
     # Angle-axis angles are within [0, pi] / [0, 180] (Euler theorem).
-    bounds = [0., 180.] if degrees else [0, np.pi]
+    bounds = [0.0, 180.0] if degrees else [0, np.pi]
     if delta < bounds[0] or delta > bounds[1]:
         raise FilterException(f"delta angle must be within {bounds}")
     delta = np.deg2rad(delta) if degrees else delta
@@ -125,8 +138,10 @@ def filter_pairs_by_angle(poses: typing.Sequence[np.ndarray], delta: float,
         ids = list(range(len(poses)))
         # All pairs search is O(n^2) here. Use vectorized operations with
         # scipy.spatial.transform.Rotation for quicker processing.
-        logger.info("Searching all pairs with matching rotation delta,"
-                    " this can take a while.")
+        logger.info(
+            "Searching all pairs with matching rotation delta,"
+            " this can take a while."
+        )
         start_indices = ids[:-1]
         for i in start_indices:
             if not i % 100:
@@ -134,13 +149,21 @@ def filter_pairs_by_angle(poses: typing.Sequence[np.ndarray], delta: float,
             offset = i + 1
             end_indices = ids[offset:]
             rotations_i = lie.sst_rotation_from_matrix(
-                np.array([poses[i][:3, :3]] * len(end_indices)))
+                np.array([poses[i][:3, :3]] * len(end_indices))
+            )
             rotations_j = lie.sst_rotation_from_matrix(
-                np.array([poses[j][:3, :3] for j in end_indices]))
+                np.array([poses[j][:3, :3] for j in end_indices])
+            )
             delta_angles = np.linalg.norm(
-                (rotations_i.inv() * rotations_j).as_rotvec(), axis=1)
-            matches = np.argwhere((lower_bound <= delta_angles)
-                                  & (delta_angles <= upper_bound)) + offset
+                (rotations_i.inv() * rotations_j).as_rotvec(), axis=1
+            )
+            matches = (
+                np.argwhere(
+                    (lower_bound <= delta_angles)
+                    & (delta_angles <= upper_bound)
+                )
+                + offset
+            )
             id_pairs.extend([(i, j) for j in matches.flatten().tolist()])
     else:
         delta_angles = [
@@ -160,9 +183,12 @@ def filter_pairs_by_angle(poses: typing.Sequence[np.ndarray], delta: float,
     return id_pairs
 
 
-def filter_by_motion(poses: typing.Sequence[np.ndarray],
-                     distance_threshold: float, angle_threshold: float,
-                     degrees: bool = False):
+def filter_by_motion(
+    poses: typing.Sequence[np.ndarray],
+    distance_threshold: float,
+    angle_threshold: float,
+    degrees: bool = False,
+):
     """
     Filters a list of SE(3) poses by their motion if either the
     distance or rotation angle is exceeded.
@@ -185,7 +211,7 @@ def filter_by_motion(poses: typing.Sequence[np.ndarray],
     positions = np.array([pose[:3, 3] for pose in poses])
     distances = geometry.accumulated_distances(positions)
     previous_angle_id = 0
-    previous_distance = 0.
+    previous_distance = 0.0
 
     filtered_ids = [0]
     for i in range(1, len(poses)):
@@ -195,8 +221,10 @@ def filter_by_motion(poses: typing.Sequence[np.ndarray],
             previous_distance = distances[i]
             continue
         current_angle = lie.so3_log_angle(
-            lie.relative_so3(poses[previous_angle_id][:3, :3],
-                             poses[i][:3, :3]))
+            lie.relative_so3(
+                poses[previous_angle_id][:3, :3], poses[i][:3, :3]
+            )
+        )
         if current_angle >= angle_threshold:
             filtered_ids.append(i)
             previous_angle_id = i

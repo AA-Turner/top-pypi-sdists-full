@@ -1,10 +1,28 @@
-from __future__ import annotations
-
 import inspect
 import re
 import typing
 
 import pytest
+
+try:
+    import annotationlib  # type: ignore
+
+    def get_annotations(obj) -> dict:
+        return annotationlib.get_annotations(obj)
+
+    def get_namespace_annotations(dictionary) -> dict:
+        func = annotationlib.get_annotate_from_class_namespace(dictionary)
+        if func is None:
+            return {}
+        return func(annotationlib.Format.VALUE)
+
+except ImportError:
+
+    def get_annotations(obj) -> dict:
+        return getattr(obj, '__annotations__', {})
+
+    def get_namespace_annotations(dictionary) -> dict:
+        return dictionary.get('__annotations__', {})
 
 
 class FixtureMetaclass(type):
@@ -12,8 +30,8 @@ class FixtureMetaclass(type):
         if bases:
             annotations = {}
             for base in bases:
-                annotations.update(getattr(base, '__annotations__', {}))
-            annotations.update(attrs.get('__annotations__', {}))
+                annotations.update(get_annotations(base))
+            annotations.update(get_namespace_annotations(attrs))
             fixtures = {}
             fixture_types = {}
             for attr, attr_type in annotations.items():

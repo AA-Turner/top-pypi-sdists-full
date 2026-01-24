@@ -1,36 +1,31 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: bioregistry
-Version: 0.12.40
+Version: 0.13.18
 Summary: Integrated registry of biological databases and nomenclatures
-Author-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
-License: MIT License
-        
-        Copyright (c) 2020-2024 Charles Tapley Hoyt
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
-Project-URL: Bug Tracker, https://github.com/biopragmatics/bioregistry/issues
-Project-URL: Homepage, https://github.com/biopragmatics/bioregistry
-Project-URL: Repository, https://github.com/biopragmatics/bioregistry.git
-Project-URL: Documentation, https://bioregistry.readthedocs.io
 Keywords: snekpack,cookiecutter,databases,biological databases,biomedical databases,persistent identifiers
+Author: Charles Tapley Hoyt
+Author-email: Charles Tapley Hoyt <cthoyt@gmail.com>
+License: MIT License
+         
+         Copyright (c) 2020-2024 Charles Tapley Hoyt
+         
+         Permission is hereby granted, free of charge, to any person obtaining a copy
+         of this software and associated documentation files (the "Software"), to deal
+         in the Software without restriction, including without limitation the rights
+         to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+         copies of the Software, and to permit persons to whom the Software is
+         furnished to do so, subject to the following conditions:
+         
+         The above copyright notice and this permission notice shall be included in all
+         copies or substantial portions of the Software.
+         
+         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+         IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+         FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+         AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+         LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+         OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+         SOFTWARE.
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -45,78 +40,82 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.10
-Description-Content-Type: text/markdown
-License-File: LICENSE
 Requires-Dist: requests
 Requires-Dist: tqdm
 Requires-Dist: pystow>=0.7.7
 Requires-Dist: click
-Requires-Dist: more_click>=0.1.2
+Requires-Dist: more-click>=0.1.2
 Requires-Dist: pydantic[email]>=2.0
-Requires-Dist: curies>=0.7.0
-Provides-Extra: tests
-Requires-Dist: pytest; extra == "tests"
-Requires-Dist: coverage; extra == "tests"
-Requires-Dist: more_itertools; extra == "tests"
-Requires-Dist: httpx; extra == "tests"
-Requires-Dist: scikit-learn; extra == "tests"
-Provides-Extra: docs
-Requires-Dist: sphinx>=8; extra == "docs"
-Requires-Dist: sphinx-rtd-theme>=3.0; extra == "docs"
-Requires-Dist: sphinx-click; extra == "docs"
-Requires-Dist: sphinx_automodapi; extra == "docs"
-Requires-Dist: autodoc_pydantic; extra == "docs"
-Provides-Extra: gha
-Requires-Dist: more_itertools; extra == "gha"
+Requires-Dist: curies>=0.12.2
+Requires-Dist: pyyaml ; extra == 'align'
+Requires-Dist: beautifulsoup4 ; extra == 'align'
+Requires-Dist: tabulate ; extra == 'align'
+Requires-Dist: defusedxml ; extra == 'align'
+Requires-Dist: class-resolver ; extra == 'align'
+Requires-Dist: fairsharing-client>=0.1.0 ; extra == 'align'
+Requires-Dist: pandas ; extra == 'align'
+Requires-Dist: matplotlib ; extra == 'charts'
+Requires-Dist: matplotlib-venn ; extra == 'charts'
+Requires-Dist: seaborn ; extra == 'charts'
+Requires-Dist: pandas ; extra == 'charts'
+Requires-Dist: jinja2 ; extra == 'charts'
+Requires-Dist: sphinx>=8 ; extra == 'docs'
+Requires-Dist: sphinx-rtd-theme>=3.0 ; extra == 'docs'
+Requires-Dist: sphinx-click ; extra == 'docs'
+Requires-Dist: sphinx-automodapi ; extra == 'docs'
+Requires-Dist: autodoc-pydantic ; extra == 'docs'
+Requires-Dist: pyyaml ; extra == 'export'
+Requires-Dist: rdflib ; extra == 'export'
+Requires-Dist: rdflib-jsonld ; extra == 'export'
+Requires-Dist: ndex2 ; extra == 'export'
+Requires-Dist: more-itertools ; extra == 'gha'
+Requires-Dist: click-default-group ; extra == 'health'
+Requires-Dist: pandas ; extra == 'health'
+Requires-Dist: tabulate ; extra == 'health'
+Requires-Dist: pyyaml ; extra == 'health'
+Requires-Dist: jinja2 ; extra == 'health'
+Requires-Dist: pandas ; extra == 'mapping-checking'
+Requires-Dist: sentence-transformers ; extra == 'mapping-checking'
+Requires-Dist: pandas ; extra == 'paper-ranking'
+Requires-Dist: scikit-learn ; extra == 'paper-ranking'
+Requires-Dist: tabulate ; extra == 'paper-ranking'
+Requires-Dist: pubmed-downloader>=0.0.12 ; extra == 'paper-ranking'
+Requires-Dist: pytest ; extra == 'tests'
+Requires-Dist: coverage ; extra == 'tests'
+Requires-Dist: more-itertools ; extra == 'tests'
+Requires-Dist: httpx ; extra == 'tests'
+Requires-Dist: scikit-learn ; extra == 'tests'
+Requires-Dist: pyyaml ; extra == 'web'
+Requires-Dist: rdflib ; extra == 'web'
+Requires-Dist: rdflib-jsonld ; extra == 'web'
+Requires-Dist: rdflib-endpoint>=0.5.3 ; extra == 'web'
+Requires-Dist: flask>=3.0.0 ; extra == 'web'
+Requires-Dist: werkzeug>=3.0.0 ; extra == 'web'
+Requires-Dist: fastapi ; extra == 'web'
+Requires-Dist: uvicorn ; extra == 'web'
+Requires-Dist: bootstrap-flask ; extra == 'web'
+Requires-Dist: markdown ; extra == 'web'
+Requires-Dist: curies[fastapi] ; extra == 'web'
+Requires-Dist: a2wsgi ; extra == 'web'
+Requires-Dist: api-analytics[fastapi] ; extra == 'web'
+Maintainer: Charles Tapley Hoyt
+Maintainer-email: Charles Tapley Hoyt <cthoyt@gmail.com>
+Requires-Python: >=3.10
+Project-URL: Bug Tracker, https://github.com/biopragmatics/bioregistry/issues
+Project-URL: Homepage, https://github.com/biopragmatics/bioregistry
+Project-URL: Repository, https://github.com/biopragmatics/bioregistry.git
+Project-URL: Documentation, https://bioregistry.readthedocs.io
 Provides-Extra: align
-Requires-Dist: pyyaml; extra == "align"
-Requires-Dist: beautifulsoup4; extra == "align"
-Requires-Dist: tabulate; extra == "align"
-Requires-Dist: defusedxml; extra == "align"
-Requires-Dist: class-resolver; extra == "align"
-Requires-Dist: fairsharing-client>=0.1.0; extra == "align"
-Requires-Dist: pandas; extra == "align"
-Provides-Extra: export
-Requires-Dist: pyyaml; extra == "export"
-Requires-Dist: rdflib; extra == "export"
-Requires-Dist: rdflib-jsonld; extra == "export"
-Requires-Dist: ndex2; extra == "export"
 Provides-Extra: charts
-Requires-Dist: matplotlib; extra == "charts"
-Requires-Dist: matplotlib_venn; extra == "charts"
-Requires-Dist: seaborn; extra == "charts"
-Requires-Dist: pandas; extra == "charts"
-Requires-Dist: jinja2; extra == "charts"
+Provides-Extra: docs
+Provides-Extra: export
+Provides-Extra: gha
 Provides-Extra: health
-Requires-Dist: click_default_group; extra == "health"
-Requires-Dist: pandas; extra == "health"
-Requires-Dist: tabulate; extra == "health"
-Requires-Dist: pyyaml; extra == "health"
-Requires-Dist: jinja2; extra == "health"
-Provides-Extra: web
-Requires-Dist: pyyaml; extra == "web"
-Requires-Dist: rdflib; extra == "web"
-Requires-Dist: rdflib-jsonld; extra == "web"
-Requires-Dist: rdflib-endpoint>=0.5.3; extra == "web"
-Requires-Dist: flask>=3.0.0; extra == "web"
-Requires-Dist: werkzeug>=3.0.0; extra == "web"
-Requires-Dist: fastapi; extra == "web"
-Requires-Dist: uvicorn; extra == "web"
-Requires-Dist: bootstrap-flask; extra == "web"
-Requires-Dist: markdown; extra == "web"
-Requires-Dist: curies[fastapi]; extra == "web"
-Requires-Dist: a2wsgi; extra == "web"
-Requires-Dist: api-analytics[fastapi]; extra == "web"
-Provides-Extra: paper-ranking
-Requires-Dist: pandas; extra == "paper-ranking"
-Requires-Dist: scikit-learn; extra == "paper-ranking"
-Requires-Dist: tabulate; extra == "paper-ranking"
-Requires-Dist: pubmed-downloader>=0.0.12; extra == "paper-ranking"
 Provides-Extra: mapping-checking
-Requires-Dist: pandas; extra == "mapping-checking"
-Requires-Dist: sentence_transformers; extra == "mapping-checking"
-Dynamic: license-file
+Provides-Extra: paper-ranking
+Provides-Extra: tests
+Provides-Extra: web
+Description-Content-Type: text/markdown
 
 <p align="center">
   <img src="https://github.com/biopragmatics/bioregistry/raw/main/docs/source/logo.png" height="150">
@@ -261,6 +260,38 @@ $ pip install --editable .
 
 Build the docs locally with `tox -e docs` then view by opening
 `docs/build/html/index.html`.
+
+<details>
+  <summary>See the instructions to run the tests</summary>
+
+Having [`tox`](https://tox.wiki/en/latest/installation.html) installed is
+required to run the tests. Optionally to run all tests you will need to start
+the Bioregistry, a Virtuoso endpoint, and a Blazegraph endpoint using
+`docker compose`:
+
+```shell
+$ docker compose up
+```
+
+The first time you deploy the docker compose stack, you will need to run an
+additional command from another terminal, in this repository root folder, to
+enable federated query in Virtuoso:
+
+```shell
+$ docker compose exec virtuoso isql -U dba -P dba exec='GRANT "SPARQL_SELECT_FED" TO "SPARQL";'
+```
+
+After cloning the repository and installing the dependencies, the unit tests in
+the `tests/` folder can be run reproducibly with:
+
+```shell
+$ tox
+```
+
+Additionally, these tests are automatically re-run with each commit in a
+[GitHub Action](https://github.com/biopragmatics/bioregistry/actions/workflows/tests.yml).
+
+</details>
 
 ## 💪 Usage
 

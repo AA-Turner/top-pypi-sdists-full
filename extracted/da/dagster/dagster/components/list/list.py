@@ -28,6 +28,7 @@ from dagster._cli.workspace.cli_target import get_repository_python_origin_from_
 from dagster._config.pythonic_config.resource import get_resource_type_name
 from dagster._core.definitions.asset_selection import AssetSelection
 from dagster._core.definitions.assets.job.asset_job import is_reserved_asset_job_name
+from dagster._core.definitions.declarative_automation.serialized_objects import get_expanded_label
 from dagster._core.definitions.definitions_load_context import (
     DefinitionsLoadContext,
     DefinitionsLoadType,
@@ -110,7 +111,7 @@ def _load_defs_at_path(dg_context: DgContext, path: Optional[Path]) -> Repositor
     tree = ComponentTree.for_project(dg_context.root_path)
 
     try:
-        defs = tree.build_defs_at_path(path) if path else tree.build_defs()
+        defs = tree.build_defs(path) if path else tree.build_defs()
     except Exception as e:
         path_text = f" at {path}" if path else ""
         raise click.ClickException(f"Unable to load definitions{path_text}: {e}") from e
@@ -177,7 +178,9 @@ def list_definitions(
                     group=node.group_name,
                     kinds=sorted(list(node.kinds)),
                     description=node.description,
-                    automation_condition=node.automation_condition.get_label()
+                    automation_condition=" ".join(
+                        get_expanded_label(node.automation_condition.get_snapshot())
+                    )
                     if node.automation_condition
                     else None,
                     tags=sorted(f'"{k}"="{v}"' for k, v in node.tags.items() if _tag_filter(k)),

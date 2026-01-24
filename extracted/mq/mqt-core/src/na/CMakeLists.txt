@@ -1,15 +1,19 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
 #
 # Licensed under the MIT License
 
+add_subdirectory(fomac)
+
 if(NOT TARGET ${MQT_CORE_TARGET_NAME}-na)
   # collect headers and source files
-  file(GLOB_RECURSE NA_HEADERS ${MQT_CORE_INCLUDE_BUILD_DIR}/na/**.hpp)
-  file(GLOB_RECURSE NA_SOURCES **.cpp)
+  file(GLOB NA_HEADERS ${MQT_CORE_INCLUDE_BUILD_DIR}/na/*.hpp
+       ${MQT_CORE_INCLUDE_BUILD_DIR}/na/entities/*.hpp
+       ${MQT_CORE_INCLUDE_BUILD_DIR}/na/operations/*.hpp)
+  file(GLOB NA_SOURCES *.cpp entities/*.cpp operations/*.cpp)
 
   # create the library target (initially empty)
   add_mqt_core_library(${MQT_CORE_TARGET_NAME}-na ALIAS_NAME NA)
@@ -23,17 +27,7 @@ if(NOT TARGET ${MQT_CORE_TARGET_NAME}-na)
                                       FILES ${NA_HEADERS})
 
   # add link libraries
-  target_link_libraries(
-    ${MQT_CORE_TARGET_NAME}-na
-    PUBLIC MQT::CoreIR
-    PRIVATE MQT::ProjectOptions MQT::ProjectWarnings)
-
-  # set versioning information
-  set_target_properties(
-    ${MQT_CORE_TARGET_NAME}-na
-    PROPERTIES VERSION ${PROJECT_VERSION}
-               SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
-               EXPORT_NAME CoreNA)
+  target_link_libraries(${MQT_CORE_TARGET_NAME}-na PUBLIC MQT::CoreIR)
 
   # generate export header
   include(GenerateExportHeader)

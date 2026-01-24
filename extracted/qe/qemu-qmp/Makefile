@@ -9,14 +9,14 @@ help:
 	@echo "make check-minreqs:"
 	@echo "    Run tests in the minreqs virtual environment."
 	@echo "    These tests use the oldest dependencies."
-	@echo "    Requires: Python 3.7"
-	@echo "    Hint (Fedora): 'sudo dnf install python3.7'"
+	@echo "    Requires: Python 3.8"
+	@echo "    Hint (Fedora): 'sudo dnf install python3.8'"
 	@echo ""
 	@echo "make check-tox:"
 	@echo "    Run tests against multiple python versions."
 	@echo "    These tests use the newest dependencies."
-	@echo "    Requires: Python 3.7 - 3.12, and tox."
-	@echo "    Hint (Fedora): 'sudo dnf install python3-tox python3.12'"
+	@echo "    Requires: Python 3.8 - 3.14, and tox."
+	@echo "    Hint (Fedora): 'sudo dnf install python3-tox python3.14'"
 	@echo "    The variable QEMU_TOX_EXTRA_ARGS can be use to pass extra"
 	@echo "    arguments to tox".
 	@echo ""
@@ -59,7 +59,7 @@ PIP_INSTALL = pip install --disable-pip-version-check
 min-venv: $(QEMU_MINVENV_DIR) $(QEMU_MINVENV_DIR)/bin/activate
 $(QEMU_MINVENV_DIR) $(QEMU_MINVENV_DIR)/bin/activate: setup.cfg tests/minreqs.txt
 	@echo "VENV $(QEMU_MINVENV_DIR)"
-	@python3.7 -m venv $(QEMU_MINVENV_DIR)
+	@python3.8 -m venv $(QEMU_MINVENV_DIR)
 	@(								\
 		echo "ACTIVATE $(QEMU_MINVENV_DIR)";			\
 		. $(QEMU_MINVENV_DIR)/bin/activate;			\
@@ -109,7 +109,7 @@ develop:
 
 .PHONY: check
 check:
-	@avocado --config avocado.cfg run tests/
+	@pytest -v tests/*.py
 
 .PHONY: check-tox
 check-tox:
@@ -117,7 +117,7 @@ check-tox:
 
 .PHONY: check-coverage
 check-coverage:
-	@coverage run -m avocado --config avocado.cfg run tests/*.py
+	@coverage run -m pytest tests/*.py
 	@coverage combine
 	@coverage html
 	@coverage xml
@@ -129,7 +129,7 @@ clean:
 
 .PHONY: distclean
 distclean: clean
-	rm -rf qemu.qmp.egg-info/ dist/
+	rm -rf qemu.qmp.egg-info/ dist/ build/
 	rm -rf $(QEMU_VENV_DIR) $(QEMU_MINVENV_DIR) .tox/
 	rm -f .coverage coverage.xml .coverage.*
 	rm -rf htmlcov/ test-results/

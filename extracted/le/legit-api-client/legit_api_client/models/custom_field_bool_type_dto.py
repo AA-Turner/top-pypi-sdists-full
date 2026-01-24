@@ -30,7 +30,7 @@ class CustomFieldBoolTypeDto(CustomFieldDtoType):
     """ # noqa: E501
     bool_value: Optional[StrictBool] = Field(default=None, alias="boolValue")
     field_type: Optional[CustomFieldType] = Field(default=None, alias="fieldType")
-    __properties: ClassVar[List[str]] = ["FieldType", "fieldType"]
+    __properties: ClassVar[List[str]] = ["FieldType", "fieldType", "boolValue"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -86,7 +86,8 @@ class CustomFieldBoolTypeDto(CustomFieldDtoType):
 
         _obj = cls.model_validate({
             "FieldType": obj.get("FieldType"),
-            "fieldType": obj.get("fieldType")
+            "fieldType": obj.get("fieldType"),
+            "boolValue": obj.get("boolValue")
         })
         return _obj
 

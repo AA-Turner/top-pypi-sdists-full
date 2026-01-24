@@ -16,9 +16,9 @@
 """Compute v2 Console action implementations"""
 
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 
 
@@ -64,13 +64,15 @@ class ShowConsoleLog(command.Command):
         output = compute_client.get_server_console_output(
             server.id, length=parsed_args.lines
         )
-        data = None
+        data: str | None = None
         if output:
             data = output.get('output', None)
 
         if data and data[-1] != '\n':
             data += '\n'
-        self.app.stdout.write(data)
+
+        if data:
+            self.app.stdout.write(data)
 
 
 class ShowConsoleURL(command.ShowOne):

@@ -35,11 +35,18 @@ from maplibre.utils import get_bounds
 from . import common
 from .basemaps import xyz_to_leaflet
 from .common import (
+    _in_colab_shell,
+    configure_jupyterhub,
+    df_to_gdf,
     download_file,
+    download_files,
+    ee_initialize,
     execute_maplibre_notebook_dir,
     filter_geom_type,
     find_files,
+    gdb_to_vector,
     generate_index_html,
+    generate_latlon_grid,
     geojson_bounds,
     geojson_to_gdf,
     geojson_to_pmtiles,
@@ -47,6 +54,8 @@ from .common import (
     get_bounds,
     get_ee_tile_url,
     get_overture_data,
+    get_overture_latest_release,
+    init_duckdb_tiles,
     nasa_data_download,
     nasa_data_login,
     pandas_to_geojson,
@@ -55,11 +64,16 @@ from .common import (
     random_string,
     read_geojson,
     read_vector,
+    run_titiler,
     sort_files,
     stac_assets,
+    start_duckdb_tile_server,
+    start_martin,
     start_server,
+    stop_martin,
 )
 from .map_widgets import TabWidget
+from .plot import bar_chart, histogram, line_chart, pie_chart
 
 basemaps = Box(xyz_to_leaflet(), frozen_box=True)
 
@@ -83,7 +97,8 @@ class Map(MapWidget):
         },
         projection: str = "mercator",
         use_message_queue: bool = None,
-        add_sidebar: bool = True,
+        add_sidebar: Optional[bool] = None,
+        add_floating_sidebar: Optional[bool] = None,
         sidebar_visible: bool = False,
         sidebar_width: int = 360,
         sidebar_args: Optional[Dict] = None,
@@ -120,7 +135,9 @@ class Map(MapWidget):
                 is needed to export the map to HTML. If it is set to "False", it will not use the message
                 queue, which is needed to display the map multiple times in the same notebook.
             add_sidebar (bool, optional): Whether to add a sidebar to the map.
-                Defaults to True. If True, the map will be displayed in a sidebar.
+                Defaults to False. If True, the map will be displayed in a sidebar.
+            add_floating_sidebar (bool, optional): Whether to add a floating sidebar to the map.
+                Defaults to True. If True, the map will be displayed in a floating sidebar.
             sidebar_visible (bool, optional): Whether the sidebar is visible. Defaults to False.
             sidebar_width (int, optional): The width of the sidebar in pixels. Defaults to 360.
             sidebar_args (dict, optional): The arguments for the sidebar. It can
@@ -150,7 +167,7 @@ class Map(MapWidget):
         ]
         if isinstance(style, str):
 
-            if style.startswith("https"):
+            if style.startswith("http"):
                 response = requests.get(style)
                 if response.status_code != 200:
                     print(
@@ -227,6 +244,7 @@ class Map(MapWidget):
         self._deck_layers = []
         self._deck_layer_ids = []
         self._deck_layer_tooltips = {}
+        self._duckdb_databases = []  # Track database paths for cleanup
 
         if projection.lower() == "globe":
             self.add_globe_control()
@@ -242,6 +260,17 @@ class Map(MapWidget):
                 ]
             )
 
+        if add_sidebar is None and add_floating_sidebar is None:
+            add_sidebar = False
+            add_floating_sidebar = True
+        elif add_sidebar:
+            add_floating_sidebar = False
+        elif add_floating_sidebar:
+            add_sidebar = False
+        else:
+            add_sidebar = False
+            add_floating_sidebar = False
+
         if sidebar_args is None:
             sidebar_args = {}
         if "sidebar_visible" not in sidebar_args:
@@ -256,7 +285,9 @@ class Map(MapWidget):
         self.sidebar_args = sidebar_args
         self.layer_manager = None
         self.container = None
-        if add_sidebar:
+        self.add_floating_sidebar_flag = add_floating_sidebar
+        self.floating_sidebar_widget = None
+        if add_sidebar or add_floating_sidebar:
             self._ipython_display_ = self._patched_display
 
     def show(
@@ -314,6 +345,8 @@ class Map(MapWidget):
             v.Container: The created container widget with the map and sidebar.
         """
 
+        # Use regular container sidebar
+
         if sidebar_visible is None:
             sidebar_visible = self.sidebar_args.get("sidebar_visible", False)
         if min_width is None:
@@ -335,6 +368,29 @@ class Map(MapWidget):
         )
         self.container = container
         self.container.sidebar_widgets["Layers"] = self.layer_manager
+
+        if self.add_floating_sidebar_flag:
+            # Use floating sidebar
+            if self.floating_sidebar_widget is not None:
+                widget = self.floating_sidebar_widget
+            else:
+                sidebar_visible = self.sidebar_args.get("sidebar_visible", False)
+                expanded = self.sidebar_args.get("expanded", True)
+                position = self.sidebar_args.get("position", "top-left")
+                width = self.sidebar_args.get("width", "370px")
+                max_height = self.sidebar_args.get("max_height", "80vh")
+                sidebar_content = self.sidebar_args.get("sidebar_content", None)
+
+                widget = self.add_floating_sidebar(
+                    position=position,
+                    width=width,
+                    max_height=max_height,
+                    expanded=expanded,
+                    sidebar_visible=sidebar_visible,
+                    sidebar_content=sidebar_content,
+                )
+                self.floating_sidebar_widget = widget
+
         return container
 
     def _repr_html_(self, **kwargs: Any) -> None:
@@ -367,32 +423,62 @@ class Map(MapWidget):
             None
         """
 
-        if self.container is not None:
-            container = self.container
-        else:
-            sidebar_visible = self.sidebar_args.get("sidebar_visible", False)
-            min_width = self.sidebar_args.get("min_width", 360)
-            max_width = self.sidebar_args.get("max_width", 360)
-            expanded = self.sidebar_args.get("expanded", True)
-            if self.layer_manager is None:
-                self.layer_manager = LayerManagerWidget(self, expanded=expanded)
-            container = Container(
-                host_map=self,
-                sidebar_visible=sidebar_visible,
-                min_width=min_width,
-                max_width=max_width,
-                sidebar_content=[self.layer_manager],
-                **kwargs,
-            )
-            container.sidebar_widgets["Layers"] = self.layer_manager
-            self.container = container
+        if self.add_floating_sidebar_flag:
+            # Use floating sidebar
+            if self.floating_sidebar_widget is not None:
+                widget = self.floating_sidebar_widget
+            else:
+                sidebar_visible = self.sidebar_args.get("sidebar_visible", False)
+                expanded = self.sidebar_args.get("expanded", True)
+                position = self.sidebar_args.get("position", "top-left")
+                width = self.sidebar_args.get("width", "370px")
+                max_height = self.sidebar_args.get("max_height", "80vh")
+                sidebar_content = self.sidebar_args.get("sidebar_content", None)
 
-        if "google.colab" in sys.modules:
-            import ipyvue as vue
+                widget = self.add_floating_sidebar(
+                    position=position,
+                    width=width,
+                    max_height=max_height,
+                    expanded=expanded,
+                    sidebar_visible=sidebar_visible,
+                    sidebar_content=sidebar_content,
+                )
+                self.floating_sidebar_widget = widget
 
-            display(vue.Html(children=[]), container)
+            if "google.colab" in sys.modules:
+                import ipyvue as vue
+
+                display(vue.Html(children=[]), widget)
+            else:
+                display(widget)
         else:
-            display(container)
+            # Use regular container sidebar
+            if self.container is not None:
+                container = self.container
+            else:
+                sidebar_visible = self.sidebar_args.get("sidebar_visible", False)
+                min_width = self.sidebar_args.get("min_width", 360)
+                max_width = self.sidebar_args.get("max_width", 360)
+                expanded = self.sidebar_args.get("expanded", True)
+                if self.layer_manager is None:
+                    self.layer_manager = LayerManagerWidget(self, expanded=expanded)
+                container = Container(
+                    host_map=self,
+                    sidebar_visible=sidebar_visible,
+                    min_width=min_width,
+                    max_width=max_width,
+                    sidebar_content=[self.layer_manager],
+                    **kwargs,
+                )
+                container.sidebar_widgets["Layers"] = self.layer_manager
+                self.container = container
+
+            if "google.colab" in sys.modules:
+                import ipyvue as vue
+
+                display(vue.Html(children=[]), container)
+            else:
+                display(container)
 
     def add_layer_manager(
         self,
@@ -456,20 +542,52 @@ class Map(MapWidget):
             expanded (bool): Whether the panel is expanded by default. Defaults to True.
             **kwargs (Any): Additional keyword arguments for the parent class.
         """
-        if self.container is None:
-            self.create_container(**self.sidebar_args)
-        self.container.add_to_sidebar(
-            widget,
-            add_header=add_header,
-            widget_icon=widget_icon,
-            close_icon=close_icon,
-            label=label,
-            background_color=background_color,
-            height=height,
-            expanded=expanded,
-            host_map=self,
-            **kwargs,
-        )
+        # Initialize floating sidebar state if needed and we're using floating sidebar
+        if (
+            hasattr(self, "add_floating_sidebar_flag")
+            and self.add_floating_sidebar_flag
+            and not hasattr(self, "floating_sidebar_content_box")
+        ):
+            self.floating_sidebar_content_box = widgets.VBox(children=[])
+            self._floating_sidebar_widgets = {}
+
+        # Check if floating sidebar is being used
+        if hasattr(self, "floating_sidebar_content_box"):
+            # Handle floating sidebar case
+            if label in self._floating_sidebar_widgets:
+                self.remove_from_sidebar(name=label)
+
+            if add_header:
+                widget = CustomWidget(
+                    widget,
+                    widget_icon=widget_icon,
+                    close_icon=close_icon,
+                    label=label,
+                    background_color=background_color,
+                    height=height,
+                    expanded=expanded,
+                    host_map=self,
+                    **kwargs,
+                )
+
+            self.floating_sidebar_content_box.children += (widget,)
+            self._floating_sidebar_widgets[label] = widget
+        else:
+            # Handle regular container sidebar case
+            if self.container is None:
+                self.create_container(**self.sidebar_args)
+            self.container.add_to_sidebar(
+                widget,
+                add_header=add_header,
+                widget_icon=widget_icon,
+                close_icon=close_icon,
+                label=label,
+                background_color=background_color,
+                height=height,
+                expanded=expanded,
+                host_map=self,
+                **kwargs,
+            )
 
     def remove_from_sidebar(
         self, widget: widgets.Widget = None, name: str = None
@@ -481,7 +599,25 @@ class Map(MapWidget):
             widget (widgets.Widget): The widget to remove from the sidebar.
             name (str): The name of the widget to remove from the sidebar.
         """
-        if self.container is not None:
+        # Check if floating sidebar is being used
+        if hasattr(self, "floating_sidebar_content_box"):
+            # Handle floating sidebar case
+            key = None
+            for key, value in self._floating_sidebar_widgets.items():
+                if value == widget or key == name:
+                    if widget is None:
+                        widget = self._floating_sidebar_widgets[key]
+                    break
+
+            if key is not None and key in self._floating_sidebar_widgets:
+                self._floating_sidebar_widgets.pop(key)
+            self.floating_sidebar_content_box.children = tuple(
+                child
+                for child in self.floating_sidebar_content_box.children
+                if child != widget
+            )
+        elif self.container is not None:
+            # Handle regular container sidebar case
             self.container.remove_from_sidebar(widget, name)
 
     def set_sidebar_width(self, min_width: int = None, max_width: int = None) -> None:
@@ -530,6 +666,8 @@ class Map(MapWidget):
         Returns:
             Dict[str, widgets.Widget]: A dictionary where keys are the labels of the widgets and values are the widgets themselves.
         """
+        if self.container is None:
+            self.create_container()
         return self.container.sidebar_widgets
 
     def add(self, obj: Union[str, Any], **kwargs) -> None:
@@ -1438,7 +1576,7 @@ class Map(MapWidget):
                 if layer_type is None:
                     layer_type = "circle"
                     paint = {
-                        "circle-radius": 5,
+                        "circle-radius": 4,
                         "circle-color": "#3388ff",
                         "circle-stroke-color": "#ffffff",
                         "circle-stroke-width": 1,
@@ -1942,6 +2080,45 @@ class Map(MapWidget):
             **kwargs,
         )
 
+    def add_nwi(self, data: Union[str, Dict], name: str = "NWI Wetlands", **kwargs):
+        """Adds a National Wetlands Inventory (NWI) layer to the map.
+
+        Args:
+            data (Union[str, Dict]): The data to add. It can be a URL or a dictionary.
+            name (str, optional): The name of the layer. Defaults to "NWI Wetlands".
+            **kwargs: Additional keyword arguments to pass to the add_vector method.
+
+        Returns:
+            None
+        """
+
+        color_map = {
+            "Freshwater Forested/Shrub Wetland": (0, 136, 55),
+            "Freshwater Emergent Wetland": (127, 195, 28),
+            "Freshwater Pond": (104, 140, 192),
+            "Estuarine and Marine Wetland": (102, 194, 165),
+            "Riverine": (1, 144, 191),
+            "Lake": (19, 0, 124),
+            "Estuarine and Marine Deepwater": (0, 124, 136),
+            "Other": (178, 134, 86),
+        }
+
+        def rgba(rgb, a=0.85):
+            r, g, b = rgb
+            return f"rgba({r},{g},{b},{a})"
+
+        # Build a proper match expression WITH a default
+        fill_match = ["match", ["get", "WETLAND_TYPE"]]
+        for k, v in color_map.items():
+            fill_match += [k, rgba(v)]
+        fill_match += ["rgba(200,200,200,0.6)"]  # <-- REQUIRED default
+
+        paint = {
+            "fill-color": fill_match,
+            "fill-outline-color": "rgba(0,0,0,0.25)",
+        }
+        self.add_vector(data, layer_type="fill", paint=paint, name=name, **kwargs)
+
     def add_ee_layer(
         self,
         ee_object=None,
@@ -2108,6 +2285,9 @@ class Map(MapWidget):
             None
         """
 
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
         if name is None:
             name = "COG_" + common.random_string()
 
@@ -2130,7 +2310,8 @@ class Map(MapWidget):
         )
         if fit_bounds:
             bounds = common.cog_bounds(url, titiler_endpoint)
-            self.fit_bounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]])
+            if bounds is not None:
+                self.fit_bounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]])
 
     def add_stac_layer(
         self,
@@ -2195,6 +2376,9 @@ class Map(MapWidget):
             None
         """
 
+        if os.environ.get("USE_MKDOCS") is not None:
+            return
+
         if "colormap_name" in kwargs and kwargs["colormap_name"] is None:
             kwargs.pop("colormap_name")
 
@@ -2218,7 +2402,7 @@ class Map(MapWidget):
             before_id=before_id,
             overwrite=overwrite,
         )
-        if fit_bounds:
+        if fit_bounds and bounds is not None:
             self.fit_bounds([[bounds[0], bounds[1]], [bounds[2], bounds[3]]])
 
     def add_raster(
@@ -2934,6 +3118,491 @@ class Map(MapWidget):
 
         except Exception as e:
             print(e)
+
+    def add_duckdb_layer(
+        self,
+        data=None,
+        layer_name: Optional[str] = None,
+        layer_type: str = "fill",
+        paint: Optional[Dict] = None,
+        layout: Optional[Dict] = None,
+        filter: Optional[Dict] = None,
+        database_path: str = None,
+        table_name: str = "features",
+        geom_column: str = "geom",
+        properties: Optional[List[str]] = None,
+        port: int = 8000,
+        minzoom: Optional[int] = 0,
+        maxzoom: Optional[int] = 22,
+        min_zoom: Optional[int] = None,
+        visible: bool = True,
+        opacity: float = 1.0,
+        fit_bounds: bool = True,
+        tooltip: bool = True,
+        quiet: bool = False,
+        use_view: bool = False,
+        src_crs: str = None,
+        **kwargs: Any,
+    ):
+        """
+        Adds a layer served from a DuckDB database via vector tiles.
+
+        This method enables visualization of large vector datasets by serving them
+        as vector tiles through a local Flask server backed by DuckDB. The data can
+        either be loaded from various sources into a new/existing database, or you
+        can connect to an existing database that already contains the data.
+
+        Supports all vector formats that DuckDB's ST_Read can handle, including
+        GeoJSON, Shapefile, GeoPackage, FlatGeobuf, GeoParquet, and many more
+        GDAL-supported formats.
+
+        For remote Jupyter environments, you need to configure leafmap with your JupyterHub URL:
+        ```python
+        import leafmap
+        leafmap.configure_jupyterhub("https://your-jupyterhub-domain.com")
+        ```
+
+        Args:
+            data (optional): The spatial data to visualize. Can be:
+                - Path to a vector file (any format supported by DuckDB's ST_Read:
+                  GeoJSON, Shapefile, GeoPackage, FlatGeobuf, GeoParquet, etc.)
+                - GeoJSON dictionary
+                - GeoDataFrame
+                - None (if using an existing database with data already loaded)
+            layer_name (str, optional): Name for the layer. If None, generates a unique name.
+            layer_type (str, optional): MapLibre layer type ('fill', 'line', 'circle', 'symbol').
+                Defaults to 'fill'.
+            paint (dict, optional): Paint properties for the layer. If None, uses defaults
+                based on layer_type.
+            layout (dict, optional): Layout properties for the layer.
+            filter (dict, optional): Filter expression for the layer.
+            database_path (str, optional): Path to DuckDB database file.
+                - If None and data is provided: creates a temporary database
+                - If provided with data: loads data into this database
+                - If provided without data: uses existing database (data must already be loaded)
+            table_name (str, optional): Name of the table in DuckDB. Defaults to "features".
+            geom_column (str, optional): Name of geometry column. Defaults to "geom".
+            properties (list, optional): List of property columns to include in tiles.
+                If None, includes all columns.
+            port (int, optional): Port for the tile server. Defaults to 8000.
+                If port is in use, automatically selects next available port.
+            minzoom (int, optional): Minimum zoom level for the MapLibre layer. Defaults to 0.
+            maxzoom (int, optional): Maximum zoom level for the MapLibre layer. Defaults to 22.
+            min_zoom (int, optional): Minimum zoom level at which to query and serve tiles.
+                Below this zoom level, empty tiles will be returned, preventing memory issues
+                with large datasets. Use this to defer data loading until users zoom in closer.
+                If None, tiles will be served at all zoom levels. Defaults to None.
+            visible (bool, optional): Whether layer is visible initially. Defaults to True.
+            opacity (float, optional): Layer opacity (0-1). Defaults to 1.0.
+            fit_bounds (bool, optional): Whether to zoom to layer extent. Defaults to True.
+            tooltip (bool, optional): Whether to add tooltips. Defaults to True.
+            quiet (bool, optional): If True, suppress progress messages. Defaults to False.
+            use_view (bool, optional): If True and data is a parquet file, create a view instead
+                of a table. Views avoid data duplication but may be slower for tile serving as they
+                query the source file on each tile request. Only applies to parquet files. Defaults to False.
+            src_crs (str, optional): Source CRS of the input data as an EPSG code (e.g., 'EPSG:5070',
+                'EPSG:4326'). If None, will attempt to auto-detect. Specify this parameter if the data
+                is in a projected CRS that is not Web Mercator to ensure proper transformation. Defaults to None.
+            **kwargs: Additional arguments passed to the layer configuration.
+
+        Returns:
+            None
+
+        Raises:
+            ImportError: If duckdb, flask, or flask-cors are not installed.
+            ValueError: If neither data nor database_path is provided.
+
+        Example:
+            >>> import leafmap.maplibregl as leafmap
+            >>> m = leafmap.Map()
+            >>>
+            >>> # Example 1: Load GeoJSON (creates temporary database)
+            >>> m.add_duckdb_layer(
+            ...     data="large_dataset.geojson",
+            ...     layer_name="buildings",
+            ...     layer_type="fill",
+            ...     paint={"fill-color": "#3388ff", "fill-opacity": 0.7}
+            ... )
+            >>>
+            >>> # Example 2: Load Shapefile
+            >>> m.add_duckdb_layer(
+            ...     data="boundaries.shp",
+            ...     layer_name="boundaries",
+            ...     layer_type="line",
+            ...     paint={"line-color": "#ff0000", "line-width": 2}
+            ... )
+            >>>
+            >>> # Example 3: Load GeoPackage
+            >>> m.add_duckdb_layer(
+            ...     data="data.gpkg",
+            ...     layer_name="parcels",
+            ...     database_path="parcels.db"
+            ... )
+            >>>
+            >>> # Example 4: Load GeoParquet (very efficient for large datasets)
+            >>> m.add_duckdb_layer(
+            ...     data="large_dataset.parquet",
+            ...     layer_name="large_layer"
+            ... )
+            >>>
+            >>> # Example 5: Load from GeoDataFrame
+            >>> import geopandas as gpd
+            >>> gdf = gpd.read_file("data.geojson")
+            >>> m.add_duckdb_layer(
+            ...     data=gdf,
+            ...     layer_name="from_gdf"
+            ... )
+            >>>
+            >>> # Example 6: Use existing database (no data loading)
+            >>> m.add_duckdb_layer(
+            ...     database_path="existing_data.db",
+            ...     table_name="my_table",
+            ...     geom_column="geometry",
+            ...     layer_name="existing_layer"
+            ... )
+            >>>
+            >>> # Example 7: Large parquet file with min_zoom to prevent memory issues
+            >>> m.add_duckdb_layer(
+            ...     data="huge_dataset.parquet",
+            ...     layer_name="huge_layer",
+            ...     min_zoom=8,  # Only load tiles at zoom level 8 and above
+            ...     layer_type="fill",
+            ...     paint={"fill-color": "#ff0000", "fill-opacity": 0.5}
+            ... )
+        """
+
+        try:
+            # Validate inputs
+            if data is None and database_path is None:
+                raise ValueError(
+                    "Either 'data' or 'database_path' must be provided. "
+                    "Provide 'data' to load new data, or 'database_path' to use an existing database."
+                )
+
+            # Generate layer name if not provided
+            if layer_name is None:
+                layer_name = f"duckdb_layer_{random_string(3)}"
+
+            # Determine the database path
+            db_path = database_path
+
+            # If data is provided, we need to load it into the database
+            if data is not None:
+                # For tile serving, we need a persistent database (not in-memory)
+                # because the Flask server needs to access it from background threads
+                if database_path is None:
+                    import tempfile
+                    import os
+
+                    # Create a temporary database file path (don't create the file yet)
+                    temp_fd, db_path = tempfile.mkstemp(
+                        suffix=".db", prefix="leafmap_duckdb_"
+                    )
+                    os.close(temp_fd)  # Close the file descriptor
+                    os.unlink(db_path)  # Remove the empty file
+                    if not quiet:
+                        print(
+                            f"Note: Using temporary database file for tile serving: {db_path}"
+                        )
+
+                # Initialize database and load data
+                if not quiet:
+                    print(f"Initializing DuckDB database for layer '{layer_name}'...")
+                db_path = init_duckdb_tiles(
+                    data=data,
+                    database_path=db_path,
+                    table_name=table_name,
+                    geom_column=geom_column,
+                    quiet=quiet,
+                    use_view=use_view,
+                    src_crs=src_crs,
+                )
+            else:
+                # Using existing database - verify it exists
+                import os
+
+                if not os.path.exists(db_path):
+                    raise FileNotFoundError(
+                        f"Database file not found: {db_path}. "
+                        "Provide 'data' to create a new database, or ensure the database file exists."
+                    )
+
+                if not quiet:
+                    print(f"Using existing database: {db_path} (table: {table_name})")
+
+            # Start the tile server if not already running
+            if not quiet:
+                print(f"Starting DuckDB tile server on port {port}...")
+            actual_port = start_duckdb_tile_server(
+                database_path=db_path,
+                table_name=table_name,
+                geom_column=geom_column,
+                properties=properties,
+                port=port,
+                background=True,
+                quiet=quiet,
+                min_zoom=min_zoom,
+                src_crs=src_crs,
+            )
+
+            # Track the database path for cleanup
+            if db_path not in self._duckdb_databases:
+                self._duckdb_databases.append(db_path)
+
+            # Create tile URL
+            # Auto-configure for JupyterHub (like get_local_tile_url does)
+            import os as _os
+            from .common import _get_jupyterhub_client_params, configure_jupyterhub
+
+            # Auto-detect and configure JupyterHub environment
+            if _os.environ.get("JUPYTERHUB_SERVICE_PREFIX") is not None:
+                configure_jupyterhub()
+
+            client_host, client_port, client_prefix = _get_jupyterhub_client_params()
+
+            # Build the tile URL based on environment
+            if client_prefix:
+                # JupyterHub or remote Jupyter with proxy
+                # Replace {port} placeholder with actual port
+                prefix = client_prefix.replace("{port}", str(actual_port))
+
+                # Check if a base URL was provided
+                import os as _os
+
+                base_url = _os.environ.get("LEAFMAP_BASE_URL", "")
+
+                if base_url:
+                    # Use full absolute URL with the provided base
+                    base_url = base_url.rstrip("/")
+                    if not prefix.startswith("/"):
+                        prefix = "/" + prefix
+                    prefix = prefix.rstrip("/")
+                    tile_url = f"{base_url}{prefix}/tiles/{{z}}/{{x}}/{{y}}.pbf"
+                else:
+                    # Use protocol-relative URL  which uses the same protocol as the page
+                    # This is the approach that works like localtileserver
+                    # First ensure prefix starts with /
+                    if not prefix.startswith("/"):
+                        prefix = "/" + prefix
+                    prefix = prefix.rstrip("/")
+                    # Use protocol-relative URL starting with //
+                    # The browser will automatically use http:// or https:// based on the page
+                    # But we need to detect the hostname - we'll get it from the request
+                    # For now, use a JavaScript approach by passing it through ipywidget
+                    tile_url = f"{prefix}/tiles/{{z}}/{{x}}/{{y}}.pbf"
+
+                if not quiet:
+                    print(
+                        f"Running in remote Jupyter environment. Using proxy URL: {prefix}"
+                    )
+                    print(f"Full tile URL template: {tile_url}")
+                    # Also print an example URL for debugging
+                    example_url = (
+                        tile_url.replace("{z}", "0")
+                        .replace("{x}", "0")
+                        .replace("{y}", "0")
+                    )
+                    print(f"Example tile URL: {example_url}")
+                    if not base_url:
+                        print(
+                            "\n⚠️  WARNING: MapLibre vector tiles require absolute URLs."
+                        )
+                        print(
+                            "If tiles don't load, configure with your JupyterHub URL:"
+                        )
+                        print("    import leafmap")
+                        print(
+                            '    leafmap.configure_jupyterhub("https://your-jupyterhub-domain.com")'
+                        )
+                        print("Then re-run this cell.\n")
+                        print(
+                            "Note: Raster tiles (add_raster) work without this, but vector tiles need it."
+                        )
+            elif _in_colab_shell():
+                # Google Colab - use localhost with the port - Colab automatically proxies it
+                tile_url = f"http://localhost:{actual_port}/tiles/{{z}}/{{x}}/{{y}}.pbf"
+                if not quiet:
+                    print(
+                        f"Running in Google Colab. Tile server accessible at: http://localhost:{actual_port}"
+                    )
+            else:
+                # Local environment - direct connection
+                tile_url = f"http://127.0.0.1:{actual_port}/tiles/{{z}}/{{x}}/{{y}}.pbf"
+
+            # Set default paint properties based on layer type if not provided
+            if paint is None:
+                if layer_type == "fill":
+                    paint = {
+                        "fill-color": "#3388ff",
+                        "fill-opacity": 0.7,
+                        "fill-outline-color": "#ffffff",
+                    }
+                elif layer_type == "line":
+                    paint = {"line-color": "#3388ff", "line-width": 2}
+                elif layer_type == "circle":
+                    paint = {
+                        "circle-radius": 5,
+                        "circle-color": "#3388ff",
+                        "circle-stroke-color": "#ffffff",
+                        "circle-stroke-width": 1,
+                    }
+                elif layer_type == "symbol":
+                    paint = {
+                        "text-color": "#000000",
+                        "text-halo-color": "#ffffff",
+                        "text-halo-width": 1,
+                    }
+
+            # Use the existing add_vector_tile method to add the layer
+            self.add_vector_tile(
+                url=tile_url,
+                layer_id=layer_name,
+                layer_type=layer_type,
+                source_layer="layer",  # DuckDB ST_AsMVT uses 'layer' as default
+                name=layer_name,
+                paint=paint,
+                layout=layout,
+                filter=filter,
+                minzoom=minzoom,
+                maxzoom=maxzoom,
+                visible=visible,
+                opacity=opacity,
+                add_popup=tooltip,
+                **kwargs,
+            )
+
+            # Fit bounds if requested and data is available
+            if fit_bounds and db_path:
+                try:
+                    import duckdb
+
+                    # Use read_only=True only for file-based databases
+                    con = duckdb.connect(db_path, read_only=True)
+                    con.execute("LOAD spatial;")
+
+                    # Get bounds from the data
+                    # Determine source CRS for transformation
+                    if src_crs and src_crs.upper() not in ["EPSG:4326", "4326"]:
+                        # User specified a source CRS that's not WGS84, transform from it to WGS84
+                        bounds_query = f"""
+                            SELECT
+                                ST_XMin(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), '{src_crs}', 'EPSG:4326', true)) as min_lon,
+                                ST_YMin(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), '{src_crs}', 'EPSG:4326', true)) as min_lat,
+                                ST_XMax(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), '{src_crs}', 'EPSG:4326', true)) as max_lon,
+                                ST_YMax(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), '{src_crs}', 'EPSG:4326', true)) as max_lat
+                            FROM {table_name}
+                        """
+                    else:
+                        # No src_crs specified or it's already WGS84, auto-detect based on coordinates
+                        sample_coords = con.execute(
+                            f"SELECT ST_X(ST_Centroid({geom_column})), ST_Y(ST_Centroid({geom_column})) FROM {table_name} LIMIT 1"
+                        ).fetchone()
+
+                        if sample_coords and sample_coords[0] is not None:
+                            x, y = sample_coords[0], sample_coords[1]
+                            # Web Mercator coordinates are typically > 180 or < -180
+                            # WGS84 coordinates are in range [-180, 180] for X and [-90, 90] for Y
+                            is_web_mercator = abs(x) > 180 or abs(y) > 90
+
+                            if is_web_mercator:
+                                # Data is in Web Mercator (EPSG:3857), transform to WGS84 (EPSG:4326)
+                                bounds_query = f"""
+                                    SELECT
+                                        ST_XMin(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), 'EPSG:3857', 'EPSG:4326', true)) as min_lon,
+                                        ST_YMin(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), 'EPSG:3857', 'EPSG:4326', true)) as min_lat,
+                                        ST_XMax(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), 'EPSG:3857', 'EPSG:4326', true)) as max_lon,
+                                        ST_YMax(ST_Transform(ST_GeomFromWKB(ST_AsWKB(ST_Extent({geom_column}))), 'EPSG:3857', 'EPSG:4326', true)) as max_lat
+                                    FROM {table_name}
+                                """
+                            else:
+                                # Data is in WGS84 (EPSG:4326), use directly
+                                bounds_query = f"""
+                                    SELECT
+                                        MIN(ST_XMin({geom_column})) as min_lon,
+                                        MIN(ST_YMin({geom_column})) as min_lat,
+                                        MAX(ST_XMax({geom_column})) as max_lon,
+                                        MAX(ST_YMax({geom_column})) as max_lat
+                                    FROM {table_name}
+                                """
+                        else:
+                            con.close()
+                            if not quiet:
+                                print(
+                                    "Could not determine bounds: no valid geometry found"
+                                )
+                            bounds_query = None
+
+                    if bounds_query:
+                        result = con.execute(bounds_query).fetchone()
+                        con.close()
+
+                        if result and all(x is not None for x in result):
+                            min_lon, min_lat, max_lon, max_lat = result
+                            # MapLibre expects [[west, south], [east, north]] = [[minLon, minLat], [maxLon, maxLat]]
+                            self.fit_bounds([[min_lon, min_lat], [max_lon, max_lat]])
+                except Exception as e:
+                    if not quiet:
+                        print(f"Could not fit bounds: {e}")
+
+            if not quiet:
+                print(f"Layer '{layer_name}' added successfully!")
+
+        except ImportError as e:
+            if not quiet:
+                print(f"Missing required package: {e}")
+                print(
+                    "Please install required packages: pip install duckdb flask flask-cors"
+                )
+        except (ValueError, FileNotFoundError):
+            # Re-raise validation errors so users can handle them
+            raise
+        except Exception as e:
+            if not quiet:
+                print(f"Error adding DuckDB layer: {e}")
+                import traceback
+
+                traceback.print_exc()
+
+    def close_db_connections(self, database_path: str = None, quiet: bool = False):
+        """
+        Close DuckDB connections for databases used by this map.
+
+        This method closes all connections in the connection pool for the specified
+        database or all databases used by this map instance, allowing other programs
+        to access the database files. This is useful when you're done using the
+        database and want to release the file lock.
+
+        Args:
+            database_path (str, optional): Path to the DuckDB database file.
+                If None, closes connections for all databases used by this map.
+                Defaults to None.
+            quiet (bool, optional): If True, suppress status messages. Defaults to False.
+
+        Returns:
+            None
+
+        Example:
+            >>> import leafmap.maplibregl as leafmap
+            >>> m = leafmap.Map()
+            >>> m.add_duckdb_layer("tiles.db")
+            >>> # Later, close the connections
+            >>> m.close_db_connections()
+            >>> # Or close connections for a specific database
+            >>> m.close_db_connections("tiles.db")
+        """
+        from .common import close_duckdb_connections
+
+        if database_path is None:
+            # Close connections for all databases used by this map
+            for db_path in self._duckdb_databases:
+                close_duckdb_connections(db_path, quiet=quiet)
+        else:
+            # Close connections for specific database
+            if database_path in self._duckdb_databases:
+                close_duckdb_connections(database_path, quiet=quiet)
+            else:
+                if not quiet:
+                    print(f"Database not tracked by this map: {database_path}")
 
     def add_marker(
         self,
@@ -4100,6 +4769,7 @@ class Map(MapWidget):
         dpi: Optional[Union[str, float]] = "figure",
         transparent: Optional[bool] = False,
         position: str = "bottom-right",
+        colorbar_args: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> str:
         """
@@ -4127,6 +4797,8 @@ class Map(MapWidget):
             dpi (Optional[Union[str, float]]): Resolution in dots per inch. If 'figure', uses the figure's dpi value. Defaults to "figure".
             transparent (Optional[bool]): Whether the background is transparent. Defaults to False.
             position (str): Position of the colorbar on the map. Defaults to "bottom-right".
+            colorbar_args (Optional[Dict[str, Any]]): Additional keyword arguments passed to the colorbar.
+                Can be colorbar_args={"ticks": list(range(0, 101, 10))}. Defaults to None.
             **kwargs: Additional keyword arguments passed to matplotlib.pyplot.savefig().
 
         Returns:
@@ -4135,6 +4807,9 @@ class Map(MapWidget):
 
         if transparent:
             bg_color = "transparent"
+
+        if colorbar_args is None:
+            colorbar_args = {}
 
         colorbar = common.save_colorbar(
             None,
@@ -4155,6 +4830,7 @@ class Map(MapWidget):
             dpi,
             transparent,
             show_colorbar=False,
+            **colorbar_args,
         )
 
         html = f'<img src="{colorbar}">'
@@ -4314,6 +4990,270 @@ class Map(MapWidget):
                 css_text=css_text,
             )
             self.add_control(control, position=position)
+
+    def add_floating_sidebar(
+        self,
+        position: str = "top-left",
+        width: str = "370px",
+        max_height: str = "80vh",
+        expanded: bool = True,
+        sidebar_visible: bool = False,
+        sidebar_content: Optional[List[widgets.Widget]] = None,
+        **kwargs: Any,
+    ) -> "widgets.Widget":
+        """
+        Adds a floating sidebar panel overlaid on the map with a toggle button.
+
+        This method creates a floating sidebar that appears as an overlay on the map canvas.
+        The sidebar includes a toggle button to show/hide it, along with the layer manager
+        and any additional content you specify.
+
+        Args:
+            position (str): Position on the map. Can be "top-right", "top-left",
+                "bottom-right", or "bottom-left". Defaults to "top-left".
+            width (str): Width of the sidebar (e.g., "370px", "25%"). Defaults to "370px".
+            max_height (str): Maximum height of the sidebar (e.g., "80vh", "500px").
+                Defaults to "80vh".
+            expanded (bool): Whether the layer manager starts expanded. Defaults to True.
+            sidebar_visible (bool): Whether the sidebar content is initially visible.
+                Defaults to False. The toggle button is always visible.
+            sidebar_content (Optional[List[widgets.Widget]]): Additional widgets to include
+                in the sidebar. Defaults to None (only layer manager).
+            **kwargs: Additional keyword arguments passed to LayerManagerWidget.
+
+        Returns:
+            widgets.Widget: A widget containing the map with the floating sidebar overlay.
+                Display this instead of the map object.
+
+        Example:
+            >>> m = leafmap.Map()
+            >>> m.add_basemap("Esri.WorldImagery")
+            >>> widget = m.add_floating_sidebar(position="top-left", width="360px")
+            >>> widget  # Display the returned widget
+        """
+        # Position styles mapping
+        position_styles = {
+            "top-right": "top: 10px; right: 10px;",
+            "top-left": "top: 10px; left: 10px;",
+            "bottom-right": "bottom: 50px; right: 10px;",
+            "bottom-left": "bottom: 50px; left: 10px;",
+        }
+
+        pos_style = position_styles.get(position, position_styles["top-left"])
+
+        # Create layer manager if it doesn't exist
+        if self.layer_manager is None:
+            self.layer_manager = LayerManagerWidget(self, expanded=expanded, **kwargs)
+
+        # Initialize floating sidebar state
+        if not hasattr(self, "floating_sidebar_content_box"):
+            self.floating_sidebar_content_box = widgets.VBox(children=[])
+
+        if not hasattr(self, "_floating_sidebar_widgets"):
+            self._floating_sidebar_widgets = {}
+
+        # Create sidebar content list
+        content_widgets = [self.layer_manager]
+        if sidebar_content:
+            content_widgets.extend(sidebar_content)
+
+        # Create main sidebar box with layer manager and additional content
+        main_sidebar_box = widgets.VBox(children=content_widgets)
+
+        # Create toggle button
+        toggle_icon = v.Icon(
+            children=["mdi-chevron-left"] if sidebar_visible else ["mdi-chevron-right"],
+            small=True,
+        )
+        toggle_btn = v.Btn(
+            icon=True,
+            children=[toggle_icon],
+            style_="width: 22px; height: 22px; min-width: 22px; padding: 0;",
+        )
+
+        # Create settings/wrench button
+        settings_icon = v.Icon(children=["mdi-wrench"], small=True)
+        settings_btn = v.Btn(
+            icon=True,
+            children=[settings_icon],
+            style_="width: 22px; height: 22px; min-width: 22px; padding: 0;",
+        )
+
+        # Create header row with toggle and settings buttons
+        header_row = v.Row(
+            class_="ma-0 pa-0 d-flex justify-space-between align-center mb-1",
+            children=[toggle_btn, settings_btn],
+        )
+
+        # State tracking for sidebar visibility
+        class SidebarState:
+            visible = sidebar_visible
+            settings_visible = False
+
+        # Convert width string to number for calculation
+        if isinstance(width, str):
+            if width.endswith("px"):
+                width_num = int(width[:-2])
+            elif width.endswith("%"):
+                # Assume parent container is 1440px wide if not available
+                parent_width = 1440
+                percent = int(width[:-1])
+                width_num = int(parent_width * percent / 100)
+            else:
+                width_num = 360
+        else:
+            width_num = 360
+
+        # Create width adjustment slider
+        width_slider = widgets.IntSlider(
+            value=width_num,
+            min=200,
+            max=800,
+            step=10,
+            description="Width:",
+            continuous_update=True,
+            layout=widgets.Layout(width="100%"),
+        )
+
+        # Width change handler
+        def on_width_change(change):
+            new_width = change["new"]
+            if SidebarState.visible:
+                overlay.style_ = f"""
+                    position: absolute;
+                    {pos_style}
+                    width: {new_width}px;
+                    max-height: {max_height};
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    z-index: 1000;
+                    background-color: white;
+                    border-radius: 4px;
+                """
+
+        width_slider.observe(on_width_change, names="value")
+
+        # Create settings widget wrapped in CustomWidget for proper header
+        settings_widget = CustomWidget(
+            width_slider,
+            widget_icon="mdi-cog",
+            label="Sidebar Settings",
+            host_map=self,
+            expanded=True,
+        )
+
+        # Settings button handler - toggle settings widget visibility
+        def on_settings_click(widget, event, data):
+            SidebarState.settings_visible = not SidebarState.settings_visible
+            if SidebarState.settings_visible:
+                # Add settings widget to floating sidebar content box
+                if settings_widget not in self.floating_sidebar_content_box.children:
+                    self.floating_sidebar_content_box.children = (
+                        settings_widget,
+                    ) + self.floating_sidebar_content_box.children
+            else:
+                # Remove settings widget from floating sidebar content box
+                self.floating_sidebar_content_box.children = tuple(
+                    child
+                    for child in self.floating_sidebar_content_box.children
+                    if child != settings_widget
+                )
+
+        settings_btn.on_event("click", on_settings_click)
+
+        # Combine main sidebar with dynamic content box for layer settings and other widgets
+        sidebar_box = widgets.VBox(
+            children=[main_sidebar_box, self.floating_sidebar_content_box]
+        )
+
+        # Toggle function
+        def toggle_sidebar(widget, event, data):
+            SidebarState.visible = not SidebarState.visible
+            toggle_icon.children = [
+                "mdi-chevron-left" if SidebarState.visible else "mdi-chevron-right"
+            ]
+
+            if SidebarState.visible:
+                # Show sidebar content
+                overlay.children = [header_row, sidebar_box]
+                overlay.class_ = "pa-2 ma-0"
+                current_width = width_slider.value
+                overlay.style_ = f"""
+                    position: absolute;
+                    {pos_style}
+                    width: {current_width}px;
+                    max-height: {max_height};
+                    overflow-y: auto;
+                    overflow-x: hidden;
+                    z-index: 1000;
+                    background-color: white;
+                    border-radius: 4px;
+                """
+            else:
+                # Hide sidebar content, only show toggle button
+                overlay.children = [toggle_btn]
+                overlay.class_ = "ma-0"
+                overlay.style_ = f"""
+                    position: absolute;
+                    {pos_style}
+                    width: auto;
+                    height: auto;
+                    max-height: none;
+                    overflow: visible;
+                    z-index: 1000;
+                    background-color: white;
+                    border-radius: 4px;
+                    padding: 4px;
+                """
+
+        toggle_btn.on_event("click", toggle_sidebar)
+
+        # Create floating overlay container
+        initial_children = (
+            [header_row, sidebar_box] if sidebar_visible else [toggle_btn]
+        )
+        if sidebar_visible:
+            initial_style = f"""
+                position: absolute;
+                {pos_style}
+                width: {width_num}px;
+                max-height: {max_height};
+                overflow-y: auto;
+                overflow-x: hidden;
+                z-index: 1000;
+                background-color: white;
+                border-radius: 4px;
+            """
+        else:
+            initial_style = f"""
+                position: absolute;
+                {pos_style}
+                width: auto;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+                z-index: 1000;
+                background-color: white;
+                border-radius: 4px;
+                padding: 4px;
+            """
+
+        overlay = v.Card(
+            class_="ma-0" if not sidebar_visible else "pa-2 ma-0",
+            elevation=4,
+            flat=False,
+            style_=initial_style,
+            children=initial_children,
+        )
+
+        # Create wrapper with the map and overlay
+        wrapper = v.Html(
+            tag="div",
+            style_="position: relative; width: 100%; height: 100%;",
+            children=[self, overlay],
+        )
+
+        return wrapper
 
     def add_3d_buildings(
         self,
@@ -4570,6 +5510,7 @@ class Map(MapWidget):
                         "paint": {
                             "circle-radius": 4,
                             "circle-color": "#8dd3c7",
+                            "circle-opacity": opacity,
                             "circle-stroke-color": "#8dd3c7",
                             "circle-stroke-width": 1,
                         },
@@ -4585,7 +5526,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#8DD3C7",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4596,7 +5537,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#FFFFB3",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4607,7 +5548,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#BEBADA",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4618,7 +5559,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#FB8072",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4629,7 +5570,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#80B1D3",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4644,7 +5585,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#6ea299",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4655,7 +5596,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#fdfdb2",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4682,7 +5623,7 @@ class Map(MapWidget):
                         "type": "fill",
                         "paint": {
                             "fill-color": "#FFFFB3",
-                            "fill-opacity": 1.0,
+                            "fill-opacity": opacity,
                             "fill-outline-color": "#888888",
                         },
                     },
@@ -4708,6 +5649,7 @@ class Map(MapWidget):
                         "paint": {
                             "circle-radius": 4,
                             "circle-color": "#8dd3c7",
+                            "circle-opacity": opacity,
                             "circle-stroke-color": "#8dd3c7",
                             "circle-stroke-width": 1,
                         },
@@ -4724,6 +5666,7 @@ class Map(MapWidget):
                         "paint": {
                             "line-color": "#ffffb3",
                             "line-width": 1.0,
+                            "line-opacity": opacity,
                         },
                     },
                     {
@@ -4734,6 +5677,7 @@ class Map(MapWidget):
                         "paint": {
                             "circle-radius": 4,
                             "circle-color": "#8dd3c7",
+                            "circle-opacity": opacity,
                             "circle-stroke-color": "#8dd3c7",
                             "circle-stroke-width": 1,
                         },
@@ -5167,6 +6111,7 @@ class Map(MapWidget):
         scale_factor: Optional[float] = 1.0,
         filter: Optional[Dict] = None,
         paint: Optional[Dict] = None,
+        outline_color: Optional[str] = "rgba(255, 255, 255, 255)",
         name: Optional[str] = None,
         fit_bounds: bool = True,
         visible: bool = True,
@@ -5222,6 +6167,7 @@ class Map(MapWidget):
                 no filter is applied.
             paint (dict, optional): The paint properties to apply to the layer.
                 If None, no paint properties are applied.
+            outline_color (str, optional): The color of the outline of the layer. Defaults to "rgba(255, 255, 255, 255)".
             name (str, optional): The name of the layer. If None, a random name
                 is generated.
             fit_bounds (bool, optional): Whether to adjust the viewport of the
@@ -5248,6 +6194,7 @@ class Map(MapWidget):
             legend_kwds=legend_kwds,
             classification_kwds=classification_kwds,
         )
+        setattr(self, "legend_dict", legend_dict)
 
         if legend_title is None:
             legend_title = column
@@ -5260,7 +6207,7 @@ class Map(MapWidget):
                 paint = {
                     "circle-color": ["get", "color"],
                     "circle-radius": 5,
-                    "circle-stroke-color": "#ffffff",
+                    "circle-stroke-color": outline_color,
                     "circle-stroke-width": 1,
                     "circle-opacity": opacity,
                 }
@@ -5314,7 +6261,7 @@ class Map(MapWidget):
                     paint = {
                         "fill-color": ["get", "color"],
                         "fill-opacity": opacity,
-                        "fill-outline-color": "#ffffff",
+                        "fill-outline-color": outline_color,
                     }
         else:
             raise ValueError("Geometry type not recognized.")
@@ -5497,9 +6444,18 @@ class Map(MapWidget):
                     self._mapillary_widget.value = ""
                     self.unobserve_mapillary()
 
-            self.sidebar_widgets[widget_label].observe(
-                _on_panel_toggle, names="v_model"
-            )
+            # Get the widget from the appropriate sidebar type
+            if hasattr(self, "floating_sidebar_content_box"):
+                # Floating sidebar
+                sidebar_widget = self._floating_sidebar_widgets.get(widget_label)
+            elif self.container is not None:
+                # Container sidebar
+                sidebar_widget = self.container.sidebar_widgets.get(widget_label)
+            else:
+                sidebar_widget = None
+
+            if sidebar_widget is not None:
+                sidebar_widget.observe(_on_panel_toggle, names="v_model")
 
     def create_mapillary_widget(
         self,
@@ -6266,6 +7222,8 @@ class Map(MapWidget):
         slider_width: Optional[str] = "150px",
         button_width: Optional[str] = "45px",
         layer_name: Optional[str] = "Image",
+        before_id: Optional[str] = None,
+        default_index: Optional[int] = 0,
         zoom_to_layer: Optional[bool] = True,
         widget_icon: str = "mdi-image",
         close_icon: str = "mdi-close",
@@ -6283,6 +7241,8 @@ class Map(MapWidget):
             labels (list, optional): The list of labels to be used for the time series. Defaults to None.
             time_interval (int, optional): Time interval in seconds. Defaults to 1.
             layer_name (str, optional): The name of the layer. Defaults to "Image".
+            before_id (str, optional): The ID of an existing layer before which the new layer should be inserted. Defaults to None.
+            default_index (int, optional): The index of the default layer. Defaults to 0.
             zoom_to_layer (bool, optional): Whether to zoom to the extent of the layer. Defaults to False.
             label_width (str, optional): Width of the label. Defaults to "150px".
             slider_width (str, optional): Width of the slider. Defaults to "150px".
@@ -6295,12 +7255,16 @@ class Map(MapWidget):
             expanded (bool, optional): Whether the widget is expanded by default. Defaults to True.
             **kwargs: Additional keyword arguments to be passed to the add_raster or add_cog_layer function.
         """
+        if before_id is None:
+            before_id = self.first_symbol_layer_id
         widget = TimeSliderWidget(
             self,
             images,
             labels,
             time_interval,
             layer_name,
+            before_id,
+            default_index,
             zoom_to_layer,
             label_width,
             slider_width,
@@ -6369,6 +7333,382 @@ class Map(MapWidget):
         Unobserves the mapillary street view.
         """
         self.unobserve(self._mapillary_function, names="clicked")
+
+    def add_vector_editor(
+        self,
+        filename: str = None,
+        properties: Optional[Dict[str, List[Any]]] = None,
+        time_format: str = "%Y%m%dT%H%M%S",
+        out_dir: Optional[str] = None,
+        filename_prefix: str = "",
+        file_ext: str = "geojson",
+        add_mapillary: bool = False,
+        style: str = "photo",
+        radius: float = 0.00005,
+        width: int = 300,
+        height: int = 420,
+        frame_border: int = 0,
+        controls: Optional[List[str]] = None,
+        position: str = "top-right",
+        fit_bounds_options: Optional[Dict] = None,
+        **kwargs: Any,
+    ) -> widgets.VBox:
+        """Generates a widget-based interface for creating and managing vector data on a map.
+
+        This function creates an interactive widget interface that allows users to draw features
+        (points, lines, polygons) on a map, assign properties to these features, and export them
+        as GeoJSON files. The interface includes a map, a sidebar for property management, and
+        buttons for saving, exporting, and resetting the data.
+
+        Args:
+            m (Map, optional): An existing Map object. If not provided, a default map with
+                basemaps and drawing controls will be created. Defaults to None.
+            filename (str or gpd.GeoDataFrame): The path to a GeoJSON file or a GeoDataFrame
+                containing the vector data to be edited. Defaults to None.
+            properties (Dict[str, List[Any]], optional): A dictionary where keys are property names
+                and values are lists of possible values for each property. These properties can be
+                assigned to the drawn features. Defaults to None.
+            time_format (str, optional): The format string for the timestamp used in the exported
+                filename. Defaults to "%Y%m%dT%H%M%S".
+            column_widths (Optional[List[int]], optional): A list of two integers specifying the
+                relative widths of the map and sidebar columns. Defaults to (9, 3).
+            map_height (str, optional): The height of the map widget. Defaults to "600px".
+            out_dir (str, optional): The directory where the exported GeoJSON files will be saved.
+                If not provided, the current working directory is used. Defaults to None.
+            filename_prefix (str, optional): A prefix to be added to the exported filename.
+                Defaults to "".
+            file_ext (str, optional): The file extension for the exported file. Defaults to "geojson".
+            add_mapillary (bool, optional): Whether to add a Mapillary image widget that displays the
+                nearest image to the clicked point on the map. Defaults to False.
+            style (str, optional): The style of the Mapillary image widget. Can be "classic", "photo",
+                or "split". Defaults to "photo".
+            radius (float, optional): The radius (in degrees) used to search for the nearest Mapillary
+                image. Defaults to 0.00005 degrees.
+            width (int, optional): The width of the Mapillary image widget. Defaults to 300.
+            height (int, optional): The height of the Mapillary image widget. Defaults to 420.
+            frame_border (int, optional): The width of the frame border for the Mapillary image widget.
+                Defaults to 0.
+            controls (Optional[List[str]], optional): The drawing controls to be added to the map.
+                Defaults to ["point", "polygon", "line_string", "trash"].
+            position (str, optional): The position of the drawing controls on the map. Defaults to "top-right".
+            **kwargs (Any): Additional keyword arguments that may be passed to the function.
+
+        Returns:
+            widgets.VBox: A vertical box widget containing the map, sidebar, and control buttons.
+        """
+        from datetime import datetime
+
+        main_widget = widgets.VBox()
+        output = widgets.Output()
+
+        if controls is None:
+            controls = ["point", "polygon", "line_string", "trash"]
+
+        if isinstance(filename, str):
+            _, ext = os.path.splitext(filename)
+            ext = ext.lower()
+            if ext in [".parquet", ".pq", ".geoparquet"]:
+                gdf = gpd.read_parquet(filename)
+            else:
+                gdf = gpd.read_file(filename)
+        elif isinstance(filename, dict):
+            gdf = gpd.GeoDataFrame.from_features(filename, crs="EPSG:4326")
+        elif isinstance(filename, gpd.GeoDataFrame):
+            gdf = filename
+        else:
+            raise ValueError("filename must be a string, dict, or GeoDataFrame.")
+
+        gdf = gdf.to_crs(epsg=4326)
+
+        if out_dir is None:
+            out_dir = os.getcwd()
+
+        if properties is None:
+            properties = {}
+            dtypes = gdf.dtypes.to_dict()
+            for key, value in dtypes.items():
+                if key != "geometry":
+                    if value == "object":
+                        if gdf[key].nunique() < 10:
+                            properties[key] = gdf[key].unique().tolist()
+                        else:
+                            properties[key] = ""
+                    elif value == "int32":
+                        properties[key] = 0
+                    elif value == "float64":
+                        properties[key] = 0.0
+                    elif value == "bool":
+                        properties[key] = gdf[key].unique().tolist()
+                    else:
+                        properties[key] = ""
+
+        columns = properties.keys()
+        gdf = gdf[list(columns) + ["geometry"]]
+        geojson = gdf.__geo_interface__
+        bounds = get_bounds(geojson)
+
+        self.add_draw_control(
+            controls=controls,
+            position=position,
+            geojson=geojson,
+        )
+        self.fit_bounds(bounds, fit_bounds_options)
+
+        draw_features = {}
+        for row in gdf.iterrows():
+            draw_feature = {}
+            for prop in properties.keys():
+                if prop in gdf.columns:
+                    draw_feature[prop] = row[1][prop]
+                else:
+                    draw_feature[prop] = properties[prop][0]
+            draw_features[str(row[0])] = draw_feature
+        setattr(self, "draw_features", draw_features)
+        self.draw_feature_collection_all = geojson
+
+        # Expand dropdown options to include values from the GeoJSON
+        for key, values in properties.items():
+            if isinstance(values, list) or isinstance(values, tuple):
+                # Collect unique values from the loaded features
+                existing_values = set()
+                for feature_data in draw_features.values():
+                    if key in feature_data:
+                        val = feature_data[key]
+                        if val is not None:
+                            existing_values.add(val)
+
+                # Merge existing values with provided options
+                options_set = set(values)
+                merged_options = options_set.union(existing_values)
+                # Convert back to list, maintaining order (original options first)
+                merged_list = [val for val in values if val in merged_options]
+                for val in sorted(existing_values):
+                    if val not in options_set:
+                        merged_list.append(val)
+                properties[key] = merged_list
+
+        sidebar_widget = widgets.VBox()
+
+        prop_widgets = widgets.VBox()
+
+        image_widget = widgets.HTML()
+
+        if isinstance(properties, dict):
+            for key, values in properties.items():
+
+                if isinstance(values, list) or isinstance(values, tuple):
+                    prop_widget = widgets.Dropdown(
+                        options=values,
+                        # value=None,
+                        description=key,
+                    )
+                    prop_widgets.children += (prop_widget,)
+                elif isinstance(values, int):
+                    prop_widget = widgets.IntText(
+                        value=values,
+                        description=key,
+                    )
+                    prop_widgets.children += (prop_widget,)
+                elif isinstance(values, float):
+                    prop_widget = widgets.FloatText(
+                        value=values,
+                        description=key,
+                    )
+                    prop_widgets.children += (prop_widget,)
+                else:
+                    prop_widget = widgets.Text(
+                        value=values,
+                        description=key,
+                    )
+                    prop_widgets.children += (prop_widget,)
+
+        def draw_change(lng_lat):
+            if lng_lat.new:
+                if len(self.draw_features_selected) > 0:
+                    output.clear_output()
+                    output.outputs = ()
+                    feature_id = self.draw_features_selected[0]["id"]
+                    if feature_id not in self.draw_features:
+                        self.draw_features[feature_id] = {}
+                        for key, values in properties.items():
+                            if isinstance(values, list) or isinstance(values, tuple):
+                                self.draw_features[feature_id][key] = values[0]
+                            else:
+                                self.draw_features[feature_id][key] = values
+                    else:
+                        for prop_widget in prop_widgets.children:
+                            key = prop_widget.description
+                            value = self.draw_features[feature_id][key]
+                            # For dropdown widgets, only set value if it's in options
+                            if hasattr(prop_widget, "options"):
+                                if value in prop_widget.options:
+                                    prop_widget.value = value
+                                elif len(prop_widget.options) > 0:
+                                    # Fall back to first option if value not found
+                                    prop_widget.value = prop_widget.options[0]
+                            else:
+                                prop_widget.value = value
+
+            else:
+                for prop_widget in prop_widgets.children:
+                    key = prop_widget.description
+                    if isinstance(properties[key], list) or isinstance(
+                        properties[key], tuple
+                    ):
+                        prop_widget.value = properties[key][0]
+                    else:
+                        prop_widget.value = properties[key]
+
+        self.observe(draw_change, names="draw_features_selected")
+
+        def log_lng_lat(lng_lat):
+            lon = lng_lat.new["lng"]
+            lat = lng_lat.new["lat"]
+            image_id = common.search_mapillary_images(lon, lat, radius=radius, limit=1)
+            if len(image_id) > 0:
+                content = f"""
+                <iframe
+                    src="https://www.mapillary.com/embed?image_key={image_id[0]}&style={style}"
+                    height="{height}"
+                    width="{width}"
+                    frameborder="{frame_border}">
+                </iframe>
+                """
+                image_widget.value = content
+            else:
+                image_widget.value = "No Mapillary image found."
+
+        if add_mapillary:
+            self.observe(log_lng_lat, names="clicked")
+
+        button_layout = widgets.Layout(width="97px")
+        save = widgets.Button(
+            description="Save", button_style="primary", layout=button_layout
+        )
+        export = widgets.Button(
+            description="Export", button_style="primary", layout=button_layout
+        )
+        reset = widgets.Button(
+            description="Reset", button_style="primary", layout=button_layout
+        )
+
+        def on_save_click(b):
+
+            output.clear_output()
+            if len(self.draw_features_selected) > 0:
+                feature_id = self.draw_features_selected[0]["id"]
+                for prop_widget in prop_widgets.children:
+                    key = prop_widget.description
+                    self.draw_features[feature_id][key] = prop_widget.value
+                with output:
+                    output.clear_output()
+                    output.outputs = ()
+                    output.append_stdout("Feature saved.")
+            else:
+                with output:
+                    output.clear_output()
+                    output.outputs = ()
+                    output.append_stdout("Please select a feature to save.")
+
+        save.on_click(on_save_click)
+
+        def on_export_click(b):
+            current_time = datetime.now().strftime(time_format)
+            filename = os.path.join(
+                out_dir, f"{filename_prefix}{current_time}.{file_ext}"
+            )
+
+            for index, feature in enumerate(
+                self.draw_feature_collection_all["features"]
+            ):
+                feature_id = feature["id"]
+                if feature_id in self.draw_features:
+                    self.draw_feature_collection_all["features"][index][
+                        "properties"
+                    ] = self.draw_features[feature_id]
+
+            gdf = gpd.GeoDataFrame.from_features(
+                self.draw_feature_collection_all, crs="EPSG:4326"
+            )
+            gdf.to_file(filename)
+            with output:
+                output.clear_output()
+                output.outputs = ()
+                output.append_stdout(f"Exported: {os.path.basename(filename)}")
+
+        export.on_click(on_export_click)
+
+        def on_reset_click(b):
+            output.clear_output()
+            output.outputs = ()
+            for prop_widget in prop_widgets.children:
+                description = prop_widget.description
+                if description in properties:
+                    if isinstance(properties[description], list) or isinstance(
+                        properties[description], tuple
+                    ):
+                        prop_widget.value = properties[description][0]
+                    else:
+                        prop_widget.value = properties[description]
+
+        reset.on_click(on_reset_click)
+
+        sidebar_widget.children = [
+            prop_widgets,
+            widgets.HBox([save, export, reset]),
+            output,
+            image_widget,
+        ]
+        self.add_to_sidebar(
+            sidebar_widget,
+            label="Vector Editor",
+            widget_icon="mdi-shape-polygon-plus",
+            **kwargs,
+        )
+
+    def add_wayback_layer(
+        self,
+        date: str = None,
+        name: str = None,
+        attribution: str = "Esri",
+        before_id: Optional[str] = None,
+        quiet: bool = False,
+        **kwargs,
+    ):
+        """Adds a Wayback layer to the map.
+
+        Args:
+            date (str, optional): The date of the layer. Defaults to None.
+            name (str, optional): The name of the layer. Defaults to None.
+            attribution (str, optional): The attribution of the layer. Defaults to "Esri".
+            **kwargs: Additional keyword arguments to pass to the add_tile_layer method.
+        """
+        layers = common.get_wayback_layers()
+        if date not in layers.keys():
+            new_date = common.find_closest_date(date, layers.keys())
+            if not quiet:
+                print(f"{date} is not available. Using the closest date: {new_date}")
+            date = new_date
+
+        url = common.get_wayback_tile_url(date, layers)
+        if name is None:
+            name = date
+
+        if before_id is None:
+            before_id = self.first_symbol_layer_id
+        self.add_tile_layer(
+            url, name=name, attribution=attribution, before_id=before_id, **kwargs
+        )
+
+    def add_wayback_time_slider(self, default_index: Optional[int] = 0, **kwargs):
+        """Add a time slider for Wayback layers."""
+        tile_dict = common.get_wayback_tile_dict()
+        images = list(tile_dict.values())
+        labels = list(tile_dict.keys())
+
+        self.add_time_slider(
+            images, labels=labels, default_index=default_index, **kwargs
+        )
 
 
 class Container(v.Container):
@@ -8277,6 +9617,27 @@ def edit_vector_data(
     setattr(m, "draw_features", draw_features)
     m.draw_feature_collection_all = geojson
 
+    # Expand dropdown options to include values from the GeoJSON
+    for key, values in properties.items():
+        if isinstance(values, list) or isinstance(values, tuple):
+            # Collect unique values from the loaded features
+            existing_values = set()
+            for feature_data in draw_features.values():
+                if key in feature_data:
+                    val = feature_data[key]
+                    if val is not None:
+                        existing_values.add(val)
+
+            # Merge existing values with provided options
+            options_set = set(values)
+            merged_options = options_set.union(existing_values)
+            # Convert back to list, maintaining order (original options first)
+            merged_list = [val for val in values if val in merged_options]
+            for val in sorted(existing_values):
+                if val not in options_set:
+                    merged_list.append(val)
+            properties[key] = merged_list
+
     sidebar_widget = widgets.VBox()
 
     prop_widgets = widgets.VBox()
@@ -8328,7 +9689,16 @@ def edit_vector_data(
                 else:
                     for prop_widget in prop_widgets.children:
                         key = prop_widget.description
-                        prop_widget.value = m.draw_features[feature_id][key]
+                        value = m.draw_features[feature_id][key]
+                        # For dropdown widgets, only set value if it's in options
+                        if hasattr(prop_widget, "options"):
+                            if value in prop_widget.options:
+                                prop_widget.value = value
+                            elif len(prop_widget.options) > 0:
+                                # Fall back to first option if value not found
+                                prop_widget.value = prop_widget.options[0]
+                        else:
+                            prop_widget.value = value
 
         else:
             for prop_widget in prop_widgets.children:
@@ -8649,7 +10019,9 @@ class LayerManagerWidget(v.ExpansionPanels):
                 opacity = opacity[3]
 
             checkbox = widgets.Checkbox(value=visible, description=name, style=style)
-            checkbox.layout.max_width = "150px"
+            checkbox.layout.flex = "1 1 auto"
+            checkbox.layout.max_width = "200px"
+            checkbox.layout.min_width = "120px"
 
             slider = widgets.FloatSlider(
                 value=opacity,
@@ -8658,7 +10030,9 @@ class LayerManagerWidget(v.ExpansionPanels):
                 step=0.01,
                 readout=False,
                 tooltip="Change layer opacity",
-                layout=widgets.Layout(width="150px", padding=padding),
+                layout=widgets.Layout(
+                    flex="1 1 auto", min_width="120px", padding=padding
+                ),
             )
 
             settings = widgets.Button(
@@ -8690,8 +10064,18 @@ class LayerManagerWidget(v.ExpansionPanels):
                         c for c in self.layers_box.children if c != row_ref
                     )
                 self.layer_items.pop(layer_name, None)
-                if f"Style {layer_name}" in self.m.sidebar_widgets:
-                    self.m.remove_from_sidebar(name=f"Style {layer_name}")
+                # Check if style widget exists in either floating sidebar or regular sidebar
+                style_label = f"Style {layer_name}"
+                if (
+                    hasattr(self.m, "_floating_sidebar_widgets")
+                    and style_label in self.m._floating_sidebar_widgets
+                ):
+                    self.m.remove_from_sidebar(name=style_label)
+                elif (
+                    hasattr(self.m, "sidebar_widgets")
+                    and style_label in self.m.sidebar_widgets
+                ):
+                    self.m.remove_from_sidebar(name=style_label)
 
             def on_settings_clicked(btn, layer_name=name):
                 # if isinstance(self.m.layer_dict[layer_name]["layer"], dict):
@@ -8707,7 +10091,8 @@ class LayerManagerWidget(v.ExpansionPanels):
             slider.observe(on_opacity_change, names="value")
 
             row = widgets.HBox(
-                [checkbox, slider, settings, remove], layout=widgets.Layout()
+                [checkbox, slider, settings, remove],
+                layout=widgets.Layout(width="100%", display="flex"),
             )
 
             remove.on_click(
@@ -9066,7 +10451,7 @@ class LayerStyleWidget(widgets.VBox):
                 [
                     self._create_color_picker("Fill Color", "fill-color", "#3388ff"),
                     self._create_number_slider(
-                        "Fill Opacity", "fill-opacity", 0.2, 0, 1, 0.05
+                        "Fill Opacity", "fill-opacity", 0.8, 0, 1, 0.05
                     ),
                     self._create_color_picker(
                         "Fill Outline Color", "fill-outline-color", "#3388ff"
@@ -9688,6 +11073,8 @@ def TimeSliderWidget(
     labels: Optional[List] = None,
     time_interval: Optional[int] = 1,
     layer_name: Optional[str] = "Image",
+    before_id: Optional[str] = None,
+    default_index: Optional[int] = 0,
     zoom_to_layer: Optional[bool] = True,
     label_width: Optional[str] = "150px",
     slider_width: Optional[str] = "150px",
@@ -9701,6 +11088,8 @@ def TimeSliderWidget(
         labels (list, optional): The list of labels to be used for the time series. Defaults to None.
         time_interval (int, optional): Time interval in seconds. Defaults to 1.
         layer_name (str, optional): The name of the layer. Defaults to "Image".
+        before_id (str, optional): The ID of an existing layer before which the new layer should be inserted. Defaults to None.
+        default_index (int, optional): The index of the default layer. Defaults to 0.
         zoom_to_layer (bool, optional): Whether to zoom to the extent of the layer. Defaults to False.
         label_width (str, optional): Width of the label. Defaults to "150px".
         slider_width (str, optional): Width of the slider. Defaults to "150px".
@@ -9722,15 +11111,21 @@ def TimeSliderWidget(
     if len(labels) != len(images):
         raise ValueError("The length of labels is not equal to that of layers.")
 
+    if default_index >= 0:
+        default_value = default_index + 1
+    else:
+        default_value = len(labels) + default_index + 1
+
     slider = widgets.IntSlider(
         min=1,
         max=len(labels),
         readout=False,
+        value=default_value,
         continuous_update=False,
         layout=widgets.Layout(width=slider_width),
     )
     label = widgets.Label(
-        value=labels[0],
+        value=labels[default_index],
         layout=widgets.Layout(padding="0px 5px 0px 5px", width=label_width),
     )
 
@@ -9772,21 +11167,32 @@ def TimeSliderWidget(
     play_btn.on_click(play_click)
     pause_btn.on_click(pause_click)
 
-    first_image = images[0]
+    first_image = images[default_index]
     if isinstance(first_image, str) and first_image.startswith("http"):
-        m.add_cog_layer(
-            first_image,
-            name=layer_name,
-            overwrite=True,
-            fit_bounds=zoom_to_layer,
-            **kwargs,
-        )
+        if "{z}/{y}/{x}" in first_image:
+            m.add_tile_layer(
+                first_image,
+                name=layer_name,
+                overwrite=True,
+                before_id=before_id,
+                **kwargs,
+            )
+        else:
+            m.add_cog_layer(
+                first_image,
+                name=layer_name,
+                before_id=before_id,
+                overwrite=True,
+                fit_bounds=zoom_to_layer,
+                **kwargs,
+            )
     else:
         m.add_raster(
             first_image,
             name=layer_name,
             overwrite=True,
             fit_bounds=zoom_to_layer,
+            before_id=before_id,
             **kwargs,
         )
 
@@ -9796,19 +11202,30 @@ def TimeSliderWidget(
             label.value = labels[index]
 
             if isinstance(images[index], str) and images[index].startswith("http"):
-                m.add_cog_layer(
-                    images[index],
-                    name=layer_name,
-                    overwrite=True,
-                    fit_bounds=False,
-                    **kwargs,
-                )
+                if "{z}/{y}/{x}" in images[index]:
+                    m.add_tile_layer(
+                        images[index],
+                        name=layer_name,
+                        overwrite=True,
+                        before_id=before_id,
+                        **kwargs,
+                    )
+                else:
+                    m.add_cog_layer(
+                        images[index],
+                        name=layer_name,
+                        overwrite=True,
+                        fit_bounds=False,
+                        before_id=before_id,
+                        **kwargs,
+                    )
             else:
                 m.add_raster(
                     images[index],
                     name=layer_name,
                     overwrite=True,
                     fit_bounds=False,
+                    before_id=before_id,
                     **kwargs,
                 )
 

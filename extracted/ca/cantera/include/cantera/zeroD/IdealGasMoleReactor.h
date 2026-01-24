@@ -27,8 +27,10 @@ public:
     }
 
     size_t componentIndex(const string& nm) const override;
-
     string componentName(size_t k) override;
+    double upperBound(size_t k) const override;
+    double lowerBound(size_t k) const override;
+    vector<size_t> steadyConstraints() const override;
 
     void getState(double* y) override;
 
@@ -48,8 +50,6 @@ public:
     bool preconditionerSupported() const override {return true;};
 
 protected:
-    void setThermo(ThermoPhase& thermo) override;
-
     vector<double> m_uk; //!< Species molar internal energies
 };
 

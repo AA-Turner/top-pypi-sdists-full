@@ -134,14 +134,14 @@ class Utilities:
 		"""Clears instrument's status system, the session's I/O buffers and the instrument's error queue."""
 		return self._core.io.clear_status()
 
-	def query_all_errors(self) -> List[str] or None:
+	def query_all_errors(self) -> List[str] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of strings as error messages. If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
 		If you want to include the error codes, call the query_all_errors_with_codes()"""
 		return self._core.io.query_all_syst_errors(include_codes=False)
 
-	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] or None:
+	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of tuples (code: int, message: str). If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty."""
@@ -437,9 +437,12 @@ class Utilities:
 		"""Returns the last commands sent to the instrument. Only works in simulation mode"""
 		return self._core.get_last_sent_cmd()
 
-	def go_to_local(self) -> None:
-		"""Puts the instrument into local state."""
-		self._core.io.go_to_local()
+	def go_to_local(self, mixed_mode: bool = True) -> None:
+		"""Puts the instrument into local state.
+		By default, the method uses a mechanism to keep the instrument in a mixed mode: remote and local.
+		That means, you can remote-control your instrument, and at the same time it still allows manual control.
+		Set the mixed_mode to False, if you want your instrument to go to remote mode as soon as it receives the first remote command."""
+		self._core.io.go_to_local(mixed_mode)
 
 	def go_to_remote(self) -> None:
 		"""Puts the instrument into remote state."""
@@ -461,7 +464,7 @@ class Utilities:
 		"""Clears the existing thread lock, making the current session thread-independent from others that might share the current thread lock."""
 		self._core.io.clear_lock()
 
-	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int or List[int] = None) -> InstrErrorSuppressor:
+	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] = None) -> InstrErrorSuppressor:
 		"""Returns Context Manager that suppresses the instrument errors.
 		Other exceptions types are still raised.
 		On entering the context, this class clears all the instrument status errors.
@@ -496,7 +499,7 @@ class Utilities:
 		The options are sorted in the ascending order starting with K-options and continuing with B-options."""
 		return self._core.io.instr_options.get_all()
 
-	def has_instr_option(self, options: str or List[str]) -> bool:
+	def has_instr_option(self, options: str | List[str]) -> bool:
 		"""Returns true, if the entered options (case-insensitive) matches at least one of the installed options (or-logic).
 		You can enter either a string with one option, or more options '/'-separated, or more options as a list of strings.
 		If K0 is present, all the K-options are reported as present. B-options are not affected by K0.
@@ -505,7 +508,7 @@ class Utilities:
 		Example 3: options=['k11','K22'] returns true, if the instrument has either the option 'K11' or the option 'K22'."""
 		return self._core.io.instr_options.has(options)
 
-	def has_instr_option_regex(self, re_options: str or List[str]) -> bool:
+	def has_instr_option_regex(self, re_options: str | List[str]) -> bool:
 		"""Returns true, if the entered regex string (case-insensitive) matches at least one of the installed options.
 		The match must be complete, not just partial (search).
 		You can enter either a string with one option, or more options '/'-separated, or more options as a list of strings.

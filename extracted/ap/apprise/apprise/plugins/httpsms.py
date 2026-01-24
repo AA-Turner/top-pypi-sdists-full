@@ -51,7 +51,7 @@ class NotifyHttpSMS(NotifyBase):
     secure_protocol = "httpsms"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_httpsms"
+    setup_url = "https://appriseit.com/services/httpsms/"
 
     # HttpSMS uses the http protocol with JSON requests
     notify_url = "https://api.httpsms.com/v1/messages/send"
@@ -235,7 +235,8 @@ class NotifyHttpSMS(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

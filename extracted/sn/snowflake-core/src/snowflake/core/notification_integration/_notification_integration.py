@@ -44,7 +44,8 @@ class NotificationIntegrationCollection(NotificationIntegrationCollectionBase):
 class NotificationIntegrationResource(NotificationIntegrationResourceBase):
     """Represents a reference to a Snowflake Notification Integration resource.
 
-    With this notification integration reference you can delete, and fetch information about them.
+    With this notification integration reference, you can fetch information about a notification
+    integration, as well as perform certain actions on it.
     """
 
     _plural_name = "notification_integrations"

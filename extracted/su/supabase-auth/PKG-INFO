@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supabase-auth
-Version: 2.20.0
+Version: 2.27.2
 Summary: Python Client Library for Supabase Auth
 Author: Joel Lee
 Author-email: Joel Lee <joel@joellee.org>
@@ -14,6 +14,7 @@ Requires-Dist: pyjwt[crypto]>=2.10.1
 Maintainer: Leonardo Santiago
 Maintainer-email: Leonardo Santiago <leonardo.santiago@supabase.io>
 Requires-Python: >=3.9
+Project-URL: changelog, https://github.com/supabase/supabase-py/tree/main/CHANGELOG.md
 Project-URL: documentation, https://github.com/supabase/supabase-py/tree/main/src/auth
 Project-URL: homepage, https://github.com/supabase/supabase-py/tree/main/src/auth
 Project-URL: repository, https://github.com/supabase/supabase-py

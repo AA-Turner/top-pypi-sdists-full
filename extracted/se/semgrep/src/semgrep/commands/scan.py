@@ -34,17 +34,19 @@ from click_option_group import MutuallyExclusiveOptionGroup
 from click_option_group import optgroup
 
 import semgrep.app.auth as auth
-import semgrep.config_resolver
 import semgrep.run_scan
 import semgrep.test
 from semgrep import __VERSION__
 from semgrep import bytesize
+from semgrep import simple_profiling as simple_profiling_module
 from semgrep import tracing
 from semgrep.app.version import get_no_findings_msg
 from semgrep.app.version import get_too_many_findings_msg
 from semgrep.app.version import TOO_MANY_FINDINGS_THRESHOLD
 from semgrep.commands.install import determine_semgrep_pro_path
 from semgrep.commands.wrapper import handle_command_errors
+from semgrep.config_resolver import adjust_for_docker
+from semgrep.config_resolver import Config
 from semgrep.constants import Colors
 from semgrep.constants import DEFAULT_MAX_CHARS_PER_LINE
 from semgrep.constants import DEFAULT_MAX_LINES_PER_FINDING
@@ -63,6 +65,7 @@ from semgrep.output import OutputHandler
 from semgrep.output import OutputSettings
 from semgrep.rule import Rule
 from semgrep.rule_match import RuleMatchMap
+from semgrep.run_scan import AutofixBehavior
 from semgrep.semgrep_core import SemgrepCore
 from semgrep.state import get_state
 from semgrep.target_manager import ALL_PRODUCTS
@@ -209,6 +212,10 @@ _scan_options: List[Callable] = [
         type=click.Choice(["all", "none"]),
     ),
     optgroup.option(
+        "--x-simple-profiling/--x-no-simple-profiling",
+        is_flag=True,
+    ),
+    optgroup.option(
         "--timeout",
         type=int,
         default=DEFAULT_TIMEOUT,
@@ -279,6 +286,12 @@ _scan_options: List[Callable] = [
         "--trace-endpoint",
         envvar="SEMGREP_OTEL_ENDPOINT",
         default=None,
+    ),
+    optgroup.option(
+        "--profile/--no-profile",
+        is_flag=True,
+        default=False,
+        hidden=True,
     ),
     optgroup.option(
         "--matching-explanations",
@@ -429,14 +442,27 @@ _scan_options: List[Callable] = [
         default=False,
     ),
     optgroup.option(
+        "--x-enable-transitive-reachability",
         "--x-tr",
-        "x_tr",
-        is_flag=True,
-        default=False,
+        "enable_transitive_reachability",
+        flag_value=True,
+        default=None,
+    ),
+    optgroup.option(
+        "--x-disable-transitive-reachability",
+        "enable_transitive_reachability",
+        flag_value=False,
+        default=None,
     ),
     optgroup.option(
         "--x-eio",
         "x_eio",
+        is_flag=True,
+        default=False,
+    ),
+    optgroup.option(
+        "--x-parmap",
+        "x_parmap",
         is_flag=True,
         default=False,
     ),
@@ -455,6 +481,12 @@ _scan_options: List[Callable] = [
     optgroup.option(
         "--x-no-python-schema-validation",
         "x_no_python_schema_validation",
+        is_flag=True,
+        default=False,
+    ),
+    optgroup.option(
+        "--x-dump-symbol-analysis",
+        "x_dump_symbol_analysis",
         is_flag=True,
         default=False,
     ),
@@ -628,10 +660,16 @@ class ScanResult:
     "run_secrets_flag",
     is_flag=True,
 )
+@click.option(
+    "--x-mcp",
+    is_flag=True,
+    default=False,
+)
 @scan_options
 @handle_command_errors
 def scan(
     *,
+    allow_untrusted_validators: bool,
     autofix: bool,
     baseline_commit: Optional[str],
     config: Optional[Tuple[str, ...]],
@@ -677,7 +715,6 @@ def scan(
     quiet: bool,
     replacement: Optional[str],
     rewrite_rule_ids: bool,
-    allow_untrusted_validators: bool,
     scan_unknown_extensions: bool,
     severity: Optional[Tuple[str, ...]],
     strict: bool,
@@ -690,6 +727,7 @@ def scan(
     interfile_timeout: Optional[int],
     trace: bool,
     trace_endpoint: Optional[str],
+    profile: bool,
     use_git_ignore: bool,
     semgrepignore_v2: Optional[bool],
     validate: bool,
@@ -698,14 +736,18 @@ def scan(
     x_ignore_semgrepignore_files: bool,
     x_ls: bool,
     x_ls_long: bool,
-    x_tr: bool,
+    enable_transitive_reachability: Optional[bool],
     x_eio: bool,
+    x_parmap: bool,
     x_pro_naming: bool,
     x_no_python_schema_validation: bool,
     x_semgrepignore_filename: Optional[str],
+    x_simple_profiling: bool,
     path_sensitive: bool,
     allow_local_builds: bool,
     x_group_taint_rules: bool,
+    x_mcp: bool,
+    x_dump_symbol_analysis: bool,
 ) -> Optional[ScanResult]:
     if version:
         print(__VERSION__)
@@ -714,6 +756,25 @@ def scan(
 
             version_check()
         return None
+    if x_simple_profiling:
+        simple_profiling_module.enabled_simple_profiling = True
+
+    if x_eio:
+        if x_parmap:
+            logger.warning(
+                with_color(
+                    Colors.yellow,
+                    "WARN: --x-eio and --x-parmap both set.  Choosing the latter.",
+                )
+            )
+        else:
+            logger.warning(
+                with_color(
+                    Colors.yellow,
+                    "WARN: --x-eio (Multicore Semgrep) now enabled by default.  "
+                    + "This flag will be removed in a future version of Semgrep.",
+                )
+            )
 
     # 2025-04-14: Feel free to remove these messages after a while.
     # This was a temporary flag for the Semgrepignore v1->v2 transition.
@@ -776,7 +837,9 @@ def scan(
         if dataflow_traces is None:
             dataflow_traces = engine_type.has_dataflow_traces
 
-        state.metrics.configure(metrics)
+        state.metrics.configure(
+            metrics if not x_mcp else MetricsState.OFF
+        )  # the MCP handles metrics separately so metrics should be turn off here to avoid duplicates
         state.terminal.configure(
             verbose=verbose,
             debug=debug,
@@ -784,6 +847,8 @@ def scan(
             force_color=force_color,
             output_format=output_format,
         )
+        if trace:
+            logger.verbose(f"Trace ID: {state.traces.get_trace_id():x}")
         # to capture the stderr of semgrep-core or to let semgrep-core reuse
         # the stderr of pysemgrep to display logs as soon as they are produced
         # pysemgrep-only: not needed for osemgrep obviously
@@ -816,7 +881,7 @@ def scan(
 
         # change cwd if using docker
         if not scanning_roots:
-            semgrep.config_resolver.adjust_for_docker()
+            adjust_for_docker()
             scanning_roots = (os.curdir,)
 
         outputs = collect_additional_outputs(
@@ -864,6 +929,14 @@ def scan(
 
         filtered_matches_by_rule: FilteredMatches = FilteredMatches(kept={}, removed={})
 
+        match (autofix, dryrun):
+            case (True, True):
+                autofix_behavior = AutofixBehavior.REPORT
+            case (True, False):
+                autofix_behavior = AutofixBehavior.APPLY
+            case (False, _):
+                autofix_behavior = AutofixBehavior.IGNORE
+
         # The 'optional_stdin_target' context manager must remain before
         # 'managed_output'. Output depends on file contents so we cannot have
         # already deleted the temporary stdin file.
@@ -886,20 +959,24 @@ def scan(
             if validate:
                 if not (pattern or lang or config):
                     logger.error(
-                        f"Nothing to validate, use the --config or --pattern flag to specify a rule"
+                        "Nothing to validate, use the --config or --pattern flag to specify a rule"
                     )
                 else:
-                    (
-                        resolved_configs,
-                        config_errors,
-                    ) = semgrep.config_resolver.get_config(
-                        pattern,
-                        lang,
-                        config or [],
-                        project_url=get_project_url(),
-                        force_jsonschema=True,
-                        no_python_schema_validation=x_no_python_schema_validation,
-                    )
+                    if pattern:
+                        if not lang:
+                            raise SemgrepError(
+                                "language must be specified when a pattern is passed"
+                            )
+                        resolved_configs, config_errors = Config.from_pattern_lang(
+                            pattern, lang
+                        )
+                    else:
+                        resolved_configs, config_errors = Config.from_config_list(
+                            config or [],
+                            get_project_url(),
+                            force_jsonschema=True,
+                            no_python_schema_validation=x_no_python_schema_validation,
+                        )
 
                     # Run `semgrep-core -check_rules` on the config files. This
                     # checks that the files are parsable by the OCaml rule
@@ -916,6 +993,7 @@ def scan(
                                 interfile_timeout=interfile_timeout,
                                 trace=trace,
                                 trace_endpoint=trace_endpoint,
+                                profile=profile,
                                 capture_stderr=capture_core_stderr,
                                 optimizations=optimizations,
                                 allow_untrusted_validators=allow_untrusted_validators,
@@ -959,6 +1037,8 @@ def scan(
                         executed_rule_count,
                         missed_rule_count,
                         _all_subprojects,
+                        _symbol_analysis,
+                        _sca_symbol_analysis,
                     ) = semgrep.run_scan.run_scan(
                         dump_command_for_core=dump_command_for_core,
                         time_flag=time_flag,
@@ -971,7 +1051,7 @@ def scan(
                         scanning_roots=scanning_roots,
                         pattern=pattern,
                         lang=lang,
-                        configs=(config or ["auto"]),
+                        config_strs=(config or ["auto"]),
                         no_rewrite_rule_ids=(not rewrite_rule_ids),
                         jobs=jobs,
                         include=include,
@@ -980,8 +1060,8 @@ def scan(
                         max_target_bytes=max_target_bytes,
                         replacement=replacement,
                         strict=strict,
-                        autofix=autofix,
-                        dryrun=dryrun,
+                        autofix=autofix_behavior,
+                        write_to_tr_cache=not dryrun,
                         disable_nosem=(not enable_nosem),
                         no_git_ignore=(not use_git_ignore),
                         force_novcs_project=force_novcs_project,
@@ -994,6 +1074,7 @@ def scan(
                         interfile_timeout=interfile_timeout,
                         trace=trace,
                         trace_endpoint=trace_endpoint,
+                        profile=profile,
                         skip_unknown_extensions=(not scan_unknown_extensions),
                         allow_untrusted_validators=allow_untrusted_validators,
                         severity=severity,
@@ -1001,14 +1082,15 @@ def scan(
                         baseline_commit=baseline_commit,
                         x_ls=x_ls,
                         x_ls_long=x_ls_long,
-                        x_tr=x_tr,
-                        x_eio=x_eio,
+                        enable_transitive_reachability=enable_transitive_reachability,
+                        x_parmap=x_parmap,
                         x_pro_naming=x_pro_naming,
                         x_no_python_schema_validation=x_no_python_schema_validation,
                         path_sensitive=path_sensitive,
                         capture_core_stderr=capture_core_stderr,
                         allow_local_builds=allow_local_builds,
                         x_group_taint_rules=x_group_taint_rules,
+                        x_dump_symbol_analysis=x_dump_symbol_analysis,
                     )
                 except SemgrepError as e:
                     output_handler.handle_semgrep_errors([e])

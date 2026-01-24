@@ -4,24 +4,31 @@ from stripe._createable_api_resource import CreateableAPIResource
 from stripe._expandable_field import ExpandableField
 from stripe._list_object import ListObject
 from stripe._listable_api_resource import ListableAPIResource
-from stripe._request_options import RequestOptions
 from stripe._stripe_object import StripeObject
 from stripe._test_helpers import APIResourceTestHelpers
 from stripe._updateable_api_resource import UpdateableAPIResource
 from stripe._util import class_method_variant, sanitize_id
 from typing import ClassVar, Dict, List, Optional, cast, overload
-from typing_extensions import (
-    Literal,
-    NotRequired,
-    Type,
-    TypedDict,
-    Unpack,
-    TYPE_CHECKING,
-)
+from typing_extensions import Literal, Type, Unpack, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from stripe.issuing._cardholder import Cardholder
     from stripe.issuing._personalization_design import PersonalizationDesign
+    from stripe.params.issuing._card_create_params import CardCreateParams
+    from stripe.params.issuing._card_deliver_card_params import (
+        CardDeliverCardParams,
+    )
+    from stripe.params.issuing._card_fail_card_params import CardFailCardParams
+    from stripe.params.issuing._card_list_params import CardListParams
+    from stripe.params.issuing._card_modify_params import CardModifyParams
+    from stripe.params.issuing._card_retrieve_params import CardRetrieveParams
+    from stripe.params.issuing._card_return_card_params import (
+        CardReturnCardParams,
+    )
+    from stripe.params.issuing._card_ship_card_params import CardShipCardParams
+    from stripe.params.issuing._card_submit_card_params import (
+        CardSubmitCardParams,
+    )
 
 
 class Card(
@@ -30,10 +37,27 @@ class Card(
     UpdateableAPIResource["Card"],
 ):
     """
-    You can [create physical or virtual cards](https://stripe.com/docs/issuing) that are issued to cardholders.
+    You can [create physical or virtual cards](https://docs.stripe.com/issuing) that are issued to cardholders.
     """
 
     OBJECT_NAME: ClassVar[Literal["issuing.card"]] = "issuing.card"
+
+    class LatestFraudWarning(StripeObject):
+        started_at: Optional[int]
+        """
+        Timestamp of the most recent fraud warning.
+        """
+        type: Optional[
+            Literal[
+                "card_testing_exposure",
+                "fraud_dispute_filed",
+                "third_party_reported",
+                "user_indicated_fraud",
+            ]
+        ]
+        """
+        The type of fraud warning that most recently took place on this card. This field updates with every new fraud warning, so the value changes over time. If populated, cancel and reissue the card.
+        """
 
     class Shipping(StripeObject):
         class Address(StripeObject):
@@ -47,11 +71,11 @@ class Card(
             """
             line1: Optional[str]
             """
-            Address line 1 (e.g., street, PO Box, or company name).
+            Address line 1, such as the street, PO Box, or company name.
             """
             line2: Optional[str]
             """
-            Address line 2 (e.g., apartment, suite, unit, or building).
+            Address line 2, such as the apartment, suite, unit, or building.
             """
             postal_code: Optional[str]
             """
@@ -59,7 +83,7 @@ class Card(
             """
             state: Optional[str]
             """
-            State, county, province, or region.
+            State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
             """
 
         class AddressValidation(StripeObject):
@@ -74,11 +98,11 @@ class Card(
                 """
                 line1: Optional[str]
                 """
-                Address line 1 (e.g., street, PO Box, or company name).
+                Address line 1, such as the street, PO Box, or company name.
                 """
                 line2: Optional[str]
                 """
-                Address line 2 (e.g., apartment, suite, unit, or building).
+                Address line 2, such as the apartment, suite, unit, or building.
                 """
                 postal_code: Optional[str]
                 """
@@ -86,7 +110,7 @@ class Card(
                 """
                 state: Optional[str]
                 """
-                State, county, province, or region.
+                State, county, province, or region ([ISO 3166-2](https://en.wikipedia.org/wiki/ISO_3166-2)).
                 """
 
             mode: Literal[
@@ -188,7 +212,7 @@ class Card(
         class SpendingLimit(StripeObject):
             amount: int
             """
-            Maximum amount allowed to spend per interval. This amount is in the card's currency and in the [smallest currency unit](https://stripe.com/docs/currencies#zero-decimal).
+            Maximum amount allowed to spend per interval. This amount is in the card's currency and in the [smallest currency unit](https://docs.stripe.com/currencies#zero-decimal).
             """
             categories: Optional[
                 List[
@@ -492,7 +516,7 @@ class Card(
                 ]
             ]
             """
-            Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) this limit applies to. Omitting this field will apply the limit to all categories.
+            Array of strings containing [categories](https://docs.stripe.com/api#issuing_authorization_object-merchant_data-category) this limit applies to. Omitting this field will apply the limit to all categories.
             """
             interval: Literal[
                 "all_time",
@@ -808,7 +832,7 @@ class Card(
             ]
         ]
         """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) of authorizations to allow. All other categories will be blocked. Cannot be set with `blocked_categories`.
+        Array of strings containing [categories](https://docs.stripe.com/api#issuing_authorization_object-merchant_data-category) of authorizations to allow. All other categories will be blocked. Cannot be set with `blocked_categories`.
         """
         allowed_merchant_countries: Optional[List[str]]
         """
@@ -1116,7 +1140,7 @@ class Card(
             ]
         ]
         """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) of authorizations to decline. All other categories will be allowed. Cannot be set with `allowed_categories`.
+        Array of strings containing [categories](https://docs.stripe.com/api#issuing_authorization_object-merchant_data-category) of authorizations to decline. All other categories will be allowed. Cannot be set with `allowed_categories`.
         """
         blocked_merchant_countries: Optional[List[str]]
         """
@@ -1173,2260 +1197,6 @@ class Card(
         """
         _inner_class_types = {"apple_pay": ApplePay, "google_pay": GooglePay}
 
-    class CreateParams(RequestOptions):
-        cardholder: NotRequired[str]
-        """
-        The [Cardholder](https://stripe.com/docs/api#issuing_cardholder_object) object with which the card will be associated.
-        """
-        currency: str
-        """
-        The currency for the card.
-        """
-        exp_month: NotRequired[int]
-        """
-        The desired expiration month (1-12) for this card if [specifying a custom expiration date](https://docs.stripe.com/issuing/cards/virtual/issue-cards?testing-method=with-code#exp-dates).
-        """
-        exp_year: NotRequired[int]
-        """
-        The desired 4-digit expiration year for this card if [specifying a custom expiration date](https://docs.stripe.com/issuing/cards/virtual/issue-cards?testing-method=with-code#exp-dates).
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        financial_account: NotRequired[str]
-        """
-        The new financial account ID the card will be associated with. This field allows a card to be reassigned to a different financial account.
-        """
-        metadata: NotRequired[Dict[str, str]]
-        """
-        Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
-        """
-        personalization_design: NotRequired[str]
-        """
-        The personalization design object belonging to this card.
-        """
-        pin: NotRequired["Card.CreateParamsPin"]
-        """
-        The desired PIN for this card.
-        """
-        replacement_for: NotRequired[str]
-        """
-        The card this is meant to be a replacement for (if any).
-        """
-        replacement_reason: NotRequired[
-            Literal["damaged", "expired", "lost", "stolen"]
-        ]
-        """
-        If `replacement_for` is specified, this should indicate why that card is being replaced.
-        """
-        second_line: NotRequired["Literal['']|str"]
-        """
-        The second line to print on the card. Max length: 24 characters.
-        """
-        shipping: NotRequired["Card.CreateParamsShipping"]
-        """
-        The address where the card will be shipped.
-        """
-        spending_controls: NotRequired["Card.CreateParamsSpendingControls"]
-        """
-        Rules that control spending for this card. Refer to our [documentation](https://stripe.com/docs/issuing/controls/spending-controls) for more details.
-        """
-        status: NotRequired[Literal["active", "inactive"]]
-        """
-        Whether authorizations can be approved on this card. May be blocked from activating cards depending on past-due Cardholder requirements. Defaults to `inactive`.
-        """
-        type: Literal["physical", "virtual"]
-        """
-        The type of card to issue. Possible values are `physical` or `virtual`.
-        """
-
-    class CreateParamsPin(TypedDict):
-        encrypted_number: NotRequired[str]
-        """
-        The card's desired new PIN, encrypted under Stripe's public key.
-        """
-
-    class CreateParamsShipping(TypedDict):
-        address: "Card.CreateParamsShippingAddress"
-        """
-        The address that the card is shipped to.
-        """
-        address_validation: NotRequired[
-            "Card.CreateParamsShippingAddressValidation"
-        ]
-        """
-        Address validation settings.
-        """
-        customs: NotRequired["Card.CreateParamsShippingCustoms"]
-        """
-        Customs information for the shipment.
-        """
-        name: str
-        """
-        The name printed on the shipping label when shipping the card.
-        """
-        phone_number: NotRequired[str]
-        """
-        Phone number of the recipient of the shipment.
-        """
-        require_signature: NotRequired[bool]
-        """
-        Whether a signature is required for card delivery.
-        """
-        service: NotRequired[Literal["express", "priority", "standard"]]
-        """
-        Shipment service.
-        """
-        type: NotRequired[Literal["bulk", "individual"]]
-        """
-        Packaging options.
-        """
-
-    class CreateParamsShippingAddress(TypedDict):
-        city: str
-        """
-        City, district, suburb, town, or village.
-        """
-        country: str
-        """
-        Two-letter country code ([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)).
-        """
-        line1: str
-        """
-        Address line 1 (e.g., street, PO Box, or company name).
-        """
-        line2: NotRequired[str]
-        """
-        Address line 2 (e.g., apartment, suite, unit, or building).
-        """
-        postal_code: str
-        """
-        ZIP or postal code.
-        """
-        state: NotRequired[str]
-        """
-        State, county, province, or region.
-        """
-
-    class CreateParamsShippingAddressValidation(TypedDict):
-        mode: Literal[
-            "disabled", "normalization_only", "validation_and_normalization"
-        ]
-        """
-        The address validation capabilities to use.
-        """
-
-    class CreateParamsShippingCustoms(TypedDict):
-        eori_number: NotRequired[str]
-        """
-        The Economic Operators Registration and Identification (EORI) number to use for Customs. Required for bulk shipments to Europe.
-        """
-
-    class CreateParamsSpendingControls(TypedDict):
-        allowed_categories: NotRequired[
-            List[
-                Literal[
-                    "ac_refrigeration_repair",
-                    "accounting_bookkeeping_services",
-                    "advertising_services",
-                    "agricultural_cooperative",
-                    "airlines_air_carriers",
-                    "airports_flying_fields",
-                    "ambulance_services",
-                    "amusement_parks_carnivals",
-                    "antique_reproductions",
-                    "antique_shops",
-                    "aquariums",
-                    "architectural_surveying_services",
-                    "art_dealers_and_galleries",
-                    "artists_supply_and_craft_shops",
-                    "auto_and_home_supply_stores",
-                    "auto_body_repair_shops",
-                    "auto_paint_shops",
-                    "auto_service_shops",
-                    "automated_cash_disburse",
-                    "automated_fuel_dispensers",
-                    "automobile_associations",
-                    "automotive_parts_and_accessories_stores",
-                    "automotive_tire_stores",
-                    "bail_and_bond_payments",
-                    "bakeries",
-                    "bands_orchestras",
-                    "barber_and_beauty_shops",
-                    "betting_casino_gambling",
-                    "bicycle_shops",
-                    "billiard_pool_establishments",
-                    "boat_dealers",
-                    "boat_rentals_and_leases",
-                    "book_stores",
-                    "books_periodicals_and_newspapers",
-                    "bowling_alleys",
-                    "bus_lines",
-                    "business_secretarial_schools",
-                    "buying_shopping_services",
-                    "cable_satellite_and_other_pay_television_and_radio",
-                    "camera_and_photographic_supply_stores",
-                    "candy_nut_and_confectionery_stores",
-                    "car_and_truck_dealers_new_used",
-                    "car_and_truck_dealers_used_only",
-                    "car_rental_agencies",
-                    "car_washes",
-                    "carpentry_services",
-                    "carpet_upholstery_cleaning",
-                    "caterers",
-                    "charitable_and_social_service_organizations_fundraising",
-                    "chemicals_and_allied_products",
-                    "child_care_services",
-                    "childrens_and_infants_wear_stores",
-                    "chiropodists_podiatrists",
-                    "chiropractors",
-                    "cigar_stores_and_stands",
-                    "civic_social_fraternal_associations",
-                    "cleaning_and_maintenance",
-                    "clothing_rental",
-                    "colleges_universities",
-                    "commercial_equipment",
-                    "commercial_footwear",
-                    "commercial_photography_art_and_graphics",
-                    "commuter_transport_and_ferries",
-                    "computer_network_services",
-                    "computer_programming",
-                    "computer_repair",
-                    "computer_software_stores",
-                    "computers_peripherals_and_software",
-                    "concrete_work_services",
-                    "construction_materials",
-                    "consulting_public_relations",
-                    "correspondence_schools",
-                    "cosmetic_stores",
-                    "counseling_services",
-                    "country_clubs",
-                    "courier_services",
-                    "court_costs",
-                    "credit_reporting_agencies",
-                    "cruise_lines",
-                    "dairy_products_stores",
-                    "dance_hall_studios_schools",
-                    "dating_escort_services",
-                    "dentists_orthodontists",
-                    "department_stores",
-                    "detective_agencies",
-                    "digital_goods_applications",
-                    "digital_goods_games",
-                    "digital_goods_large_volume",
-                    "digital_goods_media",
-                    "direct_marketing_catalog_merchant",
-                    "direct_marketing_combination_catalog_and_retail_merchant",
-                    "direct_marketing_inbound_telemarketing",
-                    "direct_marketing_insurance_services",
-                    "direct_marketing_other",
-                    "direct_marketing_outbound_telemarketing",
-                    "direct_marketing_subscription",
-                    "direct_marketing_travel",
-                    "discount_stores",
-                    "doctors",
-                    "door_to_door_sales",
-                    "drapery_window_covering_and_upholstery_stores",
-                    "drinking_places",
-                    "drug_stores_and_pharmacies",
-                    "drugs_drug_proprietaries_and_druggist_sundries",
-                    "dry_cleaners",
-                    "durable_goods",
-                    "duty_free_stores",
-                    "eating_places_restaurants",
-                    "educational_services",
-                    "electric_razor_stores",
-                    "electric_vehicle_charging",
-                    "electrical_parts_and_equipment",
-                    "electrical_services",
-                    "electronics_repair_shops",
-                    "electronics_stores",
-                    "elementary_secondary_schools",
-                    "emergency_services_gcas_visa_use_only",
-                    "employment_temp_agencies",
-                    "equipment_rental",
-                    "exterminating_services",
-                    "family_clothing_stores",
-                    "fast_food_restaurants",
-                    "financial_institutions",
-                    "fines_government_administrative_entities",
-                    "fireplace_fireplace_screens_and_accessories_stores",
-                    "floor_covering_stores",
-                    "florists",
-                    "florists_supplies_nursery_stock_and_flowers",
-                    "freezer_and_locker_meat_provisioners",
-                    "fuel_dealers_non_automotive",
-                    "funeral_services_crematories",
-                    "furniture_home_furnishings_and_equipment_stores_except_appliances",
-                    "furniture_repair_refinishing",
-                    "furriers_and_fur_shops",
-                    "general_services",
-                    "gift_card_novelty_and_souvenir_shops",
-                    "glass_paint_and_wallpaper_stores",
-                    "glassware_crystal_stores",
-                    "golf_courses_public",
-                    "government_licensed_horse_dog_racing_us_region_only",
-                    "government_licensed_online_casions_online_gambling_us_region_only",
-                    "government_owned_lotteries_non_us_region",
-                    "government_owned_lotteries_us_region_only",
-                    "government_services",
-                    "grocery_stores_supermarkets",
-                    "hardware_equipment_and_supplies",
-                    "hardware_stores",
-                    "health_and_beauty_spas",
-                    "hearing_aids_sales_and_supplies",
-                    "heating_plumbing_a_c",
-                    "hobby_toy_and_game_shops",
-                    "home_supply_warehouse_stores",
-                    "hospitals",
-                    "hotels_motels_and_resorts",
-                    "household_appliance_stores",
-                    "industrial_supplies",
-                    "information_retrieval_services",
-                    "insurance_default",
-                    "insurance_underwriting_premiums",
-                    "intra_company_purchases",
-                    "jewelry_stores_watches_clocks_and_silverware_stores",
-                    "landscaping_services",
-                    "laundries",
-                    "laundry_cleaning_services",
-                    "legal_services_attorneys",
-                    "luggage_and_leather_goods_stores",
-                    "lumber_building_materials_stores",
-                    "manual_cash_disburse",
-                    "marinas_service_and_supplies",
-                    "marketplaces",
-                    "masonry_stonework_and_plaster",
-                    "massage_parlors",
-                    "medical_and_dental_labs",
-                    "medical_dental_ophthalmic_and_hospital_equipment_and_supplies",
-                    "medical_services",
-                    "membership_organizations",
-                    "mens_and_boys_clothing_and_accessories_stores",
-                    "mens_womens_clothing_stores",
-                    "metal_service_centers",
-                    "miscellaneous",
-                    "miscellaneous_apparel_and_accessory_shops",
-                    "miscellaneous_auto_dealers",
-                    "miscellaneous_business_services",
-                    "miscellaneous_food_stores",
-                    "miscellaneous_general_merchandise",
-                    "miscellaneous_general_services",
-                    "miscellaneous_home_furnishing_specialty_stores",
-                    "miscellaneous_publishing_and_printing",
-                    "miscellaneous_recreation_services",
-                    "miscellaneous_repair_shops",
-                    "miscellaneous_specialty_retail",
-                    "mobile_home_dealers",
-                    "motion_picture_theaters",
-                    "motor_freight_carriers_and_trucking",
-                    "motor_homes_dealers",
-                    "motor_vehicle_supplies_and_new_parts",
-                    "motorcycle_shops_and_dealers",
-                    "motorcycle_shops_dealers",
-                    "music_stores_musical_instruments_pianos_and_sheet_music",
-                    "news_dealers_and_newsstands",
-                    "non_fi_money_orders",
-                    "non_fi_stored_value_card_purchase_load",
-                    "nondurable_goods",
-                    "nurseries_lawn_and_garden_supply_stores",
-                    "nursing_personal_care",
-                    "office_and_commercial_furniture",
-                    "opticians_eyeglasses",
-                    "optometrists_ophthalmologist",
-                    "orthopedic_goods_prosthetic_devices",
-                    "osteopaths",
-                    "package_stores_beer_wine_and_liquor",
-                    "paints_varnishes_and_supplies",
-                    "parking_lots_garages",
-                    "passenger_railways",
-                    "pawn_shops",
-                    "pet_shops_pet_food_and_supplies",
-                    "petroleum_and_petroleum_products",
-                    "photo_developing",
-                    "photographic_photocopy_microfilm_equipment_and_supplies",
-                    "photographic_studios",
-                    "picture_video_production",
-                    "piece_goods_notions_and_other_dry_goods",
-                    "plumbing_heating_equipment_and_supplies",
-                    "political_organizations",
-                    "postal_services_government_only",
-                    "precious_stones_and_metals_watches_and_jewelry",
-                    "professional_services",
-                    "public_warehousing_and_storage",
-                    "quick_copy_repro_and_blueprint",
-                    "railroads",
-                    "real_estate_agents_and_managers_rentals",
-                    "record_stores",
-                    "recreational_vehicle_rentals",
-                    "religious_goods_stores",
-                    "religious_organizations",
-                    "roofing_siding_sheet_metal",
-                    "secretarial_support_services",
-                    "security_brokers_dealers",
-                    "service_stations",
-                    "sewing_needlework_fabric_and_piece_goods_stores",
-                    "shoe_repair_hat_cleaning",
-                    "shoe_stores",
-                    "small_appliance_repair",
-                    "snowmobile_dealers",
-                    "special_trade_services",
-                    "specialty_cleaning",
-                    "sporting_goods_stores",
-                    "sporting_recreation_camps",
-                    "sports_and_riding_apparel_stores",
-                    "sports_clubs_fields",
-                    "stamp_and_coin_stores",
-                    "stationary_office_supplies_printing_and_writing_paper",
-                    "stationery_stores_office_and_school_supply_stores",
-                    "swimming_pools_sales",
-                    "t_ui_travel_germany",
-                    "tailors_alterations",
-                    "tax_payments_government_agencies",
-                    "tax_preparation_services",
-                    "taxicabs_limousines",
-                    "telecommunication_equipment_and_telephone_sales",
-                    "telecommunication_services",
-                    "telegraph_services",
-                    "tent_and_awning_shops",
-                    "testing_laboratories",
-                    "theatrical_ticket_agencies",
-                    "timeshares",
-                    "tire_retreading_and_repair",
-                    "tolls_bridge_fees",
-                    "tourist_attractions_and_exhibits",
-                    "towing_services",
-                    "trailer_parks_campgrounds",
-                    "transportation_services",
-                    "travel_agencies_tour_operators",
-                    "truck_stop_iteration",
-                    "truck_utility_trailer_rentals",
-                    "typesetting_plate_making_and_related_services",
-                    "typewriter_stores",
-                    "u_s_federal_government_agencies_or_departments",
-                    "uniforms_commercial_clothing",
-                    "used_merchandise_and_secondhand_stores",
-                    "utilities",
-                    "variety_stores",
-                    "veterinary_services",
-                    "video_amusement_game_supplies",
-                    "video_game_arcades",
-                    "video_tape_rental_stores",
-                    "vocational_trade_schools",
-                    "watch_jewelry_repair",
-                    "welding_repair",
-                    "wholesale_clubs",
-                    "wig_and_toupee_stores",
-                    "wires_money_orders",
-                    "womens_accessory_and_specialty_shops",
-                    "womens_ready_to_wear_stores",
-                    "wrecking_and_salvage_yards",
-                ]
-            ]
-        ]
-        """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) of authorizations to allow. All other categories will be blocked. Cannot be set with `blocked_categories`.
-        """
-        allowed_merchant_countries: NotRequired[List[str]]
-        """
-        Array of strings containing representing countries from which authorizations will be allowed. Authorizations from merchants in all other countries will be declined. Country codes should be ISO 3166 alpha-2 country codes (e.g. `US`). Cannot be set with `blocked_merchant_countries`. Provide an empty value to unset this control.
-        """
-        blocked_categories: NotRequired[
-            List[
-                Literal[
-                    "ac_refrigeration_repair",
-                    "accounting_bookkeeping_services",
-                    "advertising_services",
-                    "agricultural_cooperative",
-                    "airlines_air_carriers",
-                    "airports_flying_fields",
-                    "ambulance_services",
-                    "amusement_parks_carnivals",
-                    "antique_reproductions",
-                    "antique_shops",
-                    "aquariums",
-                    "architectural_surveying_services",
-                    "art_dealers_and_galleries",
-                    "artists_supply_and_craft_shops",
-                    "auto_and_home_supply_stores",
-                    "auto_body_repair_shops",
-                    "auto_paint_shops",
-                    "auto_service_shops",
-                    "automated_cash_disburse",
-                    "automated_fuel_dispensers",
-                    "automobile_associations",
-                    "automotive_parts_and_accessories_stores",
-                    "automotive_tire_stores",
-                    "bail_and_bond_payments",
-                    "bakeries",
-                    "bands_orchestras",
-                    "barber_and_beauty_shops",
-                    "betting_casino_gambling",
-                    "bicycle_shops",
-                    "billiard_pool_establishments",
-                    "boat_dealers",
-                    "boat_rentals_and_leases",
-                    "book_stores",
-                    "books_periodicals_and_newspapers",
-                    "bowling_alleys",
-                    "bus_lines",
-                    "business_secretarial_schools",
-                    "buying_shopping_services",
-                    "cable_satellite_and_other_pay_television_and_radio",
-                    "camera_and_photographic_supply_stores",
-                    "candy_nut_and_confectionery_stores",
-                    "car_and_truck_dealers_new_used",
-                    "car_and_truck_dealers_used_only",
-                    "car_rental_agencies",
-                    "car_washes",
-                    "carpentry_services",
-                    "carpet_upholstery_cleaning",
-                    "caterers",
-                    "charitable_and_social_service_organizations_fundraising",
-                    "chemicals_and_allied_products",
-                    "child_care_services",
-                    "childrens_and_infants_wear_stores",
-                    "chiropodists_podiatrists",
-                    "chiropractors",
-                    "cigar_stores_and_stands",
-                    "civic_social_fraternal_associations",
-                    "cleaning_and_maintenance",
-                    "clothing_rental",
-                    "colleges_universities",
-                    "commercial_equipment",
-                    "commercial_footwear",
-                    "commercial_photography_art_and_graphics",
-                    "commuter_transport_and_ferries",
-                    "computer_network_services",
-                    "computer_programming",
-                    "computer_repair",
-                    "computer_software_stores",
-                    "computers_peripherals_and_software",
-                    "concrete_work_services",
-                    "construction_materials",
-                    "consulting_public_relations",
-                    "correspondence_schools",
-                    "cosmetic_stores",
-                    "counseling_services",
-                    "country_clubs",
-                    "courier_services",
-                    "court_costs",
-                    "credit_reporting_agencies",
-                    "cruise_lines",
-                    "dairy_products_stores",
-                    "dance_hall_studios_schools",
-                    "dating_escort_services",
-                    "dentists_orthodontists",
-                    "department_stores",
-                    "detective_agencies",
-                    "digital_goods_applications",
-                    "digital_goods_games",
-                    "digital_goods_large_volume",
-                    "digital_goods_media",
-                    "direct_marketing_catalog_merchant",
-                    "direct_marketing_combination_catalog_and_retail_merchant",
-                    "direct_marketing_inbound_telemarketing",
-                    "direct_marketing_insurance_services",
-                    "direct_marketing_other",
-                    "direct_marketing_outbound_telemarketing",
-                    "direct_marketing_subscription",
-                    "direct_marketing_travel",
-                    "discount_stores",
-                    "doctors",
-                    "door_to_door_sales",
-                    "drapery_window_covering_and_upholstery_stores",
-                    "drinking_places",
-                    "drug_stores_and_pharmacies",
-                    "drugs_drug_proprietaries_and_druggist_sundries",
-                    "dry_cleaners",
-                    "durable_goods",
-                    "duty_free_stores",
-                    "eating_places_restaurants",
-                    "educational_services",
-                    "electric_razor_stores",
-                    "electric_vehicle_charging",
-                    "electrical_parts_and_equipment",
-                    "electrical_services",
-                    "electronics_repair_shops",
-                    "electronics_stores",
-                    "elementary_secondary_schools",
-                    "emergency_services_gcas_visa_use_only",
-                    "employment_temp_agencies",
-                    "equipment_rental",
-                    "exterminating_services",
-                    "family_clothing_stores",
-                    "fast_food_restaurants",
-                    "financial_institutions",
-                    "fines_government_administrative_entities",
-                    "fireplace_fireplace_screens_and_accessories_stores",
-                    "floor_covering_stores",
-                    "florists",
-                    "florists_supplies_nursery_stock_and_flowers",
-                    "freezer_and_locker_meat_provisioners",
-                    "fuel_dealers_non_automotive",
-                    "funeral_services_crematories",
-                    "furniture_home_furnishings_and_equipment_stores_except_appliances",
-                    "furniture_repair_refinishing",
-                    "furriers_and_fur_shops",
-                    "general_services",
-                    "gift_card_novelty_and_souvenir_shops",
-                    "glass_paint_and_wallpaper_stores",
-                    "glassware_crystal_stores",
-                    "golf_courses_public",
-                    "government_licensed_horse_dog_racing_us_region_only",
-                    "government_licensed_online_casions_online_gambling_us_region_only",
-                    "government_owned_lotteries_non_us_region",
-                    "government_owned_lotteries_us_region_only",
-                    "government_services",
-                    "grocery_stores_supermarkets",
-                    "hardware_equipment_and_supplies",
-                    "hardware_stores",
-                    "health_and_beauty_spas",
-                    "hearing_aids_sales_and_supplies",
-                    "heating_plumbing_a_c",
-                    "hobby_toy_and_game_shops",
-                    "home_supply_warehouse_stores",
-                    "hospitals",
-                    "hotels_motels_and_resorts",
-                    "household_appliance_stores",
-                    "industrial_supplies",
-                    "information_retrieval_services",
-                    "insurance_default",
-                    "insurance_underwriting_premiums",
-                    "intra_company_purchases",
-                    "jewelry_stores_watches_clocks_and_silverware_stores",
-                    "landscaping_services",
-                    "laundries",
-                    "laundry_cleaning_services",
-                    "legal_services_attorneys",
-                    "luggage_and_leather_goods_stores",
-                    "lumber_building_materials_stores",
-                    "manual_cash_disburse",
-                    "marinas_service_and_supplies",
-                    "marketplaces",
-                    "masonry_stonework_and_plaster",
-                    "massage_parlors",
-                    "medical_and_dental_labs",
-                    "medical_dental_ophthalmic_and_hospital_equipment_and_supplies",
-                    "medical_services",
-                    "membership_organizations",
-                    "mens_and_boys_clothing_and_accessories_stores",
-                    "mens_womens_clothing_stores",
-                    "metal_service_centers",
-                    "miscellaneous",
-                    "miscellaneous_apparel_and_accessory_shops",
-                    "miscellaneous_auto_dealers",
-                    "miscellaneous_business_services",
-                    "miscellaneous_food_stores",
-                    "miscellaneous_general_merchandise",
-                    "miscellaneous_general_services",
-                    "miscellaneous_home_furnishing_specialty_stores",
-                    "miscellaneous_publishing_and_printing",
-                    "miscellaneous_recreation_services",
-                    "miscellaneous_repair_shops",
-                    "miscellaneous_specialty_retail",
-                    "mobile_home_dealers",
-                    "motion_picture_theaters",
-                    "motor_freight_carriers_and_trucking",
-                    "motor_homes_dealers",
-                    "motor_vehicle_supplies_and_new_parts",
-                    "motorcycle_shops_and_dealers",
-                    "motorcycle_shops_dealers",
-                    "music_stores_musical_instruments_pianos_and_sheet_music",
-                    "news_dealers_and_newsstands",
-                    "non_fi_money_orders",
-                    "non_fi_stored_value_card_purchase_load",
-                    "nondurable_goods",
-                    "nurseries_lawn_and_garden_supply_stores",
-                    "nursing_personal_care",
-                    "office_and_commercial_furniture",
-                    "opticians_eyeglasses",
-                    "optometrists_ophthalmologist",
-                    "orthopedic_goods_prosthetic_devices",
-                    "osteopaths",
-                    "package_stores_beer_wine_and_liquor",
-                    "paints_varnishes_and_supplies",
-                    "parking_lots_garages",
-                    "passenger_railways",
-                    "pawn_shops",
-                    "pet_shops_pet_food_and_supplies",
-                    "petroleum_and_petroleum_products",
-                    "photo_developing",
-                    "photographic_photocopy_microfilm_equipment_and_supplies",
-                    "photographic_studios",
-                    "picture_video_production",
-                    "piece_goods_notions_and_other_dry_goods",
-                    "plumbing_heating_equipment_and_supplies",
-                    "political_organizations",
-                    "postal_services_government_only",
-                    "precious_stones_and_metals_watches_and_jewelry",
-                    "professional_services",
-                    "public_warehousing_and_storage",
-                    "quick_copy_repro_and_blueprint",
-                    "railroads",
-                    "real_estate_agents_and_managers_rentals",
-                    "record_stores",
-                    "recreational_vehicle_rentals",
-                    "religious_goods_stores",
-                    "religious_organizations",
-                    "roofing_siding_sheet_metal",
-                    "secretarial_support_services",
-                    "security_brokers_dealers",
-                    "service_stations",
-                    "sewing_needlework_fabric_and_piece_goods_stores",
-                    "shoe_repair_hat_cleaning",
-                    "shoe_stores",
-                    "small_appliance_repair",
-                    "snowmobile_dealers",
-                    "special_trade_services",
-                    "specialty_cleaning",
-                    "sporting_goods_stores",
-                    "sporting_recreation_camps",
-                    "sports_and_riding_apparel_stores",
-                    "sports_clubs_fields",
-                    "stamp_and_coin_stores",
-                    "stationary_office_supplies_printing_and_writing_paper",
-                    "stationery_stores_office_and_school_supply_stores",
-                    "swimming_pools_sales",
-                    "t_ui_travel_germany",
-                    "tailors_alterations",
-                    "tax_payments_government_agencies",
-                    "tax_preparation_services",
-                    "taxicabs_limousines",
-                    "telecommunication_equipment_and_telephone_sales",
-                    "telecommunication_services",
-                    "telegraph_services",
-                    "tent_and_awning_shops",
-                    "testing_laboratories",
-                    "theatrical_ticket_agencies",
-                    "timeshares",
-                    "tire_retreading_and_repair",
-                    "tolls_bridge_fees",
-                    "tourist_attractions_and_exhibits",
-                    "towing_services",
-                    "trailer_parks_campgrounds",
-                    "transportation_services",
-                    "travel_agencies_tour_operators",
-                    "truck_stop_iteration",
-                    "truck_utility_trailer_rentals",
-                    "typesetting_plate_making_and_related_services",
-                    "typewriter_stores",
-                    "u_s_federal_government_agencies_or_departments",
-                    "uniforms_commercial_clothing",
-                    "used_merchandise_and_secondhand_stores",
-                    "utilities",
-                    "variety_stores",
-                    "veterinary_services",
-                    "video_amusement_game_supplies",
-                    "video_game_arcades",
-                    "video_tape_rental_stores",
-                    "vocational_trade_schools",
-                    "watch_jewelry_repair",
-                    "welding_repair",
-                    "wholesale_clubs",
-                    "wig_and_toupee_stores",
-                    "wires_money_orders",
-                    "womens_accessory_and_specialty_shops",
-                    "womens_ready_to_wear_stores",
-                    "wrecking_and_salvage_yards",
-                ]
-            ]
-        ]
-        """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) of authorizations to decline. All other categories will be allowed. Cannot be set with `allowed_categories`.
-        """
-        blocked_merchant_countries: NotRequired[List[str]]
-        """
-        Array of strings containing representing countries from which authorizations will be declined. Country codes should be ISO 3166 alpha-2 country codes (e.g. `US`). Cannot be set with `allowed_merchant_countries`. Provide an empty value to unset this control.
-        """
-        spending_limits: NotRequired[
-            List["Card.CreateParamsSpendingControlsSpendingLimit"]
-        ]
-        """
-        Limit spending with amount-based rules that apply across any cards this card replaced (i.e., its `replacement_for` card and _that_ card's `replacement_for` card, up the chain).
-        """
-
-    class CreateParamsSpendingControlsSpendingLimit(TypedDict):
-        amount: int
-        """
-        Maximum amount allowed to spend per interval.
-        """
-        categories: NotRequired[
-            List[
-                Literal[
-                    "ac_refrigeration_repair",
-                    "accounting_bookkeeping_services",
-                    "advertising_services",
-                    "agricultural_cooperative",
-                    "airlines_air_carriers",
-                    "airports_flying_fields",
-                    "ambulance_services",
-                    "amusement_parks_carnivals",
-                    "antique_reproductions",
-                    "antique_shops",
-                    "aquariums",
-                    "architectural_surveying_services",
-                    "art_dealers_and_galleries",
-                    "artists_supply_and_craft_shops",
-                    "auto_and_home_supply_stores",
-                    "auto_body_repair_shops",
-                    "auto_paint_shops",
-                    "auto_service_shops",
-                    "automated_cash_disburse",
-                    "automated_fuel_dispensers",
-                    "automobile_associations",
-                    "automotive_parts_and_accessories_stores",
-                    "automotive_tire_stores",
-                    "bail_and_bond_payments",
-                    "bakeries",
-                    "bands_orchestras",
-                    "barber_and_beauty_shops",
-                    "betting_casino_gambling",
-                    "bicycle_shops",
-                    "billiard_pool_establishments",
-                    "boat_dealers",
-                    "boat_rentals_and_leases",
-                    "book_stores",
-                    "books_periodicals_and_newspapers",
-                    "bowling_alleys",
-                    "bus_lines",
-                    "business_secretarial_schools",
-                    "buying_shopping_services",
-                    "cable_satellite_and_other_pay_television_and_radio",
-                    "camera_and_photographic_supply_stores",
-                    "candy_nut_and_confectionery_stores",
-                    "car_and_truck_dealers_new_used",
-                    "car_and_truck_dealers_used_only",
-                    "car_rental_agencies",
-                    "car_washes",
-                    "carpentry_services",
-                    "carpet_upholstery_cleaning",
-                    "caterers",
-                    "charitable_and_social_service_organizations_fundraising",
-                    "chemicals_and_allied_products",
-                    "child_care_services",
-                    "childrens_and_infants_wear_stores",
-                    "chiropodists_podiatrists",
-                    "chiropractors",
-                    "cigar_stores_and_stands",
-                    "civic_social_fraternal_associations",
-                    "cleaning_and_maintenance",
-                    "clothing_rental",
-                    "colleges_universities",
-                    "commercial_equipment",
-                    "commercial_footwear",
-                    "commercial_photography_art_and_graphics",
-                    "commuter_transport_and_ferries",
-                    "computer_network_services",
-                    "computer_programming",
-                    "computer_repair",
-                    "computer_software_stores",
-                    "computers_peripherals_and_software",
-                    "concrete_work_services",
-                    "construction_materials",
-                    "consulting_public_relations",
-                    "correspondence_schools",
-                    "cosmetic_stores",
-                    "counseling_services",
-                    "country_clubs",
-                    "courier_services",
-                    "court_costs",
-                    "credit_reporting_agencies",
-                    "cruise_lines",
-                    "dairy_products_stores",
-                    "dance_hall_studios_schools",
-                    "dating_escort_services",
-                    "dentists_orthodontists",
-                    "department_stores",
-                    "detective_agencies",
-                    "digital_goods_applications",
-                    "digital_goods_games",
-                    "digital_goods_large_volume",
-                    "digital_goods_media",
-                    "direct_marketing_catalog_merchant",
-                    "direct_marketing_combination_catalog_and_retail_merchant",
-                    "direct_marketing_inbound_telemarketing",
-                    "direct_marketing_insurance_services",
-                    "direct_marketing_other",
-                    "direct_marketing_outbound_telemarketing",
-                    "direct_marketing_subscription",
-                    "direct_marketing_travel",
-                    "discount_stores",
-                    "doctors",
-                    "door_to_door_sales",
-                    "drapery_window_covering_and_upholstery_stores",
-                    "drinking_places",
-                    "drug_stores_and_pharmacies",
-                    "drugs_drug_proprietaries_and_druggist_sundries",
-                    "dry_cleaners",
-                    "durable_goods",
-                    "duty_free_stores",
-                    "eating_places_restaurants",
-                    "educational_services",
-                    "electric_razor_stores",
-                    "electric_vehicle_charging",
-                    "electrical_parts_and_equipment",
-                    "electrical_services",
-                    "electronics_repair_shops",
-                    "electronics_stores",
-                    "elementary_secondary_schools",
-                    "emergency_services_gcas_visa_use_only",
-                    "employment_temp_agencies",
-                    "equipment_rental",
-                    "exterminating_services",
-                    "family_clothing_stores",
-                    "fast_food_restaurants",
-                    "financial_institutions",
-                    "fines_government_administrative_entities",
-                    "fireplace_fireplace_screens_and_accessories_stores",
-                    "floor_covering_stores",
-                    "florists",
-                    "florists_supplies_nursery_stock_and_flowers",
-                    "freezer_and_locker_meat_provisioners",
-                    "fuel_dealers_non_automotive",
-                    "funeral_services_crematories",
-                    "furniture_home_furnishings_and_equipment_stores_except_appliances",
-                    "furniture_repair_refinishing",
-                    "furriers_and_fur_shops",
-                    "general_services",
-                    "gift_card_novelty_and_souvenir_shops",
-                    "glass_paint_and_wallpaper_stores",
-                    "glassware_crystal_stores",
-                    "golf_courses_public",
-                    "government_licensed_horse_dog_racing_us_region_only",
-                    "government_licensed_online_casions_online_gambling_us_region_only",
-                    "government_owned_lotteries_non_us_region",
-                    "government_owned_lotteries_us_region_only",
-                    "government_services",
-                    "grocery_stores_supermarkets",
-                    "hardware_equipment_and_supplies",
-                    "hardware_stores",
-                    "health_and_beauty_spas",
-                    "hearing_aids_sales_and_supplies",
-                    "heating_plumbing_a_c",
-                    "hobby_toy_and_game_shops",
-                    "home_supply_warehouse_stores",
-                    "hospitals",
-                    "hotels_motels_and_resorts",
-                    "household_appliance_stores",
-                    "industrial_supplies",
-                    "information_retrieval_services",
-                    "insurance_default",
-                    "insurance_underwriting_premiums",
-                    "intra_company_purchases",
-                    "jewelry_stores_watches_clocks_and_silverware_stores",
-                    "landscaping_services",
-                    "laundries",
-                    "laundry_cleaning_services",
-                    "legal_services_attorneys",
-                    "luggage_and_leather_goods_stores",
-                    "lumber_building_materials_stores",
-                    "manual_cash_disburse",
-                    "marinas_service_and_supplies",
-                    "marketplaces",
-                    "masonry_stonework_and_plaster",
-                    "massage_parlors",
-                    "medical_and_dental_labs",
-                    "medical_dental_ophthalmic_and_hospital_equipment_and_supplies",
-                    "medical_services",
-                    "membership_organizations",
-                    "mens_and_boys_clothing_and_accessories_stores",
-                    "mens_womens_clothing_stores",
-                    "metal_service_centers",
-                    "miscellaneous",
-                    "miscellaneous_apparel_and_accessory_shops",
-                    "miscellaneous_auto_dealers",
-                    "miscellaneous_business_services",
-                    "miscellaneous_food_stores",
-                    "miscellaneous_general_merchandise",
-                    "miscellaneous_general_services",
-                    "miscellaneous_home_furnishing_specialty_stores",
-                    "miscellaneous_publishing_and_printing",
-                    "miscellaneous_recreation_services",
-                    "miscellaneous_repair_shops",
-                    "miscellaneous_specialty_retail",
-                    "mobile_home_dealers",
-                    "motion_picture_theaters",
-                    "motor_freight_carriers_and_trucking",
-                    "motor_homes_dealers",
-                    "motor_vehicle_supplies_and_new_parts",
-                    "motorcycle_shops_and_dealers",
-                    "motorcycle_shops_dealers",
-                    "music_stores_musical_instruments_pianos_and_sheet_music",
-                    "news_dealers_and_newsstands",
-                    "non_fi_money_orders",
-                    "non_fi_stored_value_card_purchase_load",
-                    "nondurable_goods",
-                    "nurseries_lawn_and_garden_supply_stores",
-                    "nursing_personal_care",
-                    "office_and_commercial_furniture",
-                    "opticians_eyeglasses",
-                    "optometrists_ophthalmologist",
-                    "orthopedic_goods_prosthetic_devices",
-                    "osteopaths",
-                    "package_stores_beer_wine_and_liquor",
-                    "paints_varnishes_and_supplies",
-                    "parking_lots_garages",
-                    "passenger_railways",
-                    "pawn_shops",
-                    "pet_shops_pet_food_and_supplies",
-                    "petroleum_and_petroleum_products",
-                    "photo_developing",
-                    "photographic_photocopy_microfilm_equipment_and_supplies",
-                    "photographic_studios",
-                    "picture_video_production",
-                    "piece_goods_notions_and_other_dry_goods",
-                    "plumbing_heating_equipment_and_supplies",
-                    "political_organizations",
-                    "postal_services_government_only",
-                    "precious_stones_and_metals_watches_and_jewelry",
-                    "professional_services",
-                    "public_warehousing_and_storage",
-                    "quick_copy_repro_and_blueprint",
-                    "railroads",
-                    "real_estate_agents_and_managers_rentals",
-                    "record_stores",
-                    "recreational_vehicle_rentals",
-                    "religious_goods_stores",
-                    "religious_organizations",
-                    "roofing_siding_sheet_metal",
-                    "secretarial_support_services",
-                    "security_brokers_dealers",
-                    "service_stations",
-                    "sewing_needlework_fabric_and_piece_goods_stores",
-                    "shoe_repair_hat_cleaning",
-                    "shoe_stores",
-                    "small_appliance_repair",
-                    "snowmobile_dealers",
-                    "special_trade_services",
-                    "specialty_cleaning",
-                    "sporting_goods_stores",
-                    "sporting_recreation_camps",
-                    "sports_and_riding_apparel_stores",
-                    "sports_clubs_fields",
-                    "stamp_and_coin_stores",
-                    "stationary_office_supplies_printing_and_writing_paper",
-                    "stationery_stores_office_and_school_supply_stores",
-                    "swimming_pools_sales",
-                    "t_ui_travel_germany",
-                    "tailors_alterations",
-                    "tax_payments_government_agencies",
-                    "tax_preparation_services",
-                    "taxicabs_limousines",
-                    "telecommunication_equipment_and_telephone_sales",
-                    "telecommunication_services",
-                    "telegraph_services",
-                    "tent_and_awning_shops",
-                    "testing_laboratories",
-                    "theatrical_ticket_agencies",
-                    "timeshares",
-                    "tire_retreading_and_repair",
-                    "tolls_bridge_fees",
-                    "tourist_attractions_and_exhibits",
-                    "towing_services",
-                    "trailer_parks_campgrounds",
-                    "transportation_services",
-                    "travel_agencies_tour_operators",
-                    "truck_stop_iteration",
-                    "truck_utility_trailer_rentals",
-                    "typesetting_plate_making_and_related_services",
-                    "typewriter_stores",
-                    "u_s_federal_government_agencies_or_departments",
-                    "uniforms_commercial_clothing",
-                    "used_merchandise_and_secondhand_stores",
-                    "utilities",
-                    "variety_stores",
-                    "veterinary_services",
-                    "video_amusement_game_supplies",
-                    "video_game_arcades",
-                    "video_tape_rental_stores",
-                    "vocational_trade_schools",
-                    "watch_jewelry_repair",
-                    "welding_repair",
-                    "wholesale_clubs",
-                    "wig_and_toupee_stores",
-                    "wires_money_orders",
-                    "womens_accessory_and_specialty_shops",
-                    "womens_ready_to_wear_stores",
-                    "wrecking_and_salvage_yards",
-                ]
-            ]
-        ]
-        """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) this limit applies to. Omitting this field will apply the limit to all categories.
-        """
-        interval: Literal[
-            "all_time",
-            "daily",
-            "monthly",
-            "per_authorization",
-            "weekly",
-            "yearly",
-        ]
-        """
-        Interval (or event) to which the amount applies.
-        """
-
-    class DeliverCardParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class FailCardParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class ListParams(RequestOptions):
-        cardholder: NotRequired[str]
-        """
-        Only return cards belonging to the Cardholder with the provided ID.
-        """
-        created: NotRequired["Card.ListParamsCreated|int"]
-        """
-        Only return cards that were issued during the given date interval.
-        """
-        ending_before: NotRequired[str]
-        """
-        A cursor for use in pagination. `ending_before` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, starting with `obj_bar`, your subsequent call can include `ending_before=obj_bar` in order to fetch the previous page of the list.
-        """
-        exp_month: NotRequired[int]
-        """
-        Only return cards that have the given expiration month.
-        """
-        exp_year: NotRequired[int]
-        """
-        Only return cards that have the given expiration year.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        last4: NotRequired[str]
-        """
-        Only return cards that have the given last four digits.
-        """
-        limit: NotRequired[int]
-        """
-        A limit on the number of objects to be returned. Limit can range between 1 and 100, and the default is 10.
-        """
-        personalization_design: NotRequired[str]
-        starting_after: NotRequired[str]
-        """
-        A cursor for use in pagination. `starting_after` is an object ID that defines your place in the list. For instance, if you make a list request and receive 100 objects, ending with `obj_foo`, your subsequent call can include `starting_after=obj_foo` in order to fetch the next page of the list.
-        """
-        status: NotRequired[Literal["active", "canceled", "inactive"]]
-        """
-        Only return cards that have the given status. One of `active`, `inactive`, or `canceled`.
-        """
-        type: NotRequired[Literal["physical", "virtual"]]
-        """
-        Only return cards that have the given type. One of `virtual` or `physical`.
-        """
-
-    class ListParamsCreated(TypedDict):
-        gt: NotRequired[int]
-        """
-        Minimum value to filter by (exclusive)
-        """
-        gte: NotRequired[int]
-        """
-        Minimum value to filter by (inclusive)
-        """
-        lt: NotRequired[int]
-        """
-        Maximum value to filter by (exclusive)
-        """
-        lte: NotRequired[int]
-        """
-        Maximum value to filter by (inclusive)
-        """
-
-    class ModifyParams(RequestOptions):
-        cancellation_reason: NotRequired[Literal["lost", "stolen"]]
-        """
-        Reason why the `status` of this card is `canceled`.
-        """
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-        metadata: NotRequired["Literal['']|Dict[str, str]"]
-        """
-        Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format. Individual keys can be unset by posting an empty value to them. All keys can be unset by posting an empty value to `metadata`.
-        """
-        personalization_design: NotRequired[str]
-        pin: NotRequired["Card.ModifyParamsPin"]
-        """
-        The desired new PIN for this card.
-        """
-        shipping: NotRequired["Card.ModifyParamsShipping"]
-        """
-        Updated shipping information for the card.
-        """
-        spending_controls: NotRequired["Card.ModifyParamsSpendingControls"]
-        """
-        Rules that control spending for this card. Refer to our [documentation](https://stripe.com/docs/issuing/controls/spending-controls) for more details.
-        """
-        status: NotRequired[Literal["active", "canceled", "inactive"]]
-        """
-        Dictates whether authorizations can be approved on this card. May be blocked from activating cards depending on past-due Cardholder requirements. Defaults to `inactive`. If this card is being canceled because it was lost or stolen, this information should be provided as `cancellation_reason`.
-        """
-
-    class ModifyParamsPin(TypedDict):
-        encrypted_number: NotRequired[str]
-        """
-        The card's desired new PIN, encrypted under Stripe's public key.
-        """
-
-    class ModifyParamsShipping(TypedDict):
-        address: "Card.ModifyParamsShippingAddress"
-        """
-        The address that the card is shipped to.
-        """
-        address_validation: NotRequired[
-            "Card.ModifyParamsShippingAddressValidation"
-        ]
-        """
-        Address validation settings.
-        """
-        customs: NotRequired["Card.ModifyParamsShippingCustoms"]
-        """
-        Customs information for the shipment.
-        """
-        name: str
-        """
-        The name printed on the shipping label when shipping the card.
-        """
-        phone_number: NotRequired[str]
-        """
-        Phone number of the recipient of the shipment.
-        """
-        require_signature: NotRequired[bool]
-        """
-        Whether a signature is required for card delivery.
-        """
-        service: NotRequired[Literal["express", "priority", "standard"]]
-        """
-        Shipment service.
-        """
-        type: NotRequired[Literal["bulk", "individual"]]
-        """
-        Packaging options.
-        """
-
-    class ModifyParamsShippingAddress(TypedDict):
-        city: str
-        """
-        City, district, suburb, town, or village.
-        """
-        country: str
-        """
-        Two-letter country code ([ISO 3166-1 alpha-2](https://en.wikipedia.org/wiki/ISO_3166-1_alpha-2)).
-        """
-        line1: str
-        """
-        Address line 1 (e.g., street, PO Box, or company name).
-        """
-        line2: NotRequired[str]
-        """
-        Address line 2 (e.g., apartment, suite, unit, or building).
-        """
-        postal_code: str
-        """
-        ZIP or postal code.
-        """
-        state: NotRequired[str]
-        """
-        State, county, province, or region.
-        """
-
-    class ModifyParamsShippingAddressValidation(TypedDict):
-        mode: Literal[
-            "disabled", "normalization_only", "validation_and_normalization"
-        ]
-        """
-        The address validation capabilities to use.
-        """
-
-    class ModifyParamsShippingCustoms(TypedDict):
-        eori_number: NotRequired[str]
-        """
-        The Economic Operators Registration and Identification (EORI) number to use for Customs. Required for bulk shipments to Europe.
-        """
-
-    class ModifyParamsSpendingControls(TypedDict):
-        allowed_categories: NotRequired[
-            List[
-                Literal[
-                    "ac_refrigeration_repair",
-                    "accounting_bookkeeping_services",
-                    "advertising_services",
-                    "agricultural_cooperative",
-                    "airlines_air_carriers",
-                    "airports_flying_fields",
-                    "ambulance_services",
-                    "amusement_parks_carnivals",
-                    "antique_reproductions",
-                    "antique_shops",
-                    "aquariums",
-                    "architectural_surveying_services",
-                    "art_dealers_and_galleries",
-                    "artists_supply_and_craft_shops",
-                    "auto_and_home_supply_stores",
-                    "auto_body_repair_shops",
-                    "auto_paint_shops",
-                    "auto_service_shops",
-                    "automated_cash_disburse",
-                    "automated_fuel_dispensers",
-                    "automobile_associations",
-                    "automotive_parts_and_accessories_stores",
-                    "automotive_tire_stores",
-                    "bail_and_bond_payments",
-                    "bakeries",
-                    "bands_orchestras",
-                    "barber_and_beauty_shops",
-                    "betting_casino_gambling",
-                    "bicycle_shops",
-                    "billiard_pool_establishments",
-                    "boat_dealers",
-                    "boat_rentals_and_leases",
-                    "book_stores",
-                    "books_periodicals_and_newspapers",
-                    "bowling_alleys",
-                    "bus_lines",
-                    "business_secretarial_schools",
-                    "buying_shopping_services",
-                    "cable_satellite_and_other_pay_television_and_radio",
-                    "camera_and_photographic_supply_stores",
-                    "candy_nut_and_confectionery_stores",
-                    "car_and_truck_dealers_new_used",
-                    "car_and_truck_dealers_used_only",
-                    "car_rental_agencies",
-                    "car_washes",
-                    "carpentry_services",
-                    "carpet_upholstery_cleaning",
-                    "caterers",
-                    "charitable_and_social_service_organizations_fundraising",
-                    "chemicals_and_allied_products",
-                    "child_care_services",
-                    "childrens_and_infants_wear_stores",
-                    "chiropodists_podiatrists",
-                    "chiropractors",
-                    "cigar_stores_and_stands",
-                    "civic_social_fraternal_associations",
-                    "cleaning_and_maintenance",
-                    "clothing_rental",
-                    "colleges_universities",
-                    "commercial_equipment",
-                    "commercial_footwear",
-                    "commercial_photography_art_and_graphics",
-                    "commuter_transport_and_ferries",
-                    "computer_network_services",
-                    "computer_programming",
-                    "computer_repair",
-                    "computer_software_stores",
-                    "computers_peripherals_and_software",
-                    "concrete_work_services",
-                    "construction_materials",
-                    "consulting_public_relations",
-                    "correspondence_schools",
-                    "cosmetic_stores",
-                    "counseling_services",
-                    "country_clubs",
-                    "courier_services",
-                    "court_costs",
-                    "credit_reporting_agencies",
-                    "cruise_lines",
-                    "dairy_products_stores",
-                    "dance_hall_studios_schools",
-                    "dating_escort_services",
-                    "dentists_orthodontists",
-                    "department_stores",
-                    "detective_agencies",
-                    "digital_goods_applications",
-                    "digital_goods_games",
-                    "digital_goods_large_volume",
-                    "digital_goods_media",
-                    "direct_marketing_catalog_merchant",
-                    "direct_marketing_combination_catalog_and_retail_merchant",
-                    "direct_marketing_inbound_telemarketing",
-                    "direct_marketing_insurance_services",
-                    "direct_marketing_other",
-                    "direct_marketing_outbound_telemarketing",
-                    "direct_marketing_subscription",
-                    "direct_marketing_travel",
-                    "discount_stores",
-                    "doctors",
-                    "door_to_door_sales",
-                    "drapery_window_covering_and_upholstery_stores",
-                    "drinking_places",
-                    "drug_stores_and_pharmacies",
-                    "drugs_drug_proprietaries_and_druggist_sundries",
-                    "dry_cleaners",
-                    "durable_goods",
-                    "duty_free_stores",
-                    "eating_places_restaurants",
-                    "educational_services",
-                    "electric_razor_stores",
-                    "electric_vehicle_charging",
-                    "electrical_parts_and_equipment",
-                    "electrical_services",
-                    "electronics_repair_shops",
-                    "electronics_stores",
-                    "elementary_secondary_schools",
-                    "emergency_services_gcas_visa_use_only",
-                    "employment_temp_agencies",
-                    "equipment_rental",
-                    "exterminating_services",
-                    "family_clothing_stores",
-                    "fast_food_restaurants",
-                    "financial_institutions",
-                    "fines_government_administrative_entities",
-                    "fireplace_fireplace_screens_and_accessories_stores",
-                    "floor_covering_stores",
-                    "florists",
-                    "florists_supplies_nursery_stock_and_flowers",
-                    "freezer_and_locker_meat_provisioners",
-                    "fuel_dealers_non_automotive",
-                    "funeral_services_crematories",
-                    "furniture_home_furnishings_and_equipment_stores_except_appliances",
-                    "furniture_repair_refinishing",
-                    "furriers_and_fur_shops",
-                    "general_services",
-                    "gift_card_novelty_and_souvenir_shops",
-                    "glass_paint_and_wallpaper_stores",
-                    "glassware_crystal_stores",
-                    "golf_courses_public",
-                    "government_licensed_horse_dog_racing_us_region_only",
-                    "government_licensed_online_casions_online_gambling_us_region_only",
-                    "government_owned_lotteries_non_us_region",
-                    "government_owned_lotteries_us_region_only",
-                    "government_services",
-                    "grocery_stores_supermarkets",
-                    "hardware_equipment_and_supplies",
-                    "hardware_stores",
-                    "health_and_beauty_spas",
-                    "hearing_aids_sales_and_supplies",
-                    "heating_plumbing_a_c",
-                    "hobby_toy_and_game_shops",
-                    "home_supply_warehouse_stores",
-                    "hospitals",
-                    "hotels_motels_and_resorts",
-                    "household_appliance_stores",
-                    "industrial_supplies",
-                    "information_retrieval_services",
-                    "insurance_default",
-                    "insurance_underwriting_premiums",
-                    "intra_company_purchases",
-                    "jewelry_stores_watches_clocks_and_silverware_stores",
-                    "landscaping_services",
-                    "laundries",
-                    "laundry_cleaning_services",
-                    "legal_services_attorneys",
-                    "luggage_and_leather_goods_stores",
-                    "lumber_building_materials_stores",
-                    "manual_cash_disburse",
-                    "marinas_service_and_supplies",
-                    "marketplaces",
-                    "masonry_stonework_and_plaster",
-                    "massage_parlors",
-                    "medical_and_dental_labs",
-                    "medical_dental_ophthalmic_and_hospital_equipment_and_supplies",
-                    "medical_services",
-                    "membership_organizations",
-                    "mens_and_boys_clothing_and_accessories_stores",
-                    "mens_womens_clothing_stores",
-                    "metal_service_centers",
-                    "miscellaneous",
-                    "miscellaneous_apparel_and_accessory_shops",
-                    "miscellaneous_auto_dealers",
-                    "miscellaneous_business_services",
-                    "miscellaneous_food_stores",
-                    "miscellaneous_general_merchandise",
-                    "miscellaneous_general_services",
-                    "miscellaneous_home_furnishing_specialty_stores",
-                    "miscellaneous_publishing_and_printing",
-                    "miscellaneous_recreation_services",
-                    "miscellaneous_repair_shops",
-                    "miscellaneous_specialty_retail",
-                    "mobile_home_dealers",
-                    "motion_picture_theaters",
-                    "motor_freight_carriers_and_trucking",
-                    "motor_homes_dealers",
-                    "motor_vehicle_supplies_and_new_parts",
-                    "motorcycle_shops_and_dealers",
-                    "motorcycle_shops_dealers",
-                    "music_stores_musical_instruments_pianos_and_sheet_music",
-                    "news_dealers_and_newsstands",
-                    "non_fi_money_orders",
-                    "non_fi_stored_value_card_purchase_load",
-                    "nondurable_goods",
-                    "nurseries_lawn_and_garden_supply_stores",
-                    "nursing_personal_care",
-                    "office_and_commercial_furniture",
-                    "opticians_eyeglasses",
-                    "optometrists_ophthalmologist",
-                    "orthopedic_goods_prosthetic_devices",
-                    "osteopaths",
-                    "package_stores_beer_wine_and_liquor",
-                    "paints_varnishes_and_supplies",
-                    "parking_lots_garages",
-                    "passenger_railways",
-                    "pawn_shops",
-                    "pet_shops_pet_food_and_supplies",
-                    "petroleum_and_petroleum_products",
-                    "photo_developing",
-                    "photographic_photocopy_microfilm_equipment_and_supplies",
-                    "photographic_studios",
-                    "picture_video_production",
-                    "piece_goods_notions_and_other_dry_goods",
-                    "plumbing_heating_equipment_and_supplies",
-                    "political_organizations",
-                    "postal_services_government_only",
-                    "precious_stones_and_metals_watches_and_jewelry",
-                    "professional_services",
-                    "public_warehousing_and_storage",
-                    "quick_copy_repro_and_blueprint",
-                    "railroads",
-                    "real_estate_agents_and_managers_rentals",
-                    "record_stores",
-                    "recreational_vehicle_rentals",
-                    "religious_goods_stores",
-                    "religious_organizations",
-                    "roofing_siding_sheet_metal",
-                    "secretarial_support_services",
-                    "security_brokers_dealers",
-                    "service_stations",
-                    "sewing_needlework_fabric_and_piece_goods_stores",
-                    "shoe_repair_hat_cleaning",
-                    "shoe_stores",
-                    "small_appliance_repair",
-                    "snowmobile_dealers",
-                    "special_trade_services",
-                    "specialty_cleaning",
-                    "sporting_goods_stores",
-                    "sporting_recreation_camps",
-                    "sports_and_riding_apparel_stores",
-                    "sports_clubs_fields",
-                    "stamp_and_coin_stores",
-                    "stationary_office_supplies_printing_and_writing_paper",
-                    "stationery_stores_office_and_school_supply_stores",
-                    "swimming_pools_sales",
-                    "t_ui_travel_germany",
-                    "tailors_alterations",
-                    "tax_payments_government_agencies",
-                    "tax_preparation_services",
-                    "taxicabs_limousines",
-                    "telecommunication_equipment_and_telephone_sales",
-                    "telecommunication_services",
-                    "telegraph_services",
-                    "tent_and_awning_shops",
-                    "testing_laboratories",
-                    "theatrical_ticket_agencies",
-                    "timeshares",
-                    "tire_retreading_and_repair",
-                    "tolls_bridge_fees",
-                    "tourist_attractions_and_exhibits",
-                    "towing_services",
-                    "trailer_parks_campgrounds",
-                    "transportation_services",
-                    "travel_agencies_tour_operators",
-                    "truck_stop_iteration",
-                    "truck_utility_trailer_rentals",
-                    "typesetting_plate_making_and_related_services",
-                    "typewriter_stores",
-                    "u_s_federal_government_agencies_or_departments",
-                    "uniforms_commercial_clothing",
-                    "used_merchandise_and_secondhand_stores",
-                    "utilities",
-                    "variety_stores",
-                    "veterinary_services",
-                    "video_amusement_game_supplies",
-                    "video_game_arcades",
-                    "video_tape_rental_stores",
-                    "vocational_trade_schools",
-                    "watch_jewelry_repair",
-                    "welding_repair",
-                    "wholesale_clubs",
-                    "wig_and_toupee_stores",
-                    "wires_money_orders",
-                    "womens_accessory_and_specialty_shops",
-                    "womens_ready_to_wear_stores",
-                    "wrecking_and_salvage_yards",
-                ]
-            ]
-        ]
-        """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) of authorizations to allow. All other categories will be blocked. Cannot be set with `blocked_categories`.
-        """
-        allowed_merchant_countries: NotRequired[List[str]]
-        """
-        Array of strings containing representing countries from which authorizations will be allowed. Authorizations from merchants in all other countries will be declined. Country codes should be ISO 3166 alpha-2 country codes (e.g. `US`). Cannot be set with `blocked_merchant_countries`. Provide an empty value to unset this control.
-        """
-        blocked_categories: NotRequired[
-            List[
-                Literal[
-                    "ac_refrigeration_repair",
-                    "accounting_bookkeeping_services",
-                    "advertising_services",
-                    "agricultural_cooperative",
-                    "airlines_air_carriers",
-                    "airports_flying_fields",
-                    "ambulance_services",
-                    "amusement_parks_carnivals",
-                    "antique_reproductions",
-                    "antique_shops",
-                    "aquariums",
-                    "architectural_surveying_services",
-                    "art_dealers_and_galleries",
-                    "artists_supply_and_craft_shops",
-                    "auto_and_home_supply_stores",
-                    "auto_body_repair_shops",
-                    "auto_paint_shops",
-                    "auto_service_shops",
-                    "automated_cash_disburse",
-                    "automated_fuel_dispensers",
-                    "automobile_associations",
-                    "automotive_parts_and_accessories_stores",
-                    "automotive_tire_stores",
-                    "bail_and_bond_payments",
-                    "bakeries",
-                    "bands_orchestras",
-                    "barber_and_beauty_shops",
-                    "betting_casino_gambling",
-                    "bicycle_shops",
-                    "billiard_pool_establishments",
-                    "boat_dealers",
-                    "boat_rentals_and_leases",
-                    "book_stores",
-                    "books_periodicals_and_newspapers",
-                    "bowling_alleys",
-                    "bus_lines",
-                    "business_secretarial_schools",
-                    "buying_shopping_services",
-                    "cable_satellite_and_other_pay_television_and_radio",
-                    "camera_and_photographic_supply_stores",
-                    "candy_nut_and_confectionery_stores",
-                    "car_and_truck_dealers_new_used",
-                    "car_and_truck_dealers_used_only",
-                    "car_rental_agencies",
-                    "car_washes",
-                    "carpentry_services",
-                    "carpet_upholstery_cleaning",
-                    "caterers",
-                    "charitable_and_social_service_organizations_fundraising",
-                    "chemicals_and_allied_products",
-                    "child_care_services",
-                    "childrens_and_infants_wear_stores",
-                    "chiropodists_podiatrists",
-                    "chiropractors",
-                    "cigar_stores_and_stands",
-                    "civic_social_fraternal_associations",
-                    "cleaning_and_maintenance",
-                    "clothing_rental",
-                    "colleges_universities",
-                    "commercial_equipment",
-                    "commercial_footwear",
-                    "commercial_photography_art_and_graphics",
-                    "commuter_transport_and_ferries",
-                    "computer_network_services",
-                    "computer_programming",
-                    "computer_repair",
-                    "computer_software_stores",
-                    "computers_peripherals_and_software",
-                    "concrete_work_services",
-                    "construction_materials",
-                    "consulting_public_relations",
-                    "correspondence_schools",
-                    "cosmetic_stores",
-                    "counseling_services",
-                    "country_clubs",
-                    "courier_services",
-                    "court_costs",
-                    "credit_reporting_agencies",
-                    "cruise_lines",
-                    "dairy_products_stores",
-                    "dance_hall_studios_schools",
-                    "dating_escort_services",
-                    "dentists_orthodontists",
-                    "department_stores",
-                    "detective_agencies",
-                    "digital_goods_applications",
-                    "digital_goods_games",
-                    "digital_goods_large_volume",
-                    "digital_goods_media",
-                    "direct_marketing_catalog_merchant",
-                    "direct_marketing_combination_catalog_and_retail_merchant",
-                    "direct_marketing_inbound_telemarketing",
-                    "direct_marketing_insurance_services",
-                    "direct_marketing_other",
-                    "direct_marketing_outbound_telemarketing",
-                    "direct_marketing_subscription",
-                    "direct_marketing_travel",
-                    "discount_stores",
-                    "doctors",
-                    "door_to_door_sales",
-                    "drapery_window_covering_and_upholstery_stores",
-                    "drinking_places",
-                    "drug_stores_and_pharmacies",
-                    "drugs_drug_proprietaries_and_druggist_sundries",
-                    "dry_cleaners",
-                    "durable_goods",
-                    "duty_free_stores",
-                    "eating_places_restaurants",
-                    "educational_services",
-                    "electric_razor_stores",
-                    "electric_vehicle_charging",
-                    "electrical_parts_and_equipment",
-                    "electrical_services",
-                    "electronics_repair_shops",
-                    "electronics_stores",
-                    "elementary_secondary_schools",
-                    "emergency_services_gcas_visa_use_only",
-                    "employment_temp_agencies",
-                    "equipment_rental",
-                    "exterminating_services",
-                    "family_clothing_stores",
-                    "fast_food_restaurants",
-                    "financial_institutions",
-                    "fines_government_administrative_entities",
-                    "fireplace_fireplace_screens_and_accessories_stores",
-                    "floor_covering_stores",
-                    "florists",
-                    "florists_supplies_nursery_stock_and_flowers",
-                    "freezer_and_locker_meat_provisioners",
-                    "fuel_dealers_non_automotive",
-                    "funeral_services_crematories",
-                    "furniture_home_furnishings_and_equipment_stores_except_appliances",
-                    "furniture_repair_refinishing",
-                    "furriers_and_fur_shops",
-                    "general_services",
-                    "gift_card_novelty_and_souvenir_shops",
-                    "glass_paint_and_wallpaper_stores",
-                    "glassware_crystal_stores",
-                    "golf_courses_public",
-                    "government_licensed_horse_dog_racing_us_region_only",
-                    "government_licensed_online_casions_online_gambling_us_region_only",
-                    "government_owned_lotteries_non_us_region",
-                    "government_owned_lotteries_us_region_only",
-                    "government_services",
-                    "grocery_stores_supermarkets",
-                    "hardware_equipment_and_supplies",
-                    "hardware_stores",
-                    "health_and_beauty_spas",
-                    "hearing_aids_sales_and_supplies",
-                    "heating_plumbing_a_c",
-                    "hobby_toy_and_game_shops",
-                    "home_supply_warehouse_stores",
-                    "hospitals",
-                    "hotels_motels_and_resorts",
-                    "household_appliance_stores",
-                    "industrial_supplies",
-                    "information_retrieval_services",
-                    "insurance_default",
-                    "insurance_underwriting_premiums",
-                    "intra_company_purchases",
-                    "jewelry_stores_watches_clocks_and_silverware_stores",
-                    "landscaping_services",
-                    "laundries",
-                    "laundry_cleaning_services",
-                    "legal_services_attorneys",
-                    "luggage_and_leather_goods_stores",
-                    "lumber_building_materials_stores",
-                    "manual_cash_disburse",
-                    "marinas_service_and_supplies",
-                    "marketplaces",
-                    "masonry_stonework_and_plaster",
-                    "massage_parlors",
-                    "medical_and_dental_labs",
-                    "medical_dental_ophthalmic_and_hospital_equipment_and_supplies",
-                    "medical_services",
-                    "membership_organizations",
-                    "mens_and_boys_clothing_and_accessories_stores",
-                    "mens_womens_clothing_stores",
-                    "metal_service_centers",
-                    "miscellaneous",
-                    "miscellaneous_apparel_and_accessory_shops",
-                    "miscellaneous_auto_dealers",
-                    "miscellaneous_business_services",
-                    "miscellaneous_food_stores",
-                    "miscellaneous_general_merchandise",
-                    "miscellaneous_general_services",
-                    "miscellaneous_home_furnishing_specialty_stores",
-                    "miscellaneous_publishing_and_printing",
-                    "miscellaneous_recreation_services",
-                    "miscellaneous_repair_shops",
-                    "miscellaneous_specialty_retail",
-                    "mobile_home_dealers",
-                    "motion_picture_theaters",
-                    "motor_freight_carriers_and_trucking",
-                    "motor_homes_dealers",
-                    "motor_vehicle_supplies_and_new_parts",
-                    "motorcycle_shops_and_dealers",
-                    "motorcycle_shops_dealers",
-                    "music_stores_musical_instruments_pianos_and_sheet_music",
-                    "news_dealers_and_newsstands",
-                    "non_fi_money_orders",
-                    "non_fi_stored_value_card_purchase_load",
-                    "nondurable_goods",
-                    "nurseries_lawn_and_garden_supply_stores",
-                    "nursing_personal_care",
-                    "office_and_commercial_furniture",
-                    "opticians_eyeglasses",
-                    "optometrists_ophthalmologist",
-                    "orthopedic_goods_prosthetic_devices",
-                    "osteopaths",
-                    "package_stores_beer_wine_and_liquor",
-                    "paints_varnishes_and_supplies",
-                    "parking_lots_garages",
-                    "passenger_railways",
-                    "pawn_shops",
-                    "pet_shops_pet_food_and_supplies",
-                    "petroleum_and_petroleum_products",
-                    "photo_developing",
-                    "photographic_photocopy_microfilm_equipment_and_supplies",
-                    "photographic_studios",
-                    "picture_video_production",
-                    "piece_goods_notions_and_other_dry_goods",
-                    "plumbing_heating_equipment_and_supplies",
-                    "political_organizations",
-                    "postal_services_government_only",
-                    "precious_stones_and_metals_watches_and_jewelry",
-                    "professional_services",
-                    "public_warehousing_and_storage",
-                    "quick_copy_repro_and_blueprint",
-                    "railroads",
-                    "real_estate_agents_and_managers_rentals",
-                    "record_stores",
-                    "recreational_vehicle_rentals",
-                    "religious_goods_stores",
-                    "religious_organizations",
-                    "roofing_siding_sheet_metal",
-                    "secretarial_support_services",
-                    "security_brokers_dealers",
-                    "service_stations",
-                    "sewing_needlework_fabric_and_piece_goods_stores",
-                    "shoe_repair_hat_cleaning",
-                    "shoe_stores",
-                    "small_appliance_repair",
-                    "snowmobile_dealers",
-                    "special_trade_services",
-                    "specialty_cleaning",
-                    "sporting_goods_stores",
-                    "sporting_recreation_camps",
-                    "sports_and_riding_apparel_stores",
-                    "sports_clubs_fields",
-                    "stamp_and_coin_stores",
-                    "stationary_office_supplies_printing_and_writing_paper",
-                    "stationery_stores_office_and_school_supply_stores",
-                    "swimming_pools_sales",
-                    "t_ui_travel_germany",
-                    "tailors_alterations",
-                    "tax_payments_government_agencies",
-                    "tax_preparation_services",
-                    "taxicabs_limousines",
-                    "telecommunication_equipment_and_telephone_sales",
-                    "telecommunication_services",
-                    "telegraph_services",
-                    "tent_and_awning_shops",
-                    "testing_laboratories",
-                    "theatrical_ticket_agencies",
-                    "timeshares",
-                    "tire_retreading_and_repair",
-                    "tolls_bridge_fees",
-                    "tourist_attractions_and_exhibits",
-                    "towing_services",
-                    "trailer_parks_campgrounds",
-                    "transportation_services",
-                    "travel_agencies_tour_operators",
-                    "truck_stop_iteration",
-                    "truck_utility_trailer_rentals",
-                    "typesetting_plate_making_and_related_services",
-                    "typewriter_stores",
-                    "u_s_federal_government_agencies_or_departments",
-                    "uniforms_commercial_clothing",
-                    "used_merchandise_and_secondhand_stores",
-                    "utilities",
-                    "variety_stores",
-                    "veterinary_services",
-                    "video_amusement_game_supplies",
-                    "video_game_arcades",
-                    "video_tape_rental_stores",
-                    "vocational_trade_schools",
-                    "watch_jewelry_repair",
-                    "welding_repair",
-                    "wholesale_clubs",
-                    "wig_and_toupee_stores",
-                    "wires_money_orders",
-                    "womens_accessory_and_specialty_shops",
-                    "womens_ready_to_wear_stores",
-                    "wrecking_and_salvage_yards",
-                ]
-            ]
-        ]
-        """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) of authorizations to decline. All other categories will be allowed. Cannot be set with `allowed_categories`.
-        """
-        blocked_merchant_countries: NotRequired[List[str]]
-        """
-        Array of strings containing representing countries from which authorizations will be declined. Country codes should be ISO 3166 alpha-2 country codes (e.g. `US`). Cannot be set with `allowed_merchant_countries`. Provide an empty value to unset this control.
-        """
-        spending_limits: NotRequired[
-            List["Card.ModifyParamsSpendingControlsSpendingLimit"]
-        ]
-        """
-        Limit spending with amount-based rules that apply across any cards this card replaced (i.e., its `replacement_for` card and _that_ card's `replacement_for` card, up the chain).
-        """
-
-    class ModifyParamsSpendingControlsSpendingLimit(TypedDict):
-        amount: int
-        """
-        Maximum amount allowed to spend per interval.
-        """
-        categories: NotRequired[
-            List[
-                Literal[
-                    "ac_refrigeration_repair",
-                    "accounting_bookkeeping_services",
-                    "advertising_services",
-                    "agricultural_cooperative",
-                    "airlines_air_carriers",
-                    "airports_flying_fields",
-                    "ambulance_services",
-                    "amusement_parks_carnivals",
-                    "antique_reproductions",
-                    "antique_shops",
-                    "aquariums",
-                    "architectural_surveying_services",
-                    "art_dealers_and_galleries",
-                    "artists_supply_and_craft_shops",
-                    "auto_and_home_supply_stores",
-                    "auto_body_repair_shops",
-                    "auto_paint_shops",
-                    "auto_service_shops",
-                    "automated_cash_disburse",
-                    "automated_fuel_dispensers",
-                    "automobile_associations",
-                    "automotive_parts_and_accessories_stores",
-                    "automotive_tire_stores",
-                    "bail_and_bond_payments",
-                    "bakeries",
-                    "bands_orchestras",
-                    "barber_and_beauty_shops",
-                    "betting_casino_gambling",
-                    "bicycle_shops",
-                    "billiard_pool_establishments",
-                    "boat_dealers",
-                    "boat_rentals_and_leases",
-                    "book_stores",
-                    "books_periodicals_and_newspapers",
-                    "bowling_alleys",
-                    "bus_lines",
-                    "business_secretarial_schools",
-                    "buying_shopping_services",
-                    "cable_satellite_and_other_pay_television_and_radio",
-                    "camera_and_photographic_supply_stores",
-                    "candy_nut_and_confectionery_stores",
-                    "car_and_truck_dealers_new_used",
-                    "car_and_truck_dealers_used_only",
-                    "car_rental_agencies",
-                    "car_washes",
-                    "carpentry_services",
-                    "carpet_upholstery_cleaning",
-                    "caterers",
-                    "charitable_and_social_service_organizations_fundraising",
-                    "chemicals_and_allied_products",
-                    "child_care_services",
-                    "childrens_and_infants_wear_stores",
-                    "chiropodists_podiatrists",
-                    "chiropractors",
-                    "cigar_stores_and_stands",
-                    "civic_social_fraternal_associations",
-                    "cleaning_and_maintenance",
-                    "clothing_rental",
-                    "colleges_universities",
-                    "commercial_equipment",
-                    "commercial_footwear",
-                    "commercial_photography_art_and_graphics",
-                    "commuter_transport_and_ferries",
-                    "computer_network_services",
-                    "computer_programming",
-                    "computer_repair",
-                    "computer_software_stores",
-                    "computers_peripherals_and_software",
-                    "concrete_work_services",
-                    "construction_materials",
-                    "consulting_public_relations",
-                    "correspondence_schools",
-                    "cosmetic_stores",
-                    "counseling_services",
-                    "country_clubs",
-                    "courier_services",
-                    "court_costs",
-                    "credit_reporting_agencies",
-                    "cruise_lines",
-                    "dairy_products_stores",
-                    "dance_hall_studios_schools",
-                    "dating_escort_services",
-                    "dentists_orthodontists",
-                    "department_stores",
-                    "detective_agencies",
-                    "digital_goods_applications",
-                    "digital_goods_games",
-                    "digital_goods_large_volume",
-                    "digital_goods_media",
-                    "direct_marketing_catalog_merchant",
-                    "direct_marketing_combination_catalog_and_retail_merchant",
-                    "direct_marketing_inbound_telemarketing",
-                    "direct_marketing_insurance_services",
-                    "direct_marketing_other",
-                    "direct_marketing_outbound_telemarketing",
-                    "direct_marketing_subscription",
-                    "direct_marketing_travel",
-                    "discount_stores",
-                    "doctors",
-                    "door_to_door_sales",
-                    "drapery_window_covering_and_upholstery_stores",
-                    "drinking_places",
-                    "drug_stores_and_pharmacies",
-                    "drugs_drug_proprietaries_and_druggist_sundries",
-                    "dry_cleaners",
-                    "durable_goods",
-                    "duty_free_stores",
-                    "eating_places_restaurants",
-                    "educational_services",
-                    "electric_razor_stores",
-                    "electric_vehicle_charging",
-                    "electrical_parts_and_equipment",
-                    "electrical_services",
-                    "electronics_repair_shops",
-                    "electronics_stores",
-                    "elementary_secondary_schools",
-                    "emergency_services_gcas_visa_use_only",
-                    "employment_temp_agencies",
-                    "equipment_rental",
-                    "exterminating_services",
-                    "family_clothing_stores",
-                    "fast_food_restaurants",
-                    "financial_institutions",
-                    "fines_government_administrative_entities",
-                    "fireplace_fireplace_screens_and_accessories_stores",
-                    "floor_covering_stores",
-                    "florists",
-                    "florists_supplies_nursery_stock_and_flowers",
-                    "freezer_and_locker_meat_provisioners",
-                    "fuel_dealers_non_automotive",
-                    "funeral_services_crematories",
-                    "furniture_home_furnishings_and_equipment_stores_except_appliances",
-                    "furniture_repair_refinishing",
-                    "furriers_and_fur_shops",
-                    "general_services",
-                    "gift_card_novelty_and_souvenir_shops",
-                    "glass_paint_and_wallpaper_stores",
-                    "glassware_crystal_stores",
-                    "golf_courses_public",
-                    "government_licensed_horse_dog_racing_us_region_only",
-                    "government_licensed_online_casions_online_gambling_us_region_only",
-                    "government_owned_lotteries_non_us_region",
-                    "government_owned_lotteries_us_region_only",
-                    "government_services",
-                    "grocery_stores_supermarkets",
-                    "hardware_equipment_and_supplies",
-                    "hardware_stores",
-                    "health_and_beauty_spas",
-                    "hearing_aids_sales_and_supplies",
-                    "heating_plumbing_a_c",
-                    "hobby_toy_and_game_shops",
-                    "home_supply_warehouse_stores",
-                    "hospitals",
-                    "hotels_motels_and_resorts",
-                    "household_appliance_stores",
-                    "industrial_supplies",
-                    "information_retrieval_services",
-                    "insurance_default",
-                    "insurance_underwriting_premiums",
-                    "intra_company_purchases",
-                    "jewelry_stores_watches_clocks_and_silverware_stores",
-                    "landscaping_services",
-                    "laundries",
-                    "laundry_cleaning_services",
-                    "legal_services_attorneys",
-                    "luggage_and_leather_goods_stores",
-                    "lumber_building_materials_stores",
-                    "manual_cash_disburse",
-                    "marinas_service_and_supplies",
-                    "marketplaces",
-                    "masonry_stonework_and_plaster",
-                    "massage_parlors",
-                    "medical_and_dental_labs",
-                    "medical_dental_ophthalmic_and_hospital_equipment_and_supplies",
-                    "medical_services",
-                    "membership_organizations",
-                    "mens_and_boys_clothing_and_accessories_stores",
-                    "mens_womens_clothing_stores",
-                    "metal_service_centers",
-                    "miscellaneous",
-                    "miscellaneous_apparel_and_accessory_shops",
-                    "miscellaneous_auto_dealers",
-                    "miscellaneous_business_services",
-                    "miscellaneous_food_stores",
-                    "miscellaneous_general_merchandise",
-                    "miscellaneous_general_services",
-                    "miscellaneous_home_furnishing_specialty_stores",
-                    "miscellaneous_publishing_and_printing",
-                    "miscellaneous_recreation_services",
-                    "miscellaneous_repair_shops",
-                    "miscellaneous_specialty_retail",
-                    "mobile_home_dealers",
-                    "motion_picture_theaters",
-                    "motor_freight_carriers_and_trucking",
-                    "motor_homes_dealers",
-                    "motor_vehicle_supplies_and_new_parts",
-                    "motorcycle_shops_and_dealers",
-                    "motorcycle_shops_dealers",
-                    "music_stores_musical_instruments_pianos_and_sheet_music",
-                    "news_dealers_and_newsstands",
-                    "non_fi_money_orders",
-                    "non_fi_stored_value_card_purchase_load",
-                    "nondurable_goods",
-                    "nurseries_lawn_and_garden_supply_stores",
-                    "nursing_personal_care",
-                    "office_and_commercial_furniture",
-                    "opticians_eyeglasses",
-                    "optometrists_ophthalmologist",
-                    "orthopedic_goods_prosthetic_devices",
-                    "osteopaths",
-                    "package_stores_beer_wine_and_liquor",
-                    "paints_varnishes_and_supplies",
-                    "parking_lots_garages",
-                    "passenger_railways",
-                    "pawn_shops",
-                    "pet_shops_pet_food_and_supplies",
-                    "petroleum_and_petroleum_products",
-                    "photo_developing",
-                    "photographic_photocopy_microfilm_equipment_and_supplies",
-                    "photographic_studios",
-                    "picture_video_production",
-                    "piece_goods_notions_and_other_dry_goods",
-                    "plumbing_heating_equipment_and_supplies",
-                    "political_organizations",
-                    "postal_services_government_only",
-                    "precious_stones_and_metals_watches_and_jewelry",
-                    "professional_services",
-                    "public_warehousing_and_storage",
-                    "quick_copy_repro_and_blueprint",
-                    "railroads",
-                    "real_estate_agents_and_managers_rentals",
-                    "record_stores",
-                    "recreational_vehicle_rentals",
-                    "religious_goods_stores",
-                    "religious_organizations",
-                    "roofing_siding_sheet_metal",
-                    "secretarial_support_services",
-                    "security_brokers_dealers",
-                    "service_stations",
-                    "sewing_needlework_fabric_and_piece_goods_stores",
-                    "shoe_repair_hat_cleaning",
-                    "shoe_stores",
-                    "small_appliance_repair",
-                    "snowmobile_dealers",
-                    "special_trade_services",
-                    "specialty_cleaning",
-                    "sporting_goods_stores",
-                    "sporting_recreation_camps",
-                    "sports_and_riding_apparel_stores",
-                    "sports_clubs_fields",
-                    "stamp_and_coin_stores",
-                    "stationary_office_supplies_printing_and_writing_paper",
-                    "stationery_stores_office_and_school_supply_stores",
-                    "swimming_pools_sales",
-                    "t_ui_travel_germany",
-                    "tailors_alterations",
-                    "tax_payments_government_agencies",
-                    "tax_preparation_services",
-                    "taxicabs_limousines",
-                    "telecommunication_equipment_and_telephone_sales",
-                    "telecommunication_services",
-                    "telegraph_services",
-                    "tent_and_awning_shops",
-                    "testing_laboratories",
-                    "theatrical_ticket_agencies",
-                    "timeshares",
-                    "tire_retreading_and_repair",
-                    "tolls_bridge_fees",
-                    "tourist_attractions_and_exhibits",
-                    "towing_services",
-                    "trailer_parks_campgrounds",
-                    "transportation_services",
-                    "travel_agencies_tour_operators",
-                    "truck_stop_iteration",
-                    "truck_utility_trailer_rentals",
-                    "typesetting_plate_making_and_related_services",
-                    "typewriter_stores",
-                    "u_s_federal_government_agencies_or_departments",
-                    "uniforms_commercial_clothing",
-                    "used_merchandise_and_secondhand_stores",
-                    "utilities",
-                    "variety_stores",
-                    "veterinary_services",
-                    "video_amusement_game_supplies",
-                    "video_game_arcades",
-                    "video_tape_rental_stores",
-                    "vocational_trade_schools",
-                    "watch_jewelry_repair",
-                    "welding_repair",
-                    "wholesale_clubs",
-                    "wig_and_toupee_stores",
-                    "wires_money_orders",
-                    "womens_accessory_and_specialty_shops",
-                    "womens_ready_to_wear_stores",
-                    "wrecking_and_salvage_yards",
-                ]
-            ]
-        ]
-        """
-        Array of strings containing [categories](https://stripe.com/docs/api#issuing_authorization_object-merchant_data-category) this limit applies to. Omitting this field will apply the limit to all categories.
-        """
-        interval: Literal[
-            "all_time",
-            "daily",
-            "monthly",
-            "per_authorization",
-            "weekly",
-            "yearly",
-        ]
-        """
-        Interval (or event) to which the amount applies.
-        """
-
-    class RetrieveParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class ReturnCardParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class ShipCardParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
-    class SubmitCardParams(RequestOptions):
-        expand: NotRequired[List[str]]
-        """
-        Specifies which fields in the response should be expanded.
-        """
-
     brand: str
     """
     The brand of the card.
@@ -3437,9 +1207,9 @@ class Card(
     """
     cardholder: "Cardholder"
     """
-    An Issuing `Cardholder` object represents an individual or business entity who is [issued](https://stripe.com/docs/issuing) cards.
+    An Issuing `Cardholder` object represents an individual or business entity who is [issued](https://docs.stripe.com/issuing) cards.
 
-    Related guide: [How to create a cardholder](https://stripe.com/docs/issuing/cards/virtual/issue-cards#create-cardholder)
+    Related guide: [How to create a cardholder](https://docs.stripe.com/issuing/cards/virtual/issue-cards#create-cardholder)
     """
     created: int
     """
@@ -3451,7 +1221,7 @@ class Card(
     """
     cvc: Optional[str]
     """
-    The card's CVC. For security reasons, this is only available for virtual cards, and will be omitted unless you explicitly request it with [the `expand` parameter](https://stripe.com/docs/api/expanding_objects). Additionally, it's only available via the ["Retrieve a card" endpoint](https://stripe.com/docs/api/issuing/cards/retrieve), not via "List all cards" or any other endpoint.
+    The card's CVC. For security reasons, this is only available for virtual cards, and will be omitted unless you explicitly request it with [the `expand` parameter](https://docs.stripe.com/api/expanding_objects). Additionally, it's only available via the ["Retrieve a card" endpoint](https://docs.stripe.com/api/issuing/cards/retrieve), not via "List all cards" or any other endpoint.
     """
     exp_month: int
     """
@@ -3473,17 +1243,21 @@ class Card(
     """
     The last 4 digits of the card number.
     """
+    latest_fraud_warning: Optional[LatestFraudWarning]
+    """
+    Stripe's assessment of whether this card's details have been compromised. If this property isn't null, cancel and reissue the card to prevent fraudulent activity risk.
+    """
     livemode: bool
     """
     Has the value `true` if the object exists in live mode or the value `false` if the object exists in test mode.
     """
     metadata: Dict[str, str]
     """
-    Set of [key-value pairs](https://stripe.com/docs/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
+    Set of [key-value pairs](https://docs.stripe.com/api/metadata) that you can attach to an object. This can be useful for storing additional information about the object in a structured format.
     """
     number: Optional[str]
     """
-    The full unredacted card number. For security reasons, this is only available for virtual cards, and will be omitted unless you explicitly request it with [the `expand` parameter](https://stripe.com/docs/api/expanding_objects). Additionally, it's only available via the ["Retrieve a card" endpoint](https://stripe.com/docs/api/issuing/cards/retrieve), not via "List all cards" or any other endpoint.
+    The full unredacted card number. For security reasons, this is only available for virtual cards, and will be omitted unless you explicitly request it with [the `expand` parameter](https://docs.stripe.com/api/expanding_objects). Additionally, it's only available via the ["Retrieve a card" endpoint](https://docs.stripe.com/api/issuing/cards/retrieve), not via "List all cards" or any other endpoint.
     """
     object: Literal["issuing.card"]
     """
@@ -3507,6 +1281,10 @@ class Card(
     """
     The reason why the previous card needed to be replaced.
     """
+    second_line: Optional[str]
+    """
+    Text separate from cardholder name, printed on the card.
+    """
     shipping: Optional[Shipping]
     """
     Where and how the card will be shipped.
@@ -3526,7 +1304,7 @@ class Card(
     """
 
     @classmethod
-    def create(cls, **params: Unpack["Card.CreateParams"]) -> "Card":
+    def create(cls, **params: Unpack["CardCreateParams"]) -> "Card":
         """
         Creates an Issuing Card object.
         """
@@ -3541,7 +1319,7 @@ class Card(
 
     @classmethod
     async def create_async(
-        cls, **params: Unpack["Card.CreateParams"]
+        cls, **params: Unpack["CardCreateParams"]
     ) -> "Card":
         """
         Creates an Issuing Card object.
@@ -3556,7 +1334,7 @@ class Card(
         )
 
     @classmethod
-    def list(cls, **params: Unpack["Card.ListParams"]) -> ListObject["Card"]:
+    def list(cls, **params: Unpack["CardListParams"]) -> ListObject["Card"]:
         """
         Returns a list of Issuing Card objects. The objects are sorted in descending order by creation date, with the most recently created object appearing first.
         """
@@ -3575,7 +1353,7 @@ class Card(
 
     @classmethod
     async def list_async(
-        cls, **params: Unpack["Card.ListParams"]
+        cls, **params: Unpack["CardListParams"]
     ) -> ListObject["Card"]:
         """
         Returns a list of Issuing Card objects. The objects are sorted in descending order by creation date, with the most recently created object appearing first.
@@ -3594,7 +1372,7 @@ class Card(
         return result
 
     @classmethod
-    def modify(cls, id: str, **params: Unpack["Card.ModifyParams"]) -> "Card":
+    def modify(cls, id: str, **params: Unpack["CardModifyParams"]) -> "Card":
         """
         Updates the specified Issuing Card object by setting the values of the parameters passed. Any parameters not provided will be left unchanged.
         """
@@ -3610,7 +1388,7 @@ class Card(
 
     @classmethod
     async def modify_async(
-        cls, id: str, **params: Unpack["Card.ModifyParams"]
+        cls, id: str, **params: Unpack["CardModifyParams"]
     ) -> "Card":
         """
         Updates the specified Issuing Card object by setting the values of the parameters passed. Any parameters not provided will be left unchanged.
@@ -3627,7 +1405,7 @@ class Card(
 
     @classmethod
     def retrieve(
-        cls, id: str, **params: Unpack["Card.RetrieveParams"]
+        cls, id: str, **params: Unpack["CardRetrieveParams"]
     ) -> "Card":
         """
         Retrieves an Issuing Card object.
@@ -3638,7 +1416,7 @@ class Card(
 
     @classmethod
     async def retrieve_async(
-        cls, id: str, **params: Unpack["Card.RetrieveParams"]
+        cls, id: str, **params: Unpack["CardRetrieveParams"]
     ) -> "Card":
         """
         Retrieves an Issuing Card object.
@@ -3652,7 +1430,7 @@ class Card(
 
         @classmethod
         def _cls_deliver_card(
-            cls, card: str, **params: Unpack["Card.DeliverCardParams"]
+            cls, card: str, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3671,7 +1449,7 @@ class Card(
         @overload
         @staticmethod
         def deliver_card(
-            card: str, **params: Unpack["Card.DeliverCardParams"]
+            card: str, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3680,7 +1458,7 @@ class Card(
 
         @overload
         def deliver_card(
-            self, **params: Unpack["Card.DeliverCardParams"]
+            self, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3689,7 +1467,7 @@ class Card(
 
         @class_method_variant("_cls_deliver_card")
         def deliver_card(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.DeliverCardParams"]
+            self, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3707,7 +1485,7 @@ class Card(
 
         @classmethod
         async def _cls_deliver_card_async(
-            cls, card: str, **params: Unpack["Card.DeliverCardParams"]
+            cls, card: str, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3726,7 +1504,7 @@ class Card(
         @overload
         @staticmethod
         async def deliver_card_async(
-            card: str, **params: Unpack["Card.DeliverCardParams"]
+            card: str, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3735,7 +1513,7 @@ class Card(
 
         @overload
         async def deliver_card_async(
-            self, **params: Unpack["Card.DeliverCardParams"]
+            self, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3744,7 +1522,7 @@ class Card(
 
         @class_method_variant("_cls_deliver_card_async")
         async def deliver_card_async(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.DeliverCardParams"]
+            self, **params: Unpack["CardDeliverCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to delivered.
@@ -3762,7 +1540,7 @@ class Card(
 
         @classmethod
         def _cls_fail_card(
-            cls, card: str, **params: Unpack["Card.FailCardParams"]
+            cls, card: str, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3781,7 +1559,7 @@ class Card(
         @overload
         @staticmethod
         def fail_card(
-            card: str, **params: Unpack["Card.FailCardParams"]
+            card: str, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3789,7 +1567,7 @@ class Card(
             ...
 
         @overload
-        def fail_card(self, **params: Unpack["Card.FailCardParams"]) -> "Card":
+        def fail_card(self, **params: Unpack["CardFailCardParams"]) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
             """
@@ -3797,7 +1575,7 @@ class Card(
 
         @class_method_variant("_cls_fail_card")
         def fail_card(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.FailCardParams"]
+            self, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3815,7 +1593,7 @@ class Card(
 
         @classmethod
         async def _cls_fail_card_async(
-            cls, card: str, **params: Unpack["Card.FailCardParams"]
+            cls, card: str, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3834,7 +1612,7 @@ class Card(
         @overload
         @staticmethod
         async def fail_card_async(
-            card: str, **params: Unpack["Card.FailCardParams"]
+            card: str, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3843,7 +1621,7 @@ class Card(
 
         @overload
         async def fail_card_async(
-            self, **params: Unpack["Card.FailCardParams"]
+            self, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3852,7 +1630,7 @@ class Card(
 
         @class_method_variant("_cls_fail_card_async")
         async def fail_card_async(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.FailCardParams"]
+            self, **params: Unpack["CardFailCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to failure.
@@ -3870,7 +1648,7 @@ class Card(
 
         @classmethod
         def _cls_return_card(
-            cls, card: str, **params: Unpack["Card.ReturnCardParams"]
+            cls, card: str, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3889,7 +1667,7 @@ class Card(
         @overload
         @staticmethod
         def return_card(
-            card: str, **params: Unpack["Card.ReturnCardParams"]
+            card: str, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3898,7 +1676,7 @@ class Card(
 
         @overload
         def return_card(
-            self, **params: Unpack["Card.ReturnCardParams"]
+            self, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3907,7 +1685,7 @@ class Card(
 
         @class_method_variant("_cls_return_card")
         def return_card(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.ReturnCardParams"]
+            self, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3925,7 +1703,7 @@ class Card(
 
         @classmethod
         async def _cls_return_card_async(
-            cls, card: str, **params: Unpack["Card.ReturnCardParams"]
+            cls, card: str, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3944,7 +1722,7 @@ class Card(
         @overload
         @staticmethod
         async def return_card_async(
-            card: str, **params: Unpack["Card.ReturnCardParams"]
+            card: str, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3953,7 +1731,7 @@ class Card(
 
         @overload
         async def return_card_async(
-            self, **params: Unpack["Card.ReturnCardParams"]
+            self, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3962,7 +1740,7 @@ class Card(
 
         @class_method_variant("_cls_return_card_async")
         async def return_card_async(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.ReturnCardParams"]
+            self, **params: Unpack["CardReturnCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to returned.
@@ -3980,7 +1758,7 @@ class Card(
 
         @classmethod
         def _cls_ship_card(
-            cls, card: str, **params: Unpack["Card.ShipCardParams"]
+            cls, card: str, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -3999,7 +1777,7 @@ class Card(
         @overload
         @staticmethod
         def ship_card(
-            card: str, **params: Unpack["Card.ShipCardParams"]
+            card: str, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -4007,7 +1785,7 @@ class Card(
             ...
 
         @overload
-        def ship_card(self, **params: Unpack["Card.ShipCardParams"]) -> "Card":
+        def ship_card(self, **params: Unpack["CardShipCardParams"]) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
             """
@@ -4015,7 +1793,7 @@ class Card(
 
         @class_method_variant("_cls_ship_card")
         def ship_card(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.ShipCardParams"]
+            self, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -4033,7 +1811,7 @@ class Card(
 
         @classmethod
         async def _cls_ship_card_async(
-            cls, card: str, **params: Unpack["Card.ShipCardParams"]
+            cls, card: str, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -4052,7 +1830,7 @@ class Card(
         @overload
         @staticmethod
         async def ship_card_async(
-            card: str, **params: Unpack["Card.ShipCardParams"]
+            card: str, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -4061,7 +1839,7 @@ class Card(
 
         @overload
         async def ship_card_async(
-            self, **params: Unpack["Card.ShipCardParams"]
+            self, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -4070,7 +1848,7 @@ class Card(
 
         @class_method_variant("_cls_ship_card_async")
         async def ship_card_async(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.ShipCardParams"]
+            self, **params: Unpack["CardShipCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to shipped.
@@ -4088,7 +1866,7 @@ class Card(
 
         @classmethod
         def _cls_submit_card(
-            cls, card: str, **params: Unpack["Card.SubmitCardParams"]
+            cls, card: str, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4107,7 +1885,7 @@ class Card(
         @overload
         @staticmethod
         def submit_card(
-            card: str, **params: Unpack["Card.SubmitCardParams"]
+            card: str, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4116,7 +1894,7 @@ class Card(
 
         @overload
         def submit_card(
-            self, **params: Unpack["Card.SubmitCardParams"]
+            self, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4125,7 +1903,7 @@ class Card(
 
         @class_method_variant("_cls_submit_card")
         def submit_card(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.SubmitCardParams"]
+            self, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4143,7 +1921,7 @@ class Card(
 
         @classmethod
         async def _cls_submit_card_async(
-            cls, card: str, **params: Unpack["Card.SubmitCardParams"]
+            cls, card: str, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4162,7 +1940,7 @@ class Card(
         @overload
         @staticmethod
         async def submit_card_async(
-            card: str, **params: Unpack["Card.SubmitCardParams"]
+            card: str, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4171,7 +1949,7 @@ class Card(
 
         @overload
         async def submit_card_async(
-            self, **params: Unpack["Card.SubmitCardParams"]
+            self, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4180,7 +1958,7 @@ class Card(
 
         @class_method_variant("_cls_submit_card_async")
         async def submit_card_async(  # pyright: ignore[reportGeneralTypeIssues]
-            self, **params: Unpack["Card.SubmitCardParams"]
+            self, **params: Unpack["CardSubmitCardParams"]
         ) -> "Card":
             """
             Updates the shipping status of the specified Issuing Card object to submitted. This method requires Stripe Version ‘2024-09-30.acacia' or later.
@@ -4201,6 +1979,7 @@ class Card(
         return self.TestHelpers(self)
 
     _inner_class_types = {
+        "latest_fraud_warning": LatestFraudWarning,
         "shipping": Shipping,
         "spending_controls": SpendingControls,
         "wallets": Wallets,

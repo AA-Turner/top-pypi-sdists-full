@@ -1,9 +1,7 @@
 import asyncio
 import math
-import sys
 import time
 import types
-import uuid
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -12,16 +10,11 @@ from typing import (
     Dict,
     Generic,
     Optional,
+    ParamSpec,
     Tuple,
     TypedDict,
     TypeVar,
-    Union,
 )
-
-if sys.version_info < (3, 10):
-    from typing_extensions import ParamSpec
-else:
-    from typing import ParamSpec
 
 from dbos._client import (
     DBOSClient,
@@ -45,7 +38,7 @@ from dbos._error import DBOSQueueDeduplicatedError
 from dbos._queue import Queue
 from dbos._registrations import get_dbos_func_name
 from dbos._serialization import WorkflowInputs
-from dbos._utils import INTERNAL_QUEUE_NAME
+from dbos._utils import INTERNAL_QUEUE_NAME, generate_uuid
 
 if TYPE_CHECKING:
     from dbos._dbos import WorkflowHandle, WorkflowHandleAsync
@@ -92,13 +85,19 @@ def debouncer_workflow(
     dbos = _get_dbos_instance()
 
     workflow_inputs: WorkflowInputs = {"args": args, "kwargs": kwargs}
+
     # Every time the debounced workflow is called, a message is sent to this workflow.
     # It waits until debounce_period_sec have passed since the last message or until
     # debounce_timeout_sec has elapsed.
-    debounce_deadline_epoch_sec = (
-        time.time() + options["debounce_timeout_sec"]
-        if options["debounce_timeout_sec"]
-        else math.inf
+    def get_debounce_deadline_epoch_sec() -> float:
+        return (
+            time.time() + options["debounce_timeout_sec"]
+            if options["debounce_timeout_sec"]
+            else math.inf
+        )
+
+    debounce_deadline_epoch_sec = dbos._sys_db.call_function_as_step(
+        get_debounce_deadline_epoch_sec, "get_debounce_deadline_epoch_sec"
     )
     debounce_period_sec = initial_debounce_period_sec
     while time.time() < debounce_deadline_epoch_sec:
@@ -209,7 +208,7 @@ class Debouncer(Generic[P, R]):
 
             # Deterministically generate the user workflow ID and message ID
             def assign_debounce_ids() -> tuple[str, str]:
-                return str(uuid.uuid4()), ctx.assign_workflow_id()
+                return generate_uuid(), ctx.assign_workflow_id()
 
             message_id, user_workflow_id = dbos._sys_db.call_function_as_step(
                 assign_debounce_ids, "DBOS.assign_debounce_ids"
@@ -320,14 +319,14 @@ class DebouncerClient:
             "workflow_id": (
                 self.workflow_options["workflow_id"]
                 if self.workflow_options.get("workflow_id")
-                else str(uuid.uuid4())
+                else generate_uuid()
             ),
             "app_version": self.workflow_options.get("app_version"),
             "deduplication_id": self.workflow_options.get("deduplication_id"),
             "priority": self.workflow_options.get("priority"),
             "workflow_timeout_sec": self.workflow_options.get("workflow_timeout"),
         }
-        message_id = str(uuid.uuid4())
+        message_id = generate_uuid()
         while True:
             try:
                 # Attempt to enqueue a debouncer for this workflow.

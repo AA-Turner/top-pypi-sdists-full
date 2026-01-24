@@ -5,17 +5,21 @@ import schemathesis
 from schemathesis.checks import CheckContext
 from schemathesis.config._checks import ChecksConfig
 from schemathesis.core.failures import Failure
+from schemathesis.core.parameters import ParameterLocation
 from schemathesis.core.transport import Response
 from schemathesis.generation import GenerationMode
 from schemathesis.generation.meta import (
     CaseMetadata,
     ComponentInfo,
-    ComponentKind,
+    CoverageScenario,
+    FuzzingPhaseData,
     GenerationInfo,
     PhaseInfo,
+    TestPhase,
 )
 from schemathesis.specs.openapi.checks import (
     ResourcePath,
+    _body_negation_becomes_valid_after_serialization,
     _is_prefix_operation,
     has_only_additional_properties_in_non_body_parameters,
     negative_data_rejection,
@@ -94,15 +98,23 @@ def build_metadata(
         components={
             kind: ComponentInfo(mode=value)
             for kind, value in [
-                (ComponentKind.QUERY, query),
-                (ComponentKind.PATH_PARAMETERS, path_parameters),
-                (ComponentKind.HEADERS, headers),
-                (ComponentKind.COOKIES, cookies),
-                (ComponentKind.BODY, body),
+                (ParameterLocation.QUERY, query),
+                (ParameterLocation.PATH, path_parameters),
+                (ParameterLocation.HEADER, headers),
+                (ParameterLocation.COOKIE, cookies),
+                (ParameterLocation.BODY, body),
             ]
             if value is not None
         },
-        phase=PhaseInfo.fuzzing(),
+        phase=PhaseInfo(
+            name=TestPhase.FUZZING,
+            data=FuzzingPhaseData(
+                description="",
+                parameter=None,
+                parameter_location=None,
+                location=None,
+            ),
+        ),
     )
 
 
@@ -119,7 +131,7 @@ def sample_schema(ctx):
                             "schema": {"type": "integer", "minimum": 5},
                         },
                         {
-                            "in": "headers",
+                            "in": "header",
                             "name": "X-Key",
                             "schema": {"type": "integer", "minimum": 5},
                         },
@@ -205,6 +217,51 @@ def test_negative_data_rejection_on_additional_properties(response_factory, samp
     )
 
 
+@pytest.mark.parametrize(
+    ("media_type", "body_mode", "query_mode", "header_mode", "expected"),
+    [
+        ("text/plain", GenerationMode.NEGATIVE, None, None, True),
+        ("application/octet-stream", GenerationMode.NEGATIVE, None, None, True),
+        ("application/json", GenerationMode.NEGATIVE, None, None, False),
+        ("text/plain", GenerationMode.NEGATIVE, GenerationMode.NEGATIVE, None, False),
+        ("text/plain", GenerationMode.NEGATIVE, None, GenerationMode.NEGATIVE, False),
+        ("text/plain", GenerationMode.NEGATIVE, GenerationMode.NEGATIVE, GenerationMode.NEGATIVE, False),
+        ("text/plain", None, GenerationMode.NEGATIVE, None, False),
+    ],
+)
+def test_body_negation_becomes_valid_after_serialization(ctx, media_type, body_mode, query_mode, header_mode, expected):
+    text_plain_schema = ctx.openapi.build_schema(
+        {
+            "/endpoint": {
+                "put": {
+                    "parameters": [
+                        {"in": "query", "name": "key", "schema": {"type": "integer"}},
+                        {"in": "header", "name": "X-Key", "schema": {"type": "integer"}},
+                    ],
+                    "requestBody": {
+                        "required": True,
+                        "content": {media_type: {"schema": {"type": "string"}}},
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    schema = schemathesis.openapi.from_dict(text_plain_schema)
+    operation = schema["/endpoint"]["PUT"]
+    case = operation.Case(
+        _meta=build_metadata(
+            body=body_mode,
+            query=query_mode,
+            headers=header_mode,
+            generation_mode=GenerationMode.NEGATIVE,
+        ),
+        body={},
+        media_type=media_type,
+    )
+    assert _body_negation_becomes_valid_after_serialization(case) is expected
+
+
 def test_response_schema_conformance_with_unspecified_method(response_factory, sample_schema):
     response = response_factory.requests()
     response = Response.from_requests(response, True)
@@ -231,9 +288,10 @@ def test_response_schema_conformance_with_unspecified_method(response_factory, s
                 mode=GenerationMode.NEGATIVE,
             ),
             components={
-                ComponentKind.QUERY: ComponentInfo(mode=GenerationMode.NEGATIVE),
+                ParameterLocation.QUERY: ComponentInfo(mode=GenerationMode.NEGATIVE),
             },
             phase=PhaseInfo.coverage(
+                CoverageScenario.UNSPECIFIED_HTTP_METHOD,
                 description="Unspecified HTTP method: PUT",
             ),
         ),
@@ -459,3 +517,65 @@ def test_method_not_allowed(ctx, cli, openapi3_base_url, snapshot_cli, path, met
         )
         == snapshot_cli
     )
+
+
+def test_negative_data_rejection_single_element_array_serialization(ctx, response_factory):
+    # When a single-element array is generated for negative testing (e.g., [67] for an integer parameter),
+    # it serializes to the same query string as a single integer (page=67).
+    # The API correctly accepts this as valid, so negative_data_rejection should not fail.
+
+    raw_schema = ctx.openapi.build_schema(
+        {
+            "/job_info/scroll": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "page",
+                            "in": "query",
+                            "required": False,
+                            "schema": {"type": "integer"},
+                        }
+                    ],
+                    "responses": {
+                        "200": {"description": "Success"},
+                        "400": {"description": "Bad Request"},
+                    },
+                }
+            }
+        }
+    )
+
+    schema = schemathesis.openapi.from_dict(raw_schema)
+    operation = schema["/job_info/scroll"]["GET"]
+
+    # Simulate negative testing where a single-element array [67] is generated
+    # for an integer parameter
+    case = operation.Case(
+        _meta=build_metadata(
+            query=GenerationMode.NEGATIVE,
+            generation_mode=GenerationMode.NEGATIVE,
+        ),
+        query={"page": [67]},  # Single-element array
+    )
+
+    # Create a successful response (200 OK)
+    response = response_factory.requests(status_code=200)
+
+    # The check should NOT raise an error because:
+    # 1. The single-element array [67] serializes to "67"
+    # 2. This is valid for an integer parameter
+    # 3. The API correctly returns 200
+    result = negative_data_rejection(
+        CheckContext(
+            override=None,
+            auth=None,
+            headers=None,
+            config=ChecksConfig(),
+            transport_kwargs=None,
+        ),
+        response,
+        case,
+    )
+
+    # Should return None (no error) because the serialized value is valid
+    assert result is None

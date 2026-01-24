@@ -3,7 +3,7 @@ Type annotations for internetmonitor service Client.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_internetmonitor/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -57,12 +58,6 @@ from .type_defs import (
     UpdateMonitorOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -73,18 +68,18 @@ __all__ = ("CloudWatchInternetMonitorClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BadRequestException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerErrorException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerErrorException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class CloudWatchInternetMonitorClient(BaseClient):
@@ -132,7 +127,7 @@ class CloudWatchInternetMonitorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_internetmonitor/client/#create_monitor)
         """
 
-    def delete_monitor(self, **kwargs: Unpack[DeleteMonitorInputTypeDef]) -> Dict[str, Any]:
+    def delete_monitor(self, **kwargs: Unpack[DeleteMonitorInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a monitor in Amazon CloudWatch Internet Monitor.
 
@@ -244,7 +239,7 @@ class CloudWatchInternetMonitorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_internetmonitor/client/#start_query)
         """
 
-    def stop_query(self, **kwargs: Unpack[StopQueryInputTypeDef]) -> Dict[str, Any]:
+    def stop_query(self, **kwargs: Unpack[StopQueryInputTypeDef]) -> dict[str, Any]:
         """
         Stop a query that is progress for a specific monitor.
 
@@ -252,7 +247,7 @@ class CloudWatchInternetMonitorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_internetmonitor/client/#stop_query)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
 
@@ -260,7 +255,7 @@ class CloudWatchInternetMonitorClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_internetmonitor/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource.
 

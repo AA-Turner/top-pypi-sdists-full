@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -140,12 +141,6 @@ from .type_defs import (
     UpdateThesaurusRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -154,19 +149,19 @@ else:
 __all__ = ("KendraClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    FeaturedResultsConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceAlreadyExistException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceUnavailableException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    FeaturedResultsConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceAlreadyExistException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceUnavailableException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class KendraClient(BaseClient):
     """
@@ -360,7 +355,7 @@ class KendraClient(BaseClient):
 
     def delete_access_control_configuration(
         self, **kwargs: Unpack[DeleteAccessControlConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an access control configuration that you created for your documents in
         an index.
@@ -379,7 +374,7 @@ class KendraClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kendra/client/#delete_data_source)
         """
 
-    def delete_experience(self, **kwargs: Unpack[DeleteExperienceRequestTypeDef]) -> Dict[str, Any]:
+    def delete_experience(self, **kwargs: Unpack[DeleteExperienceRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes your Amazon Kendra experience such as a search application.
 
@@ -770,7 +765,7 @@ class KendraClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kendra/client/#submit_feedback)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tag to the specified index, FAQ, data source, or other
         resource.
@@ -779,7 +774,7 @@ class KendraClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kendra/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from an index, FAQ, data source, or other resource.
 
@@ -789,7 +784,7 @@ class KendraClient(BaseClient):
 
     def update_access_control_configuration(
         self, **kwargs: Unpack[UpdateAccessControlConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an access control configuration for your documents in an index.
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -186,9 +186,9 @@ class HumanLoopQuotaExceededException(ServiceException):
     code: str = "HumanLoopQuotaExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceType: Optional[String]
-    QuotaCode: Optional[String]
-    ServiceCode: Optional[String]
+    ResourceType: String | None
+    QuotaCode: String | None
+    ServiceCode: String | None
 
 
 class IdempotentParameterMismatchException(ServiceException):
@@ -328,7 +328,7 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
-AdapterPages = List[AdapterPage]
+AdapterPages = list[AdapterPage]
 
 
 class Adapter(TypedDict, total=False):
@@ -338,11 +338,11 @@ class Adapter(TypedDict, total=False):
     """
 
     AdapterId: AdapterId
-    Pages: Optional[AdapterPages]
+    Pages: AdapterPages | None
     Version: AdapterVersion
 
 
-FeatureTypes = List[FeatureType]
+FeatureTypes = list[FeatureType]
 DateTime = datetime
 
 
@@ -351,13 +351,13 @@ class AdapterOverview(TypedDict, total=False):
     Creation time, and feature types.
     """
 
-    AdapterId: Optional[AdapterId]
-    AdapterName: Optional[AdapterName]
-    CreationTime: Optional[DateTime]
-    FeatureTypes: Optional[FeatureTypes]
+    AdapterId: AdapterId | None
+    AdapterName: AdapterName | None
+    CreationTime: DateTime | None
+    FeatureTypes: FeatureTypes | None
 
 
-AdapterList = List[AdapterOverview]
+AdapterList = list[AdapterOverview]
 
 
 class S3Object(TypedDict, total=False):
@@ -370,9 +370,9 @@ class S3Object(TypedDict, total=False):
     have permission to access the S3 bucket and file.
     """
 
-    Bucket: Optional[S3Bucket]
-    Name: Optional[S3ObjectName]
-    Version: Optional[S3ObjectVersion]
+    Bucket: S3Bucket | None
+    Name: S3ObjectName | None
+    Version: S3ObjectVersion | None
 
 
 class AdapterVersionDatasetConfig(TypedDict, total=False):
@@ -380,7 +380,7 @@ class AdapterVersionDatasetConfig(TypedDict, total=False):
     include an Amazon S3 bucket if specified.
     """
 
-    ManifestS3Object: Optional[S3Object]
+    ManifestS3Object: S3Object | None
 
 
 class EvaluationMetric(TypedDict, total=False):
@@ -388,9 +388,9 @@ class EvaluationMetric(TypedDict, total=False):
     version.
     """
 
-    F1Score: Optional[Float]
-    Precision: Optional[Float]
-    Recall: Optional[Float]
+    F1Score: Float | None
+    Precision: Float | None
+    Recall: Float | None
 
 
 class AdapterVersionEvaluationMetric(TypedDict, total=False):
@@ -399,12 +399,12 @@ class AdapterVersionEvaluationMetric(TypedDict, total=False):
     individual adapter version perfromance.
     """
 
-    Baseline: Optional[EvaluationMetric]
-    AdapterVersion: Optional[EvaluationMetric]
-    FeatureType: Optional[FeatureType]
+    Baseline: EvaluationMetric | None
+    AdapterVersion: EvaluationMetric | None
+    FeatureType: FeatureType | None
 
 
-AdapterVersionEvaluationMetrics = List[AdapterVersionEvaluationMetric]
+AdapterVersionEvaluationMetrics = list[AdapterVersionEvaluationMetric]
 
 
 class AdapterVersionOverview(TypedDict, total=False):
@@ -412,16 +412,16 @@ class AdapterVersionOverview(TypedDict, total=False):
     AdapterId, AdapterVersion, CreationTime, FeatureTypes, and Status.
     """
 
-    AdapterId: Optional[AdapterId]
-    AdapterVersion: Optional[AdapterVersion]
-    CreationTime: Optional[DateTime]
-    FeatureTypes: Optional[FeatureTypes]
-    Status: Optional[AdapterVersionStatus]
-    StatusMessage: Optional[AdapterVersionStatusMessage]
+    AdapterId: AdapterId | None
+    AdapterVersion: AdapterVersion | None
+    CreationTime: DateTime | None
+    FeatureTypes: FeatureTypes | None
+    Status: AdapterVersionStatus | None
+    StatusMessage: AdapterVersionStatusMessage | None
 
 
-AdapterVersionList = List[AdapterVersionOverview]
-Adapters = List[Adapter]
+AdapterVersionList = list[AdapterVersionOverview]
+Adapters = list[Adapter]
 
 
 class AdaptersConfig(TypedDict, total=False):
@@ -432,7 +432,7 @@ class AdaptersConfig(TypedDict, total=False):
     Adapters: Adapters
 
 
-QueryPages = List[QueryPage]
+QueryPages = list[QueryPage]
 
 
 class Query(TypedDict, total=False):
@@ -441,18 +441,18 @@ class Query(TypedDict, total=False):
     """
 
     Text: QueryInput
-    Alias: Optional[QueryInput]
-    Pages: Optional[QueryPages]
+    Alias: QueryInput | None
+    Pages: QueryPages | None
 
 
-Queries = List[Query]
+Queries = list[Query]
 
 
 class QueriesConfig(TypedDict, total=False):
     Queries: Queries
 
 
-ContentClassifiers = List[ContentClassifier]
+ContentClassifiers = list[ContentClassifier]
 
 
 class HumanLoopDataAttributes(TypedDict, total=False):
@@ -460,7 +460,7 @@ class HumanLoopDataAttributes(TypedDict, total=False):
     image as free of personally identifiable information and adult content.
     """
 
-    ContentClassifiers: Optional[ContentClassifiers]
+    ContentClassifiers: ContentClassifiers | None
 
 
 class HumanLoopConfig(TypedDict, total=False):
@@ -471,7 +471,7 @@ class HumanLoopConfig(TypedDict, total=False):
 
     HumanLoopName: HumanLoopName
     FlowDefinitionArn: FlowDefinitionArn
-    DataAttributes: Optional[HumanLoopDataAttributes]
+    DataAttributes: HumanLoopDataAttributes | None
 
 
 ImageBlob = bytes
@@ -503,19 +503,19 @@ class Document(TypedDict, total=False):
     permission to access the S3 object.
     """
 
-    Bytes: Optional[ImageBlob]
-    S3Object: Optional[S3Object]
+    Bytes: ImageBlob | None
+    S3Object: S3Object | None
 
 
 class AnalyzeDocumentRequest(ServiceRequest):
     Document: Document
     FeatureTypes: FeatureTypes
-    HumanLoopConfig: Optional[HumanLoopConfig]
-    QueriesConfig: Optional[QueriesConfig]
-    AdaptersConfig: Optional[AdaptersConfig]
+    HumanLoopConfig: HumanLoopConfig | None
+    QueriesConfig: QueriesConfig | None
+    AdaptersConfig: AdaptersConfig | None
 
 
-HumanLoopActivationReasons = List[HumanLoopActivationReason]
+HumanLoopActivationReasons = list[HumanLoopActivationReason]
 
 
 class HumanLoopActivationOutput(TypedDict, total=False):
@@ -523,15 +523,15 @@ class HumanLoopActivationOutput(TypedDict, total=False):
     HumanLoopArn, the input did not trigger human review.
     """
 
-    HumanLoopArn: Optional[HumanLoopArn]
-    HumanLoopActivationReasons: Optional[HumanLoopActivationReasons]
-    HumanLoopActivationConditionsEvaluationResults: Optional[
-        HumanLoopActivationConditionsEvaluationResults
-    ]
+    HumanLoopArn: HumanLoopArn | None
+    HumanLoopActivationReasons: HumanLoopActivationReasons | None
+    HumanLoopActivationConditionsEvaluationResults: (
+        HumanLoopActivationConditionsEvaluationResults | None
+    )
 
 
-EntityTypes = List[EntityType]
-IdList = List[NonEmptyString]
+EntityTypes = list[EntityType]
+IdList = list[NonEmptyString]
 
 
 class Relationship(TypedDict, total=False):
@@ -543,11 +543,11 @@ class Relationship(TypedDict, total=False):
     blocks in the ``IDs`` array.
     """
 
-    Type: Optional[RelationshipType]
-    Ids: Optional[IdList]
+    Type: RelationshipType | None
+    Ids: IdList | None
 
 
-RelationshipList = List[Relationship]
+RelationshipList = list[Relationship]
 
 
 class Point(TypedDict, total=False):
@@ -563,11 +563,11 @@ class Point(TypedDict, total=False):
     Developer Guide.
     """
 
-    X: Optional[Float]
-    Y: Optional[Float]
+    X: Float | None
+    Y: Float | None
 
 
-Polygon = List[Point]
+Polygon = list[Point]
 
 
 class BoundingBox(TypedDict, total=False):
@@ -589,10 +589,10 @@ class BoundingBox(TypedDict, total=False):
     box width is 70 pixels, the width returned is 0.1.
     """
 
-    Width: Optional[Float]
-    Height: Optional[Float]
-    Left: Optional[Float]
-    Top: Optional[Float]
+    Width: Float | None
+    Height: Float | None
+    Left: Float | None
+    Top: Float | None
 
 
 class Geometry(TypedDict, total=False):
@@ -601,9 +601,9 @@ class Geometry(TypedDict, total=False):
     selection elements.
     """
 
-    BoundingBox: Optional[BoundingBox]
-    Polygon: Optional[Polygon]
-    RotationAngle: Optional[Angle]
+    BoundingBox: BoundingBox | None
+    Polygon: Polygon | None
+    RotationAngle: Angle | None
 
 
 class Block(TypedDict, total=False):
@@ -625,44 +625,44 @@ class Block(TypedDict, total=False):
     Works <https://docs.aws.amazon.com/textract/latest/dg/how-it-works.html>`__.
     """
 
-    BlockType: Optional[BlockType]
-    Confidence: Optional[Percent]
-    Text: Optional[String]
-    TextType: Optional[TextType]
-    RowIndex: Optional[UInteger]
-    ColumnIndex: Optional[UInteger]
-    RowSpan: Optional[UInteger]
-    ColumnSpan: Optional[UInteger]
-    Geometry: Optional[Geometry]
-    Id: Optional[NonEmptyString]
-    Relationships: Optional[RelationshipList]
-    EntityTypes: Optional[EntityTypes]
-    SelectionStatus: Optional[SelectionStatus]
-    Page: Optional[UInteger]
-    Query: Optional[Query]
+    BlockType: BlockType | None
+    Confidence: Percent | None
+    Text: String | None
+    TextType: TextType | None
+    RowIndex: UInteger | None
+    ColumnIndex: UInteger | None
+    RowSpan: UInteger | None
+    ColumnSpan: UInteger | None
+    Geometry: Geometry | None
+    Id: NonEmptyString | None
+    Relationships: RelationshipList | None
+    EntityTypes: EntityTypes | None
+    SelectionStatus: SelectionStatus | None
+    Page: UInteger | None
+    Query: Query | None
 
 
-BlockList = List[Block]
+BlockList = list[Block]
 
 
 class DocumentMetadata(TypedDict, total=False):
     """Information about the input document."""
 
-    Pages: Optional[UInteger]
+    Pages: UInteger | None
 
 
 class AnalyzeDocumentResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    Blocks: Optional[BlockList]
-    HumanLoopActivationOutput: Optional[HumanLoopActivationOutput]
-    AnalyzeDocumentModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    Blocks: BlockList | None
+    HumanLoopActivationOutput: HumanLoopActivationOutput | None
+    AnalyzeDocumentModelVersion: String | None
 
 
 class AnalyzeExpenseRequest(ServiceRequest):
     Document: Document
 
 
-StringList = List[String]
+StringList = list[String]
 
 
 class ExpenseGroupProperty(TypedDict, total=False):
@@ -671,18 +671,18 @@ class ExpenseGroupProperty(TypedDict, total=False):
     hard to determine via JSON response.
     """
 
-    Types: Optional[StringList]
-    Id: Optional[String]
+    Types: StringList | None
+    Id: String | None
 
 
-ExpenseGroupPropertyList = List[ExpenseGroupProperty]
+ExpenseGroupPropertyList = list[ExpenseGroupProperty]
 
 
 class ExpenseCurrency(TypedDict, total=False):
     """Returns the kind of currency detected."""
 
-    Code: Optional[String]
-    Confidence: Optional[Percent]
+    Code: String | None
+    Confidence: Percent | None
 
 
 class ExpenseDetection(TypedDict, total=False):
@@ -690,9 +690,9 @@ class ExpenseDetection(TypedDict, total=False):
     Amazon Textract.
     """
 
-    Text: Optional[String]
-    Geometry: Optional[Geometry]
-    Confidence: Optional[Percent]
+    Text: String | None
+    Geometry: Geometry | None
+    Confidence: Percent | None
 
 
 class ExpenseType(TypedDict, total=False):
@@ -700,8 +700,8 @@ class ExpenseType(TypedDict, total=False):
     Textract.
     """
 
-    Text: Optional[String]
-    Confidence: Optional[Percent]
+    Text: String | None
+    Confidence: Percent | None
 
 
 class ExpenseField(TypedDict, total=False):
@@ -709,15 +709,15 @@ class ExpenseField(TypedDict, total=False):
     LabelDetection, and ValueDetection
     """
 
-    Type: Optional[ExpenseType]
-    LabelDetection: Optional[ExpenseDetection]
-    ValueDetection: Optional[ExpenseDetection]
-    PageNumber: Optional[UInteger]
-    Currency: Optional[ExpenseCurrency]
-    GroupProperties: Optional[ExpenseGroupPropertyList]
+    Type: ExpenseType | None
+    LabelDetection: ExpenseDetection | None
+    ValueDetection: ExpenseDetection | None
+    PageNumber: UInteger | None
+    Currency: ExpenseCurrency | None
+    GroupProperties: ExpenseGroupPropertyList | None
 
 
-ExpenseFieldList = List[ExpenseField]
+ExpenseFieldList = list[ExpenseField]
 
 
 class LineItemFields(TypedDict, total=False):
@@ -725,10 +725,10 @@ class LineItemFields(TypedDict, total=False):
     document's tables.
     """
 
-    LineItemExpenseFields: Optional[ExpenseFieldList]
+    LineItemExpenseFields: ExpenseFieldList | None
 
 
-LineItemList = List[LineItemFields]
+LineItemList = list[LineItemFields]
 
 
 class LineItemGroup(TypedDict, total=False):
@@ -736,28 +736,28 @@ class LineItemGroup(TypedDict, total=False):
     by the table's ``LineItemGroupIndex``.
     """
 
-    LineItemGroupIndex: Optional[UInteger]
-    LineItems: Optional[LineItemList]
+    LineItemGroupIndex: UInteger | None
+    LineItems: LineItemList | None
 
 
-LineItemGroupList = List[LineItemGroup]
+LineItemGroupList = list[LineItemGroup]
 
 
 class ExpenseDocument(TypedDict, total=False):
     """The structure holding all the information returned by AnalyzeExpense"""
 
-    ExpenseIndex: Optional[UInteger]
-    SummaryFields: Optional[ExpenseFieldList]
-    LineItemGroups: Optional[LineItemGroupList]
-    Blocks: Optional[BlockList]
+    ExpenseIndex: UInteger | None
+    SummaryFields: ExpenseFieldList | None
+    LineItemGroups: LineItemGroupList | None
+    Blocks: BlockList | None
 
 
-ExpenseDocumentList = List[ExpenseDocument]
+ExpenseDocumentList = list[ExpenseDocument]
 
 
 class AnalyzeExpenseResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    ExpenseDocuments: Optional[ExpenseDocumentList]
+    DocumentMetadata: DocumentMetadata | None
+    ExpenseDocuments: ExpenseDocumentList | None
 
 
 class NormalizedValue(TypedDict, total=False):
@@ -765,19 +765,19 @@ class NormalizedValue(TypedDict, total=False):
     of value, and the value.
     """
 
-    Value: Optional[String]
-    ValueType: Optional[ValueType]
+    Value: String | None
+    ValueType: ValueType | None
 
 
 class AnalyzeIDDetections(TypedDict, total=False):
     """Used to contain the information detected by an AnalyzeID operation."""
 
     Text: String
-    NormalizedValue: Optional[NormalizedValue]
-    Confidence: Optional[Percent]
+    NormalizedValue: NormalizedValue | None
+    Confidence: Percent | None
 
 
-DocumentPages = List[Document]
+DocumentPages = list[Document]
 
 
 class AnalyzeIDRequest(ServiceRequest):
@@ -790,11 +790,11 @@ class IdentityDocumentField(TypedDict, total=False):
     and Value respectively.
     """
 
-    Type: Optional[AnalyzeIDDetections]
-    ValueDetection: Optional[AnalyzeIDDetections]
+    Type: AnalyzeIDDetections | None
+    ValueDetection: AnalyzeIDDetections | None
 
 
-IdentityDocumentFieldList = List[IdentityDocumentField]
+IdentityDocumentFieldList = list[IdentityDocumentField]
 
 
 class IdentityDocument(TypedDict, total=False):
@@ -802,34 +802,34 @@ class IdentityDocument(TypedDict, total=False):
     operation.
     """
 
-    DocumentIndex: Optional[UInteger]
-    IdentityDocumentFields: Optional[IdentityDocumentFieldList]
-    Blocks: Optional[BlockList]
+    DocumentIndex: UInteger | None
+    IdentityDocumentFields: IdentityDocumentFieldList | None
+    Blocks: BlockList | None
 
 
-IdentityDocumentList = List[IdentityDocument]
+IdentityDocumentList = list[IdentityDocument]
 
 
 class AnalyzeIDResponse(TypedDict, total=False):
-    IdentityDocuments: Optional[IdentityDocumentList]
-    DocumentMetadata: Optional[DocumentMetadata]
-    AnalyzeIDModelVersion: Optional[String]
+    IdentityDocuments: IdentityDocumentList | None
+    DocumentMetadata: DocumentMetadata | None
+    AnalyzeIDModelVersion: String | None
 
 
-TagMap = Dict[TagKey, TagValue]
+TagMap = dict[TagKey, TagValue]
 
 
 class CreateAdapterRequest(ServiceRequest):
     AdapterName: AdapterName
-    ClientRequestToken: Optional[ClientRequestToken]
-    Description: Optional[AdapterDescription]
+    ClientRequestToken: ClientRequestToken | None
+    Description: AdapterDescription | None
     FeatureTypes: FeatureTypes
-    AutoUpdate: Optional[AutoUpdate]
-    Tags: Optional[TagMap]
+    AutoUpdate: AutoUpdate | None
+    Tags: TagMap | None
 
 
 class CreateAdapterResponse(TypedDict, total=False):
-    AdapterId: Optional[AdapterId]
+    AdapterId: AdapterId | None
 
 
 class OutputConfig(TypedDict, total=False):
@@ -860,21 +860,21 @@ class OutputConfig(TypedDict, total=False):
     """
 
     S3Bucket: S3Bucket
-    S3Prefix: Optional[S3ObjectName]
+    S3Prefix: S3ObjectName | None
 
 
 class CreateAdapterVersionRequest(ServiceRequest):
     AdapterId: AdapterId
-    ClientRequestToken: Optional[ClientRequestToken]
+    ClientRequestToken: ClientRequestToken | None
     DatasetConfig: AdapterVersionDatasetConfig
-    KMSKeyId: Optional[KMSKeyId]
+    KMSKeyId: KMSKeyId | None
     OutputConfig: OutputConfig
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class CreateAdapterVersionResponse(TypedDict, total=False):
-    AdapterId: Optional[AdapterId]
-    AdapterVersion: Optional[AdapterVersion]
+    AdapterId: AdapterId | None
+    AdapterVersion: AdapterVersion | None
 
 
 class DeleteAdapterRequest(ServiceRequest):
@@ -899,9 +899,9 @@ class DetectDocumentTextRequest(ServiceRequest):
 
 
 class DetectDocumentTextResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    Blocks: Optional[BlockList]
-    DetectDocumentTextModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    Blocks: BlockList | None
+    DetectDocumentTextModelVersion: String | None
 
 
 class DetectedSignature(TypedDict, total=False):
@@ -909,10 +909,10 @@ class DetectedSignature(TypedDict, total=False):
     page.
     """
 
-    Page: Optional[UInteger]
+    Page: UInteger | None
 
 
-DetectedSignatureList = List[DetectedSignature]
+DetectedSignatureList = list[DetectedSignature]
 
 
 class UndetectedSignature(TypedDict, total=False):
@@ -920,11 +920,11 @@ class UndetectedSignature(TypedDict, total=False):
     page where it was expected but not found.
     """
 
-    Page: Optional[UInteger]
+    Page: UInteger | None
 
 
-UndetectedSignatureList = List[UndetectedSignature]
-PageList = List[UInteger]
+UndetectedSignatureList = list[UndetectedSignature]
+PageList = list[UInteger]
 
 
 class SplitDocument(TypedDict, total=False):
@@ -932,23 +932,23 @@ class SplitDocument(TypedDict, total=False):
     boundary.
     """
 
-    Index: Optional[UInteger]
-    Pages: Optional[PageList]
+    Index: UInteger | None
+    Pages: PageList | None
 
 
-SplitDocumentList = List[SplitDocument]
+SplitDocumentList = list[SplitDocument]
 
 
 class DocumentGroup(TypedDict, total=False):
     """Summary information about documents grouped by the same document type."""
 
-    Type: Optional[NonEmptyString]
-    SplitDocuments: Optional[SplitDocumentList]
-    DetectedSignatures: Optional[DetectedSignatureList]
-    UndetectedSignatures: Optional[UndetectedSignatureList]
+    Type: NonEmptyString | None
+    SplitDocuments: SplitDocumentList | None
+    DetectedSignatures: DetectedSignatureList | None
+    UndetectedSignatures: UndetectedSignatureList | None
 
 
-DocumentGroupList = List[DocumentGroup]
+DocumentGroupList = list[DocumentGroup]
 
 
 class DocumentLocation(TypedDict, total=False):
@@ -959,29 +959,29 @@ class DocumentLocation(TypedDict, total=False):
     also be a file in PDF format.
     """
 
-    S3Object: Optional[S3Object]
+    S3Object: S3Object | None
 
 
 class SignatureDetection(TypedDict, total=False):
     """Information regarding a detected signature on a page."""
 
-    Confidence: Optional[Percent]
-    Geometry: Optional[Geometry]
+    Confidence: Percent | None
+    Geometry: Geometry | None
 
 
-SignatureDetectionList = List[SignatureDetection]
+SignatureDetectionList = list[SignatureDetection]
 
 
 class LendingDetection(TypedDict, total=False):
     """The results extracted for a lending document."""
 
-    Text: Optional[String]
-    SelectionStatus: Optional[SelectionStatus]
-    Geometry: Optional[Geometry]
-    Confidence: Optional[Percent]
+    Text: String | None
+    SelectionStatus: SelectionStatus | None
+    Geometry: Geometry | None
+    Confidence: Percent | None
 
 
-LendingDetectionList = List[LendingDetection]
+LendingDetectionList = list[LendingDetection]
 
 
 class LendingField(TypedDict, total=False):
@@ -989,12 +989,12 @@ class LendingField(TypedDict, total=False):
     including the document type, detected text, and geometry.
     """
 
-    Type: Optional[String]
-    KeyDetection: Optional[LendingDetection]
-    ValueDetections: Optional[LendingDetectionList]
+    Type: String | None
+    KeyDetection: LendingDetection | None
+    ValueDetections: LendingDetectionList | None
 
 
-LendingFieldList = List[LendingField]
+LendingFieldList = list[LendingField]
 
 
 class LendingDocument(TypedDict, total=False):
@@ -1002,8 +1002,8 @@ class LendingDocument(TypedDict, total=False):
     documents.
     """
 
-    LendingFields: Optional[LendingFieldList]
-    SignatureDetections: Optional[SignatureDetectionList]
+    LendingFields: LendingFieldList | None
+    SignatureDetections: SignatureDetectionList | None
 
 
 class Extraction(TypedDict, total=False):
@@ -1011,12 +1011,12 @@ class Extraction(TypedDict, total=False):
     StartLendingAnalysis.
     """
 
-    LendingDocument: Optional[LendingDocument]
-    ExpenseDocument: Optional[ExpenseDocument]
-    IdentityDocument: Optional[IdentityDocument]
+    LendingDocument: LendingDocument | None
+    ExpenseDocument: ExpenseDocument | None
+    IdentityDocument: IdentityDocument | None
 
 
-ExtractionList = List[Extraction]
+ExtractionList = list[Extraction]
 
 
 class GetAdapterRequest(ServiceRequest):
@@ -1024,13 +1024,13 @@ class GetAdapterRequest(ServiceRequest):
 
 
 class GetAdapterResponse(TypedDict, total=False):
-    AdapterId: Optional[AdapterId]
-    AdapterName: Optional[AdapterName]
-    CreationTime: Optional[DateTime]
-    Description: Optional[AdapterDescription]
-    FeatureTypes: Optional[FeatureTypes]
-    AutoUpdate: Optional[AutoUpdate]
-    Tags: Optional[TagMap]
+    AdapterId: AdapterId | None
+    AdapterName: AdapterName | None
+    CreationTime: DateTime | None
+    Description: AdapterDescription | None
+    FeatureTypes: FeatureTypes | None
+    AutoUpdate: AutoUpdate | None
+    Tags: TagMap | None
 
 
 class GetAdapterVersionRequest(ServiceRequest):
@@ -1039,26 +1039,26 @@ class GetAdapterVersionRequest(ServiceRequest):
 
 
 class GetAdapterVersionResponse(TypedDict, total=False):
-    AdapterId: Optional[AdapterId]
-    AdapterVersion: Optional[AdapterVersion]
-    CreationTime: Optional[DateTime]
-    FeatureTypes: Optional[FeatureTypes]
-    Status: Optional[AdapterVersionStatus]
-    StatusMessage: Optional[AdapterVersionStatusMessage]
-    DatasetConfig: Optional[AdapterVersionDatasetConfig]
-    KMSKeyId: Optional[KMSKeyId]
-    OutputConfig: Optional[OutputConfig]
-    EvaluationMetrics: Optional[AdapterVersionEvaluationMetrics]
-    Tags: Optional[TagMap]
+    AdapterId: AdapterId | None
+    AdapterVersion: AdapterVersion | None
+    CreationTime: DateTime | None
+    FeatureTypes: FeatureTypes | None
+    Status: AdapterVersionStatus | None
+    StatusMessage: AdapterVersionStatusMessage | None
+    DatasetConfig: AdapterVersionDatasetConfig | None
+    KMSKeyId: KMSKeyId | None
+    OutputConfig: OutputConfig | None
+    EvaluationMetrics: AdapterVersionEvaluationMetrics | None
+    Tags: TagMap | None
 
 
 class GetDocumentAnalysisRequest(ServiceRequest):
     JobId: JobId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: MaxResults | None
+    NextToken: PaginationToken | None
 
 
-Pages = List[UInteger]
+Pages = list[UInteger]
 
 
 class Warning(TypedDict, total=False):
@@ -1067,59 +1067,59 @@ class Warning(TypedDict, total=False):
     (StartDocumentTextDetection).
     """
 
-    ErrorCode: Optional[ErrorCode]
-    Pages: Optional[Pages]
+    ErrorCode: ErrorCode | None
+    Pages: Pages | None
 
 
-Warnings = List[Warning]
+Warnings = list[Warning]
 
 
 class GetDocumentAnalysisResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    JobStatus: Optional[JobStatus]
-    NextToken: Optional[PaginationToken]
-    Blocks: Optional[BlockList]
-    Warnings: Optional[Warnings]
-    StatusMessage: Optional[StatusMessage]
-    AnalyzeDocumentModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    JobStatus: JobStatus | None
+    NextToken: PaginationToken | None
+    Blocks: BlockList | None
+    Warnings: Warnings | None
+    StatusMessage: StatusMessage | None
+    AnalyzeDocumentModelVersion: String | None
 
 
 class GetDocumentTextDetectionRequest(ServiceRequest):
     JobId: JobId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: MaxResults | None
+    NextToken: PaginationToken | None
 
 
 class GetDocumentTextDetectionResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    JobStatus: Optional[JobStatus]
-    NextToken: Optional[PaginationToken]
-    Blocks: Optional[BlockList]
-    Warnings: Optional[Warnings]
-    StatusMessage: Optional[StatusMessage]
-    DetectDocumentTextModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    JobStatus: JobStatus | None
+    NextToken: PaginationToken | None
+    Blocks: BlockList | None
+    Warnings: Warnings | None
+    StatusMessage: StatusMessage | None
+    DetectDocumentTextModelVersion: String | None
 
 
 class GetExpenseAnalysisRequest(ServiceRequest):
     JobId: JobId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: MaxResults | None
+    NextToken: PaginationToken | None
 
 
 class GetExpenseAnalysisResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    JobStatus: Optional[JobStatus]
-    NextToken: Optional[PaginationToken]
-    ExpenseDocuments: Optional[ExpenseDocumentList]
-    Warnings: Optional[Warnings]
-    StatusMessage: Optional[StatusMessage]
-    AnalyzeExpenseModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    JobStatus: JobStatus | None
+    NextToken: PaginationToken | None
+    ExpenseDocuments: ExpenseDocumentList | None
+    Warnings: Warnings | None
+    StatusMessage: StatusMessage | None
+    AnalyzeExpenseModelVersion: String | None
 
 
 class GetLendingAnalysisRequest(ServiceRequest):
     JobId: JobId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[PaginationToken]
+    MaxResults: MaxResults | None
+    NextToken: PaginationToken | None
 
 
 class Prediction(TypedDict, total=False):
@@ -1128,11 +1128,11 @@ class Prediction(TypedDict, total=False):
     the predicted value.
     """
 
-    Value: Optional[NonEmptyString]
-    Confidence: Optional[Percent]
+    Value: NonEmptyString | None
+    Confidence: Percent | None
 
 
-PredictionList = List[Prediction]
+PredictionList = list[Prediction]
 
 
 class PageClassification(TypedDict, total=False):
@@ -1150,29 +1150,29 @@ class LendingResult(TypedDict, total=False):
     Lending API.
     """
 
-    Page: Optional[UInteger]
-    PageClassification: Optional[PageClassification]
-    Extractions: Optional[ExtractionList]
+    Page: UInteger | None
+    PageClassification: PageClassification | None
+    Extractions: ExtractionList | None
 
 
-LendingResultList = List[LendingResult]
+LendingResultList = list[LendingResult]
 
 
 class GetLendingAnalysisResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    JobStatus: Optional[JobStatus]
-    NextToken: Optional[PaginationToken]
-    Results: Optional[LendingResultList]
-    Warnings: Optional[Warnings]
-    StatusMessage: Optional[StatusMessage]
-    AnalyzeLendingModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    JobStatus: JobStatus | None
+    NextToken: PaginationToken | None
+    Results: LendingResultList | None
+    Warnings: Warnings | None
+    StatusMessage: StatusMessage | None
+    AnalyzeLendingModelVersion: String | None
 
 
 class GetLendingAnalysisSummaryRequest(ServiceRequest):
     JobId: JobId
 
 
-UndetectedDocumentTypeList = List[NonEmptyString]
+UndetectedDocumentTypeList = list[NonEmptyString]
 
 
 class LendingSummary(TypedDict, total=False):
@@ -1180,42 +1180,42 @@ class LendingSummary(TypedDict, total=False):
     UndetectedDocumentTypes.
     """
 
-    DocumentGroups: Optional[DocumentGroupList]
-    UndetectedDocumentTypes: Optional[UndetectedDocumentTypeList]
+    DocumentGroups: DocumentGroupList | None
+    UndetectedDocumentTypes: UndetectedDocumentTypeList | None
 
 
 class GetLendingAnalysisSummaryResponse(TypedDict, total=False):
-    DocumentMetadata: Optional[DocumentMetadata]
-    JobStatus: Optional[JobStatus]
-    Summary: Optional[LendingSummary]
-    Warnings: Optional[Warnings]
-    StatusMessage: Optional[StatusMessage]
-    AnalyzeLendingModelVersion: Optional[String]
+    DocumentMetadata: DocumentMetadata | None
+    JobStatus: JobStatus | None
+    Summary: LendingSummary | None
+    Warnings: Warnings | None
+    StatusMessage: StatusMessage | None
+    AnalyzeLendingModelVersion: String | None
 
 
 class ListAdapterVersionsRequest(ServiceRequest):
-    AdapterId: Optional[AdapterId]
-    AfterCreationTime: Optional[DateTime]
-    BeforeCreationTime: Optional[DateTime]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[PaginationToken]
+    AdapterId: AdapterId | None
+    AfterCreationTime: DateTime | None
+    BeforeCreationTime: DateTime | None
+    MaxResults: MaxResults | None
+    NextToken: PaginationToken | None
 
 
 class ListAdapterVersionsResponse(TypedDict, total=False):
-    AdapterVersions: Optional[AdapterVersionList]
-    NextToken: Optional[PaginationToken]
+    AdapterVersions: AdapterVersionList | None
+    NextToken: PaginationToken | None
 
 
 class ListAdaptersRequest(ServiceRequest):
-    AfterCreationTime: Optional[DateTime]
-    BeforeCreationTime: Optional[DateTime]
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[PaginationToken]
+    AfterCreationTime: DateTime | None
+    BeforeCreationTime: DateTime | None
+    MaxResults: MaxResults | None
+    NextToken: PaginationToken | None
 
 
 class ListAdaptersResponse(TypedDict, total=False):
-    Adapters: Optional[AdapterList]
-    NextToken: Optional[PaginationToken]
+    Adapters: AdapterList | None
+    NextToken: PaginationToken | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -1223,7 +1223,7 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    Tags: Optional[TagMap]
+    Tags: TagMap | None
 
 
 class NotificationChannel(TypedDict, total=False):
@@ -1239,59 +1239,59 @@ class NotificationChannel(TypedDict, total=False):
 class StartDocumentAnalysisRequest(ServiceRequest):
     DocumentLocation: DocumentLocation
     FeatureTypes: FeatureTypes
-    ClientRequestToken: Optional[ClientRequestToken]
-    JobTag: Optional[JobTag]
-    NotificationChannel: Optional[NotificationChannel]
-    OutputConfig: Optional[OutputConfig]
-    KMSKeyId: Optional[KMSKeyId]
-    QueriesConfig: Optional[QueriesConfig]
-    AdaptersConfig: Optional[AdaptersConfig]
+    ClientRequestToken: ClientRequestToken | None
+    JobTag: JobTag | None
+    NotificationChannel: NotificationChannel | None
+    OutputConfig: OutputConfig | None
+    KMSKeyId: KMSKeyId | None
+    QueriesConfig: QueriesConfig | None
+    AdaptersConfig: AdaptersConfig | None
 
 
 class StartDocumentAnalysisResponse(TypedDict, total=False):
-    JobId: Optional[JobId]
+    JobId: JobId | None
 
 
 class StartDocumentTextDetectionRequest(ServiceRequest):
     DocumentLocation: DocumentLocation
-    ClientRequestToken: Optional[ClientRequestToken]
-    JobTag: Optional[JobTag]
-    NotificationChannel: Optional[NotificationChannel]
-    OutputConfig: Optional[OutputConfig]
-    KMSKeyId: Optional[KMSKeyId]
+    ClientRequestToken: ClientRequestToken | None
+    JobTag: JobTag | None
+    NotificationChannel: NotificationChannel | None
+    OutputConfig: OutputConfig | None
+    KMSKeyId: KMSKeyId | None
 
 
 class StartDocumentTextDetectionResponse(TypedDict, total=False):
-    JobId: Optional[JobId]
+    JobId: JobId | None
 
 
 class StartExpenseAnalysisRequest(ServiceRequest):
     DocumentLocation: DocumentLocation
-    ClientRequestToken: Optional[ClientRequestToken]
-    JobTag: Optional[JobTag]
-    NotificationChannel: Optional[NotificationChannel]
-    OutputConfig: Optional[OutputConfig]
-    KMSKeyId: Optional[KMSKeyId]
+    ClientRequestToken: ClientRequestToken | None
+    JobTag: JobTag | None
+    NotificationChannel: NotificationChannel | None
+    OutputConfig: OutputConfig | None
+    KMSKeyId: KMSKeyId | None
 
 
 class StartExpenseAnalysisResponse(TypedDict, total=False):
-    JobId: Optional[JobId]
+    JobId: JobId | None
 
 
 class StartLendingAnalysisRequest(ServiceRequest):
     DocumentLocation: DocumentLocation
-    ClientRequestToken: Optional[ClientRequestToken]
-    JobTag: Optional[JobTag]
-    NotificationChannel: Optional[NotificationChannel]
-    OutputConfig: Optional[OutputConfig]
-    KMSKeyId: Optional[KMSKeyId]
+    ClientRequestToken: ClientRequestToken | None
+    JobTag: JobTag | None
+    NotificationChannel: NotificationChannel | None
+    OutputConfig: OutputConfig | None
+    KMSKeyId: KMSKeyId | None
 
 
 class StartLendingAnalysisResponse(TypedDict, total=False):
-    JobId: Optional[JobId]
+    JobId: JobId | None
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -1314,23 +1314,23 @@ class UntagResourceResponse(TypedDict, total=False):
 
 class UpdateAdapterRequest(ServiceRequest):
     AdapterId: AdapterId
-    Description: Optional[AdapterDescription]
-    AdapterName: Optional[AdapterName]
-    AutoUpdate: Optional[AutoUpdate]
+    Description: AdapterDescription | None
+    AdapterName: AdapterName | None
+    AutoUpdate: AutoUpdate | None
 
 
 class UpdateAdapterResponse(TypedDict, total=False):
-    AdapterId: Optional[AdapterId]
-    AdapterName: Optional[AdapterName]
-    CreationTime: Optional[DateTime]
-    Description: Optional[AdapterDescription]
-    FeatureTypes: Optional[FeatureTypes]
-    AutoUpdate: Optional[AutoUpdate]
+    AdapterId: AdapterId | None
+    AdapterName: AdapterName | None
+    CreationTime: DateTime | None
+    Description: AdapterDescription | None
+    FeatureTypes: FeatureTypes | None
+    AutoUpdate: AutoUpdate | None
 
 
 class TextractApi:
-    service = "textract"
-    version = "2018-06-27"
+    service: str = "textract"
+    version: str = "2018-06-27"
 
     @handler("AnalyzeDocument")
     def analyze_document(

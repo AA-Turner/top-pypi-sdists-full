@@ -3,7 +3,7 @@ Type annotations for timestream-query service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_timestream_query/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -34,12 +35,6 @@ from .literals import (
     ScheduledQueryStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -145,22 +140,22 @@ class CancelQueryRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class TypePaginatorTypeDef(TypedDict):
     ScalarType: NotRequired[ScalarTypeType]
-    ArrayColumnInfo: NotRequired[Dict[str, Any]]
-    TimeSeriesMeasureValueColumnInfo: NotRequired[Dict[str, Any]]
-    RowColumnInfo: NotRequired[List[Dict[str, Any]]]
+    ArrayColumnInfo: NotRequired[dict[str, Any]]
+    TimeSeriesMeasureValueColumnInfo: NotRequired[dict[str, Any]]
+    RowColumnInfo: NotRequired[list[dict[str, Any]]]
 
 
 ColumnInfoTypeDef = TypedDict(
     "ColumnInfoTypeDef",
     {
-        "Type": Dict[str, Any],
+        "Type": dict[str, Any],
         "Name": NotRequired[str],
     },
 )
@@ -177,12 +172,12 @@ class TagTypeDef(TypedDict):
 
 class TimeSeriesDataPointPaginatorTypeDef(TypedDict):
     Time: str
-    Value: Dict[str, Any]
+    Value: dict[str, Any]
 
 
 class TimeSeriesDataPointTypeDef(TypedDict):
     Time: str
-    Value: Dict[str, Any]
+    Value: dict[str, Any]
 
 
 class DeleteScheduledQueryRequestTypeDef(TypedDict):
@@ -277,7 +272,7 @@ class QueryStatusTypeDef(TypedDict):
 class QuerySpatialCoverageMaxTypeDef(TypedDict):
     Value: NotRequired[float]
     TableArn: NotRequired[str]
-    PartitionKey: NotRequired[List[str]]
+    PartitionKey: NotRequired[list[str]]
 
 
 class QueryTemporalRangeMaxTypeDef(TypedDict):
@@ -334,13 +329,13 @@ ColumnInfoPaginatorTypeDef = TypedDict(
 
 class TypeTypeDef(TypedDict):
     ScalarType: NotRequired[ScalarTypeType]
-    ArrayColumnInfo: NotRequired[Dict[str, Any]]
-    TimeSeriesMeasureValueColumnInfo: NotRequired[Dict[str, Any]]
-    RowColumnInfo: NotRequired[List[ColumnInfoTypeDef]]
+    ArrayColumnInfo: NotRequired[dict[str, Any]]
+    TimeSeriesMeasureValueColumnInfo: NotRequired[dict[str, Any]]
+    RowColumnInfo: NotRequired[list[ColumnInfoTypeDef]]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -352,22 +347,22 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class DatumPaginatorTypeDef(TypedDict):
     ScalarValue: NotRequired[str]
-    TimeSeriesValue: NotRequired[List[TimeSeriesDataPointPaginatorTypeDef]]
-    ArrayValue: NotRequired[List[Dict[str, Any]]]
-    RowValue: NotRequired[Dict[str, Any]]
+    TimeSeriesValue: NotRequired[list[TimeSeriesDataPointPaginatorTypeDef]]
+    ArrayValue: NotRequired[list[dict[str, Any]]]
+    RowValue: NotRequired[dict[str, Any]]
     NullValue: NotRequired[bool]
 
 
 class DatumTypeDef(TypedDict):
     ScalarValue: NotRequired[str]
-    TimeSeriesValue: NotRequired[List[TimeSeriesDataPointTypeDef]]
-    ArrayValue: NotRequired[List[Dict[str, Any]]]
-    RowValue: NotRequired[Dict[str, Any]]
+    TimeSeriesValue: NotRequired[list[TimeSeriesDataPointTypeDef]]
+    ArrayValue: NotRequired[list[dict[str, Any]]]
+    RowValue: NotRequired[dict[str, Any]]
     NullValue: NotRequired[bool]
 
 
 class DescribeEndpointsResponseTypeDef(TypedDict):
-    Endpoints: List[EndpointTypeDef]
+    Endpoints: list[EndpointTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -400,7 +395,7 @@ class MixedMeasureMappingOutputTypeDef(TypedDict):
     MeasureName: NotRequired[str]
     SourceColumn: NotRequired[str]
     TargetMeasureName: NotRequired[str]
-    MultiMeasureAttributeMappings: NotRequired[List[MultiMeasureAttributeMappingTypeDef]]
+    MultiMeasureAttributeMappings: NotRequired[list[MultiMeasureAttributeMappingTypeDef]]
 
 
 class MixedMeasureMappingTypeDef(TypedDict):
@@ -412,7 +407,7 @@ class MixedMeasureMappingTypeDef(TypedDict):
 
 
 class MultiMeasureMappingsOutputTypeDef(TypedDict):
-    MultiMeasureAttributeMappings: List[MultiMeasureAttributeMappingTypeDef]
+    MultiMeasureAttributeMappings: list[MultiMeasureAttributeMappingTypeDef]
     TargetMultiMeasureName: NotRequired[str]
 
 
@@ -479,20 +474,20 @@ SelectColumnTypeDef = TypedDict(
 
 
 class RowPaginatorTypeDef(TypedDict):
-    Data: List[DatumPaginatorTypeDef]
+    Data: list[DatumPaginatorTypeDef]
 
 
 class RowTypeDef(TypedDict):
-    Data: List[DatumTypeDef]
+    Data: list[DatumTypeDef]
 
 
 class TimestreamConfigurationOutputTypeDef(TypedDict):
     DatabaseName: str
     TableName: str
     TimeColumn: str
-    DimensionMappings: List[DimensionMappingTypeDef]
+    DimensionMappings: list[DimensionMappingTypeDef]
     MultiMeasureMappings: NotRequired[MultiMeasureMappingsOutputTypeDef]
-    MixedMeasureMappings: NotRequired[List[MixedMeasureMappingOutputTypeDef]]
+    MixedMeasureMappings: NotRequired[list[MixedMeasureMappingOutputTypeDef]]
     MeasureNameColumn: NotRequired[str]
 
 
@@ -549,8 +544,8 @@ class QueryComputeResponseTypeDef(TypedDict):
 
 class PrepareQueryResponseTypeDef(TypedDict):
     QueryString: str
-    Columns: List[SelectColumnTypeDef]
-    Parameters: List[ParameterMappingTypeDef]
+    Columns: list[SelectColumnTypeDef]
+    Parameters: list[ParameterMappingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -564,8 +559,8 @@ class TargetConfigurationTypeDef(TypedDict):
 
 class QueryResponsePaginatorTypeDef(TypedDict):
     QueryId: str
-    Rows: List[RowPaginatorTypeDef]
-    ColumnInfo: List[ColumnInfoPaginatorTypeDef]
+    Rows: list[RowPaginatorTypeDef]
+    ColumnInfo: list[ColumnInfoPaginatorTypeDef]
     QueryStatus: QueryStatusTypeDef
     QueryInsightsResponse: QueryInsightsResponseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -574,8 +569,8 @@ class QueryResponsePaginatorTypeDef(TypedDict):
 
 class QueryResponseTypeDef(TypedDict):
     QueryId: str
-    Rows: List[RowTypeDef]
-    ColumnInfo: List[ColumnInfoTypeDef]
+    Rows: list[RowTypeDef]
+    ColumnInfo: list[ColumnInfoTypeDef]
     QueryStatus: QueryStatusTypeDef
     QueryInsightsResponse: QueryInsightsResponseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -593,7 +588,7 @@ class ScheduledQueryRunSummaryTypeDef(TypedDict):
 
 
 class ListScheduledQueriesResponseTypeDef(TypedDict):
-    ScheduledQueries: List[ScheduledQueryTypeDef]
+    ScheduledQueries: list[ScheduledQueryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -638,7 +633,7 @@ class ScheduledQueryDescriptionTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     ErrorReportConfiguration: NotRequired[ErrorReportConfigurationTypeDef]
     LastRunSummary: NotRequired[ScheduledQueryRunSummaryTypeDef]
-    RecentlyFailedRuns: NotRequired[List[ScheduledQueryRunSummaryTypeDef]]
+    RecentlyFailedRuns: NotRequired[list[ScheduledQueryRunSummaryTypeDef]]
 
 
 class CreateScheduledQueryRequestTypeDef(TypedDict):

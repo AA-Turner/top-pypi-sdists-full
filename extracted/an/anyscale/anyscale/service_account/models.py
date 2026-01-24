@@ -1,15 +1,18 @@
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import ClassVar, Dict
 
 from anyscale._private.models import ModelBase, ModelEnum
 
 
 # TODO(cynthiakwu): Move this when we have organization collaborator sdk
 class OrganizationPermissionLevel(ModelEnum):
+    """Permission levels for service accounts in an organization."""
+
     OWNER = "OWNER"
     COLLABORATOR = "COLLABORATOR"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         OWNER: "Owner permission level for the organization",
         COLLABORATOR: "Collaborator permission level for the organization",
     }

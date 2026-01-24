@@ -2,15 +2,10 @@
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import openmm
 import pandas as pd  # type: ignore[import-untyped]
-from openmm import XmlSerializer
-from openmm.app import Simulation
-from openmm.app.pdbfile import PDBFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from emmet.core.openff import MDTaskDocument  # type: ignore[import-untyped]
@@ -20,7 +15,10 @@ from emmet.core.vasp.task_valid import TaskState
 if TYPE_CHECKING:
     from typing import Any
 
+from emmet.core.utils import arrow_incompatible, type_override
 
+
+@arrow_incompatible
 class CalculationInput(BaseModel):  # type: ignore[call-arg]
     """OpenMM input settings for a job, these are the attributes of the OpenMMMaker."""
 
@@ -106,6 +104,7 @@ class CalculationInput(BaseModel):  # type: ignore[call-arg]
     model_config = ConfigDict(extra="allow")
 
 
+@type_override({"traj_blob": str})
 class CalculationOutput(BaseModel):
     """OpenMM calculation output files and extracted data."""
 
@@ -198,6 +197,7 @@ class CalculationOutput(BaseModel):
         )
 
 
+@arrow_incompatible
 class Calculation(BaseModel):
     """All input and output data for an OpenMM calculation."""
 
@@ -238,43 +238,3 @@ class OpenMMTaskDocument(MDTaskDocument):
         description="Detailed data for each OpenMM calculation contributing to the "
         "task document.",
     )
-
-
-class OpenMMInterchange(BaseModel):
-    """An object to sit in the place of the Interchance object
-    and serialize the OpenMM system, topology, and state."""
-
-    system: str | None = Field(
-        None, description="An XML file representing the OpenMM system."
-    )
-    state: str | None = Field(
-        None,
-        description="An XML file representing the OpenMM state.",
-    )
-    topology: str | None = Field(
-        None,
-        description="An XML file representing an OpenMM topology object."
-        "This must correspond to the atom ordering in the system.",
-    )
-
-    def to_openmm_simulation(
-        self,
-        integrator: openmm.Integrator,
-        platform: openmm.Platform,
-        platformProperties: dict[str, str] | None = None,
-    ):
-        system = XmlSerializer.deserialize(self.system)
-        state = XmlSerializer.deserialize(self.state)
-        with io.StringIO(self.topology) as s:
-            pdb = PDBFile(s)
-            topology = pdb.getTopology()
-
-        simulation = Simulation(
-            topology,
-            system,
-            integrator,
-            platform,
-            platformProperties or {},
-        )
-        simulation.context.setState(state)
-        return simulation

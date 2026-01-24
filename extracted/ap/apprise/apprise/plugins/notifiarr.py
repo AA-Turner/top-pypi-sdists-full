@@ -63,7 +63,7 @@ class NotifyNotifiarr(NotifyBase):
     secure_protocol = "notifiarr"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_notifiarr"
+    setup_url = "https://appriseit.com/services/notifiarr/"
 
     # The Notification URL
     notify_url = "https://notifiarr.com/api/v1/notification/apprise"
@@ -288,7 +288,7 @@ class NotifyNotifiarr(NotifyBase):
             # prepare Notifiarr Object
             payload = {
                 "source": self.source if self.source else self.app_id,
-                "type": notify_type,
+                "type": notify_type.value,
                 "notification": {
                     "update": bool(self.event),
                     "name": self.app_id,
@@ -377,7 +377,8 @@ class NotifyNotifiarr(NotifyBase):
                     str(r.status_code),
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 # Return; we're done
                 return False

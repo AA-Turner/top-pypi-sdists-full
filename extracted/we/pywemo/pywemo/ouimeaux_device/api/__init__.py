@@ -1,1 +1,0 @@
-"""WeMo device API."""

@@ -1,30 +1,39 @@
+import pyspark as spark
 from pyspark.sql.types import DoubleType, StringType
 
+from ..exceptions import SplinkException
 
-def _spark_version_3_or_above_installed() -> bool:
-    """Check if spark 3.0 or above is installed
+
+def _spark_major_version() -> int:
+    """Check which spark major version is installed
 
     Returns:
-        bool: True if pyspark >= 3.0.0
+        int: e.g. pyspark == 3.0.0 returns 3
     """
-    import pyspark as spark
-    from packaging import version
 
-    return version.parse(spark.__version__) >= version.parse("3.0")
+    major_str = spark.__version__.split(".", 1)[0]
+    return int(major_str)
 
 
-def similarity_jar_location():
+def similarity_jar_location() -> str:
     import splink
 
-    if _spark_version_3_or_above_installed():
+    spark_major_version = _spark_major_version()
+
+    if spark_major_version >= 4:
+        path = (
+            splink.__file__[0:-11]
+            + "internals/files/spark_jars/scala-udf-similarity-0.2.0_spark4.x.jar"
+        )
+    elif spark_major_version == 3:
         path = (
             splink.__file__[0:-11]
             + "internals/files/spark_jars/scala-udf-similarity-0.1.2_spark3.x.jar"
         )
     else:
-        path = (
-            splink.__file__[0:-11]
-            + "internals/files/spark_jars/scala-udf-similarity-0.1.0_classic.jar"
+        raise SplinkException(
+            f"Unsupported Spark major version: {spark_major_version}. "
+            "Please use Spark 3.x or higher."
         )
 
     return path
@@ -56,18 +65,11 @@ def get_scala_udfs():
             StringType(),
         ),
         ("QgramTokeniser", "uk.gov.moj.dash.linkage.QgramTokeniser", StringType()),
+        (
+            "damerau_levenshtein",
+            "uk.gov.moj.dash.linkage.LevDamerauDistance",
+            DoubleType(),
+        ),
     ]
-
-    if _spark_version_3_or_above_installed():
-        # Outline spark 3 exclusive scala functions
-        spark_3_udfs = [
-            (
-                "damerau_levenshtein",
-                "uk.gov.moj.dash.linkage.LevDamerauDistance",
-                DoubleType(),
-            ),
-        ]
-        # Register spark 3 excl. functions
-        udfs_register.extend(spark_3_udfs)
 
     return udfs_register

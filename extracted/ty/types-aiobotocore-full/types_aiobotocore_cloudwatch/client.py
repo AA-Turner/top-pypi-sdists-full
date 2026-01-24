@@ -3,7 +3,7 @@ Type annotations for cloudwatch service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -43,6 +44,8 @@ from .type_defs import (
     DeleteInsightRulesInputTypeDef,
     DeleteInsightRulesOutputTypeDef,
     DeleteMetricStreamInputTypeDef,
+    DescribeAlarmContributorsInputTypeDef,
+    DescribeAlarmContributorsOutputTypeDef,
     DescribeAlarmHistoryInputTypeDef,
     DescribeAlarmHistoryOutputTypeDef,
     DescribeAlarmsForMetricInputTypeDef,
@@ -101,12 +104,6 @@ from .type_defs import (
 )
 from .waiter import AlarmExistsWaiter, CompositeAlarmExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -117,21 +114,21 @@ __all__ = ("CloudWatchClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ConcurrentModificationException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DashboardInvalidInputError: Type[BotocoreClientError]
-    DashboardNotFoundError: Type[BotocoreClientError]
-    InternalServiceFault: Type[BotocoreClientError]
-    InvalidFormatFault: Type[BotocoreClientError]
-    InvalidNextToken: Type[BotocoreClientError]
-    InvalidParameterCombinationException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    LimitExceededFault: Type[BotocoreClientError]
-    MissingRequiredParameterException: Type[BotocoreClientError]
-    ResourceNotFound: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConcurrentModificationException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DashboardInvalidInputError: type[BotocoreClientError]
+    DashboardNotFoundError: type[BotocoreClientError]
+    InternalServiceFault: type[BotocoreClientError]
+    InvalidFormatFault: type[BotocoreClientError]
+    InvalidNextToken: type[BotocoreClientError]
+    InvalidParameterCombinationException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    LimitExceededFault: type[BotocoreClientError]
+    MissingRequiredParameterException: type[BotocoreClientError]
+    ResourceNotFound: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 
 class CloudWatchClient(AioBaseClient):
@@ -181,7 +178,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def delete_anomaly_detector(
         self, **kwargs: Unpack[DeleteAnomalyDetectorInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified anomaly detection model from your account.
 
@@ -191,7 +188,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def delete_dashboards(
         self, **kwargs: Unpack[DeleteDashboardsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes all dashboards that you specify.
 
@@ -211,12 +208,23 @@ class CloudWatchClient(AioBaseClient):
 
     async def delete_metric_stream(
         self, **kwargs: Unpack[DeleteMetricStreamInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Permanently deletes the metric stream that you specify.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/delete_metric_stream.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#delete_metric_stream)
+        """
+
+    async def describe_alarm_contributors(
+        self, **kwargs: Unpack[DescribeAlarmContributorsInputTypeDef]
+    ) -> DescribeAlarmContributorsOutputTypeDef:
+        """
+        Returns the information of the current alarm contributors that are in
+        <code>ALARM</code> state.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudwatch/client/describe_alarm_contributors.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#describe_alarm_contributors)
         """
 
     async def describe_alarm_history(
@@ -425,7 +433,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def put_anomaly_detector(
         self, **kwargs: Unpack[PutAnomalyDetectorInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an anomaly detection model for a CloudWatch metric.
 
@@ -456,7 +464,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def put_insight_rule(
         self, **kwargs: Unpack[PutInsightRuleInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a Contributor Insights rule.
 
@@ -518,7 +526,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def start_metric_streams(
         self, **kwargs: Unpack[StartMetricStreamsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts the streaming of metrics for one or more of your metric streams.
 
@@ -528,7 +536,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def stop_metric_streams(
         self, **kwargs: Unpack[StopMetricStreamsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops the streaming of metrics for one or more of your metric streams.
 
@@ -536,7 +544,7 @@ class CloudWatchClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#stop_metric_streams)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Assigns one or more tags (key-value pairs) to the specified CloudWatch resource.
 
@@ -544,7 +552,7 @@ class CloudWatchClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudwatch/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes one or more tags from the specified resource.
 
@@ -648,7 +656,7 @@ class CloudWatchClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

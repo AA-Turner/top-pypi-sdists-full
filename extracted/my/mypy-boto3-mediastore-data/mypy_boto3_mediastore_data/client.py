@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -38,12 +39,6 @@ from .type_defs import (
     PutObjectResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -54,11 +49,11 @@ __all__ = ("MediaStoreDataClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    ContainerNotFoundException: Type[BotocoreClientError]
-    InternalServerError: Type[BotocoreClientError]
-    ObjectNotFoundException: Type[BotocoreClientError]
-    RequestedRangeNotSatisfiableException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ContainerNotFoundException: type[BotocoreClientError]
+    InternalServerError: type[BotocoreClientError]
+    ObjectNotFoundException: type[BotocoreClientError]
+    RequestedRangeNotSatisfiableException: type[BotocoreClientError]
 
 
 class MediaStoreDataClient(BaseClient):
@@ -96,7 +91,7 @@ class MediaStoreDataClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mediastore_data/client/#generate_presigned_url)
         """
 
-    def delete_object(self, **kwargs: Unpack[DeleteObjectRequestTypeDef]) -> Dict[str, Any]:
+    def delete_object(self, **kwargs: Unpack[DeleteObjectRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an object at the specified path.
 

@@ -1,11 +1,27 @@
+from crewai.events.types.a2a_events import (
+    A2AConversationCompletedEvent,
+    A2AConversationStartedEvent,
+    A2ADelegationCompletedEvent,
+    A2ADelegationStartedEvent,
+    A2AMessageSentEvent,
+    A2APollingStartedEvent,
+    A2APollingStatusEvent,
+    A2APushNotificationReceivedEvent,
+    A2APushNotificationRegisteredEvent,
+    A2APushNotificationTimeoutEvent,
+    A2AResponseReceivedEvent,
+    A2AServerTaskCanceledEvent,
+    A2AServerTaskCompletedEvent,
+    A2AServerTaskFailedEvent,
+    A2AServerTaskStartedEvent,
+)
 from crewai.events.types.agent_events import (
     AgentExecutionCompletedEvent,
     AgentExecutionErrorEvent,
     AgentExecutionStartedEvent,
     LiteAgentExecutionCompletedEvent,
 )
-
-from .types.crew_events import (
+from crewai.events.types.crew_events import (
     CrewKickoffCompletedEvent,
     CrewKickoffFailedEvent,
     CrewKickoffStartedEvent,
@@ -16,14 +32,14 @@ from .types.crew_events import (
     CrewTrainFailedEvent,
     CrewTrainStartedEvent,
 )
-from .types.flow_events import (
+from crewai.events.types.flow_events import (
     FlowFinishedEvent,
     FlowStartedEvent,
     MethodExecutionFailedEvent,
     MethodExecutionFinishedEvent,
     MethodExecutionStartedEvent,
 )
-from .types.knowledge_events import (
+from crewai.events.types.knowledge_events import (
     KnowledgeQueryCompletedEvent,
     KnowledgeQueryFailedEvent,
     KnowledgeQueryStartedEvent,
@@ -31,17 +47,25 @@ from .types.knowledge_events import (
     KnowledgeRetrievalStartedEvent,
     KnowledgeSearchQueryFailedEvent,
 )
-from .types.llm_events import (
+from crewai.events.types.llm_events import (
     LLMCallCompletedEvent,
     LLMCallFailedEvent,
     LLMCallStartedEvent,
     LLMStreamChunkEvent,
 )
-from .types.llm_guardrail_events import (
+from crewai.events.types.llm_guardrail_events import (
     LLMGuardrailCompletedEvent,
     LLMGuardrailStartedEvent,
 )
-from .types.memory_events import (
+from crewai.events.types.mcp_events import (
+    MCPConnectionCompletedEvent,
+    MCPConnectionFailedEvent,
+    MCPConnectionStartedEvent,
+    MCPToolExecutionCompletedEvent,
+    MCPToolExecutionFailedEvent,
+    MCPToolExecutionStartedEvent,
+)
+from crewai.events.types.memory_events import (
     MemoryQueryCompletedEvent,
     MemoryQueryFailedEvent,
     MemoryQueryStartedEvent,
@@ -51,24 +75,40 @@ from .types.memory_events import (
     MemorySaveFailedEvent,
     MemorySaveStartedEvent,
 )
-from .types.reasoning_events import (
+from crewai.events.types.reasoning_events import (
     AgentReasoningCompletedEvent,
     AgentReasoningFailedEvent,
     AgentReasoningStartedEvent,
 )
-from .types.task_events import (
+from crewai.events.types.task_events import (
     TaskCompletedEvent,
     TaskFailedEvent,
     TaskStartedEvent,
 )
-from .types.tool_usage_events import (
+from crewai.events.types.tool_usage_events import (
     ToolUsageErrorEvent,
     ToolUsageFinishedEvent,
     ToolUsageStartedEvent,
 )
 
+
 EventTypes = (
-    CrewKickoffStartedEvent
+    A2AConversationCompletedEvent
+    | A2AConversationStartedEvent
+    | A2ADelegationCompletedEvent
+    | A2ADelegationStartedEvent
+    | A2AMessageSentEvent
+    | A2APollingStartedEvent
+    | A2APollingStatusEvent
+    | A2APushNotificationReceivedEvent
+    | A2APushNotificationRegisteredEvent
+    | A2APushNotificationTimeoutEvent
+    | A2AResponseReceivedEvent
+    | A2AServerTaskCanceledEvent
+    | A2AServerTaskCompletedEvent
+    | A2AServerTaskFailedEvent
+    | A2AServerTaskStartedEvent
+    | CrewKickoffStartedEvent
     | CrewKickoffCompletedEvent
     | CrewKickoffFailedEvent
     | CrewTestStartedEvent
@@ -115,4 +155,10 @@ EventTypes = (
     | MemoryQueryFailedEvent
     | MemoryRetrievalStartedEvent
     | MemoryRetrievalCompletedEvent
+    | MCPConnectionStartedEvent
+    | MCPConnectionCompletedEvent
+    | MCPConnectionFailedEvent
+    | MCPToolExecutionStartedEvent
+    | MCPToolExecutionCompletedEvent
+    | MCPToolExecutionFailedEvent
 )

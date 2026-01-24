@@ -587,7 +587,7 @@ def __EncodedAttribute_decode_rgb32(self, da, extract_as=ExtractAs.Numpy):
     return self._decode_rgb32(da, extract_as)
 
 
-def __init_EncodedAttribute():
+def encoded_attribute_init():
     EncodedAttribute._generic_encode_gray8 = __EncodedAttribute_generic_encode_gray8
     EncodedAttribute.encode_gray8 = __EncodedAttribute_encode_gray8
     EncodedAttribute.encode_jpeg_gray8 = __EncodedAttribute_encode_jpeg_gray8
@@ -599,13 +599,3 @@ def __init_EncodedAttribute():
     EncodedAttribute.decode_gray8 = __EncodedAttribute_decode_gray8
     EncodedAttribute.decode_gray16 = __EncodedAttribute_decode_gray16
     EncodedAttribute.decode_rgb32 = __EncodedAttribute_decode_rgb32
-
-
-def __doc_EncodedAttribute():
-    pass
-
-
-def encoded_attribute_init(doc=True):
-    __init_EncodedAttribute()
-    if doc:
-        __doc_EncodedAttribute()

@@ -24,6 +24,7 @@ class Monomer:
     _canonical_smiles: Union[Unset, str] = UNSET
     _created_at: Union[Unset, datetime.datetime] = UNSET
     _custom_molecular_weight: Union[Unset, None, float] = UNSET
+    _exact_molecular_weight: Union[Unset, float] = UNSET
     _id: Union[Unset, str] = UNSET
     _modified_at: Union[Unset, datetime.datetime] = UNSET
     _monomer_type: Union[Unset, MonomerType] = UNSET
@@ -44,6 +45,7 @@ class Monomer:
         fields.append("canonical_smiles={}".format(repr(self._canonical_smiles)))
         fields.append("created_at={}".format(repr(self._created_at)))
         fields.append("custom_molecular_weight={}".format(repr(self._custom_molecular_weight)))
+        fields.append("exact_molecular_weight={}".format(repr(self._exact_molecular_weight)))
         fields.append("id={}".format(repr(self._id)))
         fields.append("modified_at={}".format(repr(self._modified_at)))
         fields.append("monomer_type={}".format(repr(self._monomer_type)))
@@ -73,6 +75,7 @@ class Monomer:
             created_at = self._created_at.isoformat()
 
         custom_molecular_weight = self._custom_molecular_weight
+        exact_molecular_weight = self._exact_molecular_weight
         id = self._id
         modified_at: Union[Unset, str] = UNSET
         if not isinstance(self._modified_at, Unset):
@@ -110,6 +113,8 @@ class Monomer:
             field_dict["createdAt"] = created_at
         if custom_molecular_weight is not UNSET:
             field_dict["customMolecularWeight"] = custom_molecular_weight
+        if exact_molecular_weight is not UNSET:
+            field_dict["exactMolecularWeight"] = exact_molecular_weight
         if id is not UNSET:
             field_dict["id"] = id
         if modified_at is not UNSET:
@@ -212,6 +217,17 @@ class Monomer:
             if strict:
                 raise
             custom_molecular_weight = cast(Union[Unset, None, float], UNSET)
+
+        def get_exact_molecular_weight() -> Union[Unset, float]:
+            exact_molecular_weight = d.pop("exactMolecularWeight")
+            return exact_molecular_weight
+
+        try:
+            exact_molecular_weight = get_exact_molecular_weight()
+        except KeyError:
+            if strict:
+                raise
+            exact_molecular_weight = cast(Union[Unset, float], UNSET)
 
         def get_id() -> Union[Unset, str]:
             id = d.pop("id")
@@ -355,6 +371,7 @@ class Monomer:
             canonical_smiles=canonical_smiles,
             created_at=created_at,
             custom_molecular_weight=custom_molecular_weight,
+            exact_molecular_weight=exact_molecular_weight,
             id=id,
             modified_at=modified_at,
             monomer_type=monomer_type,
@@ -477,6 +494,21 @@ class Monomer:
     @custom_molecular_weight.deleter
     def custom_molecular_weight(self) -> None:
         self._custom_molecular_weight = UNSET
+
+    @property
+    def exact_molecular_weight(self) -> float:
+        """ The exact molecular weight of the monomer as calculated by RDKit based on the monomer chemical structure """
+        if isinstance(self._exact_molecular_weight, Unset):
+            raise NotPresentError(self, "exact_molecular_weight")
+        return self._exact_molecular_weight
+
+    @exact_molecular_weight.setter
+    def exact_molecular_weight(self, value: float) -> None:
+        self._exact_molecular_weight = value
+
+    @exact_molecular_weight.deleter
+    def exact_molecular_weight(self) -> None:
+        self._exact_molecular_weight = UNSET
 
     @property
     def id(self) -> str:

@@ -420,7 +420,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["database"]:
+        if _params["database"] is not None:
             _body_params = _params["database"]
 
         # set the HTTP header `Accept`
@@ -689,7 +689,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["database_from_share"]:
+        if _params["database_from_share"] is not None:
             _body_params = _params["database_from_share"]
 
         # set the HTTP header `Accept`
@@ -1158,7 +1158,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["database"]:
+        if _params["database"] is not None:
             _body_params = _params["database"]
 
         # set the HTTP header `Accept`
@@ -1437,7 +1437,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["database_clone"]:
+        if _params["database_clone"] is not None:
             _body_params = _params["database_clone"]
 
         # set the HTTP header `Accept`
@@ -1642,7 +1642,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["account_identifiers"]:
+        if _params["account_identifiers"] is not None:
             _body_params = _params["account_identifiers"]
 
         # set the HTTP header `Accept`
@@ -1849,7 +1849,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["account_identifiers"]:
+        if _params["account_identifiers"] is not None:
             _body_params = _params["account_identifiers"]
 
         # set the HTTP header `Accept`
@@ -2054,7 +2054,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["account_identifiers"]:
+        if _params["account_identifiers"] is not None:
             _body_params = _params["account_identifiers"]
 
         # set the HTTP header `Accept`
@@ -2304,7 +2304,7 @@ class DatabaseApi:
         # process the body parameter
         _body_params = None
 
-        if _params["account_identifiers"]:
+        if _params["account_identifiers"] is not None:
             _body_params = _params["account_identifiers"]
 
         # set the HTTP header `Accept`

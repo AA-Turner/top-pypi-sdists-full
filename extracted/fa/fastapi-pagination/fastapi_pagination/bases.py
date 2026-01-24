@@ -3,6 +3,7 @@ from __future__ import annotations
 __all__ = [
     "AbstractPage",
     "AbstractParams",
+    "BaseAbstractPage",
     "BasePage",
     "BaseRawParams",
     "CursorRawParams",
@@ -12,6 +13,7 @@ __all__ = [
 ]
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import (
@@ -19,29 +21,13 @@ from typing import (
     Any,
     ClassVar,
     Generic,
-    Optional,
 )
-
-from .utils import IS_PYDANTIC_V2
-
-if IS_PYDANTIC_V2:
-    from pydantic import BaseModel as GenericModel
-else:
-    from pydantic.generics import GenericModel  # type: ignore[no-redef]
-
-
-try:
-    from pydantic import PydanticUndefinedAnnotation
-except ImportError:
-
-    class PydanticUndefinedAnnotation(Exception):  # type: ignore[no-redef]
-        pass
-
-
-from collections.abc import Sequence
 
 from typing_extensions import Self, TypeIs, TypeVar
 
+from .pydantic import IS_PYDANTIC_V2
+from .pydantic.types import LatestConfiguredBaseModel, LatestGenericModel
+from .pydantic.v2 import PydanticUndefinedAnnotationV2
 from .types import Cursor, GreaterEqualZero, ParamsType
 
 TAny = TypeVar("TAny", default=Any)
@@ -74,8 +60,8 @@ def is_cursor(params: BaseRawParams) -> TypeIs[CursorRawParams]:
 
 @dataclass
 class RawParams(BaseRawParams):
-    limit: Optional[int] = None
-    offset: Optional[int] = None
+    limit: int | None = None
+    offset: int | None = None
     include_total: bool = True
 
     type: ClassVar[ParamsType] = "limit-offset"
@@ -89,7 +75,7 @@ class RawParams(BaseRawParams):
 
 @dataclass
 class CursorRawParams(BaseRawParams):
-    cursor: Optional[Cursor]
+    cursor: Cursor | None
     size: int
     include_total: bool = True
 
@@ -102,7 +88,7 @@ def connect_page_and_params(page_cls: type[AbstractPage[Any]], params_cls: type[
 
 
 class AbstractParams(ABC):
-    __page_type__: ClassVar[Optional[type[AbstractPage[Any]]]] = None
+    __page_type__: ClassVar[type[AbstractPage[Any]] | None] = None
 
     @abstractmethod
     def to_raw_params(self) -> BaseRawParams:
@@ -113,9 +99,27 @@ class AbstractParams(ABC):
         connect_page_and_params(page_cls, cls)
 
 
-class AbstractPage(GenericModel, Generic[TAny], ABC):
+class BaseAbstractPage(ABC, Generic[TAny]):
+    """
+    Marker class for page classes.
+
+    Used to mark classes that can be used as pages but don't directly inherit from AbstractPage.
+    """
+
     __params_type__: ClassVar[type[AbstractParams]]
 
+    @classmethod
+    @abstractmethod
+    def create(
+        cls,
+        items: Sequence[TAny],
+        params: AbstractParams,
+        **kwargs: Any,
+    ) -> Self:
+        pass
+
+
+class AbstractPage(BaseAbstractPage[TAny], LatestConfiguredBaseModel, LatestGenericModel, ABC, Generic[TAny]):
     # used by pydantic v2
     __model_aliases__: ClassVar[dict[str, str]] = {}
     __model_exclude__: ClassVar[set[str]] = set()
@@ -149,33 +153,10 @@ class AbstractPage(GenericModel, Generic[TAny], ABC):
 
             # rebuild model only in case if customizations is present
             if cls.__model_exclude__ or cls.__model_aliases__:
-                with suppress(PydanticUndefinedAnnotation):
+                with suppress(PydanticUndefinedAnnotationV2):
                     cls.model_rebuild(force=True)
 
-    @classmethod
-    @abstractmethod
-    def create(
-        cls,
-        items: Sequence[TAny],
-        params: AbstractParams,
-        **kwargs: Any,
-    ) -> Self:
-        pass
 
-    if IS_PYDANTIC_V2:
-        model_config = {
-            "arbitrary_types_allowed": True,
-            "from_attributes": True,
-            "populate_by_name": True,
-        }
-    else:
-
-        class Config:
-            orm_mode = True
-            arbitrary_types_allowed = True
-            allow_population_by_field_name = True
-
-
-class BasePage(AbstractPage[TAny], Generic[TAny], ABC):
+class BasePage(AbstractPage[TAny], ABC, Generic[TAny]):
     items: Sequence[TAny]
     total: GreaterEqualZero

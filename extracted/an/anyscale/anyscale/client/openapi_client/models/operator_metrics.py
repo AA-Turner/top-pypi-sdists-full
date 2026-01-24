@@ -35,6 +35,7 @@ class OperatorMetrics(object):
     openapi_types = {
         'id': 'str',
         'name': 'str',
+        'uuid': 'str',
         'state': 'DatasetState',
         'progress': 'int',
         'total': 'int',
@@ -46,6 +47,7 @@ class OperatorMetrics(object):
     attribute_map = {
         'id': 'id',
         'name': 'name',
+        'uuid': 'uuid',
         'state': 'state',
         'progress': 'progress',
         'total': 'total',
@@ -54,7 +56,7 @@ class OperatorMetrics(object):
         'metrics': 'metrics'
     }
 
-    def __init__(self, id=None, name=None, state=None, progress=None, total=None, start_time=None, end_time=None, metrics=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, uuid=None, state=None, progress=None, total=None, start_time=None, end_time=None, metrics=None, local_vars_configuration=None):  # noqa: E501
         """OperatorMetrics - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -62,6 +64,7 @@ class OperatorMetrics(object):
 
         self._id = None
         self._name = None
+        self._uuid = None
         self._state = None
         self._progress = None
         self._total = None
@@ -72,6 +75,8 @@ class OperatorMetrics(object):
 
         self.id = id
         self.name = name
+        if uuid is not None:
+            self.uuid = uuid
         self.state = state
         self.progress = progress
         if total is not None:
@@ -127,6 +132,27 @@ class OperatorMetrics(object):
             raise ValueError("Invalid value for `name`, must not be `None`")  # noqa: E501
 
         self._name = name
+
+    @property
+    def uuid(self):
+        """Gets the uuid of this OperatorMetrics.  # noqa: E501
+
+
+        :return: The uuid of this OperatorMetrics.  # noqa: E501
+        :rtype: str
+        """
+        return self._uuid
+
+    @uuid.setter
+    def uuid(self, uuid):
+        """Sets the uuid of this OperatorMetrics.
+
+
+        :param uuid: The uuid of this OperatorMetrics.  # noqa: E501
+        :type: str
+        """
+
+        self._uuid = uuid
 
     @property
     def state(self):

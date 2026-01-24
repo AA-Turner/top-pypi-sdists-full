@@ -24,11 +24,13 @@ class KubernetesClusterArgs:
                  default_node_pool: pulumi.Input['KubernetesClusterDefaultNodePoolArgs'],
                  resource_group_name: pulumi.Input[_builtins.str],
                  aci_connector_linux: Optional[pulumi.Input['KubernetesClusterAciConnectorLinuxArgs']] = None,
+                 ai_toolchain_operator_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  api_server_access_profile: Optional[pulumi.Input['KubernetesClusterApiServerAccessProfileArgs']] = None,
                  auto_scaler_profile: Optional[pulumi.Input['KubernetesClusterAutoScalerProfileArgs']] = None,
                  automatic_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
                  azure_active_directory_role_based_access_control: Optional[pulumi.Input['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs']] = None,
                  azure_policy_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bootstrap_profile: Optional[pulumi.Input['KubernetesClusterBootstrapProfileArgs']] = None,
                  confidential_computing: Optional[pulumi.Input['KubernetesClusterConfidentialComputingArgs']] = None,
                  cost_analysis_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  custom_ca_trust_certificates_base64s: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -57,6 +59,7 @@ class KubernetesClusterArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_profile: Optional[pulumi.Input['KubernetesClusterNetworkProfileArgs']] = None,
                  node_os_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
+                 node_provisioning_profile: Optional[pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs']] = None,
                  node_resource_group: Optional[pulumi.Input[_builtins.str]] = None,
                  oidc_issuer_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  oms_agent: Optional[pulumi.Input['KubernetesClusterOmsAgentArgs']] = None,
@@ -82,6 +85,7 @@ class KubernetesClusterArgs:
         :param pulumi.Input['KubernetesClusterDefaultNodePoolArgs'] default_node_pool: Specifies configuration for "System" mode node pool. A `default_node_pool` block as defined below.
         :param pulumi.Input[_builtins.str] resource_group_name: Specifies the Resource Group where the Managed Kubernetes Cluster should exist. Changing this forces a new resource to be created.
         :param pulumi.Input['KubernetesClusterAciConnectorLinuxArgs'] aci_connector_linux: A `aci_connector_linux` block as defined below. For more details, please visit [Create and configure an AKS cluster to use virtual nodes](https://docs.microsoft.com/azure/aks/virtual-nodes-portal).
+        :param pulumi.Input[_builtins.bool] ai_toolchain_operator_enabled: Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
         :param pulumi.Input['KubernetesClusterApiServerAccessProfileArgs'] api_server_access_profile: An `api_server_access_profile` block as defined below.
         :param pulumi.Input['KubernetesClusterAutoScalerProfileArgs'] auto_scaler_profile: A `auto_scaler_profile` block as defined below.
         :param pulumi.Input[_builtins.str] automatic_upgrade_channel: The upgrade channel for this Kubernetes Cluster. Possible values are `patch`, `rapid`, `node-image` and `stable`. Omitting this field sets this value to `none`.
@@ -91,6 +95,7 @@ class KubernetesClusterArgs:
                > **Note:** Cluster Auto-Upgrade only updates to GA versions of Kubernetes and will not update to Preview versions.
         :param pulumi.Input['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs'] azure_active_directory_role_based_access_control: A `azure_active_directory_role_based_access_control` block as defined below.
         :param pulumi.Input[_builtins.bool] azure_policy_enabled: Should the Azure Policy Add-On be enabled? For more details please visit [Understand Azure Policy for Azure Kubernetes Service](https://docs.microsoft.com/en-ie/azure/governance/policy/concepts/rego-for-aks)
+        :param pulumi.Input['KubernetesClusterBootstrapProfileArgs'] bootstrap_profile: A `bootstrap_profile` block as defined below.
         :param pulumi.Input['KubernetesClusterConfidentialComputingArgs'] confidential_computing: A `confidential_computing` block as defined below. For more details please [the documentation](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-nodes-aks-overview)
         :param pulumi.Input[_builtins.bool] cost_analysis_enabled: Should cost analysis be enabled for this Kubernetes Cluster? Defaults to `false`. The `sku_tier` must be set to `Standard` or `Premium` to enable this feature. Enabling this will add Kubernetes Namespace and Deployment details to the Cost Analysis views in the Azure portal.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_ca_trust_certificates_base64s: A list of up to 10 base64 encoded CA certificates that will be added to the trust store on nodes.
@@ -139,6 +144,7 @@ class KubernetesClusterArgs:
         :param pulumi.Input[_builtins.str] node_os_upgrade_channel: The upgrade channel for this Kubernetes Cluster Nodes' OS Image. Possible values are `Unmanaged`, `SecurityPatch`, `NodeImage` and `None`. Defaults to `NodeImage`.
                
                > **Note:** `node_os_upgrade_channel` must be set to `NodeImage` if `automatic_upgrade_channel` has been set to `node-image`
+        :param pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs'] node_provisioning_profile: A `node_provisioning_profile` block as defined below.
         :param pulumi.Input[_builtins.str] node_resource_group: The name of the Resource Group where the Kubernetes Nodes should exist. Changing this forces a new resource to be created.
                
                > **Note:** Azure requires that a new, non-existent Resource Group is used, as otherwise, the provisioning of the Kubernetes Service will fail.
@@ -204,6 +210,8 @@ class KubernetesClusterArgs:
         pulumi.set(__self__, "resource_group_name", resource_group_name)
         if aci_connector_linux is not None:
             pulumi.set(__self__, "aci_connector_linux", aci_connector_linux)
+        if ai_toolchain_operator_enabled is not None:
+            pulumi.set(__self__, "ai_toolchain_operator_enabled", ai_toolchain_operator_enabled)
         if api_server_access_profile is not None:
             pulumi.set(__self__, "api_server_access_profile", api_server_access_profile)
         if auto_scaler_profile is not None:
@@ -214,6 +222,8 @@ class KubernetesClusterArgs:
             pulumi.set(__self__, "azure_active_directory_role_based_access_control", azure_active_directory_role_based_access_control)
         if azure_policy_enabled is not None:
             pulumi.set(__self__, "azure_policy_enabled", azure_policy_enabled)
+        if bootstrap_profile is not None:
+            pulumi.set(__self__, "bootstrap_profile", bootstrap_profile)
         if confidential_computing is not None:
             pulumi.set(__self__, "confidential_computing", confidential_computing)
         if cost_analysis_enabled is not None:
@@ -270,6 +280,8 @@ class KubernetesClusterArgs:
             pulumi.set(__self__, "network_profile", network_profile)
         if node_os_upgrade_channel is not None:
             pulumi.set(__self__, "node_os_upgrade_channel", node_os_upgrade_channel)
+        if node_provisioning_profile is not None:
+            pulumi.set(__self__, "node_provisioning_profile", node_provisioning_profile)
         if node_resource_group is not None:
             pulumi.set(__self__, "node_resource_group", node_resource_group)
         if oidc_issuer_enabled is not None:
@@ -348,6 +360,18 @@ class KubernetesClusterArgs:
         pulumi.set(self, "aci_connector_linux", value)
 
     @_builtins.property
+    @pulumi.getter(name="aiToolchainOperatorEnabled")
+    def ai_toolchain_operator_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
+        """
+        return pulumi.get(self, "ai_toolchain_operator_enabled")
+
+    @ai_toolchain_operator_enabled.setter
+    def ai_toolchain_operator_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ai_toolchain_operator_enabled", value)
+
+    @_builtins.property
     @pulumi.getter(name="apiServerAccessProfile")
     def api_server_access_profile(self) -> Optional[pulumi.Input['KubernetesClusterApiServerAccessProfileArgs']]:
         """
@@ -410,6 +434,18 @@ class KubernetesClusterArgs:
     @azure_policy_enabled.setter
     def azure_policy_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "azure_policy_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bootstrapProfile")
+    def bootstrap_profile(self) -> Optional[pulumi.Input['KubernetesClusterBootstrapProfileArgs']]:
+        """
+        A `bootstrap_profile` block as defined below.
+        """
+        return pulumi.get(self, "bootstrap_profile")
+
+    @bootstrap_profile.setter
+    def bootstrap_profile(self, value: Optional[pulumi.Input['KubernetesClusterBootstrapProfileArgs']]):
+        pulumi.set(self, "bootstrap_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="confidentialComputing")
@@ -768,6 +804,18 @@ class KubernetesClusterArgs:
         pulumi.set(self, "node_os_upgrade_channel", value)
 
     @_builtins.property
+    @pulumi.getter(name="nodeProvisioningProfile")
+    def node_provisioning_profile(self) -> Optional[pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs']]:
+        """
+        A `node_provisioning_profile` block as defined below.
+        """
+        return pulumi.get(self, "node_provisioning_profile")
+
+    @node_provisioning_profile.setter
+    def node_provisioning_profile(self, value: Optional[pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs']]):
+        pulumi.set(self, "node_provisioning_profile", value)
+
+    @_builtins.property
     @pulumi.getter(name="nodeResourceGroup")
     def node_resource_group(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -1052,11 +1100,13 @@ class KubernetesClusterArgs:
 class _KubernetesClusterState:
     def __init__(__self__, *,
                  aci_connector_linux: Optional[pulumi.Input['KubernetesClusterAciConnectorLinuxArgs']] = None,
+                 ai_toolchain_operator_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  api_server_access_profile: Optional[pulumi.Input['KubernetesClusterApiServerAccessProfileArgs']] = None,
                  auto_scaler_profile: Optional[pulumi.Input['KubernetesClusterAutoScalerProfileArgs']] = None,
                  automatic_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
                  azure_active_directory_role_based_access_control: Optional[pulumi.Input['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs']] = None,
                  azure_policy_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bootstrap_profile: Optional[pulumi.Input['KubernetesClusterBootstrapProfileArgs']] = None,
                  confidential_computing: Optional[pulumi.Input['KubernetesClusterConfidentialComputingArgs']] = None,
                  cost_analysis_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  current_kubernetes_version: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1093,6 +1143,7 @@ class _KubernetesClusterState:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_profile: Optional[pulumi.Input['KubernetesClusterNetworkProfileArgs']] = None,
                  node_os_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
+                 node_provisioning_profile: Optional[pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs']] = None,
                  node_resource_group: Optional[pulumi.Input[_builtins.str]] = None,
                  node_resource_group_id: Optional[pulumi.Input[_builtins.str]] = None,
                  oidc_issuer_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -1121,6 +1172,7 @@ class _KubernetesClusterState:
         """
         Input properties used for looking up and filtering KubernetesCluster resources.
         :param pulumi.Input['KubernetesClusterAciConnectorLinuxArgs'] aci_connector_linux: A `aci_connector_linux` block as defined below. For more details, please visit [Create and configure an AKS cluster to use virtual nodes](https://docs.microsoft.com/azure/aks/virtual-nodes-portal).
+        :param pulumi.Input[_builtins.bool] ai_toolchain_operator_enabled: Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
         :param pulumi.Input['KubernetesClusterApiServerAccessProfileArgs'] api_server_access_profile: An `api_server_access_profile` block as defined below.
         :param pulumi.Input['KubernetesClusterAutoScalerProfileArgs'] auto_scaler_profile: A `auto_scaler_profile` block as defined below.
         :param pulumi.Input[_builtins.str] automatic_upgrade_channel: The upgrade channel for this Kubernetes Cluster. Possible values are `patch`, `rapid`, `node-image` and `stable`. Omitting this field sets this value to `none`.
@@ -1130,6 +1182,7 @@ class _KubernetesClusterState:
                > **Note:** Cluster Auto-Upgrade only updates to GA versions of Kubernetes and will not update to Preview versions.
         :param pulumi.Input['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs'] azure_active_directory_role_based_access_control: A `azure_active_directory_role_based_access_control` block as defined below.
         :param pulumi.Input[_builtins.bool] azure_policy_enabled: Should the Azure Policy Add-On be enabled? For more details please visit [Understand Azure Policy for Azure Kubernetes Service](https://docs.microsoft.com/en-ie/azure/governance/policy/concepts/rego-for-aks)
+        :param pulumi.Input['KubernetesClusterBootstrapProfileArgs'] bootstrap_profile: A `bootstrap_profile` block as defined below.
         :param pulumi.Input['KubernetesClusterConfidentialComputingArgs'] confidential_computing: A `confidential_computing` block as defined below. For more details please [the documentation](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-nodes-aks-overview)
         :param pulumi.Input[_builtins.bool] cost_analysis_enabled: Should cost analysis be enabled for this Kubernetes Cluster? Defaults to `false`. The `sku_tier` must be set to `Standard` or `Premium` to enable this feature. Enabling this will add Kubernetes Namespace and Deployment details to the Cost Analysis views in the Azure portal.
         :param pulumi.Input[_builtins.str] current_kubernetes_version: The current version running on the Azure Kubernetes Managed Cluster.
@@ -1186,6 +1239,7 @@ class _KubernetesClusterState:
         :param pulumi.Input[_builtins.str] node_os_upgrade_channel: The upgrade channel for this Kubernetes Cluster Nodes' OS Image. Possible values are `Unmanaged`, `SecurityPatch`, `NodeImage` and `None`. Defaults to `NodeImage`.
                
                > **Note:** `node_os_upgrade_channel` must be set to `NodeImage` if `automatic_upgrade_channel` has been set to `node-image`
+        :param pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs'] node_provisioning_profile: A `node_provisioning_profile` block as defined below.
         :param pulumi.Input[_builtins.str] node_resource_group: The name of the Resource Group where the Kubernetes Nodes should exist. Changing this forces a new resource to be created.
                
                > **Note:** Azure requires that a new, non-existent Resource Group is used, as otherwise, the provisioning of the Kubernetes Service will fail.
@@ -1254,6 +1308,8 @@ class _KubernetesClusterState:
         """
         if aci_connector_linux is not None:
             pulumi.set(__self__, "aci_connector_linux", aci_connector_linux)
+        if ai_toolchain_operator_enabled is not None:
+            pulumi.set(__self__, "ai_toolchain_operator_enabled", ai_toolchain_operator_enabled)
         if api_server_access_profile is not None:
             pulumi.set(__self__, "api_server_access_profile", api_server_access_profile)
         if auto_scaler_profile is not None:
@@ -1264,6 +1320,8 @@ class _KubernetesClusterState:
             pulumi.set(__self__, "azure_active_directory_role_based_access_control", azure_active_directory_role_based_access_control)
         if azure_policy_enabled is not None:
             pulumi.set(__self__, "azure_policy_enabled", azure_policy_enabled)
+        if bootstrap_profile is not None:
+            pulumi.set(__self__, "bootstrap_profile", bootstrap_profile)
         if confidential_computing is not None:
             pulumi.set(__self__, "confidential_computing", confidential_computing)
         if cost_analysis_enabled is not None:
@@ -1336,6 +1394,8 @@ class _KubernetesClusterState:
             pulumi.set(__self__, "network_profile", network_profile)
         if node_os_upgrade_channel is not None:
             pulumi.set(__self__, "node_os_upgrade_channel", node_os_upgrade_channel)
+        if node_provisioning_profile is not None:
+            pulumi.set(__self__, "node_provisioning_profile", node_provisioning_profile)
         if node_resource_group is not None:
             pulumi.set(__self__, "node_resource_group", node_resource_group)
         if node_resource_group_id is not None:
@@ -1400,6 +1460,18 @@ class _KubernetesClusterState:
         pulumi.set(self, "aci_connector_linux", value)
 
     @_builtins.property
+    @pulumi.getter(name="aiToolchainOperatorEnabled")
+    def ai_toolchain_operator_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
+        """
+        return pulumi.get(self, "ai_toolchain_operator_enabled")
+
+    @ai_toolchain_operator_enabled.setter
+    def ai_toolchain_operator_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "ai_toolchain_operator_enabled", value)
+
+    @_builtins.property
     @pulumi.getter(name="apiServerAccessProfile")
     def api_server_access_profile(self) -> Optional[pulumi.Input['KubernetesClusterApiServerAccessProfileArgs']]:
         """
@@ -1462,6 +1534,18 @@ class _KubernetesClusterState:
     @azure_policy_enabled.setter
     def azure_policy_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "azure_policy_enabled", value)
+
+    @_builtins.property
+    @pulumi.getter(name="bootstrapProfile")
+    def bootstrap_profile(self) -> Optional[pulumi.Input['KubernetesClusterBootstrapProfileArgs']]:
+        """
+        A `bootstrap_profile` block as defined below.
+        """
+        return pulumi.get(self, "bootstrap_profile")
+
+    @bootstrap_profile.setter
+    def bootstrap_profile(self, value: Optional[pulumi.Input['KubernetesClusterBootstrapProfileArgs']]):
+        pulumi.set(self, "bootstrap_profile", value)
 
     @_builtins.property
     @pulumi.getter(name="confidentialComputing")
@@ -1916,6 +2000,18 @@ class _KubernetesClusterState:
         pulumi.set(self, "node_os_upgrade_channel", value)
 
     @_builtins.property
+    @pulumi.getter(name="nodeProvisioningProfile")
+    def node_provisioning_profile(self) -> Optional[pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs']]:
+        """
+        A `node_provisioning_profile` block as defined below.
+        """
+        return pulumi.get(self, "node_provisioning_profile")
+
+    @node_provisioning_profile.setter
+    def node_provisioning_profile(self, value: Optional[pulumi.Input['KubernetesClusterNodeProvisioningProfileArgs']]):
+        pulumi.set(self, "node_provisioning_profile", value)
+
+    @_builtins.property
     @pulumi.getter(name="nodeResourceGroup")
     def node_resource_group(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
@@ -2263,11 +2359,13 @@ class KubernetesCluster(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  aci_connector_linux: Optional[pulumi.Input[Union['KubernetesClusterAciConnectorLinuxArgs', 'KubernetesClusterAciConnectorLinuxArgsDict']]] = None,
+                 ai_toolchain_operator_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  api_server_access_profile: Optional[pulumi.Input[Union['KubernetesClusterApiServerAccessProfileArgs', 'KubernetesClusterApiServerAccessProfileArgsDict']]] = None,
                  auto_scaler_profile: Optional[pulumi.Input[Union['KubernetesClusterAutoScalerProfileArgs', 'KubernetesClusterAutoScalerProfileArgsDict']]] = None,
                  automatic_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
                  azure_active_directory_role_based_access_control: Optional[pulumi.Input[Union['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs', 'KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgsDict']]] = None,
                  azure_policy_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bootstrap_profile: Optional[pulumi.Input[Union['KubernetesClusterBootstrapProfileArgs', 'KubernetesClusterBootstrapProfileArgsDict']]] = None,
                  confidential_computing: Optional[pulumi.Input[Union['KubernetesClusterConfidentialComputingArgs', 'KubernetesClusterConfidentialComputingArgsDict']]] = None,
                  cost_analysis_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  custom_ca_trust_certificates_base64s: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -2297,6 +2395,7 @@ class KubernetesCluster(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_profile: Optional[pulumi.Input[Union['KubernetesClusterNetworkProfileArgs', 'KubernetesClusterNetworkProfileArgsDict']]] = None,
                  node_os_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
+                 node_provisioning_profile: Optional[pulumi.Input[Union['KubernetesClusterNodeProvisioningProfileArgs', 'KubernetesClusterNodeProvisioningProfileArgsDict']]] = None,
                  node_resource_group: Optional[pulumi.Input[_builtins.str]] = None,
                  oidc_issuer_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  oms_agent: Optional[pulumi.Input[Union['KubernetesClusterOmsAgentArgs', 'KubernetesClusterOmsAgentArgsDict']]] = None,
@@ -2360,7 +2459,7 @@ class KubernetesCluster(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.ContainerService` - 2025-02-01
+        * `Microsoft.ContainerService` - 2025-07-01
 
         ## Import
 
@@ -2373,6 +2472,7 @@ class KubernetesCluster(pulumi.CustomResource):
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['KubernetesClusterAciConnectorLinuxArgs', 'KubernetesClusterAciConnectorLinuxArgsDict']] aci_connector_linux: A `aci_connector_linux` block as defined below. For more details, please visit [Create and configure an AKS cluster to use virtual nodes](https://docs.microsoft.com/azure/aks/virtual-nodes-portal).
+        :param pulumi.Input[_builtins.bool] ai_toolchain_operator_enabled: Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
         :param pulumi.Input[Union['KubernetesClusterApiServerAccessProfileArgs', 'KubernetesClusterApiServerAccessProfileArgsDict']] api_server_access_profile: An `api_server_access_profile` block as defined below.
         :param pulumi.Input[Union['KubernetesClusterAutoScalerProfileArgs', 'KubernetesClusterAutoScalerProfileArgsDict']] auto_scaler_profile: A `auto_scaler_profile` block as defined below.
         :param pulumi.Input[_builtins.str] automatic_upgrade_channel: The upgrade channel for this Kubernetes Cluster. Possible values are `patch`, `rapid`, `node-image` and `stable`. Omitting this field sets this value to `none`.
@@ -2382,6 +2482,7 @@ class KubernetesCluster(pulumi.CustomResource):
                > **Note:** Cluster Auto-Upgrade only updates to GA versions of Kubernetes and will not update to Preview versions.
         :param pulumi.Input[Union['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs', 'KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgsDict']] azure_active_directory_role_based_access_control: A `azure_active_directory_role_based_access_control` block as defined below.
         :param pulumi.Input[_builtins.bool] azure_policy_enabled: Should the Azure Policy Add-On be enabled? For more details please visit [Understand Azure Policy for Azure Kubernetes Service](https://docs.microsoft.com/en-ie/azure/governance/policy/concepts/rego-for-aks)
+        :param pulumi.Input[Union['KubernetesClusterBootstrapProfileArgs', 'KubernetesClusterBootstrapProfileArgsDict']] bootstrap_profile: A `bootstrap_profile` block as defined below.
         :param pulumi.Input[Union['KubernetesClusterConfidentialComputingArgs', 'KubernetesClusterConfidentialComputingArgsDict']] confidential_computing: A `confidential_computing` block as defined below. For more details please [the documentation](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-nodes-aks-overview)
         :param pulumi.Input[_builtins.bool] cost_analysis_enabled: Should cost analysis be enabled for this Kubernetes Cluster? Defaults to `false`. The `sku_tier` must be set to `Standard` or `Premium` to enable this feature. Enabling this will add Kubernetes Namespace and Deployment details to the Cost Analysis views in the Azure portal.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] custom_ca_trust_certificates_base64s: A list of up to 10 base64 encoded CA certificates that will be added to the trust store on nodes.
@@ -2431,6 +2532,7 @@ class KubernetesCluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] node_os_upgrade_channel: The upgrade channel for this Kubernetes Cluster Nodes' OS Image. Possible values are `Unmanaged`, `SecurityPatch`, `NodeImage` and `None`. Defaults to `NodeImage`.
                
                > **Note:** `node_os_upgrade_channel` must be set to `NodeImage` if `automatic_upgrade_channel` has been set to `node-image`
+        :param pulumi.Input[Union['KubernetesClusterNodeProvisioningProfileArgs', 'KubernetesClusterNodeProvisioningProfileArgsDict']] node_provisioning_profile: A `node_provisioning_profile` block as defined below.
         :param pulumi.Input[_builtins.str] node_resource_group: The name of the Resource Group where the Kubernetes Nodes should exist. Changing this forces a new resource to be created.
                
                > **Note:** Azure requires that a new, non-existent Resource Group is used, as otherwise, the provisioning of the Kubernetes Service will fail.
@@ -2540,7 +2642,7 @@ class KubernetesCluster(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.ContainerService` - 2025-02-01
+        * `Microsoft.ContainerService` - 2025-07-01
 
         ## Import
 
@@ -2566,11 +2668,13 @@ class KubernetesCluster(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  aci_connector_linux: Optional[pulumi.Input[Union['KubernetesClusterAciConnectorLinuxArgs', 'KubernetesClusterAciConnectorLinuxArgsDict']]] = None,
+                 ai_toolchain_operator_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  api_server_access_profile: Optional[pulumi.Input[Union['KubernetesClusterApiServerAccessProfileArgs', 'KubernetesClusterApiServerAccessProfileArgsDict']]] = None,
                  auto_scaler_profile: Optional[pulumi.Input[Union['KubernetesClusterAutoScalerProfileArgs', 'KubernetesClusterAutoScalerProfileArgsDict']]] = None,
                  automatic_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
                  azure_active_directory_role_based_access_control: Optional[pulumi.Input[Union['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs', 'KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgsDict']]] = None,
                  azure_policy_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+                 bootstrap_profile: Optional[pulumi.Input[Union['KubernetesClusterBootstrapProfileArgs', 'KubernetesClusterBootstrapProfileArgsDict']]] = None,
                  confidential_computing: Optional[pulumi.Input[Union['KubernetesClusterConfidentialComputingArgs', 'KubernetesClusterConfidentialComputingArgsDict']]] = None,
                  cost_analysis_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  custom_ca_trust_certificates_base64s: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
@@ -2600,6 +2704,7 @@ class KubernetesCluster(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  network_profile: Optional[pulumi.Input[Union['KubernetesClusterNetworkProfileArgs', 'KubernetesClusterNetworkProfileArgsDict']]] = None,
                  node_os_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
+                 node_provisioning_profile: Optional[pulumi.Input[Union['KubernetesClusterNodeProvisioningProfileArgs', 'KubernetesClusterNodeProvisioningProfileArgsDict']]] = None,
                  node_resource_group: Optional[pulumi.Input[_builtins.str]] = None,
                  oidc_issuer_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  oms_agent: Optional[pulumi.Input[Union['KubernetesClusterOmsAgentArgs', 'KubernetesClusterOmsAgentArgsDict']]] = None,
@@ -2631,11 +2736,13 @@ class KubernetesCluster(pulumi.CustomResource):
             __props__ = KubernetesClusterArgs.__new__(KubernetesClusterArgs)
 
             __props__.__dict__["aci_connector_linux"] = aci_connector_linux
+            __props__.__dict__["ai_toolchain_operator_enabled"] = ai_toolchain_operator_enabled
             __props__.__dict__["api_server_access_profile"] = api_server_access_profile
             __props__.__dict__["auto_scaler_profile"] = auto_scaler_profile
             __props__.__dict__["automatic_upgrade_channel"] = automatic_upgrade_channel
             __props__.__dict__["azure_active_directory_role_based_access_control"] = azure_active_directory_role_based_access_control
             __props__.__dict__["azure_policy_enabled"] = azure_policy_enabled
+            __props__.__dict__["bootstrap_profile"] = bootstrap_profile
             __props__.__dict__["confidential_computing"] = confidential_computing
             __props__.__dict__["cost_analysis_enabled"] = cost_analysis_enabled
             __props__.__dict__["custom_ca_trust_certificates_base64s"] = custom_ca_trust_certificates_base64s
@@ -2667,6 +2774,7 @@ class KubernetesCluster(pulumi.CustomResource):
             __props__.__dict__["name"] = name
             __props__.__dict__["network_profile"] = network_profile
             __props__.__dict__["node_os_upgrade_channel"] = node_os_upgrade_channel
+            __props__.__dict__["node_provisioning_profile"] = node_provisioning_profile
             __props__.__dict__["node_resource_group"] = node_resource_group
             __props__.__dict__["oidc_issuer_enabled"] = oidc_issuer_enabled
             __props__.__dict__["oms_agent"] = oms_agent
@@ -2714,11 +2822,13 @@ class KubernetesCluster(pulumi.CustomResource):
             id: pulumi.Input[str],
             opts: Optional[pulumi.ResourceOptions] = None,
             aci_connector_linux: Optional[pulumi.Input[Union['KubernetesClusterAciConnectorLinuxArgs', 'KubernetesClusterAciConnectorLinuxArgsDict']]] = None,
+            ai_toolchain_operator_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             api_server_access_profile: Optional[pulumi.Input[Union['KubernetesClusterApiServerAccessProfileArgs', 'KubernetesClusterApiServerAccessProfileArgsDict']]] = None,
             auto_scaler_profile: Optional[pulumi.Input[Union['KubernetesClusterAutoScalerProfileArgs', 'KubernetesClusterAutoScalerProfileArgsDict']]] = None,
             automatic_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
             azure_active_directory_role_based_access_control: Optional[pulumi.Input[Union['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs', 'KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgsDict']]] = None,
             azure_policy_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
+            bootstrap_profile: Optional[pulumi.Input[Union['KubernetesClusterBootstrapProfileArgs', 'KubernetesClusterBootstrapProfileArgsDict']]] = None,
             confidential_computing: Optional[pulumi.Input[Union['KubernetesClusterConfidentialComputingArgs', 'KubernetesClusterConfidentialComputingArgsDict']]] = None,
             cost_analysis_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             current_kubernetes_version: Optional[pulumi.Input[_builtins.str]] = None,
@@ -2755,6 +2865,7 @@ class KubernetesCluster(pulumi.CustomResource):
             name: Optional[pulumi.Input[_builtins.str]] = None,
             network_profile: Optional[pulumi.Input[Union['KubernetesClusterNetworkProfileArgs', 'KubernetesClusterNetworkProfileArgsDict']]] = None,
             node_os_upgrade_channel: Optional[pulumi.Input[_builtins.str]] = None,
+            node_provisioning_profile: Optional[pulumi.Input[Union['KubernetesClusterNodeProvisioningProfileArgs', 'KubernetesClusterNodeProvisioningProfileArgsDict']]] = None,
             node_resource_group: Optional[pulumi.Input[_builtins.str]] = None,
             node_resource_group_id: Optional[pulumi.Input[_builtins.str]] = None,
             oidc_issuer_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
@@ -2788,6 +2899,7 @@ class KubernetesCluster(pulumi.CustomResource):
         :param pulumi.Input[str] id: The unique provider ID of the resource to lookup.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['KubernetesClusterAciConnectorLinuxArgs', 'KubernetesClusterAciConnectorLinuxArgsDict']] aci_connector_linux: A `aci_connector_linux` block as defined below. For more details, please visit [Create and configure an AKS cluster to use virtual nodes](https://docs.microsoft.com/azure/aks/virtual-nodes-portal).
+        :param pulumi.Input[_builtins.bool] ai_toolchain_operator_enabled: Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
         :param pulumi.Input[Union['KubernetesClusterApiServerAccessProfileArgs', 'KubernetesClusterApiServerAccessProfileArgsDict']] api_server_access_profile: An `api_server_access_profile` block as defined below.
         :param pulumi.Input[Union['KubernetesClusterAutoScalerProfileArgs', 'KubernetesClusterAutoScalerProfileArgsDict']] auto_scaler_profile: A `auto_scaler_profile` block as defined below.
         :param pulumi.Input[_builtins.str] automatic_upgrade_channel: The upgrade channel for this Kubernetes Cluster. Possible values are `patch`, `rapid`, `node-image` and `stable`. Omitting this field sets this value to `none`.
@@ -2797,6 +2909,7 @@ class KubernetesCluster(pulumi.CustomResource):
                > **Note:** Cluster Auto-Upgrade only updates to GA versions of Kubernetes and will not update to Preview versions.
         :param pulumi.Input[Union['KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgs', 'KubernetesClusterAzureActiveDirectoryRoleBasedAccessControlArgsDict']] azure_active_directory_role_based_access_control: A `azure_active_directory_role_based_access_control` block as defined below.
         :param pulumi.Input[_builtins.bool] azure_policy_enabled: Should the Azure Policy Add-On be enabled? For more details please visit [Understand Azure Policy for Azure Kubernetes Service](https://docs.microsoft.com/en-ie/azure/governance/policy/concepts/rego-for-aks)
+        :param pulumi.Input[Union['KubernetesClusterBootstrapProfileArgs', 'KubernetesClusterBootstrapProfileArgsDict']] bootstrap_profile: A `bootstrap_profile` block as defined below.
         :param pulumi.Input[Union['KubernetesClusterConfidentialComputingArgs', 'KubernetesClusterConfidentialComputingArgsDict']] confidential_computing: A `confidential_computing` block as defined below. For more details please [the documentation](https://learn.microsoft.com/en-us/azure/confidential-computing/confidential-nodes-aks-overview)
         :param pulumi.Input[_builtins.bool] cost_analysis_enabled: Should cost analysis be enabled for this Kubernetes Cluster? Defaults to `false`. The `sku_tier` must be set to `Standard` or `Premium` to enable this feature. Enabling this will add Kubernetes Namespace and Deployment details to the Cost Analysis views in the Azure portal.
         :param pulumi.Input[_builtins.str] current_kubernetes_version: The current version running on the Azure Kubernetes Managed Cluster.
@@ -2853,6 +2966,7 @@ class KubernetesCluster(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] node_os_upgrade_channel: The upgrade channel for this Kubernetes Cluster Nodes' OS Image. Possible values are `Unmanaged`, `SecurityPatch`, `NodeImage` and `None`. Defaults to `NodeImage`.
                
                > **Note:** `node_os_upgrade_channel` must be set to `NodeImage` if `automatic_upgrade_channel` has been set to `node-image`
+        :param pulumi.Input[Union['KubernetesClusterNodeProvisioningProfileArgs', 'KubernetesClusterNodeProvisioningProfileArgsDict']] node_provisioning_profile: A `node_provisioning_profile` block as defined below.
         :param pulumi.Input[_builtins.str] node_resource_group: The name of the Resource Group where the Kubernetes Nodes should exist. Changing this forces a new resource to be created.
                
                > **Note:** Azure requires that a new, non-existent Resource Group is used, as otherwise, the provisioning of the Kubernetes Service will fail.
@@ -2924,11 +3038,13 @@ class KubernetesCluster(pulumi.CustomResource):
         __props__ = _KubernetesClusterState.__new__(_KubernetesClusterState)
 
         __props__.__dict__["aci_connector_linux"] = aci_connector_linux
+        __props__.__dict__["ai_toolchain_operator_enabled"] = ai_toolchain_operator_enabled
         __props__.__dict__["api_server_access_profile"] = api_server_access_profile
         __props__.__dict__["auto_scaler_profile"] = auto_scaler_profile
         __props__.__dict__["automatic_upgrade_channel"] = automatic_upgrade_channel
         __props__.__dict__["azure_active_directory_role_based_access_control"] = azure_active_directory_role_based_access_control
         __props__.__dict__["azure_policy_enabled"] = azure_policy_enabled
+        __props__.__dict__["bootstrap_profile"] = bootstrap_profile
         __props__.__dict__["confidential_computing"] = confidential_computing
         __props__.__dict__["cost_analysis_enabled"] = cost_analysis_enabled
         __props__.__dict__["current_kubernetes_version"] = current_kubernetes_version
@@ -2965,6 +3081,7 @@ class KubernetesCluster(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["network_profile"] = network_profile
         __props__.__dict__["node_os_upgrade_channel"] = node_os_upgrade_channel
+        __props__.__dict__["node_provisioning_profile"] = node_provisioning_profile
         __props__.__dict__["node_resource_group"] = node_resource_group
         __props__.__dict__["node_resource_group_id"] = node_resource_group_id
         __props__.__dict__["oidc_issuer_enabled"] = oidc_issuer_enabled
@@ -2999,6 +3116,14 @@ class KubernetesCluster(pulumi.CustomResource):
         A `aci_connector_linux` block as defined below. For more details, please visit [Create and configure an AKS cluster to use virtual nodes](https://docs.microsoft.com/azure/aks/virtual-nodes-portal).
         """
         return pulumi.get(self, "aci_connector_linux")
+
+    @_builtins.property
+    @pulumi.getter(name="aiToolchainOperatorEnabled")
+    def ai_toolchain_operator_enabled(self) -> pulumi.Output[Optional[_builtins.bool]]:
+        """
+        Specifies whether the AI Toolchain Operator should be enabled for the Cluster. Defaults to `false`.
+        """
+        return pulumi.get(self, "ai_toolchain_operator_enabled")
 
     @_builtins.property
     @pulumi.getter(name="apiServerAccessProfile")
@@ -3043,6 +3168,14 @@ class KubernetesCluster(pulumi.CustomResource):
         Should the Azure Policy Add-On be enabled? For more details please visit [Understand Azure Policy for Azure Kubernetes Service](https://docs.microsoft.com/en-ie/azure/governance/policy/concepts/rego-for-aks)
         """
         return pulumi.get(self, "azure_policy_enabled")
+
+    @_builtins.property
+    @pulumi.getter(name="bootstrapProfile")
+    def bootstrap_profile(self) -> pulumi.Output['outputs.KubernetesClusterBootstrapProfile']:
+        """
+        A `bootstrap_profile` block as defined below.
+        """
+        return pulumi.get(self, "bootstrap_profile")
 
     @_builtins.property
     @pulumi.getter(name="confidentialComputing")
@@ -3351,6 +3484,14 @@ class KubernetesCluster(pulumi.CustomResource):
         > **Note:** `node_os_upgrade_channel` must be set to `NodeImage` if `automatic_upgrade_channel` has been set to `node-image`
         """
         return pulumi.get(self, "node_os_upgrade_channel")
+
+    @_builtins.property
+    @pulumi.getter(name="nodeProvisioningProfile")
+    def node_provisioning_profile(self) -> pulumi.Output['outputs.KubernetesClusterNodeProvisioningProfile']:
+        """
+        A `node_provisioning_profile` block as defined below.
+        """
+        return pulumi.get(self, "node_provisioning_profile")
 
     @_builtins.property
     @pulumi.getter(name="nodeResourceGroup")

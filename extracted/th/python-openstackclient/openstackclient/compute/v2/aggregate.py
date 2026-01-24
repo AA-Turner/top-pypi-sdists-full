@@ -19,20 +19,21 @@
 import logging
 import typing as ty
 
+from cliff import columns
 from openstack import utils as sdk_utils
 from osc_lib.cli import format_columns
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 
 
 LOG = logging.getLogger(__name__)
 
 
-_aggregate_formatters = {
+_aggregate_formatters: dict[str, type[columns.FormattableColumn[ty.Any]]] = {
     'Hosts': format_columns.ListColumn,
     'Metadata': format_columns.DictColumn,
     'hosts': format_columns.ListColumn,
@@ -438,15 +439,15 @@ class CacheImageForAggregate(command.Command):
             )
             raise exceptions.CommandError(msg)
 
+        image_client = self.app.client_manager.sdk_connection.image
+
         aggregate = compute_client.find_aggregate(
             parsed_args.aggregate, ignore_missing=False
         )
 
         images = []
         for img in parsed_args.image:
-            image = self.app.client_manager.sdk_connection.image.find_image(
-                img, ignore_missing=False
-            )
+            image = image_client.find_image(img, ignore_missing=False)
             images.append(image.id)
 
         compute_client.aggregate_precache_images(aggregate.id, images)

@@ -152,7 +152,7 @@ class NotifyPushover(NotifyBase):
     secure_protocol = "pover"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_pushover"
+    setup_url = "https://appriseit.com/services/pushover/"
 
     # Pushover uses the http protocol with JSON requests
     notify_url = "https://api.pushover.net/1/messages.json"
@@ -166,9 +166,9 @@ class NotifyPushover(NotifyBase):
     # Default Pushover sound
     default_pushover_sound = PushoverSound.PUSHOVER
 
-    # 2.5MB is the maximum supported image filesize as per documentation
-    # here: https://pushover.net/api#attachments (Dec 26th, 2019)
-    attach_max_size_bytes = 2621440
+    # 5MB is the maximum supported image filesize as per documentation
+    # here: https://pushover.net/api#limits (Oct 5th, 2025)
+    attach_max_size_bytes = 5242880
 
     # The regular expression of the current attachment supported mime types
     # At this time it is only images
@@ -540,7 +540,8 @@ class NotifyPushover(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 return False
 

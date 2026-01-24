@@ -16,30 +16,6 @@ class Skeleton(RadixLoadingProp, RadixThemesComponent):
     def create(
         cls,
         *children,
-        width: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        min_width: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        max_width: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        height: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        min_height: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
-        max_height: Breakpoints[str, str]
-        | Var[Breakpoints[str, str] | str]
-        | str
-        | None = None,
         loading: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -76,12 +52,6 @@ class Skeleton(RadixLoadingProp, RadixThemesComponent):
 
         Args:
             *children: Child components.
-            width: The width of the skeleton
-            min_width: The minimum width of the skeleton
-            max_width: The maximum width of the skeleton
-            height: The height of the skeleton
-            min_height: The minimum height of the skeleton
-            max_height: The maximum height of the skeleton
             loading: If set, show an rx.spinner instead of the component children.
             style: The style of the component.
             key: A unique key for the component.

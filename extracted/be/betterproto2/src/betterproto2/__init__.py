@@ -43,7 +43,6 @@ from ._types import T
 from ._version import __version__, check_compiler_version
 from .casing import camel_case, safe_snake_case, snake_case
 from .enum_ import Enum as Enum
-from .grpc.grpclib_client import ServiceStub as ServiceStub
 from .utils import classproperty, staticproperty
 
 if TYPE_CHECKING:
@@ -607,11 +606,11 @@ def _value_to_dict(
     return value, not bool(value)
 
 
-def _value_from_dict(value: Any, meta: FieldMetadata, field_type: type) -> Any:
+def _value_from_dict(value: Any, meta: FieldMetadata, field_type: type, ignore_unknown_fields: bool) -> Any:
     if meta.proto_type == TYPE_MESSAGE:
         msg_cls = meta.unwrap() if meta.unwrap else field_type
 
-        msg = msg_cls.from_dict(value)
+        msg = msg_cls.from_dict(value, ignore_unknown_fields=ignore_unknown_fields)
 
         if meta.unwrap:
             return msg.to_wrapped()
@@ -1153,9 +1152,9 @@ class Message(ABC):
 
             if meta.proto_type == TYPE_MESSAGE:
                 if meta.repeated:
-                    value = [_value_from_dict(item, meta, field_cls) for item in value]
+                    value = [_value_from_dict(item, meta, field_cls, ignore_unknown_fields) for item in value]
                 else:
-                    value = _value_from_dict(value, meta, field_cls)
+                    value = _value_from_dict(value, meta, field_cls, ignore_unknown_fields)
 
             elif meta.proto_type == TYPE_MAP:
                 assert meta.map_meta
@@ -1164,15 +1163,17 @@ class Message(ABC):
                 value_cls = cls._betterproto.cls_by_field[f"{field_name}.value"]
 
                 value = {
-                    _value_from_dict(k, meta.map_meta[0], type(None)): _value_from_dict(v, meta.map_meta[1], value_cls)
+                    _value_from_dict(k, meta.map_meta[0], type(None), ignore_unknown_fields): _value_from_dict(
+                        v, meta.map_meta[1], value_cls, ignore_unknown_fields
+                    )
                     for k, v in value.items()
                 }
 
             elif meta.repeated:
-                value = [_value_from_dict(item, meta, field_cls) for item in value]
+                value = [_value_from_dict(item, meta, field_cls, ignore_unknown_fields) for item in value]
 
             else:
-                value = _value_from_dict(value, meta, field_cls)
+                value = _value_from_dict(value, meta, field_cls, ignore_unknown_fields)
 
             init_kwargs[field_name] = value
         return init_kwargs
@@ -1270,7 +1271,7 @@ class Message(ABC):
         :class:`bool`
             `True` if field has been set, otherwise `False`.
         """
-        return self.__getattribute__(name) is not self._get_field_default(name)
+        return self.__getattribute__(name) != self._get_field_default(name)
 
     @classmethod
     def _validate_field_groups(cls, values):

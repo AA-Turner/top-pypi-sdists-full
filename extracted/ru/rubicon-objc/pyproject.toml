@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "setuptools==80.9.0",
-    "setuptools_scm==8.3.1",
+    "setuptools_scm==9.2.2",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -9,8 +9,8 @@ build-backend = "setuptools.build_meta"
 dynamic = ["version"]
 name = "rubicon-objc"
 description = "A bridge between an Objective C runtime environment and Python."
-readme = "README.rst"
-requires-python = ">= 3.9"
+readme = "README.md"
+requires-python = ">= 3.10"
 license = "BSD-3-Clause"
 license-files = [
     "LICENSE",
@@ -31,12 +31,12 @@ classifiers = [
     "Intended Audience :: Developers",
     "Programming Language :: Objective C",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Software Development",
 ]
@@ -48,35 +48,50 @@ Documentation = "https://rubicon-objc.readthedocs.io/en/latest/"
 Tracker = "https://github.com/beeware/rubicon-objc/issues"
 Source = "https://github.com/beeware/rubicon-objc"
 
-[project.optional-dependencies]
-dev = [
-    "pre-commit == 4.2.0",
-    "pytest == 8.4.1",
-    "setuptools_scm == 8.3.1",
-    "tox == 4.28.4",
+[dependency-groups]
+pre-commit = [
+    "pre-commit == 4.5.0",
 ]
+
+setuptools-scm = [
+    "setuptools_scm == 9.2.2",
+]
+
+towncrier = [
+    "towncrier==25.8.0",
+]
+
+tox-uv = [
+    "tox-uv == 1.29.0",
+]
+
+test = [
+    "pytest == 9.0.1",
+]
+
+dev = [
+    {include-group = "pre-commit"},
+    {include-group = "setuptools-scm"},
+    {include-group = "tox-uv"},
+]
+
 # Docs are always built on a specific Python version; see RTD and tox config files,
 # and the docs contribution guide.
 docs = [
-    # Docs requirements are *mostly* handled by the `docs` extra; but we can't include
-    # the theme that way, so the theme is installed using a requirements.txt file,
-    # independent of the docs extra. Ideally, we'd use dependency groups for docs
-    # dependencies, but RTD doesn't support them yet. In addition to these dependencies,
-    # you should also run `pip install -r ../requirements-docs.txt`
-    "furo == 2025.7.19",
-    "pyenchant == 3.2.2",
-    "sphinx == 8.2.3",
-    "sphinx_tabs == 3.4.7",
-    "sphinx-autobuild == 2024.10.3",
-    "sphinx-copybutton == 0.5.2",
-    "sphinxcontrib-spelling == 8.0.1",
+    "beeware-docs-tools @ git+https://github.com/beeware/beeware-docs-tools",
 ]
 
 [tool.codespell]
 skip = ".git,*.pdf,*.svg"
-# the way to make case sensitive skips of words etc
+# the way to make case-sensitive skips of words etc
 ignore-regex = "\bNd\b"
 ignore-words-list = "re-use,assertIn"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+]
 
 [tool.ruff.lint]
 # In addition to the default rules, these additional rules will be used:
@@ -102,9 +117,10 @@ extend-select = [
 [tool.towncrier]
 directory = "changes"
 package = "rubicon.objc"
-filename = "docs/about/releases.rst"
-title_format = "{version} ({project_date})"
-template = "changes/template.rst"
+filename = "docs/en/about/releases.md"
+title_format = "## {version} ({project_date})"
+issue_format = "[#{issue}](https://github.com/beeware/toga/issues/{issue})"
+template = "changes/template.md"
 type = [
     { directory = "feature", name = "Features", showcontent = true },
     { directory = "bugfix", name = "Bugfixes", showcontent = true },

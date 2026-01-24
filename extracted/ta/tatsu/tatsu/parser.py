@@ -12,14 +12,14 @@ from .semantics import ASTSemantics
 class EBNFBuffer(Buffer):
     def __init__(
         self,
-        text,
+        text: str,
         /,
-        filename=None,
+        filename: str | None = None,
         config: ParserConfig | None = None,
         **settings: Any,
     ):
         config = ParserConfig.new(
-            config=config, owner=self, filename=filename, **settings,
+            config=config, filename=filename, **settings,
         )
         super().__init__(text, config=config)
 

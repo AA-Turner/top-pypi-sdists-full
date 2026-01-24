@@ -101,6 +101,7 @@ class MyPyllantAPI:
     oauth_session: dict = {}
     oauth_session_expires: datetime.datetime | None = None
     control_identifiers: dict[str, str] = {}
+    time_zones: dict[str, str] = {}
 
     def __init__(
         self, username: str, password: str, brand: str, country: str | None = None
@@ -201,7 +202,7 @@ class MyPyllantAPI:
                 if "Location" not in resp.headers:
                     raise AuthenticationFailed("Login failed")
                 logger.debug(
-                    f'Got location from authorize endpoint: {resp.headers["Location"]}'
+                    f"Got location from authorize endpoint: {resp.headers['Location']}"
                 )
                 parsed_url = urlparse(resp.headers["Location"])
                 code = parse_qs(parsed_url.query)["code"]
@@ -314,6 +315,8 @@ class MyPyllantAPI:
         include_ambisense_rooms: bool = False,
         include_energy_management: bool = False,
         include_eebus: bool = False,
+        include_ambisense_capability: bool = False,
+        homes: list[Home] | None = None,
     ) -> AsyncIterator[System]:
         """
         Returns an async generator of systems under control of the user
@@ -326,6 +329,8 @@ class MyPyllantAPI:
             include_ambisense_rooms: Fetches Ambisense room data
             include_energy_management: Fetches energy management data
             include_eebus: Fetches eebus information
+            include_ambisense_capability: Fetches eebus information
+            homes: Use this list of Home objects instead of fetching them
 
         Returns:
             An Async Iterator with all the `System` objects
@@ -334,8 +339,9 @@ class MyPyllantAPI:
             >>> async for system in MyPyllantAPI(**kwargs).get_systems():
             >>>    print(system.water_pressure)
         """
-        homes = self.get_homes()
-        async for home in homes:
+        if not homes:
+            homes = [home async for home in self.get_homes()]
+        for home in homes:
             control_identifier = await self.get_control_identifier(home.system_id)
             system_url = await self.get_system_api_base(home.system_id)
             current_system_url = (
@@ -372,9 +378,9 @@ class MyPyllantAPI:
                 rts=await self.get_rts(home.system_id) if include_rts else None,
                 mpc=await self.get_mpc(home.system_id) if include_mpc else None,
                 current_system=dict_to_snake_case(current_system_json),
-                ambisense_capability=await self.get_ambisense_capability(
-                    home.system_id
-                ),
+                ambisense_capability=await self.get_ambisense_capability(home.system_id)
+                if include_ambisense_capability
+                else False,
                 ambisense_rooms=await self.get_ambisense_rooms(home.system_id)
                 if include_ambisense_rooms
                 else [],
@@ -930,9 +936,9 @@ class MyPyllantAPI:
         )
 
         if start and end:
-            system.configuration["system"][
-                "manual_cooling_start_date"
-            ] = datetime_format(start)
+            system.configuration["system"]["manual_cooling_start_date"] = (
+                datetime_format(start)
+            )
             system.configuration["system"]["manual_cooling_end_date"] = datetime_format(
                 end
             )
@@ -1232,20 +1238,28 @@ class MyPyllantAPI:
         Parameters:
             system: The System object or system ID string
         """
-        url = (
-            f"{await self.get_api_base()}/systems/"
-            f"{get_system_id(system)}/meta-info/time-zone"
-        )
-        response = await self.aiohttp_session.get(
-            url,
-            headers=self.get_authorized_headers(),
-        )
-        try:
-            tz = (await response.json())["timeZone"]
-            return ZoneInfo(key=tz)
-        except KeyError:
-            logger.warning("Couldn't get timezone from API")
-            return None
+        system_id = get_system_id(system)
+        if system_id in self.time_zones:
+            # We already have the tz cached
+            logger.debug("Using cached timezone for system %s", system_id)
+            return ZoneInfo(key=self.time_zones[system_id])
+        else:
+            logger.debug("Fetching timezone for system %s", system_id)
+            url = (
+                f"{await self.get_api_base()}/systems/"
+                f"{get_system_id(system)}/meta-info/time-zone"
+            )
+            response = await self.aiohttp_session.get(
+                url,
+                headers=self.get_authorized_headers(),
+            )
+            try:
+                tz_key = (await response.json())["timeZone"]
+                self.time_zones[system_id] = tz_key
+                return ZoneInfo(key=tz_key)
+            except (KeyError, TypeError):
+                logger.warning("Couldn't get timezone from API")
+                return None
 
     async def get_diagnostic_trouble_codes(
         self, system: System | str

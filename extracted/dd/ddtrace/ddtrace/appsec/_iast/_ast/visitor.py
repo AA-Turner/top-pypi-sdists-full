@@ -14,8 +14,10 @@ from typing import Tuple  # noqa:F401
 
 from ..._constants import IAST
 from .._metrics import _set_metric_iast_instrumented_propagation
+from ..constants import DEFAULT_COMMAND_INJECTION_FUNCTIONS
 from ..constants import DEFAULT_PATH_TRAVERSAL_FUNCTIONS
 from ..constants import DEFAULT_SOURCE_IO_FUNCTIONS
+from ..constants import DEFAULT_SSRF_FUNCTIONS
 from ..constants import DEFAULT_WEAK_RANDOMNESS_FUNCTIONS
 
 
@@ -134,6 +136,8 @@ _ASPECTS_SPEC: Dict[Text, Any] = {
     "taint_sinks": {
         "weak_randomness": DEFAULT_WEAK_RANDOMNESS_FUNCTIONS,
         "path_traversal": DEFAULT_PATH_TRAVERSAL_FUNCTIONS,
+        "cmd_injection": DEFAULT_COMMAND_INJECTION_FUNCTIONS,
+        "ssrf": DEFAULT_SSRF_FUNCTIONS,
         # These explicitly WON'T be replaced by taint_sink_function:
         "disabled": {
             "__new__",
@@ -182,6 +186,8 @@ class AstVisitor(ast.NodeTransformer):
         self._taint_sink_replace_any = self._merge_dicts(
             _ASPECTS_SPEC["taint_sinks"]["weak_randomness"],
             *[functions for module, functions in _ASPECTS_SPEC["taint_sinks"]["path_traversal"].items()],
+            *[functions for module, functions in _ASPECTS_SPEC["taint_sinks"]["cmd_injection"].items()],
+            *[functions for module, functions in _ASPECTS_SPEC["taint_sinks"]["ssrf"].items()],
         )
         self._source_replace_any = self._merge_dicts(
             *[functions for module, functions in _ASPECTS_SPEC["sources"]["io"].items()],
@@ -190,6 +196,7 @@ class AstVisitor(ast.NodeTransformer):
         self._taint_sink_replace_disabled = _ASPECTS_SPEC["taint_sinks"]["disabled"]
 
         self.update_location(filename, module_name)
+        self.allowed_replacements = {CODE_TYPE_FIRST_PARTY, CODE_TYPE_SITE_PACKAGES}
 
     def update_location(self, filename: str = "", module_name: str = ""):
         self.filename = filename
@@ -385,7 +392,6 @@ class AstVisitor(ast.NodeTransformer):
 
     @staticmethod
     def _none_constant(from_node: Any) -> Any:  # noqa: B008
-        # 3.8+
         return ast.Constant(
             lineno=from_node.lineno,
             col_offset=from_node.col_offset,
@@ -604,7 +610,7 @@ class AstVisitor(ast.NodeTransformer):
                         call_node.func = self._attr_node(call_node, SOURCES_FUNCTION_REPLACEMENT)
                         self.ast_modified = call_modified = True
 
-        if self.codetype == CODE_TYPE_FIRST_PARTY:
+        if self.codetype in self.allowed_replacements:
             # Function replacement case
             if isinstance(call_node.func, ast.Name):
                 aspect = self._should_replace_with_taint_sink(call_node, True)
@@ -856,17 +862,6 @@ class AstVisitor(ast.NodeTransformer):
             call_node.func.attr = aspect_split[1]
             call_node.func.value.id = aspect_split[0]
             call_node.args.extend([subscr_node.value, subscr_node.slice])
-        # TODO: python 3.8 isn't working correctly with index_aspect, tests raise:
-        #  corrupted size vs. prev_size in fastbins
-        #  Test failed with exit code -6
-        #  https://app.circleci.com/pipelines/github/DataDog/dd-trace-py/46665/workflows/3cf1257c-feaf-4653-bb9c-fb840baa1776/jobs/3031799
-        # elif isinstance(subscr_node.slice, ast.Index):
-        #     if self._is_string_node(subscr_node.slice.value):  # type: ignore[attr-defined]
-        #         return subscr_node
-        #     aspect_split = self._aspect_index.split(".")
-        #     call_node.func.attr = aspect_split[1]
-        #     call_node.func.value.id = aspect_split[0]
-        #     call_node.args.extend([subscr_node.value, subscr_node.slice.value])  # type: ignore[attr-defined]
         else:
             return subscr_node
 

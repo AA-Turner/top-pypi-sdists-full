@@ -68,9 +68,10 @@ class CloudBuildTransport(abc.ABC):
                 credentials identify the application to the service; if none
                 are specified, the client will attempt to ascertain the
                 credentials from the environment.
-            credentials_file (Optional[str]): A file with credentials that can
+            credentials_file (Optional[str]): Deprecated. A file with credentials that can
                 be loaded with :func:`google.auth.load_credentials_from_file`.
-                This argument is mutually exclusive with credentials.
+                This argument is mutually exclusive with credentials. This argument will be
+                removed in the next major version of this library.
             scopes (Optional[Sequence[str]]): A list of scopes.
             quota_project_id (Optional[str]): An optional project to use for billing
                 and quota.
@@ -294,6 +295,11 @@ class CloudBuildTransport(abc.ABC):
                 default_timeout=600.0,
                 client_info=client_info,
             ),
+            self.get_default_service_account: gapic_v1.method.wrap_method(
+                self.get_default_service_account,
+                default_timeout=None,
+                client_info=client_info,
+            ),
         }
 
     def close(self):
@@ -477,6 +483,18 @@ class CloudBuildTransport(abc.ABC):
         Union[
             cloudbuild.ListWorkerPoolsResponse,
             Awaitable[cloudbuild.ListWorkerPoolsResponse],
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def get_default_service_account(
+        self,
+    ) -> Callable[
+        [cloudbuild.GetDefaultServiceAccountRequest],
+        Union[
+            cloudbuild.DefaultServiceAccount,
+            Awaitable[cloudbuild.DefaultServiceAccount],
         ],
     ]:
         raise NotImplementedError()

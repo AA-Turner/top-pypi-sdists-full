@@ -1,18 +1,18 @@
 """
 Critical value simulation for the Dickey-Fuller GLS model.  Similar in design
-to MacKinnon (2010).  Makes use of parallel_fun in statsmodels which works
+to MacKinnon (2010).  Makes use of parallel_fun which works
 best when joblib is installed.
 """
 
 import datetime
-from typing import Optional, cast
+from typing import cast
 
 import numpy as np
 from numpy.linalg import pinv
 from numpy.random import RandomState
 from statsmodels.tools.parallel import parallel_func
 
-from arch.typing import Literal
+from arch._typing import Literal
 
 # Controls memory use, in MiB
 MAX_MEMORY_SIZE = 100
@@ -47,7 +47,7 @@ def wrapper(n: int, trend: Literal["c", "ct"], b: int, seed: int = 0) -> np.ndar
 
 
 def dfgsl_simulation(
-    n: int, trend: Literal["c", "ct"], b: int, rng: Optional[RandomState] = None
+    n: int, trend: Literal["c", "ct"], b: int, rng: RandomState | None = None
 ) -> float:
     """
     Simulates the empirical distribution of the DFGLS test statistic
@@ -75,7 +75,7 @@ def dfgsl_simulation(
     delta_y = y.copy()
     delta_y[1:, :] = delta_y[1:, :] - (1 + ct) * delta_y[:-1, :]
     detrend_coef = delta_z_inv.dot(delta_y)
-    y_detrended = y - cast(np.ndarray, z.dot(detrend_coef))
+    y_detrended = y - cast("np.ndarray", z.dot(detrend_coef))
 
     delta_y_detrended = np.diff(y_detrended, axis=0)
     rhs = y_detrended[:-1, :]
@@ -136,7 +136,7 @@ if __name__ == "__main__":
         results = np.zeros((len(percentiles), len(T), EX_NUM))
 
         for i in range(EX_NUM):
-            print(f"Experiment Number {i + 1} of {EX_NUM} " "(trend {tr})")
+            print(f"Experiment Number {i + 1} of {EX_NUM} (trend {tr})")
             now = datetime.datetime.now()
             parallel, p_func, n_jobs = parallel_func(
                 wrapper, n_jobs=NUM_JOBS, verbose=2

@@ -1,0 +1,19 @@
+[package]
+name = "tree-sitter-iter"
+description = "A very simple pre-order iterator for tree-sitter CSTs"
+version = "0.0.3"
+authors.workspace = true
+homepage.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+
+[dependencies]
+tree-sitter.workspace = true
+
+[dev-dependencies]
+tree-sitter-yaml = { workspace = true }
+
+[lints]
+workspace = true

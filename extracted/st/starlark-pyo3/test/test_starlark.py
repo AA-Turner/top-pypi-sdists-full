@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import starlark as sl
 
 
@@ -40,7 +42,7 @@ def test_python_callable():
 
     mod["a"] = 5
 
-    def g(x):
+    def g(x: int):
         return 2 * x
 
     mod.add_callable("g", g)
@@ -58,7 +60,7 @@ def test_python_callable_with_kwargs():
 
     mod["a"] = 5
 
-    def g(x):
+    def g(x: int):
         return 2 * x
 
     mod.add_callable("g", g)
@@ -68,6 +70,25 @@ def test_python_callable_with_kwargs():
     val = sl.eval(mod, ast, glb)
 
     assert val == 10
+
+
+ADD_STAR = """
+def add(x, y, a, b):
+    if a != "a":
+        return 0
+    if b != "b":
+        return 0
+    return x + y
+"""
+
+
+def test_call_starlark():
+    ast = sl.parse("add.star", ADD_STAR)
+    glb = sl.Globals.standard()
+    mod = sl.Module()
+    sl.eval(mod, ast, glb)
+    fmod = mod.freeze()
+    assert fmod.call("add", 3, 4, b="b", a="a") == 7
 
 # }}}
 
@@ -112,7 +133,7 @@ def test():
 
 def test2():
     l = []
-    l.oppend(5)
+    l.oppend(5)  # spellchecker: disable-line
 """
 
 
@@ -120,7 +141,7 @@ def test_type_check():
     glb = sl.Globals.standard()
     dialect = sl.Dialect.extended()
     dialect.enable_types = sl.DialectTypes.ENABLE
-    ast = sl.parse("tc.star", TC_STAR, sl.Dialect.extended())
+    ast = sl.parse("tc.star", TC_STAR, dialect)
 
     errs, _iface, _ = ast.typecheck(glb, {})
     for err in errs:
@@ -128,6 +149,55 @@ def test_type_check():
         print(err.span)
 
     assert len(errs) == 2
+
+
+EXT_TYPE_STAR = """
+FlowersEnum = enum("daisies", "roses", "posies")
+
+EmployeeRecord = record(
+    id=int,
+    name=str,
+    salary=float,
+)
+
+def get_custom_types():
+    return (
+        FlowersEnum("daisies"),
+        EmployeeRecord(id=1, name="John Doe", salary=5.0),
+        struct(id=1, name="John Doe", salary=5.0),
+    )
+"""
+
+
+def test_ext_type_conversion():
+    ast = sl.parse("ext-type.star", EXT_TYPE_STAR)
+    glb = (sl.Globals.standard().extended_by([
+                sl.LibraryExtension.StructType,
+                sl.LibraryExtension.EnumType,
+                sl.LibraryExtension.RecordType,
+            ]))
+    mod = sl.Module()
+    sl.eval(mod, ast, glb)
+    fmod = mod.freeze()
+    retval = fmod.call("get_custom_types")
+    empl = {"id": 1, "name": "John Doe", "salary": 5.0}
+    assert retval == ["daisies", empl, empl]
+
+
+@dataclass
+class MyObj:
+    x: int
+
+
+def test_opaue_python_obj():
+    glb = sl.Globals.standard()
+    mod = sl.Module()
+    ast = sl.parse("ext-type.star", "def identity(x): return x")
+    sl.eval(mod, ast, glb)
+    fmod = mod.freeze()
+    myobj = MyObj(5)
+    myobj2 = fmod.call("identity", sl.OpaquePythonObject(myobj))
+    assert myobj is myobj2
 
 # }}}
 

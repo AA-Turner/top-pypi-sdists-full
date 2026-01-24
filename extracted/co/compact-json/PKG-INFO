@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: compact-json
-Version: 1.8.1
+Version: 1.8.2
 Summary: A JSON formatter that produces compact but human-readable
-Home-page: https://github.com/masaccio/compact-json
 License: MIT
+License-File: LICENSE.rst
 Author: Jon Connell
 Author-email: python@figsandfudge.com
 Requires-Python: >=3.9,<4.0
@@ -14,6 +14,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: importlib-resources (>=6.1)
 Requires-Dist: setuptools (>=69.0.3)
 Requires-Dist: wcwidth (>0.2.8)
@@ -28,6 +30,8 @@ Description-Content-Type: text/markdown
 [![codecov](https://codecov.io/gh/masaccio/compact-json/branch/main/graph/badge.svg?token=EKIUFGT05E)](https://codecov.io/gh/masaccio/compact-json)
 
 `compact-json` is a JSON formatter that produces configurably compact JSON that remains human-readable.
+
+**This package is now deprecated** and you are strongly encouraged to migrate to [fractured-json](https://github.com/masaccio/fractured-json-python) which tracks [FracturedJson](https://github.com/j-brooke/FracturedJson) using that project's .NET assembly directly.
 
 Any given container is formatted in one of three ways:
 

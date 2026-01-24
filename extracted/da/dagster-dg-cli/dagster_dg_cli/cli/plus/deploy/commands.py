@@ -1,10 +1,14 @@
-import asyncio
 import os
+import subprocess
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import click
 from dagster_cloud_cli.types import SnapshotBaseDeploymentCondition
+from dagster_cloud_cli.utils import SUPPORTED_PYTHON_VERSIONS
 from dagster_dg_core.config import DgRawCliConfig, normalize_cli_config
 from dagster_dg_core.context import DgContext
 from dagster_dg_core.shared_options import (
@@ -13,22 +17,26 @@ from dagster_dg_core.shared_options import (
     dg_path_options,
     make_option_group,
 )
-from dagster_dg_core.utils import DgClickCommand, DgClickGroup, not_none
+from dagster_dg_core.utils import DgClickCommand, DgClickGroup, activate_venv, not_none
 from dagster_dg_core.utils.telemetry import cli_telemetry_wrapper
+from dagster_shared import check
 from dagster_shared.plus.config import DagsterPlusCliConfig
+from dagster_shared.serdes import serialize_value
 from dagster_shared.seven.temp_dir import get_system_temp_directory
 
-from dagster_dg_cli.cli.defs_state import (
-    get_updated_defs_state_info_and_statuses,
-    raise_component_state_refresh_errors,
-)
 from dagster_dg_cli.cli.plus.constants import DgPlusAgentType, DgPlusDeploymentType
+from dagster_dg_cli.cli.plus.deploy.configure.commands import deploy_configure_group
 from dagster_dg_cli.cli.plus.deploy.deploy_session import (
     build_artifact,
     finish_deploy_session,
     init_deploy_session,
 )
-from dagster_dg_cli.utils.plus.build import defs_state_storage_from_config, get_agent_type
+from dagster_dg_cli.cli.plus.deploy.validation import _extract_dagster_env_from_url
+from dagster_dg_cli.utils.plus.build import get_agent_type
+
+if TYPE_CHECKING:
+    from dagster._core.instance import DagsterInstance
+    from dagster_shared.serdes.objects.models.defs_state_info import DefsStateManagementType
 
 DEFAULT_STATEDIR_PATH = os.path.join(get_system_temp_directory(), "dg-build-state")
 
@@ -84,12 +92,54 @@ org_and_deploy_option_group = make_option_group(
 )
 
 
+build_strategy_option_group = make_option_group(
+    {
+        not_none(option.name): option
+        for option in [
+            click.Option(
+                ["--build-strategy"],
+                type=click.Choice(["docker", "python-executable"]),
+                default="docker",
+                help=(
+                    "Build strategy used to build code locations. 'docker' builds a Docker image "
+                    "(required for Hybrid agents). 'python-executable' builds PEX files "
+                    "(Serverless agents only)."
+                ),
+                envvar="DAGSTER_BUILD_STRATEGY",
+            ),
+        ]
+    }
+)
+
+
+pex_build_method_option_group = make_option_group(
+    {
+        not_none(option.name): option
+        for option in [
+            click.Option(
+                ["--pex-build-method"],
+                type=click.Choice(["local", "docker", "docker-fallback"]),
+                default="docker-fallback",
+                help=(
+                    "Build method for PEX dependencies. 'docker-fallback' tries local first then Docker (default), "
+                    "'local' uses only the current environment, 'docker' uses only a Docker builder. "
+                    "Only applies when --build-strategy=python-executable."
+                ),
+                envvar="DAGSTER_PEX_BUILD_METHOD",
+            ),
+        ]
+    }
+)
+
+
 @click.group(name="deploy", cls=DgClickGroup, invoke_without_command=True)
 @org_and_deploy_option_group
+@build_strategy_option_group
+@pex_build_method_option_group
 @click.option(
     "--python-version",
     "python_version",
-    type=click.Choice(["3.9", "3.10", "3.11", "3.12"]),
+    type=click.Choice(SUPPORTED_PYTHON_VERSIONS),
     help=(
         "Python version used to deploy the project. If not set, defaults to the calling process's Python minor version."
     ),
@@ -134,6 +184,11 @@ org_and_deploy_option_group = make_option_group(
         ]
     ),
 )
+@click.option(
+    "--skip-validation",
+    is_flag=True,
+    help="Skip configuration validation checks (not recommended).",
+)
 @dg_editable_dagster_options
 @dg_path_options
 @dg_global_options
@@ -141,6 +196,8 @@ org_and_deploy_option_group = make_option_group(
 def deploy_group(
     organization: Optional[str],
     deployment: Optional[str],
+    build_strategy: str,
+    pex_build_method: str,
     python_version: Optional[str],
     agent_type_str: str,
     deployment_type_str: Optional[str],
@@ -152,6 +209,7 @@ def deploy_group(
     target_path: Path,
     status_url: Optional[str],
     snapshot_base_condition_str: Optional[str],
+    skip_validation: bool,
     **global_options: object,
 ) -> None:
     """Deploy a project or workspace to Dagster Plus. Handles all state management for the deploy
@@ -164,6 +222,9 @@ def deploy_group(
     Each of the individual stages of the deploy is also available as its own subcommand for additional
     customization.
     """
+    from dagster_cloud_cli.commands.ci import BuildStrategy
+    from dagster_cloud_cli.core.pex_builder.deps import BuildMethod
+
     if click.get_current_context().invoked_subcommand:
         return
 
@@ -180,6 +241,12 @@ def deploy_group(
     organization = _get_organization(organization, plus_config)
     deployment = _get_deployment(deployment, plus_config)
 
+    # Extract dagster_env from config
+    dagster_env = None
+    if DagsterPlusCliConfig.exists():
+        config = DagsterPlusCliConfig.get()
+        dagster_env = _extract_dagster_env_from_url(config.url)
+
     dg_context = DgContext.for_workspace_or_project_environment(target_path, cli_config)
     _validate_location_names(dg_context, location_names, cli_config)
 
@@ -191,6 +258,9 @@ def deploy_group(
         agent_type = DgPlusAgentType(agent_type_str.upper())
     else:
         agent_type = get_agent_type(plus_config)
+
+    build_strategy_enum = BuildStrategy(build_strategy)
+    pex_build_method_enum = BuildMethod(pex_build_method)
 
     init_deploy_session(
         organization,
@@ -204,11 +274,15 @@ def deploy_group(
         location_names,
         status_url,
         snapshot_base_condition,
+        dagster_env,
+        skip_validation,
     )
 
     build_artifact(
         dg_context,
         agent_type,
+        build_strategy_enum,
+        pex_build_method_enum,
         statedir,
         bool(use_editable_dagster),
         python_version,
@@ -274,6 +348,11 @@ def _validate_location_names(
         ]
     ),
 )
+@click.option(
+    "--skip-validation",
+    is_flag=True,
+    help="Skip configuration validation checks (not recommended).",
+)
 @dg_global_options
 @cli_telemetry_wrapper
 def start_deploy_session_command(
@@ -287,6 +366,7 @@ def start_deploy_session_command(
     target_path: Path,
     status_url: Optional[str],
     snapshot_base_condition_str: Optional[str],
+    skip_validation: bool,
     **global_options: object,
 ) -> None:
     """Start a new deploy session. Determines which code locations will be deployed and what
@@ -299,6 +379,12 @@ def start_deploy_session_command(
     )
     organization = _get_organization(organization, plus_config)
     deployment = _get_deployment(deployment, plus_config)
+
+    # Extract dagster_env from config
+    dagster_env = None
+    if DagsterPlusCliConfig.exists():
+        config = DagsterPlusCliConfig.get()
+        dagster_env = _extract_dagster_env_from_url(config.url)
 
     dg_context = DgContext.for_workspace_or_project_environment(target_path, cli_config)
     _validate_location_names(dg_context, location_names, cli_config)
@@ -322,6 +408,8 @@ def start_deploy_session_command(
         location_names,
         status_url,
         snapshot_base_condition,
+        dagster_env,
+        skip_validation,
     )
 
 
@@ -332,10 +420,12 @@ def start_deploy_session_command(
     type=click.Choice([agent_type.value.lower() for agent_type in DgPlusAgentType]),
     help="Whether this a Hybrid or serverless code location.",
 )
+@build_strategy_option_group
+@pex_build_method_option_group
 @click.option(
     "--python-version",
     "python_version",
-    type=click.Choice(["3.9", "3.10", "3.11", "3.12"]),
+    type=click.Choice(SUPPORTED_PYTHON_VERSIONS),
     help=(
         "Python version used to deploy the project. If not set, defaults to the calling process's Python minor version."
     ),
@@ -353,6 +443,8 @@ def start_deploy_session_command(
 @cli_telemetry_wrapper
 def build_and_push_command(
     agent_type_str: str,
+    build_strategy: str,
+    pex_build_method: str,
     python_version: Optional[str],
     use_editable_dagster: Optional[str],
     location_names: tuple[str],
@@ -362,6 +454,9 @@ def build_and_push_command(
     """Builds a Docker image to be deployed, and pushes it to the registry
     that was configured when the deploy session was started.
     """
+    from dagster_cloud_cli.commands.ci import BuildStrategy
+    from dagster_cloud_cli.core.pex_builder.deps import BuildMethod
+
     cli_config = normalize_cli_config(global_options, click.get_current_context())
 
     dg_context = DgContext.for_workspace_or_project_environment(target_path, cli_config)
@@ -374,11 +469,16 @@ def build_and_push_command(
         plus_config = DagsterPlusCliConfig.get()
         agent_type = get_agent_type(plus_config)
 
+    build_strategy_enum = BuildStrategy(build_strategy)
+    pex_build_method_enum = BuildMethod(pex_build_method)
+
     statedir = _get_statedir()
 
     build_artifact(
         dg_context,
         agent_type,
+        build_strategy_enum,
+        pex_build_method_enum,
         statedir,
         bool(use_editable_dagster),
         python_version,
@@ -386,45 +486,170 @@ def build_and_push_command(
     )
 
 
-def refresh_defs_state_impl(statedir: str, project_path: Path):
+@contextmanager
+def _instance_with_defs_state_storage(
+    ctx: click.Context, location_state
+) -> Iterator["DagsterInstance"]:
+    """Create a temporary instance with DagsterPlusCliDefsStateStorage configuration based off of the given LocationState."""
+    import yaml
+    from dagster._core.instance import DagsterInstance
+    from dagster_cloud_cli.config_utils import get_organization, get_user_token
+
+    api_token = check.not_none(get_user_token(ctx))
+    organization = check.not_none(get_organization(ctx))
+
+    # create dagster.yaml config
+    dagster_config = {
+        "defs_state_storage": {
+            "module": "dagster_dg_cli.utils.plus.defs_state_storage",
+            "class": "DagsterPlusCliDefsStateStorage",
+            "config": {
+                "url": location_state.url,
+                "api_token": api_token,
+                "deployment": location_state.deployment_name,
+                "organization": organization,
+            },
+        }
+    }
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        dagster_yaml_path = Path(temp_dir) / "dagster.yaml"
+        dagster_yaml_path.write_text(yaml.dump(dagster_config))
+        with DagsterInstance.from_config(temp_dir) as instance:
+            yield instance
+
+
+def refresh_defs_state_impl(
+    ctx: click.Context,
+    statedir: str,
+    dg_context: DgContext,
+    cli_config: DgRawCliConfig,
+    management_types: set["DefsStateManagementType"],
+):
     from dagster_cloud_cli.commands.ci import state
 
-    plus_config = (
-        DagsterPlusCliConfig.get() if DagsterPlusCliConfig.exists() else DagsterPlusCliConfig()
-    )
-    with defs_state_storage_from_config(plus_config) as defs_state_storage:
-        defs_state_info, statuses = asyncio.run(
-            get_updated_defs_state_info_and_statuses(project_path, defs_state_storage)
-        )
-        raise_component_state_refresh_errors(statuses)
-
     state_store = state.FileStore(statedir=statedir)
-    if defs_state_info is None:
-        click.echo("No defs_state_info to update")
+    locations = state_store.list_selected_locations()
+
+    if not locations:
+        click.echo("No locations to refresh.")
         return
 
-    for location_state in state_store.list_locations():
-        location_state.defs_state_info = defs_state_info
-        state_store.save(location_state)
-    click.echo("Updated defs_state_info for all locations.")
+    # Determine which projects/locations to process
+    if dg_context.is_project:
+        # Single project - process it with each matching location_state
+        project_contexts = [(dg_context, location_state) for location_state in locations]
+    else:
+        # Workspace - match projects to location states
+        project_contexts = []
+        for location_state in locations:
+            # Find matching project by location_name
+            for project_spec in dg_context.project_specs:
+                project_context = dg_context.for_project_environment(project_spec.path, cli_config)
+                if project_context.code_location_name == location_state.location_name:
+                    project_contexts.append((project_context, location_state))
+                    break
+
+    # Create temp instance with defs_state_storage - shared across all locations
+    # We'll use the first location_state to create the instance
+    with _instance_with_defs_state_storage(ctx, locations[0]) as instance:
+        instance_ref = instance.get_ref()
+        serialized_instance_ref = serialize_value(instance_ref)
+
+        # Run subprocess for each project/location
+        for project_context, location_state in project_contexts:
+            python_executable = project_context.project_python_executable
+
+            # Build command
+            cmd = [
+                str(python_executable),
+                "-m",
+                "dagster_dg_cli.cli.entrypoint",
+                "utils",
+                "refresh-defs-state",
+                "--instance-ref",
+                serialized_instance_ref,
+                "--target-path",
+                str(project_context.root_path),
+            ]
+
+            # Add management-type args if specified
+            for mt in management_types:
+                cmd.extend(["--management-type", mt.value])
+
+            click.echo(
+                f"Refreshing defs state for location: {location_state.location_name} with command: {cmd}"
+            )
+
+            try:
+                # activate the venv for the subprocess to ensure CLIs are available
+                with activate_venv(project_context.root_path / ".venv"):
+                    subprocess.run(cmd, check=True, capture_output=False)
+            except subprocess.CalledProcessError as e:
+                click.echo(
+                    click.style(
+                        f"Failed to refresh defs state for {location_state.location_name}: {e}",
+                        fg="red",
+                    )
+                )
+                raise
+
+        # After all subprocesses complete, get the final DefsStateInfo
+        defs_state_storage = check.not_none(instance.defs_state_storage)
+        final_defs_state_info = defs_state_storage.get_latest_defs_state_info()
+
+        if final_defs_state_info is None:
+            click.echo("No defs_state_info to update")
+            return
+
+        # Set the same DefsStateInfo on all location states
+        for location_state in locations:
+            location_state.defs_state_info = final_defs_state_info
+            state_store.save(location_state)
+
+    click.echo(f"Updated defs_state_info for all {len(locations)} locations.")
 
 
 @deploy_group.command(name="refresh-defs-state", cls=DgClickCommand)
 @dg_editable_dagster_options
 @dg_path_options
 @dg_global_options
+@click.option(
+    "--management-type",
+    multiple=True,
+    type=click.Choice(["LOCAL_FILESYSTEM", "VERSIONED_STATE_STORAGE"]),
+    help="Only refresh components with the specified management type. Can be specified multiple times to include multiple types. By default, refreshes VERSIONED_STATE_STORAGE and LOCAL_FILESYSTEM components.",
+)
 @cli_telemetry_wrapper
 def refresh_defs_state_command(
     target_path: Path,
+    management_type: tuple[str, ...],
     **global_options: object,
 ):
     """[Experimental] If using StateBackedComponents, this command will execute the `refresh_state` on each of them,
     and set the defs_state_info for each location.
     """
-    cli_config = normalize_cli_config(global_options, click.get_current_context())
-    # ensure that the command is executed in a project
-    dg_context = DgContext.for_project_environment(target_path, cli_config)
-    refresh_defs_state_impl(statedir=_get_statedir(), project_path=dg_context.root_path)
+    from dagster_shared.serdes.objects.models.defs_state_info import DefsStateManagementType
+
+    ctx = click.get_current_context()
+    cli_config = normalize_cli_config(global_options, ctx)
+    # Support both workspace and project contexts
+    dg_context = DgContext.for_workspace_or_project_environment(target_path, cli_config)
+    management_types = (
+        {DefsStateManagementType(mt) for mt in management_type}
+        if management_type
+        else {
+            DefsStateManagementType.VERSIONED_STATE_STORAGE,
+            DefsStateManagementType.LOCAL_FILESYSTEM,
+        }
+    )
+    refresh_defs_state_impl(
+        ctx=ctx,
+        statedir=_get_statedir(),
+        dg_context=dg_context,
+        cli_config=cli_config,
+        management_types=management_types,
+    )
 
 
 @deploy_group.command(name="set-build-output", cls=DgClickCommand)
@@ -490,3 +715,7 @@ def finish_deploy_session_command(
     statedir = _get_statedir()
 
     finish_deploy_session(dg_context, statedir, location_names)
+
+
+# Register the configure subcommand group
+deploy_group.add_command(deploy_configure_group)

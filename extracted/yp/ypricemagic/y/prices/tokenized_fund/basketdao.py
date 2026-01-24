@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from a_sync import a_sync, cgather
 from eth_typing import ChecksumAddress
@@ -44,7 +43,7 @@ async def is_basketdao_index(address: ChecksumAddress) -> bool:
 @a_sync(default="sync")
 async def get_price(
     address: ChecksumAddress,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
 ) -> UsdPrice:
     """

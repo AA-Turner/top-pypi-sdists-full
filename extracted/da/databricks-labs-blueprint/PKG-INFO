@@ -1,19 +1,20 @@
 Metadata-Version: 2.4
 Name: databricks-labs-blueprint
-Version: 0.11.3
+Version: 0.12.0
 Summary: Common libraries for Databricks Labs
 Project-URL: Issues, https://github.com/databrickslabs/blueprint/issues
 Project-URL: Source, https://github.com/databrickslabs/blueprint
 License-File: LICENSE
 License-File: NOTICE
 Keywords: Databricks
-Classifier: Development Status :: 3 - Alpha
+Classifier: Development Status :: 4 - Beta
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
 Requires-Dist: databricks-sdk>=0.16.0
@@ -25,7 +26,7 @@ Description-Content-Type: text/markdown
 Databricks Labs Blueprint
 ===
 
-[![python](https://img.shields.io/badge/python-3.10,%203.11,%203.12-green)](https://github.com/databrickslabs/blueprint/actions/workflows/push.yml)
+[![python](https://img.shields.io/badge/python-3.10,%203.11,%203.12,%203.13,%203.14-green)](https://github.com/databrickslabs/blueprint/actions/workflows/push.yml)
 [![codecov](https://codecov.io/github/databrickslabs/blueprint/graph/badge.svg?token=x1JSVddfZa)](https://codecov.io/github/databrickslabs/blueprint) [![lines of code](https://tokei.rs/b1/github/databrickslabs/blueprint)]([https://codecov.io/github/databrickslabs/blueprint](https://github.com/databrickslabs/blueprint))
 
 
@@ -408,6 +409,25 @@ print(f'Answer is: {answer}')
 ![multiple choice](docs/prompts-choice-from-dict.gif)
 
 [[back to top](#databricks-labs-blueprint)]
+
+### Hidden (Password) Prompt
+
+Use to prompt for text without showing the response in the terminal.
+
+Example:
+
+```python
+from databricks.labs.blueprint.tui import Prompts
+
+prompts = Prompts()
+secret = prompts.password('Enter a password')
+print(f'Secret without redaction: {secret}')
+```
+
+![secret_prompt](docs/prompt-password.gif)
+
+[[back to top](#databricks-labs-blueprint)]
+
 
 ### Unit Testing Prompts
 

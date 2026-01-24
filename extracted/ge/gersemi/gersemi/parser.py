@@ -1,13 +1,14 @@
 from dataclasses import astuple, dataclass
 from functools import lru_cache
-import os
+from pathlib import Path
 from typing import Sequence
 from lark import Lark, UnexpectedInput
 from gersemi.exceptions import (
     GenericParsingError,
-    UnbalancedParentheses,
-    UnbalancedBrackets,
     UnbalancedBlock,
+    UnbalancedBrackets,
+    UnbalancedParentheses,
+    UnbalancedQuotes,
 )
 from gersemi.parsing_transformer import ParsingTransformer
 from gersemi.postprocessor import postprocess
@@ -141,6 +142,11 @@ class Parser:
             set(FOO foo)
 """,
         ],
+        UnbalancedQuotes: [
+            'set(foo ")',
+            """set(foo ")
+""",
+        ],
     }
     static_block_starts = (
         "block",
@@ -197,7 +203,7 @@ class Parser:
                 if d.get("block_end", None)
             )
         else:
-            custom_blocks = tuple()
+            custom_blocks = ()
 
         lark_parser = get_lark_parser(self.grammar_filename, custom_blocks)
 
@@ -215,8 +221,8 @@ class ParserWithPostProcessing:
         return postprocess(code, known_definitions, self.parser.parse(code))
 
 
-HERE = os.path.dirname(os.path.realpath(__file__))
-GRAMMAR = os.path.join(HERE, "cmake.lark")
+HERE = Path(__file__).resolve().parent
+GRAMMAR = HERE / "cmake.lark"
 
 
 def create_parser(grammar_filename=GRAMMAR):

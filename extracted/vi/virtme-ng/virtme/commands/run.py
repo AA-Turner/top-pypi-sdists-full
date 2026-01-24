@@ -20,9 +20,10 @@ import sys
 import tempfile
 import termios
 from base64 import b64encode
+from pathlib import Path
 from shutil import which
 from time import sleep
-from typing import Any, Dict, List, NoReturn, Optional, Tuple
+from typing import Any, NoReturn
 
 from virtme_ng.utils import (
     CACHE_DIR,
@@ -133,6 +134,11 @@ def make_parser() -> argparse.ArgumentParser:
         const="user",
         nargs="?",
         help="Enable basic network access: user, bridge(=<br>), loop.",
+    )
+    g.add_argument(
+        "--no-dhcp",
+        action="store_true",
+        help="Disable DHCP configuration for network interfaces.",
     )
     g.add_argument(
         "--net-mac-address",
@@ -313,9 +319,13 @@ def make_parser() -> argparse.ArgumentParser:
         "--disable-monitor", action="store_true", help="Disable QEMU STDIO monitor"
     )
 
-    g = parser.add_argument_group(
-        title="Guest userspace configuration"
-    ).add_mutually_exclusive_group()
+    g = parser.add_argument_group(title="Guest userspace configuration")
+    g.add_argument(
+        "--empty-passwords",
+        action="store_true",
+        help="Set all user passwords to empty",
+    )
+    g = g.add_mutually_exclusive_group()
     g.add_argument(
         "--pwd",
         action="store_true",
@@ -422,11 +432,11 @@ class Kernel:
 
     kimg: str
     version: str
-    dtb: Optional[str]
-    modfiles: List[str]
-    moddir: Optional[str]
+    dtb: str | None
+    modfiles: list[str]
+    moddir: str | None
     use_root_mods: bool
-    config: Optional[Dict[str, str]]
+    config: dict[str, str] | None
 
     def load_config(self, kdir: str) -> None:
         cfgfile = os.path.join(kdir, ".config")
@@ -451,7 +461,10 @@ def get_rootfs_from_kernel_path(path):
     return os.path.abspath(path)
 
 
-def get_kernel_version(path, img_name: Optional[str] = None):
+def get_kernel_version(orig_path, img_name: str | None = None):
+    # Resolve symlinks first
+    path = Path(orig_path).resolve()
+
     if not os.path.exists(path):
         arg_fail(f"kernel file {path} does not exist, try --build to build the kernel")
     if not os.access(path, os.R_OK):
@@ -484,10 +497,10 @@ def get_kernel_version(path, img_name: Optional[str] = None):
     # The version detection fails s390x using file or strings tools, so check
     # if the file itself contains the version number.
     if img_name is not None:
-        match = re.search(rf"{img_name}-({version_pattern})", path)
+        match = re.search(rf"{img_name}-({version_pattern})", str(path))
         if match:
             return match.group(1)
-        match = re.search(rf"/lib/modules/({version_pattern})/{img_name}", path)
+        match = re.search(rf"/lib/modules/({version_pattern})/{img_name}", str(path))
         if match:
             return match.group(1)
 
@@ -725,7 +738,7 @@ class VirtioFS:
                     pass
         return None
 
-    def start(self, path, verbose=True):
+    def start(self, path, verbose=True, cache="always"):
         virtiofsd_path = self._get_virtiofsd_path()
         if virtiofsd_path is None:
             return False
@@ -746,7 +759,8 @@ class VirtioFS:
             stderr = ""
         os.system(
             f"{virtiofsd_path} --syslog --no-announce-submounts "
-            + f"--socket-path {self.sock} --shared-dir {path} --sandbox none {stderr} &"
+            + f"--socket-path {self.sock} --shared-dir {path} "
+            + f"--sandbox none -o cache={cache} {stderr} &"
         )
         max_attempts = 5
         check_duration = 0.1
@@ -767,25 +781,31 @@ class VirtioFS:
 
 
 class VirtioFSConfig:
-    def __init__(self, path: str, mount_tag: str, guest_tools_path=None, memory=None):
+    # allow more than 4 arguments: pylint: disable=R0917
+    def __init__(
+        self, path: str, mount_tag: str, guest_tools_path=None, memory=None, rw=False
+    ):
         self.path = path
         self.mount_tag = mount_tag
         self.guest_tools_path = guest_tools_path
         self.memory = memory
+        self.rw = rw
 
 
 def export_virtiofs(
     arch: architectures.Arch,
-    qemuargs: List[str],
+    qemuargs: list[str],
     config: VirtioFSConfig,
     verbose=False,
 ) -> bool:
     if not arch.virtiofs_support():
         return False
 
+    cache = "auto" if config.rw else "always"
+
     # Try to start virtiofsd daemon
     virtio_fs = VirtioFS(config.guest_tools_path)
-    ret = virtio_fs.start(config.path, verbose)
+    ret = virtio_fs.start(config.path, verbose, cache)
     if not ret:
         return False
 
@@ -822,7 +842,7 @@ class VirtFSConfig:
 def export_virtfs(
     qemu: qemu_helpers.Qemu,
     arch: architectures.Arch,
-    qemuargs: List[str],
+    qemuargs: list[str],
     config: VirtFSConfig,
 ) -> None:
     # NB: We can't use -virtfs for this, because it can't handle a mount_tag
@@ -860,7 +880,7 @@ def quote_karg(arg: str) -> str:
 
 
 # Validate name=path arguments from --disk and --blk-disk
-def sanitize_disk_args(func: str, arg: str) -> Tuple[str, str]:
+def sanitize_disk_args(func: str, arg: str) -> tuple[str, str]:
     namefile = arg.split("=", 1)
     if len(namefile) != 2:
         arg_fail(f"invalid argument to {func}")
@@ -891,7 +911,7 @@ def can_use_kvm(args):
     return can_access_file("/dev/kvm")
 
 
-def all_tools_available(tools: List[str]) -> bool:
+def all_tools_available(tools: list[str]) -> bool:
     return all(map(lambda tool: which(tool) is not None, tools))
 
 
@@ -1101,6 +1121,12 @@ def ssh_server(args, arch, qemuargs, kernelargs):
         )
         ssh_channel_type = "tcp"
 
+    if ssh_channel_type != "vsock" and args.empty_passwords:
+        arg_fail(
+            "--empty-passwords can only be used in combination with SSH over vsock",
+            show_usage=False,
+        )
+
     kernelargs.extend(
         [
             "virtme.ssh",
@@ -1184,7 +1210,7 @@ def do_it() -> int:
             os.execvp("gdb", command)
         sys.exit(0)
 
-    qemuargs: List[str] = [qemu.qemubin]
+    qemuargs: list[str] = [qemu.qemubin]
     kernelargs = []
 
     # Put the '-name' flag first so it's easily visible in ps, top, etc.
@@ -1214,14 +1240,18 @@ def do_it() -> int:
         for i, numa in enumerate(args.numa, start=1):
             size, cpus = numa.split(",", 1) if "," in numa else (numa, None)
             cpus = f",{cpus}" if cpus else ""
-            qemuargs.extend(
-                [
+
+            if size == "0":
+                obj_args = []
+                numa_args = ["-numa", f"node{cpus}"]
+            else:
+                obj_args = [
                     "-object",
                     f"memory-backend-memfd,id=mem{i},size={size},share=on",
-                    "-numa",
-                    f"node,memdev=mem{i}{cpus}",
                 ]
-            )
+                numa_args = ["-numa", f"node,memdev=mem{i}{cpus}"]
+
+            qemuargs.extend(obj_args + numa_args)
 
     if args.numa_distance:
         for arg in args.numa_distance:
@@ -1283,6 +1313,7 @@ def do_it() -> int:
             # the user-defined NUMA node, otherwise create a NUMA node with all
             # the memory.
             memory=0 if args.numa else args.memory,
+            rw=args.rw,
         )
         use_virtiofs = export_virtiofs(
             virt_arch,
@@ -1319,6 +1350,8 @@ def do_it() -> int:
         kernelargs.append("luks=no")
         # disable auditd so there are no errors if the user lacks `--rw`
         kernelargs.append("audit=off")
+        # disable zram-generator: may hang at boot if CONFIG_ZRAM is not enabled
+        kernelargs.append("systemd.zram=0")
         kernelargs.extend(
             [f"console={console}" for console in arch.serial_console_args() or []],
         )
@@ -1338,27 +1371,28 @@ def do_it() -> int:
             initcmds = [f"init={guest_tools_path}/{virtme_init_cmd}"]
     else:
         virtfs_config = VirtFSConfig(
+            path=str(CACHE_DIR),
+            mount_tag="virtme.cache",
+            readonly=False,
+        )
+        export_virtfs(qemu, arch, qemuargs, virtfs_config)
+        virtfs_config = VirtFSConfig(
             path=guest_tools_path,
             mount_tag="virtme.guesttools",
         )
         export_virtfs(qemu, arch, qemuargs, virtfs_config)
         initsh = [
             "mount -t tmpfs run /run",
+            "mkdir -p /run/virtme/cache",
+            "/bin/mount -n -t 9p -o rw,version=9p2000.L,trans=virtio,access=any "
+            + "virtme.cache /run/virtme/cache",
             "mkdir -p /run/virtme/guesttools",
             "/bin/mount -n -t 9p -o ro,version=9p2000.L,trans=virtio,access=any "
             + "virtme.guesttools /run/virtme/guesttools",
         ]
         if args.systemd:
-            virtfs_config = VirtFSConfig(
-                path=str(CACHE_DIR),
-                mount_tag="virtme.cache",
-            )
-            export_virtfs(qemu, arch, qemuargs, virtfs_config)
             initsh.extend(
                 [
-                    "mkdir -p /run/virtme/cache",
-                    "/bin/mount -n -t 9p -o ro,version=9p2000.L,trans=virtio,access=any "
-                    + "virtme.cache /run/virtme/cache",
                     "SYSTEMD_UNIT_PATH=/run/virtme/cache: exec /sbin/init",
                 ]
             )
@@ -1428,6 +1462,9 @@ def do_it() -> int:
 
     for i, d in enumerate(args.overlay_rwdir):
         kernelargs.append(f"virtme_rw_overlay{i}={d}")
+
+    if args.empty_passwords:
+        kernelargs.append("virtme_empty_passwords=1")
 
     # Turn on KVM if available
     kvm_ok = can_use_kvm(args)
@@ -1758,7 +1795,7 @@ def do_it() -> int:
                     f"--net: invalid choice: '{net}' (choose from user, bridge(=<br>), loop)"
                 )
             index += 1
-        if extend_dhcp:
+        if extend_dhcp and not args.no_dhcp:
             kernelargs.extend(["virtme.dhcp"])
         kernelargs.extend(
             [
@@ -1796,13 +1833,17 @@ def do_it() -> int:
     if args.nvgpu:
         qemuargs.extend(["-device", args.nvgpu])
 
-    # If we are running as root on the host pass this information to the guest
-    # (this can be useful to properly support running virtme-ng instances
-    # inside docker)
-    if os.geteuid() == 0:
+    # If we are running as root on the host, or using root user within an
+    # external root filesystem, pass this information to the guest (this can be
+    # useful to properly support running virtme-ng instances inside docker)
+    if os.geteuid() == 0 or (
+        args.user == "root"
+        and args.root != "/"
+        and os.access(os.path.join(args.root, "root"), os.R_OK | os.W_OK | os.X_OK)
+    ):
         kernelargs.append("virtme_root_user=1")
 
-    initrdpath: Optional[str]
+    initrdpath: str | None
 
     if need_initramfs:
         if args.busybox is not None:

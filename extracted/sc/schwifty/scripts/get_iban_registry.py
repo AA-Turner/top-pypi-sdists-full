@@ -22,7 +22,10 @@ def get_raw() -> str:
 
 
 def parse_int(raw: str) -> int:
-    return int(re.search(r"\d+", raw).group())
+    match = re.search(r"\d+", raw)
+    if match:
+        return int(match.group())
+    return 0
 
 
 def parse_range(raw: str) -> tuple[int, int]:
@@ -33,12 +36,17 @@ def parse_range(raw: str) -> tuple[int, int]:
     return (int(match["from"]) - 1, int(match["to"]))
 
 
+def parse_country_code(raw: str) -> str:
+    match = re.search(COUNTRY_CODE_PATTERN, raw)
+    return match.group() if match else ""
+
+
 def parse(raw: str) -> list[Record]:
     columns: dict[str, list] = {}
     for line in raw.split("\r\n"):
         header, *rows = line.split("\t")
         if header == "IBAN prefix country code (ISO 3166)":
-            columns["country"] = [re.search(COUNTRY_CODE_PATTERN, item).group() for item in rows]
+            columns["country"] = [parse_country_code(item) for item in rows]
         elif header == "Country code includes other countries/territories":
             columns["other_countries"] = [re.findall(COUNTRY_CODE_PATTERN, item) for item in rows]
         elif header == "BBAN structure":
@@ -55,7 +63,9 @@ def parse(raw: str) -> list[Record]:
             columns["iban_length"] = [parse_int(item) for item in rows]
         elif header == "SEPA country":
             columns["in_sepa_zone"] = [item.lower() == "yes" for item in rows]
-    return [dict(zip(columns.keys(), row)) for row in zip(*columns.values())]
+    return [
+        dict(zip(columns.keys(), row, strict=False)) for row in zip(*columns.values(), strict=False)
+    ]
 
 
 def process(records: list[Record]) -> dict[str, Record]:

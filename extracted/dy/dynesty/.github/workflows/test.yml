@@ -16,17 +16,17 @@ env:
 jobs:
   tester:
     name: Test the code
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
-        python-version: ['3.6', '3.8', '3.10', '3.12']
+        python-version: ['3.8', '3.10', '3.12']
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Python setup
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           architecture: 'x64'
@@ -34,8 +34,7 @@ jobs:
       - name: Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-          pip install .
+          pip install .[dev]
 
       - name: Docs
         run: |
@@ -44,7 +43,7 @@ jobs:
           # The extra options are there to fail on warnings
 
       - name: pylint
-        run: pylint --fail-under=9 --extension-pkg-whitelist=scipy.special py/dynesty/*py
+        run: pylint --fail-under=9 --ignored-modules=scipy.special py/dynesty/*py
 
       - name: RandomCheck
         # check that np.random is not used directly

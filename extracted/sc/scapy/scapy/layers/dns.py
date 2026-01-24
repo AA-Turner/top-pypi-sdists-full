@@ -29,7 +29,7 @@ from scapy.arch import (
 from scapy.ansmachine import AnsweringMachine
 from scapy.base_classes import Net, ScopedIP
 from scapy.config import conf
-from scapy.compat import orb, raw, chb, bytes_encode, plain_str
+from scapy.compat import raw, chb, bytes_encode, plain_str
 from scapy.error import log_runtime, warning, Scapy_Exception
 from scapy.packet import Packet, bind_layers, Raw
 from scapy.fields import (
@@ -199,9 +199,12 @@ def dns_get_str(s, full=None, _ignore_compression=False):
 
 
 def _is_ptr(x):
-    return b"." not in x and (
-        (x and orb(x[-1]) == 0) or
-        (len(x) >= 2 and (orb(x[-2]) & 0xc0) == 0xc0)
+    """
+    Heuristic to guess if bytes are an encoded DNS pointer.
+    """
+    return (
+        (x and x[-1] == 0) or
+        (len(x) >= 2 and (x[-2] & 0xc0) == 0xc0)
     )
 
 
@@ -396,7 +399,7 @@ class DNSTextField(StrLenField):
         # RDATA contains a list of strings, each are prepended with
         # a byte containing the size of the following string.
         while tmp_s:
-            tmp_len = orb(tmp_s[0]) + 1
+            tmp_len = tmp_s[0] + 1
             if tmp_len > len(tmp_s):
                 log_runtime.info(
                     "DNS RR TXT prematured end of character-string "
@@ -559,7 +562,7 @@ class ClientSubnetv4(StrLenField):
         # type: (bytes) -> bytes
         packed_subnet = inet_pton(self.af_familly, plain_str(subnet))
         for i in list(range(operator.floordiv(self.af_length, 8)))[::-1]:
-            if orb(packed_subnet[i]) != 0:
+            if packed_subnet[i] != 0:
                 i += 1
                 break
         return packed_subnet[:i]
@@ -699,9 +702,9 @@ def bitmap2RRlist(bitmap):
             log_runtime.info("bitmap too short (%i)", len(bitmap))
             return
 
-        window_block = orb(bitmap[0])  # window number
+        window_block = bitmap[0]  # window number
         offset = 256 * window_block  # offset of the Resource Record
-        bitmap_len = orb(bitmap[1])  # length of the bitmap in bytes
+        bitmap_len = bitmap[1]  # length of the bitmap in bytes
 
         if bitmap_len <= 0 or bitmap_len > 32:
             log_runtime.info("bitmap length is no valid (%i)", bitmap_len)
@@ -713,7 +716,7 @@ def bitmap2RRlist(bitmap):
         for b in range(len(tmp_bitmap)):
             v = 128
             for i in range(8):
-                if orb(tmp_bitmap[b]) & v:
+                if tmp_bitmap[b] & v:
                     # each of the RR is encoded as a bit
                     RRlist += [offset + b * 8 + i]
                 v = v >> 1
@@ -1268,9 +1271,10 @@ class _DNSPacketListField(PacketListField):
 
 class DNS(DNSCompressedPacket):
     name = "DNS"
+    FORCE_TCP = False
     fields_desc = [
         ConditionalField(ShortField("length", None),
-                         lambda p: isinstance(p.underlayer, TCP)),
+                         lambda p: p.FORCE_TCP or isinstance(p.underlayer, TCP)),
         ShortField("id", 0),
         BitField("qr", 0, 1),
         BitEnumField("opcode", 0, 4, {0: "QUERY", 1: "IQUERY", 2: "STATUS"}),
@@ -1297,7 +1301,7 @@ class DNS(DNSCompressedPacket):
 
     def get_full(self):
         # Required for DNSCompressedPacket
-        if isinstance(self.underlayer, TCP):
+        if isinstance(self.underlayer, TCP) or self.FORCE_TCP:
             return self.original[2:]
         else:
             return self.original
@@ -1329,7 +1333,10 @@ class DNS(DNSCompressedPacket):
         )
 
     def post_build(self, pkt, pay):
-        if isinstance(self.underlayer, TCP) and self.length is None:
+        if (
+            (isinstance(self.underlayer, TCP) or self.FORCE_TCP) and
+            self.length is None
+        ):
             pkt = struct.pack("!H", len(pkt) - 2) + pkt[2:]
         return pkt + pay
 
@@ -1360,6 +1367,14 @@ class DNS(DNSCompressedPacket):
         return s
 
 
+class DNSTCP(DNS):
+    """
+    A DNS packet that is always under TCP
+    """
+    FORCE_TCP = True
+    match_subclass = True
+
+
 bind_layers(UDP, DNS, dport=5353)
 bind_layers(UDP, DNS, sport=5353)
 bind_layers(UDP, DNS, dport=53)
@@ -1377,18 +1392,20 @@ _dns_cache = conf.netcache.new_cache("dns_cache", 300)
 
 
 @conf.commands.register
-def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
+def dns_resolve(qname, qtype="A", raw=False, tcp=False, verbose=1, timeout=3, **kwargs):
     """
     Perform a simple DNS resolution using conf.nameservers with caching
 
     :param qname: the name to query
     :param qtype: the type to query (default A)
     :param raw: return the whole DNS packet (default False)
+    :param tcp: whether to use directly TCP instead of UDP. If truncated is received,
+        UDP automatically retries in TCP. (default: False)
     :param verbose: show verbose errors
     :param timeout: seconds until timeout (per server)
     :raise TimeoutError: if no DNS servers were reached in time.
     """
-    # Unify types
+    # Unify types (for caching)
     qtype = DNSQR.qtype.any2i_one(None, qtype)
     qname = DNSQR.qname.any2i(None, qname)
     # Check cache
@@ -1401,20 +1418,25 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
         return result
 
     kwargs.setdefault("timeout", timeout)
-    kwargs.setdefault("verbose", 0)
+    kwargs.setdefault("verbose", 0)  # hide sr1() output
     res = None
     for nameserver in conf.nameservers:
         # Try all nameservers
         try:
-            # Spawn a UDP socket, connect to the nameserver on port 53
-            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            # Spawn a socket, connect to the nameserver on port 53
+            if tcp:
+                cls = DNSTCP
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            else:
+                cls = DNS
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(kwargs["timeout"])
             sock.connect((nameserver, 53))
             # Connected. Wrap it with DNS
-            sock = StreamSocket(sock, DNS)
+            sock = StreamSocket(sock, cls)
             # I/O
             res = sock.sr1(
-                DNS(qd=[DNSQR(qname=qname, qtype=qtype)], id=RandShort()),
+                cls(qd=[DNSQR(qname=qname, qtype=qtype)], id=RandShort()),
                 **kwargs,
             )
         except IOError as ex:
@@ -1425,6 +1447,19 @@ def dns_resolve(qname, qtype="A", raw=False, verbose=1, timeout=3, **kwargs):
             sock.close()
         if res:
             # We have a response ! Check for failure
+            if res[DNS].tc == 1:  # truncated !
+                if not tcp:
+                    # Retry using TCP
+                    return dns_resolve(
+                        qname=qname,
+                        qtype=qtype,
+                        raw=raw,
+                        tcp=True,
+                        **kwargs,
+                    )
+                elif verbose:
+                    log_runtime.info("DNS answer is truncated !")
+
             if res[DNS].rcode == 2:  # server failure
                 res = None
                 if verbose:
@@ -1822,9 +1857,10 @@ class DNS_am(AnsweringMachine):
             if self.relay:
                 # Relay mode ?
                 try:
-                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype)
+                    _rslv = dns_resolve(rq.qname, qtype=rq.qtype, raw=True)
                     if _rslv:
-                        ans.extend(_rslv)
+                        ans.extend(_rslv.an)
+                        ars.extend(_rslv.ar)
                         continue  # next
                 except TimeoutError:
                     pass

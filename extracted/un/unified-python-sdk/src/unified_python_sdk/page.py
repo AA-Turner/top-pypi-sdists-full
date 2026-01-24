@@ -59,6 +59,7 @@ class Page(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.kms_page, False, False, "json", shared.KmsPage
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -75,7 +76,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -148,6 +149,7 @@ class Page(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.kms_page, False, False, "json", shared.KmsPage
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -164,7 +166,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="createKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -234,6 +236,7 @@ class Page(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -250,7 +253,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -320,6 +323,7 @@ class Page(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -336,7 +340,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="getKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -406,6 +410,7 @@ class Page(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -422,7 +427,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listKmsPages",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -494,6 +499,7 @@ class Page(BaseSDK):
             accept_header_value="application/json",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -510,7 +516,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="listKmsPages",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -585,6 +591,7 @@ class Page(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.kms_page, False, False, "json", shared.KmsPage
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -601,7 +608,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -674,6 +681,7 @@ class Page(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.kms_page, False, False, "json", shared.KmsPage
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -690,7 +698,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="patchKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -760,6 +768,7 @@ class Page(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -776,7 +785,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -853,6 +862,7 @@ class Page(BaseSDK):
             accept_header_value="*/*",
             http_headers=http_headers,
             security=self.sdk_configuration.security,
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -869,7 +879,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="removeKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -949,6 +959,7 @@ class Page(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.kms_page, False, False, "json", shared.KmsPage
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -965,7 +976,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,
@@ -1038,6 +1049,7 @@ class Page(BaseSDK):
             get_serialized_body=lambda: utils.serialize_request_body(
                 request.kms_page, False, False, "json", shared.KmsPage
             ),
+            allow_empty_value=None,
             timeout_ms=timeout_ms,
         )
 
@@ -1054,7 +1066,7 @@ class Page(BaseSDK):
                 config=self.sdk_configuration,
                 base_url=base_url or "",
                 operation_id="updateKmsPage",
-                oauth2_scopes=[],
+                oauth2_scopes=None,
                 security_source=self.sdk_configuration.security,
             ),
             request=req,

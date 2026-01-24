@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai
-Version: 1.0.10
+Version: 1.47.0
 Summary: Agent Framework / shim to use Pydantic with LLMs
 Project-URL: Homepage, https://ai.pydantic.dev
 Project-URL: Source, https://github.com/pydantic/pydantic-ai
@@ -14,7 +14,6 @@ Classifier: Framework :: Pydantic
 Classifier: Framework :: Pydantic :: 2
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -27,13 +26,29 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
-Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,google,groq,huggingface,logfire,mcp,mistral,openai,retries,temporal,vertexai]==1.0.10
+Requires-Dist: pydantic-ai-slim[ag-ui,anthropic,bedrock,cli,cohere,evals,fastmcp,google,groq,huggingface,logfire,mcp,mistral,openai,retries,temporal,ui,vertexai,xai]==1.47.0
 Provides-Extra: a2a
 Requires-Dist: fasta2a>=0.4.1; extra == 'a2a'
 Provides-Extra: dbos
-Requires-Dist: pydantic-ai-slim[dbos]==1.0.10; extra == 'dbos'
+Requires-Dist: pydantic-ai-slim[dbos]==1.47.0; extra == 'dbos'
 Provides-Extra: examples
-Requires-Dist: pydantic-ai-examples==1.0.10; extra == 'examples'
+Requires-Dist: pydantic-ai-examples==1.47.0; extra == 'examples'
+Provides-Extra: outlines-llamacpp
+Requires-Dist: pydantic-ai-slim[outlines-llamacpp]==1.47.0; extra == 'outlines-llamacpp'
+Provides-Extra: outlines-mlxlm
+Requires-Dist: pydantic-ai-slim[outlines-mlxlm]==1.47.0; (platform_system == 'Darwin' and platform_machine == 'arm64') and extra == 'outlines-mlxlm'
+Provides-Extra: outlines-sglang
+Requires-Dist: pydantic-ai-slim[outlines-sglang]==1.47.0; extra == 'outlines-sglang'
+Provides-Extra: outlines-transformers
+Requires-Dist: pydantic-ai-slim[outlines-transformers]==1.47.0; extra == 'outlines-transformers'
+Provides-Extra: outlines-vllm-offline
+Requires-Dist: pydantic-ai-slim[outlines-vllm-offline]==1.47.0; extra == 'outlines-vllm-offline'
+Provides-Extra: prefect
+Requires-Dist: pydantic-ai-slim[prefect]==1.47.0; extra == 'prefect'
+Provides-Extra: sentence-transformers
+Requires-Dist: pydantic-ai-slim[sentence-transformers]==1.47.0; extra == 'sentence-transformers'
+Provides-Extra: voyageai
+Requires-Dist: pydantic-ai-slim[voyageai]==1.47.0; extra == 'voyageai'
 Description-Content-Type: text/markdown
 
 <div align="center">
@@ -77,7 +92,7 @@ We built Pydantic AI with one simple aim: to bring that FastAPI feeling to GenAI
 [Pydantic Validation](https://docs.pydantic.dev/latest/) is the validation layer of the OpenAI SDK, the Google ADK, the Anthropic SDK, LangChain, LlamaIndex, AutoGPT, Transformers, CrewAI, Instructor and many more. _Why use the derivative when you can go straight to the source?_ :smiley:
 
 2. **Model-agnostic**:
-Supports virtually every [model](https://ai.pydantic.dev/models/overview) and provider: OpenAI, Anthropic, Gemini, DeepSeek, Grok, Cohere, Mistral, and Perplexity; Azure AI Foundry, Amazon Bedrock, Google Vertex AI, Ollama, LiteLLM, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Hugging Face, GitHub, Heroku, Vercel. If your favorite model or provider is not listed, you can easily implement a [custom model](https://ai.pydantic.dev/models/overview#custom-models).
+Supports virtually every [model](https://ai.pydantic.dev/models/overview) and provider: OpenAI, Anthropic, Gemini, DeepSeek, Grok, Cohere, Mistral, and Perplexity; Azure AI Foundry, Amazon Bedrock, Google Vertex AI, Ollama, LiteLLM, Groq, OpenRouter, Together AI, Fireworks AI, Cerebras, Hugging Face, GitHub, Heroku, Vercel, Nebius, OVHcloud, Alibaba Cloud, SambaNova, and Outlines. If your favorite model or provider is not listed, you can easily implement a [custom model](https://ai.pydantic.dev/models/overview#custom-models).
 
 3. **Seamless Observability**:
 Tightly [integrates](https://ai.pydantic.dev/logfire) with [Pydantic Logfire](https://pydantic.dev/logfire), our general-purpose OpenTelemetry observability platform, for real-time debugging, evals-based performance monitoring, and behavior, tracing, and cost tracking. If you already have an observability platform that supports OTel, you can [use that too](https://ai.pydantic.dev/logfire#alternative-observability-backends).
@@ -88,14 +103,14 @@ Designed to give your IDE or AI coding agent as much context as possible for aut
 5. **Powerful Evals**:
 Enables you to systematically test and [evaluate](https://ai.pydantic.dev/evals) the performance and accuracy of the agentic systems you build, and monitor the performance over time in Pydantic Logfire.
 
-6. **MCP, A2A, and AG-UI**:
-Integrates the [Model Context Protocol](https://ai.pydantic.dev/mcp/client), [Agent2Agent](https://ai.pydantic.dev/a2a), and [AG-UI](https://ai.pydantic.dev/ag-ui) standards to give your agent access to external tools and data, let it interoperate with other agents, and build interactive applications with streaming event-based communication.
+6. **MCP, A2A, and UI**:
+Integrates the [Model Context Protocol](https://ai.pydantic.dev/mcp/overview), [Agent2Agent](https://ai.pydantic.dev/a2a), and various [UI event stream](https://ai.pydantic.dev/ui/overview) standards to give your agent access to external tools and data, let it interoperate with other agents, and build interactive applications with streaming event-based communication.
 
 7. **Human-in-the-Loop Tool Approval**:
 Easily lets you flag that certain tool calls [require approval](https://ai.pydantic.dev/deferred-tools#human-in-the-loop-tool-approval) before they can proceed, possibly depending on tool call arguments, conversation history, or user preferences.
 
 8. **Durable Execution**:
-Enables you to build [durable agents](https://ai.pydantic.dev/temporal) that can preserve their progress across transient API failures and application errors or restarts, and handle long-running, asynchronous, and human-in-the-loop workflows with production-grade reliability.
+Enables you to build [durable agents](https://ai.pydantic.dev/durable_execution/overview/) that can preserve their progress across transient API failures and application errors or restarts, and handle long-running, asynchronous, and human-in-the-loop workflows with production-grade reliability.
 
 9. **Streamed Outputs**:
 Provides the ability to [stream](https://ai.pydantic.dev/output#streamed-results) structured output continuously, with immediate validation, ensuring real time access to generated data.

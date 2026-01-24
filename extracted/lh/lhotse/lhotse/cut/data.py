@@ -11,6 +11,7 @@ from typing import (
     Generator,
     Iterable,
     List,
+    Literal,
     Optional,
     Tuple,
     Union,
@@ -23,10 +24,12 @@ from intervaltree import IntervalTree
 from lhotse.array import Array, TemporalArray
 from lhotse.audio import Recording, VideoInfo
 from lhotse.augmentation import AugmentFn
+from lhotse.augmentation.compress import Codec
 from lhotse.custom import CustomFieldMixin
 from lhotse.cut.base import Cut
 from lhotse.features import FeatureExtractor, Features
 from lhotse.features.io import FeaturesWriter
+from lhotse.image import Image
 from lhotse.supervision import SupervisionSegment
 from lhotse.utils import (
     LOG_EPSILON,
@@ -97,14 +100,14 @@ class DataCut(Cut, CustomFieldMixin, metaclass=ABCMeta):
     def iter_data(
         self,
     ) -> Generator[
-        Tuple[str, Union[Recording, Features, Array, TemporalArray]], None, None
+        Tuple[str, Union[Recording, Features, Array, TemporalArray, Image]], None, None
     ]:
         """
         Iterate over each data piece attached to this cut.
         Returns a generator yielding tuples of ``(key, manifest)``, where
         ``key`` is the name of the attribute under which ``manifest`` is found.
         ``manifest`` is of type :class:`~lhotse.Recording`, :class:`~lhotse.Features`,
-        :class:`~lhotse.TemporalArray`, or :class:`~lhotse.Array`.
+        :class:`~lhotse.TemporalArray`, :class:`~lhotse.Array`, or :class:`~lhotse.Image`.
 
         For example, if ``key`` is ``recording``, then ``manifest`` is ``self.recording``.
         """
@@ -113,7 +116,7 @@ class DataCut(Cut, CustomFieldMixin, metaclass=ABCMeta):
         if self.has_features:
             yield "features", self.features
         for k, v in (self.custom or {}).items():
-            if isinstance(v, (Recording, Features, Array, TemporalArray)):
+            if isinstance(v, (Recording, Features, Array, TemporalArray, Image)):
                 yield k, v
 
     @property
@@ -754,7 +757,12 @@ class DataCut(Cut, CustomFieldMixin, metaclass=ABCMeta):
             pad_value_dict=pad_value_dict,
         )
 
-    def resample(self, sampling_rate: int, affix_id: bool = False) -> "DataCut":
+    def resample(
+        self,
+        sampling_rate: int,
+        affix_id: bool = False,
+        recording_field: Optional[str] = None,
+    ) -> "DataCut":
         """
         Return a new ``DataCut`` that will lazily resample the audio while reading it.
         This operation will drop the feature manifest, if attached.
@@ -763,22 +771,25 @@ class DataCut(Cut, CustomFieldMixin, metaclass=ABCMeta):
         :param sampling_rate: The new sampling rate.
         :param affix_id: Should we modify the ID (useful if both versions of the same
             cut are going to be present in a single manifest).
+        :param recording_field: which recording field to resample.
         :return: a modified copy of the current ``DataCut``.
         """
         assert self.has_recording, "Cannot resample a DataCut without Recording."
+
         custom = self.custom
-        if isinstance(custom, dict) and any(
-            isinstance(v, Recording) for v in custom.values()
-        ):
+        recording = self.recording
+        if recording_field is None:
+            recording = recording.resample(sampling_rate)
+        else:
             custom = {
-                k: v.resample(sampling_rate) if isinstance(v, Recording) else v
-                for k, v in custom.items()
+                **custom,
+                recording_field: custom[recording_field].resample(sampling_rate),
             }
 
         return fastcopy(
             self,
             id=f"{self.id}_rs{sampling_rate}" if affix_id else self.id,
-            recording=self.recording.resample(sampling_rate),
+            recording=recording,
             features=None,
             custom=custom,
         )
@@ -1094,6 +1105,41 @@ class DataCut(Cut, CustomFieldMixin, metaclass=ABCMeta):
             self,
             id=f"{self.id}_cl{gain_db}" if affix_id else self.id,
             recording=recording_saturated,
+        )
+
+    def compress(
+        self,
+        codec: Codec = "opus",
+        compression_level: float = 0.99,
+        compress_custom_fields: bool = False,
+    ) -> "DataCut":
+        """
+        Return a copy of this Cut that has its Recordings processed by a lossy audio encoder.
+
+        :param codec: The codec to use for compression. Supported codecs are "opus", "mp3", "vorbis", "gsm".
+        :param compression_level: The level of compression (from 0.0 to 1.0, higher values correspond to higher compression).
+        :param compress_custom_fields: Whether to also compress any custom recording fields in the Cut.
+
+        :return: A modified :class:`~lhotse.DataCut` containing audio processed by a codec
+        """
+        assert self.has_recording, "Cannot compress a DataCut without a Recording."
+
+        custom = self.custom
+        if compress_custom_fields:
+            if isinstance(custom, dict) and any(
+                isinstance(v, Recording) for v in custom.values()
+            ):
+                custom = {
+                    k: v.compress(codec, compression_level)
+                    if isinstance(v, Recording)
+                    else v
+                    for k, v in custom.items()
+                }
+
+        return fastcopy(
+            self,
+            recording=self.recording.compress(codec, compression_level),
+            custom=custom,
         )
 
     def map_supervisions(

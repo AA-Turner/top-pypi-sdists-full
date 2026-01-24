@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cog
-Version: 0.16.7
+Version: 0.16.8
 Summary: Containers for machine learning
 Author-email: Replicate <team@replicate.com>
 License: 
@@ -217,7 +217,7 @@ Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: attrs<24,>=20.1
-Requires-Dist: fastapi<0.116.0,>=0.100
+Requires-Dist: fastapi<0.119.0,>=0.100
 Requires-Dist: pydantic<3,>=1.9
 Requires-Dist: PyYAML
 Requires-Dist: requests<3,>=2

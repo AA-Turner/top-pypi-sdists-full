@@ -12,12 +12,12 @@ from .property_accountingsalesorder_shipping_address import (
 )
 from datetime import datetime
 from enum import Enum
-from pydantic.functional_validators import PlainValidator
+from pydantic import field_serializer, model_serializer
 from typing import Any, Dict, List, Optional
-from typing_extensions import Annotated, NotRequired, TypedDict
+from typing_extensions import NotRequired, TypedDict
 from unified_python_sdk import utils
-from unified_python_sdk.types import BaseModel
-from unified_python_sdk.utils import validate_open_enum
+from unified_python_sdk.models import shared
+from unified_python_sdk.types import BaseModel, UNSET_SENTINEL
 
 
 class AccountingSalesorderStatus(str, Enum, metaclass=utils.OpenEnumMeta):
@@ -28,6 +28,8 @@ class AccountingSalesorderStatus(str, Enum, metaclass=utils.OpenEnumMeta):
     PARTIALLY_PAID = "PARTIALLY_PAID"
     PARTIALLY_REFUNDED = "PARTIALLY_REFUNDED"
     REFUNDED = "REFUNDED"
+    SUBMITTED = "SUBMITTED"
+    DELETED = "DELETED"
 
 
 class AccountingSalesorderTypedDict(TypedDict):
@@ -40,6 +42,7 @@ class AccountingSalesorderTypedDict(TypedDict):
     lineitems: NotRequired[List[AccountingLineitemTypedDict]]
     posted_at: NotRequired[datetime]
     raw: NotRequired[Dict[str, Any]]
+    sales_channel: NotRequired[str]
     shipping_address: NotRequired[PropertyAccountingSalesorderShippingAddressTypedDict]
     status: NotRequired[AccountingSalesorderStatus]
     total_amount: NotRequired[float]
@@ -65,12 +68,54 @@ class AccountingSalesorder(BaseModel):
 
     raw: Optional[Dict[str, Any]] = None
 
+    sales_channel: Optional[str] = None
+
     shipping_address: Optional[PropertyAccountingSalesorderShippingAddress] = None
 
-    status: Annotated[
-        Optional[AccountingSalesorderStatus], PlainValidator(validate_open_enum(False))
-    ] = None
+    status: Optional[AccountingSalesorderStatus] = None
 
     total_amount: Optional[float] = None
 
     updated_at: Optional[datetime] = None
+
+    @field_serializer("status")
+    def serialize_status(self, value):
+        if isinstance(value, str):
+            try:
+                return shared.AccountingSalesorderStatus(value)
+            except ValueError:
+                return value
+        return value
+
+    @model_serializer(mode="wrap")
+    def serialize_model(self, handler):
+        optional_fields = set(
+            [
+                "account_id",
+                "billing_address",
+                "contact_id",
+                "created_at",
+                "currency",
+                "id",
+                "lineitems",
+                "posted_at",
+                "raw",
+                "sales_channel",
+                "shipping_address",
+                "status",
+                "total_amount",
+                "updated_at",
+            ]
+        )
+        serialized = handler(self)
+        m = {}
+
+        for n, f in type(self).model_fields.items():
+            k = f.alias or n
+            val = serialized.get(k)
+
+            if val != UNSET_SENTINEL:
+                if val is not None or k not in optional_fields:
+                    m[k] = val
+
+        return m

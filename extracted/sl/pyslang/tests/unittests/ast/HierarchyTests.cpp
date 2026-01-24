@@ -86,7 +86,7 @@ endpackage
 
     auto& diags = compilation.getAllDiagnostics();
     REQUIRE(diags.size() == 1);
-    CHECK(diags[0].code == diag::Redefinition);
+    CHECK(diags[0].code == diag::DuplicateDefinition);
 }
 
 TEST_CASE("Instance missing name") {
@@ -301,7 +301,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     auto it = diags.begin();
     CHECK((it++)->code == diag::NotAValue);
     CHECK((it++)->code == diag::InvalidGenvarIterExpression);
@@ -348,7 +348,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     auto it = diags.begin();
     CHECK((it++)->code == diag::CaseGenerateEmpty);
     CHECK((it++)->code == diag::ConstEvalNonConstVariable);
@@ -453,7 +453,7 @@ module bar;
 endmodule
 
 module baz #(parameter int i)();
-    if (i == 1 || i == 3) begin
+    if (i == 1 || i == 3) begin : blk
         always asdf = 1;
     end
 endmodule
@@ -513,8 +513,8 @@ endmodule
 TEST_CASE("Generate loops -- too many iterations") {
     auto tree = SyntaxTree::fromText(R"(
 module bar;
-    for (genvar i = 0; i < 1024; i++) begin
-        for (genvar j = 0; j < 1024; j++) begin
+    for (genvar i = 0; i < 1024; i++) begin : blk1
+        for (genvar j = 0; j < 1024; j++) begin : blk2
         end
     end
 endmodule
@@ -606,9 +606,9 @@ endmodule
     auto range = top.membersOfType<GenerateBlockSymbol>();
     auto it = range.begin();
     CHECK((it++)->getExternalName() == "genblk1");
-    it++;
+    CHECK((it++)->getExternalName() == "genblk1");
     CHECK((it++)->getExternalName() == "genblk02");
-    it++;
+    CHECK((it++)->getExternalName() == "genblk02");
     CHECK((it++)->getExternalName() == "genblk5");
 
     auto& g1 = top.find<GenerateBlockArraySymbol>("g1");
@@ -625,7 +625,7 @@ endinterface
 module bar #(parameter int foo);
     localparam int bar = foo;
     int j = int'(bar[foo]);
-    if (j != 10) begin
+    if (j != 10) begin : blk
         int k = j[3.4];
     end
     int k = {};
@@ -734,7 +734,7 @@ primitive foo(output a, input b);
 endprimitive
 
 interface I;
-    if (1) begin
+    if (1) begin : blk
         m m1();
     end
     foo (a, b);
@@ -1035,7 +1035,7 @@ module m;
     defparam;
 
     module top;
-        if (1) begin
+        if (1) begin : blk
             top t1();
             top t2();
         end
@@ -1116,7 +1116,7 @@ program q;
 endprogram
 
 module m;
-    if (1) begin
+    if (1) begin : blk
         C c = new(3);
         int j = p::bar();
     end
@@ -1380,7 +1380,7 @@ module o;
 endmodule
 
 module p #(parameter bar);
-    if (bar == 1) begin
+    if (bar == 1) begin : blk
         bind top q q1();
     end
 
@@ -1394,7 +1394,7 @@ endmodule
 
 module r;
     parameter p = 0;
-    if (p == 1) begin
+    if (p == 1) begin : blk
         $info("World");
     end
 endmodule
@@ -1410,7 +1410,7 @@ module top;
 
     assign q1.w = 1;
 
-    if (1) begin
+    if (1) begin : blk
         r r1();
         defparam r1.p = 1;
     end
@@ -1681,6 +1681,8 @@ TEST_CASE("Nested modules with infinite recursion regress") {
  module top;
      I i();
  endmodule
+
+module a a,b b.a,c,c
 )");
 
     Compilation compilation;
@@ -1752,7 +1754,7 @@ module m #(parameter P);
   module n;
     int i;
   endmodule
-  if (P == 2) begin
+  if (P == 2) begin : blk
   	bind n foo f();
   end
 endmodule
@@ -1781,7 +1783,7 @@ module m #(parameter P);
   module n;
     int i;
   endmodule
-  if (P == 2) begin
+  if (P == 2) begin : blk
     bind n foo f();
   end
   n n1();
@@ -1962,7 +1964,7 @@ endmodule
     Compilation compilation;
     compilation.addSyntaxTree(tree);
 
-    auto& diags = compilation.getAllDiagnostics();
+    auto diags = compilation.getAllDiagnostics().filter(DefaultIgnoreWarnings);
     REQUIRE(diags.size() == 1);
     CHECK(diags[0].code == diag::UndeclaredIdentifier);
 }
@@ -2058,6 +2060,41 @@ endmodule
     CHECK(diags[1].code == diag::HierarchicalRefUnknownModule);
 }
 
+TEST_CASE("Disallow hier-ref to uninstantiated defs spurious error regress -- GH #1571") {
+    auto tree = SyntaxTree::fromText(R"(
+interface bus(input clk);
+	logic a, b;
+	modport primary(input a, output b, input clk);
+	modport secondary(input b, output a, input clk);
+endinterface
+
+module submod(bus.primary intf);
+	assign intf.b = !intf.a;
+endmodule
+
+module top(input logic w1, output logic w2,
+		   input logic clk);
+	bus intf(clk);
+	assign intf.a = w1;
+	assign w2 = intf.b;
+	submod sm(intf);
+endmodule
+
+module top2();
+endmodule
+
+)");
+
+    CompilationOptions options;
+    options.flags |= CompilationFlags::IgnoreUnknownModules;
+    options.flags |= CompilationFlags::DisallowRefsToUnknownInstances;
+    options.topModules.emplace("top2");
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
 TEST_CASE("Package ordering dependency 1 -- GH #1424") {
     auto tree = SyntaxTree::fromText(R"(
 package A_pkg;
@@ -2146,6 +2183,90 @@ package uvm_pkg;
 
     class uvm_sequencer #(type C);
     endclass
+endpackage
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Infinite recursion regress -- GH #1476") {
+    auto tree = SyntaxTree::fromText(R"(
+module m();
+  m m1();
+endmodule
+
+module top();
+  m m1();
+endmodule
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+
+    auto& diags = compilation.getAllDiagnostics();
+    REQUIRE(diags.size() == 1);
+    CHECK(diags[0].code == diag::InfinitelyRecursiveHierarchy);
+}
+
+TEST_CASE("Uinstantiated module assignment pattern param regress -- GH #1572") {
+    auto tree = SyntaxTree::fromText(R"(
+module uninst;
+    submod #(
+        .PARAM2 ('{default: 0})
+    ) i_submod ();
+endmodule
+
+module submod #(
+    parameter int PARAM2[1:0] = '{default: 0}
+    );
+endmodule
+
+module empty;
+endmodule
+)");
+
+    CompilationOptions options;
+    options.topModules.emplace("empty");
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    NO_COMPILATION_ERRORS;
+}
+
+TEST_CASE("Infinite module hierarchy empty name error message regress") {
+    auto tree = SyntaxTree::fromText(R"(
+module k module f f(
+)");
+
+    Compilation compilation;
+    compilation.addSyntaxTree(tree);
+    compilation.getAllDiagnostics();
+}
+
+TEST_CASE("Infinite module hierarchy triggered during scope elaboration") {
+    auto tree = SyntaxTree::fromText(R"(
+I(interface I(d.o;I d
+)");
+
+    CompilationOptions options;
+    options.maxInstanceDepth = 16;
+
+    Compilation compilation(options);
+    compilation.addSyntaxTree(tree);
+    compilation.getAllDiagnostics();
+}
+
+TEST_CASE("Package import from later package regress") {
+    auto tree = SyntaxTree::fromText(R"(
+package p1;
+    import p2::baz;
+    export p2::baz;
+endpackage
+
+package p2;
+    function void baz; endfunction
 endpackage
 )");
 

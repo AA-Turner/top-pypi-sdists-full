@@ -1,105 +1,30 @@
 Metadata-Version: 2.4
 Name: eip712
-Version: 0.2.13
+Version: 0.3.3
 Summary: eip712: Message classes for typed structured data hashing and signing in Ethereum
-Home-page: https://github.com/ApeWorX/eip712
-Author: ApeWorX Ltd.
-Author-email: admin@apeworx.io
-License: Apache-2.0
-Keywords: ethereum
+Author-email: "ApeWorX Ltd." <admin@apeworx.io>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/ApeWorX/eip712
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9,<4
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: dataclassy<1,>=0.11.1
-Requires-Dist: eth-abi<6,>=5.1.0
+Requires-Dist: pydantic<3,>=2
 Requires-Dist: eth-account<0.14,>=0.11.3
-Requires-Dist: eth-typing<6,>=3.5.2
+Requires-Dist: eth-pydantic-types<0.3,>=0.2.4
 Requires-Dist: eth-utils<6,>=2.3.1
-Requires-Dist: hexbytes<2,>=0.3.1
-Provides-Extra: test
-Requires-Dist: pytest>=6.0; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: hypothesis<7,>=6.70.0; extra == "test"
-Provides-Extra: lint
-Requires-Dist: black<25,>=24.10.0; extra == "lint"
-Requires-Dist: mypy<2,>=1.13.0; extra == "lint"
-Requires-Dist: types-setuptools; extra == "lint"
-Requires-Dist: flake8<8,>=7.1.1; extra == "lint"
-Requires-Dist: flake8-breakpoint<2,>=1.1.0; extra == "lint"
-Requires-Dist: flake8-print<6,>=5.0.0; extra == "lint"
-Requires-Dist: flake8-pydantic; extra == "lint"
-Requires-Dist: flake8-type-checking; extra == "lint"
-Requires-Dist: isort<6,>=5.13.2; extra == "lint"
-Requires-Dist: mdformat>=0.7.19; extra == "lint"
-Requires-Dist: mdformat-gfm>=0.3.5; extra == "lint"
-Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "lint"
-Requires-Dist: mdformat-pyproject>=0.0.2; extra == "lint"
-Provides-Extra: release
-Requires-Dist: setuptools>=75.6.0; extra == "release"
-Requires-Dist: wheel; extra == "release"
-Requires-Dist: twine; extra == "release"
-Provides-Extra: doc
-Requires-Dist: myst-parser<0.19,>=0.18.1; extra == "doc"
-Requires-Dist: Sphinx<6,>=5.3.0; extra == "doc"
-Requires-Dist: sphinx_rtd_theme<2,>=1.2.0; extra == "doc"
-Requires-Dist: sphinxcontrib-napoleon>=0.7; extra == "doc"
-Provides-Extra: dev
-Requires-Dist: pytest>=6.0; extra == "dev"
-Requires-Dist: pytest-xdist; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: hypothesis<7,>=6.70.0; extra == "dev"
-Requires-Dist: black<25,>=24.10.0; extra == "dev"
-Requires-Dist: mypy<2,>=1.13.0; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
-Requires-Dist: flake8<8,>=7.1.1; extra == "dev"
-Requires-Dist: flake8-breakpoint<2,>=1.1.0; extra == "dev"
-Requires-Dist: flake8-print<6,>=5.0.0; extra == "dev"
-Requires-Dist: flake8-pydantic; extra == "dev"
-Requires-Dist: flake8-type-checking; extra == "dev"
-Requires-Dist: isort<6,>=5.13.2; extra == "dev"
-Requires-Dist: mdformat>=0.7.19; extra == "dev"
-Requires-Dist: mdformat-gfm>=0.3.5; extra == "dev"
-Requires-Dist: mdformat-frontmatter>=0.4.1; extra == "dev"
-Requires-Dist: mdformat-pyproject>=0.0.2; extra == "dev"
-Requires-Dist: myst-parser<0.19,>=0.18.1; extra == "dev"
-Requires-Dist: Sphinx<6,>=5.3.0; extra == "dev"
-Requires-Dist: sphinx_rtd_theme<2,>=1.2.0; extra == "dev"
-Requires-Dist: sphinxcontrib-napoleon>=0.7; extra == "dev"
-Requires-Dist: setuptools>=75.6.0; extra == "dev"
-Requires-Dist: wheel; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: commitizen<3,>=2.42; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest-watch; extra == "dev"
-Requires-Dist: IPython; extra == "dev"
-Requires-Dist: ipdb; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # Quick Start
 
@@ -108,7 +33,7 @@ See [EIP-712](https://eips.ethereum.org/EIPS/eip-712) for details.
 
 ## Dependencies
 
-- [python3](https://www.python.org/downloads) version 3.9 up to 3.12.
+- [python3](https://www.python.org/downloads) version 3.10 up to 3.14.
 
 ## Installation
 
@@ -120,14 +45,14 @@ You can install the latest release via [`pip`](https://pypi.org/project/pip/):
 pip install eip712
 ```
 
-### via `setuptools`
+### via `uv`
 
-You can clone the repository and use [`setuptools`](https://github.com/pypa/setuptools) for the most up-to-date version:
+You can clone the repository and use [`uv`](https://docs.astral.sh/uv) for the most up-to-date version:
 
 ```bash
 git clone https://github.com/ApeWorX/eip712.git
 cd eip712
-python3 setup.py install
+uv sync --group dev
 ```
 
 ## Quick Usage
@@ -135,24 +60,62 @@ python3 setup.py install
 Define EIP-712 models:
 
 ```python
-from eip712.messages import EIP712Message, EIP712Type
+from eip712.messages import EIP712Message
+
+# NOTE: It is **highly** recommended to use ABI types from this library
+from eth_pydantic_types import abi
+
+from pydantic import BaseModel
 
 
+# You can define your inner nested types using normal Pydantic models
 class Person(EIP712Type):
-    name: "string"
-    wallet: "address"
+    # Define fields using types from the `abi` module
+    name: abi.string
+    wallet: abi.address
 
 
+# All valid EIP712 Message Structs **must** subclass `EIP712Message`
 class Mail(EIP712Message):
-    _chainId_ = 1
-    _name_ = "Ether Mail"
-    _verifyingContract_ = "0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"
-    _version_ = "1"
+    #  to define your EIP712 domain configuration
+    eip712_domain = EIP712Domain(
+        name="Ether Mail",
+        version="1",
+        verifyingContract="0xDDdDddDdDdddDDddDDddDDDDdDdDDdDDdDDDDDDd",
+        chainId=1,
+    )
 
+    # Struct fields (can be "basic" types, `BaseModel` types, or arrays of either)
     sender: Person
-    receiver: Person
+    # Dynamic array support is as easy as using `list` with the corresponding type
+    receivers: list[Person]
+    ttl: abi.uint256
 ```
 
-# Initialize a Person object as you would normally
+Then initialize these models:
 
-person = Person(name="Joe", wallet="0xa27CEF8aF2B6575903b676e5644657FAe96F491F")
+```python
+sender = Person(name="Alice", wallet="0xaAaAaAaaAaAaAaaAaAAAAAAAAaaaAaAaAaaAaaAa")
+receivers = [
+    Person(name="Bob", wallet="0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"),
+    Person(name="Charlie", wallet="0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"),
+]
+mail = Mail(sender=sender, receiver=receiver)
+```
+
+Finally, you can sign these messages using `eth-account`:
+
+```python
+from eth_account import Account
+
+acct = Account.from_key(private_key)
+sig = acct.sign_message(mail.signable_message)
+```
+
+or natively in [Ape](https://docs.apeworx.io/ape):
+
+```python
+# `ape console`
+me = accounts.load(me)
+sig = me.sign_message(mail)
+```

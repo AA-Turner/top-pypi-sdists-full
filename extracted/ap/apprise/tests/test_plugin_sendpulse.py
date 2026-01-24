@@ -91,6 +91,7 @@ apprise_url_tests = (
         # Set name only
         "instance": NotifySendPulse,
         "requests_response_text": SENDPULSE_GOOD_RESPONSE,
+        "force_debug": True,
     }),
     ("sendpulse://?id=ci&secret=cs&user=chris@example.com", {
         # Set login through user= only
@@ -239,7 +240,7 @@ apprise_url_tests = (
     }),
     ("sendpulse://user@example.com/client_id/cs18/", {
         "instance": NotifySendPulse,
-        # throw a bizzare code forcing us to fail to look it up
+        # throw a bizarre code forcing us to fail to look it up
         "response": False,
         "requests_response_code": 999,
         "requests_response_text": SENDPULSE_GOOD_RESPONSE,
@@ -247,7 +248,7 @@ apprise_url_tests = (
     ("sendpulse://user@example.com/client_id/cs19/", {
         "instance": NotifySendPulse,
         # Throws a series of connection and transfer exceptions when this flag
-        # is set and tests that we gracfully handle them
+        # is set and tests that we gracefully handle them
         "test_requests_exceptions": True,
         "requests_response_text": SENDPULSE_GOOD_RESPONSE,
     }),

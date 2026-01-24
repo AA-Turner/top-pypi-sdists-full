@@ -2,9 +2,9 @@
 Serialize and Deserialize in JSON format.
 """
 
-from typing import Any, AnyStr, overload, Optional, Union
+from typing import Any, AnyStr, overload, cast
 
-from .compat import T
+from .compat import SerdeError, T
 from .de import Deserializer, from_dict
 from .se import Serializer, to_dict
 
@@ -14,11 +14,13 @@ try:  # pragma: no cover
     import orjson
 
     def json_dumps(obj: Any, **opts: Any) -> str:
-        if "option" not in opts:
-            opts["option"] = orjson.OPT_SERIALIZE_NUMPY
-        return orjson.dumps(obj, **opts).decode()  # type: ignore
+        if "option" in opts:
+            opts["option"] |= orjson.OPT_NON_STR_KEYS
+        else:
+            opts["option"] = orjson.OPT_SERIALIZE_NUMPY | orjson.OPT_NON_STR_KEYS
+        return cast(str, orjson.dumps(obj, **opts).decode())
 
-    def json_loads(s: Union[str, bytes], **opts: Any) -> Any:
+    def json_loads(s: str | bytes, **opts: Any) -> Any:
         return orjson.loads(s, **opts)
 
 except ImportError:
@@ -34,11 +36,11 @@ except ImportError:
         separators = opts.pop("separators", (",", ":"))
         return json.dumps(obj, ensure_ascii=ensure_ascii, separators=separators, **opts)
 
-    def json_loads(s: Union[str, bytes], **opts: Any) -> Any:
+    def json_loads(s: str | bytes, **opts: Any) -> Any:
         return json.loads(s, **opts)
 
 
-__all__ = ["from_json", "to_json"]
+__all__ = ["from_json", "to_json", "deserialize_json_numbers"]
 
 
 class JsonSerializer(Serializer[str]):
@@ -53,9 +55,21 @@ class JsonDeserializer(Deserializer[AnyStr]):
         return json_loads(data, **opts)
 
 
+def deserialize_json_numbers(value: Any) -> float:
+    """
+    Convert JSON numbers to float, accepting both ints and floats and rejecting non-numeric input.
+    Useful when a JSON payload omits a decimal point but the target field is typed as float.
+    """
+    if isinstance(value, bool):
+        raise SerdeError(f"Expected JSON number but got boolean {value!r}")
+    if isinstance(value, (int, float)):
+        return float(value)
+    raise SerdeError(f"Expected JSON number but got {type(value).__name__}")
+
+
 def to_json(
     obj: Any,
-    cls: Optional[Any] = None,
+    cls: Any | None = None,
     se: type[Serializer[str]] = JsonSerializer,
     reuse_instances: bool = False,
     convert_sets: bool = True,
@@ -92,19 +106,31 @@ def to_json(
 
 @overload
 def from_json(
-    c: type[T], s: AnyStr, de: type[Deserializer[AnyStr]] = JsonDeserializer, **opts: Any
+    c: type[T],
+    s: AnyStr,
+    de: type[Deserializer[AnyStr]] = JsonDeserializer,
+    coerce_numbers: bool = True,
+    **opts: Any,
 ) -> T: ...
 
 
 # For Union, Optional etc.
 @overload
 def from_json(
-    c: Any, s: AnyStr, de: type[Deserializer[AnyStr]] = JsonDeserializer, **opts: Any
+    c: Any,
+    s: AnyStr,
+    de: type[Deserializer[AnyStr]] = JsonDeserializer,
+    coerce_numbers: bool = True,
+    **opts: Any,
 ) -> Any: ...
 
 
 def from_json(
-    c: Any, s: AnyStr, de: type[Deserializer[AnyStr]] = JsonDeserializer, **opts: Any
+    c: Any,
+    s: AnyStr,
+    de: type[Deserializer[AnyStr]] = JsonDeserializer,
+    coerce_numbers: bool = True,
+    **opts: Any,
 ) -> Any:
     """
     Deserialize from JSON into the object. [orjson](https://github.com/ijl/orjson) will be used
@@ -113,7 +139,16 @@ def from_json(
     `c` is a class object and `s` is JSON bytes or str. If you supply other keyword arguments,
     they will be passed in `loads` function.
 
-    If you want to use another json package, you can subclass `JsonDeserializer` and implement
-    your own logic.
+    * `coerce_numbers`: When True (default), ints from JSON are coerced to floats when the target
+      type is float. Strings are never coerced.
+
+    If you want to use another json package, you can subclass `JsonDeserializer` and implement your
+    own logic.
     """
-    return from_dict(c, de.deserialize(s, **opts), reuse_instances=False)
+    deserialize_numbers = deserialize_json_numbers if coerce_numbers else None
+    return from_dict(
+        c,
+        de.deserialize(s, **opts),
+        reuse_instances=False,
+        deserialize_numbers=deserialize_numbers,
+    )

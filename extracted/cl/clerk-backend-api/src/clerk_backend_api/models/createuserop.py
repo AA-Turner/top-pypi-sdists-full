@@ -22,6 +22,8 @@ class CreateUserRequestBodyTypedDict(TypedDict):
     r"""The first name to assign to the user"""
     last_name: NotRequired[Nullable[str]]
     r"""The last name to assign to the user"""
+    locale: NotRequired[Nullable[str]]
+    r"""The locale to assign to the user (e.g., \"en-US\", \"fr-FR\")"""
     email_address: NotRequired[List[str]]
     r"""Email addresses to add to the user.
     Must be unique across your instance.
@@ -109,6 +111,8 @@ class CreateUserRequestBodyTypedDict(TypedDict):
     """
     created_at: NotRequired[Nullable[str]]
     r"""A custom date/time denoting _when_ the user signed up to the application, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
+    bypass_client_trust: NotRequired[Nullable[bool]]
+    r"""When set to `true`, the user will bypass client trust checks during sign-in."""
 
 
 class CreateUserRequestBody(BaseModel):
@@ -122,6 +126,9 @@ class CreateUserRequestBody(BaseModel):
 
     last_name: OptionalNullable[str] = UNSET
     r"""The last name to assign to the user"""
+
+    locale: OptionalNullable[str] = UNSET
+    r"""The locale to assign to the user (e.g., \"en-US\", \"fr-FR\")"""
 
     email_address: Optional[List[str]] = None
     r"""Email addresses to add to the user.
@@ -230,12 +237,16 @@ class CreateUserRequestBody(BaseModel):
     created_at: OptionalNullable[str] = UNSET
     r"""A custom date/time denoting _when_ the user signed up to the application, specified in RFC3339 format (e.g. `2012-10-20T07:15:20.902Z`)."""
 
+    bypass_client_trust: OptionalNullable[bool] = UNSET
+    r"""When set to `true`, the user will bypass client trust checks during sign-in."""
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = [
             "external_id",
             "first_name",
             "last_name",
+            "locale",
             "email_address",
             "phone_number",
             "web3_wallet",
@@ -256,11 +267,13 @@ class CreateUserRequestBody(BaseModel):
             "create_organization_enabled",
             "create_organizations_limit",
             "created_at",
+            "bypass_client_trust",
         ]
         nullable_fields = [
             "external_id",
             "first_name",
             "last_name",
+            "locale",
             "username",
             "password",
             "password_digest",
@@ -273,6 +286,7 @@ class CreateUserRequestBody(BaseModel):
             "create_organization_enabled",
             "create_organizations_limit",
             "created_at",
+            "bypass_client_trust",
         ]
         null_default_fields = []
 

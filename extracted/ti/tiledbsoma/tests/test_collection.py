@@ -1,7 +1,8 @@
-import datetime
+import concurrent.futures
 import os
 import pathlib
 import textwrap
+from itertools import repeat
 from typing import TypeVar, Union
 
 import numpy as np
@@ -12,11 +13,13 @@ from typeguard import suppress_type_checks
 from typing_extensions import Literal
 
 import tiledbsoma as soma
-from tiledbsoma import _collection, _factory, _soma_group, _soma_object
+from tiledbsoma import _collection, _factory, _soma_object
 from tiledbsoma._exception import DoesNotExistError, SOMAError
 from tiledbsoma.options import SOMATileDBContext
 
-from tests._util import raises_no_typeguard
+from tests._util import create_basic_object, raises_no_typeguard
+
+from ._util import ROOT_DATA_DIR
 
 
 # ----------------------------------------------------------------
@@ -26,7 +29,7 @@ def create_and_populate_dataframe(path: str) -> soma.DataFrame:
             ("foo", pa.int32()),
             ("bar", pa.float64()),
             ("baz", pa.large_string()),
-        ]
+        ],
     )
 
     with soma.DataFrame.create(path, schema=arrow_schema, domain=[[0, 999]]) as df:
@@ -45,9 +48,7 @@ def create_and_populate_dataframe(path: str) -> soma.DataFrame:
 def create_and_populate_sparse_nd_array(path: str) -> soma.SparseNDArray:
     nr = 10
     nc = 20
-    with soma.SparseNDArray.create(
-        path, type=pa.int64(), shape=(nr, nc)
-    ) as sparse_nd_array:
+    with soma.SparseNDArray.create(path, type=pa.int64(), shape=(nr, nc)) as sparse_nd_array:
         tensor = pa.SparseCOOTensor.from_numpy(
             data=np.asarray([7, 8, 9]),
             coords=[[0, 1], [2, 3], [3, 4]],
@@ -137,6 +138,7 @@ def soma_object(request, tmp_path):
             uri,
             schema=pa.schema([("C", pa.float32()), ("D", pa.uint32())]),
             index_column_names=["D"],
+            domain=[[0, 100]],
         )
 
     elif class_name == "DenseNDArray":
@@ -169,7 +171,7 @@ def test_collection_mapping(soma_object, tmp_path):
     assert list(k for k in c) == list(c.keys())
     assert len(c) == 1
     assert [k for k in c] == ["mumble"]
-    assert c.members() == {"mumble": (soma_object.uri, "SOMACollection")}
+    assert c.members() == {"mumble": (soma_object.uri, soma_object.soma_type)}
 
     # TEMPORARY: This should no longer raise an error once TileDB supports
     # replacing an existing group member.
@@ -184,8 +186,22 @@ def test_delete_add(soma_object, tmp_path: pathlib.Path):
     with soma.Collection.create(tmp_uri) as create:
         create["porkchop sandwiches"] = soma_object
 
-    with soma.open(tmp_uri, "w", soma_type=soma.Collection) as update:
+    with soma.open(tmp_uri, "d", soma_type=soma.Collection) as update:
         del update["porkchop sandwiches"]
+        # TEMPORARY: This should no longer raise once TileDB supports replacing
+        # an existing group member.
+        with pytest.raises(soma.SOMAError):
+            update["porkchop sandwiches"] = soma_object
+
+
+def test_delete_add_write_mode(soma_object, tmp_path: pathlib.Path):
+    tmp_uri = tmp_path.as_uri()
+    with soma.Collection.create(tmp_uri) as create:
+        create["porkchop sandwiches"] = soma_object
+
+    with soma.open(tmp_uri, "w", soma_type=soma.Collection) as update:
+        with pytest.warns(DeprecationWarning):
+            del update["porkchop sandwiches"]
         # TEMPORARY: This should no longer raise once TileDB supports replacing
         # an existing group member.
         with pytest.raises(soma.SOMAError):
@@ -213,7 +229,7 @@ def test_collection_repr(tmp_path: pathlib.Path, relative: bool) -> None:
             f"""
             <Collection {a_uri!r} (open for 'w') (1 item)
                 'Another_Name': Experiment {b_uri!r} (open for 'w') (empty)>
-            """
+            """,
         ).strip()
     )
     assert a["Another_Name"] is b
@@ -224,7 +240,7 @@ def test_collection_repr(tmp_path: pathlib.Path, relative: bool) -> None:
             f"""
             <Collection {a_uri!r} (open for 'w') (1 item)
                 'Another_Name': Experiment {b_uri!r} (CLOSED for 'w')>
-            """
+            """,
         ).strip()
     )
     a.close()
@@ -240,7 +256,7 @@ def test_collection_repr(tmp_path: pathlib.Path, relative: bool) -> None:
             f"""
             <Collection {a_uri!r} (open for 'r') (1 item)
                 'Another_Name': {b_uri!r} (unopened)>
-            """
+            """,
         ).strip()
     )
     assert a_reopened["Another_Name"].uri == b_uri
@@ -250,7 +266,7 @@ def test_collection_repr(tmp_path: pathlib.Path, relative: bool) -> None:
             f"""
             <Collection {a_uri!r} (open for 'r') (1 item)
                 'Another_Name': Experiment {b_uri!r} (open for 'r') (empty)>
-            """
+            """,
         ).strip()
     )
     del a_reopened
@@ -270,7 +286,7 @@ def test_collection_repr(tmp_path: pathlib.Path, relative: bool) -> None:
                 f"""
                 <Collection {a_moved_uri!r} (open for 'r') (1 item)
                     'Another_Name': Experiment {new_b_uri!r} (open for 'r') (empty)>
-                """
+                """,
             ).strip()
         )
     else:
@@ -283,7 +299,7 @@ def test_collection_repr(tmp_path: pathlib.Path, relative: bool) -> None:
                 f"""
                 <Collection {a_moved_uri!r} (open for 'r') (1 item)
                     'Another_Name': {b_uri!r} (unopened)>
-                """
+                """,
             ).strip()
         )
 
@@ -295,12 +311,8 @@ def test_collection_update_on_set(tmp_path):
     """
 
     sc = soma.Collection.create(tmp_path.as_uri())
-    A = soma.DenseNDArray.create(
-        (tmp_path / "A").as_uri(), type=pa.float64(), shape=(100, 10, 1)
-    )
-    B = soma.DenseNDArray.create(
-        uri=(tmp_path / "B").as_uri(), type=pa.float64(), shape=(100, 10, 1)
-    )
+    A = soma.DenseNDArray.create((tmp_path / "A").as_uri(), type=pa.float64(), shape=(100, 10, 1))
+    B = soma.DenseNDArray.create(uri=(tmp_path / "B").as_uri(), type=pa.float64(), shape=(100, 10, 1))
     assert set(sc.keys()) == set([])
 
     sc["A"] = A
@@ -320,17 +332,12 @@ def test_cascading_close(tmp_path: pathlib.Path):
         dog = outer.add_new_collection("dog")
         spitz = dog.add_new_collection("spitz")
         akita = spitz.add_new_collection("akita")
-        hachiko = akita.add_new_dense_ndarray(
-            "hachiko", type=pa.float64(), shape=(1, 2, 3)
-        )
+        hachiko = akita.add_new_dense_ndarray("hachiko", type=pa.float64(), shape=(1, 2, 3))
         shiba = spitz.add_new_collection("shiba")
         kabosu = shiba.add_new_sparse_ndarray("kabosu", type=pa.uint8(), shape=(10,))
         mutt = dog.add_new_collection("mutt")
         louis = mutt.add_new_dataframe(
-            "louis",
-            schema=pa.schema(
-                (("soma_joinid", pa.int64()), ("stripes", pa.large_string()))
-            ),
+            "louis", schema=pa.schema((("soma_joinid", pa.int64()), ("stripes", pa.large_string()))), domain=[[0, 1000]]
         )
 
         # A mix of collections we own and collections we don't own
@@ -377,9 +384,9 @@ def test_cascading_close(tmp_path: pathlib.Path):
     un_corvid.close()
     assert un_corvid.closed
 
-    all_elements: list[_soma_object.AnySOMAObject] = []
+    all_elements: list[_soma_object.SOMAObject] = []
 
-    def crawl(obj: _soma_object.AnySOMAObject):
+    def crawl(obj: _soma_object.SOMAObject):
         all_elements.append(obj)
         if isinstance(obj, _collection.CollectionBase):
             for val in obj.values():
@@ -403,6 +410,87 @@ def test_cascading_close(tmp_path: pathlib.Path):
     assert all(elem.closed for elem in all_elements)
 
 
+def test_collection_entries_from_methods(tmp_path):
+    uri = f"{tmp_path}/collection_with_entries_from_methods"
+
+    with soma.Collection.create(uri) as coll:
+        # Add entries.
+        coll.add_new_collection("experiment", soma.Experiment)
+        coll.add_new_collection("measurement", soma.Measurement)
+        coll.add_new_collection("collection")
+        coll.add_new_dataframe("dataframe", schema=pa.schema([pa.field("myint", pa.int64())]), domain=[[0, 100]])
+        coll.add_new_dense_ndarray("dense", type=pa.float64(), shape=(100, 100))
+        coll.add_new_sparse_ndarray("sparse", type=pa.float64(), shape=(100, 100))
+
+        # Check accessing entries
+        exp = coll["experiment"]
+        assert not exp.closed
+        meas = coll["measurement"]
+        assert not meas.closed
+        subcoll = coll["collection"]
+        assert not subcoll.closed
+        dataframe = coll["dataframe"]
+        assert not dataframe.closed
+        dense = coll["dense"]
+        assert not dense.closed
+        sparse = coll["sparse"]
+        assert not sparse.closed
+
+    with soma.Collection.open(uri) as coll:
+        # Check
+        exp = coll["experiment"]
+
+        # Check accessing entries
+        exp = coll["experiment"]
+        assert isinstance(exp, soma.Experiment)
+        assert not exp.closed
+        meas = coll["measurement"]
+        assert isinstance(meas, soma.Measurement)
+        assert not meas.closed
+        subcoll = coll["collection"]
+        assert isinstance(subcoll, soma.Collection)
+        assert not subcoll.closed
+        dataframe = coll["dataframe"]
+        assert isinstance(dataframe, soma.DataFrame)
+        assert not dataframe.closed
+        dense = coll["dense"]
+        assert isinstance(dense, soma.DenseNDArray)
+        assert not dense.closed
+        sparse = coll["sparse"]
+        assert isinstance(sparse, soma.SparseNDArray)
+        assert not sparse.closed
+
+
+@pytest.mark.parametrize(
+    "entry_type",
+    [
+        "SOMAExperiment",
+        "SOMAMeasurement",
+        "SOMACollection",
+        "SOMAScene",
+        "SOMADataFrame",
+        "SOMASparseNDArray",
+        "SOMADenseNDArray",
+        "SOMAScene",
+        "SOMAPointCloudDataFrame",
+        "SOMAGeometryDataFrame",
+        "SOMAMultiscaleImage",
+    ],
+)
+def test_collection_entries_from_setter(tmp_path, entry_type):
+    uri = f"{tmp_path}/collection_with_{entry_type.lower()}"
+
+    with soma.Collection.create(uri) as coll, create_basic_object(entry_type, f"{uri}_entry") as entry:
+        coll["entry"] = entry
+        entry2 = coll["entry"]
+        assert entry2 is entry
+
+    with soma.Collection.open(uri) as coll:
+        entry = coll["entry"]
+        assert not entry.closed
+    assert entry.closed
+
+
 # Helper tests
 
 
@@ -419,26 +507,10 @@ def test_real_class(in_type, want):
         assert _collection._real_class(in_type) is want
 
 
-@pytest.mark.parametrize(
-    "in_type", (Union[int, str], Literal["bacon"], TypeVar("_T", bound=list))
-)
+@pytest.mark.parametrize("in_type", (Union[int, str], Literal["bacon"], TypeVar("_T", bound=list)))
 def test_real_class_fail(in_type):
     with raises_no_typeguard(TypeError):
         _collection._real_class(in_type)
-
-
-@pytest.mark.parametrize(
-    ("key", "want"),
-    [
-        ("hello", "hello"),
-        ("good bye", "good_bye"),
-        ("../beas/tie@boyz", "_beas_tie_boyz"),
-        ("g0nna~let-the.BEAT", "g0nna_let_the_BEAT"),
-        ("____DROP", "_DROP"),
-    ],
-)
-def test_sanitize_for_path(key, want):
-    assert _soma_group._sanitize_for_path(key) == want
 
 
 def test_timestamped_ops(tmp_path):
@@ -477,18 +549,14 @@ def test_timestamped_ops(tmp_path):
         ]
 
     # open A via collection @ t=25 => A should reflect first write only
-    with soma.Collection.open(
-        tmp_path.as_uri(), context=SOMATileDBContext(timestamp=25)
-    ) as sc:
+    with soma.Collection.open(tmp_path.as_uri(), context=SOMATileDBContext(timestamp=25)) as sc:
         assert sc["A"].read((slice(None), slice(None))).to_numpy().tolist() == [
             [0, 0],
             [0, 0],
         ]
 
     # open collection @ t=15 => A should not even be there
-    with soma.Collection.open(
-        tmp_path.as_uri(), context=SOMATileDBContext(timestamp=15)
-    ) as sc:
+    with soma.Collection.open(tmp_path.as_uri(), context=SOMATileDBContext(timestamp=15)) as sc:
         assert "A" not in sc
 
     # confirm timestamp validation in SOMATileDBContext
@@ -514,9 +582,7 @@ def test_issue919(tmp_path):
         with soma.Collection.create(uri, context=context) as c:
             expt = c.add_new_collection("expt", soma.Experiment)
             expt.add_new_collection("causes_bug")
-            expt.add_new_dataframe(
-                "df", schema=schema, index_column_names=["soma_joinid"]
-            )
+            expt.add_new_dataframe("df", schema=schema, index_column_names=["soma_joinid"], domain=[[0, 100]])
 
         with soma.Collection.open(uri, context=context) as c:
             assert "df" in c["expt"] and "causes_bug" in c["expt"]
@@ -543,48 +609,57 @@ def test_context_timestamp(tmp_path: pathlib.Path):
     with pytest.raises(soma.SOMAError):
         soma.open(tmp_path.as_uri(), context=fixed_time, tiledb_timestamp=100)
 
-    with soma.Collection.open(
-        tmp_path.as_uri(), context=fixed_time, tiledb_timestamp=234
-    ) as coll:
+    with soma.Collection.open(tmp_path.as_uri(), context=fixed_time, tiledb_timestamp=234) as coll:
         assert coll.tiledb_timestamp_ms == 234
         sub_1 = coll["sub_1"]
         assert sub_1.tiledb_timestamp_ms == 234
         assert sub_1["sub_sub"].tiledb_timestamp_ms == 234
 
 
-def test_collection_reopen(tmp_path):
-    # Ensure that reopen uses the correct mode
-    soma.Collection.create(tmp_path.as_uri(), tiledb_timestamp=1)
+@pytest.mark.parametrize(
+    ("key", "sanitized_key"),
+    (
+        ("<>", "%3C%3E"),
+        ("#%&*", "%23%25%26%2A"),
+        ("CONFIG$", "CONFIG%24"),
+        ("name_with_trailing_space_ ", "name_with_trailing_space_%20"),
+        (" name_with_leading_space", "%20name_with_leading_space"),
+        ("无效的文件名", "%E6%97%A0%E6%95%88%E7%9A%84%E6%96%87%E4%BB%B6%E5%90%8D"),
+        ("%%%%%%%%%%%", "%25%25%25%25%25%25%25%25%25%25%25"),
+        ("name%20with%20encoded%20spaces", "name%2520with%2520encoded%2520spaces"),
+        ("name%2Fwith%2Fencoded%2Fslashes", "name%252Fwith%252Fencoded%252Fslashes"),
+        (
+            "%20%20%20%20%20%20%20%20%20",
+            "%2520%2520%2520%2520%2520%2520%2520%2520%2520",
+        ),
+        ("file.with..dot_segments", "file.with..dot_segments"),
+        ("CON", "CON"),
+        ("~", "~"),
+        ("#", "%23"),
+    ),
+)
+def test_keys_with_sanitized_uris(tmp_path, key, sanitized_key):
+    uri = tmp_path.as_uri()
 
-    with soma.Collection.open(tmp_path.as_posix(), "r", tiledb_timestamp=1) as col1:
-        with raises_no_typeguard(ValueError):
-            col1.reopen("invalid")
+    with soma.Collection.create(uri) as c:
+        c.add_new_collection(key)
 
-        with col1.reopen("w", tiledb_timestamp=2) as col2:
-            with col2.reopen("r", tiledb_timestamp=3) as col3:
-                assert col1.mode == "r"
-                assert col2.mode == "w"
-                assert col3.mode == "r"
-                assert col1.tiledb_timestamp_ms == 1
-                assert col2.tiledb_timestamp_ms == 2
-                assert col3.tiledb_timestamp_ms == 3
+    with soma.Collection.open(uri) as c:
+        assert c[key].uri == f"{uri}/{sanitized_key}"
 
-    ts1 = datetime.datetime(2023, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
-    ts2 = datetime.datetime(2024, 1, 1, 1, 0, tzinfo=datetime.timezone.utc)
-    with soma.Collection.open(tmp_path.as_posix(), "r", tiledb_timestamp=ts1) as col1:
-        with col1.reopen("r", tiledb_timestamp=ts2) as col2:
-            assert col1.mode == "r"
-            assert col2.mode == "r"
-            assert col1.tiledb_timestamp == ts1
-            assert col2.tiledb_timestamp == ts2
 
-    with soma.Collection.open(tmp_path.as_posix(), "w") as col1:
-        with col1.reopen("w", tiledb_timestamp=None) as col2:
-            with col2.reopen("w") as col3:
-                assert col1.mode == "w"
-                assert col2.mode == "w"
-                assert col3.mode == "w"
-                now = datetime.datetime.now(datetime.timezone.utc)
-                assert col1.tiledb_timestamp <= now
-                assert col2.tiledb_timestamp <= now
-                assert col2.tiledb_timestamp <= now
+def test_parallel_getitem(tmp_path) -> None:
+    path = ROOT_DATA_DIR / "soma-experiment-versions-2025-04-04/1.16.1/pbmc3k_processed"
+    uri = str(path)
+    if not pathlib.Path(uri).is_dir():
+        raise RuntimeError(
+            f"Missing '{uri}' directory. Try running `make data` from the TileDB-SOMA project root directory.",
+        )
+
+    def get_obsm(exp, key) -> soma.SparseNDArray:
+        return exp.ms["RNA"].obsm[key]
+
+    tp = concurrent.futures.ThreadPoolExecutor()
+    with soma.open(uri) as exp:
+        results = list(tp.map(get_obsm, repeat(exp), ("X_umap", "X_umap", "X_umap", "X_umap")))
+    assert all(r is results[0] for r in results)

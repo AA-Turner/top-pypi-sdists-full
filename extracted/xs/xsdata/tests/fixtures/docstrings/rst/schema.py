@@ -1,24 +1,28 @@
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Optional
 
 __NAMESPACE__ = "urn:docs"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DoubleQuotesDescription:
-    """Let's trip.
+    """
+    Let's trip.
 
-    Dont trip on quotes: "A", "B", "C", "D" My\\Ipsum
+    Dont trip on quotes: "A", "B", "C", "D" My\\Ipsum.
     """
 
     class Meta:
         namespace = "urn:docs"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DoubleQuotesSummary:
-    """Dont trip on quotes: "A", "B", "C", "D" My\\Ipsum"""
+    """
+    Dont trip on quotes: "A", "B", "C", "D" My\\Ipsum.
+    """
 
     class Meta:
         namespace = "urn:docs"
@@ -51,14 +55,15 @@ class RootD(Enum):
     FALSE = "false"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Root:
-    """This is the root type documentation.
+    """
+    This is the root type documentation. '''Lorem ipsum''' dolor sit amet,
+    consectetur adipiscing elit.
 
-    '''Lorem ipsum''' dolor sit amet, consectetur adipiscing elit. Morbi
-    dapibus. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
+    Morbi dapibus. Lorem ipsum dolor sit amet, consectetur adipiscing elit.
     Donec imperdiet lacus sed sagittis scelerisque. Ut sodales metus:
-    "sit", "amet", "lectus" My\\Ipsum
+    "sit", "amet", "lectus" My\\Ipsum.
 
     :ivar a: This is an inner type '''field''' documentation. Lorem
         ipsum dolor sit amet, consectetur adipiscing elit. Aliquam nec.
@@ -71,40 +76,36 @@ class Root:
     class Meta:
         namespace = "urn:docs"
 
-    a: Optional["Root.A"] = field(
-        default=None,
+    a: Root.A = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    b: Optional[RootB] = field(
-        default=None,
+    b: RootB = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    c: Optional[RootEnum] = field(
-        default=None,
+    c: RootEnum = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
-    d: Optional[RootD] = field(
-        default=None,
+    d: RootD = field(
         metadata={
             "type": "Element",
             "namespace": "",
             "required": True,
-        },
+        }
     )
 
-    @dataclass
+    @dataclass(kw_only=True)
     class A:
         """
         This is an inner type documentation.
@@ -114,11 +115,10 @@ class Root:
             Vivamus efficitur. My\\Ipsum
         """
 
-        sub_a: Optional[str] = field(
-            default=None,
+        sub_a: str = field(
             metadata={
                 "type": "Element",
                 "namespace": "",
                 "required": True,
-            },
+            }
         )

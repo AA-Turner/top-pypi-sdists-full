@@ -1991,16 +1991,16 @@ class DataBase(Device):
 
     @command(
         dtype_in="str",
-        doc_in="Device name",
+        doc_in="Device name or alias",
         dtype_out="DevVarLongStringArray",
-        doc_out="Str[0] = Device name\nStr[1] = CORBA IOR\nStr[2] = Device version\nStr[3] = Device Server name\nStr[4] = Device Server process host name\nStr[5] = Started date (or ? if not set)\nStr[6] = Stopped date (or ? if not set)\nStr[7] = Device class\n\nLg[0] = Device exported flag\nLg[1] = Device Server process PID (or -1 if not set)",
+        doc_out="Str[0] = Device name or alias\nStr[1] = CORBA IOR\nStr[2] = Device version\nStr[3] = Device Server name\nStr[4] = Device Server process host name\nStr[5] = Started date (or ? if not set)\nStr[6] = Stopped date (or ? if not set)\nStr[7] = Device class\n\nLg[0] = Device exported flag\nLg[1] = Device Server process PID (or -1 if not set)",
     )
     def DbGetDeviceInfo(self, argin):
         """Returns info from DbImportDevice and started/stopped dates.
 
-        :param argin: Device name
+        :param argin: Device name or alias
         :type: tango.DevString
-        :return: Str[0] = Device name
+        :return: Str[0] = Device name or alias
         Str[1] = CORBA IOR
         Str[2] = Device version
         Str[3] = Device Server name
@@ -2013,17 +2013,8 @@ class DataBase(Device):
         Lg[1] = Device Server process PID (or -1 if not set)
         :rtype: tango.DevVarLongStringArray"""
         self._log.debug("In DbGetDeviceInfo()")
-        ret, dev_name, dfm = check_device_name(argin)
-        if not ret:
-            th_exc(
-                DB_IncorrectDeviceName,
-                "device name ("
-                + argin
-                + ") syntax error (should be [tango:][//instance/]domain/family/member)",
-                "DataBase::DbGetDeviceAlias()",
-            )
 
-        return self.db.get_device_info(dev_name)
+        return self.db.get_device_info(argin)
 
     @command(
         dtype_in=("str",),

@@ -54,6 +54,7 @@ namespace kiwi
 			continualTypoTolerant, 
 			lengtheningTypoTolerant);
 		dfFindForm = (void*)getFindFormFn(selectedArch, typoTolerant);
+		dfFindFormWithPrefix = (void*)getFindFormWithPrefixFn(selectedArch, typoTolerant);
 		dfFindBestPath = langMdl ? langMdl->getFindBestPathFn() : nullptr;
 		dfNewJoiner = langMdl ? langMdl->getNewJoinerFn() : nullptr;
 	}
@@ -728,6 +729,7 @@ namespace kiwi
 				token.typoFormId = s.typoFormId;
 				token.senseId = s.morph->senseId;
 				updateTokenInfoScript(token);
+				token.dialect = s.morph->dialect;
 				auto ptId = nodeInWhichPretokenized[s.nodeId] + 1;
 				if (ptId)
 				{
@@ -951,13 +953,50 @@ namespace kiwi
 		ret.resize(nodes.size(), -1);
 	}
 
+	void KiwiConfig::validate() const
+	{
+		if (cutOffThreshold < 0)
+		{
+			throw invalid_argument{ "`cutOffThreshold` should be >= 0." };
+		}
+
+		if (unkFormScoreScale < 0)
+		{
+			throw invalid_argument{ "`unkFormScoreScale` should be >= 0." };
+		}
+
+		if (unkFormScoreBias < 0)
+		{
+			throw invalid_argument{ "`unkFormScoreBias` should be >= 0." };
+		}
+
+		if (spacePenalty <= 0)
+		{
+			throw invalid_argument{ "`spacePenalty` should be > 0." };
+		}
+
+		if (typoCostWeight <= 0)
+		{
+			throw invalid_argument{ "`typoCostWeight` should be > 0." };
+		}
+
+		if (maxUnkFormSize <= 0)
+		{
+			throw invalid_argument{ "`maxUnkFormSize` should be > 0." };
+		}
+	}
+
 	vector<TokenResult> Kiwi::analyze(const u16string& str, size_t topN, AnalyzeOption option,
-		const std::vector<PretokenizedSpan>& pretokenized
+		const vector<PretokenizedSpan>& pretokenized,
+		const optional<KiwiConfig>& overrideConfig
 	) const
 	{
 		thread_local KString normalizedStr;
 		thread_local Vector<uint32_t> positionTable;
 		thread_local PretokenizedSpanGroup pretokenizedGroup;
+
+		KiwiConfig config = overrideConfig.value_or(globalConfig);
+
 		normalizedStr.clear();
 		positionTable.clear();
 		pretokenizedGroup.clear();
@@ -999,8 +1038,9 @@ namespace kiwi
 				U16StringView{ normalizedStr.data() + splitEnd, normalizedStr.size() - splitEnd },
 				splitEnd,
 				option.match,
-				maxUnkFormSize,
-				spaceTolerance,
+				option.allowedDialects,
+				config.maxUnkFormSize,
+				config.spaceTolerance,
 				continualTypoCost,
 				lengtheningTypoCost,
 				pretokenizedFirst,
@@ -1012,7 +1052,9 @@ namespace kiwi
 
 			Vector<PathResult> res = (*reinterpret_cast<FnFindBestPath>(dfFindBestPath))(
 				this,
+				config,
 				spStatesByRet,
+				normalizedStr,
 				nodes.data(),
 				nodes.size(),
 				topN,
@@ -1020,9 +1062,11 @@ namespace kiwi
 				!!(option.match & Match::splitComplex),
 				!!(option.match & Match::splitSaisiot),
 				!!(option.match & Match::mergeSaisiot),
-				option.blocklist
+				option.blocklist,
+				option.allowedDialects,
+				option.dialectCost
 			);
-			insertPathIntoResults(ret, spStatesByRet, res, topN, option.match, integrateAllomorph, positionTable, wordPositions, pretokenizedGroup, nodeInWhichPretokenized);
+			insertPathIntoResults(ret, spStatesByRet, res, topN, option.match, config.integrateAllomorph, positionTable, wordPositions, pretokenizedGroup, nodeInWhichPretokenized);
 		}
 
 		sort(ret.begin(), ret.end(), [](const TokenResult& a, const TokenResult& b)
@@ -1048,94 +1092,100 @@ namespace kiwi
 	}
 
 	template<class Str, class Pretokenized, class ...Rest>
-	auto Kiwi::_asyncAnalyze(Str&& str, Pretokenized&& pt, Rest&&... args) const
+	auto Kiwi::_asyncAnalyze(Str&& str, Pretokenized&& pt, const optional<KiwiConfig>& overrideConfig, Rest&&... args) const
 	{
 		if (!pool) throw Exception{ "`asyncAnalyze` doesn't work at single thread mode." };
-		return pool->enqueue([=, str = forward<Str>(str), pt = forward<Pretokenized>(pt)](size_t, Rest... largs)
+		return pool->enqueue([=, 
+			str = forward<Str>(str), 
+			pt = forward<Pretokenized>(pt),
+			config = overrideConfig.value_or(globalConfig)](size_t, Rest... largs)
 		{
-			return analyze(str, largs..., pt);
+			return analyze(str, largs..., pt, config);
 		}, forward<Rest>(args)...);
 	}
 
 	template<class Str, class Pretokenized, class ...Rest>
-	auto Kiwi::_asyncAnalyzeEcho(Str&& str, Pretokenized&& pt, Rest&&... args) const
+	auto Kiwi::_asyncAnalyzeEcho(Str&& str, Pretokenized&& pt, const optional<KiwiConfig>& overrideConfig, Rest&&... args) const
 	{
 		if (!pool) throw Exception{ "`asyncAnalyze` doesn't work at single thread mode." };
-		return pool->enqueue([=, str = forward<Str>(str), pt = forward<Pretokenized>(pt)](size_t, Rest... largs) mutable
+		return pool->enqueue([=, 
+			str = forward<Str>(str), 
+			pt = forward<Pretokenized>(pt), 
+			config = overrideConfig.value_or(globalConfig)](size_t, Rest... largs) mutable
 		{
-			auto ret = analyze(str, largs..., pt);
+			auto ret = analyze(str, largs..., pt, config);
 			return make_pair(move(ret), move(str));
 		}, forward<Rest>(args)...);
 	}
 
 	future<vector<TokenResult>> Kiwi::asyncAnalyze(const string& str, size_t topN, AnalyzeOption option,
-		const vector<PretokenizedSpan>& pretokenized
+		const vector<PretokenizedSpan>& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, topN, option);
+		return _asyncAnalyze(str, pretokenized, overrideConfig, topN, option);
 	}
 
 	future<vector<TokenResult>> Kiwi::asyncAnalyze(string&& str, size_t topN, AnalyzeOption option,
-		vector<PretokenizedSpan>&& pretokenized
+		vector<PretokenizedSpan>&& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), topN, option);
+		return _asyncAnalyze(move(str), move(pretokenized), overrideConfig, topN, option);
 	}
 
 	future<TokenResult> Kiwi::asyncAnalyze(const string& str, AnalyzeOption option,
-		const vector<PretokenizedSpan>& pretokenized
+		const vector<PretokenizedSpan>& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, option);
+		return _asyncAnalyze(str, pretokenized, overrideConfig, option);
 	}
 
 	future<TokenResult> Kiwi::asyncAnalyze(string&& str, AnalyzeOption option,
-		vector<PretokenizedSpan>&& pretokenized
+		vector<PretokenizedSpan>&& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), option);
+		return _asyncAnalyze(move(str), move(pretokenized), overrideConfig, option);
 	}
 
 	future<pair<TokenResult, string>> Kiwi::asyncAnalyzeEcho(string&& str, AnalyzeOption option,
-		vector<PretokenizedSpan>&& pretokenized
+		vector<PretokenizedSpan>&& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyzeEcho(move(str), move(pretokenized), option);
+		return _asyncAnalyzeEcho(move(str), move(pretokenized), overrideConfig, option);
 	}
 
 	future<vector<TokenResult>> Kiwi::asyncAnalyze(const u16string& str, size_t topN, AnalyzeOption option,
-		const vector<PretokenizedSpan>& pretokenized
+		const vector<PretokenizedSpan>& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, topN, option);
+		return _asyncAnalyze(str, pretokenized, overrideConfig, topN, option);
 	}
 
 	future<vector<TokenResult>> Kiwi::asyncAnalyze(u16string&& str, size_t topN, AnalyzeOption option,
-		vector<PretokenizedSpan>&& pretokenized
+		vector<PretokenizedSpan>&& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), topN, option);
+		return _asyncAnalyze(move(str), move(pretokenized), overrideConfig, topN, option);
 	}
 
 	future<TokenResult> Kiwi::asyncAnalyze(const u16string& str, AnalyzeOption option,
-		const vector<PretokenizedSpan>& pretokenized
+		const vector<PretokenizedSpan>& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(str, pretokenized, option);
+		return _asyncAnalyze(str, pretokenized, overrideConfig, option);
 	}
 
 	future<TokenResult> Kiwi::asyncAnalyze(u16string&& str, AnalyzeOption option,
-		vector<PretokenizedSpan>&& pretokenized
+		vector<PretokenizedSpan>&& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyze(move(str), move(pretokenized), option);
+		return _asyncAnalyze(move(str), move(pretokenized), overrideConfig, option);
 	}
 
 	future<pair<TokenResult, u16string>> Kiwi::asyncAnalyzeEcho(u16string&& str, AnalyzeOption option,
-		vector<PretokenizedSpan>&& pretokenized
+		vector<PretokenizedSpan>&& pretokenized, const optional<KiwiConfig>& overrideConfig
 	) const
 	{
-		return _asyncAnalyzeEcho(move(str), move(pretokenized), option);
+		return _asyncAnalyzeEcho(move(str), move(pretokenized), overrideConfig, option);
 	}
 
 	cmb::AutoJoiner Kiwi::newJoiner(bool lmSearch) const
@@ -1157,7 +1207,7 @@ namespace kiwi
 		return joinHangul(typoPool.begin() + p[0], typoPool.begin() + p[1]);
 	}
 
-	void Kiwi::findMorphemes(vector<const Morpheme*>& ret, const u16string_view& s, POSTag tag) const
+	void Kiwi::findMorphemes(vector<const Morpheme*>& ret, u16string_view s, POSTag tag, uint8_t senseId) const
 	{
 		auto normalized = normalizeHangul(s);
 		auto form = (*reinterpret_cast<FnFindForm>(dfFindForm))(formTrie, forms.data(), normalized);
@@ -1167,13 +1217,15 @@ namespace kiwi
 		{
 			if (c->combineSocket
 				|| (tag != POSTag::unknown
-					&& clearIrregular(c->tag) != tag))
+					&& clearIrregular(c->tag) != tag)
+				|| (senseId != undefSenseId
+					&& c->senseId != senseId))
 				continue;
 			ret.emplace_back(c);
 		}
 	}
 
-	const Morpheme* Kiwi::findMorpheme(const u16string_view& s, POSTag tag) const
+	const Morpheme* Kiwi::findMorpheme(u16string_view s, POSTag tag, uint8_t senseId) const
 	{
 		auto normalized = normalizeHangul(s);
 		auto form = (*reinterpret_cast<FnFindForm>(dfFindForm))(formTrie, forms.data(), normalized);
@@ -1182,18 +1234,64 @@ namespace kiwi
 		for (auto c : form->candidate)
 		{
 			if (c->combineSocket
+				|| c->tag == POSTag::unknown
+				|| c->tag == POSTag::p
 				|| (tag != POSTag::unknown
-					&& clearIrregular(c->tag) != tag))
+					&& clearIrregular(c->tag) != tag)
+				|| (senseId != (uint8_t)-1
+					&& c->senseId != senseId))
 				continue;
 			return c;
 		}
 		return nullptr;
 	}
 
-	vector<const Morpheme*> Kiwi::findMorphemes(const u16string_view& s, POSTag tag) const
+	vector<const Morpheme*> Kiwi::findMorphemes(u16string_view s, POSTag tag, uint8_t senseId) const
 	{
 		vector<const Morpheme*> ret;
-		findMorphemes(ret, s, tag);
+		findMorphemes(ret, s, tag, senseId);
+		return ret;
+	}
+
+	size_t Kiwi::findMorphemesWithPrefix(const Morpheme** out, size_t size, u16string_view s, POSTag tag, uint8_t senseId) const
+	{
+		auto normalized = normalizeHangul(s);
+		auto [form, matchPrefixLen] = (*reinterpret_cast<FnFindFormWithPrefix>(dfFindFormWithPrefix))(formTrie, forms.data(), normalized);
+		
+		tag = clearIrregular(tag);
+		size_t cnt = 0;
+		for (; form; ++form)
+		{
+			for (auto c : form->candidate)
+			{
+				if (c->combineSocket
+					|| c->tag == POSTag::unknown
+					|| c->tag == POSTag::p
+					|| (tag != POSTag::unknown
+						&& clearIrregular(c->tag) != tag)
+					|| (senseId != undefSenseId
+						&& c->senseId != senseId))
+					continue;
+				if (cnt < size)
+				{
+					out[cnt++] = c;
+				}
+				else
+				{
+					break;
+				}
+			}
+
+			if (cnt >= size) break;
+		}
+		return cnt;
+	}
+
+	vector<const Morpheme*> Kiwi::findMorphemesWithPrefix(size_t size, u16string_view s, POSTag tag, uint8_t senseId) const
+	{
+		vector<const Morpheme*> ret(size);
+		size_t cnt = findMorphemesWithPrefix(ret.data(), size, s, tag, senseId);
+		ret.resize(cnt);
 		return ret;
 	}
 }

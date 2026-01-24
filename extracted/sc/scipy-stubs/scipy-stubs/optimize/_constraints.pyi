@@ -1,3 +1,4 @@
+import types
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Concatenate, Final, Generic, Literal, NotRequired, TypeAlias, TypedDict, overload, type_check_only
 from typing_extensions import TypeVar
@@ -16,7 +17,7 @@ _T = TypeVar("_T")
 _InexactT = TypeVar("_InexactT", bound=npc.inexact)
 _ScalarT = TypeVar("_ScalarT", bound=npc.number)
 _ScalarT_co = TypeVar("_ScalarT_co", bound=npc.number, default=np.float64, covariant=True)
-_ShapeT_co = TypeVar("_ShapeT_co", bound=onp.AtLeast1D, default=onp.AtLeast0D[Any], covariant=True)
+_ShapeT_co = TypeVar("_ShapeT_co", bound=tuple[int, *tuple[int, ...]], default=tuple[Any, ...], covariant=True)
 
 _Tuple2: TypeAlias = tuple[_T, _T]
 
@@ -43,6 +44,10 @@ class _Constraint(_BaseConstraint[_ShapeT_co], Generic[_ShapeT_co, _ScalarT_co])
 ###
 
 class Bounds(_Constraint[_ShapeT_co, _ScalarT_co], Generic[_ShapeT_co, _ScalarT_co]):
+    @classmethod
+    def __class_getitem__(cls, arg: object, /) -> types.GenericAlias: ...
+
+    #
     @overload
     def __init__(
         self: Bounds[tuple[int], np.int_],
@@ -153,7 +158,7 @@ class NonlinearConstraint(_Constraint[tuple[int], np.float64]):
         lb: onp.ToFloat | onp.ToFloat1D,
         ub: onp.ToFloat | onp.ToFloat1D,
         jac: Callable[[onp.Array1D[np.float64]], _ToFloat2D] | _MethodJac = "2-point",
-        hess: Callable[[onp.Array1D[np.float64]], _ToFloat2D | LinearOperator] | _MethodJac | HessianUpdateStrategy | None = ...,
+        hess: Callable[[onp.Array1D[np.float64]], _ToFloat2D | LinearOperator] | _MethodJac | HessianUpdateStrategy | None = None,
         keep_feasible: onp.ToBool | onp.ToBool1D = False,
         finite_diff_rel_step: onp.ToFloat | onp.ToFloat1D | None = None,
         finite_diff_jac_sparsity: _ToFloat2D | None = None,
@@ -166,6 +171,8 @@ class PreparedConstraint(_BaseConstraint[_ShapeT_co], Generic[_ShapeT_co]):  # u
     lb: onp.ArrayND[np.float64, _ShapeT_co]
     ub: onp.ArrayND[np.float64, _ShapeT_co]
 
+    @classmethod
+    def __class_getitem__(cls, arg: object, /) -> types.GenericAlias: ...
     def __init__(
         self,
         /,

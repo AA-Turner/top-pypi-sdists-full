@@ -41,6 +41,7 @@ from ctypes import (
     c_ulong as ULong,
     c_ulonglong as ULongLong,
     c_ushort as UShort,
+    py_object as Object,
 )
 from typing import TYPE_CHECKING, Final, Literal, Never, TypeAlias, cast
 
@@ -49,10 +50,10 @@ if sys.version_info >= (3, 13):
 else:
     from typing_extensions import TypeAliasType, TypeVar
 
-if sys.version_info >= (3, 14):
-    from ctypes import (
-        c_double_complex as Complex128,
+if sys.version_info >= (3, 14) and sys.platform != "win32":
+    from ctypes import (  # noqa: I001
         c_float_complex as Complex64,
+        c_double_complex as Complex128,
         c_longdouble_complex as CLongDouble,
     )
 else:
@@ -152,41 +153,32 @@ _Array: TypeAlias = ct.Array[CT] | ct.Array["_Array[CT]"]
 Array = TypeAliasType("Array", _Array[CT], type_params=(CT,))
 
 # `c_(u)byte` is an alias for `c_(u)int8`
-_UnsignedInteger: TypeAlias = (
-    UInt8 | UInt16 | UInt32 | UInt64 | UShort | UIntC | UIntP | ULong | ULongLong
-)
 _SignedInteger: TypeAlias = (
     Int8 | Int16 | Int32 | Int64 | Short | IntC | IntP | Long | LongLong
 )
-_Floating: TypeAlias = ct.c_float | ct.c_double | ct.c_longdouble
-UnsignedInteger = TypeAliasType("UnsignedInteger", _UnsignedInteger)
-SignedInteger = TypeAliasType("SignedInteger", _SignedInteger)
-Integer = TypeAliasType("Integer", _UnsignedInteger | _SignedInteger)
-Floating = TypeAliasType("Floating", _Floating)
+_UnsignedInteger: TypeAlias = (
+    UInt8 | UInt16 | UInt32 | UInt64 | UShort | UIntC | UIntP | ULong | ULongLong
+)
 
-Void: TypeAlias = ct.Structure | ct.Union
-
-# subscripting at runtime will give an error, and no default is defined...
 if TYPE_CHECKING:
-    Object: TypeAlias = ct.py_object[object]
+    # exploit the fact that `ct._SimpleCData` is invariant in `T`
+    _Integer: TypeAlias = CScalar[int]
+    _Floating: TypeAlias = CScalar[float]
+    _ComplexFloating: TypeAlias = CScalar[complex]
 else:
-    Object: TypeAlias = ct.py_object
+    _Integer = CScalar
+    _Floating = CScalar
+    _ComplexFloating = CScalar
 
+SignedInteger = TypeAliasType("SignedInteger", _SignedInteger)
+UnsignedInteger = TypeAliasType("UnsignedInteger", _UnsignedInteger)
+Integer = TypeAliasType("Integer", _Integer)
+Floating = TypeAliasType("Floating", _Floating)
+ComplexFloating = TypeAliasType("ComplexFloating", _ComplexFloating)
+Inexact = TypeAliasType("Inexact", _Floating | _ComplexFloating)
+Number = TypeAliasType("Number", _Integer | _Floating | _ComplexFloating)
+
+Void = TypeAliasType("Void", ct.Structure | ct.Union)
 Flexible = TypeAliasType("Flexible", Bytes | Void)
 
-if sys.version_info >= (3, 14):
-    Complex64: TypeAlias = ct.c_float_complex
-    Complex128: TypeAlias = ct.c_double_complex
-    CLongDouble: TypeAlias = ct.c_longdouble_complex
-    ComplexFloating = TypeAliasType(
-        "ComplexFloating",
-        Complex64 | Complex128 | CLongDouble,
-    )
-    Inexact: TypeAlias = Floating | ComplexFloating
-    Number: TypeAlias = Integer | Inexact
-    Generic = TypeAliasType("Generic", Bool | Number | Flexible | Object)
-else:
-    ComplexFloating = TypeAliasType("ComplexFloating", Never)
-    Inexact: TypeAlias = Floating
-    Number: TypeAlias = Integer | Floating
-    Generic = TypeAliasType("Generic", Bool | Integer | Floating | Flexible | Object)
+Generic = TypeAliasType("Generic", Bool | Number | Flexible | Object)

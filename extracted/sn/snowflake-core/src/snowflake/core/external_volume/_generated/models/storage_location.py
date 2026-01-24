@@ -18,7 +18,7 @@ import re  # noqa: F401
 
 from typing import Any, ClassVar, Dict, Optional, Union
 
-from pydantic import BaseModel, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictStr
 
 import snowflake.core.external_volume._generated.models
 
@@ -39,9 +39,10 @@ class StorageLocation(BaseModel):
 
     __properties = ["name", "storage_provider"]
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     # JSON field name that stores the object type
     __discriminator_property_name: ClassVar[str] = "storage_provider"
@@ -99,7 +100,7 @@ class StorageLocation(BaseModel):
         if hide_readonly_properties:
             exclude_properties.update({})
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         return _dict
 

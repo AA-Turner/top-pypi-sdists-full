@@ -7,7 +7,7 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven, SequenceNotStr
+from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ...types.v1 import (
@@ -74,6 +74,10 @@ class CustomFieldsResource(SyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         key: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -81,7 +85,7 @@ class CustomFieldsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Creates a new custom field key for a given entity (e.g.
 
@@ -163,6 +167,10 @@ class CustomFieldsResource(SyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         entity_id: str,
         keys: SequenceNotStr[str],
@@ -171,7 +179,7 @@ class CustomFieldsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Remove specific custom field values from a Metronome entity instance by
@@ -208,7 +216,7 @@ class CustomFieldsResource(SyncAPIResource):
     def list_keys(
         self,
         *,
-        next_page: str | NotGiven = NOT_GIVEN,
+        next_page: str | Omit = omit,
         entities: List[
             Literal[
                 "alert",
@@ -229,15 +237,19 @@ class CustomFieldsResource(SyncAPIResource):
                 "rate_card",
                 "scheduled_charge",
                 "subscription",
+                "package_commit",
+                "package_credit",
+                "package_subscription",
+                "package_scheduled_charge",
             ]
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPageWithoutLimit[CustomFieldListKeysResponse]:
         """
         Retrieve all your active custom field keys, with optional filtering by entity
@@ -297,6 +309,10 @@ class CustomFieldsResource(SyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         key: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -304,7 +320,7 @@ class CustomFieldsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Removes a custom field key from the allowlist for a specific entity type,
@@ -360,6 +376,10 @@ class CustomFieldsResource(SyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         entity_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -367,7 +387,7 @@ class CustomFieldsResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Sets custom field values on a specific Metronome entity instance.
 
@@ -448,6 +468,10 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         key: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -455,7 +479,7 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Creates a new custom field key for a given entity (e.g.
 
@@ -537,6 +561,10 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         entity_id: str,
         keys: SequenceNotStr[str],
@@ -545,7 +573,7 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Remove specific custom field values from a Metronome entity instance by
@@ -582,7 +610,7 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
     def list_keys(
         self,
         *,
-        next_page: str | NotGiven = NOT_GIVEN,
+        next_page: str | Omit = omit,
         entities: List[
             Literal[
                 "alert",
@@ -603,15 +631,19 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
                 "rate_card",
                 "scheduled_charge",
                 "subscription",
+                "package_commit",
+                "package_credit",
+                "package_subscription",
+                "package_scheduled_charge",
             ]
         ]
-        | NotGiven = NOT_GIVEN,
+        | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[CustomFieldListKeysResponse, AsyncCursorPageWithoutLimit[CustomFieldListKeysResponse]]:
         """
         Retrieve all your active custom field keys, with optional filtering by entity
@@ -671,6 +703,10 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         key: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -678,7 +714,7 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
         Removes a custom field key from the allowlist for a specific entity type,
@@ -734,6 +770,10 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
             "rate_card",
             "scheduled_charge",
             "subscription",
+            "package_commit",
+            "package_credit",
+            "package_subscription",
+            "package_scheduled_charge",
         ],
         entity_id: str,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -741,7 +781,7 @@ class AsyncCustomFieldsResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """Sets custom field values on a specific Metronome entity instance.
 

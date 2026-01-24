@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.882940                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:05.008254                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -112,7 +112,7 @@ class ArgoWorkflowsSchedulingException(metaflow.exception.MetaflowException, met
     ...
 
 class ArgoWorkflows(object, metaclass=type):
-    def __init__(self, name, graph: metaflow.graph.FlowGraph, flow, code_package_metadata, code_package_sha, code_package_url, production_token, metadata, flow_datastore, environment, event_logger, monitor, tags = None, namespace = None, username = None, max_workers = None, workflow_timeout = None, workflow_priority = None, auto_emit_argo_events = False, notify_on_error = False, notify_on_success = False, notify_slack_webhook_url = None, notify_pager_duty_integration_key = None, notify_incident_io_api_key = None, incident_io_alert_source_config_id = None, incident_io_metadata: typing.List[str] = None, enable_heartbeat_daemon = True, enable_error_msg_capture = False):
+    def __init__(self, name, graph: metaflow.graph.FlowGraph, flow, code_package_metadata, code_package_sha, code_package_url, production_token, metadata, flow_datastore, environment, event_logger, monitor, tags = None, namespace = None, username = None, max_workers = None, workflow_timeout = None, workflow_priority = None, auto_emit_argo_events = False, notify_on_error = False, notify_on_success = False, notify_slack_webhook_url = None, notify_pager_duty_integration_key = None, notify_incident_io_api_key = None, incident_io_alert_source_config_id = None, incident_io_metadata: typing.List[str] = None, enable_heartbeat_daemon = True, enable_error_msg_capture = False, workflow_title = None, workflow_description = None):
         ...
     def __str__(self):
         ...

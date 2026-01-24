@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import os
@@ -37,15 +37,27 @@ def get_or_create_user_config_path() -> str:
     If no config file is found, one will be created under the proper XDG path
     (i.e. `~/.config/marimo` or `$XDG_CONFIG_HOME/marimo`)
     """
-    current_config_path = get_user_config_path()
-    if current_config_path:
-        return current_config_path
-    else:
-        config_path = marimo_config_path()
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        # Create an empty file
-        config_path.touch()
-        return str(config_path)
+    try:
+        current_config_path = get_user_config_path()
+        if current_config_path:
+            return current_config_path
+    except OSError as e:
+        # Handle OSError that can occur on Windows when os.path.realpath()
+        # fails due to issues like deleted directory, permission problems,
+        # UNC path issues, or special characters in path.
+        # See https://github.com/marimo-team/marimo/issues/7502
+        LOGGER.error(
+            "Could not search for config file due to path error: %s. "
+            "Falling back to XDG config path.",
+            str(e),
+        )
+
+    # No config found or error occurred, create XDG config
+    config_path = marimo_config_path()
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    # Create an empty file
+    config_path.touch()
+    return str(config_path)
 
 
 # This operation may be expensive due to searching for a config file up to
@@ -56,14 +68,10 @@ def get_or_create_user_config_path() -> str:
 def get_user_config_path() -> Optional[str]:
     """Find path of config file (.marimo.toml).
 
-    Searches from current directory to home, return the first config file
-    found, if Any.
+    Searches from current directory up through all parent directories,
+    then checks home directory, then XDG paths.
 
-    If current directory isn't contained in home, just searches current
-    directory and home.
-
-    If not found between current directory and home, will search XDG paths
-    (i.e. `~/.config/marimo` and `$XDG_CONFIG_HOME/marimo`).
+    Returns the first config file found, if any.
 
     May raise an OSError.
     """
@@ -72,38 +80,39 @@ def get_user_config_path() -> Optional[str]:
     # some these functions don't eliminate symlinks on some platforms
     current_directory = os.path.realpath(os.getcwd())
     home_expansion = os.path.expanduser("~")
-    if home_expansion == "~":
-        # path expansion failed
-        return None
-    home_directory = os.path.realpath(home_expansion)
+    home_directory = None
+    if home_expansion != "~":
+        home_directory = os.path.realpath(home_expansion)
 
-    if not _is_parent(home_directory, current_directory):
-        # Can't search back to home, since current_directory not in
-        # home_directory
+    # Track whether we've already checked home during parent traversal
+    checked_home = False
+
+    # Traverse parent directories, stopping at home if under home
+    previous_directory = None
+    search_directory = current_directory
+    while search_directory != previous_directory:
+        previous_directory = search_directory
         config_path = _check_directory_for_file(
-            current_directory, CONFIG_FILENAME
+            search_directory, CONFIG_FILENAME
         )
         if config_path is not None:
             return config_path
-    else:
-        previous_directory = None
-        # Search up to home; terminate when at home or at a fixed point
-        while (
-            current_directory != home_directory
-            and current_directory != previous_directory
-        ):
-            previous_directory = current_directory
-            config_path = os.path.join(current_directory, CONFIG_FILENAME)
-            if os.path.isfile(config_path):
-                return config_path
-            else:
-                current_directory = os.path.realpath(
-                    os.path.dirname(current_directory)
-                )
 
-    config_path = os.path.join(home_directory, CONFIG_FILENAME)
-    if os.path.isfile(config_path):
-        return config_path
+        # Stop at home directory if we're under it
+        if search_directory == home_directory:
+            checked_home = True
+            break
+
+        search_directory = os.path.realpath(os.path.dirname(search_directory))
+
+    # Check home directory if not already checked during traversal
+    # (happens when cwd is not under home)
+    if home_directory and not checked_home:
+        config_path = _check_directory_for_file(
+            home_directory, CONFIG_FILENAME
+        )
+        if config_path is not None:
+            return config_path
 
     xdg_config_path = marimo_config_path()
     if xdg_config_path.is_file():

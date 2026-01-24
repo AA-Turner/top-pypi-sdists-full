@@ -5,6 +5,8 @@ import pytest
 
 import htpy as h
 
+from .conftest import RenderFixture
+
 example_ctx: h.Context[str] = h.Context("example_ctx", default="default!")
 
 
@@ -81,8 +83,9 @@ def test_html(case: RenderableTestCase) -> None:
 
 
 @pytest.mark.parametrize("case", cases)
-def test_encode(case: RenderableTestCase) -> None:
-    result = case.renderable.encode()
+def test_encode_deprecation_warning(case: RenderableTestCase) -> None:
+    with pytest.warns(DeprecationWarning, match=r"Calling .encode\(\) .*is deprecated"):
+        result = case.renderable.encode()  # type: ignore[attr-defined]
     assert isinstance(result, bytes)
     assert result == case.expected_bytes()
 
@@ -94,4 +97,10 @@ def test_iter_chunks(case: RenderableTestCase) -> None:
     # Ensure we get str back, not markup.
     assert type(result[0]) is str
 
+    assert result == case.expected_chunks
+
+
+@pytest.mark.parametrize("case", cases)
+def test_aiter_chunks(case: RenderableTestCase, render_async: RenderFixture) -> None:
+    result = render_async(case.renderable)
     assert result == case.expected_chunks

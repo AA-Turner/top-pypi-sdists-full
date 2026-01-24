@@ -1,17 +1,11 @@
 use crate::ffi::*;
 use crate::opt::*;
 use crate::serialize::datetimelike::NaiveDateTime;
-use crate::typeref::{ARRAY_STRUCT_STR, DESCR_STR, DTYPE_STR};
+use crate::state::State;
 use chrono::{DateTime, NaiveDate};
 use pyo3::ffi::*;
 use serde::ser::{Serialize, SerializeSeq, Serializer};
 use std::os::raw::{c_char, c_int, c_void};
-
-macro_rules! slice {
-    ($ptr:expr, $size:expr) => {
-        unsafe { std::slice::from_raw_parts($ptr, $size) }
-    };
-}
 
 #[repr(C)]
 pub struct PyCapsule {
@@ -55,11 +49,15 @@ enum ItemType {
 }
 
 impl ItemType {
-    fn find(array: *mut PyArrayInterface, ptr: *mut PyObject) -> Option<ItemType> {
+    fn find(
+        array: *mut PyArrayInterface,
+        ptr: *mut PyObject,
+        state: *mut State,
+    ) -> Option<ItemType> {
         match unsafe { ((*array).typekind, (*array).itemsize) } {
             (098, 1) => Some(ItemType::BOOL),
             (077, 8) => {
-                let unit = NumpyDatetimeUnit::from_pyobject(ptr);
+                let unit = NumpyDatetimeUnit::from_pyobject(ptr, state);
                 Some(ItemType::DATETIME64(unit))
             }
             (102, 2) => Some(ItemType::F16),
@@ -97,17 +95,19 @@ impl Serialize for NumpyArrayData {
     where
         S: Serializer,
     {
-        let mut seq = serializer.serialize_seq(Some(self.len)).unwrap();
+        let mut seq = serializer.serialize_seq(Some(self.len))?;
         match self.kind {
             ItemType::BOOL => {
-                let slice: &[u8] = slice!(self.data as *const u8, self.len);
+                let slice: &[u8] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<u8>(), self.len) };
                 for &each in slice.iter() {
                     let value = each == 1;
                     seq.serialize_element(&value).unwrap();
                 }
             }
             ItemType::DATETIME64(unit) => {
-                let slice: &[i64] = slice!(self.data as *const i64, self.len);
+                let slice: &[i64] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<i64>(), self.len) };
                 for &each in slice.iter() {
                     let value = unit
                         .datetime(each, self.opts)
@@ -116,68 +116,79 @@ impl Serialize for NumpyArrayData {
                 }
             }
             ItemType::F16 => {
-                let slice: &[u16] = slice!(self.data as *const u16, self.len);
+                let slice: &[u16] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<u16>(), self.len) };
                 for &each in slice.iter() {
                     let value = half::f16::from_bits(each).to_f32();
                     seq.serialize_element(&value).unwrap();
                 }
             }
             ItemType::F32 => {
-                let slice: &[f32] = slice!(self.data as *const f32, self.len);
+                let slice: &[f32] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<f32>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::F64 => {
-                let slice: &[f64] = slice!(self.data as *const f64, self.len);
+                let slice: &[f64] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<f64>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::I8 => {
-                let slice: &[i8] = slice!(self.data as *const i8, self.len);
+                let slice: &[i8] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<i8>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::I16 => {
-                let slice: &[i16] = slice!(self.data as *const i16, self.len);
+                let slice: &[i16] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<i16>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::I32 => {
-                let slice: &[i32] = slice!(self.data as *const i32, self.len);
+                let slice: &[i32] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<i32>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::I64 => {
-                let slice: &[i64] = slice!(self.data as *const i64, self.len);
+                let slice: &[i64] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<i64>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::U8 => {
-                let slice: &[u8] = slice!(self.data as *const u8, self.len);
+                let slice: &[u8] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<u8>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::U16 => {
-                let slice: &[u16] = slice!(self.data as *const u16, self.len);
+                let slice: &[u16] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<u16>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::U32 => {
-                let slice: &[u32] = slice!(self.data as *const u32, self.len);
+                let slice: &[u32] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<u32>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
             }
             ItemType::U64 => {
-                let slice: &[u64] = slice!(self.data as *const u64, self.len);
+                let slice: &[u64] =
+                    unsafe { std::slice::from_raw_parts(self.data.cast::<u64>(), self.len) };
                 for &each in slice.iter() {
                     seq.serialize_element(&each).unwrap();
                 }
@@ -199,7 +210,7 @@ impl Serialize for NumpyArrayNode {
     {
         match self {
             Self::Internal(children) => {
-                let mut seq = serializer.serialize_seq(Some(children.len())).unwrap();
+                let mut seq = serializer.serialize_seq(Some(children.len()))?;
                 for child in children {
                     seq.serialize_element(child).unwrap();
                 }
@@ -224,34 +235,41 @@ pub struct NumpyArray {
 
 impl NumpyArray {
     #[inline(never)]
-    pub fn new(ptr: *mut PyObject, opts: Opt) -> Result<Self, PyArrayError> {
-        let capsule = ffi!(PyObject_GetAttr(ptr, ARRAY_STRUCT_STR));
-        let array = unsafe { (*(capsule as *mut PyCapsule)).pointer as *mut PyArrayInterface };
-        if unsafe { (*array).two != 2 } {
-            ffi!(Py_DECREF(capsule));
-            Err(PyArrayError::Malformed)
-        } else if unsafe { (*array).flags } & 0x1 != 0x1 {
-            ffi!(Py_DECREF(capsule));
-            Err(PyArrayError::NotContiguous)
-        } else {
-            let num_dimensions = unsafe { (*array).nd as usize };
+    pub fn new(ptr: *mut PyObject, state: *mut State, opts: Opt) -> Result<Self, PyArrayError> {
+        unsafe {
+            let capsule = pyo3::ffi::PyObject_GetAttr(ptr, (*state).array_struct_str);
+            let array = (*capsule.cast::<PyCapsule>())
+                .pointer
+                .cast::<PyArrayInterface>();
+            if (*array).two != 2 {
+                pyo3::ffi::Py_DECREF(capsule);
+                return Err(PyArrayError::Malformed);
+            }
+            if (*array).flags & 0x1 != 0x1 {
+                pyo3::ffi::Py_DECREF(capsule);
+                return Err(PyArrayError::NotContiguous);
+            }
+            let num_dimensions = (*array).nd as usize;
             if num_dimensions == 0 {
-                ffi!(Py_DECREF(capsule));
+                pyo3::ffi::Py_DECREF(capsule);
                 return Err(PyArrayError::UnsupportedDataType);
             }
-            match ItemType::find(array, ptr) {
+            match ItemType::find(array, ptr, state) {
                 None => {
-                    ffi!(Py_DECREF(capsule));
+                    pyo3::ffi::Py_DECREF(capsule);
                     Err(PyArrayError::UnsupportedDataType)
                 }
                 Some(kind) => {
                     let root = if num_dimensions > 1 {
                         let mut position = Vec::with_capacity(num_dimensions);
-                        NumpyArray::build(capsule as *mut PyCapsule, kind, opts, 0, &mut position)
+                        NumpyArray::build(array, kind, opts, 0, &mut position)
                     } else {
-                        let shape = slice!((*array).shape as *const isize, num_dimensions);
+                        let shape = std::slice::from_raw_parts(
+                            (*array).shape.cast::<isize>(),
+                            num_dimensions,
+                        );
                         NumpyArrayNode::Leaf(NumpyArrayData {
-                            data: unsafe { (*array).data },
+                            data: (*array).data,
                             len: shape[0] as usize,
                             kind: kind,
                             opts: opts,
@@ -267,22 +285,23 @@ impl NumpyArray {
     }
 
     fn build(
-        capsule: *mut PyCapsule,
+        array: *mut PyArrayInterface,
         kind: ItemType,
         opts: Opt,
         depth: usize,
         position: &mut Vec<isize>,
     ) -> NumpyArrayNode {
-        let array = unsafe { (*capsule).pointer as *mut PyArrayInterface };
         let num_dimensions = unsafe { (*array).nd as usize };
-        let shape = slice!((*array).shape as *const isize, num_dimensions);
-        let strides = slice!((*array).strides as *const isize, num_dimensions);
+        let shape =
+            unsafe { std::slice::from_raw_parts((*array).shape.cast::<isize>(), num_dimensions) };
+        let strides =
+            unsafe { std::slice::from_raw_parts((*array).strides.cast::<isize>(), num_dimensions) };
         let num_children = shape[depth];
         let mut children = Vec::with_capacity(num_children as usize);
         for i in 0..num_children {
             position.push(i);
             let child = if depth < num_dimensions - 2 {
-                NumpyArray::build(capsule, kind, opts, depth + 1, position)
+                NumpyArray::build(array, kind, opts, depth + 1, position)
             } else {
                 let offset = strides
                     .iter()
@@ -305,7 +324,7 @@ impl NumpyArray {
 
 impl Drop for NumpyArray {
     fn drop(&mut self) {
-        ffi!(Py_DECREF(self.capsule));
+        unsafe { pyo3::ffi::Py_DECREF(self.capsule) };
     }
 }
 
@@ -390,18 +409,23 @@ impl NumpyDatetimeUnit {
     /// object rather than using the `descr` field of the `__array_struct__`
     /// because that field isn't populated for datetime64 arrays; see
     /// https://github.com/numpy/numpy/issues/5350.
-    fn from_pyobject(ptr: *mut PyObject) -> Self {
-        let dtype = ffi!(PyObject_GetAttr(ptr, DTYPE_STR));
-        let descr = ffi!(PyObject_GetAttr(dtype, DESCR_STR));
-        let el0 = ffi!(PyList_GET_ITEM(descr, 0));
-        let descr_str = unsafe { pytuple_get_item(el0, 1) };
-        let uni = unicode_to_str(descr_str).unwrap();
+    fn from_pyobject(ptr: *mut PyObject, state: *mut State) -> Self {
+        let uni = unsafe {
+            let dtype = pyo3::ffi::PyObject_GetAttr(ptr, (*state).dtype_str);
+            let descr = pyo3::ffi::PyObject_GetAttr(dtype, (*state).descr_str);
+            let el0 = pyo3::ffi::PyList_GET_ITEM(descr, 0);
+            let descr_str = pytuple_get_item(el0, 1);
+            let uni = unicode_to_str(descr_str).unwrap();
+            pyo3::ffi::Py_DECREF(descr);
+            pyo3::ffi::Py_DECREF(dtype);
+            uni
+        };
         if uni.len() < 5 {
             return Self::NaT;
         }
         // unit descriptions are found at
         // https://github.com/numpy/numpy/blob/v1.26.4/numpy/core/src/multiarray/datetime.c#L81-L98
-        let ret = match &uni[4..uni.len() - 1] {
+        match &uni[4..uni.len() - 1] {
             "Y" => Self::Years,
             "M" => Self::Months,
             "W" => Self::Weeks,
@@ -417,10 +441,7 @@ impl NumpyDatetimeUnit {
             "as" => Self::Attoseconds,
             "generic" => Self::Generic,
             _ => unreachable!(),
-        };
-        ffi!(Py_DECREF(dtype));
-        ffi!(Py_DECREF(descr));
-        ret
+        }
     }
 
     /// Return a `NaiveDateTime` for a value in array with this unit.
@@ -515,7 +536,7 @@ macro_rules! define_numpy_type {
             where
                 S: Serializer,
             {
-                let value = unsafe { (*(self.ptr as *mut $object_name)).value };
+                let value = unsafe { (*self.ptr.cast::<$object_name>()).value };
                 value.serialize(serializer)
             }
         }
@@ -542,12 +563,13 @@ struct NumpyDatetime64Object {
 
 pub struct NumpyDatetime64 {
     ptr: *mut PyObject,
+    state: *mut State,
     opts: Opt,
 }
 
 impl NumpyDatetime64 {
-    pub fn new(ptr: *mut PyObject, opts: Opt) -> Self {
-        NumpyDatetime64 { ptr, opts }
+    pub fn new(ptr: *mut PyObject, state: *mut State, opts: Opt) -> Self {
+        NumpyDatetime64 { ptr, state, opts }
     }
 }
 
@@ -556,8 +578,8 @@ impl Serialize for NumpyDatetime64 {
     where
         S: Serializer,
     {
-        let unit = NumpyDatetimeUnit::from_pyobject(self.ptr);
-        let value = unsafe { (*(self.ptr as *mut NumpyDatetime64Object)).value };
+        let unit = NumpyDatetimeUnit::from_pyobject(self.ptr, self.state);
+        let value = unsafe { (*self.ptr.cast::<NumpyDatetime64Object>()).value };
         unit.datetime(value, self.opts)
             .map_err(serde::ser::Error::custom)?
             .serialize(serializer)
@@ -586,7 +608,7 @@ impl Serialize for NumpyFloat16 {
     where
         S: Serializer,
     {
-        let value = unsafe { (*(self.ptr as *mut NumpyFloat16Object)).value };
+        let value = unsafe { (*self.ptr.cast::<NumpyFloat16Object>()).value };
         half::f16::from_bits(value).to_f32().serialize(serializer)
     }
 }

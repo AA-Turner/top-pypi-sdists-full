@@ -15,8 +15,10 @@
 #include "include/gpu/GpuTypes.h"
 #include "include/gpu/graphite/BackendTexture.h"
 #include "include/gpu/graphite/Context.h"
+#include "include/gpu/graphite/Image.h"
 #include "include/gpu/graphite/Recorder.h"
 #include "include/gpu/graphite/Recording.h"
+#include "include/gpu/graphite/Surface.h"
 #include "include/gpu/graphite/TextureInfo.h"
 #include "src/base/SkRectMemcpy.h"
 #include "src/core/SkAutoPixmapStorage.h"
@@ -25,9 +27,12 @@
 #include "src/gpu/graphite/ContextPriv.h"
 #include "src/gpu/graphite/RecorderPriv.h"
 #include "src/gpu/graphite/ResourceTypes.h"
+#include "tests/ComparePixels.h"
 #include "tests/Test.h"
-#include "tests/TestUtils.h"
 #include "tools/ToolUtils.h"
+#include "tools/gpu/BackendTextureImageFactory.h"
+#include "tools/gpu/ManagedBackendTexture.h"
+#include "tools/graphite/GraphiteTestContext.h"
 
 using Mipmapped = skgpu::Mipmapped;
 
@@ -51,9 +56,12 @@ static constexpr int min_rgb_channel_bits(SkColorType ct) {
         case kBGRA_1010102_SkColorType:       return 10;
         case kBGR_101010x_SkColorType:        return 10;
         case kBGR_101010x_XR_SkColorType:     return 10;
+        case kRGBA_10x6_SkColorType:          return 10;
+        case kBGRA_10101010_XR_SkColorType:   return 10;
         case kGray_8_SkColorType:             return 8;   // counting gray as "rgb"
         case kRGBA_F16Norm_SkColorType:       return 10;  // just counting the mantissa
         case kRGBA_F16_SkColorType:           return 10;  // just counting the mantissa
+        case kRGB_F16F16F16x_SkColorType:     return 10;
         case kRGBA_F32_SkColorType:           return 23;  // just counting the mantissa
         case kR16G16B16A16_unorm_SkColorType: return 16;
         case kR8_unorm_SkColorType:           return 8;
@@ -81,9 +89,12 @@ static constexpr int alpha_channel_bits(SkColorType ct) {
         case kBGRA_1010102_SkColorType:       return 2;
         case kBGR_101010x_SkColorType:        return 0;
         case kBGR_101010x_XR_SkColorType:     return 0;
+        case kRGBA_10x6_SkColorType:          return 10;
+        case kBGRA_10101010_XR_SkColorType:   return 10;
         case kGray_8_SkColorType:             return 0;
         case kRGBA_F16Norm_SkColorType:       return 10;  // just counting the mantissa
         case kRGBA_F16_SkColorType:           return 10;  // just counting the mantissa
+        case kRGB_F16F16F16x_SkColorType:     return 0;
         case kRGBA_F32_SkColorType:           return 23;  // just counting the mantissa
         case kR16G16B16A16_unorm_SkColorType: return 16;
         case kR8_unorm_SkColorType:           return 0;
@@ -174,17 +185,14 @@ enum class Result {
 template <typename T>
 using GraphiteReadSrcFn = Result(const T&, const SkIPoint& offset, const SkPixmap&);
 
-SkPixmap make_pixmap_have_valid_alpha_type(SkPixmap pm) {
-    if (pm.alphaType() == kUnknown_SkAlphaType) {
-        return {pm.info().makeAlphaType(kUnpremul_SkAlphaType), pm.addr(), pm.rowBytes()};
-    }
-    return pm;
-}
-
 static SkAutoPixmapStorage make_ref_data(const SkImageInfo& info, bool forceOpaque) {
     SkAutoPixmapStorage result;
-    result.alloc(info);
-    auto surface = SkSurface::MakeRasterDirect(make_pixmap_have_valid_alpha_type(result));
+    if (info.alphaType() == kUnknown_SkAlphaType) {
+        result.alloc(info.makeAlphaType(kUnpremul_SkAlphaType));
+    } else {
+        result.alloc(info);
+    }
+    auto surface = SkSurfaces::WrapPixels(result);
     if (!surface) {
         return result;
     }
@@ -216,7 +224,7 @@ static SkAutoPixmapStorage make_ref_data(const SkImageInfo& info, bool forceOpaq
         surface->getCanvas()->drawPaint(paint);
     }
     return result;
-};
+}
 }  // anonymous namespace
 
 template <typename T>
@@ -271,7 +279,7 @@ static void graphite_read_pixels_test_driver(skiatest::Reporter* reporter,
         } else if (!rules.fUncontainedRectSucceeds && !surfBounds.contains(rect)) {
             REPORTER_ASSERT(reporter, result != Result::kSuccess);
         } else if (result == Result::kFail) {
-            // TODO: Support RGB/BGR 101010x, BGRA 1010102 on the GPU.
+            // TODO: Support BGR 101010x, BGRA 1010102, on the GPU.
             ERRORF(reporter,
                    "Read failed. %sSrc CT: %s, Src AT: %s Read CT: %s, Read AT: %s, "
                    "Rect [%d, %d, %d, %d], CS conversion: %d\n",
@@ -452,8 +460,8 @@ static void graphite_read_pixels_test_driver(skiatest::Reporter* reporter,
                 const auto readCT = static_cast<SkColorType>(rct);
                 // ComparePixels will end up converting these types to kUnknown
                 // because there's no corresponding GrColorType, and hence it will fail
-                if (readCT == kRGB_101010x_SkColorType ||
-                    readCT == kBGR_101010x_XR_SkColorType ||
+                if (readCT == kBGR_101010x_XR_SkColorType ||
+                    readCT == kBGRA_10101010_XR_SkColorType ||
                     readCT == kBGR_101010x_SkColorType) {
                     continue;
                 }
@@ -510,18 +518,22 @@ static void async_callback(void* c, std::unique_ptr<const SkImage::AsyncReadResu
     auto context = static_cast<AsyncContext*>(c);
     context->fResult = std::move(result);
     context->fCalled = true;
-};
+}
 
-DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(ImageAsyncReadPixelsGraphite,
-                                         reporter,
-                                         context) {
+DEF_CONDITIONAL_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(ImageAsyncReadPixelsGraphite,
+                                                     reporter,
+                                                     context,
+                                                     testContext,
+                                                     true,
+                                                     CtsEnforcement::kApiLevel_202404) {
     using Image = sk_sp<SkImage>;
     using Renderable = skgpu::Renderable;
     using TextureInfo = skgpu::graphite::TextureInfo;
 
-    auto reader = std::function<GraphiteReadSrcFn<Image>>([context](const Image& image,
-                                                                    const SkIPoint& offset,
-                                                                    const SkPixmap& pixels) {
+    auto reader = std::function<GraphiteReadSrcFn<Image>>([context, testContext](
+                                                                  const Image& image,
+                                                                  const SkIPoint& offset,
+                                                                  const SkPixmap& pixels) {
         AsyncContext asyncContext;
         auto rect = SkIRect::MakeSize(pixels.dimensions()).makeOffset(offset);
         // The GPU implementation is based on rendering and will fail for non-renderable color
@@ -535,12 +547,18 @@ DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(ImageAsyncReadPixelsGraphite,
             return Result::kExcusedFailure;
         }
 
-        context->asyncReadPixels(image.get(), pixels.info().colorInfo(), rect,
-                                 async_callback, &asyncContext);
+        context->asyncRescaleAndReadPixels(image.get(),
+                                           pixels.info(),
+                                           rect,
+                                           SkImage::RescaleGamma::kSrc,
+                                           SkImage::RescaleMode::kRepeatedLinear,
+                                           async_callback,
+                                           &asyncContext);
         if (!asyncContext.fCalled) {
             context->submit();
         }
         while (!asyncContext.fCalled) {
+            testContext->tick();
             context->checkAsyncWorkCompletion();
         }
         if (!asyncContext.fResult) {
@@ -560,22 +578,12 @@ DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(ImageAsyncReadPixelsGraphite,
         auto factory = std::function<GraphiteSrcFactory<Image>>([&](
                 skgpu::graphite::Recorder* recorder,
                 const SkPixmap& src) {
-            // TODO: put this in the equivalent of sk_gpu_test::MakeBackendTextureImage
-            TextureInfo info = recorder->priv().caps()->getDefaultSampledTextureInfo(
-                    src.colorType(),
-                    Mipmapped::kNo,
-                    skgpu::Protected::kNo,
-                    renderable);
-            auto texture = recorder->createBackendTexture(src.dimensions(), info);
-            if (!recorder->updateBackendTexture(texture, &src, 1)) {
-                return (Image)(nullptr);
-            }
-
-            Image image = SkImage::MakeGraphiteFromBackendTexture(recorder,
-                                                                  texture,
-                                                                  src.colorType(),
-                                                                  src.alphaType(),
-                                                                  /*colorSpace=*/nullptr);
+            Image image = sk_gpu_test::MakeBackendTextureImage(recorder,
+                                                               src,
+                                                               Mipmapped::kNo,
+                                                               renderable,
+                                                               skgpu::Origin::kTopLeft,
+                                                               skgpu::Protected::kNo);
 
             std::unique_ptr<skgpu::graphite::Recording> recording = recorder->snap();
             skgpu::graphite::InsertRecordingInfo recordingInfo;
@@ -593,23 +601,33 @@ DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(ImageAsyncReadPixelsGraphite,
     context->submit();
 }
 
-DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(SurfaceAsyncReadPixelsGraphite,
-                                         reporter,
-                                         context) {
+DEF_CONDITIONAL_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(SurfaceAsyncReadPixelsGraphite,
+                                                     reporter,
+                                                     context,
+                                                     testContext,
+                                                     true,
+                                                     CtsEnforcement::kApiLevel_202404) {
     using Surface = sk_sp<SkSurface>;
 
-    auto reader = std::function<GraphiteReadSrcFn<Surface>>([context](const Surface& surface,
-                                                                      const SkIPoint& offset,
-                                                                      const SkPixmap& pixels) {
+    auto reader = std::function<GraphiteReadSrcFn<Surface>>([context, testContext](
+                                                                    const Surface& surface,
+                                                                    const SkIPoint& offset,
+                                                                    const SkPixmap& pixels) {
         AsyncContext asyncContext;
         auto rect = SkIRect::MakeSize(pixels.dimensions()).makeOffset(offset);
 
-        context->asyncReadPixels(surface.get(), pixels.info().colorInfo(), rect,
-                                 async_callback, &asyncContext);
+        context->asyncRescaleAndReadPixels(surface.get(),
+                                           pixels.info(),
+                                           rect,
+                                           SkImage::RescaleGamma::kSrc,
+                                           SkImage::RescaleMode::kRepeatedLinear,
+                                           async_callback,
+                                           &asyncContext);
         if (!asyncContext.fCalled) {
             context->submit();
         }
         while (!asyncContext.fCalled) {
+            testContext->tick();
             context->checkAsyncWorkCompletion();
         }
         if (!asyncContext.fResult) {
@@ -625,24 +643,23 @@ DEF_GRAPHITE_TEST_FOR_RENDERING_CONTEXTS(SurfaceAsyncReadPixelsGraphite,
     rules.fAllowUnpremulSrc = true;
     rules.fUncontainedRectSucceeds = false;
 
-    auto factory = std::function<GraphiteSrcFactory<Surface>>([&](
-            skgpu::graphite::Recorder* recorder,
-            const SkPixmap& src) {
-        Surface surface = SkSurface::MakeGraphite(recorder,
-                                                  src.info(),
-                                                  Mipmapped::kNo,
-                                                  /*surfaceProps=*/nullptr);
-        if (surface) {
-            surface->writePixels(src, 0, 0);
+    auto factory = std::function<GraphiteSrcFactory<Surface>>(
+            [&](skgpu::graphite::Recorder* recorder, const SkPixmap& src) {
+                Surface surface = SkSurfaces::RenderTarget(recorder,
+                                                           src.info(),
+                                                           Mipmapped::kNo,
+                                                           /*surfaceProps=*/nullptr);
+                if (surface) {
+                    surface->writePixels(src, 0, 0);
 
-            std::unique_ptr<skgpu::graphite::Recording> recording = recorder->snap();
-            skgpu::graphite::InsertRecordingInfo recordingInfo;
-            recordingInfo.fRecording = recording.get();
-            context->insertRecording(recordingInfo);
-        }
+                    std::unique_ptr<skgpu::graphite::Recording> recording = recorder->snap();
+                    skgpu::graphite::InsertRecordingInfo recordingInfo;
+                    recordingInfo.fRecording = recording.get();
+                    context->insertRecording(recordingInfo);
+                }
 
-        return surface;
-    });
+                return surface;
+            });
     graphite_read_pixels_test_driver(reporter, context, rules, factory, reader, {});
 
     // It's possible that we've created an Image using the factory, but then don't try to do

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqladmin
-Version: 0.21.0
+Version: 0.22.0
 Summary: SQLAlchemy admin for FastAPI and Starlette
 Project-URL: Documentation, https://aminalaee.github.io/sqladmin/
 Project-URL: Issues, https://github.com/aminalaee/sqladmin/issues
@@ -15,13 +15,14 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: jinja2
 Requires-Dist: python-multipart
 Requires-Dist: sqlalchemy>=1.4

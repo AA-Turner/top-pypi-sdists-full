@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import typing
 
 import QuantConnect.Parameters
@@ -26,7 +26,8 @@ class ParameterAttribute(System.Attribute):
         """
         Initializes a new instance of the ParameterAttribute class
         
-        :param name: The name of the parameter. If null is specified then the field or property name will be used
+        :param name: The name of the parameter. If null is specified
+        then the field or property name will be used
         """
         ...
 

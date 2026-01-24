@@ -9,24 +9,29 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
-from typing_extensions import NotRequired, TypedDict
+from typing import Literal
+from typing_extensions import TypedDict
 
 
-class ThreadSubscriptionType(TypedDict):
-    """Thread Subscription
+class DeleteCostCenterType(TypedDict):
+    """DeleteCostCenter"""
 
-    Thread Subscription
-    """
-
-    subscribed: bool
-    ignored: bool
-    reason: Union[str, None]
-    created_at: Union[datetime, None]
-    url: str
-    thread_url: NotRequired[str]
-    repository_url: NotRequired[str]
+    message: str
+    id: str
+    name: str
+    cost_center_state: Literal["CostCenterArchived"]
 
 
-__all__ = ("ThreadSubscriptionType",)
+class DeleteCostCenterTypeForResponse(TypedDict):
+    """DeleteCostCenter"""
+
+    message: str
+    id: str
+    name: str
+    cost_center_state: Literal["CostCenterArchived"]
+
+
+__all__ = (
+    "DeleteCostCenterType",
+    "DeleteCostCenterTypeForResponse",
+)

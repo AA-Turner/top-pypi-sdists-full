@@ -1,6 +1,6 @@
 /* BSD 3-Clause License
  *
- * Copyright © 2008-2025, Jice and the libtcod contributors.
+ * Copyright © 2008-2026, Jice and the libtcod contributors.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,6 +29,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+/// @file tileset_render.h
+/// Tileset software renderer.
 #pragma once
 #ifndef LIBTCOD_TILESET_RENDER_H_
 #define LIBTCOD_TILESET_RENDER_H_
@@ -37,6 +39,9 @@
 #include "tileset.h"
 
 struct SDL_Surface;
+
+/// @addtogroup Tileset
+/// @{
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
@@ -71,4 +76,5 @@ TCOD_PUBLIC TCOD_Error TCOD_tileset_render_to_surface(
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
+/// @}
 #endif  // LIBTCOD_TILESET_RENDER_H_

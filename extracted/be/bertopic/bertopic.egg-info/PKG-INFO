@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bertopic
-Version: 0.17.3
+Version: 0.17.4
 Summary: BERTopic performs topic Modeling with state-of-the-art transformer models.
 Author-email: "Maarten P. Grootendorst" <maartengrootendorst@gmail.com>
 License: MIT License
@@ -38,14 +38,13 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: hdbscan>=0.8.29
@@ -80,7 +79,7 @@ Requires-Dist: spacy>=3.0.1; extra == "spacy"
 Provides-Extra: test
 Requires-Dist: pytest>=5.4.3; extra == "test"
 Requires-Dist: pytest-cov>=2.6.1; extra == "test"
-Requires-Dist: ruff~=0.4.7; extra == "test"
+Requires-Dist: ruff~=0.14.0; extra == "test"
 Provides-Extra: use
 Requires-Dist: tensorflow; extra == "use"
 Requires-Dist: tensorflow_hub; extra == "use"
@@ -91,7 +90,7 @@ Requires-Dist: Pillow>=9.2.0; extra == "vision"
 Dynamic: license-file
 
 [![PyPI Downloads](https://static.pepy.tech/badge/bertopic)](https://pepy.tech/projects/bertopic)
-[![PyPI - Python](https://img.shields.io/badge/python-v3.9+-blue.svg)](https://pypi.org/project/bertopic/)
+[![PyPI - Python](https://img.shields.io/badge/python-v3.10+-blue.svg)](https://pypi.org/project/bertopic/)
 [![Build](https://img.shields.io/github/actions/workflow/status/MaartenGr/BERTopic/testing.yml?branch=master)](https://github.com/MaartenGr/BERTopic/actions)
 [![docs](https://img.shields.io/badge/docs-Passing-green.svg)](https://maartengr.github.io/BERTopic/)
 [![PyPI - PyPi](https://img.shields.io/pypi/v/BERTopic)](https://pypi.org/project/bertopic/)
@@ -142,7 +141,13 @@ Corresponding medium posts can be found [here](https://medium.com/data-science/t
 
 ## Installation
 
-Installation, with sentence-transformers, can be done using [pypi](https://pypi.org/project/bertopic/):
+Installation, with sentence-transformers, can be done using [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add bertopic
+```
+
+or with [pip](https://github.com/pypa/pip):
 
 ```bash
 pip install bertopic
@@ -158,7 +163,7 @@ pip install bertopic[flair,gensim,spacy,use]
 pip install bertopic[vision]
 ```
 
-For a *light-weight installation* without transformers, UMAP and/or HDBSCAN (for training with Model2Vec or perhaps for inference), see [this tutorial](https://maartengr.github.io/BERTopic/getting_started/tips_and_tricks/tips_and_tricks.html#lightweight-installation).
+For a *light-weight installation* without transformers, UMAP and/or HDBSCAN (for training with Model2Vec or inference), see [this tutorial](https://maartengr.github.io/BERTopic/getting_started/tips_and_tricks/tips_and_tricks.html#lightweight-installation).
 
 ## Getting Started
 For an in-depth overview of the features of BERTopic 

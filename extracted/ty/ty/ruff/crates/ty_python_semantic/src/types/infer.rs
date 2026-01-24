@@ -31,14 +31,14 @@
 //!
 //! Many of our type inference Salsa queries implement cycle recovery via fixed-point iteration. In
 //! general, they initiate fixed-point iteration by returning an `Inference` type that returns
-//! `Type::Never` for all expressions, bindings, and declarations, and then they continue iterating
+//! the `Divergent` type for all expressions, bindings, and declarations, and then they continue iterating
 //! the query cycle until a fixed-point is reached. Salsa has a built-in fixed limit on the number
 //! of iterations, so if we fail to converge, Salsa will eventually panic. (This should of course
 //! be considered a bug.)
 
 use ruff_db::parsed::{ParsedModuleRef, parsed_module};
 use ruff_text_size::Ranged;
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 use salsa;
 use salsa::plumbing::AsId;
 
@@ -49,48 +49,20 @@ use crate::semantic_index::expression::Expression;
 use crate::semantic_index::scope::ScopeId;
 use crate::semantic_index::{SemanticIndex, semantic_index};
 use crate::types::diagnostic::TypeCheckDiagnostics;
+use crate::types::function::FunctionType;
 use crate::types::generics::Specialization;
 use crate::types::unpacker::{UnpackResult, Unpacker};
-use crate::types::{ClassLiteral, KnownClass, Truthiness, Type, TypeAndQualifiers};
+use crate::types::{
+    ClassLiteral, KnownClass, StaticClassLiteral, Truthiness, Type, TypeAndQualifiers,
+    declaration_type,
+};
 use crate::unpack::Unpack;
 use builder::TypeInferenceBuilder;
+pub(super) use builder::UnsupportedComparisonError;
 
 mod builder;
 #[cfg(test)]
 mod tests;
-
-/// How many fixpoint iterations to allow before falling back to Divergent type.
-const ITERATIONS_BEFORE_FALLBACK: u32 = 10;
-
-/// Infer all types for a [`ScopeId`], including all definitions and expressions in that scope.
-/// Use when checking a scope, or needing to provide a type for an arbitrary expression in the
-/// scope.
-#[salsa::tracked(returns(ref), cycle_fn=scope_cycle_recover, cycle_initial=scope_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
-pub(crate) fn infer_scope_types<'db>(db: &'db dyn Db, scope: ScopeId<'db>) -> ScopeInference<'db> {
-    let file = scope.file(db);
-    let _span = tracing::trace_span!("infer_scope_types", scope=?scope.as_id(), ?file).entered();
-
-    let module = parsed_module(db, file).load(db);
-
-    // Using the index here is fine because the code below depends on the AST anyway.
-    // The isolation of the query is by the return inferred types.
-    let index = semantic_index(db, file);
-
-    TypeInferenceBuilder::new(db, InferenceRegion::Scope(scope), index, &module).finish_scope()
-}
-
-fn scope_cycle_recover<'db>(
-    _db: &'db dyn Db,
-    _value: &ScopeInference<'db>,
-    _count: u32,
-    _scope: ScopeId<'db>,
-) -> salsa::CycleRecoveryAction<ScopeInference<'db>> {
-    salsa::CycleRecoveryAction::Iterate
-}
-
-fn scope_cycle_initial<'db>(_db: &'db dyn Db, scope: ScopeId<'db>) -> ScopeInference<'db> {
-    ScopeInference::cycle_initial(scope)
-}
 
 /// Infer all types for a [`Definition`] (including sub-expressions).
 /// Use when resolving a place use or public type of a place.
@@ -116,31 +88,27 @@ pub(crate) fn infer_definition_types<'db>(
 
 fn definition_cycle_recover<'db>(
     db: &'db dyn Db,
-    _value: &DefinitionInference<'db>,
-    count: u32,
-    definition: Definition<'db>,
-) -> salsa::CycleRecoveryAction<DefinitionInference<'db>> {
-    if count == ITERATIONS_BEFORE_FALLBACK {
-        salsa::CycleRecoveryAction::Fallback(DefinitionInference::cycle_fallback(
-            definition.scope(db),
-        ))
-    } else {
-        salsa::CycleRecoveryAction::Iterate
-    }
+    cycle: &salsa::Cycle,
+    previous_inference: &DefinitionInference<'db>,
+    inference: DefinitionInference<'db>,
+    _definition: Definition<'db>,
+) -> DefinitionInference<'db> {
+    inference.cycle_normalized(db, previous_inference, cycle)
 }
 
 fn definition_cycle_initial<'db>(
     db: &'db dyn Db,
+    id: salsa::Id,
     definition: Definition<'db>,
 ) -> DefinitionInference<'db> {
-    DefinitionInference::cycle_initial(definition.scope(db))
+    DefinitionInference::cycle_initial(definition.scope(db), Type::divergent(id))
 }
 
 /// Infer types for all deferred type expressions in a [`Definition`].
 ///
 /// Deferred expressions are type expressions (annotations, base classes, aliases...) in a stub
 /// file, or in a file with `from __future__ import annotations`, or stringified annotations.
-#[salsa::tracked(returns(ref), cycle_fn=deferred_cycle_recover, cycle_initial=deferred_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
+#[salsa::tracked(returns(ref), cycle_fn=deferred_cycle_recovery, cycle_initial=deferred_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
 pub(crate) fn infer_deferred_types<'db>(
     db: &'db dyn Db,
     definition: Definition<'db>,
@@ -161,20 +129,100 @@ pub(crate) fn infer_deferred_types<'db>(
         .finish_definition()
 }
 
-fn deferred_cycle_recover<'db>(
-    _db: &'db dyn Db,
-    _value: &DefinitionInference<'db>,
-    _count: u32,
+fn deferred_cycle_recovery<'db>(
+    db: &'db dyn Db,
+    cycle: &salsa::Cycle,
+    previous_inference: &DefinitionInference<'db>,
+    inference: DefinitionInference<'db>,
     _definition: Definition<'db>,
-) -> salsa::CycleRecoveryAction<DefinitionInference<'db>> {
-    salsa::CycleRecoveryAction::Iterate
+) -> DefinitionInference<'db> {
+    inference.cycle_normalized(db, previous_inference, cycle)
 }
 
 fn deferred_cycle_initial<'db>(
     db: &'db dyn Db,
+    id: salsa::Id,
     definition: Definition<'db>,
 ) -> DefinitionInference<'db> {
-    DefinitionInference::cycle_initial(definition.scope(db))
+    DefinitionInference::cycle_initial(definition.scope(db), Type::divergent(id))
+}
+
+/// Infer all types for a [`ScopeId`], including all definitions and expressions in that scope.
+/// Use when checking a scope, or needing to provide a type for an arbitrary expression in the
+/// scope.
+///
+/// Unlike [`infer_scope_types`], this function does not take a type context, as it may infer
+/// the parent scope to obtain the necessary type context by which to infer the inner scope.
+pub(crate) fn infer_complete_scope_types<'db>(
+    db: &'db dyn Db,
+    scope: ScopeId<'db>,
+) -> &'db ScopeInference<'db> {
+    // Scopes that may require type context are inferred during the inference of
+    // their outer scope.
+    if scope.accepts_type_context(db) {
+        let file = scope.file(db);
+        let index = semantic_index(db, file);
+
+        if let Some(parent_scope) = index.parent_scope_id(scope.file_scope_id(db)) {
+            // Note that nested lambdas or comprehensions may require recursing until we reach
+            // an outer scope that is independent of any type context.
+            return infer_complete_scope_types(db, parent_scope.to_scope_id(db, file));
+        }
+    }
+
+    infer_scope_types_impl(db, InferScope::new(db, scope, TypeContext::default()))
+}
+
+/// Infer all types for a [`ScopeId`], including all definitions and expressions in that scope.
+/// Use when checking a scope, or needing to provide a type for an arbitrary expression in the
+/// scope.
+///
+/// Note that you should generally use [`infer_complete_scope_types`] instead of this method,
+/// unless you have already obtained the necessary type context while inferring the parent scope.
+/// Inferring a nested scope independently without type context can lead to incorrect inferred
+/// types or diagnostics.
+pub(crate) fn infer_scope_types<'db>(
+    db: &'db dyn Db,
+    scope: ScopeId<'db>,
+    tcx: TypeContext<'db>,
+) -> &'db ScopeInference<'db> {
+    infer_scope_types_impl(db, InferScope::new(db, scope, tcx))
+}
+
+#[salsa::tracked(returns(ref), cycle_fn=scope_cycle_recover, cycle_initial=scope_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
+pub(crate) fn infer_scope_types_impl<'db>(
+    db: &'db dyn Db,
+    input: InferScope<'db>,
+) -> ScopeInference<'db> {
+    let (scope, tcx) = input.into_inner(db);
+    let file = scope.file(db);
+    let _span = tracing::trace_span!("infer_scope_types", scope=?scope.as_id(), ?file).entered();
+
+    let module = parsed_module(db, file).load(db);
+
+    // Using the index here is fine because the code below depends on the AST anyway.
+    // The isolation of the query is by the return inferred types.
+    let index = semantic_index(db, file);
+
+    TypeInferenceBuilder::new(db, InferenceRegion::Scope(scope, tcx), index, &module).finish_scope()
+}
+
+fn scope_cycle_recover<'db>(
+    db: &'db dyn Db,
+    cycle: &salsa::Cycle,
+    previous_inference: &ScopeInference<'db>,
+    inference: ScopeInference<'db>,
+    _input: InferScope<'db>,
+) -> ScopeInference<'db> {
+    inference.cycle_normalized(db, previous_inference, cycle)
+}
+
+fn scope_cycle_initial<'db>(
+    _db: &'db dyn Db,
+    id: salsa::Id,
+    _input: InferScope<'db>,
+) -> ScopeInference<'db> {
+    ScopeInference::cycle_initial(Type::divergent(id))
 }
 
 /// Infer all types for an [`Expression`] (including sub-expressions).
@@ -190,11 +238,11 @@ pub(crate) fn infer_expression_types<'db>(
 }
 
 #[salsa::tracked(returns(ref), cycle_fn=expression_cycle_recover, cycle_initial=expression_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
-fn infer_expression_types_impl<'db>(
+pub(super) fn infer_expression_types_impl<'db>(
     db: &'db dyn Db,
     input: InferExpression<'db>,
 ) -> ExpressionInference<'db> {
-    let (expression, tcx) = (input.expression(db), input.tcx(db));
+    let (expression, tcx) = input.into_inner(db);
 
     let file = expression.file(db);
     let module = parsed_module(db, file).load(db);
@@ -219,24 +267,22 @@ fn infer_expression_types_impl<'db>(
 
 fn expression_cycle_recover<'db>(
     db: &'db dyn Db,
-    _value: &ExpressionInference<'db>,
-    count: u32,
-    input: InferExpression<'db>,
-) -> salsa::CycleRecoveryAction<ExpressionInference<'db>> {
-    if count == ITERATIONS_BEFORE_FALLBACK {
-        salsa::CycleRecoveryAction::Fallback(ExpressionInference::cycle_fallback(
-            input.expression(db).scope(db),
-        ))
-    } else {
-        salsa::CycleRecoveryAction::Iterate
-    }
+    cycle: &salsa::Cycle,
+    previous_inference: &ExpressionInference<'db>,
+    inference: ExpressionInference<'db>,
+    _input: InferExpression<'db>,
+) -> ExpressionInference<'db> {
+    inference.cycle_normalized(db, previous_inference, cycle)
 }
 
 fn expression_cycle_initial<'db>(
     db: &'db dyn Db,
+    id: salsa::Id,
     input: InferExpression<'db>,
 ) -> ExpressionInference<'db> {
-    ExpressionInference::cycle_initial(input.expression(db).scope(db))
+    let (expression, _) = input.into_inner(db);
+    let cycle_recovery = Type::divergent(id);
+    ExpressionInference::cycle_initial(expression.scope(db), cycle_recovery)
 }
 
 /// Infers the type of an `expression` that is guaranteed to be in the same file as the calling query.
@@ -244,7 +290,7 @@ fn expression_cycle_initial<'db>(
 /// This is a small helper around [`infer_expression_types()`] to reduce the boilerplate.
 /// Use [`infer_expression_type()`] if it isn't guaranteed that `expression` is in the same file to
 /// avoid cross-file query dependencies.
-pub(super) fn infer_same_file_expression_type<'db>(
+pub(crate) fn infer_same_file_expression_type<'db>(
     db: &'db dyn Db,
     expression: Expression<'db>,
     tcx: TypeContext<'db>,
@@ -271,28 +317,33 @@ pub(crate) fn infer_expression_type<'db>(
 
 #[salsa::tracked(cycle_fn=single_expression_cycle_recover, cycle_initial=single_expression_cycle_initial, heap_size=ruff_memory_usage::heap_size)]
 fn infer_expression_type_impl<'db>(db: &'db dyn Db, input: InferExpression<'db>) -> Type<'db> {
-    let file = input.expression(db).file(db);
+    let (expression, _) = input.into_inner(db);
+
+    let file = expression.file(db);
     let module = parsed_module(db, file).load(db);
 
     // It's okay to call the "same file" version here because we're inside a salsa query.
     let inference = infer_expression_types_impl(db, input);
-    inference.expression_type(input.expression(db).node_ref(db, &module))
+
+    inference.expression_type(expression.node_ref(db, &module))
 }
 
 fn single_expression_cycle_recover<'db>(
-    _db: &'db dyn Db,
-    _value: &Type<'db>,
-    _count: u32,
+    db: &'db dyn Db,
+    cycle: &salsa::Cycle,
+    previous_cycle_value: &Type<'db>,
+    result: Type<'db>,
     _input: InferExpression<'db>,
-) -> salsa::CycleRecoveryAction<Type<'db>> {
-    salsa::CycleRecoveryAction::Iterate
+) -> Type<'db> {
+    result.cycle_normalized(db, *previous_cycle_value, cycle)
 }
 
 fn single_expression_cycle_initial<'db>(
     _db: &'db dyn Db,
+    id: salsa::Id,
     _input: InferExpression<'db>,
 ) -> Type<'db> {
-    Type::Never
+    Type::divergent(id)
 }
 
 /// An `Expression` with an optional `TypeContext`.
@@ -300,13 +351,19 @@ fn single_expression_cycle_initial<'db>(
 /// This is a Salsa supertype used as the input to `infer_expression_types` to avoid
 /// interning an `ExpressionWithContext` unnecessarily when no type context is provided.
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, salsa::Supertype, salsa::Update)]
-enum InferExpression<'db> {
+pub(super) enum InferExpression<'db> {
     Bare(Expression<'db>),
     WithContext(ExpressionWithContext<'db>),
 }
 
+#[salsa::interned(debug, heap_size=ruff_memory_usage::heap_size)]
+pub(super) struct ExpressionWithContext<'db> {
+    expression: Expression<'db>,
+    tcx: TypeContext<'db>,
+}
+
 impl<'db> InferExpression<'db> {
-    fn new(
+    pub(super) fn new(
         db: &'db dyn Db,
         expression: Expression<'db>,
         tcx: TypeContext<'db>,
@@ -314,35 +371,55 @@ impl<'db> InferExpression<'db> {
         if tcx.annotation.is_some() {
             InferExpression::WithContext(ExpressionWithContext::new(db, expression, tcx))
         } else {
-            // Drop the empty `TypeContext` to avoid the interning cost.
             InferExpression::Bare(expression)
         }
     }
 
-    fn expression(self, db: &'db dyn Db) -> Expression<'db> {
+    fn into_inner(self, db: &'db dyn Db) -> (Expression<'db>, TypeContext<'db>) {
         match self {
-            InferExpression::Bare(expression) => expression,
-            InferExpression::WithContext(expression_with_context) => {
-                expression_with_context.expression(db)
-            }
-        }
-    }
-
-    fn tcx(self, db: &'db dyn Db) -> TypeContext<'db> {
-        match self {
-            InferExpression::Bare(_) => TypeContext::default(),
-            InferExpression::WithContext(expression_with_context) => {
-                expression_with_context.tcx(db)
-            }
+            InferExpression::Bare(expression) => (expression, TypeContext::default()),
+            InferExpression::WithContext(expression_with_context) => (
+                expression_with_context.expression(db),
+                expression_with_context.tcx(db),
+            ),
         }
     }
 }
 
-/// An `Expression` with a `TypeContext`.
+/// A `ScopeId` with an optional `TypeContext`.
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq, salsa::Supertype, salsa::Update)]
+pub(super) enum InferScope<'db> {
+    Bare(ScopeId<'db>),
+    WithContext(ScopeWithContext<'db>),
+}
+
 #[salsa::interned(debug, heap_size=ruff_memory_usage::heap_size)]
-struct ExpressionWithContext<'db> {
-    expression: Expression<'db>,
+pub(super) struct ScopeWithContext<'db> {
+    scope: ScopeId<'db>,
     tcx: TypeContext<'db>,
+}
+
+impl<'db> InferScope<'db> {
+    pub(super) fn new(
+        db: &'db dyn Db,
+        scope: ScopeId<'db>,
+        tcx: TypeContext<'db>,
+    ) -> InferScope<'db> {
+        if tcx.annotation.is_some() {
+            InferScope::WithContext(ScopeWithContext::new(db, scope, tcx))
+        } else {
+            InferScope::Bare(scope)
+        }
+    }
+
+    fn into_inner(self, db: &'db dyn Db) -> (ScopeId<'db>, TypeContext<'db>) {
+        match self {
+            InferScope::Bare(scope) => (scope, TypeContext::default()),
+            InferScope::WithContext(scope_with_context) => {
+                (scope_with_context.scope(db), scope_with_context.tcx(db))
+            }
+        }
+    }
 }
 
 /// The type context for a given expression, namely the type annotation
@@ -350,9 +427,9 @@ struct ExpressionWithContext<'db> {
 ///
 /// Knowing the outer type context when inferring an expression can enable
 /// more precise inference results, aka "bidirectional type inference".
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, get_size2::GetSize)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, get_size2::GetSize, salsa::Update)]
 pub(crate) struct TypeContext<'db> {
-    annotation: Option<Type<'db>>,
+    pub(crate) annotation: Option<Type<'db>>,
 }
 
 impl<'db> TypeContext<'db> {
@@ -364,23 +441,22 @@ impl<'db> TypeContext<'db> {
     // specialization.
     fn known_specialization(
         &self,
-        known_class: KnownClass,
         db: &'db dyn Db,
+        known_class: KnownClass,
     ) -> Option<Specialization<'db>> {
-        let class_type = match self.annotation? {
-            Type::NominalInstance(instance) => instance,
-            Type::TypeAlias(alias) => alias.value_type(db).into_nominal_instance()?,
-            _ => return None,
-        }
-        .class(db);
+        self.annotation
+            .and_then(|ty| ty.known_specialization(db, known_class))
+    }
 
-        if !class_type.is_known(db, known_class) {
-            return None;
+    pub(crate) fn map(self, f: impl FnOnce(Type<'db>) -> Type<'db>) -> Self {
+        Self {
+            annotation: self.annotation.map(f),
         }
+    }
 
-        class_type
-            .into_generic_alias()
-            .map(|generic_alias| generic_alias.specialization(db))
+    pub(crate) fn is_typealias(&self) -> bool {
+        self.annotation
+            .is_some_and(|ty| ty.is_typealias_special_form())
     }
 }
 
@@ -388,7 +464,7 @@ impl<'db> TypeContext<'db> {
 ///
 /// Returns [`Truthiness::Ambiguous`] in case any non-definitely bound places
 /// were encountered while inferring the type of the expression.
-#[salsa::tracked(cycle_fn=static_expression_truthiness_cycle_recover, cycle_initial=static_expression_truthiness_cycle_initial, heap_size=get_size2::GetSize::get_heap_size)]
+#[salsa::tracked(cycle_initial=static_expression_truthiness_cycle_initial, heap_size=get_size2::GetSize::get_heap_size)]
 pub(crate) fn static_expression_truthiness<'db>(
     db: &'db dyn Db,
     expression: Expression<'db>,
@@ -402,22 +478,12 @@ pub(crate) fn static_expression_truthiness<'db>(
     let file = expression.file(db);
     let module = parsed_module(db, file).load(db);
     let node = expression.node_ref(db, &module);
-
     inference.expression_type(node).bool(db)
-}
-
-#[expect(clippy::trivially_copy_pass_by_ref)]
-fn static_expression_truthiness_cycle_recover<'db>(
-    _db: &'db dyn Db,
-    _value: &Truthiness,
-    _count: u32,
-    _expression: Expression<'db>,
-) -> salsa::CycleRecoveryAction<Truthiness> {
-    salsa::CycleRecoveryAction::Iterate
 }
 
 fn static_expression_truthiness_cycle_initial<'db>(
     _db: &'db dyn Db,
+    _id: salsa::Id,
     _expression: Expression<'db>,
 ) -> Truthiness {
     Truthiness::Ambiguous
@@ -441,17 +507,22 @@ pub(super) fn infer_unpack_types<'db>(db: &'db dyn Db, unpack: Unpack<'db>) -> U
     unpacker.finish()
 }
 
-fn unpack_cycle_recover<'db>(
+fn unpack_cycle_initial<'db>(
     _db: &'db dyn Db,
-    _value: &UnpackResult<'db>,
-    _count: u32,
+    id: salsa::Id,
     _unpack: Unpack<'db>,
-) -> salsa::CycleRecoveryAction<UnpackResult<'db>> {
-    salsa::CycleRecoveryAction::Iterate
+) -> UnpackResult<'db> {
+    UnpackResult::cycle_initial(Type::divergent(id))
 }
 
-fn unpack_cycle_initial<'db>(_db: &'db dyn Db, _unpack: Unpack<'db>) -> UnpackResult<'db> {
-    UnpackResult::cycle_initial(Type::Never)
+fn unpack_cycle_recover<'db>(
+    db: &'db dyn Db,
+    cycle: &salsa::Cycle,
+    previous_cycle_result: &UnpackResult<'db>,
+    result: UnpackResult<'db>,
+    _unpack: Unpack<'db>,
+) -> UnpackResult<'db> {
+    result.cycle_normalized(db, previous_cycle_result, cycle)
 }
 
 /// Returns the type of the nearest enclosing class for the given scope.
@@ -467,16 +538,40 @@ pub(crate) fn nearest_enclosing_class<'db>(
     db: &'db dyn Db,
     semantic: &SemanticIndex<'db>,
     scope: ScopeId,
-) -> Option<ClassLiteral<'db>> {
+) -> Option<StaticClassLiteral<'db>> {
     semantic
         .ancestor_scopes(scope.file_scope_id(db))
         .find_map(|(_, ancestor_scope)| {
             let class = ancestor_scope.node().as_class()?;
             let definition = semantic.expect_single_definition(class);
-            infer_definition_types(db, definition)
-                .declaration_type(definition)
+            declaration_type(db, definition)
                 .inner_type()
-                .into_class_literal()
+                .as_class_literal()
+                .and_then(ClassLiteral::as_static)
+        })
+}
+
+/// Returns the type of the nearest enclosing function for the given scope.
+///
+/// This function walks up the ancestor scopes starting from the given scope,
+/// and finds the closest (non-lambda) function definition.
+///
+/// Returns `None` if no enclosing function is found.
+pub(crate) fn nearest_enclosing_function<'db>(
+    db: &'db dyn Db,
+    semantic: &SemanticIndex<'db>,
+    scope: ScopeId,
+) -> Option<FunctionType<'db>> {
+    semantic
+        .ancestor_scopes(scope.file_scope_id(db))
+        .find_map(|(_, ancestor_scope)| {
+            let func = ancestor_scope.node().as_function()?;
+            let definition = semantic.expect_single_definition(func);
+            let inference = infer_definition_types(db, definition);
+            inference
+                .undecorated_type()
+                .unwrap_or_else(|| inference.declaration_type(definition).inner_type())
+                .as_function_literal()
         })
 }
 
@@ -490,7 +585,7 @@ pub(crate) enum InferenceRegion<'db> {
     /// infer deferred types for a [`Definition`]
     Deferred(Definition<'db>),
     /// infer types for an entire [`ScopeId`]
-    Scope(ScopeId<'db>),
+    Scope(ScopeId<'db>, TypeContext<'db>),
 }
 
 impl<'db> InferenceRegion<'db> {
@@ -500,36 +595,7 @@ impl<'db> InferenceRegion<'db> {
             InferenceRegion::Definition(definition) | InferenceRegion::Deferred(definition) => {
                 definition.scope(db)
             }
-            InferenceRegion::Scope(scope) => scope,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, Eq, PartialEq, get_size2::GetSize, salsa::Update)]
-enum CycleRecovery<'db> {
-    /// An initial-value for fixpoint iteration; all types are `Type::Never`.
-    Initial,
-    /// A divergence-fallback value for fixpoint iteration; all types are `Divergent`.
-    Divergent(ScopeId<'db>),
-}
-
-impl<'db> CycleRecovery<'db> {
-    fn merge(self, other: Option<CycleRecovery<'db>>) -> Self {
-        if let Some(other) = other {
-            match (self, other) {
-                // It's important here that we keep the scope of `self` if merging two `Divergent`.
-                (Self::Divergent(scope), _) | (_, Self::Divergent(scope)) => Self::Divergent(scope),
-                _ => Self::Initial,
-            }
-        } else {
-            self
-        }
-    }
-
-    fn fallback_type(self) -> Type<'db> {
-        match self {
-            Self::Initial => Type::Never,
-            Self::Divergent(scope) => Type::divergent(scope),
+            InferenceRegion::Scope(scope, _) => scope,
         }
     }
 }
@@ -546,24 +612,39 @@ pub(crate) struct ScopeInference<'db> {
 
 #[derive(Debug, Eq, PartialEq, get_size2::GetSize, salsa::Update, Default)]
 struct ScopeInferenceExtra<'db> {
-    /// Is this a cycle-recovery inference result, and if so, what kind?
-    cycle_recovery: Option<CycleRecovery<'db>>,
+    /// String annotations found in this region
+    string_annotations: FxHashSet<ExpressionNodeKey>,
+
+    /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
+    cycle_recovery: Option<Type<'db>>,
 
     /// The diagnostics for this region.
     diagnostics: TypeCheckDiagnostics,
 }
 
 impl<'db> ScopeInference<'db> {
-    fn cycle_initial(scope: ScopeId<'db>) -> Self {
-        let _ = scope;
-
+    fn cycle_initial(cycle_recovery: Type<'db>) -> Self {
         Self {
             extra: Some(Box::new(ScopeInferenceExtra {
-                cycle_recovery: Some(CycleRecovery::Initial),
+                cycle_recovery: Some(cycle_recovery),
                 ..ScopeInferenceExtra::default()
             })),
             expressions: FxHashMap::default(),
         }
+    }
+
+    fn cycle_normalized(
+        mut self,
+        db: &'db dyn Db,
+        previous_inference: &ScopeInference<'db>,
+        cycle: &salsa::Cycle,
+    ) -> ScopeInference<'db> {
+        for (expr, ty) in &mut self.expressions {
+            let previous_ty = previous_inference.expression_type(*expr);
+            *ty = ty.cycle_normalized(db, previous_ty, cycle);
+        }
+
+        self
     }
 
     pub(crate) fn diagnostics(&self) -> Option<&TypeCheckDiagnostics> {
@@ -586,9 +667,17 @@ impl<'db> ScopeInference<'db> {
     }
 
     fn fallback_type(&self) -> Option<Type<'db>> {
-        self.extra
-            .as_ref()
-            .and_then(|extra| extra.cycle_recovery.map(CycleRecovery::fallback_type))
+        self.extra.as_ref().and_then(|extra| extra.cycle_recovery)
+    }
+
+    /// Returns whether the given expression is a string annotation
+    /// (the string in `x: "int | None"`).
+    pub(crate) fn is_string_annotation(&self, expression: impl Into<ExpressionNodeKey>) -> bool {
+        let Some(extra) = &self.extra else {
+            return false;
+        };
+
+        extra.string_annotations.contains(&expression.into())
     }
 }
 
@@ -606,7 +695,7 @@ pub(crate) struct DefinitionInference<'db> {
     ///
     /// Almost all definition regions have less than 10 bindings. There are very few with more than 10 (but still less than 20).
     /// Because of that, use a slice with linear search over a hash map.
-    bindings: Box<[(Definition<'db>, Type<'db>)]>,
+    pub(crate) bindings: Box<[(Definition<'db>, Type<'db>)]>,
 
     /// The types and type qualifiers of every declaration in this region.
     ///
@@ -621,10 +710,13 @@ pub(crate) struct DefinitionInference<'db> {
 
 #[derive(Debug, Eq, PartialEq, get_size2::GetSize, salsa::Update, Default)]
 struct DefinitionInferenceExtra<'db> {
-    /// Is this a cycle-recovery inference result, and if so, what kind?
-    cycle_recovery: Option<CycleRecovery<'db>>,
+    /// String annotations found in this region
+    string_annotations: FxHashSet<ExpressionNodeKey>,
 
-    /// The definitions that are deferred.
+    /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
+    cycle_recovery: Option<Type<'db>>,
+
+    /// The definitions that have some deferred parts.
     deferred: Box<[Definition<'db>]>,
 
     /// The diagnostics for this region.
@@ -635,7 +727,7 @@ struct DefinitionInferenceExtra<'db> {
 }
 
 impl<'db> DefinitionInference<'db> {
-    fn cycle_initial(scope: ScopeId<'db>) -> Self {
+    fn cycle_initial(scope: ScopeId<'db>, cycle_recovery: Type<'db>) -> Self {
         let _ = scope;
 
         Self {
@@ -645,26 +737,49 @@ impl<'db> DefinitionInference<'db> {
             #[cfg(debug_assertions)]
             scope,
             extra: Some(Box::new(DefinitionInferenceExtra {
-                cycle_recovery: Some(CycleRecovery::Initial),
+                cycle_recovery: Some(cycle_recovery),
                 ..DefinitionInferenceExtra::default()
             })),
         }
     }
 
-    fn cycle_fallback(scope: ScopeId<'db>) -> Self {
-        let _ = scope;
-
-        Self {
-            expressions: FxHashMap::default(),
-            bindings: Box::default(),
-            declarations: Box::default(),
-            #[cfg(debug_assertions)]
-            scope,
-            extra: Some(Box::new(DefinitionInferenceExtra {
-                cycle_recovery: Some(CycleRecovery::Divergent(scope)),
-                ..DefinitionInferenceExtra::default()
-            })),
+    fn cycle_normalized(
+        mut self,
+        db: &'db dyn Db,
+        previous_inference: &DefinitionInference<'db>,
+        cycle: &salsa::Cycle,
+    ) -> DefinitionInference<'db> {
+        for (expr, ty) in &mut self.expressions {
+            let previous_ty = previous_inference.expression_type(*expr);
+            *ty = ty.cycle_normalized(db, previous_ty, cycle);
         }
+        for (binding, binding_ty) in &mut self.bindings {
+            if let Some((_, previous_binding)) = previous_inference
+                .bindings
+                .iter()
+                .find(|(previous_binding, _)| previous_binding == binding)
+            {
+                *binding_ty = binding_ty.cycle_normalized(db, *previous_binding, cycle);
+            } else {
+                *binding_ty = binding_ty.recursive_type_normalized(db, cycle);
+            }
+        }
+        for (declaration, declaration_ty) in &mut self.declarations {
+            if let Some((_, previous_declaration)) = previous_inference
+                .declarations
+                .iter()
+                .find(|(previous_declaration, _)| previous_declaration == declaration)
+            {
+                *declaration_ty = declaration_ty.map_type(|decl_ty| {
+                    decl_ty.cycle_normalized(db, previous_declaration.inner_type(), cycle)
+                });
+            } else {
+                *declaration_ty =
+                    declaration_ty.map_type(|decl_ty| decl_ty.recursive_type_normalized(db, cycle));
+            }
+        }
+
+        self
     }
 
     pub(crate) fn expression_type(&self, expression: impl Into<ExpressionNodeKey>) -> Type<'db> {
@@ -713,7 +828,7 @@ impl<'db> DefinitionInference<'db> {
                     None
                 }
             })
-            .or_else(|| self.fallback_type().map(Into::into))
+            .or_else(|| self.fallback_type().map(TypeAndQualifiers::declared))
             .expect(
                 "definition should belong to this TypeInference region and \
                 TypeInferenceBuilder should have inferred a type for it",
@@ -730,10 +845,8 @@ impl<'db> DefinitionInference<'db> {
         self.declarations.iter().map(|(_, qualifiers)| *qualifiers)
     }
 
-    fn fallback_type(&self) -> Option<Type<'db>> {
-        self.extra
-            .as_ref()
-            .and_then(|extra| extra.cycle_recovery.map(CycleRecovery::fallback_type))
+    pub(crate) fn fallback_type(&self) -> Option<Type<'db>> {
+        self.extra.as_ref().and_then(|extra| extra.cycle_recovery)
     }
 
     pub(crate) fn undecorated_type(&self) -> Option<Type<'db>> {
@@ -757,6 +870,9 @@ pub(crate) struct ExpressionInference<'db> {
 /// Extra data that only exists for few inferred expression regions.
 #[derive(Debug, Eq, PartialEq, salsa::Update, get_size2::GetSize, Default)]
 struct ExpressionInferenceExtra<'db> {
+    /// String annotations found in this region
+    string_annotations: FxHashSet<ExpressionNodeKey>,
+
     /// The types of every binding in this expression region.
     ///
     /// Only very few expression regions have bindings (around 0.1%).
@@ -765,42 +881,55 @@ struct ExpressionInferenceExtra<'db> {
     /// The diagnostics for this region.
     diagnostics: TypeCheckDiagnostics,
 
-    /// Is this a cycle recovery inference result, and if so, what kind?
-    cycle_recovery: Option<CycleRecovery<'db>>,
+    /// The fallback type for missing expressions/bindings/declarations or recursive type inference.
+    cycle_recovery: Option<Type<'db>>,
 
     /// `true` if all places in this expression are definitely bound
     all_definitely_bound: bool,
 }
 
 impl<'db> ExpressionInference<'db> {
-    fn cycle_initial(scope: ScopeId<'db>) -> Self {
+    fn cycle_initial(scope: ScopeId<'db>, cycle_recovery: Type<'db>) -> Self {
         let _ = scope;
         Self {
             extra: Some(Box::new(ExpressionInferenceExtra {
-                cycle_recovery: Some(CycleRecovery::Initial),
+                cycle_recovery: Some(cycle_recovery),
                 all_definitely_bound: true,
                 ..ExpressionInferenceExtra::default()
             })),
             expressions: FxHashMap::default(),
-
             #[cfg(debug_assertions)]
             scope,
         }
     }
 
-    fn cycle_fallback(scope: ScopeId<'db>) -> Self {
-        let _ = scope;
-        Self {
-            extra: Some(Box::new(ExpressionInferenceExtra {
-                cycle_recovery: Some(CycleRecovery::Divergent(scope)),
-                all_definitely_bound: true,
-                ..ExpressionInferenceExtra::default()
-            })),
-            expressions: FxHashMap::default(),
-
-            #[cfg(debug_assertions)]
-            scope,
+    fn cycle_normalized(
+        mut self,
+        db: &'db dyn Db,
+        previous: &ExpressionInference<'db>,
+        cycle: &salsa::Cycle,
+    ) -> ExpressionInference<'db> {
+        if let Some(extra) = self.extra.as_mut() {
+            for (binding, binding_ty) in &mut extra.bindings {
+                if let Some((_, previous_binding)) = previous.extra.as_deref().and_then(|extra| {
+                    extra
+                        .bindings
+                        .iter()
+                        .find(|(previous_binding, _)| previous_binding == binding)
+                }) {
+                    *binding_ty = binding_ty.cycle_normalized(db, *previous_binding, cycle);
+                } else {
+                    *binding_ty = binding_ty.recursive_type_normalized(db, cycle);
+                }
+            }
         }
+
+        for (expr, ty) in &mut self.expressions {
+            let previous_ty = previous.expression_type(*expr);
+            *ty = ty.cycle_normalized(db, previous_ty, cycle);
+        }
+
+        self
     }
 
     pub(crate) fn try_expression_type(
@@ -819,9 +948,7 @@ impl<'db> ExpressionInference<'db> {
     }
 
     fn fallback_type(&self) -> Option<Type<'db>> {
-        self.extra
-            .as_ref()
-            .and_then(|extra| extra.cycle_recovery.map(CycleRecovery::fallback_type))
+        self.extra.as_ref().and_then(|extra| extra.cycle_recovery)
     }
 
     /// Returns true if all places in this expression are definitely bound.

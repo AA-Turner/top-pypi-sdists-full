@@ -313,7 +313,9 @@ class RemoteExecutionUtils:
         if is_git_project:
             local_file_path = re.sub(r"^/?src/", "", local_file_path)
         else:  # S3
-            project_s3_path = project_s3_path[:-3] + "shared"  # replace 'dev' with 'shared'
+            project_s3_path = project_s3_path.replace(
+                "/dev", "/shared"
+            )  # replace with 'shared' if there's 'dev'
             local_file_path = re.sub(r"^/?shared/", "", local_file_path)
             return f"{project_s3_path}/{local_file_path}"
         return f"{project_s3_path}{S3PathForProject.WORKFLOW_PROJECT_FILES_LOCATION.value}{local_file_path}"

@@ -5,6 +5,8 @@ mod polars;
 mod python;
 pub(crate) mod table;
 
+#[cfg(feature = "python")]
+use std::sync::Arc;
 use std::{cmp, collections::HashSet, fmt::Debug, str::FromStr};
 
 use calamine::{CellType, Range, Sheet as CalamineSheet, SheetVisible as CalamineSheetVisible};
@@ -15,12 +17,13 @@ use polars_core::frame::DataFrame;
 use pyo3::{Py, PyAny, Python, pyclass};
 
 use self::column_info::{ColumnInfo, build_available_columns_info, finalize_column_info};
+use crate::utils::schema::get_schema_sample_rows;
 use crate::{
+    LoadSheetOrTableOptions,
     data::{ExcelSheetData, FastExcelColumn},
     error::{ErrorContext, FastExcelError, FastExcelErrorKind, FastExcelResult},
     types::{dtype::DTypes, idx_or_name::IdxOrName},
 };
-use crate::{types::dtype::DTypeCoercion, utils::schema::get_schema_sample_rows};
 #[cfg(feature = "python")]
 pub(crate) use python::{CellError, CellErrors};
 
@@ -51,24 +54,24 @@ impl Header {
     }
 }
 
-#[derive(Debug)]
-#[cfg_attr(not(feature = "python"), derive(Clone, PartialEq, Eq))]
+#[derive(Debug, Clone)]
+#[cfg_attr(not(feature = "python"), derive(PartialEq, Eq))]
 pub(crate) struct Pagination {
     skip_rows: SkipRows,
     n_rows: Option<usize>,
 }
 
 /// How rows should be skipped.
-#[derive(Debug, Default)]
-#[cfg_attr(not(feature = "python"), derive(Clone, PartialEq, Eq))]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(not(feature = "python"), derive(PartialEq, Eq))]
 pub enum SkipRows {
     /// Skip a fixed number of rows.
     Simple(usize),
     /// Skip rows based on a list of row indices.
     List(HashSet<usize>),
     #[cfg(feature = "python")]
-    Callable(Py<PyAny>),
-    /// Skip empty rows at the beginning of the filer (default).
+    Callable(Arc<Py<PyAny>>),
+    /// Skip empty rows at the beginning of the file (default).
     #[default]
     SkipEmptyRowsAtBeginning,
 }
@@ -166,6 +169,33 @@ impl PartialEq for SelectedColumns {
     }
 }
 
+pub(crate) fn deferred_selection_to_concrete(
+    deferred_selection: &[DeferredColumnSelection],
+    max_col_index: usize,
+) -> Vec<IdxOrName> {
+    // First, resolve all deferred selections into concrete column indices
+    let mut resolved_indices = Vec::new();
+
+    for deferred in deferred_selection {
+        match deferred {
+            DeferredColumnSelection::Fixed(idx_or_name) => {
+                resolved_indices.push(idx_or_name.clone());
+            }
+            DeferredColumnSelection::OpenEndedRange(start_idx) => {
+                // Add all columns from start_idx to the end
+                resolved_indices.extend((*start_idx..=max_col_index).map(IdxOrName::Idx));
+            }
+            DeferredColumnSelection::FromBeginningRange(end_idx) => {
+                // Add all columns from 0 to end_idx (inclusive)
+                let actual_end = (*end_idx).min(max_col_index);
+                resolved_indices.extend((0..=actual_end).map(IdxOrName::Idx));
+            }
+        }
+    }
+
+    resolved_indices
+}
+
 impl SelectedColumns {
     pub(super) fn select_columns(
         &self,
@@ -180,7 +210,8 @@ impl SelectedColumns {
                         match selected_column {
                             IdxOrName::Idx(index) => available_columns
                                 .iter()
-                                .position(|col_info| &col_info.index() == index),
+                                // Sheets have absolute column names (A, B, C, ...)
+                                .position(|col_info| &col_info.absolute_index() == index),
                             IdxOrName::Name(name) => available_columns
                                 .iter()
                                 .position(|col_info| col_info.name() == name.as_str()),
@@ -212,7 +243,7 @@ impl SelectedColumns {
                 Ok(cols.into_iter().map(|(_pos, elem)| elem).collect())
             }
             #[cfg(feature = "python")]
-            SelectedColumns::DynamicSelection(use_col_func) => Python::with_gil(|py| {
+            SelectedColumns::DynamicSelection(use_col_func) => Python::attach(|py| {
                 available_columns
                     .into_iter()
                     .filter_map(
@@ -234,30 +265,13 @@ impl SelectedColumns {
                     .collect()
             }),
             SelectedColumns::DeferredSelection(deferred_selection) => {
-                // First, resolve all deferred selections into concrete column indices
-                let mut resolved_indices = Vec::new();
-                let max_col_index = available_columns.len().saturating_sub(1);
+                let max_col_index = available_columns
+                    .last()
+                    .map_or(0, |col| col.absolute_index());
+                let concrete_selection = SelectedColumns::Selection(
+                    deferred_selection_to_concrete(deferred_selection, max_col_index),
+                );
 
-                for deferred in deferred_selection {
-                    match deferred {
-                        DeferredColumnSelection::Fixed(idx_or_name) => {
-                            resolved_indices.push(idx_or_name.clone());
-                        }
-                        DeferredColumnSelection::OpenEndedRange(start_idx) => {
-                            // Add all columns from start_idx to the end
-                            resolved_indices
-                                .extend((*start_idx..=max_col_index).map(IdxOrName::Idx));
-                        }
-                        DeferredColumnSelection::FromBeginningRange(end_idx) => {
-                            // Add all columns from 0 to end_idx (inclusive)
-                            let actual_end = (*end_idx).min(max_col_index);
-                            resolved_indices.extend((0..=actual_end).map(IdxOrName::Idx));
-                        }
-                    }
-                }
-
-                // Now use the same logic as Selection but with resolved indices
-                let concrete_selection = SelectedColumns::Selection(resolved_indices);
                 concrete_selection.select_columns(available_columns)
             }
         }
@@ -488,11 +502,10 @@ pub struct ExcelSheet {
     height: Option<usize>,
     total_height: Option<usize>,
     width: Option<usize>,
-    schema_sample_rows: Option<usize>,
-    dtype_coercion: DTypeCoercion,
+    limit: usize,
+    opts: LoadSheetOrTableOptions,
     selected_columns: Vec<ColumnInfo>,
     available_columns: AvailableColumns,
-    dtypes: Option<DTypes>,
 }
 
 impl ExcelSheet {
@@ -500,36 +513,43 @@ impl ExcelSheet {
         &self.data
     }
 
-    #[allow(clippy::too_many_arguments)]
     pub(crate) fn try_new(
         sheet_meta: CalamineSheet,
         data: ExcelSheetData<'static>,
-        header: Header,
-        pagination: Pagination,
-        schema_sample_rows: Option<usize>,
-        dtype_coercion: DTypeCoercion,
-        selected_columns: SelectedColumns,
-        dtypes: Option<DTypes>,
+        opts: LoadSheetOrTableOptions,
     ) -> FastExcelResult<Self> {
+        let header = Header::new(opts.data_header_row(), opts.column_names.clone());
         let available_columns_info =
-            build_available_columns_info(&data, &selected_columns, &header)?;
-        let selected_columns_info = selected_columns.select_columns(available_columns_info)?;
+            build_available_columns_info(&data, &opts.selected_columns, &header)?;
+        let selected_columns_info = opts
+            .selected_columns
+            .select_columns(available_columns_info)?;
+
+        let pagination = match &data {
+            ExcelSheetData::Owned(range) => {
+                Pagination::try_new(opts.skip_rows.clone(), opts.n_rows, range)?
+            }
+            ExcelSheetData::Ref(range) => {
+                Pagination::try_new(opts.skip_rows.clone(), opts.n_rows, range)?
+            }
+        };
 
         let mut sheet = ExcelSheet {
             sheet_meta,
             header,
             pagination,
             data,
-            schema_sample_rows,
-            dtype_coercion,
-            dtypes,
+            opts,
             height: None,
             total_height: None,
             width: None,
-            available_columns: AvailableColumns::Pending(selected_columns),
+            // Will be replaced
+            limit: 0,
+            available_columns: AvailableColumns::Pending,
             // Empty vec as It'll be replaced
             selected_columns: Vec::with_capacity(0),
         };
+        sheet.limit = sheet.compute_limit();
 
         // Finalizing column info (figure out dtypes for every column)
         let row_limit = sheet.schema_sample_rows();
@@ -538,8 +558,9 @@ impl ExcelSheet {
             &sheet.data,
             sheet.offset(),
             row_limit,
-            sheet.dtypes.as_ref(),
-            &sheet.dtype_coercion,
+            sheet.opts.dtypes.as_ref(),
+            &sheet.opts.dtype_coercion,
+            sheet.opts.whitespace_as_null,
         )?;
 
         sheet.selected_columns = selected_columns;
@@ -549,16 +570,20 @@ impl ExcelSheet {
 
     fn ensure_available_columns_loaded(&mut self) -> FastExcelResult<()> {
         let available_columns = match &self.available_columns {
-            AvailableColumns::Pending(selected_columns) => {
-                let available_columns_info =
-                    build_available_columns_info(&self.data, selected_columns, &self.header)?;
+            AvailableColumns::Pending => {
+                let available_columns_info = build_available_columns_info(
+                    &self.data,
+                    &self.opts.selected_columns,
+                    &self.header,
+                )?;
                 let final_info = finalize_column_info(
                     available_columns_info,
                     self.data(),
                     self.offset(),
                     self.limit(),
-                    self.dtypes.as_ref(),
-                    &self.dtype_coercion,
+                    self.opts.dtypes.as_ref(),
+                    &self.opts.dtype_coercion,
+                    self.opts.whitespace_as_null,
                 )?;
                 AvailableColumns::Loaded(final_info)
             }
@@ -574,20 +599,27 @@ impl ExcelSheet {
         self.available_columns.as_loaded()
     }
 
-    pub(crate) fn limit(&self) -> usize {
-        let upper_bound = self.data.height();
+    fn compute_limit(&self) -> usize {
+        let upper_bound = if self.opts.skip_whitespace_tail_rows {
+            self.data.height_without_tail_whitespace()
+        } else {
+            self.data.height()
+        };
         if let Some(n_rows) = self.pagination.n_rows {
             let limit = self.offset() + n_rows;
             if limit < upper_bound {
                 return limit;
             }
         }
-
         upper_bound
     }
 
+    pub(crate) fn limit(&self) -> usize {
+        self.limit
+    }
+
     pub(crate) fn schema_sample_rows(&self) -> usize {
-        get_schema_sample_rows(self.schema_sample_rows, self.offset(), self.limit())
+        get_schema_sample_rows(self.opts.schema_sample_rows, self.offset(), self.limit())
     }
 
     pub fn width(&mut self) -> usize {
@@ -631,7 +663,7 @@ impl ExcelSheet {
     }
 
     pub fn specified_dtypes(&self) -> Option<&DTypes> {
-        self.dtypes.as_ref()
+        self.opts.dtypes.as_ref()
     }
 
     pub fn name(&self) -> &str {
@@ -648,14 +680,23 @@ impl ExcelSheet {
             .map(|column_info| {
                 let offset = self.offset();
                 let limit = self.limit();
+                let whitespace_as_null = self.opts.whitespace_as_null;
 
                 match self.data() {
-                    ExcelSheetData::Owned(range) => {
-                        FastExcelColumn::try_from_column_info(column_info, range, offset, limit)
-                    }
-                    ExcelSheetData::Ref(range) => {
-                        FastExcelColumn::try_from_column_info(column_info, range, offset, limit)
-                    }
+                    ExcelSheetData::Owned(range) => FastExcelColumn::try_from_column_info(
+                        column_info,
+                        range,
+                        offset,
+                        limit,
+                        whitespace_as_null,
+                    ),
+                    ExcelSheetData::Ref(range) => FastExcelColumn::try_from_column_info(
+                        column_info,
+                        range,
+                        offset,
+                        limit,
+                        whitespace_as_null,
+                    ),
                 }
             })
             .collect()
@@ -691,7 +732,7 @@ mod tests {
 
     #[test]
     fn selected_columns_from_list_of_valid_ints() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_list = PyList::new(py, vec![0, 1, 2]).expect("could not create PyList");
             assert_eq!(
                 TryInto::<SelectedColumns>::try_into(Some(py_list.as_ref())).unwrap(),
@@ -702,7 +743,7 @@ mod tests {
 
     #[test]
     fn selected_columns_from_list_of_valid_strings() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_list = PyList::new(py, vec!["foo", "bar"]).expect("could not create PyList");
             assert_eq!(
                 TryInto::<SelectedColumns>::try_into(Some(py_list.as_ref())).unwrap(),
@@ -719,7 +760,7 @@ mod tests {
 
     #[test]
     fn selected_columns_from_list_of_valid_strings_and_ints() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_list = PyList::new(py, vec!["foo", "bar"]).expect("could not create PyList");
             py_list.append(42).unwrap();
             py_list.append(5).unwrap();
@@ -737,7 +778,7 @@ mod tests {
 
     #[test]
     fn selected_columns_from_invalid_ints() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_list = PyList::new(py, vec![0, 2, -1]).expect("could not create PyList");
             let err = TryInto::<SelectedColumns>::try_into(Some(py_list.as_ref())).unwrap_err();
 
@@ -747,7 +788,7 @@ mod tests {
 
     #[test]
     fn selected_columns_from_empty_int_list() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_list = PyList::new(py, Vec::<usize>::new()).expect("could not create PyList");
             let err = TryInto::<SelectedColumns>::try_into(Some(py_list.as_ref())).unwrap_err();
 
@@ -757,7 +798,7 @@ mod tests {
 
     #[test]
     fn selected_columns_from_empty_string_list() {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let py_list = PyList::new(py, Vec::<String>::new()).expect("could not create PyList");
             let err = TryInto::<SelectedColumns>::try_into(Some(py_list.as_ref())).unwrap_err();
 
@@ -776,7 +817,7 @@ mod tests {
     #[case("A,y:AB", vec![0, 24, 25, 26, 27])]
     #[case("BB:BE,DDC:DDF", vec![53, 54, 55, 56, 2810, 2811, 2812, 2813])]
     fn selected_columns_from_valid_ranges(#[case] raw: &str, #[case] expected_indices: Vec<usize>) {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let expected_range = SelectedColumns::Selection(
                 expected_indices.into_iter().map(IdxOrName::Idx).collect(),
             );
@@ -798,7 +839,7 @@ mod tests {
     #[case(":A")]
     #[case(":C,E:")]
     fn selected_columns_from_valid_open_ended_ranges(#[case] raw: &str) {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let input = PyString::new(py, raw);
 
             let range = TryInto::<SelectedColumns>::try_into(Some(input.as_ref()))
@@ -820,7 +861,7 @@ mod tests {
     // too many elements
     #[case("a:b:e", "exactly 2 elements, got 3")]
     fn selected_columns_from_invalid_ranges(#[case] raw: &str, #[case] message: &str) {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             let input = PyString::new(py, raw);
 
             let err = TryInto::<SelectedColumns>::try_into(Some(input.as_ref()))

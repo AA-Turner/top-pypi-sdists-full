@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: sphinx-needs
-Version: 5.1.0
+Version: 6.3.0
 Summary: Sphinx needs extension for managing needs/requirements and specifications
 Author-email: team useblocks <info@useblocks.com>
-Requires-Python: >=3.9,<4
+Requires-Python: >=3.10,<4
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -11,23 +11,25 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Utilities
 Classifier: Framework :: Sphinx :: Extension
 License-File: LICENSE
-Requires-Dist: sphinx>=7.0,<9
+Requires-Dist: sphinx>=7.4,<9
 Requires-Dist: requests-file~=2.1
 Requires-Dist: requests~=2.32
-Requires-Dist: jsonschema>=3.2.0
+Requires-Dist: jsonschema-rs~=0.37.1
 Requires-Dist: sphinx-data-viewer~=0.1.5
 Requires-Dist: sphinxcontrib-jquery~=4.0
 Requires-Dist: tomli; python_version < '3.11'
-Requires-Dist: pytest-benchmark~=5.0 ; extra == "benchmark"
-Requires-Dist: memray>=1.3.1,<2.0.0 ; extra == "benchmark"
+Requires-Dist: typing-extensions>=4.14.0
+Requires-Dist: pytest-benchmark~=5.0 ; extra == "benchmark" and ( sys_platform != 'win32')
+Requires-Dist: memray>=1.3.1,<2.0.0 ; extra == "benchmark" and ( sys_platform != 'win32')
 Requires-Dist: matplotlib>=3.3.0 ; extra == "docs"
 Requires-Dist: sphinxcontrib-plantuml~=0.0 ; extra == "docs"
 Requires-Dist: sphinx-copybutton~=0.5 ; extra == "docs"
@@ -40,9 +42,11 @@ Requires-Dist: pytest~=8.0 ; extra == "test"
 Requires-Dist: pytest-cov~=6.0 ; extra == "test"
 Requires-Dist: syrupy~=4.0 ; extra == "test"
 Requires-Dist: sphinxcontrib-plantuml~=0.0 ; extra == "test"
-Requires-Dist: lxml>=4.6.5,<6.0 ; extra == "test"
+Requires-Dist: lxml~=6.0 ; extra == "test"
 Requires-Dist: responses~=0.22.0 ; extra == "test"
+Requires-Dist: pydantic~=2.12 ; extra == "test"
 Requires-Dist: pytest-xprocess~=1.0 ; extra == "test"
+Requires-Dist: pyyaml ~= 6.0 ; extra == "test"
 Requires-Dist: pytest-xdist ; extra == "test-parallel"
 Requires-Dist: furo~=2024.8.6 ; extra == "theme-furo"
 Requires-Dist: sphinx-immaterial~=0.11.11 ; extra == "theme-im"

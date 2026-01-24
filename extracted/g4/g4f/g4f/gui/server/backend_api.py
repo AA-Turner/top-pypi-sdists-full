@@ -21,7 +21,7 @@ from urllib.parse import quote_plus
 from hashlib import sha256
 
 try:
-    from PIL import Image 
+    from PIL import Image, UnidentifiedImageError
     has_pillow = True
 except ImportError:
     has_pillow = False
@@ -38,7 +38,7 @@ except ImportError:
 
 from ...client.service import convert_to_provider
 from ...providers.asyncio import to_sync_generator
-from ...providers.response import FinishReason, AudioResponse, MediaResponse, Reasoning, HiddenResponse
+from ...providers.response import FinishReason, AudioResponse, MediaResponse, Reasoning, HiddenResponse, JsonResponse
 from ...client.helper import filter_markdown
 from ...tools.files import supports_filename, get_streaming, get_bucket_dir, get_tempfile
 from ...tools.run_tools import iter_run_tools
@@ -181,7 +181,7 @@ class Backend_Api(Api):
                 logger.exception(e)
                 return jsonify({"error": {"message": "Invalid JSON data"}}), 400
             if app.demo and has_crypto:
-                secret = request.headers.get("x_secret")
+                secret = request.headers.get("x-secret", request.headers.get("x_secret"))
                 if not secret or not validate_secret(secret):
                     return jsonify({"error": {"message": "Invalid or missing secret"}}), 403
             tempfiles = []
@@ -239,7 +239,7 @@ class Backend_Api(Api):
             cache_dir = Path(get_cookies_dir()) / ".usage"
             cache_file = cache_dir / f"{datetime.date.today()}.jsonl"
             cache_dir.mkdir(parents=True, exist_ok=True)
-            data = {**request.json, "user": request.headers.get("x-user", "unknown")}
+            data = {"user": request.headers.get("x-user", "unknown"), **request.json}
             with cache_file.open("a" if cache_file.exists() else "w") as f:
                 f.write(f"{json.dumps(data)}\n")
             return {}
@@ -248,7 +248,10 @@ class Backend_Api(Api):
         def get_usage(date: str):
             cache_dir = Path(get_cookies_dir()) / ".usage"
             cache_file = cache_dir / f"{date}.jsonl"
-            return cache_file.read_text() if cache_file.exists() else (jsonify({"error": {"message": "No usage data found for this date"}}), 404)
+            if cache_file.exists():
+                return Response(cache_file.read_text(), mimetype='text/plain')
+            else:
+                return (jsonify({"error": {"message": "No usage data found for this date"}}), 404)
 
         @app.route('/backend-api/v2/log', methods=['POST'])
         def add_log():
@@ -309,7 +312,7 @@ class Backend_Api(Api):
                     parameters["audio"] = {}
                 def cast_str(response):
                     buffer = next(response)
-                    while isinstance(buffer, (Reasoning, HiddenResponse)):
+                    while isinstance(buffer, (Reasoning, HiddenResponse, JsonResponse)):
                         buffer = next(response)
                     if isinstance(buffer, MediaResponse):
                         if len(buffer.get_list()) == 1:
@@ -344,10 +347,10 @@ class Backend_Api(Api):
                             response = f.read()
                     if not response:
                         response = iter_run_tools(provider_handler, **parameters)
-                        cache_dir.mkdir(parents=True, exist_ok=True)
                         response = cast_str(response)
                         response = response if isinstance(response, str) else "".join(response)
                         if response:
+                            cache_dir.mkdir(parents=True, exist_ok=True)
                             with cache_file.open("w") as f:
                                 f.write(response)
                 else:
@@ -356,11 +359,13 @@ class Backend_Api(Api):
                     if response.startswith("/media/"):
                         media_dir = get_media_dir()
                         filename = os.path.basename(response.split("?")[0])
-                        try:
-                            return send_from_directory(os.path.abspath(media_dir), filename)
-                        finally:
-                            if not cache_id:
+                        if not cache_id:
+                            try:
+                                return send_from_directory(os.path.abspath(media_dir), filename)
+                            finally:
                                 os.remove(os.path.join(media_dir, filename))
+                        else:
+                            return redirect(response)
                     elif response.startswith("https://") or response.startswith("http://"):
                         return redirect(response)
                 if do_filter:
@@ -378,7 +383,6 @@ class Backend_Api(Api):
                 logger.exception(e)
                 return jsonify({"error": {"message": f"{type(e).__name__}: {e}"}}), 500
 
-     
         @app.route('/backend-api/v2/files/<bucket_id>/stream', methods=['GET'])
         def stream_files(bucket_id: str, event_stream=True):
             return manage_files(bucket_id, event_stream)
@@ -438,7 +442,7 @@ class Backend_Api(Api):
                     os.remove(copyfile)
                     continue
                 if not is_media and result:
-                    with open(os.path.join(bucket_dir, f"{filename}.md"), 'w') as f:
+                    with open(os.path.join(bucket_dir, f"{filename}.md"), 'w', encoding="utf-8") as f:
                         f.write(f"{result}\n")
                     filenames.append(f"{filename}.md")
                 if is_media:
@@ -452,7 +456,10 @@ class Backend_Api(Api):
                             image_size = {"width": width, "height": height}
                             thumbnail_dir = os.path.join(bucket_dir, "thumbnail")
                             os.makedirs(thumbnail_dir, exist_ok=True)
-                            process_image(image, save=os.path.join(thumbnail_dir, filename))
+                            width, height = process_image(image, save=os.path.join(thumbnail_dir, filename))
+                            image_size = {"width": width, "height": height}
+                        except UnidentifiedImageError:
+                            pass
                         except Exception as e:
                             logger.exception(e)
                     if result:
@@ -472,7 +479,7 @@ class Backend_Api(Api):
                 except OSError:
                     shutil.copyfile(copyfile, newfile)
                     os.remove(copyfile)
-            with open(os.path.join(bucket_dir, "files.txt"), 'w') as f:
+            with open(os.path.join(bucket_dir, "files.txt"), 'w', encoding="utf-8") as f:
                 for filename in filenames:
                     f.write(f"{filename}\n")
             return {"bucket_id": bucket_id, "files": filenames, "media": media}
@@ -567,7 +574,7 @@ class Backend_Api(Api):
             share_id = secure_filename(share_id)
             bucket_dir = get_bucket_dir(share_id)
             os.makedirs(bucket_dir, exist_ok=True)
-            with open(os.path.join(bucket_dir, "chat.json"), 'w') as f:
+            with open(os.path.join(bucket_dir, "chat.json"), 'w', encoding="utf-8") as f:
                 json.dump(chat_data, f)
             self.chat_cache[share_id] = updated
             return {"share_id": share_id}
@@ -593,19 +600,20 @@ class Backend_Api(Api):
 
     def get_provider_models(self, provider: str):
         api_key = request.headers.get("x-api-key")
-        api_base = request.headers.get("x-api-base")
+        base_url = request.headers.get("x-api-base")
         ignored = request.headers.get("x-ignored", "").split()
-        return super().get_provider_models(provider, api_key, api_base, ignored)
+        return super().get_provider_models(provider, api_key, base_url, ignored)
 
     def _format_json(self, response_type: str, content = None, **kwargs) -> str:
         """
-        Formats and returns a JSON response.
+        Formats and returns a SSE (Server-Sent Events) formatted JSON response.
 
         Args:
-            response_type (str): The type of the response.
+            response_type (str): The type of the response, used as the SSE event name.
             content: The content to be included in the response.
 
         Returns:
-            str: A JSON formatted string.
+            str: A SSE formatted string with event type and JSON data.
         """
-        return json.dumps(super()._format_json(response_type, content, **kwargs)) + "\n"
+        data = json.dumps(super()._format_json(response_type, content, **kwargs))
+        return f"event: {response_type}\ndata: {data}\n\n"

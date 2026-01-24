@@ -1,0 +1,125 @@
+[build-system]
+requires = ["scikit-build-core>=0.3.3", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+
+[project]
+name = "diptest"
+version = "0.10.0"
+description = "Hartigan's diptest."
+readme = "README.md"
+authors = [{ name = "Ralph Urlus", email = "rurlus.dev@email.com" }]
+requires-python = ">=3.8"
+license = { text = "GPLv2+" }
+
+dependencies = ["psutil", "numpy>=1.18"]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Source = "https://github.com/RUrlus/diptest"
+Documentation = "https://github.com/RUrlus/diptest#readme"
+Issues = "https://github.com/RUrlus/diptest/issues"
+
+[tool.scikit-build]
+wheel.expand-macos-universal-tags = true
+sdist.include = [
+  "src/diptest",
+  "src/diptest_core",
+  "src/external",
+  "CMakeLists.txt",
+]
+
+[tool.scikit-build.cmake.define]
+CMAKE_OSX_DEPLOYMENT_TARGET = "12.0"
+DIPTEST_CPP_STANDARD = "11"
+DIPTEST_ENABLE_DEVMODE = false
+DIPTEST_ENABLE_DEBUG = false
+DIPTEST_ENABLE_OPENMP = false
+DIPTEST_ENABLE_EXT_TESTS = false
+DIPTEST_ENABLE_ARCH_FLAGS = true
+DIPTEST_ENABLE_64BIT_INDEX = false
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config"]
+xfail_strict = true
+log_cli_level = "INFO"
+filterwarnings = ["error"]
+testpaths = ["tests"]
+
+
+[tool.cibuildwheel]
+test-extras = ["test"]
+
+archs = ["auto64"]
+skip = ["*-win32", "*-manylinux_i686", "*-musllinux_x86_64"]
+build = ["cp38-*", "cp39-*", "cp310-*", "cp311-*", "cp312-*", "cp313-*"]
+
+# make sure to build generic wheels
+environment = { CMAKE_ARGS = "-DDIPTEST_ENABLE_ARCH_FLAGS=OFF" }
+
+# Run pytest to ensure that the package was correctly built
+test-command = "pytest {project}/tests"
+test-requires = "pytest"
+# Skip trying to test arm64 builds on Intel Macs
+test-skip = "*-macosx_universal2:arm64"
+
+# Necessary to see build output from the actual compilation
+build-verbosity = 1
+
+[tool.cibuildwheel.linux]
+repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+environment = { MACOSX_DEPLOYMENT_TARGET = "12.0", CMAKE_ARGS = "-DDIPTEST_ENABLE_ARCH_FLAGS=OFF" }
+repair-wheel-command = "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel} --exclude libomp.dylib"
+
+[tool.cibuildwheel.windows]
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+
+
+[tool.ruff]
+src = ["src"]
+
+[tool.ruff.lint]
+extend-select = [
+  "B",   # flake8-bugbear
+  "I",   # isort
+  "ARG", # flake8-unused-arguments
+  "C4",  # flake8-comprehensions
+  "EM",  # flake8-errmsg
+  "ICN", # flake8-import-conventions
+  "G",   # flake8-logging-format
+  "PGH", # pygrep-hooks
+  "PIE", # flake8-pie
+  "PL",  # pylint
+  "PT",  # flake8-pytest-style
+  "PTH", # flake8-use-pathlib
+  "RET", # flake8-return
+  "RUF", # Ruff-specific
+  "SIM", # flake8-simplify
+  "T20", # flake8-print
+  "UP",  # pyupgrade
+  "YTT", # flake8-2020
+  "EXE", # flake8-executable
+  "NPY", # NumPy specific rules
+  "PD",  # pandas-vet
+]
+ignore = [
+  "PLR09",   # Too many X
+  "PLR2004", # Magic comparison
+]
+isort.required-imports = ["from __future__ import annotations"]
+
+[tool.ruff.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.format]
+skip-magic-trailing-comma = true
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["T20"]

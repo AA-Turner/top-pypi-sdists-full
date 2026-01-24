@@ -114,6 +114,8 @@ class FakeOvsdbNbOvnIdl:
         self.ls_set_dns_records = mock.Mock()
         self.get_floatingip = mock.Mock()
         self.get_floatingip.return_value = None
+        self.get_floatingips = mock.Mock()
+        self.get_floatingips.return_value = []
         self.check_revision_number = mock.Mock()
         self.lookup = mock.MagicMock()
         self.get_router_floatingip_lbs = mock.Mock()
@@ -286,8 +288,8 @@ class FakeResource(dict):
     def __repr__(self):
         reprkeys = sorted(k for k in self.__dict__.keys() if k[0] != '_' and
                           k != 'manager')
-        info = ", ".join("{}={}".format(k, getattr(self, k)) for k in reprkeys)
-        return "<{} {}>".format(self.__class__.__name__, info)
+        info = ", ".join(f"{k}={getattr(self, k)}" for k in reprkeys)
+        return f"<{self.__class__.__name__} {info}>"
 
     def keys(self):
         return self._info.keys()

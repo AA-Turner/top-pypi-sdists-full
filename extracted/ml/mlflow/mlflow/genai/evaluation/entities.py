@@ -9,6 +9,7 @@ import pandas as pd
 
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.dataset_record_source import DatasetRecordSource
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import InputDatasetColumn, ResultDataFrameColumn
@@ -41,18 +42,17 @@ class EvalItem:
     """Error message if the model invocation fails."""
     error_message: str | None = None
 
+    """Source information for the eval item (e.g., from which trace it was created)."""
+    source: DatasetRecordSource | None = None
+
     @classmethod
     def from_dataset_row(cls, row: dict[str, Any]) -> "EvalItem":
         """
         Create an EvalItem from a row of input Pandas Dataframe row.
         """
-        inputs = cls._parse_inputs(row.get(InputDatasetColumn.INPUTS))
+        if (inputs := row.get(InputDatasetColumn.INPUTS)) is not None:
+            inputs = cls._parse_inputs(inputs)
         outputs = row.get(InputDatasetColumn.OUTPUTS)
-
-        # Get the request ID from the row, or generate a new unique ID if not present.
-        request_id = row.get(InputDatasetColumn.REQUEST_ID)
-        if is_none_or_nan(request_id):
-            request_id = hashlib.sha256(str(inputs).encode()).hexdigest()
 
         # Extract trace column from the dataset.
         trace = row.get(InputDatasetColumn.TRACE)
@@ -67,6 +67,24 @@ class EvalItem:
         # Extract tags column from the dataset.
         tags = row.get(InputDatasetColumn.TAGS, {})
 
+        # Extract source column from the dataset.
+        source = row.get(InputDatasetColumn.SOURCE)
+        if is_none_or_nan(source):
+            source = None
+
+        # Get the request ID from the row, or generate a new unique ID if not present.
+        request_id = row.get(InputDatasetColumn.REQUEST_ID)
+        if is_none_or_nan(request_id):
+            hashable_strings = [
+                str(x) for x in [inputs, outputs, trace, expectations] if x is not None
+            ]
+            # this should not happen, but added a check in case
+            if not hashable_strings:
+                raise MlflowException.invalid_parameter_value(
+                    "Dataset row must contain at least one non-None value"
+                )
+            request_id = hashlib.sha256(str(hashable_strings[0]).encode()).hexdigest()
+
         return cls(
             request_id=request_id,
             inputs=inputs,
@@ -74,24 +92,20 @@ class EvalItem:
             expectations=expectations,
             tags=tags,
             trace=trace,
+            source=source,
         )
 
     @classmethod
-    def _parse_inputs(cls, data: str | dict[str, Any]) -> dict[str, Any]:
+    def _parse_inputs(cls, data: str | dict[str, Any]) -> Any:
         # The inputs can be either a dictionary or JSON-serialized version of it.
         if isinstance(data, dict):
             return data
         elif isinstance(data, str):  # JSON-serialized string
             try:
                 return json.loads(data)
-            except Exception as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Failed to parse inputs as JSON."
-                ) from e
-
-        raise MlflowException.invalid_parameter_value(
-            f"inputs must be a dictionary or JSON serializable: {type(data)}"
-        )
+            except Exception:
+                pass
+        return data
 
     def get_expectation_assessments(self) -> list[Expectation]:
         """Get the expectations as a list of Expectation objects."""
@@ -100,7 +114,7 @@ class EvalItem:
             source_id = get_context().get_user_name()
             expectations.append(
                 Expectation(
-                    trace_id=self.trace.info.trace_id,
+                    trace_id=self.trace.info.trace_id if self.trace else None,
                     name=name,
                     source=AssessmentSource(
                         source_type=AssessmentSourceType.HUMAN,
@@ -116,7 +130,7 @@ class EvalItem:
             ResultDataFrameColumn.REQUEST_ID: self.request_id,
             ResultDataFrameColumn.INPUTS: self.inputs,
             ResultDataFrameColumn.OUTPUTS: self.outputs,
-            ResultDataFrameColumn.TRACE: self.trace.to_json(),
+            ResultDataFrameColumn.TRACE: self.trace.to_json() if self.trace else None,
             ResultDataFrameColumn.EXPECTATIONS: self.expectations,
             ResultDataFrameColumn.TAGS: self.tags,
             ResultDataFrameColumn.ERROR_MESSAGE: self.error_message,
@@ -162,15 +176,25 @@ class EvalResult:
 class EvaluationResult:
     run_id: str
     metrics: dict[str, float]
-    result_df: pd.DataFrame
+    result_df: pd.DataFrame | None
 
     def __repr__(self) -> str:
         metrics_str = "\n    ".join([f"{k}: {v}" for k, v in self.metrics.items()])
+        result_df_str = (
+            f"{len(self.result_df)} rows x {len(self.result_df.columns)} cols"
+            if self.result_df is not None
+            else "None"
+        )
         return (
             "EvaluationResult(\n"
             f"  run_id: {self.run_id}\n"
             "  metrics:\n"
             f"    {metrics_str}\n"
-            f"  result_df: [{len(self.result_df)} rows x {len(self.result_df.columns)} cols]\n"
+            f"  result_df: {result_df_str}\n"
             ")"
         )
+
+    # For backwards compatibility
+    @property
+    def tables(self) -> dict[str, pd.DataFrame]:
+        return {"eval_results": self.result_df} if self.result_df is not None else {}

@@ -87,6 +87,7 @@ class EraseSubcommand(SubcommandBase):
                             frequency=self._args.frequency,
                             blocking=(not self._args.no_wait),
                             connect_mode=self._args.connect_mode,
+                            command=self._args.cmd,
                             options=convert_session_options(self._args.options),
                             option_defaults=self._modified_option_defaults(),
                             )
@@ -94,6 +95,19 @@ class EraseSubcommand(SubcommandBase):
             LOG.error("No device available to erase")
             return 1
         with session:
+            # Get a list of all secondary cores.
+            secondary_cores = [c for c in session.target.cores.values() if c != session.target.primary_core]
+            try:
+                # Set reset catch for all secondary cores.
+                for core in secondary_cores:
+                    core.set_reset_catch()
+                # Reset and halt the primary core.
+                session.target.reset_and_halt()
+            finally:
+                # Clear reset catch for all secondary cores.
+                for core in secondary_cores:
+                    core.clear_reset_catch()
+
             mode = self._args.erase_mode or FlashEraser.Mode.SECTOR
             eraser = FlashEraser(session, mode)
 

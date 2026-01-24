@@ -27,7 +27,7 @@ from _decimal import (
 from collections.abc import Container, Sequence
 from types import TracebackType
 from typing import Any, ClassVar, Literal, NamedTuple, final, overload, type_check_only
-from typing_extensions import Self, TypeAlias
+from typing_extensions import Self, TypeAlias, disjoint_base
 
 if sys.version_info >= (3, 14):
     from _decimal import IEEE_CONTEXT_MAX_BITS as IEEE_CONTEXT_MAX_BITS, IEEEContext as IEEEContext
@@ -68,11 +68,23 @@ class Overflow(Inexact, Rounded): ...
 class Underflow(Inexact, Rounded, Subnormal): ...
 class FloatOperation(DecimalException, TypeError): ...
 
+@disjoint_base
 class Decimal:
     def __new__(cls, value: _DecimalNew = "0", context: Context | None = None) -> Self: ...
     if sys.version_info >= (3, 14):
         @classmethod
-        def from_number(cls, number: Decimal | float, /) -> Self: ...
+        def from_number(cls, number: Decimal | float, /) -> Self:
+            """
+            Class method that converts a real number to a decimal number, exactly.
+
+            >>> Decimal.from_number(314)              # int
+            Decimal('314')
+            >>> Decimal.from_number(0.1)              # float
+            Decimal('0.1000000000000000055511151231257827021181583404541015625')
+            >>> Decimal.from_number(Decimal('3.14'))  # another decimal instance
+            Decimal('3.14')
+            """
+            ...
 
     @classmethod
     def from_float(cls, f: float, /) -> Self:
@@ -582,6 +594,7 @@ class Decimal:
     def __deepcopy__(self, memo: Any, /) -> Self: ...
     def __format__(self, specifier: str, context: Context | None = None, /) -> str: ...
 
+@disjoint_base
 class Context:
     # TODO: Context doesn't allow you to delete *any* attributes from instances of the class at runtime,
     # even settable attributes like `prec` and `rounding`,

@@ -3,7 +3,7 @@ Type annotations for ec2-instance-connect service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2_instance_connect/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -32,11 +33,6 @@ from .type_defs import (
     SendSSHPublicKeyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -47,19 +43,19 @@ __all__ = ("EC2InstanceConnectClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AuthException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    EC2InstanceNotFoundException: Type[BotocoreClientError]
-    EC2InstanceStateInvalidException: Type[BotocoreClientError]
-    EC2InstanceTypeInvalidException: Type[BotocoreClientError]
-    EC2InstanceUnavailableException: Type[BotocoreClientError]
-    InvalidArgsException: Type[BotocoreClientError]
-    SerialConsoleAccessDisabledException: Type[BotocoreClientError]
-    SerialConsoleSessionLimitExceededException: Type[BotocoreClientError]
-    SerialConsoleSessionUnavailableException: Type[BotocoreClientError]
-    SerialConsoleSessionUnsupportedException: Type[BotocoreClientError]
-    ServiceException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
+    AuthException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    EC2InstanceNotFoundException: type[BotocoreClientError]
+    EC2InstanceStateInvalidException: type[BotocoreClientError]
+    EC2InstanceTypeInvalidException: type[BotocoreClientError]
+    EC2InstanceUnavailableException: type[BotocoreClientError]
+    InvalidArgsException: type[BotocoreClientError]
+    SerialConsoleAccessDisabledException: type[BotocoreClientError]
+    SerialConsoleSessionLimitExceededException: type[BotocoreClientError]
+    SerialConsoleSessionUnavailableException: type[BotocoreClientError]
+    SerialConsoleSessionUnsupportedException: type[BotocoreClientError]
+    ServiceException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
 
 
 class EC2InstanceConnectClient(BaseClient):

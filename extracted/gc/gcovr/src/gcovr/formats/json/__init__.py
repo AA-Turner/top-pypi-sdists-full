@@ -2,12 +2,12 @@
 
 #  ************************** Copyrights and license ***************************
 #
-# This file is part of gcovr 8.3, a parsing and reporting tool for gcov.
-# https://gcovr.com/en/8.3
+# This file is part of gcovr 8.6, a parsing and reporting tool for gcov.
+# https://gcovr.com/en/8.6
 #
 # _____________________________________________________________________________
 #
-# Copyright (c) 2013-2025 the gcovr authors
+# Copyright (c) 2013-2026 the gcovr authors
 # Copyright (c) 2013 Sandia Corporation.
 # Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
 # the U.S. Government retains certain rights in this software.
@@ -17,29 +17,23 @@
 #
 # ****************************************************************************
 
-import logging
 import os
-from typing import Union
-
-from ...coverage import CoverageContainer
+from ...data_model.container import CoverageContainer
 from ...formats.base import BaseHandler
 from ...options import GcovrConfigOption, OutputOrDefault
 from ...utils import force_unix_separator
-
-LOGGER = logging.getLogger("gcovr")
 
 
 class JsonHandler(BaseHandler):
     """Class to handle own JSON tracefile format."""
 
     @classmethod
-    def get_options(cls) -> list[Union[GcovrConfigOption, str]]:
+    def get_options(cls) -> list[GcovrConfigOption | str]:
         return [
             # Global options used for output
             "verbose",
             # Global options used for merging.
             "merge_mode_functions",
-            "merge_mode_conditions",
             "show_decision",
             # Local options
             GcovrConfigOption(
@@ -91,7 +85,7 @@ class JsonHandler(BaseHandler):
                 default=None,
             ),
             GcovrConfigOption(
-                "json_add_tracefile",
+                "json_tracefile",
                 ["-a", "--json-add-tracefile", "--add-tracefile"],
                 config="add-tracefile",
                 help=(
@@ -108,6 +102,13 @@ class JsonHandler(BaseHandler):
                 ),
                 action="append",
                 default=[],
+            ),
+            GcovrConfigOption(
+                "json_trace_data_source",
+                ["--json-trace-data-source"],
+                group="output_options",
+                help="Write the data source to the tracefile.",
+                action="store_true",
             ),
         ]
 

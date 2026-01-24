@@ -1,4 +1,7 @@
 import datetime
+import os
+import signal
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import List, Optional
@@ -6,12 +9,11 @@ from typing import List, Optional
 from abstra_internals.cloud_api.http_client import HTTPClient
 from abstra_internals.consts.filepaths import EXECUTIONS_DIR_PATH
 from abstra_internals.entities.execution import Execution, ExecutionStatus
-from abstra_internals.environment import (
-    SERVER_UUID,
-    WORKER_UUID,
-)
 from abstra_internals.repositories.multiprocessing import MPContext
-from abstra_internals.services.fs_storage import FileSystemStorage
+from abstra_internals.repositories.producer import (
+    WebEditorControlProducerRepository,
+)
+from abstra_internals.services.sql_storage import SqlStorage
 
 
 @dataclass
@@ -82,12 +84,8 @@ class ExecutionRepository(ABC):
 
     @abstractmethod
     def find_by_worker(
-        self, app_id: str, worker_id: str, status: ExecutionStatus
+        self, worker_id: str, status: ExecutionStatus
     ) -> List[Execution]:
-        raise NotImplementedError()
-
-    @abstractmethod
-    def find_by_app(self, status: ExecutionStatus, app_id: str) -> List[Execution]:
         raise NotImplementedError()
 
     @abstractmethod
@@ -98,10 +96,14 @@ class ExecutionRepository(ABC):
     def list(self, filter) -> ExecutionResponse:
         raise NotImplementedError()
 
+    @abstractmethod
+    def stop_execution(self, execution_id: str) -> None:
+        raise NotImplementedError()
+
 
 class LocalExecutionRepository(ExecutionRepository):
     def __init__(self, mp_context: MPContext):
-        self.fs_storage = FileSystemStorage(
+        self.fs_storage = SqlStorage(
             mp_context, directory=EXECUTIONS_DIR_PATH, model=Execution
         )
 
@@ -112,14 +114,16 @@ class LocalExecutionRepository(ExecutionRepository):
         self.fs_storage.save(execution.id, execution)
 
     def set_failure_by_id(self, execution_id: str) -> None:
-        raise NotImplementedError()
+        try:
+            execution = self.get(execution_id)
+            execution.set_status("failed")
+            self.update(execution)
+        except Exception:
+            pass
 
     def find_by_worker(
-        self, app_id: str, worker_id: str, status: ExecutionStatus
+        self, worker_id: str, status: ExecutionStatus
     ) -> List[Execution]:
-        return []
-
-    def find_by_app(self, status: ExecutionStatus, app_id: str) -> List[Execution]:
         return []
 
     def clear(self):
@@ -170,6 +174,40 @@ class LocalExecutionRepository(ExecutionRepository):
             total_count=total_count,
         )
 
+    def stop_execution(self, execution_id: str) -> None:
+        try:
+            execution = self.get(execution_id)
+            pid = execution.pid
+
+            os.kill(pid, signal.SIGTERM)
+
+            for _ in range(20):
+                try:
+                    os.kill(pid, 0)
+                    time.sleep(0.1)
+                except OSError:
+                    return
+
+            # Force kill if still alive
+            os.kill(pid, signal.SIGKILL)
+
+        except Exception:
+            pass
+
+
+class WebEditorExecutionRepository(LocalExecutionRepository):
+    def __init__(self, mp_context: MPContext, rabbitmq_uri: str):
+        super().__init__(mp_context)
+        self.control_producer = WebEditorControlProducerRepository(rabbitmq_uri)
+
+    def stop_execution(self, execution_id: str) -> None:
+        try:
+            self.control_producer.stop_execution(execution_id)
+        except Exception:
+            # Fallback to local kill if message fails? Unlikely to work but maybe safe to try?
+            # No, if we are in web editor, local kill is useless.
+            pass
+
 
 class ProductionExecutionRepository(ExecutionRepository):
     def __init__(self, client: "HTTPClient"):
@@ -188,8 +226,6 @@ class ProductionExecutionRepository(ExecutionRepository):
     def create(self, execution: Execution) -> None:
         request_dto = dict(
             **execution.dump(),
-            workerId=WORKER_UUID(),
-            appId=SERVER_UUID(),
         )
 
         res = self.client.post(
@@ -221,29 +257,13 @@ class ProductionExecutionRepository(ExecutionRepository):
         res.raise_for_status()
 
     def find_by_worker(
-        self, app_id: str, worker_id: str, status: ExecutionStatus
+        self, worker_id: str, status: ExecutionStatus
     ) -> List[Execution]:
         res = self.client.get(
             "/executions",
             params=dict(
-                appId=app_id,
                 status=status,
                 workerId=worker_id,
-            ),
-        )
-
-        res.raise_for_status()
-
-        dtos = self._adapt_legacy_execution_dtos(res.json())
-
-        return [Execution(**dto) for dto in dtos]
-
-    def find_by_app(self, status: ExecutionStatus, app_id: str) -> List[Execution]:
-        res = self.client.get(
-            "/executions",
-            params=dict(
-                appId=app_id,
-                status=status,
             ),
         )
 
@@ -260,4 +280,7 @@ class ProductionExecutionRepository(ExecutionRepository):
         raise NotImplementedError()
 
     def list(self, filter: ExecutionFilter) -> ExecutionResponse:
+        raise NotImplementedError()
+
+    def stop_execution(self, execution_id: str) -> None:
         raise NotImplementedError()

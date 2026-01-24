@@ -1,33 +1,47 @@
 """Common response models."""
 
-from typing import List, Literal, Optional, Tuple
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 
-class TileJSON(BaseModel):
+class LayerJSON(BaseModel):
+    """
+    https://github.com/mapbox/tilejson-spec/tree/master/3.0.0#33-vector_layers
+    """
+
+    id: str
+    fields: Annotated[dict, Field(default_factory=dict)]
+    description: str | None = None
+    minzoom: int | None = None
+    maxzoom: int | None = None
+
+
+class TileJSON(BaseModel, extra="allow"):
     """
     TileJSON model.
 
-    Based on https://github.com/mapbox/tilejson-spec/tree/master/2.2.0
+    Based on https://github.com/mapbox/tilejson-spec/tree/master/3.0.0
 
     """
 
-    tilejson: str = "2.2.0"
-    name: Optional[str] = None
-    description: Optional[str] = None
+    tilejson: str = "3.0.0"
+    name: str | None = None
+    description: str | None = None
     version: str = "1.0.0"
-    attribution: Optional[str] = None
-    template: Optional[str] = None
-    legend: Optional[str] = None
+    attribution: str | None = None
+    template: str | None = None
+    legend: str | None = None
     scheme: Literal["xyz", "tms"] = "xyz"
-    tiles: List[str]
-    grids: Optional[List[str]] = None
-    data: Optional[List[str]] = None
-    minzoom: int = Field(0, ge=0, le=30)
-    maxzoom: int = Field(30, ge=0, le=30)
-    bounds: List[float] = [-180, -90, 180, 90]
-    center: Optional[Tuple[float, float, int]] = None
+    tiles: list[str]
+    vector_layers: list[LayerJSON] | None = None
+    grids: list[str] | None = None
+    data: list[str] | None = None
+    minzoom: int = Field(0)
+    maxzoom: int = Field(30)
+    fillzoom: int | None = None
+    bounds: list[float] = [-180, -85.0511287798066, 180, 85.0511287798066]
+    center: tuple[float, float, int] | None = None
 
     @model_validator(mode="after")
     def compute_center(self):

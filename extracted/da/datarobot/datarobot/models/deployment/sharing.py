@@ -33,18 +33,14 @@ class DeploymentSharedRole(APIObject):
         The name of the recipient organization, group, or user.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("share_recipient_type"): t.Enum("user", "group", "organization"),
-            t.Key("role"): t.Enum("CONSUMER", "USER", "OWNER"),
-            t.Key("id"): String(allow_blank=False, min_length=24, max_length=24),
-            t.Key("name"): String(allow_blank=False),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("share_recipient_type"): t.Enum("user", "group", "organization"),
+        t.Key("role"): t.Enum("CONSUMER", "USER", "OWNER"),
+        t.Key("id"): String(allow_blank=False, min_length=24, max_length=24),
+        t.Key("name"): String(allow_blank=False),
+    })
 
-    def __init__(
-        self, id: str, name: str, role: str, share_recipient_type: str, **kwargs: Any
-    ) -> None:
+    def __init__(self, id: str, name: str, role: str, share_recipient_type: str, **kwargs: Any) -> None:
         self.share_recipient_type = share_recipient_type
         self.role = role
         self.id = id

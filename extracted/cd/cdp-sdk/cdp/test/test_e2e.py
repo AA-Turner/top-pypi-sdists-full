@@ -22,7 +22,15 @@ from cdp.evm_call_types import EncodedCall
 from cdp.evm_local_account import EvmLocalAccount
 from cdp.evm_transaction_types import TransactionRequestEIP1559
 from cdp.openapi_client.errors import ApiError
+from cdp.openapi_client.models.authentication_method import AuthenticationMethod
+from cdp.openapi_client.models.create_end_user_request_evm_account import (
+    CreateEndUserRequestEvmAccount,
+)
+from cdp.openapi_client.models.create_end_user_request_solana_account import (
+    CreateEndUserRequestSolanaAccount,
+)
 from cdp.openapi_client.models.eip712_domain import EIP712Domain
+from cdp.openapi_client.models.email_authentication import EmailAuthentication
 from cdp.openapi_client.models.update_evm_smart_account_request import UpdateEvmSmartAccountRequest
 from cdp.policies.types import (
     CreatePolicyOptions,
@@ -144,6 +152,182 @@ async def test_create_get_and_list_accounts(cdp_client):
     assert account is not None
     assert account.address == server_account.address
     assert account.name == random_name
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_create_end_user_with_accounts(cdp_client):
+    """Test creating an end user with EVM smart account and Solana account."""
+    random_email = f"test-{int(time.time())}-{generate_random_name()}@example.com"
+
+    end_user = await cdp_client.end_user.create_end_user(
+        authentication_methods=[
+            AuthenticationMethod(EmailAuthentication(type="email", email=random_email))
+        ],
+        evm_account=CreateEndUserRequestEvmAccount(create_smart_account=True),
+        solana_account=CreateEndUserRequestSolanaAccount(create_smart_account=False),
+    )
+
+    assert end_user is not None
+    assert end_user.user_id is not None
+    assert end_user.authentication_methods is not None
+    assert len(end_user.authentication_methods) == 1
+    assert end_user.authentication_methods[0].actual_instance.type == "email"
+    assert end_user.evm_accounts is not None
+    assert len(end_user.evm_accounts) == 1
+    assert end_user.evm_smart_accounts is not None
+    assert len(end_user.evm_smart_accounts) == 1
+    assert end_user.solana_accounts is not None
+    assert len(end_user.solana_accounts) == 1
+    assert end_user.created_at is not None
+
+    print(f"Created end user: {end_user.user_id}")
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_create_end_user_with_spend_permissions(cdp_client):
+    """Test creating an end user with spend permissions enabled."""
+    from cdp.spend_permissions import SPEND_PERMISSION_MANAGER_ADDRESS
+
+    random_email = f"test-{int(time.time())}-{generate_random_name()}@example.com"
+
+    end_user = await cdp_client.end_user.create_end_user(
+        authentication_methods=[
+            AuthenticationMethod(EmailAuthentication(type="email", email=random_email))
+        ],
+        evm_account=CreateEndUserRequestEvmAccount(
+            create_smart_account=True, enable_spend_permissions=True
+        ),
+    )
+
+    assert end_user is not None
+    assert end_user.user_id is not None
+    assert end_user.evm_smart_account_objects is not None
+    assert len(end_user.evm_smart_account_objects) == 1
+
+    smart_account = end_user.evm_smart_account_objects[0]
+    assert smart_account.owner_addresses is not None
+    assert len(smart_account.owner_addresses) == 2
+    assert smart_account.owner_addresses[1] == SPEND_PERMISSION_MANAGER_ADDRESS
+
+    print(f"Created end user with spend permissions: {end_user.user_id}")
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_import_end_user_with_evm_key(cdp_client):
+    """Test importing an end user with an EVM private key."""
+    account = Account.create()
+    random_email = f"test-{int(time.time())}-{generate_random_name()}@example.com"
+
+    import_end_user_options = {
+        "authentication_methods": [
+            AuthenticationMethod(EmailAuthentication(type="email", email=random_email))
+        ],
+        "private_key": account.key.hex(),
+        "key_type": "evm",
+    }
+
+    if os.getenv("CDP_E2E_ENCRYPTION_PUBLIC_KEY"):
+        import_end_user_options["encryption_public_key"] = os.getenv(
+            "CDP_E2E_ENCRYPTION_PUBLIC_KEY"
+        )
+
+    end_user = await cdp_client.end_user.import_end_user(**import_end_user_options)
+
+    assert end_user is not None
+    assert end_user.user_id is not None
+    assert end_user.authentication_methods is not None
+    assert len(end_user.authentication_methods) == 1
+    assert end_user.authentication_methods[0].actual_instance.type == "email"
+    assert end_user.evm_accounts is not None
+    assert len(end_user.evm_accounts) == 1
+    assert end_user.evm_accounts[0].lower() == account.address.lower()
+    assert end_user.created_at is not None
+
+    print(f"Imported end user with EVM key: {end_user.user_id}")
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_import_end_user_with_solana_key_base58(cdp_client):
+    """Test importing an end user with a Solana private key (base58 encoded)."""
+    from solders.keypair import Keypair
+
+    keypair = Keypair()
+    random_email = f"test-{int(time.time())}-{generate_random_name()}@example.com"
+
+    # Convert private key to base58 string (32 bytes seed)
+    private_key_bytes = bytes(keypair.secret())
+    private_key_b58 = base58.b58encode(private_key_bytes).decode()
+
+    import_end_user_options = {
+        "authentication_methods": [
+            AuthenticationMethod(EmailAuthentication(type="email", email=random_email))
+        ],
+        "private_key": private_key_b58,
+        "key_type": "solana",
+    }
+
+    if os.getenv("CDP_E2E_ENCRYPTION_PUBLIC_KEY"):
+        import_end_user_options["encryption_public_key"] = os.getenv(
+            "CDP_E2E_ENCRYPTION_PUBLIC_KEY"
+        )
+
+    end_user = await cdp_client.end_user.import_end_user(**import_end_user_options)
+
+    assert end_user is not None
+    assert end_user.user_id is not None
+    assert end_user.authentication_methods is not None
+    assert len(end_user.authentication_methods) == 1
+    assert end_user.authentication_methods[0].actual_instance.type == "email"
+    assert end_user.solana_accounts is not None
+    assert len(end_user.solana_accounts) == 1
+    assert end_user.solana_accounts[0] == str(keypair.pubkey())
+    assert end_user.created_at is not None
+
+    print(f"Imported end user with Solana key (base58): {end_user.user_id}")
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_import_end_user_with_solana_key_bytes(cdp_client):
+    """Test importing an end user with a Solana private key (raw bytes)."""
+    from solders.keypair import Keypair
+
+    keypair = Keypair()
+    random_email = f"test-{int(time.time())}-{generate_random_name()}@example.com"
+
+    # Use private key bytes directly
+    private_key_bytes = bytes(keypair.secret())
+
+    import_end_user_options = {
+        "authentication_methods": [
+            AuthenticationMethod(EmailAuthentication(type="email", email=random_email))
+        ],
+        "private_key": private_key_bytes,
+        "key_type": "solana",
+    }
+
+    if os.getenv("CDP_E2E_ENCRYPTION_PUBLIC_KEY"):
+        import_end_user_options["encryption_public_key"] = os.getenv(
+            "CDP_E2E_ENCRYPTION_PUBLIC_KEY"
+        )
+
+    end_user = await cdp_client.end_user.import_end_user(**import_end_user_options)
+
+    assert end_user is not None
+    assert end_user.user_id is not None
+    assert end_user.authentication_methods is not None
+    assert len(end_user.authentication_methods) == 1
+    assert end_user.authentication_methods[0].actual_instance.type == "email"
+    assert end_user.solana_accounts is not None
+    assert len(end_user.solana_accounts) == 1
+    assert end_user.solana_accounts[0] == str(keypair.pubkey())
+    assert end_user.created_at is not None
+
+    print(f"Imported end user with Solana key (bytes): {end_user.user_id}")
 
 
 @pytest.mark.e2e
@@ -444,6 +628,44 @@ async def test_send_wait_and_get_user_operation_with_smart_account(cdp_client):
         )
         assert user_op is not None
         assert user_op.status == "complete"
+    except Exception as e:
+        print("Error: ", e)
+        print("Ignoring for now...")
+
+
+@pytest.mark.e2e
+@pytest.mark.asyncio
+async def test_send_user_operation_with_data_suffix_via_smart_account(cdp_client):
+    """Test sending a user operation with data_suffix via smart account method."""
+    private_key = Account.create().key
+    owner = Account.from_key(private_key)
+
+    smart_account = await cdp_client.evm.create_smart_account(owner=owner)
+    assert smart_account is not None
+
+    try:
+        # Test data_suffix via smart_account.send_user_operation
+        user_operation = await smart_account.send_user_operation(
+            network="base-sepolia",
+            calls=[
+                EncodedCall(
+                    to="0x0000000000000000000000000000000000000000",
+                    data="0x",
+                    value=0,
+                )
+            ],
+            data_suffix="0xdddddddd62617365617070070080218021802180218021802180218021",
+        )
+
+        assert user_operation is not None
+        assert user_operation.user_op_hash is not None
+
+        user_op_result = await smart_account.wait_for_user_operation(
+            user_op_hash=user_operation.user_op_hash,
+        )
+
+        assert user_op_result is not None
+        assert user_op_result.status == "complete"
     except Exception as e:
         print("Error: ", e)
         print("Ignoring for now...")
@@ -1107,6 +1329,7 @@ async def test_solana_send_transaction(cdp_client, solana_account):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
+@retry_on_failure()
 async def test_create_account_policy(cdp_client):
     """Test creating an account policy."""
     policy = await cdp_client.policies.create_policy(
@@ -1233,6 +1456,7 @@ async def test_create_account_policy(cdp_client):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
+@retry_on_failure()
 async def test_create_project_policy(cdp_client):
     """Test creating a project policy."""
     try:
@@ -1309,6 +1533,7 @@ async def test_create_project_policy(cdp_client):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
+@retry_on_failure()
 async def test_update_policy(cdp_client):
     """Test updating a policy."""
     policy = await cdp_client.policies.create_policy(
@@ -1730,6 +1955,7 @@ async def test_create_evm_policy_with_netusdchange(cdp_client):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
+@retry_on_failure()
 async def test_solana_policy_crud_operations(cdp_client):
     """Test complete CRUD operations for Solana policies."""
     # Test creating a Solana policy
@@ -1832,6 +2058,7 @@ async def test_solana_policy_crud_operations(cdp_client):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
+@retry_on_failure()
 async def test_create_evm_account_with_policy(cdp_client):
     """Test creating an EVM account with a policy."""
     policy = await cdp_client.policies.create_policy(
@@ -1896,6 +2123,7 @@ async def test_update_evm_account(cdp_client):
 
 @pytest.mark.e2e
 @pytest.mark.asyncio
+@retry_on_failure()
 async def test_create_solana_account_with_policy(cdp_client):
     """Test creating a Solana account with a policy."""
     policy = await cdp_client.policies.create_policy(
@@ -2431,7 +2659,7 @@ def _get_transaction(address: str, to: str | None = None, amount: int | None = N
 
 async def _ensure_sufficient_eth_balance(cdp_client, account):
     """Ensure an account has sufficient ETH balance."""
-    min_required_balance = w3.to_wei(0.000001, "ether")
+    min_required_balance = w3.to_wei(0.00001, "ether")
 
     eth_balance = w3.eth.get_balance(account.address)
 

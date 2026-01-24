@@ -24,7 +24,7 @@ from libc.string cimport memset
 
 from pylibsshext.errors cimport LibsshChannelException
 from pylibsshext.errors import LibsshChannelReadFailure
-from pylibsshext.session cimport get_libssh_session
+from pylibsshext.session cimport get_libssh_session, get_session_retries
 
 from subprocess import CompletedProcess
 
@@ -45,6 +45,16 @@ cdef int _process_outputs(libssh.ssh_session session,
         result.stdout += data_b
     return len
 
+cdef class ChannelCallback:
+    def __cinit__(self):
+        memset(&self.callback, 0, sizeof(self.callback))
+        callbacks.ssh_callbacks_init(&self.callback)
+        self.callback.channel_data_function = <callbacks.ssh_channel_data_callback>&_process_outputs
+
+    def set_user_data(self, userdata):
+        self._userdata = userdata
+        self.callback.userdata = <void *>self._userdata
+
 cdef class Channel:
     def __cinit__(self, session):
         self._session = session
@@ -53,12 +63,8 @@ cdef class Channel:
 
         if self._libssh_channel is NULL:
             raise MemoryError
-        rc = libssh.ssh_channel_open_session(self._libssh_channel)
 
-        if rc != libssh.SSH_OK:
-            libssh.ssh_channel_free(self._libssh_channel)
-            self._libssh_channel = NULL
-            raise LibsshChannelException("Failed to open_session: [%d]" % rc)
+        self._open_session_with_retries(self._libssh_channel)
 
     def __dealloc__(self):
         if self._libssh_channel is not NULL:
@@ -148,30 +154,46 @@ cdef class Channel:
             response = recv_buff.getvalue()
         return response
 
+    cdef _open_session_with_retries(self, libssh.ssh_channel channel):
+        retry = get_session_retries(self._session)
+
+        for attempt in range(retry + 1):
+            rc = libssh.ssh_channel_open_session(channel)
+            if rc == libssh.SSH_OK:
+                break
+            if rc == libssh.SSH_AGAIN and attempt < retry:
+                continue
+            # either SSH_ERROR, or SSH_AGAIN with final attempt
+            if rc != libssh.SSH_OK:
+                self._libssh_channel = NULL
+                libssh.ssh_channel_free(channel)
+                raise LibsshChannelException(f"Failed to open_session: [{rc}]")
+
     def exec_command(self, command):
         # request_exec requires a fresh channel each run, so do not use the existing channel
         cdef libssh.ssh_channel channel = libssh.ssh_channel_new(self._libssh_session)
         if channel is NULL:
             raise MemoryError
 
-        rc = libssh.ssh_channel_open_session(channel)
-        if rc != libssh.SSH_OK:
-            libssh.ssh_channel_free(channel)
-            raise LibsshChannelException("Failed to open_session: [{0}]".format(rc))
+        self._open_session_with_retries(channel)
+
+        result = CompletedProcess(args=command, returncode=-1, stdout=b'', stderr=b'')
+
+        cb = ChannelCallback()
+        cb.set_user_data(result)
+        callbacks.ssh_set_channel_callbacks(channel, &cb.callback)
+        # keep the callback around in the session object to avoid use after free
+        self._session.push_callback(cb)
 
         rc = libssh.ssh_channel_request_exec(channel, command.encode("utf-8"))
         if rc != libssh.SSH_OK:
             libssh.ssh_channel_close(channel)
             libssh.ssh_channel_free(channel)
             raise LibsshChannelException("Failed to execute command [{0}]: [{1}]".format(command, rc))
-        result = CompletedProcess(args=command, returncode=-1, stdout=b'', stderr=b'')
 
-        cdef callbacks.ssh_channel_callbacks_struct cb
-        memset(&cb, 0, sizeof(cb))
-        cb.channel_data_function = <callbacks.ssh_channel_data_callback>&_process_outputs
-        cb.userdata = <void *>result
-        callbacks.ssh_callbacks_init(&cb)
-        callbacks.ssh_set_channel_callbacks(channel, &cb)
+        # wait before remote writes all data before closing the channel
+        while not libssh.ssh_channel_is_eof(channel):
+            libssh.ssh_channel_poll(channel, 0)
 
         libssh.ssh_channel_send_eof(channel)
         result.returncode = libssh.ssh_channel_get_exit_status(channel)
@@ -197,7 +219,7 @@ cdef class Channel:
         if not isinstance(sig, signal.Signals):
             raise TypeError(f"Expecting signal.Signals not {type(sig)}")
 
-        sshsig = sig.name.replace("SIG", "")  # FIXME: replace w/ `str.removeprefix()` once Python 3.8 support is dropped
+        sshsig = sig.name.removeprefix("SIG")
         rc = libssh.ssh_channel_request_send_signal(self._libssh_channel, sshsig.encode("utf-8"))
         if rc != libssh.SSH_OK:
             raise LibsshChannelException("Failed to ssh_channel_request_send_signal: [%d]" % rc)

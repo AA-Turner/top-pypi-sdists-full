@@ -9,7 +9,7 @@ use super::{
     CurrentSchema, FindSchemaCandidates, Referable, SchemaDefinitions, SchemaItem, SchemaUri,
     ValueSchema,
 };
-use crate::{Accessor, SchemaStore};
+use crate::{Accessor, SchemaStore, schema::not_schema::NotSchema};
 
 #[derive(Debug, Default, Clone)]
 pub struct ArraySchema {
@@ -20,12 +20,13 @@ pub struct ArraySchema {
     pub min_items: Option<usize>,
     pub max_items: Option<usize>,
     pub unique_items: Option<bool>,
-    pub enumerate: Option<Vec<tombi_json::Value>>,
+    pub r#enum: Option<Vec<tombi_json::Value>>,
     pub default: Option<tombi_json::Value>,
     pub const_value: Option<tombi_json::Value>,
     pub examples: Option<Vec<tombi_json::Value>>,
     pub values_order: Option<XTombiArrayValuesOrder>,
     pub deprecated: Option<bool>,
+    pub not: Option<NotSchema>,
 }
 
 impl ArraySchema {
@@ -50,7 +51,7 @@ impl ArraySchema {
                 .get("maxItems")
                 .and_then(|v| v.as_u64().map(|n| n as usize)),
             unique_items: object.get("uniqueItems").and_then(|v| v.as_bool()),
-            enumerate: object
+            r#enum: object
                 .get("enum")
                 .and_then(|v| v.as_array())
                 .map(|array| array.items.iter().map(|v| v.into()).collect()),
@@ -71,6 +72,7 @@ impl ArraySchema {
                 .and_then(XTombiArrayValuesOrder::new),
             deprecated: object.get("deprecated").and_then(|v| v.as_bool()),
             range: object.range,
+            not: NotSchema::new(object, string_formats),
         }
     }
 

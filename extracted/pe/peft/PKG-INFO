@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peft
-Version: 0.17.1
+Version: 0.18.1
 Summary: Parameter-Efficient Fine-Tuning (PEFT)
 Home-page: https://github.com/huggingface/peft
 Author: The HuggingFace team
@@ -14,12 +14,12 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
-Requires-Python: >=3.9.0
+Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.17
@@ -35,20 +35,20 @@ Requires-Dist: huggingface_hub>=0.25.0
 Provides-Extra: quality
 Requires-Dist: black; extra == "quality"
 Requires-Dist: hf-doc-builder; extra == "quality"
-Requires-Dist: ruff~=0.9.2; extra == "quality"
+Requires-Dist: ruff~=0.12.8; extra == "quality"
 Provides-Extra: docs-specific
 Requires-Dist: black; extra == "docs-specific"
 Requires-Dist: hf-doc-builder; extra == "docs-specific"
 Provides-Extra: dev
 Requires-Dist: black; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
-Requires-Dist: ruff~=0.9.2; extra == "dev"
+Requires-Dist: ruff~=0.12.8; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: hf-doc-builder; extra == "dev"
 Provides-Extra: test
 Requires-Dist: black; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
-Requires-Dist: ruff~=0.9.2; extra == "test"
+Requires-Dist: ruff~=0.12.8; extra == "test"
 Requires-Dist: black; extra == "test"
 Requires-Dist: hf-doc-builder; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -118,7 +118,7 @@ Prepare a model for training with a PEFT method such as LoRA by wrapping the bas
 from transformers import AutoModelForCausalLM
 from peft import LoraConfig, TaskType, get_peft_model
 
-device = "cuda"
+device = torch.accelerator.current_accelerator().type if hasattr(torch, "accelerator") else "cuda"
 model_id = "Qwen/Qwen2.5-3B-Instruct"
 model = AutoModelForCausalLM.from_pretrained(model_id, device_map=device)
 peft_config = LoraConfig(
@@ -141,7 +141,7 @@ To load a PEFT model for inference:
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 
-device = "cuda"
+device = torch.accelerator.current_accelerator().type if hasattr(torch, "accelerator") else "cuda"
 model_id = "Qwen/Qwen2.5-3B-Instruct"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(model_id, device_map=device)

@@ -17,6 +17,7 @@
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTypes.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 /* This test tries to define the effect of using hairline strokes on text.
  * Provides non-hairline images for reference and consistency checks.
@@ -94,7 +95,7 @@ static void drawTestCase(SkCanvas* canvas,
     paint.setStrokeWidth(strokeWidth);
     paint.setStyle(strokeStyle);
 
-    SkFont font(ToolUtils::create_portable_typeface(), kTextHeight * textScale);
+    SkFont font(ToolUtils::DefaultPortableTypeface(), kTextHeight * textScale);
 
     // This demonstrates that we can not measure the text if
     // there's a device transform. The canvas total matrix will
@@ -129,9 +130,9 @@ static void drawTestCase(SkCanvas* canvas,
     if (drawRef) {
         const size_t len = sizeof(kText) - 1;
         SkGlyphID glyphs[len];
-        const int count = font.textToGlyphs(kText, len, SkTextEncoding::kUTF8, glyphs, len);
+        const int count = font.textToGlyphs(kText, len, SkTextEncoding::kUTF8, glyphs);
         SkScalar widths[len]; // len is conservative. we really only need 'count'
-        font.getWidthsBounds(glyphs, count, widths, nullptr, &paint);
+        font.getWidthsBounds({glyphs, count}, {widths, count}, {}, &paint);
 
         paint.setStrokeWidth(0.0f);
         paint.setStyle(SkPaint::kStroke_Style);

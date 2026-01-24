@@ -1,3 +1,4 @@
+import datetime
 import json
 from typing import Any, Dict, Iterable, List, Optional, Union
 
@@ -95,6 +96,10 @@ class Channel(ChannelInterface):
         **options: Any,
     ) -> StreamResponse:
         payload = {"add_members": members, "message": message, **options}
+        if "hide_history_before" in payload and isinstance(
+            payload["hide_history_before"], datetime.datetime
+        ):
+            payload["hide_history_before"] = payload["hide_history_before"].isoformat()
         return self.client.post(self.url, data=payload)
 
     def assign_roles(
@@ -271,3 +276,19 @@ class Channel(ChannelInterface):
             params["parent_id"] = parent_id
 
         return self.client.get(f"{self.url}/draft", params=params)
+
+    def add_filter_tags(
+        self,
+        tags: Iterable[str],
+        message: Dict = None,
+    ) -> StreamResponse:
+        payload = {"add_filter_tags": tags, "message": message}
+        return self.client.post(self.url, data=payload)
+
+    def remove_filter_tags(
+        self,
+        tags: Iterable[str],
+        message: Dict = None,
+    ) -> StreamResponse:
+        payload = {"remove_filter_tags": tags, "message": message}
+        return self.client.post(self.url, data=payload)

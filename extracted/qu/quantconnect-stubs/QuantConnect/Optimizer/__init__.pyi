@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -17,7 +17,44 @@ QuantConnect_Optimizer__EventContainer_Callable = typing.TypeVar("QuantConnect_O
 QuantConnect_Optimizer__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Optimizer__EventContainer_ReturnType")
 
 
-class OptimizationStatus(Enum):
+class OptimizationResult(System.Object):
+    """Defines the result of Lean compute job"""
+
+    INITIAL: QuantConnect.Optimizer.OptimizationResult = ...
+    """Corresponds to initial result to drive the optimization strategy"""
+
+    @property
+    def backtest_id(self) -> str:
+        """The backtest id that generated this result"""
+        ...
+
+    @property
+    def id(self) -> int:
+        """Parameter set Id"""
+        ...
+
+    @property
+    def json_backtest_result(self) -> str:
+        """Json Backtest result"""
+        ...
+
+    @property
+    def parameter_set(self) -> QuantConnect.Optimizer.Parameters.ParameterSet:
+        """The parameter set at which the result was achieved"""
+        ...
+
+    def __init__(self, json_backtest_result: str, parameter_set: QuantConnect.Optimizer.Parameters.ParameterSet, backtest_id: str) -> None:
+        """
+        Create an instance of OptimizationResult
+        
+        :param json_backtest_result: Optimization target value for this backtest
+        :param parameter_set: Parameter set used in compute job
+        :param backtest_id: The backtest id that generated this result
+        """
+        ...
+
+
+class OptimizationStatus(IntEnum):
     """The different optimization status"""
 
     NEW = 0
@@ -31,9 +68,6 @@ class OptimizationStatus(Enum):
 
     COMPLETED = 3
     """Optimization job has completed (3)"""
-
-    def __int__(self) -> int:
-        ...
 
 
 class OptimizationNodePacket(QuantConnect.Packets.Packet):
@@ -192,44 +226,8 @@ class OptimizationNodePacket(QuantConnect.Packets.Packet):
         """
         Creates a new instance
         
-        This method is protected.
-        """
-        ...
-
-
-class OptimizationResult(System.Object):
-    """Defines the result of Lean compute job"""
-
-    INITIAL: QuantConnect.Optimizer.OptimizationResult = ...
-    """Corresponds to initial result to drive the optimization strategy"""
-
-    @property
-    def backtest_id(self) -> str:
-        """The backtest id that generated this result"""
-        ...
-
-    @property
-    def id(self) -> int:
-        """Parameter set Id"""
-        ...
-
-    @property
-    def json_backtest_result(self) -> str:
-        """Json Backtest result"""
-        ...
-
-    @property
-    def parameter_set(self) -> QuantConnect.Optimizer.Parameters.ParameterSet:
-        """The parameter set at which the result was achieved"""
-        ...
-
-    def __init__(self, json_backtest_result: str, parameter_set: QuantConnect.Optimizer.Parameters.ParameterSet, backtest_id: str) -> None:
-        """
-        Create an instance of OptimizationResult
         
-        :param json_backtest_result: Optimization target value for this backtest
-        :param parameter_set: Parameter set used in compute job
-        :param backtest_id: The backtest id that generated this result
+        This codeEntityType is protected.
         """
         ...
 
@@ -242,7 +240,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         The total completed backtests count
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -251,7 +250,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         The current optimization status
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -260,7 +260,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         The optimization target
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -269,7 +270,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Collection holding ParameterSet for each backtest id we are waiting to finish
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -278,7 +280,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Collection holding ParameterSet for each backtest id we are waiting to launch
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -287,7 +290,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         The optimization strategy being used
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -296,7 +300,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         The optimization packet
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -305,7 +310,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Indicates whether optimizer was disposed
         
-        This property is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -322,7 +328,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Creates a new instance
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param node_packet: The optimization node packet to handle
         """
@@ -332,7 +339,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Handles stopping Lean process
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param backtest_id: Specified backtest id
         """
@@ -346,7 +354,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Get's a new backtest name
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -358,7 +367,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Helper method to have pretty more informative logs
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -370,7 +380,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Handles a new backtest json result matching a requested backtest id
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param json_backtest_result: The backtest json result
         :param backtest_id: The associated backtest id
@@ -381,7 +392,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Handles starting Lean for a given parameter set
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param parameter_set: The parameter set for the backtest to run
         :param backtest_name: The backtest name to use
@@ -393,7 +405,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Sends an update of the current optimization status to the user
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 
@@ -401,7 +414,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Sets the current optimization status
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param optimization_status: The new optimization status
         """
@@ -415,7 +429,8 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
         """
         Triggers the optimization job end event
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         """
         ...
 

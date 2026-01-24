@@ -3,7 +3,7 @@ Type annotations for tnb service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_tnb/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -38,12 +39,6 @@ from .literals import (
     VnfOperationalStateType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -167,7 +162,7 @@ class CreateSolFunctionPackageInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -233,15 +228,15 @@ class GetSolNetworkOperationInputTypeDef(TypedDict):
 
 class InstantiateMetadataTypeDef(TypedDict):
     nsdInfoId: str
-    additionalParamsForNs: NotRequired[Dict[str, Any]]
+    additionalParamsForNs: NotRequired[dict[str, Any]]
 
 class ModifyVnfInfoMetadataTypeDef(TypedDict):
-    vnfConfigurableProperties: Dict[str, Any]
+    vnfConfigurableProperties: dict[str, Any]
     vnfInstanceId: str
 
 class UpdateNsMetadataTypeDef(TypedDict):
     nsdInfoId: str
-    additionalParamsForNs: NotRequired[Dict[str, Any]]
+    additionalParamsForNs: NotRequired[dict[str, Any]]
 
 class ProblemDetailsTypeDef(TypedDict):
     detail: str
@@ -374,7 +369,7 @@ CreateSolFunctionPackageOutputTypeDef = TypedDict(
         "id": str,
         "onboardingState": OnboardingStateType,
         "operationalState": OperationalStateType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "usageState": UsageStateType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -386,7 +381,7 @@ CreateSolNetworkInstanceOutputTypeDef = TypedDict(
         "id": str,
         "nsInstanceName": str,
         "nsdInfoId": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -398,7 +393,7 @@ CreateSolNetworkPackageOutputTypeDef = TypedDict(
         "nsdOnboardingState": NsdOnboardingStateType,
         "nsdOperationalState": NsdOperationalStateType,
         "nsdUsageState": NsdUsageStateType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -428,16 +423,16 @@ class GetSolNetworkPackageDescriptorOutputTypeDef(TypedDict):
 
 class InstantiateSolNetworkInstanceOutputTypeDef(TypedDict):
     nsLcmOpOccId: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TerminateSolNetworkInstanceOutputTypeDef(TypedDict):
     nsLcmOpOccId: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateSolFunctionPackageOutputTypeDef(TypedDict):
@@ -446,7 +441,7 @@ class UpdateSolFunctionPackageOutputTypeDef(TypedDict):
 
 class UpdateSolNetworkInstanceOutputTypeDef(TypedDict):
     nsLcmOpOccId: str
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateSolNetworkPackageOutputTypeDef(TypedDict):
@@ -454,7 +449,7 @@ class UpdateSolNetworkPackageOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSolNetworkOperationTaskDetailsTypeDef(TypedDict):
-    taskContext: NotRequired[Dict[str, str]]
+    taskContext: NotRequired[dict[str, str]]
     taskEndTime: NotRequired[datetime]
     taskErrorDetails: NotRequired[ErrorInfoTypeDef]
     taskName: NotRequired[str]
@@ -462,10 +457,10 @@ class GetSolNetworkOperationTaskDetailsTypeDef(TypedDict):
     taskStatus: NotRequired[TaskStatusType]
 
 class FunctionArtifactMetaTypeDef(TypedDict):
-    overrides: NotRequired[List[ToscaOverrideTypeDef]]
+    overrides: NotRequired[list[ToscaOverrideTypeDef]]
 
 class NetworkArtifactMetaTypeDef(TypedDict):
-    overrides: NotRequired[List[ToscaOverrideTypeDef]]
+    overrides: NotRequired[list[ToscaOverrideTypeDef]]
 
 GetSolNetworkInstanceOutputTypeDef = TypedDict(
     "GetSolNetworkInstanceOutputTypeDef",
@@ -479,7 +474,7 @@ GetSolNetworkInstanceOutputTypeDef = TypedDict(
         "nsState": NsStateType,
         "nsdId": str,
         "nsdInfoId": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -579,7 +574,7 @@ ListSolNetworkPackageInfoTypeDef = TypedDict(
         "nsdInvariantId": NotRequired[str],
         "nsdName": NotRequired[str],
         "nsdVersion": NotRequired[str],
-        "vnfPkgIds": NotRequired[List[str]],
+        "vnfPkgIds": NotRequired[list[str]],
     },
 )
 
@@ -622,8 +617,8 @@ GetSolNetworkOperationOutputTypeDef = TypedDict(
         "metadata": GetSolNetworkOperationMetadataTypeDef,
         "nsInstanceId": str,
         "operationState": NsLcmOperationStateType,
-        "tags": Dict[str, str],
-        "tasks": List[GetSolNetworkOperationTaskDetailsTypeDef],
+        "tags": dict[str, str],
+        "tasks": list[GetSolNetworkOperationTaskDetailsTypeDef],
         "updateType": UpdateSolNetworkTypeType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -631,30 +626,30 @@ GetSolNetworkOperationOutputTypeDef = TypedDict(
 
 class GetSolVnfInfoTypeDef(TypedDict):
     vnfState: NotRequired[VnfOperationalStateType]
-    vnfcResourceInfo: NotRequired[List[GetSolVnfcResourceInfoTypeDef]]
+    vnfcResourceInfo: NotRequired[list[GetSolVnfcResourceInfoTypeDef]]
 
 class ListSolFunctionInstancesOutputTypeDef(TypedDict):
-    functionInstances: List[ListSolFunctionInstanceInfoTypeDef]
+    functionInstances: list[ListSolFunctionInstanceInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSolFunctionPackagesOutputTypeDef(TypedDict):
-    functionPackages: List[ListSolFunctionPackageInfoTypeDef]
+    functionPackages: list[ListSolFunctionPackageInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSolNetworkInstancesOutputTypeDef(TypedDict):
-    networkInstances: List[ListSolNetworkInstanceInfoTypeDef]
+    networkInstances: list[ListSolNetworkInstanceInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSolNetworkOperationsOutputTypeDef(TypedDict):
-    networkOperations: List[ListSolNetworkOperationsInfoTypeDef]
+    networkOperations: list[ListSolNetworkOperationsInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListSolNetworkPackagesOutputTypeDef(TypedDict):
-    networkPackages: List[ListSolNetworkPackageInfoTypeDef]
+    networkPackages: list[ListSolNetworkPackageInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -666,7 +661,7 @@ GetSolFunctionPackageOutputTypeDef = TypedDict(
         "metadata": GetSolFunctionPackageMetadataTypeDef,
         "onboardingState": OnboardingStateType,
         "operationalState": OperationalStateType,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "usageState": UsageStateType,
         "vnfProductName": str,
         "vnfProvider": str,
@@ -711,8 +706,8 @@ GetSolNetworkPackageOutputTypeDef = TypedDict(
         "nsdOperationalState": NsdOperationalStateType,
         "nsdUsageState": NsdUsageStateType,
         "nsdVersion": str,
-        "tags": Dict[str, str],
-        "vnfPkgIds": List[str],
+        "tags": dict[str, str],
+        "vnfPkgIds": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -725,7 +720,7 @@ PutSolNetworkPackageContentOutputTypeDef = TypedDict(
         "nsdId": str,
         "nsdName": str,
         "nsdVersion": str,
-        "vnfPkgIds": List[str],
+        "vnfPkgIds": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -738,7 +733,7 @@ ValidateSolNetworkPackageContentOutputTypeDef = TypedDict(
         "nsdId": str,
         "nsdName": str,
         "nsdVersion": str,
-        "vnfPkgIds": List[str],
+        "vnfPkgIds": list[str],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -751,7 +746,7 @@ GetSolFunctionInstanceOutputTypeDef = TypedDict(
         "instantiationState": VnfInstantiationStateType,
         "metadata": GetSolFunctionInstanceMetadataTypeDef,
         "nsInstanceId": str,
-        "tags": Dict[str, str],
+        "tags": dict[str, str],
         "vnfPkgId": str,
         "vnfProductName": str,
         "vnfProvider": str,

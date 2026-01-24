@@ -1,7 +1,7 @@
 
 import math
 
-from ..helpers import parse_int, strip_unit, widthParser
+from ..helpers import makeLowerBreakpoint, parse_int, strip_unit, widthParser
 from ._base import BodyComponent
 
 
@@ -54,6 +54,8 @@ class MjImage(BodyComponent):
             'padding'          : '10px 25px',
             'target'           : '_blank',
             'font-size'        : '13px',
+
+            'alt'              : '',
 
             # other attrs
             # upstream does not declare these (but uses them in getStyles)
@@ -136,13 +138,17 @@ class MjImage(BodyComponent):
                 rel    = this.getAttribute('rel'),
                 name   = this.getAttribute('name'),
             )
-            return f'<a {a_attrs} >{img}</a>'
+            return f'''
+                <a {a_attrs}>
+                  {img}
+                </a>
+            '''
         return img
 
     def headStyle(self, breakpoint):
         # double curly braces used to escape "{" and "}" in f-strings
         return f'''
-            @media only screen and (max-width:{breakpoint}) {{
+            @media only screen and (max-width:{makeLowerBreakpoint(breakpoint)}) {{
               table.mj-full-width-mobile {{ width: 100% !important; }}
               td.mj-full-width-mobile {{ width: auto !important; }}
             }}'''

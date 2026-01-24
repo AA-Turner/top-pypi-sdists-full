@@ -56,6 +56,22 @@ options:
       - Collection of tag identifiers.
     type: list
     elements: str
+  override_vpn_domains:
+    description:
+      - The Overrides VPN Domains of the participants GWs.
+      - Available from R82 JHF management version.
+    type: list
+    elements: dict
+    version_added: "6.5.0"
+    suboptions:
+      gateway:
+        description:
+          - Participant gateway in override VPN domain identified by the name or UID.
+        type: str
+      vpn_domain:
+        description:
+          - <html>VPN domain network<br><b>Relevant only in Domain-Based VPN Communities</b></html> identified by the name or UID.
+        type: str
   color:
     description:
       - Color of the object. Should be one of existing colors.
@@ -110,6 +126,7 @@ def main():
         gateways=dict(type='list', elements='str'),
         user_groups=dict(type='list', elements='str'),
         tags=dict(type='list', elements='str'),
+        override_vpn_domains=dict(type='list', elements='dict', options=dict(gateway=dict(type='str'), vpn_domain=dict(type='str'))),
         color=dict(type='str', choices=['aquamarine', 'black', 'blue', 'crete blue', 'burlywood', 'cyan', 'dark green',
                                         'khaki', 'orchid', 'dark orange', 'dark sea green', 'pink', 'turquoise', 'dark blue', 'firebrick', 'brown',
                                         'forest green', 'gold', 'dark gold', 'gray', 'dark gray', 'light green', 'lemon chiffon', 'coral', 'sea green',

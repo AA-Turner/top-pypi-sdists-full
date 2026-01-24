@@ -1,7 +1,7 @@
 r'''
 # `aws_route53_zone`
 
-Refer to the Terraform Registry for docs: [`aws_route53_zone`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone).
+Refer to the Terraform Registry for docs: [`aws_route53_zone`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Route53Zone(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.route53Zone.Route53Zone",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone aws_route53_zone}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone aws_route53_zone}.'''
 
     def __init__(
         self,
@@ -54,6 +54,7 @@ class Route53Zone(
         name: builtins.str,
         comment: typing.Optional[builtins.str] = None,
         delegation_set_id: typing.Optional[builtins.str] = None,
+        enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         force_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -68,19 +69,20 @@ class Route53Zone(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone aws_route53_zone} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone aws_route53_zone} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#name Route53Zone#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#comment Route53Zone#comment}.
-        :param delegation_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#delegation_set_id Route53Zone#delegation_set_id}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#force_destroy Route53Zone#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#id Route53Zone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#tags Route53Zone#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#tags_all Route53Zone#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#timeouts Route53Zone#timeouts}
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc Route53Zone#vpc}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#name Route53Zone#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#comment Route53Zone#comment}.
+        :param delegation_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#delegation_set_id Route53Zone#delegation_set_id}.
+        :param enable_accelerated_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#enable_accelerated_recovery Route53Zone#enable_accelerated_recovery}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#force_destroy Route53Zone#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#id Route53Zone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#tags Route53Zone#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#tags_all Route53Zone#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#timeouts Route53Zone#timeouts}
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc Route53Zone#vpc}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -97,6 +99,7 @@ class Route53Zone(
             name=name,
             comment=comment,
             delegation_set_id=delegation_set_id,
+            enable_accelerated_recovery=enable_accelerated_recovery,
             force_destroy=force_destroy,
             id=id,
             tags=tags,
@@ -127,7 +130,7 @@ class Route53Zone(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Route53Zone to import.
-        :param import_from_id: The id of the existing Route53Zone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Route53Zone that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Route53Zone to import is found.
         '''
         if __debug__:
@@ -147,9 +150,9 @@ class Route53Zone(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#create Route53Zone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#delete Route53Zone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#update Route53Zone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#create Route53Zone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#delete Route53Zone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#update Route53Zone#update}.
         '''
         value = Route53ZoneTimeouts(create=create, delete=delete, update=update)
 
@@ -175,6 +178,10 @@ class Route53Zone(
     @jsii.member(jsii_name="resetDelegationSetId")
     def reset_delegation_set_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetDelegationSetId", []))
+
+    @jsii.member(jsii_name="resetEnableAcceleratedRecovery")
+    def reset_enable_accelerated_recovery(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEnableAcceleratedRecovery", []))
 
     @jsii.member(jsii_name="resetForceDestroy")
     def reset_force_destroy(self) -> None:
@@ -254,6 +261,13 @@ class Route53Zone(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "delegationSetIdInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="enableAcceleratedRecoveryInput")
+    def enable_accelerated_recovery_input(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], jsii.get(self, "enableAcceleratedRecoveryInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="forceDestroyInput")
     def force_destroy_input(
         self,
@@ -319,6 +333,23 @@ class Route53Zone(
             type_hints = typing.get_type_hints(_typecheckingstub__1490027f0a9b7ec4eaa347cd41101562a1835bc763e097ce00e1b58df0960dc2)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "delegationSetId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="enableAcceleratedRecovery")
+    def enable_accelerated_recovery(
+        self,
+    ) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
+        return typing.cast(typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable], jsii.get(self, "enableAcceleratedRecovery"))
+
+    @enable_accelerated_recovery.setter
+    def enable_accelerated_recovery(
+        self,
+        value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cee105e0530f1a23107419cdd43755def8dcfc4cb3a4f0ad3555a51a85b7ebb4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "enableAcceleratedRecovery", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="forceDestroy")
@@ -398,6 +429,7 @@ class Route53Zone(
         "name": "name",
         "comment": "comment",
         "delegation_set_id": "delegationSetId",
+        "enable_accelerated_recovery": "enableAcceleratedRecovery",
         "force_destroy": "forceDestroy",
         "id": "id",
         "tags": "tags",
@@ -420,6 +452,7 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         name: builtins.str,
         comment: typing.Optional[builtins.str] = None,
         delegation_set_id: typing.Optional[builtins.str] = None,
+        enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         force_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -435,15 +468,16 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#name Route53Zone#name}.
-        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#comment Route53Zone#comment}.
-        :param delegation_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#delegation_set_id Route53Zone#delegation_set_id}.
-        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#force_destroy Route53Zone#force_destroy}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#id Route53Zone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#tags Route53Zone#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#tags_all Route53Zone#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#timeouts Route53Zone#timeouts}
-        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc Route53Zone#vpc}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#name Route53Zone#name}.
+        :param comment: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#comment Route53Zone#comment}.
+        :param delegation_set_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#delegation_set_id Route53Zone#delegation_set_id}.
+        :param enable_accelerated_recovery: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#enable_accelerated_recovery Route53Zone#enable_accelerated_recovery}.
+        :param force_destroy: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#force_destroy Route53Zone#force_destroy}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#id Route53Zone#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#tags Route53Zone#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#tags_all Route53Zone#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#timeouts Route53Zone#timeouts}
+        :param vpc: vpc block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc Route53Zone#vpc}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -461,6 +495,7 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument comment", value=comment, expected_type=type_hints["comment"])
             check_type(argname="argument delegation_set_id", value=delegation_set_id, expected_type=type_hints["delegation_set_id"])
+            check_type(argname="argument enable_accelerated_recovery", value=enable_accelerated_recovery, expected_type=type_hints["enable_accelerated_recovery"])
             check_type(argname="argument force_destroy", value=force_destroy, expected_type=type_hints["force_destroy"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -488,6 +523,8 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["comment"] = comment
         if delegation_set_id is not None:
             self._values["delegation_set_id"] = delegation_set_id
+        if enable_accelerated_recovery is not None:
+            self._values["enable_accelerated_recovery"] = enable_accelerated_recovery
         if force_destroy is not None:
             self._values["force_destroy"] = force_destroy
         if id is not None:
@@ -567,34 +604,42 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#name Route53Zone#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#name Route53Zone#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#comment Route53Zone#comment}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#comment Route53Zone#comment}.'''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delegation_set_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#delegation_set_id Route53Zone#delegation_set_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#delegation_set_id Route53Zone#delegation_set_id}.'''
         result = self._values.get("delegation_set_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def enable_accelerated_recovery(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#enable_accelerated_recovery Route53Zone#enable_accelerated_recovery}.'''
+        result = self._values.get("enable_accelerated_recovery")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def force_destroy(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#force_destroy Route53Zone#force_destroy}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#force_destroy Route53Zone#force_destroy}.'''
         result = self._values.get("force_destroy")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#id Route53Zone#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#id Route53Zone#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -604,13 +649,13 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#tags Route53Zone#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#tags Route53Zone#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#tags_all Route53Zone#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#tags_all Route53Zone#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -618,7 +663,7 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["Route53ZoneTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#timeouts Route53Zone#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#timeouts Route53Zone#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["Route53ZoneTimeouts"], result)
@@ -629,7 +674,7 @@ class Route53ZoneConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53ZoneVpc"]]]:
         '''vpc block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc Route53Zone#vpc}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc Route53Zone#vpc}
         '''
         result = self._values.get("vpc")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["Route53ZoneVpc"]]], result)
@@ -660,9 +705,9 @@ class Route53ZoneTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#create Route53Zone#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#delete Route53Zone#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#update Route53Zone#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#create Route53Zone#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#delete Route53Zone#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#update Route53Zone#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__dfa9a51d6f38c63304b2188b8d6a0847ed19bee3b7358ea53814e23eaff744f1)
@@ -679,19 +724,19 @@ class Route53ZoneTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#create Route53Zone#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#create Route53Zone#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#delete Route53Zone#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#delete Route53Zone#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#update Route53Zone#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#update Route53Zone#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -821,8 +866,8 @@ class Route53ZoneVpc:
         vpc_region: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc_id Route53Zone#vpc_id}.
-        :param vpc_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc_region Route53Zone#vpc_region}.
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc_id Route53Zone#vpc_id}.
+        :param vpc_region: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc_region Route53Zone#vpc_region}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__40327ee08fb6c333ca890aa305a05e49fbec14f12d53a082c9201d4036c0f9fb)
@@ -836,14 +881,14 @@ class Route53ZoneVpc:
 
     @builtins.property
     def vpc_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc_id Route53Zone#vpc_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc_id Route53Zone#vpc_id}.'''
         result = self._values.get("vpc_id")
         assert result is not None, "Required property 'vpc_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def vpc_region(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/route53_zone#vpc_region Route53Zone#vpc_region}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/route53_zone#vpc_region Route53Zone#vpc_region}.'''
         result = self._values.get("vpc_region")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1050,6 +1095,7 @@ def _typecheckingstub__a128c89071f63dfd0aca0e161d5d26ef4f995c279b7acb84691efbd99
     name: builtins.str,
     comment: typing.Optional[builtins.str] = None,
     delegation_set_id: typing.Optional[builtins.str] = None,
+    enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     force_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
@@ -1090,6 +1136,12 @@ def _typecheckingstub__7665378465dac4d2cfe1d7c02aa8065d52ebf3574104249d3a3a3bd1c
 
 def _typecheckingstub__1490027f0a9b7ec4eaa347cd41101562a1835bc763e097ce00e1b58df0960dc2(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cee105e0530f1a23107419cdd43755def8dcfc4cb3a4f0ad3555a51a85b7ebb4(
+    value: typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1136,6 +1188,7 @@ def _typecheckingstub__cd39b7b35f283898cb41523ec09bb037d0e89e7b5325f7408faf6e28f
     name: builtins.str,
     comment: typing.Optional[builtins.str] = None,
     delegation_set_id: typing.Optional[builtins.str] = None,
+    enable_accelerated_recovery: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     force_destroy: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,

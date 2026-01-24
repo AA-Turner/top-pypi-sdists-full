@@ -16,7 +16,8 @@ T = TypeVar("T", bound="GetHubFlowByIdResponse200")
 class GetHubFlowByIdResponse200:
     """
     Attributes:
-        flow (Union[Unset, GetHubFlowByIdResponse200Flow]):
+        flow (Union[Unset, GetHubFlowByIdResponse200Flow]): Top-level flow definition containing metadata,
+            configuration, and the flow structure
     """
 
     flow: Union[Unset, "GetHubFlowByIdResponse200Flow"] = UNSET

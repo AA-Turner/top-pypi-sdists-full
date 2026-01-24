@@ -1,0 +1,26 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "atomicx"
+description = "easy-to-use lock-free atomic integers, booleans, and floats for Python"
+requires-python = ">=3.8"
+dynamic = ["version"]
+readme = "README.md"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Utilities",
+    "License :: OSI Approved :: MIT License",
+    "Typing :: Typed",
+]
+authors = [
+    {name = "RuneBlaze", email = "liubaqiao@gmail.com"},
+]
+
+[project.urls]
+"Homepage" = "https://github.com/RuneBlaze/atomicx"
+"Bug Tracker" = "https://github.com/RuneBlaze/atomicx/issues"
+"Documentation" = "https://github.com/RuneBlaze/atomicx/blob/main/DOCS.md"

@@ -7,6 +7,7 @@ from ...core.pagination import AsyncPager, SyncPager
 from ...core.request_options import RequestOptions
 from ...types.employee_wage import EmployeeWage
 from ...types.get_employee_wage_response import GetEmployeeWageResponse
+from ...types.list_employee_wages_response import ListEmployeeWagesResponse
 from .raw_client import AsyncRawEmployeeWagesClient, RawEmployeeWagesClient
 
 
@@ -32,7 +33,7 @@ class EmployeeWagesClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[EmployeeWage]:
+    ) -> SyncPager[EmployeeWage, ListEmployeeWagesResponse]:
         """
         Returns a paginated list of `EmployeeWage` instances for a business.
 
@@ -53,7 +54,7 @@ class EmployeeWagesClient:
 
         Returns
         -------
-        SyncPager[EmployeeWage]
+        SyncPager[EmployeeWage, ListEmployeeWagesResponse]
             Success
 
         Examples
@@ -63,7 +64,11 @@ class EmployeeWagesClient:
         client = Square(
             token="YOUR_TOKEN",
         )
-        response = client.labor.employee_wages.list()
+        response = client.labor.employee_wages.list(
+            employee_id="employee_id",
+            limit=1,
+            cursor="cursor",
+        )
         for item in response:
             yield item
         # alternatively, you can paginate page-by-page
@@ -128,7 +133,7 @@ class AsyncEmployeeWagesClient:
         limit: typing.Optional[int] = None,
         cursor: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[EmployeeWage]:
+    ) -> AsyncPager[EmployeeWage, ListEmployeeWagesResponse]:
         """
         Returns a paginated list of `EmployeeWage` instances for a business.
 
@@ -149,7 +154,7 @@ class AsyncEmployeeWagesClient:
 
         Returns
         -------
-        AsyncPager[EmployeeWage]
+        AsyncPager[EmployeeWage, ListEmployeeWagesResponse]
             Success
 
         Examples
@@ -164,7 +169,11 @@ class AsyncEmployeeWagesClient:
 
 
         async def main() -> None:
-            response = await client.labor.employee_wages.list()
+            response = await client.labor.employee_wages.list(
+                employee_id="employee_id",
+                limit=1,
+                cursor="cursor",
+            )
             async for item in response:
                 yield item
 

@@ -2,9 +2,9 @@
  * Copyright (c) 2009, Jay Loden, Giampaolo Rodola'. All rights reserved.
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
- *
- * macOS platform-specific module methods.
  */
+
+// macOS platform-specific module methods.
 
 #include <Python.h>
 #include <sys/time.h>  // needed for old macOS versions
@@ -18,16 +18,18 @@
 static PyMethodDef mod_methods[] = {
     // --- per-process functions
     {"proc_cmdline", psutil_proc_cmdline, METH_VARARGS},
-    {"proc_net_connections", psutil_proc_net_connections, METH_VARARGS},
     {"proc_cwd", psutil_proc_cwd, METH_VARARGS},
     {"proc_environ", psutil_proc_environ, METH_VARARGS},
     {"proc_exe", psutil_proc_exe, METH_VARARGS},
+    {"proc_is_zombie", psutil_proc_is_zombie, METH_VARARGS},
     {"proc_kinfo_oneshot", psutil_proc_kinfo_oneshot, METH_VARARGS},
     {"proc_memory_uss", psutil_proc_memory_uss, METH_VARARGS},
     {"proc_name", psutil_proc_name, METH_VARARGS},
+    {"proc_net_connections", psutil_proc_net_connections, METH_VARARGS},
     {"proc_num_fds", psutil_proc_num_fds, METH_VARARGS},
     {"proc_open_files", psutil_proc_open_files, METH_VARARGS},
-    {"proc_pidtaskinfo_oneshot", psutil_proc_pidtaskinfo_oneshot, METH_VARARGS},
+    {"proc_pidtaskinfo_oneshot", psutil_proc_pidtaskinfo_oneshot, METH_VARARGS
+    },
     {"proc_threads", psutil_proc_threads, METH_VARARGS},
 
     // --- system-related functions
@@ -41,6 +43,8 @@ static PyMethodDef mod_methods[] = {
     {"disk_partitions", psutil_disk_partitions, METH_VARARGS},
     {"disk_usage_used", psutil_disk_usage_used, METH_VARARGS},
     {"has_cpu_freq", psutil_has_cpu_freq, METH_VARARGS},
+    {"heap_info", psutil_heap_info, METH_VARARGS},
+    {"heap_trim", psutil_heap_trim, METH_VARARGS},
     {"net_io_counters", psutil_net_io_counters, METH_VARARGS},
     {"per_cpu_times", psutil_per_cpu_times, METH_VARARGS},
     {"pids", psutil_pids, METH_VARARGS},
@@ -83,6 +87,10 @@ PyInit__psutil_osx(void) {
     if (psutil_setup() != 0)
         return NULL;
     if (psutil_setup_osx() != 0)
+        return NULL;
+    if (psutil_posix_add_constants(mod) != 0)
+        return NULL;
+    if (psutil_posix_add_methods(mod) != 0)
         return NULL;
 
     if (PyModule_AddIntConstant(mod, "version", PSUTIL_VERSION))

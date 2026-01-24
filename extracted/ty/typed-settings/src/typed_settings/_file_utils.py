@@ -1,6 +1,5 @@
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional, Union
 
 
 ROOT_DIR = Path().resolve().root
@@ -8,10 +7,10 @@ ROOT_DIR = Path().resolve().root
 
 def find(
     filename: str,
-    stop_dir: Union[str, Path] = ROOT_DIR,
+    stop_dir: str | Path = ROOT_DIR,
     stop_files: Iterable[str] = (".git", ".hg"),
     *,
-    start_dir: Optional[Path] = None,
+    start_dir: Path | None = None,
 ) -> Path:
     """
     Search for a file in the current directory and its parents and return its

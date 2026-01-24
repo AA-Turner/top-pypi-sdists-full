@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: eppo-server-sdk
-Version: 4.3.1
+Version: 4.4.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

@@ -125,7 +125,7 @@ class NotifySES(NotifyBase):
     secure_protocol = "ses"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_ses"
+    setup_url = "https://appriseit.com/services/ses/"
 
     # Support attachments
     attachment_support = True
@@ -311,7 +311,7 @@ class NotifySES(NotifyBase):
             result = is_email(reply_to)
             if not result:
                 msg = "An invalid AWS Reply To ({}) was specified.".format(
-                    f"{self.user}@{self.host}"
+                    f"{reply_to}"
                 )
                 self.logger.warning(msg)
                 raise TypeError(msg)
@@ -542,7 +542,7 @@ class NotifySES(NotifyBase):
                 quote(from_name, " "), quote(self.from_addr, "@ ")
             )
 
-            (result, response) = self._post(payload=payload, to=to_addr)
+            (result, _response) = self._post(payload=payload, to=to_addr)
             if not result:
                 # Mark our failure
                 has_error = True
@@ -603,7 +603,8 @@ class NotifySES(NotifyBase):
                     )
                 )
 
-                self.logger.debug(f"Response Details:\r\n{r.content}")
+                self.logger.debug(
+                    "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                 return (False, NotifySES.aws_response_to_dict(r.text))
 

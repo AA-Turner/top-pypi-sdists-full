@@ -64,14 +64,13 @@ class ResidualsChart(APIObject):
     """
 
     _converter = (
-        t.Dict(
-            {
-                t.Key("source"): String,
-                t.Key("data"): t.List(t.List(t.Float)),
-                t.Key("source_model_id"): String,
-                t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
-            }
-        )
+        t
+        .Dict({
+            t.Key("source"): String,
+            t.Key("data"): t.List(t.List(t.Float)),
+            t.Key("source_model_id"): String,
+            t.Key("data_slice_id", optional=True): t.Or(String, t.Null),
+        })
         .merge(ResidualsTrafaret)
         .ignore_extra("*")
     )

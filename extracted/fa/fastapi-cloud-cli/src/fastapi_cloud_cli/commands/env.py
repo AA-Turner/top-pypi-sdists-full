@@ -1,14 +1,13 @@
 import logging
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Annotated, Any, Optional, Union
 
 import typer
 from pydantic import BaseModel
-from typing_extensions import Annotated
 
 from fastapi_cloud_cli.utils.api import APIClient
 from fastapi_cloud_cli.utils.apps import get_app_config
-from fastapi_cloud_cli.utils.auth import is_logged_in
+from fastapi_cloud_cli.utils.auth import Identity
 from fastapi_cloud_cli.utils.cli import get_rich_toolkit, handle_http_errors
 from fastapi_cloud_cli.utils.env import validate_environment_variable_name
 
@@ -17,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 class EnvironmentVariable(BaseModel):
     name: str
-    value: str
+    value: Optional[str] = None
 
 
 class EnvironmentVariableResponse(BaseModel):
-    data: List[EnvironmentVariable]
+    data: list[EnvironmentVariable]
 
 
 def _get_environment_variables(app_id: str) -> EnvironmentVariableResponse:
@@ -44,11 +43,13 @@ def _delete_environment_variable(app_id: str, name: str) -> bool:
     return True
 
 
-def _set_environment_variable(app_id: str, name: str, value: str) -> None:
+def _set_environment_variable(
+    app_id: str, name: str, value: str, is_secret: bool = False
+) -> None:
     with APIClient() as client:
-        response = client.patch(
+        response = client.post(
             f"/apps/{app_id}/environment-variables/",
-            json={name: value},
+            json={"name": name, "value": value, "is_secret": is_secret},
         )
         response.raise_for_status()
 
@@ -69,8 +70,10 @@ def list(
     List the environment variables for the app.
     """
 
+    identity = Identity()
+
     with get_rich_toolkit(minimal=True) as toolkit:
-        if not is_logged_in():
+        if not identity.is_logged_in():
             toolkit.print(
                 "No credentials found. Use [blue]`fastapi login`[/] to login.",
                 tag="auth",
@@ -122,9 +125,10 @@ def delete(
     Delete an environment variable from the app.
     """
 
+    identity = Identity()
+
     with get_rich_toolkit(minimal=True) as toolkit:
-        # TODO: maybe this logic can be extracted to a function
-        if not is_logged_in():
+        if not identity.is_logged_in():
             toolkit.print(
                 "No credentials found. Use [blue]`fastapi login`[/] to login.",
                 tag="auth",
@@ -202,13 +206,22 @@ def set(
             help="A path to the folder containing the app you want to deploy"
         ),
     ] = None,
+    secret: Annotated[
+        bool,
+        typer.Option(
+            "--secret",
+            help="Mark the environment variable as secret",
+        ),
+    ] = False,
 ) -> Any:
     """
     Set an environment variable for the app.
     """
 
+    identity = Identity()
+
     with get_rich_toolkit(minimal=True) as toolkit:
-        if not is_logged_in():
+        if not identity.is_logged_in():
             toolkit.print(
                 "No credentials found. Use [blue]`fastapi login`[/] to login.",
                 tag="auth",
@@ -227,12 +240,18 @@ def set(
             raise typer.Exit(1)
 
         if not name:
-            name = toolkit.input("Enter the name of the environment variable to set:")
+            if secret:
+                name = toolkit.input("Enter the name of the secret to set:")
+            else:
+                name = toolkit.input(
+                    "Enter the name of the environment variable to set:"
+                )
 
         if not value:
-            value = toolkit.input(
-                "Enter the value of the environment variable to set:", password=True
-            )
+            if secret:
+                value = toolkit.input("Enter the secret value:", password=True)
+            else:
+                value = toolkit.input("Enter the value of the environment variable:")
 
         with toolkit.progress(
             "Setting environment variable", transient=True
@@ -241,6 +260,9 @@ def set(
             assert value is not None
 
             with handle_http_errors(progress):
-                _set_environment_variable(app_config.app_id, name, value)
+                _set_environment_variable(app_config.app_id, name, value, secret)
 
-        toolkit.print(f"Environment variable [bold]{name}[/] set.")
+        if secret:
+            toolkit.print(f"Secret environment variable [bold]{name}[/] set.")
+        else:
+            toolkit.print(f"Environment variable [bold]{name}[/] set.")

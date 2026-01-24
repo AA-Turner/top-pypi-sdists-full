@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import datetime as dt
+import inspect
 import uuid
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from functools import partial
 from types import FunctionType, MethodType
 from typing import (
-    TYPE_CHECKING, Any, ClassVar, Literal, Sequence, TypedDict, cast,
+    TYPE_CHECKING, Any, ClassVar, Literal, TypedDict, cast,
 )
 
 import numpy as np
@@ -58,7 +59,7 @@ if TYPE_CHECKING:
         headerFilterPlaceholder: str
 
 class ColumnSpec(TypedDict, total=False):
-    editable: bool
+    editable: bool | JSCode
     editor: str | CellEditor | JSCode
     editorParams: dict[str, Any]
     field: str
@@ -103,6 +104,9 @@ class BaseTable(ReactiveData, Widget):
         aggregators for different columns are required the dictionary
         may be nested as `{index_name: {column_name: aggregator}}`""")
 
+    editables = param.Dict(default={}, nested_refs=True, doc="""
+        Allows to edit table's contents for a particular column.""")
+
     editors = param.Dict(default={}, nested_refs=True, doc="""
         Bokeh CellEditor to use for a particular column
         (overrides the default chosen based on the type).""")
@@ -142,7 +146,7 @@ class BaseTable(ReactiveData, Widget):
     _data_params: ClassVar[list[str]] = ['value']
 
     _manual_params: ClassVar[list[str]] = [
-        'formatters', 'editors', 'widths', 'titles', 'value', 'show_index'
+        'formatters', 'editables', 'editors', 'widths', 'titles', 'value', 'show_index'
     ]
 
     _rename: ClassVar[Mapping[str, str | None]] = {
@@ -164,7 +168,7 @@ class BaseTable(ReactiveData, Widget):
         self.param.trigger('editors')
         self.param.trigger('formatters')
 
-    @param.depends('value', watch=True, on_init=True)
+    @param.depends('value', 'show_index', watch=True, on_init=True)
     def _compute_renamed_cols(self):
         if self.value is None:
             self._renamed_cols.clear()
@@ -860,11 +864,11 @@ class BaseTable(ReactiveData, Widget):
 
         Parameters
         ----------
-        patch_value: (pd.DataFrame | pd.Series | Dict)
+        patch_value: pd.DataFrame | pd.Series | Dict
           The value(s) to patch the existing value with.
-        as_index: boolean
+        as_index: boolean, optional
           Whether to treat the patch index as DataFrame indexes (True)
-          or as simple integer index.
+          or as simple integer index. Default is True.
 
         Raises
         ------
@@ -934,7 +938,26 @@ class BaseTable(ReactiveData, Widget):
             patches = {}
             for k, v in patch_value.items():
                 values = []
-                for (patch_ind, value) in v:
+                if not isinstance(v, Sequence):
+                    raise ValueError(
+                        f'The patches for column {k!r} must be wrapped in an'
+                        'object of type sequence (list, tuple, etc.), not of '
+                        f'type {type(v).__name__!r}.'
+                    )
+                for sv in v:
+                    if not isinstance(sv, Sequence):
+                        raise ValueError(
+                            f'The individual patches for column {k!r} must be '
+                            'wrapped in an object of type sequence, not of type '
+                            f'{type(v).__name__!r}.'
+                        )
+                    if not len(sv) == 2:
+                        raise ValueError(
+                            f'The individual patches for column {k!r} must be '
+                            'wrapped in an object of type sequence with 2 items '
+                            f', not {len(sv)}.'
+                        )
+                    patch_ind, value = sv
                     data_ind = patch_ind
                     if isinstance(patch_ind, slice):
                         data_ind = range(patch_ind.start, patch_ind.stop, patch_ind.step or 1)
@@ -1250,9 +1273,10 @@ class Tabulator(BaseTable):
     page_size = param.Integer(default=None, bounds=(1, None), doc="""
         Number of rows to render per page, if pagination is enabled.""")
 
-    row_content = param.Callable(doc="""
+    row_content = param.Callable(allow_refs=False, doc="""
         A function which is given the DataFrame row and should return
-        a Panel object to render as additional detail below the row.""")
+        a Panel object to render as additional detail below the row.
+        The function may also be asynchronous.""")
 
     row_height = param.Integer(default=30, doc="""
         The height of each table row.""")
@@ -1354,6 +1378,7 @@ class Tabulator(BaseTable):
         self._configuration = configuration
         self.param.watch(self._update_children, self._content_params)
         self.param.watch(self._clear_selection_remote_pagination, 'value')
+        self.param.watch(lambda e: self.param.trigger("hidden_columns"), 'show_index')
         if click_handler:
             self.on_click(click_handler)
         if edit_handler:
@@ -1622,10 +1647,29 @@ class Tabulator(BaseTable):
         for ref, (m, _) in self._models.copy().items():
             self._apply_update([], msg, m, ref)
 
+    def _get_row_content_panel(self, row):
+        from ..layout import Spacer
+        from ..pane import panel
+
+        content = self.row_content(row)
+        if inspect.isawaitable(content):
+            async def _await_content():
+                spacer = Spacer(height=30, loading=True, sizing_mode="stretch_width")
+                yield spacer
+                try:
+                    result = await content
+                except Exception:
+                    spacer.loading = False
+                    raise
+                yield result
+
+            return panel(_await_content)
+
+        return panel(content)
+
     def _get_children(self):
         if self.row_content is None or self.value is None:
             return {}, [], []
-        from ..pane import panel
         df = self._processed
         if self.pagination == 'remote':
             nrows = self.page_size or self.initial_page_size
@@ -1644,7 +1688,7 @@ class Tabulator(BaseTable):
                 if idx in self._indexed_children:
                     child = self._indexed_children[idx]
                 else:
-                    child = panel(self.row_content(df.iloc[i]))
+                    child = self._get_row_content_panel(df.iloc[i])
                 indexed_children[idx] = children[i] = child
         else:
             expanded = []
@@ -1653,7 +1697,7 @@ class Tabulator(BaseTable):
                 if idx in self._indexed_children:
                     child = self._indexed_children[idx]
                 else:
-                    child = panel(self.row_content(self.value.iloc[i]))
+                    child = self._get_row_content_panel(self.value.iloc[i])
                 try:
                     loc = df.index.get_loc(idx)
                 except KeyError:
@@ -1841,7 +1885,10 @@ class Tabulator(BaseTable):
         else:
             start = 0
         ilocs = list(existing)
-        index = self._processed.iloc[[start+ind for ind in indexes]].index
+        try:
+            index = self._processed.iloc[[start+ind for ind in indexes]].index
+        except IndexError:
+            index = self._processed.iloc[[]].index
         for v in index.values:
             try:
                 iloc = self.value.index.get_loc(v)
@@ -1866,7 +1913,6 @@ class Tabulator(BaseTable):
             selected = indices.selected
             ilocs = [] if indices.flush else self.selection.copy()
             inds = indices.indices
-
         ilocs = self._map_indexes(inds, ilocs, add=selected)
         if isinstance(self.selectable, int) and not isinstance(self.selectable, bool):
             ilocs = ilocs[len(ilocs) - self.selectable:]
@@ -2084,6 +2130,8 @@ class Tabulator(BaseTable):
                 col_dict['sorter'] = 'number'
             elif dtype.kind == 'b':
                 col_dict['sorter'] = 'boolean'
+            if index in self.editables or field in self.editables:
+                col_dict['editable'] = _get_value_from_keys(self.editables, index, field)
             editor = _get_value_from_keys(self.editors, index, field)
             if (index in self.editors or field in self.editors) and editor is None:
                 col_dict['editable'] = False

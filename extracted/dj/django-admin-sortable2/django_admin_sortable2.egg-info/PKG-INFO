@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-admin-sortable2
-Version: 2.2.8
+Version: 2.3.1
 Summary: Generic drag-and-drop sorting for the List, the Stacked- and the Tabular-Inlines Views in the Django Admin
 Home-page: https://github.com/jrief/django-admin-sortable2
 Author: Jacob Rief

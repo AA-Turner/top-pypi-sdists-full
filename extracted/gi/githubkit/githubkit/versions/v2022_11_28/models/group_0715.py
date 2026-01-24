@@ -9,39 +9,52 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
-from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.compat import ExtraGitHubModel, GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0443 import SimpleInstallation
-from .group_0444 import OrganizationSimpleWebhooks
-from .group_0477 import ProjectsV2Item
 
+class WebhookRubygemsMetadata(GitHubModel):
+    """Ruby Gems metadata"""
 
-class WebhookProjectsV2ItemDeleted(GitHubModel):
-    """Projects v2 Item Deleted Event"""
-
-    action: Literal["deleted"] = Field()
-    installation: Missing[SimpleInstallation] = Field(
-        default=UNSET,
-        title="Simple Installation",
-        description='The GitHub App installation. Webhook payloads contain the `installation` property when the event is configured\nfor and sent to a GitHub App. For more information,\nsee "[Using webhooks with GitHub Apps](https://docs.github.com/apps/creating-github-apps/registering-a-github-app/using-webhooks-with-github-apps)."',
+    name: Missing[str] = Field(default=UNSET)
+    description: Missing[str] = Field(default=UNSET)
+    readme: Missing[str] = Field(default=UNSET)
+    homepage: Missing[str] = Field(default=UNSET)
+    version_info: Missing[WebhookRubygemsMetadataPropVersionInfo] = Field(default=UNSET)
+    platform: Missing[str] = Field(default=UNSET)
+    metadata: Missing[WebhookRubygemsMetadataPropMetadata] = Field(default=UNSET)
+    repo: Missing[str] = Field(default=UNSET)
+    dependencies: Missing[list[WebhookRubygemsMetadataPropDependenciesItems]] = Field(
+        default=UNSET
     )
-    organization: OrganizationSimpleWebhooks = Field(
-        title="Organization Simple",
-        description="A GitHub organization. Webhook payloads contain the `organization` property when the webhook is configured for an\norganization, or when the event occurs from activity in a repository owned by an organization.",
-    )
-    projects_v2_item: ProjectsV2Item = Field(
-        title="Projects v2 Item", description="An item belonging to a project"
-    )
-    sender: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    commit_oid: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(WebhookProjectsV2ItemDeleted)
+class WebhookRubygemsMetadataPropVersionInfo(GitHubModel):
+    """WebhookRubygemsMetadataPropVersionInfo"""
 
-__all__ = ("WebhookProjectsV2ItemDeleted",)
+    version: Missing[str] = Field(default=UNSET)
+
+
+class WebhookRubygemsMetadataPropMetadata(ExtraGitHubModel):
+    """WebhookRubygemsMetadataPropMetadata"""
+
+
+class WebhookRubygemsMetadataPropDependenciesItems(ExtraGitHubModel):
+    """WebhookRubygemsMetadataPropDependenciesItems"""
+
+
+model_rebuild(WebhookRubygemsMetadata)
+model_rebuild(WebhookRubygemsMetadataPropVersionInfo)
+model_rebuild(WebhookRubygemsMetadataPropMetadata)
+model_rebuild(WebhookRubygemsMetadataPropDependenciesItems)
+
+__all__ = (
+    "WebhookRubygemsMetadata",
+    "WebhookRubygemsMetadataPropDependenciesItems",
+    "WebhookRubygemsMetadataPropMetadata",
+    "WebhookRubygemsMetadataPropVersionInfo",
+)

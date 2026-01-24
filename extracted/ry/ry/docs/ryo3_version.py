@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: MIT OR Apache-2.0
+
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [
@@ -27,7 +29,9 @@ import ry
 
 def _tokens() -> dict[str, str]:
     return {
-        "RY_DOCS_BUILD_TIMESTAMP": ry.ZonedDateTime.now().string(),
+        "RY_DOCS_BUILD_TIMESTAMP": str(
+            ry.ZonedDateTime.now().in_tz("America/Los_Angeles")
+        ),
     }
 
 
@@ -55,7 +59,7 @@ def main():
     for line in sys.stdin:
         if line:
             [_context, book] = orjson.loads(line)
-            for section in book["sections"]:
+            for section in book["items"]:
                 replace_section_content(section)
             b = orjson.dumps(book, option=orjson.OPT_APPEND_NEWLINE)
             sys.stdout.buffer.write(b)

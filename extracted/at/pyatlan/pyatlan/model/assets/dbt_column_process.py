@@ -193,11 +193,27 @@ class DbtColumnProcess(Dbt):
     """
     TBC
     """
+    SQL_PROCEDURES: ClassVar[RelationField] = RelationField("sqlProcedures")
+    """
+    TBC
+    """
+    FABRIC_ACTIVITIES: ClassVar[RelationField] = RelationField("fabricActivities")
+    """
+    TBC
+    """
     ADF_ACTIVITY: ClassVar[RelationField] = RelationField("adfActivity")
     """
     TBC
     """
+    BIGQUERY_ROUTINES: ClassVar[RelationField] = RelationField("bigqueryRoutines")
+    """
+    TBC
+    """
     SPARK_JOBS: ClassVar[RelationField] = RelationField("sparkJobs")
+    """
+    TBC
+    """
+    SQL_FUNCTIONS: ClassVar[RelationField] = RelationField("sqlFunctions")
     """
     TBC
     """
@@ -256,8 +272,12 @@ class DbtColumnProcess(Dbt):
         "additional_etl_context",
         "ai_dataset_type",
         "flow_orchestrated_by",
+        "sql_procedures",
+        "fabric_activities",
         "adf_activity",
+        "bigquery_routines",
         "spark_jobs",
+        "sql_functions",
         "matillion_component",
         "process",
         "airflow_tasks",
@@ -597,6 +617,26 @@ class DbtColumnProcess(Dbt):
         self.attributes.flow_orchestrated_by = flow_orchestrated_by
 
     @property
+    def sql_procedures(self) -> Optional[List[Procedure]]:
+        return None if self.attributes is None else self.attributes.sql_procedures
+
+    @sql_procedures.setter
+    def sql_procedures(self, sql_procedures: Optional[List[Procedure]]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.sql_procedures = sql_procedures
+
+    @property
+    def fabric_activities(self) -> Optional[List[FabricActivity]]:
+        return None if self.attributes is None else self.attributes.fabric_activities
+
+    @fabric_activities.setter
+    def fabric_activities(self, fabric_activities: Optional[List[FabricActivity]]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.fabric_activities = fabric_activities
+
+    @property
     def adf_activity(self) -> Optional[AdfActivity]:
         return None if self.attributes is None else self.attributes.adf_activity
 
@@ -607,6 +647,16 @@ class DbtColumnProcess(Dbt):
         self.attributes.adf_activity = adf_activity
 
     @property
+    def bigquery_routines(self) -> Optional[List[BigqueryRoutine]]:
+        return None if self.attributes is None else self.attributes.bigquery_routines
+
+    @bigquery_routines.setter
+    def bigquery_routines(self, bigquery_routines: Optional[List[BigqueryRoutine]]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.bigquery_routines = bigquery_routines
+
+    @property
     def spark_jobs(self) -> Optional[List[SparkJob]]:
         return None if self.attributes is None else self.attributes.spark_jobs
 
@@ -615,6 +665,16 @@ class DbtColumnProcess(Dbt):
         if self.attributes is None:
             self.attributes = self.Attributes()
         self.attributes.spark_jobs = spark_jobs
+
+    @property
+    def sql_functions(self) -> Optional[List[Function]]:
+        return None if self.attributes is None else self.attributes.sql_functions
+
+    @sql_functions.setter
+    def sql_functions(self, sql_functions: Optional[List[Function]]):
+        if self.attributes is None:
+            self.attributes = self.Attributes()
+        self.attributes.sql_functions = sql_functions
 
     @property
     def matillion_component(self) -> Optional[MatillionComponent]:
@@ -716,10 +776,22 @@ class DbtColumnProcess(Dbt):
         flow_orchestrated_by: Optional[FlowControlOperation] = Field(
             default=None, description=""
         )  # relationship
+        sql_procedures: Optional[List[Procedure]] = Field(
+            default=None, description=""
+        )  # relationship
+        fabric_activities: Optional[List[FabricActivity]] = Field(
+            default=None, description=""
+        )  # relationship
         adf_activity: Optional[AdfActivity] = Field(
             default=None, description=""
         )  # relationship
+        bigquery_routines: Optional[List[BigqueryRoutine]] = Field(
+            default=None, description=""
+        )  # relationship
         spark_jobs: Optional[List[SparkJob]] = Field(
+            default=None, description=""
+        )  # relationship
+        sql_functions: Optional[List[Function]] = Field(
             default=None, description=""
         )  # relationship
         matillion_component: Optional[MatillionComponent] = Field(
@@ -751,12 +823,16 @@ class DbtColumnProcess(Dbt):
 
 from .core.adf_activity import AdfActivity  # noqa: E402, F401
 from .core.airflow_task import AirflowTask  # noqa: E402, F401
+from .core.bigquery_routine import BigqueryRoutine  # noqa: E402, F401
 from .core.catalog import Catalog  # noqa: E402, F401
 from .core.column_process import ColumnProcess  # noqa: E402, F401
+from .core.fabric_activity import FabricActivity  # noqa: E402, F401
 from .core.fivetran_connector import FivetranConnector  # noqa: E402, F401
 from .core.flow_control_operation import FlowControlOperation  # noqa: E402, F401
+from .core.function import Function  # noqa: E402, F401
 from .core.matillion_component import MatillionComponent  # noqa: E402, F401
 from .core.power_b_i_dataflow import PowerBIDataflow  # noqa: E402, F401
+from .core.procedure import Procedure  # noqa: E402, F401
 from .core.process import Process  # noqa: E402, F401
 from .core.spark_job import SparkJob  # noqa: E402, F401
 

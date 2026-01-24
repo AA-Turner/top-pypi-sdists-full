@@ -1,17 +1,19 @@
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
-use super::{BuildSerializer, CombinedSerializer, Extra, TypeSerializer};
+use super::{BuildSerializer, CombinedSerializer, TypeSerializer};
 use crate::definitions::DefinitionsBuilder;
+use crate::serializers::SerializationState;
 use crate::tools::SchemaDict;
 
 #[derive(Debug)]
 pub struct JsonOrPythonSerializer {
-    json: Box<CombinedSerializer>,
-    python: Box<CombinedSerializer>,
+    json: Arc<CombinedSerializer>,
+    python: Arc<CombinedSerializer>,
     name: String,
 }
 
@@ -21,8 +23,8 @@ impl BuildSerializer for JsonOrPythonSerializer {
     fn build(
         schema: &Bound<'_, PyDict>,
         config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedSerializer>,
-    ) -> PyResult<CombinedSerializer> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedSerializer>>,
+    ) -> PyResult<Arc<CombinedSerializer>> {
         let py = schema.py();
         let json_schema = schema.get_as_req(intern!(py, "json_schema"))?;
         let python_schema = schema.get_as_req(intern!(py, "python_schema"))?;
@@ -36,41 +38,36 @@ impl BuildSerializer for JsonOrPythonSerializer {
             json.get_name(),
             python.get_name(),
         );
-        Ok(Self {
-            json: Box::new(json),
-            python: Box::new(python),
-            name,
-        }
-        .into())
+        Ok(Arc::new(Self { json, python, name }.into()))
     }
 }
 
 impl_py_gc_traverse!(JsonOrPythonSerializer { json, python });
 
 impl TypeSerializer for JsonOrPythonSerializer {
-    fn to_python(
+    fn to_python<'py>(
         &self,
-        value: &Bound<'_, PyAny>,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
-    ) -> PyResult<PyObject> {
-        self.python.to_python(value, include, exclude, extra)
+        value: &Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Py<PyAny>> {
+        self.python.to_python(value, state)
     }
 
-    fn json_key<'a>(&self, key: &'a Bound<'_, PyAny>, extra: &Extra) -> PyResult<Cow<'a, str>> {
-        self.json.json_key(key, extra)
+    fn json_key<'a, 'py>(
+        &self,
+        key: &'a Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Cow<'a, str>> {
+        self.json.json_key(key, state)
     }
 
-    fn serde_serialize<S: serde::ser::Serializer>(
+    fn serde_serialize<'py, S: serde::ser::Serializer>(
         &self,
-        value: &Bound<'_, PyAny>,
+        value: &Bound<'py, PyAny>,
         serializer: S,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
+        state: &mut SerializationState<'_, 'py>,
     ) -> Result<S::Ok, S::Error> {
-        self.json.serde_serialize(value, serializer, include, exclude, extra)
+        self.json.serde_serialize(value, serializer, state)
     }
 
     fn get_name(&self) -> &str {

@@ -326,3 +326,76 @@ class CreateModelTrainingJobRequest(_message.Message):
 class CreateModelTrainingJobResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
+
+class IngestDatasetRequest(_message.Message):
+    __slots__ = (
+        "outputs",
+        "revision_id",
+        "branch",
+        "planner_options",
+        "store_online",
+        "store_offline",
+        "enable_profiling",
+        "online_timestamping_mode",
+        "explain",
+    )
+    class PlannerOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
+    OUTPUTS_FIELD_NUMBER: _ClassVar[int]
+    REVISION_ID_FIELD_NUMBER: _ClassVar[int]
+    BRANCH_FIELD_NUMBER: _ClassVar[int]
+    PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
+    STORE_OFFLINE_FIELD_NUMBER: _ClassVar[int]
+    ENABLE_PROFILING_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_TIMESTAMPING_MODE_FIELD_NUMBER: _ClassVar[int]
+    EXPLAIN_FIELD_NUMBER: _ClassVar[int]
+    outputs: _containers.RepeatedScalarFieldContainer[str]
+    revision_id: str
+    branch: str
+    planner_options: _containers.MessageMap[str, _struct_pb2.Value]
+    store_online: bool
+    store_offline: bool
+    enable_profiling: bool
+    online_timestamping_mode: str
+    explain: bool
+    def __init__(
+        self,
+        outputs: _Optional[_Iterable[str]] = ...,
+        revision_id: _Optional[str] = ...,
+        branch: _Optional[str] = ...,
+        planner_options: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        store_online: bool = ...,
+        store_offline: bool = ...,
+        enable_profiling: bool = ...,
+        online_timestamping_mode: _Optional[str] = ...,
+        explain: bool = ...,
+    ) -> None: ...
+
+class IngestDatasetResponse(_message.Message):
+    __slots__ = ("dataset_response",)
+    DATASET_RESPONSE_FIELD_NUMBER: _ClassVar[int]
+    dataset_response: _dataset_response_pb2.DatasetResponse
+    def __init__(
+        self, dataset_response: _Optional[_Union[_dataset_response_pb2.DatasetResponse, _Mapping]] = ...
+    ) -> None: ...
+
+class RetryOfflineQueryShardRequest(_message.Message):
+    __slots__ = ("offline_query_id", "shard_index")
+    OFFLINE_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    SHARD_INDEX_FIELD_NUMBER: _ClassVar[int]
+    offline_query_id: str
+    shard_index: int
+    def __init__(self, offline_query_id: _Optional[str] = ..., shard_index: _Optional[int] = ...) -> None: ...
+
+class RetryOfflineQueryShardResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...

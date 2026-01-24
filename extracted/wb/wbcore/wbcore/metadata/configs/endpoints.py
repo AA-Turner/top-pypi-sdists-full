@@ -71,10 +71,11 @@ class EndpointViewConfig(WBCoreViewConfig):
             return None
 
     def get_delete_endpoint(self, **kwargs):
-        return self.get_endpoint()
+        if not hasattr(self.view, "ONLY_READ_ONLY_ENDPOINT"):
+            return self.get_endpoint()
 
     def _get_delete_endpoint(self, **kwargs):
-        read_only = getattr(self.view, "READ_ONLY", False)
+        read_only = getattr(self.view, "ONLY_READ_ONLY_ENDPOINT", False)
         content_type = self.view.get_content_type()
 
         if content_type is None:
@@ -99,7 +100,7 @@ class EndpointViewConfig(WBCoreViewConfig):
     def _get_create_endpoint(self):
         from wbcore.viewsets import ViewSet
 
-        read_only = getattr(self.view, "READ_ONLY", False)
+        read_only = getattr(self.view, "ONLY_READ_ONLY_ENDPOINT", False)
         if read_only:
             return None
 
@@ -118,10 +119,11 @@ class EndpointViewConfig(WBCoreViewConfig):
         return None
 
     def get_update_endpoint(self, **kwargs):
-        return self.get_instance_endpoint()
+        if not hasattr(self.view, "ONLY_READ_ONLY_ENDPOINT"):
+            return self.get_instance_endpoint()
 
     def _get_update_endpoint(self):
-        if (endpoint := self.get_update_endpoint()) and not getattr(self.view, "READ_ONLY", False):
+        if (endpoint := self.get_update_endpoint()) and not getattr(self.view, "ONLY_READ_ONLY_ENDPOINT", False):
             from wbcore.viewsets import ViewSet
 
             content_type = self.view.get_content_type()

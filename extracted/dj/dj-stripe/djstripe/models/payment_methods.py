@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Union
 
 import stripe
 from django.db import models, transaction
@@ -141,8 +141,8 @@ class LegacySourceMixin:
     Mixin for functionality shared between the legacy Card & BankAccount sources
     """
 
-    customer: Optional[StripeForeignKey]
-    account: Optional[StripeForeignKey]
+    customer: StripeForeignKey | None
+    account: StripeForeignKey | None
     id: str
     default_api_key: str
 
@@ -958,7 +958,7 @@ class PaymentMethod(StripeModel):
     def attach(
         cls,
         payment_method: Union[str, "PaymentMethod"],
-        customer: Union[str, Customer],
+        customer: str | Customer,
         api_key: str = djstripe_settings.STRIPE_SECRET_KEY,
     ) -> "PaymentMethod":
         """
@@ -1004,19 +1004,27 @@ class PaymentMethod(StripeModel):
         # see https://github.com/dj-stripe/dj-stripe/pull/967
         is_legacy_card = self.id.startswith("card_")
 
+        api_key = self.default_api_key
+
         try:
-            self.sync_from_stripe_data(self.api_retrieve().detach())
+            self.sync_from_stripe_data(
+                self.api_retrieve(api_key=api_key).detach(), api_key=api_key
+            )
 
             # resync customer to update .default_payment_method and
             # .invoice_settings.default_payment_method
             for customer in customers:
-                Customer.sync_from_stripe_data(customer.api_retrieve())
+                Customer.sync_from_stripe_data(
+                    customer.api_retrieve(api_key=api_key), api_key=api_key
+                )
 
         except (InvalidRequestError,):
             # The source was already detached. Resyncing.
 
             if self.pk and not is_legacy_card:
-                self.sync_from_stripe_data(self.api_retrieve())
+                self.sync_from_stripe_data(
+                    self.api_retrieve(api_key=api_key), api_key=api_key
+                )
             changed = False
 
         if self.pk:

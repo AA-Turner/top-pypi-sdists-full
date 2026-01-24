@@ -1,6 +1,6 @@
-/*
- * SPDX-License-Identifier: Apache-2.0
- */
+// Copyright (c) ONNX Project Contributors
+//
+// SPDX-License-Identifier: Apache-2.0
 
 // Experimental language syntax and parser for ONNX. Please note that the syntax as formalized
 // by this parser is preliminary and may change.
@@ -96,6 +96,8 @@ class PrimitiveTypeNameMap : public StringIntMap<PrimitiveTypeNameMap> {
     map_["uint4"] = TensorProto_DataType_UINT4;
     map_["int4"] = TensorProto_DataType_INT4;
     map_["float4e2m1"] = TensorProto_DataType_FLOAT4E2M1;
+    map_["uint2"] = TensorProto_DataType_UINT2;
+    map_["int2"] = TensorProto_DataType_INT2;
   }
 
   static bool IsTypeName(const std::string& dtype) {

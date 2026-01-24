@@ -1,22 +1,18 @@
+import hashlib
+import json
 from asyncio import Lock
-from hashlib import sha1
-from json import dumps, loads
+from collections.abc import Callable, Container
+from functools import lru_cache
 from pathlib import Path
-from typing import Any, Container, Dict, Literal, Optional, Tuple
+from sqlite3 import OperationalError
+from typing import Any, Final, Literal, cast, final
 
 import aiosqlite
 from a_sync import SmartProcessingQueue
-from a_sync.async_property.cached import async_cached_property
+from aiosqlite.context import Result
 from brownie._config import CONFIG, _get_data_folder
 from brownie.exceptions import BrownieEnvironmentError
-from brownie.network.contract import _resolve_address
-from brownie.project.build import DEPLOYMENT_KEYS
-from eth_utils.toolz import keymap
-from functools import lru_cache
-from sqlite3 import InterfaceError, OperationalError
-
-from y.datatypes import Address
-
+from brownie.network.contract import _resolve_address  # type: ignore [attr-defined]
 
 SourceKey = Literal[
     "address",
@@ -37,13 +33,31 @@ SourceKey = Literal[
     "type",
 ]
 
-BuildJson = Dict[str, Any]
-Sources = Dict[SourceKey, Any]
+# TODO: replace these with the typed dicts in brownie >=1.22
+BuildJson = dict[str, Any]
+Sources = dict[SourceKey, Any]
 
 
-SOURCE_KEYS: Tuple[SourceKey, ...] = SourceKey.__args__
+SOURCE_KEYS: Final = (
+    "address",
+    "alias",
+    "paths",
+    "abi",
+    "ast",
+    "bytecode",
+    "compiler",
+    "contractName",
+    "deployedBytecode",
+    "deployedSourceMap",
+    "language",
+    "natspec",
+    "opcodes",
+    "pcMap",
+    "sourceMap",
+    "type",
+)
 
-DISCARD_SOURCE_KEYS: Tuple[SourceKey, ...] = (
+DISCARD_SOURCE_KEYS: Final = (
     "ast",
     "bytecode",
     "coverageMap",
@@ -60,22 +74,39 @@ These keys will not be included in y.Contract object build data. If you need the
 """
 
 
-sqlite_lock = Lock()
+# C constants
+
+sha1: Final = hashlib.sha1
+
+dumps: Final = json.dumps
+loads: Final = json.loads
+
+sqlite_lock: Final = Lock()
 
 
+@final
 class AsyncCursor:
-    def __init__(self, filename):
-        self._filename = filename
+    def __init__(self, filename: Path) -> None:
+        self._filename: Final = filename
+        self._db: aiosqlite.Connection | None = None
+        self._connected: bool = False
+        self._execute: Callable[..., Result[aiosqlite.Cursor]] | None = None
 
-    @async_cached_property
-    async def connect(self):
+    async def connect(self) -> None:
         """Establish an async connection to the SQLite database"""
+        db = self._db  # must assign before checking to avoid a TypeError below
+        if db is not None:
+            raise RuntimeError("already connected")
         async with sqlite_lock:
+            if self._db is not None:
+                return
             self._db = await aiosqlite.connect(self._filename, isolation_level=None)
+            self._execute = self._db.execute
 
-    async def insert(self, table, *values):
+    async def insert(self, table: str, *values: Any) -> None:
         raise NotImplementedError
-        await self.connect
+        if self._db is None:
+            await self.connect()
 
         # Convert any dictionaries/lists to JSON strings before inserting
         values = [dumps(val) if isinstance(val, (dict, list)) else val for val in values]
@@ -85,20 +116,24 @@ class AsyncCursor:
         query = f"INSERT OR REPLACE INTO {table} VALUES ({placeholders})"
 
         # Execute the query and commit the changes
-        async with self._db.execute(query, values):
+        async with self._execute(query, values):
             await self._db.commit()
 
-    async def fetchone(self, cmd: str, *args) -> Optional[Tuple]:
-        await self.connect
+    async def fetchone(self, cmd: str, *args: Any) -> tuple[Any, ...] | None:
+        if self._db is None:
+            await self.connect()
         async with sqlite_lock:
-            async with self._db.execute(cmd, args) as cursor:
-                if row := await cursor.fetchone():
-                    # Convert any JSON-serialized columns back to their original data structures
-                    return tuple(loads(i) if str(i).startswith(("[", "{")) else i for i in row)
+            execute = cast(Callable[..., Result[aiosqlite.Cursor]], self._execute)
+            async with execute(cmd, args) as cursor:
+                row = await cursor.fetchone()
+                if row is None:
+                    return None
+                # Convert any JSON-serialized columns back to their original data structures
+                return tuple(loads(i) if str(i).startswith(("[", "{")) else i for i in row)
 
 
-cur = AsyncCursor(_get_data_folder().joinpath("deployments.db"))
-fetchone = SmartProcessingQueue(cur.fetchone, num_workers=32)
+cur: Final = AsyncCursor(_get_data_folder().joinpath("deployments.db"))
+fetchone: Final = SmartProcessingQueue(cur.fetchone, num_workers=32)
 
 
 @lru_cache(maxsize=None)
@@ -110,10 +145,10 @@ def _get_select_statement() -> str:
 
 
 async def _get_deployment(
-    address: str = None,
-    alias: str = None,
-    skip_source_keys: Container[SourceKey] = DISCARD_SOURCE_KEYS,
-) -> Tuple[Optional[BuildJson], Optional[Sources]]:
+    address: str | None = None,
+    alias: str | None = None,
+    skip_source_keys: Container[SourceKey] = cast(Container[SourceKey], DISCARD_SOURCE_KEYS),
+) -> tuple[BuildJson | None, Sources | None]:
     if address and alias:
         raise ValueError("Passed both params address and alias, should be only one!")
     if address:
@@ -130,7 +165,7 @@ async def _get_deployment(
         return None, None
 
     build_json = dict(zip(SOURCE_KEYS, row))
-    path_map = build_json.pop("paths")
+    path_map: dict = build_json.pop("paths")  # type: ignore [type-arg]
 
     sources = {
         source_key: await __fetch_source_for_hash(val)
@@ -139,11 +174,13 @@ async def _get_deployment(
     }
 
     build_json["allSourcePaths"] = {k: v[1] for k, v in path_map.items()}
-    if isinstance(build_json.get("pcMap"), dict):
-        build_json["pcMap"] = keymap(int, build_json["pcMap"])
+    pc_map: dict | None = build_json.get("pcMap")  # type: ignore [type-arg]
+    if pc_map is not None:
+        build_json["pcMap"] = {int(key): pc_map[key] for key in pc_map}
 
     return build_json, sources
 
 
 async def __fetch_source_for_hash(hashval: str) -> Any:
-    return (await fetchone("SELECT source FROM sources WHERE hash=?", hashval))[0]
+    row = await fetchone("SELECT source FROM sources WHERE hash=?", hashval)
+    return cast(tuple[Any, ...], row)[0]

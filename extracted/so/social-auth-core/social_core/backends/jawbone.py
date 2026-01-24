@@ -3,6 +3,8 @@ Jawbone OAuth2 backend, docs at:
     https://python-social-auth.readthedocs.io/en/latest/backends/jawbone.html
 """
 
+from typing import Any
+
 from social_core.exceptions import AuthCanceled, AuthUnknownError
 from social_core.utils import handle_http_errors
 
@@ -36,7 +38,7 @@ class JawboneOAuth2(BaseOAuth2):
             "weight": data.get("weight", ""),
         }
 
-    def user_data(self, access_token, *args, **kwargs):
+    def user_data(self, access_token: str, *args, **kwargs) -> dict[str, Any] | None:
         """Loads user data from service"""
         return self.get_json(
             "https://jawbone.com/nudge/api/users/@me",
@@ -72,5 +74,5 @@ class JawboneOAuth2(BaseOAuth2):
         )
         self.process_error(response)
         return self.do_auth(
-            response["access_token"], response=response, *args, **kwargs
+            response["access_token"], *args, response=response, **kwargs
         )

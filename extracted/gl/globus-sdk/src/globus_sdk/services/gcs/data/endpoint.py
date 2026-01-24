@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import typing as t
 
-from globus_sdk import utils
+from globus_sdk._internal.remarshal import strseq_listify
+from globus_sdk._missing import MISSING, MissingType
+from globus_sdk._payload import GlobusPayload
 from globus_sdk.services.gcs.data._common import DatatypeCallback, ensure_datatype
-from globus_sdk.utils import MISSING, MissingType
 
 
-class EndpointDocument(utils.PayloadWrapper):
+class EndpointDocument(GlobusPayload):
     r"""
 
     :param data_type: Explicitly set the ``DATA_TYPE`` value for this endpoint document.
@@ -126,11 +127,7 @@ class EndpointDocument(utils.PayloadWrapper):
         self["info_link"] = info_link
         self["network_use"] = network_use
         self["organization"] = organization
-        self["keywords"] = (
-            keywords
-            if isinstance(keywords, MissingType)
-            else list(utils.safe_strseq_iter(keywords))
-        )
+        self["keywords"] = strseq_listify(keywords)
         self["allow_udt"] = allow_udt
         self["public"] = public
         self["max_concurrency"] = max_concurrency
@@ -140,6 +137,6 @@ class EndpointDocument(utils.PayloadWrapper):
         self["subscription_id"] = subscription_id
         self["gridftp_control_channel_port"] = gridftp_control_channel_port
 
-        if not isinstance(additional_fields, MissingType):
+        if additional_fields is not MISSING:
             self.update(additional_fields)
         ensure_datatype(self)

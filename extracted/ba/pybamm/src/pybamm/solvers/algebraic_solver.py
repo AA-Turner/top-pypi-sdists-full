@@ -179,15 +179,21 @@ class AlgebraicSolver(pybamm.BaseSolver):
                     if jac_fn is None:
                         jac_fn = "2-point"
                     timer.reset()
-                    sol = optimize.least_squares(
-                        root_fun,
-                        y0_alg,
-                        method=method,
-                        ftol=self.tol,
-                        jac=jac_fn,
-                        bounds=model.bounds,
-                        **self.extra_options,
-                    )
+                    try:
+                        sol = optimize.least_squares(
+                            root_fun,
+                            y0_alg,
+                            method=method,
+                            ftol=self.tol,
+                            jac=jac_fn,
+                            bounds=model.bounds,
+                            **self.extra_options,
+                        )
+                    except ValueError as e:
+                        if "array must not contain infs or NaNs" in str(e):
+                            raise pybamm.SolverError(str(e)) from e
+                        else:
+                            raise e from e
                     integration_time += timer.time()
                     success |= sol.success
                 # Methods which use minimize are specified as either "minimize",
@@ -215,7 +221,7 @@ class AlgebraicSolver(pybamm.BaseSolver):
                         bounds = [
                             (lb, ub)
                             for lb, ub in zip(
-                                model.bounds[0], model.bounds[1], strict=False
+                                model.bounds[0], model.bounds[1], strict=True
                             )
                         ]
                     else:

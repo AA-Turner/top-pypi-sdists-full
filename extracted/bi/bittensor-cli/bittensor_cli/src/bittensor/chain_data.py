@@ -13,6 +13,7 @@ from bittensor_cli.src.bittensor.utils import (
     u16_normalized_float as u16tf,
     u64_normalized_float as u64tf,
     decode_account_id,
+    get_netuid_and_subuid_by_storage_index,
 )
 
 
@@ -1084,12 +1085,13 @@ class MetagraphInfo(InfoBase):
     alpha_dividends_per_hotkey: list[
         tuple[str, Balance]
     ]  # List of dividend payout in alpha via subnet.
+    subuid: int = 0
 
     @classmethod
     def _fix_decoded(cls, decoded: dict) -> "MetagraphInfo":
         """Returns a MetagraphInfo object from decoded chain data."""
         # Subnet index
-        _netuid = decoded["netuid"]
+        _netuid, _subuid = get_netuid_and_subuid_by_storage_index(decoded["netuid"])
 
         # Name and symbol
         decoded.update({"name": bytes(decoded.get("name")).decode()})
@@ -1102,6 +1104,7 @@ class MetagraphInfo(InfoBase):
         return cls(
             # Subnet index
             netuid=_netuid,
+            subuid=_subuid,
             # Name and symbol
             name=decoded["name"],
             symbol=decoded["symbol"],
@@ -1209,4 +1212,52 @@ class SimSwapResult:
             alpha_amount=Balance.from_rao(d["alpha_amount"]).set_unit(netuid),
             tao_fee=Balance.from_rao(d["tao_fee"]).set_unit(0),
             alpha_fee=Balance.from_rao(d["alpha_fee"]).set_unit(netuid),
+        )
+
+
+@dataclass
+class CrowdloanData(InfoBase):
+    creator: Optional[str]
+    funds_account: Optional[str]
+    deposit: Balance
+    min_contribution: Balance
+    cap: Balance
+    raised: Balance
+    end: int
+    finalized: bool
+    contributors_count: int
+    target_address: Optional[str]
+    has_call: bool
+    call_details: Optional[dict] = None
+
+    @classmethod
+    def _fix_decoded(cls, decoded: dict[str, Any]) -> "CrowdloanData":
+        creator = (
+            decode_account_id(creator_raw)
+            if (creator_raw := decoded.get("creator"))
+            else None
+        )
+        funds_account = (
+            decode_account_id(funds_raw)
+            if (funds_raw := decoded.get("funds_account"))
+            else None
+        )
+        target_address = (
+            decode_account_id(target_raw)
+            if (target_raw := decoded.get("target_address"))
+            else None
+        )
+        return cls(
+            creator=creator,
+            funds_account=funds_account,
+            deposit=Balance.from_rao(int(decoded["deposit"])),
+            min_contribution=Balance.from_rao(int(decoded["min_contribution"])),
+            cap=Balance.from_rao(int(decoded["cap"])),
+            raised=Balance.from_rao(int(decoded["raised"])),
+            end=int(decoded["end"]),
+            finalized=bool(decoded["finalized"]),
+            contributors_count=int(decoded["contributors_count"]),
+            target_address=target_address,
+            has_call=bool(decoded["call"]),
+            call_details=decoded["call_details"],
         )

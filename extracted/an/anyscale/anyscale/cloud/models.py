@@ -1,18 +1,20 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, ClassVar, Dict, List, Optional, Union
 
 from anyscale._private.models import ModelBase, ModelEnum
 
 
 class CloudPermissionLevel(ModelEnum):
+    """Permission levels for cloud collaborators."""
+
     WRITE = "WRITE"
     READONLY = "READONLY"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         WRITE: "Write permission level for the cloud",
         READONLY: "Readonly permission level for the cloud",
-    }  # type: ignore
+    }
 
 
 @dataclass(frozen=True)
@@ -93,31 +95,35 @@ create_cloud_collaborators = CreateCloudCollaborators(
 
 
 class ComputeStack(ModelEnum):
+    """Type of compute stack for the cloud."""
+
     UNKNOWN = "UNKNOWN"
     VM = "VM"
     K8S = "K8S"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         UNKNOWN: "Unknown compute stack.",
         VM: "Virtual machine-based compute stack.",
         K8S: "Kubernetes-based compute stack.",
-    }  # type: ignore
+    }
 
 
 class CloudProvider(ModelEnum):
+    """Cloud infrastructure provider."""
+
     UNKNOWN = "UNKNOWN"
     AWS = "AWS"
     GCP = "GCP"
     AZURE = "AZURE"
     GENERIC = "GENERIC"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         UNKNOWN: "Unknown cloud provider.",
         AWS: "Amazon Web Services.",
         GCP: "Google Cloud Platform.",
         AZURE: "Microsoft Azure.",
         GENERIC: "Generic cloud provider.",
-    }  # type: ignore
+    }
 
 
 @dataclass(frozen=True)
@@ -225,13 +231,15 @@ cloud = Cloud(
 
 
 class NetworkingMode(ModelEnum):
+    """Networking mode for cloud resources."""
+
     PUBLIC = "PUBLIC"
     PRIVATE = "PRIVATE"
 
-    __docstrings__ = {
+    __docstrings__: ClassVar[Dict[str, str]] = {
         PUBLIC: "Direct networking.",
         PRIVATE: "Customer-defined networking.",
-    }  # type: ignore
+    }
 
 
 @dataclass(frozen=True)
@@ -497,9 +505,9 @@ compute_stack: VM
 region: us-west-2
 networking_mode: PUBLIC
 object_storage:
-bucket_name: s3://my-bucket
+  bucket_name: s3://my-bucket
 file_storage:
-file_storage_id: fs-12345678901234567
+  file_storage_id: fs-12345678901234567
 aws_config:
   vpc_id: vpc-12345678901234567
   subnet_ids:

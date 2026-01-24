@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gmpy2
-Version: 2.2.1
+Version: 2.2.2
 Summary: gmpy2 interface to GMP, MPFR, and MPC for Python 3.7+
-Author: Case Van Horsen
-Maintainer-email: Case Van Horsen <casevh@gmail.com>
+Author: Alex Martelli, Case Van Horsen
+Maintainer-email: Matthias Köppe <mkoeppe@math.ucdavis.edu>, Sergey B Kirpichev <skirpichev@gmail.com>
 License: LGPL-3.0+
-Project-URL: Homepage, https://github.com/aleaxit/gmpy
+Project-URL: Homepage, https://github.com/gmpy2/gmpy2
 Keywords: gmp,mpfr,mpc,multiple-precision,arbitrary-precision,precision,bignum
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -24,6 +24,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -40,6 +41,7 @@ Requires-Dist: hypothesis; extra == "tests"
 Requires-Dist: cython; extra == "tests"
 Requires-Dist: mpmath; extra == "tests"
 Requires-Dist: setuptools; extra == "tests"
+Dynamic: license-file
 
 gmpy2 is an optimized, C-coded Python extension module that supports fast
 multiple-precision arithmetic.  gmpy2 is based on the original gmpy module.
@@ -48,6 +50,16 @@ gmpy2 adds support for correctly rounded multiple-precision real arithmetic
 
 Version 2.2
 -----------
+
+gmpy2 2.2.2
+-----------
+
+* Fix memory leak for mpfr/mpc cache, see issue 511.
+* Fix memory leak in GMPy_CTXT_Exit(), see issue 515.
+* Restore 'm' in library list, see issue 538.
+* Adjust to_bytes() behavior to match CPython.
+* Provide wheels for CPython v3.14.
+* Provide wheels for Linux and Windows ARM64.
 
 gmpy2 2.2.1
 -----------

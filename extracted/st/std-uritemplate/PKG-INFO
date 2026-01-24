@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: std-uritemplate
-Version: 2.0.5
+Version: 2.0.8
 Summary: std-uritemplate implementation for Python
 License: Apache-2.0
 Keywords: std-uritemplate,uritemplate,uritemplates,stduritemplate
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/std-uritemplate/std-uritemplate
 Project-URL: Repository, https://github.com/std-uritemplate/std-uritemplate
 Description-Content-Type: text/markdown

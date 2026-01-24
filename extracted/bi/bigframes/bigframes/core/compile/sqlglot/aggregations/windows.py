@@ -15,16 +15,20 @@ from __future__ import annotations
 
 import typing
 
-import sqlglot.expressions as sge
+import bigframes_vendored.sqlglot.expressions as sge
 
 from bigframes.core import utils, window_spec
 import bigframes.core.compile.sqlglot.scalar_compiler as scalar_compiler
+import bigframes.core.expression as ex
 import bigframes.core.ordering as ordering_spec
+import bigframes.dtypes as dtypes
 
 
 def apply_window_if_present(
     value: sge.Expression,
     window: typing.Optional[window_spec.WindowSpec] = None,
+    include_framing_clauses: bool = True,
+    order_by_override: typing.Optional[typing.List[sge.Ordered]] = None,
 ) -> sge.Expression:
     if window is None:
         return value
@@ -39,33 +43,33 @@ def apply_window_if_present(
         # Unbound grouping window.
         order_by = None
     elif window.is_range_bounded:
-        # Note that, when the window is range-bounded, we only need one ordering key.
-        # There are two reasons:
-        # 1. Manipulating null positions requires more than one ordering key, which
-        #  is forbidden by SQL window syntax for range rolling.
-        # 2. Pandas does not allow range rolling on timeseries with nulls.
-        order_by = get_window_order_by((window.ordering[0],), override_null_order=False)
+        order_by = get_window_order_by((window.ordering[0],))
+        order_by = remove_null_ordering_for_range_windows(order_by)
     else:
-        order_by = get_window_order_by(window.ordering, override_null_order=True)
+        order_by = get_window_order_by(window.ordering)
 
-    order = sge.Order(expressions=order_by) if order_by else None
+    order = None
+    if order_by_override is not None and len(order_by_override) > 0:
+        order = sge.Order(expressions=order_by_override)
+    elif order_by:
+        order = sge.Order(expressions=order_by)
 
     group_by = (
-        [
-            scalar_compiler.scalar_op_compiler.compile_expression(key)
-            for key in window.grouping_keys
-        ]
+        [_compile_group_by_key(key) for key in window.grouping_keys]
         if window.grouping_keys
         else None
     )
 
     # This is the key change. Don't create a spec for the default window frame
     # if there's no ordering. This avoids generating an `ORDER BY NULL` clause.
-    if not window.bounds and not order:
+    if window.is_unbounded and not order:
         return sge.Window(this=value, partition_by=group_by)
 
+    if window.is_unbounded and not include_framing_clauses:
+        return sge.Window(this=value, partition_by=group_by, order=order)
+
     kind = (
-        "ROWS" if isinstance(window.bounds, window_spec.RowsWindowBounds) else "RANGE"
+        "RANGE" if isinstance(window.bounds, window_spec.RangeWindowBounds) else "ROWS"
     )
 
     start: typing.Union[int, float, None] = None
@@ -98,7 +102,15 @@ def get_window_order_by(
     ordering: typing.Tuple[ordering_spec.OrderingExpression, ...],
     override_null_order: bool = False,
 ) -> typing.Optional[tuple[sge.Ordered, ...]]:
-    """Returns the SQL order by clause for a window specification."""
+    """Returns the SQL order by clause for a window specification.
+    Args:
+        ordering (Tuple[ordering_spec.OrderingExpression, ...]):
+            A tuple of ordering specification objects.
+        override_null_order (bool):
+            If True, overrides BigQuery's default null ordering behavior, which
+            is sometimes incompatible with ordered aggregations. The generated SQL
+            will include extra expressions to correctly enforce NULL FIRST/LAST.
+    """
     if not ordering:
         return None
 
@@ -111,8 +123,6 @@ def get_window_order_by(
         nulls_first = not ordering_spec_item.na_last
 
         if override_null_order:
-            # Bigquery SQL considers NULLS to be "smallest" values, but we need
-            # to override in these cases.
             is_null_expr = sge.Is(this=expr, expression=sge.Null())
             if nulls_first and desc:
                 order_by.append(
@@ -122,7 +132,7 @@ def get_window_order_by(
                         nulls_first=nulls_first,
                     )
                 )
-            elif not nulls_first and not desc:
+            elif (not nulls_first) and (not desc):
                 order_by.append(
                     sge.Ordered(
                         this=is_null_expr,
@@ -141,6 +151,30 @@ def get_window_order_by(
     return tuple(order_by)
 
 
+def remove_null_ordering_for_range_windows(
+    order_by: typing.Optional[tuple[sge.Ordered, ...]],
+) -> typing.Optional[tuple[sge.Ordered, ...]]:
+    """Removes NULL FIRST/LAST from ORDER BY expressions in RANGE windows.
+    Here's the support matrix:
+    ✅ sum(x) over (order by y desc nulls last)
+    🚫 sum(x) over (order by y asc nulls last)
+    ✅ sum(x) over (order by y asc nulls first)
+    🚫 sum(x) over (order by y desc nulls first)
+    """
+    if order_by is None:
+        return None
+
+    new_order_by = []
+    for key in order_by:
+        kargs = key.args
+        if kargs.get("desc") is True and kargs.get("nulls_first", False):
+            kargs["nulls_first"] = False
+        elif kargs.get("desc") is False and not kargs.setdefault("nulls_first", True):
+            kargs["nulls_first"] = True
+        new_order_by.append(sge.Ordered(**kargs))
+    return tuple(new_order_by)
+
+
 def _get_window_bounds(
     value, is_preceding: bool
 ) -> tuple[typing.Union[str, sge.Expression], typing.Optional[str]]:
@@ -154,3 +188,18 @@ def _get_window_bounds(
 
     side = "PRECEDING" if value < 0 else "FOLLOWING"
     return sge.convert(abs(value)), side
+
+
+def _compile_group_by_key(key: ex.Expression) -> sge.Expression:
+    expr = scalar_compiler.scalar_op_compiler.compile_expression(key)
+    # The group_by keys has been rewritten by bind_schema_to_node
+    assert isinstance(key, ex.ResolvedDerefOp)
+
+    # Some types need to be converted to another type to enable groupby
+    if key.dtype == dtypes.FLOAT_DTYPE:
+        expr = sge.Cast(this=expr, to="STRING")
+    elif key.dtype == dtypes.GEO_DTYPE:
+        expr = sge.func("ST_ASBINARY", expr)
+    elif key.dtype == dtypes.JSON_DTYPE:
+        expr = sge.func("TO_JSON_STRING", expr)
+    return expr

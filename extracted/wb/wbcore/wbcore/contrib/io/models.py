@@ -28,6 +28,7 @@ from django.db.utils import IntegrityError
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.functional import cached_property
+from django.utils.module_loading import import_string
 from django.utils.translation import gettext_lazy as _
 from django_celery_beat.models import CrontabSchedule, PeriodicTask, cronexp
 from import_export.resources import Resource
@@ -37,9 +38,9 @@ from tqdm import tqdm
 
 from wbcore.contrib.notifications.dispatch import send_notification
 from wbcore.contrib.notifications.utils import create_notification_type
-from wbcore.utils.importlib import import_from_dotted_path
 from wbcore.utils.models import ComplexToStringMixin
 
+from ...workers import Queue
 from .enums import ExportFormat, get_django_import_export_format
 from .signals import post_import
 
@@ -90,24 +91,24 @@ class ParserHandler(models.Model):
                 handler.process(parsed_data, **kwargs)
 
     class Meta:
-        unique_together = ("parser", "handler")
+        constraints = (models.UniqueConstraint(name="unique_parserhandler", fields=("parser", "handler")),)
         verbose_name = _("Parser-Handler")
         verbose_name_plural = _("Parsers-Handlers")
 
     @classmethod
-    def get_representation_value_key(self) -> str:
+    def get_representation_value_key(cls) -> str:
         return "id"
 
     @classmethod
-    def get_representation_label_key(self) -> str:
+    def get_representation_label_key(cls) -> str:
         return "{{parser}}::{{handler}}"
 
     @classmethod
-    def get_representation_endpoint(self) -> str:
+    def get_representation_endpoint(cls) -> str:
         return "wbcore:io:parserhandlerrepresentation-list"
 
 
-class ImportedObjectProviderRelationship(ComplexToStringMixin, models.Model):
+class ImportedObjectProviderRelationship(ComplexToStringMixin):
     """
     A model that represent the relationship/link between the imported object and a provider.
 
@@ -131,10 +132,16 @@ class ImportedObjectProviderRelationship(ComplexToStringMixin, models.Model):
     class Meta:
         verbose_name = _("Content object Provider Identifier relationship")
         verbose_name_plural = _("Content object Provider Identifier relationships")
-        unique_together = [
-            ("content_type", "object_id", "provider"),
-            ("content_type", "provider_identifier", "provider"),
-        ]
+        constraints = (
+            models.UniqueConstraint(
+                name="unique_contentobjectprovideridentifierrelationship",
+                fields=("content_type", "object_id", "provider"),
+            ),
+            models.UniqueConstraint(
+                name="unique_contentobjectprovideridentifier",
+                fields=("content_type", "provider_identifier", "provider"),
+            ),
+        )
         indexes = [
             models.Index(fields=["content_type", "object_id", "provider"]),
             models.Index(fields=["content_type", "provider_identifier", "provider"]),
@@ -218,15 +225,15 @@ class DataBackend(models.Model):
         return self.title
 
     @classmethod
-    def get_representation_value_key(self) -> str:
+    def get_representation_value_key(cls) -> str:
         return "id"
 
     @classmethod
-    def get_representation_label_key(self) -> str:
+    def get_representation_label_key(cls) -> str:
         return "{{title}}"
 
     @classmethod
-    def get_representation_endpoint(self) -> str:
+    def get_representation_endpoint(cls) -> str:
         return "wbcore:io:databackendrepresentation-list"
 
 
@@ -254,7 +261,7 @@ class Source(models.Model):
         null=True,
         blank=True,
         verbose_name=_("Crontab Schedule"),
-        help_text=_("Crontab Schedule to run the task on.  " "Set only one schedule type, leave the others null."),
+        help_text=_("Crontab Schedule to run the task on.  Set only one schedule type, leave the others null."),
     )
 
     periodic_task = models.ForeignKey(
@@ -515,14 +522,16 @@ class Source(models.Model):
                         import_source = ImportSource.objects.create(
                             file=content_file,
                             parser_handler=parser_handler,
-                            save_data=self.data_backend.save_data_in_import_source,
+                            save_data=self.import_parameters.get(
+                                "save_data_in_import_source", self.data_backend.save_data_in_import_source
+                            ),
                             source=self,
                         )
                         res.append(import_source)
         return res
 
     @classmethod
-    def load_sources_from_settings(self, settings: list[tuple[list[tuple[str, str]], str, dict[str, Any]]]):
+    def load_sources_from_settings(cls, settings: list[tuple[list[tuple[str, str]], str, dict[str, Any]]]):
         """
         Utility classmethod to parser sources from the settings.
 
@@ -588,15 +597,15 @@ class Source(models.Model):
                 source.save()
 
     @classmethod
-    def get_representation_value_key(self) -> str:
+    def get_representation_value_key(cls) -> str:
         return "id"
 
     @classmethod
-    def get_representation_label_key(self) -> str:
+    def get_representation_label_key(cls) -> str:
         return "{{title}} ({{id}})"
 
     @classmethod
-    def get_representation_endpoint(self) -> str:
+    def get_representation_endpoint(cls) -> str:
         return "wbcore:io:sourcerepresentation-list"
 
 
@@ -613,7 +622,7 @@ def pre_delete_source(sender, instance, **kwargs):
     ImportSource.objects.filter(source=instance).update(source=None)
 
 
-@shared_task(queue="importexport")
+@shared_task(queue=Queue.BACKGROUND.value)
 def trigger_workflow_as_task(source_id: int, execution_time: datetime | None = None, **kwargs):
     """
     Call the `import_source` as a celery task
@@ -622,7 +631,7 @@ def trigger_workflow_as_task(source_id: int, execution_time: datetime | None = N
     source.trigger_workflow(execution_time=execution_time, **kwargs)
 
 
-@shared_task(queue="importexport")
+@shared_task(queue=Queue.BACKGROUND.value)
 def generate_import_sources_as_task(source_id: int, execution_time: datetime, **kwargs) -> list[int]:
     """
     Call the `import_source` as a celery task
@@ -634,7 +643,7 @@ def generate_import_sources_as_task(source_id: int, execution_time: datetime, **
     return import_source_ids
 
 
-@shared_task(queue="importexport")
+@shared_task(queue=Queue.BACKGROUND.value)
 def process_import_sources_as_task(import_source_ids: list[int]):
     """
     Call the `import_source` as a celery task
@@ -708,10 +717,13 @@ class ExportSource(ImportExportSource):
         ]
         constraints = [
             models.CheckConstraint(
-                check=Q(query_str__isnull=False, resource_path__isnull=False) | ~Q(data__exact=dict()),
+                condition=Q(query_str__isnull=False, resource_path__isnull=False) | ~Q(data__exact=dict()),
                 name="check_either_data_or_resource_isnotnull",
             )
         ]
+
+    def __str__(self) -> str:
+        return str(self.id)
 
     @property
     def file_format(self):
@@ -722,7 +734,7 @@ class ExportSource(ImportExportSource):
         """
         Load into an attribute the instantiated resource loaded from the resource path
         """
-        resource_class = import_from_dotted_path(self.resource_path)
+        resource_class = import_string(self.resource_path)
         return resource_class(**self.resource_kwargs)
 
     @property
@@ -790,7 +802,10 @@ class ExportSource(ImportExportSource):
                 self.log = f"{ex_type}: {ex_value}\n"
                 self.log += traceback.format_exc()
                 self.save()
-                logger.error(f"Export source {self.id} error: {e}")
+                logger.error(
+                    "Data source export failed: Processing error during file generation.",
+                    extra={"export_source": self, "parser_handler": self.parser_handler, "detail": e},
+                )
 
 
 class ImportSource(ImportExportSource):
@@ -860,6 +875,9 @@ class ImportSource(ImportExportSource):
                 self.parser_handler.handle(self, {"data": data[self.progress_index :], **parsed_data_copy}, **kwargs)
                 if self.errors_log:
                     self.status = self.Status.WARNING.name
+        # clean log if we don't want to use space to save it
+        if not self.save_data:
+            self.log = ""
         self.save()
 
     def import_data(self, force_reimport: Optional[bool] = False, **kwargs):
@@ -893,7 +911,11 @@ class ImportSource(ImportExportSource):
             if debug:
                 raise e
             elif not self.creator:  # if a creator is set in this import source, they will receive a proper notification with feedback. No need then to pollute the logger
-                logger.error(f"Could not import file {self.file.name}  (parser/handler: {self.parser_handler})")
+                logger.error(
+                    "Data import failed: Processing error during file parsing and handling.",
+                    extra={"import_source": self, "parser_handler": self.parser_handler, "detail": e},
+                )
+
         self.notify()
 
     def notify(self):
@@ -906,7 +928,7 @@ class ImportSource(ImportExportSource):
             elif self.status == self.Status.WARNING and self.errors_log:
                 body += f"""<p><strong>Warning:</strong> Some rows were ignored during import.</p>
         <p><strong>Ignored Rows:</strong></p>
-        <ul>{"".join(['<li>' + line + '</li>' for line in io.StringIO(self.errors_log)])}</ul>"""
+        <ul>{"".join(["<li>" + line + "</li>" for line in io.StringIO(self.errors_log)])}</ul>"""
             send_notification(
                 code="io.import_done",
                 title=f"Your import finished with status {self.Status[self.status].label}",
@@ -915,19 +937,19 @@ class ImportSource(ImportExportSource):
             )
 
     @classmethod
-    def get_representation_value_key(self) -> str:
+    def get_representation_value_key(cls) -> str:
         return "id"
 
     @classmethod
-    def get_representation_label_key(self) -> str:
+    def get_representation_label_key(cls) -> str:
         return "{{file}}"
 
     @classmethod
-    def get_representation_endpoint(self) -> str:
+    def get_representation_endpoint(cls) -> str:
         return "wbcore:io:importsourcerepresentation-list"
 
 
-@shared_task(queue="importexport")
+@shared_task(queue=Queue.BACKGROUND.value)
 def import_data_as_task(import_source_id: int, **kwargs):
     """
     Call `import_data` as a celery task
@@ -937,7 +959,7 @@ def import_data_as_task(import_source_id: int, **kwargs):
     import_source.import_data(**kwargs)
 
 
-@shared_task(queue="importexport")
+@shared_task(queue=Queue.DEFAULT.value)
 def export_data_as_task(export_source_id: int, **kwargs):
     """
     Call `import_data` as a celery task

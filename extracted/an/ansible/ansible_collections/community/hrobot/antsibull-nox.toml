@@ -6,6 +6,11 @@
 "community.internal_test_tools" = "git+https://github.com/ansible-collections/community.internal_test_tools.git,main"
 "community.library_inventory_filtering_v1" = "git+https://github.com/ansible-collections/community.library_inventory_filtering.git,stable-1"
 
+[vcs]
+vcs = "git"
+development_branch = "main"
+stable_branches = [ "stable-*" ]
+
 [sessions]
 
 [sessions.lint]
@@ -64,3 +69,32 @@ include_devel = true
 
 [sessions.ansible_test_units]
 include_devel = true
+
+[[sessions.ee_check.execution_environments]]
+name = "devel-ubi-9"
+description = "ansible-core devel @ RHEL UBI 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "docker.io/redhat/ubi9:latest"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/devel.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+config.dependencies.python_interpreter.package_system = "python3.12 python3.12-pip python3.12-wheel python3.12-cryptography"
+config.dependencies.python_interpreter.python_path = "/usr/bin/python3.12"
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
+
+[[sessions.ee_check.execution_environments]]
+name = "2.15-rocky-9"
+description = "ansible-core 2.15 @ Rocky Linux 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "quay.io/rockylinux/rockylinux:9"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/stable-2.15.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}
+
+[[sessions.ee_check.execution_environments]]
+name = "2.14-centos-stream-9"
+description = "ansible-core 2.14 @ CentOS Stream 9"
+test_playbooks = ["tests/ee/all.yml"]
+config.images.base_image.name = "quay.io/centos/centos:stream9"
+config.dependencies.ansible_core.package_pip = "https://github.com/ansible/ansible/archive/stable-2.14.tar.gz"
+config.dependencies.ansible_runner.package_pip = "ansible-runner"
+runtime_environment = {"ANSIBLE_PRIVATE_ROLE_VARS" = "true"}

@@ -17,11 +17,11 @@ from typing import TYPE_CHECKING, Any, List, Optional, Sequence
 from uuid import UUID
 
 from sqlalchemy import TEXT, Column, UniqueConstraint
-from sqlalchemy.orm import joinedload, object_session
+from sqlalchemy.orm import joinedload, object_session, selectinload
 from sqlalchemy.sql.base import ExecutableOption
 from sqlmodel import Field, Relationship, desc, select
 
-from zenml.enums import TaggableResourceTypes
+from zenml.enums import TaggableResourceTypes, VisualizationResourceTypes
 from zenml.models import (
     PipelineRequest,
     PipelineResponse,
@@ -38,13 +38,16 @@ from zenml.zen_stores.schemas.user_schemas import UserSchema
 from zenml.zen_stores.schemas.utils import jl_arg
 
 if TYPE_CHECKING:
+    from zenml.zen_stores.schemas.curated_visualization_schemas import (
+        CuratedVisualizationSchema,
+    )
     from zenml.zen_stores.schemas.pipeline_build_schemas import (
         PipelineBuildSchema,
     )
-    from zenml.zen_stores.schemas.pipeline_deployment_schemas import (
-        PipelineDeploymentSchema,
-    )
     from zenml.zen_stores.schemas.pipeline_run_schemas import PipelineRunSchema
+    from zenml.zen_stores.schemas.pipeline_snapshot_schemas import (
+        PipelineSnapshotSchema,
+    )
     from zenml.zen_stores.schemas.schedule_schema import ScheduleSchema
     from zenml.zen_stores.schemas.tag_schemas import TagSchema
 
@@ -80,6 +83,7 @@ class PipelineSchema(NamedSchema, table=True):
         ondelete="SET NULL",
         nullable=True,
     )
+    run_count: int = Field(nullable=False)
 
     # Relationships
     user: Optional["UserSchema"] = Relationship(back_populates="pipelines")
@@ -91,8 +95,9 @@ class PipelineSchema(NamedSchema, table=True):
     builds: List["PipelineBuildSchema"] = Relationship(
         back_populates="pipeline"
     )
-    deployments: List["PipelineDeploymentSchema"] = Relationship(
+    snapshots: List["PipelineSnapshotSchema"] = Relationship(
         back_populates="pipeline",
+        sa_relationship_kwargs={"cascade": "delete"},
     )
     tags: List["TagSchema"] = Relationship(
         sa_relationship_kwargs=dict(
@@ -101,6 +106,18 @@ class PipelineSchema(NamedSchema, table=True):
             secondaryjoin="TagSchema.id == foreign(TagResourceSchema.tag_id)",
             order_by="TagSchema.name",
             overlaps="tags",
+        ),
+    )
+    visualizations: List["CuratedVisualizationSchema"] = Relationship(
+        sa_relationship_kwargs=dict(
+            primaryjoin=(
+                "and_(CuratedVisualizationSchema.resource_type"
+                f"=='{VisualizationResourceTypes.PIPELINE.value}', "
+                "foreign(CuratedVisualizationSchema.resource_id)==PipelineSchema.id)"
+            ),
+            overlaps="visualizations",
+            cascade="delete",
+            order_by="CuratedVisualizationSchema.display_order",
         ),
     )
 
@@ -158,6 +175,7 @@ class PipelineSchema(NamedSchema, table=True):
                 [
                     joinedload(jl_arg(PipelineSchema.user)),
                     # joinedload(jl_arg(PipelineSchema.tags)),
+                    selectinload(jl_arg(PipelineSchema.visualizations)),
                 ]
             )
 
@@ -181,6 +199,7 @@ class PipelineSchema(NamedSchema, table=True):
             description=pipeline_request.description,
             project_id=pipeline_request.project,
             user_id=pipeline_request.user,
+            run_count=0,
         )
 
     def to_model(
@@ -225,6 +244,13 @@ class PipelineSchema(NamedSchema, table=True):
                 latest_run_id=latest_run.id if latest_run else None,
                 latest_run_status=latest_run.status if latest_run else None,
                 tags=[tag.to_model() for tag in self.tags],
+                visualizations=[
+                    visualization.to_model(
+                        include_metadata=False,
+                        include_resources=False,
+                    )
+                    for visualization in self.visualizations
+                ],
             )
 
         return PipelineResponse(

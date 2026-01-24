@@ -32,7 +32,7 @@ class TestTriggersTypes:
     def test_method_retrieve_with_all_params(self, client: Composio) -> None:
         triggers_type = client.triggers_types.retrieve(
             slug="SLACK_NEW_MESSAGE",
-            version="version",
+            toolkit_versions="string",
         )
         assert_matches_type(TriggersTypeRetrieveResponse, triggers_type, path=["response"])
 
@@ -148,7 +148,7 @@ class TestAsyncTriggersTypes:
     async def test_method_retrieve_with_all_params(self, async_client: AsyncComposio) -> None:
         triggers_type = await async_client.triggers_types.retrieve(
             slug="SLACK_NEW_MESSAGE",
-            version="version",
+            toolkit_versions="string",
         )
         assert_matches_type(TriggersTypeRetrieveResponse, triggers_type, path=["response"])
 

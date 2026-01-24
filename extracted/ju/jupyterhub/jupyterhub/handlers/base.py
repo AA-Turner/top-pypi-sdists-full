@@ -1326,6 +1326,22 @@ class BaseHandler(RequestHandler):
         spawner = user.spawners[server_name]
         if spawner.pending:
             raise RuntimeError(f"{spawner._log_name} pending {spawner.pending}")
+
+        if self.authenticator.refresh_pre_stop:
+            auth_user = await self.refresh_auth(user, force=True)
+            if auth_user is None:
+                if (
+                    self.current_user.kind == "user"
+                    and self.current_user.name == user.name
+                ):
+                    raise web.HTTPError(
+                        403, "auth has expired for %s, login again", user.name
+                    )
+                else:
+                    self.log.warning(
+                        "User %s may have stale auth info. Stopping anyway.", user.name
+                    )
+
         # set user._stop_pending before doing anything async
         # to avoid races
         spawner._stop_pending = True
@@ -1634,7 +1650,7 @@ class UserUrlHandler(BaseHandler):
 
     def _fail_api_request(self, user_name='', server_name=''):
         """Fail an API request to a not-running server"""
-        self.log.warning(
+        self.log.debug(
             "Failing suspected API request to not-running server: %s", self.request.path
         )
 

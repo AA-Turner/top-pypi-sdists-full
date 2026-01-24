@@ -124,22 +124,22 @@ class Place(proto.Message):
             Repeated components for each locality level. Note the
             following facts about the address_components[] array:
 
-            -  The array of address components may contain more
-               components than the formatted_address.
-            -  The array does not necessarily include all the political
-               entities that contain an address, apart from those
-               included in the formatted_address. To retrieve all the
-               political entities that contain a specific address, you
-               should use reverse geocoding, passing the
-               latitude/longitude of the address as a parameter to the
-               request.
-            -  The format of the response is not guaranteed to remain
-               the same between requests. In particular, the number of
-               address_components varies based on the address requested
-               and can change over time for the same address. A
-               component can change position in the array. The type of
-               the component can change. A particular component may be
-               missing in a later response.
+            - The array of address components may contain more
+              components than the formatted_address.
+            - The array does not necessarily include all the political
+              entities that contain an address, apart from those
+              included in the formatted_address. To retrieve all the
+              political entities that contain a specific address, you
+              should use reverse geocoding, passing the
+              latitude/longitude of the address as a parameter to the
+              request.
+            - The format of the response is not guaranteed to remain the
+              same between requests. In particular, the number of
+              address_components varies based on the address requested
+              and can change over time for the same address. A component
+              can change position in the array. The type of the
+              component can change. A particular component may be
+              missing in a later response.
         plus_code (google.maps.places_v1.types.Place.PlusCode):
             Plus code of the place location lat/long.
         location (google.type.latlng_pb2.LatLng):
@@ -395,6 +395,23 @@ class Place(proto.Message):
         neighborhood_summary (google.maps.places_v1.types.Place.NeighborhoodSummary):
             A summary of points of interest near the
             place.
+        consumer_alert (google.maps.places_v1.types.Place.ConsumerAlert):
+            The consumer alert message for the place when
+            we detect suspicious review activity on a
+            business or a business violates our policies.
+        moved_place (str):
+            If this Place is permanently closed and has moved to a new
+            Place, this field contains the new Place's resource name, in
+            ``places/{place_id}`` format. If this Place moved multiple
+            times, this field will represent the first moved place. This
+            field will not be populated if this Place has not moved.
+        moved_place_id (str):
+            If this Place is permanently closed and has
+            moved to a new Place, this field contains the
+            new Place's place ID. If this Place moved
+            multiple times, this field will represent the
+            first moved Place. This field will not be
+            populated if this Place has not moved.
     """
 
     class BusinessStatus(proto.Enum):
@@ -1008,6 +1025,9 @@ class Place(proto.Message):
                 Gemini" (and its localized variants). This will
                 be in the language specified in the request if
                 available.
+            reviews_uri (str):
+                A link to show reviews of this place on
+                Google Maps.
         """
 
         text: localized_text_pb2.LocalizedText = proto.Field(
@@ -1023,6 +1043,10 @@ class Place(proto.Message):
             proto.MESSAGE,
             number=3,
             message=localized_text_pb2.LocalizedText,
+        )
+        reviews_uri: str = proto.Field(
+            proto.STRING,
+            number=4,
         )
 
     class EvChargeAmenitySummary(proto.Message):
@@ -1040,7 +1064,7 @@ class Place(proto.Message):
             restaurant (google.maps.places_v1.types.ContentBlock):
                 A summary of the nearby restaurants.
             store (google.maps.places_v1.types.ContentBlock):
-                A summary of the nearby gas stations.
+                A summary of the nearby stores.
             flag_content_uri (str):
                 A link where users can flag a problem with
                 the summary.
@@ -1117,6 +1141,84 @@ class Place(proto.Message):
             proto.MESSAGE,
             number=4,
             message=localized_text_pb2.LocalizedText,
+        )
+
+    class ConsumerAlert(proto.Message):
+        r"""The consumer alert message for the place when we detect
+        suspicious review activity on a business or a business violates
+        our policies.
+
+        Attributes:
+            overview (str):
+                The overview of the consumer alert message.
+            details (google.maps.places_v1.types.Place.ConsumerAlert.Details):
+                The details of the consumer alert message.
+            language_code (str):
+                The language code of the consumer alert
+                message. This is a BCP 47 language code.
+        """
+
+        class Details(proto.Message):
+            r"""The details of the consumer alert message.
+
+            Attributes:
+                title (str):
+                    The title to show together with the
+                    description.
+                description (str):
+                    The description of the consumer alert
+                    message.
+                about_link (google.maps.places_v1.types.Place.ConsumerAlert.Details.Link):
+                    The link to show together with the
+                    description to provide more information.
+            """
+
+            class Link(proto.Message):
+                r"""The link to show together with the description to provide
+                more information.
+
+                Attributes:
+                    title (str):
+                        The title to show for the link.
+                    uri (str):
+                        The uri of the link.
+                """
+
+                title: str = proto.Field(
+                    proto.STRING,
+                    number=1,
+                )
+                uri: str = proto.Field(
+                    proto.STRING,
+                    number=2,
+                )
+
+            title: str = proto.Field(
+                proto.STRING,
+                number=1,
+            )
+            description: str = proto.Field(
+                proto.STRING,
+                number=2,
+            )
+            about_link: "Place.ConsumerAlert.Details.Link" = proto.Field(
+                proto.MESSAGE,
+                number=3,
+                message="Place.ConsumerAlert.Details.Link",
+            )
+
+        overview: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        details: "Place.ConsumerAlert.Details" = proto.Field(
+            proto.MESSAGE,
+            number=2,
+            message="Place.ConsumerAlert.Details",
+        )
+        language_code: str = proto.Field(
+            proto.STRING,
+            number=3,
         )
 
     name: str = proto.Field(
@@ -1464,6 +1566,19 @@ class Place(proto.Message):
         proto.MESSAGE,
         number=91,
         message=NeighborhoodSummary,
+    )
+    consumer_alert: ConsumerAlert = proto.Field(
+        proto.MESSAGE,
+        number=92,
+        message=ConsumerAlert,
+    )
+    moved_place: str = proto.Field(
+        proto.STRING,
+        number=93,
+    )
+    moved_place_id: str = proto.Field(
+        proto.STRING,
+        number=94,
     )
 
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -241,9 +241,9 @@ class StartReplicationTaskTypeValue(StrEnum):
 
 
 class TablePreparationMode(StrEnum):
-    do_nothing = "do-nothing"
-    truncate = "truncate"
     drop_tables_on_target = "drop-tables-on-target"
+    truncate = "truncate"
+    do_nothing = "do-nothing"
 
 
 class TargetDbType(StrEnum):
@@ -406,7 +406,7 @@ class ResourceAlreadyExistsFault(ServiceException):
     code: str = "ResourceAlreadyExistsFault"
     sender_fault: bool = False
     status_code: int = 400
-    resourceArn: Optional[ResourceArn]
+    resourceArn: ResourceArn | None
 
 
 class ResourceNotFoundFault(ServiceException):
@@ -491,12 +491,12 @@ class AccountQuota(TypedDict, total=False):
     number of replication instances allowed.
     """
 
-    AccountQuotaName: Optional[String]
-    Used: Optional[Long]
-    Max: Optional[Long]
+    AccountQuotaName: String | None
+    Used: Long | None
+    Max: Long | None
 
 
-AccountQuotaList = List[AccountQuota]
+AccountQuotaList = list[AccountQuota]
 
 
 class Tag(TypedDict, total=False):
@@ -510,12 +510,12 @@ class Tag(TypedDict, total=False):
     -  ``RemoveTagsFromResource``
     """
 
-    Key: Optional[String]
-    Value: Optional[String]
-    ResourceArn: Optional[String]
+    Key: String | None
+    Value: String | None
+    ResourceArn: String | None
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class AddTagsToResourceMessage(ServiceRequest):
@@ -544,30 +544,30 @@ class PendingMaintenanceAction(TypedDict, total=False):
     the ``DescribePendingMaintenanceActions`` operation.
     """
 
-    Action: Optional[String]
-    AutoAppliedAfterDate: Optional[TStamp]
-    ForcedApplyDate: Optional[TStamp]
-    OptInStatus: Optional[String]
-    CurrentApplyDate: Optional[TStamp]
-    Description: Optional[String]
+    Action: String | None
+    AutoAppliedAfterDate: TStamp | None
+    ForcedApplyDate: TStamp | None
+    OptInStatus: String | None
+    CurrentApplyDate: TStamp | None
+    Description: String | None
 
 
-PendingMaintenanceActionDetails = List[PendingMaintenanceAction]
+PendingMaintenanceActionDetails = list[PendingMaintenanceAction]
 
 
 class ResourcePendingMaintenanceActions(TypedDict, total=False):
     """Identifies an DMS resource and any pending actions for it."""
 
-    ResourceIdentifier: Optional[String]
-    PendingMaintenanceActionDetails: Optional[PendingMaintenanceActionDetails]
+    ResourceIdentifier: String | None
+    PendingMaintenanceActionDetails: PendingMaintenanceActionDetails | None
 
 
 class ApplyPendingMaintenanceActionResponse(TypedDict, total=False):
-    ResourcePendingMaintenanceActions: Optional[ResourcePendingMaintenanceActions]
+    ResourcePendingMaintenanceActions: ResourcePendingMaintenanceActions | None
 
 
-ArnList = List[String]
-AssessmentReportTypesList = List[AssessmentReportType]
+ArnList = list[String]
+AssessmentReportTypesList = list[AssessmentReportType]
 
 
 class AvailabilityZone(TypedDict, total=False):
@@ -580,11 +580,11 @@ class AvailabilityZone(TypedDict, total=False):
     us-east-1d.
     """
 
-    Name: Optional[String]
+    Name: String | None
 
 
-AvailabilityZonesList = List[String]
-AvailableUpgradesList = List[String]
+AvailabilityZonesList = list[String]
+AvailableUpgradesList = list[String]
 
 
 class BatchStartRecommendationsErrorEntry(TypedDict, total=False):
@@ -592,12 +592,12 @@ class BatchStartRecommendationsErrorEntry(TypedDict, total=False):
     of the source database.
     """
 
-    DatabaseId: Optional[String]
-    Message: Optional[String]
-    Code: Optional[String]
+    DatabaseId: String | None
+    Message: String | None
+    Code: String | None
 
 
-BatchStartRecommendationsErrorEntryList = List[BatchStartRecommendationsErrorEntry]
+BatchStartRecommendationsErrorEntryList = list[BatchStartRecommendationsErrorEntry]
 
 
 class RecommendationSettings(TypedDict, total=False):
@@ -616,15 +616,82 @@ class StartRecommendationsRequestEntry(TypedDict, total=False):
     Settings: RecommendationSettings
 
 
-StartRecommendationsRequestEntryList = List[StartRecommendationsRequestEntry]
+StartRecommendationsRequestEntryList = list[StartRecommendationsRequestEntry]
 
 
 class BatchStartRecommendationsRequest(ServiceRequest):
-    Data: Optional[StartRecommendationsRequestEntryList]
+    Data: StartRecommendationsRequestEntryList | None
 
 
 class BatchStartRecommendationsResponse(TypedDict, total=False):
-    ErrorEntries: Optional[BatchStartRecommendationsErrorEntryList]
+    ErrorEntries: BatchStartRecommendationsErrorEntryList | None
+
+
+class CancelMetadataModelConversionMessage(ServiceRequest):
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+    RequestIdentifier: String
+
+
+class ProcessedObject(TypedDict, total=False):
+    """The database object that the schema conversion operation currently uses."""
+
+    Name: String | None
+    Type: String | None
+    EndpointType: String | None
+
+
+class Progress(TypedDict, total=False):
+    """Provides information about the progress of the schema conversion
+    operation.
+    """
+
+    ProgressPercent: DoubleOptional | None
+    TotalObjects: Long | None
+    ProgressStep: String | None
+    ProcessedObject: ProcessedObject | None
+
+
+class ExportSqlDetails(TypedDict, total=False):
+    """Provides information about a metadata model assessment exported to SQL."""
+
+    S3ObjectKey: String | None
+    ObjectURL: String | None
+
+
+class DefaultErrorDetails(TypedDict, total=False):
+    """Provides error information about a schema conversion operation."""
+
+    Message: String | None
+
+
+class ErrorDetails(TypedDict, total=False):
+    """Provides error information about a project."""
+
+    defaultErrorDetails: DefaultErrorDetails | None
+
+
+class SchemaConversionRequest(TypedDict, total=False):
+    """Provides information about a schema conversion action."""
+
+    Status: String | None
+    RequestIdentifier: String | None
+    MigrationProjectArn: String | None
+    Error: ErrorDetails | None
+    ExportSqlDetails: ExportSqlDetails | None
+    Progress: Progress | None
+
+
+class CancelMetadataModelConversionResponse(TypedDict, total=False):
+    Request: SchemaConversionRequest | None
+
+
+class CancelMetadataModelCreationMessage(ServiceRequest):
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+    RequestIdentifier: String
+
+
+class CancelMetadataModelCreationResponse(TypedDict, total=False):
+    Request: SchemaConversionRequest | None
 
 
 class CancelReplicationTaskAssessmentRunMessage(ServiceRequest):
@@ -636,12 +703,12 @@ class ReplicationTaskAssessmentRunResultStatistic(TypedDict, total=False):
     run.
     """
 
-    Passed: Optional[Integer]
-    Failed: Optional[Integer]
-    Error: Optional[Integer]
-    Warning: Optional[Integer]
-    Cancelled: Optional[Integer]
-    Skipped: Optional[Integer]
+    Passed: Integer | None
+    Failed: Integer | None
+    Error: Integer | None
+    Warning: Integer | None
+    Cancelled: Integer | None
+    Skipped: Integer | None
 
 
 class ReplicationTaskAssessmentRunProgress(TypedDict, total=False):
@@ -649,8 +716,8 @@ class ReplicationTaskAssessmentRunProgress(TypedDict, total=False):
     element.
     """
 
-    IndividualAssessmentCount: Optional[Integer]
-    IndividualAssessmentCompletedCount: Optional[Integer]
+    IndividualAssessmentCount: Integer | None
+    IndividualAssessmentCompletedCount: Integer | None
 
 
 class ReplicationTaskAssessmentRun(TypedDict, total=False):
@@ -662,24 +729,24 @@ class ReplicationTaskAssessmentRun(TypedDict, total=False):
     return the ``ReplicationTaskAssessmentRun`` object.
     """
 
-    ReplicationTaskAssessmentRunArn: Optional[String]
-    ReplicationTaskArn: Optional[String]
-    Status: Optional[String]
-    ReplicationTaskAssessmentRunCreationDate: Optional[TStamp]
-    AssessmentProgress: Optional[ReplicationTaskAssessmentRunProgress]
-    LastFailureMessage: Optional[String]
-    ServiceAccessRoleArn: Optional[String]
-    ResultLocationBucket: Optional[String]
-    ResultLocationFolder: Optional[String]
-    ResultEncryptionMode: Optional[String]
-    ResultKmsKeyArn: Optional[String]
-    AssessmentRunName: Optional[String]
-    IsLatestTaskAssessmentRun: Optional[Boolean]
-    ResultStatistic: Optional[ReplicationTaskAssessmentRunResultStatistic]
+    ReplicationTaskAssessmentRunArn: String | None
+    ReplicationTaskArn: String | None
+    Status: String | None
+    ReplicationTaskAssessmentRunCreationDate: TStamp | None
+    AssessmentProgress: ReplicationTaskAssessmentRunProgress | None
+    LastFailureMessage: String | None
+    ServiceAccessRoleArn: String | None
+    ResultLocationBucket: String | None
+    ResultLocationFolder: String | None
+    ResultEncryptionMode: String | None
+    ResultKmsKeyArn: String | None
+    AssessmentRunName: String | None
+    IsLatestTaskAssessmentRun: Boolean | None
+    ResultStatistic: ReplicationTaskAssessmentRunResultStatistic | None
 
 
 class CancelReplicationTaskAssessmentRunResponse(TypedDict, total=False):
-    ReplicationTaskAssessmentRun: Optional[ReplicationTaskAssessmentRun]
+    ReplicationTaskAssessmentRun: ReplicationTaskAssessmentRun | None
 
 
 CertificateWallet = bytes
@@ -690,81 +757,82 @@ class Certificate(TypedDict, total=False):
     endpoints and the replication instance.
     """
 
-    CertificateIdentifier: Optional[String]
-    CertificateCreationDate: Optional[TStamp]
-    CertificatePem: Optional[String]
-    CertificateWallet: Optional[CertificateWallet]
-    CertificateArn: Optional[String]
-    CertificateOwner: Optional[String]
-    ValidFromDate: Optional[TStamp]
-    ValidToDate: Optional[TStamp]
-    SigningAlgorithm: Optional[String]
-    KeyLength: Optional[IntegerOptional]
+    CertificateIdentifier: String | None
+    CertificateCreationDate: TStamp | None
+    CertificatePem: String | None
+    CertificateWallet: CertificateWallet | None
+    CertificateArn: String | None
+    CertificateOwner: String | None
+    ValidFromDate: TStamp | None
+    ValidToDate: TStamp | None
+    SigningAlgorithm: String | None
+    KeyLength: IntegerOptional | None
+    KmsKeyId: String | None
 
 
-CertificateList = List[Certificate]
+CertificateList = list[Certificate]
 
 
 class CollectorHealthCheck(TypedDict, total=False):
     """Describes the last Fleet Advisor collector health check."""
 
-    CollectorStatus: Optional[CollectorStatus]
-    LocalCollectorS3Access: Optional[BooleanOptional]
-    WebCollectorS3Access: Optional[BooleanOptional]
-    WebCollectorGrantedRoleBasedAccess: Optional[BooleanOptional]
+    CollectorStatus: CollectorStatus | None
+    LocalCollectorS3Access: BooleanOptional | None
+    WebCollectorS3Access: BooleanOptional | None
+    WebCollectorGrantedRoleBasedAccess: BooleanOptional | None
 
 
 class InventoryData(TypedDict, total=False):
     """Describes a Fleet Advisor collector inventory."""
 
-    NumberOfDatabases: Optional[IntegerOptional]
-    NumberOfSchemas: Optional[IntegerOptional]
+    NumberOfDatabases: IntegerOptional | None
+    NumberOfSchemas: IntegerOptional | None
 
 
 class CollectorResponse(TypedDict, total=False):
     """Describes a Fleet Advisor collector."""
 
-    CollectorReferencedId: Optional[String]
-    CollectorName: Optional[String]
-    CollectorVersion: Optional[String]
-    VersionStatus: Optional[VersionStatus]
-    Description: Optional[String]
-    S3BucketName: Optional[String]
-    ServiceAccessRoleArn: Optional[String]
-    CollectorHealthCheck: Optional[CollectorHealthCheck]
-    LastDataReceived: Optional[String]
-    RegisteredDate: Optional[String]
-    CreatedDate: Optional[String]
-    ModifiedDate: Optional[String]
-    InventoryData: Optional[InventoryData]
+    CollectorReferencedId: String | None
+    CollectorName: String | None
+    CollectorVersion: String | None
+    VersionStatus: VersionStatus | None
+    Description: String | None
+    S3BucketName: String | None
+    ServiceAccessRoleArn: String | None
+    CollectorHealthCheck: CollectorHealthCheck | None
+    LastDataReceived: String | None
+    RegisteredDate: String | None
+    CreatedDate: String | None
+    ModifiedDate: String | None
+    InventoryData: InventoryData | None
 
 
-CollectorResponses = List[CollectorResponse]
+CollectorResponses = list[CollectorResponse]
 
 
 class CollectorShortInfoResponse(TypedDict, total=False):
     """Briefly describes a Fleet Advisor collector."""
 
-    CollectorReferencedId: Optional[String]
-    CollectorName: Optional[String]
+    CollectorReferencedId: String | None
+    CollectorName: String | None
 
 
-CollectorsList = List[CollectorShortInfoResponse]
-StringList = List[String]
+CollectorsList = list[CollectorShortInfoResponse]
+StringList = list[String]
 
 
 class ComputeConfig(TypedDict, total=False):
     """Configuration parameters for provisioning an DMS Serverless replication."""
 
-    AvailabilityZone: Optional[String]
-    DnsNameServers: Optional[String]
-    KmsKeyId: Optional[String]
-    MaxCapacityUnits: Optional[IntegerOptional]
-    MinCapacityUnits: Optional[IntegerOptional]
-    MultiAZ: Optional[BooleanOptional]
-    PreferredMaintenanceWindow: Optional[String]
-    ReplicationSubnetGroupId: Optional[String]
-    VpcSecurityGroupIds: Optional[StringList]
+    AvailabilityZone: String | None
+    DnsNameServers: String | None
+    KmsKeyId: String | None
+    MaxCapacityUnits: IntegerOptional | None
+    MinCapacityUnits: IntegerOptional | None
+    MultiAZ: BooleanOptional | None
+    PreferredMaintenanceWindow: String | None
+    ReplicationSubnetGroupId: String | None
+    VpcSecurityGroupIds: StringList | None
 
 
 class Connection(TypedDict, total=False):
@@ -773,54 +841,54 @@ class Connection(TypedDict, total=False):
     issued.
     """
 
-    ReplicationInstanceArn: Optional[String]
-    EndpointArn: Optional[String]
-    Status: Optional[String]
-    LastFailureMessage: Optional[String]
-    EndpointIdentifier: Optional[String]
-    ReplicationInstanceIdentifier: Optional[String]
+    ReplicationInstanceArn: String | None
+    EndpointArn: String | None
+    Status: String | None
+    LastFailureMessage: String | None
+    EndpointIdentifier: String | None
+    ReplicationInstanceIdentifier: String | None
 
 
-ConnectionList = List[Connection]
+ConnectionList = list[Connection]
 
 
 class TargetDataSetting(TypedDict, total=False):
     """Defines settings for a target data provider for a data migration."""
 
-    TablePreparationMode: Optional[TablePreparationMode]
+    TablePreparationMode: TablePreparationMode | None
 
 
-TargetDataSettings = List[TargetDataSetting]
+TargetDataSettings = list[TargetDataSetting]
 Iso8601DateTime = datetime
 
 
 class SourceDataSetting(TypedDict, total=False):
     """Defines settings for a source data provider for a data migration."""
 
-    CDCStartPosition: Optional[String]
-    CDCStartTime: Optional[Iso8601DateTime]
-    CDCStopTime: Optional[Iso8601DateTime]
-    SlotName: Optional[String]
+    CDCStartPosition: String | None
+    CDCStartTime: Iso8601DateTime | None
+    CDCStopTime: Iso8601DateTime | None
+    SlotName: String | None
 
 
-SourceDataSettings = List[SourceDataSetting]
+SourceDataSettings = list[SourceDataSetting]
 
 
 class CreateDataMigrationMessage(ServiceRequest):
-    DataMigrationName: Optional[String]
+    DataMigrationName: String | None
     MigrationProjectIdentifier: String
     DataMigrationType: MigrationTypeValue
     ServiceAccessRoleArn: String
-    EnableCloudwatchLogs: Optional[BooleanOptional]
-    SourceDataSettings: Optional[SourceDataSettings]
-    TargetDataSettings: Optional[TargetDataSettings]
-    NumberOfJobs: Optional[IntegerOptional]
-    Tags: Optional[TagList]
-    SelectionRules: Optional[SecretString]
+    EnableCloudwatchLogs: BooleanOptional | None
+    SourceDataSettings: SourceDataSettings | None
+    TargetDataSettings: TargetDataSettings | None
+    NumberOfJobs: IntegerOptional | None
+    Tags: TagList | None
+    SelectionRules: SecretString | None
 
 
-DataMigrationCidrBlock = List[String]
-PublicIpAddressList = List[String]
+DataMigrationCidrBlock = list[String]
+PublicIpAddressList = list[String]
 
 
 class DataMigrationStatistics(TypedDict, total=False):
@@ -828,15 +896,15 @@ class DataMigrationStatistics(TypedDict, total=False):
     latency, and migration progress.
     """
 
-    TablesLoaded: Optional[Integer]
-    ElapsedTimeMillis: Optional[Long]
-    TablesLoading: Optional[Integer]
-    FullLoadPercentage: Optional[Integer]
-    CDCLatency: Optional[Integer]
-    TablesQueued: Optional[Integer]
-    TablesErrored: Optional[Integer]
-    StartTime: Optional[Iso8601DateTime]
-    StopTime: Optional[Iso8601DateTime]
+    TablesLoaded: Integer | None
+    ElapsedTimeMillis: Long | None
+    TablesLoading: Integer | None
+    FullLoadPercentage: Integer | None
+    CDCLatency: Integer | None
+    TablesQueued: Integer | None
+    TablesErrored: Integer | None
+    StartTime: Iso8601DateTime | None
+    StopTime: Iso8601DateTime | None
 
 
 class DataMigrationSettings(TypedDict, total=False):
@@ -845,195 +913,207 @@ class DataMigrationSettings(TypedDict, total=False):
     database objects from the migration.
     """
 
-    NumberOfJobs: Optional[IntegerOptional]
-    CloudwatchLogsEnabled: Optional[BooleanOptional]
-    SelectionRules: Optional[SecretString]
+    NumberOfJobs: IntegerOptional | None
+    CloudwatchLogsEnabled: BooleanOptional | None
+    SelectionRules: SecretString | None
 
 
 class DataMigration(TypedDict, total=False):
     """This object provides information about a DMS data migration."""
 
-    DataMigrationName: Optional[String]
-    DataMigrationArn: Optional[String]
-    DataMigrationCreateTime: Optional[Iso8601DateTime]
-    DataMigrationStartTime: Optional[Iso8601DateTime]
-    DataMigrationEndTime: Optional[Iso8601DateTime]
-    ServiceAccessRoleArn: Optional[String]
-    MigrationProjectArn: Optional[String]
-    DataMigrationType: Optional[MigrationTypeValue]
-    DataMigrationSettings: Optional[DataMigrationSettings]
-    SourceDataSettings: Optional[SourceDataSettings]
-    TargetDataSettings: Optional[TargetDataSettings]
-    DataMigrationStatistics: Optional[DataMigrationStatistics]
-    DataMigrationStatus: Optional[String]
-    PublicIpAddresses: Optional[PublicIpAddressList]
-    DataMigrationCidrBlocks: Optional[DataMigrationCidrBlock]
-    LastFailureMessage: Optional[String]
-    StopReason: Optional[String]
+    DataMigrationName: String | None
+    DataMigrationArn: String | None
+    DataMigrationCreateTime: Iso8601DateTime | None
+    DataMigrationStartTime: Iso8601DateTime | None
+    DataMigrationEndTime: Iso8601DateTime | None
+    ServiceAccessRoleArn: String | None
+    MigrationProjectArn: String | None
+    DataMigrationType: MigrationTypeValue | None
+    DataMigrationSettings: DataMigrationSettings | None
+    SourceDataSettings: SourceDataSettings | None
+    TargetDataSettings: TargetDataSettings | None
+    DataMigrationStatistics: DataMigrationStatistics | None
+    DataMigrationStatus: String | None
+    PublicIpAddresses: PublicIpAddressList | None
+    DataMigrationCidrBlocks: DataMigrationCidrBlock | None
+    LastFailureMessage: String | None
+    StopReason: String | None
 
 
 class CreateDataMigrationResponse(TypedDict, total=False):
-    DataMigration: Optional[DataMigration]
+    DataMigration: DataMigration | None
 
 
 class MongoDbDataProviderSettings(TypedDict, total=False):
     """Provides information that defines a MongoDB data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    AuthType: Optional[AuthTypeValue]
-    AuthSource: Optional[String]
-    AuthMechanism: Optional[AuthMechanismValue]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    AuthType: AuthTypeValue | None
+    AuthSource: String | None
+    AuthMechanism: AuthMechanismValue | None
 
 
 class IbmDb2zOsDataProviderSettings(TypedDict, total=False):
     """Provides information about an IBM DB2 for z/OS data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class IbmDb2LuwDataProviderSettings(TypedDict, total=False):
     """Provides information about an IBM DB2 LUW data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class MariaDbDataProviderSettings(TypedDict, total=False):
     """Provides information that defines a MariaDB data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class DocDbDataProviderSettings(TypedDict, total=False):
     """Provides information that defines a DocumentDB data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
 
 
 class MicrosoftSqlServerDataProviderSettings(TypedDict, total=False):
     """Provides information that defines a Microsoft SQL Server data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
+
+
+class SybaseAseDataProviderSettings(TypedDict, total=False):
+    """Provides information that defines an SAP ASE data provider."""
+
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    EncryptPassword: BooleanOptional | None
+    CertificateArn: String | None
 
 
 class OracleDataProviderSettings(TypedDict, total=False):
     """Provides information that defines an Oracle data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    AsmServer: Optional[String]
-    SecretsManagerOracleAsmSecretId: Optional[String]
-    SecretsManagerOracleAsmAccessRoleArn: Optional[String]
-    SecretsManagerSecurityDbEncryptionSecretId: Optional[String]
-    SecretsManagerSecurityDbEncryptionAccessRoleArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    AsmServer: String | None
+    SecretsManagerOracleAsmSecretId: String | None
+    SecretsManagerOracleAsmAccessRoleArn: String | None
+    SecretsManagerSecurityDbEncryptionSecretId: String | None
+    SecretsManagerSecurityDbEncryptionAccessRoleArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class MySqlDataProviderSettings(TypedDict, total=False):
     """Provides information that defines a MySQL data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class PostgreSqlDataProviderSettings(TypedDict, total=False):
     """Provides information that defines a PostgreSQL data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    CertificateArn: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    SslMode: DmsSslModeValue | None
+    CertificateArn: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class RedshiftDataProviderSettings(TypedDict, total=False):
     """Provides information that defines an Amazon Redshift data provider."""
 
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    S3Path: Optional[String]
-    S3AccessRoleArn: Optional[String]
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    S3Path: String | None
+    S3AccessRoleArn: String | None
 
 
 class DataProviderSettings(TypedDict, total=False):
     """Provides information that defines a data provider."""
 
-    RedshiftSettings: Optional[RedshiftDataProviderSettings]
-    PostgreSqlSettings: Optional[PostgreSqlDataProviderSettings]
-    MySqlSettings: Optional[MySqlDataProviderSettings]
-    OracleSettings: Optional[OracleDataProviderSettings]
-    MicrosoftSqlServerSettings: Optional[MicrosoftSqlServerDataProviderSettings]
-    DocDbSettings: Optional[DocDbDataProviderSettings]
-    MariaDbSettings: Optional[MariaDbDataProviderSettings]
-    IbmDb2LuwSettings: Optional[IbmDb2LuwDataProviderSettings]
-    IbmDb2zOsSettings: Optional[IbmDb2zOsDataProviderSettings]
-    MongoDbSettings: Optional[MongoDbDataProviderSettings]
+    RedshiftSettings: RedshiftDataProviderSettings | None
+    PostgreSqlSettings: PostgreSqlDataProviderSettings | None
+    MySqlSettings: MySqlDataProviderSettings | None
+    OracleSettings: OracleDataProviderSettings | None
+    SybaseAseSettings: SybaseAseDataProviderSettings | None
+    MicrosoftSqlServerSettings: MicrosoftSqlServerDataProviderSettings | None
+    DocDbSettings: DocDbDataProviderSettings | None
+    MariaDbSettings: MariaDbDataProviderSettings | None
+    IbmDb2LuwSettings: IbmDb2LuwDataProviderSettings | None
+    IbmDb2zOsSettings: IbmDb2zOsDataProviderSettings | None
+    MongoDbSettings: MongoDbDataProviderSettings | None
 
 
 class CreateDataProviderMessage(ServiceRequest):
-    DataProviderName: Optional[String]
-    Description: Optional[String]
+    DataProviderName: String | None
+    Description: String | None
     Engine: String
-    Virtual: Optional[BooleanOptional]
+    Virtual: BooleanOptional | None
     Settings: DataProviderSettings
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class DataProvider(TypedDict, total=False):
     """Provides information that defines a data provider."""
 
-    DataProviderName: Optional[String]
-    DataProviderArn: Optional[String]
-    DataProviderCreationTime: Optional[Iso8601DateTime]
-    Description: Optional[String]
-    Engine: Optional[String]
-    Virtual: Optional[BooleanOptional]
-    Settings: Optional[DataProviderSettings]
+    DataProviderName: String | None
+    DataProviderArn: String | None
+    DataProviderCreationTime: Iso8601DateTime | None
+    Description: String | None
+    Engine: String | None
+    Virtual: BooleanOptional | None
+    Settings: DataProviderSettings | None
 
 
 class CreateDataProviderResponse(TypedDict, total=False):
-    DataProvider: Optional[DataProvider]
+    DataProvider: DataProvider | None
 
 
 class TimestreamSettings(TypedDict, total=False):
@@ -1042,27 +1122,27 @@ class TimestreamSettings(TypedDict, total=False):
     DatabaseName: String
     MemoryDuration: IntegerOptional
     MagneticDuration: IntegerOptional
-    CdcInsertsAndUpdates: Optional[BooleanOptional]
-    EnableMagneticStoreWrites: Optional[BooleanOptional]
+    CdcInsertsAndUpdates: BooleanOptional | None
+    EnableMagneticStoreWrites: BooleanOptional | None
 
 
 class GcpMySQLSettings(TypedDict, total=False):
     """Settings in JSON format for the source GCP MySQL endpoint."""
 
-    AfterConnectScript: Optional[String]
-    CleanSourceMetadataOnMismatch: Optional[BooleanOptional]
-    DatabaseName: Optional[String]
-    EventsPollInterval: Optional[IntegerOptional]
-    TargetDbType: Optional[TargetDbType]
-    MaxFileSize: Optional[IntegerOptional]
-    ParallelLoadThreads: Optional[IntegerOptional]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    ServerName: Optional[String]
-    ServerTimezone: Optional[String]
-    Username: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
+    AfterConnectScript: String | None
+    CleanSourceMetadataOnMismatch: BooleanOptional | None
+    DatabaseName: String | None
+    EventsPollInterval: IntegerOptional | None
+    TargetDbType: TargetDbType | None
+    MaxFileSize: IntegerOptional | None
+    ParallelLoadThreads: IntegerOptional | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    ServerName: String | None
+    ServerTimezone: String | None
+    Username: String | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
 
 
 class RedisSettings(TypedDict, total=False):
@@ -1070,237 +1150,237 @@ class RedisSettings(TypedDict, total=False):
 
     ServerName: String
     Port: Integer
-    SslSecurityProtocol: Optional[SslSecurityProtocolValue]
-    AuthType: Optional[RedisAuthTypeValue]
-    AuthUserName: Optional[String]
-    AuthPassword: Optional[SecretString]
-    SslCaCertificateArn: Optional[String]
+    SslSecurityProtocol: SslSecurityProtocolValue | None
+    AuthType: RedisAuthTypeValue | None
+    AuthUserName: String | None
+    AuthPassword: SecretString | None
+    SslCaCertificateArn: String | None
 
 
 class DocDbSettings(TypedDict, total=False):
     """Provides information that defines a DocumentDB endpoint."""
 
-    Username: Optional[String]
-    Password: Optional[SecretString]
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    NestingLevel: Optional[NestingLevelValue]
-    ExtractDocId: Optional[BooleanOptional]
-    DocsToInvestigate: Optional[IntegerOptional]
-    KmsKeyId: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    UseUpdateLookUp: Optional[BooleanOptional]
-    ReplicateShardCollections: Optional[BooleanOptional]
+    Username: String | None
+    Password: SecretString | None
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    NestingLevel: NestingLevelValue | None
+    ExtractDocId: BooleanOptional | None
+    DocsToInvestigate: IntegerOptional | None
+    KmsKeyId: String | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    UseUpdateLookUp: BooleanOptional | None
+    ReplicateShardCollections: BooleanOptional | None
 
 
 class IBMDb2Settings(TypedDict, total=False):
     """Provides information that defines an IBM Db2 LUW endpoint."""
 
-    DatabaseName: Optional[String]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    ServerName: Optional[String]
-    SetDataCaptureChanges: Optional[BooleanOptional]
-    CurrentLsn: Optional[String]
-    MaxKBytesPerRead: Optional[IntegerOptional]
-    Username: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    LoadTimeout: Optional[IntegerOptional]
-    WriteBufferSize: Optional[IntegerOptional]
-    MaxFileSize: Optional[IntegerOptional]
-    KeepCsvFiles: Optional[BooleanOptional]
+    DatabaseName: String | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    ServerName: String | None
+    SetDataCaptureChanges: BooleanOptional | None
+    CurrentLsn: String | None
+    MaxKBytesPerRead: IntegerOptional | None
+    Username: String | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    LoadTimeout: IntegerOptional | None
+    WriteBufferSize: IntegerOptional | None
+    MaxFileSize: IntegerOptional | None
+    KeepCsvFiles: BooleanOptional | None
 
 
 class MicrosoftSQLServerSettings(TypedDict, total=False):
     """Provides information that defines a Microsoft SQL Server endpoint."""
 
-    Port: Optional[IntegerOptional]
-    BcpPacketSize: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    ControlTablesFileGroup: Optional[String]
-    Password: Optional[SecretString]
-    QuerySingleAlwaysOnNode: Optional[BooleanOptional]
-    ReadBackupOnly: Optional[BooleanOptional]
-    SafeguardPolicy: Optional[SafeguardPolicy]
-    ServerName: Optional[String]
-    Username: Optional[String]
-    UseBcpFullLoad: Optional[BooleanOptional]
-    UseThirdPartyBackupDevice: Optional[BooleanOptional]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    TrimSpaceInChar: Optional[BooleanOptional]
-    TlogAccessMode: Optional[TlogAccessMode]
-    ForceLobLookup: Optional[BooleanOptional]
-    AuthenticationMethod: Optional[SqlServerAuthenticationMethod]
+    Port: IntegerOptional | None
+    BcpPacketSize: IntegerOptional | None
+    DatabaseName: String | None
+    ControlTablesFileGroup: String | None
+    Password: SecretString | None
+    QuerySingleAlwaysOnNode: BooleanOptional | None
+    ReadBackupOnly: BooleanOptional | None
+    SafeguardPolicy: SafeguardPolicy | None
+    ServerName: String | None
+    Username: String | None
+    UseBcpFullLoad: BooleanOptional | None
+    UseThirdPartyBackupDevice: BooleanOptional | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    TrimSpaceInChar: BooleanOptional | None
+    TlogAccessMode: TlogAccessMode | None
+    ForceLobLookup: BooleanOptional | None
+    AuthenticationMethod: SqlServerAuthenticationMethod | None
 
 
 class SybaseSettings(TypedDict, total=False):
     """Provides information that defines a SAP ASE endpoint."""
 
-    DatabaseName: Optional[String]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    ServerName: Optional[String]
-    Username: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
+    DatabaseName: String | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    ServerName: String | None
+    Username: String | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
 
 
-IntegerList = List[Integer]
+IntegerList = list[Integer]
 
 
 class OracleSettings(TypedDict, total=False):
     """Provides information that defines an Oracle endpoint."""
 
-    AddSupplementalLogging: Optional[BooleanOptional]
-    ArchivedLogDestId: Optional[IntegerOptional]
-    AdditionalArchivedLogDestId: Optional[IntegerOptional]
-    ExtraArchivedLogDestIds: Optional[IntegerList]
-    AllowSelectNestedTables: Optional[BooleanOptional]
-    ParallelAsmReadThreads: Optional[IntegerOptional]
-    ReadAheadBlocks: Optional[IntegerOptional]
-    AccessAlternateDirectly: Optional[BooleanOptional]
-    UseAlternateFolderForOnline: Optional[BooleanOptional]
-    OraclePathPrefix: Optional[String]
-    UsePathPrefix: Optional[String]
-    ReplacePathPrefix: Optional[BooleanOptional]
-    EnableHomogenousTablespace: Optional[BooleanOptional]
-    DirectPathNoLog: Optional[BooleanOptional]
-    ArchivedLogsOnly: Optional[BooleanOptional]
-    AsmPassword: Optional[SecretString]
-    AsmServer: Optional[String]
-    AsmUser: Optional[String]
-    CharLengthSemantics: Optional[CharLengthSemantics]
-    DatabaseName: Optional[String]
-    DirectPathParallelLoad: Optional[BooleanOptional]
-    FailTasksOnLobTruncation: Optional[BooleanOptional]
-    NumberDatatypeScale: Optional[IntegerOptional]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    ReadTableSpaceName: Optional[BooleanOptional]
-    RetryInterval: Optional[IntegerOptional]
-    SecurityDbEncryption: Optional[SecretString]
-    SecurityDbEncryptionName: Optional[String]
-    ServerName: Optional[String]
-    SpatialDataOptionToGeoJsonFunctionName: Optional[String]
-    StandbyDelayTime: Optional[IntegerOptional]
-    Username: Optional[String]
-    UseBFile: Optional[BooleanOptional]
-    UseDirectPathFullLoad: Optional[BooleanOptional]
-    UseLogminerReader: Optional[BooleanOptional]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    SecretsManagerOracleAsmAccessRoleArn: Optional[String]
-    SecretsManagerOracleAsmSecretId: Optional[String]
-    TrimSpaceInChar: Optional[BooleanOptional]
-    ConvertTimestampWithZoneToUTC: Optional[BooleanOptional]
-    OpenTransactionWindow: Optional[IntegerOptional]
-    AuthenticationMethod: Optional[OracleAuthenticationMethod]
+    AddSupplementalLogging: BooleanOptional | None
+    ArchivedLogDestId: IntegerOptional | None
+    AdditionalArchivedLogDestId: IntegerOptional | None
+    ExtraArchivedLogDestIds: IntegerList | None
+    AllowSelectNestedTables: BooleanOptional | None
+    ParallelAsmReadThreads: IntegerOptional | None
+    ReadAheadBlocks: IntegerOptional | None
+    AccessAlternateDirectly: BooleanOptional | None
+    UseAlternateFolderForOnline: BooleanOptional | None
+    OraclePathPrefix: String | None
+    UsePathPrefix: String | None
+    ReplacePathPrefix: BooleanOptional | None
+    EnableHomogenousTablespace: BooleanOptional | None
+    DirectPathNoLog: BooleanOptional | None
+    ArchivedLogsOnly: BooleanOptional | None
+    AsmPassword: SecretString | None
+    AsmServer: String | None
+    AsmUser: String | None
+    CharLengthSemantics: CharLengthSemantics | None
+    DatabaseName: String | None
+    DirectPathParallelLoad: BooleanOptional | None
+    FailTasksOnLobTruncation: BooleanOptional | None
+    NumberDatatypeScale: IntegerOptional | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    ReadTableSpaceName: BooleanOptional | None
+    RetryInterval: IntegerOptional | None
+    SecurityDbEncryption: SecretString | None
+    SecurityDbEncryptionName: String | None
+    ServerName: String | None
+    SpatialDataOptionToGeoJsonFunctionName: String | None
+    StandbyDelayTime: IntegerOptional | None
+    Username: String | None
+    UseBFile: BooleanOptional | None
+    UseDirectPathFullLoad: BooleanOptional | None
+    UseLogminerReader: BooleanOptional | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    SecretsManagerOracleAsmAccessRoleArn: String | None
+    SecretsManagerOracleAsmSecretId: String | None
+    TrimSpaceInChar: BooleanOptional | None
+    ConvertTimestampWithZoneToUTC: BooleanOptional | None
+    OpenTransactionWindow: IntegerOptional | None
+    AuthenticationMethod: OracleAuthenticationMethod | None
 
 
 class MySQLSettings(TypedDict, total=False):
     """Provides information that defines a MySQL endpoint."""
 
-    AfterConnectScript: Optional[String]
-    CleanSourceMetadataOnMismatch: Optional[BooleanOptional]
-    DatabaseName: Optional[String]
-    EventsPollInterval: Optional[IntegerOptional]
-    TargetDbType: Optional[TargetDbType]
-    MaxFileSize: Optional[IntegerOptional]
-    ParallelLoadThreads: Optional[IntegerOptional]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    ServerName: Optional[String]
-    ServerTimezone: Optional[String]
-    Username: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    ExecuteTimeout: Optional[IntegerOptional]
-    ServiceAccessRoleArn: Optional[String]
-    AuthenticationMethod: Optional[MySQLAuthenticationMethod]
+    AfterConnectScript: String | None
+    CleanSourceMetadataOnMismatch: BooleanOptional | None
+    DatabaseName: String | None
+    EventsPollInterval: IntegerOptional | None
+    TargetDbType: TargetDbType | None
+    MaxFileSize: IntegerOptional | None
+    ParallelLoadThreads: IntegerOptional | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    ServerName: String | None
+    ServerTimezone: String | None
+    Username: String | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    ExecuteTimeout: IntegerOptional | None
+    ServiceAccessRoleArn: String | None
+    AuthenticationMethod: MySQLAuthenticationMethod | None
 
 
 class PostgreSQLSettings(TypedDict, total=False):
     """Provides information that defines a PostgreSQL endpoint."""
 
-    AfterConnectScript: Optional[String]
-    CaptureDdls: Optional[BooleanOptional]
-    MaxFileSize: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    DdlArtifactsSchema: Optional[String]
-    ExecuteTimeout: Optional[IntegerOptional]
-    FailTasksOnLobTruncation: Optional[BooleanOptional]
-    HeartbeatEnable: Optional[BooleanOptional]
-    HeartbeatSchema: Optional[String]
-    HeartbeatFrequency: Optional[IntegerOptional]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    ServerName: Optional[String]
-    Username: Optional[String]
-    SlotName: Optional[String]
-    PluginName: Optional[PluginNameValue]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    TrimSpaceInChar: Optional[BooleanOptional]
-    MapBooleanAsBoolean: Optional[BooleanOptional]
-    MapJsonbAsClob: Optional[BooleanOptional]
-    MapLongVarcharAs: Optional[LongVarcharMappingType]
-    DatabaseMode: Optional[DatabaseMode]
-    BabelfishDatabaseName: Optional[String]
-    DisableUnicodeSourceFilter: Optional[BooleanOptional]
-    ServiceAccessRoleArn: Optional[String]
-    AuthenticationMethod: Optional[PostgreSQLAuthenticationMethod]
+    AfterConnectScript: String | None
+    CaptureDdls: BooleanOptional | None
+    MaxFileSize: IntegerOptional | None
+    DatabaseName: String | None
+    DdlArtifactsSchema: String | None
+    ExecuteTimeout: IntegerOptional | None
+    FailTasksOnLobTruncation: BooleanOptional | None
+    HeartbeatEnable: BooleanOptional | None
+    HeartbeatSchema: String | None
+    HeartbeatFrequency: IntegerOptional | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    ServerName: String | None
+    Username: String | None
+    SlotName: String | None
+    PluginName: PluginNameValue | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    TrimSpaceInChar: BooleanOptional | None
+    MapBooleanAsBoolean: BooleanOptional | None
+    MapJsonbAsClob: BooleanOptional | None
+    MapLongVarcharAs: LongVarcharMappingType | None
+    DatabaseMode: DatabaseMode | None
+    BabelfishDatabaseName: String | None
+    DisableUnicodeSourceFilter: BooleanOptional | None
+    ServiceAccessRoleArn: String | None
+    AuthenticationMethod: PostgreSQLAuthenticationMethod | None
 
 
 class RedshiftSettings(TypedDict, total=False):
     """Provides information that defines an Amazon Redshift endpoint."""
 
-    AcceptAnyDate: Optional[BooleanOptional]
-    AfterConnectScript: Optional[String]
-    BucketFolder: Optional[String]
-    BucketName: Optional[String]
-    CaseSensitiveNames: Optional[BooleanOptional]
-    CompUpdate: Optional[BooleanOptional]
-    ConnectionTimeout: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    DateFormat: Optional[String]
-    EmptyAsNull: Optional[BooleanOptional]
-    EncryptionMode: Optional[EncryptionModeValue]
-    ExplicitIds: Optional[BooleanOptional]
-    FileTransferUploadStreams: Optional[IntegerOptional]
-    LoadTimeout: Optional[IntegerOptional]
-    MaxFileSize: Optional[IntegerOptional]
-    Password: Optional[SecretString]
-    Port: Optional[IntegerOptional]
-    RemoveQuotes: Optional[BooleanOptional]
-    ReplaceInvalidChars: Optional[String]
-    ReplaceChars: Optional[String]
-    ServerName: Optional[String]
-    ServiceAccessRoleArn: Optional[String]
-    ServerSideEncryptionKmsKeyId: Optional[String]
-    TimeFormat: Optional[String]
-    TrimBlanks: Optional[BooleanOptional]
-    TruncateColumns: Optional[BooleanOptional]
-    Username: Optional[String]
-    WriteBufferSize: Optional[IntegerOptional]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    MapBooleanAsBoolean: Optional[BooleanOptional]
+    AcceptAnyDate: BooleanOptional | None
+    AfterConnectScript: String | None
+    BucketFolder: String | None
+    BucketName: String | None
+    CaseSensitiveNames: BooleanOptional | None
+    CompUpdate: BooleanOptional | None
+    ConnectionTimeout: IntegerOptional | None
+    DatabaseName: String | None
+    DateFormat: String | None
+    EmptyAsNull: BooleanOptional | None
+    EncryptionMode: EncryptionModeValue | None
+    ExplicitIds: BooleanOptional | None
+    FileTransferUploadStreams: IntegerOptional | None
+    LoadTimeout: IntegerOptional | None
+    MaxFileSize: IntegerOptional | None
+    Password: SecretString | None
+    Port: IntegerOptional | None
+    RemoveQuotes: BooleanOptional | None
+    ReplaceInvalidChars: String | None
+    ReplaceChars: String | None
+    ServerName: String | None
+    ServiceAccessRoleArn: String | None
+    ServerSideEncryptionKmsKeyId: String | None
+    TimeFormat: String | None
+    TrimBlanks: BooleanOptional | None
+    TruncateColumns: BooleanOptional | None
+    Username: String | None
+    WriteBufferSize: IntegerOptional | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    MapBooleanAsBoolean: BooleanOptional | None
 
 
 class NeptuneSettings(TypedDict, total=False):
     """Provides information that defines an Amazon Neptune endpoint."""
 
-    ServiceAccessRoleArn: Optional[String]
+    ServiceAccessRoleArn: String | None
     S3BucketName: String
     S3BucketFolder: String
-    ErrorRetryDuration: Optional[IntegerOptional]
-    MaxFileSize: Optional[IntegerOptional]
-    MaxRetryCount: Optional[IntegerOptional]
-    IamAuthEnabled: Optional[BooleanOptional]
+    ErrorRetryDuration: IntegerOptional | None
+    MaxFileSize: IntegerOptional | None
+    MaxRetryCount: IntegerOptional | None
+    IamAuthEnabled: BooleanOptional | None
 
 
 class ElasticsearchSettings(TypedDict, total=False):
@@ -1308,9 +1388,9 @@ class ElasticsearchSettings(TypedDict, total=False):
 
     ServiceAccessRoleArn: String
     EndpointUri: String
-    FullLoadErrorPercentage: Optional[IntegerOptional]
-    ErrorRetryDuration: Optional[IntegerOptional]
-    UseNewMappingType: Optional[BooleanOptional]
+    FullLoadErrorPercentage: IntegerOptional | None
+    ErrorRetryDuration: IntegerOptional | None
+    UseNewMappingType: BooleanOptional | None
 
 
 class KafkaSettings(TypedDict, total=False):
@@ -1319,27 +1399,27 @@ class KafkaSettings(TypedDict, total=False):
     endpoint and details of transaction and control table data information.
     """
 
-    Broker: Optional[String]
-    Topic: Optional[String]
-    MessageFormat: Optional[MessageFormatValue]
-    IncludeTransactionDetails: Optional[BooleanOptional]
-    IncludePartitionValue: Optional[BooleanOptional]
-    PartitionIncludeSchemaTable: Optional[BooleanOptional]
-    IncludeTableAlterOperations: Optional[BooleanOptional]
-    IncludeControlDetails: Optional[BooleanOptional]
-    MessageMaxBytes: Optional[IntegerOptional]
-    IncludeNullAndEmpty: Optional[BooleanOptional]
-    SecurityProtocol: Optional[KafkaSecurityProtocol]
-    SslClientCertificateArn: Optional[String]
-    SslClientKeyArn: Optional[String]
-    SslClientKeyPassword: Optional[SecretString]
-    SslCaCertificateArn: Optional[String]
-    SaslUsername: Optional[String]
-    SaslPassword: Optional[SecretString]
-    NoHexPrefix: Optional[BooleanOptional]
-    SaslMechanism: Optional[KafkaSaslMechanism]
-    SslEndpointIdentificationAlgorithm: Optional[KafkaSslEndpointIdentificationAlgorithm]
-    UseLargeIntegerValue: Optional[BooleanOptional]
+    Broker: String | None
+    Topic: String | None
+    MessageFormat: MessageFormatValue | None
+    IncludeTransactionDetails: BooleanOptional | None
+    IncludePartitionValue: BooleanOptional | None
+    PartitionIncludeSchemaTable: BooleanOptional | None
+    IncludeTableAlterOperations: BooleanOptional | None
+    IncludeControlDetails: BooleanOptional | None
+    MessageMaxBytes: IntegerOptional | None
+    IncludeNullAndEmpty: BooleanOptional | None
+    SecurityProtocol: KafkaSecurityProtocol | None
+    SslClientCertificateArn: String | None
+    SslClientKeyArn: String | None
+    SslClientKeyPassword: SecretString | None
+    SslCaCertificateArn: String | None
+    SaslUsername: String | None
+    SaslPassword: SecretString | None
+    NoHexPrefix: BooleanOptional | None
+    SaslMechanism: KafkaSaslMechanism | None
+    SslEndpointIdentificationAlgorithm: KafkaSslEndpointIdentificationAlgorithm | None
+    UseLargeIntegerValue: BooleanOptional | None
 
 
 class KinesisSettings(TypedDict, total=False):
@@ -1349,91 +1429,91 @@ class KinesisSettings(TypedDict, total=False):
     information.
     """
 
-    StreamArn: Optional[String]
-    MessageFormat: Optional[MessageFormatValue]
-    ServiceAccessRoleArn: Optional[String]
-    IncludeTransactionDetails: Optional[BooleanOptional]
-    IncludePartitionValue: Optional[BooleanOptional]
-    PartitionIncludeSchemaTable: Optional[BooleanOptional]
-    IncludeTableAlterOperations: Optional[BooleanOptional]
-    IncludeControlDetails: Optional[BooleanOptional]
-    IncludeNullAndEmpty: Optional[BooleanOptional]
-    NoHexPrefix: Optional[BooleanOptional]
-    UseLargeIntegerValue: Optional[BooleanOptional]
+    StreamArn: String | None
+    MessageFormat: MessageFormatValue | None
+    ServiceAccessRoleArn: String | None
+    IncludeTransactionDetails: BooleanOptional | None
+    IncludePartitionValue: BooleanOptional | None
+    PartitionIncludeSchemaTable: BooleanOptional | None
+    IncludeTableAlterOperations: BooleanOptional | None
+    IncludeControlDetails: BooleanOptional | None
+    IncludeNullAndEmpty: BooleanOptional | None
+    NoHexPrefix: BooleanOptional | None
+    UseLargeIntegerValue: BooleanOptional | None
 
 
 class MongoDbSettings(TypedDict, total=False):
     """Provides information that defines a MongoDB endpoint."""
 
-    Username: Optional[String]
-    Password: Optional[SecretString]
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    AuthType: Optional[AuthTypeValue]
-    AuthMechanism: Optional[AuthMechanismValue]
-    NestingLevel: Optional[NestingLevelValue]
-    ExtractDocId: Optional[String]
-    DocsToInvestigate: Optional[String]
-    AuthSource: Optional[String]
-    KmsKeyId: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    SecretsManagerSecretId: Optional[String]
-    UseUpdateLookUp: Optional[BooleanOptional]
-    ReplicateShardCollections: Optional[BooleanOptional]
+    Username: String | None
+    Password: SecretString | None
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    AuthType: AuthTypeValue | None
+    AuthMechanism: AuthMechanismValue | None
+    NestingLevel: NestingLevelValue | None
+    ExtractDocId: String | None
+    DocsToInvestigate: String | None
+    AuthSource: String | None
+    KmsKeyId: String | None
+    SecretsManagerAccessRoleArn: String | None
+    SecretsManagerSecretId: String | None
+    UseUpdateLookUp: BooleanOptional | None
+    ReplicateShardCollections: BooleanOptional | None
 
 
 class DmsTransferSettings(TypedDict, total=False):
     """The settings in JSON format for the DMS Transfer type source endpoint."""
 
-    ServiceAccessRoleArn: Optional[String]
-    BucketName: Optional[String]
+    ServiceAccessRoleArn: String | None
+    BucketName: String | None
 
 
 class S3Settings(TypedDict, total=False):
     """Settings for exporting data to Amazon S3."""
 
-    ServiceAccessRoleArn: Optional[String]
-    ExternalTableDefinition: Optional[String]
-    CsvRowDelimiter: Optional[String]
-    CsvDelimiter: Optional[String]
-    BucketFolder: Optional[String]
-    BucketName: Optional[String]
-    CompressionType: Optional[CompressionTypeValue]
-    EncryptionMode: Optional[EncryptionModeValue]
-    ServerSideEncryptionKmsKeyId: Optional[String]
-    DataFormat: Optional[DataFormatValue]
-    EncodingType: Optional[EncodingTypeValue]
-    DictPageSizeLimit: Optional[IntegerOptional]
-    RowGroupLength: Optional[IntegerOptional]
-    DataPageSize: Optional[IntegerOptional]
-    ParquetVersion: Optional[ParquetVersionValue]
-    EnableStatistics: Optional[BooleanOptional]
-    IncludeOpForFullLoad: Optional[BooleanOptional]
-    CdcInsertsOnly: Optional[BooleanOptional]
-    TimestampColumnName: Optional[String]
-    ParquetTimestampInMillisecond: Optional[BooleanOptional]
-    CdcInsertsAndUpdates: Optional[BooleanOptional]
-    DatePartitionEnabled: Optional[BooleanOptional]
-    DatePartitionSequence: Optional[DatePartitionSequenceValue]
-    DatePartitionDelimiter: Optional[DatePartitionDelimiterValue]
-    UseCsvNoSupValue: Optional[BooleanOptional]
-    CsvNoSupValue: Optional[String]
-    PreserveTransactions: Optional[BooleanOptional]
-    CdcPath: Optional[String]
-    UseTaskStartTimeForFullLoadTimestamp: Optional[BooleanOptional]
-    CannedAclForObjects: Optional[CannedAclForObjectsValue]
-    AddColumnName: Optional[BooleanOptional]
-    CdcMaxBatchInterval: Optional[IntegerOptional]
-    CdcMinFileSize: Optional[IntegerOptional]
-    CsvNullValue: Optional[String]
-    IgnoreHeaderRows: Optional[IntegerOptional]
-    MaxFileSize: Optional[IntegerOptional]
-    Rfc4180: Optional[BooleanOptional]
-    DatePartitionTimezone: Optional[String]
-    AddTrailingPaddingCharacter: Optional[BooleanOptional]
-    ExpectedBucketOwner: Optional[String]
-    GlueCatalogGeneration: Optional[BooleanOptional]
+    ServiceAccessRoleArn: String | None
+    ExternalTableDefinition: String | None
+    CsvRowDelimiter: String | None
+    CsvDelimiter: String | None
+    BucketFolder: String | None
+    BucketName: String | None
+    CompressionType: CompressionTypeValue | None
+    EncryptionMode: EncryptionModeValue | None
+    ServerSideEncryptionKmsKeyId: String | None
+    DataFormat: DataFormatValue | None
+    EncodingType: EncodingTypeValue | None
+    DictPageSizeLimit: IntegerOptional | None
+    RowGroupLength: IntegerOptional | None
+    DataPageSize: IntegerOptional | None
+    ParquetVersion: ParquetVersionValue | None
+    EnableStatistics: BooleanOptional | None
+    IncludeOpForFullLoad: BooleanOptional | None
+    CdcInsertsOnly: BooleanOptional | None
+    TimestampColumnName: String | None
+    ParquetTimestampInMillisecond: BooleanOptional | None
+    CdcInsertsAndUpdates: BooleanOptional | None
+    DatePartitionEnabled: BooleanOptional | None
+    DatePartitionSequence: DatePartitionSequenceValue | None
+    DatePartitionDelimiter: DatePartitionDelimiterValue | None
+    UseCsvNoSupValue: BooleanOptional | None
+    CsvNoSupValue: String | None
+    PreserveTransactions: BooleanOptional | None
+    CdcPath: String | None
+    UseTaskStartTimeForFullLoadTimestamp: BooleanOptional | None
+    CannedAclForObjects: CannedAclForObjectsValue | None
+    AddColumnName: BooleanOptional | None
+    CdcMaxBatchInterval: IntegerOptional | None
+    CdcMinFileSize: IntegerOptional | None
+    CsvNullValue: String | None
+    IgnoreHeaderRows: IntegerOptional | None
+    MaxFileSize: IntegerOptional | None
+    Rfc4180: BooleanOptional | None
+    DatePartitionTimezone: String | None
+    AddTrailingPaddingCharacter: BooleanOptional | None
+    ExpectedBucketOwner: String | None
+    GlueCatalogGeneration: BooleanOptional | None
 
 
 class DynamoDbSettings(TypedDict, total=False):
@@ -1448,38 +1528,46 @@ class CreateEndpointMessage(ServiceRequest):
     EndpointIdentifier: String
     EndpointType: ReplicationEndpointTypeValue
     EngineName: String
-    Username: Optional[String]
-    Password: Optional[SecretString]
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    ExtraConnectionAttributes: Optional[String]
-    KmsKeyId: Optional[String]
-    Tags: Optional[TagList]
-    CertificateArn: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    ServiceAccessRoleArn: Optional[String]
-    ExternalTableDefinition: Optional[String]
-    DynamoDbSettings: Optional[DynamoDbSettings]
-    S3Settings: Optional[S3Settings]
-    DmsTransferSettings: Optional[DmsTransferSettings]
-    MongoDbSettings: Optional[MongoDbSettings]
-    KinesisSettings: Optional[KinesisSettings]
-    KafkaSettings: Optional[KafkaSettings]
-    ElasticsearchSettings: Optional[ElasticsearchSettings]
-    NeptuneSettings: Optional[NeptuneSettings]
-    RedshiftSettings: Optional[RedshiftSettings]
-    PostgreSQLSettings: Optional[PostgreSQLSettings]
-    MySQLSettings: Optional[MySQLSettings]
-    OracleSettings: Optional[OracleSettings]
-    SybaseSettings: Optional[SybaseSettings]
-    MicrosoftSQLServerSettings: Optional[MicrosoftSQLServerSettings]
-    IBMDb2Settings: Optional[IBMDb2Settings]
-    ResourceIdentifier: Optional[String]
-    DocDbSettings: Optional[DocDbSettings]
-    RedisSettings: Optional[RedisSettings]
-    GcpMySQLSettings: Optional[GcpMySQLSettings]
-    TimestreamSettings: Optional[TimestreamSettings]
+    Username: String | None
+    Password: SecretString | None
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    ExtraConnectionAttributes: String | None
+    KmsKeyId: String | None
+    Tags: TagList | None
+    CertificateArn: String | None
+    SslMode: DmsSslModeValue | None
+    ServiceAccessRoleArn: String | None
+    ExternalTableDefinition: String | None
+    DynamoDbSettings: DynamoDbSettings | None
+    S3Settings: S3Settings | None
+    DmsTransferSettings: DmsTransferSettings | None
+    MongoDbSettings: MongoDbSettings | None
+    KinesisSettings: KinesisSettings | None
+    KafkaSettings: KafkaSettings | None
+    ElasticsearchSettings: ElasticsearchSettings | None
+    NeptuneSettings: NeptuneSettings | None
+    RedshiftSettings: RedshiftSettings | None
+    PostgreSQLSettings: PostgreSQLSettings | None
+    MySQLSettings: MySQLSettings | None
+    OracleSettings: OracleSettings | None
+    SybaseSettings: SybaseSettings | None
+    MicrosoftSQLServerSettings: MicrosoftSQLServerSettings | None
+    IBMDb2Settings: IBMDb2Settings | None
+    ResourceIdentifier: String | None
+    DocDbSettings: DocDbSettings | None
+    RedisSettings: RedisSettings | None
+    GcpMySQLSettings: GcpMySQLSettings | None
+    TimestreamSettings: TimestreamSettings | None
+
+
+class LakehouseSettings(TypedDict, total=False):
+    """Provides information that defines a Lakehouse endpoint. This endpoint
+    type is used for zero-ETL integrations with Lakehouse data warehouses.
+    """
+
+    Arn: String
 
 
 class Endpoint(TypedDict, total=False):
@@ -1493,60 +1581,62 @@ class Endpoint(TypedDict, total=False):
     -  ``ModifyEndpoint``
     """
 
-    EndpointIdentifier: Optional[String]
-    EndpointType: Optional[ReplicationEndpointTypeValue]
-    EngineName: Optional[String]
-    EngineDisplayName: Optional[String]
-    Username: Optional[String]
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    ExtraConnectionAttributes: Optional[String]
-    Status: Optional[String]
-    KmsKeyId: Optional[String]
-    EndpointArn: Optional[String]
-    CertificateArn: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    ServiceAccessRoleArn: Optional[String]
-    ExternalTableDefinition: Optional[String]
-    ExternalId: Optional[String]
-    DynamoDbSettings: Optional[DynamoDbSettings]
-    S3Settings: Optional[S3Settings]
-    DmsTransferSettings: Optional[DmsTransferSettings]
-    MongoDbSettings: Optional[MongoDbSettings]
-    KinesisSettings: Optional[KinesisSettings]
-    KafkaSettings: Optional[KafkaSettings]
-    ElasticsearchSettings: Optional[ElasticsearchSettings]
-    NeptuneSettings: Optional[NeptuneSettings]
-    RedshiftSettings: Optional[RedshiftSettings]
-    PostgreSQLSettings: Optional[PostgreSQLSettings]
-    MySQLSettings: Optional[MySQLSettings]
-    OracleSettings: Optional[OracleSettings]
-    SybaseSettings: Optional[SybaseSettings]
-    MicrosoftSQLServerSettings: Optional[MicrosoftSQLServerSettings]
-    IBMDb2Settings: Optional[IBMDb2Settings]
-    DocDbSettings: Optional[DocDbSettings]
-    RedisSettings: Optional[RedisSettings]
-    GcpMySQLSettings: Optional[GcpMySQLSettings]
-    TimestreamSettings: Optional[TimestreamSettings]
+    EndpointIdentifier: String | None
+    EndpointType: ReplicationEndpointTypeValue | None
+    EngineName: String | None
+    EngineDisplayName: String | None
+    Username: String | None
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    ExtraConnectionAttributes: String | None
+    Status: String | None
+    KmsKeyId: String | None
+    EndpointArn: String | None
+    CertificateArn: String | None
+    SslMode: DmsSslModeValue | None
+    ServiceAccessRoleArn: String | None
+    ExternalTableDefinition: String | None
+    ExternalId: String | None
+    IsReadOnly: BooleanOptional | None
+    DynamoDbSettings: DynamoDbSettings | None
+    S3Settings: S3Settings | None
+    DmsTransferSettings: DmsTransferSettings | None
+    MongoDbSettings: MongoDbSettings | None
+    KinesisSettings: KinesisSettings | None
+    KafkaSettings: KafkaSettings | None
+    ElasticsearchSettings: ElasticsearchSettings | None
+    NeptuneSettings: NeptuneSettings | None
+    RedshiftSettings: RedshiftSettings | None
+    PostgreSQLSettings: PostgreSQLSettings | None
+    MySQLSettings: MySQLSettings | None
+    OracleSettings: OracleSettings | None
+    SybaseSettings: SybaseSettings | None
+    MicrosoftSQLServerSettings: MicrosoftSQLServerSettings | None
+    IBMDb2Settings: IBMDb2Settings | None
+    DocDbSettings: DocDbSettings | None
+    RedisSettings: RedisSettings | None
+    GcpMySQLSettings: GcpMySQLSettings | None
+    TimestreamSettings: TimestreamSettings | None
+    LakehouseSettings: LakehouseSettings | None
 
 
 class CreateEndpointResponse(TypedDict, total=False):
-    Endpoint: Optional[Endpoint]
+    Endpoint: Endpoint | None
 
 
-SourceIdsList = List[String]
-EventCategoriesList = List[String]
+SourceIdsList = list[String]
+EventCategoriesList = list[String]
 
 
 class CreateEventSubscriptionMessage(ServiceRequest):
     SubscriptionName: String
     SnsTopicArn: String
-    SourceType: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
-    SourceIds: Optional[SourceIdsList]
-    Enabled: Optional[BooleanOptional]
-    Tags: Optional[TagList]
+    SourceType: String | None
+    EventCategories: EventCategoriesList | None
+    SourceIds: SourceIdsList | None
+    Enabled: BooleanOptional | None
+    Tags: TagList | None
 
 
 class EventSubscription(TypedDict, total=False):
@@ -1554,125 +1644,125 @@ class EventSubscription(TypedDict, total=False):
     ``CreateEventSubscription`` operation.
     """
 
-    CustomerAwsId: Optional[String]
-    CustSubscriptionId: Optional[String]
-    SnsTopicArn: Optional[String]
-    Status: Optional[String]
-    SubscriptionCreationTime: Optional[String]
-    SourceType: Optional[String]
-    SourceIdsList: Optional[SourceIdsList]
-    EventCategoriesList: Optional[EventCategoriesList]
-    Enabled: Optional[Boolean]
+    CustomerAwsId: String | None
+    CustSubscriptionId: String | None
+    SnsTopicArn: String | None
+    Status: String | None
+    SubscriptionCreationTime: String | None
+    SourceType: String | None
+    SourceIdsList: SourceIdsList | None
+    EventCategoriesList: EventCategoriesList | None
+    Enabled: Boolean | None
 
 
 class CreateEventSubscriptionResponse(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class CreateFleetAdvisorCollectorRequest(ServiceRequest):
     CollectorName: String
-    Description: Optional[String]
+    Description: String | None
     ServiceAccessRoleArn: String
     S3BucketName: String
 
 
 class CreateFleetAdvisorCollectorResponse(TypedDict, total=False):
-    CollectorReferencedId: Optional[String]
-    CollectorName: Optional[String]
-    Description: Optional[String]
-    ServiceAccessRoleArn: Optional[String]
-    S3BucketName: Optional[String]
+    CollectorReferencedId: String | None
+    CollectorName: String | None
+    Description: String | None
+    ServiceAccessRoleArn: String | None
+    S3BucketName: String | None
 
 
 class CreateInstanceProfileMessage(ServiceRequest):
-    AvailabilityZone: Optional[String]
-    KmsKeyArn: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    NetworkType: Optional[String]
-    InstanceProfileName: Optional[String]
-    Description: Optional[String]
-    SubnetGroupIdentifier: Optional[String]
-    VpcSecurityGroups: Optional[StringList]
+    AvailabilityZone: String | None
+    KmsKeyArn: String | None
+    PubliclyAccessible: BooleanOptional | None
+    Tags: TagList | None
+    NetworkType: String | None
+    InstanceProfileName: String | None
+    Description: String | None
+    SubnetGroupIdentifier: String | None
+    VpcSecurityGroups: StringList | None
 
 
 class InstanceProfile(TypedDict, total=False):
     """Provides information that defines an instance profile."""
 
-    InstanceProfileArn: Optional[String]
-    AvailabilityZone: Optional[String]
-    KmsKeyArn: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    NetworkType: Optional[String]
-    InstanceProfileName: Optional[String]
-    Description: Optional[String]
-    InstanceProfileCreationTime: Optional[Iso8601DateTime]
-    SubnetGroupIdentifier: Optional[String]
-    VpcSecurityGroups: Optional[StringList]
+    InstanceProfileArn: String | None
+    AvailabilityZone: String | None
+    KmsKeyArn: String | None
+    PubliclyAccessible: BooleanOptional | None
+    NetworkType: String | None
+    InstanceProfileName: String | None
+    Description: String | None
+    InstanceProfileCreationTime: Iso8601DateTime | None
+    SubnetGroupIdentifier: String | None
+    VpcSecurityGroups: StringList | None
 
 
 class CreateInstanceProfileResponse(TypedDict, total=False):
-    InstanceProfile: Optional[InstanceProfile]
+    InstanceProfile: InstanceProfile | None
 
 
 class SCApplicationAttributes(TypedDict, total=False):
     """Provides information that defines a schema conversion application."""
 
-    S3BucketPath: Optional[String]
-    S3BucketRoleArn: Optional[String]
+    S3BucketPath: String | None
+    S3BucketRoleArn: String | None
 
 
 class DataProviderDescriptorDefinition(TypedDict, total=False):
     """Information about a data provider."""
 
     DataProviderIdentifier: String
-    SecretsManagerSecretId: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
+    SecretsManagerSecretId: String | None
+    SecretsManagerAccessRoleArn: String | None
 
 
-DataProviderDescriptorDefinitionList = List[DataProviderDescriptorDefinition]
+DataProviderDescriptorDefinitionList = list[DataProviderDescriptorDefinition]
 
 
 class CreateMigrationProjectMessage(ServiceRequest):
-    MigrationProjectName: Optional[String]
+    MigrationProjectName: String | None
     SourceDataProviderDescriptors: DataProviderDescriptorDefinitionList
     TargetDataProviderDescriptors: DataProviderDescriptorDefinitionList
     InstanceProfileIdentifier: String
-    TransformationRules: Optional[String]
-    Description: Optional[String]
-    Tags: Optional[TagList]
-    SchemaConversionApplicationAttributes: Optional[SCApplicationAttributes]
+    TransformationRules: String | None
+    Description: String | None
+    Tags: TagList | None
+    SchemaConversionApplicationAttributes: SCApplicationAttributes | None
 
 
 class DataProviderDescriptor(TypedDict, total=False):
     """Information about a data provider."""
 
-    SecretsManagerSecretId: Optional[String]
-    SecretsManagerAccessRoleArn: Optional[String]
-    DataProviderName: Optional[String]
-    DataProviderArn: Optional[String]
+    SecretsManagerSecretId: String | None
+    SecretsManagerAccessRoleArn: String | None
+    DataProviderName: String | None
+    DataProviderArn: String | None
 
 
-DataProviderDescriptorList = List[DataProviderDescriptor]
+DataProviderDescriptorList = list[DataProviderDescriptor]
 
 
 class MigrationProject(TypedDict, total=False):
     """Provides information that defines a migration project."""
 
-    MigrationProjectName: Optional[String]
-    MigrationProjectArn: Optional[String]
-    MigrationProjectCreationTime: Optional[Iso8601DateTime]
-    SourceDataProviderDescriptors: Optional[DataProviderDescriptorList]
-    TargetDataProviderDescriptors: Optional[DataProviderDescriptorList]
-    InstanceProfileArn: Optional[String]
-    InstanceProfileName: Optional[String]
-    TransformationRules: Optional[String]
-    Description: Optional[String]
-    SchemaConversionApplicationAttributes: Optional[SCApplicationAttributes]
+    MigrationProjectName: String | None
+    MigrationProjectArn: String | None
+    MigrationProjectCreationTime: Iso8601DateTime | None
+    SourceDataProviderDescriptors: DataProviderDescriptorList | None
+    TargetDataProviderDescriptors: DataProviderDescriptorList | None
+    InstanceProfileArn: String | None
+    InstanceProfileName: String | None
+    TransformationRules: String | None
+    Description: String | None
+    SchemaConversionApplicationAttributes: SCApplicationAttributes | None
 
 
 class CreateMigrationProjectResponse(TypedDict, total=False):
-    MigrationProject: Optional[MigrationProject]
+    MigrationProject: MigrationProject | None
 
 
 class CreateReplicationConfigMessage(ServiceRequest):
@@ -1682,10 +1772,10 @@ class CreateReplicationConfigMessage(ServiceRequest):
     ComputeConfig: ComputeConfig
     ReplicationType: MigrationTypeValue
     TableMappings: String
-    ReplicationSettings: Optional[String]
-    SupplementalSettings: Optional[String]
-    ResourceIdentifier: Optional[String]
-    Tags: Optional[TagList]
+    ReplicationSettings: String | None
+    SupplementalSettings: String | None
+    ResourceIdentifier: String | None
+    Tags: TagList | None
 
 
 class ReplicationConfig(TypedDict, total=False):
@@ -1693,21 +1783,22 @@ class ReplicationConfig(TypedDict, total=False):
     replication.
     """
 
-    ReplicationConfigIdentifier: Optional[String]
-    ReplicationConfigArn: Optional[String]
-    SourceEndpointArn: Optional[String]
-    TargetEndpointArn: Optional[String]
-    ReplicationType: Optional[MigrationTypeValue]
-    ComputeConfig: Optional[ComputeConfig]
-    ReplicationSettings: Optional[String]
-    SupplementalSettings: Optional[String]
-    TableMappings: Optional[String]
-    ReplicationConfigCreateTime: Optional[TStamp]
-    ReplicationConfigUpdateTime: Optional[TStamp]
+    ReplicationConfigIdentifier: String | None
+    ReplicationConfigArn: String | None
+    SourceEndpointArn: String | None
+    TargetEndpointArn: String | None
+    ReplicationType: MigrationTypeValue | None
+    ComputeConfig: ComputeConfig | None
+    ReplicationSettings: String | None
+    SupplementalSettings: String | None
+    TableMappings: String | None
+    ReplicationConfigCreateTime: TStamp | None
+    ReplicationConfigUpdateTime: TStamp | None
+    IsReadOnly: BooleanOptional | None
 
 
 class CreateReplicationConfigResponse(TypedDict, total=False):
-    ReplicationConfig: Optional[ReplicationConfig]
+    ReplicationConfig: ReplicationConfig | None
 
 
 class KerberosAuthenticationSettings(TypedDict, total=False):
@@ -1715,37 +1806,37 @@ class KerberosAuthenticationSettings(TypedDict, total=False):
     creating the replication instance.
     """
 
-    KeyCacheSecretId: Optional[String]
-    KeyCacheSecretIamArn: Optional[String]
-    Krb5FileContents: Optional[String]
+    KeyCacheSecretId: String | None
+    KeyCacheSecretIamArn: String | None
+    Krb5FileContents: String | None
 
 
-VpcSecurityGroupIdList = List[String]
+VpcSecurityGroupIdList = list[String]
 
 
 class CreateReplicationInstanceMessage(ServiceRequest):
     ReplicationInstanceIdentifier: String
-    AllocatedStorage: Optional[IntegerOptional]
+    AllocatedStorage: IntegerOptional | None
     ReplicationInstanceClass: ReplicationInstanceClass
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    AvailabilityZone: Optional[String]
-    ReplicationSubnetGroupIdentifier: Optional[String]
-    PreferredMaintenanceWindow: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    Tags: Optional[TagList]
-    KmsKeyId: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    DnsNameServers: Optional[String]
-    ResourceIdentifier: Optional[String]
-    NetworkType: Optional[String]
-    KerberosAuthenticationSettings: Optional[KerberosAuthenticationSettings]
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    AvailabilityZone: String | None
+    ReplicationSubnetGroupIdentifier: String | None
+    PreferredMaintenanceWindow: String | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    Tags: TagList | None
+    KmsKeyId: String | None
+    PubliclyAccessible: BooleanOptional | None
+    DnsNameServers: String | None
+    ResourceIdentifier: String | None
+    NetworkType: String | None
+    KerberosAuthenticationSettings: KerberosAuthenticationSettings | None
 
 
-ReplicationInstanceIpv6AddressList = List[String]
-ReplicationInstancePrivateIpAddressList = List[String]
-ReplicationInstancePublicIpAddressList = List[String]
+ReplicationInstanceIpv6AddressList = list[String]
+ReplicationInstancePrivateIpAddressList = list[String]
+ReplicationInstancePublicIpAddressList = list[String]
 
 
 class ReplicationPendingModifiedValues(TypedDict, total=False):
@@ -1755,11 +1846,11 @@ class ReplicationPendingModifiedValues(TypedDict, total=False):
     user-defined data type.
     """
 
-    ReplicationInstanceClass: Optional[ReplicationInstanceClass]
-    AllocatedStorage: Optional[IntegerOptional]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    NetworkType: Optional[String]
+    ReplicationInstanceClass: ReplicationInstanceClass | None
+    AllocatedStorage: IntegerOptional | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    NetworkType: String | None
 
 
 class Subnet(TypedDict, total=False):
@@ -1768,12 +1859,12 @@ class Subnet(TypedDict, total=False):
     Zone, subnet identifier, and status.
     """
 
-    SubnetIdentifier: Optional[String]
-    SubnetAvailabilityZone: Optional[AvailabilityZone]
-    SubnetStatus: Optional[String]
+    SubnetIdentifier: String | None
+    SubnetAvailabilityZone: AvailabilityZone | None
+    SubnetStatus: String | None
 
 
-SubnetList = List[Subnet]
+SubnetList = list[Subnet]
 
 
 class ReplicationSubnetGroup(TypedDict, total=False):
@@ -1781,12 +1872,13 @@ class ReplicationSubnetGroup(TypedDict, total=False):
     ``DescribeReplicationSubnetGroups`` operation.
     """
 
-    ReplicationSubnetGroupIdentifier: Optional[String]
-    ReplicationSubnetGroupDescription: Optional[String]
-    VpcId: Optional[String]
-    SubnetGroupStatus: Optional[String]
-    Subnets: Optional[SubnetList]
-    SupportedNetworkTypes: Optional[StringList]
+    ReplicationSubnetGroupIdentifier: String | None
+    ReplicationSubnetGroupDescription: String | None
+    VpcId: String | None
+    SubnetGroupStatus: String | None
+    Subnets: SubnetList | None
+    SupportedNetworkTypes: StringList | None
+    IsReadOnly: BooleanOptional | None
 
 
 class VpcSecurityGroupMembership(TypedDict, total=False):
@@ -1794,60 +1886,60 @@ class VpcSecurityGroupMembership(TypedDict, total=False):
     private cloud (VPC) hosting your replication and DB instances.
     """
 
-    VpcSecurityGroupId: Optional[String]
-    Status: Optional[String]
+    VpcSecurityGroupId: String | None
+    Status: String | None
 
 
-VpcSecurityGroupMembershipList = List[VpcSecurityGroupMembership]
+VpcSecurityGroupMembershipList = list[VpcSecurityGroupMembership]
 
 
 class ReplicationInstance(TypedDict, total=False):
     """Provides information that defines a replication instance."""
 
-    ReplicationInstanceIdentifier: Optional[String]
-    ReplicationInstanceClass: Optional[ReplicationInstanceClass]
-    ReplicationInstanceStatus: Optional[String]
-    AllocatedStorage: Optional[Integer]
-    InstanceCreateTime: Optional[TStamp]
-    VpcSecurityGroups: Optional[VpcSecurityGroupMembershipList]
-    AvailabilityZone: Optional[String]
-    ReplicationSubnetGroup: Optional[ReplicationSubnetGroup]
-    PreferredMaintenanceWindow: Optional[String]
-    PendingModifiedValues: Optional[ReplicationPendingModifiedValues]
-    MultiAZ: Optional[Boolean]
-    EngineVersion: Optional[String]
-    AutoMinorVersionUpgrade: Optional[Boolean]
-    KmsKeyId: Optional[String]
-    ReplicationInstanceArn: Optional[String]
-    ReplicationInstancePublicIpAddress: Optional[String]
-    ReplicationInstancePrivateIpAddress: Optional[String]
-    ReplicationInstancePublicIpAddresses: Optional[ReplicationInstancePublicIpAddressList]
-    ReplicationInstancePrivateIpAddresses: Optional[ReplicationInstancePrivateIpAddressList]
-    ReplicationInstanceIpv6Addresses: Optional[ReplicationInstanceIpv6AddressList]
-    PubliclyAccessible: Optional[Boolean]
-    SecondaryAvailabilityZone: Optional[String]
-    FreeUntil: Optional[TStamp]
-    DnsNameServers: Optional[String]
-    NetworkType: Optional[String]
-    KerberosAuthenticationSettings: Optional[KerberosAuthenticationSettings]
+    ReplicationInstanceIdentifier: String | None
+    ReplicationInstanceClass: ReplicationInstanceClass | None
+    ReplicationInstanceStatus: String | None
+    AllocatedStorage: Integer | None
+    InstanceCreateTime: TStamp | None
+    VpcSecurityGroups: VpcSecurityGroupMembershipList | None
+    AvailabilityZone: String | None
+    ReplicationSubnetGroup: ReplicationSubnetGroup | None
+    PreferredMaintenanceWindow: String | None
+    PendingModifiedValues: ReplicationPendingModifiedValues | None
+    MultiAZ: Boolean | None
+    EngineVersion: String | None
+    AutoMinorVersionUpgrade: Boolean | None
+    KmsKeyId: String | None
+    ReplicationInstanceArn: String | None
+    ReplicationInstancePublicIpAddress: String | None
+    ReplicationInstancePrivateIpAddress: String | None
+    ReplicationInstancePublicIpAddresses: ReplicationInstancePublicIpAddressList | None
+    ReplicationInstancePrivateIpAddresses: ReplicationInstancePrivateIpAddressList | None
+    ReplicationInstanceIpv6Addresses: ReplicationInstanceIpv6AddressList | None
+    PubliclyAccessible: Boolean | None
+    SecondaryAvailabilityZone: String | None
+    FreeUntil: TStamp | None
+    DnsNameServers: String | None
+    NetworkType: String | None
+    KerberosAuthenticationSettings: KerberosAuthenticationSettings | None
 
 
 class CreateReplicationInstanceResponse(TypedDict, total=False):
-    ReplicationInstance: Optional[ReplicationInstance]
+    ReplicationInstance: ReplicationInstance | None
 
 
-SubnetIdentifierList = List[String]
+SubnetIdentifierList = list[String]
 
 
 class CreateReplicationSubnetGroupMessage(ServiceRequest):
     ReplicationSubnetGroupIdentifier: String
     ReplicationSubnetGroupDescription: String
     SubnetIds: SubnetIdentifierList
-    Tags: Optional[TagList]
+    Tags: TagList | None
 
 
 class CreateReplicationSubnetGroupResponse(TypedDict, total=False):
-    ReplicationSubnetGroup: Optional[ReplicationSubnetGroup]
+    ReplicationSubnetGroup: ReplicationSubnetGroup | None
 
 
 class CreateReplicationTaskMessage(ServiceRequest):
@@ -1857,13 +1949,13 @@ class CreateReplicationTaskMessage(ServiceRequest):
     ReplicationInstanceArn: String
     MigrationType: MigrationTypeValue
     TableMappings: String
-    ReplicationTaskSettings: Optional[String]
-    CdcStartTime: Optional[TStamp]
-    CdcStartPosition: Optional[String]
-    CdcStopPosition: Optional[String]
-    Tags: Optional[TagList]
-    TaskData: Optional[String]
-    ResourceIdentifier: Optional[String]
+    ReplicationTaskSettings: String | None
+    CdcStartTime: TStamp | None
+    CdcStartPosition: String | None
+    CdcStopPosition: String | None
+    Tags: TagList | None
+    TaskData: String | None
+    ResourceIdentifier: String | None
 
 
 class ReplicationTaskStats(TypedDict, total=False):
@@ -1872,17 +1964,17 @@ class ReplicationTaskStats(TypedDict, total=False):
     task.
     """
 
-    FullLoadProgressPercent: Optional[Integer]
-    ElapsedTimeMillis: Optional[Long]
-    TablesLoaded: Optional[Integer]
-    TablesLoading: Optional[Integer]
-    TablesQueued: Optional[Integer]
-    TablesErrored: Optional[Integer]
-    FreshStartDate: Optional[TStamp]
-    StartDate: Optional[TStamp]
-    StopDate: Optional[TStamp]
-    FullLoadStartDate: Optional[TStamp]
-    FullLoadFinishDate: Optional[TStamp]
+    FullLoadProgressPercent: Integer | None
+    ElapsedTimeMillis: Long | None
+    TablesLoaded: Integer | None
+    TablesLoading: Integer | None
+    TablesQueued: Integer | None
+    TablesErrored: Integer | None
+    FreshStartDate: TStamp | None
+    StartDate: TStamp | None
+    StopDate: TStamp | None
+    FullLoadStartDate: TStamp | None
+    FullLoadFinishDate: TStamp | None
 
 
 class ReplicationTask(TypedDict, total=False):
@@ -1890,53 +1982,53 @@ class ReplicationTask(TypedDict, total=False):
     ``CreateReplicationTask`` operation.
     """
 
-    ReplicationTaskIdentifier: Optional[String]
-    SourceEndpointArn: Optional[String]
-    TargetEndpointArn: Optional[String]
-    ReplicationInstanceArn: Optional[String]
-    MigrationType: Optional[MigrationTypeValue]
-    TableMappings: Optional[String]
-    ReplicationTaskSettings: Optional[String]
-    Status: Optional[String]
-    LastFailureMessage: Optional[String]
-    StopReason: Optional[String]
-    ReplicationTaskCreationDate: Optional[TStamp]
-    ReplicationTaskStartDate: Optional[TStamp]
-    CdcStartPosition: Optional[String]
-    CdcStopPosition: Optional[String]
-    RecoveryCheckpoint: Optional[String]
-    ReplicationTaskArn: Optional[String]
-    ReplicationTaskStats: Optional[ReplicationTaskStats]
-    TaskData: Optional[String]
-    TargetReplicationInstanceArn: Optional[String]
+    ReplicationTaskIdentifier: String | None
+    SourceEndpointArn: String | None
+    TargetEndpointArn: String | None
+    ReplicationInstanceArn: String | None
+    MigrationType: MigrationTypeValue | None
+    TableMappings: String | None
+    ReplicationTaskSettings: String | None
+    Status: String | None
+    LastFailureMessage: String | None
+    StopReason: String | None
+    ReplicationTaskCreationDate: TStamp | None
+    ReplicationTaskStartDate: TStamp | None
+    CdcStartPosition: String | None
+    CdcStopPosition: String | None
+    RecoveryCheckpoint: String | None
+    ReplicationTaskArn: String | None
+    ReplicationTaskStats: ReplicationTaskStats | None
+    TaskData: String | None
+    TargetReplicationInstanceArn: String | None
 
 
 class CreateReplicationTaskResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
-DataMigrations = List[DataMigration]
-DataProviderList = List[DataProvider]
+DataMigrations = list[DataMigration]
+DataProviderList = list[DataProvider]
 
 
 class DatabaseInstanceSoftwareDetailsResponse(TypedDict, total=False):
     """Describes an inventory database instance for a Fleet Advisor collector."""
 
-    Engine: Optional[String]
-    EngineVersion: Optional[String]
-    EngineEdition: Optional[String]
-    ServicePack: Optional[String]
-    SupportLevel: Optional[String]
-    OsArchitecture: Optional[IntegerOptional]
-    Tooltip: Optional[String]
+    Engine: String | None
+    EngineVersion: String | None
+    EngineEdition: String | None
+    ServicePack: String | None
+    SupportLevel: String | None
+    OsArchitecture: IntegerOptional | None
+    Tooltip: String | None
 
 
 class ServerShortInfoResponse(TypedDict, total=False):
     """Describes a server in a Fleet Advisor collector inventory."""
 
-    ServerId: Optional[String]
-    IpAddress: Optional[String]
-    ServerName: Optional[String]
+    ServerId: String | None
+    IpAddress: String | None
+    ServerName: String | None
 
 
 LongOptional = int
@@ -1945,31 +2037,25 @@ LongOptional = int
 class DatabaseResponse(TypedDict, total=False):
     """Describes a database in a Fleet Advisor collector inventory."""
 
-    DatabaseId: Optional[String]
-    DatabaseName: Optional[String]
-    IpAddress: Optional[String]
-    NumberOfSchemas: Optional[LongOptional]
-    Server: Optional[ServerShortInfoResponse]
-    SoftwareDetails: Optional[DatabaseInstanceSoftwareDetailsResponse]
-    Collectors: Optional[CollectorsList]
+    DatabaseId: String | None
+    DatabaseName: String | None
+    IpAddress: String | None
+    NumberOfSchemas: LongOptional | None
+    Server: ServerShortInfoResponse | None
+    SoftwareDetails: DatabaseInstanceSoftwareDetailsResponse | None
+    Collectors: CollectorsList | None
 
 
-DatabaseList = List[DatabaseResponse]
+DatabaseList = list[DatabaseResponse]
 
 
 class DatabaseShortInfoResponse(TypedDict, total=False):
     """Describes a database in a Fleet Advisor collector inventory."""
 
-    DatabaseId: Optional[String]
-    DatabaseName: Optional[String]
-    DatabaseIpAddress: Optional[String]
-    DatabaseEngine: Optional[String]
-
-
-class DefaultErrorDetails(TypedDict, total=False):
-    """Provides error information about a schema conversion operation."""
-
-    Message: Optional[String]
+    DatabaseId: String | None
+    DatabaseName: String | None
+    DatabaseIpAddress: String | None
+    DatabaseEngine: String | None
 
 
 class DeleteCertificateMessage(ServiceRequest):
@@ -1977,7 +2063,7 @@ class DeleteCertificateMessage(ServiceRequest):
 
 
 class DeleteCertificateResponse(TypedDict, total=False):
-    Certificate: Optional[Certificate]
+    Certificate: Certificate | None
 
 
 class DeleteCollectorRequest(ServiceRequest):
@@ -1990,7 +2076,7 @@ class DeleteConnectionMessage(ServiceRequest):
 
 
 class DeleteConnectionResponse(TypedDict, total=False):
-    Connection: Optional[Connection]
+    Connection: Connection | None
 
 
 class DeleteDataMigrationMessage(ServiceRequest):
@@ -1998,7 +2084,7 @@ class DeleteDataMigrationMessage(ServiceRequest):
 
 
 class DeleteDataMigrationResponse(TypedDict, total=False):
-    DataMigration: Optional[DataMigration]
+    DataMigration: DataMigration | None
 
 
 class DeleteDataProviderMessage(ServiceRequest):
@@ -2006,7 +2092,7 @@ class DeleteDataProviderMessage(ServiceRequest):
 
 
 class DeleteDataProviderResponse(TypedDict, total=False):
-    DataProvider: Optional[DataProvider]
+    DataProvider: DataProvider | None
 
 
 class DeleteEndpointMessage(ServiceRequest):
@@ -2014,7 +2100,7 @@ class DeleteEndpointMessage(ServiceRequest):
 
 
 class DeleteEndpointResponse(TypedDict, total=False):
-    Endpoint: Optional[Endpoint]
+    Endpoint: Endpoint | None
 
 
 class DeleteEventSubscriptionMessage(ServiceRequest):
@@ -2022,7 +2108,7 @@ class DeleteEventSubscriptionMessage(ServiceRequest):
 
 
 class DeleteEventSubscriptionResponse(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class DeleteFleetAdvisorDatabasesRequest(ServiceRequest):
@@ -2030,7 +2116,7 @@ class DeleteFleetAdvisorDatabasesRequest(ServiceRequest):
 
 
 class DeleteFleetAdvisorDatabasesResponse(TypedDict, total=False):
-    DatabaseIds: Optional[StringList]
+    DatabaseIds: StringList | None
 
 
 class DeleteInstanceProfileMessage(ServiceRequest):
@@ -2038,7 +2124,7 @@ class DeleteInstanceProfileMessage(ServiceRequest):
 
 
 class DeleteInstanceProfileResponse(TypedDict, total=False):
-    InstanceProfile: Optional[InstanceProfile]
+    InstanceProfile: InstanceProfile | None
 
 
 class DeleteMigrationProjectMessage(ServiceRequest):
@@ -2046,7 +2132,7 @@ class DeleteMigrationProjectMessage(ServiceRequest):
 
 
 class DeleteMigrationProjectResponse(TypedDict, total=False):
-    MigrationProject: Optional[MigrationProject]
+    MigrationProject: MigrationProject | None
 
 
 class DeleteReplicationConfigMessage(ServiceRequest):
@@ -2054,7 +2140,7 @@ class DeleteReplicationConfigMessage(ServiceRequest):
 
 
 class DeleteReplicationConfigResponse(TypedDict, total=False):
-    ReplicationConfig: Optional[ReplicationConfig]
+    ReplicationConfig: ReplicationConfig | None
 
 
 class DeleteReplicationInstanceMessage(ServiceRequest):
@@ -2062,7 +2148,7 @@ class DeleteReplicationInstanceMessage(ServiceRequest):
 
 
 class DeleteReplicationInstanceResponse(TypedDict, total=False):
-    ReplicationInstance: Optional[ReplicationInstance]
+    ReplicationInstance: ReplicationInstance | None
 
 
 class DeleteReplicationSubnetGroupMessage(ServiceRequest):
@@ -2078,7 +2164,7 @@ class DeleteReplicationTaskAssessmentRunMessage(ServiceRequest):
 
 
 class DeleteReplicationTaskAssessmentRunResponse(TypedDict, total=False):
-    ReplicationTaskAssessmentRun: Optional[ReplicationTaskAssessmentRun]
+    ReplicationTaskAssessmentRun: ReplicationTaskAssessmentRun | None
 
 
 class DeleteReplicationTaskMessage(ServiceRequest):
@@ -2086,7 +2172,7 @@ class DeleteReplicationTaskMessage(ServiceRequest):
 
 
 class DeleteReplicationTaskResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
 class DescribeAccountAttributesMessage(ServiceRequest):
@@ -2094,30 +2180,30 @@ class DescribeAccountAttributesMessage(ServiceRequest):
 
 
 class DescribeAccountAttributesResponse(TypedDict, total=False):
-    AccountQuotas: Optional[AccountQuotaList]
-    UniqueAccountIdentifier: Optional[String]
+    AccountQuotas: AccountQuotaList | None
+    UniqueAccountIdentifier: String | None
 
 
 class DescribeApplicableIndividualAssessmentsMessage(ServiceRequest):
-    ReplicationTaskArn: Optional[String]
-    ReplicationInstanceArn: Optional[String]
-    ReplicationConfigArn: Optional[String]
-    SourceEngineName: Optional[String]
-    TargetEngineName: Optional[String]
-    MigrationType: Optional[MigrationTypeValue]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReplicationTaskArn: String | None
+    ReplicationInstanceArn: String | None
+    ReplicationConfigArn: String | None
+    SourceEngineName: String | None
+    TargetEngineName: String | None
+    MigrationType: MigrationTypeValue | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-IndividualAssessmentNameList = List[String]
+IndividualAssessmentNameList = list[String]
 
 
 class DescribeApplicableIndividualAssessmentsResponse(TypedDict, total=False):
-    IndividualAssessmentNames: Optional[IndividualAssessmentNameList]
-    Marker: Optional[String]
+    IndividualAssessmentNames: IndividualAssessmentNameList | None
+    Marker: String | None
 
 
-FilterValueList = List[String]
+FilterValueList = list[String]
 
 
 class Filter(TypedDict, total=False):
@@ -2131,29 +2217,29 @@ class Filter(TypedDict, total=False):
     Values: FilterValueList
 
 
-FilterList = List[Filter]
+FilterList = list[Filter]
 
 
 class DescribeCertificatesMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeCertificatesResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Certificates: Optional[CertificateList]
+    Marker: String | None
+    Certificates: CertificateList | None
 
 
 class DescribeConnectionsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeConnectionsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Connections: Optional[ConnectionList]
+    Marker: String | None
+    Connections: ConnectionList | None
 
 
 class DescribeConversionConfigurationMessage(ServiceRequest):
@@ -2161,69 +2247,69 @@ class DescribeConversionConfigurationMessage(ServiceRequest):
 
 
 class DescribeConversionConfigurationResponse(TypedDict, total=False):
-    MigrationProjectIdentifier: Optional[String]
-    ConversionConfiguration: Optional[String]
+    MigrationProjectIdentifier: String | None
+    ConversionConfiguration: String | None
 
 
 class DescribeDataMigrationsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[Marker]
-    WithoutSettings: Optional[BooleanOptional]
-    WithoutStatistics: Optional[BooleanOptional]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: Marker | None
+    WithoutSettings: BooleanOptional | None
+    WithoutStatistics: BooleanOptional | None
 
 
 class DescribeDataMigrationsResponse(TypedDict, total=False):
-    DataMigrations: Optional[DataMigrations]
-    Marker: Optional[Marker]
+    DataMigrations: DataMigrations | None
+    Marker: Marker | None
 
 
 class DescribeDataProvidersMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class DescribeDataProvidersResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    DataProviders: Optional[DataProviderList]
+    Marker: String | None
+    DataProviders: DataProviderList | None
 
 
 class DescribeEndpointSettingsMessage(ServiceRequest):
     EngineName: String
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-EndpointSettingEnumValues = List[String]
+EndpointSettingEnumValues = list[String]
 
 
 class EndpointSetting(TypedDict, total=False):
     """Endpoint settings."""
 
-    Name: Optional[String]
-    Type: Optional[EndpointSettingTypeValue]
-    EnumValues: Optional[EndpointSettingEnumValues]
-    Sensitive: Optional[BooleanOptional]
-    Units: Optional[String]
-    Applicability: Optional[String]
-    IntValueMin: Optional[IntegerOptional]
-    IntValueMax: Optional[IntegerOptional]
-    DefaultValue: Optional[String]
+    Name: String | None
+    Type: EndpointSettingTypeValue | None
+    EnumValues: EndpointSettingEnumValues | None
+    Sensitive: BooleanOptional | None
+    Units: String | None
+    Applicability: String | None
+    IntValueMin: IntegerOptional | None
+    IntValueMax: IntegerOptional | None
+    DefaultValue: String | None
 
 
-EndpointSettingsList = List[EndpointSetting]
+EndpointSettingsList = list[EndpointSetting]
 
 
 class DescribeEndpointSettingsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    EndpointSettings: Optional[EndpointSettingsList]
+    Marker: String | None
+    EndpointSettings: EndpointSettingsList | None
 
 
 class DescribeEndpointTypesMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class SupportedEndpointType(TypedDict, total=False):
@@ -2233,64 +2319,64 @@ class SupportedEndpointType(TypedDict, total=False):
     change data capture (CDC) is supported.
     """
 
-    EngineName: Optional[String]
-    SupportsCDC: Optional[Boolean]
-    EndpointType: Optional[ReplicationEndpointTypeValue]
-    ReplicationInstanceEngineMinimumVersion: Optional[String]
-    EngineDisplayName: Optional[String]
+    EngineName: String | None
+    SupportsCDC: Boolean | None
+    EndpointType: ReplicationEndpointTypeValue | None
+    ReplicationInstanceEngineMinimumVersion: String | None
+    EngineDisplayName: String | None
 
 
-SupportedEndpointTypeList = List[SupportedEndpointType]
+SupportedEndpointTypeList = list[SupportedEndpointType]
 
 
 class DescribeEndpointTypesResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    SupportedEndpointTypes: Optional[SupportedEndpointTypeList]
+    Marker: String | None
+    SupportedEndpointTypes: SupportedEndpointTypeList | None
 
 
 class DescribeEndpointsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-EndpointList = List[Endpoint]
+EndpointList = list[Endpoint]
 
 
 class DescribeEndpointsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Endpoints: Optional[EndpointList]
+    Marker: String | None
+    Endpoints: EndpointList | None
 
 
 class DescribeEngineVersionsMessage(ServiceRequest):
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class EngineVersion(TypedDict, total=False):
     """Provides information about a replication instance version."""
 
-    Version: Optional[String]
-    Lifecycle: Optional[String]
-    ReleaseStatus: Optional[ReleaseStatusValues]
-    LaunchDate: Optional[TStamp]
-    AutoUpgradeDate: Optional[TStamp]
-    DeprecationDate: Optional[TStamp]
-    ForceUpgradeDate: Optional[TStamp]
-    AvailableUpgrades: Optional[AvailableUpgradesList]
+    Version: String | None
+    Lifecycle: String | None
+    ReleaseStatus: ReleaseStatusValues | None
+    LaunchDate: TStamp | None
+    AutoUpgradeDate: TStamp | None
+    DeprecationDate: TStamp | None
+    ForceUpgradeDate: TStamp | None
+    AvailableUpgrades: AvailableUpgradesList | None
 
 
-EngineVersionList = List[EngineVersion]
+EngineVersionList = list[EngineVersion]
 
 
 class DescribeEngineVersionsResponse(TypedDict, total=False):
-    EngineVersions: Optional[EngineVersionList]
-    Marker: Optional[String]
+    EngineVersions: EngineVersionList | None
+    Marker: String | None
 
 
 class DescribeEventCategoriesMessage(ServiceRequest):
-    SourceType: Optional[String]
-    Filters: Optional[FilterList]
+    SourceType: String | None
+    Filters: FilterList | None
 
 
 class EventCategoryGroup(TypedDict, total=False):
@@ -2300,42 +2386,42 @@ class EventCategoryGroup(TypedDict, total=False):
     action.
     """
 
-    SourceType: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
+    SourceType: String | None
+    EventCategories: EventCategoriesList | None
 
 
-EventCategoryGroupList = List[EventCategoryGroup]
+EventCategoryGroupList = list[EventCategoryGroup]
 
 
 class DescribeEventCategoriesResponse(TypedDict, total=False):
-    EventCategoryGroupList: Optional[EventCategoryGroupList]
+    EventCategoryGroupList: EventCategoryGroupList | None
 
 
 class DescribeEventSubscriptionsMessage(ServiceRequest):
-    SubscriptionName: Optional[String]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    SubscriptionName: String | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-EventSubscriptionsList = List[EventSubscription]
+EventSubscriptionsList = list[EventSubscription]
 
 
 class DescribeEventSubscriptionsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    EventSubscriptionsList: Optional[EventSubscriptionsList]
+    Marker: String | None
+    EventSubscriptionsList: EventSubscriptionsList | None
 
 
 class DescribeEventsMessage(ServiceRequest):
-    SourceIdentifier: Optional[String]
-    SourceType: Optional[SourceType]
-    StartTime: Optional[TStamp]
-    EndTime: Optional[TStamp]
-    Duration: Optional[IntegerOptional]
-    EventCategories: Optional[EventCategoriesList]
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    SourceIdentifier: String | None
+    SourceType: SourceType | None
+    StartTime: TStamp | None
+    EndTime: TStamp | None
+    Duration: IntegerOptional | None
+    EventCategories: EventCategoriesList | None
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class Event(TypedDict, total=False):
@@ -2345,84 +2431,61 @@ class Event(TypedDict, total=False):
     DMS resource type.
     """
 
-    SourceIdentifier: Optional[String]
-    SourceType: Optional[SourceType]
-    Message: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
-    Date: Optional[TStamp]
+    SourceIdentifier: String | None
+    SourceType: SourceType | None
+    Message: String | None
+    EventCategories: EventCategoriesList | None
+    Date: TStamp | None
 
 
-EventList = List[Event]
+EventList = list[Event]
 
 
 class DescribeEventsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Events: Optional[EventList]
+    Marker: String | None
+    Events: EventList | None
 
 
 class DescribeExtensionPackAssociationsMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
-class ExportSqlDetails(TypedDict, total=False):
-    """Provides information about a metadata model assessment exported to SQL."""
-
-    S3ObjectKey: Optional[String]
-    ObjectURL: Optional[String]
-
-
-class ErrorDetails(TypedDict, total=False):
-    """Provides error information about a project."""
-
-    defaultErrorDetails: Optional[DefaultErrorDetails]
-
-
-class SchemaConversionRequest(TypedDict, total=False):
-    """Provides information about a schema conversion action."""
-
-    Status: Optional[String]
-    RequestIdentifier: Optional[String]
-    MigrationProjectArn: Optional[String]
-    Error: Optional[ErrorDetails]
-    ExportSqlDetails: Optional[ExportSqlDetails]
-
-
-SchemaConversionRequestList = List[SchemaConversionRequest]
+SchemaConversionRequestList = list[SchemaConversionRequest]
 
 
 class DescribeExtensionPackAssociationsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Requests: Optional[SchemaConversionRequestList]
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
 
 
 class DescribeFleetAdvisorCollectorsRequest(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class DescribeFleetAdvisorCollectorsResponse(TypedDict, total=False):
-    Collectors: Optional[CollectorResponses]
-    NextToken: Optional[String]
+    Collectors: CollectorResponses | None
+    NextToken: String | None
 
 
 class DescribeFleetAdvisorDatabasesRequest(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class DescribeFleetAdvisorDatabasesResponse(TypedDict, total=False):
-    Databases: Optional[DatabaseList]
-    NextToken: Optional[String]
+    Databases: DatabaseList | None
+    NextToken: String | None
 
 
 class DescribeFleetAdvisorLsaAnalysisRequest(ServiceRequest):
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class FleetAdvisorLsaAnalysisResponse(TypedDict, total=False):
@@ -2430,171 +2493,221 @@ class FleetAdvisorLsaAnalysisResponse(TypedDict, total=False):
     collector.
     """
 
-    LsaAnalysisId: Optional[String]
-    Status: Optional[String]
+    LsaAnalysisId: String | None
+    Status: String | None
 
 
-FleetAdvisorLsaAnalysisResponseList = List[FleetAdvisorLsaAnalysisResponse]
+FleetAdvisorLsaAnalysisResponseList = list[FleetAdvisorLsaAnalysisResponse]
 
 
 class DescribeFleetAdvisorLsaAnalysisResponse(TypedDict, total=False):
-    Analysis: Optional[FleetAdvisorLsaAnalysisResponseList]
-    NextToken: Optional[String]
+    Analysis: FleetAdvisorLsaAnalysisResponseList | None
+    NextToken: String | None
 
 
 class DescribeFleetAdvisorSchemaObjectSummaryRequest(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class FleetAdvisorSchemaObjectResponse(TypedDict, total=False):
     """Describes a schema object in a Fleet Advisor collector inventory."""
 
-    SchemaId: Optional[String]
-    ObjectType: Optional[String]
-    NumberOfObjects: Optional[LongOptional]
-    CodeLineCount: Optional[LongOptional]
-    CodeSize: Optional[LongOptional]
+    SchemaId: String | None
+    ObjectType: String | None
+    NumberOfObjects: LongOptional | None
+    CodeLineCount: LongOptional | None
+    CodeSize: LongOptional | None
 
 
-FleetAdvisorSchemaObjectList = List[FleetAdvisorSchemaObjectResponse]
+FleetAdvisorSchemaObjectList = list[FleetAdvisorSchemaObjectResponse]
 
 
 class DescribeFleetAdvisorSchemaObjectSummaryResponse(TypedDict, total=False):
-    FleetAdvisorSchemaObjects: Optional[FleetAdvisorSchemaObjectList]
-    NextToken: Optional[String]
+    FleetAdvisorSchemaObjects: FleetAdvisorSchemaObjectList | None
+    NextToken: String | None
 
 
 class DescribeFleetAdvisorSchemasRequest(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class SchemaShortInfoResponse(TypedDict, total=False):
     """Describes a schema in a Fleet Advisor collector inventory."""
 
-    SchemaId: Optional[String]
-    SchemaName: Optional[String]
-    DatabaseId: Optional[String]
-    DatabaseName: Optional[String]
-    DatabaseIpAddress: Optional[String]
+    SchemaId: String | None
+    SchemaName: String | None
+    DatabaseId: String | None
+    DatabaseName: String | None
+    DatabaseIpAddress: String | None
 
 
 class SchemaResponse(TypedDict, total=False):
     """Describes a schema in a Fleet Advisor collector inventory."""
 
-    CodeLineCount: Optional[LongOptional]
-    CodeSize: Optional[LongOptional]
-    Complexity: Optional[String]
-    Server: Optional[ServerShortInfoResponse]
-    DatabaseInstance: Optional[DatabaseShortInfoResponse]
-    SchemaId: Optional[String]
-    SchemaName: Optional[String]
-    OriginalSchema: Optional[SchemaShortInfoResponse]
-    Similarity: Optional[DoubleOptional]
+    CodeLineCount: LongOptional | None
+    CodeSize: LongOptional | None
+    Complexity: String | None
+    Server: ServerShortInfoResponse | None
+    DatabaseInstance: DatabaseShortInfoResponse | None
+    SchemaId: String | None
+    SchemaName: String | None
+    OriginalSchema: SchemaShortInfoResponse | None
+    Similarity: DoubleOptional | None
 
 
-FleetAdvisorSchemaList = List[SchemaResponse]
+FleetAdvisorSchemaList = list[SchemaResponse]
 
 
 class DescribeFleetAdvisorSchemasResponse(TypedDict, total=False):
-    FleetAdvisorSchemas: Optional[FleetAdvisorSchemaList]
-    NextToken: Optional[String]
+    FleetAdvisorSchemas: FleetAdvisorSchemaList | None
+    NextToken: String | None
 
 
 class DescribeInstanceProfilesMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-InstanceProfileList = List[InstanceProfile]
+InstanceProfileList = list[InstanceProfile]
 
 
 class DescribeInstanceProfilesResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    InstanceProfiles: Optional[InstanceProfileList]
+    Marker: String | None
+    InstanceProfiles: InstanceProfileList | None
 
 
 class DescribeMetadataModelAssessmentsMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeMetadataModelAssessmentsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Requests: Optional[SchemaConversionRequestList]
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
+
+
+class DescribeMetadataModelChildrenMessage(ServiceRequest):
+    SelectionRules: String
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+    Origin: OriginTypeValue
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
+
+
+class MetadataModelReference(TypedDict, total=False):
+    """A reference to a metadata model, including its name and selection rules
+    for location identification.
+    """
+
+    MetadataModelName: String | None
+    SelectionRules: String | None
+
+
+MetadataModelReferenceList = list[MetadataModelReference]
+
+
+class DescribeMetadataModelChildrenResponse(TypedDict, total=False):
+    Marker: String | None
+    MetadataModelChildren: MetadataModelReferenceList | None
 
 
 class DescribeMetadataModelConversionsMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeMetadataModelConversionsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Requests: Optional[SchemaConversionRequestList]
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
+
+
+class DescribeMetadataModelCreationsMessage(ServiceRequest):
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+
+
+class DescribeMetadataModelCreationsResponse(TypedDict, total=False):
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
 
 
 class DescribeMetadataModelExportsAsScriptMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeMetadataModelExportsAsScriptResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Requests: Optional[SchemaConversionRequestList]
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
 
 
 class DescribeMetadataModelExportsToTargetMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeMetadataModelExportsToTargetResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Requests: Optional[SchemaConversionRequestList]
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
 
 
 class DescribeMetadataModelImportsMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
 class DescribeMetadataModelImportsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Requests: Optional[SchemaConversionRequestList]
+    Marker: String | None
+    Requests: SchemaConversionRequestList | None
+
+
+class DescribeMetadataModelMessage(ServiceRequest):
+    SelectionRules: String
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+    Origin: OriginTypeValue
+
+
+class DescribeMetadataModelResponse(TypedDict, total=False):
+    MetadataModelName: String | None
+    MetadataModelType: String | None
+    TargetMetadataModels: MetadataModelReferenceList | None
+    Definition: String | None
 
 
 class DescribeMigrationProjectsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-MigrationProjectList = List[MigrationProject]
+MigrationProjectList = list[MigrationProject]
 
 
 class DescribeMigrationProjectsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    MigrationProjects: Optional[MigrationProjectList]
+    Marker: String | None
+    MigrationProjects: MigrationProjectList | None
 
 
 class DescribeOrderableReplicationInstancesMessage(ServiceRequest):
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class OrderableReplicationInstance(TypedDict, total=False):
@@ -2604,44 +2717,44 @@ class OrderableReplicationInstance(TypedDict, total=False):
     and allocated storage.
     """
 
-    EngineVersion: Optional[String]
-    ReplicationInstanceClass: Optional[ReplicationInstanceClass]
-    StorageType: Optional[String]
-    MinAllocatedStorage: Optional[Integer]
-    MaxAllocatedStorage: Optional[Integer]
-    DefaultAllocatedStorage: Optional[Integer]
-    IncludedAllocatedStorage: Optional[Integer]
-    AvailabilityZones: Optional[AvailabilityZonesList]
-    ReleaseStatus: Optional[ReleaseStatusValues]
+    EngineVersion: String | None
+    ReplicationInstanceClass: ReplicationInstanceClass | None
+    StorageType: String | None
+    MinAllocatedStorage: Integer | None
+    MaxAllocatedStorage: Integer | None
+    DefaultAllocatedStorage: Integer | None
+    IncludedAllocatedStorage: Integer | None
+    AvailabilityZones: AvailabilityZonesList | None
+    ReleaseStatus: ReleaseStatusValues | None
 
 
-OrderableReplicationInstanceList = List[OrderableReplicationInstance]
+OrderableReplicationInstanceList = list[OrderableReplicationInstance]
 
 
 class DescribeOrderableReplicationInstancesResponse(TypedDict, total=False):
-    OrderableReplicationInstances: Optional[OrderableReplicationInstanceList]
-    Marker: Optional[String]
+    OrderableReplicationInstances: OrderableReplicationInstanceList | None
+    Marker: String | None
 
 
 class DescribePendingMaintenanceActionsMessage(ServiceRequest):
-    ReplicationInstanceArn: Optional[String]
-    Filters: Optional[FilterList]
-    Marker: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
+    ReplicationInstanceArn: String | None
+    Filters: FilterList | None
+    Marker: String | None
+    MaxRecords: IntegerOptional | None
 
 
-PendingMaintenanceActions = List[ResourcePendingMaintenanceActions]
+PendingMaintenanceActions = list[ResourcePendingMaintenanceActions]
 
 
 class DescribePendingMaintenanceActionsResponse(TypedDict, total=False):
-    PendingMaintenanceActions: Optional[PendingMaintenanceActions]
-    Marker: Optional[String]
+    PendingMaintenanceActions: PendingMaintenanceActions | None
+    Marker: String | None
 
 
 class DescribeRecommendationLimitationsRequest(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class Limitation(TypedDict, total=False):
@@ -2655,26 +2768,26 @@ class Limitation(TypedDict, total=False):
     you can take to address or avoid this limitation.
     """
 
-    DatabaseId: Optional[String]
-    EngineName: Optional[String]
-    Name: Optional[String]
-    Description: Optional[String]
-    Impact: Optional[String]
-    Type: Optional[String]
+    DatabaseId: String | None
+    EngineName: String | None
+    Name: String | None
+    Description: String | None
+    Impact: String | None
+    Type: String | None
 
 
-LimitationList = List[Limitation]
+LimitationList = list[Limitation]
 
 
 class DescribeRecommendationLimitationsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Limitations: Optional[LimitationList]
+    NextToken: String | None
+    Limitations: LimitationList | None
 
 
 class DescribeRecommendationsRequest(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    NextToken: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    NextToken: String | None
 
 
 class RdsConfiguration(TypedDict, total=False):
@@ -2682,15 +2795,15 @@ class RdsConfiguration(TypedDict, total=False):
     target engine on Amazon RDS.
     """
 
-    EngineEdition: Optional[String]
-    InstanceType: Optional[String]
-    InstanceVcpu: Optional[DoubleOptional]
-    InstanceMemory: Optional[DoubleOptional]
-    StorageType: Optional[String]
-    StorageSize: Optional[IntegerOptional]
-    StorageIops: Optional[IntegerOptional]
-    DeploymentOption: Optional[String]
-    EngineVersion: Optional[String]
+    EngineEdition: String | None
+    InstanceType: String | None
+    InstanceVcpu: DoubleOptional | None
+    InstanceMemory: DoubleOptional | None
+    StorageType: String | None
+    StorageSize: IntegerOptional | None
+    StorageIops: IntegerOptional | None
+    DeploymentOption: String | None
+    EngineVersion: String | None
 
 
 class RdsRequirements(TypedDict, total=False):
@@ -2698,13 +2811,13 @@ class RdsRequirements(TypedDict, total=False):
     engine on Amazon RDS.
     """
 
-    EngineEdition: Optional[String]
-    InstanceVcpu: Optional[DoubleOptional]
-    InstanceMemory: Optional[DoubleOptional]
-    StorageSize: Optional[IntegerOptional]
-    StorageIops: Optional[IntegerOptional]
-    DeploymentOption: Optional[String]
-    EngineVersion: Optional[String]
+    EngineEdition: String | None
+    InstanceVcpu: DoubleOptional | None
+    InstanceMemory: DoubleOptional | None
+    StorageSize: IntegerOptional | None
+    StorageIops: IntegerOptional | None
+    DeploymentOption: String | None
+    EngineVersion: String | None
 
 
 class RdsRecommendation(TypedDict, total=False):
@@ -2712,8 +2825,8 @@ class RdsRecommendation(TypedDict, total=False):
     on Amazon RDS.
     """
 
-    RequirementsToTarget: Optional[RdsRequirements]
-    TargetConfiguration: Optional[RdsConfiguration]
+    RequirementsToTarget: RdsRequirements | None
+    TargetConfiguration: RdsConfiguration | None
 
 
 class RecommendationData(TypedDict, total=False):
@@ -2721,7 +2834,7 @@ class RecommendationData(TypedDict, total=False):
     database.
     """
 
-    RdsEngine: Optional[RdsRecommendation]
+    RdsEngine: RdsRecommendation | None
 
 
 class Recommendation(TypedDict, total=False):
@@ -2740,21 +2853,21 @@ class Recommendation(TypedDict, total=False):
     the migration target.
     """
 
-    DatabaseId: Optional[String]
-    EngineName: Optional[String]
-    CreatedDate: Optional[String]
-    Status: Optional[String]
-    Preferred: Optional[BooleanOptional]
-    Settings: Optional[RecommendationSettings]
-    Data: Optional[RecommendationData]
+    DatabaseId: String | None
+    EngineName: String | None
+    CreatedDate: String | None
+    Status: String | None
+    Preferred: BooleanOptional | None
+    Settings: RecommendationSettings | None
+    Data: RecommendationData | None
 
 
-RecommendationList = List[Recommendation]
+RecommendationList = list[Recommendation]
 
 
 class DescribeRecommendationsResponse(TypedDict, total=False):
-    NextToken: Optional[String]
-    Recommendations: Optional[RecommendationList]
+    NextToken: String | None
+    Recommendations: RecommendationList | None
 
 
 class DescribeRefreshSchemasStatusMessage(ServiceRequest):
@@ -2766,87 +2879,87 @@ class RefreshSchemasStatus(TypedDict, total=False):
     specified by the ``DescribeRefreshSchemaStatus`` operation.
     """
 
-    EndpointArn: Optional[String]
-    ReplicationInstanceArn: Optional[String]
-    Status: Optional[RefreshSchemasStatusTypeValue]
-    LastRefreshDate: Optional[TStamp]
-    LastFailureMessage: Optional[String]
+    EndpointArn: String | None
+    ReplicationInstanceArn: String | None
+    Status: RefreshSchemasStatusTypeValue | None
+    LastRefreshDate: TStamp | None
+    LastFailureMessage: String | None
 
 
 class DescribeRefreshSchemasStatusResponse(TypedDict, total=False):
-    RefreshSchemasStatus: Optional[RefreshSchemasStatus]
+    RefreshSchemasStatus: RefreshSchemasStatus | None
 
 
 class DescribeReplicationConfigsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-ReplicationConfigList = List[ReplicationConfig]
+ReplicationConfigList = list[ReplicationConfig]
 
 
 class DescribeReplicationConfigsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    ReplicationConfigs: Optional[ReplicationConfigList]
+    Marker: String | None
+    ReplicationConfigs: ReplicationConfigList | None
 
 
 class DescribeReplicationInstanceTaskLogsMessage(ServiceRequest):
     ReplicationInstanceArn: String
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class ReplicationInstanceTaskLog(TypedDict, total=False):
     """Contains metadata for a replication instance task log."""
 
-    ReplicationTaskName: Optional[String]
-    ReplicationTaskArn: Optional[String]
-    ReplicationInstanceTaskLogSize: Optional[Long]
+    ReplicationTaskName: String | None
+    ReplicationTaskArn: String | None
+    ReplicationInstanceTaskLogSize: Long | None
 
 
-ReplicationInstanceTaskLogsList = List[ReplicationInstanceTaskLog]
+ReplicationInstanceTaskLogsList = list[ReplicationInstanceTaskLog]
 
 
 class DescribeReplicationInstanceTaskLogsResponse(TypedDict, total=False):
-    ReplicationInstanceArn: Optional[String]
-    ReplicationInstanceTaskLogs: Optional[ReplicationInstanceTaskLogsList]
-    Marker: Optional[String]
+    ReplicationInstanceArn: String | None
+    ReplicationInstanceTaskLogs: ReplicationInstanceTaskLogsList | None
+    Marker: String | None
 
 
 class DescribeReplicationInstancesMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-ReplicationInstanceList = List[ReplicationInstance]
+ReplicationInstanceList = list[ReplicationInstance]
 
 
 class DescribeReplicationInstancesResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    ReplicationInstances: Optional[ReplicationInstanceList]
+    Marker: String | None
+    ReplicationInstances: ReplicationInstanceList | None
 
 
 class DescribeReplicationSubnetGroupsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-ReplicationSubnetGroups = List[ReplicationSubnetGroup]
+ReplicationSubnetGroups = list[ReplicationSubnetGroup]
 
 
 class DescribeReplicationSubnetGroupsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    ReplicationSubnetGroups: Optional[ReplicationSubnetGroups]
+    Marker: String | None
+    ReplicationSubnetGroups: ReplicationSubnetGroups | None
 
 
 class DescribeReplicationTableStatisticsMessage(ServiceRequest):
     ReplicationConfigArn: String
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    Filters: Optional[FilterList]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    Filters: FilterList | None
 
 
 class TableStatistics(TypedDict, total=False):
@@ -2854,90 +2967,90 @@ class TableStatistics(TypedDict, total=False):
     the ``DescribeTableStatistics`` operation.
     """
 
-    SchemaName: Optional[String]
-    TableName: Optional[String]
-    Inserts: Optional[Long]
-    Deletes: Optional[Long]
-    Updates: Optional[Long]
-    Ddls: Optional[Long]
-    AppliedInserts: Optional[LongOptional]
-    AppliedDeletes: Optional[LongOptional]
-    AppliedUpdates: Optional[LongOptional]
-    AppliedDdls: Optional[LongOptional]
-    FullLoadRows: Optional[Long]
-    FullLoadCondtnlChkFailedRows: Optional[Long]
-    FullLoadErrorRows: Optional[Long]
-    FullLoadStartTime: Optional[TStamp]
-    FullLoadEndTime: Optional[TStamp]
-    FullLoadReloaded: Optional[BooleanOptional]
-    LastUpdateTime: Optional[TStamp]
-    TableState: Optional[String]
-    ValidationPendingRecords: Optional[Long]
-    ValidationFailedRecords: Optional[Long]
-    ValidationSuspendedRecords: Optional[Long]
-    ValidationState: Optional[String]
-    ValidationStateDetails: Optional[String]
-    ResyncState: Optional[String]
-    ResyncRowsAttempted: Optional[LongOptional]
-    ResyncRowsSucceeded: Optional[LongOptional]
-    ResyncRowsFailed: Optional[LongOptional]
-    ResyncProgress: Optional[DoubleOptional]
+    SchemaName: String | None
+    TableName: String | None
+    Inserts: Long | None
+    Deletes: Long | None
+    Updates: Long | None
+    Ddls: Long | None
+    AppliedInserts: LongOptional | None
+    AppliedDeletes: LongOptional | None
+    AppliedUpdates: LongOptional | None
+    AppliedDdls: LongOptional | None
+    FullLoadRows: Long | None
+    FullLoadCondtnlChkFailedRows: Long | None
+    FullLoadErrorRows: Long | None
+    FullLoadStartTime: TStamp | None
+    FullLoadEndTime: TStamp | None
+    FullLoadReloaded: BooleanOptional | None
+    LastUpdateTime: TStamp | None
+    TableState: String | None
+    ValidationPendingRecords: Long | None
+    ValidationFailedRecords: Long | None
+    ValidationSuspendedRecords: Long | None
+    ValidationState: String | None
+    ValidationStateDetails: String | None
+    ResyncState: String | None
+    ResyncRowsAttempted: LongOptional | None
+    ResyncRowsSucceeded: LongOptional | None
+    ResyncRowsFailed: LongOptional | None
+    ResyncProgress: DoubleOptional | None
 
 
-ReplicationTableStatisticsList = List[TableStatistics]
+ReplicationTableStatisticsList = list[TableStatistics]
 
 
 class DescribeReplicationTableStatisticsResponse(TypedDict, total=False):
-    ReplicationConfigArn: Optional[String]
-    Marker: Optional[String]
-    ReplicationTableStatistics: Optional[ReplicationTableStatisticsList]
+    ReplicationConfigArn: String | None
+    Marker: String | None
+    ReplicationTableStatistics: ReplicationTableStatisticsList | None
 
 
 class DescribeReplicationTaskAssessmentResultsMessage(ServiceRequest):
-    ReplicationTaskArn: Optional[String]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    ReplicationTaskArn: String | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class ReplicationTaskAssessmentResult(TypedDict, total=False):
     """The task assessment report in JSON format."""
 
-    ReplicationTaskIdentifier: Optional[String]
-    ReplicationTaskArn: Optional[String]
-    ReplicationTaskLastAssessmentDate: Optional[TStamp]
-    AssessmentStatus: Optional[String]
-    AssessmentResultsFile: Optional[String]
-    AssessmentResults: Optional[String]
-    S3ObjectUrl: Optional[SecretString]
+    ReplicationTaskIdentifier: String | None
+    ReplicationTaskArn: String | None
+    ReplicationTaskLastAssessmentDate: TStamp | None
+    AssessmentStatus: String | None
+    AssessmentResultsFile: String | None
+    AssessmentResults: String | None
+    S3ObjectUrl: SecretString | None
 
 
-ReplicationTaskAssessmentResultList = List[ReplicationTaskAssessmentResult]
+ReplicationTaskAssessmentResultList = list[ReplicationTaskAssessmentResult]
 
 
 class DescribeReplicationTaskAssessmentResultsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    BucketName: Optional[String]
-    ReplicationTaskAssessmentResults: Optional[ReplicationTaskAssessmentResultList]
+    Marker: String | None
+    BucketName: String | None
+    ReplicationTaskAssessmentResults: ReplicationTaskAssessmentResultList | None
 
 
 class DescribeReplicationTaskAssessmentRunsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-ReplicationTaskAssessmentRunList = List[ReplicationTaskAssessmentRun]
+ReplicationTaskAssessmentRunList = list[ReplicationTaskAssessmentRun]
 
 
 class DescribeReplicationTaskAssessmentRunsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    ReplicationTaskAssessmentRuns: Optional[ReplicationTaskAssessmentRunList]
+    Marker: String | None
+    ReplicationTaskAssessmentRuns: ReplicationTaskAssessmentRunList | None
 
 
 class DescribeReplicationTaskIndividualAssessmentsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class ReplicationTaskIndividualAssessment(TypedDict, total=False):
@@ -2945,40 +3058,40 @@ class ReplicationTaskIndividualAssessment(TypedDict, total=False):
     premigration assessment run.
     """
 
-    ReplicationTaskIndividualAssessmentArn: Optional[String]
-    ReplicationTaskAssessmentRunArn: Optional[String]
-    IndividualAssessmentName: Optional[String]
-    Status: Optional[String]
-    ReplicationTaskIndividualAssessmentStartDate: Optional[TStamp]
+    ReplicationTaskIndividualAssessmentArn: String | None
+    ReplicationTaskAssessmentRunArn: String | None
+    IndividualAssessmentName: String | None
+    Status: String | None
+    ReplicationTaskIndividualAssessmentStartDate: TStamp | None
 
 
-ReplicationTaskIndividualAssessmentList = List[ReplicationTaskIndividualAssessment]
+ReplicationTaskIndividualAssessmentList = list[ReplicationTaskIndividualAssessment]
 
 
 class DescribeReplicationTaskIndividualAssessmentsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    ReplicationTaskIndividualAssessments: Optional[ReplicationTaskIndividualAssessmentList]
+    Marker: String | None
+    ReplicationTaskIndividualAssessments: ReplicationTaskIndividualAssessmentList | None
 
 
 class DescribeReplicationTasksMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    WithoutSettings: Optional[BooleanOptional]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    WithoutSettings: BooleanOptional | None
 
 
-ReplicationTaskList = List[ReplicationTask]
+ReplicationTaskList = list[ReplicationTask]
 
 
 class DescribeReplicationTasksResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    ReplicationTasks: Optional[ReplicationTaskList]
+    Marker: String | None
+    ReplicationTasks: ReplicationTaskList | None
 
 
 class DescribeReplicationsMessage(ServiceRequest):
-    Filters: Optional[FilterList]
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    Filters: FilterList | None
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
 class ReplicationStats(TypedDict, total=False):
@@ -2986,17 +3099,17 @@ class ReplicationStats(TypedDict, total=False):
     replication.
     """
 
-    FullLoadProgressPercent: Optional[Integer]
-    ElapsedTimeMillis: Optional[Long]
-    TablesLoaded: Optional[Integer]
-    TablesLoading: Optional[Integer]
-    TablesQueued: Optional[Integer]
-    TablesErrored: Optional[Integer]
-    FreshStartDate: Optional[TStamp]
-    StartDate: Optional[TStamp]
-    StopDate: Optional[TStamp]
-    FullLoadStartDate: Optional[TStamp]
-    FullLoadFinishDate: Optional[TStamp]
+    FullLoadProgressPercent: Integer | None
+    ElapsedTimeMillis: Long | None
+    TablesLoaded: Integer | None
+    TablesLoading: Integer | None
+    TablesQueued: Integer | None
+    TablesErrored: Integer | None
+    FreshStartDate: TStamp | None
+    StartDate: TStamp | None
+    StopDate: TStamp | None
+    FullLoadStartDate: TStamp | None
+    FullLoadFinishDate: TStamp | None
 
 
 class PremigrationAssessmentStatus(TypedDict, total=False):
@@ -3004,20 +3117,20 @@ class PremigrationAssessmentStatus(TypedDict, total=False):
     of the premigration assessment from the replication configuration.
     """
 
-    PremigrationAssessmentRunArn: Optional[String]
-    FailOnAssessmentFailure: Optional[Boolean]
-    Status: Optional[String]
-    PremigrationAssessmentRunCreationDate: Optional[TStamp]
-    AssessmentProgress: Optional[ReplicationTaskAssessmentRunProgress]
-    LastFailureMessage: Optional[String]
-    ResultLocationBucket: Optional[String]
-    ResultLocationFolder: Optional[String]
-    ResultEncryptionMode: Optional[String]
-    ResultKmsKeyArn: Optional[String]
-    ResultStatistic: Optional[ReplicationTaskAssessmentRunResultStatistic]
+    PremigrationAssessmentRunArn: String | None
+    FailOnAssessmentFailure: Boolean | None
+    Status: String | None
+    PremigrationAssessmentRunCreationDate: TStamp | None
+    AssessmentProgress: ReplicationTaskAssessmentRunProgress | None
+    LastFailureMessage: String | None
+    ResultLocationBucket: String | None
+    ResultLocationFolder: String | None
+    ResultEncryptionMode: String | None
+    ResultKmsKeyArn: String | None
+    ResultStatistic: ReplicationTaskAssessmentRunResultStatistic | None
 
 
-PremigrationAssessmentStatusList = List[PremigrationAssessmentStatus]
+PremigrationAssessmentStatusList = list[PremigrationAssessmentStatus]
 
 
 class ProvisionData(TypedDict, total=False):
@@ -3025,12 +3138,12 @@ class ProvisionData(TypedDict, total=False):
     replication.
     """
 
-    ProvisionState: Optional[String]
-    ProvisionedCapacityUnits: Optional[Integer]
-    DateProvisioned: Optional[TStamp]
-    IsNewProvisioningAvailable: Optional[Boolean]
-    DateNewProvisioningDataAvailable: Optional[TStamp]
-    ReasonForNewProvisioningData: Optional[String]
+    ProvisionState: String | None
+    ProvisionedCapacityUnits: Integer | None
+    DateProvisioned: TStamp | None
+    IsNewProvisioningAvailable: Boolean | None
+    DateNewProvisioningDataAvailable: TStamp | None
+    ReasonForNewProvisioningData: String | None
 
 
 class Replication(TypedDict, total=False):
@@ -3038,110 +3151,135 @@ class Replication(TypedDict, total=False):
     the ``CreateReplication`` operation.
     """
 
-    ReplicationConfigIdentifier: Optional[String]
-    ReplicationConfigArn: Optional[String]
-    SourceEndpointArn: Optional[String]
-    TargetEndpointArn: Optional[String]
-    ReplicationType: Optional[MigrationTypeValue]
-    Status: Optional[String]
-    ProvisionData: Optional[ProvisionData]
-    PremigrationAssessmentStatuses: Optional[PremigrationAssessmentStatusList]
-    StopReason: Optional[String]
-    FailureMessages: Optional[StringList]
-    ReplicationStats: Optional[ReplicationStats]
-    StartReplicationType: Optional[String]
-    CdcStartTime: Optional[TStamp]
-    CdcStartPosition: Optional[String]
-    CdcStopPosition: Optional[String]
-    RecoveryCheckpoint: Optional[String]
-    ReplicationCreateTime: Optional[TStamp]
-    ReplicationUpdateTime: Optional[TStamp]
-    ReplicationLastStopTime: Optional[TStamp]
-    ReplicationDeprovisionTime: Optional[TStamp]
+    ReplicationConfigIdentifier: String | None
+    ReplicationConfigArn: String | None
+    SourceEndpointArn: String | None
+    TargetEndpointArn: String | None
+    ReplicationType: MigrationTypeValue | None
+    Status: String | None
+    ProvisionData: ProvisionData | None
+    PremigrationAssessmentStatuses: PremigrationAssessmentStatusList | None
+    StopReason: String | None
+    FailureMessages: StringList | None
+    ReplicationStats: ReplicationStats | None
+    StartReplicationType: String | None
+    CdcStartTime: TStamp | None
+    CdcStartPosition: String | None
+    CdcStopPosition: String | None
+    RecoveryCheckpoint: String | None
+    ReplicationCreateTime: TStamp | None
+    ReplicationUpdateTime: TStamp | None
+    ReplicationLastStopTime: TStamp | None
+    ReplicationDeprovisionTime: TStamp | None
+    IsReadOnly: BooleanOptional | None
 
 
-ReplicationList = List[Replication]
+ReplicationList = list[Replication]
 
 
 class DescribeReplicationsResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Replications: Optional[ReplicationList]
+    Marker: String | None
+    Replications: ReplicationList | None
 
 
 class DescribeSchemasMessage(ServiceRequest):
     EndpointArn: String
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
 
 
-SchemaList = List[String]
+SchemaList = list[String]
 
 
 class DescribeSchemasResponse(TypedDict, total=False):
-    Marker: Optional[String]
-    Schemas: Optional[SchemaList]
+    Marker: String | None
+    Schemas: SchemaList | None
 
 
 class DescribeTableStatisticsMessage(ServiceRequest):
     ReplicationTaskArn: String
-    MaxRecords: Optional[IntegerOptional]
-    Marker: Optional[String]
-    Filters: Optional[FilterList]
+    MaxRecords: IntegerOptional | None
+    Marker: String | None
+    Filters: FilterList | None
 
 
-TableStatisticsList = List[TableStatistics]
+TableStatisticsList = list[TableStatistics]
 
 
 class DescribeTableStatisticsResponse(TypedDict, total=False):
-    ReplicationTaskArn: Optional[String]
-    TableStatistics: Optional[TableStatisticsList]
-    Marker: Optional[String]
+    ReplicationTaskArn: String | None
+    TableStatistics: TableStatisticsList | None
+    Marker: String | None
 
 
-ExcludeTestList = List[String]
+ExcludeTestList = list[String]
 
 
 class ExportMetadataModelAssessmentMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
     SelectionRules: String
-    FileName: Optional[String]
-    AssessmentReportTypes: Optional[AssessmentReportTypesList]
+    FileName: String | None
+    AssessmentReportTypes: AssessmentReportTypesList | None
 
 
 class ExportMetadataModelAssessmentResultEntry(TypedDict, total=False):
     """Provides information about an exported metadata model assessment."""
 
-    S3ObjectKey: Optional[String]
-    ObjectURL: Optional[String]
+    S3ObjectKey: String | None
+    ObjectURL: String | None
 
 
 class ExportMetadataModelAssessmentResponse(TypedDict, total=False):
-    PdfReport: Optional[ExportMetadataModelAssessmentResultEntry]
-    CsvReport: Optional[ExportMetadataModelAssessmentResultEntry]
+    PdfReport: ExportMetadataModelAssessmentResultEntry | None
+    CsvReport: ExportMetadataModelAssessmentResultEntry | None
+
+
+class GetTargetSelectionRulesMessage(ServiceRequest):
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+    SelectionRules: String
+
+
+class GetTargetSelectionRulesResponse(TypedDict, total=False):
+    TargetSelectionRules: String | None
 
 
 class ImportCertificateMessage(ServiceRequest):
     CertificateIdentifier: String
-    CertificatePem: Optional[SecretString]
-    CertificateWallet: Optional[CertificateWallet]
-    Tags: Optional[TagList]
+    CertificatePem: SecretString | None
+    CertificateWallet: CertificateWallet | None
+    Tags: TagList | None
+    KmsKeyId: String | None
 
 
 class ImportCertificateResponse(TypedDict, total=False):
-    Certificate: Optional[Certificate]
+    Certificate: Certificate | None
 
 
-IncludeTestList = List[String]
-KeyList = List[String]
+IncludeTestList = list[String]
+KeyList = list[String]
 
 
 class ListTagsForResourceMessage(ServiceRequest):
-    ResourceArn: Optional[String]
-    ResourceArnList: Optional[ArnList]
+    ResourceArn: String | None
+    ResourceArnList: ArnList | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    TagList: Optional[TagList]
+    TagList: TagList | None
+
+
+class StatementProperties(TypedDict, total=False):
+    """The properties of the statement for metadata model creation."""
+
+    Definition: String
+
+
+class MetadataModelProperties(TypedDict, total=False):
+    """The properties of metadata model in JSON format. This object is a Union.
+    Only one member of this object can be specified or returned.
+    """
+
+    StatementProperties: StatementProperties | None
 
 
 class ModifyConversionConfigurationMessage(ServiceRequest):
@@ -3150,183 +3288,183 @@ class ModifyConversionConfigurationMessage(ServiceRequest):
 
 
 class ModifyConversionConfigurationResponse(TypedDict, total=False):
-    MigrationProjectIdentifier: Optional[String]
+    MigrationProjectIdentifier: String | None
 
 
 class ModifyDataMigrationMessage(ServiceRequest):
     DataMigrationIdentifier: String
-    DataMigrationName: Optional[String]
-    EnableCloudwatchLogs: Optional[BooleanOptional]
-    ServiceAccessRoleArn: Optional[String]
-    DataMigrationType: Optional[MigrationTypeValue]
-    SourceDataSettings: Optional[SourceDataSettings]
-    TargetDataSettings: Optional[TargetDataSettings]
-    NumberOfJobs: Optional[IntegerOptional]
-    SelectionRules: Optional[SecretString]
+    DataMigrationName: String | None
+    EnableCloudwatchLogs: BooleanOptional | None
+    ServiceAccessRoleArn: String | None
+    DataMigrationType: MigrationTypeValue | None
+    SourceDataSettings: SourceDataSettings | None
+    TargetDataSettings: TargetDataSettings | None
+    NumberOfJobs: IntegerOptional | None
+    SelectionRules: SecretString | None
 
 
 class ModifyDataMigrationResponse(TypedDict, total=False):
-    DataMigration: Optional[DataMigration]
+    DataMigration: DataMigration | None
 
 
 class ModifyDataProviderMessage(ServiceRequest):
     DataProviderIdentifier: String
-    DataProviderName: Optional[String]
-    Description: Optional[String]
-    Engine: Optional[String]
-    Virtual: Optional[BooleanOptional]
-    ExactSettings: Optional[BooleanOptional]
-    Settings: Optional[DataProviderSettings]
+    DataProviderName: String | None
+    Description: String | None
+    Engine: String | None
+    Virtual: BooleanOptional | None
+    ExactSettings: BooleanOptional | None
+    Settings: DataProviderSettings | None
 
 
 class ModifyDataProviderResponse(TypedDict, total=False):
-    DataProvider: Optional[DataProvider]
+    DataProvider: DataProvider | None
 
 
 class ModifyEndpointMessage(ServiceRequest):
     EndpointArn: String
-    EndpointIdentifier: Optional[String]
-    EndpointType: Optional[ReplicationEndpointTypeValue]
-    EngineName: Optional[String]
-    Username: Optional[String]
-    Password: Optional[SecretString]
-    ServerName: Optional[String]
-    Port: Optional[IntegerOptional]
-    DatabaseName: Optional[String]
-    ExtraConnectionAttributes: Optional[String]
-    CertificateArn: Optional[String]
-    SslMode: Optional[DmsSslModeValue]
-    ServiceAccessRoleArn: Optional[String]
-    ExternalTableDefinition: Optional[String]
-    DynamoDbSettings: Optional[DynamoDbSettings]
-    S3Settings: Optional[S3Settings]
-    DmsTransferSettings: Optional[DmsTransferSettings]
-    MongoDbSettings: Optional[MongoDbSettings]
-    KinesisSettings: Optional[KinesisSettings]
-    KafkaSettings: Optional[KafkaSettings]
-    ElasticsearchSettings: Optional[ElasticsearchSettings]
-    NeptuneSettings: Optional[NeptuneSettings]
-    RedshiftSettings: Optional[RedshiftSettings]
-    PostgreSQLSettings: Optional[PostgreSQLSettings]
-    MySQLSettings: Optional[MySQLSettings]
-    OracleSettings: Optional[OracleSettings]
-    SybaseSettings: Optional[SybaseSettings]
-    MicrosoftSQLServerSettings: Optional[MicrosoftSQLServerSettings]
-    IBMDb2Settings: Optional[IBMDb2Settings]
-    DocDbSettings: Optional[DocDbSettings]
-    RedisSettings: Optional[RedisSettings]
-    ExactSettings: Optional[BooleanOptional]
-    GcpMySQLSettings: Optional[GcpMySQLSettings]
-    TimestreamSettings: Optional[TimestreamSettings]
+    EndpointIdentifier: String | None
+    EndpointType: ReplicationEndpointTypeValue | None
+    EngineName: String | None
+    Username: String | None
+    Password: SecretString | None
+    ServerName: String | None
+    Port: IntegerOptional | None
+    DatabaseName: String | None
+    ExtraConnectionAttributes: String | None
+    CertificateArn: String | None
+    SslMode: DmsSslModeValue | None
+    ServiceAccessRoleArn: String | None
+    ExternalTableDefinition: String | None
+    DynamoDbSettings: DynamoDbSettings | None
+    S3Settings: S3Settings | None
+    DmsTransferSettings: DmsTransferSettings | None
+    MongoDbSettings: MongoDbSettings | None
+    KinesisSettings: KinesisSettings | None
+    KafkaSettings: KafkaSettings | None
+    ElasticsearchSettings: ElasticsearchSettings | None
+    NeptuneSettings: NeptuneSettings | None
+    RedshiftSettings: RedshiftSettings | None
+    PostgreSQLSettings: PostgreSQLSettings | None
+    MySQLSettings: MySQLSettings | None
+    OracleSettings: OracleSettings | None
+    SybaseSettings: SybaseSettings | None
+    MicrosoftSQLServerSettings: MicrosoftSQLServerSettings | None
+    IBMDb2Settings: IBMDb2Settings | None
+    DocDbSettings: DocDbSettings | None
+    RedisSettings: RedisSettings | None
+    ExactSettings: BooleanOptional | None
+    GcpMySQLSettings: GcpMySQLSettings | None
+    TimestreamSettings: TimestreamSettings | None
 
 
 class ModifyEndpointResponse(TypedDict, total=False):
-    Endpoint: Optional[Endpoint]
+    Endpoint: Endpoint | None
 
 
 class ModifyEventSubscriptionMessage(ServiceRequest):
     SubscriptionName: String
-    SnsTopicArn: Optional[String]
-    SourceType: Optional[String]
-    EventCategories: Optional[EventCategoriesList]
-    Enabled: Optional[BooleanOptional]
+    SnsTopicArn: String | None
+    SourceType: String | None
+    EventCategories: EventCategoriesList | None
+    Enabled: BooleanOptional | None
 
 
 class ModifyEventSubscriptionResponse(TypedDict, total=False):
-    EventSubscription: Optional[EventSubscription]
+    EventSubscription: EventSubscription | None
 
 
 class ModifyInstanceProfileMessage(ServiceRequest):
     InstanceProfileIdentifier: String
-    AvailabilityZone: Optional[String]
-    KmsKeyArn: Optional[String]
-    PubliclyAccessible: Optional[BooleanOptional]
-    NetworkType: Optional[String]
-    InstanceProfileName: Optional[String]
-    Description: Optional[String]
-    SubnetGroupIdentifier: Optional[String]
-    VpcSecurityGroups: Optional[StringList]
+    AvailabilityZone: String | None
+    KmsKeyArn: String | None
+    PubliclyAccessible: BooleanOptional | None
+    NetworkType: String | None
+    InstanceProfileName: String | None
+    Description: String | None
+    SubnetGroupIdentifier: String | None
+    VpcSecurityGroups: StringList | None
 
 
 class ModifyInstanceProfileResponse(TypedDict, total=False):
-    InstanceProfile: Optional[InstanceProfile]
+    InstanceProfile: InstanceProfile | None
 
 
 class ModifyMigrationProjectMessage(ServiceRequest):
     MigrationProjectIdentifier: String
-    MigrationProjectName: Optional[String]
-    SourceDataProviderDescriptors: Optional[DataProviderDescriptorDefinitionList]
-    TargetDataProviderDescriptors: Optional[DataProviderDescriptorDefinitionList]
-    InstanceProfileIdentifier: Optional[String]
-    TransformationRules: Optional[String]
-    Description: Optional[String]
-    SchemaConversionApplicationAttributes: Optional[SCApplicationAttributes]
+    MigrationProjectName: String | None
+    SourceDataProviderDescriptors: DataProviderDescriptorDefinitionList | None
+    TargetDataProviderDescriptors: DataProviderDescriptorDefinitionList | None
+    InstanceProfileIdentifier: String | None
+    TransformationRules: String | None
+    Description: String | None
+    SchemaConversionApplicationAttributes: SCApplicationAttributes | None
 
 
 class ModifyMigrationProjectResponse(TypedDict, total=False):
-    MigrationProject: Optional[MigrationProject]
+    MigrationProject: MigrationProject | None
 
 
 class ModifyReplicationConfigMessage(ServiceRequest):
     ReplicationConfigArn: String
-    ReplicationConfigIdentifier: Optional[String]
-    ReplicationType: Optional[MigrationTypeValue]
-    TableMappings: Optional[String]
-    ReplicationSettings: Optional[String]
-    SupplementalSettings: Optional[String]
-    ComputeConfig: Optional[ComputeConfig]
-    SourceEndpointArn: Optional[String]
-    TargetEndpointArn: Optional[String]
+    ReplicationConfigIdentifier: String | None
+    ReplicationType: MigrationTypeValue | None
+    TableMappings: String | None
+    ReplicationSettings: String | None
+    SupplementalSettings: String | None
+    ComputeConfig: ComputeConfig | None
+    SourceEndpointArn: String | None
+    TargetEndpointArn: String | None
 
 
 class ModifyReplicationConfigResponse(TypedDict, total=False):
-    ReplicationConfig: Optional[ReplicationConfig]
+    ReplicationConfig: ReplicationConfig | None
 
 
 class ModifyReplicationInstanceMessage(ServiceRequest):
     ReplicationInstanceArn: String
-    AllocatedStorage: Optional[IntegerOptional]
-    ApplyImmediately: Optional[Boolean]
-    ReplicationInstanceClass: Optional[ReplicationInstanceClass]
-    VpcSecurityGroupIds: Optional[VpcSecurityGroupIdList]
-    PreferredMaintenanceWindow: Optional[String]
-    MultiAZ: Optional[BooleanOptional]
-    EngineVersion: Optional[String]
-    AllowMajorVersionUpgrade: Optional[Boolean]
-    AutoMinorVersionUpgrade: Optional[BooleanOptional]
-    ReplicationInstanceIdentifier: Optional[String]
-    NetworkType: Optional[String]
-    KerberosAuthenticationSettings: Optional[KerberosAuthenticationSettings]
+    AllocatedStorage: IntegerOptional | None
+    ApplyImmediately: Boolean | None
+    ReplicationInstanceClass: ReplicationInstanceClass | None
+    VpcSecurityGroupIds: VpcSecurityGroupIdList | None
+    PreferredMaintenanceWindow: String | None
+    MultiAZ: BooleanOptional | None
+    EngineVersion: String | None
+    AllowMajorVersionUpgrade: Boolean | None
+    AutoMinorVersionUpgrade: BooleanOptional | None
+    ReplicationInstanceIdentifier: String | None
+    NetworkType: String | None
+    KerberosAuthenticationSettings: KerberosAuthenticationSettings | None
 
 
 class ModifyReplicationInstanceResponse(TypedDict, total=False):
-    ReplicationInstance: Optional[ReplicationInstance]
+    ReplicationInstance: ReplicationInstance | None
 
 
 class ModifyReplicationSubnetGroupMessage(ServiceRequest):
     ReplicationSubnetGroupIdentifier: String
-    ReplicationSubnetGroupDescription: Optional[String]
+    ReplicationSubnetGroupDescription: String | None
     SubnetIds: SubnetIdentifierList
 
 
 class ModifyReplicationSubnetGroupResponse(TypedDict, total=False):
-    ReplicationSubnetGroup: Optional[ReplicationSubnetGroup]
+    ReplicationSubnetGroup: ReplicationSubnetGroup | None
 
 
 class ModifyReplicationTaskMessage(ServiceRequest):
     ReplicationTaskArn: String
-    ReplicationTaskIdentifier: Optional[String]
-    MigrationType: Optional[MigrationTypeValue]
-    TableMappings: Optional[String]
-    ReplicationTaskSettings: Optional[String]
-    CdcStartTime: Optional[TStamp]
-    CdcStartPosition: Optional[String]
-    CdcStopPosition: Optional[String]
-    TaskData: Optional[String]
+    ReplicationTaskIdentifier: String | None
+    MigrationType: MigrationTypeValue | None
+    TableMappings: String | None
+    ReplicationTaskSettings: String | None
+    CdcStartTime: TStamp | None
+    CdcStartPosition: String | None
+    CdcStopPosition: String | None
+    TaskData: String | None
 
 
 class ModifyReplicationTaskResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
 class MoveReplicationTaskMessage(ServiceRequest):
@@ -3335,17 +3473,17 @@ class MoveReplicationTaskMessage(ServiceRequest):
 
 
 class MoveReplicationTaskResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
 class RebootReplicationInstanceMessage(ServiceRequest):
     ReplicationInstanceArn: String
-    ForceFailover: Optional[BooleanOptional]
-    ForcePlannedFailover: Optional[BooleanOptional]
+    ForceFailover: BooleanOptional | None
+    ForcePlannedFailover: BooleanOptional | None
 
 
 class RebootReplicationInstanceResponse(TypedDict, total=False):
-    ReplicationInstance: Optional[ReplicationInstance]
+    ReplicationInstance: ReplicationInstance | None
 
 
 class RefreshSchemasMessage(ServiceRequest):
@@ -3354,7 +3492,7 @@ class RefreshSchemasMessage(ServiceRequest):
 
 
 class RefreshSchemasResponse(TypedDict, total=False):
-    RefreshSchemasStatus: Optional[RefreshSchemasStatus]
+    RefreshSchemasStatus: RefreshSchemasStatus | None
 
 
 class TableToReload(TypedDict, total=False):
@@ -3364,27 +3502,27 @@ class TableToReload(TypedDict, total=False):
     TableName: String
 
 
-TableListToReload = List[TableToReload]
+TableListToReload = list[TableToReload]
 
 
 class ReloadReplicationTablesMessage(ServiceRequest):
     ReplicationConfigArn: String
     TablesToReload: TableListToReload
-    ReloadOption: Optional[ReloadOptionValue]
+    ReloadOption: ReloadOptionValue | None
 
 
 class ReloadReplicationTablesResponse(TypedDict, total=False):
-    ReplicationConfigArn: Optional[String]
+    ReplicationConfigArn: String | None
 
 
 class ReloadTablesMessage(ServiceRequest):
     ReplicationTaskArn: String
     TablesToReload: TableListToReload
-    ReloadOption: Optional[ReloadOptionValue]
+    ReloadOption: ReloadOptionValue | None
 
 
 class ReloadTablesResponse(TypedDict, total=False):
-    ReplicationTaskArn: Optional[String]
+    ReplicationTaskArn: String | None
 
 
 class RemoveTagsFromResourceMessage(ServiceRequest):
@@ -3399,8 +3537,8 @@ class RemoveTagsFromResourceResponse(TypedDict, total=False):
 
 
 class RunFleetAdvisorLsaAnalysisResponse(TypedDict, total=False):
-    LsaAnalysisId: Optional[String]
-    Status: Optional[String]
+    LsaAnalysisId: String | None
+    Status: String | None
 
 
 class StartDataMigrationMessage(ServiceRequest):
@@ -3409,7 +3547,7 @@ class StartDataMigrationMessage(ServiceRequest):
 
 
 class StartDataMigrationResponse(TypedDict, total=False):
-    DataMigration: Optional[DataMigration]
+    DataMigration: DataMigration | None
 
 
 class StartExtensionPackAssociationMessage(ServiceRequest):
@@ -3417,7 +3555,7 @@ class StartExtensionPackAssociationMessage(ServiceRequest):
 
 
 class StartExtensionPackAssociationResponse(TypedDict, total=False):
-    RequestIdentifier: Optional[String]
+    RequestIdentifier: String | None
 
 
 class StartMetadataModelAssessmentMessage(ServiceRequest):
@@ -3426,7 +3564,7 @@ class StartMetadataModelAssessmentMessage(ServiceRequest):
 
 
 class StartMetadataModelAssessmentResponse(TypedDict, total=False):
-    RequestIdentifier: Optional[String]
+    RequestIdentifier: String | None
 
 
 class StartMetadataModelConversionMessage(ServiceRequest):
@@ -3435,39 +3573,50 @@ class StartMetadataModelConversionMessage(ServiceRequest):
 
 
 class StartMetadataModelConversionResponse(TypedDict, total=False):
-    RequestIdentifier: Optional[String]
+    RequestIdentifier: String | None
+
+
+class StartMetadataModelCreationMessage(ServiceRequest):
+    MigrationProjectIdentifier: MigrationProjectIdentifier
+    SelectionRules: String
+    MetadataModelName: String
+    Properties: MetadataModelProperties
+
+
+class StartMetadataModelCreationResponse(TypedDict, total=False):
+    RequestIdentifier: String | None
 
 
 class StartMetadataModelExportAsScriptMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
     SelectionRules: String
     Origin: OriginTypeValue
-    FileName: Optional[String]
+    FileName: String | None
 
 
 class StartMetadataModelExportAsScriptResponse(TypedDict, total=False):
-    RequestIdentifier: Optional[String]
+    RequestIdentifier: String | None
 
 
 class StartMetadataModelExportToTargetMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
     SelectionRules: String
-    OverwriteExtensionPack: Optional[BooleanOptional]
+    OverwriteExtensionPack: BooleanOptional | None
 
 
 class StartMetadataModelExportToTargetResponse(TypedDict, total=False):
-    RequestIdentifier: Optional[String]
+    RequestIdentifier: String | None
 
 
 class StartMetadataModelImportMessage(ServiceRequest):
     MigrationProjectIdentifier: MigrationProjectIdentifier
     SelectionRules: String
     Origin: OriginTypeValue
-    Refresh: Optional[Boolean]
+    Refresh: Boolean | None
 
 
 class StartMetadataModelImportResponse(TypedDict, total=False):
-    RequestIdentifier: Optional[String]
+    RequestIdentifier: String | None
 
 
 class StartRecommendationsRequest(ServiceRequest):
@@ -3478,14 +3627,14 @@ class StartRecommendationsRequest(ServiceRequest):
 class StartReplicationMessage(ServiceRequest):
     ReplicationConfigArn: String
     StartReplicationType: String
-    PremigrationAssessmentSettings: Optional[String]
-    CdcStartTime: Optional[TStamp]
-    CdcStartPosition: Optional[String]
-    CdcStopPosition: Optional[String]
+    PremigrationAssessmentSettings: String | None
+    CdcStartTime: TStamp | None
+    CdcStartPosition: String | None
+    CdcStopPosition: String | None
 
 
 class StartReplicationResponse(TypedDict, total=False):
-    Replication: Optional[Replication]
+    Replication: Replication | None
 
 
 class StartReplicationTaskAssessmentMessage(ServiceRequest):
@@ -3493,36 +3642,36 @@ class StartReplicationTaskAssessmentMessage(ServiceRequest):
 
 
 class StartReplicationTaskAssessmentResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
 class StartReplicationTaskAssessmentRunMessage(ServiceRequest):
     ReplicationTaskArn: String
     ServiceAccessRoleArn: String
     ResultLocationBucket: String
-    ResultLocationFolder: Optional[String]
-    ResultEncryptionMode: Optional[String]
-    ResultKmsKeyArn: Optional[String]
+    ResultLocationFolder: String | None
+    ResultEncryptionMode: String | None
+    ResultKmsKeyArn: String | None
     AssessmentRunName: String
-    IncludeOnly: Optional[IncludeTestList]
-    Exclude: Optional[ExcludeTestList]
-    Tags: Optional[TagList]
+    IncludeOnly: IncludeTestList | None
+    Exclude: ExcludeTestList | None
+    Tags: TagList | None
 
 
 class StartReplicationTaskAssessmentRunResponse(TypedDict, total=False):
-    ReplicationTaskAssessmentRun: Optional[ReplicationTaskAssessmentRun]
+    ReplicationTaskAssessmentRun: ReplicationTaskAssessmentRun | None
 
 
 class StartReplicationTaskMessage(ServiceRequest):
     ReplicationTaskArn: String
     StartReplicationTaskType: StartReplicationTaskTypeValue
-    CdcStartTime: Optional[TStamp]
-    CdcStartPosition: Optional[String]
-    CdcStopPosition: Optional[String]
+    CdcStartTime: TStamp | None
+    CdcStartPosition: String | None
+    CdcStopPosition: String | None
 
 
 class StartReplicationTaskResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
 class StopDataMigrationMessage(ServiceRequest):
@@ -3530,7 +3679,7 @@ class StopDataMigrationMessage(ServiceRequest):
 
 
 class StopDataMigrationResponse(TypedDict, total=False):
-    DataMigration: Optional[DataMigration]
+    DataMigration: DataMigration | None
 
 
 class StopReplicationMessage(ServiceRequest):
@@ -3538,7 +3687,7 @@ class StopReplicationMessage(ServiceRequest):
 
 
 class StopReplicationResponse(TypedDict, total=False):
-    Replication: Optional[Replication]
+    Replication: Replication | None
 
 
 class StopReplicationTaskMessage(ServiceRequest):
@@ -3546,7 +3695,7 @@ class StopReplicationTaskMessage(ServiceRequest):
 
 
 class StopReplicationTaskResponse(TypedDict, total=False):
-    ReplicationTask: Optional[ReplicationTask]
+    ReplicationTask: ReplicationTask | None
 
 
 class TestConnectionMessage(ServiceRequest):
@@ -3555,20 +3704,20 @@ class TestConnectionMessage(ServiceRequest):
 
 
 class TestConnectionResponse(TypedDict, total=False):
-    Connection: Optional[Connection]
+    Connection: Connection | None
 
 
 class UpdateSubscriptionsToEventBridgeMessage(ServiceRequest):
-    ForceMove: Optional[BooleanOptional]
+    ForceMove: BooleanOptional | None
 
 
 class UpdateSubscriptionsToEventBridgeResponse(TypedDict, total=False):
-    Result: Optional[String]
+    Result: String | None
 
 
 class DmsApi:
-    service = "dms"
-    version = "2016-01-01"
+    service: str = "dms"
+    version: str = "2016-01-01"
 
     @handler("AddTagsToResource")
     def add_tags_to_resource(
@@ -3640,6 +3789,46 @@ class DmsApi:
         :raises InvalidResourceStateFault:
         :raises AccessDeniedFault:
         :raises ResourceNotFoundFault:
+        """
+        raise NotImplementedError
+
+    @handler("CancelMetadataModelConversion")
+    def cancel_metadata_model_conversion(
+        self,
+        context: RequestContext,
+        migration_project_identifier: MigrationProjectIdentifier,
+        request_identifier: String,
+        **kwargs,
+    ) -> CancelMetadataModelConversionResponse:
+        """Cancels a single metadata model conversion operation that was started
+        with ``StartMetadataModelConversion``.
+
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param request_identifier: The identifier for the metadata model conversion operation to cancel.
+        :returns: CancelMetadataModelConversionResponse
+        :raises ResourceNotFoundFault:
+        :raises InvalidResourceStateFault:
+        :raises AccessDeniedFault:
+        """
+        raise NotImplementedError
+
+    @handler("CancelMetadataModelCreation")
+    def cancel_metadata_model_creation(
+        self,
+        context: RequestContext,
+        migration_project_identifier: MigrationProjectIdentifier,
+        request_identifier: String,
+        **kwargs,
+    ) -> CancelMetadataModelCreationResponse:
+        """Cancels a single metadata model creation operation that was started with
+        ``StartMetadataModelCreation``.
+
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param request_identifier: The identifier for the metadata model creation operation to cancel.
+        :returns: CancelMetadataModelCreationResponse
+        :raises ResourceNotFoundFault:
+        :raises InvalidResourceStateFault:
+        :raises AccessDeniedFault:
         """
         raise NotImplementedError
 
@@ -5025,6 +5214,28 @@ class DmsApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeMetadataModel")
+    def describe_metadata_model(
+        self,
+        context: RequestContext,
+        selection_rules: String,
+        migration_project_identifier: MigrationProjectIdentifier,
+        origin: OriginTypeValue,
+        **kwargs,
+    ) -> DescribeMetadataModelResponse:
+        """Gets detailed information about the specified metadata model, including
+        its definition and corresponding converted objects in the target
+        database if applicable.
+
+        :param selection_rules: The JSON string that specifies which metadata model to retrieve.
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param origin: Specifies whether to retrieve metadata from the source or target tree.
+        :returns: DescribeMetadataModelResponse
+        :raises ResourceNotFoundFault:
+        :raises AccessDeniedFault:
+        """
+        raise NotImplementedError
+
     @handler("DescribeMetadataModelAssessments")
     def describe_metadata_model_assessments(
         self,
@@ -5049,6 +5260,34 @@ class DmsApi:
         """
         raise NotImplementedError
 
+    @handler("DescribeMetadataModelChildren")
+    def describe_metadata_model_children(
+        self,
+        context: RequestContext,
+        selection_rules: String,
+        migration_project_identifier: MigrationProjectIdentifier,
+        origin: OriginTypeValue,
+        marker: String | None = None,
+        max_records: IntegerOptional | None = None,
+        **kwargs,
+    ) -> DescribeMetadataModelChildrenResponse:
+        """Gets a list of child metadata models for the specified metadata model in
+        the database hierarchy.
+
+        :param selection_rules: The JSON string that specifies which metadata model's children to
+        retrieve.
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param origin: Specifies whether to retrieve metadata from the source or target tree.
+        :param marker: Specifies the unique pagination token that indicates where the next page
+        should start.
+        :param max_records: The maximum number of metadata model children to include in the
+        response.
+        :returns: DescribeMetadataModelChildrenResponse
+        :raises ResourceNotFoundFault:
+        :raises AccessDeniedFault:
+        """
+        raise NotImplementedError
+
     @handler("DescribeMetadataModelConversions")
     def describe_metadata_model_conversions(
         self,
@@ -5070,6 +5309,32 @@ class DmsApi:
         :param max_records: The maximum number of records to include in the response.
         :returns: DescribeMetadataModelConversionsResponse
         :raises ResourceNotFoundFault:
+        """
+        raise NotImplementedError
+
+    @handler("DescribeMetadataModelCreations")
+    def describe_metadata_model_creations(
+        self,
+        context: RequestContext,
+        migration_project_identifier: MigrationProjectIdentifier,
+        filters: FilterList | None = None,
+        marker: String | None = None,
+        max_records: IntegerOptional | None = None,
+        **kwargs,
+    ) -> DescribeMetadataModelCreationsResponse:
+        """Returns a paginated list of metadata model creation requests for a
+        migration project.
+
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param filters: Filters applied to the metadata model creation requests described in the
+        form of key-value pairs.
+        :param marker: Specifies the unique pagination token that makes it possible to display
+        the next page of metadata model creation requests.
+        :param max_records: The maximum number of metadata model creation requests to include in the
+        response.
+        :returns: DescribeMetadataModelCreationsResponse
+        :raises ResourceNotFoundFault:
+        :raises AccessDeniedFault:
         """
         raise NotImplementedError
 
@@ -5574,6 +5839,26 @@ class DmsApi:
         """
         raise NotImplementedError
 
+    @handler("GetTargetSelectionRules")
+    def get_target_selection_rules(
+        self,
+        context: RequestContext,
+        migration_project_identifier: MigrationProjectIdentifier,
+        selection_rules: String,
+        **kwargs,
+    ) -> GetTargetSelectionRulesResponse:
+        """Converts source selection rules into their target counterparts for
+        schema conversion operations.
+
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param selection_rules: The JSON string representing the source selection rules for conversion.
+        :returns: GetTargetSelectionRulesResponse
+        :raises ResourceNotFoundFault:
+        :raises InvalidResourceStateFault:
+        :raises AccessDeniedFault:
+        """
+        raise NotImplementedError
+
     @handler("ImportCertificate")
     def import_certificate(
         self,
@@ -5582,6 +5867,7 @@ class DmsApi:
         certificate_pem: SecretString | None = None,
         certificate_wallet: CertificateWallet | None = None,
         tags: TagList | None = None,
+        kms_key_id: String | None = None,
         **kwargs,
     ) -> ImportCertificateResponse:
         """Uploads the specified certificate.
@@ -5590,10 +5876,12 @@ class DmsApi:
         :param certificate_pem: The contents of a ``.
         :param certificate_wallet: The location of an imported Oracle Wallet certificate for use with SSL.
         :param tags: The tags associated with the certificate.
+        :param kms_key_id: An KMS key identifier that is used to encrypt the certificate.
         :returns: ImportCertificateResponse
         :raises ResourceAlreadyExistsFault:
         :raises InvalidCertificateFault:
         :raises ResourceQuotaExceededFault:
+        :raises KMSKeyNotAccessibleFault:
         """
         raise NotImplementedError
 
@@ -6354,6 +6642,35 @@ class DmsApi:
         :raises ResourceQuotaExceededFault:
         :raises S3ResourceNotFoundFault:
         :raises S3AccessDeniedFault:
+        """
+        raise NotImplementedError
+
+    @handler("StartMetadataModelCreation")
+    def start_metadata_model_creation(
+        self,
+        context: RequestContext,
+        migration_project_identifier: MigrationProjectIdentifier,
+        selection_rules: String,
+        metadata_model_name: String,
+        properties: MetadataModelProperties,
+        **kwargs,
+    ) -> StartMetadataModelCreationResponse:
+        """Creates source metadata model of the given type with the specified
+        properties for schema conversion operations.
+
+        This action supports only these directions: from SQL Server to Aurora
+        PostgreSQL, or from SQL Server to RDS for PostgreSQL.
+
+        :param migration_project_identifier: The migration project name or Amazon Resource Name (ARN).
+        :param selection_rules: The JSON string that specifies the location where the metadata model
+        will be created.
+        :param metadata_model_name: The name of the metadata model.
+        :param properties: The properties of metadata model in JSON format.
+        :returns: StartMetadataModelCreationResponse
+        :raises ResourceAlreadyExistsFault:
+        :raises ResourceNotFoundFault:
+        :raises ResourceQuotaExceededFault:
+        :raises AccessDeniedFault:
         """
         raise NotImplementedError
 

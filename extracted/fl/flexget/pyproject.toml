@@ -72,24 +72,30 @@ gui-scripts.flexget-headless = "flexget:main" # This is useful on Windows to avo
 [dependency-groups]
 dev = [
   "pre-commit~=4.0",
-  "pytest~=8.3",
+  "pytest~=9.0",
   "pytest-cov~=7.0",
   "pytest-socket~=0.7.0",
   "pytest-xdist~=3.6",
-  "ruff==0.13.1",
-  "vcrpy~=7.0",
+  "ruff==0.14.13",
+  "vcrpy~=8.1",
+]
+test = [
+  "pillow~=12.1",
+  "pytest-localftpserver~=1.3",
+  { include-group = "all" },
 ]
 docs = [
   "pydata-sphinx-theme~=0.16.1",
   "sphinx~=8.1",
   "sphinx-copybutton~=0.5.2",
   "sphinx-design~=0.6.1",
+  "sphinxcontrib-svg2pdfconverter~=2.0",
 ]
 boto3 = [ "boto3~=1.35" ]
 deluge = [ "deluge-client~=1.10" ]
 ftp = [ "ftputil~=5.1" ]
 matrix = [ "matrix-nio~=0.25.2" ]
-plexapi = [ "plexapi==4.17.0" ]
+plexapi = [ "plexapi~=4.17" ]
 qbittorrent = [ "qbittorrent-api~=2025.2" ]
 rarfile = [ "rarfile~=4.0" ]
 sftp = [
@@ -99,7 +105,7 @@ sftp = [
 subliminal = [
   "subliminal==2.2.1", # TODO: Update subliminal after https://github.com/Diaoul/subliminal/issues/1302 is resolved.
 ]
-telegram = [ "pillow~=11.0", "python-telegram-bot[http2,socks]~=22.0" ]
+telegram = [ "python-telegram-bot[http2,socks]~=22.0" ]
 transmission = [ "transmission-rpc~=7.0" ]
 # This is all our optional deps installable via extras, not actually 'all'.
 # Tests that need these must add the `require_optional_deps` pytest mark.
@@ -241,20 +247,19 @@ skip = [
 max_supported_python = '3.14'
 keep_full_version = true
 
-[tool.pytest.ini_options]
-addopts = '-p no:legacypath --strict-config --strict-markers'
+[tool.pytest]
+addopts = [ '-p no:legacypath' ]
 filterwarnings = [
   'error',
-  "ignore:jsonschema.RefResolver is deprecated as of v4.18.0:DeprecationWarning:flask_restx.api", # Blocked by https://github.com/python-restx/flask-restx/issues/553. Or consider migrating to `flask-smorest`: https://github.com/python-restx/flask-restx/issues/633#issuecomment-2962412240
-  'ignore:Failed to load HostKeys from:UserWarning:pysftp',                                       # It's a bug in pysftp (unmaintained) 0.2.9, not in 0.2.8: https://stackoverflow.com/q/56521549
+  'ignore:Failed to load HostKeys from:UserWarning:pysftp', # It's a bug in pysftp (unmaintained) 0.2.9, not in 0.2.8: https://stackoverflow.com/q/56521549
 ]
 markers = [
   'filecopy(src, dst): mark test to copy a file from `src` to `dst` before running',
   'online: mark test that goes online. VCR will automatically be used.',
   'require_optional_deps: mark test as requiring additional dependencies',
 ]
+strict = true
 testpaths = [ "tests" ]
-xfail_strict = true
 
 [tool.coverage.report]
 exclude_also = [

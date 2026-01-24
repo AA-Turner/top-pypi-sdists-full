@@ -18,7 +18,6 @@ import random
 import sys
 import time
 import traceback
-import warnings
 
 from newrelic.api.settings import STRIP_EXCEPTION_MESSAGE
 from newrelic.common.object_names import parse_exc_info
@@ -253,7 +252,7 @@ class TimeTrace:
         if getattr(value, "_nr_ignored", None):
             return
 
-        module, name, fullnames, message_raw = parse_exc_info((exc, value, tb))
+        _module, name, fullnames, message_raw = parse_exc_info((exc, value, tb))
         fullname = fullnames[0]
 
         # In case message is in JSON format for OpenAI models
@@ -363,15 +362,19 @@ class TimeTrace:
     def notice_error(self, error=None, attributes=None, expected=None, ignore=None, status_code=None):
         attributes = attributes if attributes is not None else {}
 
-        # If no exception details provided, use current exception.
+        # If an exception instance is passed, attempt to unpack it into an exception tuple with traceback
+        if isinstance(error, BaseException):
+            error = (type(error), error, getattr(error, "__traceback__", None))
 
-        # Pull from sys.exc_info if no exception is passed
-        if not error or None in error:
+        # Use current exception from sys.exc_info() if no exception was passed,
+        # or if the exception tuple is missing components like the traceback
+        if not error or (isinstance(error, (tuple, list)) and None in error):
             error = sys.exc_info()
 
-            # If no exception to report, exit
-            if not error or None in error:
-                return
+        # Error should be a tuple or list of 3 elements by this point.
+        # If it's falsey or missing a component like the traceback, quietly exit early.
+        if not isinstance(error, (tuple, list)) or len(error) != 3 or None in error:
+            return
 
         exc, value, tb = error
 
@@ -449,16 +452,6 @@ class TimeTrace:
                 settings, fullname, message, is_expected, error_group_name, custom_params, self.guid, tb, source=source
             )
 
-    def record_exception(self, exc_info=None, params=None, ignore_errors=None):
-        # Deprecation Warning
-        warnings.warn(
-            ("The record_exception function is deprecated. Please use the new api named notice_error instead."),
-            DeprecationWarning,
-            stacklevel=2,
-        )
-
-        self.notice_error(error=exc_info, attributes=params, ignore=ignore_errors)
-
     def _add_agent_attribute(self, key, value):
         self.agent_attributes[key] = value
 
@@ -515,7 +508,7 @@ class TimeTrace:
         exc_data = self.exc_data
         self.exc_data = (None, None, None)
 
-        # Observe errors on the span only if record_exception hasn't been
+        # Observe errors on the span only if notice_error hasn't been
         # called already
         if exc_data[0] and "error.class" not in self.agent_attributes:
             self._observe_exception(exc_data)
@@ -694,17 +687,6 @@ def get_linking_metadata(application=None):
     if trace:
         metadata.update(trace._get_trace_linking_metadata())
     return metadata
-
-
-def record_exception(exc=None, value=None, tb=None, params=None, ignore_errors=None, application=None):
-    # Deprecation Warning
-    warnings.warn(
-        ("The record_exception function is deprecated. Please use the new api named notice_error instead."),
-        DeprecationWarning,
-        stacklevel=2,
-    )
-
-    notice_error(error=(exc, value, tb), attributes=params, ignore=ignore_errors, application=application)
 
 
 def notice_error(error=None, attributes=None, expected=None, ignore=None, status_code=None, application=None):

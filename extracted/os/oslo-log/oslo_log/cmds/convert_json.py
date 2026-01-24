@@ -13,13 +13,17 @@
 
 import argparse
 import collections
+from collections.abc import Callable, Iterator, Sequence
 import functools
+import io
 import sys
 import time
+from typing import cast
 
 from oslo_serialization import jsonutils
 from oslo_utils import importutils
 
+from oslo_log.formatters import JSONLogRecord
 from oslo_log import log
 
 termcolor = importutils.try_import('termcolor')
@@ -30,7 +34,7 @@ DEFAULT_LEVEL_KEY = 'levelname'
 DEFAULT_TRACEBACK_KEY = 'traceback'
 
 
-def main():
+def main() -> None:
     global _USE_COLOR
     args = parse_args()
     _USE_COLOR = args.color
@@ -42,7 +46,7 @@ def main():
         levels=args.levels,
         level_key=args.levelkey,
         traceback_key=args.tbkey,
-        )
+    )
     if args.lines:
         # Read backward until we find all of our newline characters
         # or reach the beginning of the file
@@ -61,53 +65,80 @@ def main():
         sys.exit(0)
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("file",
-                        nargs='?', default=sys.stdin,
-                        type=argparse.FileType(),
-                        help="JSON log file to read from (if not provided"
-                             " standard input is used instead)")
-    parser.add_argument("--prefix",
-                        default='%(asctime)s.%(msecs)03d'
-                                ' %(process)s %(levelname)s %(name)s',
-                        help="Message prefixes")
-    parser.add_argument("--locator",
-                        default='[%(funcname)s %(pathname)s:%(lineno)s]',
-                        help="Locator to append to DEBUG records")
-    parser.add_argument("--levelkey",
-                        default=DEFAULT_LEVEL_KEY,
-                        help="Key in the JSON record where the level is held")
-    parser.add_argument("--tbkey",
-                        default=DEFAULT_TRACEBACK_KEY,
-                        help="Key in the JSON record where the"
-                             " traceback/exception is held")
-    parser.add_argument("-c", "--color",
-                        action='store_true', default=False,
-                        help="Color log levels (requires `termcolor`)")
-    parser.add_argument("-f", "--follow",
-                        action='store_true', default=False,
-                        help="Continue parsing new data until"
-                             " KeyboardInterrupt")
-    parser.add_argument("-n", "--lines",
-                        required=False, type=int,
-                        help="Last N number of records to view."
-                             " (May show less than N records when used"
-                             " in conjuction with --loggers or --levels)")
-    parser.add_argument("--loggers",
-                        nargs='*', default=[],
-                        help="only return results matching given logger(s)")
-    parser.add_argument("--levels",
-                        nargs='*', default=[],
-                        help="Only return lines matching given log level(s)")
+    parser.add_argument(
+        "file",
+        nargs='?',
+        default=sys.stdin,
+        type=argparse.FileType(),
+        help="JSON log file to read from (if not provided"
+        " standard input is used instead)",
+    )
+    parser.add_argument(
+        "--prefix",
+        default='%(asctime)s.%(msecs)03d %(process)s %(levelname)s %(name)s',
+        help="Message prefixes",
+    )
+    parser.add_argument(
+        "--locator",
+        default='[%(funcname)s %(pathname)s:%(lineno)s]',
+        help="Locator to append to DEBUG records",
+    )
+    parser.add_argument(
+        "--levelkey",
+        default=DEFAULT_LEVEL_KEY,
+        help="Key in the JSON record where the level is held",
+    )
+    parser.add_argument(
+        "--tbkey",
+        default=DEFAULT_TRACEBACK_KEY,
+        help="Key in the JSON record where the traceback/exception is held",
+    )
+    parser.add_argument(
+        "-c",
+        "--color",
+        action='store_true',
+        default=False,
+        help="Color log levels (requires `termcolor`)",
+    )
+    parser.add_argument(
+        "-f",
+        "--follow",
+        action='store_true',
+        default=False,
+        help="Continue parsing new data until KeyboardInterrupt",
+    )
+    parser.add_argument(
+        "-n",
+        "--lines",
+        required=False,
+        type=int,
+        help="Last N number of records to view."
+        " (May show less than N records when used"
+        " in conjuction with --loggers or --levels)",
+    )
+    parser.add_argument(
+        "--loggers",
+        nargs='*',
+        default=[],
+        help="only return results matching given logger(s)",
+    )
+    parser.add_argument(
+        "--levels",
+        nargs='*',
+        default=[],
+        help="Only return lines matching given log level(s)",
+    )
     args = parser.parse_args()
     if args.color and not termcolor:
-        raise ImportError("Coloring requested but `termcolor` is not"
-                          " importable")
+        raise ImportError(
+            "Coloring requested but `termcolor` is not importable"
+        )
     return args
 
 
-def colorise(key, text=None):
+def colorise(key: str, text: str | None = None) -> str:
     if text is None:
         text = key
     if not _USE_COLOR:
@@ -122,15 +153,19 @@ def colorise(key, text=None):
     }
     color, attrs = colors.get(key, ('', []))
     if color:
-        return termcolor.colored(text, color=color, attrs=attrs)
+        return cast(str, termcolor.colored(text, color=color, attrs=attrs))
     return text
 
 
-def warn(prefix, msg):
+def warn(prefix: str, msg: object) -> str:
     return "{}: {}".format(colorise('exc', prefix), msg)
 
 
-def reformat_json(fh, formatter, follow=False):
+def reformat_json(
+    fh: io.StringIO,
+    formatter: Callable[..., Iterator[str]],
+    follow: bool = False,
+) -> Iterator[str]:
     # using readline allows interactive stdin to respond to every line
     while True:
         line = fh.readline()
@@ -151,37 +186,49 @@ def reformat_json(fh, formatter, follow=False):
         yield from formatter(record)
 
 
-def console_format(prefix, locator, record, loggers=[], levels=[],
-                   level_key=DEFAULT_LEVEL_KEY,
-                   traceback_key=DEFAULT_TRACEBACK_KEY):
+def console_format(
+    prefix: str,
+    locator: str,
+    record: JSONLogRecord,
+    loggers: Sequence[str] = [],
+    levels: Sequence[str] = [],
+    level_key: str = DEFAULT_LEVEL_KEY,
+    traceback_key: str = DEFAULT_TRACEBACK_KEY,
+) -> Iterator[str]:
     # Provide an empty string to format-specifiers the record is
     # missing, instead of failing. Doesn't work for non-string
     # specifiers.
-    record = collections.defaultdict(str, record)
+    record = collections.defaultdict(str, record)  # type: ignore
     # skip if the record doesn't match a logger we are looking at
     if loggers:
-        name = record.get('name')
+        name = record['name']
         if not any(name.startswith(n) for n in loggers):
             return
+
     if levels:
         if record.get(level_key) not in levels:
             return
+
     levelname = record.get(level_key)
     if levelname:
-        record[level_key] = colorise(levelname)
+        record[level_key] = colorise(levelname)  # type: ignore
 
     try:
         prefix = prefix % record
     except TypeError:
         # Thrown when a non-string format-specifier can't be filled in.
         # Dict comprehension cleans up the output
-        yield warn('Missing non-string placeholder in record',
-                   {str(k): str(v) if isinstance(v, str) else v
-                    for k, v in record.items()})
+        yield warn(
+            'Missing non-string placeholder in record',
+            {
+                str(k): str(v) if isinstance(v, str) else v
+                for k, v in record.items()
+            },
+        )
         return
 
     locator = ''
-    if (record.get('levelno', 100) <= log.DEBUG or levelname == 'DEBUG'):
+    if record.get('levelno', 100) <= log.DEBUG or levelname == 'DEBUG':
         locator = locator % record
 
     yield ' '.join(x for x in [prefix, record['message'], locator] if x)
@@ -190,7 +237,7 @@ def console_format(prefix, locator, record, loggers=[], levels=[],
     if tb:
         if type(tb) is str:
             tb = tb.rstrip().split("\n")
-        for tb_line in tb:
+        for tb_line in tb:  # type: ignore
             yield ' '.join([prefix, tb_line])
 
 

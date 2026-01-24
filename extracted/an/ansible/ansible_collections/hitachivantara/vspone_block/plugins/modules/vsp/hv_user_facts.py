@@ -77,7 +77,7 @@ ansible_facts:
                 description: Authentication type - local or external.
                 type: str
                 sample: "local"
-            group_names:
+            user_group_names:
                 description: User group names.
                 type: list
                 elements: str
@@ -161,7 +161,7 @@ class VSPUserFactsManager:
 
         self.logger.writeInfo(f"{data}")
         self.logger.writeInfo("=== End of User Facts ===")
-        self.module.exit_json(**data)
+        self.module.exit_json(changed=False, ansible_facts=data)
 
 
 def main(module=None):

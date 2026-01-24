@@ -8,10 +8,11 @@
 #ifndef SkArenaAlloc_DEFINED
 #define SkArenaAlloc_DEFINED
 
+#include "include/private/base/SkASAN.h"
 #include "include/private/base/SkAssert.h"
+#include "include/private/base/SkSpan_impl.h"
 #include "include/private/base/SkTFitsIn.h"
 #include "include/private/base/SkTo.h"
-#include "src/base/SkASAN.h"
 
 #include <algorithm>
 #include <array>
@@ -20,7 +21,7 @@
 #include <cstring>
 #include <limits>
 #include <new>
-#include <type_traits>
+#include <type_traits>  // IWYU pragma: keep
 #include <utility>
 
 // We found allocating strictly doubling amounts of memory from the heap left too
@@ -155,6 +156,19 @@ public:
     }
 
     template <typename T>
+    T* make() {
+        if constexpr (std::is_standard_layout<T>::value && std::is_trivial<T>::value) {
+            // Just allocate some aligned bytes. This generates smaller code.
+            return (T*)this->makeBytesAlignedTo(sizeof(T), alignof(T));
+        } else {
+            // This isn't a POD type, so construct the object properly.
+            return this->make([&](void* objStart) {
+                return new(objStart) T();
+            });
+        }
+    }
+
+    template <typename T>
     T* makeArrayDefault(size_t count) {
         T* array = this->allocUninitializedArray<T>(count);
         for (size_t i = 0; i < count; i++) {
@@ -183,7 +197,20 @@ public:
         return array;
     }
 
-    // Only use makeBytesAlignedTo if none of the typed variants are impractical to use.
+    template <typename T>
+    T* makeArrayCopy(SkSpan<const T> toCopy) {
+        T* array = this->allocUninitializedArray<T>(toCopy.size());
+        if constexpr (std::is_trivially_copyable<T>::value) {
+            memcpy(array, toCopy.data(), toCopy.size_bytes());
+        } else {
+            for (size_t i = 0; i < toCopy.size(); ++i) {
+                new (&array[i]) T(toCopy[i]);
+            }
+        }
+        return array;
+    }
+
+    // Only use makeBytesAlignedTo if none of the typed variants are practical to use.
     void* makeBytesAlignedTo(size_t size, size_t align) {
         AssertRelease(SkTFitsIn<uint32_t>(size));
         auto objStart = this->allocObject(SkToU32(size), SkToU32(align));
@@ -192,14 +219,18 @@ public:
         return objStart;
     }
 
-private:
-    static void AssertRelease(bool cond) { if (!cond) { ::abort(); } }
-
+protected:
     using FooterAction = char* (char*);
     struct Footer {
         uint8_t unaligned_action[sizeof(FooterAction*)];
         uint8_t padding;
     };
+
+    char* cursor() { return fCursor; }
+    char* end() { return fEnd; }
+
+private:
+    static void AssertRelease(bool cond) { if (!cond) { ::abort(); } }
 
     static char* SkipPod(char* footerEnd);
     static void RunDtorsOnBlock(char* footerEnd);
@@ -237,6 +268,7 @@ private:
 
     template <typename T>
     T* allocUninitializedArray(size_t countZ) {
+        static_assert(!std::has_virtual_destructor<T>::value, "Can't make an array of objects which have a vtable");
         AssertRelease(SkTFitsIn<uint32_t>(countZ));
         uint32_t count = SkToU32(countZ);
 
@@ -297,6 +329,9 @@ public:
     // Destroy all allocated objects, free any heap allocations.
     void reset();
 
+    // Returns true if the alloc has never made any objects.
+    bool isEmpty();
+
 private:
     char* const    fFirstBlock;
     const uint32_t fFirstSize;
@@ -313,6 +348,11 @@ class SkSTArenaAlloc : private std::array<char, InlineStorageSize>, public SkAre
 public:
     explicit SkSTArenaAlloc(size_t firstHeapAllocation = InlineStorageSize)
         : SkArenaAlloc{this->data(), this->size(), firstHeapAllocation} {}
+
+    ~SkSTArenaAlloc() {
+        // Be sure to unpoison the memory that is probably on the stack.
+        sk_asan_unpoison_memory_region(this->data(), this->size());
+    }
 };
 
 template <size_t InlineStorageSize>
@@ -321,6 +361,11 @@ class SkSTArenaAllocWithReset
 public:
     explicit SkSTArenaAllocWithReset(size_t firstHeapAllocation = InlineStorageSize)
             : SkArenaAllocWithReset{this->data(), this->size(), firstHeapAllocation} {}
+
+    ~SkSTArenaAllocWithReset() {
+        // Be sure to unpoison the memory that is probably on the stack.
+        sk_asan_unpoison_memory_region(this->data(), this->size());
+    }
 };
 
 #endif  // SkArenaAlloc_DEFINED

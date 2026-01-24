@@ -16,6 +16,7 @@ from ...types.bulk_delete_order_custom_attributes_response import BulkDeleteOrde
 from ...types.bulk_upsert_order_custom_attributes_response import BulkUpsertOrderCustomAttributesResponse
 from ...types.custom_attribute import CustomAttribute
 from ...types.delete_order_custom_attribute_response import DeleteOrderCustomAttributeResponse
+from ...types.list_order_custom_attributes_response import ListOrderCustomAttributesResponse
 from ...types.retrieve_order_custom_attribute_response import RetrieveOrderCustomAttributeResponse
 from ...types.upsert_order_custom_attribute_response import UpsertOrderCustomAttributeResponse
 from ...types.visibility_filter import VisibilityFilter
@@ -173,7 +174,7 @@ class CustomAttributesClient:
         limit: typing.Optional[int] = None,
         with_definitions: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> SyncPager[CustomAttribute]:
+    ) -> SyncPager[CustomAttribute, ListOrderCustomAttributesResponse]:
         """
         Lists the [custom attributes](entity:CustomAttribute) associated with an order.
 
@@ -213,7 +214,7 @@ class CustomAttributesClient:
 
         Returns
         -------
-        SyncPager[CustomAttribute]
+        SyncPager[CustomAttribute, ListOrderCustomAttributesResponse]
             Success
 
         Examples
@@ -225,6 +226,10 @@ class CustomAttributesClient:
         )
         response = client.orders.custom_attributes.list(
             order_id="order_id",
+            visibility_filter="ALL",
+            cursor="cursor",
+            limit=1,
+            with_definitions=True,
         )
         for item in response:
             yield item
@@ -296,6 +301,8 @@ class CustomAttributesClient:
         client.orders.custom_attributes.get(
             order_id="order_id",
             custom_attribute_key="custom_attribute_key",
+            version=1,
+            with_definition=True,
         )
         """
         _response = self._raw_client.get(
@@ -586,7 +593,7 @@ class AsyncCustomAttributesClient:
         limit: typing.Optional[int] = None,
         with_definitions: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncPager[CustomAttribute]:
+    ) -> AsyncPager[CustomAttribute, ListOrderCustomAttributesResponse]:
         """
         Lists the [custom attributes](entity:CustomAttribute) associated with an order.
 
@@ -626,7 +633,7 @@ class AsyncCustomAttributesClient:
 
         Returns
         -------
-        AsyncPager[CustomAttribute]
+        AsyncPager[CustomAttribute, ListOrderCustomAttributesResponse]
             Success
 
         Examples
@@ -643,6 +650,10 @@ class AsyncCustomAttributesClient:
         async def main() -> None:
             response = await client.orders.custom_attributes.list(
                 order_id="order_id",
+                visibility_filter="ALL",
+                cursor="cursor",
+                limit=1,
+                with_definitions=True,
             )
             async for item in response:
                 yield item
@@ -723,6 +734,8 @@ class AsyncCustomAttributesClient:
             await client.orders.custom_attributes.get(
                 order_id="order_id",
                 custom_attribute_key="custom_attribute_key",
+                version=1,
+                with_definition=True,
             )
 
 

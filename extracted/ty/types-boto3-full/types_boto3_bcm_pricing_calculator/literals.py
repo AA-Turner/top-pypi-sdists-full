@@ -3,7 +3,7 @@ Type annotations for bcm-pricing-calculator service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bcm_pricing_calculator/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -34,6 +34,7 @@ __all__ = (
     "BillScenarioStatusType",
     "BillingandCostManagementPricingCalculatorServiceName",
     "CurrencyCodeType",
+    "GroupSharingPreferenceEnumType",
     "ListBillEstimateCommitmentsPaginatorName",
     "ListBillEstimateInputCommitmentModificationsPaginatorName",
     "ListBillEstimateInputUsageModificationsPaginatorName",
@@ -86,6 +87,7 @@ BatchUpdateBillScenarioUsageModificationErrorCodeType = Literal[
 BillEstimateStatusType = Literal["COMPLETE", "FAILED", "IN_PROGRESS"]
 BillScenarioStatusType = Literal["FAILED", "LOCKED", "READY", "STALE"]
 CurrencyCodeType = Literal["USD"]
+GroupSharingPreferenceEnumType = Literal["OPEN", "PRIORITIZED", "RESTRICTED"]
 ListBillEstimateCommitmentsPaginatorName = Literal["list_bill_estimate_commitments"]
 ListBillEstimateInputCommitmentModificationsPaginatorName = Literal[
     "list_bill_estimate_input_commitment_modifications"
@@ -103,7 +105,9 @@ ListBillScenarioCommitmentModificationsPaginatorName = Literal[
     "list_bill_scenario_commitment_modifications"
 ]
 ListBillScenarioUsageModificationsPaginatorName = Literal["list_bill_scenario_usage_modifications"]
-ListBillScenariosFilterNameType = Literal["NAME", "STATUS"]
+ListBillScenariosFilterNameType = Literal[
+    "COST_CATEGORY_ARN", "GROUP_SHARING_PREFERENCE", "NAME", "STATUS"
+]
 ListBillScenariosPaginatorName = Literal["list_bill_scenarios"]
 ListUsageFilterNameType = Literal[
     "HISTORICAL_LOCATION",
@@ -159,7 +163,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -229,6 +232,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -274,7 +278,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -327,7 +330,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -366,8 +368,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -402,6 +402,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -411,6 +412,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -421,6 +423,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -442,8 +447,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -458,15 +461,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -497,6 +501,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -537,6 +542,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

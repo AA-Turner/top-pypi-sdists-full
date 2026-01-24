@@ -3,7 +3,8 @@ from __future__ import annotations
 import functools
 import inspect
 import typing
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Optional, Type
+from collections.abc import Awaitable
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from typing_extensions import TypeGuard
 
@@ -15,73 +16,77 @@ if TYPE_CHECKING:
     from nexusrpc._common import ServiceT
     from nexusrpc.handler._operation_handler import OperationHandler
 
+_NEXUS_SERVICE_DEFINITION_ATTR_NAME = "__nexus_service_definition__"
+_NEXUS_OPERATION_ATTR_NAME = "__nexus_operation__"
+_NEXUS_OPERATION_FACTORY_ATTR_NAME = "__nexus_operation_factory__"
+
 
 def get_service_definition(
     obj: Any,
 ) -> Optional[nexusrpc.ServiceDefinition]:
     """Return the :py:class:`nexusrpc.ServiceDefinition` for the object, or None"""
-    # getattr would allow a non-decorated class to act as a service
+    # Do not use getattr since it would allow a non-decorated class to act as a service
     # definition if it inherits from a decorated class.
     if isinstance(obj, type):
-        defn = obj.__dict__.get("__nexus_service__")
+        defn = obj.__dict__.get(_NEXUS_SERVICE_DEFINITION_ATTR_NAME)
     else:
-        defn = getattr(obj, "__dict__", {}).get("__nexus_service__")
+        defn = getattr(obj, "__dict__", {}).get(_NEXUS_SERVICE_DEFINITION_ATTR_NAME)
     if defn and not isinstance(defn, nexusrpc.ServiceDefinition):
         raise ValueError(
-            f"Service definition {obj.__name__} has a __nexus_service__ attribute that is not a ServiceDefinition."
+            f"{obj.__name__} has a {_NEXUS_SERVICE_DEFINITION_ATTR_NAME} attribute "
+            f"that is not a nexusrpc.ServiceDefinition."
         )
     return defn
 
 
 def set_service_definition(
-    cls: Type[ServiceT], service_definition: nexusrpc.ServiceDefinition
+    cls: type[ServiceT], service_definition: nexusrpc.ServiceDefinition
 ) -> None:
-    """Set the :py:class:`nexusrpc.ServiceDefinition` for this object."""
-    if not isinstance(cls, type):
-        raise TypeError(f"Expected {cls} to be a class, but is {type(cls)}.")
-    setattr(cls, "__nexus_service__", service_definition)
+    """Set the :py:class:`nexusrpc.ServiceDefinition` for this class."""
+    setattr(cls, _NEXUS_SERVICE_DEFINITION_ATTR_NAME, service_definition)
 
 
-def get_operation_definition(
+def get_operation(
     obj: Any,
-) -> Optional[nexusrpc.Operation]:
+) -> Optional[nexusrpc.Operation[Any, Any]]:
     """Return the :py:class:`nexusrpc.Operation` for the object, or None
 
-    ``obj`` should be a decorated operation start method.
+    ``obj`` should be a decorated operation start method, or a method that takes
+    no arguments and returns an OperationHandler.
     """
-    return getattr(obj, "__nexus_operation__", None)
+    if factory := getattr(obj, _NEXUS_OPERATION_FACTORY_ATTR_NAME, None):
+        # obj was a decorated operation start method
+        obj = factory
+    op = getattr(obj, _NEXUS_OPERATION_ATTR_NAME, None)
+    if op and not isinstance(op, nexusrpc.Operation):
+        raise ValueError(f"{op} is not a nexusrpc.Operation")
+    return op
 
 
-def set_operation_definition(
+def set_operation(
     obj: Any,
-    operation_definition: nexusrpc.Operation,
+    operation: nexusrpc.Operation[Any, Any],
 ) -> None:
     """Set the :py:class:`nexusrpc.Operation` for this object.
 
     ``obj`` should be an operation start method.
     """
-    setattr(obj, "__nexus_operation__", operation_definition)
+    if not isinstance(operation, nexusrpc.Operation):  # type: ignore
+        raise ValueError(f"{operation} is not a nexusrpc.Operation")  # type: ignore
+    setattr(obj, _NEXUS_OPERATION_ATTR_NAME, operation)
 
 
 def get_operation_factory(
     obj: Any,
-) -> tuple[
-    Optional[Callable[[Any], OperationHandler[InputT, OutputT]]],
-    Optional[nexusrpc.Operation[InputT, OutputT]],
-]:
-    """Return the :py:class:`Operation` for the object along with the factory function.
-
-    ``obj`` should be a decorated operation start method.
-    """
-    op_defn = get_operation_definition(obj)
-    if op_defn:
-        factory = obj
-    else:
-        if factory := getattr(obj, "__nexus_operation_factory__", None):
-            op_defn = get_operation_definition(factory)
-    if not isinstance(op_defn, nexusrpc.Operation):
-        return None, None
-    return factory, op_defn
+) -> Optional[Callable[[Any], OperationHandler[Any, Any]]]:
+    """Return the :py:class:`OperationHandler` factory function for the object."""
+    if factory := getattr(obj, _NEXUS_OPERATION_FACTORY_ATTR_NAME, None):
+        # obj was a decorated operation start method
+        return factory
+    if get_operation(obj):
+        # obj was the desired factory
+        return obj
+    return None
 
 
 def set_operation_factory(
@@ -92,7 +97,7 @@ def set_operation_factory(
 
     ``obj`` should be an operation start method.
     """
-    setattr(obj, "__nexus_operation_factory__", operation_factory)
+    setattr(obj, _NEXUS_OPERATION_FACTORY_ATTR_NAME, operation_factory)
 
 
 # Copied from https://github.com/modelcontextprotocol/python-sdk
@@ -137,7 +142,7 @@ def get_callable_name(fn: Callable[..., Any]) -> str:
     return method_name
 
 
-def is_subtype(type1: Type[Any], type2: Type[Any]) -> bool:
+def is_subtype(type1: type[Any], type2: type[Any]) -> bool:
     # Note that issubclass() argument 2 cannot be a parameterized generic
     # TODO(nexus-preview): review desired type compatibility logic
     if type1 == type2:
@@ -149,7 +154,9 @@ def is_subtype(type1: Type[Any], type2: Type[Any]) -> bool:
 # https://docs.python.org/3/howto/annotations.html#accessing-the-annotations-dict-of-an-object-in-python-3-9-and-older
 
 try:
-    from inspect import get_annotations  # type: ignore
+    from inspect import (  # type: ignore
+        get_annotations as get_annotations,  # type: ignore[reportAttributeAccessIssue]
+    )
 except ImportError:
     import functools
     import sys
@@ -251,10 +258,10 @@ except ImportError:
         if unwrap is not None:
             while True:
                 if hasattr(unwrap, "__wrapped__"):
-                    unwrap = unwrap.__wrapped__  # type: ignore
+                    unwrap = unwrap.__wrapped__  # type: ignore[reportFunctionMemberAccess,union-attr]
                     continue
                 if isinstance(unwrap, functools.partial):
-                    unwrap = unwrap.func  # type: ignore
+                    unwrap = unwrap.func  # type: ignore[reportGeneralTypeIssues,assignment]
                     continue
                 break
             if hasattr(unwrap, "__globals__"):

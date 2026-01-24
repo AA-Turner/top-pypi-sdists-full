@@ -71,7 +71,9 @@ def _to_chroma_filter(
     condition = _transform_chroma_filter_condition(condition)
     if standard_filters.filters:
         for filter in standard_filters.filters:
-            if filter.operator:
+            if isinstance(filter, MetadataFilters):
+                filters_list.append(_to_chroma_filter(filter))
+            elif filter.operator:
                 filters_list.append(
                     {
                         filter.key: {
@@ -371,8 +373,29 @@ class ChromaVectorStore(BasePydanticVectorStore):
         Query index for top k most similar nodes.
 
         Args:
-            query_embedding (List[float]): query embedding
-            similarity_top_k (int): top k most similar nodes
+            query (VectorStoreQuery): Query object containing:
+                - query_embedding (List[float]): query embedding
+                - similarity_top_k (int): top k most similar nodes
+                - filters (Optional[MetadataFilters]): metadata filters to apply
+                - mode (VectorStoreQueryMode): query mode (default or MMR)
+            **kwargs: Additional keyword arguments passed to ChromaDB query method.
+                For MMR mode, supports:
+                - mmr_threshold (Optional[float]): MMR threshold between 0 and 1
+                - mmr_prefetch_factor (Optional[float]): Factor to multiply similarity_top_k
+                for prefetching candidates (default: 4.0)
+                - mmr_prefetch_k (Optional[int]): Explicit number of candidates to prefetch
+                (cannot be used with mmr_prefetch_factor)
+                For ChromaDB-specific parameters:
+                - where (dict): ChromaDB where clause (use query.filters instead for standard filtering)
+                - include (List[str]): ChromaDB include parameter
+                - where_document (dict): ChromaDB where_document parameter
+
+        Returns:
+            VectorStoreQueryResult: Query result containing matched nodes, similarities, and IDs.
+
+        Raises:
+            ValueError: If MMR parameters are invalid or if both query.filters and
+                    where kwargs are specified.
 
         """
         if query.filters is not None:
@@ -428,8 +451,7 @@ class ChromaVectorStore(BasePydanticVectorStore):
             results["distances"][0],
         ):
             try:
-                node = metadata_dict_to_node(metadata)
-                node.set_content(text)
+                node = metadata_dict_to_node(metadata, text=text)
             except Exception:
                 # NOTE: deprecated legacy logic for backward compatibility
                 metadata, node_info, relationships = legacy_metadata_dict_to_node(
@@ -437,7 +459,7 @@ class ChromaVectorStore(BasePydanticVectorStore):
                 )
 
                 node = TextNode(
-                    text=text,
+                    text=text or "",
                     id_=node_id,
                     metadata=metadata,
                     start_char_idx=node_info.get("start", None),
@@ -605,8 +627,7 @@ class ChromaVectorStore(BasePydanticVectorStore):
 
                     # Create node (reusing logic from _query method)
                     try:
-                        node = metadata_dict_to_node(metadata)
-                        node.set_content(text)
+                        node = metadata_dict_to_node(metadata, text=text)
                     except Exception:
                         # NOTE: deprecated legacy logic for backward compatibility
                         metadata, node_info, relationships = (
@@ -614,7 +635,7 @@ class ChromaVectorStore(BasePydanticVectorStore):
                         )
 
                         node = TextNode(
-                            text=text,
+                            text=text or "",
                             id_=node_id,
                             metadata=metadata,
                             start_char_idx=node_info.get("start", None),
@@ -660,8 +681,7 @@ class ChromaVectorStore(BasePydanticVectorStore):
             results["ids"], results["documents"], results["metadatas"]
         ):
             try:
-                node = metadata_dict_to_node(metadata)
-                node.set_content(text)
+                node = metadata_dict_to_node(metadata, text=text)
             except Exception:
                 # NOTE: deprecated legacy logic for backward compatibility
                 metadata, node_info, relationships = legacy_metadata_dict_to_node(
@@ -669,7 +689,7 @@ class ChromaVectorStore(BasePydanticVectorStore):
                 )
 
                 node = TextNode(
-                    text=text,
+                    text=text or "",
                     id_=node_id,
                     metadata=metadata,
                     start_char_idx=node_info.get("start", None),

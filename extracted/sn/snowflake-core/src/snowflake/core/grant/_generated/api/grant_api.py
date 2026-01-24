@@ -563,7 +563,7 @@ class GrantApi:
         # process the body parameter
         _body_params = None
 
-        if _params["grant"]:
+        if _params["grant"] is not None:
             _body_params = _params["grant"]
 
         # set the HTTP header `Accept`
@@ -860,7 +860,7 @@ class GrantApi:
         # process the body parameter
         _body_params = None
 
-        if _params["grant"]:
+        if _params["grant"] is not None:
             _body_params = _params["grant"]
 
         # set the HTTP header `Accept`

@@ -128,7 +128,11 @@ class BaseAIScrapeParams(TypedDict):
 
 
 class AIScrapeParams(BaseAIScrapeParams):
-    element_prompts: NotRequired[List[str]]
+    element_prompts: NotRequired[Union[List[str], Dict[str, str]]]
+    """
+    List of prompts or a dictionary of key-value prompts for element extraction.
+    Max 5 items. If dict, max 50 chars per key and max 500 chars per prompt value.
+    """
     root_element_selector: NotRequired[str]
     page_position: NotRequired[int]
 

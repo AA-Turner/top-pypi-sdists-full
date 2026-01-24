@@ -1,5 +1,5 @@
-from maggma.api.resource import SubmissionResource
-from maggma.api.query_operator import PaginationQuery
+from emmet.api.resource import SubmissionResource
+from emmet.api.query_operator import PaginationQuery
 from emmet.core.mpcomplete import MPCompleteDoc, MPCompleteDataStatus
 from emmet.api.routes.materials.mpcomplete.query_operator import (
     MPCompletePostQuery,
@@ -18,7 +18,7 @@ def mpcomplete_resource(mpcomplete_store):
         state_enum=MPCompleteDataStatus,
         default_state=MPCompleteDataStatus.submitted.value,
         calculate_submission_id=True,
-        include_in_schema=True,
+        include_in_schema=False,
         timeout=MAPISettings().TIMEOUT,
     )
 

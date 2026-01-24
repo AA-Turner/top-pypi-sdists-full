@@ -3,7 +3,7 @@ Type annotations for workspaces-instances service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_workspaces_instances/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -25,6 +25,7 @@ __all__ = (
     "AmdSevSnpEnumType",
     "AutoRecoveryEnumType",
     "BandwidthWeightingEnumType",
+    "BillingModeType",
     "CapacityReservationPreferenceEnumType",
     "CpuCreditsEnumType",
     "DisassociateModeEnumType",
@@ -32,6 +33,7 @@ __all__ = (
     "HttpEndpointEnumType",
     "HttpProtocolIpv6EnumType",
     "HttpTokensEnumType",
+    "InstanceConfigurationTenancyEnumType",
     "InstanceInterruptionBehaviorEnumType",
     "InstanceMetadataTagsEnumType",
     "InterfaceTypeEnumType",
@@ -40,6 +42,7 @@ __all__ = (
     "ListWorkspaceInstancesPaginatorName",
     "MarketTypeEnumType",
     "PaginatorName",
+    "PlatformTypeEnumType",
     "ProvisionStateEnumType",
     "ResourceServiceName",
     "ResourceTypeEnumType",
@@ -53,6 +56,7 @@ __all__ = (
 AmdSevSnpEnumType = Literal["disabled", "enabled"]
 AutoRecoveryEnumType = Literal["default", "disabled"]
 BandwidthWeightingEnumType = Literal["default", "ebs-1", "vpc-1"]
+BillingModeType = Literal["HOURLY", "MONTHLY"]
 CapacityReservationPreferenceEnumType = Literal["capacity-reservations-only", "none", "open"]
 CpuCreditsEnumType = Literal["standard", "unlimited"]
 DisassociateModeEnumType = Literal["FORCE", "NO_FORCE"]
@@ -60,6 +64,7 @@ HostnameTypeEnumType = Literal["ip-name", "resource-name"]
 HttpEndpointEnumType = Literal["disabled", "enabled"]
 HttpProtocolIpv6EnumType = Literal["disabled", "enabled"]
 HttpTokensEnumType = Literal["optional", "required"]
+InstanceConfigurationTenancyEnumType = Literal["DEDICATED", "SHARED"]
 InstanceInterruptionBehaviorEnumType = Literal["hibernate", "stop"]
 InstanceMetadataTagsEnumType = Literal["disabled", "enabled"]
 InterfaceTypeEnumType = Literal["efa", "efa-only", "interface"]
@@ -67,6 +72,15 @@ ListInstanceTypesPaginatorName = Literal["list_instance_types"]
 ListRegionsPaginatorName = Literal["list_regions"]
 ListWorkspaceInstancesPaginatorName = Literal["list_workspace_instances"]
 MarketTypeEnumType = Literal["capacity-block", "spot"]
+PlatformTypeEnumType = Literal[
+    "Linux/UNIX",
+    "Red Hat BYOL Linux",
+    "Red Hat Enterprise Linux",
+    "SUSE Linux",
+    "Ubuntu Pro Linux",
+    "Windows",
+    "Windows BYOL",
+]
 ProvisionStateEnumType = Literal[
     "ALLOCATED",
     "ALLOCATING",
@@ -106,7 +120,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -176,6 +189,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -221,7 +235,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -274,7 +287,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -313,8 +325,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -349,6 +359,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -358,6 +369,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -368,6 +380,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -389,8 +404,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -405,15 +418,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -444,6 +458,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -484,6 +499,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

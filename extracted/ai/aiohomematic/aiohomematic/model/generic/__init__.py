@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """
 Generic data points for AioHomematic.
 
@@ -40,6 +40,7 @@ Exports
 - Factory: create_data_point_and_append_to_channel.
 
 See Also
+--------
 - aiohomematic.model.custom: Custom data points for specific devices/features.
 - aiohomematic.model.calculated: Calculated/derived data points.
 - aiohomematic.model.device: Device and channel abstractions used here.
@@ -52,7 +53,7 @@ from collections.abc import Mapping
 import logging
 from typing import Final
 
-from aiohomematic import support as hms
+from aiohomematic import i18n, support as hms
 from aiohomematic.const import (
     CLICK_EVENTS,
     VIRTUAL_REMOTE_MODELS,
@@ -61,14 +62,17 @@ from aiohomematic.const import (
     ParameterData,
     ParameterType,
     ParamsetKey,
+    ServiceScope,
 )
 from aiohomematic.decorators import inspector
 from aiohomematic.exceptions import AioHomematicException
-from aiohomematic.model import device as hmd
+from aiohomematic.interfaces.model import ChannelProtocol, GenericDataPointProtocolAny
 from aiohomematic.model.generic.action import DpAction
+from aiohomematic.model.generic.action_select import DpActionSelect
 from aiohomematic.model.generic.binary_sensor import DpBinarySensor
 from aiohomematic.model.generic.button import DpButton
-from aiohomematic.model.generic.data_point import GenericDataPoint
+from aiohomematic.model.generic.data_point import GenericDataPoint, GenericDataPointAny
+from aiohomematic.model.generic.dummy import DpDummy
 from aiohomematic.model.generic.number import BaseDpNumber, DpFloat, DpInteger
 from aiohomematic.model.generic.select import DpSelect
 from aiohomematic.model.generic.sensor import DpSensor
@@ -77,22 +81,153 @@ from aiohomematic.model.generic.text import DpText
 from aiohomematic.model.support import is_binary_sensor
 
 __all__ = [
+    # Base
     "BaseDpNumber",
+    "GenericDataPoint",
+    "GenericDataPointAny",
+    # Data points
     "DpAction",
+    "DpActionSelect",
     "DpBinarySensor",
     "DpButton",
+    "DpDummy",
     "DpFloat",
     "DpInteger",
     "DpSelect",
     "DpSensor",
     "DpSwitch",
     "DpText",
-    "GenericDataPoint",
+    # Factory
     "create_data_point_and_append_to_channel",
 ]
 
 _LOGGER: Final = logging.getLogger(__name__)
 _BUTTON_ACTIONS: Final[tuple[str, ...]] = ("RESET_MOTION", "RESET_PRESENCE")
+
+
+class DataPointTypeResolver:
+    """
+    Resolver for determining data point types based on parameter characteristics.
+
+    Uses a lookup table strategy for extensible parameter type mapping.
+    This class centralizes the logic for determining which GenericDataPoint
+    subclass should be used for a given parameter.
+    """
+
+    # Mapping of parameter types to data point classes for writable parameters
+    _WRITABLE_TYPE_MAP: Final[Mapping[ParameterType, type[GenericDataPointAny]]] = {
+        ParameterType.BOOL: DpSwitch,
+        ParameterType.ENUM: DpSelect,
+        ParameterType.FLOAT: DpFloat,
+        ParameterType.INTEGER: DpInteger,
+        ParameterType.STRING: DpText,
+    }
+
+    @classmethod
+    def _resolve_action(
+        cls,
+        *,
+        channel: ChannelProtocol,
+        parameter: str,
+        parameter_data: ParameterData,
+        p_operations: int,
+    ) -> type[GenericDataPointAny]:
+        """Resolve data point type for ACTION parameters."""
+        if p_operations == Operations.WRITE:
+            # Write-only action
+            if parameter in _BUTTON_ACTIONS or channel.device.model in VIRTUAL_REMOTE_MODELS:
+                return DpButton
+            # Write-only action with value_list -> DpActionSelect
+            if parameter_data.get("VALUE_LIST"):
+                return DpActionSelect
+            return DpAction
+
+        if parameter in CLICK_EVENTS:
+            return DpButton
+
+        # Read+write action treated as switch
+        return DpSwitch
+
+    @classmethod
+    def _resolve_readonly(
+        cls,
+        *,
+        parameter: str,
+        parameter_data: ParameterData,
+    ) -> type[GenericDataPointAny] | None:
+        """Resolve data point type for read-only parameters."""
+        if parameter in CLICK_EVENTS:
+            return None
+
+        if is_binary_sensor(parameter_data=parameter_data):
+            parameter_data["TYPE"] = ParameterType.BOOL
+            return DpBinarySensor
+
+        return DpSensor
+
+    @classmethod
+    def _resolve_writable(
+        cls,
+        *,
+        channel: ChannelProtocol,
+        parameter: str,
+        parameter_data: ParameterData,
+        p_type: ParameterType,
+        p_operations: int,
+    ) -> type[GenericDataPointAny] | None:
+        """Resolve data point type for writable parameters."""
+        # Handle ACTION type specially
+        if p_type == ParameterType.ACTION:
+            return cls._resolve_action(
+                channel=channel,
+                parameter=parameter,
+                parameter_data=parameter_data,
+                p_operations=p_operations,
+            )
+
+        # Write-only non-ACTION parameters
+        if p_operations == Operations.WRITE:
+            # Write-only with value_list -> DpActionSelect
+            if parameter_data.get("VALUE_LIST"):
+                return DpActionSelect
+            return DpAction
+
+        # Use lookup table for standard types
+        return cls._WRITABLE_TYPE_MAP.get(p_type)
+
+    @classmethod
+    def resolve(
+        cls,
+        *,
+        channel: ChannelProtocol,
+        parameter: str,
+        parameter_data: ParameterData,
+    ) -> type[GenericDataPointAny] | None:
+        """
+        Determine the appropriate data point type for a parameter.
+
+        Args:
+            channel: The channel the data point belongs to.
+            parameter: The parameter name.
+            parameter_data: The parameter description from the backend.
+
+        Returns:
+            The data point class to use, or None if no match.
+
+        """
+        p_type = parameter_data["TYPE"]
+        p_operations = parameter_data["OPERATIONS"]
+
+        if p_operations & Operations.WRITE:
+            return cls._resolve_writable(
+                channel=channel,
+                parameter=parameter,
+                parameter_data=parameter_data,
+                p_type=p_type,
+                p_operations=p_operations,
+            )
+        return cls._resolve_readonly(parameter=parameter, parameter_data=parameter_data)
+
 
 # data points that should be wrapped in a new data point on a new category.
 _SWITCH_DP_TO_SENSOR: Final[Mapping[str | tuple[str, ...], Parameter]] = {
@@ -100,9 +235,10 @@ _SWITCH_DP_TO_SENSOR: Final[Mapping[str | tuple[str, ...], Parameter]] = {
 }
 
 
-@inspector
+@inspector(scope=ServiceScope.INTERNAL)
 def create_data_point_and_append_to_channel(
-    channel: hmd.Channel,
+    *,
+    channel: ChannelProtocol,
     paramset_key: ParamsetKey,
     parameter: str,
     parameter_data: ParameterData,
@@ -115,7 +251,7 @@ def create_data_point_and_append_to_channel(
         channel.device.interface_id,
     )
 
-    if (dp_t := _determine_data_point_type(channel, parameter, parameter_data)) and (
+    if (dp_t := _determine_data_point_type(channel=channel, parameter=parameter, parameter_data=parameter_data)) and (
         dp := _safe_create_data_point(
             dp_t=dp_t, channel=channel, paramset_key=paramset_key, parameter=parameter, parameter_data=parameter_data
         )
@@ -126,59 +262,34 @@ def create_data_point_and_append_to_channel(
             channel.address,
             parameter,
         )
-        channel.add_data_point(dp)
+        channel.add_data_point(data_point=dp)
         if _check_switch_to_sensor(data_point=dp):
             dp.force_to_sensor()
 
 
 def _determine_data_point_type(
-    channel: hmd.Channel, parameter: str, parameter_data: ParameterData
-) -> type[GenericDataPoint] | None:
-    """Determine the type of data point based on parameter and operations."""
-    p_type = parameter_data["TYPE"]
-    p_operations = parameter_data["OPERATIONS"]
-    dp_t: type[GenericDataPoint] | None = None
-    if p_operations & Operations.WRITE:
-        if p_type == ParameterType.ACTION:
-            if p_operations == Operations.WRITE:
-                if parameter in _BUTTON_ACTIONS or channel.device.model in VIRTUAL_REMOTE_MODELS:
-                    dp_t = DpButton
-                else:
-                    dp_t = DpAction
-            elif parameter in CLICK_EVENTS:
-                dp_t = DpButton
-            else:
-                dp_t = DpSwitch
-        elif p_operations == Operations.WRITE:
-            dp_t = DpAction
-        elif p_type == ParameterType.BOOL:
-            dp_t = DpSwitch
-        elif p_type == ParameterType.ENUM:
-            dp_t = DpSelect
-        elif p_type == ParameterType.FLOAT:
-            dp_t = DpFloat
-        elif p_type == ParameterType.INTEGER:
-            dp_t = DpInteger
-        elif p_type == ParameterType.STRING:
-            dp_t = DpText
-    elif parameter not in CLICK_EVENTS:
-        # Also check, if sensor could be a binary_sensor due to.
-        if is_binary_sensor(parameter_data):
-            parameter_data["TYPE"] = ParameterType.BOOL
-            dp_t = DpBinarySensor
-        else:
-            dp_t = DpSensor
+    *, channel: ChannelProtocol, parameter: str, parameter_data: ParameterData
+) -> type[GenericDataPointAny] | None:
+    """
+    Determine the type of data point based on parameter and operations.
 
-    return dp_t
+    Delegates to DataPointTypeResolver for extensible type resolution.
+    """
+    return DataPointTypeResolver.resolve(
+        channel=channel,
+        parameter=parameter,
+        parameter_data=parameter_data,
+    )
 
 
 def _safe_create_data_point(
-    dp_t: type[GenericDataPoint],
-    channel: hmd.Channel,
+    *,
+    dp_t: type[GenericDataPointAny],
+    channel: ChannelProtocol,
     paramset_key: ParamsetKey,
     parameter: str,
     parameter_data: ParameterData,
-) -> GenericDataPoint:
+) -> GenericDataPointAny:
     """Safely create a data point and handle exceptions."""
     try:
         return dp_t(
@@ -189,13 +300,16 @@ def _safe_create_data_point(
         )
     except Exception as exc:
         raise AioHomematicException(
-            f"CREATE_DATA_POINT_AND_APPEND_TO_CHANNEL: Unable to create data_point:{hms.extract_exc_args(exc=exc)}"
+            i18n.tr(
+                key="exception.model.generic.create_data_point.failed",
+                reason=hms.extract_exc_args(exc=exc),
+            )
         ) from exc
 
 
-def _check_switch_to_sensor(data_point: GenericDataPoint) -> bool:
+def _check_switch_to_sensor(*, data_point: GenericDataPointProtocolAny) -> bool:
     """Check if parameter of a device should be wrapped to a different category."""
-    if data_point.device.central.parameter_visibility.parameter_is_un_ignored(
+    if data_point.device.parameter_visibility_provider.parameter_is_un_ignored(
         channel=data_point.channel,
         paramset_key=data_point.paramset_key,
         parameter=data_point.parameter,

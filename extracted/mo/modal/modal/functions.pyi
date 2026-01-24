@@ -1,6 +1,7 @@
 import collections.abc
 import google.protobuf.message
 import modal._functions
+import modal._load_context
 import modal._utils.async_utils
 import modal._utils.function_utils
 import modal.app
@@ -17,15 +18,12 @@ import modal.parallel_map
 import modal.proxy
 import modal.retries
 import modal.schedule
-import modal.scheduler_placement
 import modal.secret
 import modal.volume
 import modal_proto.api_pb2
 import pathlib
 import typing
 import typing_extensions
-
-SUPERSELF = typing.TypeVar("SUPERSELF", covariant=True)
 
 ReturnType_INNER = typing.TypeVar("ReturnType_INNER", covariant=True)
 
@@ -66,9 +64,10 @@ class Function(
     @staticmethod
     def from_local(
         info: modal._utils.function_utils.FunctionInfo,
-        app,
+        app: typing.Optional[modal.app.App],
         image: modal.image.Image,
-        secrets: collections.abc.Sequence[modal.secret.Secret] = (),
+        env: typing.Optional[dict[str, typing.Optional[str]]] = None,
+        secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
         schedule: typing.Optional[modal.schedule.Schedule] = None,
         is_generator: bool = False,
         gpu: typing.Union[None, str, modal.gpu._GPUConfig, list[typing.Union[None, str, modal.gpu._GPUConfig]]] = None,
@@ -95,23 +94,30 @@ class Function(
         batch_max_size: typing.Optional[int] = None,
         batch_wait_ms: typing.Optional[int] = None,
         cloud: typing.Optional[str] = None,
-        scheduler_placement: typing.Optional[modal.scheduler_placement.SchedulerPlacement] = None,
+        region: typing.Union[str, collections.abc.Sequence[str], None] = None,
+        nonpreemptible: bool = False,
         is_builder_function: bool = False,
         is_auto_snapshot: bool = False,
+        is_server: bool = False,
         enable_memory_snapshot: bool = False,
         block_network: bool = False,
         restrict_modal_access: bool = False,
         i6pn_enabled: bool = False,
         cluster_size: typing.Optional[int] = None,
         rdma: typing.Optional[bool] = None,
-        max_inputs: typing.Optional[int] = None,
+        single_use_containers: bool = False,
         ephemeral_disk: typing.Optional[int] = None,
         include_source: bool = True,
         experimental_options: typing.Optional[dict[str, str]] = None,
         _experimental_proxy_ip: typing.Optional[str] = None,
         _experimental_custom_scaling_factor: typing.Optional[float] = None,
+        restrict_output: bool = False,
+        http_config: typing.Optional[modal_proto.api_pb2.HTTPConfig] = None,
     ) -> Function:
-        """mdmd:hidden"""
+        """mdmd:hidden
+
+        Note: This is not intended to be public API.
+        """
         ...
 
     def _bind_parameters(
@@ -127,7 +133,7 @@ class Function(
         """
         ...
 
-    class __update_autoscaler_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __update_autoscaler_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -198,9 +204,9 @@ class Function(
             """
             ...
 
-    update_autoscaler: __update_autoscaler_spec[typing_extensions.Self]
+    update_autoscaler: __update_autoscaler_spec
 
-    class __keep_warm_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __keep_warm_spec(typing_extensions.Protocol):
         def __call__(self, /, warm_pool_size: int) -> None:
             """mdmd:hidden
             Set the warm pool size for the Function.
@@ -237,13 +243,19 @@ class Function(
             """
             ...
 
-    keep_warm: __keep_warm_spec[typing_extensions.Self]
+    keep_warm: __keep_warm_spec
 
     @classmethod
-    def _from_name(cls, app_name: str, name: str, namespace=None, environment_name: typing.Optional[str] = None): ...
+    def _from_name(cls, app_name: str, name: str, *, load_context_overrides: modal._load_context.LoadContext): ...
     @classmethod
     def from_name(
-        cls: type[Function], app_name: str, name: str, *, namespace=None, environment_name: typing.Optional[str] = None
+        cls: type[Function],
+        app_name: str,
+        name: str,
+        *,
+        namespace=None,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client.Client] = None,
     ) -> Function:
         """Reference a Function from a deployed App by its name.
 
@@ -256,55 +268,6 @@ class Function(
         ```
         """
         ...
-
-    class __lookup_spec(typing_extensions.Protocol):
-        def __call__(
-            self,
-            /,
-            app_name: str,
-            name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ) -> Function:
-            """mdmd:hidden
-            Lookup a Function from a deployed App by its name.
-
-            DEPRECATED: This method is deprecated in favor of `modal.Function.from_name`.
-
-            In contrast to `modal.Function.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
-
-            ```python notest
-            f = modal.Function.lookup("other-app", "function")
-            ```
-            """
-            ...
-
-        async def aio(
-            self,
-            /,
-            app_name: str,
-            name: str,
-            namespace=None,
-            client: typing.Optional[modal.client.Client] = None,
-            environment_name: typing.Optional[str] = None,
-        ) -> Function:
-            """mdmd:hidden
-            Lookup a Function from a deployed App by its name.
-
-            DEPRECATED: This method is deprecated in favor of `modal.Function.from_name`.
-
-            In contrast to `modal.Function.from_name`, this is an eager method
-            that will hydrate the local object with metadata from Modal servers.
-
-            ```python notest
-            f = modal.Function.lookup("other-app", "function")
-            ```
-            """
-            ...
-
-    lookup: __lookup_spec
 
     @property
     def tag(self) -> str:
@@ -349,7 +312,7 @@ class Function(
         """
         ...
 
-    class __get_web_url_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __get_web_url_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[str]:
             """URL of a Function running as a web endpoint."""
             ...
@@ -358,9 +321,9 @@ class Function(
             """URL of a Function running as a web endpoint."""
             ...
 
-    get_web_url: __get_web_url_spec[typing_extensions.Self]
+    get_web_url: __get_web_url_spec
 
-    class ___experimental_get_flash_urls_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___experimental_get_flash_urls_spec(typing_extensions.Protocol):
         def __call__(self, /) -> typing.Optional[list[str]]:
             """URL of the flash service for the function."""
             ...
@@ -369,14 +332,14 @@ class Function(
             """URL of the flash service for the function."""
             ...
 
-    _experimental_get_flash_urls: ___experimental_get_flash_urls_spec[typing_extensions.Self]
+    _experimental_get_flash_urls: ___experimental_get_flash_urls_spec
 
     @property
     def is_generator(self) -> bool:
         """mdmd:hidden"""
         ...
 
-    class ___map_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___map_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -415,21 +378,21 @@ class Function(
             """
             ...
 
-    _map: ___map_spec[typing_extensions.Self]
+    _map: ___map_spec
 
-    class ___spawn_map_spec(typing_extensions.Protocol[ReturnType_INNER, SUPERSELF]):
+    class ___spawn_map_spec(typing_extensions.Protocol[ReturnType_INNER]):
         def __call__(self, /, input_queue: modal.parallel_map.SynchronizedQueue) -> FunctionCall[ReturnType_INNER]: ...
         async def aio(self, /, input_queue: modal.parallel_map.SynchronizedQueue) -> FunctionCall[ReturnType_INNER]: ...
 
-    _spawn_map: ___spawn_map_spec[modal._functions.ReturnType, typing_extensions.Self]
+    _spawn_map: ___spawn_map_spec[modal._functions.ReturnType]
 
-    class ___call_function_spec(typing_extensions.Protocol[ReturnType_INNER, SUPERSELF]):
+    class ___call_function_spec(typing_extensions.Protocol[ReturnType_INNER]):
         def __call__(self, /, args, kwargs) -> ReturnType_INNER: ...
         async def aio(self, /, args, kwargs) -> ReturnType_INNER: ...
 
-    _call_function: ___call_function_spec[modal._functions.ReturnType, typing_extensions.Self]
+    _call_function: ___call_function_spec[modal._functions.ReturnType]
 
-    class ___call_function_nowait_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___call_function_nowait_spec(typing_extensions.Protocol):
         def __call__(
             self, /, args, kwargs, function_call_invocation_type: int, from_spawn_map: bool = False
         ) -> modal._functions._Invocation: ...
@@ -437,15 +400,15 @@ class Function(
             self, /, args, kwargs, function_call_invocation_type: int, from_spawn_map: bool = False
         ) -> modal._functions._Invocation: ...
 
-    _call_function_nowait: ___call_function_nowait_spec[typing_extensions.Self]
+    _call_function_nowait: ___call_function_nowait_spec
 
-    class ___call_generator_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___call_generator_spec(typing_extensions.Protocol):
         def __call__(self, /, args, kwargs): ...
         def aio(self, /, args, kwargs): ...
 
-    _call_generator: ___call_generator_spec[typing_extensions.Self]
+    _call_generator: ___call_generator_spec
 
-    class __remote_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER, SUPERSELF]):
+    class __remote_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> ReturnType_INNER:
             """Calls the function remotely, executing it with the given arguments and returning the execution's result."""
             ...
@@ -454,9 +417,9 @@ class Function(
             """Calls the function remotely, executing it with the given arguments and returning the execution's result."""
             ...
 
-    remote: __remote_spec[modal._functions.P, modal._functions.ReturnType, typing_extensions.Self]
+    remote: __remote_spec[modal._functions.ReturnType, modal._functions.P]
 
-    class __remote_gen_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __remote_gen_spec(typing_extensions.Protocol):
         def __call__(self, /, *args, **kwargs) -> typing.Generator[typing.Any, None, None]:
             """Calls the generator remotely, executing it with the given arguments and returning the execution's result."""
             ...
@@ -465,7 +428,7 @@ class Function(
             """Calls the generator remotely, executing it with the given arguments and returning the execution's result."""
             ...
 
-    remote_gen: __remote_gen_spec[typing_extensions.Self]
+    remote_gen: __remote_gen_spec
 
     def _is_local(self): ...
     def _get_info(self) -> modal._utils.function_utils.FunctionInfo: ...
@@ -481,7 +444,7 @@ class Function(
         """
         ...
 
-    class ___experimental_spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER, SUPERSELF]):
+    class ___experimental_spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """[Experimental] Calls the function with the given arguments, without waiting for the results.
 
@@ -504,17 +467,15 @@ class Function(
             """
             ...
 
-    _experimental_spawn: ___experimental_spawn_spec[
-        modal._functions.P, modal._functions.ReturnType, typing_extensions.Self
-    ]
+    _experimental_spawn: ___experimental_spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
-    class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER, SUPERSELF]):
+    class ___spawn_map_inner_spec(typing_extensions.Protocol[P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
         async def aio(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> None: ...
 
-    _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P, typing_extensions.Self]
+    _spawn_map_inner: ___spawn_map_inner_spec[modal._functions.P]
 
-    class __spawn_spec(typing_extensions.Protocol[P_INNER, ReturnType_INNER, SUPERSELF]):
+    class __spawn_spec(typing_extensions.Protocol[ReturnType_INNER, P_INNER]):
         def __call__(self, /, *args: P_INNER.args, **kwargs: P_INNER.kwargs) -> FunctionCall[ReturnType_INNER]:
             """Calls the function with the given arguments, without waiting for the results.
 
@@ -535,13 +496,13 @@ class Function(
             """
             ...
 
-    spawn: __spawn_spec[modal._functions.P, modal._functions.ReturnType, typing_extensions.Self]
+    spawn: __spawn_spec[modal._functions.ReturnType, modal._functions.P]
 
     def get_raw_f(self) -> collections.abc.Callable[..., typing.Any]:
         """Return the inner Python object wrapped by this Modal Function."""
         ...
 
-    class __get_current_stats_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __get_current_stats_spec(typing_extensions.Protocol):
         def __call__(self, /) -> modal._functions.FunctionStats:
             """Return a `FunctionStats` object describing the current function's queue and runner counts."""
             ...
@@ -550,9 +511,9 @@ class Function(
             """Return a `FunctionStats` object describing the current function's queue and runner counts."""
             ...
 
-    get_current_stats: __get_current_stats_spec[typing_extensions.Self]
+    get_current_stats: __get_current_stats_spec
 
-    class ___get_schema_spec(typing_extensions.Protocol[SUPERSELF]):
+    class ___get_schema_spec(typing_extensions.Protocol):
         def __call__(self, /) -> modal_proto.api_pb2.FunctionSchema:
             """Returns recorded schema for function, internal use only for now"""
             ...
@@ -561,9 +522,9 @@ class Function(
             """Returns recorded schema for function, internal use only for now"""
             ...
 
-    _get_schema: ___get_schema_spec[typing_extensions.Self]
+    _get_schema: ___get_schema_spec
 
-    class __map_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __map_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -621,9 +582,9 @@ class Function(
             wrap_returned_exceptions: bool = True,
         ) -> typing.AsyncGenerator[typing.Any, None]: ...
 
-    map: __map_spec[typing_extensions.Self]
+    map: __map_spec
 
-    class __starmap_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __starmap_spec(typing_extensions.Protocol):
         def __call__(
             self,
             /,
@@ -665,9 +626,9 @@ class Function(
             wrap_returned_exceptions: bool = True,
         ) -> typing.AsyncIterable[typing.Any]: ...
 
-    starmap: __starmap_spec[typing_extensions.Self]
+    starmap: __starmap_spec
 
-    class __for_each_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __for_each_spec(typing_extensions.Protocol):
         def __call__(self, /, *input_iterators, kwargs={}, ignore_exceptions: bool = False):
             """Execute function for all inputs, ignoring outputs. Waits for completion of the inputs.
 
@@ -678,9 +639,9 @@ class Function(
 
         async def aio(self, /, *input_iterators, kwargs={}, ignore_exceptions: bool = False) -> None: ...
 
-    for_each: __for_each_spec[typing_extensions.Self]
+    for_each: __for_each_spec
 
-    class __spawn_map_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __spawn_map_spec(typing_extensions.Protocol):
         def __call__(self, /, *input_iterators, kwargs={}) -> None:
             """Spawn parallel execution over a set of inputs, exiting as soon as the inputs are created (without waiting
             for the map to complete).
@@ -709,9 +670,9 @@ class Function(
             """
             ...
 
-    spawn_map: __spawn_map_spec[typing_extensions.Self]
+    spawn_map: __spawn_map_spec
 
-    class __experimental_spawn_map_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __experimental_spawn_map_spec(typing_extensions.Protocol):
         def __call__(self, /, *input_iterators, kwargs={}) -> modal._functions._FunctionCall:
             """mdmd:hidden
             Spawn parallel execution over a set of inputs, returning as soon as the inputs are created.
@@ -737,7 +698,7 @@ class Function(
 
         async def aio(self, /, *input_iterators, kwargs={}) -> modal._functions._FunctionCall: ...
 
-    experimental_spawn_map: __experimental_spawn_map_spec[typing_extensions.Self]
+    experimental_spawn_map: __experimental_spawn_map_spec
 
 class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Object):
     """A reference to an executed function call.
@@ -758,9 +719,8 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
         ...
 
     def _invocation(self): ...
-    def _hydrate_metadata(self, metadata: typing.Optional[google.protobuf.message.Message]): ...
 
-    class __num_inputs_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __num_inputs_spec(typing_extensions.Protocol):
         def __call__(self, /) -> int:
             """Get the number of inputs in the function call."""
             ...
@@ -769,9 +729,9 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """Get the number of inputs in the function call."""
             ...
 
-    num_inputs: __num_inputs_spec[typing_extensions.Self]
+    num_inputs: __num_inputs_spec
 
-    class __get_spec(typing_extensions.Protocol[ReturnType_INNER, SUPERSELF]):
+    class __get_spec(typing_extensions.Protocol[ReturnType_INNER]):
         def __call__(self, /, timeout: typing.Optional[float] = None, *, index: int = 0) -> ReturnType_INNER:
             """Get the result of the index-th input of the function call.
             `.spawn()` calls have a single output, so only specifying `index=0` is valid.
@@ -798,9 +758,9 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-    get: __get_spec[modal._functions.ReturnType, typing_extensions.Self]
+    get: __get_spec[modal._functions.ReturnType]
 
-    class __iter_spec(typing_extensions.Protocol[ReturnType_INNER, SUPERSELF]):
+    class __iter_spec(typing_extensions.Protocol[ReturnType_INNER]):
         def __call__(self, /, *, start: int = 0, end: typing.Optional[int] = None) -> typing.Iterator[ReturnType_INNER]:
             """Iterate in-order over the results of the function call.
 
@@ -847,9 +807,9 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-    iter: __iter_spec[modal._functions.ReturnType, typing_extensions.Self]
+    iter: __iter_spec[modal._functions.ReturnType]
 
-    class __get_call_graph_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __get_call_graph_spec(typing_extensions.Protocol):
         def __call__(self, /) -> list[modal.call_graph.InputInfo]:
             """Returns a structure representing the call graph from a given root
             call ID, along with the status of execution for each node.
@@ -868,9 +828,9 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-    get_call_graph: __get_call_graph_spec[typing_extensions.Self]
+    get_call_graph: __get_call_graph_spec
 
-    class __cancel_spec(typing_extensions.Protocol[SUPERSELF]):
+    class __cancel_spec(typing_extensions.Protocol):
         def __call__(self, /, terminate_containers: bool = False):
             """Cancels the function call, which will stop its execution and mark its inputs as
             [`TERMINATED`](https://modal.com/docs/reference/modal.call_graph#modalcall_graphinputstatus).
@@ -889,7 +849,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-    cancel: __cancel_spec[typing_extensions.Self]
+    cancel: __cancel_spec
 
     class __from_id_spec(typing_extensions.Protocol):
         def __call__(
@@ -905,7 +865,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             fc_id = fc.object_id
 
             # Later, use the ID to re-instantiate the FunctionCall object
-            fc = _FunctionCall.from_id(fc_id)
+            fc = FunctionCall.from_id(fc_id)
             result = fc.get()
             ```
 
@@ -914,29 +874,9 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-        async def aio(
-            self, /, function_call_id: str, client: typing.Optional[modal.client.Client] = None
-        ) -> FunctionCall[typing.Any]:
-            """Instantiate a FunctionCall object from an existing ID.
+        async def aio(self, /, function_call_id: str, client: typing.Optional[modal.client.Client] = None): ...
 
-            Examples:
-
-            ```python notest
-            # Spawn a FunctionCall and keep track of its object ID
-            fc = my_func.spawn()
-            fc_id = fc.object_id
-
-            # Later, use the ID to re-instantiate the FunctionCall object
-            fc = _FunctionCall.from_id(fc_id)
-            result = fc.get()
-            ```
-
-            Note that it's only necessary to re-instantiate the `FunctionCall` with this method
-            if you no longer have access to the original object returned from `Function.spawn`.
-            """
-            ...
-
-    from_id: __from_id_spec
+    from_id: typing.ClassVar[__from_id_spec]
 
     class __gather_spec(typing_extensions.Protocol):
         def __call__(self, /, *function_calls: FunctionCall[modal._functions.T]) -> typing.Sequence[modal._functions.T]:
@@ -983,7 +923,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-    gather: __gather_spec
+    gather: typing.ClassVar[__gather_spec]
 
 class __gather_spec(typing_extensions.Protocol):
     def __call__(self, /, *function_calls) -> typing.Sequence[modal._functions.T]:

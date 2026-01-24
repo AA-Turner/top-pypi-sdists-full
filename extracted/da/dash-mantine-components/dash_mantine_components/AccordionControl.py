@@ -245,7 +245,7 @@ Keyword arguments:
 
 - w (string | number; optional):
     Width, theme key: theme.spacing."""
-    _children_props = ['chevron', 'icon']
+    _children_props: typing.List[str] = ['chevron', 'icon']
     _base_nodes = ['chevron', 'icon', 'children']
     _namespace = 'dash_mantine_components'
     _type = 'AccordionControl'

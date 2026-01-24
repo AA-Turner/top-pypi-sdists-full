@@ -269,6 +269,8 @@ class NequIPDataModule(lightning.LightningDataModule):
 
     def train_dataloader(self):
         """"""
+        if hasattr(self, "_train_dataloader"):
+            return self._train_dataloader[0]
         # must only return single train dataloader for now
         # see https://lightning.ai/docs/pytorch/stable/data/iterables.html#multiple-dataloaders
         self._train_dataloader = self._get_dloader(
@@ -279,6 +281,8 @@ class NequIPDataModule(lightning.LightningDataModule):
 
     def val_dataloader(self):
         """"""
+        if hasattr(self, "_val_dataloader"):
+            return self._val_dataloader
         self._val_dataloader = self._get_dloader(
             self.val_dataset, self.generator, self.val_dataloader_config
         )
@@ -287,6 +291,8 @@ class NequIPDataModule(lightning.LightningDataModule):
 
     def test_dataloader(self):
         """"""
+        if hasattr(self, "_test_dataloader"):
+            return self._test_dataloader
         self._test_dataloader = self._get_dloader(
             self.test_dataset, self.generator, self.test_dataloader_config
         )
@@ -295,6 +301,8 @@ class NequIPDataModule(lightning.LightningDataModule):
 
     def predict_dataloader(self):
         """"""
+        if hasattr(self, "_predict_dataloader"):
+            return self._predict_dataloader
         # we don't expect this method to be used but it's here for consistency
         logger.warning(
             "predict_dataloader() is not expected to be used in typical workflows"

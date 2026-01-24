@@ -8,6 +8,7 @@ from typing import Any, Optional, TYPE_CHECKING, Union
 if TYPE_CHECKING:
     from .access_review_instance import AccessReviewInstance
     from .adhoc_call import AdhocCall
+    from .agent_user import AgentUser
     from .agreement_acceptance import AgreementAcceptance
     from .approval import Approval
     from .app_consent_request import AppConsentRequest
@@ -57,6 +58,7 @@ if TYPE_CHECKING:
     from .on_premises_extension_attributes import OnPremisesExtensionAttributes
     from .on_premises_provisioning_error import OnPremisesProvisioningError
     from .on_premises_sip_info import OnPremisesSipInfo
+    from .on_premises_sync_behavior import OnPremisesSyncBehavior
     from .outlook_user import OutlookUser
     from .o_auth2_permission_grant import OAuth2PermissionGrant
     from .password_profile import PasswordProfile
@@ -95,7 +97,7 @@ class User(DirectoryObject, Parsable):
     odata_type: Optional[str] = "#microsoft.graph.user"
     # A freeform text entry field for users to describe themselves. Returned only on $select.
     about_me: Optional[str] = None
-    # true if the account is enabled; otherwise, false. This property is required when a user is created. Supports $filter (eq, ne, not, and in).
+    # true if the account is enabled; otherwise, false. This property is required when creating the object. Supports $filter (eq, ne, not, and in).
     account_enabled: Optional[bool] = None
     # The user's activities across devices. Read-only. Nullable.
     activities: Optional[list[UserActivity]] = None
@@ -143,7 +145,7 @@ class User(DirectoryObject, Parsable):
     cloud_clipboard: Optional[CloudClipboardRoot] = None
     # The relationships of a user to cloud licensing resources.
     cloud_licensing: Optional[UserCloudLicensing] = None
-    # The cloudPCs property
+    # The user's Cloud PCs. Read-only. Nullable.
     cloud_p_cs: Optional[list[CloudPC]] = None
     # Microsoft realtime communication information related to the user.  Supports $filter (eq, ne,not).
     cloud_realtime_communication_info: Optional[CloudRealtimeCommunicationInfo] = None
@@ -219,6 +221,8 @@ class User(DirectoryObject, Parsable):
     hire_date: Optional[datetime.datetime] = None
     # Represents the identities that can be used to sign in to this user account. An identity can be provided by Microsoft (also known as a local account), by organizations, or by social identity providers such as Facebook, Google, and Microsoft and tied to a user account. It may contain multiple items with the same signInType value.  Supports $filter (eq) with limitations.
     identities: Optional[list[ObjectIdentity]] = None
+    # The object ID of the parent identity for agent users. Always null for regular user accounts. For agentUser resources, this property references the object ID of the associated agent identity.
+    identity_parent_id: Optional[str] = None
     # The instant message voice-over IP (VOIP) session initiation protocol (SIP) addresses for the user. Read-only. Supports $filter (eq, not, ge, le, startsWith).
     im_addresses: Optional[list[str]] = None
     # Relevance classification of the user's messages based on explicit designations that override inferred relevance or importance.
@@ -305,6 +309,8 @@ class User(DirectoryObject, Parsable):
     on_premises_security_identifier: Optional[str] = None
     # Contains all on-premises Session Initiation Protocol (SIP) information related to the user. Read-only.
     on_premises_sip_info: Optional[OnPremisesSipInfo] = None
+    # Indicates the state of synchronization for a user between the cloud and on-premises Active Directory. Supports $filter only with advanced query capabilities, for example, $filter=onPremisesSyncBehavior/isCloudManaged eq true&$count=true.
+    on_premises_sync_behavior: Optional[OnPremisesSyncBehavior] = None
     # true if this user object is currently being synced from an on-premises Active Directory (AD); otherwise, the user isn't being synced and can be managed in Microsoft Entra ID. Read-only. Supports $filter (eq, ne, not, in, and eq on null values).
     on_premises_sync_enabled: Optional[bool] = None
     # Contains the on-premises userPrincipalName synchronized from the on-premises directory. Supports $filter (eq, ne, not, ge, le, in, startsWith).
@@ -423,6 +429,15 @@ class User(DirectoryObject, Parsable):
         """
         if parse_node is None:
             raise TypeError("parse_node cannot be null.")
+        try:
+            child_node = parse_node.get_child_node("@odata.type")
+            mapping_value = child_node.get_str_value() if child_node else None
+        except AttributeError:
+            mapping_value = None
+        if mapping_value and mapping_value.casefold() == "#microsoft.graph.agentUser".casefold():
+            from .agent_user import AgentUser
+
+            return AgentUser()
         return User()
     
     def get_field_deserializers(self,) -> dict[str, Callable[[ParseNode], None]]:
@@ -432,6 +447,7 @@ class User(DirectoryObject, Parsable):
         """
         from .access_review_instance import AccessReviewInstance
         from .adhoc_call import AdhocCall
+        from .agent_user import AgentUser
         from .agreement_acceptance import AgreementAcceptance
         from .approval import Approval
         from .app_consent_request import AppConsentRequest
@@ -481,6 +497,7 @@ class User(DirectoryObject, Parsable):
         from .on_premises_extension_attributes import OnPremisesExtensionAttributes
         from .on_premises_provisioning_error import OnPremisesProvisioningError
         from .on_premises_sip_info import OnPremisesSipInfo
+        from .on_premises_sync_behavior import OnPremisesSyncBehavior
         from .outlook_user import OutlookUser
         from .o_auth2_permission_grant import OAuth2PermissionGrant
         from .password_profile import PasswordProfile
@@ -513,6 +530,7 @@ class User(DirectoryObject, Parsable):
 
         from .access_review_instance import AccessReviewInstance
         from .adhoc_call import AdhocCall
+        from .agent_user import AgentUser
         from .agreement_acceptance import AgreementAcceptance
         from .approval import Approval
         from .app_consent_request import AppConsentRequest
@@ -562,6 +580,7 @@ class User(DirectoryObject, Parsable):
         from .on_premises_extension_attributes import OnPremisesExtensionAttributes
         from .on_premises_provisioning_error import OnPremisesProvisioningError
         from .on_premises_sip_info import OnPremisesSipInfo
+        from .on_premises_sync_behavior import OnPremisesSyncBehavior
         from .outlook_user import OutlookUser
         from .o_auth2_permission_grant import OAuth2PermissionGrant
         from .password_profile import PasswordProfile
@@ -656,6 +675,7 @@ class User(DirectoryObject, Parsable):
             "givenName": lambda n : setattr(self, 'given_name', n.get_str_value()),
             "hireDate": lambda n : setattr(self, 'hire_date', n.get_datetime_value()),
             "identities": lambda n : setattr(self, 'identities', n.get_collection_of_object_values(ObjectIdentity)),
+            "identityParentId": lambda n : setattr(self, 'identity_parent_id', n.get_str_value()),
             "imAddresses": lambda n : setattr(self, 'im_addresses', n.get_collection_of_primitive_values(str)),
             "inferenceClassification": lambda n : setattr(self, 'inference_classification', n.get_object_value(InferenceClassification)),
             "infoCatalogs": lambda n : setattr(self, 'info_catalogs', n.get_collection_of_primitive_values(str)),
@@ -699,6 +719,7 @@ class User(DirectoryObject, Parsable):
             "onPremisesSamAccountName": lambda n : setattr(self, 'on_premises_sam_account_name', n.get_str_value()),
             "onPremisesSecurityIdentifier": lambda n : setattr(self, 'on_premises_security_identifier', n.get_str_value()),
             "onPremisesSipInfo": lambda n : setattr(self, 'on_premises_sip_info', n.get_object_value(OnPremisesSipInfo)),
+            "onPremisesSyncBehavior": lambda n : setattr(self, 'on_premises_sync_behavior', n.get_object_value(OnPremisesSyncBehavior)),
             "onPremisesSyncEnabled": lambda n : setattr(self, 'on_premises_sync_enabled', n.get_bool_value()),
             "onPremisesUserPrincipalName": lambda n : setattr(self, 'on_premises_user_principal_name', n.get_str_value()),
             "onenote": lambda n : setattr(self, 'onenote', n.get_object_value(Onenote)),
@@ -830,6 +851,7 @@ class User(DirectoryObject, Parsable):
         writer.write_str_value("givenName", self.given_name)
         writer.write_datetime_value("hireDate", self.hire_date)
         writer.write_collection_of_object_values("identities", self.identities)
+        writer.write_str_value("identityParentId", self.identity_parent_id)
         writer.write_collection_of_primitive_values("imAddresses", self.im_addresses)
         writer.write_object_value("inferenceClassification", self.inference_classification)
         writer.write_collection_of_primitive_values("infoCatalogs", self.info_catalogs)
@@ -873,6 +895,7 @@ class User(DirectoryObject, Parsable):
         writer.write_str_value("onPremisesSamAccountName", self.on_premises_sam_account_name)
         writer.write_str_value("onPremisesSecurityIdentifier", self.on_premises_security_identifier)
         writer.write_object_value("onPremisesSipInfo", self.on_premises_sip_info)
+        writer.write_object_value("onPremisesSyncBehavior", self.on_premises_sync_behavior)
         writer.write_bool_value("onPremisesSyncEnabled", self.on_premises_sync_enabled)
         writer.write_str_value("onPremisesUserPrincipalName", self.on_premises_user_principal_name)
         writer.write_object_value("onenote", self.onenote)

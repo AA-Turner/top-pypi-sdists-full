@@ -1,4 +1,4 @@
-from typing import Sequence
+from collections.abc import Sequence
 
 from ase import Atoms
 import numpy as np
@@ -20,7 +20,7 @@ class ConstrainSwapByBasis(MCConstraint):
     atoms: Atoms object
         ASE Atoms object used in the MC simulation
 
-    index_by_basis: List[List[int]]
+    index_by_basis: list[list[int]]
         Indices ordered by basis (same as ``index_by_basis`` parameter in
         the :class:`~clease.settings.settings.ClusterExpansionSettings`
         settings object.).

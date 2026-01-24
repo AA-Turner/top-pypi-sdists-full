@@ -8,6 +8,10 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.log_pb2 import (
+    GetLogFacetValuesRequest,
+    GetLogFacetValuesResponse,
+    GetLogFacetsRequest,
+    GetLogFacetsResponse,
     SearchLogEntriesAggregatedRequest,
     SearchLogEntriesAggregatedResponse,
     SearchLogEntriesRequest,
@@ -30,6 +34,14 @@ class LogSearchServiceStub:
         SearchLogEntriesAggregatedRequest,
         SearchLogEntriesAggregatedResponse,
     ]
+    GetLogFacets: UnaryUnaryMultiCallable[
+        GetLogFacetsRequest,
+        GetLogFacetsResponse,
+    ]
+    GetLogFacetValues: UnaryUnaryMultiCallable[
+        GetLogFacetValuesRequest,
+        GetLogFacetValuesResponse,
+    ]
 
 class LogSearchServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +56,17 @@ class LogSearchServiceServicer(metaclass=ABCMeta):
         request: SearchLogEntriesAggregatedRequest,
         context: ServicerContext,
     ) -> SearchLogEntriesAggregatedResponse: ...
+    @abstractmethod
+    def GetLogFacets(
+        self,
+        request: GetLogFacetsRequest,
+        context: ServicerContext,
+    ) -> GetLogFacetsResponse: ...
+    @abstractmethod
+    def GetLogFacetValues(
+        self,
+        request: GetLogFacetValuesRequest,
+        context: ServicerContext,
+    ) -> GetLogFacetValuesResponse: ...
 
 def add_LogSearchServiceServicer_to_server(servicer: LogSearchServiceServicer, server: Server) -> None: ...

@@ -3,7 +3,7 @@
 # from selenium import webdriver
 # from channels.testing import ChannelsLiveServerTestCase
 
-# from django.contrib.auth import get_user_model, authenticate
+# from wbcore.contrib.authentication.models.users import User, authenticate
 # from .selenium.utils import menu_items_for_user
 
 # def login(url, username, password):
@@ -22,7 +22,7 @@
 
 #     @pytest.mark.parametrize
 #     def test_something1(self):
-#         user = get_user_model().objects.create_superuser(
+#         user = User.objects.create_superuser(
 #             username="root",
 #             email="a@a.de",
 #             password="root"

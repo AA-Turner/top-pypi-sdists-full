@@ -2,6 +2,7 @@ import datetime
 import errno
 import functools
 import logging
+import math
 import os.path
 import re
 import socket
@@ -17,18 +18,21 @@ import crcmod as crcmod
 import pytz
 import six
 from pytz import unicode
+from requests.structures import CaseInsensitiveDict
 from urllib3.util.connection import allowed_gai_family
 
 from .consts import (DEFAULT_MIMETYPE, GMT_DATE_FORMAT,
                      MAX_PART_NUMBER, MAX_PART_SIZE, MIN_PART_SIZE, CHUNK_SIZE,
                      CLIENT_ENCRYPTION_ALGORITHM, SERVER_ENCRYPTION_ALGORITHM, LAST_MODIFY_TIME_DATE_FORMAT,
-                     EMPTY_SHA256_HASH, PAYLOAD_BUFFER,ECS_DATE_FORMAT)
+                     EMPTY_SHA256_HASH, PAYLOAD_BUFFER, ECS_DATE_FORMAT, SLEEP_BASE_TIME)
 from .enum import DataTransferType, ACLType, StorageClassType, MetadataDirectiveType, AzRedundancyType, PermissionType, \
     GranteeType, CannedType
 from .exceptions import TosClientError
 from .log import get_logger
 from .mine_type import TYPES_MAP
 from io import StringIO
+
+from tos import exceptions
 
 REGION_MAP = {
     'cn-beijing': 'tos-cn-beijing.volces.com',
@@ -90,7 +94,10 @@ def parse_gmt_time_to_utc_datetime(value):
     return datetime.datetime.strptime(value, GMT_DATE_FORMAT).replace(tzinfo=pytz.utc)
 
 def parse_iso_time_to_utc_datetime(value):
-    return datetime.datetime.strptime(value,ECS_DATE_FORMAT).astimezone(pytz.utc)
+    try:
+        return datetime.datetime.strptime(value, ECS_DATE_FORMAT).astimezone(pytz.utc)
+    except ValueError:
+        return datetime.datetime.strptime(value, LAST_MODIFY_TIME_DATE_FORMAT).replace(tzinfo=pytz.utc)
 
 
 def get_content_type(key):
@@ -1326,6 +1333,12 @@ def _get_virtual_host(bucket, endpoint):
     else:
         return _get_host(endpoint)
 
+def _get_vector_host(bucket,account_id,endpoint):
+    if bucket and account_id:
+        return bucket+'-'+account_id+'.'+_get_host(endpoint)
+    else:
+        return _get_host(endpoint)
+
 
 def _cal_content_sha256(data):
     if data and hasattr(data, 'seek'):
@@ -1351,10 +1364,14 @@ def _make_control_host_url(host,scheme,account_id=None,key=None):
         url = '{0}.{1}'.format(account_id, host)
     return _format_endpoint(scheme+url)
 
-def _make_virtual_host_url(host, scheme, bucket=None, key=None):
+def _make_virtual_host_url(host, scheme, bucket=None, key=None,account_id=None):
     url = host
-    if bucket and key:
+    if bucket and account_id and key:
+        url = '{0}-{1}.{2}/{3}'.format(bucket,account_id, host,quote(key, '/~'))
+    elif bucket and key:
         url = '{0}.{1}/{2}'.format(bucket, host, quote(key, '/~'))
+    elif bucket and account_id and not key:
+        url = '{0}-{1}.{2}'.format(bucket,account_id, host)
     elif bucket and not key:
         url = '{0}.{1}'.format(bucket, host)
     elif key:
@@ -1367,3 +1384,154 @@ def is_s3_endpoint(endpoint):
     if endpoint in S3_REGION_LIST:
         return True
     return False
+
+
+def _build_user_agent(
+        base_user_agent,
+        user_agent_product_name=None,
+        user_agent_soft_name=None,
+        user_agent_soft_version=None,
+        user_agent_customized_key_values=None,
+        undefined="undefined"
+):
+    """
+    构建用户代理(User-Agent)字符串
+
+    参数:
+        base_user_agent: 基础User-Agent字符串
+        user_agent_product_name: 产品名称
+        user_agent_soft_name: 软件名称
+        user_agent_soft_version: 软件版本
+        user_agent_customized_key_values: 自定义键值对字典
+        undefined: 未定义值的替代字符串
+
+    返回:
+        构建好的User-Agent字符串
+    """
+    user_agent = base_user_agent
+
+    # 构建产品/软件信息部分
+    if user_agent_product_name is not None or user_agent_soft_name is not None or user_agent_soft_version is not None:
+        product_name = user_agent_product_name if user_agent_product_name else undefined
+        soft_name = user_agent_soft_name if user_agent_soft_name else undefined
+        soft_version = user_agent_soft_version if user_agent_soft_version else undefined
+
+        user_agent += " --{}/{}/{}".format(product_name, soft_name, soft_version)
+
+    # 构建自定义键值对部分
+    if user_agent_customized_key_values and isinstance(user_agent_customized_key_values, dict):
+        customized_parts = []
+        for k, v in user_agent_customized_key_values.items():
+            customized_parts.append("{}/{}".format(k, v))
+
+        if customized_parts:
+            user_agent += " ({})".format(";".join(customized_parts))
+
+    return user_agent
+
+def _sanitize_dict(d: dict):
+    if d:
+        for k, v in d.items():
+            d[k] = v if isinstance(v, str) else v.decode() if isinstance(v, bytes) else str(v)
+    return d
+
+def _to_case_insensitive_dict(headers: dict):
+    _sanitize_dict(headers)
+    return CaseInsensitiveDict(headers)
+
+
+def _merge_generic_input(headers: dict, params: dict, generic_input):
+    if generic_input is None:
+        return headers, params
+
+    forbid_header_keys = {
+        'content-length',
+        'host',
+        'connection',
+        'x-tos-date',
+        'range',
+        'transfer-encoding',
+        'authorization',
+        'date',
+    }
+
+    request_headers = getattr(generic_input, 'request_headers', None)
+    if request_headers:
+        for k, v in request_headers.items():
+            if k is None:
+                continue
+            if isinstance(k, bytes):
+                k = k.decode('utf-8')
+            else:
+                k = str(k)
+            k = k.strip()
+            if not k or k.lower() in forbid_header_keys:
+                continue
+            if isinstance(v, bytes):
+                v = v.decode('utf-8')
+            elif not isinstance(v, str):
+                v = str(v)
+            if k not in headers:
+                headers[k] = v
+
+    request_query = getattr(generic_input, 'request_query', None)
+    if request_query:
+        existing_query_keys = {str(k).lower() for k in params.keys() if k is not None}
+        for k, v in request_query.items():
+            if k is None:
+                continue
+            if isinstance(k, bytes):
+                k = k.decode('utf-8')
+            else:
+                k = str(k)
+            k = k.strip()
+            if not k or k.lower() in existing_query_keys:
+                continue
+            if isinstance(v, bytes):
+                v = v.decode('utf-8')
+            elif not isinstance(v, str):
+                v = str(v)
+            params[k] = v
+
+    return headers, params
+
+def _get_sleep_time(rsp, retry_count):
+    sleep_time = SLEEP_BASE_TIME * math.pow(2, retry_count - 1)
+    if sleep_time > 60:
+        sleep_time = 60
+    if rsp and (rsp.status == 429 or rsp.status == 503) and 'retry-after' in rsp.headers:
+        try:
+            sleep_time = max(int(rsp.headers['retry-after']), sleep_time)
+        except Exception as e:
+            get_logger().warning('try to parse retry-after from headers error: {}'.format(e))
+    return sleep_time
+
+def _validate_account_id(account_id: str):
+    """
+    Validate that account_id is a non-empty string consisting only of digits.
+    Raises TosClientError if validation fails.
+    """
+    if not account_id:
+        raise TosClientError("account_id is required")
+    if not isinstance(account_id, str) or not account_id.isdigit():
+        raise TosClientError("account_id must be a non-empty numeric string")
+
+
+def _is_valid_vector_bucket_name(bucket_name):
+    """
+    向量桶命名规范：
+    - 向量桶名字符长度为 3~32 个字符；
+    - 向量桶名字符集包括：小写字母 a-z、数字 0-9 和连字符 '-'；
+    - 向量桶名不能以连字符 '-' 作为开头或结尾；
+    SDK 会对依照该规范做校验，如果用户指定的向量桶名与规范不匹配则报错客户端校验失败
+    """
+    if len(bucket_name) < 3 or len(bucket_name) > 32:
+        raise exceptions.TosClientError('invalid vector bucket name, the length must be [3, 32]')
+
+    if bucket_name[0] == '-' or bucket_name[len(bucket_name) - 1] == '-':
+        raise exceptions.TosClientError(
+            "invalid vector bucket name, the vector bucket name can be neither starting with ' - ' nor ending with ' - '")
+
+    for i in range(0, len(bucket_name)):
+        if not ('a' <= bucket_name[i] <= 'z' or '0' <= bucket_name[i] <= '9' or bucket_name[i] == '-'):
+            raise exceptions.TosClientError('invalid vector bucket name, the character set is illegal')

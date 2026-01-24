@@ -12,10 +12,12 @@
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "tools/Registry.h"
-#include "tools/sk_app/Window.h"
+#include "tools/skui/InputState.h"
+#include "tools/skui/ModifierKey.h"
 
 class SkCanvas;
 class SkMetaData;
+class SkSurfaceProps;
 class Slide;
 
 using SlideFactory = Slide* (*)();
@@ -34,6 +36,7 @@ public:
     virtual SkISize getDimensions() const { return SkISize::MakeEmpty(); }
 
     virtual void gpuTeardown() { }
+    virtual void setSurfaceProps(SkSurfaceProps*) {}
     virtual void draw(SkCanvas* canvas) = 0;
     virtual bool animate(double nanos) { return false; }
     virtual void load(SkScalar winWidth, SkScalar winHeight) {}

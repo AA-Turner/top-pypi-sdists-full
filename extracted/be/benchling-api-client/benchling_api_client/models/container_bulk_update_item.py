@@ -5,6 +5,7 @@ import attr
 from ..extensions import NotPresentError
 from ..models.container_quantity import ContainerQuantity
 from ..models.deprecated_container_volume_for_input import DeprecatedContainerVolumeForInput
+from ..models.experimental_well_role import ExperimentalWellRole
 from ..models.fields import Fields
 from ..models.measurement import Measurement
 from ..models.sample_restriction_status import SampleRestrictionStatus
@@ -21,6 +22,7 @@ class ContainerBulkUpdateItem:
     _barcode: Union[Unset, str] = UNSET
     _concentration: Union[Unset, Measurement] = UNSET
     _quantity: Union[Unset, ContainerQuantity] = UNSET
+    _role: Union[Unset, None, ExperimentalWellRole] = UNSET
     _volume: Union[Unset, DeprecatedContainerVolumeForInput] = UNSET
     _fields: Union[Unset, Fields] = UNSET
     _name: Union[Unset, str] = UNSET
@@ -36,6 +38,7 @@ class ContainerBulkUpdateItem:
         fields.append("barcode={}".format(repr(self._barcode)))
         fields.append("concentration={}".format(repr(self._concentration)))
         fields.append("quantity={}".format(repr(self._quantity)))
+        fields.append("role={}".format(repr(self._role)))
         fields.append("volume={}".format(repr(self._volume)))
         fields.append("fields={}".format(repr(self._fields)))
         fields.append("name={}".format(repr(self._name)))
@@ -56,6 +59,10 @@ class ContainerBulkUpdateItem:
         quantity: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._quantity, Unset):
             quantity = self._quantity.to_dict()
+
+        role: Union[Unset, None, Dict[str, Any]] = UNSET
+        if not isinstance(self._role, Unset):
+            role = self._role.to_dict() if self._role else None
 
         volume: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self._volume, Unset):
@@ -90,6 +97,8 @@ class ContainerBulkUpdateItem:
             field_dict["concentration"] = concentration
         if quantity is not UNSET:
             field_dict["quantity"] = quantity
+        if role is not UNSET:
+            field_dict["role"] = role
         if volume is not UNSET:
             field_dict["volume"] = volume
         if fields is not UNSET:
@@ -164,6 +173,22 @@ class ContainerBulkUpdateItem:
             if strict:
                 raise
             quantity = cast(Union[Unset, ContainerQuantity], UNSET)
+
+        def get_role() -> Union[Unset, None, ExperimentalWellRole]:
+            role = None
+            _role = d.pop("role")
+
+            if _role is not None and not isinstance(_role, Unset):
+                role = ExperimentalWellRole.from_dict(_role)
+
+            return role
+
+        try:
+            role = get_role()
+        except KeyError:
+            if strict:
+                raise
+            role = cast(Union[Unset, None, ExperimentalWellRole], UNSET)
 
         def get_volume() -> Union[Unset, DeprecatedContainerVolumeForInput]:
             volume: Union[Unset, Union[Unset, DeprecatedContainerVolumeForInput]] = UNSET
@@ -266,6 +291,7 @@ class ContainerBulkUpdateItem:
             barcode=barcode,
             concentration=concentration,
             quantity=quantity,
+            role=role,
             volume=volume,
             fields=fields,
             name=name,
@@ -350,6 +376,20 @@ class ContainerBulkUpdateItem:
     @quantity.deleter
     def quantity(self) -> None:
         self._quantity = UNSET
+
+    @property
+    def role(self) -> Optional[ExperimentalWellRole]:
+        if isinstance(self._role, Unset):
+            raise NotPresentError(self, "role")
+        return self._role
+
+    @role.setter
+    def role(self, value: Optional[ExperimentalWellRole]) -> None:
+        self._role = value
+
+    @role.deleter
+    def role(self) -> None:
+        self._role = UNSET
 
     @property
     def volume(self) -> DeprecatedContainerVolumeForInput:

@@ -1,10 +1,14 @@
 # mypy: ignore-errors
-
-from typing import TYPE_CHECKING, Optional
+from concurrent.futures import Future
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union, overload
 
 from snowflake.core import PollingOperation
 
 from .._internal.telemetry import api_telemetry
+from .._utils import cast_result
+from ..exceptions import InvalidArgumentsError, InvalidResultError
+from . import ReturnTable
+from ._generated import UserDefinedFunctionArgument
 from ._generated.api.user_defined_function_api_base import (
     UserDefinedFunctionCollectionBase,
     UserDefinedFunctionResourceBase,
@@ -30,7 +34,7 @@ class UserDefinedFunctionCollection(UserDefinedFunctionCollectionBase):
     ...         name="my_python_function",
     ...         arguments=[],
     ...         return_type=ReturnDataType(datatype="VARIANT"),
-    ...         language_config=PythonFunction(runtime_version="3.9", packages=[], handler="udf"),
+    ...         language_config=PythonFunction(runtime_version="3.13", packages=[], handler="udf"),
     ...         body='''
     ... def udf():
     ...     return {"key": "value"}
@@ -48,8 +52,8 @@ class UserDefinedFunctionCollection(UserDefinedFunctionCollectionBase):
 class UserDefinedFunctionResource(UserDefinedFunctionResourceBase):
     """Represents a reference to a Snowflake user defined function.
 
-    With this user defined function reference, you can create, drop, rename
-    and fetch information about user defined functions.
+    With this user defined function reference, you can fetch information about a user defined
+    function, as well as perform certain actions on it.
     """
 
     _identifier_requires_args = True
@@ -140,3 +144,78 @@ class UserDefinedFunctionResource(UserDefinedFunctionResourceBase):
             target_schema=target_schema,
             if_exists=if_exists,
         )
+
+    @api_telemetry
+    def execute(self, input_args: Optional[list[UserDefinedFunctionArgument]] = None) -> Any:
+        """Execute this user defined function.
+
+        Parameters
+        __________
+        input_args: list[UserDefinedFunctionArgument], optional
+            A list of arguments to pass to the function. The number of arguments must match the number of arguments
+            the user defined function expects. Name, datatype and value fields of UserDefinedFunctionArgument are
+            required.
+
+        Examples
+        ________
+        Executing a user defined function using its reference:
+
+        >>> user_defined_function_reference.execute(
+        ...     [
+        ...         UserDefinedFunctionArgument(name="id", datatype="INT", value=42),
+        ...         UserDefinedFunctionArgument(name="tableName", datatype="TEXT", value="my_table_name"),
+        ...     ]
+        ... )
+        """
+        return self._execute(input_args, async_req=False)
+
+    @api_telemetry
+    def execute_async(self, input_args: Optional[list[UserDefinedFunctionArgument]] = None) -> PollingOperation[Any]:
+        """An asynchronous version of :func:`execute`.
+
+        Refer to :class:`~snowflake.core.PollingOperation` for more information on asynchronous execution and
+        the return type.
+        """  # noqa: D401
+        return self._execute(input_args=input_args, async_req=True)
+
+    @overload
+    def _execute(
+        self, input_args: Optional[list[UserDefinedFunctionArgument]], async_req: Literal[True]
+    ) -> PollingOperation[Any]: ...
+
+    @overload
+    def _execute(self, input_args: Optional[list[UserDefinedFunctionArgument]], async_req: Literal[False]) -> Any: ...
+
+    def _execute(
+        self, input_args: Optional[list[UserDefinedFunctionArgument]], async_req: bool
+    ) -> Union[Any, PollingOperation[Any]]:
+        user_defined_function = self.fetch()
+        if isinstance(user_defined_function.return_type, ReturnTable):
+            raise NotImplementedError("Executing User Defined Table Functions (UDTFs) is not supported.")
+
+        if input_args is None:
+            input_args = []
+
+        for arg in user_defined_function.arguments:
+            if arg.default_value is None:
+                if not any(arg.name.upper() == input_arg.name.upper() for input_arg in input_args):
+                    raise InvalidArgumentsError(f"Required argument '{arg.name}' not provided")
+
+        result_or_future = self.collection._api.execute_user_defined_function(
+            self.database.name,
+            self.schema.name,
+            user_defined_function.name,
+            user_defined_function_argument=input_args,
+            async_req=async_req,
+        )
+
+        def map_result(result: object) -> Any:
+            if not isinstance(result, dict) or len(result.values()) != 1:
+                raise InvalidResultError(f"User Defined Function result {str(result)} is invalid or empty")
+
+            result = list(result.values())[0]
+            return cast_result(result, str(user_defined_function.return_type.to_dict().get("datatype")))
+
+        if isinstance(result_or_future, Future):
+            return PollingOperation(result_or_future, map_result)
+        return map_result(result_or_future)

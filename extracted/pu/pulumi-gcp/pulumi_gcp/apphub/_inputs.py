@@ -43,6 +43,16 @@ __all__ = [
     'ServiceAttributesOperatorOwnerArgsDict',
     'ServiceServicePropertyArgs',
     'ServiceServicePropertyArgsDict',
+    'ServiceServicePropertyExtendedMetadataArgs',
+    'ServiceServicePropertyExtendedMetadataArgsDict',
+    'ServiceServicePropertyExtendedMetadataValueArgs',
+    'ServiceServicePropertyExtendedMetadataValueArgsDict',
+    'ServiceServicePropertyFunctionalTypeArgs',
+    'ServiceServicePropertyFunctionalTypeArgsDict',
+    'ServiceServicePropertyIdentityArgs',
+    'ServiceServicePropertyIdentityArgsDict',
+    'ServiceServicePropertyRegistrationTypeArgs',
+    'ServiceServicePropertyRegistrationTypeArgsDict',
     'ServiceServiceReferenceArgs',
     'ServiceServiceReferenceArgsDict',
     'WorkloadAttributesArgs',
@@ -59,6 +69,14 @@ __all__ = [
     'WorkloadAttributesOperatorOwnerArgsDict',
     'WorkloadWorkloadPropertyArgs',
     'WorkloadWorkloadPropertyArgsDict',
+    'WorkloadWorkloadPropertyExtendedMetadataArgs',
+    'WorkloadWorkloadPropertyExtendedMetadataArgsDict',
+    'WorkloadWorkloadPropertyExtendedMetadataValueArgs',
+    'WorkloadWorkloadPropertyExtendedMetadataValueArgsDict',
+    'WorkloadWorkloadPropertyFunctionalTypeArgs',
+    'WorkloadWorkloadPropertyFunctionalTypeArgsDict',
+    'WorkloadWorkloadPropertyIdentityArgs',
+    'WorkloadWorkloadPropertyIdentityArgsDict',
     'WorkloadWorkloadReferenceArgs',
     'WorkloadWorkloadReferenceArgsDict',
 ]
@@ -806,14 +824,38 @@ class ServiceAttributesOperatorOwnerArgs:
 
 if not MYPY:
     class ServiceServicePropertyArgsDict(TypedDict):
+        extended_metadatas: NotRequired[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataArgsDict']]]]
+        """
+        (Output)
+        Output only. Additional metadata specific to the resource type.
+        Structure is documented below.
+        """
+        functional_types: NotRequired[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyFunctionalTypeArgsDict']]]]
+        """
+        (Output)
+        Output only. The type of the service.
+        Structure is documented below.
+        """
         gcp_project: NotRequired[pulumi.Input[_builtins.str]]
         """
         (Output)
         Output only. The service project identifier that the underlying cloud resource resides in.
         """
+        identities: NotRequired[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyIdentityArgsDict']]]]
+        """
+        (Output)
+        The identity associated with the service.
+        Structure is documented below.
+        """
         location: NotRequired[pulumi.Input[_builtins.str]]
         """
         Part of `parent`.  Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}
+        """
+        registration_types: NotRequired[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyRegistrationTypeArgsDict']]]]
+        """
+        (Output)
+        Output only. The registration type of the service.
+        Structure is documented below.
         """
         zone: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -826,22 +868,74 @@ elif False:
 @pulumi.input_type
 class ServiceServicePropertyArgs:
     def __init__(__self__, *,
+                 extended_metadatas: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataArgs']]]] = None,
+                 functional_types: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyFunctionalTypeArgs']]]] = None,
                  gcp_project: Optional[pulumi.Input[_builtins.str]] = None,
+                 identities: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyIdentityArgs']]]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
+                 registration_types: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyRegistrationTypeArgs']]]] = None,
                  zone: Optional[pulumi.Input[_builtins.str]] = None):
         """
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataArgs']]] extended_metadatas: (Output)
+               Output only. Additional metadata specific to the resource type.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyFunctionalTypeArgs']]] functional_types: (Output)
+               Output only. The type of the service.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] gcp_project: (Output)
                Output only. The service project identifier that the underlying cloud resource resides in.
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyIdentityArgs']]] identities: (Output)
+               The identity associated with the service.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] location: Part of `parent`.  Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyRegistrationTypeArgs']]] registration_types: (Output)
+               Output only. The registration type of the service.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] zone: (Output)
                Output only. The location that the underlying resource resides in if it is zonal, for example, us-west1-a).
         """
+        if extended_metadatas is not None:
+            pulumi.set(__self__, "extended_metadatas", extended_metadatas)
+        if functional_types is not None:
+            pulumi.set(__self__, "functional_types", functional_types)
         if gcp_project is not None:
             pulumi.set(__self__, "gcp_project", gcp_project)
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
         if location is not None:
             pulumi.set(__self__, "location", location)
+        if registration_types is not None:
+            pulumi.set(__self__, "registration_types", registration_types)
         if zone is not None:
             pulumi.set(__self__, "zone", zone)
+
+    @_builtins.property
+    @pulumi.getter(name="extendedMetadatas")
+    def extended_metadatas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataArgs']]]]:
+        """
+        (Output)
+        Output only. Additional metadata specific to the resource type.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "extended_metadatas")
+
+    @extended_metadatas.setter
+    def extended_metadatas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataArgs']]]]):
+        pulumi.set(self, "extended_metadatas", value)
+
+    @_builtins.property
+    @pulumi.getter(name="functionalTypes")
+    def functional_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyFunctionalTypeArgs']]]]:
+        """
+        (Output)
+        Output only. The type of the service.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "functional_types")
+
+    @functional_types.setter
+    def functional_types(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyFunctionalTypeArgs']]]]):
+        pulumi.set(self, "functional_types", value)
 
     @_builtins.property
     @pulumi.getter(name="gcpProject")
@@ -858,6 +952,20 @@ class ServiceServicePropertyArgs:
 
     @_builtins.property
     @pulumi.getter
+    def identities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyIdentityArgs']]]]:
+        """
+        (Output)
+        The identity associated with the service.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "identities")
+
+    @identities.setter
+    def identities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyIdentityArgs']]]]):
+        pulumi.set(self, "identities", value)
+
+    @_builtins.property
+    @pulumi.getter
     def location(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
         Part of `parent`.  Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}
@@ -867,6 +975,20 @@ class ServiceServicePropertyArgs:
     @location.setter
     def location(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "location", value)
+
+    @_builtins.property
+    @pulumi.getter(name="registrationTypes")
+    def registration_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyRegistrationTypeArgs']]]]:
+        """
+        (Output)
+        Output only. The registration type of the service.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "registration_types")
+
+    @registration_types.setter
+    def registration_types(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyRegistrationTypeArgs']]]]):
+        pulumi.set(self, "registration_types", value)
 
     @_builtins.property
     @pulumi.getter
@@ -880,6 +1002,230 @@ class ServiceServicePropertyArgs:
     @zone.setter
     def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "zone", value)
+
+
+if not MYPY:
+    class ServiceServicePropertyExtendedMetadataArgsDict(TypedDict):
+        key: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The key of the extended metadata.
+        """
+        values: NotRequired[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataValueArgsDict']]]]
+        """
+        (Output)
+        The value of the extended metadata.
+        Structure is documented below.
+        """
+elif False:
+    ServiceServicePropertyExtendedMetadataArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ServiceServicePropertyExtendedMetadataArgs:
+    def __init__(__self__, *,
+                 key: Optional[pulumi.Input[_builtins.str]] = None,
+                 values: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataValueArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] key: (Output)
+               The key of the extended metadata.
+        :param pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataValueArgs']]] values: (Output)
+               The value of the extended metadata.
+               Structure is documented below.
+        """
+        if key is not None:
+            pulumi.set(__self__, "key", key)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The key of the extended metadata.
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataValueArgs']]]]:
+        """
+        (Output)
+        The value of the extended metadata.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ServiceServicePropertyExtendedMetadataValueArgs']]]]):
+        pulumi.set(self, "values", value)
+
+
+if not MYPY:
+    class ServiceServicePropertyExtendedMetadataValueArgsDict(TypedDict):
+        extended_metadata_schema: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The resource name for the Extended Metadata Schema.
+        """
+        metadata_struct: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The metadata contents as a JSON string.
+        """
+elif False:
+    ServiceServicePropertyExtendedMetadataValueArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ServiceServicePropertyExtendedMetadataValueArgs:
+    def __init__(__self__, *,
+                 extended_metadata_schema: Optional[pulumi.Input[_builtins.str]] = None,
+                 metadata_struct: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] extended_metadata_schema: (Output)
+               The resource name for the Extended Metadata Schema.
+        :param pulumi.Input[_builtins.str] metadata_struct: (Output)
+               The metadata contents as a JSON string.
+        """
+        if extended_metadata_schema is not None:
+            pulumi.set(__self__, "extended_metadata_schema", extended_metadata_schema)
+        if metadata_struct is not None:
+            pulumi.set(__self__, "metadata_struct", metadata_struct)
+
+    @_builtins.property
+    @pulumi.getter(name="extendedMetadataSchema")
+    def extended_metadata_schema(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The resource name for the Extended Metadata Schema.
+        """
+        return pulumi.get(self, "extended_metadata_schema")
+
+    @extended_metadata_schema.setter
+    def extended_metadata_schema(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "extended_metadata_schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="metadataStruct")
+    def metadata_struct(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The metadata contents as a JSON string.
+        """
+        return pulumi.get(self, "metadata_struct")
+
+    @metadata_struct.setter
+    def metadata_struct(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "metadata_struct", value)
+
+
+if not MYPY:
+    class ServiceServicePropertyFunctionalTypeArgsDict(TypedDict):
+        type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. The registration type of a service.
+        """
+elif False:
+    ServiceServicePropertyFunctionalTypeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ServiceServicePropertyFunctionalTypeArgs:
+    def __init__(__self__, *,
+                 type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] type: (Output)
+               Output only. The registration type of a service.
+        """
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. The registration type of a service.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "type", value)
+
+
+if not MYPY:
+    class ServiceServicePropertyIdentityArgsDict(TypedDict):
+        principal: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The principal of the identity.
+        """
+elif False:
+    ServiceServicePropertyIdentityArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ServiceServicePropertyIdentityArgs:
+    def __init__(__self__, *,
+                 principal: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] principal: (Output)
+               The principal of the identity.
+        """
+        if principal is not None:
+            pulumi.set(__self__, "principal", principal)
+
+    @_builtins.property
+    @pulumi.getter
+    def principal(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The principal of the identity.
+        """
+        return pulumi.get(self, "principal")
+
+    @principal.setter
+    def principal(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "principal", value)
+
+
+if not MYPY:
+    class ServiceServicePropertyRegistrationTypeArgsDict(TypedDict):
+        type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. The registration type of a service.
+        """
+elif False:
+    ServiceServicePropertyRegistrationTypeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class ServiceServicePropertyRegistrationTypeArgs:
+    def __init__(__self__, *,
+                 type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] type: (Output)
+               Output only. The registration type of a service.
+        """
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. The registration type of a service.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "type", value)
 
 
 if not MYPY:
@@ -1270,10 +1616,28 @@ class WorkloadAttributesOperatorOwnerArgs:
 
 if not MYPY:
     class WorkloadWorkloadPropertyArgsDict(TypedDict):
+        extended_metadatas: NotRequired[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataArgsDict']]]]
+        """
+        (Output)
+        Output only. Additional metadata specific to the resource type.
+        Structure is documented below.
+        """
+        functional_types: NotRequired[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyFunctionalTypeArgsDict']]]]
+        """
+        (Output)
+        Output only. The functional type of a service or workload.
+        Structure is documented below.
+        """
         gcp_project: NotRequired[pulumi.Input[_builtins.str]]
         """
         (Output)
         Output only. The service project identifier that the underlying cloud resource resides in. Empty for non cloud resources.
+        """
+        identities: NotRequired[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyIdentityArgsDict']]]]
+        """
+        (Output)
+        The identity associated with the workload.
+        Structure is documented below.
         """
         location: NotRequired[pulumi.Input[_builtins.str]]
         """
@@ -1290,22 +1654,68 @@ elif False:
 @pulumi.input_type
 class WorkloadWorkloadPropertyArgs:
     def __init__(__self__, *,
+                 extended_metadatas: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataArgs']]]] = None,
+                 functional_types: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyFunctionalTypeArgs']]]] = None,
                  gcp_project: Optional[pulumi.Input[_builtins.str]] = None,
+                 identities: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyIdentityArgs']]]] = None,
                  location: Optional[pulumi.Input[_builtins.str]] = None,
                  zone: Optional[pulumi.Input[_builtins.str]] = None):
         """
+        :param pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataArgs']]] extended_metadatas: (Output)
+               Output only. Additional metadata specific to the resource type.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyFunctionalTypeArgs']]] functional_types: (Output)
+               Output only. The functional type of a service or workload.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] gcp_project: (Output)
                Output only. The service project identifier that the underlying cloud resource resides in. Empty for non cloud resources.
+        :param pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyIdentityArgs']]] identities: (Output)
+               The identity associated with the workload.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] location: Part of `parent`.  Full resource name of a parent Application. Example: projects/{HOST_PROJECT_ID}/locations/{LOCATION}/applications/{APPLICATION_ID}
         :param pulumi.Input[_builtins.str] zone: (Output)
                Output only. The location that the underlying compute resource resides in if it is zonal (e.g us-west1-a).
         """
+        if extended_metadatas is not None:
+            pulumi.set(__self__, "extended_metadatas", extended_metadatas)
+        if functional_types is not None:
+            pulumi.set(__self__, "functional_types", functional_types)
         if gcp_project is not None:
             pulumi.set(__self__, "gcp_project", gcp_project)
+        if identities is not None:
+            pulumi.set(__self__, "identities", identities)
         if location is not None:
             pulumi.set(__self__, "location", location)
         if zone is not None:
             pulumi.set(__self__, "zone", zone)
+
+    @_builtins.property
+    @pulumi.getter(name="extendedMetadatas")
+    def extended_metadatas(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataArgs']]]]:
+        """
+        (Output)
+        Output only. Additional metadata specific to the resource type.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "extended_metadatas")
+
+    @extended_metadatas.setter
+    def extended_metadatas(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataArgs']]]]):
+        pulumi.set(self, "extended_metadatas", value)
+
+    @_builtins.property
+    @pulumi.getter(name="functionalTypes")
+    def functional_types(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyFunctionalTypeArgs']]]]:
+        """
+        (Output)
+        Output only. The functional type of a service or workload.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "functional_types")
+
+    @functional_types.setter
+    def functional_types(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyFunctionalTypeArgs']]]]):
+        pulumi.set(self, "functional_types", value)
 
     @_builtins.property
     @pulumi.getter(name="gcpProject")
@@ -1319,6 +1729,20 @@ class WorkloadWorkloadPropertyArgs:
     @gcp_project.setter
     def gcp_project(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "gcp_project", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def identities(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyIdentityArgs']]]]:
+        """
+        (Output)
+        The identity associated with the workload.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "identities")
+
+    @identities.setter
+    def identities(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyIdentityArgs']]]]):
+        pulumi.set(self, "identities", value)
 
     @_builtins.property
     @pulumi.getter
@@ -1344,6 +1768,195 @@ class WorkloadWorkloadPropertyArgs:
     @zone.setter
     def zone(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "zone", value)
+
+
+if not MYPY:
+    class WorkloadWorkloadPropertyExtendedMetadataArgsDict(TypedDict):
+        key: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The key of the extended metadata.
+        """
+        values: NotRequired[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataValueArgsDict']]]]
+        """
+        (Output)
+        The value of the extended metadata.
+        Structure is documented below.
+        """
+elif False:
+    WorkloadWorkloadPropertyExtendedMetadataArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WorkloadWorkloadPropertyExtendedMetadataArgs:
+    def __init__(__self__, *,
+                 key: Optional[pulumi.Input[_builtins.str]] = None,
+                 values: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataValueArgs']]]] = None):
+        """
+        :param pulumi.Input[_builtins.str] key: (Output)
+               The key of the extended metadata.
+        :param pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataValueArgs']]] values: (Output)
+               The value of the extended metadata.
+               Structure is documented below.
+        """
+        if key is not None:
+            pulumi.set(__self__, "key", key)
+        if values is not None:
+            pulumi.set(__self__, "values", values)
+
+    @_builtins.property
+    @pulumi.getter
+    def key(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The key of the extended metadata.
+        """
+        return pulumi.get(self, "key")
+
+    @key.setter
+    def key(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "key", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def values(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataValueArgs']]]]:
+        """
+        (Output)
+        The value of the extended metadata.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "values")
+
+    @values.setter
+    def values(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['WorkloadWorkloadPropertyExtendedMetadataValueArgs']]]]):
+        pulumi.set(self, "values", value)
+
+
+if not MYPY:
+    class WorkloadWorkloadPropertyExtendedMetadataValueArgsDict(TypedDict):
+        extended_metadata_schema: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The resource name for the Extended Metadata Schema.
+        """
+        metadata_struct: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The metadata contents as a JSON string.
+        """
+elif False:
+    WorkloadWorkloadPropertyExtendedMetadataValueArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WorkloadWorkloadPropertyExtendedMetadataValueArgs:
+    def __init__(__self__, *,
+                 extended_metadata_schema: Optional[pulumi.Input[_builtins.str]] = None,
+                 metadata_struct: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] extended_metadata_schema: (Output)
+               The resource name for the Extended Metadata Schema.
+        :param pulumi.Input[_builtins.str] metadata_struct: (Output)
+               The metadata contents as a JSON string.
+        """
+        if extended_metadata_schema is not None:
+            pulumi.set(__self__, "extended_metadata_schema", extended_metadata_schema)
+        if metadata_struct is not None:
+            pulumi.set(__self__, "metadata_struct", metadata_struct)
+
+    @_builtins.property
+    @pulumi.getter(name="extendedMetadataSchema")
+    def extended_metadata_schema(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The resource name for the Extended Metadata Schema.
+        """
+        return pulumi.get(self, "extended_metadata_schema")
+
+    @extended_metadata_schema.setter
+    def extended_metadata_schema(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "extended_metadata_schema", value)
+
+    @_builtins.property
+    @pulumi.getter(name="metadataStruct")
+    def metadata_struct(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The metadata contents as a JSON string.
+        """
+        return pulumi.get(self, "metadata_struct")
+
+    @metadata_struct.setter
+    def metadata_struct(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "metadata_struct", value)
+
+
+if not MYPY:
+    class WorkloadWorkloadPropertyFunctionalTypeArgsDict(TypedDict):
+        type: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        Output only. The functional type of a service or workload.
+        """
+elif False:
+    WorkloadWorkloadPropertyFunctionalTypeArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WorkloadWorkloadPropertyFunctionalTypeArgs:
+    def __init__(__self__, *,
+                 type: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] type: (Output)
+               Output only. The functional type of a service or workload.
+        """
+        if type is not None:
+            pulumi.set(__self__, "type", type)
+
+    @_builtins.property
+    @pulumi.getter
+    def type(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        Output only. The functional type of a service or workload.
+        """
+        return pulumi.get(self, "type")
+
+    @type.setter
+    def type(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "type", value)
+
+
+if not MYPY:
+    class WorkloadWorkloadPropertyIdentityArgsDict(TypedDict):
+        principal: NotRequired[pulumi.Input[_builtins.str]]
+        """
+        (Output)
+        The principal of the identity.
+        """
+elif False:
+    WorkloadWorkloadPropertyIdentityArgsDict: TypeAlias = Mapping[str, Any]
+
+@pulumi.input_type
+class WorkloadWorkloadPropertyIdentityArgs:
+    def __init__(__self__, *,
+                 principal: Optional[pulumi.Input[_builtins.str]] = None):
+        """
+        :param pulumi.Input[_builtins.str] principal: (Output)
+               The principal of the identity.
+        """
+        if principal is not None:
+            pulumi.set(__self__, "principal", principal)
+
+    @_builtins.property
+    @pulumi.getter
+    def principal(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Output)
+        The principal of the identity.
+        """
+        return pulumi.get(self, "principal")
+
+    @principal.setter
+    def principal(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "principal", value)
 
 
 if not MYPY:

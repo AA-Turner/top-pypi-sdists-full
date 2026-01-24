@@ -14,13 +14,14 @@
 #include "include/private/base/SkTDArray.h"
 #include "src/base/SkZip.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 
 static const char gText[] = "Call me Ishmael. Some years ago—never mind how long precisely";
 
 class DrawGlyphsGM : public skiagm::GM {
 public:
     void onOnceBeforeDraw() override {
-        fTypeface = ToolUtils::create_portable_typeface("serif", SkFontStyle());
+        fTypeface = ToolUtils::CreatePortableTypeface("serif", SkFontStyle());
         fFont = SkFont(fTypeface);
         fFont.setSubpixel(true);
         fFont.setSize(18);
@@ -28,10 +29,10 @@ public:
         fGlyphCount = fFont.countText(gText, txtLen, SkTextEncoding::kUTF8);
 
         fGlyphs.append(fGlyphCount);
-        fFont.textToGlyphs(gText, txtLen, SkTextEncoding::kUTF8, fGlyphs.begin(), fGlyphCount);
+        fFont.textToGlyphs(gText, txtLen, SkTextEncoding::kUTF8, fGlyphs);
 
         fPositions.append(fGlyphCount);
-        fFont.getPos(fGlyphs.begin(), fGlyphCount, fPositions.begin());
+        fFont.getPos(fGlyphs, fPositions);
         auto positions = SkSpan(fPositions.begin(), fGlyphCount);
 
         fLength = positions.back().x() - positions.front().x();
@@ -47,29 +48,25 @@ public:
         }
     }
 
-    SkString onShortName() override {
-        return SkString("drawglyphs");
-    }
+    SkString getName() const override { return SkString("drawglyphs"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(640, 480);
-    }
+    SkISize getISize() override { return SkISize::Make(640, 480); }
 
     void onDraw(SkCanvas* canvas) override {
-        canvas->drawGlyphs(fGlyphCount, fGlyphs.begin(), fPositions.begin(), {50, 100}, fFont,
-                           SkPaint{});
+        canvas->drawGlyphs({fGlyphs.begin(), fGlyphCount}, {fPositions.begin(), fGlyphCount},
+                           {50, 100}, fFont, SkPaint{});
 
-        canvas->drawGlyphs(fGlyphCount, fGlyphs.begin(), fPositions.begin(), {50, 120}, fFont,
-                           SkPaint{});
+        canvas->drawGlyphs({fGlyphs.begin(), fGlyphCount}, {fPositions.begin(), fGlyphCount},
+                           {50, 120}, fFont, SkPaint{});
 
         // Check bounding box calculation.
         for (auto& pos : fPositions) {
             pos += {0, -500};
         }
-        canvas->drawGlyphs(fGlyphCount, fGlyphs.begin(), fPositions.begin(), {50, 640}, fFont,
-                           SkPaint{});
+        canvas->drawGlyphs({fGlyphs.begin(), fGlyphCount}, {fPositions.begin(), fGlyphCount},
+                           {50, 640}, fFont, SkPaint{});
 
-        canvas->drawGlyphs(fGlyphCount, fGlyphs.begin(), fXforms.begin(),
+        canvas->drawGlyphsRSXform(fGlyphs, fXforms,
                            {50 + fLength / 2, 160 + fRadius}, fFont, SkPaint{});
 
         // TODO: add tests for cluster versions of drawGlyphs.

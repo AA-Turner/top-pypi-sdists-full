@@ -59,10 +59,10 @@ impl Rule for MD024NoDuplicateHeading {
         for (line_num, line_info) in ctx.lines.iter().enumerate() {
             // Check for MkDocs snippet markers if using MkDocs flavor
             if is_mkdocs {
-                if crate::utils::mkdocs_snippets::is_snippet_section_start(&line_info.content) {
+                if crate::utils::mkdocs_snippets::is_snippet_section_start(line_info.content(ctx.content)) {
                     in_snippet_section = true;
                     continue; // Skip this line
-                } else if crate::utils::mkdocs_snippets::is_snippet_section_end(&line_info.content) {
+                } else if crate::utils::mkdocs_snippets::is_snippet_section_end(line_info.content(ctx.content)) {
                     in_snippet_section = false;
                     continue; // Skip this line
                 }
@@ -74,6 +74,11 @@ impl Rule for MD024NoDuplicateHeading {
             }
 
             if let Some(heading) = &line_info.heading {
+                // Skip invalid headings (e.g., `#NoSpace` which lacks required space after #)
+                if !heading.is_valid {
+                    continue;
+                }
+
                 // Skip empty headings
                 if heading.text.is_empty() {
                     continue;
@@ -83,19 +88,23 @@ impl Rule for MD024NoDuplicateHeading {
                 let level = heading.level;
 
                 // Calculate precise character range for the heading text content
-                let text_start_in_line = if let Some(pos) = line_info.content.find(&heading.text) {
+                let text_start_in_line = if let Some(pos) = line_info.content(ctx.content).find(&heading.text) {
                     pos
                 } else {
                     // Fallback: find after hash markers
-                    let trimmed = line_info.content.trim_start();
+                    let trimmed = line_info.content(ctx.content).trim_start();
                     let hash_count = trimmed.chars().take_while(|&c| c == '#').count();
                     let after_hashes = &trimmed[hash_count..];
                     let text_start_in_trimmed = after_hashes.find(&heading.text).unwrap_or(0);
-                    (line_info.content.len() - trimmed.len()) + hash_count + text_start_in_trimmed
+                    (line_info.byte_len - trimmed.len()) + hash_count + text_start_in_trimmed
                 };
 
-                let (start_line, start_col, end_line, end_col) =
-                    calculate_match_range(line_num + 1, &line_info.content, text_start_in_line, heading.text.len());
+                let (start_line, start_col, end_line, end_col) = calculate_match_range(
+                    line_num + 1,
+                    line_info.content(ctx.content),
+                    text_start_in_line,
+                    heading.text.len(),
+                );
 
                 if self.config.siblings_only {
                     // Update the section path based on the current heading level
@@ -114,13 +123,13 @@ impl Rule for MD024NoDuplicateHeading {
                     let siblings = seen_siblings.entry(parent_path.clone()).or_default();
                     if siblings.contains(&heading_key) {
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             message: format!("Duplicate heading: '{}'.", heading.text),
                             line: start_line,
                             column: start_col,
                             end_line,
                             end_column: end_col,
-                            severity: Severity::Warning,
+                            severity: Severity::Error,
                             fix: None,
                         });
                     } else {
@@ -134,13 +143,13 @@ impl Rule for MD024NoDuplicateHeading {
                     let seen = seen_headings_per_level.entry(level).or_default();
                     if seen.contains(&heading_key) {
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             message: format!("Duplicate heading: '{}'.", heading.text),
                             line: start_line,
                             column: start_col,
                             end_line,
                             end_column: end_col,
-                            severity: Severity::Warning,
+                            severity: Severity::Error,
                             fix: None,
                         });
                     } else {
@@ -150,13 +159,13 @@ impl Rule for MD024NoDuplicateHeading {
                     // Flag all duplicates, regardless of level
                     if seen_headings.contains(&heading_key) {
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             message: format!("Duplicate heading: '{}'.", heading.text),
                             line: start_line,
                             column: start_col,
                             end_line,
                             end_column: end_col,
-                            severity: Severity::Warning,
+                            severity: Severity::Error,
                             fix: None,
                         });
                     } else {
@@ -181,6 +190,11 @@ impl Rule for MD024NoDuplicateHeading {
 
     /// Check if this rule should be skipped
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
+        // Fast path: check if document likely has headings
+        if !ctx.likely_has_headings() {
+            return true;
+        }
+        // Verify headings actually exist
         ctx.lines.iter().all(|line| line.heading.is_none())
     }
 
@@ -219,13 +233,13 @@ mod tests {
     use crate::lint_context::LintContext;
 
     fn run_test(content: &str, config: MD024Config) -> LintResult {
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let rule = MD024NoDuplicateHeading::from_config_struct(config);
         rule.check(&ctx)
     }
 
     fn run_fix_test(content: &str, config: MD024Config) -> Result<String, LintError> {
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let rule = MD024NoDuplicateHeading::from_config_struct(config);
         rule.fix(&ctx)
     }
@@ -288,7 +302,10 @@ Some content.
 
 This has the same text but different level."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -353,7 +370,10 @@ Same with punctuation.
 
 Without punctuation."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -383,7 +403,10 @@ Code formatted.
 
 Duplicate code formatted."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -406,7 +429,10 @@ Some content.
 
 Same subsection name in different section."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -429,7 +455,10 @@ Same subsection name in different section."#;
 
 ### Subtitle"#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -496,7 +525,10 @@ Duplicate emojis.
 
 Duplicate special chars."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -552,7 +584,10 @@ More content.
 
 Duplicate with different style."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -615,7 +650,10 @@ Different amount of spaces.
 
 Exact match."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -635,7 +673,10 @@ Exact match."#;
 
 ### First"#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -741,7 +782,10 @@ Duplicate heading with link.
 
 Not a duplicate."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -763,7 +807,10 @@ Not a duplicate."#;
 
 Three in a row."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -840,7 +887,10 @@ Some content.
 
 Duplicate with code span."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -854,7 +904,10 @@ Duplicate with code span."#;
         let long_text = "This is a very long heading that goes on and on and on and contains many words to test how the rule handles long headings";
         let content = format!("# {long_text}\n\nSome content.\n\n## {long_text}\n\nDuplicate long heading.");
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(&content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();
@@ -873,7 +926,10 @@ Some content.
 
 Duplicate with HTML entity."#;
 
-        let config = MD024Config::default();
+        let config = MD024Config {
+            allow_different_nesting: false,
+            siblings_only: false,
+        };
         let result = run_test(content, config);
         assert!(result.is_ok());
         let warnings = result.unwrap();

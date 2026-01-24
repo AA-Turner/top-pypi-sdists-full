@@ -1,7 +1,7 @@
 cbuffer _UniformBuffer : register(b0, space0)
 {
-    float4 _10_colorGreen : packoffset(c0);
-    float4 _10_colorRed : packoffset(c1);
+    float4 _11_colorGreen : packoffset(c0);
+    float4 _11_colorRed : packoffset(c1);
 };
 
 
@@ -12,44 +12,44 @@ struct SPIRV_Cross_Output
     float4 sk_FragColor : SV_Target0;
 };
 
-float4 main(float2 _24)
+float4 main(float2 _25)
 {
-    float f = _10_colorGreen.y;
-    int _39 = int(_10_colorGreen.y);
+    float f = _11_colorGreen.y;
+    int _39 = int(_11_colorGreen.y);
     int i = _39;
-    bool _45 = _10_colorGreen.y != 0.0f;
-    bool b = _45;
-    float f1 = _10_colorGreen.y;
-    float _48 = float(_39);
-    float f2 = _48;
-    float _50 = float(_45);
-    float f3 = _50;
-    int _53 = int(_10_colorGreen.y);
-    int i1 = _53;
+    bool _46 = _11_colorGreen.y != 0.0f;
+    bool b = _46;
+    float f1 = _11_colorGreen.y;
+    float _49 = float(_39);
+    float f2 = _49;
+    float _51 = float(_46);
+    float f3 = _51;
+    int _54 = int(_11_colorGreen.y);
+    int i1 = _54;
     int i2 = _39;
-    int _56 = int(_45);
-    int i3 = _56;
-    bool _59 = _10_colorGreen.y != 0.0f;
-    bool b1 = _59;
-    bool _61 = _39 != 0;
-    bool b2 = _61;
-    bool b3 = _45;
-    float4 _79 = 0.0f.xxxx;
-    if (((((((((_10_colorGreen.y + _48) + _50) + float(_53)) + float(_39)) + float(_56)) + float(_59)) + float(_61)) + float(_45)) == 9.0f)
+    int _57 = int(_46);
+    int i3 = _57;
+    bool _60 = _11_colorGreen.y != 0.0f;
+    bool b1 = _60;
+    bool _62 = _39 != 0;
+    bool b2 = _62;
+    bool b3 = _46;
+    float4 _80 = 0.0f.xxxx;
+    if (((((((((_11_colorGreen.y + _49) + _51) + float(_54)) + float(_39)) + float(_57)) + float(_60)) + float(_62)) + float(_46)) == 9.0f)
     {
-        _79 = _10_colorGreen;
+        _80 = _11_colorGreen;
     }
     else
     {
-        _79 = _10_colorRed;
+        _80 = _11_colorRed;
     }
-    return _79;
+    return _80;
 }
 
 void frag_main()
 {
-    float2 _20 = 0.0f.xx;
-    sk_FragColor = main(_20);
+    float2 _21 = 0.0f.xx;
+    sk_FragColor = main(_21);
 }
 
 SPIRV_Cross_Output main()

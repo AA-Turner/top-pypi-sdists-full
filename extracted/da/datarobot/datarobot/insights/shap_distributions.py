@@ -23,25 +23,21 @@ class ShapDistributions(BaseInsight):
     and retrieve: compute, create, list, get.
     """
 
-    SHAP_DISTRIBUTION_VALUE = t.Dict(
-        {
-            t.Key("row_index"): t.Int(),
-            t.Key("prediction_value"): t.Float(),
-            t.Key("feature_rank"): t.Int(),
-            t.Key("feature_value"): t.String(),
-            t.Key("shap_value"): t.Float(),
-        }
-    ).ignore_extra("*")
+    SHAP_DISTRIBUTION_VALUE = t.Dict({
+        t.Key("row_index"): t.Int(),
+        t.Key("prediction_value"): t.Float(),
+        t.Key("feature_rank"): t.Int(),
+        t.Key("feature_value"): t.String(),
+        t.Key("shap_value"): t.Float(),
+    }).ignore_extra("*")
 
-    SHAP_DISTRIBUTIONS_ROW = t.Dict(
-        {
-            t.Key("feature"): t.String(),
-            t.Key("shap_values"): t.List(SHAP_DISTRIBUTION_VALUE),
-            t.Key("impact_unnormalized"): t.Float(),
-            t.Key("impact_normalized"): t.Float(),
-            t.Key("feature_type"): t.String(),
-        }
-    )
+    SHAP_DISTRIBUTIONS_ROW = t.Dict({
+        t.Key("feature"): t.String(),
+        t.Key("shap_values"): t.List(SHAP_DISTRIBUTION_VALUE),
+        t.Key("impact_unnormalized"): t.Float(),
+        t.Key("impact_normalized"): t.Float(),
+        t.Key("feature_type"): t.String(),
+    })
 
     INSIGHT_NAME = "shapDistributions"
     INSIGHT_DATA = {

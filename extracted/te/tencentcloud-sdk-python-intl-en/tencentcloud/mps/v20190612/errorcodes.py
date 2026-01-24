@@ -35,6 +35,9 @@ FAILEDOPERATION_INVALIDMPSUSER = 'FailedOperation.InvalidMpsUser'
 # Operation failed: invalid user.
 FAILEDOPERATION_INVALIDUSER = 'FailedOperation.InvalidUser'
 
+# Operation failed due to a network error.
+FAILEDOPERATION_NETWORKERROR = 'FailedOperation.NetWorkError'
+
 # Operation failed: Error setting the source notification.
 FAILEDOPERATION_SETSOURCENOTIFY = 'FailedOperation.SetSourceNotify'
 
@@ -83,6 +86,9 @@ INVALIDPARAMETERVALUE_AUDIOCODEC = 'InvalidParameterValue.AudioCodec'
 # Parameter error: audio stream sample rate.
 INVALIDPARAMETERVALUE_AUDIOSAMPLERATE = 'InvalidParameterValue.AudioSampleRate'
 
+# The configuration for the automatic erasing area of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_AUTOAREAS = 'InvalidParameterValue.AutoAreas'
+
 # Invalid audio/video bitrate.
 INVALIDPARAMETERVALUE_BITRATE = 'InvalidParameterValue.Bitrate'
 
@@ -113,6 +119,9 @@ INVALIDPARAMETERVALUE_COORDINATEORIGIN = 'InvalidParameterValue.CoordinateOrigin
 # Incorrect parameter value: the control field parameter for intelligent cover generation is incorrect.
 INVALIDPARAMETERVALUE_COVERCONFIGURE = 'InvalidParameterValue.CoverConfigure'
 
+# The specified area of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_CUSTOMAREAS = 'InvalidParameterValue.CustomAreas'
+
 # Incorrect parameter value: the default face library filter tag is invalid.
 INVALIDPARAMETERVALUE_DEFAULTLIBRARYLABELSET = 'InvalidParameterValue.DefaultLibraryLabelSet'
 
@@ -134,8 +143,23 @@ INVALIDPARAMETERVALUE_DISABLEHIGHERVIDEOBITRATE = 'InvalidParameterValue.Disable
 # Invalid switch value used to prohibit transcoding from low resolution to high resolution.
 INVALIDPARAMETERVALUE_DISABLEHIGHERVIDEORESOLUTION = 'InvalidParameterValue.DisableHigherVideoResolution'
 
+# Duplicated watermark text.
+INVALIDPARAMETERVALUE_DUPLICATEDTEXTCONTENT = 'InvalidParameterValue.DuplicatedTextContent'
+
 # The enabled detection items of the template are empty.
 INVALIDPARAMETERVALUE_EMPTYDETECTITEM = 'InvalidParameterValue.EmptyDetectItem'
+
+# The privacy protection configuration of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_ERASEPRIVACYCONFIG = 'InvalidParameterValue.ErasePrivacyConfig'
+
+# The subtitle erasing configuration of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_ERASESUBTITLECONFIG = 'InvalidParameterValue.EraseSubtitleConfig'
+
+# The erasing type of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_ERASETYPE = 'InvalidParameterValue.EraseType'
+
+# The watermark erasing configuration of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_ERASEWATERMARKCONFIG = 'InvalidParameterValue.EraseWatermarkConfig'
 
 # Incorrect parameter value: duplicated face.
 INVALIDPARAMETERVALUE_FACEDUPLICATE = 'InvalidParameterValue.FaceDuplicate'
@@ -215,8 +239,17 @@ INVALIDPARAMETERVALUE_NOTPROCESSINGTASK = 'InvalidParameterValue.NotProcessingTa
 # Incorrect parameter value: object library parameter is invalid.
 INVALIDPARAMETERVALUE_OBJECTLIBRARY = 'InvalidParameterValue.ObjectLibrary'
 
+# Incorrect parameter value: the OcrSwitch parameter value is invalid.
+INVALIDPARAMETERVALUE_OCRSWITCH = 'InvalidParameterValue.OcrSwitch'
+
 # Incorrect parameter value: incorrect face image format.
 INVALIDPARAMETERVALUE_PICFORMATERROR = 'InvalidParameterValue.PicFormatError'
+
+# The privacy protection model of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_PRIVACYMODEL = 'InvalidParameterValue.PrivacyModel'
+
+# The privacy protection target of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_PRIVACYTARGETS = 'InvalidParameterValue.PrivacyTargets'
 
 # Incorrect parameter value: Quality.
 INVALIDPARAMETERVALUE_QUALITY = 'InvalidParameterValue.Quality'
@@ -251,6 +284,9 @@ INVALIDPARAMETERVALUE_SAMPLERATE = 'InvalidParameterValue.SampleRate'
 # Incorrect parameter value: SampleType.
 INVALIDPARAMETERVALUE_SAMPLETYPE = 'InvalidParameterValue.SampleType'
 
+# A service parameter value error occurs.
+INVALIDPARAMETERVALUE_SERVICE = 'InvalidParameterValue.Service'
+
 # `SessionContext` is too long.
 INVALIDPARAMETERVALUE_SESSIONCONTEXTTOOLONG = 'InvalidParameterValue.SessionContextTooLong'
 
@@ -266,11 +302,23 @@ INVALIDPARAMETERVALUE_SOUNDSYSTEM = 'InvalidParameterValue.SoundSystem'
 # SourceLanguage parameter error.
 INVALIDPARAMETERVALUE_SOURCELANGUAGE = 'InvalidParameterValue.SourceLanguage'
 
+# A SourceText parameter error occurs.
+INVALIDPARAMETERVALUE_SOURCETEXT = 'InvalidParameterValue.SourceText'
+
 # Source file error.
 INVALIDPARAMETERVALUE_SRCFILE = 'InvalidParameterValue.SrcFile'
 
+# The subtitle erasing method of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_SUBTITLEERASEMETHOD = 'InvalidParameterValue.SubtitleEraseMethod'
+
 # Incorrect parameter value: The value of the `SubtitleFormat` parameter is invalid.
 INVALIDPARAMETERVALUE_SUBTITLEFORMAT = 'InvalidParameterValue.SubtitleFormat'
+
+# The language for the subtitle erasing of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_SUBTITLELANG = 'InvalidParameterValue.SubtitleLang'
+
+# The subtitle erasing model of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_SUBTITLEMODEL = 'InvalidParameterValue.SubtitleModel'
 
 # The value of the subtitle language type is incorrect.
 INVALIDPARAMETERVALUE_SUBTITLETYPE = 'InvalidParameterValue.SubtitleType'
@@ -299,8 +347,17 @@ INVALIDPARAMETERVALUE_TASKID = 'InvalidParameterValue.TaskId'
 # Parameter error: text transparency.
 INVALIDPARAMETERVALUE_TEXTALPHA = 'InvalidParameterValue.TextAlpha'
 
+# A TextContent parameter value error occurs.
+INVALIDPARAMETERVALUE_TEXTCONTENT = 'InvalidParameterValue.TextContent'
+
 # Parameter error: text template.
 INVALIDPARAMETERVALUE_TEXTTEMPLATE = 'InvalidParameterValue.TextTemplate'
+
+# The configuration for the translation target language is incorrect under the smart erasing - subtitle erasing template.
+INVALIDPARAMETERVALUE_TRANSDSTLANG = 'InvalidParameterValue.TransDstLang'
+
+# Incorrect parameter value: the TransSwitch parameter value is invalid.
+INVALIDPARAMETERVALUE_TRANSSWITCH = 'InvalidParameterValue.TransSwitch'
 
 # The value of the target language parameter is incorrect.
 INVALIDPARAMETERVALUE_TRANSLATEDSTLANGUAGE = 'InvalidParameterValue.TranslateDstLanguage'
@@ -325,6 +382,12 @@ INVALIDPARAMETERVALUE_VIDEOCODEC = 'InvalidParameterValue.VideoCodec'
 
 # The value of the video source language parameter is incorrect.
 INVALIDPARAMETERVALUE_VIDEOSRCLANGUAGE = 'InvalidParameterValue.VideoSrcLanguage'
+
+# The watermark erasing method of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_WATERMARKERASEMETHOD = 'InvalidParameterValue.WatermarkEraseMethod'
+
+# The watermark erasing model of the erasing template is incorrect.
+INVALIDPARAMETERVALUE_WATERMARKMODEL = 'InvalidParameterValue.WatermarkModel'
 
 # Parameter error: Wwdth.
 INVALIDPARAMETERVALUE_WIDTH = 'InvalidParameterValue.Width'
@@ -359,8 +422,14 @@ RESOURCENOTFOUND_PERSON = 'ResourceNotFound.Person'
 # The resource does not exist: the template does not exist.
 RESOURCENOTFOUND_TEMPLATENOTEXIST = 'ResourceNotFound.TemplateNotExist'
 
+# The user is not registered.
+RESOURCENOTFOUND_USERUNREGISTER = 'ResourceNotFound.UserUnregister'
+
 # The resource does not exist: Keyword.
 RESOURCENOTFOUND_WORD = 'ResourceNotFound.Word'
 
 # Unauthorized operation.
 UNAUTHORIZEDOPERATION = 'UnauthorizedOperation'
+
+# The text for a single request exceeds the length limit.
+UNSUPPORTEDOPERATION_TEXTTOOLONG = 'UnsupportedOperation.TextTooLong'

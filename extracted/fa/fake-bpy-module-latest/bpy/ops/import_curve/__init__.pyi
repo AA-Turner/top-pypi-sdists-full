@@ -17,14 +17,8 @@ def svg(
 ) -> None:
     """Load a SVG file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: File Path, Filepath used for importing the file
-    :type filepath: str
     :param filter_glob: filter_glob
-    :type filter_glob: str
     :param directory: directory
-    :type directory: str
     :param files: File Path
-    :type files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement] | None
     """

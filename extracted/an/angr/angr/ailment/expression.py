@@ -6,7 +6,6 @@ from enum import Enum, IntEnum
 from abc import abstractmethod
 from typing_extensions import Self
 
-
 try:
     import claripy
 except ImportError:
@@ -345,9 +344,9 @@ class VirtualVariable(Atom):
         ori_str = ""
         match self.category:
             case VirtualVariableCategory.REGISTER:
-                ori_str = f"{{reg {self.reg_offset}}}"
+                ori_str = f"{{r{self.reg_offset}|{self.size}b}}"
             case VirtualVariableCategory.STACK:
-                ori_str = f"{{stack {self.oident}}}"
+                ori_str = f"{{s{self.oident}|{self.size}b}}"
         return f"vvar_{self.varid}{ori_str}"
 
     __hash__ = TaggedObject.__hash__  # type: ignore
@@ -478,7 +477,7 @@ class Phi(Atom):
 class Op(Expression):
     __slots__ = ("op",)
 
-    def __init__(self, idx, depth, op, **kwargs):
+    def __init__(self, idx, depth, op: str, **kwargs):
         super().__init__(idx, depth, **kwargs)
         self.op = op
 

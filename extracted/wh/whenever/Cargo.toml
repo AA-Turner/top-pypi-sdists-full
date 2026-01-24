@@ -4,7 +4,7 @@ version = "0.1.0"  # Dummy value. Isn't actually used in distribution of the Pyt
 authors = []
 description = "Rust extension module for whenever"
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.92"
 license = "MIT"
 readme = "README.md"
 keywords = []
@@ -27,14 +27,18 @@ codegen-units = 1
 strip = true
 
 [dependencies]
-ahash = "^0.8.11"
-pyo3-ffi = { version = "^0.25.1", default-features = false, features = ["extension-module"]}
+ahash = "^0.8.12"
+
+[dependencies.pyo3-ffi]
+version = "^0.27.2"
+default-features = false
+features = ["extension-module", "generate-import-lib"]
 
 [build-dependencies]
-pyo3-build-config = { version = "^0.25.1" }
+pyo3-build-config = { version = "^0.27.2" }
 
 [dev-dependencies]
-criterion = "^0.5.1"
+criterion = "^0.8.1"
 walkdir = "^2.5.0"
 
 [[bench]]
@@ -43,4 +47,4 @@ harness = false
 path = "benchmarks/rust/main.rs"
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = [ "cfg(Py_3_9)", "cfg(Py_3_10)", "cfg(Py_3_11)", "cfg(Py_3_12)", "cfg(Py_3_13)", ] }
+unexpected_cfgs = { level = "warn", check-cfg = [ "cfg(Py_3_9)", "cfg(Py_3_10)", "cfg(Py_3_11)", "cfg(Py_3_12)", "cfg(Py_3_13)", "cfg(Py_GIL_DISABLED)"] }

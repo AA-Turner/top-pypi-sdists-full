@@ -19,6 +19,9 @@ from .conftest import (
 )
 from .test_pubsub import wait_for_message
 
+if SSL_AVAILABLE:
+    import ssl
+
 
 class DummyConnection:
     description_format = "DummyConnection<>"
@@ -26,11 +29,18 @@ class DummyConnection:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
         self.pid = os.getpid()
+        self._sock = None
 
     def connect(self):
-        pass
+        self._sock = mock.Mock()
+
+    def disconnect(self):
+        self._sock = None
 
     def can_read(self):
+        return False
+
+    def should_reconnect(self):
         return False
 
 
@@ -50,10 +60,14 @@ class TestConnectionPool:
         return pool
 
     def test_connection_creation(self):
-        connection_kwargs = {"foo": "bar", "biz": "baz"}
+        connection_kwargs = {
+            "foo": "bar",
+            "biz": "baz",
+        }
         pool = self.get_pool(
             connection_kwargs=connection_kwargs, connection_class=DummyConnection
         )
+
         connection = pool.get_connection()
         assert isinstance(connection, DummyConnection)
         assert connection.kwargs == connection_kwargs
@@ -130,6 +144,21 @@ class TestConnectionPool:
         expected = "path=/abc,db=1,client_name=test-client"
         assert expected in repr(pool)
 
+    def test_pool_disconnect(self, master_host):
+        connection_kwargs = {
+            "host": master_host[0],
+            "port": master_host[1],
+        }
+        pool = self.get_pool(connection_kwargs=connection_kwargs)
+
+        conn = pool.get_connection()
+        pool.disconnect()
+        assert not conn._sock
+
+        conn.connect()
+        pool.disconnect(inuse_connections=False)
+        assert conn._sock
+
 
 class TestBlockingConnectionPool:
     def get_pool(self, connection_kwargs=None, max_connections=10, timeout=20):
@@ -149,6 +178,7 @@ class TestBlockingConnectionPool:
             "host": master_host[0],
             "port": master_host[1],
         }
+
         pool = self.get_pool(connection_kwargs=connection_kwargs)
         connection = pool.get_connection()
         assert isinstance(connection, DummyConnection)
@@ -232,6 +262,23 @@ class TestBlockingConnectionPool:
             cache_config=CacheConfig(),
         )
         assert isinstance(pool.get_connection(), CacheProxyConnection)
+
+    def test_pool_disconnect(self, master_host):
+        connection_kwargs = {
+            "foo": "bar",
+            "biz": "baz",
+            "host": master_host[0],
+            "port": master_host[1],
+        }
+        pool = self.get_pool(connection_kwargs=connection_kwargs)
+
+        conn = pool.get_connection()
+        pool.disconnect()
+        assert not conn._sock
+
+        conn.connect()
+        pool.disconnect(inuse_connections=False)
+        assert conn._sock
 
 
 class TestConnectionPoolURLParsing:
@@ -503,8 +550,6 @@ class TestSSLConnectionURLParsing:
         assert pool.connection_class == MyConnection
 
     def test_cert_reqs_options(self):
-        import ssl
-
         class DummyConnectionPool(redis.ConnectionPool):
             def get_connection(self):
                 return self.make_connection()
@@ -523,6 +568,65 @@ class TestSSLConnectionURLParsing:
 
         pool = DummyConnectionPool.from_url("rediss://?ssl_check_hostname=True")
         assert pool.get_connection().check_hostname is True
+
+    def test_ssl_flags_config_parsing(self):
+        class DummyConnectionPool(redis.ConnectionPool):
+            def get_connection(self):
+                return self.make_connection()
+
+        pool = DummyConnectionPool.from_url(
+            "rediss://?ssl_include_verify_flags=VERIFY_X509_STRICT,VERIFY_CRL_CHECK_CHAIN"
+        )
+
+        assert pool.get_connection().ssl_include_verify_flags == [
+            ssl.VerifyFlags.VERIFY_X509_STRICT,
+            ssl.VerifyFlags.VERIFY_CRL_CHECK_CHAIN,
+        ]
+
+        pool = DummyConnectionPool.from_url(
+            "rediss://?ssl_include_verify_flags=[VERIFY_X509_STRICT, VERIFY_CRL_CHECK_CHAIN]"
+        )
+
+        assert pool.get_connection().ssl_include_verify_flags == [
+            ssl.VerifyFlags.VERIFY_X509_STRICT,
+            ssl.VerifyFlags.VERIFY_CRL_CHECK_CHAIN,
+        ]
+
+        pool = DummyConnectionPool.from_url(
+            "rediss://?ssl_exclude_verify_flags=VERIFY_X509_STRICT, VERIFY_CRL_CHECK_CHAIN"
+        )
+
+        assert pool.get_connection().ssl_exclude_verify_flags == [
+            ssl.VerifyFlags.VERIFY_X509_STRICT,
+            ssl.VerifyFlags.VERIFY_CRL_CHECK_CHAIN,
+        ]
+
+        pool = DummyConnectionPool.from_url(
+            "rediss://?ssl_include_verify_flags=VERIFY_X509_STRICT, VERIFY_CRL_CHECK_CHAIN&ssl_exclude_verify_flags=VERIFY_CRL_CHECK_LEAF"
+        )
+
+        assert pool.get_connection().ssl_include_verify_flags == [
+            ssl.VerifyFlags.VERIFY_X509_STRICT,
+            ssl.VerifyFlags.VERIFY_CRL_CHECK_CHAIN,
+        ]
+        assert pool.get_connection().ssl_exclude_verify_flags == [
+            ssl.VerifyFlags.VERIFY_CRL_CHECK_LEAF,
+        ]
+
+    def test_ssl_flags_config_invalid_flag(self):
+        class DummyConnectionPool(redis.ConnectionPool):
+            def get_connection(self):
+                return self.make_connection()
+
+        with pytest.raises(ValueError):
+            DummyConnectionPool.from_url(
+                "rediss://?ssl_include_verify_flags=[VERIFY_X509,VERIFY_CRL_CHECK_CHAIN]"
+            )
+
+        with pytest.raises(ValueError):
+            DummyConnectionPool.from_url(
+                "rediss://?ssl_exclude_verify_flags=[VERIFY_X509_STRICT1, VERIFY_CRL_CHECK_CHAIN]"
+            )
 
 
 class TestConnection:

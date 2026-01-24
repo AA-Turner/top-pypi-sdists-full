@@ -1,16 +1,43 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import timedelta
-from typing import (
-    Generic,
-    Mapping,
-    Optional,
-    Sequence,
-)
+from typing import Any, Generic, Optional
 
 from nexusrpc._common import Link, OutputT
+
+
+class OperationTaskCancellation(ABC):
+    """
+    Indicates whether a a Nexus task has been cancelled during a sync operation or before an async operation has
+    returned a token.
+
+    Nexus worker implementations are expected to provide an implementation that enables
+    cooperative cancellation for both sync and async operation handlers.
+
+    Operation Handler implementations are expected to periodically check :py:attr:`is_cancelled` or use :py:attr:`wait_until_cancelled` / :py:attr:`wait_until_cancelled_sync` to cancel in flight work when appropriate.
+    """
+
+    @abstractmethod
+    def is_cancelled(self) -> bool:
+        """Return True if the associated task has been cancelled."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def cancellation_reason(self) -> Optional[str]:
+        """Provide additional context for the cancellation, if available."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def wait_until_cancelled_sync(self, timeout: Optional[float] = None) -> bool:
+        """Block until cancellation occurs or the optional timeout elapses. Nexus worker implementations may return `True` for :py:attr:`is_cancelled` before this method returns and therefore may cause a race condition if both are used in tandem."""
+        raise NotImplementedError
+
+    @abstractmethod
+    async def wait_until_cancelled(self) -> None:
+        """Await cancellation using async primitives. Nexus worker implementations may return `True` for :py:attr:`is_cancelled` before this method returns and therefore may cause a race condition if both are used in tandem."""
+        raise NotImplementedError
 
 
 @dataclass(frozen=True)
@@ -19,7 +46,7 @@ class OperationContext(ABC):
 
     Includes information from the request."""
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any):
         if cls is OperationContext:
             raise TypeError(
                 "OperationContext is an abstract class and cannot be instantiated directly"
@@ -39,6 +66,10 @@ class OperationContext(ABC):
     headers: Mapping[str, str]
     """
     Optional header fields sent by the caller.
+    """
+    task_cancellation: OperationTaskCancellation
+    """
+    Task cancellation information indicating that a running task should be interrupted. This is distinct from operation cancellation.
     """
 
 
@@ -86,27 +117,6 @@ class CancelOperationContext(OperationContext):
     """Context for the cancel method.
 
     Includes information from the request."""
-
-
-@dataclass(frozen=True)
-class FetchOperationInfoContext(OperationContext):
-    """Context for the fetch_info method.
-
-    Includes information from the request."""
-
-
-@dataclass(frozen=True)
-class FetchOperationResultContext(OperationContext):
-    """Context for the fetch_result method.
-
-    Includes information from the request."""
-
-    wait: Optional[timedelta] = None
-    """
-    Allowed time to wait for the operation result (long poll). If by the end of the
-    wait period the operation is still running, a response with 412 status code will
-    be returned, and the caller may re-issue the request to start a new long poll.
-    """
 
 
 @dataclass(frozen=True)

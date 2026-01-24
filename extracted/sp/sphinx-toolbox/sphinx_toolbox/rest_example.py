@@ -104,7 +104,7 @@ class reSTExampleDirective(SphinxDirective):
 		"emphasize-lines": directives.unchanged,
 		"tab-width": int,
 		"dedent": int,
-		}
+	}
 
 	def run(self) -> List[nodes.Node]:
 		"""
@@ -138,6 +138,7 @@ def make_rest_example(
 	Make the content of a reST Example node.
 
 	:param options:
+	:param env:
 	:param content: The user-provided content of the directive.
 	"""
 

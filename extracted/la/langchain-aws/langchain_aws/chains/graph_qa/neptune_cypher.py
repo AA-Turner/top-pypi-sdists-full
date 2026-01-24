@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts.base import BasePromptTemplate
@@ -103,16 +103,17 @@ def create_neptune_opencypher_qa_chain(
         The best way to guard against such negative outcomes is to (as appropriate)
         limit the permissions granted to the credentials used with this tool.
 
-        See https://python.langchain.com/docs/security for more information.
+        See https://docs.langchain.com/oss/python/security-policy for more information.
 
     Example:
-        .. code-block:: python
-
+        ```python
         chain = create_neptune_opencypher_qa_chain(
             llm=llm,
             graph=graph
         )
         response = chain.invoke({"query": "your_query_here"})
+        ```
+
     """
 
     if allow_dangerous_requests is not True:
@@ -125,7 +126,8 @@ def create_neptune_opencypher_qa_chain(
             "present in the database. "
             "Only use this chain if you understand the risks and have taken the "
             "necessary precautions. "
-            "See https://python.langchain.com/docs/security for more information."
+            "See https://docs.langchain.com/oss/python/security-policy for more "
+            "information."
         )
 
     qa_chain = qa_prompt | llm
@@ -138,7 +140,7 @@ def create_neptune_opencypher_qa_chain(
             return {"query": raw_input}
         return raw_input
 
-    def execute_graph_query(cypher_query: str) -> dict:
+    def execute_graph_query(cypher_query: str) -> List[Dict[str, Any]]:
         return graph.query(cypher_query)
 
     def get_cypher_inputs(inputs: dict) -> dict:

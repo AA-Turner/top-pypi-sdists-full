@@ -1,29 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-pglock
-Version: 1.7.2
+Version: 1.8.0
 Summary: Postgres locking routines and lock table access.
-Home-page: https://github.com/AmbitionEng/django-pglock
 License: BSD-3-Clause
+License-File: LICENSE
 Author: Wes Kendall
-Requires-Python: >=3.9.0,<4
+Requires-Python: >=3.10.0,<4
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Dist: django (>=4)
+Requires-Dist: django (>=4.2)
 Requires-Dist: django-pgactivity (>=1.2,<2)
 Project-URL: Documentation, https://django-pglock.readthedocs.io
+Project-URL: Homepage, https://github.com/AmbitionEng/django-pglock
 Project-URL: Repository, https://github.com/AmbitionEng/django-pglock
 Description-Content-Type: text/markdown
 
@@ -125,7 +128,7 @@ Use `python manage.py pglock` to view and kill locks from the command line. It h
 
 ## Compatibility
 
-`django-pglock` is compatible with Python 3.9 - 3.13, Django 4.2 - 5.1, Psycopg 2 - 3, and Postgres 13 - 17.
+`django-pglock` is compatible with Python 3.10 - 3.14, Django 4.2 - 6.0, Psycopg 2 - 3, and Postgres 14 - 18.
 
 ## Documentation
 

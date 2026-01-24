@@ -5,6 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
 use pyrefly_python::short_identifier::ShortIdentifier;
 use pyrefly_util::visit::VisitMut;
@@ -27,33 +28,42 @@ use ruff_python_ast::Identifier;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use starlark_map::Hashed;
-use starlark_map::small_set::SmallSet;
+use vec1::vec1;
 
 use crate::binding::binding::Binding;
+use crate::binding::binding::BindingDecorator;
+use crate::binding::binding::BindingExpect;
 use crate::binding::binding::BindingYield;
 use crate::binding::binding::BindingYieldFrom;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
+use crate::binding::binding::KeyDecorator;
+use crate::binding::binding::KeyExpect;
 use crate::binding::binding::KeyYield;
 use crate::binding::binding::KeyYieldFrom;
 use crate::binding::binding::LinkedKey;
+use crate::binding::binding::NarrowUseLocation;
+use crate::binding::binding::PrivateAttributeAccessCheck;
 use crate::binding::binding::SuperStyle;
+use crate::binding::bindings::AwaitContext;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::LegacyTParamBuilder;
+use crate::binding::bindings::LegacyTParamCollector;
 use crate::binding::bindings::LegacyTParamId;
 use crate::binding::bindings::NameLookupResult;
 use crate::binding::narrow::AtomicNarrowOp;
 use crate::binding::narrow::NarrowOps;
-use crate::binding::scope::Flow;
 use crate::binding::scope::Scope;
-use crate::binding::scope::ScopeClass;
-use crate::binding::scope::ScopeKind;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
 use crate::export::special::SpecialExport;
-use crate::graph::index::Idx;
 use crate::types::callable::unexpected_keyword;
 use crate::types::types::Type;
+
+/// Match on an expression by name. Should be used only for special names that we essentially treat like keywords,
+/// like reveal_type.
+fn is_special_name(name: &str) -> bool {
+    matches!(name, "reveal_type" | "assert_type")
+}
 
 /// Looking up names in an expression requires knowing the identity of the binding
 /// we are computing for usage tracking.
@@ -61,21 +71,42 @@ use crate::types::types::Type;
 /// There are some cases - particularly in type declaration contexts like annotations,
 /// type variable declarations, and match patterns - that we want to skip for usage
 /// tracking.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Usage {
-    /// I am a usage to create a `Binding`.
-    CurrentIdx(Idx<Key>, SmallSet<Idx<Key>>),
-    /// I am a usage that will appear in a narrowing operation (including a
-    /// match pattern). We don't allow pinning in this case:
-    /// - It is generally not useful (narrowing operations don't usually pin types)
-    /// - Because narrowing introduces duplicate expressions, it is difficult
-    ///   to ensure unpinned Vars cannot leak into the binding graph and cause
-    ///   nondeterminism.
-    Narrowing,
-    /// I'm a usage in some context (a type variable declaration, an annotation,
-    /// a cast, etc) where we are dealing with static types. I will not pin
-    /// any placeholder types.
+    /// Normal usage context that may pin partial types.
+    /// The idx is the current binding being computed.
+    CurrentIdx(Idx<Key>),
+    /// Narrowing context that should not pin partial types.
+    /// The idx (if present) is used for secondary-read detection.
+    Narrowing(Option<Idx<Key>>),
+    /// Static type context that should not pin partial types.
     StaticTypeInformation,
+}
+
+impl Usage {
+    /// Create a narrowing usage from another usage context.
+    pub fn narrowing_from(other: &Self) -> Self {
+        match other {
+            Self::CurrentIdx(idx) => Self::Narrowing(Some(*idx)),
+            Self::Narrowing(idx) => Self::Narrowing(*idx),
+            Self::StaticTypeInformation => Self::Narrowing(None),
+        }
+    }
+
+    /// Get the current binding idx, if any.
+    pub fn current_idx(&self) -> Option<Idx<Key>> {
+        match self {
+            Usage::CurrentIdx(idx) => Some(*idx),
+            Usage::Narrowing(idx) => *idx,
+            Usage::StaticTypeInformation => None,
+        }
+    }
+
+    /// Whether this usage context may pin partial types.
+    #[allow(dead_code)] // Will be used in Phase 5 of deferred BoundName implementation
+    pub fn may_pin_partial_type(&self) -> bool {
+        matches!(self, Usage::CurrentIdx(_))
+    }
 }
 
 enum TestAssertion {
@@ -106,7 +137,7 @@ impl TestAssertion {
                 Some(NarrowOps::from_single_narrow_op(
                     arg0,
                     AtomicNarrowOp::Is(Expr::NoneLiteral(ExprNoneLiteral {
-                        node_index: AtomicNodeIndex::dummy(),
+                        node_index: AtomicNodeIndex::default(),
                         range: TextRange::default(),
                     })),
                     arg0.range(),
@@ -116,7 +147,7 @@ impl TestAssertion {
                 Some(NarrowOps::from_single_narrow_op(
                     arg0,
                     AtomicNarrowOp::IsNot(Expr::NoneLiteral(ExprNoneLiteral {
-                        node_index: AtomicNodeIndex::dummy(),
+                        node_index: AtomicNodeIndex::default(),
                         range: TextRange::default(),
                     })),
                     arg0.range(),
@@ -208,6 +239,47 @@ impl TestAssertion {
 }
 
 impl<'a> BindingsBuilder<'a> {
+    /// Ensure the name in an `ExprName`. Note that unlike `ensure_expr`, it
+    /// does not require a mutable ref.
+    pub fn ensure_expr_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
+        let name = Ast::expr_name_identifier(x.clone());
+        self.ensure_name(&name, usage, &mut None)
+    }
+
+    fn ensure_name(
+        &mut self,
+        name: &Identifier,
+        usage: &mut Usage,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
+    ) -> Idx<Key> {
+        self.ensure_name_impl(
+            name,
+            usage,
+            tparams_builder
+                .as_mut()
+                .map(|tparams_builder| (tparams_builder, LegacyTParamId::Name(name.clone()))),
+        )
+    }
+
+    fn ensure_simple_attr(
+        &mut self,
+        value: &Identifier,
+        attr: &Identifier,
+        usage: &mut Usage,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
+    ) -> Idx<Key> {
+        self.ensure_name_impl(
+            value,
+            usage,
+            tparams_builder.as_mut().map(|tparams_builder| {
+                (
+                    tparams_builder,
+                    LegacyTParamId::Attr(value.clone(), attr.clone()),
+                )
+            }),
+        )
+    }
+
     /// Given a name appearing in an expression, create a `Usage` key for that
     /// name at the current location. The binding will indicate how to compute
     /// the type if we found that name in scope; if we do not find the name we
@@ -224,52 +296,16 @@ impl<'a> BindingsBuilder<'a> {
     ///   which allow uses of nonlocals, versus mutable lookups that do not
     ///   (unless the nonlocal was explicitly mutably captured by a `global`
     ///   or `nonlocal` statement).
-    /// - An optional `tparams_builder`, which intercepts names - but only
-    ///   in static type contexts - that map to legacy type variables.
-    pub fn ensure_name(
-        &mut self,
-        name: &Identifier,
-        usage: &mut Usage,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
-    ) -> Idx<Key> {
-        self.ensure_name_impl(
-            name,
-            usage,
-            tparams_builder
-                .as_mut()
-                .map(|tparams_builder| (tparams_builder, LegacyTParamId::Name(name.clone()))),
-        )
-    }
-
-    pub fn ensure_mutable_name(&mut self, x: &ExprName, usage: &mut Usage) -> Idx<Key> {
-        let name = Ast::expr_name_identifier(x.clone());
-        self.ensure_name(&name, usage, &mut None)
-    }
-
-    fn ensure_simple_attr(
-        &mut self,
-        value: &Identifier,
-        attr: &Identifier,
-        usage: &mut Usage,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
-    ) -> Idx<Key> {
-        self.ensure_name_impl(
-            value,
-            usage,
-            tparams_builder.as_mut().map(|tparams_builder| {
-                (
-                    tparams_builder,
-                    LegacyTParamId::Attr(value.clone(), attr.clone()),
-                )
-            }),
-        )
-    }
-
+    /// - An optional `tparams_lookup`, which intercepts names - but only
+    ///   in static type contexts - that map to legacy type variables. It
+    ///   is a flexible callback in order to handle not only bare name type
+    ///   variables, but also `<module>.<name>` type variables, which have
+    ///   to be modeled as attribute narrows of the module at solve time.
     fn ensure_name_impl(
         &mut self,
         name: &Identifier,
         usage: &mut Usage,
-        tparams_lookup: Option<(&mut LegacyTParamBuilder, LegacyTParamId)>,
+        tparams_lookup: Option<(&mut LegacyTParamCollector, LegacyTParamId)>,
     ) -> Idx<Key> {
         let key = Key::BoundName(ShortIdentifier::new(name));
         if name.is_empty() {
@@ -285,16 +321,15 @@ impl<'a> BindingsBuilder<'a> {
         }
         let used_in_static_type = matches!(usage, Usage::StaticTypeInformation);
         let lookup_result =
-            if used_in_static_type && let Some((tparams_builder, tparam_id)) = tparams_lookup {
-                tparams_builder.intercept_lookup(self, tparam_id)
+            if used_in_static_type && let Some((tparams_collector, tparam_id)) = tparams_lookup {
+                self.intercept_lookup(tparams_collector, tparam_id)
             } else {
                 self.lookup_name(Hashed::new(&name.id), usage)
-                    .map_found(Binding::Forward)
             };
         match lookup_result {
             NameLookupResult::Found {
-                value,
-                is_initialized,
+                idx: lookup_result_idx,
+                initialized: is_initialized,
             } => {
                 // Uninitialized local errors are only reported when we are neither in a stub
                 // nor a static type context.
@@ -308,16 +343,46 @@ impl<'a> BindingsBuilder<'a> {
                         error_message,
                     );
                 }
-                self.insert_binding(key, value)
+
+                // For static type context, create binding immediately since it
+                // doesn't participate in partial type pinning anyway and legacy tparam handling
+                // needs this; otherwise, defer creating a bound name.
+                if used_in_static_type {
+                    self.insert_binding(key, Binding::Forward(lookup_result_idx))
+                } else {
+                    self.defer_bound_name(key, lookup_result_idx, usage)
+                }
             }
             NameLookupResult::NotFound => {
-                // Record a type error and fall back to `Any`.
-                self.error(
-                    name.range,
-                    ErrorInfo::Kind(ErrorKind::UnknownName),
-                    format!("Could not find name `{name}`"),
-                );
-                self.insert_binding(key, Binding::Type(Type::any_error()))
+                let suggestion = self
+                    .scopes
+                    .suggest_similar_name(&name.id, name.range.start());
+                if is_special_name(name.id.as_str()) {
+                    self.error(
+                        name.range,
+                        ErrorInfo::Kind(ErrorKind::UnknownName),
+                        format!(
+                            "`{}` must be imported from `typing` for runtime usage",
+                            name
+                        ),
+                    );
+                    self.insert_binding(key, Binding::Type(Type::any_error()))
+                } else if self.scopes.in_class_body()
+                    && let Some((cls, _)) = self.scopes.current_class_and_metadata_keys()
+                {
+                    self.insert_binding(
+                        key,
+                        Binding::ClassBodyUnknownName(cls, name.clone(), suggestion),
+                    )
+                } else {
+                    // Record a type error and fall back to `Any`.
+                    let mut msg = vec1![format!("Could not find name `{name}`")];
+                    if let Some(suggestion) = suggestion {
+                        msg.push(format!("Did you mean `{suggestion}`?"));
+                    }
+                    self.error_multiline(name.range, ErrorInfo::Kind(ErrorKind::UnknownName), msg);
+                    self.insert_binding(key, Binding::Type(Type::any_error()))
+                }
             }
         }
     }
@@ -327,6 +392,7 @@ impl<'a> BindingsBuilder<'a> {
         range: TextRange,
         comprehensions: &mut [Comprehension],
         usage: &mut Usage,
+        is_generator: bool,
     ) {
         for (i, comp) in comprehensions.iter_mut().enumerate() {
             // Resolve the type of the iteration value *before* binding the target of the iteration.
@@ -334,7 +400,16 @@ impl<'a> BindingsBuilder<'a> {
             // the `in x` lookup.
             self.ensure_expr(&mut comp.iter, usage);
             if i == 0 {
-                self.scopes.push(Scope::comprehension(range));
+                // Async list/set/dict comprehensions must be inside an async def. Async generator
+                // expressions are allowed to stand alone because they can have deferred execution.
+                if comp.is_async && !is_generator && !self.scopes.is_in_async_def() {
+                    self.error(
+                        range,
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`async` can only be used inside an async function".to_owned(),
+                    );
+                }
+                self.scopes.push(Scope::comprehension(range, is_generator));
             }
             // Incomplete nested comprehensions can have identical iterators
             // for inner and outer loops. It is safe to overwrite it because it literally the same.
@@ -349,9 +424,9 @@ impl<'a> BindingsBuilder<'a> {
                 Binding::Forward(iterable_value_idx)
             });
             for x in comp.ifs.iter_mut() {
-                self.ensure_expr(x, &mut Usage::Narrowing);
+                self.ensure_expr(x, &mut Usage::narrowing_from(usage));
                 let narrow_ops = NarrowOps::from_expr(self, Some(x));
-                self.bind_narrow_ops(&narrow_ops, comp.range);
+                self.bind_narrow_ops(&narrow_ops, NarrowUseLocation::Span(comp.range), usage);
             }
         }
     }
@@ -370,48 +445,20 @@ impl<'a> BindingsBuilder<'a> {
         // TODO: We should properly handle `yield` and `yield from`; lambdas can be generators.
         // One example of this is in the standard library, in `_collections_abc.pyi`:
         // https://github.com/python/cpython/blob/965662ee4a986605b60da470d9e7c1e9a6f922b3/Lib/_collections_abc.py#L92
-        let (yields_and_returns, _) = self.scopes.pop_function_scope();
-        for (idx, y) in yields_and_returns.yields {
+        let (yields_and_returns, _, _, _) = self.scopes.pop_function_scope();
+        for (idx, y, _) in yields_and_returns.yields {
             self.insert_binding_idx(idx, BindingYield::Invalid(y));
         }
-        for (idx, y) in yields_and_returns.yield_froms {
+        for (idx, y, _) in yields_and_returns.yield_froms {
             self.insert_binding_idx(idx, BindingYieldFrom::Invalid(y));
         }
-    }
-
-    /// Helper to clean up an expression that does type narrowing. We merge flows for the narrowing
-    /// operation and its negation, so that narrowing is limited to the body of the expression but
-    /// newly defined names persist.
-    fn negate_and_merge_flow(
-        &mut self,
-        base: Flow,
-        ops: &NarrowOps,
-        orelse: Option<&mut Expr>,
-        range: TextRange,
-        usage: &mut Usage,
-    ) {
-        let if_branch = self.scopes.replace_current_flow(base);
-        self.bind_narrow_ops(&ops.negate(), range);
-        self.ensure_expr_opt(orelse, usage);
-        // Swap them back again, to make sure that the merge order is if, then else
-        let else_branch = self.scopes.replace_current_flow(if_branch);
-        self.merge_branches_into_current(vec![else_branch], range);
-    }
-
-    fn enclosing_class_name(&self) -> Option<&Identifier> {
-        for scope in self.scopes.iter_rev() {
-            if let ScopeKind::Class(ScopeClass { name, .. }) = &scope.kind {
-                return Some(name);
-            }
-        }
-        None
     }
 
     // We want to special-case `self.assertXXX()` methods in unit tests.
     // The logic is intentionally syntax-based as we want to avoid checking whether the base type
     // is `unittest.TestCase` on every single method invocation.
     fn as_assert_in_test(&self, func: &Expr) -> Option<TestAssertion> {
-        if let Some(class_name) = self.enclosing_class_name() {
+        if let Some(class_name) = self.scopes.enclosing_class_name() {
             let class_name_str = class_name.as_str();
             if !(class_name_str.contains("test") || class_name_str.contains("Test")) {
                 return None;
@@ -448,7 +495,10 @@ impl<'a> BindingsBuilder<'a> {
         let mut yield_link = self.declare_current_idx(Key::YieldLink(x.range));
         let idx = self.idx_for_promise(KeyYield(x.range));
         self.ensure_expr_opt(x.value.as_deref_mut(), yield_link.usage());
-        if let Err(oops_top_level) = self.scopes.record_or_reject_yield(idx, x) {
+        if let Err(oops_top_level) =
+            self.scopes
+                .record_or_reject_yield(idx, x, self.scopes.is_definitely_unreachable())
+        {
             self.insert_binding_idx(idx, BindingYield::Invalid(oops_top_level));
         }
         self.insert_binding_current(yield_link, Binding::UsageLink(LinkedKey::Yield(idx)));
@@ -458,7 +508,10 @@ impl<'a> BindingsBuilder<'a> {
         let mut yield_from_link = self.declare_current_idx(Key::YieldLink(x.range));
         let idx = self.idx_for_promise(KeyYieldFrom(x.range));
         self.ensure_expr(&mut x.value, yield_from_link.usage());
-        if let Err(oops_top_level) = self.scopes.record_or_reject_yield_from(idx, x) {
+        if let Err(oops_top_level) =
+            self.scopes
+                .record_or_reject_yield_from(idx, x, self.scopes.is_definitely_unreachable())
+        {
             self.insert_binding_idx(idx, BindingYieldFrom::Invalid(oops_top_level));
         }
         self.insert_binding_current(
@@ -469,16 +522,31 @@ impl<'a> BindingsBuilder<'a> {
 
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_expr(&mut self, x: &mut Expr, usage: &mut Usage) {
+        self.with_semantic_checker(|semantic, context| semantic.visit_expr(x, context));
+
         match x {
+            Expr::Attribute(attr) => {
+                self.check_private_attribute_usage(attr);
+                self.ensure_expr(&mut attr.value, usage);
+            }
             Expr::If(x) => {
                 // Ternary operation. We treat it like an if/else statement.
-                let base = self.scopes.clone_current_flow();
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
+                self.start_fork_and_branch(x.range);
+                self.ensure_expr(&mut x.test, &mut Usage::narrowing_from(usage));
                 let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.bind_narrow_ops(&narrow_ops, x.body.range());
+                self.bind_narrow_ops(&narrow_ops, NarrowUseLocation::Span(x.body.range()), usage);
                 self.ensure_expr(&mut x.body, usage);
-                let range = x.range();
-                self.negate_and_merge_flow(base, &narrow_ops, Some(&mut x.orelse), range, usage);
+                // Negate the narrow ops for the `orelse`, then merge the Flows.
+                // TODO(stroxler): We eventually want to drop all narrows but merge values.
+                self.next_branch();
+                self.bind_narrow_ops(
+                    &narrow_ops.negate(),
+                    NarrowUseLocation::Span(x.range),
+                    usage,
+                );
+                self.ensure_expr(&mut x.orelse, usage);
+                self.finish_branch();
+                self.finish_exhaustive_fork();
             }
             Expr::BoolOp(ExprBoolOp {
                 node_index: _,
@@ -486,24 +554,48 @@ impl<'a> BindingsBuilder<'a> {
                 op,
                 values,
             }) => {
-                let base = self.scopes.clone_current_flow();
-                let mut narrow_ops = NarrowOps::new();
-                for value in values {
-                    self.bind_narrow_ops(&narrow_ops, value.range());
-                    self.ensure_expr(value, &mut Usage::Narrowing);
-                    let new_narrow_ops = NarrowOps::from_expr(self, Some(value));
+                let mut values = values.iter_mut();
+                fn get_narrow_ops(myself: &BindingsBuilder, expr: &Expr, op: BoolOp) -> NarrowOps {
+                    let raw_narrow_ops = NarrowOps::from_expr(myself, Some(expr));
                     match op {
                         BoolOp::And => {
                             // Every subsequent value is evaluated only if all previous values were truthy.
-                            narrow_ops.and_all(new_narrow_ops);
+                            raw_narrow_ops
                         }
                         BoolOp::Or => {
                             // Every subsequent value is evaluated only if all previous values were falsy.
-                            narrow_ops.and_all(new_narrow_ops.negate());
+                            raw_narrow_ops.negate()
                         }
                     }
                 }
-                self.negate_and_merge_flow(base, &narrow_ops, None, *range, usage);
+                if let Some(value) = values.next() {
+                    // The first operation runs unconditionally, so any walrus-defined
+                    // names will be added to the base flow.
+                    self.ensure_expr(value, &mut Usage::narrowing_from(usage));
+                    self.start_fork_and_branch(*range);
+                    let mut narrow_ops = get_narrow_ops(self, value, *op);
+                    for value in values {
+                        self.bind_narrow_ops(
+                            &narrow_ops,
+                            NarrowUseLocation::Span(value.range()),
+                            usage,
+                        );
+                        self.ensure_expr(value, &mut Usage::narrowing_from(usage));
+                        let new_narrow_ops = get_narrow_ops(self, value, *op);
+                        narrow_ops.and_all(new_narrow_ops);
+                    }
+                    // Negate the narrow ops in the base flow and merge.
+                    // TODO(stroxler): We eventually want to drop all narrows but merge values.
+                    // Once we have a way to do that, the negation will be unnecessary.
+                    self.next_branch();
+                    self.bind_narrow_ops(
+                        &narrow_ops.negate(),
+                        NarrowUseLocation::End(*range),
+                        usage,
+                    );
+                    self.finish_branch();
+                    self.finish_bool_op_fork();
+                }
             }
             Expr::Call(ExprCall {
                 node_index: _,
@@ -577,25 +669,9 @@ impl<'a> BindingsBuilder<'a> {
                 }
                 let nargs = posargs.len();
                 let style = if nargs == 0 {
-                    let mut method_name = None;
-                    let mut class_key = None;
-                    for scope in self.scopes.iter_rev() {
-                        match &scope.kind {
-                            ScopeKind::Method(method_scope) => {
-                                method_name = Some(method_scope.name.clone());
-                            }
-                            ScopeKind::Class(class_scope) if method_name.is_some() => {
-                                class_key = Some(class_scope.indices.class_idx);
-                                break;
-                            }
-                            _ => {}
-                        }
-                    }
-                    match (class_key, method_name) {
-                        (Some(class_idx), Some(method)) => {
-                            SuperStyle::ImplicitArgs(class_idx, method)
-                        }
-                        _ => {
+                    match self.scopes.current_method_and_class() {
+                        Some((method, class_idx)) => SuperStyle::ImplicitArgs(class_idx, method),
+                        None => {
                             self.error(
                                 *range,
                                 ErrorInfo::Kind(ErrorKind::InvalidSuperCall),
@@ -646,12 +722,12 @@ impl<'a> BindingsBuilder<'a> {
             {
                 self.ensure_expr(func, usage);
                 for arg in arguments.args.iter_mut() {
-                    self.ensure_expr(arg, &mut Usage::Narrowing);
+                    self.ensure_expr(arg, &mut Usage::narrowing_from(usage));
                 }
                 for kw in arguments.keywords.iter_mut() {
                     self.ensure_expr(&mut kw.value, usage);
                 }
-                self.bind_narrow_ops(&narrow_op, *range);
+                self.bind_narrow_ops(&narrow_op, NarrowUseLocation::Span(*range), usage);
             }
             Expr::Named(x) => {
                 // For scopes defined in terms of Definitions, we should normally already have the name in Static, but
@@ -665,25 +741,35 @@ impl<'a> BindingsBuilder<'a> {
                 self.bind_lambda(x, usage);
             }
             Expr::ListComp(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators, usage);
-                self.ensure_expr(&mut x.elt, usage);
-                self.scopes.pop();
+                self.with_await_context(AwaitContext::General, |this| {
+                    this.bind_comprehensions(x.range, &mut x.generators, usage, false);
+                    this.ensure_expr(&mut x.elt, usage);
+                    this.scopes.pop();
+                });
             }
             Expr::SetComp(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators, usage);
-                self.ensure_expr(&mut x.elt, usage);
-                self.scopes.pop();
+                self.with_await_context(AwaitContext::General, |this| {
+                    this.bind_comprehensions(x.range, &mut x.generators, usage, false);
+                    this.ensure_expr(&mut x.elt, usage);
+                    this.scopes.pop();
+                });
             }
             Expr::DictComp(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators, usage);
-                self.ensure_expr(&mut x.key, usage);
-                self.ensure_expr(&mut x.value, usage);
-                self.scopes.pop();
+                self.with_await_context(AwaitContext::General, |this| {
+                    this.bind_comprehensions(x.range, &mut x.generators, usage, false);
+                    this.ensure_expr(&mut x.key, usage);
+                    this.ensure_expr(&mut x.value, usage);
+                    this.scopes.pop();
+                });
             }
             Expr::Generator(x) => {
-                self.bind_comprehensions(x.range, &mut x.generators, usage);
-                self.ensure_expr(&mut x.elt, usage);
-                self.scopes.pop();
+                self.with_await_context(AwaitContext::General, |this| {
+                    this.bind_comprehensions(x.range, &mut x.generators, usage, true);
+                    this.with_await_context(AwaitContext::GeneratorElement, |this| {
+                        this.ensure_expr(&mut x.elt, usage);
+                    });
+                    this.scopes.pop();
+                });
             }
             Expr::Call(ExprCall { func, .. })
                 if matches!(
@@ -693,7 +779,7 @@ impl<'a> BindingsBuilder<'a> {
             {
                 x.recurse_mut(&mut |x| self.ensure_expr(x, usage));
                 // Control flow doesn't proceed after sys.exit(), exit(), quit(), or os._exit().
-                self.scopes.mark_flow_termination();
+                self.scopes.mark_flow_termination(false);
             }
             Expr::Name(x) => {
                 let name = Ast::expr_name_identifier(x.clone());
@@ -707,7 +793,10 @@ impl<'a> BindingsBuilder<'a> {
             }
             Expr::Await(x) => {
                 self.ensure_expr(&mut x.value, usage);
-                if !self.scopes.is_in_async_def() {
+                let in_async_def = self.scopes.is_in_async_def();
+                let in_generator_element = self.in_generator_await_context();
+                if !in_async_def && !in_generator_element && !self.module_info.path().is_notebook()
+                {
                     self.error(
                         x.range(),
                         ErrorInfo::Kind(ErrorKind::InvalidSyntax),
@@ -721,6 +810,21 @@ impl<'a> BindingsBuilder<'a> {
         }
     }
 
+    fn check_private_attribute_usage(&mut self, attr: &ExprAttribute) {
+        if !Ast::is_mangled_attr(&attr.attr.id) {
+            return;
+        }
+        let expect = PrivateAttributeAccessCheck {
+            value: (*attr.value).clone(),
+            attr: attr.attr.clone(),
+            class_idx: self.scopes.current_method_context(),
+        };
+        self.insert_binding(
+            KeyExpect(attr.attr.range()),
+            BindingExpect::PrivateAttributeAccess(expect),
+        );
+    }
+
     /// Execute through the expr, ensuring every name has a binding.
     pub fn ensure_expr_opt(&mut self, x: Option<&mut Expr>, usage: &mut Usage) {
         if let Some(x) = x {
@@ -729,14 +833,18 @@ impl<'a> BindingsBuilder<'a> {
     }
 
     /// Execute through the expr, ensuring every name has a binding.
-    pub fn ensure_type(&mut self, x: &mut Expr, tparams_builder: &mut Option<LegacyTParamBuilder>) {
+    pub fn ensure_type(
+        &mut self,
+        x: &mut Expr,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
+    ) {
         self.ensure_type_impl(x, tparams_builder, false);
     }
 
     fn ensure_type_impl(
         &mut self,
         x: &mut Expr,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
         in_string_literal: bool,
     ) {
         self.track_potential_typing_self(x);
@@ -789,6 +897,25 @@ impl<'a> BindingsBuilder<'a> {
             // test::class_super::test_super_in_base_classes for an example of a SuperInstance
             // binding that we crash looking for if we don't do this.
             Expr::Call(_) => self.ensure_expr(x, static_type_usage),
+            // Bind walrus so we don't crash when looking up the assigned name later.
+            // Named expressions are not allowed inside type aliases (PEP 695).
+            Expr::Named(named) => {
+                if self.scopes.in_type_alias() {
+                    self.error(
+                        named.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "Named expression cannot be used within a type alias".to_owned(),
+                    );
+                }
+                self.ensure_expr(x, static_type_usage);
+            }
+            // Bind yield and yield from so we don't crash when checking return type later.
+            Expr::Yield(_) => {
+                self.ensure_expr(x, static_type_usage);
+            }
+            Expr::YieldFrom(_) => {
+                self.ensure_expr(x, static_type_usage);
+            }
             Expr::Attribute(ExprAttribute { value, attr, .. })
                 if let Expr::Name(value) = &**value
                 // We assume "args" and "kwargs" are ParamSpec attributes rather than imported TypeVars.
@@ -833,7 +960,7 @@ impl<'a> BindingsBuilder<'a> {
     pub fn ensure_type_opt(
         &mut self,
         x: Option<&mut Expr>,
-        tparams_builder: &mut Option<LegacyTParamBuilder>,
+        tparams_builder: &mut Option<LegacyTParamCollector>,
     ) {
         if let Some(x) = x {
             self.ensure_type(x, tparams_builder);
@@ -844,28 +971,16 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         decorators: Vec<Decorator>,
         usage: &mut Usage,
-    ) -> Vec<(Idx<Key>, TextRange)> {
+    ) -> Vec<Idx<KeyDecorator>> {
         let mut decorator_keys = Vec::with_capacity(decorators.len());
         for mut x in decorators {
             self.ensure_expr(&mut x.expression, usage);
-            let k = self.insert_binding(Key::Anon(x.range), Binding::Decorator(x.expression));
-            decorator_keys.push((k, x.range));
+            let k = self.insert_binding(
+                KeyDecorator(x.range),
+                BindingDecorator { expr: x.expression },
+            );
+            decorator_keys.push(k);
         }
         decorator_keys
-    }
-
-    pub fn ensure_and_bind_decorators_with_ranges(
-        &mut self,
-        decorators: Vec<Decorator>,
-        usage: &mut Usage,
-    ) -> Vec<(Idx<Key>, TextRange)> {
-        let mut decorator_keys_with_ranges = Vec::with_capacity(decorators.len());
-        for mut x in decorators {
-            self.ensure_expr(&mut x.expression, usage);
-            let range = x.range();
-            let k = self.insert_binding(Key::Anon(x.range), Binding::Decorator(x.expression));
-            decorator_keys_with_ranges.push((k, range));
-        }
-        decorator_keys_with_ranges
     }
 }

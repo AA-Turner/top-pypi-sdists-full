@@ -12,10 +12,10 @@ def get_version():
 setup(
     name='scalar_fastapi',
     version=get_version(),
-    packages=find_packages(),
+    packages=find_packages(exclude=["tests"]),
     install_requires=[],
-    author='Marc Laventure',
-    author_email='marc@scalar.com',
+    author='Scalar',
+    author_email='support@scalar.com',
     description='This plugin provides an easy way to render a beautiful API reference based on a OpenAPI/Swagger file with FastAPI.',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',

@@ -9,20 +9,37 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
+from typing import Literal, Union
+from typing_extensions import TypedDict
 
-from .group_0159 import RepositoryRuleUpdatePropParametersType
+from .group_0003 import SimpleUserType, SimpleUserTypeForResponse
 
 
-class RepositoryRuleUpdateType(TypedDict):
-    """update
+class AutoMergeType(TypedDict):
+    """Auto merge
 
-    Only allow users with bypass permission to update matching refs.
+    The status of auto merging a pull request.
     """
 
-    type: Literal["update"]
-    parameters: NotRequired[RepositoryRuleUpdatePropParametersType]
+    enabled_by: SimpleUserType
+    merge_method: Literal["merge", "squash", "rebase"]
+    commit_title: Union[str, None]
+    commit_message: Union[str, None]
 
 
-__all__ = ("RepositoryRuleUpdateType",)
+class AutoMergeTypeForResponse(TypedDict):
+    """Auto merge
+
+    The status of auto merging a pull request.
+    """
+
+    enabled_by: SimpleUserTypeForResponse
+    merge_method: Literal["merge", "squash", "rebase"]
+    commit_title: Union[str, None]
+    commit_message: Union[str, None]
+
+
+__all__ = (
+    "AutoMergeType",
+    "AutoMergeTypeForResponse",
+)

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Copyright 2024 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -58,7 +58,7 @@ class TagValue(proto.Message):
 
             The short name must be 63 characters or less, beginning and
             ending with an alphanumeric character ([a-z0-9A-Z]) with
-            dashes (-), underscores (_), dots (.), and alphanumerics
+            dashes (-), underscores (\_), dots (.), and alphanumerics
             between.
         namespaced_name (str):
             Output only. The namespaced name of the TagValue. Can be in
@@ -212,12 +212,12 @@ class GetNamespacedTagValueRequest(proto.Message):
 
             Examples:
 
-            -  ``42/foo/abc`` for a value with short name "abc" under
-               the key with short name "foo" under the organization with
-               ID 42
-            -  ``r2-d2/bar/xyz`` for a value with short name "xyz" under
-               the key with short name "bar" under the project with ID
-               "r2-d2".
+            - ``42/foo/abc`` for a value with short name "abc" under the
+              key with short name "foo" under the organization with ID
+              42
+            - ``r2-d2/bar/xyz`` for a value with short name "xyz" under
+              the key with short name "bar" under the project with ID
+              "r2-d2".
     """
 
     name: str = proto.Field(

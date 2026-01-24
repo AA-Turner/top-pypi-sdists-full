@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, SecretStr, StrictBool, StrictInt, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictBool, StrictInt, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -33,65 +33,65 @@ class Account(BaseModel):
     name : str
         A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
     edition : str
-        Snowflake Edition of the account.
+        Snowflake Edition of the account. Possible values to use when creating an account include STANDARD, ENTERPRISE, and BUSINESS_CRITICAL.
     admin_name : str
         Name of the account administrator.
     email : str
         Email address of the account administrator.
     organization_name : str, optional
-        Name of the organization.
+        Name of the organization — **Read-only:** *any user-provided value will be ignored.*
     region_group : str, optional
         Region group where the account is located. Note - This column is only displayed for organizations that span multiple region groups.
     region : str, optional
         Snowflake Region where the account is located. A Snowflake Region is a distinct location within a cloud platform region that is isolated from other Snowflake Regions. A Snowflake Region can be either multi-tenant or single-tenant (for a Virtual Private Snowflake account).
     created_on : datetime, optional
-        Date and time the account was created.
+        Date and time the account was created — **Read-only:** *any user-provided value will be ignored.*
     account_url : str, optional
-        Preferred Snowflake account URL that includes the values of organization_name and account_name.
+        Preferred Snowflake account URL that includes the values of organization_name and account_name — **Read-only:** *any user-provided value will be ignored.*
     account_locator : str, optional
-        System-assigned identifier of the acccount.
+        System-assigned identifier of the acccount — **Read-only:** *any user-provided value will be ignored.*
     account_locator_url : str, optional
-        Legacy Snowflake account URL syntax that includes the region_name and account_locator.
+        Legacy Snowflake account URL syntax that includes the region_name and account_locator — **Read-only:** *any user-provided value will be ignored.*
     managed_accounts : int, optional
-        Indicates how many managed accounts have been created by the account.
+        Indicates how many managed accounts have been created by the account — **Read-only:** *any user-provided value will be ignored.*
     consumption_billing_entity_name : str, optional
-        Name of the consumption billing entity.
+        Name of the consumption billing entity — **Read-only:** *any user-provided value will be ignored.*
     marketplace_consumer_billing_entity_name : str, optional
-        Name of the marketplace consumer billing entity.
+        Name of the marketplace consumer billing entity — **Read-only:** *any user-provided value will be ignored.*
     marketplace_provider_billing_entity_name : str, optional
-        Name of the marketplace provider billing entity.
+        Name of the marketplace provider billing entity — **Read-only:** *any user-provided value will be ignored.*
     old_account_url : str, optional
-        If the original account URL was saved when the account was renamed, provides the original URL. If the original account URL was dropped, the value is NULL even if the account was renamed
+        If the original account URL was saved when the account was renamed, provides the original URL. If the original account URL was dropped, the value is NULL even if the account was renamed — **Read-only:** *any user-provided value will be ignored.*
     comment : str, optional
         Optional comment in which to store information related to the account.
     is_org_admin : bool, optional
-        Indicates whether the ORGADMIN role is enabled in an account. If TRUE, the role is enabled.
+        Indicates whether the ORGADMIN role is enabled in an account. If TRUE, the role is enabled — **Read-only:** *any user-provided value will be ignored.*
     retention_time : int, optional
-        Number of days that historical data is retained for Time Travel.
+        Number of days that historical data is retained for Time Travel — **Read-only:** *any user-provided value will be ignored.*
     dropped_on : datetime, optional
-        Date and time the account was dropped.
+        Date and time the account was dropped — **Read-only:** *any user-provided value will be ignored.*
     scheduled_deletion_time : datetime, optional
-        Date and time when the account is scheduled to be permanently deleted. Accounts are deleted within one hour after the scheduled time.
+        Date and time when the account is scheduled to be permanently deleted. Accounts are deleted within one hour after the scheduled time — **Read-only:** *any user-provided value will be ignored.*
     restored_on : datetime, optional
-        Date and time when the account was last restored.
+        Date and time when the account was last restored — **Read-only:** *any user-provided value will be ignored.*
     account_old_url_saved_on : datetime, optional
-        If the original account URL was saved when the account was renamed, provides the date and time when the original account URL was saved.
+        If the original account URL was saved when the account was renamed, provides the date and time when the original account URL was saved — **Read-only:** *any user-provided value will be ignored.*
     account_old_url_last_used : datetime, optional
-        If the original account URL was saved when the account was renamed, indicates the last time the account was accessed using the original URL.
+        If the original account URL was saved when the account was renamed, indicates the last time the account was accessed using the original URL — **Read-only:** *any user-provided value will be ignored.*
     organization_old_url : str, optional
-        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, provides the original account URL. If the original account URL was dropped, the value is NULL even if the organization changed.
+        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, provides the original account URL. If the original account URL was dropped, the value is NULL even if the organization changed — **Read-only:** *any user-provided value will be ignored.*
     organization_old_url_saved_on : datetime, optional
-        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, provides the date and time when the original account URL was saved.
+        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, provides the date and time when the original account URL was saved — **Read-only:** *any user-provided value will be ignored.*
     organization_old_url_last_used : datetime, optional
-        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, indicates the last time the account was accessed using the original account URL.
+        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, indicates the last time the account was accessed using the original account URL — **Read-only:** *any user-provided value will be ignored.*
     organization_url_expiration_on : datetime, optional
-        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, provides the date and time when the original account URL will be dropped. Dropped URLs cannot be used to access the account.
+        If the account’s organization was changed in a way that created a new account URL and the original account URL was saved, provides the date and time when the original account URL will be dropped. Dropped URLs cannot be used to access the account — **Read-only:** *any user-provided value will be ignored.*
     moved_on : datetime, optional
-        Date and time when the account was moved to a different organization.
+        Date and time when the account was moved to a different organization — **Read-only:** *any user-provided value will be ignored.*
     is_events_account : bool, optional
-        Indicates whether an account is an events account. For more information, see Set up logging and event sharing for an application.
+        Indicates whether an account is an events account. For more information, see Set up logging and event sharing for an application — **Read-only:** *any user-provided value will be ignored.*
     moved_to_organization : str, optional
-        If the account was moved to a different organization, provides the name of that organization.
+        If the account was moved to a different organization, provides the name of that organization — **Read-only:** *any user-provided value will be ignored.*
     admin_password : str, optional
         Password for the account administrator.
     admin_rsa_public_key : str, optional
@@ -231,15 +231,10 @@ class Account(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    @field_validator("edition")
-    def edition_validate_enum(cls, v):
-        if v not in ("STANDARD", "ENTERPRISE", "BUSINESS_CRITICAL"):
-            raise ValueError("must validate the enum values ('STANDARD','ENTERPRISE','BUSINESS_CRITICAL')")
-        return v
-
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -291,7 +286,7 @@ class Account(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if dropped_on (nullable) is None
         if self.dropped_on is None:
@@ -334,9 +329,9 @@ class Account(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return Account.parse_obj(obj)
+            return Account.model_validate(obj)
 
-        _obj = Account.parse_obj(
+        _obj = Account.model_validate(
             {
                 "organization_name": obj.get("organization_name"),
                 "name": obj.get("name"),
@@ -436,7 +431,7 @@ class AccountModel:
         name : str
             A Snowflake object identifier. If the identifier contains spaces or special characters, the entire string must be enclosed in double quotes. Identifiers enclosed in double quotes are also case-sensitive.
         edition : str
-            Snowflake Edition of the account.
+            Snowflake Edition of the account. Possible values to use when creating an account include STANDARD, ENTERPRISE, and BUSINESS_CRITICAL.
         admin_name : str
             Name of the account administrator.
         email : str

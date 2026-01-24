@@ -1,27 +1,26 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: wheel-filename
-Version: 1.4.2
+Version: 2.1.0
 Summary: Parse wheel filenames
 Project-URL: Source Code, https://github.com/wheelodex/wheel-filename
 Project-URL: Bug Tracker, https://github.com/wheelodex/wheel-filename/issues
 Author-email: John Thorvald Wodder II <wheel-filename@varonathe.org>
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Keywords: filename,pep427,wheel
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: System :: Software Distribution
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 
 |repostatus| |ci-status| |coverage| |pyversions| |license|
@@ -66,7 +65,7 @@ This package adheres strictly to the standard, with the following exceptions:
 
 Installation
 ============
-``wheel-filename`` requires Python 3.8 or higher.  Just use `pip
+``wheel-filename`` requires Python 3.10 or higher.  Just use `pip
 <https://pip.pypa.io>`_ for Python 3 (You have pip, right?) to install it::
 
     python3 -m pip install wheel-filename
@@ -75,8 +74,8 @@ Installation
 Example
 =======
 
->>> from wheel_filename import parse_wheel_filename
->>> pwf = parse_wheel_filename('pip-18.0-py2.py3-none-any.whl')
+>>> from wheel_filename import WheelFilename
+>>> pwf = WheelFilename.parse('pip-18.0-py2.py3-none-any.whl')
 >>> str(pwf)
 'pip-18.0-py2.py3-none-any.whl'
 >>> pwf.project
@@ -98,15 +97,15 @@ True
 API
 ===
 
-``parse_wheel_filename(filename)``
-   Parses a wheel filename (a ``str``, ``bytes``, or ``os.PathLike``) and
-   returns a ``ParsedWheelFilename`` instance.  Any leading directory
-   components are stripped from the argument before processing.  If the
-   filename is not a valid wheel filename, raises an ``InvalidFilenameError``.
-
-``ParsedWheelFilename``
-   A namedtuple representing the components of a wheel filename.  It has the
+``WheelFilename``
+   A dataclass representing the components of a wheel filename.  It has the
    following attributes and methods:
+
+   ``WheelFilename.parse(filename)``
+      (classmethod) Parses a wheel filename (a ``str``, ``bytes``, or
+      ``os.PathLike``) and returns a ``WheelFilename`` instance.  Any leading
+      directory components are stripped from the argument before processing.
+      If the filename is not a valid wheel filename, raises a ``ParseError``.
 
    ``project: str``
       The name of the project distributed by the wheel
@@ -114,28 +113,41 @@ API
    ``version: str``
       The version of the project distributed by the wheel
 
-   ``build: Optional[str]``
+   ``build: str | None``
       The wheel's build tag (``None`` if not defined)
 
-   ``python_tags: List[str]``
+   ``build_tuple: tuple[int, str] | tuple[()]``
+      The build tag as a tuple for use in sorting.  If ``build`` is
+      non-``None``, this is ``(build_leading, build_trailing)``; otherwise, it
+      is the empty tuple.
+
+   ``build_leading: int | None``
+      If ``build`` is non-``None``, this is the leading integer portion of the
+      build tag converted to an ``int``; otherwise it is ``None``
+
+   ``build_trailing: str | None``
+      If ``build`` is non-``None``, this is the part after the leading integer
+      portion of the build tag; otherwise it is ``None``
+
+   ``python_tags: list[str]``
       A list of Python tags for the wheel
 
-   ``abi_tags: List[str]``
+   ``abi_tags: list[str]``
       A list of ABI tags for the wheel
 
-   ``platform_tags: List[str]``
+   ``platform_tags: list[str]``
       A list of platform tags for the wheel
 
    ``str(pwf)``
-      Stringifying a ``ParsedWheelFilename`` returns the original filename
+      Stringifying a ``WheelFilename`` returns the original filename
 
    ``tag_triples() -> Iterator[str]``
       Returns an iterator of all simple tag triples formed from the
       compatibility tags in the filename
 
-``InvalidFilenameError``
+``ParseError``
    A subclass of ``ValueError`` raised when an invalid wheel filename is passed
-   to ``parse_wheel_filename()``.  It has a ``filename`` attribute containing
+   to ``WheelFilename.parse()``.  It has a ``filename`` attribute containing
    the basename of the invalid filename.
 
 

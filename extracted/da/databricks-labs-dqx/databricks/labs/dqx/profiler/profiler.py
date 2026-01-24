@@ -1,6 +1,7 @@
 import datetime
 import decimal
 import math
+import uuid
 import logging
 import os
 from concurrent import futures
@@ -13,12 +14,24 @@ from typing import Any
 
 import pyspark.sql.functions as F
 import pyspark.sql.types as T
-from pyspark.sql import DataFrame
+from pyspark.errors import AnalysisException
+from pyspark.sql import DataFrame, SparkSession
+from databricks.sdk import WorkspaceClient
 
-from databricks.labs.blueprint.limiter import rate_limited
 from databricks.labs.dqx.base import DQEngineBase
-from databricks.labs.dqx.config import InputConfig
-from databricks.labs.dqx.utils import read_input_data
+from databricks.labs.dqx.config import InputConfig, LLMModelConfig
+from databricks.labs.dqx.errors import MissingParameterError, InvalidConfigError
+from databricks.labs.dqx.io import read_input_data, STORAGE_PATH_PATTERN
+from databricks.labs.dqx.utils import list_tables
+from databricks.labs.dqx.telemetry import telemetry_logger
+from databricks.labs.dqx.errors import InvalidParameterError
+
+try:
+    from databricks.labs.dqx.llm.llm_engine import DQLLMEngine
+
+    LLM_ENABLED = True
+except ImportError:
+    LLM_ENABLED = False
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +42,23 @@ class DQProfile:
     column: str
     description: str | None = None
     parameters: dict[str, Any] | None = None
+    filter: str | None = None
 
 
 class DQProfiler(DQEngineBase):
     """Data Quality Profiler class to profile input data."""
+
+    def __init__(
+        self,
+        workspace_client: WorkspaceClient,
+        spark: SparkSession | None = None,
+        llm_model_config: LLMModelConfig | None = None,
+    ):
+        super().__init__(workspace_client=workspace_client)
+        self.spark = SparkSession.builder.getOrCreate() if spark is None else spark
+
+        llm_model_config = llm_model_config or LLMModelConfig()
+        self.llm_engine = DQLLMEngine(model_config=llm_model_config, spark=self.spark) if LLM_ENABLED else None
 
     default_profile_options = {
         "round": True,  # round the min/max values
@@ -47,6 +73,8 @@ class DQProfiler(DQEngineBase):
         "sample_fraction": 0.3,  # fraction of data to sample (30%)
         "sample_seed": None,  # seed for sampling
         "limit": 1000,  # limit the number of samples
+        "filter": None,  # filter to apply to the dataset
+        "llm_primary_key_detection": True,  # detect primary keys
     }
 
     @staticmethod
@@ -71,6 +99,7 @@ class DQProfiler(DQEngineBase):
         return out_columns
 
     # TODO: how to handle maps, arrays & structs?
+    @telemetry_logger("profiler", "profile")
     def profile(
         self, df: DataFrame, columns: list[str] | None = None, options: dict[str, Any] | None = None
     ) -> tuple[dict[str, Any], list[DQProfile]]:
@@ -85,6 +114,7 @@ class DQProfiler(DQEngineBase):
         Returns:
             A tuple containing a dictionary of summary statistics and a list of data quality profiles.
         """
+
         columns = columns or df.columns
         df_columns = [f for f in df.schema.fields if f.name in columns]
         df = df.select(*[f.name for f in df_columns])
@@ -105,9 +135,10 @@ class DQProfiler(DQEngineBase):
 
         return summary_stats, dq_rules
 
+    @telemetry_logger("profiler", "profile_table")
     def profile_table(
         self,
-        table: str,
+        input_config: InputConfig,
         columns: list[str] | None = None,
         options: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], list[DQProfile]]:
@@ -115,99 +146,117 @@ class DQProfiler(DQEngineBase):
         Profiles a table to generate summary statistics and data quality rules.
 
         Args:
-            table: The fully-qualified table name (*catalog.schema.table*) to be profiled
+            input_config: Input configuration containing the table location.
             columns: An optional list of column names to include in the profile. If None, all columns are included.
             options: An optional dictionary of options for profiling.
 
         Returns:
             A tuple containing a dictionary of summary statistics and a list of data quality profiles.
         """
-        logger.info(f"Profiling {table} with options: {options}")
-        df = read_input_data(spark=self.spark, input_config=InputConfig(location=table))
+        if not input_config or not input_config.location:
+            raise MissingParameterError("Input config with location is required")
+
+        logger.info(f"Profiling {input_config.location} with options: {options}")
+        df = read_input_data(spark=self.spark, input_config=input_config)
         return self.profile(df=df, columns=columns, options=options)
 
-    def profile_tables(
+    @telemetry_logger("profiler", "profile_tables_for_patterns")
+    def profile_tables_for_patterns(
         self,
-        tables: list[str] | None = None,
         patterns: list[str] | None = None,
+        exclude_patterns: list[str] | None = None,
         exclude_matched: bool = False,
         columns: dict[str, list[str]] | None = None,
         options: list[dict[str, Any]] | None = None,
+        max_parallelism: int | None = os.cpu_count(),
     ) -> dict[str, tuple[dict[str, Any], list[DQProfile]]]:
         """
         Profiles Delta tables in Unity Catalog to generate summary statistics and data quality rules.
 
         Args:
-            tables: An optional list of table names to include.
-            patterns: An optional list of table names or filesystem-style wildcards (e.g. 'schema.*') to include.
+            patterns: List of table names or filesystem-style wildcards (e.g. 'schema.*') to include.
                 If None, all tables are included. By default, tables matching the pattern are included.
+            exclude_patterns: List of table names or filesystem-style wildcards (e.g. 'schema.*') to exclude.
+                If None, no tables are excluded.
             exclude_matched: Specifies whether to include tables matched by the pattern. If True, matched tables
                 are excluded. If False, matched tables are included.
             columns: A dictionary with column names to include in the profile. Keys should be fully-qualified table
                 names (e.g. *catalog.schema.table*) and values should be lists of column names to include in profiling.
             options: A dictionary with options for profiling each table. Keys should be fully-qualified table names
                 (e.g. *catalog.schema.table*) and values should be options for profiling.
+            max_parallelism: An optional concurrency limit for profiling concurrently
 
         Returns:
             A dictionary mapping table names to tuples containing summary statistics and data quality profiles.
         """
-        if not tables:
-            if not patterns:
-                raise ValueError("Either 'tables' or 'patterns' must be provided")
-            tables = self._get_tables(patterns=patterns, exclude_matched=exclude_matched)
-        return self._profile_tables(tables=tables, columns=columns, options=options)
+        tables = list_tables(
+            workspace_client=self.ws,
+            patterns=patterns,
+            exclude_matched=exclude_matched,
+            exclude_patterns=exclude_patterns,
+        )
 
-    @rate_limited(max_requests=100)
-    def _get_tables(self, patterns: list[str] | None, exclude_matched: bool = False) -> list[str]:
+        return self._profile_tables(
+            tables=tables,
+            columns=columns,
+            options=options,
+            max_parallelism=max_parallelism,
+        )
+
+    @telemetry_logger("profiler", "detect_primary_keys_with_llm")
+    def detect_primary_keys_with_llm(self, input_config: InputConfig) -> dict[str, Any]:
         """
-        Gets a list table names from Unity Catalog given a list of wildcard patterns.
+        Detects primary keys using LLM-based analysis.
+
+        This method analyzes table schema and metadata to identify primary key columns.
 
         Args:
-            patterns: A list of wildcard patterns to match against the table name.
-            exclude_matched: Specifies whether to include tables matched by the pattern. If True, matched tables
-                are excluded. If False, matched tables are included.
+            input_config: Input configuration containing the table location.
 
         Returns:
-            A list of table names.
+            A dictionary containing the primary key detection result with the following keys:
+            - table: The table name
+            - success: Whether detection was successful
+            - primary_key_columns: List of detected primary key columns (if successful)
+            - confidence: Confidence level (high/medium/low)
+            - reasoning: LLM reasoning for the selection
+            - has_duplicates: Whether duplicates were found (if validation performed)
+            - duplicate_count: Number of duplicate combinations (if validation performed)
+            - error: Error message (if failed)
         """
-        tables = []
-        for catalog in self.ws.catalogs.list():
-            if not catalog.name:
-                continue
-            for schema in self.ws.schemas.list(catalog_name=catalog.name):
-                if not schema.name:
-                    continue
-                table_infos = self.ws.tables.list_summaries(catalog_name=catalog.name, schema_name_pattern=schema.name)
-                tables.extend([table_info.full_name for table_info in table_infos if table_info.full_name])
+        if self.llm_engine is None:
+            raise MissingParameterError(
+                "LLM engine not available. Make sure LLM dependencies are installed: "
+                "pip install 'databricks-labs-dqx[llm]'"
+            )
 
-        if patterns and exclude_matched:
-            tables = [table for table in tables if not DQProfiler._match_table_patterns(table, patterns)]
-        if patterns and not exclude_matched:
-            tables = [table for table in tables if DQProfiler._match_table_patterns(table, patterns)]
-        if len(tables) > 0:
-            return tables
-        raise ValueError("No tables found matching include or exclude criteria")
+        if not input_config.location:
+            raise InvalidConfigError("Input location not configured")
 
-    @staticmethod
-    def _match_table_patterns(table: str, patterns: list[str]) -> bool:
-        """
-        Checks if a table name matches any of the provided wildcard patterns.
+        def _detect_with_temp_view(df: DataFrame, view_name: str) -> dict[str, Any]:
+            try:
+                df.createOrReplaceTempView(view_name)
+                assert self.llm_engine is not None  # for mypy
+                return self.llm_engine.detect_primary_keys_with_llm(view_name)
+            finally:
+                try:
+                    self.spark.sql(f"DROP VIEW IF EXISTS {view_name}")
+                except AnalysisException:
+                    pass
 
-        Args:
-            table: The table name to check.
-            patterns: A list of wildcard patterns (e.g. 'catalog.schema.*') to match against the table name.
+        if STORAGE_PATH_PATTERN.match(input_config.location):
+            input_df = read_input_data(self.spark, input_config)
+            temp_view_name = f"temp_from_dataframe_{id(input_df)}_{uuid.uuid4().hex}"
+            return _detect_with_temp_view(input_df, temp_view_name)
 
-        Returns:
-            True if the table name matches any of the patterns, False otherwise.
-        """
-        return any(fnmatch(table, pattern) for pattern in patterns)
+        return self.llm_engine.detect_primary_keys_with_llm(input_config.location)
 
     def _profile_tables(
         self,
         tables: list[str] | None = None,
         columns: dict[str, list[str]] | None = None,
         options: list[dict[str, Any]] | None = None,
-        max_workers: int | None = os.cpu_count(),
+        max_parallelism: int | None = os.cpu_count(),
     ) -> dict[str, tuple[dict[str, Any], list[DQProfile]]]:
         """
         Profiles a list of tables to generate summary statistics and data quality rules.
@@ -218,7 +267,7 @@ class DQProfiler(DQEngineBase):
                 names (e.g. *catalog.schema.table*) and values should be lists of column names to include in profiling.
             options: A dictionary with options for profiling each table. Keys should be fully-qualified table names
                 (e.g. *catalog.schema.table*) and values should be options for profiling.
-            max_workers: An optional concurrency limit for profiling concurrently
+            max_parallelism: An optional concurrency limit for profiling concurrently
 
         Returns:
             A dictionary mapping table names to tuples containing summary statistics and data quality profiles.
@@ -231,14 +280,14 @@ class DQProfiler(DQEngineBase):
         for table in tables:
             args.append(
                 {
-                    "table": table,
+                    "input_config": InputConfig(location=table),
                     "columns": columns.get(table, None),
                     "options": DQProfiler._build_options_from_list(table, options),
                 }
             )
 
-        logger.info(f"Profiling tables with {max_workers} workers")
-        with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        logger.info(f"Profiling tables with {max_parallelism} workers")
+        with futures.ThreadPoolExecutor(max_workers=max_parallelism) as executor:
             results = executor.map(lambda arg: self.profile_table(**arg), args)
             return dict(zip(tables, results))
 
@@ -305,7 +354,10 @@ class DQProfiler(DQEngineBase):
         sample_fraction = opts.get("sample_fraction", None)
         sample_seed = opts.get("sample_seed", None)
         limit = opts.get("limit", None)
+        filter_dataset = opts.get("filter", None)
 
+        if filter_dataset:
+            df = df.filter(filter_dataset)
         if sample_fraction:
             df = df.sample(withReplacement=False, fraction=sample_fraction, seed=sample_seed)
         if limit:
@@ -331,6 +383,63 @@ class DQProfiler(DQEngineBase):
             metrics = summary_stats[field_name]
 
             self._calculate_metrics(df, dq_rules, field_name, metrics, opts, total_count, typ)
+
+        self._add_llm_primary_key_for_dataframe(df, dq_rules, summary_stats, opts)
+
+    def _add_llm_primary_key_for_dataframe(
+        self, df: DataFrame, dq_rules: list[DQProfile], summary_stats: dict[str, Any], opts: dict[str, Any]
+    ) -> None:
+        """
+        Adds LLM-based primary key detection results for DataFrames to summary statistics if enabled.
+
+        Args:
+            df: The DataFrame to analyze
+            dq_rules: A list to store the generated data quality rules.
+            summary_stats: Summary statistics dictionary to update with PK detection results
+            opts: A dictionary of options for profiling.
+        """
+        if not LLM_ENABLED or not opts.get("llm_primary_key_detection", False):
+            return
+
+        logger.info("🤖 Starting LLM-based primary key detection for DataFrame")
+
+        temp_view_name = f"temp_from_dataframe_{id(df)}_{uuid.uuid4().hex}"
+        pk_result: dict[str, Any] = {}
+
+        try:
+            df.createOrReplaceTempView(temp_view_name)
+            pk_result = self.detect_primary_keys_with_llm(input_config=InputConfig(location=temp_view_name))
+        finally:
+            try:  # Clean up the temporary view using SQL (Unity Catalog compatible)
+                self.spark.sql(f"DROP VIEW IF EXISTS {temp_view_name}")
+            except AnalysisException:
+                pass  # Ignore cleanup errors
+
+        if pk_result and pk_result.get("success", False) and not pk_result.get("has_duplicates", False):
+            pk_columns = pk_result.get("primary_key_columns", [])
+            if pk_columns and pk_columns != ["none"]:
+                # Validate that detected columns actually exist in the DataFrame
+                valid_columns = [col for col in pk_columns if col in df.columns]
+                if valid_columns:
+                    reasoning = pk_result.get("reasoning", "")
+                    confidence = pk_result.get("confidence", "unknown")
+                    dq_rules.append(
+                        DQProfile(
+                            name="is_unique",
+                            column=",".join(valid_columns),
+                            parameters={"nulls_distinct": False, "reasoning": reasoning, "confidence": confidence},
+                            filter=opts.get("filter", None),
+                            description=f"LLM-detected primary key columns: {', '.join(valid_columns)}",
+                        )
+                    )
+                    # Add to summary stats (but don't automatically generate rules)
+                    summary_stats["llm_primary_key_detection"] = {
+                        "detected_columns": valid_columns,
+                        "confidence": confidence,
+                        "reasoning": reasoning,
+                        "method": "llm",
+                    }
+                    logger.info(f"✅ LLM-based primary key detected for DataFrame: {valid_columns}")
 
     def _calculate_metrics(
         self,
@@ -375,17 +484,30 @@ class DQProfiler(DQEngineBase):
                         column=field_name,
                         description=f"Column {field_name} has {null_percentage * 100:.1f}% of null values "
                         f"(allowed {max_nulls * 100:.1f}%)",
+                        filter=opts.get("filter", None),
                     )
                 )
             else:
-                dq_rules.append(DQProfile(name="is_not_null", column=field_name))
+                dq_rules.append(
+                    DQProfile(
+                        name="is_not_null",
+                        column=field_name,
+                        filter=opts.get("filter", None),
+                    )
+                )
         if self._type_supports_distinct(typ):
             dst2 = dst.dropDuplicates()
             cnt = dst2.count()
             if 0 < cnt < total_count * opts["distinct_ratio"] and cnt < opts["max_in_count"]:
                 dq_rules.append(
-                    DQProfile(name="is_in", column=field_name, parameters={"in": [row[0] for row in dst2.collect()]})
+                    DQProfile(
+                        name="is_in",
+                        column=field_name,
+                        parameters={"in": [row[0] for row in dst2.collect()]},
+                        filter=opts.get("filter", None),
+                    )
                 )
+
         if (
             typ == T.StringType()
             and not any(  # does not make sense to add is_not_null_or_empty if is_not_null already exists
@@ -396,7 +518,12 @@ class DQProfiler(DQEngineBase):
             cnt = dst2.count()
             if cnt <= (metrics["count"] * opts.get("max_empty_ratio", 0)):
                 dq_rules.append(
-                    DQProfile(name="is_not_null_or_empty", column=field_name, parameters={"trim_strings": trim_strings})
+                    DQProfile(
+                        name="is_not_null_or_empty",
+                        column=field_name,
+                        parameters={"trim_strings": trim_strings},
+                        filter=opts.get("filter", None),
+                    )
                 )
         if metrics["count_non_null"] > 0 and self._type_supports_min_max(typ):
             rule = self._extract_min_max(dst, field_name, typ, metrics, opts)
@@ -550,7 +677,11 @@ class DQProfiler(DQEngineBase):
                 logger.info(f"Can't get min/max for field {col_name}")
         if descr and min_limit and max_limit:
             return DQProfile(
-                name="min_max", column=col_name, parameters={"min": min_limit, "max": max_limit}, description=descr
+                name="min_max",
+                column=col_name,
+                parameters={"min": min_limit, "max": max_limit},
+                description=descr,
+                filter=opts.get("filter", None),
             )
 
         return None
@@ -708,7 +839,7 @@ class DQProfiler(DQEngineBase):
         if typ == T.StringType():
             return value
 
-        raise ValueError(f"Unsupported data type for casting: {typ}")
+        raise InvalidParameterError(f"Unsupported data type for casting: {typ}")
 
     @staticmethod
     def _type_supports_distinct(typ: T.DataType) -> bool:
@@ -743,7 +874,6 @@ class DQProfiler(DQEngineBase):
 
         - "down" → truncate to midnight (00:00:00).
         - "up" → return the next midnight unless value is already midnight.
-        - Raises ValueError for invalid direction.
 
         Args:
             value: The datetime value to round.
@@ -753,7 +883,7 @@ class DQProfiler(DQEngineBase):
             The rounded datetime value.
 
         Raises:
-            ValueError: If direction is not 'up' or 'down'.
+            InvalidParameterError: If direction is not 'up' or 'down'.
         """
         midnight = value.replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -768,7 +898,7 @@ class DQProfiler(DQEngineBase):
             except OverflowError:
                 logger.warning("Rounding datetime up caused overflow; returning datetime.max instead.")
                 return datetime.datetime.max
-        raise ValueError(f"Invalid rounding direction: {direction}. Use 'up' or 'down'.")
+        raise InvalidParameterError(f"Invalid rounding direction: {direction}. Use 'up' or 'down'.")
 
     @staticmethod
     def _round_float(value: float, direction: str) -> float:

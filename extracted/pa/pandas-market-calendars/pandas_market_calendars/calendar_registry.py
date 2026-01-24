@@ -1,3 +1,7 @@
+# fmt: off
+# @formatter:off
+import datetime
+
 from .market_calendar import MarketCalendar
 from .calendars.asx import ASXExchangeCalendar
 from .calendars.bmf import BMFExchangeCalendar
@@ -36,9 +40,12 @@ from .calendars.sse import SSEExchangeCalendar
 from .calendars.tase import TASEExchangeCalendar
 from .calendars.tsx import TSXExchangeCalendar
 from .calendars.mirror import *
+# @formatter:on
+# fmt: on
 
 
-def get_calendar(name, open_time=None, close_time=None) -> MarketCalendar:
+def get_calendar(name: str, open_time: datetime.time | None = None,
+                 close_time: datetime.time | None = None) -> MarketCalendar:
     """
     Retrieves an instance of an MarketCalendar whose name is given.
 
@@ -50,7 +57,7 @@ def get_calendar(name, open_time=None, close_time=None) -> MarketCalendar:
     return MarketCalendar.factory(name, open_time=open_time, close_time=close_time)
 
 
-def get_calendar_names():
+def get_calendar_names() -> list[str]:
     """All Market Calendar names and aliases that can be used in "factory"
     :return: list(str)
     """

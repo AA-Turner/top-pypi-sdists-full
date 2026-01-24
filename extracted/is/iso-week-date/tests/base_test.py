@@ -1,24 +1,16 @@
 from __future__ import annotations
 
-from contextlib import AbstractContextManager
-from contextlib import nullcontext as do_not_raise
-from datetime import date
-from datetime import datetime
-from datetime import timedelta
-from datetime import timezone
-from typing import TYPE_CHECKING
-from typing import Any
-from typing import Literal
+import re
+from datetime import date, datetime, timedelta, timezone
+from typing import TYPE_CHECKING, Any, Literal
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from iso_week_date import IsoWeek
-from iso_week_date import IsoWeekDate
+from iso_week_date import IsoWeek, IsoWeekDate
 from iso_week_date._base import BaseIsoWeek
 
 if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
     from datetime import tzinfo
     from typing import TypeVar
 
@@ -37,49 +29,60 @@ class CustomIsoWeekDate(IsoWeekDate):
     offset_ = timedelta(days=1)
 
 
-exception_context = pytest.raises(ValueError, match=r"(Invalid isoweek date format|Invalid week number)")
-
 isoweek = IsoWeek("2023-W01")
 customisoweek = CustomIsoWeek("2023-W01")
 isoweekdate = IsoWeekDate("2023-W01-1")
 customisoweekdate = CustomIsoWeekDate("2023-W01-1")
 
 
-def test_abstract_class():
+def test_abstract_class() -> None:
     with pytest.raises(TypeError, match="Can't instantiate abstract class BaseIsoWeek"):
-        BaseIsoWeek()
+        BaseIsoWeek()  # type: ignore[abstract,call-arg]
 
 
-def test_subclass_missing_cls_attributes():
-    with pytest.raises(ValueError, match=r"The following class attributes are missing: \['_format', '_date_format'\]"):
+def test_subclass_missing_cls_attributes() -> None:
+    msg = re.escape("The following class attributes are missing: ['_format', '_date_format']")
+    with pytest.raises(ValueError, match=msg):
 
         class TestSubclass(BaseIsoWeek):
-            _pattern = "foo"
+            _pattern = "foo"  # type: ignore[assignment]
 
 
 @pytest.mark.parametrize(
-    ("klass", "value", "context"),
+    ("klass", "value"),
     [
-        (IsoWeek, "2023-W01", do_not_raise()),
-        (IsoWeek, "2000-W01", do_not_raise()),
-        (IsoWeek, "abcd-xyz", exception_context),
-        (IsoWeek, "0000-W01", exception_context),
-        (IsoWeek, "2023-W00", exception_context),
-        (IsoWeek, "2023-W53", exception_context),
-        (IsoWeek, "2023-W54", exception_context),
-        (IsoWeekDate, "2023-W01-1", do_not_raise()),
-        (IsoWeekDate, "2000-W01-1", do_not_raise()),
-        (IsoWeekDate, "abcd-xyz-1", exception_context),
-        (IsoWeekDate, "0000-W01-1", exception_context),
-        (IsoWeekDate, "2023-W00-1", exception_context),
-        (IsoWeekDate, "2023-W54-1", exception_context),
-        (IsoWeekDate, "2023-W01-0", exception_context),
-        (IsoWeekDate, "2023-W01-8", exception_context),
+        (IsoWeek, "2023-W01"),
+        (IsoWeek, "2000-W01"),
+        (IsoWeekDate, "2023-W01-1"),
+        (IsoWeekDate, "2000-W01-1"),
+        # TODO(FBruzzesi): Use Hypothesis to check more cases?
     ],
 )
-def test_validate(klass: type[T], value: str, context: AbstractContextManager) -> None:
+def test_validate_valid(klass: type[T], value: str) -> None:
     """Test validate method"""
-    with context:
+    obj = klass(value)
+    assert isinstance(obj, klass)
+
+
+@pytest.mark.parametrize(
+    ("klass", "value"),
+    [
+        (IsoWeek, "abcd-xyz"),
+        (IsoWeek, "0000-W01"),
+        (IsoWeek, "2023-W00"),
+        (IsoWeek, "2023-W53"),
+        (IsoWeek, "2023-W54"),
+        (IsoWeekDate, "abcd-xyz-1"),
+        (IsoWeekDate, "0000-W01-1"),
+        (IsoWeekDate, "2023-W00-1"),
+        (IsoWeekDate, "2023-W54-1"),
+        (IsoWeekDate, "2023-W01-0"),
+        (IsoWeekDate, "2023-W01-8"),
+    ],
+)
+def test_validate_invalid(klass: type[T], value: str) -> None:
+    """Test validate method"""
+    with pytest.raises(ValueError, match=r"(Invalid isoweek date format|Invalid week number)"):
         klass(value)
 
 
@@ -142,16 +145,20 @@ def test_quarters() -> None:
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "context"),
+    ("kwargs", "expected_exception", "err_msg"),
     [
-        ({"start": "2023-W03"}, pytest.raises(ValueError, match="`start` must be before `end` value")),
-        ({"end": "2022-W52"}, pytest.raises(ValueError, match="`start` must be before `end` value")),
-        ({"step": 1.0}, pytest.raises(TypeError, match="`step` must be integer")),
-        ({"step": 0}, pytest.raises(ValueError, match="`step` value must be greater than or equal to 1")),
-        ({"inclusive": "invalid"}, pytest.raises(ValueError, match="Invalid `inclusive` value. Must be one of")),
+        ({"start": "2023-W03"}, ValueError, "`start` must be before `end` value"),
+        ({"end": "2022-W52"}, ValueError, "`start` must be before `end` value"),
+        ({"step": 1.0}, TypeError, "`step` must be integer"),
+        ({"step": 0}, ValueError, "`step` value must be greater than or equal to 1"),
+        (
+            {"inclusive": "invalid"},
+            ValueError,
+            re.escape("Invalid `inclusive` value. Must be one of"),
+        ),
     ],
 )
-def test_range_invalid(kwargs: dict[str, Any], context: AbstractContextManager) -> None:
+def test_range_invalid(kwargs: dict[str, Any], expected_exception: type[Exception], err_msg: str) -> None:
     """Tests range method of IsoWeek class with invalid arguments"""
     default_kwargs = {
         "start": "2023-W01",
@@ -162,7 +169,7 @@ def test_range_invalid(kwargs: dict[str, Any], context: AbstractContextManager) 
 
     kwargs = {**default_kwargs, **kwargs}
 
-    with context:
+    with pytest.raises(expected_exception=expected_exception, match=err_msg):
         IsoWeek.range(**kwargs)
 
 
@@ -181,7 +188,7 @@ def test_range_invalid(kwargs: dict[str, Any], context: AbstractContextManager) 
         (IsoWeekDate, "from_values", (2023, 1, 1), isoweekdate),
     ],
 )
-def test_valid_parser(klass: type[T], cls_method: str, args: tuple, expected: T) -> None:
+def test_valid_parser(klass: type[T], cls_method: str, args: tuple[Any, ...], expected: T) -> None:
     """Test ParserMixin methods with valid values"""
     assert getattr(klass, cls_method)(*args) == expected
     if cls_method not in {"from_compact", "from_values"}:
@@ -189,20 +196,22 @@ def test_valid_parser(klass: type[T], cls_method: str, args: tuple, expected: T)
 
 
 @pytest.mark.parametrize(
-    ("klass", "cls_method", "value", "context"),
+    ("klass", "cls_method", "value", "expected_exception", "err_msg"),
     [
-        (IsoWeekDate, "from_string", 1234, pytest.raises(TypeError, match="Expected `str` type, found")),
-        (IsoWeekDate, "from_compact", date(2023, 1, 2), pytest.raises(TypeError, match="Expected `str` type, found")),
-        (IsoWeekDate, "from_compact", "2023W0112", pytest.raises(ValueError, match="Invalid isoweek date format")),
-        (IsoWeekDate, "from_date", (1, 2, 3, 4), pytest.raises(TypeError, match="Expected `date` type, found")),
-        (IsoWeekDate, "from_datetime", "2023-W01", pytest.raises(TypeError, match="Expected `datetime` type, found")),
-        (IsoWeek, "_cast", 1234, pytest.raises(NotImplementedError, match="Cannot cast type")),
-        (IsoWeek, "_cast", (1, 2, 3, 4), pytest.raises(NotImplementedError, match="Cannot cast type")),
+        (IsoWeekDate, "from_string", 1234, TypeError, "Expected `str` type, found"),
+        (IsoWeekDate, "from_compact", date(2023, 1, 2), TypeError, "Expected `str` type, found"),
+        (IsoWeekDate, "from_compact", "2023W0112", ValueError, "Invalid isoweek date format"),
+        (IsoWeekDate, "from_date", (1, 2, 3, 4), TypeError, "Expected `date` type, found"),
+        (IsoWeekDate, "from_datetime", "2023-W01", TypeError, "Expected `datetime` type, found"),
+        (IsoWeek, "_cast", 1234, NotImplementedError, "Cannot cast type"),
+        (IsoWeek, "_cast", (1, 2, 3, 4), NotImplementedError, "Cannot cast type"),
     ],
 )
-def test_invalid_parser(klass: type[T], cls_method: str, value: Any, context: AbstractContextManager) -> None:
+def test_invalid_parser(
+    klass: type[T], cls_method: str, value: Any, expected_exception: type[Exception], err_msg: str
+) -> None:
     """Test ParserMixin methods with invalid value types"""
-    with context:
+    with pytest.raises(expected_exception=expected_exception, match=err_msg):
         getattr(klass, cls_method)(value)
 
 
@@ -302,11 +311,11 @@ def test_comparisons_invalid_offset(comparison_op: str) -> None:
         (customisoweekdate, "YYYYWNND"),
     ],
 )
-def test_compact_format(obj: BaseIsoWeek, fmt: str):
-    assert obj._compact_format == fmt
+def test_compact_format(obj: BaseIsoWeek, fmt: str) -> None:
+    assert obj._compact_format == fmt  # type: ignore[arg-type]
 
 
-def test_from_today():
+def test_from_today() -> None:
     assert IsoWeek.from_today() == IsoWeek.from_datetime(datetime.now())
     assert IsoWeekDate.from_today() == IsoWeekDate.from_datetime(datetime.now())
 

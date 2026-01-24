@@ -1,59 +1,22 @@
 Metadata-Version: 2.4
 Name: braintrust-langchain
-Version: 0.0.4
+Version: 0.2.1
 Summary: Integration for LangChain and Braintrust Tracing
-Home-page: https://www.braintrust.dev
-Author: Braintrust
-Author-email: info@braintrust.dev
-Project-URL: Source Code, https://github.com/braintrustdata/braintrust-sdk
-Project-URL: Bug Tracker, https://github.com/braintrustdata/braintrust-sdk/issues
+Author-email: Braintrust <info@braintrust.dev>
+License-Expression: MIT
+Project-URL: Homepage, https://www.braintrust.dev
+Project-URL: Repository, https://github.com/braintrustdata/braintrust-sdk
+Keywords: braintrust,langchain,llm,tracing,ai,agents
+Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.8.0
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: braintrust>=0.2.1
-Requires-Dist: langchain
-Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: flake8-isort; extra == "dev"
-Requires-Dist: httpx; extra == "dev"
-Requires-Dist: langchain-openai; extra == "dev"
-Requires-Dist: isort==5.12.0; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: responses; extra == "dev"
-Requires-Dist: respx; extra == "dev"
-Requires-Dist: tenacity; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: langgraph<0.4.0,>=0.2.1; extra == "dev"
-Provides-Extra: all
-Requires-Dist: black; extra == "all"
-Requires-Dist: build; extra == "all"
-Requires-Dist: flake8; extra == "all"
-Requires-Dist: flake8-isort; extra == "all"
-Requires-Dist: httpx; extra == "all"
-Requires-Dist: isort==5.12.0; extra == "all"
-Requires-Dist: langchain-openai; extra == "all"
-Requires-Dist: langgraph<0.4.0,>=0.2.1; extra == "all"
-Requires-Dist: pre-commit; extra == "all"
-Requires-Dist: pytest; extra == "all"
-Requires-Dist: responses; extra == "all"
-Requires-Dist: respx; extra == "all"
-Requires-Dist: tenacity; extra == "all"
-Requires-Dist: twine; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Requires-Dist: langchain>=0.3.27
 
 # braintrust-langchain
 
@@ -67,7 +30,7 @@ pip install braintrust-langchain
 
 ## Requirements
 
-- Python >= 3.8
+- Python >= 3.9
 - LangChain >= 0.1.0
 
 ## Usage

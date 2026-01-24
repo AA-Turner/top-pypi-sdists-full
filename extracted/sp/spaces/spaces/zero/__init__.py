@@ -19,14 +19,10 @@ if Config.zero_gpu:
         )
 
     def startup():
-        total_size = torch.pack()
+        torch.pack()
         if len(decorator.decorated_cache) == 0:
             return # pragma: no cover
-        if Config.zerogpu_size == 'auto':
-            gpu_size = 'medium' if total_size < Config.zerogpu_medium_size_threshold else 'large'
-        else:
-            gpu_size = Config.zerogpu_size
-        client.startup_report(utils.self_cgroup_device_path(), gpu_size)
+        client.startup_report()
 
     torch.patch()
     gradio.one_launch(startup)

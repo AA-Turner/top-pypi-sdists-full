@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zhinst-toolkit
-Version: 1.1.0
+Version: 1.2.0
 Summary: Zurich Instruments Toolkit High Level API
 Project-URL: homepage, https://github.com/zhinst/zhinst-toolkit
 Author-email: Zurich Instrument <info@zhinst.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Requires-Dist: jsonref>=0.2
@@ -73,14 +74,12 @@ pip install zhinst-toolkit
 ```
 
 ## Documentation
-For a full documentation see [here](https://docs.zhinst.com/zhinst-toolkit/en/latest).
+For a full documentation see [here](https://docs.zhinst.com/labone_api_user_manual/reference/toolkit/index.html).
 
 ## Contributing
 We welcome contributions by the community, either as bug reports, fixes and new
 code. Please use the GitHub issue tracker to report bugs or submit patches.
-Before developing something new, please get in contact with us.
-
-Please see [Contributing section](https://docs.zhinst.com/zhinst-toolkit/en/latest/contributing/)
+Before developing something new, please get in contact with us via info@zhinst.com.
 
 ## License
 This software is licensed under the terms of the MIT license.

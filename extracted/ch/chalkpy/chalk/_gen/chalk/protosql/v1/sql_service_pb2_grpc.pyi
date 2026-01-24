@@ -18,6 +18,8 @@ from chalk._gen.chalk.protosql.v1.sql_service_pb2 import (
     GetTablesResponse,
     PlanSqlQueryRequest,
     PlanSqlQueryResponse,
+    PollSqlQueryRequest,
+    PollSqlQueryResponse,
 )
 from grpc import (
     Channel,
@@ -36,6 +38,11 @@ class SqlServiceStub:
         PlanSqlQueryRequest,
         PlanSqlQueryResponse,
     ]
+    PollSqlQuery: UnaryUnaryMultiCallable[
+        PollSqlQueryRequest,
+        PollSqlQueryResponse,
+    ]
+    """Poll for the status and results of an asynchronous SQL query"""
     GetDbCatalogs: UnaryUnaryMultiCallable[
         GetDbCatalogsRequest,
         GetDbCatalogsResponse,
@@ -62,6 +69,13 @@ class SqlServiceServicer(metaclass=ABCMeta):
         request: PlanSqlQueryRequest,
         context: ServicerContext,
     ) -> PlanSqlQueryResponse: ...
+    @abstractmethod
+    def PollSqlQuery(
+        self,
+        request: PollSqlQueryRequest,
+        context: ServicerContext,
+    ) -> PollSqlQueryResponse:
+        """Poll for the status and results of an asynchronous SQL query"""
     @abstractmethod
     def GetDbCatalogs(
         self,

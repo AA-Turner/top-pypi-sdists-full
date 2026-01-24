@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
-from .literals import AgreementStatusType, SortOrderType
+from .literals import AgreementStatusType, PaymentRequestApprovalStrategyType, SortOrderType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -71,6 +66,8 @@ __all__ = (
     "UsageBasedPricingTermTypeDef",
     "UsageBasedRateCardItemTypeDef",
     "ValidityTermTypeDef",
+    "VariablePaymentTermConfigurationTypeDef",
+    "VariablePaymentTermTypeDef",
 )
 
 ByolPricingTermTypeDef = TypedDict(
@@ -82,26 +79,26 @@ ByolPricingTermTypeDef = TypedDict(
 RecurringPaymentTermTypeDef = TypedDict(
     "RecurringPaymentTermTypeDef",
     {
-        "billingPeriod": NotRequired[str],
-        "currencyCode": NotRequired[str],
-        "price": NotRequired[str],
         "type": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "billingPeriod": NotRequired[str],
+        "price": NotRequired[str],
     },
 )
 SupportTermTypeDef = TypedDict(
     "SupportTermTypeDef",
     {
-        "refundPolicy": NotRequired[str],
         "type": NotRequired[str],
+        "refundPolicy": NotRequired[str],
     },
 )
 ValidityTermTypeDef = TypedDict(
     "ValidityTermTypeDef",
     {
-        "agreementDuration": NotRequired[str],
-        "agreementEndDate": NotRequired[datetime],
-        "agreementStartDate": NotRequired[datetime],
         "type": NotRequired[str],
+        "agreementDuration": NotRequired[str],
+        "agreementStartDate": NotRequired[datetime],
+        "agreementEndDate": NotRequired[datetime],
     },
 )
 
@@ -135,13 +132,13 @@ class DescribeAgreementInputTypeDef(TypedDict):
     agreementId: str
 
 class EstimatedChargesTypeDef(TypedDict):
-    agreementValue: NotRequired[str]
     currencyCode: NotRequired[str]
+    agreementValue: NotRequired[str]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -168,8 +165,8 @@ class GetAgreementTermsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class ScheduleItemTypeDef(TypedDict):
-    chargeAmount: NotRequired[str]
     chargeDate: NotRequired[datetime]
+    chargeAmount: NotRequired[str]
 
 ResourceTypeDef = TypedDict(
     "ResourceTypeDef",
@@ -186,132 +183,147 @@ class SortTypeDef(TypedDict):
     sortBy: NotRequired[str]
     sortOrder: NotRequired[SortOrderType]
 
+class VariablePaymentTermConfigurationTypeDef(TypedDict):
+    paymentRequestApprovalStrategy: PaymentRequestApprovalStrategyType
+    expirationDuration: NotRequired[str]
+
 class ConfigurableUpfrontPricingTermConfigurationTypeDef(TypedDict):
-    dimensions: List[DimensionTypeDef]
     selectorValue: str
+    dimensions: list[DimensionTypeDef]
 
 class UsageBasedRateCardItemTypeDef(TypedDict):
-    rateCard: NotRequired[List[RateCardItemTypeDef]]
+    rateCard: NotRequired[list[RateCardItemTypeDef]]
 
 class ConfigurableUpfrontRateCardItemTypeDef(TypedDict):
-    constraints: NotRequired[ConstraintsTypeDef]
-    rateCard: NotRequired[List[RateCardItemTypeDef]]
     selector: NotRequired[SelectorTypeDef]
+    constraints: NotRequired[ConstraintsTypeDef]
+    rateCard: NotRequired[list[RateCardItemTypeDef]]
 
 LegalTermTypeDef = TypedDict(
     "LegalTermTypeDef",
     {
-        "documents": NotRequired[List[DocumentItemTypeDef]],
         "type": NotRequired[str],
+        "documents": NotRequired[list[DocumentItemTypeDef]],
     },
 )
 FixedUpfrontPricingTermTypeDef = TypedDict(
     "FixedUpfrontPricingTermTypeDef",
     {
+        "type": NotRequired[str],
         "currencyCode": NotRequired[str],
         "duration": NotRequired[str],
-        "grants": NotRequired[List[GrantItemTypeDef]],
         "price": NotRequired[str],
-        "type": NotRequired[str],
+        "grants": NotRequired[list[GrantItemTypeDef]],
     },
 )
 FreeTrialPricingTermTypeDef = TypedDict(
     "FreeTrialPricingTermTypeDef",
     {
-        "duration": NotRequired[str],
-        "grants": NotRequired[List[GrantItemTypeDef]],
         "type": NotRequired[str],
+        "duration": NotRequired[str],
+        "grants": NotRequired[list[GrantItemTypeDef]],
     },
 )
 PaymentScheduleTermTypeDef = TypedDict(
     "PaymentScheduleTermTypeDef",
     {
-        "currencyCode": NotRequired[str],
-        "schedule": NotRequired[List[ScheduleItemTypeDef]],
         "type": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "schedule": NotRequired[list[ScheduleItemTypeDef]],
     },
 )
 
 class ProposalSummaryTypeDef(TypedDict):
+    resources: NotRequired[list[ResourceTypeDef]]
     offerId: NotRequired[str]
-    resources: NotRequired[List[ResourceTypeDef]]
+    offerSetId: NotRequired[str]
 
 RenewalTermTypeDef = TypedDict(
     "RenewalTermTypeDef",
     {
-        "configuration": NotRequired[RenewalTermConfigurationTypeDef],
         "type": NotRequired[str],
+        "configuration": NotRequired[RenewalTermConfigurationTypeDef],
     },
 )
 
 class SearchAgreementsInputTypeDef(TypedDict):
     catalog: NotRequired[str]
     filters: NotRequired[Sequence[FilterTypeDef]]
+    sort: NotRequired[SortTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-    sort: NotRequired[SortTypeDef]
 
+VariablePaymentTermTypeDef = TypedDict(
+    "VariablePaymentTermTypeDef",
+    {
+        "type": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "maxTotalChargeAmount": NotRequired[str],
+        "configuration": NotRequired[VariablePaymentTermConfigurationTypeDef],
+    },
+)
 UsageBasedPricingTermTypeDef = TypedDict(
     "UsageBasedPricingTermTypeDef",
     {
-        "currencyCode": NotRequired[str],
-        "rateCards": NotRequired[List[UsageBasedRateCardItemTypeDef]],
         "type": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "rateCards": NotRequired[list[UsageBasedRateCardItemTypeDef]],
     },
 )
 ConfigurableUpfrontPricingTermTypeDef = TypedDict(
     "ConfigurableUpfrontPricingTermTypeDef",
     {
-        "configuration": NotRequired[ConfigurableUpfrontPricingTermConfigurationTypeDef],
-        "currencyCode": NotRequired[str],
-        "rateCards": NotRequired[List[ConfigurableUpfrontRateCardItemTypeDef]],
         "type": NotRequired[str],
+        "currencyCode": NotRequired[str],
+        "rateCards": NotRequired[list[ConfigurableUpfrontRateCardItemTypeDef]],
+        "configuration": NotRequired[ConfigurableUpfrontPricingTermConfigurationTypeDef],
     },
 )
 
 class AgreementViewSummaryTypeDef(TypedDict):
-    acceptanceTime: NotRequired[datetime]
-    acceptor: NotRequired[AcceptorTypeDef]
     agreementId: NotRequired[str]
-    agreementType: NotRequired[str]
-    endTime: NotRequired[datetime]
-    proposalSummary: NotRequired[ProposalSummaryTypeDef]
-    proposer: NotRequired[ProposerTypeDef]
+    acceptanceTime: NotRequired[datetime]
     startTime: NotRequired[datetime]
+    endTime: NotRequired[datetime]
+    agreementType: NotRequired[str]
+    acceptor: NotRequired[AcceptorTypeDef]
+    proposer: NotRequired[ProposerTypeDef]
+    proposalSummary: NotRequired[ProposalSummaryTypeDef]
     status: NotRequired[AgreementStatusType]
 
 class DescribeAgreementOutputTypeDef(TypedDict):
-    acceptanceTime: datetime
-    acceptor: AcceptorTypeDef
     agreementId: str
-    agreementType: str
-    endTime: datetime
-    estimatedCharges: EstimatedChargesTypeDef
-    proposalSummary: ProposalSummaryTypeDef
+    acceptor: AcceptorTypeDef
     proposer: ProposerTypeDef
     startTime: datetime
+    endTime: datetime
+    acceptanceTime: datetime
+    agreementType: str
+    estimatedCharges: EstimatedChargesTypeDef
+    proposalSummary: ProposalSummaryTypeDef
     status: AgreementStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AcceptedTermTypeDef(TypedDict):
-    byolPricingTerm: NotRequired[ByolPricingTermTypeDef]
-    configurableUpfrontPricingTerm: NotRequired[ConfigurableUpfrontPricingTermTypeDef]
-    fixedUpfrontPricingTerm: NotRequired[FixedUpfrontPricingTermTypeDef]
-    freeTrialPricingTerm: NotRequired[FreeTrialPricingTermTypeDef]
     legalTerm: NotRequired[LegalTermTypeDef]
-    paymentScheduleTerm: NotRequired[PaymentScheduleTermTypeDef]
-    recurringPaymentTerm: NotRequired[RecurringPaymentTermTypeDef]
-    renewalTerm: NotRequired[RenewalTermTypeDef]
     supportTerm: NotRequired[SupportTermTypeDef]
+    renewalTerm: NotRequired[RenewalTermTypeDef]
     usageBasedPricingTerm: NotRequired[UsageBasedPricingTermTypeDef]
+    configurableUpfrontPricingTerm: NotRequired[ConfigurableUpfrontPricingTermTypeDef]
+    byolPricingTerm: NotRequired[ByolPricingTermTypeDef]
+    recurringPaymentTerm: NotRequired[RecurringPaymentTermTypeDef]
     validityTerm: NotRequired[ValidityTermTypeDef]
+    paymentScheduleTerm: NotRequired[PaymentScheduleTermTypeDef]
+    freeTrialPricingTerm: NotRequired[FreeTrialPricingTermTypeDef]
+    fixedUpfrontPricingTerm: NotRequired[FixedUpfrontPricingTermTypeDef]
+    variablePaymentTerm: NotRequired[VariablePaymentTermTypeDef]
 
 class SearchAgreementsOutputTypeDef(TypedDict):
-    agreementViewSummaries: List[AgreementViewSummaryTypeDef]
+    agreementViewSummaries: list[AgreementViewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetAgreementTermsOutputTypeDef(TypedDict):
-    acceptedTerms: List[AcceptedTermTypeDef]
+    acceptedTerms: list[AcceptedTermTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

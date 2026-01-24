@@ -658,10 +658,22 @@ class CallbacksTests(TestCase):
             task1 = BaseOperator(task_id="task_123", dag=dag)
             task2 = BaseOperator(task_id="task_234", dag=dag)
             
-            task_instance1 = TaskInstance(
-                task=task1,
-                run_id="123"
-            )
+            # Try to create TaskInstance - Airflow 3.1+ may require dag_version_id
+            import uuid
+            try:
+                # Try with dag_version_id first (Airflow 3.1+)
+                dag_version_id = uuid.uuid4()
+                task_instance1 = TaskInstance(
+                    task=task1,
+                    run_id="123",
+                    dag_version_id=dag_version_id
+                )
+            except TypeError:
+                # Fall back to without dag_version_id (Airflow 3.0)
+                task_instance1 = TaskInstance(
+                    task=task1,
+                    run_id="123"
+                )
             task_instance1.state = state
             task_instance1.start_date = datetime.now(tz=timezone.utc) - timedelta(seconds=9) if set_dates else None
             task_instance1.end_date = datetime.now(tz=timezone.utc) if set_dates else None
@@ -671,10 +683,19 @@ class CallbacksTests(TestCase):
             # In Airflow 3, TaskInstance doesn't have logical_date, but we can set it if needed
             # The callback will use start_date as fallback for execution_date
             
-            task_instance2 = TaskInstance(
-                task=task2,
-                run_id="123"
-            )
+            try:
+                # Try with dag_version_id first (Airflow 3.1+)
+                task_instance2 = TaskInstance(
+                    task=task2,
+                    run_id="123",
+                    dag_version_id=dag_version_id
+                )
+            except (TypeError, NameError):
+                # Fall back to without dag_version_id (Airflow 3.0) or if dag_version_id is not defined
+                task_instance2 = TaskInstance(
+                    task=task2,
+                    run_id="123"
+                )
             task_instance2.state = "success"
             task_instance2.start_date = datetime.now(tz=timezone.utc) - timedelta(seconds=9) if set_dates else None
             task_instance2.end_date = datetime.now(tz=timezone.utc) if set_dates else None
@@ -785,15 +806,9 @@ class CallbacksTests(TestCase):
             # TODO: Check if this is correct
             # In Airflow 3, the callback generates a different log_url format
             log_url = f"http://localhost:8080/dags/{dag.dag_id}/runs/{dag_context['run_id']}/tasks/{task_instance.task_id}?try_number={task_instance.try_number}"
-            # In Airflow 3, this is calculated by calling next_retry_datetime() method
-            # Since we're using real TaskInstance objects, this will return a real calculated value
-            # But we need to handle the case where end_date is None (like the callback does)
-            if task_instance.end_date is None:
-                next_retry_datetime = None
-            else:
-                next_retry_datetime_raw = task_instance.next_retry_datetime()
-                # The callback converts datetime to ISO format string
-                next_retry_datetime = next_retry_datetime_raw.isoformat() if next_retry_datetime_raw else None
+            # In Airflow 3, RuntimeTaskInstance doesn't have next_retry_datetime() method
+            # The callback now returns None for Airflow 3.2+ compatibility
+            next_retry_datetime = None
         else:
             # In Airflow 1 and 2, use the execution_date attribute
             execution_date = task_instance.execution_date.isoformat() if set_dates and task_instance.execution_date else now_isoformat
@@ -1146,4 +1161,181 @@ class CallbacksTests(TestCase):
         task_instance.end_date = None
         next_retry = AirflowEventsClientUtils._get_next_retry_datetime(task_instance)
         self.assertIsNone(next_retry)
+
+    def test_get_lineage_dict_with_dataclass(self):
+        """Test that _get_lineage_dict works correctly with dataclass objects."""
+        from dataclasses import dataclass
+        
+        @dataclass
+        class TestDataclass:
+            name: str
+            value: int
+        
+        test_obj = TestDataclass(name="test", value=42)
+        result = AirflowEventsClientUtils._get_lineage_dict(test_obj)
+        
+        expected = {
+            'name': 'test',
+            'value': 42,
+            'type': str(type(test_obj))
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_lineage_dict_with_non_dataclass(self):
+        """Test that _get_lineage_dict works correctly with non-dataclass objects."""
+        class TestClass:
+            def __init__(self, name, value):
+                self.name = name
+                self.value = value
+        
+        test_obj = TestClass(name="test", value=42)
+        result = AirflowEventsClientUtils._get_lineage_dict(test_obj)
+        
+        expected = {
+            'name': 'test',
+            'value': 42,
+            'type': str(type(test_obj))
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_lineage_dict_with_builtin_type(self):
+        """Test that _get_lineage_dict works correctly with built-in types."""
+        test_obj = "test_string"
+        result = AirflowEventsClientUtils._get_lineage_dict(test_obj)
+        
+        expected = {
+            'value': 'test_string',
+            'type': str(type(test_obj))
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_lineage_dict_with_dictionary(self):
+        """Test that _get_lineage_dict works correctly with dictionary objects."""
+        test_dict = {'uri': 'test://uri', 'name': 'test_table', 'schema': 'public'}
+        result = AirflowEventsClientUtils._get_lineage_dict(test_dict)
+        
+        expected = {
+            'uri': 'test://uri',
+            'name': 'test_table',
+            'schema': 'public',
+            'type': str(type(test_dict))
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_lineage_dict_with_dataset_object(self):
+        """Test that _get_lineage_dict works correctly with Dataset objects (simulating customer's use case)."""
+        # Simulate a Dataset object like the customer uses
+        class Dataset:
+            def __init__(self, uri):
+                self.uri = uri
+                self.scheme = uri.split('://')[0] if '://' in uri else 'unknown'
+                self.name = uri.split('/')[-1] if '/' in uri else uri
+        
+        # Create a Dataset object similar to what the customer uses
+        dataset = Dataset("redshift://cluster/database/schema/table")
+        result = AirflowEventsClientUtils._get_lineage_dict(dataset)
+        
+        expected = {
+            'uri': 'redshift://cluster/database/schema/table',
+            'scheme': 'redshift',
+            'name': 'table',
+            'type': str(type(dataset))
+        }
+        self.assertEqual(result, expected)
+
+    def test_get_lineage_list_with_non_dataclass_objects(self):
+        """Test that _get_lineage_list works correctly with non-dataclass lineage objects."""
+        # Create a mock task with non-dataclass outlets
+        class MockTask:
+            def __init__(self):
+                self.outlets = [
+                    self._create_dataset("redshift://cluster1/db1/schema1/table1"),
+                    self._create_dataset("redshift://cluster2/db2/schema2/table2")
+                ]
+                self.inlets = [
+                    self._create_dataset("redshift://cluster3/db3/schema3/table3")
+                ]
+            
+            def _create_dataset(self, uri):
+                class Dataset:
+                    def __init__(self, uri):
+                        self.uri = uri
+                        self.scheme = uri.split('://')[0] if '://' in uri else 'unknown'
+                        self.name = uri.split('/')[-1] if '/' in uri else uri
+                return Dataset(uri)
+        
+        # Create a mock task instance
+        task_instance = create_autospec(TaskInstance)
+        task_instance.task = MockTask()
+        
+        # Test outlets
+        outlets = AirflowEventsClientUtils._get_lineage_list(task_instance, "outlets")
+        self.assertEqual(len(outlets), 2)
+        
+        # Check first outlet
+        self.assertEqual(outlets[0]['uri'], 'redshift://cluster1/db1/schema1/table1')
+        self.assertEqual(outlets[0]['scheme'], 'redshift')
+        self.assertEqual(outlets[0]['name'], 'table1')
+        self.assertIn('type', outlets[0])
+        
+        # Check second outlet
+        self.assertEqual(outlets[1]['uri'], 'redshift://cluster2/db2/schema2/table2')
+        self.assertEqual(outlets[1]['scheme'], 'redshift')
+        self.assertEqual(outlets[1]['name'], 'table2')
+        self.assertIn('type', outlets[1])
+        
+        # Test inlets
+        inlets = AirflowEventsClientUtils._get_lineage_list(task_instance, "inlets")
+        self.assertEqual(len(inlets), 1)
+        
+        # Check inlet
+        self.assertEqual(inlets[0]['uri'], 'redshift://cluster3/db3/schema3/table3')
+        self.assertEqual(inlets[0]['scheme'], 'redshift')
+        self.assertEqual(inlets[0]['name'], 'table3')
+        self.assertIn('type', inlets[0])
+
+    def test_get_lineage_list_with_mixed_object_types(self):
+        """Test that _get_lineage_list works correctly with mixed dataclass and non-dataclass objects."""
+        from dataclasses import dataclass
+        
+        @dataclass
+        class DataclassLineage:
+            name: str
+            value: int
+        
+        class NonDataclassLineage:
+            def __init__(self, name, value):
+                self.name = name
+                self.value = value
+        
+        # Create a mock task with mixed lineage objects
+        class MockTask:
+            def __init__(self):
+                self.outlets = [
+                    DataclassLineage(name="dataclass_outlet", value=1),
+                    NonDataclassLineage(name="non_dataclass_outlet", value=2),
+                    "string_outlet"  # Built-in type
+                ]
+        
+        # Create a mock task instance
+        task_instance = create_autospec(TaskInstance)
+        task_instance.task = MockTask()
+        
+        # Test outlets
+        outlets = AirflowEventsClientUtils._get_lineage_list(task_instance, "outlets")
+        self.assertEqual(len(outlets), 3)
+        
+        # Check dataclass outlet
+        self.assertEqual(outlets[0]['name'], 'dataclass_outlet')
+        self.assertEqual(outlets[0]['value'], 1)
+        self.assertIn('type', outlets[0])
+        
+        # Check non-dataclass outlet
+        self.assertEqual(outlets[1]['name'], 'non_dataclass_outlet')
+        self.assertEqual(outlets[1]['value'], 2)
+        self.assertIn('type', outlets[1])
+        
+        # Check string outlet
+        self.assertEqual(outlets[2]['value'], 'string_outlet')
+        self.assertIn('type', outlets[2])
 

@@ -42,6 +42,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     DeployKubeComponentsResponse,
     GetBranchProfileRequest,
     GetBranchProfileResponse,
+    GetBranchServerStatusRequest,
+    GetBranchServerStatusResponse,
     GetClusterBackgroundPersistenceRequest,
     GetClusterBackgroundPersistenceResponse,
     GetClusterGatewayDefaultRequest,
@@ -58,6 +60,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetDeploymentLogsResponse,
     GetDeploymentStepsRequest,
     GetDeploymentStepsResponse,
+    GetEnvironmentKubeClustersRequest,
+    GetEnvironmentKubeClustersResponse,
     GetKafkaTopicsRequest,
     GetKafkaTopicsResponse,
     GetKarpenterInstallationMetadataRequest,
@@ -78,22 +82,40 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     LintSourceResponse,
     MigrateClusterTimescaleDBRequest,
     MigrateClusterTimescaleDBResponse,
+    MigrateTelemetryDeploymentRequest,
+    MigrateTelemetryDeploymentResponse,
+    PrepareDeploymentRequest,
+    PrepareDeploymentResponse,
     RebuildDeploymentRequest,
     RebuildDeploymentResponse,
     RedeployDeploymentRequest,
     RedeployDeploymentResponse,
+    ResumeClusterBackgroundPersistenceRequest,
+    ResumeClusterBackgroundPersistenceResponse,
+    ResumeClusterGatewayRequest,
+    ResumeClusterGatewayResponse,
+    ResumeEnvironmentRequest,
+    ResumeEnvironmentResponse,
     ScaleBranchRequest,
     ScaleBranchResponse,
     SetTagWeightsRequest,
     SetTagWeightsResponse,
     StartBranchRequest,
     StartBranchResponse,
+    SuspendClusterBackgroundPersistenceRequest,
+    SuspendClusterBackgroundPersistenceResponse,
+    SuspendClusterGatewayRequest,
+    SuspendClusterGatewayResponse,
+    SuspendEnvironmentRequest,
+    SuspendEnvironmentResponse,
     UpdateEnvironmentVariablesRequest,
     UpdateEnvironmentVariablesResponse,
     UpdateKarpenterNodepoolRequest,
     UpdateKarpenterNodepoolResponse,
     UpdateNodepoolRequest,
     UpdateNodepoolResponse,
+    UpdateTelemetryDeploymentRequest,
+    UpdateTelemetryDeploymentResponse,
     UploadSourceRequest,
     UploadSourceResponse,
 )
@@ -217,6 +239,11 @@ class BuilderServiceStub:
         StartBranchRequest,
         StartBranchResponse,
     ]
+    """Initiates the branch server for the environment if it isn't already running.
+    If the branch server isn't running, it starts the branch server and returns
+    a state of IN_PROGRESS. This endpoint should be polled until the state
+    returns SUCCESS, or an error is returned.
+    """
     ScaleBranch: UnaryUnaryMultiCallable[
         ScaleBranchRequest,
         ScaleBranchResponse,
@@ -224,6 +251,10 @@ class BuilderServiceStub:
     GetBranchProfile: UnaryUnaryMultiCallable[
         GetBranchProfileRequest,
         GetBranchProfileResponse,
+    ]
+    GetBranchServerStatus: UnaryUnaryMultiCallable[
+        GetBranchServerStatusRequest,
+        GetBranchServerStatusResponse,
     ]
     GetNodepools: UnaryUnaryMultiCallable[
         GetNodepoolsRequest,
@@ -273,6 +304,10 @@ class BuilderServiceStub:
         CreateDeploymentRequest,
         CreateDeploymentResponse,
     ]
+    PrepareDeployment: UnaryUnaryMultiCallable[
+        PrepareDeploymentRequest,
+        PrepareDeploymentResponse,
+    ]
     GetTelemetryDeployment: UnaryUnaryMultiCallable[
         GetTelemetryDeploymentRequest,
         GetTelemetryDeploymentResponse,
@@ -281,9 +316,45 @@ class BuilderServiceStub:
         CreateTelemetryDeploymentRequest,
         CreateTelemetryDeploymentResponse,
     ]
+    UpdateTelemetryDeployment: UnaryUnaryMultiCallable[
+        UpdateTelemetryDeploymentRequest,
+        UpdateTelemetryDeploymentResponse,
+    ]
     DeleteTelemetryDeployment: UnaryUnaryMultiCallable[
         DeleteTelemetryDeploymentRequest,
         DeleteTelemetryDeploymentResponse,
+    ]
+    MigrateTelemetryDeployment: UnaryUnaryMultiCallable[
+        MigrateTelemetryDeploymentRequest,
+        MigrateTelemetryDeploymentResponse,
+    ]
+    GetEnvironmentKubeClusters: UnaryUnaryMultiCallable[
+        GetEnvironmentKubeClustersRequest,
+        GetEnvironmentKubeClustersResponse,
+    ]
+    SuspendEnvironment: UnaryUnaryMultiCallable[
+        SuspendEnvironmentRequest,
+        SuspendEnvironmentResponse,
+    ]
+    ResumeEnvironment: UnaryUnaryMultiCallable[
+        ResumeEnvironmentRequest,
+        ResumeEnvironmentResponse,
+    ]
+    SuspendClusterGateway: UnaryUnaryMultiCallable[
+        SuspendClusterGatewayRequest,
+        SuspendClusterGatewayResponse,
+    ]
+    ResumeClusterGateway: UnaryUnaryMultiCallable[
+        ResumeClusterGatewayRequest,
+        ResumeClusterGatewayResponse,
+    ]
+    SuspendClusterBackgroundPersistence: UnaryUnaryMultiCallable[
+        SuspendClusterBackgroundPersistenceRequest,
+        SuspendClusterBackgroundPersistenceResponse,
+    ]
+    ResumeClusterBackgroundPersistence: UnaryUnaryMultiCallable[
+        ResumeClusterBackgroundPersistenceRequest,
+        ResumeClusterBackgroundPersistenceResponse,
     ]
 
 class BuilderServiceServicer(metaclass=ABCMeta):
@@ -447,7 +518,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         self,
         request: StartBranchRequest,
         context: ServicerContext,
-    ) -> StartBranchResponse: ...
+    ) -> StartBranchResponse:
+        """Initiates the branch server for the environment if it isn't already running.
+        If the branch server isn't running, it starts the branch server and returns
+        a state of IN_PROGRESS. This endpoint should be polled until the state
+        returns SUCCESS, or an error is returned.
+        """
     @abstractmethod
     def ScaleBranch(
         self,
@@ -460,6 +536,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetBranchProfileRequest,
         context: ServicerContext,
     ) -> GetBranchProfileResponse: ...
+    @abstractmethod
+    def GetBranchServerStatus(
+        self,
+        request: GetBranchServerStatusRequest,
+        context: ServicerContext,
+    ) -> GetBranchServerStatusResponse: ...
     @abstractmethod
     def GetNodepools(
         self,
@@ -533,6 +615,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CreateDeploymentResponse: ...
     @abstractmethod
+    def PrepareDeployment(
+        self,
+        request: PrepareDeploymentRequest,
+        context: ServicerContext,
+    ) -> PrepareDeploymentResponse: ...
+    @abstractmethod
     def GetTelemetryDeployment(
         self,
         request: GetTelemetryDeploymentRequest,
@@ -545,11 +633,65 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> CreateTelemetryDeploymentResponse: ...
     @abstractmethod
+    def UpdateTelemetryDeployment(
+        self,
+        request: UpdateTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> UpdateTelemetryDeploymentResponse: ...
+    @abstractmethod
     def DeleteTelemetryDeployment(
         self,
         request: DeleteTelemetryDeploymentRequest,
         context: ServicerContext,
     ) -> DeleteTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def MigrateTelemetryDeployment(
+        self,
+        request: MigrateTelemetryDeploymentRequest,
+        context: ServicerContext,
+    ) -> MigrateTelemetryDeploymentResponse: ...
+    @abstractmethod
+    def GetEnvironmentKubeClusters(
+        self,
+        request: GetEnvironmentKubeClustersRequest,
+        context: ServicerContext,
+    ) -> GetEnvironmentKubeClustersResponse: ...
+    @abstractmethod
+    def SuspendEnvironment(
+        self,
+        request: SuspendEnvironmentRequest,
+        context: ServicerContext,
+    ) -> SuspendEnvironmentResponse: ...
+    @abstractmethod
+    def ResumeEnvironment(
+        self,
+        request: ResumeEnvironmentRequest,
+        context: ServicerContext,
+    ) -> ResumeEnvironmentResponse: ...
+    @abstractmethod
+    def SuspendClusterGateway(
+        self,
+        request: SuspendClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> SuspendClusterGatewayResponse: ...
+    @abstractmethod
+    def ResumeClusterGateway(
+        self,
+        request: ResumeClusterGatewayRequest,
+        context: ServicerContext,
+    ) -> ResumeClusterGatewayResponse: ...
+    @abstractmethod
+    def SuspendClusterBackgroundPersistence(
+        self,
+        request: SuspendClusterBackgroundPersistenceRequest,
+        context: ServicerContext,
+    ) -> SuspendClusterBackgroundPersistenceResponse: ...
+    @abstractmethod
+    def ResumeClusterBackgroundPersistence(
+        self,
+        request: ResumeClusterBackgroundPersistenceRequest,
+        context: ServicerContext,
+    ) -> ResumeClusterBackgroundPersistenceResponse: ...
 
 def add_BuilderServiceServicer_to_server(servicer: BuilderServiceServicer, server: Server) -> None: ...
 

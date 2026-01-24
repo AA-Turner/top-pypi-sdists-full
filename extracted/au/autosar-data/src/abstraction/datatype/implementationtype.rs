@@ -36,6 +36,15 @@ impl ImplementationDataType {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -100,7 +109,7 @@ impl ImplementationDataType {
 
     /// get the data pointer target of this implementation data type [category: DATA_REFERENCE]
     #[getter]
-    fn data_pointer_target(&self, py: Python) -> Option<PyObject> {
+    fn data_pointer_target(&self, py: Python) -> Option<Py<PyAny>> {
         self.0
             .data_pointer_target()
             .and_then(|target| match target {
@@ -127,7 +136,7 @@ impl ImplementationDataType {
     }
 
     /// get the settings of this implementation data type
-    fn settings(&self) -> Option<PyObject> {
+    fn settings(&self) -> Option<Py<PyAny>> {
         self.0
             .settings()
             .and_then(|settings| implementation_settings_to_pyany(&settings).ok())
@@ -159,6 +168,15 @@ impl ImplementationDataTypeElement {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -223,7 +241,7 @@ impl ImplementationDataTypeElement {
 
     /// get the data pointer target of this implementation data type [category: DATA_REFERENCE]
     #[getter]
-    fn data_pointer_target(&self, py: Python) -> Option<PyObject> {
+    fn data_pointer_target(&self, py: Python) -> Option<Py<PyAny>> {
         self.0
             .data_pointer_target()
             .and_then(|target| match target {
@@ -250,7 +268,7 @@ impl ImplementationDataTypeElement {
     }
 
     /// get the settings of this implementation data type
-    fn settings(&self) -> Option<PyObject> {
+    fn settings(&self) -> Option<Py<PyAny>> {
         self.0
             .settings()
             .and_then(|settings| implementation_settings_to_pyany(&settings).ok())
@@ -352,43 +370,43 @@ impl<'py> From<&Bound<'py, PyAny>> for ImplementationDataTypeSettingsInternal<'p
         {
             "ImplementationDataTypeSettings_Value" => Self::Value(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_Value>()
+                    .cast_exact::<ImplementationDataTypeSettings_Value>()
                     .unwrap()
                     .borrow(),
             ),
             "ImplementationDataTypeSettings_Array" => Self::Array(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_Array>()
+                    .cast_exact::<ImplementationDataTypeSettings_Array>()
                     .unwrap()
                     .borrow(),
             ),
             "ImplementationDataTypeSettings_Structure" => Self::Structure(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_Structure>()
+                    .cast_exact::<ImplementationDataTypeSettings_Structure>()
                     .unwrap()
                     .borrow(),
             ),
             "ImplementationDataTypeSettings_Union" => Self::Union(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_Union>()
+                    .cast_exact::<ImplementationDataTypeSettings_Union>()
                     .unwrap()
                     .borrow(),
             ),
             "ImplementationDataTypeSettings_DataReference" => Self::DataReference(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_DataReference>()
+                    .cast_exact::<ImplementationDataTypeSettings_DataReference>()
                     .unwrap()
                     .borrow(),
             ),
             "ImplementationDataTypeSettings_FunctionReference" => Self::FunctionReference(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_FunctionReference>()
+                    .cast_exact::<ImplementationDataTypeSettings_FunctionReference>()
                     .unwrap()
                     .borrow(),
             ),
             "ImplementationDataTypeSettings_TypeReference" => Self::TypeReference(
                 settings
-                    .downcast_exact::<ImplementationDataTypeSettings_TypeReference>()
+                    .cast_exact::<ImplementationDataTypeSettings_TypeReference>()
                     .unwrap()
                     .borrow(),
             ),
@@ -532,7 +550,7 @@ impl ImplementationDataTypeSettings_Array {
 
 impl PartialEq for ImplementationDataTypeSettings_Array {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             self.name == other.name
                 && self.length == other.length
                 && ImplementationDataTypeSettingsInternal::from(self.element_type.bind(py))
@@ -548,7 +566,7 @@ impl TryFrom<&ImplementationDataTypeSettings_Array>
 
     fn try_from(settings: &ImplementationDataTypeSettings_Array) -> PyResult<Self> {
         let element_type =
-            Python::with_gil(|py| pyany_to_implmentation_settings(settings.element_type.bind(py)))?;
+            Python::attach(|py| pyany_to_implmentation_settings(settings.element_type.bind(py)))?;
         Ok(
             autosar_data_abstraction::datatype::ImplementationDataTypeSettings::Array {
                 name: settings.name.clone(),
@@ -612,7 +630,7 @@ impl TryFrom<&ImplementationDataTypeSettings_Structure>
     type Error = PyErr;
 
     fn try_from(settings: &ImplementationDataTypeSettings_Structure) -> PyResult<Self> {
-        let elements = Python::with_gil(|py| {
+        let elements = Python::attach(|py| {
             settings
                 .elements
                 .bind(py)
@@ -683,7 +701,7 @@ impl TryFrom<&ImplementationDataTypeSettings_Union>
     type Error = PyErr;
 
     fn try_from(settings: &ImplementationDataTypeSettings_Union) -> PyResult<Self> {
-        let elements = Python::with_gil(|py| {
+        let elements = Python::attach(|py| {
             settings
                 .elements
                 .bind(py)
@@ -716,7 +734,7 @@ pub(crate) struct ImplementationDataTypeSettings_DataReference {
     /// the name of the data type
     name: String,
     /// the target of the data pointer; either an SwBaseType or an ImplementationDataType
-    target: PyObject,
+    target: Py<PyAny>,
 }
 
 #[pymethods]
@@ -724,7 +742,7 @@ impl ImplementationDataTypeSettings_DataReference {
     #[pyo3(signature = (name, *, target))]
     #[pyo3(text_signature = "(self, name: str, *, target: DataPointerTarget)")]
     #[new]
-    fn new(name: &str, target: PyObject) -> PyResult<(Self, ImplementationDataTypeSettings)> {
+    fn new(name: &str, target: Py<PyAny>) -> PyResult<(Self, ImplementationDataTypeSettings)> {
         pyany_to_data_pointer_target(&target)?;
         Ok((
             Self {
@@ -745,15 +763,15 @@ impl ImplementationDataTypeSettings_DataReference {
 
 impl PartialEq for ImplementationDataTypeSettings_DataReference {
     fn eq(&self, other: &Self) -> bool {
-        Python::with_gil(|py| {
+        Python::attach(|py| {
             if let (Ok(self_target), Ok(other_target)) = (
-                self.target.downcast_bound::<SwBaseType>(py),
-                other.target.downcast_bound::<SwBaseType>(py),
+                self.target.cast_bound::<SwBaseType>(py),
+                other.target.cast_bound::<SwBaseType>(py),
             ) {
                 self.name == other.name && *self_target.borrow() == *other_target.borrow()
             } else if let (Ok(self_target), Ok(other_target)) = (
-                self.target.downcast_bound::<ImplementationDataType>(py),
-                other.target.downcast_bound::<ImplementationDataType>(py),
+                self.target.cast_bound::<ImplementationDataType>(py),
+                other.target.cast_bound::<ImplementationDataType>(py),
             ) {
                 self.name == other.name && *self_target.borrow() == *other_target.borrow()
             } else {
@@ -780,9 +798,9 @@ impl TryFrom<&ImplementationDataTypeSettings_DataReference>
 }
 
 fn pyany_to_data_pointer_target(
-    target: &PyObject,
+    target: &Py<PyAny>,
 ) -> PyResult<autosar_data_abstraction::datatype::DataPointerTarget> {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         if let Ok(target) = target.extract::<SwBaseType>(py) {
             Ok(autosar_data_abstraction::datatype::DataPointerTarget::BaseType(target.0))
         } else if let Ok(target) = target.extract::<ImplementationDataType>(py) {
@@ -920,7 +938,7 @@ impl From<&ImplementationDataTypeSettings_TypeReference>
 //##################################################################
 
 fn compare_settings_pylist(seq1: &Py<PyList>, seq2: &Py<PyList>) -> bool {
-    Python::with_gil(|py| {
+    Python::attach(|py| {
         if let (Ok(seq1_len), Ok(seq2_len)) = (
             seq1.bind_borrowed(py).as_sequence().len(),
             seq2.bind_borrowed(py).as_sequence().len(),
@@ -987,7 +1005,7 @@ pub(crate) fn pyany_to_implmentation_settings(
 pub(crate) fn implementation_settings_to_pyany(
     settings: &autosar_data_abstraction::datatype::ImplementationDataTypeSettings,
 ) -> PyResult<Py<PyAny>> {
-    Python::with_gil(|py| match settings {
+    Python::attach(|py| match settings {
         autosar_data_abstraction::datatype::ImplementationDataTypeSettings::Value {
             name,
             base_type,

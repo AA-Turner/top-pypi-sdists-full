@@ -105,7 +105,7 @@ class NotifyWxPusher(NotifyBase):
     secure_protocol = "wxpusher"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_wxpusher"
+    setup_url = "https://appriseit.com/services/wxpusher/"
 
     # WxPusher notification endpoint
     notify_url = "https://wxpusher.zjiecode.com/api/send/message"
@@ -306,8 +306,8 @@ class NotifyWxPusher(NotifyBase):
                 )
 
                 self.logger.debug(
-                    f"Response Details:\r\n{content if content else r.content}"
-                )
+                    "Response Details:\r\n%r",
+                    content if content else (r.content or b"")[:2000])
 
                 # Mark our failure
                 return False

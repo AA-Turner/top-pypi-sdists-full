@@ -97,6 +97,8 @@ class Command:
             )
         return False
 
+    __hash__ = None  # type: ignore
+
     def finish(self, status_code: int) -> None:
         self.status_code = status_code
         self.finished = True

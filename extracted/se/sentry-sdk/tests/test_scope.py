@@ -16,6 +16,8 @@ from sentry_sdk.scope import (
     use_isolation_scope,
     use_scope,
     should_send_default_pii,
+    register_external_propagation_context,
+    remove_external_propagation_context,
 )
 
 
@@ -908,6 +910,7 @@ def test_last_event_id_cleared(sentry_init):
 
 
 @pytest.mark.tests_internal_exceptions
+@pytest.mark.parametrize("error_cls", [LookupError, ValueError])
 @pytest.mark.parametrize(
     "scope_manager",
     [
@@ -915,10 +918,10 @@ def test_last_event_id_cleared(sentry_init):
         use_scope,
     ],
 )
-def test_handle_lookup_error_on_token_reset_current_scope(scope_manager):
+def test_handle_error_on_token_reset_current_scope(error_cls, scope_manager):
     with mock.patch("sentry_sdk.scope.capture_internal_exception") as mock_capture:
         with mock.patch("sentry_sdk.scope._current_scope") as mock_token_var:
-            mock_token_var.reset.side_effect = LookupError()
+            mock_token_var.reset.side_effect = error_cls()
 
             mock_token = mock.Mock()
             mock_token_var.set.return_value = mock_token
@@ -932,13 +935,14 @@ def test_handle_lookup_error_on_token_reset_current_scope(scope_manager):
                         pass
 
             except Exception:
-                pytest.fail("Context manager should handle LookupError gracefully")
+                pytest.fail(f"Context manager should handle {error_cls} gracefully")
 
             mock_capture.assert_called_once()
             mock_token_var.reset.assert_called_once_with(mock_token)
 
 
 @pytest.mark.tests_internal_exceptions
+@pytest.mark.parametrize("error_cls", [LookupError, ValueError])
 @pytest.mark.parametrize(
     "scope_manager",
     [
@@ -946,13 +950,13 @@ def test_handle_lookup_error_on_token_reset_current_scope(scope_manager):
         use_isolation_scope,
     ],
 )
-def test_handle_lookup_error_on_token_reset_isolation_scope(scope_manager):
+def test_handle_error_on_token_reset_isolation_scope(error_cls, scope_manager):
     with mock.patch("sentry_sdk.scope.capture_internal_exception") as mock_capture:
         with mock.patch("sentry_sdk.scope._current_scope") as mock_current_scope:
             with mock.patch(
                 "sentry_sdk.scope._isolation_scope"
             ) as mock_isolation_scope:
-                mock_isolation_scope.reset.side_effect = LookupError()
+                mock_isolation_scope.reset.side_effect = error_cls()
                 mock_current_token = mock.Mock()
                 mock_current_scope.set.return_value = mock_current_token
 
@@ -965,7 +969,55 @@ def test_handle_lookup_error_on_token_reset_isolation_scope(scope_manager):
                             pass
 
                 except Exception:
-                    pytest.fail("Context manager should handle LookupError gracefully")
+                    pytest.fail(f"Context manager should handle {error_cls} gracefully")
 
                 mock_capture.assert_called_once()
                 mock_current_scope.reset.assert_called_once_with(mock_current_token)
+
+
+def test_trace_context_tracing(sentry_init):
+    sentry_init(traces_sample_rate=1.0)
+
+    with sentry_sdk.start_transaction(name="trx") as transaction:
+        with sentry_sdk.start_span(op="span1"):
+            with sentry_sdk.start_span(op="span2") as span:
+                trace_context = sentry_sdk.get_current_scope().get_trace_context()
+
+    assert trace_context["trace_id"] == transaction.trace_id
+    assert trace_context["span_id"] == span.span_id
+    assert trace_context["parent_span_id"] == span.parent_span_id
+    assert "dynamic_sampling_context" in trace_context
+
+
+def test_trace_context_external_tracing(sentry_init):
+    sentry_init()
+
+    def external_propagation_context():
+        return ("trace_id_foo", "span_id_bar")
+
+    register_external_propagation_context(external_propagation_context)
+
+    scope = sentry_sdk.get_current_scope()
+
+    trace_context = scope.get_trace_context()
+    assert trace_context["trace_id"] == "trace_id_foo"
+    assert trace_context["span_id"] == "span_id_bar"
+
+    headers = list(scope.iter_trace_propagation_headers())
+    assert not headers
+
+    remove_external_propagation_context()
+
+
+def test_trace_context_without_performance(sentry_init):
+    sentry_init()
+
+    with sentry_sdk.isolation_scope() as isolation_scope:
+        trace_context = sentry_sdk.get_current_scope().get_trace_context()
+
+    propagation_context = isolation_scope._propagation_context
+    assert propagation_context is not None
+    assert trace_context["trace_id"] == propagation_context.trace_id
+    assert trace_context["span_id"] == propagation_context.span_id
+    assert trace_context["parent_span_id"] == propagation_context.parent_span_id
+    assert "dynamic_sampling_context" in trace_context

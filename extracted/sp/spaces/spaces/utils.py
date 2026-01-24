@@ -1,25 +1,24 @@
 """
 """
-from __future__ import annotations
-
-import sys
 from functools import partial
 
 import multiprocessing
 from multiprocessing.queues import SimpleQueue as _SimpleQueue
 from pickle import PicklingError
+from threading import Thread
+from typing import Any
 from typing import Callable
 from typing import TypeVar
+
+from typing_extensions import ParamSpec
 
 
 GRADIO_VERSION_ERROR_MESSAGE = "Make sure Gradio version is at least 3.46"
 
 
 T = TypeVar('T')
+P = ParamSpec('P')
 
-
-if sys.version_info.minor < 9: # pragma: no cover
-    _SimpleQueue.__class_getitem__ = classmethod(lambda cls, _: cls) # type: ignore
 
 class SimpleQueue(_SimpleQueue[T]):
     def __init__(self, *args):
@@ -35,8 +34,6 @@ class SimpleQueue(_SimpleQueue[T]):
             if not "pickle" in message:
                 raise # pragma: no cover
             raise PicklingError(message)
-    def close(self): # Python 3.8 static typing trick
-        super().close() # type: ignore
     def wlock_release(self):
         if (lock := getattr(self, '_wlock', None)) is None:
             return # pragma: no cover
@@ -61,3 +58,8 @@ def gradio_request_var():
 
 
 debug = partial(print, 'SPACES_ZERO_GPU_DEBUG')
+
+
+# Type-safe threads
+def create_thread(fn: Callable[P, Any], *args: P.args, **kwargs: P.kwargs) -> Thread:
+    return Thread(target=fn, args=args, kwargs=kwargs)

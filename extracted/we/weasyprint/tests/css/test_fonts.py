@@ -6,13 +6,13 @@ import pytest
 
 from weasyprint import CSS
 from weasyprint.css import get_all_computed_styles
-from weasyprint.css.computed_values import strut_layout
+from weasyprint.text.line_break import strut
 
 from ..testing_utils import FakeHTML, assert_no_logs, render_pages
 
 
 @assert_no_logs
-@pytest.mark.parametrize('parent_css, parent_size, child_css, child_size', (
+@pytest.mark.parametrize(('parent_css', 'parent_size', 'child_css', 'child_size'), [
     ('10px', 10, '10px', 10),
     ('x-small', 12, 'xx-large', 32),
     ('x-large', 24, '2em', 48),
@@ -33,7 +33,7 @@ from ..testing_utils import FakeHTML, assert_no_logs, render_pages
     ('1px', 1, 'smaller', 0.8),
     ('28px', 28, 'smaller', 24),
     ('100px', 100, 'smaller', 32),
-))
+])
 def test_font_size(parent_css, parent_size, child_css, child_size):
     document = FakeHTML(string='<p>a<span>b')
     style_for = get_all_computed_styles(document, user_stylesheets=[CSS(
@@ -64,10 +64,10 @@ def test_line_height_inheritance():
     assert html.style['font_size'] == 10
     assert div.style['font_size'] == 20
     # 140% of 10px = 14px is inherited from html
-    assert strut_layout(div.style)[0] == 14
+    assert strut(div.style)[0] == 14
     assert div.style['vertical_align'] == 7  # 50 % of 14px
 
     assert paragraph.style['font_size'] == 20
     # 1.4 is inherited from p, 1.4 * 20px on em = 28px
-    assert strut_layout(paragraph.style)[0] == 28
+    assert strut(paragraph.style)[0] == 28
     assert paragraph.style['vertical_align'] == 14  # 50% of 28px

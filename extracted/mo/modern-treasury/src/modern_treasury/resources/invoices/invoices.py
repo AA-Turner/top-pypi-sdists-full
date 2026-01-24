@@ -10,7 +10,7 @@ import httpx
 
 from ... import _legacy_response
 from ...types import PaymentOrderType, invoice_list_params, invoice_create_params, invoice_update_params
-from ..._types import NOT_GIVEN, Body, Query, Headers, NoneType, NotGiven, SequenceNotStr
+from ..._types import Body, Omit, Query, Headers, NoneType, NotGiven, SequenceNotStr, omit, not_given
 from ..._utils import maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from .line_items import (
@@ -63,35 +63,32 @@ class Invoices(SyncAPIResource):
         counterparty_id: str,
         due_date: Union[str, datetime],
         originating_account_id: str,
-        auto_advance: Optional[bool] | NotGiven = NOT_GIVEN,
-        contact_details: Iterable[ContactDetail] | NotGiven = NOT_GIVEN,
-        counterparty_billing_address: Optional[invoice_create_params.CounterpartyBillingAddress] | NotGiven = NOT_GIVEN,
-        counterparty_shipping_address: Optional[invoice_create_params.CounterpartyShippingAddress]
-        | NotGiven = NOT_GIVEN,
-        currency: Currency | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        fallback_payment_method: Optional[str] | NotGiven = NOT_GIVEN,
-        ingest_ledger_entries: Optional[bool] | NotGiven = NOT_GIVEN,
-        invoice_line_items: Optional[Iterable[invoice_create_params.InvoiceLineItem]] | NotGiven = NOT_GIVEN,
-        invoicer_address: Optional[invoice_create_params.InvoicerAddress] | NotGiven = NOT_GIVEN,
-        ledger_account_settlement_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        notification_email_addresses: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
-        notifications_enabled: bool | NotGiven = NOT_GIVEN,
-        payment_effective_date: Union[str, date] | NotGiven = NOT_GIVEN,
-        payment_method: Literal["ui", "manual", "automatic"] | NotGiven = NOT_GIVEN,
-        payment_type: PaymentOrderType | NotGiven = NOT_GIVEN,
-        receiving_account_id: str | NotGiven = NOT_GIVEN,
-        recipient_email: Optional[str] | NotGiven = NOT_GIVEN,
-        recipient_name: Optional[str] | NotGiven = NOT_GIVEN,
-        remind_after_overdue_days: Optional[Iterable[int]] | NotGiven = NOT_GIVEN,
-        virtual_account_id: Optional[str] | NotGiven = NOT_GIVEN,
+        auto_advance: Optional[bool] | Omit = omit,
+        contact_details: Iterable[ContactDetail] | Omit = omit,
+        counterparty_billing_address: Optional[invoice_create_params.CounterpartyBillingAddress] | Omit = omit,
+        counterparty_shipping_address: Optional[invoice_create_params.CounterpartyShippingAddress] | Omit = omit,
+        currency: Currency | Omit = omit,
+        description: str | Omit = omit,
+        fallback_payment_method: Optional[str] | Omit = omit,
+        invoice_line_items: Optional[Iterable[invoice_create_params.InvoiceLineItem]] | Omit = omit,
+        invoicer_address: Optional[invoice_create_params.InvoicerAddress] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        notification_email_addresses: Optional[SequenceNotStr[str]] | Omit = omit,
+        notifications_enabled: bool | Omit = omit,
+        payment_effective_date: Union[str, date] | Omit = omit,
+        payment_method: Literal["ui", "manual", "automatic"] | Omit = omit,
+        payment_type: PaymentOrderType | Omit = omit,
+        receiving_account_id: str | Omit = omit,
+        recipient_email: Optional[str] | Omit = omit,
+        recipient_name: Optional[str] | Omit = omit,
+        remind_after_overdue_days: Optional[Iterable[int]] | Omit = omit,
+        virtual_account_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> Invoice:
         """
@@ -121,17 +118,11 @@ class Invoices(SyncAPIResource):
           fallback_payment_method: When payment_method is automatic, the fallback payment method to use when an
               automatic payment fails. One of `manual` or `ui`.
 
-          ingest_ledger_entries: Whether to ingest the ledger_entries to populate the invoice line items. If this
-              is false, then a line item must be provided. If this is true, line_items must be
-              empty. Ignored if ledger_account_settlement_id is empty.
-
           invoice_line_items: An array of invoice line items. The API supports a maximum of 50 invoice line
               items per invoice. If a greater number of invoice line items is required, please
               contact support.
 
           invoicer_address: The invoice issuer's business address.
-
-          ledger_account_settlement_id: The ID of the virtual account the invoice should be paid to.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -195,10 +186,8 @@ class Invoices(SyncAPIResource):
                     "currency": currency,
                     "description": description,
                     "fallback_payment_method": fallback_payment_method,
-                    "ingest_ledger_entries": ingest_ledger_entries,
                     "invoice_line_items": invoice_line_items,
                     "invoicer_address": invoicer_address,
-                    "ledger_account_settlement_id": ledger_account_settlement_id,
                     "metadata": metadata,
                     "notification_email_addresses": notification_email_addresses,
                     "notifications_enabled": notifications_enabled,
@@ -232,7 +221,7 @@ class Invoices(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Invoice:
         """
         get invoice
@@ -260,38 +249,35 @@ class Invoices(SyncAPIResource):
         self,
         id: str,
         *,
-        contact_details: Iterable[ContactDetail] | NotGiven = NOT_GIVEN,
-        counterparty_billing_address: Optional[invoice_update_params.CounterpartyBillingAddress] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        counterparty_shipping_address: Optional[invoice_update_params.CounterpartyShippingAddress]
-        | NotGiven = NOT_GIVEN,
-        currency: Currency | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        due_date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        fallback_payment_method: Optional[str] | NotGiven = NOT_GIVEN,
-        ingest_ledger_entries: Optional[bool] | NotGiven = NOT_GIVEN,
-        invoice_line_items: Optional[Iterable[invoice_update_params.InvoiceLineItem]] | NotGiven = NOT_GIVEN,
-        invoicer_address: Optional[invoice_update_params.InvoicerAddress] | NotGiven = NOT_GIVEN,
-        ledger_account_settlement_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        notification_email_addresses: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
-        notifications_enabled: bool | NotGiven = NOT_GIVEN,
-        originating_account_id: str | NotGiven = NOT_GIVEN,
-        payment_effective_date: Union[str, date] | NotGiven = NOT_GIVEN,
-        payment_method: Literal["ui", "manual", "automatic"] | NotGiven = NOT_GIVEN,
-        payment_type: PaymentOrderType | NotGiven = NOT_GIVEN,
-        receiving_account_id: str | NotGiven = NOT_GIVEN,
-        recipient_email: Optional[str] | NotGiven = NOT_GIVEN,
-        recipient_name: Optional[str] | NotGiven = NOT_GIVEN,
-        remind_after_overdue_days: Optional[Iterable[int]] | NotGiven = NOT_GIVEN,
-        status: str | NotGiven = NOT_GIVEN,
-        virtual_account_id: Optional[str] | NotGiven = NOT_GIVEN,
+        contact_details: Iterable[ContactDetail] | Omit = omit,
+        counterparty_billing_address: Optional[invoice_update_params.CounterpartyBillingAddress] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        counterparty_shipping_address: Optional[invoice_update_params.CounterpartyShippingAddress] | Omit = omit,
+        currency: Currency | Omit = omit,
+        description: str | Omit = omit,
+        due_date: Union[str, datetime] | Omit = omit,
+        fallback_payment_method: Optional[str] | Omit = omit,
+        invoice_line_items: Optional[Iterable[invoice_update_params.InvoiceLineItem]] | Omit = omit,
+        invoicer_address: Optional[invoice_update_params.InvoicerAddress] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        notification_email_addresses: Optional[SequenceNotStr[str]] | Omit = omit,
+        notifications_enabled: bool | Omit = omit,
+        originating_account_id: str | Omit = omit,
+        payment_effective_date: Union[str, date] | Omit = omit,
+        payment_method: Literal["ui", "manual", "automatic"] | Omit = omit,
+        payment_type: PaymentOrderType | Omit = omit,
+        receiving_account_id: str | Omit = omit,
+        recipient_email: Optional[str] | Omit = omit,
+        recipient_name: Optional[str] | Omit = omit,
+        remind_after_overdue_days: Optional[Iterable[int]] | Omit = omit,
+        status: str | Omit = omit,
+        virtual_account_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> Invoice:
         """
@@ -315,17 +301,11 @@ class Invoices(SyncAPIResource):
           fallback_payment_method: When payment_method is automatic, the fallback payment method to use when an
               automatic payment fails. One of `manual` or `ui`.
 
-          ingest_ledger_entries: Whether to ingest the ledger_entries to populate the invoice line items. If this
-              is false, then a line item must be provided. If this is true, line_items must be
-              empty. Ignored if ledger_account_settlement_id is empty.
-
           invoice_line_items: An array of invoice line items. The API supports a maximum of 50 invoice line
               items per invoice. If a greater number of invoice line items is required, please
               contact support.
 
           invoicer_address: The invoice issuer's business address.
-
-          ledger_account_settlement_id: The ID of the virtual account the invoice should be paid to.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -395,10 +375,8 @@ class Invoices(SyncAPIResource):
                     "description": description,
                     "due_date": due_date,
                     "fallback_payment_method": fallback_payment_method,
-                    "ingest_ledger_entries": ingest_ledger_entries,
                     "invoice_line_items": invoice_line_items,
                     "invoicer_address": invoicer_address,
-                    "ledger_account_settlement_id": ledger_account_settlement_id,
                     "metadata": metadata,
                     "notification_email_addresses": notification_email_addresses,
                     "notifications_enabled": notifications_enabled,
@@ -428,29 +406,34 @@ class Invoices(SyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        due_date_end: Union[str, date] | NotGiven = NOT_GIVEN,
-        due_date_start: Union[str, date] | NotGiven = NOT_GIVEN,
-        expected_payment_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        number: str | NotGiven = NOT_GIVEN,
-        originating_account_id: str | NotGiven = NOT_GIVEN,
-        payment_order_id: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        status: Literal["draft", "paid", "partially_paid", "payment_pending", "unpaid", "voided"]
-        | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        created_at_end: Union[str, datetime] | Omit = omit,
+        created_at_start: Union[str, datetime] | Omit = omit,
+        due_date_end: Union[str, date] | Omit = omit,
+        due_date_start: Union[str, date] | Omit = omit,
+        expected_payment_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        number: str | Omit = omit,
+        originating_account_id: str | Omit = omit,
+        payment_order_id: str | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["draft", "paid", "partially_paid", "payment_pending", "unpaid", "voided"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncPage[Invoice]:
         """
         list invoices
 
         Args:
+          created_at_end: An inclusive upper bound for searching created_at
+
+          created_at_start: An inclusive lower bound for searching created_at
+
           due_date_end: An inclusive upper bound for searching due_date
 
           due_date_start: An inclusive lower bound for searching due_date
@@ -481,6 +464,8 @@ class Invoices(SyncAPIResource):
                     {
                         "after_cursor": after_cursor,
                         "counterparty_id": counterparty_id,
+                        "created_at_end": created_at_end,
+                        "created_at_start": created_at_start,
                         "due_date_end": due_date_end,
                         "due_date_start": due_date_start,
                         "expected_payment_id": expected_payment_id,
@@ -507,7 +492,7 @@ class Invoices(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> None:
         """
@@ -572,35 +557,32 @@ class AsyncInvoices(AsyncAPIResource):
         counterparty_id: str,
         due_date: Union[str, datetime],
         originating_account_id: str,
-        auto_advance: Optional[bool] | NotGiven = NOT_GIVEN,
-        contact_details: Iterable[ContactDetail] | NotGiven = NOT_GIVEN,
-        counterparty_billing_address: Optional[invoice_create_params.CounterpartyBillingAddress] | NotGiven = NOT_GIVEN,
-        counterparty_shipping_address: Optional[invoice_create_params.CounterpartyShippingAddress]
-        | NotGiven = NOT_GIVEN,
-        currency: Currency | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        fallback_payment_method: Optional[str] | NotGiven = NOT_GIVEN,
-        ingest_ledger_entries: Optional[bool] | NotGiven = NOT_GIVEN,
-        invoice_line_items: Optional[Iterable[invoice_create_params.InvoiceLineItem]] | NotGiven = NOT_GIVEN,
-        invoicer_address: Optional[invoice_create_params.InvoicerAddress] | NotGiven = NOT_GIVEN,
-        ledger_account_settlement_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        notification_email_addresses: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
-        notifications_enabled: bool | NotGiven = NOT_GIVEN,
-        payment_effective_date: Union[str, date] | NotGiven = NOT_GIVEN,
-        payment_method: Literal["ui", "manual", "automatic"] | NotGiven = NOT_GIVEN,
-        payment_type: PaymentOrderType | NotGiven = NOT_GIVEN,
-        receiving_account_id: str | NotGiven = NOT_GIVEN,
-        recipient_email: Optional[str] | NotGiven = NOT_GIVEN,
-        recipient_name: Optional[str] | NotGiven = NOT_GIVEN,
-        remind_after_overdue_days: Optional[Iterable[int]] | NotGiven = NOT_GIVEN,
-        virtual_account_id: Optional[str] | NotGiven = NOT_GIVEN,
+        auto_advance: Optional[bool] | Omit = omit,
+        contact_details: Iterable[ContactDetail] | Omit = omit,
+        counterparty_billing_address: Optional[invoice_create_params.CounterpartyBillingAddress] | Omit = omit,
+        counterparty_shipping_address: Optional[invoice_create_params.CounterpartyShippingAddress] | Omit = omit,
+        currency: Currency | Omit = omit,
+        description: str | Omit = omit,
+        fallback_payment_method: Optional[str] | Omit = omit,
+        invoice_line_items: Optional[Iterable[invoice_create_params.InvoiceLineItem]] | Omit = omit,
+        invoicer_address: Optional[invoice_create_params.InvoicerAddress] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        notification_email_addresses: Optional[SequenceNotStr[str]] | Omit = omit,
+        notifications_enabled: bool | Omit = omit,
+        payment_effective_date: Union[str, date] | Omit = omit,
+        payment_method: Literal["ui", "manual", "automatic"] | Omit = omit,
+        payment_type: PaymentOrderType | Omit = omit,
+        receiving_account_id: str | Omit = omit,
+        recipient_email: Optional[str] | Omit = omit,
+        recipient_name: Optional[str] | Omit = omit,
+        remind_after_overdue_days: Optional[Iterable[int]] | Omit = omit,
+        virtual_account_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> Invoice:
         """
@@ -630,17 +612,11 @@ class AsyncInvoices(AsyncAPIResource):
           fallback_payment_method: When payment_method is automatic, the fallback payment method to use when an
               automatic payment fails. One of `manual` or `ui`.
 
-          ingest_ledger_entries: Whether to ingest the ledger_entries to populate the invoice line items. If this
-              is false, then a line item must be provided. If this is true, line_items must be
-              empty. Ignored if ledger_account_settlement_id is empty.
-
           invoice_line_items: An array of invoice line items. The API supports a maximum of 50 invoice line
               items per invoice. If a greater number of invoice line items is required, please
               contact support.
 
           invoicer_address: The invoice issuer's business address.
-
-          ledger_account_settlement_id: The ID of the virtual account the invoice should be paid to.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -704,10 +680,8 @@ class AsyncInvoices(AsyncAPIResource):
                     "currency": currency,
                     "description": description,
                     "fallback_payment_method": fallback_payment_method,
-                    "ingest_ledger_entries": ingest_ledger_entries,
                     "invoice_line_items": invoice_line_items,
                     "invoicer_address": invoicer_address,
-                    "ledger_account_settlement_id": ledger_account_settlement_id,
                     "metadata": metadata,
                     "notification_email_addresses": notification_email_addresses,
                     "notifications_enabled": notifications_enabled,
@@ -741,7 +715,7 @@ class AsyncInvoices(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Invoice:
         """
         get invoice
@@ -769,38 +743,35 @@ class AsyncInvoices(AsyncAPIResource):
         self,
         id: str,
         *,
-        contact_details: Iterable[ContactDetail] | NotGiven = NOT_GIVEN,
-        counterparty_billing_address: Optional[invoice_update_params.CounterpartyBillingAddress] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        counterparty_shipping_address: Optional[invoice_update_params.CounterpartyShippingAddress]
-        | NotGiven = NOT_GIVEN,
-        currency: Currency | NotGiven = NOT_GIVEN,
-        description: str | NotGiven = NOT_GIVEN,
-        due_date: Union[str, datetime] | NotGiven = NOT_GIVEN,
-        fallback_payment_method: Optional[str] | NotGiven = NOT_GIVEN,
-        ingest_ledger_entries: Optional[bool] | NotGiven = NOT_GIVEN,
-        invoice_line_items: Optional[Iterable[invoice_update_params.InvoiceLineItem]] | NotGiven = NOT_GIVEN,
-        invoicer_address: Optional[invoice_update_params.InvoicerAddress] | NotGiven = NOT_GIVEN,
-        ledger_account_settlement_id: Optional[str] | NotGiven = NOT_GIVEN,
-        metadata: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
-        notification_email_addresses: Optional[SequenceNotStr[str]] | NotGiven = NOT_GIVEN,
-        notifications_enabled: bool | NotGiven = NOT_GIVEN,
-        originating_account_id: str | NotGiven = NOT_GIVEN,
-        payment_effective_date: Union[str, date] | NotGiven = NOT_GIVEN,
-        payment_method: Literal["ui", "manual", "automatic"] | NotGiven = NOT_GIVEN,
-        payment_type: PaymentOrderType | NotGiven = NOT_GIVEN,
-        receiving_account_id: str | NotGiven = NOT_GIVEN,
-        recipient_email: Optional[str] | NotGiven = NOT_GIVEN,
-        recipient_name: Optional[str] | NotGiven = NOT_GIVEN,
-        remind_after_overdue_days: Optional[Iterable[int]] | NotGiven = NOT_GIVEN,
-        status: str | NotGiven = NOT_GIVEN,
-        virtual_account_id: Optional[str] | NotGiven = NOT_GIVEN,
+        contact_details: Iterable[ContactDetail] | Omit = omit,
+        counterparty_billing_address: Optional[invoice_update_params.CounterpartyBillingAddress] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        counterparty_shipping_address: Optional[invoice_update_params.CounterpartyShippingAddress] | Omit = omit,
+        currency: Currency | Omit = omit,
+        description: str | Omit = omit,
+        due_date: Union[str, datetime] | Omit = omit,
+        fallback_payment_method: Optional[str] | Omit = omit,
+        invoice_line_items: Optional[Iterable[invoice_update_params.InvoiceLineItem]] | Omit = omit,
+        invoicer_address: Optional[invoice_update_params.InvoicerAddress] | Omit = omit,
+        metadata: Optional[Dict[str, str]] | Omit = omit,
+        notification_email_addresses: Optional[SequenceNotStr[str]] | Omit = omit,
+        notifications_enabled: bool | Omit = omit,
+        originating_account_id: str | Omit = omit,
+        payment_effective_date: Union[str, date] | Omit = omit,
+        payment_method: Literal["ui", "manual", "automatic"] | Omit = omit,
+        payment_type: PaymentOrderType | Omit = omit,
+        receiving_account_id: str | Omit = omit,
+        recipient_email: Optional[str] | Omit = omit,
+        recipient_name: Optional[str] | Omit = omit,
+        remind_after_overdue_days: Optional[Iterable[int]] | Omit = omit,
+        status: str | Omit = omit,
+        virtual_account_id: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> Invoice:
         """
@@ -824,17 +795,11 @@ class AsyncInvoices(AsyncAPIResource):
           fallback_payment_method: When payment_method is automatic, the fallback payment method to use when an
               automatic payment fails. One of `manual` or `ui`.
 
-          ingest_ledger_entries: Whether to ingest the ledger_entries to populate the invoice line items. If this
-              is false, then a line item must be provided. If this is true, line_items must be
-              empty. Ignored if ledger_account_settlement_id is empty.
-
           invoice_line_items: An array of invoice line items. The API supports a maximum of 50 invoice line
               items per invoice. If a greater number of invoice line items is required, please
               contact support.
 
           invoicer_address: The invoice issuer's business address.
-
-          ledger_account_settlement_id: The ID of the virtual account the invoice should be paid to.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -904,10 +869,8 @@ class AsyncInvoices(AsyncAPIResource):
                     "description": description,
                     "due_date": due_date,
                     "fallback_payment_method": fallback_payment_method,
-                    "ingest_ledger_entries": ingest_ledger_entries,
                     "invoice_line_items": invoice_line_items,
                     "invoicer_address": invoicer_address,
-                    "ledger_account_settlement_id": ledger_account_settlement_id,
                     "metadata": metadata,
                     "notification_email_addresses": notification_email_addresses,
                     "notifications_enabled": notifications_enabled,
@@ -937,29 +900,34 @@ class AsyncInvoices(AsyncAPIResource):
     def list(
         self,
         *,
-        after_cursor: Optional[str] | NotGiven = NOT_GIVEN,
-        counterparty_id: str | NotGiven = NOT_GIVEN,
-        due_date_end: Union[str, date] | NotGiven = NOT_GIVEN,
-        due_date_start: Union[str, date] | NotGiven = NOT_GIVEN,
-        expected_payment_id: str | NotGiven = NOT_GIVEN,
-        metadata: Dict[str, str] | NotGiven = NOT_GIVEN,
-        number: str | NotGiven = NOT_GIVEN,
-        originating_account_id: str | NotGiven = NOT_GIVEN,
-        payment_order_id: str | NotGiven = NOT_GIVEN,
-        per_page: int | NotGiven = NOT_GIVEN,
-        status: Literal["draft", "paid", "partially_paid", "payment_pending", "unpaid", "voided"]
-        | NotGiven = NOT_GIVEN,
+        after_cursor: Optional[str] | Omit = omit,
+        counterparty_id: str | Omit = omit,
+        created_at_end: Union[str, datetime] | Omit = omit,
+        created_at_start: Union[str, datetime] | Omit = omit,
+        due_date_end: Union[str, date] | Omit = omit,
+        due_date_start: Union[str, date] | Omit = omit,
+        expected_payment_id: str | Omit = omit,
+        metadata: Dict[str, str] | Omit = omit,
+        number: str | Omit = omit,
+        originating_account_id: str | Omit = omit,
+        payment_order_id: str | Omit = omit,
+        per_page: int | Omit = omit,
+        status: Literal["draft", "paid", "partially_paid", "payment_pending", "unpaid", "voided"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Invoice, AsyncPage[Invoice]]:
         """
         list invoices
 
         Args:
+          created_at_end: An inclusive upper bound for searching created_at
+
+          created_at_start: An inclusive lower bound for searching created_at
+
           due_date_end: An inclusive upper bound for searching due_date
 
           due_date_start: An inclusive lower bound for searching due_date
@@ -990,6 +958,8 @@ class AsyncInvoices(AsyncAPIResource):
                     {
                         "after_cursor": after_cursor,
                         "counterparty_id": counterparty_id,
+                        "created_at_end": created_at_end,
+                        "created_at_start": created_at_start,
                         "due_date_end": due_date_end,
                         "due_date_start": due_date_start,
                         "expected_payment_id": expected_payment_id,
@@ -1016,7 +986,7 @@ class AsyncInvoices(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
         idempotency_key: str | None = None,
     ) -> None:
         """

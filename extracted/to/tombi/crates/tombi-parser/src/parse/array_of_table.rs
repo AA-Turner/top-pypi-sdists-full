@@ -2,13 +2,13 @@ use tombi_syntax::{SyntaxKind::*, T};
 
 use super::Parse;
 use crate::{
+    ErrorKind::*,
     parse::{
-        begin_dangling_comments, end_dangling_comments, invalid_line, leading_comments,
-        peek_leading_comments, trailing_comment, TS_LINE_END,
+        TS_LINE_END, begin_dangling_comments, end_dangling_comments, invalid_line,
+        leading_comments, peek_leading_comments, trailing_comment,
     },
     parser::Parser,
     token_set::TS_NEXT_SECTION,
-    ErrorKind::*,
 };
 
 impl Parse for tombi_ast::ArrayOfTable {
@@ -17,7 +17,7 @@ impl Parse for tombi_ast::ArrayOfTable {
 
         leading_comments(p);
 
-        assert!(p.at(T!("[[")));
+        debug_assert!(p.at(T!("[[")));
 
         p.eat(T!("[["));
 
@@ -64,7 +64,7 @@ impl Parse for tombi_ast::ArrayOfTable {
 
 #[cfg(test)]
 mod test {
-    use crate::{test_parser, ErrorKind::*};
+    use crate::{ErrorKind::*, test_parser};
 
     test_parser! {
         #[test]
@@ -119,5 +119,35 @@ mod test {
             key2 = 2
             "#
         ) -> Err([SyntaxError(ExpectedLineBreak, 1:9..1:16)])
+    }
+
+    test_parser! {
+        #[test]
+        fn hex_like_array_of_table_key(
+            r#"
+            [[0x96f]]
+            name = "hex-like"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn octal_like_array_of_table_key(
+            r#"
+            [[0o755]]
+            mode = "permissions"
+            "#
+        ) -> Ok(_)
+    }
+
+    test_parser! {
+        #[test]
+        fn binary_like_array_of_table_key(
+            r#"
+            [[0b1010]]
+            flags = true
+            "#
+        ) -> Ok(_)
     }
 }

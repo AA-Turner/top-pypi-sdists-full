@@ -13,17 +13,19 @@
 #include "include/core/SkColorType.h"
 #include "include/core/SkImageInfo.h"
 #include "include/core/SkPaint.h"
+#include "include/core/SkPixmap.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/core/SkAutoPixmapStorage.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/SkBackingFit.h"
 #include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrColor.h"
@@ -44,6 +46,19 @@ class GrRecordingContext;
 using SurfaceDrawContext = skgpu::ganesh::SurfaceDrawContext;
 using ClearOp = skgpu::ganesh::ClearOp;
 
+static bool pixel_matches(const SkPixmap& pm, int x, int y, uint32_t expectedValue,
+                          uint32_t* actualValue, int* failX, int* failY) {
+    uint32_t pixel = pm.addr32()[y * pm.width() + x];
+    if (pixel != expectedValue) {
+        *actualValue = pixel;
+        *failX = x;
+        *failY = y;
+        return false;
+    }
+
+    return true;
+}
+
 static bool check_rect(GrDirectContext* dContext,
                        SurfaceDrawContext* sdc,
                        const SkIRect& rect,
@@ -51,8 +66,8 @@ static bool check_rect(GrDirectContext* dContext,
                        uint32_t* actualValue,
                        int* failX,
                        int* failY) {
-    int w = rect.width();
-    int h = rect.height();
+    int w = sdc->width();
+    int h = sdc->height();
 
     SkImageInfo dstInfo = SkImageInfo::Make(w, h, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
@@ -60,21 +75,55 @@ static bool check_rect(GrDirectContext* dContext,
     readback.alloc(dstInfo);
 
     readback.erase(~expectedValue);
-    if (!sdc->readPixels(dContext, readback, {rect.fLeft, rect.fTop})) {
+    if (!sdc->readPixels(dContext, readback, {0, 0})) {
         return false;
     }
 
-    for (int y = 0; y < h; ++y) {
-        for (int x = 0; x < w; ++x) {
-            uint32_t pixel = readback.addr32()[y * w + x];
-            if (pixel != expectedValue) {
-                *actualValue = pixel;
-                *failX = x + rect.fLeft;
-                *failY = y + rect.fTop;
+    SkASSERT(rect.fTop < rect.fBottom && rect.fLeft < rect.fRight);
+    for (int y = rect.fTop; y < rect.fBottom; ++y) {
+        for (int x = rect.fLeft; x < rect.fRight; ++x) {
+            if (!pixel_matches(readback, x, y, expectedValue, actualValue, failX, failY)) {
                 return false;
             }
         }
     }
+    return true;
+}
+
+// Check a 1-pixel wide ring 'inset' from the outer edge
+static bool check_ring(GrDirectContext* dContext,
+                       SurfaceDrawContext* sdc,
+                       int inset,
+                       uint32_t expectedValue,
+                       uint32_t* actualValue,
+                       int* failX,
+                       int* failY) {
+    int w = sdc->width();
+    int h = sdc->height();
+
+    SkImageInfo dstInfo = SkImageInfo::Make(w, h, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
+
+    SkAutoPixmapStorage readback;
+    readback.alloc(dstInfo);
+
+    readback.erase(~expectedValue);
+    if (!sdc->readPixels(dContext, readback, {0, 0})) {
+        return false;
+    }
+
+    for (int y = inset; y < h-inset; ++y) {
+        if (!pixel_matches(readback, inset, y, expectedValue, actualValue, failX, failY) ||
+            !pixel_matches(readback, w-1-inset, y, expectedValue, actualValue, failX, failY)) {
+            return false;
+        }
+    }
+    for (int x = inset+1; x < w-inset-1; ++x) {
+        if (!pixel_matches(readback, x, inset, expectedValue, actualValue, failX, failY) ||
+            !pixel_matches(readback, x, h-1-inset, expectedValue, actualValue, failX, failY)) {
+            return false;
+        }
+    }
+
     return true;
 }
 
@@ -94,18 +143,10 @@ static void clear_op_test(skiatest::Reporter* reporter, GrDirectContext* dContex
     // A rectangle that is inset by one on all sides and the 1-pixel wide rectangles that surround
     // it.
     SkIRect mid1Rect = SkIRect::MakeXYWH(1, 1, kW-2, kH-2);
-    SkIRect outerLeftEdge = SkIRect::MakeXYWH(0, 0, 1, kH);
-    SkIRect outerTopEdge = SkIRect::MakeXYWH(0, 0, kW, 1);
-    SkIRect outerRightEdge = SkIRect::MakeXYWH(kW-1, 0, 1, kH);
-    SkIRect outerBottomEdge = SkIRect::MakeXYWH(0, kH-1, kW, 1);
 
     // A rectangle that is inset by two on all sides and the 1-pixel wide rectangles that surround
     // it.
     SkIRect mid2Rect = SkIRect::MakeXYWH(2, 2, kW-4, kH-4);
-    SkIRect innerLeftEdge = SkIRect::MakeXYWH(1, 1, 1, kH-2);
-    SkIRect innerTopEdge = SkIRect::MakeXYWH(1, 1, kW-2, 1);
-    SkIRect innerRightEdge = SkIRect::MakeXYWH(kW-2, 1, 1, kH-2);
-    SkIRect innerBottomEdge = SkIRect::MakeXYWH(1, kH-2, kW-2, 1);
 
     uint32_t actualValue;
     int failX, failY;
@@ -179,10 +220,8 @@ static void clear_op_test(skiatest::Reporter* reporter, GrDirectContext* dContex
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor2, actualValue,
                failX, failY);
     }
-    if (!check_rect(dContext, sdc.get(), outerLeftEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerTopEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerRightEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerBottomEdge, kColor1, &actualValue, &failX, &failY)) {
+
+    if (!check_ring(dContext, sdc.get(), /*inset=*/ 0, kColor1, &actualValue, &failX, &failY)) {
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor1, actualValue,
                failX, failY);
     }
@@ -210,17 +249,13 @@ static void clear_op_test(skiatest::Reporter* reporter, GrDirectContext* dContex
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor1, actualValue,
                failX, failY);
     }
-    if (!check_rect(dContext, sdc.get(), innerLeftEdge, kColor2, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), innerTopEdge, kColor2, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), innerRightEdge, kColor2, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), innerBottomEdge, kColor2, &actualValue, &failX, &failY)) {
+
+    if (!check_ring(dContext, sdc.get(), /*inset=*/ 1, kColor2, &actualValue, &failX, &failY)) {
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor2, actualValue,
                failX, failY);
     }
-    if (!check_rect(dContext, sdc.get(), outerLeftEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerTopEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerRightEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerBottomEdge, kColor1, &actualValue, &failX, &failY)) {
+
+    if (!check_ring(dContext, sdc.get(), /*inset=*/ 0, kColor1, &actualValue, &failX, &failY)) {
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor1, actualValue,
                failX, failY);
     }
@@ -236,10 +271,7 @@ static void clear_op_test(skiatest::Reporter* reporter, GrDirectContext* dContex
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor2, actualValue,
                failX, failY);
     }
-    if (!check_rect(dContext, sdc.get(), outerLeftEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerTopEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerRightEdge, kColor1, &actualValue, &failX, &failY) ||
-        !check_rect(dContext, sdc.get(), outerBottomEdge, kColor1, &actualValue, &failX, &failY)) {
+    if (!check_ring(dContext, sdc.get(), /*inset=*/ 0, kColor1, &actualValue, &failX, &failY)) {
         ERRORF(reporter, "Expected 0x%08x but got 0x%08x at (%d, %d).", kColor1, actualValue,
                failX, failY);
     }
@@ -251,7 +283,7 @@ static void clear_op_test(skiatest::Reporter* reporter, GrDirectContext* dContex
         static constexpr SkIRect kScissorRect = SkIRect::MakeXYWH(1, 1, kW-1, kH-1);
 
         // Try combining a pure-color clear w/ a combined stencil & color clear
-        // (re skbug.com/10963)
+        // (re skbug.com/40042342)
         {
             sdc = newSDC(dContext, kW, kH);
             SkASSERT(sdc);
@@ -276,7 +308,7 @@ static void clear_op_test(skiatest::Reporter* reporter, GrDirectContext* dContex
         }
 
         // Try combining a pure-stencil clear w/ a combined stencil & color clear
-        // (re skbug.com/10963)
+        // (re skbug.com/40042342)
         {
             sdc = newSDC(dContext, kW, kH);
             SkASSERT(sdc);
@@ -317,7 +349,7 @@ DEF_GANESH_TEST_FOR_RENDERING_CONTEXTS(ClearOp, reporter, ctxInfo, CtsEnforcemen
 void fullscreen_clear_with_layer_test(skiatest::Reporter* reporter, GrRecordingContext* rContext) {
     const SkImageInfo ii = SkImageInfo::Make(400, 77, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
 
-    sk_sp<SkSurface> surf = SkSurface::MakeRenderTarget(rContext, skgpu::Budgeted::kYes, ii);
+    sk_sp<SkSurface> surf = SkSurfaces::RenderTarget(rContext, skgpu::Budgeted::kYes, ii);
     SkCanvas* canvas = surf->getCanvas();
 
     SkPaint paints[2];

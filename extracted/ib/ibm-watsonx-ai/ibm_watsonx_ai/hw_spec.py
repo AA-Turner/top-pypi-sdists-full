@@ -1,15 +1,14 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2023-2025.
+#  (C) Copyright IBM Corp. 2023-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, cast
 from warnings import warn
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import HwSpecMetaNames
 from ibm_watsonx_ai.utils import HW_SPEC_DETAILS_TYPE
 from ibm_watsonx_ai.utils.utils import _get_id_from_deprecated_uid
@@ -44,7 +43,9 @@ class HwSpec(WMLResource):
 
         .. code-block:: python
 
-            hw_spec_details = client.hardware_specifications.get_details(hw_spec_uid)
+            hw_spec_details = client.hardware_specifications.get_details(
+                hw_spec_uid
+            )
 
         """
         hw_spec_id = _get_id_from_deprecated_uid(
@@ -53,8 +54,8 @@ class HwSpec(WMLResource):
 
         HwSpec._validate_type(hw_spec_id, "hw_spec_id", str, True)
 
-        response = requests.get(
-            self._client._href_definitions.get_hw_spec_href(hw_spec_id),
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_hw_spec_href(hw_spec_id),
             params=self._client._params(skip_space_project_chk=True),
             headers=self._client._get_headers(),
         )
@@ -86,27 +87,30 @@ class HwSpec(WMLResource):
 
             meta_props = {
                 client.hardware_specifications.ConfigurationMetaNames.NAME: "custom hardware specification",
-                client.hardware_specifications.ConfigurationMetaNames.DESCRIPTION: "Custom hardware specification creted with SDK",
-                client.hardware_specifications.ConfigurationMetaNames.NODES:{"cpu":{"units":"2"},"mem":{"size":"128Gi"},"gpu":{"num_gpu":1}}
-             }
+                client.hardware_specifications.ConfigurationMetaNames.DESCRIPTION: "Custom hardware specification created with SDK",
+                client.hardware_specifications.ConfigurationMetaNames.NODES: {
+                    "cpu": {"units": "2"},
+                    "mem": {"size": "128Gi"},
+                    "gpu": {"num_gpu": 1},
+                },
+            }
 
             client.hardware_specifications.store(meta_props)
 
         """
-
         HwSpec._validate_type(meta_props, "meta_props", dict, True)
+
         hw_spec_meta = self.ConfigurationMetaNames._generate_resource_metadata(
             meta_props, with_validation=True, client=self._client
         )
 
         hw_spec_meta_json = json.dumps(hw_spec_meta)
-        href = self._client._href_definitions.get_hw_specs_href()
 
-        creation_response = requests.post(
-            href,
+        creation_response = self._client.httpx_client.post(
+            url=self._client._href_definitions.get_hw_specs_href(),
             params=self._client._params(),
             headers=self._client._get_headers(),
-            data=hw_spec_meta_json,
+            content=hw_spec_meta_json,
         )
 
         hw_spec_details = self._handle_response(
@@ -138,12 +142,13 @@ class HwSpec(WMLResource):
         params = self._client._params()
 
         if name is not None:
-            params.update({"name": name})
+            params["name"] = name
 
-        # Todo provide api to return
-        href = self._client._href_definitions.get_hw_specs_href()
-
-        response = requests.get(href, params, headers=self._client._get_headers())
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_hw_specs_href(),
+            params=params,
+            headers=self._client._get_headers(),
+        )
 
         self._handle_response(200, "list hw_specs", response)
         asset_details = self._handle_response(200, "list assets", response)["resources"]
@@ -179,7 +184,7 @@ class HwSpec(WMLResource):
         HwSpec._validate_type_of_details(hw_spec_details, HW_SPEC_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            hw_spec_details, "hw_spec_details", ["metadata", "asset_id"]
+            hw_spec_details, "hw_spec_details", ["metadata", "asset_id"], str
         )
 
     @staticmethod
@@ -230,7 +235,7 @@ class HwSpec(WMLResource):
         HwSpec._validate_type_of_details(hw_spec_details, HW_SPEC_DETAILS_TYPE)
 
         return WMLResource._get_required_element_from_dict(
-            hw_spec_details, "hw_spec_details", ["metadata", "href"]
+            hw_spec_details, "hw_spec_details", ["metadata", "href"], str
         )
 
     def get_id_by_name(self, hw_spec_name: str) -> str:
@@ -250,11 +255,12 @@ class HwSpec(WMLResource):
 
         """
         HwSpec._validate_type(hw_spec_name, "hw_spec_name", str, True)
-        parameters = self._client._params(skip_space_project_chk=True)
-        parameters.update(name=hw_spec_name)
 
-        response = requests.get(
-            self._client._href_definitions.get_hw_specs_href(),
+        parameters = self._client._params(skip_space_project_chk=True)
+        parameters["name"] = hw_spec_name
+
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_hw_specs_href(),
             params=parameters,
             headers=self._client._get_headers(),
         )
@@ -297,24 +303,31 @@ class HwSpec(WMLResource):
         warn(get_uid_method_deprecated_warning, category=DeprecationWarning)
         return HwSpec.get_id_by_name(self, hw_spec_name)
 
-    def delete(self, hw_spec_id: str) -> str:
+    def delete(self, hw_spec_id: str) -> Literal["SUCCESS"]:
         """Delete a hardware specification.
 
         :param hw_spec_id: unique ID of the hardware specification to be deleted
         :type hw_spec_id: str
 
-        :return: status ("SUCCESS" or "FAILED")
-        :rtype: str
+        :return: status "SUCCESS" if deletion is successful
+        :rtype: Literal["SUCCESS"]
+
+        :raises WMLClientError: if deletion failed
         """
         HwSpec._validate_type(hw_spec_id, "hw_spec_id", str, True)
 
-        response = requests.delete(
-            self._client._href_definitions.get_hw_spec_href(hw_spec_id),
+        response = self._client.httpx_client.delete(
+            url=self._client._href_definitions.get_hw_spec_href(hw_spec_id),
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
 
-        return self._handle_response(204, "delete hardware specification", response)
+        return cast(
+            Literal["SUCCESS"],
+            self._handle_response(
+                204, "delete hardware specification", response, False
+            ),
+        )
 
     def _get_required_element_from_response(
         self, response_data: dict[str, Any]
@@ -334,7 +347,7 @@ class HwSpec(WMLResource):
 
             if "href" in response_data["metadata"]:
                 href_without_host = response_data["metadata"]["href"].split(".com")[-1]
-                new_el["metadata"].update({"href": href_without_host})
+                new_el["metadata"]["href"] = href_without_host
 
             return new_el
         except Exception:

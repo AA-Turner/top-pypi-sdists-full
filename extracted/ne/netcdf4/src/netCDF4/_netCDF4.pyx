@@ -1,4 +1,4 @@
-"""Version 1.7.2
+"""Version 1.7.4
 -------------
 
 # Introduction
@@ -295,7 +295,7 @@ supplied by the [numpy module](http://numpy.scipy.org). However,
 unlike numpy arrays, netCDF4 variables can be appended to along one or
 more 'unlimited' dimensions. To create a netCDF variable, use the
 `Dataset.createVariable` method of a `Dataset` or
-`Group` instance. The `Dataset.createVariable`j method
+`Group` instance. The `Dataset.createVariable` method
 has two mandatory arguments, the variable name (a Python string), and
 the variable datatype. The variable's dimensions are given by a tuple
 containing the dimension names (defined previously with
@@ -303,17 +303,24 @@ containing the dimension names (defined previously with
 variable, simply leave out the dimensions keyword. The variable
 primitive datatypes correspond to the dtype attribute of a numpy array.
 You can specify the datatype as a numpy dtype object, or anything that
-can be converted to a numpy dtype object.  Valid datatype specifiers
-include: `'f4'` (32-bit floating point), `'f8'` (64-bit floating
-point), `'i4'` (32-bit signed integer), `'i2'` (16-bit signed
-integer), `'i8'` (64-bit signed integer), `'i1'` (8-bit signed
-integer), `'u1'` (8-bit unsigned integer), `'u2'` (16-bit unsigned
-integer), `'u4'` (32-bit unsigned integer), `'u8'` (64-bit unsigned
-integer), or `'S1'` (single-character string).  The old Numeric
-single-character typecodes (`'f'`,`'d'`,`'h'`,
-`'s'`,`'b'`,`'B'`,`'c'`,`'i'`,`'l'`), corresponding to
-(`'f4'`,`'f8'`,`'i2'`,`'i2'`,`'i1'`,`'i1'`,`'S1'`,`'i4'`,`'i4'`),
-will also work. The unsigned integer types and the 64-bit integer type
+can be converted to a numpy dtype object. Valid datatype specifiers
+include:
+
+| Specifier | Datatype                | Old typecodes |
+|-----------|-------------------------|---------------|
+| `'f4'`    | 32-bit floating point   | `'f'`         |
+| `'f8'`    | 64-bit floating point   | `'d'`         |
+| `'i4'`    | 32-bit signed integer   | `'i'` `'l'`   |
+| `'i2'`    | 16-bit signed integer   | `'h'` `'s'`   |
+| `'i8'`    | 64-bit signed integer   |               |
+| `'i1'`    | 8-bit signed integer    | `'b'` `'B'`   |
+| `'u1'`    | 8-bit unsigned integer  |               |
+| `'u2'`    | 16-bit unsigned integer |               |
+| `'u4'`    | 32-bit unsigned integer |               |
+| `'u8'`    | 64-bit unsigned integer |               |
+| `'S1'`    | single-character string | `'c'`         |
+
+The unsigned integer types and the 64-bit integer type
 can only be used if the file format is `NETCDF4`.
 
 The dimensions themselves are usually also defined as variables, called
@@ -1043,6 +1050,10 @@ are collective.  There are a couple of important limitations of parallel IO:
    to write to it.
  - You cannot use variable-length (VLEN) data types.
 
+***Import warning regarding threads:***  The underlying netcdf-c library is not thread-safe, so netcdf4-python cannot perform parallel
+IO in a multi-threaded environment.  Users should expect segfaults if a netcdf file is opened on multiple threads - care should
+be taken to restrict netcdf4-python usage to a single thread, even when using free-threaded python.
+
 ## Dealing with strings
 
 The most flexible way to store arrays of strings is with the
@@ -1059,7 +1070,7 @@ If the `_Encoding` special attribute is set for a character array
 (dtype `S1`) variable, the `chartostring` utility function is used to convert the array of
 characters to an array of strings with one less dimension (the last dimension is
 interpreted as the length of each string) when reading the data. The character
-set (usually ascii) is specified by the `_Encoding` attribute. If `_Encoding`
+set is specified by the `_Encoding` attribute. If `_Encoding`
 is 'none' or 'bytes', then the character array is converted to a numpy
 fixed-width byte string array (dtype `S#`), otherwise a numpy unicode (dtype
 `U#`) array is created.  When writing the data,
@@ -1248,7 +1259,7 @@ Support for complex numbers is handled via the
 further details.
 
 
-**contact**: Jeffrey Whitaker <jeffrey.s.whitaker@noaa.gov>
+**contact**: Jeffrey Whitaker <whitaker.jeffrey@gmail.com>
 
 **copyright**: 2008 by Jeffrey Whitaker.
 
@@ -1272,7 +1283,7 @@ import sys
 import functools
 from typing import Union
 
-__version__ = "1.7.2"
+__version__ = "1.7.4"
 
 # Initialize numpy
 import posixpath
@@ -1484,17 +1495,6 @@ __hdf5libversion__ = _gethdf5libversion()
 _needsworkaround_issue485 = __netcdf4libversion__ < "4.4.0" or \
                (__netcdf4libversion__.startswith("4.4.0") and \
                 "-development" in __netcdf4libversion__)
-
-# issue warning for hdf5 1.10 (issue #549)
-if __netcdf4libversion__[0:5] < "4.4.1" and\
-   __hdf5libversion__.startswith("1.10"):
-    msg = """
-WARNING: Backwards incompatible files will be created with HDF5 1.10.x
-and netCDF < 4.4.1. Upgrading to netCDF4 >= 4.4.1 or downgrading to
-to HDF5 version 1.8.x is highly recommended
-(see https://github.com/Unidata/netcdf-c/issues/250)."""
-    warnings.warn(msg)
-
 
 class NetCDF4MissingFeatureException(Exception):
     """Custom exception when trying to use features missing from the linked netCDF library"""
@@ -2331,8 +2331,8 @@ strings.
         exception will be raised if a file with the same name already exists.
         mode=`x` is identical to mode=`w` with clobber=False.
 
-        **`format`**: underlying file format (one of `'NETCDF4',
-        'NETCDF4_CLASSIC', 'NETCDF3_CLASSIC'`, `'NETCDF3_64BIT_OFFSET'` or
+        **`format`**: underlying file format (one of `'NETCDF4'`,
+        `'NETCDF4_CLASSIC'`, `'NETCDF3_CLASSIC'`, `'NETCDF3_64BIT_OFFSET'` or
         `'NETCDF3_64BIT_DATA'`.
         Only relevant if `mode = 'w'` (if `mode = 'r','a'` or `'r+'` the file format
         is automatically detected). Default `'NETCDF4'`, which means the data is
@@ -2568,6 +2568,17 @@ strings.
             return group.variables[lastname]
         else:
             raise IndexError('%s not found in %s' % (lastname,group.path))
+
+    def __iter__(self):
+        raise TypeError(
+            "Dataset is not iterable. Consider iterating on Dataset.variables."
+        )
+
+    def __contains__(self, key):
+        raise TypeError(
+            "Dataset does not support membership operations. Perhaps try 'varname in"
+            " dataset.variables' or 'dimname in dataset.dimensions'."
+        )
 
     def filepath(self,encoding=None):
         """**`filepath(self,encoding=None)`**
@@ -2974,8 +2985,8 @@ Dataset standard attributes: `dimensions, dtype, shape, ndim, name` and
 `least_significant_digit`. Application programs should never modify
 these attributes. The `dimensions` attribute is a tuple containing the
 names of the dimensions associated with this variable. The `dtype`
-attribute is a string describing the variable's data type (`i4, f8,
-S1,` etc). The `shape` attribute is a tuple describing the current
+attribute is a string describing the variable's data type (`i4`, `f8`,
+`S1`, etc). The `shape` attribute is a tuple describing the current
 sizes of all the variable's dimensions. The `name` attribute is a
 string containing the name of the Variable instance.
 The `least_significant_digit`
@@ -3482,8 +3493,8 @@ suffix replaced by `.nc` is used..
 
 **`mode`**:  Access mode to open Dataset (Default `'a'`).
 
-**`format`**: underlying file format to use (one of `'NETCDF4',
-'NETCDF4_CLASSIC', 'NETCDF3_CLASSIC'`, `'NETCDF3_64BIT_OFFSET'` or
+**`format`**: underlying file format to use (one of `'NETCDF4'`,
+`'NETCDF4_CLASSIC'`, `'NETCDF3_CLASSIC'`, `'NETCDF3_64BIT_OFFSET'` or
 `'NETCDF3_64BIT_DATA'`. Default `'NETCDF4'`.
 
 Dataset instance for `ncfilename` is returned.
@@ -3491,19 +3502,27 @@ Dataset instance for `ncfilename` is returned.
 [ncgen]: https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_utilities_guide.html#ncgen_guide
 [cdl]: https://www.unidata.ucar.edu/software/netcdf/docs/netcdf_utilities_guide.html#cdl_guide
         """
+        filepath = pathlib.Path(cdlfilename)
         if ncfilename is None:
-            filepath = pathlib.Path(cdlfilename)
             ncfilename = filepath.with_suffix('.nc')
+        else:
+            ncfilename = pathlib.Path(ncfilename)
         formatcodes = {'NETCDF4': 4,
                        'NETCDF4_CLASSIC': 7,
                        'NETCDF3_CLASSIC': 3,
                        'NETCDF3_64BIT': 6, # legacy
                        'NETCDF3_64BIT_OFFSET': 6,
                        'NETCDF3_64BIT_DATA': 5}
+
         if format not in formatcodes:
             raise ValueError('illegal format requested')
+        if not filepath.exists():
+            raise FileNotFoundError(filepath)
+        if ncfilename.exists():
+            raise FileExistsError(ncfilename)
+
         ncgenargs="-knc%s" % formatcodes[format]
-        subprocess.run(["ncgen", ncgenargs, "-o", ncfilename, cdlfilename], check=True)
+        subprocess.run(["ncgen", ncgenargs, "-o", str(ncfilename), str(filepath)], check=True)
         return Dataset(ncfilename, mode=mode)
 
     def tocdl(self,coordvars=False,data=False,outfile=None):
@@ -3543,8 +3562,11 @@ to be installed and in `$PATH`.
         """**`has_blosc_filter(self)`**
         returns True if blosc compression filter is available
         """
-        if __has_blosc_support__:
-            return False
+
+        #if __has_blosc_support__:
+        #    return True
+        #else:
+        #    return False
 
         cdef int ierr
         with nogil:
@@ -3556,8 +3578,10 @@ to be installed and in `$PATH`.
         returns True if zstd compression filter is available
         """
 
-        if __has_zstandard_support__:
-            return False
+        #if __has_zstandard_support__:
+        #    return True
+        #else:
+        #    return False
 
         cdef int ierr
         with nogil:
@@ -3569,8 +3593,10 @@ to be installed and in `$PATH`.
         returns True if bzip2 compression filter is available
         """
 
-        if __has_bzip2_support__:
-            return False
+        #if __has_bzip2_support__:
+        #    return True
+        #else:
+        #    return False
 
         cdef int ierr
         with nogil:
@@ -3582,11 +3608,13 @@ to be installed and in `$PATH`.
         returns True if szip compression filter is available
         """
 
-        if not __has_ncfilter__:
-            return __has_szip_support__
+        #if not __has_ncfilter__:
+        #    return __has_szip_support__
 
-        if not __has_szip_support__:
-            return False
+        #if  __has_szip_support__:
+        #    return True
+        #else:
+        #    return False
 
         cdef int ierr
         with nogil:
@@ -4041,7 +4069,7 @@ behavior is similar to Fortran or Matlab, but different than numpy.
         If fill_value is set to `False`, then the variable is not pre-filled.
         The default netCDF fill values can be found in the dictionary `netCDF4.default_fillvals`.
         If not set, the default fill value will be used but no `_FillValue` attribute will be created
-        (this is the default behavior of the netcdf-c library). If you want to use the 
+        (this is the default behavior of the netcdf-c library). If you want to use the
         default fill value, but have the `_FillValue` attribute set, use
         `fill_value='default'` (note - this only works for primitive data types). `Variable.get_fill_value`
         can be used to retrieve the fill value, even if the `_FillValue` attribute is not set.
@@ -5510,11 +5538,15 @@ cannot be safely cast to variable data type""" % attname
                 # if data is a string or a bytes object, convert to a numpy string array
                 # whose length is equal to the rightmost dimension of the
                 # variable.
-                if type(data) in [str,bytes]: data = numpy.asarray(data,dtype='S'+repr(self.shape[-1]))
+                if type(data) in [str,bytes]:
+                    if encoding == 'ascii':
+                        data = numpy.asarray(data,dtype='S'+repr(self.shape[-1]))
+                    else:
+                        data = numpy.asarray(data,dtype='U'+repr(self.shape[-1]))
                 if data.dtype.kind in ['S','U'] and data.dtype.itemsize > 1:
                     # if data is a numpy string array, convert it to an array
                     # of characters with one more dimension.
-                    data = stringtochar(data, encoding=encoding)
+                    data = stringtochar(data, encoding=encoding,n_strlen=self.shape[-1])
 
         # if structured data has strings (and _Encoding att set), create view as char arrays
         # (issue #773)
@@ -5940,10 +5972,9 @@ NC_CHAR).
                         ierr = nc_put_vara(self._grpid, self._varid,
                                            startp, countp, strdata)
                 else:
-                    raise IndexError('strides must all be 1 for string variables')
-                    #with nogil:
-                    #    ierr = nc_put_vars(self._grpid, self._varid,
-                    #                       startp, countp, stridep, strdata)
+                    with nogil:
+                        ierr = nc_put_vars(self._grpid, self._varid,
+                                           startp, countp, stridep, strdata)
                 _ensure_nc_success(ierr)
                 free(strdata)
             else:
@@ -5969,10 +6000,9 @@ NC_CHAR).
                         ierr = nc_put_vara(self._grpid, self._varid,
                                            startp, countp, vldata)
                 else:
-                    raise IndexError('strides must all be 1 for vlen variables')
-                    #with nogil:
-                    #    ierr = nc_put_vars(self._grpid, self._varid,
-                    #                       startp, countp, stridep, vldata)
+                    with nogil:
+                        ierr = nc_put_vars(self._grpid, self._varid,
+                                           startp, countp, stridep, vldata)
                 _ensure_nc_success(ierr)
                 # free the pointer array.
                 free(vldata)
@@ -6065,11 +6095,9 @@ NC_CHAR).
                         ierr = nc_get_vara(self._grpid, self._varid,
                                            startp, countp, strdata)
                 else:
-                    # FIXME: is this a bug in netCDF4?
-                    raise IndexError('strides must all be 1 for string variables')
-                    #with nogil:
-                    #    ierr = nc_get_vars(self._grpid, self._varid,
-                    #                       startp, countp, stridep, strdata)
+                    with nogil:
+                        ierr = nc_get_vars(self._grpid, self._varid,
+                                           startp, countp, stridep, strdata)
                 if ierr == NC_EINVALCOORDS:
                     raise IndexError
                 elif ierr != NC_NOERR:
@@ -6104,10 +6132,9 @@ NC_CHAR).
                         ierr = nc_get_vara(self._grpid, self._varid,
                                            startp, countp, vldata)
                 else:
-                    raise IndexError('strides must all be 1 for vlen variables')
-                    #with nogil:
-                    #    ierr = nc_get_vars(self._grpid, self._varid,
-                    #                       startp, countp, stridep, vldata)
+                    with nogil:
+                        ierr = nc_get_vars(self._grpid, self._varid,
+                                           startp, countp, stridep, vldata)
                 if ierr == NC_EINVALCOORDS:
                     raise IndexError
                 elif ierr != NC_NOERR:
@@ -6761,9 +6788,9 @@ returns a rank 1 numpy character array of length NUMCHARS with datatype `'S1'`
     arr[0:len(string)] = tuple(string)
     return arr
 
-def stringtochar(a,encoding='utf-8'):
+def stringtochar(a,encoding='utf-8',n_strlen=None):
     """
-**`stringtochar(a,encoding='utf-8')`**
+**`stringtochar(a,encoding='utf-8',n_strlen=None)`**
 
 convert a string array to a character array with one extra dimension
 
@@ -6775,16 +6802,29 @@ optional kwarg `encoding` can be used to specify character encoding (default
 `utf-8`). If `encoding` is 'none' or 'bytes', a `numpy.string_` the input array
 is treated a raw byte strings (`numpy.string_`).
 
+optional kwarg `n_strlen` is the number of characters in each string.  Default
+is None, which means `n_strlen` will be set to a.itemsize (the number of bytes
+used to represent each string in the input array).
+
 returns a numpy character array with datatype `'S1'` or `'U1'`
 and shape `a.shape + (N,)`, where N is the length of each string in a."""
     dtype = a.dtype.kind
+    if n_strlen is None:
+        n_strlen = a.dtype.itemsize
     if dtype not in ["S","U"]:
         raise ValueError("type must string or unicode ('S' or 'U')")
     if encoding in ['none','None','bytes']:
         b = numpy.array(tuple(a.tobytes()),'S1')
-    else:
+    elif encoding == 'ascii':
         b = numpy.array(tuple(a.tobytes().decode(encoding)),dtype+'1')
-    b.shape = a.shape + (a.itemsize,)
+        b.shape = a.shape + (n_strlen,)
+    else:
+        if not a.ndim:
+            a = numpy.array([a])
+        bbytes = [text.encode(encoding) for text in a]
+        pad = b'\0' * n_strlen
+        bbytes = [(x + pad)[:n_strlen] for x in bbytes]
+        b = numpy.array([[bb[i:i+1] for i in range(n_strlen)] for bb in bbytes])
     return b
 
 def chartostring(b,encoding='utf-8'):
@@ -6806,15 +6846,12 @@ returns a numpy string array with datatype `'UN'` (or `'SN'`) and shape
     dtype = b.dtype.kind
     if dtype not in ["S","U"]:
         raise ValueError("type must be string or unicode ('S' or 'U')")
-    if encoding in ['none','None','bytes']:
-        bs = b.tobytes()
-    else:
-        bs = b.tobytes().decode(encoding)
+    bs = b.tobytes()
     slen = int(b.shape[-1])
     if encoding in ['none','None','bytes']:
         a = numpy.array([bs[n1:n1+slen] for n1 in range(0,len(bs),slen)],'S'+repr(slen))
     else:
-        a = numpy.array([bs[n1:n1+slen] for n1 in range(0,len(bs),slen)],'U'+repr(slen))
+        a = numpy.array([bs[n1:n1+slen].decode(encoding) for n1 in range(0,len(bs),slen)],'U'+repr(slen))
     a.shape = b.shape[:-1]
     return a
 
@@ -6822,8 +6859,8 @@ class MFDataset(Dataset):
     """
 Class for reading multi-file netCDF Datasets, making variables
 spanning multiple files appear as if they were in one file.
-Datasets must be in `NETCDF4_CLASSIC, NETCDF3_CLASSIC, NETCDF3_64BIT_OFFSET
-or NETCDF3_64BIT_DATA` format (`NETCDF4` Datasets won't work).
+Datasets must be in `NETCDF4_CLASSIC`, `NETCDF3_CLASSIC`, `NETCDF3_64BIT_OFFSET`
+or `NETCDF3_64BIT_DATA` format (`NETCDF4` Datasets won't work).
 
 Adapted from [pycdf](http://pysclint.sourceforge.net/pycdf) by Andre Gosselin.
 

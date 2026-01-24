@@ -18,84 +18,72 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: ["3.9", "3.13"]
+        python-version: ["3.10", "3.13"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
-
       - name: Install dependencies and project
-        run: uv sync
+        run: uv sync --python ${{ matrix.python-version }}
 
       - name: Run tests
-        run: uv run pytest --durations=20 -W error
+        run: uv run --python ${{ matrix.python-version }} pytest --durations=20 -W error
 
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.11
-
       - name: Install dependencies and project
-        run: uv sync
+        run: uv sync --python 3.11
 
       - name: Run mypy
-        run: uv run mypy
+        run: uv run --python 3.11 mypy
 
       - name: Run pre-commit
-        run: uv run pre-commit run --all-files
+        run: uv run --python 3.11 pre-commit run --all-files
 
   benchmark:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install system dependencies
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.13
-
       - name: Install dependencies and project
-        run: uv sync
+        run: uv sync --python 3.13
 
       - name: Run benchmarks
-        run: uv run python numbagg/test/run_benchmarks.py
+        run: uv run --python 3.13 python numbagg/test/run_benchmarks.py
 
   nightly:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v6
+        uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
 
-      - name: Set up Python
-        run: uv python install 3.13
-
       - name: Install dependencies and project
-        run: uv sync
+        run: uv sync --python 3.13
 
       - name: Run nightly benchmarks
-        run: uv run pytest --durations=20 -W error --run-nightly --benchmark-enable
+        run: uv run --python 3.13 pytest --durations=20 -W error --run-nightly --benchmark-enable

@@ -21,6 +21,8 @@ __all__ = [
 
 
 class CumulativeGroupedBulkConfigDimensionValue(BaseModel):
+    """Configuration for a dimension value entry"""
+
     grouping_key: str
     """Grouping key value"""
 
@@ -32,11 +34,12 @@ class CumulativeGroupedBulkConfigDimensionValue(BaseModel):
 
 
 class CumulativeGroupedBulkConfig(BaseModel):
+    """Configuration for cumulative_grouped_bulk pricing"""
+
     dimension_values: List[CumulativeGroupedBulkConfigDimensionValue]
     """Each tier lower bound must have the same group of values."""
 
     group: str
-    """Grouping key name"""
 
 
 ConversionRateConfig: TypeAlias = Annotated[

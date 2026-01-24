@@ -617,7 +617,7 @@ def test_unordered_hash():
     # FIXME: Use randbytes once >=3.9 is OK
     lst = [bytes([random.randrange(256) for _ in range(20)])
             for _ in range(200)]
-    lorig = lst[:]
+    lorig = lst.copy()
     random.shuffle(lst)
 
     from pytools import unordered_hash
@@ -715,8 +715,8 @@ def test_strtobool():
     assert strtobool("off") is False
 
     with pytest.raises(ValueError):
-        strtobool("tru")
-        strtobool("fal")
+        strtobool("tru")  # spellchecker: disable-line
+        strtobool("fal")  # spellchecker: disable-line
         strtobool("xxx")
         strtobool(".")
 

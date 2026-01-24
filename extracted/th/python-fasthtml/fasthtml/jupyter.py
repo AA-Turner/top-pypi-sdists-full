@@ -62,9 +62,12 @@ def show(*s, **kwargs):
     return _show(*s, **kwargs)
 
 # %% ../nbs/api/06_jupyter.ipynb
-def render_ft():
+def render_ft(**kw):
+    "Call once in a notebook or solveit dialog to auto-render components with HTMX support"
     @patch
-    def _repr_markdown_(self:FT): return to_xml(Div(self, Script('if (window.htmx) htmx.process(document.body)')))
+    def _repr_html_(self:FT):
+        scr_proc = Script('if (window.htmx) htmx.process(document.body)')
+        return to_xml(Div(self, scr_proc, **kw))
 
 # %% ../nbs/api/06_jupyter.ipynb
 def htmx_config_port(port=8000):
@@ -85,7 +88,7 @@ class JupyUvi:
         store_attr(but='start')
         self.server = None
         if start: self.start()
-        htmx_config_port(port)
+        if not os.environ.get('IN_SOLVEIT'): htmx_config_port(port)
 
     def start(self):
         self.server = nb_serve(self.app, log_level=self.log_level, host=self.host, port=self.port, **self.kwargs)
@@ -111,14 +114,12 @@ class JupyUviAsync(JupyUvi):
         wait_port_free(self.port)
 
 # %% ../nbs/api/06_jupyter.ipynb
+from starlette.testclient import TestClient
+from html import escape
+
+# %% ../nbs/api/06_jupyter.ipynb
 def HTMX(path="/", host='localhost', app=None, port=8000, height="auto", link=False, iframe=True):
     "An iframe which displays the HTMX application in a notebook."
-    if isinstance(path, (FT,tuple,Safe)):
-        assert app, 'Need an app to render a component'
-        route = f'/{unqid()}'
-        res = path
-        app.get(route)(lambda: res)
-        path = route
     if isinstance(height, int): height = f"{height}px"
     scr = """{
         let frame = this;
@@ -129,9 +130,17 @@ def HTMX(path="/", host='localhost', app=None, port=8000, height="auto", link=Fa
     }""" if height == "auto" else ""
     proto = 'http' if host=='localhost' else 'https'
     fullpath = f"{proto}://{host}:{port}{path}" if host else path
+    src = f'src="{fullpath}"'
     if link: display(HTML(f'<a href="{fullpath}" target="_blank">Open in new tab</a>'))
+    if isinstance(path, (FT,tuple,Safe)):
+        assert app, 'Need an app to render a component'
+        route = f'/{unqid()}'
+        res = path
+        app.get(route)(lambda: res)
+        page = TestClient(app).get(route).text
+        src = f'srcdoc="{escape(page)}"'
     if iframe:
-        return HTML(f'<iframe src="{fullpath}" style="width: 100%; height: {height}; border: none;" onload="{scr}" ' + """allow="accelerometer; autoplay; camera; clipboard-read; clipboard-write; display-capture; encrypted-media; fullscreen; gamepad; geolocation; gyroscope; hid; identity-credentials-get; idle-detection; magnetometer; microphone; midi; payment; picture-in-picture; publickey-credentials-get; screen-wake-lock; serial; usb; web-share; xr-spatial-tracking"></iframe> """)
+        return HTML(f'<iframe {src} style="width: 100%; height: {height}; border: none;" onload="{scr}" ' + """allow="accelerometer; autoplay; camera; clipboard-read; clipboard-write; display-capture; encrypted-media; fullscreen; gamepad; geolocation; gyroscope; hid; identity-credentials-get; idle-detection; magnetometer; microphone; midi; payment; picture-in-picture; publickey-credentials-get; screen-wake-lock; serial; usb; web-share; xr-spatial-tracking"></iframe> """)
 
 # %% ../nbs/api/06_jupyter.ipynb
 def ws_client(app, nm='', host='localhost', port=8000, ws_connect='/ws', frame=True, link=True, **kwargs):

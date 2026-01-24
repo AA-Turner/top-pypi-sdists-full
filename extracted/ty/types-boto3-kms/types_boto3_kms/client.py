@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -126,12 +127,6 @@ from .type_defs import (
     VerifyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -142,55 +137,55 @@ __all__ = ("KMSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AlreadyExistsException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    CloudHsmClusterInUseException: Type[BotocoreClientError]
-    CloudHsmClusterInvalidConfigurationException: Type[BotocoreClientError]
-    CloudHsmClusterNotActiveException: Type[BotocoreClientError]
-    CloudHsmClusterNotFoundException: Type[BotocoreClientError]
-    CloudHsmClusterNotRelatedException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    CustomKeyStoreHasCMKsException: Type[BotocoreClientError]
-    CustomKeyStoreInvalidStateException: Type[BotocoreClientError]
-    CustomKeyStoreNameInUseException: Type[BotocoreClientError]
-    CustomKeyStoreNotFoundException: Type[BotocoreClientError]
-    DependencyTimeoutException: Type[BotocoreClientError]
-    DisabledException: Type[BotocoreClientError]
-    DryRunOperationException: Type[BotocoreClientError]
-    ExpiredImportTokenException: Type[BotocoreClientError]
-    IncorrectKeyException: Type[BotocoreClientError]
-    IncorrectKeyMaterialException: Type[BotocoreClientError]
-    IncorrectTrustAnchorException: Type[BotocoreClientError]
-    InvalidAliasNameException: Type[BotocoreClientError]
-    InvalidArnException: Type[BotocoreClientError]
-    InvalidCiphertextException: Type[BotocoreClientError]
-    InvalidGrantIdException: Type[BotocoreClientError]
-    InvalidGrantTokenException: Type[BotocoreClientError]
-    InvalidImportTokenException: Type[BotocoreClientError]
-    InvalidKeyUsageException: Type[BotocoreClientError]
-    InvalidMarkerException: Type[BotocoreClientError]
-    KMSInternalException: Type[BotocoreClientError]
-    KMSInvalidMacException: Type[BotocoreClientError]
-    KMSInvalidSignatureException: Type[BotocoreClientError]
-    KMSInvalidStateException: Type[BotocoreClientError]
-    KeyUnavailableException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MalformedPolicyDocumentException: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TagException: Type[BotocoreClientError]
-    UnsupportedOperationException: Type[BotocoreClientError]
-    XksKeyAlreadyInUseException: Type[BotocoreClientError]
-    XksKeyInvalidConfigurationException: Type[BotocoreClientError]
-    XksKeyNotFoundException: Type[BotocoreClientError]
-    XksProxyIncorrectAuthenticationCredentialException: Type[BotocoreClientError]
-    XksProxyInvalidConfigurationException: Type[BotocoreClientError]
-    XksProxyInvalidResponseException: Type[BotocoreClientError]
-    XksProxyUriEndpointInUseException: Type[BotocoreClientError]
-    XksProxyUriInUseException: Type[BotocoreClientError]
-    XksProxyUriUnreachableException: Type[BotocoreClientError]
-    XksProxyVpcEndpointServiceInUseException: Type[BotocoreClientError]
-    XksProxyVpcEndpointServiceInvalidConfigurationException: Type[BotocoreClientError]
-    XksProxyVpcEndpointServiceNotFoundException: Type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    CloudHsmClusterInUseException: type[BotocoreClientError]
+    CloudHsmClusterInvalidConfigurationException: type[BotocoreClientError]
+    CloudHsmClusterNotActiveException: type[BotocoreClientError]
+    CloudHsmClusterNotFoundException: type[BotocoreClientError]
+    CloudHsmClusterNotRelatedException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    CustomKeyStoreHasCMKsException: type[BotocoreClientError]
+    CustomKeyStoreInvalidStateException: type[BotocoreClientError]
+    CustomKeyStoreNameInUseException: type[BotocoreClientError]
+    CustomKeyStoreNotFoundException: type[BotocoreClientError]
+    DependencyTimeoutException: type[BotocoreClientError]
+    DisabledException: type[BotocoreClientError]
+    DryRunOperationException: type[BotocoreClientError]
+    ExpiredImportTokenException: type[BotocoreClientError]
+    IncorrectKeyException: type[BotocoreClientError]
+    IncorrectKeyMaterialException: type[BotocoreClientError]
+    IncorrectTrustAnchorException: type[BotocoreClientError]
+    InvalidAliasNameException: type[BotocoreClientError]
+    InvalidArnException: type[BotocoreClientError]
+    InvalidCiphertextException: type[BotocoreClientError]
+    InvalidGrantIdException: type[BotocoreClientError]
+    InvalidGrantTokenException: type[BotocoreClientError]
+    InvalidImportTokenException: type[BotocoreClientError]
+    InvalidKeyUsageException: type[BotocoreClientError]
+    InvalidMarkerException: type[BotocoreClientError]
+    KMSInternalException: type[BotocoreClientError]
+    KMSInvalidMacException: type[BotocoreClientError]
+    KMSInvalidSignatureException: type[BotocoreClientError]
+    KMSInvalidStateException: type[BotocoreClientError]
+    KeyUnavailableException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MalformedPolicyDocumentException: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TagException: type[BotocoreClientError]
+    UnsupportedOperationException: type[BotocoreClientError]
+    XksKeyAlreadyInUseException: type[BotocoreClientError]
+    XksKeyInvalidConfigurationException: type[BotocoreClientError]
+    XksKeyNotFoundException: type[BotocoreClientError]
+    XksProxyIncorrectAuthenticationCredentialException: type[BotocoreClientError]
+    XksProxyInvalidConfigurationException: type[BotocoreClientError]
+    XksProxyInvalidResponseException: type[BotocoreClientError]
+    XksProxyUriEndpointInUseException: type[BotocoreClientError]
+    XksProxyUriInUseException: type[BotocoreClientError]
+    XksProxyUriUnreachableException: type[BotocoreClientError]
+    XksProxyVpcEndpointServiceInUseException: type[BotocoreClientError]
+    XksProxyVpcEndpointServiceInvalidConfigurationException: type[BotocoreClientError]
+    XksProxyVpcEndpointServiceNotFoundException: type[BotocoreClientError]
 
 
 class KMSClient(BaseClient):
@@ -240,7 +235,7 @@ class KMSClient(BaseClient):
 
     def connect_custom_key_store(
         self, **kwargs: Unpack[ConnectCustomKeyStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Connects or reconnects a <a
         href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
@@ -313,7 +308,7 @@ class KMSClient(BaseClient):
 
     def delete_custom_key_store(
         self, **kwargs: Unpack[DeleteCustomKeyStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a <a
         href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
@@ -389,7 +384,7 @@ class KMSClient(BaseClient):
 
     def disconnect_custom_key_store(
         self, **kwargs: Unpack[DisconnectCustomKeyStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disconnects the <a
         href="https://docs.aws.amazon.com/kms/latest/developerguide/key-store-overview.html">custom
@@ -728,7 +723,7 @@ class KMSClient(BaseClient):
 
     def update_custom_key_store(
         self, **kwargs: Unpack[UpdateCustomKeyStoreRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Changes the properties of a custom key store.
 

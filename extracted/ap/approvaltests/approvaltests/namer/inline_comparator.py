@@ -11,8 +11,6 @@ from approvaltests import Namer, StackFrameNamer
 from approvaltests.core.options import Options
 from approvaltests.inline.inline_options import InlineOptions
 from approvaltests.inline.markers import PRESERVE_LEADING_WHITESPACE_MARKER
-from approvaltests.namer.inline_python_reporter import InlinePythonReporter
-from approvaltests.reporters import ReporterThatAutomaticallyApproves
 
 
 class InlineComparator(Namer):
@@ -20,7 +18,7 @@ class InlineComparator(Namer):
     def get_approved_filename(self, base: Optional[str] = None) -> str:
         file = tempfile.NamedTemporaryFile(suffix=".approved.txt", delete=False).name
         docs = self.get_test_method_doc_string()
-        Path(file).write_text(docs)
+        Path(file).write_text(docs, encoding="utf-8")
         return file
 
     @override

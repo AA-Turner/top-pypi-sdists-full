@@ -49,7 +49,6 @@ from ...exceptions import (
     IncompleteRead,
     InvalidHeader,
     MustDowngradeError,
-    MustRedialError,
     ProtocolError,
     ResponseNotReady,
     SSLError,
@@ -910,38 +909,41 @@ class AsyncHfaceBackend(AsyncBaseBackend):
                 stream_related_event: bool = hasattr(event, "stream_id")
 
                 if not stream_related_event and isinstance(event, ConnectionTerminated):
-                    if event.error_code == 0 and self._response is not None:
-                        self._protocol = None
-                        await self.close()
-
-                        # A server may end the transmission without error
-                        # to mark the end of SSE for example. While it's not ideal
-                        # it's not forbidden either.
-                        if stream_id is not None and (
+                    # A server may end the transmission without error
+                    # to mark the end of SSE for example. While it's not ideal
+                    # it's not forbidden either.
+                    if (
+                        event.error_code == 0
+                        and stream_id is not None
+                        and (
                             event_type is DataReceived
                             or (
                                 isinstance(event_type, tuple)
                                 and DataReceived in event_type
                             )
-                        ):
-                            events.append(
-                                DataReceived(
-                                    stream_id,
-                                    b"",
-                                    end_stream=True,
-                                )
+                        )
+                    ):
+                        self._protocol = (
+                            None  # the state machine protocol reached final state and
+                        )
+                        # the close procedure attempt to call close on the said state machine. we
+                        # want to avoid that.
+                        await self.close()
+
+                        events.append(
+                            DataReceived(
+                                stream_id,
+                                b"",
+                                end_stream=True,
                             )
-
-                            return events
-
-                        raise MustRedialError(
-                            f"Remote peer just closed our connection, probably for not answering to unsolicited packet. ({event.message})"
                         )
 
+                        return events
+
                     # we can receive a zero-length payload, that usually means the remote closed the socket.
-                    # but we should be able to redial. we only attempt this when we've just sent a request.
-                    # this cond. requires to have one successful response out of this conn, that demonstrate
-                    # the connection is usable. (avoid loop in retries)
+                    # while we could retry this, we should not as some servers can have tricky edge cases
+                    # where a request could actually be executed without you knowing so.
+                    # see https://github.com/jawah/urllib3.future/issues/280 for the rationale behind this change.
                     if (
                         reach_socket is True
                         and data_in == b""
@@ -957,8 +959,8 @@ class AsyncHfaceBackend(AsyncBaseBackend):
                     ):
                         self._protocol = None
                         await self.close()
-                        raise MustRedialError(
-                            "Server unexpectedly closed the connection in-flight (connection dropped)"
+                        raise ProtocolError(
+                            "Remote end closed connection without response"
                         )
 
                     if (
@@ -1362,9 +1364,10 @@ class AsyncHfaceBackend(AsyncBaseBackend):
             except KeyError:
                 pass  # Hmm... this should be impossible.
 
-            # remote can refuse future inquiries, so no need to go further with this conn.
-            if self._protocol.is_idle() and self._protocol.has_expired():  # type: ignore[union-attr]
-                await self.close()
+            if self._protocol is not None:
+                # remote can refuse future inquiries, so no need to go further with this conn.
+                if self._protocol.is_idle() and self._protocol.has_expired():
+                    await self.close()
             return b"", True, None
 
         eot = False
@@ -1392,12 +1395,13 @@ class AsyncHfaceBackend(AsyncBaseBackend):
             except KeyError:
                 pass  # Hmm... this should be impossible.
 
-            # remote can refuse future inquiries, so no need to go further with this conn.
-            if self._protocol.is_idle() and self._protocol.has_expired():  # type: ignore[union-attr]
-                await self.close()
-            elif self.is_idle:
-                # probe for h3/quic if available, and remember it.
-                await self._upgrade()
+            if self._protocol is not None:
+                # remote can refuse future inquiries, so no need to go further with this conn.
+                if self._protocol.is_idle() and self._protocol.has_expired():
+                    await self.close()
+                elif self.is_idle:
+                    # probe for h3/quic if available, and remember it.
+                    await self._upgrade()
 
         trailers = None
 
@@ -1449,6 +1453,11 @@ class AsyncHfaceBackend(AsyncBaseBackend):
         headers = HTTPHeaderDict()
         status: int | None = None
 
+        if not self.is_multiplexed:
+            stream_id = self._stream_id
+        else:
+            stream_id = promise.stream_id if promise else None
+
         head_event: HeadersReceived | EarlyHeadersReceived = (
             await self.__exchange_until(  # type: ignore[assignment]
                 (
@@ -1461,7 +1470,7 @@ class AsyncHfaceBackend(AsyncBaseBackend):
                     EarlyHeadersReceived,
                 ),
                 respect_end_stream_signal=False,
-                stream_id=promise.stream_id if promise else None,
+                stream_id=stream_id,
             )
         ).pop()
 
@@ -1578,7 +1587,7 @@ class AsyncHfaceBackend(AsyncBaseBackend):
 
     async def send(  # type: ignore[override]
         self,
-        data: (bytes | typing.IO[typing.Any] | typing.Iterable[bytes] | str),
+        data: bytes | bytearray,
         *,
         eot: bool = False,
     ) -> ResponsePromise | None:
@@ -1597,58 +1606,45 @@ class AsyncHfaceBackend(AsyncBaseBackend):
             self.__remaining_body_length = self.__expected_body_length
 
         try:
-            if isinstance(
-                data,
-                (
-                    bytes,
-                    bytearray,
-                ),
+            while (
+                self._protocol.should_wait_remote_flow_control(
+                    self._stream_id, len(data)
+                )
+                is True
             ):
-                while (
-                    self._protocol.should_wait_remote_flow_control(
-                        self._stream_id, len(data)
-                    )
-                    is True
+                self._protocol.bytes_received(await self.sock.recv(self.blocksize))
+
+                # this is a bad sign. we should stop sending and instead retrieve the response.
+                if self._protocol.has_pending_event(
+                    stream_id=self._stream_id, excl_event=(EarlyHeadersReceived,)
                 ):
-                    self._protocol.bytes_received(await self.sock.recv(self.blocksize))
+                    if self._start_last_request and self.conn_info:
+                        self.conn_info.request_sent_latency = (
+                            datetime.now(tz=timezone.utc) - self._start_last_request
+                        )
 
-                    # this is a bad sign. we should stop sending and instead retrieve the response.
-                    if self._protocol.has_pending_event(
-                        stream_id=self._stream_id, excl_event=(EarlyHeadersReceived,)
-                    ):
-                        if self._start_last_request and self.conn_info:
-                            self.conn_info.request_sent_latency = (
-                                datetime.now(tz=timezone.utc) - self._start_last_request
-                            )
+                    rp = ResponsePromise(self, self._stream_id, self.__headers)
+                    self._promises[rp.uid] = rp
+                    self._promises_per_stream[rp.stream_id] = rp
 
-                        rp = ResponsePromise(self, self._stream_id, self.__headers)
-                        self._promises[rp.uid] = rp
-                        self._promises_per_stream[rp.stream_id] = rp
+                    raise EarlyResponse(promise=rp)
 
-                        raise EarlyResponse(promise=rp)
+                while True:
+                    data_out = self._protocol.bytes_to_send()
 
-                    while True:
-                        data_out = self._protocol.bytes_to_send()
+                    if not data_out:
+                        break
 
-                        if not data_out:
-                            break
+                    await self.sock.sendall(data_out)
 
-                        await self.sock.sendall(data_out)
+            if self.__remaining_body_length:
+                self.__remaining_body_length -= len(data)
 
-                if self.__remaining_body_length:
-                    self.__remaining_body_length -= len(data)
-
-                self._protocol.submit_data(
-                    self._stream_id,
-                    data,
-                    end_stream=eot,
-                )
-            else:
-                # urllib3 is supposed to handle every case
-                # and pass down bytes only. This should be unreachable.
-                raise OSError(  # Defensive:
-                    f"unhandled type '{type(data)}' in send method"
-                )
+            self._protocol.submit_data(
+                self._stream_id,
+                data,
+                end_stream=eot,
+            )
 
             if _HAS_SYS_AUDIT:
                 sys.audit("http.client.send", self, data)

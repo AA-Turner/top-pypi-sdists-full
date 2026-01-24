@@ -11,20 +11,32 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
-from .group_0242 import LinkType
+
+class CustomDeploymentRuleAppType(TypedDict):
+    """Custom deployment protection rule app
+
+    A GitHub App that is providing a custom deployment protection rule.
+    """
+
+    id: int
+    slug: str
+    integration_url: str
+    node_id: str
 
 
-class PullRequestPropLinksType(TypedDict):
-    """PullRequestPropLinks"""
+class CustomDeploymentRuleAppTypeForResponse(TypedDict):
+    """Custom deployment protection rule app
 
-    comments: LinkType
-    commits: LinkType
-    statuses: LinkType
-    html: LinkType
-    issue: LinkType
-    review_comments: LinkType
-    review_comment: LinkType
-    self_: LinkType
+    A GitHub App that is providing a custom deployment protection rule.
+    """
+
+    id: int
+    slug: str
+    integration_url: str
+    node_id: str
 
 
-__all__ = ("PullRequestPropLinksType",)
+__all__ = (
+    "CustomDeploymentRuleAppType",
+    "CustomDeploymentRuleAppTypeForResponse",
+)

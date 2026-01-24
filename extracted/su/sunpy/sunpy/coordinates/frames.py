@@ -28,7 +28,7 @@ from astropy.utils.data import download_file
 from sunpy import log
 from sunpy.sun.constants import radius as _RSUN
 from sunpy.time.time import _variables_for_parse_time_docstring
-from sunpy.util.decorators import add_common_docstring, deprecated, sunpycontextmanager
+from sunpy.util.decorators import add_common_docstring
 from sunpy.util.exceptions import warn_user
 from .frameattributes import ObserverCoordinateAttribute, TimeFrameAttributeSunPy
 
@@ -528,6 +528,7 @@ class Helioprojective(SunPyBaseCoordinateFrame):
 
     rsun = QuantityAttribute(default=_RSUN, unit=u.km)
     observer = ObserverCoordinateAttribute(HeliographicStonyhurst)
+    _assumed_screen = None
 
     @property
     def angular_radius(self):
@@ -688,21 +689,6 @@ class Helioprojective(SunPyBaseCoordinateFrame):
 
         return is_behind_observer | is_beyond_limb | (is_on_near_side & is_above_surface)
 
-    _assumed_screen = None
-
-    @classmethod
-    @sunpycontextmanager
-    @deprecated('6.0', alternative='sunpy.coordinates.screens.SphericalScreen')
-    def assume_spherical_screen(cls, center, only_off_disk=False, *, radius=None):
-        try:
-            old_assumed_screen = cls._assumed_screen  # nominally None
-            from sunpy.coordinates import SphericalScreen
-            sph_screen = SphericalScreen(center, radius=radius, only_off_disk=only_off_disk)
-            cls._assumed_screen = sph_screen
-            yield
-        finally:
-            cls._assumed_screen = old_assumed_screen
-
 
 @add_common_docstring(**_frame_parameters())
 class HelioprojectiveRadial(SunPyBaseCoordinateFrame):
@@ -861,7 +847,7 @@ class GeocentricSolarEcliptic(SunPyBaseCoordinateFrame):
 
     Notes
     -----
-    Aberration due to Earth motion is not included.
+    Aberration due to Earth motion is not included when transforming directly to/from this frame.
     """
 
 
@@ -896,7 +882,7 @@ class GeocentricEarthEquatorial(SunPyBaseCoordinateFrame):
     A coordinate or frame in the Geocentric Earth Equatorial (GEI) system.
 
     - The origin is the center of the Earth.
-    - The Z-axis (+90 degrees latitude) is aligned with the Earth's north pole.
+    - The Z-axis (+90 degrees latitude) is aligned with the Earth's mean (not true) north pole.
     - The X-axis (0 degrees longitude and 0 degrees latitude) is aligned with the mean (not true)
       vernal equinox.
 
@@ -910,7 +896,7 @@ class GeocentricEarthEquatorial(SunPyBaseCoordinateFrame):
 
     Notes
     -----
-    Aberration due to Earth motion is not included.
+    Aberration due to Earth motion is not included when transforming directly to/from this frame.
     """
     equinox = TimeFrameAttributeSunPy(default=_J2000)
 

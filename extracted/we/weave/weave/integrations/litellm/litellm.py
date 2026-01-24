@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import importlib
-from typing import TYPE_CHECKING, Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import weave
 from weave.integrations.patcher import MultiPatcher, NoOpPatcher, SymbolPatcher
@@ -117,10 +118,16 @@ def get_litellm_patcher(
     base = settings.op_settings
 
     completion_settings = base.model_copy(
-        update={"name": base.name or "litellm.completion"}
+        update={
+            "name": base.name or "litellm.completion",
+            "kind": base.kind or "llm",
+        }
     )
     acompletion_settings = base.model_copy(
-        update={"name": base.name or "litellm.acompletion"}
+        update={
+            "name": base.name or "litellm.acompletion",
+            "kind": base.kind or "llm",
+        }
     )
 
     _litellm_patcher = MultiPatcher(

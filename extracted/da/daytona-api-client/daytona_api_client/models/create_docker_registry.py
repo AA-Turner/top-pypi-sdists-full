@@ -32,16 +32,16 @@ class CreateDockerRegistry(BaseModel):
     username: StrictStr = Field(description="Registry username")
     password: StrictStr = Field(description="Registry password")
     project: Optional[StrictStr] = Field(default=None, description="Registry project")
-    registry_type: StrictStr = Field(description="Registry type", alias="registryType")
-    is_default: Optional[StrictBool] = Field(default=None, description="Set as default registry", alias="isDefault")
+    registry_type: StrictStr = Field(description="Registry type", serialization_alias="registryType")
+    is_default: Optional[StrictBool] = Field(default=None, description="Set as default registry", serialization_alias="isDefault")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["name", "url", "username", "password", "project", "registryType", "isDefault"]
 
     @field_validator('registry_type')
     def registry_type_validate_enum(cls, value):
         """Validates the enum"""
-        if value not in set(['internal', 'organization', 'public', 'transient']):
-            raise ValueError("must be one of enum values ('internal', 'organization', 'public', 'transient')")
+        if value not in set(['internal', 'organization', 'transient', 'backup']):
+            raise ValueError("must be one of enum values ('internal', 'organization', 'transient', 'backup')")
         return value
 
     model_config = ConfigDict(
@@ -107,8 +107,8 @@ class CreateDockerRegistry(BaseModel):
             "username": obj.get("username"),
             "password": obj.get("password"),
             "project": obj.get("project"),
-            "registryType": obj.get("registryType") if obj.get("registryType") is not None else 'organization',
-            "isDefault": obj.get("isDefault")
+            "registry_type": obj.get("registryType") if obj.get("registryType") is not None else 'organization',
+            "is_default": obj.get("isDefault")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

@@ -76,7 +76,9 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
         },
     },
     "circle-ci": {
-        "url": "https://json.schemastore.org/circleciconfig.json",
+        "url": _githubusercontent_url(
+            "CircleCI-Public", "circleci-yaml-language-server", "main", "schema.json"
+        ),
         "hook_config": {
             "name": "Validate CircleCI config",
             "description": (
@@ -84,6 +86,19 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
             ),
             "files": r"^\.circleci/config\.(yml|yaml)$",
             "type": "yaml",
+        },
+    },
+    "citation-file-format": {
+        "url": _githubusercontent_url(
+            "citation-file-format",
+            "citation-file-format",
+            "main",
+            "schema.json",
+        ),
+        "hook_config": {
+            "name": "Validate Citation File Format",
+            "description": "Validate Citation File Format",
+            "files": r"^CITATION.cff$",
         },
     },
     "cloudbuild": {
@@ -151,6 +166,16 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
             "types": "yaml",
         },
     },
+    "github-discussion": {
+        "url": "https://www.schemastore.org/github-discussion.json",
+        "hook_config": {
+            "name": "Validate GitHub discussion",
+            "files": [
+                r"^\.github/DISCUSSION_TEMPLATE/.+\.ya?ml$",
+            ],
+            "types": "yaml",
+        },
+    },
     "github-issue-config": {
         "url": "https://www.schemastore.org/github-issue-config.json",
         "hook_config": {
@@ -192,7 +217,7 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
                 "--regex-variant",
                 "nonunicode",
             ],
-            "files": r"^.*\.gitlab-ci\.yml$",
+            "files": r"^.*\.gitlab-ci\.(yml|yaml)$",
             "types": "yaml",
         },
     },
@@ -238,8 +263,7 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
         "hook_config": {
             "name": "Validate ReadTheDocs Config",
             "description": (
-                "Validate ReadTheDocs config against the schema "
-                "provided by ReadTheDocs"
+                "Validate ReadTheDocs config against the schema provided by ReadTheDocs"
             ),
             "files": r"^\.readthedocs\.(yml|yaml)$",
             "types": "yaml",

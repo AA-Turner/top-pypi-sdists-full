@@ -443,7 +443,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table"]:
+        if _params["table"] is not None:
             _body_params = _params["table"]
 
         # set the HTTP header `Accept`
@@ -781,7 +781,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table"]:
+        if _params["table"] is not None:
             _body_params = _params["table"]
 
         # set the HTTP header `Accept`
@@ -1150,7 +1150,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table_as_select"]:
+        if _params["table_as_select"] is not None:
             _body_params = _params["table_as_select"]
 
         # set the HTTP header `Accept`
@@ -1533,7 +1533,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table"]:
+        if _params["table"] is not None:
             _body_params = _params["table"]
 
         # set the HTTP header `Accept`
@@ -1887,7 +1887,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table_like"]:
+        if _params["table_like"] is not None:
             _body_params = _params["table_like"]
 
         # set the HTTP header `Accept`
@@ -2617,7 +2617,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table_using_template"]:
+        if _params["table_using_template"] is not None:
             _body_params = _params["table_using_template"]
 
         # set the HTTP header `Accept`
@@ -3424,7 +3424,7 @@ class TableApi:
         # process the body parameter
         _body_params = None
 
-        if _params["table_clone"]:
+        if _params["table_clone"] is not None:
             _body_params = _params["table_clone"]
 
         # set the HTTP header `Accept`

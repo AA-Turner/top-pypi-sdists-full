@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Summary reporting"""
 
@@ -14,7 +14,7 @@ from coverage.misc import human_sorted_items, plural
 from coverage.plugin import FileReporter
 from coverage.report_core import get_analysis_to_report
 from coverage.results import Analysis, Numbers
-from coverage.types import TMorf
+from coverage.types import TMorfs
 
 if TYPE_CHECKING:
     from coverage import Coverage
@@ -169,7 +169,7 @@ class SummaryReporter:
         # Write the TOTAL line
         formats.update(
             dict(
-                Name="|{:>{name_len}} |",
+                Name="|{:{name_len}} |",
                 Cover="{:>{n}} |",
             ),
         )
@@ -187,7 +187,7 @@ class SummaryReporter:
         for end_line in end_lines:
             self.write(end_line)
 
-    def report(self, morfs: Iterable[TMorf] | None, outfile: IO[str] | None = None) -> float:
+    def report(self, morfs: TMorfs, outfile: IO[str] | None = None) -> float:
         """Writes a report summarizing coverage statistics per module.
 
         `outfile` is a text-mode file object to write the summary to.

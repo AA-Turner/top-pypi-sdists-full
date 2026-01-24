@@ -7,6 +7,7 @@
 
 #include "include/core/SkFontArguments.h"
 #include "include/core/SkFontMgr.h"
+#include "include/core/SkFontScanner.h"
 #include "include/core/SkFontStyle.h"
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkStream.h"
@@ -14,9 +15,11 @@
 #include "include/core/SkTypeface.h"
 #include "include/core/SkTypes.h"
 #include "include/ports/SkFontConfigInterface.h"
+#include "include/ports/SkFontMgr_FontConfigInterface.h"
 #include "src/ports/SkFontConfigInterface_direct.h"
 #include "tests/Test.h"
 #include "tools/Resources.h"
+#include "tools/fonts/FontToolUtils.h"
 
 #include <fontconfig/fontconfig.h>
 #include <memory>
@@ -45,7 +48,7 @@ bool fontmgr_understands_ft_named_instance_bits() {
         return false;
     }
 
-    sk_sp<SkFontMgr> fm = SkFontMgr::RefDefault();
+    sk_sp<SkFontMgr> fm = ToolUtils::TestFontMgr();
     SkFontArguments params;
     // The first named variation position in Distortable is 'Thin'.
     params.setCollectionIndex(0x00010000);
@@ -99,9 +102,13 @@ DEF_TEST(FontConfigInterface_MatchStyleNamedInstance, reporter) {
 
             // Intentionally go through manually creating the typeface so that SkFontStyle is
             // derived from data inside the font, not from the FcPattern that is the FontConfig
-            // match result, see https://crbug.com/skia/12881
-            sk_sp<SkTypeface> typeface(fciDirect->makeTypeface(resultIdentity).release());
+            // match result, see skbug.com/40043982
+            std::unique_ptr<SkFontScanner> scanner = ToolUtils::TestFontScanner();
+            REPORTER_ASSERT(reporter, scanner != nullptr, "Could not create a font scanner.");
+            auto mgr = SkFontMgr_New_FCI(fciDirect, std::move(scanner));
+            REPORTER_ASSERT(reporter, mgr != nullptr, "Could not create a fci manager.");
 
+            sk_sp<SkTypeface> typeface(fciDirect->makeTypeface(resultIdentity, mgr));
             if (!typeface) {
                 ERRORF(reporter, "Could not instantiate typeface, FcVersion: %d", FcGetVersion());
                 return;
@@ -126,10 +133,9 @@ DEF_TEST(FontConfigInterface_MatchStyleNamedInstance, reporter) {
                        family_from_typeface.c_str());
             }
 
-            int numAxes = typeface->getVariationDesignPosition(nullptr, 0);
-            std::vector<SkFontArguments::VariationPosition::Coordinate> coords;
-            coords.resize(numAxes);
-            typeface->getVariationDesignPosition(coords.data(), numAxes);
+            const size_t numAxes = typeface->getVariationDesignPosition({});
+            std::vector<SkFontArguments::VariationPosition::Coordinate> coords(numAxes);
+            typeface->getVariationDesignPosition(coords);
 
             REPORTER_ASSERT(reporter,
                             coords.size() == 1,
@@ -144,5 +150,4 @@ DEF_TEST(FontConfigInterface_MatchStyleNamedInstance, reporter) {
                             "The weight axis must match the weight from the request.");
         }
   }
-
 }

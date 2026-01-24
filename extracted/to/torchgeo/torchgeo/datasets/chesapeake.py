@@ -1,18 +1,18 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """Cheasapeake Bay Program Land Use/Land Cover Data Project datasets."""
 
 import glob
 import os
-import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
-import fiona
+import geopandas as gpd
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pyproj
 import rasterio
 import rasterio.mask
@@ -21,13 +21,13 @@ import shapely.ops
 import torch
 from matplotlib.colors import ListedColormap
 from matplotlib.figure import Figure
-from rasterio.crs import CRS
+from pyproj import CRS
 from torch import Tensor
 
 from .errors import DatasetNotFoundError
 from .geo import GeoDataset, RasterDataset
 from .nlcd import NLCD
-from .utils import BoundingBox, Path, download_url, extract_archive
+from .utils import GeoSlice, Path, download_url, extract_archive
 
 
 class Chesapeake(RasterDataset, ABC):
@@ -351,8 +351,7 @@ class ChesapeakeCVPR(GeoDataset):
         'prior_extension': '402f41d07823c8faf7ea6960d7c4e17a',
     }
 
-    crs = CRS.from_epsg(3857)
-    res = (1, 1)
+    _res = (1, 1)
 
     lc_cmap: ClassVar[dict[int, tuple[int, int, int, int]]] = {
         0: (0, 0, 0, 0),
@@ -423,7 +422,7 @@ class ChesapeakeCVPR(GeoDataset):
     )
 
     p_src_crs = pyproj.CRS('epsg:3857')
-    p_transformers: ClassVar[dict[str, CRS]] = {
+    p_transformers: ClassVar[dict[str, Any]] = {
         'epsg:26917': pyproj.Transformer.from_crs(
             p_src_crs, pyproj.CRS('epsg:26917'), always_xy=True
         ).transform,
@@ -467,13 +466,12 @@ class ChesapeakeCVPR(GeoDataset):
         assert all([layer in self.valid_layers for layer in layers])
         self.root = root
         self.layers = layers
+        self.transforms = transforms
         self.cache = cache
         self.download = download
         self.checksum = checksum
 
         self._verify()
-
-        super().__init__(transforms)
 
         lc_colors = np.zeros((max(self.lc_cmap.keys()) + 1, 4))
         lc_colors[list(self.lc_cmap.keys())] = list(self.lc_cmap.values())
@@ -484,62 +482,55 @@ class ChesapeakeCVPR(GeoDataset):
         self._nlcd_cmap = ListedColormap(nlcd_colors[:, :3] / 255)
 
         # Add all tiles into the index in epsg:3857 based on the included geojson
-        mint: float = 0
-        maxt: float = sys.maxsize
-        with fiona.open(os.path.join(root, 'spatial_index.geojson'), 'r') as f:
-            for i, row in enumerate(f):
-                if row['properties']['split'] in splits:
-                    box = shapely.geometry.shape(row['geometry'])
-                    minx, miny, maxx, maxy = box.bounds
-                    coords = (minx, maxx, miny, maxy, mint, maxt)
+        mint = pd.Timestamp.min
+        maxt = pd.Timestamp.max
+        gdf = gpd.read_file(os.path.join(root, 'spatial_index.geojson'))
+        gdf = gdf[gdf['split'].isin(splits)]
+        gdf['prior_from_cooccurrences_101_31_no_osm_no_buildings'] = gdf[
+            'lc'
+        ].str.replace(
+            'lc.tif', 'prior_from_cooccurrences_101_31_no_osm_no_buildings.tif'
+        )
+        datetimes = [(mint, maxt)] * len(gdf)
+        index = pd.IntervalIndex.from_tuples(datetimes, closed='both', name='datetime')
+        gdf.set_crs('EPSG:3857', inplace=True)
+        gdf.set_index(index, inplace=True)
+        self.index = gdf
 
-                    prior_fn = row['properties']['lc'].replace(
-                        'lc.tif',
-                        'prior_from_cooccurrences_101_31_no_osm_no_buildings.tif',
-                    )
-
-                    self.index.insert(
-                        i,
-                        coords,
-                        {
-                            'naip-new': row['properties']['naip-new'],
-                            'naip-old': row['properties']['naip-old'],
-                            'landsat-leaf-on': row['properties']['landsat-leaf-on'],
-                            'landsat-leaf-off': row['properties']['landsat-leaf-off'],
-                            'lc': row['properties']['lc'],
-                            'nlcd': row['properties']['nlcd'],
-                            'buildings': row['properties']['buildings'],
-                            'prior_from_cooccurrences_101_31_no_osm_no_buildings': prior_fn,
-                        },
-                    )
-
-    def __getitem__(self, query: BoundingBox) -> dict[str, Any]:
-        """Retrieve image/mask and metadata indexed by query.
+    def __getitem__(self, query: GeoSlice) -> dict[str, Any]:
+        """Retrieve input, target, and/or metadata indexed by spatiotemporal slice.
 
         Args:
-            query: (minx, maxx, miny, maxy, mint, maxt) coordinates to index
+            query: [xmin:xmax:xres, ymin:ymax:yres, tmin:tmax:tres] coordinates to index.
 
         Returns:
-            sample of image/mask and metadata at that index
+            Sample of input, target, and/or metadata at that index.
 
         Raises:
-            IndexError: if query is not found in the index
+            IndexError: If *query* is not found in the index.
         """
-        hits = self.index.intersection(tuple(query), objects=True)
-        filepaths = cast(list[dict[str, str]], [hit.object for hit in hits])
+        x, y, t = self._disambiguate_slice(query)
+        interval = pd.Interval(t.start, t.stop)
+        index = self.index.iloc[self.index.index.overlaps(interval)]
+        index = index.iloc[:: t.step]
+        index = index.cx[x.start : x.stop, y.start : y.stop]
 
-        sample = {'image': [], 'mask': [], 'crs': self.crs, 'bounds': query}
+        sample: dict[str, Any] = {
+            'image': [],
+            'mask': [],
+            'crs': self.crs,
+            'bounds': query,
+        }
 
-        if len(filepaths) == 0:
+        if index.empty:
             raise IndexError(
                 f'query: {query} not found in index with bounds: {self.bounds}'
             )
-        elif len(filepaths) == 1:
-            filenames = filepaths[0]
+        elif len(index) == 1:
+            filenames = index.iloc[0]
             query_geom_transformed = None  # is set by the first layer
 
-            minx, maxx, miny, maxy, mint, maxt = query
-            query_box = shapely.geometry.box(minx, miny, maxx, maxy)
+            query_box = shapely.geometry.box(x.start, y.start, x.stop, y.stop)
 
             for layer in self.layers:
                 fn = filenames[layer]

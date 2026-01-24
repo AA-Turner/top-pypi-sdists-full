@@ -1,11 +1,9 @@
-"""Naive bucket implementation using built-in list
-"""
-from typing import List
-from typing import Optional
+"""Naive bucket implementation using built-in list"""
 
-from ..abstracts import AbstractBucket
-from ..abstracts import Rate
-from ..abstracts import RateItem
+from typing import List, Optional
+
+from ..abstracts.bucket import AbstractBucket
+from ..abstracts.rate import Rate, RateItem
 from ..utils import binary_search
 
 
@@ -22,6 +20,8 @@ class InMemoryBucket(AbstractBucket):
     failing_rate: Optional[Rate]
 
     def __init__(self, rates: List[Rate]):
+        super().__init__()
+
         self.rates = sorted(rates, key=lambda r: r.interval)
         self.items = []
 
@@ -85,7 +85,7 @@ class InMemoryBucket(AbstractBucket):
     def count(self) -> int:
         return len(self.items)
 
-    def peek(self, index: int) -> Optional[RateItem]:
+    def peek(self, index: int) -> RateItem | None:
         if not self.items:
             return None
 

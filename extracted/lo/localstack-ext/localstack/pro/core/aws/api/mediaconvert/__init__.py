@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -81,6 +81,7 @@ _integerMin1Max6 = int
 _integerMin1Max60000 = int
 _integerMin1Max64 = int
 _integerMin1Max8 = int
+_integerMin1Max86400000 = int
 _integerMin2000Max30000 = int
 _integerMin22050Max192000 = int
 _integerMin22050Max48000 = int
@@ -99,7 +100,6 @@ _integerMin384000Max1024000 = int
 _integerMin3Max15 = int
 _integerMin48000Max48000 = int
 _integerMin4Max12 = int
-_integerMin50Max86400000 = int
 _integerMin6000Max1024000 = int
 _integerMin64000Max640000 = int
 _integerMin6Max16 = int
@@ -123,6 +123,7 @@ _integerMinNegative5Max10 = int
 _integerMinNegative60Max6 = int
 _integerMinNegative70Max0 = int
 _string = str
+_stringMax100 = str
 _stringMax1000 = str
 _stringMax2048 = str
 _stringMax2048PatternS3Https = str
@@ -426,6 +427,7 @@ class AudioSelectorType(StrEnum):
     LANGUAGE_CODE = "LANGUAGE_CODE"
     HLS_RENDITION_GROUP = "HLS_RENDITION_GROUP"
     ALL_PCM = "ALL_PCM"
+    STREAM = "STREAM"
 
 
 class AudioTypeControl(StrEnum):
@@ -775,6 +777,11 @@ class CmfcAudioTrackType(StrEnum):
     AUDIO_ONLY_VARIANT_STREAM = "AUDIO_ONLY_VARIANT_STREAM"
 
 
+class CmfcC2paManifest(StrEnum):
+    INCLUDE = "INCLUDE"
+    EXCLUDE = "EXCLUDE"
+
+
 class CmfcDescriptiveVideoServiceFlag(StrEnum):
     DONT_FLAG = "DONT_FLAG"
     FLAG = "FLAG"
@@ -830,12 +837,15 @@ class Codec(StrEnum):
     HEVC = "HEVC"
     JPEG2000 = "JPEG2000"
     MJPEG = "MJPEG"
+    MPEG1 = "MPEG1"
     MP4V = "MP4V"
     MPEG2 = "MPEG2"
     PRORES = "PRORES"
     THEORA = "THEORA"
+    VFW = "VFW"
     VP8 = "VP8"
     VP9 = "VP9"
+    QTRLE = "QTRLE"
     C608 = "C608"
     C708 = "C708"
     WEBVTT = "WEBVTT"
@@ -985,6 +995,7 @@ class DashManifestStyle(StrEnum):
     BASIC = "BASIC"
     COMPACT = "COMPACT"
     DISTINCT = "DISTINCT"
+    FULL = "FULL"
 
 
 class DecryptionMode(StrEnum):
@@ -1315,6 +1326,11 @@ class Format(StrEnum):
     mxf = "mxf"
 
 
+class FrameControl(StrEnum):
+    NEAREST_IDRFRAME = "NEAREST_IDRFRAME"
+    NEAREST_IFRAME = "NEAREST_IFRAME"
+
+
 class FrameMetricType(StrEnum):
     PSNR = "PSNR"
     SSIM = "SSIM"
@@ -1322,6 +1338,7 @@ class FrameMetricType(StrEnum):
     PSNR_HVS = "PSNR_HVS"
     VMAF = "VMAF"
     QVBR = "QVBR"
+    SHOT_CHANGE = "SHOT_CHANGE"
 
 
 class GifFramerateControl(StrEnum):
@@ -1902,6 +1919,23 @@ class JobTemplateListBy(StrEnum):
     SYSTEM = "SYSTEM"
 
 
+class JobsQueryFilterKey(StrEnum):
+    queue = "queue"
+    status = "status"
+    fileInput = "fileInput"
+    jobEngineVersionRequested = "jobEngineVersionRequested"
+    jobEngineVersionUsed = "jobEngineVersionUsed"
+    audioCodec = "audioCodec"
+    videoCodec = "videoCodec"
+
+
+class JobsQueryStatus(StrEnum):
+    SUBMITTED = "SUBMITTED"
+    PROGRESSING = "PROGRESSING"
+    COMPLETE = "COMPLETE"
+    ERROR = "ERROR"
+
+
 class LanguageCode(StrEnum):
     ENG = "ENG"
     SPA = "SPA"
@@ -2300,6 +2334,11 @@ class MpdAccessibilityCaptionHints(StrEnum):
 class MpdAudioDuration(StrEnum):
     DEFAULT_CODEC_DURATION = "DEFAULT_CODEC_DURATION"
     MATCH_VIDEO_DURATION = "MATCH_VIDEO_DURATION"
+
+
+class MpdC2paManifest(StrEnum):
+    INCLUDE = "INCLUDE"
+    EXCLUDE = "EXCLUDE"
 
 
 class MpdCaptionContainerType(StrEnum):
@@ -2727,6 +2766,11 @@ class SimulateReservedQueue(StrEnum):
     ENABLED = "ENABLED"
 
 
+class SlowPalPitchCorrection(StrEnum):
+    DISABLED = "DISABLED"
+    ENABLED = "ENABLED"
+
+
 class SrtStylePassthrough(StrEnum):
     ENABLED = "ENABLED"
     DISABLED = "DISABLED"
@@ -2942,6 +2986,11 @@ class VideoOverlayPlayBackMode(StrEnum):
 class VideoOverlayUnit(StrEnum):
     PIXELS = "PIXELS"
     PERCENTAGE = "PERCENTAGE"
+
+
+class VideoSelectorMode(StrEnum):
+    AUTO = "AUTO"
+    REMUX_ALL = "REMUX_ALL"
 
 
 class VideoSelectorType(StrEnum):
@@ -3201,6 +3250,16 @@ class NotFoundException(ServiceException):
     status_code: int = 404
 
 
+class ServiceQuotaExceededException(ServiceException):
+    """You attempted to create more resources than the service allows based on
+    service quotas.
+    """
+
+    code: str = "ServiceQuotaExceededException"
+    sender_fault: bool = False
+    status_code: int = 402
+
+
 class TooManyRequestsException(ServiceException):
     """Too many requests have been sent in too short of a time. The service
     limits the rate at which it will accept requests.
@@ -3220,33 +3279,33 @@ class AacSettings(TypedDict, total=False):
     values depend on the rate control mode.
     """
 
-    AudioDescriptionBroadcasterMix: Optional[AacAudioDescriptionBroadcasterMix]
-    Bitrate: Optional[_integerMin6000Max1024000]
-    CodecProfile: Optional[AacCodecProfile]
-    CodingMode: Optional[AacCodingMode]
-    LoudnessMeasurementMode: Optional[AacLoudnessMeasurementMode]
-    RapInterval: Optional[_integerMin2000Max30000]
-    RateControlMode: Optional[AacRateControlMode]
-    RawFormat: Optional[AacRawFormat]
-    SampleRate: Optional[_integerMin8000Max96000]
-    Specification: Optional[AacSpecification]
-    TargetLoudnessRange: Optional[_integerMin6Max16]
-    VbrQuality: Optional[AacVbrQuality]
+    AudioDescriptionBroadcasterMix: AacAudioDescriptionBroadcasterMix | None
+    Bitrate: _integerMin6000Max1024000 | None
+    CodecProfile: AacCodecProfile | None
+    CodingMode: AacCodingMode | None
+    LoudnessMeasurementMode: AacLoudnessMeasurementMode | None
+    RapInterval: _integerMin2000Max30000 | None
+    RateControlMode: AacRateControlMode | None
+    RawFormat: AacRawFormat | None
+    SampleRate: _integerMin8000Max96000 | None
+    Specification: AacSpecification | None
+    TargetLoudnessRange: _integerMin6Max16 | None
+    VbrQuality: AacVbrQuality | None
 
 
 class Ac3Settings(TypedDict, total=False):
     """Required when you set Codec to the value AC3."""
 
-    Bitrate: Optional[_integerMin64000Max640000]
-    BitstreamMode: Optional[Ac3BitstreamMode]
-    CodingMode: Optional[Ac3CodingMode]
-    Dialnorm: Optional[_integerMin1Max31]
-    DynamicRangeCompressionLine: Optional[Ac3DynamicRangeCompressionLine]
-    DynamicRangeCompressionProfile: Optional[Ac3DynamicRangeCompressionProfile]
-    DynamicRangeCompressionRf: Optional[Ac3DynamicRangeCompressionRf]
-    LfeFilter: Optional[Ac3LfeFilter]
-    MetadataControl: Optional[Ac3MetadataControl]
-    SampleRate: Optional[_integerMin48000Max48000]
+    Bitrate: _integerMin64000Max640000 | None
+    BitstreamMode: Ac3BitstreamMode | None
+    CodingMode: Ac3CodingMode | None
+    Dialnorm: _integerMin1Max31 | None
+    DynamicRangeCompressionLine: Ac3DynamicRangeCompressionLine | None
+    DynamicRangeCompressionProfile: Ac3DynamicRangeCompressionProfile | None
+    DynamicRangeCompressionRf: Ac3DynamicRangeCompressionRf | None
+    LfeFilter: Ac3LfeFilter | None
+    MetadataControl: Ac3MetadataControl | None
+    SampleRate: _integerMin48000Max48000 | None
 
 
 class AccelerationSettings(TypedDict, total=False):
@@ -3262,16 +3321,16 @@ class AdvancedInputFilterSettings(TypedDict, total=False):
     filter to Enabled.
     """
 
-    AddTexture: Optional[AdvancedInputFilterAddTexture]
-    Sharpening: Optional[AdvancedInputFilterSharpen]
+    AddTexture: AdvancedInputFilterAddTexture | None
+    Sharpening: AdvancedInputFilterSharpen | None
 
 
 class AiffSettings(TypedDict, total=False):
     """Required when you set Codec to the value AIFF."""
 
-    BitDepth: Optional[_integerMin16Max24]
-    Channels: Optional[_integerMin1Max64]
-    SampleRate: Optional[_integerMin8000Max192000]
+    BitDepth: _integerMin16Max24 | None
+    Channels: _integerMin1Max64 | None
+    SampleRate: _integerMin8000Max192000 | None
 
 
 class AllowedRenditionSize(TypedDict, total=False):
@@ -3286,17 +3345,17 @@ class AllowedRenditionSize(TypedDict, total=False):
     rule for Force include renditions.
     """
 
-    Height: Optional[_integerMin32Max8192]
-    Required: Optional[RequiredFlag]
-    Width: Optional[_integerMin32Max8192]
+    Height: _integerMin32Max8192 | None
+    Required: RequiredFlag | None
+    Width: _integerMin32Max8192 | None
 
 
 class AncillarySourceSettings(TypedDict, total=False):
     """Settings for ancillary captions source."""
 
-    Convert608To708: Optional[AncillaryConvert608To708]
-    SourceAncillaryChannelNumber: Optional[_integerMin1Max4]
-    TerminateCaptions: Optional[AncillaryTerminateCaptions]
+    Convert608To708: AncillaryConvert608To708 | None
+    SourceAncillaryChannelNumber: _integerMin1Max4 | None
+    TerminateCaptions: AncillaryTerminateCaptions | None
 
 
 class AssociateCertificateRequest(ServiceRequest):
@@ -3307,7 +3366,7 @@ class AssociateCertificateResponse(TypedDict, total=False):
     pass
 
 
-_listOfAudioChannelTag = List[AudioChannelTag]
+_listOfAudioChannelTag = list[AudioChannelTag]
 
 
 class AudioChannelTaggingSettings(TypedDict, total=False):
@@ -3318,17 +3377,17 @@ class AudioChannelTaggingSettings(TypedDict, total=False):
     be AAC, WAV, or AIFF.
     """
 
-    ChannelTag: Optional[AudioChannelTag]
-    ChannelTags: Optional[_listOfAudioChannelTag]
+    ChannelTag: AudioChannelTag | None
+    ChannelTags: _listOfAudioChannelTag | None
 
 
 class WavSettings(TypedDict, total=False):
     """Required when you set Codec to the value WAV."""
 
-    BitDepth: Optional[_integerMin16Max24]
-    Channels: Optional[_integerMin1Max64]
-    Format: Optional[WavFormat]
-    SampleRate: Optional[_integerMin8000Max192000]
+    BitDepth: _integerMin16Max24 | None
+    Channels: _integerMin1Max64 | None
+    Format: WavFormat | None
+    SampleRate: _integerMin8000Max192000 | None
 
 
 class VorbisSettings(TypedDict, total=False):
@@ -3336,9 +3395,9 @@ class VorbisSettings(TypedDict, total=False):
     the value Vorbis.
     """
 
-    Channels: Optional[_integerMin1Max2]
-    SampleRate: Optional[_integerMin22050Max48000]
-    VbrQuality: Optional[_integerMinNegative1Max10]
+    Channels: _integerMin1Max2 | None
+    SampleRate: _integerMin22050Max48000 | None
+    VbrQuality: _integerMinNegative1Max10 | None
 
 
 class OpusSettings(TypedDict, total=False):
@@ -3346,9 +3405,9 @@ class OpusSettings(TypedDict, total=False):
     the value OPUS.
     """
 
-    Bitrate: Optional[_integerMin32000Max192000]
-    Channels: Optional[_integerMin1Max2]
-    SampleRate: Optional[_integerMin16000Max48000]
+    Bitrate: _integerMin32000Max192000 | None
+    Channels: _integerMin1Max2 | None
+    SampleRate: _integerMin16000Max48000 | None
 
 
 class Mp3Settings(TypedDict, total=False):
@@ -3356,20 +3415,20 @@ class Mp3Settings(TypedDict, total=False):
     the value MP3.
     """
 
-    Bitrate: Optional[_integerMin16000Max320000]
-    Channels: Optional[_integerMin1Max2]
-    RateControlMode: Optional[Mp3RateControlMode]
-    SampleRate: Optional[_integerMin22050Max48000]
-    VbrQuality: Optional[_integerMin0Max9]
+    Bitrate: _integerMin16000Max320000 | None
+    Channels: _integerMin1Max2 | None
+    RateControlMode: Mp3RateControlMode | None
+    SampleRate: _integerMin22050Max48000 | None
+    VbrQuality: _integerMin0Max9 | None
 
 
 class Mp2Settings(TypedDict, total=False):
     """Required when you set Codec to the value MP2."""
 
-    AudioDescriptionMix: Optional[Mp2AudioDescriptionMix]
-    Bitrate: Optional[_integerMin32000Max384000]
-    Channels: Optional[_integerMin1Max2]
-    SampleRate: Optional[_integerMin32000Max48000]
+    AudioDescriptionMix: Mp2AudioDescriptionMix | None
+    Bitrate: _integerMin32000Max384000 | None
+    Channels: _integerMin1Max2 | None
+    SampleRate: _integerMin32000Max48000 | None
 
 
 class FlacSettings(TypedDict, total=False):
@@ -3377,57 +3436,57 @@ class FlacSettings(TypedDict, total=False):
     the value FLAC.
     """
 
-    BitDepth: Optional[_integerMin16Max24]
-    Channels: Optional[_integerMin1Max8]
-    SampleRate: Optional[_integerMin22050Max192000]
+    BitDepth: _integerMin16Max24 | None
+    Channels: _integerMin1Max8 | None
+    SampleRate: _integerMin22050Max192000 | None
 
 
 class Eac3Settings(TypedDict, total=False):
     """Required when you set Codec to the value EAC3."""
 
-    AttenuationControl: Optional[Eac3AttenuationControl]
-    Bitrate: Optional[_integerMin32000Max3024000]
-    BitstreamMode: Optional[Eac3BitstreamMode]
-    CodingMode: Optional[Eac3CodingMode]
-    DcFilter: Optional[Eac3DcFilter]
-    Dialnorm: Optional[_integerMin1Max31]
-    DynamicRangeCompressionLine: Optional[Eac3DynamicRangeCompressionLine]
-    DynamicRangeCompressionRf: Optional[Eac3DynamicRangeCompressionRf]
-    LfeControl: Optional[Eac3LfeControl]
-    LfeFilter: Optional[Eac3LfeFilter]
-    LoRoCenterMixLevel: Optional[_doubleMinNegative60Max3]
-    LoRoSurroundMixLevel: Optional[_doubleMinNegative60MaxNegative1]
-    LtRtCenterMixLevel: Optional[_doubleMinNegative60Max3]
-    LtRtSurroundMixLevel: Optional[_doubleMinNegative60MaxNegative1]
-    MetadataControl: Optional[Eac3MetadataControl]
-    PassthroughControl: Optional[Eac3PassthroughControl]
-    PhaseControl: Optional[Eac3PhaseControl]
-    SampleRate: Optional[_integerMin48000Max48000]
-    StereoDownmix: Optional[Eac3StereoDownmix]
-    SurroundExMode: Optional[Eac3SurroundExMode]
-    SurroundMode: Optional[Eac3SurroundMode]
+    AttenuationControl: Eac3AttenuationControl | None
+    Bitrate: _integerMin32000Max3024000 | None
+    BitstreamMode: Eac3BitstreamMode | None
+    CodingMode: Eac3CodingMode | None
+    DcFilter: Eac3DcFilter | None
+    Dialnorm: _integerMin1Max31 | None
+    DynamicRangeCompressionLine: Eac3DynamicRangeCompressionLine | None
+    DynamicRangeCompressionRf: Eac3DynamicRangeCompressionRf | None
+    LfeControl: Eac3LfeControl | None
+    LfeFilter: Eac3LfeFilter | None
+    LoRoCenterMixLevel: _doubleMinNegative60Max3 | None
+    LoRoSurroundMixLevel: _doubleMinNegative60MaxNegative1 | None
+    LtRtCenterMixLevel: _doubleMinNegative60Max3 | None
+    LtRtSurroundMixLevel: _doubleMinNegative60MaxNegative1 | None
+    MetadataControl: Eac3MetadataControl | None
+    PassthroughControl: Eac3PassthroughControl | None
+    PhaseControl: Eac3PhaseControl | None
+    SampleRate: _integerMin48000Max48000 | None
+    StereoDownmix: Eac3StereoDownmix | None
+    SurroundExMode: Eac3SurroundExMode | None
+    SurroundMode: Eac3SurroundMode | None
 
 
 class Eac3AtmosSettings(TypedDict, total=False):
     """Required when you set Codec to the value EAC3_ATMOS."""
 
-    Bitrate: Optional[_integerMin384000Max1024000]
-    BitstreamMode: Optional[Eac3AtmosBitstreamMode]
-    CodingMode: Optional[Eac3AtmosCodingMode]
-    DialogueIntelligence: Optional[Eac3AtmosDialogueIntelligence]
-    DownmixControl: Optional[Eac3AtmosDownmixControl]
-    DynamicRangeCompressionLine: Optional[Eac3AtmosDynamicRangeCompressionLine]
-    DynamicRangeCompressionRf: Optional[Eac3AtmosDynamicRangeCompressionRf]
-    DynamicRangeControl: Optional[Eac3AtmosDynamicRangeControl]
-    LoRoCenterMixLevel: Optional[_doubleMinNegative6Max3]
-    LoRoSurroundMixLevel: Optional[_doubleMinNegative60MaxNegative1]
-    LtRtCenterMixLevel: Optional[_doubleMinNegative6Max3]
-    LtRtSurroundMixLevel: Optional[_doubleMinNegative60MaxNegative1]
-    MeteringMode: Optional[Eac3AtmosMeteringMode]
-    SampleRate: Optional[_integerMin48000Max48000]
-    SpeechThreshold: Optional[_integerMin0Max100]
-    StereoDownmix: Optional[Eac3AtmosStereoDownmix]
-    SurroundExMode: Optional[Eac3AtmosSurroundExMode]
+    Bitrate: _integerMin384000Max1024000 | None
+    BitstreamMode: Eac3AtmosBitstreamMode | None
+    CodingMode: Eac3AtmosCodingMode | None
+    DialogueIntelligence: Eac3AtmosDialogueIntelligence | None
+    DownmixControl: Eac3AtmosDownmixControl | None
+    DynamicRangeCompressionLine: Eac3AtmosDynamicRangeCompressionLine | None
+    DynamicRangeCompressionRf: Eac3AtmosDynamicRangeCompressionRf | None
+    DynamicRangeControl: Eac3AtmosDynamicRangeControl | None
+    LoRoCenterMixLevel: _doubleMinNegative6Max3 | None
+    LoRoSurroundMixLevel: _doubleMinNegative60MaxNegative1 | None
+    LtRtCenterMixLevel: _doubleMinNegative6Max3 | None
+    LtRtSurroundMixLevel: _doubleMinNegative60MaxNegative1 | None
+    MeteringMode: Eac3AtmosMeteringMode | None
+    SampleRate: _integerMin48000Max48000 | None
+    SpeechThreshold: _integerMin0Max100 | None
+    StereoDownmix: Eac3AtmosStereoDownmix | None
+    SurroundExMode: Eac3AtmosSurroundExMode | None
 
 
 class AudioCodecSettings(TypedDict, total=False):
@@ -3435,32 +3494,32 @@ class AudioCodecSettings(TypedDict, total=False):
     depending on the value that you choose for your audio codec.
     """
 
-    AacSettings: Optional[AacSettings]
-    Ac3Settings: Optional[Ac3Settings]
-    AiffSettings: Optional[AiffSettings]
-    Codec: Optional[AudioCodec]
-    Eac3AtmosSettings: Optional[Eac3AtmosSettings]
-    Eac3Settings: Optional[Eac3Settings]
-    FlacSettings: Optional[FlacSettings]
-    Mp2Settings: Optional[Mp2Settings]
-    Mp3Settings: Optional[Mp3Settings]
-    OpusSettings: Optional[OpusSettings]
-    VorbisSettings: Optional[VorbisSettings]
-    WavSettings: Optional[WavSettings]
+    AacSettings: AacSettings | None
+    Ac3Settings: Ac3Settings | None
+    AiffSettings: AiffSettings | None
+    Codec: AudioCodec | None
+    Eac3AtmosSettings: Eac3AtmosSettings | None
+    Eac3Settings: Eac3Settings | None
+    FlacSettings: FlacSettings | None
+    Mp2Settings: Mp2Settings | None
+    Mp3Settings: Mp3Settings | None
+    OpusSettings: OpusSettings | None
+    VorbisSettings: VorbisSettings | None
+    WavSettings: WavSettings | None
 
 
-_listOf__doubleMinNegative60Max6 = List[_doubleMinNegative60Max6]
-_listOf__integerMinNegative60Max6 = List[_integerMinNegative60Max6]
+_listOf__doubleMinNegative60Max6 = list[_doubleMinNegative60Max6]
+_listOf__integerMinNegative60Max6 = list[_integerMinNegative60Max6]
 
 
 class OutputChannelMapping(TypedDict, total=False):
     """OutputChannel mapping settings."""
 
-    InputChannels: Optional[_listOf__integerMinNegative60Max6]
-    InputChannelsFineTune: Optional[_listOf__doubleMinNegative60Max6]
+    InputChannels: _listOf__integerMinNegative60Max6 | None
+    InputChannelsFineTune: _listOf__doubleMinNegative60Max6 | None
 
 
-_listOfOutputChannelMapping = List[OutputChannelMapping]
+_listOfOutputChannelMapping = list[OutputChannelMapping]
 
 
 class ChannelMapping(TypedDict, total=False):
@@ -3478,7 +3537,7 @@ class ChannelMapping(TypedDict, total=False):
     InputChannelsFineTune to specify your remix values. Don't use both.
     """
 
-    OutputChannels: Optional[_listOfOutputChannelMapping]
+    OutputChannels: _listOfOutputChannelMapping | None
 
 
 class RemixSettings(TypedDict, total=False):
@@ -3487,11 +3546,17 @@ class RemixSettings(TypedDict, total=False):
     fewer audio channels than your input audio source provides.
     """
 
-    AudioDescriptionAudioChannel: Optional[_integerMin1Max64]
-    AudioDescriptionDataChannel: Optional[_integerMin1Max64]
-    ChannelMapping: Optional[ChannelMapping]
-    ChannelsIn: Optional[_integerMin1Max64]
-    ChannelsOut: Optional[_integerMin1Max64]
+    AudioDescriptionAudioChannel: _integerMin1Max64 | None
+    AudioDescriptionDataChannel: _integerMin1Max64 | None
+    ChannelMapping: ChannelMapping | None
+    ChannelsIn: _integerMin1Max64 | None
+    ChannelsOut: _integerMin1Max64 | None
+
+
+class AudioPitchCorrectionSettings(TypedDict, total=False):
+    """Settings for audio pitch correction during framerate conversion."""
+
+    SlowPalPitchCorrection: SlowPalPitchCorrection | None
 
 
 class AudioNormalizationSettings(TypedDict, total=False):
@@ -3499,13 +3564,13 @@ class AudioNormalizationSettings(TypedDict, total=False):
     need to comply with a loudness standard.
     """
 
-    Algorithm: Optional[AudioNormalizationAlgorithm]
-    AlgorithmControl: Optional[AudioNormalizationAlgorithmControl]
-    CorrectionGateLevel: Optional[_integerMinNegative70Max0]
-    LoudnessLogging: Optional[AudioNormalizationLoudnessLogging]
-    PeakCalculation: Optional[AudioNormalizationPeakCalculation]
-    TargetLkfs: Optional[_doubleMinNegative59Max0]
-    TruePeakLimiterThreshold: Optional[_doubleMinNegative8Max0]
+    Algorithm: AudioNormalizationAlgorithm | None
+    AlgorithmControl: AudioNormalizationAlgorithmControl | None
+    CorrectionGateLevel: _integerMinNegative70Max0 | None
+    LoudnessLogging: AudioNormalizationLoudnessLogging | None
+    PeakCalculation: AudioNormalizationPeakCalculation | None
+    TargetLkfs: _doubleMinNegative59Max0 | None
+    TruePeakLimiterThreshold: _doubleMinNegative8Max0 | None
 
 
 class AudioDescription(TypedDict, total=False):
@@ -3517,24 +3582,27 @@ class AudioDescription(TypedDict, total=False):
     group of output audio tracks.
     """
 
-    AudioChannelTaggingSettings: Optional[AudioChannelTaggingSettings]
-    AudioNormalizationSettings: Optional[AudioNormalizationSettings]
-    AudioSourceName: Optional[_stringMax2048]
-    AudioType: Optional[_integerMin0Max255]
-    AudioTypeControl: Optional[AudioTypeControl]
-    CodecSettings: Optional[AudioCodecSettings]
-    CustomLanguageCode: Optional[_stringPatternAZaZ23AZaZ09]
-    LanguageCode: Optional[LanguageCode]
-    LanguageCodeControl: Optional[AudioLanguageCodeControl]
-    RemixSettings: Optional[RemixSettings]
-    StreamName: Optional[_stringPatternWS]
+    AudioChannelTaggingSettings: AudioChannelTaggingSettings | None
+    AudioNormalizationSettings: AudioNormalizationSettings | None
+    AudioPitchCorrectionSettings: AudioPitchCorrectionSettings | None
+    AudioSourceName: _stringMax2048 | None
+    AudioType: _integerMin0Max255 | None
+    AudioTypeControl: AudioTypeControl | None
+    CodecSettings: AudioCodecSettings | None
+    CustomLanguageCode: _stringPatternAZaZ23AZaZ09 | None
+    LanguageCode: LanguageCode | None
+    LanguageCodeControl: AudioLanguageCodeControl | None
+    RemixSettings: RemixSettings | None
+    StreamName: _stringPatternWS | None
 
 
 class FrameRate(TypedDict, total=False):
-    """The frame rate of the video or audio track."""
+    """The frame rate of the video or audio track, expressed as a fraction with
+    numerator and denominator values.
+    """
 
-    Denominator: Optional[_integer]
-    Numerator: Optional[_integer]
+    Denominator: _integer | None
+    Numerator: _integer | None
 
 
 _long = int
@@ -3543,15 +3611,15 @@ _long = int
 class AudioProperties(TypedDict, total=False):
     """Details about the media file's audio track."""
 
-    BitDepth: Optional[_integer]
-    BitRate: Optional[_long]
-    Channels: Optional[_integer]
-    FrameRate: Optional[FrameRate]
-    LanguageCode: Optional[_string]
-    SampleRate: Optional[_integer]
+    BitDepth: _integer | None
+    BitRate: _long | None
+    Channels: _integer | None
+    FrameRate: FrameRate | None
+    LanguageCode: _string | None
+    SampleRate: _integer | None
 
 
-_listOf__integerMin1Max2147483647 = List[_integerMin1Max2147483647]
+_listOf__integerMin1Max2147483647 = list[_integerMin1Max2147483647]
 
 
 class HlsRenditionGroupSettings(TypedDict, total=False):
@@ -3566,9 +3634,9 @@ class HlsRenditionGroupSettings(TypedDict, total=False):
     chosen instead.
     """
 
-    RenditionGroupId: Optional[_string]
-    RenditionLanguageCode: Optional[LanguageCode]
-    RenditionName: Optional[_string]
+    RenditionGroupId: _string | None
+    RenditionLanguageCode: LanguageCode | None
+    RenditionName: _string | None
 
 
 class AudioSelector(TypedDict, total=False):
@@ -3577,21 +3645,22 @@ class AudioSelector(TypedDict, total=False):
     per input.
     """
 
-    AudioDurationCorrection: Optional[AudioDurationCorrection]
-    CustomLanguageCode: Optional[_stringMin3Max3PatternAZaZ3]
-    DefaultSelection: Optional[AudioDefaultSelection]
-    ExternalAudioFileInput: Optional[_stringPatternS3Https]
-    HlsRenditionGroupSettings: Optional[HlsRenditionGroupSettings]
-    LanguageCode: Optional[LanguageCode]
-    Offset: Optional[_integerMinNegative2147483648Max2147483647]
-    Pids: Optional[_listOf__integerMin1Max2147483647]
-    ProgramSelection: Optional[_integerMin0Max8]
-    RemixSettings: Optional[RemixSettings]
-    SelectorType: Optional[AudioSelectorType]
-    Tracks: Optional[_listOf__integerMin1Max2147483647]
+    AudioDurationCorrection: AudioDurationCorrection | None
+    CustomLanguageCode: _stringMin3Max3PatternAZaZ3 | None
+    DefaultSelection: AudioDefaultSelection | None
+    ExternalAudioFileInput: _stringPatternS3Https | None
+    HlsRenditionGroupSettings: HlsRenditionGroupSettings | None
+    LanguageCode: LanguageCode | None
+    Offset: _integerMinNegative2147483648Max2147483647 | None
+    Pids: _listOf__integerMin1Max2147483647 | None
+    ProgramSelection: _integerMin0Max8 | None
+    RemixSettings: RemixSettings | None
+    SelectorType: AudioSelectorType | None
+    Streams: _listOf__integerMin1Max2147483647 | None
+    Tracks: _listOf__integerMin1Max2147483647 | None
 
 
-_listOf__stringMin1 = List[_stringMin1]
+_listOf__stringMin1 = list[_stringMin1]
 
 
 class AudioSelectorGroup(TypedDict, total=False):
@@ -3602,7 +3671,7 @@ class AudioSelectorGroup(TypedDict, total=False):
     selector group.
     """
 
-    AudioSelectorNames: Optional[_listOf__stringMin1]
+    AudioSelectorNames: _listOf__stringMin1 | None
 
 
 class MinTopRenditionSize(TypedDict, total=False):
@@ -3615,8 +3684,8 @@ class MinTopRenditionSize(TypedDict, total=False):
     rendition size must be less than, or equal to, Max resolution.
     """
 
-    Height: Optional[_integerMin32Max8192]
-    Width: Optional[_integerMin32Max8192]
+    Height: _integerMin32Max8192 | None
+    Width: _integerMin32Max8192 | None
 
 
 class MinBottomRenditionSize(TypedDict, total=False):
@@ -3629,8 +3698,8 @@ class MinBottomRenditionSize(TypedDict, total=False):
     size must be less than, or equal to, Min top rendition size.
     """
 
-    Height: Optional[_integerMin32Max8192]
-    Width: Optional[_integerMin32Max8192]
+    Height: _integerMin32Max8192 | None
+    Width: _integerMin32Max8192 | None
 
 
 class ForceIncludeRenditionSize(TypedDict, total=False):
@@ -3648,12 +3717,12 @@ class ForceIncludeRenditionSize(TypedDict, total=False):
     depending on the Max renditions setting.
     """
 
-    Height: Optional[_integerMin32Max8192]
-    Width: Optional[_integerMin32Max8192]
+    Height: _integerMin32Max8192 | None
+    Width: _integerMin32Max8192 | None
 
 
-_listOfForceIncludeRenditionSize = List[ForceIncludeRenditionSize]
-_listOfAllowedRenditionSize = List[AllowedRenditionSize]
+_listOfForceIncludeRenditionSize = list[ForceIncludeRenditionSize]
+_listOfAllowedRenditionSize = list[AllowedRenditionSize]
 
 
 class AutomatedAbrRule(TypedDict, total=False):
@@ -3661,14 +3730,14 @@ class AutomatedAbrRule(TypedDict, total=False):
     Allowed renditions are mutually exclusive.
     """
 
-    AllowedRenditions: Optional[_listOfAllowedRenditionSize]
-    ForceIncludeRenditions: Optional[_listOfForceIncludeRenditionSize]
-    MinBottomRenditionSize: Optional[MinBottomRenditionSize]
-    MinTopRenditionSize: Optional[MinTopRenditionSize]
-    Type: Optional[RuleType]
+    AllowedRenditions: _listOfAllowedRenditionSize | None
+    ForceIncludeRenditions: _listOfForceIncludeRenditionSize | None
+    MinBottomRenditionSize: MinBottomRenditionSize | None
+    MinTopRenditionSize: MinTopRenditionSize | None
+    Type: RuleType | None
 
 
-_listOfAutomatedAbrRule = List[AutomatedAbrRule]
+_listOfAutomatedAbrRule = list[AutomatedAbrRule]
 
 
 class AutomatedAbrSettings(TypedDict, total=False):
@@ -3678,11 +3747,11 @@ class AutomatedAbrSettings(TypedDict, total=False):
     size of your ABR package.
     """
 
-    MaxAbrBitrate: Optional[_integerMin100000Max100000000]
-    MaxQualityLevel: Optional[_doubleMin1Max10]
-    MaxRenditions: Optional[_integerMin3Max15]
-    MinAbrBitrate: Optional[_integerMin100000Max100000000]
-    Rules: Optional[_listOfAutomatedAbrRule]
+    MaxAbrBitrate: _integerMin100000Max100000000 | None
+    MaxQualityLevel: _doubleMin1Max10 | None
+    MaxRenditions: _integerMin3Max15 | None
+    MinAbrBitrate: _integerMin100000Max100000000 | None
+    Rules: _listOfAutomatedAbrRule | None
 
 
 class AutomatedEncodingSettings(TypedDict, total=False):
@@ -3690,7 +3759,7 @@ class AutomatedEncodingSettings(TypedDict, total=False):
     settings for you, based on characteristics of your input video.
     """
 
-    AbrSettings: Optional[AutomatedAbrSettings]
+    AbrSettings: AutomatedAbrSettings | None
 
 
 class Av1QvbrSettings(TypedDict, total=False):
@@ -3698,11 +3767,11 @@ class Av1QvbrSettings(TypedDict, total=False):
     codec. Use these settings only when you set QVBR for Rate control mode.
     """
 
-    QvbrQualityLevel: Optional[_integerMin1Max10]
-    QvbrQualityLevelFineTune: Optional[_doubleMin0Max1]
+    QvbrQualityLevel: _integerMin1Max10 | None
+    QvbrQualityLevelFineTune: _doubleMin0Max1 | None
 
 
-_listOfFrameMetricType = List[FrameMetricType]
+_listOfFrameMetricType = list[FrameMetricType]
 
 
 class Av1Settings(TypedDict, total=False):
@@ -3710,21 +3779,21 @@ class Av1Settings(TypedDict, total=False):
     value AV1.
     """
 
-    AdaptiveQuantization: Optional[Av1AdaptiveQuantization]
-    BitDepth: Optional[Av1BitDepth]
-    FilmGrainSynthesis: Optional[Av1FilmGrainSynthesis]
-    FramerateControl: Optional[Av1FramerateControl]
-    FramerateConversionAlgorithm: Optional[Av1FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    GopSize: Optional[_doubleMin0]
-    MaxBitrate: Optional[_integerMin1000Max1152000000]
-    NumberBFramesBetweenReferenceFrames: Optional[_integerMin0Max15]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    QvbrSettings: Optional[Av1QvbrSettings]
-    RateControlMode: Optional[Av1RateControlMode]
-    Slices: Optional[_integerMin1Max32]
-    SpatialAdaptiveQuantization: Optional[Av1SpatialAdaptiveQuantization]
+    AdaptiveQuantization: Av1AdaptiveQuantization | None
+    BitDepth: Av1BitDepth | None
+    FilmGrainSynthesis: Av1FilmGrainSynthesis | None
+    FramerateControl: Av1FramerateControl | None
+    FramerateConversionAlgorithm: Av1FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    GopSize: _doubleMin0 | None
+    MaxBitrate: _integerMin1000Max1152000000 | None
+    NumberBFramesBetweenReferenceFrames: _integerMin0Max15 | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    QvbrSettings: Av1QvbrSettings | None
+    RateControlMode: Av1RateControlMode | None
+    Slices: _integerMin1Max32 | None
+    SpatialAdaptiveQuantization: Av1SpatialAdaptiveQuantization | None
 
 
 class AvailBlanking(TypedDict, total=False):
@@ -3735,7 +3804,7 @@ class AvailBlanking(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/ad-avail-blanking.html.
     """
 
-    AvailBlankingImage: Optional[_stringMin14PatternS3BmpBMPPngPNGHttpsBmpBMPPngPNG]
+    AvailBlankingImage: _stringMin14PatternS3BmpBMPPngPNGHttpsBmpBMPPngPNG | None
 
 
 class AvcIntraUhdSettings(TypedDict, total=False):
@@ -3743,7 +3812,7 @@ class AvcIntraUhdSettings(TypedDict, total=False):
     AVC-Intra class to a different value, this object isn't allowed.
     """
 
-    QualityTuningLevel: Optional[AvcIntraUhdQualityTuningLevel]
+    QualityTuningLevel: AvcIntraUhdQualityTuningLevel | None
 
 
 class AvcIntraSettings(TypedDict, total=False):
@@ -3755,17 +3824,17 @@ class AvcIntraSettings(TypedDict, total=False):
     https://pro-av.panasonic.net/en/avc-ultra/AVC-ULTRAoverview.pdf.
     """
 
-    AvcIntraClass: Optional[AvcIntraClass]
-    AvcIntraUhdSettings: Optional[AvcIntraUhdSettings]
-    FramerateControl: Optional[AvcIntraFramerateControl]
-    FramerateConversionAlgorithm: Optional[AvcIntraFramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max1001]
-    FramerateNumerator: Optional[_integerMin24Max60000]
-    InterlaceMode: Optional[AvcIntraInterlaceMode]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    ScanTypeConversionMode: Optional[AvcIntraScanTypeConversionMode]
-    SlowPal: Optional[AvcIntraSlowPal]
-    Telecine: Optional[AvcIntraTelecine]
+    AvcIntraClass: AvcIntraClass | None
+    AvcIntraUhdSettings: AvcIntraUhdSettings | None
+    FramerateControl: AvcIntraFramerateControl | None
+    FramerateConversionAlgorithm: AvcIntraFramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max1001 | None
+    FramerateNumerator: _integerMin24Max60000 | None
+    InterlaceMode: AvcIntraInterlaceMode | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    ScanTypeConversionMode: AvcIntraScanTypeConversionMode | None
+    SlowPal: AvcIntraSlowPal | None
+    Telecine: AvcIntraTelecine | None
 
 
 class BandwidthReductionFilter(TypedDict, total=False):
@@ -3780,8 +3849,8 @@ class BandwidthReductionFilter(TypedDict, total=False):
     preprocessor.
     """
 
-    Sharpening: Optional[BandwidthReductionFilterSharpening]
-    Strength: Optional[BandwidthReductionFilterStrength]
+    Sharpening: BandwidthReductionFilterSharpening | None
+    Strength: BandwidthReductionFilterStrength | None
 
 
 class BurninDestinationSettings(TypedDict, total=False):
@@ -3792,32 +3861,32 @@ class BurninDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/burn-in-output-captions.html.
     """
 
-    Alignment: Optional[BurninSubtitleAlignment]
-    ApplyFontColor: Optional[BurninSubtitleApplyFontColor]
-    BackgroundColor: Optional[BurninSubtitleBackgroundColor]
-    BackgroundOpacity: Optional[_integerMin0Max255]
-    FallbackFont: Optional[BurninSubtitleFallbackFont]
-    FontColor: Optional[BurninSubtitleFontColor]
-    FontFileBold: Optional[_stringPatternS3TtfHttpsTtf]
-    FontFileBoldItalic: Optional[_string]
-    FontFileItalic: Optional[_stringPatternS3TtfHttpsTtf]
-    FontFileRegular: Optional[_stringPatternS3TtfHttpsTtf]
-    FontOpacity: Optional[_integerMin0Max255]
-    FontResolution: Optional[_integerMin96Max600]
-    FontScript: Optional[FontScript]
-    FontSize: Optional[_integerMin0Max96]
-    HexFontColor: Optional[_stringMin6Max8Pattern09aFAF609aFAF2]
-    OutlineColor: Optional[BurninSubtitleOutlineColor]
-    OutlineSize: Optional[_integerMin0Max10]
-    RemoveRubyReserveAttributes: Optional[RemoveRubyReserveAttributes]
-    ShadowColor: Optional[BurninSubtitleShadowColor]
-    ShadowOpacity: Optional[_integerMin0Max255]
-    ShadowXOffset: Optional[_integerMinNegative2147483648Max2147483647]
-    ShadowYOffset: Optional[_integerMinNegative2147483648Max2147483647]
-    StylePassthrough: Optional[BurnInSubtitleStylePassthrough]
-    TeletextSpacing: Optional[BurninSubtitleTeletextSpacing]
-    XPosition: Optional[_integerMin0Max2147483647]
-    YPosition: Optional[_integerMin0Max2147483647]
+    Alignment: BurninSubtitleAlignment | None
+    ApplyFontColor: BurninSubtitleApplyFontColor | None
+    BackgroundColor: BurninSubtitleBackgroundColor | None
+    BackgroundOpacity: _integerMin0Max255 | None
+    FallbackFont: BurninSubtitleFallbackFont | None
+    FontColor: BurninSubtitleFontColor | None
+    FontFileBold: _stringPatternS3TtfHttpsTtf | None
+    FontFileBoldItalic: _string | None
+    FontFileItalic: _stringPatternS3TtfHttpsTtf | None
+    FontFileRegular: _stringPatternS3TtfHttpsTtf | None
+    FontOpacity: _integerMin0Max255 | None
+    FontResolution: _integerMin96Max600 | None
+    FontScript: FontScript | None
+    FontSize: _integerMin0Max96 | None
+    HexFontColor: _stringMin6Max8Pattern09aFAF609aFAF2 | None
+    OutlineColor: BurninSubtitleOutlineColor | None
+    OutlineSize: _integerMin0Max10 | None
+    RemoveRubyReserveAttributes: RemoveRubyReserveAttributes | None
+    ShadowColor: BurninSubtitleShadowColor | None
+    ShadowOpacity: _integerMin0Max255 | None
+    ShadowXOffset: _integerMinNegative2147483648Max2147483647 | None
+    ShadowYOffset: _integerMinNegative2147483648Max2147483647 | None
+    StylePassthrough: BurnInSubtitleStylePassthrough | None
+    TeletextSpacing: BurninSubtitleTeletextSpacing | None
+    XPosition: _integerMin0Max2147483647 | None
+    YPosition: _integerMin0Max2147483647 | None
 
 
 class CancelJobRequest(ServiceRequest):
@@ -3836,8 +3905,8 @@ class WebvttDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/ttml-and-webvtt-output-captions.html.
     """
 
-    Accessibility: Optional[WebvttAccessibilitySubs]
-    StylePassthrough: Optional[WebvttStylePassthrough]
+    Accessibility: WebvttAccessibilitySubs | None
+    StylePassthrough: WebvttStylePassthrough | None
 
 
 class TtmlDestinationSettings(TypedDict, total=False):
@@ -3848,10 +3917,10 @@ class TtmlDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/ttml-and-webvtt-output-captions.html.
     """
 
-    StylePassthrough: Optional[TtmlStylePassthrough]
+    StylePassthrough: TtmlStylePassthrough | None
 
 
-_listOfTeletextPageType = List[TeletextPageType]
+_listOfTeletextPageType = list[TeletextPageType]
 
 
 class TeletextDestinationSettings(TypedDict, total=False):
@@ -3860,8 +3929,8 @@ class TeletextDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/teletext-output-captions.html.
     """
 
-    PageNumber: Optional[_stringMin3Max3Pattern1809aFAF09aEAE]
-    PageTypes: Optional[_listOfTeletextPageType]
+    PageNumber: _stringMin3Max3Pattern1809aFAF09aEAE | None
+    PageTypes: _listOfTeletextPageType | None
 
 
 class SrtDestinationSettings(TypedDict, total=False):
@@ -3871,7 +3940,7 @@ class SrtDestinationSettings(TypedDict, total=False):
     your video.
     """
 
-    StylePassthrough: Optional[SrtStylePassthrough]
+    StylePassthrough: SrtStylePassthrough | None
 
 
 class SccDestinationSettings(TypedDict, total=False):
@@ -3882,7 +3951,7 @@ class SccDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/scc-srt-output-captions.html.
     """
 
-    Framerate: Optional[SccDestinationFramerate]
+    Framerate: SccDestinationFramerate | None
 
 
 class ImscDestinationSettings(TypedDict, total=False):
@@ -3893,8 +3962,8 @@ class ImscDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/ttml-and-webvtt-output-captions.html.
     """
 
-    Accessibility: Optional[ImscAccessibilitySubs]
-    StylePassthrough: Optional[ImscStylePassthrough]
+    Accessibility: ImscAccessibilitySubs | None
+    StylePassthrough: ImscStylePassthrough | None
 
 
 class EmbeddedDestinationSettings(TypedDict, total=False):
@@ -3904,8 +3973,8 @@ class EmbeddedDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/embedded-output-captions.html.
     """
 
-    Destination608ChannelNumber: Optional[_integerMin1Max4]
-    Destination708ServiceNumber: Optional[_integerMin1Max6]
+    Destination608ChannelNumber: _integerMin1Max4 | None
+    Destination708ServiceNumber: _integerMin1Max6 | None
 
 
 class DvbSubDestinationSettings(TypedDict, total=False):
@@ -3914,37 +3983,37 @@ class DvbSubDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/dvb-sub-output-captions.html.
     """
 
-    Alignment: Optional[DvbSubtitleAlignment]
-    ApplyFontColor: Optional[DvbSubtitleApplyFontColor]
-    BackgroundColor: Optional[DvbSubtitleBackgroundColor]
-    BackgroundOpacity: Optional[_integerMin0Max255]
-    DdsHandling: Optional[DvbddsHandling]
-    DdsXCoordinate: Optional[_integerMin0Max2147483647]
-    DdsYCoordinate: Optional[_integerMin0Max2147483647]
-    FallbackFont: Optional[DvbSubSubtitleFallbackFont]
-    FontColor: Optional[DvbSubtitleFontColor]
-    FontFileBold: Optional[_stringPatternS3TtfHttpsTtf]
-    FontFileBoldItalic: Optional[_stringPatternS3TtfHttpsTtf]
-    FontFileItalic: Optional[_stringPatternS3TtfHttpsTtf]
-    FontFileRegular: Optional[_stringPatternS3TtfHttpsTtf]
-    FontOpacity: Optional[_integerMin0Max255]
-    FontResolution: Optional[_integerMin96Max600]
-    FontScript: Optional[FontScript]
-    FontSize: Optional[_integerMin0Max96]
-    Height: Optional[_integerMin1Max2147483647]
-    HexFontColor: Optional[_stringMin6Max8Pattern09aFAF609aFAF2]
-    OutlineColor: Optional[DvbSubtitleOutlineColor]
-    OutlineSize: Optional[_integerMin0Max10]
-    ShadowColor: Optional[DvbSubtitleShadowColor]
-    ShadowOpacity: Optional[_integerMin0Max255]
-    ShadowXOffset: Optional[_integerMinNegative2147483648Max2147483647]
-    ShadowYOffset: Optional[_integerMinNegative2147483648Max2147483647]
-    StylePassthrough: Optional[DvbSubtitleStylePassthrough]
-    SubtitlingType: Optional[DvbSubtitlingType]
-    TeletextSpacing: Optional[DvbSubtitleTeletextSpacing]
-    Width: Optional[_integerMin1Max2147483647]
-    XPosition: Optional[_integerMin0Max2147483647]
-    YPosition: Optional[_integerMin0Max2147483647]
+    Alignment: DvbSubtitleAlignment | None
+    ApplyFontColor: DvbSubtitleApplyFontColor | None
+    BackgroundColor: DvbSubtitleBackgroundColor | None
+    BackgroundOpacity: _integerMin0Max255 | None
+    DdsHandling: DvbddsHandling | None
+    DdsXCoordinate: _integerMin0Max2147483647 | None
+    DdsYCoordinate: _integerMin0Max2147483647 | None
+    FallbackFont: DvbSubSubtitleFallbackFont | None
+    FontColor: DvbSubtitleFontColor | None
+    FontFileBold: _stringPatternS3TtfHttpsTtf | None
+    FontFileBoldItalic: _stringPatternS3TtfHttpsTtf | None
+    FontFileItalic: _stringPatternS3TtfHttpsTtf | None
+    FontFileRegular: _stringPatternS3TtfHttpsTtf | None
+    FontOpacity: _integerMin0Max255 | None
+    FontResolution: _integerMin96Max600 | None
+    FontScript: FontScript | None
+    FontSize: _integerMin0Max96 | None
+    Height: _integerMin1Max2147483647 | None
+    HexFontColor: _stringMin6Max8Pattern09aFAF609aFAF2 | None
+    OutlineColor: DvbSubtitleOutlineColor | None
+    OutlineSize: _integerMin0Max10 | None
+    ShadowColor: DvbSubtitleShadowColor | None
+    ShadowOpacity: _integerMin0Max255 | None
+    ShadowXOffset: _integerMinNegative2147483648Max2147483647 | None
+    ShadowYOffset: _integerMinNegative2147483648Max2147483647 | None
+    StylePassthrough: DvbSubtitleStylePassthrough | None
+    SubtitlingType: DvbSubtitlingType | None
+    TeletextSpacing: DvbSubtitleTeletextSpacing | None
+    Width: _integerMin1Max2147483647 | None
+    XPosition: _integerMin0Max2147483647 | None
+    YPosition: _integerMin0Max2147483647 | None
 
 
 class CaptionDestinationSettings(TypedDict, total=False):
@@ -3955,16 +4024,16 @@ class CaptionDestinationSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/including-captions.html.
     """
 
-    BurninDestinationSettings: Optional[BurninDestinationSettings]
-    DestinationType: Optional[CaptionDestinationType]
-    DvbSubDestinationSettings: Optional[DvbSubDestinationSettings]
-    EmbeddedDestinationSettings: Optional[EmbeddedDestinationSettings]
-    ImscDestinationSettings: Optional[ImscDestinationSettings]
-    SccDestinationSettings: Optional[SccDestinationSettings]
-    SrtDestinationSettings: Optional[SrtDestinationSettings]
-    TeletextDestinationSettings: Optional[TeletextDestinationSettings]
-    TtmlDestinationSettings: Optional[TtmlDestinationSettings]
-    WebvttDestinationSettings: Optional[WebvttDestinationSettings]
+    BurninDestinationSettings: BurninDestinationSettings | None
+    DestinationType: CaptionDestinationType | None
+    DvbSubDestinationSettings: DvbSubDestinationSettings | None
+    EmbeddedDestinationSettings: EmbeddedDestinationSettings | None
+    ImscDestinationSettings: ImscDestinationSettings | None
+    SccDestinationSettings: SccDestinationSettings | None
+    SrtDestinationSettings: SrtDestinationSettings | None
+    TeletextDestinationSettings: TeletextDestinationSettings | None
+    TtmlDestinationSettings: TtmlDestinationSettings | None
+    WebvttDestinationSettings: WebvttDestinationSettings | None
 
 
 class CaptionDescription(TypedDict, total=False):
@@ -3973,20 +4042,20 @@ class CaptionDescription(TypedDict, total=False):
     CaptionDescriptions.
     """
 
-    CaptionSelectorName: Optional[_stringMin1]
-    CustomLanguageCode: Optional[_stringPatternAZaZ23AZaZ]
-    DestinationSettings: Optional[CaptionDestinationSettings]
-    LanguageCode: Optional[LanguageCode]
-    LanguageDescription: Optional[_string]
+    CaptionSelectorName: _stringMin1 | None
+    CustomLanguageCode: _stringPatternAZaZ23AZaZ | None
+    DestinationSettings: CaptionDestinationSettings | None
+    LanguageCode: LanguageCode | None
+    LanguageDescription: _string | None
 
 
 class CaptionDescriptionPreset(TypedDict, total=False):
     """Caption Description for preset"""
 
-    CustomLanguageCode: Optional[_stringPatternAZaZ23AZaZ]
-    DestinationSettings: Optional[CaptionDestinationSettings]
-    LanguageCode: Optional[LanguageCode]
-    LanguageDescription: Optional[_string]
+    CustomLanguageCode: _stringPatternAZaZ23AZaZ | None
+    DestinationSettings: CaptionDestinationSettings | None
+    LanguageCode: LanguageCode | None
+    LanguageDescription: _string | None
 
 
 class WebvttHlsSourceSettings(TypedDict, total=False):
@@ -4001,9 +4070,9 @@ class WebvttHlsSourceSettings(TypedDict, total=False):
     instead of WebvttHlsSourceSettings.
     """
 
-    RenditionGroupId: Optional[_string]
-    RenditionLanguageCode: Optional[LanguageCode]
-    RenditionName: Optional[_string]
+    RenditionGroupId: _string | None
+    RenditionLanguageCode: LanguageCode | None
+    RenditionName: _string | None
 
 
 class TrackSourceSettings(TypedDict, total=False):
@@ -4013,13 +4082,14 @@ class TrackSourceSettings(TypedDict, total=False):
     instead of TrackSourceSettings.
     """
 
-    TrackNumber: Optional[_integerMin1Max2147483647]
+    StreamNumber: _integerMin1Max2147483647 | None
+    TrackNumber: _integerMin1Max2147483647 | None
 
 
 class TeletextSourceSettings(TypedDict, total=False):
     """Settings specific to Teletext caption sources, including Page number."""
 
-    PageNumber: Optional[_stringMin3Max3Pattern1809aFAF09aEAE]
+    PageNumber: _stringMin3Max3Pattern1809aFAF09aEAE | None
 
 
 class CaptionSourceFramerate(TypedDict, total=False):
@@ -4031,8 +4101,8 @@ class CaptionSourceFramerate(TypedDict, total=False):
     1001 for 29.97 fps.
     """
 
-    FramerateDenominator: Optional[_integerMin1Max1001]
-    FramerateNumerator: Optional[_integerMin1Max60000]
+    FramerateDenominator: _integerMin1Max1001 | None
+    FramerateNumerator: _integerMin1Max60000 | None
 
 
 class FileSourceSettings(TypedDict, total=False):
@@ -4042,31 +4112,32 @@ class FileSourceSettings(TypedDict, total=False):
     instead of FileSoureSettings.
     """
 
-    ByteRateLimit: Optional[CaptionSourceByteRateLimit]
-    Convert608To708: Optional[FileSourceConvert608To708]
-    ConvertPaintToPop: Optional[CaptionSourceConvertPaintOnToPopOn]
-    Framerate: Optional[CaptionSourceFramerate]
-    SourceFile: Optional[
+    ByteRateLimit: CaptionSourceByteRateLimit | None
+    Convert608To708: FileSourceConvert608To708 | None
+    ConvertPaintToPop: CaptionSourceConvertPaintOnToPopOn | None
+    Framerate: CaptionSourceFramerate | None
+    SourceFile: (
         _stringMin14PatternS3SccSCCTtmlTTMLDfxpDFXPStlSTLSrtSRTXmlXMLSmiSMIVttVTTWebvttWEBVTTHttpsSccSCCTtmlTTMLDfxpDFXPStlSTLSrtSRTXmlXMLSmiSMIVttVTTWebvttWEBVTT
-    ]
-    TimeDelta: Optional[_integerMinNegative2147483648Max2147483647]
-    TimeDeltaUnits: Optional[FileSourceTimeDeltaUnits]
-    UpconvertSTLToTeletext: Optional[CaptionSourceUpconvertSTLToTeletext]
+        | None
+    )
+    TimeDelta: _integerMinNegative2147483648Max2147483647 | None
+    TimeDeltaUnits: FileSourceTimeDeltaUnits | None
+    UpconvertSTLToTeletext: CaptionSourceUpconvertSTLToTeletext | None
 
 
 class EmbeddedSourceSettings(TypedDict, total=False):
     """Settings for embedded captions Source"""
 
-    Convert608To708: Optional[EmbeddedConvert608To708]
-    Source608ChannelNumber: Optional[_integerMin1Max4]
-    Source608TrackNumber: Optional[_integerMin1Max1]
-    TerminateCaptions: Optional[EmbeddedTerminateCaptions]
+    Convert608To708: EmbeddedConvert608To708 | None
+    Source608ChannelNumber: _integerMin1Max4 | None
+    Source608TrackNumber: _integerMin1Max1 | None
+    TerminateCaptions: EmbeddedTerminateCaptions | None
 
 
 class DvbSubSourceSettings(TypedDict, total=False):
     """DVB Sub Source Settings"""
 
-    Pid: Optional[_integerMin1Max2147483647]
+    Pid: _integerMin1Max2147483647 | None
 
 
 class CaptionSourceSettings(TypedDict, total=False):
@@ -4076,14 +4147,14 @@ class CaptionSourceSettings(TypedDict, total=False):
     FileSoureSettings.
     """
 
-    AncillarySourceSettings: Optional[AncillarySourceSettings]
-    DvbSubSourceSettings: Optional[DvbSubSourceSettings]
-    EmbeddedSourceSettings: Optional[EmbeddedSourceSettings]
-    FileSourceSettings: Optional[FileSourceSettings]
-    SourceType: Optional[CaptionSourceType]
-    TeletextSourceSettings: Optional[TeletextSourceSettings]
-    TrackSourceSettings: Optional[TrackSourceSettings]
-    WebvttHlsSourceSettings: Optional[WebvttHlsSourceSettings]
+    AncillarySourceSettings: AncillarySourceSettings | None
+    DvbSubSourceSettings: DvbSubSourceSettings | None
+    EmbeddedSourceSettings: EmbeddedSourceSettings | None
+    FileSourceSettings: FileSourceSettings | None
+    SourceType: CaptionSourceType | None
+    TeletextSourceSettings: TeletextSourceSettings | None
+    TrackSourceSettings: TrackSourceSettings | None
+    WebvttHlsSourceSettings: WebvttHlsSourceSettings | None
 
 
 class CaptionSelector(TypedDict, total=False):
@@ -4092,9 +4163,9 @@ class CaptionSelector(TypedDict, total=False):
     input.
     """
 
-    CustomLanguageCode: Optional[_stringMin3Max3PatternAZaZ3]
-    LanguageCode: Optional[LanguageCode]
-    SourceSettings: Optional[CaptionSourceSettings]
+    CustomLanguageCode: _stringMin3Max3PatternAZaZ3 | None
+    LanguageCode: LanguageCode | None
+    SourceSettings: CaptionSourceSettings | None
 
 
 class ClipLimits(TypedDict, total=False):
@@ -4102,10 +4173,10 @@ class ClipLimits(TypedDict, total=False):
     conversion to Limited range clip.
     """
 
-    MaximumRGBTolerance: Optional[_integerMin90Max105]
-    MaximumYUV: Optional[_integerMin920Max1023]
-    MinimumRGBTolerance: Optional[_integerMinNegative5Max10]
-    MinimumYUV: Optional[_integerMin0Max128]
+    MaximumRGBTolerance: _integerMin90Max105 | None
+    MaximumYUV: _integerMin920Max1023 | None
+    MinimumRGBTolerance: _integerMinNegative5Max10 | None
+    MinimumYUV: _integerMin0Max128 | None
 
 
 class CmafAdditionalManifest(TypedDict, total=False):
@@ -4115,20 +4186,20 @@ class CmafAdditionalManifest(TypedDict, total=False):
     group.
     """
 
-    ManifestNameModifier: Optional[_stringMin1]
-    SelectedOutputs: Optional[_listOf__stringMin1]
+    ManifestNameModifier: _stringMin1 | None
+    SelectedOutputs: _listOf__stringMin1 | None
 
 
 class StaticKeyProvider(TypedDict, total=False):
     """Use these settings to set up encryption with a static key provider."""
 
-    KeyFormat: Optional[_stringPatternIdentityAZaZ26AZaZ09163]
-    KeyFormatVersions: Optional[_stringPatternDD]
-    StaticKeyValue: Optional[_stringPatternAZaZ0932]
-    Url: Optional[_string]
+    KeyFormat: _stringPatternIdentityAZaZ26AZaZ09163 | None
+    KeyFormatVersions: _stringPatternDD | None
+    StaticKeyValue: _stringPatternAZaZ0932 | None
+    Url: _string | None
 
 
-_listOf__stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12 = List[
+_listOf__stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12 = list[
     _stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12
 ]
 
@@ -4141,8 +4212,8 @@ class EncryptionContractConfiguration(TypedDict, total=False):
     video preset and a SPEKE v2.0 audio preset.
     """
 
-    SpekeAudioPreset: Optional[PresetSpeke20Audio]
-    SpekeVideoPreset: Optional[PresetSpeke20Video]
+    SpekeAudioPreset: PresetSpeke20Audio | None
+    SpekeVideoPreset: PresetSpeke20Video | None
 
 
 class SpekeKeyProviderCmaf(TypedDict, total=False):
@@ -4152,27 +4223,27 @@ class SpekeKeyProviderCmaf(TypedDict, total=False):
     settings instead.
     """
 
-    CertificateArn: Optional[_stringPatternArnAwsUsGovAcm]
-    DashSignaledSystemIds: Optional[
-        _listOf__stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12
-    ]
-    EncryptionContractConfiguration: Optional[EncryptionContractConfiguration]
-    HlsSignaledSystemIds: Optional[
-        _listOf__stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12
-    ]
-    ResourceId: Optional[_stringPatternW]
-    Url: Optional[_stringPatternHttpsD]
+    CertificateArn: _stringPatternArnAwsUsGovAcm | None
+    DashSignaledSystemIds: (
+        _listOf__stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12 | None
+    )
+    EncryptionContractConfiguration: EncryptionContractConfiguration | None
+    HlsSignaledSystemIds: (
+        _listOf__stringMin36Max36Pattern09aFAF809aFAF409aFAF409aFAF409aFAF12 | None
+    )
+    ResourceId: _stringPatternW | None
+    Url: _stringPatternHttpsD | None
 
 
 class CmafEncryptionSettings(TypedDict, total=False):
     """Settings for CMAF encryption"""
 
-    ConstantInitializationVector: Optional[_stringMin32Max32Pattern09aFAF32]
-    EncryptionMethod: Optional[CmafEncryptionType]
-    InitializationVectorInManifest: Optional[CmafInitializationVectorInManifest]
-    SpekeKeyProvider: Optional[SpekeKeyProviderCmaf]
-    StaticKeyProvider: Optional[StaticKeyProvider]
-    Type: Optional[CmafKeyProviderType]
+    ConstantInitializationVector: _stringMin32Max32Pattern09aFAF32 | None
+    EncryptionMethod: CmafEncryptionType | None
+    InitializationVectorInManifest: CmafInitializationVectorInManifest | None
+    SpekeKeyProvider: SpekeKeyProviderCmaf | None
+    StaticKeyProvider: StaticKeyProvider | None
+    Type: CmafKeyProviderType | None
 
 
 class CmafImageBasedTrickPlaySettings(TypedDict, total=False):
@@ -4180,12 +4251,12 @@ class CmafImageBasedTrickPlaySettings(TypedDict, total=False):
     ADVANCED
     """
 
-    IntervalCadence: Optional[CmafIntervalCadence]
-    ThumbnailHeight: Optional[_integerMin2Max4096]
-    ThumbnailInterval: Optional[_doubleMin0Max2147483647]
-    ThumbnailWidth: Optional[_integerMin8Max4096]
-    TileHeight: Optional[_integerMin1Max2048]
-    TileWidth: Optional[_integerMin1Max512]
+    IntervalCadence: CmafIntervalCadence | None
+    ThumbnailHeight: _integerMin2Max4096 | None
+    ThumbnailInterval: _doubleMin0Max2147483647 | None
+    ThumbnailWidth: _integerMin8Max4096 | None
+    TileHeight: _integerMin1Max2048 | None
+    TileWidth: _integerMin1Max512 | None
 
 
 class S3EncryptionSettings(TypedDict, total=False):
@@ -4193,11 +4264,12 @@ class S3EncryptionSettings(TypedDict, total=False):
     Amazon S3.
     """
 
-    EncryptionType: Optional[S3ServerSideEncryptionType]
-    KmsEncryptionContext: Optional[_stringPatternAZaZ0902]
-    KmsKeyArn: Optional[
+    EncryptionType: S3ServerSideEncryptionType | None
+    KmsEncryptionContext: _stringPatternAZaZ0902 | None
+    KmsKeyArn: (
         _stringPatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932
-    ]
+        | None
+    )
 
 
 class S3DestinationAccessControl(TypedDict, total=False):
@@ -4206,15 +4278,15 @@ class S3DestinationAccessControl(TypedDict, total=False):
     S3 automatically applies the default access control list PRIVATE.
     """
 
-    CannedAcl: Optional[S3ObjectCannedAcl]
+    CannedAcl: S3ObjectCannedAcl | None
 
 
 class S3DestinationSettings(TypedDict, total=False):
     """Settings associated with S3 destination"""
 
-    AccessControl: Optional[S3DestinationAccessControl]
-    Encryption: Optional[S3EncryptionSettings]
-    StorageClass: Optional[S3StorageClass]
+    AccessControl: S3DestinationAccessControl | None
+    Encryption: S3EncryptionSettings | None
+    StorageClass: S3StorageClass | None
 
 
 class DestinationSettings(TypedDict, total=False):
@@ -4222,10 +4294,10 @@ class DestinationSettings(TypedDict, total=False):
     destination
     """
 
-    S3Settings: Optional[S3DestinationSettings]
+    S3Settings: S3DestinationSettings | None
 
 
-_listOfCmafAdditionalManifest = List[CmafAdditionalManifest]
+_listOfCmafAdditionalManifest = list[CmafAdditionalManifest]
 
 
 class CmafGroupSettings(TypedDict, total=False):
@@ -4233,34 +4305,34 @@ class CmafGroupSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/outputs-file-ABR.html.
     """
 
-    AdditionalManifests: Optional[_listOfCmafAdditionalManifest]
-    BaseUrl: Optional[_string]
-    ClientCache: Optional[CmafClientCache]
-    CodecSpecification: Optional[CmafCodecSpecification]
-    DashIFrameTrickPlayNameModifier: Optional[_stringMin1Max256]
-    DashManifestStyle: Optional[DashManifestStyle]
-    Destination: Optional[_stringPatternS3]
-    DestinationSettings: Optional[DestinationSettings]
-    Encryption: Optional[CmafEncryptionSettings]
-    FragmentLength: Optional[_integerMin1Max2147483647]
-    ImageBasedTrickPlay: Optional[CmafImageBasedTrickPlay]
-    ImageBasedTrickPlaySettings: Optional[CmafImageBasedTrickPlaySettings]
-    ManifestCompression: Optional[CmafManifestCompression]
-    ManifestDurationFormat: Optional[CmafManifestDurationFormat]
-    MinBufferTime: Optional[_integerMin0Max2147483647]
-    MinFinalSegmentLength: Optional[_doubleMin0Max2147483647]
-    MpdManifestBandwidthType: Optional[CmafMpdManifestBandwidthType]
-    MpdProfile: Optional[CmafMpdProfile]
-    PtsOffsetHandlingForBFrames: Optional[CmafPtsOffsetHandlingForBFrames]
-    SegmentControl: Optional[CmafSegmentControl]
-    SegmentLength: Optional[_integerMin1Max2147483647]
-    SegmentLengthControl: Optional[CmafSegmentLengthControl]
-    StreamInfResolution: Optional[CmafStreamInfResolution]
-    TargetDurationCompatibilityMode: Optional[CmafTargetDurationCompatibilityMode]
-    VideoCompositionOffsets: Optional[CmafVideoCompositionOffsets]
-    WriteDashManifest: Optional[CmafWriteDASHManifest]
-    WriteHlsManifest: Optional[CmafWriteHLSManifest]
-    WriteSegmentTimelineInRepresentation: Optional[CmafWriteSegmentTimelineInRepresentation]
+    AdditionalManifests: _listOfCmafAdditionalManifest | None
+    BaseUrl: _string | None
+    ClientCache: CmafClientCache | None
+    CodecSpecification: CmafCodecSpecification | None
+    DashIFrameTrickPlayNameModifier: _stringMin1Max256 | None
+    DashManifestStyle: DashManifestStyle | None
+    Destination: _stringPatternS3 | None
+    DestinationSettings: DestinationSettings | None
+    Encryption: CmafEncryptionSettings | None
+    FragmentLength: _integerMin1Max2147483647 | None
+    ImageBasedTrickPlay: CmafImageBasedTrickPlay | None
+    ImageBasedTrickPlaySettings: CmafImageBasedTrickPlaySettings | None
+    ManifestCompression: CmafManifestCompression | None
+    ManifestDurationFormat: CmafManifestDurationFormat | None
+    MinBufferTime: _integerMin0Max2147483647 | None
+    MinFinalSegmentLength: _doubleMin0Max2147483647 | None
+    MpdManifestBandwidthType: CmafMpdManifestBandwidthType | None
+    MpdProfile: CmafMpdProfile | None
+    PtsOffsetHandlingForBFrames: CmafPtsOffsetHandlingForBFrames | None
+    SegmentControl: CmafSegmentControl | None
+    SegmentLength: _integerMin1Max2147483647 | None
+    SegmentLengthControl: CmafSegmentLengthControl | None
+    StreamInfResolution: CmafStreamInfResolution | None
+    TargetDurationCompatibilityMode: CmafTargetDurationCompatibilityMode | None
+    VideoCompositionOffsets: CmafVideoCompositionOffsets | None
+    WriteDashManifest: CmafWriteDASHManifest | None
+    WriteHlsManifest: CmafWriteHLSManifest | None
+    WriteSegmentTimelineInRepresentation: CmafWriteSegmentTimelineInRepresentation | None
 
 
 class CmfcSettings(TypedDict, total=False):
@@ -4268,30 +4340,57 @@ class CmfcSettings(TypedDict, total=False):
     in your CMAF outputs.
     """
 
-    AudioDuration: Optional[CmfcAudioDuration]
-    AudioGroupId: Optional[_string]
-    AudioRenditionSets: Optional[_string]
-    AudioTrackType: Optional[CmfcAudioTrackType]
-    DescriptiveVideoServiceFlag: Optional[CmfcDescriptiveVideoServiceFlag]
-    IFrameOnlyManifest: Optional[CmfcIFrameOnlyManifest]
-    KlvMetadata: Optional[CmfcKlvMetadata]
-    ManifestMetadataSignaling: Optional[CmfcManifestMetadataSignaling]
-    Scte35Esam: Optional[CmfcScte35Esam]
-    Scte35Source: Optional[CmfcScte35Source]
-    TimedMetadata: Optional[CmfcTimedMetadata]
-    TimedMetadataBoxVersion: Optional[CmfcTimedMetadataBoxVersion]
-    TimedMetadataSchemeIdUri: Optional[_stringMax1000]
-    TimedMetadataValue: Optional[_stringMax1000]
+    AudioDuration: CmfcAudioDuration | None
+    AudioGroupId: _string | None
+    AudioRenditionSets: _string | None
+    AudioTrackType: CmfcAudioTrackType | None
+    C2paManifest: CmfcC2paManifest | None
+    CertificateSecret: _stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09 | None
+    DescriptiveVideoServiceFlag: CmfcDescriptiveVideoServiceFlag | None
+    IFrameOnlyManifest: CmfcIFrameOnlyManifest | None
+    KlvMetadata: CmfcKlvMetadata | None
+    ManifestMetadataSignaling: CmfcManifestMetadataSignaling | None
+    Scte35Esam: CmfcScte35Esam | None
+    Scte35Source: CmfcScte35Source | None
+    SigningKmsKey: (
+        _stringMin1PatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932
+        | None
+    )
+    TimedMetadata: CmfcTimedMetadata | None
+    TimedMetadataBoxVersion: CmfcTimedMetadataBoxVersion | None
+    TimedMetadataSchemeIdUri: _stringMax1000 | None
+    TimedMetadataValue: _stringMax1000 | None
+
+
+class CodecMetadata(TypedDict, total=False):
+    """Codec-specific parameters parsed from the video essence headers. This
+    information provides detailed technical specifications about how the
+    video was encoded, including profile settings, resolution details, and
+    color space information that can help you understand the source video
+    characteristics and make informed encoding decisions.
+    """
+
+    BitDepth: _integer | None
+    ChromaSubsampling: _string | None
+    CodedFrameRate: FrameRate | None
+    ColorPrimaries: ColorPrimaries | None
+    Height: _integer | None
+    Level: _string | None
+    MatrixCoefficients: MatrixCoefficients | None
+    Profile: _string | None
+    ScanType: _string | None
+    TransferCharacteristics: TransferCharacteristics | None
+    Width: _integer | None
 
 
 class ColorConversion3DLUTSetting(TypedDict, total=False):
     """Custom 3D lut settings"""
 
-    FileInput: Optional[_stringMin14PatternS3CubeCUBEHttpsCubeCUBE]
-    InputColorSpace: Optional[ColorSpace]
-    InputMasteringLuminance: Optional[_integerMin0Max2147483647]
-    OutputColorSpace: Optional[ColorSpace]
-    OutputMasteringLuminance: Optional[_integerMin0Max2147483647]
+    FileInput: _stringMin14PatternS3CubeCUBEHttpsCubeCUBE | None
+    InputColorSpace: ColorSpace | None
+    InputMasteringLuminance: _integerMin0Max2147483647 | None
+    OutputColorSpace: ColorSpace | None
+    OutputMasteringLuminance: _integerMin0Max2147483647 | None
 
 
 class Hdr10Metadata(TypedDict, total=False):
@@ -4302,68 +4401,69 @@ class Hdr10Metadata(TypedDict, total=False):
     intentions of the the content creator.
     """
 
-    BluePrimaryX: Optional[_integerMin0Max50000]
-    BluePrimaryY: Optional[_integerMin0Max50000]
-    GreenPrimaryX: Optional[_integerMin0Max50000]
-    GreenPrimaryY: Optional[_integerMin0Max50000]
-    MaxContentLightLevel: Optional[_integerMin0Max65535]
-    MaxFrameAverageLightLevel: Optional[_integerMin0Max65535]
-    MaxLuminance: Optional[_integerMin0Max2147483647]
-    MinLuminance: Optional[_integerMin0Max2147483647]
-    RedPrimaryX: Optional[_integerMin0Max50000]
-    RedPrimaryY: Optional[_integerMin0Max50000]
-    WhitePointX: Optional[_integerMin0Max50000]
-    WhitePointY: Optional[_integerMin0Max50000]
+    BluePrimaryX: _integerMin0Max50000 | None
+    BluePrimaryY: _integerMin0Max50000 | None
+    GreenPrimaryX: _integerMin0Max50000 | None
+    GreenPrimaryY: _integerMin0Max50000 | None
+    MaxContentLightLevel: _integerMin0Max65535 | None
+    MaxFrameAverageLightLevel: _integerMin0Max65535 | None
+    MaxLuminance: _integerMin0Max2147483647 | None
+    MinLuminance: _integerMin0Max2147483647 | None
+    RedPrimaryX: _integerMin0Max50000 | None
+    RedPrimaryY: _integerMin0Max50000 | None
+    WhitePointX: _integerMin0Max50000 | None
+    WhitePointY: _integerMin0Max50000 | None
 
 
 class ColorCorrector(TypedDict, total=False):
     """Settings for color correction."""
 
-    Brightness: Optional[_integerMin1Max100]
-    ClipLimits: Optional[ClipLimits]
-    ColorSpaceConversion: Optional[ColorSpaceConversion]
-    Contrast: Optional[_integerMin1Max100]
-    Hdr10Metadata: Optional[Hdr10Metadata]
-    HdrToSdrToneMapper: Optional[HDRToSDRToneMapper]
-    Hue: Optional[_integerMinNegative180Max180]
-    MaxLuminance: Optional[_integerMin0Max2147483647]
-    SampleRangeConversion: Optional[SampleRangeConversion]
-    Saturation: Optional[_integerMin1Max100]
-    SdrReferenceWhiteLevel: Optional[_integerMin100Max1000]
+    Brightness: _integerMin1Max100 | None
+    ClipLimits: ClipLimits | None
+    ColorSpaceConversion: ColorSpaceConversion | None
+    Contrast: _integerMin1Max100 | None
+    Hdr10Metadata: Hdr10Metadata | None
+    HdrToSdrToneMapper: HDRToSDRToneMapper | None
+    Hue: _integerMinNegative180Max180 | None
+    MaxLuminance: _integerMin0Max2147483647 | None
+    SampleRangeConversion: SampleRangeConversion | None
+    Saturation: _integerMin1Max100 | None
+    SdrReferenceWhiteLevel: _integerMin100Max1000 | None
 
 
 class VideoProperties(TypedDict, total=False):
     """Details about the media file's video track."""
 
-    BitDepth: Optional[_integer]
-    BitRate: Optional[_long]
-    ColorPrimaries: Optional[ColorPrimaries]
-    FrameRate: Optional[FrameRate]
-    Height: Optional[_integer]
-    MatrixCoefficients: Optional[MatrixCoefficients]
-    TransferCharacteristics: Optional[TransferCharacteristics]
-    Width: Optional[_integer]
+    BitDepth: _integer | None
+    BitRate: _long | None
+    CodecMetadata: CodecMetadata | None
+    ColorPrimaries: ColorPrimaries | None
+    FrameRate: FrameRate | None
+    Height: _integer | None
+    MatrixCoefficients: MatrixCoefficients | None
+    TransferCharacteristics: TransferCharacteristics | None
+    Width: _integer | None
 
 
 class DataProperties(TypedDict, total=False):
     """Details about the media file's data track."""
 
-    LanguageCode: Optional[_string]
+    LanguageCode: _string | None
 
 
 class Track(TypedDict, total=False):
     """Details about each track (video, audio, or data) in the media file."""
 
-    AudioProperties: Optional[AudioProperties]
-    Codec: Optional[Codec]
-    DataProperties: Optional[DataProperties]
-    Duration: Optional[_double]
-    Index: Optional[_integer]
-    TrackType: Optional[TrackType]
-    VideoProperties: Optional[VideoProperties]
+    AudioProperties: AudioProperties | None
+    Codec: Codec | None
+    DataProperties: DataProperties | None
+    Duration: _double | None
+    Index: _integer | None
+    TrackType: TrackType | None
+    VideoProperties: VideoProperties | None
 
 
-_listOfTrack = List[Track]
+_listOfTrack = list[Track]
 
 
 class Container(TypedDict, total=False):
@@ -4372,9 +4472,9 @@ class Container(TypedDict, total=False):
     duration, and track layout.
     """
 
-    Duration: Optional[_double]
-    Format: Optional[Format]
-    Tracks: Optional[_listOfTrack]
+    Duration: _double | None
+    Format: Format | None
+    Tracks: _listOfTrack | None
 
 
 class MxfXavcProfileSettings(TypedDict, total=False):
@@ -4382,16 +4482,16 @@ class MxfXavcProfileSettings(TypedDict, total=False):
     profile to XAVC.
     """
 
-    DurationMode: Optional[MxfXavcDurationMode]
-    MaxAncDataSize: Optional[_integerMin0Max2147483647]
+    DurationMode: MxfXavcDurationMode | None
+    MaxAncDataSize: _integerMin0Max2147483647 | None
 
 
 class MxfSettings(TypedDict, total=False):
     """These settings relate to your MXF output container."""
 
-    AfdSignaling: Optional[MxfAfdSignaling]
-    Profile: Optional[MxfProfile]
-    XavcProfileSettings: Optional[MxfXavcProfileSettings]
+    AfdSignaling: MxfAfdSignaling | None
+    Profile: MxfProfile | None
+    XavcProfileSettings: MxfXavcProfileSettings | None
 
 
 class MpdSettings(TypedDict, total=False):
@@ -4399,17 +4499,23 @@ class MpdSettings(TypedDict, total=False):
     in your DASH outputs.
     """
 
-    AccessibilityCaptionHints: Optional[MpdAccessibilityCaptionHints]
-    AudioDuration: Optional[MpdAudioDuration]
-    CaptionContainerType: Optional[MpdCaptionContainerType]
-    KlvMetadata: Optional[MpdKlvMetadata]
-    ManifestMetadataSignaling: Optional[MpdManifestMetadataSignaling]
-    Scte35Esam: Optional[MpdScte35Esam]
-    Scte35Source: Optional[MpdScte35Source]
-    TimedMetadata: Optional[MpdTimedMetadata]
-    TimedMetadataBoxVersion: Optional[MpdTimedMetadataBoxVersion]
-    TimedMetadataSchemeIdUri: Optional[_stringMax1000]
-    TimedMetadataValue: Optional[_stringMax1000]
+    AccessibilityCaptionHints: MpdAccessibilityCaptionHints | None
+    AudioDuration: MpdAudioDuration | None
+    C2paManifest: MpdC2paManifest | None
+    CaptionContainerType: MpdCaptionContainerType | None
+    CertificateSecret: _stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09 | None
+    KlvMetadata: MpdKlvMetadata | None
+    ManifestMetadataSignaling: MpdManifestMetadataSignaling | None
+    Scte35Esam: MpdScte35Esam | None
+    Scte35Source: MpdScte35Source | None
+    SigningKmsKey: (
+        _stringMin1PatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932
+        | None
+    )
+    TimedMetadata: MpdTimedMetadata | None
+    TimedMetadataBoxVersion: MpdTimedMetadataBoxVersion | None
+    TimedMetadataSchemeIdUri: _stringMax1000 | None
+    TimedMetadataValue: _stringMax1000 | None
 
 
 class Mp4Settings(TypedDict, total=False):
@@ -4418,30 +4524,31 @@ class Mp4Settings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/supported-codecs-containers-audio-only.html#output-codecs-and-containers-supported-for-audio-only.
     """
 
-    AudioDuration: Optional[CmfcAudioDuration]
-    C2paManifest: Optional[Mp4C2paManifest]
-    CertificateSecret: Optional[_stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09]
-    CslgAtom: Optional[Mp4CslgAtom]
-    CttsVersion: Optional[_integerMin0Max1]
-    FreeSpaceBox: Optional[Mp4FreeSpaceBox]
-    MoovPlacement: Optional[Mp4MoovPlacement]
-    Mp4MajorBrand: Optional[_string]
-    SigningKmsKey: Optional[
+    AudioDuration: CmfcAudioDuration | None
+    C2paManifest: Mp4C2paManifest | None
+    CertificateSecret: _stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09 | None
+    CslgAtom: Mp4CslgAtom | None
+    CttsVersion: _integerMin0Max1 | None
+    FreeSpaceBox: Mp4FreeSpaceBox | None
+    MoovPlacement: Mp4MoovPlacement | None
+    Mp4MajorBrand: _string | None
+    SigningKmsKey: (
         _stringMin1PatternArnAwsUsGovCnKmsAZ26EastWestCentralNorthSouthEastWest1912D12KeyAFAF098AFAF094AFAF094AFAF094AFAF0912MrkAFAF0932
-    ]
+        | None
+    )
 
 
 class MovSettings(TypedDict, total=False):
     """These settings relate to your QuickTime MOV output container."""
 
-    ClapAtom: Optional[MovClapAtom]
-    CslgAtom: Optional[MovCslgAtom]
-    Mpeg2FourCCControl: Optional[MovMpeg2FourCCControl]
-    PaddingControl: Optional[MovPaddingControl]
-    Reference: Optional[MovReference]
+    ClapAtom: MovClapAtom | None
+    CslgAtom: MovCslgAtom | None
+    Mpeg2FourCCControl: MovMpeg2FourCCControl | None
+    PaddingControl: MovPaddingControl | None
+    Reference: MovReference | None
 
 
-_listOf__integerMin32Max8182 = List[_integerMin32Max8182]
+_listOf__integerMin32Max8182 = list[_integerMin32Max8182]
 
 
 class M3u8Settings(TypedDict, total=False):
@@ -4449,28 +4556,28 @@ class M3u8Settings(TypedDict, total=False):
     container for the MPEG2-TS segments in your HLS outputs.
     """
 
-    AudioDuration: Optional[M3u8AudioDuration]
-    AudioFramesPerPes: Optional[_integerMin0Max2147483647]
-    AudioPids: Optional[_listOf__integerMin32Max8182]
-    AudioPtsOffsetDelta: Optional[_integerMinNegative10000Max10000]
-    DataPTSControl: Optional[M3u8DataPtsControl]
-    MaxPcrInterval: Optional[_integerMin0Max500]
-    NielsenId3: Optional[M3u8NielsenId3]
-    PatInterval: Optional[_integerMin0Max1000]
-    PcrControl: Optional[M3u8PcrControl]
-    PcrPid: Optional[_integerMin32Max8182]
-    PmtInterval: Optional[_integerMin0Max1000]
-    PmtPid: Optional[_integerMin32Max8182]
-    PrivateMetadataPid: Optional[_integerMin32Max8182]
-    ProgramNumber: Optional[_integerMin0Max65535]
-    PtsOffset: Optional[_integerMin0Max3600]
-    PtsOffsetMode: Optional[TsPtsOffset]
-    Scte35Pid: Optional[_integerMin32Max8182]
-    Scte35Source: Optional[M3u8Scte35Source]
-    TimedMetadata: Optional[TimedMetadata]
-    TimedMetadataPid: Optional[_integerMin32Max8182]
-    TransportStreamId: Optional[_integerMin0Max65535]
-    VideoPid: Optional[_integerMin32Max8182]
+    AudioDuration: M3u8AudioDuration | None
+    AudioFramesPerPes: _integerMin0Max2147483647 | None
+    AudioPids: _listOf__integerMin32Max8182 | None
+    AudioPtsOffsetDelta: _integerMinNegative10000Max10000 | None
+    DataPTSControl: M3u8DataPtsControl | None
+    MaxPcrInterval: _integerMin0Max500 | None
+    NielsenId3: M3u8NielsenId3 | None
+    PatInterval: _integerMin0Max1000 | None
+    PcrControl: M3u8PcrControl | None
+    PcrPid: _integerMin32Max8182 | None
+    PmtInterval: _integerMin0Max1000 | None
+    PmtPid: _integerMin32Max8182 | None
+    PrivateMetadataPid: _integerMin32Max8182 | None
+    ProgramNumber: _integerMin0Max65535 | None
+    PtsOffset: _integerMin0Max3600 | None
+    PtsOffsetMode: TsPtsOffset | None
+    Scte35Pid: _integerMin32Max8182 | None
+    Scte35Source: M3u8Scte35Source | None
+    TimedMetadata: TimedMetadata | None
+    TimedMetadataPid: _integerMin32Max8182 | None
+    TransportStreamId: _integerMin0Max65535 | None
+    VideoPid: _integerMin32Max8182 | None
 
 
 class M2tsScte35Esam(TypedDict, total=False):
@@ -4480,7 +4587,7 @@ class M2tsScte35Esam(TypedDict, total=False):
     Provide the document in the setting SCC XML.
     """
 
-    Scte35EsamPid: Optional[_integerMin32Max8182]
+    Scte35EsamPid: _integerMin32Max8182 | None
 
 
 class DvbTdtSettings(TypedDict, total=False):
@@ -4488,7 +4595,7 @@ class DvbTdtSettings(TypedDict, total=False):
     transport stream of this output.
     """
 
-    TdtInterval: Optional[_integerMin1000Max30000]
+    TdtInterval: _integerMin1000Max30000 | None
 
 
 class DvbSdtSettings(TypedDict, total=False):
@@ -4496,10 +4603,10 @@ class DvbSdtSettings(TypedDict, total=False):
     the transport stream of this output.
     """
 
-    OutputSdt: Optional[OutputSdt]
-    SdtInterval: Optional[_integerMin25Max2000]
-    ServiceName: Optional[_stringMin1Max256]
-    ServiceProviderName: Optional[_stringMin1Max256]
+    OutputSdt: OutputSdt | None
+    SdtInterval: _integerMin25Max2000 | None
+    ServiceName: _stringMin1Max256 | None
+    ServiceProviderName: _stringMin1Max256 | None
 
 
 class DvbNitSettings(TypedDict, total=False):
@@ -4507,9 +4614,9 @@ class DvbNitSettings(TypedDict, total=False):
     the transport stream of this output.
     """
 
-    NetworkId: Optional[_integerMin0Max65535]
-    NetworkName: Optional[_stringMin1Max256]
-    NitInterval: Optional[_integerMin25Max10000]
+    NetworkId: _integerMin0Max65535 | None
+    NetworkName: _stringMin1Max256 | None
+    NitInterval: _integerMin25Max10000 | None
 
 
 class M2tsSettings(TypedDict, total=False):
@@ -4526,72 +4633,72 @@ class M2tsSettings(TypedDict, total=False):
     asset.
     """
 
-    AudioBufferModel: Optional[M2tsAudioBufferModel]
-    AudioDuration: Optional[M2tsAudioDuration]
-    AudioFramesPerPes: Optional[_integerMin0Max2147483647]
-    AudioPids: Optional[_listOf__integerMin32Max8182]
-    AudioPtsOffsetDelta: Optional[_integerMinNegative10000Max10000]
-    Bitrate: Optional[_integerMin0Max2147483647]
-    BufferModel: Optional[M2tsBufferModel]
-    DataPTSControl: Optional[M2tsDataPtsControl]
-    DvbNitSettings: Optional[DvbNitSettings]
-    DvbSdtSettings: Optional[DvbSdtSettings]
-    DvbSubPids: Optional[_listOf__integerMin32Max8182]
-    DvbTdtSettings: Optional[DvbTdtSettings]
-    DvbTeletextPid: Optional[_integerMin32Max8182]
-    EbpAudioInterval: Optional[M2tsEbpAudioInterval]
-    EbpPlacement: Optional[M2tsEbpPlacement]
-    EsRateInPes: Optional[M2tsEsRateInPes]
-    ForceTsVideoEbpOrder: Optional[M2tsForceTsVideoEbpOrder]
-    FragmentTime: Optional[_doubleMin0]
-    KlvMetadata: Optional[M2tsKlvMetadata]
-    MaxPcrInterval: Optional[_integerMin0Max500]
-    MinEbpInterval: Optional[_integerMin0Max10000]
-    NielsenId3: Optional[M2tsNielsenId3]
-    NullPacketBitrate: Optional[_doubleMin0]
-    PatInterval: Optional[_integerMin0Max1000]
-    PcrControl: Optional[M2tsPcrControl]
-    PcrPid: Optional[_integerMin32Max8182]
-    PmtInterval: Optional[_integerMin0Max1000]
-    PmtPid: Optional[_integerMin32Max8182]
-    PreventBufferUnderflow: Optional[M2tsPreventBufferUnderflow]
-    PrivateMetadataPid: Optional[_integerMin32Max8182]
-    ProgramNumber: Optional[_integerMin0Max65535]
-    PtsOffset: Optional[_integerMin0Max3600]
-    PtsOffsetMode: Optional[TsPtsOffset]
-    RateMode: Optional[M2tsRateMode]
-    Scte35Esam: Optional[M2tsScte35Esam]
-    Scte35Pid: Optional[_integerMin32Max8182]
-    Scte35Source: Optional[M2tsScte35Source]
-    SegmentationMarkers: Optional[M2tsSegmentationMarkers]
-    SegmentationStyle: Optional[M2tsSegmentationStyle]
-    SegmentationTime: Optional[_doubleMin0]
-    TimedMetadataPid: Optional[_integerMin32Max8182]
-    TransportStreamId: Optional[_integerMin0Max65535]
-    VideoPid: Optional[_integerMin32Max8182]
+    AudioBufferModel: M2tsAudioBufferModel | None
+    AudioDuration: M2tsAudioDuration | None
+    AudioFramesPerPes: _integerMin0Max2147483647 | None
+    AudioPids: _listOf__integerMin32Max8182 | None
+    AudioPtsOffsetDelta: _integerMinNegative10000Max10000 | None
+    Bitrate: _integerMin0Max2147483647 | None
+    BufferModel: M2tsBufferModel | None
+    DataPTSControl: M2tsDataPtsControl | None
+    DvbNitSettings: DvbNitSettings | None
+    DvbSdtSettings: DvbSdtSettings | None
+    DvbSubPids: _listOf__integerMin32Max8182 | None
+    DvbTdtSettings: DvbTdtSettings | None
+    DvbTeletextPid: _integerMin32Max8182 | None
+    EbpAudioInterval: M2tsEbpAudioInterval | None
+    EbpPlacement: M2tsEbpPlacement | None
+    EsRateInPes: M2tsEsRateInPes | None
+    ForceTsVideoEbpOrder: M2tsForceTsVideoEbpOrder | None
+    FragmentTime: _doubleMin0 | None
+    KlvMetadata: M2tsKlvMetadata | None
+    MaxPcrInterval: _integerMin0Max500 | None
+    MinEbpInterval: _integerMin0Max10000 | None
+    NielsenId3: M2tsNielsenId3 | None
+    NullPacketBitrate: _doubleMin0 | None
+    PatInterval: _integerMin0Max1000 | None
+    PcrControl: M2tsPcrControl | None
+    PcrPid: _integerMin32Max8182 | None
+    PmtInterval: _integerMin0Max1000 | None
+    PmtPid: _integerMin32Max8182 | None
+    PreventBufferUnderflow: M2tsPreventBufferUnderflow | None
+    PrivateMetadataPid: _integerMin32Max8182 | None
+    ProgramNumber: _integerMin0Max65535 | None
+    PtsOffset: _integerMin0Max3600 | None
+    PtsOffsetMode: TsPtsOffset | None
+    RateMode: M2tsRateMode | None
+    Scte35Esam: M2tsScte35Esam | None
+    Scte35Pid: _integerMin32Max8182 | None
+    Scte35Source: M2tsScte35Source | None
+    SegmentationMarkers: M2tsSegmentationMarkers | None
+    SegmentationStyle: M2tsSegmentationStyle | None
+    SegmentationTime: _doubleMin0 | None
+    TimedMetadataPid: _integerMin32Max8182 | None
+    TransportStreamId: _integerMin0Max65535 | None
+    VideoPid: _integerMin32Max8182 | None
 
 
 class F4vSettings(TypedDict, total=False):
     """Settings for F4v container"""
 
-    MoovPlacement: Optional[F4vMoovPlacement]
+    MoovPlacement: F4vMoovPlacement | None
 
 
 class ContainerSettings(TypedDict, total=False):
     """Container specific settings."""
 
-    CmfcSettings: Optional[CmfcSettings]
-    Container: Optional[ContainerType]
-    F4vSettings: Optional[F4vSettings]
-    M2tsSettings: Optional[M2tsSettings]
-    M3u8Settings: Optional[M3u8Settings]
-    MovSettings: Optional[MovSettings]
-    Mp4Settings: Optional[Mp4Settings]
-    MpdSettings: Optional[MpdSettings]
-    MxfSettings: Optional[MxfSettings]
+    CmfcSettings: CmfcSettings | None
+    Container: ContainerType | None
+    F4vSettings: F4vSettings | None
+    M2tsSettings: M2tsSettings | None
+    M3u8Settings: M3u8Settings | None
+    MovSettings: MovSettings | None
+    Mp4Settings: Mp4Settings | None
+    MpdSettings: MpdSettings | None
+    MxfSettings: MxfSettings | None
 
 
-_mapOf__string = Dict[_string, _string]
+_mapOf__string = dict[_string, _string]
 
 
 class Id3Insertion(TypedDict, total=False):
@@ -4601,11 +4708,11 @@ class Id3Insertion(TypedDict, total=False):
     output, create multiple instances of ID3 insertion.
     """
 
-    Id3: Optional[_stringPatternAZaZ0902]
-    Timecode: Optional[_stringPattern010920405090509092]
+    Id3: _stringPatternAZaZ0902 | None
+    Timecode: _stringPattern010920405090509092 | None
 
 
-_listOfId3Insertion = List[Id3Insertion]
+_listOfId3Insertion = list[Id3Insertion]
 
 
 class TimedMetadataInsertion(TypedDict, total=False):
@@ -4614,7 +4721,7 @@ class TimedMetadataInsertion(TypedDict, total=False):
     metadata to Passthrough.
     """
 
-    Id3Insertions: Optional[_listOfId3Insertion]
+    Id3Insertions: _listOfId3Insertion | None
 
 
 class TimecodeConfig(TypedDict, total=False):
@@ -4622,10 +4729,10 @@ class TimecodeConfig(TypedDict, total=False):
     job. These settings don't affect input clipping.
     """
 
-    Anchor: Optional[_stringPattern010920405090509092]
-    Source: Optional[TimecodeSource]
-    Start: Optional[_stringPattern010920405090509092]
-    TimestampOffset: Optional[_stringPattern0940191020191209301]
+    Anchor: _stringPattern010920405090509092 | None
+    Source: TimecodeSource | None
+    Start: _stringPattern010920405090509092 | None
+    TimestampOffset: _stringPattern0940191020191209301 | None
 
 
 class TimecodeBurnin(TypedDict, total=False):
@@ -4633,9 +4740,9 @@ class TimecodeBurnin(TypedDict, total=False):
     output.
     """
 
-    FontSize: Optional[_integerMin10Max48]
-    Position: Optional[TimecodeBurninPosition]
-    Prefix: Optional[_stringPattern]
+    FontSize: _integerMin10Max48 | None
+    Position: TimecodeBurninPosition | None
+    Prefix: _stringPattern | None
 
 
 class NexGuardFileMarkerSettings(TypedDict, total=False):
@@ -4644,10 +4751,10 @@ class NexGuardFileMarkerSettings(TypedDict, total=False):
     (NGPR/G2) and OTT Streaming workflows.
     """
 
-    License: Optional[_stringMin1Max100000]
-    Payload: Optional[_integerMin0Max4194303]
-    Preset: Optional[_stringMin1Max256]
-    Strength: Optional[WatermarkingStrength]
+    License: _stringMin1Max100000 | None
+    Payload: _integerMin0Max4194303 | None
+    Preset: _stringMin1Max256 | None
+    Strength: WatermarkingStrength | None
 
 
 class PartnerWatermarking(TypedDict, total=False):
@@ -4656,31 +4763,31 @@ class PartnerWatermarking(TypedDict, total=False):
     watermarks in your output.
     """
 
-    NexguardFileMarkerSettings: Optional[NexGuardFileMarkerSettings]
+    NexguardFileMarkerSettings: NexGuardFileMarkerSettings | None
 
 
 class NoiseReducerTemporalFilterSettings(TypedDict, total=False):
     """Noise reducer filter settings for temporal filter."""
 
-    AggressiveMode: Optional[_integerMin0Max4]
-    PostTemporalSharpening: Optional[NoiseFilterPostTemporalSharpening]
-    PostTemporalSharpeningStrength: Optional[NoiseFilterPostTemporalSharpeningStrength]
-    Speed: Optional[_integerMinNegative1Max3]
-    Strength: Optional[_integerMin0Max16]
+    AggressiveMode: _integerMin0Max4 | None
+    PostTemporalSharpening: NoiseFilterPostTemporalSharpening | None
+    PostTemporalSharpeningStrength: NoiseFilterPostTemporalSharpeningStrength | None
+    Speed: _integerMinNegative1Max3 | None
+    Strength: _integerMin0Max16 | None
 
 
 class NoiseReducerSpatialFilterSettings(TypedDict, total=False):
     """Noise reducer filter settings for spatial filter."""
 
-    PostFilterSharpenStrength: Optional[_integerMin0Max3]
-    Speed: Optional[_integerMinNegative2Max3]
-    Strength: Optional[_integerMin0Max16]
+    PostFilterSharpenStrength: _integerMin0Max3 | None
+    Speed: _integerMinNegative2Max3 | None
+    Strength: _integerMin0Max16 | None
 
 
 class NoiseReducerFilterSettings(TypedDict, total=False):
     """Settings for a noise reducer filter"""
 
-    Strength: Optional[_integerMin0Max3]
+    Strength: _integerMin0Max3 | None
 
 
 class NoiseReducer(TypedDict, total=False):
@@ -4692,10 +4799,10 @@ class NoiseReducer(TypedDict, total=False):
     Bandwidth reduction filter.
     """
 
-    Filter: Optional[NoiseReducerFilter]
-    FilterSettings: Optional[NoiseReducerFilterSettings]
-    SpatialFilterSettings: Optional[NoiseReducerSpatialFilterSettings]
-    TemporalFilterSettings: Optional[NoiseReducerTemporalFilterSettings]
+    Filter: NoiseReducerFilter | None
+    FilterSettings: NoiseReducerFilterSettings | None
+    SpatialFilterSettings: NoiseReducerSpatialFilterSettings | None
+    TemporalFilterSettings: NoiseReducerTemporalFilterSettings | None
 
 
 class InsertableImage(TypedDict, total=False):
@@ -4703,20 +4810,20 @@ class InsertableImage(TypedDict, total=False):
     multiple overlays in your job.
     """
 
-    Duration: Optional[_integerMin0Max2147483647]
-    FadeIn: Optional[_integerMin0Max2147483647]
-    FadeOut: Optional[_integerMin0Max2147483647]
-    Height: Optional[_integerMin0Max2147483647]
-    ImageInserterInput: Optional[_stringMin14PatternS3BmpBMPPngPNGTgaTGAHttpsBmpBMPPngPNGTgaTGA]
-    ImageX: Optional[_integerMin0Max2147483647]
-    ImageY: Optional[_integerMin0Max2147483647]
-    Layer: Optional[_integerMin0Max99]
-    Opacity: Optional[_integerMin0Max100]
-    StartTime: Optional[_stringPattern01D20305D205D]
-    Width: Optional[_integerMin0Max2147483647]
+    Duration: _integerMin0Max2147483647 | None
+    FadeIn: _integerMin0Max2147483647 | None
+    FadeOut: _integerMin0Max2147483647 | None
+    Height: _integerMin0Max2147483647 | None
+    ImageInserterInput: _stringMin14PatternS3BmpBMPPngPNGTgaTGAHttpsBmpBMPPngPNGTgaTGA | None
+    ImageX: _integerMin0Max2147483647 | None
+    ImageY: _integerMin0Max2147483647 | None
+    Layer: _integerMin0Max99 | None
+    Opacity: _integerMin0Max100 | None
+    StartTime: _stringPattern01D20305D205D | None
+    Width: _integerMin0Max2147483647 | None
 
 
-_listOfInsertableImage = List[InsertableImage]
+_listOfInsertableImage = list[InsertableImage]
 
 
 class ImageInserter(TypedDict, total=False):
@@ -4727,15 +4834,15 @@ class ImageInserter(TypedDict, total=False):
     This setting is disabled by default.
     """
 
-    InsertableImages: Optional[_listOfInsertableImage]
-    SdrReferenceWhiteLevel: Optional[_integerMin100Max1000]
+    InsertableImages: _listOfInsertableImage | None
+    SdrReferenceWhiteLevel: _integerMin100Max1000 | None
 
 
 class Hdr10Plus(TypedDict, total=False):
     """Setting for HDR10+ metadata insertion"""
 
-    MasteringMonitorNits: Optional[_integerMin0Max4000]
-    TargetMonitorNits: Optional[_integerMin0Max4000]
+    MasteringMonitorNits: _integerMin0Max4000 | None
+    TargetMonitorNits: _integerMin0Max4000 | None
 
 
 class DolbyVisionLevel6Metadata(TypedDict, total=False):
@@ -4743,25 +4850,25 @@ class DolbyVisionLevel6Metadata(TypedDict, total=False):
     override the MaxCLL and MaxFALL values in your input with new values.
     """
 
-    MaxCll: Optional[_integerMin0Max65535]
-    MaxFall: Optional[_integerMin0Max65535]
+    MaxCll: _integerMin0Max65535 | None
+    MaxFall: _integerMin0Max65535 | None
 
 
 class DolbyVision(TypedDict, total=False):
     """Create Dolby Vision Profile 5 or Profile 8.1 compatible video output."""
 
-    L6Metadata: Optional[DolbyVisionLevel6Metadata]
-    L6Mode: Optional[DolbyVisionLevel6Mode]
-    Mapping: Optional[DolbyVisionMapping]
-    Profile: Optional[DolbyVisionProfile]
+    L6Metadata: DolbyVisionLevel6Metadata | None
+    L6Mode: DolbyVisionLevel6Mode | None
+    Mapping: DolbyVisionMapping | None
+    Profile: DolbyVisionProfile | None
 
 
 class Deinterlacer(TypedDict, total=False):
     """Settings for deinterlacer"""
 
-    Algorithm: Optional[DeinterlaceAlgorithm]
-    Control: Optional[DeinterlacerControl]
-    Mode: Optional[DeinterlacerMode]
+    Algorithm: DeinterlaceAlgorithm | None
+    Control: DeinterlacerControl | None
+    Mode: DeinterlacerMode | None
 
 
 class VideoPreprocessor(TypedDict, total=False):
@@ -4770,140 +4877,140 @@ class VideoPreprocessor(TypedDict, total=False):
     default.
     """
 
-    ColorCorrector: Optional[ColorCorrector]
-    Deinterlacer: Optional[Deinterlacer]
-    DolbyVision: Optional[DolbyVision]
-    Hdr10Plus: Optional[Hdr10Plus]
-    ImageInserter: Optional[ImageInserter]
-    NoiseReducer: Optional[NoiseReducer]
-    PartnerWatermarking: Optional[PartnerWatermarking]
-    TimecodeBurnin: Optional[TimecodeBurnin]
+    ColorCorrector: ColorCorrector | None
+    Deinterlacer: Deinterlacer | None
+    DolbyVision: DolbyVision | None
+    Hdr10Plus: Hdr10Plus | None
+    ImageInserter: ImageInserter | None
+    NoiseReducer: NoiseReducer | None
+    PartnerWatermarking: PartnerWatermarking | None
+    TimecodeBurnin: TimecodeBurnin | None
 
 
 class Rectangle(TypedDict, total=False):
     """Use Rectangle to identify a specific area of the video frame."""
 
-    Height: Optional[_integerMin2Max2147483647]
-    Width: Optional[_integerMin2Max2147483647]
-    X: Optional[_integerMin0Max2147483647]
-    Y: Optional[_integerMin0Max2147483647]
+    Height: _integerMin2Max2147483647 | None
+    Width: _integerMin2Max2147483647 | None
+    X: _integerMin0Max2147483647 | None
+    Y: _integerMin0Max2147483647 | None
 
 
 class XavcHdProfileSettings(TypedDict, total=False):
     """Required when you set Profile to the value XAVC_HD."""
 
-    BitrateClass: Optional[XavcHdProfileBitrateClass]
-    FlickerAdaptiveQuantization: Optional[XavcFlickerAdaptiveQuantization]
-    GopBReference: Optional[XavcGopBReference]
-    GopClosedCadence: Optional[_integerMin0Max2147483647]
-    HrdBufferSize: Optional[_integerMin0Max1152000000]
-    InterlaceMode: Optional[XavcInterlaceMode]
-    QualityTuningLevel: Optional[XavcHdProfileQualityTuningLevel]
-    Slices: Optional[_integerMin4Max12]
-    Telecine: Optional[XavcHdProfileTelecine]
+    BitrateClass: XavcHdProfileBitrateClass | None
+    FlickerAdaptiveQuantization: XavcFlickerAdaptiveQuantization | None
+    GopBReference: XavcGopBReference | None
+    GopClosedCadence: _integerMin0Max2147483647 | None
+    HrdBufferSize: _integerMin0Max1152000000 | None
+    InterlaceMode: XavcInterlaceMode | None
+    QualityTuningLevel: XavcHdProfileQualityTuningLevel | None
+    Slices: _integerMin4Max12 | None
+    Telecine: XavcHdProfileTelecine | None
 
 
 class XavcHdIntraCbgProfileSettings(TypedDict, total=False):
     """Required when you set Profile to the value XAVC_HD_INTRA_CBG."""
 
-    XavcClass: Optional[XavcHdIntraCbgProfileClass]
+    XavcClass: XavcHdIntraCbgProfileClass | None
 
 
 class Xavc4kProfileSettings(TypedDict, total=False):
     """Required when you set Profile to the value XAVC_4K."""
 
-    BitrateClass: Optional[Xavc4kProfileBitrateClass]
-    CodecProfile: Optional[Xavc4kProfileCodecProfile]
-    FlickerAdaptiveQuantization: Optional[XavcFlickerAdaptiveQuantization]
-    GopBReference: Optional[XavcGopBReference]
-    GopClosedCadence: Optional[_integerMin0Max2147483647]
-    HrdBufferSize: Optional[_integerMin0Max1152000000]
-    QualityTuningLevel: Optional[Xavc4kProfileQualityTuningLevel]
-    Slices: Optional[_integerMin8Max12]
+    BitrateClass: Xavc4kProfileBitrateClass | None
+    CodecProfile: Xavc4kProfileCodecProfile | None
+    FlickerAdaptiveQuantization: XavcFlickerAdaptiveQuantization | None
+    GopBReference: XavcGopBReference | None
+    GopClosedCadence: _integerMin0Max2147483647 | None
+    HrdBufferSize: _integerMin0Max1152000000 | None
+    QualityTuningLevel: Xavc4kProfileQualityTuningLevel | None
+    Slices: _integerMin8Max12 | None
 
 
 class Xavc4kIntraVbrProfileSettings(TypedDict, total=False):
     """Required when you set Profile to the value XAVC_4K_INTRA_VBR."""
 
-    XavcClass: Optional[Xavc4kIntraVbrProfileClass]
+    XavcClass: Xavc4kIntraVbrProfileClass | None
 
 
 class Xavc4kIntraCbgProfileSettings(TypedDict, total=False):
     """Required when you set Profile to the value XAVC_4K_INTRA_CBG."""
 
-    XavcClass: Optional[Xavc4kIntraCbgProfileClass]
+    XavcClass: Xavc4kIntraCbgProfileClass | None
 
 
 class XavcSettings(TypedDict, total=False):
     """Required when you set Codec to the value XAVC."""
 
-    AdaptiveQuantization: Optional[XavcAdaptiveQuantization]
-    EntropyEncoding: Optional[XavcEntropyEncoding]
-    FramerateControl: Optional[XavcFramerateControl]
-    FramerateConversionAlgorithm: Optional[XavcFramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max1001]
-    FramerateNumerator: Optional[_integerMin24Max60000]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    Profile: Optional[XavcProfile]
-    SlowPal: Optional[XavcSlowPal]
-    Softness: Optional[_integerMin0Max128]
-    SpatialAdaptiveQuantization: Optional[XavcSpatialAdaptiveQuantization]
-    TemporalAdaptiveQuantization: Optional[XavcTemporalAdaptiveQuantization]
-    Xavc4kIntraCbgProfileSettings: Optional[Xavc4kIntraCbgProfileSettings]
-    Xavc4kIntraVbrProfileSettings: Optional[Xavc4kIntraVbrProfileSettings]
-    Xavc4kProfileSettings: Optional[Xavc4kProfileSettings]
-    XavcHdIntraCbgProfileSettings: Optional[XavcHdIntraCbgProfileSettings]
-    XavcHdProfileSettings: Optional[XavcHdProfileSettings]
+    AdaptiveQuantization: XavcAdaptiveQuantization | None
+    EntropyEncoding: XavcEntropyEncoding | None
+    FramerateControl: XavcFramerateControl | None
+    FramerateConversionAlgorithm: XavcFramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max1001 | None
+    FramerateNumerator: _integerMin24Max60000 | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    Profile: XavcProfile | None
+    SlowPal: XavcSlowPal | None
+    Softness: _integerMin0Max128 | None
+    SpatialAdaptiveQuantization: XavcSpatialAdaptiveQuantization | None
+    TemporalAdaptiveQuantization: XavcTemporalAdaptiveQuantization | None
+    Xavc4kIntraCbgProfileSettings: Xavc4kIntraCbgProfileSettings | None
+    Xavc4kIntraVbrProfileSettings: Xavc4kIntraVbrProfileSettings | None
+    Xavc4kProfileSettings: Xavc4kProfileSettings | None
+    XavcHdIntraCbgProfileSettings: XavcHdIntraCbgProfileSettings | None
+    XavcHdProfileSettings: XavcHdProfileSettings | None
 
 
 class Vp9Settings(TypedDict, total=False):
     """Required when you set Codec to the value VP9."""
 
-    Bitrate: Optional[_integerMin1000Max480000000]
-    FramerateControl: Optional[Vp9FramerateControl]
-    FramerateConversionAlgorithm: Optional[Vp9FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    GopSize: Optional[_doubleMin0]
-    HrdBufferSize: Optional[_integerMin0Max47185920]
-    MaxBitrate: Optional[_integerMin1000Max480000000]
-    ParControl: Optional[Vp9ParControl]
-    ParDenominator: Optional[_integerMin1Max2147483647]
-    ParNumerator: Optional[_integerMin1Max2147483647]
-    QualityTuningLevel: Optional[Vp9QualityTuningLevel]
-    RateControlMode: Optional[Vp9RateControlMode]
+    Bitrate: _integerMin1000Max480000000 | None
+    FramerateControl: Vp9FramerateControl | None
+    FramerateConversionAlgorithm: Vp9FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    GopSize: _doubleMin0 | None
+    HrdBufferSize: _integerMin0Max47185920 | None
+    MaxBitrate: _integerMin1000Max480000000 | None
+    ParControl: Vp9ParControl | None
+    ParDenominator: _integerMin1Max2147483647 | None
+    ParNumerator: _integerMin1Max2147483647 | None
+    QualityTuningLevel: Vp9QualityTuningLevel | None
+    RateControlMode: Vp9RateControlMode | None
 
 
 class Vp8Settings(TypedDict, total=False):
     """Required when you set Codec to the value VP8."""
 
-    Bitrate: Optional[_integerMin1000Max1152000000]
-    FramerateControl: Optional[Vp8FramerateControl]
-    FramerateConversionAlgorithm: Optional[Vp8FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    GopSize: Optional[_doubleMin0]
-    HrdBufferSize: Optional[_integerMin0Max47185920]
-    MaxBitrate: Optional[_integerMin1000Max1152000000]
-    ParControl: Optional[Vp8ParControl]
-    ParDenominator: Optional[_integerMin1Max2147483647]
-    ParNumerator: Optional[_integerMin1Max2147483647]
-    QualityTuningLevel: Optional[Vp8QualityTuningLevel]
-    RateControlMode: Optional[Vp8RateControlMode]
+    Bitrate: _integerMin1000Max1152000000 | None
+    FramerateControl: Vp8FramerateControl | None
+    FramerateConversionAlgorithm: Vp8FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    GopSize: _doubleMin0 | None
+    HrdBufferSize: _integerMin0Max47185920 | None
+    MaxBitrate: _integerMin1000Max1152000000 | None
+    ParControl: Vp8ParControl | None
+    ParDenominator: _integerMin1Max2147483647 | None
+    ParNumerator: _integerMin1Max2147483647 | None
+    QualityTuningLevel: Vp8QualityTuningLevel | None
+    RateControlMode: Vp8RateControlMode | None
 
 
 class Vc3Settings(TypedDict, total=False):
     """Required when you set Codec to the value VC3"""
 
-    FramerateControl: Optional[Vc3FramerateControl]
-    FramerateConversionAlgorithm: Optional[Vc3FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max1001]
-    FramerateNumerator: Optional[_integerMin24Max60000]
-    InterlaceMode: Optional[Vc3InterlaceMode]
-    ScanTypeConversionMode: Optional[Vc3ScanTypeConversionMode]
-    SlowPal: Optional[Vc3SlowPal]
-    Telecine: Optional[Vc3Telecine]
-    Vc3Class: Optional[Vc3Class]
+    FramerateControl: Vc3FramerateControl | None
+    FramerateConversionAlgorithm: Vc3FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max1001 | None
+    FramerateNumerator: _integerMin24Max60000 | None
+    InterlaceMode: Vc3InterlaceMode | None
+    ScanTypeConversionMode: Vc3ScanTypeConversionMode | None
+    SlowPal: Vc3SlowPal | None
+    Telecine: Vc3Telecine | None
+    Vc3Class: Vc3Class | None
 
 
 class UncompressedSettings(TypedDict, total=False):
@@ -4911,73 +5018,80 @@ class UncompressedSettings(TypedDict, total=False):
     value UNCOMPRESSED.
     """
 
-    Fourcc: Optional[UncompressedFourcc]
-    FramerateControl: Optional[UncompressedFramerateControl]
-    FramerateConversionAlgorithm: Optional[UncompressedFramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    InterlaceMode: Optional[UncompressedInterlaceMode]
-    ScanTypeConversionMode: Optional[UncompressedScanTypeConversionMode]
-    SlowPal: Optional[UncompressedSlowPal]
-    Telecine: Optional[UncompressedTelecine]
+    Fourcc: UncompressedFourcc | None
+    FramerateControl: UncompressedFramerateControl | None
+    FramerateConversionAlgorithm: UncompressedFramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    InterlaceMode: UncompressedInterlaceMode | None
+    ScanTypeConversionMode: UncompressedScanTypeConversionMode | None
+    SlowPal: UncompressedSlowPal | None
+    Telecine: UncompressedTelecine | None
 
 
 class ProresSettings(TypedDict, total=False):
     """Required when you set Codec to the value PRORES."""
 
-    ChromaSampling: Optional[ProresChromaSampling]
-    CodecProfile: Optional[ProresCodecProfile]
-    FramerateControl: Optional[ProresFramerateControl]
-    FramerateConversionAlgorithm: Optional[ProresFramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    InterlaceMode: Optional[ProresInterlaceMode]
-    ParControl: Optional[ProresParControl]
-    ParDenominator: Optional[_integerMin1Max2147483647]
-    ParNumerator: Optional[_integerMin1Max2147483647]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    ScanTypeConversionMode: Optional[ProresScanTypeConversionMode]
-    SlowPal: Optional[ProresSlowPal]
-    Telecine: Optional[ProresTelecine]
+    ChromaSampling: ProresChromaSampling | None
+    CodecProfile: ProresCodecProfile | None
+    FramerateControl: ProresFramerateControl | None
+    FramerateConversionAlgorithm: ProresFramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    InterlaceMode: ProresInterlaceMode | None
+    ParControl: ProresParControl | None
+    ParDenominator: _integerMin1Max2147483647 | None
+    ParNumerator: _integerMin1Max2147483647 | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    ScanTypeConversionMode: ProresScanTypeConversionMode | None
+    SlowPal: ProresSlowPal | None
+    Telecine: ProresTelecine | None
+
+
+class PassthroughSettings(TypedDict, total=False):
+    """Optional settings when you set Codec to the value Passthrough."""
+
+    FrameControl: FrameControl | None
+    VideoSelectorMode: VideoSelectorMode | None
 
 
 class Mpeg2Settings(TypedDict, total=False):
     """Required when you set Codec to the value MPEG2."""
 
-    AdaptiveQuantization: Optional[Mpeg2AdaptiveQuantization]
-    Bitrate: Optional[_integerMin1000Max288000000]
-    CodecLevel: Optional[Mpeg2CodecLevel]
-    CodecProfile: Optional[Mpeg2CodecProfile]
-    DynamicSubGop: Optional[Mpeg2DynamicSubGop]
-    FramerateControl: Optional[Mpeg2FramerateControl]
-    FramerateConversionAlgorithm: Optional[Mpeg2FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max1001]
-    FramerateNumerator: Optional[_integerMin24Max60000]
-    GopClosedCadence: Optional[_integerMin0Max2147483647]
-    GopSize: Optional[_doubleMin0]
-    GopSizeUnits: Optional[Mpeg2GopSizeUnits]
-    HrdBufferFinalFillPercentage: Optional[_integerMin0Max100]
-    HrdBufferInitialFillPercentage: Optional[_integerMin0Max100]
-    HrdBufferSize: Optional[_integerMin0Max47185920]
-    InterlaceMode: Optional[Mpeg2InterlaceMode]
-    IntraDcPrecision: Optional[Mpeg2IntraDcPrecision]
-    MaxBitrate: Optional[_integerMin1000Max300000000]
-    MinIInterval: Optional[_integerMin0Max30]
-    NumberBFramesBetweenReferenceFrames: Optional[_integerMin0Max7]
-    ParControl: Optional[Mpeg2ParControl]
-    ParDenominator: Optional[_integerMin1Max2147483647]
-    ParNumerator: Optional[_integerMin1Max2147483647]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    QualityTuningLevel: Optional[Mpeg2QualityTuningLevel]
-    RateControlMode: Optional[Mpeg2RateControlMode]
-    ScanTypeConversionMode: Optional[Mpeg2ScanTypeConversionMode]
-    SceneChangeDetect: Optional[Mpeg2SceneChangeDetect]
-    SlowPal: Optional[Mpeg2SlowPal]
-    Softness: Optional[_integerMin0Max128]
-    SpatialAdaptiveQuantization: Optional[Mpeg2SpatialAdaptiveQuantization]
-    Syntax: Optional[Mpeg2Syntax]
-    Telecine: Optional[Mpeg2Telecine]
-    TemporalAdaptiveQuantization: Optional[Mpeg2TemporalAdaptiveQuantization]
+    AdaptiveQuantization: Mpeg2AdaptiveQuantization | None
+    Bitrate: _integerMin1000Max288000000 | None
+    CodecLevel: Mpeg2CodecLevel | None
+    CodecProfile: Mpeg2CodecProfile | None
+    DynamicSubGop: Mpeg2DynamicSubGop | None
+    FramerateControl: Mpeg2FramerateControl | None
+    FramerateConversionAlgorithm: Mpeg2FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max1001 | None
+    FramerateNumerator: _integerMin24Max60000 | None
+    GopClosedCadence: _integerMin0Max2147483647 | None
+    GopSize: _doubleMin0 | None
+    GopSizeUnits: Mpeg2GopSizeUnits | None
+    HrdBufferFinalFillPercentage: _integerMin0Max100 | None
+    HrdBufferInitialFillPercentage: _integerMin0Max100 | None
+    HrdBufferSize: _integerMin0Max47185920 | None
+    InterlaceMode: Mpeg2InterlaceMode | None
+    IntraDcPrecision: Mpeg2IntraDcPrecision | None
+    MaxBitrate: _integerMin1000Max300000000 | None
+    MinIInterval: _integerMin0Max30 | None
+    NumberBFramesBetweenReferenceFrames: _integerMin0Max7 | None
+    ParControl: Mpeg2ParControl | None
+    ParDenominator: _integerMin1Max2147483647 | None
+    ParNumerator: _integerMin1Max2147483647 | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    QualityTuningLevel: Mpeg2QualityTuningLevel | None
+    RateControlMode: Mpeg2RateControlMode | None
+    ScanTypeConversionMode: Mpeg2ScanTypeConversionMode | None
+    SceneChangeDetect: Mpeg2SceneChangeDetect | None
+    SlowPal: Mpeg2SlowPal | None
+    Softness: _integerMin0Max128 | None
+    SpatialAdaptiveQuantization: Mpeg2SpatialAdaptiveQuantization | None
+    Syntax: Mpeg2Syntax | None
+    Telecine: Mpeg2Telecine | None
+    TemporalAdaptiveQuantization: Mpeg2TemporalAdaptiveQuantization | None
 
 
 class H265QvbrSettings(TypedDict, total=False):
@@ -4985,59 +5099,59 @@ class H265QvbrSettings(TypedDict, total=False):
     codec. Use these settings only when you set QVBR for Rate control mode.
     """
 
-    MaxAverageBitrate: Optional[_integerMin1000Max1466400000]
-    QvbrQualityLevel: Optional[_integerMin1Max10]
-    QvbrQualityLevelFineTune: Optional[_doubleMin0Max1]
+    MaxAverageBitrate: _integerMin1000Max1466400000 | None
+    QvbrQualityLevel: _integerMin1Max10 | None
+    QvbrQualityLevelFineTune: _doubleMin0Max1 | None
 
 
 class H265Settings(TypedDict, total=False):
     """Settings for H265 codec"""
 
-    AdaptiveQuantization: Optional[H265AdaptiveQuantization]
-    AlternateTransferFunctionSei: Optional[H265AlternateTransferFunctionSei]
-    BandwidthReductionFilter: Optional[BandwidthReductionFilter]
-    Bitrate: Optional[_integerMin1000Max1466400000]
-    CodecLevel: Optional[H265CodecLevel]
-    CodecProfile: Optional[H265CodecProfile]
-    Deblocking: Optional[H265Deblocking]
-    DynamicSubGop: Optional[H265DynamicSubGop]
-    EndOfStreamMarkers: Optional[H265EndOfStreamMarkers]
-    FlickerAdaptiveQuantization: Optional[H265FlickerAdaptiveQuantization]
-    FramerateControl: Optional[H265FramerateControl]
-    FramerateConversionAlgorithm: Optional[H265FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    GopBReference: Optional[H265GopBReference]
-    GopClosedCadence: Optional[_integerMin0Max2147483647]
-    GopSize: Optional[_doubleMin0]
-    GopSizeUnits: Optional[H265GopSizeUnits]
-    HrdBufferFinalFillPercentage: Optional[_integerMin0Max100]
-    HrdBufferInitialFillPercentage: Optional[_integerMin0Max100]
-    HrdBufferSize: Optional[_integerMin0Max1466400000]
-    InterlaceMode: Optional[H265InterlaceMode]
-    MaxBitrate: Optional[_integerMin1000Max1466400000]
-    MinIInterval: Optional[_integerMin0Max30]
-    NumberBFramesBetweenReferenceFrames: Optional[_integerMin0Max7]
-    NumberReferenceFrames: Optional[_integerMin1Max6]
-    ParControl: Optional[H265ParControl]
-    ParDenominator: Optional[_integerMin1Max2147483647]
-    ParNumerator: Optional[_integerMin1Max2147483647]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    QualityTuningLevel: Optional[H265QualityTuningLevel]
-    QvbrSettings: Optional[H265QvbrSettings]
-    RateControlMode: Optional[H265RateControlMode]
-    SampleAdaptiveOffsetFilterMode: Optional[H265SampleAdaptiveOffsetFilterMode]
-    ScanTypeConversionMode: Optional[H265ScanTypeConversionMode]
-    SceneChangeDetect: Optional[H265SceneChangeDetect]
-    Slices: Optional[_integerMin1Max32]
-    SlowPal: Optional[H265SlowPal]
-    SpatialAdaptiveQuantization: Optional[H265SpatialAdaptiveQuantization]
-    Telecine: Optional[H265Telecine]
-    TemporalAdaptiveQuantization: Optional[H265TemporalAdaptiveQuantization]
-    TemporalIds: Optional[H265TemporalIds]
-    Tiles: Optional[H265Tiles]
-    UnregisteredSeiTimecode: Optional[H265UnregisteredSeiTimecode]
-    WriteMp4PackagingType: Optional[H265WriteMp4PackagingType]
+    AdaptiveQuantization: H265AdaptiveQuantization | None
+    AlternateTransferFunctionSei: H265AlternateTransferFunctionSei | None
+    BandwidthReductionFilter: BandwidthReductionFilter | None
+    Bitrate: _integerMin1000Max1466400000 | None
+    CodecLevel: H265CodecLevel | None
+    CodecProfile: H265CodecProfile | None
+    Deblocking: H265Deblocking | None
+    DynamicSubGop: H265DynamicSubGop | None
+    EndOfStreamMarkers: H265EndOfStreamMarkers | None
+    FlickerAdaptiveQuantization: H265FlickerAdaptiveQuantization | None
+    FramerateControl: H265FramerateControl | None
+    FramerateConversionAlgorithm: H265FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    GopBReference: H265GopBReference | None
+    GopClosedCadence: _integerMin0Max2147483647 | None
+    GopSize: _doubleMin0 | None
+    GopSizeUnits: H265GopSizeUnits | None
+    HrdBufferFinalFillPercentage: _integerMin0Max100 | None
+    HrdBufferInitialFillPercentage: _integerMin0Max100 | None
+    HrdBufferSize: _integerMin0Max1466400000 | None
+    InterlaceMode: H265InterlaceMode | None
+    MaxBitrate: _integerMin1000Max1466400000 | None
+    MinIInterval: _integerMin0Max30 | None
+    NumberBFramesBetweenReferenceFrames: _integerMin0Max7 | None
+    NumberReferenceFrames: _integerMin1Max6 | None
+    ParControl: H265ParControl | None
+    ParDenominator: _integerMin1Max2147483647 | None
+    ParNumerator: _integerMin1Max2147483647 | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    QualityTuningLevel: H265QualityTuningLevel | None
+    QvbrSettings: H265QvbrSettings | None
+    RateControlMode: H265RateControlMode | None
+    SampleAdaptiveOffsetFilterMode: H265SampleAdaptiveOffsetFilterMode | None
+    ScanTypeConversionMode: H265ScanTypeConversionMode | None
+    SceneChangeDetect: H265SceneChangeDetect | None
+    Slices: _integerMin1Max32 | None
+    SlowPal: H265SlowPal | None
+    SpatialAdaptiveQuantization: H265SpatialAdaptiveQuantization | None
+    Telecine: H265Telecine | None
+    TemporalAdaptiveQuantization: H265TemporalAdaptiveQuantization | None
+    TemporalIds: H265TemporalIds | None
+    Tiles: H265Tiles | None
+    UnregisteredSeiTimecode: H265UnregisteredSeiTimecode | None
+    WriteMp4PackagingType: H265WriteMp4PackagingType | None
 
 
 class H264QvbrSettings(TypedDict, total=False):
@@ -5045,60 +5159,60 @@ class H264QvbrSettings(TypedDict, total=False):
     codec. Use these settings only when you set QVBR for Rate control mode.
     """
 
-    MaxAverageBitrate: Optional[_integerMin1000Max1152000000]
-    QvbrQualityLevel: Optional[_integerMin1Max10]
-    QvbrQualityLevelFineTune: Optional[_doubleMin0Max1]
+    MaxAverageBitrate: _integerMin1000Max1152000000 | None
+    QvbrQualityLevel: _integerMin1Max10 | None
+    QvbrQualityLevelFineTune: _doubleMin0Max1 | None
 
 
 class H264Settings(TypedDict, total=False):
     """Required when you set Codec to the value H_264."""
 
-    AdaptiveQuantization: Optional[H264AdaptiveQuantization]
-    BandwidthReductionFilter: Optional[BandwidthReductionFilter]
-    Bitrate: Optional[_integerMin1000Max1152000000]
-    CodecLevel: Optional[H264CodecLevel]
-    CodecProfile: Optional[H264CodecProfile]
-    DynamicSubGop: Optional[H264DynamicSubGop]
-    EndOfStreamMarkers: Optional[H264EndOfStreamMarkers]
-    EntropyEncoding: Optional[H264EntropyEncoding]
-    FieldEncoding: Optional[H264FieldEncoding]
-    FlickerAdaptiveQuantization: Optional[H264FlickerAdaptiveQuantization]
-    FramerateControl: Optional[H264FramerateControl]
-    FramerateConversionAlgorithm: Optional[H264FramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    GopBReference: Optional[H264GopBReference]
-    GopClosedCadence: Optional[_integerMin0Max2147483647]
-    GopSize: Optional[_doubleMin0]
-    GopSizeUnits: Optional[H264GopSizeUnits]
-    HrdBufferFinalFillPercentage: Optional[_integerMin0Max100]
-    HrdBufferInitialFillPercentage: Optional[_integerMin0Max100]
-    HrdBufferSize: Optional[_integerMin0Max1152000000]
-    InterlaceMode: Optional[H264InterlaceMode]
-    MaxBitrate: Optional[_integerMin1000Max1152000000]
-    MinIInterval: Optional[_integerMin0Max30]
-    NumberBFramesBetweenReferenceFrames: Optional[_integerMin0Max7]
-    NumberReferenceFrames: Optional[_integerMin1Max6]
-    ParControl: Optional[H264ParControl]
-    ParDenominator: Optional[_integerMin1Max2147483647]
-    ParNumerator: Optional[_integerMin1Max2147483647]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    QualityTuningLevel: Optional[H264QualityTuningLevel]
-    QvbrSettings: Optional[H264QvbrSettings]
-    RateControlMode: Optional[H264RateControlMode]
-    RepeatPps: Optional[H264RepeatPps]
-    SaliencyAwareEncoding: Optional[H264SaliencyAwareEncoding]
-    ScanTypeConversionMode: Optional[H264ScanTypeConversionMode]
-    SceneChangeDetect: Optional[H264SceneChangeDetect]
-    Slices: Optional[_integerMin1Max32]
-    SlowPal: Optional[H264SlowPal]
-    Softness: Optional[_integerMin0Max128]
-    SpatialAdaptiveQuantization: Optional[H264SpatialAdaptiveQuantization]
-    Syntax: Optional[H264Syntax]
-    Telecine: Optional[H264Telecine]
-    TemporalAdaptiveQuantization: Optional[H264TemporalAdaptiveQuantization]
-    UnregisteredSeiTimecode: Optional[H264UnregisteredSeiTimecode]
-    WriteMp4PackagingType: Optional[H264WriteMp4PackagingType]
+    AdaptiveQuantization: H264AdaptiveQuantization | None
+    BandwidthReductionFilter: BandwidthReductionFilter | None
+    Bitrate: _integerMin1000Max1152000000 | None
+    CodecLevel: H264CodecLevel | None
+    CodecProfile: H264CodecProfile | None
+    DynamicSubGop: H264DynamicSubGop | None
+    EndOfStreamMarkers: H264EndOfStreamMarkers | None
+    EntropyEncoding: H264EntropyEncoding | None
+    FieldEncoding: H264FieldEncoding | None
+    FlickerAdaptiveQuantization: H264FlickerAdaptiveQuantization | None
+    FramerateControl: H264FramerateControl | None
+    FramerateConversionAlgorithm: H264FramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    GopBReference: H264GopBReference | None
+    GopClosedCadence: _integerMin0Max2147483647 | None
+    GopSize: _doubleMin0 | None
+    GopSizeUnits: H264GopSizeUnits | None
+    HrdBufferFinalFillPercentage: _integerMin0Max100 | None
+    HrdBufferInitialFillPercentage: _integerMin0Max100 | None
+    HrdBufferSize: _integerMin0Max1152000000 | None
+    InterlaceMode: H264InterlaceMode | None
+    MaxBitrate: _integerMin1000Max1152000000 | None
+    MinIInterval: _integerMin0Max30 | None
+    NumberBFramesBetweenReferenceFrames: _integerMin0Max7 | None
+    NumberReferenceFrames: _integerMin1Max6 | None
+    ParControl: H264ParControl | None
+    ParDenominator: _integerMin1Max2147483647 | None
+    ParNumerator: _integerMin1Max2147483647 | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    QualityTuningLevel: H264QualityTuningLevel | None
+    QvbrSettings: H264QvbrSettings | None
+    RateControlMode: H264RateControlMode | None
+    RepeatPps: H264RepeatPps | None
+    SaliencyAwareEncoding: H264SaliencyAwareEncoding | None
+    ScanTypeConversionMode: H264ScanTypeConversionMode | None
+    SceneChangeDetect: H264SceneChangeDetect | None
+    Slices: _integerMin1Max32 | None
+    SlowPal: H264SlowPal | None
+    Softness: _integerMin0Max128 | None
+    SpatialAdaptiveQuantization: H264SpatialAdaptiveQuantization | None
+    Syntax: H264Syntax | None
+    Telecine: H264Telecine | None
+    TemporalAdaptiveQuantization: H264TemporalAdaptiveQuantization | None
+    UnregisteredSeiTimecode: H264UnregisteredSeiTimecode | None
+    WriteMp4PackagingType: H264WriteMp4PackagingType | None
 
 
 class GifSettings(TypedDict, total=False):
@@ -5106,19 +5220,19 @@ class GifSettings(TypedDict, total=False):
     to the value GIF
     """
 
-    FramerateControl: Optional[GifFramerateControl]
-    FramerateConversionAlgorithm: Optional[GifFramerateConversionAlgorithm]
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
+    FramerateControl: GifFramerateControl | None
+    FramerateConversionAlgorithm: GifFramerateConversionAlgorithm | None
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
 
 
 class FrameCaptureSettings(TypedDict, total=False):
     """Required when you set Codec to the value FRAME_CAPTURE."""
 
-    FramerateDenominator: Optional[_integerMin1Max2147483647]
-    FramerateNumerator: Optional[_integerMin1Max2147483647]
-    MaxCaptures: Optional[_integerMin1Max10000000]
-    Quality: Optional[_integerMin1Max100]
+    FramerateDenominator: _integerMin1Max2147483647 | None
+    FramerateNumerator: _integerMin1Max2147483647 | None
+    MaxCaptures: _integerMin1Max10000000 | None
+    Quality: _integerMin1Max100 | None
 
 
 class VideoCodecSettings(TypedDict, total=False):
@@ -5134,20 +5248,21 @@ class VideoCodecSettings(TypedDict, total=False):
     Vp9Settings \\* XAVC, XavcSettings
     """
 
-    Av1Settings: Optional[Av1Settings]
-    AvcIntraSettings: Optional[AvcIntraSettings]
-    Codec: Optional[VideoCodec]
-    FrameCaptureSettings: Optional[FrameCaptureSettings]
-    GifSettings: Optional[GifSettings]
-    H264Settings: Optional[H264Settings]
-    H265Settings: Optional[H265Settings]
-    Mpeg2Settings: Optional[Mpeg2Settings]
-    ProresSettings: Optional[ProresSettings]
-    UncompressedSettings: Optional[UncompressedSettings]
-    Vc3Settings: Optional[Vc3Settings]
-    Vp8Settings: Optional[Vp8Settings]
-    Vp9Settings: Optional[Vp9Settings]
-    XavcSettings: Optional[XavcSettings]
+    Av1Settings: Av1Settings | None
+    AvcIntraSettings: AvcIntraSettings | None
+    Codec: VideoCodec | None
+    FrameCaptureSettings: FrameCaptureSettings | None
+    GifSettings: GifSettings | None
+    H264Settings: H264Settings | None
+    H265Settings: H265Settings | None
+    Mpeg2Settings: Mpeg2Settings | None
+    PassthroughSettings: PassthroughSettings | None
+    ProresSettings: ProresSettings | None
+    UncompressedSettings: UncompressedSettings | None
+    Vc3Settings: Vc3Settings | None
+    Vp8Settings: Vp8Settings | None
+    Vp9Settings: Vp9Settings | None
+    XavcSettings: XavcSettings | None
 
 
 class VideoDescription(TypedDict, total=False):
@@ -5155,45 +5270,45 @@ class VideoDescription(TypedDict, total=False):
     settings depend on the video codec that you choose.
     """
 
-    AfdSignaling: Optional[AfdSignaling]
-    AntiAlias: Optional[AntiAlias]
-    ChromaPositionMode: Optional[ChromaPositionMode]
-    CodecSettings: Optional[VideoCodecSettings]
-    ColorMetadata: Optional[ColorMetadata]
-    Crop: Optional[Rectangle]
-    DropFrameTimecode: Optional[DropFrameTimecode]
-    FixedAfd: Optional[_integerMin0Max15]
-    Height: Optional[_integerMin32Max8192]
-    Position: Optional[Rectangle]
-    RespondToAfd: Optional[RespondToAfd]
-    ScalingBehavior: Optional[ScalingBehavior]
-    Sharpness: Optional[_integerMin0Max100]
-    TimecodeInsertion: Optional[VideoTimecodeInsertion]
-    TimecodeTrack: Optional[TimecodeTrack]
-    VideoPreprocessors: Optional[VideoPreprocessor]
-    Width: Optional[_integerMin32Max8192]
+    AfdSignaling: AfdSignaling | None
+    AntiAlias: AntiAlias | None
+    ChromaPositionMode: ChromaPositionMode | None
+    CodecSettings: VideoCodecSettings | None
+    ColorMetadata: ColorMetadata | None
+    Crop: Rectangle | None
+    DropFrameTimecode: DropFrameTimecode | None
+    FixedAfd: _integerMin0Max15 | None
+    Height: _integerMin32Max8192 | None
+    Position: Rectangle | None
+    RespondToAfd: RespondToAfd | None
+    ScalingBehavior: ScalingBehavior | None
+    Sharpness: _integerMin0Max100 | None
+    TimecodeInsertion: VideoTimecodeInsertion | None
+    TimecodeTrack: TimecodeTrack | None
+    VideoPreprocessors: VideoPreprocessor | None
+    Width: _integerMin32Max8192 | None
 
 
 class HlsSettings(TypedDict, total=False):
     """Settings for HLS output groups"""
 
-    AudioGroupId: Optional[_string]
-    AudioOnlyContainer: Optional[HlsAudioOnlyContainer]
-    AudioRenditionSets: Optional[_string]
-    AudioTrackType: Optional[HlsAudioTrackType]
-    DescriptiveVideoServiceFlag: Optional[HlsDescriptiveVideoServiceFlag]
-    IFrameOnlyManifest: Optional[HlsIFrameOnlyManifest]
-    SegmentModifier: Optional[_string]
+    AudioGroupId: _string | None
+    AudioOnlyContainer: HlsAudioOnlyContainer | None
+    AudioRenditionSets: _string | None
+    AudioTrackType: HlsAudioTrackType | None
+    DescriptiveVideoServiceFlag: HlsDescriptiveVideoServiceFlag | None
+    IFrameOnlyManifest: HlsIFrameOnlyManifest | None
+    SegmentModifier: _string | None
 
 
 class OutputSettings(TypedDict, total=False):
     """Specific settings for this type of output."""
 
-    HlsSettings: Optional[HlsSettings]
+    HlsSettings: HlsSettings | None
 
 
-_listOfCaptionDescription = List[CaptionDescription]
-_listOfAudioDescription = List[AudioDescription]
+_listOfCaptionDescription = list[CaptionDescription]
+_listOfAudioDescription = list[AudioDescription]
 
 
 class Output(TypedDict, total=False):
@@ -5203,18 +5318,18 @@ class Output(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/create-outputs.html.
     """
 
-    AudioDescriptions: Optional[_listOfAudioDescription]
-    CaptionDescriptions: Optional[_listOfCaptionDescription]
-    ContainerSettings: Optional[ContainerSettings]
-    Extension: Optional[_stringMax256]
-    NameModifier: Optional[_stringMin1Max256]
-    OutputSettings: Optional[OutputSettings]
-    Preset: Optional[_stringMin0]
-    VideoDescription: Optional[VideoDescription]
+    AudioDescriptions: _listOfAudioDescription | None
+    CaptionDescriptions: _listOfCaptionDescription | None
+    ContainerSettings: ContainerSettings | None
+    Extension: _stringMax256 | None
+    NameModifier: _stringMin1Max256 | None
+    OutputSettings: OutputSettings | None
+    Preset: _stringMin0 | None
+    VideoDescription: VideoDescription | None
 
 
-_listOfOutput = List[Output]
-_listOf__stringPattern09aFAF809aFAF409aFAF409aFAF409aFAF12 = List[
+_listOfOutput = list[Output]
+_listOf__stringPattern09aFAF809aFAF409aFAF409aFAF409aFAF12 = list[
     _stringPattern09aFAF809aFAF409aFAF409aFAF409aFAF12
 ]
 
@@ -5226,11 +5341,11 @@ class SpekeKeyProvider(TypedDict, total=False):
     instead.
     """
 
-    CertificateArn: Optional[_stringPatternArnAwsUsGovAcm]
-    EncryptionContractConfiguration: Optional[EncryptionContractConfiguration]
-    ResourceId: Optional[_string]
-    SystemIds: Optional[_listOf__stringPattern09aFAF809aFAF409aFAF409aFAF409aFAF12]
-    Url: Optional[_stringPatternHttpsD]
+    CertificateArn: _stringPatternArnAwsUsGovAcm | None
+    EncryptionContractConfiguration: EncryptionContractConfiguration | None
+    ResourceId: _string | None
+    SystemIds: _listOf__stringPattern09aFAF809aFAF409aFAF409aFAF409aFAF12 | None
+    Url: _stringPatternHttpsD | None
 
 
 class MsSmoothEncryptionSettings(TypedDict, total=False):
@@ -5238,7 +5353,7 @@ class MsSmoothEncryptionSettings(TypedDict, total=False):
     SpekeKeyProvider.
     """
 
-    SpekeKeyProvider: Optional[SpekeKeyProvider]
+    SpekeKeyProvider: SpekeKeyProvider | None
 
 
 class MsSmoothAdditionalManifest(TypedDict, total=False):
@@ -5247,11 +5362,11 @@ class MsSmoothAdditionalManifest(TypedDict, total=False):
     Each manifest can reference a different subset of outputs in the group.
     """
 
-    ManifestNameModifier: Optional[_stringMin1]
-    SelectedOutputs: Optional[_listOf__stringMin1]
+    ManifestNameModifier: _stringMin1 | None
+    SelectedOutputs: _listOf__stringMin1 | None
 
 
-_listOfMsSmoothAdditionalManifest = List[MsSmoothAdditionalManifest]
+_listOfMsSmoothAdditionalManifest = list[MsSmoothAdditionalManifest]
 
 
 class MsSmoothGroupSettings(TypedDict, total=False):
@@ -5260,14 +5375,14 @@ class MsSmoothGroupSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/outputs-file-ABR.html.
     """
 
-    AdditionalManifests: Optional[_listOfMsSmoothAdditionalManifest]
-    AudioDeduplication: Optional[MsSmoothAudioDeduplication]
-    Destination: Optional[_stringPatternS3]
-    DestinationSettings: Optional[DestinationSettings]
-    Encryption: Optional[MsSmoothEncryptionSettings]
-    FragmentLength: Optional[_integerMin1Max2147483647]
-    FragmentLengthControl: Optional[MsSmoothFragmentLengthControl]
-    ManifestEncoding: Optional[MsSmoothManifestEncoding]
+    AdditionalManifests: _listOfMsSmoothAdditionalManifest | None
+    AudioDeduplication: MsSmoothAudioDeduplication | None
+    Destination: _stringPatternS3 | None
+    DestinationSettings: DestinationSettings | None
+    Encryption: MsSmoothEncryptionSettings | None
+    FragmentLength: _integerMin1Max2147483647 | None
+    FragmentLengthControl: MsSmoothFragmentLengthControl | None
+    ManifestEncoding: MsSmoothManifestEncoding | None
 
 
 class HlsImageBasedTrickPlaySettings(TypedDict, total=False):
@@ -5275,36 +5390,36 @@ class HlsImageBasedTrickPlaySettings(TypedDict, total=False):
     ADVANCED
     """
 
-    IntervalCadence: Optional[HlsIntervalCadence]
-    ThumbnailHeight: Optional[_integerMin2Max4096]
-    ThumbnailInterval: Optional[_doubleMin0Max2147483647]
-    ThumbnailWidth: Optional[_integerMin8Max4096]
-    TileHeight: Optional[_integerMin1Max2048]
-    TileWidth: Optional[_integerMin1Max512]
+    IntervalCadence: HlsIntervalCadence | None
+    ThumbnailHeight: _integerMin2Max4096 | None
+    ThumbnailInterval: _doubleMin0Max2147483647 | None
+    ThumbnailWidth: _integerMin8Max4096 | None
+    TileHeight: _integerMin1Max2048 | None
+    TileWidth: _integerMin1Max512 | None
 
 
 class HlsEncryptionSettings(TypedDict, total=False):
     """Settings for HLS encryption"""
 
-    ConstantInitializationVector: Optional[_stringMin32Max32Pattern09aFAF32]
-    EncryptionMethod: Optional[HlsEncryptionType]
-    InitializationVectorInManifest: Optional[HlsInitializationVectorInManifest]
-    OfflineEncrypted: Optional[HlsOfflineEncrypted]
-    SpekeKeyProvider: Optional[SpekeKeyProvider]
-    StaticKeyProvider: Optional[StaticKeyProvider]
-    Type: Optional[HlsKeyProviderType]
+    ConstantInitializationVector: _stringMin32Max32Pattern09aFAF32 | None
+    EncryptionMethod: HlsEncryptionType | None
+    InitializationVectorInManifest: HlsInitializationVectorInManifest | None
+    OfflineEncrypted: HlsOfflineEncrypted | None
+    SpekeKeyProvider: SpekeKeyProvider | None
+    StaticKeyProvider: StaticKeyProvider | None
+    Type: HlsKeyProviderType | None
 
 
 class HlsCaptionLanguageMapping(TypedDict, total=False):
     """Caption Language Mapping"""
 
-    CaptionChannel: Optional[_integerMinNegative2147483648Max2147483647]
-    CustomLanguageCode: Optional[_stringMin3Max3PatternAZaZ3]
-    LanguageCode: Optional[LanguageCode]
-    LanguageDescription: Optional[_string]
+    CaptionChannel: _integerMinNegative2147483648Max2147483647 | None
+    CustomLanguageCode: _stringMin3Max3PatternAZaZ3 | None
+    LanguageCode: LanguageCode | None
+    LanguageDescription: _string | None
 
 
-_listOfHlsCaptionLanguageMapping = List[HlsCaptionLanguageMapping]
+_listOfHlsCaptionLanguageMapping = list[HlsCaptionLanguageMapping]
 
 
 class HlsAdditionalManifest(TypedDict, total=False):
@@ -5313,12 +5428,12 @@ class HlsAdditionalManifest(TypedDict, total=False):
     different subset of outputs in the group.
     """
 
-    ManifestNameModifier: Optional[_stringMin1]
-    SelectedOutputs: Optional[_listOf__stringMin1]
+    ManifestNameModifier: _stringMin1 | None
+    SelectedOutputs: _listOf__stringMin1 | None
 
 
-_listOfHlsAdditionalManifest = List[HlsAdditionalManifest]
-_listOfHlsAdMarkers = List[HlsAdMarkers]
+_listOfHlsAdditionalManifest = list[HlsAdditionalManifest]
+_listOfHlsAdMarkers = list[HlsAdMarkers]
 
 
 class HlsGroupSettings(TypedDict, total=False):
@@ -5326,38 +5441,38 @@ class HlsGroupSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/outputs-file-ABR.html.
     """
 
-    AdMarkers: Optional[_listOfHlsAdMarkers]
-    AdditionalManifests: Optional[_listOfHlsAdditionalManifest]
-    AudioOnlyHeader: Optional[HlsAudioOnlyHeader]
-    BaseUrl: Optional[_string]
-    CaptionLanguageMappings: Optional[_listOfHlsCaptionLanguageMapping]
-    CaptionLanguageSetting: Optional[HlsCaptionLanguageSetting]
-    CaptionSegmentLengthControl: Optional[HlsCaptionSegmentLengthControl]
-    ClientCache: Optional[HlsClientCache]
-    CodecSpecification: Optional[HlsCodecSpecification]
-    Destination: Optional[_stringPatternS3]
-    DestinationSettings: Optional[DestinationSettings]
-    DirectoryStructure: Optional[HlsDirectoryStructure]
-    Encryption: Optional[HlsEncryptionSettings]
-    ImageBasedTrickPlay: Optional[HlsImageBasedTrickPlay]
-    ImageBasedTrickPlaySettings: Optional[HlsImageBasedTrickPlaySettings]
-    ManifestCompression: Optional[HlsManifestCompression]
-    ManifestDurationFormat: Optional[HlsManifestDurationFormat]
-    MinFinalSegmentLength: Optional[_doubleMin0Max2147483647]
-    MinSegmentLength: Optional[_integerMin0Max2147483647]
-    OutputSelection: Optional[HlsOutputSelection]
-    ProgramDateTime: Optional[HlsProgramDateTime]
-    ProgramDateTimePeriod: Optional[_integerMin0Max3600]
-    ProgressiveWriteHlsManifest: Optional[HlsProgressiveWriteHlsManifest]
-    SegmentControl: Optional[HlsSegmentControl]
-    SegmentLength: Optional[_integerMin1Max2147483647]
-    SegmentLengthControl: Optional[HlsSegmentLengthControl]
-    SegmentsPerSubdirectory: Optional[_integerMin1Max2147483647]
-    StreamInfResolution: Optional[HlsStreamInfResolution]
-    TargetDurationCompatibilityMode: Optional[HlsTargetDurationCompatibilityMode]
-    TimedMetadataId3Frame: Optional[HlsTimedMetadataId3Frame]
-    TimedMetadataId3Period: Optional[_integerMinNegative2147483648Max2147483647]
-    TimestampDeltaMilliseconds: Optional[_integerMinNegative2147483648Max2147483647]
+    AdMarkers: _listOfHlsAdMarkers | None
+    AdditionalManifests: _listOfHlsAdditionalManifest | None
+    AudioOnlyHeader: HlsAudioOnlyHeader | None
+    BaseUrl: _string | None
+    CaptionLanguageMappings: _listOfHlsCaptionLanguageMapping | None
+    CaptionLanguageSetting: HlsCaptionLanguageSetting | None
+    CaptionSegmentLengthControl: HlsCaptionSegmentLengthControl | None
+    ClientCache: HlsClientCache | None
+    CodecSpecification: HlsCodecSpecification | None
+    Destination: _stringPatternS3 | None
+    DestinationSettings: DestinationSettings | None
+    DirectoryStructure: HlsDirectoryStructure | None
+    Encryption: HlsEncryptionSettings | None
+    ImageBasedTrickPlay: HlsImageBasedTrickPlay | None
+    ImageBasedTrickPlaySettings: HlsImageBasedTrickPlaySettings | None
+    ManifestCompression: HlsManifestCompression | None
+    ManifestDurationFormat: HlsManifestDurationFormat | None
+    MinFinalSegmentLength: _doubleMin0Max2147483647 | None
+    MinSegmentLength: _integerMin0Max2147483647 | None
+    OutputSelection: HlsOutputSelection | None
+    ProgramDateTime: HlsProgramDateTime | None
+    ProgramDateTimePeriod: _integerMin0Max3600 | None
+    ProgressiveWriteHlsManifest: HlsProgressiveWriteHlsManifest | None
+    SegmentControl: HlsSegmentControl | None
+    SegmentLength: _integerMin1Max2147483647 | None
+    SegmentLengthControl: HlsSegmentLengthControl | None
+    SegmentsPerSubdirectory: _integerMin1Max2147483647 | None
+    StreamInfResolution: HlsStreamInfResolution | None
+    TargetDurationCompatibilityMode: HlsTargetDurationCompatibilityMode | None
+    TimedMetadataId3Frame: HlsTimedMetadataId3Frame | None
+    TimedMetadataId3Period: _integerMinNegative2147483648Max2147483647 | None
+    TimestampDeltaMilliseconds: _integerMinNegative2147483648Max2147483647 | None
 
 
 class FileGroupSettings(TypedDict, total=False):
@@ -5366,8 +5481,8 @@ class FileGroupSettings(TypedDict, total=False):
     streaming package.
     """
 
-    Destination: Optional[_stringPatternS3]
-    DestinationSettings: Optional[DestinationSettings]
+    Destination: _stringPatternS3 | None
+    DestinationSettings: DestinationSettings | None
 
 
 class DashIsoImageBasedTrickPlaySettings(TypedDict, total=False):
@@ -5375,19 +5490,19 @@ class DashIsoImageBasedTrickPlaySettings(TypedDict, total=False):
     ADVANCED
     """
 
-    IntervalCadence: Optional[DashIsoIntervalCadence]
-    ThumbnailHeight: Optional[_integerMin1Max4096]
-    ThumbnailInterval: Optional[_doubleMin0Max2147483647]
-    ThumbnailWidth: Optional[_integerMin8Max4096]
-    TileHeight: Optional[_integerMin1Max2048]
-    TileWidth: Optional[_integerMin1Max512]
+    IntervalCadence: DashIsoIntervalCadence | None
+    ThumbnailHeight: _integerMin1Max4096 | None
+    ThumbnailInterval: _doubleMin0Max2147483647 | None
+    ThumbnailWidth: _integerMin8Max4096 | None
+    TileHeight: _integerMin1Max2048 | None
+    TileWidth: _integerMin1Max512 | None
 
 
 class DashIsoEncryptionSettings(TypedDict, total=False):
     """Specifies DRM settings for DASH outputs."""
 
-    PlaybackDeviceCompatibility: Optional[DashIsoPlaybackDeviceCompatibility]
-    SpekeKeyProvider: Optional[SpekeKeyProvider]
+    PlaybackDeviceCompatibility: DashIsoPlaybackDeviceCompatibility | None
+    SpekeKeyProvider: SpekeKeyProvider | None
 
 
 class DashAdditionalManifest(TypedDict, total=False):
@@ -5396,11 +5511,11 @@ class DashAdditionalManifest(TypedDict, total=False):
     different subset of outputs in the group.
     """
 
-    ManifestNameModifier: Optional[_stringMin1]
-    SelectedOutputs: Optional[_listOf__stringMin1]
+    ManifestNameModifier: _stringMin1 | None
+    SelectedOutputs: _listOf__stringMin1 | None
 
 
-_listOfDashAdditionalManifest = List[DashAdditionalManifest]
+_listOfDashAdditionalManifest = list[DashAdditionalManifest]
 
 
 class DashIsoGroupSettings(TypedDict, total=False):
@@ -5408,53 +5523,53 @@ class DashIsoGroupSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/outputs-file-ABR.html.
     """
 
-    AdditionalManifests: Optional[_listOfDashAdditionalManifest]
-    AudioChannelConfigSchemeIdUri: Optional[DashIsoGroupAudioChannelConfigSchemeIdUri]
-    BaseUrl: Optional[_string]
-    DashIFrameTrickPlayNameModifier: Optional[_stringMin1Max256]
-    DashManifestStyle: Optional[DashManifestStyle]
-    Destination: Optional[_stringPatternS3]
-    DestinationSettings: Optional[DestinationSettings]
-    Encryption: Optional[DashIsoEncryptionSettings]
-    FragmentLength: Optional[_integerMin1Max2147483647]
-    HbbtvCompliance: Optional[DashIsoHbbtvCompliance]
-    ImageBasedTrickPlay: Optional[DashIsoImageBasedTrickPlay]
-    ImageBasedTrickPlaySettings: Optional[DashIsoImageBasedTrickPlaySettings]
-    MinBufferTime: Optional[_integerMin0Max2147483647]
-    MinFinalSegmentLength: Optional[_doubleMin0Max2147483647]
-    MpdManifestBandwidthType: Optional[DashIsoMpdManifestBandwidthType]
-    MpdProfile: Optional[DashIsoMpdProfile]
-    PtsOffsetHandlingForBFrames: Optional[DashIsoPtsOffsetHandlingForBFrames]
-    SegmentControl: Optional[DashIsoSegmentControl]
-    SegmentLength: Optional[_integerMin1Max2147483647]
-    SegmentLengthControl: Optional[DashIsoSegmentLengthControl]
-    VideoCompositionOffsets: Optional[DashIsoVideoCompositionOffsets]
-    WriteSegmentTimelineInRepresentation: Optional[DashIsoWriteSegmentTimelineInRepresentation]
+    AdditionalManifests: _listOfDashAdditionalManifest | None
+    AudioChannelConfigSchemeIdUri: DashIsoGroupAudioChannelConfigSchemeIdUri | None
+    BaseUrl: _string | None
+    DashIFrameTrickPlayNameModifier: _stringMin1Max256 | None
+    DashManifestStyle: DashManifestStyle | None
+    Destination: _stringPatternS3 | None
+    DestinationSettings: DestinationSettings | None
+    Encryption: DashIsoEncryptionSettings | None
+    FragmentLength: _integerMin1Max2147483647 | None
+    HbbtvCompliance: DashIsoHbbtvCompliance | None
+    ImageBasedTrickPlay: DashIsoImageBasedTrickPlay | None
+    ImageBasedTrickPlaySettings: DashIsoImageBasedTrickPlaySettings | None
+    MinBufferTime: _integerMin0Max2147483647 | None
+    MinFinalSegmentLength: _doubleMin0Max2147483647 | None
+    MpdManifestBandwidthType: DashIsoMpdManifestBandwidthType | None
+    MpdProfile: DashIsoMpdProfile | None
+    PtsOffsetHandlingForBFrames: DashIsoPtsOffsetHandlingForBFrames | None
+    SegmentControl: DashIsoSegmentControl | None
+    SegmentLength: _integerMin1Max2147483647 | None
+    SegmentLengthControl: DashIsoSegmentLengthControl | None
+    VideoCompositionOffsets: DashIsoVideoCompositionOffsets | None
+    WriteSegmentTimelineInRepresentation: DashIsoWriteSegmentTimelineInRepresentation | None
 
 
 class OutputGroupSettings(TypedDict, total=False):
     """Output Group settings, including type"""
 
-    CmafGroupSettings: Optional[CmafGroupSettings]
-    DashIsoGroupSettings: Optional[DashIsoGroupSettings]
-    FileGroupSettings: Optional[FileGroupSettings]
-    HlsGroupSettings: Optional[HlsGroupSettings]
-    MsSmoothGroupSettings: Optional[MsSmoothGroupSettings]
-    PerFrameMetrics: Optional[_listOfFrameMetricType]
-    Type: Optional[OutputGroupType]
+    CmafGroupSettings: CmafGroupSettings | None
+    DashIsoGroupSettings: DashIsoGroupSettings | None
+    FileGroupSettings: FileGroupSettings | None
+    HlsGroupSettings: HlsGroupSettings | None
+    MsSmoothGroupSettings: MsSmoothGroupSettings | None
+    PerFrameMetrics: _listOfFrameMetricType | None
+    Type: OutputGroupType | None
 
 
 class OutputGroup(TypedDict, total=False):
     """Group of outputs"""
 
-    AutomatedEncodingSettings: Optional[AutomatedEncodingSettings]
-    CustomName: Optional[_string]
-    Name: Optional[_stringMax2048]
-    OutputGroupSettings: Optional[OutputGroupSettings]
-    Outputs: Optional[_listOfOutput]
+    AutomatedEncodingSettings: AutomatedEncodingSettings | None
+    CustomName: _string | None
+    Name: _stringMax2048 | None
+    OutputGroupSettings: OutputGroupSettings | None
+    Outputs: _listOfOutput | None
 
 
-_listOfOutputGroup = List[OutputGroup]
+_listOfOutputGroup = list[OutputGroup]
 
 
 class NielsenNonLinearWatermarkSettings(TypedDict, total=False):
@@ -5468,17 +5583,17 @@ class NielsenNonLinearWatermarkSettings(TypedDict, total=False):
     Nielsen Watermark Authenticator [SID_TIC] Version [7.0.0]
     """
 
-    ActiveWatermarkProcess: Optional[NielsenActiveWatermarkProcessType]
-    AdiFilename: Optional[_stringPatternS3]
-    AssetId: Optional[_stringMin1Max20]
-    AssetName: Optional[_stringMin1Max50]
-    CbetSourceId: Optional[_stringPattern0xAFaF0908190908]
-    EpisodeId: Optional[_stringMin1Max20]
-    MetadataDestination: Optional[_stringPatternS3]
-    SourceId: Optional[_integerMin0Max65534]
-    SourceWatermarkStatus: Optional[NielsenSourceWatermarkStatusType]
-    TicServerUrl: Optional[_stringPatternHttps]
-    UniqueTicPerAudioTrack: Optional[NielsenUniqueTicPerAudioTrackType]
+    ActiveWatermarkProcess: NielsenActiveWatermarkProcessType | None
+    AdiFilename: _stringPatternS3 | None
+    AssetId: _stringMin1Max20 | None
+    AssetName: _stringMin1Max50 | None
+    CbetSourceId: _stringPattern0xAFaF0908190908 | None
+    EpisodeId: _stringMin1Max20 | None
+    MetadataDestination: _stringPatternS3 | None
+    SourceId: _integerMin0Max65534 | None
+    SourceWatermarkStatus: NielsenSourceWatermarkStatusType | None
+    TicServerUrl: _stringPatternHttps | None
+    UniqueTicPerAudioTrack: NielsenUniqueTicPerAudioTrackType | None
 
 
 class NielsenConfiguration(TypedDict, total=False):
@@ -5488,8 +5603,8 @@ class NielsenConfiguration(TypedDict, total=False):
     outputs in the job.
     """
 
-    BreakoutCode: Optional[_integerMin0Max0]
-    DistributorId: Optional[_string]
+    BreakoutCode: _integerMin0Max0 | None
+    DistributorId: _string | None
 
 
 class MotionImageInsertionOffset(TypedDict, total=False):
@@ -5497,8 +5612,8 @@ class MotionImageInsertionOffset(TypedDict, total=False):
     the top left corner of the overlay.
     """
 
-    ImageX: Optional[_integerMin0Max2147483647]
-    ImageY: Optional[_integerMin0Max2147483647]
+    ImageX: _integerMin0Max2147483647 | None
+    ImageY: _integerMin0Max2147483647 | None
 
 
 class MotionImageInsertionFramerate(TypedDict, total=False):
@@ -5508,8 +5623,8 @@ class MotionImageInsertionFramerate(TypedDict, total=False):
     match the frame rate of the underlying video.
     """
 
-    FramerateDenominator: Optional[_integerMin1Max17895697]
-    FramerateNumerator: Optional[_integerMin1Max2147483640]
+    FramerateDenominator: _integerMin1Max17895697 | None
+    FramerateNumerator: _integerMin1Max2147483640 | None
 
 
 class MotionImageInserter(TypedDict, total=False):
@@ -5519,12 +5634,12 @@ class MotionImageInserter(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/motion-graphic-overlay.html.
     """
 
-    Framerate: Optional[MotionImageInsertionFramerate]
-    Input: Optional[_stringMin14PatternS3Mov09PngHttpsMov09Png]
-    InsertionMode: Optional[MotionImageInsertionMode]
-    Offset: Optional[MotionImageInsertionOffset]
-    Playback: Optional[MotionImagePlayback]
-    StartTime: Optional[_stringMin11Max11Pattern01D20305D205D]
+    Framerate: MotionImageInsertionFramerate | None
+    Input: _stringMin14PatternS3Mov09PngHttpsMov09Png | None
+    InsertionMode: MotionImageInsertionMode | None
+    Offset: MotionImageInsertionOffset | None
+    Playback: MotionImagePlayback | None
+    StartTime: _stringMin11Max11Pattern01D20305D205D | None
 
 
 class KantarWatermarkSettings(TypedDict, total=False):
@@ -5536,19 +5651,19 @@ class KantarWatermarkSettings(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/kantar-watermarking.html.
     """
 
-    ChannelName: Optional[_stringMin1Max20]
-    ContentReference: Optional[_stringMin1Max50PatternAZAZ09]
-    CredentialsSecretName: Optional[_stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09]
-    FileOffset: Optional[_doubleMin0]
-    KantarLicenseId: Optional[_integerMin0Max2147483647]
-    KantarServerUrl: Optional[_stringPatternHttpsKantarmedia]
-    LogDestination: Optional[_stringPatternS3]
-    Metadata3: Optional[_stringMin1Max50]
-    Metadata4: Optional[_stringMin1Max50]
-    Metadata5: Optional[_stringMin1Max50]
-    Metadata6: Optional[_stringMin1Max50]
-    Metadata7: Optional[_stringMin1Max50]
-    Metadata8: Optional[_stringMin1Max50]
+    ChannelName: _stringMin1Max20 | None
+    ContentReference: _stringMin1Max50PatternAZAZ09 | None
+    CredentialsSecretName: _stringMin1Max2048PatternArnAZSecretsmanagerWD12SecretAZAZ09 | None
+    FileOffset: _doubleMin0 | None
+    KantarLicenseId: _integerMin0Max2147483647 | None
+    KantarServerUrl: _stringPatternHttpsKantarmedia | None
+    LogDestination: _stringPatternS3 | None
+    Metadata3: _stringMin1Max50 | None
+    Metadata4: _stringMin1Max50 | None
+    Metadata5: _stringMin1Max50 | None
+    Metadata6: _stringMin1Max50 | None
+    Metadata7: _stringMin1Max50 | None
+    Metadata8: _stringMin1Max50 | None
 
 
 class VideoSelector(TypedDict, total=False):
@@ -5556,29 +5671,30 @@ class VideoSelector(TypedDict, total=False):
     your inputs can have up to one video selector.
     """
 
-    AlphaBehavior: Optional[AlphaBehavior]
-    ColorSpace: Optional[ColorSpace]
-    ColorSpaceUsage: Optional[ColorSpaceUsage]
-    EmbeddedTimecodeOverride: Optional[EmbeddedTimecodeOverride]
-    Hdr10Metadata: Optional[Hdr10Metadata]
-    MaxLuminance: Optional[_integerMin0Max2147483647]
-    PadVideo: Optional[PadVideo]
-    Pid: Optional[_integerMin1Max2147483647]
-    ProgramNumber: Optional[_integerMinNegative2147483648Max2147483647]
-    Rotate: Optional[InputRotate]
-    SampleRange: Optional[InputSampleRange]
-    SelectorType: Optional[VideoSelectorType]
-    Streams: Optional[_listOf__integerMin1Max2147483647]
+    AlphaBehavior: AlphaBehavior | None
+    ColorSpace: ColorSpace | None
+    ColorSpaceUsage: ColorSpaceUsage | None
+    EmbeddedTimecodeOverride: EmbeddedTimecodeOverride | None
+    Hdr10Metadata: Hdr10Metadata | None
+    MaxLuminance: _integerMin0Max2147483647 | None
+    PadVideo: PadVideo | None
+    Pid: _integerMin1Max2147483647 | None
+    ProgramNumber: _integerMinNegative2147483648Max2147483647 | None
+    Rotate: InputRotate | None
+    SampleRange: InputSampleRange | None
+    SelectorType: VideoSelectorType | None
+    Streams: _listOf__integerMin1Max2147483647 | None
 
 
 class VideoOverlayPosition(TypedDict, total=False):
     """position of video overlay"""
 
-    Height: Optional[_integerMinNegative1Max2147483647]
-    Unit: Optional[VideoOverlayUnit]
-    Width: Optional[_integerMinNegative1Max2147483647]
-    XPosition: Optional[_integerMinNegative2147483648Max2147483647]
-    YPosition: Optional[_integerMinNegative2147483648Max2147483647]
+    Height: _integerMinNegative1Max2147483647 | None
+    Opacity: _integerMin0Max100 | None
+    Unit: VideoOverlayUnit | None
+    Width: _integerMinNegative1Max2147483647 | None
+    XPosition: _integerMinNegative2147483648Max2147483647 | None
+    YPosition: _integerMinNegative2147483648Max2147483647 | None
 
 
 class VideoOverlayTransition(TypedDict, total=False):
@@ -5586,15 +5702,15 @@ class VideoOverlayTransition(TypedDict, total=False):
     to reposition or resize your overlay over time. To use the same position
     and size for the duration of your video overlay: Leave blank. To specify
     a Transition: Enter a value for Start timecode, End Timecode, X
-    Position, Y Position, Width, or Height.
+    Position, Y Position, Width, Height, or Opacity
     """
 
-    EndPosition: Optional[VideoOverlayPosition]
-    EndTimecode: Optional[_stringPattern010920405090509092]
-    StartTimecode: Optional[_stringPattern010920405090509092]
+    EndPosition: VideoOverlayPosition | None
+    EndTimecode: _stringPattern010920405090509092 | None
+    StartTimecode: _stringPattern010920405090509092 | None
 
 
-_listOfVideoOverlayTransition = List[VideoOverlayTransition]
+_listOfVideoOverlayTransition = list[VideoOverlayTransition]
 
 
 class VideoOverlayInputClipping(TypedDict, total=False):
@@ -5602,11 +5718,11 @@ class VideoOverlayInputClipping(TypedDict, total=False):
     for each part of your video overlay that you want in your output.
     """
 
-    EndTimecode: Optional[_stringPattern010920405090509092090909]
-    StartTimecode: Optional[_stringPattern010920405090509092090909]
+    EndTimecode: _stringPattern010920405090509092090909 | None
+    StartTimecode: _stringPattern010920405090509092090909 | None
 
 
-_listOfVideoOverlayInputClipping = List[VideoOverlayInputClipping]
+_listOfVideoOverlayInputClipping = list[VideoOverlayInputClipping]
 
 
 class VideoOverlayInput(TypedDict, total=False):
@@ -5614,10 +5730,10 @@ class VideoOverlayInput(TypedDict, total=False):
     overlays in sequence at different times that you specify.
     """
 
-    FileInput: Optional[_stringPatternS3Https]
-    InputClippings: Optional[_listOfVideoOverlayInputClipping]
-    TimecodeSource: Optional[InputTimecodeSource]
-    TimecodeStart: Optional[_stringMin11Max11Pattern01D20305D205D]
+    FileInput: _stringPatternS3Https | None
+    InputClippings: _listOfVideoOverlayInputClipping | None
+    TimecodeSource: InputTimecodeSource | None
+    TimecodeStart: _stringMin11Max11Pattern01D20305D205D | None
 
 
 class VideoOverlayCrop(TypedDict, total=False):
@@ -5626,11 +5742,11 @@ class VideoOverlayCrop(TypedDict, total=False):
     you specify under X offset, Y offset, Width, and Height.
     """
 
-    Height: Optional[_integerMin0Max2147483647]
-    Unit: Optional[VideoOverlayUnit]
-    Width: Optional[_integerMin0Max2147483647]
-    X: Optional[_integerMin0Max2147483647]
-    Y: Optional[_integerMin0Max2147483647]
+    Height: _integerMin0Max2147483647 | None
+    Unit: VideoOverlayUnit | None
+    Width: _integerMin0Max2147483647 | None
+    X: _integerMin0Max2147483647 | None
+    Y: _integerMin0Max2147483647 | None
 
 
 class VideoOverlay(TypedDict, total=False):
@@ -5639,16 +5755,16 @@ class VideoOverlay(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/video-overlays.html
     """
 
-    Crop: Optional[VideoOverlayCrop]
-    EndTimecode: Optional[_stringPattern010920405090509092]
-    InitialPosition: Optional[VideoOverlayPosition]
-    Input: Optional[VideoOverlayInput]
-    Playback: Optional[VideoOverlayPlayBackMode]
-    StartTimecode: Optional[_stringPattern010920405090509092]
-    Transitions: Optional[_listOfVideoOverlayTransition]
+    Crop: VideoOverlayCrop | None
+    EndTimecode: _stringPattern010920405090509092 | None
+    InitialPosition: VideoOverlayPosition | None
+    Input: VideoOverlayInput | None
+    Playback: VideoOverlayPlayBackMode | None
+    StartTimecode: _stringPattern010920405090509092 | None
+    Transitions: _listOfVideoOverlayTransition | None
 
 
-_listOfVideoOverlay = List[VideoOverlay]
+_listOfVideoOverlay = list[VideoOverlay]
 
 
 class InputVideoGenerator(TypedDict, total=False):
@@ -5660,11 +5776,13 @@ class InputVideoGenerator(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/video-generator.html
     """
 
-    Channels: Optional[_integerMin1Max32]
-    Duration: Optional[_integerMin50Max86400000]
-    FramerateDenominator: Optional[_integerMin1Max1001]
-    FramerateNumerator: Optional[_integerMin1Max60000]
-    SampleRate: Optional[_integerMin32000Max48000]
+    Channels: _integerMin1Max32 | None
+    Duration: _integerMin1Max86400000 | None
+    FramerateDenominator: _integerMin1Max1001 | None
+    FramerateNumerator: _integerMin1Max60000 | None
+    Height: _integerMin32Max8192 | None
+    SampleRate: _integerMin32000Max48000 | None
+    Width: _integerMin32Max8192 | None
 
 
 class InputTamsSettings(TypedDict, total=False):
@@ -5681,13 +5799,13 @@ class InputTamsSettings(TypedDict, total=False):
     parameters 4. Configure authentication, if your TAMS server requires it
     """
 
-    AuthConnectionArn: Optional[_stringPatternArnAwsAZ09EventsAZ090912ConnectionAZAZ09AF0936]
-    GapHandling: Optional[TamsGapHandling]
-    SourceId: Optional[_string]
-    Timerange: Optional[_stringPattern019090190908019090190908]
+    AuthConnectionArn: _stringPatternArnAwsAZ09EventsAZ090912ConnectionAZAZ09AF0936 | None
+    GapHandling: TamsGapHandling | None
+    SourceId: _string | None
+    Timerange: _stringPattern019090190908019090190908 | None
 
 
-_listOf__stringPatternS3ASSETMAPXml = List[_stringPatternS3ASSETMAPXml]
+_listOf__stringPatternS3ASSETMAPXml = list[_stringPatternS3ASSETMAPXml]
 
 
 class InputClipping(TypedDict, total=False):
@@ -5698,11 +5816,11 @@ class InputClipping(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/assembling-multiple-inputs-and-input-clips.html.
     """
 
-    EndTimecode: Optional[_stringPattern010920405090509092090909]
-    StartTimecode: Optional[_stringPattern010920405090509092090909]
+    EndTimecode: _stringPattern010920405090509092090909 | None
+    StartTimecode: _stringPattern010920405090509092090909 | None
 
 
-_listOfInputClipping = List[InputClipping]
+_listOfInputClipping = list[InputClipping]
 
 
 class DynamicAudioSelector(TypedDict, total=False):
@@ -5715,14 +5833,14 @@ class DynamicAudioSelector(TypedDict, total=False):
     each input must have the same number of audio tracks and audio channels.
     """
 
-    AudioDurationCorrection: Optional[AudioDurationCorrection]
-    ExternalAudioFileInput: Optional[_stringPatternS3Https]
-    LanguageCode: Optional[LanguageCode]
-    Offset: Optional[_integerMinNegative2147483648Max2147483647]
-    SelectorType: Optional[DynamicAudioSelectorType]
+    AudioDurationCorrection: AudioDurationCorrection | None
+    ExternalAudioFileInput: _stringPatternS3Https | None
+    LanguageCode: LanguageCode | None
+    Offset: _integerMinNegative2147483648Max2147483647 | None
+    SelectorType: DynamicAudioSelectorType | None
 
 
-_mapOfDynamicAudioSelector = Dict[_string, DynamicAudioSelector]
+_mapOfDynamicAudioSelector = dict[_string, DynamicAudioSelector]
 
 
 class InputDecryptionSettings(TypedDict, total=False):
@@ -5732,15 +5850,15 @@ class InputDecryptionSettings(TypedDict, total=False):
     use to encrypt your content.
     """
 
-    DecryptionMode: Optional[DecryptionMode]
-    EncryptedDecryptionKey: Optional[_stringMin24Max512PatternAZaZ0902]
-    InitializationVector: Optional[_stringMin16Max24PatternAZaZ0922AZaZ0916]
-    KmsKeyRegion: Optional[_stringMin9Max19PatternAZ26EastWestCentralNorthSouthEastWest1912]
+    DecryptionMode: DecryptionMode | None
+    EncryptedDecryptionKey: _stringMin24Max512PatternAZaZ0902 | None
+    InitializationVector: _stringMin16Max24PatternAZaZ0922AZaZ0916 | None
+    KmsKeyRegion: _stringMin9Max19PatternAZ26EastWestCentralNorthSouthEastWest1912 | None
 
 
-_mapOfCaptionSelector = Dict[_string, CaptionSelector]
-_mapOfAudioSelector = Dict[_string, AudioSelector]
-_mapOfAudioSelectorGroup = Dict[_string, AudioSelectorGroup]
+_mapOfCaptionSelector = dict[_string, CaptionSelector]
+_mapOfAudioSelector = dict[_string, AudioSelector]
+_mapOfAudioSelectorGroup = dict[_string, AudioSelectorGroup]
 
 
 class Input(TypedDict, total=False):
@@ -5752,36 +5870,36 @@ class Input(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/assembling-multiple-inputs-and-input-clips.html
     """
 
-    AdvancedInputFilter: Optional[AdvancedInputFilter]
-    AdvancedInputFilterSettings: Optional[AdvancedInputFilterSettings]
-    AudioSelectorGroups: Optional[_mapOfAudioSelectorGroup]
-    AudioSelectors: Optional[_mapOfAudioSelector]
-    CaptionSelectors: Optional[_mapOfCaptionSelector]
-    Crop: Optional[Rectangle]
-    DeblockFilter: Optional[InputDeblockFilter]
-    DecryptionSettings: Optional[InputDecryptionSettings]
-    DenoiseFilter: Optional[InputDenoiseFilter]
-    DolbyVisionMetadataXml: Optional[_stringMin14PatternS3XmlXMLHttpsXmlXML]
-    DynamicAudioSelectors: Optional[_mapOfDynamicAudioSelector]
-    FileInput: Optional[_stringMax2048PatternS3Https]
-    FilterEnable: Optional[InputFilterEnable]
-    FilterStrength: Optional[_integerMin0Max5]
-    ImageInserter: Optional[ImageInserter]
-    InputClippings: Optional[_listOfInputClipping]
-    InputScanType: Optional[InputScanType]
-    Position: Optional[Rectangle]
-    ProgramNumber: Optional[_integerMin1Max2147483647]
-    PsiControl: Optional[InputPsiControl]
-    SupplementalImps: Optional[_listOf__stringPatternS3ASSETMAPXml]
-    TamsSettings: Optional[InputTamsSettings]
-    TimecodeSource: Optional[InputTimecodeSource]
-    TimecodeStart: Optional[_stringMin11Max11Pattern01D20305D205D]
-    VideoGenerator: Optional[InputVideoGenerator]
-    VideoOverlays: Optional[_listOfVideoOverlay]
-    VideoSelector: Optional[VideoSelector]
+    AdvancedInputFilter: AdvancedInputFilter | None
+    AdvancedInputFilterSettings: AdvancedInputFilterSettings | None
+    AudioSelectorGroups: _mapOfAudioSelectorGroup | None
+    AudioSelectors: _mapOfAudioSelector | None
+    CaptionSelectors: _mapOfCaptionSelector | None
+    Crop: Rectangle | None
+    DeblockFilter: InputDeblockFilter | None
+    DecryptionSettings: InputDecryptionSettings | None
+    DenoiseFilter: InputDenoiseFilter | None
+    DolbyVisionMetadataXml: _stringMin14PatternS3XmlXMLHttpsXmlXML | None
+    DynamicAudioSelectors: _mapOfDynamicAudioSelector | None
+    FileInput: _stringMax2048PatternS3Https | None
+    FilterEnable: InputFilterEnable | None
+    FilterStrength: _integerMin0Max5 | None
+    ImageInserter: ImageInserter | None
+    InputClippings: _listOfInputClipping | None
+    InputScanType: InputScanType | None
+    Position: Rectangle | None
+    ProgramNumber: _integerMin1Max2147483647 | None
+    PsiControl: InputPsiControl | None
+    SupplementalImps: _listOf__stringPatternS3ASSETMAPXml | None
+    TamsSettings: InputTamsSettings | None
+    TimecodeSource: InputTimecodeSource | None
+    TimecodeStart: _stringMin11Max11Pattern01D20305D205D | None
+    VideoGenerator: InputVideoGenerator | None
+    VideoOverlays: _listOfVideoOverlay | None
+    VideoSelector: VideoSelector | None
 
 
-_listOfInput = List[Input]
+_listOfInput = list[Input]
 
 
 class ExtendedDataServices(TypedDict, total=False):
@@ -5792,8 +5910,8 @@ class ExtendedDataServices(TypedDict, total=False):
     Line Data Services, section 9.5.1.5 05h Content Advisory.
     """
 
-    CopyProtectionAction: Optional[CopyProtectionAction]
-    VchipAction: Optional[VchipAction]
+    CopyProtectionAction: CopyProtectionAction | None
+    VchipAction: VchipAction | None
 
 
 class EsamSignalProcessingNotification(TypedDict, total=False):
@@ -5801,7 +5919,7 @@ class EsamSignalProcessingNotification(TypedDict, total=False):
     OC-SP-ESAM-API-I03-131025.
     """
 
-    SccXml: Optional[_stringPatternSNSignalProcessingNotificationNS]
+    SccXml: _stringPatternSNSignalProcessingNotificationNS | None
 
 
 class EsamManifestConfirmConditionNotification(TypedDict, total=False):
@@ -5809,7 +5927,7 @@ class EsamManifestConfirmConditionNotification(TypedDict, total=False):
     OC-SP-ESAM-API-I03-131025.
     """
 
-    MccXml: Optional[_stringPatternSNManifestConfirmConditionNotificationNS]
+    MccXml: _stringPatternSNManifestConfirmConditionNotificationNS | None
 
 
 class EsamSettings(TypedDict, total=False):
@@ -5817,31 +5935,31 @@ class EsamSettings(TypedDict, total=False):
     insertion, you can ignore these settings.
     """
 
-    ManifestConfirmConditionNotification: Optional[EsamManifestConfirmConditionNotification]
-    ResponseSignalPreroll: Optional[_integerMin0Max30000]
-    SignalProcessingNotification: Optional[EsamSignalProcessingNotification]
+    ManifestConfirmConditionNotification: EsamManifestConfirmConditionNotification | None
+    ResponseSignalPreroll: _integerMin0Max30000 | None
+    SignalProcessingNotification: EsamSignalProcessingNotification | None
 
 
-_listOfColorConversion3DLUTSetting = List[ColorConversion3DLUTSetting]
+_listOfColorConversion3DLUTSetting = list[ColorConversion3DLUTSetting]
 
 
 class JobSettings(TypedDict, total=False):
     """JobSettings contains all the transcode settings for a job."""
 
-    AdAvailOffset: Optional[_integerMinNegative1000Max1000]
-    AvailBlanking: Optional[AvailBlanking]
-    ColorConversion3DLUTSettings: Optional[_listOfColorConversion3DLUTSetting]
-    Esam: Optional[EsamSettings]
-    ExtendedDataServices: Optional[ExtendedDataServices]
-    FollowSource: Optional[_integerMin1Max150]
-    Inputs: Optional[_listOfInput]
-    KantarWatermark: Optional[KantarWatermarkSettings]
-    MotionImageInserter: Optional[MotionImageInserter]
-    NielsenConfiguration: Optional[NielsenConfiguration]
-    NielsenNonLinearWatermark: Optional[NielsenNonLinearWatermarkSettings]
-    OutputGroups: Optional[_listOfOutputGroup]
-    TimecodeConfig: Optional[TimecodeConfig]
-    TimedMetadataInsertion: Optional[TimedMetadataInsertion]
+    AdAvailOffset: _integerMinNegative1000Max1000 | None
+    AvailBlanking: AvailBlanking | None
+    ColorConversion3DLUTSettings: _listOfColorConversion3DLUTSetting | None
+    Esam: EsamSettings | None
+    ExtendedDataServices: ExtendedDataServices | None
+    FollowSource: _integerMin1Max150 | None
+    Inputs: _listOfInput | None
+    KantarWatermark: KantarWatermarkSettings | None
+    MotionImageInserter: MotionImageInserter | None
+    NielsenConfiguration: NielsenConfiguration | None
+    NielsenNonLinearWatermark: NielsenNonLinearWatermarkSettings | None
+    OutputGroups: _listOfOutputGroup | None
+    TimecodeConfig: TimecodeConfig | None
+    TimedMetadataInsertion: TimedMetadataInsertion | None
 
 
 class HopDestination(TypedDict, total=False):
@@ -5849,29 +5967,29 @@ class HopDestination(TypedDict, total=False):
     once a customer-defined minimum wait time has passed.
     """
 
-    Priority: Optional[_integerMinNegative50Max50]
-    Queue: Optional[_string]
-    WaitMinutes: Optional[_integer]
+    Priority: _integerMinNegative50Max50 | None
+    Queue: _string | None
+    WaitMinutes: _integer | None
 
 
-_listOfHopDestination = List[HopDestination]
+_listOfHopDestination = list[HopDestination]
 
 
 class CreateJobRequest(ServiceRequest):
-    AccelerationSettings: Optional[AccelerationSettings]
-    BillingTagsSource: Optional[BillingTagsSource]
-    ClientRequestToken: Optional[_string]
-    HopDestinations: Optional[_listOfHopDestination]
-    JobEngineVersion: Optional[_string]
-    JobTemplate: Optional[_string]
-    Priority: Optional[_integerMinNegative50Max50]
-    Queue: Optional[_string]
+    AccelerationSettings: AccelerationSettings | None
+    BillingTagsSource: BillingTagsSource | None
+    ClientRequestToken: _string | None
+    HopDestinations: _listOfHopDestination | None
+    JobEngineVersion: _string | None
+    JobTemplate: _string | None
+    Priority: _integerMinNegative50Max50 | None
+    Queue: _string | None
     Role: _string
     Settings: JobSettings
-    SimulateReservedQueue: Optional[SimulateReservedQueue]
-    StatusUpdateInterval: Optional[StatusUpdateInterval]
-    Tags: Optional[_mapOf__string]
-    UserMetadata: Optional[_mapOf__string]
+    SimulateReservedQueue: SimulateReservedQueue | None
+    StatusUpdateInterval: StatusUpdateInterval | None
+    Tags: _mapOf__string | None
+    UserMetadata: _mapOf__string | None
 
 
 class WarningGroup(TypedDict, total=False):
@@ -5881,7 +5999,7 @@ class WarningGroup(TypedDict, total=False):
     Count: _integer
 
 
-_listOfWarningGroup = List[WarningGroup]
+_listOfWarningGroup = list[WarningGroup]
 _timestampUnix = datetime
 
 
@@ -5890,9 +6008,9 @@ class Timing(TypedDict, total=False):
     specified in Unix epoch format in seconds.
     """
 
-    FinishTime: Optional[_timestampUnix]
-    StartTime: Optional[_timestampUnix]
-    SubmitTime: Optional[_timestampUnix]
+    FinishTime: _timestampUnix | None
+    StartTime: _timestampUnix | None
+    SubmitTime: _timestampUnix | None
 
 
 class QueueTransition(TypedDict, total=False):
@@ -5900,39 +6018,39 @@ class QueueTransition(TypedDict, total=False):
     has moved, along with the timestamp of the move
     """
 
-    DestinationQueue: Optional[_string]
-    SourceQueue: Optional[_string]
-    Timestamp: Optional[_timestampUnix]
+    DestinationQueue: _string | None
+    SourceQueue: _string | None
+    Timestamp: _timestampUnix | None
 
 
-_listOfQueueTransition = List[QueueTransition]
+_listOfQueueTransition = list[QueueTransition]
 
 
 class VideoDetail(TypedDict, total=False):
     """Contains details about the output's video stream"""
 
-    HeightInPx: Optional[_integer]
-    WidthInPx: Optional[_integer]
+    HeightInPx: _integer | None
+    WidthInPx: _integer | None
 
 
 class OutputDetail(TypedDict, total=False):
     """Details regarding output"""
 
-    DurationInMs: Optional[_integer]
-    VideoDetails: Optional[VideoDetail]
+    DurationInMs: _integer | None
+    VideoDetails: VideoDetail | None
 
 
-_listOfOutputDetail = List[OutputDetail]
+_listOfOutputDetail = list[OutputDetail]
 
 
 class OutputGroupDetail(TypedDict, total=False):
     """Contains details about the output groups specified in the job settings."""
 
-    OutputDetails: Optional[_listOfOutputDetail]
+    OutputDetails: _listOfOutputDetail | None
 
 
-_listOfOutputGroupDetail = List[OutputGroupDetail]
-_listOf__string = List[_string]
+_listOfOutputGroupDetail = list[OutputGroupDetail]
+_listOf__string = list[_string]
 
 
 class JobMessages(TypedDict, total=False):
@@ -5940,8 +6058,8 @@ class JobMessages(TypedDict, total=False):
     successfully submitted.
     """
 
-    Info: Optional[_listOf__string]
-    Warning: Optional[_listOf__string]
+    Info: _listOf__string | None
+    Warning: _listOf__string | None
 
 
 class Job(TypedDict, total=False):
@@ -5950,71 +6068,71 @@ class Job(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/what-is.html
     """
 
-    AccelerationSettings: Optional[AccelerationSettings]
-    AccelerationStatus: Optional[AccelerationStatus]
-    Arn: Optional[_string]
-    BillingTagsSource: Optional[BillingTagsSource]
-    ClientRequestToken: Optional[_string]
-    CreatedAt: Optional[_timestampUnix]
-    CurrentPhase: Optional[JobPhase]
-    ErrorCode: Optional[_integer]
-    ErrorMessage: Optional[_string]
-    HopDestinations: Optional[_listOfHopDestination]
-    Id: Optional[_string]
-    JobEngineVersionRequested: Optional[_string]
-    JobEngineVersionUsed: Optional[_string]
-    JobPercentComplete: Optional[_integer]
-    JobTemplate: Optional[_string]
-    LastShareDetails: Optional[_string]
-    Messages: Optional[JobMessages]
-    OutputGroupDetails: Optional[_listOfOutputGroupDetail]
-    Priority: Optional[_integerMinNegative50Max50]
-    Queue: Optional[_string]
-    QueueTransitions: Optional[_listOfQueueTransition]
-    RetryCount: Optional[_integer]
+    AccelerationSettings: AccelerationSettings | None
+    AccelerationStatus: AccelerationStatus | None
+    Arn: _string | None
+    BillingTagsSource: BillingTagsSource | None
+    ClientRequestToken: _string | None
+    CreatedAt: _timestampUnix | None
+    CurrentPhase: JobPhase | None
+    ErrorCode: _integer | None
+    ErrorMessage: _string | None
+    HopDestinations: _listOfHopDestination | None
+    Id: _string | None
+    JobEngineVersionRequested: _string | None
+    JobEngineVersionUsed: _string | None
+    JobPercentComplete: _integer | None
+    JobTemplate: _string | None
+    LastShareDetails: _string | None
+    Messages: JobMessages | None
+    OutputGroupDetails: _listOfOutputGroupDetail | None
+    Priority: _integerMinNegative50Max50 | None
+    Queue: _string | None
+    QueueTransitions: _listOfQueueTransition | None
+    RetryCount: _integer | None
     Role: _string
     Settings: JobSettings
-    ShareStatus: Optional[ShareStatus]
-    SimulateReservedQueue: Optional[SimulateReservedQueue]
-    Status: Optional[JobStatus]
-    StatusUpdateInterval: Optional[StatusUpdateInterval]
-    Timing: Optional[Timing]
-    UserMetadata: Optional[_mapOf__string]
-    Warnings: Optional[_listOfWarningGroup]
+    ShareStatus: ShareStatus | None
+    SimulateReservedQueue: SimulateReservedQueue | None
+    Status: JobStatus | None
+    StatusUpdateInterval: StatusUpdateInterval | None
+    Timing: Timing | None
+    UserMetadata: _mapOf__string | None
+    Warnings: _listOfWarningGroup | None
 
 
 class CreateJobResponse(TypedDict, total=False):
-    Job: Optional[Job]
+    Job: Job | None
 
 
 class InputTemplate(TypedDict, total=False):
     """Specified video input in a template."""
 
-    AdvancedInputFilter: Optional[AdvancedInputFilter]
-    AdvancedInputFilterSettings: Optional[AdvancedInputFilterSettings]
-    AudioSelectorGroups: Optional[_mapOfAudioSelectorGroup]
-    AudioSelectors: Optional[_mapOfAudioSelector]
-    CaptionSelectors: Optional[_mapOfCaptionSelector]
-    Crop: Optional[Rectangle]
-    DeblockFilter: Optional[InputDeblockFilter]
-    DenoiseFilter: Optional[InputDenoiseFilter]
-    DolbyVisionMetadataXml: Optional[_stringMin14PatternS3XmlXMLHttpsXmlXML]
-    DynamicAudioSelectors: Optional[_mapOfDynamicAudioSelector]
-    FilterEnable: Optional[InputFilterEnable]
-    FilterStrength: Optional[_integerMin0Max5]
-    ImageInserter: Optional[ImageInserter]
-    InputClippings: Optional[_listOfInputClipping]
-    InputScanType: Optional[InputScanType]
-    Position: Optional[Rectangle]
-    ProgramNumber: Optional[_integerMin1Max2147483647]
-    PsiControl: Optional[InputPsiControl]
-    TimecodeSource: Optional[InputTimecodeSource]
-    TimecodeStart: Optional[_stringMin11Max11Pattern01D20305D205D]
-    VideoOverlays: Optional[_listOfVideoOverlay]
-    VideoSelector: Optional[VideoSelector]
+    AdvancedInputFilter: AdvancedInputFilter | None
+    AdvancedInputFilterSettings: AdvancedInputFilterSettings | None
+    AudioSelectorGroups: _mapOfAudioSelectorGroup | None
+    AudioSelectors: _mapOfAudioSelector | None
+    CaptionSelectors: _mapOfCaptionSelector | None
+    Crop: Rectangle | None
+    DeblockFilter: InputDeblockFilter | None
+    DenoiseFilter: InputDenoiseFilter | None
+    DolbyVisionMetadataXml: _stringMin14PatternS3XmlXMLHttpsXmlXML | None
+    DynamicAudioSelectors: _mapOfDynamicAudioSelector | None
+    FilterEnable: InputFilterEnable | None
+    FilterStrength: _integerMin0Max5 | None
+    ImageInserter: ImageInserter | None
+    InputClippings: _listOfInputClipping | None
+    InputScanType: InputScanType | None
+    Position: Rectangle | None
+    ProgramNumber: _integerMin1Max2147483647 | None
+    PsiControl: InputPsiControl | None
+    TimecodeSource: InputTimecodeSource | None
+    TimecodeStart: _stringMin11Max11Pattern01D20305D205D | None
+    VideoOverlays: _listOfVideoOverlay | None
+    VideoSelector: VideoSelector | None
 
 
-_listOfInputTemplate = List[InputTemplate]
+_listOfInputTemplate = list[InputTemplate]
 
 
 class JobTemplateSettings(TypedDict, total=False):
@@ -6022,33 +6140,33 @@ class JobTemplateSettings(TypedDict, total=False):
     template that will be applied to jobs created from it.
     """
 
-    AdAvailOffset: Optional[_integerMinNegative1000Max1000]
-    AvailBlanking: Optional[AvailBlanking]
-    ColorConversion3DLUTSettings: Optional[_listOfColorConversion3DLUTSetting]
-    Esam: Optional[EsamSettings]
-    ExtendedDataServices: Optional[ExtendedDataServices]
-    FollowSource: Optional[_integerMin1Max150]
-    Inputs: Optional[_listOfInputTemplate]
-    KantarWatermark: Optional[KantarWatermarkSettings]
-    MotionImageInserter: Optional[MotionImageInserter]
-    NielsenConfiguration: Optional[NielsenConfiguration]
-    NielsenNonLinearWatermark: Optional[NielsenNonLinearWatermarkSettings]
-    OutputGroups: Optional[_listOfOutputGroup]
-    TimecodeConfig: Optional[TimecodeConfig]
-    TimedMetadataInsertion: Optional[TimedMetadataInsertion]
+    AdAvailOffset: _integerMinNegative1000Max1000 | None
+    AvailBlanking: AvailBlanking | None
+    ColorConversion3DLUTSettings: _listOfColorConversion3DLUTSetting | None
+    Esam: EsamSettings | None
+    ExtendedDataServices: ExtendedDataServices | None
+    FollowSource: _integerMin1Max150 | None
+    Inputs: _listOfInputTemplate | None
+    KantarWatermark: KantarWatermarkSettings | None
+    MotionImageInserter: MotionImageInserter | None
+    NielsenConfiguration: NielsenConfiguration | None
+    NielsenNonLinearWatermark: NielsenNonLinearWatermarkSettings | None
+    OutputGroups: _listOfOutputGroup | None
+    TimecodeConfig: TimecodeConfig | None
+    TimedMetadataInsertion: TimedMetadataInsertion | None
 
 
 class CreateJobTemplateRequest(ServiceRequest):
-    AccelerationSettings: Optional[AccelerationSettings]
-    Category: Optional[_string]
-    Description: Optional[_string]
-    HopDestinations: Optional[_listOfHopDestination]
+    AccelerationSettings: AccelerationSettings | None
+    Category: _string | None
+    Description: _string | None
+    HopDestinations: _listOfHopDestination | None
     Name: _string
-    Priority: Optional[_integerMinNegative50Max50]
-    Queue: Optional[_string]
+    Priority: _integerMinNegative50Max50 | None
+    Queue: _string | None
     Settings: JobTemplateSettings
-    StatusUpdateInterval: Optional[StatusUpdateInterval]
-    Tags: Optional[_mapOf__string]
+    StatusUpdateInterval: StatusUpdateInterval | None
+    Tags: _mapOf__string | None
 
 
 class JobTemplate(TypedDict, total=False):
@@ -6056,43 +6174,43 @@ class JobTemplate(TypedDict, total=False):
     use to quickly create a job.
     """
 
-    AccelerationSettings: Optional[AccelerationSettings]
-    Arn: Optional[_string]
-    Category: Optional[_string]
-    CreatedAt: Optional[_timestampUnix]
-    Description: Optional[_string]
-    HopDestinations: Optional[_listOfHopDestination]
-    LastUpdated: Optional[_timestampUnix]
+    AccelerationSettings: AccelerationSettings | None
+    Arn: _string | None
+    Category: _string | None
+    CreatedAt: _timestampUnix | None
+    Description: _string | None
+    HopDestinations: _listOfHopDestination | None
+    LastUpdated: _timestampUnix | None
     Name: _string
-    Priority: Optional[_integerMinNegative50Max50]
-    Queue: Optional[_string]
+    Priority: _integerMinNegative50Max50 | None
+    Queue: _string | None
     Settings: JobTemplateSettings
-    StatusUpdateInterval: Optional[StatusUpdateInterval]
-    Type: Optional[Type]
+    StatusUpdateInterval: StatusUpdateInterval | None
+    Type: Type | None
 
 
 class CreateJobTemplateResponse(TypedDict, total=False):
-    JobTemplate: Optional[JobTemplate]
+    JobTemplate: JobTemplate | None
 
 
-_listOfCaptionDescriptionPreset = List[CaptionDescriptionPreset]
+_listOfCaptionDescriptionPreset = list[CaptionDescriptionPreset]
 
 
 class PresetSettings(TypedDict, total=False):
     """Settings for preset"""
 
-    AudioDescriptions: Optional[_listOfAudioDescription]
-    CaptionDescriptions: Optional[_listOfCaptionDescriptionPreset]
-    ContainerSettings: Optional[ContainerSettings]
-    VideoDescription: Optional[VideoDescription]
+    AudioDescriptions: _listOfAudioDescription | None
+    CaptionDescriptions: _listOfCaptionDescriptionPreset | None
+    ContainerSettings: ContainerSettings | None
+    VideoDescription: VideoDescription | None
 
 
 class CreatePresetRequest(ServiceRequest):
-    Category: Optional[_string]
-    Description: Optional[_string]
+    Category: _string | None
+    Description: _string | None
     Name: _string
     Settings: PresetSettings
-    Tags: Optional[_mapOf__string]
+    Tags: _mapOf__string | None
 
 
 class Preset(TypedDict, total=False):
@@ -6101,18 +6219,18 @@ class Preset(TypedDict, total=False):
     process.
     """
 
-    Arn: Optional[_string]
-    Category: Optional[_string]
-    CreatedAt: Optional[_timestampUnix]
-    Description: Optional[_string]
-    LastUpdated: Optional[_timestampUnix]
+    Arn: _string | None
+    Category: _string | None
+    CreatedAt: _timestampUnix | None
+    Description: _string | None
+    LastUpdated: _timestampUnix | None
     Name: _string
     Settings: PresetSettings
-    Type: Optional[Type]
+    Type: Type | None
 
 
 class CreatePresetResponse(TypedDict, total=False):
-    Preset: Optional[Preset]
+    Preset: Preset | None
 
 
 class ReservationPlanSettings(TypedDict, total=False):
@@ -6126,13 +6244,13 @@ class ReservationPlanSettings(TypedDict, total=False):
 
 
 class CreateQueueRequest(ServiceRequest):
-    ConcurrentJobs: Optional[_integer]
-    Description: Optional[_string]
+    ConcurrentJobs: _integer | None
+    Description: _string | None
     Name: _string
-    PricingPlan: Optional[PricingPlan]
-    ReservationPlanSettings: Optional[ReservationPlanSettings]
-    Status: Optional[QueueStatus]
-    Tags: Optional[_mapOf__string]
+    PricingPlan: PricingPlan | None
+    ReservationPlanSettings: ReservationPlanSettings | None
+    Status: QueueStatus | None
+    Tags: _mapOf__string | None
 
 
 class ServiceOverride(TypedDict, total=False):
@@ -6141,13 +6259,13 @@ class ServiceOverride(TypedDict, total=False):
     Support.
     """
 
-    Message: Optional[_string]
-    Name: Optional[_string]
-    OverrideValue: Optional[_string]
-    Value: Optional[_string]
+    Message: _string | None
+    Name: _string | None
+    OverrideValue: _string | None
+    Value: _string | None
 
 
-_listOfServiceOverride = List[ServiceOverride]
+_listOfServiceOverride = list[ServiceOverride]
 
 
 class ReservationPlan(TypedDict, total=False):
@@ -6155,12 +6273,12 @@ class ReservationPlan(TypedDict, total=False):
     reserved queues and not applicable to on-demand queues.
     """
 
-    Commitment: Optional[Commitment]
-    ExpiresAt: Optional[_timestampUnix]
-    PurchasedAt: Optional[_timestampUnix]
-    RenewalType: Optional[RenewalType]
-    ReservedSlots: Optional[_integer]
-    Status: Optional[ReservationPlanStatus]
+    Commitment: Commitment | None
+    ExpiresAt: _timestampUnix | None
+    PurchasedAt: _timestampUnix | None
+    RenewalType: RenewalType | None
+    ReservedSlots: _integer | None
+    Status: ReservationPlanStatus | None
 
 
 class Queue(TypedDict, total=False):
@@ -6171,23 +6289,23 @@ class Queue(TypedDict, total=False):
     https://docs.aws.amazon.com/mediaconvert/latest/ug/working-with-queues.html.
     """
 
-    Arn: Optional[_string]
-    ConcurrentJobs: Optional[_integer]
-    CreatedAt: Optional[_timestampUnix]
-    Description: Optional[_string]
-    LastUpdated: Optional[_timestampUnix]
+    Arn: _string | None
+    ConcurrentJobs: _integer | None
+    CreatedAt: _timestampUnix | None
+    Description: _string | None
+    LastUpdated: _timestampUnix | None
     Name: _string
-    PricingPlan: Optional[PricingPlan]
-    ProgressingJobsCount: Optional[_integer]
-    ReservationPlan: Optional[ReservationPlan]
-    ServiceOverrides: Optional[_listOfServiceOverride]
-    Status: Optional[QueueStatus]
-    SubmittedJobsCount: Optional[_integer]
-    Type: Optional[Type]
+    PricingPlan: PricingPlan | None
+    ProgressingJobsCount: _integer | None
+    ReservationPlan: ReservationPlan | None
+    ServiceOverrides: _listOfServiceOverride | None
+    Status: QueueStatus | None
+    SubmittedJobsCount: _integer | None
+    Type: Type | None
 
 
 class CreateQueueResponse(TypedDict, total=False):
-    Queue: Optional[Queue]
+    Queue: Queue | None
 
 
 class CreateResourceShareRequest(ServiceRequest):
@@ -6232,23 +6350,23 @@ class DeleteQueueResponse(TypedDict, total=False):
 
 
 class DescribeEndpointsRequest(ServiceRequest):
-    MaxResults: Optional[_integer]
-    Mode: Optional[DescribeEndpointsMode]
-    NextToken: Optional[_string]
+    MaxResults: _integer | None
+    Mode: DescribeEndpointsMode | None
+    NextToken: _string | None
 
 
 class Endpoint(TypedDict, total=False):
     """Describes an account-specific API endpoint."""
 
-    Url: Optional[_string]
+    Url: _string | None
 
 
-_listOfEndpoint = List[Endpoint]
+_listOfEndpoint = list[Endpoint]
 
 
 class DescribeEndpointsResponse(TypedDict, total=False):
-    Endpoints: Optional[_listOfEndpoint]
-    NextToken: Optional[_string]
+    Endpoints: _listOfEndpoint | None
+    NextToken: _string | None
 
 
 class DisassociateCertificateRequest(ServiceRequest):
@@ -6260,7 +6378,7 @@ class DisassociateCertificateResponse(TypedDict, total=False):
 
 
 class ExceptionBody(TypedDict, total=False):
-    Message: Optional[_string]
+    Message: _string | None
 
 
 class GetJobRequest(ServiceRequest):
@@ -6268,7 +6386,7 @@ class GetJobRequest(ServiceRequest):
 
 
 class GetJobResponse(TypedDict, total=False):
-    Job: Optional[Job]
+    Job: Job | None
 
 
 class GetJobTemplateRequest(ServiceRequest):
@@ -6276,7 +6394,20 @@ class GetJobTemplateRequest(ServiceRequest):
 
 
 class GetJobTemplateResponse(TypedDict, total=False):
-    JobTemplate: Optional[JobTemplate]
+    JobTemplate: JobTemplate | None
+
+
+class GetJobsQueryResultsRequest(ServiceRequest):
+    Id: _string
+
+
+_listOfJob = list[Job]
+
+
+class GetJobsQueryResultsResponse(TypedDict, total=False):
+    Jobs: _listOfJob | None
+    NextToken: _string | None
+    Status: JobsQueryStatus | None
 
 
 class GetPolicyRequest(ServiceRequest):
@@ -6289,13 +6420,13 @@ class Policy(TypedDict, total=False):
     at http://docs.aws.amazon.com/mediaconvert/latest/ug/what-is.html
     """
 
-    HttpInputs: Optional[InputPolicy]
-    HttpsInputs: Optional[InputPolicy]
-    S3Inputs: Optional[InputPolicy]
+    HttpInputs: InputPolicy | None
+    HttpsInputs: InputPolicy | None
+    S3Inputs: InputPolicy | None
 
 
 class GetPolicyResponse(TypedDict, total=False):
-    Policy: Optional[Policy]
+    Policy: Policy | None
 
 
 class GetPresetRequest(ServiceRequest):
@@ -6303,7 +6434,7 @@ class GetPresetRequest(ServiceRequest):
 
 
 class GetPresetResponse(TypedDict, total=False):
-    Preset: Optional[Preset]
+    Preset: Preset | None
 
 
 class GetQueueRequest(ServiceRequest):
@@ -6311,7 +6442,7 @@ class GetQueueRequest(ServiceRequest):
 
 
 class GetQueueResponse(TypedDict, total=False):
-    Queue: Optional[Queue]
+    Queue: Queue | None
 
 
 class JobEngineVersion(TypedDict, total=False):
@@ -6320,73 +6451,83 @@ class JobEngineVersion(TypedDict, total=False):
     versions are in a YYYY-MM-DD format.
     """
 
-    ExpirationDate: Optional[_timestampUnix]
-    Version: Optional[_string]
+    ExpirationDate: _timestampUnix | None
+    Version: _string | None
+
+
+_listOf__stringMax100 = list[_stringMax100]
+
+
+class JobsQueryFilter(TypedDict, total=False):
+    """Provide one or more JobsQueryFilter objects, each containing a Key with
+    an associated Values array. Note that MediaConvert queries jobs using OR
+    logic.
+    """
+
+    Key: JobsQueryFilterKey | None
+    Values: _listOf__stringMax100 | None
 
 
 class ListJobTemplatesRequest(ServiceRequest):
-    Category: Optional[_string]
-    ListBy: Optional[JobTemplateListBy]
-    MaxResults: Optional[_integerMin1Max20]
-    NextToken: Optional[_string]
-    Order: Optional[Order]
+    Category: _string | None
+    ListBy: JobTemplateListBy | None
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
+    Order: Order | None
 
 
-_listOfJobTemplate = List[JobTemplate]
+_listOfJobTemplate = list[JobTemplate]
 
 
 class ListJobTemplatesResponse(TypedDict, total=False):
-    JobTemplates: Optional[_listOfJobTemplate]
-    NextToken: Optional[_string]
+    JobTemplates: _listOfJobTemplate | None
+    NextToken: _string | None
 
 
 class ListJobsRequest(ServiceRequest):
-    MaxResults: Optional[_integerMin1Max20]
-    NextToken: Optional[_string]
-    Order: Optional[Order]
-    Queue: Optional[_string]
-    Status: Optional[JobStatus]
-
-
-_listOfJob = List[Job]
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
+    Order: Order | None
+    Queue: _string | None
+    Status: JobStatus | None
 
 
 class ListJobsResponse(TypedDict, total=False):
-    Jobs: Optional[_listOfJob]
-    NextToken: Optional[_string]
+    Jobs: _listOfJob | None
+    NextToken: _string | None
 
 
 class ListPresetsRequest(ServiceRequest):
-    Category: Optional[_string]
-    ListBy: Optional[PresetListBy]
-    MaxResults: Optional[_integerMin1Max20]
-    NextToken: Optional[_string]
-    Order: Optional[Order]
+    Category: _string | None
+    ListBy: PresetListBy | None
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
+    Order: Order | None
 
 
-_listOfPreset = List[Preset]
+_listOfPreset = list[Preset]
 
 
 class ListPresetsResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    Presets: Optional[_listOfPreset]
+    NextToken: _string | None
+    Presets: _listOfPreset | None
 
 
 class ListQueuesRequest(ServiceRequest):
-    ListBy: Optional[QueueListBy]
-    MaxResults: Optional[_integerMin1Max20]
-    NextToken: Optional[_string]
-    Order: Optional[Order]
+    ListBy: QueueListBy | None
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
+    Order: Order | None
 
 
-_listOfQueue = List[Queue]
+_listOfQueue = list[Queue]
 
 
 class ListQueuesResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    Queues: Optional[_listOfQueue]
-    TotalConcurrentJobs: Optional[_integer]
-    UnallocatedConcurrentJobs: Optional[_integer]
+    NextToken: _string | None
+    Queues: _listOfQueue | None
+    TotalConcurrentJobs: _integer | None
+    UnallocatedConcurrentJobs: _integer | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -6398,76 +6539,76 @@ class ResourceTags(TypedDict, total=False):
     MediaConvert resource.
     """
 
-    Arn: Optional[_string]
-    Tags: Optional[_mapOf__string]
+    Arn: _string | None
+    Tags: _mapOf__string | None
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    ResourceTags: Optional[ResourceTags]
+    ResourceTags: ResourceTags | None
 
 
 class ListVersionsRequest(ServiceRequest):
-    MaxResults: Optional[_integerMin1Max20]
-    NextToken: Optional[_string]
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
 
 
-_listOfJobEngineVersion = List[JobEngineVersion]
+_listOfJobEngineVersion = list[JobEngineVersion]
 
 
 class ListVersionsResponse(TypedDict, total=False):
-    NextToken: Optional[_string]
-    Versions: Optional[_listOfJobEngineVersion]
+    NextToken: _string | None
+    Versions: _listOfJobEngineVersion | None
 
 
 class Metadata(TypedDict, total=False):
     """Metadata and other file information."""
 
-    ETag: Optional[_string]
-    FileSize: Optional[_long]
-    LastModified: Optional[_timestampUnix]
-    MimeType: Optional[_string]
+    ETag: _string | None
+    FileSize: _long | None
+    LastModified: _timestampUnix | None
+    MimeType: _string | None
 
 
 class ProbeInputFile(TypedDict, total=False):
     """The input file that needs to be analyzed."""
 
-    FileUrl: Optional[_string]
+    FileUrl: _string | None
 
 
-_listOfProbeInputFile = List[ProbeInputFile]
+_listOfProbeInputFile = list[ProbeInputFile]
 
 
 class ProbeRequest(ServiceRequest):
-    InputFiles: Optional[_listOfProbeInputFile]
+    InputFiles: _listOfProbeInputFile | None
 
 
-_listOf__integer = List[_integer]
+_listOf__integer = list[_integer]
 
 
 class TrackMapping(TypedDict, total=False):
     """An array containing track mapping information."""
 
-    AudioTrackIndexes: Optional[_listOf__integer]
-    DataTrackIndexes: Optional[_listOf__integer]
-    VideoTrackIndexes: Optional[_listOf__integer]
+    AudioTrackIndexes: _listOf__integer | None
+    DataTrackIndexes: _listOf__integer | None
+    VideoTrackIndexes: _listOf__integer | None
 
 
-_listOfTrackMapping = List[TrackMapping]
+_listOfTrackMapping = list[TrackMapping]
 
 
 class ProbeResult(TypedDict, total=False):
     """Probe results for your media file."""
 
-    Container: Optional[Container]
-    Metadata: Optional[Metadata]
-    TrackMappings: Optional[_listOfTrackMapping]
+    Container: Container | None
+    Metadata: Metadata | None
+    TrackMappings: _listOfTrackMapping | None
 
 
-_listOfProbeResult = List[ProbeResult]
+_listOfProbeResult = list[ProbeResult]
 
 
 class ProbeResponse(TypedDict, total=False):
-    ProbeResults: Optional[_listOfProbeResult]
+    ProbeResults: _listOfProbeResult | None
 
 
 class PutPolicyRequest(ServiceRequest):
@@ -6475,21 +6616,35 @@ class PutPolicyRequest(ServiceRequest):
 
 
 class PutPolicyResponse(TypedDict, total=False):
-    Policy: Optional[Policy]
+    Policy: Policy | None
 
 
 class SearchJobsRequest(ServiceRequest):
-    InputFile: Optional[_string]
-    MaxResults: Optional[_integerMin1Max20]
-    NextToken: Optional[_string]
-    Order: Optional[Order]
-    Queue: Optional[_string]
-    Status: Optional[JobStatus]
+    InputFile: _string | None
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
+    Order: Order | None
+    Queue: _string | None
+    Status: JobStatus | None
 
 
 class SearchJobsResponse(TypedDict, total=False):
-    Jobs: Optional[_listOfJob]
-    NextToken: Optional[_string]
+    Jobs: _listOfJob | None
+    NextToken: _string | None
+
+
+_listOfJobsQueryFilter = list[JobsQueryFilter]
+
+
+class StartJobsQueryRequest(ServiceRequest):
+    FilterList: _listOfJobsQueryFilter | None
+    MaxResults: _integerMin1Max20 | None
+    NextToken: _string | None
+    Order: Order | None
+
+
+class StartJobsQueryResponse(TypedDict, total=False):
+    Id: _string | None
 
 
 class TagResourceRequest(ServiceRequest):
@@ -6503,7 +6658,7 @@ class TagResourceResponse(TypedDict, total=False):
 
 class UntagResourceRequest(ServiceRequest):
     Arn: _string
-    TagKeys: Optional[_listOf__string]
+    TagKeys: _listOf__string | None
 
 
 class UntagResourceResponse(TypedDict, total=False):
@@ -6511,50 +6666,50 @@ class UntagResourceResponse(TypedDict, total=False):
 
 
 class UpdateJobTemplateRequest(ServiceRequest):
-    AccelerationSettings: Optional[AccelerationSettings]
-    Category: Optional[_string]
-    Description: Optional[_string]
-    HopDestinations: Optional[_listOfHopDestination]
+    AccelerationSettings: AccelerationSettings | None
+    Category: _string | None
+    Description: _string | None
+    HopDestinations: _listOfHopDestination | None
     Name: _string
-    Priority: Optional[_integerMinNegative50Max50]
-    Queue: Optional[_string]
-    Settings: Optional[JobTemplateSettings]
-    StatusUpdateInterval: Optional[StatusUpdateInterval]
+    Priority: _integerMinNegative50Max50 | None
+    Queue: _string | None
+    Settings: JobTemplateSettings | None
+    StatusUpdateInterval: StatusUpdateInterval | None
 
 
 class UpdateJobTemplateResponse(TypedDict, total=False):
-    JobTemplate: Optional[JobTemplate]
+    JobTemplate: JobTemplate | None
 
 
 class UpdatePresetRequest(ServiceRequest):
-    Category: Optional[_string]
-    Description: Optional[_string]
+    Category: _string | None
+    Description: _string | None
     Name: _string
-    Settings: Optional[PresetSettings]
+    Settings: PresetSettings | None
 
 
 class UpdatePresetResponse(TypedDict, total=False):
-    Preset: Optional[Preset]
+    Preset: Preset | None
 
 
 class UpdateQueueRequest(ServiceRequest):
-    ConcurrentJobs: Optional[_integer]
-    Description: Optional[_string]
+    ConcurrentJobs: _integer | None
+    Description: _string | None
     Name: _string
-    ReservationPlanSettings: Optional[ReservationPlanSettings]
-    Status: Optional[QueueStatus]
+    ReservationPlanSettings: ReservationPlanSettings | None
+    Status: QueueStatus | None
 
 
 class UpdateQueueResponse(TypedDict, total=False):
-    Queue: Optional[Queue]
+    Queue: Queue | None
 
 
 _timestampIso8601 = datetime
 
 
 class MediaconvertApi:
-    service = "mediaconvert"
-    version = "2017-08-29"
+    service: str = "mediaconvert"
+    version: str = "2017-08-29"
 
     @handler("AssociateCertificate")
     def associate_certificate(
@@ -6568,6 +6723,7 @@ class MediaconvertApi:
         :returns: AssociateCertificateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6584,6 +6740,7 @@ class MediaconvertApi:
         :returns: CancelJobResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6636,6 +6793,7 @@ class MediaconvertApi:
         :returns: CreateJobResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6679,6 +6837,7 @@ class MediaconvertApi:
         :returns: CreateJobTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6708,6 +6867,7 @@ class MediaconvertApi:
         :returns: CreatePresetResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6743,6 +6903,7 @@ class MediaconvertApi:
         :returns: CreateQueueResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6762,6 +6923,7 @@ class MediaconvertApi:
         :returns: CreateResourceShareResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6779,6 +6941,7 @@ class MediaconvertApi:
         :returns: DeleteJobTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6793,6 +6956,7 @@ class MediaconvertApi:
         :returns: DeletePolicyResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6810,6 +6974,7 @@ class MediaconvertApi:
         :returns: DeletePresetResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6825,6 +6990,7 @@ class MediaconvertApi:
         :returns: DeleteQueueResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6853,6 +7019,7 @@ class MediaconvertApi:
         :returns: DescribeEndpointsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6873,6 +7040,7 @@ class MediaconvertApi:
         :returns: DisassociateCertificateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6888,6 +7056,7 @@ class MediaconvertApi:
         :returns: GetJobResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6905,6 +7074,26 @@ class MediaconvertApi:
         :returns: GetJobTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("GetJobsQueryResults")
+    def get_jobs_query_results(
+        self, context: RequestContext, id: _string, **kwargs
+    ) -> GetJobsQueryResultsResponse:
+        """Retrieve a JSON array of up to twenty of your most recent jobs matched
+        by a jobs query.
+
+        :param id: The ID of the jobs query.
+        :returns: GetJobsQueryResultsResponse
+        :raises BadRequestException:
+        :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6919,6 +7108,7 @@ class MediaconvertApi:
         :returns: GetPolicyResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6934,6 +7124,7 @@ class MediaconvertApi:
         :returns: GetPresetResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6949,6 +7140,7 @@ class MediaconvertApi:
         :returns: GetQueueResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -6982,6 +7174,7 @@ class MediaconvertApi:
         :returns: ListJobTemplatesResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7014,6 +7207,7 @@ class MediaconvertApi:
         :returns: ListJobsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7046,6 +7240,7 @@ class MediaconvertApi:
         :returns: ListPresetsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7075,6 +7270,7 @@ class MediaconvertApi:
         :returns: ListQueuesResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7093,6 +7289,7 @@ class MediaconvertApi:
         :returns: ListTagsForResourceResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7116,6 +7313,7 @@ class MediaconvertApi:
         :returns: ListVersionsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7137,6 +7335,7 @@ class MediaconvertApi:
         :returns: ProbeResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7155,6 +7354,7 @@ class MediaconvertApi:
         :returns: PutPolicyResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7188,6 +7388,37 @@ class MediaconvertApi:
         :returns: SearchJobsResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
+        :raises ForbiddenException:
+        :raises NotFoundException:
+        :raises TooManyRequestsException:
+        :raises ConflictException:
+        """
+        raise NotImplementedError
+
+    @handler("StartJobsQuery")
+    def start_jobs_query(
+        self,
+        context: RequestContext,
+        filter_list: _listOfJobsQueryFilter | None = None,
+        max_results: _integerMin1Max20 | None = None,
+        next_token: _string | None = None,
+        order: Order | None = None,
+        **kwargs,
+    ) -> StartJobsQueryResponse:
+        """Start an asynchronous jobs query using the provided filters. To receive
+        the list of jobs that match your query, call the GetJobsQueryResults API
+        using the query ID returned by this API.
+
+        :param filter_list: Optional.
+        :param max_results: Optional.
+        :param next_token: Use this string to request the next batch of jobs matched by a jobs
+        query.
+        :param order: Optional.
+        :returns: StartJobsQueryResponse
+        :raises BadRequestException:
+        :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7208,6 +7439,7 @@ class MediaconvertApi:
         :returns: TagResourceResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7233,6 +7465,7 @@ class MediaconvertApi:
         :returns: UntagResourceResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7272,6 +7505,7 @@ class MediaconvertApi:
         :returns: UpdateJobTemplateResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7298,6 +7532,7 @@ class MediaconvertApi:
         :returns: UpdatePresetResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:
@@ -7327,6 +7562,7 @@ class MediaconvertApi:
         :returns: UpdateQueueResponse
         :raises BadRequestException:
         :raises InternalServerErrorException:
+        :raises ServiceQuotaExceededException:
         :raises ForbiddenException:
         :raises NotFoundException:
         :raises TooManyRequestsException:

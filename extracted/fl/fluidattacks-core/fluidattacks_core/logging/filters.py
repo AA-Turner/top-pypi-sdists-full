@@ -1,27 +1,23 @@
 import logging
 
-from fluidattacks_core.logging.utils import get_job_metadata, is_trunk_branch
+from fluidattacks_core.logging.sources.utils import get_env_var, get_environment
 
 
 class NoProductionFilter(logging.Filter):
-    """If `CI_COMMIT_REF_NAME` is `trunk`, logs will be excluded."""
-
     def filter(self, _record: logging.LogRecord) -> bool:
-        return not is_trunk_branch()
+        return get_environment() != "production"
 
 
 class ProductionOnlyFilter(logging.Filter):
-    """If `CI_COMMIT_REF_NAME` is `trunk`, logs will be included."""
-
     def filter(self, _record: logging.LogRecord) -> bool:
-        return is_trunk_branch()
+        return get_environment() == "production"
 
 
-class BatchOnlyFilter(logging.Filter):
+class ErrorOnlyFilter(logging.Filter):
     def filter(self, _record: logging.LogRecord) -> bool:
-        return get_job_metadata().job_id is not None
+        return _record.levelno >= logging.ERROR
 
 
-class NoBatchFilter(logging.Filter):
+class EnabledTelemetryFilter(logging.Filter):
     def filter(self, _record: logging.LogRecord) -> bool:
-        return get_job_metadata().job_id is None
+        return str(get_env_var("TELEMETRY_OPT_OUT")).lower() != "true"

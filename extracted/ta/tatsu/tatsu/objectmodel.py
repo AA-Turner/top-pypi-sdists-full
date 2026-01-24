@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import weakref
-from collections.abc import Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Self, cast
+
+from tatsu.util import AsJSONMixin, asjson, asjsons
 
 from .ast import AST
-from .infos import CommentInfo, ParseInfo
-from .util import AsJSONMixin, asjson, asjsons
+from .infos import ParseInfo
+from .tokenizing import CommentInfo, LineInfo
 
 BASE_CLASS_TOKEN = '::'  # noqa: S105
 
@@ -16,11 +18,11 @@ BASE_CLASS_TOKEN = '::'  # noqa: S105
 class Node(AsJSONMixin):
     _parent: Node | None = None
     _children: list[Node] | None = None
-    ast: AST | None = None
+    ast: AST | Node | str | None = None
     ctx: Any = None
     parseinfo: ParseInfo | None = None
 
-    def __init__(self, ast=None, **attributes):
+    def __init__(self, ast: AST | Node | str | None = None, **attributes: Any):
         super().__init__()
         if isinstance(ast, dict):
             ast = AST(ast)
@@ -51,17 +53,17 @@ class Node(AsJSONMixin):
             del self.parseinfo
 
     @property
-    def parent(self):
+    def parent(self) -> Node | None:
         return self._parent
 
     @property
-    def line(self):
+    def line(self) -> int | None:
         if self.parseinfo:
             return self.parseinfo.line
         return None
 
     @property
-    def endline(self):
+    def endline(self) -> int | None:
         if self.parseinfo:
             return self.parseinfo.endline
         return None
@@ -72,41 +74,46 @@ class Node(AsJSONMixin):
         return None
 
     def line_index(self):
-        return self.parseinfo.line_index()
+        if self.parseinfo:
+            return self.parseinfo.line_index()
+        return None
 
     @property
     def col(self):
         return self.line_info.col if self.line_info else None
 
     @property
-    def context(self):
+    def context(self) -> Any:
         return self.ctx
 
     @property
-    def line_info(self):
+    def line_info(self) -> LineInfo | None:
         if self.parseinfo:
             return self.parseinfo.tokenizer.line_info(self.parseinfo.pos)
         return None
 
     @property
-    def text(self):
+    def text(self) -> str:
         if not self.parseinfo:
             return ''
-        text = self.parseinfo.tokenizer.text
+        if not hasattr(self.parseinfo.tokenizer, 'text'):
+            return ''
+        text: str = self.parseinfo.tokenizer.text
         return text[self.parseinfo.pos: self.parseinfo.endpos]
 
     @property
-    def comments(self):
-        if self.parseinfo:
-            return self.parseinfo.tokenizer.comments(self.parseinfo.pos)
+    def comments(self) -> CommentInfo:
+        if self.parseinfo and hasattr(self.parseinfo.tokenizer, 'comments'):
+            comments = cast(Callable, self.parseinfo.tokenizer.comments)
+            return comments(self.parseinfo.pos)
         return CommentInfo([], [])
 
     @property
-    def _deref(self):
+    def _deref(self) -> Self:
         # use this to get the actual object over weakref instances
         return self
 
-    def _find_children(self):
+    def _find_children(self) -> Iterator[Node]:
         def with_parent(node):
             node._parent = weakref.proxy(self)
             return node
@@ -135,31 +142,31 @@ class Node(AsJSONMixin):
                     continue
                 yield from children_of(child)
 
-    def children_list(self):
+    def children_list(self) -> list[Node]:
         if self._children is not None:
             return self._children
         return list(self._find_children())
 
-    def children_set(self):
+    def children_set(self) -> set[Node]:
         return set(self.children_list())
 
-    def children(self):
+    def children(self) -> list[Node]:
         return self.children_list()
 
-    def asjson(self):
+    def asjson(self) -> Any:
         return asjson(self)
 
-    def _pubdict(self):
+    def _pubdict(self) -> dict[str, Any]:
         return {
             name: value
             for name, value in super()._pubdict().items()
             if name not in {'ast', 'ctx', 'parent', 'parseinfo'}
         }
 
-    def __str__(self):
+    def __str__(self) -> str:
         return asjsons(self)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         if self.ast is not None:
             if isinstance(self.ast, list):
                 return hash(tuple(self.ast))
@@ -170,7 +177,7 @@ class Node(AsJSONMixin):
         else:
             return id(self)
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if id(self) == id(other):
             return True
         elif self.ast is None:
@@ -180,7 +187,7 @@ class Node(AsJSONMixin):
         else:
             return self.ast == other.ast
 
-    def _nonrefdict(self):
+    def _nonrefdict(self) -> Mapping[str, Any]:
         return {
             name: value
             for name, value in vars(self).items()
@@ -192,7 +199,7 @@ class Node(AsJSONMixin):
         }
 
     # NOTE: pickling is important for parallel parsing
-    def __getstate__(self):
+    def __getstate__(self) -> Any:
         return self._nonrefdict()
 
     def __setstate__(self, state):

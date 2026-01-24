@@ -34,6 +34,9 @@ class SrpFleetUserRequestForm(forms.Form):
                 _("Invalid Link. Please use zkillboard.com or kb.evetools.org")
             )
 
+        if re.match(r"^http[s]?:\/\/zkillboard\.com\/", data) and not data.endswith("/"):
+            data += "/"
+
         # Check if it's an actual kill mail
         if not any(
             re.match(regex, data)

@@ -1,20 +1,30 @@
-find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
+find_package(Python COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT} REQUIRED)
 get_property(PYTHON_EXTENSIONS_SOURCE_DIR GLOBAL PROPERTY PYTHON_EXTENSIONS_SOURCE_DIR)
 
 # --- Detect PyInterpreterState_GetID ------------------------------------------
 
 include(CheckSymbolExists)
 
-set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
-set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${Python_INCLUDE_DIRS})
-check_symbol_exists(PyInterpreterState_GetID "stdint.h;stdlib.h;Python.h" HAVE_PYINTERPRETERSTATE_GETID)
-set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+if(WIN32)
+    set(HAVE_PYINTERPRETERSTATE_GETID ON)
+else()
+    set(SAFE_CMAKE_REQUIRED_INCLUDES "${CMAKE_REQUIRED_INCLUDES}")
+    set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${Python_INCLUDE_DIRS})
+    check_symbol_exists(PyInterpreterState_GetID "stdint.h;stdlib.h;Python.h" HAVE_PYINTERPRETERSTATE_GETID)
+    set(CMAKE_REQUIRED_INCLUDES "${SAFE_CMAKE_REQUIRED_INCLUDES}")
+endif()
 
 # --- Detect implementation ----------------------------------------------------
 
 string(TOLOWER "${Python_INTERPRETER_ID}" SYS_IMPLEMENTATION_NAME)
 
 # --- Prepare Cython directives and constants ----------------------------------
+
+if(DEFINED CMAKE_C_COMPILER_TARGET)
+    set(TARGET_CPU ${CMAKE_C_COMPILER_TARGET})
+else()
+    set(TARGET_CPU ${CMAKE_SYSTEM_PROCESSOR})
+endif()
 
 set(CYTHON_DIRECTIVES
     -X cdivision=True
@@ -27,7 +37,7 @@ set(CYTHON_DIRECTIVES
     -E SYS_IMPLEMENTATION_NAME=${SYS_IMPLEMENTATION_NAME}
     -E SYS_VERSION_INFO_MAJOR=${Python_VERSION_MAJOR}
     -E SYS_VERSION_INFO_MINOR=${Python_VERSION_MINOR}
-    -E TARGET_CPU=${CMAKE_SYSTEM_PROCESSOR}
+    -E TARGET_CPU=${TARGET_CPU}
     -E TARGET_SYSTEM=${CMAKE_SYSTEM_NAME}
     -E SYS_BYTEORDER=$<IF:$<STREQUAL:${CMAKE_C_BYTE_ORDER},BIG_ENDIAN>,big,little>
     -E PYPY=$<IF:$<STREQUAL:${Python_INTERPRETER_ID},PyPy>,True,False>
@@ -37,6 +47,7 @@ set(CYTHON_DIRECTIVES
 if(CMAKE_BUILD_TYPE STREQUAL Debug)
   set(CYTHON_DIRECTIVES
     ${CYTHON_DIRECTIVES}
+    -E LIMITED_API=False
     -X cdivision_warnings=True
     -X warn.undeclared=True
     -X warn.unreachable=True
@@ -57,6 +68,7 @@ else()
     ${CYTHON_DIRECTIVES}
     -X boundscheck=False
     -X wraparound=False
+    -E LIMITED_API=$<IF:$<STREQUAL:${SKBUILD_SABI_VERSION},"">,False,True>
   )
 endif()
 
@@ -100,14 +112,22 @@ macro(cython_extension _name)
   if(EXISTS ${_name}.pxd)
     set(EXTENSION_SOURCES ${EXTENSION_SOURCES} ${_name}.pxd)
   endif()
-  python_add_library(${_target} MODULE WITH_SOABI ${EXTENSION_SOURCES})
+    if((NOT "${SKBUILD_SABI_VERSION}" STREQUAL "") AND (NOT CMAKE_BUILD_TYPE STREQUAL Debug))
+    message(STATUS "Building in Limited API mode for Python: ${SKBUILD_SABI_VERSION}")
+    python_add_library(${_target} MODULE WITH_SOABI USE_SABI "${SKBUILD_SABI_VERSION}" ${EXTENSION_SOURCES})
+  else()
+    message(STATUS "Building in latest API mode for Python: ${Python_VERSION_MAJOR}.${Python_VERSION_MINOR}")
+    python_add_library(${_target} MODULE WITH_SOABI ${EXTENSION_SOURCES})
+  endif()
   set_target_properties(${_target} PROPERTIES OUTPUT_NAME ${_name} )
-  target_include_directories(${_target} AFTER PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})  
+  target_include_directories(${_target} AFTER PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}" "${PYTHON_EXTENSIONS_SOURCE_DIR}")  
   target_link_libraries(${_target} PUBLIC ${CYTHON_EXTENSION_LINKS})
+  target_compile_definitions(${_target} PRIVATE CYTHON_USE_PYLONG_INTERNALS=0)
   if(HAVE_PYINTERPRETERSTATE_GETID)
     target_compile_definitions(${_target} PUBLIC HAVE_PYINTERPRETERSTATE_GETID)
   endif()
 
+  # Setup debug or release options
   if(CMAKE_BUILD_TYPE STREQUAL Debug)
     if(NOT Python_INTERPRETER_ID STREQUAL PyPy)
       target_compile_definitions(${_target} PUBLIC CYTHON_TRACE_NOGIL=1)
@@ -121,8 +141,20 @@ macro(cython_extension _name)
   install(TARGETS ${_target} DESTINATION ${_dest_folder} )
   message(DEBUG "Install folder for extension ${_name}: ${_dest_folder}")
 
-  # Add the targets to the list of Cython extensions
-  get_property(_ext GLOBAL PROPERTY PYRODIGAL_CYTHON_EXTENSIONS)
-  list(APPEND _ext ${_target})
-  set_property(GLOBAL PROPERTY PYRODIGAL_CYTHON_EXTENSIONS ${_ext})
+  # Patch the RPATH to the installed libs (only if libs are installed locally)
+  if(DEFINED PYHMMER_INSTALL_LIBS_DIR)
+    cmake_path(SET _path NORMALIZE ${_dest_folder})
+    string(REPLACE "/" ";" _components ${_path})
+    if(CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+      set(_rpath "@loader_path/")
+    else()
+      set(_rpath "\$ORIGIN/")
+    endif()
+    foreach(_x IN LISTS _components)
+      string(APPEND _rpath "../")
+    endforeach()
+    string(APPEND _rpath "${PYHMMER_INSTALL_LIBS_DIR}")
+    set_target_properties(${_target} PROPERTIES INSTALL_RPATH ${_rpath})
+    message(DEBUG "RPATH for extension ${_name}: ${_rpath}")
+  endif()
 endmacro()

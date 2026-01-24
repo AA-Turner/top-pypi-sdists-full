@@ -1,11 +1,10 @@
+import inspect
 import sys
 from collections import defaultdict
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from enum import Enum
 from typing import (
     Any,
-    Callable,
-    Optional,
     get_type_hints,
 )
 
@@ -67,8 +66,8 @@ class ClassMeta:
         qname: str,
         local_name: str,
         nillable: bool,
-        namespace: Optional[str],
-        target_qname: Optional[str],
+        namespace: str | None,
+        target_qname: str | None,
     ):
         """Initialize class meta."""
         self.element_name_generator = element_name_generator
@@ -102,7 +101,7 @@ class XmlMetaBuilder:
         class_type: ClassType,
         element_name_generator: Callable,
         attribute_name_generator: Callable,
-        globalns: Optional[dict[str, Callable]] = None,
+        globalns: dict[str, Callable] | None = None,
     ):
         """Initialize the builder."""
         self.class_type = class_type
@@ -110,7 +109,7 @@ class XmlMetaBuilder:
         self.attribute_name_generator = attribute_name_generator
         self.globalns = globalns
 
-    def build(self, clazz: type, parent_namespace: Optional[str]) -> XmlMeta:
+    def build(self, clazz: type, parent_namespace: str | None) -> XmlMeta:
         """Build the binding metadata for a dataclass and its fields.
 
         Args:
@@ -171,7 +170,7 @@ class XmlMetaBuilder:
     def build_vars(
         self,
         clazz: type,
-        namespace: Optional[str],
+        namespace: str | None,
         element_name_generator: Callable,
         attribute_name_generator: Callable,
     ) -> Iterator[XmlVar]:
@@ -217,7 +216,7 @@ class XmlMetaBuilder:
     def build_class_meta(
         self,
         clazz: Any,
-        parent_namespace: Optional[str] = None,
+        parent_namespace: str | None = None,
     ) -> ClassMeta:
         """Build the class meta options and merge with the defaults.
 
@@ -268,7 +267,8 @@ class XmlMetaBuilder:
         Todo: Honestly I have no idea why we needed this.
         """
         for base in clazz.__mro__:
-            ann = base.__dict__.get("__annotations__")
+            ann = inspect.get_annotations(base)
+
             if ann and name in ann:
                 return base
 
@@ -280,7 +280,7 @@ class XmlMetaBuilder:
         return "." in clazz.__qualname__
 
     @classmethod
-    def target_namespace(cls, module: Any, meta: Any) -> Optional[str]:
+    def target_namespace(cls, module: Any, meta: Any) -> str | None:
         """The target namespace this class metadata was defined in."""
         namespace = getattr(meta, "target_namespace", None)
         if namespace is not None:
@@ -359,11 +359,11 @@ class XmlVarBuilder:
         type_hint: Any,
         metadata: Mapping[str, Any],
         init: bool,
-        parent_namespace: Optional[str],
+        parent_namespace: str | None,
         default_value: Any,
         globalns: Any,
-        parent_factory: Optional[Callable] = None,
-    ) -> Optional[XmlVar]:
+        parent_factory: Callable | None = None,
+    ) -> XmlVar | None:
         """Build the binding metadata for a class field.
 
         Args:
@@ -458,9 +458,9 @@ class XmlVarBuilder:
         model: type,
         name: str,
         choices: list[dict],
-        factory: Optional[Callable],
+        factory: Callable | None,
         globalns: Any,
-        parent_namespace: Optional[str],
+        parent_namespace: str | None,
     ) -> Iterator[XmlVar]:
         """Build the binding metadata for a compound dataclass field.
 
@@ -532,9 +532,9 @@ class XmlVarBuilder:
     @classmethod
     def resolve_namespaces(
         cls,
-        xml_type: Optional[str],
-        namespace: Optional[str],
-        parent_namespace: Optional[str],
+        xml_type: str | None,
+        namespace: str | None,
+        parent_namespace: str | None,
     ) -> tuple[str, ...]:
         """Resolve a fields supported namespaces.
 

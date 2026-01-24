@@ -19,10 +19,10 @@ import logging
 
 from keystoneauth1 import exceptions as ks_exc
 from osc_lib.cli import parseractions
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common
 from openstackclient.identity.v3 import tag
@@ -73,8 +73,8 @@ class CreateProject(command.ShowOne):
         parser.add_argument(
             '--property',
             metavar='<key=value>',
-            action=parseractions.KeyValueAction,
             dest='properties',
+            action=parseractions.KeyValueAction,
             help=_(
                 'Add a property to <name> '
                 '(repeat option to set multiple properties)'
@@ -146,7 +146,14 @@ class CreateProject(command.ShowOne):
 
 
 class DeleteProject(command.Command):
-    _description = _("Delete project(s)")
+    _description = _(
+        "Delete project(s). This command will remove specified "
+        "existing project(s) if an active user is authorized to do "
+        "this. If there are resources managed by other services "
+        "(for example, Nova, Neutron, Cinder) associated with "
+        "specified project(s), delete operation will proceed "
+        "regardless."
+    )
 
     def get_parser(self, prog_name):
         parser = super().get_parser(prog_name)

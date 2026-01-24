@@ -1,5 +1,6 @@
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_command
 from anyscale.cli_logger import BlockLogger
 from anyscale.job._private.job_sdk import PrivateJobSDK
@@ -27,7 +28,7 @@ def _resolve_id_from_args(
     if id is not None:
         return id
     else:
-        return kwargs.get("job_id", None)
+        return kwargs.get("job_id")
 
 
 _JOB_SDK_SINGLETON_KEY = "job_sdk"
@@ -187,6 +188,7 @@ _WAIT_ARG_DOCSTRINGS = {
     "project": "Named project to use for the job. If not provided, the default project for the cloud will be used (or, if running in a workspace, the project of the workspace).",
     "state": "Target state of the job",
     "timeout_s": "Number of seconds to wait before timing out, this timeout will not affect job execution",
+    "follow": "Whether to follow the logs of the job. If True, the logs will be streamed to the console.",
 }
 
 
@@ -204,6 +206,7 @@ def wait(
     project: Optional[str] = None,
     state: Union[JobState, str] = JobState.SUCCEEDED,
     timeout_s: float = 1800,
+    follow: bool = False,
     _private_sdk: Optional[PrivateJobSDK] = None,
     **_kwargs: Dict[str, Any],
 ):
@@ -216,6 +219,7 @@ def wait(
         project=project,
         state=state,
         timeout_s=timeout_s,
+        follow=follow,
     )
 
 
@@ -264,4 +268,173 @@ def get_logs(
         run=run,
         mode=mode,
         max_lines=max_lines,
+    )
+
+
+_ADD_TAGS_EXAMPLE = """
+import anyscale
+
+anyscale.job.add_tags(id="job_123", tags={"team": "mlops", "env": "prod"})
+"""
+
+_ADD_TAGS_ARG_DOCSTRINGS = {
+    "job_id": "ID of the job. Provide either job_id or name.",
+    "name": "Name of the job. Provide either job_id or name.",
+    "cloud": "Cloud name (used when resolving by name).",
+    "project": "Project name (used when resolving by name).",
+    "tags": "Key/value tags to upsert as a map {key: value}.",
+}
+
+_REMOVE_TAGS_EXAMPLE = """
+import anyscale
+
+anyscale.job.remove_tags(id="job_123", keys=["team", "env"])
+"""
+
+_REMOVE_TAGS_ARG_DOCSTRINGS = {
+    "job_id": "ID of the job. Provide either job_id or name.",
+    "name": "Name of the job. Provide either job_id or name.",
+    "cloud": "Cloud name (used when resolving by name).",
+    "project": "Project name (used when resolving by name).",
+    "keys": "List of tag keys to remove.",
+}
+
+
+@sdk_command(
+    _JOB_SDK_SINGLETON_KEY,
+    PrivateJobSDK,
+    doc_py_example=_ADD_TAGS_EXAMPLE,
+    arg_docstrings=_ADD_TAGS_ARG_DOCSTRINGS,
+)
+def add_tags(
+    *,
+    job_id: Optional[str] = None,
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    tags: Dict[str, str],
+    _private_sdk: Optional[PrivateJobSDK] = None,
+):
+    """Upsert (add/update) tag key/value pairs for a job."""
+    return _private_sdk.add_tags(  # type: ignore
+        job_id=job_id, name=name, cloud=cloud, project=project, tags=tags
+    )
+
+
+@sdk_command(
+    _JOB_SDK_SINGLETON_KEY,
+    PrivateJobSDK,
+    doc_py_example=_REMOVE_TAGS_EXAMPLE,
+    arg_docstrings=_REMOVE_TAGS_ARG_DOCSTRINGS,
+)
+def remove_tags(
+    *,
+    job_id: Optional[str] = None,
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    keys: List[str],
+    _private_sdk: Optional[PrivateJobSDK] = None,
+):
+    """Remove tags by key from a job."""
+    return _private_sdk.remove_tags(  # type: ignore
+        job_id=job_id, name=name, cloud=cloud, project=project, keys=keys
+    )
+
+
+_LIST_TAGS_EXAMPLE = """
+import anyscale
+
+tags: dict[str, str] = anyscale.job.list_tags(name="my-job")
+"""
+
+_LIST_TAGS_ARG_DOCSTRINGS = {
+    "job_id": "ID of the job. Provide either job_id or name.",
+    "name": "Name of the job. Provide either job_id or name.",
+    "cloud": "Cloud name (used when resolving by name).",
+    "project": "Project name (used when resolving by name).",
+}
+
+
+@sdk_command(
+    _JOB_SDK_SINGLETON_KEY,
+    PrivateJobSDK,
+    doc_py_example=_LIST_TAGS_EXAMPLE,
+    arg_docstrings=_LIST_TAGS_ARG_DOCSTRINGS,
+)
+def list_tags(
+    *,
+    job_id: Optional[str] = None,
+    name: Optional[str] = None,
+    cloud: Optional[str] = None,
+    project: Optional[str] = None,
+    _private_sdk: Optional[PrivateJobSDK] = None,
+) -> Dict[str, str]:
+    """List tags for a job as a key/value mapping."""
+    return _private_sdk.list_tags(  # type: ignore
+        job_id=job_id, name=name, cloud=cloud, project=project
+    )
+
+
+_LIST_EXAMPLE = """
+import anyscale
+from anyscale.job.models import JobStatus
+
+# List all jobs
+for job in anyscale.job.list(max_items=10):
+    print(f"{job.name}: {job.state}")
+
+# Filter by project
+jobs = list(anyscale.job.list(project="my-project"))
+"""
+
+_LIST_ARG_DOCSTRINGS = {
+    "name": "Filter by job name.",
+    "job_id": "Fetch a specific job by ID.",
+    "project": "Filter by project name.",
+    "cloud": "Filter by cloud name.",
+    "include_all_users": "Include jobs from all users.",
+    "include_archived": "Include archived jobs.",
+    "state_filter": "Filter by job states (list of JobState or str).",
+    "tags_filter": "Filter by tags (dict of key to list of values).",
+    "page_size": "Number of items per page.",
+    "max_items": "Maximum total items to return.",
+}
+
+
+@sdk_command(
+    _JOB_SDK_SINGLETON_KEY,
+    PrivateJobSDK,
+    doc_py_example=_LIST_EXAMPLE,
+    arg_docstrings=_LIST_ARG_DOCSTRINGS,
+)
+def list(  # noqa: A001, PLR0913
+    *,
+    name: Optional[str] = None,
+    job_id: Optional[str] = None,
+    project: Optional[str] = None,
+    cloud: Optional[str] = None,
+    include_all_users: bool = False,
+    include_archived: bool = False,
+    state_filter: Optional[List[Union[JobState, str]]] = None,
+    tags_filter: Optional[Dict[str, List[str]]] = None,
+    page_size: Optional[int] = None,
+    max_items: Optional[int] = None,
+    _private_sdk: Optional[PrivateJobSDK] = None,
+) -> ResultIterator[JobStatus]:
+    """List jobs with filtering and pagination.
+
+    Returns a ResultIterator that lazily fetches pages of jobs.
+    """
+    return _private_sdk.list(  # type: ignore
+        name=name,
+        job_id=job_id,
+        project=project,
+        cloud=cloud,
+        include_all_users=include_all_users,
+        include_archived=include_archived,
+        state_filter=state_filter,
+        tags_filter=tags_filter,
+        page_size=page_size,
+        max_items=max_items,
     )

@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import os
 from abc import ABC, abstractmethod
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from copy import deepcopy
 from dataclasses import dataclass
 from itertools import chain
@@ -11,10 +11,8 @@ from threading import Event, Lock
 from typing import (
     TYPE_CHECKING,
     Any,
-    Callable,
     ClassVar,
     Generic,
-    Optional,
     TypeVar,
     cast,
 )
@@ -52,16 +50,19 @@ from eventsourcing.persistence import (
 from eventsourcing.utils import Environment, EnvType, strtobool
 
 if TYPE_CHECKING:
+    from types import TracebackType
     from uuid import UUID
 
+    from typing_extensions import Self
+
 ProjectorFunction = Callable[
-    [Optional[TMutableOrImmutableAggregate], Iterable[TDomainEvent]],
-    Optional[TMutableOrImmutableAggregate],
+    [TMutableOrImmutableAggregate | None, Iterable[TDomainEvent]],
+    TMutableOrImmutableAggregate | None,
 ]
 
 MutatorFunction = Callable[
-    [TDomainEvent, Optional[TMutableOrImmutableAggregate]],
-    Optional[TMutableOrImmutableAggregate],
+    [TDomainEvent, TMutableOrImmutableAggregate | None],
+    TMutableOrImmutableAggregate | None,
 ]
 
 
@@ -161,7 +162,7 @@ class LRUCache(Cache[S, T]):
                 # Set value.
                 link[self.RESULT] = value
                 # Move the link to the front of the circular queue.
-                link_prev, link_next, _key, result = link
+                link_prev, link_next, _key, _ = link
                 link_prev[self.NEXT] = link_next
                 link_next[self.PREV] = link_prev
                 last = self.root[self.PREV]
@@ -279,6 +280,7 @@ class Repository(Generic[TAggregateID]):
                 if self.fastforward:
                     # Fast-forward cached aggregate.
                     fastforward_lock = self._use_fastforward_lock(aggregate_id)
+                    # TODO: Should this be 'fastforward or self.fastforward_skipping'?
                     blocking = not (fastforward_skipping or self.fastforward_skipping)
                     try:
                         if fastforward_lock.acquire(blocking=blocking):
@@ -635,6 +637,7 @@ class Application(Generic[TAggregateID]):
         a :class:`~eventsourcing.application.Repository`, and
         a :class:`~eventsourcing.application.LocalNotificationLog`.
         """
+        self.closing = Event()
         self.env = self.construct_env(self.name, env)  # type: ignore[misc]
         self.factory = self.construct_factory(self.env)
         self.mapper: Mapper[TAggregateID] = self.construct_mapper()
@@ -645,7 +648,6 @@ class Application(Generic[TAggregateID]):
             self.snapshots = self.construct_snapshot_store()
         self._repository: Repository[TAggregateID] = self.construct_repository()
         self._notification_log = self.construct_notification_log()
-        self.closing = Event()
 
     @property
     def repository(self) -> Repository[TAggregateID]:
@@ -663,7 +665,7 @@ class Application(Generic[TAggregateID]):
     @property
     def log(self) -> LocalNotificationLog:
         warn(
-            "'log' is deprecated, use 'notifications' instead",
+            "'log' is deprecated, use 'notification_log' instead",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -874,6 +876,23 @@ class Application(Generic[TAggregateID]):
     def close(self) -> None:
         self.closing.set()
         self.factory.close()
+
+    def __enter__(self) -> Self:
+        self.factory.__enter__()
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        self.close()
+        self.factory.__exit__(exc_type, exc_val, exc_tb)
+
+    def __del__(self) -> None:
+        with contextlib.suppress(AttributeError):
+            self.close()
 
 
 TApplication = TypeVar("TApplication", bound=Application[Any])

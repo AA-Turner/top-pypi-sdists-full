@@ -3,7 +3,7 @@ Type annotations for networkflowmonitor service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -81,12 +82,6 @@ from .type_defs import (
     UpdateScopeOutputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -97,14 +92,14 @@ __all__ = ("NetworkFlowMonitorClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class NetworkFlowMonitorClient(AioBaseClient):
@@ -158,15 +153,14 @@ class NetworkFlowMonitorClient(AioBaseClient):
         self, **kwargs: Unpack[CreateScopeInputTypeDef]
     ) -> CreateScopeOutputTypeDef:
         """
-        Create a scope of resources that you want to be available for Network Flow
-        Monitor to generate metrics for, when you have active agents on those resources
-        sending metrics reports to the Network Flow Monitor backend.
+        In Network Flow Monitor, you specify a scope for the service to generate
+        metrics for.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/create_scope.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/client/#create_scope)
         """
 
-    async def delete_monitor(self, **kwargs: Unpack[DeleteMonitorInputTypeDef]) -> Dict[str, Any]:
+    async def delete_monitor(self, **kwargs: Unpack[DeleteMonitorInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a monitor in Network Flow Monitor.
 
@@ -174,7 +168,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/client/#delete_monitor)
         """
 
-    async def delete_scope(self, **kwargs: Unpack[DeleteScopeInputTypeDef]) -> Dict[str, Any]:
+    async def delete_scope(self, **kwargs: Unpack[DeleteScopeInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a scope that has been defined.
 
@@ -329,7 +323,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
 
     async def stop_query_monitor_top_contributors(
         self, **kwargs: Unpack[StopQueryMonitorTopContributorsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stop a top contributors query for a monitor.
 
@@ -339,7 +333,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
 
     async def stop_query_workload_insights_top_contributors(
         self, **kwargs: Unpack[StopQueryWorkloadInsightsTopContributorsInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stop a top contributors query for workload insights.
 
@@ -349,7 +343,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
 
     async def stop_query_workload_insights_top_contributors_data(
         self, **kwargs: Unpack[StopQueryWorkloadInsightsTopContributorsDataInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stop a top contributors data query for workload insights.
 
@@ -357,7 +351,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/client/#stop_query_workload_insights_top_contributors_data)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Adds a tag to a resource.
 
@@ -365,7 +359,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_networkflowmonitor/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceInputTypeDef]) -> dict[str, Any]:
         """
         Removes a tag from a resource.
 
@@ -458,7 +452,7 @@ class NetworkFlowMonitorClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

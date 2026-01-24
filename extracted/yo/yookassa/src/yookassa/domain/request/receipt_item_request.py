@@ -22,7 +22,7 @@ class ReceiptItemRequest(BaseObject):
     """Суммарная стоимость покупаемого товара в копейках/центах."""  # noqa: E501
 
     __vat_code = None
-    """Ставка НДС, число 1-10 (тег в 54 ФЗ — 1199)."""  # noqa: E501
+    """Ставка НДС, число 1-12 (тег в 54 ФЗ — 1199)."""  # noqa: E501
 
     __quantity = None
     """Количество (тег в 54 ФЗ — 1023)."""  # noqa: E501
@@ -50,6 +50,9 @@ class ReceiptItemRequest(BaseObject):
 
     __product_code = None
     """Код товара (тег в 54 ФЗ — 1162) — уникальный номер, который присваивается экземпляру товара при маркировке. <br/>Формат: число в шестнадцатеричном представлении с пробелами. Максимальная длина — 32 байта. Пример: ~`00 00 00 01 00 21 FA 41 00 23 05 41 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 12 00 AB 00`.  Обязательный параметр, если одновременно выполняются эти условия:  * вы используете онлайн-кассу, обновленную до ФФД 1.05; * товар нужно [маркировать](http://docs.cntd.ru/document/902192509). """  # noqa: E501
+
+    __planned_status = None
+    """Планируемый статус товара. Тег в 54 ФЗ — 2003. Указывается только для товаров, которые подлежат обязательной маркировке (в `items.mark_code_info` передается параметр `gs_1m`, `short` или `fur`).  Перечень возможных значений:  * [для Чеков от ЮKassa](/developers/payment-acceptance/receipts/54fz/yoomoney/parameters-values#planned-status) * [для сторонних онлайн-касс](/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#planned-status) """  # noqa: E501
 
     __mark_code_info = None
     """Код товара (тег в 54 ФЗ — 1163)."""  # noqa: E501
@@ -318,6 +321,30 @@ class ReceiptItemRequest(BaseObject):
         :type value: str
         """
         self.__product_code = str(value)
+
+    @property
+    def planned_status(self):
+        """Возвращает planned_status модели ReceiptItemRequest.
+
+        :return: planned_status модели ReceiptItemRequest.
+        :rtype: int
+        """
+        return self.__planned_status
+
+    @planned_status.setter
+    def planned_status(self, value):
+        """Устанавливает planned_status модели ReceiptItemRequest.
+
+        :param value: planned_status модели ReceiptItemRequest.
+        :type value: int
+        """
+        if value is not None and value > 6:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `planned_status`, must be a value less than or equal to `6`")  # noqa: E501
+        if value is not None and value < 1:  # noqa: E501
+            raise ValueError(
+                "Invalid value for `planned_status`, must be a value greater than or equal to `1`")  # noqa: E501
+        self.__planned_status = int(value)
 
     @property
     def mark_code_info(self):

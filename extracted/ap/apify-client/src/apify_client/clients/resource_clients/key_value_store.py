@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json as jsonlib
 from contextlib import asynccontextmanager, contextmanager
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlencode, urlparse, urlunparse
 
-from apify_shared.utils import create_storage_content_signature
+from apify_shared.utils import create_hmac_signature, create_storage_content_signature
 
 from apify_client._utils import (
     catch_not_found_or_throw,
@@ -78,6 +77,7 @@ class KeyValueStoreClient(ResourceClient):
         exclusive_start_key: str | None = None,
         collection: str | None = None,
         prefix: str | None = None,
+        signature: str | None = None,
     ) -> dict:
         """List the keys in the key-value store.
 
@@ -88,6 +88,7 @@ class KeyValueStoreClient(ResourceClient):
             exclusive_start_key: All keys up to this one (including) are skipped from the result.
             collection: The name of the collection in store schema to list keys from.
             prefix: The prefix of the keys to be listed.
+            signature: Signature used to access the items.
 
         Returns:
             The list of keys in the key-value store matching the given arguments.
@@ -97,6 +98,7 @@ class KeyValueStoreClient(ResourceClient):
             exclusiveStartKey=exclusive_start_key,
             collection=collection,
             prefix=prefix,
+            signature=signature,
         )
 
         response = self.http_client.call(
@@ -106,15 +108,16 @@ class KeyValueStoreClient(ResourceClient):
             timeout_secs=_MEDIUM_TIMEOUT,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
-    def get_record(self, key: str) -> dict | None:
+    def get_record(self, key: str, signature: str | None = None) -> dict | None:
         """Retrieve the given record from the key-value store.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
+            signature: Signature used to access the items.
 
         Returns:
             The requested record, or None, if the record does not exist.
@@ -123,7 +126,7 @@ class KeyValueStoreClient(ResourceClient):
             response = self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
-                params=self._params(),
+                params=self._params(signature=signature, attachment=True),
             )
 
             return {
@@ -162,13 +165,14 @@ class KeyValueStoreClient(ResourceClient):
 
         return response.status_code == HTTPStatus.OK
 
-    def get_record_as_bytes(self, key: str) -> dict | None:
+    def get_record_as_bytes(self, key: str, signature: str | None = None) -> dict | None:
         """Retrieve the given record from the key-value store, without parsing it.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
+            signature: Signature used to access the items.
 
         Returns:
             The requested record, or None, if the record does not exist.
@@ -177,7 +181,7 @@ class KeyValueStoreClient(ResourceClient):
             response = self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
-                params=self._params(),
+                params=self._params(signature=signature, attachment=True),
             )
 
             return {
@@ -192,13 +196,14 @@ class KeyValueStoreClient(ResourceClient):
         return None
 
     @contextmanager
-    def stream_record(self, key: str) -> Iterator[dict | None]:
+    def stream_record(self, key: str, signature: str | None = None) -> Iterator[dict | None]:
         """Retrieve the given record from the key-value store, as a stream.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
+            signature: Signature used to access the items.
 
         Returns:
             The requested record as a context-managed streaming Response, or None, if the record does not exist.
@@ -208,7 +213,7 @@ class KeyValueStoreClient(ResourceClient):
             response = self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
-                params=self._params(),
+                params=self._params(signature=signature, attachment=True),
                 stream=True,
             )
 
@@ -267,6 +272,36 @@ class KeyValueStoreClient(ResourceClient):
             timeout_secs=_SMALL_TIMEOUT,
         )
 
+    def get_record_public_url(self, key: str) -> str:
+        """Generate a URL that can be used to access key-value store record.
+
+        If the client has permission to access the key-value store's URL signing key, the URL will include a signature
+        to verify its authenticity.
+
+        Args:
+            key: The key for which the URL should be generated.
+
+        Returns:
+            A public URL that can be used to access the value of the given key in the KVS.
+        """
+        if self.resource_id is None:
+            raise ValueError('resource_id cannot be None when generating a public URL')
+
+        metadata = self.get()
+
+        request_params = self._params()
+
+        if metadata and 'urlSigningSecretKey' in metadata:
+            request_params['signature'] = create_hmac_signature(metadata['urlSigningSecretKey'], key)
+
+        key_public_url = urlparse(self._url(f'records/{key}', public=True))
+        filtered_params = {k: v for k, v in request_params.items() if v is not None}
+
+        if filtered_params:
+            key_public_url = key_public_url._replace(query=urlencode(filtered_params))
+
+        return urlunparse(key_public_url)
+
     def create_keys_public_url(
         self,
         *,
@@ -290,7 +325,7 @@ class KeyValueStoreClient(ResourceClient):
         Returns:
             The public key-value store keys URL.
         """
-        store = self.get()
+        metadata = self.get()
 
         request_params = self._params(
             limit=limit,
@@ -299,10 +334,10 @@ class KeyValueStoreClient(ResourceClient):
             prefix=prefix,
         )
 
-        if store and 'urlSigningSecretKey' in store:
+        if metadata and 'urlSigningSecretKey' in metadata:
             signature = create_storage_content_signature(
-                resource_id=store['id'],
-                url_signing_secret_key=store['urlSigningSecretKey'],
+                resource_id=metadata['id'],
+                url_signing_secret_key=metadata['urlSigningSecretKey'],
                 expires_in_millis=expires_in_secs * 1000 if expires_in_secs is not None else None,
             )
             request_params['signature'] = signature
@@ -366,6 +401,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
         exclusive_start_key: str | None = None,
         collection: str | None = None,
         prefix: str | None = None,
+        signature: str | None = None,
     ) -> dict:
         """List the keys in the key-value store.
 
@@ -376,6 +412,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             exclusive_start_key: All keys up to this one (including) are skipped from the result.
             collection: The name of the collection in store schema to list keys from.
             prefix: The prefix of the keys to be listed.
+            signature: Signature used to access the items.
 
         Returns:
             The list of keys in the key-value store matching the given arguments.
@@ -385,6 +422,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             exclusiveStartKey=exclusive_start_key,
             collection=collection,
             prefix=prefix,
+            signature=signature,
         )
 
         response = await self.http_client.call(
@@ -394,15 +432,16 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             timeout_secs=_MEDIUM_TIMEOUT,
         )
 
-        return parse_date_fields(pluck_data(jsonlib.loads(response.text)))
+        return parse_date_fields(pluck_data(response.json()))
 
-    async def get_record(self, key: str) -> dict | None:
+    async def get_record(self, key: str, signature: str | None = None) -> dict | None:
         """Retrieve the given record from the key-value store.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
+            signature: Signature used to access the items.
 
         Returns:
             The requested record, or None, if the record does not exist.
@@ -411,7 +450,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             response = await self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
-                params=self._params(),
+                params=self._params(signature=signature, attachment=True),
             )
 
             return {
@@ -450,13 +489,14 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
 
         return response.status_code == HTTPStatus.OK
 
-    async def get_record_as_bytes(self, key: str) -> dict | None:
+    async def get_record_as_bytes(self, key: str, signature: str | None = None) -> dict | None:
         """Retrieve the given record from the key-value store, without parsing it.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
+            signature: Signature used to access the items.
 
         Returns:
             The requested record, or None, if the record does not exist.
@@ -465,7 +505,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             response = await self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
-                params=self._params(),
+                params=self._params(signature=signature, attachment=True),
             )
 
             return {
@@ -480,13 +520,14 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
         return None
 
     @asynccontextmanager
-    async def stream_record(self, key: str) -> AsyncIterator[dict | None]:
+    async def stream_record(self, key: str, signature: str | None = None) -> AsyncIterator[dict | None]:
         """Retrieve the given record from the key-value store, as a stream.
 
         https://docs.apify.com/api/v2#/reference/key-value-stores/record/get-record
 
         Args:
             key: Key of the record to retrieve.
+            signature: Signature used to access the items.
 
         Returns:
             The requested record as a context-managed streaming Response, or None, if the record does not exist.
@@ -496,7 +537,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             response = await self.http_client.call(
                 url=self._url(f'records/{key}'),
                 method='GET',
-                params=self._params(),
+                params=self._params(signature=signature, attachment=True),
                 stream=True,
             )
 
@@ -555,6 +596,36 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             timeout_secs=_SMALL_TIMEOUT,
         )
 
+    async def get_record_public_url(self, key: str) -> str:
+        """Generate a URL that can be used to access key-value store record.
+
+        If the client has permission to access the key-value store's URL signing key, the URL will include a signature
+        to verify its authenticity.
+
+        Args:
+            key: The key for which the URL should be generated.
+
+        Returns:
+            A public URL that can be used to access the value of the given key in the KVS.
+        """
+        if self.resource_id is None:
+            raise ValueError('resource_id cannot be None when generating a public URL')
+
+        metadata = await self.get()
+
+        request_params = self._params()
+
+        if metadata and 'urlSigningSecretKey' in metadata:
+            request_params['signature'] = create_hmac_signature(metadata['urlSigningSecretKey'], key)
+
+        key_public_url = urlparse(self._url(f'records/{key}', public=True))
+        filtered_params = {k: v for k, v in request_params.items() if v is not None}
+
+        if filtered_params:
+            key_public_url = key_public_url._replace(query=urlencode(filtered_params))
+
+        return urlunparse(key_public_url)
+
     async def create_keys_public_url(
         self,
         *,
@@ -578,7 +649,7 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
         Returns:
             The public key-value store keys URL.
         """
-        store = await self.get()
+        metadata = await self.get()
 
         keys_public_url = urlparse(self._url('keys'))
 
@@ -589,10 +660,10 @@ class KeyValueStoreClientAsync(ResourceClientAsync):
             prefix=prefix,
         )
 
-        if store and 'urlSigningSecretKey' in store:
+        if metadata and 'urlSigningSecretKey' in metadata:
             signature = create_storage_content_signature(
-                resource_id=store['id'],
-                url_signing_secret_key=store['urlSigningSecretKey'],
+                resource_id=metadata['id'],
+                url_signing_secret_key=metadata['urlSigningSecretKey'],
                 expires_in_millis=expires_in_secs * 1000 if expires_in_secs is not None else None,
             )
             request_params['signature'] = signature

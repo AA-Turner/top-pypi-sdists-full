@@ -8,7 +8,6 @@ from .. import core
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..types.add_knowledge_base_response_model import AddKnowledgeBaseResponseModel
-from ..types.post_workspace_secret_response_model import PostWorkspaceSecretResponseModel
 from ..types.rag_document_index_response_model import RagDocumentIndexResponseModel
 from ..types.rag_document_indexes_response_model import RagDocumentIndexesResponseModel
 from ..types.rag_index_overview_response_model import RagIndexOverviewResponseModel
@@ -16,6 +15,7 @@ from .raw_client import AsyncRawConversationalAiClient, RawConversationalAiClien
 
 if typing.TYPE_CHECKING:
     from .agents.client import AgentsClient, AsyncAgentsClient
+    from .analytics.client import AnalyticsClient, AsyncAnalyticsClient
     from .batch_calls.client import AsyncBatchCallsClient, BatchCallsClient
     from .conversations.client import AsyncConversationsClient, ConversationsClient
     from .dashboard.client import AsyncDashboardClient, DashboardClient
@@ -29,6 +29,8 @@ if typing.TYPE_CHECKING:
     from .tests.client import AsyncTestsClient, TestsClient
     from .tools.client import AsyncToolsClient, ToolsClient
     from .twilio.client import AsyncTwilioClient, TwilioClient
+    from .whatsapp.client import AsyncWhatsappClient, WhatsappClient
+    from .whatsapp_accounts.client import AsyncWhatsappAccountsClient, WhatsappAccountsClient
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
 
@@ -39,6 +41,7 @@ class ConversationalAiClient:
         self._client_wrapper = client_wrapper
         self._conversations: typing.Optional[ConversationsClient] = None
         self._twilio: typing.Optional[TwilioClient] = None
+        self._whatsapp: typing.Optional[WhatsappClient] = None
         self._agents: typing.Optional[AgentsClient] = None
         self._tests: typing.Optional[TestsClient] = None
         self._phone_numbers: typing.Optional[PhoneNumbersClient] = None
@@ -50,6 +53,8 @@ class ConversationalAiClient:
         self._batch_calls: typing.Optional[BatchCallsClient] = None
         self._sip_trunk: typing.Optional[SipTrunkClient] = None
         self._mcp_servers: typing.Optional[McpServersClient] = None
+        self._whatsapp_accounts: typing.Optional[WhatsappAccountsClient] = None
+        self._analytics: typing.Optional[AnalyticsClient] = None
         self._dashboard: typing.Optional[DashboardClient] = None
 
     @property
@@ -103,11 +108,41 @@ class ConversationalAiClient:
         client = ElevenLabs(
             api_key="YOUR_API_KEY",
         )
-        client.conversational_ai.add_to_knowledge_base()
+        client.conversational_ai.add_to_knowledge_base(
+            agent_id="agent_id",
+        )
         """
         _response = self._raw_client.add_to_knowledge_base(
             agent_id=agent_id, name=name, url=url, file=file, request_options=request_options
         )
+        return _response.data
+
+    def rag_index_overview(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> RagIndexOverviewResponseModel:
+        """
+        Provides total size and other information of RAG indexes used by knowledgebase documents
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RagIndexOverviewResponseModel
+            Successful Response
+
+        Examples
+        --------
+        from elevenlabs import ElevenLabs
+
+        client = ElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+        client.conversational_ai.rag_index_overview()
+        """
+        _response = self._raw_client.rag_index_overview(request_options=request_options)
         return _response.data
 
     def get_document_rag_indexes(
@@ -182,72 +217,6 @@ class ConversationalAiClient:
         )
         return _response.data
 
-    def rag_index_overview(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> RagIndexOverviewResponseModel:
-        """
-        Provides total size and other information of RAG indexes used by knowledgebase documents
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        RagIndexOverviewResponseModel
-            Successful Response
-
-        Examples
-        --------
-        from elevenlabs import ElevenLabs
-
-        client = ElevenLabs(
-            api_key="YOUR_API_KEY",
-        )
-        client.conversational_ai.rag_index_overview()
-        """
-        _response = self._raw_client.rag_index_overview(request_options=request_options)
-        return _response.data
-
-    def update_secret(
-        self, secret_id: str, *, name: str, value: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> PostWorkspaceSecretResponseModel:
-        """
-        Update an existing secret for the workspace
-
-        Parameters
-        ----------
-        secret_id : str
-
-        name : str
-
-        value : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        PostWorkspaceSecretResponseModel
-            Successful Response
-
-        Examples
-        --------
-        from elevenlabs import ElevenLabs
-
-        client = ElevenLabs(
-            api_key="YOUR_API_KEY",
-        )
-        client.conversational_ai.update_secret(
-            secret_id="secret_id",
-            name="name",
-            value="value",
-        )
-        """
-        _response = self._raw_client.update_secret(secret_id, name=name, value=value, request_options=request_options)
-        return _response.data
-
     @property
     def conversations(self):
         if self._conversations is None:
@@ -263,6 +232,14 @@ class ConversationalAiClient:
 
             self._twilio = TwilioClient(client_wrapper=self._client_wrapper)
         return self._twilio
+
+    @property
+    def whatsapp(self):
+        if self._whatsapp is None:
+            from .whatsapp.client import WhatsappClient  # noqa: E402
+
+            self._whatsapp = WhatsappClient(client_wrapper=self._client_wrapper)
+        return self._whatsapp
 
     @property
     def agents(self):
@@ -353,6 +330,22 @@ class ConversationalAiClient:
         return self._mcp_servers
 
     @property
+    def whatsapp_accounts(self):
+        if self._whatsapp_accounts is None:
+            from .whatsapp_accounts.client import WhatsappAccountsClient  # noqa: E402
+
+            self._whatsapp_accounts = WhatsappAccountsClient(client_wrapper=self._client_wrapper)
+        return self._whatsapp_accounts
+
+    @property
+    def analytics(self):
+        if self._analytics is None:
+            from .analytics.client import AnalyticsClient  # noqa: E402
+
+            self._analytics = AnalyticsClient(client_wrapper=self._client_wrapper)
+        return self._analytics
+
+    @property
     def dashboard(self):
         if self._dashboard is None:
             from .dashboard.client import DashboardClient  # noqa: E402
@@ -367,6 +360,7 @@ class AsyncConversationalAiClient:
         self._client_wrapper = client_wrapper
         self._conversations: typing.Optional[AsyncConversationsClient] = None
         self._twilio: typing.Optional[AsyncTwilioClient] = None
+        self._whatsapp: typing.Optional[AsyncWhatsappClient] = None
         self._agents: typing.Optional[AsyncAgentsClient] = None
         self._tests: typing.Optional[AsyncTestsClient] = None
         self._phone_numbers: typing.Optional[AsyncPhoneNumbersClient] = None
@@ -378,6 +372,8 @@ class AsyncConversationalAiClient:
         self._batch_calls: typing.Optional[AsyncBatchCallsClient] = None
         self._sip_trunk: typing.Optional[AsyncSipTrunkClient] = None
         self._mcp_servers: typing.Optional[AsyncMcpServersClient] = None
+        self._whatsapp_accounts: typing.Optional[AsyncWhatsappAccountsClient] = None
+        self._analytics: typing.Optional[AsyncAnalyticsClient] = None
         self._dashboard: typing.Optional[AsyncDashboardClient] = None
 
     @property
@@ -436,7 +432,9 @@ class AsyncConversationalAiClient:
 
 
         async def main() -> None:
-            await client.conversational_ai.add_to_knowledge_base()
+            await client.conversational_ai.add_to_knowledge_base(
+                agent_id="agent_id",
+            )
 
 
         asyncio.run(main())
@@ -444,6 +442,42 @@ class AsyncConversationalAiClient:
         _response = await self._raw_client.add_to_knowledge_base(
             agent_id=agent_id, name=name, url=url, file=file, request_options=request_options
         )
+        return _response.data
+
+    async def rag_index_overview(
+        self, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> RagIndexOverviewResponseModel:
+        """
+        Provides total size and other information of RAG indexes used by knowledgebase documents
+
+        Parameters
+        ----------
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        RagIndexOverviewResponseModel
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from elevenlabs import AsyncElevenLabs
+
+        client = AsyncElevenLabs(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.conversational_ai.rag_index_overview()
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.rag_index_overview(request_options=request_options)
         return _response.data
 
     async def get_document_rag_indexes(
@@ -534,90 +568,6 @@ class AsyncConversationalAiClient:
         )
         return _response.data
 
-    async def rag_index_overview(
-        self, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> RagIndexOverviewResponseModel:
-        """
-        Provides total size and other information of RAG indexes used by knowledgebase documents
-
-        Parameters
-        ----------
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        RagIndexOverviewResponseModel
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from elevenlabs import AsyncElevenLabs
-
-        client = AsyncElevenLabs(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.conversational_ai.rag_index_overview()
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.rag_index_overview(request_options=request_options)
-        return _response.data
-
-    async def update_secret(
-        self, secret_id: str, *, name: str, value: str, request_options: typing.Optional[RequestOptions] = None
-    ) -> PostWorkspaceSecretResponseModel:
-        """
-        Update an existing secret for the workspace
-
-        Parameters
-        ----------
-        secret_id : str
-
-        name : str
-
-        value : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        PostWorkspaceSecretResponseModel
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from elevenlabs import AsyncElevenLabs
-
-        client = AsyncElevenLabs(
-            api_key="YOUR_API_KEY",
-        )
-
-
-        async def main() -> None:
-            await client.conversational_ai.update_secret(
-                secret_id="secret_id",
-                name="name",
-                value="value",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.update_secret(
-            secret_id, name=name, value=value, request_options=request_options
-        )
-        return _response.data
-
     @property
     def conversations(self):
         if self._conversations is None:
@@ -633,6 +583,14 @@ class AsyncConversationalAiClient:
 
             self._twilio = AsyncTwilioClient(client_wrapper=self._client_wrapper)
         return self._twilio
+
+    @property
+    def whatsapp(self):
+        if self._whatsapp is None:
+            from .whatsapp.client import AsyncWhatsappClient  # noqa: E402
+
+            self._whatsapp = AsyncWhatsappClient(client_wrapper=self._client_wrapper)
+        return self._whatsapp
 
     @property
     def agents(self):
@@ -721,6 +679,22 @@ class AsyncConversationalAiClient:
 
             self._mcp_servers = AsyncMcpServersClient(client_wrapper=self._client_wrapper)
         return self._mcp_servers
+
+    @property
+    def whatsapp_accounts(self):
+        if self._whatsapp_accounts is None:
+            from .whatsapp_accounts.client import AsyncWhatsappAccountsClient  # noqa: E402
+
+            self._whatsapp_accounts = AsyncWhatsappAccountsClient(client_wrapper=self._client_wrapper)
+        return self._whatsapp_accounts
+
+    @property
+    def analytics(self):
+        if self._analytics is None:
+            from .analytics.client import AsyncAnalyticsClient  # noqa: E402
+
+            self._analytics = AsyncAnalyticsClient(client_wrapper=self._client_wrapper)
+        return self._analytics
 
     @property
     def dashboard(self):

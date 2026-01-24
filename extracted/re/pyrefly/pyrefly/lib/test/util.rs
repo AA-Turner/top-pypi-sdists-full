@@ -18,7 +18,7 @@ use anstream::ColorChoice;
 use anyhow::anyhow;
 use dupe::Dupe;
 use pyrefly_build::handle::Handle;
-use pyrefly_build::map_db::MapDatabase;
+use pyrefly_build::source_db::map_db::MapDatabase;
 use pyrefly_config::error::ErrorDisplayConfig;
 use pyrefly_config::error_kind::ErrorKind;
 use pyrefly_config::error_kind::Severity;
@@ -29,7 +29,6 @@ use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::arc_id::ArcId;
-use pyrefly_util::lock::RwLock;
 use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::thread_pool::ThreadCount;
 use pyrefly_util::thread_pool::init_thread_pool;
@@ -49,6 +48,7 @@ use crate::config::finder::ConfigFinder;
 use crate::error::error::print_errors;
 use crate::module::finder::find_import;
 use crate::state::errors::Errors;
+use crate::state::load::FileContents;
 use crate::state::require::Require;
 use crate::state::state::State;
 use crate::state::subscriber::TestSubscriber;
@@ -99,12 +99,21 @@ fn default_path(module: ModuleName) -> PathBuf {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TestEnv {
-    modules: Vec<(ModuleName, ModulePath, Option<Arc<String>>)>,
+    modules: Vec<(ModuleName, ModulePath, Option<Arc<FileContents>>)>,
     version: PythonVersion,
     untyped_def_behavior: UntypedDefBehavior,
     infer_with_first_use: bool,
     site_package_path: Vec<PathBuf>,
     implicitly_defined_attribute_error: bool,
+    implicit_any_error: bool,
+    unannotated_return_error: bool,
+    unannotated_parameter_error: bool,
+    unannotated_attribute_error: bool,
+    implicit_abstract_class_error: bool,
+    open_unpacking_error: bool,
+    missing_override_decorator_error: bool,
+    not_required_key_access_error: bool,
+    default_require_level: Require,
 }
 
 impl TestEnv {
@@ -118,6 +127,15 @@ impl TestEnv {
             infer_with_first_use: true,
             site_package_path: Vec::new(),
             implicitly_defined_attribute_error: false,
+            implicit_any_error: false,
+            unannotated_return_error: false,
+            unannotated_parameter_error: false,
+            unannotated_attribute_error: false,
+            implicit_abstract_class_error: false,
+            open_unpacking_error: false,
+            missing_override_decorator_error: false,
+            not_required_key_access_error: false,
+            default_require_level: Require::Exports,
         }
     }
 
@@ -150,6 +168,56 @@ impl TestEnv {
         self
     }
 
+    pub fn enable_implicit_any_error(mut self) -> Self {
+        self.implicit_any_error = true;
+        self
+    }
+
+    pub fn enable_unannotated_attribute_error(mut self) -> Self {
+        self.unannotated_attribute_error = true;
+        self
+    }
+
+    pub fn enable_unannotated_return_error(mut self) -> Self {
+        self.unannotated_return_error = true;
+        self
+    }
+
+    pub fn enable_unannotated_parameter_error(mut self) -> Self {
+        self.unannotated_parameter_error = true;
+        self
+    }
+
+    pub fn enable_implicit_abstract_class_error(mut self) -> Self {
+        self.implicit_abstract_class_error = true;
+        self
+    }
+
+    pub fn enable_open_unpacking_error(mut self) -> Self {
+        self.open_unpacking_error = true;
+        self
+    }
+
+    pub fn enable_missing_override_decorator_error(mut self) -> Self {
+        self.missing_override_decorator_error = true;
+        self
+    }
+
+    pub fn enable_not_required_key_access_error(mut self) -> Self {
+        self.not_required_key_access_error = true;
+        self
+    }
+
+    pub fn with_default_require_level(mut self, level: Require) -> Self {
+        self.default_require_level = level;
+        self
+    }
+
+    pub fn with_version(mut self, version: PythonVersion) -> Self {
+        self.version = version;
+        self
+    }
+
     pub fn add_with_path(&mut self, name: &str, path: &str, code: &str) {
         assert!(
             path.ends_with(".py") || path.ends_with(".pyi") || path.ends_with(".rs"),
@@ -158,15 +226,18 @@ impl TestEnv {
         self.modules.push((
             ModuleName::from_str(name),
             ModulePath::memory(PathBuf::from(path)),
-            Some(Arc::new(code.to_owned())),
+            Some(Arc::new(FileContents::from_source(code.to_owned()))),
         ));
     }
 
     pub fn add(&mut self, name: &str, code: &str) {
         let module_name = ModuleName::from_str(name);
         let relative_path = ModulePath::memory(default_path(module_name));
-        self.modules
-            .push((module_name, relative_path, Some(Arc::new(code.to_owned()))));
+        self.modules.push((
+            module_name,
+            relative_path,
+            Some(Arc::new(FileContents::from_source(code.to_owned()))),
+        ));
     }
 
     pub fn one(name: &str, code: &str) -> Self {
@@ -191,11 +262,11 @@ impl TestEnv {
         SysInfo::new(self.version, PythonPlatform::linux())
     }
 
-    pub fn get_memory(&self) -> Vec<(PathBuf, Option<Arc<String>>)> {
+    pub fn get_memory(&self) -> Vec<(PathBuf, Option<Arc<FileContents>>)> {
         self.modules
             .iter()
             .filter_map(|(_, path, contents)| match path.details() {
-                ModulePathDetails::Memory(path) => Some((path.clone(), contents.dupe())),
+                ModulePathDetails::Memory(path) => Some(((**path).clone(), contents.dupe())),
                 _ => None,
             })
             .collect()
@@ -215,11 +286,35 @@ impl TestEnv {
         if self.implicitly_defined_attribute_error {
             errors.set_error_severity(ErrorKind::ImplicitlyDefinedAttribute, Severity::Error);
         }
+        if self.implicit_any_error {
+            errors.set_error_severity(ErrorKind::ImplicitAny, Severity::Error);
+        }
+        if self.unannotated_attribute_error {
+            errors.set_error_severity(ErrorKind::UnannotatedAttribute, Severity::Error);
+        }
+        if self.unannotated_return_error {
+            errors.set_error_severity(ErrorKind::UnannotatedReturn, Severity::Error);
+        }
+        if self.unannotated_parameter_error {
+            errors.set_error_severity(ErrorKind::UnannotatedParameter, Severity::Error);
+        }
+        if self.implicit_abstract_class_error {
+            errors.set_error_severity(ErrorKind::ImplicitAbstractClass, Severity::Error);
+        }
+        if self.open_unpacking_error {
+            errors.set_error_severity(ErrorKind::OpenUnpacking, Severity::Error);
+        }
+        if self.missing_override_decorator_error {
+            errors.set_error_severity(ErrorKind::MissingOverrideDecorator, Severity::Error);
+        }
+        if self.not_required_key_access_error {
+            errors.set_error_severity(ErrorKind::NotRequiredKeyAccess, Severity::Error);
+        }
         let mut sourcedb = MapDatabase::new(config.get_sys_info());
         for (name, path, _) in self.modules.iter() {
             sourcedb.insert(*name, path.dupe());
         }
-        config.source_db = Arc::new(RwLock::new(Some(Box::new(sourcedb))));
+        config.source_db = Some(ArcId::new(Box::new(sourcedb)));
         config.interpreters.skip_interpreter_query = true;
         config.configure();
         ArcId::new(config)
@@ -242,11 +337,13 @@ impl TestEnv {
             .collect::<Vec<_>>();
         let state = State::new(self.config_finder());
         let subscriber = TestSubscriber::new();
-        let mut transaction =
-            state.new_committable_transaction(Require::Exports, Some(Box::new(subscriber.dupe())));
+        let mut transaction = state.new_committable_transaction(
+            self.default_require_level,
+            Some(Box::new(subscriber.dupe())),
+        );
         transaction.as_mut().set_memory(self.get_memory());
         transaction.as_mut().run(&handles, Require::Everything);
-        state.commit_transaction(transaction);
+        state.commit_transaction(transaction, None);
         subscriber.finish();
         let project_root = PathBuf::new();
         print_errors(
@@ -261,7 +358,7 @@ impl TestEnv {
             let name = ModuleName::from_str(module);
             Handle::new(
                 name,
-                find_import(&config_file, name, None).unwrap(),
+                find_import(&config_file, name, None).finding().unwrap(),
                 config.dupe(),
             )
         })
@@ -347,13 +444,16 @@ pub fn extract_cursors_for_test(source: &str) -> Vec<TextSize> {
 
 pub fn mk_multi_file_state(
     files: &[(&'static str, &str)],
+    default_require_level: Require,
     assert_zero_errors: bool,
 ) -> (HashMap<&'static str, Handle>, State) {
     let mut test_env = TestEnv::new();
     for (name, code) in files {
         test_env.add(name, code);
     }
-    let (state, handle) = test_env.to_state();
+    let (state, handle) = test_env
+        .with_default_require_level(default_require_level)
+        .to_state();
     let mut handles = HashMap::new();
     for (name, _) in files {
         handles.insert(*name, handle(name));
@@ -378,8 +478,9 @@ pub fn mk_multi_file_state(
 
 pub fn mk_multi_file_state_assert_no_errors(
     files: &[(&'static str, &str)],
+    default_require_level: Require,
 ) -> (HashMap<&'static str, Handle>, State) {
-    mk_multi_file_state(files, true)
+    mk_multi_file_state(files, default_require_level, true)
 }
 
 fn get_batched_lsp_operations_report_helper(
@@ -387,7 +488,7 @@ fn get_batched_lsp_operations_report_helper(
     assert_zero_errors: bool,
     get_report: impl Fn(&State, &Handle, TextSize) -> String,
 ) -> String {
-    let (handles, state) = mk_multi_file_state(files, assert_zero_errors);
+    let (handles, state) = mk_multi_file_state(files, Require::indexing(), assert_zero_errors);
     let mut report = String::new();
     for (name, code) in files {
         report.push_str("# ");
@@ -427,7 +528,7 @@ pub fn get_batched_lsp_operations_report_no_cursor(
     files: &[(&'static str, &str)],
     get_report: impl Fn(&State, &Handle) -> String,
 ) -> String {
-    let (handles, state) = mk_multi_file_state(files, true);
+    let (handles, state) = mk_multi_file_state(files, Require::indexing(), true);
     let mut report = String::new();
     for (name, _code) in files {
         report.push_str("# ");
@@ -489,7 +590,7 @@ pub fn testcase_for_macro(
             );
             t.set_memory(vec![(
                 PathBuf::from(file),
-                Some(Arc::new(contents.clone())),
+                Some(Arc::new(FileContents::from_source(contents.clone()))),
             )]);
             t.run(&[h.dupe()], Require::Everything);
             let errors = t.get_errors([&h]);

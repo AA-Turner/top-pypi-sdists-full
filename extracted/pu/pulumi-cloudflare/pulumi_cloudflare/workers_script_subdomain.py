@@ -169,6 +169,8 @@ class WorkersScriptSubdomain(pulumi.CustomResource):
                  script_name: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
+        > This resource is redundant with `Worker` and should not be used together. When using the `Worker` resource, use the nested `subdomain` attribute to control subdomain settings instead.
+
         ## Example Usage
 
         ```python
@@ -179,7 +181,13 @@ class WorkersScriptSubdomain(pulumi.CustomResource):
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             script_name="this-is_my_script-01",
             enabled=True,
-            previews_enabled=True)
+            previews_enabled=False)
+        ```
+
+        ## Import
+
+        ```sh
+        $ pulumi import cloudflare:index/workersScriptSubdomain:WorkersScriptSubdomain example '<account_id>/<script_name>'
         ```
 
         :param str resource_name: The name of the resource.
@@ -196,6 +204,8 @@ class WorkersScriptSubdomain(pulumi.CustomResource):
                  args: WorkersScriptSubdomainArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
+        > This resource is redundant with `Worker` and should not be used together. When using the `Worker` resource, use the nested `subdomain` attribute to control subdomain settings instead.
+
         ## Example Usage
 
         ```python
@@ -206,7 +216,13 @@ class WorkersScriptSubdomain(pulumi.CustomResource):
             account_id="023e105f4ecef8ad9ca31a8372d0c353",
             script_name="this-is_my_script-01",
             enabled=True,
-            previews_enabled=True)
+            previews_enabled=False)
+        ```
+
+        ## Import
+
+        ```sh
+        $ pulumi import cloudflare:index/workersScriptSubdomain:WorkersScriptSubdomain example '<account_id>/<script_name>'
         ```
 
         :param str resource_name: The name of the resource.
@@ -301,7 +317,7 @@ class WorkersScriptSubdomain(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="previewsEnabled")
-    def previews_enabled(self) -> pulumi.Output[Optional[_builtins.bool]]:
+    def previews_enabled(self) -> pulumi.Output[_builtins.bool]:
         """
         Whether the Worker's Preview URLs should be available on the workers.dev subdomain.
         """

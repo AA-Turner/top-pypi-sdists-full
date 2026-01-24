@@ -1,8 +1,11 @@
 import re
+import time
 from http import HTTPStatus
 
+import pandas as pd
 import pytest
 from pytest_httpserver import HTTPServer, RequestMatcher
+from urllib3.exceptions import TimeoutError as urllib3_TimeoutError
 
 from influxdb_client_3 import InfluxDBClient3, WriteOptions, WritePrecision, write_client_options, WriteType
 from influxdb_client_3.write_client.rest import ApiException
@@ -19,6 +22,10 @@ class TestWriteLocalServer:
     def assert_request_made(httpserver, matcher):
         httpserver.assert_request_made(matcher)
         httpserver.check_assertions()
+
+    @staticmethod
+    def delay_response(httpserver: HTTPServer, delay=1.0):
+        httpserver.expect_request(re.compile(".*")).respond_with_handler(lambda request: time.sleep(delay))
 
     def test_write_default_params(self, httpserver: HTTPServer):
         self.set_response_status(httpserver, 200)
@@ -127,3 +134,82 @@ class TestWriteLocalServer:
             method="POST", uri="/api/v3/write_lp",
             query_string={"org": "ORG", "db": "DB", "precision": "microsecond", "no_sync": "true"},
             headers={"Content-Encoding": "gzip"}, ))
+
+    def test_write_with_timeout_in_write_options(self, httpserver: HTTPServer):
+        self.delay_response(httpserver, 0.5)
+
+        with pytest.raises(urllib3_TimeoutError):
+            InfluxDBClient3(
+                host=(httpserver.url_for("/")), org="ORG", database="DB", token="TOKEN",
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(
+                        write_type=WriteType.synchronous,
+                        write_precision=WritePrecision.US,
+                        timeout=30,
+                        no_sync=True
+                    )
+                ),
+                enable_gzip=True
+            ).write(self.SAMPLE_RECORD)
+
+    def test_write_with_write_timeout(self, httpserver: HTTPServer):
+        self.delay_response(httpserver, 0.5)
+
+        with pytest.raises(urllib3_TimeoutError):
+            InfluxDBClient3(
+                host=(httpserver.url_for("/")), org="ORG", database="DB", token="TOKEN",
+                write_timeout=30,
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(
+                        write_type=WriteType.synchronous,
+                        write_precision=WritePrecision.US,
+                        no_sync=True,
+                    )
+                ),
+                enable_gzip=True
+            ).write(self.SAMPLE_RECORD)
+
+    def test_write_with_timeout_arg(self, httpserver: HTTPServer):
+        self.delay_response(httpserver, 0.5)
+
+        with pytest.raises(urllib3_TimeoutError):
+            InfluxDBClient3(
+                host=(httpserver.url_for("/")), org="ORG", database="DB", token="TOKEN",
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(
+                        write_type=WriteType.synchronous,
+                        write_precision=WritePrecision.US,
+                        no_sync=True,
+                    )
+                ),
+                enable_gzip=True
+            ).write(self.SAMPLE_RECORD, _request_timeout=1)
+
+    def test_write_dataframe_does_not_raise_type_error(self, httpserver: HTTPServer):
+        """
+        Regression test: writing a DataFrame should not raise TypeError.
+
+        Before the fix, serializer kwargs were passed to post_write(), causing a TypeError.
+        """
+        self.set_response_status(httpserver, 200)
+
+        df = pd.DataFrame({
+            'time': pd.to_datetime(['2024-01-01', '2024-01-02']),
+            'city': ['London', 'Paris'],
+            'temperature': [15.0, 18.0]
+        })
+
+        try:
+            InfluxDBClient3(
+                host=(httpserver.url_for("/")), org="ORG", database="DB", token="TOKEN",
+                write_client_options=write_client_options(
+                    write_options=WriteOptions(write_type=WriteType.synchronous)
+                )
+            ).write_dataframe(
+                df,
+                measurement='weather',
+                timestamp_column='time',
+                tags=['city']
+            )
+        except TypeError as e:
+            pytest.fail(f"write_dataframe raised TypeError: {e}")

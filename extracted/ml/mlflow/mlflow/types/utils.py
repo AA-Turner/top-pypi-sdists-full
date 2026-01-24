@@ -480,7 +480,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
 
     if dtype.kind == "b":
         return DataType.boolean
-    elif dtype.kind == "i" or dtype.kind == "u":
+    elif dtype.kind in {"i", "u"}:
         if dtype.itemsize < 4 or (dtype.kind == "i" and dtype.itemsize == 4):
             return DataType.integer
         elif dtype.itemsize < 8 or (dtype.kind == "i" and dtype.itemsize == 8):
@@ -534,7 +534,6 @@ def _infer_pandas_column(col: pd.Series) -> DataType:
         except Exception as e:
             # For backwards compatibility, we fall back to string
             # if the provided array is of string type
-            # This is for diviner test where df field is ('key2', 'key1', 'key0')
             if pd.api.types.is_string_dtype(col):
                 return DataType.string
             raise MlflowException(f"Failed to infer schema for pandas.Series {col}. Error: {e}")

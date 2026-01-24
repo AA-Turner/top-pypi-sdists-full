@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyeasee
-Version: 0.8.15
+Version: 0.8.16
 Summary: Easee EV charger API library
 Home-page: https://github.com/nordicopen/pyeasee
 Author: Ola Lidholm

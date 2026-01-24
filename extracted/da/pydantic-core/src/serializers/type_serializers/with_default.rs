@@ -1,19 +1,21 @@
 use std::borrow::Cow;
+use std::sync::Arc;
 
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use crate::definitions::DefinitionsBuilder;
+use crate::serializers::SerializationState;
 use crate::tools::SchemaDict;
 use crate::validators::DefaultType;
 
-use super::{BuildSerializer, CombinedSerializer, Extra, TypeSerializer};
+use super::{BuildSerializer, CombinedSerializer, TypeSerializer};
 
 #[derive(Debug)]
 pub struct WithDefaultSerializer {
     default: DefaultType,
-    serializer: Box<CombinedSerializer>,
+    serializer: Arc<CombinedSerializer>,
 }
 
 impl BuildSerializer for WithDefaultSerializer {
@@ -22,45 +24,44 @@ impl BuildSerializer for WithDefaultSerializer {
     fn build(
         schema: &Bound<'_, PyDict>,
         config: Option<&Bound<'_, PyDict>>,
-        definitions: &mut DefinitionsBuilder<CombinedSerializer>,
-    ) -> PyResult<CombinedSerializer> {
+        definitions: &mut DefinitionsBuilder<Arc<CombinedSerializer>>,
+    ) -> PyResult<Arc<CombinedSerializer>> {
         let py = schema.py();
         let default = DefaultType::new(schema)?;
 
         let sub_schema = schema.get_as_req(intern!(py, "schema"))?;
-        let serializer = Box::new(CombinedSerializer::build(&sub_schema, config, definitions)?);
+        let serializer = CombinedSerializer::build(&sub_schema, config, definitions)?;
 
-        Ok(Self { default, serializer }.into())
+        Ok(Arc::new(Self { default, serializer }.into()))
     }
 }
 
 impl_py_gc_traverse!(WithDefaultSerializer { default, serializer });
 
 impl TypeSerializer for WithDefaultSerializer {
-    fn to_python(
+    fn to_python<'py>(
         &self,
-        value: &Bound<'_, PyAny>,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
-    ) -> PyResult<PyObject> {
-        self.serializer.to_python(value, include, exclude, extra)
+        value: &Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Py<PyAny>> {
+        self.serializer.to_python(value, state)
     }
 
-    fn json_key<'a>(&self, key: &'a Bound<'_, PyAny>, extra: &Extra) -> PyResult<Cow<'a, str>> {
-        self.serializer.json_key(key, extra)
+    fn json_key<'a, 'py>(
+        &self,
+        key: &'a Bound<'py, PyAny>,
+        state: &mut SerializationState<'_, 'py>,
+    ) -> PyResult<Cow<'a, str>> {
+        self.serializer.json_key(key, state)
     }
 
-    fn serde_serialize<S: serde::ser::Serializer>(
+    fn serde_serialize<'py, S: serde::ser::Serializer>(
         &self,
-        value: &Bound<'_, PyAny>,
+        value: &Bound<'py, PyAny>,
         serializer: S,
-        include: Option<&Bound<'_, PyAny>>,
-        exclude: Option<&Bound<'_, PyAny>>,
-        extra: &Extra,
+        state: &mut SerializationState<'_, 'py>,
     ) -> Result<S::Ok, S::Error> {
-        self.serializer
-            .serde_serialize(value, serializer, include, exclude, extra)
+        self.serializer.serde_serialize(value, serializer, state)
     }
 
     fn get_name(&self) -> &str {
@@ -71,7 +72,7 @@ impl TypeSerializer for WithDefaultSerializer {
         self.serializer.retry_with_lax_check()
     }
 
-    fn get_default(&self, py: Python) -> PyResult<Option<PyObject>> {
+    fn get_default(&self, py: Python) -> PyResult<Option<Py<PyAny>>> {
         if let DefaultType::DefaultFactory(_, _takes_data @ true) = self.default {
             // We currently don't compute the default if the default factory takes
             // the data from other fields.

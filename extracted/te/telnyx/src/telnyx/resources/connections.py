@@ -8,7 +8,7 @@ import httpx
 
 from ..types import connection_list_params, connection_list_active_calls_params
 from .._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
-from .._utils import maybe_transform, async_maybe_transform
+from .._utils import maybe_transform
 from .._compat import cached_property
 from .._resource import SyncAPIResource, AsyncAPIResource
 from .._response import (
@@ -17,7 +17,13 @@ from .._response import (
     async_to_raw_response_wrapper,
     async_to_streamed_response_wrapper,
 )
-from .._base_client import make_request_options
+from ..pagination import (
+    SyncDefaultPagination,
+    AsyncDefaultPagination,
+    SyncDefaultFlatPagination,
+    AsyncDefaultFlatPagination,
+)
+from .._base_client import AsyncPaginator, make_request_options
 from ..types.connection_list_response import ConnectionListResponse
 from ..types.connection_retrieve_response import ConnectionRetrieveResponse
 from ..types.connection_list_active_calls_response import ConnectionListActiveCallsResponse
@@ -92,7 +98,7 @@ class ConnectionsResource(SyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ConnectionListResponse:
+    ) -> SyncDefaultPagination[ConnectionListResponse]:
         """
         Returns a list of your connections irrespective of type.
 
@@ -128,8 +134,9 @@ class ConnectionsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return self._get(
+        return self._get_api_list(
             "/connections",
+            page=SyncDefaultPagination[ConnectionListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -144,7 +151,7 @@ class ConnectionsResource(SyncAPIResource):
                     connection_list_params.ConnectionListParams,
                 ),
             ),
-            cast_to=ConnectionListResponse,
+            model=ConnectionListResponse,
         )
 
     def list_active_calls(
@@ -152,13 +159,15 @@ class ConnectionsResource(SyncAPIResource):
         connection_id: str,
         *,
         page: connection_list_active_calls_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ConnectionListActiveCallsResponse:
+    ) -> SyncDefaultFlatPagination[ConnectionListActiveCallsResponse]:
         """Lists all active calls for given connection.
 
         Acceptable connections are either
@@ -179,18 +188,24 @@ class ConnectionsResource(SyncAPIResource):
         """
         if not connection_id:
             raise ValueError(f"Expected a non-empty value for `connection_id` but received {connection_id!r}")
-        return self._get(
+        return self._get_api_list(
             f"/connections/{connection_id}/active_calls",
+            page=SyncDefaultFlatPagination[ConnectionListActiveCallsResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
                 query=maybe_transform(
-                    {"page": page}, connection_list_active_calls_params.ConnectionListActiveCallsParams
+                    {
+                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    connection_list_active_calls_params.ConnectionListActiveCallsParams,
                 ),
             ),
-            cast_to=ConnectionListActiveCallsResponse,
+            model=ConnectionListActiveCallsResponse,
         )
 
 
@@ -249,7 +264,7 @@ class AsyncConnectionsResource(AsyncAPIResource):
             cast_to=ConnectionRetrieveResponse,
         )
 
-    async def list(
+    def list(
         self,
         *,
         filter: connection_list_params.Filter | Omit = omit,
@@ -261,7 +276,7 @@ class AsyncConnectionsResource(AsyncAPIResource):
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ConnectionListResponse:
+    ) -> AsyncPaginator[ConnectionListResponse, AsyncDefaultPagination[ConnectionListResponse]]:
         """
         Returns a list of your connections irrespective of type.
 
@@ -297,14 +312,15 @@ class AsyncConnectionsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
-        return await self._get(
+        return self._get_api_list(
             "/connections",
+            page=AsyncDefaultPagination[ConnectionListResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
+                query=maybe_transform(
                     {
                         "filter": filter,
                         "page": page,
@@ -313,21 +329,25 @@ class AsyncConnectionsResource(AsyncAPIResource):
                     connection_list_params.ConnectionListParams,
                 ),
             ),
-            cast_to=ConnectionListResponse,
+            model=ConnectionListResponse,
         )
 
-    async def list_active_calls(
+    def list_active_calls(
         self,
         connection_id: str,
         *,
         page: connection_list_active_calls_params.Page | Omit = omit,
+        page_number: int | Omit = omit,
+        page_size: int | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
-    ) -> ConnectionListActiveCallsResponse:
+    ) -> AsyncPaginator[
+        ConnectionListActiveCallsResponse, AsyncDefaultFlatPagination[ConnectionListActiveCallsResponse]
+    ]:
         """Lists all active calls for given connection.
 
         Acceptable connections are either
@@ -348,18 +368,24 @@ class AsyncConnectionsResource(AsyncAPIResource):
         """
         if not connection_id:
             raise ValueError(f"Expected a non-empty value for `connection_id` but received {connection_id!r}")
-        return await self._get(
+        return self._get_api_list(
             f"/connections/{connection_id}/active_calls",
+            page=AsyncDefaultFlatPagination[ConnectionListActiveCallsResponse],
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
                 extra_body=extra_body,
                 timeout=timeout,
-                query=await async_maybe_transform(
-                    {"page": page}, connection_list_active_calls_params.ConnectionListActiveCallsParams
+                query=maybe_transform(
+                    {
+                        "page": page,
+                        "page_number": page_number,
+                        "page_size": page_size,
+                    },
+                    connection_list_active_calls_params.ConnectionListActiveCallsParams,
                 ),
             ),
-            cast_to=ConnectionListActiveCallsResponse,
+            model=ConnectionListActiveCallsResponse,
         )
 
 

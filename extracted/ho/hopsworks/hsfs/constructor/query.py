@@ -123,22 +123,27 @@ class Query:
                 else:
                     fs_query.register_external()
 
-                # Register on hudi/delta feature groups as temporary tables
-                if (
-                    hasattr(self._left_feature_group, "_time_travel_format")
-                    and self._left_feature_group.time_travel_format == "DELTA"
-                ):
-                    fs_query.register_delta_tables(
-                        self._feature_store_id,
-                        self._feature_store_name,
-                        read_options,
-                    )
+                # In delta cdc queries return duplicate rows for upserts with old and new values
+                # as well as deleted rows. To avoid this, we set is_cdc_query to True to filter out
+                # on the cdc metadata columns.
+                if self.left_feature_group_start_time:
+                    is_cdc_query = True
                 else:
-                    fs_query.register_hudi_tables(
-                        self._feature_store_id,
-                        self._feature_store_name,
-                        read_options,
-                    )
+                    is_cdc_query = False
+
+                # Register on hudi/delta feature groups as temporary tables
+                fs_query.register_delta_tables(
+                    feature_store_id=self._feature_store_id,
+                    feature_store_name=self._feature_store_name,
+                    read_options=read_options,
+                    is_cdc_query=is_cdc_query,
+                )
+
+                fs_query.register_hudi_tables(
+                    self._feature_store_id,
+                    self._feature_store_name,
+                    read_options,
+                )
 
         return sql_query, online_conn
 
@@ -355,7 +360,6 @@ class Query:
 
         If no join keys are specified, Hopsworks will use the maximal matching subset of
         the primary keys of the feature groups you are joining.
-        Joins of one level are supported, no nested joins.
 
         !!! example "Join two feature groups"
             ```python
@@ -385,7 +389,7 @@ class Query:
             right_on: List of feature names to join on from the right feature group of
                 the join. Defaults to `[]`.
             join_type: Type of join to perform, can be `"inner"`, `"outer"`, `"left"` or
-                `"right"`. Defaults to "inner".
+                `"right"`. Defaults to "left".
             prefix: User provided prefix to avoid feature name clash. If no prefix was provided and there is feature
                 name clash then prefixes will be automatically generated and applied. Generated prefix is feature group
                 alias in the query (e.g. fg1, fg2). Prefix is applied to the right feature group of the query.

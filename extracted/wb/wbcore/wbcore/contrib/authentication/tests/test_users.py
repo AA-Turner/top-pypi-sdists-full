@@ -155,7 +155,6 @@ class TestRegistrationAndActivationViews:
         # Arrange
         mock_get_user = mocker.patch(
             "wbcore.contrib.authentication.models.users.UserManager.get",
-            side_effect=Exception if should_fail else None,
             return_value=None if should_fail else test_user,
         )
         mock_reset_password = mocker.patch.object(test_user, "reset_password")

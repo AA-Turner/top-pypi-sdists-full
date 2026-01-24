@@ -51,6 +51,7 @@ __all__ = [
     "serialize_node",
     "serialize_shape_into",
     "serialize_reference_attribute_into",
+    "serialize_reference_attribute",
     "serialize_tensor_into",
     "serialize_tensor",
     "serialize_type_into",
@@ -286,7 +287,7 @@ def to_proto(ir_object: object) -> object:
         return serialize_attribute(ir_object)
     if isinstance(ir_object, _protocols.ReferenceAttributeProtocol):
         assert ir_object.is_ref()
-        return serialize_reference_attribute_into(onnx.AttributeProto(), ir_object)
+        return serialize_reference_attribute(ir_object)
     if isinstance(ir_object, _protocols.TypeProtocol):
         return serialize_type_into(onnx.TypeProto(), ir_object)
     if isinstance(ir_object, _protocols.GraphViewProtocol):
@@ -390,6 +391,10 @@ class TensorProtoTensor(_core.TensorBase):  # pylint: disable=too-many-ancestors
                 return _type_casting.unpack_4bitx2(
                     np.frombuffer(self._proto.raw_data, dtype=np.uint8), shape
                 ).view(dtype.numpy())
+            if dtype.bitwidth == 2:
+                return _type_casting.unpack_2bitx4(
+                    np.frombuffer(self._proto.raw_data, dtype=np.uint8), shape
+                ).view(dtype.numpy())
             return np.frombuffer(
                 self._proto.raw_data, dtype=dtype.numpy().newbyteorder("<")
             ).reshape(shape)
@@ -408,9 +413,11 @@ class TensorProtoTensor(_core.TensorBase):  # pylint: disable=too-many-ancestors
                 _enums.DataType.FLOAT8E8M0,
                 _enums.DataType.INT16,
                 _enums.DataType.INT32,
+                _enums.DataType.INT2,
                 _enums.DataType.INT4,
                 _enums.DataType.INT8,
                 _enums.DataType.UINT16,
+                _enums.DataType.UINT2,
                 _enums.DataType.UINT4,
                 _enums.DataType.UINT8,
             }, f"Unsupported dtype {dtype} for int32_data"
@@ -424,6 +431,10 @@ class TensorProtoTensor(_core.TensorBase):  # pylint: disable=too-many-ancestors
                 return array.astype(np.uint8).view(dtype.numpy()).reshape(shape)
             if dtype.bitwidth == 4:
                 return _type_casting.unpack_4bitx2(array.astype(np.uint8), shape).view(
+                    dtype.numpy()
+                )
+            if dtype.bitwidth == 2:
+                return _type_casting.unpack_2bitx4(array.astype(np.uint8), shape).view(
                     dtype.numpy()
                 )
             raise ValueError(
@@ -507,11 +518,13 @@ class TensorProtoTensor(_core.TensorBase):  # pylint: disable=too-many-ancestors
                 _enums.DataType.FLOAT8E5M2,
                 _enums.DataType.FLOAT8E5M2FNUZ,
                 _enums.DataType.FLOAT8E8M0,
+                _enums.DataType.INT2,
                 _enums.DataType.INT4,
+                _enums.DataType.UINT2,
                 _enums.DataType.UINT4,
                 _enums.DataType.FLOAT4E2M1,
             }:
-                # uint4 and int4 values are already packed, even when stored as int32
+                # uint2, uint4, int2 and int4 values are already packed, even when stored as int32
                 # so we don't need to pack them again
                 return array.astype(_little_endian_dtype(np.uint8)).tobytes()
             assert self.dtype == _enums.DataType.INT32
@@ -709,8 +722,7 @@ def _deserialize_graph(
         annotation.tensor_name: annotation for annotation in proto.quantization_annotation
     }
 
-    # Create values for initializers and inputs
-    initializer_tensors = [deserialize_tensor(tensor) for tensor in proto.initializer]
+    # Create values for inputs
     inputs = [_core.Value(name=info.name) for info in proto.input]
     for info, value in zip(proto.input, inputs):
         deserialize_value_info_proto(info, value)
@@ -725,6 +737,11 @@ def _deserialize_graph(
     # Enter the graph scope by pushing the values for this scope to the stack
     scoped_values.append(values)
 
+    # Build the value info dictionary to allow for quick lookup for this graph scope
+    value_info = {info.name: info for info in proto.value_info}
+
+    # Create values for initializers
+    initializer_tensors = [deserialize_tensor(tensor) for tensor in proto.initializer]
     initializer_values = []
     for i, tensor in enumerate(initializer_tensors):
         initializer_name = tensor.name
@@ -750,15 +767,14 @@ def _deserialize_graph(
                 shape=tensor.shape,  # type: ignore[arg-type]
                 const_value=tensor,
             )
+            if initializer_name in value_info:
+                deserialize_value_info_proto(value_info[initializer_name], initializer_value)
             if initializer_value.name in quantization_annotations:
                 _deserialize_quantization_annotation(
                     quantization_annotations[initializer_value.name], initializer_value
                 )
             values[initializer_name] = initializer_value
         initializer_values.append(initializer_value)
-
-    # Build the value info dictionary to allow for quick lookup for this graph scope
-    value_info = {info.name: info for info in proto.value_info}
 
     # Declare values for all node outputs from this graph scope. This is necessary
     # to handle the case where a node in a subgraph uses a value that is declared out
@@ -1390,7 +1406,12 @@ def _should_create_value_info_for_value(value: _protocols.ValueProtocol) -> bool
         True if value info should be created for the value.
     """
     # No need to serialize value info if it is not set
-    if value.shape is None and value.type is None:
+    if (
+        value.shape is None
+        and value.type is None
+        and not value.metadata_props
+        and not value.doc_string
+    ):
         return False
     if not value.name:
         logger.debug("Did not serialize '%s' because its name is empty", value)
@@ -1888,6 +1909,14 @@ def serialize_reference_attribute_into(
     attribute_proto.type = typing.cast(onnx.AttributeProto.AttributeType, from_.type.value)
 
 
+def serialize_reference_attribute(
+    attr: _protocols.ReferenceAttributeProtocol,
+) -> onnx.AttributeProto:
+    attr_proto = onnx.AttributeProto()
+    serialize_reference_attribute_into(attr_proto, attr)
+    return attr_proto
+
+
 def serialize_value(value: _protocols.ValueProtocol, *, name: str = "") -> onnx.ValueInfoProto:
     """Serialize a value into a ValueInfoProto.
 
@@ -1967,11 +1996,26 @@ def serialize_type(type_protocol: _protocols.TypeProtocol) -> onnx.TypeProto:
 @_capture_errors(lambda type_proto, from_: repr(from_))
 def serialize_shape_into(type_proto: onnx.TypeProto, from_: _protocols.ShapeProtocol) -> None:
     value_field = type_proto.WhichOneof("value")
+    if value_field is None:
+        # We cannot write the shape because we do not know where to write it
+        logger.warning(
+            # TODO(justinchuby): Show more context about the value when move everything to an object
+            "The value type for shape %s is not known. Please set type for the value. Skipping serialization",
+            from_,
+        )
+        return
     tensor_type = getattr(type_proto, value_field)
     while not isinstance(tensor_type.elem_type, int):
         # Find the leaf type that has the shape field
         type_proto = tensor_type.elem_type
         value_field = type_proto.WhichOneof("value")
+        if value_field is None:
+            logger.warning(
+                # TODO(justinchuby): Show more context about the value when move everything to an object
+                "The value type for shape %s is not known. Please set type for the value. Skipping serialization",
+                from_,
+            )
+            return
         tensor_type = getattr(type_proto, value_field)
     # When from is empty, we still need to set the shape field to an empty list by touching it
     tensor_type.shape.ClearField("dim")
@@ -1992,5 +2036,8 @@ def serialize_dimension_into(
         dim_proto.dim_value = dim
     elif isinstance(dim, (_core.SymbolicDim, _protocols.SymbolicDimProtocol)):
         if dim.value is not None:
-            # TODO(justinchuby): None is probably not a valid value for dim_param
             dim_proto.dim_param = str(dim.value)
+        # NOTE: None is a valid value for symbolic dimension:
+        # A dimension MAY have neither dim_value nor dim_param set. Such a dimension
+        # represents an unknown dimension unrelated to other unknown dimensions.
+        # Here we will just leave the dim_proto empty.

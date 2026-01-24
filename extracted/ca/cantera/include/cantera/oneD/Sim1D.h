@@ -45,10 +45,13 @@ public:
     //! Set initial guess for one component for all domains
     /**
      * @param component  component name
-     * @param locs  A vector of relative positions, beginning with 0.0 at the
+     * @param[in] locs  A vector of relative positions, beginning with 0.0 at the
      *     left of the domain, and ending with 1.0 at the right of the domain.
-     * @param vals  A vector of values corresponding to the relative position
+     * @param[in] vals  A vector of values corresponding to the relative position
      *     locations.
+     *
+     * @deprecated To be removed after %Cantera 3.2.
+     *      Replaceable by Domain1D::setProfile.
      */
     void setInitialGuess(const string& component, vector<double>& locs,
                          vector<double>& vals);
@@ -60,8 +63,13 @@ public:
      * @param localPoint  grid point within the domain, beginning with 0 for
      *     the leftmost grid point in the domain.
      * @param value  the value.
+     * @deprecated To be removed after %Cantera 3.2. Replaceable by Domain1D::setValue()
      */
-    void setValue(size_t dom, size_t comp, size_t localPoint, double value);
+    void setValue(size_t dom, size_t comp, size_t localPoint, double value) {
+        warn_deprecated("Sim1D::setValue",
+            "To be removed after Cantera 3.2. Access from Domain1D object instead.");
+        _setValue(dom, comp, localPoint, value);
+    }
 
     /**
      * Get one entry in the solution vector.
@@ -69,16 +77,60 @@ public:
      * @param comp  component number
      * @param localPoint  grid point within the domain, beginning with 0 for
      *     the leftmost grid point in the domain.
+     * @deprecated To be removed after %Cantera 3.2. Replaceable by Domain1D::value()
      */
-    double value(size_t dom, size_t comp, size_t localPoint) const;
+    double value(size_t dom, size_t comp, size_t localPoint) const {
+        warn_deprecated("Sim1D::setValue",
+            "To be removed after Cantera 3.2. Access from Domain1D object instead.");
+        return _value(dom, comp, localPoint);
+    }
 
     //! Get an entry in the work vector, which may contain either a new system state
     //! or the current residual of the system.
     //! @param dom  domain index
     //! @param comp  component index
     //! @param localPoint  grid point within the domain
-    double workValue(size_t dom, size_t comp, size_t localPoint) const;
+    //! @deprecated To be removed after %Cantera 3.2. Replaceable by
+    //!     Domain1D::getResiduals()
+    double workValue(size_t dom, size_t comp, size_t localPoint) const {
+        warn_deprecated("Sim1D::setValue",
+            "To be removed after Cantera 3.2. Access residuals via Domain1D instead.");
+        return _workValue(dom, comp, localPoint);
+    }
 
+protected:
+    /**
+     * Set a single value in the solution vector.
+     * @param dom  domain number, beginning with 0 for the leftmost domain.
+     * @param comp  component number
+     * @param localPoint  grid point within the domain, beginning with 0 for
+     *     the leftmost grid point in the domain.
+     * @param value  the value.
+     * @since New in %Cantera 3.2. Previously part of public interface.
+     */
+    void _setValue(size_t dom, size_t comp, size_t localPoint, double value);
+
+    /**
+     * Get one entry in the solution vector.
+     * @param dom  domain number, beginning with 0 for the leftmost domain.
+     * @param comp  component number
+     * @param localPoint  grid point within the domain, beginning with 0 for
+     *     the leftmost grid point in the domain.
+     * @since New in %Cantera 3.2. Previously part of public interface.
+     */
+    double _value(size_t dom, size_t comp, size_t localPoint) const;
+
+    /**
+     * Get an entry in the work vector, which may contain either a new system state
+     * or the current residual of the system.
+     * @param dom  domain index
+     * @param comp  component index
+     * @param localPoint  grid point within the domain
+     * @since New in %Cantera 3.2. Previously part of public interface.
+     */
+    double _workValue(size_t dom, size_t comp, size_t localPoint) const;
+
+public:
     /**
      * Specify a profile for one component of one domain.
      * @param dom  domain number, beginning with 0 for the leftmost domain.
@@ -92,11 +144,16 @@ public:
      * number of grid points, but their lengths must be equal. The values at
      * the grid points will be linearly interpolated based on the (pos,
      * values) specification.
+     *
+     * @deprecated To be removed after %Cantera 3.2.
+     *      Replaceable by Domain1D::setProfile.
      */
     void setProfile(size_t dom, size_t comp, const vector<double>& pos,
                     const vector<double>& values);
 
     //! Set component 'comp' of domain 'dom' to value 'v' at all points.
+    //! @deprecated To be removed after %Cantera 3.2.
+    //!     Replaceable by Domain1D::setProfile.
     void setFlatProfile(size_t dom, size_t comp, double v);
 
     //! @}
@@ -104,14 +161,6 @@ public:
     //! @name Logging, saving and restoring of solutions
     //!
     //! @{
-
-    /**
-     * Output information on current solution for all domains to stream.
-     * @param s  Output stream
-     * @since New in %Cantera 3.0.
-     * @deprecated To be removed after Cantera 3.1.
-     */
-    void show(std::ostream& s);
 
     /**
      * Show logging information on current solution for all domains.
@@ -175,10 +224,23 @@ public:
     AnyMap restore(const string& fname, const string& name);
 
     /**
+     * Retrieve data from a previously saved simulation.
+     *
+     * This method is almost identical to restore() but avoids the return of an AnyMap,
+     * which is not implemented in CLib.
+     *
+     * @param fname  Name of container file (YAML or HDF)
+     * @param name  Identifier of location within the container file; this node/group
+     *      contains header information and subgroups with domain-specific SolutionArray
+     *      data
+     */
+    void _restore(const string& fname, const string& name);
+
+    /**
      * Deletes a `debug_sim1d.yaml` file if it exists. Used to clear the file for
      * successive calls to the solve() method.
      */
-    void clearDebugFile();
+    void clearDebugFile() override;
 
     /**
      * Write solver debugging information to a YAML file based on the specified log
@@ -202,19 +264,9 @@ public:
      *                         between multiple solution attempts.
      */
      void writeDebugInfo(const string& header_suffix, const string& message, int loglevel,
-                         int attempt_counter);
-
+                         int attempt_counter) override;
 
     //! @}
-
-    //! Set the number of time steps to try when the steady Newton solver is
-    //! unsuccessful.
-    //! @param stepsize  Initial time step size [s]
-    //! @param n  Length of `tsteps` array
-    //! @param tsteps  A sequence of time step counts to take after subsequent failures
-    //!     of the steady-state solver. The last value in `tsteps` will be used again
-    //!     after further unsuccessful solution attempts.
-    void setTimeStep(double stepsize, size_t n, const int* tsteps);
 
     /**
      * Performs the hybrid Newton steady/time-stepping solution.
@@ -239,6 +291,7 @@ public:
     void eval(double rdt=-1.0, int count = 1) {
         OneDim::eval(npos, m_state->data(), m_xnew.data(), rdt, count);
     }
+    using OneDim::eval;
 
     //! Evaluate the governing equations and return the vector of residuals
     void getResidual(double rdt, double* resid) {
@@ -339,6 +392,7 @@ public:
     void getInitialSoln();
 
     //! Get the Jacobian element @f$ J_{ij} = \partial f_i / \partial x_j \f$
+    //! @deprecated To be removed after %Cantera 3.2.
     double jacobian(int i, int j);
 
     //! Evaluate the Jacobian in steady-state mode.
@@ -369,9 +423,6 @@ public:
     }
 
 protected:
-    //! the solution vector after the last successful timestepping
-    vector<double> m_xlast_ts;
-
     //! the solution vector after the last successful steady-state solve (stored
     //! before grid refinement)
     vector<double> m_xlast_ss;
@@ -380,29 +431,23 @@ protected:
     //! (stored before grid refinement)
     vector<vector<double>> m_grid_last_ss;
 
-    //! a work array used to hold the residual or the new solution
-    vector<double> m_xnew;
-
-    //! timestep
-    double m_tstep;
-
-    //! array of number of steps to take before re-attempting the steady-state
-    //! solution
-    vector<int> m_steps;
-
     //! User-supplied function called after a successful steady-state solve.
     Func1* m_steady_callback;
 
 private:
     //! Calls method _finalize in each domain.
     void finalize();
-
-    //! Wrapper around the Newton solver
-    /*!
-     * @return 0 if successful, -1 on failure
-     */
-    int newtonSolve(int loglevel);
 };
+
+/**
+ * Create a Sim1D object with a list of domains.
+ * @param[in] domains  A vector of shared pointers to the domains to be linked together.
+ *     The domain pointers must be entered in left-to-right order --- that is,
+ *     the pointer to the leftmost domain is domain[0], the pointer to the
+ *     domain to its right is domain[1], etc.
+ * @since New in %Cantera 3.2.
+ */
+shared_ptr<Sim1D> newSim1D(vector<shared_ptr<Domain1D>>& domains);
 
 }
 #endif

@@ -15,7 +15,7 @@
 
 import logging
 import threading
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Any, Generic, Optional, TypeVar
 
 from reportportal_client.core.rp_requests import AsyncRPRequestLog, RPRequestLog
 from reportportal_client.logs import MAX_LOG_BATCH_PAYLOAD_SIZE, MAX_LOG_BATCH_SIZE
@@ -35,7 +35,7 @@ class LogBatcher(Generic[T_co]):
     entry_num: int
     payload_limit: int
     _lock: threading.Lock
-    _batch: List[T_co]
+    _batch: list[T_co]
     _payload_size: int
 
     def __init__(self, entry_num=MAX_LOG_BATCH_SIZE, payload_limit=MAX_LOG_BATCH_PAYLOAD_SIZE) -> None:
@@ -50,7 +50,7 @@ class LogBatcher(Generic[T_co]):
         self._batch = []
         self._payload_size = 0
 
-    def _append(self, size: int, log_req: T_co) -> Optional[List[T_co]]:
+    def _append(self, size: int, log_req: RPRequestLog) -> Optional[list[RPRequestLog]]:
         with self._lock:
             if self._payload_size + size >= self.payload_limit:
                 if len(self._batch) > 0:
@@ -60,13 +60,15 @@ class LogBatcher(Generic[T_co]):
                     return batch
             self._batch.append(log_req)
             self._payload_size += size
-            if len(self._batch) >= self.entry_num:
-                batch = self._batch
-                self._batch = []
-                self._payload_size = 0
-                return batch
+            if len(self._batch) < self.entry_num:
+                return None
 
-    def append(self, log_req: RPRequestLog) -> Optional[List[RPRequestLog]]:
+            batch = self._batch
+            self._batch = []
+            self._payload_size = 0
+            return batch
+
+    def append(self, log_req: RPRequestLog) -> Optional[list[RPRequestLog]]:
         """Add a log request object to internal batch and return the batch if it's full.
 
         :param   log_req: log request object
@@ -74,7 +76,7 @@ class LogBatcher(Generic[T_co]):
         """
         return self._append(log_req.multipart_size, log_req)
 
-    async def append_async(self, log_req: AsyncRPRequestLog) -> Optional[List[AsyncRPRequestLog]]:
+    async def append_async(self, log_req: AsyncRPRequestLog) -> Optional[list[AsyncRPRequestLog]]:
         """Add a log request object to internal batch and return the batch if it's full.
 
         :param   log_req: log request object
@@ -82,19 +84,22 @@ class LogBatcher(Generic[T_co]):
         """
         return self._append(await log_req.multipart_size, log_req)
 
-    def flush(self) -> Optional[List[T_co]]:
+    def flush(self) -> Optional[list[T_co]]:
         """Immediately return everything what's left in the internal batch.
 
         :return: a batch or None
         """
+        if len(self._batch) <= 0:
+            return None
         with self._lock:
-            if len(self._batch) > 0:
-                batch = self._batch
-                self._batch = []
-                self._payload_size = 0
-                return batch
+            if len(self._batch) <= 0:
+                return None
+            batch = self._batch
+            self._batch = []
+            self._payload_size = 0
+            return batch
 
-    def __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> dict[str, Any]:
         """Control object pickling and return object fields as Dictionary.
 
         :return: object state dictionary
@@ -105,7 +110,7 @@ class LogBatcher(Generic[T_co]):
         del state["_lock"]
         return state
 
-    def __setstate__(self, state: Dict[str, Any]) -> None:
+    def __setstate__(self, state: dict[str, Any]) -> None:
         """Control object pickling, receives object state as Dictionary.
 
         :param dict state: object state dictionary

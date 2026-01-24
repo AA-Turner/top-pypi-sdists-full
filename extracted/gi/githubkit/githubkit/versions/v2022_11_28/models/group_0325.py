@@ -14,70 +14,39 @@ from typing import Literal, Union
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class Import(GitHubModel):
-    """Import
+class ContentSymlink(GitHubModel):
+    """Symlink Content
 
-    A repository import from an external source.
+    An object describing a symlink
     """
 
-    vcs: Union[str, None] = Field()
-    use_lfs: Missing[bool] = Field(default=UNSET)
-    vcs_url: str = Field(description="The URL of the originating repository.")
-    svc_root: Missing[str] = Field(default=UNSET)
-    tfvc_project: Missing[str] = Field(default=UNSET)
-    status: Literal[
-        "auth",
-        "error",
-        "none",
-        "detecting",
-        "choose",
-        "auth_failed",
-        "importing",
-        "mapping",
-        "waiting_to_push",
-        "pushing",
-        "complete",
-        "setup",
-        "unknown",
-        "detection_found_multiple",
-        "detection_found_nothing",
-        "detection_needs_auth",
-    ] = Field()
-    status_text: Missing[Union[str, None]] = Field(default=UNSET)
-    failed_step: Missing[Union[str, None]] = Field(default=UNSET)
-    error_message: Missing[Union[str, None]] = Field(default=UNSET)
-    import_percent: Missing[Union[int, None]] = Field(default=UNSET)
-    commit_count: Missing[Union[int, None]] = Field(default=UNSET)
-    push_percent: Missing[Union[int, None]] = Field(default=UNSET)
-    has_large_files: Missing[bool] = Field(default=UNSET)
-    large_files_size: Missing[int] = Field(default=UNSET)
-    large_files_count: Missing[int] = Field(default=UNSET)
-    project_choices: Missing[list[ImportPropProjectChoicesItems]] = Field(default=UNSET)
-    message: Missing[str] = Field(default=UNSET)
-    authors_count: Missing[Union[int, None]] = Field(default=UNSET)
+    type: Literal["symlink"] = Field()
+    target: str = Field()
+    size: int = Field()
+    name: str = Field()
+    path: str = Field()
+    sha: str = Field()
     url: str = Field()
-    html_url: str = Field()
-    authors_url: str = Field()
-    repository_url: str = Field()
-    svn_root: Missing[str] = Field(default=UNSET)
+    git_url: Union[str, None] = Field()
+    html_url: Union[str, None] = Field()
+    download_url: Union[str, None] = Field()
+    links: ContentSymlinkPropLinks = Field(alias="_links")
 
 
-class ImportPropProjectChoicesItems(GitHubModel):
-    """ImportPropProjectChoicesItems"""
+class ContentSymlinkPropLinks(GitHubModel):
+    """ContentSymlinkPropLinks"""
 
-    vcs: Missing[str] = Field(default=UNSET)
-    tfvc_project: Missing[str] = Field(default=UNSET)
-    human_name: Missing[str] = Field(default=UNSET)
+    git: Union[str, None] = Field()
+    html: Union[str, None] = Field()
+    self_: str = Field(alias="self")
 
 
-model_rebuild(Import)
-model_rebuild(ImportPropProjectChoicesItems)
+model_rebuild(ContentSymlink)
+model_rebuild(ContentSymlinkPropLinks)
 
 __all__ = (
-    "Import",
-    "ImportPropProjectChoicesItems",
+    "ContentSymlink",
+    "ContentSymlinkPropLinks",
 )

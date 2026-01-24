@@ -92,7 +92,7 @@ class NotifyDapnet(NotifyBase):
     secure_protocol = "dapnet"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_dapnet"
+    setup_url = "https://appriseit.com/services/dapnet/"
 
     # Dapnet uses the http protocol with JSON requests
     notify_url = "http://www.hampager.de:8080/calls"
@@ -286,7 +286,8 @@ class NotifyDapnet(NotifyBase):
                         )
                     )
 
-                    self.logger.debug(f"Response Details:\r\n{r.content}")
+                    self.logger.debug(
+                        "Response Details:\r\n%r", (r.content or b"")[:2000])
 
                     # Mark our failure
                     has_error = True

@@ -32,12 +32,12 @@ from .utils import Representation, update_not_none
 from .validators import constr_length_validator, str_validator
 
 if TYPE_CHECKING:
-    import email_validator
-    from typing_extensions import TypedDict
+    import email_validator # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from typing_extensions import TypedDict # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
-    from .config import BaseConfig
-    from .fields import ModelField
-    from .typing import AnyCallable
+    from .config import BaseConfig # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .fields import ModelField # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .typing import AnyCallable # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
     CallableGenerator = Generator[AnyCallable, None, None]
 
@@ -575,7 +575,7 @@ def stricturl(
 def import_email_validator() -> None:
     global email_validator
     try:
-        import email_validator
+        import email_validator # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
     except ImportError as e:
         raise ImportError('email-validator is not installed, run `pip install pydantic[email]`') from e
 

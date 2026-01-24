@@ -2,7 +2,9 @@
 
 from schemathesis.core.errors import (
     HookError,
+    HookExecutionError,
     IncorrectUsage,
+    InfiniteRecursiveReference,
     InternalError,
     InvalidHeadersExample,
     InvalidRateLimit,
@@ -19,11 +21,14 @@ from schemathesis.core.errors import (
     SerializationNotPossible,
     TransitionValidationError,
     UnboundPrefix,
+    UnresolvableReference,
 )
 
 __all__ = [
     "HookError",
+    "HookExecutionError",
     "IncorrectUsage",
+    "InfiniteRecursiveReference",
     "InternalError",
     "InvalidHeadersExample",
     "InvalidRateLimit",
@@ -40,4 +45,5 @@ __all__ = [
     "SerializationNotPossible",
     "TransitionValidationError",
     "UnboundPrefix",
+    "UnresolvableReference",
 ]

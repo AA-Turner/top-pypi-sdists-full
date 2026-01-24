@@ -29,6 +29,7 @@ class SVGBackend(recorder.Recorder):
     def __init__(self) -> None:
         super().__init__()
         self._init_flip_y = True
+        self.transformation_matrix: Matrix44 | None = None
 
     def get_xml_root_element(
         self,
@@ -39,10 +40,6 @@ class SVGBackend(recorder.Recorder):
     ) -> ET.Element:
         top_origin = True
         settings = copy.copy(settings)
-        # DXF coordinates are mapped to integer viewBox coordinates in the first
-        # quadrant, producing compact SVG files. The larger the coordinate range, the
-        # more precise and the lager the files.
-        settings.output_coordinate_space = 1_000_000
 
         # This player changes the original recordings!
         player = self.player()
@@ -55,11 +52,11 @@ class SVGBackend(recorder.Recorder):
         if page.width == 0 or page.height == 0:
             return ET.Element("svg")  # empty page
 
-        m = output_layout.get_placement_matrix(
+        self.transformation_matrix = output_layout.get_placement_matrix(
             page, settings=settings, top_origin=top_origin
         )
         # transform content to the output coordinates space:
-        player.transform(m)
+        player.transform(self.transformation_matrix)
         if settings.crop_at_margins:
             p1, p2 = page.get_margin_rect(top_origin=top_origin)  # in mm
             # scale factor to map page coordinates to output space coordinates:

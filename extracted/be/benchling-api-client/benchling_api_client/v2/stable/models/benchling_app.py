@@ -72,7 +72,7 @@ class BenchlingApp:
         field_dict: Dict[str, Any] = {}
         # Allow the model to serialize even if it was created outside of the constructor, circumventing validation
         if api_url is not UNSET:
-            field_dict["apiUrl"] = api_url
+            field_dict["apiURL"] = api_url
         if app_definition is not UNSET:
             field_dict["appDefinition"] = app_definition
         if archive_record is not UNSET:
@@ -86,7 +86,7 @@ class BenchlingApp:
         if modified_at is not UNSET:
             field_dict["modifiedAt"] = modified_at
         if web_url is not UNSET:
-            field_dict["webUrl"] = web_url
+            field_dict["webURL"] = web_url
         if description is not UNSET:
             field_dict["description"] = description
         if name is not UNSET:
@@ -99,7 +99,7 @@ class BenchlingApp:
         d = src_dict.copy()
 
         def get_api_url() -> Union[Unset, str]:
-            api_url = d.pop("apiUrl")
+            api_url = d.pop("apiURL")
             return api_url
 
         try:
@@ -199,7 +199,7 @@ class BenchlingApp:
             modified_at = cast(Union[Unset, datetime.datetime], UNSET)
 
         def get_web_url() -> Union[Unset, str]:
-            web_url = d.pop("webUrl")
+            web_url = d.pop("webURL")
             return web_url
 
         try:

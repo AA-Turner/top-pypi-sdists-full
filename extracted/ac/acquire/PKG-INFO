@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: acquire
-Version: 3.20
+Version: 3.21
 Summary: A tool to quickly gather forensic artifacts from disk images or a live system into a lightweight container
 Author-email: Dissect Team <dissect@fox-it.com>
-License: Affero General Public License v3
+License-Expression: AGPL-3.0-or-later
 Project-URL: homepage, https://dissect.tools
 Project-URL: documentation, https://docs.dissect.tools/en/latest/projects/acquire
 Project-URL: repository, https://github.com/fox-it/acquire
@@ -11,19 +11,18 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
-Classifier: License :: OSI Approved
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Internet :: Log Analysis
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: COPYRIGHT
 Requires-Dist: dissect.cstruct<5,>=4
-Requires-Dist: dissect.target<4,>=3.23
+Requires-Dist: dissect.target<4,>=3.24
 Provides-Extra: full
 Requires-Dist: minio; extra == "full"
 Requires-Dist: pycryptodome; extra == "full"
@@ -34,7 +33,7 @@ Requires-Dist: requests_toolbelt; extra == "full"
 Provides-Extra: dev
 Requires-Dist: acquire[full]; extra == "dev"
 Requires-Dist: dissect.cstruct<5.0.dev,>=4.0.dev; extra == "dev"
-Requires-Dist: dissect.target[dev]<4.0.dev,>=3.23.dev; extra == "dev"
+Requires-Dist: dissect.target[dev]<4.0.dev,>=3.24.dev; extra == "dev"
 Dynamic: license-file
 
 # Acquire

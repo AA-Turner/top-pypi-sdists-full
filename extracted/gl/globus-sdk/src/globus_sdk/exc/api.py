@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import enum
 import logging
+import sys
+import textwrap
 import typing as t
 
-from globus_sdk import _guards
+from globus_sdk._internal import guards
 
 from .base import GlobusError
 from .err_info import ErrorInfoContainer
-from .warnings import warn_deprecated
 
 if t.TYPE_CHECKING:
     import requests
@@ -29,7 +30,7 @@ class GlobusAPIError(GlobusError):
     Wraps errors returned by a REST API.
 
     :ivar int http_status: HTTP status code
-    :ivar str code: Error code from the API or "Error" for unclassified errors
+    :ivar str code: Error code from the API or ``None`` for unclassified errors
     :ivar str request_id: The 'request_id' included in the error data, if any.
     :ivar list[str] messages: A list of error messages, extracted from the response
         data. If the data cannot be parsed or does not contain any clear message fields,
@@ -46,7 +47,7 @@ class GlobusAPIError(GlobusError):
 
         self.http_status = r.status_code
         # defaults, may be rewritten during parsing
-        self.code: str | None = "Error"
+        self.code: str | None = None
         self.request_id: str | None = None
         self.messages: list[str] = []
         self.errors: list[ErrorSubdocument] = []
@@ -54,6 +55,15 @@ class GlobusAPIError(GlobusError):
         self._info: ErrorInfoContainer | None = None
         self._underlying_response = r
         self._parse_response()
+
+        if sys.version_info >= (3, 11):
+            self.add_note(  # pylint: disable=no-member
+                (
+                    "This exception was caused by an API error. "
+                    "The response body is as follows:\n\n"
+                )
+                + textwrap.indent(self.text, "    ")
+            )
         super().__init__(*self._get_args())
 
     @property
@@ -67,14 +77,6 @@ class GlobusAPIError(GlobusError):
         if self.messages:
             return "; ".join(self.messages)
         return None
-
-    @message.setter
-    def message(self, value: str) -> None:
-        warn_deprecated(
-            "Setting a message on GlobusAPIError objects is deprecated. "
-            "This overwrites any parsed messages. Append to 'messages' instead."
-        )
-        self.messages = [value]
 
     @property
     def http_reason(self) -> str:
@@ -158,17 +160,6 @@ class GlobusAPIError(GlobusError):
         Get the verbatim error message received from a Globus API as a *string*
         """
         return self._underlying_response.text
-
-    @property
-    def raw_text(self) -> str:
-        """
-        Deprecated alias of the ``text`` property.
-        """
-        warn_deprecated(
-            "The 'raw_text' property of GlobusAPIError objects is deprecated. "
-            "Use the 'text' property instead."
-        )
-        return self.text
 
     @property
     def binary_content(self) -> bytes:
@@ -276,7 +267,7 @@ class GlobusAPIError(GlobusError):
         # well-formed
         if self._jsonapi_mimetype():
             errors = self._dict_data.get("errors")
-            if not _guards.is_list_of(errors, dict):
+            if not guards.is_list_of(errors, dict):
                 return _ErrorFormat.undefined
             elif len(errors) < 1:
                 return _ErrorFormat.undefined
@@ -324,7 +315,7 @@ class GlobusAPIError(GlobusError):
         self.code = self._dict_data["code"]
         self.messages = [self._dict_data["message"]]
         self.request_id = self._dict_data.get("request_id")
-        if _guards.is_list_of(self._dict_data.get("errors"), dict):
+        if guards.is_list_of(self._dict_data.get("errors"), dict):
             raw_errors = self._dict_data["errors"]
         else:
             raw_errors = [self._dict_data]
@@ -342,7 +333,7 @@ class GlobusAPIError(GlobusError):
         """
 
         # attempt to pull out errors if possible and valid
-        if _guards.is_list_of(self._dict_data.get("errors"), dict):
+        if guards.is_list_of(self._dict_data.get("errors"), dict):
             raw_errors = self._dict_data["errors"]
         # if no 'errors' were found, or 'errors' is invalid, then
         # 'errors' should be set to contain the root document

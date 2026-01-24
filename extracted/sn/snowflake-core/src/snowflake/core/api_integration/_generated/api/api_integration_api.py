@@ -380,7 +380,7 @@ class ApiIntegrationApi:
         # process the body parameter
         _body_params = None
 
-        if _params["api_integration"]:
+        if _params["api_integration"] is not None:
             _body_params = _params["api_integration"]
 
         # set the HTTP header `Accept`
@@ -587,7 +587,7 @@ class ApiIntegrationApi:
         # process the body parameter
         _body_params = None
 
-        if _params["api_integration"]:
+        if _params["api_integration"] is not None:
             _body_params = _params["api_integration"]
 
         # set the HTTP header `Accept`

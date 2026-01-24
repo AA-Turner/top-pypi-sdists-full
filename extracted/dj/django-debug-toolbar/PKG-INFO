@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-debug-toolbar
-Version: 6.0.0
+Version: 6.2.0
 Summary: A configurable set of panels that display various debug information about the current request/response.
 Project-URL: Changelog, https://django-debug-toolbar.readthedocs.io/en/latest/changes.html
 Project-URL: Documentation, https://django-debug-toolbar.readthedocs.io/
@@ -15,21 +15,21 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: django>=4.2.9
 Requires-Dist: sqlparse>=0.2
 Description-Content-Type: text/x-rst
@@ -76,7 +76,7 @@ Here's a screenshot of the toolbar in action:
 In addition to the built-in panels, a number of third-party panels are
 contributed by the community.
 
-The current stable version of the Debug Toolbar is 6.0.0. It works on
+The current stable version of the Debug Toolbar is 6.2.0. It works on
 Django ≥ 4.2.0.
 
 The Debug Toolbar has experimental support for `Django's asynchronous views

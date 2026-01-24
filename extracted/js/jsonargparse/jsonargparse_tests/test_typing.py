@@ -11,7 +11,6 @@ from typing import List, Optional, Union
 import pytest
 
 from jsonargparse import ArgumentError
-from jsonargparse._optionals import pydantic_support
 from jsonargparse.typing import (
     ClosedUnitInterval,
     Email,
@@ -41,7 +40,7 @@ def test_public_api():
         n
         for n, v in vars(jsonargparse.typing).items()
         if n[0] != "_"
-        and getattr(v, "__module__", "").split(".")[0] not in {"jsonargparse", "typing"}
+        and getattr(v, "__module__", "").split(".")[0] not in {"jsonargparse", "typing", "re"}
         and (inspect.isclass(v) or inspect.isfunction(v))
     }
     assert set() == names - set(jsonargparse.typing.__all__)
@@ -338,7 +337,7 @@ def test_pickle_module_type(type_class):
 
 
 def test_module_name_clash():
-    pytest.raises(ValueError, lambda: restricted_string_type("List", "^clash$"))
+    pytest.raises(ValueError, lambda: restricted_string_type("Callable", "^clash$"))
 
 
 def test_register_non_bool_cast_type(parser):
@@ -375,6 +374,14 @@ def test_register_type_datetime(parser):
 
     register_type(datetime, serializer, deserializer)  # identical re-registering is okay
     pytest.raises(ValueError, lambda: register_type(datetime))  # different registration not okay
+
+
+def test_register_not_a_class_type_failure():
+    class SomeClass:
+        pass
+
+    with pytest.raises(ValueError, match="Expected type_class to be a class"):
+        register_type(Union[SomeClass, int])
 
 
 class RegisterOnFirstUse:
@@ -417,17 +424,6 @@ def test_secret_str_methods():
 
 
 def test_secret_str_parsing(parser):
-    parser.add_argument("--password", type=SecretStr)
-    cfg = parser.parse_args(["--password=secret"])
-    assert isinstance(cfg.password, SecretStr)
-    assert cfg.password.get_secret_value() == "secret"
-    assert "secret" not in parser.dump(cfg)
-
-
-@pytest.mark.skipif(not pydantic_support, reason="pydantic package is required")
-def test_pydantic_secret_str(parser):
-    from pydantic import SecretStr
-
     parser.add_argument("--password", type=SecretStr)
     cfg = parser.parse_args(["--password=secret"])
     assert isinstance(cfg.password, SecretStr)

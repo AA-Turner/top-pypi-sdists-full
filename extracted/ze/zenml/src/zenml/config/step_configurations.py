@@ -23,6 +23,7 @@ from typing import (
     Tuple,
     Union,
 )
+from uuid import UUID
 
 from pydantic import (
     ConfigDict,
@@ -40,9 +41,10 @@ from zenml.client_lazy_loader import ClientLazyLoader
 from zenml.config.base_settings import BaseSettings, SettingsOrDict
 from zenml.config.cache_policy import CachePolicy, CachePolicyWithValidator
 from zenml.config.constants import DOCKER_SETTINGS_KEY, RESOURCE_SETTINGS_KEY
+from zenml.config.frozen_base_model import FrozenBaseModel
 from zenml.config.retry_config import StepRetryConfig
 from zenml.config.source import Source, SourceWithValidator
-from zenml.config.strict_base_model import StrictBaseModel
+from zenml.enums import StepRuntime
 from zenml.logger import get_logger
 from zenml.model.lazy_load import ModelVersionDataLazyLoader
 from zenml.model.model import Model
@@ -56,11 +58,11 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class PartialArtifactConfiguration(StrictBaseModel):
+class PartialArtifactConfiguration(FrozenBaseModel):
     """Class representing a partial input/output artifact configuration."""
 
     materializer_source: Optional[Tuple[SourceWithValidator, ...]] = None
-    # TODO: This could be moved to the `PipelineDeployment` as it's the same
+    # TODO: This could be moved to the `PipelineSnapshot` as it's the same
     # for all steps/outputs
     default_materializer_source: Optional[SourceWithValidator] = None
     artifact_config: Optional[ArtifactConfig] = None
@@ -140,7 +142,7 @@ class ArtifactConfiguration(PartialArtifactConfiguration):
         return value
 
 
-class StepConfigurationUpdate(StrictBaseModel):
+class StepConfigurationUpdate(FrozenBaseModel):
     """Class for step configuration updates."""
 
     enable_cache: Optional[bool] = Field(
@@ -177,6 +179,14 @@ class StepConfigurationUpdate(StrictBaseModel):
         default=None,
         description="Settings for the step.",
     )
+    environment: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="The environment for the step.",
+    )
+    secrets: Optional[List[Union[str, UUID]]] = Field(
+        default=None,
+        description="The secrets for the step.",
+    )
     extra: Optional[Dict[str, Any]] = Field(
         default=None,
         description="Extra configurations for the step.",
@@ -204,6 +214,20 @@ class StepConfigurationUpdate(StrictBaseModel):
     cache_policy: Optional[CachePolicyWithValidator] = Field(
         default=None,
         description="The cache policy for the step.",
+    )
+    runtime: Optional[StepRuntime] = Field(
+        default=None,
+        description="The step runtime. If not configured, the step will "
+        "run inline unless a step operator or docker/resource settings "
+        "are configured. This is only applicable for dynamic pipelines.",
+    )
+    heartbeat_healthy_threshold: int = Field(
+        default=30,
+        description="The amount of time (in minutes) that a running step "
+        "has not received heartbeat and is considered healthy. By default, "
+        "set to 30 minutes.",
+        ge=10,
+        le=60,
     )
 
     outputs: Mapping[str, PartialArtifactConfiguration] = {}
@@ -245,8 +269,12 @@ class PartialStepConfiguration(StepConfigurationUpdate):
     """Class representing a partial step configuration."""
 
     name: str
+    # TODO: maybe move to spec?
+    template: Optional[str] = None
     parameters: Dict[str, Any] = {}
     settings: Dict[str, SerializeAsAny[BaseSettings]] = {}
+    environment: Dict[str, str] = {}
+    secrets: List[Union[str, UUID]] = []
     extra: Dict[str, Any] = {}
     substitutions: Dict[str, str] = {}
     caching_parameters: Mapping[str, Any] = {}
@@ -346,6 +374,8 @@ class StepConfiguration(PartialStepConfiguration):
                 "success_hook_source",
                 "retry",
                 "substitutions",
+                "environment",
+                "secrets",
                 "cache_policy",
             },
             exclude_none=True,
@@ -359,10 +389,16 @@ class StepConfiguration(PartialStepConfiguration):
                     "success_hook_source",
                     "retry",
                     "substitutions",
+                    "environment",
+                    "secrets",
                     "cache_policy",
                 },
                 exclude_none=True,
             )
+
+            original_values["secrets"] = pipeline_values.get(
+                "secrets", []
+            ) + original_values.get("secrets", [])
 
             updated_config_dict = {
                 **self.model_dump(),
@@ -374,21 +410,57 @@ class StepConfiguration(PartialStepConfiguration):
             return self.model_copy(deep=True)
 
 
-class InputSpec(StrictBaseModel):
+class InputSpec(FrozenBaseModel):
     """Step input specification."""
 
     step_name: str
     output_name: str
+    chunk_index: Optional[int] = None
+    chunk_size: Optional[int] = None
 
 
-class StepSpec(StrictBaseModel):
+class StepSpec(FrozenBaseModel):
     """Specification of a pipeline."""
 
     source: SourceWithValidator
     upstream_steps: List[str]
-    inputs: Dict[str, InputSpec] = {}
-    # The default value is to ensure compatibility with specs of version <0.2
-    pipeline_parameter_name: str = ""
+    # TODO: This should be `Dict[str, List[InputSpec]]`, but that would break
+    # client-server compatibility. In the next major release, change this and
+    # uncomment the code that migrates legacy specs.
+    inputs: Dict[str, Union[List[InputSpec], InputSpec]] = {}
+    invocation_id: str
+    enable_heartbeat: bool = False
+
+    @model_validator(mode="before")
+    @classmethod
+    @before_validator_handler
+    def _migrate_legacy_fields(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        if "invocation_id" not in data:
+            data["invocation_id"] = data.pop("pipeline_parameter_name", "")
+
+        # converted_inputs = {}
+        # for key, value in data.get("inputs", {}).items():
+        #     if isinstance(value, (InputSpec, dict)):
+        #         converted_inputs[key] = [value]
+        #     else:
+        #         converted_inputs[key] = value
+        # data["inputs"] = converted_inputs
+
+        return data
+
+    # TODO: Remove this and use the `inputs` property once we change the type
+    # of the `inputs` field.
+    @property
+    def inputs_v2(self) -> Dict[str, List[InputSpec]]:
+        """Inputs of the step spec in v2 format.
+
+        Returns:
+            The inputs of the step spec in v2 format.
+        """
+        return {
+            key: [value] if isinstance(value, InputSpec) else value
+            for key, value in self.inputs.items()
+        }
 
     def __eq__(self, other: Any) -> bool:
         """Returns whether the other object is referring to the same step.
@@ -409,10 +481,10 @@ class StepSpec(StrictBaseModel):
             if self.upstream_steps != other.upstream_steps:
                 return False
 
-            if self.inputs != other.inputs:
+            if self.inputs_v2 != other.inputs_v2:
                 return False
 
-            if self.pipeline_parameter_name != other.pipeline_parameter_name:
+            if self.invocation_id != other.invocation_id:
                 return False
 
             return self.source.import_path == other.source.import_path
@@ -420,7 +492,7 @@ class StepSpec(StrictBaseModel):
         return NotImplemented
 
 
-class Step(StrictBaseModel):
+class Step(FrozenBaseModel):
     """Class representing a ZenML step."""
 
     spec: StepSpec

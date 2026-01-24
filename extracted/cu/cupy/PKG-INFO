@@ -1,0 +1,65 @@
+Metadata-Version: 2.4
+Name: cupy
+Version: 13.6.0
+Summary: CuPy: NumPy & SciPy for GPU
+Author-email: Seiya Tokui <tokui@preferred.jp>
+Maintainer: CuPy Developers
+License-Expression: MIT
+Project-URL: Homepage, https://cupy.dev/
+Project-URL: Documentation, https://docs.cupy.dev/
+Project-URL: Bug Tracker, https://github.com/cupy/cupy/issues
+Project-URL: Source Code, https://github.com/cupy/cupy
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: Intended Audience :: Science/Research
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Cython
+Classifier: Topic :: Software Development
+Classifier: Topic :: Scientific/Engineering
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: Microsoft :: Windows
+Requires-Python: >=3.9
+Description-Content-Type: text/x-rst
+License-File: LICENSE
+License-File: docs/source/license.rst
+Requires-Dist: numpy<2.6,>=1.22
+Requires-Dist: fastrlock>=0.5
+Provides-Extra: all
+Requires-Dist: scipy<1.17,>=1.7; extra == "all"
+Requires-Dist: Cython>=3; extra == "all"
+Requires-Dist: optuna>=2.0; extra == "all"
+Provides-Extra: test
+Requires-Dist: packaging; extra == "test"
+Requires-Dist: pytest>=7.2; extra == "test"
+Requires-Dist: hypothesis<6.55.0,>=6.37.2; extra == "test"
+Requires-Dist: mpmath; extra == "test"
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license-file
+
+.. image:: https://raw.githubusercontent.com/cupy/cupy/main/docs/image/cupy_logo_1000px.png
+   :width: 400
+
+CuPy : NumPy & SciPy for GPU
+============================
+
+`CuPy <https://cupy.dev/>`_ is a NumPy/SciPy-compatible array library for GPU-accelerated computing with Python.
+
+This package (``cupy``) is a source distribution.
+For most users, use of pre-build wheel distributions are recommended:
+
+- `cupy-cuda13x <https://pypi.org/project/cupy-cuda13x/>`_ (for CUDA 13.x)
+- `cupy-cuda12x <https://pypi.org/project/cupy-cuda12x/>`_ (for CUDA 12.x)
+- `cupy-cuda11x <https://pypi.org/project/cupy-cuda11x/>`_ (for CUDA 11.2 ~ 11.x)
+
+- `cupy-rocm-5-0 <https://pypi.org/project/cupy-rocm-5-0/>`_ (for ROCm 5.0)
+- `cupy-rocm-4-3 <https://pypi.org/project/cupy-rocm-4-3/>`_ (for ROCm 4.3)
+
+Please see `Installation Guide <https://docs.cupy.dev/en/latest/install.html>`_ for the detailed instructions.

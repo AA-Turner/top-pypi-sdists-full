@@ -77,6 +77,8 @@ class Amendment(BaseModel):
 
 
 class CustomerBillingProviderConfiguration(BaseModel):
+    """The billing provider configuration associated with a contract."""
+
     archived_at: Optional[datetime] = None
 
     billing_provider: Literal[
@@ -88,6 +90,7 @@ class CustomerBillingProviderConfiguration(BaseModel):
         "quickbooks_online",
         "workday",
         "gcp_marketplace",
+        "metronome",
     ]
 
     delivery_method: Literal["direct_to_billing_provider", "aws_sqs", "tackle", "aws_sns"]

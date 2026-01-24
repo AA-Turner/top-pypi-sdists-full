@@ -27,7 +27,7 @@ directives = {
     'DefaultDocstringSignature', 'DefaultEncoding', 'DefaultMetatype',
     'DefaultSupertype', 'End', 'Exception', 'Feature', 'HideNamespace', 'If',
     'Import', 'Include', 'License', 'MappedType', 'MinimumABIVersion',
-    'Module', 'Platforms', 'Property', 'Timeline',
+    'Module', 'Platforms', 'Property', 'SipModuleConfiguration', 'Timeline',
 
     # Remove in SIP v7.
     'Plugin',
@@ -43,8 +43,8 @@ code_directives = {
     'InitialisationCode', 'InstanceCode', 'MethodCode', 'ModuleCode',
     'ModuleHeaderCode', 'PickleCode', 'PostInitialisationCode',
     'PreInitialisationCode', 'PreMethodCode', 'RaiseCode', 'ReleaseCode',
-    'SetCode', 'TypeCode', 'TypeHeaderCode', 'TypeHintCode', 'UnitCode',
-    'UnitPostIncludeCode', 'VirtualCallCode', 'VirtualCatcherCode',
+    'SetCode', 'TypeCode', 'TypeDerivedCode', 'TypeHeaderCode', 'TypeHintCode',
+    'UnitCode', 'UnitPostIncludeCode', 'VirtualCallCode', 'VirtualCatcherCode',
     'VirtualErrorHandler',
 
     # Remove in SIP v7.
@@ -55,8 +55,8 @@ code_directives = {
 
 # The plain keywords.
 keywords = {
-    'bool', 'char', 'class', 'const', 'double', 'enum', 'explicit', 'false',
-    'final', 'float', 'int', 'long', 'namespace', 'noexcept', 'NULL',
+    'bool', '_Bool', 'char', 'class', 'const', 'double', 'enum', 'explicit',
+    'false', 'final', 'float', 'int', 'long', 'namespace', 'noexcept', 'NULL',
     'operator', 'private', 'protected', 'public', 'Py_hash_t', 'Py_ssize_t',
     'Q_SIGNAL', 'Q_SIGNALS', 'Q_SLOT', 'Q_SLOTS', 'short', 'signals', 'signed',
     'SIP_PYBUFFER', 'SIP_PYCALLABLE', 'SIP_PYDICT', 'SIP_PYENUM', 'SIP_PYLIST',
@@ -72,10 +72,10 @@ keywords = {
 # The directive keywords.
 directive_keywords = {
     'all_raise_py_exception', 'call_super_init', 'default_VirtualErrorHandler',
-    'False', 'format', 'get', 'id', 'keyword_arguments', 'language',
-    'licensee', 'name', 'optional', 'order', 'py_ssize_t_clean',
-    'remove_leading', 'set', 'signature', 'timestamp', 'True', 'type',
-    'version', 'use_argument_names', 'use_limited_api',
+    'False', 'format', 'get', 'gil_use', 'id', 'keyword_arguments', 'language',
+    'licensee', 'multi_interpreter_support', 'name', 'optional', 'order',
+    'py_ssize_t_clean', 'remove_leading', 'set', 'signature', 'timestamp',
+    'True', 'type', 'version', 'use_argument_names', 'use_limited_api',
 }
 
 

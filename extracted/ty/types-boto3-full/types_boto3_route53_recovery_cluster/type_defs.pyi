@@ -3,7 +3,7 @@ Type annotations for route53-recovery-cluster service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53_recovery_cluster/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,15 +17,10 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
 from .literals import RoutingControlStateType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -51,7 +46,7 @@ class GetRoutingControlStateRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -93,7 +88,7 @@ class ListRoutingControlsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListRoutingControlsResponseTypeDef(TypedDict):
-    RoutingControls: List[RoutingControlTypeDef]
+    RoutingControls: list[RoutingControlTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

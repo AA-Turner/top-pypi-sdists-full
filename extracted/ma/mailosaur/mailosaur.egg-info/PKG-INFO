@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mailosaur
-Version: 7.19.0
+Version: 8.0.0
 Summary: The Mailosaur Python library lets you integrate email and SMS testing into your continuous integration process.
 Home-page: https://github.com/mailosaur/mailosaur-python
 Author: Mailosaur Ltd
@@ -10,7 +10,6 @@ Project-URL: Bug Tracker, https://github.com/mailosaur/mailosaur-python/issues
 Project-URL: Documentation, https://mailosaur.com/docs/email-testing/python/
 Project-URL: Source Code, https://github.com/mailosaur/mailosaur-python
 Keywords: email sms testing automation selenium robot framework
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -31,6 +30,24 @@ Requires: requests
 Requires-Python: >=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: python-dateutil
+Requires-Dist: tzlocal
+Requires-Dist: requests
+Requires-Dist: requests[security]
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # [Mailosaur - Python library](https://mailosaur.com/) &middot; [![](https://github.com/mailosaur/mailosaur-python/workflows/CI/badge.svg)](https://github.com/mailosaur/mailosaur-python/actions) 
 
@@ -351,5 +368,3 @@ pytest
 ## Contacting us
 
 You can get us at [support@mailosaur.com](mailto:support@mailosaur.com)
-
-

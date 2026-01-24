@@ -1,0 +1,53 @@
+---
+
+codecov:
+  notify:
+    after_n_builds: 26  # Number of test matrix+lint jobs uploading coverage
+    wait_for_ci: false
+
+  require_ci_to_pass: false
+
+  token: >-  # notsecret  # repo-scoped, upload-only, stability in fork PRs
+    78c6cd01-1f6b-428a-8be0-9069e6073d6d
+
+comment:
+  require_changes: true
+
+coverage:
+  range: 100..100
+  status:
+    patch:
+      default:
+        target: 100%
+      pytest:
+        target: 100%
+        flags:
+        - pytest
+      typing:
+        flags:
+        - MyPy
+    project:
+      default:
+        target: 100%
+      lib:
+        flags:
+        - pytest
+        paths:
+        - src/
+        target: 100%
+      packaging:
+        paths:
+        - packaging/
+        target: 75.24%
+      tests:
+        flags:
+        - pytest
+        paths:
+        - tests/
+        target: 100%
+      typing:
+        flags:
+        - MyPy
+        target: 100%
+
+...

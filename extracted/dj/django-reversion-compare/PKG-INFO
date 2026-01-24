@@ -1,53 +1,18 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-reversion-compare
-Version: 0.18.1
+Version: 0.19.1
 Summary: Add compare view to django-reversion for comparing two versions of a reversion model.
-Author-email: Jens Diemer <django-reversion-compare@jensdiemer.de>
-License: GPL-3.0-or-later
 Project-URL: Documentation, https://github.com/jedie/django-reversion-compare
 Project-URL: Source, https://github.com/jedie/django-reversion-compare
+Author-email: Jens Diemer <django-reversion-compare@jensdiemer.de>
+License: GPL-3.0-or-later
+License-File: LICENSE
 Requires-Python: >=3.11
-Description-Content-Type: text/markdown
+Requires-Dist: diff-match-patch
 Requires-Dist: django
 Requires-Dist: django-reversion
-Requires-Dist: diff-match-patch
 Requires-Dist: rich
-Provides-Extra: dev
-Requires-Dist: bx_django_utils; extra == "dev"
-Requires-Dist: django-debug-toolbar; extra == "dev"
-Requires-Dist: django-countries; extra == "dev"
-Requires-Dist: model_bakery; extra == "dev"
-Requires-Dist: requests-mock; extra == "dev"
-Requires-Dist: django-override-storage; extra == "dev"
-Requires-Dist: beautifulsoup4; extra == "dev"
-Requires-Dist: freezegun; extra == "dev"
-Requires-Dist: colorlog; extra == "dev"
-Requires-Dist: gunicorn; extra == "dev"
-Requires-Dist: manage_django_project>=0.6.4; extra == "dev"
-Requires-Dist: tblib; extra == "dev"
-Requires-Dist: pip-tools; extra == "dev"
-Requires-Dist: tox; extra == "dev"
-Requires-Dist: coverage; extra == "dev"
-Requires-Dist: autopep8; extra == "dev"
-Requires-Dist: pyupgrade; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: flake8-bugbear; extra == "dev"
-Requires-Dist: pyflakes; extra == "dev"
-Requires-Dist: codespell; extra == "dev"
-Requires-Dist: EditorConfig; extra == "dev"
-Requires-Dist: pip-audit; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: typeguard; extra == "dev"
-Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: darker[color,flynt,isort]; extra == "dev"
-Requires-Dist: backports.tarfile; extra == "dev"
-Provides-Extra: django42
-Requires-Dist: django<4.3,>=4.2; extra == "django42"
-Provides-Extra: django50
-Requires-Dist: django<5.1,>=5.0; extra == "django50"
-Provides-Extra: django51
-Requires-Dist: django<5.2,>=5.1; extra == "django51"
+Description-Content-Type: text/markdown
 
 # django-reversion-compare
 
@@ -244,6 +209,7 @@ Google "diff-match-patch" is now mandatory and not optional.
 
 | Reversion-Compare | django-reversion | Django             | Python                                         |
 |-------------------|------------------|--------------------|------------------------------------------------|
+| >=v0.19.0         | v6.0             | v4.2, v5.1, v5.2   | v3.11, v3.12, v3.13                            |
 | >=v0.18.0         | v5.1             | v4.2, v5.0, v5.1   | v3.11, v3.12                                   |
 | >=v0.17.0         | v5.0             | (v3.2), v4.2, v5.0 | (v3.9), v3.10, v3.11, v3.12                    |
 | >=v0.16.0         | v3.0             | v3.2, v4.1, v4.2   | v3.9, v3.10, v3.11                             |
@@ -262,13 +228,20 @@ Google "diff-match-patch" is now mandatory and not optional.
 | >=v0.4            | v1.8             | v1.7               | v2.7, v3.4                                     |
 | <v0.4             | v1.6             | v1.4               | v2.7                                           |
 
-These are the unittests variants. See also: [/pyproject.toml](https://github.com/jedie/django-reversion-compare/blob/main/pyproject.toml)
+These are the unittests variants. See also: [/noxfile.py](https://github.com/jedie/django-reversion-compare/blob/main/noxfile.py)
 Maybe other versions are compatible, too.
 
 ## Changelog
 
 [comment]: <> (✂✂✂ auto generated history start ✂✂✂)
 
+* [v0.19.1](https://github.com/jedie/django-reversion-compare/compare/v0.19.0...v0.19.1)
+  * 2025-10-21 - Apply manageprojects updates + update requirements
+* [v0.19.0](https://github.com/jedie/django-reversion-compare/compare/v0.18.1...v0.19.0)
+  * 2025-09-25 - Cleanup and update README
+  * 2025-09-25 - fix packaging: Add hatchling
+  * 2025-09-25 - Bugfix CI
+  * 2025-09-25 - apply manageprojects updates
 * [v0.18.1](https://github.com/jedie/django-reversion-compare/compare/v0.18.0...v0.18.1)
   * 2024-09-10 - Bugfix packaging: We use rich in production code
 * [v0.18.0](https://github.com/jedie/django-reversion-compare/compare/v0.17.0...v0.18.0)
@@ -279,6 +252,9 @@ Maybe other versions are compatible, too.
   * 2024-05-21 - fix time in snapshots
   * 2024-05-21 - Apply manageprojects update
   * 2024-02-20 - Update README.md
+
+<details><summary>Expand older history entries ...</summary>
+
 * [v0.17.0](https://github.com/jedie/django-reversion-compare/compare/v0.16.2...v0.17.0)
   * 2024-02-20 - Enhance diff
   * 2024-02-20 - Update requirements
@@ -292,9 +268,6 @@ Maybe other versions are compatible, too.
   * 2023-05-08 - Bugfix RegistrationError: <Model> has not been registered with django-reversion
   * 2023-05-08 - Update requirements
   * 2023-04-28 - Fix link for CBV
-
-<details><summary>Expand older history entries ...</summary>
-
 * [v0.16.1](https://github.com/jedie/django-reversion-compare/compare/v0.16.0...v0.16.1)
   * 2023-04-08 - Fix wrong README and release as v0.16.1
   * 2023-04-08 - Use new "update_req" command from manage_django_project v0.4.0

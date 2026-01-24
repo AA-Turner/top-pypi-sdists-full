@@ -90,6 +90,6 @@ def print_software_deployment_output(data, name, out=sys.stdout, long=False):
             truncate=not long,
             truncate_prefix='...',
             truncate_postfix='(truncated, view all with --long)')
-        out.write('  %s: |\n%s\n' % (name, output))
+        out.write(f'  {name}: |\n{output}\n')
     else:
-        out.write('  %s: %s\n' % (name, data.get(name)))
+        out.write(f'  {name}: {data.get(name)}\n')

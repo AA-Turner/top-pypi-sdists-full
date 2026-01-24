@@ -1,39 +1,33 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: titiler-application
-Version: 0.24.0
+Version: 1.1.1
 Summary: A modern dynamic tile server built on top of FastAPI and Rasterio/GDAL.
-Keywords: COG,STAC,MosaicJSON,Fastapi,Dynamic tile server,GDAL,Rasterio,OGC
-Author-Email: Vincent Sarago <vincent@developmentseed.com>
-License: MIT
-Classifier: Intended Audience :: Information Technology
-Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Classifier: Topic :: Scientific/Engineering :: GIS
 Project-URL: Homepage, https://developmentseed.org/titiler/
 Project-URL: Documentation, https://developmentseed.org/titiler/
 Project-URL: Issues, https://github.com/developmentseed/titiler/issues
 Project-URL: Source, https://github.com/developmentseed/titiler
 Project-URL: Changelog, https://developmentseed.org/titiler/release-notes/
-Requires-Python: >=3.10
-Requires-Dist: titiler.core[telemetry]==0.24.0
-Requires-Dist: titiler.extensions[cogeo,stac]==0.24.0
-Requires-Dist: titiler.mosaic==0.24.0
-Requires-Dist: starlette-cramjam<0.6,>=0.4
+Author-email: Vincent Sarago <vincent@developmentseed.com>
+License: MIT
+License-File: LICENSE
+Keywords: COG,Dynamic tile server,Fastapi,GDAL,MosaicJSON,OGC,Rasterio,STAC
+Classifier: Intended Audience :: Information Technology
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Scientific/Engineering :: GIS
+Requires-Python: >=3.11
 Requires-Dist: pydantic-settings~=2.0
-Provides-Extra: test
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: pytest-asyncio; extra == "test"
-Requires-Dist: httpx; extra == "test"
-Requires-Dist: brotlipy; extra == "test"
-Requires-Dist: boto3; extra == "test"
+Requires-Dist: starlette-cramjam<0.6,>=0.4
+Requires-Dist: titiler-core[telemetry]==1.1.1
+Requires-Dist: titiler-extensions[cogeo,stac]==1.1.1
+Requires-Dist: titiler-mosaic[mosaicjson]==1.1.1
 Provides-Extra: server
-Requires-Dist: uvicorn[standard]>=0.12.0; extra == "server"
+Requires-Dist: uvicorn[standard]>=0.12.0; extra == 'server'
 Description-Content-Type: text/markdown
 
 ## titiler.application

@@ -171,8 +171,8 @@ class UserCollection(AccountObjectCollectionParent["UserResource"]):
 class UserResource(ObjectReferenceMixin[UserCollection]):
     """Represents a reference to a Snowflake user.
 
-    With this user reference, you can create or alter, delete and fetch information about users, as well
-    as perform certain actions on them.
+    With this user reference, you can fetch information about a user, as well as perform certain
+    actions on it.
     """
 
     def __init__(self, name: str, collection: UserCollection) -> None:

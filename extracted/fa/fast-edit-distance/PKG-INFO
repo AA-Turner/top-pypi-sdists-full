@@ -1,0 +1,60 @@
+Metadata-Version: 2.1
+Name: fast_edit_distance
+Version: 1.2.2
+Summary: Implementation of edit distance calculation.
+Author-email: Yupei You <youyupei@gmail.com>
+License: MIT
+Project-URL: Source, https://github.com/youyupei/fast_edit_distance
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.7
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: cython
+
+
+# Fast calculation of Edit Distance (ED)
+[![](https://img.shields.io/pypi/v/fast-edit-distance)](https://pypi.org/project/fast-edit-distance/)
+[![](https://img.shields.io/pypi/dm/fast-edit-distance?label=PyPI%20Downloads)](https://pypi.org/project/fast-edit-distance/)
+![](https://img.shields.io/github/license/youyupei/fast_edit_distance)
+
+A implementation of edit distance with improved runtime. Implemented using C and cython.
+
+## Highlight:
+This edit distance calculation is significantly faster than most of existing python package.
+It enables a max edit distance search, specifically, if you have a query sequence and wanted 
+to find the most similar item in a long list, you could set a maximum edit distance and enable
+a fast search.
+
+## Installation:
+Install using pip:
+```
+pip install fast-edit-distance
+```
+or build from source
+```
+git clone https://github.com/youyupei/fast_edit_distance.git
+cd fast_edit_distance
+python3 setup.py build
+python3 setup.py install --user
+```
+## Usage:
+```
+from fast_edit_distance import edit_distance
+
+# example
+edit_distance(string1, string2, max_ed=5)
+```
+
+## Compare with [Levenshtein.distance](https://maxbachmann.github.io/Levenshtein/levenshtein.html#distance)
+The `fast_edit_distance.edit_distance` has the same function as  [Levenshtein.distance](https://maxbachmann.github.io/Levenshtein/levenshtein.html#distance) with significantly improved runtime. Especially when people need to identied pair of strings whose ED are smaller than a number (set `max_ed` in fast_edit_distance.edit_distance). Here is the runtime test with some random sequence (Run the [test/test.py](test/test.py) to reproduce this comparison):
+```
+Runtime test no max ed cutoff(1_000_000 iteration):
+Levenshtein.distance: 46.49s
+fast_edit_distance.edit_distance: 12.75s
+
+Runtime test with max ed cutoff 1 (1_000_000 iteration):
+Levenshtein.distance: 46.45s
+fast_edit_distance.edit_distance: 0.50s
+```

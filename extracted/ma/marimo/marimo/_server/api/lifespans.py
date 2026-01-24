@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import asyncio
@@ -7,23 +7,25 @@ import socket
 from typing import TYPE_CHECKING, Any, Optional
 
 from marimo import _loggers
+from marimo._server.ai.mcp.config import is_mcp_config_empty
 from marimo._server.ai.tools.tool_manager import setup_tool_manager
 from marimo._server.api.deps import AppState, AppStateBase
 from marimo._server.api.interrupt import InterruptHandler
 from marimo._server.api.utils import open_url_in_browser
 from marimo._server.file_router import AppFileRouter
 from marimo._server.lsp import any_lsp_server_running
-from marimo._server.model import SessionMode
 from marimo._server.print import (
     print_experimental_features,
-    print_mcp,
+    print_mcp_client,
+    print_mcp_server,
     print_shutdown,
     print_startup,
 )
-from marimo._server.sessions import SessionManager
+from marimo._server.session_manager import SessionManager
 from marimo._server.tokens import AuthToken
 from marimo._server.utils import initialize_mimetypes
 from marimo._server.uvicorn_utils import close_uvicorn
+from marimo._session.model import SessionMode
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -87,29 +89,32 @@ async def mcp(app: Starlette) -> AsyncIterator[None]:
     state = AppState.from_app(app)
     session_mgr = state.session_manager
     user_config = state.config_manager.get_config()
-    mcp_docs_enabled = user_config.get("experimental", {}).get(
-        "mcp_docs", False
-    )
+    mcp_config = user_config.get("mcp")
 
     # Only start MCP servers in Edit mode
-    if session_mgr.mode != SessionMode.EDIT or not mcp_docs_enabled:
+    if session_mgr.mode != SessionMode.EDIT:
         yield
         return
 
-    LOGGER.warning("MCP servers are experimental and may not work as expected")
+    # Only start MCP servers if the config is not empty
+    if not mcp_config or is_mcp_config_empty(mcp_config):
+        yield
+        return
 
     async def background_connect_mcp_servers() -> Optional[MCPClient]:
         try:
             from marimo._server.ai.mcp import get_mcp_client
 
             mcp_client = get_mcp_client()
-            await mcp_client.connect_to_all_servers()
+            print_mcp_client(mcp_config)
+            await mcp_client.configure(mcp_config)
+
             LOGGER.info(
                 f"MCP servers connected: {list(mcp_client.servers.keys())}"
             )
             return mcp_client
         except Exception as e:
-            LOGGER.warning(f"Failed to connect MCP servers in background: {e}")
+            LOGGER.warning(f"Failed to connect MCP servers: {e}")
             return None
 
     task = asyncio.create_task(background_connect_mcp_servers())
@@ -151,12 +156,13 @@ async def open_browser(app: Starlette) -> AsyncIterator[None]:
 async def logging(app: Starlette) -> AsyncIterator[None]:
     state = AppState.from_app(app)
     manager: SessionManager = state.session_manager
+    quiet = state.quiet
     file_router = manager.file_router
     mcp_server_enabled = state.mcp_server_enabled
     skew_protection_enabled = state.skew_protection
 
     # Startup message
-    if not manager.quiet:
+    if not quiet:
         file = file_router.maybe_get_single_file()
         print_startup(
             file_name=file.name if file else None,
@@ -173,12 +179,12 @@ async def logging(app: Starlette) -> AsyncIterator[None]:
             server_token = None
             if skew_protection_enabled:
                 server_token = str(state.session_manager.skew_protection_token)
-            print_mcp(mcp_url, server_token)
+            print_mcp_server(mcp_url, server_token)
 
     yield
 
     # Shutdown message
-    if not manager.quiet:
+    if not quiet:
         print_shutdown()
 
 
@@ -194,7 +200,7 @@ async def signal_handler(app: Starlette) -> AsyncIterator[None]:
             close_uvicorn(state.server)
 
     InterruptHandler(
-        quiet=manager.quiet,
+        quiet=state.quiet,
         shutdown=shutdown,
     ).register()
     yield

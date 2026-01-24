@@ -1,0 +1,57 @@
+[project]
+name = "sentencex"
+version = "1.0.13"
+requires-python = ">=3.10"
+description = "Sentence segmenter that supports ~300 languages"
+authors = [{name = "Santhosh Thottingal", email = "santhosh.thottingal@gmail.com"}]
+license = "MIT"
+keywords = [
+  "NLP",
+  "Natural Language Processing",
+  "Tokenizer"
+]
+classifiers = [
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Text Processing",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Libraries",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+]
+dev = [
+    "ruff>=0.1.0",
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "sentencex"
+sdist-include = ["README.md", "LICENSE"]
+manifest-path = "bindings/python/Cargo.toml"
+
+[project.urls]
+Homepage = "https://github.com/wikimedia/sentencex"
+Issues = "https://github.com/wikimedia/sentencex/issues"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]
+

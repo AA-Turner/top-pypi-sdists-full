@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-platform-services
-Version: 0.68.3
+Version: 0.73.1
 Summary: Python client library for IBM Cloud Platform Services
 Author-email: IBM <devxsdk@us.ibm.com>
 Project-URL: Repository, https://github.com/IBM/platform-services-python-sdk
@@ -12,11 +12,11 @@ Project-URL: License, https://github.com/IBM/platform-services-python-sdk/blob/m
 Keywords: ibm,cloud,ibm cloud services,ibm cloud platform services
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -25,7 +25,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ibm_cloud_sdk_core<4.0.0,>=3.24.2
@@ -51,7 +51,7 @@ Dynamic: license-file
 [![CLA assistant](https://cla-assistant.io/readme/badge/IBM/platform-services-python-sdk)](https://cla-assistant.io/IBM/platform-services-python-sdk)
 
 
-# IBM Cloud Platform Services Python SDK Version 0.68.3
+# IBM Cloud Platform Services Python SDK Version 0.73.1
 
 Python client library to interact with various 
 [IBM Cloud Platform Service APIs](https://cloud.ibm.com/docs?tab=api-docs&category=platform_services).
@@ -124,7 +124,7 @@ Service Name | Module Name | Service Class Name
 
 * An [IBM Cloud][ibm-cloud-onboarding] account.
 * An IAM API key to allow the SDK to access your account. Create one [here](https://cloud.ibm.com/iam/apikeys).
-* Python 3.9 or above.
+* Python 3.10 or above.
 
 ## Installation
 

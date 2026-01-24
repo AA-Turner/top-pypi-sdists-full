@@ -1,15 +1,15 @@
 Metadata-Version: 2.4
 Name: moyopy
-Version: 0.5.0
+Version: 0.7.4
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Dist: typing-extensions
@@ -17,7 +17,7 @@ Requires-Dist: numpy ; extra == 'interface'
 Requires-Dist: pymatgen ; extra == 'interface'
 Requires-Dist: ase>=3.23 ; extra == 'interface'
 Requires-Dist: pytest ; extra == 'testing'
-Requires-Dist: pre-commit==4.3.0 ; extra == 'testing'
+Requires-Dist: prek ; extra == 'testing'
 Requires-Dist: numpy ; extra == 'testing'
 Requires-Dist: sphinx>=7.0 ; extra == 'docs'
 Requires-Dist: sphinx-autobuild ; extra == 'docs'
@@ -32,6 +32,7 @@ Requires-Dist: moyopy[interface] ; extra == 'dev'
 Requires-Dist: nbconvert ; extra == 'dev'
 Requires-Dist: maturin ; extra == 'dev'
 Requires-Dist: ipython ; extra == 'dev'
+Requires-Dist: average-minimum-distance>=1.4 ; extra == 'dev'
 Provides-Extra: interface
 Provides-Extra: testing
 Provides-Extra: docs
@@ -39,7 +40,7 @@ Provides-Extra: dev
 Summary: Python binding of Moyo
 Author-email: Kohei Shinohara <kshinohara0508@gmail.com>
 License-Expression: MIT OR Apache-2.0
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 
 # moyopy

@@ -3,7 +3,6 @@
 
 from __future__ import absolute_import
 
-import itertools
 import json
 import os
 import re
@@ -17,11 +16,12 @@ from pex.dist_metadata import ProjectNameAndVersion, Requirement
 from pex.hashing import Sha256
 from pex.orderedset import OrderedSet
 from pex.pep_440 import Version
+from pex.pep_503 import ProjectName
 from pex.pip import foreign_platform
 from pex.pip.download_observer import Patch, PatchSet
 from pex.pip.local_project import digest_local_project
 from pex.pip.log_analyzer import LogAnalyzer
-from pex.pip.vcs import fingerprint_downloaded_vcs_archive
+from pex.pip.vcs import digest_vcs_repo, fingerprint_downloaded_vcs_archive
 from pex.pip.version import PipVersionValue
 from pex.requirements import LocalProjectRequirement, VCSRequirement
 from pex.resolve.locked_resolve import LockStyle
@@ -29,7 +29,8 @@ from pex.resolve.pep_691.fingerprint_service import FingerprintService
 from pex.resolve.pep_691.model import Endpoint
 from pex.resolve.resolved_requirement import PartialArtifact, Pin, ResolvedRequirement
 from pex.resolve.resolvers import Resolver
-from pex.resolve.target_system import TargetSystem, UniversalTarget
+from pex.resolve.target_system import UniversalTarget
+from pex.result import try_
 from pex.targets import Target
 from pex.typing import TYPE_CHECKING
 
@@ -195,6 +196,7 @@ class AnalyzeError(Exception):
 
 @attr.s(frozen=True)
 class ArtifactBuildResult(object):
+    path = attr.ib()  # type: str
     url = attr.ib()  # type: ArtifactURL
     pin = attr.ib()  # type: Pin
 
@@ -212,17 +214,18 @@ class ArtifactBuildObserver(object):
         # type: (str) -> Optional[ArtifactBuildResult]
 
         match = re.search(
-            r"Source in .+ has version (?P<version>\S+), which satisfies requirement "
+            r"Source in (?P<path>.+) has version (?P<version>\S+), which satisfies requirement "
             r"(?P<requirement>.+) .*from {url}".format(url=re.escape(self._artifact_url.raw_url)),
             line,
         )
         if not match:
             return None
 
+        path = match.group("path")
         version = Version(match.group("version"))
         requirement = Requirement.parse(match.group("requirement"))
         pin = Pin(project_name=requirement.project_name, version=version)
-        return ArtifactBuildResult(url=self._artifact_url, pin=pin)
+        return ArtifactBuildResult(path=path, url=self._artifact_url, pin=pin)
 
 
 class Locker(LogAnalyzer):
@@ -235,12 +238,14 @@ class Locker(LogAnalyzer):
         download_dir,  # type: str
         fingerprint_service=None,  # type: Optional[FingerprintService]
         pip_version=None,  # type: Optional[PipVersionValue]
+        lock_is_via_pip_download=False,  # type: bool
     ):
         # type: (...) -> None
 
         self._target = target
         self._vcs_url_manager = VCSURLManager.create(root_requirements)
         self._pip_version = pip_version
+        self._lock_is_via_pip_download = lock_is_via_pip_download
         self._resolver = resolver
         self._lock_style = lock_style
         self._download_dir = download_dir
@@ -287,6 +292,16 @@ class Locker(LogAnalyzer):
     def _maybe_record_wheel(self, url):
         # type: (str) -> ArtifactURL
         artifact_url = self.parse_url_and_maybe_record_fingerprint(url)
+
+        # N.B.: Lock resolves driven by `pip install --dry-run --report` will only consult PEP-658
+        # `.whl.metadata` side-car files in the happy path; so we must use these as a proxy for the
+        # `.whl` file they are paired with.
+        # See: https://peps.python.org/pep-0658/
+        if not self._lock_is_via_pip_download and artifact_url.url_info.path.endswith(".metadata"):
+            artifact_url = ArtifactURL.from_url_info(
+                artifact_url.url_info._replace(path=artifact_url.url_info.path[:-9])
+            )
+
         if artifact_url.is_wheel:
             pin, partial_artifact = self._extract_resolve_data(artifact_url)
 
@@ -358,29 +373,29 @@ class Locker(LogAnalyzer):
                 return self.Continue()
 
             build_result = self._artifact_build_observer.build_result(line)
-            if build_result:
+            source_fingerprint = None  # type: Optional[Fingerprint]
+            verified = False
+            commit_id = None  # type: Optional[str]
+            editable = False
+            if build_result and self._lock_is_via_pip_download:
                 artifact_url = build_result.url
-                source_fingerprint = None  # type: Optional[Fingerprint]
-                verified = False
-                commit_id = None  # type: Optional[str]
-                editable = False
                 if isinstance(artifact_url.scheme, VCSScheme):
                     source_fingerprint, archive_path = fingerprint_downloaded_vcs_archive(
                         download_dir=self._download_dir,
-                        project_name=str(build_result.pin.project_name),
-                        version=str(build_result.pin.version),
+                        project_name=build_result.pin.project_name,
+                        version=build_result.pin.version,
                         vcs=artifact_url.scheme.vcs,
-                        subdirectory=artifact_url.subdirectory,
                     )
                     verified = True
                     selected_path = os.path.basename(archive_path)
-                    artifact_url = self.parse_url_and_maybe_record_fingerprint(
+                    artifact_url = ArtifactURL.parse(
                         self._vcs_url_manager.normalize_url(artifact_url.raw_url)
                     )
                     self._selected_path_to_pin[selected_path] = build_result.pin
 
-                    vcs, _, vcs_url = artifact_url.normalized_url.partition("+")
-                    vcs_url, _, _ = vcs_url.partition("@")
+                    vcs, _, vcs_url = build_result.url.raw_url.partition("+")
+                    if "@" in build_result.url.path:
+                        vcs_url, _, _ = vcs_url.rpartition("@")
                     commit_id = self._commit_ids.pop(vcs_url, None)
                 elif isinstance(artifact_url.scheme, ArchiveScheme.Value):
                     selected_path = os.path.basename(artifact_url.path)
@@ -403,12 +418,89 @@ class Locker(LogAnalyzer):
                             os.path.basename(artifact_url.path)
                         ] = build_result.pin
                     else:
-                        digest_local_project(
-                            directory=artifact_url.path,
-                            digest=digest,
-                            pip_version=self._pip_version,
-                            target=self._target,
-                            resolver=self._resolver,
+                        try_(
+                            digest_local_project(
+                                directory=artifact_url.path,
+                                digest=digest,
+                                pip_version=self._pip_version,
+                                target=self._target,
+                                resolver=self._resolver,
+                            )
+                        )
+                        self._local_projects.add(artifact_url.path)
+                        self._saved.add(build_result.pin)
+                        editable = artifact_url.path in self._editable_projects
+                    source_fingerprint = Fingerprint.from_digest(digest)
+                    verified = True
+                else:
+                    raise AnalyzeError(
+                        "Unexpected scheme {scheme!r} for artifact at {url}".format(
+                            scheme=artifact_url.scheme, url=artifact_url
+                        )
+                    )
+
+                additional_artifacts = self._links[build_result.pin]
+                additional_artifacts.pop(artifact_url, None)
+
+                self._resolved_requirements[build_result.pin] = ResolvedRequirement(
+                    pin=build_result.pin,
+                    artifact=PartialArtifact(
+                        url=artifact_url,
+                        fingerprint=source_fingerprint,
+                        verified=verified,
+                        commit_id=commit_id,
+                        editable=editable,
+                    ),
+                    additional_artifacts=tuple(additional_artifacts.values()),
+                )
+            elif build_result:
+                artifact_url = build_result.url
+                if isinstance(artifact_url.scheme, VCSScheme):
+                    digest = Sha256()
+                    digest_vcs_repo(
+                        project_name=build_result.pin.project_name,
+                        repo_path=build_result.path,
+                        vcs=artifact_url.scheme.vcs,
+                        digest=digest,
+                        subdirectory=artifact_url.subdirectory,
+                    )
+                    source_fingerprint = Fingerprint.from_digest(digest)
+                    verified = True  # noqa
+                    artifact_url = ArtifactURL.parse(
+                        self._vcs_url_manager.normalize_url(artifact_url.raw_url)
+                    )
+
+                    vcs, _, vcs_url = build_result.url.raw_url.partition("+")
+                    if "@" in build_result.url.path:
+                        vcs_url, _, _ = vcs_url.rpartition("@")
+                    commit_id = self._commit_ids.pop(vcs_url, None)
+                elif isinstance(artifact_url.scheme, ArchiveScheme.Value):
+                    source_archive_path = build_result.path
+                    # If Pip resolves the artifact from its own cache, we will not find it in the
+                    # download dir for this run; so guard against that. In this case the existing
+                    # machinery that finalizes a locks missing fingerprints will download the
+                    # artifact and hash it.
+                    if os.path.isfile(source_archive_path):
+                        digest = Sha256()
+                        hashing.file_hash(source_archive_path, digest)
+                        source_fingerprint = Fingerprint.from_digest(digest)
+                        verified = True
+                elif "file" == artifact_url.scheme:
+                    digest = Sha256()
+                    if os.path.isfile(artifact_url.path):
+                        hashing.file_hash(artifact_url.path, digest)
+                        self._selected_path_to_pin[
+                            os.path.basename(artifact_url.path)
+                        ] = build_result.pin
+                    else:
+                        try_(
+                            digest_local_project(
+                                directory=artifact_url.path,
+                                digest=digest,
+                                pip_version=self._pip_version,
+                                target=self._target,
+                                resolver=self._resolver,
+                            )
                         )
                         self._local_projects.add(artifact_url.path)
                         self._saved.add(build_result.pin)
@@ -506,13 +598,21 @@ class Locker(LogAnalyzer):
             )
             return self.Continue()
 
-        match = re.search(r"Saved (?P<file_path>.+)$", line)
-        if match:
-            saved_path = match.group("file_path")
-            build_result_pin = self._selected_path_to_pin.get(os.path.basename(saved_path))
-            if build_result_pin:
-                self._saved.add(build_result_pin)
-            return self.Continue()
+        if self._lock_is_via_pip_download:
+            match = re.search(r"Saved (?P<file_path>.+)$", line)
+            if match:
+                saved_path = match.group("file_path")
+                build_result_pin = self._selected_path_to_pin.get(os.path.basename(saved_path))
+                if build_result_pin:
+                    self._saved.add(build_result_pin)
+                return self.Continue()
+        else:
+            match = re.search(r"Would install (?P<pnavs>.+)$", line)
+            if match:
+                for pnav in match.group("pnavs").split():
+                    project_name, _, version = pnav.rpartition("-")
+                    self._saved.add(Pin(ProjectName(project_name), Version(version)))
+                return self.Continue()
 
         if self._lock_style in (LockStyle.SOURCES, LockStyle.UNIVERSAL):
             match = re.search(r"Found link (?P<url>\S+)(?: \(from .*\))?, version: ", line)
@@ -577,31 +677,6 @@ class Locker(LogAnalyzer):
         return self._lock_result
 
 
-# See https://peps.python.org/pep-0508/#environment-markers for more about these values.
-_OS_NAME = {
-    TargetSystem.LINUX: "posix",
-    TargetSystem.MAC: "posix",
-    TargetSystem.WINDOWS: "nt",
-}
-_PLATFORM_SYSTEM = {
-    TargetSystem.LINUX: "Linux",
-    TargetSystem.MAC: "Darwin",
-    TargetSystem.WINDOWS: "Windows",
-}
-_SYS_PLATFORMS = {
-    TargetSystem.LINUX: ("linux", "linux2"),
-    TargetSystem.MAC: ("darwin",),
-    TargetSystem.WINDOWS: ("win32",),
-}
-
-# See: https://peps.python.org/pep-0425/#platform-tag for more about the wheel platform tag.
-_PLATFORM_TAG_REGEXP = {
-    TargetSystem.LINUX: r"linux",
-    TargetSystem.MAC: r"macosx",
-    TargetSystem.WINDOWS: r"win",
-}
-
-
 def patch(universal_target):
     # type: (Optional[UniversalTarget]) -> PatchSet
 
@@ -618,29 +693,10 @@ def patch(universal_target):
             )
         )
 
-    env = {}  # type: Dict[str, str]
-    if universal_target.implementation:
-        env.update(_PEX_INTERPRETER_IMPLEMENTATION=str(universal_target.implementation))
-
-    if universal_target.systems and set(universal_target.systems) != set(TargetSystem.values()):
-        target_systems = {
-            "os_names": [_OS_NAME[target_system] for target_system in universal_target.systems],
-            "platform_systems": [
-                _PLATFORM_SYSTEM[target_system] for target_system in universal_target.systems
-            ],
-            "sys_platforms": list(
-                itertools.chain.from_iterable(
-                    _SYS_PLATFORMS[target_system] for target_system in universal_target.systems
-                )
-            ),
-            "platform_tag_regexps": [
-                _PLATFORM_TAG_REGEXP[target_system] for target_system in universal_target.systems
-            ],
-        }
-        with open(os.path.join(patches_dir, "target_systems.json"), "w") as fp:
-            json.dump(target_systems, fp)
-        env.update(_PEX_TARGET_SYSTEMS_FILE=fp.name)
-
-    patches.append(Patch.from_code_resource(__name__, "locker_patches.py", **env))
+    with open(os.path.join(patches_dir, "universal_target.json"), "w") as fp:
+        json.dump(universal_target.to_dict(), fp)
+    patches.append(
+        Patch.from_code_resource(__name__, "locker_patches.py", _PEX_UNIVERSAL_TARGET_FILE=fp.name)
+    )
 
     return PatchSet(patches=tuple(patches))

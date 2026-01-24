@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-currentuser
-Version: 0.9.0
+Version: 0.10.0
 Summary: Conveniently store reference to request user on thread/db level.
 Author-email: Peter Zsoldos <hello@zsoldosp.eu>
 Maintainer-email: Peter Zsoldos <hello@zsoldosp.eu>
@@ -11,19 +11,19 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
-Requires-Python: >=3.9
+Classifier: Framework :: Django :: 6.0
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django<6.0,>=4.2
+Requires-Dist: Django<6.1,>=4.2
 Dynamic: license-file
 Dynamic: requires-dist
 
@@ -103,6 +103,14 @@ different, unsupported version, `DJANGO_CURRENTUSER_USE_UNSUPPORTED_DJANGO` allo
 
 Release Notes
 -------------
+
+* 0.10.0
+
+  * by @adiorz
+  * add support for Python 3.14
+  * add support for Django 6.0
+  * drop support for Python 3.9
+  * drop support for Django 5.1
 
 * 0.9.0
 
@@ -229,7 +237,7 @@ Setting up all Python versions
     sudo apt-get -y install software-properties-common
     sudo add-apt-repository ppa:deadsnakes/ppa
     sudo apt-get update
-    for version in 3.9 3.10 3.11 3.12 3.13; do
+    for version in 3.10 3.11 3.12 3.13 3.14; do
       py=python$version
       if ! which ${py}; then
         sudo apt-get -y install ${py} ${py}-dev

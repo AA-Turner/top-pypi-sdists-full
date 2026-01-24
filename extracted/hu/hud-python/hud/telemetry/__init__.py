@@ -1,26 +1,27 @@
-"""HUD Telemetry - User-facing APIs for tracing and job management.
+"""HUD Telemetry - Lightweight telemetry for HUD SDK.
 
-This module provides the main telemetry APIs that users interact with:
-- trace: Context manager for tracing code execution
-- job: Context manager and utilities for job management
-- instrument: Decorator for instrumenting functions
-- get_trace: Retrieve collected traces for replay/analysis
+This module provides:
+- @instrument decorator for recording function calls
+- High-performance span export to HUD API
+
+Usage:
+    import hud
+
+    @hud.instrument
+    async def my_function():
+        ...
+
+    # Within an eval context, calls are recorded
+    async with hud.eval(task) as ctx:
+        result = await my_function()
 """
 
-from __future__ import annotations
-
-from .instrument import instrument
-from .job import Job, create_job, job
-from .replay import clear_trace, get_trace
-from .trace import Trace, trace
+from hud.telemetry.exporter import flush, queue_span, shutdown
+from hud.telemetry.instrument import instrument
 
 __all__ = [
-    "Job",
-    "Trace",
-    "clear_trace",
-    "create_job",
-    "get_trace",
+    "flush",
     "instrument",
-    "job",
-    "trace",
+    "queue_span",
+    "shutdown",
 ]

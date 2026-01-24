@@ -13,11 +13,14 @@ from sqlalchemy_hana.errors import (
     DatabaseOutOfMemoryError,
     DatabaseOverloadedError,
     DeadlockError,
+    DistributedTransactionCommitFailureError,
     InvalidObjectNameError,
     LockAcquisitionError,
     LockWaitTimeoutError,
+    NumberOfTransactionsExceededError,
     SequenceCacheTimeoutError,
     SequenceLockTimeoutError,
+    SessionContextError,
     StatementExecutionError,
     StatementTimeoutError,
     TransactionCancelledError,
@@ -65,6 +68,11 @@ class TestConvertDBAPIError(TestBase):
                 DatabaseConnectNotPossibleError,
             ),
             (
+                2,
+                "general error: TransactionManager is not yet fully initialized",
+                DatabaseConnectNotPossibleError,
+            ),
+            (
                 129,
                 "An error occurred while opening the channel",
                 StatementExecutionError,
@@ -87,6 +95,17 @@ class TestConvertDBAPIError(TestBase):
                 "read-enabled replication: line 1 col 1",
                 WriteInReadOnlyReplicationError,
             ),
+            (
+                597,
+                "session context error: failed remote communication",
+                SessionContextError,
+            ),
+            (
+                128,
+                "transaction error: exceed maximum number of transactions",
+                NumberOfTransactionsExceededError,
+            ),
+            (149, "something", DistributedTransactionCommitFailureError),
         ],
     )
     def test_convert_dbapi_error(
@@ -110,4 +129,5 @@ class TestConvertDBAPIError(TestBase):
     def test_convert_dbapi_error_no_wrap(self, errorcode: int, errortext: str) -> None:
         error = HdbcliError(errorcode, errortext)
         dbapi_error = DBAPIError(None, None, error)
+        assert convert_dbapi_error(dbapi_error) is dbapi_error
         assert convert_dbapi_error(dbapi_error) is dbapi_error

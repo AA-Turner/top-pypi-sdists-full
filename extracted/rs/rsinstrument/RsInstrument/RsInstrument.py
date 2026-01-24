@@ -18,8 +18,9 @@ from .Internal.ContextManagers import InstrErrorSuppressor, VisaTimeoutSuppresso
 
 class RsInstrument:
 	"""Root class for remote-controlling instrument with SCPI commands."""
-	_driver_version_const = '1.102.0.112'
+	_driver_version_const = '1.122.0.120'
 	_driver_options_const = "SupportedInstrModels = All Rohde & Schwarz Instruments, SupportedIdnPatterns = Rohde\\s*(-|&)\\s*Schwarz/Hameg, SimulationIdnString = Rohde&Schwarz*SimulationDevice*100001*" + _driver_version_const
+	# noinspection PyClassVar
 	_global_logging_relative_timestamp: ClassVar[datetime] = None
 	_global_logging_target_stream: ClassVar = None
 	_global_logging_relative_timestamp_of_first_entry: ClassVar = False
@@ -32,7 +33,7 @@ class RsInstrument:
 		:param id_query: if True, the instrument's model name is verified against the models supported by the driver and eventually throws an exception
 		:param reset: Resets the instrument (sends *RST) command and clears its status syb-system
 		:param direct_session: Another driver object or pyVisa object to reuse the session instead of opening a new session
-		:param options: string tokens alternating the driver settings
+		:param options: string tokens alternating the driver settings. More tokens are separated by comma.
 
 		Parameter options tokens examples:
 			- ``Simulate=True`` - starts the session in simulation mode. Default: ``False``
@@ -93,8 +94,8 @@ class RsInstrument:
 	@classmethod
 	def from_existing_session(cls, session: object, options: str = None) -> 'RsInstrument':
 		"""Creates a new RsInstrument object with the entered 'session' reused.
-		:param session: can be another driver or a direct pyvisa session
-		:param options: string tokens alternating the driver settings"""
+		:param session: can be another driver or a direct pyvisa session.
+		:param options: string tokens alternating the driver settings. More tokens are separated by comma."""
 		GlobalData.bounded_class = RsInstrument
 		resource_name = None
 		if hasattr(session, 'resource_name'):
@@ -139,9 +140,14 @@ class RsInstrument:
 		cls._global_logging_relative_timestamp = None
 
 	@classmethod
-	def get_global_logging_relative_timestamp(cls) -> datetime or None:
+	def get_global_logging_relative_timestamp(cls) -> datetime | None:
 		"""Returns global common relative timestamp for log entries."""
 		return cls._global_logging_relative_timestamp
+
+	@classmethod
+	def get_driver_version(cls) -> str:
+		"""Returns the RsInstrument package version"""
+		return cls._driver_version_const
 
 	def __str__(self):
 		"""String representation of the object."""
@@ -198,7 +204,7 @@ class RsInstrument:
 	# Utilities part follows - copy it manually from the Utilities.py file
 	@property
 	def driver_version(self) -> str:
-		"""Returns the instrument driver version"""
+		"""Returns the RsInstrument package version"""
 		return self._core.driver_version
 
 	@property
@@ -319,14 +325,14 @@ class RsInstrument:
 		"""Clears instrument's status system, the session's I/O buffers and the instrument's error queue"""
 		return self._core.io.clear_status()
 
-	def query_all_errors(self) -> List[str] or None:
+	def query_all_errors(self) -> List[str] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of strings as error messages. If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty.
 		If you want to include the error codes, call the query_all_errors_with_codes()"""
 		return self._core.io.query_all_syst_errors(include_codes=False)
 
-	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] or None:
+	def query_all_errors_with_codes(self) -> List[Tuple[int, str]] | None:
 		"""Queries and clears all the errors from the instrument's error queue.
 		The method returns list of tuples (code: int, message: str). If no error is detected, the return value is None.
 		The process is: querying 'SYSTem:ERRor?' in a loop until the error queue is empty."""
@@ -346,7 +352,9 @@ class RsInstrument:
 		return self._core.io.self_test(timeout)
 
 	def is_connection_active(self) -> bool:
-		"""Returns true, if the VISA connection is active and the communication with the instrument still works."""
+		"""Returns true, if the VISA connection is active and the communication with the instrument still works.
+		WARNING!!! this method queries the session's VISA Timeout and additionally, queries the *IDN? from the instrument,
+		hence affects the performance of your application when used regularly."""
 		return self._core.io.is_connection_active()
 
 	def reconnect(self, force_close: bool = False) -> bool:
@@ -406,15 +414,18 @@ class RsInstrument:
 		"""Sets the current setting of the OPC-Sync query mechanism."""
 		self._core.io.opc_sync_query_mechanism = mechanism
 
-	def go_to_local(self) -> None:
-		"""Puts the instrument into local state."""
-		self._core.io.go_to_local()
+	def go_to_local(self, mixed_mode: bool = True) -> None:
+		"""Puts the instrument into local state.
+		By default, the method uses a mechanism to keep the instrument in a mixed mode: remote and local.
+		That means, you can remote-control your instrument, and at the same time it still allows manual control.
+		Set the mixed_mode to False, if you want your instrument to go to remote mode as soon as it receives the first remote command."""
+		self._core.io.go_to_local(mixed_mode)
 
 	def go_to_remote(self) -> None:
 		"""Puts the instrument into remote state."""
 		self._core.io.go_to_remote()
 
-	def lock_resource(self, timeout: int, requested_key: str or bytes = None) -> bytes or None:
+	def lock_resource(self, timeout: int, requested_key: str | bytes = None) -> bytes | str:
 		"""Locks the instrument to prevent it from communicating with other clients."""
 		return self._core.io.lock_resource(timeout, requested_key)
 
@@ -670,7 +681,7 @@ class RsInstrument:
 		Set the ``append_to_pc_file`` to True if you want to append the read content to the end of the existing PC file."""
 		self._core.io.read_file_from_instrument_to_pc(source_instr_file, target_pc_file, append_to_pc_file)
 
-	def get_file_size(self, instr_file: str) -> int or None:
+	def get_file_size(self, instr_file: str) -> int | None:
 		"""Return size of the instrument file, or None if the file does not exist."""
 		return self._core.io.get_file_size(instr_file)
 
@@ -707,9 +718,9 @@ class RsInstrument:
 		return self._core.io.total_execution_time
 
 	def get_total_time(self) -> timedelta:
-		"""Returns total time spent by the library on communicating with the instrument.
-		This time is always shorter than get_total_time(), since it does not include gaps between the communication.
-		You can reset this counter with reset_time_statistics()."""
+		"""Returns delta time spent by the library between the get_total_time_startpoint() and now.
+		This time is always longer than get_total_execution_time(), since it also includes all other activities besides the communication.
+		You can set the total time startpoint to now with reset_time_statistics()."""
 		return datetime.now() - self._core.io.total_time_startpoint
 
 	def get_total_time_startpoint(self) -> datetime:
@@ -740,7 +751,7 @@ class RsInstrument:
 			if curr < minimum:
 				raise Exception(f"Assertion for minimum RsInstrument version failed. Current version: '{RsInstrument._driver_version_const}', minimum required version: '{min_version}'")
 
-	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int or List[int] = None) -> InstrErrorSuppressor:
+	def instr_err_suppressor(self, visa_tout_ms: int = 0, suppress_only_codes: int | List[int] = None) -> InstrErrorSuppressor:
 		"""Returns Context Manager that suppresses the instrument errors.
 		Other exceptions types are still raised.
 		On entering the context, this class clears all the instrument status errors.
@@ -763,7 +774,7 @@ class RsInstrument:
 		The options are sorted in the ascending order starting with K-options and continuing with B-options"""
 		return self._core.io.instr_options.get_all()
 
-	def has_instr_option(self, options: str or List[str]) -> bool:
+	def has_instr_option(self, options: str | List[str]) -> bool:
 		"""Returns true, if the entered options (case-insensitive) matches at least one of the installed options (or-logic).
 		You can enter either a string with one option, or more options '/'-separated, or more options as a list of strings.
 		If K0 is present, all the K-options are reported as present. B-options are not affected by K0.
@@ -772,7 +783,7 @@ class RsInstrument:
 		Example 3: options=['k11','K22'] returns true, if the instrument has either the option 'K11' or the option 'K22'."""
 		return self._core.io.instr_options.has(options)
 
-	def has_instr_option_regex(self, re_options: str or List[str]) -> bool:
+	def has_instr_option_regex(self, re_options: str | List[str]) -> bool:
 		"""Returns true, if the entered regex string (case-insensitive) matches at least one of the installed options.
 		The match must be complete, not just partial (search).
 		You can enter either a string with one option, or more options '/'-separated, or more options as a list of strings.

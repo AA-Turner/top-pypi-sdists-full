@@ -22,11 +22,15 @@ T = TypeVar("T", bound="ListQueueResponse200ItemRawFlowModulesItemRetry")
 
 @_attrs_define
 class ListQueueResponse200ItemRawFlowModulesItemRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, ListQueueResponse200ItemRawFlowModulesItemRetryConstant]):
-        exponential (Union[Unset, ListQueueResponse200ItemRawFlowModulesItemRetryExponential]):
-        retry_if (Union[Unset, ListQueueResponse200ItemRawFlowModulesItemRetryRetryIf]):
+        constant (Union[Unset, ListQueueResponse200ItemRawFlowModulesItemRetryConstant]): Retry with constant delay
+            between attempts
+        exponential (Union[Unset, ListQueueResponse200ItemRawFlowModulesItemRetryExponential]): Retry with exponential
+            backoff (delay doubles each time)
+        retry_if (Union[Unset, ListQueueResponse200ItemRawFlowModulesItemRetryRetryIf]): Conditional retry based on
+            error or result
     """
 
     constant: Union[Unset, "ListQueueResponse200ItemRawFlowModulesItemRetryConstant"] = UNSET

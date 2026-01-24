@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, StrictBool, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr, field_validator
 from typing_extensions import Annotated
 
 from snowflake.core.notification_integration._generated.models.notification_hook import (
@@ -44,7 +44,7 @@ class NotificationIntegration(BaseModel):
     comment : str, optional
         Comment for the notification integration.
     created_on : datetime, optional
-        Date and time when the notification was created.
+        Date and time when the notification was created — **Read-only:** *any user-provided value will be ignored.*
     """
 
     name: Annotated[str, Field(strict=True)]
@@ -65,9 +65,10 @@ class NotificationIntegration(BaseModel):
             raise ValueError(r"""must validate the regular expression /^"([^"]|"")+"|[a-zA-Z_][a-zA-Z0-9_$]*$/""")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -96,7 +97,7 @@ class NotificationIntegration(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # override the default output from pydantic by calling `to_dict()` of notification_hook
         if self.notification_hook:
@@ -115,9 +116,9 @@ class NotificationIntegration(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return NotificationIntegration.parse_obj(obj)
+            return NotificationIntegration.model_validate(obj)
 
-        _obj = NotificationIntegration.parse_obj(
+        _obj = NotificationIntegration.model_validate(
             {
                 "name": obj.get("name"),
                 "enabled": obj.get("enabled"),

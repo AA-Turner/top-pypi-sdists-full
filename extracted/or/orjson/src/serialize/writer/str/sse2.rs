@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-License-Identifier: (Apache-2.0 OR MIT)
+// Copyright ijl (2024-2025)
 
 use core::arch::x86_64::{
     __m128i, _mm_cmpeq_epi8, _mm_loadu_si128, _mm_movemask_epi8, _mm_or_si128, _mm_set1_epi8,
@@ -48,7 +49,7 @@ pub(crate) unsafe fn format_escaped_str_impl_sse2_128(
                     _mm_storeu_si128(dst.cast::<__m128i>(), str_vec);
 
                     if mask != 0 {
-                        let cn = trailing_zeros!(mask) as usize;
+                        let cn = mask.trailing_zeros() as usize;
                         nb -= cn;
                         dst = dst.add(cn);
                         src = src.add(cn);
@@ -81,7 +82,7 @@ pub(crate) unsafe fn format_escaped_str_impl_sse2_128(
                     _mm_storeu_si128(dst.cast::<__m128i>(), str_vec);
 
                     if mask != 0 {
-                        let cn = trailing_zeros!(mask) as usize;
+                        let cn = mask.trailing_zeros() as usize;
                         nb -= cn;
                         dst = dst.add(cn);
                         scratch_ptr = scratch_ptr.add(cn);

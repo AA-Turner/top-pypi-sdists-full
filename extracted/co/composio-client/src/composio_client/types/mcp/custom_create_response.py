@@ -8,6 +8,10 @@ __all__ = ["CustomCreateResponse", "Commands"]
 
 
 class Commands(BaseModel):
+    """
+    Set of command line instructions for connecting various clients to this MCP server
+    """
+
     claude: str
     """Command line instruction for Claude client setup"""
 
@@ -19,6 +23,10 @@ class Commands(BaseModel):
 
 
 class CustomCreateResponse(BaseModel):
+    """
+    Response for a successfully created custom MCP server with multiple applications
+    """
+
     id: str
     """Unique identifier for the newly created custom MCP server"""
 
@@ -35,10 +43,7 @@ class CustomCreateResponse(BaseModel):
     """
 
     mcp_url: str
-    """
-    URL endpoint for establishing Server-Sent Events (SSE) connection to this MCP
-    server
-    """
+    """URL endpoint for establishing connection to this MCP server"""
 
     name: str
     """Human-readable name of the custom MCP server"""

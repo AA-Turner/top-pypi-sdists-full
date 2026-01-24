@@ -5,6 +5,7 @@ from ssl import SSLContext
 from typing import TYPE_CHECKING, Any
 
 import jwt
+from camel_converter import dict_to_camel
 from httpx import AsyncClient as HttpxAsyncClient
 from httpx import Client as HttpxClient
 
@@ -15,7 +16,7 @@ from meilisearch_python_sdk._batch import get_batches as _get_batches
 from meilisearch_python_sdk._http_requests import AsyncHttpRequests, HttpRequests
 from meilisearch_python_sdk.errors import InvalidRestriction, MeilisearchApiError
 from meilisearch_python_sdk.index import AsyncIndex, Index
-from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler, UjsonHandler
+from meilisearch_python_sdk.json_handler import BuiltinHandler, OrjsonHandler
 from meilisearch_python_sdk.models.client import (
     ClientStats,
     Key,
@@ -36,10 +37,11 @@ from meilisearch_python_sdk.models.search import (
 from meilisearch_python_sdk.models.settings import MeilisearchSettings
 from meilisearch_python_sdk.models.task import TaskInfo, TaskResult, TaskStatus
 from meilisearch_python_sdk.models.version import Version
+from meilisearch_python_sdk.models.webhook import Webhook, WebhookCreate, Webhooks, WebhookUpdate
 from meilisearch_python_sdk.plugins import AsyncIndexPlugins, IndexPlugins
 from meilisearch_python_sdk.types import JsonDict
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING:
     import sys
     from types import TracebackType
 
@@ -57,7 +59,7 @@ class BaseClient:
         self,
         api_key: str | None = None,
         custom_headers: dict[str, str] | None = None,
-        json_handler: BuiltinHandler | OrjsonHandler | UjsonHandler | None = None,
+        json_handler: BuiltinHandler | OrjsonHandler | None = None,
     ) -> None:
         self.json_handler = json_handler if json_handler else BuiltinHandler()
         self._headers: dict[str, str] | None = None
@@ -86,7 +88,7 @@ class BaseClient:
                 token.
             api_key: The API key to use to generate the token.
             expires_at: The timepoint at which the token should expire. If value is provided it
-                shoud be a UTC time in the future. Default = None.
+                should be a UTC time in the future. Default = None.
 
         Returns:
             A JWT token
@@ -116,10 +118,10 @@ class BaseClient:
             >>>
             >>> expires_at = datetime.now(tz=timezone.utc) + timedelta(days=7)
             >>>
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> token = client.generate_tenant_token(
-            >>>     search_rules = ["*"], api_key=api_key, expires_at=expires_at
-            >>> )
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     token = client.generate_tenant_token(
+            >>>         search_rules = ["*"], api_key=api_key, expires_at=expires_at
+            >>>     )
         """
         if isinstance(search_rules, dict) and search_rules.get("indexes"):
             for index in search_rules["indexes"]:
@@ -151,7 +153,7 @@ class AsyncClient(BaseClient):
         timeout: int | None = None,
         verify: bool | SSLContext = True,
         custom_headers: dict[str, str] | None = None,
-        json_handler: BuiltinHandler | OrjsonHandler | UjsonHandler | None = None,
+        json_handler: BuiltinHandler | OrjsonHandler | None = None,
         http2: bool = False,
     ) -> None:
         """Class initializer.
@@ -167,9 +169,9 @@ class AsyncClient(BaseClient):
             custom_headers: Custom headers to add when sending data to Meilisearch. Defaults to
                 None.
             json_handler: The module to use for json operations. The options are BuiltinHandler
-                (uses the json module from the standard library), OrjsonHandler (uses orjson), or
-                UjsonHandler (uses ujson). Note that in order use orjson or ujson the corresponding
-                extra needs to be included. Default: BuiltinHandler.
+                (uses the json module from the standard library), or OrjsonHandler (uses orjson).
+                Note that in order use orjson the corresponding extra needs to be included.
+                Default: BuiltinHandler.
             http2: Whether or not to use HTTP/2. Defaults to False.
         """
         super().__init__(api_key, custom_headers, json_handler)
@@ -229,7 +231,7 @@ class AsyncClient(BaseClient):
             "network", network.model_dump(by_alias=True, exclude_none=True)
         )
 
-        return Network(**response.json())
+        return Network(**self._http_requests.parse_json(response))
 
     async def get_networks(self) -> Network:
         """Fetches the remote-networks
@@ -250,7 +252,125 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.get("network")
 
-        return Network(**response.json())
+        return Network(**self._http_requests.parse_json(response))
+
+    async def get_webhooks(self) -> Webhooks:
+        """Get all webhooks.
+
+        Returns:
+            An instance of Webhooks containing all configured webhooks.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     webhooks = await client.get_webhooks()
+        """
+        response = await self._http_requests.get("webhooks")
+
+        return Webhooks(**self._http_requests.parse_json(response))
+
+    async def get_webhook(self, uuid: str) -> Webhook:
+        """Get a specific webhook by UUID.
+
+        Args:
+            uuid: The webhook's unique identifier.
+
+        Returns:
+            An instance of Webhook containing the webhook information.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     webhook = await client.get_webhook("abc-123")
+        """
+        response = await self._http_requests.get(f"webhooks/{uuid}")
+
+        return Webhook(**self._http_requests.parse_json(response))
+
+    async def create_webhook(self, webhook: WebhookCreate) -> Webhook:
+        """Create a new webhook.
+
+        Args:
+            webhook: The webhook configuration to create.
+
+        Returns:
+            The created webhook.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> from meilisearch_python_sdk.models.webhook import WebhookCreate
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     webhook_config = WebhookCreate(
+            >>>         url="https://example.com/webhook",
+            >>>         headers={"Authorization": "Bearer token"}
+            >>>     )
+            >>>     webhook = await client.create_webhook(webhook_config)
+        """
+        response = await self._http_requests.post(
+            "webhooks", webhook.model_dump(by_alias=True, exclude_none=True)
+        )
+
+        return Webhook(**self._http_requests.parse_json(response))
+
+    async def update_webhook(self, *, uuid: str, webhook: WebhookUpdate) -> Webhook:
+        """Update an existing webhook.
+
+        Args:
+            uuid: The webhook's unique identifier.
+            webhook: The webhook configuration updates.
+
+        Returns:
+            The updated webhook.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> from meilisearch_python_sdk.models.webhook import WebhookUpdate
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     webhook_update = WebhookUpdate(url="https://example.com/new-webhook")
+            >>>     webhook = await client.update_webhook("abc-123", webhook_update)
+        """
+        response = await self._http_requests.patch(
+            f"webhooks/{uuid}", webhook.model_dump(by_alias=True, exclude_none=True)
+        )
+
+        return Webhook(**self._http_requests.parse_json(response))
+
+    async def delete_webhook(self, uuid: str) -> int:
+        """Delete a webhook.
+
+        Args:
+            uuid: The webhook's unique identifier.
+
+        Returns:
+            The Response status code. 204 signifies a successful delete.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     await client.delete_webhook("abc-123")
+        """
+        response = await self._http_requests.delete(f"webhooks/{uuid}")
+        return response.status_code
 
     async def create_dump(self) -> TaskInfo:
         """Trigger the creation of a Meilisearch dump.
@@ -268,7 +388,7 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.post("dumps")
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
 
     async def create_index(
         self,
@@ -279,7 +399,7 @@ class AsyncClient(BaseClient):
         wait: bool = True,
         timeout_in_ms: int | None = None,
         plugins: AsyncIndexPlugins | None = None,
-        hits_type: Any = JsonDict,
+        hits_type: Any = JsonDict,  # noqa: ANN401
     ) -> AsyncIndex:
         """Creates a new index.
 
@@ -342,7 +462,7 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.post("snapshots")
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
 
     async def delete_index_if_exists(self, uid: str) -> bool:
         """Deletes an index if it already exists.
@@ -363,7 +483,9 @@ class AsyncClient(BaseClient):
             >>>     await client.delete_index_if_exists()
         """
         response = await self._http_requests.delete(f"indexes/{uid}")
-        status = await self.wait_for_task(response.json()["taskUid"], timeout_in_ms=100000)
+        status = await self.wait_for_task(
+            self._http_requests.parse_json(response)["taskUid"], timeout_in_ms=100000
+        )
         if status.status == "succeeded":
             return True
         return False
@@ -394,7 +516,7 @@ class AsyncClient(BaseClient):
         url = _build_offset_limit_url("indexes", offset, limit)
         response = await self._http_requests.get(url)
 
-        if not response.json()["results"]:
+        if not self._http_requests.parse_json(response)["results"]:
             return None
 
         return [
@@ -406,7 +528,7 @@ class AsyncClient(BaseClient):
                 updated_at=x["updatedAt"],
                 json_handler=self.json_handler,
             )
-            for x in response.json()["results"]
+            for x in self._http_requests.parse_json(response)["results"]
         ]
 
     async def get_index(self, uid: str) -> AsyncIndex:
@@ -472,7 +594,7 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.get("stats")
 
-        return ClientStats(**response.json())
+        return ClientStats(**self._http_requests.parse_json(response))
 
     async def get_or_create_index(
         self,
@@ -480,7 +602,7 @@ class AsyncClient(BaseClient):
         primary_key: str | None = None,
         *,
         plugins: AsyncIndexPlugins | None = None,
-        hits_type: Any = JsonDict,
+        hits_type: Any = JsonDict,  # noqa: ANN401
     ) -> AsyncIndex:
         """Get an index, or create it if it doesn't exist.
 
@@ -540,10 +662,10 @@ class AsyncClient(BaseClient):
             >>>     keys = await client.create_key(key_info)
         """
         response = await self._http_requests.post(
-            "keys", self.json_handler.loads(key.model_dump_json(by_alias=True))
-        )  # type: ignore[attr-defined]
+            "keys", key.model_dump(by_alias=True, mode="json")
+        )
 
-        return Key(**response.json())
+        return Key(**self._http_requests.parse_json(response))
 
     async def delete_key(self, key: str) -> int:
         """Deletes an API key.
@@ -590,7 +712,7 @@ class AsyncClient(BaseClient):
         url = _build_offset_limit_url("keys", offset, limit)
         response = await self._http_requests.get(url)
 
-        return KeySearch(**response.json())
+        return KeySearch(**self._http_requests.parse_json(response))
 
     async def get_key(self, key: str) -> Key:
         """Gets information about a specific API key.
@@ -612,7 +734,7 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.get(f"keys/{key}")
 
-        return Key(**response.json())
+        return Key(**self._http_requests.parse_json(response))
 
     async def update_key(self, key: KeyUpdate) -> Key:
         """Update an API key.
@@ -641,14 +763,14 @@ class AsyncClient(BaseClient):
         payload = _build_update_key_payload(key, self.json_handler)
         response = await self._http_requests.patch(f"keys/{key.key}", payload)
 
-        return Key(**response.json())
+        return Key(**self._http_requests.parse_json(response))
 
     async def multi_search(
         self,
         queries: list[SearchParams],
         *,
         federation: Federation | FederationMerged | None = None,
-        hits_type: Any = JsonDict,
+        hits_type: Any = JsonDict,  # noqa: ANN401
     ) -> list[SearchResultsWithUID] | SearchResultsFederated:
         """Multi-index search.
 
@@ -711,10 +833,13 @@ class AsyncClient(BaseClient):
         )
 
         if federation:
-            results = response.json()
+            results = self._http_requests.parse_json(response)
             return SearchResultsFederated[hits_type](**results)
 
-        return [SearchResultsWithUID[hits_type](**x) for x in response.json()["results"]]
+        return [
+            SearchResultsWithUID[hits_type](**x)
+            for x in self._http_requests.parse_json(response)["results"]
+        ]
 
     async def get_raw_index(self, uid: str) -> IndexInfo | None:
         """Gets the index and returns all the index information rather than an AsyncIndex instance.
@@ -739,7 +864,7 @@ class AsyncClient(BaseClient):
         if response.status_code == 404:
             return None
 
-        return IndexInfo(**response.json())
+        return IndexInfo(**self._http_requests.parse_json(response))
 
     async def get_raw_indexes(
         self, *, offset: int | None = None, limit: int | None = None
@@ -769,10 +894,10 @@ class AsyncClient(BaseClient):
         url = _build_offset_limit_url("indexes", offset, limit)
         response = await self._http_requests.get(url)
 
-        if not response.json()["results"]:
+        if not self._http_requests.parse_json(response)["results"]:
             return None
 
-        return [IndexInfo(**x) for x in response.json()["results"]]
+        return [IndexInfo(**x) for x in self._http_requests.parse_json(response)["results"]]
 
     async def get_version(self) -> Version:
         """Get the Meilisearch version.
@@ -791,7 +916,7 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.get("version")
 
-        return Version(**response.json())
+        return Version(**self._http_requests.parse_json(response))
 
     async def health(self) -> Health:
         """Get health of the Meilisearch server.
@@ -810,7 +935,7 @@ class AsyncClient(BaseClient):
         """
         response = await self._http_requests.get("health")
 
-        return Health(**response.json())
+        return Health(**self._http_requests.parse_json(response))
 
     async def swap_indexes(self, indexes: list[tuple[str, str]], rename: bool = False) -> TaskInfo:
         """Swap two indexes.
@@ -838,7 +963,7 @@ class AsyncClient(BaseClient):
             processed_indexes = [{"indexes": x} for x in indexes]
         response = await self._http_requests.post("swap-indexes", processed_indexes)
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
 
     async def get_batch(self, batch_uid: int) -> BatchResult | None:
         return await async_get_batch(self, batch_uid)
@@ -1051,7 +1176,7 @@ class AsyncClient(BaseClient):
             timeout_in_ms: Amount of time in milliseconds to wait before raising a
                 MeilisearchTimeoutError. `None` can also be passed to wait indefinitely. Be aware that
                 if the `None` option is used the wait time could be very long. Defaults to 5000.
-            interval_in_ms: Time interval in miliseconds to sleep between requests. Defaults to 50.
+            interval_in_ms: Time interval in milliseconds to sleep between requests. Defaults to 50.
             raise_for_status: When set to `True` a MeilisearchTaskFailedError will be raised if a task
                 has a failed status. Defaults to False.
 
@@ -1070,7 +1195,7 @@ class AsyncClient(BaseClient):
             >>>     {"id": 1, "title": "Movie 1", "genre": "comedy"},
             >>>     {"id": 2, "title": "Movie 2", "genre": "drama"},
             >>> ]
-            >>> async with Client("http://localhost.com", "masterKey") as client:
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
             >>>     index = client.index("movies")
             >>>     response = await index.add_documents(documents)
             >>>     await client.wait_for_task(client, response.update_id)
@@ -1113,7 +1238,7 @@ class AsyncClient(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import AsyncClient
-            >>> async with Client("http://localhost.com", "masterKey") as client:
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
             >>>     await index.transfer_documents(
             >>>         "https://another-instance.com", api_key="otherMasterKey"
             >>>     )
@@ -1131,7 +1256,53 @@ class AsyncClient(BaseClient):
 
         response = await self._http_requests.post(url, body=payload)
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
+
+    async def get_experimental_features(self) -> dict[str, bool]:
+        """Gets all experimental features and if they are enabled or not.
+
+        Returns:
+            The status of the experimental features.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+            MeilisearchTimeoutError: If the connection times out.
+
+        Examples
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     await index.get_experimental_feature()
+        """
+
+        response = await self._http_requests.get("/experimental-features")
+        return self._http_requests.parse_json(response)
+
+    async def update_experimental_features(self, features: dict[str, bool]) -> dict[str, bool]:
+        """Update the status of an experimental feature.
+
+        Args:
+            features: Dictionary of features to enable/disable. The dictionary keys can be in either
+                camel case or snake case, the conversion to the correct type will be handed for you by
+                the program. For example {"logsRoute": True} and {"logs_route": True} will both work.
+
+        Returns:
+            The status of the experimental features.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+            MeilisearchTimeoutError: If the connection times out.
+
+        Examples
+            >>> from meilisearch_python_sdk import AsyncClient
+            >>> async with AsyncClient("http://localhost.com", "masterKey") as client:
+            >>>     await index.update_experimental_features({"logsRoute": True})
+        """
+        payload = dict_to_camel(features)
+        response = await self._http_requests.patch("/experimental-features", body=payload)
+
+        return self._http_requests.parse_json(response)
 
 
 class Client(BaseClient):
@@ -1145,7 +1316,7 @@ class Client(BaseClient):
         timeout: int | None = None,
         verify: bool | SSLContext = True,
         custom_headers: dict[str, str] | None = None,
-        json_handler: BuiltinHandler | OrjsonHandler | UjsonHandler | None = None,
+        json_handler: BuiltinHandler | OrjsonHandler | None = None,
         http2: bool = False,
     ) -> None:
         """Class initializer.
@@ -1161,9 +1332,9 @@ class Client(BaseClient):
             custom_headers: Custom headers to add when sending data to Meilisearch. Defaults to
                 None.
             json_handler: The module to use for json operations. The options are BuiltinHandler
-                (uses the json module from the standard library), OrjsonHandler (uses orjson), or
-                UjsonHandler (uses ujson). Note that in order use orjson or ujson the corresponding
-                extra needs to be included. Default: BuiltinHandler.
+                (uses the json module from the standard library), or OrjsonHandler (uses orjson).
+                Note that in order use orjson the corresponding extra needs to be included.
+                Default: BuiltinHandler.
             http2: If set to True, the client will use HTTP/2. Defaults to False.
         """
         super().__init__(api_key, custom_headers, json_handler)
@@ -1173,6 +1344,24 @@ class Client(BaseClient):
         )
 
         self._http_requests = HttpRequests(self.http_client, json_handler=self.json_handler)
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        et: type[BaseException] | None,
+        ev: type[BaseException] | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
+
+    def close(self) -> None:
+        """Closes the client.
+
+        This only needs to be used if the client was not created with a context manager.
+        """
+        self.http_client.close()
 
     def add_or_update_networks(self, *, network: Network) -> Network:
         """Set or update remote networks.
@@ -1199,14 +1388,14 @@ class Client(BaseClient):
             >>>         "remote_2": {"url": "http://localhost:7720", "searchApiKey": "xxxx"},
             >>>     },
             >>> )
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> response = client.add_or_update_networks(network=network)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     response = client.add_or_update_networks(network=network)
         """
         response = self._http_requests.patch(
             "network", network.model_dump(by_alias=True, exclude_none=True)
         )
 
-        return Network(**response.json())
+        return Network(**self._http_requests.parse_json(response))
 
     def get_networks(self) -> Network:
         """Fetches the remote-networks
@@ -1222,12 +1411,130 @@ class Client(BaseClient):
             >>> from meilisearch_python_sdk import AsyncClient
             >>>
             >>>
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> response = client.get_networks()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     response = client.get_networks()
         """
         response = self._http_requests.get("network")
 
-        return Network(**response.json())
+        return Network(**self._http_requests.parse_json(response))
+
+    def get_webhooks(self) -> Webhooks:
+        """Get all webhooks.
+
+        Returns:
+            An instance of Webhooks containing all configured webhooks.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import Client
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     webhooks = client.get_webhooks()
+        """
+        response = self._http_requests.get("webhooks")
+
+        return Webhooks(**self._http_requests.parse_json(response))
+
+    def get_webhook(self, uuid: str) -> Webhook:
+        """Get a specific webhook by UUID.
+
+        Args:
+            uuid: The webhook's unique identifier.
+
+        Returns:
+            An instance of Webhook containing the webhook information.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import Client
+            >>> with Client("http://localhost.com", "masterKey"):
+            >>>     webhook = client.get_webhook("abc-123")
+        """
+        response = self._http_requests.get(f"webhooks/{uuid}")
+
+        return Webhook(**self._http_requests.parse_json(response))
+
+    def create_webhook(self, webhook: WebhookCreate) -> Webhook:
+        """Create a new webhook.
+
+        Args:
+            webhook: The webhook configuration to create.
+
+        Returns:
+            The created webhook.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import Client
+            >>> from meilisearch_python_sdk.models.webhook import WebhookCreate
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     webhook_config = WebhookCreate(
+            >>>         url="https://example.com/webhook",
+            >>>         headers={"Authorization": "Bearer token"}
+            >>>     )
+            >>>     webhook = client.create_webhook(webhook_config)
+        """
+        response = self._http_requests.post(
+            "webhooks", webhook.model_dump(by_alias=True, exclude_none=True)
+        )
+
+        return Webhook(**self._http_requests.parse_json(response))
+
+    def update_webhook(self, *, uuid: str, webhook: WebhookUpdate) -> Webhook:
+        """Update an existing webhook.
+
+        Args:
+            uuid: The webhook's unique identifier.
+            webhook: The webhook configuration updates.
+
+        Returns:
+            The updated webhook.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import Client
+            >>> from meilisearch_python_sdk.models.webhook import WebhookUpdate
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     webhook_update = WebhookUpdate(url="https://example.com/new-webhook")
+            >>>     webhook = client.update_webhook("abc-123", webhook_update)
+        """
+        response = self._http_requests.patch(
+            f"webhooks/{uuid}", webhook.model_dump(by_alias=True, exclude_none=True)
+        )
+
+        return Webhook(**self._http_requests.parse_json(response))
+
+    def delete_webhook(self, uuid: str) -> int:
+        """Delete a webhook.
+
+        Args:
+            uuid: The webhook's unique identifier.
+
+        Returns:
+            The Response status code. 204 signifies a successful delete.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+
+        Examples:
+            >>> from meilisearch_python_sdk import Client
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.delete_webhook("abc-123")
+        """
+        response = self._http_requests.delete(f"webhooks/{uuid}")
+        return response.status_code
 
     def create_dump(self) -> TaskInfo:
         """Trigger the creation of a Meilisearch dump.
@@ -1241,12 +1548,12 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.create_dump()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.create_dump()
         """
         response = self._http_requests.post("dumps")
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
 
     def create_index(
         self,
@@ -1257,7 +1564,7 @@ class Client(BaseClient):
         wait: bool = True,
         timeout_in_ms: int | None = None,
         plugins: IndexPlugins | None = None,
-        hits_type: Any = JsonDict,
+        hits_type: Any = JsonDict,  # noqa: ANN401
     ) -> Index:
         """Creates a new index.
 
@@ -1288,8 +1595,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.create_index("movies")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.create_index("movies")
         """
         return Index.create(
             self.http_client,
@@ -1315,12 +1622,12 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.create_snapshot()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.create_snapshot()
         """
         response = self._http_requests.post("snapshots")
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
 
     def delete_index_if_exists(self, uid: str) -> bool:
         """Deletes an index if it already exists.
@@ -1337,11 +1644,13 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.delete_index_if_exists()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.delete_index_if_exists()
         """
         response = self._http_requests.delete(f"indexes/{uid}")
-        status = self.wait_for_task(response.json()["taskUid"], timeout_in_ms=100000)
+        status = self.wait_for_task(
+            self._http_requests.parse_json(response)["taskUid"], timeout_in_ms=100000
+        )
         if status.status == "succeeded":
             return True
         return False
@@ -1365,13 +1674,13 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey") as client:
-            >>> indexes = client.get_indexes()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     indexes = client.get_indexes()
         """
         url = _build_offset_limit_url("indexes", offset, limit)
         response = self._http_requests.get(url)
 
-        if not response.json()["results"]:
+        if not self._http_requests.parse_json(response)["results"]:
             return None
 
         return [
@@ -1383,7 +1692,7 @@ class Client(BaseClient):
                 updated_at=x["updatedAt"],
                 json_handler=self.json_handler,
             )
-            for x in response.json()["results"]
+            for x in self._http_requests.parse_json(response)["results"]
         ]
 
     def get_index(self, uid: str) -> Index:
@@ -1401,8 +1710,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.get_index()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.get_index()
         """
         return Index(self.http_client, uid, json_handler=self.json_handler).fetch_info()
 
@@ -1422,8 +1731,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.index("movies")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.index("movies")
         """
         return Index(self.http_client, uid=uid, plugins=plugins, json_handler=self.json_handler)
 
@@ -1440,12 +1749,12 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> stats = client.get_all_stats()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     stats = client.get_all_stats()
         """
         response = self._http_requests.get("stats")
 
-        return ClientStats(**response.json())
+        return ClientStats(**self._http_requests.parse_json(response))
 
     def get_or_create_index(
         self,
@@ -1453,7 +1762,7 @@ class Client(BaseClient):
         primary_key: str | None = None,
         *,
         plugins: IndexPlugins | None = None,
-        hits_type: Any = JsonDict,
+        hits_type: Any = JsonDict,  # noqa: ANN401
     ) -> Index:
         """Get an index, or create it if it doesn't exist.
 
@@ -1474,8 +1783,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.get_or_create_index("movies")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.get_or_create_index("movies")
         """
         try:
             index_instance = self.get_index(uid)
@@ -1504,19 +1813,19 @@ class Client(BaseClient):
         Examples
             >>> from meilisearch_python_sdk import Client
             >>> from meilissearch_async_client.models.client import KeyCreate
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> key_info = KeyCreate(
-            >>>     description="My new key",
-            >>>     actions=["search"],
-            >>>     indexes=["movies"],
-            >>> )
-            >>> keys = client.create_key(key_info)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     key_info = KeyCreate(
+            >>>         description="My new key",
+            >>>         actions=["search"],
+            >>>         indexes=["movies"],
+            >>>     )
+            >>>     keys = client.create_key(key_info)
         """
         response = self._http_requests.post(
             "keys", self.json_handler.loads(key.model_dump_json(by_alias=True))
         )  # type: ignore[attr-defined]
 
-        return Key(**response.json())
+        return Key(**self._http_requests.parse_json(response))
 
     def delete_key(self, key: str) -> int:
         """Deletes an API key.
@@ -1533,8 +1842,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.delete_key("abc123")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.delete_key("abc123")
         """
         response = self._http_requests.delete(f"keys/{key}")
         return response.status_code
@@ -1556,13 +1865,13 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = AsyncClient("http://localhost.com", "masterKey")
-            >>> keys = client.get_keys()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     keys = client.get_keys()
         """
         url = _build_offset_limit_url("keys", offset, limit)
         response = self._http_requests.get(url)
 
-        return KeySearch(**response.json())
+        return KeySearch(**self._http_requests.parse_json(response))
 
     def get_key(self, key: str) -> Key:
         """Gets information about a specific API key.
@@ -1579,12 +1888,12 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> keys = client.get_key("abc123")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     keys = client.get_key("abc123")
         """
         response = self._http_requests.get(f"keys/{key}")
 
-        return Key(**response.json())
+        return Key(**self._http_requests.parse_json(response))
 
     def update_key(self, key: KeyUpdate) -> Key:
         """Update an API key.
@@ -1603,24 +1912,24 @@ class Client(BaseClient):
         Examples
             >>> from meilisearch_python_sdk import Client
             >>> from meilissearch_async_client.models.client import KeyUpdate
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> key_info = KeyUpdate(
-                    key="abc123",
-            >>>     indexes=["*"],
-            >>> )
-            >>> keys = client.update_key(key_info)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     key_info = KeyUpdate(
+                        key="abc123",
+            >>>         indexes=["*"],
+            >>>     )
+            >>>     keys = client.update_key(key_info)
         """
         payload = _build_update_key_payload(key, self.json_handler)
         response = self._http_requests.patch(f"keys/{key.key}", payload)
 
-        return Key(**response.json())
+        return Key(**self._http_requests.parse_json(response))
 
     def multi_search(
         self,
         queries: list[SearchParams],
         *,
         federation: Federation | FederationMerged | None = None,
-        hits_type: Any = JsonDict,
+        hits_type: Any = JsonDict,  # noqa: ANN401
     ) -> list[SearchResultsWithUID] | SearchResultsFederated:
         """Multi-index search.
 
@@ -1642,12 +1951,12 @@ class Client(BaseClient):
         Examples
             >>> from meilisearch_python_sdk import Client
             >>> from meilisearch_python_sdk.models.search import SearchParams
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> queries = [
-            >>>     SearchParams(index_uid="my_first_index", query"Some search"),
-            >>>     SearchParams(index_uid="my_second_index", query="Another search")
-            >>> ]
-            >>> search_results = client.search(queries)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     queries = [
+            >>>         SearchParams(index_uid="my_first_index", query"Some search"),
+            >>>         SearchParams(index_uid="my_second_index", query="Another search")
+            >>>     ]
+            >>>     search_results = client.search(queries)
         """
         url = "multi-search"
         processed_queries = []
@@ -1680,10 +1989,13 @@ class Client(BaseClient):
         )
 
         if federation:
-            results = response.json()
+            results = self._http_requests.parse_json(response)
             return SearchResultsFederated[hits_type](**results)
 
-        return [SearchResultsWithUID[hits_type](**x) for x in response.json()["results"]]
+        return [
+            SearchResultsWithUID[hits_type](**x)
+            for x in self._http_requests.parse_json(response)["results"]
+        ]
 
     def get_raw_index(self, uid: str) -> IndexInfo | None:
         """Gets the index and returns all the index information rather than an Index instance.
@@ -1700,15 +2012,15 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.get_raw_index("movies")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.get_raw_index("movies")
         """
         response = self.http_client.get(f"indexes/{uid}")
 
         if response.status_code == 404:
             return None
 
-        return IndexInfo(**response.json())
+        return IndexInfo(**self._http_requests.parse_json(response))
 
     def get_raw_indexes(
         self, *, offset: int | None = None, limit: int | None = None
@@ -1731,16 +2043,16 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.get_raw_indexes()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.get_raw_indexes()
         """
         url = _build_offset_limit_url("indexes", offset, limit)
         response = self._http_requests.get(url)
 
-        if not response.json()["results"]:
+        if not self._http_requests.parse_json(response)["results"]:
             return None
 
-        return [IndexInfo(**x) for x in response.json()["results"]]
+        return [IndexInfo(**x) for x in self._http_requests.parse_json(response)["results"]]
 
     def get_version(self) -> Version:
         """Get the Meilisearch version.
@@ -1754,12 +2066,12 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> version = client.get_version()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     version = client.get_version()
         """
         response = self._http_requests.get("version")
 
-        return Version(**response.json())
+        return Version(**self._http_requests.parse_json(response))
 
     def health(self) -> Health:
         """Get health of the Meilisearch server.
@@ -1773,12 +2085,12 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> health = client.get_health()
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     health = client.get_health()
         """
         response = self._http_requests.get("health")
 
-        return Health(**response.json())
+        return Health(**self._http_requests.parse_json(response))
 
     def swap_indexes(self, indexes: list[tuple[str, str]], rename: bool = False) -> TaskInfo:
         """Swap two indexes.
@@ -1797,8 +2109,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.swap_indexes([("index_a", "index_b")])
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.swap_indexes([("index_a", "index_b")])
         """
         if rename:
             processed_indexes = [{"indexes": x, "rename": True} for x in indexes]
@@ -1806,7 +2118,7 @@ class Client(BaseClient):
             processed_indexes = [{"indexes": x} for x in indexes]
         response = self._http_requests.post("swap-indexes", processed_indexes)
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
 
     def get_batch(self, batch_uid: int) -> BatchResult | None:
         return _get_batch(self, batch_uid)
@@ -1881,8 +2193,8 @@ class Client(BaseClient):
             >>> from meilisearch_python_sdk import Client
             >>> from meilisearch_python_sdk.task import cancel_tasks
             >>>
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.cancel_tasks(uids=[1, 2])
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.cancel_tasks(uids=[1, 2])
         """
         return _task.cancel_tasks(
             self.http_client,
@@ -1933,8 +2245,8 @@ class Client(BaseClient):
         Examples
             >>> from meilisearch_python_sdk import Client
             >>>
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.delete_tasks(client, uids=[1, 2])
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.delete_tasks(client, uids=[1, 2])
         """
         return _task.delete_tasks(
             self.http_client,
@@ -1965,8 +2277,8 @@ class Client(BaseClient):
         Examples
             >>> from meilisearch_python_sdk import Client
             >>>
-            >>> client = AsyncClient("http://localhost.com", "masterKey")
-            >>> get_task(client, 1244)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.get_task(client, 1244)
         """
         return _task.get_task(self.http_client, task_id=task_id)
 
@@ -1996,8 +2308,8 @@ class Client(BaseClient):
         Examples
             >>> from meilisearch_python_sdk import Client
             >>>
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> client.get_tasks(client)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     client.get_tasks(client)
         """
         return _task.get_tasks(self.http_client, index_ids=index_ids, types=types, reverse=reverse)
 
@@ -2016,7 +2328,7 @@ class Client(BaseClient):
             timeout_in_ms: Amount of time in milliseconds to wait before raising a
                 MeilisearchTimeoutError. `None` can also be passed to wait indefinitely. Be aware that
                 if the `None` option is used the wait time could be very long. Defaults to 5000.
-            interval_in_ms: Time interval in miliseconds to sleep between requests. Defaults to 50.
+            interval_in_ms: Time interval in milliseconds to sleep between requests. Defaults to 50.
             raise_for_status: When set to `True` a MeilisearchTaskFailedError will be raised if a task
                 has a failed status. Defaults to False.
 
@@ -2035,10 +2347,10 @@ class Client(BaseClient):
             >>>     {"id": 1, "title": "Movie 1", "genre": "comedy"},
             >>>     {"id": 2, "title": "Movie 2", "genre": "drama"},
             >>> ]
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index = client.index("movies")
-            >>> response = await index.add_documents(documents)
-            >>> client.wait_for_task(response.update_id)
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index = client.index("movies")
+            >>>     response = await index.add_documents(documents)
+            >>>     client.wait_for_task(response.update_id)
         """
         return _task.wait_for_task(
             self.http_client,
@@ -2078,8 +2390,8 @@ class Client(BaseClient):
 
         Examples
             >>> from meilisearch_python_sdk import Client
-            >>> client = Client("http://localhost.com", "masterKey")
-            >>> index.transfer_documents("https://another-instance.com", api_key="otherMasterKey")
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index.transfer_documents("https://another-instance.com", api_key="otherMasterKey")
         """
         payload: JsonDict = {"url": url}
 
@@ -2094,7 +2406,53 @@ class Client(BaseClient):
 
         response = self._http_requests.post(url, body=payload)
 
-        return TaskInfo(**response.json())
+        return TaskInfo(**self._http_requests.parse_json(response))
+
+    def get_experimental_features(self) -> dict[str, bool]:
+        """Gets all experimental features and if they are enabled or not.
+
+        Returns:
+            The status of the experimental features.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+            MeilisearchTimeoutError: If the connection times out.
+
+        Examples
+            >>> from meilisearch_python_sdk import Client
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index.get_experimental_feature()
+        """
+
+        response = self._http_requests.get("/experimental-features")
+        return self._http_requests.parse_json(response)
+
+    def update_experimental_features(self, features: dict[str, bool]) -> dict[str, bool]:
+        """Update the status of an experimental feature.
+
+        Args:
+            features: Dictionary of features to enable/disable. The dictionary keys can be in either
+                camel case or snake case, the conversion to the correct type will be handed for you by
+                the program. For example {"logsRoute": True} and {"logs_route": True} will both work.
+
+        Returns:
+            The status of the experimental features.
+
+        Raises:
+            MeilisearchCommunicationError: If there was an error communicating with the server.
+            MeilisearchApiError: If the Meilisearch API returned an error.
+            MeilisearchTimeoutError: If the connection times out.
+
+        Examples
+            >>> from meilisearch_python_sdk import Client
+            >>> with Client("http://localhost.com", "masterKey") as client:
+            >>>     index.update_experimental_features({"logsRoute": True})
+        """
+        payload = dict_to_camel(features)
+        response = self._http_requests.patch("/experimental-features", body=payload)
+
+        return self._http_requests.parse_json(response)
 
 
 def _build_offset_limit_url(base: str, offset: int | None, limit: int | None) -> str:
@@ -2109,7 +2467,7 @@ def _build_offset_limit_url(base: str, offset: int | None, limit: int | None) ->
 
 
 def _build_update_key_payload(
-    key: KeyUpdate, json_handler: BuiltinHandler | OrjsonHandler | UjsonHandler
+    key: KeyUpdate, json_handler: BuiltinHandler | OrjsonHandler
 ) -> JsonDict:
     # The json_handler.loads(key.json()) is because Pydantic can't serialize a date in a Python dict,
     # but can when converting to a json string.

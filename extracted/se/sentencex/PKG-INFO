@@ -1,0 +1,31 @@
+Metadata-Version: 2.4
+Name: sentencex
+Version: 1.0.13
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: Topic :: Text Processing
+Classifier: Topic :: Text Processing :: Linguistic
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Libraries
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Dist: pytest>=6.0 ; extra == 'test'
+Requires-Dist: pytest-cov>=2.0 ; extra == 'test'
+Requires-Dist: ruff>=0.1.0 ; extra == 'dev'
+Requires-Dist: pytest>=6.0 ; extra == 'dev'
+Requires-Dist: pytest-cov>=2.0 ; extra == 'dev'
+Provides-Extra: test
+Provides-Extra: dev
+Summary: Sentence segmenter that supports ~300 languages
+Keywords: NLP,Natural Language Processing,Tokenizer
+Author-email: Santhosh Thottingal <santhosh.thottingal@gmail.com>
+License-Expression: MIT
+Requires-Python: >=3.10
+Project-URL: Homepage, https://github.com/wikimedia/sentencex
+Project-URL: Issues, https://github.com/wikimedia/sentencex/issues

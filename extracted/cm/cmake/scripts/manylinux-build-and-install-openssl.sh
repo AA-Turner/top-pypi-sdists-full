@@ -10,8 +10,8 @@ set -o pipefail
 MY_DIR=$(dirname "${BASH_SOURCE[0]}")
 source $MY_DIR/utils.sh
 
-OPENSSL_ROOT=openssl-3.5.2
-OPENSSL_HASH=c53a47e5e441c930c3928cf7bf6fb00e5d129b630e0aa873b08258656e7345ec
+OPENSSL_ROOT=openssl-3.5.4
+OPENSSL_HASH=967311f84955316969bdb1d8d4b983718ef42338639c621ec4c34fddef355e99
 
 cd /tmp
 
@@ -45,6 +45,12 @@ curl -fsSLO https://github.com/openssl/openssl/releases/download/${OPENSSL_ROOT}
 check_sha256sum ${OPENSSL_ROOT}.tar.gz ${OPENSSL_HASH}
 tar -xzf ${OPENSSL_ROOT}.tar.gz
 rm -rf ${OPENSSL_ROOT}.tar.gz
+
+LIBATOMIC=
+if [ "${AUDITWHEEL_ARCH}" == "i686" ]; then
+	LIBATOMIC=-latomic
+fi
+export LDLIBS="${LIBATOMIC}"
 
 # Configure
 pushd ${OPENSSL_ROOT}

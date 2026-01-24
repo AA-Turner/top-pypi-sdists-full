@@ -36,6 +36,7 @@ class DatabaseSourceType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DATABASE_SOURCE_TYPE_TRINO: _ClassVar[DatabaseSourceType]
     DATABASE_SOURCE_TYPE_DYNAMODB: _ClassVar[DatabaseSourceType]
     DATABASE_SOURCE_TYPE_ATHENA: _ClassVar[DatabaseSourceType]
+    DATABASE_SOURCE_TYPE_MSSQL: _ClassVar[DatabaseSourceType]
 
 STREAM_SOURCE_TYPE_UNSPECIFIED: StreamSourceType
 STREAM_SOURCE_TYPE_KAFKA: StreamSourceType
@@ -54,6 +55,7 @@ DATABASE_SOURCE_TYPE_SPANNER: DatabaseSourceType
 DATABASE_SOURCE_TYPE_TRINO: DatabaseSourceType
 DATABASE_SOURCE_TYPE_DYNAMODB: DatabaseSourceType
 DATABASE_SOURCE_TYPE_ATHENA: DatabaseSourceType
+DATABASE_SOURCE_TYPE_MSSQL: DatabaseSourceType
 
 class StreamSourceReference(_message.Message):
     __slots__ = ("type", "name")
@@ -236,6 +238,7 @@ class DatabaseSource(_message.Message):
         "dynamodb",
         "athena",
         "clickhouse",
+        "mssql",
     )
     BIGQUERY_FIELD_NUMBER: _ClassVar[int]
     CLOUDSQL_FIELD_NUMBER: _ClassVar[int]
@@ -250,6 +253,7 @@ class DatabaseSource(_message.Message):
     DYNAMODB_FIELD_NUMBER: _ClassVar[int]
     ATHENA_FIELD_NUMBER: _ClassVar[int]
     CLICKHOUSE_FIELD_NUMBER: _ClassVar[int]
+    MSSQL_FIELD_NUMBER: _ClassVar[int]
     bigquery: BigQuerySource
     cloudsql: CloudSQLSource
     databricks: DatabricksSource
@@ -263,6 +267,7 @@ class DatabaseSource(_message.Message):
     dynamodb: DynamoDBSource
     athena: AthenaSource
     clickhouse: ClickhouseSource
+    mssql: MSSQLSource
     def __init__(
         self,
         bigquery: _Optional[_Union[BigQuerySource, _Mapping]] = ...,
@@ -278,6 +283,7 @@ class DatabaseSource(_message.Message):
         dynamodb: _Optional[_Union[DynamoDBSource, _Mapping]] = ...,
         athena: _Optional[_Union[AthenaSource, _Mapping]] = ...,
         clickhouse: _Optional[_Union[ClickhouseSource, _Mapping]] = ...,
+        mssql: _Optional[_Union[MSSQLSource, _Mapping]] = ...,
     ) -> None: ...
 
 class BigQuerySource(_message.Message):
@@ -542,6 +548,56 @@ class MySQLSource(_message.Message):
     ) -> None: ...
 
 class PostgresSource(_message.Message):
+    __slots__ = ("name", "host", "port", "db", "user", "password", "engine_args", "async_engine_args")
+    class EngineArgsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _arrow_pb2.ScalarValue
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_arrow_pb2.ScalarValue, _Mapping]] = ...
+        ) -> None: ...
+
+    class AsyncEngineArgsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _arrow_pb2.ScalarValue
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_arrow_pb2.ScalarValue, _Mapping]] = ...
+        ) -> None: ...
+
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    PORT_FIELD_NUMBER: _ClassVar[int]
+    DB_FIELD_NUMBER: _ClassVar[int]
+    USER_FIELD_NUMBER: _ClassVar[int]
+    PASSWORD_FIELD_NUMBER: _ClassVar[int]
+    ENGINE_ARGS_FIELD_NUMBER: _ClassVar[int]
+    ASYNC_ENGINE_ARGS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    host: str
+    port: str
+    db: str
+    user: str
+    password: str
+    engine_args: _containers.MessageMap[str, _arrow_pb2.ScalarValue]
+    async_engine_args: _containers.MessageMap[str, _arrow_pb2.ScalarValue]
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        host: _Optional[str] = ...,
+        port: _Optional[str] = ...,
+        db: _Optional[str] = ...,
+        user: _Optional[str] = ...,
+        password: _Optional[str] = ...,
+        engine_args: _Optional[_Mapping[str, _arrow_pb2.ScalarValue]] = ...,
+        async_engine_args: _Optional[_Mapping[str, _arrow_pb2.ScalarValue]] = ...,
+    ) -> None: ...
+
+class MSSQLSource(_message.Message):
     __slots__ = ("name", "host", "port", "db", "user", "password", "engine_args", "async_engine_args")
     class EngineArgsEntry(_message.Message):
         __slots__ = ("key", "value")

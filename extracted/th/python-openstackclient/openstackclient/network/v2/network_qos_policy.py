@@ -14,12 +14,13 @@
 #    under the License.
 
 import logging
+import typing as ty
 
 from cliff import columns as cliff_columns
-from osc_lib.command import command
 from osc_lib import exceptions
 from osc_lib import utils
 
+from openstackclient import command
 from openstackclient.i18n import _
 from openstackclient.identity import common as identity_common
 from openstackclient.network import common
@@ -27,7 +28,7 @@ from openstackclient.network import common
 LOG = logging.getLogger(__name__)
 
 
-class RulesColumn(cliff_columns.FormattableColumn):
+class RulesColumn(cliff_columns.FormattableColumn[ty.Any]):
     def human_readable(self):
         return '\n'.join(str(v) for v in self._value)
 
@@ -190,7 +191,8 @@ class ListNetworkQosPolicy(command.Lister):
             '--project',
             metavar='<project>',
             help=_(
-                "List QoS policies according to their project (name or ID)"
+                "List only QoS policies with the specified project "
+                "(name or ID)"
             ),
         )
         identity_common.add_project_domain_option_to_parser(parser)
@@ -198,12 +200,12 @@ class ListNetworkQosPolicy(command.Lister):
         shared_group.add_argument(
             '--share',
             action='store_true',
-            help=_("List QoS policies shared between projects"),
+            help=_("List only QoS policies shared between projects"),
         )
         shared_group.add_argument(
             '--no-share',
             action='store_true',
-            help=_("List QoS policies not shared between projects"),
+            help=_("List only QoS policies not shared between projects"),
         )
         return parser
 

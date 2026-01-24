@@ -1,6 +1,6 @@
+from collections.abc import Sequence
 from copy import deepcopy
 import sys
-from typing import Dict, List, Optional, Sequence, Tuple
 
 from ase import Atoms
 from ase.db import connect
@@ -53,7 +53,7 @@ class ClusterCoverageChecker:
     def __init__(
         self,
         settings: ClusterExpansionSettings,
-        select_cond: Optional[Sequence[Tuple[str, str, str]]] = None,
+        select_cond: Sequence[tuple[str, str, str]] | None = None,
     ):
         # Make copy such that we don't alter the settings object
         self.settings = deepcopy(settings)
@@ -63,7 +63,7 @@ class ClusterCoverageChecker:
         else:
             self._select_cond = select_cond
 
-    def _unique_templates(self) -> List[Atoms]:
+    def _unique_templates(self) -> list[Atoms]:
         unique_templates = []
 
         with connect(self.settings.db_name) as db:
@@ -73,7 +73,7 @@ class ClusterCoverageChecker:
                     unique_templates.append(atoms)
         return unique_templates
 
-    def coverage(self, template: Atoms) -> Dict[str, float]:
+    def coverage(self, template: Atoms) -> dict[str, float]:
         """
         Return the cluster coverage for the passed atoms object.
         If the coverage is 1.0, then all possible figures in a cluster
@@ -95,7 +95,7 @@ class ClusterCoverageChecker:
             coverages[cluster.name] = len(unique_figs) / len(sorted_figs)
         return coverages
 
-    def max_coverage(self) -> Dict[str, float]:
+    def max_coverage(self) -> dict[str, float]:
         """
         Return the maximum cluster coverage among all templates in the database.
         If the coverage is 1.0, then all possible figures in a cluster
@@ -108,7 +108,7 @@ class ClusterCoverageChecker:
             coverages.update({k: v for k, v in new_cov.items() if v > coverages.get(k, 0.0)})
         return coverages
 
-    def print_report(self, coverage: Optional[Dict[str, float]] = None, file=sys.stdout) -> None:
+    def print_report(self, coverage: dict[str, float] | None = None, file=sys.stdout) -> None:
         """
         Prints a nicely formatted report of coverage.
 
@@ -147,7 +147,7 @@ def _template_exists(current: Sequence[Atoms], new: Atoms) -> bool:
     return False
 
 
-def _grade(coverage: Dict[str, float]) -> str:
+def _grade(coverage: dict[str, float]) -> str:
     grade = "Very good (coverage > 0.75)"
     for v in coverage.values():
         if v < 0.75:

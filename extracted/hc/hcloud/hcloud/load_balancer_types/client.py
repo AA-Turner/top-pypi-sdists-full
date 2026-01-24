@@ -5,8 +5,14 @@ from typing import Any, NamedTuple
 from ..core import BoundModelBase, Meta, ResourceClientBase
 from .domain import LoadBalancerType
 
+__all__ = [
+    "BoundLoadBalancerType",
+    "LoadBalancerTypesPageResult",
+    "LoadBalancerTypesClient",
+]
 
-class BoundLoadBalancerType(BoundModelBase, LoadBalancerType):
+
+class BoundLoadBalancerType(BoundModelBase[LoadBalancerType], LoadBalancerType):
     _client: LoadBalancerTypesClient
 
     model = LoadBalancerType
@@ -81,4 +87,4 @@ class LoadBalancerTypesClient(ResourceClientBase):
                Used to get Load Balancer type by name.
         :return: :class:`BoundLoadBalancerType <hcloud.load_balancer_types.client.BoundLoadBalancerType>`
         """
-        return self._get_first_by(name=name)
+        return self._get_first_by(self.get_list, name=name)

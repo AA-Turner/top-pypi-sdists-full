@@ -43,32 +43,6 @@ DebyeHuckel::~DebyeHuckel()
     // Defined in .cpp to limit dependence on WaterProps.h
 }
 
-// -------- Molar Thermodynamic Properties of the Solution ---------------
-
-double DebyeHuckel::enthalpy_mole() const
-{
-    getPartialMolarEnthalpies(m_tmpV.data());
-    return mean_X(m_tmpV);
-}
-
-double DebyeHuckel::entropy_mole() const
-{
-    getPartialMolarEntropies(m_tmpV.data());
-    return mean_X(m_tmpV);
-}
-
-double DebyeHuckel::gibbs_mole() const
-{
-    getChemPotentials(m_tmpV.data());
-    return mean_X(m_tmpV);
-}
-
-double DebyeHuckel::cp_mole() const
-{
-    getPartialMolarCp(m_tmpV.data());
-    return mean_X(m_tmpV);
-}
-
 // ------- Mechanical Equation of State Properties ------------------------
 
 void DebyeHuckel::calcDensity()
@@ -78,9 +52,7 @@ void DebyeHuckel::calcDensity()
         // this for all other species if they had pressure dependent properties.
         m_densWaterSS = m_waterSS->density();
     }
-    getPartialMolarVolumes(m_tmpV.data());
-    double dd = meanMolecularWeight() / mean_X(m_tmpV);
-    Phase::assignDensity(dd);
+    VPStandardStateTP::calcDensity();
 }
 
 // ------- Activities and Activity Concentrations
@@ -341,14 +313,8 @@ void DebyeHuckel::setDefaultIonicRadius(double value)
 
 void DebyeHuckel::setBeta(const string& sp1, const string& sp2, double value)
 {
-    size_t k1 = speciesIndex(sp1);
-    if (k1 == npos) {
-        throw CanteraError("DebyeHuckel::setBeta", "Species '{}' not found", sp1);
-    }
-    size_t k2 = speciesIndex(sp2);
-    if (k2 == npos) {
-        throw CanteraError("DebyeHuckel::setBeta", "Species '{}' not found", sp2);
-    }
+    size_t k1 = speciesIndex(sp1, true);
+    size_t k2 = speciesIndex(sp2, true);
     m_Beta_ij(k1, k2) = value;
     m_Beta_ij(k2, k1) = value;
 }
@@ -479,8 +445,7 @@ void DebyeHuckel::getParameters(AnyMap& phaseNode) const
 void DebyeHuckel::getSpeciesParameters(const string& name, AnyMap& speciesNode) const
 {
     MolalityVPSSTP::getSpeciesParameters(name, speciesNode);
-    size_t k = speciesIndex(name);
-    checkSpeciesIndex(k);
+    size_t k = speciesIndex(name, true);
     AnyMap dhNode;
     if (m_Aionic[k] != m_Aionic_default) {
         dhNode["ionic-radius"].setQuantity(m_Aionic[k], "m");
@@ -649,7 +614,6 @@ bool DebyeHuckel::addSpecies(shared_ptr<Species> spec)
         m_d2lnActCoeffMolaldT2.push_back(0.0);
         m_dlnActCoeffMolaldP.push_back(0.0);
         m_B_Dot.push_back(0.0);
-        m_tmpV.push_back(0.0);
 
         // NAN will be replaced with default value
         double Aionic = NAN;

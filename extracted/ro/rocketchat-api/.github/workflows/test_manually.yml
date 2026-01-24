@@ -10,17 +10,22 @@ on:
       python-version:
         description: 'The version of Python to use'
         required: true
-        default: '3.13'
+        default: '3.14'
 
 jobs:
   test:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.1
       - name: Test
         uses: ./.github/actions/test_rocketchat
         with:
-          python-version: ${{ github.event.inputs.python-version }}
-          rocket-chat-version: ${{ github.event.inputs.rocket-chat-version }}
+          python-version: ${PYTHON_VERSION}
+          rocket-chat-version: ${ROCKETCHAT_VERSION}
           rocket-chat-license: ${{ secrets.ROCKETCHAT_LICENSE }}
+        env:
+          PYTHON_VERSION: ${{ github.event.inputs.python-version }}
+          ROCKETCHAT_VERSION: ${{ github.event.inputs.rocket-chat-version }}

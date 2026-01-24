@@ -3,6 +3,7 @@ from __future__ import annotations
 import pytest
 from rich.text import Text
 
+from textual.color import Color
 from textual.content import Content, Span
 from textual.style import Style
 from textual.visual import RenderOptions
@@ -52,7 +53,11 @@ def test_from_rich_text():
     content = Content.from_rich_text(text)
     assert len(content) == 11
     assert content.plain == "Hello World"
-    assert [Span(start=0, end=5, style="red"), Span(start=6, end=11, style="blue")]
+    print(content.spans)
+    assert content.spans == [
+        Span(0, 5, style=Style(foreground=Color(128, 0, 0, ansi=1))),
+        Span(6, 11, style=Style(foreground=Color(0, 0, 128, ansi=4))),
+    ]
 
 
 def test_styled():
@@ -135,6 +140,16 @@ def test_add() -> None:
     assert str(content) == "foo bar"
     assert content.spans == [Span(0, 3, "red"), Span(4, 7, "blue")]
     assert content.cell_length == 7
+
+
+def test_radd() -> None:
+    """Test reverse addition."""
+    assert "foo" + Content("bar") == Content("foobar")
+
+    # Test spans after addition
+    content = "foo " + Content.styled("bar", "blue")
+    assert str(content) == "foo bar"
+    assert content.spans == [Span(4, 7, "blue")]
 
 
 def test_from_markup():
@@ -278,7 +293,7 @@ def test_first_line():
     assert first_line.spans == [Span(0, 3, "red")]
 
 
-def test_split_and_tabs():
+async def test_split_and_tabs():
     spans = [
         Span(0, 49, style="$text"),
     ]
@@ -349,3 +364,226 @@ def test_add_spans() -> None:
         Span(7, 9, style="blue"),
     ]
     assert content.spans == expected
+
+
+def test_wrap() -> None:
+    content = Content.from_markup("[green]Hello, [b]World, One two three[/b]")
+    wrapped = content.wrap(6)
+    print(wrapped)
+    expected = [
+        Content("Hello,", spans=[Span(0, 6, style="green")]),
+        Content("World,", spans=[Span(0, 6, style="green"), Span(0, 6, style="b")]),
+        Content("One", spans=[Span(0, 3, style="green"), Span(0, 3, style="b")]),
+        Content("two", spans=[Span(0, 3, style="green"), Span(0, 3, style="b")]),
+        Content("three", spans=[Span(0, 5, style="green"), Span(0, 5, style="b")]),
+    ]
+    assert len(wrapped) == len(expected)
+    for line1, line2 in zip(wrapped, expected):
+        assert line1.is_same(line2)
+
+
+@pytest.mark.parametrize(
+    "content, width, expected",
+    [
+        (
+            Content("111222333"),
+            3,
+            [
+                Content("111"),
+                Content("222"),
+                Content("333"),
+            ],
+        ),
+        (
+            Content("1112223334"),
+            3,
+            [
+                Content("111"),
+                Content("222"),
+                Content("333"),
+                Content("4"),
+            ],
+        ),
+        (
+            Content(""),
+            10,
+            [Content("")],
+        ),
+        (
+            Content("1"),
+            10,
+            [Content("1")],
+        ),
+        (
+            Content("📦"),
+            10,
+            [Content("📦")],
+        ),
+        (
+            Content("📦"),
+            1,
+            [Content("📦")],
+        ),
+        (
+            Content("Hello"),
+            10,
+            [Content("Hello")],
+        ),
+        (
+            Content("Hello"),
+            5,
+            [Content("Hello")],
+        ),
+        (
+            Content("Hello"),
+            2,
+            [Content("He"), Content("ll"), Content("o")],
+        ),
+        (
+            Content.from_markup("H[b]ell[/]o"),
+            2,
+            [
+                Content.from_markup("H[b]e"),
+                Content.from_markup("[b]ll[/]"),
+                Content("o"),
+            ],
+        ),
+        (
+            Content.from_markup("💩H[b]ell[/]o"),
+            2,
+            [
+                Content("💩"),
+                Content.from_markup("H[b]e"),
+                Content.from_markup("[b]ll[/]"),
+                Content("o"),
+            ],
+        ),
+        (
+            Content.from_markup("💩H[b]ell[/]o"),
+            3,
+            [
+                Content("💩H"),
+                Content.from_markup("[b]ell"),
+                Content.from_markup("o"),
+            ],
+        ),
+        (
+            Content.from_markup("💩H[b]ell[/]o💩"),
+            3,
+            [
+                Content("💩H"),
+                Content.from_markup("[b]ell"),
+                Content.from_markup("o💩"),
+            ],
+        ),
+        (
+            Content.from_markup("💩💩💩"),
+            1,
+            [
+                Content("💩"),
+                Content("💩"),
+                Content("💩"),
+            ],
+        ),
+        (
+            Content.from_markup("💩💩💩"),
+            3,
+            [
+                Content("💩"),
+                Content("💩"),
+                Content("💩"),
+            ],
+        ),
+        (
+            Content.from_markup("💩💩💩"),
+            4,
+            [
+                Content("💩💩"),
+                Content("💩"),
+            ],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            50,
+            [Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999")],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            49,
+            [
+                Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦99"),
+                Content("9"),
+            ],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            48,
+            [
+                Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦9"),
+                Content("99"),
+            ],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            47,
+            [
+                Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦"),
+                Content("999"),
+            ],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            46,
+            [
+                Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888"),
+                Content("📦999"),
+            ],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            45,
+            [
+                Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888"),
+                Content("📦999"),
+            ],
+        ),
+        (
+            Content("📦000📦111📦222📦333📦444📦555📦666📦777📦888📦999"),
+            44,
+            [
+                Content("📦000📦111📦222📦333📦444📦555📦666📦777📦88"),
+                Content("8📦999"),
+            ],
+        ),
+    ],
+)
+def test_fold(content: Content, width: int, expected: list[Content]) -> None:
+    """Test content.fold method works, and correctly handles double width cells.
+
+    Args:
+        content: Test content.
+        width: Desired width.
+        expected: Expectected result.
+    """
+    result = content.fold(width)
+    assert isinstance(result, list)
+    assert len(result) == len(expected)
+    for line, expected_line in zip(result, expected):
+        assert line.is_same(expected_line)
+
+
+@pytest.mark.parametrize(
+    "width,style,text,spans,cell_length",
+    [
+        (5, None, "     ", [], 5),
+        (0, None, "", [], 0),
+        (5, "on red", "     ", [Span(0, 5, "on red")], 5),
+    ],
+)
+def test_blank_method(
+    width: int, style: str | None, text: str, spans: list[Span], cell_length: int
+) -> None:
+    blank = Content.blank(width, style)
+    assert blank.plain == text
+    assert blank.spans == spans
+    assert blank.cell_length == cell_length

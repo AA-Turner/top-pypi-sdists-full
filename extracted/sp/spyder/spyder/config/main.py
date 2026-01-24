@@ -84,6 +84,9 @@ DEFAULTS = [
               'completion/size': (300, 180),
               'report_error/remember_token': False,
               'show_dpi_message': True,
+              'show_message_when_panes_are_empty': True,
+              'max_recent_files': 20,
+              'disable_zoom_mouse': False,
               }),
             ('update_manager',
              {
@@ -98,6 +101,7 @@ DEFAULTS = [
                   ApplicationToolbars.File,
                   ApplicationToolbars.Run,
                   ApplicationToolbars.Debug,
+                  ApplicationToolbars.Profile,
                   ApplicationToolbars.Main,
                   ApplicationToolbars.WorkingDirectory,
               ],
@@ -116,6 +120,9 @@ DEFAULTS = [
             ('pythonpath_manager',
              {
               'spyder_pythonpath': [],
+              'prioritize': False,
+              'system_paths': {},
+              'user_paths': {},
               }),
             ('quick_layouts',
              {
@@ -139,12 +146,14 @@ DEFAULTS = [
              {
               'default': True,
               'custom': False,
+              'custom_conda': False,
               'umr/enabled': True,
               'umr/verbose': True,
               'umr/namelist': [],
               'custom_interpreters_list': [],
               'custom_interpreter': '',
-              'last_envs': {}
+              'last_envs': {},
+              'conda_path': '',
               }),
             ('ipython_console',
              {
@@ -153,7 +162,7 @@ DEFAULTS = [
               'show_calltips': True,
               'ask_before_closing': False,
               'show_reset_namespace_warning': True,
-              'buffer_size': 500,
+              'buffer_size': 5000,
               'pylab': True,
               'pylab/autoload': False,
               'pylab/backend': 'inline',
@@ -195,6 +204,8 @@ DEFAULTS = [
               'truncate': True,
               'minmax': False,
               'show_callable_attributes': True,
+              'show_remove_message_dataframe': True,
+              'show_remove_message_collections': True,
               'show_special_attributes': False,
               'filter_on': True
              }),
@@ -218,6 +229,7 @@ DEFAULTS = [
              {
               'mute_inline_plotting': True,
               'show_plot_outline': False,
+              'max_plots': 50,
              }),
             ('editor',
              {
@@ -241,17 +253,22 @@ DEFAULTS = [
               'add_colons': True,
               'auto_unindent': True,
               'indent_chars': '*    *',
+              'indent_with_spaces': True,
               'tab_stop_width_spaces': 4,
               'check_eol_chars': True,
               'convert_eol_on_save': False,
               'convert_eol_on_save_to': 'LF',
+              'multicursor_support': True,
+              'multicursor_paste/always_full': False,
+              'multicursor_paste/conditional_spread': True,
+              'multicursor_paste/always_spread': False,
               'tab_always_indent': False,
               'intelligent_backspace': True,
               'automatic_completions': True,
               'automatic_completions_after_chars': 1,
               'completions_hint': True,
               'completions_hint_after_ms': 500,
-              'underline_errors': False,
+              'underline_errors': True,
               'highlight_current_line': True,
               'highlight_current_cell': True,
               'occurrence_highlighting': True,
@@ -260,14 +277,20 @@ DEFAULTS = [
               'add_newline': False,
               'always_remove_trailing_newlines': False,
               'show_tab_bar': True,
+              'show_filename_toolbar': True,
               'show_class_func_dropdown': False,
-              'max_recent_files': 20,
               'onsave_analysis': False,
               'autosave_enabled': True,
               'autosave_interval': 60,
               'docstring_type': 'Numpydoc',
               'strip_trailing_spaces_on_modify': False,
               'show_outline_in_editor_window': True,
+              'mouse_shortcuts': {
+                  'jump_to_position': 'Alt',
+                  'goto_definition': 'Ctrl',
+                  'add_remove_cursor': 'Ctrl+Alt',
+                  'column_cursor': 'Ctrl+Alt+Shift'
+              },
               }),
             ('historylog',
              {
@@ -339,7 +362,10 @@ DEFAULTS = [
               'single_click_to_open': False,
               'size_column': False,
               'type_column': False,
-              'date_column': True
+              'date_column': True,
+              'init_files_display': 500,
+              'fetch_files_display': 500,
+              'max_files_display': 2000,
               }),
             ('find_in_files',
              {
@@ -367,6 +393,8 @@ DEFAULTS = [
             ('profiler',
              {
               'enable': True,
+              'switch_to_plugin': True,
+              'n_slow_children': 15,
               }),
             ('pylint',
              {
@@ -406,6 +434,25 @@ DEFAULTS = [
               '_/run': "F5",
               '_/configure': "Ctrl+F6",
               '_/re-run last script': "F6",
+              # -- File menu --
+              # (intended context for these is plugins that support them)
+              'main/new file': "Ctrl+N",
+              'main/open file': "Ctrl+O",
+              'main/open last closed': "Ctrl+Shift+T",
+              'main/save file': "Ctrl+S",
+              'main/save all': "Ctrl+Alt+S",
+              'main/save as': 'Ctrl+Shift+S',
+              'main/close file 1': "Ctrl+W",
+              'main/close file 2': "Ctrl+F4",
+              'main/close all': "Ctrl+Shift+W",
+              # -- Edit menu --
+              # (intended context for these is plugins that support them)
+              'main/undo': 'Ctrl+Z',
+              'main/redo': 'Ctrl+Shift+Z',
+              'main/cut': 'Ctrl+X',
+              'main/copy': 'Ctrl+C',
+              'main/paste': 'Ctrl+V',
+              'main/select all': "Ctrl+A",
               # -- Switch to plugin --
               '_/switch to help': "Ctrl+Shift+H",
               '_/switch to outline_explorer': "Ctrl+Shift+O",
@@ -427,16 +474,15 @@ DEFAULTS = [
               'find_replace/find previous': (
                   "Ctrl+Shift+G" if MAC else "Shift+F3"),
               'find_replace/replace text': "Ctrl+R",
+              'find_replace/replace all': "Alt+A",
               'find_replace/hide find and replace': "Escape",
               # -- Editor --
               'editor/code completion': CTRL+'+Space',
-              'editor/duplicate line up': (
-                  "Ctrl+Alt+Up" if WIN else "Shift+Alt+Up"),
-              'editor/duplicate line down': (
-                  "Ctrl+Alt+Down" if WIN else "Shift+Alt+Down"),
+              'editor/duplicate line up': CTRL + "+Alt+PgUp",
+              'editor/duplicate line down': CTRL + "+Alt+PgDown",
               'editor/delete line': 'Ctrl+D',
-              'editor/transform to uppercase': 'Ctrl+Shift+U',
-              'editor/transform to lowercase': 'Ctrl+U',
+              'editor/transform to uppercase': 'Alt+Shift+U',
+              'editor/transform to lowercase': 'Alt+U',
               'editor/indent': 'Ctrl+]',
               'editor/unindent': 'Ctrl+[',
               'editor/move line up': "Alt+Up",
@@ -476,13 +522,6 @@ DEFAULTS = [
               'editor/go to next file': CTRL + '+Tab',
               'editor/cycle to previous file': 'Ctrl+PgUp',
               'editor/cycle to next file': 'Ctrl+PgDown',
-              'editor/new file': "Ctrl+N",
-              'editor/open last closed':"Ctrl+Shift+T",
-              'editor/open file': "Ctrl+O",
-              'editor/save file': "Ctrl+S",
-              'editor/save all': "Ctrl+Alt+S",
-              'editor/save as': 'Ctrl+Shift+S',
-              'editor/close all': "Ctrl+Shift+W",
               'editor/last edit location': "Ctrl+Alt+Shift+Left",
               'editor/previous cursor position': "Alt+Left",
               'editor/next cursor position': "Alt+Right",
@@ -492,8 +531,6 @@ DEFAULTS = [
               'editor/zoom in 2': "Ctrl+=",
               'editor/zoom out': "Ctrl+-",
               'editor/zoom reset': "Ctrl+0",
-              'editor/close file 1': "Ctrl+W",
-              'editor/close file 2': "Ctrl+F4",
               'editor/run cell': CTRL + '+Return',
               'editor/run cell and advance': 'Shift+Return',
               'editor/run selection and advance': "F9",
@@ -514,6 +551,9 @@ DEFAULTS = [
               'editor/enter array table': "Ctrl+M",
               'editor/run cell in debugger': 'Alt+Shift+Return',
               'editor/run selection in debugger': CTRL + '+F9',
+              'editor/add cursor up': 'Alt+Shift+Up',
+              'editor/add cursor down': 'Alt+Shift+Down',
+              'editor/clear extra cursors': 'Esc',
               # -- Internal console --
               'internal_console/inspect current object': "Ctrl+I",
               'internal_console/clear shell': "Ctrl+L",
@@ -522,6 +562,9 @@ DEFAULTS = [
               'pylint/run file in pylint': "F8",
               # -- Profiler --
               'profiler/run file in profiler': "F10",
+              'profiler/run cell in profiler': "Alt+F10",
+              'profiler/run selection in profiler': "",
+              'profiler/find_action': "Ctrl+F",
               # -- Switcher --
               '_/file switcher': 'Ctrl+P',
               '_/symbol finder': 'Ctrl+Alt+P',
@@ -534,7 +577,10 @@ DEFAULTS = [
               'ipython_console/clear line': "Shift+Escape",
               'ipython_console/enter array inline': "Ctrl+Alt+M",
               'ipython_console/enter array table': "Ctrl+M",
+              'ipython_console/switch to next console': "Shift+Alt+Right",
+              'ipython_console/switch to previous console': "Shift+Alt+Left",
               # -- Variable explorer --
+              'variable_explorer/close': 'Ctrl+W',
               'variable_explorer/copy': 'Ctrl+C',
               'variable_explorer/search': 'Ctrl+F',
               'variable_explorer/refresh': 'Ctrl+R',
@@ -591,6 +637,7 @@ NAME_MAP = {
             'crash',
             'current_version',
             'historylog_filename',
+            'recent_files',
             'window/position',
             'window/size',
             'window/state',
@@ -601,7 +648,6 @@ NAME_MAP = {
             'bookmarks',
             'filenames',
             'layout_settings',
-            'recent_files',
             'splitter_state',
             'file_uuids'
             ]
@@ -679,4 +725,4 @@ NAME_MAP = {
 #    or if you want to *rename* options, then you need to do a MAJOR update in
 #    version, e.g. from 3.0.0 to 4.0.0
 # 3. You don't need to touch this value if you're just adding a new option
-CONF_VERSION = '86.0.0'
+CONF_VERSION = '87.5.0'

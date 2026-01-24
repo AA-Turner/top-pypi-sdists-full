@@ -1,16 +1,34 @@
 import dataclasses
+from datetime import datetime
 import inspect
-from typing import TYPE_CHECKING, Annotated, Any, Callable, List, Literal, Optional, Type, Union, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Annotated,
+    Any,
+    Callable,
+    ForwardRef,
+    List,
+    Literal,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel
 from pydantic_core import PydanticUndefined
 from pydash import snake_case
 
 from vellum import Vellum
+from vellum.client.types.array_chat_message_content_item import ArrayChatMessageContentItem
 from vellum.client.types.function_definition import FunctionDefinition
+from vellum.workflows.constants import undefined
 from vellum.workflows.integrations.composio_service import ComposioService
 from vellum.workflows.integrations.mcp_service import MCPService
 from vellum.workflows.integrations.vellum_integration_service import VellumIntegrationService
+from vellum.workflows.types.core import is_json_type
 from vellum.workflows.types.definition import (
     ComposioToolDefinition,
     DeploymentDefinition,
@@ -41,12 +59,51 @@ for k, v in list(type_map.items()):
         type_map[k.__name__] = v
 
 
+def _get_def_name(annotation: Type) -> str:
+    return f"{annotation.__module__}.{annotation.__qualname__}"
+
+
+recorded_unions = {
+    ArrayChatMessageContentItem: "vellum.client.types.array_chat_message_content_item.ArrayChatMessageContentItem",
+}
+
+
 def compile_annotation(annotation: Optional[Any], defs: dict[str, Any]) -> dict:
     if annotation is None:
         return {"type": "null"}
 
+    if annotation is Any:
+        return {}
+
+    # Handle type variables (e.g., MapNodeItemType) - return empty schema since we can't determine the type
+    if isinstance(annotation, TypeVar):
+        return {}
+
+    if annotation is datetime:
+        return {"type": "string", "format": "date-time"}
+
     if get_origin(annotation) is Union:
-        return {"anyOf": [compile_annotation(a, defs) for a in get_args(annotation)]}
+        if is_json_type(get_args(annotation)):
+            return {"$ref": "#/$defs/vellum.workflows.types.core.Json"}
+
+        if annotation in recorded_unions:
+            return {"$ref": f"#/$defs/{recorded_unions[annotation]}"}
+
+        # Filter out Type[undefined] from union args - it just makes the property optional
+        filtered_args = [
+            a
+            for a in get_args(annotation)
+            if not (get_origin(a) is type and get_args(a) and get_args(a)[0] is undefined)
+        ]
+
+        if len(filtered_args) == 0:
+            # Edge case: all union members were Type[undefined], return empty schema
+            return {}
+
+        if len(filtered_args) == 1:
+            return compile_annotation(filtered_args[0], defs)
+
+        return {"anyOf": [compile_annotation(a, defs) for a in filtered_args]}
 
     if get_origin(annotation) is Literal:
         values = list(get_args(annotation))
@@ -84,7 +141,8 @@ def compile_annotation(annotation: Optional[Any], defs: dict[str, Any]) -> dict:
             return result
 
     if dataclasses.is_dataclass(annotation) and isinstance(annotation, type):
-        if annotation.__name__ not in defs:
+        def_name = _get_def_name(annotation)
+        if def_name not in defs:
             properties = {}
             required = []
             for field in dataclasses.fields(annotation):
@@ -93,11 +151,12 @@ def compile_annotation(annotation: Optional[Any], defs: dict[str, Any]) -> dict:
                     required.append(field.name)
                 else:
                     properties[field.name]["default"] = _compile_default_value(field.default)
-            defs[annotation.__name__] = {"type": "object", "properties": properties, "required": required}
-        return {"$ref": f"#/$defs/{annotation.__name__}"}
+            defs[def_name] = {"type": "object", "properties": properties, "required": required}
+        return {"$ref": f"#/$defs/{def_name}"}
 
     if inspect.isclass(annotation) and issubclass(annotation, BaseModel):
-        if annotation.__name__ not in defs:
+        def_name = _get_def_name(annotation)
+        if def_name not in defs:
             properties = {}
             required = []
             for field_name, field_info in annotation.model_fields.items():
@@ -111,9 +170,22 @@ def compile_annotation(annotation: Optional[Any], defs: dict[str, Any]) -> dict:
                     required.append(field_name)
                 else:
                     properties[field_name]["default"] = _compile_default_value(field_info.default)
-            defs[annotation.__name__] = {"type": "object", "properties": properties, "required": required}
+            defs[def_name] = {"type": "object", "properties": properties, "required": required}
 
-        return {"$ref": f"#/$defs/{annotation.__name__}"}
+        return {"$ref": f"#/$defs/{def_name}"}
+
+    if type(annotation) is ForwardRef:
+        # Ignore forward references for now
+        return {}
+
+    # Handle Type[undefined] - skip it as it just makes the property optional
+    if get_origin(annotation) is type:
+        args = get_args(annotation)
+        if args and args[0] is undefined:
+            return {}
+
+    if annotation not in type_map:
+        raise ValueError(f"Failed to compile type: {annotation}")
 
     return {"type": type_map[annotation]}
 
@@ -161,6 +233,7 @@ def compile_function_definition(function: Callable) -> FunctionDefinition:
 
     # Get inputs from the decorator if present
     inputs = getattr(function, "__vellum_inputs__", {})
+    examples = getattr(function, "__vellum_examples__", None)
     exclude_params = set(inputs.keys())
 
     properties = {}
@@ -192,6 +265,8 @@ def compile_function_definition(function: Callable) -> FunctionDefinition:
     parameters = {"type": "object", "properties": properties, "required": required}
     if defs:
         parameters["$defs"] = defs
+    if examples is not None:
+        parameters["examples"] = examples
 
     return FunctionDefinition(
         name=function.__name__,
@@ -208,12 +283,21 @@ def compile_inline_workflow_function_definition(workflow_class: Type["BaseWorkfl
     inputs_class = workflow_class.get_inputs_class()
     vars_inputs_class = vars(inputs_class)
 
+    # Get inputs from the decorator if present (to exclude from schema)
+    inputs = getattr(workflow_class, "__vellum_inputs__", {})
+    examples = getattr(workflow_class, "__vellum_examples__", None)
+    exclude_params = set(inputs.keys())
+
     properties = {}
     required = []
     defs: dict[str, Any] = {}
 
     for name, field_type in inputs_class.__annotations__.items():
         if name.startswith("__"):
+            continue
+
+        # Skip parameters that are in the exclude_params set
+        if exclude_params and name in exclude_params:
             continue
 
         properties[name] = compile_annotation(field_type, defs)
@@ -228,6 +312,8 @@ def compile_inline_workflow_function_definition(workflow_class: Type["BaseWorkfl
     parameters = {"type": "object", "properties": properties, "required": required}
     if defs:
         parameters["$defs"] = defs
+    if examples is not None:
+        parameters["examples"] = examples
 
     return FunctionDefinition(
         name=snake_case(workflow_class.__name__),
@@ -283,7 +369,7 @@ def compile_mcp_tool_definition(server_def: MCPServer) -> List[MCPToolDefinition
     We do tool discovery on the MCP server to get the tool definitions.
 
     Args:
-        tool_def: The basic MCPToolDefinition to enhance
+        server_def: The basic MCPToolDefinition to enhance
 
     Returns:
         MCPToolDefinition with detailed parameters and description
@@ -323,35 +409,97 @@ def compile_composio_tool_definition(tool_def: ComposioToolDefinition) -> Functi
         )
 
 
-def compile_vellum_integration_tool_definition(tool_def: VellumIntegrationToolDefinition) -> FunctionDefinition:
+def compile_vellum_integration_tool_definition(
+    tool_def: VellumIntegrationToolDefinition,
+    vellum_client: Vellum,
+) -> FunctionDefinition:
     """Compile a VellumIntegrationToolDefinition into a FunctionDefinition.
 
     Args:
         tool_def: The VellumIntegrationToolDefinition to compile
+        vellum_client: Vellum client instance
 
     Returns:
         FunctionDefinition with tool parameters and description
     """
     try:
-        service = VellumIntegrationService()
+        service = VellumIntegrationService(vellum_client)
         tool_details = service.get_tool_definition(
-            integration=tool_def.integration, provider=tool_def.provider.value, tool_name=tool_def.name
+            integration=tool_def.integration_name,
+            provider=tool_def.provider.value,
+            tool_name=tool_def.name,
+            toolkit_version=tool_def.toolkit_version,
         )
 
         return FunctionDefinition(
             name=tool_def.name,
-            description=tool_details.get("description", tool_def.description),
-            parameters=tool_details.get("parameters", {}),
+            description=tool_details.description,
+            parameters=tool_details.parameters or {},
         )
     except Exception:
         # Fallback for service failures
         return FunctionDefinition(name=tool_def.name, description=tool_def.description, parameters={})
 
 
-def use_tool_inputs(**inputs):
+ToolType = Union[Callable[..., Any], Type["BaseWorkflow"]]
+
+
+def tool(
+    *,
+    inputs: Optional[dict[str, Any]] = None,
+    examples: Optional[List[dict[str, Any]]] = None,
+) -> Callable[[ToolType], ToolType]:
+    """
+    Decorator to configure a tool function or inline workflow.
+
+    Currently supports specifying which parameters should come from parent workflow inputs
+    via the `inputs` mapping. Also supports providing `examples` which will be hoisted
+    into the JSON Schema `examples` keyword for this tool's parameters.
+
+    Args:
+        inputs: Mapping of parameter names to parent input references
+        examples: List of example argument objects for the tool
+
+    Example with function:
+        @tool(inputs={
+            "parent_input": ParentInputs.parent_input,
+        }, examples=[{"location": "San Francisco"}])
+        def get_string(parent_input: str, user_query: str) -> str:
+            return f"Parent: {parent_input}, Query: {user_query}"
+
+    Example with inline workflow:
+        @tool(inputs={
+            "context": ParentInputs.context,
+        })
+        class MyInlineWorkflow(BaseWorkflow):
+            graph = MyNode
+
+            class Outputs(BaseWorkflow.Outputs):
+                result = MyNode.Outputs.result
+    """
+
+    def decorator(func: ToolType) -> ToolType:
+        # Store the inputs mapping on the function/workflow for later use
+        if inputs is not None:
+            setattr(func, "__vellum_inputs__", inputs)
+        # Store the examples on the function/workflow for later use
+        if examples is not None:
+            setattr(func, "__vellum_examples__", examples)
+        return func
+
+    return decorator
+
+
+def use_tool_inputs(**inputs: Any) -> Callable[[Callable], Callable]:
     """
     Decorator to specify which parameters of a tool function should be provided
     from the parent workflow inputs rather than from the LLM.
+
+    .. deprecated:: 2.0.0
+        This function is deprecated and will be removed in version 2.0.0.
+        Use :func:`tool` with the ``inputs`` parameter instead.
+
+    This is a backward-compatible helper equivalent to @tool(inputs={...}).
 
     Args:
         **inputs: Mapping of parameter names to parent input references
@@ -363,10 +511,4 @@ def use_tool_inputs(**inputs):
         def get_string(parent_input: str, user_query: str) -> str:
             return f"Parent: {parent_input}, Query: {user_query}"
     """
-
-    def decorator(func: Callable) -> Callable:
-        # Store the inputs mapping on the function for later use
-        setattr(func, "__vellum_inputs__", inputs)
-        return func
-
-    return decorator
+    return tool(inputs=inputs)

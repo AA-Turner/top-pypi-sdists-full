@@ -19,9 +19,9 @@ def test_read_dir() -> None:
     for direntry in ry.read_dir(PWD):
         basename = os.path.basename(direntry)
         assert basename in items
-        assert isinstance(direntry.metadata, ry.Metadata)
-        assert isinstance(direntry.file_type, ry.FileType)
-        assert isinstance(direntry.basename, str)
+        assert isinstance(direntry.metadata(), ry.Metadata)
+        assert isinstance(direntry.file_type(), ry.FileType)
+        assert isinstance(direntry.filename, str)
 
 
 def test_read_dir_concurrent() -> None:
@@ -31,7 +31,7 @@ def test_read_dir_concurrent() -> None:
 
     def _process_direntry() -> DirEntry:
         de = next(i)
-        assert isinstance(de.__fspath__(), str)  # dummy check thing
+        assert isinstance(de.__fspath__(), str)  # dummy check thing  # noqa: PLC2801
         return de
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as tpe:

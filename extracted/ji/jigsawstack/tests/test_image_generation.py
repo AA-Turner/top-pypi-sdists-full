@@ -12,14 +12,26 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-jigsaw = jigsawstack.JigsawStack(api_key=os.getenv("JIGSAWSTACK_API_KEY"))
-async_jigsaw = jigsawstack.AsyncJigsawStack(api_key=os.getenv("JIGSAWSTACK_API_KEY"))
+jigsaw = jigsawstack.JigsawStack(
+    api_key=os.getenv("JIGSAWSTACK_API_KEY"),
+    base_url=os.getenv("JIGSAWSTACK_BASE_URL") + "/api"
+    if os.getenv("JIGSAWSTACK_BASE_URL")
+    else "https://api.jigsawstack.com",
+    headers={"x-jigsaw-skip-cache": "true"},
+)
+async_jigsaw = jigsawstack.AsyncJigsawStack(
+    api_key=os.getenv("JIGSAWSTACK_API_KEY"),
+    base_url=os.getenv("JIGSAWSTACK_BASE_URL") + "/api"
+    if os.getenv("JIGSAWSTACK_BASE_URL")
+    else "https://api.jigsawstack.com",
+    headers={"x-jigsaw-skip-cache": "true"},
+)
 
 IMAGE_URL = "https://images.unsplash.com/photo-1494588024300-e9df7ff98d78?q=80&w=1284&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-FILE_STORE_KEY = jigsaw.store.upload(
-    requests.get(IMAGE_URL).content,
-    {"filename": "test_image.jpg", "content_type": "image/jpeg", "overwrite": True},
-)
+# FILE_STORE_KEY = jigsaw.store.upload(
+#     requests.get(IMAGE_URL).content,
+#     {"filename": "test_image.jpg", "content_type": "image/jpeg", "overwrite": True},
+# )
 
 TEST_CASES = [
     {
@@ -98,20 +110,22 @@ IMAGE_TO_IMAGE_TEST_CASES = [
             "return_type": "base64",
         },
     },
-    {
-        "name": "with_file_store_key",
-        "params": {
-            "prompt": "Apply a cyberpunk style to this image",
-            "file_store_key": FILE_STORE_KEY,
-        },
-    },
+    # {
+    #     "name": "with_file_store_key",
+    #     "params": {
+    #         "prompt": "Apply a cyberpunk style to this image",
+    #         "file_store_key": FILE_STORE_KEY,
+    #     },
+    # },
 ]
 
 
 class TestImageGenerationSync:
     """Test synchronous image generation methods"""
 
-    @pytest.mark.parametrize("test_case", TEST_CASES, ids=[tc["name"] for tc in TEST_CASES])
+    @pytest.mark.parametrize(
+        "test_case", TEST_CASES, ids=[tc["name"] for tc in TEST_CASES]
+    )
     def test_image_generation(self, test_case):
         """Test synchronous image generation with various parameters"""
         try:
@@ -160,7 +174,9 @@ class TestImageGenerationSync:
             elif type(result) is bytes:
                 assert isinstance(result, bytes)
             else:
-                pytest.fail(f"Unexpected result type in {test_case['name']}: {type(result)}")
+                pytest.fail(
+                    f"Unexpected result type in {test_case['name']}: {type(result)}"
+                )
         except JigsawStackError as e:
             pytest.fail(f"Unexpected JigsawStackError in {test_case['name']}: {e}")
 
@@ -168,7 +184,9 @@ class TestImageGenerationSync:
 class TestImageGenerationAsync:
     """Test asynchronous image generation methods"""
 
-    @pytest.mark.parametrize("test_case", TEST_CASES, ids=[tc["name"] for tc in TEST_CASES])
+    @pytest.mark.parametrize(
+        "test_case", TEST_CASES, ids=[tc["name"] for tc in TEST_CASES]
+    )
     @pytest.mark.asyncio
     async def test_image_generation_async(self, test_case):
         """Test asynchronous image generation with various parameters"""
@@ -195,7 +213,9 @@ class TestImageGenerationAsync:
                 assert isinstance(result, bytes)
 
         except JigsawStackError as e:
-            pytest.fail(f"Unexpected JigsawStackError in async {test_case['name']}: {e}")
+            pytest.fail(
+                f"Unexpected JigsawStackError in async {test_case['name']}: {e}"
+            )
 
     @pytest.mark.parametrize(
         "test_case",
@@ -215,7 +235,11 @@ class TestImageGenerationAsync:
             elif type(result) is bytes:
                 assert isinstance(result, bytes)
             else:
-                pytest.fail(f"Unexpected result type in {test_case['name']}: {type(result)}")
+                pytest.fail(
+                    f"Unexpected result type in {test_case['name']}: {type(result)}"
+                )
 
         except JigsawStackError as e:
-            pytest.fail(f"Unexpected JigsawStackError in async {test_case['name']}: {e}")
+            pytest.fail(
+                f"Unexpected JigsawStackError in async {test_case['name']}: {e}"
+            )

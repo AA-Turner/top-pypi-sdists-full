@@ -1,29 +1,28 @@
 from collections.abc import Hashable, Sequence
 import copy
-from typing import Optional, Union, cast
+from typing import cast
 import warnings
 
 import numpy as np
 import pandas as pd
 
+from arch._typing import (
+    ArrayLike,
+    ArrayLike2D,
+    BoolArray,
+    Float64Array,
+    Int64Array1D,
+    IntArray,
+    Literal,
+)
 from arch.bootstrap.base import (
     CircularBlockBootstrap,
     MovingBlockBootstrap,
     StationaryBootstrap,
 )
-from arch.typing import (
-    ArrayLike,
-    ArrayLike2D,
-    BoolArray,
-    Float64Array,
-    Int64Array,
-    IntArray,
-    Literal,
-    Uint32Array,
-)
 from arch.utility.array import DocStringInheritor, ensure2d
 
-__all__ = ["StepM", "SPA", "RealityCheck", "MCS"]
+__all__ = ["MCS", "SPA", "RealityCheck", "StepM"]
 
 
 def _info_to_str(
@@ -34,9 +33,10 @@ def _info_to_str(
     _str = model + "("
     for k, v in info.items():
         if k.lower() != "id" or is_repr:
+            _k = k
             if is_html:
-                k = "<strong>" + k + "</strong>"
-            _str += k + ": " + v + ", "
+                _k = "<strong>" + _k + "</strong>"
+            _str += _k + ": " + v + ", "
     return _str[:-2] + ")"
 
 
@@ -66,17 +66,6 @@ class MultipleComparison:
         Reset the bootstrap to it's initial state.
         """
         self.bootstrap.reset()
-
-    def seed(self, value: Union[int, list[int], Uint32Array]) -> None:
-        """
-        Seed the bootstrap's random number generator
-
-        Parameters
-        ----------
-        value : {int, List[int], ndarray[int]}
-            Integer to use as the seed
-        """
-        self.bootstrap.seed(value)
 
 
 class MCS(MultipleComparison):
@@ -124,13 +113,13 @@ class MCS(MultipleComparison):
         losses: ArrayLike2D,
         size: float,
         reps: int = 1000,
-        block_size: Optional[int] = None,
+        block_size: int | None = None,
         method: Literal["R", "max"] = "R",
         bootstrap: Literal[
             "stationary", "sb", "circular", "cbb", "moving block", "mbb"
         ] = "stationary",
         *,
-        seed: Union[int, np.random.Generator, np.random.RandomState, None] = None,
+        seed: int | np.random.Generator | np.random.RandomState | None = None,
     ) -> None:
         super().__init__()
         self.losses = ensure2d(losses, "losses")
@@ -163,13 +152,11 @@ class MCS(MultipleComparison):
         self.bootstrap: CircularBlockBootstrap = bootstrap_inst
         self._bootstrap_indices: list[IntArray] = []  # For testing
         self._model = "MCS"
-        self._info = dict(
-            [
-                ("size", f"{self.size:0.2f}"),
-                ("bootstrap", str(bootstrap_inst)),
-                ("ID", hex(id(self))),
-            ]
-        )
+        self._info = {
+            "size": f"{self.size:0.2f}",
+            "bootstrap": str(bootstrap_inst),
+            "ID": hex(id(self)),
+        }
         self._results_computed = False
 
     def _has_been_computed(self) -> None:
@@ -179,9 +166,9 @@ class MCS(MultipleComparison):
     def _format_pvalues(self, eliminated: Sequence[tuple[int, float]]) -> pd.DataFrame:
         columns = ["Model index", "Pvalue"]
         mcs = pd.DataFrame(eliminated, columns=columns)
-        max_pval = cast(float, mcs.iloc[0, 1])
+        max_pval = cast("float", mcs.iloc[0, 1])
         for i in range(1, mcs.shape[0]):
-            max_pval = np.max([max_pval, cast(float, mcs.iloc[i, 1])])
+            max_pval = np.max([max_pval, cast("float", mcs.iloc[i, 1])])
             mcs.iloc[i, 1] = max_pval
         model_index = mcs.pop("Model index")
         if isinstance(self.losses, pd.DataFrame):
@@ -254,8 +241,7 @@ class MCS(MultipleComparison):
             included[indices.flat[i]] = False
         # Add pval of 1 for model remaining
         indices = np.argwhere(included).flatten()
-        for ind in indices:
-            eliminated.append((ind, 1.0))
+        eliminated.extend([(ind, 1.0) for ind in indices])
         self._pvalues = self._format_pvalues(eliminated)
 
     def _compute_max(self) -> None:
@@ -297,6 +283,7 @@ class MCS(MultipleComparison):
                     "occur if the number of losses is too small, or if there are "
                     "repeated (identical) losses in the set under consideration.",
                     RuntimeWarning,
+                    stacklevel=2,
                 )
             simulated_test_stat = incl_bs_avg_loss_err / std_devs
             simulated_test_stat = np.max(simulated_test_stat, 1)
@@ -306,13 +293,16 @@ class MCS(MultipleComparison):
             test_stat = np.max(std_loss_diffs)
             pval = (test_stat < simulated_test_stat).mean()
             locs = np.argwhere(std_loss_diffs == test_stat)
-            for idx_val in indices.flat[np.atleast_1d(locs.squeeze())]:
-                eliminated.append((int(idx_val), pval))
+            eliminated.extend(
+                [
+                    (int(idx_val), pval)
+                    for idx_val in indices.flat[np.atleast_1d(locs.squeeze())]
+                ]
+            )
             included[indices.flat[locs]] = False
 
         indices = np.argwhere(included).flatten()
-        for ind in indices:
-            eliminated.append((int(ind), 1.0))
+        eliminated.extend([(int(ind), 1.0) for ind in indices])
         self._pvalues = self._format_pvalues(eliminated)
 
     @property
@@ -420,7 +410,7 @@ class StepM(MultipleComparison):
         benchmark: ArrayLike,
         models: ArrayLike,
         size: float = 0.05,
-        block_size: Optional[int] = None,
+        block_size: int | None = None,
         reps: int = 1000,
         bootstrap: Literal[
             "stationary", "sb", "circular", "cbb", "moving block", "mbb"
@@ -428,7 +418,7 @@ class StepM(MultipleComparison):
         studentize: bool = True,
         nested: bool = False,
         *,
-        seed: Union[int, np.random.Generator, np.random.RandomState, None] = None,
+        seed: int | np.random.Generator | np.random.RandomState | None = None,
     ) -> None:
         super().__init__()
         self.benchmark = ensure2d(benchmark, "benchmark")
@@ -448,7 +438,7 @@ class StepM(MultipleComparison):
         self.k: int = self.models.shape[1]
         self.reps: int = reps
         self.size: float = size
-        self._superior_models: Optional[list[Hashable]] = None
+        self._superior_models: list[int] | None = None
         self.bootstrap: CircularBlockBootstrap = self.spa.bootstrap
 
         self._model = "StepM"
@@ -456,14 +446,12 @@ class StepM(MultipleComparison):
             method = "bootstrap" if self.spa.nested else "asymptotic"
         else:
             method = "none"
-        self._info = dict(
-            [
-                ("FWER (size)", f"{self.size:0.2f}"),
-                ("studentization", method),
-                ("bootstrap", str(self.spa.bootstrap)),
-                ("ID", hex(id(self))),
-            ]
-        )
+        self._info = {
+            "FWER (size)": f"{self.size:0.2f}",
+            "studentization": method,
+            "bootstrap": str(self.spa.bootstrap),
+            "ID": hex(id(self)),
+        }
 
     def compute(self) -> None:
         """
@@ -472,16 +460,13 @@ class StepM(MultipleComparison):
         # 1. Run SPA
         self.spa.compute()
         # 2. If any models superior, store indices, remove and re-run SPA
-        better_models = list(self.spa.better_models(self.size))
+        better_models = [int(i) for i in self.spa.better_models(self.size)]
         all_better_models = better_models[:]
         # 3. Stop if nothing superior
         while better_models and (len(better_models) < self.k):
             # A. Use Selector to remove better models
             selector = np.ones(self.k, dtype=np.bool_)
-            if isinstance(self.models, pd.DataFrame):  # Columns
-                selector[self.models.columns.isin(all_better_models)] = False
-            else:
-                selector[np.array(all_better_models)] = False
+            selector[np.array(all_better_models)] = False
             self.spa.subset(selector)
             # B. Rerun
             self.spa.compute()
@@ -494,7 +479,7 @@ class StepM(MultipleComparison):
         self._superior_models = all_better_models
 
     @property
-    def superior_models(self) -> list[Hashable]:
+    def superior_models(self) -> list[int] | Sequence[Hashable]:
         """
         List of the indices or column names of the superior models
 
@@ -507,6 +492,8 @@ class StepM(MultipleComparison):
         if self._superior_models is None:
             msg = "compute must be called before accessing superior_models"
             raise RuntimeError(msg)
+        if isinstance(self.models, pd.DataFrame):
+            return list(self.models.columns[self._superior_models])
         return self._superior_models
 
 
@@ -569,7 +556,7 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
         self,
         benchmark: ArrayLike,
         models: ArrayLike,
-        block_size: Optional[int] = None,
+        block_size: int | None = None,
         reps: int = 1000,
         bootstrap: Literal[
             "stationary", "sb", "circular", "cbb", "moving block", "mbb"
@@ -577,7 +564,7 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
         studentize: bool = True,
         nested: bool = False,
         *,
-        seed: Union[int, np.random.Generator, np.random.RandomState, None] = None,
+        seed: int | np.random.Generator | np.random.RandomState | None = None,
     ) -> None:
         super().__init__()
         self.benchmark = ensure2d(benchmark, "benchmark")
@@ -611,20 +598,18 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
         self._seed = seed
         self.bootstrap: CircularBlockBootstrap = bootstrap_inst
         self._pvalues: dict[str, float] = {}
-        self._simulated_vals: Optional[Float64Array] = None
-        self._selector = np.ones(self.k, dtype=np.bool_)
+        self._simulated_vals: Float64Array | None = None
+        self._selector: BoolArray = np.ones(self.k, dtype=np.bool_)
         self._model = "SPA"
         if self.studentize:
             method = "bootstrap" if self.nested else "asymptotic"
         else:
             method = "none"
-        self._info = dict(
-            [
-                ("studentization", method),
-                ("bootstrap", str(self.bootstrap)),
-                ("ID", hex(id(self))),
-            ]
-        )
+        self._info = {
+            "studentization": method,
+            "bootstrap": str(self.bootstrap),
+            "ID": hex(id(self)),
+        }
 
     def reset(self) -> None:
         """
@@ -667,9 +652,11 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
 
         max_loss_diff = np.max(loss_diff.mean(axis=0))
         pvalues = (max_simulated_vals > max_loss_diff).mean(axis=0)
-        self._pvalues = dict(
-            [("lower", pvalues[0]), ("consistent", pvalues[1]), ("upper", pvalues[2])]
-        )
+        self._pvalues = {
+            "lower": pvalues[0],
+            "consistent": pvalues[1],
+            "upper": pvalues[2],
+        }
 
     def _simulate_values(self) -> None:
         self._compute_variance()
@@ -686,7 +673,7 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
         means = [lower_mean, consistent_mean, upper_mean]
         simulated_vals = np.zeros((self.k, self.reps, 3))
         for i, bs_data in enumerate(self.bootstrap.bootstrap(self.reps)):
-            pos_arg, kw_arg = bs_data
+            pos_arg, _ = bs_data
             loss_diff_star = pos_arg[0]
             for j, mean in enumerate(means):
                 simulated_vals[:, i, j] = loss_diff_star.mean(0) - mean
@@ -719,7 +706,7 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
                 variances += (
                     2 * kappa * np.sum(demeaned[: (t - i), :] * demeaned[i:, :], 0) / t
                 )
-        self._loss_diff_var = cast(np.ndarray, variances)
+        self._loss_diff_var = cast("np.ndarray", variances)
 
     def _check_column_validity(self) -> BoolArray:
         """
@@ -781,7 +768,7 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
         self,
         pvalue: float = 0.05,
         pvalue_type: Literal["lower", "consistent", "upper"] = "consistent",
-    ) -> Union[Int64Array, list[Hashable]]:
+    ) -> Int64Array1D:
         """
         Returns set of models rejected as being equal-or-worse than the
         benchmark
@@ -811,10 +798,7 @@ class SPA(MultipleComparison, metaclass=DocStringInheritor):
         crit_val = self.critical_values(pvalue=pvalue)[pvalue_type]
         better_models = self._loss_diff.mean(0) > crit_val
         better_models = np.logical_and(better_models, self._selector)
-        if isinstance(self.models, pd.DataFrame):
-            return list(self.models.columns[better_models])
-        else:
-            return np.argwhere(better_models).flatten()
+        return np.argwhere(better_models).flatten()
 
     def _check_compute(self) -> None:
         if self._pvalues:

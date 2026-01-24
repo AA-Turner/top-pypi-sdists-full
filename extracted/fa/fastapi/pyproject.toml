@@ -9,7 +9,11 @@ name = "fastapi"
 dynamic = []
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
 readme = "README.md"
-requires-python = ">=3.8"
+license = "MIT"
+license-files = [
+    "LICENSE",
+]
+requires-python = ">=3.9"
 authors = [
     { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" },
 ]
@@ -30,26 +34,25 @@ classifiers = [
     "Framework :: AsyncIO",
     "Framework :: FastAPI",
     "Framework :: Pydantic",
-    "Framework :: Pydantic :: 1",
     "Framework :: Pydantic :: 2",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
     "Topic :: Internet :: WWW/HTTP",
 ]
 dependencies = [
-    "starlette>=0.40.0,<0.49.0",
-    "pydantic>=1.7.4,!=1.8,!=1.8.1,!=2.0.0,!=2.0.1,!=2.1.0,<3.0.0",
+    "starlette>=0.40.0,<0.51.0",
+    "pydantic>=2.7.0",
     "typing-extensions>=4.8.0",
+    "annotated-doc>=0.0.2",
 ]
-version = "0.117.1"
+version = "0.128.0"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/fastapi"
@@ -66,6 +69,8 @@ standard = [
     "python-multipart >=0.0.18",
     "email-validator >=2.0.0",
     "uvicorn[standard] >=0.12.0",
+    "pydantic-settings >=2.0.0",
+    "pydantic-extra-types >=2.0.0",
 ]
 standard-no-fastapi-cloud-cli = [
     "fastapi-cli[standard-no-fastapi-cloud-cli] >=0.0.8",
@@ -74,6 +79,8 @@ standard-no-fastapi-cloud-cli = [
     "python-multipart >=0.0.18",
     "email-validator >=2.0.0",
     "uvicorn[standard] >=0.12.0",
+    "pydantic-settings >=2.0.0",
+    "pydantic-extra-types >=2.0.0",
 ]
 all = [
     "fastapi-cli[standard] >=0.0.8",
@@ -145,11 +152,9 @@ junit_family = "xunit2"
 filterwarnings = [
     "error",
     "ignore:starlette.middleware.wsgi is deprecated and will be removed in a future release\\..*:DeprecationWarning:starlette",
-    "ignore:'crypt' is deprecated and slated for removal in Python 3.13:DeprecationWarning",
     "ignore:You seem to already have a custom.*:RuntimeWarning:trio",
     "ignore:datetime\\.datetime\\.utcfromtimestamp\\(\\) is deprecated and scheduled for removal in a future version\\..*:DeprecationWarning:sqlalchemy",
     "ignore:The `hash` argument is deprecated*:DeprecationWarning:trio",
-    "ignore:Exception ignored in. <sqlite3\\.Connection object.*:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.coverage.run]
@@ -160,11 +165,29 @@ source = [
     "tests",
     "fastapi",
 ]
+relative_files = true
 context = "${CONTEXT}"
 dynamic_context = "test_function"
 omit = [
-    "docs_src/response_model/tutorial003_04.py",
+    "docs_src/response_model/tutorial003_04_py39.py",
     "docs_src/response_model/tutorial003_04_py310.py",
+    "docs_src/dependencies/tutorial008_an_py39.py",
+    "docs_src/dependencies/tutorial013_an_py310.py",
+    "docs_src/dependencies/tutorial014_an_py310.py",
+    "docs_src/pydantic_v1_in_v2/tutorial001_an_py310.py",
+    "docs_src/pydantic_v1_in_v2/tutorial001_an_py39.py",
+    "docs_src/pydantic_v1_in_v2/tutorial002_an_py310.py",
+    "docs_src/pydantic_v1_in_v2/tutorial002_an_py39.py",
+    "docs_src/pydantic_v1_in_v2/tutorial003_an_py310.py",
+    "docs_src/pydantic_v1_in_v2/tutorial003_an_py39.py",
+    "docs_src/pydantic_v1_in_v2/tutorial004_an_py310.py",
+    "docs_src/pydantic_v1_in_v2/tutorial004_an_py39.py",
+    "docs_src/schema_extra_example/tutorial001_pv1_py310.py",
+    "docs_src/schema_extra_example/tutorial001_pv1_py39.py",
+    "docs_src/path_operation_advanced_configuration/tutorial007_pv1_py39.py",
+    "docs_src/settings/app03_py39/config_pv1.py",
+    "docs_src/settings/app03_an_py39/config_pv1.py",
+    "docs_src/settings/tutorial001_pv1_py39.py",
 ]
 
 [tool.coverage.report]
@@ -195,70 +218,61 @@ ignore = [
 "__init__.py" = [
     "F401",
 ]
-"docs_src/dependencies/tutorial007.py" = [
+"docs_src/dependencies/tutorial007_py39.py" = [
     "F821",
 ]
-"docs_src/dependencies/tutorial008.py" = [
+"docs_src/dependencies/tutorial008_py39.py" = [
     "F821",
 ]
-"docs_src/dependencies/tutorial009.py" = [
+"docs_src/dependencies/tutorial009_py39.py" = [
     "F821",
 ]
-"docs_src/dependencies/tutorial010.py" = [
+"docs_src/dependencies/tutorial010_py39.py" = [
     "F821",
 ]
-"docs_src/custom_response/tutorial007.py" = [
+"docs_src/custom_response/tutorial007_py39.py" = [
     "B007",
 ]
-"docs_src/dataclasses/tutorial003.py" = [
+"docs_src/dataclasses/tutorial003_py39.py" = [
     "I001",
 ]
-"docs_src/path_operation_advanced_configuration/tutorial007.py" = [
+"docs_src/path_operation_advanced_configuration/tutorial007_py39.py" = [
     "B904",
 ]
-"docs_src/path_operation_advanced_configuration/tutorial007_pv1.py" = [
+"docs_src/path_operation_advanced_configuration/tutorial007_pv1_py39.py" = [
     "B904",
 ]
-"docs_src/custom_request_and_route/tutorial002.py" = [
+"docs_src/custom_request_and_route/tutorial002_py39.py" = [
     "B904",
 ]
-"docs_src/dependencies/tutorial008_an.py" = [
-    "F821",
+"docs_src/custom_request_and_route/tutorial002_py310.py" = [
+    "B904",
+]
+"docs_src/custom_request_and_route/tutorial002_an_py39.py" = [
+    "B904",
+]
+"docs_src/custom_request_and_route/tutorial002_an_py310.py" = [
+    "B904",
 ]
 "docs_src/dependencies/tutorial008_an_py39.py" = [
     "F821",
 ]
-"docs_src/query_params_str_validations/tutorial012_an.py" = [
-    "B006",
-]
 "docs_src/query_params_str_validations/tutorial012_an_py39.py" = [
-    "B006",
-]
-"docs_src/query_params_str_validations/tutorial013_an.py" = [
     "B006",
 ]
 "docs_src/query_params_str_validations/tutorial013_an_py39.py" = [
     "B006",
 ]
-"docs_src/security/tutorial004.py" = [
-    "B904",
-]
-"docs_src/security/tutorial004_an.py" = [
-    "B904",
-]
-"docs_src/security/tutorial004_an_py310.py" = [
+"docs_src/security/tutorial004_py39.py" = [
     "B904",
 ]
 "docs_src/security/tutorial004_an_py39.py" = [
     "B904",
 ]
+"docs_src/security/tutorial004_an_py310.py" = [
+    "B904",
+]
 "docs_src/security/tutorial004_py310.py" = [
-    "B904",
-]
-"docs_src/security/tutorial005.py" = [
-    "B904",
-]
-"docs_src/security/tutorial005_an.py" = [
     "B904",
 ]
 "docs_src/security/tutorial005_an_py310.py" = [
@@ -273,10 +287,7 @@ ignore = [
 "docs_src/security/tutorial005_py39.py" = [
     "B904",
 ]
-"docs_src/dependencies/tutorial008b.py" = [
-    "B904",
-]
-"docs_src/dependencies/tutorial008b_an.py" = [
+"docs_src/dependencies/tutorial008b_py39.py" = [
     "B904",
 ]
 "docs_src/dependencies/tutorial008b_an_py39.py" = [

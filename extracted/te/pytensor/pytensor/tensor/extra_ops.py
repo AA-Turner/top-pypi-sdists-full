@@ -1,27 +1,24 @@
 import warnings
 from collections.abc import Collection, Iterable
+from textwrap import dedent
 
 import numpy as np
+from numpy.lib.array_utils import normalize_axis_index
 
 import pytensor
 import pytensor.scalar.basic as ps
 from pytensor.gradient import (
-    DisconnectedType,
     _float_zeros_like,
     disconnected_type,
     grad_undefined,
 )
 from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.op import Op
+from pytensor.graph.replace import _vectorize_node
 from pytensor.link.c.op import COp
 from pytensor.link.c.params_type import ParamsType
 from pytensor.link.c.type import EnumList, Generic
-from pytensor.npy_2_compat import (
-    normalize_axis_index,
-    npy_2_compat_header,
-    numpy_axis_is_none_flag,
-    old_np_unique,
-)
+from pytensor.npy_2_compat import old_np_unique
 from pytensor.raise_op import Assert
 from pytensor.scalar import int64 as int_t
 from pytensor.scalar import upcast
@@ -47,7 +44,7 @@ from pytensor.tensor.math import max as pt_max
 from pytensor.tensor.math import sum as pt_sum
 from pytensor.tensor.shape import Shape_i
 from pytensor.tensor.subtensor import advanced_inc_subtensor1, set_subtensor
-from pytensor.tensor.type import TensorType, dvector, int_dtypes, integer_dtypes, vector
+from pytensor.tensor.type import TensorType, dvector, int_dtypes, integer_dtypes
 from pytensor.tensor.utils import normalize_reduce_axis
 from pytensor.tensor.variable import TensorVariable
 from pytensor.utils import LOCAL_BITWIDTH, PYTHON_INT_BITWIDTH
@@ -215,7 +212,7 @@ class SearchsortedOp(COp):
     def grad(self, inputs, output_gradients):
         num_ins = len(inputs)
         if num_ins == 3:
-            x, v, sorter = inputs
+            x, v, _sorter = inputs
         else:
             x, v = inputs
 
@@ -293,33 +290,28 @@ class CumOp(COp):
     __props__ = ("axis", "mode")
     check_input = False
     params_type = ParamsType(
-        c_axis=int_t, mode=EnumList(("MODE_ADD", "add"), ("MODE_MUL", "mul"))
+        axis=int_t, mode=EnumList(("MODE_ADD", "add"), ("MODE_MUL", "mul"))
     )
 
-    def __init__(self, axis: int | None = None, mode="add"):
+    def __init__(self, axis: int, mode="add"):
         if mode not in ("add", "mul"):
             raise ValueError(f'{type(self).__name__}: Unknown mode "{mode}"')
-        if not (isinstance(axis, int) or axis is None):
-            raise TypeError("axis must be an integer or None.")
+        if not isinstance(axis, int):
+            raise TypeError(f"axis must be an integer, got {axis} of type {type(axis)}")
+        if axis < 0:
+            raise ValueError(f"axis must be non-negative, got {axis}")
         self.axis = axis
         self.mode = mode
 
-    @property
-    def c_axis(self) -> int:
-        if self.axis is None:
-            return numpy_axis_is_none_flag
-        return self.axis
-
     def make_node(self, x):
         x = ptb.as_tensor_variable(x)
-        out_type = x.type()
 
-        if self.axis is None:
-            out_type = vector(dtype=x.dtype)  # Flatten
-        elif self.axis >= x.ndim or self.axis < -x.ndim:
-            raise ValueError(f"axis(={self.axis}) out of bounds")
+        if self.axis >= x.type.ndim:
+            raise ValueError(
+                f"axis(={self.axis}) out of bounds for variable {x} with {x.type.ndim} ndims"
+            )
 
-        return Apply(self, [x], [out_type])
+        return Apply(self, [x], [x.type()])
 
     def perform(self, node, inputs, output_storage):
         x = inputs[0]
@@ -329,20 +321,9 @@ class CumOp(COp):
         else:
             z[0] = np.cumprod(x, axis=self.axis)
 
-    def grad(self, inputs, output_gradients):
+    def L_op(self, inputs, outputs, output_gradients):
         (x,) = inputs
         (gi,) = output_gradients
-
-        if self.axis is None:
-            if self.mode == "add":
-                return [cumsum(gi[::-1])[::-1].reshape(x.shape)]
-            elif self.mode == "mul":
-                fx = cumprod(x, axis=self.axis)
-                return [cumsum((fx * gi)[::-1])[::-1].reshape(x.shape) / x]
-            else:
-                raise NotImplementedError(
-                    f'{type(self).__name__}: unknown gradient for mode "{self.mode}"'
-                )
 
         reverse_slicing = [slice(None, None, None)] * gi.ndim
         reverse_slicing[self.axis] = slice(None, None, -1)
@@ -360,14 +341,7 @@ class CumOp(COp):
             )
 
     def infer_shape(self, fgraph, node, shapes):
-        if self.axis is None:
-            return [(prod(shapes[0]),)]  # Flatten
-
         return shapes
-
-    def c_support_code_apply(self, node: Apply, name: str) -> str:
-        """Needed to define NPY_RAVEL_AXIS"""
-        return npy_2_compat_header()
 
     def c_code(self, node, name, inames, onames, sub):
         (x,) = inames
@@ -375,61 +349,43 @@ class CumOp(COp):
         fail = sub["fail"]
         params = sub["params"]
 
-        if self.axis is None:
-            axis_code = "int axis = NPY_RAVEL_AXIS;\n"
-        else:
-            axis_code = f"int axis = {params}->c_axis;\n"
+        return dedent(
+            f"""
+            int axis = {params}->axis;
 
-        code = (
-            axis_code
-            + f"""
-                #undef NPY_UF_DBG_TRACING
-                #define NPY_UF_DBG_TRACING 1
+            if (!({z} && PyArray_CompareLists(PyArray_DIMS({z}), PyArray_DIMS({x}), PyArray_NDIM({x}))))
+            {{
+                Py_XDECREF({z});
+                {z} = (PyArrayObject*) PyArray_SimpleNew(PyArray_NDIM({x}), PyArray_DIMS({x}), PyArray_TYPE({x}));
+                if (!{z}){{ {fail} }};
+            }}
 
-                if (axis == 0 && PyArray_NDIM({x}) == 1)
-                    axis = NPY_RAVEL_AXIS;
-                npy_intp shape[1] = {{ PyArray_SIZE({x}) }};
-                if(axis == NPY_RAVEL_AXIS && !({z} && PyArray_DIMS({z})[0] == shape[0]))
-                {{
-                    Py_XDECREF({z});
-                    {z} = (PyArrayObject*) PyArray_SimpleNew(1, shape, PyArray_TYPE({x}));
-                }}
+            {{
 
-                else if(axis != NPY_RAVEL_AXIS && !({z} && PyArray_CompareLists(PyArray_DIMS({z}), PyArray_DIMS({x}), PyArray_NDIM({x}))))
-                {{
-                    Py_XDECREF({z});
-                    {z} = (PyArrayObject*) PyArray_SimpleNew(PyArray_NDIM({x}), PyArray_DIMS({x}), PyArray_TYPE({x}));
-                }}
+                PyObject * t = NULL;
+                if({params}->mode == MODE_ADD)
+                    t = PyArray_CumSum({x}, axis, PyArray_TYPE({x}), {z});
+                else if({params}->mode == MODE_MUL)
+                    t = PyArray_CumProd({x}, axis, PyArray_TYPE({x}), {z});
 
-                if (!{z})
+                if (!t){{
                     {fail};
-                {{
-
-                    PyObject * t = NULL;
-                    if({params}->mode == MODE_ADD)
-                        t = PyArray_CumSum(
-                            {x}, axis,
-                            PyArray_TYPE({x}), {z});
-                    else if({params}->mode == MODE_MUL)
-                        t = PyArray_CumProd(
-                            {x}, axis,
-                            PyArray_TYPE({x}), {z});
-
-                    if (!t){{
-                       {fail};
-                    }}
-                    // Because PyArray_CumSum/CumProd returns a newly created reference on t.
-                    Py_XDECREF(t);
                 }}
+
+                // Because PyArray_CumSum/CumProd returns a newly created reference on t.
+                Py_XDECREF(t);
+            }}
             """
         )
 
-        return code
-
     def c_code_cache_version(self):
-        return (9,)
+        return (11,)
 
     def __str__(self):
+        if self.mode == "add":
+            return f"Cumsum{{axis={self.axis}}}"
+        elif self.mode == "mul":
+            return f"Cumprod{{axis={self.axis}}}"
         return f"{self.__class__.__name__}{{{self.axis}, {self.mode}}}"
 
 
@@ -450,6 +406,12 @@ def cumsum(x, axis=None):
     .. versionadded:: 0.7
 
     """
+    x = ptb.as_tensor_variable(x)
+    if axis is None:
+        x = x.ravel()
+        axis = 0
+    else:
+        axis = normalize_axis_index(axis, x.ndim)
     return CumOp(axis=axis, mode="add")(x)
 
 
@@ -470,7 +432,22 @@ def cumprod(x, axis=None):
     .. versionadded:: 0.7
 
     """
+    x = ptb.as_tensor_variable(x)
+    if axis is None:
+        x = x.ravel()
+        axis = 0
+    else:
+        axis = normalize_axis_index(axis, x.ndim)
     return CumOp(axis=axis, mode="mul")(x)
+
+
+@_vectorize_node.register(CumOp)
+def vectorize_cum_op(op: CumOp, node: Apply, batch_x):
+    """Vectorize the CumOp to work on a batch of inputs."""
+    [original_x] = node.inputs
+    batch_ndim = batch_x.ndim - original_x.ndim
+    # op.axis is already normalized and non-negative
+    return type(op)(axis=op.axis + batch_ndim, mode=op.mode).make_node(batch_x)
 
 
 def diff(x, n=1, axis=-1):
@@ -648,53 +625,72 @@ class Repeat(Op):
 
     __props__ = ("axis",)
 
-    def __init__(self, axis: int | None = None):
-        if axis is not None:
-            if not isinstance(axis, int) or axis < 0:
+    def __init__(self, axis: int):
+        if isinstance(axis, int):
+            if axis < 0:
                 raise ValueError(
-                    f"Repeat only accepts positive integer axis or None, got {axis}"
+                    f"Repeat Op only accepts positive integer axis, got {axis}. "
+                    "Use the helper `pt.repeat` to handle negative axis."
                 )
+        elif axis is None:
+            raise ValueError(
+                "Repeat Op only accepts positive integer axis. "
+                "Use the helper `pt.repeat` to handle axis=None."
+            )
+        else:
+            raise TypeError(
+                f"Invalid type for axis {axis}, expected int got {type(axis)}"
+            )
+
         self.axis = axis
 
     def make_node(self, x, repeats):
         x = ptb.as_tensor_variable(x)
         repeats = ptb.as_tensor_variable(repeats, dtype="int64")
 
-        if repeats.dtype not in integer_dtypes:
-            raise TypeError("repeats.dtype must be an integer.")
+        if repeats.type.ndim != 1:
+            if repeats.type.ndim == 0:
+                raise ValueError(
+                    f"repeats {repeats} must have 1 dimension, got 0. Use the helper `pt.repeat` to handle scalar repeats."
+                )
+            else:
+                raise ValueError(
+                    f"repeats {repeats} must have 1 dimension, got {repeats.type.ndim}"
+                )
+
+        if repeats.type.dtype not in integer_dtypes:
+            raise TypeError(
+                f"repeats {repeats} dtype must be an integer, got {repeats.type.dtype}."
+            )
 
         # Some dtypes are not supported by numpy's implementation of repeat.
         # Until another one is available, we should fail at graph construction
         # time, not wait for execution.
-        ptr_bitwidth = LOCAL_BITWIDTH
-        if ptr_bitwidth == 64:
-            numpy_unsupported_dtypes = ("uint64",)
-        if ptr_bitwidth == 32:
-            numpy_unsupported_dtypes = ("uint32", "int64", "uint64")
-
-        if repeats.dtype in numpy_unsupported_dtypes:
+        numpy_unsupported_dtypes = (
+            ("uint64",) if LOCAL_BITWIDTH == 64 else ("uint64", "uint32", "int64")
+        )
+        if repeats.type.dtype in numpy_unsupported_dtypes:
             raise TypeError(
-                (
-                    f"dtypes {numpy_unsupported_dtypes!s} are not supported by numpy.repeat "
-                    "for the 'repeats' parameter, "
-                ),
-                repeats.dtype,
+                f"repeats {repeats} dtype {repeats.type.dtype} are not supported by numpy.repeat"
             )
 
-        if self.axis is None:
-            out_shape = [None]
-        else:
-            try:
-                const_reps = ptb.get_scalar_constant_value(repeats)
-            except NotScalarConstantError:
-                const_reps = None
-            if const_reps == 1:
-                out_shape = x.type.shape
-            else:
-                out_shape = list(x.type.shape)
-                out_shape[self.axis] = None
+        shape = list(x.type.shape)
+        axis_input_dim_length = shape[self.axis]
+        axis_output_dim_length = None
 
-        out_type = TensorType(x.dtype, shape=out_shape)
+        if axis_input_dim_length is not None:
+            # If we have a static dim and constant repeats we can infer the length of the output dim
+            # Right now we only support homogenous constant repeats
+            try:
+                const_reps = ptb.get_underlying_scalar_constant_value(repeats)
+            except NotScalarConstantError:
+                pass
+            else:
+                axis_output_dim_length = int(const_reps * axis_input_dim_length)
+
+        shape[self.axis] = axis_output_dim_length
+
+        out_type = TensorType(x.dtype, shape=shape)
         return Apply(self, [x, repeats], [out_type()])
 
     def perform(self, node, inputs, output_storage):
@@ -708,38 +704,18 @@ class Repeat(Op):
         (x, repeats) = inputs
         (gz,) = gout
         axis = self.axis
-        if repeats.ndim == 0:
-            # When axis is a scalar (same number of reps for all elements),
-            # We can split the repetitions into their own axis with reshape and sum them back
-            # to the original element location
-            sum_axis = x.ndim if axis is None else axis + 1
-            shape = list(x.shape)
-            shape.insert(sum_axis, repeats)
-            gx = gz.reshape(shape).sum(axis=sum_axis)
 
-        elif repeats.ndim == 1:
-            # To sum the gradients that belong to the same repeated x,
-            # We create a repeated eye and dot product it with the gradient.
-            axis_size = x.size if axis is None else x.shape[axis]
-            repeated_eye = repeat(
-                ptb.eye(axis_size), repeats, axis=0
-            )  # A sparse repeat would be neat
+        # Use IncSubtensor to sum the gradients that belong to the repeated entries of x
+        axis_size = x.shape[axis]
+        repeated_arange = repeat(ptb.arange(axis_size), repeats, axis=0)
 
-            if axis is None:
-                gx = gz @ repeated_eye
-                # Undo the ravelling when axis=None
-                gx = gx.reshape(x.shape)
-            else:
-                # Place gradient axis at end for dot product
-                gx = ptb.moveaxis(gz, axis, -1)
-                gx = gx @ repeated_eye
-                # Place gradient back into the correct axis
-                gx = ptb.moveaxis(gx, -1, axis)
+        # Move the axis to repeat to front for easier indexing
+        x_transpose = ptb.moveaxis(x, axis, 0)
+        gz_transpose = ptb.moveaxis(gz, axis, 0)
+        gx_transpose = ptb.zeros_like(x_transpose)[repeated_arange].inc(gz_transpose)
+        gx = ptb.moveaxis(gx_transpose, 0, axis)
 
-        else:
-            raise ValueError()
-
-        return [gx, DisconnectedType()()]
+        return [gx, disconnected_type()]
 
     def infer_shape(self, fgraph, node, ins_shapes):
         i0_shapes = ins_shapes[0]
@@ -751,22 +727,8 @@ class Repeat(Op):
         dtype = None
         if repeats.dtype in ("uint8", "uint16", "uint32"):
             dtype = "int64"
-        if axis is None:
-            if repeats.ndim == 0:
-                if len(i0_shapes) == 0:
-                    out_shape = [repeats]
-                else:
-                    res = 1
-                    for d in i0_shapes:
-                        res = res * d
-                    out_shape = (res * repeats,)
-            else:
-                out_shape = [pt_sum(repeats, dtype=dtype)]
-        else:
-            if repeats.ndim == 0:
-                out_shape[axis] = out_shape[axis] * repeats
-            else:
-                out_shape[axis] = pt_sum(repeats, dtype=dtype)
+
+        out_shape[axis] = pt_sum(repeats, dtype=dtype)
         return [out_shape]
 
 
@@ -831,7 +793,10 @@ def repeat(
     """
     a = ptb.as_tensor_variable(a)
 
-    if axis is not None:
+    if axis is None:
+        axis = 0
+        a = a.flatten()
+    else:
         axis = normalize_axis_index(axis, a.ndim)
 
     repeats = ptb.as_tensor_variable(repeats, dtype=np.int64)
@@ -839,40 +804,31 @@ def repeat(
     if repeats.ndim > 1:
         raise ValueError("The dimension of repeats should not exceed 1.")
 
-    if repeats.ndim == 1 and not repeats.broadcastable[0]:
+    if repeats.type.broadcastable == (True,):
+        # This behaves the same as scalar repeat
+        repeats = repeats.squeeze()
+
+    if repeats.ndim == 1:
         # We only use the Repeat Op for vector repeats
         return Repeat(axis=axis)(a, repeats)
     else:
-        if repeats.ndim == 1:
-            repeats = repeats[0]
-
         if a.dtype == "uint64":
             # Multiplying int64 (shape) by uint64 (repeats) yields a float64
             # Which is not valid for the `reshape` operation at the end
             raise TypeError("repeat doesn't support dtype uint64")
 
-        if axis is None:
-            axis = 0
-            a = a.flatten()
+        # Scalar repeat, we implement this with canonical Ops broadcast + reshape
+        a_shape = a.shape
 
-        repeat_shape = list(a.shape)
+        # Replicate a along a new axis (axis+1) repeats times
+        broadcast_shape = list(a_shape)
+        broadcast_shape.insert(axis + 1, repeats)
+        broadcast_a = broadcast_to(ptb.expand_dims(a, axis + 1), broadcast_shape)
 
-        # alloc_shape is the shape of the intermediate tensor which has
-        # an additional dimension comparing to x. We use alloc to
-        # allocate space for this intermediate tensor to replicate x
-        # along that additional dimension.
-        alloc_shape = repeat_shape[:]
-        alloc_shape.insert(axis + 1, repeats)
-
-        # repeat_shape is now the shape of output, where shape[axis] becomes
-        # shape[axis]*repeats.
+        # Reshape broadcast_a to the final shape, merging axis and axis+1
+        repeat_shape = list(a_shape)
         repeat_shape[axis] = repeat_shape[axis] * repeats
-
-        # After the original tensor is duplicated along the additional
-        # dimension, we reshape it to the expected output shape
-        return ptb.alloc(ptb.expand_dims(a, axis + 1), *alloc_shape).reshape(
-            repeat_shape
-        )
+        return broadcast_a.reshape(repeat_shape)
 
 
 class Bartlett(Op):
@@ -982,7 +938,7 @@ class FillDiagonal(Op):
         The gradient is currently implemented for matrices only.
 
         """
-        a, val = inp
+        a, _val = inp
         grad = cost_grad[0]
         if a.dtype.startswith("complex"):
             return [None, None]
@@ -1108,7 +1064,7 @@ class FillDiagonalOffset(Op):
         -----
         The gradient is currently implemented for matrices only.
         """
-        a, val, offset = inp
+        a, _val, offset = inp
         grad = cost_grad[0]
         height, width = grad.shape
 
@@ -1347,13 +1303,11 @@ class UnravelIndex(Op):
         if dims.ndim != 1:
             raise TypeError("dims must be a 1D array")
 
+        out_type = indices.type.clone(dtype="int64")
         return Apply(
             self,
             [indices, dims],
-            [
-                TensorType(dtype="int64", shape=(None,) * indices.type.ndim)()
-                for i in range(ptb.get_vector_length(dims))
-            ],
+            [out_type() for _i in range(ptb.get_vector_length(dims))],
         )
 
     def infer_shape(self, fgraph, node, input_shapes):
@@ -1416,8 +1370,7 @@ class RavelMultiIndex(Op):
         self.order = order
 
     def make_node(self, *inp):
-        multi_index = [ptb.as_tensor_variable(i) for i in inp[:-1]]
-        dims = ptb.as_tensor_variable(inp[-1])
+        *multi_index, dims = map(ptb.as_tensor_variable, inp)
 
         for i in multi_index:
             if i.dtype not in int_dtypes:
@@ -1427,19 +1380,20 @@ class RavelMultiIndex(Op):
         if dims.ndim != 1:
             raise TypeError("dims must be a 1D array")
 
+        out_type = multi_index[0].type.clone(dtype="int64")
         return Apply(
             self,
             [*multi_index, dims],
-            [TensorType(dtype="int64", shape=(None,) * multi_index[0].type.ndim)()],
+            [out_type()],
         )
 
     def infer_shape(self, fgraph, node, input_shapes):
         return [input_shapes[0]]
 
     def perform(self, node, inp, out):
-        multi_index, dims = inp[:-1], inp[-1]
+        *multi_index, dims = inp
         res = np.ravel_multi_index(multi_index, dims, mode=self.mode, order=self.order)
-        out[0][0] = np.asarray(res, node.outputs[0].dtype)
+        out[0][0] = np.asarray(res, "int64")
 
 
 def ravel_multi_index(multi_index, dims, mode="raise", order="C"):
@@ -1546,7 +1500,7 @@ def broadcast_shape_iter(
             (one,) * (max_dims - len(a))
             + tuple(
                 one
-                if sh == 1 or isinstance(sh, Constant) and sh.value == 1
+                if sh == 1 or (isinstance(sh, Constant) and sh.value == 1)
                 else (ps.as_scalar(sh) if not isinstance(sh, Variable) else sh)
                 for sh in a
             )
@@ -2055,25 +2009,25 @@ def concat_with_broadcast(tensor_list, axis=0):
 
 
 __all__ = [
-    "searchsorted",
-    "cumsum",
-    "cumprod",
-    "diff",
-    "bincount",
-    "squeeze",
-    "compress",
-    "repeat",
     "bartlett",
-    "fill_diagonal",
-    "fill_diagonal_offset",
-    "unique",
-    "unravel_index",
-    "ravel_multi_index",
+    "bincount",
+    "broadcast_arrays",
     "broadcast_shape",
     "broadcast_to",
+    "compress",
     "concat_with_broadcast",
+    "cumprod",
+    "cumsum",
+    "diff",
+    "fill_diagonal",
+    "fill_diagonal_offset",
     "geomspace",
-    "logspace",
     "linspace",
-    "broadcast_arrays",
+    "logspace",
+    "ravel_multi_index",
+    "repeat",
+    "searchsorted",
+    "squeeze",
+    "unique",
+    "unravel_index",
 ]

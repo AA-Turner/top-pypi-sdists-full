@@ -227,9 +227,12 @@ long-summary: |
     cluster will become primary after failover. For more information, please refer to
     https://learn.microsoft.com/azure/storage/common/storage-disaster-recovery-guidance.
 examples:
-  - name: Failover a storage account.
+  - name: Unplanned Failover a storage account.
     text: |
         az storage account failover -n mystorageaccount -g MyResourceGroup
+  - name: Planned Failover a storage account.
+    text: |
+        az storage account failover -n mystorageaccount -g MyResourceGroup --failover-type Planned
   - name: Failover a storage account without waiting for complete.
     text: |
         az storage account failover -n mystorageaccount -g MyResourceGroup --no-wait
@@ -2678,6 +2681,16 @@ examples:
         az storage fs file upload --source a.txt -p dir/a.txt -f fsname --account-name myadlsaccount --account-key 0000-0000
 """
 
+helps['storage fs file generate-sas'] = """
+type: command
+short-summary: Generate a SAS token for file in ADLS Gen2 account.
+examples:
+  - name: Generate a sas token for file.
+    text: |
+        end=`date -u -d "30 minutes" '+%Y-%m-%dT%H:%MZ'`
+        az storage fs file generate-sas -p dir/a.txt --file-system myfilesystem --https-only --permissions dlrw --expiry $end -o tsv
+"""
+
 helps['storage fs metadata'] = """
 type: group
 short-summary: Manage the metadata for file system.
@@ -3189,4 +3202,27 @@ helps['storage file hard-link create'] = """
       - name: Create a hard link to an NFS file specified by path.
         text: |
             az storage file hard-link create --account-name MyAccount --share-name share --path link_path --target original_path
+"""
+
+helps['storage file symbolic-link'] = """
+    type: group
+    short-summary: Manage storage file symbolic-link.
+"""
+
+helps['storage file symbolic-link create'] = """
+    type: command
+    short-summary: NFS only. Creates a symbolic link to the specified file.
+    examples:
+      - name: Create a symbolic link to an NFS file specified by path.
+        text: |
+            az storage file symbolic-link create --account-name MyAccount --share-name share --path link_path --target target_path --metadata meta1=value1 meta2=value2 --file-creation-time now --file-last-write-time now --owner 6 --group 7
+"""
+
+helps['storage file symbolic-link show'] = """
+    type: command
+    short-summary: NFS only. Gets the symbolic link for the file client.
+    examples:
+      - name: Show the symbolic link to an NFS file specified by path.
+        text: |
+            az storage file symbolic-link show --account-name MyAccount --share-name share --path link_path
 """

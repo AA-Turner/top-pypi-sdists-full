@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: owa-core
+Version: 0.6.5
+Summary: Core framework and registry system for Open World Agents
+License: MIT
+Requires-Python: >=3.11
+Requires-Dist: av>=15.0
+Requires-Dist: griffe
+Requires-Dist: lazyregistry>=0.3.0
+Requires-Dist: loguru
+Requires-Dist: pydantic>=2.0
+Requires-Dist: pyyaml>=6.0

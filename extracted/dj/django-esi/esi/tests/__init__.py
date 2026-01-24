@@ -23,10 +23,10 @@ def _generate_token(
     expires_in: int = 1200,
     sso_version: int = 2
 ) -> dict:
-    from datetime import datetime, timedelta
+    import datetime as dt
 
     if timestamp_dt is None:
-        timestamp_dt = datetime.utcnow()
+        timestamp_dt = dt.datetime.now(dt.timezone.utc)
     if scopes is None:
         scopes = [
             'esi-mail.read_mail.v1',
@@ -40,7 +40,7 @@ def _generate_token(
         'timestamp': int(timestamp_dt.timestamp()),
         'character_id': character_id,
         'name': character_name,
-        'ExpiresOn': _dt_eveformat(timestamp_dt + timedelta(seconds=expires_in)),
+        'ExpiresOn': _dt_eveformat(timestamp_dt + dt.timedelta(seconds=expires_in)),
         'scp': scopes,
         'token_type': 'character',
         'owner': character_owner_hash,
@@ -84,6 +84,32 @@ class SocketAccessError(Exception):
     """Error raised when a test script accesses the network"""
 
 
+class GuardedSocket(socket.socket):
+    """A socket subclass that only allows loopback/localhost."""
+
+    def _address_is_loopback(self, address):
+
+        host = None
+        if isinstance(address, tuple):
+            host = address[0]
+        else:
+            host = address
+
+        if isinstance(host, bytes):
+            host = host.decode()
+
+        # quick allow by obvious names
+        if host in ("localhost", "127.0.0.1", "::1"):
+            return True
+        else:
+            return False
+
+    def connect(self, address):
+        if not self._address_is_loopback(address):
+            raise SocketAccessError(f"Attempt to connect to non-localhost address: {address!r}")
+        return super().connect(address)
+
+
 class NoSocketsTestCase(TestCase):
     """Variation of Django's TestCase class that prevents any network use.
 
@@ -98,15 +124,11 @@ class NoSocketsTestCase(TestCase):
     """
     @classmethod
     def setUpClass(cls):
-        cls.socket_original = socket.socket
-        socket.socket = cls.guard
+        cls._socket_original = socket.socket
+        socket.socket = GuardedSocket
         return super().setUpClass()
 
     @classmethod
     def tearDownClass(cls):
-        socket.socket = cls.socket_original
-        return super().tearDownClass()
-
-    @staticmethod
-    def guard(*args, **kwargs):
-        raise SocketAccessError("Attempted to access network")
+        socket.socket = cls._socket_original
+        super().tearDownClass()

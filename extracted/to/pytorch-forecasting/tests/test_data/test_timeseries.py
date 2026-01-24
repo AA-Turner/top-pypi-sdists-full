@@ -1,5 +1,6 @@
 from copy import deepcopy
 import pickle
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -254,7 +255,7 @@ def test_from_dataset_equivalence(test_data):
         iter(validation2.to_dataloader(train=False)),
     ):
         for k in v1[0].keys():
-            if isinstance(v1[0][k], (tuple, list)):
+            if isinstance(v1[0][k], tuple | list):
                 assert len(v1[0][k]) == len(v2[0][k])
                 for idx in range(len(v1[0][k])):
                     assert torch.isclose(v1[0][k][idx], v2[0][k][idx]).all()
@@ -499,6 +500,85 @@ def test_lagged_variables(test_data, kwargs):
             ).all(), "lagged target must be the same as non-lagged target"
 
 
+def test_lagged_variable_known_unknown_assignment(test_data):
+    """
+    Test that lagged variables are assigned to known or unknown variables correctly:
+    - If lag < max_prediction_length: lagged variable is unknown
+    - If lag >= max_prediction_length: lagged variable is known
+    """
+    # Setup: one known real, one unknown real, one known cat, one unknown cat
+    dataset = TimeSeriesDataSet(
+        test_data.copy(),
+        time_idx="time_idx",
+        target="volume",
+        group_ids=["agency", "sku"],
+        max_encoder_length=5,
+        max_prediction_length=2,
+        min_prediction_length=1,
+        min_encoder_length=3,
+        time_varying_unknown_reals=["volume"],
+        time_varying_known_categoricals=["month"],
+        time_varying_unknown_categoricals=["agency"],
+        lags={"volume": [1, 2, 3], "agency": [1, 2, 3], "month": [1, 2, 3]},
+    )
+
+    horizon = dataset.max_prediction_length
+
+    for var in ["volume"]:
+        is_known = var in dataset._time_varying_known_reals
+        for lag in [1, 2, 3]:
+            lagged_name = f"{var}_lagged_by_{lag}"
+            if is_known:
+                assert (
+                    lagged_name in dataset._time_varying_known_reals
+                ), f"{lagged_name} should be known real (from known real)"
+                assert (
+                    lagged_name not in dataset._time_varying_unknown_reals
+                ), f"{lagged_name} should not be unknown real (from known real)"
+            else:
+                if lag >= horizon:
+                    assert (
+                        lagged_name in dataset._time_varying_known_reals
+                    ), f"{lagged_name} should be known real (lag >= horizon)"
+                    assert (
+                        lagged_name not in dataset._time_varying_unknown_reals
+                    ), f"{lagged_name} should not be unknown real (lag >= horizon)"
+                else:
+                    assert (
+                        lagged_name in dataset._time_varying_unknown_reals
+                    ), f"{lagged_name} should be unknown real (lag < horizon)"
+                    assert (
+                        lagged_name not in dataset._time_varying_known_reals
+                    ), f"{lagged_name} should not be known real (lag < horizon)"
+
+    for var in ["agency", "month"]:
+        is_known = var in dataset._time_varying_known_categoricals
+        for lag in [1, 2, 3]:
+            lagged_name = f"{var}_lagged_by_{lag}"
+            if is_known:
+                assert (
+                    lagged_name in dataset._time_varying_known_categoricals
+                ), f"{lagged_name} should be known cat (from known cat)"
+                assert (
+                    lagged_name not in dataset._time_varying_unknown_categoricals
+                ), f"{lagged_name} should not be unknown cat (from known cat)"
+            else:
+                if lag >= horizon:
+                    assert (
+                        lagged_name in dataset._time_varying_known_categoricals
+                    ), f"{lagged_name} should be known cat (lag >= horizon)"
+                    assert (
+                        lagged_name not in dataset._time_varying_unknown_categoricals
+                    ), f"{lagged_name} should not be unknown cat (lag >= horizon)"
+                else:
+                    assert (
+                        lagged_name in dataset._time_varying_unknown_categoricals
+                    ), f"{lagged_name} should be unknown cat (lag < horizon)"
+                    assert (
+                        lagged_name not in dataset._time_varying_known_categoricals
+                    ), f"{lagged_name} should not be known cat (lag < horizon)"
+
+
 @pytest.mark.parametrize(
     "agency,first_prediction_idx,should_raise",
     [
@@ -599,3 +679,94 @@ def test_graph_sampler(test_dataset):
         if idx > 100:
             break
     print(a)
+
+
+def test_correct_dtype_inference():
+    # Create a small dataset
+    data = pd.DataFrame(
+        {
+            "time_idx": np.arange(30),
+            "value": np.sin(np.arange(30) / 5) + np.random.normal(scale=1, size=30),
+            "group": ["A"] * 30,
+        }
+    )
+
+    # Define the dataset
+    dataset = TimeSeriesDataSet(
+        data.copy(),
+        time_idx="time_idx",
+        target="value",
+        group_ids=["group"],
+        static_categoricals=["group"],
+        max_encoder_length=4,
+        max_prediction_length=2,
+        time_varying_unknown_reals=["value"],
+        target_normalizer=None,
+        # WATCH THIS
+        time_varying_known_reals=["time_idx"],
+        scalers=dict(time_idx=None),
+    )
+
+    # and the dataloader
+    dataloader = dataset.to_dataloader(batch_size=8)
+
+    x, y = next(iter(dataset))
+    # real features must be real
+    assert x["x_cont"].dtype is torch.float
+
+    x, y = next(iter(dataloader))
+    # real features must be real
+    assert x["encoder_cont"].dtype is torch.float
+
+
+def test_pytorch_unwriteable_data():
+    """
+    -- Ensures that PyTorch doesn't throw a warning on non-writeable
+        arrays extracted from pandas objects.
+    This is a weak test, since the warning is only issued once and might
+    already have been issued.
+    """
+    # save current mode
+    copy_on_write = pd.options.mode.copy_on_write
+    pd.options.mode.copy_on_write = True
+
+    # Create a small dataset
+    data = pd.DataFrame(
+        {
+            "time_idx": np.arange(30),
+            "value": np.sin(np.arange(30) / 5) + np.random.normal(scale=0.1, size=30),
+            "feature": np.cos(np.arange(30) / 5) + np.random.normal(scale=0.1, size=30),
+            "group": ["A"] * 30,
+        }
+    )
+
+    with warnings.catch_warnings(record=True) as w:
+        # catch all warnings
+        warnings.simplefilter("always")
+
+        # Define the dataset
+        dataset = TimeSeriesDataSet(
+            data,
+            time_idx="time_idx",
+            target="value",
+            group_ids=["group"],
+            static_categoricals=["group"],
+            max_encoder_length=4,
+            max_prediction_length=2,
+            time_varying_known_reals=["time_idx"],
+            time_varying_unknown_reals=["value", "feature"],
+            target_normalizer=None,
+            scalers={"feature": StandardScaler()},
+        )
+
+        next(iter(dataset))
+
+        # reset original mode
+        pd.options.mode.copy_on_write = copy_on_write
+
+        # Check if the specific warning was triggered
+        to_catch = "The given NumPy array is not writable, and PyTorch"
+        to_catch += " does not support non-writable tensors."
+        for warning in w:
+            if to_catch in str(warning.message):
+                assert False, "Non-writable NumPy array passed to torch.as_tensor"

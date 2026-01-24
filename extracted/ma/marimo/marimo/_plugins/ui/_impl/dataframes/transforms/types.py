@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import abc
@@ -13,10 +13,12 @@ from typing import (
     Union,
 )
 
-# Could be a DataFrame from pandas, polars, pyarrow, DataFrameProtocol, etc.
-DataFrameType = TypeVar("DataFrameType")
+from narwhals.typing import IntoDataFrame, IntoLazyFrame
 
-ColumnId = Union[str, int]
+# Could be a DataFrame from pandas, polars, pyarrow, DataFrameProtocol, etc.
+DataFrameType = Union[IntoDataFrame, IntoLazyFrame]
+
+ColumnId = str
 ColumnIds = list[ColumnId]
 NumpyDataType = str
 Operator = Literal[
@@ -38,6 +40,7 @@ Operator = Literal[
     "starts_with",
     "ends_with",
     "in",
+    "not_in",
 ]
 Aggregation = Literal[
     "count",
@@ -63,6 +66,7 @@ class TransformType(Enum):
     EXPLODE_COLUMNS = "explode_columns"
     EXPAND_DICT = "expand_dict"
     UNIQUE = "unique"
+    PIVOT = "pivot"
 
 
 @dataclass(frozen=True)
@@ -75,7 +79,7 @@ class Condition:
         return hash((self.column_id, self.operator, self.value))
 
     def __post_init__(self) -> None:
-        if self.operator == "in":
+        if self.operator == "in" or self.operator == "not_in":
             if isinstance(self.value, list):
                 # Hack to convert to tuple for frozen dataclass
                 # Only tuples can be hashed
@@ -84,7 +88,7 @@ class Condition:
                 pass
             else:
                 raise ValueError(
-                    "value must be a list or tuple for 'in' operator"
+                    "value must be a list or tuple for 'in' or 'not_in' operator"
                 )
 
 
@@ -124,6 +128,7 @@ class GroupByTransform:
     column_ids: ColumnIds
     drop_na: bool
     aggregation: Aggregation
+    aggregation_column_ids: ColumnIds
 
 
 @dataclass
@@ -172,10 +177,20 @@ class UniqueTransform:
     keep: UniqueKeep
 
 
+@dataclass
+class PivotTransform:
+    type: Literal[TransformType.PIVOT]
+    column_ids: ColumnIds
+    index_column_ids: ColumnIds
+    value_column_ids: ColumnIds
+    aggregation: Aggregation
+
+
 Transform = Union[
     AggregateTransform,
     ColumnConversionTransform,
     FilterRowsTransform,
+    PivotTransform,
     GroupByTransform,
     RenameColumnTransform,
     SelectColumnsTransform,
@@ -260,10 +275,15 @@ class TransformHandler(abc.ABC, Generic[T]):
         raise NotImplementedError
 
     @staticmethod
+    @abc.abstractmethod
+    def handle_pivot(df: T, transform: PivotTransform) -> T:
+        raise NotImplementedError
+
+    @staticmethod
     def as_python_code(
-        df_name: str, columns: list[str], transforms: list[Transform]
+        df: T, df_name: str, columns: list[str], transforms: list[Transform]
     ) -> str | None:
-        del df_name, transforms, columns
+        del df_name, transforms, columns, df
         return None
 
     @staticmethod

@@ -52,7 +52,8 @@ class ListQueueResponse200Item:
         schedule_path (Union[Unset, str]):
         flow_status (Union[Unset, ListQueueResponse200ItemFlowStatus]):
         workflow_as_code_status (Union[Unset, ListQueueResponse200ItemWorkflowAsCodeStatus]):
-        raw_flow (Union[Unset, ListQueueResponse200ItemRawFlow]):
+        raw_flow (Union[Unset, ListQueueResponse200ItemRawFlow]): The flow structure containing modules and optional
+            preprocessor/failure handlers
         language (Union[Unset, ListQueueResponse200ItemLanguage]):
         mem_peak (Union[Unset, int]):
         priority (Union[Unset, int]):

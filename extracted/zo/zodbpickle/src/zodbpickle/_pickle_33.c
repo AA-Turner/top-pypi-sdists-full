@@ -229,8 +229,6 @@ static PyObject *import_mapping_3to2 = NULL;
 /* XXX: Are these really nescessary? */
 /* As the name says, an empty tuple. */
 static PyObject *empty_tuple = NULL;
-/* For looking up name pairs in copyreg._extension_registry. */
-static PyObject *two_tuple = NULL;
 
 static int
 stack_underflow(void)
@@ -2793,14 +2791,18 @@ save_global(PicklerObject *self, PyObject *obj, PyObject *name)
         /* See whether this is in the extension registry, and if
          * so generate an EXT opcode.
          */
+        PyObject *extension_key;
         PyObject *code_obj;      /* extension code as Python object */
         long code;               /* extension code as C value */
         char pdata[5];
         Py_ssize_t n;
 
-        PyTuple_SET_ITEM(two_tuple, 0, module_name);
-        PyTuple_SET_ITEM(two_tuple, 1, global_name);
-        code_obj = PyDict_GetItem(extension_registry, two_tuple);
+        extension_key = PyTuple_Pack(2, module_name, global_name);
+        if (extension_key == NULL) {
+            goto error;
+        }
+        code_obj = PyDict_GetItem(extension_registry, extension_key);
+        Py_DECREF(extension_key);
         /* The object is not registered in the extension registry.
            This is the most likely code path. */
         if (code_obj == NULL)
@@ -3003,6 +3005,36 @@ save_notimplemented(PicklerObject *self, PyObject *obj)
     res = save_global(self, Py_NotImplemented, str);
     Py_DECREF(str);
     return res;
+}
+
+static int
+save_singleton_type(PicklerObject *self, PyObject *obj, PyObject *singleton)
+{
+    PyObject *reduce_value;
+    int status;
+
+    reduce_value = Py_BuildValue("O(O)", &PyType_Type, singleton);
+    if (reduce_value == NULL) {
+        return -1;
+    }
+    status = save_reduce(self, reduce_value, obj);
+    Py_DECREF(reduce_value);
+    return status;
+}
+
+static int
+save_type(PicklerObject *self, PyObject *obj)
+{
+    if (obj == (PyObject *)Py_TYPE(Py_None)) {
+        return save_singleton_type(self, obj, Py_None);
+    }
+    else if (obj == (PyObject *)&PyEllipsis_Type) {
+        return save_singleton_type(self, obj, Py_Ellipsis);
+    }
+    else if (obj == (PyObject *)Py_TYPE(Py_NotImplemented)) {
+        return save_singleton_type(self, obj, Py_NotImplemented);
+    }
+    return save_global(self, obj, NULL);
 }
 
 static int
@@ -3359,7 +3391,7 @@ save(PicklerObject *self, PyObject *obj, int pers_save)
         goto done;
     }
     else if (type == &PyType_Type) {
-        status = save_global(self, obj, NULL);
+        status = save_type(self, obj);
         goto done;
     }
     else if (type == &PyFunction_Type) {
@@ -7069,14 +7101,6 @@ initmodule(void)
     empty_tuple = PyTuple_New(0);
     if (empty_tuple == NULL)
         goto error;
-    two_tuple = PyTuple_New(2);
-    if (two_tuple == NULL)
-        goto error;
-    /* We use this temp container with no regard to refcounts, or to
-     * keeping containees alive.  Exempt from GC, because we don't
-     * want anything looking at two_tuple() by magic.
-     */
-    PyObject_GC_UnTrack(two_tuple);
 
     return 0;
 
@@ -7092,7 +7116,6 @@ initmodule(void)
     Py_CLEAR(name_mapping_3to2);
     Py_CLEAR(import_mapping_3to2);
     Py_CLEAR(empty_tuple);
-    Py_CLEAR(two_tuple);
     return -1;
 }
 

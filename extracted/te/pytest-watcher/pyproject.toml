@@ -1,8 +1,8 @@
-[tool.poetry]
+[project]
 name = "pytest-watcher"
-version = "0.4.3"
+dynamic = ["version"]
 description = "Automatically rerun your tests on file modifications"
-authors = ["Olzhas Arystanov <o.arystanov@gmail.com>"]
+authors = [{ name = "Olzhas Arystanov", email = "o.arystanov@gmail.com" }]
 license = "MIT"
 readme = "README.md"
 homepage = "https://github.com/olzhasar/pytest-watcher"
@@ -19,31 +19,41 @@ classifiers = [
     "Topic :: Utilities",
 ]
 include = ["LICENSE"]
+requires-python = ">=3.9"
+dependencies = [
+  "watchdog>=2.0.0",
+  "tomli>=2.0.1; python_version < '3.11'",
+]
 
-[tool.poetry.scripts]
+[project.scripts]
 pytest-watcher = "pytest_watcher:run"
 ptw = "pytest_watcher:run"
 
-[tool.poetry.dependencies]
-python = ">=3.7.0,<4.0.0"
-watchdog = ">=2.0.0"
-tomli = { version = "^2.0.1", python = "<3.11" }
-
-[tool.poetry.dev-dependencies]
-pytest = "*"
-ruff = "*"
-mypy = "*"
-pytest-mock = "*"
-freezegun = "*"
-tox = "*"
-sphinx = { version = "*", python = ">=3.8" }
-coverage = { extras = ["toml"], version = "*" }
-myst-parser = "^1.0.0"
-sphinx-rtd-theme = "^1.2.2"
+[dependency-groups]
+lint = [
+  "ruff",
+  "mypy",
+]
+doc = [
+  "sphinx",
+  "myst-parser==1.*",
+]
+test = [
+  "pytest",
+  "pytest-mock",
+  "freezegun",
+  "coverage[toml]",
+]
+release = [
+  "towncrier",
+]
+  
+[tool.hatch.version]
+source = "vcs"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
 
 [tool.coverage.run]
 source = ["pytest_watcher"]
@@ -54,6 +64,12 @@ line-length = 89
 lint.extend-select = ["I"]
 
 [tool.mypy]
-python_version = "3.7"
+python_version = "3.9"
 ignore_missing_imports = true
 exclude = ".venv"
+
+[tool.towncrier]
+directory = "changelog.d"
+filename = "CHANGELOG.md"
+title_format = "## [{version}](https://github.com/olzhasar/pytest-watcher/releases/tag/{version}) - {project_date}"
+issue_format = "[#{issue}](https://github.com/olzhasar/pytest-watcher/issues/{issue})"

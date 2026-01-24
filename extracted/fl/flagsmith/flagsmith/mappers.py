@@ -1,27 +1,60 @@
 import json
 import typing
+import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from operator import itemgetter
 
 import sseclient
 from flag_engine.context.types import (
-    EvaluationContext,
     FeatureContext,
     SegmentContext,
     SegmentRule,
+    StrValueSegmentCondition,
 )
+from flag_engine.result.types import SegmentResult
 from flag_engine.segments.types import ContextValue
 
-from flagsmith.types import StreamEvent, TraitConfig
+from flagsmith.api.types import (
+    EnvironmentModel,
+    FeatureStateModel,
+    IdentityModel,
+    SegmentRuleModel,
+)
+from flagsmith.models import Segment
+from flagsmith.types import (
+    FeatureMetadata,
+    SDKEvaluationContext,
+    SegmentMetadata,
+    StreamEvent,
+    TraitConfig,
+)
+from flagsmith.utils.datetime import fromisoformat
 
 OverrideKey = typing.Tuple[
-    str,
+    int,
     str,
     bool,
     typing.Any,
 ]
 OverridesKey = typing.Tuple[OverrideKey, ...]
+
+
+def map_segment_results_to_identity_segments(
+    segment_results: list[SegmentResult[SegmentMetadata]],
+) -> list[Segment]:
+    identity_segments: list[Segment] = []
+    for segment_result in segment_results:
+        if metadata := segment_result.get("metadata"):
+            if metadata.get("source") == "api" and (
+                (segment_id := metadata.get("id")) is not None
+            ):
+                identity_segments.append(
+                    Segment(
+                        id=segment_id,
+                        name=segment_result["name"],
+                    )
+                )
+    return identity_segments
 
 
 def map_sse_event_to_stream_event(event: sseclient.Event) -> StreamEvent:
@@ -37,15 +70,13 @@ def map_sse_event_to_stream_event(event: sseclient.Event) -> StreamEvent:
 def map_environment_document_to_environment_updated_at(
     environment_document: dict[str, typing.Any],
 ) -> datetime:
-    if (
-        updated_at := datetime.fromisoformat(environment_document["updated_at"])
-    ).tzinfo is None:
+    if (updated_at := fromisoformat(environment_document["updated_at"])).tzinfo is None:
         return updated_at.replace(tzinfo=timezone.utc)
     return updated_at.astimezone(tz=timezone.utc)
 
 
 def map_context_and_identity_data_to_context(
-    context: EvaluationContext,
+    context: SDKEvaluationContext,
     identifier: str,
     traits: typing.Optional[
         typing.Mapping[
@@ -56,12 +87,11 @@ def map_context_and_identity_data_to_context(
             ],
         ]
     ],
-) -> EvaluationContext:
+) -> SDKEvaluationContext:
     return {
         **context,
         "identity": {
             "identifier": identifier,
-            "key": f"{context['environment']['key']}_{identifier}",
             "traits": {
                 trait_key: (
                     trait_value_or_config["value"]
@@ -75,8 +105,8 @@ def map_context_and_identity_data_to_context(
 
 
 def map_environment_document_to_context(
-    environment_document: dict[str, typing.Any],
-) -> EvaluationContext:
+    environment_document: EnvironmentModel,
+) -> SDKEvaluationContext:
     return {
         "environment": {
             "key": environment_document["api_key"],
@@ -90,7 +120,7 @@ def map_environment_document_to_context(
         },
         "segments": {
             **{
-                (segment_key := str(segment["id"])): {
+                (segment_key := str(segment_id := segment["id"])): {
                     "key": segment_key,
                     "name": segment["name"],
                     "rules": _map_environment_document_rules_to_context_rules(
@@ -100,6 +130,10 @@ def map_environment_document_to_context(
                         _map_environment_document_feature_states_to_feature_contexts(
                             segment.get("feature_states") or []
                         )
+                    ),
+                    "metadata": SegmentMetadata(
+                        id=segment_id,
+                        source="api",
                     ),
                 }
                 for segment in environment_document["project"]["segments"]
@@ -112,21 +146,19 @@ def map_environment_document_to_context(
 
 
 def _map_identity_overrides_to_segments(
-    identity_overrides: list[dict[str, typing.Any]],
-) -> dict[str, SegmentContext]:
+    identity_overrides: list[IdentityModel],
+) -> dict[str, SegmentContext[SegmentMetadata, FeatureMetadata]]:
     features_to_identifiers: typing.Dict[
         OverridesKey,
         typing.List[str],
     ] = defaultdict(list)
     for identity_override in identity_overrides:
-        identity_features: list[dict[str, typing.Any]] = identity_override[
-            "identity_features"
-        ]
+        identity_features = identity_override["identity_features"]
         if not identity_features:
             continue
         overrides_key = tuple(
             (
-                str(feature_state["feature"]["id"]),
+                feature_state["feature"]["id"],
                 feature_state["feature"]["name"],
                 feature_state["enabled"],
                 feature_state["feature_state_value"],
@@ -137,7 +169,13 @@ def _map_identity_overrides_to_segments(
             )
         )
         features_to_identifiers[overrides_key].append(identity_override["identifier"])
-    segment_contexts: typing.Dict[str, SegmentContext] = {}
+    segment_contexts: typing.Dict[
+        str,
+        SegmentContext[
+            SegmentMetadata,
+            FeatureMetadata,
+        ],
+    ] = {}
     for overrides_key, identifiers in features_to_identifiers.items():
         # Create a segment context for each unique set of overrides
         # Generate a unique key to avoid collisions
@@ -160,27 +198,28 @@ def _map_identity_overrides_to_segments(
             overrides=[
                 {
                     "key": "",  # Identity overrides never carry multivariate options
-                    "feature_key": feature_key,
                     "name": feature_name,
                     "enabled": feature_enabled,
                     "value": feature_value,
                     "priority": float("-inf"),  # Highest possible priority
+                    "metadata": {"id": feature_id},
                 }
-                for feature_key, feature_name, feature_enabled, feature_value in overrides_key
+                for feature_id, feature_name, feature_enabled, feature_value in overrides_key
             ],
+            metadata=SegmentMetadata(source="identity_overrides"),
         )
     return segment_contexts
 
 
 def _map_environment_document_rules_to_context_rules(
-    rules: list[dict[str, typing.Any]],
+    rules: list[SegmentRuleModel],
 ) -> list[SegmentRule]:
     return [
         dict(
             type=rule["type"],
             conditions=[
-                dict(
-                    property=condition.get("property_"),
+                StrValueSegmentCondition(
+                    property=condition.get("property_") or "",
                     operator=condition["operator"],
                     value=condition["value"],
                 )
@@ -195,17 +234,18 @@ def _map_environment_document_rules_to_context_rules(
 
 
 def _map_environment_document_feature_states_to_feature_contexts(
-    feature_states: list[dict[str, typing.Any]],
-) -> typing.Iterable[FeatureContext]:
+    feature_states: list[FeatureStateModel],
+) -> typing.Iterable[FeatureContext[FeatureMetadata]]:
     for feature_state in feature_states:
-        feature_context = FeatureContext(
+        metadata: FeatureMetadata = {"id": feature_state["feature"]["id"]}
+        feature_context = FeatureContext[FeatureMetadata](
             key=str(
                 feature_state.get("django_id") or feature_state["featurestate_uuid"]
             ),
-            feature_key=str(feature_state["feature"]["id"]),
             name=feature_state["feature"]["name"],
             enabled=feature_state["enabled"],
             value=feature_state["feature_state_value"],
+            metadata=metadata,
         )
         if multivariate_feature_state_values := feature_state.get(
             "multivariate_feature_state_values"
@@ -216,16 +256,17 @@ def _map_environment_document_feature_states_to_feature_contexts(
                         "multivariate_feature_option"
                     ]["value"],
                     "weight": multivariate_feature_state_value["percentage_allocation"],
+                    "priority": (
+                        multivariate_feature_state_value.get("id")
+                        or uuid.UUID(
+                            multivariate_feature_state_value["mv_fs_value_uuid"]
+                        ).int
+                    ),
                 }
-                for multivariate_feature_state_value in sorted(
-                    multivariate_feature_state_values,
-                    key=itemgetter("id"),
-                )
+                for multivariate_feature_state_value in multivariate_feature_state_values
             ]
-        if (
-            priority := (feature_state.get("feature_segment") or {}).get("priority")
-            is not None
-        ):
-            feature_context["priority"] = priority
+
+        if feature_segment := feature_state.get("feature_segment"):
+            feature_context["priority"] = feature_segment["priority"]
 
         yield feature_context

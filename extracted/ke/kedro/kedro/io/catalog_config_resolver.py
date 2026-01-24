@@ -304,7 +304,7 @@ class CatalogConfigResolver:
             if isinstance(config, dict):
                 for value in config.values():
                     _traverse_config(value)
-            elif isinstance(config, (list, tuple)):
+            elif isinstance(config, (list | tuple)):
                 for value in config:
                     _traverse_config(value)
             elif isinstance(config, str) and "}" in config:
@@ -353,7 +353,7 @@ class CatalogConfigResolver:
         if isinstance(config, dict):
             for key, value in config.items():
                 config[key] = cls._resolve_dataset_config(ds_name, pattern, value)
-        elif isinstance(config, (list, tuple)):
+        elif isinstance(config, (list | tuple)):
             config = [
                 cls._resolve_dataset_config(ds_name, pattern, value) for value in config
             ]
@@ -394,7 +394,7 @@ class CatalogConfigResolver:
         return patterns
 
     @classmethod
-    def _get_matches(cls, pattens: Iterable[str], ds_name: str) -> Generator[str]:
+    def _get_matches(cls, patterns: Iterable[str], ds_name: str) -> Generator[str]:
         """
         Find all patterns that match a given dataset name.
 
@@ -402,7 +402,7 @@ class CatalogConfigResolver:
         dataset name matches any of them using the `parse` function.
 
         Args:
-            pattens: A collection of patterns to match against.
+            patterns: A collection of patterns to match against.
             ds_name: The name of the dataset to match.
 
         Returns:
@@ -416,7 +416,7 @@ class CatalogConfigResolver:
         # ['{namespace}.int_{name}']
         ```
         """
-        return (pattern for pattern in pattens if parse(pattern, ds_name))
+        return (pattern for pattern in patterns if parse(pattern, ds_name))
 
     def match_dataset_pattern(self, ds_name: str) -> str | None:
         """

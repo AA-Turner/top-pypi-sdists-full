@@ -110,6 +110,22 @@ class Document(proto.Message):
             Parsed layout of the document.
         chunked_document (google.cloud.documentai_v1.types.Document.ChunkedDocument):
             Document chunked based on chunking config.
+        entity_validation_output (google.cloud.documentai_v1.types.Document.EntityValidationOutput):
+            The entity validation output for the document. This is the
+            validation output for ``document.entities`` field.
+        entities_revisions (MutableSequence[google.cloud.documentai_v1.types.Document.EntitiesRevision]):
+            A list of entity revisions. The entity
+            revisions are appended to the document in the
+            processing order. This field can be used for
+            comparing the entity extraction results at
+            different stages of the processing.
+        entities_revision_id (str):
+            The entity revision id that ``document.entities`` field is
+            based on. If this field is set and ``entities_revisions`` is
+            not empty, the entities in ``document.entities`` field are
+            the entities in the entity revision with this id and
+            ``document.entity_validation_output`` field is the
+            ``entity_validation_output`` field in this entity revision.
     """
 
     class ShardInfo(proto.Message):
@@ -366,7 +382,7 @@ class Document(proto.Message):
                     uses. For example, 0 (CV_8U) is an unsigned 8-bit image. For
                     the full list of OpenCV primitive data types, please refer
                     to
-                    https://docs.opencv.org/4.3.0/d1/d1b/group__core__hal__interface.html
+                    https://docs.opencv.org/4.3.0/d1/d1b/group\__core\__hal\__interface.html
                 data (bytes):
                     The matrix data.
             """
@@ -619,7 +635,7 @@ class Document(proto.Message):
                         Font size in pixels, equal to *unrounded
                         [font_size][google.cloud.documentai.v1.Document.Page.Token.StyleInfo.font_size]*
 
-                        -  *resolution* ÷ ``72.0``.
+                        - *resolution* ÷ ``72.0``.
                     letter_spacing (float):
                         Letter spacing in points.
                     font_type (str):
@@ -935,9 +951,9 @@ class Document(proto.Message):
                     If the value is non-textual, this field represents the type.
                     Current valid values are:
 
-                    -  blank (this indicates the ``field_value`` is normal text)
-                    -  ``unfilled_checkbox``
-                    -  ``filled_checkbox``
+                    - blank (this indicates the ``field_value`` is normal text)
+                    - ``unfilled_checkbox``
+                    - ``filled_checkbox``
                 corrected_key_text (str):
                     Created for Labeling UI to export key text. If corrections
                     were made to the text identified by the
@@ -1057,14 +1073,14 @@ class Document(proto.Message):
                     type_ (str):
                         Name of the defect type. Supported values are:
 
-                        -  ``quality/defect_blurry``
-                        -  ``quality/defect_noisy``
-                        -  ``quality/defect_dark``
-                        -  ``quality/defect_faint``
-                        -  ``quality/defect_text_too_small``
-                        -  ``quality/defect_document_cutoff``
-                        -  ``quality/defect_text_cutoff``
-                        -  ``quality/defect_glare``
+                        - ``quality/defect_blurry``
+                        - ``quality/defect_noisy``
+                        - ``quality/defect_dark``
+                        - ``quality/defect_faint``
+                        - ``quality/defect_text_too_small``
+                        - ``quality/defect_document_cutoff``
+                        - ``quality/defect_text_cutoff``
+                        - ``quality/defect_glare``
                     confidence (float):
                         Confidence of detected defect. Range ``[0, 1]`` where ``1``
                         indicates strong confidence that the defect exists.
@@ -1308,12 +1324,11 @@ class Document(proto.Message):
 
                     Below are sample formats mapped to structured values.
 
-                    -  Money/Currency type (``money_value``) is in the ISO 4217
-                       text format.
-                    -  Date type (``date_value``) is in the ISO 8601 text
-                       format.
-                    -  Datetime type (``datetime_value``) is in the ISO 8601
-                       text format.
+                    - Money/Currency type (``money_value``) is in the ISO 4217
+                      text format.
+                    - Date type (``date_value``) is in the ISO 8601 text format.
+                    - Datetime type (``datetime_value``) is in the ISO 8601 text
+                      format.
             """
 
             money_value: money_pb2.Money = proto.Field(
@@ -2227,6 +2242,113 @@ class Document(proto.Message):
             message="Document.ChunkedDocument.Chunk",
         )
 
+    class EntityValidationOutput(proto.Message):
+        r"""The output of the validation given the document and the
+        validation rules.
+
+        Attributes:
+            validation_results (MutableSequence[google.cloud.documentai_v1.types.Document.EntityValidationOutput.ValidationResult]):
+                The result of each validation rule.
+            pass_all_rules (bool):
+                The overall result of the validation, true if
+                all applicable rules are valid.
+        """
+
+        class ValidationResult(proto.Message):
+            r"""Validation result for a single validation rule.
+
+            Attributes:
+                rule_name (str):
+                    The name of the validation rule.
+                rule_description (str):
+                    The description of the validation rule.
+                validation_result_type (google.cloud.documentai_v1.types.Document.EntityValidationOutput.ValidationResult.ValidationResultType):
+                    The result of the validation rule.
+                validation_details (str):
+                    The detailed information of the running the
+                    validation process using the entity from the
+                    document based on the validation rule.
+            """
+
+            class ValidationResultType(proto.Enum):
+                r"""The result of the validation rule.
+
+                Values:
+                    VALIDATION_RESULT_TYPE_UNSPECIFIED (0):
+                        The validation result type is unspecified.
+                    VALIDATION_RESULT_TYPE_VALID (1):
+                        The validation is valid.
+                    VALIDATION_RESULT_TYPE_INVALID (2):
+                        The validation is invalid.
+                    VALIDATION_RESULT_TYPE_SKIPPED (3):
+                        The validation is skipped.
+                    VALIDATION_RESULT_TYPE_NOT_APPLICABLE (4):
+                        The validation is not applicable.
+                """
+                VALIDATION_RESULT_TYPE_UNSPECIFIED = 0
+                VALIDATION_RESULT_TYPE_VALID = 1
+                VALIDATION_RESULT_TYPE_INVALID = 2
+                VALIDATION_RESULT_TYPE_SKIPPED = 3
+                VALIDATION_RESULT_TYPE_NOT_APPLICABLE = 4
+
+            rule_name: str = proto.Field(
+                proto.STRING,
+                number=1,
+            )
+            rule_description: str = proto.Field(
+                proto.STRING,
+                number=2,
+            )
+            validation_result_type: "Document.EntityValidationOutput.ValidationResult.ValidationResultType" = proto.Field(
+                proto.ENUM,
+                number=3,
+                enum="Document.EntityValidationOutput.ValidationResult.ValidationResultType",
+            )
+            validation_details: str = proto.Field(
+                proto.STRING,
+                number=4,
+            )
+
+        validation_results: MutableSequence[
+            "Document.EntityValidationOutput.ValidationResult"
+        ] = proto.RepeatedField(
+            proto.MESSAGE,
+            number=1,
+            message="Document.EntityValidationOutput.ValidationResult",
+        )
+        pass_all_rules: bool = proto.Field(
+            proto.BOOL,
+            number=2,
+        )
+
+    class EntitiesRevision(proto.Message):
+        r"""Entity revision.
+
+        Attributes:
+            revision_id (str):
+                The revision id.
+            entities (MutableSequence[google.cloud.documentai_v1.types.Document.Entity]):
+                The entities in this revision.
+            entity_validation_output (google.cloud.documentai_v1.types.Document.EntityValidationOutput):
+                The entity validation output for this
+                revision.
+        """
+
+        revision_id: str = proto.Field(
+            proto.STRING,
+            number=1,
+        )
+        entities: MutableSequence["Document.Entity"] = proto.RepeatedField(
+            proto.MESSAGE,
+            number=2,
+            message="Document.Entity",
+        )
+        entity_validation_output: "Document.EntityValidationOutput" = proto.Field(
+            proto.MESSAGE,
+            number=3,
+            message="Document.EntityValidationOutput",
+        )
+
     uri: str = proto.Field(
         proto.STRING,
         number=1,
@@ -2298,6 +2420,20 @@ class Document(proto.Message):
         proto.MESSAGE,
         number=18,
         message=ChunkedDocument,
+    )
+    entity_validation_output: EntityValidationOutput = proto.Field(
+        proto.MESSAGE,
+        number=21,
+        message=EntityValidationOutput,
+    )
+    entities_revisions: MutableSequence[EntitiesRevision] = proto.RepeatedField(
+        proto.MESSAGE,
+        number=22,
+        message=EntitiesRevision,
+    )
+    entities_revision_id: str = proto.Field(
+        proto.STRING,
+        number=23,
     )
 
 

@@ -6,14 +6,16 @@ import logging
 import random
 import time
 from collections import defaultdict
+from itertools import groupby
 
 from dateutil.relativedelta import relativedelta
 from sql import Literal
-from sql.conditionals import Coalesce
+from sql.conditionals import Case, Coalesce
+from sql.functions import CurrentTimestamp, Extract
 
-from trytond import backend
-from trytond.config import config
+from trytond import backend, config
 from trytond.exceptions import UserError, UserWarning
+from trytond.i18n import gettext, ngettext
 from trytond.model import (
     DeactivableMixin, Index, ModelSQL, ModelView, dualmethod, fields)
 from trytond.pool import Pool
@@ -24,7 +26,6 @@ from trytond.tools import timezone as tz
 from trytond.transaction import Transaction, TransactionError
 from trytond.worker import run_task
 
-clean_days = config.getint('cron', 'clean_days', default=30)
 logger = logging.getLogger(__name__)
 
 
@@ -95,6 +96,7 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
             ('ir.queue|clean', "Clean Task Queue"),
             ('ir.error|clean', "Clean Errors"),
             ('ir.cron.log|clean', "Clean Cron Logs"),
+            ('ir.model|refresh_materialized', "Refresh Materialized Models"),
             ], "Method", required=True, states=_states)
 
     logs = fields.One2Many('ir.cron.log', 'cron', "Logs", readonly=True)
@@ -113,6 +115,7 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
                     },
                 })
         cls._sql_indexes.add(Index(table, (table.next_call, Index.Range())))
+        cls._notifications = set()
 
     @classmethod
     def default_timezone(cls):
@@ -145,6 +148,17 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
                     running.update(
                         (i, True) for i in ids if i not in not_running)
         return running
+
+    @classmethod
+    def notifications(cls):
+        "Yield method and label which support user notification"
+        pool = Pool()
+        ModelAccess = pool.get('ir.model.access')
+        for method, label in cls.fields_get(['method'])['method']['selection']:
+            if method in cls._notifications:
+                model_name, _ = method.split('|')
+                if ModelAccess.check(model_name, raise_exception=False):
+                    yield method, label
 
     @classmethod
     def view_attributes(cls):
@@ -246,7 +260,8 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
                 try:
                     if not database.has_select_for():
                         task.lock()
-                    with processing(name):
+                    with processing(name), \
+                            transaction.set_context(_cron=task.method):
                         task.run_once()
                     task.next_call = task.compute_next_call(now)
                     task.save()
@@ -293,6 +308,43 @@ class Cron(DeactivableMixin, ModelSQL, ModelView):
                     transaction.rollback()
         logger.info('cron finished for "%s"', db_name)
 
+    @classmethod
+    def notify(
+            cls, icon, action_id, action_value,
+            message_id, n=None, **variables):
+        "Notify subscribed users to the current cron task"
+        pool = Pool()
+        User = pool.get('res.user')
+        Notification = pool.get('res.notification')
+        ModelData = pool.get('ir.model.data')
+        transaction = Transaction()
+        if method := transaction.context.get('_cron'):
+            notifications = []
+            if action_id is not None:
+                action_id = ModelData.get_id(action_id)
+            users = User.search([
+                    ('notifications', 'in', method),
+                    ])
+            for language, users in groupby(
+                    users, key=lambda u: u.language):
+                language = language.code if language else None
+                with transaction.set_context(language=language):
+                    label = dict(cls.notifications()).get(method, method)
+                    if n is None:
+                        msg = gettext(message_id, **variables)
+                    else:
+                        msg = ngettext(message_id, n, **variables)
+                for user in users:
+                    notifications.append(Notification(
+                            user=user,
+                            label=label,
+                            description=msg,
+                            icon=icon,
+                            action=action_id,
+                            action_value=action_value,
+                            ))
+            Notification.save(notifications)
+
 
 class Log(ModelSQL, ModelView):
     __name__ = 'ir.cron.log'
@@ -313,9 +365,34 @@ class Log(ModelSQL, ModelView):
         return self.ended - self.started
 
     @classmethod
-    def clean(cls, date=None):
-        if date is None:
-            date = (
-                datetime.datetime.now() - datetime.timedelta(days=clean_days))
-        logs = cls.search([('create_date', '<', date)])
+    def clean(cls, size=None):
+        pool = Pool()
+        Cron = pool.get('ir.cron')
+        cursor = Transaction().connection.cursor()
+
+        log = cls.__table__()
+        cron = Cron.__table__()
+
+        if size is None:
+            size = config.getint('cron', 'log_size', default=100)
+
+        interval = Case(
+            (cron.interval_type == 'minutes', datetime.timedelta(minutes=1)),
+            (cron.interval_type == 'hours', datetime.timedelta(hours=1)),
+            (cron.interval_type == 'days', datetime.timedelta(days=1)),
+            (cron.interval_type == 'weeks', datetime.timedelta(weeks=1)),
+            (cron.interval_type == 'months', datetime.timedelta(days=30)))
+
+        started = log.started
+        now = CurrentTimestamp()
+        if backend.name == 'sqlite':
+            started = Extract('epoch', started)
+            now = Extract('epoch', now)
+
+        cursor.execute(*log
+            .join(cron, condition=log.cron == cron.id)
+            .select(log.id,
+                where=started < (
+                    now - (interval * cron.interval_number * size))))
+        logs = cls.browse([l for l, in cursor])
         cls.delete(logs)

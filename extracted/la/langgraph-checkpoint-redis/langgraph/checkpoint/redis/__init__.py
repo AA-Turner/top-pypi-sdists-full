@@ -67,25 +67,28 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         redis_client: Optional[Union[Redis, RedisCluster]] = None,
         connection_args: Optional[Dict[str, Any]] = None,
         ttl: Optional[Dict[str, Any]] = None,
+        checkpoint_prefix: str = CHECKPOINT_PREFIX,
+        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
+        checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> None:
         super().__init__(
             redis_url=redis_url,
             redis_client=redis_client,
             connection_args=connection_args,
             ttl=ttl,
+            checkpoint_prefix=checkpoint_prefix,
+            checkpoint_blob_prefix=checkpoint_blob_prefix,
+            checkpoint_write_prefix=checkpoint_write_prefix,
         )
-        # Pre-compute common prefixes for performance
-        self._checkpoint_prefix = CHECKPOINT_PREFIX
-        self._checkpoint_blob_prefix = CHECKPOINT_BLOB_PREFIX
-        self._checkpoint_write_prefix = CHECKPOINT_WRITE_PREFIX
+        # Prefixes are now set in BaseRedisSaver.__init__
         self._separator = REDIS_KEY_SEPARATOR
 
         # Instance-level cache for frequently used keys (limited size to prevent memory issues)
         self._key_cache: Dict[str, str] = {}
         self._key_cache_max_size = 1000  # Configurable limit
 
-        # Initialize key registry
-        self._key_registry = SyncCheckpointKeyRegistry(self._redis)
+        # Key registry will be initialized in setup()
+        self._key_registry: Optional[SyncCheckpointKeyRegistry] = None
 
     def configure_client(
         self,
@@ -94,20 +97,35 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         connection_args: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Configure the Redis client."""
+        from redis.exceptions import ResponseError
+
+        from langgraph.checkpoint.redis.version import __full_lib_name__
+
         self._owns_its_client = redis_client is None
         self._redis = redis_client or RedisConnectionFactory.get_redis_connection(
             redis_url, **connection_args
         )
 
+        # Set client info for Redis monitoring
+        try:
+            self._redis.client_setinfo("LIB-NAME", __full_lib_name__)
+        except (ResponseError, AttributeError):
+            # Fall back to a simple echo if client_setinfo is not available
+            try:
+                self._redis.echo(__full_lib_name__)
+            except Exception:
+                # Silently fail if even echo doesn't work
+                pass
+
     def create_indexes(self) -> None:
         self.checkpoints_index = SearchIndex.from_dict(
-            self.SCHEMAS[0], redis_client=self._redis
+            self.checkpoints_schema, redis_client=self._redis
         )
         self.checkpoint_blobs_index = SearchIndex.from_dict(
-            self.SCHEMAS[1], redis_client=self._redis
+            self.blobs_schema, redis_client=self._redis
         )
         self.checkpoint_writes_index = SearchIndex.from_dict(
-            self.SCHEMAS[2], redis_client=self._redis
+            self.writes_schema, redis_client=self._redis
         )
 
     def _make_redis_checkpoint_key_cached(
@@ -224,6 +242,8 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                 Tag("thread_id")
                 == to_storage_safe_id(config["configurable"]["thread_id"])
             )
+            if run_id := config["configurable"].get("run_id"):
+                filter_expression.append(Tag("run_id") == to_storage_safe_id(run_id))
 
             # Search for checkpoints with any namespace, including an empty
             # string, while `checkpoint_id` has to have a value.
@@ -242,6 +262,10 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                     filter_expression.append(Tag("source") == v)
                 elif k == "step":
                     filter_expression.append(Num("step") == v)
+                elif k == "thread_id":
+                    filter_expression.append(Tag("thread_id") == to_storage_safe_id(v))
+                elif k == "run_id":
+                    filter_expression.append(Tag("run_id") == to_storage_safe_id(v))
                 else:
                     raise ValueError(f"Unsupported filter key: {k}")
 
@@ -263,6 +287,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
             combined_filter &= expr
 
         # Construct the Redis query
+        # Sort by checkpoint_id in descending order to get most recent checkpoints first
         query = FilterQuery(
             filter_expression=combined_filter,
             return_fields=[
@@ -275,6 +300,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                 "has_writes",  # Include has_writes to optimize pending_writes loading
             ],
             num_results=limit or 10000,
+            sort_by=("checkpoint_id", "DESC"),
         )
 
         # Execute the query
@@ -456,6 +482,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         """Store a checkpoint to Redis with separate blob storage."""
         configurable = config["configurable"].copy()
 
+        run_id = configurable.pop("run_id", metadata.get("run_id"))
         thread_id = configurable.pop("thread_id")
         checkpoint_ns = configurable.pop("checkpoint_ns")
         # Get checkpoint_id from config - this will be parent if saving a child
@@ -509,6 +536,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
 
         checkpoint_data = {
             "thread_id": storage_safe_thread_id,
+            "run_id": to_storage_safe_id(run_id) if run_id else "",
             "checkpoint_ns": storage_safe_checkpoint_ns,
             "checkpoint_id": storage_safe_checkpoint_id,
             "parent_checkpoint_id": (
@@ -581,7 +609,9 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                 "idx": WRITES_IDX_MAP.get(channel, idx),
                 "channel": channel,
                 "type": type_,
-                "blob": blob,
+                "blob": self._encode_blob(
+                    blob
+                ),  # Encode bytes to base64 string for Redis
             }
             writes_objects.append(write_obj)
 
@@ -601,7 +631,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                     idx_value,
                 )
                 write_keys.append(key)
-                pipeline.json().set(key, "$", write_obj)
+                pipeline.json().set(key, "$", cast(Any, write_obj))
                 created_keys.append(key)
 
             # Add TTL operations to the pipeline if configured
@@ -636,7 +666,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                                 task_id,
                                 idx_value,
                             )
-                            fallback_pipeline.json().set(key, "$", write_obj)
+                            fallback_pipeline.json().set(key, "$", cast(Any, write_obj))
 
                         # Add TTL operations if configured
                         if (
@@ -829,7 +859,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         write_results = self.checkpoint_writes_index.search(write_query)
 
         return [
-            BaseRedisSaver._make_redis_checkpoint_writes_key(
+            self._make_redis_checkpoint_writes_key(
                 to_storage_safe_id(thread_id),
                 to_storage_safe_str(checkpoint_ns),
                 to_storage_safe_id(checkpoint_id),
@@ -936,14 +966,13 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                 doc_checkpoint_id,
             )
 
-            # Check current TTL before doing expensive refresh operations
+            # Always refresh TTL when refresh_on_read is enabled
+            # This ensures all related keys maintain synchronized TTLs
             current_ttl = self._redis.ttl(checkpoint_key)
-            default_ttl_minutes = self.ttl_config.get("default_ttl", 60)
-            ttl_threshold = int(default_ttl_minutes * 60 * 0.6)  # 60% of original TTL
 
-            # Only refresh if TTL is below threshold (or key doesn't exist)
+            # Only refresh if key exists and has TTL (skip keys with no expiry)
             # TTL states: -2 = key doesn't exist, -1 = key exists but no TTL, 0 = expired, >0 = seconds remaining
-            if current_ttl == -2 or (current_ttl > 0 and current_ttl <= ttl_threshold):
+            if current_ttl > 0:
                 # Note: We don't refresh TTL for keys with no expiry (TTL = -1)
                 # Get all blob keys related to this checkpoint
                 from langgraph.checkpoint.redis.base import (
@@ -1101,6 +1130,9 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
         redis_client: Optional[Union[Redis, RedisCluster]] = None,
         connection_args: Optional[Dict[str, Any]] = None,
         ttl: Optional[Dict[str, Any]] = None,
+        checkpoint_prefix: str = CHECKPOINT_PREFIX,
+        checkpoint_blob_prefix: str = CHECKPOINT_BLOB_PREFIX,
+        checkpoint_write_prefix: str = CHECKPOINT_WRITE_PREFIX,
     ) -> Iterator[RedisSaver]:
         """Create a new RedisSaver instance."""
         saver: Optional[RedisSaver] = None
@@ -1110,6 +1142,9 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                 redis_client=redis_client,
                 connection_args=connection_args,
                 ttl=ttl,
+                checkpoint_prefix=checkpoint_prefix,
+                checkpoint_blob_prefix=checkpoint_blob_prefix,
+                checkpoint_write_prefix=checkpoint_write_prefix,
             )
 
             yield saver
@@ -1437,7 +1472,8 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
                 pass
 
         # FALLBACK: Use FT.SEARCH if registry not available or failed
-        return self._load_pending_writes(thread_id, checkpoint_ns, checkpoint_id)
+        # Call the base class implementation to avoid recursion
+        return super()._load_pending_writes(thread_id, checkpoint_ns, checkpoint_id)
 
     def _load_pending_sends_with_registry_check(
         self,
@@ -1596,7 +1632,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
             channel = getattr(doc, "channel", "")
             version = getattr(doc, "version", "")
 
-            blob_key = BaseRedisSaver._make_redis_checkpoint_blob_key(
+            blob_key = self._make_redis_checkpoint_blob_key(
                 storage_safe_thread_id, checkpoint_ns, channel, version
             )
             keys_to_delete.append(blob_key)
@@ -1616,7 +1652,7 @@ class RedisSaver(BaseRedisSaver[Union[Redis, RedisCluster], SearchIndex]):
             task_id = getattr(doc, "task_id", "")
             idx = getattr(doc, "idx", 0)
 
-            write_key = BaseRedisSaver._make_redis_checkpoint_writes_key(
+            write_key = self._make_redis_checkpoint_writes_key(
                 storage_safe_thread_id, checkpoint_ns, checkpoint_id, task_id, idx
             )
             keys_to_delete.append(write_key)

@@ -7,13 +7,14 @@ use serde::{Deserialize, Serialize};
 use {
     common_py_serde::{deserialize_py_object, serialize_py_object},
     daft_schema::python::{datatype::PyTimeUnit, field::PyField},
-    pyo3::{PyObject, PyResult, Python, pyclass, pymethods, types::PyAnyMethods},
+    pyo3::{Py, PyAny, PyResult, Python, pyclass, pymethods, types::PyAnyMethods},
 };
 
 use crate::FileFormat;
 
 /// Configuration for parsing a particular file format.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub enum FileFormatConfig {
     Parquet(ParquetSourceConfig),
     Csv(CsvSourceConfig),
@@ -22,7 +23,17 @@ pub enum FileFormatConfig {
     #[cfg(feature = "python")]
     Database(DatabaseSourceConfig),
     #[cfg(feature = "python")]
-    PythonFunction,
+    PythonFunction {
+        source_type: Option<String>,
+        module_name: Option<String>,
+        function_name: Option<String>,
+    },
+}
+#[cfg(not(debug_assertions))]
+impl std::fmt::Debug for FileFormatConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.var_name())
+    }
 }
 
 impl FileFormatConfig {
@@ -32,16 +43,29 @@ impl FileFormatConfig {
     }
 
     #[must_use]
-    pub fn var_name(&self) -> &'static str {
+    pub fn var_name(&self) -> String {
         match self {
-            Self::Parquet(_) => "Parquet",
-            Self::Csv(_) => "Csv",
-            Self::Json(_) => "Json",
-            Self::Warc(_) => "Warc",
+            Self::Parquet(_) => "Parquet".to_string(),
+            Self::Csv(_) => "Csv".to_string(),
+            Self::Json(_) => "Json".to_string(),
+            Self::Warc(_) => "Warc".to_string(),
             #[cfg(feature = "python")]
-            Self::Database(_) => "Database",
+            Self::Database(_) => "Database".to_string(),
             #[cfg(feature = "python")]
-            Self::PythonFunction => "PythonFunction",
+            Self::PythonFunction {
+                source_type,
+                module_name,
+                function_name: _,
+            } => {
+                if let Some(source_type) = source_type {
+                    format!("{}(Python)", source_type)
+                } else if let Some(module_name) = module_name {
+                    // Infer type from module name
+                    format!("{}(Python)", module_name)
+                } else {
+                    "PythonFunction".to_string()
+                }
+            }
         }
     }
 
@@ -55,14 +79,15 @@ impl FileFormatConfig {
             #[cfg(feature = "python")]
             Self::Database(source) => source.multiline_display(),
             #[cfg(feature = "python")]
-            Self::PythonFunction => vec![],
+            Self::PythonFunction { .. } => vec![],
         }
     }
 }
 
 /// Configuration for a Parquet data source.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
 #[cfg_attr(feature = "python", pyclass(module = "daft.daft"))]
+#[cfg_attr(debug_assertions, derive(Debug))]
 pub struct ParquetSourceConfig {
     pub coerce_int96_timestamp_unit: TimeUnit,
 
@@ -163,7 +188,8 @@ impl ParquetSourceConfig {
 impl_bincode_py_state_serialization!(ParquetSourceConfig);
 
 /// Configuration for a CSV data source.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[cfg_attr(feature = "python", pyclass(module = "daft.daft", get_all))]
 pub struct CsvSourceConfig {
     pub delimiter: Option<char>,
@@ -219,7 +245,7 @@ impl CsvSourceConfig {
     /// * `delimiter` - The character delmiting individual cells in the CSV data.
     /// * `has_headers` - Whether the CSV has a header row; if so, it will be skipped during data parsing.
     /// * `buffer_size` - Size of the buffer (in bytes) used by the streaming reader.
-    /// * `chunk_size` - Size of the chunks (in bytes) deserialized in parallel by the streaming reader.
+    /// * `chunk_size` - Size of the chunks (in rows) deserialized in parallel by the streaming reader.
     #[allow(clippy::too_many_arguments)]
     #[new]
     #[pyo3(signature = (
@@ -261,19 +287,26 @@ impl CsvSourceConfig {
 impl_bincode_py_state_serialization!(CsvSourceConfig);
 
 /// Configuration for a JSON data source.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[cfg_attr(feature = "python", pyclass(module = "daft.daft", get_all))]
 pub struct JsonSourceConfig {
     pub buffer_size: Option<usize>,
     pub chunk_size: Option<usize>,
+    pub skip_empty_files: bool,
 }
 
 impl JsonSourceConfig {
     #[must_use]
-    pub fn new_internal(buffer_size: Option<usize>, chunk_size: Option<usize>) -> Self {
+    pub fn new_internal(
+        buffer_size: Option<usize>,
+        chunk_size: Option<usize>,
+        skip_empty_files: bool,
+    ) -> Self {
         Self {
             buffer_size,
             chunk_size,
+            skip_empty_files,
         }
     }
 
@@ -292,7 +325,7 @@ impl JsonSourceConfig {
 
 impl Default for JsonSourceConfig {
     fn default() -> Self {
-        Self::new_internal(None, None)
+        Self::new_internal(None, None, false)
     }
 }
 
@@ -306,16 +339,17 @@ impl JsonSourceConfig {
     /// * `buffer_size` - Size of the buffer (in bytes) used by the streaming reader.
     /// * `chunk_size` - Size of the chunks (in bytes) deserialized in parallel by the streaming reader.
     #[new]
-    #[pyo3(signature = (buffer_size=None, chunk_size=None))]
-    fn new(buffer_size: Option<usize>, chunk_size: Option<usize>) -> Self {
-        Self::new_internal(buffer_size, chunk_size)
+    #[pyo3(signature = (buffer_size=None, chunk_size=None, skip_empty_files=false))]
+    fn new(buffer_size: Option<usize>, chunk_size: Option<usize>, skip_empty_files: bool) -> Self {
+        Self::new_internal(buffer_size, chunk_size, skip_empty_files)
     }
 }
 
 impl_bincode_py_state_serialization!(JsonSourceConfig);
 
 /// Configuration for a Database data source.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[cfg(feature = "python")]
 #[cfg_attr(feature = "python", pyclass(module = "daft.daft"))]
 pub struct DatabaseSourceConfig {
@@ -324,14 +358,14 @@ pub struct DatabaseSourceConfig {
         serialize_with = "serialize_py_object",
         deserialize_with = "deserialize_py_object"
     )]
-    pub conn: Arc<PyObject>,
+    pub conn: Arc<Py<PyAny>>,
 }
 
 #[cfg(feature = "python")]
 impl PartialEq for DatabaseSourceConfig {
     fn eq(&self, other: &Self) -> bool {
         self.sql == other.sql
-            && Python::with_gil(|py| self.conn.bind(py).eq(other.conn.bind(py)).unwrap())
+            && Python::attach(|py| self.conn.bind(py).eq(other.conn.bind(py)).unwrap())
     }
 }
 
@@ -342,7 +376,7 @@ impl Eq for DatabaseSourceConfig {}
 impl Hash for DatabaseSourceConfig {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.sql.hash(state);
-        let py_obj_hash = Python::with_gil(|py| self.conn.bind(py).hash());
+        let py_obj_hash = Python::attach(|py| self.conn.bind(py).hash());
         match py_obj_hash {
             Ok(hash) => hash.hash(state),
             Err(_) => serde_json::to_vec(self).unwrap().hash(state),
@@ -353,7 +387,7 @@ impl Hash for DatabaseSourceConfig {
 #[cfg(feature = "python")]
 impl DatabaseSourceConfig {
     #[must_use]
-    pub fn new_internal(sql: String, conn: Arc<PyObject>) -> Self {
+    pub fn new_internal(sql: String, conn: Arc<Py<PyAny>>) -> Self {
         Self { sql, conn }
     }
 
@@ -370,7 +404,7 @@ impl DatabaseSourceConfig {
 impl DatabaseSourceConfig {
     /// Create a config for a Database data source.
     #[new]
-    fn new(sql: &str, conn: PyObject) -> Self {
+    fn new(sql: &str, conn: Py<PyAny>) -> Self {
         Self::new_internal(sql.to_string(), Arc::new(conn))
     }
 }
@@ -378,7 +412,8 @@ impl DatabaseSourceConfig {
 impl_bincode_py_state_serialization!(DatabaseSourceConfig);
 
 /// Configuration for a Warc data source.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[cfg_attr(debug_assertions, derive(Debug))]
 #[cfg_attr(feature = "python", pyclass(module = "daft.daft", get_all))]
 pub struct WarcSourceConfig {}
 

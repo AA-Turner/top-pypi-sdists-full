@@ -1,8 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: sgqlc
-Version: 17
+Version: 17.1
 Summary: Simple GraphQL Client
 License: ISCL
+License-File: AUTHORS
+License-File: LICENSE
 Keywords: graphql,client,http,endpoint
 Author: Gustavo Sverzut Barbieri
 Author-email: barbieri@profusion.mobi
@@ -16,10 +18,12 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Utilities
 Provides-Extra: httpx
+Provides-Extra: pytest
 Provides-Extra: requests
 Provides-Extra: websocket
 Requires-Dist: graphql-core (>=3.2.6,<3.3.0)
 Requires-Dist: httpx ; extra == "httpx"
+Requires-Dist: pytest ; extra == "pytest"
 Requires-Dist: requests ; extra == "requests"
 Requires-Dist: websocket-client ; extra == "websocket"
 Project-URL: Documentation, https://sgqlc.readthedocs.io/

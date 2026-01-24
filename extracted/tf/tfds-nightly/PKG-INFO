@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tfds-nightly
-Version: 4.9.9.dev202509240044
+Version: 4.9.9.dev202510250044
 Summary: tensorflow/datasets is a library of datasets ready to use with TensorFlow.
 Home-page: https://github.com/tensorflow/datasets
 Download-URL: https://github.com/tensorflow/datasets/tags
@@ -49,6 +49,7 @@ Provides-Extra: tests-all
 Requires-Dist: dill; extra == "tests-all"
 Requires-Dist: jax[cpu]==0.4.28; extra == "tests-all"
 Requires-Dist: jupyter; extra == "tests-all"
+Requires-Dist: ipykernel<7.0.0; extra == "tests-all"
 Requires-Dist: pytest; extra == "tests-all"
 Requires-Dist: pytest-shard; extra == "tests-all"
 Requires-Dist: pytest-xdist; extra == "tests-all"
@@ -64,7 +65,7 @@ Requires-Dist: gcsfs; extra == "tests-all"
 Requires-Dist: zarr<3.0.0; extra == "tests-all"
 Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
 Requires-Dist: matplotlib; extra == "tests-all"
-Requires-Dist: Pillow; extra == "tests-all"
+Requires-Dist: Pillow<12.0.0; extra == "tests-all"
 Requires-Dist: pydub; extra == "tests-all"
 Requires-Dist: scipy; extra == "tests-all"
 Requires-Dist: scikit-image; extra == "tests-all"
@@ -89,7 +90,7 @@ Requires-Dist: pydub; extra == "tests-all"
 Requires-Dist: scipy; extra == "tests-all"
 Requires-Dist: scipy; extra == "tests-all"
 Requires-Dist: pandas; extra == "tests-all"
-Requires-Dist: Pillow; extra == "tests-all"
+Requires-Dist: Pillow<12.0.0; extra == "tests-all"
 Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
 Requires-Dist: apache-beam<2.65.0; extra == "tests-all"
 Requires-Dist: mwparserfromhell; extra == "tests-all"
@@ -101,6 +102,7 @@ Provides-Extra: dev
 Requires-Dist: dill; extra == "dev"
 Requires-Dist: jax[cpu]==0.4.28; extra == "dev"
 Requires-Dist: jupyter; extra == "dev"
+Requires-Dist: ipykernel<7.0.0; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-shard; extra == "dev"
 Requires-Dist: pytest-xdist; extra == "dev"
@@ -116,6 +118,7 @@ Provides-Extra: huggingface
 Requires-Dist: dill; extra == "huggingface"
 Requires-Dist: jax[cpu]==0.4.28; extra == "huggingface"
 Requires-Dist: jupyter; extra == "huggingface"
+Requires-Dist: ipykernel<7.0.0; extra == "huggingface"
 Requires-Dist: pytest; extra == "huggingface"
 Requires-Dist: pytest-shard; extra == "huggingface"
 Requires-Dist: pytest-xdist; extra == "huggingface"
@@ -128,7 +131,7 @@ Requires-Dist: scipy; extra == "huggingface"
 Requires-Dist: gcsfs; extra == "huggingface"
 Requires-Dist: zarr<3.0.0; extra == "huggingface"
 Requires-Dist: matplotlib; extra == "huggingface"
-Requires-Dist: Pillow; extra == "huggingface"
+Requires-Dist: Pillow<12.0.0; extra == "huggingface"
 Requires-Dist: pydub; extra == "huggingface"
 Requires-Dist: scipy; extra == "huggingface"
 Requires-Dist: scikit-image; extra == "huggingface"
@@ -153,7 +156,7 @@ Requires-Dist: pydub; extra == "huggingface"
 Requires-Dist: scipy; extra == "huggingface"
 Requires-Dist: scipy; extra == "huggingface"
 Requires-Dist: pandas; extra == "huggingface"
-Requires-Dist: Pillow; extra == "huggingface"
+Requires-Dist: Pillow<12.0.0; extra == "huggingface"
 Requires-Dist: mwparserfromhell; extra == "huggingface"
 Requires-Dist: mwxml; extra == "huggingface"
 Requires-Dist: bs4; extra == "huggingface"
@@ -179,7 +182,7 @@ Requires-Dist: apache-beam<2.65.0; extra == "c4-wsrs"
 Provides-Extra: cats-vs-dogs
 Requires-Dist: matplotlib; extra == "cats-vs-dogs"
 Provides-Extra: colorectal-histology
-Requires-Dist: Pillow; extra == "colorectal-histology"
+Requires-Dist: Pillow<12.0.0; extra == "colorectal-histology"
 Provides-Extra: common-voice
 Requires-Dist: pydub; extra == "common-voice"
 Provides-Extra: duke-ultrasound
@@ -229,7 +232,7 @@ Requires-Dist: scipy; extra == "the300w-lp"
 Provides-Extra: wake-vision
 Requires-Dist: pandas; extra == "wake-vision"
 Provides-Extra: wider-face
-Requires-Dist: Pillow; extra == "wider-face"
+Requires-Dist: Pillow<12.0.0; extra == "wider-face"
 Provides-Extra: wiki-dialog
 Requires-Dist: apache-beam<2.65.0; extra == "wiki-dialog"
 Provides-Extra: wikipedia

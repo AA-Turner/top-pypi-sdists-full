@@ -1,6 +1,6 @@
 # imagecodecs/numcodecs.py
 
-# Copyright (c) 2021-2025, Christoph Gohlke
+# Copyright (c) 2021-2026, Christoph Gohlke
 # All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
@@ -37,6 +37,7 @@ __all__ = [
     'Aec',
     'Apng',
     'Avif',
+    'Bfloat16',
     'Bitorder',
     'Bitshuffle',
     'Blosc',
@@ -57,6 +58,7 @@ __all__ = [
     'Floatpred',
     'Gif',
     'Heif',
+    'Htj2k',
     'Jetraw',
     'Jpeg',
     'Jpeg2k',
@@ -75,6 +77,7 @@ __all__ = [
     'Lzma',
     'Lzo',
     'Lzw',
+    'Meshopt',
     'Packbits',
     'Packints',
     'Pcodec',
@@ -101,18 +104,21 @@ __all__ = [
     'register_codecs',
 ]
 
+import base64
+import contextlib
 from typing import TYPE_CHECKING
 
-import imagecodecs
 import numpy
 from numcodecs.abc import Codec
 from numcodecs.registry import get_codec, register_codec
+
+import imagecodecs
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Any, Literal
 
-    from numpy.typing import DTypeLike, NDArray
+    from numpy.typing import ArrayLike, DTypeLike, NDArray
 
 
 class Aec(Codec):
@@ -129,7 +135,8 @@ class Aec(Codec):
         rsi: int | None = None,
     ) -> None:
         if not imagecodecs.AEC.available:
-            raise ValueError('imagecodecs.AEC not available')
+            msg = 'imagecodecs.AEC not available'
+            raise ValueError(msg)
 
         self.bitspersample = bitspersample
         self.flags = flags
@@ -172,9 +179,10 @@ class Apng(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.APNG.available:
-            raise ValueError('imagecodecs.APNG not available')
+            msg = 'imagecodecs.APNG not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.strategy = strategy
         self.filter = filter
         self.photometric = photometric
@@ -210,19 +218,26 @@ class Avif(Codec):
         bitspersample: int | None = None,
         pixelformat: int | str | None = None,
         codec: int | str | None = None,
+        primaries: int | None = None,
+        transfer: int | None = None,
+        matrix: int | None = None,
         numthreads: int | None = None,
         index: int | None = None,
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.AVIF.available:
-            raise ValueError('imagecodecs.AVIF not available')
+            msg = 'imagecodecs.AVIF not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.speed = speed
         self.tilelog2 = tilelog2
         self.bitspersample = bitspersample
         self.pixelformat = pixelformat
         self.codec = codec
+        self.primaries = primaries
+        self.transfer = transfer
+        self.matrix = matrix
         self.numthreads = numthreads
         self.index = index
         self.squeeze = squeeze
@@ -237,12 +252,44 @@ class Avif(Codec):
             bitspersample=self.bitspersample,
             pixelformat=self.pixelformat,
             codec=self.codec,
+            primaries=self.primaries,
+            transfer=self.transfer,
+            matrix=self.matrix,
             numthreads=self.numthreads,
         )
 
     def decode(self, buf, out=None):
         return imagecodecs.avif_decode(
             buf, index=self.index, numthreads=self.numthreads, out=out
+        )
+
+
+class Bfloat16(Codec):
+    """Bfloat16 codec for numcodecs."""
+
+    codec_id = 'imagecodecs_bfloat16'
+
+    def __init__(
+        self,
+        byteorder: Literal['>', '<', '='] | None = None,
+        rounding: int | None = None,
+    ) -> None:
+        if not imagecodecs.BFLOAT16.available:
+            msg = 'imagecodecs.BFLOAT16 not available'
+            raise ValueError(msg)
+
+        self.byteorder = byteorder
+        self.rounding = rounding
+
+    def encode(self, buf):
+        buf = numpy.asarray(buf)
+        return imagecodecs.bfloat16_encode(
+            buf, byteorder=self.byteorder, rounding=self.rounding
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.bfloat16_decode(
+            buf, byteorder=self.byteorder, out=out
         )
 
 
@@ -253,7 +300,8 @@ class Bitorder(Codec):
 
     def __init__(self) -> None:
         if not imagecodecs.BITORDER.available:
-            raise ValueError('imagecodecs.BITORDER not available')
+            msg = 'imagecodecs.BITORDER not available'
+            raise ValueError(msg)
 
     def encode(self, buf):
         return imagecodecs.bitorder_encode(buf)
@@ -274,7 +322,8 @@ class Bitshuffle(Codec):
         blocksize: int = 0,
     ) -> None:
         if not imagecodecs.BITSHUFFLE.available:
-            raise ValueError('imagecodecs.BITSHUFFLE not available')
+            msg = 'imagecodecs.BITSHUFFLE not available'
+            raise ValueError(msg)
 
         self.itemsize = int(itemsize)
         self.blocksize = int(blocksize)
@@ -312,9 +361,10 @@ class Blosc(Codec):
         numthreads: int | None = None,
     ) -> None:
         if not imagecodecs.BLOSC.available:
-            raise ValueError('imagecodecs.BLOSC not available')
+            msg = 'imagecodecs.BLOSC not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.compressor = compressor
         self.typesize = typesize
         self.blocksize = blocksize
@@ -356,9 +406,10 @@ class Blosc2(Codec):
         numthreads: int | None = None,
     ) -> None:
         if not imagecodecs.BLOSC2.available:
-            raise ValueError('imagecodecs.BLOSC2 not available')
+            msg = 'imagecodecs.BLOSC2 not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.compressor = compressor
         self.splitmode = splitmode
         self.typesize = typesize
@@ -398,7 +449,8 @@ class Bmp(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.BMP.available:
-            raise ValueError('imagecodecs.BMP not available')
+            msg = 'imagecodecs.BMP not available'
+            raise ValueError(msg)
 
         self.ppm = None if ppm is None else max(1, int(ppm))
         self.asrgb = None if asrgb is None else bool(asrgb)
@@ -425,9 +477,10 @@ class Brotli(Codec):
         lgwin: int | None = None,
     ) -> None:
         if not imagecodecs.BROTLI.available:
-            raise ValueError('imagecodecs.BROTLI not available')
+            msg = 'imagecodecs.BROTLI not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.mode = mode
         self.lgwin = lgwin
 
@@ -456,7 +509,8 @@ class Byteshuffle(Codec):
         reorder: bool = False,
     ) -> None:
         if not imagecodecs.BYTESHUFFLE.available:
-            raise ValueError('imagecodecs.BYTESHUFFLE not available')
+            msg = 'imagecodecs.BYTESHUFFLE not available'
+            raise ValueError(msg)
 
         self.shape = tuple(shape)
         self.dtype = numpy.dtype(dtype).str
@@ -468,9 +522,11 @@ class Byteshuffle(Codec):
     def encode(self, buf):
         buf = numpy.asarray(buf)
         if buf.shape != self.shape:
-            raise ValueError(f'{buf.shape=} does not match {self.shape=}')
+            msg = f'{buf.shape=} does not match {self.shape=}'
+            raise ValueError(msg)
         if buf.dtype != self.dtype:
-            raise ValueError(f'{buf.dtype=} does not match {self.dtype=}')
+            msg = f'{buf.dtype=} does not match {self.dtype=}'
+            raise ValueError(msg)
         return imagecodecs.byteshuffle_encode(
             buf,
             axis=self.axis,
@@ -480,7 +536,7 @@ class Byteshuffle(Codec):
         ).tobytes()
 
     def decode(self, buf, out=None):
-        buf = numpy.frombuffer(buf, dtype=self.dtype).reshape(*self.shape)
+        buf = numpy.frombuffer(buf, dtype=self.dtype).reshape(self.shape)
         return imagecodecs.byteshuffle_decode(
             buf,
             axis=self.axis,
@@ -502,9 +558,10 @@ class Bz2(Codec):
         level: int | None = None,
     ) -> None:
         if not imagecodecs.BZ2.available:
-            raise ValueError('imagecodecs.BZ2 not available')
+            msg = 'imagecodecs.BZ2 not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
 
     def encode(self, buf):
         return imagecodecs.bz2_encode(buf, level=self.level)
@@ -527,48 +584,57 @@ class Checksum(Codec):
         prepend: bool | None = None,
         byteorder: Literal['<', '>', 'little', 'big'] = '<',
     ) -> None:
-        if kind == 'crc32':
-            if imagecodecs.ZLIBNG.available:
-                self._checksum = imagecodecs.zlibng_crc32
-            elif imagecodecs.DEFLATE.available:
-                self._checksum = imagecodecs.deflate_crc32
-            elif imagecodecs.ZLIB.available:
-                self._checksum = imagecodecs.zlib_crc32
-            else:
-                raise ValueError('imagecodecs.ZLIB not available')
-            if prepend is None:
-                prepend = True
-        elif kind == 'adler32':
-            if imagecodecs.ZLIBNG.available:
-                self._checksum = imagecodecs.zlibng_adler32
-            elif imagecodecs.DEFLATE.available:
-                self._checksum = imagecodecs.deflate_adler32
-            if imagecodecs.ZLIB.available:
-                self._checksum = imagecodecs.zlib_adler32
-            else:
-                raise ValueError('imagecodecs.ZLIB not available')
-            if prepend is None:
-                prepend = True
-        elif kind == 'fletcher32':
-            if not imagecodecs.H5CHECKSUM.available:
-                raise ValueError('imagecodecs.H5CHECKSUM not available')
-            self._checksum = imagecodecs.h5checksum_fletcher32
-            if prepend is None:
-                prepend = False
-        elif kind == 'lookup3':
-            if not imagecodecs.H5CHECKSUM.available:
-                raise ValueError('imagecodecs.H5CHECKSUM not available')
-            self._checksum = imagecodecs.h5checksum_lookup3
-            if prepend is None:
-                prepend = False
-        elif kind == 'h5crc':
-            if not imagecodecs.H5CHECKSUM.available:
-                raise ValueError('imagecodecs.H5CHECKSUM not available')
-            self._checksum = imagecodecs.h5checksum_crc
-            if prepend is None:
-                prepend = False
-        else:
-            raise ValueError(f'checksum {kind=!r} not supported')
+        match kind:
+            case 'crc32':
+                if imagecodecs.ZLIBNG.available:
+                    self._checksum = imagecodecs.zlibng_crc32
+                elif imagecodecs.DEFLATE.available:
+                    self._checksum = imagecodecs.deflate_crc32
+                elif imagecodecs.ZLIB.available:
+                    self._checksum = imagecodecs.zlib_crc32
+                else:
+                    msg = 'imagecodecs.ZLIB not available'
+                    raise ValueError(msg)
+                if prepend is None:
+                    prepend = True
+            case 'adler32':
+                if imagecodecs.ZLIBNG.available:
+                    self._checksum = imagecodecs.zlibng_adler32
+                elif imagecodecs.DEFLATE.available:
+                    self._checksum = imagecodecs.deflate_adler32
+                elif imagecodecs.ZLIB.available:
+                    self._checksum = imagecodecs.zlib_adler32
+                else:
+                    msg = 'imagecodecs.ZLIB not available'
+                    raise ValueError(msg)
+                if prepend is None:
+                    prepend = True
+            case 'fletcher32':
+                if not imagecodecs.H5CHECKSUM.available:
+                    msg = 'imagecodecs.H5CHECKSUM not available'
+                    raise ValueError(msg)
+                self._checksum = imagecodecs.h5checksum_fletcher32
+                if prepend is None:
+                    prepend = False
+            case 'lookup3':
+                if not imagecodecs.H5CHECKSUM.available:
+                    msg = 'imagecodecs.H5CHECKSUM not available'
+                    raise ValueError(msg)
+                self._checksum = imagecodecs.h5checksum_lookup3
+                if prepend is None:
+                    prepend = False
+            case 'h5crc':
+                if not imagecodecs.H5CHECKSUM.available:
+                    msg = 'imagecodecs.H5CHECKSUM not available'
+                    raise ValueError(msg)
+                self._checksum = imagecodecs.h5checksum_crc
+                if prepend is None:
+                    prepend = False
+            case _:
+                msg = (  # type: ignore[unreachable]
+                    f'checksum {kind=!r} not supported'
+                )
+                raise ValueError(msg)
 
         self.kind = kind
         self.value = value
@@ -609,10 +675,11 @@ class Checksum(Codec):
         else:
             checksum = self._checksum(self.prefix + out, self.value)
         if checksum != expect:
-            raise RuntimeError(
+            msg = (
                 f'{self._checksum.__name__} checksum mismatch '
                 f'{checksum} != {expect}'
             )
+            raise RuntimeError(msg)
         return out
 
 
@@ -623,7 +690,8 @@ class Cms(Codec):
 
     def __init__(self) -> None:
         if not imagecodecs.CMS.available:
-            raise ValueError('imagecodecs.CMS not available')
+            msg = 'imagecodecs.CMS not available'
+            raise ValueError(msg)
 
     def encode(self, buf, out=None):
         # return imagecodecs.cms_transform(buf)
@@ -641,7 +709,8 @@ class Dds(Codec):
 
     def __init__(self, *, mipmap: int = 0) -> None:
         if not imagecodecs.DDS.available:
-            raise ValueError('imagecodecs.DDS not available')
+            msg = 'imagecodecs.DDS not available'
+            raise ValueError(msg)
         self.mipmap = mipmap
 
     def encode(self, buf, out=None):
@@ -664,9 +733,10 @@ class Deflate(Codec):
         raw: bool = False,
     ) -> None:
         if not imagecodecs.DEFLATE.available:
-            raise ValueError('imagecodecs.DEFLATE not available')
+            msg = 'imagecodecs.DEFLATE not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.raw = bool(raw)
 
     def encode(self, buf):
@@ -685,12 +755,13 @@ class Delta(Codec):
         self,
         *,
         shape: tuple[int, ...] | None = None,
-        dtype: DTypeLike = None,
+        dtype: DTypeLike | None = None,
         axis: int = -1,
         dist: int = 1,
     ) -> None:
         if not imagecodecs.DELTA.available:
-            raise ValueError('imagecodecs.DELTA not available')
+            msg = 'imagecodecs.DELTA not available'
+            raise ValueError(msg)
 
         self.shape = None if shape is None else tuple(shape)
         self.dtype = None if dtype is None else numpy.dtype(dtype).str
@@ -701,9 +772,11 @@ class Delta(Codec):
         if self.shape is not None or self.dtype is not None:
             buf = numpy.asarray(buf)
             if buf.shape != self.shape:
-                raise ValueError(f'{buf.shape=} does not match {self.shape=}')
+                msg = f'{buf.shape=} does not match {self.shape=}'
+                raise ValueError(msg)
             if buf.dtype != self.dtype:
-                raise ValueError(f'{buf.dtype=} does not match {self.dtype=}')
+                msg = f'{buf.dtype=} does not match {self.dtype=}'
+                raise ValueError(msg)
         return imagecodecs.delta_encode(
             buf, axis=self.axis, dist=self.dist
         ).tobytes()
@@ -725,7 +798,8 @@ class Dicomrle(Codec):
 
     def __init__(self, *, dtype: DTypeLike) -> None:
         if not imagecodecs.DICOMRLE.available:
-            raise ValueError('imagecodecs.DICOMRLE not available')
+            msg = 'imagecodecs.DICOMRLE not available'
+            raise ValueError(msg)
 
         self.dtype = numpy.dtype(dtype).str  # TODO: preserve endianness
 
@@ -746,19 +820,20 @@ class Eer(Codec):
         self,
         *,
         shape: tuple[int, int],
-        rlebits: int,
+        skipbits: int,
         horzbits: int,
         vertbits: int,
-        superres: bool = False,
+        superres: int = 0,
     ) -> None:
         if not imagecodecs.EER.available:
-            raise ValueError('imagecodecs.EER not available')
+            msg = 'imagecodecs.EER not available'
+            raise ValueError(msg)
 
         self.shape = shape
-        self.rlebits = rlebits
+        self.skipbits = skipbits
         self.horzbits = horzbits
         self.vertbits = vertbits
-        self.superres = bool(superres)
+        self.superres = superres
 
     def encode(self, buf):
         raise NotImplementedError
@@ -767,9 +842,9 @@ class Eer(Codec):
         return imagecodecs.eer_decode(
             buf,
             self.shape,
-            rlebits=self.rlebits,
-            horzbits=self.horzbits,
-            vertbits=self.vertbits,
+            self.skipbits,
+            self.horzbits,
+            self.vertbits,
             superres=self.superres,
             out=out,
         )
@@ -786,7 +861,8 @@ class Float24(Codec):
         rounding: int | None = None,
     ) -> None:
         if not imagecodecs.FLOAT24.available:
-            raise ValueError('imagecodecs.FLOAT24 not available')
+            msg = 'imagecodecs.FLOAT24 not available'
+            raise ValueError(msg)
 
         self.byteorder = byteorder
         self.rounding = rounding
@@ -817,7 +893,8 @@ class Floatpred(Codec):
         dist: int = 1,
     ) -> None:
         if not imagecodecs.FLOATPRED.available:
-            raise ValueError('imagecodecs.FLOATPRED not available')
+            msg = 'imagecodecs.FLOATPRED not available'
+            raise ValueError(msg)
 
         self.shape = tuple(shape)
         self.dtype = numpy.dtype(dtype).str
@@ -827,15 +904,17 @@ class Floatpred(Codec):
     def encode(self, buf):
         buf = numpy.asarray(buf)
         if buf.shape != self.shape:
-            raise ValueError(f'{buf.shape=} does not match {self.shape=}')
+            msg = f'{buf.shape=} does not match {self.shape=}'
+            raise ValueError(msg)
         if buf.dtype != self.dtype:
-            raise ValueError(f'{buf.dtype=} does not match {self.dtype=}')
+            msg = f'{buf.dtype=} does not match {self.dtype=}'
+            raise ValueError(msg)
         return imagecodecs.floatpred_encode(
             buf, axis=self.axis, dist=self.dist
         ).tobytes()
 
     def decode(self, buf, out=None):
-        buf = numpy.frombuffer(buf, dtype=self.dtype).reshape(*self.shape)
+        buf = numpy.frombuffer(buf, dtype=self.dtype).reshape(self.shape)
         return imagecodecs.floatpred_decode(
             buf, axis=self.axis, dist=self.dist, out=out
         )
@@ -852,7 +931,8 @@ class Gif(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.GIF.available:
-            raise ValueError('imagecodecs.GIF not available')
+            msg = 'imagecodecs.GIF not available'
+            raise ValueError(msg)
 
         self.squeeze = squeeze
 
@@ -880,9 +960,10 @@ class Heif(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.HEIF.available:
-            raise ValueError('imagecodecs.HEIF not available')
+            msg = 'imagecodecs.HEIF not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.bitspersample = bitspersample
         self.photometric = photometric
         self.compression = compression
@@ -908,6 +989,66 @@ class Heif(Codec):
         )
 
 
+class Htj2k(Codec):
+    """HTJ2K codec for numcodecs."""
+
+    codec_id = 'imagecodecs_htj2k'
+
+    def __init__(
+        self,
+        *,
+        level: float | None = None,
+        rgb: bool | None = None,
+        planar: bool | None = None,
+        tile: tuple[int, int] | None = None,
+        resolutions: int | None = None,
+        reversible: bool | None = None,
+        tlm: bool | None = None,
+        tilepart: int | None = None,
+        skipres: int | None = None,
+        resilient: bool = False,
+        squeeze: Literal[False] | Sequence[int] | None = None,
+    ) -> None:
+        if not imagecodecs.HTJ2K.available:
+            msg = 'imagecodecs.HTJ2K not available'
+            raise ValueError(msg)
+
+        self.level = None if level is None else float(level)
+        self.rgb = None if rgb is None else bool(rgb)
+        self.planar = None if planar is None else bool(planar)
+        self.tile = None if tile is None else (int(tile[0]), int(tile[1]))
+        self.resolutions = None if resolutions is None else int(resolutions)
+        self.reversible = None if reversible is None else bool(reversible)
+        self.tlm = None if tlm is None else bool(tlm)
+        self.tilepart = None if tilepart is None else int(tilepart)
+        self.skipres = None if skipres is None else int(skipres)
+        self.resilient = bool(resilient)
+        self.squeeze = squeeze
+
+    def encode(self, buf):
+        buf = _image(buf, self.squeeze)
+        return imagecodecs.htj2k_encode(
+            buf,
+            level=self.level,
+            rgb=self.rgb,
+            planar=self.planar,
+            tile=self.tile,
+            resolutions=self.resolutions,
+            reversible=self.reversible,
+            tlm=self.tlm,
+            tilepart=self.tilepart,
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.htj2k_decode(
+            buf,
+            planar=self.planar,
+            skipres=self.skipres,
+            resilient=self.resilient,
+            out=out,
+        )
+
+
 class Jetraw(Codec):
     """Jetraw codec for numcodecs."""
 
@@ -924,7 +1065,8 @@ class Jetraw(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.JETRAW.available:
-            raise ValueError('imagecodecs.JETRAW not available')
+            msg = 'imagecodecs.JETRAW not available'
+            raise ValueError(msg)
 
         self.shape = shape
         self.identifier = identifier
@@ -967,13 +1109,14 @@ class Jpeg(Codec):
         predictor: int | None = None,
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
-        if not imagecodecs.JPEG.available:
-            raise ValueError('imagecodecs.JPEG not available')
+        if not imagecodecs.JPEG8.available:
+            msg = 'imagecodecs.JPEG8 not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.tables = tables
         self.header = header
-        self.bitspersample = bitspersample
+        self.bitspersample = bitspersample  # unused
         self.colorspace_data = colorspace_data
         self.colorspace_jpeg = colorspace_jpeg
         self.subsampling = subsampling
@@ -985,7 +1128,7 @@ class Jpeg(Codec):
 
     def encode(self, buf):
         buf = _image(buf, self.squeeze)
-        return imagecodecs.jpeg_encode(
+        return imagecodecs.jpeg8_encode(
             buf,
             level=self.level,
             colorspace=self.colorspace_data,
@@ -998,11 +1141,11 @@ class Jpeg(Codec):
         )
 
     def decode(self, buf, out=None):
-        return imagecodecs.jpeg_decode(
+        if self.header is not None:
+            buf = b''.join((self.header, buf, b'\xff\xd9'))
+        return imagecodecs.jpeg8_decode(
             buf,
-            bitspersample=self.bitspersample,
             tables=self.tables,
-            header=self.header,
             colorspace=self.colorspace_jpeg,
             outcolorspace=self.colorspace_data,
             out=out,
@@ -1015,8 +1158,6 @@ class Jpeg(Codec):
             if not key.startswith('_'):
                 value = getattr(self, key)
                 if value is not None and key in {'header', 'tables'}:
-                    import base64
-
                     value = base64.b64encode(value).decode()
                 config[key] = value
         return config
@@ -1024,11 +1165,10 @@ class Jpeg(Codec):
     @classmethod
     def from_config(cls, config):
         """Instantiate codec from configuration object."""
+        config = dict(config)
         for key in ('header', 'tables'):
-            value = config.get(key, None)
+            value = config.get(key)
             if value is not None and isinstance(value, str):
-                import base64
-
                 config[key] = base64.b64decode(value.encode())
         return cls(**config)
 
@@ -1055,9 +1195,10 @@ class Jpeg2k(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.JPEG2K.available:
-            raise ValueError('imagecodecs.JPEG2K not available')
+            msg = 'imagecodecs.JPEG2K not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.codecformat = codecformat
         self.colorspace = colorspace
         self.planar = planar
@@ -1109,9 +1250,10 @@ class Jpegls(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.JPEGLS.available:
-            raise ValueError('imagecodecs.JPEGLS not available')
+            msg = 'imagecodecs.JPEGLS not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.squeeze = squeeze
 
     def encode(self, buf):
@@ -1149,9 +1291,10 @@ class Jpegxl(Codec):
         numthreads: int | None = None,
     ) -> None:
         if not imagecodecs.JPEGXL.available:
-            raise ValueError('imagecodecs.JPEGXL not available')
+            msg = 'imagecodecs.JPEGXL not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.effort = effort
         self.distance = distance
         self.lossless = lossless is None or bool(lossless)
@@ -1207,9 +1350,10 @@ class Jpegxr(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.JPEGXR.available:
-            raise ValueError('imagecodecs.JPEGXR not available')
+            msg = 'imagecodecs.JPEGXR not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else float(level)
         self.photometric = photometric
         self.hasalpha = hasalpha
         self.resolution = resolution
@@ -1244,7 +1388,8 @@ class Jpegxs(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.JPEGXS.available:
-            raise ValueError('imagecodecs.JPEGXS not available')
+            msg = 'imagecodecs.JPEGXS not available'
+            raise ValueError(msg)
 
         self.config = config
         self.bitspersample = bitspersample
@@ -1281,9 +1426,10 @@ class Lerc(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.LERC.available:
-            raise ValueError('imagecodecs.LERC not available')
+            msg = 'imagecodecs.LERC not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else float(level)
         self.version = version
         self.planar = bool(planar)
         self.squeeze = squeeze
@@ -1321,7 +1467,8 @@ class Ljpeg(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.LJPEG.available:
-            raise ValueError('imagecodecs.LJPEG not available')
+            msg = 'imagecodecs.LJPEG not available'
+            raise ValueError(msg)
 
         self.bitspersample = bitspersample
         self.squeeze = squeeze
@@ -1347,9 +1494,10 @@ class Lz4(Codec):
         header: bool = False,
     ) -> None:
         if not imagecodecs.LZ4.available:
-            raise ValueError('imagecodecs.LZ4 not available')
+            msg = 'imagecodecs.LZ4 not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.hc = hc
         self.header = bool(header)
 
@@ -1376,9 +1524,10 @@ class Lz4f(Codec):
         blockchecksum: bool | None = None,
     ) -> None:
         if not imagecodecs.LZ4F.available:
-            raise ValueError('imagecodecs.LZ4F not available')
+            msg = 'imagecodecs.LZ4F not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.blocksizeid = blocksizeid
         self.contentchecksum = contentchecksum
         self.blockchecksum = blockchecksum
@@ -1408,9 +1557,10 @@ class Lz4h5(Codec):
         blocksize: int | None = None,
     ) -> None:
         if not imagecodecs.LZ4H5.available:
-            raise ValueError('imagecodecs.LZ4H5 not available')
+            msg = 'imagecodecs.LZ4H5 not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.blocksize = blocksize
 
     def encode(self, buf):
@@ -1433,7 +1583,8 @@ class Lzf(Codec):
         header: bool = True,
     ) -> None:
         if not imagecodecs.LZF.available:
-            raise ValueError('imagecodecs.LZF not available')
+            msg = 'imagecodecs.LZF not available'
+            raise ValueError(msg)
 
         self.header = bool(header)
 
@@ -1451,7 +1602,8 @@ class Lzfse(Codec):
 
     def __init__(self) -> None:
         if not imagecodecs.LZFSE.available:
-            raise ValueError('imagecodecs.LZFSE not available')
+            msg = 'imagecodecs.LZFSE not available'
+            raise ValueError(msg)
 
     def encode(self, buf):
         return imagecodecs.lzfse_encode(buf)
@@ -1471,9 +1623,10 @@ class Lzham(Codec):
         level: int | None = None,
     ) -> None:
         if not imagecodecs.LZHAM.available:
-            raise ValueError('imagecodecs.LZHAM not available')
+            msg = 'imagecodecs.LZHAM not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
 
     def encode(self, buf):
         return imagecodecs.lzham_encode(buf, level=self.level)
@@ -1494,9 +1647,10 @@ class Lzma(Codec):
         check: int | None = None,
     ) -> None:
         if not imagecodecs.LZMA.available:
-            raise ValueError('imagecodecs.LZMA not available')
+            msg = 'imagecodecs.LZMA not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.check = check
 
     def encode(self, buf):
@@ -1513,7 +1667,8 @@ class Lzo(Codec):
 
     def __init__(self, *, header: bool = False) -> None:
         if not imagecodecs.LZO.available:
-            raise ValueError('imagecodecs.LZO not available')
+            msg = 'imagecodecs.LZO not available'
+            raise ValueError(msg)
         self.header = bool(header)
 
     def encode(self, buf):
@@ -1531,13 +1686,58 @@ class Lzw(Codec):
 
     def __init__(self) -> None:
         if not imagecodecs.LZW.available:
-            raise ValueError('imagecodecs.LZW not available')
+            msg = 'imagecodecs.LZW not available'
+            raise ValueError(msg)
 
     def encode(self, buf):
         return imagecodecs.lzw_encode(buf)
 
     def decode(self, buf, out=None):
         return imagecodecs.lzw_decode(buf, out=_flat(out))
+
+
+class Meshopt(Codec):
+    """MESHOPT codec for numcodecs."""
+
+    codec_id = 'imagecodecs_meshopt'
+
+    def __init__(
+        self,
+        *,
+        shape: tuple[int, ...],
+        dtype: DTypeLike,
+        items: int | None = None,
+        level: int | None = None,
+    ) -> None:
+        if not imagecodecs.MESHOPT.available:
+            msg = 'imagecodecs.MESHOPT not available'
+            raise ValueError(msg)
+
+        self.shape = tuple(shape)
+        self.dtype = numpy.dtype(dtype).str
+        self.items = None if items is None else int(items)
+        self.level = None if level is None else int(level)
+
+    def encode(self, buf):
+        buf = numpy.asarray(buf)
+        if buf.shape != self.shape:
+            msg = f'{buf.shape=} does not match {self.shape=}'
+            raise ValueError(msg)
+        if buf.dtype != self.dtype:
+            msg = f'{buf.dtype=} does not match {self.dtype=}'
+            raise ValueError(msg)
+        return imagecodecs.meshopt_encode(
+            buf, level=self.level, items=self.items
+        )
+
+    def decode(self, buf, out=None):
+        return imagecodecs.meshopt_decode(
+            buf,
+            shape=self.shape,
+            dtype=self.dtype,
+            items=self.items,
+            out=out,
+        )
 
 
 class Packbits(Codec):
@@ -1551,7 +1751,8 @@ class Packbits(Codec):
         axis: int | None = None,
     ) -> None:
         if not imagecodecs.PACKBITS.available:
-            raise ValueError('imagecodecs.PACKBITS not available')
+            msg = 'imagecodecs.PACKBITS not available'
+            raise ValueError(msg)
 
         self.axis = axis
 
@@ -1573,7 +1774,8 @@ class Packints(Codec):
         self, *, dtype: DTypeLike, bitspersample: int, runlen: int = 0
     ) -> None:
         if not imagecodecs.PACKINTS.available:
-            raise ValueError('imagecodecs.PACKINTS not available')
+            msg = 'imagecodecs.PACKINTS not available'
+            raise ValueError(msg)
 
         self.dtype = numpy.dtype(dtype).str
         self.bitspersample = bitspersample
@@ -1588,7 +1790,7 @@ class Packints(Codec):
             self.dtype,
             self.bitspersample,
             runlen=self.runlen,
-            out=_flat(out),  # type: ignore[arg-type]
+            out=out,
         )
 
 
@@ -1605,11 +1807,12 @@ class Pcodec(Codec):
         level: int | None = None,
     ) -> None:
         if not imagecodecs.PCODEC.available:
-            raise ValueError('imagecodecs.PCODEC not available')
+            msg = 'imagecodecs.PCODEC not available'
+            raise ValueError(msg)
 
         self.shape = tuple(shape)
         self.dtype = numpy.dtype(dtype).str
-        self.level = level
+        self.level = None if level is None else int(level)
 
     def encode(self, buf):
         return imagecodecs.pcodec_encode(buf, level=self.level)
@@ -1633,7 +1836,8 @@ class Pglz(Codec):
         checkcomplete: bool | None = None,
     ) -> None:
         if not imagecodecs.PGLZ.available:
-            raise ValueError('imagecodecs.PGLZ not available')
+            msg = 'imagecodecs.PGLZ not available'
+            raise ValueError(msg)
 
         self.header = bool(header)
         self.strategy = strategy
@@ -1667,9 +1871,10 @@ class Png(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.PNG.available:
-            raise ValueError('imagecodecs.PNG not available')
+            msg = 'imagecodecs.PNG not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.strategy = strategy
         self.filter = filter
         self.squeeze = squeeze
@@ -1698,7 +1903,8 @@ class Qoi(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.QOI.available:
-            raise ValueError('imagecodecs.QOI not available')
+            msg = 'imagecodecs.QOI not available'
+            raise ValueError(msg)
 
         self.squeeze = squeeze
 
@@ -1722,7 +1928,8 @@ class Quantize(Codec):
         nsd: int,  # number of significant digits
     ) -> None:
         if not imagecodecs.QUANTIZE.available:
-            raise ValueError('imagecodecs.QUANTIZE not available')
+            msg = 'imagecodecs.QUANTIZE not available'
+            raise ValueError(msg)
 
         self.nsd = nsd
         self.mode = mode
@@ -1744,11 +1951,12 @@ class Rcomp(Codec):
         self,
         *,
         shape: tuple[int, ...],
-        dtype: DTypeLike,
+        dtype: DTypeLike | None,
         nblock: int | None = None,
     ) -> None:
         if not imagecodecs.RCOMP.available:
-            raise ValueError('imagecodecs.RCOMP not available')
+            msg = 'imagecodecs.RCOMP not available'
+            raise ValueError(msg)
 
         self.shape = tuple(shape)
         self.dtype = numpy.dtype(dtype).str
@@ -1781,16 +1989,19 @@ class Rgbe(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.RGBE.available:
-            raise ValueError('imagecodecs.RGBE not available')
+            msg = 'imagecodecs.RGBE not available'
+            raise ValueError(msg)
 
         if not header and shape is None:
-            raise ValueError('must specify data shape if no header')
+            msg = 'must specify data shape if no header'
+            raise ValueError(msg)
         if shape and shape[-1] != 3:
-            raise ValueError('invalid shape')
-        assert shape is not None
-        self.shape = tuple(shape)
+            msg = 'invalid shape'
+            raise ValueError(msg)
+
         self.header = bool(header)
         self.rle = None if rle is None else bool(rle)
+        self.shape = None if shape is None else tuple(shape)
         self.squeeze = squeeze
 
     def encode(self, buf):
@@ -1812,7 +2023,8 @@ class Snappy(Codec):
 
     def __init__(self) -> None:
         if not imagecodecs.SNAPPY.available:
-            raise ValueError('imagecodecs.SNAPPY not available')
+            msg = 'imagecodecs.SNAPPY not available'
+            raise ValueError(msg)
 
     def encode(self, buf):
         return imagecodecs.snappy_encode(buf)
@@ -1831,7 +2043,7 @@ class Sperr(Codec):
         *,
         level: float,
         mode: Literal['bpp', 'psnr', 'pwe'],
-        dtype: DTypeLike = None,
+        dtype: DTypeLike | None = None,
         shape: tuple[int, ...] | None = None,
         chunks: tuple[int, int, int] | None = None,
         header: bool = True,
@@ -1839,19 +2051,21 @@ class Sperr(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.SPERR.available:
-            raise ValueError('imagecodecs.SPERR not available')
+            msg = 'imagecodecs.SPERR not available'
+            raise ValueError(msg)
 
         if header:
             self.shape = None
             self.dtype = None
         elif shape is None or dtype is None:
-            raise ValueError('invalid shape or dtype')
+            msg = 'invalid shape or dtype'
+            raise ValueError(msg)
         else:
             self.shape = tuple(shape)
             self.dtype = numpy.dtype(dtype).str
         self.mode = mode
         self.level = float(level)
-        self.chunks = None if chunks is None else tuple(chunks)
+        self.chunks = chunks
         self.header = bool(header)
         self.numthreads = numthreads
         self.squeeze = squeeze
@@ -1860,14 +2074,16 @@ class Sperr(Codec):
         buf = _image(buf, self.squeeze)
         if not self.header:
             if buf.shape != self.shape:
-                raise ValueError(f'{buf.shape=} does not match {self.shape=}')
+                msg = f'{buf.shape=} does not match {self.shape=}'
+                raise ValueError(msg)
             if buf.dtype != self.dtype:
-                raise ValueError(f'{buf.dtype=} does not match {self.dtype=}')
+                msg = f'{buf.dtype=} does not match {self.dtype=}'
+                raise ValueError(msg)
         return imagecodecs.sperr_encode(
             buf,
             level=self.level,
             mode=self.mode,
-            chunks=self.chunks,  # type: ignore[arg-type]
+            chunks=self.chunks,  # mypy: ignore[arg-type]
             header=self.header,
             numthreads=self.numthreads,
         )
@@ -1897,9 +2113,10 @@ class Spng(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.SPNG.available:
-            raise ValueError('imagecodecs.SPNG not available')
+            msg = 'imagecodecs.SPNG not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
         self.squeeze = squeeze
 
     def encode(self, buf):
@@ -1925,7 +2142,8 @@ class Sz3(Codec):
         rel: float | None = None,
     ) -> None:
         if not imagecodecs.SZ3.available:
-            raise ValueError('imagecodecs.SZ3 not available')
+            msg = 'imagecodecs.SZ3 not available'
+            raise ValueError(msg)
 
         self.shape = tuple(shape)
         self.dtype = numpy.dtype(dtype).str
@@ -1959,7 +2177,8 @@ class Szip(Codec):
         header: bool = True,
     ) -> None:
         if not imagecodecs.SZIP.available:
-            raise ValueError('imagecodecs.SZIP not available')
+            msg = 'imagecodecs.SZIP not available'
+            raise ValueError(msg)
 
         self.options_mask = int(options_mask)
         self.pixels_per_block = int(pixels_per_block)
@@ -1997,13 +2216,53 @@ class Tiff(Codec):
     def __init__(
         self,
         *,
+        # decode
         index: int | None = None,
         asrgb: bool = False,
+        # encode
+        bigtiff: bool | None = None,
+        byteorder: int | str | None = None,
+        photometric: int | str | None = None,
+        planarconfig: int | str | None = None,
+        extrasample: int | None = None,
+        tile: tuple[int, int] | None = None,
+        rowsperstrip: int | None = None,
+        compression: int | str | None = None,
+        level: int | None = None,
+        predictor: bool | int | None = None,
+        colormap: ArrayLike | None = None,
+        description: str | None = None,
+        datetime: str | None = None,
+        resolution: tuple[float, float] | None = None,
+        resolutionunit: int | None = None,
+        software: str | None = None,
         verbose: int | None = None,
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.TIFF.available:
-            raise ValueError('imagecodecs.TIFF not available')
+            msg = 'imagecodecs.TIFF not available'
+            raise ValueError(msg)
+
+        self.bigtiff = None if bigtiff is None else bool(bigtiff)
+        self.byteorder = byteorder
+        self.photometric = photometric
+        self.planarconfig = planarconfig
+        self.extrasample = extrasample
+        self.tile = tile
+        self.rowsperstrip = rowsperstrip
+        self.compression = compression
+        self.level = None if level is None else int(level)
+        self.predictor = predictor
+        self.colormap = (
+            None
+            if colormap is None
+            else numpy.ascontiguousarray(colormap, dtype=numpy.uint16)
+        )
+        self.resolution = resolution
+        self.resolutionunit = resolutionunit
+        self.description = description
+        self.datetime = datetime
+        self.software = software
 
         self.index = index
         self.asrgb = bool(asrgb)
@@ -2011,9 +2270,27 @@ class Tiff(Codec):
         self.squeeze = squeeze
 
     def encode(self, buf):
-        # TODO: not implemented
         buf = _image(buf, self.squeeze)
-        return imagecodecs.tiff_encode(buf)
+        return imagecodecs.tiff_encode(
+            buf,
+            bigtiff=self.bigtiff,
+            byteorder=self.byteorder,
+            level=self.level,
+            photometric=self.photometric,
+            planarconfig=self.planarconfig,
+            extrasample=self.extrasample,
+            tile=self.tile,
+            rowsperstrip=self.rowsperstrip,
+            compression=self.compression,
+            predictor=self.predictor,
+            colormap=self.colormap,
+            resolution=self.resolution,
+            resolutionunit=self.resolutionunit,
+            description=self.description,
+            datetime=self.datetime,
+            software=self.software,
+            verbose=self.verbose,
+        )
 
     def decode(self, buf, out=None):
         return imagecodecs.tiff_decode(
@@ -2047,10 +2324,11 @@ class Ultrahdr(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.ULTRAHDR.available:
-            raise ValueError('imagecodecs.ULTRAHDR not available')
+            msg = 'imagecodecs.ULTRAHDR not available'
+            raise ValueError(msg)
 
         self.dtype = None if dtype is None else numpy.dtype(dtype).str
-        self.level = level
+        self.level = None if level is None else int(level)
         self.scale = scale
         self.gamut = gamut
         self.crange = crange
@@ -2063,7 +2341,8 @@ class Ultrahdr(Codec):
     def encode(self, buf):
         buf = _image(buf, self.squeeze)
         if self.dtype is not None and buf.dtype != self.dtype:
-            raise ValueError(f'{buf.dtype=} != {self.dtype}')
+            msg = f'{buf.dtype=} != {self.dtype}'
+            raise ValueError(msg)
 
         return imagecodecs.ultrahdr_encode(
             buf,
@@ -2094,7 +2373,7 @@ class Webp(Codec):
     def __init__(
         self,
         *,
-        level: int | None = None,
+        level: float | None = None,
         lossless: bool | None = None,
         method: int | None = None,
         index: int | None = 0,
@@ -2103,10 +2382,11 @@ class Webp(Codec):
         squeeze: Literal[False] | Sequence[int] | None = None,
     ) -> None:
         if not imagecodecs.WEBP.available:
-            raise ValueError('imagecodecs.WEBP not available')
+            msg = 'imagecodecs.WEBP not available'
+            raise ValueError(msg)
 
-        self.level = level
-        self.hasalpha = bool(hasalpha)
+        self.level = None if level is None else float(level)
+        self.hasalpha = None if hasalpha is None else bool(hasalpha)
         self.method = method
         self.index = index
         self.lossless = lossless
@@ -2138,11 +2418,12 @@ class Xor(Codec):
         self,
         *,
         shape: tuple[int, ...] | None = None,
-        dtype: DTypeLike = None,
+        dtype: DTypeLike | None = None,
         axis: int = -1,
     ) -> None:
         if not imagecodecs.XOR.available:
-            raise ValueError('imagecodecs.XOR not available')
+            msg = 'imagecodecs.XOR not available'
+            raise ValueError(msg)
 
         self.shape = None if shape is None else tuple(shape)
         self.dtype = None if dtype is None else numpy.dtype(dtype).str
@@ -2152,9 +2433,11 @@ class Xor(Codec):
         if self.shape is not None or self.dtype is not None:
             buf = numpy.asarray(buf)
             if buf.shape != self.shape:
-                raise ValueError(f'{buf.shape=} does not match {self.shape=}')
+                msg = f'{buf.shape=} does not match {self.shape=}'
+                raise ValueError(msg)
             if buf.dtype != self.dtype:
-                raise ValueError(f'{buf.dtype=} does not match {self.dtype=}')
+                msg = f'{buf.dtype=} does not match {self.dtype=}'
+                raise ValueError(msg)
         return imagecodecs.xor_encode(buf, axis=self.axis).tobytes()
 
     def decode(self, buf, out=None):
@@ -2174,7 +2457,7 @@ class Zfp(Codec):
         self,
         *,
         shape: tuple[int, ...] | None = None,
-        dtype: DTypeLike = None,
+        dtype: DTypeLike | None = None,
         strides: tuple[int, ...] | None = None,
         level: int | None = None,
         mode: int | str | None = None,
@@ -2184,19 +2467,21 @@ class Zfp(Codec):
         numthreads: int | None = None,
     ) -> None:
         if not imagecodecs.ZFP.available:
-            raise ValueError('imagecodecs.ZFP not available')
+            msg = 'imagecodecs.ZFP not available'
+            raise ValueError(msg)
 
         if header:
             self.shape = None
             self.dtype = None
             self.strides = None
         elif shape is None or dtype is None:
-            raise ValueError('invalid shape or dtype')
+            msg = 'invalid shape or dtype'
+            raise ValueError(msg)
         else:
             self.shape = tuple(shape)
             self.dtype = numpy.dtype(dtype).str
             self.strides = None if strides is None else tuple(strides)
-        self.level = level
+        self.level = None if level is None else int(level)
         self.mode = mode
         self.execution = execution
         self.numthreads = numthreads
@@ -2207,9 +2492,11 @@ class Zfp(Codec):
         buf = numpy.asarray(buf)
         if not self.header:
             if buf.shape != self.shape:
-                raise ValueError(f'{buf.shape=} does not match {self.shape=}')
+                msg = f'{buf.shape=} does not match {self.shape=}'
+                raise ValueError(msg)
             if buf.dtype != self.dtype:
-                raise ValueError(f'{buf.dtype=} does not match {self.dtype=}')
+                msg = f'{buf.dtype=} does not match {self.dtype=}'
+                raise ValueError(msg)
         return imagecodecs.zfp_encode(
             buf,
             level=self.level,
@@ -2244,9 +2531,10 @@ class Zlib(Codec):
         level: int | None = None,
     ) -> None:
         if not imagecodecs.ZLIB.available:
-            raise ValueError('imagecodecs.ZLIB not available')
+            msg = 'imagecodecs.ZLIB not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
 
     def encode(self, buf):
         return imagecodecs.zlib_encode(buf, level=self.level)
@@ -2266,9 +2554,10 @@ class Zlibng(Codec):
         level: int | None = None,
     ) -> None:
         if not imagecodecs.ZLIBNG.available:
-            raise ValueError('imagecodecs.ZLIBNG not available')
+            msg = 'imagecodecs.ZLIBNG not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
 
     def encode(self, buf):
         return imagecodecs.zlibng_encode(buf, level=self.level)
@@ -2284,7 +2573,8 @@ class Zopfli(Codec):
 
     def __init__(self) -> None:
         if not imagecodecs.ZOPFLI.available:
-            raise ValueError('imagecodecs.ZOPFLI not available')
+            msg = 'imagecodecs.ZOPFLI not available'
+            raise ValueError(msg)
 
     def encode(self, buf):
         return imagecodecs.zopfli_encode(buf)
@@ -2304,9 +2594,10 @@ class Zstd(Codec):
         level: int | None = None,
     ) -> None:
         if not imagecodecs.ZSTD.available:
-            raise ValueError('imagecodecs.ZSTD not available')
+            msg = 'imagecodecs.ZSTD not available'
+            raise ValueError(msg)
 
-        self.level = level
+        self.level = None if level is None else int(level)
 
     def encode(self, buf):
         return imagecodecs.zstd_encode(buf, level=self.level)
@@ -2316,7 +2607,7 @@ class Zstd(Codec):
 
 
 def _flat(buf: Any, /) -> memoryview | None:
-    """Return numpy array as contiguous view of bytes if possible."""
+    """Return contiguous bytes-view of numpy array if possible, else None."""
     if buf is None:
         return None
     view = memoryview(buf)
@@ -2344,12 +2635,13 @@ def _image(
     arr = numpy.asarray(buf)
     if not squeeze:
         return arr
-    shape = tuple(i for i, j in zip(buf.shape, squeeze) if not j)
+    shape = tuple(i for i, j in zip(buf.shape, squeeze, strict=True) if not j)
     return arr.reshape(shape)
 
 
 def register_codecs(
     codecs: Any = None,
+    *,
     force: bool = False,
     verbose: bool = True,
 ) -> None:
@@ -2365,11 +2657,9 @@ def register_codecs(
         if codecs is not None and cls.codec_id not in codecs:
             continue
         try:
-            try:
-                get_codec({'id': cls.codec_id})
-            except TypeError:
+            with contextlib.suppress(TypeError):
                 # registered, but failed
-                pass
+                get_codec({'id': cls.codec_id})
         except ValueError:
             # not registered yet
             pass

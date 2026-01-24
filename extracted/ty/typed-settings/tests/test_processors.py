@@ -2,7 +2,7 @@
 Tests for "typed_settings.processors".
 """
 
-from typing import Callable, Union
+from collections.abc import Callable
 
 import jinja2
 import pytest
@@ -236,7 +236,7 @@ class TestFormatProcessor:
 
     @pytest.mark.parametrize("data, expected", DATA)
     def test_format_processor(
-        self, data: dict, expected: Union[dict, type[Exception]]
+        self, data: dict, expected: dict | type[Exception]
     ) -> None:
         """
         Values are recursively rendered with "str.format()" and errors are
@@ -409,7 +409,7 @@ class TestJinjaProcessor:
 
     @pytest.mark.parametrize("data, expected", DATA)
     def test_jinja_processor(
-        self, data: dict, expected: Union[dict, type[Exception]]
+        self, data: dict, expected: dict | type[Exception]
     ) -> None:
         """
         Values are recursively rendered with Jinja2 and an error is never
@@ -424,7 +424,7 @@ class TestJinjaProcessor:
 
     @pytest.mark.parametrize("data, expected", DATA_WITH_CUSTOM_JINJA)
     def test_jinja_processor_custom_environment(
-        self, data: dict, expected: Union[dict, type[Exception]]
+        self, data: dict, expected: dict | type[Exception]
     ):
         """
         Custom jinja environments with user extensions can be passed to the

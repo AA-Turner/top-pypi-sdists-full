@@ -30,11 +30,11 @@ class ApiKeyList(BaseModel):
     """ # noqa: E501
     name: StrictStr = Field(description="The name of the API key")
     value: StrictStr = Field(description="The masked API key value")
-    created_at: datetime = Field(description="When the API key was created", alias="createdAt")
+    created_at: datetime = Field(description="When the API key was created", serialization_alias="createdAt")
     permissions: List[StrictStr] = Field(description="The list of organization resource permissions assigned to the API key")
-    last_used_at: Optional[datetime] = Field(description="When the API key was last used", alias="lastUsedAt")
-    expires_at: Optional[datetime] = Field(description="When the API key expires", alias="expiresAt")
-    user_id: StrictStr = Field(description="The user ID of the user who created the API key", alias="userId")
+    last_used_at: Optional[datetime] = Field(description="When the API key was last used", serialization_alias="lastUsedAt")
+    expires_at: Optional[datetime] = Field(description="When the API key expires", serialization_alias="expiresAt")
+    user_id: StrictStr = Field(description="The user ID of the user who created the API key", serialization_alias="userId")
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["name", "value", "createdAt", "permissions", "lastUsedAt", "expiresAt", "userId"]
 
@@ -42,8 +42,8 @@ class ApiKeyList(BaseModel):
     def permissions_validate_enum(cls, value):
         """Validates the enum"""
         for i in value:
-            if i not in set(['write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'read:audit_logs']):
-                raise ValueError("each list item must be one of ('write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'read:audit_logs')")
+            if i not in set(['write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'write:regions', 'delete:regions', 'read:runners', 'write:runners', 'delete:runners', 'read:audit_logs']):
+                raise ValueError("each list item must be one of ('write:registries', 'delete:registries', 'write:snapshots', 'delete:snapshots', 'write:sandboxes', 'delete:sandboxes', 'read:volumes', 'write:volumes', 'delete:volumes', 'write:regions', 'delete:regions', 'read:runners', 'write:runners', 'delete:runners', 'read:audit_logs')")
         return value
 
     model_config = ConfigDict(
@@ -116,11 +116,11 @@ class ApiKeyList(BaseModel):
         _obj = cls.model_validate({
             "name": obj.get("name"),
             "value": obj.get("value"),
-            "createdAt": obj.get("createdAt"),
+            "created_at": obj.get("createdAt"),
             "permissions": obj.get("permissions"),
-            "lastUsedAt": obj.get("lastUsedAt"),
-            "expiresAt": obj.get("expiresAt"),
-            "userId": obj.get("userId")
+            "last_used_at": obj.get("lastUsedAt"),
+            "expires_at": obj.get("expiresAt"),
+            "user_id": obj.get("userId")
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

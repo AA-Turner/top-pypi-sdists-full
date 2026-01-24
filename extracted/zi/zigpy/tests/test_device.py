@@ -1,12 +1,13 @@
 import asyncio
 from contextlib import AsyncExitStack
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 import logging
 import math
 from unittest.mock import call
 
 import pytest
 
+from tests.conftest import make_node_desc, mock_attribute_reads
 from zigpy import device, endpoint
 import zigpy.application
 from zigpy.datastructures import RequestLimiter
@@ -77,6 +78,57 @@ async def test_initialize(monkeypatch, dev):
 
     await dev.initialize()
     assert dev._application.device_initialized.call_count == 3
+
+
+async def test_initialize_read_ota(
+    app: zigpy.application.ControllerApplication,
+) -> None:
+    # We skip over endpoint and node descriptor initialization and instead focus on
+    # attribute reading
+    dev = app.add_device(nwk=0x1234, ieee=t.EUI64.convert("aa:bb:cc:dd:ee:ff:00:11"))
+    dev.node_desc = make_node_desc()
+
+    ep = dev.add_endpoint(1)
+    ep.status = endpoint.Status.ZDO_INIT
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    ota = ep.add_output_cluster(Ota.cluster_id)
+
+    with (
+        mock_attribute_reads(basic, {"model": "Model", "manufacturer": "Manufacturer"}),
+        mock_attribute_reads(ota, {"current_file_version": 0x12345678}),
+    ):
+        await dev.initialize()
+
+    assert dev.model == "Model"
+    assert dev.manufacturer == "Manufacturer"
+    success, _ = await ota.read_attributes(
+        [Ota.AttributeDefs.current_file_version.id], only_cache=True
+    )
+    assert success[Ota.AttributeDefs.current_file_version.id] == 0x12345678
+
+
+async def test_initialize_read_ota_unsupported(
+    app: zigpy.application.ControllerApplication,
+) -> None:
+    dev = app.add_device(nwk=0x1234, ieee=t.EUI64.convert("aa:bb:cc:dd:ee:ff:00:11"))
+    dev.node_desc = make_node_desc()
+
+    ep = dev.add_endpoint(1)
+    ep.status = endpoint.Status.ZDO_INIT
+
+    basic = ep.add_input_cluster(Basic.cluster_id)
+    ota = ep.add_output_cluster(Ota.cluster_id)
+
+    with (
+        mock_attribute_reads(basic, {"model": "Model", "manufacturer": "Manufacturer"}),
+        mock_attribute_reads(ota, {}),  # No attributes are supported
+    ):
+        await dev.initialize()
+
+    # Initialization succeeds
+    assert dev.model == "Model"
+    assert dev.manufacturer == "Manufacturer"
 
 
 async def test_initialize_fail(dev):
@@ -190,7 +242,7 @@ async def test_broadcast(app_mock):
 async def _get_node_descriptor(dev, zdo_success=True, request_success=True):
     async def mockrequest(nwk, tries=None, delay=None, **kwargs):
         if not request_success:
-            raise asyncio.TimeoutError
+            raise TimeoutError
 
         status = 0 if zdo_success else 1
         return [status, nwk, zdo_t.NodeDescriptor.deserialize(b"abcdefghijklm")[0]]
@@ -309,13 +361,13 @@ def test_device_last_seen(dev, monkeypatch):
     assert dev.last_seen is None
 
     dev.last_seen = 0
-    epoch = datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=timezone.utc)
+    epoch = datetime(1970, 1, 1, 0, 0, 0, 0, tzinfo=UTC)
     assert dev.last_seen == epoch.timestamp()
 
     dev.listener_event.assert_called_once_with("device_last_seen_updated", epoch)
     dev.listener_event.reset_mock()
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     dev.last_seen = now
     dev.listener_event.assert_called_once_with("device_last_seen_updated", now)
 
@@ -442,7 +494,9 @@ async def test_update_device_firmware(monkeypatch, dev, caplog):
     monkeypatch.setattr(endpoint.Endpoint, "initialize", mockepinit)
     monkeypatch.setattr(endpoint.Endpoint, "get_model_info", mock_ep_get_model_info)
     dev.zdo.Active_EP_req = mockrequest
-    await dev.initialize()
+
+    with mock_attribute_reads(cluster, {"current_file_version": 0x00000001}):
+        await dev.initialize()
 
     fw_image = zigpy.ota.OtaImageWithMetadata(
         metadata=zigpy.ota.providers.BaseOtaImageMetadata(
@@ -823,7 +877,9 @@ async def test_update_legrand_device_firmware(monkeypatch, dev, caplog):
     monkeypatch.setattr(endpoint.Endpoint, "initialize", mockepinit)
     monkeypatch.setattr(endpoint.Endpoint, "get_model_info", mock_ep_get_model_info)
     dev.zdo.Active_EP_req = mockrequest
-    await dev.initialize()
+
+    with mock_attribute_reads(cluster, {"current_file_version": 0x00000001}):
+        await dev.initialize()
 
     fw_image = zigpy.ota.OtaImageWithMetadata(
         metadata=zigpy.ota.providers.BaseOtaImageMetadata(
@@ -1364,7 +1420,7 @@ async def test_duplicate_request_sending(dev: device.Device) -> None:
 
     async def delayed_receive(*args, **kwargs) -> None:
         await asyncio.sleep(0.1)
-        raise asyncio.TimeoutError()
+        raise TimeoutError()
 
     dev._application.request = AsyncMock(side_effect=delayed_receive)
     dev._concurrent_requests_semaphore.max_concurrency = 100000
@@ -1521,6 +1577,8 @@ async def test_poll_control_checkin_callback(
                     start_fast_polling=expected_fast_poll,
                     fast_poll_timeout=int(device.DEFAULT_FAST_POLL_TIMEOUT * 4),
                     tsn=0x12,
+                    expect_reply=False,
+                    disable_default_response=True,
                 )
             ]
         else:
@@ -1529,6 +1587,8 @@ async def test_poll_control_checkin_callback(
                     start_fast_polling=expected_fast_poll,
                     fast_poll_timeout=0,
                     tsn=0x12,
+                    expect_reply=False,
+                    disable_default_response=True,
                 )
             ]
 
@@ -1619,7 +1679,7 @@ async def test_initialize_fast_polling_failure(dev: device.Device) -> None:
     ep = dev.add_endpoint(1)
     ep.add_input_cluster(PollControl.cluster_id)
 
-    dev.begin_fast_polling = AsyncMock(side_effect=[asyncio.TimeoutError(), None])
+    dev.begin_fast_polling = AsyncMock(side_effect=[TimeoutError(), None])
 
     async def mockepinit(self, *args, **kwargs):
         self.status = endpoint.Status.ZDO_INIT
@@ -1642,19 +1702,53 @@ async def test_initialize_fast_polling_failure(dev: device.Device) -> None:
     assert dev.begin_fast_polling.mock_calls == [call()]
 
 
-async def test_device_flipped_cluster_warning(dev: device.Device, caplog) -> None:
-    """Test that a warning is logged when a cluster is flipped."""
-    ep1 = dev.add_endpoint(1)
-    ep1.add_input_cluster(OnOff.cluster_id)
+@pytest.mark.parametrize(
+    (
+        "has_input_cluster",
+        "has_output_cluster",
+        "packet_direction",
+        "expected_cluster_type",
+    ),
+    [
+        # Correct cluster matching
+        (True, False, foundation.Direction.Server_to_Client, ClusterType.Server),
+        (False, True, foundation.Direction.Client_to_Server, ClusterType.Client),
+        # Direction flipping: only one cluster type exists, packet has wrong direction
+        (True, False, foundation.Direction.Client_to_Server, ClusterType.Server),
+        (False, True, foundation.Direction.Server_to_Client, ClusterType.Client),
+        # Both clusters exist: should match based on direction, no flipping
+        (True, True, foundation.Direction.Server_to_Client, ClusterType.Server),
+        (True, True, foundation.Direction.Client_to_Server, ClusterType.Client),
+        # Cluster doesn't exist
+        (False, False, foundation.Direction.Server_to_Client, None),
+        (False, False, foundation.Direction.Client_to_Server, None),
+    ],
+)
+async def test_device_cluster_direction_flipping(
+    dev: device.Device,
+    has_input_cluster: bool,
+    has_output_cluster: bool,
+    packet_direction: foundation.Direction,
+    expected_cluster_type: ClusterType | None,
+) -> None:
+    """Test that cluster direction flipping routes messages to the correct cluster."""
+    ep = dev.add_endpoint(1)
 
-    ep2 = dev.add_endpoint(2)
-    ep2.add_output_cluster(OnOff.cluster_id)
+    if has_input_cluster:
+        input_cluster = ep.add_input_cluster(OnOff.cluster_id)
+    else:
+        input_cluster = None
+
+    if has_output_cluster:
+        output_cluster = ep.add_output_cluster(OnOff.cluster_id)
+    else:
+        output_cluster = None
 
     zcl_hdr = foundation.ZCLHeader(
         frame_control=foundation.FrameControl(
             frame_type=foundation.FrameType.CLUSTER_COMMAND,
             is_manufacturer_specific=False,
-            direction=foundation.Direction.Client_to_Server,
+            direction=packet_direction,
             disable_default_response=1,
             reserved=0,
         ),
@@ -1676,14 +1770,132 @@ async def test_device_flipped_cluster_warning(dev: device.Device, caplog) -> Non
         rssi=-30,
     )
 
-    # Correct
-    with caplog.at_level(logging.WARNING):
-        dev.packet_received(packet.replace(src_ep=2))
+    captured_result = []
 
-    assert "has incorrect direction" not in caplog.text
+    original_match = dev._match_packet_endpoint_cluster
 
-    # Incorrect
-    with caplog.at_level(logging.WARNING):
-        dev.packet_received(packet.replace(src_ep=1))
+    def capture_match(*args, **kwargs):
+        result = original_match(*args, **kwargs)
+        captured_result.append(result)
+        return result
 
-    assert "has incorrect direction" in caplog.text
+    with patch.object(
+        dev, "_match_packet_endpoint_cluster", side_effect=capture_match
+    ) as spy:
+        dev.packet_received(packet)
+
+    assert spy.call_count == 1
+    assert len(captured_result) == 1
+
+    _, returned_cluster = captured_result[0]
+
+    if expected_cluster_type is None:
+        assert returned_cluster is None
+    elif expected_cluster_type is ClusterType.Server:
+        assert returned_cluster is input_cluster
+    elif expected_cluster_type is ClusterType.Client:
+        assert returned_cluster is output_cluster
+    else:
+        pytest.fail("Unexpected cluster type")
+
+
+async def test_attribute_report_not_matched_with_request(dev):
+    """Test that attribute reports don't match pending requests."""
+    ep = dev.add_endpoint(1)
+    ep.add_input_cluster(OnOff.cluster_id)
+
+    with patch.object(dev._application, "send_packet") as mock_packet_send:
+        request_task = asyncio.create_task(dev.endpoints[1].on_off.on())
+
+        # Get the TSN that was used for the request
+        await asyncio.sleep(0)
+        assert len(mock_packet_send.mock_calls) == 1
+        sent_packet = mock_packet_send.mock_calls[0].args[0]
+
+    tsn_hdr, _ = foundation.ZCLHeader.deserialize(sent_packet.data.serialize())
+
+    # Device sends an attribute report with the same TSN
+    attr_report_hdr = foundation.ZCLHeader(
+        frame_control=foundation.FrameControl(
+            frame_type=foundation.FrameType.GLOBAL_COMMAND,
+            is_manufacturer_specific=False,
+            direction=foundation.Direction.Server_to_Client,
+            disable_default_response=True,
+            reserved=0,
+        ),
+        tsn=tsn_hdr.tsn,
+        command_id=foundation.GeneralCommand.Report_Attributes,
+    )
+
+    attr = foundation.Attribute()
+    attr.attrid = OnOff.AttributeDefs.on_off.id
+    attr.value = foundation.TypeValue()
+    attr.value.type = foundation.DataTypeId.bool_
+    attr.value.value = t.Bool.true
+
+    attr_report_cmd = foundation.GENERAL_COMMANDS[
+        foundation.GeneralCommand.Report_Attributes
+    ].schema([attr])
+
+    dev.packet_received(
+        t.ZigbeePacket(
+            src=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=dev.nwk),
+            src_ep=1,
+            dst=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=0x0000),
+            dst_ep=1,
+            profile_id=260,
+            cluster_id=OnOff.cluster_id,
+            data=t.SerializableBytes(
+                attr_report_hdr.serialize() + attr_report_cmd.serialize()
+            ),
+            lqi=255,
+            rssi=-30,
+        )
+    )
+
+    # The request should still be pending (not resolved by the attribute report)
+    assert not request_task.done()
+
+    # The device now sends its real response
+    default_rsp_hdr = foundation.ZCLHeader(
+        frame_control=foundation.FrameControl(
+            frame_type=foundation.FrameType.GLOBAL_COMMAND,
+            is_manufacturer_specific=False,
+            direction=foundation.Direction.Server_to_Client,
+            disable_default_response=True,
+            reserved=0,
+        ),
+        tsn=tsn_hdr.tsn,
+        command_id=foundation.GeneralCommand.Default_Response,
+    )
+
+    default_rsp_cmd = foundation.GENERAL_COMMANDS[
+        foundation.GeneralCommand.Default_Response
+    ].schema(
+        command_id=OnOff.ServerCommandDefs.on.id,
+        status=foundation.Status.SUCCESS,
+    )
+
+    # Inject the default response
+    dev.packet_received(
+        t.ZigbeePacket(
+            src=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=dev.nwk),
+            src_ep=1,
+            dst=t.AddrModeAddress(addr_mode=t.AddrMode.NWK, address=0x0000),
+            dst_ep=1,
+            profile_id=260,
+            cluster_id=OnOff.cluster_id,
+            data=t.SerializableBytes(
+                default_rsp_hdr.serialize() + default_rsp_cmd.serialize()
+            ),
+            lqi=255,
+            rssi=-30,
+        )
+    )
+    await asyncio.sleep(0)
+
+    # Now the request should be complete and correctly matched
+    assert request_task.done()
+    result = await request_task
+
+    assert result == default_rsp_cmd

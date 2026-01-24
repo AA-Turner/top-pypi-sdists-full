@@ -3,7 +3,7 @@ import logging
 import os
 import re
 import sys
-from typing import Optional, Union, List
+from typing import List, Optional, Union
 
 import numpy as np
 
@@ -19,9 +19,12 @@ __all__ = [
     "log_warn",
     "logfmt",
     "decode_base64_embedding",
+    "default_api_key",
 ]
 
-api_key_to_header = lambda key: {"Authorization": f"Bearer {key}"}
+
+def api_key_to_header(key):
+    return {"Authorization": f"Bearer {key}"}
 
 
 def _console_log_level():
@@ -92,6 +95,13 @@ def default_api_key() -> str:
         )
 
 
+def get_default_base_url(api_key: str) -> str:
+    if api_key.startswith("al-"):
+        return "https://ai.mongodb.com/v1"
+    else:
+        return "https://api.voyageai.com/v1"
+
+
 def _resolve_numpy_dtype(dtype: Optional[str] = None) -> str:
     dtype_mapping = {
         None: np.float32,
@@ -107,6 +117,8 @@ def _resolve_numpy_dtype(dtype: Optional[str] = None) -> str:
         raise ValueError(f"Unknown dtype {dtype}")
 
 
-def decode_base64_embedding(embedding: str, dtype: Optional[str] = None) -> Union[List[float], List[int]]:
+def decode_base64_embedding(
+    embedding: str, dtype: Optional[str] = None
+) -> Union[List[float], List[int]]:
     arr = np.frombuffer(base64.b64decode(embedding), _resolve_numpy_dtype(dtype))
     return arr.tolist()

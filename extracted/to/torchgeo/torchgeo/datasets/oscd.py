@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """OSCD dataset."""
@@ -8,6 +8,7 @@ import os
 from collections.abc import Callable, Sequence
 from typing import ClassVar
 
+import einops
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -140,6 +141,9 @@ class OSCD(NonGeoDataset):
     def __getitem__(self, index: int) -> dict[str, Tensor]:
         """Return an index within the dataset.
 
+        .. versionchanged:: 0.8
+           Now returns a single T x C x H x W image.
+
         Args:
             index: index to return
 
@@ -150,10 +154,16 @@ class OSCD(NonGeoDataset):
         image1 = self._load_image(files['images1'])
         image2 = self._load_image(files['images2'])
         mask = self._load_target(str(files['mask']))
-        sample = {'image1': image1, 'image2': image2, 'mask': mask}
+        image = torch.stack(tensors=[image1, image2], dim=0)
+        sample = {'image': image, 'mask': mask}
 
         if self.transforms is not None:
+            # FIXME: VideoSequential only works with a batch dimension
+            sample['image'] = sample['image'].unsqueeze(0)
+            sample['mask'] = sample['mask'].unsqueeze(0)
             sample = self.transforms(sample)
+            sample['image'] = sample['image'].squeeze(0)
+            sample['mask'] = sample['mask'].squeeze(0)
 
         return sample
 
@@ -241,7 +251,8 @@ class OSCD(NonGeoDataset):
             tensor = torch.from_numpy(array)
             tensor = torch.clamp(tensor, min=0, max=1)
             tensor = tensor.to(torch.long)
-            return tensor
+            # VideoSequential requires time dimension
+            return einops.rearrange(tensor, 'h w -> () h w')
 
     def _verify(self) -> None:
         """Verify the integrity of the dataset."""
@@ -318,14 +329,14 @@ class OSCD(NonGeoDataset):
             )
             array: np.typing.NDArray[np.uint8] = draw_semantic_segmentation_masks(
                 torch.from_numpy(rgb_img),
-                sample['mask'],
+                sample['mask'][0],
                 alpha=alpha,
                 colors=list(self.colormap),
             )
             return array
 
-        image1 = get_masked(sample['image1'])
-        image2 = get_masked(sample['image2'])
+        image1 = get_masked(sample['image'][0])
+        image2 = get_masked(sample['image'][1])
         fig, axs = plt.subplots(ncols=ncols, figsize=(ncols * 10, 10))
         axs[0].imshow(image1)
         axs[0].axis('off')

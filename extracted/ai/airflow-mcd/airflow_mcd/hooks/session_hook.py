@@ -9,19 +9,22 @@ from pycarlo.core import Session, Client, Query
 
 from airflow_mcd.hooks.constants import (
     MCD_GATEWAY_CONNECTION_TYPE,
+    MCD_GATEWAY_CONNECTION_TYPE_LEGACY,
     MCD_GATEWAY_SCOPE,
     MCD_GATEWAY_HOSTS,
 )
 
 try:
-    from airflow.hooks.base import BaseHook
-
+    from airflow.sdk.bases.hook import BaseHook  # Airflow 3.0+
     HOOK_SOURCE = None
 except ImportError:
-    # For Airflow 1.10.*
-    from airflow.hooks.base_hook import BaseHook
-
-    HOOK_SOURCE = 'mcd_session'
+    try:
+        from airflow.hooks.base import BaseHook  # Airflow 2+
+        HOOK_SOURCE = None
+    except ImportError:
+        # For Airflow 1.10.*
+        from airflow.hooks.base_hook import BaseHook
+        HOOK_SOURCE = 'mcd_session'
 from pycarlo.core import Session
 
 _DEFAULT_TIMEOUT_SEC = 10
@@ -105,7 +108,8 @@ class SessionHook(BaseHook):
 
     @staticmethod
     def _is_gateway_connection(connection_type: str, host: Optional[str]) -> bool:
-        if connection_type == MCD_GATEWAY_CONNECTION_TYPE:
+        # Support both RFC3986-compliant (Airflow 3.0+) and legacy connection types
+        if connection_type in (MCD_GATEWAY_CONNECTION_TYPE, MCD_GATEWAY_CONNECTION_TYPE_LEGACY):
             return True
         else:
             # in some environments our custom connection types (like "Monte Carlo Data Gateway") are not

@@ -25,12 +25,12 @@ from .util import find_program, backtick
 
 
 # internal MIME database
-mimedb = None
+mimedb: mimetypes.MimeTypes | None = None
 
 
 def init_mimedb() -> None:
     """Initialize the internal MIME database."""
-    global mimedb
+    global mimedb  # noqa PLW0603
     try:
         mimedb = mimetypes.MimeTypes(strict=False)
     except Exception as msg:
@@ -66,6 +66,7 @@ def add_mimedb_data(mimedb: mimetypes.MimeTypes) -> None:
     add_mimetype(mimedb, 'application/x-archive', '.a')
     add_mimetype(mimedb, 'application/x-alzip', '.alz')
     add_mimetype(mimedb, 'application/x-arc', '.arc')
+    # note: application/x-freearc is not added to mimedb since it uses the same file extension .arc as application/x-arc
     add_mimetype(mimedb, 'application/x-lrzip', '.lrz')
     add_mimetype(mimedb, 'application/x-lha', '.lha')
     add_mimetype(mimedb, 'application/x-lzh', '.lzh')
@@ -113,7 +114,7 @@ def guess_mime(filename: str) -> tuple[str | None, str | None]:
         mime, encoding = guess_mime_mimedb(filename)
     else:
         # check if file extension detection differs.
-        mime2, encoding2 = guess_mime_mimedb(filename)
+        mime2, _encoding2 = guess_mime_mimedb(filename)
         if mime2 != mime:
             log_info(
                 f"Different MIME types detected for {filename}: "
@@ -151,7 +152,7 @@ def guess_mime_mimedb(filename: str) -> tuple[str | None, str | None]:
     mime, encoding = None, None
     if mimedb is not None:
         mime, encoding = mimedb.guess_type(filename, strict=False)
-    if mime is None and encoding is None:
+    if mimedb is not None and mime is None and encoding is None:
         # try with lowercase extension, since we configure our mimedb entries only with lowercase
         # this way, files like "t.GZ" are recognized
         root, ext = os.path.splitext(filename)
@@ -175,7 +176,7 @@ def guess_mime_file(filename: str) -> tuple[str | None, str | None]:
     mime, encoding = None, None
     if os.path.isfile(filename):
         file_prog = find_program("file")
-        if file_prog:
+        if file_prog is not None:
             mime, encoding = guess_mime_file_mime(file_prog, filename)
             if mime is None:
                 mime = guess_mime_file_text(file_prog, filename)
@@ -186,13 +187,21 @@ def guess_mime_file(filename: str) -> tuple[str | None, str | None]:
             )
     if mime in Mime2Encoding:
         # try to look inside compressed archives
-        cmd = [file_prog, "--brief", "--mime", "--uncompress", "--no-sandbox", filename]
-        try:
-            outparts = backtick(cmd).strip().split(";")
-            mime2 = outparts[0].split(" ", 1)[0]
-        except (OSError, subprocess.CalledProcessError) as err:
-            log_warning(f"error executing {cmd}: {err}")
-            mime2 = None
+        mime2 = None
+        if file_prog is not None:
+            cmd = [
+                file_prog,
+                "--brief",
+                "--mime",
+                "--uncompress",
+                "--no-sandbox",
+                filename,
+            ]
+            try:
+                outparts = backtick(cmd).strip().split(";")
+                mime2 = outparts[0].split(" ", 1)[0]
+            except (OSError, subprocess.CalledProcessError) as err:
+                log_warning(f"error executing {cmd}: {err}")
 
         if mime2 in LegacyMimeType:
             mime2 = LegacyMimeType[mime2]
@@ -263,6 +272,7 @@ FileText2Mime: dict[str, str] = {
     "cpio archive": "application/x-cpio",
     "ASCII cpio archive": "application/x-cpio",
     "Debian binary package": "application/x-debian-package",
+    "FreeArc archive": "application/x-freearc",
     "gzip compressed data": "application/gzip",
     "LZMA compressed data": "application/x-lzma",
     "LRZIP compressed data": "application/x-lrzip",

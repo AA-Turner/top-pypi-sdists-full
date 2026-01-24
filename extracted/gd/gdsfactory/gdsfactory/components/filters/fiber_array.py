@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+__all__ = ["fiber_array"]
+
 import gdsfactory as gf
 from gdsfactory.component import Component
-from gdsfactory.components.shapes.circle import circle
 from gdsfactory.typings import LayerSpec
+
+from ..shapes.circle import circle
 
 
 @gf.cell_with_module_name

@@ -7,7 +7,7 @@ name = "peakrdl-systemrdl"
 dynamic = ["version"]
 requires-python = ">=3.7"
 dependencies = [
-    "systemrdl-compiler >= 1.25.1, < 2",
+    "systemrdl-compiler ~= 1.30",
 ]
 
 authors = [
@@ -28,6 +28,11 @@ classifiers = [
     "License :: OSI Approved :: GNU Lesser General Public License v3 (LGPLv3)",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+]
+
+[project.optional-dependencies]
+cli = [
+    "peakrdl-cli >= 1.5.0",
 ]
 
 [project.urls]

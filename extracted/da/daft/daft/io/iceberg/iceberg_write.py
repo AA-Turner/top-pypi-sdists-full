@@ -98,17 +98,17 @@ def partition_field_to_expr(field: IcebergPartitionField, schema: IcebergSchema)
     if isinstance(field.transform, IdentityTransform):
         transform_expr = part_col
     elif isinstance(field.transform, YearTransform):
-        transform_expr = part_col.partitioning.years()
+        transform_expr = part_col.partition_years()
     elif isinstance(field.transform, MonthTransform):
-        transform_expr = part_col.partitioning.months()
+        transform_expr = part_col.partition_months()
     elif isinstance(field.transform, DayTransform):
-        transform_expr = part_col.partitioning.days()
+        transform_expr = part_col.partition_days()
     elif isinstance(field.transform, HourTransform):
-        transform_expr = part_col.partitioning.hours()
+        transform_expr = part_col.partition_hours()
     elif isinstance(field.transform, BucketTransform):
-        transform_expr = part_col.partitioning.iceberg_bucket(field.transform.num_buckets)
+        transform_expr = part_col.partition_iceberg_bucket(field.transform.num_buckets)
     elif isinstance(field.transform, TruncateTransform):
-        transform_expr = part_col.partitioning.iceberg_truncate(field.transform.width)
+        transform_expr = part_col.partition_iceberg_truncate(field.transform.width)
     else:
         warnings.warn(f"{field.transform} not implemented, Please make an issue!")
         transform_expr = part_col
@@ -186,12 +186,20 @@ def make_iceberg_data_file(
             parquet_column_mapping=parquet_path_to_id_mapping(schema),
         )
 
-        data_file = DataFile(
-            **{
-                **kwargs,
-                **statistics.to_serialized_dict(),
-            }
-        )
+        if parse(pyiceberg.__version__) >= parse("0.10.0"):
+            data_file = DataFile.from_args(
+                **{
+                    **kwargs,
+                    **statistics.to_serialized_dict(),
+                }
+            )
+        else:
+            data_file = DataFile(
+                **{
+                    **kwargs,
+                    **statistics.to_serialized_dict(),
+                }
+            )
     else:
         from pyiceberg.io.pyarrow import fill_parquet_file_metadata
 
@@ -251,11 +259,15 @@ class IcebergWriteVisitors:
 
 
 def make_iceberg_record(partition_values: dict[str, Any] | None) -> IcebergRecord:
+    import pyiceberg
+    from packaging.version import parse
     from pyiceberg.typedef import Record as IcebergRecord
 
     if partition_values:
-        iceberg_part_vals = {k: to_partition_representation(v) for k, v in partition_values.items()}
-        return IcebergRecord(**iceberg_part_vals)
+        if parse(pyiceberg.__version__) >= parse("0.10.0"):
+            return IcebergRecord(*[to_partition_representation(v) for v in partition_values.values()])
+
+        return IcebergRecord(**{k: to_partition_representation(v) for k, v in partition_values.items()})
     else:
         return IcebergRecord()
 

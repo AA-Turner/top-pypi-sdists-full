@@ -2,10 +2,10 @@ use tombi_future::Boxable;
 use tombi_schema_store::{Accessor, CurrentSchema, ValueSchema};
 
 use super::{
+    CompletionContent, CompletionHint, FindCompletionContents,
     value::{
         find_all_of_completion_items, find_any_of_completion_items, find_one_of_completion_items,
     },
-    CompletionContent, CompletionHint, FindCompletionContents,
 };
 
 /// A tag data that indicates that only schema information is used for completion.
@@ -205,7 +205,7 @@ impl tombi_validator::Validate for SchemaCompletion {
         _accessors: &'a [tombi_schema_store::Accessor],
         _current_schema: Option<&'a tombi_schema_store::CurrentSchema<'a>>,
         _schema_context: &'a tombi_schema_store::SchemaContext,
-    ) -> tombi_future::BoxFuture<'b, Result<(), Vec<tombi_diagnostic::Diagnostic>>> {
+    ) -> tombi_future::BoxFuture<'b, Result<(), tombi_validator::Error>> {
         async move { Ok(()) }.boxed()
     }
 }

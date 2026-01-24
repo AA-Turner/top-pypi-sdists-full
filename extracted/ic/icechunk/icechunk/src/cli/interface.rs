@@ -321,6 +321,7 @@ fn add_repo_to_config(
                     allow_http: false,
                     force_path_style: false,
                     network_stream_timeout_seconds: None,
+                    requester_pays: false,
                 },
                 credentials: S3Credentials::FromEnv,
                 config: RepositoryConfig::default(),
@@ -353,6 +354,7 @@ fn add_repo_to_config(
                     allow_http: false,
                     force_path_style: false,
                     network_stream_timeout_seconds: None,
+                    requester_pays: false,
                 },
                 credentials: S3Credentials::FromEnv,
                 config: RepositoryConfig::default(),
@@ -434,7 +436,7 @@ pub async fn run_cli(args: IcechunkCLI) -> Result<()> {
         }
         Command::Config(ConfigCommand::List) => config_list(&config, stdout()).await,
     }
-    .map_err(|e| anyhow::anyhow!("❌ {}", e))
+    .map_err(|e| anyhow::anyhow!("❌ {e}"))
 }
 
 #[cfg(test)]

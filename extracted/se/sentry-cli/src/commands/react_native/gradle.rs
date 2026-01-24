@@ -123,28 +123,26 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
 
             processor.upload(&UploadContext {
                 org: &org,
-                projects: &projects,
+                projects: projects.as_non_empty_slice(),
                 release: Some(version),
                 dist: Some(dist),
                 note: None,
                 wait,
                 max_wait,
-                dedupe: false,
-                chunk_upload_options: chunk_upload_options.as_ref(),
+                chunk_upload_options: &chunk_upload_options,
             })?;
         }
     } else {
         // Debug Id Upload
         processor.upload(&UploadContext {
             org: &org,
-            projects: &projects,
+            projects: projects.as_non_empty_slice(),
             release: None,
             dist: None,
             note: None,
             wait,
             max_wait,
-            dedupe: false,
-            chunk_upload_options: chunk_upload_options.as_ref(),
+            chunk_upload_options: &chunk_upload_options,
         })?;
     }
 

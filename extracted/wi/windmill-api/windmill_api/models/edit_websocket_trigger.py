@@ -31,6 +31,7 @@ class EditWebsocketTrigger:
         is_flow (bool):
         filters (List['EditWebsocketTriggerFiltersItem']):
         can_return_message (bool):
+        can_return_error_result (bool):
         initial_messages (Union[Unset, List[Union['EditWebsocketTriggerInitialMessagesItemType0',
             'EditWebsocketTriggerInitialMessagesItemType1']]]):
         url_runnable_args (Union[Unset, EditWebsocketTriggerUrlRunnableArgs]): The arguments to pass to the script or
@@ -38,7 +39,7 @@ class EditWebsocketTrigger:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, EditWebsocketTriggerErrorHandlerArgs]): The arguments to pass to the script or
             flow
-        retry (Union[Unset, EditWebsocketTriggerRetry]):
+        retry (Union[Unset, EditWebsocketTriggerRetry]): Retry configuration for failed module executions
     """
 
     url: str
@@ -47,6 +48,7 @@ class EditWebsocketTrigger:
     is_flow: bool
     filters: List["EditWebsocketTriggerFiltersItem"]
     can_return_message: bool
+    can_return_error_result: bool
     initial_messages: Union[
         Unset,
         List[Union["EditWebsocketTriggerInitialMessagesItemType0", "EditWebsocketTriggerInitialMessagesItemType1"]],
@@ -73,6 +75,7 @@ class EditWebsocketTrigger:
             filters.append(filters_item)
 
         can_return_message = self.can_return_message
+        can_return_error_result = self.can_return_error_result
         initial_messages: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
             initial_messages = []
@@ -110,6 +113,7 @@ class EditWebsocketTrigger:
                 "is_flow": is_flow,
                 "filters": filters,
                 "can_return_message": can_return_message,
+                "can_return_error_result": can_return_error_result,
             }
         )
         if initial_messages is not UNSET:
@@ -155,6 +159,8 @@ class EditWebsocketTrigger:
             filters.append(filters_item)
 
         can_return_message = d.pop("can_return_message")
+
+        can_return_error_result = d.pop("can_return_error_result")
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -211,6 +217,7 @@ class EditWebsocketTrigger:
             is_flow=is_flow,
             filters=filters,
             can_return_message=can_return_message,
+            can_return_error_result=can_return_error_result,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

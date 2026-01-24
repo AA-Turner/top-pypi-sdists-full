@@ -20,6 +20,7 @@ from typing import Callable, Dict, List, NamedTuple, Optional, Type
 import requests
 from requests import RequestException
 
+from ...api_objects.model import ModelStatusConfiguration
 from ...batch_utils import MessageBatch, MessageBatchItem, ParametersBatch
 from ...connection import RestApiClient, RestServerConnection
 from ...connection.connection_url_helpers import upload_thumbnail_url
@@ -1051,6 +1052,7 @@ class OnlineMessageHandler(BaseMessageHandler):
             if status == "IN_PROGRESS":
                 if context.message_loop_active:
                     context.push_back_callback(message)
+                    time.sleep(0.1)  # give other threads a chance to run
                     return
 
                 # message loop is not active - force to wait for upload complete
@@ -1082,18 +1084,31 @@ class OnlineMessageHandler(BaseMessageHandler):
                 message.registry_name,
                 message.version,
             )
+            if message.status_configuration:
+                LOGGER.debug(
+                    "Parsing model's item status configuration: %r",
+                    message.status_configuration,
+                )
+                status_configuration = ModelStatusConfiguration.from_parameters_dict(
+                    message.status_configuration
+                )
+            else:
+                status_configuration = None
+
             self._rest_api_client.register_model_v2(
-                message.experiment_id,
-                message.model_name,
-                message.version,
-                workspace,
-                message.registry_name,
-                message.public,
-                message.description,
-                message.comment,
-                message.tags,
-                message.status,
-                message.stages,
+                experiment_id=message.experiment_id,
+                model_name=message.model_name,
+                version=message.version,
+                workspace=workspace,
+                registry_name=message.registry_name,
+                public=message.public,
+                description=message.description,
+                comment=message.comment,
+                tags=message.tags,
+                status=message.status,
+                stages=message.stages,
+                metadata=message.metadata,
+                status_configuration=status_configuration,
             )
             message.on_model_register()
             # notify message tracker

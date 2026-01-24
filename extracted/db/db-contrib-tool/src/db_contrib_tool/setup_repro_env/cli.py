@@ -26,7 +26,7 @@ from db_contrib_tool.setup_repro_env.setup_repro_env import (
     SetupReproParameters,
 )
 from db_contrib_tool.usage_analytics import CommandWithUsageTracking
-from db_contrib_tool.utils.evergreen_conn import EVERGREEN_CONFIG_LOCATIONS, get_evergreen_api
+from db_contrib_tool.utils.evergreen_conn import get_evergreen_api
 
 DEFAULT_INSTALL_DIR = os.path.join(os.getcwd(), "build", "multiversion_bin")
 DEFAULT_LINK_DIR = os.getcwd()
@@ -170,7 +170,7 @@ def setup_logging(debug: bool = False) -> None:
     "evergreen_config",
     type=click.Path(),
     help="Location of evergreen configuration file.",
-    show_default=f"If not specified it will look for it in the following locations: {EVERGREEN_CONFIG_LOCATIONS}.",
+    show_default="If not specified it will look for it in the default locations.",
 )
 @click.option(
     "-d",

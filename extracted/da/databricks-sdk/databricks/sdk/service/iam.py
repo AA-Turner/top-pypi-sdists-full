@@ -7,7 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, Iterator, List, Optional
 
-from ._internal import _enum, _from_dict, _repeated_dict, _repeated_enum
+from databricks.sdk.service._internal import (_enum, _from_dict,
+                                              _repeated_dict, _repeated_enum)
 
 _LOG = logging.getLogger("databricks.sdk")
 
@@ -498,24 +499,6 @@ class ConsistencyToken:
     def from_dict(cls, d: Dict[str, Any]) -> ConsistencyToken:
         """Deserializes the ConsistencyToken from a dictionary."""
         return cls(value=d.get("value", None))
-
-
-@dataclass
-class DeleteResponse:
-    def as_dict(self) -> dict:
-        """Serializes the DeleteResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the DeleteResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> DeleteResponse:
-        """Deserializes the DeleteResponse from a dictionary."""
-        return cls()
 
 
 @dataclass
@@ -1464,24 +1447,6 @@ class PatchOp(Enum):
     REPLACE = "replace"
 
 
-@dataclass
-class PatchResponse:
-    def as_dict(self) -> dict:
-        """Serializes the PatchResponse into a dictionary suitable for use as a JSON request body."""
-        body = {}
-        return body
-
-    def as_shallow_dict(self) -> dict:
-        """Serializes the PatchResponse into a shallow dictionary of its immediate attributes."""
-        body = {}
-        return body
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> PatchResponse:
-        """Deserializes the PatchResponse from a dictionary."""
-        return cls()
-
-
 class PatchSchema(Enum):
 
     URN_IETF_PARAMS_SCIM_API_MESSAGES_2_0_PATCH_OP = "urn:ietf:params:scim:api:messages:2.0:PatchOp"
@@ -2337,6 +2302,7 @@ class AccountAccessControlAPI:
 
         :returns: :class:`RuleSetResponse`
         """
+
         body = {}
         if name is not None:
             body["name"] = name
@@ -2443,6 +2409,7 @@ class AccountAccessControlProxyAPI:
 
         :returns: :class:`RuleSetResponse`
         """
+
         body = {}
         if name is not None:
             body["name"] = name
@@ -2493,6 +2460,7 @@ class AccountGroupsV2API:
 
         :returns: :class:`AccountGroup`
         """
+
         body = {}
         if display_name is not None:
             body["displayName"] = display_name
@@ -2557,8 +2525,9 @@ class AccountGroupsV2API:
         start_index: Optional[int] = None,
     ) -> Iterator[AccountGroup]:
         """Gets all details of the groups associated with the Databricks account. As of 08/22/2025, this endpoint
-        will not return members. Instead, members should be retrieved by iterating through `Get group
-        details`.
+        will no longer return members. Instead, members should be retrieved by iterating through `Get group
+        details`. Existing accounts that rely on this attribute will not be impacted and will continue
+        receiving member data as before.
 
         :param attributes: str (optional)
           Comma-separated list of attributes to return in response.
@@ -2627,6 +2596,7 @@ class AccountGroupsV2API:
 
 
         """
+
         body = {}
         if operations is not None:
             body["Operations"] = [v.as_dict() for v in operations]
@@ -2665,6 +2635,7 @@ class AccountGroupsV2API:
 
 
         """
+
         body = {}
         if display_name is not None:
             body["displayName"] = display_name
@@ -2720,6 +2691,7 @@ class AccountServicePrincipalsV2API:
 
         :returns: :class:`AccountServicePrincipal`
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -2859,6 +2831,7 @@ class AccountServicePrincipalsV2API:
 
 
         """
+
         body = {}
         if operations is not None:
             body["Operations"] = [v.as_dict() for v in operations]
@@ -2904,6 +2877,7 @@ class AccountServicePrincipalsV2API:
 
 
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -2975,6 +2949,7 @@ class AccountUsersV2API:
 
         :returns: :class:`AccountUser`
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -3161,6 +3136,7 @@ class AccountUsersV2API:
 
 
         """
+
         body = {}
         if operations is not None:
             body["Operations"] = [v.as_dict() for v in operations]
@@ -3207,6 +3183,7 @@ class AccountUsersV2API:
 
 
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -3298,6 +3275,7 @@ class GroupsV2API:
 
         :returns: :class:`Group`
         """
+
         body = {}
         if display_name is not None:
             body["displayName"] = display_name
@@ -3432,6 +3410,7 @@ class GroupsV2API:
 
 
         """
+
         body = {}
         if operations is not None:
             body["Operations"] = [v.as_dict() for v in operations]
@@ -3480,6 +3459,7 @@ class GroupsV2API:
 
 
         """
+
         body = {}
         if display_name is not None:
             body["displayName"] = display_name
@@ -3532,6 +3512,7 @@ class PermissionMigrationAPI:
 
         :returns: :class:`MigratePermissionsResponse`
         """
+
         body = {}
         if from_workspace_group_name is not None:
             body["from_workspace_group_name"] = from_workspace_group_name
@@ -3583,7 +3564,7 @@ class PermissionsAPI:
 
         :param request_object_type: str
           The type of the request object. Can be one of the following: alerts, alertsv2, authorization,
-          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files,
+          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files, genie,
           instance-pools, jobs, notebooks, pipelines, queries, registered-models, repos, serving-endpoints, or
           warehouses.
         :param request_object_id: str
@@ -3604,7 +3585,7 @@ class PermissionsAPI:
 
         :param request_object_type: str
           The type of the request object. Can be one of the following: alerts, alertsv2, authorization,
-          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files,
+          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files, genie,
           instance-pools, jobs, notebooks, pipelines, queries, registered-models, repos, serving-endpoints, or
           warehouses.
         :param request_object_id: str
@@ -3634,7 +3615,7 @@ class PermissionsAPI:
 
         :param request_object_type: str
           The type of the request object. Can be one of the following: alerts, alertsv2, authorization,
-          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files,
+          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files, genie,
           instance-pools, jobs, notebooks, pipelines, queries, registered-models, repos, serving-endpoints, or
           warehouses.
         :param request_object_id: str
@@ -3643,6 +3624,7 @@ class PermissionsAPI:
 
         :returns: :class:`ObjectPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -3668,7 +3650,7 @@ class PermissionsAPI:
 
         :param request_object_type: str
           The type of the request object. Can be one of the following: alerts, alertsv2, authorization,
-          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files,
+          clusters, cluster-policies, dashboards, dbsql-dashboards, directories, experiments, files, genie,
           instance-pools, jobs, notebooks, pipelines, queries, registered-models, repos, serving-endpoints, or
           warehouses.
         :param request_object_id: str
@@ -3677,6 +3659,7 @@ class PermissionsAPI:
 
         :returns: :class:`ObjectPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -3738,6 +3721,7 @@ class ServicePrincipalsV2API:
 
         :returns: :class:`ServicePrincipal`
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -3872,6 +3856,7 @@ class ServicePrincipalsV2API:
 
 
         """
+
         body = {}
         if operations is not None:
             body["Operations"] = [v.as_dict() for v in operations]
@@ -3923,6 +3908,7 @@ class ServicePrincipalsV2API:
 
 
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -4009,6 +3995,7 @@ class UsersV2API:
 
         :returns: :class:`User`
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -4223,6 +4210,7 @@ class UsersV2API:
 
 
         """
+
         body = {}
         if operations is not None:
             body["Operations"] = [v.as_dict() for v in operations]
@@ -4245,6 +4233,7 @@ class UsersV2API:
 
         :returns: :class:`PasswordPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -4302,6 +4291,7 @@ class UsersV2API:
 
 
         """
+
         body = {}
         if active is not None:
             body["active"] = active
@@ -4339,6 +4329,7 @@ class UsersV2API:
 
         :returns: :class:`PasswordPermissions`
         """
+
         body = {}
         if access_control_list is not None:
             body["access_control_list"] = [v.as_dict() for v in access_control_list]
@@ -4440,6 +4431,7 @@ class WorkspaceAssignmentAPI:
 
         :returns: :class:`PermissionAssignment`
         """
+
         body = {}
         if permissions is not None:
             body["permissions"] = [v.value for v in permissions]

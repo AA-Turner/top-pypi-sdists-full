@@ -1,9 +1,12 @@
 from __future__ import annotations
+import logging
 import re
 import fnmatch
 import tiktoken
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -11,10 +14,7 @@ from github import Auth, Github, GithubIntegration, Repository
 from github.Consts import DEFAULT_BASE_URL
 from langchain_core.tools import ToolException
 
-from .schemas import (
-    GitHubAuthConfig,
-    GitHubRepoConfig,
-)
+from ..elitea_base import extend_with_file_operations, BaseCodeToolApiWrapper
 
 from .schemas import (
     GitHubAuthConfig,
@@ -22,6 +22,7 @@ from .schemas import (
     NoInput,
     BranchName,
     CreateBranchName,
+    DeleteBranchName,
     DirectoryPath,
     ReadFile,
     UpdateFile,
@@ -42,15 +43,17 @@ from .schemas import (
     TriggerWorkflow,
     GetWorkflowStatus,
     GetWorkflowLogs,
-    GenericGithubAPICall
+    GenericGithubAPICall,
+    GetMe,
+    SearchCode,
 )
 
 # Import prompts for tools
 from .tool_prompts import (
     CREATE_FILE_PROMPT,
-    UPDATE_FILE_PROMPT,
     CREATE_ISSUE_PROMPT,
     UPDATE_ISSUE_PROMPT,
+    DELETE_BRANCH_PROMPT,
 )
 
 from langchain_community.tools.github.prompt import (
@@ -71,6 +74,8 @@ from langchain_community.tools.github.prompt import (
     CREATE_PULL_REQUEST_PROMPT
 )
 
+from ..utils.tool_prompts import EDIT_FILE_DESCRIPTION
+
 
 class GitHubClient(BaseModel):
     """Client for interacting with the GitHub REST API."""
@@ -87,7 +92,6 @@ class GitHubClient(BaseModel):
 
     # Using optional variables with None defaults instead of PrivateAttr
     github_api: Optional[Github] = Field(default=None, exclude=True)
-    github_repo_instance: Optional[Repository.Repository] = Field(default=None, exclude=True)
 
     # Adding auth config and repo config as optional fields for initialization
     auth_config: Optional[GitHubAuthConfig] = Field(default=None, exclude=True)
@@ -95,35 +99,84 @@ class GitHubClient(BaseModel):
     
     # Alita instance
     alita: Optional[Any] = Field(default=None, exclude=True)
+    
+    # Import file operation methods from BaseCodeToolApiWrapper
+    read_file_chunk = BaseCodeToolApiWrapper.read_file_chunk
+    read_multiple_files = BaseCodeToolApiWrapper.read_multiple_files
+    search_file = BaseCodeToolApiWrapper.search_file
+    edit_file = BaseCodeToolApiWrapper.edit_file
+
+    @property
+    def github_repo_instance(self) -> Optional[Repository.Repository]:
+        if not hasattr(self, "_github_repo_instance") or self._github_repo_instance is None:
+            try:
+                if self.github_api and self.github_repository:
+                    self._github_repo_instance = self.github_api.get_repo(self.github_repository)
+                else:
+                    self._github_repo_instance = None
+            except Exception as e:
+                # Only raise when accessed, not during initialization
+                raise ToolException(e)
+        return self._github_repo_instance
 
     @model_validator(mode='before')
     def initialize_github_client(cls, values):
         """
-        Initialize the GitHub client after the model is created.
-        This replaces the need for a custom __init__ method.
+        Validate and normalize configuration values.
+        Client creation is deferred to model_post_init for registry-based sharing.
 
         Returns:
             The initialized values dictionary
         """
-
         if values.get("repo_config"):
             values["github_repository"] = values["repo_config"].github_repository
             values["active_branch"] = values["repo_config"].active_branch
             values["github_base_branch"] = values["repo_config"].github_base_branch
 
-        # If auth_config is provided, update base URL and set up authentication
+        # If auth_config is provided, update base URL
         if values.get("auth_config"):
             values["github_base_url"] = values["auth_config"].github_base_url or DEFAULT_BASE_URL
 
-            # Set up authentication
+        return values
+
+    def model_post_init(self, __context) -> None:
+        """Initialize the GitHub client using the shared ClientRegistry."""
+        # Skip client initialization if this is a schema discovery call (model_construct)
+        # Use getattr for safe access since model_construct() may not set all attributes
+        auth_config = getattr(self, 'auth_config', None)
+        if not auth_config:
+            return
+
+        from ..client_registry import get_client_registry
+
+        # Build auth config dict for registry lookup (used for cache key)
+        auth_dict = {
+            'github_base_url': self.github_base_url,
+            'github_access_token': auth_config.github_access_token,
+            'github_username': auth_config.github_username,
+            'github_password': auth_config.github_password,
+            'github_app_id': auth_config.github_app_id,
+            'github_app_private_key': auth_config.github_app_private_key,
+        }
+
+        # Factory function to create GitHub client (only called if not cached)
+        def create_github_client():
             auth = None
-            if values["auth_config"].github_access_token:
-                auth = Auth.Token(values["auth_config"].github_access_token.get_secret_value())
-            elif values["auth_config"].github_username and values["auth_config"].github_password:
-                auth = Auth.Login(values["auth_config"].github_username, values["auth_config"].github_password.get_secret_value())
-            elif values["auth_config"].github_app_id and values["auth_config"].github_app_private_key:
+            if auth_config.github_access_token:
+                token = auth_config.github_access_token
+                if hasattr(token, 'get_secret_value'):
+                    token = token.get_secret_value()
+                auth = Auth.Token(token)
+            elif auth_config.github_username and auth_config.github_password:
+                password = auth_config.github_password
+                if hasattr(password, 'get_secret_value'):
+                    password = password.get_secret_value()
+                auth = Auth.Login(auth_config.github_username, password)
+            elif auth_config.github_app_id and auth_config.github_app_private_key:
                 # Format the private key correctly
-                private_key = values["auth_config"].github_app_private_key.get_secret_value()
+                private_key = auth_config.github_app_private_key
+                if hasattr(private_key, 'get_secret_value'):
+                    private_key = private_key.get_secret_value()
                 header = "-----BEGIN RSA PRIVATE KEY-----"
                 footer = "-----END RSA PRIVATE KEY-----"
 
@@ -132,28 +185,26 @@ class GitHubClient(BaseModel):
                     body = key_body.replace(" ", "\n")
                     private_key = f"{header}\n{body}\n{footer}"
 
-                auth = Auth.AppAuth(values["auth_config"].github_app_id, private_key)
+                auth = Auth.AppAuth(auth_config.github_app_id, private_key)
 
-            # Initialize GitHub client
+            # Create GitHub client
             if auth is None:
-                values["github_api"] = Github(base_url=values["github_base_url"])
-            elif values["auth_config"].github_app_id and values["auth_config"].github_app_private_key:
-                gi = GithubIntegration(base_url=values["github_base_url"], auth=auth)
+                return Github(base_url=self.github_base_url)
+            elif auth_config.github_app_id and auth_config.github_app_private_key:
+                gi = GithubIntegration(base_url=self.github_base_url, auth=auth)
                 installation = gi.get_installations()[0]
-                values["github_api"] = installation.get_github_for_installation()
+                return installation.get_github_for_installation()
             else:
-                values["github_api"] = Github(base_url=values["github_base_url"], auth=auth)
+                return Github(base_url=self.github_base_url, auth=auth)
 
-            # Get repository instance
-            if values.get("github_repository"):
-                values["github_repo_instance"] = values["github_api"].get_repo(values["github_repository"])
-        else:
-            # Initialize with default authentication if no auth_config provided
-            values["github_api"] = Github(base_url=values.get("github_base_url", DEFAULT_BASE_URL))
-            if values.get("github_repository"):
-                values["github_repo_instance"] = values["github_api"].get_repo(values["github_repository"])
-
-        return values
+        # Get shared client from registry (or create new one)
+        registry = get_client_registry()
+        self.github_api = registry.get_client(
+            service_type='github',
+            base_url=self.github_base_url,
+            auth_config=auth_dict,
+            factory=create_github_client
+        )
 
     @staticmethod
     def clean_repository_name(repo_link: str) -> str:
@@ -405,26 +456,53 @@ class GitHubClient(BaseModel):
         Returns:
             str: A detailed diff comparison between the two commits or an error message.
         """
+        def safe_author_info(commit_obj):
+            """Safely extract author info from a commit object, handling None values."""
+            author = commit_obj.commit.author
+            if author:
+                return {
+                    "name": author.name or "Unknown",
+                    "date": author.date.isoformat() if author.date else None
+                }
+            # Fallback to GitHub user info if git author is not available
+            elif commit_obj.author:
+                return {
+                    "name": commit_obj.author.login,
+                    "date": None
+                }
+            return {"name": "Unknown", "date": None}
+
         try:
             # Get the repository
             repo = self.github_api.get_repo(repo_name) if repo_name else self.github_repo_instance
-            
+
             # Get the comparison between the two commits
             comparison = repo.compare(base_sha, head_sha)
-            
+
+            # Get head commit - the GitHub Compare API doesn't return head_commit,
+            # so we get it from the commits list or fetch it directly
+            if comparison.commits:
+                head_commit_obj = comparison.commits[-1]
+            else:
+                # For identical commits or edge cases, fetch head commit directly
+                head_commit_obj = repo.get_commit(head_sha)
+
+            base_author = safe_author_info(comparison.base_commit)
+            head_author = safe_author_info(head_commit_obj)
+
             # Extract comparison information
             diff_info = {
                 "base_commit": {
                     "sha": comparison.base_commit.sha,
                     "message": comparison.base_commit.commit.message,
-                    "author": comparison.base_commit.commit.author.name,
-                    "date": comparison.base_commit.commit.author.date.isoformat()
+                    "author": base_author["name"],
+                    "date": base_author["date"]
                 },
                 "head_commit": {
-                    "sha": comparison.head_commit.sha,
-                    "message": comparison.head_commit.commit.message,
-                    "author": comparison.head_commit.commit.author.name,
-                    "date": comparison.head_commit.commit.author.date.isoformat()
+                    "sha": head_commit_obj.sha,
+                    "message": head_commit_obj.commit.message,
+                    "author": head_author["name"],
+                    "date": head_author["date"]
                 },
                 "status": comparison.status,  # ahead, behind, identical, or diverged
                 "ahead_by": comparison.ahead_by,
@@ -433,14 +511,15 @@ class GitHubClient(BaseModel):
                 "commits": [],
                 "files": []
             }
-            
+
             # Get commits in the comparison
             for commit in comparison.commits:
+                author_info = safe_author_info(commit)
                 commit_info = {
                     "sha": commit.sha,
                     "message": commit.commit.message,
-                    "author": commit.commit.author.name,
-                    "date": commit.commit.author.date.isoformat(),
+                    "author": author_info["name"],
+                    "date": author_info["date"],
                     "url": commit.html_url
                 }
                 diff_info["commits"].append(commit_info)
@@ -1045,17 +1124,102 @@ class GitHubClient(BaseModel):
         except Exception as e:
             return f"Failed to create branch: {str(e)}"
 
-    def create_file(self, file_path: str, file_contents: str, repo_name: Optional[str] = None) -> str:
+    def delete_branch(self, branch_name: str, force: bool = False) -> str:
         """
-        Creates a new file on the GitHub repo
+        Delete a branch from the GitHub repository.
+
+        Protected branches that cannot be deleted:
+        - 'main' and 'master' branches are always protected
+        - The configured base branch (github_base_branch) is protected
+        - The currently active branch is protected (unless force=True)
+
+        Parameters:
+            branch_name (str): Name of the branch to delete
+            force (bool): If True, allows deletion of the current active branch
+
+        Returns:
+            str: A success or error message.
+        """
+        from github import GithubException
+
+        try:
+            # Protected branch names that should never be deleted
+            protected_branches = {'main', 'master'}
+
+            # Add base branch to protected list
+            if self.github_base_branch:
+                protected_branches.add(self.github_base_branch)
+
+            # Check if trying to delete a protected branch
+            if branch_name.lower() in {b.lower() for b in protected_branches}:
+                return (
+                    f"Cannot delete branch '{branch_name}': "
+                    f"It is a protected branch (main, master, or base branch). "
+                    f"Protected branches: {', '.join(sorted(protected_branches))}"
+                )
+
+            # Check if trying to delete the active branch without force
+            if branch_name == self.active_branch and not force:
+                return (
+                    f"Cannot delete branch '{branch_name}': "
+                    f"It is currently the active branch. "
+                    f"Use force=True to delete it anyway, or switch to a different branch first."
+                )
+
+            # Delete the branch
+            repo = self.github_repo_instance
+            ref = repo.get_git_ref(f"heads/{branch_name}")
+            ref.delete()
+
+            # If we deleted the active branch, reset to base branch
+            if branch_name == self.active_branch:
+                self.active_branch = self.github_base_branch
+                return (
+                    f"Branch '{branch_name}' deleted successfully. "
+                    f"Active branch has been reset to '{self.github_base_branch}'."
+                )
+
+            return f"Branch '{branch_name}' deleted successfully."
+
+        except GithubException as e:
+            if e.status == 422:
+                return f"Cannot delete branch '{branch_name}': {e.data.get('message', str(e))}"
+            elif e.status == 404:
+                return f"Branch '{branch_name}' not found in the repository."
+            else:
+                return f"Failed to delete branch '{branch_name}': {str(e)}"
+        except Exception as e:
+            return f"Failed to delete branch '{branch_name}': {str(e)}"
+
+    def create_file(self, file_path: str, repo_name: Optional[str] = None, file_contents: str = None, artifact_id: str = None) -> str:
+        """
+        Creates a new file on the GitHub repo from new content or by copying an existing artifact.
+        
         Parameters:
             file_path (str): The path of the file to be created
-            file_contents (str): The content of the file to be created
             repo_name (Optional[str]): Name of the repository in format 'owner/repo'
+            file_contents (str): The content of the file to be created (for text/code files)
+            artifact_id (str): UUID of existing artifact to copy (for binary files like images)
+            
+        Note: Provide EITHER file_contents OR artifact_id, not both or neither.
 
         Returns:
             str: A success or failure message
         """
+        # Validation: exactly one source must be provided
+        if file_contents is None and artifact_id is None:
+            return (
+                "Must provide either 'file_contents' (to create new content) or 'artifact_id' (to copy existing file). "
+                "Both parameters cannot be empty."
+            )
+        
+        if file_contents is not None and artifact_id is not None:
+            return (
+                "Cannot provide both 'file_contents' and 'artifact_id'. "
+                "Use 'artifact_id' to copy existing files preserving binary format, "
+                "or 'file_contents' to create new content from text/code."
+            )
+        
         try:
             repo = self.github_api.get_repo(repo_name) if repo_name else self.github_repo_instance
             branch = self.active_branch
@@ -1074,75 +1238,35 @@ class GitHubClient(BaseModel):
                 # expected behavior, file shouldn't exist yet
                 pass
 
+            # Determine operation type and get file content
+            if artifact_id:
+                # Copy mode: get raw bytes from existing artifact
+                if not self.alita:
+                    return "Alita client not configured. Cannot retrieve artifact content."
+                
+                try:
+                    artifact_client = self.alita.artifact('__temp__')  # Bucket doesn't matter for download by ID
+                    file_contents, _ = artifact_client.get_raw_content_by_artifact_id(artifact_id)
+                    # Use the tuple but only need the bytes, filename comes from file_path parameter
+                except Exception as e:
+                    return f"Failed to retrieve artifact '{artifact_id}': {str(e)}"
+
             repo.create_file(
                 path=file_path,
-                message=f"Create {file_path}",
+                message=f"Create {file_path}" + (" (copied from artifact)" if artifact_id else ""),
                 content=file_contents,
                 branch=branch,
             )
-            return f"Created file {file_path}"
+            return f"Created file {file_path}" + (" (copied from artifact)" if artifact_id else "")
         except Exception as e:
             return f"Unable to create file due to error:\n{str(e)}"
 
-    def extract_old_new_pairs(self, file_query):
-        # Split the file content by lines
-        code_lines = file_query.split("\n")
-
-        # Initialize lists to hold the contents of OLD and NEW sections
-        old_contents = []
-        new_contents = []
-
-        # Initialize variables to track whether the current line is within an OLD or NEW section
-        in_old_section = False
-        in_new_section = False
-
-        # Temporary storage for the current section's content
-        current_section_content = []
-
-        # Iterate through each line in the file content
-        for line in code_lines:
-            # Check for OLD section start
-            if "OLD <<<" in line:
-                in_old_section = True
-                current_section_content = []  # Reset current section content
-                continue  # Skip the line with the marker
-
-            # Check for OLD section end
-            if ">>>> OLD" in line:
-                in_old_section = False
-                old_contents.append("\n".join(current_section_content).strip())  # Add the captured content
-                current_section_content = []  # Reset current section content
-                continue  # Skip the line with the marker
-
-            # Check for NEW section start
-            if "NEW <<<" in line:
-                in_new_section = True
-                current_section_content = []  # Reset current section content
-                continue  # Skip the line with the marker
-
-            # Check for NEW section end
-            if ">>>> NEW" in line:
-                in_new_section = False
-                new_contents.append("\n".join(current_section_content).strip())  # Add the captured content
-                current_section_content = []  # Reset current section content
-                continue  # Skip the line with the marker
-
-            # If currently in an OLD or NEW section, add the line to the current section content
-            if in_old_section or in_new_section:
-                current_section_content.append(line)
-
-        # Pair the OLD and NEW contents
-        paired_contents = list(zip(old_contents, new_contents))
-
-        return paired_contents
-
     def update_file(self, file_query: str, repo_name: Optional[str] = None, commit_message: Optional[str] = None) -> str:
-        """
-        Updates a file with new content.
+        """Updates a file with new content using OLD/NEW markers and edit_file.
+
         Parameters:
-            file_query(str): Contains the file path and the file contents.
-                The old file contents is wrapped in OLD <<<< and >>>> OLD
-                The new file contents is wrapped in NEW <<<< and >>>> NEW
+            file_query(str): Contains the file path on the first line and the file contents
+                wrapped in OLD <<<< and >>>> OLD / NEW <<<< and >>>> NEW markers.
                 For example:
                 /test/hello.txt
                 OLD <<<<
@@ -1151,13 +1275,13 @@ class GitHubClient(BaseModel):
                 NEW <<<<
                 Hello Mars!
                 >>>> NEW
-            repo_name (Optional[str]): Name of the repository in format 'owner/repo'
+            repo_name (Optional[str]): Name of the repository in format 'owner/repo'. Currently
+                not used by edit_file and must refer to the initialized repository.
 
         Returns:
             A success or failure message
         """
         try:
-            repo = self.github_api.get_repo(repo_name) if repo_name else self.github_repo_instance
             branch = self.active_branch
 
             if branch == self.github_base_branch:
@@ -1166,29 +1290,36 @@ class GitHubClient(BaseModel):
                     "which is protected. Please create a new branch and try again."
                 )
 
-            file_path: str = file_query.split("\n")[0]
-
-            file_content = self._read_file(file_path, branch, repo_name)
-            updated_file_content = file_content
-            for old, new in self.extract_old_new_pairs(file_query):
-                if not old.strip():
-                    continue
-                updated_file_content = updated_file_content.replace(old, new)
-
-            if file_content == updated_file_content:
+            # Split into lines and find first non-empty line for file_path
+            lines = file_query.split("\n")
+            first_non_empty_idx = None
+            for i, line in enumerate(lines):
+                if line.strip():
+                    first_non_empty_idx = i
+                    break
+            
+            if first_non_empty_idx is None:
                 return (
-                    "File content was not updated because old content was not found or empty. "
-                    "It may be helpful to use the read_file action to get the current file contents."
+                    "Invalid file_query format. Expected first non-empty line to be the file path "
+                    "followed by OLD/NEW blocks."
                 )
 
-            repo.update_file(
-                path=file_path,
-                message=commit_message if commit_message else f"Update {file_path}",
-                content=updated_file_content,
-                branch=branch,
-                sha=repo.get_contents(file_path, ref=branch).sha,
-            )
-            return f"Updated file {file_path}"
+            file_path = lines[first_non_empty_idx].strip()
+            # Keep all lines after file_path line (preserving empty lines)
+            edit_content = "\n".join(lines[first_non_empty_idx + 1:])
+
+            # Set temporary repo override for internal helpers
+            self._tmp_repo_for_edit = repo_name
+            try:
+                return self.edit_file(
+                    file_path=file_path,
+                    file_query=edit_content,
+                    branch=branch,
+                    commit_message=commit_message or f"Update {file_path}",
+                )
+            finally:
+                if hasattr(self, "_tmp_repo_for_edit"):
+                    delattr(self, "_tmp_repo_for_edit")
         except Exception as e:
             return f"Unable to update file due to error:\n{str(e)}"
 
@@ -1298,7 +1429,7 @@ class GitHubClient(BaseModel):
                     "description": issue.body,
                     "status": issue.state,
                     "url": issue.html_url,
-                    "type": "PR" if issue.pull_request else "Issue"
+                    "entity_type": "PR" if issue.pull_request else "Issue"
                 }
                 matching_issues.append(issue_details)
 
@@ -1411,23 +1542,27 @@ class GitHubClient(BaseModel):
         except Exception as e:
             return f"File not found `{file_path}` on branch `{branch}`. Error: {str(e)}"
 
-    def _read_file(self, file_path: str, branch: str, repo_name: Optional[str] = None) -> str:
+    def _read_file(self, file_path: str, branch: str, repo_name: Optional[str] = None, **kwargs) -> str:
         """
-        Read a file from specified branch
+        Read a file from specified branch with optional partial read support.
+        
         Parameters:
             file_path(str): the file path
             branch(str): the branch to read the file from
             repo_name (Optional[str]): Name of the repository in format 'owner/repo'
+            **kwargs: Additional parameters (offset, limit, head, tail) - currently ignored,
+                     partial read handled client-side by base class methods
 
         Returns:
             str: The file decoded as a string, or an error message if not found
         """
         try:
-            repo = self.github_api.get_repo(repo_name) if repo_name else self.github_repo_instance
+            # Prefer temporary repo set by update_file, then explicit repo_name
+            effective_repo = getattr(self, "_tmp_repo_for_edit", None) or repo_name
+            repo = self.github_api.get_repo(effective_repo) if effective_repo else self.github_repo_instance
             file = repo.get_contents(file_path, ref=branch)
             return file.decoded_content.decode("utf-8")
         except Exception as e:
-            from traceback import format_exc
             return f"File not found `{file_path}` on branch `{branch}`. Error: {str(e)}"
 
     def read_file(self, file_path: str, branch: Optional[str] = None, repo_name: Optional[str] = None) -> str:
@@ -1442,6 +1577,63 @@ class GitHubClient(BaseModel):
             str: The file contents as a string
         """
         return self._read_file(file_path, branch if branch else self.active_branch, repo_name)
+    
+    def _write_file(
+        self,
+        file_path: str,
+        content: str,
+        branch: str = None,
+        commit_message: str = None,
+        repo_name: Optional[str] = None
+    ) -> str:
+        """
+        Write content to a file (create or update).
+        
+        Parameters:
+            file_path: Path to the file
+            content: New file content
+            branch: Branch name (uses active branch if None)
+            commit_message: Commit message
+            repo_name: Name of the repository in format 'owner/repo'
+            
+        Returns:
+            Success message
+        """
+        try:
+            # Prefer temporary repo set by update_file, then explicit repo_name
+            effective_repo = getattr(self, "_tmp_repo_for_edit", None) or repo_name
+            repo = self.github_api.get_repo(effective_repo) if effective_repo else self.github_repo_instance
+            branch = branch or self.active_branch
+            
+            if branch == self.github_base_branch:
+                raise ToolException(
+                    f"Cannot commit directly to the {self.github_base_branch} branch. "
+                    "Please create a new branch and try again."
+                )
+            
+            # Check if file exists
+            try:
+                existing_file = repo.get_contents(file_path, ref=branch)
+                # File exists, update it
+                repo.update_file(
+                    path=file_path,
+                    message=commit_message or f"Update {file_path}",
+                    content=content,
+                    branch=branch,
+                    sha=existing_file.sha,
+                )
+                return f"Updated file {file_path}"
+            except:
+                # File doesn't exist, create it
+                repo.create_file(
+                    path=file_path,
+                    message=commit_message or f"Create {file_path}",
+                    content=content,
+                    branch=branch,
+                )
+                return f"Created file {file_path}"
+        except Exception as e:
+            raise ToolException(f"Unable to write file {file_path}: {str(e)}")
 
     def loader(self,
                branch: Optional[str] = None,
@@ -1874,6 +2066,206 @@ class GitHubClient(BaseModel):
             import traceback
             return f"API call failed: {traceback.format_exc()}"
 
+    def get_me(self) -> str:
+        """
+        Get details of the authenticated GitHub user.
+
+        Use this when you need to:
+        - Identify the current user's GitHub username/login
+        - Get user profile information (email, bio, company, location)
+        - Understand current user permissions and context
+        - Build other tool calls that require the current user's information
+
+        Returns:
+            str: JSON string containing user details including:
+                - login: GitHub username
+                - id: User ID
+                - name: Display name
+                - email: Email address
+                - bio: User biography
+                - company: Company name
+                - location: User location
+                - public_repos: Number of public repositories
+                - followers/following: Follower counts
+                - created_at/updated_at: Account timestamps
+        """
+        try:
+            user = self.github_api.get_user()
+
+            user_data = {
+                "login": user.login,
+                "id": user.id,
+                "name": user.name,
+                "email": user.email,
+                "bio": user.bio,
+                "company": user.company,
+                "location": user.location,
+                "blog": user.blog,
+                "twitter_username": user.twitter_username,
+                "public_repos": user.public_repos,
+                "public_gists": user.public_gists,
+                "followers": user.followers,
+                "following": user.following,
+                "created_at": user.created_at.isoformat() if user.created_at else None,
+                "updated_at": user.updated_at.isoformat() if user.updated_at else None,
+                "html_url": user.html_url,
+                "avatar_url": user.avatar_url,
+                "type": user.type,
+                "hireable": user.hireable,
+                "private_gists": user.private_gists,
+                "total_private_repos": user.total_private_repos,
+                "owned_private_repos": user.owned_private_repos,
+            }
+            import json
+            return json.dumps(user_data, indent=2)
+        except Exception as e:
+            raise ToolException(f"Failed to get authenticated user: {str(e)}")
+
+    def search_code(
+        self,
+        query: str,
+        sort: Optional[str] = None,
+        order: Optional[str] = None,
+        per_page: Optional[int] = 30,
+        page: Optional[int] = 1
+    ) -> str:
+        """
+        Search for code in the configured repository using GitHub's code search.
+
+        NOTE: Searches are automatically scoped to this toolkit's repository.
+        You don't need to add repo: filter - it's added automatically.
+
+        Use this for finding:
+        - Exact symbols, functions, or class names
+        - Specific code patterns or implementations
+        - Files containing specific content
+
+        Query syntax supports additional filters:
+        - language:python - Filter by programming language
+        - path:src/utils - Filter by file path
+        - filename:test.py - Filter by filename
+        - extension:py - Filter by file extension
+
+        Examples:
+        - "class MyClass" - Find class definitions
+        - "def authenticate" - Find function definitions
+        - "import pandas path:src" - Find imports in src directory
+        - "TODO language:python" - Find TODOs in Python files
+
+        Parameters:
+            query: Search query (repo filter added automatically)
+            sort: Sort field - only 'indexed' is supported
+            order: Sort order - 'asc' or 'desc' (default: 'desc')
+            per_page: Results per page (1-100, default: 30)
+            page: Page number for pagination (default: 1)
+
+        Returns:
+            str: JSON with total_count and items (file info, repo, matched content)
+        """
+        # Validate query is not empty
+        if not query or not query.strip():
+            raise ToolException(
+                "Search query cannot be empty. Provide a search term. "
+                "Examples: 'class MyClass language:python', 'def authenticate repo:owner/repo'"
+            )
+
+        # Debug: log repository config
+        logger.info(f"[search_code] self.github_repository='{self.github_repository}', query='{query}'")
+
+        # Auto-scope to configured repository if not already specified
+        query_lower = query.lower()
+        has_scope = any(s in query_lower for s in ['repo:', 'org:', 'user:'])
+        has_repo = bool(self.github_repository and self.github_repository.strip())
+
+        if has_repo and not has_scope:
+            query = f"{query} repo:{self.github_repository}"
+            logger.info(f"[search_code] Auto-added repo filter, final query: '{query}'")
+        elif not has_repo and not has_scope:
+            # GitHub code search requires a scope qualifier
+            raise ToolException(
+                f"GitHub code search requires a scope. This toolkit's repository='{self.github_repository}'. "
+                "Add repo:owner/repo, org:orgname, or user:username to your query. "
+                f"Example: '{query} repo:owner/repo'"
+            )
+
+        try:
+            from github import GithubException
+
+            # Build search options - only pass sort/order if explicitly provided
+            search_kwargs = {"query": query}
+            if sort:
+                search_kwargs["sort"] = sort
+            if order:
+                search_kwargs["order"] = order
+
+            logger.info(f"[search_code] Calling github_api.search_code with: {search_kwargs}")
+            results = self.github_api.search_code(**search_kwargs)
+
+            # Paginate results
+            code_results = []
+            start_idx = (page - 1) * per_page
+            end_idx = start_idx + per_page
+
+            for idx, code_item in enumerate(results):
+                if idx < start_idx:
+                    continue
+                if idx >= end_idx:
+                    break
+
+                item_data = {
+                    "name": code_item.name,
+                    "path": code_item.path,
+                    "sha": code_item.sha,
+                    "html_url": code_item.html_url,
+                    "repository": {
+                        "full_name": code_item.repository.full_name,
+                        "html_url": code_item.repository.html_url,
+                        "description": code_item.repository.description,
+                        "private": code_item.repository.private,
+                    },
+                }
+                # Include text matches if available
+                if hasattr(code_item, 'text_matches') and code_item.text_matches:
+                    item_data["text_matches"] = [
+                        {
+                            "fragment": match.get("fragment", ""),
+                            "matches": match.get("matches", [])
+                        }
+                        for match in code_item.text_matches
+                    ]
+                code_results.append(item_data)
+
+            response = {
+                "total_count": results.totalCount,
+                "incomplete_results": False,
+                "items": code_results,
+                "page": page,
+                "per_page": per_page,
+            }
+            import json
+            return json.dumps(response, indent=2)
+
+        except GithubException as e:
+            # Provide helpful error messages based on status code
+            status = e.status if hasattr(e, 'status') else None
+            if status == 403:
+                raise ToolException(
+                    f"GitHub API rate limit exceeded or access forbidden. "
+                    f"Try reducing search scope with repo: or org: filters. Error: {str(e)}"
+                )
+            elif status == 422:
+                raise ToolException(
+                    f"Invalid search query syntax. Check query format. "
+                    f"Supported filters: language:, repo:, org:, path:, filename:, extension:. Error: {str(e)}"
+                )
+            elif status == 401:
+                raise ToolException(f"Authentication failed. Check your GitHub token. Error: {str(e)}")
+            else:
+                raise ToolException(f"GitHub search failed (HTTP {status}): {str(e)}")
+        except Exception as e:
+            raise ToolException(f"Failed to search code: {str(e)}")
+
+    @extend_with_file_operations
     def get_available_tools(self) -> List[Dict[str, Any]]:
         return [
              {
@@ -1943,7 +2335,7 @@ class GitHubClient(BaseModel):
                 "ref": self.update_file,
                 "name": "update_file",
                 "mode": "update_file",
-                "description": UPDATE_FILE_PROMPT,
+                "description": EDIT_FILE_DESCRIPTION,
                 "args_schema": UpdateFile,
             },
             {
@@ -1987,6 +2379,13 @@ class GitHubClient(BaseModel):
                 "mode": "create_branch",
                 "description": CREATE_BRANCH_PROMPT,
                 "args_schema": CreateBranchName,
+            },
+            {
+                "ref": self.delete_branch,
+                "name": "delete_branch",
+                "mode": "delete_branch",
+                "description": DELETE_BRANCH_PROMPT,
+                "args_schema": DeleteBranchName,
             },
             {
                 "ref": self.get_files_from_directory,
@@ -2085,6 +2484,20 @@ class GitHubClient(BaseModel):
                 "mode": "generic_github_api_call",
                 "description": self.generic_github_api_call.__doc__,
                 "args_schema": GenericGithubAPICall,
+            },
+            {
+                "ref": self.get_me,
+                "name": "get_me",
+                "mode": "get_me",
+                "description": self.get_me.__doc__,
+                "args_schema": GetMe,
+            },
+            {
+                "ref": self.search_code,
+                "name": "search_code",
+                "mode": "search_code",
+                "description": self.search_code.__doc__,
+                "args_schema": SearchCode,
             },
 
         ]

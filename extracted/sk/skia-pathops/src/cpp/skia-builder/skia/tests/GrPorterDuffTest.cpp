@@ -10,13 +10,13 @@
 #include "include/core/SkRefCnt.h"
 #include "include/core/SkTypes.h"
 #include "include/gpu/GpuTypes.h"
-#include "include/gpu/GrBackendSurface.h"
-#include "include/gpu/GrContextOptions.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrTypes.h"
-#include "include/gpu/mock/GrMockTypes.h"
-#include "include/private/SkColorData.h"
+#include "include/gpu/ganesh/GrBackendSurface.h"
+#include "include/gpu/ganesh/GrContextOptions.h"
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrTypes.h"
+#include "include/gpu/ganesh/mock/GrMockTypes.h"
 #include "include/private/gpu/ganesh/GrTypesPriv.h"
+#include "src/core/SkColorData.h"
 #include "src/gpu/Blend.h"
 #include "src/gpu/Swizzle.h"
 #include "src/gpu/ganesh/GrCaps.h"
@@ -35,6 +35,7 @@
 #include "src/gpu/ganesh/effects/GrPorterDuffXferProcessor.h"
 #include "tests/CtsEnforcement.h"
 #include "tests/Test.h"
+#include "tools/gpu/ContextType.h"
 #include "tools/gpu/ManagedBackendTexture.h"
 
 #include <initializer_list>
@@ -1086,7 +1087,7 @@ DEF_GANESH_TEST(PorterDuffNoDualSourceBlending, reporter, options, CtsEnforcemen
     GrContextOptions opts = options;
     opts.fSuppressDualSourceBlending = true;
     sk_gpu_test::GrContextFactory mockFactory(opts);
-    auto ctx = mockFactory.get(sk_gpu_test::GrContextFactory::kMock_ContextType);
+    auto ctx = mockFactory.get(skgpu::ContextType::kMock);
     if (!ctx) {
         SK_ABORT("Failed to create mock context without ARB_blend_func_extended.");
     }
@@ -1098,7 +1099,7 @@ DEF_GANESH_TEST(PorterDuffNoDualSourceBlending, reporter, options, CtsEnforcemen
     }
 
     auto mbet = sk_gpu_test::ManagedBackendTexture::MakeWithoutData(
-            ctx, 100, 100, kRGBA_8888_SkColorType, GrMipmapped::kNo, GrRenderable::kNo);
+            ctx, 100, 100, kRGBA_8888_SkColorType, skgpu::Mipmapped::kNo, GrRenderable::kNo);
     if (!mbet) {
         ERRORF(reporter, "Could not make texture.");
         return;

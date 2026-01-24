@@ -16,6 +16,7 @@
 
 #include <tiledb/tiledb>
 
+#include "../tiledb_adapter/platform_config.h"
 #include "soma_collection.h"
 #include "soma_dataframe.h"
 
@@ -38,7 +39,7 @@ class SOMAMeasurement : public SOMACollection {
      */
     static void create(
         std::string_view uri,
-        const std::unique_ptr<ArrowSchema>& schema,
+        const managed_unique_ptr<ArrowSchema>& schema,
         const ArrowTable& index_columns,
         std::shared_ptr<SOMAContext> ctx,
         PlatformConfig platform_config = PlatformConfig(),

@@ -1,8 +1,8 @@
 #
 # GAMS - General Algebraic Modeling System Python API
 #
-# Copyright (c) 2017-2025 GAMS Development Corp. <support@gams.com>
-# Copyright (c) 2017-2025 GAMS Software GmbH <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Development Corp. <support@gams.com>
+# Copyright (c) 2017-2026 GAMS Software GmbH <support@gams.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -676,6 +676,9 @@ def container_write(
         raise Exception(msg)
 
     try:
+        was_relaxed = {}
+        # capture container modified state
+        orig_container_modified = container.modified
 
         # open GDX for writing
         if compress == False:
@@ -714,12 +717,8 @@ def container_write(
         except Exception as err:
             raise err
 
-        # capture container modified state
-        orig_container_modified = container.modified
-
         # check if symbol domains are also being written -- if not, relax the domain for writing
         # retain the string set label, do not relax to "*" domains
-        was_relaxed = {}
         for symobj in symobjs:
             if symobj.domain_type == "regular":
                 if any(not isin(domsymobj, symobjs) for domsymobj in symobj.domain):

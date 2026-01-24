@@ -21,8 +21,8 @@ def get_config_var(var):
     return _get_config_var(var) or ""
 
 
-# We need at least Python 3.9
-MIN_PYTHON = (3, 9)
+# We need at least Python 3.10
+MIN_PYTHON = (3, 10)
 
 if sys.version_info < MIN_PYTHON:
     vstr = ".".join(map(str, MIN_PYTHON))
@@ -90,7 +90,7 @@ CFLAGS = [
     "-Wshorten-64-to-32",
     # "-fsanitize=address", "-fsanitize=undefined", "-fno-sanitize=vptr",
     # "--analyze",
-    # "-Werror",
+    "-Werror",
     "-Wno-cast-function-type-mismatch",
     "-I/usr/include/ffi",
     "-fvisibility=hidden",
@@ -121,6 +121,7 @@ OBJC_LDFLAGS = [
     "-g",
     "-O3",
     "-flto=thin",
+    # "-O0",
     "-fexceptions",
     # "-fsanitize-thread-atomics",
 ]
@@ -584,6 +585,9 @@ class oc_build_ext(build_ext.build_ext):
 
     def finalize_options(self):
         build_ext.build_ext.finalize_options(self)
+        if self.parallel is None:
+            # Override default: build extensions in parallel
+            self.parallel = True
         if self.no_lto:
             for var in CFLAGS, EXT_CFLAGS, OBJC_LDFLAGS:
                 to_remove = []

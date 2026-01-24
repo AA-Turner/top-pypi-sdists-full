@@ -9,32 +9,43 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
 from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
-from .group_0095 import (
-    RepositoryRulesetConditionsRepositoryNameTargetPropRepositoryName,
-)
-from .group_0097 import RepositoryRulesetConditionsPropRefName
-from .group_0101 import (
-    EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationId,
-)
 
+class OrganizationCustomPropertyPayload(GitHubModel):
+    """Organization Custom Property Payload
 
-class EnterpriseRulesetConditionsOneof2(GitHubModel):
-    """organization_id_and_repository_name
-
-    Conditions to target organizations by id and all repositories
+    Payload for creating or updating an organization custom property definition on
+    an enterprise.
     """
 
-    organization_id: EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationId = Field()
-    repository_name: RepositoryRulesetConditionsRepositoryNameTargetPropRepositoryName = Field()
-    ref_name: Missing[RepositoryRulesetConditionsPropRefName] = Field(default=UNSET)
+    value_type: Literal[
+        "string", "single_select", "multi_select", "true_false", "url"
+    ] = Field(description="The type of the value for the property.")
+    required: Missing[bool] = Field(
+        default=UNSET, description="Whether the property is required."
+    )
+    default_value: Missing[Union[str, list[str], None]] = Field(
+        default=UNSET, description="Default value of the property."
+    )
+    description: Missing[Union[str, None]] = Field(
+        default=UNSET, description="Short description of the property."
+    )
+    allowed_values: Missing[Union[list[str], None]] = Field(
+        default=UNSET,
+        description="An ordered list of the allowed values of the property.\nThe property can have up to 200 allowed values.",
+    )
+    values_editable_by: Missing[
+        Union[None, Literal["enterprise_actors", "enterprise_and_org_actors"]]
+    ] = Field(default=UNSET, description="Who can edit the values of the property.")
 
 
-model_rebuild(EnterpriseRulesetConditionsOneof2)
+model_rebuild(OrganizationCustomPropertyPayload)
 
-__all__ = ("EnterpriseRulesetConditionsOneof2",)
+__all__ = ("OrganizationCustomPropertyPayload",)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow-tracing
-Version: 3.4.0
+Version: 3.8.1
 Summary: MLflow Tracing SDK is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality to instrument your code/models/agents with MLflow Tracing.
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -208,7 +208,7 @@ License: Copyright 2018 Databricks, Inc.  All rights reserved.
         
 Project-URL: homepage, https://mlflow.org
 Project-URL: issues, https://github.com/mlflow/mlflow/issues
-Project-URL: documentation, https://mlflow.org/docs/latest/index.html
+Project-URL: documentation, https://mlflow.org/docs/latest
 Project-URL: repository, https://github.com/mlflow/mlflow
 Keywords: mlflow,ai,databricks
 Classifier: Development Status :: 5 - Production/Stable
@@ -231,7 +231,7 @@ Requires-Dist: opentelemetry-proto<3,>=1.9.0
 Requires-Dist: opentelemetry-sdk<3,>=1.9.0
 Requires-Dist: packaging<26
 Requires-Dist: protobuf<7,>=3.12.0
-Requires-Dist: pydantic<3,>=1.10.8
+Requires-Dist: pydantic<3,>=2.0.0
 Dynamic: license-file
 
 # MLflow Tracing: An Open-Source SDK for Observability and Monitoring GenAI Applications🔍
@@ -263,7 +263,7 @@ The MLflow Trace package is designed to work with a remote hosted MLflow server 
 - [Databricks](https://docs.databricks.com/machine-learning/mlflow/managed-mlflow.html) - Databricks offers a FREE, fully managed MLflow server as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure.
 - [Amazon SageMaker](https://aws.amazon.com/sagemaker-ai/experiments/) - MLflow on Amazon SageMaker is a fully managed service offered as part of the SageMaker platform by AWS, including tracing and other MLflow features such as model registry.
 - [Nebius](https://nebius.com/) - Nebius, a cutting-edge cloud platform for GenAI explorers, offers a fully managed MLflow server.
-- [Self-hosting](https://mlflow.org/docs/latest/tracking/#tracking_setup) - MLflow is a fully open-source project, allowing you to self-host your own MLflow server and keep your data private. This is a great option if you want to have full control over your data and infrastructure.
+- [Self-hosting](https://mlflow.org/docs/latest/tracking) - MLflow is a fully open-source project, allowing you to self-host your own MLflow server and keep your data private. This is a great option if you want to have full control over your data and infrastructure.
 
 ## 🚀 Getting Started
 

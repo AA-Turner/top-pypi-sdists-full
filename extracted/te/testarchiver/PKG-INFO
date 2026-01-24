@@ -1,0 +1,627 @@
+Metadata-Version: 2.1
+Name: testarchiver
+Version: 4.1.0
+Summary: Tools for serialising test results to SQL database
+Author-Email: Tommi Oinonen <tommi.oinonen@siili.com>
+License:                                  Apache License
+                                    Version 2.0, January 2004
+                                 http://www.apache.org/licenses/
+         
+            TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+         
+            1. Definitions.
+         
+               "License" shall mean the terms and conditions for use, reproduction,
+               and distribution as defined by Sections 1 through 9 of this document.
+         
+               "Licensor" shall mean the copyright owner or entity authorized by
+               the copyright owner that is granting the License.
+         
+               "Legal Entity" shall mean the union of the acting entity and all
+               other entities that control, are controlled by, or are under common
+               control with that entity. For the purposes of this definition,
+               "control" means (i) the power, direct or indirect, to cause the
+               direction or management of such entity, whether by contract or
+               otherwise, or (ii) ownership of fifty percent (50%) or more of the
+               outstanding shares, or (iii) beneficial ownership of such entity.
+         
+               "You" (or "Your") shall mean an individual or Legal Entity
+               exercising permissions granted by this License.
+         
+               "Source" form shall mean the preferred form for making modifications,
+               including but not limited to software source code, documentation
+               source, and configuration files.
+         
+               "Object" form shall mean any form resulting from mechanical
+               transformation or translation of a Source form, including but
+               not limited to compiled object code, generated documentation,
+               and conversions to other media types.
+         
+               "Work" shall mean the work of authorship, whether in Source or
+               Object form, made available under the License, as indicated by a
+               copyright notice that is included in or attached to the work
+               (an example is provided in the Appendix below).
+         
+               "Derivative Works" shall mean any work, whether in Source or Object
+               form, that is based on (or derived from) the Work and for which the
+               editorial revisions, annotations, elaborations, or other modifications
+               represent, as a whole, an original work of authorship. For the purposes
+               of this License, Derivative Works shall not include works that remain
+               separable from, or merely link (or bind by name) to the interfaces of,
+               the Work and Derivative Works thereof.
+         
+               "Contribution" shall mean any work of authorship, including
+               the original version of the Work and any modifications or additions
+               to that Work or Derivative Works thereof, that is intentionally
+               submitted to Licensor for inclusion in the Work by the copyright owner
+               or by an individual or Legal Entity authorized to submit on behalf of
+               the copyright owner. For the purposes of this definition, "submitted"
+               means any form of electronic, verbal, or written communication sent
+               to the Licensor or its representatives, including but not limited to
+               communication on electronic mailing lists, source code control systems,
+               and issue tracking systems that are managed by, or on behalf of, the
+               Licensor for the purpose of discussing and improving the Work, but
+               excluding communication that is conspicuously marked or otherwise
+               designated in writing by the copyright owner as "Not a Contribution."
+         
+               "Contributor" shall mean Licensor and any individual or Legal Entity
+               on behalf of whom a Contribution has been received by Licensor and
+               subsequently incorporated within the Work.
+         
+            2. Grant of Copyright License. Subject to the terms and conditions of
+               this License, each Contributor hereby grants to You a perpetual,
+               worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+               copyright license to reproduce, prepare Derivative Works of,
+               publicly display, publicly perform, sublicense, and distribute the
+               Work and such Derivative Works in Source or Object form.
+         
+            3. Grant of Patent License. Subject to the terms and conditions of
+               this License, each Contributor hereby grants to You a perpetual,
+               worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+               (except as stated in this section) patent license to make, have made,
+               use, offer to sell, sell, import, and otherwise transfer the Work,
+               where such license applies only to those patent claims licensable
+               by such Contributor that are necessarily infringed by their
+               Contribution(s) alone or by combination of their Contribution(s)
+               with the Work to which such Contribution(s) was submitted. If You
+               institute patent litigation against any entity (including a
+               cross-claim or counterclaim in a lawsuit) alleging that the Work
+               or a Contribution incorporated within the Work constitutes direct
+               or contributory patent infringement, then any patent licenses
+               granted to You under this License for that Work shall terminate
+               as of the date such litigation is filed.
+         
+            4. Redistribution. You may reproduce and distribute copies of the
+               Work or Derivative Works thereof in any medium, with or without
+               modifications, and in Source or Object form, provided that You
+               meet the following conditions:
+         
+               (a) You must give any other recipients of the Work or
+                   Derivative Works a copy of this License; and
+         
+               (b) You must cause any modified files to carry prominent notices
+                   stating that You changed the files; and
+         
+               (c) You must retain, in the Source form of any Derivative Works
+                   that You distribute, all copyright, patent, trademark, and
+                   attribution notices from the Source form of the Work,
+                   excluding those notices that do not pertain to any part of
+                   the Derivative Works; and
+         
+               (d) If the Work includes a "NOTICE" text file as part of its
+                   distribution, then any Derivative Works that You distribute must
+                   include a readable copy of the attribution notices contained
+                   within such NOTICE file, excluding those notices that do not
+                   pertain to any part of the Derivative Works, in at least one
+                   of the following places: within a NOTICE text file distributed
+                   as part of the Derivative Works; within the Source form or
+                   documentation, if provided along with the Derivative Works; or,
+                   within a display generated by the Derivative Works, if and
+                   wherever such third-party notices normally appear. The contents
+                   of the NOTICE file are for informational purposes only and
+                   do not modify the License. You may add Your own attribution
+                   notices within Derivative Works that You distribute, alongside
+                   or as an addendum to the NOTICE text from the Work, provided
+                   that such additional attribution notices cannot be construed
+                   as modifying the License.
+         
+               You may add Your own copyright statement to Your modifications and
+               may provide additional or different license terms and conditions
+               for use, reproduction, or distribution of Your modifications, or
+               for any such Derivative Works as a whole, provided Your use,
+               reproduction, and distribution of the Work otherwise complies with
+               the conditions stated in this License.
+         
+            5. Submission of Contributions. Unless You explicitly state otherwise,
+               any Contribution intentionally submitted for inclusion in the Work
+               by You to the Licensor shall be under the terms and conditions of
+               this License, without any additional terms or conditions.
+               Notwithstanding the above, nothing herein shall supersede or modify
+               the terms of any separate license agreement you may have executed
+               with Licensor regarding such Contributions.
+         
+            6. Trademarks. This License does not grant permission to use the trade
+               names, trademarks, service marks, or product names of the Licensor,
+               except as required for reasonable and customary use in describing the
+               origin of the Work and reproducing the content of the NOTICE file.
+         
+            7. Disclaimer of Warranty. Unless required by applicable law or
+               agreed to in writing, Licensor provides the Work (and each
+               Contributor provides its Contributions) on an "AS IS" BASIS,
+               WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+               implied, including, without limitation, any warranties or conditions
+               of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+               PARTICULAR PURPOSE. You are solely responsible for determining the
+               appropriateness of using or redistributing the Work and assume any
+               risks associated with Your exercise of permissions under this License.
+         
+            8. Limitation of Liability. In no event and under no legal theory,
+               whether in tort (including negligence), contract, or otherwise,
+               unless required by applicable law (such as deliberate and grossly
+               negligent acts) or agreed to in writing, shall any Contributor be
+               liable to You for damages, including any direct, indirect, special,
+               incidental, or consequential damages of any character arising as a
+               result of this License or out of the use or inability to use the
+               Work (including but not limited to damages for loss of goodwill,
+               work stoppage, computer failure or malfunction, or any and all
+               other commercial damages or losses), even if such Contributor
+               has been advised of the possibility of such damages.
+         
+            9. Accepting Warranty or Additional Liability. While redistributing
+               the Work or Derivative Works thereof, You may choose to offer,
+               and charge a fee for, acceptance of support, warranty, indemnity,
+               or other liability obligations and/or rights consistent with this
+               License. However, in accepting such obligations, You may act only
+               on Your own behalf and on Your sole responsibility, not on behalf
+               of any other Contributor, and only if You agree to indemnify,
+               defend, and hold each Contributor harmless for any liability
+               incurred by, or claims asserted against, such Contributor by reason
+               of your accepting any such warranty or additional liability.
+         
+            END OF TERMS AND CONDITIONS
+         
+            APPENDIX: How to apply the Apache License to your work.
+         
+               To apply the Apache License to your work, attach the following
+               boilerplate notice, with the fields enclosed by brackets "[]"
+               replaced with your own identifying information. (Don't include
+               the brackets!)  The text should be enclosed in the appropriate
+               comment syntax for the file format. We also recommend that a
+               file or class name and description of purpose be included on the
+               same "printed page" as the copyright notice for easier
+               identification within third-party archives.
+         
+            Copyright [yyyy] [name of copyright owner]
+         
+            Licensed under the Apache License, Version 2.0 (the "License");
+            you may not use this file except in compliance with the License.
+            You may obtain a copy of the License at
+         
+                http://www.apache.org/licenses/LICENSE-2.0
+         
+            Unless required by applicable law or agreed to in writing, software
+            distributed under the License is distributed on an "AS IS" BASIS,
+            WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+            See the License for the specific language governing permissions and
+            limitations under the License.
+         
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: OS Independent
+Classifier: Topic :: Software Development :: Testing
+Project-URL: Homepage, https://github.com/salabs/TestArchiver
+Project-URL: Repository, https://github.com/salabs/TestArchiver
+Project-URL: Issues, https://github.com/salabs/TestArchiver/issues
+Requires-Python: >=3.9
+Requires-Dist: psycopg2-binary>=2.8.5
+Description-Content-Type: text/markdown
+
+# TestArchiver
+
+TestArchiver is a tool for archiving your test results to a SQL database.
+
+And [Epimetheus](https://github.com/salabs/Epimetheus) is the tool for browsing the results you archived.
+
+## Testing framework support
+
+| Framework       | Status                      | Fixture test status | Parser option |
+| --------------- | --------------------------- | ------------------- | ------------- |
+| Robot Framework | [Supported](robot_tests/)   | Done                | robot         |
+| Mocha           | [Supported](mocha_tests/)   | Done                | mocha-junit   |
+| pytest          | [Supported](pytest/)        | Done                | pytest-junit  |
+| PHPUnit         | [Supported](phpunit_tests/) | Done                | php-junit     |
+| JUnit           | Experimental                | Missing             | junit         |
+| xUnit           | Experimental                | Missing             | xunit         |
+| MSTest          | Experimental                | Missing             | mstest        |
+
+
+Experimental status here means that there is a parser that can take in e.g. generic JUnit formatted output but there is no specific test set or any extensive testing or active development for the parser.
+
+Contributions for output parsers or listeners for different testing frameworks are appreciated. Contributing simply a fixture test set (that can be used to generate output files for developing a specific parser) is extremely helpful for any new framework.
+
+## Installation
+`sudo -H python3 -m pip install testarchiver`
+
+## Supported databases
+
+### SQLite
+
+[SQLite](https://www.sqlite.org) default database for the archiver and is mainly useful for testing and demo purposes. Sqlite3 driver is part of the python standard library so there are no additional dependencies for trying out the archiver.
+
+### PostgreSQL
+
+[PostgreSQL](https://www.postgresql.org) is the currently supported database for real projects. For example [Epimetheus](https://github.com/salabs/Epimetheus) service uses a PosrgreSQL database. For accessing PostgreSQL databases the script uses psycopg2 module: `pip install psycopg2-binary` (comes with pip install)
+
+## Basic usage
+
+The output files from different testing frameworks can be parsed into a database using `test_archiver/output_parser.py` script.
+
+```
+testarchiver --database test_archive.db output.xml
+```
+
+Assuming that `output.xml` is a output file generated by Robot Framework (the default parser option), this will create a SQLite database file named `test_archive.db` that contains the results.
+
+The archiver script can also be invoked from the module:
+```
+python3 -m test_archiver.output_parser --database test_archive.db output.xml
+```
+
+For list of other options: `testarchiver --help`
+```
+positional arguments:
+  output_files          list of test output files to parse in to the test
+                        archive
+
+optional arguments:
+  -h, --help            show this help message and exit
+  --version, -v         show program's version number and exit
+  --config CONFIG_FILE  Path to JSON config file containing database
+                        credentials and other configurations. Options given on
+                        command line will override options set in a config
+                        file.
+  --format {robot,robotframework,xunit,junit,mocha-junit,pytest-junit,mstest,php-junit}
+                        output format (default: robotframework)
+  --repository REPOSITORY
+                        The repository of the test cases. Used to
+                        differentiate between test with same name in different
+                        projects.
+  --team TEAM           Team name for the test series
+  --series SERIES       Name of the test series (and optionally build number
+                        'SERIES_NAME#BUILD_NUM' or build id
+                        'SERIES_NAME#BUILD_ID')
+  --metadata NAME:VALUE
+                        Adds given metadata to the test run. Expected format:
+                        'NAME:VALUE'
+
+Database connection:
+  --dbengine DB_ENGINE  Database engine, postgresql or sqlite (default)
+  --database DATABASE   database name
+  --host HOST           database host name
+  --user USER           database user
+  --pw PASSWORD, --password PASSWORD
+                        database password
+  --port PORT           database port (default: 5432)
+  --dont-require-ssl    Disable the default behavior to require ssl from the
+                        target database.
+
+Schema updates:
+  --allow-minor-schema-updates
+                        Allow TestArchiver to perform MINOR (backwards
+                        compatible) schema updates the test archive
+  --allow-major-schema-updates
+                        Allow TestArchiver to perform MAJOR (backwards
+                        incompatible) schema updates the test archive
+
+Clean history:
+  If any of the following options are used the archiver will delete the oldest
+  result data. What data is kept can be controlled with these --keep-X options
+  that can also be mixed. If deletion targets are not specified with --clean-X
+  options all test run data is cleaned. --keep-X options should be used when
+  using --clean-X options otherwise entire history is cleared.
+
+  --keep-builds KEEP_BUILDS
+                        Delete old result data but keep the data for at least
+                        given number of builds in each series.
+  --keep-months KEEP_MONTHS
+                        Delete old result data but keep data that was archived
+                        more recently than given number of months ago
+  --keep-after KEEP_AFTER
+                        Delete old result data but keep data that was archived
+                        more recently than given date in ISO 8601 format
+                        yyyy-mm-dd.
+  --clean-team CLEAN_TEAM
+                        Delete results only archived under given team name. Use
+                        this with --keep-X options. Otherwise will delete
+                        entire history
+  --clean-logs          Delete oldest log messages but not test results or runs.
+                        Use this with --keep-X options. Otherwise will delete
+                        entire log history
+  --clean-logs-below {TRACE,DEBUG,INFO,WARN}
+                        Delete oldest log messages that are bellow given log
+                        level but not test results or runs. Use this with
+                        --keep-X options. Otherwise will delete entire log
+                        history
+  --clean-keyword-stats
+                        Delete oldest keyword statistics data but not test
+                        results or runs. Use this with --keep-X options.
+                        Otherwise will delete entire log history
+
+Limit archived data:
+  --no-keywords         Do not archive keyword data
+  --no-keyword-stats    Do not archive keyword statistics
+  --ignore-logs-below {TRACE,DEBUG,INFO,WARN}
+                        Sets a cut off level for archived log messages. By
+                        default archives all available log messages.
+  --ignore-logs         Do not archive any log messages
+  --max_log_message_length MAX_LOG_MESSAGE_LENGTH
+                        Specify how many characters of the log message that is
+                        archived. full: archives the complete log. positive
+                        integers: archives number of characters from the
+                        beginning. negative integers: archives number of
+                        characters from the end.
+
+Adjust timestamps:
+  --time-adjust-secs TIME_ADJUST_SECS
+                        Adjust time in timestamps by given seconds. This can
+                        be used to change time to utc before writing the
+                        results to database, especially if the test system
+                        uses local time, such as robot framework. For example
+                        if test were run in Finland (GMT+3) in summer (+1hr),
+                        calculate total hours by minutes and seconds and
+                        invert to adjust in correct direction, i.e.
+                        -(3+1)*60*60, so --time-adjust-secs -14400. This
+                        option is useful if you are archiving in a different
+                        location to where tests are run.If you are running
+                        tests and archiving in same timezone, time-adjust-
+                        with-system-timezone may be a better option. This
+                        option may be used in conjunction with --time-adjust-
+                        with-system-timezone if desired.
+  --time-adjust-with-system-timezone
+                        Adjust the time in timestamps by the system timezone
+                        (including daylight savings adjust). If you are
+                        archiving tests in the same timezone as you are
+                        running tests, setting this option will ensure time
+                        written to the database is in UTC/GMT time. This
+                        assumes that if multiple computers are used that their
+                        timezone and daylight savings settings are identical.
+                        Take care also that you do not run tests just before a
+                        daylight savings time adjust and archive just after,
+                        as times will be out by one hour. This could easily
+                        happen if long running tests cross a timezone adjust
+                        boundary. This option may be used in conjunction with
+                        --time-adjust-secs.
+
+ChangeEngine:
+  --change-engine-url CHANGE_ENGINE_URL
+                        Starts a listener that feeds results to ChangeEngine
+  --execution-context EXECUTION_CONTEXT
+                        To separate data from different build pipelines for
+                        ChangeEngine prioritization. Example if same changes
+                        or tests may be used to verify app in Android and iOS
+                        platforms, then it would be good to separate the
+                        result from different builds pipelines/platforms. The
+                        ChangeEngine prioritization might not give correct
+                        result if different results from different platforms
+                        are mixed together.
+  --changes CHANGES     Json file which contains information from the changed
+                        files for each repo. The file should be formatted like
+                        this: { "context": "The execution context, same as
+                        --execution-context and command line will override
+                        this setting.", "changes": [ { "name": "string
+                        representing the changed item, for example file path",
+                        "repository": "Repository (optional), for separating
+                        between changed items with identical names.",
+                        "item_type": "Separating items (optional) and for
+                        filtering subsets when prioritising", "subtype":
+                        "(optional, for separating items for filtering subsets
+                        when prioritising" } ] }
+  --execution-id EXECUTION_ID
+                        Identifier or version of the tested application for
+                        given execution-context. Stored in ChangeEngine and
+                        returned by "last_update" query.
+```
+
+## Data model
+
+[Schema and data model](https://github.com/salabs/TestArchiver/tree/master/test_archiver/schemas) (NOTICE: this points to latest version)
+
+The schema is versioned and new versions of TestArchiver might require schema updates.
+Mismatches with testarchiver version and database schema will cause parsing to fail.
+TestArchiver can perform the required schema updates if `--allow-minor-schema-updates` or `--allow-major-schema-updates` flags are used.
+Some updates require only minor updates that should be backwards compatible for tools reading the archived data.
+Other updates are major and change the schema in backwards incompatible way.
+
+Schema initialisation, schema updates and history cleaning can be run without parsing results using `testarchive_schematool` or the module directly `python3 -m test_archiver.database`.
+
+## Useful metadata
+
+There are meta data that are useful to add with the results. Some testing frameworks allow adding metadata to your test results and for those frameworks (e.g. Robot Framework) it is recommended to add that metadata already to the tests so the same information is also available in the results. Additional metadata can be added when parsing the results using the `--metadata` option. Metadata given during the parsing is linked to the top level test suite.
+
+`--metadata NAME:VALUE`
+
+## Test series and teams
+
+In the data model, each test result file is represented as single test run. These test runs are linked and organized into builds in in different result series. Depending on the situation the series can be e.g. CI build jobs or different branches. By default if no series is specified the results are linked to a default series with autoincrementing build numbers. Different test runs (from different testing frameworks or parallel executions) that belong together can be organized into the same build. Different test series are additionally organized by team. Series name and build number/id are separated by `#`.
+
+Some examples using the `--series` and `--team` options of `testarchiver`
+
+-   `--series ${JENKINS_JOB_NAME}#${BUILD_NUMBER}`
+-   `--series "UI tests"#<commit hash>`
+-   `--series ${CURRENT_BRANCH}#${BUILD_ID} --team Team-A`
+-   `--series manually_run`
+
+Each build will have a build number in the series. If the build number is specified then that number is used. If the build number/id is omitted then the build number will be checked from the previous build in that series and incremented. If the build number/id is not a number it is considered a build identifier string. If that id is new to the series the build number is incremented just as if it no build number was specified. If the same build id is found in the same test series then the results are added under that same previously archived build.
+
+If the tests are executed in a CI environment the build number/id is an excellent way to link the archived results to the actual builds.
+
+The series can also be indicated using metadata. Any metadata with name prefixed with `series` are interpreted as series information. This is especially useful when using listeners. For example when using Robot Framework metadata `--metadata team:A-Team --metadata series:JENKINS_JOB_NAME#BUILD_NUMBER`
+
+## Timestamp adjustment
+
+Some test frameworks use local time in their timestamps. For archiving into databases this can be problematic if tests
+are viewed and or run in different timezones. To address this two ways to adjust the time back to GMT/UTC are provided.
+
+The first allows the user to apply an adjustment of a fixed time in seconds of their choosing. This is useful for cases
+where tests were already run and the place/timezone where they were run are known. This option is useful if you are
+archiving in a different location to where tests are  run. The time value provided as an option is added to the
+timestamp. Care must be taken with places where summer time is different (usually +1hr).
+
+For example if test were run in Finland (GMT+2), plus 1 hour in summer, calculate total hours by minutes and seconds
+and invert to adjust in correct direction, i.e. -(2+1)*60*60, so --time-adjust-secs -10800 in summer time,
+and -7200 otherwise.
+
+The second provides for automated adjustment based on the system timezone and/or daylight savings if it applies. This
+is useful if the tests and archiving are performed in the same place and time.
+This assumes that if multiple computers are used that their timezone and daylight savings settings are identical.
+Care must also be taken that tests are not run just before a daylight savings time adjust and archived just after
+as times will be out by one hour. This could easily happen if long running tests cross a timezone adjust boundary.
+This can be set using --time-adjust-with-system-timezone.
+
+The ArchiverRobotListener allows for the second option if its adjust_with_system_timezone argument is set to True.
+
+To ensure any of the optional adjustments are traceable, two meta data values are added to the suites' test run.
+If time-adjust-secs is set to a value, time_adjust_secs with that value is written to the suite_metadata table.
+If `--time-adjust-with-system-timezone` option is included, then the addition of the time-adjust-secs and the
+system timezone is written to the suite_metadata tables as time_adjust_secs_total.
+
+e.g with command line
+
+`output_parser.py --time-adjust-secs -3600 --time-adjust-with-system-timezone ...`
+
+the following values would be added to suite_metadata table for (GMT+2)
+
+ - time_adjust_secs with value -3600
+ - time_adjust_secs_total with -10800.
+
+This example is mimicking adding daylight savings (1hr = 3600 secs) onto
+a system offset secs of 7200 (GMT+2). i.e. if the computer being used had the 'daylight savings' setting
+of and you want to manually add it during archiving.
+
+## Cleaning old data
+Since version 3.0.0 there is support for cleaning/deleting oldest archived data. These options allow limiting the growth of the history with various options that control what types of data are cleaned and how long history is kept.
+Different --keep-X and --clean-X options can be mixed to select what data is kept after cleaning.
+In most cases --keep-X options are used when ever --clean-X options are used.
+
+While history cleaning can be run with every results parsing update it is recomended to run cleaning operations separately.
+Cleaning history can be run without parsing results using `testarchive_schematool` or the module directly `python3 -m test_archiver.database`.
+
+Some examples
+- `python3 -m test_archiver.database --keep-months 6`
+  Will delete all results older than 6 months
+- `python3 -m test_archiver.database --keep-months 6 --clean-logs --clean-keyword-stats`
+  Only deletes logs and keywords statistics older than 6 months. Test results are not effected
+- `python3 -m test_archiver.database --keep-builds 10 --keep-months 6`
+  Will delete all results older than 6 months but still keeping at least 10 last builds of each series
+- `python3 -m test_archiver.database --lean-team Team-A`
+  Will delete all results archived under Team-A
+- `python3 -m test_archiver.database --clean-logs`
+  Will delete all log log messages
+
+# Release notes
+- 4.1.0 (2025-12-05)
+  * Allow use of glob patterns to list output files to parse
+
+- 4.0.1 (2025-12-01)
+  * Fixes parsing outputs containing elements missing timestamps
+    * This can be caused for example by custom libraries
+
+- 4.0.1 (2025-12-01)
+  * Fixes for parsing robot outputs using VAR syntax
+
+- 4.0.0 (2025-11-21)
+  * Parser updates to support parsing latest Robotframework 7.x outputs
+
+- 3.0.0 (2023-05-11)
+  * Adds support for cleaning oldest test result data to delete in order to control the growth of test archives
+  * Major schema update #3:
+    - `call_index` column of `tree_hierarchy` table is converted from text to interger
+    - Adds `ON DELETE CASCADE` rule for `test_series_mapping` table to facilitate deletion of build records when their test result data is deleted
+  * Fixes error message in case of incompatible schema where schema is new then archiver
+
+- 2.6.2 (2023-05-11)
+  * Fixes error message when newer schema used in archive than for archiver
+  * Python 3.6 support no longer tested
+
+- 2.6.1 (2022-10-19)
+  * Fixes a bug/regression that caused data of log messages not to be archived.
+
+- 2.6.0 (2022-09-15)
+  * `--max_log_message_length` option to control the length of log messages archived.
+    Defaults to 2000 chars. Negative values will archive log messages from the end.
+  * Ignores return statements without warnigns from Robot Framework 5.x inputs
+
+- 2.5.1 (2022-09-06)
+  * JUnit parsers updated to accept results where time value is missing from a testcase
+  * XUnit parsers updated to accept results where time value is missing from a testcase
+
+- 2.5.0 (2022-06-23)
+  * Time adjustments effect also test_run's generated field and start_time of all items
+  * Fixes pytest parser by always using keyword on failure
+  * The port option is now used when connecting to databases
+
+- 2.4.0 (2021-04-28)
+  * Updates to support archiving Robot Framework 4.0
+  * Fixes bug in execution path calculation for log messages
+
+- 2.3.0 (2021-03-16)
+  * Better support for feeding changes and execution context for ChangeEngine
+    - `--changes` for feeding changes information
+    - `--execution-id` Identifier or version of the tested application for given execution-context. Stored in ChangeEngine and returned by `last_update` query.
+
+- 2.2.0 (2020-12-21)
+  * Ability to adjust times as reported by timestamps in test results.
+    - `--time-adjust-secs` allows for manual adjustment of the timestamps with given value
+    - `--time-adjust-with-system-timezone` allows for automatic adjustment of timestamps by timezone and/or daylight savings.
+  * Support for parsing PHPUnit output
+  * ChangeEngine:
+    - Listener ignores skipped tests
+    - Adds test type to all parsers
+    - `--execution-context` option for setting the execution context for the results
+  * diff2change_context_list.py now uses the term change context instead of simply context for clarity
+  * Adds Dockerfiles for an empty database and database with sample data
+    generated from project's tests
+
+- 2.1.0 (2020-09-16)
+  * New options for controlling archiving of keywords and log messages
+    - `--no-keywords` for ignoring all keyword data
+    - `--no-keyword-stats` for not collecting keyword statistics data
+    - `--ignore-logs` for not collecting any log message data
+    - `--ignore-logs-below` for ignoring all log messages below the given log level
+
+- 2.0.0 (2020-09-04)
+  * Distribution as pip package `pip3 install testarchiver` and it installs:
+    - `testarchiver` script (aka: output_parser.py)
+    - `testarchive_schematool` script (aka: database.py)
+    - `diff2change_context_list.py` script
+    - `test_archiver` module
+  * Functionality for managing schema updates
+    - TestArchiver version has to match with the schema version
+    - TestArchiver can apply schema updates when explicitly allowed
+    - Updates are divided to major and minor updates
+    - Minor updates are backwards compatible for applications reading the database
+    - Major updates are backwards incompatible for applications reading the database
+  * Major schema update #1:
+    - Adds `schema_updates` table for recording schema updates
+    - Adds `schema_version` column to `test_run` table to make schema incompatible with
+      old versions TestArchiver
+    - Adds index for log messages for query performance
+  * Renamed `output_parser.py` cli option `--change_engine_url` to `--change-engine-url`
+  * Record an execution path for test cases, suites and log messages.
+    - The path explains the position of the item in its test run.
+    - E.g. `s1-s2-t3` means the third test in the second subsuite of the top suite.
+  * Minor schema update #2:
+    - Adds `execution_path` column to `test_result`, `suite_result` and `log_message` tables
+  * Renamed Robot Framework listener `ArchiverListener.py` as `ArchiverRobotListener.py` for clarity
+
+- 1.2.0 (2020-08-18)
+  * Important database integrity fix when using sqlite database
+  * Record test criticality (Robot Framework specific)
+  * Redesign of configurations management
+    - Allows using both config file and command line arguments uniformly
+    - CLI arguments override options set in config file
+
+- 1.1.3 (2020-06-09)
+  * Performance fix for the schema existence check
+  * Improved error messages:
+    - Error when trying to archive results that have already been archived
+    - Error when psycopg2 module is not found

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: stream-python
-Version: 5.3.1
+Version: 5.4.0
 Summary: Client for getstream.io. Build scalable newsfeeds & activity streams in a few hours instead of weeks.
 Home-page: http://github.com/GetStream/stream-python
 Author: Thierry Schellenbach
@@ -8,7 +8,7 @@ Author-email: support@getstream.io
 License: BSD-3-Clause
 Project-URL: Bug Tracker, https://github.com/GetStream/stream-python/issues
 Project-URL: Documentation, https://getstream.io/activity-feeds/docs/python/?language=python
-Project-URL: Release Notes, https://github.com/GetStream/stream-python/releases/tag/v5.3.1
+Project-URL: Release Notes, https://github.com/GetStream/stream-python/releases/tag/v5.4.0
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent

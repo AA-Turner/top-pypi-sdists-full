@@ -1,30 +1,29 @@
 from __future__ import annotations
 
-from datetime import date
-from datetime import timedelta
-from typing import TYPE_CHECKING
+import re
+from datetime import date, timedelta
 from typing import Any
 
-import pandas as pd
 import pytest
+
+pytest.importorskip("pandas")
+
+import pandas as pd
 from pandas.api.types import is_datetime64_any_dtype as is_datetime
 from pandas.testing import assert_series_equal
 
-from iso_week_date import IsoWeek
-from iso_week_date import IsoWeekDate
-from iso_week_date._patterns import ISOWEEK__DATE_FORMAT
-from iso_week_date._patterns import ISOWEEKDATE__DATE_FORMAT
-from iso_week_date.pandas_utils import SeriesIsoWeek  # noqa: F401
-from iso_week_date.pandas_utils import _datetime_to_format
-from iso_week_date.pandas_utils import datetime_to_isoweek
-from iso_week_date.pandas_utils import datetime_to_isoweekdate
-from iso_week_date.pandas_utils import is_isoweek_series
-from iso_week_date.pandas_utils import is_isoweekdate_series
-from iso_week_date.pandas_utils import isoweek_to_datetime
-from iso_week_date.pandas_utils import isoweekdate_to_datetime
-
-if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
+from iso_week_date import IsoWeek, IsoWeekDate
+from iso_week_date._patterns import ISOWEEK__DATE_FORMAT, ISOWEEKDATE__DATE_FORMAT
+from iso_week_date.pandas_utils import (
+    SeriesIsoWeek,  # noqa: F401
+    _datetime_to_format,
+    datetime_to_isoweek,
+    datetime_to_isoweekdate,
+    is_isoweek_series,
+    is_isoweekdate_series,
+    isoweek_to_datetime,
+    isoweekdate_to_datetime,
+)
 
 pytestmark = pytest.mark.pandas
 
@@ -68,7 +67,7 @@ def test_datetime_to(periods: int, offset: int) -> None:
     assert all(
         [
             to_isoweekdate_g.iwd.is_isoweekdate(),  # type: ignore[attr-defined]
-            to_isoweekdate_f.iwd.is_isoweekdate(),
+            to_isoweekdate_f.iwd.is_isoweekdate(),  # type: ignore[attr-defined]
             to_isoweekdate_m.iwd.is_isoweekdate(),
         ],
     )
@@ -83,33 +82,26 @@ def test_datetime_to(periods: int, offset: int) -> None:
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "context", "err_msg"),
+    ("kwargs", "err_msg"),
     [
         (
             {"series": pd.DataFrame()},
-            pytest.raises(TypeError),
-            "series must be of type pd.Series",
+            "`series` must be of type `pd.Series`",
         ),
         (
             {"series": pd.Series([1, 2, 3])},
-            pytest.raises(TypeError),
-            "series values must be of type datetime",
+            "`series` values must be of type `datetime`",
         ),
         (
             {"series": pd.Series(pd.date_range(start, periods=5)), "offset": "abc"},
-            pytest.raises(TypeError),
-            "offset must be of type pd.Timedelta or int",
+            "`offset` must be of type `pd.Timedelta` or `int`",
         ),
     ],
 )
-def test_datetime_to_isoweek_raise(
-    capsys: pytest.CaptureFixture, kwargs: dict[str, Any], context: AbstractContextManager, err_msg: str
-) -> None:
+def test_datetime_to_isoweek_raise(kwargs: dict[str, Any], err_msg: str) -> None:
     """Test datetime_to_isoweek with invalid arguments"""
-    with context:
+    with pytest.raises(TypeError, match=err_msg):
         datetime_to_isoweek(**kwargs)
-        sys_out, _ = capsys.readouterr()
-        assert err_msg in sys_out
 
 
 @pytest.mark.parametrize("periods", [5, 10, 52])
@@ -154,45 +146,52 @@ def test_isoweekdate_to_datetime(periods: int, offset: int) -> None:
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "context"),
+    ("kwargs", "expected_exception", "err_msg"),
     [
         (
             {"series": pd.Series(["2023-W01", "2023-W02"]), "offset": "abc"},
-            pytest.raises(TypeError, match="`offset` must be of type `pd.Timedelta` or `int`"),
+            TypeError,
+            re.escape("`offset` must be of type `pd.Timedelta` or `int`"),
         ),
         (
             {"series": pd.Series(["2023-W01", "2023-W02"]), "weekday": 0},
-            pytest.raises(ValueError, match="`weekday` value must be an integer between 1 and 7"),
+            ValueError,
+            "`weekday` value must be an integer between 1 and 7",
         ),
         (
             {"series": pd.Series(["2023-Wab", "2023-W02"]), "weekday": 1},
-            pytest.raises(ValueError, match='time data "2023-Wab-1" doesn\'t match format'),
+            ValueError,
+            'time data "2023-Wab-1" doesn\'t match format',
         ),
     ],
 )
-def test_isoweek_to_datetime_raise(kwargs: dict[str, Any], context: AbstractContextManager) -> None:
+def test_isoweek_to_datetime_raise(kwargs: dict[str, Any], expected_exception: type[Exception], err_msg: str) -> None:
     """Test isoweek_to_datetime with invalid arguments"""
-    with context:
+    with pytest.raises(expected_exception=expected_exception, match=err_msg):
         isoweek_to_datetime(**kwargs)
 
 
 @pytest.mark.parametrize(
-    ("kwargs", "context"),
+    ("kwargs", "expected_exception", "err_msg"),
     [
         (
-            {"series": pd.Series(["2023-W01-a", "2023-W02-b"]), "offset": 1},
-            pytest.raises(ValueError, match='time data "2023-W01-a" doesn\'t match format'),
+            {"series": pd.Series(["2023-W01-1", "2023-W02-1"]), "offset": "abc"},
+            TypeError,
+            re.escape("`offset` must be of type `pd.Timedelta` or `int`"),
         ),
         (
-            {"series": pd.Series(["2023-W01-1", "2023-W02-1"]), "offset": "abc"},
-            pytest.raises(TypeError, match="`offset` must be of type `pd.Timedelta` or `int`"),
+            {"series": pd.Series(["2023-W01-a", "2023-W02-b"]), "offset": 1},
+            ValueError,
+            'time data "2023-W01-a-1" doesn\'t match format',
         ),
     ],
 )
-def test_isoweekdate_to_datetime_raise(kwargs: dict[str, Any], context: AbstractContextManager) -> None:
+def test_isoweekdate_to_datetime_raise(
+    kwargs: dict[str, Any], expected_exception: type[Exception], err_msg: str
+) -> None:
     """Test isoweekdate_to_datetime with invalid arguments"""
-    with context:
-        isoweekdate_to_datetime(**kwargs)
+    with pytest.raises(expected_exception=expected_exception, match=err_msg):
+        isoweek_to_datetime(**kwargs)
 
 
 @pytest.mark.parametrize(

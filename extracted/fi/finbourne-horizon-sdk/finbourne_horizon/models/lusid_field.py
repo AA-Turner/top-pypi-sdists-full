@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict, List, Optional
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr, conlist, constr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 
 class LusidField(BaseModel):
     """
@@ -27,9 +29,9 @@ class LusidField(BaseModel):
     """
     field_name:  StrictStr = Field(...,alias="fieldName", description="The name of the LUSID field.") 
     default_value:  Optional[StrictStr] = Field(None,alias="defaultValue", description="The default value for the field.") 
-    vendor_packages: conlist(StrictStr) = Field(..., alias="vendorPackages", description="The vendor package that contributes to this LUSID field.")
-    vendor_namespaces: conlist(StrictStr) = Field(..., alias="vendorNamespaces", description="The vendor namespace that contributes to this LUSID field.")
-    vendor_fields: conlist(StrictStr) = Field(..., alias="vendorFields", description="The underlying fields on the vendor package that contribute to this LUSID field")
+    vendor_packages: List[StrictStr] = Field(description="The vendor package that contributes to this LUSID field.", alias="vendorPackages")
+    vendor_namespaces: List[StrictStr] = Field(description="The vendor namespace that contributes to this LUSID field.", alias="vendorNamespaces")
+    vendor_fields: List[StrictStr] = Field(description="The underlying fields on the vendor package that contribute to this LUSID field", alias="vendorFields")
     transformation_description:  Optional[StrictStr] = Field(None,alias="transformationDescription", description="A description of how the vendor package's field(s) get mapped to the LUSID field") 
     entity_type:  StrictStr = Field(...,alias="entityType", description="LUSID Entity this refers to (e.g. Instrument)") 
     entity_sub_type:  Optional[StrictStr] = Field(None,alias="entitySubType", description="Sub-Entity this field refers to (e.g. Equity)") 
@@ -104,3 +106,5 @@ class LusidField(BaseModel):
             "entity_sub_type": obj.get("entitySubType")
         })
         return _obj
+
+LusidField.update_forward_refs()

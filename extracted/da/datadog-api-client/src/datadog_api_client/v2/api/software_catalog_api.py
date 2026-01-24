@@ -21,6 +21,7 @@ from datadog_api_client.v2.model.entity_data import EntityData
 from datadog_api_client.v2.model.upsert_catalog_entity_response import UpsertCatalogEntityResponse
 from datadog_api_client.v2.model.upsert_catalog_entity_request import UpsertCatalogEntityRequest
 from datadog_api_client.v2.model.entity_v3 import EntityV3
+from datadog_api_client.v2.model.entity_response_array import EntityResponseArray
 from datadog_api_client.v2.model.list_kind_catalog_response import ListKindCatalogResponse
 from datadog_api_client.v2.model.kind_data import KindData
 from datadog_api_client.v2.model.upsert_catalog_kind_response import UpsertCatalogKindResponse
@@ -147,6 +148,11 @@ class SoftwareCatalogApi:
                     "attribute": "include",
                     "location": "query",
                 },
+                "include_discovered": {
+                    "openapi_types": (bool,),
+                    "attribute": "includeDiscovered",
+                    "location": "query",
+                },
             },
             headers_map={
                 "accept": ["application/json"],
@@ -231,7 +237,28 @@ class SoftwareCatalogApi:
                     "attribute": "include",
                     "location": "query",
                 },
+                "include_discovered": {
+                    "openapi_types": (bool,),
+                    "attribute": "includeDiscovered",
+                    "location": "query",
+                },
             },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._preview_catalog_entities_endpoint = _Endpoint(
+            settings={
+                "response_type": (EntityResponseArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/catalog/entity/preview",
+                "operation_id": "preview_catalog_entities",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={},
             headers_map={
                 "accept": ["application/json"],
             },
@@ -325,6 +352,7 @@ class SoftwareCatalogApi:
         filter_relation_type: Union[RelationType, UnsetType] = unset,
         filter_exclude_snapshot: Union[str, UnsetType] = unset,
         include: Union[IncludeType, UnsetType] = unset,
+        include_discovered: Union[bool, UnsetType] = unset,
     ) -> ListEntityCatalogResponse:
         """Get a list of entities.
 
@@ -350,6 +378,8 @@ class SoftwareCatalogApi:
         :type filter_exclude_snapshot: str, optional
         :param include: Include relationship data.
         :type include: IncludeType, optional
+        :param include_discovered: If true, includes discovered services from APM and USM that do not have entity definitions.
+        :type include_discovered: bool, optional
         :rtype: ListEntityCatalogResponse
         """
         kwargs: Dict[str, Any] = {}
@@ -383,6 +413,9 @@ class SoftwareCatalogApi:
         if include is not unset:
             kwargs["include"] = include
 
+        if include_discovered is not unset:
+            kwargs["include_discovered"] = include_discovered
+
         return self._list_catalog_entity_endpoint.call_with_http_info(**kwargs)
 
     def list_catalog_entity_with_pagination(
@@ -398,6 +431,7 @@ class SoftwareCatalogApi:
         filter_relation_type: Union[RelationType, UnsetType] = unset,
         filter_exclude_snapshot: Union[str, UnsetType] = unset,
         include: Union[IncludeType, UnsetType] = unset,
+        include_discovered: Union[bool, UnsetType] = unset,
     ) -> collections.abc.Iterable[EntityData]:
         """Get a list of entities.
 
@@ -423,6 +457,8 @@ class SoftwareCatalogApi:
         :type filter_exclude_snapshot: str, optional
         :param include: Include relationship data.
         :type include: IncludeType, optional
+        :param include_discovered: If true, includes discovered services from APM and USM that do not have entity definitions.
+        :type include_discovered: bool, optional
 
         :return: A generator of paginated results.
         :rtype: collections.abc.Iterable[EntityData]
@@ -457,6 +493,9 @@ class SoftwareCatalogApi:
 
         if include is not unset:
             kwargs["include"] = include
+
+        if include_discovered is not unset:
+            kwargs["include_discovered"] = include_discovered
 
         local_page_size = get_attribute_from_path(kwargs, "page_limit", 100)
         endpoint = self._list_catalog_entity_endpoint
@@ -565,6 +604,7 @@ class SoftwareCatalogApi:
         filter_from_ref: Union[str, UnsetType] = unset,
         filter_to_ref: Union[str, UnsetType] = unset,
         include: Union[RelationIncludeType, UnsetType] = unset,
+        include_discovered: Union[bool, UnsetType] = unset,
     ) -> ListRelationCatalogResponse:
         """Get a list of entity relations.
 
@@ -582,6 +622,8 @@ class SoftwareCatalogApi:
         :type filter_to_ref: str, optional
         :param include: Include relationship data.
         :type include: RelationIncludeType, optional
+        :param include_discovered: If true, includes relationships discovered by APM and USM.
+        :type include_discovered: bool, optional
         :rtype: ListRelationCatalogResponse
         """
         kwargs: Dict[str, Any] = {}
@@ -603,6 +645,9 @@ class SoftwareCatalogApi:
         if include is not unset:
             kwargs["include"] = include
 
+        if include_discovered is not unset:
+            kwargs["include_discovered"] = include_discovered
+
         return self._list_catalog_relation_endpoint.call_with_http_info(**kwargs)
 
     def list_catalog_relation_with_pagination(
@@ -614,6 +659,7 @@ class SoftwareCatalogApi:
         filter_from_ref: Union[str, UnsetType] = unset,
         filter_to_ref: Union[str, UnsetType] = unset,
         include: Union[RelationIncludeType, UnsetType] = unset,
+        include_discovered: Union[bool, UnsetType] = unset,
     ) -> collections.abc.Iterable[RelationResponse]:
         """Get a list of entity relations.
 
@@ -631,6 +677,8 @@ class SoftwareCatalogApi:
         :type filter_to_ref: str, optional
         :param include: Include relationship data.
         :type include: RelationIncludeType, optional
+        :param include_discovered: If true, includes relationships discovered by APM and USM.
+        :type include_discovered: bool, optional
 
         :return: A generator of paginated results.
         :rtype: collections.abc.Iterable[RelationResponse]
@@ -654,6 +702,9 @@ class SoftwareCatalogApi:
         if include is not unset:
             kwargs["include"] = include
 
+        if include_discovered is not unset:
+            kwargs["include_discovered"] = include_discovered
+
         local_page_size = get_attribute_from_path(kwargs, "page_limit", 100)
         endpoint = self._list_catalog_relation_endpoint
         set_attribute_from_path(kwargs, "page_limit", local_page_size, endpoint.params_map)
@@ -665,6 +716,16 @@ class SoftwareCatalogApi:
             "kwargs": kwargs,
         }
         return endpoint.call_with_http_info_paginated(pagination)
+
+    def preview_catalog_entities(
+        self,
+    ) -> EntityResponseArray:
+        """Preview catalog entities.
+
+        :rtype: EntityResponseArray
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._preview_catalog_entities_endpoint.call_with_http_info(**kwargs)
 
     def upsert_catalog_entity(
         self,

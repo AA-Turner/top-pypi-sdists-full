@@ -62,8 +62,6 @@ class FunctionTransform:
                     self._init(st, group, *a, **kwargs)
                 except SkipUpdate:
                     skip_update = True
-                except:
-                    raise
                 finally:
                     if "is_initialized" not in st:
                         st["is_initialized"] = set()
@@ -109,6 +107,11 @@ def _zero_guard(state, key, ref, dtype):
 def _storage_dtype(group):
     dtype = group.get("storage_dtype", "float32")
     return getattr(torch, dtype)
+
+
+def _init_mu_product(state, group, update, grad, param, **kwargs):
+    dtype = _storage_dtype(group)
+    state["mu_product"] = torch.ones((), dtype=dtype, device=param.device)
 
 
 class ZeroGuard(FunctionTransform):
@@ -301,6 +304,12 @@ def weight_decay_to_ema(group, update, grad, param, exp_avg):
     return update
 
 
+@no_state
+def cautious_weight_decay(group, update, grad, param):
+    utils.cautious_weight_decay_(param, update, group["cautious_weight_decay"] * group["lr"])
+    return update
+
+
 @zero_guard("exp_avg")
 @no_state
 def l1_weight_decay_to_ema(group, update, grad, param, exp_avg):
@@ -356,6 +365,51 @@ def update_by_adam(group, update, grad, param, exp_avg, exp_avg_sq):
 
 
 @zero_guard("exp_avg", "exp_avg_sq")
+@general_guard("mu_product", init_fn=_init_mu_product, skip_first=False)
+@no_state
+def scale_by_nadam(group, update, grad, param, exp_avg, exp_avg_sq, mu_product):
+    utils.nadam_(
+        param,
+        exp_avg,
+        exp_avg_sq,
+        mu_product,
+        update,
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"],
+        group["momentum_decay"],
+        group["eps"],
+        group["weight_decay"],
+        group.get("decoupled_weight_decay", False),
+    )
+    return update
+
+
+@zero_guard("exp_avg", "exp_avg_sq")
+@general_guard("mu_product", init_fn=_init_mu_product, skip_first=False)
+@no_state
+def update_by_nadam(group, update, grad, param, exp_avg, exp_avg_sq, mu_product):
+    utils.fused_nadam_(
+        param,
+        exp_avg,
+        exp_avg_sq,
+        mu_product,
+        update,
+        grad,
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"],
+        group["lr"],
+        group["eps"],
+        group["momentum_decay"],
+        group["weight_decay"],
+        group.get("decoupled_weight_decay", False),
+        group["caution"],
+    )
+    raise SkipUpdate from None
+
+
+@zero_guard("exp_avg", "exp_avg_sq")
 @no_state
 def update_by_adamc(group, update, grad, param, exp_avg, exp_avg_sq):
     utils.fused_adam_(
@@ -371,6 +425,46 @@ def update_by_adamc(group, update, grad, param, exp_avg, exp_avg_sq):
         group["eps"],
         group["lr"] * group["weight_decay"] / group["max_lr"],
         group["caution"],
+    )
+    raise SkipUpdate from None
+
+
+@zero_guard("exp_avg_fast", "exp_avg_slow", "exp_avg_sq")
+@no_state
+def scale_by_ademamix(group, update, grad, param, exp_avg_fast, exp_avg_slow, exp_avg_sq):
+    return utils.ademamix_(
+        exp_avg_fast,
+        exp_avg_slow,
+        exp_avg_sq,
+        update,
+        group["betas"],
+        group["step"],
+        group["eps"],
+        group["alpha"],
+        group.get("beta3_warmup"),
+        group.get("alpha_warmup"),
+    )
+
+
+@zero_guard("exp_avg_fast", "exp_avg_slow", "exp_avg_sq")
+@no_state
+def update_by_ademamix(group, update, grad, param, exp_avg_fast, exp_avg_slow, exp_avg_sq):
+    utils.fused_ademamix_(
+        param,
+        exp_avg_fast,
+        exp_avg_slow,
+        exp_avg_sq,
+        update,
+        grad,
+        group["betas"],
+        group["step"],
+        group["lr"],
+        group["eps"],
+        group["weight_decay"],
+        group["alpha"],
+        group["caution"],
+        group.get("beta3_warmup"),
+        group.get("alpha_warmup"),
     )
     raise SkipUpdate from None
 
@@ -480,6 +574,44 @@ def update_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
     raise SkipUpdate from None
 
 
+@zero_guard("exp_avg", "exp_avg_sq", "fisher_approx")
+@no_state_no_foreach
+def scale_by_suds(group, update, grad, param, exp_avg, exp_avg_sq, fisher_approx):
+    if group["step"] == 1:
+        utils.copy_stochastic_(fisher_approx, update / update.norm().clamp(min=1e-8))
+        raise SkipUpdate from None
+
+    precond_update, w = utils.eigvecs_product_rank1(update.flatten(), fisher_approx.flatten().to(update.dtype))
+    precond_update = utils.adam_(
+        exp_avg,
+        exp_avg_sq,
+        precond_update.view_as(exp_avg),
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"] - 1,
+    )[0]
+    precond_update, _ = utils.eigvecs_product_rank1(precond_update.flatten(), fisher_approx.flatten(), w)
+
+    new_approx = utils.oja_update(fisher_approx.flatten().to(update.dtype), update.flatten(), group["precond_lr"])
+    new_approx = new_approx.view_as(fisher_approx)
+    utils.copy_stochastic_(fisher_approx, new_approx)
+    return precond_update
+
+
+@zero_guard("exp_avg", "exp_avg_sq")
+@no_state
+def scale_by_unscaled_adam(group, update, grad, param, exp_avg, exp_avg_sq):
+    update = utils.unscaled_adam_(
+        exp_avg,
+        exp_avg_sq,
+        update,
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"],
+    )
+    return update
+
+
 @zero_guard("exp_avg", "exp_avg_sq")
 @no_state
 def scale_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
@@ -509,10 +641,6 @@ def scale_by_adopt(group, update, grad, param, exp_avg, exp_avg_sq):
     )
 
 
-def _init_soap(state, group, update, grad, param, inner: str = ""):
-    utils.init_preconditioner(grad, state, group["max_precond_dim"], group["precondition_1d"])
-
-
 def _init_psgd_kron(state, group, update, grad, param, cached: bool = False, prob: Optional[callable] = None):
     Q = utils.init_Q_exprs(
         grad,
@@ -528,7 +656,7 @@ def _init_psgd_kron(state, group, update, grad, param, cached: bool = False, pro
     )
     state["Q"] = utils.triu_to_line(Q) if group["store_triu_as_line"] else Q
     state["running_lower_bound"] = [torch.zeros((1,), device=q.device, dtype=torch.float64) for q in Q]
-    state["step"] = torch.zeros((), device=param.device, dtype=torch.int64)
+    state["step"] = torch.zeros((), device=param.device, dtype=torch.float64)  # torch casts int to float in ckpt load
     if group["adaptive"]:
         state["velocity"] = [torch.zeros((), device=q.device, dtype=q.dtype) for q in Q]
     if not cached:
@@ -643,16 +771,45 @@ def heavyball_momentum(group, updates, grads, params, momentum):
     return utils.heavyball_momentum(momentum, updates, utils.get_beta1(group))
 
 
-_optim_fns = {"adam": utils.adam_, "laprop": utils.laprop_}
+def _init_scion_state(state, group, update, grad, param):
+    state["scion_state"] = {"initialized": False}
+
+
+@general_guard("scion_state", init_fn=_init_scion_state, skip_first=False)
+@no_state
+def scion_auto_norm(group, update, grad, param, scion_state):
+    scale = group.get("scale", 1.0)
+    for ctx, p in zip(scion_state, param):
+        if not ctx["initialized"]:
+            utils.scion_auto_init_param_(p, scale)
+            ctx["initialized"] = True
+    return utils.scion_auto_lmo_(update, scale)
+
+
+def _init_soap(state, group, update, grad, param):
+    utils.init_preconditioner(grad, state, group["max_precond_dim"], group["precondition_1d"])
+
+
+def _apply_soap_preconditioner(group, update, Q, GG, *references):
+    for upd, q, gg, *ref in zip(update, Q, GG, *references):
+        utils.update_preconditioner(
+            utils.promote(upd),
+            q,
+            gg,
+            ref,
+            group["max_precond_dim"],
+            group["precondition_1d"],
+            utils.beta_debias(group["shampoo_beta"], group["step"]),
+            group["is_preconditioning"],
+        )
 
 
 @zero_guard("exp_avg", "exp_avg_sq")
 @general_guard("Q", "GG", init_fn=_init_soap)
 @no_state
-def scale_by_soap(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG, inner: str = "adam"):
+def scale_by_soap(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG):
     grad_projected = [utils.project(utils.promote(u), q, False) for u, q in zip(update, Q)]
-    fn = _optim_fns[inner]
-    precond = fn(
+    precond = utils.adam_(
         exp_avg,
         exp_avg_sq,
         grad_projected,
@@ -662,18 +819,72 @@ def scale_by_soap(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG, inner:
         group["eps"],
     )
     precond = [utils.project(p, q, True) for p, q in zip(precond, Q)]
+    _apply_soap_preconditioner(group, update, Q, GG, exp_avg)
+    return precond
 
-    for u, q, gg, ea in zip(update, Q, GG, exp_avg):
-        utils.update_preconditioner(
-            utils.promote(u),
-            q,
-            gg,
-            ea,
-            group["max_precond_dim"],
-            group["precondition_1d"],
-            utils.beta_debias(group["shampoo_beta"], group["step"]),
-            group["is_preconditioning"],
-        )
+
+@zero_guard("exp_avg", "exp_avg_sq")
+@general_guard("mu_product", init_fn=_init_mu_product, skip_first=False)
+@general_guard("Q", "GG", init_fn=_init_soap)
+@no_state
+def scale_by_soap_nadam(group, update, grad, param, exp_avg, exp_avg_sq, mu_product, Q, GG):
+    grad_projected = [utils.project(utils.promote(u), q, False) for u, q in zip(update, Q)]
+    precond = utils.nadam_(
+        grad_projected,
+        exp_avg,
+        exp_avg_sq,
+        mu_product,
+        grad_projected,
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"] - 1,
+        group["momentum_decay"],
+        group["eps"],
+        0.0,
+        False,
+    )
+    precond = [utils.project(p, q, True) for p, q in zip(precond, Q)]
+    _apply_soap_preconditioner(group, update, Q, GG, exp_avg)
+    return precond
+
+
+@zero_guard("exp_avg", "exp_avg_sq")
+@general_guard("Q", "GG", init_fn=_init_soap)
+@no_state
+def scale_by_soap_laprop(group, update, grad, param, exp_avg, exp_avg_sq, Q, GG):
+    grad_projected = [utils.project(utils.promote(u), q, False) for u, q in zip(update, Q)]
+    precond = utils.laprop_(
+        exp_avg,
+        exp_avg_sq,
+        grad_projected,
+        utils.get_beta1(group),
+        utils.get_beta2(group),
+        group["step"] - 1,
+    )
+    precond = [utils.project(p, q, True) for p, q in zip(precond, Q)]
+    _apply_soap_preconditioner(group, update, Q, GG, exp_avg)
+    return precond
+
+
+@zero_guard("exp_avg_fast", "exp_avg_slow", "exp_avg_sq")
+@general_guard("Q", "GG", init_fn=_init_soap)
+@no_state
+def scale_by_soap_ademamix(group, update, grad, param, exp_avg_fast, exp_avg_slow, exp_avg_sq, Q, GG):
+    grad_projected = [utils.project(utils.promote(u), q, False) for u, q in zip(update, Q)]
+    precond = utils.ademamix_(
+        exp_avg_fast,
+        exp_avg_slow,
+        exp_avg_sq,
+        grad_projected,
+        group["betas"],
+        group["step"] - 1,
+        group["eps"],
+        group["alpha"],
+        group.get("beta3_warmup"),
+        group.get("alpha_warmup"),
+    )
+    precond = [utils.project(p, q, True) for p, q in zip(precond, Q)]
+    _apply_soap_preconditioner(group, update, Q, GG, exp_avg_slow, exp_avg_fast)
     return precond
 
 
@@ -713,7 +924,9 @@ def _update_psgd_precond(
     if isinstance(prob, float):
         float_prob = prob
     else:
-        float_prob = prob(group.get(f"cumulative_prob_{id(Q)}_prob_step", 1))
+        prob_step = group.get(f"cumulative_prob_{id(Q)}_prob_step", 1)
+        float_prob = prob(prob_step)
+        group[f"cumulative_prob_{id(Q)}_prob_step"] = prob_step + 1
     group["is_cached"] = should_use_cache = cached and float_prob < 0.5
 
     if precond is not None:
@@ -1049,6 +1262,7 @@ class ChainOpt(utils.StatefulOptimizer):
         if not group["foreach"] or len(p) == 1:
             for param, grad in zip(p, g):
                 chain(self.state_, group, [grad], [param], *self.fns)
+                group["caution"] = caution
         else:
             chain(self.state_, group, g, p, *self.fns)
 
@@ -1086,8 +1300,10 @@ _scale_to_update_map = {
     scale_by_psgd_lra.get_fn(): update_by_psgd_lra,  #
     scale_by_delayed_psgd_lra.get_fn(): update_by_delayed_psgd_lra,  #
     scale_by_adam.get_fn(): update_by_adam,  #
+    scale_by_nadam.get_fn(): update_by_nadam,  #
     scale_by_laprop.get_fn(): update_by_laprop,  #
     scale_by_adopt.get_fn(): update_by_adopt,  #
+    scale_by_ademamix.get_fn(): update_by_ademamix,  #
 }
 _scale_to_update_map_inv = {
     update_by_delayed_psgd.get_fn(): scale_by_delayed_psgd,  #
@@ -1095,8 +1311,10 @@ _scale_to_update_map_inv = {
     update_by_psgd_lra.get_fn(): scale_by_psgd_lra,  #
     update_by_delayed_psgd_lra.get_fn(): scale_by_delayed_psgd_lra,  #
     update_by_adam.get_fn(): scale_by_adam,  #
+    update_by_nadam.get_fn(): scale_by_nadam,  #
     update_by_laprop.get_fn(): scale_by_laprop,  #
     update_by_adopt.get_fn(): scale_by_adopt,  #
+    update_by_ademamix.get_fn(): scale_by_ademamix,  #
 }
 
 

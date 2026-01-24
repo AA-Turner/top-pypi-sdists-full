@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: BSD-2-Clause
+# Copyright 2019-2021 Arm Ltd.
+%YAML 1.2
+---
+$id: http://devicetree.org/meta-schemas/items.yaml#
+$schema: https://json-schema.org/draft/2019-09/schema
+
+description:
+  Meta-schema for 'items' schema. This meta-schema checks that an 'items' list
+  doesn't have 'minItems' and 'maxItems' with the same value as the length of
+  the list.
+
+properties:
+  allOf:
+    items:
+      $ref: '#'
+  anyOf:
+    items:
+      $ref: '#'
+  oneOf:
+    items:
+      $ref: '#'
+  then:
+    $ref: '#'
+
+allOf:
+  - if:
+      type: object
+      properties:
+        items:
+          type: array
+        additionalItems: false
+      required:
+        - items
+        - maxItems
+    then:
+      description: '"maxItems" is not needed with an "items" list'
+      not:
+        required:
+          - maxItems
+  - if:
+      type: object
+      properties:
+        items:
+          type: array
+        additionalItems: false
+      required:
+        - items
+        - minItems
+    then:
+      description:
+        '"minItems" is only needed if less than the "items" list length'
+      oneOf:
+        - properties:
+            items:
+              minItems: 1
+              maxItems: 1
+            minItems: false
+        - properties:
+            items:
+              minItems: 2
+              maxItems: 2
+            minItems:
+              const: 1
+        - properties:
+            items:
+              minItems: 3
+              maxItems: 3
+            minItems:
+              maximum: 2
+        - properties:
+            items:
+              minItems: 4
+              maxItems: 4
+            minItems:
+              maximum: 3
+        - properties:
+            items:
+              minItems: 5
+              maxItems: 5
+            minItems:
+              maximum: 4
+        - properties:
+            items:
+              minItems: 6
+              maxItems: 6
+            minItems:
+              maximum: 5
+        - properties:
+            items:
+              minItems: 7
+              maxItems: 7
+            minItems:
+              maximum: 6
+        - properties:
+            items:
+              minItems: 8
+              maxItems: 8
+            minItems:
+              maximum: 7
+        - properties:
+            items:
+              minItems: 9
+              maxItems: 9
+            minItems:
+              maximum: 8
+        - properties:
+            items:
+              minItems: 10
+              maxItems: 10
+            minItems:
+              maximum: 9
+        - properties:
+            items:
+              minItems: 11
+              maxItems: 11
+            minItems:
+              maximum: 10
+        - properties:
+            items:
+              minItems: 12
+              maxItems: 12
+            minItems:
+              maximum: 11
+        - properties:
+            items:
+              minItems: 13
+
+...

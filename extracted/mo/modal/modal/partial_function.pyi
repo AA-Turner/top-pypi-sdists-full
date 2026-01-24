@@ -18,7 +18,6 @@ class PartialFunction(
     user_cls: typing.Optional[type]
     flags: modal._partial_function._PartialFunctionFlags
     params: modal._partial_function._PartialFunctionParams
-    registered: bool
 
     def __init__(
         self,
@@ -53,7 +52,6 @@ class PartialFunction(
     ) -> modal.functions.Function[
         modal._partial_function.P, modal._partial_function.ReturnType, modal._partial_function.OriginalReturnType
     ]: ...
-    def __del__(self): ...
 
 def method(
     _warn_parentheses_missing=None, *, is_generator: typing.Optional[bool] = None
@@ -329,7 +327,10 @@ def batched(
     ...
 
 def concurrent(
-    _warn_parentheses_missing=None, *, max_inputs: int, target_inputs: typing.Optional[int] = None
+    _warn_parentheses_missing=None,
+    *,
+    max_inputs: typing.Optional[int] = None,
+    target_inputs: typing.Optional[int] = None,
 ) -> collections.abc.Callable[
     [
         typing.Union[

@@ -1,12 +1,13 @@
 """
 Utilities for finding and installing CmdStan
 """
+
 import os
 import platform
 import subprocess
 import sys
 from collections import OrderedDict
-from typing import Callable, Dict, Optional, Tuple, Union
+from typing import Callable, Optional, Union
 
 from tqdm.auto import tqdm
 
@@ -133,13 +134,27 @@ def validate_cmdstan_path(path: str) -> None:
     """
     if not os.path.isdir(path):
         raise ValueError(f'No CmdStan directory, path {path} does not exist.')
-    if not os.path.exists(os.path.join(path, 'bin', 'stanc' + EXTENSION)):
+    if not os.path.exists(os.path.join(path, 'makefile')):
         raise ValueError(
-            f'CmdStan installataion missing binaries in {path}/bin. '
-            'Re-install cmdstan by running command "install_cmdstan '
-            '--overwrite", or Python code "import cmdstanpy; '
-            'cmdstanpy.install_cmdstan(overwrite=True)"'
+            f'CmdStan installataion missing makefile, path {path} is invalid.'
+            ' You may wish to re-install cmdstan by running command '
+            '"install_cmdstan --overwrite", or Python code '
+            '"import cmdstanpy; cmdstanpy.install_cmdstan(overwrite=True)"'
         )
+
+
+def stanc_path() -> str:
+    """
+    Returns the path to the stanc executable in the CmdStan installation.
+    """
+    cmdstan = cmdstan_path()
+    stanc_exe = os.path.join(cmdstan, 'bin', 'stanc' + EXTENSION)
+    if not os.path.exists(stanc_exe):
+        raise ValueError(
+            f'stanc executable not found in CmdStan installation: {cmdstan}.\n'
+            'You may need to re-install or re-build CmdStan.',
+        )
+    return stanc_exe
 
 
 def set_cmdstan_path(path: str) -> None:
@@ -183,7 +198,7 @@ def cmdstan_path() -> str:
     return os.path.normpath(cmdstan)
 
 
-def cmdstan_version() -> Optional[Tuple[int, ...]]:
+def cmdstan_version() -> Optional[tuple[int, ...]]:
     """
     Parses version string out of CmdStan makefile variable CMDSTAN_VERSION,
     returns Tuple(Major, minor).
@@ -198,13 +213,6 @@ def cmdstan_version() -> Optional[Tuple[int, ...]]:
     except ValueError as e:
         get_logger().info('No CmdStan installation found.')
         get_logger().debug("%s", e)
-        return None
-
-    if not os.path.exists(makefile):
-        get_logger().info(
-            'CmdStan installation %s missing makefile, cannot get version.',
-            cmdstan_path(),
-        )
         return None
 
     with open(makefile, 'r') as fd:
@@ -234,7 +242,7 @@ def cmdstan_version() -> Optional[Tuple[int, ...]]:
 
 
 def cmdstan_version_before(
-    major: int, minor: int, info: Optional[Dict[str, str]] = None
+    major: int, minor: int, info: Optional[dict[str, str]] = None
 ) -> bool:
     """
     Check that CmdStan version is less than Major.minor version.
@@ -266,7 +274,7 @@ def cmdstan_version_before(
 
 def cxx_toolchain_path(
     version: Optional[str] = None, install_dir: Optional[str] = None
-) -> Tuple[str, ...]:
+) -> tuple[str, ...]:
     """
     Validate, then activate C++ toolchain directory path.
     """

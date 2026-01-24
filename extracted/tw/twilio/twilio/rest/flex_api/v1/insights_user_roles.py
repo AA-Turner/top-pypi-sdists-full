@@ -14,6 +14,7 @@ r"""
 
 from typing import Any, Dict, List, Optional, Union
 from twilio.base import values
+from twilio.base.api_response import ApiResponse
 from twilio.base.instance_context import InstanceContext
 from twilio.base.instance_resource import InstanceResource
 from twilio.base.list_resource import ListResource
@@ -76,6 +77,34 @@ class InsightsUserRolesInstance(InstanceResource):
             authorization=authorization,
         )
 
+    def fetch_with_http_info(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Fetch the InsightsUserRolesInstance with HTTP info
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return self._proxy.fetch_with_http_info(
+            authorization=authorization,
+        )
+
+    async def fetch_with_http_info_async(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to fetch the InsightsUserRolesInstance with HTTP info
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        return await self._proxy.fetch_with_http_info_async(
+            authorization=authorization,
+        )
+
     def __repr__(self) -> str:
         """
         Provide a friendly representation
@@ -98,6 +127,28 @@ class InsightsUserRolesContext(InstanceContext):
 
         self._uri = "/Insights/UserRoles"
 
+    def _fetch(self, authorization: Union[str, object] = values.unset) -> tuple:
+        """
+        Internal helper for fetch operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        headers = values.of({})
+
+        if not (
+            authorization is values.unset
+            or (isinstance(authorization, str) and not authorization)
+        ):
+            headers["Authorization"] = authorization
+
+        headers["Accept"] = "application/json"
+
+        return self._version.fetch_with_response_info(
+            method="GET", uri=self._uri, headers=headers
+        )
+
     def fetch(
         self, authorization: Union[str, object] = values.unset
     ) -> InsightsUserRolesInstance:
@@ -108,24 +159,51 @@ class InsightsUserRolesContext(InstanceContext):
 
         :returns: The fetched InsightsUserRolesInstance
         """
-
-        data = values.of(
-            {
-                "Authorization": authorization,
-            }
-        )
-
-        headers = values.of({})
-
-        headers["Accept"] = "application/json"
-
-        payload = self._version.fetch(
-            method="GET", uri=self._uri, params=data, headers=headers
-        )
-
+        payload, _, _ = self._fetch(authorization=authorization)
         return InsightsUserRolesInstance(
             self._version,
             payload,
+        )
+
+    def fetch_with_http_info(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Fetch the InsightsUserRolesInstance and return response metadata
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = self._fetch(authorization=authorization)
+        instance = InsightsUserRolesInstance(
+            self._version,
+            payload,
+        )
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
+
+    async def _fetch_async(
+        self, authorization: Union[str, object] = values.unset
+    ) -> tuple:
+        """
+        Internal async helper for fetch operation
+
+        Returns:
+            tuple: (payload, status_code, headers)
+        """
+
+        headers = values.of({})
+
+        if not (
+            authorization is values.unset
+            or (isinstance(authorization, str) and not authorization)
+        ):
+            headers["Authorization"] = authorization
+
+        headers["Accept"] = "application/json"
+
+        return await self._version.fetch_with_response_info_async(
+            method="GET", uri=self._uri, headers=headers
         )
 
     async def fetch_async(
@@ -138,25 +216,30 @@ class InsightsUserRolesContext(InstanceContext):
 
         :returns: The fetched InsightsUserRolesInstance
         """
-
-        data = values.of(
-            {
-                "Authorization": authorization,
-            }
-        )
-
-        headers = values.of({})
-
-        headers["Accept"] = "application/json"
-
-        payload = await self._version.fetch_async(
-            method="GET", uri=self._uri, params=data, headers=headers
-        )
-
+        payload, _, _ = await self._fetch_async(authorization=authorization)
         return InsightsUserRolesInstance(
             self._version,
             payload,
         )
+
+    async def fetch_with_http_info_async(
+        self, authorization: Union[str, object] = values.unset
+    ) -> ApiResponse:
+        """
+        Asynchronous coroutine to fetch the InsightsUserRolesInstance and return response metadata
+
+        :param authorization: The Authorization HTTP request header
+
+        :returns: ApiResponse with instance, status code, and headers
+        """
+        payload, status_code, headers = await self._fetch_async(
+            authorization=authorization
+        )
+        instance = InsightsUserRolesInstance(
+            self._version,
+            payload,
+        )
+        return ApiResponse(data=instance, status_code=status_code, headers=headers)
 
     def __repr__(self) -> str:
         """

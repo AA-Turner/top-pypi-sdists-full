@@ -203,6 +203,7 @@ class LSPMixin:
         self.formatting_in_progress = False
         self.symbols_in_sync = False
         self.folding_in_sync = False
+        self.pyflakes_linting_enabled = True
 
     # ---- Helper private methods
     # -------------------------------------------------------------------------
@@ -611,8 +612,8 @@ class LSPMixin:
             if "analysis:ignore" in text:
                 continue
 
-            # This only works for Python.
-            if self.language == "Python":
+            # This only works for Python and it's only needed with pyflakes.
+            if self.language == "Python" and self.pyflakes_linting_enabled:
                 if NOQA_INLINE_REGEXP.search(text) is not None:
                     continue
 

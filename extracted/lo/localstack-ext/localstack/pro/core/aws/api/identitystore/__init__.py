@@ -1,5 +1,6 @@
+from datetime import datetime
 from enum import StrEnum
-from typing import List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
@@ -16,12 +17,21 @@ ResourceId = str
 RetryAfterSeconds = int
 SensitiveBooleanType = bool
 SensitiveStringType = str
+StringType = str
 UserName = str
+
+
+class AccessDeniedExceptionReason(StrEnum):
+    KMS_ACCESS_DENIED = "KMS_ACCESS_DENIED"
 
 
 class ConflictExceptionReason(StrEnum):
     UNIQUENESS_CONSTRAINT_VIOLATION = "UNIQUENESS_CONSTRAINT_VIOLATION"
     CONCURRENT_MODIFICATION = "CONCURRENT_MODIFICATION"
+
+
+class ResourceNotFoundExceptionReason(StrEnum):
+    KMS_KEY_NOT_FOUND = "KMS_KEY_NOT_FOUND"
 
 
 class ResourceType(StrEnum):
@@ -31,13 +41,30 @@ class ResourceType(StrEnum):
     GROUP_MEMBERSHIP = "GROUP_MEMBERSHIP"
 
 
+class ThrottlingExceptionReason(StrEnum):
+    KMS_THROTTLING = "KMS_THROTTLING"
+
+
+class UserStatus(StrEnum):
+    ENABLED = "ENABLED"
+    DISABLED = "DISABLED"
+
+
+class ValidationExceptionReason(StrEnum):
+    KMS_INVALID_ARN = "KMS_INVALID_ARN"
+    KMS_INVALID_KEY_USAGE = "KMS_INVALID_KEY_USAGE"
+    KMS_INVALID_STATE = "KMS_INVALID_STATE"
+    KMS_DISABLED = "KMS_DISABLED"
+
+
 class AccessDeniedException(ServiceException):
     """You do not have sufficient access to perform this action."""
 
     code: str = "AccessDeniedException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestId: Optional[RequestId]
+    RequestId: RequestId | None
+    Reason: AccessDeniedExceptionReason | None
 
 
 class ConflictException(ServiceException):
@@ -54,8 +81,8 @@ class ConflictException(ServiceException):
     code: str = "ConflictException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestId: Optional[RequestId]
-    Reason: Optional[ConflictExceptionReason]
+    RequestId: RequestId | None
+    Reason: ConflictExceptionReason | None
 
 
 class InternalServerException(ServiceException):
@@ -66,8 +93,8 @@ class InternalServerException(ServiceException):
     code: str = "InternalServerException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestId: Optional[RequestId]
-    RetryAfterSeconds: Optional[RetryAfterSeconds]
+    RequestId: RequestId | None
+    RetryAfterSeconds: RetryAfterSeconds | None
 
 
 class ResourceNotFoundException(ServiceException):
@@ -76,9 +103,10 @@ class ResourceNotFoundException(ServiceException):
     code: str = "ResourceNotFoundException"
     sender_fault: bool = False
     status_code: int = 400
-    ResourceType: Optional[ResourceType]
-    ResourceId: Optional[ResourceId]
-    RequestId: Optional[RequestId]
+    ResourceType: ResourceType | None
+    ResourceId: ResourceId | None
+    Reason: ResourceNotFoundExceptionReason | None
+    RequestId: RequestId | None
 
 
 class ServiceQuotaExceededException(ServiceException):
@@ -89,7 +117,7 @@ class ServiceQuotaExceededException(ServiceException):
     code: str = "ServiceQuotaExceededException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestId: Optional[RequestId]
+    RequestId: RequestId | None
 
 
 class ThrottlingException(ServiceException):
@@ -100,8 +128,9 @@ class ThrottlingException(ServiceException):
     code: str = "ThrottlingException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestId: Optional[RequestId]
-    RetryAfterSeconds: Optional[RetryAfterSeconds]
+    RequestId: RequestId | None
+    RetryAfterSeconds: RetryAfterSeconds | None
+    Reason: ThrottlingExceptionReason | None
 
 
 class ValidationException(ServiceException):
@@ -110,23 +139,24 @@ class ValidationException(ServiceException):
     code: str = "ValidationException"
     sender_fault: bool = False
     status_code: int = 400
-    RequestId: Optional[RequestId]
+    RequestId: RequestId | None
+    Reason: ValidationExceptionReason | None
 
 
 class Address(TypedDict, total=False):
     """The address associated with the specified user."""
 
-    StreetAddress: Optional[SensitiveStringType]
-    Locality: Optional[SensitiveStringType]
-    Region: Optional[SensitiveStringType]
-    PostalCode: Optional[SensitiveStringType]
-    Country: Optional[SensitiveStringType]
-    Formatted: Optional[SensitiveStringType]
-    Type: Optional[SensitiveStringType]
-    Primary: Optional[SensitiveBooleanType]
+    StreetAddress: SensitiveStringType | None
+    Locality: SensitiveStringType | None
+    Region: SensitiveStringType | None
+    PostalCode: SensitiveStringType | None
+    Country: SensitiveStringType | None
+    Formatted: SensitiveStringType | None
+    Type: SensitiveStringType | None
+    Primary: SensitiveBooleanType | None
 
 
-Addresses = List[Address]
+Addresses = list[Address]
 
 
 class AttributeValue(TypedDict, total=False):
@@ -158,8 +188,8 @@ class AlternateIdentifier(TypedDict, total=False):
     attribute.
     """
 
-    ExternalId: Optional[ExternalId]
-    UniqueAttribute: Optional[UniqueAttribute]
+    ExternalId: ExternalId | None
+    UniqueAttribute: UniqueAttribute | None
 
 
 class AttributeOperation(TypedDict, total=False):
@@ -168,16 +198,16 @@ class AttributeOperation(TypedDict, total=False):
     """
 
     AttributePath: AttributePath
-    AttributeValue: Optional[AttributeValue]
+    AttributeValue: AttributeValue | None
 
 
-AttributeOperations = List[AttributeOperation]
+AttributeOperations = list[AttributeOperation]
 
 
 class MemberId(TypedDict, total=False):
     """An object containing the identifier of a group member."""
 
-    UserId: Optional[ResourceId]
+    UserId: ResourceId | None
 
 
 class CreateGroupMembershipRequest(ServiceRequest):
@@ -193,8 +223,8 @@ class CreateGroupMembershipResponse(TypedDict, total=False):
 
 class CreateGroupRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
-    DisplayName: Optional[GroupDisplayName]
-    Description: Optional[SensitiveStringType]
+    DisplayName: GroupDisplayName | None
+    Description: SensitiveStringType | None
 
 
 class CreateGroupResponse(TypedDict, total=False):
@@ -202,59 +232,80 @@ class CreateGroupResponse(TypedDict, total=False):
     IdentityStoreId: IdentityStoreId
 
 
+class Photo(TypedDict, total=False):
+    """Contains information about a user's photo. Users can have up to 3
+    photos, with one designated as primary. Supports common image formats,
+    including jpg, jpeg, png, and gif.
+    """
+
+    Value: SensitiveStringType
+    Type: SensitiveStringType | None
+    Display: SensitiveStringType | None
+    Primary: SensitiveBooleanType | None
+
+
+Photos = list[Photo]
+
+
 class PhoneNumber(TypedDict, total=False):
     """The phone number associated with the user."""
 
-    Value: Optional[SensitiveStringType]
-    Type: Optional[SensitiveStringType]
-    Primary: Optional[SensitiveBooleanType]
+    Value: SensitiveStringType | None
+    Type: SensitiveStringType | None
+    Primary: SensitiveBooleanType | None
 
 
-PhoneNumbers = List[PhoneNumber]
+PhoneNumbers = list[PhoneNumber]
 
 
 class Email(TypedDict, total=False):
     """The email address associated with the user."""
 
-    Value: Optional[SensitiveStringType]
-    Type: Optional[SensitiveStringType]
-    Primary: Optional[SensitiveBooleanType]
+    Value: SensitiveStringType | None
+    Type: SensitiveStringType | None
+    Primary: SensitiveBooleanType | None
 
 
-Emails = List[Email]
+Emails = list[Email]
 
 
 class Name(TypedDict, total=False):
     """The full name of the user."""
 
-    Formatted: Optional[SensitiveStringType]
-    FamilyName: Optional[SensitiveStringType]
-    GivenName: Optional[SensitiveStringType]
-    MiddleName: Optional[SensitiveStringType]
-    HonorificPrefix: Optional[SensitiveStringType]
-    HonorificSuffix: Optional[SensitiveStringType]
+    Formatted: SensitiveStringType | None
+    FamilyName: SensitiveStringType | None
+    GivenName: SensitiveStringType | None
+    MiddleName: SensitiveStringType | None
+    HonorificPrefix: SensitiveStringType | None
+    HonorificSuffix: SensitiveStringType | None
 
 
 class CreateUserRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
-    UserName: Optional[UserName]
-    Name: Optional[Name]
-    DisplayName: Optional[SensitiveStringType]
-    NickName: Optional[SensitiveStringType]
-    ProfileUrl: Optional[SensitiveStringType]
-    Emails: Optional[Emails]
-    Addresses: Optional[Addresses]
-    PhoneNumbers: Optional[PhoneNumbers]
-    UserType: Optional[SensitiveStringType]
-    Title: Optional[SensitiveStringType]
-    PreferredLanguage: Optional[SensitiveStringType]
-    Locale: Optional[SensitiveStringType]
-    Timezone: Optional[SensitiveStringType]
+    UserName: UserName | None
+    Name: Name | None
+    DisplayName: SensitiveStringType | None
+    NickName: SensitiveStringType | None
+    ProfileUrl: SensitiveStringType | None
+    Emails: Emails | None
+    Addresses: Addresses | None
+    PhoneNumbers: PhoneNumbers | None
+    UserType: SensitiveStringType | None
+    Title: SensitiveStringType | None
+    PreferredLanguage: SensitiveStringType | None
+    Locale: SensitiveStringType | None
+    Timezone: SensitiveStringType | None
+    Photos: Photos | None
+    Website: SensitiveStringType | None
+    Birthdate: SensitiveStringType | None
 
 
 class CreateUserResponse(TypedDict, total=False):
-    UserId: ResourceId
     IdentityStoreId: IdentityStoreId
+    UserId: ResourceId
+
+
+DateType = datetime
 
 
 class DeleteGroupMembershipRequest(ServiceRequest):
@@ -294,6 +345,10 @@ class DescribeGroupMembershipResponse(TypedDict, total=False):
     MembershipId: ResourceId
     GroupId: ResourceId
     MemberId: MemberId
+    CreatedAt: DateType | None
+    UpdatedAt: DateType | None
+    CreatedBy: StringType | None
+    UpdatedBy: StringType | None
 
 
 class DescribeGroupRequest(ServiceRequest):
@@ -301,14 +356,18 @@ class DescribeGroupRequest(ServiceRequest):
     GroupId: ResourceId
 
 
-ExternalIds = List[ExternalId]
+ExternalIds = list[ExternalId]
 
 
 class DescribeGroupResponse(TypedDict, total=False):
     GroupId: ResourceId
-    DisplayName: Optional[GroupDisplayName]
-    ExternalIds: Optional[ExternalIds]
-    Description: Optional[SensitiveStringType]
+    DisplayName: GroupDisplayName | None
+    ExternalIds: ExternalIds | None
+    Description: SensitiveStringType | None
+    CreatedAt: DateType | None
+    UpdatedAt: DateType | None
+    CreatedBy: StringType | None
+    UpdatedBy: StringType | None
     IdentityStoreId: IdentityStoreId
 
 
@@ -318,22 +377,30 @@ class DescribeUserRequest(ServiceRequest):
 
 
 class DescribeUserResponse(TypedDict, total=False):
-    UserName: Optional[UserName]
-    UserId: ResourceId
-    ExternalIds: Optional[ExternalIds]
-    Name: Optional[Name]
-    DisplayName: Optional[SensitiveStringType]
-    NickName: Optional[SensitiveStringType]
-    ProfileUrl: Optional[SensitiveStringType]
-    Emails: Optional[Emails]
-    Addresses: Optional[Addresses]
-    PhoneNumbers: Optional[PhoneNumbers]
-    UserType: Optional[SensitiveStringType]
-    Title: Optional[SensitiveStringType]
-    PreferredLanguage: Optional[SensitiveStringType]
-    Locale: Optional[SensitiveStringType]
-    Timezone: Optional[SensitiveStringType]
     IdentityStoreId: IdentityStoreId
+    UserId: ResourceId
+    UserName: UserName | None
+    ExternalIds: ExternalIds | None
+    Name: Name | None
+    DisplayName: SensitiveStringType | None
+    NickName: SensitiveStringType | None
+    ProfileUrl: SensitiveStringType | None
+    Emails: Emails | None
+    Addresses: Addresses | None
+    PhoneNumbers: PhoneNumbers | None
+    UserType: SensitiveStringType | None
+    Title: SensitiveStringType | None
+    PreferredLanguage: SensitiveStringType | None
+    Locale: SensitiveStringType | None
+    Timezone: SensitiveStringType | None
+    UserStatus: UserStatus | None
+    Photos: Photos | None
+    Website: SensitiveStringType | None
+    Birthdate: SensitiveStringType | None
+    CreatedAt: DateType | None
+    CreatedBy: StringType | None
+    UpdatedAt: DateType | None
+    UpdatedBy: StringType | None
 
 
 class Filter(TypedDict, total=False):
@@ -346,7 +413,7 @@ class Filter(TypedDict, total=False):
     AttributeValue: SensitiveStringType
 
 
-Filters = List[Filter]
+Filters = list[Filter]
 
 
 class GetGroupIdRequest(ServiceRequest):
@@ -376,8 +443,8 @@ class GetUserIdRequest(ServiceRequest):
 
 
 class GetUserIdResponse(TypedDict, total=False):
-    UserId: ResourceId
     IdentityStoreId: IdentityStoreId
+    UserId: ResourceId
 
 
 class Group(TypedDict, total=False):
@@ -386,13 +453,17 @@ class Group(TypedDict, total=False):
     """
 
     GroupId: ResourceId
-    DisplayName: Optional[GroupDisplayName]
-    ExternalIds: Optional[ExternalIds]
-    Description: Optional[SensitiveStringType]
+    DisplayName: GroupDisplayName | None
+    ExternalIds: ExternalIds | None
+    Description: SensitiveStringType | None
+    CreatedAt: DateType | None
+    UpdatedAt: DateType | None
+    CreatedBy: StringType | None
+    UpdatedBy: StringType | None
     IdentityStoreId: IdentityStoreId
 
 
-GroupIds = List[ResourceId]
+GroupIds = list[ResourceId]
 
 
 class GroupMembership(TypedDict, total=False):
@@ -401,9 +472,13 @@ class GroupMembership(TypedDict, total=False):
     """
 
     IdentityStoreId: IdentityStoreId
-    MembershipId: Optional[ResourceId]
-    GroupId: Optional[ResourceId]
-    MemberId: Optional[MemberId]
+    MembershipId: ResourceId | None
+    GroupId: ResourceId | None
+    MemberId: MemberId | None
+    CreatedAt: DateType | None
+    UpdatedAt: DateType | None
+    CreatedBy: StringType | None
+    UpdatedBy: StringType | None
 
 
 class GroupMembershipExistenceResult(TypedDict, total=False):
@@ -411,14 +486,14 @@ class GroupMembershipExistenceResult(TypedDict, total=False):
     store.
     """
 
-    GroupId: Optional[ResourceId]
-    MemberId: Optional[MemberId]
-    MembershipExists: Optional[SensitiveBooleanType]
+    GroupId: ResourceId | None
+    MemberId: MemberId | None
+    MembershipExists: SensitiveBooleanType | None
 
 
-GroupMembershipExistenceResults = List[GroupMembershipExistenceResult]
-GroupMemberships = List[GroupMembership]
-Groups = List[Group]
+GroupMembershipExistenceResults = list[GroupMembershipExistenceResult]
+GroupMemberships = list[GroupMembership]
+Groups = list[Group]
 
 
 class IsMemberInGroupsRequest(ServiceRequest):
@@ -434,44 +509,44 @@ class IsMemberInGroupsResponse(TypedDict, total=False):
 class ListGroupMembershipsForMemberRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
     MemberId: MemberId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListGroupMembershipsForMemberResponse(TypedDict, total=False):
     GroupMemberships: GroupMemberships
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListGroupMembershipsRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
     GroupId: ResourceId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
 
 
 class ListGroupMembershipsResponse(TypedDict, total=False):
     GroupMemberships: GroupMemberships
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListGroupsRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    Filters: Optional[Filters]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    Filters: Filters | None
 
 
 class ListGroupsResponse(TypedDict, total=False):
     Groups: Groups
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class ListUsersRequest(ServiceRequest):
     IdentityStoreId: IdentityStoreId
-    MaxResults: Optional[MaxResults]
-    NextToken: Optional[NextToken]
-    Filters: Optional[Filters]
+    MaxResults: MaxResults | None
+    NextToken: NextToken | None
+    Filters: Filters | None
 
 
 class User(TypedDict, total=False):
@@ -479,30 +554,38 @@ class User(TypedDict, total=False):
     user.
     """
 
-    UserName: Optional[UserName]
-    UserId: ResourceId
-    ExternalIds: Optional[ExternalIds]
-    Name: Optional[Name]
-    DisplayName: Optional[SensitiveStringType]
-    NickName: Optional[SensitiveStringType]
-    ProfileUrl: Optional[SensitiveStringType]
-    Emails: Optional[Emails]
-    Addresses: Optional[Addresses]
-    PhoneNumbers: Optional[PhoneNumbers]
-    UserType: Optional[SensitiveStringType]
-    Title: Optional[SensitiveStringType]
-    PreferredLanguage: Optional[SensitiveStringType]
-    Locale: Optional[SensitiveStringType]
-    Timezone: Optional[SensitiveStringType]
     IdentityStoreId: IdentityStoreId
+    UserId: ResourceId
+    UserName: UserName | None
+    ExternalIds: ExternalIds | None
+    Name: Name | None
+    DisplayName: SensitiveStringType | None
+    NickName: SensitiveStringType | None
+    ProfileUrl: SensitiveStringType | None
+    Emails: Emails | None
+    Addresses: Addresses | None
+    PhoneNumbers: PhoneNumbers | None
+    UserType: SensitiveStringType | None
+    Title: SensitiveStringType | None
+    PreferredLanguage: SensitiveStringType | None
+    Locale: SensitiveStringType | None
+    Timezone: SensitiveStringType | None
+    UserStatus: UserStatus | None
+    Photos: Photos | None
+    Website: SensitiveStringType | None
+    Birthdate: SensitiveStringType | None
+    CreatedAt: DateType | None
+    CreatedBy: StringType | None
+    UpdatedAt: DateType | None
+    UpdatedBy: StringType | None
 
 
-Users = List[User]
+Users = list[User]
 
 
 class ListUsersResponse(TypedDict, total=False):
     Users: Users
-    NextToken: Optional[NextToken]
+    NextToken: NextToken | None
 
 
 class UpdateGroupRequest(ServiceRequest):
@@ -526,8 +609,8 @@ class UpdateUserResponse(TypedDict, total=False):
 
 
 class IdentitystoreApi:
-    service = "identitystore"
-    version = "2020-06-15"
+    service: str = "identitystore"
+    version: str = "2020-06-15"
 
     @handler("CreateGroup")
     def create_group(
@@ -599,6 +682,9 @@ class IdentitystoreApi:
         preferred_language: SensitiveStringType | None = None,
         locale: SensitiveStringType | None = None,
         timezone: SensitiveStringType | None = None,
+        photos: Photos | None = None,
+        website: SensitiveStringType | None = None,
+        birthdate: SensitiveStringType | None = None,
         **kwargs,
     ) -> CreateUserResponse:
         """Creates a user within the specified identity store.
@@ -620,6 +706,9 @@ class IdentitystoreApi:
         :param preferred_language: A string containing the preferred language of the user.
         :param locale: A string containing the geographical region or location of the user.
         :param timezone: A string containing the time zone of the user.
+        :param photos: A list of photos associated with the user.
+        :param website: The user's personal website or blog URL.
+        :param birthdate: The user's birthdate in YYYY-MM-DD format.
         :returns: CreateUserResponse
         :raises ResourceNotFoundException:
         :raises ThrottlingException:
@@ -708,10 +797,11 @@ class IdentitystoreApi:
         """Retrieves the group metadata and attributes from ``GroupId`` in an
         identity store.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store, such as
         ``d-1234567890``.
@@ -736,10 +826,11 @@ class IdentitystoreApi:
         """Retrieves membership metadata and attributes from ``MembershipId`` in an
         identity store.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param membership_id: The identifier for a ``GroupMembership`` in an identity store.
@@ -763,10 +854,11 @@ class IdentitystoreApi:
         """Retrieves the user metadata and attributes from the ``UserId`` in an
         identity store.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store, such as
         ``d-1234567890``.
@@ -790,10 +882,11 @@ class IdentitystoreApi:
     ) -> GetGroupIdResponse:
         """Retrieves ``GroupId`` in an identity store.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param alternate_identifier: A unique identifier for a user or group that is not the primary
@@ -818,10 +911,11 @@ class IdentitystoreApi:
     ) -> GetGroupMembershipIdResponse:
         """Retrieves the ``MembershipId`` in an identity store.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param group_id: The identifier for a group in the identity store.
@@ -845,10 +939,11 @@ class IdentitystoreApi:
     ) -> GetUserIdResponse:
         """Retrieves the ``UserId`` in an identity store.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param alternate_identifier: A unique identifier for a user or group that is not the primary
@@ -874,10 +969,11 @@ class IdentitystoreApi:
         """Checks the user's membership in all requested groups and returns if the
         member exists in all queried groups.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param member_id: An object containing the identifier of a group member.
@@ -905,10 +1001,11 @@ class IdentitystoreApi:
         list of all ``GroupMembership`` objects and returns results in paginated
         form.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param group_id: The identifier for a group in the identity store.
@@ -938,10 +1035,11 @@ class IdentitystoreApi:
         list of all ``GroupMembership`` objects and returns results in paginated
         form.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param member_id: An object that contains the identifier of a group member.
@@ -972,10 +1070,11 @@ class IdentitystoreApi:
         ``DisplayName`` attribute is deprecated. Instead, use the ``GetGroupId``
         API action.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store, such as
         ``d-1234567890``.
@@ -1007,10 +1106,11 @@ class IdentitystoreApi:
         complete ``User`` objects. Filtering for a ``User`` by the ``UserName``
         attribute is deprecated. Instead, use the ``GetUserId`` API action.
 
-        If you have administrator access to a member account, you can use this
-        API from the member account. Read about `member
-        accounts <https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_access.html>`__
-        in the *Organizations User Guide*.
+        If you have access to a member account, you can use this API operation
+        from the member account. For more information, see `Limiting access to
+        the identity store from member
+        accounts <https://docs.aws.amazon.com/singlesignon/latest/userguide/manage-your-accounts.html#limiting-access-from-member-accounts>`__
+        in the *IAM Identity Center User Guide*.
 
         :param identity_store_id: The globally unique identifier for the identity store, such as
         ``d-1234567890``.
@@ -1037,8 +1137,8 @@ class IdentitystoreApi:
         operations: AttributeOperations,
         **kwargs,
     ) -> UpdateGroupResponse:
-        """For the specified group in the specified identity store, updates the
-        group metadata and attributes.
+        """Updates the specified group metadata and attributes in the specified
+        identity store.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param group_id: The identifier for a group in the identity store.
@@ -1064,8 +1164,8 @@ class IdentitystoreApi:
         operations: AttributeOperations,
         **kwargs,
     ) -> UpdateUserResponse:
-        """For the specified user in the specified identity store, updates the user
-        metadata and attributes.
+        """Updates the specified user metadata and attributes in the specified
+        identity store.
 
         :param identity_store_id: The globally unique identifier for the identity store.
         :param user_id: The identifier for a user in the identity store.

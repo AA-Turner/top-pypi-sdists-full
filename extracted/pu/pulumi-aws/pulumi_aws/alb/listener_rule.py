@@ -26,7 +26,8 @@ class ListenerRuleArgs:
                  listener_arn: pulumi.Input[_builtins.str],
                  priority: Optional[pulumi.Input[_builtins.int]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
-                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transforms: Optional[pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]]] = None):
         """
         The set of arguments for constructing a ListenerRule resource.
         :param pulumi.Input[Sequence[pulumi.Input['ListenerRuleActionArgs']]] actions: An Action block. Action blocks are documented below.
@@ -35,6 +36,7 @@ class ListenerRuleArgs:
         :param pulumi.Input[_builtins.int] priority: The priority for the rule between `1` and `50000`. Leaving it unset will automatically set the rule with next available priority after currently existing highest rule. A listener can't have multiple rules with the same priority.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
+        :param pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]] transforms: Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
         """
         pulumi.set(__self__, "actions", actions)
         pulumi.set(__self__, "conditions", conditions)
@@ -45,6 +47,8 @@ class ListenerRuleArgs:
             pulumi.set(__self__, "region", region)
         if tags is not None:
             pulumi.set(__self__, "tags", tags)
+        if transforms is not None:
+            pulumi.set(__self__, "transforms", transforms)
 
     @_builtins.property
     @pulumi.getter
@@ -118,6 +122,18 @@ class ListenerRuleArgs:
     def tags(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags", value)
 
+    @_builtins.property
+    @pulumi.getter
+    def transforms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]]]:
+        """
+        Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
+        """
+        return pulumi.get(self, "transforms")
+
+    @transforms.setter
+    def transforms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]]]):
+        pulumi.set(self, "transforms", value)
+
 
 @pulumi.input_type
 class _ListenerRuleState:
@@ -129,7 +145,8 @@ class _ListenerRuleState:
                  priority: Optional[pulumi.Input[_builtins.int]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-                 tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None):
+                 tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transforms: Optional[pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]]] = None):
         """
         Input properties used for looking up and filtering ListenerRule resources.
         :param pulumi.Input[Sequence[pulumi.Input['ListenerRuleActionArgs']]] actions: An Action block. Action blocks are documented below.
@@ -140,6 +157,7 @@ class _ListenerRuleState:
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        :param pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]] transforms: Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
         """
         if actions is not None:
             pulumi.set(__self__, "actions", actions)
@@ -157,6 +175,8 @@ class _ListenerRuleState:
             pulumi.set(__self__, "tags", tags)
         if tags_all is not None:
             pulumi.set(__self__, "tags_all", tags_all)
+        if transforms is not None:
+            pulumi.set(__self__, "transforms", transforms)
 
     @_builtins.property
     @pulumi.getter
@@ -254,6 +274,18 @@ class _ListenerRuleState:
     def tags_all(self, value: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]]):
         pulumi.set(self, "tags_all", value)
 
+    @_builtins.property
+    @pulumi.getter
+    def transforms(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]]]:
+        """
+        Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
+        """
+        return pulumi.get(self, "transforms")
+
+    @transforms.setter
+    def transforms(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['ListenerRuleTransformArgs']]]]):
+        pulumi.set(self, "transforms", value)
+
 
 @pulumi.type_token("aws:alb/listenerRule:ListenerRule")
 class ListenerRule(pulumi.CustomResource):
@@ -267,168 +299,12 @@ class ListenerRule(pulumi.CustomResource):
                  priority: Optional[pulumi.Input[_builtins.int]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transforms: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ListenerRuleTransformArgs', 'ListenerRuleTransformArgsDict']]]]] = None,
                  __props__=None):
         """
         Provides a Load Balancer Listener Rule resource.
 
         > **Note:** `alb.ListenerRule` is known as `lb.ListenerRule`. The functionality is identical.
-
-        ## Example Usage
-
-        ```python
-        import pulumi
-        import pulumi_aws as aws
-
-        front_end = aws.lb.LoadBalancer("front_end")
-        front_end_listener = aws.lb.Listener("front_end")
-        static = aws.lb.ListenerRule("static",
-            listener_arn=front_end_listener.arn,
-            priority=100,
-            actions=[{
-                "type": "forward",
-                "target_group_arn": static_aws_lb_target_group["arn"],
-            }],
-            conditions=[
-                {
-                    "path_pattern": {
-                        "values": ["/static/*"],
-                    },
-                },
-                {
-                    "host_header": {
-                        "values": ["example.com"],
-                    },
-                },
-            ])
-        # Forward action
-        host_based_weighted_routing = aws.lb.ListenerRule("host_based_weighted_routing",
-            listener_arn=front_end_listener.arn,
-            priority=99,
-            actions=[{
-                "type": "forward",
-                "target_group_arn": static_aws_lb_target_group["arn"],
-            }],
-            conditions=[{
-                "host_header": {
-                    "values": ["my-service.*.mycompany.io"],
-                },
-            }])
-        # Weighted Forward action
-        host_based_routing = aws.lb.ListenerRule("host_based_routing",
-            listener_arn=front_end_listener.arn,
-            priority=99,
-            actions=[{
-                "type": "forward",
-                "forward": {
-                    "target_groups": [
-                        {
-                            "arn": main["arn"],
-                            "weight": 80,
-                        },
-                        {
-                            "arn": canary["arn"],
-                            "weight": 20,
-                        },
-                    ],
-                    "stickiness": {
-                        "enabled": True,
-                        "duration": 600,
-                    },
-                },
-            }],
-            conditions=[{
-                "host_header": {
-                    "values": ["my-service.*.mycompany.io"],
-                },
-            }])
-        # Redirect action
-        redirect_http_to_https = aws.lb.ListenerRule("redirect_http_to_https",
-            listener_arn=front_end_listener.arn,
-            actions=[{
-                "type": "redirect",
-                "redirect": {
-                    "port": "443",
-                    "protocol": "HTTPS",
-                    "status_code": "HTTP_301",
-                },
-            }],
-            conditions=[{
-                "http_header": {
-                    "http_header_name": "X-Forwarded-For",
-                    "values": ["192.168.1.*"],
-                },
-            }])
-        # Fixed-response action
-        health_check = aws.lb.ListenerRule("health_check",
-            listener_arn=front_end_listener.arn,
-            actions=[{
-                "type": "fixed-response",
-                "fixed_response": {
-                    "content_type": "text/plain",
-                    "message_body": "HEALTHY",
-                    "status_code": "200",
-                },
-            }],
-            conditions=[{
-                "query_strings": [
-                    {
-                        "key": "health",
-                        "value": "check",
-                    },
-                    {
-                        "value": "bar",
-                    },
-                ],
-            }])
-        # Authenticate-cognito Action
-        pool = aws.cognito.UserPool("pool")
-        client = aws.cognito.UserPoolClient("client")
-        domain = aws.cognito.UserPoolDomain("domain")
-        admin = aws.lb.ListenerRule("admin",
-            listener_arn=front_end_listener.arn,
-            actions=[
-                {
-                    "type": "authenticate-cognito",
-                    "authenticate_cognito": {
-                        "user_pool_arn": pool.arn,
-                        "user_pool_client_id": client.id,
-                        "user_pool_domain": domain.domain,
-                    },
-                },
-                {
-                    "type": "forward",
-                    "target_group_arn": static_aws_lb_target_group["arn"],
-                },
-            ])
-        # Authenticate-oidc Action
-        oidc = aws.lb.ListenerRule("oidc",
-            listener_arn=front_end_listener.arn,
-            actions=[
-                {
-                    "type": "authenticate-oidc",
-                    "authenticate_oidc": {
-                        "authorization_endpoint": "https://example.com/authorization_endpoint",
-                        "client_id": "client_id",
-                        "client_secret": "client_secret",
-                        "issuer": "https://example.com",
-                        "token_endpoint": "https://example.com/token_endpoint",
-                        "user_info_endpoint": "https://example.com/user_info_endpoint",
-                    },
-                },
-                {
-                    "type": "forward",
-                    "target_group_arn": static_aws_lb_target_group["arn"],
-                },
-            ])
-        ```
-
-        ## Import
-
-        Using `pulumi import`, import rules using their ARN. For example:
-
-        ```sh
-        $ pulumi import aws:alb/listenerRule:ListenerRule front_end arn:aws:elasticloadbalancing:us-west-2:187416307283:listener-rule/app/test/8e4497da625e2d8a/9ab28ade35828f96/67b3d2d36dd7c26b
-        ```
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -438,6 +314,7 @@ class ListenerRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.int] priority: The priority for the rule between `1` and `50000`. Leaving it unset will automatically set the rule with next available priority after currently existing highest rule. A listener can't have multiple rules with the same priority.
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ListenerRuleTransformArgs', 'ListenerRuleTransformArgsDict']]]] transforms: Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
         """
         ...
     @overload
@@ -449,163 +326,6 @@ class ListenerRule(pulumi.CustomResource):
         Provides a Load Balancer Listener Rule resource.
 
         > **Note:** `alb.ListenerRule` is known as `lb.ListenerRule`. The functionality is identical.
-
-        ## Example Usage
-
-        ```python
-        import pulumi
-        import pulumi_aws as aws
-
-        front_end = aws.lb.LoadBalancer("front_end")
-        front_end_listener = aws.lb.Listener("front_end")
-        static = aws.lb.ListenerRule("static",
-            listener_arn=front_end_listener.arn,
-            priority=100,
-            actions=[{
-                "type": "forward",
-                "target_group_arn": static_aws_lb_target_group["arn"],
-            }],
-            conditions=[
-                {
-                    "path_pattern": {
-                        "values": ["/static/*"],
-                    },
-                },
-                {
-                    "host_header": {
-                        "values": ["example.com"],
-                    },
-                },
-            ])
-        # Forward action
-        host_based_weighted_routing = aws.lb.ListenerRule("host_based_weighted_routing",
-            listener_arn=front_end_listener.arn,
-            priority=99,
-            actions=[{
-                "type": "forward",
-                "target_group_arn": static_aws_lb_target_group["arn"],
-            }],
-            conditions=[{
-                "host_header": {
-                    "values": ["my-service.*.mycompany.io"],
-                },
-            }])
-        # Weighted Forward action
-        host_based_routing = aws.lb.ListenerRule("host_based_routing",
-            listener_arn=front_end_listener.arn,
-            priority=99,
-            actions=[{
-                "type": "forward",
-                "forward": {
-                    "target_groups": [
-                        {
-                            "arn": main["arn"],
-                            "weight": 80,
-                        },
-                        {
-                            "arn": canary["arn"],
-                            "weight": 20,
-                        },
-                    ],
-                    "stickiness": {
-                        "enabled": True,
-                        "duration": 600,
-                    },
-                },
-            }],
-            conditions=[{
-                "host_header": {
-                    "values": ["my-service.*.mycompany.io"],
-                },
-            }])
-        # Redirect action
-        redirect_http_to_https = aws.lb.ListenerRule("redirect_http_to_https",
-            listener_arn=front_end_listener.arn,
-            actions=[{
-                "type": "redirect",
-                "redirect": {
-                    "port": "443",
-                    "protocol": "HTTPS",
-                    "status_code": "HTTP_301",
-                },
-            }],
-            conditions=[{
-                "http_header": {
-                    "http_header_name": "X-Forwarded-For",
-                    "values": ["192.168.1.*"],
-                },
-            }])
-        # Fixed-response action
-        health_check = aws.lb.ListenerRule("health_check",
-            listener_arn=front_end_listener.arn,
-            actions=[{
-                "type": "fixed-response",
-                "fixed_response": {
-                    "content_type": "text/plain",
-                    "message_body": "HEALTHY",
-                    "status_code": "200",
-                },
-            }],
-            conditions=[{
-                "query_strings": [
-                    {
-                        "key": "health",
-                        "value": "check",
-                    },
-                    {
-                        "value": "bar",
-                    },
-                ],
-            }])
-        # Authenticate-cognito Action
-        pool = aws.cognito.UserPool("pool")
-        client = aws.cognito.UserPoolClient("client")
-        domain = aws.cognito.UserPoolDomain("domain")
-        admin = aws.lb.ListenerRule("admin",
-            listener_arn=front_end_listener.arn,
-            actions=[
-                {
-                    "type": "authenticate-cognito",
-                    "authenticate_cognito": {
-                        "user_pool_arn": pool.arn,
-                        "user_pool_client_id": client.id,
-                        "user_pool_domain": domain.domain,
-                    },
-                },
-                {
-                    "type": "forward",
-                    "target_group_arn": static_aws_lb_target_group["arn"],
-                },
-            ])
-        # Authenticate-oidc Action
-        oidc = aws.lb.ListenerRule("oidc",
-            listener_arn=front_end_listener.arn,
-            actions=[
-                {
-                    "type": "authenticate-oidc",
-                    "authenticate_oidc": {
-                        "authorization_endpoint": "https://example.com/authorization_endpoint",
-                        "client_id": "client_id",
-                        "client_secret": "client_secret",
-                        "issuer": "https://example.com",
-                        "token_endpoint": "https://example.com/token_endpoint",
-                        "user_info_endpoint": "https://example.com/user_info_endpoint",
-                    },
-                },
-                {
-                    "type": "forward",
-                    "target_group_arn": static_aws_lb_target_group["arn"],
-                },
-            ])
-        ```
-
-        ## Import
-
-        Using `pulumi import`, import rules using their ARN. For example:
-
-        ```sh
-        $ pulumi import aws:alb/listenerRule:ListenerRule front_end arn:aws:elasticloadbalancing:us-west-2:187416307283:listener-rule/app/test/8e4497da625e2d8a/9ab28ade35828f96/67b3d2d36dd7c26b
-        ```
 
         :param str resource_name: The name of the resource.
         :param ListenerRuleArgs args: The arguments to use to populate this resource's properties.
@@ -628,6 +348,7 @@ class ListenerRule(pulumi.CustomResource):
                  priority: Optional[pulumi.Input[_builtins.int]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
                  tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+                 transforms: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ListenerRuleTransformArgs', 'ListenerRuleTransformArgsDict']]]]] = None,
                  __props__=None):
         opts = pulumi.ResourceOptions.merge(_utilities.get_resource_opts_defaults(), opts)
         if not isinstance(opts, pulumi.ResourceOptions):
@@ -649,6 +370,7 @@ class ListenerRule(pulumi.CustomResource):
             __props__.__dict__["priority"] = priority
             __props__.__dict__["region"] = region
             __props__.__dict__["tags"] = tags
+            __props__.__dict__["transforms"] = transforms
             __props__.__dict__["arn"] = None
             __props__.__dict__["tags_all"] = None
         alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="aws:applicationloadbalancing/listenerRule:ListenerRule")])
@@ -670,7 +392,8 @@ class ListenerRule(pulumi.CustomResource):
             priority: Optional[pulumi.Input[_builtins.int]] = None,
             region: Optional[pulumi.Input[_builtins.str]] = None,
             tags: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
-            tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None) -> 'ListenerRule':
+            tags_all: Optional[pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]]] = None,
+            transforms: Optional[pulumi.Input[Sequence[pulumi.Input[Union['ListenerRuleTransformArgs', 'ListenerRuleTransformArgsDict']]]]] = None) -> 'ListenerRule':
         """
         Get an existing ListenerRule resource's state with the given name, id, and optional extra
         properties used to qualify the lookup.
@@ -686,6 +409,7 @@ class ListenerRule(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] region: Region where this resource will be [managed](https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints). Defaults to the Region set in the provider configuration.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags: A map of tags to assign to the resource. .If configured with a provider `default_tags` configuration block present, tags with matching keys will overwrite those defined at the provider-level.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] tags_all: A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['ListenerRuleTransformArgs', 'ListenerRuleTransformArgsDict']]]] transforms: Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
         """
         opts = pulumi.ResourceOptions.merge(opts, pulumi.ResourceOptions(id=id))
 
@@ -699,6 +423,7 @@ class ListenerRule(pulumi.CustomResource):
         __props__.__dict__["region"] = region
         __props__.__dict__["tags"] = tags
         __props__.__dict__["tags_all"] = tags_all
+        __props__.__dict__["transforms"] = transforms
         return ListenerRule(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -764,4 +489,12 @@ class ListenerRule(pulumi.CustomResource):
         A map of tags assigned to the resource, including those inherited from the provider `default_tags` configuration block.
         """
         return pulumi.get(self, "tags_all")
+
+    @_builtins.property
+    @pulumi.getter
+    def transforms(self) -> pulumi.Output[Optional[Sequence['outputs.ListenerRuleTransform']]]:
+        """
+        Configuration block that defines the transform to apply to requests matching this rule. See Transform Blocks below for more details. Once specified, to remove the transform from the rule, remove the `transform` block from the configuration.
+        """
+        return pulumi.get(self, "transforms")
 

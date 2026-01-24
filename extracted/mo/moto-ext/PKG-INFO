@@ -1,0 +1,248 @@
+Metadata-Version: 2.4
+Name: moto-ext
+Version: 5.1.20.post10
+Summary: A library that allows you to easily mock out tests based on AWS infrastructure
+Home-page: https://github.com/localstack/moto
+Author: Steve Pulec
+Author-email: spulec@gmail.com
+License: Apache-2.0
+Project-URL: Documentation, http://docs.getmoto.org/en/latest/
+Project-URL: Issue tracker, https://github.com/getmoto/moto/issues
+Project-URL: Changelog, https://github.com/getmoto/moto/blob/master/CHANGELOG.md
+Keywords: aws ec2 s3 boto3 mock
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Testing
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+License-File: AUTHORS.md
+Requires-Dist: boto3>=1.9.201
+Requires-Dist: botocore!=1.35.45,!=1.35.46,>=1.20.88
+Requires-Dist: cryptography>=35.0.0
+Requires-Dist: requests>=2.5
+Requires-Dist: xmltodict
+Requires-Dist: werkzeug!=2.2.0,!=2.2.1,>=0.5
+Requires-Dist: python-dateutil<3.0.0,>=2.1
+Requires-Dist: responses!=0.25.5,>=0.15.0
+Requires-Dist: Jinja2>=2.10.1
+Provides-Extra: all
+Requires-Dist: antlr4-python3-runtime; extra == "all"
+Requires-Dist: aws-sam-translator<=1.103.0; extra == "all"
+Requires-Dist: joserfc>=0.9.0; extra == "all"
+Requires-Dist: jsonpath_ng; extra == "all"
+Requires-Dist: docker>=3.0.0; extra == "all"
+Requires-Dist: graphql-core; extra == "all"
+Requires-Dist: PyYAML>=5.1; extra == "all"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "all"
+Requires-Dist: jsonschema; extra == "all"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "all"
+Requires-Dist: pydantic<=2.12.4; extra == "all"
+Requires-Dist: pyparsing>=3.0.7; extra == "all"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "all"
+Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "all"
+Requires-Dist: setuptools; extra == "all"
+Requires-Dist: multipart; extra == "all"
+Provides-Extra: proxy
+Requires-Dist: antlr4-python3-runtime; extra == "proxy"
+Requires-Dist: aws-sam-translator<=1.103.0; extra == "proxy"
+Requires-Dist: joserfc>=0.9.0; extra == "proxy"
+Requires-Dist: jsonpath_ng; extra == "proxy"
+Requires-Dist: docker>=2.5.1; extra == "proxy"
+Requires-Dist: graphql-core; extra == "proxy"
+Requires-Dist: PyYAML>=5.1; extra == "proxy"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "proxy"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "proxy"
+Requires-Dist: pydantic<=2.12.4; extra == "proxy"
+Requires-Dist: pyparsing>=3.0.7; extra == "proxy"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "proxy"
+Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "proxy"
+Requires-Dist: setuptools; extra == "proxy"
+Requires-Dist: multipart; extra == "proxy"
+Provides-Extra: server
+Requires-Dist: antlr4-python3-runtime; extra == "server"
+Requires-Dist: aws-sam-translator<=1.103.0; extra == "server"
+Requires-Dist: joserfc>=0.9.0; extra == "server"
+Requires-Dist: jsonpath_ng; extra == "server"
+Requires-Dist: docker>=3.0.0; extra == "server"
+Requires-Dist: graphql-core; extra == "server"
+Requires-Dist: PyYAML>=5.1; extra == "server"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "server"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "server"
+Requires-Dist: pydantic<=2.12.4; extra == "server"
+Requires-Dist: pyparsing>=3.0.7; extra == "server"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "server"
+Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "server"
+Requires-Dist: setuptools; extra == "server"
+Requires-Dist: flask!=2.2.0,!=2.2.1; extra == "server"
+Requires-Dist: flask-cors; extra == "server"
+Provides-Extra: acm
+Provides-Extra: acmpca
+Provides-Extra: amp
+Provides-Extra: apigateway
+Requires-Dist: PyYAML>=5.1; extra == "apigateway"
+Requires-Dist: joserfc>=0.9.0; extra == "apigateway"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "apigateway"
+Provides-Extra: apigatewayv2
+Requires-Dist: PyYAML>=5.1; extra == "apigatewayv2"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "apigatewayv2"
+Provides-Extra: applicationautoscaling
+Provides-Extra: appsync
+Requires-Dist: graphql-core; extra == "appsync"
+Provides-Extra: athena
+Provides-Extra: autoscaling
+Provides-Extra: awslambda
+Requires-Dist: docker>=3.0.0; extra == "awslambda"
+Provides-Extra: awslambda-simple
+Provides-Extra: backup
+Provides-Extra: batch
+Requires-Dist: docker>=3.0.0; extra == "batch"
+Provides-Extra: batch-simple
+Provides-Extra: budgets
+Provides-Extra: ce
+Provides-Extra: cloudformation
+Requires-Dist: joserfc>=0.9.0; extra == "cloudformation"
+Requires-Dist: docker>=3.0.0; extra == "cloudformation"
+Requires-Dist: graphql-core; extra == "cloudformation"
+Requires-Dist: PyYAML>=5.1; extra == "cloudformation"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "cloudformation"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "cloudformation"
+Requires-Dist: pyparsing>=3.0.7; extra == "cloudformation"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "cloudformation"
+Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "cloudformation"
+Requires-Dist: setuptools; extra == "cloudformation"
+Provides-Extra: cloudfront
+Provides-Extra: cloudtrail
+Provides-Extra: cloudwatch
+Provides-Extra: codebuild
+Provides-Extra: codecommit
+Provides-Extra: codepipeline
+Provides-Extra: cognitoidentity
+Provides-Extra: cognitoidp
+Requires-Dist: joserfc>=0.9.0; extra == "cognitoidp"
+Provides-Extra: comprehend
+Provides-Extra: config
+Provides-Extra: databrew
+Provides-Extra: datapipeline
+Provides-Extra: datasync
+Provides-Extra: dax
+Provides-Extra: dms
+Provides-Extra: ds
+Provides-Extra: dynamodb
+Requires-Dist: docker>=3.0.0; extra == "dynamodb"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "dynamodb"
+Provides-Extra: dynamodbstreams
+Requires-Dist: docker>=3.0.0; extra == "dynamodbstreams"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "dynamodbstreams"
+Provides-Extra: ebs
+Provides-Extra: ec2
+Provides-Extra: ec2instanceconnect
+Provides-Extra: ecr
+Provides-Extra: ecs
+Provides-Extra: efs
+Provides-Extra: eks
+Provides-Extra: elasticache
+Provides-Extra: elasticbeanstalk
+Provides-Extra: elastictranscoder
+Provides-Extra: elb
+Provides-Extra: elbv2
+Provides-Extra: emr
+Provides-Extra: emrcontainers
+Provides-Extra: emrserverless
+Provides-Extra: es
+Provides-Extra: events
+Requires-Dist: jsonpath_ng; extra == "events"
+Provides-Extra: firehose
+Provides-Extra: forecast
+Provides-Extra: glacier
+Provides-Extra: glue
+Requires-Dist: pyparsing>=3.0.7; extra == "glue"
+Provides-Extra: greengrass
+Provides-Extra: guardduty
+Provides-Extra: iam
+Provides-Extra: inspector2
+Provides-Extra: iot
+Provides-Extra: iotdata
+Provides-Extra: ivs
+Provides-Extra: kinesis
+Provides-Extra: kinesisvideo
+Provides-Extra: kinesisvideoarchivedmedia
+Provides-Extra: kms
+Provides-Extra: logs
+Provides-Extra: managedblockchain
+Provides-Extra: mediaconnect
+Provides-Extra: medialive
+Provides-Extra: mediapackage
+Provides-Extra: mediastore
+Provides-Extra: mediastoredata
+Provides-Extra: meteringmarketplace
+Provides-Extra: mq
+Provides-Extra: opsworks
+Provides-Extra: organizations
+Provides-Extra: panorama
+Provides-Extra: personalize
+Provides-Extra: pinpoint
+Provides-Extra: polly
+Provides-Extra: quicksight
+Requires-Dist: jsonschema; extra == "quicksight"
+Provides-Extra: ram
+Provides-Extra: rds
+Provides-Extra: redshift
+Provides-Extra: redshiftdata
+Provides-Extra: rekognition
+Provides-Extra: resourcegroups
+Provides-Extra: resourcegroupstaggingapi
+Requires-Dist: joserfc>=0.9.0; extra == "resourcegroupstaggingapi"
+Requires-Dist: docker>=3.0.0; extra == "resourcegroupstaggingapi"
+Requires-Dist: graphql-core; extra == "resourcegroupstaggingapi"
+Requires-Dist: PyYAML>=5.1; extra == "resourcegroupstaggingapi"
+Requires-Dist: cfn-lint<=1.41.0,>=0.40.0; extra == "resourcegroupstaggingapi"
+Requires-Dist: openapi-spec-validator>=0.5.0; extra == "resourcegroupstaggingapi"
+Requires-Dist: pyparsing>=3.0.7; extra == "resourcegroupstaggingapi"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "resourcegroupstaggingapi"
+Provides-Extra: route53
+Provides-Extra: route53resolver
+Provides-Extra: s3
+Requires-Dist: PyYAML>=5.1; extra == "s3"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "s3"
+Provides-Extra: s3crc32c
+Requires-Dist: PyYAML>=5.1; extra == "s3crc32c"
+Requires-Dist: py-partiql-parser==0.6.3; extra == "s3crc32c"
+Requires-Dist: crc32c; extra == "s3crc32c"
+Provides-Extra: s3control
+Provides-Extra: sagemaker
+Provides-Extra: sdb
+Provides-Extra: scheduler
+Provides-Extra: secretsmanager
+Provides-Extra: servicediscovery
+Provides-Extra: servicequotas
+Provides-Extra: ses
+Provides-Extra: signer
+Provides-Extra: sns
+Provides-Extra: sqs
+Provides-Extra: ssm
+Requires-Dist: PyYAML>=5.1; extra == "ssm"
+Provides-Extra: ssoadmin
+Provides-Extra: stepfunctions
+Requires-Dist: antlr4-python3-runtime; extra == "stepfunctions"
+Requires-Dist: jsonpath_ng; extra == "stepfunctions"
+Provides-Extra: sts
+Provides-Extra: support
+Provides-Extra: swf
+Provides-Extra: textract
+Provides-Extra: timestreamwrite
+Provides-Extra: transcribe
+Provides-Extra: wafv2
+Provides-Extra: xray
+Requires-Dist: aws-xray-sdk!=0.96,>=0.93; extra == "xray"
+Requires-Dist: setuptools; extra == "xray"
+Dynamic: license-file
+
+# moto-ext
+
+Fork of [Moto](https://github.com/getmoto/moto) with patches and fixes for [LocalStack](https://github.com/localstack/localstack).

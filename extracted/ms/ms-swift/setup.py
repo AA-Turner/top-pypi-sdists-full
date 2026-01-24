@@ -121,9 +121,11 @@ if __name__ == '__main__':
     all_requires = []
     extra_requires['eval'], _ = parse_requirements('requirements/eval.txt')
     extra_requires['swanlab'], _ = parse_requirements('requirements/swanlab.txt')
+    extra_requires['ray'], _ = parse_requirements('requirements/ray.txt')
     all_requires.extend(install_requires)
     all_requires.extend(extra_requires['eval'])
     all_requires.extend(extra_requires['swanlab'])
+    all_requires.extend(extra_requires['ray'])
     extra_requires['all'] = all_requires
 
     setup(
@@ -134,13 +136,14 @@ if __name__ == '__main__':
         long_description_content_type='text/markdown',
         author='DAMO ModelScope teams',
         author_email='contact@modelscope.cn',
-        keywords='python, petl, efficient tuners',
-        url='https://github.com/modelscope/swift',
-        packages=find_packages(exclude=('configs', 'demo')),
+        keywords=['transformers', 'LLM', 'lora', 'megatron', 'grpo', 'sft'],
+        url='https://github.com/modelscope/ms-swift',
+        packages=find_packages(exclude=('tests', 'tests.*')),
         include_package_data=True,
         package_data={
-            '': ['*.h', '*.cpp', '*.cu'],
+            '': ['utils/*', 'llm/dataset/data/*.*', 'llm/ds_config/*.json', 'plugin/loss_scale/config/*.json']
         },
+        python_requires='>=3.8.0',
         classifiers=[
             'Development Status :: 4 - Beta',
             'License :: OSI Approved :: Apache Software License',

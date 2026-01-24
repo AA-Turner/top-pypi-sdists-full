@@ -8,7 +8,6 @@ from typing import (  # noqa: UP035
     NamedTuple,
     TypedDict,
     TypeVar,
-    Union,
 )
 
 from langchain_core.runnables import RunnableConfig
@@ -35,17 +34,17 @@ class CheckpointMetadata(TypedDict, total=False):
     source: Literal["input", "loop", "update", "fork"]
     """The source of the checkpoint.
 
-    - "input": The checkpoint was created from an input to invoke/stream/batch.
-    - "loop": The checkpoint was created from inside the pregel loop.
-    - "update": The checkpoint was created from a manual state update.
-    - "fork": The checkpoint was created as a copy of another checkpoint.
+    - `"input"`: The checkpoint was created from an input to invoke/stream/batch.
+    - `"loop"`: The checkpoint was created from inside the pregel loop.
+    - `"update"`: The checkpoint was created from a manual state update.
+    - `"fork"`: The checkpoint was created as a copy of another checkpoint.
     """
     step: int
     """The step number of the checkpoint.
 
-    -1 for the first "input" checkpoint.
-    0 for the first "loop" checkpoint.
-    ... for the nth checkpoint afterwards.
+    `-1` for the first `"input"` checkpoint.
+    `0` for the first `"loop"` checkpoint.
+    `...` for the `nth` checkpoint afterwards.
     """
     parents: dict[str, str]
     """The IDs of the parent checkpoints.
@@ -54,32 +53,40 @@ class CheckpointMetadata(TypedDict, total=False):
     """
 
 
-ChannelVersions = dict[str, Union[str, int, float]]
+ChannelVersions = dict[str, str | int | float]
 
 
 class Checkpoint(TypedDict):
     """State snapshot at a given point in time."""
 
     v: int
-    """The version of the checkpoint format. Currently 1."""
+    """The version of the checkpoint format. Currently `1`."""
     id: str
-    """The ID of the checkpoint. This is both unique and monotonically
-    increasing, so can be used for sorting checkpoints from first to last."""
+    """The ID of the checkpoint.
+    
+    This is both unique and monotonically increasing, so can be used for sorting
+    checkpoints from first to last."""
     ts: str
     """The timestamp of the checkpoint in ISO 8601 format."""
     channel_values: dict[str, Any]
     """The values of the channels at the time of the checkpoint.
+    
     Mapping from channel name to deserialized channel snapshot value.
     """
     channel_versions: ChannelVersions
     """The versions of the channels at the time of the checkpoint.
+    
     The keys are channel names and the values are monotonically increasing
     version strings for each channel.
     """
     versions_seen: dict[str, ChannelVersions]
     """Map from node ID to map from channel name to version seen.
+    
     This keeps track of the versions of the channels that each node has seen.
     Used to determine which nodes to execute next.
+    """
+    updated_channels: list[str] | None
+    """The channels that were updated in this checkpoint.
     """
 
 
@@ -92,6 +99,7 @@ def copy_checkpoint(checkpoint: Checkpoint) -> Checkpoint:
         channel_versions=checkpoint["channel_versions"].copy(),
         versions_seen={k: v.copy() for k, v in checkpoint["versions_seen"].items()},
         pending_sends=checkpoint.get("pending_sends", []).copy(),
+        updated_channels=checkpoint.get("updated_channels", None),
     )
 
 
@@ -144,7 +152,7 @@ class BaseCheckpointSaver(Generic[V]):
             config: Configuration specifying which checkpoint to retrieve.
 
         Returns:
-            Optional[Checkpoint]: The requested checkpoint, or None if not found.
+            The requested checkpoint, or `None` if not found.
         """
         if value := self.get_tuple(config):
             return value.checkpoint
@@ -156,7 +164,7 @@ class BaseCheckpointSaver(Generic[V]):
             config: Configuration specifying which checkpoint to retrieve.
 
         Returns:
-            Optional[CheckpointTuple]: The requested checkpoint tuple, or None if not found.
+            The requested checkpoint tuple, or `None` if not found.
 
         Raises:
             NotImplementedError: Implement this method in your custom checkpoint saver.
@@ -180,7 +188,7 @@ class BaseCheckpointSaver(Generic[V]):
             limit: Maximum number of checkpoints to return.
 
         Returns:
-            Iterator[CheckpointTuple]: Iterator of matching checkpoint tuples.
+            Iterator of matching checkpoint tuples.
 
         Raises:
             NotImplementedError: Implement this method in your custom checkpoint saver.
@@ -248,7 +256,7 @@ class BaseCheckpointSaver(Generic[V]):
             config: Configuration specifying which checkpoint to retrieve.
 
         Returns:
-            Optional[Checkpoint]: The requested checkpoint, or None if not found.
+            The requested checkpoint, or `None` if not found.
         """
         if value := await self.aget_tuple(config):
             return value.checkpoint
@@ -260,7 +268,7 @@ class BaseCheckpointSaver(Generic[V]):
             config: Configuration specifying which checkpoint to retrieve.
 
         Returns:
-            Optional[CheckpointTuple]: The requested checkpoint tuple, or None if not found.
+            The requested checkpoint tuple, or `None` if not found.
 
         Raises:
             NotImplementedError: Implement this method in your custom checkpoint saver.
@@ -284,7 +292,7 @@ class BaseCheckpointSaver(Generic[V]):
             limit: Maximum number of checkpoints to return.
 
         Returns:
-            AsyncIterator[CheckpointTuple]: Async iterator of matching checkpoint tuples.
+            Async iterator of matching checkpoint tuples.
 
         Raises:
             NotImplementedError: Implement this method in your custom checkpoint saver.
@@ -349,11 +357,12 @@ class BaseCheckpointSaver(Generic[V]):
     def get_next_version(self, current: V | None, channel: None) -> V:
         """Generate the next version ID for a channel.
 
-        Default is to use integer versions, incrementing by 1. If you override, you can use str/int/float versions,
-        as long as they are monotonically increasing.
+        Default is to use integer versions, incrementing by `1`.
+
+        If you override, you can use `str`/`int`/`float` versions, as long as they are monotonically increasing.
 
         Args:
-            current: The current version identifier (int, float, or str).
+            current: The current version identifier (`int`, `float`, or `str`).
             channel: Deprecated argument, kept for backwards compatibility.
 
         Returns:
@@ -375,10 +384,8 @@ class EmptyChannelError(Exception):
 
 
 def get_checkpoint_id(config: RunnableConfig) -> str | None:
-    """Get checkpoint ID in a backwards-compatible manner (fallback on thread_ts)."""
-    return config["configurable"].get(
-        "checkpoint_id", config["configurable"].get("thread_ts")
-    )
+    """Get checkpoint ID."""
+    return config["configurable"].get("checkpoint_id")
 
 
 def get_checkpoint_metadata(
@@ -402,6 +409,16 @@ def get_checkpoint_metadata(
     return metadata
 
 
+def get_serializable_checkpoint_metadata(
+    config: RunnableConfig, metadata: CheckpointMetadata
+) -> CheckpointMetadata:
+    """Get checkpoint metadata in a backwards-compatible manner."""
+    checkpoint_metadata = get_checkpoint_metadata(config, metadata)
+    if "writes" in checkpoint_metadata:
+        checkpoint_metadata.pop("writes")
+    return checkpoint_metadata
+
+
 """
 Mapping from error type to error index.
 Regular writes just map to their index in the list of writes being saved.
@@ -413,7 +430,6 @@ WRITES_IDX_MAP = {ERROR: -1, SCHEDULED: -2, INTERRUPT: -3, RESUME: -4}
 
 EXCLUDED_METADATA_KEYS = {
     "thread_id",
-    "thread_ts",
     "checkpoint_id",
     "checkpoint_ns",
     "checkpoint_map",
@@ -440,6 +456,7 @@ def empty_checkpoint() -> Checkpoint:
         channel_versions={},
         versions_seen={},
         pending_sends=[],
+        updated_channels=None,
     )
 
 
@@ -473,4 +490,5 @@ def create_checkpoint(
         channel_versions=checkpoint["channel_versions"],
         versions_seen=checkpoint["versions_seen"],
         pending_sends=checkpoint.get("pending_sends", []),
+        updated_channels=None,
     )

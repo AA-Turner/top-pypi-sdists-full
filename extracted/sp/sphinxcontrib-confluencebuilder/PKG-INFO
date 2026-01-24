@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-confluencebuilder
-Version: 2.14.0
+Version: 3.0.0
 Summary: Sphinx extension to build Atlassian Confluence Storage Markup
 Author-email: Anthony Shaw <anthonyshaw@apache.org>, James Knight <git@jdknight.me>
 Maintainer-email: James Knight <git@jdknight.me>
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-Expression: BSD-2-Clause
 Classifier: Development Status :: 5 - Production/Stable
@@ -17,18 +17,18 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Documentation
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Utilities
 License-File: LICENSE
 License-File: LICENSE-3RD-PARTY
-Requires-Dist: requests>=2.25.0
-Requires-Dist: sphinx>=7.3
+Requires-Dist: requests>=2.30.0
+Requires-Dist: sphinx>=8.0
 Project-URL: Documentation, https://sphinxcontrib-confluencebuilder.readthedocs.io
 Project-URL: Download, https://pypi.python.org/pypi/sphinxcontrib-confluencebuilder
 Project-URL: Source, https://github.com/sphinx-contrib/confluencebuilder
@@ -43,12 +43,20 @@ Project-URL: Source, https://github.com/sphinx-contrib/confluencebuilder
 [Sphinx][sphinx] extension to build Confluence® compatible markup format
 files and optionally publish them to a Confluence instance.
 
+## Notice for Upcoming v3 Release
+
+> [!IMPORTANT]
+> Users on Confluence Cloud upgrading to this extension's upcoming v3 release
+> may require additional actions. See the following for more information:
+>
+> [sphinxcontrib-confluencebuilder v3 Cloud Users Notice](https://github.com/sphinx-contrib/confluencebuilder/issues/1166)
+
 ## Requirements
 
-* [Confluence][confluence] Cloud or Data Center 8.1+
-* [Python][python] 3.9+
-* [Requests][requests] 2.25.0+
-* [Sphinx][sphinx] 7.3+
+* [Confluence][confluence] Cloud or Data Center 8.8+
+* [Python][python] 3.10+
+* [Requests][requests] 2.30.0+
+* [Sphinx][sphinx] 8.0+
 
 ## Installing
 

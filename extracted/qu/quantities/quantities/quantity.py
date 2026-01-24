@@ -16,6 +16,9 @@ PREFERRED = []  # List of preferred quantities for each symbol,
                 # e.g. PREFERRED = [pq.mV, pq.pA, pq.UnitQuantity('femtocoulomb', 1e-15*pq.C, 'fC')]
                 # Intended to be overwritten in down-stream packages
 
+_np_version = tuple(map(int, np.__version__.split(".dev")[0].split(".")))
+
+
 def validate_unit_quantity(value):
     try:
         assert isinstance(value, Quantity)
@@ -318,7 +321,7 @@ class Quantity(np.ndarray):
         return res
 
     def __array_wrap__(self, obj, context=None, return_scalar=False):
-        _np_version = tuple(map(int, np.__version__.split(".dev")[0].split(".")))
+
         # For NumPy < 2.0 we do old behavior
         if _np_version < (2, 0, 0):
             if not isinstance(obj, Quantity):
@@ -342,7 +345,6 @@ class Quantity(np.ndarray):
     @scale_other_units
     def __radd__(self, other):
         return np.add(other, self)
-        return super().__radd__(other)
 
     @with_doc(np.ndarray.__iadd__)
     @scale_other_units
@@ -358,7 +360,6 @@ class Quantity(np.ndarray):
     @scale_other_units
     def __rsub__(self, other):
         return np.subtract(other, self)
-        return super().__rsub__(other)
 
     @with_doc(np.ndarray.__isub__)
     @scale_other_units
@@ -378,22 +379,46 @@ class Quantity(np.ndarray):
     @with_doc(np.ndarray.__imul__)
     @protected_multiplication
     def __imul__(self, other):
-        return super().__imul__(other)
+        # the following is an inelegant fix for the removal of __array_prepare__ in NumPy 2.x
+        # the longer-term solution is probably to implement __array_ufunc__
+        # See:
+        # - https://numpy.org/devdocs/release/2.0.0-notes.html#array-prepare-is-removed
+        # - https://numpy.org/neps/nep-0013-ufunc-overrides.html
+        if _np_version < (2, 0, 0):
+            return super().__imul__(other)
+        else:
+            cself = self.copy()
+            if hasattr(other, "copy"):
+                cother = other.copy()
+            else:
+                cother = other
+            res = super().__imul__(other)
+            context = (np.multiply, (cself, cother, cself), 0)
+            return self.__array_prepare__(res, context=context)
 
     @with_doc(np.ndarray.__rmul__)
     def __rmul__(self, other):
         return np.multiply(other, self)
-        return super().__rmul__(other)
 
     @with_doc(np.ndarray.__itruediv__)
     @protected_multiplication
     def __itruediv__(self, other):
-        return super().__itruediv__(other)
+        # see comment above on __imul__
+        if _np_version < (2, 0, 0):
+            return super().__itruediv__(other)
+        else:
+            cself = self.copy()
+            if hasattr(other, "copy"):
+                cother = other.copy()
+            else:
+                cother = other
+            res = super().__itruediv__(other)
+            context = (np.true_divide, (cself, cother, cself), 0)
+            return self.__array_prepare__(res, context=context)
 
     @with_doc(np.ndarray.__rtruediv__)
     def __rtruediv__(self, other):
         return np.true_divide(other, self)
-        return super().__rtruediv__(other)
 
     @with_doc(np.ndarray.__pow__)
     @check_uniform
@@ -404,7 +429,18 @@ class Quantity(np.ndarray):
     @check_uniform
     @protected_power
     def __ipow__(self, other):
-        return super().__ipow__(other)
+        # see comment above on __imul__
+        if _np_version < (2, 0, 0):
+            return super().__ipow__(other)
+        else:
+            cself = self.copy()
+            if hasattr(other, "copy"):
+                cother = other.copy()
+            else:
+                cother = other
+            res = super().__ipow__(other)
+            context = (np.power, (cself, cother, cself), 0)
+            return self.__array_prepare__(res, context=context)
 
     def __round__(self, decimals=0):
         return np.around(self, decimals)
@@ -528,7 +564,6 @@ class Quantity(np.ndarray):
 
     @with_doc(np.nansum)
     def nansum(self, axis=None, dtype=None, out=None):
-        import numpy as np
         return Quantity(
             np.nansum(self.magnitude, axis, dtype, out),
             self.dimensionality
@@ -629,7 +664,7 @@ class Quantity(np.ndarray):
     def nanargmax(self,axis=None, out=None):
         return np.nanargmax(self.magnitude)
 
-    @with_doc(np.ndarray.ptp)
+    @with_doc(np.ptp)
     def ptp(self, axis=None, out=None):
         ret = np.ptp(self.magnitude, axis, None if out is None else out.magnitude)
         dim = self.dimensionality
@@ -709,7 +744,6 @@ class Quantity(np.ndarray):
 
     @with_doc(np.nanmean)
     def nanmean(self, axis=None, dtype=None, out=None):
-        import numpy as np
         return Quantity(
             np.nanmean(self.magnitude, axis, dtype, out),
             self.dimensionality)
@@ -804,10 +838,11 @@ class Quantity(np.ndarray):
                 (self.__class__, np.ndarray, (0, ), 'b', ),
                 state)
 
-    def __deepcopy__(self, memo_dict):
-        # constructor copies by default
-        return Quantity(self.magnitude, self.dimensionality)
-
+    def __deepcopy__(self, memo):
+        new_obj = super().__deepcopy__(memo).view(self.__class__)
+        new_obj.__dict__.update(self.__dict__)
+        memo[id(self)] = new_obj
+        return new_obj
 
 def _reconstruct_quantity(subtype, baseclass, baseshape, basetype,):
     """Internal function that builds a new MaskedArray from the

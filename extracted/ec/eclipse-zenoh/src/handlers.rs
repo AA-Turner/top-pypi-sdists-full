@@ -22,13 +22,19 @@ use pyo3::{
 use zenoh::handlers::{CallbackParameter, IntoHandler};
 
 use crate::{
+    cancellation::CancellationToken,
     macros::{import, py_static},
-    utils::{generic, short_type_name, IntoPyErr, IntoPyResult, IntoPython, IntoRust},
+    utils::{generic, short_type_name, IntoPyResult, IntoPython, IntoRust},
     ZError,
 };
 
 type RustCallback<T> = zenoh::handlers::Callback<T>;
 
+/// See [`Python::check_signals`] documentation.
+///
+/// Signals received by Python interpreter while executing Rust code in `allow_threads`
+/// are not handled and kept as pending. It's Rust code responsibility to regularly check
+/// them. Blocking calls like channel `recv` must then be done in a loop with small timeouts.
 const CHECK_SIGNALS_INTERVAL: Duration = Duration::from_millis(100);
 const DROP_CALLBACK_WARNING: &str = "Passing drop-callback using a tuple \
 `(callback, drop-callback)` no longer works in 1.0;\n\
@@ -185,28 +191,37 @@ impl Callback {
     }
 }
 
-pub(crate) struct PythonCallback(Callback);
+pub(crate) struct PythonCallback {
+    callback: Callback,
+    _notifier: Option<zenoh::cancellation::SyncGroupNotifier>,
+}
 
 impl PythonCallback {
-    fn new(obj: &Bound<PyAny>) -> Self {
+    fn new(obj: &Bound<PyAny>, notifier: Option<zenoh::cancellation::SyncGroupNotifier>) -> Self {
         if let Ok(cb) = obj.downcast::<Callback>().map(Bound::borrow) {
-            return Self(Callback::new(
-                cb.callback.clone_ref(obj.py()),
-                cb.drop.as_ref().map(|d| d.clone_ref(obj.py())),
-                cb.indirect,
-            ));
+            return Self {
+                callback: Callback::new(
+                    cb.callback.clone_ref(obj.py()),
+                    cb.drop.as_ref().map(|d| d.clone_ref(obj.py())),
+                    cb.indirect,
+                ),
+                _notifier: notifier,
+            };
         }
-        Self(Callback::new(obj.clone().unbind(), None, true))
+        Self {
+            callback: Callback::new(obj.clone().unbind(), None, true),
+            _notifier: notifier,
+        }
     }
 
     fn call<T: IntoPython>(&self, py: Python, t: T) {
-        log_error(py, self.0.callback.call1(py, (t.into_pyobject(py),)));
+        log_error(py, self.callback.callback.call1(py, (t.into_pyobject(py),)));
     }
 }
 
 impl Drop for PythonCallback {
     fn drop(&mut self) {
-        if let Some(drop) = &self.0.drop {
+        if let Some(drop) = &self.callback.drop {
             Python::with_gil(|gil| log_error(gil, drop.call0(gil)));
         }
     }
@@ -279,105 +294,32 @@ where
     _phantom: PhantomData<T>,
 }
 
-fn try_recv<T: IntoPython, E: IntoPyErr + Send>(
-    py: Python,
-    f: impl FnOnce() -> Result<T, E> + Send,
-) -> PyResult<PyObject> {
-    Ok(py.allow_threads(f).into_pyres()?.into_pyobject(py))
-}
+macro_rules! impl_receiver {
+    ($($channel:ident),* $(,)?) => {$(
+        impl<T: IntoPython + CallbackParameter> Receiver for RustHandler<$channel, T> {
+            fn type_name(&self) -> &'static str {
+                short_type_name::<T>()
+            }
 
-fn recv<T: IntoPython, E: IntoPyErr + Send>(
-    py: Python,
-    f: impl Fn() -> Result<T, E> + Sync,
-    is_timeout: impl Fn(&E) -> bool,
-) -> PyResult<PyObject> {
-    loop {
-        match py.allow_threads(&f) {
-            Ok(obj) => return Ok(obj.into_pyobject(py)),
-            Err(err) if is_timeout(&err) => py.check_signals()?,
-            Err(err) => return Err(err.into_pyerr()),
+            fn try_recv(&self, py: Python) -> PyResult<PyObject> {
+                Ok(self.handler.try_recv().into_pyres()?.into_pyobject(py))
+            }
+
+            fn recv(&self, py: Python) -> PyResult<PyObject> {
+                // See `CHECK_SIGNALS_INTERVAL` doc
+                let recv_timeout = || self.handler.recv_timeout(CHECK_SIGNALS_INTERVAL);
+                loop {
+                    match py.allow_threads(recv_timeout).into_pyres()?
+                    {
+                        Some(obj) => return Ok(obj.into_pyobject(py)),
+                        None => py.check_signals()?,
+                    }
+                }
+            }
         }
-    }
+    )*};
 }
-
-enum DeadlineError<E> {
-    Timeout,
-    Error(E),
-}
-impl<E: fmt::Display> fmt::Display for DeadlineError<E> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Error(err) => write!(f, "{err}"),
-            Self::Timeout => unreachable!(),
-        }
-    }
-}
-
-impl<T: IntoPython + CallbackParameter> Receiver for RustHandler<DefaultHandler, T> {
-    fn type_name(&self) -> &'static str {
-        short_type_name::<T>()
-    }
-
-    fn try_recv(&self, py: Python) -> PyResult<PyObject> {
-        try_recv(py, || PyResult::Ok(self.handler.try_recv().ok()))
-    }
-
-    fn recv(&self, py: Python) -> PyResult<PyObject> {
-        recv(
-            py,
-            || match self.handler.recv_timeout(CHECK_SIGNALS_INTERVAL) {
-                Ok(Some(x)) => Ok(x),
-                Ok(None) => Err(DeadlineError::Timeout),
-                Err(err) => Err(DeadlineError::Error(err)),
-            },
-            |err| matches!(err, DeadlineError::Timeout),
-        )
-    }
-}
-
-impl<T: IntoPython + CallbackParameter> Receiver for RustHandler<FifoChannel, T> {
-    fn type_name(&self) -> &'static str {
-        short_type_name::<T>()
-    }
-
-    fn try_recv(&self, py: Python) -> PyResult<PyObject> {
-        try_recv(py, || PyResult::Ok(self.handler.try_recv().ok()))
-    }
-
-    fn recv(&self, py: Python) -> PyResult<PyObject> {
-        recv(
-            py,
-            || match self.handler.recv_timeout(CHECK_SIGNALS_INTERVAL) {
-                Ok(Some(x)) => Ok(x),
-                Ok(None) => Err(DeadlineError::Timeout),
-                Err(err) => Err(DeadlineError::Error(err)),
-            },
-            |err| matches!(err, DeadlineError::Timeout),
-        )
-    }
-}
-
-impl<T: IntoPython + CallbackParameter> Receiver for RustHandler<RingChannel, T> {
-    fn type_name(&self) -> &'static str {
-        short_type_name::<T>()
-    }
-
-    fn try_recv(&self, py: Python) -> PyResult<PyObject> {
-        try_recv(py, || self.handler.try_recv())
-    }
-
-    fn recv(&self, py: Python) -> PyResult<PyObject> {
-        recv(
-            py,
-            || match self.handler.recv_timeout(CHECK_SIGNALS_INTERVAL) {
-                Ok(Some(x)) => Ok(x),
-                Ok(None) => Err(DeadlineError::Timeout),
-                Err(err) => Err(DeadlineError::Error(err)),
-            },
-            |err| matches!(err, DeadlineError::Timeout),
-        )
-    }
-}
+impl_receiver!(DefaultHandler, FifoChannel, RingChannel);
 
 fn rust_handler<H: IntoRust, T: IntoPython + CallbackParameter>(
     py: Python,
@@ -399,10 +341,13 @@ where
 
 fn python_callback<T: IntoPython + CallbackParameter>(
     callback: &Bound<PyAny>,
+    cancellation_token: Option<&CancellationToken>,
 ) -> PyResult<RustCallback<T>> {
     let py = callback.py();
-    let callback = PythonCallback::new(callback);
-    Ok(if callback.0.indirect {
+    let notifier = cancellation_token.and_then(|ct| ct.0.notifier());
+    let is_cancelled = cancellation_token.is_some() && notifier.is_none();
+    let callback = PythonCallback::new(callback, notifier);
+    Ok(if callback.callback.indirect && !is_cancelled {
         let (rust_callback, receiver) = DefaultHandler.into_rust().into_handler();
         let kwargs = PyDict::new(py);
         let target = PyCFunction::new_closure(py, None, None, move |args, _| {
@@ -426,6 +371,7 @@ fn python_callback<T: IntoPython + CallbackParameter>(
 pub(crate) fn into_handler<T: IntoPython + CallbackParameter>(
     py: Python,
     obj: Option<&Bound<PyAny>>,
+    cancellation_token: Option<&CancellationToken>,
 ) -> PyResult<(impl IntoHandler<T, Handler = HandlerImpl<T::Into>>, bool)> {
     let mut background = false;
     let Some(obj) = obj else {
@@ -439,7 +385,10 @@ pub(crate) fn into_handler<T: IntoPython + CallbackParameter>(
         rust_handler(py, handler)
     } else if obj.is_callable() {
         background = true;
-        (python_callback(obj)?, HandlerImpl::Python(py.None()))
+        (
+            python_callback(obj, cancellation_token)?,
+            HandlerImpl::Python(py.None()),
+        )
     } else if let Some((cb, handler)) = obj
         .extract::<(Bound<PyAny>, PyObject)>()
         .ok()
@@ -448,7 +397,10 @@ pub(crate) fn into_handler<T: IntoPython + CallbackParameter>(
         if handler.bind(py).is_callable() {
             import!(py, warnings.warn).call1((DROP_CALLBACK_WARNING,))?;
         }
-        (python_callback(&cb)?, HandlerImpl::Python(handler))
+        (
+            python_callback(&cb, cancellation_token)?,
+            HandlerImpl::Python(handler),
+        )
     } else {
         return Err(PyValueError::new_err(format!(
             "Invalid handler type {}",

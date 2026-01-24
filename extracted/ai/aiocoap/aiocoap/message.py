@@ -4,17 +4,20 @@
 
 from __future__ import annotations
 
+import enum
 import ipaddress
 import urllib.parse
 import struct
 import copy
 import string
 from collections import namedtuple
+from warnings import warn
 
 from . import error, optiontypes
 from .numbers.codes import Code, CHANGED
 from .numbers.types import Type
 from .numbers.constants import TransportTuning, MAX_REGULAR_BLOCK_SIZE_EXP
+from .numbers import uri_path_abbrev
 from .options import Options
 from .util import hostportjoin, hostportsplit, Sentinel, quote_nonascii
 from .util.uri import quote_factory, unreserved, sub_delims
@@ -22,7 +25,7 @@ from . import interfaces
 
 __all__ = ["Message", "NoResponse"]
 
-# FIXME there should be a proper inteface for this that does all the urllib
+# FIXME there should be a proper interface for this that does all the urllib
 # patching possibly required and works with pluggable transports. urls qualify
 # if they can be parsed into the Proxy-Scheme / Uri-* structure.
 coap_schemes = ["coap", "coaps", "coap+tcp", "coaps+tcp", "coap+ws", "coaps+ws"]
@@ -33,7 +36,7 @@ urllib.parse.uses_relative.extend(coap_schemes)
 urllib.parse.uses_netloc.extend(coap_schemes)
 
 
-class Message(object):
+class Message:
     """CoAP Message with some handling metadata
 
     This object's attributes provide access to the fields in a CoAP message and
@@ -61,6 +64,11 @@ class Message(object):
       ``unresolved_remote``, or by the stack by echoing the incoming
       request's. Follows the :class:`.interfaces.EndpointAddress` interface.
       Non-roundtrippable.
+    * :attr:`direction`: A :cls:`.Direction` that distinguishes parsed from
+       to-be-serialized messages, and thus sets the meaning of the remote on
+       whether it is "from" there (incoming) or "to" there (outgoing).
+       Managed by the parsers (everything that is not a parsing result defaults
+       to being outgoing), and thus non-roundtrippable.
 
       While a message has not been transmitted, the property is managed by the
       :class:`.Message` itself using the :meth:`.set_request_uri()` or the
@@ -135,6 +143,8 @@ class Message(object):
         * Some options or even the payload may differ if a proxy was involved.
     """
 
+    request: Message | None = None
+
     def __init__(
         self,
         *,
@@ -145,25 +155,56 @@ class Message(object):
         token=b"",
         uri=None,
         transport_tuning=None,
+        _mid=None,
+        _mtype=None,
+        _token=b"",
         **kwargs,
     ):
         self.version = 1
-        if mtype is None:
+
+        # Moving those to underscore arguments: They're widespread in internal
+        # code, but no application has any business tampering with them.
+        #
+        # We trust that internal code doesn't try to set both.
+        if mid is not None:
+            warn(
+                "Initializing messages with an MID is deprecated. (No replacement: This needs to be managed by the library.)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            _mid = mid
+        if mtype is not None:
+            warn(
+                "Initializing messages with an mtype is deprecated. Instead, set transport_tuning=aiocoap.Reliable or aiocoap.Unreliable.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            _mtype = mtype
+        if token != b"":
+            warn(
+                "Initializing messages with a token is deprecated. (No replacement: This needs to be managed by the library.)",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            _token = token
+
+        if _mtype is None:
             # leave it unspecified for convenience, sending functions will know what to do
             self.mtype = None
         else:
-            self.mtype = Type(mtype)
-        self.mid = mid
+            self.mtype = Type(_mtype)
+        self.mid = _mid
         if code is None:
             # as above with mtype
             self.code = None
         else:
             self.code = Code(code)
-        self.token = token
+        self.token = _token
         self.payload = payload
         self.opt = Options()
 
         self.remote = None
+        self.direction: Direction = Direction.OUTGOING
 
         self.transport_tuning = transport_tuning or TransportTuning()
 
@@ -177,17 +218,27 @@ class Message(object):
         for k, v in kwargs.items():
             setattr(self.opt, k, v)
 
+    def __fromto(self) -> str:
+        """Text 'from (remote)', 'to (remote)', 'incoming' or 'outgoing'
+        depending on direction and presence of a remote"""
+        if self.remote:
+            return (
+                f"from {self.remote}"
+                if self.direction is Direction.INCOMING
+                else f"to {self.remote}"
+            )
+        else:
+            return "incoming" if self.direction is Direction.INCOMING else "outgoing"
+
     def __repr__(self):
-        return "<aiocoap.Message at %#x: %s %s (%s, %s) remote %s%s%s>" % (
-            id(self),
-            self.mtype if self.mtype is not None else "no mtype,",
-            self.code,
-            "MID %s" % self.mid if self.mid is not None else "no MID",
-            "token %s" % self.token.hex() if self.token else "empty token",
-            self.remote,
-            ", %s option(s)" % len(self.opt._options) if self.opt._options else "",
-            ", %s byte(s) payload" % len(self.payload) if self.payload else "",
-        )
+        options = f", {len(self.opt._options)} option(s)" if self.opt._options else ""
+        payload = f", {len(self.payload)} byte(s) payload" if self.payload else ""
+
+        token = f"token {self.token.hex()}" if self.token else "empty token"
+        mtype = f", {self.mtype}" if self.mtype is not None else ""
+        mid = f", MID {self.mid:#04x}" if self.mid is not None else ""
+
+        return f"<aiocoap.Message: {self.code} {self.__fromto()}{options}{payload}, {token}{mtype}{mid}>"
 
     def _repr_html_(self):
         """An HTML representation for Jupyter and similar environments
@@ -205,7 +256,7 @@ class Message(object):
         """
         import html
 
-        return f"""<details style="padding-left:1em"><summary style="margin-left:-1em;display:list-item;">Message with code {self.code._repr_html_() if self.code is not None else "None"}, remote {html.escape(str(self.remote))}</summary>
+        return f"""<details style="padding-left:1em"><summary style="margin-left:-1em;display:list-item;">Message with code {self.code._repr_html_() if self.code is not None else "None"}, {html.escape(str(self.__fromto()))}</summary>
                 {self.opt._repr_html_()}{self.payload_html()}"""
 
     def payload_html(self):
@@ -256,16 +307,17 @@ class Message(object):
         # necessarily hard immutable. Let's see where this goes.
 
         new = type(self)(
-            mtype=kwargs.pop("mtype", self.mtype),
-            mid=kwargs.pop("mid", self.mid),
             code=kwargs.pop("code", self.code),
             payload=kwargs.pop("payload", self.payload),
-            token=kwargs.pop("token", self.token),
             # Assuming these are not readily mutated, but rather passed
             # around in a class-like fashion
             transport_tuning=kwargs.pop("transport_tuning", self.transport_tuning),
         )
+        new.mtype = Type(kwargs.pop("mtype")) if "mtype" in kwargs else self.mtype
+        new.mid = kwargs.pop("mid", self.mid)
+        new.token = kwargs.pop("token", self.token)
         new.remote = kwargs.pop("remote", self.remote)
+        new.direction = self.direction
         new.opt = copy.deepcopy(self.opt)
 
         if "uri" in kwargs:
@@ -288,14 +340,20 @@ class Message(object):
             raise error.UnparsableMessage("Fatal Error: Protocol Version must be 1")
         mtype = (vttkl & 0x30) >> 4
         token_length = vttkl & 0x0F
-        msg = Message(mtype=mtype, mid=mid, code=code)
+        msg = Message(code=code)
+        msg.mid = mid
+        msg.mtype = Type(mtype)
         msg.token = rawdata[4 : 4 + token_length]
         msg.payload = msg.opt.decode(rawdata[4 + token_length :])
         msg.remote = remote
+        msg.direction = Direction.INCOMING
         return msg
 
     def encode(self):
         """Create binary representation of message from Message object."""
+
+        assert self.direction == Direction.OUTGOING
+
         if self.code is None or self.mtype is None or self.mid is None:
             raise TypeError(
                 "Fatal Error: Code, Message Type and Message ID must not be None."
@@ -486,7 +544,7 @@ class Message(object):
     # the message in the context of network and addresses
     #
 
-    def get_request_uri(self, *, local_is_server=False):
+    def get_request_uri(self, *, local_is_server=None):
         """The absolute URI this message belongs to.
 
         For requests, this is composed from the options (falling back to the
@@ -519,6 +577,22 @@ class Message(object):
             # any more. In that case, this is stored.
             return self._original_request_uri
 
+        inferred_local_is_server = (
+            self.direction is Direction.INCOMING
+        ) ^ self.code.is_response()
+
+        if local_is_server is not None:
+            warn(
+                "Argument local_is_server is not needed any more and is deprecated",
+                PendingDeprecationWarning,
+                stacklevel=2,
+            )
+            assert local_is_server == inferred_local_is_server, (
+                "local_is_server value mismatches message direction"
+            )
+        else:
+            local_is_server = inferred_local_is_server
+
         if self.code.is_response():
             refmsg = self.request
 
@@ -539,7 +613,19 @@ class Message(object):
 
         scheme = refmsg.opt.proxy_scheme or refmsg.remote.scheme
         query = refmsg.opt.uri_query or ()
-        path = refmsg.opt.uri_path
+        if refmsg.opt.uri_path_abbrev is not None:
+            if refmsg.opt.uri_path:
+                raise ValueError(
+                    "Conflicting information about the path (Uri-Path and Uri-Path-Abbrev)"
+                )
+            try:
+                path = uri_path_abbrev._map[refmsg.opt.uri_path_abbrev]
+            except KeyError:
+                raise ValueError(
+                    f"Path could not be determined: Unknown Uri-Path-Abbrev value {refmsg.opt.uri_path!r}"
+                ) from None
+        else:
+            path = refmsg.opt.uri_path
 
         if multicast_netloc_override is not None:
             netloc = multicast_netloc_override
@@ -723,18 +809,25 @@ class UndecidedRemote(
     * :attr:`hostinfo`: The authority component of the URI, as it would occur
       in the URI.
 
+    Both in the constructor and in the repr, it also supports a single-value
+    form of a URI Origin.
+
     In order to produce URIs identical to those received in responses, and
     because the underlying types should really be binary anyway, IP addresses
     in the hostinfo are normalized:
 
     >>> UndecidedRemote("coap+tcp", "[::0001]:1234")
-    UndecidedRemote(scheme='coap+tcp', hostinfo='[::1]:1234')
+    UndecidedRemote('coap+tcp://[::1]:1234')
+    >>> tuple(UndecidedRemote("coap", "localhost"))
+    ('coap', 'localhost')
     """
 
     # This is settable per instance, for other transports to pick it up.
     maximum_block_size_exp = MAX_REGULAR_BLOCK_SIZE_EXP
 
-    def __new__(cls, scheme, hostinfo):
+    def __new__(cls, scheme: str, hostinfo: str | None):
+        if hostinfo is None:
+            return cls.from_pathless_uri(scheme)
         if "[" in hostinfo:
             (host, port) = hostportsplit(hostinfo)
             ip = ipaddress.ip_address(host)
@@ -750,7 +843,7 @@ class UndecidedRemote(
 
         >>> from aiocoap.message import UndecidedRemote
         >>> UndecidedRemote.from_pathless_uri("coap://localhost")
-        UndecidedRemote(scheme='coap', hostinfo='localhost')
+        UndecidedRemote('coap://localhost')
         """
 
         parsed = urllib.parse.urlparse(uri)
@@ -765,6 +858,9 @@ class UndecidedRemote(
 
         return cls(parsed.scheme, parsed.netloc)
 
+    def __repr__(self):
+        return f"UndecidedRemote({f'{self.scheme}://{self.hostinfo}'!r})"
+
 
 _ascii_lowercase = str.maketrans(string.ascii_uppercase, string.ascii_lowercase)
 
@@ -773,12 +869,18 @@ _quote_for_query = quote_factory(
     unreserved + "".join(c for c in sub_delims if c != "&") + ":@/?"
 )
 
+
+class Direction(enum.Enum):
+    INCOMING = enum.auto()
+    OUTGOING = enum.auto()
+
+
 #: Result that can be returned from a render method instead of a Message when
 #: due to defaults (eg. multicast link-format queries) or explicit
 #: configuration (eg. the No-Response option), no response should be sent at
 #: all. Note that per RFC7967 section 2, an ACK is still sent to a CON
 #: request.
 #:
-#: Depercated; set the no_response option on a regular response instead (see
+#: Deprecated; set the no_response option on a regular response instead (see
 #: :meth:`.interfaces.Resource.render` for details).
 NoResponse = Sentinel("NoResponse")

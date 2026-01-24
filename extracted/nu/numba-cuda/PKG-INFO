@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: numba-cuda
-Version: 0.19.1
+Version: 0.24.0
 Summary: CUDA target for Numba
 Author: Anaconda Inc., NVIDIA Corporation
 License-Expression: BSD-2-Clause
@@ -14,39 +14,17 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: LICENSE.numba
 Requires-Dist: numba>=0.60.0
+Requires-Dist: cuda-bindings<14.0.0,>=12.9.1
+Requires-Dist: cuda-core<1.0.0,>=0.3.2
+Requires-Dist: packaging
 Provides-Extra: cu12
 Requires-Dist: cuda-bindings<13.0.0,>=12.9.1; extra == "cu12"
-Requires-Dist: cuda-core==0.3.*; extra == "cu12"
-Requires-Dist: cuda-python==12.9.*; extra == "cu12"
-Requires-Dist: nvidia-cuda-nvcc-cu12; extra == "cu12"
-Requires-Dist: nvidia-cuda-runtime-cu12; extra == "cu12"
-Requires-Dist: nvidia-cuda-nvrtc-cu12; extra == "cu12"
-Requires-Dist: nvidia-nvjitlink-cu12; extra == "cu12"
-Requires-Dist: nvidia-cuda-cccl-cu12; extra == "cu12"
+Requires-Dist: cuda-core<1.0.0,>=0.3.0; extra == "cu12"
+Requires-Dist: cuda-toolkit[cccl,cudart,nvcc,nvjitlink,nvrtc]==12.*; extra == "cu12"
 Provides-Extra: cu13
 Requires-Dist: cuda-bindings==13.*; extra == "cu13"
-Requires-Dist: cuda-core<0.4.0dev0,==0.3.2; extra == "cu13"
-Requires-Dist: cuda-python==13.*; extra == "cu13"
-Requires-Dist: nvidia-nvvm==13.*; extra == "cu13"
-Requires-Dist: nvidia-cuda-runtime==13.*; extra == "cu13"
-Requires-Dist: nvidia-cuda-nvrtc==13.*; extra == "cu13"
-Requires-Dist: nvidia-nvjitlink==13.*; extra == "cu13"
-Requires-Dist: nvidia-cuda-cccl==13.*; extra == "cu13"
-Provides-Extra: test
-Requires-Dist: pre-commit; extra == "test"
-Requires-Dist: psutil; extra == "test"
-Requires-Dist: cffi; extra == "test"
-Requires-Dist: pytest; extra == "test"
-Requires-Dist: pytest-xdist; extra == "test"
-Requires-Dist: filecheck; extra == "test"
-Provides-Extra: test-cu12
-Requires-Dist: numba-cuda[cu12]; extra == "test-cu12"
-Requires-Dist: numba-cuda[test]; extra == "test-cu12"
-Requires-Dist: nvidia-curand-cu12; extra == "test-cu12"
-Provides-Extra: test-cu13
-Requires-Dist: numba-cuda[cu13]; extra == "test-cu13"
-Requires-Dist: numba-cuda[test]; extra == "test-cu13"
-Requires-Dist: nvidia-curand==10.4.*; extra == "test-cu13"
+Requires-Dist: cuda-core<1.0.0,>=0.3.2; extra == "cu13"
+Requires-Dist: cuda-toolkit[cccl,cudart,nvjitlink,nvrtc,nvvm]==13.*; extra == "cu13"
 Dynamic: license-file
 
 <div align="center"><img src="docs/source/_static/numba-green-icon-rgb.svg" width="200"/></div>
@@ -80,8 +58,25 @@ If you want to manage all run-time dependencies yourself, also pass the `--no-de
 
 ## Running tests
 
+Tests must be run from the `testing` folder, which contains the pytest
+configuration and code to generate binaries used during the tests. The test
+binaries need to be built on the system on which the tests are run, so that
+they are compiled for the appropriate compute capability.
+
 ```
-pytest -n auto --pyargs numba.cuda.tests -v
+cd testing
+# Optionally, build test binaries and point to their location for the test suite
+make -j $(nproc)
+export NUMBA_CUDA_TEST_BIN_DIR=`pwd`
+# Execute tests
+pytest -n auto -v --dist loadscope
+```
+
+Alternatively, you can use [pixi](https://pixi.sh/latest/installation/) to wrap all of that up for you:
+
+```
+# run tests against CUDA 13
+pixi run -e cu13 test -n auto -v --dist loadscope
 ```
 
 

@@ -230,9 +230,10 @@ class ZonesRestTransport(_BaseZonesRestTransport):
                  are specified, the client will attempt to ascertain the
                  credentials from the environment.
 
-             credentials_file (Optional[str]): A file with credentials that can
+             credentials_file (Optional[str]): Deprecated. A file with credentials that can
                  be loaded with :func:`google.auth.load_credentials_from_file`.
-                 This argument is ignored if ``channel`` is provided.
+                 This argument is ignored if ``channel`` is provided. This argument will be
+                 removed in the next major version of this library.
              scopes (Optional(Sequence[str])): A list of scopes. This argument is
                  ignored if ``channel`` is provided.
              client_cert_source_for_mtls (Callable[[], Tuple[bytes, bytes]]): Client
@@ -321,12 +322,13 @@ class ZonesRestTransport(_BaseZonesRestTransport):
 
             Returns:
                 ~.compute.Zone:
-                    Represents a Zone resource. A zone is
-                a deployment area. These deployment
-                areas are subsets of a region. For
-                example the zone us-east1-b is located
-                in the us-east1 region. For more
-                information, read Regions and Zones.
+                    Represents a Zone resource.
+
+                A zone is a deployment area. These
+                deployment areas are subsets of a
+                region. For example the zone us-east1-b
+                is located in theus-east1 region. For
+                more information, readRegions and Zones.
 
             """
 

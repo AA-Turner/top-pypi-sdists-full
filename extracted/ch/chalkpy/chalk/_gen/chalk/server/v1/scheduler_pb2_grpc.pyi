@@ -8,6 +8,12 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.scheduler_pb2 import (
+    CancelScheduledResolverRunRequest,
+    CancelScheduledResolverRunResponse,
+    GetScheduledResolverRunRequest,
+    GetScheduledResolverRunResponse,
+    ListScheduledResolverRunsRequest,
+    ListScheduledResolverRunsResponse,
     ManualTriggerCronResolverRequest,
     ManualTriggerCronResolverResponse,
     ManualTriggerScheduledQueryRequest,
@@ -30,6 +36,18 @@ class SchedulerServiceStub:
         ManualTriggerScheduledQueryRequest,
         ManualTriggerScheduledQueryResponse,
     ]
+    GetScheduledResolverRun: UnaryUnaryMultiCallable[
+        GetScheduledResolverRunRequest,
+        GetScheduledResolverRunResponse,
+    ]
+    ListScheduledResolverRuns: UnaryUnaryMultiCallable[
+        ListScheduledResolverRunsRequest,
+        ListScheduledResolverRunsResponse,
+    ]
+    CancelScheduledResolverRun: UnaryUnaryMultiCallable[
+        CancelScheduledResolverRunRequest,
+        CancelScheduledResolverRunResponse,
+    ]
 
 class SchedulerServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -44,5 +62,23 @@ class SchedulerServiceServicer(metaclass=ABCMeta):
         request: ManualTriggerScheduledQueryRequest,
         context: ServicerContext,
     ) -> ManualTriggerScheduledQueryResponse: ...
+    @abstractmethod
+    def GetScheduledResolverRun(
+        self,
+        request: GetScheduledResolverRunRequest,
+        context: ServicerContext,
+    ) -> GetScheduledResolverRunResponse: ...
+    @abstractmethod
+    def ListScheduledResolverRuns(
+        self,
+        request: ListScheduledResolverRunsRequest,
+        context: ServicerContext,
+    ) -> ListScheduledResolverRunsResponse: ...
+    @abstractmethod
+    def CancelScheduledResolverRun(
+        self,
+        request: CancelScheduledResolverRunRequest,
+        context: ServicerContext,
+    ) -> CancelScheduledResolverRunResponse: ...
 
 def add_SchedulerServiceServicer_to_server(servicer: SchedulerServiceServicer, server: Server) -> None: ...

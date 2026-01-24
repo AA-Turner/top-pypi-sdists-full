@@ -4,12 +4,20 @@ use itertools::Itertools;
 use tombi_ast::AstNode;
 use unicode_segmentation::UnicodeSegmentation;
 
-use crate::Format;
+use crate::{Format, format::write_trailing_comment_alignment_space, types::WithAlignmentHint};
 
 impl Format for tombi_ast::Array {
+    #[inline]
+    fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
+        WithAlignmentHint::new(self).format(f)
+    }
+}
+
+impl Format for WithAlignmentHint<'_, tombi_ast::Array> {
     fn format(&self, f: &mut crate::Formatter) -> Result<(), std::fmt::Error> {
         if !f.single_line_mode()
-            && (self.should_be_multiline(f.toml_version()) || exceeds_line_width(self, f)?)
+            && (self.value.should_be_multiline(f.toml_version())
+                || exceeds_line_width(self.value, f)?)
         {
             format_multiline_array(self, f)
         } else {
@@ -24,7 +32,7 @@ pub(crate) fn exceeds_line_width(
 ) -> Result<bool, std::fmt::Error> {
     let mut length = f.current_line_width();
     length += 2; // '[' and ']'
-    length += f.singleline_array_bracket_inner_space().len() * 2; // Space after '[' and before ']'
+    length += f.array_bracket_space().len() * 2; // Space after '[' and before ']'
     let mut first = true;
 
     for value in node.values() {
@@ -47,7 +55,7 @@ pub(crate) fn exceeds_line_width(
         // Calculate total length
         if !first {
             length += 1; // ","
-            length += f.singleline_array_space_after_comma().len();
+            length += f.array_comma_space().len();
         }
         length += f.format_to_string(&value)?.graphemes(true).count();
         first = false;
@@ -65,7 +73,11 @@ pub(crate) fn exceeds_line_width(
 }
 
 fn format_multiline_array(
-    array: &tombi_ast::Array,
+    WithAlignmentHint {
+        value: array,
+        trailing_comment_alignment_width,
+        ..
+    }: &WithAlignmentHint<'_, tombi_ast::Array>,
     f: &mut crate::Formatter,
 ) -> Result<(), std::fmt::Error> {
     array.leading_comments().collect_vec().format(f)?;
@@ -82,13 +94,20 @@ fn format_multiline_array(
     } else {
         array.inner_begin_dangling_comments().format(f)?;
 
+        let has_last_value_trailing_comma = array.has_last_value_trailing_comma();
+        let values_len = values_with_comma.len();
+
         for (i, (value, comma)) in values_with_comma.into_iter().enumerate() {
             // value format
             {
                 if i > 0 {
                     write!(f, "{}", f.line_ending())?;
                 }
-                value.format(f)?;
+                WithAlignmentHint::new_with_trailing_comment_alignment_width(
+                    &value,
+                    *trailing_comment_alignment_width,
+                )
+                .format(f)?;
             }
 
             // comma format
@@ -110,11 +129,18 @@ fn format_multiline_array(
                     write!(f, "{}", f.line_ending())?;
                     f.write_indent()?;
                     write!(f, ",")?;
-                } else {
+                } else if has_last_value_trailing_comma || i + 1 != values_len {
                     write!(f, ",")?;
                 }
 
                 if let Some(comment) = comma_trailing_comment {
+                    if let Some(trailing_comment_alignment_width) = trailing_comment_alignment_width
+                    {
+                        write_trailing_comment_alignment_space(
+                            f,
+                            *trailing_comment_alignment_width,
+                        )?;
+                    }
                     comment.format(f)?;
                 }
             }
@@ -130,6 +156,9 @@ fn format_multiline_array(
     write!(f, "]")?;
 
     if let Some(comment) = array.trailing_comment() {
+        if let Some(trailing_comment_alignment_width) = trailing_comment_alignment_width {
+            write_trailing_comment_alignment_space(f, *trailing_comment_alignment_width)?;
+        }
         comment.format(f)?;
     }
 
@@ -137,25 +166,36 @@ fn format_multiline_array(
 }
 
 fn format_singleline_array(
-    array: &tombi_ast::Array,
+    WithAlignmentHint {
+        value: array,
+        trailing_comment_alignment_width,
+        ..
+    }: &WithAlignmentHint<'_, tombi_ast::Array>,
     f: &mut crate::Formatter,
 ) -> Result<(), std::fmt::Error> {
     array.leading_comments().collect_vec().format(f)?;
 
     f.write_indent()?;
-    write!(f, "[{}", f.singleline_array_bracket_inner_space())?;
+    write!(f, "[{}", f.array_bracket_space())?;
 
     for (i, value) in array.values().enumerate() {
         if i > 0 {
-            write!(f, ",{}", f.singleline_array_space_after_comma())?;
+            write!(f, ",{}", f.array_comma_space())?;
         }
         f.skip_indent();
-        value.format(f)?;
+        WithAlignmentHint::new_with_trailing_comment_alignment_width(
+            &value,
+            *trailing_comment_alignment_width,
+        )
+        .format(f)?;
     }
 
-    write!(f, "{}]", f.singleline_array_bracket_inner_space())?;
+    write!(f, "{}]", f.array_bracket_space())?;
 
     if let Some(comment) = array.trailing_comment() {
+        if let Some(trailing_comment_alignment_width) = trailing_comment_alignment_width {
+            write_trailing_comment_alignment_space(f, *trailing_comment_alignment_width)?;
+        }
         comment.format(f)?;
     }
 
@@ -165,68 +205,69 @@ fn format_singleline_array(
 #[cfg(test)]
 mod tests {
     use rstest::rstest;
-    use tombi_config::{QuoteStyle, TomlVersion};
+    use tombi_config::{StringQuoteStyle, TomlVersion, format::FormatRules};
 
     use super::*;
-    use crate::{formatter::definitions::FormatDefinitions, test_format};
+    use crate::{Formatter, test_format};
 
     test_format! {
-        #[test]
-        fn singleline_array1(
+        #[tokio::test]
+        async fn singleline_array1(
             "array=[1,2,3]"
-        ) -> Ok("array = [1, 2, 3]");
+        ) -> Ok("array = [1, 2, 3]")
     }
 
     test_format! {
-        #[test]
-        fn singleline_array2(
+        #[tokio::test]
+        async fn singleline_array2(
             "array=[ 1 ]"
-        ) -> Ok("array = [1]");
+        ) -> Ok("array = [1]")
     }
 
     test_format! {
-        #[test]
-        fn singleline_array3(
+        #[tokio::test]
+        async fn singleline_array3(
             "array=[ 1, 2, 3 ]"
-        ) -> Ok("array = [1, 2, 3]");
+        ) -> Ok("array = [1, 2, 3]")
     }
 
     test_format! {
-        #[test]
-        fn singleline_array4(
+        #[tokio::test]
+        async fn singleline_array4(
             r#"colors = [ "red", "yellow", "green" ]"#
-        ) -> Ok(r#"colors = ["red", "yellow", "green"]"#);
+        ) -> Ok(r#"colors = ["red", "yellow", "green"]"#)
     }
 
     test_format! {
-        #[test]
-        fn singleline_array5(
+        #[tokio::test]
+        async fn singleline_array5(
             "nested_arrays_of_ints = [ [ 1, 2 ], [ 3, 4, 5 ] ]"
-        ) -> Ok("nested_arrays_of_ints = [[1, 2], [3, 4, 5]]");
+        ) -> Ok("nested_arrays_of_ints = [[1, 2], [3, 4, 5]]")
     }
 
     test_format! {
-        #[test]
-        fn singleline_array6(
+        #[tokio::test]
+        async fn singleline_array6(
             r#"nested_mixed_array = [ [ 1, 2 ], [ "a", "b", "c" ] ]"#
-        ) -> Ok(r#"nested_mixed_array = [[1, 2], ["a", "b", "c"]]"#);
+        ) -> Ok(r#"nested_mixed_array = [[1, 2], ["a", "b", "c"]]"#)
     }
 
     test_format! {
-        #[test]
-        fn singleline_array7(
+        #[tokio::test]
+        async fn singleline_array7(
             r#"string_array = [ "all", 'strings', """are the same""", '''type''' ]"#,
-            TomlVersion::default(),
-            &FormatDefinitions {
-                quote_style: Some(QuoteStyle::Preserve),
-                ..Default::default()
+            FormatOptions{
+                rules: Some(FormatRules {
+                    string_quote_style: Some(StringQuoteStyle::Preserve),
+                    ..Default::default()
+                }),
             }
-        ) -> Ok(r#"string_array = ["all", 'strings', """are the same""", '''type''']"#);
+        ) -> Ok(r#"string_array = ["all", 'strings', """are the same""", '''type''']"#)
     }
 
     test_format! {
-        #[test]
-        fn multiline_array1(
+        #[tokio::test]
+        async fn multiline_array1(
             "array = [1, 2, 3,]"
         ) -> Ok(
             r#"
@@ -236,12 +277,12 @@ mod tests {
               3,
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn multiline_array2(
+        #[tokio::test]
+        async fn multiline_array2(
             "array = [1, ]"
         ) -> Ok(
             r#"
@@ -249,12 +290,12 @@ mod tests {
               1,
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn multiline_array3(
+        #[tokio::test]
+        async fn multiline_array3(
             r#"
             array = [
               1  # comment
@@ -266,12 +307,12 @@ mod tests {
               1,  # comment
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn multiline_array4(
+        #[tokio::test]
+        async fn multiline_array4(
             r#"
             array = [
               1,  # comment
@@ -283,12 +324,12 @@ mod tests {
               1,  # comment
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn multiline_array5(
+        #[tokio::test]
+        async fn multiline_array5(
             r#"
             array = [
               1  # comment
@@ -301,12 +342,12 @@ mod tests {
               1,  # comment
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn multiline_array_with_full_comment(
+        #[tokio::test]
+        async fn multiline_array_with_full_comment(
             r#"
             # array leading comment1
             # array leading comment2
@@ -363,13 +404,36 @@ mod tests {
               # array end dangling comment group 2-1
             ]  # array trailing comment
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn nested_multiline_array(
+        #[tokio::test]
+        async fn nested_multiline_array(
             "array = [ [1,2,3,], [4,5,6], [7,8,9,] ]"
+        ) -> Ok(
+            r#"
+            array = [
+              [
+                1,
+                2,
+                3,
+              ],
+              [4, 5, 6],
+              [
+                7,
+                8,
+                9,
+              ]
+            ]
+            "#
+        )
+    }
+
+    test_format! {
+        #[tokio::test]
+        async fn nested_multiline_array_with_trailing_comma(
+            "array = [ [1,2,3,], [4,5,6], [7,8,9,], ]"
         ) -> Ok(
             r#"
             array = [
@@ -386,22 +450,22 @@ mod tests {
               ],
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn array_only_inner_comment_only1(
+        #[tokio::test]
+        async fn array_only_inner_comment_only1(
             r#"
             array = [
               # comment
             ]"#
-        ) -> Ok(source);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn array_only_inner_comment_only2(
+        #[tokio::test]
+        async fn array_only_inner_comment_only2(
             r#"
             array = [
               # comment 1-1
@@ -413,85 +477,89 @@ mod tests {
 
               # comment 3-1
             ]"#
-        ) -> Ok(source);
-    }
-
-    #[rstest]
-    #[case("[1, 2, 3,]", true)]
-    #[case("[1, 2, 3]", false)]
-    fn has_trailing_comma_after_last_value(#[case] source: &str, #[case] expected: bool) {
-        let p = tombi_parser::parse_as::<tombi_ast::Array>(source, TomlVersion::default());
-        pretty_assertions::assert_eq!(p.errors, Vec::<tombi_parser::Error>::new());
-
-        let ast = tombi_ast::Array::cast(p.syntax_node()).unwrap();
-        pretty_assertions::assert_eq!(ast.has_trailing_comma_after_last_value(), expected);
+        ) -> Ok(source)
     }
 
     test_format! {
-        #[test]
-        fn array_exceeds_line_width(
+        #[tokio::test]
+        async fn array_exceeds_line_width(
             r#"array = [1111111111, 2222222222, 3333333333]"#,
-            Default::default(),
-            &FormatDefinitions {
-                line_width: Some(20.try_into().unwrap()),
-                ..Default::default()
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(20.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
         ) -> Ok(
             r#"
             array = [
               1111111111,
               2222222222,
-              3333333333,
+              3333333333
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn array_with_nested_array_exceeds_line_width(
+        #[tokio::test]
+        async fn array_with_nested_array_exceeds_line_width(
             r#"array = [[1111111111, 2222222222], [3333333333, 4444444444]]"#,
-            Default::default(),
-            &FormatDefinitions {
-                line_width: Some(30.try_into().unwrap()),
-                ..Default::default()
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(30.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
         ) -> Ok(
             r#"
             array = [
               [1111111111, 2222222222],
-              [3333333333, 4444444444],
+              [3333333333, 4444444444]
             ]
             "#
-        );
+        )
     }
 
     test_format! {
-        #[test]
-        fn array_with_nested_inline_table_exceeds_line_width(
+        #[tokio::test]
+        async fn array_with_nested_inline_table_exceeds_line_width(
             r#"array = [{ key1 = 1111111111, key2 = 2222222222 }, { key3 = [3333333333, 4444444444], key4 = [5555555555, 6666666666, 7777777777] }]"#,
-            TomlVersion::V1_1_0_Preview,
-            &FormatDefinitions {
-                line_width: Some(35.try_into().unwrap()),
-                ..Default::default()
+            TomlVersion::V1_1_0,
+            FormatOptions {
+                rules: Some(FormatRules {
+                    line_width: Some(35.try_into().unwrap()),
+                    ..Default::default()
+                }),
             }
         ) -> Ok(
             r#"
             array = [
               {
                 key1 = 1111111111,
-                key2 = 2222222222,
+                key2 = 2222222222
               },
               {
                 key3 = [3333333333, 4444444444],
                 key4 = [
                   5555555555,
                   6666666666,
-                  7777777777,
-                ],
-              },
+                  7777777777
+                ]
+              }
             ]
             "#
-        );
+        )
+    }
+
+    #[rstest]
+    #[case("[1, 2, 3,]", true)]
+    #[case("[1, 2, 3]", false)]
+    fn has_last_value_trailing_comma(#[case] source: &str, #[case] expected: bool) {
+        let p = tombi_parser::parse_as::<tombi_ast::Array>(source, TomlVersion::default());
+        pretty_assertions::assert_eq!(p.errors, Vec::<tombi_parser::Error>::new());
+
+        let ast = tombi_ast::Array::cast(p.syntax_node()).unwrap();
+        pretty_assertions::assert_eq!(ast.has_last_value_trailing_comma(), expected);
     }
 }

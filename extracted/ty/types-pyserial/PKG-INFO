@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-pyserial
-Version: 3.5.0.20250919
+Version: 3.5.0.20251001
 Summary: Typing stubs for pyserial
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -35,4 +35,4 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.405
 
 It was generated from typeshed commit
-[`00790cb021f8a2ea9306668636935a96d633dcca`](https://github.com/python/typeshed/commit/00790cb021f8a2ea9306668636935a96d633dcca).
+[`91055c730ffcda6311654cf32d663858ece69bad`](https://github.com/python/typeshed/commit/91055c730ffcda6311654cf32d663858ece69bad).

@@ -9,6 +9,7 @@ import React from "react";
 import { UseSceneTree } from "./SceneTree";
 
 import { UseGui } from "./ControlPanel/GuiState";
+import { UseInitialCamera } from "./InitialCameraState";
 import { GetRenderRequestMessage, Message } from "./WebsocketMessages";
 
 // Type definitions for all mutable state.
@@ -16,7 +17,7 @@ export type ViewerMutable = {
   // Function references.
   sendMessage: (message: Message) => void;
   sendCamera: (() => void) | null;
-  resetCameraView: (() => void) | null;
+  resetCameraPose: ((animate: boolean) => void) | null;
 
   // DOM/Three.js references.
   canvas: HTMLCanvasElement | null;
@@ -62,7 +63,7 @@ export type ViewerMutable = {
 
 export type ViewerContextContents = {
   // Non-mutable state.
-  messageSource: "websocket" | "file_playback";
+  messageSource: "websocket" | "file_playback" | "embed";
 
   // Zustand state hooks and actions.
   useSceneTree: UseSceneTree["store"];
@@ -74,6 +75,7 @@ export type ViewerContextContents = {
   useDevSettings: ReturnType<
     typeof import("./DevSettingsStore").useDevSettingsStore
   >;
+  useInitialCamera: UseInitialCamera;
 
   // Single reference to all mutable state.
   mutable: React.MutableRefObject<ViewerMutable>;

@@ -1,0 +1,46 @@
+Metadata-Version: 2.4
+Name: metaflow-stubs
+Version: 2.19.17
+Summary: Metaflow Stubs: Stubs for the metaflow package
+Author: Metaflow Developers
+Author-email: help@metaflow.org
+License: Apache Software License
+Project-URL: Source, https://github.com/Netflix/metaflow
+Project-URL: Issues, https://github.com/Netflix/metaflow/issues
+Project-URL: Documentation, https://docs.metaflow.org
+Classifier: Development Status :: 5 - Production/Stable
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.7
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Requires-Python: >=3.7.0
+Description-Content-Type: text/markdown
+Requires-Dist: metaflow==2.19.17
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: license
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
+
+# Metaflow Stubs
+
+This package contains stub files for `metaflow` and thus offers type hints for various editors (such as `VSCode`) and language servers (such as `Pylance`).
+
+## Installation
+
+To install Metaflow Stubs in your local environment, you can install from [PyPi](https://pypi.org/project/metaflow-stubs/):
+
+```sh
+pip install metaflow-stubs
+```

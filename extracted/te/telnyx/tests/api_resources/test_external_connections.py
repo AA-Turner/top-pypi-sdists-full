@@ -10,13 +10,14 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    ExternalConnectionListResponse,
+    ExternalConnection,
     ExternalConnectionCreateResponse,
     ExternalConnectionDeleteResponse,
     ExternalConnectionUpdateResponse,
     ExternalConnectionRetrieveResponse,
     ExternalConnectionUpdateLocationResponse,
 )
+from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -43,7 +44,10 @@ class TestExternalConnections:
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
             active=False,
-            inbound={"channel_limit": 10},
+            inbound={
+                "outbound_voice_profile_id": "12345678-1234-1234-1234-123456789012",
+                "channel_limit": 10,
+            },
             tags=["tag1", "tag2"],
             webhook_event_failover_url="https://failover.example.com",
             webhook_event_url="https://example.com",
@@ -189,7 +193,7 @@ class TestExternalConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         external_connection = client.external_connections.list()
-        assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -207,7 +211,7 @@ class TestExternalConnections:
                 "size": 1,
             },
         )
-        assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -217,7 +221,7 @@ class TestExternalConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         external_connection = response.parse()
-        assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -227,7 +231,7 @@ class TestExternalConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             external_connection = response.parse()
-            assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+            assert_matches_type(SyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -355,7 +359,10 @@ class TestAsyncExternalConnections:
                 "outbound_voice_profile_id": "outbound_voice_profile_id",
             },
             active=False,
-            inbound={"channel_limit": 10},
+            inbound={
+                "outbound_voice_profile_id": "12345678-1234-1234-1234-123456789012",
+                "channel_limit": 10,
+            },
             tags=["tag1", "tag2"],
             webhook_event_failover_url="https://failover.example.com",
             webhook_event_url="https://example.com",
@@ -501,7 +508,7 @@ class TestAsyncExternalConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         external_connection = await async_client.external_connections.list()
-        assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -519,7 +526,7 @@ class TestAsyncExternalConnections:
                 "size": 1,
             },
         )
-        assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -529,7 +536,7 @@ class TestAsyncExternalConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         external_connection = await response.parse()
-        assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -539,7 +546,7 @@ class TestAsyncExternalConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             external_connection = await response.parse()
-            assert_matches_type(ExternalConnectionListResponse, external_connection, path=["response"])
+            assert_matches_type(AsyncDefaultPagination[ExternalConnection], external_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

@@ -337,15 +337,14 @@ def create_lazy_edge_map(tn: "TensorNetworkGen", site_tags=None):
         For each site tag, the other site tags it is connected to.
     """
     if site_tags is None:
-        site_tags = set(tn.site_tags)
-    else:
-        site_tags = set(site_tags)
+        site_tags = tn.site_tags
 
     edges = {}
-    neighbors = {}
+    neighbors = {tag: [] for tag in site_tags if tag in tn.tag_map}
 
-    for ix in tn.ind_map:
-        ts = tn._inds_get(ix)
+    for ix, tids in tn.ind_map.items():
+        # for each tensor with this index, get all tags that are site tags
+        ts = [tn.tensor_map[tid] for tid in tids]
         tags = {tag for t in ts for tag in t.tags if tag in site_tags}
         if len(tags) >= 2:
             # index spans multiple sites
@@ -356,8 +355,8 @@ def create_lazy_edge_map(tn: "TensorNetworkGen", site_tags=None):
                 edges[(i, j)] = [ix]
 
                 # add to neighbor map
-                neighbors.setdefault(i, []).append(j)
-                neighbors.setdefault(j, []).append(i)
+                neighbors[i].append(j)
+                neighbors[j].append(i)
             else:
                 # already processed this edge
                 edges[(i, j)].append(ix)
@@ -474,10 +473,11 @@ def tensor_network_ag_gate(
 
         - False: no tags are propagated
         - True: all tags are propagated
-        - 'register': only site tags corresponding to ``where`` are
-            added.
-        - 'sites': all site tags on the current sites are propgated,
-            resulting in a lightcone like tagging.
+        - 'register': if the gate itself is being split, for each part of the
+          attached gate, only propagate the site tag of the site it is attached
+          to / 'sits above'.
+        - 'sites': all site tags on the current sites are propagated, resulting
+          in a 'lightcone' like tagging.
 
     info : None or dict, optional
         Used to store extra optional information such as the singular
@@ -798,6 +798,7 @@ class TensorNetworkGen(TensorNetwork):
         sites=None,
         grow_from="all",
         num_joins=1,
+        join_overlap=2,
     ):
         """Generate sets of sites that represent 'generalized loops' where
         every node is connected to at least two other loop nodes. This is a
@@ -812,6 +813,23 @@ class TensorNetworkGen(TensorNetwork):
             maximum size.
         sites : None or sequence[hashable]
             If supplied, only consider loops containing these sites.
+        grow_from : {'all', 'any', 'alldangle', 'anydangle'}, optional
+            Only if ``sites`` is specified, this determines how to filter
+            loops. If 'all', only yield loops containing *all* of the sites
+            in ``sites``, if 'any', yield loops containing *any* of the sites
+            in ``sites``. If 'alldangle' or 'anydangle', the sites are allowed
+            to be dangling, i.e. 1-degree connected. This is useful for
+            computing local expectations where the operator insertion breaks
+            the loop assumption locally.
+        num_joins : int, optional
+            If larger than 1, repeatedly generate larger loops by joining
+            together the initial set (individually those with size up to
+            ``max_size``) of generalized loops. Each join combines loops that
+            overlap on at least ``join_overlap`` sites.
+        join_overlap : {1, 2}, optional
+            When joining loops together, the minimum number of overlapping
+            sites they much share. 1 allows merging on a single site, 2
+            requires sharing a bond, which leads to fewer but 'denser' loops.
 
         Yields
         ------
@@ -830,6 +848,7 @@ class TensorNetworkGen(TensorNetwork):
             tids=tids,
             grow_from=grow_from,
             num_joins=num_joins,
+            join_overlap=join_overlap,
         ):
             yield tuple(tid2site[tid] for tid in gloop)
 

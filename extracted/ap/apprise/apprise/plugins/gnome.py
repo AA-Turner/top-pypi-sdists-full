@@ -39,6 +39,7 @@ try:
 
     # require_version() call is required otherwise we generate a warning
     gi.require_version("Notify", "0.7")
+    gi.require_version("GdkPixbuf", "2.0")
 
     # We can import the actual libraries we care about now:
     from gi.repository import GdkPixbuf, Notify
@@ -109,7 +110,7 @@ class NotifyGnome(NotifyBase):
     protocol = "gnome"
 
     # A URL that takes you to the setup/help of the specific protocol
-    setup_url = "https://github.com/caronc/apprise/wiki/Notify_gnome"
+    setup_url = "https://appriseit.com/services/gnome/"
 
     # Allows the user to specify the NotifyImageSize object
     image_size = NotifyImageSize.XY_128

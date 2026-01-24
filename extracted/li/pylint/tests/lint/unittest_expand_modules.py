@@ -127,20 +127,28 @@ init_of_package = {
 # A directory that is not a python package.
 REPORTERS_PATH = Path(__file__).parent.parent / "reporters"
 test_reporters = {  # pylint: disable=consider-using-namedtuple-or-dataclass
-    str(REPORTERS_PATH / "unittest_json_reporter.py"): {
-        "path": str(REPORTERS_PATH / "unittest_json_reporter.py"),
-        "name": "reporters.unittest_json_reporter",
-        "isarg": False,
-        "basepath": str(REPORTERS_PATH / "__init__.py"),
+    str(REPORTERS_PATH / "__init__.py"): {
         "basename": "reporters",
+        "basepath": str(REPORTERS_PATH / "__init__.py"),
+        "isarg": True,
+        "name": "reporters",
+        "path": str(REPORTERS_PATH / "__init__.py"),
+        "isignored": False,
+    },
+    str(REPORTERS_PATH / "unittest_json_reporter.py"): {
+        "basename": "reporters",
+        "basepath": str(REPORTERS_PATH / "__init__.py"),
+        "isarg": False,
+        "name": "reporters.unittest_json_reporter",
+        "path": str(REPORTERS_PATH / "unittest_json_reporter.py"),
         "isignored": False,
     },
     str(REPORTERS_PATH / "unittest_reporting.py"): {
+        "basename": "reporters",
+        "basepath": str(REPORTERS_PATH / "__init__.py"),
+        "isarg": False,
         "path": str(REPORTERS_PATH / "unittest_reporting.py"),
         "name": "reporters.unittest_reporting",
-        "isarg": False,
-        "basepath": str(REPORTERS_PATH / "__init__.py"),
-        "basename": "reporters",
         "isignored": False,
     },
 }
@@ -317,4 +325,24 @@ class TestExpandModules(CheckerTestCase):
             self.linter.config.ignore_paths,
         )
         assert {k: v for k, v in modules.items() if not v["isignored"]} == expected
+        assert not errors
+
+    @set_config(ignore=["test"])
+    def test_expand_modules_with_ignore_list(self) -> None:
+        """Test expand_modules with a non-default value of ignore."""
+        ignore_list: list[str] = self.linter.config.ignore
+        ignore_list_re = [re.compile("^\\.#")]
+        path = Path(__file__).parent.parent / "regrtest_data" / "ignore_option_10669"
+        modules, errors = expand_modules(
+            [str(path)],
+            [],
+            ignore_list,
+            ignore_list_re,
+            [],
+        )
+        expected_keys = {
+            str(path / "__init__.py"),
+            str(path / "main.py"),
+        }
+        assert {k for k, v in modules.items() if not v["isignored"]} == expected_keys
         assert not errors

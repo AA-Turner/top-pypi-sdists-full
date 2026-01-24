@@ -19,11 +19,14 @@ def render(filename = "home", download_url: str = GITHUB_URL):
     if download_url == GITHUB_URL:
         filename += ("" if "." in filename else ".html")
     html = None
+    is_temp = False
     if os.path.exists(DIST_DIR) and not request.args.get("debug"):
         path = os.path.abspath(os.path.join(os.path.dirname(DIST_DIR), filename))
         if os.path.exists(path):
             if download_url == GITHUB_URL:
-                html = open(path, 'r', encoding='utf-8').read()
+                with open(path, 'r', encoding='utf-8') as f:
+                    html = f.read()
+                is_temp = True
             else:
                 return send_from_directory(os.path.dirname(path), os.path.basename(path))
     try:
@@ -32,9 +35,9 @@ def render(filename = "home", download_url: str = GITHUB_URL):
         latest_version = version.utils.current_version
     today = datetime.today().strftime('%Y-%m-%d')
     cache_dir = os.path.join(get_cookies_dir(), ".gui_cache", today)
-    latest_version = str(latest_version) +quote(unquote(request.query_string.decode())) or str(latest_version)
+    if not request.args.get("session_token"):
+        latest_version = str(latest_version) + quote(unquote(request.query_string.decode()))
     cache_file = os.path.join(cache_dir, f"{secure_filename(f'{version.utils.current_version}-{latest_version}')}.{secure_filename(filename)}")
-    is_temp = False
     if os.path.isfile(cache_file + ".js"):
         cache_file += ".js"
     if not os.path.exists(cache_file):
@@ -65,7 +68,9 @@ def render(filename = "home", download_url: str = GITHUB_URL):
                 cache_file += ".js"
             html = response.text
             html = html.replace("../dist/", f"dist/")
-            html = html.replace("\"dist/", f"\"{STATIC_URL}dist/")
+            html = html.replace("/dist/", f"dist/")
+            html = html.replace(f"{STATIC_URL}dist/", "dist/")
+            html = html.replace("dist/", f"{STATIC_URL}dist/")
         # html = html.replace(JSDELIVR_URL, "/")
         html = html.replace("{{ v }}", latest_version)
         if is_temp:
@@ -98,6 +103,14 @@ class Website:
                 'function': self._chat,
                 'methods': ['GET', 'POST']
             },
+            '/private/': {
+                'function': self._private,
+                'methods': ['GET', 'POST']
+            },
+            '/private/<path:filename>': {
+                'function': self._private,
+                'methods': ['GET', 'POST']
+            },
             '/media/': {
                 'function': redirect_home,
                 'methods': ['GET', 'POST']
@@ -127,6 +140,10 @@ class Website:
 
     def _chat(self, filename = ""):
         filename = f"chat/{filename}" if filename else "chat/index"
+        return render(filename)
+
+    def _private(self, filename = ""):
+        filename = f"private/{filename}" if filename else "private/index"
         return render(filename)
 
     def _dist(self, name: str):

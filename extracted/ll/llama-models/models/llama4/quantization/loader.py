@@ -11,10 +11,10 @@ from typing import Callable, Optional
 
 import torch
 from fairscale.nn.model_parallel.initialize import get_model_parallel_rank
-from torch import Tensor, nn
+from torch import nn, Tensor
 from torch.nn import functional as F
 
-from ..generation import QuantizationMode
+from ...datatypes import QuantizationMode
 from ..model import Transformer, TransformerBlock
 from ..moe import MoE
 
@@ -65,12 +65,12 @@ def convert_to_quantized_model(
         if not isinstance(block, TransformerBlock):
             return False
 
+        is_moe = isinstance(block.feed_forward, MoE)
         if quantization_mode == QuantizationMode.fp8_mixed:
             # skip quantization on first and last layers
-            return not (block.layer_id == 0 or block.layer_id == (model.n_layers - 1))
+            return is_moe and not (block.layer_id == 0 or block.layer_id == (model.n_layers - 1))
 
-        # always skip quantization on dense layers
-        return isinstance(block.feed_forward, MoE)
+        return is_moe
 
     use_rich_progress = use_rich_progress and rank == 0
     progress, log_status, update_status = logging_callbacks(use_rich_progress, rank, model, should_quantize_block)

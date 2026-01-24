@@ -26,20 +26,11 @@ from mypy.plugin import AnalyzeTypeContext, AttributeContext, ClassDefContext
 from mypy.plugins import common
 from mypy.semanal import SemanticAnalyzer
 from mypy.typeanal import TypeAnalyser
-from mypy.types import (
-    AnyType,
-    ExtraAttrs,
-    Instance,
-    ProperType,
-    TypedDictType,
-    TypeOfAny,
-    TypeType,
-    TypeVarType,
-    get_proper_type,
-)
+from mypy.types import AnyType, Instance, ProperType, TypedDictType, TypeOfAny, TypeType, TypeVarType, get_proper_type
 from mypy.types import Type as MypyType
 from mypy.typevars import fill_typevars, fill_typevars_with_any
 
+from mypy_django_plugin.config import DjangoPluginConfig
 from mypy_django_plugin.django.context import DjangoContext
 from mypy_django_plugin.errorcodes import MANAGER_MISSING
 from mypy_django_plugin.exceptions import UnregisteredModelError
@@ -57,7 +48,7 @@ class ModelClassInitializer:
     api: SemanticAnalyzer
 
     def __init__(self, ctx: ClassDefContext, django_context: DjangoContext) -> None:
-        self.api = cast(SemanticAnalyzer, ctx.api)
+        self.api = cast("SemanticAnalyzer", ctx.api)
         self.model_classdef = ctx.cls
         self.django_context = django_context
         self.ctx = ctx
@@ -77,8 +68,7 @@ class ModelClassInitializer:
 
     def lookup_class_typeinfo_or_incomplete_defn_error(self, klass: type) -> TypeInfo:
         fullname = helpers.get_class_fullname(klass)
-        field_info = self.lookup_typeinfo_or_incomplete_defn_error(fullname)
-        return field_info
+        return self.lookup_typeinfo_or_incomplete_defn_error(fullname)
 
     def create_new_var(self, name: str, typ: MypyType) -> Var:
         # type=: type of the variable itself
@@ -100,8 +90,7 @@ class ModelClassInitializer:
 
     def add_new_class_for_current_module(self, name: str, bases: list[Instance]) -> TypeInfo:
         current_module = self.api.modules[self.model_classdef.info.module_name]
-        new_class_info = helpers.add_new_class_for_module(current_module, name=name, bases=bases)
-        return new_class_info
+        return helpers.add_new_class_for_module(current_module, name=name, bases=bases)
 
     def run(self) -> None:
         model_cls = self.django_context.get_model_class_by_fullname(self.model_classdef.fullname)
@@ -354,8 +343,7 @@ class AddRelatedModelsId(ModelClassInitializer):
             except helpers.IncompleteDefnException as exc:
                 if not self.api.final_iteration:
                     raise exc
-                else:
-                    continue
+                continue
 
             is_nullable = self.django_context.get_field_nullability(field, None)
             set_type, get_type = get_field_descriptor_types(
@@ -502,8 +490,7 @@ class AddDefaultManagerAttribute(ModelClassInitializer):
                 # see if another round could help figuring out the default manager type
                 if not self.api.final_iteration:
                     raise exc
-                else:
-                    return None
+                return None
             default_manager_info = generated_manager_info
 
         default_manager = helpers.fill_manager(default_manager_info, Instance(self.model_classdef.info, []))
@@ -543,7 +530,7 @@ class AddReverseLookups(ModelClassInitializer):
                     ),
                 )
             return
-        elif isinstance(relation, ManyToManyRel):
+        if isinstance(relation, ManyToManyRel):
             if not reverse_lookup_declared:
                 # TODO: 'relation' should be based on `TypeInfo` instead of Django runtime.
                 assert relation.through is not None
@@ -557,7 +544,7 @@ class AddReverseLookups(ModelClassInitializer):
                     is_classvar=True,
                 )
             return
-        elif not reverse_lookup_declared:
+        if not reverse_lookup_declared:
             # ManyToOneRel
             self.add_new_node_to_model_class(
                 attname, Instance(self.reverse_many_to_one_descriptor, [Instance(to_model_info, [])]), is_classvar=True
@@ -837,7 +824,7 @@ class ProcessManyToManyFields(ModelClassInitializer):
     ) -> TypeInfo | None:
         if not isinstance(m2m_args.to.model, Instance):
             return None
-        elif m2m_args.through is not None:
+        if m2m_args.through is not None:
             # Call has explicit 'through=', no need to create any implicit through table
             return m2m_args.through.model.type if isinstance(m2m_args.through.model, Instance) else None
 
@@ -991,13 +978,35 @@ class ProcessManyToManyFields(ModelClassInitializer):
 
 class MetaclassAdjustments(ModelClassInitializer):
     @classmethod
-    def adjust_model_class(cls, ctx: ClassDefContext) -> None:
+    def adjust_model_class(cls, ctx: ClassDefContext, plugin_config: DjangoPluginConfig) -> None:
         """
         For the sake of type checkers other than mypy, some attributes that are
         dynamically added by Django's model metaclass has been annotated on
         `django.db.models.base.Model`. We remove those attributes and will handle them
         through the plugin.
+
+        Configurable with `strict_model_abstract_attrs = false` to skip removing any objects from models.
+
+        Basically, this code::
+
+            from django.db import models
+
+            def get_model_count(model_type: type[models.Model]) -> int:
+                return model_type.objects.count()
+
+        - Will raise an error
+          `"type[models.Model]" has no attribute "objects"  [attr-defined]`
+          when `strict_model_abstract_attrs = true` (default)
+        - Return without any type errors
+          when `strict_model_abstract_attrs = false`
+
+        But, beware that the code above can fail in runtime, as mypy correctly shows.
+        Example: `get_model_count(models.Model)`
+
+        Turn this setting off at your own risk.
         """
+        if not plugin_config.strict_model_abstract_attrs:
+            return
         if ctx.cls.fullname != fullnames.MODEL_CLASS_FULLNAME:
             return
 
@@ -1005,8 +1014,6 @@ class MetaclassAdjustments(ModelClassInitializer):
             attr = ctx.cls.info.names.get(attr_name)
             if attr is not None and isinstance(attr.node, Var) and not attr.plugin_generated:
                 del ctx.cls.info.names[attr_name]
-
-        return
 
     def get_exception_bases(self, name: str) -> list[Instance]:
         bases = []
@@ -1145,18 +1152,7 @@ def get_annotated_type(
     """
     Get a model type that can be used to represent an annotated model
     """
-    if model_type.extra_attrs:
-        extra_attrs = ExtraAttrs(
-            attrs={**model_type.extra_attrs.attrs, **fields_dict.items},
-            immutable=model_type.extra_attrs.immutable.copy(),
-            mod_name=None,
-        )
-    else:
-        extra_attrs = ExtraAttrs(
-            attrs=fields_dict.items,
-            immutable=None,
-            mod_name=None,
-        )
+    extra_attrs = helpers.merge_extra_attrs(model_type.extra_attrs, new_attrs=fields_dict.items)
 
     annotated_model: TypeInfo | None
     if helpers.is_annotated_model(model_type.type):

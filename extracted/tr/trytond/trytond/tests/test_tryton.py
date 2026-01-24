@@ -27,12 +27,12 @@ from lxml import etree
 from sql import Table
 from werkzeug.test import Client
 
-from trytond import backend
+from trytond import backend, config
 from trytond.cache import Cache
-from trytond.config import config, parse_uri
 from trytond.model import (
     ModelSingleton, ModelSQL, ModelStorage, ModelView, Workflow, fields)
 from trytond.model.fields import Function
+from trytond.modules import parse_module_config
 from trytond.pool import Pool, isregisteredby
 from trytond.protocols.wrappers import Response
 from trytond.pyson import PYSONDecoder, PYSONEncoder
@@ -187,7 +187,7 @@ def _sqlite_copy(file_, restore=False):
 
 
 def _pg_options():
-    uri = parse_uri(config.get('database', 'uri'))
+    uri = config.parse_uri(config.get('database', 'uri'))
     options = []
     env = os.environ.copy()
     if uri.hostname:
@@ -416,6 +416,9 @@ class ModuleTestCase(_DBTestCase):
                         msg="Wrong __access__ '%s' for %s" % (
                             field_name, mname))
                     field = Model._fields[field_name]
+                    self.assertTrue(field.required,
+                        msg=("Field '%s' of '%s' must be required in order to "
+                            "be used in __access__") % (field_name, mname))
                     Target = field.get_target()
                     self.assertTrue(
                         Target,
@@ -898,7 +901,9 @@ class ModuleTestCase(_DBTestCase):
     @with_transaction()
     def test_modelstorage_copy(self):
         "Test copied default values"
-        with unittest.mock.patch.object(ModelStorage, 'copy') as copy:
+        copy = unittest.mock.MagicMock(return_value=[])
+        with unittest.mock.patch.object(
+                ModelStorage, 'copy', new=classmethod(copy)):
             for mname, model in Pool().iterobject():
                 if not isregisteredby(model, self.module):
                     continue
@@ -907,7 +912,7 @@ class ModuleTestCase(_DBTestCase):
                 with self.subTest(model=mname):
                     model.copy([])
                     if copy.call_args:
-                        args, kwargs = copy.call_args
+                        (klass, *args), kwargs = copy.call_args
                         if len(args) >= 2:
                             default = args[1]
                         else:
@@ -915,7 +920,7 @@ class ModuleTestCase(_DBTestCase):
                         if default is not None:
                             fields = {
                                 k.split('.', 1)[0] for k in default.keys()}
-                            self.assertLessEqual(fields, model._fields.keys())
+                            self.assertLessEqual(fields, klass._fields.keys())
                     copy.reset_mock()
 
     @with_transaction()
@@ -956,6 +961,15 @@ class ModuleTestCase(_DBTestCase):
             for field_name, field in model._fields.items():
                 if not isinstance(field, Function):
                     continue
+                if field._type == 'one2many':
+                    self.assertTrue(
+                        field.setter,
+                        msg="Missing setter on model '%(model)s' "
+                        "for %(type)s field '%(field)s'" % {
+                            'model': model.__name__,
+                            'field': field_name,
+                            'type': field._type,
+                            })
                 for func_name in [field.getter, field.setter, field.searcher]:
                     if not func_name:
                         continue
@@ -991,15 +1005,34 @@ class ModuleTestCase(_DBTestCase):
             if not action_window.res_model:
                 return
             Model = pool.get(action_window.res_model)
-            for active_id, active_ids in [
-                    (None, []),
-                    (1, [1]),
-                    (1, [1, 2]),
-                    ]:
+            actives = [(None, [], action_window.res_model)]
+            for keyword in action_window.keywords:
+                if not keyword.model:
+                    continue
+                if isinstance(keyword.model, str):
+                    kModel = pool.get(keyword.model.split(',', 1)[0])
+                    ids = [r.id for r in kModel.search([], limit=2)]
+                    if ids:
+                        actives.append((
+                                ids[0],
+                                [ids[0]],
+                                kModel.__name__))
+                        if len(ids) > 1:
+                            actives.append((
+                                    ids[0],
+                                    ids,
+                                    kModel.__name__))
+                else:
+                    actives.append((
+                            keyword.id,
+                            [keyword.id],
+                            keyword.model.__name__))
+
+            for active_id, active_ids, active_model in actives:
                 decoder = PYSONDecoder({
                         'active_id': active_id,
                         'active_ids': active_ids,
-                        'active_model': action_window.res_model,
+                        'active_model': active_model,
                         })
                 domain = decoder.decode(action_window.pyson_domain)
                 order = decoder.decode(action_window.pyson_order)
@@ -1105,6 +1138,20 @@ class ModuleTestCase(_DBTestCase):
                             })
 
     @with_transaction()
+    def test_button_methods(self):
+        "Test button methods without records"
+        for mname, model in Pool().iterobject():
+            if not isregisteredby(model, self.module):
+                continue
+            if not issubclass(model, ModelView):
+                continue
+            for button in model._buttons:
+                if is_instance_method(model, button):
+                    getattr(model(), button)()
+                else:
+                    getattr(model, button)([])
+
+    @with_transaction()
     def test_xml_files(self):
         "Test validity of the xml files of the module"
         config = ConfigParser()
@@ -1122,6 +1169,32 @@ class ModuleTestCase(_DBTestCase):
                         subdir='modules', mode='rb') as fp:
                     tree = etree.parse(fp)
                 validator.assertValid(tree)
+
+    @with_transaction()
+    def test_model_order(self):
+        "Test that model _order is predictable"
+        pool = Pool()
+        for mname, model in pool.iterobject():
+            if not isregisteredby(model, self.module):
+                continue
+            if not issubclass(model, ModelSQL):
+                continue
+            with self.subTest(model=mname):
+                self.assertIn('id', {oexpr for oexpr, _ in model._order})
+
+    def test_register_depend_in_extras_depend(self):
+        "Test register conditionals are extras depend of module"
+        config, _ = parse_module_config(self.module)
+
+        extras_depend = set(config.get(
+                'tryton', 'extras_depend', fallback='').strip().splitlines())
+        for section in config.sections():
+            if section.startswith('register '):
+                depends = set(section[len('register'):].strip().split())
+                self.assertLessEqual(
+                    depends, extras_depend,
+                    msg="Missing extras_depend %s in %s" % (
+                        list(depends - extras_depend), self.module))
 
 
 class RouteTestCase(_DBTestCase):
@@ -1211,7 +1284,7 @@ class ExtensionTestCase(TestCase):
         cursor = connection.cursor()
         cursor.execute('CREATE EXTENSION "%s"' % cls.extension)
         connection.commit()
-        cls._clear_cache()
+        backend.Database.clear_cache()
 
     @classmethod
     @with_transaction()
@@ -1220,11 +1293,7 @@ class ExtensionTestCase(TestCase):
         cursor = connection.cursor()
         cursor.execute('DROP EXTENSION "%s"' % cls.extension)
         connection.commit()
-        cls._clear_cache()
-
-    @classmethod
-    def _clear_cache(cls):
-        backend.Database._has_proc.clear()
+        backend.Database.clear_cache()
 
 
 def drop_db(name=DB_NAME):

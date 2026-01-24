@@ -1,9 +1,8 @@
 import asyncio
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from crewai_tools import SnowflakeConfig, SnowflakeSearchTool
+import pytest
 
 
 # Unit Test Fixtures
@@ -32,7 +31,7 @@ def mock_config():
 
 @pytest.fixture
 def snowflake_tool(mock_config):
-    with patch("snowflake.connector.connect") as mock_connect:
+    with patch("snowflake.connector.connect"):
         tool = SnowflakeSearchTool(config=mock_config)
         yield tool
 

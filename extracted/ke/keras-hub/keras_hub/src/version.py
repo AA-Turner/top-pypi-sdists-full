@@ -1,7 +1,7 @@
 from keras_hub.src.api_export import keras_hub_export
 
 # Unique source of truth for the version number.
-__version__ = "0.22.2"
+__version__ = "0.25.1"
 
 
 @keras_hub_export("keras_hub.version")

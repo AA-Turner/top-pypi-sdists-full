@@ -27,27 +27,6 @@ __unittest = False
 # Have a way to disable the autorelease pool behaviour
 _usepool = not _os.environ.get("PYOBJC_NO_AUTORELEASE")
 
-# XXX: Python 2 Compatibility for the PyObjC Test Suite
-try:
-    unicode
-except NameError:
-    unicode = str
-
-try:
-    long
-except NameError:
-    long = int
-
-try:
-    basestring
-except NameError:
-    basestring = str
-
-try:
-    unichr
-except NameError:
-    unichr = chr
-
 
 def _typemap(tp):
     if tp is None:
@@ -176,6 +155,10 @@ def os_release():
     if _os_release is not None:
         return _os_release
 
+    # NOTE: This calls 'sw_vers' because system APIs lie
+    #       to us during some system transitions (e.g.
+    #       from 10.15 to 11.0 and from 15.0 to 26.0) until
+    #       Python itself is rebuild using a newer SDK.
     _os_release = (
         _subprocess.check_output(["sw_vers", "-productVersion"]).decode().strip()
     )
@@ -318,7 +301,7 @@ def os_level_between(min_release, max_release):
 _poolclass = objc.lookUpClass("NSAutoreleasePool")
 
 # NOTE: On at least macOS 10.8 there are multiple proxy classes for CFTypeRef...
-_nscftype = tuple(cls for cls in objc.getClassList(1) if "NSCFType" in cls.__name__)
+_nscftype = tuple(cls for cls in objc.getClassList(True) if "NSCFType" in cls.__name__)
 
 _typealias = {}
 
@@ -631,7 +614,7 @@ class TestCase(_unittest.TestCase):
 
     def assertIsInitializer(self, method, message=None):
         if not isinstance(method, objc.selector):
-            return
+            self.fail(message or f"{method!r} is not a selector")
 
         info = method.__metadata__()
         if not info.get("initializer", False):
@@ -639,7 +622,7 @@ class TestCase(_unittest.TestCase):
 
     def assertIsNotInitializer(self, method, message=None):
         if not isinstance(method, objc.selector):
-            return
+            self.fail(message or f"{method!r} is not a selector")
 
         info = method.__metadata__()
         if info.get("initializer", False):
@@ -647,7 +630,7 @@ class TestCase(_unittest.TestCase):
 
     def assertDoesFreeResult(self, method, message=None):
         if not isinstance(method, objc.selector):
-            return
+            self.fail(message or f"{method!r} is not a selector")
 
         info = method.__metadata__()
         if not info.get("free_result", False):
@@ -655,7 +638,7 @@ class TestCase(_unittest.TestCase):
 
     def assertDoesNotFreeResult(self, method, message=None):
         if not isinstance(method, objc.selector):
-            return
+            self.fail(message or f"{method!r} is not a selector")
 
         info = method.__metadata__()
         if info.get("free_result", False):
@@ -686,6 +669,20 @@ class TestCase(_unittest.TestCase):
     def assertResultHasType(self, method, tp, message=None):
         info = method.__metadata__()
         typestr = info.get("retval").get("type", b"v")
+        if isinstance(tp, tuple):
+            for item in tp:
+                if (
+                    typestr == item
+                    or _typemap(typestr) == _typemap(item)
+                    or _typealias.get(typestr, typestr) == _typealias.get(item, item)
+                ):
+                    break
+            else:
+                self.fail(
+                    message
+                    or f"result of {method!r} is not of type {tp!r}, but {typestr!r}"
+                )
+            return
         if (
             typestr != tp
             and _typemap(typestr) != _typemap(tp)
@@ -714,15 +711,28 @@ class TestCase(_unittest.TestCase):
         else:
             typestr = i.get("type", b"@")
 
+        if isinstance(tp, tuple):
+            for item in tp:
+                if (
+                    typestr == item
+                    or _typemap(typestr) == _typemap(item)
+                    or _typealias.get(typestr, typestr) == _typealias.get(item, item)
+                ):
+                    break
+            else:
+                self.fail(
+                    message
+                    or f"arg {argno} of {method!r} is not of type {tp!r}, but {typestr!r}"
+                )
+            return
+
         if (
             typestr != tp
             and _typemap(typestr) != _typemap(tp)
             and _typealias.get(typestr, typestr) != _typealias.get(tp, tp)
         ):
             self.fail(
-                message
-                or "arg %d of %s is not of type %r, but %r"
-                % (argno, method, tp, typestr)
+                message or f"arg {argno} of {method} is not of type {tp}, but {typestr}"
             )
 
     def assertArgIsFunction(self, method, argno, sel_type, retained, message=None):
@@ -1374,27 +1384,35 @@ class TestCase(_unittest.TestCase):
         # Calculate all (interesting) names in the module. This pokes into
         # the implementation details of objc.ObjCLazyModule to avoid loading
         # all attributes (which is expensive for larger bindings).
-        if isinstance(module, objc.ObjCLazyModule) and False:
+        def is_pyobjc_lazy(module):
+            getter = getattr(module, "__getattr__", None)
+            if getter is None:
+                return False
+            return hasattr(getter, "_pyobjc_parents")
+
+        if is_pyobjc_lazy(module):
+            getter = getattr(module, "__getattr__", None)
             module_names = []
             module_names.extend(
                 cls.__name__
-                for cls in objc.getClassList()
+                for cls in objc.getClassList(True)
                 if (not cls.__name__.startswith("_")) and ("." not in cls.__name__)
             )
-            module_names.extend(module._ObjCLazyModule__funcmap or [])
-            module_names.extend(module.__dict__.keys())
-            todo = list(module._ObjCLazyModule__parents or [])
+            module_names.extend(getattr(getter, "_pyobjc_funcmap", None) or [])
+            todo = list(getter._pyobjc_parents)
             while todo:
                 parent = todo.pop()
-                if isinstance(parent, objc.ObjCLazyModule):
-                    module_names.extend(parent._ObjCLazyModule__funcmap or ())
-                    todo.extend(parent._ObjCLazyModule__parents or ())
+                if is_pyobjc_lazy(parent):
+                    getter = getattr(parent, "__getattr__", None)
+                    module_names.extend(getattr(getter, "_pyobjc_funcmap", None) or [])
+                    todo.extend(getter._pyobjc_parents or ())
                     module_names.extend(parent.__dict__.keys())
-                else:
-                    module_names.extend(dir(module))
 
-            # The module_names list might contain duplicates
+                else:
+                    module_names.extend(dir(parent))
+
             module_names = sorted(set(module_names))
+
         else:
             module_names = sorted(set(dir(module)))
 
@@ -1407,43 +1425,49 @@ class TestCase(_unittest.TestCase):
 
             try:
                 value = getattr(module, nm)
-            except AttributeError:
-                continue
+            except AttributeError:  # pragma: no cover
+                continue  # pragma: no cover
             if isinstance(value, objc.objc_class):
-                if value.__name__ == "Object":
-                    # Root class, does not conform to the NSObject
-                    # protocol and useless to test.
-                    continue
-                for attr_name, attr in value.pyobjc_instanceMethods.__dict__.items():
-                    if attr_name in exclude_method_names:
+                with objc.autorelease_pool():
+                    if value.__name__ == "Object":
+                        # Root class, does not conform to the NSObject
+                        # protocol and useless to test.
                         continue
-                    if (nm, attr_name) in exclude_attrs:
-                        continue
-                    if attr_name.startswith("_"):
-                        # Skip private names
-                        continue
+                    instanceMethodDict = value.pyobjc_instanceMethods.__dict__
+                    for attr_name, attr in instanceMethodDict.items():
+                        if attr_name in exclude_method_names:
+                            continue
+                        if (nm, attr_name) in exclude_attrs:
+                            continue
+                        if attr_name.startswith("_"):
+                            # Skip private names
+                            continue
 
-                    with self.subTest(classname=nm, instance_method=attr_name):
-                        if isinstance(attr, objc.selector):  # pragma: no branch
-                            self._validateCallableMetadata(
-                                attr, nm, skip_simple_charptr_check=not exclude_cocoa
-                            )
+                        with self.subTest(classname=nm, instance_method=attr_name):
+                            if isinstance(attr, objc.selector):  # pragma: no branch
+                                self._validateCallableMetadata(
+                                    attr,
+                                    nm,
+                                    skip_simple_charptr_check=not exclude_cocoa,
+                                )
 
-                for attr_name, attr in value.pyobjc_classMethods.__dict__.items():
-                    if attr_name in exclude_method_names:
-                        continue
-                    if (nm, attr_name) in exclude_attrs:
-                        continue
-                    if attr_name.startswith("_"):
-                        # Skip private names
-                        continue
+                    for attr_name, attr in value.pyobjc_classMethods.__dict__.items():
+                        if attr_name in exclude_method_names:  # pragma: no branch
+                            continue  # pragma: no cover
+                        if (nm, attr_name) in exclude_attrs:
+                            continue
+                        if attr_name.startswith("_"):
+                            # Skip private names
+                            continue
 
-                    with self.subTest(classname=nm, instance_method=attr_name):
-                        attr = getattr(value.pyobjc_classMethods, attr_name, None)
-                        if isinstance(attr, objc.selector):  # pragma: no branch
-                            self._validateCallableMetadata(
-                                attr, nm, skip_simple_charptr_check=not exclude_cocoa
-                            )
+                        with self.subTest(classname=nm, instance_method=attr_name):
+                            attr = getattr(value.pyobjc_classMethods, attr_name, None)
+                            if isinstance(attr, objc.selector):  # pragma: no branch
+                                self._validateCallableMetadata(
+                                    attr,
+                                    nm,
+                                    skip_simple_charptr_check=not exclude_cocoa,
+                                )
             elif isinstance(value, objc.function):
                 with self.subTest(function=nm):
                     self._validateCallableMetadata(value)

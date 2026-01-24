@@ -10,23 +10,19 @@ from pytest_mock import MockerFixture
 from linkup import (
     LinkupAuthenticationError,
     LinkupClient,
-    LinkupInvalidRequestError,
-    LinkupSearchResults,
-    LinkupSource,
-    LinkupSourcedAnswer,
-    LinkupUnknownError,
-)
-from linkup.errors import (
     LinkupFailedFetchError,
-    LinkupInsufficientCreditError,
-    LinkupNoResultError,
-    LinkupTooManyRequestsError,
-)
-from linkup.types import (
     LinkupFetchResponse,
+    LinkupInsufficientCreditError,
+    LinkupInvalidRequestError,
+    LinkupNoResultError,
     LinkupSearchImageResult,
+    LinkupSearchResults,
     LinkupSearchStructuredResponse,
     LinkupSearchTextResult,
+    LinkupSource,
+    LinkupSourcedAnswer,
+    LinkupTooManyRequestsError,
+    LinkupUnknownError,
 )
 
 
@@ -48,7 +44,8 @@ test_search_parameters = [
                     "type": "text",
                     "name": "foo",
                     "url": "https://foo.com",
-                    "content": "lorem ipsum dolor sit amet"
+                    "content": "lorem ipsum dolor sit amet",
+                    "favicon": "https://foo.com/favicon.ico"
                 },
                 {"type": "image", "name": "bar", "url": "https://bar.com"}
             ]
@@ -61,6 +58,7 @@ test_search_parameters = [
                     name="foo",
                     url="https://foo.com",
                     content="lorem ipsum dolor sit amet",
+                    favicon="https://foo.com/favicon.ico",
                 ),
                 LinkupSearchImageResult(
                     type="image",
@@ -80,7 +78,9 @@ test_search_parameters = [
             "to_date": date(2023, 12, 31),
             "exclude_domains": ["excluded.com"],
             "include_domains": ["example.com", "example.org"],
+            "max_results": 10,
             "include_inline_citations": True,
+            "include_sources": True,
         },
         {
             "q": "A long query.",
@@ -91,7 +91,9 @@ test_search_parameters = [
             "toDate": "2023-12-31",
             "excludeDomains": ["excluded.com"],
             "includeDomains": ["example.com", "example.org"],
+            "maxResults": 10,
             "includeInlineCitations": True,
+            "includeSources": True,
         },
         b'{"results": []}',
         LinkupSearchResults(results=[]),
@@ -179,12 +181,12 @@ test_search_parameters = [
             "website_url": "https://www.linkup.so/"
         }
         """,
-        dict(
-            name="Linkup",
-            founders_names=["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
-            creation_date="2024",
-            website_url="https://www.linkup.so/",
-        ),
+        {
+            "name": "Linkup",
+            "founders_names": ["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
+            "creation_date": "2024",
+            "website_url": "https://www.linkup.so/",
+        },
     ),
     (
         {
@@ -238,64 +240,16 @@ test_search_parameters = [
             ],
         ),
     ),
-    (
-        {
-            "query": "query",
-            "depth": "standard",
-            "output_type": "structured",
-            "structured_output_schema": json.dumps(Company.model_json_schema()),
-            "include_sources": True,
-        },
-        {
-            "q": "query",
-            "depth": "standard",
-            "outputType": "structured",
-            "structuredOutputSchema": json.dumps(Company.model_json_schema()),
-            "includeSources": True,
-        },
-        b"""
-        {
-            "data": {
-                "name": "Linkup",
-                "founders_names": ["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
-                "creation_date": "2024",
-                "website_url": "https://www.linkup.so/"
-            },
-            "sources": [
-                {
-                    "type": "text",
-                    "name": "foo",
-                    "url": "https://foo.com",
-                    "content": "lorem ipsum dolor sit amet"
-                },
-                {"type": "image", "name": "bar", "url": "https://bar.com"}
-            ]
-        }
-        """,
-        LinkupSearchStructuredResponse(
-            data=dict(
-                name="Linkup",
-                founders_names=["Philippe Mizrahi", "Denis Charrier", "Boris Toledano"],
-                creation_date="2024",
-                website_url="https://www.linkup.so/",
-            ),
-            sources=[
-                LinkupSearchTextResult(
-                    type="text",
-                    name="foo",
-                    url="https://foo.com",
-                    content="lorem ipsum dolor sit amet",
-                ),
-                LinkupSearchImageResult(type="image", name="bar", url="https://bar.com"),
-            ],
-        ),
-    ),
 ]
 
 
 @pytest.mark.parametrize(
-    "search_kwargs, expected_request_params, mock_request_response_content, "
-    "expected_search_response",
+    (
+        "search_kwargs",
+        "expected_request_params",
+        "mock_request_response_content",
+        "expected_search_response",
+    ),
     test_search_parameters,
 )
 def test_search(
@@ -304,11 +258,11 @@ def test_search(
     search_kwargs: dict[str, Any],
     expected_request_params: dict[str, Any],
     mock_request_response_content: bytes,
-    expected_search_response: Any,
+    expected_search_response: Any,  # noqa: ANN401
 ) -> None:
-    mocker.patch("linkup.client.date").today.return_value = date(2000, 1, 1)
+    mocker.patch("linkup._client.date").today.return_value = date(2000, 1, 1)
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._request",
+        "linkup._client.LinkupClient._request",
         return_value=Response(
             status_code=200,
             content=mock_request_response_content,
@@ -327,8 +281,12 @@ def test_search(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "search_kwargs, expected_request_params, mock_request_response_content, "
-    "expected_search_response",
+    (
+        "search_kwargs",
+        "expected_request_params",
+        "mock_request_response_content",
+        "expected_search_response",
+    ),
     test_search_parameters,
 )
 async def test_async_search(
@@ -337,11 +295,11 @@ async def test_async_search(
     search_kwargs: dict[str, Any],
     expected_request_params: dict[str, Any],
     mock_request_response_content: bytes,
-    expected_search_response: Any,
+    expected_search_response: Any,  # noqa: ANN401
 ) -> None:
-    mocker.patch("linkup.client.date").today.return_value = date(2000, 1, 1)
+    mocker.patch("linkup._client.date").today.return_value = date(2000, 1, 1)
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._async_request",
+        "linkup._client.LinkupClient._async_request",
         return_value=Response(
             status_code=200,
             content=mock_request_response_content,
@@ -472,7 +430,7 @@ test_search_error_parameters = [
 
 
 @pytest.mark.parametrize(
-    "mock_request_response_status_code, mock_request_response_content, expected_exception",
+    ("mock_request_response_status_code", "mock_request_response_content", "expected_exception"),
     test_search_error_parameters,
 )
 def test_search_error(
@@ -480,10 +438,10 @@ def test_search_error(
     client: LinkupClient,
     mock_request_response_status_code: int,
     mock_request_response_content: bytes,
-    expected_exception: Any,
+    expected_exception: type[Exception],
 ) -> None:
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._request",
+        "linkup._client.LinkupClient._request",
         return_value=Response(
             status_code=mock_request_response_status_code,
             content=mock_request_response_content,
@@ -497,7 +455,7 @@ def test_search_error(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "mock_request_response_status_code, mock_request_response_content, expected_exception",
+    ("mock_request_response_status_code", "mock_request_response_content", "expected_exception"),
     test_search_error_parameters,
 )
 async def test_async_search_error(
@@ -505,10 +463,10 @@ async def test_async_search_error(
     client: LinkupClient,
     mock_request_response_status_code: int,
     mock_request_response_content: bytes,
-    expected_exception: Any,
+    expected_exception: type[Exception],
 ) -> None:
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._async_request",
+        "linkup._client.LinkupClient._async_request",
         return_value=Response(
             status_code=mock_request_response_status_code,
             content=mock_request_response_content,
@@ -528,8 +486,18 @@ test_fetch_parameters = [
         LinkupFetchResponse(markdown="Some web page content", raw_html=None),
     ),
     (
-        {"url": "https://example.com", "include_raw_html": True, "render_js": True},
-        {"url": "https://example.com", "includeRawHtml": True, "renderJs": True},
+        {
+            "url": "https://example.com",
+            "include_raw_html": True,
+            "render_js": True,
+            "extract_images": True,
+        },
+        {
+            "url": "https://example.com",
+            "includeRawHtml": True,
+            "renderJs": True,
+            "extractImages": True,
+        },
         b'{"markdown": "#Some web page content", "rawHtml": "<html>...</html>"}',
         LinkupFetchResponse(markdown="#Some web page content", raw_html="<html>...</html>"),
     ),
@@ -537,7 +505,12 @@ test_fetch_parameters = [
 
 
 @pytest.mark.parametrize(
-    "fetch_kwargs, expected_request_params, mock_request_response_content, expected_fetch_response",
+    (
+        "fetch_kwargs",
+        "expected_request_params",
+        "mock_request_response_content",
+        "expected_fetch_response",
+    ),
     test_fetch_parameters,
 )
 def test_fetch(
@@ -546,17 +519,17 @@ def test_fetch(
     fetch_kwargs: dict[str, Any],
     expected_request_params: dict[str, Any],
     mock_request_response_content: bytes,
-    expected_fetch_response: Any,
+    expected_fetch_response: LinkupFetchResponse,
 ) -> None:
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._request",
+        "linkup._client.LinkupClient._request",
         return_value=Response(
             status_code=200,
             content=mock_request_response_content,
         ),
     )
 
-    fetch_response: Any = client.fetch(**fetch_kwargs)
+    fetch_response: LinkupFetchResponse = client.fetch(**fetch_kwargs)
     request_mock.assert_called_once_with(
         method="POST",
         url="/fetch",
@@ -568,7 +541,12 @@ def test_fetch(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "fetch_kwargs, expected_request_params, mock_request_response_content, expected_fetch_response",
+    (
+        "fetch_kwargs",
+        "expected_request_params",
+        "mock_request_response_content",
+        "expected_fetch_response",
+    ),
     test_fetch_parameters,
 )
 async def test_async_fetch(
@@ -577,17 +555,17 @@ async def test_async_fetch(
     fetch_kwargs: dict[str, Any],
     expected_request_params: dict[str, Any],
     mock_request_response_content: bytes,
-    expected_fetch_response: Any,
+    expected_fetch_response: LinkupFetchResponse,
 ) -> None:
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._async_request",
+        "linkup._client.LinkupClient._async_request",
         return_value=Response(
             status_code=200,
             content=mock_request_response_content,
         ),
     )
 
-    fetch_response: Any = await client.async_fetch(**fetch_kwargs)
+    fetch_response: LinkupFetchResponse = await client.async_fetch(**fetch_kwargs)
     request_mock.assert_called_once_with(
         method="POST",
         url="/fetch",
@@ -633,7 +611,7 @@ test_fetch_error_parameters = [
 
 
 @pytest.mark.parametrize(
-    "mock_request_response_status_code, mock_request_response_content, expected_exception",
+    ("mock_request_response_status_code", "mock_request_response_content", "expected_exception"),
     test_fetch_error_parameters,
 )
 def test_fetch_error(
@@ -641,10 +619,10 @@ def test_fetch_error(
     client: LinkupClient,
     mock_request_response_status_code: int,
     mock_request_response_content: bytes,
-    expected_exception: Any,
+    expected_exception: type[Exception],
 ) -> None:
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._request",
+        "linkup._client.LinkupClient._request",
         return_value=Response(
             status_code=mock_request_response_status_code,
             content=mock_request_response_content,
@@ -658,7 +636,7 @@ def test_fetch_error(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "mock_request_response_status_code, mock_request_response_content, expected_exception",
+    ("mock_request_response_status_code", "mock_request_response_content", "expected_exception"),
     test_fetch_error_parameters,
 )
 async def test_async_fetch_error(
@@ -666,10 +644,10 @@ async def test_async_fetch_error(
     client: LinkupClient,
     mock_request_response_status_code: int,
     mock_request_response_content: bytes,
-    expected_exception: Any,
+    expected_exception: type[Exception],
 ) -> None:
     request_mock = mocker.patch(
-        "linkup.client.LinkupClient._async_request",
+        "linkup._client.LinkupClient._async_request",
         return_value=Response(
             status_code=mock_request_response_status_code,
             content=mock_request_response_content,

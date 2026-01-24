@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: varname
-Version: 0.15.0
+Version: 0.15.1
 Summary: Dark magics about variable names in python.
 License: MIT
+License-File: LICENSE
 Author: pwwang
 Author-email: pwwang@pwwang.com
 Requires-Python: >=3.8,<4.0
@@ -14,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: all
 Requires-Dist: asttokens (==3.*) ; extra == "all"
 Requires-Dist: executing (>=2.1,<3.0)

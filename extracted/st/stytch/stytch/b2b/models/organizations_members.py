@@ -22,6 +22,11 @@ from stytch.core.response_base import ResponseBase
 from stytch.shared.method_options import Authorization
 
 
+class StartEmailUpdateRequestDeliveryMethod(str, enum.Enum):
+    EMAIL_MAGIC_LINK = "EMAIL_MAGIC_LINK"
+    EMAIL_OTP = "EMAIL_OTP"
+
+
 class StartEmailUpdateRequestLocale(str, enum.Enum):
     EN = "en"
     ES = "es"
@@ -30,6 +35,22 @@ class StartEmailUpdateRequestLocale(str, enum.Enum):
 
 
 class CreateRequestOptions(pydantic.BaseModel):
+    """
+    Fields:
+      - authorization: Optional authorization object.
+    Pass in an active Stytch Member session token or session JWT and the request
+    will be run using that member's permissions.
+    """  # noqa
+
+    authorization: Optional[Authorization] = None
+
+    def add_headers(self, headers: Dict[str, str]) -> Dict[str, str]:
+        if self.authorization is not None:
+            headers = self.authorization.add_headers(headers)
+        return headers
+
+
+class DeleteExternalIdRequestOptions(pydantic.BaseModel):
     """
     Fields:
       - authorization: Optional authorization object.
@@ -213,6 +234,12 @@ class CreateResponse(ResponseBase):
       - organization: The [Organization object](https://stytch.com/docs/b2b/api/organization-object).
     """  # noqa
 
+    member_id: str
+    member: Member
+    organization: Organization
+
+
+class DeleteExternalIdResponse(ResponseBase):
     member_id: str
     member: Member
     organization: Organization

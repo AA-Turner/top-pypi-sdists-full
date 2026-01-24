@@ -26,8 +26,6 @@ import ssl
 import threading
 import os
 
-import six
-
 import pyghmi.exceptions as pygexc
 
 try:
@@ -99,7 +97,7 @@ class FileDownloader(threading.Thread):
 
 def get_upload_form(filename, data, formname, otherfields, boundary=BND):
     if not boundary:
-        boundary = base64.b64encode(os.urandom(54))[:70]
+        boundary = base64.urlsafe_b64encode(os.urandom(54))[:66]
     ffilename = filename.split('/')[-1]
     if not formname:
         formname = ffilename
@@ -205,7 +203,10 @@ class SecureHTTPConnection(httplib.HTTPConnection, object):
             pass
         plainsock.connect(addrinfo[4])
         if self._certverify:
-            self.sock = ssl.wrap_socket(plainsock, cert_reqs=self.cert_reqs)
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            self.sock = ctx.wrap_socket(plainsock)
             bincert = self.sock.getpeercert(binary_form=True)
             if not self._certverify(bincert):
                 raise pygexc.UnrecognizedCertificate('Unknown certificate',
@@ -303,7 +304,7 @@ class SecureHTTPConnection(httplib.HTTPConnection, object):
         """Download a file to filename or file object
 
         """
-        if isinstance(file, six.string_types):
+        if isinstance(file, str):
             file = open(file, 'wb')
         webclient = self.dupe()
         dlheaders = self.stdheaders.copy()

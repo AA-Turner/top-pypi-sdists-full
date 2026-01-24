@@ -20,12 +20,21 @@
 #include "include/core/SkPictureRecorder.h"
 #include "include/core/SkRect.h"
 #include "include/core/SkRefCnt.h"
+#include "include/core/SkSamplingOptions.h"
 #include "include/core/SkShader.h"
 #include "include/core/SkSize.h"
 #include "include/core/SkString.h"
 #include "include/core/SkSurface.h"
 #include "include/core/SkTileMode.h"
 #include "include/core/SkTypes.h"
+#include "include/encode/SkPngEncoder.h"
+#include "include/gpu/GpuTypes.h"
+#include "tools/DecodeUtils.h"
+#include "tools/ToolUtils.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/SkSurfaceGanesh.h"
+#endif
 
 #include <utility>
 
@@ -46,7 +55,7 @@ typedef sk_sp<SkImage> (*ImageMakerProc)(GrRecordingContext*, SkPicture*, const 
 static sk_sp<SkImage> make_raster(GrRecordingContext*,
                                   SkPicture* pic,
                                   const SkImageInfo& info) {
-    auto surface(SkSurface::MakeRaster(info));
+    auto surface(SkSurfaces::Raster(info));
     surface->getCanvas()->clear(0);
     surface->getCanvas()->drawPicture(pic);
     return surface->makeImageSnapshot();
@@ -58,7 +67,10 @@ static sk_sp<SkImage> make_texture(GrRecordingContext* ctx,
     if (!ctx) {
         return nullptr;
     }
-    auto surface(SkSurface::MakeRenderTarget(ctx, skgpu::Budgeted::kNo, info));
+    sk_sp<SkSurface> surface;
+#if defined(SK_GANESH)
+    surface = SkSurfaces::RenderTarget(ctx, skgpu::Budgeted::kNo, info);
+#endif
     if (!surface) {
         return nullptr;
     }
@@ -70,9 +82,12 @@ static sk_sp<SkImage> make_texture(GrRecordingContext* ctx,
 static sk_sp<SkImage> make_pict_gen(GrRecordingContext*,
                                     SkPicture* pic,
                                     const SkImageInfo& info) {
-    return SkImage::MakeFromPicture(sk_ref_sp(pic), info.dimensions(), nullptr, nullptr,
-                                    SkImage::BitDepth::kU8,
-                                    SkColorSpace::MakeSRGB());
+    return SkImages::DeferredFromPicture(sk_ref_sp(pic),
+                                         info.dimensions(),
+                                         nullptr,
+                                         nullptr,
+                                         SkImages::BitDepth::kU8,
+                                         SkColorSpace::MakeSRGB());
 }
 
 static sk_sp<SkImage> make_encode_gen(GrRecordingContext* ctx,
@@ -82,11 +97,11 @@ static sk_sp<SkImage> make_encode_gen(GrRecordingContext* ctx,
     if (!src) {
         return nullptr;
     }
-    sk_sp<SkData> encoded = src->encodeToData(SkEncodedImageFormat::kPNG, 100);
+    sk_sp<SkData> encoded = SkPngEncoder::Encode(nullptr, src.get(), {});
     if (!encoded) {
         return nullptr;
     }
-    return SkImage::MakeFromEncoded(std::move(encoded));
+    return SkImages::DeferredFromEncodedData(std::move(encoded));
 }
 
 const ImageMakerProc gProcs[] = {
@@ -107,13 +122,9 @@ public:
     ImageShaderGM() {}
 
 protected:
-    SkString onShortName() override {
-        return SkString("image-shader");
-    }
+    SkString getName() const override { return SkString("image-shader"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(850, 450);
-    }
+    SkISize getISize() override { return SkISize::Make(850, 450); }
 
     void onOnceBeforeDraw() override {
         const SkRect bounds = SkRect::MakeWH(100, 100);
@@ -173,7 +184,7 @@ DEF_SIMPLE_GM(drawimage_sampling, canvas, 500, 500) {
     auto img = make_checker_img(N, N, SK_ColorBLACK, SK_ColorWHITE, 7)->withDefaultMipmaps();
     const SkRect src = SkRect::MakeIWH(img->width(), img->height());
 
-    SkMatrix mx = SkMatrix::RectToRect(src, dst);
+    SkMatrix mx = SkMatrix::RectToRectOrIdentity(src, dst);
 
     SkPaint paint;
 
@@ -205,7 +216,7 @@ DEF_SIMPLE_GM(drawimage_sampling, canvas, 500, 500) {
 
 }
 
-// Test case for skbug.com/12685 (texture-backed image shaders silently fail drawing to CPU canvas)
+// Test case for skbug.com/40043768 (texture-backed image shaders silently fail drawing to CPU canvas)
 DEF_SIMPLE_GM(textureimage_and_shader, canvas, 100, 50) {
     canvas->clear(SK_ColorGREEN);
 
@@ -214,7 +225,7 @@ DEF_SIMPLE_GM(textureimage_and_shader, canvas, 100, 50) {
         image = canvas->getSurface()->makeImageSnapshot();
         canvas->clear(SK_ColorRED);
     } else {
-        auto greenSurface = SkSurface::MakeRasterN32Premul(50, 50);
+        auto greenSurface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(50, 50));
         greenSurface->getCanvas()->clear(SK_ColorGREEN);
         image = greenSurface->makeImageSnapshot();
     }
@@ -224,7 +235,7 @@ DEF_SIMPLE_GM(textureimage_and_shader, canvas, 100, 50) {
     // surface, to ensure that we get automatic read-back. If all goes well, we will get a pure
     // green result. If either draw fails, we'll get red (most likely).
 
-    auto surface = SkSurface::MakeRasterN32Premul(50, 50);
+    auto surface = SkSurfaces::Raster(SkImageInfo::MakeN32Premul(50, 50));
 
     // First, use drawImage:
     surface->getCanvas()->clear(SK_ColorRED);
@@ -237,4 +248,23 @@ DEF_SIMPLE_GM(textureimage_and_shader, canvas, 100, 50) {
     surface->getCanvas()->clear(SK_ColorRED);
     surface->getCanvas()->drawPaint(paint);
     canvas->drawImage(surface->makeImageSnapshot(), 50, 0);
+}
+
+DEF_SIMPLE_GM(imageshader_tinyscale, canvas, 1000, 1000) {
+    // 128x128px image with red/black/green/blue quadrants.
+    auto img = ToolUtils::GetResourceAsImage("images/gainmap_gcontainer_only.jpg");
+
+    // A small scale amplifies the sampling coords in image space.
+    static constexpr float kScale = 0.01f;
+    const auto m = SkMatrix::Translate(500, 500) *
+                   SkMatrix::Scale(kScale, kScale);
+
+    // In clamp mode we should see no repeating patterns, just the viewport filled
+    // with four-colored quadrants.
+    SkPaint p;
+    p.setShader(img->makeShader(SkTileMode::kClamp,
+                                SkTileMode::kClamp,
+                                SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kNone),
+                                &m));
+    canvas->drawPaint(p);
 }

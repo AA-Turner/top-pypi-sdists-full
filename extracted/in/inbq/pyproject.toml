@@ -1,0 +1,42 @@
+[project]
+name = "inbq"
+description = "A library for parsing BigQuery queries and extracting schema-aware, column-level lineage."
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+dynamic = ["version"]
+authors = [
+  {name = "Lorenzo Pratissoli", email = "pratissolil@gmail.com"},
+]
+dependencies = []
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+documentation = "https://github.com/lpraat/inbq"
+homepage = "https://github.com/lpraat/inbq"
+repository = "https://github.com/lpraat/inbq"
+keywords = ["bigquery", "sql", "parser", "data-lineage"]
+
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "inbq._inbq"
+manifest-path = "crates/py_inbq/Cargo.toml"
+
+[dependency-groups]
+dev = [
+    "maturin>=1.9.6",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.2",
+]

@@ -3,7 +3,7 @@ Type annotations for mailmanager service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -144,12 +145,6 @@ from .type_defs import (
     UpdateTrafficPolicyRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -158,13 +153,13 @@ else:
 __all__ = ("MailManagerClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class MailManagerClient(AioBaseClient):
     """
@@ -295,7 +290,7 @@ class MailManagerClient(AioBaseClient):
 
     async def delete_addon_instance(
         self, **kwargs: Unpack[DeleteAddonInstanceRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Add On instance.
 
@@ -305,7 +300,7 @@ class MailManagerClient(AioBaseClient):
 
     async def delete_addon_subscription(
         self, **kwargs: Unpack[DeleteAddonSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an Add On subscription.
 
@@ -315,7 +310,7 @@ class MailManagerClient(AioBaseClient):
 
     async def delete_address_list(
         self, **kwargs: Unpack[DeleteAddressListRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an address list.
 
@@ -323,7 +318,7 @@ class MailManagerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/#delete_address_list)
         """
 
-    async def delete_archive(self, **kwargs: Unpack[DeleteArchiveRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_archive(self, **kwargs: Unpack[DeleteArchiveRequestTypeDef]) -> dict[str, Any]:
         """
         Initiates deletion of an email archive.
 
@@ -333,7 +328,7 @@ class MailManagerClient(AioBaseClient):
 
     async def delete_ingress_point(
         self, **kwargs: Unpack[DeleteIngressPointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete an ingress endpoint resource.
 
@@ -341,7 +336,7 @@ class MailManagerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/#delete_ingress_point)
         """
 
-    async def delete_relay(self, **kwargs: Unpack[DeleteRelayRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_relay(self, **kwargs: Unpack[DeleteRelayRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an existing relay resource.
 
@@ -351,7 +346,7 @@ class MailManagerClient(AioBaseClient):
 
     async def delete_rule_set(
         self, **kwargs: Unpack[DeleteRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a rule set.
 
@@ -361,7 +356,7 @@ class MailManagerClient(AioBaseClient):
 
     async def delete_traffic_policy(
         self, **kwargs: Unpack[DeleteTrafficPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Delete a traffic policy resource.
 
@@ -371,7 +366,7 @@ class MailManagerClient(AioBaseClient):
 
     async def deregister_member_from_address_list(
         self, **kwargs: Unpack[DeregisterMemberFromAddressListRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes a member from an address list.
 
@@ -660,7 +655,7 @@ class MailManagerClient(AioBaseClient):
 
     async def register_member_to_address_list(
         self, **kwargs: Unpack[RegisterMemberToAddressListRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds a member to an address list.
 
@@ -670,7 +665,7 @@ class MailManagerClient(AioBaseClient):
 
     async def start_address_list_import_job(
         self, **kwargs: Unpack[StartAddressListImportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts an import job for an address list.
 
@@ -700,7 +695,7 @@ class MailManagerClient(AioBaseClient):
 
     async def stop_address_list_import_job(
         self, **kwargs: Unpack[StopAddressListImportJobRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an ongoing import job for an address list.
 
@@ -710,7 +705,7 @@ class MailManagerClient(AioBaseClient):
 
     async def stop_archive_export(
         self, **kwargs: Unpack[StopArchiveExportRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an in-progress export of emails from an archive.
 
@@ -720,7 +715,7 @@ class MailManagerClient(AioBaseClient):
 
     async def stop_archive_search(
         self, **kwargs: Unpack[StopArchiveSearchRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops an in-progress archive search job.
 
@@ -728,7 +723,7 @@ class MailManagerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/#stop_archive_search)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds one or more tags (keys and values) to a specified resource.
 
@@ -736,7 +731,7 @@ class MailManagerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Remove one or more tags (keys and values) from a specified resource.
 
@@ -744,7 +739,7 @@ class MailManagerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/#untag_resource)
         """
 
-    async def update_archive(self, **kwargs: Unpack[UpdateArchiveRequestTypeDef]) -> Dict[str, Any]:
+    async def update_archive(self, **kwargs: Unpack[UpdateArchiveRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the attributes of an existing email archive.
 
@@ -754,7 +749,7 @@ class MailManagerClient(AioBaseClient):
 
     async def update_ingress_point(
         self, **kwargs: Unpack[UpdateIngressPointRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update attributes of a provisioned ingress endpoint resource.
 
@@ -762,7 +757,7 @@ class MailManagerClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_mailmanager/client/#update_ingress_point)
         """
 
-    async def update_relay(self, **kwargs: Unpack[UpdateRelayRequestTypeDef]) -> Dict[str, Any]:
+    async def update_relay(self, **kwargs: Unpack[UpdateRelayRequestTypeDef]) -> dict[str, Any]:
         """
         Updates the attributes of an existing relay resource.
 
@@ -772,7 +767,7 @@ class MailManagerClient(AioBaseClient):
 
     async def update_rule_set(
         self, **kwargs: Unpack[UpdateRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update attributes of an already provisioned rule set.
 
@@ -782,7 +777,7 @@ class MailManagerClient(AioBaseClient):
 
     async def update_traffic_policy(
         self, **kwargs: Unpack[UpdateTrafficPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Update attributes of an already provisioned traffic policy resource.
 
@@ -930,7 +925,7 @@ class MailManagerClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

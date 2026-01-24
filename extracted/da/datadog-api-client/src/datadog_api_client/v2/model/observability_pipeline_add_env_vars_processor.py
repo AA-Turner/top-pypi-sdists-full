@@ -3,11 +3,13 @@
 # Copyright 2019-Present Datadog, Inc.
 from __future__ import annotations
 
-from typing import List, TYPE_CHECKING
+from typing import List, Union, TYPE_CHECKING
 
 from datadog_api_client.model_utils import (
     ModelNormal,
     cached_property,
+    unset,
+    UnsetType,
 )
 
 
@@ -31,32 +33,43 @@ class ObservabilityPipelineAddEnvVarsProcessor(ModelNormal):
         )
 
         return {
+            "display_name": (str,),
+            "enabled": (bool,),
             "id": (str,),
             "include": (str,),
-            "inputs": ([str],),
             "type": (ObservabilityPipelineAddEnvVarsProcessorType,),
             "variables": ([ObservabilityPipelineAddEnvVarsProcessorVariable],),
         }
 
     attribute_map = {
+        "display_name": "display_name",
+        "enabled": "enabled",
         "id": "id",
         "include": "include",
-        "inputs": "inputs",
         "type": "type",
         "variables": "variables",
     }
 
     def __init__(
         self_,
+        enabled: bool,
         id: str,
         include: str,
-        inputs: List[str],
         type: ObservabilityPipelineAddEnvVarsProcessorType,
         variables: List[ObservabilityPipelineAddEnvVarsProcessorVariable],
+        display_name: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
         The ``add_env_vars`` processor adds environment variable values to log events.
+
+        **Supported pipeline types:** logs
+
+        :param display_name: The display name for a component.
+        :type display_name: str, optional
+
+        :param enabled: Indicates whether the processor is enabled.
+        :type enabled: bool
 
         :param id: The unique identifier for this component. Used to reference this processor in the pipeline.
         :type id: str
@@ -64,19 +77,18 @@ class ObservabilityPipelineAddEnvVarsProcessor(ModelNormal):
         :param include: A Datadog search query used to determine which logs this processor targets.
         :type include: str
 
-        :param inputs: A list of component IDs whose output is used as the input for this processor.
-        :type inputs: [str]
-
         :param type: The processor type. The value should always be ``add_env_vars``.
         :type type: ObservabilityPipelineAddEnvVarsProcessorType
 
         :param variables: A list of environment variable mappings to apply to log fields.
         :type variables: [ObservabilityPipelineAddEnvVarsProcessorVariable]
         """
+        if display_name is not unset:
+            kwargs["display_name"] = display_name
         super().__init__(kwargs)
 
+        self_.enabled = enabled
         self_.id = id
         self_.include = include
-        self_.inputs = inputs
         self_.type = type
         self_.variables = variables

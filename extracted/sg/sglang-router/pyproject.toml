@@ -1,35 +1,65 @@
 [build-system]
-requires = ["setuptools>=45", "wheel", "setuptools-rust>=1.5.2"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "sglang-router"
-version = "0.1.9"
+version = "0.3.2"
 description = "High-performance Rust-based load balancer for SGLang with multiple routing algorithms and prefill-decode disaggregation support"
-authors = [{name = "Byron Hsu", email = "byronhsu1230@gmail.com"}]
+authors = [
+    {name = "Simo Lin", email = "linsimo.mark@gmail.com"},
+    {name = "Chang Su", email = "mckvtl@gmail.com"},
+    {name = "Keyang Ru", email = "rukeyang@gmail.com"},
+    {name = "Byron Hsu", email = "byronhsu1230@gmail.com"}
+]
 requires-python = ">=3.8"
-readme = "README.md"
+readme = "../../README.md"
 license = { text = "Apache-2.0" }
 classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+
+dependencies = [
+    "setproctitle",
+    "aiohttp",
+    "orjson",
+    "uvicorn",
+    "fastapi",
 ]
 
 [project.optional-dependencies]
 dev = [
     "requests>=2.25.0",
+    "pytest>=7.0.0",
 ]
 
-# https://github.com/PyO3/setuptools-rust?tab=readme-ov-file
-[tool.setuptools.packages]
-find = { where = ["py_src"] }
+[project.scripts]
+smg = "sglang_router.cli:main"
+amg = "sglang_router.cli:main"
+sglang-router = "sglang_router.cli:main"
 
-# workaround for https://github.com/pypa/twine/issues/1216
-[tool.setuptools]
-license-files = []
 
-[[tool.setuptools-rust.ext-modules]]
-target = "sglang_router_rs"
-path = "Cargo.toml"
-binding = "PyO3"
+[tool.maturin]
+python-source = "src"
+module-name = "sglang_router.sglang_router_rs"
+# Exclude bindings/python/README.md to use root README only
+exclude = ["README.md"]
+manifest-path = "bindings/python/Cargo.toml"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "unit: mark test as a unit test (no GPU required)",
+]

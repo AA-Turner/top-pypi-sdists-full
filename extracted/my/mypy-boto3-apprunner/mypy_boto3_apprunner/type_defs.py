@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
@@ -40,12 +41,6 @@ from .literals import (
     VpcIngressConnectionStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -179,7 +174,7 @@ class AssociateCustomDomainRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -236,8 +231,8 @@ class CodeConfigurationValuesOutputTypeDef(TypedDict):
     BuildCommand: NotRequired[str]
     StartCommand: NotRequired[str]
     Port: NotRequired[str]
-    RuntimeEnvironmentVariables: NotRequired[Dict[str, str]]
-    RuntimeEnvironmentSecrets: NotRequired[Dict[str, str]]
+    RuntimeEnvironmentVariables: NotRequired[dict[str, str]]
+    RuntimeEnvironmentSecrets: NotRequired[dict[str, str]]
 
 
 class CodeConfigurationValuesTypeDef(TypedDict):
@@ -315,8 +310,8 @@ class VpcConnectorTypeDef(TypedDict):
     VpcConnectorName: NotRequired[str]
     VpcConnectorArn: NotRequired[str]
     VpcConnectorRevision: NotRequired[int]
-    Subnets: NotRequired[List[str]]
-    SecurityGroups: NotRequired[List[str]]
+    Subnets: NotRequired[list[str]]
+    SecurityGroups: NotRequired[list[str]]
     Status: NotRequired[VpcConnectorStatusType]
     CreatedAt: NotRequired[datetime]
     DeletedAt: NotRequired[datetime]
@@ -389,10 +384,10 @@ class EgressConfigurationTypeDef(TypedDict):
 
 
 class ImageConfigurationOutputTypeDef(TypedDict):
-    RuntimeEnvironmentVariables: NotRequired[Dict[str, str]]
+    RuntimeEnvironmentVariables: NotRequired[dict[str, str]]
     StartCommand: NotRequired[str]
     Port: NotRequired[str]
-    RuntimeEnvironmentSecrets: NotRequired[Dict[str, str]]
+    RuntimeEnvironmentSecrets: NotRequired[dict[str, str]]
 
 
 class ImageConfigurationTypeDef(TypedDict):
@@ -518,7 +513,7 @@ class UpdateDefaultAutoScalingConfigurationRequestTypeDef(TypedDict):
 
 
 class ListServicesForAutoScalingConfigurationResponseTypeDef(TypedDict):
-    ServiceArnList: List[str]
+    ServiceArnList: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -529,7 +524,7 @@ class StartDeploymentResponseTypeDef(TypedDict):
 
 
 class ListAutoScalingConfigurationsResponseTypeDef(TypedDict):
-    AutoScalingConfigurationSummaryList: List[AutoScalingConfigurationSummaryTypeDef]
+    AutoScalingConfigurationSummaryList: list[AutoScalingConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -558,7 +553,7 @@ class CustomDomainTypeDef(TypedDict):
     DomainName: str
     EnableWWWSubdomain: bool
     Status: CustomDomainAssociationStatusType
-    CertificateValidationRecords: NotRequired[List[CertificateValidationRecordTypeDef]]
+    CertificateValidationRecords: NotRequired[list[CertificateValidationRecordTypeDef]]
 
 
 class CodeConfigurationOutputTypeDef(TypedDict):
@@ -572,7 +567,7 @@ class CodeConfigurationTypeDef(TypedDict):
 
 
 class ListConnectionsResponseTypeDef(TypedDict):
-    ConnectionSummaryList: List[ConnectionSummaryTypeDef]
+    ConnectionSummaryList: list[ConnectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -609,7 +604,7 @@ class CreateVpcConnectorRequestTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -651,7 +646,7 @@ class DescribeVpcConnectorResponseTypeDef(TypedDict):
 
 
 class ListVpcConnectorsResponseTypeDef(TypedDict):
-    VpcConnectors: List[VpcConnectorTypeDef]
+    VpcConnectors: list[VpcConnectorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -699,19 +694,19 @@ class NetworkConfigurationTypeDef(TypedDict):
 
 
 class ListObservabilityConfigurationsResponseTypeDef(TypedDict):
-    ObservabilityConfigurationSummaryList: List[ObservabilityConfigurationSummaryTypeDef]
+    ObservabilityConfigurationSummaryList: list[ObservabilityConfigurationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOperationsResponseTypeDef(TypedDict):
-    OperationSummaryList: List[OperationSummaryTypeDef]
+    OperationSummaryList: list[OperationSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListServicesResponseTypeDef(TypedDict):
-    ServiceSummaryList: List[ServiceSummaryTypeDef]
+    ServiceSummaryList: list[ServiceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -723,7 +718,7 @@ class ListVpcIngressConnectionsRequestTypeDef(TypedDict):
 
 
 class ListVpcIngressConnectionsResponseTypeDef(TypedDict):
-    VpcIngressConnectionSummaryList: List[VpcIngressConnectionSummaryTypeDef]
+    VpcIngressConnectionSummaryList: list[VpcIngressConnectionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -732,15 +727,15 @@ class AssociateCustomDomainResponseTypeDef(TypedDict):
     DNSTarget: str
     ServiceArn: str
     CustomDomain: CustomDomainTypeDef
-    VpcDNSTargets: List[VpcDNSTargetTypeDef]
+    VpcDNSTargets: list[VpcDNSTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DescribeCustomDomainsResponseTypeDef(TypedDict):
     DNSTarget: str
     ServiceArn: str
-    CustomDomains: List[CustomDomainTypeDef]
-    VpcDNSTargets: List[VpcDNSTargetTypeDef]
+    CustomDomains: list[CustomDomainTypeDef]
+    VpcDNSTargets: list[VpcDNSTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -749,7 +744,7 @@ class DisassociateCustomDomainResponseTypeDef(TypedDict):
     DNSTarget: str
     ServiceArn: str
     CustomDomain: CustomDomainTypeDef
-    VpcDNSTargets: List[VpcDNSTargetTypeDef]
+    VpcDNSTargets: list[VpcDNSTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

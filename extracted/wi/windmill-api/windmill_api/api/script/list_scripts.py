@@ -29,6 +29,7 @@ def _get_kwargs(
     starred_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     languages: Union[Unset, None, str] = UNSET,
+    without_description: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -66,6 +67,8 @@ def _get_kwargs(
     params["with_deployment_msg"] = with_deployment_msg
 
     params["languages"] = languages
+
+    params["without_description"] = without_description
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -128,6 +131,7 @@ def sync_detailed(
     starred_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     languages: Union[Unset, None, str] = UNSET,
+    without_description: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListScriptsResponse200Item"]]:
     """list all scripts
 
@@ -150,6 +154,7 @@ def sync_detailed(
         starred_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         languages (Union[Unset, None, str]):
+        without_description (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -178,6 +183,7 @@ def sync_detailed(
         starred_only=starred_only,
         with_deployment_msg=with_deployment_msg,
         languages=languages,
+        without_description=without_description,
     )
 
     response = client.get_httpx_client().request(
@@ -208,6 +214,7 @@ def sync(
     starred_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     languages: Union[Unset, None, str] = UNSET,
+    without_description: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListScriptsResponse200Item"]]:
     """list all scripts
 
@@ -230,6 +237,7 @@ def sync(
         starred_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         languages (Union[Unset, None, str]):
+        without_description (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -259,6 +267,7 @@ def sync(
         starred_only=starred_only,
         with_deployment_msg=with_deployment_msg,
         languages=languages,
+        without_description=without_description,
     ).parsed
 
 
@@ -283,6 +292,7 @@ async def asyncio_detailed(
     starred_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     languages: Union[Unset, None, str] = UNSET,
+    without_description: Union[Unset, None, bool] = UNSET,
 ) -> Response[List["ListScriptsResponse200Item"]]:
     """list all scripts
 
@@ -305,6 +315,7 @@ async def asyncio_detailed(
         starred_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         languages (Union[Unset, None, str]):
+        without_description (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -333,6 +344,7 @@ async def asyncio_detailed(
         starred_only=starred_only,
         with_deployment_msg=with_deployment_msg,
         languages=languages,
+        without_description=without_description,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -361,6 +373,7 @@ async def asyncio(
     starred_only: Union[Unset, None, bool] = UNSET,
     with_deployment_msg: Union[Unset, None, bool] = UNSET,
     languages: Union[Unset, None, str] = UNSET,
+    without_description: Union[Unset, None, bool] = UNSET,
 ) -> Optional[List["ListScriptsResponse200Item"]]:
     """list all scripts
 
@@ -383,6 +396,7 @@ async def asyncio(
         starred_only (Union[Unset, None, bool]):
         with_deployment_msg (Union[Unset, None, bool]):
         languages (Union[Unset, None, str]):
+        without_description (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -413,5 +427,6 @@ async def asyncio(
             starred_only=starred_only,
             with_deployment_msg=with_deployment_msg,
             languages=languages,
+            without_description=without_description,
         )
     ).parsed

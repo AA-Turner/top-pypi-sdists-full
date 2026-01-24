@@ -1,5 +1,4 @@
 from abc import ABC
-from typing import Union
 
 from ase import Atoms
 from ase.units import kB
@@ -14,14 +13,14 @@ class BaseMC(ABC):
     Initializes the internal atoms and evaluator objects.
 
     Args:
-        system (Union[Atoms, MCEvaluator]): Either an ASE Atoms object
+        system (Atoms | MCEvaluator): Either an ASE Atoms object
             with an attached calculator, or a pre-initialized
             :class:`~clease.montecarlo.mc_evaluator.MCEvaluator`
             object.
         temp (float): Temperature of Monte Carlo simulation in Kelvin
     """
 
-    def __init__(self, system: Union[Atoms, MCEvaluator], temp: float):
+    def __init__(self, system: Atoms | MCEvaluator, temp: float):
         self.evaluator = system
         self.temperature = temp
 
@@ -39,7 +38,7 @@ class BaseMC(ABC):
         return self._evaluator
 
     @evaluator.setter
-    def evaluator(self, value: Union[Atoms, MCEvaluator]) -> None:
+    def evaluator(self, value: Atoms | MCEvaluator) -> None:
         """Set the evaluator object. If the value is an Atoms object,
         the evaluator is created on basis of the attached calculator object.
         """

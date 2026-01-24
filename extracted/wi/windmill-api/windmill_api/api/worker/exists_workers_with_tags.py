@@ -6,17 +6,20 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.exists_workers_with_tags_response_200 import ExistsWorkersWithTagsResponse200
-from ...types import UNSET, Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     *,
     tags: str,
+    workspace: Union[Unset, None, str] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
     params: Dict[str, Any] = {}
     params["tags"] = tags
+
+    params["workspace"] = workspace
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -55,11 +58,13 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     tags: str,
+    workspace: Union[Unset, None, str] = UNSET,
 ) -> Response[ExistsWorkersWithTagsResponse200]:
     """exists workers with tags
 
     Args:
         tags (str):
+        workspace (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -71,6 +76,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         tags=tags,
+        workspace=workspace,
     )
 
     response = client.get_httpx_client().request(
@@ -84,11 +90,13 @@ def sync(
     *,
     client: Union[AuthenticatedClient, Client],
     tags: str,
+    workspace: Union[Unset, None, str] = UNSET,
 ) -> Optional[ExistsWorkersWithTagsResponse200]:
     """exists workers with tags
 
     Args:
         tags (str):
+        workspace (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -101,6 +109,7 @@ def sync(
     return sync_detailed(
         client=client,
         tags=tags,
+        workspace=workspace,
     ).parsed
 
 
@@ -108,11 +117,13 @@ async def asyncio_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     tags: str,
+    workspace: Union[Unset, None, str] = UNSET,
 ) -> Response[ExistsWorkersWithTagsResponse200]:
     """exists workers with tags
 
     Args:
         tags (str):
+        workspace (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -124,6 +135,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         tags=tags,
+        workspace=workspace,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -135,11 +147,13 @@ async def asyncio(
     *,
     client: Union[AuthenticatedClient, Client],
     tags: str,
+    workspace: Union[Unset, None, str] = UNSET,
 ) -> Optional[ExistsWorkersWithTagsResponse200]:
     """exists workers with tags
 
     Args:
         tags (str):
+        workspace (Union[Unset, None, str]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -153,5 +167,6 @@ async def asyncio(
         await asyncio_detailed(
             client=client,
             tags=tags,
+            workspace=workspace,
         )
     ).parsed

@@ -1,2 +1,0 @@
-
-            wx.LogMessage("*** Application started ***")

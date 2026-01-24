@@ -1,0 +1,100 @@
+[project]
+# The distribution/package name users will install via pip
+name = "powerfx"
+# Minimum supported Python version
+requires-python = ">= 3.10"
+
+# Version of your package
+version = "0.0.34"
+
+# Short description of what the package does
+description = "Power Fx python bridge to invoke c# implementation."
+
+# File to use as the long description on PyPI (e.g. README.md)
+readme = "README.md"
+
+# Package authors (usually original creators)
+authors = [
+  {name = "Microsoft", email = "powerfx-growth@microsoft.com"}
+]
+
+# Maintainers (people currently responsible for upkeep)
+maintainers = [
+  {name = "Microsoft", email = "powerfx-growth@microsoft.com"}
+]
+
+# Trove classifiers that describe your project (Python version, license, etc.)
+# See https://pypi.org/classifiers/ for full list
+classifiers = [
+    # TODO
+]
+
+# License of the project (can be file= or text=)
+license = {text = "MIT"}
+
+# Required dependencies that will be installed alongside your package
+dependencies = [
+  "pythonnet==3.0.5",
+  "cffi==2.0.0"
+]
+
+[project.optional-dependencies]
+# ✅ Dev/test dependencies (install with `pip install .[dev]`)
+dev = [
+  "pytest",
+  "coverage",
+  "ruff"
+]
+
+# Groups of extra dependencies, installable with: pip install powerfx[test]
+test = [
+    "coverage",  # testing coverage reports
+    "pytest",    # testing framework
+    "ruff",      # linting tool
+    "ty",        # static type checker
+    "ipdb"      # interactive debugger
+]
+
+[build-system]
+# Build dependencies needed to create wheel/sdist
+requires = ["setuptools>=65", "wheel"]
+
+# Which backend to use for builds (here, setuptools)
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# Where the actual package source code lives (src layout)
+package-dir = {"" = "src"}
+include-package-data = true
+
+# Ensure py.typed goes into the wheel
+[tool.setuptools.package-data]
+powerfx = ["py.typed", "_bundled/*"]
+
+[tool.setuptools.packages.find]
+# Tell setuptools to look for packages under the src directory
+where = ["src"]
+
+[tool.ty]
+# Configuration for "ty" type checker
+# All rules are errors by default; you can override here
+# Example: rules.TY015 = "warn"
+
+[tool.ruff]
+# Max line length for the Ruff linter
+line-length = 120
+
+[tool.ruff.lint]
+# Which rule sets Ruff should enforce
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear (bug-prone patterns)
+    "UP",  # pyupgrade (suggests modern syntax)
+]
+
+[tool.uv]
+# Config for uv (modern Python package installer/manager)
+package = true

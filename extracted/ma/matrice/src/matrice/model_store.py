@@ -1,6 +1,6 @@
 """Module providing model_store functionality."""
 
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 import os
 import json
 import requests
@@ -653,7 +653,7 @@ class ModelArch:
         if self.model_arch_id is not None:
             path = f"/v1/model_store/get_model_arch/{self.model_arch_id}"
         else:
-            path = f"/v1/model_store/get_model_arch_from_model_key_and_family/{self.model_key}/{self.model_family_name}"
+            path = f"/v1/model_store/get_model_arch_from_model_key_and_family/{self.model_key}/{self.model_family_name}" # TODO: Update with fixed API call
         resp = self.rpc.get(path=path)
         return handle_response(
             resp,

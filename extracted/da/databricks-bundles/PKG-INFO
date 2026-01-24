@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-bundles
-Version: 0.269.0
+Version: 0.285.0
 Summary: Python support for Databricks Asset Bundles
 Author-email: Gleb Kanterov <gleb.kanterov@databricks.com>
 Requires-Python: >=3.10
@@ -16,13 +16,13 @@ Python for Databricks Asset Bundles extends [Databricks Asset Bundles](https://d
 
 Documentation is available at https://docs.databricks.com/dev-tools/cli/databricks-cli.html.
 
-Reference documentation is available at https://databricks.github.io/cli/experimental/python/
+Reference documentation is available at https://databricks.github.io/cli/python/
 
 ## Getting started
 
 To use `databricks-bundles`, you must first:
 
-1. Install the [Databricks CLI](https://github.com/databricks/cli), version 0.269.0 or above
+1. Install the [Databricks CLI](https://github.com/databricks/cli), version 0.285.0 or above
 2. Authenticate to your Databricks workspace if you have not done so already:
 
    ```bash

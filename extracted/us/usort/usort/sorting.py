@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
 
 import libcst as cst
+from attr import evolve
 from libcst.metadata import PositionProvider
 
 from .config import Config
@@ -164,7 +165,14 @@ class ImportSorter:
             # move imported names metadata
             for imp in new.imports:
                 for key in list(imp.imported_names):
-                    new.imported_names[key] = block.imported_names.pop(key)
+                    name = block.imported_names.pop(key, None)
+                    if name is not None:
+                        # Normally we wouldn't see multiple copies of a key because that
+                        # would have caused a block split already, but if an import is
+                        # just verbatim repeated, it's not technically shadowing.
+                        # If that's the case, we've already popped it and achieved the
+                        # goal of this block.
+                        new.imported_names[key] = name
 
         return new
 
@@ -230,7 +238,11 @@ class ImportSorter:
             elif imp.sort_key.category_index != cur_category:
                 blanks = ("",)
             else:
-                blanks = _old_blanks[:1]
+                # Apply the config option for blank line behavior within categories
+                if self.config.collapse_blank_lines_in_category:
+                    blanks = ()
+                else:
+                    blanks = _old_blanks[:1]
 
             imp.comments.before = [*blanks, *old_comments]
 
@@ -267,6 +279,26 @@ class ImportSorter:
 
         return imports
 
+    def split_imports(self, imports: List[SortableImport]) -> List[SortableImport]:
+        idx = 0
+        while idx < len(imports):
+            imp = imports[idx]
+            if imp.stem is None and len(imp.items) > 1:  # import foo, bar
+                new_imps = [
+                    SortableImport(
+                        stem=None,
+                        items=[item],
+                        comments=evolve(imp.comments),
+                        indent=imp.indent,
+                        config=imp.config,
+                        node=imp.node,
+                    )
+                    for item in imp.items
+                ]
+                imports[idx : idx + 1] = new_imps
+            idx += 1
+        return imports
+
     def find_and_sort_blocks(
         self,
         body: Sequence[cst.BaseStatement],
@@ -287,7 +319,8 @@ class ImportSorter:
             # Sort the imports first, so that imports from the same module line up, then
             # merge and sort imports/items, then re-sort the final set of imports again
             # in case unsorted items affected overall sorting.
-            imports = sorted(block.imports)
+            imports = self.split_imports(block.imports)
+            imports = sorted(imports)
             imports = self.merge_and_sort_imports(imports)
             imports = self.fixup_whitespace(initial_blank, imports)
             block.imports = sorted(imports)

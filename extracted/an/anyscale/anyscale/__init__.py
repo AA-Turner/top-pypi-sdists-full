@@ -17,22 +17,24 @@ anyscale_dir = os.path.dirname(os.path.abspath(__file__))
 path.append(os.path.join(anyscale_dir, "client"))
 path.append(os.path.join(anyscale_dir, "sdk"))
 
-import anyscale
+import anyscale as anyscale
 from anyscale import (
-    aggregated_instance_usage,
-    cloud,
-    compute_config,
-    image,
-    integrations,
-    job,
-    job_queue,
-    organization_invitation,
-    project,
-    resource_quota,
-    schedule,
-    service,
-    service_account,
-    user,
+    aggregated_instance_usage as aggregated_instance_usage,
+    cloud as cloud,
+    compute_config as compute_config,
+    image as image,
+    integrations as integrations,
+    job as job,
+    job_queue as job_queue,
+    organization_invitation as organization_invitation,
+    policy as policy,
+    project as project,
+    resource_quota as resource_quota,
+    schedule as schedule,
+    service as service,
+    service_account as service_account,
+    user as user,
+    user_group as user_group,
 )
 from anyscale._private.anyscale_client import AnyscaleClient, AnyscaleClientInterface
 from anyscale._private.sdk.base_sdk import Timer
@@ -40,21 +42,27 @@ from anyscale.aggregated_instance_usage import AggregatedInstanceUsageSDK
 from anyscale.authenticate import AuthenticationBlock
 from anyscale.cli_logger import BlockLogger
 from anyscale.cloud import CloudSDK
-from anyscale.cluster import get_job_submission_client_cluster_info
-from anyscale.cluster_compute import get_cluster_compute_from_name
+from anyscale.cluster import (
+    get_job_submission_client_cluster_info as get_job_submission_client_cluster_info,
+)
+from anyscale.cluster_compute import (
+    get_cluster_compute_from_name as get_cluster_compute_from_name,
+)
 from anyscale.compute_config import ComputeConfigSDK
 from anyscale.connect import ClientBuilder
 from anyscale.image import ImageSDK
 from anyscale.job import JobSDK
 from anyscale.job_queue import JobQueueSDK
 from anyscale.organization_invitation import OrganizationInvitationSDK
+from anyscale.policy import PolicySDK
 from anyscale.project import ProjectSDK
 from anyscale.resource_quota import ResourceQuotaSDK
 from anyscale.schedule import ScheduleSDK
-from anyscale.sdk.anyscale_client.sdk import AnyscaleSDK
+from anyscale.sdk.anyscale_client.sdk import AnyscaleSDK as AnyscaleSDK
 from anyscale.service import ServiceSDK
 from anyscale.service_account import ServiceAccountSDK
 from anyscale.user import UserSDK
+from anyscale.user_group import UserGroupSDK
 from anyscale.workspace import WorkspaceSDK
 
 
@@ -128,7 +136,9 @@ class Anyscale:
         self._organization_invitation_sdk = OrganizationInvitationSDK(
             client=self._anyscale_client
         )
+        self._policy_sdk = PolicySDK(client=self._anyscale_client)
         self._project_sdk = ProjectSDK(client=self._anyscale_client)
+        self._user_group_sdk = UserGroupSDK(client=self._anyscale_client)
         self._resource_quota_sdk = ResourceQuotaSDK(client=self._anyscale_client)
         self._service_account_sdk = ServiceAccountSDK(client=self._anyscale_client)
         self._user_sdk = UserSDK(client=self._anyscale_client)
@@ -165,9 +175,11 @@ class Anyscale:
         obj._organization_invitation_sdk = OrganizationInvitationSDK(  # noqa: SLF001
             client=client, logger=logger
         )
+        obj._policy_sdk = PolicySDK(client=client, logger=logger)  # noqa: SLF001
         obj._project_sdk = ProjectSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
+        obj._user_group_sdk = UserGroupSDK(client=client, logger=logger)  # noqa: SLF001
         obj._service_account_sdk = ServiceAccountSDK(  # noqa: SLF001
             client=client, logger=logger, timer=timer
         )
@@ -219,8 +231,16 @@ class Anyscale:
         return self._organization_invitation_sdk
 
     @property
+    def policy(self) -> PolicySDK:  # noqa: F811
+        return self._policy_sdk
+
+    @property
     def project(self) -> ProjectSDK:  # noqa: F811
         return self._project_sdk
+
+    @property
+    def user_group(self) -> UserGroupSDK:  # noqa: F811
+        return self._user_group_sdk
 
     @property
     def resource_quota(self) -> ResourceQuotaSDK:  # noqa: F811

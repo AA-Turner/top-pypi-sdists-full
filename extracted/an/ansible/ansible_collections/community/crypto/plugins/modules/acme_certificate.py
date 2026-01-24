@@ -5,15 +5,14 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: acme_certificate
 author: "Michael Gruener (@mgruener)"
 short_description: Create SSL/TLS certificates with the ACME protocol
 description:
   - Create and renew SSL/TLS certificates with a CA supporting the L(ACME protocol,https://tools.ietf.org/html/rfc8555), such
-    as L(Let's Encrypt,https://letsencrypt.org/) or L(Buypass,https://www.buypass.com/). The current implementation supports
-    the V(http-01), V(dns-01) and V(tls-alpn-01) challenges.
+    as L(Let's Encrypt,https://letsencrypt.org/).
+    The current implementation supports the V(http-01), V(dns-01) and V(tls-alpn-01) challenges.
   - To use this module, it has to be executed twice. Either as two different tasks in the same run or during two runs. Note
     that the output of the first run needs to be recorded and passed to the second run as the module argument O(data).
   - Between these two tasks you have to fulfill the required steps for the chosen challenge by whatever means necessary. For
@@ -35,9 +34,6 @@ seealso:
     description: Documentation for the Let's Encrypt Certification Authority. Provides useful information for example on rate
       limits.
     link: https://letsencrypt.org/docs/
-  - name: Buypass Go SSL
-    description: Documentation for the Buypass Certification Authority. Provides useful information for example on rate limits.
-    link: https://www.buypass.com/ssl/products/acme
   - name: Automatic Certificate Management Environment (ACME)
     description: The specification of the ACME protocol (RFC 8555).
     link: https://tools.ietf.org/html/rfc8555
@@ -599,9 +595,9 @@ from ansible_collections.community.crypto.plugins.module_utils._acme.utils impor
     pem_to_der,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._acme.backends import (  # pragma: no cover
         CertificateInformation,
         CryptoBackend,
@@ -794,13 +790,12 @@ class ACMECertificateClient:
                 raise ModuleFailException(
                     f"Found no challenge of type '{self.challenge}' for identifier {type_identifier}!"
                 )
-            if self.challenge == "dns-01":
-                if self.challenge in challenges:
-                    values = data_dns.get(challenges[self.challenge]["record"])
-                    if values is None:
-                        values = []
-                        data_dns[challenges[self.challenge]["record"]] = values
-                    values.append(challenges[self.challenge]["resource_value"])
+            if self.challenge == "dns-01" and self.challenge in challenges:
+                values = data_dns.get(challenges[self.challenge]["record"])
+                if values is None:
+                    values = []
+                    data_dns[challenges[self.challenge]["record"]] = values
+                values.append(challenges[self.challenge]["resource_value"])
         return data, data_dns
 
     def finish_challenges(self) -> None:

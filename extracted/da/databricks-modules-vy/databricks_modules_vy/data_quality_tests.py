@@ -1,4 +1,4 @@
-from pyspark.sql import DataFrame
+from pyspark.sql import Column, DataFrame
 from .logging import bold_lp, success_lp, error_lp
 #from modules.extend_class import extend_class
 from pyspark.sql.functions import *
@@ -24,7 +24,7 @@ def test_uniqueness_of_columns(df, columns, raise_exception=True):
         if duplicate_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: Column '{c}' contains {duplicate_count} duplicate values."
                 )
             else:
@@ -53,7 +53,7 @@ def test_for_null_values(df, columns, raise_exception=True):
         if null_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: Column '{c}' contains {null_count} null values."
                 )
             else:
@@ -74,7 +74,7 @@ def test_empty_dataframe(df, raise_exception=True):
     bold_lp("Checking for empty dataframe...")
     if df.count() == 0:
         if raise_exception:
-            raise AssertionError("Test failed: DataFrame is empty.")
+            raise ValueError("Test failed: DataFrame is empty.")
         else:
             error_lp("Test failed: DataFrame is empty.")
     else:
@@ -97,7 +97,7 @@ def validate_empty_dataframe(df, df_name="DataFrame", raise_exception=True):
     """
     if df.isEmpty():
         if raise_exception:
-            raise AssertionError(f"Test failed: {df_name} is empty.")
+            raise ValueError(f"Test failed: {df_name} is empty.")
         else:
             error_lp(f"Test failed: {df_name} is empty.")
     else:
@@ -133,7 +133,7 @@ def test_value_range(df, columns, min_value=None, max_value=None, raise_exceptio
         if invalid_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: {invalid_count} values in column '{c}' are outside the range [{min_value}, {max_value}]."
                 )
             else:
@@ -146,30 +146,47 @@ def test_value_range(df, columns, min_value=None, max_value=None, raise_exceptio
             )
 
 
-def test_uniqueness_of_combination(df, columns, raise_exception=True):
+def test_uniqueness_of_combination(
+    df: DataFrame,
+    columns: list[str | Column],
+    raise_exception: bool = True,
+    verbose: bool = True,
+) -> None:
     """
     Checks if there are any duplicate combinations of values in specified columns.
     If the test fails, it shows the invalid rows, and if `raise_exception` is `True`,
     an exception is raised.
 
-    Parameters:
-        df (pyspark.DataFrame):       The DataFrame to be tested.
-        columns (list):        The column(s) to be checked for unique combinations.
-        raise_exception (bool):       Whether an exception should be raised or not.
+    Args:
+        df (pyspark.sql.DataFrame): The DataFrame to be tested.
+        columns (list[str] or list[Column]): The column(s) to be checked for unique combinations.
+        raise_exception (bool, optional): Whether an exception should be raised or not.
+            Defaults to True
+        verbose (bool, optional): Whether to display the number of duplicates and some samples.
+            Defaults to True.
+
+    Raises:
+        ValueError (optional): If duplicate combinations are found
     """
     bold_lp("Checking unique combinations...")
     df_test = df.groupBy(*columns).count().filter("count > 1")
-    duplicate_count = df_test.count()
-    if duplicate_count > 0:
-        df_test.show(truncate=False)
-        if raise_exception:
-            raise AssertionError(
-                f"Test failed: {duplicate_count} duplicate combinations found in columns: {columns}."
-            )
+
+    test_rows = df_test.take(1)
+    has_duplicates = bool(test_rows)
+    if has_duplicates:
+        if verbose:
+            bold_lp("Duplicates found! Assessing the issue...")
+            duplicate_count = df_test.count()
+            df_test.show(truncate=False)
+            error_msg = f"Test failed: {duplicate_count} duplicate combinations found in columns: {columns}."
         else:
-            error_lp(
-                f"Test failed: {duplicate_count} duplicate combinations found in columns: {columns}."
-            )
+            print(test_rows)
+            error_msg = f"Test failed: duplicate combinations found in columns: {columns}."
+
+        if raise_exception:
+            raise ValueError(error_msg)
+        else:
+            error_lp(error_msg)
     else:
         success_lp(f"No duplicate combinations found in columns: {columns}.")
 
@@ -194,7 +211,7 @@ def test_missing_values(df, columns, raise_exception=True):
         if missing_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: Column '{c}' contains {missing_count} missing values."
                 )
             else:
@@ -226,7 +243,7 @@ def test_string_length(df, columns, min_length, max_length, raise_exception=True
         if invalid_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: {invalid_count} string lengths in column '{c}' is outside the range [{min_length}, {max_length}]."
                 )
             else:
@@ -262,7 +279,7 @@ def test_list_size(df, columns, min_size, max_size, raise_exception=True):
         if invalid_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: {invalid_count} list sizes in column '{c}' is outside the range [{min_size}, {max_size}]."
                 )
             else:
@@ -296,7 +313,7 @@ def test_column_data_type(df, columns, data_type, raise_exception=True):
         if invalid_count > 0:
             df_test.show(truncate=False)
             if raise_exception:
-                raise AssertionError(
+                raise ValueError(
                     f"Test failed: {invalid_count} values in column '{c}' do not match the expected data type '{data_type}'."
                 )
             else:
@@ -325,7 +342,7 @@ def test_pattern_matching(df, column, pattern, raise_exception=True):
     if invalid_count > 0:
         df_test.show(truncate=False)
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: {invalid_count} values in column '{column}' do not match the specified pattern '{pattern}'."
             )
         else:
@@ -354,7 +371,7 @@ def test_column_value_existence(df, column, reference_df, reference_column, rais
     if invalid_count > 0:
         df_test.show(truncate=False)
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: {invalid_count} values in column '{column}' do not exist in the reference DataFrame's column '{reference_column}'."
             )
         else:
@@ -384,7 +401,7 @@ def test_greater_than(df, col_A, col_B, raise_exception=True):
     if invalid_count > 0:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(f"Test failed: {invalid_count} rows where {col_A} <= {col_B}")
+            raise ValueError(f"Test failed: {invalid_count} rows where {col_A} <= {col_B}")
         else:
             error_lp(f"Test failed: {invalid_count} rows where {col_A} <= {col_B}")
     else:
@@ -408,7 +425,7 @@ def test_greater_than_or_equal(df, col_A, col_B, raise_exception=True):
     if invalid_count > 0:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(f"Test failed: {invalid_count} rows where {col_A} < {col_B}")
+            raise ValueError(f"Test failed: {invalid_count} rows where {col_A} < {col_B}")
         else:
             error_lp(f"Test failed: {invalid_count} rows where {col_A} < {col_B}")
     else:
@@ -432,7 +449,7 @@ def test_equal(df, col_A, col_B, raise_exception=True):
     if invalid_count > 0:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(f"Test failed: {invalid_count} rows where {col_A} != {col_B}")
+            raise ValueError(f"Test failed: {invalid_count} rows where {col_A} != {col_B}")
         else:
             error_lp(f"Test failed: {invalid_count} rows where {col_A} != {col_B}")
     else:
@@ -456,7 +473,7 @@ def test_not_equal(df, col_A, col_B, raise_exception=True):
     if invalid_count > 0:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(f"Test failed: {invalid_count} rows where {col_A} == {col_B}")
+            raise ValueError(f"Test failed: {invalid_count} rows where {col_A} == {col_B}")
         else:
             error_lp(f"Test failed: {invalid_count} rows where {col_A} == {col_B}")
     else:
@@ -480,7 +497,7 @@ def test_values_in_set(df, column, values, raise_exception=True):
     if invalid_count > 0:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: {invalid_count} rows in column '{column}' do not match the provided set of values."
             )
         else:
@@ -506,7 +523,7 @@ def test_for_numeric_values(df, column, raise_exception=True):
     if invalid_count > 0:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: {invalid_count} rows in column '{column}' contain numeric values."
             )
         else:
@@ -532,7 +549,7 @@ def test_count_is_equal(df1, df2, raise_exception=True):
 
     if count_df1 != count_df2:
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: count doesn't match. df1: {count_df1}, df2: {count_df2}"
             )
         else:
@@ -559,7 +576,7 @@ def test_for_substring(df, col1, col2, raise_exception=True):
     if invalid_count:
         invalid_rows.show(truncate=False)
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: {invalid_count} rows in column '{col2}' were not identified as substrings in '{col1}'"
             )
         else:
@@ -594,7 +611,7 @@ def test_documented_columns(df, comments, raise_exception=True):
         """
 
         if raise_exception:
-            raise AssertionError(error_message)
+            raise ValueError(error_message)
 
         error_lp(error_message)
     else:
@@ -650,7 +667,7 @@ def test_for_missing_elements_in_sequence(
     if missing_count > 0:
         df_joined.show(truncate=False)
         if raise_exception:
-            raise AssertionError(
+            raise ValueError(
                 f"Test failed: {missing_count} missing elements in the sequence for column '{stop_sequence_col}' in the partition defined by '{partition_cols}'"
             )
         else:

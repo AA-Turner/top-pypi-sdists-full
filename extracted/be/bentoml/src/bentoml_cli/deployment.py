@@ -460,7 +460,7 @@ def update(  # type: ignore
         cli=True,
     )
     try:
-        config_params.verify(create=False)
+        config_params.verify(create=False, _client=_cloud_client.client)
     except BentoMLException as e:
         raise_deployment_config_error(e, "update")
     deployment_info = _cloud_client.deployment.update(
@@ -588,7 +588,7 @@ def apply(  # type: ignore
         cli=True,
     )
     try:
-        config_params.verify(create=False)
+        config_params.verify(create=False, _client=_cloud_client.client)
     except BentoMLException as e:
         raise_deployment_config_error(e, "apply")
     deployment_info = _cloud_client.deployment.apply(
@@ -760,6 +760,21 @@ def terminate(  # type: ignore
 
 
 @deployment_command.command()
+@shared_decorator
+@click.argument(
+    "name",
+    type=click.STRING,
+    required=True,
+)
+def start(  # type: ignore
+    name: str, cluster: str | None
+) -> None:
+    """Start a terminated deployment on BentoCloud."""
+    bentoml.deployment.start(name, cluster=cluster)
+    rich.print(f"Deployment [green]'{name}'[/] started successfully.")
+
+
+@deployment_command.command()
 @click.argument(
     "name",
     type=click.STRING,
@@ -926,7 +941,7 @@ def create_deployment(
     )
 
     try:
-        config_params.verify()
+        config_params.verify(_client=_cloud_client.client)
     except BentoMLException as e:
         raise_deployment_config_error(e, "create")
 

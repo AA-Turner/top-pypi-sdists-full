@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: u8darts
-Version: 0.37.1
+Version: 0.40.0
 Summary: A python library for easy manipulation and forecasting of time series.
 Home-page: https://unit8co.github.io/darts/
 Maintainer: Unit8 SA
@@ -20,11 +20,11 @@ Classifier: Operating System :: POSIX
 Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: holidays>=0.11.1
@@ -36,15 +36,13 @@ Requires-Dist: numpy>=1.19.0
 Requires-Dist: pandas>=1.0.5
 Requires-Dist: pyod>=0.9.5
 Requires-Dist: requests>=2.22.0
-Requires-Dist: scikit-learn>=1.6.0
+Requires-Dist: scikit-learn<1.8.0,>=1.6.0
 Requires-Dist: scipy>=1.3.2
 Requires-Dist: shap>=0.40.0
-Requires-Dist: statsforecast>=1.4
 Requires-Dist: statsmodels>=0.14.0
 Requires-Dist: tqdm>=4.60.0
 Requires-Dist: typing-extensions
 Requires-Dist: xarray>=0.17.0
-Requires-Dist: xgboost>=2.1.4
 Provides-Extra: all
 Requires-Dist: holidays>=0.11.1; extra == "all"
 Requires-Dist: joblib>=0.16.0; extra == "all"
@@ -55,29 +53,35 @@ Requires-Dist: numpy>=1.19.0; extra == "all"
 Requires-Dist: pandas>=1.0.5; extra == "all"
 Requires-Dist: pyod>=0.9.5; extra == "all"
 Requires-Dist: requests>=2.22.0; extra == "all"
-Requires-Dist: scikit-learn>=1.6.0; extra == "all"
+Requires-Dist: scikit-learn<1.8.0,>=1.6.0; extra == "all"
 Requires-Dist: scipy>=1.3.2; extra == "all"
 Requires-Dist: shap>=0.40.0; extra == "all"
-Requires-Dist: statsforecast>=1.4; extra == "all"
 Requires-Dist: statsmodels>=0.14.0; extra == "all"
 Requires-Dist: tqdm>=4.60.0; extra == "all"
 Requires-Dist: typing-extensions; extra == "all"
 Requires-Dist: xarray>=0.17.0; extra == "all"
-Requires-Dist: xgboost>=2.1.4; extra == "all"
-Requires-Dist: pytorch-lightning<2.5.3,>=1.5.0; extra == "all"
+Requires-Dist: pytorch-lightning<2.5.3,>=2.0.0; extra == "all"
 Requires-Dist: tensorboardX>=2.1; extra == "all"
-Requires-Dist: torch>=1.8.0; extra == "all"
+Requires-Dist: torch>=2.0.0; extra == "all"
+Requires-Dist: huggingface-hub>=0.35.3; extra == "all"
+Requires-Dist: safetensors>=0.6.2; extra == "all"
 Requires-Dist: prophet>=1.1.1; extra == "all"
 Requires-Dist: catboost>=1.0.6; extra == "all"
 Requires-Dist: lightgbm>=3.2.0; extra == "all"
+Requires-Dist: statsforecast>=1.4; extra == "all"
+Requires-Dist: xgboost>=2.1.4; extra == "all"
 Provides-Extra: torch
-Requires-Dist: pytorch-lightning<2.5.3,>=1.5.0; extra == "torch"
+Requires-Dist: pytorch-lightning<2.5.3,>=2.0.0; extra == "torch"
 Requires-Dist: tensorboardX>=2.1; extra == "torch"
-Requires-Dist: torch>=1.8.0; extra == "torch"
+Requires-Dist: torch>=2.0.0; extra == "torch"
+Requires-Dist: huggingface-hub>=0.35.3; extra == "torch"
+Requires-Dist: safetensors>=0.6.2; extra == "torch"
 Provides-Extra: notorch
 Requires-Dist: prophet>=1.1.1; extra == "notorch"
 Requires-Dist: catboost>=1.0.6; extra == "notorch"
 Requires-Dist: lightgbm>=3.2.0; extra == "notorch"
+Requires-Dist: statsforecast>=1.4; extra == "notorch"
+Requires-Dist: xgboost>=2.1.4; extra == "notorch"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
@@ -100,7 +104,7 @@ Dynamic: summary
 ---
 [![PyPI version](https://badge.fury.io/py/u8darts.svg)](https://badge.fury.io/py/darts)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/u8darts-all.svg)](https://anaconda.org/conda-forge/u8darts-all)
-![Supported versions](https://img.shields.io/badge/python-3.9+-blue.svg)
+![Supported versions](https://img.shields.io/badge/python-3.10+-blue.svg)
 [![Docker Image Version (latest by date)](https://img.shields.io/docker/v/unit8/darts?label=docker&sort=date)](https://hub.docker.com/r/unit8/darts)
 ![GitHub Release Date](https://img.shields.io/github/release-date/unit8co/darts)
 ![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/unit8co/darts/release.yml?branch=master)
@@ -131,11 +135,11 @@ fledged anomaly detection models.
 * [API Reference](https://unit8co.github.io/darts/generated_api/darts.html)
 * [Examples](https://unit8co.github.io/darts/examples.html)
 
-##### High Level Introductions
+### High Level Introductions
 * [Introductory Blog Post](https://medium.com/unit8-machine-learning-publication/darts-time-series-made-easy-in-python-5ac2947a8878)
 * [Introduction video (25 minutes)](https://youtu.be/g6OXDnXEtFA)
 
-##### Articles on Selected Topics
+### Articles on Selected Topics
 * [Training Models on Multiple Time Series](https://medium.com/unit8-machine-learning-publication/training-forecasting-models-on-multiple-time-series-with-darts-dc4be70b1844)
 * [Using Past and Future Covariates](https://medium.com/unit8-machine-learning-publication/time-series-forecasting-using-past-and-future-external-data-with-darts-1f0539585993)
 * [Temporal Convolutional Networks and Forecasting](https://medium.com/unit8-machine-learning-publication/temporal-convolutional-networks-and-forecasting-5ce1b6e97ce4)
@@ -145,7 +149,7 @@ fledged anomaly detection models.
 
 ## Quick Install
 
-We recommend to first setup a clean Python environment for your project with Python 3.9+ using your favorite tool
+We recommend to first setup a clean Python environment for your project with Python 3.10+ using your favorite tool
 ([conda](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html "conda-env"),
 [venv](https://docs.python.org/3/library/venv.html), [virtualenv](https://virtualenv.pypa.io/en/latest/) with
 or without [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/)).
@@ -178,6 +182,7 @@ train, val = series[:-36], series[-36:]
 ```
 
 Fit an exponential smoothing model, and make a (probabilistic) prediction over the validation series' duration:
+
 ```python
 from darts.models import ExponentialSmoothing
 
@@ -187,6 +192,7 @@ prediction = model.predict(len(val), num_samples=1000)
 ```
 
 Plot the median, 5th and 95th percentiles:
+
 ```python
 import matplotlib.pyplot as plt
 
@@ -330,12 +336,12 @@ Here's a breakdown of the forecasting models currently implemented in Darts. Our
 | [ARIMA](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.arima.html#darts.models.forecasting.arima.ARIMA)                                                                                                                                             |                                                                                                                                                                                                                                   | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ 🔴                                                                     | 🔴                                        |
 | [VARIMA](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.varima.html#darts.models.forecasting.varima.VARIMA)                                                                                                                                         |                                                                                                                                                                                                                                   | 🔴 ✅                                                         | 🔴 ✅ 🔴                                                                  | ✅ 🔴                                                                     | 🔴                                        |
 | [ExponentialSmoothing](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.exponential_smoothing.html#darts.models.forecasting.exponential_smoothing.ExponentialSmoothing)                                                                               |                                                                                                                                                                                                                                   | ✅ 🔴                                                         | 🔴 🔴 🔴                                                                 | ✅ 🔴                                                                     | 🔴                                        |
-| [Theta](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.theta.html#darts.models.forecasting.theta.Theta) and [FourTheta](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.theta.html#darts.models.forecasting.theta.FourTheta) | [Theta](https://robjhyndman.com/papers/Theta.pdf) & [4 Theta](https://github.com/Mcompetitions/M4-methods/blob/master/4Theta%20method.R)                                                                                          | ✅ 🔴                                                         | 🔴 🔴 🔴                                                                 | 🔴 🔴                                                                    | 🔴                                        |
+| [Theta](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.theta.html#darts.models.forecasting.theta.Theta) and [FourTheta](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.theta.html#darts.models.forecasting.theta.FourTheta) | [Theta paper](https://robjhyndman.com/papers/Theta.pdf) & [4 Theta source](https://github.com/Mcompetitions/M4-methods/blob/master/4Theta%20method.R)                                                                             | ✅ 🔴                                                         | 🔴 🔴 🔴                                                                 | 🔴 🔴                                                                    | 🔴                                        |
 | [Prophet](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.prophet_model.html#darts.models.forecasting.prophet_model.Prophet)                                                                                                                         | [Prophet repo](https://github.com/facebook/prophet)                                                                                                                                                                               | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ 🔴                                                                     | 🔴                                        |
 | [FFT](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.fft.html#darts.models.forecasting.fft.FFT) (Fast Fourier Transform)                                                                                                                            |                                                                                                                                                                                                                                   | ✅ 🔴                                                         | 🔴 🔴 🔴                                                                 | 🔴 🔴                                                                    | 🔴                                        |
 | [KalmanForecaster](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.kalman_forecaster.html#darts.models.forecasting.kalman_forecaster.KalmanForecaster) using the Kalman filter and N4SID for system identification                                   | [N4SID paper](https://people.duke.edu/~hpgavin/SystemID/References/VanOverschee-Automatica-1994.pdf)                                                                                                                              | ✅ ✅                                                          | 🔴 ✅ 🔴                                                                  | ✅ 🔴                                                                     | 🔴                                        |
 | [TBATS](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.sf_tbats.html#darts.models.forecasting.sf_tbats.TBATS)                                                                                                                                       | [TBATS paper](https://robjhyndman.com/papers/ComplexSeasonality.pdf)                                                                                                                                                              | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | 🔴                                        |
-| [Croston](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.croston.html#darts.models.forecasting.croston.Croston) method                                                                                                                              |                                                                                                                                                                                                                                   | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | 🔴                                        |
+| [Croston](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.sf_croston.html#darts.models.forecasting.sf_croston.Croston) method                                                                                                                        |                                                                                                                                                                                                                                   | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | 🔴                                        |
 | [StatsForecastModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.sf_model.html#darts.models.forecasting.sf_model.StatsForecastModel) wrapper around any [StatsForecast](https://nixtlaverse.nixtla.io/statsforecast/index.html#models) model     | [Nixtla's statsforecast](https://github.com/Nixtla/statsforecast)                                                                                                                                                                 | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | 🔴                                        |
 | [AutoARIMA](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.sf_auto_arima.html#darts.models.forecasting.sf_auto_arima.AutoARIMA)                                                                                                                     | [Nixtla's statsforecast](https://github.com/Nixtla/statsforecast)                                                                                                                                                                 | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | 🔴                                        |
 | [AutoETS](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.sf_auto_ets.html#darts.models.forecasting.sf_auto_ets.AutoETS)                                                                                                                             | [Nixtla's statsforecast](https://github.com/Nixtla/statsforecast)                                                                                                                                                                 | ✅ 🔴                                                         | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | 🔴                                        |
@@ -356,7 +362,7 @@ Here's a breakdown of the forecasting models currently implemented in Darts. Our
 | [XGBModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.xgboost.html#darts.models.forecasting.xgboost.XGBModel)                                                                                                                                   |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | **PyTorch (Lightning)-based Models**<br/>([GlobalForecastingModel](https://unit8co.github.io/darts/userguide/covariates.html#global-forecasting-models-gfms))                                                                                                               |                                                                                                                                                                                                                                   |                                                              |                                                                          |                                                                          |                                           |
 | [RNNModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.rnn_model.html#darts.models.forecasting.rnn_model.RNNModel) (incl. LSTM and GRU); equivalent to DeepAR in its probabilistic version                                                       | [DeepAR paper](https://arxiv.org/abs/1704.04110)                                                                                                                                                                                  | ✅ ✅                                                          | 🔴 ✅ 🔴                                                                  | ✅ ✅                                                                      | ✅                                         |
-| [BlockRNNModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.block_rnn_model.html#darts.models.forecasting.block_rnn_model.BlockRNNModel) (incl. LSTM and GRU)                                                                                    |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ 🔴 🔴                                                                  | ✅ ✅                                                                      | ✅                                         |
+| [BlockRNNModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.block_rnn_model.html#darts.models.forecasting.block_rnn_model.BlockRNNModel) (incl. LSTM and GRU)                                                                                    |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | [NBEATSModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.nbeats.html#darts.models.forecasting.nbeats.NBEATSModel)                                                                                                                               | [N-BEATS paper](https://arxiv.org/abs/1905.10437)                                                                                                                                                                                 | ✅ ✅                                                          | ✅ 🔴 🔴                                                                  | ✅ ✅                                                                      | ✅                                         |
 | [NHiTSModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.nhits.html#darts.models.forecasting.nhits.NHiTSModel)                                                                                                                                   | [N-HiTS paper](https://arxiv.org/abs/2201.12886)                                                                                                                                                                                  | ✅ ✅                                                          | ✅ 🔴 🔴                                                                  | ✅ ✅                                                                      | ✅                                         |
 | [TCNModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.tcn_model.html#darts.models.forecasting.tcn_model.TCNModel)                                                                                                                               | [TCN paper](https://arxiv.org/abs/1803.01271), [DeepTCN paper](https://arxiv.org/abs/1906.04397), [blog post](https://medium.com/unit8-machine-learning-publication/temporal-convolutional-networks-and-forecasting-5ce1b6e97ce4) | ✅ ✅                                                          | ✅ 🔴 🔴                                                                  | ✅ ✅                                                                      | ✅                                         |
@@ -366,6 +372,8 @@ Here's a breakdown of the forecasting models currently implemented in Darts. Our
 | [NLinearModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.nlinear.html#darts.models.forecasting.nlinear.NLinearModel)                                                                                                                           | [NLinear paper](https://arxiv.org/pdf/2205.13504.pdf)                                                                                                                                                                             | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | [TiDEModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.tide_model.html#darts.models.forecasting.tide_model.TiDEModel)                                                                                                                           | [TiDE paper](https://arxiv.org/pdf/2304.08424.pdf)                                                                                                                                                                                | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | [TSMixerModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.tsmixer_model.html#darts.models.forecasting.tsmixer_model.TSMixerModel)                                                                                                               | [TSMixer paper](https://arxiv.org/pdf/2303.06053.pdf), [PyTorch Implementation](https://github.com/ditschuk/pytorch-tsmixer)                                                                                                      | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
+| **Foundation Models**<br/>([GlobalForecastingModel](https://unit8co.github.io/darts/userguide/covariates.html#global-forecasting-models-gfms)): No training required                                                                                                        |                                                                                                                                                                                                                                   |                                                              |                                                                          |                                                                          |                                           |
+| [Chronos2Model](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.chronos2_model.html#darts.models.forecasting.chronos2_model.Chronos2Model)                                                                                                           | [Chronos-2 report](https://arxiv.org/abs/2510.15821), [Amazon blog post](https://www.amazon.science/blog/introducing-chronos-2-from-univariate-to-universal-forecasting)                                                          | ✅ ✅                                                          | ✅ ✅ 🔴                                                                   | ✅ ✅                                                                      | ✅                                         |
 | **Ensemble Models**<br/>([GlobalForecastingModel](https://unit8co.github.io/darts/userguide/covariates.html#global-forecasting-models-gfms)): Model support is dependent on ensembled forecasting models and the ensemble model itself                                      |                                                                                                                                                                                                                                   |                                                              |                                                                          |                                                                          |                                           |
 | [NaiveEnsembleModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.baselines.html#darts.models.forecasting.baselines.NaiveEnsembleModel)                                                                                                           |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |
 | [RegressionEnsembleModel](https://unit8co.github.io/darts/generated_api/darts.models.forecasting.regression_ensemble_model.html#darts.models.forecasting.regression_ensemble_model.RegressionEnsembleModel)                                                                 |                                                                                                                                                                                                                                   | ✅ ✅                                                          | ✅ ✅ ✅                                                                    | ✅ ✅                                                                      | ✅                                         |

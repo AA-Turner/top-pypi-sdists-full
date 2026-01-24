@@ -108,6 +108,7 @@ cdef class CRS:
         self._data = {}
         self._epsg = None
         self._wkt = None
+        self._geodetic_crs = None
 
         if initialdata or kwargs:
             tmp = CRS.from_dict(initialdata=initialdata, **kwargs)
@@ -281,6 +282,32 @@ cdef class CRS:
         else:
             units_b = units_c
             return (units_b.decode('utf-8'), factor)
+
+    @property
+    def geodetic_crs(self):
+        """Get the Geographic CRS from the CRS.
+
+        Returns
+        -------
+        CRS
+
+        Raises
+        ------
+        CRSError
+
+        """
+        if self._geodetic_crs:
+            return self._geodetic_crs
+        cdef CRS obj = CRS.__new__(CRS)
+        try:
+            obj._osr = exc_wrap_pointer(OSRCloneGeogCS(self._osr))
+        except CPLE_BaseError as exc:
+            raise CRSError("Cannot determine Geodetic CRS. {}".format(exc))
+        else:
+            osr_set_traditional_axis_mapping_strategy(obj._osr)
+            self._geodetic_crs = obj
+        return self._geodetic_crs 
+        
 
     def to_dict(self, projjson=False):
         """Convert CRS to a PROJ dict.
@@ -525,6 +552,37 @@ cdef class CRS:
             _safe_osr_release(osr)
             OSRFreeSRSArray(matches)
             CPLFree(confidences)
+
+    def equals(self, other, ignore_axis_order=False):
+        """
+        Check if the crs objects are equivalent.
+
+        Properties
+        ----------
+        other: CRS
+            the other CRS to compare to
+        ignore_axis_order: bool, default=False
+            If True, it will compare the CRS class and ignore the axis order.
+
+        Returns
+        -------
+        bool
+        """
+        cdef CRS crs_o
+        cdef const char* options[2]
+        
+        if ignore_axis_order:
+            options[0] = b"IGNORE_DATA_AXIS_TO_SRS_AXIS_MAPPING=YES"
+        else:
+            options[0] = b"IGNORE_DATA_AXIS_TO_SRS_AXIS_MAPPING=NO"
+        options[1] = NULL
+
+        try:
+            crs_o = CRS.from_user_input(other)
+            return bool(OSRIsSameEx(self._osr, crs_o._osr, options) == 1)
+        except CRSError:
+            return False
+        
 
     def to_string(self):
         """Convert to a PROJ4 or WKT string.
@@ -935,17 +993,7 @@ cdef class CRS:
             return "CRS.from_wkt('{}')".format(self.wkt)
 
     def __eq__(self, other):
-        cdef CRS crs_o
-        cdef const char* options[2]
-        options[0] = b"IGNORE_DATA_AXIS_TO_SRS_AXIS_MAPPING=NO"
-        options[1] = NULL
-
-        try:
-            crs_o = CRS.from_user_input(other)
-            return bool(OSRIsSameEx(self._osr, crs_o._osr, options) == 1)
-        except CRSError:
-            return False
-
+        return self.equals(other, ignore_axis_order=False)
 
     def _projjson(self):
         """Get a PROJ JSON representation.

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -133,12 +134,6 @@ from .type_defs import (
     UpgradeElasticsearchDomainResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -147,18 +142,18 @@ else:
 __all__ = ("ElasticsearchServiceClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    BaseException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    DisabledOperationException: Type[BotocoreClientError]
-    InternalException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    InvalidTypeException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    BaseException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    DisabledOperationException: type[BotocoreClientError]
+    InternalException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    InvalidTypeException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class ElasticsearchServiceClient(BaseClient):
     """
@@ -662,7 +657,7 @@ class ElasticsearchServiceClient(BaseClient):
 
     def revoke_vpc_endpoint_access(
         self, **kwargs: Unpack[RevokeVpcEndpointAccessRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Revokes access to an Amazon OpenSearch Service domain that was provided through
         an interface VPC endpoint.

@@ -895,16 +895,23 @@ APSWSession_tp_traverse(PyObject *self_, visitproc visit, void *arg)
   return 0;
 }
 
+static int
+APSWSession_bool(PyObject *self_)
+{
+  APSWSession *self = (APSWSession *)self_;
+  return self->session ? 1 : 0;
+}
+
 /** .. class:: TableChange
 
   Represents a `changed row
   <https://sqlite.org/session/changeset_iter.html>`__.  They come from
   :meth:`changeset iteration <Changeset.iter>` and from the
-  :meth:`conflict handler in apply <Changeset.apply>`.
+  :meth:`filter_change and conflict handler in apply <Changeset.apply>`.
 
-  A TableChange is only valid when your conflict handler is active, or
+  A TableChange is only valid when your filter or conflict handler is active, or
   has just been provided by a changeset iterator.  It goes out of scope
-  after your conflict handler returns, or the iterator moves to the next
+  after your filter or conflict handler returns, or the iterator moves to the next
   entry.  You will get :exc:`~apsw.InvalidContextError` if you try to
   access fields when out of scope.  This means you can't save
   TableChanges for later, and need to copy out any information you need.
@@ -1157,7 +1164,7 @@ APSWTableChange_conflict(PyObject *self_, void *Py_UNUSED(unused))
 
   for (int i = 0; i < self->table_column_count; i++)
   {
-    int res = sqlite3changeset_conflict(self->iter, i, &value);
+    res = sqlite3changeset_conflict(self->iter, i, &value);
     if (res != SQLITE_OK)
     {
       SET_EXC(res, NULL);
@@ -1541,15 +1548,16 @@ error:
   return NULL;
 }
 
-/** .. method:: apply(changeset: ChangesetInput, db: Connection, *, filter: Optional[Callable[[str], bool]] = None, conflict: Optional[Callable[[int,TableChange], int]] = None, flags: int = 0, rebase: bool = False) -> bytes | None
+/** .. method:: apply(changeset: ChangesetInput, db: Connection, *, filter: Optional[Callable[[str], bool]] = None, filter_change: Optional[Callable[[TableChange], bool]] = None, conflict: Optional[Callable[[int,TableChange], int]] = None, flags: int = 0, rebase: bool = False) -> bytes | None
 
   Applies a changeset to a database.
 
   :param source: The changeset either as the bytes, or a stream
   :param db: The connection to make the change on
   :param filter: Callback to determine if changes to a table are done
+  :param filter_change: Callback to determine if a particular change is made
   :param conflict: Callback to handle a change that cannot be applied
-  :param flags: `v2 API flags <https://www.sqlite.org/session/c_changesetapply_fknoaction.html>`__.
+  :param flags: `API flags <https://www.sqlite.org/session/c_changesetapply_fknoaction.html>`__.
   :param rebase: If ``True`` then return :class:`rebase <Rebaser>` information, else :class:`None`.
 
   Filter
@@ -1558,6 +1566,15 @@ error:
   Callback called with a table name, once per table that has a change.  It should return ``True``
   if changes to that table should be applied, or ``False`` to ignore them.  If not supplied then
   all tables have changes applied.
+
+  Filter Change
+  -------------
+
+  Callback called with each :class:`TableChange`.  It should return
+  ``True`` if the change should be applied, or ``False`` to ignore it.
+  If not supplied then all changes are applied.
+
+  **Note** You can only supply either ``filter`` or ``filter_change`` but not both.
 
   Conflict
   --------
@@ -1575,7 +1592,7 @@ error:
 
   See the :ref:`example <example_applying>`.
 
-  -* sqlite3changeset_apply_v2 sqlite3changeset_apply_v2_strm
+  -* sqlite3changeset_apply_v2 sqlite3changeset_apply_v2_strm sqlite3changeset_apply_v3 sqlite3changeset_apply_v3_strm
 
 */
 
@@ -1583,6 +1600,7 @@ error:
 struct applyInfoContext
 {
   PyObject *xFilter;
+  PyObject *xFilter_change;
   PyObject *xConflict;
 };
 
@@ -1607,6 +1625,44 @@ applyFilter(void *pCtx, const char *zTab)
   int ret = PyObject_IsTrueStrict(result);
   Py_DECREF(result);
 
+  return PyErr_Occurred() ? 0 : ret;
+}
+
+static int
+applyFilterChange(void *pCtx, sqlite3_changeset_iter *p)
+{
+  /* previous filter could cause this */
+  MakeExistingException();
+
+  if (PyErr_Occurred())
+    return 0;
+
+  struct applyInfoContext *aic = (struct applyInfoContext *)pCtx;
+
+  APSWTableChange *table_change = MakeTableChange(p);
+
+  PyObject *result = NULL;
+  int ret = 0;
+  if (!table_change)
+    goto exit;
+
+  PyObject *vargs[] = { NULL, (PyObject *)table_change };
+  result = PyObject_Vectorcall(aic->xFilter_change, vargs + 1, 1 | PY_VECTORCALL_ARGUMENTS_OFFSET, NULL);
+
+  if (!result)
+    goto exit;
+  ret = PyObject_IsTrueStrict(result);
+
+exit:
+  if (PyErr_Occurred())
+    AddTraceBackHere(__FILE__, __LINE__, "session.apply.xFilter_Change", "{s: O, s: O}", "change",
+                     OBJ((PyObject *)table_change), "return", OBJ(result));
+  Py_XDECREF(result);
+  if (table_change)
+  {
+    table_change->iter = NULL;
+    Py_DECREF((PyObject *)table_change);
+  }
   return PyErr_Occurred() ? 0 : ret;
 }
 
@@ -1682,6 +1738,7 @@ APSWChangeset_apply(PyObject *Py_UNUSED(static_method), PyObject *const *fast_ar
   Connection *db = NULL;
 
   PyObject *filter = NULL;
+  PyObject *filter_change = NULL;
   PyObject *conflict = NULL;
 
   int flags = 0;
@@ -1693,15 +1750,19 @@ APSWChangeset_apply(PyObject *Py_UNUSED(static_method), PyObject *const *fast_ar
     ARG_MANDATORY ARG_ChangesetInput(changeset);
     ARG_MANDATORY ARG_Connection(db);
     ARG_OPTIONAL ARG_optional_Callable(filter);
+    ARG_OPTIONAL ARG_optional_Callable(filter_change);
     ARG_OPTIONAL ARG_optional_Callable(conflict);
     ARG_OPTIONAL ARG_int(flags);
     ARG_OPTIONAL ARG_bool(rebase);
     ARG_EPILOG(NULL, Changeset_apply_USAGE, );
   }
 
+  if (filter && filter_change)
+    return PyErr_Format(PyExc_ValueError, "You can't specify both filter and filter_change");
+
   CHECK_CLOSED(db, NULL);
 
-  struct applyInfoContext aic = { .xFilter = filter, .xConflict = conflict };
+  struct applyInfoContext aic = { .xFilter = filter, .xFilter_change = filter_change, .xConflict = conflict };
 
   int res = SQLITE_ERROR;
 
@@ -1711,9 +1772,13 @@ APSWChangeset_apply(PyObject *Py_UNUSED(static_method), PyObject *const *fast_ar
   /* streaming? */
   if (PyCallable_Check(changeset))
   {
-    res = sqlite3changeset_apply_v2_strm(db->db, APSWSession_xInput, changeset, filter ? applyFilter : NULL,
-                                         conflict ? applyConflict : conflictReject, &aic, rebase ? &pRebase : NULL,
-                                         rebase ? &nRebase : NULL, flags);
+    res = filter ? sqlite3changeset_apply_v2_strm(db->db, APSWSession_xInput, changeset, filter ? applyFilter : NULL,
+                                                  conflict ? applyConflict : conflictReject, &aic,
+                                                  rebase ? &pRebase : NULL, rebase ? &nRebase : NULL, flags)
+                 : sqlite3changeset_apply_v3_strm(db->db, APSWSession_xInput, changeset,
+                                                  filter_change ? applyFilterChange : NULL,
+                                                  conflict ? applyConflict : conflictReject, &aic,
+                                                  rebase ? &pRebase : NULL, rebase ? &nRebase : NULL, flags);
   }
   else
   {
@@ -1723,9 +1788,13 @@ APSWChangeset_apply(PyObject *Py_UNUSED(static_method), PyObject *const *fast_ar
       assert(PyErr_Occurred());
       return NULL;
     }
-    res = sqlite3changeset_apply_v2(db->db, changeset_buffer.len, changeset_buffer.buf, filter ? applyFilter : NULL,
-                                    conflict ? applyConflict : conflictReject, &aic, rebase ? &pRebase : NULL,
-                                    rebase ? &nRebase : NULL, flags);
+    res = filter ? sqlite3changeset_apply_v2(db->db, changeset_buffer.len, changeset_buffer.buf,
+                                             filter ? applyFilter : NULL, conflict ? applyConflict : conflictReject,
+                                             &aic, rebase ? &pRebase : NULL, rebase ? &nRebase : NULL, flags)
+                 : sqlite3changeset_apply_v3(db->db, changeset_buffer.len, changeset_buffer.buf,
+                                             filter_change ? applyFilterChange : NULL,
+                                             conflict ? applyConflict : conflictReject, &aic, rebase ? &pRebase : NULL,
+                                             rebase ? &nRebase : NULL, flags);
     PyBuffer_Release(&changeset_buffer);
   }
 
@@ -2105,6 +2174,12 @@ APSWChangesetBuilder_tp_traverse(PyObject *self_, visitproc visit, void *arg)
   return 0;
 }
 
+static int
+APSWChangesetBuilder_bool(PyObject *self_)
+{
+  APSWChangesetBuilder *self = (APSWChangesetBuilder *)self_;
+  return self->group ? 1 : 0;
+}
 
 /** .. class:: Rebaser
 
@@ -2262,6 +2337,36 @@ APSWRebaser_rebase_stream(PyObject *self_, PyObject *const *fast_args, Py_ssize_
   Py_RETURN_NONE;
 }
 
+/** .. method:: close() -> None
+
+  Releases the rebaser.
+
+  -* sqlite3rebaser_delete
+ */
+static PyObject *
+APSWRebaser_close(PyObject *self_, PyObject *const *fast_args, Py_ssize_t fast_nargs, PyObject *fast_kwnames)
+{
+  APSWRebaser *self = (APSWRebaser *)self_;
+  {
+    Rebaser_close_CHECK;
+    ARG_PROLOG(0, Rebaser_close_KWNAMES);
+    ARG_EPILOG(NULL, Rebaser_close_USAGE, );
+  }
+  if(self->rebaser)
+  {
+    sqlite3rebaser_delete(self->rebaser);
+    self->rebaser = NULL;
+  }
+  Py_RETURN_NONE;
+}
+
+static int
+APSWRebaser_bool(PyObject *self_)
+{
+  APSWRebaser *self = (APSWRebaser *)self_;
+  return self->rebaser ? 1 : 0;
+}
+
 static void
 APSWRebaser_dealloc(PyObject *self_)
 {
@@ -2298,6 +2403,10 @@ static PyGetSetDef APSWSession_getset[] = {
   { 0 },
 };
 
+static PyNumberMethods APSWSession_as_number = {
+  .nb_bool = APSWSession_bool,
+};
+
 static PyTypeObject APSWSessionType = {
   PyVarObject_HEAD_INIT(NULL, 0).tp_name = "apsw.Session",
   .tp_basicsize = sizeof(APSWSession),
@@ -2308,6 +2417,7 @@ static PyTypeObject APSWSessionType = {
   .tp_methods = APSWSession_methods,
   .tp_getset = APSWSession_getset,
   .tp_flags = Py_TPFLAGS_BASETYPE | Py_TPFLAGS_DEFAULT,
+  .tp_as_number = &APSWSession_as_number,
   .tp_weaklistoffset = offsetof(APSWSession, weakreflist),
   .tp_traverse = APSWSession_tp_traverse,
 };
@@ -2349,6 +2459,10 @@ static PyMethodDef APSWChangesetBuilder_methods[] = {
   { 0 },
 };
 
+static PyNumberMethods APSWChangesetBuilder_as_number = {
+  .nb_bool = APSWChangesetBuilder_bool,
+};
+
 static PyTypeObject APSWChangesetBuilderType = {
   PyVarObject_HEAD_INIT(NULL, 0).tp_name = "apsw.ChangesetBuilder",
   .tp_basicsize = sizeof(APSWChangesetBuilder),
@@ -2358,6 +2472,7 @@ static PyTypeObject APSWChangesetBuilderType = {
   .tp_dealloc = APSWChangesetBuilder_dealloc,
   .tp_doc = ChangesetBuilder_class_DOC,
   .tp_weaklistoffset = offsetof(APSWChangesetBuilder, weakreflist),
+  .tp_as_number = &APSWChangesetBuilder_as_number,
   .tp_traverse = APSWChangesetBuilder_tp_traverse,
 };
 
@@ -2388,8 +2503,12 @@ static PyMethodDef APSWRebaser_methods[] = {
   { "configure", (PyCFunction)APSWRebaser_configure, METH_FASTCALL | METH_KEYWORDS, Rebaser_configure_DOC },
   { "rebase", (PyCFunction)APSWRebaser_rebase, METH_FASTCALL | METH_KEYWORDS, Rebaser_rebase_DOC },
   { "rebase_stream", (PyCFunction)APSWRebaser_rebase_stream, METH_FASTCALL | METH_KEYWORDS, Rebaser_rebase_stream_DOC },
-
+  { "close", (PyCFunction)APSWRebaser_close, METH_FASTCALL | METH_KEYWORDS, Rebaser_close_DOC },
   { 0 },
+};
+
+static PyNumberMethods APSWRebaser_as_number = {
+  .nb_bool = APSWRebaser_bool,
 };
 
 static PyTypeObject APSWRebaserType = {
@@ -2400,4 +2519,5 @@ static PyTypeObject APSWRebaserType = {
   .tp_new = PyType_GenericNew,
   .tp_init = APSWRebaser_init,
   .tp_dealloc = APSWRebaser_dealloc,
+  .tp_as_number = &APSWRebaser_as_number,
 };

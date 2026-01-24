@@ -27,6 +27,7 @@ from dbt_semantic_interfaces.validations.metrics import (
     ConversionMetricRule,
     CumulativeMetricRule,
     DerivedMetricRule,
+    SimpleMetricExprRule,
 )
 from dbt_semantic_interfaces.validations.non_empty import NonEmptyRule
 from dbt_semantic_interfaces.validations.primary_entity import PrimaryEntityRule
@@ -35,6 +36,9 @@ from dbt_semantic_interfaces.validations.saved_query import SavedQueryRule
 from dbt_semantic_interfaces.validations.semantic_models import (
     SemanticModelDefaultsRule,
     SemanticModelValidityWindowRule,
+)
+from dbt_semantic_interfaces.validations.time_dimension_has_granularity import (
+    TimeDimensionHasGranularityRule,
 )
 from dbt_semantic_interfaces.validations.time_spines import TimeSpineRule
 from dbt_semantic_interfaces.validations.unique_valid_name import (
@@ -93,6 +97,8 @@ class SemanticManifestValidator(Generic[SemanticManifestT]):
         EntityLabelsRule[SemanticManifestT](),
         ConversionMetricRule[SemanticManifestT](),
         TimeSpineRule[SemanticManifestT](),
+        TimeDimensionHasGranularityRule[SemanticManifestT](),
+        SimpleMetricExprRule[SemanticManifestT](),
     )
 
     def __init__(

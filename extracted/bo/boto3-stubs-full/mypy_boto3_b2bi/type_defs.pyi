@@ -3,7 +3,7 @@ Type annotations for b2bi service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_b2bi/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -40,12 +41,6 @@ from .literals import (
     X12VersionType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -204,7 +199,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -321,8 +316,8 @@ class X12SplitOptionsTypeDef(TypedDict):
 
 class X12CodeListValidationRuleOutputTypeDef(TypedDict):
     elementId: str
-    codesToAdd: NotRequired[List[str]]
-    codesToRemove: NotRequired[List[str]]
+    codesToAdd: NotRequired[list[str]]
+    codesToRemove: NotRequired[list[str]]
 
 class X12CodeListValidationRuleTypeDef(TypedDict):
     elementId: str
@@ -439,17 +434,17 @@ class GetProfileResponseTypeDef(TypedDict):
 
 class GetTransformerJobResponseTypeDef(TypedDict):
     status: TransformerJobStatusType
-    outputFiles: List[S3LocationTypeDef]
+    outputFiles: list[S3LocationTypeDef]
     message: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListCapabilitiesResponseTypeDef(TypedDict):
-    capabilities: List[CapabilitySummaryTypeDef]
+    capabilities: list[CapabilitySummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartTransformerJobResponseTypeDef(TypedDict):
@@ -458,7 +453,7 @@ class StartTransformerJobResponseTypeDef(TypedDict):
 
 class TestConversionResponseTypeDef(TypedDict):
     convertedFileContent: str
-    validationMessages: List[str]
+    validationMessages: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class TestMappingResponseTypeDef(TypedDict):
@@ -467,8 +462,8 @@ class TestMappingResponseTypeDef(TypedDict):
 
 class TestParsingResponseTypeDef(TypedDict):
     parsedFileContent: str
-    parsedSplitFileContents: List[str]
-    validationMessages: List[str]
+    parsedSplitFileContents: list[str]
+    validationMessages: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateProfileResponseTypeDef(TypedDict):
@@ -503,13 +498,13 @@ class ListTransformersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProfilesResponseTypeDef(TypedDict):
-    profiles: List[ProfileSummaryTypeDef]
+    profiles: list[ProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class SampleDocumentsOutputTypeDef(TypedDict):
     bucketName: str
-    keys: List[SampleDocumentKeysTypeDef]
+    keys: list[SampleDocumentKeysTypeDef]
 
 class SampleDocumentsTypeDef(TypedDict):
     bucketName: str
@@ -562,7 +557,7 @@ class X12ValidationRuleTypeDef(TypedDict):
     elementRequirementValidationRule: NotRequired[X12ElementRequirementValidationRuleTypeDef]
 
 class X12ValidationOptionsOutputTypeDef(TypedDict):
-    validationRules: NotRequired[List[X12ValidationRuleOutputTypeDef]]
+    validationRules: NotRequired[list[X12ValidationRuleOutputTypeDef]]
 
 class X12EnvelopeTypeDef(TypedDict):
     common: NotRequired[X12OutboundEdiHeadersTypeDef]
@@ -599,7 +594,7 @@ CreateCapabilityResponseTypeDef = TypedDict(
         "name": str,
         "type": Literal["edi"],
         "configuration": CapabilityConfigurationTypeDef,
-        "instructionsDocuments": List[S3LocationTypeDef],
+        "instructionsDocuments": list[S3LocationTypeDef],
         "createdAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -612,7 +607,7 @@ GetCapabilityResponseTypeDef = TypedDict(
         "name": str,
         "type": Literal["edi"],
         "configuration": CapabilityConfigurationTypeDef,
-        "instructionsDocuments": List[S3LocationTypeDef],
+        "instructionsDocuments": list[S3LocationTypeDef],
         "createdAt": datetime,
         "modifiedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -633,7 +628,7 @@ UpdateCapabilityResponseTypeDef = TypedDict(
         "name": str,
         "type": Literal["edi"],
         "configuration": CapabilityConfigurationTypeDef,
-        "instructionsDocuments": List[S3LocationTypeDef],
+        "instructionsDocuments": list[S3LocationTypeDef],
         "createdAt": datetime,
         "modifiedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -681,7 +676,7 @@ class CreatePartnershipResponseTypeDef(TypedDict):
     name: str
     email: str
     phone: str
-    capabilities: List[str]
+    capabilities: list[str]
     capabilityOptions: CapabilityOptionsTypeDef
     tradingPartnerId: str
     createdAt: datetime
@@ -694,7 +689,7 @@ class GetPartnershipResponseTypeDef(TypedDict):
     name: str
     email: str
     phone: str
-    capabilities: List[str]
+    capabilities: list[str]
     capabilityOptions: CapabilityOptionsTypeDef
     tradingPartnerId: str
     createdAt: datetime
@@ -706,7 +701,7 @@ class PartnershipSummaryTypeDef(TypedDict):
     partnershipId: str
     createdAt: datetime
     name: NotRequired[str]
-    capabilities: NotRequired[List[str]]
+    capabilities: NotRequired[list[str]]
     capabilityOptions: NotRequired[CapabilityOptionsTypeDef]
     tradingPartnerId: NotRequired[str]
     modifiedAt: NotRequired[datetime]
@@ -724,7 +719,7 @@ class UpdatePartnershipResponseTypeDef(TypedDict):
     name: str
     email: str
     phone: str
-    capabilities: List[str]
+    capabilities: list[str]
     capabilityOptions: CapabilityOptionsTypeDef
     tradingPartnerId: str
     createdAt: datetime
@@ -801,14 +796,14 @@ class UpdateTransformerResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListPartnershipsResponseTypeDef(TypedDict):
-    partnerships: List[PartnershipSummaryTypeDef]
+    partnerships: list[PartnershipSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 X12AdvancedOptionsUnionTypeDef = Union[X12AdvancedOptionsTypeDef, X12AdvancedOptionsOutputTypeDef]
 
 class ListTransformersResponseTypeDef(TypedDict):
-    transformers: List[TransformerSummaryTypeDef]
+    transformers: list[TransformerSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

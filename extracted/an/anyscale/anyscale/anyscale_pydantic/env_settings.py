@@ -327,7 +327,7 @@ def read_env_file(
     file_path: StrPath, *, encoding: str = None, case_sensitive: bool = False
 ) -> Dict[str, Optional[str]]:
     try:
-        from dotenv import dotenv_values
+        from dotenv import dotenv_values  # noqa: PLC0415 - codex_reason("gpt5.2", "optional dotenv dependency for env file parsing")
     except ImportError as e:
         raise ImportError('python-dotenv is not installed, run `pip install pydantic[dotenv]`') from e
 

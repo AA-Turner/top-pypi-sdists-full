@@ -1,6 +1,5 @@
 from collections import defaultdict
 from numbers import Number
-from typing import Union
 
 import numpy as np
 import torch
@@ -15,7 +14,7 @@ class RandomSpike(RandomTransform, IntensityTransform, FourierTransform):
     r"""Add random MRI spike artifacts.
 
     Also known as `Herringbone artifact
-    <https://radiopaedia.org/articles/herringbone-artifact?lang=gb>`_,
+    <https://radiopaedia.org/articles/herringbone-artifact>`_,
     crisscross artifact or corduroy artifact, it creates stripes in different
     directions in image space due to spikes in k-space.
 
@@ -42,8 +41,8 @@ class RandomSpike(RandomTransform, IntensityTransform, FourierTransform):
 
     def __init__(
         self,
-        num_spikes: Union[int, tuple[int, int]] = 1,
-        intensity: Union[float, tuple[float, float]] = (1, 3),
+        num_spikes: int | tuple[int, int] = (1, 1),
+        intensity: float | tuple[float, float] = (1, 3),
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -109,8 +108,8 @@ class Spike(IntensityTransform, FourierTransform):
 
     def __init__(
         self,
-        spikes_positions: Union[np.ndarray, dict[str, np.ndarray]],
-        intensity: Union[float, dict[str, float]],
+        spikes_positions: np.ndarray | dict[str, np.ndarray],
+        intensity: float | dict[str, float],
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -154,8 +153,7 @@ class Spike(IntensityTransform, FourierTransform):
         for index in indices:
             diff = index - mid_shape
             i, j, k = mid_shape + diff
-            # As of torch 1.7, "max is not yet implemented for complex tensors"
-            artifact = spectrum.cpu().numpy().max() * intensity_factor
+            artifact = spectrum.cpu().abs().max() * intensity_factor
             if self.invert_transform:
                 spectrum[i, j, k] -= artifact
             else:

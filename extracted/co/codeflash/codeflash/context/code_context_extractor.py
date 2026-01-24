@@ -12,7 +12,11 @@ import libcst as cst
 from codeflash.cli_cmds.console import logger
 from codeflash.code_utils.code_extractor import add_needed_imports_from_module, find_preexisting_objects
 from codeflash.code_utils.code_utils import encoded_tokens_len, get_qualified_name, path_belongs_to_site_packages
-from codeflash.context.unused_definition_remover import remove_unused_definitions_by_function_names
+from codeflash.context.unused_definition_remover import (
+    collect_top_level_defs_with_usages,
+    extract_names_from_targets,
+    remove_unused_definitions_by_function_names,
+)
 from codeflash.discovery.functions_to_optimize import FunctionToOptimize  # noqa: TC001
 from codeflash.models.models import (
     CodeContextType,
@@ -28,6 +32,8 @@ if TYPE_CHECKING:
 
     from jedi.api.classes import Name
     from libcst import CSTNode
+
+    from codeflash.context.unused_definition_remover import UsageInfo
 
 
 def get_code_optimization_context(
@@ -114,32 +120,60 @@ def get_code_optimization_context(
             read_only_context_code = ""
 
     # Extract code context for testgen
-    testgen_code_markdown = extract_code_string_context_from_files(
+    testgen_context = extract_code_markdown_context_from_files(
         helpers_of_fto_dict,
         helpers_of_helpers_dict,
         project_root_path,
         remove_docstrings=False,
         code_context_type=CodeContextType.TESTGEN,
     )
-    testgen_context_code = testgen_code_markdown.code
-    testgen_context_code_tokens = encoded_tokens_len(testgen_context_code)
-    if testgen_context_code_tokens > testgen_token_limit:
-        testgen_code_markdown = extract_code_string_context_from_files(
+
+    # Extract class definitions for imported types from project modules
+    # This helps the LLM understand class constructors and structure
+    imported_class_context = get_imported_class_definitions(testgen_context, project_root_path)
+    if imported_class_context.code_strings:
+        # Merge imported class definitions into testgen context
+        testgen_context = CodeStringsMarkdown(
+            code_strings=testgen_context.code_strings + imported_class_context.code_strings
+        )
+
+    testgen_markdown_code = testgen_context.markdown
+    testgen_code_token_length = encoded_tokens_len(testgen_markdown_code)
+    if testgen_code_token_length > testgen_token_limit:
+        # First try removing docstrings
+        testgen_context = extract_code_markdown_context_from_files(
             helpers_of_fto_dict,
             helpers_of_helpers_dict,
             project_root_path,
             remove_docstrings=True,
             code_context_type=CodeContextType.TESTGEN,
         )
-        testgen_context_code = testgen_code_markdown.code
-        testgen_context_code_tokens = encoded_tokens_len(testgen_context_code)
-        if testgen_context_code_tokens > testgen_token_limit:
-            raise ValueError("Testgen code context has exceeded token limit, cannot proceed")
+        # Re-extract imported classes (they may still fit)
+        imported_class_context = get_imported_class_definitions(testgen_context, project_root_path)
+        if imported_class_context.code_strings:
+            testgen_context = CodeStringsMarkdown(
+                code_strings=testgen_context.code_strings + imported_class_context.code_strings
+            )
+        testgen_markdown_code = testgen_context.markdown
+        testgen_code_token_length = encoded_tokens_len(testgen_markdown_code)
+        if testgen_code_token_length > testgen_token_limit:
+            # If still over limit, try without imported class definitions
+            testgen_context = extract_code_markdown_context_from_files(
+                helpers_of_fto_dict,
+                helpers_of_helpers_dict,
+                project_root_path,
+                remove_docstrings=True,
+                code_context_type=CodeContextType.TESTGEN,
+            )
+            testgen_markdown_code = testgen_context.markdown
+            testgen_code_token_length = encoded_tokens_len(testgen_markdown_code)
+            if testgen_code_token_length > testgen_token_limit:
+                raise ValueError("Testgen code context has exceeded token limit, cannot proceed")
     code_hash_context = hashing_code_context.markdown
     code_hash = hashlib.sha256(code_hash_context.encode("utf-8")).hexdigest()
 
     return CodeOptimizationContext(
-        testgen_context_code=testgen_context_code,
+        testgen_context=testgen_context,
         read_writable_code=final_read_writable_code,
         read_only_context_code=read_only_context_code,
         hashing_code_context=code_hash_context,
@@ -334,7 +368,9 @@ def extract_code_markdown_context_from_files(
                         helpers_of_fto.get(file_path, set()) | helpers_of_helpers.get(file_path, set())
                     ),
                 )
-            code_string_context = CodeString(code=code_context, file_path=file_path.relative_to(project_root_path))
+            code_string_context = CodeString(
+                code=code_context, file_path=file_path.resolve().relative_to(project_root_path.resolve())
+            )
             code_context_markdown.code_strings.append(code_string_context)
     # Extract code from file paths containing helpers of helpers
     for file_path, helper_function_sources in helpers_of_helpers_no_overlap.items():
@@ -365,7 +401,9 @@ def extract_code_markdown_context_from_files(
                     project_root=project_root_path,
                     helper_functions=list(helpers_of_helpers_no_overlap.get(file_path, set())),
                 )
-            code_string_context = CodeString(code=code_context, file_path=file_path.relative_to(project_root_path))
+            code_string_context = CodeString(
+                code=code_context, file_path=file_path.resolve().relative_to(project_root_path.resolve())
+            )
             code_context_markdown.code_strings.append(code_string_context)
     return code_context_markdown
 
@@ -436,33 +474,188 @@ def get_function_sources_from_jedi(
                     definition_path = definition.module_path
 
                     # The definition is part of this project and not defined within the original function
-                    if (
+                    is_valid_definition = (
                         str(definition_path).startswith(str(project_root_path) + os.sep)
                         and not path_belongs_to_site_packages(definition_path)
                         and definition.full_name
-                        and definition.type == "function"
                         and not belongs_to_function_qualified(definition, qualified_function_name)
                         and definition.full_name.startswith(definition.module_name)
+                    )
+                    if is_valid_definition and definition.type == "function":
+                        qualified_name = get_qualified_name(definition.module_name, definition.full_name)
                         # Avoid nested functions or classes. Only class.function is allowed
-                        and len(
-                            (qualified_name := get_qualified_name(definition.module_name, definition.full_name)).split(
-                                "."
+                        if len(qualified_name.split(".")) <= 2:
+                            function_source = FunctionSource(
+                                file_path=definition_path,
+                                qualified_name=qualified_name,
+                                fully_qualified_name=definition.full_name,
+                                only_function_name=definition.name,
+                                source_code=definition.get_line_code(),
+                                jedi_definition=definition,
                             )
+                            file_path_to_function_source[definition_path].add(function_source)
+                            function_source_list.append(function_source)
+                    # When a class is instantiated (e.g., MyClass()), track its __init__ as a helper
+                    # This ensures the class definition with constructor is included in testgen context
+                    elif is_valid_definition and definition.type == "class":
+                        init_qualified_name = get_qualified_name(
+                            definition.module_name, f"{definition.full_name}.__init__"
                         )
-                        <= 2
-                    ):
-                        function_source = FunctionSource(
-                            file_path=definition_path,
-                            qualified_name=qualified_name,
-                            fully_qualified_name=definition.full_name,
-                            only_function_name=definition.name,
-                            source_code=definition.get_line_code(),
-                            jedi_definition=definition,
-                        )
-                        file_path_to_function_source[definition_path].add(function_source)
-                        function_source_list.append(function_source)
+                        # Only include if it's a top-level class (not nested)
+                        if len(init_qualified_name.split(".")) <= 2:
+                            function_source = FunctionSource(
+                                file_path=definition_path,
+                                qualified_name=init_qualified_name,
+                                fully_qualified_name=f"{definition.full_name}.__init__",
+                                only_function_name="__init__",
+                                source_code=definition.get_line_code(),
+                                jedi_definition=definition,
+                            )
+                            file_path_to_function_source[definition_path].add(function_source)
+                            function_source_list.append(function_source)
 
     return file_path_to_function_source, function_source_list
+
+
+def get_imported_class_definitions(code_context: CodeStringsMarkdown, project_root_path: Path) -> CodeStringsMarkdown:
+    """Extract class definitions for imported types from project modules.
+
+    This function analyzes the imports in the extracted code context and fetches
+    class definitions for any classes imported from project modules. This helps
+    the LLM understand the actual class structure (constructors, methods, inheritance)
+    rather than just seeing import statements.
+
+    Args:
+        code_context: The already extracted code context containing imports
+        project_root_path: Root path of the project
+
+    Returns:
+        CodeStringsMarkdown containing class definitions from imported project modules
+
+    """
+    import jedi
+
+    # Collect all code from the context
+    all_code = "\n".join(cs.code for cs in code_context.code_strings)
+
+    # Parse to find import statements
+    try:
+        tree = ast.parse(all_code)
+    except SyntaxError:
+        return CodeStringsMarkdown(code_strings=[])
+
+    # Collect imported names and their source modules
+    imported_names: dict[str, str] = {}  # name -> module_path
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module:
+            for alias in node.names:
+                if alias.name != "*":
+                    imported_name = alias.asname if alias.asname else alias.name
+                    imported_names[imported_name] = node.module
+
+    if not imported_names:
+        return CodeStringsMarkdown(code_strings=[])
+
+    # Track which classes we've already extracted to avoid duplicates
+    extracted_classes: set[tuple[Path, str]] = set()  # (file_path, class_name)
+
+    # Also track what's already defined in the context
+    existing_definitions: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ClassDef):
+            existing_definitions.add(node.name)
+
+    class_code_strings: list[CodeString] = []
+
+    for name, module_name in imported_names.items():
+        # Skip if already defined in context
+        if name in existing_definitions:
+            continue
+
+        # Try to find the module file using Jedi
+        try:
+            # Create a script that imports the module to resolve it
+            test_code = f"import {module_name}"
+            script = jedi.Script(test_code, project=jedi.Project(path=project_root_path))
+            completions = script.goto(1, len(test_code))
+
+            if not completions:
+                continue
+
+            module_path = completions[0].module_path
+            if not module_path:
+                continue
+
+            # Check if this is a project module (not stdlib/third-party)
+            if not str(module_path).startswith(str(project_root_path) + os.sep):
+                continue
+            if path_belongs_to_site_packages(module_path):
+                continue
+
+            # Skip if we've already extracted this class
+            if (module_path, name) in extracted_classes:
+                continue
+
+            # Parse the module to find the class definition
+            module_source = module_path.read_text(encoding="utf-8")
+            module_tree = ast.parse(module_source)
+
+            for node in ast.walk(module_tree):
+                if isinstance(node, ast.ClassDef) and node.name == name:
+                    # Extract the class source code
+                    lines = module_source.split("\n")
+                    class_source = "\n".join(lines[node.lineno - 1 : node.end_lineno])
+
+                    # Also extract any necessary imports for the class (base classes, type hints)
+                    class_imports = _extract_imports_for_class(module_tree, node, module_source)
+
+                    full_source = class_imports + "\n\n" + class_source if class_imports else class_source
+
+                    class_code_strings.append(CodeString(code=full_source, file_path=module_path))
+                    extracted_classes.add((module_path, name))
+                    break
+
+        except Exception:
+            logger.debug(f"Error extracting class definition for {name} from {module_name}")
+            continue
+
+    return CodeStringsMarkdown(code_strings=class_code_strings)
+
+
+def _extract_imports_for_class(module_tree: ast.Module, class_node: ast.ClassDef, module_source: str) -> str:
+    """Extract import statements needed for a class definition.
+
+    This extracts imports for base classes and commonly used type annotations.
+    """
+    needed_names: set[str] = set()
+
+    # Get base class names
+    for base in class_node.bases:
+        if isinstance(base, ast.Name):
+            needed_names.add(base.id)
+        elif isinstance(base, ast.Attribute) and isinstance(base.value, ast.Name):
+            # For things like abc.ABC, we need the module name
+            needed_names.add(base.value.id)
+
+    # Find imports that provide these names
+    import_lines: list[str] = []
+    source_lines = module_source.split("\n")
+
+    for node in module_tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                name = alias.asname if alias.asname else alias.name.split(".")[0]
+                if name in needed_names:
+                    import_lines.append(source_lines[node.lineno - 1])
+                    break
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                name = alias.asname if alias.asname else alias.name
+                if name in needed_names:
+                    import_lines.append(source_lines[node.lineno - 1])
+                    break
+
+    return "\n".join(import_lines)
 
 
 def is_dunder_method(name: str) -> bool:
@@ -494,8 +687,10 @@ def parse_code_and_prune_cst(
 ) -> str:
     """Create a read-only version of the code by parsing and filtering the code to keep only class contextual information, and other module scoped variables."""
     module = cst.parse_module(code)
+    defs_with_usages = collect_top_level_defs_with_usages(module, target_functions | helpers_of_helper_functions)
+
     if code_context_type == CodeContextType.READ_WRITABLE:
-        filtered_node, found_target = prune_cst_for_read_writable_code(module, target_functions)
+        filtered_node, found_target = prune_cst_for_read_writable_code(module, target_functions, defs_with_usages)
     elif code_context_type == CodeContextType.READ_ONLY:
         filtered_node, found_target = prune_cst_for_read_only_code(
             module, target_functions, helpers_of_helper_functions, remove_docstrings=remove_docstrings
@@ -520,7 +715,7 @@ def parse_code_and_prune_cst(
 
 
 def prune_cst_for_read_writable_code(  # noqa: PLR0911
-    node: cst.CSTNode, target_functions: set[str], prefix: str = ""
+    node: cst.CSTNode, target_functions: set[str], defs_with_usages: dict[str, UsageInfo], prefix: str = ""
 ) -> tuple[cst.CSTNode | None, bool]:
     """Recursively filter the node and its children to build the read-writable codeblock. This contains nodes that lead to target functions.
 
@@ -565,6 +760,21 @@ def prune_cst_for_read_writable_code(  # noqa: PLR0911
 
         return node.with_changes(body=cst.IndentedBlock(body=new_body)), found_target
 
+    if isinstance(node, cst.Assign):
+        for target in node.targets:
+            names = extract_names_from_targets(target.target)
+            for name in names:
+                if name in defs_with_usages and defs_with_usages[name].used_by_qualified_function:
+                    return node, True
+        return None, False
+
+    if isinstance(node, (cst.AnnAssign, cst.AugAssign)):
+        names = extract_names_from_targets(node.target)
+        for name in names:
+            if name in defs_with_usages and defs_with_usages[name].used_by_qualified_function:
+                return node, True
+        return None, False
+
     # For other nodes, we preserve them only if they contain target functions in their children.
     section_names = get_section_names(node)
     if not section_names:
@@ -579,7 +789,9 @@ def prune_cst_for_read_writable_code(  # noqa: PLR0911
             new_children = []
             section_found_target = False
             for child in original_content:
-                filtered, found_target = prune_cst_for_read_writable_code(child, target_functions, prefix)
+                filtered, found_target = prune_cst_for_read_writable_code(
+                    child, target_functions, defs_with_usages, prefix
+                )
                 if filtered:
                     new_children.append(filtered)
                 section_found_target |= found_target
@@ -588,7 +800,9 @@ def prune_cst_for_read_writable_code(  # noqa: PLR0911
                 found_any_target = True
                 updates[section] = new_children
         elif original_content is not None:
-            filtered, found_target = prune_cst_for_read_writable_code(original_content, target_functions, prefix)
+            filtered, found_target = prune_cst_for_read_writable_code(
+                original_content, target_functions, defs_with_usages, prefix
+            )
             if found_target:
                 found_any_target = True
                 if filtered:
@@ -596,7 +810,6 @@ def prune_cst_for_read_writable_code(  # noqa: PLR0911
 
     if not found_any_target:
         return None, False
-
     return (node.with_changes(**updates) if updates else node), True
 
 
@@ -617,7 +830,10 @@ def prune_cst_for_code_hashing(  # noqa: PLR0911
 
     if isinstance(node, cst.FunctionDef):
         qualified_name = f"{prefix}.{node.name.value}" if prefix else node.name.value
-        if qualified_name in target_functions:
+        # For hashing, exclude __init__ methods even if in target_functions
+        # because they don't affect the semantic behavior being hashed
+        # But include other dunder methods like __call__ which do affect behavior
+        if qualified_name in target_functions and node.name.value != "__init__":
             new_body = remove_docstring_from_body(node.body) if isinstance(node.body, cst.IndentedBlock) else node.body
             return node.with_changes(body=new_body), True
         return None, False
@@ -636,7 +852,9 @@ def prune_cst_for_code_hashing(  # noqa: PLR0911
         for stmt in node.body.body:
             if isinstance(stmt, cst.FunctionDef):
                 qualified_name = f"{class_prefix}.{stmt.name.value}"
-                if qualified_name in target_functions:
+                # For hashing, exclude __init__ methods even if in target_functions
+                # but include other methods like __call__ which affect behavior
+                if qualified_name in target_functions and stmt.name.value != "__init__":
                     stmt_with_changes = stmt.with_changes(
                         body=remove_docstring_from_body(cast("cst.IndentedBlock", stmt.body))
                     )

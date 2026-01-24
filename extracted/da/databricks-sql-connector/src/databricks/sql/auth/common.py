@@ -37,6 +37,7 @@ class ClientContext:
         tls_client_cert_file: Optional[str] = None,
         oauth_persistence=None,
         credentials_provider=None,
+        identity_federation_client_id: Optional[str] = None,
         # HTTP client configuration parameters
         ssl_options=None,  # SSLOptions type
         socket_timeout: Optional[float] = None,
@@ -50,6 +51,7 @@ class ClientContext:
         pool_connections: Optional[int] = None,
         pool_maxsize: Optional[int] = None,
         user_agent: Optional[str] = None,
+        telemetry_circuit_breaker_enabled: Optional[bool] = True,
     ):
         self.hostname = hostname
         self.access_token = access_token
@@ -65,6 +67,7 @@ class ClientContext:
         self.tls_client_cert_file = tls_client_cert_file
         self.oauth_persistence = oauth_persistence
         self.credentials_provider = credentials_provider
+        self.identity_federation_client_id = identity_federation_client_id
 
         # HTTP client configuration
         self.ssl_options = ssl_options
@@ -81,6 +84,7 @@ class ClientContext:
         self.pool_connections = pool_connections or 10
         self.pool_maxsize = pool_maxsize or 20
         self.user_agent = user_agent
+        self.telemetry_circuit_breaker_enabled = bool(telemetry_circuit_breaker_enabled)
 
 
 def get_effective_azure_login_app_id(hostname) -> str:

@@ -1,5 +1,5 @@
 [dependencies]
-version = "20250919"
+version = "20260121"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -65,7 +65,7 @@ options = [
 [selinux]
 when = "machine.os == 'android'"
 name = "SELinux Userspace"
-version = "6d5513fd8069e9ff9b7aa10970d34457b32970c8"
+version = "b7c8cd70d821bb3fc69500e6273149299b80b923"
 url = "https://github.com/frida/selinux.git"
 options = [
     "-Dregex=disabled",
@@ -73,7 +73,7 @@ options = [
 
 [glib]
 name = "GLib"
-version = "9dc59b1b5503789ada22f7699e53256fa3287217"
+version = "81b631758fe5c665ade9d869554148f6160fe681"
 url = "https://github.com/frida/glib.git"
 options = [
     "-Dcocoa=disabled",
@@ -218,7 +218,7 @@ url = "https://github.com/frida/libusb.git"
 [lwip]
 when = "machine.os != 'none'"
 name = "lwIP"
-version = "4fe7223c2e80dc328266fb2483e789ee5fad7c79"
+version = "334ebb20a22023db2f0d5017e96eb0c7798082fd"
 url = "https://github.com/frida/lwip.git"
 options = [
     "-Dipv4=disabled",
@@ -370,7 +370,7 @@ url = "https://github.com/frida/tinycc.git"
 [openssl]
 when = "machine.os != 'none'"
 name = "OpenSSL"
-version = "5029c4562d23547d8e29768e1b0de573c52bf3fc"
+version = "fa60a1c8c704e4ca0cc0dcb289c3be1fea1b50ff"
 url = "https://github.com/frida/openssl.git"
 options = [
     "-Dcli=disabled",
@@ -386,7 +386,7 @@ when = """ \
        and machine.os not in {'none', 'qnx'} \
        """
 name = "V8"
-version = "669119f601663b73fc01f8eee02cf2f093bbf25b"
+version = "a07af892420dfd873b33bd4ce4ba9d963072e1b9"
 url = "https://github.com/frida/v8.git"
 options = [
     "-Ddebug=false",

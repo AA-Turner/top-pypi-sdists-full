@@ -1,10 +1,10 @@
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from django.contrib import admin
 from django.http.request import HttpRequest
 from django.http.response import HttpResponse
 
-from . import settings, stats_views, models
+from . import models, settings, stats_views
 
 
 class QueueAdmin(admin.ModelAdmin):
@@ -29,7 +29,7 @@ class QueueAdmin(admin.ModelAdmin):
         """
         return request.user.has_module_perms('django_rq')  # type: ignore[union-attr]
 
-    def changelist_view(self, request: HttpRequest, extra_context: Optional[Dict[str, Any]] = None) -> HttpResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: Optional[dict[str, Any]] = None) -> HttpResponse:
         """The 'change list' admin view for this model."""
         # proxy request to stats view
         return stats_views.stats(request)

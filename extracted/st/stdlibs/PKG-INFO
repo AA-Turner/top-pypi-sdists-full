@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stdlibs
-Version: 2025.5.10
+Version: 2025.10.28
 Summary: List of packages in the stdlib
 Author-email: Amethyst Reese <amy@n7.gg>
 Requires-Python: >=3.8
@@ -13,12 +13,12 @@ Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: attribution==1.8.0 ; extra == "dev"
 Requires-Dist: build>=1 ; extra == "dev"
-Requires-Dist: black==25.1.0 ; extra == "dev"
-Requires-Dist: coverage==7.8.0 ; extra == "dev"
+Requires-Dist: black==25.9.0 ; extra == "dev"
+Requires-Dist: coverage==7.10.7 ; extra == "dev"
 Requires-Dist: fissix==24.4.24 ; extra == "dev"
-Requires-Dist: flake8==7.2.0 ; extra == "dev"
+Requires-Dist: flake8==7.3.0 ; extra == "dev"
 Requires-Dist: flit==3.12.0 ; extra == "dev"
-Requires-Dist: mypy==1.15.0 ; extra == "dev"
+Requires-Dist: mypy==1.18.2 ; extra == "dev"
 Requires-Dist: packaging==25.0 ; extra == "dev"
 Requires-Dist: ufmt==2.8.0 ; extra == "dev"
 Requires-Dist: usort==1.0.8.post1 ; extra == "dev"
@@ -32,7 +32,7 @@ Provides-Extra: docs
 
 # stdlibs
 
-Simple list of top-level packages in Python's stdlib
+Simple list of top-level packages in Python's standard library
 
 [![license](https://img.shields.io/pypi/l/stdlibs.svg)](https://github.com/omnilib/stdlibs/blob/master/LICENSE)
 [![version](https://img.shields.io/pypi/v/stdlibs.svg)](https://pypi.org/project/stdlibs)
@@ -46,10 +46,17 @@ It also includes combined lists of all module names that were ever available in 
 
 Note: On Python versions 3.10 or newer, a list of module names for the active runtime
 is available `sys.stdlib_module_names`. This package exists to provide an historical
-record for use with static analysis and other tooling.
+record, including pre-release listings, for use with static analysis and other tooling.
+It also captures a number of "private", importable modules that ship with stable
+releases, but that aren't generally included in the official `stdlib_module_names`.
 
 This package only includes listings for CPython releases. If other runtimes would be
 useful, open an issue and start a discussion on how best that can be accomodated.
+
+**stdlibs is used by**:
+
+- [Ruff](https://astral.sh/ruff)
+- [µsort](https://usort.rtfd.io)
 
 
 Install
@@ -96,7 +103,7 @@ easier:
 ```pycon
 >>> from stdlibs import stdlib_module_names, KNOWN_VERSIONS
 >>> [v for v in KNOWN_VERSIONS if "dataclasses" in stdlib_module_names(v)]
-['3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
+['3.7', '3.8', '3.9', '3.10', '3.11', '3.12', '3.13', '3.14', '3.15']
 >>>
 >>> sorted(stdlib_module_names("3.7") - stdlib_module_names("3.6"))
 ['_abc', '_contextvars', '_py_abc', '_queue', '_uuid', '_xxtestfuzz', 'contextvars', 'dataclasses']

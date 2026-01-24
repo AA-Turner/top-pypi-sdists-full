@@ -37,6 +37,7 @@ from gs_quant.api.gs.data import GsDataApi
 from gs_quant.api.utils import ThreadPoolManager
 from gs_quant.base import get_enum_value
 from gs_quant.common import AssetClass, AssetParameters, AssetType as GsAssetType, Currency, DateLimit
+from gs_quant.context_base import nullcontext
 from gs_quant.data import DataMeasure, DataFrequency, Dataset, AssetMeasure
 from gs_quant.data.coordinate import DataDimensions, DateOrDatetime
 from gs_quant.data.core import IntervalFrequency, DataAggregationOperator
@@ -47,6 +48,7 @@ from gs_quant.markets import PricingContext
 from gs_quant.markets.indices_utils import BasketType, IndicesDatasets
 from gs_quant.session import GsSession
 from gs_quant.target.data import DataQuery
+from gs_quant.tracing import Tracer
 
 _logger = logging.getLogger(__name__)
 
@@ -218,6 +220,7 @@ class AssetIdentifier(EntityIdentifier):
     TICKER = "TICKER"  #: Exchange ticker (GS)
     PLOT_ID = "PLOT_ID"  #: ID for Marquee PlotTool
     GSID = "GSID"
+    NAME = 'NAME'  #: Name of the asset ('US Treasury 20y GOVN')
 
 
 class SecurityIdentifier(EntityIdentifier):
@@ -1491,12 +1494,12 @@ class SecurityMaster:
         cls._source = source
 
     @classmethod
-    def _get_asset_query(cls,
-                         id_value: Union[str, List[str]],
-                         id_type: Union[AssetIdentifier, SecurityIdentifier],
-                         as_of: Union[dt.date, dt.datetime] = None,
-                         exchange_code: ExchangeCode = None,
-                         asset_type: AssetType = None) -> Tuple[Dict, dt.datetime]:
+    def get_asset_query(cls,
+                        id_value: Union[str, List[str]],
+                        id_type: Union[AssetIdentifier, SecurityIdentifier],
+                        as_of: Union[dt.date, dt.datetime] = None,
+                        exchange_code: ExchangeCode = None,
+                        asset_type: AssetType = None) -> Tuple[Dict, dt.datetime]:
         if not as_of:
             current = PricingContext.current
             if not current.is_entered:
@@ -1588,7 +1591,7 @@ class SecurityMaster:
             gs_asset = GsAssetApi.get_asset(id_value)
             return cls.__gs_asset_to_asset(gs_asset)
 
-        query, as_of = cls._get_asset_query(id_value, id_type, as_of, exchange_code, asset_type)
+        query, as_of = cls.get_asset_query(id_value, id_type, as_of, exchange_code, asset_type)
         if sort_by_rank:
             results = GsAssetApi.get_many_assets(as_of=as_of, return_type=dict, order_by=['>rank'], **query)
             return cls._get_asset_results(results, sort_by_rank)
@@ -1653,7 +1656,7 @@ class SecurityMaster:
             gs_asset = await GsAssetApi.get_asset_async(id_value)
             return cls.__gs_asset_to_asset(gs_asset)
 
-        query, as_of = cls._get_asset_query(id_value, id_type, as_of, exchange_code, asset_type)
+        query, as_of = cls.get_asset_query(id_value, id_type, as_of, exchange_code, asset_type)
         if sort_by_rank:
             results = await GsAssetApi.get_many_assets_async(as_of=as_of, return_type=dict, order_by=['>rank'], **query)
             return cls._get_asset_results(results, sort_by_rank)
@@ -1705,12 +1708,17 @@ class SecurityMaster:
         :func:`get_many_assets`
 
         """
-        query, as_of = cls._get_asset_query(id_values, id_type, as_of, exchange_code)
-        if sort_by_rank:
-            results = GsAssetApi.get_many_assets(as_of=as_of, order_by=['>rank'], limit=limit, **query)
-        else:
-            results = GsAssetApi.get_many_assets(as_of=as_of, limit=limit, **query)
-        return cls._get_many_assets_results(results)
+        span = Tracer.active_span()
+        tracer = Tracer('SecurityMaster.get_many_assets') if span and span.is_recording() else nullcontext()
+        with tracer as scope:
+            if scope and scope.span:
+                scope.span.set_tag(f'request.ids.{id_type.value}', len(id_values) if id_values else 0)
+            query, as_of = cls.get_asset_query(id_values, id_type, as_of, exchange_code)
+            if sort_by_rank:
+                results = GsAssetApi.get_many_assets(as_of=as_of, order_by=['>rank'], limit=limit, **query)
+            else:
+                results = GsAssetApi.get_many_assets(as_of=as_of, limit=limit, **query)
+            return cls._get_many_assets_results(results)
 
     @classmethod
     async def get_many_assets_async(cls,
@@ -1758,12 +1766,17 @@ class SecurityMaster:
         :func:`get_many_assets`
 
         """
-        query, as_of = cls._get_asset_query(id_values, id_type, as_of, exchange_code)
-        if sort_by_rank:
-            results = await GsAssetApi.get_many_assets_async(as_of=as_of, order_by=['>rank'], limit=limit, **query)
-        else:
-            results = await GsAssetApi.get_many_assets_async(as_of=as_of, limit=limit, **query)
-        return cls._get_many_assets_results(results)
+        span = Tracer.active_span()
+        tracer = Tracer('SecurityMaster.get_many_assets_async') if span and span.is_recording() else nullcontext()
+        with tracer as scope:
+            if scope and scope.span:
+                scope.span.set_tag(f'request.ids.{id_type.value}', len(id_values) if id_values else 0)
+            query, as_of = cls.get_asset_query(id_values, id_type, as_of, exchange_code)
+            if sort_by_rank:
+                results = await GsAssetApi.get_many_assets_async(as_of=as_of, order_by=['>rank'], limit=limit, **query)
+            else:
+                results = await GsAssetApi.get_many_assets_async(as_of=as_of, limit=limit, **query)
+            return cls._get_many_assets_results(results)
 
     @classmethod
     def _get_security_master_asset_params(cls,

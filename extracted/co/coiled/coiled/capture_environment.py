@@ -1,6 +1,4 @@
-import asyncio
 import contextlib
-import logging
 import platform
 import sys
 import typing
@@ -16,9 +14,12 @@ from typing_extensions import Literal
 from coiled.context import track_context
 from coiled.scan import scan_prefix
 from coiled.software_utils import (
+    ANY_AVAILABLE,
+    PYTHON_VERSION,
     check_pip_happy,
     create_wheels_for_local_python,
     create_wheels_for_packages,
+    get_lockfile,
     partition_ignored_packages,
     partition_local_packages,
     partition_local_python_code_packages,
@@ -35,10 +36,6 @@ from coiled.types import (
 from coiled.v2.core import CloudV2
 from coiled.v2.widgets.rich import CONSOLE_WIDTH, print_rich_package_table
 from coiled.v2.widgets.util import simple_progress, use_rich_widget
-
-PYTHON_VERSION = platform.python_version_tuple()
-ANY_AVAILABLE = "ANY-AVAILABLE"
-
 
 logger = getLogger("coiled.package_sync")
 
@@ -69,49 +66,53 @@ async def approximate_packages(
     architecture: ArchitectureTypesEnum = ArchitectureTypesEnum.X86_64,
     pip_check_errors: Optional[Dict[str, List[str]]] = None,
     gpu_enabled: bool = False,
+    use_uv_installer: bool = True,
+    lockfile_path: Optional[Path] = None,
 ) -> typing.List[ResolvedPackageInfo]:
     user_conda_installed_python = next((p for p in packages if p["name"] == "python"), None)
-    user_conda_installed_pip = next(
-        (i for i, p in enumerate(packages) if p["name"] == "pip" and p["source"] == "conda"),
-        None,
-    )
-    if not user_conda_installed_pip:
-        # This means pip was installed by pip, or the system
-        # package manager
-        # Insert a conda version of pip to be installed first, it will
-        # then be used to install the users version of pip
-        pip = next(
-            (p for p in packages if p["name"] == "pip" and p["source"] == "pip"),
+    # Only add pip if we need it
+    if not use_uv_installer:
+        user_conda_installed_pip = next(
+            (i for i, p in enumerate(packages) if p["name"] == "pip" and p["source"] == "conda"),
             None,
         )
-        if not pip:
-            # insert a modern version and hope it does not introduce conflicts
-            packages.append({
-                "name": "pip",
-                "path": None,
-                "source": "conda",
-                "channel_url": "https://conda.anaconda.org/conda-forge/",
-                "channel": "conda-forge",
-                "subdir": "noarch",
-                "conda_name": "pip",
-                "version": "22.3.1",
-                "wheel_target": None,
-                "requested": False,
-            })
-        else:
-            # insert the users pip version and hope it exists on conda-forge
-            packages.append({
-                "name": "pip",
-                "path": None,
-                "source": "conda",
-                "channel_url": "https://conda.anaconda.org/conda-forge/",
-                "channel": "conda-forge",
-                "subdir": "noarch",
-                "conda_name": "pip",
-                "version": pip["version"],
-                "wheel_target": None,
-                "requested": True,
-            })
+        if not user_conda_installed_pip:
+            # This means pip was installed by pip, or the system
+            # package manager
+            # Insert a conda version of pip to be installed first, it will
+            # then be used to install the users version of pip
+            pip = next(
+                (p for p in packages if p["name"] == "pip" and p["source"] == "pip"),
+                None,
+            )
+            if not pip:
+                # insert a modern version and hope it does not introduce conflicts
+                packages.append({
+                    "name": "pip",
+                    "path": None,
+                    "source": "conda",
+                    "channel_url": "https://conda.anaconda.org/conda-forge/",
+                    "channel": "conda-forge",
+                    "subdir": "noarch",
+                    "conda_name": "pip",
+                    "version": "22.3.1",
+                    "wheel_target": None,
+                    "requested": False,
+                })
+            else:
+                # insert the users pip version and hope it exists on conda-forge
+                packages.append({
+                    "name": "pip",
+                    "path": None,
+                    "source": "conda",
+                    "channel_url": "https://conda.anaconda.org/conda-forge/",
+                    "channel": "conda-forge",
+                    "subdir": "noarch",
+                    "conda_name": "pip",
+                    "version": pip["version"],
+                    "wheel_target": None,
+                    "requested": True,
+                })
     coiled_selected_python = None
     if not user_conda_installed_python:
         # insert a special python package
@@ -162,6 +163,8 @@ async def approximate_packages(
             architecture=architecture,
             pip_check_errors=pip_check_errors,
             gpu_enabled=gpu_enabled,
+            lockfile_name=lockfile_path.name if lockfile_path else None,
+            lockfile_content=lockfile_path.read_text() if lockfile_path else None,
         )
     finalized_packages: typing.List[ResolvedPackageInfo] = []
     finalized_packages.extend(await create_wheels_for_local_python(local_python_code, progress=progress))
@@ -208,6 +211,7 @@ async def create_environment_approximation(
     progress: Optional[Progress] = None,
     architecture: ArchitectureTypesEnum = ArchitectureTypesEnum.X86_64,
     gpu_enabled: bool = False,
+    use_uv_installer: bool = True,
 ) -> typing.List[ResolvedPackageInfo]:
     packages = await scan_prefix(progress=progress)
     pip_check_errors = await check_pip_happy(progress)
@@ -237,6 +241,8 @@ async def create_environment_approximation(
         architecture=architecture,
         pip_check_errors=pip_check_errors,
         gpu_enabled=gpu_enabled,
+        use_uv_installer=use_uv_installer,
+        lockfile_path=get_lockfile(),
     )
     return result
 
@@ -259,7 +265,7 @@ async def scan_and_create(
 ):
     use_widget = force_rich_widget or (show_widget and use_rich_widget())
 
-    local_env_name = Path(sys.prefix).name
+    local_env_name = str(get_lockfile() or Path(sys.prefix).name)
     if use_widget:
         progress = Progress(TextColumn("[progress.description]{task.description}"), BarColumn(), TimeElapsedColumn())
         live = Live(Panel(progress, title=f"[green]Package Sync for {local_env_name}", width=CONSOLE_WIDTH))
@@ -268,6 +274,9 @@ async def scan_and_create(
         progress = None
 
     with live:
+        # We do this even with lockfiles because some early checks happen
+        # on this endpoint to prevent people getting delayed quota errors
+        # TODO: Add a lighter weight endpoint that does just these checks
         with simple_progress("Fetching latest package priorities", progress):
             logger.info(f"Resolving your local {local_env_name} Python environment...")
             async with (
@@ -306,6 +315,7 @@ async def scan_and_create(
                 architecture=architecture,
                 gpu_enabled=gpu_enabled,
                 conda_extras=package_sync_conda_extras,
+                use_uv_installer=use_uv_installer,
             )
 
         if not package_sync_only:
@@ -367,6 +377,7 @@ async def scan_and_create(
                 # default region in declarative service create_software_environment
                 region_name=region_name,
                 use_uv_installer=use_uv_installer,
+                lockfile_path=get_lockfile(),
             )
     if use_widget:
         print_rich_package_table(packages_with_notes, packages_with_errors)
@@ -427,39 +438,3 @@ If you use pip, venv, uv, pixi, etc. create a new environment and then:
 
 See https://docs.coiled.io/user_guide/software/package_sync_best_practices.html
 for more best practices. If that doesn't solve your issue, please contact support@coiled.io.""")
-
-
-if __name__ == "__main__":
-    from logging import basicConfig
-
-    basicConfig(level=logging.INFO)
-
-    from rich.console import Console
-    from rich.table import Table
-
-    async def run():
-        async with CloudV2(asynchronous=True) as cloud:
-            return await create_environment_approximation(
-                cloud=cloud,
-                priorities={
-                    ("dask", "conda"): PackageLevelEnum.CRITICAL,
-                    ("twisted", "conda"): PackageLevelEnum.IGNORE,
-                    ("graphviz", "conda"): PackageLevelEnum.LOOSE,
-                    ("icu", "conda"): PackageLevelEnum.LOOSE,
-                },
-            )
-
-    result = asyncio.run(run())
-
-    table = Table(title="Packages")
-    keys = ("name", "source", "include", "client_version", "specifier", "error", "note")
-
-    for key in keys:
-        table.add_column(key)
-
-    for pkg in result:
-        row_values = [str(pkg.get(key, "")) for key in keys]
-        table.add_row(*row_values)
-    console = Console()
-    console.print(table)
-    console.print(table)

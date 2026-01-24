@@ -1,5 +1,7 @@
-from typing import Any, Generic, Literal, Never, TypeAlias, overload
-from typing_extensions import TypeVar, override
+from _typeshed import Incomplete
+from types import ModuleType
+from typing import Any, ClassVar, Generic, Literal, Never, TypeAlias, overload
+from typing_extensions import TypeAliasType, TypeVar, override
 
 import numpy as np
 import optype.numpy as onp
@@ -23,13 +25,17 @@ _CubicBCName: TypeAlias = Literal["not-a-knot", "clamped", "natural"]
 _CubicBCOrder: TypeAlias = Literal[1, 2]
 _CubicBCType: TypeAlias = Literal[_CubicBCName, "periodic"] | _Tuple2[_CubicBCName | tuple[_CubicBCOrder, onp.ToComplexND]]
 
-_PreparedInput: TypeAlias = tuple[
-    onp.Array1D[np.float64],  # x
-    onp.Array1D[np.float64],  # dx
-    onp.ArrayND[_CT],  # y
-    _AxisT,  # axis
-    onp.ArrayND[_CT],  # dydx
-]
+_PreparedInput = TypeAliasType(
+    "_PreparedInput",
+    tuple[
+        onp.Array1D[np.float64],  # x
+        onp.Array1D[np.float64],  # dx
+        onp.ArrayND[_CT],  # y
+        _AxisT,  # axis
+        onp.ArrayND[_CT],  # dydx
+    ],
+    type_params=(_CT, _AxisT),
+)
 
 ###
 
@@ -66,9 +72,13 @@ class CubicHermiteSpline(PPoly[_CT_co]):
     ) -> None: ...
 
 class PchipInterpolator(CubicHermiteSpline[np.float64]):
+    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
+
     def __init__(self, /, x: onp.ToFloat1D, y: onp.ToFloatND, axis: _ToAxis = 0, extrapolate: bool | None = None) -> None: ...
 
 class Akima1DInterpolator(CubicHermiteSpline[np.float64]):
+    __class_getitem__: ClassVar[None] = None  # type:ignore[assignment]  # pyright:ignore[reportIncompatibleMethodOverride]
+
     def __init__(
         self,
         /,
@@ -85,10 +95,10 @@ class Akima1DInterpolator(CubicHermiteSpline[np.float64]):
     def extend(self, /, c: Never, x: Never, right: bool = True) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
     @classmethod
     @override
-    def from_spline(cls, tck: Never, extrapolate: None = None) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def from_spline(cls, tck: Never, extrapolate: None = None) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
     @classmethod
     @override
-    def from_bernstein_basis(cls, bp: Never, extrapolate: None = None) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def from_bernstein_basis(cls, bp: Never, extrapolate: None = None) -> Never: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
 
 class CubicSpline(CubicHermiteSpline[_CT_co], Generic[_CT_co]):
     @overload
@@ -134,13 +144,17 @@ def pchip_interpolate(
 # undocumented
 @overload
 def prepare_input(
-    x: onp.ToFloat1D, y: onp.ToFloatND, axis: _AxisT, dydx: onp.ToFloatND | None = None
+    x: onp.ToFloat1D, y: onp.ToFloatND, axis: _AxisT, dydx: onp.ToFloatND | None = None, xp: None = None
 ) -> _PreparedInput[np.float64, _AxisT]: ...
 @overload
 def prepare_input(
-    x: onp.ToFloat1D, y: onp.ToJustComplexND, axis: _AxisT, dydx: onp.ToComplexND | None = None
+    x: onp.ToFloat1D, y: onp.ToJustComplexND, axis: _AxisT, dydx: onp.ToComplexND | None = None, xp: None = None
 ) -> _PreparedInput[np.complex128, _AxisT]: ...
 @overload
 def prepare_input(
-    x: onp.ToFloat1D, y: onp.ToComplexND, axis: _AxisT, dydx: onp.ToComplexND | None = None
+    x: onp.ToFloat1D, y: onp.ToComplexND, axis: _AxisT, dydx: onp.ToComplexND | None = None, xp: None = None
 ) -> _PreparedInput[Any, _AxisT]: ...
+@overload
+def prepare_input(
+    x: onp.ToFloat1D, y: onp.ToComplexND, axis: _AxisT, dydx: onp.ToComplexND | None = None, *, xp: ModuleType
+) -> tuple[Incomplete, Incomplete, Incomplete, _AxisT, Incomplete]: ...

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-
 DOCUMENTATION = r"""
 module: x509_certificate
 short_description: Generate and/or check OpenSSL certificates
@@ -236,9 +235,9 @@ from ansible_collections.community.crypto.plugins.module_utils._io import (
     write_file,
 )
 
-
 if t.TYPE_CHECKING:
     from ansible.module_utils.basic import AnsibleModule  # pragma: no cover
+
     from ansible_collections.community.crypto.plugins.module_utils._crypto.module_backends.certificate import (  # pragma: no cover
         CertificateBackend,
     )

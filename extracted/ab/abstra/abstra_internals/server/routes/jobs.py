@@ -56,14 +56,19 @@ def get_editor_bp(controller: MainController):
         remove_file = flask.request.args.get(
             "remove_file", default=False, type=is_it_true
         )
-        controller.delete_job(id, remove_file)
+        controller.delete_stage(id, remove_file)
         return {"success": True}
 
     @bp.post("/<path:id>/run")
     @editor_usage
     def _run_job(id: str):
-        controller.debug_run_job(id)
+        status = controller.get_job_status(id)
+        if status == "not_found":
+            flask.abort(404)
 
-        return {"ok": True}
+        if status == "disabled":
+            return {"status": "disabled"}
+
+        return controller.run_job(id)
 
     return bp

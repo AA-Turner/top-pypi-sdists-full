@@ -3,7 +3,7 @@ Type annotations for connect service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -34,12 +35,20 @@ from .paginator import (
     ListApprovedOriginsPaginator,
     ListAuthenticationProfilesPaginator,
     ListBotsPaginator,
+    ListChildHoursOfOperationsPaginator,
     ListContactEvaluationsPaginator,
+    ListContactFlowModuleAliasesPaginator,
     ListContactFlowModulesPaginator,
+    ListContactFlowModuleVersionsPaginator,
     ListContactFlowsPaginator,
     ListContactFlowVersionsPaginator,
     ListContactReferencesPaginator,
+    ListDataTableAttributesPaginator,
+    ListDataTablePrimaryValuesPaginator,
+    ListDataTablesPaginator,
+    ListDataTableValuesPaginator,
     ListDefaultVocabulariesPaginator,
+    ListEntitySecurityProfilesPaginator,
     ListEvaluationFormsPaginator,
     ListEvaluationFormVersionsPaginator,
     ListFlowAssociationsPaginator,
@@ -58,11 +67,13 @@ from .paginator import (
     ListQueueQuickConnectsPaginator,
     ListQueuesPaginator,
     ListQuickConnectsPaginator,
+    ListRoutingProfileManualAssignmentQueuesPaginator,
     ListRoutingProfileQueuesPaginator,
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
     ListSecurityProfileApplicationsPaginator,
+    ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
     ListSecurityProfilesPaginator,
     ListTaskTemplatesPaginator,
@@ -74,11 +85,14 @@ from .paginator import (
     ListUsersPaginator,
     ListViewsPaginator,
     ListViewVersionsPaginator,
+    ListWorkspacePagesPaginator,
+    ListWorkspacesPaginator,
     SearchAgentStatusesPaginator,
     SearchAvailablePhoneNumbersPaginator,
     SearchContactFlowModulesPaginator,
     SearchContactFlowsPaginator,
     SearchContactsPaginator,
+    SearchDataTablesPaginator,
     SearchHoursOfOperationOverridesPaginator,
     SearchHoursOfOperationsPaginator,
     SearchPredefinedAttributesPaginator,
@@ -90,7 +104,10 @@ from .paginator import (
     SearchSecurityProfilesPaginator,
     SearchUserHierarchyGroupsPaginator,
     SearchUsersPaginator,
+    SearchViewsPaginator,
     SearchVocabulariesPaginator,
+    SearchWorkspaceAssociationsPaginator,
+    SearchWorkspacesPaginator,
 )
 from .type_defs import (
     ActivateEvaluationFormRequestTypeDef,
@@ -99,8 +116,11 @@ from .type_defs import (
     AssociateAnalyticsDataSetResponseTypeDef,
     AssociateApprovedOriginRequestTypeDef,
     AssociateBotRequestTypeDef,
+    AssociateContactWithUserRequestTypeDef,
     AssociateDefaultVocabularyRequestTypeDef,
+    AssociateEmailAddressAliasRequestTypeDef,
     AssociateFlowRequestTypeDef,
+    AssociateHoursOfOperationsRequestTypeDef,
     AssociateInstanceStorageConfigRequestTypeDef,
     AssociateInstanceStorageConfigResponseTypeDef,
     AssociateLambdaFunctionRequestTypeDef,
@@ -110,10 +130,19 @@ from .type_defs import (
     AssociateRoutingProfileQueuesRequestTypeDef,
     AssociateSecurityKeyRequestTypeDef,
     AssociateSecurityKeyResponseTypeDef,
+    AssociateSecurityProfilesRequestTypeDef,
     AssociateTrafficDistributionGroupUserRequestTypeDef,
     AssociateUserProficienciesRequestTypeDef,
+    AssociateWorkspaceRequestTypeDef,
+    AssociateWorkspaceResponseTypeDef,
     BatchAssociateAnalyticsDataSetRequestTypeDef,
     BatchAssociateAnalyticsDataSetResponseTypeDef,
+    BatchCreateDataTableValueRequestTypeDef,
+    BatchCreateDataTableValueResponseTypeDef,
+    BatchDeleteDataTableValueRequestTypeDef,
+    BatchDeleteDataTableValueResponseTypeDef,
+    BatchDescribeDataTableValueRequestTypeDef,
+    BatchDescribeDataTableValueResponseTypeDef,
     BatchDisassociateAnalyticsDataSetRequestTypeDef,
     BatchDisassociateAnalyticsDataSetResponseTypeDef,
     BatchGetAttachedFileMetadataRequestTypeDef,
@@ -122,19 +151,29 @@ from .type_defs import (
     BatchGetFlowAssociationResponseTypeDef,
     BatchPutContactRequestTypeDef,
     BatchPutContactResponseTypeDef,
+    BatchUpdateDataTableValueRequestTypeDef,
+    BatchUpdateDataTableValueResponseTypeDef,
     ClaimPhoneNumberRequestTypeDef,
     ClaimPhoneNumberResponseTypeDef,
     CompleteAttachedFileUploadRequestTypeDef,
     CreateAgentStatusRequestTypeDef,
     CreateAgentStatusResponseTypeDef,
+    CreateContactFlowModuleAliasRequestTypeDef,
+    CreateContactFlowModuleAliasResponseTypeDef,
     CreateContactFlowModuleRequestTypeDef,
     CreateContactFlowModuleResponseTypeDef,
+    CreateContactFlowModuleVersionRequestTypeDef,
+    CreateContactFlowModuleVersionResponseTypeDef,
     CreateContactFlowRequestTypeDef,
     CreateContactFlowResponseTypeDef,
     CreateContactFlowVersionRequestTypeDef,
     CreateContactFlowVersionResponseTypeDef,
     CreateContactRequestTypeDef,
     CreateContactResponseTypeDef,
+    CreateDataTableAttributeRequestTypeDef,
+    CreateDataTableAttributeResponseTypeDef,
+    CreateDataTableRequestTypeDef,
+    CreateDataTableResponseTypeDef,
     CreateEmailAddressRequestTypeDef,
     CreateEmailAddressResponseTypeDef,
     CreateEvaluationFormRequestTypeDef,
@@ -182,13 +221,21 @@ from .type_defs import (
     CreateViewVersionResponseTypeDef,
     CreateVocabularyRequestTypeDef,
     CreateVocabularyResponseTypeDef,
+    CreateWorkspacePageRequestTypeDef,
+    CreateWorkspaceRequestTypeDef,
+    CreateWorkspaceResponseTypeDef,
     DeactivateEvaluationFormRequestTypeDef,
     DeactivateEvaluationFormResponseTypeDef,
     DeleteAttachedFileRequestTypeDef,
     DeleteContactEvaluationRequestTypeDef,
+    DeleteContactFlowModuleAliasRequestTypeDef,
     DeleteContactFlowModuleRequestTypeDef,
+    DeleteContactFlowModuleVersionRequestTypeDef,
     DeleteContactFlowRequestTypeDef,
     DeleteContactFlowVersionRequestTypeDef,
+    DeleteDataTableAttributeRequestTypeDef,
+    DeleteDataTableAttributeResponseTypeDef,
+    DeleteDataTableRequestTypeDef,
     DeleteEmailAddressRequestTypeDef,
     DeleteEvaluationFormRequestTypeDef,
     DeleteHoursOfOperationOverrideRequestTypeDef,
@@ -212,18 +259,27 @@ from .type_defs import (
     DeleteViewVersionRequestTypeDef,
     DeleteVocabularyRequestTypeDef,
     DeleteVocabularyResponseTypeDef,
+    DeleteWorkspaceMediaRequestTypeDef,
+    DeleteWorkspacePageRequestTypeDef,
+    DeleteWorkspaceRequestTypeDef,
     DescribeAgentStatusRequestTypeDef,
     DescribeAgentStatusResponseTypeDef,
     DescribeAuthenticationProfileRequestTypeDef,
     DescribeAuthenticationProfileResponseTypeDef,
     DescribeContactEvaluationRequestTypeDef,
     DescribeContactEvaluationResponseTypeDef,
+    DescribeContactFlowModuleAliasRequestTypeDef,
+    DescribeContactFlowModuleAliasResponseTypeDef,
     DescribeContactFlowModuleRequestTypeDef,
     DescribeContactFlowModuleResponseTypeDef,
     DescribeContactFlowRequestTypeDef,
     DescribeContactFlowResponseTypeDef,
     DescribeContactRequestTypeDef,
     DescribeContactResponseTypeDef,
+    DescribeDataTableAttributeRequestTypeDef,
+    DescribeDataTableAttributeResponseTypeDef,
+    DescribeDataTableRequestTypeDef,
+    DescribeDataTableResponseTypeDef,
     DescribeEmailAddressRequestTypeDef,
     DescribeEmailAddressResponseTypeDef,
     DescribeEvaluationFormRequestTypeDef,
@@ -266,10 +322,14 @@ from .type_defs import (
     DescribeViewResponseTypeDef,
     DescribeVocabularyRequestTypeDef,
     DescribeVocabularyResponseTypeDef,
+    DescribeWorkspaceRequestTypeDef,
+    DescribeWorkspaceResponseTypeDef,
     DisassociateAnalyticsDataSetRequestTypeDef,
     DisassociateApprovedOriginRequestTypeDef,
     DisassociateBotRequestTypeDef,
+    DisassociateEmailAddressAliasRequestTypeDef,
     DisassociateFlowRequestTypeDef,
+    DisassociateHoursOfOperationsRequestTypeDef,
     DisassociateInstanceStorageConfigRequestTypeDef,
     DisassociateLambdaFunctionRequestTypeDef,
     DisassociateLexBotRequestTypeDef,
@@ -277,10 +337,15 @@ from .type_defs import (
     DisassociateQueueQuickConnectsRequestTypeDef,
     DisassociateRoutingProfileQueuesRequestTypeDef,
     DisassociateSecurityKeyRequestTypeDef,
+    DisassociateSecurityProfilesRequestTypeDef,
     DisassociateTrafficDistributionGroupUserRequestTypeDef,
     DisassociateUserProficienciesRequestTypeDef,
+    DisassociateWorkspaceRequestTypeDef,
+    DisassociateWorkspaceResponseTypeDef,
     DismissUserContactRequestTypeDef,
     EmptyResponseMetadataTypeDef,
+    EvaluateDataTableValuesRequestTypeDef,
+    EvaluateDataTableValuesResponseTypeDef,
     GetAttachedFileRequestTypeDef,
     GetAttachedFileResponseTypeDef,
     GetContactAttributesRequestTypeDef,
@@ -309,6 +374,7 @@ from .type_defs import (
     GetTrafficDistributionResponseTypeDef,
     ImportPhoneNumberRequestTypeDef,
     ImportPhoneNumberResponseTypeDef,
+    ImportWorkspaceMediaRequestTypeDef,
     ListAgentStatusRequestTypeDef,
     ListAgentStatusResponseTypeDef,
     ListAnalyticsDataAssociationsRequestTypeDef,
@@ -323,18 +389,34 @@ from .type_defs import (
     ListAuthenticationProfilesResponseTypeDef,
     ListBotsRequestTypeDef,
     ListBotsResponseTypeDef,
+    ListChildHoursOfOperationsRequestTypeDef,
+    ListChildHoursOfOperationsResponseTypeDef,
     ListContactEvaluationsRequestTypeDef,
     ListContactEvaluationsResponseTypeDef,
+    ListContactFlowModuleAliasesRequestTypeDef,
+    ListContactFlowModuleAliasesResponseTypeDef,
     ListContactFlowModulesRequestTypeDef,
     ListContactFlowModulesResponseTypeDef,
+    ListContactFlowModuleVersionsRequestTypeDef,
+    ListContactFlowModuleVersionsResponseTypeDef,
     ListContactFlowsRequestTypeDef,
     ListContactFlowsResponseTypeDef,
     ListContactFlowVersionsRequestTypeDef,
     ListContactFlowVersionsResponseTypeDef,
     ListContactReferencesRequestTypeDef,
     ListContactReferencesResponseTypeDef,
+    ListDataTableAttributesRequestTypeDef,
+    ListDataTableAttributesResponseTypeDef,
+    ListDataTablePrimaryValuesRequestTypeDef,
+    ListDataTablePrimaryValuesResponseTypeDef,
+    ListDataTablesRequestTypeDef,
+    ListDataTablesResponseTypeDef,
+    ListDataTableValuesRequestTypeDef,
+    ListDataTableValuesResponseTypeDef,
     ListDefaultVocabulariesRequestTypeDef,
     ListDefaultVocabulariesResponseTypeDef,
+    ListEntitySecurityProfilesRequestTypeDef,
+    ListEntitySecurityProfilesResponseTypeDef,
     ListEvaluationFormsRequestTypeDef,
     ListEvaluationFormsResponseTypeDef,
     ListEvaluationFormVersionsRequestTypeDef,
@@ -373,6 +455,8 @@ from .type_defs import (
     ListQuickConnectsResponseTypeDef,
     ListRealtimeContactAnalysisSegmentsV2RequestTypeDef,
     ListRealtimeContactAnalysisSegmentsV2ResponseTypeDef,
+    ListRoutingProfileManualAssignmentQueuesRequestTypeDef,
+    ListRoutingProfileManualAssignmentQueuesResponseTypeDef,
     ListRoutingProfileQueuesRequestTypeDef,
     ListRoutingProfileQueuesResponseTypeDef,
     ListRoutingProfilesRequestTypeDef,
@@ -383,6 +467,8 @@ from .type_defs import (
     ListSecurityKeysResponseTypeDef,
     ListSecurityProfileApplicationsRequestTypeDef,
     ListSecurityProfileApplicationsResponseTypeDef,
+    ListSecurityProfileFlowModulesRequestTypeDef,
+    ListSecurityProfileFlowModulesResponseTypeDef,
     ListSecurityProfilePermissionsRequestTypeDef,
     ListSecurityProfilePermissionsResponseTypeDef,
     ListSecurityProfilesRequestTypeDef,
@@ -407,6 +493,12 @@ from .type_defs import (
     ListViewsResponseTypeDef,
     ListViewVersionsRequestTypeDef,
     ListViewVersionsResponseTypeDef,
+    ListWorkspaceMediaRequestTypeDef,
+    ListWorkspaceMediaResponseTypeDef,
+    ListWorkspacePagesRequestTypeDef,
+    ListWorkspacePagesResponseTypeDef,
+    ListWorkspacesRequestTypeDef,
+    ListWorkspacesResponseTypeDef,
     MonitorContactRequestTypeDef,
     MonitorContactResponseTypeDef,
     PauseContactRequestTypeDef,
@@ -420,14 +512,20 @@ from .type_defs import (
     SearchAgentStatusesResponseTypeDef,
     SearchAvailablePhoneNumbersRequestTypeDef,
     SearchAvailablePhoneNumbersResponseTypeDef,
+    SearchContactEvaluationsRequestTypeDef,
+    SearchContactEvaluationsResponseTypeDef,
     SearchContactFlowModulesRequestTypeDef,
     SearchContactFlowModulesResponseTypeDef,
     SearchContactFlowsRequestTypeDef,
     SearchContactFlowsResponseTypeDef,
     SearchContactsRequestTypeDef,
     SearchContactsResponseTypeDef,
+    SearchDataTablesRequestTypeDef,
+    SearchDataTablesResponseTypeDef,
     SearchEmailAddressesRequestTypeDef,
     SearchEmailAddressesResponseTypeDef,
+    SearchEvaluationFormsRequestTypeDef,
+    SearchEvaluationFormsResponseTypeDef,
     SearchHoursOfOperationOverridesRequestTypeDef,
     SearchHoursOfOperationOverridesResponseTypeDef,
     SearchHoursOfOperationsRequestTypeDef,
@@ -450,8 +548,14 @@ from .type_defs import (
     SearchUserHierarchyGroupsResponseTypeDef,
     SearchUsersRequestTypeDef,
     SearchUsersResponseTypeDef,
+    SearchViewsRequestTypeDef,
+    SearchViewsResponseTypeDef,
     SearchVocabulariesRequestTypeDef,
     SearchVocabulariesResponseTypeDef,
+    SearchWorkspaceAssociationsRequestTypeDef,
+    SearchWorkspaceAssociationsResponseTypeDef,
+    SearchWorkspacesRequestTypeDef,
+    SearchWorkspacesResponseTypeDef,
     SendChatIntegrationEventRequestTypeDef,
     SendChatIntegrationEventResponseTypeDef,
     SendOutboundEmailRequestTypeDef,
@@ -461,6 +565,7 @@ from .type_defs import (
     StartChatContactResponseTypeDef,
     StartContactEvaluationRequestTypeDef,
     StartContactEvaluationResponseTypeDef,
+    StartContactMediaProcessingRequestTypeDef,
     StartContactRecordingRequestTypeDef,
     StartContactStreamingRequestTypeDef,
     StartContactStreamingResponseTypeDef,
@@ -477,6 +582,7 @@ from .type_defs import (
     StartTaskContactResponseTypeDef,
     StartWebRTCContactRequestTypeDef,
     StartWebRTCContactResponseTypeDef,
+    StopContactMediaProcessingRequestTypeDef,
     StopContactRecordingRequestTypeDef,
     StopContactRequestTypeDef,
     StopContactStreamingRequestTypeDef,
@@ -496,12 +602,19 @@ from .type_defs import (
     UpdateContactEvaluationResponseTypeDef,
     UpdateContactFlowContentRequestTypeDef,
     UpdateContactFlowMetadataRequestTypeDef,
+    UpdateContactFlowModuleAliasRequestTypeDef,
     UpdateContactFlowModuleContentRequestTypeDef,
     UpdateContactFlowModuleMetadataRequestTypeDef,
     UpdateContactFlowNameRequestTypeDef,
     UpdateContactRequestTypeDef,
     UpdateContactRoutingDataRequestTypeDef,
     UpdateContactScheduleRequestTypeDef,
+    UpdateDataTableAttributeRequestTypeDef,
+    UpdateDataTableAttributeResponseTypeDef,
+    UpdateDataTableMetadataRequestTypeDef,
+    UpdateDataTableMetadataResponseTypeDef,
+    UpdateDataTablePrimaryValuesRequestTypeDef,
+    UpdateDataTablePrimaryValuesResponseTypeDef,
     UpdateEmailAddressMetadataRequestTypeDef,
     UpdateEmailAddressMetadataResponseTypeDef,
     UpdateEvaluationFormRequestTypeDef,
@@ -547,14 +660,12 @@ from .type_defs import (
     UpdateViewContentRequestTypeDef,
     UpdateViewContentResponseTypeDef,
     UpdateViewMetadataRequestTypeDef,
+    UpdateWorkspaceMetadataRequestTypeDef,
+    UpdateWorkspacePageRequestTypeDef,
+    UpdateWorkspaceThemeRequestTypeDef,
+    UpdateWorkspaceVisibilityRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -563,33 +674,34 @@ else:
 __all__ = ("ConnectClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConditionalOperationFailedException: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    ContactFlowNotPublishedException: Type[BotocoreClientError]
-    ContactNotFoundException: Type[BotocoreClientError]
-    DestinationNotAllowedException: Type[BotocoreClientError]
-    DuplicateResourceException: Type[BotocoreClientError]
-    IdempotencyException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidContactFlowException: Type[BotocoreClientError]
-    InvalidContactFlowModuleException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MaximumResultReturnedException: Type[BotocoreClientError]
-    OutboundContactNotPermittedException: Type[BotocoreClientError]
-    OutputTypeNotFoundException: Type[BotocoreClientError]
-    PropertyValidationException: Type[BotocoreClientError]
-    ResourceConflictException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceNotReadyException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    UserNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConditionalOperationFailedException: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    ContactFlowNotPublishedException: type[BotocoreClientError]
+    ContactNotFoundException: type[BotocoreClientError]
+    DestinationNotAllowedException: type[BotocoreClientError]
+    DuplicateResourceException: type[BotocoreClientError]
+    IdempotencyException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidActiveRegionException: type[BotocoreClientError]
+    InvalidContactFlowException: type[BotocoreClientError]
+    InvalidContactFlowModuleException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MaximumResultReturnedException: type[BotocoreClientError]
+    OutboundContactNotPermittedException: type[BotocoreClientError]
+    OutputTypeNotFoundException: type[BotocoreClientError]
+    PropertyValidationException: type[BotocoreClientError]
+    ResourceConflictException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceNotReadyException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    UserNotFoundException: type[BotocoreClientError]
 
 class ConnectClient(AioBaseClient):
     """
@@ -667,9 +779,19 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_bot)
         """
 
+    async def associate_contact_with_user(
+        self, **kwargs: Unpack[AssociateContactWithUserRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates a queued contact with an agent.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_contact_with_user.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_contact_with_user)
+        """
+
     async def associate_default_vocabulary(
         self, **kwargs: Unpack[AssociateDefaultVocabularyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an existing vocabulary as the default.
 
@@ -677,12 +799,33 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_default_vocabulary)
         """
 
-    async def associate_flow(self, **kwargs: Unpack[AssociateFlowRequestTypeDef]) -> Dict[str, Any]:
+    async def associate_email_address_alias(
+        self, **kwargs: Unpack[AssociateEmailAddressAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates an email address alias with an existing email address in an Amazon
+        Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_email_address_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_email_address_alias)
+        """
+
+    async def associate_flow(self, **kwargs: Unpack[AssociateFlowRequestTypeDef]) -> dict[str, Any]:
         """
         Associates a connect resource to a flow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_flow)
+        """
+
+    async def associate_hours_of_operations(
+        self, **kwargs: Unpack[AssociateHoursOfOperationsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associates a set of hours of operations with another hours of operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_hours_of_operations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_hours_of_operations)
         """
 
     async def associate_instance_storage_config(
@@ -755,9 +898,19 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_security_key)
         """
 
+    async def associate_security_profiles(
+        self, **kwargs: Unpack[AssociateSecurityProfilesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Associate security profiles with an Entity in an Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_security_profiles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_security_profiles)
+        """
+
     async def associate_traffic_distribution_group_user(
         self, **kwargs: Unpack[AssociateTrafficDistributionGroupUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates an agent with a traffic distribution group.
 
@@ -775,6 +928,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_user_proficiencies)
         """
 
+    async def associate_workspace(
+        self, **kwargs: Unpack[AssociateWorkspaceRequestTypeDef]
+    ) -> AssociateWorkspaceResponseTypeDef:
+        """
+        Associates a workspace with one or more users or routing profiles, allowing
+        them to access the workspace's configured views and pages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/associate_workspace.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#associate_workspace)
+        """
+
     async def batch_associate_analytics_data_set(
         self, **kwargs: Unpack[BatchAssociateAnalyticsDataSetRequestTypeDef]
     ) -> BatchAssociateAnalyticsDataSetResponseTypeDef:
@@ -784,6 +948,36 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_associate_analytics_data_set.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_associate_analytics_data_set)
+        """
+
+    async def batch_create_data_table_value(
+        self, **kwargs: Unpack[BatchCreateDataTableValueRequestTypeDef]
+    ) -> BatchCreateDataTableValueResponseTypeDef:
+        """
+        Creates values for attributes in a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_create_data_table_value.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_create_data_table_value)
+        """
+
+    async def batch_delete_data_table_value(
+        self, **kwargs: Unpack[BatchDeleteDataTableValueRequestTypeDef]
+    ) -> BatchDeleteDataTableValueResponseTypeDef:
+        """
+        Deletes multiple values from a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_delete_data_table_value.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_delete_data_table_value)
+        """
+
+    async def batch_describe_data_table_value(
+        self, **kwargs: Unpack[BatchDescribeDataTableValueRequestTypeDef]
+    ) -> BatchDescribeDataTableValueResponseTypeDef:
+        """
+        Retrieves multiple values from a data table without evaluating expressions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_describe_data_table_value.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_describe_data_table_value)
         """
 
     async def batch_disassociate_analytics_data_set(
@@ -829,6 +1023,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_put_contact)
         """
 
+    async def batch_update_data_table_value(
+        self, **kwargs: Unpack[BatchUpdateDataTableValueRequestTypeDef]
+    ) -> BatchUpdateDataTableValueResponseTypeDef:
+        """
+        Updates multiple data table values using all properties from
+        BatchCreateDataTableValue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/batch_update_data_table_value.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#batch_update_data_table_value)
+        """
+
     async def claim_phone_number(
         self, **kwargs: Unpack[ClaimPhoneNumberRequestTypeDef]
     ) -> ClaimPhoneNumberResponseTypeDef:
@@ -842,7 +1047,7 @@ class ConnectClient(AioBaseClient):
 
     async def complete_attached_file_upload(
         self, **kwargs: Unpack[CompleteAttachedFileUploadRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Allows you to confirm that the attached file has been uploaded using the
         pre-signed URL provided in the StartAttachedFileUpload API.
@@ -891,6 +1096,29 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_contact_flow_module)
         """
 
+    async def create_contact_flow_module_alias(
+        self, **kwargs: Unpack[CreateContactFlowModuleAliasRequestTypeDef]
+    ) -> CreateContactFlowModuleAliasResponseTypeDef:
+        """
+        Creates a named alias that points to a specific version of a contact flow
+        module.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_module_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_contact_flow_module_alias)
+        """
+
+    async def create_contact_flow_module_version(
+        self, **kwargs: Unpack[CreateContactFlowModuleVersionRequestTypeDef]
+    ) -> CreateContactFlowModuleVersionResponseTypeDef:
+        """
+        Creates an immutable snapshot of a contact flow module, preserving its content
+        and settings at a specific point in time for version control and rollback
+        capabilities.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_module_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_contact_flow_module_version)
+        """
+
     async def create_contact_flow_version(
         self, **kwargs: Unpack[CreateContactFlowVersionRequestTypeDef]
     ) -> CreateContactFlowVersionResponseTypeDef:
@@ -899,6 +1127,26 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_contact_flow_version.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_contact_flow_version)
+        """
+
+    async def create_data_table(
+        self, **kwargs: Unpack[CreateDataTableRequestTypeDef]
+    ) -> CreateDataTableResponseTypeDef:
+        """
+        Creates a new data table with the specified properties.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_data_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_data_table)
+        """
+
+    async def create_data_table_attribute(
+        self, **kwargs: Unpack[CreateDataTableAttributeRequestTypeDef]
+    ) -> CreateDataTableAttributeResponseTypeDef:
+        """
+        Adds an attribute to an existing data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_data_table_attribute.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_data_table_attribute)
         """
 
     async def create_email_address(
@@ -1146,6 +1394,27 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_vocabulary)
         """
 
+    async def create_workspace(
+        self, **kwargs: Unpack[CreateWorkspaceRequestTypeDef]
+    ) -> CreateWorkspaceResponseTypeDef:
+        """
+        Creates a workspace that defines the user experience by mapping views to pages.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_workspace.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_workspace)
+        """
+
+    async def create_workspace_page(
+        self, **kwargs: Unpack[CreateWorkspacePageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Associates a view with a page in a workspace, defining what users see when they
+        navigate to that page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_workspace_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#create_workspace_page)
+        """
+
     async def deactivate_evaluation_form(
         self, **kwargs: Unpack[DeactivateEvaluationFormRequestTypeDef]
     ) -> DeactivateEvaluationFormResponseTypeDef:
@@ -1158,7 +1427,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_attached_file(
         self, **kwargs: Unpack[DeleteAttachedFileRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an attached file along with the underlying S3 Object.
 
@@ -1178,7 +1447,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_contact_flow(
         self, **kwargs: Unpack[DeleteContactFlowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a flow for the specified Amazon Connect instance.
 
@@ -1188,7 +1457,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_contact_flow_module(
         self, **kwargs: Unpack[DeleteContactFlowModuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified flow module.
 
@@ -1196,9 +1465,30 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_flow_module)
         """
 
+    async def delete_contact_flow_module_alias(
+        self, **kwargs: Unpack[DeleteContactFlowModuleAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes an alias reference, breaking the named connection to the underlying
+        module version without affecting the version itself.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_flow_module_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_flow_module_alias)
+        """
+
+    async def delete_contact_flow_module_version(
+        self, **kwargs: Unpack[DeleteContactFlowModuleVersionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes a specific version of a contact flow module.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_flow_module_version.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_flow_module_version)
+        """
+
     async def delete_contact_flow_version(
         self, **kwargs: Unpack[DeleteContactFlowVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the particular version specified in flow version identifier.
 
@@ -1206,9 +1496,30 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_contact_flow_version)
         """
 
+    async def delete_data_table(
+        self, **kwargs: Unpack[DeleteDataTableRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a data table and all associated attributes, versions, audits, and
+        values.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_data_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_data_table)
+        """
+
+    async def delete_data_table_attribute(
+        self, **kwargs: Unpack[DeleteDataTableAttributeRequestTypeDef]
+    ) -> DeleteDataTableAttributeResponseTypeDef:
+        """
+        Deletes an attribute and all its values from a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_data_table_attribute.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_data_table_attribute)
+        """
+
     async def delete_email_address(
         self, **kwargs: Unpack[DeleteEmailAddressRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes email address from the specified Amazon Connect instance.
 
@@ -1290,7 +1601,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_push_notification_registration(
         self, **kwargs: Unpack[DeletePushNotificationRegistrationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes registration for a device token and a chat contact.
 
@@ -1350,7 +1661,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_task_template(
         self, **kwargs: Unpack[DeleteTaskTemplateRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the task template.
 
@@ -1360,7 +1671,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_traffic_distribution_group(
         self, **kwargs: Unpack[DeleteTrafficDistributionGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a traffic distribution group.
 
@@ -1398,7 +1709,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_user_hierarchy_group)
         """
 
-    async def delete_view(self, **kwargs: Unpack[DeleteViewRequestTypeDef]) -> Dict[str, Any]:
+    async def delete_view(self, **kwargs: Unpack[DeleteViewRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the view entirely.
 
@@ -1408,7 +1719,7 @@ class ConnectClient(AioBaseClient):
 
     async def delete_view_version(
         self, **kwargs: Unpack[DeleteViewVersionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the particular version specified in <code>ViewVersion</code> identifier.
 
@@ -1424,6 +1735,36 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_vocabulary.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_vocabulary)
+        """
+
+    async def delete_workspace(
+        self, **kwargs: Unpack[DeleteWorkspaceRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a workspace and removes all associated view and resource assignments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_workspace.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_workspace)
+        """
+
+    async def delete_workspace_media(
+        self, **kwargs: Unpack[DeleteWorkspaceMediaRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a media asset (such as a logo) from a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_workspace_media.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_workspace_media)
+        """
+
+    async def delete_workspace_page(
+        self, **kwargs: Unpack[DeleteWorkspacePageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the association between a view and a page in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_workspace_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#delete_workspace_page)
         """
 
     async def describe_agent_status(
@@ -1484,6 +1825,38 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_flow_module.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_contact_flow_module)
+        """
+
+    async def describe_contact_flow_module_alias(
+        self, **kwargs: Unpack[DescribeContactFlowModuleAliasRequestTypeDef]
+    ) -> DescribeContactFlowModuleAliasResponseTypeDef:
+        """
+        Retrieves detailed information about a specific alias, including which version
+        it currently points to and its metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_contact_flow_module_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_contact_flow_module_alias)
+        """
+
+    async def describe_data_table(
+        self, **kwargs: Unpack[DescribeDataTableRequestTypeDef]
+    ) -> DescribeDataTableResponseTypeDef:
+        """
+        Returns all properties for a data table except for attributes and values.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_data_table.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_data_table)
+        """
+
+    async def describe_data_table_attribute(
+        self, **kwargs: Unpack[DescribeDataTableAttributeRequestTypeDef]
+    ) -> DescribeDataTableAttributeResponseTypeDef:
+        """
+        Returns detailed information for a specific data table attribute including its
+        configuration, validation rules, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_data_table_attribute.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_data_table_attribute)
         """
 
     async def describe_email_address(
@@ -1698,6 +2071,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_vocabulary)
         """
 
+    async def describe_workspace(
+        self, **kwargs: Unpack[DescribeWorkspaceRequestTypeDef]
+    ) -> DescribeWorkspaceResponseTypeDef:
+        """
+        Retrieves details about a workspace, including its configuration and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/describe_workspace.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#describe_workspace)
+        """
+
     async def disassociate_analytics_data_set(
         self, **kwargs: Unpack[DisassociateAnalyticsDataSetRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -1728,14 +2111,35 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_bot)
         """
 
+    async def disassociate_email_address_alias(
+        self, **kwargs: Unpack[DisassociateEmailAddressAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the alias association between two email addresses in an Amazon Connect
+        instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_email_address_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_email_address_alias)
+        """
+
     async def disassociate_flow(
         self, **kwargs: Unpack[DisassociateFlowRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates a connect resource from a flow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_flow.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_flow)
+        """
+
+    async def disassociate_hours_of_operations(
+        self, **kwargs: Unpack[DisassociateHoursOfOperationsRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Disassociates a set of hours of operations with another hours of operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_hours_of_operations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_hours_of_operations)
         """
 
     async def disassociate_instance_storage_config(
@@ -1809,9 +2213,20 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_security_key)
         """
 
+    async def disassociate_security_profiles(
+        self, **kwargs: Unpack[DisassociateSecurityProfilesRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Disassociates a security profile attached to a Q in Connect AI Agent Entity in
+        an Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_security_profiles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_security_profiles)
+        """
+
     async def disassociate_traffic_distribution_group_user(
         self, **kwargs: Unpack[DisassociateTrafficDistributionGroupUserRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates an agent from a traffic distribution group.
 
@@ -1829,15 +2244,36 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_user_proficiencies)
         """
 
+    async def disassociate_workspace(
+        self, **kwargs: Unpack[DisassociateWorkspaceRequestTypeDef]
+    ) -> DisassociateWorkspaceResponseTypeDef:
+        """
+        Removes the association between a workspace and one or more users or routing
+        profiles.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/disassociate_workspace.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#disassociate_workspace)
+        """
+
     async def dismiss_user_contact(
         self, **kwargs: Unpack[DismissUserContactRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Dismisses contacts from an agent's CCP and returns the agent to an available
         state, which allows the agent to receive a new routed contact.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/dismiss_user_contact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#dismiss_user_contact)
+        """
+
+    async def evaluate_data_table_values(
+        self, **kwargs: Unpack[EvaluateDataTableValuesRequestTypeDef]
+    ) -> EvaluateDataTableValuesResponseTypeDef:
+        """
+        Evaluates values at the time of the request and returns them.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/evaluate_data_table_values.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#evaluate_data_table_values)
         """
 
     async def get_attached_file(
@@ -1864,7 +2300,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[GetContactMetricsRequestTypeDef]
     ) -> GetContactMetricsResponseTypeDef:
         """
-        Gets the real-time metrics of the specified contact.
+        Retrieves the position of the contact in the queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_contact_metrics.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_contact_metrics)
@@ -1983,6 +2419,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#import_phone_number)
         """
 
+    async def import_workspace_media(
+        self, **kwargs: Unpack[ImportWorkspaceMediaRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Imports a media asset (such as a logo) for use in a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/import_workspace_media.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#import_workspace_media)
+        """
+
     async def list_agent_statuses(
         self, **kwargs: Unpack[ListAgentStatusRequestTypeDef]
     ) -> ListAgentStatusResponseTypeDef:
@@ -2054,6 +2500,17 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_bots)
         """
 
+    async def list_child_hours_of_operations(
+        self, **kwargs: Unpack[ListChildHoursOfOperationsRequestTypeDef]
+    ) -> ListChildHoursOfOperationsResponseTypeDef:
+        """
+        Provides information about the child hours of operations for the specified
+        parent hours of operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_child_hours_of_operations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_child_hours_of_operations)
+        """
+
     async def list_contact_evaluations(
         self, **kwargs: Unpack[ListContactEvaluationsRequestTypeDef]
     ) -> ListContactEvaluationsResponseTypeDef:
@@ -2062,6 +2519,27 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_evaluations.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_evaluations)
+        """
+
+    async def list_contact_flow_module_aliases(
+        self, **kwargs: Unpack[ListContactFlowModuleAliasesRequestTypeDef]
+    ) -> ListContactFlowModuleAliasesResponseTypeDef:
+        """
+        Lists all aliases associated with a contact flow module, showing their current
+        version mappings and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_module_aliases.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_flow_module_aliases)
+        """
+
+    async def list_contact_flow_module_versions(
+        self, **kwargs: Unpack[ListContactFlowModuleVersionsRequestTypeDef]
+    ) -> ListContactFlowModuleVersionsResponseTypeDef:
+        """
+        Retrieves a paginated list of all versions for a specific contact flow module.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_contact_flow_module_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_flow_module_versions)
         """
 
     async def list_contact_flow_modules(
@@ -2106,6 +2584,47 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_contact_references)
         """
 
+    async def list_data_table_attributes(
+        self, **kwargs: Unpack[ListDataTableAttributesRequestTypeDef]
+    ) -> ListDataTableAttributesResponseTypeDef:
+        """
+        Returns all attributes for a specified data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_table_attributes.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_data_table_attributes)
+        """
+
+    async def list_data_table_primary_values(
+        self, **kwargs: Unpack[ListDataTablePrimaryValuesRequestTypeDef]
+    ) -> ListDataTablePrimaryValuesResponseTypeDef:
+        """
+        Lists all primary value combinations for a given data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_table_primary_values.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_data_table_primary_values)
+        """
+
+    async def list_data_table_values(
+        self, **kwargs: Unpack[ListDataTableValuesRequestTypeDef]
+    ) -> ListDataTableValuesResponseTypeDef:
+        """
+        Lists values stored in a data table with optional filtering by record IDs or
+        primary attribute values.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_table_values.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_data_table_values)
+        """
+
+    async def list_data_tables(
+        self, **kwargs: Unpack[ListDataTablesRequestTypeDef]
+    ) -> ListDataTablesResponseTypeDef:
+        """
+        Lists all data tables for the specified Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_data_tables.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_data_tables)
+        """
+
     async def list_default_vocabularies(
         self, **kwargs: Unpack[ListDefaultVocabulariesRequestTypeDef]
     ) -> ListDefaultVocabulariesResponseTypeDef:
@@ -2114,6 +2633,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_default_vocabularies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_default_vocabularies)
+        """
+
+    async def list_entity_security_profiles(
+        self, **kwargs: Unpack[ListEntitySecurityProfilesRequestTypeDef]
+    ) -> ListEntitySecurityProfilesResponseTypeDef:
+        """
+        Lists all security profiles attached to a Q in Connect AIAgent Entity in an
+        Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_entity_security_profiles.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_entity_security_profiles)
         """
 
     async def list_evaluation_form_versions(
@@ -2312,6 +2842,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_realtime_contact_analysis_segments_v2)
         """
 
+    async def list_routing_profile_manual_assignment_queues(
+        self, **kwargs: Unpack[ListRoutingProfileManualAssignmentQueuesRequestTypeDef]
+    ) -> ListRoutingProfileManualAssignmentQueuesResponseTypeDef:
+        """
+        Lists the manual assignment queues associated with a routing profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_routing_profile_manual_assignment_queues.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_routing_profile_manual_assignment_queues)
+        """
+
     async def list_routing_profile_queues(
         self, **kwargs: Unpack[ListRoutingProfileQueuesRequestTypeDef]
     ) -> ListRoutingProfileQueuesResponseTypeDef:
@@ -2357,10 +2897,21 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[ListSecurityProfileApplicationsRequestTypeDef]
     ) -> ListSecurityProfileApplicationsResponseTypeDef:
         """
-        Returns a list of third-party applications in a specific security profile.
+        Returns a list of third-party applications or MCP Servers in a specific
+        security profile.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profile_applications.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_security_profile_applications)
+        """
+
+    async def list_security_profile_flow_modules(
+        self, **kwargs: Unpack[ListSecurityProfileFlowModulesRequestTypeDef]
+    ) -> ListSecurityProfileFlowModulesResponseTypeDef:
+        """
+        A list of Flow Modules an AI Agent can invoke as a tool.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profile_flow_modules.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_security_profile_flow_modules)
         """
 
     async def list_security_profile_permissions(
@@ -2487,6 +3038,37 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_views)
         """
 
+    async def list_workspace_media(
+        self, **kwargs: Unpack[ListWorkspaceMediaRequestTypeDef]
+    ) -> ListWorkspaceMediaResponseTypeDef:
+        """
+        Lists media assets (such as logos) associated with a workspace.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_workspace_media.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_workspace_media)
+        """
+
+    async def list_workspace_pages(
+        self, **kwargs: Unpack[ListWorkspacePagesRequestTypeDef]
+    ) -> ListWorkspacePagesResponseTypeDef:
+        """
+        Lists the page configurations in a workspace, including the views assigned to
+        each page.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_workspace_pages.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_workspace_pages)
+        """
+
+    async def list_workspaces(
+        self, **kwargs: Unpack[ListWorkspacesRequestTypeDef]
+    ) -> ListWorkspacesResponseTypeDef:
+        """
+        Lists the workspaces in an Amazon Connect instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_workspaces.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#list_workspaces)
+        """
+
     async def monitor_contact(
         self, **kwargs: Unpack[MonitorContactRequestTypeDef]
     ) -> MonitorContactResponseTypeDef:
@@ -2497,7 +3079,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#monitor_contact)
         """
 
-    async def pause_contact(self, **kwargs: Unpack[PauseContactRequestTypeDef]) -> Dict[str, Any]:
+    async def pause_contact(self, **kwargs: Unpack[PauseContactRequestTypeDef]) -> dict[str, Any]:
         """
         Allows pausing an ongoing task contact.
 
@@ -2507,7 +3089,7 @@ class ConnectClient(AioBaseClient):
 
     async def put_user_status(
         self, **kwargs: Unpack[PutUserStatusRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Changes the current status of a user or agent in Amazon Connect.
 
@@ -2538,7 +3120,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#replicate_instance)
         """
 
-    async def resume_contact(self, **kwargs: Unpack[ResumeContactRequestTypeDef]) -> Dict[str, Any]:
+    async def resume_contact(self, **kwargs: Unpack[ResumeContactRequestTypeDef]) -> dict[str, Any]:
         """
         Allows resuming a task contact in a paused state.
 
@@ -2548,7 +3130,7 @@ class ConnectClient(AioBaseClient):
 
     async def resume_contact_recording(
         self, **kwargs: Unpack[ResumeContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         When a contact is being recorded, and the recording has been suspended using
         SuspendContactRecording, this API resumes recording whatever recording is
@@ -2577,6 +3159,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_available_phone_numbers.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_available_phone_numbers)
+        """
+
+    async def search_contact_evaluations(
+        self, **kwargs: Unpack[SearchContactEvaluationsRequestTypeDef]
+    ) -> SearchContactEvaluationsResponseTypeDef:
+        """
+        Searches contact evaluations in an Amazon Connect instance, with optional
+        filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_contact_evaluations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_contact_evaluations)
         """
 
     async def search_contact_flow_modules(
@@ -2610,6 +3203,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_contacts)
         """
 
+    async def search_data_tables(
+        self, **kwargs: Unpack[SearchDataTablesRequestTypeDef]
+    ) -> SearchDataTablesResponseTypeDef:
+        """
+        Searches for data tables based on the table's ID, name, and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_data_tables.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_data_tables)
+        """
+
     async def search_email_addresses(
         self, **kwargs: Unpack[SearchEmailAddressesRequestTypeDef]
     ) -> SearchEmailAddressesResponseTypeDef:
@@ -2618,6 +3221,17 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_email_addresses.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_email_addresses)
+        """
+
+    async def search_evaluation_forms(
+        self, **kwargs: Unpack[SearchEvaluationFormsRequestTypeDef]
+    ) -> SearchEvaluationFormsResponseTypeDef:
+        """
+        Searches evaluation forms in an Amazon Connect instance, with optional
+        filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_evaluation_forms.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_evaluation_forms)
         """
 
     async def search_hours_of_operation_overrides(
@@ -2734,6 +3348,16 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_users)
         """
 
+    async def search_views(
+        self, **kwargs: Unpack[SearchViewsRequestTypeDef]
+    ) -> SearchViewsResponseTypeDef:
+        """
+        Searches views based on name, description, or tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_views.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_views)
+        """
+
     async def search_vocabularies(
         self, **kwargs: Unpack[SearchVocabulariesRequestTypeDef]
     ) -> SearchVocabulariesResponseTypeDef:
@@ -2743,6 +3367,27 @@ class ConnectClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_vocabularies.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_vocabularies)
+        """
+
+    async def search_workspace_associations(
+        self, **kwargs: Unpack[SearchWorkspaceAssociationsRequestTypeDef]
+    ) -> SearchWorkspaceAssociationsResponseTypeDef:
+        """
+        Searches for workspace associations with users or routing profiles based on
+        various criteria.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_workspace_associations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_workspace_associations)
+        """
+
+    async def search_workspaces(
+        self, **kwargs: Unpack[SearchWorkspacesRequestTypeDef]
+    ) -> SearchWorkspacesResponseTypeDef:
+        """
+        Searches workspaces based on name, description, visibility, or tags.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/search_workspaces.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#search_workspaces)
         """
 
     async def send_chat_integration_event(
@@ -2758,7 +3403,7 @@ class ConnectClient(AioBaseClient):
 
     async def send_outbound_email(
         self, **kwargs: Unpack[SendOutboundEmailRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Send outbound email for outbound campaigns.
 
@@ -2797,9 +3442,19 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_contact_evaluation)
         """
 
+    async def start_contact_media_processing(
+        self, **kwargs: Unpack[StartContactMediaProcessingRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Enables in-flight message processing for an ongoing chat session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_contact_media_processing.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_contact_media_processing)
+        """
+
     async def start_contact_recording(
         self, **kwargs: Unpack[StartContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts recording the contact:.
 
@@ -2832,7 +3487,7 @@ class ConnectClient(AioBaseClient):
         self, **kwargs: Unpack[StartOutboundChatContactRequestTypeDef]
     ) -> StartOutboundChatContactResponseTypeDef:
         """
-        Initiates a new outbound SMS contact to a customer.
+        Initiates a new outbound SMS or WhatsApp contact to a customer.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/start_outbound_chat_contact.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_outbound_chat_contact)
@@ -2861,7 +3516,7 @@ class ConnectClient(AioBaseClient):
 
     async def start_screen_sharing(
         self, **kwargs: Unpack[StartScreenSharingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts screen sharing for a contact.
 
@@ -2890,7 +3545,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#start_web_rtc_contact)
         """
 
-    async def stop_contact(self, **kwargs: Unpack[StopContactRequestTypeDef]) -> Dict[str, Any]:
+    async def stop_contact(self, **kwargs: Unpack[StopContactRequestTypeDef]) -> dict[str, Any]:
         """
         Ends the specified contact.
 
@@ -2898,9 +3553,19 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#stop_contact)
         """
 
+    async def stop_contact_media_processing(
+        self, **kwargs: Unpack[StopContactMediaProcessingRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stops in-flight message processing for an ongoing chat session.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/stop_contact_media_processing.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#stop_contact_media_processing)
+        """
+
     async def stop_contact_recording(
         self, **kwargs: Unpack[StopContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops recording a call when a contact is being recorded.
 
@@ -2910,7 +3575,7 @@ class ConnectClient(AioBaseClient):
 
     async def stop_contact_streaming(
         self, **kwargs: Unpack[StopContactStreamingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Ends message streaming on a specified contact.
 
@@ -2930,7 +3595,7 @@ class ConnectClient(AioBaseClient):
 
     async def suspend_contact_recording(
         self, **kwargs: Unpack[SuspendContactRecordingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         When a contact is being recorded, this API suspends recording whatever is
         selected in the flow configuration: call (IVR or agent), screen, or both.
@@ -2939,7 +3604,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#suspend_contact_recording)
         """
 
-    async def tag_contact(self, **kwargs: Unpack[TagContactRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_contact(self, **kwargs: Unpack[TagContactRequestTypeDef]) -> dict[str, Any]:
         """
         Adds the specified tags to the contact resource.
 
@@ -2968,7 +3633,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#transfer_contact)
         """
 
-    async def untag_contact(self, **kwargs: Unpack[UntagContactRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_contact(self, **kwargs: Unpack[UntagContactRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the contact resource.
 
@@ -3006,7 +3671,7 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_authentication_profile)
         """
 
-    async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> Dict[str, Any]:
+    async def update_contact(self, **kwargs: Unpack[UpdateContactRequestTypeDef]) -> dict[str, Any]:
         """
         This API is in preview release for Amazon Connect and is subject to change.
 
@@ -3016,7 +3681,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_attributes(
         self, **kwargs: Unpack[UpdateContactAttributesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates or updates user-defined contact attributes associated with the
         specified contact.
@@ -3038,7 +3703,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_flow_content(
         self, **kwargs: Unpack[UpdateContactFlowContentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the specified flow.
 
@@ -3048,7 +3713,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_flow_metadata(
         self, **kwargs: Unpack[UpdateContactFlowMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates metadata about specified flow.
 
@@ -3056,9 +3721,20 @@ class ConnectClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_flow_metadata)
         """
 
+    async def update_contact_flow_module_alias(
+        self, **kwargs: Unpack[UpdateContactFlowModuleAliasRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates a specific Aliases metadata, including the version it's tied to, it's
+        name, and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_flow_module_alias.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_flow_module_alias)
+        """
+
     async def update_contact_flow_module_content(
         self, **kwargs: Unpack[UpdateContactFlowModuleContentRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates specified flow module for the specified Amazon Connect instance.
 
@@ -3068,7 +3744,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_flow_module_metadata(
         self, **kwargs: Unpack[UpdateContactFlowModuleMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates metadata about specified flow module.
 
@@ -3078,7 +3754,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_flow_name(
         self, **kwargs: Unpack[UpdateContactFlowNameRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         The name of the flow.
 
@@ -3088,7 +3764,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_routing_data(
         self, **kwargs: Unpack[UpdateContactRoutingDataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates routing priority and age on the contact (<b>QueuePriority</b> and
         <b>QueueTimeAdjustmentInSeconds</b>).
@@ -3099,12 +3775,43 @@ class ConnectClient(AioBaseClient):
 
     async def update_contact_schedule(
         self, **kwargs: Unpack[UpdateContactScheduleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the scheduled time of a task contact that is already scheduled.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_schedule.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_contact_schedule)
+        """
+
+    async def update_data_table_attribute(
+        self, **kwargs: Unpack[UpdateDataTableAttributeRequestTypeDef]
+    ) -> UpdateDataTableAttributeResponseTypeDef:
+        """
+        Updates all properties for an attribute using all properties from
+        CreateDataTableAttribute.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_data_table_attribute.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_data_table_attribute)
+        """
+
+    async def update_data_table_metadata(
+        self, **kwargs: Unpack[UpdateDataTableMetadataRequestTypeDef]
+    ) -> UpdateDataTableMetadataResponseTypeDef:
+        """
+        Updates the metadata properties of a data table.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_data_table_metadata.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_data_table_metadata)
+        """
+
+    async def update_data_table_primary_values(
+        self, **kwargs: Unpack[UpdateDataTablePrimaryValuesRequestTypeDef]
+    ) -> UpdateDataTablePrimaryValuesResponseTypeDef:
+        """
+        Updates the primary values for a record.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_data_table_primary_values.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_data_table_primary_values)
         """
 
     async def update_email_address_metadata(
@@ -3170,7 +3877,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_participant_authentication(
         self, **kwargs: Unpack[UpdateParticipantAuthenticationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Instructs Amazon Connect to resume the authentication process.
 
@@ -3180,7 +3887,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_participant_role_config(
         self, **kwargs: Unpack[UpdateParticipantRoleConfigRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates timeouts for when human chat participants are to be considered idle,
         and when agents are automatically disconnected from a chat due to idleness.
@@ -3399,7 +4106,7 @@ class ConnectClient(AioBaseClient):
 
     async def update_traffic_distribution(
         self, **kwargs: Unpack[UpdateTrafficDistributionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the traffic distribution for a given traffic distribution group.
 
@@ -3501,12 +4208,54 @@ class ConnectClient(AioBaseClient):
 
     async def update_view_metadata(
         self, **kwargs: Unpack[UpdateViewMetadataRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the view metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_view_metadata.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_view_metadata)
+        """
+
+    async def update_workspace_metadata(
+        self, **kwargs: Unpack[UpdateWorkspaceMetadataRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the metadata of a workspace, such as its name and description.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_metadata.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_workspace_metadata)
+        """
+
+    async def update_workspace_page(
+        self, **kwargs: Unpack[UpdateWorkspacePageRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the configuration of a page in a workspace, including the associated
+        view and input data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_page.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_workspace_page)
+        """
+
+    async def update_workspace_theme(
+        self, **kwargs: Unpack[UpdateWorkspaceThemeRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the theme configuration for a workspace, including colors and styling.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_theme.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_workspace_theme)
+        """
+
+    async def update_workspace_visibility(
+        self, **kwargs: Unpack[UpdateWorkspaceVisibilityRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the visibility setting of a workspace, controlling whether it is
+        available to all users, assigned users only, or none.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_workspace_visibility.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#update_workspace_visibility)
         """
 
     @overload  # type: ignore[override]
@@ -3566,8 +4315,41 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_child_hours_of_operations"]
+    ) -> ListChildHoursOfOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_contact_evaluations"]
     ) -> ListContactEvaluationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contact_flow_module_aliases"]
+    ) -> ListContactFlowModuleAliasesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contact_flow_module_versions"]
+    ) -> ListContactFlowModuleVersionsPaginator:
         """
         Create a paginator for an operation.
 
@@ -3621,8 +4403,63 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_table_attributes"]
+    ) -> ListDataTableAttributesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_table_primary_values"]
+    ) -> ListDataTablePrimaryValuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_table_values"]
+    ) -> ListDataTableValuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_data_tables"]
+    ) -> ListDataTablesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_default_vocabularies"]
     ) -> ListDefaultVocabulariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_entity_security_profiles"]
+    ) -> ListEntitySecurityProfilesPaginator:
         """
         Create a paginator for an operation.
 
@@ -3830,6 +4667,17 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_routing_profile_manual_assignment_queues"]
+    ) -> ListRoutingProfileManualAssignmentQueuesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_routing_profile_queues"]
     ) -> ListRoutingProfileQueuesPaginator:
         """
@@ -3876,6 +4724,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_security_profile_applications"]
     ) -> ListSecurityProfileApplicationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_profile_flow_modules"]
+    ) -> ListSecurityProfileFlowModulesPaginator:
         """
         Create a paginator for an operation.
 
@@ -4006,6 +4865,28 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_workspace_pages"]
+    ) -> ListWorkspacePagesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_workspaces"]
+    ) -> ListWorkspacesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_agent_statuses"]
     ) -> SearchAgentStatusesPaginator:
         """
@@ -4052,6 +4933,17 @@ class ConnectClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_contacts"]
     ) -> SearchContactsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_data_tables"]
+    ) -> SearchDataTablesPaginator:
         """
         Create a paginator for an operation.
 
@@ -4182,8 +5074,41 @@ class ConnectClient(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_views"]
+    ) -> SearchViewsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["search_vocabularies"]
     ) -> SearchVocabulariesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_workspace_associations"]
+    ) -> SearchWorkspaceAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["search_workspaces"]
+    ) -> SearchWorkspacesPaginator:
         """
         Create a paginator for an operation.
 
@@ -4199,7 +5124,7 @@ class ConnectClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

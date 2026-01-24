@@ -6,10 +6,15 @@
  * implements the basic matching algorithm from strings to grammar.
  */
 
+#include <dlpack/dlpack.h>
 #include <xgrammar/matcher.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <optional>
+#include <thread>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "compiled_grammar_impl.h"
@@ -19,6 +24,7 @@
 #include "support/encoding.h"
 #include "support/int_set.h"
 #include "support/logging.h"
+#include "support/thread_pool.h"
 #include "testing.h"
 
 namespace xgrammar {
@@ -80,6 +86,90 @@ std::pair<bool, int> _IsSingleTokenBitmask(const DLTensor& bitmask, int vocab_si
   }
 }
 
+void ApplyMask32Bits(
+    DLTensor* logits,
+    const DLTensor& bitmask,
+    int vocab_size,
+    std::optional<std::vector<int>> indices
+) {
+  XGRAMMAR_CHECK(logits->dtype.code == kDLFloat && logits->dtype.bits == 32)
+      << "The provided logits's dtype is not valid: should be float32";
+  std::pair<int, int> logits_shape =
+      logits->ndim == 2
+          ? std::make_pair(static_cast<int>(logits->shape[0]), static_cast<int>(logits->shape[1]))
+          : std::make_pair(1, static_cast<int>(logits->shape[0]));
+  int logits_stride0 = logits->strides[0];
+  int bitmask_stride0 = bitmask.strides[0];
+  if (indices.has_value()) {
+    for (auto idx : indices.value()) {
+      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
+      DynamicBitset bitset(vocab_size, data_ptr);
+      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_stride0;
+      for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
+        logits_ptr[i] = -std::numeric_limits<float>::infinity();
+      }
+    }
+  } else {
+    for (int idx = 0; idx < logits_shape.first; ++idx) {
+      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
+      DynamicBitset bitset(vocab_size, data_ptr);
+      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_stride0;
+      for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
+        logits_ptr[i] = -std::numeric_limits<float>::infinity();
+      }
+    }
+  }
+}
+
+void ApplyMask16Bits(
+    DLTensor* logits,
+    const DLTensor& bitmask,
+    int vocab_size,
+    std::optional<std::vector<int>> indices
+) {
+  XGRAMMAR_CHECK(logits->dtype.bits == 16)
+      << "The provided logits's dtype is not valid: should be bfloat16 or float16";
+  uint16_t kMinusInfinity;
+  const uint16_t kMinusInfinityBf16 = 0xff80;
+  const uint16_t kMinusInfinityFp16 = 0xfc00;
+  switch (logits->dtype.code) {
+    case kDLBfloat:
+      kMinusInfinity = kMinusInfinityBf16;
+      break;
+    case kDLFloat:
+      kMinusInfinity = kMinusInfinityFp16;
+      break;
+    default:
+      XGRAMMAR_LOG(FATAL
+      ) << "The provided logits's dtype is not valid: should be bfloat16 or float16";
+  }
+  std::pair<int, int> logits_shape =
+      logits->ndim == 2
+          ? std::make_pair(static_cast<int>(logits->shape[0]), static_cast<int>(logits->shape[1]))
+          : std::make_pair(1, static_cast<int>(logits->shape[0]));
+  int logits_stride0 = logits->strides[0];
+  int bitmask_stride0 = bitmask.strides[0];
+  if (indices.has_value()) {
+    for (auto idx : indices.value()) {
+      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
+      DynamicBitset bitset(vocab_size, data_ptr);
+      auto logits_ptr = reinterpret_cast<uint16_t*>(logits->data) + idx * logits_stride0;
+      for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
+        logits_ptr[i] = kMinusInfinity;
+      }
+    }
+  } else {
+    for (int idx = 0; idx < logits_shape.first; ++idx) {
+      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
+      DynamicBitset bitset(vocab_size, data_ptr);
+      auto logits_ptr = reinterpret_cast<uint16_t*>(logits->data) + idx * logits_stride0;
+      for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
+        logits_ptr[i] = kMinusInfinity;
+      }
+    }
+  }
+}
+
 void ApplyTokenBitmaskInplaceCPU(
     DLTensor* logits,
     const DLTensor& bitmask,
@@ -101,9 +191,8 @@ void ApplyTokenBitmaskInplaceCPU(
       << "The provided bitmask's shape is not valid: should be 2D or 1D";
 
   // Check type
-  XGRAMMAR_CHECK(
-      logits->dtype.code == kDLFloat && logits->dtype.bits == 32 && logits->dtype.lanes == 1
-  ) << "The provided logits's dtype is not valid: should be float32";
+  XGRAMMAR_CHECK(logits->dtype.lanes == 1)
+      << "The provided logits's dtype is not valid: lanes should be 1";
   XGRAMMAR_CHECK(
       bitmask.dtype.code == kDLInt && bitmask.dtype.bits == 32 && bitmask.dtype.lanes == 1
   ) << "The provided bitmask's dtype is not valid: should be int32";
@@ -113,12 +202,10 @@ void ApplyTokenBitmaskInplaceCPU(
       logits->ndim == 2
           ? std::make_pair(static_cast<int>(logits->shape[0]), static_cast<int>(logits->shape[1]))
           : std::make_pair(1, static_cast<int>(logits->shape[0]));
-  int logits_stride0 = logits->strides[0];
   std::pair<int, int> bitmask_shape =
       bitmask.ndim == 2
           ? std::make_pair(static_cast<int>(bitmask.shape[0]), static_cast<int>(bitmask.shape[1]))
           : std::make_pair(1, static_cast<int>(bitmask.shape[0]));
-  int bitmask_stride0 = bitmask.strides[0];
 
   XGRAMMAR_CHECK(
       vocab_size <= bitmask_shape.second * DynamicBitset::BITS_PER_BLOCK &&
@@ -133,24 +220,13 @@ void ApplyTokenBitmaskInplaceCPU(
   }
 
   // Apply mask
-  if (indices.has_value()) {
-    for (auto idx : indices.value()) {
-      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
-      DynamicBitset bitset(vocab_size, data_ptr);
-      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_stride0;
-      for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
-        logits_ptr[i] = -std::numeric_limits<float>::infinity();
-      }
-    }
+  if (logits->dtype.bits == 32) {
+    ApplyMask32Bits(logits, bitmask, vocab_size, indices);
+  } else if (logits->dtype.bits == 16) {
+    ApplyMask16Bits(logits, bitmask, vocab_size, indices);
   } else {
-    for (int idx = 0; idx < logits_shape.first; ++idx) {
-      uint32_t* data_ptr = reinterpret_cast<uint32_t*>(bitmask.data) + idx * bitmask_stride0;
-      DynamicBitset bitset(vocab_size, data_ptr);
-      auto logits_ptr = reinterpret_cast<float*>(logits->data) + idx * logits_stride0;
-      for (int i = bitset.FindFirstZero(); i != -1; i = bitset.FindNextZero(i)) {
-        logits_ptr[i] = -std::numeric_limits<float>::infinity();
-      }
-    }
+    XGRAMMAR_LOG(FATAL
+    ) << "The provided logits's dtype is not valid: should be float32 or float16/bfloat16";
   }
 }
 
@@ -343,6 +419,52 @@ class GrammarMatcher::Impl : public EarleyParser {
   std::vector<int32_t> tmp_rejected_indices_delta_;
 };
 
+class BatchGrammarMatcher::Impl {
+ public:
+  Impl(std::variant<std::string, int32_t> max_threads) {
+    if (std::holds_alternative<int32_t>(max_threads)) {
+      int32_t num_threads = std::get<int32_t>(max_threads);
+      XGRAMMAR_CHECK(num_threads >= 1)
+          << "The num_threads should be at least 1, but got " << num_threads;
+      if (num_threads > 1) {
+        if (num_threads > static_cast<int32_t>(std::thread::hardware_concurrency())) {
+          XGRAMMAR_LOG(WARNING) << "The num_threads " << num_threads << " is larger than the "
+                                << "number of hardware threads. Using "
+                                << static_cast<int32_t>(std::thread::hardware_concurrency())
+                                << " instead.";
+        }
+        max_threads_ =
+            std::min(num_threads, static_cast<int32_t>(std::thread::hardware_concurrency()));
+      }
+    } else {
+      std::string str = std::get<std::string>(max_threads);
+      XGRAMMAR_CHECK(str == "auto");
+      max_threads_ = std::thread::hardware_concurrency() / 2;
+    }
+  }
+
+  void BatchFillNextTokenBitmask(
+      std::vector<GrammarMatcher>* matchers,
+      DLTensor* next_token_bitmask,
+      const std::optional<std::vector<int32_t>>& indices,
+      bool debug_print
+  );
+
+  static std::vector<uint8_t> BatchAcceptToken(
+      std::vector<GrammarMatcher>* matchers, const std::vector<int32_t>& token_ids, bool debug_print
+  );
+
+  static std::vector<uint8_t> BatchAcceptString(
+      std::vector<GrammarMatcher>* matchers,
+      const std::vector<std::string>& input_strs,
+      bool debug_print
+  );
+
+ private:
+  std::optional<ThreadPool> thread_pool_ = std::nullopt;
+  int32_t max_threads_ = 1;
+};
+
 bool GrammarMatcher::Impl::AcceptStopToken() {
   if (terminate_without_stop_token_) {
     return false;
@@ -411,7 +533,7 @@ bool GrammarMatcher::Impl::AcceptToken(int32_t token_id, bool debug_print) {
   const auto& token = tokenizer_info_.GetDecodedVocab()[token_id];
   int pos = 0;
   for (auto char_value : token) {
-    if (!Advance(char_value)) {
+    if (!Advance(char_value, debug_print)) {
       if (debug_print) {
         XGRAMMAR_LOG(INFO) << "Token #" << token_id << "<" << EscapeString(token)
                            << "> rejected at position " << pos << ", char "
@@ -447,7 +569,7 @@ bool GrammarMatcher::Impl::AcceptString(const std::string& input_str, bool debug
 
   int accepted_cnt = 0;
   for (auto char_value : input_str) {
-    if (!Advance(char_value)) {
+    if (!Advance(char_value, debug_print)) {
       if (debug_print) {
         XGRAMMAR_LOG(INFO) << "String \"" << EscapeString(input_str) << "\" is rejected at "
                            << "position " << accepted_cnt << ", char " << EscapeString(char_value);
@@ -852,6 +974,75 @@ int GrammarMatcher::Impl::GetNextUncertainToken(
   }
 }
 
+void BatchGrammarMatcher::Impl::BatchFillNextTokenBitmask(
+    std::vector<GrammarMatcher>* matchers,
+    DLTensor* next_token_bitmask,
+    const std::optional<std::vector<int32_t>>& indices,
+    bool debug_print
+) {
+  XGRAMMAR_CHECK(!indices.has_value() || indices->size() == matchers->size())
+      << "The size of indices (" << (indices.has_value() ? indices->size() : 0)
+      << ") should be the same as the size of matchers (" << matchers->size() << ").";
+  // Initialize the thread pool if needed. It should be initialized each time,
+  // because ThreadPool cannot be reused after Join().
+  if (max_threads_ > 1) {
+    thread_pool_.emplace(max_threads_);
+  }
+  if (!thread_pool_.has_value()) {
+    for (int i = 0; i < static_cast<int32_t>(matchers->size()); i++) {
+      auto& matcher = (*matchers)[i];
+      int index = indices.has_value() ? (*indices)[i] : i;
+      XGRAMMAR_CHECK(index >= 0 && index < next_token_bitmask->shape[0])
+          << "The index " << index << " is out of range [0, " << next_token_bitmask->shape[0]
+          << ") for batch_id " << i << ".";
+      matcher->FillNextTokenBitmask(next_token_bitmask, index, debug_print);
+    }
+  } else {
+    auto fill_next_token_mask = [&](int32_t batch_id) {
+      auto& matcher = (*matchers)[batch_id];
+      int index = indices.has_value() ? (*indices)[batch_id] : batch_id;
+      XGRAMMAR_CHECK(index >= 0 && index < next_token_bitmask->shape[0])
+          << "The index " << index << " is out of range [0, " << next_token_bitmask->shape[0]
+          << ") for batch_id " << batch_id << ".";
+      matcher->FillNextTokenBitmask(next_token_bitmask, index, debug_print);
+    };
+    for (int i = 0; i < static_cast<int32_t>(matchers->size()); i++) {
+      thread_pool_->Execute([fill_next_token_mask, i]() { fill_next_token_mask(i); });
+    }
+    thread_pool_->Join();
+  }
+}
+
+std::vector<uint8_t> BatchGrammarMatcher::Impl::BatchAcceptString(
+    std::vector<GrammarMatcher>* matchers,
+    const std::vector<std::string>& input_strs,
+    bool debug_print
+) {
+  XGRAMMAR_CHECK(matchers->size() == input_strs.size())
+      << "The size of matchers (" << matchers->size() << ") and input_strs (" << input_strs.size()
+      << ") should be the same.";
+  std::vector<uint8_t> accepted(matchers->size());
+  for (int i = 0; i < static_cast<int32_t>(matchers->size()); i++) {
+    auto& matcher = (*matchers)[i];
+    accepted[i] = matcher->AcceptString(input_strs[i], debug_print);
+  }
+  return accepted;
+}
+
+std::vector<uint8_t> BatchGrammarMatcher::Impl::BatchAcceptToken(
+    std::vector<GrammarMatcher>* matchers, const std::vector<int32_t>& token_ids, bool debug_print
+) {
+  XGRAMMAR_CHECK(matchers->size() == token_ids.size())
+      << "The size of matchers (" << matchers->size() << ") and token_ids (" << token_ids.size()
+      << ") should be the same.";
+  std::vector<uint8_t> accepted(matchers->size());
+  for (int i = 0; i < static_cast<int32_t>(matchers->size()); i++) {
+    auto& matcher = (*matchers)[i];
+    accepted[i] = matcher->AcceptToken(token_ids[i], debug_print);
+  }
+  return accepted;
+}
+
 GrammarMatcher::GrammarMatcher(
     const CompiledGrammar& compiled_grammar,
     std::optional<std::vector<int>> override_stop_tokens,
@@ -893,5 +1084,31 @@ const std::vector<int>& GrammarMatcher::GetStopTokenIds() const {
 std::string GrammarMatcher::_DebugPrintInternalState() const {
   return pimpl_->_DebugPrintInternalState();
 }
+
+void BatchGrammarMatcher::BatchFillNextTokenBitmask(
+    std::vector<GrammarMatcher>* matchers,
+    DLTensor* next_token_bitmask,
+    const std::optional<std::vector<int32_t>>& indices,
+    bool debug_print
+) {
+  return pimpl_->BatchFillNextTokenBitmask(matchers, next_token_bitmask, indices, debug_print);
+}
+
+std::vector<uint8_t> BatchGrammarMatcher::BatchAcceptString(
+    std::vector<GrammarMatcher>* matchers,
+    const std::vector<std::string>& input_strs,
+    bool debug_print
+) {
+  return Impl::BatchAcceptString(matchers, input_strs, debug_print);
+}
+
+std::vector<uint8_t> BatchGrammarMatcher::BatchAcceptToken(
+    std::vector<GrammarMatcher>* matchers, const std::vector<int32_t>& token_ids, bool debug_print
+) {
+  return Impl::BatchAcceptToken(matchers, token_ids, debug_print);
+}
+
+BatchGrammarMatcher::BatchGrammarMatcher(std::variant<std::string, int32_t> max_threads)
+    : pimpl_(std::make_shared<BatchGrammarMatcher::Impl>(max_threads)) {}
 
 }  // namespace xgrammar

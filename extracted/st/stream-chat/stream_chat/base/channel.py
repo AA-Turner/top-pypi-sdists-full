@@ -196,7 +196,7 @@ class ChannelInterface(abc.ABC):
 
         :param members: member objects to add
         :param message: An optional to show
-        :param options: additional options such as hide_history
+        :param options: additional options such as hide_history or hide_history_before
         :return:
         """
         pass
@@ -284,11 +284,11 @@ class ChannelInterface(abc.ABC):
         self, user_id: str, **data: Any
     ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
         """
-        Marks channel as unread from a specific message or thread, if thread_id is provided in data
+        Marks channel as unread from a specific message, thread, or timestamp, if thread_id is provided in data
         a thread will be searched, otherwise a message.
 
         :param user_id: the user ID for the event
-        :param data: additional data, ie {"message_id": last_message_id} or {"thread_id": thread_id}
+        :param data: additional data, ie {"message_id": last_message_id}, {"thread_id": thread_id}, or {"message_timestamp": timestamp}
         :return: The server response
         """
         pass
@@ -524,6 +524,32 @@ class ChannelInterface(abc.ABC):
         :param user_id: The ID of the user who owns the draft
         :param parent_id: Optional ID of the parent message if this is a thread draft
         :return: The Server Response
+        """
+        pass
+
+    @abc.abstractmethod
+    def add_filter_tags(
+        self, tags: Iterable[str], message: Dict = None
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Adds filter tags to the channel
+
+        :param tags: list of tags to add
+        :param message: optional system message
+        :return: The server response
+        """
+        pass
+
+    @abc.abstractmethod
+    def remove_filter_tags(
+        self, tags: Iterable[str], message: Dict = None
+    ) -> Union[StreamResponse, Awaitable[StreamResponse]]:
+        """
+        Removes filter tags from the channel
+
+        :param tags: list of tags to remove
+        :param message: optional system message
+        :return: The server response
         """
         pass
 

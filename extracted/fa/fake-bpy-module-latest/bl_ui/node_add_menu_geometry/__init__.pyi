@@ -2,27 +2,27 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import _bpy_types
+import bl_ui.node_add_menu
 import bpy.types
 
-class NODE_MT_category_GEO_GROUP(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_category_utilities_bundle_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -31,24 +31,24 @@ class NODE_MT_category_GEO_GROUP(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_GEO_OUTPUT(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_category_utilities_closure_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -57,24 +57,24 @@ class NODE_MT_category_GEO_OUTPUT(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_GEO_POINT(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_all_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -83,8 +83,9 @@ class NODE_MT_category_GEO_POINT(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_GEO_TEXT(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_attribute_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -93,14 +94,12 @@ class NODE_MT_category_GEO_TEXT(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -109,8 +108,9 @@ class NODE_MT_category_GEO_TEXT(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_GEO_TEXTURE(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_color_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -119,40 +119,12 @@ class NODE_MT_category_GEO_TEXTURE(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_GEO_UTILITIES(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -161,8 +133,9 @@ class NODE_MT_category_GEO_UTILITIES(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_GEO_UTILITIES_DEPRECATED(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_curve_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -171,40 +144,12 @@ class NODE_MT_category_GEO_UTILITIES_DEPRECATED(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_category_GEO_UTILITIES_FIELD(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -213,50 +158,24 @@ class NODE_MT_category_GEO_UTILITIES_FIELD(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_GEO_UTILITIES_MATH(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_curve_operations_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_category_GEO_UTILITIES_ROTATION(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -265,24 +184,24 @@ class NODE_MT_category_GEO_UTILITIES_ROTATION(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_GEO_UV(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_curve_primitives_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, _context) -> None:
@@ -291,8 +210,113 @@ class NODE_MT_category_GEO_UV(_bpy_types.Menu):
         :param _context:
         """
 
-class NODE_MT_category_GEO_VECTOR(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_curve_read_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_curve_sample_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_curve_topology_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_curve_write_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_geometry_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
@@ -301,14 +325,64 @@ class NODE_MT_category_GEO_VECTOR(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_geometry_operations_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_geometry_read_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
         """
 
     def draw(self, context) -> None:
@@ -317,8 +391,911 @@ class NODE_MT_category_GEO_VECTOR(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_GEO_VOLUME(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_geometry_sample_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_geometry_write_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_grease_pencil_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_grease_pencil_operations_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_grease_pencil_read_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_grease_pencil_write_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_input_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_input_constant_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    bl_translation_context: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_input_gizmo_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_input_group_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_input_import_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_input_scene_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_instance_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_material_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_mesh_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_mesh_operations_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_mesh_primitives_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_mesh_read_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_mesh_sample_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_mesh_topology_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_mesh_uv_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_mesh_write_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_output_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_point_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_simulation_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_texture_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_utilities_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_utilities_deprecated_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_utilities_field_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_utilities_list_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_utilities_math_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_utilities_matrix_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_utilities_rotation_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_utilities_text_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, _context) -> None:
+        """
+
+        :param _context:
+        """
+
+class NODE_MT_gn_utilities_vector_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
+    bl_label: typing.Any
+    bl_rna: typing.Any
+    id_data: typing.Any
+    menu_path: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class NODE_MT_gn_volume_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     bl_translation_context: typing.Any
@@ -328,14 +1305,12 @@ class NODE_MT_category_GEO_VOLUME(_bpy_types.Menu):
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -344,102 +1319,24 @@ class NODE_MT_category_GEO_VOLUME(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_PRIMITIVES_MESH(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_volume_operations_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_import(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_simulation(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_utilities_bundle(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -448,24 +1345,24 @@ class NODE_MT_category_utilities_bundle(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_utilities_closure(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_volume_primitives_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -474,102 +1371,24 @@ class NODE_MT_category_utilities_closure(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_category_utilities_list(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_volume_read_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_category_utilities_matrix(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_ATTRIBUTE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_COLOR(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -578,206 +1397,24 @@ class NODE_MT_geometry_node_GEO_COLOR(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_geometry_node_GEO_CURVE(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_volume_sample_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_CURVE_OPERATIONS(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_CURVE_READ(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_CURVE_SAMPLE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_CURVE_WRITE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_GEOMETRY(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_GEOMETRY_OPERATIONS(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_GEOMETRY_READ(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:
@@ -786,701 +1423,24 @@ class NODE_MT_geometry_node_GEO_GEOMETRY_READ(_bpy_types.Menu):
         :param context:
         """
 
-class NODE_MT_geometry_node_GEO_GEOMETRY_SAMPLE(_bpy_types.Menu):
-    bl_idname: typing.Any
+class NODE_MT_gn_volume_write_base(bl_ui.node_add_menu.NodeMenu):
+    """A base-class defining the shared methods for AddNodeMenu and SwapNodeMenu."""
+
     bl_label: typing.Any
     bl_rna: typing.Any
     id_data: typing.Any
+    menu_path: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
         """
 
         :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
         """
 
     def bl_rna_get_subclass_py(self) -> typing.Any:
         """
 
         :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_GEOMETRY_WRITE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_INPUT(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_INPUT_CONSTANT(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    bl_translation_context: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_INPUT_GIZMO(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_INPUT_GROUP(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_INPUT_SCENE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_INSTANCE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_MATERIAL(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_MESH(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_MESH_OPERATIONS(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_MESH_READ(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_MESH_SAMPLE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_MESH_WRITE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_PRIMITIVES_CURVE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_GEO_VOLUME_OPERATIONS(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_VOLUME_PRIMITIVES(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_VOLUME_READ(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_GEO_VOLUME_WRITE(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_add_all(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class NODE_MT_geometry_node_curve_topology(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_grease_pencil(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_grease_pencil_operations(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_grease_pencil_read(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_grease_pencil_write(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_mesh_topology(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
-        """
-
-    def draw(self, _context) -> None:
-        """
-
-        :param _context:
-        """
-
-class NODE_MT_geometry_node_volume_sample(_bpy_types.Menu):
-    bl_idname: typing.Any
-    bl_label: typing.Any
-    bl_rna: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        :rtype: bpy.types.Struct
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        :rtype: typing.Any
         """
 
     def draw(self, context) -> None:

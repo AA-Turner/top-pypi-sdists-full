@@ -2,7 +2,6 @@ import asyncio
 import multiprocessing
 import multiprocessing.context
 import os
-import re
 import signal
 import sys
 from collections.abc import AsyncGenerator, Callable
@@ -15,16 +14,10 @@ from types import FrameType
 from typing import Any, TypeVar
 from warnings import warn
 
-from aiohttp import web
-from aiohttp.web_request import Request
-from aiohttp.web_response import Response
-from prometheus_client import Gauge, generate_latest
-from pydantic import BaseModel
-
 from hatchet_sdk.client import Client
 from hatchet_sdk.config import ClientConfig
 from hatchet_sdk.contracts.v1.workflows_pb2 import CreateWorkflowVersionRequest
-from hatchet_sdk.exceptions import LoopAlreadyRunningError
+from hatchet_sdk.exceptions import LifespanSetupError, LoopAlreadyRunningError
 from hatchet_sdk.logger import logger
 from hatchet_sdk.runnables.action import Action
 from hatchet_sdk.runnables.contextvars import task_count
@@ -50,15 +43,6 @@ class WorkerStatus(Enum):
 @dataclass
 class WorkerStartOptions:
     loop: asyncio.AbstractEventLoop | None = field(default=None)
-
-
-class HealthCheckResponse(BaseModel):
-    status: str
-    name: str
-    slots: int
-    actions: list[str]
-    labels: dict[str, str | int]
-    python_version: str
 
 
 LifespanGenerator = AsyncGenerator[Any, Any]
@@ -121,16 +105,11 @@ class Worker:
         self.durable_action_queue: Queue[Action | STOP_LOOP_TYPE] = self.ctx.Queue()
         self.durable_event_queue: Queue[ActionEvent] = self.ctx.Queue()
 
-        self.loop: asyncio.AbstractEventLoop | None
+        self.loop: asyncio.AbstractEventLoop | None = None
 
         self.client = Client(config=self.config, debug=self.debug)
 
         self._setup_signal_handlers()
-
-        self.worker_status_gauge = Gauge(
-            "hatchet_worker_status_" + re.sub(r"\W+", "", name),
-            "Current status of the Hatchet worker",
-        )
 
         self.has_any_durable = False
         self.has_any_non_durable = False
@@ -191,45 +170,6 @@ class Worker:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
 
-    async def _health_check_handler(self, request: Request) -> Response:
-        response = HealthCheckResponse(
-            status=self.status.name,
-            name=self.name,
-            slots=self.slots or 0,
-            actions=list(self.action_registry.keys()),
-            labels=self.labels,
-            python_version=sys.version,
-        ).model_dump()
-
-        return web.json_response(response)
-
-    async def _metrics_handler(self, request: Request) -> Response:
-        self.worker_status_gauge.set(1 if self.status == WorkerStatus.HEALTHY else 0)
-
-        return web.Response(body=generate_latest(), content_type="text/plain")
-
-    async def _start_health_server(self) -> None:
-        port = self.config.healthcheck.port
-
-        app = web.Application()
-        app.add_routes(
-            [
-                web.get("/health", self._health_check_handler),
-                web.get("/metrics", self._metrics_handler),
-            ]
-        )
-
-        runner = web.AppRunner(app)
-
-        try:
-            await runner.setup()
-            await web.TCPSite(runner, "0.0.0.0", port).start()
-        except Exception:
-            logger.exception("failed to start healthcheck server")
-            return
-
-        logger.info(f"healthcheck server running on port {port}")
-
     def start(self, options: WorkerStartOptions = WorkerStartOptions()) -> None:
         if not (self.action_registry or self.durable_action_registry):
             raise ValueError(
@@ -273,22 +213,43 @@ class Worker:
                 "no actions registered, register workflows or actions before starting worker"
             )
 
-        if self.config.healthcheck.enabled:
-            await self._start_health_server()
-
         lifespan_context = None
         if self.lifespan:
-            lifespan_context = await self._setup_lifespan()
+            try:
+                lifespan_context = await self._setup_lifespan()
+            except LifespanSetupError as e:
+                logger.exception("lifespan setup failed")
+                if self.loop:
+                    self.loop.stop()
+                raise e
+
+        # Healthcheck server is started inside the spawned action-listener process
+        # (non-durable preferred) to avoid being affected by the main worker loop.
+        healthcheck_port = self.config.healthcheck.port
+        enable_health_server_non_durable = (
+            self.config.healthcheck.enabled and self.has_any_non_durable
+        )
+        enable_health_server_durable = (
+            self.config.healthcheck.enabled
+            and (not self.has_any_non_durable)
+            and self.has_any_durable
+        )
 
         if self.has_any_non_durable:
-            self.action_listener_process = self._start_action_listener(is_durable=False)
+            self.action_listener_process = self._start_action_listener(
+                is_durable=False,
+                enable_health_server=enable_health_server_non_durable,
+                healthcheck_port=healthcheck_port,
+            )
             self.action_runner = self._run_action_runner(
                 is_durable=False, lifespan_context=lifespan_context
             )
 
         if self.has_any_durable:
             self.durable_action_listener_process = self._start_action_listener(
-                is_durable=True
+                is_durable=True,
+                enable_health_server=enable_health_server_durable,
+                healthcheck_port=healthcheck_port,
             )
             self.durable_action_runner = self._run_action_runner(
                 is_durable=True, lifespan_context=lifespan_context
@@ -328,8 +289,8 @@ class Worker:
 
         self.lifespan_stack = AsyncExitStack()
 
-        lifespan_gen = self.lifespan()
         try:
+            lifespan_gen = self.lifespan()
             context = await anext(lifespan_gen)
             await self.lifespan_stack.enter_async_context(
                 _create_async_context_manager(lifespan_gen)
@@ -337,13 +298,23 @@ class Worker:
             return context
         except StopAsyncIteration:
             return None
+        except Exception as e:
+            raise LifespanSetupError("An error occurred during lifespan setup") from e
 
     async def _cleanup_lifespan(self) -> None:
-        if self.lifespan_stack is not None:
-            await self.lifespan_stack.aclose()
+        try:
+            if self.lifespan_stack is not None:
+                await self.lifespan_stack.aclose()
+        except Exception as e:
+            logger.exception("error during lifespan cleanup")
+            raise LifespanSetupError("An error occurred during lifespan cleanup") from e
 
     def _start_action_listener(
-        self, is_durable: bool
+        self,
+        is_durable: bool,
+        *,
+        enable_health_server: bool = False,
+        healthcheck_port: int = 8001,
     ) -> multiprocessing.context.SpawnProcess:
         try:
             process = self.ctx.Process(
@@ -362,6 +333,8 @@ class Worker:
                     self.handle_kill,
                     self.client.debug,
                     self.labels,
+                    enable_health_server,
+                    healthcheck_port,
                 ),
             )
             process.start()
@@ -472,7 +445,10 @@ class Worker:
         ):
             self.durable_action_listener_process.kill()
 
-        await self._cleanup_lifespan()
+        try:
+            await self._cleanup_lifespan()
+        except LifespanSetupError:
+            logger.exception("lifespan cleanup failed")
 
         await self._close()
         if self.loop and self.owned_loop:

@@ -1,10 +1,10 @@
-from django.contrib.auth import get_user_model
 from django.db import models
-from django.db.models import UniqueConstraint
+from django.db.models import Q, UniqueConstraint
 from django.utils.translation import gettext_lazy as _
 from django.utils.translation import pgettext_lazy
 from django_fsm import FSMField, transition
 
+from wbcore.contrib.authentication.models.users import User
 from wbcore.contrib.color.enums import WBColor
 from wbcore.contrib.icons import WBIcon
 from wbcore.contrib.notifications.dispatch import send_notification
@@ -40,7 +40,7 @@ class BankingContact(PrimaryMixin, WBModel):
         @classmethod
         def get_color_map(cls):
             colors = [WBColor.RED_LIGHT.value, WBColor.YELLOW_LIGHT.value, WBColor.GREEN_LIGHT.value]
-            return [choice for choice in zip(cls, colors)]
+            return [choice for choice in zip(cls, colors, strict=False)]
 
     status = FSMField(
         default=Status.DRAFT,
@@ -203,7 +203,7 @@ class BankingContact(PrimaryMixin, WBModel):
             msg (str): The Notification message
         """
 
-        user_qs = get_user_model().objects.filter(
+        user_qs = User.objects.filter(
             models.Q(user_permissions__codename__in=["administrate_bankingcontact"])
             | models.Q(groups__permissions__codename="administrate_bankingcontact")
         )
@@ -227,7 +227,7 @@ class BankingContact(PrimaryMixin, WBModel):
 
         notification_types = [
             create_notification_type(
-                code="directory.banking+contact.approval",
+                code="directory.banking_contact.approval",
                 title="Banking Contact Notification",
                 help_text="Sends out a notification when you want need to approve a change in bank details",
             )
@@ -387,7 +387,7 @@ class EmailContact(ComplexToStringMixin, PrimaryMixin, WBModel):
         "Entry", related_name="emails", on_delete=models.SET_NULL, verbose_name=_("Entry"), null=True, blank=True
     )
 
-    address = models.EmailField(verbose_name=_("Email Address"))
+    address = models.EmailField(verbose_name=_("Email Address"), unique=True)
 
     def compute_str(self) -> str:
         repr = self.address
@@ -417,28 +417,21 @@ class EmailContact(ComplexToStringMixin, PrimaryMixin, WBModel):
         verbose_name_plural = _("E-Mail Contacts")
         constraints = [
             models.UniqueConstraint(fields=["entry", "address"], name="entry_address_unique_together"),
+            models.UniqueConstraint(fields=["entry"], condition=Q(primary=True), name="unique_primary_entry_address"),
         ]
 
     @classmethod
     def set_entry_primary_email(cls, entry, address):
-        primaries = entry.emails.filter(primary=True)
-        duplicates = entry.emails.filter(address=address.lower())
-        if primaries.exists():
-            if duplicates.exists():
-                entry = entry.emails.get(id=duplicates.first().id)
-                entry.primary = True
-                entry.save()
-            else:
-                entry = entry.emails.get(id=primaries.first().id)
-                entry.address = address
-                entry.save()
-        else:
-            if duplicates.exists():
-                entry = entry.emails.get(id=duplicates.first().id)
-                entry.primary = True
-                entry.save()
-            else:
-                cls.objects.create(entry=entry, address=address, primary=True)
+        try:
+            contact = EmailContact.objects.get(address=address, entry=entry)
+        except EmailContact.DoesNotExist:
+            try:
+                contact = EmailContact.objects.get(address=address)
+                contact.entry = entry
+            except EmailContact.DoesNotExist:
+                contact = EmailContact(address=address, entry=entry)
+        contact.primary = True
+        contact.save()
 
 
 class WebsiteContact(PrimaryMixin, WBModel):

@@ -20,6 +20,7 @@ from inspect_ai._util.content import (
 )
 from inspect_ai._util.deprecation import relocated_module_attribute
 
+from ._anthropic_convert import messages_from_anthropic, model_output_from_anthropic
 from ._cache import (
     CachePolicy,
     cache_clear,
@@ -37,6 +38,14 @@ from ._chat_message import (
     ChatMessageTool,
     ChatMessageUser,
 )
+from ._compaction import (
+    Compact,
+    CompactionEdit,
+    CompactionStrategy,
+    CompactionSummary,
+    CompactionTrim,
+    compaction,
+)
 from ._conversation import ModelConversation
 from ._generate_config import (
     BatchConfig,
@@ -44,14 +53,19 @@ from ._generate_config import (
     GenerateConfigArgs,
     ResponseSchema,
 )
+from ._google_convert import messages_from_google, model_output_from_google
 from ._model import (
     GenerateFilter,
+    GenerateInput,
     Model,
     ModelAPI,
     ModelName,
     get_model,
 )
 from ._model_call import ModelCall
+from ._model_config import ModelConfig
+from ._model_data.model_data import ModelInfo
+from ._model_info import get_model_info, set_model_info
 from ._model_output import (
     ChatCompletionChoice,
     Logprob,
@@ -61,7 +75,13 @@ from ._model_output import (
     StopReason,
     TopLogprob,
 )
-from ._openai_convert import messages_from_openai, messages_to_openai
+from ._openai_convert import (
+    messages_from_openai,
+    messages_from_openai_responses,
+    messages_to_openai,
+    model_output_from_openai,
+    model_output_from_openai_responses,
+)
 from ._prompt import user_prompt
 from ._providers.providers import *
 from ._registry import modelapi
@@ -72,6 +92,7 @@ __all__ = [
     "GenerateConfig",
     "GenerateConfigArgs",
     "GenerateFilter",
+    "GenerateInput",
     "ResponseSchema",
     "CachePolicy",
     "ContentAudio",
@@ -92,16 +113,30 @@ __all__ = [
     "ChatMessageTool",
     "ChatCompletionChoice",
     "messages_from_openai",
+    "messages_from_openai_responses",
+    "messages_from_anthropic",
+    "messages_from_google",
+    "model_output_from_openai",
+    "model_output_from_openai_responses",
+    "model_output_from_anthropic",
+    "model_output_from_google",
     "messages_to_openai",
     "ModelCall",
     "ModelOutput",
     "ModelConversation",
+    "compaction",
+    "Compact",
+    "CompactionStrategy",
+    "CompactionEdit",
+    "CompactionSummary",
+    "CompactionTrim",
     "Logprobs",
     "Logprob",
     "TopLogprob",
     "Model",
     "ModelAPI",
     "ModelName",
+    "ModelConfig",
     "ModelUsage",
     "StopReason",
     "call_tools",
@@ -115,6 +150,9 @@ __all__ = [
     "cache_prune",
     "cache_size",
     "get_model",
+    "get_model_info",
+    "set_model_info",
+    "ModelInfo",
     "modelapi",
     "Citation",
     "CitationBase",

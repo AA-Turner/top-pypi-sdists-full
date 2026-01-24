@@ -268,7 +268,7 @@ synthetics.Canary(self, "Bucket Canary",
 ```
 
 > **Note:** Synthetics have a specified folder structure for canaries.
-> For Node with puppeteer scripts supplied via `code.fromAsset()` or `code.fromBucket()`, the canary resource requires the following folder structure:
+> For Node with puppeteer scripts supplied via `code.fromAsset()` or `code.fromBucket()`, the canary resource requires the following folder structure for runtime versions older than `syn-nodejs-puppeteer-11.0`:
 >
 > ```plaintext
 > canary/
@@ -276,6 +276,26 @@ synthetics.Canary(self, "Bucket Canary",
 >    ├── node_modules/
 >         ├── <filename>.js
 > ```
+>
+> For puppeteer based runtime versions newer than or equal to `syn-nodejs-puppeteer-11.0`, `nodjs/node_modules` is not necessary but supported.
+>
+> Both
+>
+> ```plaintext
+> canary/
+> ├── nodejs/
+>    ├── node_modules/
+>         ├── <filename>.js
+> ```
+>
+> And
+>
+> ```plaintext
+> canary/
+>  ├── <filename>.js
+> ```
+>
+> are supported.
 >
 > For Node with playwright scripts supplied via `code.fromAsset()` or `code.fromBucket()`, the canary resource requires the following folder structure:
 >
@@ -381,6 +401,7 @@ one will be auto-generated when the canary is created. You may add
 to the auto-generated bucket.
 
 ```python
+from aws_cdk.aws_s3 import LifecycleRule
 canary = synthetics.Canary(self, "MyCanary",
     schedule=synthetics.Schedule.rate(Duration.minutes(5)),
     test=synthetics.Test.custom(
@@ -401,6 +422,7 @@ You can choose the encryption options SSE-S3 or SSE-KMS by setting the `artifact
 When you use SSE-KMS, you can also supply your own external KMS key by specifying the `kmsKey` property. If you don't, a KMS key will be automatically created and associated with the canary.
 
 ```python
+from aws_cdk.aws_s3 import LifecycleRule
 import aws_cdk.aws_kms as kms
 
 
@@ -501,14 +523,22 @@ from ..aws_ec2 import (
     SubnetSelection as _SubnetSelection_e57d76df,
 )
 from ..aws_iam import IGrantable as _IGrantable_71c4f5de, IRole as _IRole_235f5d8e
-from ..aws_kms import IKey as _IKey_5f11635f, IKeyRef as _IKeyRef_1e82344b
+from ..aws_kms import IKey as _IKey_5f11635f
 from ..aws_s3 import (
     IBucket as _IBucket_42e086fd,
-    IBucketRef as _IBucketRef_fb8fe266,
     LifecycleRule as _LifecycleRule_bb74e6ff,
     Location as _Location_0948fa7f,
 )
 from ..aws_s3_assets import AssetOptions as _AssetOptions_2aa69621
+from ..interfaces.aws_iam import IRoleRef as _IRoleRef_8400221f
+from ..interfaces.aws_kms import IKeyRef as _IKeyRef_d4fc6ef3
+from ..interfaces.aws_s3 import IBucketRef as _IBucketRef_3debe44e
+from ..interfaces.aws_synthetics import (
+    CanaryReference as _CanaryReference_fbbe85ce,
+    GroupReference as _GroupReference_37835a7e,
+    ICanaryRef as _ICanaryRef_cf407e49,
+    IGroupRef as _IGroupRef_4fc55162,
+)
 
 
 @jsii.data_type(
@@ -520,7 +550,7 @@ class ArtifactsBucketLocation:
     def __init__(
         self,
         *,
-        bucket: _IBucket_42e086fd,
+        bucket: "_IBucket_42e086fd",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Options for specifying the s3 location that stores the data of each canary run.
@@ -560,11 +590,11 @@ class ArtifactsBucketLocation:
             self._values["prefix"] = prefix
 
     @builtins.property
-    def bucket(self) -> _IBucket_42e086fd:
+    def bucket(self) -> "_IBucket_42e086fd":
         '''The s3 location that stores the data of each run.'''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
-        return typing.cast(_IBucket_42e086fd, result)
+        return typing.cast("_IBucket_42e086fd", result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
@@ -597,6 +627,7 @@ class ArtifactsEncryptionMode(enum.Enum):
 
     Example::
 
+        from aws_cdk.aws_s3 import LifecycleRule
         import aws_cdk.aws_kms as kms
         
         
@@ -674,35 +705,35 @@ class Canary(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         runtime: "Runtime",
         test: "Test",
         active_tracing: typing.Optional[builtins.bool] = None,
-        artifact_s3_encryption_mode: typing.Optional[ArtifactsEncryptionMode] = None,
-        artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
-        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
-        artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
-        browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
+        artifact_s3_encryption_mode: typing.Optional["ArtifactsEncryptionMode"] = None,
+        artifact_s3_kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_LifecycleRule_bb74e6ff", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifacts_bucket_location: typing.Optional[typing.Union["ArtifactsBucketLocation", typing.Dict[builtins.str, typing.Any]]] = None,
+        browser_configs: typing.Optional[typing.Sequence["BrowserType"]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
+        failure_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        memory: typing.Optional[_Size_7b441c34] = None,
+        memory: typing.Optional["_Size_7b441c34"] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence["ResourceToReplicateTags"]] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         schedule: typing.Optional["Schedule"] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
         start_after_creation: typing.Optional[builtins.bool] = None,
-        success_retention_period: typing.Optional[_Duration_4839e8c3] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        time_to_live: typing.Optional[_Duration_4839e8c3] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        success_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        time_to_live: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
         :param scope: -
@@ -778,14 +809,14 @@ class Canary(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
+        period: typing.Optional["_Duration_4839e8c3"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
+        unit: typing.Optional["_Unit_61bc6f70"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
+    ) -> "_Metric_e396a4dc":
         '''Measure the Duration of a single canary run, in seconds.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -818,7 +849,7 @@ class Canary(
             visible=visible,
         )
 
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricDuration", [options]))
+        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricDuration", [options]))
 
     @jsii.member(jsii_name="metricFailed")
     def metric_failed(
@@ -829,14 +860,14 @@ class Canary(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
+        period: typing.Optional["_Duration_4839e8c3"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
+        unit: typing.Optional["_Unit_61bc6f70"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
+    ) -> "_Metric_e396a4dc":
         '''Measure the number of failed canary runs over a given time period.
 
         Default: sum over 5 minutes
@@ -869,7 +900,7 @@ class Canary(
             visible=visible,
         )
 
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricFailed", [options]))
+        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricFailed", [options]))
 
     @jsii.member(jsii_name="metricSuccessPercent")
     def metric_success_percent(
@@ -880,14 +911,14 @@ class Canary(
         dimensions_map: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         id: typing.Optional[builtins.str] = None,
         label: typing.Optional[builtins.str] = None,
-        period: typing.Optional[_Duration_4839e8c3] = None,
+        period: typing.Optional["_Duration_4839e8c3"] = None,
         region: typing.Optional[builtins.str] = None,
         stack_account: typing.Optional[builtins.str] = None,
         stack_region: typing.Optional[builtins.str] = None,
         statistic: typing.Optional[builtins.str] = None,
-        unit: typing.Optional[_Unit_61bc6f70] = None,
+        unit: typing.Optional["_Unit_61bc6f70"] = None,
         visible: typing.Optional[builtins.bool] = None,
-    ) -> _Metric_e396a4dc:
+    ) -> "_Metric_e396a4dc":
         '''Measure the percentage of successful canary runs.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
@@ -920,7 +951,7 @@ class Canary(
             visible=visible,
         )
 
-        return typing.cast(_Metric_e396a4dc, jsii.invoke(self, "metricSuccessPercent", [options]))
+        return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricSuccessPercent", [options]))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
@@ -930,9 +961,9 @@ class Canary(
 
     @builtins.property
     @jsii.member(jsii_name="artifactsBucket")
-    def artifacts_bucket(self) -> _IBucket_42e086fd:
+    def artifacts_bucket(self) -> "_IBucket_42e086fd":
         '''Bucket where data from each canary run is stored.'''
-        return typing.cast(_IBucket_42e086fd, jsii.get(self, "artifactsBucket"))
+        return typing.cast("_IBucket_42e086fd", jsii.get(self, "artifactsBucket"))
 
     @builtins.property
     @jsii.member(jsii_name="canaryId")
@@ -965,18 +996,18 @@ class Canary(
 
     @builtins.property
     @jsii.member(jsii_name="connections")
-    def connections(self) -> _Connections_0f31fce8:
+    def connections(self) -> "_Connections_0f31fce8":
         '''Access the Connections object.
 
         Will fail if not a VPC-enabled Canary
         '''
-        return typing.cast(_Connections_0f31fce8, jsii.get(self, "connections"))
+        return typing.cast("_Connections_0f31fce8", jsii.get(self, "connections"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
-    def role(self) -> _IRole_235f5d8e:
+    def role(self) -> "_IRole_235f5d8e":
         '''Execution role associated with this Canary.'''
-        return typing.cast(_IRole_235f5d8e, jsii.get(self, "role"))
+        return typing.cast("_IRole_235f5d8e", jsii.get(self, "role"))
 
 
 @jsii.data_type(
@@ -1018,29 +1049,29 @@ class CanaryProps:
         runtime: "Runtime",
         test: "Test",
         active_tracing: typing.Optional[builtins.bool] = None,
-        artifact_s3_encryption_mode: typing.Optional[ArtifactsEncryptionMode] = None,
-        artifact_s3_kms_key: typing.Optional[_IKey_5f11635f] = None,
-        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union[_LifecycleRule_bb74e6ff, typing.Dict[builtins.str, typing.Any]]]] = None,
-        artifacts_bucket_location: typing.Optional[typing.Union[ArtifactsBucketLocation, typing.Dict[builtins.str, typing.Any]]] = None,
-        browser_configs: typing.Optional[typing.Sequence[BrowserType]] = None,
+        artifact_s3_encryption_mode: typing.Optional["ArtifactsEncryptionMode"] = None,
+        artifact_s3_kms_key: typing.Optional["_IKey_5f11635f"] = None,
+        artifacts_bucket_lifecycle_rules: typing.Optional[typing.Sequence[typing.Union["_LifecycleRule_bb74e6ff", typing.Dict[builtins.str, typing.Any]]]] = None,
+        artifacts_bucket_location: typing.Optional[typing.Union["ArtifactsBucketLocation", typing.Dict[builtins.str, typing.Any]]] = None,
+        browser_configs: typing.Optional[typing.Sequence["BrowserType"]] = None,
         canary_name: typing.Optional[builtins.str] = None,
         cleanup: typing.Optional["Cleanup"] = None,
         dry_run_and_update: typing.Optional[builtins.bool] = None,
         environment_variables: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
-        failure_retention_period: typing.Optional[_Duration_4839e8c3] = None,
+        failure_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
         max_retries: typing.Optional[jsii.Number] = None,
-        memory: typing.Optional[_Size_7b441c34] = None,
+        memory: typing.Optional["_Size_7b441c34"] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.bool] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence["ResourceToReplicateTags"]] = None,
-        role: typing.Optional[_IRole_235f5d8e] = None,
+        role: typing.Optional["_IRole_235f5d8e"] = None,
         schedule: typing.Optional["Schedule"] = None,
-        security_groups: typing.Optional[typing.Sequence[_ISecurityGroup_acf8a799]] = None,
+        security_groups: typing.Optional[typing.Sequence["_ISecurityGroup_acf8a799"]] = None,
         start_after_creation: typing.Optional[builtins.bool] = None,
-        success_retention_period: typing.Optional[_Duration_4839e8c3] = None,
-        timeout: typing.Optional[_Duration_4839e8c3] = None,
-        time_to_live: typing.Optional[_Duration_4839e8c3] = None,
-        vpc: typing.Optional[_IVpc_f30d5663] = None,
-        vpc_subnets: typing.Optional[typing.Union[_SubnetSelection_e57d76df, typing.Dict[builtins.str, typing.Any]]] = None,
+        success_retention_period: typing.Optional["_Duration_4839e8c3"] = None,
+        timeout: typing.Optional["_Duration_4839e8c3"] = None,
+        time_to_live: typing.Optional["_Duration_4839e8c3"] = None,
+        vpc: typing.Optional["_IVpc_f30d5663"] = None,
+        vpc_subnets: typing.Optional[typing.Union["_SubnetSelection_e57d76df", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties for a canary.
 
@@ -1207,7 +1238,7 @@ class CanaryProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def artifact_s3_encryption_mode(self) -> typing.Optional[ArtifactsEncryptionMode]:
+    def artifact_s3_encryption_mode(self) -> typing.Optional["ArtifactsEncryptionMode"]:
         '''Canary Artifacts in S3 encryption mode.
 
         Artifact encryption is only supported for canaries that use Synthetics runtime
@@ -1218,21 +1249,21 @@ class CanaryProps:
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html
         '''
         result = self._values.get("artifact_s3_encryption_mode")
-        return typing.cast(typing.Optional[ArtifactsEncryptionMode], result)
+        return typing.cast(typing.Optional["ArtifactsEncryptionMode"], result)
 
     @builtins.property
-    def artifact_s3_kms_key(self) -> typing.Optional[_IKey_5f11635f]:
+    def artifact_s3_kms_key(self) -> typing.Optional["_IKey_5f11635f"]:
         '''The KMS key used to encrypt canary artifacts.
 
         :default: - no kms key if ``artifactS3EncryptionMode`` is set to ``S3_MANAGED``. A key will be created if one is not provided and ``artifactS3EncryptionMode`` is set to ``KMS``.
         '''
         result = self._values.get("artifact_s3_kms_key")
-        return typing.cast(typing.Optional[_IKey_5f11635f], result)
+        return typing.cast(typing.Optional["_IKey_5f11635f"], result)
 
     @builtins.property
     def artifacts_bucket_lifecycle_rules(
         self,
-    ) -> typing.Optional[typing.List[_LifecycleRule_bb74e6ff]]:
+    ) -> typing.Optional[typing.List["_LifecycleRule_bb74e6ff"]]:
         '''Lifecycle rules for the generated canary artifact bucket.
 
         Has no effect
@@ -1243,19 +1274,19 @@ class CanaryProps:
         :default: - no rules applied to the generated bucket.
         '''
         result = self._values.get("artifacts_bucket_lifecycle_rules")
-        return typing.cast(typing.Optional[typing.List[_LifecycleRule_bb74e6ff]], result)
+        return typing.cast(typing.Optional[typing.List["_LifecycleRule_bb74e6ff"]], result)
 
     @builtins.property
-    def artifacts_bucket_location(self) -> typing.Optional[ArtifactsBucketLocation]:
+    def artifacts_bucket_location(self) -> typing.Optional["ArtifactsBucketLocation"]:
         '''The s3 location that stores the data of the canary runs.
 
         :default: - A new s3 bucket will be created without a prefix.
         '''
         result = self._values.get("artifacts_bucket_location")
-        return typing.cast(typing.Optional[ArtifactsBucketLocation], result)
+        return typing.cast(typing.Optional["ArtifactsBucketLocation"], result)
 
     @builtins.property
-    def browser_configs(self) -> typing.Optional[typing.List[BrowserType]]:
+    def browser_configs(self) -> typing.Optional[typing.List["BrowserType"]]:
         '''Browser configurations for the canary.
 
         Specifies which browser(s) to use for running the canary tests.
@@ -1269,7 +1300,7 @@ class CanaryProps:
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries.html
         '''
         result = self._values.get("browser_configs")
-        return typing.cast(typing.Optional[typing.List[BrowserType]], result)
+        return typing.cast(typing.Optional[typing.List["BrowserType"]], result)
 
     @builtins.property
     def canary_name(self) -> typing.Optional[builtins.str]:
@@ -1336,13 +1367,13 @@ class CanaryProps:
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
-    def failure_retention_period(self) -> typing.Optional[_Duration_4839e8c3]:
+    def failure_retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''How many days should failed runs be retained.
 
         :default: Duration.days(31)
         '''
         result = self._values.get("failure_retention_period")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
@@ -1359,7 +1390,7 @@ class CanaryProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def memory(self) -> typing.Optional[_Size_7b441c34]:
+    def memory(self) -> typing.Optional["_Size_7b441c34"]:
         '''The maximum amount of memory that the canary can use while running.
 
         This value must be a multiple of 64 Mib.
@@ -1368,7 +1399,7 @@ class CanaryProps:
         :default: Size.mebibytes(1024)
         '''
         result = self._values.get("memory")
-        return typing.cast(typing.Optional[_Size_7b441c34], result)
+        return typing.cast(typing.Optional["_Size_7b441c34"], result)
 
     @builtins.property
     def provisioned_resource_cleanup(self) -> typing.Optional[builtins.bool]:
@@ -1397,7 +1428,7 @@ class CanaryProps:
         return typing.cast(typing.Optional[typing.List["ResourceToReplicateTags"]], result)
 
     @builtins.property
-    def role(self) -> typing.Optional[_IRole_235f5d8e]:
+    def role(self) -> typing.Optional["_IRole_235f5d8e"]:
         '''Canary execution role.
 
         This is the role that will be assumed by the canary upon execution.
@@ -1415,7 +1446,7 @@ class CanaryProps:
         :see: required permissions: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-executionrolearn
         '''
         result = self._values.get("role")
-        return typing.cast(typing.Optional[_IRole_235f5d8e], result)
+        return typing.cast(typing.Optional["_IRole_235f5d8e"], result)
 
     @builtins.property
     def schedule(self) -> typing.Optional["Schedule"]:
@@ -1430,7 +1461,9 @@ class CanaryProps:
         return typing.cast(typing.Optional["Schedule"], result)
 
     @builtins.property
-    def security_groups(self) -> typing.Optional[typing.List[_ISecurityGroup_acf8a799]]:
+    def security_groups(
+        self,
+    ) -> typing.Optional[typing.List["_ISecurityGroup_acf8a799"]]:
         '''The list of security groups to associate with the canary's network interfaces.
 
         You must provide ``vpc`` when using this prop.
@@ -1441,7 +1474,7 @@ class CanaryProps:
         not specified a dedicated security group will be created for this canary.
         '''
         result = self._values.get("security_groups")
-        return typing.cast(typing.Optional[typing.List[_ISecurityGroup_acf8a799]], result)
+        return typing.cast(typing.Optional[typing.List["_ISecurityGroup_acf8a799"]], result)
 
     @builtins.property
     def start_after_creation(self) -> typing.Optional[builtins.bool]:
@@ -1453,16 +1486,16 @@ class CanaryProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
-    def success_retention_period(self) -> typing.Optional[_Duration_4839e8c3]:
+    def success_retention_period(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''How many days should successful runs be retained.
 
         :default: Duration.days(31)
         '''
         result = self._values.get("success_retention_period")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def timeout(self) -> typing.Optional[_Duration_4839e8c3]:
+    def timeout(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''How long the canary is allowed to run before it must stop.
 
         You can't set this time to be longer than the frequency of the runs of this canary.
@@ -1473,10 +1506,10 @@ class CanaryProps:
         :default: - the frequency of the canary is used as this value, up to a maximum of 900 seconds.
         '''
         result = self._values.get("timeout")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def time_to_live(self) -> typing.Optional[_Duration_4839e8c3]:
+    def time_to_live(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''How long the canary will be in a 'RUNNING' state.
 
         For example, if you set ``timeToLive`` to be 1 hour and ``schedule`` to be ``rate(10 minutes)``,
@@ -1485,10 +1518,10 @@ class CanaryProps:
         :default: - no limit
         '''
         result = self._values.get("time_to_live")
-        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
 
     @builtins.property
-    def vpc(self) -> typing.Optional[_IVpc_f30d5663]:
+    def vpc(self) -> typing.Optional["_IVpc_f30d5663"]:
         '''The VPC where this canary is run.
 
         Specify this if the canary needs to access resources in a VPC.
@@ -1496,10 +1529,10 @@ class CanaryProps:
         :default: - Not in VPC
         '''
         result = self._values.get("vpc")
-        return typing.cast(typing.Optional[_IVpc_f30d5663], result)
+        return typing.cast(typing.Optional["_IVpc_f30d5663"], result)
 
     @builtins.property
-    def vpc_subnets(self) -> typing.Optional[_SubnetSelection_e57d76df]:
+    def vpc_subnets(self) -> typing.Optional["_SubnetSelection_e57d76df"]:
         '''Where to place the network interfaces within the VPC.
 
         You must provide ``vpc`` when using this prop.
@@ -1507,7 +1540,7 @@ class CanaryProps:
         :default: - the Vpc default strategy if not specified
         '''
         result = self._values.get("vpc_subnets")
-        return typing.cast(typing.Optional[_SubnetSelection_e57d76df], result)
+        return typing.cast(typing.Optional["_SubnetSelection_e57d76df"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1521,53 +1554,1722 @@ class CanaryProps:
         )
 
 
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.CanaryReference",
-    jsii_struct_bases=[],
-    name_mapping={"canary_name": "canaryName"},
-)
-class CanaryReference:
-    def __init__(self, *, canary_name: builtins.str) -> None:
-        '''A reference to a Canary resource.
+@jsii.implements(_IInspectable_c2943556, _ICanaryRef_cf407e49, _ITaggable_36806126)
+class CfnCanary(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary",
+):
+    '''Creates or updates a canary.
 
-        :param canary_name: The Name of the Canary resource.
+    Canaries are scripts that monitor your endpoints and APIs from the outside-in. Canaries help you check the availability and latency of your web services and troubleshoot anomalies by investigating load time data, screenshots of the UI, logs, and metrics. You can set up a canary to run continuously or just once.
 
-        :exampleMetadata: fixture=_generated
+    Canaries are automated scripts that run at specified intervals against an endpoint. They include Python or Node.js code to create a Lambda function. This code needs to be packaged in a certain way, depending on the language. For more information, see `Writing a canary script <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html>`_ .
 
-        Example::
+    To create canaries, you must have the ``CloudWatchSyntheticsFullAccess`` policy. If you are creating a new IAM role for the canary, you also need the the ``iam:CreateRole`` , ``iam:CreatePolicy`` and ``iam:AttachRolePolicy`` permissions. For more information, see `Necessary Roles and Permissions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Roles>`_ .
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_synthetics as synthetics
-            
-            canary_reference = synthetics.CanaryReference(
-                canary_name="canaryName"
+    Do not include secrets or proprietary information in your canary names. The canary name makes up part of the Amazon Resource Name (ARN) for the canary, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html
+    :cloudformationResource: AWS::Synthetics::Canary
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_synthetics as synthetics
+        
+        cfn_canary = synthetics.CfnCanary(self, "MyCfnCanary",
+            artifact_s3_location="artifactS3Location",
+            code=synthetics.CfnCanary.CodeProperty(
+                blueprint_types=["blueprintTypes"],
+                dependencies=[synthetics.CfnCanary.DependencyProperty(
+                    reference="reference",
+        
+                    # the properties below are optional
+                    type="type"
+                )],
+                handler="handler",
+                s3_bucket="s3Bucket",
+                s3_key="s3Key",
+                s3_object_version="s3ObjectVersion",
+                script="script",
+                source_location_arn="sourceLocationArn"
+            ),
+            execution_role_arn="executionRoleArn",
+            name="name",
+            runtime_version="runtimeVersion",
+            schedule=synthetics.CfnCanary.ScheduleProperty(
+                expression="expression",
+        
+                # the properties below are optional
+                duration_in_seconds="durationInSeconds",
+                retry_config=synthetics.CfnCanary.RetryConfigProperty(
+                    max_retries=123
+                )
+            ),
+        
+            # the properties below are optional
+            artifact_config=synthetics.CfnCanary.ArtifactConfigProperty(
+                s3_encryption=synthetics.CfnCanary.S3EncryptionProperty(
+                    encryption_mode="encryptionMode",
+                    kms_key_arn="kmsKeyArn"
+                )
+            ),
+            browser_configs=[synthetics.CfnCanary.BrowserConfigProperty(
+                browser_type="browserType"
+            )],
+            delete_lambda_resources_on_canary_deletion=False,
+            dry_run_and_update=False,
+            failure_retention_period=123,
+            provisioned_resource_cleanup="provisionedResourceCleanup",
+            resources_to_replicate_tags=["resourcesToReplicateTags"],
+            run_config=synthetics.CfnCanary.RunConfigProperty(
+                active_tracing=False,
+                environment_variables={
+                    "environment_variables_key": "environmentVariables"
+                },
+                ephemeral_storage=123,
+                memory_in_mb=123,
+                timeout_in_seconds=123
+            ),
+            start_canary_after_creation=False,
+            success_retention_period=123,
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
+            visual_reference=synthetics.CfnCanary.VisualReferenceProperty(
+                base_canary_run_id="baseCanaryRunId",
+        
+                # the properties below are optional
+                base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                    screenshot_name="screenshotName",
+        
+                    # the properties below are optional
+                    ignore_coordinates=["ignoreCoordinates"]
+                )],
+                browser_type="browserType"
+            ),
+            visual_references=[synthetics.CfnCanary.VisualReferenceProperty(
+                base_canary_run_id="baseCanaryRunId",
+        
+                # the properties below are optional
+                base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                    screenshot_name="screenshotName",
+        
+                    # the properties below are optional
+                    ignore_coordinates=["ignoreCoordinates"]
+                )],
+                browser_type="browserType"
+            )],
+            vpc_config=synthetics.CfnCanary.VPCConfigProperty(
+                security_group_ids=["securityGroupIds"],
+                subnet_ids=["subnetIds"],
+        
+                # the properties below are optional
+                ipv6_allowed_for_dual_stack=False,
+                vpc_id="vpcId"
             )
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        artifact_s3_location: builtins.str,
+        code: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
+        execution_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
+        name: builtins.str,
+        runtime_version: builtins.str,
+        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        failure_retention_period: typing.Optional[jsii.Number] = None,
+        provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+        resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+        run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        success_retention_period: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Synthetics::Canary``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param artifact_s3_location: The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary. Artifacts include the log file, screenshots, and HAR files. Specify the full location path, including ``s3://`` at the beginning of the path.
+        :param code: Use this structure to input your script code for the canary. This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
+        :param execution_role_arn: The ARN of the IAM role to be used to run the canary. This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions: - ``s3:PutObject`` - ``s3:GetBucketLocation`` - ``s3:ListAllMyBuckets`` - ``cloudwatch:PutMetricData`` - ``logs:CreateLogGroup`` - ``logs:CreateLogStream`` - ``logs:PutLogEvents``
+        :param name: The name for this canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary names. The canary name makes up part of the canary ARN, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
+        :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
+        :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
+        :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
+        :param browser_configs: A structure that specifies the browser type to use for a canary run. CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers. .. epigraph:: If not specified, ``browserConfigs`` defaults to Chrome.
+        :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
+        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
+        :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+        :param provisioned_resource_cleanup: Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted. If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
+        :param resources_to_replicate_tags: To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` . If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
+        :param run_config: A structure that contains input information for a canary run. If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
+        :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
+        :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
+        :param tags: The list of key-value pairs that are associated with the canary.
+        :param visual_reference: 
+        :param visual_references: A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on. Visual references are used for visual monitoring comparisons. ``syn-nodejs-puppeteer-11.0`` and above, and ``syn-nodejs-playwright-3.0`` and above, only supports ``visualReferences`` . ``visualReference`` field is not supported. Versions older than ``syn-nodejs-puppeteer-11.0`` supports both ``visualReference`` and ``visualReferences`` for backward compatibility. It is recommended to use ``visualReferences`` for consistency and future compatibility.
+        :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9010a572d449865253b0fb9c46ad46fa1b6341ec7d7876cd7b3f5fe9271b9f04)
+            type_hints = typing.get_type_hints(_typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2b971663)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnCanaryProps(
+            artifact_s3_location=artifact_s3_location,
+            code=code,
+            execution_role_arn=execution_role_arn,
+            name=name,
+            runtime_version=runtime_version,
+            schedule=schedule,
+            artifact_config=artifact_config,
+            browser_configs=browser_configs,
+            delete_lambda_resources_on_canary_deletion=delete_lambda_resources_on_canary_deletion,
+            dry_run_and_update=dry_run_and_update,
+            failure_retention_period=failure_retention_period,
+            provisioned_resource_cleanup=provisioned_resource_cleanup,
+            resources_to_replicate_tags=resources_to_replicate_tags,
+            run_config=run_config,
+            start_canary_after_creation=start_canary_after_creation,
+            success_retention_period=success_retention_period,
+            tags=tags,
+            visual_reference=visual_reference,
+            visual_references=visual_references,
+            vpc_config=vpc_config,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForCanary")
+    @builtins.classmethod
+    def arn_for_canary(cls, resource: "_ICanaryRef_cf407e49") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__01a67567b68d06f36673fc7eb4b602b0433b2b739e698b03ea67aa6a7bbfef4b)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForCanary", [resource]))
+
+    @jsii.member(jsii_name="fromCanaryName")
+    @builtins.classmethod
+    def from_canary_name(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        canary_name: builtins.str,
+    ) -> "_ICanaryRef_cf407e49":
+        '''Creates a new ICanaryRef from a canaryName.
+
+        :param scope: -
+        :param id: -
+        :param canary_name: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a9ea9a4c62ed507734c1656b5b5b9ece24a5a15e32aa598350d8dcba80710c99)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument canary_name", value=canary_name, expected_type=type_hints["canary_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "canary_name": canary_name,
-        }
+        return typing.cast("_ICanaryRef_cf407e49", jsii.sinvoke(cls, "fromCanaryName", [scope, id, canary_name]))
+
+    @jsii.member(jsii_name="isCfnCanary")
+    @builtins.classmethod
+    def is_cfn_canary(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnCanary.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6a3fbf9db1e0a642690468c48e630211c97b836ae6d07dfc5645551505768178)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnCanary", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc166bab0fcf177897c1dbb233203e39458428064bc6ff7215b01b2b3ec6f3a2)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__65410bca39459dd8b2ef582ab37870de468cb765034b9600759877910b340355)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    def canary_name(self) -> builtins.str:
-        '''The Name of the Canary resource.'''
-        result = self._values.get("canary_name")
-        assert result is not None, "Required property 'canary_name' is missing"
-        return typing.cast(builtins.str, result)
+    @jsii.member(jsii_name="attrCodeSourceLocationArn")
+    def attr_code_source_location_arn(self) -> builtins.str:
+        '''``Ref`` returns the ARN of the Lambda layer where Synthetics stores the canary script code.
 
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
+        :cloudformationAttribute: Code.SourceLocationArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCodeSourceLocationArn"))
 
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The ID of the canary.
 
-    def __repr__(self) -> str:
-        return "CanaryReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrState")
+    def attr_state(self) -> builtins.str:
+        '''The state of the canary.
+
+        For example, ``RUNNING`` .
+
+        :cloudformationAttribute: State
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrState"))
+
+    @builtins.property
+    @jsii.member(jsii_name="canaryRef")
+    def canary_ref(self) -> "_CanaryReference_fbbe85ce":
+        '''A reference to a Canary resource.'''
+        return typing.cast("_CanaryReference_fbbe85ce", jsii.get(self, "canaryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactS3Location")
+    def artifact_s3_location(self) -> builtins.str:
+        '''The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary.'''
+        return typing.cast(builtins.str, jsii.get(self, "artifactS3Location"))
+
+    @artifact_s3_location.setter
+    def artifact_s3_location(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdaba4ac1ed08cbb682b002e6d07aabeaccadbe7c5a6d4bbbc1aaaa15bb4831c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactS3Location", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="code")
+    def code(self) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"]:
+        '''Use this structure to input your script code for the canary.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"], jsii.get(self, "code"))
+
+    @code.setter
+    def code(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__940d05df3a63f7ad05e985fa05317d4b896a6a845409a8d700cbf186fd8e49d5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRoleArn")
+    def execution_role_arn(self) -> builtins.str:
+        '''The ARN of the IAM role to be used to run the canary.'''
+        return typing.cast(builtins.str, jsii.get(self, "executionRoleArn"))
+
+    @execution_role_arn.setter
+    def execution_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21989f82228cbbd4b8df02c1285ab8cf3635cf4eb894f4a4c999e6b763e92ded)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''The name for this canary.'''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02a5568fdb7b5da09cb493a9883d04e695a0b6375532601c26ea6ba719fd869a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="runtimeVersion")
+    def runtime_version(self) -> builtins.str:
+        '''Specifies the runtime version to use for the canary.'''
+        return typing.cast(builtins.str, jsii.get(self, "runtimeVersion"))
+
+    @runtime_version.setter
+    def runtime_version(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__64f9d8326de93a51cdd4ab89bc4c5431c218c9b46372d81f4fe7a8961b26fa2c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runtimeVersion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schedule")
+    def schedule(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"]:
+        '''A structure that contains information about how often the canary is to run, and when these runs are to stop.'''
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"], jsii.get(self, "schedule"))
+
+    @schedule.setter
+    def schedule(
+        self,
+        value: typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270a5516f0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="artifactConfig")
+    def artifact_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]]:
+        '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]], jsii.get(self, "artifactConfig"))
+
+    @artifact_config.setter
+    def artifact_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "artifactConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="browserConfigs")
+    def browser_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]]:
+        '''A structure that specifies the browser type to use for a canary run.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]], jsii.get(self, "browserConfigs"))
+
+    @browser_configs.setter
+    def browser_configs(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "browserConfigs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="deleteLambdaResourcesOnCanaryDeletion")
+    def delete_lambda_resources_on_canary_deletion(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "deleteLambdaResourcesOnCanaryDeletion"))
+
+    @delete_lambda_resources_on_canary_deletion.setter
+    def delete_lambda_resources_on_canary_deletion(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__442577c2c36e4274dca25b3d866e1aeec3f4ffc18732e01050131a31f768f2b3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "deleteLambdaResourcesOnCanaryDeletion", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dryRunAndUpdate")
+    def dry_run_and_update(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specifies whether to perform a dry run before updating the canary.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "dryRunAndUpdate"))
+
+    @dry_run_and_update.setter
+    def dry_run_and_update(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59860e5fb72da4da1108545c9e0b8f706d34cf83eb363fda05f04cbb14baf1fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dryRunAndUpdate", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="failureRetentionPeriod")
+    def failure_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain data about failed runs of this canary.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "failureRetentionPeriod"))
+
+    @failure_retention_period.setter
+    def failure_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__02a7e43f45419c4cb8e909f309f8848d4ced91d17b01d14e5ea0b8cec28aab1b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "failureRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="provisionedResourceCleanup")
+    def provisioned_resource_cleanup(self) -> typing.Optional[builtins.str]:
+        '''Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisionedResourceCleanup"))
+
+    @provisioned_resource_cleanup.setter
+    def provisioned_resource_cleanup(
+        self,
+        value: typing.Optional[builtins.str],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "provisionedResourceCleanup", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcesToReplicateTags")
+    def resources_to_replicate_tags(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` .'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourcesToReplicateTags"))
+
+    @resources_to_replicate_tags.setter
+    def resources_to_replicate_tags(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__97145dbcbdc52baa9bf7a42cbdc47e51d64c8bdad34335923fcf585d09e27978)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcesToReplicateTags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="runConfig")
+    def run_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]]:
+        '''A structure that contains input information for a canary run.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]], jsii.get(self, "runConfig"))
+
+    @run_config.setter
+    def run_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e65fb80249e43aebfe46950832be73ed0795003be5d74ca1ef7cd12bb2408557)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "runConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="startCanaryAfterCreation")
+    def start_canary_after_creation(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''Specify TRUE to have the canary start making runs immediately after it is created.'''
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "startCanaryAfterCreation"))
+
+    @start_canary_after_creation.setter
+    def start_canary_after_creation(
+        self,
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5a98feaf45022b36ef5c9888f87b978029d5e1fde70599e1972543b1778adfad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "startCanaryAfterCreation", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="successRetentionPeriod")
+    def success_retention_period(self) -> typing.Optional[jsii.Number]:
+        '''The number of days to retain data about successful runs of this canary.'''
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "successRetentionPeriod"))
+
+    @success_retention_period.setter
+    def success_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8bbba327f646025c54903ccf2c19cedc26cf07f79658c389f65ef40b263130f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "successRetentionPeriod", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The list of key-value pairs that are associated with the canary.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__212d1e59a4bd96a18f447b1c742abcfeb7c668063c8e1670fa0770e339ac4077)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="visualReference")
+    def visual_reference(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]:
+        '''
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]], jsii.get(self, "visualReference"))
+
+    @visual_reference.setter
+    def visual_reference(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "visualReference", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="visualReferences")
+    def visual_references(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]]:
+        '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]], jsii.get(self, "visualReferences"))
+
+    @visual_references.setter
+    def visual_references(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "visualReferences", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="vpcConfig")
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]]:
+        '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]], jsii.get(self, "vpcConfig"))
+
+    @vpc_config.setter
+    def vpc_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ArtifactConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_encryption": "s3Encryption"},
+    )
+    class ArtifactConfigProperty:
+        def __init__(
+            self,
+            *,
+            s3_encryption: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.S3EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
+
+            :param s3_encryption: A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 . Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-artifactconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                artifact_config_property = synthetics.CfnCanary.ArtifactConfigProperty(
+                    s3_encryption=synthetics.CfnCanary.S3EncryptionProperty(
+                        encryption_mode="encryptionMode",
+                        kms_key_arn="kmsKeyArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__9c456e72742651aec26b46a7fbd663821284d03931fd10859243079b815dad28)
+                check_type(argname="argument s3_encryption", value=s3_encryption, expected_type=type_hints["s3_encryption"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_encryption is not None:
+                self._values["s3_encryption"] = s3_encryption
+
+        @builtins.property
+        def s3_encryption(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.S3EncryptionProperty"]]:
+            '''A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
+
+            Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-artifactconfig.html#cfn-synthetics-canary-artifactconfig-s3encryption
+            '''
+            result = self._values.get("s3_encryption")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.S3EncryptionProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ArtifactConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.BaseScreenshotProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "screenshot_name": "screenshotName",
+            "ignore_coordinates": "ignoreCoordinates",
+        },
+    )
+    class BaseScreenshotProperty:
+        def __init__(
+            self,
+            *,
+            screenshot_name: builtins.str,
+            ignore_coordinates: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''A structure representing a screenshot that is used as a baseline during visual monitoring comparisons made by the canary.
+
+            :param screenshot_name: The name of the screenshot. This is generated the first time the canary is run after the ``UpdateCanary`` operation that specified for this canary to perform visual monitoring.
+            :param ignore_coordinates: Coordinates that define the part of a screen to ignore during screenshot comparisons. To obtain the coordinates to use here, use the CloudWatch console to draw the boundaries on the screen. For more information, see `Edit or delete a canary <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/synthetics_canaries_deletion.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-basescreenshot.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                base_screenshot_property = synthetics.CfnCanary.BaseScreenshotProperty(
+                    screenshot_name="screenshotName",
+                
+                    # the properties below are optional
+                    ignore_coordinates=["ignoreCoordinates"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8d401a2416919aef18322e23fb875fc37ad8f90f34f8f5708a245f22f9d3208f)
+                check_type(argname="argument screenshot_name", value=screenshot_name, expected_type=type_hints["screenshot_name"])
+                check_type(argname="argument ignore_coordinates", value=ignore_coordinates, expected_type=type_hints["ignore_coordinates"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "screenshot_name": screenshot_name,
+            }
+            if ignore_coordinates is not None:
+                self._values["ignore_coordinates"] = ignore_coordinates
+
+        @builtins.property
+        def screenshot_name(self) -> builtins.str:
+            '''The name of the screenshot.
+
+            This is generated the first time the canary is run after the ``UpdateCanary`` operation that specified for this canary to perform visual monitoring.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-basescreenshot.html#cfn-synthetics-canary-basescreenshot-screenshotname
+            '''
+            result = self._values.get("screenshot_name")
+            assert result is not None, "Required property 'screenshot_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def ignore_coordinates(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''Coordinates that define the part of a screen to ignore during screenshot comparisons.
+
+            To obtain the coordinates to use here, use the CloudWatch console to draw the boundaries on the screen. For more information, see `Edit or delete a canary <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/synthetics_canaries_deletion.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-basescreenshot.html#cfn-synthetics-canary-basescreenshot-ignorecoordinates
+            '''
+            result = self._values.get("ignore_coordinates")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BaseScreenshotProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.BrowserConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"browser_type": "browserType"},
+    )
+    class BrowserConfigProperty:
+        def __init__(self, *, browser_type: builtins.str) -> None:
+            '''A structure that specifies the browser type to use for a canary run.
+
+            :param browser_type: The browser type associated with this browser configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                browser_config_property = synthetics.CfnCanary.BrowserConfigProperty(
+                    browser_type="browserType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e200412435)
+                check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "browser_type": browser_type,
+            }
+
+        @builtins.property
+        def browser_type(self) -> builtins.str:
+            '''The browser type associated with this browser configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html#cfn-synthetics-canary-browserconfig-browsertype
+            '''
+            result = self._values.get("browser_type")
+            assert result is not None, "Required property 'browser_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "BrowserConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.CodeProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "blueprint_types": "blueprintTypes",
+            "dependencies": "dependencies",
+            "handler": "handler",
+            "s3_bucket": "s3Bucket",
+            "s3_key": "s3Key",
+            "s3_object_version": "s3ObjectVersion",
+            "script": "script",
+            "source_location_arn": "sourceLocationArn",
+        },
+    )
+    class CodeProperty:
+        def __init__(
+            self,
+            *,
+            blueprint_types: typing.Optional[typing.Sequence[builtins.str]] = None,
+            dependencies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.DependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            handler: typing.Optional[builtins.str] = None,
+            s3_bucket: typing.Optional[builtins.str] = None,
+            s3_key: typing.Optional[builtins.str] = None,
+            s3_object_version: typing.Optional[builtins.str] = None,
+            script: typing.Optional[builtins.str] = None,
+            source_location_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Use this structure to input your script code for the canary.
+
+            This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
+
+            :param blueprint_types: ``BlueprintTypes`` are a list of templates that enable simplified canary creation. You can create canaries for common monitoring scenarios by providing only a JSON configuration file instead of writing custom scripts. ``multi-checks`` is the only supported value. When you specify ``BlueprintTypes`` , the ``Handler`` field cannot be specified since the blueprint provides a pre-defined entry point.
+            :param dependencies: List of Lambda layers to attach to the canary.
+            :param handler: The entry point to use for the source code when running the canary. For canaries that use the ``syn-python-selenium-1.0`` runtime or a ``syn-nodejs.puppeteer`` runtime earlier than ``syn-nodejs.puppeteer-3.4`` , the handler must be specified as ``*fileName* .handler`` . For ``syn-python-selenium-1.1`` , ``syn-nodejs.puppeteer-3.4`` , and later runtimes, the handler can be specified as ``*fileName* . *functionName*`` , or you can specify a folder where canary scripts reside as ``*folder* / *fileName* . *functionName*`` . This field is required when you don't specify ``BlueprintTypes`` and is not allowed when you specify ``BlueprintTypes`` .
+            :param s3_bucket: If your canary script is located in S3, specify the bucket name here. The bucket must already exist.
+            :param s3_key: The Amazon S3 key of your script. For more information, see `Working with Amazon S3 Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingObjects.html>`_ .
+            :param s3_object_version: The Amazon S3 version ID of your script.
+            :param script: If you input your canary script directly into the canary instead of referring to an S3 location, the value of this parameter is the script in plain text. It can be up to 5 MB.
+            :param source_location_arn: The ARN of the Lambda layer where Synthetics stores the canary script code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                code_property = synthetics.CfnCanary.CodeProperty(
+                    blueprint_types=["blueprintTypes"],
+                    dependencies=[synthetics.CfnCanary.DependencyProperty(
+                        reference="reference",
+                
+                        # the properties below are optional
+                        type="type"
+                    )],
+                    handler="handler",
+                    s3_bucket="s3Bucket",
+                    s3_key="s3Key",
+                    s3_object_version="s3ObjectVersion",
+                    script="script",
+                    source_location_arn="sourceLocationArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3)
+                check_type(argname="argument blueprint_types", value=blueprint_types, expected_type=type_hints["blueprint_types"])
+                check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
+                check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
+                check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
+                check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
+                check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
+                check_type(argname="argument script", value=script, expected_type=type_hints["script"])
+                check_type(argname="argument source_location_arn", value=source_location_arn, expected_type=type_hints["source_location_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if blueprint_types is not None:
+                self._values["blueprint_types"] = blueprint_types
+            if dependencies is not None:
+                self._values["dependencies"] = dependencies
+            if handler is not None:
+                self._values["handler"] = handler
+            if s3_bucket is not None:
+                self._values["s3_bucket"] = s3_bucket
+            if s3_key is not None:
+                self._values["s3_key"] = s3_key
+            if s3_object_version is not None:
+                self._values["s3_object_version"] = s3_object_version
+            if script is not None:
+                self._values["script"] = script
+            if source_location_arn is not None:
+                self._values["source_location_arn"] = source_location_arn
+
+        @builtins.property
+        def blueprint_types(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''``BlueprintTypes`` are a list of templates that enable simplified canary creation.
+
+            You can create canaries for common monitoring scenarios by providing only a JSON configuration file instead of writing custom scripts. ``multi-checks`` is the only supported value.
+
+            When you specify ``BlueprintTypes`` , the ``Handler`` field cannot be specified since the blueprint provides a pre-defined entry point.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-blueprinttypes
+            '''
+            result = self._values.get("blueprint_types")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        @builtins.property
+        def dependencies(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.DependencyProperty"]]]]:
+            '''List of Lambda layers to attach to the canary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-dependencies
+            '''
+            result = self._values.get("dependencies")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.DependencyProperty"]]]], result)
+
+        @builtins.property
+        def handler(self) -> typing.Optional[builtins.str]:
+            '''The entry point to use for the source code when running the canary.
+
+            For canaries that use the ``syn-python-selenium-1.0`` runtime or a ``syn-nodejs.puppeteer`` runtime earlier than ``syn-nodejs.puppeteer-3.4`` , the handler must be specified as ``*fileName* .handler`` . For ``syn-python-selenium-1.1`` , ``syn-nodejs.puppeteer-3.4`` , and later runtimes, the handler can be specified as ``*fileName* . *functionName*`` , or you can specify a folder where canary scripts reside as ``*folder* / *fileName* . *functionName*`` .
+
+            This field is required when you don't specify ``BlueprintTypes`` and is not allowed when you specify ``BlueprintTypes`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-handler
+            '''
+            result = self._values.get("handler")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_bucket(self) -> typing.Optional[builtins.str]:
+            '''If your canary script is located in S3, specify the bucket name here.
+
+            The bucket must already exist.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-s3bucket
+            '''
+            result = self._values.get("s3_bucket")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_key(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 key of your script.
+
+            For more information, see `Working with Amazon S3 Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingObjects.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-s3key
+            '''
+            result = self._values.get("s3_key")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def s3_object_version(self) -> typing.Optional[builtins.str]:
+            '''The Amazon S3 version ID of your script.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-s3objectversion
+            '''
+            result = self._values.get("s3_object_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def script(self) -> typing.Optional[builtins.str]:
+            '''If you input your canary script directly into the canary instead of referring to an S3 location, the value of this parameter is the script in plain text.
+
+            It can be up to 5 MB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-script
+            '''
+            result = self._values.get("script")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def source_location_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the Lambda layer where Synthetics stores the canary script code.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-sourcelocationarn
+            '''
+            result = self._values.get("source_location_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "CodeProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.DependencyProperty",
+        jsii_struct_bases=[],
+        name_mapping={"reference": "reference", "type": "type"},
+    )
+    class DependencyProperty:
+        def __init__(
+            self,
+            *,
+            reference: builtins.str,
+            type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A structure that contains information about a dependency for a canary.
+
+            :param reference: The dependency reference. For Lambda layers, this is the ARN of the Lambda layer. For more information about Lambda ARN format, see `Lambda <https://docs.aws.amazon.com/lambda/latest/api/API_Layer.html>`_ .
+            :param type: The type of dependency. Valid value is ``LambdaLayer`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                dependency_property = synthetics.CfnCanary.DependencyProperty(
+                    reference="reference",
+                
+                    # the properties below are optional
+                    type="type"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75f9984f4)
+                check_type(argname="argument reference", value=reference, expected_type=type_hints["reference"])
+                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "reference": reference,
+            }
+            if type is not None:
+                self._values["type"] = type
+
+        @builtins.property
+        def reference(self) -> builtins.str:
+            '''The dependency reference.
+
+            For Lambda layers, this is the ARN of the Lambda layer. For more information about Lambda ARN format, see `Lambda <https://docs.aws.amazon.com/lambda/latest/api/API_Layer.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-reference
+            '''
+            result = self._values.get("reference")
+            assert result is not None, "Required property 'reference' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def type(self) -> typing.Optional[builtins.str]:
+            '''The type of dependency.
+
+            Valid value is ``LambdaLayer`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-type
+            '''
+            result = self._values.get("type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DependencyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.RetryConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"max_retries": "maxRetries"},
+    )
+    class RetryConfigProperty:
+        def __init__(self, *, max_retries: jsii.Number) -> None:
+            '''The canary's retry configuration information.
+
+            :param max_retries: The maximum number of retries. The value must be less than or equal to two.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-retryconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                retry_config_property = synthetics.CfnCanary.RetryConfigProperty(
+                    max_retries=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2c4cf9a1)
+                check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "max_retries": max_retries,
+            }
+
+        @builtins.property
+        def max_retries(self) -> jsii.Number:
+            '''The maximum number of retries.
+
+            The value must be less than or equal to two.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-retryconfig.html#cfn-synthetics-canary-retryconfig-maxretries
+            '''
+            result = self._values.get("max_retries")
+            assert result is not None, "Required property 'max_retries' is missing"
+            return typing.cast(jsii.Number, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RetryConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.RunConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "active_tracing": "activeTracing",
+            "environment_variables": "environmentVariables",
+            "ephemeral_storage": "ephemeralStorage",
+            "memory_in_mb": "memoryInMb",
+            "timeout_in_seconds": "timeoutInSeconds",
+        },
+    )
+    class RunConfigProperty:
+        def __init__(
+            self,
+            *,
+            active_tracing: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]] = None,
+            ephemeral_storage: typing.Optional[jsii.Number] = None,
+            memory_in_mb: typing.Optional[jsii.Number] = None,
+            timeout_in_seconds: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''A structure that contains input information for a canary run.
+
+            This structure is required.
+
+            :param active_tracing: Specifies whether this canary is to use active AWS X-Ray tracing when it runs. Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. For more information, see `Canaries and X-Ray tracing <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_tracing.html>`_ . You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime.
+            :param environment_variables: Specifies the keys and values to use for any environment variables used in the canary script. Use the following format: { "key1" : "value1", "key2" : "value2", ...} Keys must start with a letter and be at least two characters. The total size of your environment variables cannot exceed 4 KB. You can't specify any Lambda reserved environment variables as the keys for your environment variables. For more information about reserved keys, see `Runtime environment variables <https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html#configuration-envvars-runtime>`_ .
+            :param ephemeral_storage: Specifies the amount of ephemeral storage (in MB) to allocate for the canary run during execution. This temporary storage is used for storing canary run artifacts (which are uploaded to an Amazon S3 bucket at the end of the run), and any canary browser operations. This temporary storage is cleared after the run is completed. Default storage value is 1024 MB.
+            :param memory_in_mb: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64. The range is 960 to 3008.
+            :param timeout_in_seconds: How long the canary is allowed to run before it must stop. You can't set this time to be longer than the frequency of the runs of this canary. If you omit this field, the frequency of the canary is used as this value, up to a maximum of 900 seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                run_config_property = synthetics.CfnCanary.RunConfigProperty(
+                    active_tracing=False,
+                    environment_variables={
+                        "environment_variables_key": "environmentVariables"
+                    },
+                    ephemeral_storage=123,
+                    memory_in_mb=123,
+                    timeout_in_seconds=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2)
+                check_type(argname="argument active_tracing", value=active_tracing, expected_type=type_hints["active_tracing"])
+                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+                check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
+                check_type(argname="argument memory_in_mb", value=memory_in_mb, expected_type=type_hints["memory_in_mb"])
+                check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if active_tracing is not None:
+                self._values["active_tracing"] = active_tracing
+            if environment_variables is not None:
+                self._values["environment_variables"] = environment_variables
+            if ephemeral_storage is not None:
+                self._values["ephemeral_storage"] = ephemeral_storage
+            if memory_in_mb is not None:
+                self._values["memory_in_mb"] = memory_in_mb
+            if timeout_in_seconds is not None:
+                self._values["timeout_in_seconds"] = timeout_in_seconds
+
+        @builtins.property
+        def active_tracing(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Specifies whether this canary is to use active AWS X-Ray tracing when it runs.
+
+            Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. For more information, see `Canaries and X-Ray tracing <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_tracing.html>`_ .
+
+            You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-activetracing
+            '''
+            result = self._values.get("active_tracing")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def environment_variables(
+            self,
+        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]]:
+            '''Specifies the keys and values to use for any environment variables used in the canary script.
+
+            Use the following format:
+
+            { "key1" : "value1", "key2" : "value2", ...}
+
+            Keys must start with a letter and be at least two characters. The total size of your environment variables cannot exceed 4 KB. You can't specify any Lambda reserved environment variables as the keys for your environment variables. For more information about reserved keys, see `Runtime environment variables <https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html#configuration-envvars-runtime>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-environmentvariables
+            '''
+            result = self._values.get("environment_variables")
+            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def ephemeral_storage(self) -> typing.Optional[jsii.Number]:
+            '''Specifies the amount of ephemeral storage (in MB) to allocate for the canary run during execution.
+
+            This temporary storage is used for storing canary run artifacts (which are uploaded to an Amazon S3 bucket at the end of the run), and any canary browser operations. This temporary storage is cleared after the run is completed. Default storage value is 1024 MB.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-ephemeralstorage
+            '''
+            result = self._values.get("ephemeral_storage")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def memory_in_mb(self) -> typing.Optional[jsii.Number]:
+            '''The maximum amount of memory that the canary can use while running.
+
+            This value must be a multiple of 64. The range is 960 to 3008.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-memoryinmb
+            '''
+            result = self._values.get("memory_in_mb")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
+            '''How long the canary is allowed to run before it must stop.
+
+            You can't set this time to be longer than the frequency of the runs of this canary.
+
+            If you omit this field, the frequency of the canary is used as this value, up to a maximum of 900 seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-timeoutinseconds
+            '''
+            result = self._values.get("timeout_in_seconds")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "RunConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.S3EncryptionProperty",
+        jsii_struct_bases=[],
+        name_mapping={"encryption_mode": "encryptionMode", "kms_key_arn": "kmsKeyArn"},
+    )
+    class S3EncryptionProperty:
+        def __init__(
+            self,
+            *,
+            encryption_mode: typing.Optional[builtins.str] = None,
+            kms_key_arn: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
+
+            Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
+
+            :param encryption_mode: The encryption method to use for artifacts created by this canary. Specify ``SSE_S3`` to use server-side encryption (SSE) with an Amazon S3-managed key. Specify ``SSE-KMS`` to use server-side encryption with a customer-managed AWS key. If you omit this parameter, an AWS -managed AWS key is used.
+            :param kms_key_arn: The ARN of the customer-managed AWS key to use, if you specify ``SSE-KMS`` for ``EncryptionMode``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-s3encryption.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                s3_encryption_property = synthetics.CfnCanary.S3EncryptionProperty(
+                    encryption_mode="encryptionMode",
+                    kms_key_arn="kmsKeyArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__551aad28104a61040e1d9e12e77c77ae47c6e19a45d15bfa94e441c5d297d3ab)
+                check_type(argname="argument encryption_mode", value=encryption_mode, expected_type=type_hints["encryption_mode"])
+                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if encryption_mode is not None:
+                self._values["encryption_mode"] = encryption_mode
+            if kms_key_arn is not None:
+                self._values["kms_key_arn"] = kms_key_arn
+
+        @builtins.property
+        def encryption_mode(self) -> typing.Optional[builtins.str]:
+            '''The encryption method to use for artifacts created by this canary.
+
+            Specify ``SSE_S3`` to use server-side encryption (SSE) with an Amazon S3-managed key. Specify ``SSE-KMS`` to use server-side encryption with a customer-managed AWS  key.
+
+            If you omit this parameter, an AWS -managed AWS  key is used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-s3encryption.html#cfn-synthetics-canary-s3encryption-encryptionmode
+            '''
+            result = self._values.get("encryption_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def kms_key_arn(self) -> typing.Optional[builtins.str]:
+            '''The ARN of the customer-managed AWS  key to use, if you specify ``SSE-KMS`` for ``EncryptionMode``.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-s3encryption.html#cfn-synthetics-canary-s3encryption-kmskeyarn
+            '''
+            result = self._values.get("kms_key_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3EncryptionProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ScheduleProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "expression": "expression",
+            "duration_in_seconds": "durationInSeconds",
+            "retry_config": "retryConfig",
+        },
+    )
+    class ScheduleProperty:
+        def __init__(
+            self,
+            *,
+            expression: builtins.str,
+            duration_in_seconds: typing.Optional[builtins.str] = None,
+            retry_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.RetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''This structure specifies how often a canary is to make runs and the date and time when it should stop making runs.
+
+            :param expression: A ``rate`` expression or a ``cron`` expression that defines how often the canary is to run. For a rate expression, The syntax is ``rate( *number unit* )`` . *unit* can be ``minute`` , ``minutes`` , or ``hour`` . For example, ``rate(1 minute)`` runs the canary once a minute, ``rate(10 minutes)`` runs it once every 10 minutes, and ``rate(1 hour)`` runs it once every hour. You can specify a frequency between ``rate(1 minute)`` and ``rate(1 hour)`` . Specifying ``rate(0 minute)`` or ``rate(0 hour)`` is a special value that causes the canary to run only once when it is started. Use ``cron( *expression* )`` to specify a cron expression. You can't schedule a canary to wait for more than a year before running. For information about the syntax for cron expressions, see `Scheduling canary runs using cron <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_cron.html>`_ .
+            :param duration_in_seconds: How long, in seconds, for the canary to continue making regular runs according to the schedule in the ``Expression`` value. If you specify 0, the canary continues making runs until you stop it. If you omit this field, the default of 0 is used.
+            :param retry_config: The canary's retry configuration information.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                schedule_property = synthetics.CfnCanary.ScheduleProperty(
+                    expression="expression",
+                
+                    # the properties below are optional
+                    duration_in_seconds="durationInSeconds",
+                    retry_config=synthetics.CfnCanary.RetryConfigProperty(
+                        max_retries=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e4999288d0e0c5de04c56a3436208778026602dfdca27710aee93f9f4e034c29)
+                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+                check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
+                check_type(argname="argument retry_config", value=retry_config, expected_type=type_hints["retry_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "expression": expression,
+            }
+            if duration_in_seconds is not None:
+                self._values["duration_in_seconds"] = duration_in_seconds
+            if retry_config is not None:
+                self._values["retry_config"] = retry_config
+
+        @builtins.property
+        def expression(self) -> builtins.str:
+            '''A ``rate`` expression or a ``cron`` expression that defines how often the canary is to run.
+
+            For a rate expression, The syntax is ``rate( *number unit* )`` . *unit* can be ``minute`` , ``minutes`` , or ``hour`` .
+
+            For example, ``rate(1 minute)`` runs the canary once a minute, ``rate(10 minutes)`` runs it once every 10 minutes, and ``rate(1 hour)`` runs it once every hour. You can specify a frequency between ``rate(1 minute)`` and ``rate(1 hour)`` .
+
+            Specifying ``rate(0 minute)`` or ``rate(0 hour)`` is a special value that causes the canary to run only once when it is started.
+
+            Use ``cron( *expression* )`` to specify a cron expression. You can't schedule a canary to wait for more than a year before running. For information about the syntax for cron expressions, see `Scheduling canary runs using cron <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_cron.html>`_ .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-expression
+            '''
+            result = self._values.get("expression")
+            assert result is not None, "Required property 'expression' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def duration_in_seconds(self) -> typing.Optional[builtins.str]:
+            '''How long, in seconds, for the canary to continue making regular runs according to the schedule in the ``Expression`` value.
+
+            If you specify 0, the canary continues making runs until you stop it. If you omit this field, the default of 0 is used.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-durationinseconds
+            '''
+            result = self._values.get("duration_in_seconds")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def retry_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RetryConfigProperty"]]:
+            '''The canary's retry configuration information.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-retryconfig
+            '''
+            result = self._values.get("retry_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RetryConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ScheduleProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.VPCConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "security_group_ids": "securityGroupIds",
+            "subnet_ids": "subnetIds",
+            "ipv6_allowed_for_dual_stack": "ipv6AllowedForDualStack",
+            "vpc_id": "vpcId",
+        },
+    )
+    class VPCConfigProperty:
+        def __init__(
+            self,
+            *,
+            security_group_ids: typing.Sequence[builtins.str],
+            subnet_ids: typing.Sequence[builtins.str],
+            ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            vpc_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
+
+            For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
+
+            :param security_group_ids: The IDs of the security groups for this canary.
+            :param subnet_ids: The IDs of the subnets where this canary is to run.
+            :param ipv6_allowed_for_dual_stack: Set this to ``true`` to allow outbound IPv6 traffic on VPC canaries that are connected to dual-stack subnets. The default is ``false`` .
+            :param vpc_id: The ID of the VPC where this canary is to run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                v_pCConfig_property = synthetics.CfnCanary.VPCConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+                
+                    # the properties below are optional
+                    ipv6_allowed_for_dual_stack=False,
+                    vpc_id="vpcId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__eccfde82eb2354e9c416fba506f2ff8e4fb1a86792529f65e2d8eafbc8415074)
+                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
+                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
+                check_type(argname="argument ipv6_allowed_for_dual_stack", value=ipv6_allowed_for_dual_stack, expected_type=type_hints["ipv6_allowed_for_dual_stack"])
+                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "security_group_ids": security_group_ids,
+                "subnet_ids": subnet_ids,
+            }
+            if ipv6_allowed_for_dual_stack is not None:
+                self._values["ipv6_allowed_for_dual_stack"] = ipv6_allowed_for_dual_stack
+            if vpc_id is not None:
+                self._values["vpc_id"] = vpc_id
+
+        @builtins.property
+        def security_group_ids(self) -> typing.List[builtins.str]:
+            '''The IDs of the security groups for this canary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-securitygroupids
+            '''
+            result = self._values.get("security_group_ids")
+            assert result is not None, "Required property 'security_group_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def subnet_ids(self) -> typing.List[builtins.str]:
+            '''The IDs of the subnets where this canary is to run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-subnetids
+            '''
+            result = self._values.get("subnet_ids")
+            assert result is not None, "Required property 'subnet_ids' is missing"
+            return typing.cast(typing.List[builtins.str], result)
+
+        @builtins.property
+        def ipv6_allowed_for_dual_stack(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Set this to ``true`` to allow outbound IPv6 traffic on VPC canaries that are connected to dual-stack subnets.
+
+            The default is ``false`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-ipv6allowedfordualstack
+            '''
+            result = self._values.get("ipv6_allowed_for_dual_stack")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def vpc_id(self) -> typing.Optional[builtins.str]:
+            '''The ID of the VPC where this canary is to run.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-vpcid
+            '''
+            result = self._values.get("vpc_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VPCConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.VisualReferenceProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "base_canary_run_id": "baseCanaryRunId",
+            "base_screenshots": "baseScreenshots",
+            "browser_type": "browserType",
+        },
+    )
+    class VisualReferenceProperty:
+        def __init__(
+            self,
+            *,
+            base_canary_run_id: builtins.str,
+            base_screenshots: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.BaseScreenshotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            browser_type: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Defines the screenshots to use as the baseline for comparisons during visual monitoring comparisons during future runs of this canary.
+
+            If you omit this parameter, no changes are made to any baseline screenshots that the canary might be using already.
+
+            Visual monitoring is supported only on canaries running the *syn-puppeteer-node-3.2* runtime or later. For more information, see `Visual monitoring <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_SyntheticsLogger_VisualTesting.html>`_ and `Visual monitoring blueprint <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Blueprints_VisualTesting.html>`_
+
+            :param base_canary_run_id: Specifies which canary run to use the screenshots from as the baseline for future visual monitoring with this canary. Valid values are ``nextrun`` to use the screenshots from the next run after this update is made, ``lastrun`` to use the screenshots from the most recent run before this update was made, or the value of ``Id`` in the `CanaryRun <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_CanaryRun.html>`_ from any past run of this canary.
+            :param base_screenshots: An array of screenshots that are used as the baseline for comparisons during visual monitoring.
+            :param browser_type: The browser type associated with this visual reference configuration. Valid values are ``CHROME`` and ``FIREFOX`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_synthetics as synthetics
+                
+                visual_reference_property = synthetics.CfnCanary.VisualReferenceProperty(
+                    base_canary_run_id="baseCanaryRunId",
+                
+                    # the properties below are optional
+                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
+                        screenshot_name="screenshotName",
+                
+                        # the properties below are optional
+                        ignore_coordinates=["ignoreCoordinates"]
+                    )],
+                    browser_type="browserType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2cd794526)
+                check_type(argname="argument base_canary_run_id", value=base_canary_run_id, expected_type=type_hints["base_canary_run_id"])
+                check_type(argname="argument base_screenshots", value=base_screenshots, expected_type=type_hints["base_screenshots"])
+                check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "base_canary_run_id": base_canary_run_id,
+            }
+            if base_screenshots is not None:
+                self._values["base_screenshots"] = base_screenshots
+            if browser_type is not None:
+                self._values["browser_type"] = browser_type
+
+        @builtins.property
+        def base_canary_run_id(self) -> builtins.str:
+            '''Specifies which canary run to use the screenshots from as the baseline for future visual monitoring with this canary.
+
+            Valid values are ``nextrun`` to use the screenshots from the next run after this update is made, ``lastrun`` to use the screenshots from the most recent run before this update was made, or the value of ``Id`` in the `CanaryRun <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_CanaryRun.html>`_ from any past run of this canary.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-basecanaryrunid
+            '''
+            result = self._values.get("base_canary_run_id")
+            assert result is not None, "Required property 'base_canary_run_id' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def base_screenshots(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BaseScreenshotProperty"]]]]:
+            '''An array of screenshots that are used as the baseline for comparisons during visual monitoring.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-basescreenshots
+            '''
+            result = self._values.get("base_screenshots")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BaseScreenshotProperty"]]]], result)
+
+        @builtins.property
+        def browser_type(self) -> typing.Optional[builtins.str]:
+            '''The browser type associated with this visual reference configuration.
+
+            Valid values are ``CHROME`` and ``FIREFOX`` .
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-browsertype
+            '''
+            result = self._values.get("browser_type")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VisualReferenceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
 
 @jsii.data_type(
@@ -1601,25 +3303,25 @@ class CfnCanaryProps:
         self,
         *,
         artifact_s3_location: builtins.str,
-        code: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
-        execution_role_arn: builtins.str,
+        code: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
+        execution_role_arn: typing.Union[builtins.str, "_IRoleRef_8400221f"],
         name: builtins.str,
         runtime_version: builtins.str,
-        schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
-        artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        schedule: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
+        artifact_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        browser_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         failure_retention_period: typing.Optional[jsii.Number] = None,
         provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
         resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+        run_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
         success_retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_reference: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        visual_references: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnCanary``.
 
@@ -1649,6 +3351,7 @@ class CfnCanaryProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_synthetics as synthetics
@@ -1656,15 +3359,14 @@ class CfnCanaryProps:
             cfn_canary_props = synthetics.CfnCanaryProps(
                 artifact_s3_location="artifactS3Location",
                 code=synthetics.CfnCanary.CodeProperty(
-                    handler="handler",
-            
-                    # the properties below are optional
+                    blueprint_types=["blueprintTypes"],
                     dependencies=[synthetics.CfnCanary.DependencyProperty(
                         reference="reference",
             
                         # the properties below are optional
                         type="type"
                     )],
+                    handler="handler",
                     s3_bucket="s3Bucket",
                     s3_key="s3Key",
                     s3_object_version="s3ObjectVersion",
@@ -1820,7 +3522,7 @@ class CfnCanaryProps:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def code(self) -> typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"]:
+    def code(self) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"]:
         '''Use this structure to input your script code for the canary.
 
         This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
@@ -1829,10 +3531,10 @@ class CfnCanaryProps:
         '''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.CodeProperty"], result)
 
     @builtins.property
-    def execution_role_arn(self) -> builtins.str:
+    def execution_role_arn(self) -> typing.Union[builtins.str, "_IRoleRef_8400221f"]:
         '''The ARN of the IAM role to be used to run the canary.
 
         This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions:
@@ -1849,7 +3551,7 @@ class CfnCanaryProps:
         '''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Union[builtins.str, "_IRoleRef_8400221f"], result)
 
     @builtins.property
     def name(self) -> builtins.str:
@@ -1880,30 +3582,30 @@ class CfnCanaryProps:
     @builtins.property
     def schedule(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"]:
+    ) -> typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"]:
         '''A structure that contains information about how often the canary is to run, and when these runs are to stop.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-schedule
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"], result)
+        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCanary.ScheduleProperty"], result)
 
     @builtins.property
     def artifact_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]]:
         '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-artifactconfig
         '''
         result = self._values.get("artifact_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.ArtifactConfigProperty"]], result)
 
     @builtins.property
     def browser_configs(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]]:
         '''A structure that specifies the browser type to use for a canary run.
 
         CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers.
@@ -1914,12 +3616,12 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-browserconfigs
         '''
         result = self._values.get("browser_configs")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.BrowserConfigProperty"]]]], result)
 
     @builtins.property
     def delete_lambda_resources_on_canary_deletion(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
 
         Default is False
@@ -1930,12 +3632,12 @@ class CfnCanaryProps:
         :stability: deprecated
         '''
         result = self._values.get("delete_lambda_resources_on_canary_deletion")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def dry_run_and_update(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specifies whether to perform a dry run before updating the canary.
 
         If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason.
@@ -1947,7 +3649,7 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-dryrunandupdate
         '''
         result = self._values.get("dry_run_and_update")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def failure_retention_period(self) -> typing.Optional[jsii.Number]:
@@ -1989,7 +3691,7 @@ class CfnCanaryProps:
     @builtins.property
     def run_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]]:
         '''A structure that contains input information for a canary run.
 
         If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
@@ -1997,12 +3699,12 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-runconfig
         '''
         result = self._values.get("run_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.RunConfigProperty"]], result)
 
     @builtins.property
     def start_canary_after_creation(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''Specify TRUE to have the canary start making runs immediately after it is created.
 
         A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
@@ -2010,7 +3712,7 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-startcanaryaftercreation
         '''
         result = self._values.get("start_canary_after_creation")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
 
     @builtins.property
     def success_retention_period(self) -> typing.Optional[jsii.Number]:
@@ -2026,18 +3728,18 @@ class CfnCanaryProps:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The list of key-value pairs that are associated with the canary.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def visual_reference(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]:
         '''
         :deprecated: this property has been deprecated
 
@@ -2045,12 +3747,12 @@ class CfnCanaryProps:
         :stability: deprecated
         '''
         result = self._values.get("visual_reference")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]], result)
 
     @builtins.property
     def visual_references(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]]:
         '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.
 
         Visual references are used for visual monitoring comparisons.
@@ -2062,12 +3764,12 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-visualreferences
         '''
         result = self._values.get("visual_references")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnCanary.VisualReferenceProperty"]]]], result)
 
     @builtins.property
     def vpc_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]]:
         '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
 
         For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
@@ -2075,7 +3777,7 @@ class CfnCanaryProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html#cfn-synthetics-canary-vpcconfig
         '''
         result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]], result)
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCanary.VPCConfigProperty"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2089,6 +3791,179 @@ class CfnCanaryProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _IGroupRef_4fc55162, _ITaggable_36806126)
+class CfnGroup(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_synthetics.CfnGroup",
+):
+    '''Creates or updates a group which you can use to associate canaries with each other, including cross-Region canaries.
+
+    Using groups can help you with managing and automating your canaries, and you can also view aggregated run results and statistics for all canaries in a group.
+
+    Groups are global resources. When you create a group, it is replicated across all AWS Regions, and you can add canaries from any Region to it, and view it in any Region. Although the group ARN format reflects the Region name where it was created, a group is not constrained to any Region. This means that you can put canaries from multiple Regions into the same group, and then use that group to view and manage all of those canaries in a single view.
+
+    Each group can contain as many as 10 canaries. You can have as many as 20 groups in your account. Any single canary can be a member of up to 10 groups.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html
+    :cloudformationResource: AWS::Synthetics::Group
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        from aws_cdk import CfnTag
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_synthetics as synthetics
+        
+        cfn_group = synthetics.CfnGroup(self, "MyCfnGroup",
+            name="name",
+        
+            # the properties below are optional
+            resource_arns=["resourceArns"],
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )]
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        name: builtins.str,
+        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Create a new ``AWS::Synthetics::Group``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param name: A name for the group. It can include any Unicode characters. The names for all groups in your account, across all Regions, must be unique.
+        :param resource_arns: The ARNs of the canaries that you want to associate with this group.
+        :param tags: The list of key-value pairs that are associated with the group.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae1447c2af09)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnGroupProps(name=name, resource_arns=resource_arns, tags=tags)
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="isCfnGroup")
+    @builtins.classmethod
+    def is_cfn_group(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnGroup.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4617b52968dab7116670f82ed8a0e28c73b86148aa7dc92f940f22398ef479e9)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnGroup", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c02721081747307dfd2212f0ae4958cfbad3dc1ec5b0667712fb08ebd5d7e65)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4dd500824b1b77e386dc3d0eca110f83c00176cc9ac0861387258adf2b7914e)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrId")
+    def attr_id(self) -> builtins.str:
+        '''The Id of the group.
+
+        :cloudformationAttribute: Id
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="groupRef")
+    def group_ref(self) -> "_GroupReference_37835a7e":
+        '''A reference to a Group resource.'''
+        return typing.cast("_GroupReference_37835a7e", jsii.get(self, "groupRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        '''A name for the group.
+
+        It can include any Unicode characters.
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6401b033d62b6cede0e2328e1f7c75c5607ed33e285fb529afce4814a3551bee)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="resourceArns")
+    def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''The ARNs of the canaries that you want to associate with this group.'''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourceArns"))
+
+    @resource_arns.setter
+    def resource_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d6435999ba)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tagsRaw")
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The list of key-value pairs that are associated with the group.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
+
+    @tags_raw.setter
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_synthetics.CfnGroupProps",
     jsii_struct_bases=[],
@@ -2100,7 +3975,7 @@ class CfnGroupProps:
         *,
         name: builtins.str,
         resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnGroup``.
 
@@ -2113,6 +3988,7 @@ class CfnGroupProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_synthetics as synthetics
@@ -2163,13 +4039,13 @@ class CfnGroupProps:
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The list of key-value pairs that are associated with the group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html#cfn-synthetics-group-tags
         '''
         result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2234,14 +4110,14 @@ class Code(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
+        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
+        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
     ) -> "AssetCode":
         '''Specify code from a local path.
 
@@ -2285,7 +4161,7 @@ class Code(
     @builtins.classmethod
     def from_bucket(
         cls,
-        bucket: _IBucketRef_fb8fe266,
+        bucket: "_IBucketRef_3debe44e",
         key: builtins.str,
         object_version: typing.Optional[builtins.str] = None,
     ) -> "S3Code":
@@ -2327,7 +4203,7 @@ class Code(
     @abc.abstractmethod
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         handler: builtins.str,
         family: "RuntimeFamily",
         runtime_name: typing.Optional[builtins.str] = None,
@@ -2348,7 +4224,7 @@ class _CodeProxy(Code):
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         handler: builtins.str,
         family: "RuntimeFamily",
         runtime_name: typing.Optional[builtins.str] = None,
@@ -2384,7 +4260,7 @@ class CodeConfig:
         self,
         *,
         inline_code: typing.Optional[builtins.str] = None,
-        s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
+        s3_location: typing.Optional[typing.Union["_Location_0948fa7f", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Configuration of the code class.
 
@@ -2395,6 +4271,7 @@ class CodeConfig:
 
         Example::
 
+            from aws_cdk.aws_s3 import Location
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_synthetics as synthetics
@@ -2432,13 +4309,13 @@ class CodeConfig:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def s3_location(self) -> typing.Optional[_Location_0948fa7f]:
+    def s3_location(self) -> typing.Optional["_Location_0948fa7f"]:
         '''The location of the code in S3 (mutually exclusive with ``inlineCode``).
 
         :default: - none
         '''
         result = self._values.get("s3_location")
-        return typing.cast(typing.Optional[_Location_0948fa7f], result)
+        return typing.cast(typing.Optional["_Location_0948fa7f"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2575,7 +4452,7 @@ class CronOptions:
     name_mapping={"code": "code", "handler": "handler"},
 )
 class CustomTestOptions:
-    def __init__(self, *, code: Code, handler: builtins.str) -> None:
+    def __init__(self, *, code: "Code", handler: builtins.str) -> None:
         '''Properties for specifying a test.
 
         :param code: The code of the canary script.
@@ -2605,11 +4482,11 @@ class CustomTestOptions:
         }
 
     @builtins.property
-    def code(self) -> Code:
+    def code(self) -> "Code":
         '''The code of the canary script.'''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
-        return typing.cast(Code, result)
+        return typing.cast("Code", result)
 
     @builtins.property
     def handler(self) -> builtins.str:
@@ -2631,135 +4508,6 @@ class CustomTestOptions:
         return "CustomTestOptions(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_synthetics.GroupReference",
-    jsii_struct_bases=[],
-    name_mapping={"group_name": "groupName"},
-)
-class GroupReference:
-    def __init__(self, *, group_name: builtins.str) -> None:
-        '''A reference to a Group resource.
-
-        :param group_name: The Name of the Group resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_synthetics as synthetics
-            
-            group_reference = synthetics.GroupReference(
-                group_name="groupName"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__73164cd8a0bb9ee7a5efdacdcef416de8ebe14cac7d826ecaabe6a40db15e0d8)
-            check_type(argname="argument group_name", value=group_name, expected_type=type_hints["group_name"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "group_name": group_name,
-        }
-
-    @builtins.property
-    def group_name(self) -> builtins.str:
-        '''The Name of the Group resource.'''
-        result = self._values.get("group_name")
-        assert result is not None, "Required property 'group_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "GroupReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.ICanaryRef")
-class ICanaryRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Canary.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="canaryRef")
-    def canary_ref(self) -> CanaryReference:
-        '''(experimental) A reference to a Canary resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ICanaryRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Canary.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_synthetics.ICanaryRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="canaryRef")
-    def canary_ref(self) -> CanaryReference:
-        '''(experimental) A reference to a Canary resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(CanaryReference, jsii.get(self, "canaryRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ICanaryRef).__jsii_proxy_class__ = lambda : _ICanaryRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_synthetics.IGroupRef")
-class IGroupRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Group.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
-        '''(experimental) A reference to a Group resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IGroupRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Group.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_synthetics.IGroupRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
-        '''(experimental) A reference to a Group resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IGroupRef).__jsii_proxy_class__ = lambda : _IGroupRefProxy
 
 
 class InlineCode(
@@ -2792,11 +4540,11 @@ class InlineCode(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         handler: builtins.str,
         _family: "RuntimeFamily",
         _runtime_name: typing.Optional[builtins.str] = None,
-    ) -> CodeConfig:
+    ) -> "CodeConfig":
         '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
 
         :param scope: -
@@ -2810,7 +4558,7 @@ class InlineCode(
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
             check_type(argname="argument _runtime_name", value=_runtime_name, expected_type=type_hints["_runtime_name"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, handler, _family, _runtime_name]))
+        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, handler, _family, _runtime_name]))
 
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_synthetics.ResourceToReplicateTags")
@@ -2871,6 +4619,19 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         jsii.create(self.__class__, self, [name, family])
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_3_0")
+    def SYNTHETICS_NODEJS_3_0(cls) -> "Runtime":
+        '''``syn-nodejs-3.0`` includes the following: - Lambda runtime Node.js 20.x.
+
+        New Features:
+
+        - **Multi-checks blueprint**: Supports the multi-checks blueprint for creating complex synthetic monitoring scenarios.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_Nodejs.html
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_3_0"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_1_0")
     def SYNTHETICS_NODEJS_PLAYWRIGHT_1_0(cls) -> "Runtime":
         '''``syn-nodejs-playwright-1.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.45 - Chromium version 126.0.6478.126.
@@ -2904,7 +4665,7 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_3_0")
     def SYNTHETICS_NODEJS_PLAYWRIGHT_3_0(cls) -> "Runtime":
-        '''``syn-nodejs-playwright-2.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.53.0 - Chromium version 138.0.7204.168.
+        '''``syn-nodejs-playwright-3.0`` includes the following: - Lambda runtime Node.js 20.x - Playwright version 1.53.0 - Chromium version 138.0.7204.168.
 
         New Features:
 
@@ -2914,6 +4675,32 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-3.0
         '''
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_3_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_4_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_4_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-4.0`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.55.0 - Chromium version 140.0.7339.16 - Firefox version 141.0.
+
+        New Features:
+
+        - Applied security patches and updated Playwright and browser versions.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-4.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_4_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PLAYWRIGHT_5_0")
+    def SYNTHETICS_NODEJS_PLAYWRIGHT_5_0(cls) -> "Runtime":
+        '''``syn-nodejs-playwright-5.0`` includes the following: - Lambda runtime Node.js 22.x - Playwright version 1.57.0 - Chromium version 143.0.7499.4 - Firefox version 142.0.1.
+
+        New Features:
+
+        - Applied security patches and updated Playwright and browser versions.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_playwright.html#Synthetics_runtimeversion-syn-nodejs-playwright-5.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PLAYWRIGHT_5_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_10_0")
@@ -2950,6 +4737,36 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-11.0
         '''
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_11_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_12_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_12_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-12.0`` includes the following: - Lambda runtime Node.js 22.x - Puppeteer-core version 24.22.1 - Chromium version 140.0.7339.185 - Firefox version 143.0.1.
+
+        New Features:
+
+        - Applied security patches and updated Puppeteer and browser versions.
+        - **Bug fix for Restricted header redaction**: Fixed an issue where in some situations restricted headers were not being redacted in executeHttpStep(). Behavior is now consistent with Puppeteer 10.0.
+        - **Bug fix for includeResponseBody configuration**: Fixed an issue where HAR file generation can misapply the includeResponseBody configuration setting in certain situations. HAR now ensures response bodies are excluded when setting is configured.
+        - **Request capture lifecycle fixed**: Fixed an issue where in some situations the HTTP request capturer may cause continuous aggregation of requests. Recording now terminates correctly after each step execution.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-12.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_12_0"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_13_0")
+    def SYNTHETICS_NODEJS_PUPPETEER_13_0(cls) -> "Runtime":
+        '''``syn-nodejs-puppeteer-13.0`` includes the following: - Lambda runtime Node.js 22.x - Puppeteer-core version 24.25.0 - Chromium version 142.0.7444.175 - Firefox version 145.x.
+
+        New Features:
+
+        - Applied security patches and updated Puppeteer and browser versions.
+        - **Bug fix**: Fixed intermittent runtime extension crash issue caused by concurrent map access
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_nodejs_puppeteer.html#CloudWatch_Synthetics_runtimeversion-nodejs-puppeteer-13.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_NODEJS_PUPPETEER_13_0"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SYNTHETICS_NODEJS_PUPPETEER_3_5")
@@ -3370,6 +5187,15 @@ class Runtime(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Run
         '''
         return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_6_0"))
 
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="SYNTHETICS_PYTHON_SELENIUM_7_0")
+    def SYNTHETICS_PYTHON_SELENIUM_7_0(cls) -> "Runtime":
+        '''``syn-python-selenium-7.0`` includes the following: - Lambda runtime Python 3.11 - Selenium version 4.32.0 - Chromium version 138.0.7204.168.
+
+        :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_python_selenium.html#CloudWatch_Synthetics_runtimeversion-syn-python-selenium-7.0
+        '''
+        return typing.cast("Runtime", jsii.sget(cls, "SYNTHETICS_PYTHON_SELENIUM_7_0"))
+
     @builtins.property
     @jsii.member(jsii_name="family")
     def family(self) -> "RuntimeFamily":
@@ -3408,17 +5234,17 @@ class S3Code(
 
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
-        from aws_cdk import aws_s3 as s3
         from aws_cdk import aws_synthetics as synthetics
+        from aws_cdk.interfaces import aws_s3 as interfaces_s3
         
-        # bucket_ref: s3.IBucketRef
+        # bucket_ref: interfaces_s3.IBucketRef
         
         s3_code = synthetics.S3Code(bucket_ref, "key", "objectVersion")
     '''
 
     def __init__(
         self,
-        bucket: _IBucketRef_fb8fe266,
+        bucket: "_IBucketRef_3debe44e",
         key: builtins.str,
         object_version: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -3437,11 +5263,11 @@ class S3Code(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        _scope: _constructs_77d1e7e8.Construct,
+        _scope: "_constructs_77d1e7e8.Construct",
         _handler: builtins.str,
-        _family: RuntimeFamily,
+        _family: "RuntimeFamily",
         _runtime_name: typing.Optional[builtins.str] = None,
-    ) -> CodeConfig:
+    ) -> "CodeConfig":
         '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
 
         :param _scope: -
@@ -3455,7 +5281,7 @@ class S3Code(
             check_type(argname="argument _handler", value=_handler, expected_type=type_hints["_handler"])
             check_type(argname="argument _family", value=_family, expected_type=type_hints["_family"])
             check_type(argname="argument _runtime_name", value=_runtime_name, expected_type=type_hints["_runtime_name"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [_scope, _handler, _family, _runtime_name]))
+        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [_scope, _handler, _family, _runtime_name]))
 
 
 class Schedule(
@@ -3527,7 +5353,7 @@ class Schedule(
 
     @jsii.member(jsii_name="rate")
     @builtins.classmethod
-    def rate(cls, interval: _Duration_4839e8c3) -> "Schedule":
+    def rate(cls, interval: "_Duration_4839e8c3") -> "Schedule":
         '''Construct a schedule from an interval.
 
         Allowed values: 0 (for a single run) or between 1 and 60 minutes.
@@ -3567,7 +5393,7 @@ class Test(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Test")
 
     @jsii.member(jsii_name="custom")
     @builtins.classmethod
-    def custom(cls, *, code: Code, handler: builtins.str) -> "Test":
+    def custom(cls, *, code: "Code", handler: builtins.str) -> "Test":
         '''Specify a custom test with your own code.
 
         :param code: The code of the canary script.
@@ -3581,9 +5407,9 @@ class Test(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_synthetics.Test")
 
     @builtins.property
     @jsii.member(jsii_name="code")
-    def code(self) -> Code:
+    def code(self) -> "Code":
         '''The code that the canary should run.'''
-        return typing.cast(Code, jsii.get(self, "code"))
+        return typing.cast("Code", jsii.get(self, "code"))
 
     @builtins.property
     @jsii.member(jsii_name="handler")
@@ -3607,12 +5433,12 @@ class AssetCode(
         # The values are placeholders you should change.
         import aws_cdk as cdk
         from aws_cdk import aws_iam as iam
-        from aws_cdk import aws_kms as kms
         from aws_cdk import aws_synthetics as synthetics
+        from aws_cdk.interfaces import aws_kms as interfaces_kms
         
         # docker_image: cdk.DockerImage
         # grantable: iam.IGrantable
-        # key_ref: kms.IKeyRef
+        # key_ref: interfaces_kms.IKeyRef
         # local_bundling: cdk.ILocalBundling
         
         asset_code = synthetics.AssetCode("assetPath",
@@ -3660,14 +5486,14 @@ class AssetCode(
         *,
         deploy_time: typing.Optional[builtins.bool] = None,
         display_name: typing.Optional[builtins.str] = None,
-        readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-        source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
+        readers: typing.Optional[typing.Sequence["_IGrantable_71c4f5de"]] = None,
+        source_kms_key: typing.Optional["_IKeyRef_d4fc6ef3"] = None,
         asset_hash: typing.Optional[builtins.str] = None,
-        asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-        bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+        asset_hash_type: typing.Optional["_AssetHashType_05b67f2d"] = None,
+        bundling: typing.Optional[typing.Union["_BundlingOptions_588cc936", typing.Dict[builtins.str, typing.Any]]] = None,
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-        follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-        ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+        follow_symlinks: typing.Optional["_SymlinkFollowMode_047ec1f6"] = None,
+        ignore_mode: typing.Optional["_IgnoreMode_655a98e8"] = None,
     ) -> None:
         '''
         :param asset_path: The path to the asset file or directory.
@@ -3703,11 +5529,11 @@ class AssetCode(
     @jsii.member(jsii_name="bind")
     def bind(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         handler: builtins.str,
-        family: RuntimeFamily,
+        family: "RuntimeFamily",
         runtime_name: typing.Optional[builtins.str] = None,
-    ) -> CodeConfig:
+    ) -> "CodeConfig":
         '''Called when the canary is initialized to allow this object to bind to the stack, add resources and have fun.
 
         :param scope: -
@@ -3721,1817 +5547,7 @@ class AssetCode(
             check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
             check_type(argname="argument family", value=family, expected_type=type_hints["family"])
             check_type(argname="argument runtime_name", value=runtime_name, expected_type=type_hints["runtime_name"])
-        return typing.cast(CodeConfig, jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
-
-
-@jsii.implements(_IInspectable_c2943556, ICanaryRef, _ITaggable_36806126)
-class CfnCanary(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary",
-):
-    '''Creates or updates a canary.
-
-    Canaries are scripts that monitor your endpoints and APIs from the outside-in. Canaries help you check the availability and latency of your web services and troubleshoot anomalies by investigating load time data, screenshots of the UI, logs, and metrics. You can set up a canary to run continuously or just once.
-
-    Canaries are automated scripts that run at specified intervals against an endpoint. They include Python or Node.js code to create a Lambda function. This code needs to be packaged in a certain way, depending on the language. For more information, see `Writing a canary script <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_WritingCanary.html>`_ .
-
-    To create canaries, you must have the ``CloudWatchSyntheticsFullAccess`` policy. If you are creating a new IAM role for the canary, you also need the the ``iam:CreateRole`` , ``iam:CreatePolicy`` and ``iam:AttachRolePolicy`` permissions. For more information, see `Necessary Roles and Permissions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Roles>`_ .
-
-    Do not include secrets or proprietary information in your canary names. The canary name makes up part of the Amazon Resource Name (ARN) for the canary, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-canary.html
-    :cloudformationResource: AWS::Synthetics::Canary
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_synthetics as synthetics
-        
-        cfn_canary = synthetics.CfnCanary(self, "MyCfnCanary",
-            artifact_s3_location="artifactS3Location",
-            code=synthetics.CfnCanary.CodeProperty(
-                handler="handler",
-        
-                # the properties below are optional
-                dependencies=[synthetics.CfnCanary.DependencyProperty(
-                    reference="reference",
-        
-                    # the properties below are optional
-                    type="type"
-                )],
-                s3_bucket="s3Bucket",
-                s3_key="s3Key",
-                s3_object_version="s3ObjectVersion",
-                script="script",
-                source_location_arn="sourceLocationArn"
-            ),
-            execution_role_arn="executionRoleArn",
-            name="name",
-            runtime_version="runtimeVersion",
-            schedule=synthetics.CfnCanary.ScheduleProperty(
-                expression="expression",
-        
-                # the properties below are optional
-                duration_in_seconds="durationInSeconds",
-                retry_config=synthetics.CfnCanary.RetryConfigProperty(
-                    max_retries=123
-                )
-            ),
-        
-            # the properties below are optional
-            artifact_config=synthetics.CfnCanary.ArtifactConfigProperty(
-                s3_encryption=synthetics.CfnCanary.S3EncryptionProperty(
-                    encryption_mode="encryptionMode",
-                    kms_key_arn="kmsKeyArn"
-                )
-            ),
-            browser_configs=[synthetics.CfnCanary.BrowserConfigProperty(
-                browser_type="browserType"
-            )],
-            delete_lambda_resources_on_canary_deletion=False,
-            dry_run_and_update=False,
-            failure_retention_period=123,
-            provisioned_resource_cleanup="provisionedResourceCleanup",
-            resources_to_replicate_tags=["resourcesToReplicateTags"],
-            run_config=synthetics.CfnCanary.RunConfigProperty(
-                active_tracing=False,
-                environment_variables={
-                    "environment_variables_key": "environmentVariables"
-                },
-                ephemeral_storage=123,
-                memory_in_mb=123,
-                timeout_in_seconds=123
-            ),
-            start_canary_after_creation=False,
-            success_retention_period=123,
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )],
-            visual_reference=synthetics.CfnCanary.VisualReferenceProperty(
-                base_canary_run_id="baseCanaryRunId",
-        
-                # the properties below are optional
-                base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
-                    screenshot_name="screenshotName",
-        
-                    # the properties below are optional
-                    ignore_coordinates=["ignoreCoordinates"]
-                )],
-                browser_type="browserType"
-            ),
-            visual_references=[synthetics.CfnCanary.VisualReferenceProperty(
-                base_canary_run_id="baseCanaryRunId",
-        
-                # the properties below are optional
-                base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
-                    screenshot_name="screenshotName",
-        
-                    # the properties below are optional
-                    ignore_coordinates=["ignoreCoordinates"]
-                )],
-                browser_type="browserType"
-            )],
-            vpc_config=synthetics.CfnCanary.VPCConfigProperty(
-                security_group_ids=["securityGroupIds"],
-                subnet_ids=["subnetIds"],
-        
-                # the properties below are optional
-                ipv6_allowed_for_dual_stack=False,
-                vpc_id="vpcId"
-            )
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        artifact_s3_location: builtins.str,
-        code: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.CodeProperty", typing.Dict[builtins.str, typing.Any]]],
-        execution_role_arn: builtins.str,
-        name: builtins.str,
-        runtime_version: builtins.str,
-        schedule: typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ScheduleProperty", typing.Dict[builtins.str, typing.Any]]],
-        artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.ArtifactConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.BrowserConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        failure_retention_period: typing.Optional[jsii.Number] = None,
-        provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
-        resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-        run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.RunConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        success_retention_period: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VisualReferenceProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.VPCConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param artifact_s3_location: The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary. Artifacts include the log file, screenshots, and HAR files. Specify the full location path, including ``s3://`` at the beginning of the path.
-        :param code: Use this structure to input your script code for the canary. This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
-        :param execution_role_arn: The ARN of the IAM role to be used to run the canary. This role must already exist, and must include ``lambda.amazonaws.com`` as a principal in the trust policy. The role must also have the following permissions: - ``s3:PutObject`` - ``s3:GetBucketLocation`` - ``s3:ListAllMyBuckets`` - ``cloudwatch:PutMetricData`` - ``logs:CreateLogGroup`` - ``logs:CreateLogStream`` - ``logs:PutLogEvents``
-        :param name: The name for this canary. Be sure to give it a descriptive name that distinguishes it from other canaries in your account. Do not include secrets or proprietary information in your canary names. The canary name makes up part of the canary ARN, and the ARN is included in outbound calls over the internet. For more information, see `Security Considerations for Synthetics Canaries <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/servicelens_canaries_security.html>`_ .
-        :param runtime_version: Specifies the runtime version to use for the canary. For more information about runtime versions, see `Canary Runtime Versions <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Library.html>`_ .
-        :param schedule: A structure that contains information about how often the canary is to run, and when these runs are to stop.
-        :param artifact_config: A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.
-        :param browser_configs: A structure that specifies the browser type to use for a canary run. CloudWatch Synthetics supports running canaries on both ``CHROME`` and ``FIREFOX`` browsers. .. epigraph:: If not specified, ``browserConfigs`` defaults to Chrome.
-        :param delete_lambda_resources_on_canary_deletion: (deprecated) Deletes associated lambda resources created by Synthetics if set to True. Default is False
-        :param dry_run_and_update: Specifies whether to perform a dry run before updating the canary. If set to ``true`` , CloudFormation will execute a dry run to validate the changes before applying them to the canary. If the dry run succeeds, the canary will be updated with the changes. If the dry run fails, the CloudFormation deployment will fail with the dry run’s failure reason. If set to ``false`` or omitted, the canary will be updated directly without first performing a dry run. The default value is ``false`` . For more information, see `Performing safe canary updates <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/performing-safe-canary-upgrades.html>`_ .
-        :param failure_retention_period: The number of days to retain data about failed runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
-        :param provisioned_resource_cleanup: Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted. If it is ``AUTOMATIC`` , the Lambda functions and layers will be deleted when the canary is deleted. If the value of this parameter is ``OFF`` , then the value of the ``DeleteLambda`` parameter of the `DeleteCanary <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_DeleteCanary.html>`_ operation determines whether the Lambda functions and layers will be deleted.
-        :param resources_to_replicate_tags: To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` . If you do this, CloudWatch Synthetics will keep the tags of the canary and the Lambda function synchronized. Any future changes you make to the canary's tags will also be applied to the function.
-        :param run_config: A structure that contains input information for a canary run. If you omit this structure, the frequency of the canary is used as canary's timeout value, up to a maximum of 900 seconds.
-        :param start_canary_after_creation: Specify TRUE to have the canary start making runs immediately after it is created. A canary that you create using CloudFormation can't be used to monitor the CloudFormation stack that creates the canary or to roll back that stack if there is a failure.
-        :param success_retention_period: The number of days to retain data about successful runs of this canary. If you omit this field, the default of 31 days is used. The valid range is 1 to 455 days. This setting affects the range of information returned by `GetCanaryRuns <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_GetCanaryRuns.html>`_ , as well as the range of information displayed in the Synthetics console.
-        :param tags: The list of key-value pairs that are associated with the canary.
-        :param visual_reference: 
-        :param visual_references: A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on. Visual references are used for visual monitoring comparisons. ``syn-nodejs-puppeteer-11.0`` and above, and ``syn-nodejs-playwright-3.0`` and above, only supports ``visualReferences`` . ``visualReference`` field is not supported. Versions older than ``syn-nodejs-puppeteer-11.0`` supports both ``visualReference`` and ``visualReferences`` for backward compatibility. It is recommended to use ``visualReferences`` for consistency and future compatibility.
-        :param vpc_config: If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint. For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2b971663)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnCanaryProps(
-            artifact_s3_location=artifact_s3_location,
-            code=code,
-            execution_role_arn=execution_role_arn,
-            name=name,
-            runtime_version=runtime_version,
-            schedule=schedule,
-            artifact_config=artifact_config,
-            browser_configs=browser_configs,
-            delete_lambda_resources_on_canary_deletion=delete_lambda_resources_on_canary_deletion,
-            dry_run_and_update=dry_run_and_update,
-            failure_retention_period=failure_retention_period,
-            provisioned_resource_cleanup=provisioned_resource_cleanup,
-            resources_to_replicate_tags=resources_to_replicate_tags,
-            run_config=run_config,
-            start_canary_after_creation=start_canary_after_creation,
-            success_retention_period=success_retention_period,
-            tags=tags,
-            visual_reference=visual_reference,
-            visual_references=visual_references,
-            vpc_config=vpc_config,
-        )
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc166bab0fcf177897c1dbb233203e39458428064bc6ff7215b01b2b3ec6f3a2)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65410bca39459dd8b2ef582ab37870de468cb765034b9600759877910b340355)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrCodeSourceLocationArn")
-    def attr_code_source_location_arn(self) -> builtins.str:
-        '''``Ref`` returns the ARN of the Lambda layer where Synthetics stores the canary script code.
-
-        :cloudformationAttribute: Code.SourceLocationArn
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrCodeSourceLocationArn"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The ID of the canary.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrState")
-    def attr_state(self) -> builtins.str:
-        '''The state of the canary.
-
-        For example, ``RUNNING`` .
-
-        :cloudformationAttribute: State
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrState"))
-
-    @builtins.property
-    @jsii.member(jsii_name="canaryRef")
-    def canary_ref(self) -> CanaryReference:
-        '''A reference to a Canary resource.'''
-        return typing.cast(CanaryReference, jsii.get(self, "canaryRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="artifactS3Location")
-    def artifact_s3_location(self) -> builtins.str:
-        '''The location in Amazon S3 where Synthetics stores artifacts from the runs of this canary.'''
-        return typing.cast(builtins.str, jsii.get(self, "artifactS3Location"))
-
-    @artifact_s3_location.setter
-    def artifact_s3_location(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdaba4ac1ed08cbb682b002e6d07aabeaccadbe7c5a6d4bbbc1aaaa15bb4831c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifactS3Location", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="code")
-    def code(self) -> typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"]:
-        '''Use this structure to input your script code for the canary.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"], jsii.get(self, "code"))
-
-    @code.setter
-    def code(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCanary.CodeProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__940d05df3a63f7ad05e985fa05317d4b896a6a845409a8d700cbf186fd8e49d5)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "code", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="executionRoleArn")
-    def execution_role_arn(self) -> builtins.str:
-        '''The ARN of the IAM role to be used to run the canary.'''
-        return typing.cast(builtins.str, jsii.get(self, "executionRoleArn"))
-
-    @execution_role_arn.setter
-    def execution_role_arn(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21989f82228cbbd4b8df02c1285ab8cf3635cf4eb894f4a4c999e6b763e92ded)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''The name for this canary.'''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a5568fdb7b5da09cb493a9883d04e695a0b6375532601c26ea6ba719fd869a)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="runtimeVersion")
-    def runtime_version(self) -> builtins.str:
-        '''Specifies the runtime version to use for the canary.'''
-        return typing.cast(builtins.str, jsii.get(self, "runtimeVersion"))
-
-    @runtime_version.setter
-    def runtime_version(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__64f9d8326de93a51cdd4ab89bc4c5431c218c9b46372d81f4fe7a8961b26fa2c)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "runtimeVersion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="schedule")
-    def schedule(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"]:
-        '''A structure that contains information about how often the canary is to run, and when these runs are to stop.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"], jsii.get(self, "schedule"))
-
-    @schedule.setter
-    def schedule(
-        self,
-        value: typing.Union[_IResolvable_da3f097b, "CfnCanary.ScheduleProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e387628a17b84461f77d8fdc851f2b16bcda58e50d8e9279d02062270a5516f0)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "schedule", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="artifactConfig")
-    def artifact_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]]:
-        '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]], jsii.get(self, "artifactConfig"))
-
-    @artifact_config.setter
-    def artifact_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.ArtifactConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5946ee35eff32e4581a6d2e3e0c69d62cdc3c17f079123211f7251bc1a10d878)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "artifactConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="browserConfigs")
-    def browser_configs(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]]:
-        '''A structure that specifies the browser type to use for a canary run.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]], jsii.get(self, "browserConfigs"))
-
-    @browser_configs.setter
-    def browser_configs(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BrowserConfigProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91233a90f3d4d918352b4597b2dee50c3da02176501744c2dc696dbd8a735b68)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "browserConfigs", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="deleteLambdaResourcesOnCanaryDeletion")
-    def delete_lambda_resources_on_canary_deletion(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''(deprecated) Deletes associated lambda resources created by Synthetics if set to True.
-
-        :deprecated: this property has been deprecated
-
-        :stability: deprecated
-        '''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "deleteLambdaResourcesOnCanaryDeletion"))
-
-    @delete_lambda_resources_on_canary_deletion.setter
-    def delete_lambda_resources_on_canary_deletion(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__442577c2c36e4274dca25b3d866e1aeec3f4ffc18732e01050131a31f768f2b3)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "deleteLambdaResourcesOnCanaryDeletion", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="dryRunAndUpdate")
-    def dry_run_and_update(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specifies whether to perform a dry run before updating the canary.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "dryRunAndUpdate"))
-
-    @dry_run_and_update.setter
-    def dry_run_and_update(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59860e5fb72da4da1108545c9e0b8f706d34cf83eb363fda05f04cbb14baf1fe)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "dryRunAndUpdate", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="failureRetentionPeriod")
-    def failure_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to retain data about failed runs of this canary.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "failureRetentionPeriod"))
-
-    @failure_retention_period.setter
-    def failure_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02a7e43f45419c4cb8e909f309f8848d4ced91d17b01d14e5ea0b8cec28aab1b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "failureRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="provisionedResourceCleanup")
-    def provisioned_resource_cleanup(self) -> typing.Optional[builtins.str]:
-        '''Specifies whether to also delete the Lambda functions and layers used by this canary when the canary is deleted.'''
-        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "provisionedResourceCleanup"))
-
-    @provisioned_resource_cleanup.setter
-    def provisioned_resource_cleanup(
-        self,
-        value: typing.Optional[builtins.str],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96109df9d60c71521163998336c5f5484d9c206feb0e627cbb2db11c169128bd)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "provisionedResourceCleanup", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourcesToReplicateTags")
-    def resources_to_replicate_tags(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''To have the tags that you apply to this canary also be applied to the Lambda function that the canary uses, specify this property with the value ``lambda-function`` .'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourcesToReplicateTags"))
-
-    @resources_to_replicate_tags.setter
-    def resources_to_replicate_tags(
-        self,
-        value: typing.Optional[typing.List[builtins.str]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97145dbcbdc52baa9bf7a42cbdc47e51d64c8bdad34335923fcf585d09e27978)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourcesToReplicateTags", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="runConfig")
-    def run_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]]:
-        '''A structure that contains input information for a canary run.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]], jsii.get(self, "runConfig"))
-
-    @run_config.setter
-    def run_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RunConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e65fb80249e43aebfe46950832be73ed0795003be5d74ca1ef7cd12bb2408557)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "runConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="startCanaryAfterCreation")
-    def start_canary_after_creation(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specify TRUE to have the canary start making runs immediately after it is created.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "startCanaryAfterCreation"))
-
-    @start_canary_after_creation.setter
-    def start_canary_after_creation(
-        self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a98feaf45022b36ef5c9888f87b978029d5e1fde70599e1972543b1778adfad)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "startCanaryAfterCreation", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="successRetentionPeriod")
-    def success_retention_period(self) -> typing.Optional[jsii.Number]:
-        '''The number of days to retain data about successful runs of this canary.'''
-        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "successRetentionPeriod"))
-
-    @success_retention_period.setter
-    def success_retention_period(self, value: typing.Optional[jsii.Number]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8bbba327f646025c54903ccf2c19cedc26cf07f79658c389f65ef40b263130f)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "successRetentionPeriod", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of key-value pairs that are associated with the canary.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__212d1e59a4bd96a18f447b1c742abcfeb7c668063c8e1670fa0770e339ac4077)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="visualReference")
-    def visual_reference(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]:
-        '''
-        :deprecated: this property has been deprecated
-
-        :stability: deprecated
-        '''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]], jsii.get(self, "visualReference"))
-
-    @visual_reference.setter
-    def visual_reference(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21e93a70969fa03a3f0aa85f6b1615a26d9a0afef8a0cf27f0888fc59aef420b)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visualReference", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="visualReferences")
-    def visual_references(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]]:
-        '''A list of visual reference configurations for the canary, one for each browser type that the canary is configured to run on.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]], jsii.get(self, "visualReferences"))
-
-    @visual_references.setter
-    def visual_references(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.VisualReferenceProperty"]]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__004341f5a58c9e6e190c4bc518ea476aac62201a1708bb1650a22fbf74c64b52)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "visualReferences", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="vpcConfig")
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]]:
-        '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]], jsii.get(self, "vpcConfig"))
-
-    @vpc_config.setter
-    def vpc_config(
-        self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.VPCConfigProperty"]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__be63ed6816e3043aef63f6e7c0d0dfcc35f1249735acd4eff8530f8c2253b747)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ArtifactConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"s3_encryption": "s3Encryption"},
-    )
-    class ArtifactConfigProperty:
-        def __init__(
-            self,
-            *,
-            s3_encryption: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.S3EncryptionProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''A structure that contains the configuration for canary artifacts, including the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
-
-            :param s3_encryption: A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 . Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-artifactconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                artifact_config_property = synthetics.CfnCanary.ArtifactConfigProperty(
-                    s3_encryption=synthetics.CfnCanary.S3EncryptionProperty(
-                        encryption_mode="encryptionMode",
-                        kms_key_arn="kmsKeyArn"
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__9c456e72742651aec26b46a7fbd663821284d03931fd10859243079b815dad28)
-                check_type(argname="argument s3_encryption", value=s3_encryption, expected_type=type_hints["s3_encryption"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if s3_encryption is not None:
-                self._values["s3_encryption"] = s3_encryption
-
-        @builtins.property
-        def s3_encryption(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.S3EncryptionProperty"]]:
-            '''A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
-
-            Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-artifactconfig.html#cfn-synthetics-canary-artifactconfig-s3encryption
-            '''
-            result = self._values.get("s3_encryption")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.S3EncryptionProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ArtifactConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.BaseScreenshotProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "screenshot_name": "screenshotName",
-            "ignore_coordinates": "ignoreCoordinates",
-        },
-    )
-    class BaseScreenshotProperty:
-        def __init__(
-            self,
-            *,
-            screenshot_name: builtins.str,
-            ignore_coordinates: typing.Optional[typing.Sequence[builtins.str]] = None,
-        ) -> None:
-            '''A structure representing a screenshot that is used as a baseline during visual monitoring comparisons made by the canary.
-
-            :param screenshot_name: The name of the screenshot. This is generated the first time the canary is run after the ``UpdateCanary`` operation that specified for this canary to perform visual monitoring.
-            :param ignore_coordinates: Coordinates that define the part of a screen to ignore during screenshot comparisons. To obtain the coordinates to use here, use the CloudWatch console to draw the boundaries on the screen. For more information, see `Edit or delete a canary <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/synthetics_canaries_deletion.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-basescreenshot.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                base_screenshot_property = synthetics.CfnCanary.BaseScreenshotProperty(
-                    screenshot_name="screenshotName",
-                
-                    # the properties below are optional
-                    ignore_coordinates=["ignoreCoordinates"]
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__8d401a2416919aef18322e23fb875fc37ad8f90f34f8f5708a245f22f9d3208f)
-                check_type(argname="argument screenshot_name", value=screenshot_name, expected_type=type_hints["screenshot_name"])
-                check_type(argname="argument ignore_coordinates", value=ignore_coordinates, expected_type=type_hints["ignore_coordinates"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "screenshot_name": screenshot_name,
-            }
-            if ignore_coordinates is not None:
-                self._values["ignore_coordinates"] = ignore_coordinates
-
-        @builtins.property
-        def screenshot_name(self) -> builtins.str:
-            '''The name of the screenshot.
-
-            This is generated the first time the canary is run after the ``UpdateCanary`` operation that specified for this canary to perform visual monitoring.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-basescreenshot.html#cfn-synthetics-canary-basescreenshot-screenshotname
-            '''
-            result = self._values.get("screenshot_name")
-            assert result is not None, "Required property 'screenshot_name' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def ignore_coordinates(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''Coordinates that define the part of a screen to ignore during screenshot comparisons.
-
-            To obtain the coordinates to use here, use the CloudWatch console to draw the boundaries on the screen. For more information, see `Edit or delete a canary <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/synthetics_canaries_deletion.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-basescreenshot.html#cfn-synthetics-canary-basescreenshot-ignorecoordinates
-            '''
-            result = self._values.get("ignore_coordinates")
-            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "BaseScreenshotProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.BrowserConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"browser_type": "browserType"},
-    )
-    class BrowserConfigProperty:
-        def __init__(self, *, browser_type: builtins.str) -> None:
-            '''A structure that specifies the browser type to use for a canary run.
-
-            :param browser_type: The browser type associated with this browser configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                browser_config_property = synthetics.CfnCanary.BrowserConfigProperty(
-                    browser_type="browserType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e200412435)
-                check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "browser_type": browser_type,
-            }
-
-        @builtins.property
-        def browser_type(self) -> builtins.str:
-            '''The browser type associated with this browser configuration.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-browserconfig.html#cfn-synthetics-canary-browserconfig-browsertype
-            '''
-            result = self._values.get("browser_type")
-            assert result is not None, "Required property 'browser_type' is missing"
-            return typing.cast(builtins.str, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "BrowserConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.CodeProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "handler": "handler",
-            "dependencies": "dependencies",
-            "s3_bucket": "s3Bucket",
-            "s3_key": "s3Key",
-            "s3_object_version": "s3ObjectVersion",
-            "script": "script",
-            "source_location_arn": "sourceLocationArn",
-        },
-    )
-    class CodeProperty:
-        def __init__(
-            self,
-            *,
-            handler: builtins.str,
-            dependencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.DependencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            s3_bucket: typing.Optional[builtins.str] = None,
-            s3_key: typing.Optional[builtins.str] = None,
-            s3_object_version: typing.Optional[builtins.str] = None,
-            script: typing.Optional[builtins.str] = None,
-            source_location_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Use this structure to input your script code for the canary.
-
-            This structure contains the Lambda handler with the location where the canary should start running the script. If the script is stored in an S3 bucket, the bucket name, key, and version are also included. If the script is passed into the canary directly, the script code is contained in the value of ``Script`` .
-
-            :param handler: The entry point to use for the source code when running the canary. For canaries that use the ``syn-python-selenium-1.0`` runtime or a ``syn-nodejs.puppeteer`` runtime earlier than ``syn-nodejs.puppeteer-3.4`` , the handler must be specified as ``*fileName* .handler`` . For ``syn-python-selenium-1.1`` , ``syn-nodejs.puppeteer-3.4`` , and later runtimes, the handler can be specified as ``*fileName* . *functionName*`` , or you can specify a folder where canary scripts reside as ``*folder* / *fileName* . *functionName*`` .
-            :param dependencies: List of Lambda layers to attach to the canary.
-            :param s3_bucket: If your canary script is located in S3, specify the bucket name here. The bucket must already exist.
-            :param s3_key: The Amazon S3 key of your script. For more information, see `Working with Amazon S3 Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingObjects.html>`_ .
-            :param s3_object_version: The Amazon S3 version ID of your script.
-            :param script: If you input your canary script directly into the canary instead of referring to an S3 location, the value of this parameter is the script in plain text. It can be up to 5 MB.
-            :param source_location_arn: The ARN of the Lambda layer where Synthetics stores the canary script code.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                code_property = synthetics.CfnCanary.CodeProperty(
-                    handler="handler",
-                
-                    # the properties below are optional
-                    dependencies=[synthetics.CfnCanary.DependencyProperty(
-                        reference="reference",
-                
-                        # the properties below are optional
-                        type="type"
-                    )],
-                    s3_bucket="s3Bucket",
-                    s3_key="s3Key",
-                    s3_object_version="s3ObjectVersion",
-                    script="script",
-                    source_location_arn="sourceLocationArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3)
-                check_type(argname="argument handler", value=handler, expected_type=type_hints["handler"])
-                check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
-                check_type(argname="argument s3_bucket", value=s3_bucket, expected_type=type_hints["s3_bucket"])
-                check_type(argname="argument s3_key", value=s3_key, expected_type=type_hints["s3_key"])
-                check_type(argname="argument s3_object_version", value=s3_object_version, expected_type=type_hints["s3_object_version"])
-                check_type(argname="argument script", value=script, expected_type=type_hints["script"])
-                check_type(argname="argument source_location_arn", value=source_location_arn, expected_type=type_hints["source_location_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "handler": handler,
-            }
-            if dependencies is not None:
-                self._values["dependencies"] = dependencies
-            if s3_bucket is not None:
-                self._values["s3_bucket"] = s3_bucket
-            if s3_key is not None:
-                self._values["s3_key"] = s3_key
-            if s3_object_version is not None:
-                self._values["s3_object_version"] = s3_object_version
-            if script is not None:
-                self._values["script"] = script
-            if source_location_arn is not None:
-                self._values["source_location_arn"] = source_location_arn
-
-        @builtins.property
-        def handler(self) -> builtins.str:
-            '''The entry point to use for the source code when running the canary.
-
-            For canaries that use the ``syn-python-selenium-1.0`` runtime or a ``syn-nodejs.puppeteer`` runtime earlier than ``syn-nodejs.puppeteer-3.4`` , the handler must be specified as ``*fileName* .handler`` . For ``syn-python-selenium-1.1`` , ``syn-nodejs.puppeteer-3.4`` , and later runtimes, the handler can be specified as ``*fileName* . *functionName*`` , or you can specify a folder where canary scripts reside as ``*folder* / *fileName* . *functionName*`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-handler
-            '''
-            result = self._values.get("handler")
-            assert result is not None, "Required property 'handler' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def dependencies(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.DependencyProperty"]]]]:
-            '''List of Lambda layers to attach to the canary.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-dependencies
-            '''
-            result = self._values.get("dependencies")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.DependencyProperty"]]]], result)
-
-        @builtins.property
-        def s3_bucket(self) -> typing.Optional[builtins.str]:
-            '''If your canary script is located in S3, specify the bucket name here.
-
-            The bucket must already exist.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-s3bucket
-            '''
-            result = self._values.get("s3_bucket")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_key(self) -> typing.Optional[builtins.str]:
-            '''The Amazon S3 key of your script.
-
-            For more information, see `Working with Amazon S3 Objects <https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingObjects.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-s3key
-            '''
-            result = self._values.get("s3_key")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def s3_object_version(self) -> typing.Optional[builtins.str]:
-            '''The Amazon S3 version ID of your script.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-s3objectversion
-            '''
-            result = self._values.get("s3_object_version")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def script(self) -> typing.Optional[builtins.str]:
-            '''If you input your canary script directly into the canary instead of referring to an S3 location, the value of this parameter is the script in plain text.
-
-            It can be up to 5 MB.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-script
-            '''
-            result = self._values.get("script")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def source_location_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the Lambda layer where Synthetics stores the canary script code.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-code.html#cfn-synthetics-canary-code-sourcelocationarn
-            '''
-            result = self._values.get("source_location_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "CodeProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.DependencyProperty",
-        jsii_struct_bases=[],
-        name_mapping={"reference": "reference", "type": "type"},
-    )
-    class DependencyProperty:
-        def __init__(
-            self,
-            *,
-            reference: builtins.str,
-            type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''A structure that contains information about a dependency for a canary.
-
-            :param reference: The dependency reference. For Lambda layers, this is the ARN of the Lambda layer. For more information about Lambda ARN format, see `Lambda <https://docs.aws.amazon.com/lambda/latest/api/API_Layer.html>`_ .
-            :param type: The type of dependency. Valid value is ``LambdaLayer`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                dependency_property = synthetics.CfnCanary.DependencyProperty(
-                    reference="reference",
-                
-                    # the properties below are optional
-                    type="type"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__02338e317b0b84f714774aabea98599cd96fe9cff23790733ad426e75f9984f4)
-                check_type(argname="argument reference", value=reference, expected_type=type_hints["reference"])
-                check_type(argname="argument type", value=type, expected_type=type_hints["type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "reference": reference,
-            }
-            if type is not None:
-                self._values["type"] = type
-
-        @builtins.property
-        def reference(self) -> builtins.str:
-            '''The dependency reference.
-
-            For Lambda layers, this is the ARN of the Lambda layer. For more information about Lambda ARN format, see `Lambda <https://docs.aws.amazon.com/lambda/latest/api/API_Layer.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-reference
-            '''
-            result = self._values.get("reference")
-            assert result is not None, "Required property 'reference' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def type(self) -> typing.Optional[builtins.str]:
-            '''The type of dependency.
-
-            Valid value is ``LambdaLayer`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-dependency.html#cfn-synthetics-canary-dependency-type
-            '''
-            result = self._values.get("type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "DependencyProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.RetryConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={"max_retries": "maxRetries"},
-    )
-    class RetryConfigProperty:
-        def __init__(self, *, max_retries: jsii.Number) -> None:
-            '''The canary's retry configuration information.
-
-            :param max_retries: The maximum number of retries. The value must be less than or equal to two.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-retryconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                retry_config_property = synthetics.CfnCanary.RetryConfigProperty(
-                    max_retries=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e7a2c989ca2c701e49af0e8032c8c49bb52546c68c9e6359df8e7a9f2c4cf9a1)
-                check_type(argname="argument max_retries", value=max_retries, expected_type=type_hints["max_retries"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "max_retries": max_retries,
-            }
-
-        @builtins.property
-        def max_retries(self) -> jsii.Number:
-            '''The maximum number of retries.
-
-            The value must be less than or equal to two.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-retryconfig.html#cfn-synthetics-canary-retryconfig-maxretries
-            '''
-            result = self._values.get("max_retries")
-            assert result is not None, "Required property 'max_retries' is missing"
-            return typing.cast(jsii.Number, result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RetryConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.RunConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "active_tracing": "activeTracing",
-            "environment_variables": "environmentVariables",
-            "ephemeral_storage": "ephemeralStorage",
-            "memory_in_mb": "memoryInMb",
-            "timeout_in_seconds": "timeoutInSeconds",
-        },
-    )
-    class RunConfigProperty:
-        def __init__(
-            self,
-            *,
-            active_tracing: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            environment_variables: typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]] = None,
-            ephemeral_storage: typing.Optional[jsii.Number] = None,
-            memory_in_mb: typing.Optional[jsii.Number] = None,
-            timeout_in_seconds: typing.Optional[jsii.Number] = None,
-        ) -> None:
-            '''A structure that contains input information for a canary run.
-
-            This structure is required.
-
-            :param active_tracing: Specifies whether this canary is to use active AWS X-Ray tracing when it runs. Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. For more information, see `Canaries and X-Ray tracing <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_tracing.html>`_ . You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime.
-            :param environment_variables: Specifies the keys and values to use for any environment variables used in the canary script. Use the following format: { "key1" : "value1", "key2" : "value2", ...} Keys must start with a letter and be at least two characters. The total size of your environment variables cannot exceed 4 KB. You can't specify any Lambda reserved environment variables as the keys for your environment variables. For more information about reserved keys, see `Runtime environment variables <https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html#configuration-envvars-runtime>`_ .
-            :param ephemeral_storage: Specifies the amount of ephemeral storage (in MB) to allocate for the canary run during execution. This temporary storage is used for storing canary run artifacts (which are uploaded to an Amazon S3 bucket at the end of the run), and any canary browser operations. This temporary storage is cleared after the run is completed. Default storage value is 1024 MB.
-            :param memory_in_mb: The maximum amount of memory that the canary can use while running. This value must be a multiple of 64. The range is 960 to 3008.
-            :param timeout_in_seconds: How long the canary is allowed to run before it must stop. You can't set this time to be longer than the frequency of the runs of this canary. If you omit this field, the frequency of the canary is used as this value, up to a maximum of 900 seconds.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                run_config_property = synthetics.CfnCanary.RunConfigProperty(
-                    active_tracing=False,
-                    environment_variables={
-                        "environment_variables_key": "environmentVariables"
-                    },
-                    ephemeral_storage=123,
-                    memory_in_mb=123,
-                    timeout_in_seconds=123
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__fa148862e82948accbbe951e7afcee721aa7014754c81106d2648fe1c5cf28e2)
-                check_type(argname="argument active_tracing", value=active_tracing, expected_type=type_hints["active_tracing"])
-                check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
-                check_type(argname="argument ephemeral_storage", value=ephemeral_storage, expected_type=type_hints["ephemeral_storage"])
-                check_type(argname="argument memory_in_mb", value=memory_in_mb, expected_type=type_hints["memory_in_mb"])
-                check_type(argname="argument timeout_in_seconds", value=timeout_in_seconds, expected_type=type_hints["timeout_in_seconds"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if active_tracing is not None:
-                self._values["active_tracing"] = active_tracing
-            if environment_variables is not None:
-                self._values["environment_variables"] = environment_variables
-            if ephemeral_storage is not None:
-                self._values["ephemeral_storage"] = ephemeral_storage
-            if memory_in_mb is not None:
-                self._values["memory_in_mb"] = memory_in_mb
-            if timeout_in_seconds is not None:
-                self._values["timeout_in_seconds"] = timeout_in_seconds
-
-        @builtins.property
-        def active_tracing(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Specifies whether this canary is to use active AWS X-Ray tracing when it runs.
-
-            Active tracing enables this canary run to be displayed in the ServiceLens and X-Ray service maps even if the canary does not hit an endpoint that has X-Ray tracing enabled. Using X-Ray tracing incurs charges. For more information, see `Canaries and X-Ray tracing <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_tracing.html>`_ .
-
-            You can enable active tracing only for canaries that use version ``syn-nodejs-2.0`` or later for their canary runtime.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-activetracing
-            '''
-            result = self._values.get("active_tracing")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def environment_variables(
-            self,
-        ) -> typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]]:
-            '''Specifies the keys and values to use for any environment variables used in the canary script.
-
-            Use the following format:
-
-            { "key1" : "value1", "key2" : "value2", ...}
-
-            Keys must start with a letter and be at least two characters. The total size of your environment variables cannot exceed 4 KB. You can't specify any Lambda reserved environment variables as the keys for your environment variables. For more information about reserved keys, see `Runtime environment variables <https://docs.aws.amazon.com/lambda/latest/dg/configuration-envvars.html#configuration-envvars-runtime>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-environmentvariables
-            '''
-            result = self._values.get("environment_variables")
-            return typing.cast(typing.Optional[typing.Union[typing.Mapping[builtins.str, builtins.str], _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def ephemeral_storage(self) -> typing.Optional[jsii.Number]:
-            '''Specifies the amount of ephemeral storage (in MB) to allocate for the canary run during execution.
-
-            This temporary storage is used for storing canary run artifacts (which are uploaded to an Amazon S3 bucket at the end of the run), and any canary browser operations. This temporary storage is cleared after the run is completed. Default storage value is 1024 MB.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-ephemeralstorage
-            '''
-            result = self._values.get("ephemeral_storage")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def memory_in_mb(self) -> typing.Optional[jsii.Number]:
-            '''The maximum amount of memory that the canary can use while running.
-
-            This value must be a multiple of 64. The range is 960 to 3008.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-memoryinmb
-            '''
-            result = self._values.get("memory_in_mb")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        @builtins.property
-        def timeout_in_seconds(self) -> typing.Optional[jsii.Number]:
-            '''How long the canary is allowed to run before it must stop.
-
-            You can't set this time to be longer than the frequency of the runs of this canary.
-
-            If you omit this field, the frequency of the canary is used as this value, up to a maximum of 900 seconds.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-runconfig.html#cfn-synthetics-canary-runconfig-timeoutinseconds
-            '''
-            result = self._values.get("timeout_in_seconds")
-            return typing.cast(typing.Optional[jsii.Number], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "RunConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.S3EncryptionProperty",
-        jsii_struct_bases=[],
-        name_mapping={"encryption_mode": "encryptionMode", "kms_key_arn": "kmsKeyArn"},
-    )
-    class S3EncryptionProperty:
-        def __init__(
-            self,
-            *,
-            encryption_mode: typing.Optional[builtins.str] = None,
-            kms_key_arn: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''A structure that contains the configuration of the encryption-at-rest settings for artifacts that the canary uploads to Amazon S3 .
-
-            Artifact encryption functionality is available only for canaries that use Synthetics runtime version syn-nodejs-puppeteer-3.3 or later. For more information, see `Encrypting canary artifacts <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_artifact_encryption.html>`_ .
-
-            :param encryption_mode: The encryption method to use for artifacts created by this canary. Specify ``SSE_S3`` to use server-side encryption (SSE) with an Amazon S3-managed key. Specify ``SSE-KMS`` to use server-side encryption with a customer-managed AWS KMS key. If you omit this parameter, an AWS -managed AWS KMS key is used.
-            :param kms_key_arn: The ARN of the customer-managed AWS KMS key to use, if you specify ``SSE-KMS`` for ``EncryptionMode``.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-s3encryption.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                s3_encryption_property = synthetics.CfnCanary.S3EncryptionProperty(
-                    encryption_mode="encryptionMode",
-                    kms_key_arn="kmsKeyArn"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__551aad28104a61040e1d9e12e77c77ae47c6e19a45d15bfa94e441c5d297d3ab)
-                check_type(argname="argument encryption_mode", value=encryption_mode, expected_type=type_hints["encryption_mode"])
-                check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {}
-            if encryption_mode is not None:
-                self._values["encryption_mode"] = encryption_mode
-            if kms_key_arn is not None:
-                self._values["kms_key_arn"] = kms_key_arn
-
-        @builtins.property
-        def encryption_mode(self) -> typing.Optional[builtins.str]:
-            '''The encryption method to use for artifacts created by this canary.
-
-            Specify ``SSE_S3`` to use server-side encryption (SSE) with an Amazon S3-managed key. Specify ``SSE-KMS`` to use server-side encryption with a customer-managed AWS KMS key.
-
-            If you omit this parameter, an AWS -managed AWS KMS key is used.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-s3encryption.html#cfn-synthetics-canary-s3encryption-encryptionmode
-            '''
-            result = self._values.get("encryption_mode")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def kms_key_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the customer-managed AWS KMS key to use, if you specify ``SSE-KMS`` for ``EncryptionMode``.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-s3encryption.html#cfn-synthetics-canary-s3encryption-kmskeyarn
-            '''
-            result = self._values.get("kms_key_arn")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "S3EncryptionProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.ScheduleProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "expression": "expression",
-            "duration_in_seconds": "durationInSeconds",
-            "retry_config": "retryConfig",
-        },
-    )
-    class ScheduleProperty:
-        def __init__(
-            self,
-            *,
-            expression: builtins.str,
-            duration_in_seconds: typing.Optional[builtins.str] = None,
-            retry_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.RetryConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-        ) -> None:
-            '''This structure specifies how often a canary is to make runs and the date and time when it should stop making runs.
-
-            :param expression: A ``rate`` expression or a ``cron`` expression that defines how often the canary is to run. For a rate expression, The syntax is ``rate( *number unit* )`` . *unit* can be ``minute`` , ``minutes`` , or ``hour`` . For example, ``rate(1 minute)`` runs the canary once a minute, ``rate(10 minutes)`` runs it once every 10 minutes, and ``rate(1 hour)`` runs it once every hour. You can specify a frequency between ``rate(1 minute)`` and ``rate(1 hour)`` . Specifying ``rate(0 minute)`` or ``rate(0 hour)`` is a special value that causes the canary to run only once when it is started. Use ``cron( *expression* )`` to specify a cron expression. You can't schedule a canary to wait for more than a year before running. For information about the syntax for cron expressions, see `Scheduling canary runs using cron <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_cron.html>`_ .
-            :param duration_in_seconds: How long, in seconds, for the canary to continue making regular runs according to the schedule in the ``Expression`` value. If you specify 0, the canary continues making runs until you stop it. If you omit this field, the default of 0 is used.
-            :param retry_config: The canary's retry configuration information.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                schedule_property = synthetics.CfnCanary.ScheduleProperty(
-                    expression="expression",
-                
-                    # the properties below are optional
-                    duration_in_seconds="durationInSeconds",
-                    retry_config=synthetics.CfnCanary.RetryConfigProperty(
-                        max_retries=123
-                    )
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__e4999288d0e0c5de04c56a3436208778026602dfdca27710aee93f9f4e034c29)
-                check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
-                check_type(argname="argument duration_in_seconds", value=duration_in_seconds, expected_type=type_hints["duration_in_seconds"])
-                check_type(argname="argument retry_config", value=retry_config, expected_type=type_hints["retry_config"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "expression": expression,
-            }
-            if duration_in_seconds is not None:
-                self._values["duration_in_seconds"] = duration_in_seconds
-            if retry_config is not None:
-                self._values["retry_config"] = retry_config
-
-        @builtins.property
-        def expression(self) -> builtins.str:
-            '''A ``rate`` expression or a ``cron`` expression that defines how often the canary is to run.
-
-            For a rate expression, The syntax is ``rate( *number unit* )`` . *unit* can be ``minute`` , ``minutes`` , or ``hour`` .
-
-            For example, ``rate(1 minute)`` runs the canary once a minute, ``rate(10 minutes)`` runs it once every 10 minutes, and ``rate(1 hour)`` runs it once every hour. You can specify a frequency between ``rate(1 minute)`` and ``rate(1 hour)`` .
-
-            Specifying ``rate(0 minute)`` or ``rate(0 hour)`` is a special value that causes the canary to run only once when it is started.
-
-            Use ``cron( *expression* )`` to specify a cron expression. You can't schedule a canary to wait for more than a year before running. For information about the syntax for cron expressions, see `Scheduling canary runs using cron <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_cron.html>`_ .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-expression
-            '''
-            result = self._values.get("expression")
-            assert result is not None, "Required property 'expression' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def duration_in_seconds(self) -> typing.Optional[builtins.str]:
-            '''How long, in seconds, for the canary to continue making regular runs according to the schedule in the ``Expression`` value.
-
-            If you specify 0, the canary continues making runs until you stop it. If you omit this field, the default of 0 is used.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-durationinseconds
-            '''
-            result = self._values.get("duration_in_seconds")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        @builtins.property
-        def retry_config(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RetryConfigProperty"]]:
-            '''The canary's retry configuration information.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-schedule.html#cfn-synthetics-canary-schedule-retryconfig
-            '''
-            result = self._values.get("retry_config")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnCanary.RetryConfigProperty"]], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "ScheduleProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.VPCConfigProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "security_group_ids": "securityGroupIds",
-            "subnet_ids": "subnetIds",
-            "ipv6_allowed_for_dual_stack": "ipv6AllowedForDualStack",
-            "vpc_id": "vpcId",
-        },
-    )
-    class VPCConfigProperty:
-        def __init__(
-            self,
-            *,
-            security_group_ids: typing.Sequence[builtins.str],
-            subnet_ids: typing.Sequence[builtins.str],
-            ipv6_allowed_for_dual_stack: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-            vpc_id: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''If this canary is to test an endpoint in a VPC, this structure contains information about the subnet and security groups of the VPC endpoint.
-
-            For more information, see `Running a Canary in a VPC <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_VPC.html>`_ .
-
-            :param security_group_ids: The IDs of the security groups for this canary.
-            :param subnet_ids: The IDs of the subnets where this canary is to run.
-            :param ipv6_allowed_for_dual_stack: Set this to ``true`` to allow outbound IPv6 traffic on VPC canaries that are connected to dual-stack subnets. The default is ``false`` .
-            :param vpc_id: The ID of the VPC where this canary is to run.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                v_pCConfig_property = synthetics.CfnCanary.VPCConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-                
-                    # the properties below are optional
-                    ipv6_allowed_for_dual_stack=False,
-                    vpc_id="vpcId"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__eccfde82eb2354e9c416fba506f2ff8e4fb1a86792529f65e2d8eafbc8415074)
-                check_type(argname="argument security_group_ids", value=security_group_ids, expected_type=type_hints["security_group_ids"])
-                check_type(argname="argument subnet_ids", value=subnet_ids, expected_type=type_hints["subnet_ids"])
-                check_type(argname="argument ipv6_allowed_for_dual_stack", value=ipv6_allowed_for_dual_stack, expected_type=type_hints["ipv6_allowed_for_dual_stack"])
-                check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "security_group_ids": security_group_ids,
-                "subnet_ids": subnet_ids,
-            }
-            if ipv6_allowed_for_dual_stack is not None:
-                self._values["ipv6_allowed_for_dual_stack"] = ipv6_allowed_for_dual_stack
-            if vpc_id is not None:
-                self._values["vpc_id"] = vpc_id
-
-        @builtins.property
-        def security_group_ids(self) -> typing.List[builtins.str]:
-            '''The IDs of the security groups for this canary.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-securitygroupids
-            '''
-            result = self._values.get("security_group_ids")
-            assert result is not None, "Required property 'security_group_ids' is missing"
-            return typing.cast(typing.List[builtins.str], result)
-
-        @builtins.property
-        def subnet_ids(self) -> typing.List[builtins.str]:
-            '''The IDs of the subnets where this canary is to run.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-subnetids
-            '''
-            result = self._values.get("subnet_ids")
-            assert result is not None, "Required property 'subnet_ids' is missing"
-            return typing.cast(typing.List[builtins.str], result)
-
-        @builtins.property
-        def ipv6_allowed_for_dual_stack(
-            self,
-        ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''Set this to ``true`` to allow outbound IPv6 traffic on VPC canaries that are connected to dual-stack subnets.
-
-            The default is ``false`` .
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-ipv6allowedfordualstack
-            '''
-            result = self._values.get("ipv6_allowed_for_dual_stack")
-            return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-        @builtins.property
-        def vpc_id(self) -> typing.Optional[builtins.str]:
-            '''The ID of the VPC where this canary is to run.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-vpcconfig.html#cfn-synthetics-canary-vpcconfig-vpcid
-            '''
-            result = self._values.get("vpc_id")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "VPCConfigProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-    @jsii.data_type(
-        jsii_type="aws-cdk-lib.aws_synthetics.CfnCanary.VisualReferenceProperty",
-        jsii_struct_bases=[],
-        name_mapping={
-            "base_canary_run_id": "baseCanaryRunId",
-            "base_screenshots": "baseScreenshots",
-            "browser_type": "browserType",
-        },
-    )
-    class VisualReferenceProperty:
-        def __init__(
-            self,
-            *,
-            base_canary_run_id: builtins.str,
-            base_screenshots: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnCanary.BaseScreenshotProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            browser_type: typing.Optional[builtins.str] = None,
-        ) -> None:
-            '''Defines the screenshots to use as the baseline for comparisons during visual monitoring comparisons during future runs of this canary.
-
-            If you omit this parameter, no changes are made to any baseline screenshots that the canary might be using already.
-
-            Visual monitoring is supported only on canaries running the *syn-puppeteer-node-3.2* runtime or later. For more information, see `Visual monitoring <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Library_SyntheticsLogger_VisualTesting.html>`_ and `Visual monitoring blueprint <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatch_Synthetics_Canaries_Blueprints_VisualTesting.html>`_
-
-            :param base_canary_run_id: Specifies which canary run to use the screenshots from as the baseline for future visual monitoring with this canary. Valid values are ``nextrun`` to use the screenshots from the next run after this update is made, ``lastrun`` to use the screenshots from the most recent run before this update was made, or the value of ``Id`` in the `CanaryRun <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_CanaryRun.html>`_ from any past run of this canary.
-            :param base_screenshots: An array of screenshots that are used as the baseline for comparisons during visual monitoring.
-            :param browser_type: 
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html
-            :exampleMetadata: fixture=_generated
-
-            Example::
-
-                # The code below shows an example of how to instantiate this type.
-                # The values are placeholders you should change.
-                from aws_cdk import aws_synthetics as synthetics
-                
-                visual_reference_property = synthetics.CfnCanary.VisualReferenceProperty(
-                    base_canary_run_id="baseCanaryRunId",
-                
-                    # the properties below are optional
-                    base_screenshots=[synthetics.CfnCanary.BaseScreenshotProperty(
-                        screenshot_name="screenshotName",
-                
-                        # the properties below are optional
-                        ignore_coordinates=["ignoreCoordinates"]
-                    )],
-                    browser_type="browserType"
-                )
-            '''
-            if __debug__:
-                type_hints = typing.get_type_hints(_typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2cd794526)
-                check_type(argname="argument base_canary_run_id", value=base_canary_run_id, expected_type=type_hints["base_canary_run_id"])
-                check_type(argname="argument base_screenshots", value=base_screenshots, expected_type=type_hints["base_screenshots"])
-                check_type(argname="argument browser_type", value=browser_type, expected_type=type_hints["browser_type"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "base_canary_run_id": base_canary_run_id,
-            }
-            if base_screenshots is not None:
-                self._values["base_screenshots"] = base_screenshots
-            if browser_type is not None:
-                self._values["browser_type"] = browser_type
-
-        @builtins.property
-        def base_canary_run_id(self) -> builtins.str:
-            '''Specifies which canary run to use the screenshots from as the baseline for future visual monitoring with this canary.
-
-            Valid values are ``nextrun`` to use the screenshots from the next run after this update is made, ``lastrun`` to use the screenshots from the most recent run before this update was made, or the value of ``Id`` in the `CanaryRun <https://docs.aws.amazon.com/AmazonSynthetics/latest/APIReference/API_CanaryRun.html>`_ from any past run of this canary.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-basecanaryrunid
-            '''
-            result = self._values.get("base_canary_run_id")
-            assert result is not None, "Required property 'base_canary_run_id' is missing"
-            return typing.cast(builtins.str, result)
-
-        @builtins.property
-        def base_screenshots(
-            self,
-        ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BaseScreenshotProperty"]]]]:
-            '''An array of screenshots that are used as the baseline for comparisons during visual monitoring.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-basescreenshots
-            '''
-            result = self._values.get("base_screenshots")
-            return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnCanary.BaseScreenshotProperty"]]]], result)
-
-        @builtins.property
-        def browser_type(self) -> typing.Optional[builtins.str]:
-            '''
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-synthetics-canary-visualreference.html#cfn-synthetics-canary-visualreference-browsertype
-            '''
-            result = self._values.get("browser_type")
-            return typing.cast(typing.Optional[builtins.str], result)
-
-        def __eq__(self, rhs: typing.Any) -> builtins.bool:
-            return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-        def __ne__(self, rhs: typing.Any) -> builtins.bool:
-            return not (rhs == self)
-
-        def __repr__(self) -> str:
-            return "VisualReferenceProperty(%s)" % ", ".join(
-                k + "=" + repr(v) for k, v in self._values.items()
-            )
-
-
-@jsii.implements(_IInspectable_c2943556, IGroupRef, _ITaggable_36806126)
-class CfnGroup(
-    _CfnResource_9df397a6,
-    metaclass=jsii.JSIIMeta,
-    jsii_type="aws-cdk-lib.aws_synthetics.CfnGroup",
-):
-    '''Creates or updates a group which you can use to associate canaries with each other, including cross-Region canaries.
-
-    Using groups can help you with managing and automating your canaries, and you can also view aggregated run results and statistics for all canaries in a group.
-
-    Groups are global resources. When you create a group, it is replicated across all AWS Regions, and you can add canaries from any Region to it, and view it in any Region. Although the group ARN format reflects the Region name where it was created, a group is not constrained to any Region. This means that you can put canaries from multiple Regions into the same group, and then use that group to view and manage all of those canaries in a single view.
-
-    Each group can contain as many as 10 canaries. You can have as many as 20 groups in your account. Any single canary can be a member of up to 10 groups.
-
-    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-synthetics-group.html
-    :cloudformationResource: AWS::Synthetics::Group
-    :exampleMetadata: fixture=_generated
-
-    Example::
-
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_synthetics as synthetics
-        
-        cfn_group = synthetics.CfnGroup(self, "MyCfnGroup",
-            name="name",
-        
-            # the properties below are optional
-            resource_arns=["resourceArns"],
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
-    '''
-
-    def __init__(
-        self,
-        scope: _constructs_77d1e7e8.Construct,
-        id: builtins.str,
-        *,
-        name: builtins.str,
-        resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''
-        :param scope: Scope in which this resource is defined.
-        :param id: Construct identifier for this resource (unique in its scope).
-        :param name: A name for the group. It can include any Unicode characters. The names for all groups in your account, across all Regions, must be unique.
-        :param resource_arns: The ARNs of the canaries that you want to associate with this group.
-        :param tags: The list of key-value pairs that are associated with the group.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae1447c2af09)
-            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnGroupProps(name=name, resource_arns=resource_arns, tags=tags)
-
-        jsii.create(self.__class__, self, [scope, id, props])
-
-    @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
-        '''Examines the CloudFormation resource and discloses attributes.
-
-        :param inspector: tree inspector to collect and process attributes.
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c02721081747307dfd2212f0ae4958cfbad3dc1ec5b0667712fb08ebd5d7e65)
-            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
-        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
-
-    @jsii.member(jsii_name="renderProperties")
-    def _render_properties(
-        self,
-        props: typing.Mapping[builtins.str, typing.Any],
-    ) -> typing.Mapping[builtins.str, typing.Any]:
-        '''
-        :param props: -
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4dd500824b1b77e386dc3d0eca110f83c00176cc9ac0861387258adf2b7914e)
-            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
-
-    @jsii.python.classproperty
-    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
-    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
-        '''The CloudFormation resource type name for this resource class.'''
-        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
-
-    @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''The Id of the group.
-
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
-    @jsii.member(jsii_name="cfnProperties")
-    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
-        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
-
-    @builtins.property
-    @jsii.member(jsii_name="groupRef")
-    def group_ref(self) -> GroupReference:
-        '''A reference to a Group resource.'''
-        return typing.cast(GroupReference, jsii.get(self, "groupRef"))
-
-    @builtins.property
-    @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
-        '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
-
-    @builtins.property
-    @jsii.member(jsii_name="name")
-    def name(self) -> builtins.str:
-        '''A name for the group.
-
-        It can include any Unicode characters.
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "name"))
-
-    @name.setter
-    def name(self, value: builtins.str) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6401b033d62b6cede0e2328e1f7c75c5607ed33e285fb529afce4814a3551bee)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="resourceArns")
-    def resource_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''The ARNs of the canaries that you want to associate with this group.'''
-        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "resourceArns"))
-
-    @resource_arns.setter
-    def resource_arns(self, value: typing.Optional[typing.List[builtins.str]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d6435999ba)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "resourceArns", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The list of key-value pairs that are associated with the group.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
-
-    @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
+        return typing.cast("CodeConfig", jsii.invoke(self, "bind", [scope, handler, family, runtime_name]))
 
 
 __all__ = [
@@ -5541,7 +5557,6 @@ __all__ = [
     "BrowserType",
     "Canary",
     "CanaryProps",
-    "CanaryReference",
     "CfnCanary",
     "CfnCanaryProps",
     "CfnGroup",
@@ -5551,9 +5566,6 @@ __all__ = [
     "CodeConfig",
     "CronOptions",
     "CustomTestOptions",
-    "GroupReference",
-    "ICanaryRef",
-    "IGroupRef",
     "InlineCode",
     "ResourceToReplicateTags",
     "Runtime",
@@ -5639,206 +5651,13 @@ def _typecheckingstub__44ec0b14d52b66927d4daebe6f97bb070f3629bb0eb86e21668ca7862
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__9010a572d449865253b0fb9c46ad46fa1b6341ec7d7876cd7b3f5fe9271b9f04(
-    *,
-    canary_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423(
-    *,
-    artifact_s3_location: builtins.str,
-    code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
-    execution_role_arn: builtins.str,
-    name: builtins.str,
-    runtime_version: builtins.str,
-    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
-    artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    failure_retention_period: typing.Optional[jsii.Number] = None,
-    provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
-    resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
-    run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    success_retention_period: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f(
-    *,
-    name: builtins.str,
-    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff(
-    asset_path: builtins.str,
-    *,
-    deploy_time: typing.Optional[builtins.bool] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
-    asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6(
-    bucket: _IBucketRef_fb8fe266,
-    key: builtins.str,
-    object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab(
-    code: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541(
-    scope: _constructs_77d1e7e8.Construct,
-    handler: builtins.str,
-    family: RuntimeFamily,
-    runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e(
-    *,
-    inline_code: typing.Optional[builtins.str] = None,
-    s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d(
-    *,
-    day: typing.Optional[builtins.str] = None,
-    hour: typing.Optional[builtins.str] = None,
-    minute: typing.Optional[builtins.str] = None,
-    month: typing.Optional[builtins.str] = None,
-    week_day: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d(
-    *,
-    code: Code,
-    handler: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__73164cd8a0bb9ee7a5efdacdcef416de8ebe14cac7d826ecaabe6a40db15e0d8(
-    *,
-    group_name: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2(
-    code: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9(
-    scope: _constructs_77d1e7e8.Construct,
-    handler: builtins.str,
-    _family: RuntimeFamily,
-    _runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780(
-    name: builtins.str,
-    family: RuntimeFamily,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd(
-    bucket: _IBucketRef_fb8fe266,
-    key: builtins.str,
-    object_version: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07(
-    _scope: _constructs_77d1e7e8.Construct,
-    _handler: builtins.str,
-    _family: RuntimeFamily,
-    _runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34(
-    expression: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a(
-    interval: _Duration_4839e8c3,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f(
-    asset_path: builtins.str,
-    *,
-    deploy_time: typing.Optional[builtins.bool] = None,
-    display_name: typing.Optional[builtins.str] = None,
-    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
-    source_kms_key: typing.Optional[_IKeyRef_1e82344b] = None,
-    asset_hash: typing.Optional[builtins.str] = None,
-    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
-    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
-    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
-    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
-    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393(
-    scope: _constructs_77d1e7e8.Construct,
-    handler: builtins.str,
-    family: RuntimeFamily,
-    runtime_name: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2b971663(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     artifact_s3_location: builtins.str,
     code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
-    execution_role_arn: builtins.str,
+    execution_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
     name: builtins.str,
     runtime_version: builtins.str,
     schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -5856,6 +5675,26 @@ def _typecheckingstub__b8fcb3f48eca9399b4d1d31a5ef709e22f9fa52ad1e174b75d8313ef2
     visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__01a67567b68d06f36673fc7eb4b602b0433b2b739e698b03ea67aa6a7bbfef4b(
+    resource: _ICanaryRef_cf407e49,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a9ea9a4c62ed507734c1656b5b5b9ece24a5a15e32aa598350d8dcba80710c99(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    canary_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6a3fbf9db1e0a642690468c48e630211c97b836ae6d07dfc5645551505768178(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6016,8 +5855,9 @@ def _typecheckingstub__c91e35c3c240434fee052d7f899893609a9c027813412eb6312483e20
 
 def _typecheckingstub__3d403372a613babc1ab10717d050ec9a7f4055961f3545f2d0600d89c7b3dcc3(
     *,
-    handler: builtins.str,
+    blueprint_types: typing.Optional[typing.Sequence[builtins.str]] = None,
     dependencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.DependencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    handler: typing.Optional[builtins.str] = None,
     s3_bucket: typing.Optional[builtins.str] = None,
     s3_key: typing.Optional[builtins.str] = None,
     s3_object_version: typing.Optional[builtins.str] = None,
@@ -6089,6 +5929,32 @@ def _typecheckingstub__f52b6b7318141dc99f6bd36c21b91cda286b67d7dea805791a6132a2c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d869d56ce0d1d2e2add2f80bf39b28abbec2752c719e03194ee540bf1949e423(
+    *,
+    artifact_s3_location: builtins.str,
+    code: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.CodeProperty, typing.Dict[builtins.str, typing.Any]]],
+    execution_role_arn: typing.Union[builtins.str, _IRoleRef_8400221f],
+    name: builtins.str,
+    runtime_version: builtins.str,
+    schedule: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ScheduleProperty, typing.Dict[builtins.str, typing.Any]]],
+    artifact_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.ArtifactConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    browser_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.BrowserConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    delete_lambda_resources_on_canary_deletion: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    dry_run_and_update: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    failure_retention_period: typing.Optional[jsii.Number] = None,
+    provisioned_resource_cleanup: typing.Optional[builtins.str] = None,
+    resources_to_replicate_tags: typing.Optional[typing.Sequence[builtins.str]] = None,
+    run_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.RunConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    start_canary_after_creation: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    success_retention_period: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_reference: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    visual_references: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VisualReferenceProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCanary.VPCConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae1447c2af09(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -6096,6 +5962,12 @@ def _typecheckingstub__973b5b11ee0c26a7aa94d55785d1a025e0c569700b7877564d84ae144
     name: builtins.str,
     resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4617b52968dab7116670f82ed8a0e28c73b86148aa7dc92f940f22398ef479e9(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6126,6 +5998,159 @@ def _typecheckingstub__078802d6cab1e35c6ba04d10e648f52314cd74f1c2d198563fb8a7d64
 
 def _typecheckingstub__0d85cd0ddf465884c3990e0492b92e22606ecfb33b8127bf42d0c344b78427aa(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0ab100d4133b5b7bd6483c4c3bcf827df685974681f592679f7de8f8ea64b33f(
+    *,
+    name: builtins.str,
+    resource_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__02201c2190b076bbceced8708b435fab8189f7f505650002941cc7a50e23adff(
+    asset_path: builtins.str,
+    *,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__449747bf42ca4f0c5864a72ad8bd3bcd8b8dedef173ae2e8a54e213a343068a6(
+    bucket: _IBucketRef_3debe44e,
+    key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__72d5e409f31e6e624d17b0671dedc0be55eeb0d3f459389a05661b94b0f5d0ab(
+    code: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__16072f2291ff792418a957a399b7ca3a9d2e16cb1e67d33d5682dbb0eebaf541(
+    scope: _constructs_77d1e7e8.Construct,
+    handler: builtins.str,
+    family: RuntimeFamily,
+    runtime_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a34e85aaf9472ee1bd9ebc1e0c43060979cf58692956f81c385d453a371973e(
+    *,
+    inline_code: typing.Optional[builtins.str] = None,
+    s3_location: typing.Optional[typing.Union[_Location_0948fa7f, typing.Dict[builtins.str, typing.Any]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6f80f44d8794a637e9994828c4264f001f407cac43a28d1b0c7e51bb7487337d(
+    *,
+    day: typing.Optional[builtins.str] = None,
+    hour: typing.Optional[builtins.str] = None,
+    minute: typing.Optional[builtins.str] = None,
+    month: typing.Optional[builtins.str] = None,
+    week_day: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__998aa034b450d34cd7535661c029c2c24a7a34b950b79e5a2b055d31ab5ea31d(
+    *,
+    code: Code,
+    handler: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8e4d6f25be5e212e7eccf81a0bb26d92760fb4f335d2fd7395acbdc376c975d2(
+    code: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9c1dddac73b46d6693b6032065ae6db988e1e76cb520ebf3d4aa58e532f543a9(
+    scope: _constructs_77d1e7e8.Construct,
+    handler: builtins.str,
+    _family: RuntimeFamily,
+    _runtime_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba23a2bd20fc9334e4b0fac6e1c104de0f53b4ec265cf53ef1a80ad25868f780(
+    name: builtins.str,
+    family: RuntimeFamily,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94d1b4f54d462b3f798f1b900a1b75b486a8dc3f4f14650931bf7631ce93a5bd(
+    bucket: _IBucketRef_3debe44e,
+    key: builtins.str,
+    object_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2e764381c92bbdf3e70a0cf34a6f1afa9abfa207f9eb030a4ac6823b6e04ab07(
+    _scope: _constructs_77d1e7e8.Construct,
+    _handler: builtins.str,
+    _family: RuntimeFamily,
+    _runtime_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5a8334828acbf2ad1c4c442e45a5fc06cb2afe4d6c84839d6e453ee067100a34(
+    expression: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__551eb869b238a461522af26f46eb23c0d3b0fef05c536646aaa672b55e35210a(
+    interval: _Duration_4839e8c3,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__60a29a536d66536254f2ca409a65dc32f30e483b29091222d42f32106bd3754f(
+    asset_path: builtins.str,
+    *,
+    deploy_time: typing.Optional[builtins.bool] = None,
+    display_name: typing.Optional[builtins.str] = None,
+    readers: typing.Optional[typing.Sequence[_IGrantable_71c4f5de]] = None,
+    source_kms_key: typing.Optional[_IKeyRef_d4fc6ef3] = None,
+    asset_hash: typing.Optional[builtins.str] = None,
+    asset_hash_type: typing.Optional[_AssetHashType_05b67f2d] = None,
+    bundling: typing.Optional[typing.Union[_BundlingOptions_588cc936, typing.Dict[builtins.str, typing.Any]]] = None,
+    exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
+    follow_symlinks: typing.Optional[_SymlinkFollowMode_047ec1f6] = None,
+    ignore_mode: typing.Optional[_IgnoreMode_655a98e8] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcf81e22fccedf5b193b8ec9218200abb14bc77d3601c5cd7edbedda5914c393(
+    scope: _constructs_77d1e7e8.Construct,
+    handler: builtins.str,
+    family: RuntimeFamily,
+    runtime_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

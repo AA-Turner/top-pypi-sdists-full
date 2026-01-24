@@ -1,9 +1,7 @@
-import inspect
 from copy import copy
 
 import django
-from behave import step_registry as module_step_registry
-from behave.runner import Context, ModelRunner
+from behave.runner import Context, ModelRunner, Runner
 from django.shortcuts import resolve_url
 
 
@@ -29,16 +27,9 @@ def load_registered_fixtures(context):
     """
     Apply fixtures that are registered with the @fixtures decorator.
     """
-    # -- SELECT STEP REGISTRY:
-    # HINT: Newer behave versions use runner.step_registry
-    # to be able to support multiple runners, each with its own step_registry.
-    runner = context._runner
-    step_registry = getattr(runner, 'step_registry', None)
-    if not step_registry:
-        # -- BACKWARD-COMPATIBLE: Use module_step_registry
-        step_registry = module_step_registry.registry
+    step_registry = context._runner.step_registry
 
-    # -- SETUP SCENARIO FIXTURES:
+    # -- SET UP SCENARIO FIXTURES:
     for step in context.scenario.all_steps:
         match = step_registry.find_match(step)
         if match and hasattr(match.func, 'registered_fixtures'):
@@ -81,17 +72,17 @@ class BehaveHooksMixin:
     def setup_fixtures(self, context):
         """Set up fixtures."""
 
-        if getattr(context, 'fixtures', None):
-            if django.VERSION >= (5, 2):
-                context.test.__class__.fixtures = copy(context.fixtures)
-            else:
-                context.test.fixtures = copy(context.fixtures)
+        fixtures = getattr(context, 'fixtures', [])
+        if django.VERSION >= (5, 2):
+            context.test.__class__.fixtures = copy(fixtures)
+        else:
+            context.test.fixtures = copy(fixtures)
 
-        if getattr(context, 'reset_sequences', None):
-            if django.VERSION >= (5, 2):
-                context.test.__class__.reset_sequences = context.reset_sequences
-            else:
-                context.test.reset_sequences = context.reset_sequences
+        reset_sequences = getattr(context, 'reset_sequences', None)
+        if django.VERSION >= (5, 2):
+            context.test.__class__.reset_sequences = reset_sequences
+        else:
+            context.test.reset_sequences = reset_sequences
 
         if getattr(context, 'databases', None):
             context.test.__class__.databases = context.databases
@@ -107,9 +98,10 @@ class BehaveHooksMixin:
         """
         if django.VERSION >= (5, 2):
             context.test.__class__._pre_setup(run=True)
+            context.test.__class__.setUpClass()
         else:
             context.test._pre_setup(run=True)
-        context.test.setUpClass()
+            context.test.setUpClass()
         context.test()
 
     def teardown_test(self, context):
@@ -124,51 +116,39 @@ def monkey_patch_behave(django_test_runner):
     Integrate behave_django in behave via before/after scenario hooks.
     """
     behave_run_hook = ModelRunner.run_hook
+    behave_load_hooks = Runner.load_hooks
 
-    # Check if the new Behave version uses the updated run_hook signature.
-    # In newer versions, the signature is (self, hook_name, *args) and
-    # context is accessed via `self.context`.
-    # In older versions, it was (self, name, context, *args)
-    sig = inspect.signature(behave_run_hook)
-    param_names = list(sig.parameters.keys())
-    # New version uses 'hook_name', old used 'name'
-    # See https://github.com/behave/behave/commit/f4d5028
-    uses_new_signature = 'hook_name' in param_names
+    def load_hooks(self, filename=None):
+        """
+        Load hooks and ensure before_scenario/after_scenario are registered.
 
-    if uses_new_signature:
-        # New Behave version: context is available as self.context
-        def run_hook(self, hook_name, *args):
-            context = self.context
+        Behave v1.3+ doesn't call run hooks that aren't defined, so we must
+        do this explicitly to make sure we're called in any case.
+        """
+        behave_load_hooks(self, filename)
 
-            if hook_name == 'before_all':
-                django_test_runner.patch_context(context)
+        if 'before_scenario' not in self.hooks:
+            self.hooks['before_scenario'] = lambda *_: None
 
-            behave_run_hook(self, hook_name, *args)
+        if 'after_scenario' not in self.hooks:
+            self.hooks['after_scenario'] = lambda *_: None
 
-            if hook_name == 'before_scenario':
-                django_test_runner.setup_testclass(context)
-                django_test_runner.setup_fixtures(context)
-                django_test_runner.setup_test(context)
-                # In new Behave version, context is automatically passed by run_hook
-                behave_run_hook(self, 'django_ready')
+    def run_hook(self, hook_name, *args):
+        context = self.context
 
-            if hook_name == 'after_scenario':
-                django_test_runner.teardown_test(context)
-    else:
-        # Old Behave version: context is passed as parameter
-        def run_hook(self, name, context, *args):
-            if name == 'before_all':
-                django_test_runner.patch_context(context)
+        if hook_name == 'before_all':
+            django_test_runner.patch_context(context)
 
-            behave_run_hook(self, name, context, *args)
+        behave_run_hook(self, hook_name, *args)
 
-            if name == 'before_scenario':
-                django_test_runner.setup_testclass(context)
-                django_test_runner.setup_fixtures(context)
-                django_test_runner.setup_test(context)
-                behave_run_hook(self, 'django_ready', context)
+        if hook_name == 'before_scenario':
+            django_test_runner.setup_testclass(context)
+            django_test_runner.setup_fixtures(context)
+            django_test_runner.setup_test(context)
+            behave_run_hook(self, 'django_ready')
 
-            if name == 'after_scenario':
-                django_test_runner.teardown_test(context)
+        if hook_name == 'after_scenario':
+            django_test_runner.teardown_test(context)
 
+    Runner.load_hooks = load_hooks
     ModelRunner.run_hook = run_hook

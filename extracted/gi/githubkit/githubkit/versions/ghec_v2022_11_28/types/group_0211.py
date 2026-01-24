@@ -9,40 +9,26 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
+from typing_extensions import TypedDict
+
+from .group_0212 import ForkEventPropForkeeType, ForkEventPropForkeeTypeForResponse
 
 
-class ExternalGroupType(TypedDict):
-    """ExternalGroup
+class ForkEventType(TypedDict):
+    """ForkEvent"""
 
-    Information about an external group's usage and its members
-    """
-
-    group_id: int
-    group_name: str
-    updated_at: NotRequired[str]
-    teams: list[ExternalGroupPropTeamsItemsType]
-    members: list[ExternalGroupPropMembersItemsType]
+    action: str
+    forkee: ForkEventPropForkeeType
 
 
-class ExternalGroupPropTeamsItemsType(TypedDict):
-    """ExternalGroupPropTeamsItems"""
+class ForkEventTypeForResponse(TypedDict):
+    """ForkEvent"""
 
-    team_id: int
-    team_name: str
-
-
-class ExternalGroupPropMembersItemsType(TypedDict):
-    """ExternalGroupPropMembersItems"""
-
-    member_id: int
-    member_login: str
-    member_name: str
-    member_email: str
+    action: str
+    forkee: ForkEventPropForkeeTypeForResponse
 
 
 __all__ = (
-    "ExternalGroupPropMembersItemsType",
-    "ExternalGroupPropTeamsItemsType",
-    "ExternalGroupType",
+    "ForkEventType",
+    "ForkEventTypeForResponse",
 )

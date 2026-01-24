@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zope.pagetemplate
-Version: 6.0
+Version: 6.1
 Summary: Zope Page Templates
 Home-page: https://github.com/zopefoundation/zope.pagetemplate
 Author: Zope Foundation and Contributors
@@ -13,18 +13,18 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Framework :: Zope :: 3
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 License-File: LICENSE.txt
 Requires-Dist: setuptools
 Requires-Dist: zope.interface
@@ -99,6 +99,14 @@ https://zopepagetemplate.readthedocs.io
 =========
  Changes
 =========
+
+6.1 (2025-11-21)
+================
+
+- Add support for Python 3.14.
+
+- Drop support for Python 3.9.
+
 
 6.0 (2025-09-12)
 ================

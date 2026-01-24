@@ -13,7 +13,7 @@ template_constants_reading = r"""
 #include "build_definitions.h"
 
 // Global constants storage
-PyObject *global_constants[%(global_constants_count)d];
+PyObject *global_constants[%(global_constants_count)d] = {0};
 
 // Sentinel PyObject to be used for all our call iterator endings. It will
 // become a PyCObject pointing to NULL. It's address is unique, and that's
@@ -73,7 +73,7 @@ static void _createGlobalConstants(PyThreadState *tstate) {
     // The empty name means global.
     loadConstantsBlob(tstate, &global_constants[0], "");
 
-#if _NUITKA_EXE_MODE
+#if _NUITKA_EXE_MODE || _NUITKA_DLL_MODE
     /* Set the "sys.executable" path to the original CPython executable or point to inside the
        distribution for standalone. */
     Nuitka_SysSetObject(

@@ -87,6 +87,7 @@ class TestHijri:
         assert self.hijri_date.month_name() == "Sha'ban"
         assert self.hijri_date.month_name("en") == "Sha'ban"
         assert self.hijri_date.month_name("en-US") == "Sha'ban"
+        assert self.hijri_date.month_name("tr") == "Şaban"
 
     def test_weekday(self):
         assert self.hijri_date.weekday() == 5
@@ -98,11 +99,13 @@ class TestHijri:
         assert self.hijri_date.day_name() == "Saturday"
         assert self.hijri_date.day_name("en") == "Saturday"
         assert self.hijri_date.day_name("en-US") == "Saturday"
+        assert self.hijri_date.day_name("tr") == "Cumartesi"
 
     def test_notation(self):
         assert self.hijri_date.notation() == "AH"
         assert self.hijri_date.notation("en") == "AH"
         assert self.hijri_date.notation("en-US") == "AH"
+        assert self.hijri_date.notation("tr") == "Hicri"
 
     def test_to_julian(self):
         assert self.hijri_date.to_julian() == 2447961
@@ -180,16 +183,19 @@ class TestGregorian:
         assert self.gregorian_date.month_name() == "March"
         assert self.gregorian_date.month_name("en") == "March"
         assert self.gregorian_date.month_name("en-US") == "March"
+        assert self.gregorian_date.month_name("tr") == "Mart"
 
     def test_day_name(self):
         assert self.gregorian_date.day_name() == "Saturday"
         assert self.gregorian_date.day_name("en") == "Saturday"
         assert self.gregorian_date.day_name("en-US") == "Saturday"
+        assert self.gregorian_date.day_name("tr") == "Cumartesi"
 
     def test_notation(self):
         assert self.gregorian_date.notation() == "CE"
         assert self.gregorian_date.notation("en") == "CE"
         assert self.gregorian_date.notation("en-US") == "CE"
+        assert self.gregorian_date.notation("tr") == "Miladi"
 
     def test_to_julian(self):
         assert self.gregorian_date.to_julian() == 2447961

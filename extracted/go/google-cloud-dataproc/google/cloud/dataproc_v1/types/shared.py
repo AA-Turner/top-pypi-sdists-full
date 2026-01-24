@@ -79,6 +79,8 @@ class Component(proto.Enum):
             Iceberg.
         JUPYTER (1):
             The Jupyter Notebook.
+        JUPYTER_KERNEL_GATEWAY (22):
+            The Jupyter Kernel Gateway.
         PIG (21):
             The Pig component.
         PRESTO (6):
@@ -105,6 +107,7 @@ class Component(proto.Enum):
     HUDI = 18
     ICEBERG = 19
     JUPYTER = 1
+    JUPYTER_KERNEL_GATEWAY = 22
     PIG = 21
     PRESTO = 6
     TRINO = 17
@@ -342,7 +345,7 @@ class SparkHistoryServerConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/regions/[region]/clusters/[cluster_name]``
+            - ``projects/[project_id]/regions/[region]/clusters/[cluster_name]``
     """
 
     dataproc_cluster: str = proto.Field(
@@ -361,7 +364,7 @@ class PeripheralsConfig(proto.Message):
 
             Example:
 
-            -  ``projects/[project_id]/locations/[region]/services/[service_id]``
+            - ``projects/[project_id]/locations/[region]/services/[service_id]``
         spark_history_server_config (google.cloud.dataproc_v1.types.SparkHistoryServerConfig):
             Optional. The Spark History Server
             configuration for the workload.
@@ -629,7 +632,7 @@ class KubernetesSoftwareConfig(proto.Message):
             for example ``spark:spark.kubernetes.container.image``. The
             following are supported prefixes and their mappings:
 
-            -  spark: ``spark-defaults.conf``
+            - spark: ``spark-defaults.conf``
 
             For more information, see `Cluster
             properties <https://cloud.google.com/dataproc/docs/concepts/cluster-properties>`__.

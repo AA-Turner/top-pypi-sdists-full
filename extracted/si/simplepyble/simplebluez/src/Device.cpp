@@ -12,13 +12,12 @@ Device::Device(std::shared_ptr<SimpleDBus::Connection> conn, const std::string& 
 Device::~Device() {}
 
 std::shared_ptr<SimpleDBus::Proxy> Device::path_create(const std::string& path) {
-    const std::string next_child = SimpleDBus::Path::next_child_strip(_path, path);
+    const std::string next_child = SimpleDBus::PathUtils::next_child_strip(_path, path);
 
     if (next_child.find("service") == 0) {
-        auto child = std::make_shared<Service>(_conn, _bus_name, path);
-        return std::static_pointer_cast<SimpleDBus::Proxy>(child);
+        return Proxy::create<Service>(_conn, _bus_name, path);
     } else {
-        return std::make_shared<Proxy>(_conn, _bus_name, path);
+        return Proxy::create<Proxy>(_conn, _bus_name, path);
     }
 }
 

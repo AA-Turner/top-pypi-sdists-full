@@ -1,6 +1,10 @@
-#[cfg(not(target_arch = "wasm32"))]
+#![allow(clippy::large_stack_arrays)]
+
 mod tests {
     use jsonschema::{Draft, PatternOptions};
+    #[cfg(not(target_arch = "wasm32"))]
+    use std::env;
+    #[cfg(not(target_arch = "wasm32"))]
     use std::fs;
     use testsuite::{suite, Test};
 
@@ -18,7 +22,12 @@ mod tests {
         "draft4::optional::bignum::integer::a_negative_bignum_is_an_integer",
     ]
 )]
-    fn test_suite(test: Test) {
+    fn test_suite(test: &Test) {
+        enum RegexEngine {
+            Regex,
+            FancyRegex,
+        }
+
         let mut options = jsonschema::options();
         match test.draft {
             "draft4" => {
@@ -33,14 +42,13 @@ mod tests {
             "draft2019-09" | "draft2020-12" => {}
             _ => panic!("Unsupported draft"),
         }
+        if should_skip_draft(test.draft) {
+            return;
+        }
         if test.is_optional {
             options = options.should_validate_formats(true);
         }
-
-        enum RegexEngine {
-            Regex,
-            FancyRegex,
-        }
+        options = options.with_retriever(testsuite_retriever());
 
         for engine in [RegexEngine::FancyRegex, RegexEngine::Regex] {
             match engine {
@@ -81,16 +89,19 @@ mod tests {
                     pretty_json(&test.schema),
                     pretty_json(&test.data),
                 );
-                let output = validator.apply(&test.data).basic();
+                let evaluation = validator.evaluate(&test.data);
                 assert!(
-                output.is_valid(),
-                "Test case should be valid via basic output:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}\nError: {:?}",
-                test.case,
-                test.description,
-                pretty_json(&test.schema),
-                pretty_json(&test.data),
-                output
-            );
+                    evaluation.flag().valid,
+                    "Evaluation output should be valid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                    test.case,
+                    test.description,
+                    pretty_json(&test.schema),
+                    pretty_json(&test.data),
+                );
+                let _ =
+                    serde_json::to_value(evaluation.list()).expect("List output should serialize");
+                let _ = serde_json::to_value(evaluation.hierarchical())
+                    .expect("Hierarchical output should serialize");
             } else {
                 let errors = validator.iter_errors(&test.data).collect::<Vec<_>>();
                 assert!(
@@ -102,15 +113,15 @@ mod tests {
                 pretty_json(&test.data),
             );
                 for error in errors {
-                    let pointer = error.instance_path.as_str();
+                    let pointer = error.instance_path().as_str();
                     assert_eq!(
-                    test.data.pointer(pointer), Some(&*error.instance),
+                    test.data.pointer(pointer), Some(error.instance().as_ref()),
                     "Expected error instance did not match actual error instance:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}\nExpected pointer: {:#?}\nActual pointer: {:#?}",
                     test.case,
                     test.description,
                     pretty_json(&test.schema),
                     pretty_json(&test.data),
-                    &*error.instance,
+                    error.instance().as_ref(),
                     &pointer,
                 );
                 }
@@ -131,26 +142,30 @@ mod tests {
                     pretty_json(&test.data),
                 );
                 };
-                let pointer = error.instance_path.as_str();
+                let pointer = error.instance_path().as_str();
                 assert_eq!(
-                test.data.pointer(pointer), Some(&*error.instance),
+                test.data.pointer(pointer), Some(error.instance().as_ref()),
                 "Expected error instance did not match actual error instance:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}\nExpected pointer: {:#?}\nActual pointer: {:#?}",
                 test.case,
                 test.description,
                 pretty_json(&test.schema),
                 pretty_json(&test.data),
-                &*error.instance,
+                error.instance().as_ref(),
                 &pointer,
             );
-                let output = validator.apply(&test.data).basic();
+                let evaluation = validator.evaluate(&test.data);
                 assert!(
-                !output.is_valid(),
-                "Test case should be invalid via basic output:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
-                test.case,
-                test.description,
-                pretty_json(&test.schema),
-                pretty_json(&test.data),
-            );
+                    !evaluation.flag().valid,
+                    "Evaluation output should be invalid:\nCase: {}\nTest: {}\nSchema: {}\nInstance: {}",
+                    test.case,
+                    test.description,
+                    pretty_json(&test.schema),
+                    pretty_json(&test.data),
+                );
+                let _ =
+                    serde_json::to_value(evaluation.list()).expect("List output should serialize");
+                let _ = serde_json::to_value(evaluation.hierarchical())
+                    .expect("Hierarchical output should serialize");
             }
         }
     }
@@ -159,6 +174,7 @@ mod tests {
         serde_json::to_string_pretty(v).expect("Failed to format JSON")
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[test]
     fn test_instance_path() {
         let expectations: serde_json::Value =
@@ -168,18 +184,21 @@ mod tests {
                 .unwrap_or_else(|_| panic!("Valid file: {filename}"));
             let data: serde_json::Value = serde_json::from_str(&test_file).expect("Valid JSON");
             for item in expected.as_array().expect("Is array") {
-                let suite_id = item["suite_id"].as_u64().expect("Is integer") as usize;
+                let suite_id = usize::try_from(item["suite_id"].as_u64().expect("Is integer"))
+                    .expect("suite_id fits in usize");
                 let schema = &data[suite_id]["schema"];
                 let validator = jsonschema::options()
                     .with_draft(Draft::Draft7)
+                    .with_retriever(testsuite_retriever())
                     .build(schema)
                     .unwrap_or_else(|_| {
                         panic!(
-                            "Valid schema. File: {filename}; Suite ID: {suite_id}; Schema: {schema}",
-                        )
+                    "Valid schema. File: {filename}; Suite ID: {suite_id}; Schema: {schema}",
+                )
                     });
                 for test_data in item["tests"].as_array().expect("Valid array") {
-                    let test_id = test_data["id"].as_u64().expect("Is integer") as usize;
+                    let test_id = usize::try_from(test_data["id"].as_u64().expect("Is integer"))
+                        .expect("test_id fits in usize");
                     let mut instance_path = String::new();
 
                     for segment in test_data["instance_path"].as_array().expect("Valid array") {
@@ -194,7 +213,7 @@ mod tests {
                         &data[suite_id]["tests"][test_id]["description"],
                     ));
                     assert_eq!(
-                        error.instance_path.as_str(),
+                        error.instance_path().as_str(),
                         instance_path,
                         "\nFile: {}\nSuite: {}\nTest: {}\nError: {}",
                         filename,
@@ -205,5 +224,26 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn should_skip_draft(draft: &str) -> bool {
+        if let Some(filter) = allowed_draft_filter() {
+            for entry in filter.split(',') {
+                if entry.trim().eq_ignore_ascii_case(draft) {
+                    return false;
+                }
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    fn allowed_draft_filter() -> Option<String> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Ok(value) = env::var("JSONSCHEMA_SUITE_DRAFT_FILTER") {
+            return Some(value);
+        }
+        option_env!("JSONSCHEMA_SUITE_DRAFT_FILTER").map(str::to_string)
     }
 }

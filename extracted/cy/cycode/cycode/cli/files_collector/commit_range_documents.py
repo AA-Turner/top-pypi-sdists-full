@@ -67,12 +67,17 @@ def collect_commit_range_diff_documents(
     commit_documents_to_scan = []
 
     repo = git_proxy.get_repo(path)
-    total_commits_count = int(repo.git.rev_list('--count', commit_range))
-    logger.debug('Calculating diffs for %s commits in the commit range %s', total_commits_count, commit_range)
+
+    normalized_commit_range = normalize_commit_range(commit_range, path)
+
+    total_commits_count = int(repo.git.rev_list('--count', normalized_commit_range))
+    logger.debug(
+        'Calculating diffs for %s commits in the commit range %s', total_commits_count, normalized_commit_range
+    )
 
     progress_bar.set_section_length(ScanProgressBarSection.PREPARE_LOCAL_FILES, total_commits_count)
 
-    for scanned_commits_count, commit in enumerate(repo.iter_commits(rev=commit_range)):
+    for scanned_commits_count, commit in enumerate(repo.iter_commits(rev=normalized_commit_range)):
         if _does_reach_to_max_commits_to_scan_limit(commit_ids_to_scan, max_commits_count):
             logger.debug('Reached to max commits to scan count. Going to scan only %s last commits', max_commits_count)
             progress_bar.update(ScanProgressBarSection.PREPARE_LOCAL_FILES, total_commits_count - scanned_commits_count)
@@ -96,7 +101,12 @@ def collect_commit_range_diff_documents(
 
         logger.debug(
             'Found all relevant files in commit %s',
-            {'path': path, 'commit_range': commit_range, 'commit_id': commit_id},
+            {
+                'path': path,
+                'commit_range': commit_range,
+                'normalized_commit_range': normalized_commit_range,
+                'commit_id': commit_id,
+            },
         )
 
     logger.debug('List of commit ids to scan, %s', {'commit_ids': commit_ids_to_scan})
@@ -104,18 +114,26 @@ def collect_commit_range_diff_documents(
     return commit_documents_to_scan
 
 
-def calculate_pre_receive_commit_range(branch_update_details: str) -> Optional[str]:
+def calculate_pre_receive_commit_range(repo_path: str, branch_update_details: str) -> Optional[str]:
     end_commit = _get_end_commit_from_branch_update_details(branch_update_details)
 
     # branch is deleted, no need to perform scan
     if end_commit == consts.EMPTY_COMMIT_SHA:
         return None
 
-    start_commit = _get_oldest_unupdated_commit_for_branch(end_commit)
+    repo = git_proxy.get_repo(repo_path)
+    start_commit = _get_oldest_unupdated_commit_for_branch(repo, end_commit)
 
     # no new commit to update found
     if not start_commit:
         return None
+
+    # If the oldest not-yet-updated commit has no parent (root commit or orphaned history),
+    # using '~1' will fail. In that case, scan from the end commit, which effectively
+    # includes the entire history reachable from it (which is exactly what we need here).
+
+    if not bool(repo.commit(start_commit).parents):
+        return f'{end_commit}'
 
     return f'{start_commit}~1...{end_commit}'
 
@@ -126,10 +144,10 @@ def _get_end_commit_from_branch_update_details(update_details: str) -> str:
     return end_commit
 
 
-def _get_oldest_unupdated_commit_for_branch(commit: str) -> Optional[str]:
+def _get_oldest_unupdated_commit_for_branch(repo: 'Repo', commit: str) -> Optional[str]:
     # get a list of commits by chronological order that are not in the remote repository yet
     # more info about rev-list command: https://git-scm.com/docs/git-rev-list
-    repo = git_proxy.get_repo(os.getcwd())
+
     not_updated_commits = repo.git.rev_list(commit, '--topo-order', '--reverse', '--not', '--all')
 
     commits = not_updated_commits.splitlines()
@@ -199,8 +217,7 @@ def parse_pre_receive_input() -> str:
 
     :return: First branch update details (input's first line)
     """
-    # FIXME(MarshalX): this blocks main thread forever if called outside of pre-receive hook
-    pre_receive_input = sys.stdin.read().strip()
+    pre_receive_input = _read_hook_input_from_stdin()
     if not pre_receive_input:
         raise ValueError(
             'Pre receive input was not found. Make sure that you are using this command only in pre-receive hook'
@@ -222,7 +239,7 @@ def parse_pre_push_input() -> str:
 
     :return: First, push update details (input's first line)
     """  # noqa: E501
-    pre_push_input = sys.stdin.read().strip()
+    pre_push_input = _read_hook_input_from_stdin()
     if not pre_push_input:
         raise ValueError(
             'Pre push input was not found. Make sure that you are using this command only in pre-push hook'
@@ -230,6 +247,19 @@ def parse_pre_push_input() -> str:
 
     # each line represents a branch push request, handle the first one only
     return pre_push_input.splitlines()[0]
+
+
+def _read_hook_input_from_stdin() -> str:
+    """Read input from stdin when called from a hook.
+
+    If called manually from the command line, return an empty string so it doesn't block the main thread.
+
+    Returns:
+        Input from stdin
+    """
+    if sys.stdin.isatty():
+        return ''
+    return sys.stdin.read().strip()
 
 
 def _get_default_branches_for_merge_base(repo: 'Repo') -> list[str]:
@@ -321,10 +351,10 @@ def calculate_pre_push_commit_range(push_update_details: str) -> Optional[str]:
                 return f'{merge_base}..{local_object_name}'
 
             logger.debug('Failed to find merge base with any default branch')
-            return '--all'
+            return consts.COMMIT_RANGE_ALL_COMMITS
         except Exception as e:
             logger.debug('Failed to get repo for pre-push commit range calculation: %s', exc_info=e)
-            return '--all'
+            return consts.COMMIT_RANGE_ALL_COMMITS
 
     # If deleting a branch (local_object_name is all zeros), no need to scan
     if local_object_name == consts.EMPTY_COMMIT_SHA:
@@ -408,23 +438,9 @@ def get_pre_commit_modified_documents(
     return git_head_documents, pre_committed_documents, diff_documents
 
 
-def parse_commit_range_sca(commit_range: str, path: str) -> tuple[Optional[str], Optional[str]]:
-    # FIXME(MarshalX): i truly believe that this function does NOT work as expected
-    #  it does not handle cases like 'A..B' correctly
-    #  i leave it as it for SCA to not break anything
-    #  the more correct approach is implemented for SAST
-    from_commit_rev = to_commit_rev = None
-
-    for commit in git_proxy.get_repo(path).iter_commits(rev=commit_range):
-        if not to_commit_rev:
-            to_commit_rev = commit.hexsha
-        from_commit_rev = commit.hexsha
-
-    return from_commit_rev, to_commit_rev
-
-
-def parse_commit_range_sast(commit_range: str, path: str) -> tuple[Optional[str], Optional[str]]:
+def parse_commit_range(commit_range: str, path: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
     """Parses a git commit range string and returns the full SHAs for the 'from' and 'to' commits.
+    Also, it returns the separator in the commit range.
 
     Supports:
     - 'from..to'
@@ -432,11 +448,29 @@ def parse_commit_range_sast(commit_range: str, path: str) -> tuple[Optional[str]
     - 'commit' (interpreted as 'commit..HEAD')
     - '..to' (interpreted as 'HEAD..to')
     - 'from..' (interpreted as 'from..HEAD')
+    - '--all' (interpreted as 'first_commit..HEAD' to scan all commits)
     """
     repo = git_proxy.get_repo(path)
 
+    # Handle '--all' special case: scan all commits from first to HEAD
+    # Usually represents an empty remote repository
+    if commit_range == consts.COMMIT_RANGE_ALL_COMMITS:
+        try:
+            head_commit = repo.rev_parse(consts.GIT_HEAD_COMMIT_REV).hexsha
+            all_commits = repo.git.rev_list('--reverse', head_commit).strip()
+            if all_commits:
+                first_commit = all_commits.splitlines()[0]
+                return first_commit, head_commit, '..'
+            logger.warning("No commits found for range '%s'", commit_range)
+            return None, None, None
+        except Exception as e:
+            logger.warning("Failed to parse commit range '%s'", commit_range, exc_info=e)
+            return None, None, None
+
+    separator = '..'
     if '...' in commit_range:
         from_spec, to_spec = commit_range.split('...', 1)
+        separator = '...'
     elif '..' in commit_range:
         from_spec, to_spec = commit_range.split('..', 1)
     else:
@@ -454,7 +488,28 @@ def parse_commit_range_sast(commit_range: str, path: str) -> tuple[Optional[str]
         # Use rev_parse to resolve each specifier to its full commit SHA
         from_commit_rev = repo.rev_parse(from_spec).hexsha
         to_commit_rev = repo.rev_parse(to_spec).hexsha
-        return from_commit_rev, to_commit_rev
+        return from_commit_rev, to_commit_rev, separator
     except git_proxy.get_git_command_error() as e:
         logger.warning("Failed to parse commit range '%s'", commit_range, exc_info=e)
-        return None, None
+        return None, None, None
+
+
+def normalize_commit_range(commit_range: str, path: str) -> str:
+    """Normalize a commit range string to handle various formats consistently with all scan types.
+
+    Returns:
+        A normalized commit range string suitable for Git operations (e.g., 'full_sha1..full_sha2')
+    """
+    from_commit_rev, to_commit_rev, separator = parse_commit_range(commit_range, path)
+    if from_commit_rev is None or to_commit_rev is None:
+        logger.warning('Failed to parse commit range "%s", falling back to raw string.', commit_range)
+        return commit_range
+
+    # Construct a normalized range string using the original separator for iter_commits
+    normalized_commit_range = f'{from_commit_rev}{separator}{to_commit_rev}'
+    logger.debug(
+        'Normalized commit range "%s" to "%s"',
+        commit_range,
+        normalized_commit_range,
+    )
+    return normalized_commit_range

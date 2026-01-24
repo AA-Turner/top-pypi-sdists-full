@@ -12,6 +12,7 @@
 import os
 import pathlib
 import sys
+import subprocess
 import json
 
 import pytest
@@ -213,6 +214,10 @@ def test_single_file_metadata(pyi_builder):
 
 # Test that we can successfully package a program even if one of its modules contains non-ASCII characters in a local
 # (non-UTF8) encoding and fails to declare such encoding using PEP361 encoding header.
+#
+# Python versions prior to 3.14.1 are able to import such modules; however, starting with python 3.14.1, a SyntaxError
+# is raised. See: https://github.com/python/cpython/commit/9ff705c
+@pytest.mark.skipif(sys.version_info >= (3, 14, 1), reason="python >= 3.14.1 disallows invalid characters")
 def test_program_importing_module_with_invalid_encoding1(pyi_builder):
     # Add directory containing the my-test-package metadata to search path
     extra_path = _MODULES_DIR / "pyi_module_with_invalid_encoding"
@@ -226,6 +231,7 @@ def test_program_importing_module_with_invalid_encoding1(pyi_builder):
     )
 
 
+@pytest.mark.skipif(sys.version_info >= (3, 14, 1), reason="python >= 3.14.1 disallows invalid characters")
 def test_program_importing_module_with_invalid_encoding2(pyi_builder):
     # Add directory containing the my-test-package metadata to search path
     extra_path = _MODULES_DIR / "pyi_module_with_invalid_encoding"
@@ -513,3 +519,55 @@ def test_time_sleep(pyi_builder, windowed):
         """,
         pyi_args=['--windowed'] if windowed else [],
     )
+
+
+# Test that on Windows, values of dwFlags and wShowWindow fields in STATRTUPINFO structure are propagated into onefile
+# child process. Onedir variant serves as sanity check. See #9342.
+@pytest.mark.win32
+@pytest.mark.parametrize('windowed', [False, True], ids=['console', 'windowed'])
+def test_startupinfo_flags(pyi_builder, tmp_path, windowed):
+    pyi_builder.test_script(
+        'pyi_get_startupinfo_flags.py',
+        pyi_args=['--windowed'] if windowed else [],
+    )
+
+    # Find executable
+    exes = pyi_builder._find_executables('pyi_get_startupinfo_flags')
+    assert len(exes) == 1
+    program_exe = exes[0]
+
+    # Re-run with various flag combinations
+    TEST_FLAGS = (
+        (False, 0),
+        (True, 0),  # SW_HIDE
+        (True, 1),  # SW_NORMAL
+        (True, 6),  # SW_MINIMIZE
+    )
+
+    for i in range(len(TEST_FLAGS)):
+        enabled, value = TEST_FLAGS[i]
+        print(
+            f"=== running test variant #{i + 1}: STARTF_USESHOWWINDOW={enabled}, wShowWindow={value} ===",
+            file=sys.stderr,
+        )
+
+        output_file = tmp_path / f'output{i}.json'
+
+        si = subprocess.STARTUPINFO()
+        if enabled:
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+            si.wShowWindow = value
+
+        subprocess.run([program_exe, output_file], check=True, startupinfo=si)
+
+        with open(output_file, 'r') as fp:
+            results = json.load(fp)
+
+        if enabled:
+            assert (results['dwFlags'] & subprocess.STARTF_USESHOWWINDOW) != 0, \
+                'dwFlags does not contain STARTF_USESHOWWINDOW, but it should!'
+            assert results['wShowWindow'] == value, \
+                f"Unexpected wShowWindow value - expected {value}, found {results['wShowWindow']}!"
+        else:
+            assert (results['dwFlags'] & subprocess.STARTF_USESHOWWINDOW) == 0, \
+                'dwFlags contains STARTF_USESHOWWINDOW, but it should not!'

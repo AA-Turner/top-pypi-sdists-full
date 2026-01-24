@@ -1,5 +1,4 @@
 from decimal import Decimal
-from typing import Optional
 
 from a_sync import a_sync
 from dank_mids.exceptions import Revert
@@ -10,7 +9,6 @@ from y.classes.common import ERC20, WeiBalance
 from y.contracts import Contract, has_methods
 from y.datatypes import Address, Block
 from y.utils.cache import optional_async_diskcache
-
 
 METHODS = "main()(address)", "issuanceAvailable()(uint)", "redemptionAvailable()(uint)"
 
@@ -42,7 +40,7 @@ async def is_rtoken(token_address: Address) -> bool:
 @a_sync(default="sync")
 async def get_price(
     token_address: Address,
-    block: Optional[Block] = None,
+    block: Block | None = None,
     skip_cache: bool = ENVS.SKIP_CACHE,
 ) -> Decimal:
     """
@@ -82,7 +80,7 @@ async def get_price(
     """
     main = await Call(token_address, "main()(address)", block_id=block)
     if main is None:
-        raise TypeError(main, token_address, await is_rtoken(token_address))
+        raise TypeError(main, token_address, await is_rtoken(token_address, sync=False))
     basket_handler = await Contract.coroutine(
         await Call(main, "basketHandler()(address)", block_id=block)
     )

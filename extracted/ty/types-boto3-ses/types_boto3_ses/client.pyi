@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -133,12 +134,6 @@ from .type_defs import (
 )
 from .waiter import IdentityExistsWaiter
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -147,41 +142,41 @@ else:
 __all__ = ("SESClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccountSendingPausedException: Type[BotocoreClientError]
-    AlreadyExistsException: Type[BotocoreClientError]
-    CannotDeleteException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConfigurationSetAlreadyExistsException: Type[BotocoreClientError]
-    ConfigurationSetDoesNotExistException: Type[BotocoreClientError]
-    ConfigurationSetSendingPausedException: Type[BotocoreClientError]
-    CustomVerificationEmailInvalidContentException: Type[BotocoreClientError]
-    CustomVerificationEmailTemplateAlreadyExistsException: Type[BotocoreClientError]
-    CustomVerificationEmailTemplateDoesNotExistException: Type[BotocoreClientError]
-    EventDestinationAlreadyExistsException: Type[BotocoreClientError]
-    EventDestinationDoesNotExistException: Type[BotocoreClientError]
-    FromEmailAddressNotVerifiedException: Type[BotocoreClientError]
-    InvalidCloudWatchDestinationException: Type[BotocoreClientError]
-    InvalidConfigurationSetException: Type[BotocoreClientError]
-    InvalidDeliveryOptionsException: Type[BotocoreClientError]
-    InvalidFirehoseDestinationException: Type[BotocoreClientError]
-    InvalidLambdaFunctionException: Type[BotocoreClientError]
-    InvalidPolicyException: Type[BotocoreClientError]
-    InvalidRenderingParameterException: Type[BotocoreClientError]
-    InvalidS3ConfigurationException: Type[BotocoreClientError]
-    InvalidSNSDestinationException: Type[BotocoreClientError]
-    InvalidSnsTopicException: Type[BotocoreClientError]
-    InvalidTemplateException: Type[BotocoreClientError]
-    InvalidTrackingOptionsException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    MailFromDomainNotVerifiedException: Type[BotocoreClientError]
-    MessageRejected: Type[BotocoreClientError]
-    MissingRenderingAttributeException: Type[BotocoreClientError]
-    ProductionAccessNotGrantedException: Type[BotocoreClientError]
-    RuleDoesNotExistException: Type[BotocoreClientError]
-    RuleSetDoesNotExistException: Type[BotocoreClientError]
-    TemplateDoesNotExistException: Type[BotocoreClientError]
-    TrackingOptionsAlreadyExistsException: Type[BotocoreClientError]
-    TrackingOptionsDoesNotExistException: Type[BotocoreClientError]
+    AccountSendingPausedException: type[BotocoreClientError]
+    AlreadyExistsException: type[BotocoreClientError]
+    CannotDeleteException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConfigurationSetAlreadyExistsException: type[BotocoreClientError]
+    ConfigurationSetDoesNotExistException: type[BotocoreClientError]
+    ConfigurationSetSendingPausedException: type[BotocoreClientError]
+    CustomVerificationEmailInvalidContentException: type[BotocoreClientError]
+    CustomVerificationEmailTemplateAlreadyExistsException: type[BotocoreClientError]
+    CustomVerificationEmailTemplateDoesNotExistException: type[BotocoreClientError]
+    EventDestinationAlreadyExistsException: type[BotocoreClientError]
+    EventDestinationDoesNotExistException: type[BotocoreClientError]
+    FromEmailAddressNotVerifiedException: type[BotocoreClientError]
+    InvalidCloudWatchDestinationException: type[BotocoreClientError]
+    InvalidConfigurationSetException: type[BotocoreClientError]
+    InvalidDeliveryOptionsException: type[BotocoreClientError]
+    InvalidFirehoseDestinationException: type[BotocoreClientError]
+    InvalidLambdaFunctionException: type[BotocoreClientError]
+    InvalidPolicyException: type[BotocoreClientError]
+    InvalidRenderingParameterException: type[BotocoreClientError]
+    InvalidS3ConfigurationException: type[BotocoreClientError]
+    InvalidSNSDestinationException: type[BotocoreClientError]
+    InvalidSnsTopicException: type[BotocoreClientError]
+    InvalidTemplateException: type[BotocoreClientError]
+    InvalidTrackingOptionsException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    MailFromDomainNotVerifiedException: type[BotocoreClientError]
+    MessageRejected: type[BotocoreClientError]
+    MissingRenderingAttributeException: type[BotocoreClientError]
+    ProductionAccessNotGrantedException: type[BotocoreClientError]
+    RuleDoesNotExistException: type[BotocoreClientError]
+    RuleSetDoesNotExistException: type[BotocoreClientError]
+    TemplateDoesNotExistException: type[BotocoreClientError]
+    TrackingOptionsAlreadyExistsException: type[BotocoreClientError]
+    TrackingOptionsDoesNotExistException: type[BotocoreClientError]
 
 class SESClient(BaseClient):
     """
@@ -220,7 +215,7 @@ class SESClient(BaseClient):
 
     def clone_receipt_rule_set(
         self, **kwargs: Unpack[CloneReceiptRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a receipt rule set by cloning an existing one.
 
@@ -230,7 +225,7 @@ class SESClient(BaseClient):
 
     def create_configuration_set(
         self, **kwargs: Unpack[CreateConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a configuration set.
 
@@ -240,7 +235,7 @@ class SESClient(BaseClient):
 
     def create_configuration_set_event_destination(
         self, **kwargs: Unpack[CreateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a configuration set event destination.
 
@@ -250,7 +245,7 @@ class SESClient(BaseClient):
 
     def create_configuration_set_tracking_options(
         self, **kwargs: Unpack[CreateConfigurationSetTrackingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an association between a configuration set and a custom domain for open
         and click event tracking.
@@ -271,7 +266,7 @@ class SESClient(BaseClient):
 
     def create_receipt_filter(
         self, **kwargs: Unpack[CreateReceiptFilterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a new IP address filter.
 
@@ -281,7 +276,7 @@ class SESClient(BaseClient):
 
     def create_receipt_rule(
         self, **kwargs: Unpack[CreateReceiptRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a receipt rule.
 
@@ -291,7 +286,7 @@ class SESClient(BaseClient):
 
     def create_receipt_rule_set(
         self, **kwargs: Unpack[CreateReceiptRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates an empty receipt rule set.
 
@@ -299,7 +294,7 @@ class SESClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ses/client/#create_receipt_rule_set)
         """
 
-    def create_template(self, **kwargs: Unpack[CreateTemplateRequestTypeDef]) -> Dict[str, Any]:
+    def create_template(self, **kwargs: Unpack[CreateTemplateRequestTypeDef]) -> dict[str, Any]:
         """
         Creates an email template.
 
@@ -309,7 +304,7 @@ class SESClient(BaseClient):
 
     def delete_configuration_set(
         self, **kwargs: Unpack[DeleteConfigurationSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configuration set.
 
@@ -319,7 +314,7 @@ class SESClient(BaseClient):
 
     def delete_configuration_set_event_destination(
         self, **kwargs: Unpack[DeleteConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a configuration set event destination.
 
@@ -329,7 +324,7 @@ class SESClient(BaseClient):
 
     def delete_configuration_set_tracking_options(
         self, **kwargs: Unpack[DeleteConfigurationSetTrackingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes an association between a configuration set and a custom domain for open
         and click event tracking.
@@ -348,7 +343,7 @@ class SESClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ses/client/#delete_custom_verification_email_template)
         """
 
-    def delete_identity(self, **kwargs: Unpack[DeleteIdentityRequestTypeDef]) -> Dict[str, Any]:
+    def delete_identity(self, **kwargs: Unpack[DeleteIdentityRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the specified identity (an email address or a domain) from the list of
         verified identities.
@@ -359,7 +354,7 @@ class SESClient(BaseClient):
 
     def delete_identity_policy(
         self, **kwargs: Unpack[DeleteIdentityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified sending authorization policy for the given identity (an
         email address or a domain).
@@ -370,7 +365,7 @@ class SESClient(BaseClient):
 
     def delete_receipt_filter(
         self, **kwargs: Unpack[DeleteReceiptFilterRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified IP address filter.
 
@@ -380,7 +375,7 @@ class SESClient(BaseClient):
 
     def delete_receipt_rule(
         self, **kwargs: Unpack[DeleteReceiptRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified receipt rule.
 
@@ -390,7 +385,7 @@ class SESClient(BaseClient):
 
     def delete_receipt_rule_set(
         self, **kwargs: Unpack[DeleteReceiptRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes the specified receipt rule set and all of the receipt rules it contains.
 
@@ -398,7 +393,7 @@ class SESClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ses/client/#delete_receipt_rule_set)
         """
 
-    def delete_template(self, **kwargs: Unpack[DeleteTemplateRequestTypeDef]) -> Dict[str, Any]:
+    def delete_template(self, **kwargs: Unpack[DeleteTemplateRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an email template.
 
@@ -643,7 +638,7 @@ class SESClient(BaseClient):
 
     def put_configuration_set_delivery_options(
         self, **kwargs: Unpack[PutConfigurationSetDeliveryOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or updates the delivery options for a configuration set.
 
@@ -653,7 +648,7 @@ class SESClient(BaseClient):
 
     def put_identity_policy(
         self, **kwargs: Unpack[PutIdentityPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds or updates a sending authorization policy for the specified identity (an
         email address or a domain).
@@ -664,7 +659,7 @@ class SESClient(BaseClient):
 
     def reorder_receipt_rule_set(
         self, **kwargs: Unpack[ReorderReceiptRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Reorders the receipt rules within a receipt rule set.
 
@@ -733,7 +728,7 @@ class SESClient(BaseClient):
 
     def set_active_receipt_rule_set(
         self, **kwargs: Unpack[SetActiveReceiptRuleSetRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the specified receipt rule set as the active receipt rule set.
 
@@ -743,7 +738,7 @@ class SESClient(BaseClient):
 
     def set_identity_dkim_enabled(
         self, **kwargs: Unpack[SetIdentityDkimEnabledRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables Easy DKIM signing of email sent from an identity.
 
@@ -753,7 +748,7 @@ class SESClient(BaseClient):
 
     def set_identity_feedback_forwarding_enabled(
         self, **kwargs: Unpack[SetIdentityFeedbackForwardingEnabledRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Given an identity (an email address or a domain), enables or disables whether
         Amazon SES forwards bounce and complaint notifications as email.
@@ -764,7 +759,7 @@ class SESClient(BaseClient):
 
     def set_identity_headers_in_notifications_enabled(
         self, **kwargs: Unpack[SetIdentityHeadersInNotificationsEnabledRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Given an identity (an email address or a domain), sets whether Amazon SES
         includes the original email headers in the Amazon Simple Notification Service
@@ -776,7 +771,7 @@ class SESClient(BaseClient):
 
     def set_identity_mail_from_domain(
         self, **kwargs: Unpack[SetIdentityMailFromDomainRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enables or disables the custom MAIL FROM domain setup for a verified identity
         (an email address or a domain).
@@ -787,7 +782,7 @@ class SESClient(BaseClient):
 
     def set_identity_notification_topic(
         self, **kwargs: Unpack[SetIdentityNotificationTopicRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets an Amazon Simple Notification Service (Amazon SNS) topic to use when
         delivering notifications.
@@ -798,7 +793,7 @@ class SESClient(BaseClient):
 
     def set_receipt_rule_position(
         self, **kwargs: Unpack[SetReceiptRulePositionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the position of the specified receipt rule in the receipt rule set.
 
@@ -830,7 +825,7 @@ class SESClient(BaseClient):
 
     def update_configuration_set_event_destination(
         self, **kwargs: Unpack[UpdateConfigurationSetEventDestinationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the event destination of a configuration set.
 
@@ -862,7 +857,7 @@ class SESClient(BaseClient):
 
     def update_configuration_set_tracking_options(
         self, **kwargs: Unpack[UpdateConfigurationSetTrackingOptionsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Modifies an association between a configuration set and a custom domain for
         open and click event tracking.
@@ -883,7 +878,7 @@ class SESClient(BaseClient):
 
     def update_receipt_rule(
         self, **kwargs: Unpack[UpdateReceiptRuleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates a receipt rule.
 
@@ -891,7 +886,7 @@ class SESClient(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ses/client/#update_receipt_rule)
         """
 
-    def update_template(self, **kwargs: Unpack[UpdateTemplateRequestTypeDef]) -> Dict[str, Any]:
+    def update_template(self, **kwargs: Unpack[UpdateTemplateRequestTypeDef]) -> dict[str, Any]:
         """
         Updates an email template.
 
@@ -932,7 +927,7 @@ class SESClient(BaseClient):
 
     def verify_email_identity(
         self, **kwargs: Unpack[VerifyEmailIdentityRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds an email address to the list of identities for your Amazon SES account in
         the current Amazon Web Services Region and attempts to verify it.

@@ -80,6 +80,10 @@ def from_torch_dtype(dtype: torch.dtype) -> ir.DataType:
         if hasattr(torch, "float8_e8m0fnu"):
             # torch.float8_e8m0fnu is available in PyTorch 2.7+
             _TORCH_DTYPE_TO_ONNX[torch.float8_e8m0fnu] = ir.DataType.FLOAT8E8M0
+        if hasattr(torch, "int2"):
+            _TORCH_DTYPE_TO_ONNX[torch.int2] = ir.DataType.INT2
+        if hasattr(torch, "uint2"):
+            _TORCH_DTYPE_TO_ONNX[torch.uint2] = ir.DataType.UINT2
 
     if dtype not in _TORCH_DTYPE_TO_ONNX:
         raise TypeError(
@@ -121,6 +125,10 @@ def to_torch_dtype(dtype: ir.DataType) -> torch.dtype:
         if hasattr(torch, "float8_e8m0fnu"):
             # torch.float8_e8m0fnu is available in PyTorch 2.7+
             _ONNX_DTYPE_TO_TORCH[ir.DataType.FLOAT8E8M0] = torch.float8_e8m0fnu
+        if hasattr(torch, "int2"):
+            _ONNX_DTYPE_TO_TORCH[ir.DataType.INT2] = torch.int2
+        if hasattr(torch, "uint2"):
+            _ONNX_DTYPE_TO_TORCH[ir.DataType.UINT2] = torch.uint2
 
     if dtype not in _ONNX_DTYPE_TO_TORCH:
         if dtype == ir.DataType.FLOAT8E8M0:
@@ -159,6 +167,8 @@ class TorchTensor(_core.Tensor):
             ir.DataType.FLOAT8E8M0,
         }:
             return self.raw.view(torch.uint8).numpy(force=True).view(self.dtype.numpy())
+        if self.dtype in {ir.DataType.INT2, ir.DataType.UINT2}:
+            return self.raw.view(torch.uint8).numpy(force=True).view(self.dtype.numpy())
 
         return self.raw.numpy(force=True)
 
@@ -168,10 +178,8 @@ class TorchTensor(_core.Tensor):
             return self.numpy()
         return self.numpy().__array__(dtype)
 
-    def tobytes(self) -> bytes:
-        # Implement tobytes to support native PyTorch types so we can use types like bloat16
-        # Reading from memory directly is also more efficient because
-        # it avoids copying to a NumPy array
+    def _get_cbytes(self):
+        """Get a ctypes byte array pointing to the tensor data."""
         import torch._subclasses.fake_tensor
 
         with torch._subclasses.fake_tensor.unset_fake_temporarily():  # pylint: disable=protected-access
@@ -185,8 +193,18 @@ class TorchTensor(_core.Tensor):
                 "or save the model without initializers by setting include_initializers=False."
             )
 
-        return bytes(
-            (ctypes.c_ubyte * tensor.element_size() * tensor.numel()).from_address(
-                tensor.data_ptr()
-            )
+        # Return the tensor to ensure it is not garbage collected while the ctypes array is in use
+        return tensor, (ctypes.c_ubyte * tensor.element_size() * tensor.numel()).from_address(
+            tensor.data_ptr()
         )
+
+    def tobytes(self) -> bytes:
+        # Implement tobytes to support native PyTorch types so we can use types like bloat16
+        # Reading from memory directly is also more efficient because
+        # it avoids copying to a NumPy array
+        _, data = self._get_cbytes()
+        return bytes(data)
+
+    def tofile(self, file) -> None:
+        _, data = self._get_cbytes()
+        return file.write(data)

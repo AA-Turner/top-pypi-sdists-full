@@ -1,6 +1,6 @@
 """Embeddings cache implementation for RedisVL."""
 
-from typing import Any, Awaitable, Dict, List, Optional, Tuple, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from redisvl.extensions.cache.base import BaseCache
 from redisvl.extensions.cache.embeddings.schema import CacheEntry
@@ -13,6 +13,8 @@ logger = get_logger(__name__)
 
 class EmbeddingsCache(BaseCache):
     """Embeddings Cache for storing embedding vectors with exact key matching."""
+
+    _warning_shown: bool = False  # Class-level flag to prevent warning spam
 
     def __init__(
         self,
@@ -52,34 +54,36 @@ class EmbeddingsCache(BaseCache):
             connection_kwargs=connection_kwargs,
         )
 
-    def _make_entry_id(self, text: str, model_name: str) -> str:
-        """Generate a deterministic entry ID for the given text and model name.
+    def _make_entry_id(self, content: Union[bytes, str], model_name: str) -> str:
+        """Generate a deterministic entry ID for the given content and model name.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
-            str: A deterministic entry ID based on the text and model name.
+            str: A deterministic entry ID based on the content and model name.
         """
-        return hashify(f"{text}:{model_name}")
+        if isinstance(content, bytes):
+            content = content.hex()
+        return hashify(f"{content}:{model_name}")
 
-    def _make_cache_key(self, text: str, model_name: str) -> str:
-        """Generate a full Redis key for the given text and model name.
+    def _make_cache_key(self, content: Union[bytes, str], model_name: str) -> str:
+        """Generate a full Redis key for the given content and model name.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
             str: The full Redis key.
         """
-        entry_id = self._make_entry_id(text, model_name)
+        entry_id = self._make_entry_id(content, model_name)
         return self._make_key(entry_id)
 
     def _prepare_entry_data(
         self,
-        text: str,
+        content: Union[bytes, str],
         model_name: str,
         embedding: List[float],
         metadata: Optional[Dict[str, Any]] = None,
@@ -87,7 +91,7 @@ class EmbeddingsCache(BaseCache):
         """Prepare data for storage in Redis
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
             embedding (List[float]): The embedding vector.
             metadata (Optional[Dict[str, Any]]): Optional metadata.
@@ -96,11 +100,11 @@ class EmbeddingsCache(BaseCache):
             Tuple[str, Dict[str, Any]]: A tuple of (key, entry_data)
         """
         # Create cache entry with entry_id
-        entry_id = self._make_entry_id(text, model_name)
+        entry_id = self._make_entry_id(content, model_name)
         key = self._make_key(entry_id)
         entry = CacheEntry(
             entry_id=entry_id,
-            text=text,
+            content=content,
             model_name=model_name,
             embedding=embedding,
             metadata=metadata,
@@ -124,18 +128,26 @@ class EmbeddingsCache(BaseCache):
         cache_hit = CacheEntry(**convert_bytes(data))
         return cache_hit.model_dump(exclude_none=True)
 
+    def _should_warn_for_async_only(self) -> bool:
+        """Check if only async client is available (no sync client).
+
+        Returns:
+            bool: True if only async client is available (no sync client).
+        """
+        return self._owns_redis_client is False and self._redis_client is None
+
     def get(
         self,
-        text: str,
+        content: Union[bytes, str],
         model_name: str,
     ) -> Optional[Dict[str, Any]]:
-        """Get embedding by text and model name.
+        """Get embedding by content and model name.
 
-        Retrieves a cached embedding for the given text and model name.
+        Retrieves a cached embedding for the given content and model name.
         If found, refreshes the TTL of the entry.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
@@ -144,11 +156,11 @@ class EmbeddingsCache(BaseCache):
         .. code-block:: python
 
             embedding_data = cache.get(
-                text="What is machine learning?",
+                content="What is machine learning?",
                 model_name="text-embedding-ada-002"
             )
         """
-        key = self._make_cache_key(text, model_name)
+        key = self._make_cache_key(content, model_name)
         return self.get_by_key(key)
 
     def get_by_key(self, key: str) -> Optional[Dict[str, Any]]:
@@ -167,6 +179,14 @@ class EmbeddingsCache(BaseCache):
 
             embedding_data = cache.get_by_key("embedcache:1234567890abcdef")
         """
+        if self._should_warn_for_async_only():
+            if not EmbeddingsCache._warning_shown:
+                logger.warning(
+                    "EmbeddingsCache initialized with async_redis_client only. "
+                    "Use async methods (aget_by_key) instead of sync methods (get_by_key)."
+                )
+                EmbeddingsCache._warning_shown = True
+
         client = self._get_redis_client()
 
         # Get all fields
@@ -202,6 +222,14 @@ class EmbeddingsCache(BaseCache):
         if not keys:
             return []
 
+        if self._should_warn_for_async_only():
+            if not EmbeddingsCache._warning_shown:
+                logger.warning(
+                    "EmbeddingsCache initialized with async_redis_client only. "
+                    "Use async methods (amget_by_keys) instead of sync methods (mget_by_keys)."
+                )
+                EmbeddingsCache._warning_shown = True
+
         client = self._get_redis_client()
 
         with client.pipeline(transaction=False) as pipeline:
@@ -219,48 +247,50 @@ class EmbeddingsCache(BaseCache):
 
         return processed_results
 
-    def mget(self, texts: List[str], model_name: str) -> List[Optional[Dict[str, Any]]]:
-        """Get multiple embeddings by their texts and model name.
+    def mget(
+        self, contents: Iterable[Union[bytes, str]], model_name: str
+    ) -> List[Optional[Dict[str, Any]]]:
+        """Get multiple embeddings by their content and model name.
 
         Efficiently retrieves multiple cached embeddings in a single operation.
         If found, refreshes the TTL of each entry.
 
         Args:
-            texts (List[str]): List of text inputs that were embedded.
+            contents (Iterable[bytes | str]): Iterable of content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
-            List[Optional[Dict[str, Any]]]: List of embedding cache entries or None for texts not found.
+            List[Optional[Dict[str, Any]]]: List of embedding cache entries or None for contents not found.
 
         .. code-block:: python
 
             # Get multiple embeddings
             embedding_data = cache.mget(
-                texts=["What is machine learning?", "What is deep learning?"],
+                contents=["What is machine learning?", "What is deep learning?"],
                 model_name="text-embedding-ada-002"
             )
         """
-        if not texts:
-            return []
+        # Generate keys for each piece of content
+        keys = [self._make_cache_key(content, model_name) for content in contents]
 
-        # Generate keys for each text
-        keys = [self._make_cache_key(text, model_name) for text in texts]
+        if not keys:
+            return []
 
         # Use the key-based batch operation
         return self.mget_by_keys(keys)
 
     def set(
         self,
-        text: str,
+        content: Union[bytes, str],
         model_name: str,
         embedding: List[float],
         metadata: Optional[Dict[str, Any]] = None,
         ttl: Optional[int] = None,
     ) -> str:
-        """Store an embedding with its text and model name.
+        """Store an embedding with its content and model name.
 
         Args:
-            text (str): The text input that was embedded.
+            content (Union[bytes, str]): The content to be embedded.
             model_name (str): The name of the embedding model.
             embedding (List[float]): The embedding vector to store.
             metadata (Optional[Dict[str, Any]]): Optional metadata to store with the embedding.
@@ -272,7 +302,7 @@ class EmbeddingsCache(BaseCache):
         .. code-block:: python
 
             key = cache.set(
-                text="What is machine learning?",
+                content="What is machine learning?",
                 model_name="text-embedding-ada-002",
                 embedding=[0.1, 0.2, 0.3, ...],
                 metadata={"source": "user_query"}
@@ -280,8 +310,16 @@ class EmbeddingsCache(BaseCache):
         """
         # Prepare data
         key, cache_entry = self._prepare_entry_data(
-            text, model_name, embedding, metadata
+            content, model_name, embedding, metadata
         )
+
+        if self._should_warn_for_async_only():
+            if not EmbeddingsCache._warning_shown:
+                logger.warning(
+                    "EmbeddingsCache initialized with async_redis_client only. "
+                    "Use async methods (aset) instead of sync methods (set)."
+                )
+                EmbeddingsCache._warning_shown = True
 
         # Store in Redis
         client = self._get_redis_client()
@@ -300,13 +338,13 @@ class EmbeddingsCache(BaseCache):
         """Store multiple embeddings in a batch operation.
 
         Each item in the input list should be a dictionary with the following fields:
-        - 'text': The text input that was embedded
+        - 'content': The input that was embedded
         - 'model_name': The name of the embedding model
         - 'embedding': The embedding vector
         - 'metadata': Optional metadata to store with the embedding
 
         Args:
-            items: List of dictionaries, each containing text, model_name, embedding, and optional metadata.
+            items: List of dictionaries, each containing content, model_name, embedding, and optional metadata.
             ttl: Optional TTL override for these entries.
 
         Returns:
@@ -317,13 +355,13 @@ class EmbeddingsCache(BaseCache):
             # Store multiple embeddings
             keys = cache.mset([
                 {
-                    "text": "What is ML?",
+                    "content": "What is ML?",
                     "model_name": "text-embedding-ada-002",
                     "embedding": [0.1, 0.2, 0.3],
                     "metadata": {"source": "user"}
                 },
                 {
-                    "text": "What is AI?",
+                    "content": "What is AI?",
                     "model_name": "text-embedding-ada-002",
                     "embedding": [0.4, 0.5, 0.6],
                     "metadata": {"source": "docs"}
@@ -332,6 +370,14 @@ class EmbeddingsCache(BaseCache):
         """
         if not items:
             return []
+
+        if self._should_warn_for_async_only():
+            if not EmbeddingsCache._warning_shown:
+                logger.warning(
+                    "EmbeddingsCache initialized with async_redis_client only. "
+                    "Use async methods (amset) instead of sync methods (mset)."
+                )
+                EmbeddingsCache._warning_shown = True
 
         client = self._get_redis_client()
         keys = []
@@ -352,11 +398,11 @@ class EmbeddingsCache(BaseCache):
 
         return keys
 
-    def exists(self, text: str, model_name: str) -> bool:
-        """Check if an embedding exists for the given text and model.
+    def exists(self, content: Union[bytes, str], model_name: str) -> bool:
+        """Check if an embedding exists for the given content and model.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
@@ -368,7 +414,7 @@ class EmbeddingsCache(BaseCache):
                 print("Embedding is in cache")
         """
         client = self._get_redis_client()
-        key = self._make_cache_key(text, model_name)
+        key = self._make_cache_key(content, model_name)
         return bool(client.exists(key))
 
     def exists_by_key(self, key: str) -> bool:
@@ -419,13 +465,15 @@ class EmbeddingsCache(BaseCache):
         # Convert to boolean values
         return [bool(result) for result in results]
 
-    def mexists(self, texts: List[str], model_name: str) -> List[bool]:
-        """Check if multiple embeddings exist by their texts and model name.
+    def mexists(
+        self, contents: Iterable[Union[bytes, str]], model_name: str
+    ) -> List[bool]:
+        """Check if multiple embeddings exist by their contents and model name.
 
         Efficiently checks existence of multiple embeddings in a single operation.
 
         Args:
-            texts (List[str]): List of text inputs that were embedded.
+            contents (Iterable[bytes | str]): Iterable of content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
@@ -435,34 +483,34 @@ class EmbeddingsCache(BaseCache):
 
             # Check if multiple embeddings exist
             exists_results = cache.mexists(
-                texts=["What is machine learning?", "What is deep learning?"],
+                contents=["What is machine learning?", "What is deep learning?"],
                 model_name="text-embedding-ada-002"
             )
         """
-        if not texts:
-            return []
+        # Generate keys for each content
+        keys = [self._make_cache_key(content, model_name) for content in contents]
 
-        # Generate keys for each text
-        keys = [self._make_cache_key(text, model_name) for text in texts]
+        if not keys:
+            return []
 
         # Use the key-based batch operation
         return self.mexists_by_keys(keys)
 
-    def drop(self, text: str, model_name: str) -> None:
+    def drop(self, content: Union[bytes, str], model_name: str) -> None:
         """Remove an embedding from the cache.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         .. code-block:: python
 
             cache.drop(
-                text="What is machine learning?",
+                content="What is machine learning?",
                 model_name="text-embedding-ada-002"
             )
         """
-        key = self._make_cache_key(text, model_name)
+        key = self._make_cache_key(content, model_name)
         self.drop_by_key(key)
 
     def drop_by_key(self, key: str) -> None:
@@ -501,44 +549,44 @@ class EmbeddingsCache(BaseCache):
                 pipeline.delete(key)
             pipeline.execute()
 
-    def mdrop(self, texts: List[str], model_name: str) -> None:
-        """Remove multiple embeddings from the cache by their texts and model name.
+    def mdrop(self, contents: Iterable[Union[bytes, str]], model_name: str) -> None:
+        """Remove multiple embeddings from the cache by their contents and model name.
 
         Efficiently removes multiple embeddings in a single operation.
 
         Args:
-            texts (List[str]): List of text inputs that were embedded.
+            contents (Iterable[bytes | str]): Iterable of content that was embedded.
             model_name (str): The name of the embedding model.
 
         .. code-block:: python
 
             # Remove multiple embeddings
             cache.mdrop(
-                texts=["What is machine learning?", "What is deep learning?"],
+                contents=["What is machine learning?", "What is deep learning?"],
                 model_name="text-embedding-ada-002"
             )
         """
-        if not texts:
-            return
+        # Generate keys for each content
+        keys = [self._make_cache_key(content, model_name) for content in contents]
 
-        # Generate keys for each text
-        keys = [self._make_cache_key(text, model_name) for text in texts]
+        if not keys:
+            return
 
         # Use the key-based batch operation
         self.mdrop_by_keys(keys)
 
     async def aget(
         self,
-        text: str,
+        content: Union[bytes, str],
         model_name: str,
     ) -> Optional[Dict[str, Any]]:
-        """Async get embedding by text and model name.
+        """Async get embedding by content and model name.
 
-        Asynchronously retrieves a cached embedding for the given text and model name.
+        Asynchronously retrieves a cached embedding for the given content and model name.
         If found, refreshes the TTL of the entry.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
@@ -547,11 +595,11 @@ class EmbeddingsCache(BaseCache):
         .. code-block:: python
 
             embedding_data = await cache.aget(
-                text="What is machine learning?",
+                content="What is machine learning?",
                 model_name="text-embedding-ada-002"
             )
         """
-        key = self._make_cache_key(text, model_name)
+        key = self._make_cache_key(content, model_name)
         return await self.aget_by_key(key)
 
     async def aget_by_key(self, key: str) -> Optional[Dict[str, Any]]:
@@ -624,51 +672,51 @@ class EmbeddingsCache(BaseCache):
         return processed_results
 
     async def amget(
-        self, texts: List[str], model_name: str
+        self, contents: Iterable[Union[bytes, str]], model_name: str
     ) -> List[Optional[Dict[str, Any]]]:
-        """Async get multiple embeddings by their texts and model name.
+        """Async get multiple embeddings by their contents and model name.
 
         Asynchronously retrieves multiple cached embeddings in a single operation.
         If found, refreshes the TTL of each entry.
 
         Args:
-            texts (List[str]): List of text inputs that were embedded.
+            contents (Iterable[bytes | str]): Iterable of content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
-            List[Optional[Dict[str, Any]]]: List of embedding cache entries or None for texts not found.
+            List[Optional[Dict[str, Any]]]: List of embedding cache entries or None for contents not found.
 
         .. code-block:: python
 
             # Get multiple embeddings asynchronously
             embedding_data = await cache.amget(
-                texts=["What is machine learning?", "What is deep learning?"],
+                contents=["What is machine learning?", "What is deep learning?"],
                 model_name="text-embedding-ada-002"
             )
         """
-        if not texts:
-            return []
+        # Generate keys for each content
+        keys = [self._make_cache_key(content, model_name) for content in contents]
 
-        # Generate keys for each text
-        keys = [self._make_cache_key(text, model_name) for text in texts]
+        if not keys:
+            return []
 
         # Use the key-based batch operation
         return await self.amget_by_keys(keys)
 
     async def aset(
         self,
-        text: str,
+        content: Union[bytes, str],
         model_name: str,
         embedding: List[float],
         metadata: Optional[Dict[str, Any]] = None,
         ttl: Optional[int] = None,
     ) -> str:
-        """Async store an embedding with its text and model name.
+        """Async store an embedding with its content and model name.
 
-        Asynchronously stores an embedding with its text and model name.
+        Asynchronously stores an embedding with its content and model name.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
             embedding (List[float]): The embedding vector to store.
             metadata (Optional[Dict[str, Any]]): Optional metadata to store with the embedding.
@@ -680,7 +728,7 @@ class EmbeddingsCache(BaseCache):
         .. code-block:: python
 
             key = await cache.aset(
-                text="What is machine learning?",
+                content="What is machine learning?",
                 model_name="text-embedding-ada-002",
                 embedding=[0.1, 0.2, 0.3, ...],
                 metadata={"source": "user_query"}
@@ -688,7 +736,7 @@ class EmbeddingsCache(BaseCache):
         """
         # Prepare data
         key, cache_entry = self._prepare_entry_data(
-            text, model_name, embedding, metadata
+            content, model_name, embedding, metadata
         )
 
         # Store in Redis
@@ -708,13 +756,13 @@ class EmbeddingsCache(BaseCache):
         """Async store multiple embeddings in a batch operation.
 
         Each item in the input list should be a dictionary with the following fields:
-        - 'text': The text input that was embedded
+        - 'content': The content that was embedded
         - 'model_name': The name of the embedding model
         - 'embedding': The embedding vector
         - 'metadata': Optional metadata to store with the embedding
 
         Args:
-            items: List of dictionaries, each containing text, model_name, embedding, and optional metadata.
+            items: List of dictionaries, each containing content, model_name, embedding, and optional metadata.
             ttl: Optional TTL override for these entries.
 
         Returns:
@@ -725,13 +773,13 @@ class EmbeddingsCache(BaseCache):
             # Store multiple embeddings asynchronously
             keys = await cache.amset([
                 {
-                    "text": "What is ML?",
+                    "content": "What is ML?",
                     "model_name": "text-embedding-ada-002",
                     "embedding": [0.1, 0.2, 0.3],
                     "metadata": {"source": "user"}
                 },
                 {
-                    "text": "What is AI?",
+                    "content": "What is AI?",
                     "model_name": "text-embedding-ada-002",
                     "embedding": [0.4, 0.5, 0.6],
                     "metadata": {"source": "docs"}
@@ -791,13 +839,15 @@ class EmbeddingsCache(BaseCache):
         # Convert to boolean values
         return [bool(result) for result in results]
 
-    async def amexists(self, texts: List[str], model_name: str) -> List[bool]:
-        """Async check if multiple embeddings exist by their texts and model name.
+    async def amexists(
+        self, contents: Iterable[Union[bytes, str]], model_name: str
+    ) -> List[bool]:
+        """Async check if multiple embeddings exist by their contents and model name.
 
         Asynchronously checks existence of multiple embeddings in a single operation.
 
         Args:
-            texts (List[str]): List of text inputs that were embedded.
+            contents (Iterable[bytes | str]): Iterable of content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
@@ -807,15 +857,15 @@ class EmbeddingsCache(BaseCache):
 
             # Check if multiple embeddings exist asynchronously
             exists_results = await cache.amexists(
-                texts=["What is machine learning?", "What is deep learning?"],
+                contents=["What is machine learning?", "What is deep learning?"],
                 model_name="text-embedding-ada-002"
             )
         """
-        if not texts:
-            return []
+        # Generate keys for each content
+        keys = [self._make_cache_key(content, model_name) for content in contents]
 
-        # Generate keys for each text
-        keys = [self._make_cache_key(text, model_name) for text in texts]
+        if not keys:
+            return []
 
         # Use the key-based batch operation
         return await self.amexists_by_keys(keys)
@@ -839,39 +889,41 @@ class EmbeddingsCache(BaseCache):
         client = await self._get_async_redis_client()
         await client.delete(*keys)
 
-    async def amdrop(self, texts: List[str], model_name: str) -> None:
-        """Async remove multiple embeddings from the cache by their texts and model name.
+    async def amdrop(
+        self, contents: Iterable[Union[bytes, str]], model_name: str
+    ) -> None:
+        """Async remove multiple embeddings from the cache by their contents and model name.
 
         Asynchronously removes multiple embeddings in a single operation.
 
         Args:
-            texts (List[str]): List of text inputs that were embedded.
+            contents (Iterable[bytes | str]): Iterable of content that was embedded.
             model_name (str): The name of the embedding model.
 
         .. code-block:: python
 
             # Remove multiple embeddings asynchronously
             await cache.amdrop(
-                texts=["What is machine learning?", "What is deep learning?"],
+                contents=["What is machine learning?", "What is deep learning?"],
                 model_name="text-embedding-ada-002"
             )
         """
-        if not texts:
-            return
+        # Generate keys for each content
+        keys = [self._make_cache_key(content, model_name) for content in contents]
 
-        # Generate keys for each text
-        keys = [self._make_cache_key(text, model_name) for text in texts]
+        if not keys:
+            return
 
         # Use the key-based batch operation
         await self.amdrop_by_keys(keys)
 
-    async def aexists(self, text: str, model_name: str) -> bool:
+    async def aexists(self, content: Union[bytes, str], model_name: str) -> bool:
         """Async check if an embedding exists.
 
-        Asynchronously checks if an embedding exists for the given text and model.
+        Asynchronously checks if an embedding exists for the given content and model.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         Returns:
@@ -882,7 +934,7 @@ class EmbeddingsCache(BaseCache):
             if await cache.aexists("What is machine learning?", "text-embedding-ada-002"):
                 print("Embedding is in cache")
         """
-        key = self._make_cache_key(text, model_name)
+        key = self._make_cache_key(content, model_name)
         return await self.aexists_by_key(key)
 
     async def aexists_by_key(self, key: str) -> bool:
@@ -904,23 +956,23 @@ class EmbeddingsCache(BaseCache):
         client = await self._get_async_redis_client()
         return bool(await client.exists(key))
 
-    async def adrop(self, text: str, model_name: str) -> None:
+    async def adrop(self, content: Union[bytes, str], model_name: str) -> None:
         """Async remove an embedding from the cache.
 
         Asynchronously removes an embedding from the cache.
 
         Args:
-            text (str): The text input that was embedded.
+            content (bytes | str): The content that was embedded.
             model_name (str): The name of the embedding model.
 
         .. code-block:: python
 
             await cache.adrop(
-                text="What is machine learning?",
+                content="What is machine learning?",
                 model_name="text-embedding-ada-002"
             )
         """
-        key = self._make_cache_key(text, model_name)
+        key = self._make_cache_key(content, model_name)
         await self.adrop_by_key(key)
 
     async def adrop_by_key(self, key: str) -> None:

@@ -18,7 +18,7 @@ class CommandsGroup:
 		self.parent = parent
 		self.io = core.io
 		self.existing_children = []
-		self.rep_cap: RepCap or None = None
+		self.rep_cap: RepCap | None = None
 		self.multi_repcap_types: str = ''
 		if parent:
 			parent.existing_children.append(self)
@@ -44,7 +44,7 @@ class CommandsGroup:
 		This is used when the group is cloned, where the whole existing tree of groups have to be recreated"""
 		self.existing_children.append(child)
 
-	def set_repcap_enum_value(self, enum_value: Enum or int) -> None:
+	def set_repcap_enum_value(self, enum_value: Enum | int) -> None:
 		"""Sets RepCap value as enum or integer
 		Default is not allowed here."""
 		try:
@@ -56,7 +56,7 @@ class CommandsGroup:
 		"""Returns RepCap value as enum"""
 		return self.rep_cap.get_enum_value()
 
-	def get_repcap_cmd_value(self, enum_value: Enum or int, enum_type) -> str:
+	def get_repcap_cmd_value(self, enum_value: Enum | int, enum_type) -> str:
 		"""Returns the current string of RepCapCmdValue for the entered RepCapEnumName
 		The enum_value can be a repcap of the current CommandsGroup or any of their parents"""
 		# Use the static functions of the RepeatedCapability to check for SkipHeader value

@@ -10,6 +10,7 @@ from ...types.adhoc_agent_config_override_for_test_request_model import AdhocAge
 from ...types.agent_platform_settings_request_model import AgentPlatformSettingsRequestModel
 from ...types.agent_simulated_chat_test_response_model import AgentSimulatedChatTestResponseModel
 from ...types.agent_sort_by import AgentSortBy
+from ...types.agent_workflow_request_model import AgentWorkflowRequestModel
 from ...types.conversation_simulation_specification import ConversationSimulationSpecification
 from ...types.conversational_config import ConversationalConfig
 from ...types.create_agent_response_model import CreateAgentResponseModel
@@ -25,6 +26,7 @@ if typing.TYPE_CHECKING:
     from .knowledge_base.client import AsyncKnowledgeBaseClient, KnowledgeBaseClient
     from .link.client import AsyncLinkClient, LinkClient
     from .llm_usage.client import AsyncLlmUsageClient, LlmUsageClient
+    from .summaries.client import AsyncSummariesClient, SummariesClient
     from .widget.client import AsyncWidgetClient, WidgetClient
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -34,6 +36,7 @@ class AgentsClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._raw_client = RawAgentsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._summaries: typing.Optional[SummariesClient] = None
         self._widget: typing.Optional[WidgetClient] = None
         self._link: typing.Optional[LinkClient] = None
         self._knowledge_base: typing.Optional[KnowledgeBaseClient] = None
@@ -55,7 +58,7 @@ class AgentsClient:
         *,
         conversation_config: ConversationalConfig,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -71,7 +74,8 @@ class AgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
@@ -133,7 +137,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.get(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
         )
         """
         _response = self._raw_client.get(agent_id, request_options=request_options)
@@ -163,7 +167,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.delete(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
         )
         """
         _response = self._raw_client.delete(agent_id, request_options=request_options)
@@ -175,9 +179,10 @@ class AgentsClient:
         *,
         conversation_config: typing.Optional[ConversationalConfig] = OMIT,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
+        version_description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentResponseModel:
         """
@@ -194,13 +199,17 @@ class AgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
 
         tags : typing.Optional[typing.Sequence[str]]
             Tags to help classify and filter the agent
+
+        version_description : typing.Optional[str]
+            Description for this version when publishing changes (only applicable for versioned agents)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -218,7 +227,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.update(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
         )
         """
         _response = self._raw_client.update(
@@ -228,6 +237,7 @@ class AgentsClient:
             workflow=workflow,
             name=name,
             tags=tags,
+            version_description=version_description,
             request_options=request_options,
         )
         return _response.data
@@ -237,6 +247,8 @@ class AgentsClient:
         *,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        archived: typing.Optional[bool] = None,
+        show_only_owned_agents: typing.Optional[bool] = None,
         sort_direction: typing.Optional[SortDirection] = None,
         sort_by: typing.Optional[AgentSortBy] = None,
         cursor: typing.Optional[str] = None,
@@ -252,6 +264,12 @@ class AgentsClient:
 
         search : typing.Optional[str]
             Search by agents name.
+
+        archived : typing.Optional[bool]
+            Filter agents by archived status
+
+        show_only_owned_agents : typing.Optional[bool]
+            If set to true, the endpoint will omit any agents that were shared with you by someone else and include only the ones you own
 
         sort_direction : typing.Optional[SortDirection]
             The direction to sort the results
@@ -277,11 +295,21 @@ class AgentsClient:
         client = ElevenLabs(
             api_key="YOUR_API_KEY",
         )
-        client.conversational_ai.agents.list()
+        client.conversational_ai.agents.list(
+            page_size=1,
+            search="search",
+            archived=True,
+            show_only_owned_agents=True,
+            sort_direction="asc",
+            sort_by="name",
+            cursor="cursor",
+        )
         """
         _response = self._raw_client.list(
             page_size=page_size,
             search=search,
+            archived=archived,
+            show_only_owned_agents=show_only_owned_agents,
             sort_direction=sort_direction,
             sort_by=sort_by,
             cursor=cursor,
@@ -323,7 +351,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.duplicate(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
         )
         """
         _response = self._raw_client.duplicate(agent_id, name=name, request_options=request_options)
@@ -375,7 +403,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.simulate_conversation(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             simulation_specification=ConversationSimulationSpecification(
                 simulated_user_config=AgentConfig(
                     first_message="Hello, how can I help you today?",
@@ -439,7 +467,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.simulate_conversation_stream(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             simulation_specification=ConversationSimulationSpecification(
                 simulated_user_config=AgentConfig(
                     first_message="Hello, how can I help you today?",
@@ -464,6 +492,7 @@ class AgentsClient:
         *,
         tests: typing.Sequence[SingleTestRunRequestModel],
         agent_config_override: typing.Optional[AdhocAgentConfigOverrideForTestRequestModel] = OMIT,
+        branch_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTestSuiteInvocationResponseModel:
         """
@@ -479,6 +508,9 @@ class AgentsClient:
 
         agent_config_override : typing.Optional[AdhocAgentConfigOverrideForTestRequestModel]
             Configuration overrides to use for testing. If not provided, the agent's default configuration will be used.
+
+        branch_id : typing.Optional[str]
+            ID of the branch to run the tests on. If not provided, the tests will be run on the agent default configuration.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -496,7 +528,7 @@ class AgentsClient:
             api_key="YOUR_API_KEY",
         )
         client.conversational_ai.agents.run_tests(
-            agent_id="21m00Tcm4TlvDq8ikWAM",
+            agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             tests=[
                 SingleTestRunRequestModel(
                     test_id="test_id",
@@ -505,9 +537,21 @@ class AgentsClient:
         )
         """
         _response = self._raw_client.run_tests(
-            agent_id, tests=tests, agent_config_override=agent_config_override, request_options=request_options
+            agent_id,
+            tests=tests,
+            agent_config_override=agent_config_override,
+            branch_id=branch_id,
+            request_options=request_options,
         )
         return _response.data
+
+    @property
+    def summaries(self):
+        if self._summaries is None:
+            from .summaries.client import SummariesClient  # noqa: E402
+
+            self._summaries = SummariesClient(client_wrapper=self._client_wrapper)
+        return self._summaries
 
     @property
     def widget(self):
@@ -546,6 +590,7 @@ class AsyncAgentsClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawAgentsClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
+        self._summaries: typing.Optional[AsyncSummariesClient] = None
         self._widget: typing.Optional[AsyncWidgetClient] = None
         self._link: typing.Optional[AsyncLinkClient] = None
         self._knowledge_base: typing.Optional[AsyncKnowledgeBaseClient] = None
@@ -567,7 +612,7 @@ class AsyncAgentsClient:
         *,
         conversation_config: ConversationalConfig,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
@@ -583,7 +628,8 @@ class AsyncAgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
@@ -660,7 +706,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.get(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             )
 
 
@@ -698,7 +744,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.delete(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             )
 
 
@@ -713,9 +759,10 @@ class AsyncAgentsClient:
         *,
         conversation_config: typing.Optional[ConversationalConfig] = OMIT,
         platform_settings: typing.Optional[AgentPlatformSettingsRequestModel] = OMIT,
-        workflow: typing.Optional[typing.Optional[typing.Any]] = OMIT,
+        workflow: typing.Optional[AgentWorkflowRequestModel] = OMIT,
         name: typing.Optional[str] = OMIT,
         tags: typing.Optional[typing.Sequence[str]] = OMIT,
+        version_description: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetAgentResponseModel:
         """
@@ -732,13 +779,17 @@ class AsyncAgentsClient:
         platform_settings : typing.Optional[AgentPlatformSettingsRequestModel]
             Platform settings for the agent are all settings that aren't related to the conversation orchestration and content.
 
-        workflow : typing.Optional[typing.Optional[typing.Any]]
+        workflow : typing.Optional[AgentWorkflowRequestModel]
+            Workflow for the agent. This is used to define the flow of the conversation and how the agent interacts with tools.
 
         name : typing.Optional[str]
             A name to make the agent easier to find
 
         tags : typing.Optional[typing.Sequence[str]]
             Tags to help classify and filter the agent
+
+        version_description : typing.Optional[str]
+            Description for this version when publishing changes (only applicable for versioned agents)
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -761,7 +812,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.update(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             )
 
 
@@ -774,6 +825,7 @@ class AsyncAgentsClient:
             workflow=workflow,
             name=name,
             tags=tags,
+            version_description=version_description,
             request_options=request_options,
         )
         return _response.data
@@ -783,6 +835,8 @@ class AsyncAgentsClient:
         *,
         page_size: typing.Optional[int] = None,
         search: typing.Optional[str] = None,
+        archived: typing.Optional[bool] = None,
+        show_only_owned_agents: typing.Optional[bool] = None,
         sort_direction: typing.Optional[SortDirection] = None,
         sort_by: typing.Optional[AgentSortBy] = None,
         cursor: typing.Optional[str] = None,
@@ -798,6 +852,12 @@ class AsyncAgentsClient:
 
         search : typing.Optional[str]
             Search by agents name.
+
+        archived : typing.Optional[bool]
+            Filter agents by archived status
+
+        show_only_owned_agents : typing.Optional[bool]
+            If set to true, the endpoint will omit any agents that were shared with you by someone else and include only the ones you own
 
         sort_direction : typing.Optional[SortDirection]
             The direction to sort the results
@@ -828,7 +888,15 @@ class AsyncAgentsClient:
 
 
         async def main() -> None:
-            await client.conversational_ai.agents.list()
+            await client.conversational_ai.agents.list(
+                page_size=1,
+                search="search",
+                archived=True,
+                show_only_owned_agents=True,
+                sort_direction="asc",
+                sort_by="name",
+                cursor="cursor",
+            )
 
 
         asyncio.run(main())
@@ -836,6 +904,8 @@ class AsyncAgentsClient:
         _response = await self._raw_client.list(
             page_size=page_size,
             search=search,
+            archived=archived,
+            show_only_owned_agents=show_only_owned_agents,
             sort_direction=sort_direction,
             sort_by=sort_by,
             cursor=cursor,
@@ -882,7 +952,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.duplicate(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
             )
 
 
@@ -942,7 +1012,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.simulate_conversation(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
                 simulation_specification=ConversationSimulationSpecification(
                     simulated_user_config=AgentConfig(
                         first_message="Hello, how can I help you today?",
@@ -1014,7 +1084,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.simulate_conversation_stream(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
                 simulation_specification=ConversationSimulationSpecification(
                     simulated_user_config=AgentConfig(
                         first_message="Hello, how can I help you today?",
@@ -1042,6 +1112,7 @@ class AsyncAgentsClient:
         *,
         tests: typing.Sequence[SingleTestRunRequestModel],
         agent_config_override: typing.Optional[AdhocAgentConfigOverrideForTestRequestModel] = OMIT,
+        branch_id: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetTestSuiteInvocationResponseModel:
         """
@@ -1057,6 +1128,9 @@ class AsyncAgentsClient:
 
         agent_config_override : typing.Optional[AdhocAgentConfigOverrideForTestRequestModel]
             Configuration overrides to use for testing. If not provided, the agent's default configuration will be used.
+
+        branch_id : typing.Optional[str]
+            ID of the branch to run the tests on. If not provided, the tests will be run on the agent default configuration.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1079,7 +1153,7 @@ class AsyncAgentsClient:
 
         async def main() -> None:
             await client.conversational_ai.agents.run_tests(
-                agent_id="21m00Tcm4TlvDq8ikWAM",
+                agent_id="agent_3701k3ttaq12ewp8b7qv5rfyszkz",
                 tests=[
                     SingleTestRunRequestModel(
                         test_id="test_id",
@@ -1091,9 +1165,21 @@ class AsyncAgentsClient:
         asyncio.run(main())
         """
         _response = await self._raw_client.run_tests(
-            agent_id, tests=tests, agent_config_override=agent_config_override, request_options=request_options
+            agent_id,
+            tests=tests,
+            agent_config_override=agent_config_override,
+            branch_id=branch_id,
+            request_options=request_options,
         )
         return _response.data
+
+    @property
+    def summaries(self):
+        if self._summaries is None:
+            from .summaries.client import AsyncSummariesClient  # noqa: E402
+
+            self._summaries = AsyncSummariesClient(client_wrapper=self._client_wrapper)
+        return self._summaries
 
     @property
     def widget(self):

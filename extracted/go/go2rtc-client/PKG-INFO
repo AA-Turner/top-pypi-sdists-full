@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: go2rtc-client
-Version: 0.2.1
+Version: 0.4.0
 Summary: Python client for go2rtc
 Project-URL: Homepage, https://pypi.org/project/go2rtc-client
 Project-URL: Source Code, https://github.com/home-assistant-libs/python-go2rtc-client

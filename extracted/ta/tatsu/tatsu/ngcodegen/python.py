@@ -6,10 +6,10 @@ from collections.abc import Iterator
 from typing import Any
 
 from .. import grammars
-from ..collections import OrderedSet as oset
 from ..exceptions import CodegenError
 from ..infos import UndefinedStr
 from ..mixins.indent import IndentPrintMixin
+from ..objectmodel import ParseModel
 from ..util import compress_seq, safe_name
 from ..walkers import NodeWalker
 
@@ -25,7 +25,7 @@ HEADER = """\
     #  Any changes you make to it will be overwritten the next time
     #  the file is generated.
 
-    # ruff: noqa: C405, COM812, I001, F401, PLR1702, PLC2801, SIM117
+    # ruff: noqa: RUF100, C405, COM812, I001, F401, PLR1702, PLC2801, SIM117
 
     import sys
     from pathlib import Path
@@ -62,6 +62,12 @@ if __name__ == '__main__':
 """
 
 
+def codegen(model: ParseModel, parser_name: str = '') -> str:
+    generator = PythonCodeGenerator(parser_name=parser_name)
+    generator.walk(model)
+    return generator.printed_text()
+
+
 class PythonCodeGenerator(IndentPrintMixin, NodeWalker):
     _counter: Iterator[int] = itertools.count()
 
@@ -70,14 +76,14 @@ class PythonCodeGenerator(IndentPrintMixin, NodeWalker):
         self.parser_name = parser_name
 
     @classmethod
-    def _next_n(cls):
+    def _next_n(cls) -> int:
         return next(cls._counter)
 
     @classmethod
     def _reset_counter(cls):
         cls._counter = itertools.count()
 
-    def walk_default(self, node: Any):
+    def walk_default(self, node: Any) -> Any:
         return node
 
     def walk_Grammar(self, grammar: grammars.Grammar):
@@ -317,7 +323,6 @@ class PythonCodeGenerator(IndentPrintMixin, NodeWalker):
             f'''
                 config = ParserConfig.new(
                     config,
-                    owner=self,
                     whitespace={whitespace},
                     nameguard={grammar.config.nameguard},
                     ignorecase={grammar.config.ignorecase},
@@ -357,12 +362,12 @@ class PythonCodeGenerator(IndentPrintMixin, NodeWalker):
 
     def _gen_defines_declaration(self, node: grammars.Model):
         defines = compress_seq(node.defines())
-        ldefs = oset(safe_name(d) for d, value in defines if value)
-        sdefs = oset(
+        ldefs = {safe_name(d) for d, value in defines if value}
+        sdefs = {
             safe_name(d)
             for d, value in defines
             if not value and d not in ldefs
-        )
+        }
 
         if not (sdefs or ldefs):
             return

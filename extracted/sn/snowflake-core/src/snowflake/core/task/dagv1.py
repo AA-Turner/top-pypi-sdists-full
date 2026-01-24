@@ -85,7 +85,7 @@ from contextlib import suppress
 from datetime import datetime, timedelta
 from functools import wraps
 from types import ModuleType, TracebackType
-from typing import TYPE_CHECKING, Any, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol, Union, runtime_checkable
 
 from typing_extensions import Self
 
@@ -101,6 +101,15 @@ from snowflake.core.task._generated import TaskRun
 
 if TYPE_CHECKING:
     from snowflake.snowpark import Session
+
+
+@runtime_checkable
+class SQLConvertible(Protocol):
+    """Protocol for definitions that can be converted to SQL strings."""
+
+    def to_sql(self) -> str:
+        """Convert the definition to a SQL string."""
+        ...
 
 
 logger = logging.getLogger(__name__)
@@ -383,7 +392,7 @@ class DAGTask:
     def __init__(
         self,
         name: str,
-        definition: Union[str, Callable[..., Any], StoredProcedureCall],
+        definition: Union[str, Callable[..., Any], StoredProcedureCall, SQLConvertible],
         *,
         condition: Optional[str] = None,
         warehouse: Optional[str] = None,
@@ -569,7 +578,13 @@ class DAGTask:
         return tasks
 
     def _to_low_level_task(self) -> Task:
-        if isinstance(self.definition, StoredProcedureCall):
+        definition: Union[str, StoredProcedureCall]
+        if isinstance(self.definition, SQLConvertible):
+            sql = self.definition.to_sql()
+            if not isinstance(sql, str):
+                raise TypeError(f"to_sql() must return a str, got {type(sql).__name__}")
+            definition = sql
+        elif isinstance(self.definition, StoredProcedureCall):
             func = self.definition.func
             if isinstance(func, Callable) and self.dag.use_func_return_value:  # type: ignore
                 func = _use_func_return_value(func)

@@ -14,18 +14,32 @@ import zlib
 from ddtrace.appsec._constants import STACK_TRACE
 from ddtrace.appsec._exploit_prevention.stack_traces import report_stack
 from ddtrace.appsec._iast._evidence_redaction._sensitive_handler import sensitive_handler
+from ddtrace.appsec._iast._iast_request_context_base import is_iast_request_enabled
 from ddtrace.appsec._iast._utils import _get_source_index
 from ddtrace.appsec._iast.constants import VULN_INSECURE_HASHING_TYPE
 from ddtrace.appsec._iast.constants import VULN_WEAK_CIPHER_TYPE
 from ddtrace.appsec._iast.constants import VULN_WEAK_RANDOMNESS
 from ddtrace.internal.logger import get_logger
-from ddtrace.settings.asm import config as asm_config
+from ddtrace.internal.settings.asm import config as asm_config
 
 
 log = get_logger(__name__)
 
 ATTRS_TO_SKIP = frozenset({"_ranges", "_evidences_with_no_sources", "dialect"})
 EVIDENCES_WITH_NO_SOURCES = [VULN_INSECURE_HASHING_TYPE, VULN_WEAK_CIPHER_TYPE, VULN_WEAK_RANDOMNESS]
+
+# Default truncation length if environment variable is not set
+DEFAULT_EVIDENCE_TRUNCATION_LENGTH = 250
+
+
+def _truncate_evidence_value(value: Optional[str]) -> Optional[str]:
+    """Truncate evidence value if it exceeds the max length."""
+    if value is None:
+        return None
+    max_length = asm_config._iast_truncation_max_value_length
+    if len(value) > max_length:
+        return value[:max_length]
+    return value
 
 
 class NotNoneDictable:
@@ -258,7 +272,7 @@ class IastSpanReporter(NotNoneDictable):
             if "ranges" in i["evidence"]:
                 evidence._ranges = i["evidence"]["ranges"]
             if "value" in i["evidence"]:
-                evidence.value = i["evidence"]["value"]
+                evidence.value = _truncate_evidence_value(i["evidence"]["value"])
             if "valueParts" in i["evidence"]:
                 evidence.valueParts = i["evidence"]["valueParts"]
             if "dialect" in i["evidence"]:
@@ -311,7 +325,7 @@ class IastSpanReporter(NotNoneDictable):
         return sources, tainted_ranges_to_dict
 
     def add_ranges_to_evidence_and_extract_sources(self, vuln):
-        if not asm_config.is_iast_request_enabled:
+        if not is_iast_request_enabled():
             log.debug(
                 "iast::propagation::context::add_ranges_to_evidence_and_extract_sources. "
                 "No request quota or this vulnerability is outside the context"
@@ -330,7 +344,7 @@ class IastSpanReporter(NotNoneDictable):
         Returns:
         - Dict[str, Any]: Dictionary representation of the IAST span reporter.
         """
-        if not asm_config.is_iast_request_enabled:
+        if not is_iast_request_enabled():
             log.debug(
                 "iast::propagation::context::build_and_scrub_value_parts. "
                 "No request quota or this vulnerability is outside the context"
@@ -342,6 +356,10 @@ class IastSpanReporter(NotNoneDictable):
             )
             if scrubbing_result:
                 redacted_value_parts = scrubbing_result["redacted_value_parts"]
+                # Truncate each value in redacted_value_parts
+                for part in redacted_value_parts:
+                    if "value" in part:
+                        part["value"] = _truncate_evidence_value(part["value"])
                 redacted_sources = scrubbing_result["redacted_sources"]
                 i = 0
                 for source in self.sources:
@@ -373,18 +391,21 @@ class IastSpanReporter(NotNoneDictable):
 
         for range_ in ranges:
             if from_index < range_["start"]:
-                value_parts.append({"value": evidence_value[from_index : range_["start"]]})
+                value_parts.append({"value": _truncate_evidence_value(evidence_value[from_index : range_["start"]])})
 
             source_index = _get_source_index(sources, range_["source"])
 
             value_parts.append(
-                {"value": evidence_value[range_["start"] : range_["end"]], "source": source_index}  # type: ignore[dict-item]
+                {
+                    "value": _truncate_evidence_value(evidence_value[range_["start"] : range_["end"]]),
+                    "source": source_index,  # type: ignore[dict-item]
+                }
             )
 
             from_index = range_["end"]
 
         if from_index < len(evidence_value):
-            value_parts.append({"value": evidence_value[from_index:]})
+            value_parts.append({"value": _truncate_evidence_value(evidence_value[from_index:])})
 
         return value_parts
 

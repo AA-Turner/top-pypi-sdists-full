@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pysolr
-Version: 3.10.0
+Version: 3.11.0
 Summary: Lightweight Python client for Apache Solr
 Home-page: https://github.com/django-haystack/pysolr/
 Author: Daniel Lindsley
@@ -13,13 +13,24 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
 Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: requests>=2.9.1
+Requires-Dist: requests>=2.32.5
 Requires-Dist: setuptools
-Requires-Dist: importlib_metadata; python_version < "3.8"
 Provides-Extra: solrcloud
 Requires-Dist: kazoo>=2.5.0; extra == "solrcloud"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ======
 pysolr
@@ -48,8 +59,8 @@ Features
 Requirements
 ============
 
-* Python 2.7 - 3.7
-* Requests 2.9.1+
+* Python 3.10+
+* Requests 2.32.5+
 * **Optional** - ``simplejson``
 * **Optional** - ``kazoo`` for SolrCloud mode
 
@@ -74,9 +85,6 @@ Usage
 Basic usage looks like:
 
 .. code-block:: python
-
-    # If on Python 2.X
-    from __future__ import print_function
 
     import pysolr
 

@@ -41,9 +41,9 @@ class _Gitignore(_PathSpec):
                     if pattern.startswith("#"):
                         continue
 
-                    # if pattern starts with "/" then os.path.join will
-                    # consider it in the filesystem root, and it will
-                    # only ever return /pattern
+                    # if the pattern starts with "/" then os.path.join
+                    # will consider it in the filesystem root, and it
+                    # will only ever return /pattern
                     if pattern.startswith("/"):
                         pattern = pattern[1:]
 
@@ -70,7 +70,7 @@ def _glob(path: _Path, pattern: str) -> bool:
 class Paths(_t.List[_Path]):
     """Collect a list of valid paths.
 
-    :param paths: Path(s) to parse ``Module``(s) from.
+    :param paths: Path(s) to parse Module(s) from.
     :param patterns: List pf regular expression of files and dirs to
         exclude from checks.
     :param excludes: Files or dirs to exclude from checks.

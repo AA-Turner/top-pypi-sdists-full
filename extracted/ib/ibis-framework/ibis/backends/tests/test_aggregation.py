@@ -41,7 +41,7 @@ pd = pytest.importorskip("pandas")
 with pytest.warns(FutureWarning, match="v9.0"):
 
     @reduction(input_type=[dt.double], output_type=dt.double)
-    def mean_udf(s):
+    def mean_udf(s: pd.Series) -> float:
         return s.mean()
 
 
@@ -199,72 +199,6 @@ def test_aggregate_grouped(backend, alltypes, df, result_fn, expected_fn):
 
     backend.assert_frame_equal(result1, expected, check_dtype=False)
     backend.assert_frame_equal(result2, expected, check_dtype=False)
-
-
-@pytest.mark.notimpl(
-    [
-        "bigquery",
-        "clickhouse",
-        "datafusion",
-        "duckdb",
-        "impala",
-        "mysql",
-        "postgres",
-        "risingwave",
-        "sqlite",
-        "snowflake",
-        "polars",
-        "mssql",
-        "trino",
-        "druid",
-        "oracle",
-        "flink",
-        "exasol",
-        "databricks",
-        "athena",
-    ],
-    raises=com.OperationNotDefinedError,
-)
-@pytest.mark.notyet(
-    ["pyspark"],
-    raises=(PySparkPythonException, NotImplementedError),
-)
-def test_aggregate_multikey_group_reduction_udf(backend, alltypes, df):
-    """Tests .aggregate() on a multi-key group_by with a reduction
-    operation."""
-    with pytest.warns(FutureWarning, match="v9\\.0"):
-
-        @reduction(
-            input_type=[dt.double],
-            output_type=dt.Struct({"mean": dt.double, "std": dt.double}),
-        )
-        def mean_and_std(v):
-            return v.mean(), v.std()
-
-    grouping_key_cols = ["bigint_col", "int_col"]
-
-    with pytest.warns(FutureWarning, match="v10\\.0"):
-        agg = mean_and_std(alltypes["double_col"]).destructure()
-
-    expr1 = alltypes.group_by(grouping_key_cols).aggregate(agg)
-
-    result1 = expr1.execute()
-
-    # Note: Using `reset_index` to get the grouping key as a column
-    expected = (
-        df.groupby(grouping_key_cols)["double_col"].agg(["mean", "std"]).reset_index()
-    )
-
-    # Row ordering may differ depending on backend, so sort on the
-    # grouping key
-    result1 = result1.sort_values(by=grouping_key_cols).reset_index(drop=True)
-    expected = (
-        expected.sort_values(by=grouping_key_cols)
-        .reset_index(drop=True)
-        .assign(int_col=lambda df: df.int_col.astype("int32"))
-    )
-
-    backend.assert_frame_equal(result1, expected)
 
 
 @pytest.mark.parametrize(
@@ -1510,8 +1444,16 @@ def test_topk_filter_op(con, alltypes, df, result_fn, expected_fn):
     assert result.shape[0] == expected.shape[0]
 
 
+def agg_to_list(s: pd.Series) -> list[float]:
+    return s.tolist()
+
+
+def agg_to_ndarray(s: pd.Series) -> np.ndarray:
+    return s.values
+
+
 @pytest.mark.parametrize(
-    "agg_fn", [lambda s: list(s), lambda s: np.array(s)], ids=["list", "ndarray"]
+    "agg_fn", [agg_to_list, agg_to_ndarray], ids=["list", "ndarray"]
 )
 @pytest.mark.notimpl(
     [
@@ -1602,11 +1544,11 @@ def test_aggregate_mixed_udf(backend, alltypes, df):
     with pytest.warns(FutureWarning, match="v9.0"):
 
         @reduction(input_type=[dt.double], output_type=dt.double)
-        def sum_udf(v):
+        def sum_udf(v: pd.Series) -> float:
             return np.sum(v)
 
         @reduction(input_type=[dt.double], output_type=dt.Array(dt.double))
-        def collect_udf(v):
+        def collect_udf(v: pd.Series) -> np.ndarray:
             return np.array(v)
 
     expr = alltypes.aggregate(

@@ -56,6 +56,7 @@ action_groups:
     - neutron_rbac_policy
     - object
     - object_container
+    - object_containers_info
     - port
     - port_info
     - project
@@ -77,6 +78,8 @@ action_groups:
     - server_info
     - server_metadata
     - server_volume
+    - share_type
+    - share_type_info
     - stack
     - stack_info
     - subnet
@@ -84,6 +87,7 @@ action_groups:
     - subnets_info
     - trunk
     - volume
+    - volume_manage
     - volume_backup
     - volume_backup_info
     - volume_info

@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 import json
@@ -8,23 +8,37 @@ from typing import Any, Union
 
 from marimo._messaging.mimetypes import KnownMimeType
 from marimo._output import formatting
+from marimo._output.data.data import is_bigint
 from marimo._output.formatters.formatter_factory import FormatterFactory
 from marimo._output.formatters.repr_formatters import maybe_get_repr_formatter
-from marimo._plugins.stateless import plain_text
+from marimo._plugins.stateless.inspect import inspect
+from marimo._plugins.stateless.plain_text import plain_text
 from marimo._utils.flatten import CyclicStructureError, flatten
+
+
+def is_structures_formatter(
+    formatter: formatting.Formatter[object] | None,
+) -> bool:
+    return formatter is formatting.get_formatter(tuple())
 
 
 def _leaf_formatter(
     value: object,
 ) -> bool | None | str | int:
     formatter = formatting.get_formatter(value)
-    if formatter is not None:
+
+    # Because we don't flatten subclasses of structures, we need to avoid
+    # recursing on structures in order to prevent infinite recursion.
+    if formatter is not None and not is_structures_formatter(formatter):
         return ":".join(formatter(value))
+
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
         return value
     if isinstance(value, int):
+        if is_bigint(value):
+            return f"text/plain+bigint:{value}"
         return value
     # floats are still converted to strings because JavaScript
     # can't reliably distinguish between them (eg 1 and 1.0)
@@ -51,7 +65,9 @@ def format_structure(
     Returns a structure of the same shape as `t` with formatted
     leaves.
     """
-    flattened, repacker = flatten(t, json_compat_keys=True)
+    flattened, repacker = flatten(
+        t, json_compat_keys=True, flatten_formattable_subclasses=False
+    )
     return repacker([_leaf_formatter(v) for v in flattened])
 
 
@@ -84,20 +100,20 @@ class StructuresFormatter(FormatterFactory):
             # e.g. sys.version_info
             if isinstance(t, tuple) and type(t) is not tuple:
                 if str(t) != str(tuple(t)):
-                    return plain_text.plain_text(str(t))._mime_()
+                    return plain_text(str(t))._mime_()
             elif isinstance(t, list) and type(t) is not list:
                 if str(t) != str(list(t)):
-                    return plain_text.plain_text(str(t))._mime_()
+                    return plain_text(str(t))._mime_()
             elif (
                 isinstance(t, dict)
                 and type(t) is not dict
                 and type(t) is not defaultdict
             ):
                 if str(t) != str(dict(t)):
-                    return plain_text.plain_text(str(t))._mime_()
+                    return plain_text(str(t))._mime_()
             elif isinstance(t, defaultdict) and type(t) is not defaultdict:
                 if str(t) != str(defaultdict(t.default_factory, t)):
-                    return plain_text.plain_text(str(t))._mime_()
+                    return plain_text(str(t))._mime_()
 
             if t and "matplotlib" in sys.modules:
                 # Special case for matplotlib:
@@ -122,3 +138,22 @@ class StructuresFormatter(FormatterFactory):
                 return ("text/plain", str(t))
 
             return ("application/json", json.dumps(formatted_structure))
+
+        import types
+
+        @formatting.formatter(types.BuiltinFunctionType)
+        @formatting.formatter(types.BuiltinMethodType)
+        @formatting.formatter(types.FunctionType)
+        @formatting.formatter(types.LambdaType)
+        @formatting.formatter(types.MethodType)
+        def _format_function(obj: Any) -> tuple[KnownMimeType, str]:
+            try:
+                # If the function has a repr_formatter, use it
+                repr_formatter = maybe_get_repr_formatter(obj)
+                if repr_formatter is not None:
+                    return repr_formatter(obj)
+                # Otherwise, use the pretty inspect
+                return inspect(obj, value=False)._mime_()
+            except Exception:
+                # If it fails, fallback to just 'repr'
+                return plain_text(repr(obj))._mime_()

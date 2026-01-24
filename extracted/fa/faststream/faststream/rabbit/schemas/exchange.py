@@ -1,11 +1,10 @@
 import warnings
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from typing_extensions import Annotated, Doc, deprecated, override
+from typing_extensions import override
 
-from faststream.broker.schemas import NameRequired
+from faststream._internal.proto import NameRequired
 from faststream.rabbit.schemas.constants import ExchangeType
-from faststream.types import EMPTY, AnyDict
 
 if TYPE_CHECKING:
     from aio_pika.abc import TimeoutType
@@ -19,17 +18,24 @@ class RabbitExchange(NameRequired):
         "auto_delete",
         "bind_arguments",
         "bind_to",
-        "declare",
         "durable",
         "name",
-        "passive",
         "robust",
         "routing_key",
         "timeout",
         "type",
     )
 
+    def __repr__(self) -> str:
+        if self.declare:
+            body = f", robust={self.robust}, durable={self.durable}, auto_delete={self.auto_delete})"
+        else:
+            body = ""
+
+        return f"{self.__class__.__name__}({self.name}, type={self.type}, routing_key='{self.routing()}'{body})"
+
     def __hash__(self) -> int:
+        """Supports hash to store real objects in declarer."""
         return sum(
             (
                 hash(self.name),
@@ -37,86 +43,43 @@ class RabbitExchange(NameRequired):
                 hash(self.routing_key),
                 int(self.durable),
                 int(self.auto_delete),
-            )
+            ),
         )
 
-    @property
     def routing(self) -> str:
         """Return real routing_key of object."""
         return self.routing_key or self.name
 
     def __init__(
         self,
-        name: Annotated[
-            str,
-            Doc("RabbitMQ exchange name."),
-        ] = "",
-        type: Annotated[
-            ExchangeType,
-            Doc(
-                "RabbitMQ exchange type. "
-                "You can find detail information in the official RabbitMQ documentation: "
-                "https://www.rabbitmq.com/tutorials/amqp-concepts#exchanges"
-                "\n"
-                "Or in the FastStream one: "
-                "https://faststream.ag2.ai/latest/rabbit/examples/"
-            ),
-        ] = ExchangeType.DIRECT,
-        durable: Annotated[
-            bool,
-            Doc("Whether the object is durable."),
-        ] = False,
-        auto_delete: Annotated[
-            bool,
-            Doc("The exchange will be deleted after connection closed."),
-        ] = False,
-        declare: Annotated[
-            bool,
-            Doc(
-                "Whether to exchange automatically or just connect to it. "
-                "If you want to connect to an existing exchange, set this to `False`. "
-                "Copy of `passive` aio-pike option."
-            ),
-        ] = True,
-        passive: Annotated[
-            bool,
-            deprecated("Use `declare` instead. Will be removed in the 0.6.0 release."),
-            Doc("Do not create exchange automatically."),
-        ] = EMPTY,
-        arguments: Annotated[
-            Optional[AnyDict],
-            Doc(
-                "Exchange declarationg arguments. "
-                "You can find usage example in the official RabbitMQ documentation: "
-                "https://www.rabbitmq.com/docs/ae"
-            ),
-        ] = None,
-        timeout: Annotated[
-            "TimeoutType",
-            Doc("Send confirmation time from RabbitMQ."),
-        ] = None,
-        robust: Annotated[
-            bool,
-            Doc("Whether to declare exchange object as restorable."),
-        ] = True,
-        bind_to: Annotated[
-            Optional["RabbitExchange"],
-            Doc(
-                "Another `RabbitExchange` object to bind the current one to. "
-                "You can find more information in the official RabbitMQ blog post: "
-                "https://www.rabbitmq.com/blog/2010/10/19/exchange-to-exchange-bindings"
-            ),
-        ] = None,
-        bind_arguments: Annotated[
-            Optional[AnyDict],
-            Doc("Exchange-exchange binding options."),
-        ] = None,
-        routing_key: Annotated[
-            str,
-            Doc("Explicit binding routing key."),
-        ] = "",
+        name: str = "",
+        type: ExchangeType = ExchangeType.DIRECT,
+        durable: bool = False,
+        auto_delete: bool = False,
+        # custom
+        declare: bool = True,
+        arguments: dict[str, Any] | None = None,
+        timeout: "TimeoutType" = None,
+        robust: bool = True,
+        bind_to: Optional["RabbitExchange"] = None,
+        bind_arguments: dict[str, Any] | None = None,
+        routing_key: str = "",
     ) -> None:
-        """Initialize a RabbitExchange object."""
+        """Initialize a RabbitExchange object.
+
+        Args:
+            name: RabbitMQ exchange name.
+            type: RabbitMQ exchange type.
+            durable: Whether the object is durable.
+            auto_delete: The exchange will be deleted after connection closed.
+            declare: Whether to exchange automatically or just connect to it.
+            arguments: Exchange declarationg arguments.
+            timeout: Send confirmation time from RabbitMQ.
+            robust: Whether to declare exchange object as restorable.
+            bind_to: Another `RabbitExchange` object to bind the current one to.
+            bind_arguments: Exchange-exchange binding options.
+            routing_key: Explicit binding routing key.
+        """
         if routing_key and bind_to is None:  # pragma: no cover
             warnings.warn(
                 (
@@ -133,21 +96,9 @@ class RabbitExchange(NameRequired):
         self.durable = durable
         self.auto_delete = auto_delete
         self.robust = robust
-        self.passive = passive
         self.timeout = timeout
         self.arguments = arguments
-
-        if passive is not EMPTY:
-            warnings.warn(
-                DeprecationWarning(
-                    "Use `declare` instead. Will be removed in the 0.6.0 release.",
-                ),
-                stacklevel=2,
-            )
-            self.declare = not passive
-        else:
-            self.declare = declare
-
+        self.declare = declare
         self.bind_to = bind_to
         self.bind_arguments = bind_arguments
         self.routing_key = routing_key

@@ -19,7 +19,7 @@ import re
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, SecretStr, StrictStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, StrictStr, field_validator
 from typing_extensions import Annotated
 
 
@@ -39,17 +39,17 @@ class ManagedAccount(BaseModel):
     account_type : str
         Type of the account.
     cloud : str, optional
-        Cloud in which the managed account is located. For reader accounts, this is always the same as the cloud for the provider account.
+        Cloud in which the managed account is located. For reader accounts, this is always the same as the cloud for the provider account — **Read-only:** *any user-provided value will be ignored.*
     region : str, optional
-        Region in which the managed account is located. For reader accounts, this is always the same as the region for the provider account.
+        Region in which the managed account is located. For reader accounts, this is always the same as the region for the provider account — **Read-only:** *any user-provided value will be ignored.*
     locator : str, optional
-        Legacy identifier for the account.
+        Legacy identifier for the account — **Read-only:** *any user-provided value will be ignored.*
     created_on : datetime, optional
-        Date and time the account was created.
+        Date and time the account was created — **Read-only:** *any user-provided value will be ignored.*
     url : str, optional
-        Account URL that is used to connect to the account, in the account name format. The account identifier in this format follows the pattern <orgname>-<account_name>.
+        Account URL that is used to connect to the account, in the account name format. The account identifier in this format follows the pattern <orgname>-<account_name> — **Read-only:** *any user-provided value will be ignored.*
     account_locator_url : str, optional
-        Account URL that is used to connect to the account, in the legacy account locator format.
+        Account URL that is used to connect to the account, in the legacy account locator format — **Read-only:** *any user-provided value will be ignored.*
     comment : str, optional
         Optional comment in which to store information related to the account.
     """
@@ -102,9 +102,10 @@ class ManagedAccount(BaseModel):
             raise ValueError("must validate the enum values ('READER')")
         return v
 
-    class Config:
-        populate_by_name = True
-        validate_assignment = True
+    model_config = ConfigDict(
+        validate_by_name=True,
+        validate_assignment=True,
+    )
 
     def to_str(self) -> str:
         """Returns the string representation of the model using alias."""
@@ -138,7 +139,7 @@ class ManagedAccount(BaseModel):
                 }
             )
 
-        _dict = dict(self._iter(to_dict=True, by_alias=True, exclude=exclude_properties, exclude_none=True))
+        _dict = self.model_dump(serialize_as_any=True, by_alias=True, exclude=exclude_properties, exclude_none=True)
 
         # set to None if admin_name (nullable) is None
         if self.admin_name is None:
@@ -161,9 +162,9 @@ class ManagedAccount(BaseModel):
             return None
 
         if type(obj) is not dict:
-            return ManagedAccount.parse_obj(obj)
+            return ManagedAccount.model_validate(obj)
 
-        _obj = ManagedAccount.parse_obj(
+        _obj = ManagedAccount.model_validate(
             {
                 "name": obj.get("name"),
                 "cloud": obj.get("cloud"),

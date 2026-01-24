@@ -5,7 +5,7 @@ from __future__ import annotations
 __all__ = ["CloudpickleShard", "create_cloudpickle_shard"]
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from coola.utils.path import sanitize_path
 from objectory import OBJECT_TARGET
@@ -17,12 +17,17 @@ from iden.shard.file import FileShard
 if TYPE_CHECKING:
     from pathlib import Path
 
-logger = logging.getLogger(__name__)
+T = TypeVar("T")
+
+logger: logging.Logger = logging.getLogger(__name__)
 
 
-class CloudpickleShard(FileShard[Any]):
-    r"""Implement a cloudpickle shard.
+class CloudpickleShard(FileShard[T]):
+    r"""Implement a cloudpickle shard for advanced Python object
+    serialization.
 
+    This shard stores data using cloudpickle, which extends Python's pickle
+    to handle more complex objects like lambda functions and nested classes.
     The data are stored in a cloudpickle file.
 
     Args:
@@ -32,31 +37,28 @@ class CloudpickleShard(FileShard[Any]):
     Raises:
         RuntimeError: if ``cloudpickle`` is not installed.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import CloudpickleShard
+        >>> from iden.io import save_pickle
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     file = Path(tmpdir).joinpath("data.pkl")
+        ...     save_pickle([1, 2, 3], file)
+        ...     shard = CloudpickleShard(uri="file:///data/1234456789", path=file)
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-
-    >>> from pathlib import Path
-    >>> from iden.shard import CloudpickleShard
-    >>> from iden.io import save_pickle
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     file = Path(tmpdir).joinpath("data.pkl")
-    ...     save_pickle([1, 2, 3], file)
-    ...     shard = CloudpickleShard(uri="file:///data/1234456789", path=file)
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
 
     def __init__(self, uri: str, path: Path | str) -> None:
         super().__init__(uri, path, loader=CloudpickleLoader())
 
     @classmethod
-    def generate_uri_config(cls, path: Path) -> dict:
+    def generate_uri_config(cls, path: Path) -> dict[str, Any]:
         r"""Generate the minimal config that is used to load the shard
         from its URI.
 
@@ -68,20 +70,19 @@ class CloudpickleShard(FileShard[Any]):
         Returns:
             The minimal config to load the shard from its URI.
 
-        Example usage:
+        Example:
+            ```pycon
+            >>> import tempfile
+            >>> from pathlib import Path
+            >>> from iden.shard import CloudpickleShard
+            >>> with tempfile.TemporaryDirectory() as tmpdir:
+            ...     file = Path(tmpdir).joinpath("data.pkl")
+            ...     CloudpickleShard.generate_uri_config(file)
+            ...
+            {'kwargs': {'path': '.../data.pkl'},
+             'loader': {'_target_': 'iden.shard.loader.CloudpickleShardLoader'}}
 
-        ```pycon
-        >>> import tempfile
-        >>> from pathlib import Path
-        >>> from iden.shard import CloudpickleShard
-        >>> with tempfile.TemporaryDirectory() as tmpdir:
-        ...     file = Path(tmpdir).joinpath("data.pkl")
-        ...     CloudpickleShard.generate_uri_config(file)
-        ...
-        {'kwargs': {'path': '.../data.pkl'},
-         'loader': {'_target_': 'iden.shard.loader.CloudpickleShardLoader'}}
-
-        ```
+            ```
         """
         return {
             KWARGS: {"path": sanitize_path(path).as_posix()},
@@ -89,7 +90,7 @@ class CloudpickleShard(FileShard[Any]):
         }
 
 
-def create_cloudpickle_shard(data: Any, uri: str, path: Path | None = None) -> CloudpickleShard:
+def create_cloudpickle_shard(data: T, uri: str, path: Path | None = None) -> CloudpickleShard[T]:
     r"""Create a ``CloudpickleShard`` from data.
 
     Note:
@@ -109,20 +110,18 @@ def create_cloudpickle_shard(data: Any, uri: str, path: Path | None = None) -> C
     Raises:
         RuntimeError: if ``cloudpickle`` is not installed.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.shard import create_pickle_shard
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     shard = create_pickle_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
+        ...     shard.get_data()
+        ...
+        [1, 2, 3]
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.shard import create_pickle_shard
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     shard = create_pickle_shard([1, 2, 3], uri=Path(tmpdir).joinpath("my_uri").as_uri())
-    ...     shard.get_data()
-    ...
-    [1, 2, 3]
-
-    ```
+        ```
     """
     if path is None:
         path = sanitize_path(uri + ".pkl")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import sys
 from argparse import (
@@ -14,8 +15,10 @@ from argparse import (
     _SubParsersAction,
 )
 from collections import defaultdict
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple, cast
+from unittest.mock import patch
 
 from docutils.nodes import (
     Element,
@@ -35,7 +38,6 @@ from docutils.nodes import (
 )
 from docutils.parsers.rst.directives import flag, positive_int, unchanged, unchanged_required
 from docutils.statemachine import StringList
-from sphinx.domains.std import StandardDomain
 from sphinx.locale import __
 from sphinx.util.docutils import SphinxDirective
 from sphinx.util.logging import getLogger
@@ -44,6 +46,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from docutils.parsers.rst.states import RSTState, RSTStateMachine
+    from sphinx.domains.std import StandardDomain
 
 
 class TextAsDefault(NamedTuple):
@@ -100,7 +103,7 @@ class SphinxArgparseCli(SphinxDirective):
         options.setdefault("group_sub_title_prefix", None)
         super().__init__(name, arguments, options, content, lineno, content_offset, block_text, state, state_machine)
         self._parser: ArgumentParser | None = None
-        self._std_domain: StandardDomain = cast(StandardDomain, self.env.get_domain("std"))
+        self._std_domain: StandardDomain = cast("StandardDomain", self.env.get_domain("std"))
         self._raw_format: bool = False
         self.make_id = make_id_lower if "force_refs_lower" in self.options else make_id
 
@@ -281,7 +284,7 @@ class SphinxArgparseCli(SphinxDirective):
             temp = paragraph()
             self.state.nested_parse(StringList(help_text.split("\n")), 0, temp)
             line += Text(" - ")
-            for content in cast(paragraph, temp.children[0]).children:
+            for content in cast("paragraph", temp.children[0]).children:
                 line += content
         if (
             "no_default_values" not in self.options
@@ -334,6 +337,10 @@ class SphinxArgparseCli(SphinxDirective):
         sub_title_prefix: str = self.options["group_sub_title_prefix"]
         title_prefix: str = self.options["group_title_prefix"]
 
+        if sys.version_info >= (3, 14):
+            # https://github.com/python/cpython/issues/139809
+            parser.prog = _strip_ansi_colors(parser.prog)
+
         title_text = self._build_sub_cmd_title(parser, sub_title_prefix, title_prefix)
         title_ref: str = parser.prog
         if aliases:
@@ -366,7 +373,8 @@ class SphinxArgparseCli(SphinxDirective):
         return group_section
 
     def _build_sub_cmd_title(self, parser: ArgumentParser, sub_title_prefix: str, title_prefix: str) -> str:
-        title_text, elements = "", parser.prog.split(" ")
+        prog = _strip_ansi_colors(parser.prog)
+        title_text, elements = "", prog.split(" ")
         if title_prefix is not None:
             title_prefix = title_prefix.replace("{prog}", elements[0])
             if title_prefix:
@@ -379,7 +387,7 @@ class SphinxArgparseCli(SphinxDirective):
             title_text += f"{elements[0]} "
             title_text = self._append_title(title_text, sub_title_prefix, elements[0], elements[1])
         else:
-            title_text += parser.prog
+            title_text += prog
         return title_text.rstrip()
 
     @staticmethod
@@ -392,9 +400,15 @@ class SphinxArgparseCli(SphinxDirective):
 
     def _mk_usage(self, parser: ArgumentParser) -> literal_block:
         parser.formatter_class = lambda prog: HelpFormatter(prog, width=self.options.get("usage_width", 100))
-        texts = parser.format_usage()[len("usage: ") :].splitlines()
+        with self.no_color():
+            texts = parser.format_usage()[len("usage: ") :].splitlines()
         texts = [line if at == 0 else f"{' ' * (len(parser.prog) + 1)}{line.lstrip()}" for at, line in enumerate(texts)]
         return literal_block("", Text("\n".join(texts)))
+
+    @contextmanager
+    def no_color(self) -> Iterator[None]:
+        with patch.dict(os.environ, {"NO_COLOR": "1"}, clear=False):
+            yield None
 
 
 SINGLE_QUOTE = re.compile(r"[']+(.+?)[']+")
@@ -415,6 +429,15 @@ class HookError(Exception):
 
 def _parse_known_args_hook(self: ArgumentParser, *args: Any, **kwargs: Any) -> None:  # noqa: ARG001
     raise HookError(self)
+
+
+_ANSI_COLOR_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _strip_ansi_colors(text: str) -> str:
+    """Remove ANSI color/style escape sequences (SGR codes) from text."""
+    # needed due to https://github.com/python/cpython/issues/139809
+    return _ANSI_COLOR_RE.sub("", text)
 
 
 __all__ = [

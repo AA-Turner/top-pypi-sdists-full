@@ -15,6 +15,12 @@ if TYPE_CHECKING:
     from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_1 import (
         ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1,
     )
+    from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+        ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2,
+    )
+    from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_3 import (
+        ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType3,
+    )
     from ..models.list_queue_response_200_item_flow_status_preprocessor_module_approvers_item import (
         ListQueueResponse200ItemFlowStatusPreprocessorModuleApproversItem,
     )
@@ -55,7 +61,9 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
         skipped (Union[Unset, bool]):
         agent_actions (Union[Unset,
             List[Union['ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType0',
-            'ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1']]]):
+            'ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1',
+            'ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2',
+            'ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType3']]]):
         agent_actions_success (Union[Unset, List[bool]]):
     """
 
@@ -79,6 +87,8 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
             Union[
                 "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType0",
                 "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1",
+                "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2",
+                "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType3",
             ]
         ],
     ] = UNSET
@@ -88,6 +98,12 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
     def to_dict(self) -> Dict[str, Any]:
         from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_0 import (
             ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType0,
+        )
+        from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_1 import (
+            ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2,
         )
 
         type = self.type.value
@@ -141,6 +157,16 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
 
                 if isinstance(
                     agent_actions_item_data, ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType0
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data, ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1
+                ):
+                    agent_actions_item = agent_actions_item_data.to_dict()
+
+                elif isinstance(
+                    agent_actions_item_data, ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2
                 ):
                     agent_actions_item = agent_actions_item_data.to_dict()
 
@@ -200,6 +226,12 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
         )
         from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_1 import (
             ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1,
+        )
+        from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_2 import (
+            ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2,
+        )
+        from ..models.list_queue_response_200_item_flow_status_preprocessor_module_agent_actions_item_type_3 import (
+            ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType3,
         )
         from ..models.list_queue_response_200_item_flow_status_preprocessor_module_approvers_item import (
             ListQueueResponse200ItemFlowStatusPreprocessorModuleApproversItem,
@@ -284,6 +316,8 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
             ) -> Union[
                 "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType0",
                 "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1",
+                "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2",
+                "ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType3",
             ]:
                 try:
                     if not isinstance(data, dict):
@@ -295,13 +329,33 @@ class ListQueueResponse200ItemFlowStatusPreprocessorModule:
                     return agent_actions_item_type_0
                 except:  # noqa: E722
                     pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_1 = (
+                        ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_1
+                except:  # noqa: E722
+                    pass
+                try:
+                    if not isinstance(data, dict):
+                        raise TypeError()
+                    agent_actions_item_type_2 = (
+                        ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType2.from_dict(data)
+                    )
+
+                    return agent_actions_item_type_2
+                except:  # noqa: E722
+                    pass
                 if not isinstance(data, dict):
                     raise TypeError()
-                agent_actions_item_type_1 = (
-                    ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType1.from_dict(data)
+                agent_actions_item_type_3 = (
+                    ListQueueResponse200ItemFlowStatusPreprocessorModuleAgentActionsItemType3.from_dict(data)
                 )
 
-                return agent_actions_item_type_1
+                return agent_actions_item_type_3
 
             agent_actions_item = _parse_agent_actions_item(agent_actions_item_data)
 

@@ -2,6 +2,7 @@
 # Copyright (C) 2019-2020 Collabora Ltd
 # Copyright (C) 2019-2020 Andrej Shadura <andrew.shadura@collabora.co.uk>
 #
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
 # Dulwich is dual-licensed under the Apache License, Version 2.0 and the GNU
 # General Public License as published by the Free Software Foundation; version 2.0
 # or (at your option) any later version. You can redistribute it and/or
@@ -21,16 +22,22 @@
 
 """Parse .gitattributes file."""
 
+__all__ = [
+    "AttributeValue",
+    "GitAttributes",
+    "Pattern",
+    "match_path",
+    "parse_git_attributes",
+    "parse_gitattributes_file",
+    "read_gitattributes",
+]
+
 import os
 import re
-from collections.abc import Generator, Mapping
-from typing import (
-    IO,
-    Optional,
-    Union,
-)
+from collections.abc import Generator, Iterator, Mapping, Sequence
+from typing import IO
 
-AttributeValue = Union[bytes, bool, None]
+AttributeValue = bytes | bool | None
 
 
 def _parse_attr(attr: bytes) -> tuple[bytes, AttributeValue]:
@@ -164,11 +171,16 @@ class Pattern:
     """A single gitattributes pattern."""
 
     def __init__(self, pattern: bytes):
+        """Initialize GitAttributesPattern.
+
+        Args:
+            pattern: Attribute pattern as bytes
+        """
         self.pattern = pattern
-        self._regex: Optional[re.Pattern[bytes]] = None
+        self._regex: re.Pattern[bytes] | None = None
         self._compile()
 
-    def _compile(self):
+    def _compile(self) -> None:
         """Compile the pattern to a regular expression."""
         regex_pattern = _translate_pattern(self.pattern)
         # Add anchors
@@ -194,7 +206,7 @@ class Pattern:
 
 
 def match_path(
-    patterns: list[tuple[Pattern, Mapping[bytes, AttributeValue]]], path: bytes
+    patterns: Sequence[tuple[Pattern, Mapping[bytes, AttributeValue]]], path: bytes
 ) -> dict[bytes, AttributeValue]:
     """Get attributes for a path by matching against patterns.
 
@@ -222,7 +234,7 @@ def match_path(
 
 
 def parse_gitattributes_file(
-    filename: Union[str, bytes],
+    filename: str | bytes,
 ) -> list[tuple[Pattern, Mapping[bytes, AttributeValue]]]:
     """Parse a gitattributes file and return compiled patterns.
 
@@ -246,7 +258,7 @@ def parse_gitattributes_file(
 
 
 def read_gitattributes(
-    path: Union[str, bytes],
+    path: str | bytes,
 ) -> list[tuple[Pattern, Mapping[bytes, AttributeValue]]]:
     """Read .gitattributes from a directory.
 
@@ -271,7 +283,7 @@ class GitAttributes:
 
     def __init__(
         self,
-        patterns: Optional[list[tuple[Pattern, Mapping[bytes, AttributeValue]]]] = None,
+        patterns: list[tuple[Pattern, Mapping[bytes, AttributeValue]]] | None = None,
     ):
         """Initialize GitAttributes.
 
@@ -292,7 +304,7 @@ class GitAttributes:
         return match_path(self._patterns, path)
 
     def add_patterns(
-        self, patterns: list[tuple[Pattern, Mapping[bytes, AttributeValue]]]
+        self, patterns: Sequence[tuple[Pattern, Mapping[bytes, AttributeValue]]]
     ) -> None:
         """Add patterns to the collection.
 
@@ -305,12 +317,12 @@ class GitAttributes:
         """Return the number of patterns."""
         return len(self._patterns)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[tuple["Pattern", Mapping[bytes, AttributeValue]]]:
         """Iterate over patterns."""
         return iter(self._patterns)
 
     @classmethod
-    def from_file(cls, filename: Union[str, bytes]) -> "GitAttributes":
+    def from_file(cls, filename: str | bytes) -> "GitAttributes":
         """Create GitAttributes from a gitattributes file.
 
         Args:
@@ -323,7 +335,7 @@ class GitAttributes:
         return cls(patterns)
 
     @classmethod
-    def from_path(cls, path: Union[str, bytes]) -> "GitAttributes":
+    def from_path(cls, path: str | bytes) -> "GitAttributes":
         """Create GitAttributes from .gitattributes in a directory.
 
         Args:
@@ -345,7 +357,7 @@ class GitAttributes:
         """
         # Find existing pattern
         pattern_obj = None
-        attrs_dict: Optional[dict[bytes, AttributeValue]] = None
+        attrs_dict: dict[bytes, AttributeValue] | None = None
         pattern_index = -1
 
         for i, (p, attrs) in enumerate(self._patterns):
@@ -410,7 +422,7 @@ class GitAttributes:
 
         return b"\n".join(lines) + b"\n" if lines else b""
 
-    def write_to_file(self, filename: Union[str, bytes]) -> None:
+    def write_to_file(self, filename: str | bytes) -> None:
         """Write GitAttributes to a file.
 
         Args:

@@ -8,6 +8,7 @@ from . import get_many_entries
 import agilicus_api.exceptions
 import dateutil.tz
 import operator
+import urllib.parse
 from colorama import Fore
 import re
 from typing import Optional
@@ -22,6 +23,8 @@ from agilicus import input_helpers
 from .orgs import get_org_by_dictionary
 from . import create_or_update
 from .custom_types import Ternary
+from . import pagination
+from .resource_helpers import standard_page_fields
 
 from .output.table import (
     spec_column,
@@ -33,6 +36,9 @@ from .output.table import (
 )
 
 TUNNEL_TERMINATION_TYPES = ["tcp", "inproc"]
+INTERNAL_SERVICE_BIND = ["disabled", "local", "all", "custom"]
+
+page_fields = standard_page_fields
 
 
 def _filter_version(connector, not_version=None, only_version=None):
@@ -104,6 +110,7 @@ def query(
     page_at_id=None,
     page_size=500,
     filter_os_version=None,
+    page_on=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -115,14 +122,20 @@ def query(
     if page_at_id is None:
         page_at_id = ""
     input_helpers.update_if_not_none(params, kwargs)
-    query_results = get_many_entries(
-        apiclient.connectors_api.list_connector,
-        "connectors",
-        maximum=kwargs.get("limit", None),
-        page_size=page_size,
-        page_at_id=page_at_id,
-        **params,
-    )
+    params = pagination.normalize_page_args(params)
+    if page_on is None:
+        query_results = get_many_entries(
+            apiclient.connectors_api.list_connector,
+            "connectors",
+            maximum=kwargs.get("limit", None),
+            page_size=page_size,
+            page_at_id=page_at_id,
+            **params,
+        )
+    else:
+        query_results = apiclient.connectors_api.list_connector(
+            page_on=page_on, **params
+        ).connectors
     return do_filter(
         ctx,
         no_down,
@@ -169,6 +182,7 @@ def query_agents(ctx, column_format=None, filter_not_has_version=None, **kwargs)
 
     if org_id:
         kwargs["org_id"] = org_id
+    kwargs = pagination.normalize_page_args(kwargs)
     query_results = apiclient.connectors_api.list_agent_connector(
         **strip_none(kwargs)
     ).agent_connectors
@@ -665,6 +679,13 @@ def replace_agent(
     trap_disabled=None,
     revocation_proxy_trusted_cert_bundle_id=None,
     revocation_proxy_rules_bundle_id=None,
+    ntp_forwarding_bind=None,
+    ntp_forwarding_custom_bind=None,
+    sync_local_clock=None,
+    upstream_buffer_tuning=None,
+    upstream_buffer_min_latency=None,
+    upstream_buffer_max_latency=None,
+    upstream_buffer_rmem_max=None,
     **kwargs,
 ):
     token = context.get_token(ctx)
@@ -709,7 +730,19 @@ def replace_agent(
 
         connector.spec.cloud_routing = cloud_routing
 
-    _update_tunneling(connector, dynamic_routes_enabled, on_demand_routes_enabled)
+    _update_tunneling(
+        connector, dynamic_routes_enabled, on_demand_routes_enabled, ntp_forwarding_bind
+    )
+    _update_ntp_forwarding(
+        connector, ntp_forwarding_bind, ntp_forwarding_custom_bind, sync_local_clock
+    )
+    _update_upstream_buffer_control(
+        connector,
+        upstream_buffer_tuning,
+        upstream_buffer_min_latency,
+        upstream_buffer_max_latency,
+        upstream_buffer_rmem_max,
+    )
 
     if admin_status is not None:
         connector.spec.admin_status = admin_status
@@ -731,7 +764,75 @@ def replace_agent(
     return _replace_agent(apiclient, connector_id=connector_id, connector=connector)
 
 
-def _update_tunneling(connector, dynamic_routes_enabled, on_demand_routes_enabled):
+def _get_routing(
+    connector: agilicus.AgentConnector,
+) -> agilicus.AgentConnectorCloudRouting:
+    if not connector.spec.routing:
+        connector.spec.routing = agilicus.AgentConnectorCloudRouting(local_binds=[])
+    return connector.spec.routing
+
+
+def _get_buffer_control(connector) -> agilicus.UpstreamBufferControl:
+    routing = _get_routing(connector)
+    if not routing.upstream_buffer_control:
+        routing.upstream_buffer_control = agilicus.UpstreamBufferControl()
+    return routing.upstream_buffer_control
+
+
+def _update_upstream_buffer_control(
+    connector,
+    upstream_buffer_tuning=None,
+    upstream_buffer_min_latency=None,
+    upstream_buffer_max_latency=None,
+    upstream_buffer_rmem_max=None,
+    **kwargs,
+):
+    if upstream_buffer_tuning is not None:
+        _get_buffer_control(connector).upstream_buffer_tuning = upstream_buffer_tuning
+
+    if upstream_buffer_min_latency is not None:
+        _get_buffer_control(connector).min_latency = upstream_buffer_min_latency
+
+    if upstream_buffer_max_latency is not None:
+        _get_buffer_control(connector).max_latency = upstream_buffer_max_latency
+
+    if upstream_buffer_rmem_max is not None:
+        _get_buffer_control(connector).rmem_max = upstream_buffer_rmem_max
+
+
+def _update_ntp_forwarding(
+    connector, ntp_forwarding_bind, custom_bind, sync_local_clock
+):
+    routing = connector.spec.routing
+    if sync_local_clock is not None:
+        if routing is None:
+            routing = agilicus.AgentConnectorCloudRouting(local_binds=[])
+        connector.spec.routing = routing
+        if sync_local_clock is not None:
+            connector.spec.routing.sync_local_clock = sync_local_clock
+
+    if ntp_forwarding_bind is None:
+        return
+
+    internal_networks = routing.internal_networks
+    if not internal_networks:
+        internal_networks = agilicus.InternalNetworkRouting()
+    ntp = internal_networks.ntp
+    if not ntp:
+        ntp = agilicus.NTPInternalNetworkRouting()
+    ntp.bind = agilicus.InternalNetworkBind(ntp_forwarding_bind)
+    if custom_bind is not None:
+        parts = urllib.parse.urlsplit("//" + custom_bind)
+        ntp.bind.custom_bind = agilicus.AgentConnectorLocalBind(
+            bind_host=parts.hostname, bind_port=parts.port or 123
+        )
+    internal_networks.ntp = ntp
+    routing.internal_networks = internal_networks
+
+
+def _update_tunneling(
+    connector, dynamic_routes_enabled, on_demand_routes_enabled, ntp_forwarding_bind
+):
     if dynamic_routes_enabled is None and on_demand_routes_enabled is None:
         return
 
@@ -834,6 +935,7 @@ def show_agent_connector_stats(ctx, connector_id, **kwargs):
 
         instance_stats.append(stats)
         headings.append(instance.status.name)
+    num_cols = len(results)
 
     table = PrettyTable(headings)
 
@@ -843,8 +945,9 @@ def show_agent_connector_stats(ctx, connector_id, **kwargs):
             add_table_stats_rows(instancesStats, stat, value)
     for stat, entries in instancesStats.items():
         row = []
+        print(f"stat={stat}, entries={entries}")
         row.append(stat)
-        row.extend(entries)
+        row.extend(entries[:num_cols] + [""] * (num_cols - len(entries)))
         table.add_row(row)
     table.align = "l"
     print(table)
@@ -866,9 +969,12 @@ def show_agent_connector_dynamic_stats(
     table = PrettyTable(headings)
     table.add_row(("last_updated", stats.metadata.collection_time))
     stat_rows = _collate_upstream_stats(ctx, stats.upstream_totals, detailed)
+    stat_rows.extend(_collate_forwarder_stats(ctx, stats.forwarder_totals, detailed))
     to_add_breakdown = []
+    to_add_forwarder_breakdown = []
     if breakdown:
         to_add_breakdown = stats.upstream_breakdown
+        to_add_forwarder_breakdown = stats.forwarder_breakdown
 
     for item in to_add_breakdown:
         prefix = [item.connector_instance_id, item.application_service_id]
@@ -876,6 +982,11 @@ def show_agent_connector_dynamic_stats(
             _collate_upstream_stats(ctx, item.upstream_stats, detailed, prefix)
         )
 
+    for item in to_add_forwarder_breakdown:
+        prefix = [item.connector_instance_id, item.forwarder_id]
+        stat_rows.extend(
+            _collate_forwarder_stats(ctx, item.forwarder_stats, detailed, prefix)
+        )
     for stat, val in stat_rows:
         row = []
         row.append(stat)
@@ -981,14 +1092,36 @@ def _collate_upstream_stats(ctx, upstream_stats, detailed, name_prefix=None):
     return results
 
 
-def _collate_stats_object(ctx, stats_obj, name_prefix=None):
+def _collate_forwarder_stats(ctx, forwarder_stats, detailed, name_prefix=None):
+    results = []
+    forwarder_stats = forwarder_stats.to_dict()
+    summary = forwarder_stats.get("forwarder_summary_stats")
+
+    def remap(name):
+        return "forwarder_" + name
+
+    results.extend(
+        _collate_stats_object(ctx, summary, name_prefix=name_prefix, name_remap=remap)
+    )
+
+    if not detailed:
+        return results
+
+    detailed = forwarder_stats.get("forwarder_detailed_stats")
+    results.extend(
+        _collate_stats_object(ctx, detailed, name_prefix=name_prefix, name_remap=remap)
+    )
+    return results
+
+
+def _collate_stats_object(ctx, stats_obj, name_prefix=None, name_remap=lambda x: x):
     if not stats_obj:
         return []
     results = []
     if name_prefix is None:
         name_prefix = []
     for key, val in stats_obj.items():
-        name = name_prefix + [key]
+        name = name_prefix + [name_remap(key)]
         if isinstance(val, dict):
             results.extend(_collate_stats_object(ctx, val, name))
             continue
@@ -1313,6 +1446,8 @@ def configure_stats_publishing(
     http_detailed_duration_s,
     share_summary_duration_s,
     share_detailed_duration_s,
+    forwarder_summary_duration_s,
+    forwarder_detailed_duration_s,
 ):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)
@@ -1321,6 +1456,7 @@ def configure_stats_publishing(
     net = agilicus_api.StatsPublishingLevelConfig()
     http = agilicus_api.StatsPublishingLevelConfig()
     share = agilicus_api.StatsPublishingLevelConfig()
+    forwarder = agilicus_api.StatsPublishingLevelConfig()
 
     if net_summary_duration_s:
         net.summary_duration_seconds = net_summary_duration_s
@@ -1334,11 +1470,16 @@ def configure_stats_publishing(
         share.summary_duration_seconds = share_summary_duration_s
     if share_detailed_duration_s:
         share.detailed_duration_seconds = share_detailed_duration_s
+    if forwarder_summary_duration_s:
+        forwarder.summary_duration_seconds = forwarder_summary_duration_s
+    if forwarder_detailed_duration_s:
+        forwarder.detailed_duration_seconds = forwarder_detailed_duration_s
 
     cfg = agilicus_api.StatsPublishingConfig(
         upstream_network_publishing=net,
         upstream_http_publishing=http,
         upstream_share_publishing=share,
+        forwarder_publishing=forwarder,
         publish_period_seconds=publish_period_s,
     )
     req = agilicus_api.ConfigureConnectorStatsPublishingRequest(

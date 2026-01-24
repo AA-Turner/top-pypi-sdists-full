@@ -9,21 +9,23 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
 
-class ActionsWorkflowAccessToRepository(GitHubModel):
-    """ActionsWorkflowAccessToRepository"""
+class RulesetVersionPropActor(GitHubModel):
+    """RulesetVersionPropActor
 
-    access_level: Literal["none", "user", "organization"] = Field(
-        description="Defines the level of access that workflows outside of the repository have to actions and reusable workflows within the\nrepository.\n\n`none` means the access is only possible from workflows in this repository. `user` level access allows sharing across user owned private repositories only. `organization` level access allows sharing across the organization."
-    )
+    The actor who updated the ruleset
+    """
+
+    id: Missing[int] = Field(default=UNSET)
+    type: Missing[str] = Field(default=UNSET)
 
 
-model_rebuild(ActionsWorkflowAccessToRepository)
+model_rebuild(RulesetVersionPropActor)
 
-__all__ = ("ActionsWorkflowAccessToRepository",)
+__all__ = ("RulesetVersionPropActor",)

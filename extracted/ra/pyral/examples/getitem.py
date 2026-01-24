@@ -27,6 +27,7 @@ ARTIFACT_TYPE = { 'DE' : 'Defect',
                   'TC' : 'TestCase',
                   'US' : 'HierarchicalRequirement',
                   'S'  : 'HierarchicalRequirement',
+                  'F'  : 'Feature',
                 }
 
 OID_PATT          = re.compile(r'^\d+$')
@@ -56,7 +57,9 @@ def main(args):
 
     mo = OID_PATT.match(ident)
     if mo:
-        ident_query = 'ObjectID = %s' % ident
+        ident_query = f'ObjectID = {ident}'
+        if entity_name == 'TestCaseResult':
+            ident_query = f'Build = {ident}'
     else:
         mo = FORMATTED_ID_PATT.match(ident)
         if mo:
@@ -65,13 +68,21 @@ def main(args):
             errout('ERROR: Unable to determine ident scheme for %s\n' % ident)
             sys.exit(3)
 
-    response = rally.get(entity_name, fetch=True, query=ident_query, 
+    response = rally.get(entity_name, fetch=True, query=ident_query,
                          workspace=workspace, project=project)
 
     if response.errors:
         errout("Request could not be successfully serviced, error code: %d\n" % response.status_code)
         errout("\n".join(response.errors))
         sys.exit(1)
+
+    tcrs = [tcr for tcr in response]
+    hits = [tcr for tcr in tcrs if tcr.TestCase.FormattedID == "TC9954"]
+    print(hits)
+    tcr = hits[0]
+    atts = rally.getAttachments(tcr)
+    print(atts)
+
 
     if response.resultCount == 0:
         errout('No item found for %s %s\n' % (entity_name, ident))

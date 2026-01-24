@@ -6,16 +6,16 @@ from pymoo.core.survival import Survival
 from pymoo.docs import parse_doc_string
 from pymoo.indicators.hv.exact import ExactHypervolume
 from pymoo.indicators.hv.exact_2d import ExactHypervolume2D
-from pymoo.indicators.hv.monte_carlo import ApproximateMonteCarloHypervolume
+from pymoo.indicators.hv.approximate import ApproximateHypervolume
 from pymoo.operators.crossover.sbx import SBX
 from pymoo.operators.mutation.pm import PM
 from pymoo.operators.sampling.rnd import FloatRandomSampling
 from pymoo.operators.selection.tournament import compare, TournamentSelection
 from pymoo.util.display.multi import MultiObjectiveOutput
 from pymoo.util.dominator import Dominator
-from pymoo.util.function_loader import load_function
 from pymoo.util.nds.non_dominated_sorting import NonDominatedSorting
 from pymoo.util.normalization import normalize
+from pymoo.util import default_random_state
 
 
 # ---------------------------------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ class LeastHypervolumeContributionSurvival(Survival):
         super().__init__(filter_infeasible=True)
         self.eps = eps
 
-    def _do(self, problem, pop, *args, n_survive=None, ideal=None, nadir=None, **kwargs):
+    def _do(self, problem, pop, *args, n_survive=None, ideal=None, nadir=None, random_state=None, **kwargs):
 
         # get the objective space values and objects
         F = pop.get("F").astype(float, copy=False)
@@ -71,7 +71,7 @@ class LeastHypervolumeContributionSurvival(Survival):
                 if n_obj == 2:
                     clazz = ExactHypervolume2D
                 elif n_obj > 3:
-                    clazz = ApproximateMonteCarloHypervolume
+                    clazz = ApproximateHypervolume
 
                 # finally do the computation
                 hv = clazz(ref_point).add(F)
@@ -93,7 +93,8 @@ class LeastHypervolumeContributionSurvival(Survival):
 # ---------------------------------------------------------------------------------------------------------
 
 
-def cv_and_dom_tournament(pop, P, *args, **kwargs):
+@default_random_state
+def cv_and_dom_tournament(pop, P, *args, random_state=None, **kwargs):
     n_tournaments, n_parents = P.shape
 
     if n_parents != 2:
@@ -108,7 +109,7 @@ def cv_and_dom_tournament(pop, P, *args, **kwargs):
 
         # if at least one solution is infeasible
         if a_cv > 0.0 or b_cv > 0.0:
-            S[i] = compare(a, a_cv, b, b_cv, method='smaller_is_better', return_random_if_equal=True)
+            S[i] = compare(a, a_cv, b, b_cv, method='smaller_is_better', return_random_if_equal=True, random_state=random_state)
 
         # both solutions are feasible
         else:
@@ -122,7 +123,7 @@ def cv_and_dom_tournament(pop, P, *args, **kwargs):
 
             # if rank or domination relation didn't make a decision compare by crowding
             if np.isnan(S[i]):
-                S[i] = np.random.choice([a, b])
+                S[i] = random_state.choice([a, b])
 
     return S[:, None].astype(int, copy=False)
 
@@ -189,7 +190,7 @@ class SMSEMOA(GeneticAlgorithm):
 
 
         self.pop = self.survival.do(self.problem, pop, n_survive=self.pop_size, algorithm=self,
-                                    ideal=ideal, nadir=nadir, **kwargs)
+                                    ideal=ideal, nadir=nadir, random_state=self.random_state, **kwargs)
 
 
 parse_doc_string(SMSEMOA.__init__)

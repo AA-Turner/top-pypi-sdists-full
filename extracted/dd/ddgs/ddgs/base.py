@@ -1,12 +1,10 @@
 """Base class for search engines."""
 
-from __future__ import annotations
-
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from functools import cached_property
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, ClassVar, Generic, Literal, TypeVar
 
 from lxml import html
 from lxml.etree import HTMLParser as LHTMLParser
@@ -21,20 +19,20 @@ T = TypeVar("T")
 class BaseSearchEngine(ABC, Generic[T]):
     """Abstract base class for all search-engine backends."""
 
-    name: str  # unique key, e.g. "google"
-    category: Literal["text", "images", "videos", "news", "books"]
-    provider: str  # source of the search results (e.g. "google" for MullVadLetaGoogle)
-    disabled: bool = False  # if True, the engine is disabled
-    priority: float = 1
+    name: ClassVar[str]  # unique key, e.g. "google"
+    category: ClassVar[Literal["text", "images", "videos", "news", "books"]]
+    provider: ClassVar[str]  # source of the search results (e.g. "bing" for DuckDuckgo)
+    disabled: ClassVar[bool] = False  # if True, the engine is disabled
+    priority: ClassVar[float] = 1
 
     search_url: str
-    search_method: str  # GET or POST
-    search_headers: Mapping[str, str] = {}
-    items_xpath: str
-    elements_xpath: Mapping[str, str]
-    elements_replace: Mapping[str, str]
+    search_method: ClassVar[str]  # GET or POST
+    search_headers: ClassVar[Mapping[str, str]] = {}
+    items_xpath: ClassVar[str]
+    elements_xpath: ClassVar[Mapping[str, str]]
+    elements_replace: ClassVar[Mapping[str, str]]
 
-    def __init__(self, proxy: str | None = None, timeout: int | None = None, verify: bool = True):
+    def __init__(self, proxy: str | None = None, timeout: int | None = None, *, verify: bool | str = True) -> None:
         self.http_client = HttpClient(proxy=proxy, timeout=timeout, verify=verify)
         self.results: list[T] = []
 
@@ -52,19 +50,22 @@ class BaseSearchEngine(ABC, Generic[T]):
 
     @abstractmethod
     def build_payload(
-        self, query: str, region: str, safesearch: str, timelimit: str | None, page: int, **kwargs: Any
+        self,
+        query: str,
+        region: str,
+        safesearch: str,
+        timelimit: str | None,
+        page: int,
+        **kwargs: str,
     ) -> dict[str, Any]:
         """Build a payload for the search request."""
         raise NotImplementedError
 
-    def request(self, *args: Any, **kwargs: Any) -> str | None:
+    def request(self, *args: Any, **kwargs: Any) -> str | None:  # noqa: ANN401
         """Make a request to the search engine."""
-        try:
-            resp = self.http_client.request(*args, **kwargs)
-            if resp.status_code == 200:
-                return resp.text
-        except Exception as ex:
-            raise ex
+        resp = self.http_client.request(*args, **kwargs)
+        if resp.status_code == 200:
+            return resp.text
         return None
 
     @cached_property
@@ -105,7 +106,7 @@ class BaseSearchEngine(ABC, Generic[T]):
         safesearch: str = "moderate",
         timelimit: str | None = None,
         page: int = 1,
-        **kwargs: Any,
+        **kwargs: str,
     ) -> list[T] | None:
         """Search the engine."""
         payload = self.build_payload(

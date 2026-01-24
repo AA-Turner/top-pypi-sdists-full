@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import AddressFamilyType, MonitorStateType, ProbeStateType, ProtocolType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -73,7 +68,7 @@ class CreateMonitorProbeInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -108,7 +103,7 @@ class ProbeTypeDef(TypedDict):
     state: NotRequired[ProbeStateType]
     createdAt: NotRequired[datetime]
     modifiedAt: NotRequired[datetime]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class GetProbeInputTypeDef(TypedDict):
     monitorName: str
@@ -129,7 +124,7 @@ class MonitorSummaryTypeDef(TypedDict):
     monitorName: str
     state: MonitorStateType
     aggregationPeriod: NotRequired[int]
-    tags: NotRequired[Dict[str, str]]
+    tags: NotRequired[dict[str, str]]
 
 class ListTagsForResourceInputTypeDef(TypedDict):
     resourceArn: str
@@ -167,7 +162,7 @@ class CreateMonitorOutputTypeDef(TypedDict):
     monitorName: str
     state: MonitorStateType
     aggregationPeriod: int
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateProbeOutputTypeDef(TypedDict):
@@ -183,7 +178,7 @@ class CreateProbeOutputTypeDef(TypedDict):
     state: ProbeStateType
     createdAt: datetime
     modifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetProbeOutputTypeDef(TypedDict):
@@ -199,11 +194,11 @@ class GetProbeOutputTypeDef(TypedDict):
     state: ProbeStateType
     createdAt: datetime
     modifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateMonitorOutputTypeDef(TypedDict):
@@ -211,7 +206,7 @@ class UpdateMonitorOutputTypeDef(TypedDict):
     monitorName: str
     state: MonitorStateType
     aggregationPeriod: int
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateProbeOutputTypeDef(TypedDict):
@@ -227,7 +222,7 @@ class UpdateProbeOutputTypeDef(TypedDict):
     state: ProbeStateType
     createdAt: datetime
     modifiedAt: datetime
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateProbeInputTypeDef(TypedDict):
@@ -241,8 +236,8 @@ class GetMonitorOutputTypeDef(TypedDict):
     monitorName: str
     state: MonitorStateType
     aggregationPeriod: int
-    tags: Dict[str, str]
-    probes: List[ProbeTypeDef]
+    tags: dict[str, str]
+    probes: list[ProbeTypeDef]
     createdAt: datetime
     modifiedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
@@ -252,6 +247,6 @@ class ListMonitorsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMonitorsOutputTypeDef(TypedDict):
-    monitors: List[MonitorSummaryTypeDef]
+    monitors: list[MonitorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]

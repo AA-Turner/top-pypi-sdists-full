@@ -17,24 +17,20 @@ import trafaret as t
 
 from datarobot.models.api_object import APIObject
 
-notebook_user_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("activated"): t.Bool,
-        t.Key("username"): t.String,
-        t.Key("first_name"): t.String,
-        t.Key("last_name"): t.String,
-        t.Key("gravatar_hash", optional=True): t.String,
-    }
-).ignore_extra("*")
+notebook_user_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("activated"): t.Bool,
+    t.Key("username"): t.String,
+    t.Key("first_name"): t.String,
+    t.Key("last_name"): t.String,
+    t.Key("gravatar_hash", optional=True): t.String,
+}).ignore_extra("*")
 
 
-notebook_activity_trafaret = t.Dict(
-    {
-        t.Key("at"): t.String,
-        t.Key("by"): notebook_user_trafaret,
-    }
-)
+notebook_activity_trafaret = t.Dict({
+    t.Key("at"): t.String,
+    t.Key("by"): notebook_user_trafaret,
+})
 
 
 class NotebookUser(APIObject):

@@ -30,6 +30,29 @@ namespace slang::analysis {
 class AnalysisContext;
 class AnalyzedProcedure;
 
+/// State tracked per canonical instance.
+struct SLANG_EXPORT InstanceDriverState {
+    /// Information about a driver that is applied hierarchically through an
+    /// interface or ref port and so needs to be reapplied for non-canonical instances.
+    struct HierPortDriver {
+        /// The driver that was applied to the interface or ref port.
+        not_null<const ValueDriver*> driver;
+
+        /// The original target of the driver.
+        not_null<const ast::ValueSymbol*> target;
+
+        /// If this was an interface port driver, the hierarchical reference
+        /// that describes how the driver was applied. Otherwise nullptr.
+        const ast::HierarchicalReference* ref = nullptr;
+    };
+
+    /// Drivers that are applied through hierarchical ports.
+    std::vector<HierPortDriver> hierPortDrivers;
+
+    /// A list of instances that refer to the canonical one.
+    std::vector<const ast::InstanceSymbol*> nonCanonicalInstances;
+};
+
 /// A helper class that tracks drivers for all symbols in a thread-safe manner.
 class DriverTracker {
 public:
@@ -63,48 +86,42 @@ public:
     void noteNonCanonicalInstance(AnalysisContext& context, DriverAlloc& driverAlloc,
                                   const ast::InstanceSymbol& instance);
 
-    /// Propagates drivers to modport ports down to the targets of the
-    /// modport port connections.
-    void propagateModportDrivers(AnalysisContext& context, DriverAlloc& driverAlloc);
+    /// Propagates drivers of modport ports and ref ports down to the targets of their
+    /// actual port connections.
+    void propagateIndirectDrivers(AnalysisContext& context, DriverAlloc& driverAlloc);
 
     /// Returns all of the tracked drivers for the given symbol.
     DriverList getDrivers(const ast::ValueSymbol& symbol) const;
 
+    /// Return the state tracked per canonical instance.
+    std::optional<InstanceDriverState> getInstanceState(
+        const ast::InstanceBodySymbol& symbol) const;
+
 private:
-    // State tracked per canonical instance.
-    struct InstanceState {
-        struct IfacePortDriver {
-            not_null<const ast::HierarchicalReference*> ref;
-            not_null<const ValueDriver*> driver;
-        };
+    using HierPortDriver = InstanceDriverState::HierPortDriver;
 
-        // Drivers that are applied through interface ports.
-        std::vector<IfacePortDriver> ifacePortDrivers;
-
-        // A list of instances that refer to the canonical one.
-        std::vector<const ast::InstanceSymbol*> nonCanonicalInstances;
-    };
-
-    const ast::HierarchicalReference* addDriver(AnalysisContext& context, DriverAlloc& driverAlloc,
-                                                const ast::ValueSymbol& symbol,
-                                                SymbolDriverMap& driverMap,
-                                                const ValueDriver& driver, DriverBitRange bounds);
-    void noteInterfacePortDriver(AnalysisContext& context, DriverAlloc& driverAlloc,
-                                 const ast::HierarchicalReference& ref, const ValueDriver& driver);
+    void addDriver(AnalysisContext& context, DriverAlloc& driverAlloc,
+                   const ast::ValueSymbol& symbol, SymbolDriverMap& driverMap,
+                   const ValueDriver& driver, DriverBitRange bounds,
+                   SmallVector<HierPortDriver>& hierPortDrivers);
+    void noteHierPortDriver(AnalysisContext& context, DriverAlloc& driverAlloc,
+                            const HierPortDriver& hierPortDriver);
     void applyInstanceSideEffect(AnalysisContext& context, DriverAlloc& driverAlloc,
-                                 const InstanceState::IfacePortDriver& ifacePortDriver,
+                                 const HierPortDriver& hierPortDriver,
                                  const ast::InstanceSymbol& instance);
-    void propagateModportDriver(AnalysisContext& context, DriverAlloc& driverAlloc,
-                                const ast::Expression& connectionExpr,
-                                const ValueDriver& originalDriver);
     void addDrivers(AnalysisContext& context, DriverAlloc& driverAlloc, const ast::Expression& expr,
                     DriverKind driverKind, bitmask<DriverFlags> driverFlags,
-                    const ast::Symbol& containingSymbol,
-                    const ast::Expression* initialLSP = nullptr);
+                    const ast::Symbol& containingSymbol);
+
+    void addFromLSP(AnalysisContext& context, DriverAlloc& driverAlloc, const ValueDriver& driver,
+                    const ast::ValueSymbol& symbol, ast::EvalContext& evalCtx,
+                    SmallVector<HierPortDriver>& hierPortDrivers);
+
+    void checkNetCollapsing(AnalysisContext& context, const ast::PortConnection& conn);
 
     concurrent_map<const ast::ValueSymbol*, SymbolDriverMap> symbolDrivers;
-    concurrent_map<const ast::InstanceBodySymbol*, InstanceState> instanceMap;
-    concurrent_map<const ast::ValueSymbol*, DriverList> modportPortDrivers;
+    concurrent_map<const ast::InstanceBodySymbol*, InstanceDriverState> instanceMap;
+    concurrent_map<const ast::ValueSymbol*, DriverList> indirectDrivers;
 };
 
 } // namespace slang::analysis

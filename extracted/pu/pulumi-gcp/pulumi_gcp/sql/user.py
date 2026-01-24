@@ -27,6 +27,7 @@ class UserArgs:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  password_policy: Optional[pulumi.Input['UserPasswordPolicyArgs']] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
                  password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  type: Optional[pulumi.Input[_builtins.str]] = None):
@@ -48,6 +49,9 @@ class UserArgs:
                instances this is a Required field, unless type is set to either CLOUD_IAM_USER
                or CLOUD_IAM_SERVICE_ACCOUNT. Don't set this field for CLOUD_IAM_USER
                and CLOUD_IAM_SERVICE_ACCOUNT user types for any Cloud SQL instance.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+               				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
         :param pulumi.Input[_builtins.int] password_wo_version: The version of the password_wo. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes).
                
                - - -
@@ -71,6 +75,8 @@ class UserArgs:
             pulumi.set(__self__, "password", password)
         if password_policy is not None:
             pulumi.set(__self__, "password_policy", password_policy)
+        if password_wo is not None:
+            pulumi.set(__self__, "password_wo", password_wo)
         if password_wo_version is not None:
             pulumi.set(__self__, "password_wo_version", password_wo_version)
         if project is not None:
@@ -159,6 +165,20 @@ class UserArgs:
         pulumi.set(self, "password_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="passwordWo")
+    def password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+        				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
+        """
+        return pulumi.get(self, "password_wo")
+
+    @password_wo.setter
+    def password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "password_wo", value)
+
+    @_builtins.property
     @pulumi.getter(name="passwordWoVersion")
     def password_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -212,6 +232,7 @@ class _UserState:
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  password_policy: Optional[pulumi.Input['UserPasswordPolicyArgs']] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
                  password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  sql_server_user_details: Optional[pulumi.Input[Sequence[pulumi.Input['UserSqlServerUserDetailArgs']]]] = None,
@@ -234,6 +255,9 @@ class _UserState:
                instances this is a Required field, unless type is set to either CLOUD_IAM_USER
                or CLOUD_IAM_SERVICE_ACCOUNT. Don't set this field for CLOUD_IAM_USER
                and CLOUD_IAM_SERVICE_ACCOUNT user types for any Cloud SQL instance.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+               				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
         :param pulumi.Input[_builtins.int] password_wo_version: The version of the password_wo. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes).
                
                - - -
@@ -258,6 +282,8 @@ class _UserState:
             pulumi.set(__self__, "password", password)
         if password_policy is not None:
             pulumi.set(__self__, "password_policy", password_policy)
+        if password_wo is not None:
+            pulumi.set(__self__, "password_wo", password_wo)
         if password_wo_version is not None:
             pulumi.set(__self__, "password_wo_version", password_wo_version)
         if project is not None:
@@ -348,6 +374,20 @@ class _UserState:
         pulumi.set(self, "password_policy", value)
 
     @_builtins.property
+    @pulumi.getter(name="passwordWo")
+    def password_wo(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+        				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
+        """
+        return pulumi.get(self, "password_wo")
+
+    @password_wo.setter
+    def password_wo(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "password_wo", value)
+
+    @_builtins.property
     @pulumi.getter(name="passwordWoVersion")
     def password_wo_version(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -413,6 +453,7 @@ class User(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  password_policy: Optional[pulumi.Input[Union['UserPasswordPolicyArgs', 'UserPasswordPolicyArgsDict']]] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
                  password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  type: Optional[pulumi.Input[_builtins.str]] = None,
@@ -429,9 +470,9 @@ class User(pulumi.CustomResource):
         import pulumi_gcp as gcp
         import pulumi_random as random
 
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         main = gcp.sql.DatabaseInstance("main",
-            name=db_name_suffix.hex.apply(lambda hex: f"main-instance-{hex}"),
+            name=f"main-instance-{db_name_suffix['hex']}",
             database_version="MYSQL_5_7",
             settings={
                 "tier": "db-f1-micro",
@@ -451,9 +492,9 @@ class User(pulumi.CustomResource):
         import pulumi_random as random
         import pulumi_std as std
 
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         main = gcp.sql.DatabaseInstance("main",
-            name=db_name_suffix.hex.apply(lambda hex: f"main-instance-{hex}"),
+            name=f"main-instance-{db_name_suffix['hex']}",
             database_version="POSTGRES_15",
             settings={
                 "tier": "db-f1-micro",
@@ -480,9 +521,9 @@ class User(pulumi.CustomResource):
         import pulumi_gcp as gcp
         import pulumi_random as random
 
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         main = gcp.sql.DatabaseInstance("main",
-            name=db_name_suffix.hex.apply(lambda hex: f"main-instance-{hex}"),
+            name=f"main-instance-{db_name_suffix['hex']}",
             database_version="MYSQL_8_0",
             settings={
                 "tier": "db-f1-micro",
@@ -549,6 +590,9 @@ class User(pulumi.CustomResource):
                instances this is a Required field, unless type is set to either CLOUD_IAM_USER
                or CLOUD_IAM_SERVICE_ACCOUNT. Don't set this field for CLOUD_IAM_USER
                and CLOUD_IAM_SERVICE_ACCOUNT user types for any Cloud SQL instance.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+               				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
         :param pulumi.Input[_builtins.int] password_wo_version: The version of the password_wo. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes).
                
                - - -
@@ -579,9 +623,9 @@ class User(pulumi.CustomResource):
         import pulumi_gcp as gcp
         import pulumi_random as random
 
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         main = gcp.sql.DatabaseInstance("main",
-            name=db_name_suffix.hex.apply(lambda hex: f"main-instance-{hex}"),
+            name=f"main-instance-{db_name_suffix['hex']}",
             database_version="MYSQL_5_7",
             settings={
                 "tier": "db-f1-micro",
@@ -601,9 +645,9 @@ class User(pulumi.CustomResource):
         import pulumi_random as random
         import pulumi_std as std
 
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         main = gcp.sql.DatabaseInstance("main",
-            name=db_name_suffix.hex.apply(lambda hex: f"main-instance-{hex}"),
+            name=f"main-instance-{db_name_suffix['hex']}",
             database_version="POSTGRES_15",
             settings={
                 "tier": "db-f1-micro",
@@ -630,9 +674,9 @@ class User(pulumi.CustomResource):
         import pulumi_gcp as gcp
         import pulumi_random as random
 
-        db_name_suffix = random.RandomId("db_name_suffix", byte_length=4)
+        db_name_suffix = random.index.Id("db_name_suffix", byte_length=4)
         main = gcp.sql.DatabaseInstance("main",
-            name=db_name_suffix.hex.apply(lambda hex: f"main-instance-{hex}"),
+            name=f"main-instance-{db_name_suffix['hex']}",
             database_version="MYSQL_8_0",
             settings={
                 "tier": "db-f1-micro",
@@ -702,6 +746,7 @@ class User(pulumi.CustomResource):
                  name: Optional[pulumi.Input[_builtins.str]] = None,
                  password: Optional[pulumi.Input[_builtins.str]] = None,
                  password_policy: Optional[pulumi.Input[Union['UserPasswordPolicyArgs', 'UserPasswordPolicyArgsDict']]] = None,
+                 password_wo: Optional[pulumi.Input[_builtins.str]] = None,
                  password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
                  project: Optional[pulumi.Input[_builtins.str]] = None,
                  type: Optional[pulumi.Input[_builtins.str]] = None,
@@ -722,11 +767,12 @@ class User(pulumi.CustomResource):
             __props__.__dict__["name"] = name
             __props__.__dict__["password"] = None if password is None else pulumi.Output.secret(password)
             __props__.__dict__["password_policy"] = password_policy
+            __props__.__dict__["password_wo"] = None if password_wo is None else pulumi.Output.secret(password_wo)
             __props__.__dict__["password_wo_version"] = password_wo_version
             __props__.__dict__["project"] = project
             __props__.__dict__["type"] = type
             __props__.__dict__["sql_server_user_details"] = None
-        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["password"])
+        secret_opts = pulumi.ResourceOptions(additional_secret_outputs=["password", "passwordWo"])
         opts = pulumi.ResourceOptions.merge(opts, secret_opts)
         super(User, __self__).__init__(
             'gcp:sql/user:User',
@@ -744,6 +790,7 @@ class User(pulumi.CustomResource):
             name: Optional[pulumi.Input[_builtins.str]] = None,
             password: Optional[pulumi.Input[_builtins.str]] = None,
             password_policy: Optional[pulumi.Input[Union['UserPasswordPolicyArgs', 'UserPasswordPolicyArgsDict']]] = None,
+            password_wo: Optional[pulumi.Input[_builtins.str]] = None,
             password_wo_version: Optional[pulumi.Input[_builtins.int]] = None,
             project: Optional[pulumi.Input[_builtins.str]] = None,
             sql_server_user_details: Optional[pulumi.Input[Sequence[pulumi.Input[Union['UserSqlServerUserDetailArgs', 'UserSqlServerUserDetailArgsDict']]]]] = None,
@@ -771,6 +818,9 @@ class User(pulumi.CustomResource):
                instances this is a Required field, unless type is set to either CLOUD_IAM_USER
                or CLOUD_IAM_SERVICE_ACCOUNT. Don't set this field for CLOUD_IAM_USER
                and CLOUD_IAM_SERVICE_ACCOUNT user types for any Cloud SQL instance.
+        :param pulumi.Input[_builtins.str] password_wo: **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+               The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+               				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
         :param pulumi.Input[_builtins.int] password_wo_version: The version of the password_wo. For more info see [updating write-only attributes](https://www.terraform.io/docs/providers/google/guides/using_write_only_attributes.html#updating-write-only-attributes).
                
                - - -
@@ -793,6 +843,7 @@ class User(pulumi.CustomResource):
         __props__.__dict__["name"] = name
         __props__.__dict__["password"] = password
         __props__.__dict__["password_policy"] = password_policy
+        __props__.__dict__["password_wo"] = password_wo
         __props__.__dict__["password_wo_version"] = password_wo_version
         __props__.__dict__["project"] = project
         __props__.__dict__["sql_server_user_details"] = sql_server_user_details
@@ -854,6 +905,16 @@ class User(pulumi.CustomResource):
     @pulumi.getter(name="passwordPolicy")
     def password_policy(self) -> pulumi.Output[Optional['outputs.UserPasswordPolicy']]:
         return pulumi.get(self, "password_policy")
+
+    @_builtins.property
+    @pulumi.getter(name="passwordWo")
+    def password_wo(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        **NOTE:** This field is write-only and its value will not be updated in state as part of read operations.
+        The password for the user. Can be updated. For Postgres instances this is a Required field, unless type is set to
+        				either CLOUD_IAM_USER or CLOUD_IAM_SERVICE_ACCOUNT.
+        """
+        return pulumi.get(self, "password_wo")
 
     @_builtins.property
     @pulumi.getter(name="passwordWoVersion")

@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: flake8-implicit-str-concat
-Version: 0.5.0
+Version: 0.6.0
 Summary: Flake8 plugin to encourage correct string literal concatenation
 Project-URL: Homepage, https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat
 Author-email: Dylan Turner <58230987+keisheiled@users.noreply.github.com>
@@ -14,15 +14,17 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
-Requires-Python: >=3.9
-Requires-Dist: more-itertools>=8.0.2; python_version <= '3.9'
+Requires-Python: >=3.10
+Provides-Extra: tests
+Requires-Dist: pytest; extra == 'tests'
+Requires-Dist: pytest-cov; extra == 'tests'
 Description-Content-Type: text/markdown
 
 # flake8-implicit-str-concat
@@ -30,8 +32,11 @@ Description-Content-Type: text/markdown
 [![PyPI version](https://img.shields.io/pypi/v/flake8-implicit-str-concat.svg)](https://pypi.org/project/flake8-implicit-str-concat)
 [![Supported Python versions](https://img.shields.io/pypi/pyversions/flake8-implicit-str-concat.svg)](https://pypi.org/project/flake8-implicit-str-concat)
 [![PyPI downloads](https://img.shields.io/pypi/dm/flake8-implicit-str-concat.svg)](https://pypistats.org/packages/flake8-implicit-str-concat)
-[![GitHub](https://img.shields.io/github/license/flake8-implicit-str-concat/flake8-implicit-str-concat.svg)](LICENSE)
-[![Code style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![GitHub Actions status](https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat/workflows/Test/badge.svg)](https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat/actions)
+[![Codecov](https://codecov.io/gh/flake8-implicit-str-concat/flake8-implicit-str-concat/branch/main/graph/badge.svg)](https://codecov.io/gh/flake8-implicit-str-concat/flake8-implicit-str-concat)
+[![Licence](https://img.shields.io/github/license/flake8-implicit-str-concat/flake8-implicit-str-concat.svg)](LICENSE)
+[![Code style: Black](https://img.shields.io/badge/code%20style-Black-000000.svg)](https://github.com/psf/black)
+[![Tidelift](https://tidelift.com/badges/package/pypi/flake8-implicit-str-concat)](https://tidelift.com/subscription/pkg/pypi-flake8-implicit-str-concat?utm_source=pypi-flake8-implicit-str-concat&utm_medium=referral&utm_campaign=readme)
 
 This is a plugin for the Python code-checking tool [Flake8](https://flake8.pycqa.org/)
 to encourage correct string literal concatenation.
@@ -81,7 +86,7 @@ The plugin uses the prefix `ISC`, short for Implicit String Concatenation.
 | ISC002 | implicitly concatenated string literals over continuation line   |
 | ISC003 | explicitly concatenated string should be implicitly concatenated |
 
-## Release Notes
+## Release notes
 
 You can find the release notes on the
 [releases page](https://github.com/flake8-implicit-str-concat/flake8-implicit-str-concat/releases).

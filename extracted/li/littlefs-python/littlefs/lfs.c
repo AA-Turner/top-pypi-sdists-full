@@ -93,6 +93,7 @@ static int lfs_bd_read(lfs_t *lfs,
             // bypass cache?
             diff = lfs_aligndown(diff, lfs->cfg->read_size);
             int err = lfs->cfg->read(lfs->cfg, block, off, data, diff);
+            LFS_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
@@ -739,6 +740,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
         int err = lfs_bd_read(lfs,
                 NULL, &lfs->rcache, sizeof(ntag),
                 dir->pair[0], off, &ntag, sizeof(ntag));
+        LFS_ASSERT(err <= 0);
         if (err) {
             return err;
         }
@@ -767,6 +769,7 @@ static lfs_stag_t lfs_dir_getslice(lfs_t *lfs, const lfs_mdir_t *dir,
             err = lfs_bd_read(lfs,
                     NULL, &lfs->rcache, diff,
                     dir->pair[0], off+sizeof(tag)+goff, gbuffer, diff);
+            LFS_ASSERT(err <= 0);
             if (err) {
                 return err;
             }
@@ -828,9 +831,6 @@ static int lfs_dir_getread(lfs_t *lfs, const lfs_mdir_t *dir,
                 size -= diff;
                 continue;
             }
-
-            // rcache takes priority
-            diff = lfs_min(diff, rcache->off-off);
         }
 
         // load to cache, first condition can no longer fail
@@ -1282,6 +1282,7 @@ static lfs_stag_t lfs_dir_fetchmatch(lfs_t *lfs,
                     if (err == LFS_ERR_CORRUPT) {
                         break;
                     }
+                    return err;
                 }
 
                 lfs_fcrc_fromle32(&fcrc);
@@ -2267,7 +2268,7 @@ static int lfs_dir_relocatingcommit(lfs_t *lfs, lfs_mdir_t *dir,
         }
     }
 
-    if (dir->erased) {
+    if (dir->erased && dir->count < 0xff) {
         // try to commit
         struct lfs_commit commit = {
             .block = dir->pair[0],
@@ -5225,7 +5226,9 @@ static int lfs_fs_gc_(lfs_t *lfs) {
     }
 
     // try to populate the lookahead buffer, unless it's already full
-    if (lfs->lookahead.size < 8*lfs->cfg->lookahead_size) {
+    if (lfs->lookahead.size < lfs_min(
+            8 * lfs->cfg->lookahead_size,
+            lfs->block_count)) {
         err = lfs_alloc_scan(lfs);
         if (err) {
             return err;

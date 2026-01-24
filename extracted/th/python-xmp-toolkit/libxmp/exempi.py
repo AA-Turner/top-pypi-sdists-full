@@ -53,8 +53,11 @@ def _load_exempi():
     if path is None:
         if platform.system().startswith('Darwin'):
             if os.path.exists('/opt/local/lib/libexempi.dylib'):
-                # MacPorts starndard location.
+                # MacPorts standard location.
                 path = '/opt/local/lib/libexempi.dylib'
+            if os.path.exists('/opt/homebrew/lib/libexempi.dylib'):
+                # Homebrew standard location.
+                path = '/opt/homebrew/lib/libexempi.dylib'
             
     if path is None:
         raise ExempiLoadError('Exempi library not found.')
@@ -66,7 +69,27 @@ def _load_exempi():
 
     return EXEMPI
 
-EXEMPI = _load_exempi()
+
+class LazyExempi:
+    """Wrapper for ctypes library making it loaded on actual first use.
+    """
+    def __init__(self):
+        self._exempi = None
+
+    def __getattr__(self, attr):
+        if self._exempi is None:
+            self._exempi = _load_exempi()
+            init()
+        return getattr(self._exempi, attr)
+
+    def __setattr__(self, attr, value):
+        if attr == "_exempi":
+            self.__dict__[attr] = value
+        else:
+            return setattr(self._exempi, attr, value)
+
+
+EXEMPI = LazyExempi()
 
 # Error codes defined by libexempi.  See "xmperrors.h"
 ERROR_MESSAGE = {    0: "unknown error",
@@ -85,6 +108,7 @@ ERROR_MESSAGE = {    0: "unknown error",
                    -13: "std exception",
                    -14: "unknown exception",
                    -15: "no memory",
+                   -16: "progress abort",
                   -101: "bad schema",
                   -102: "bad XPath",
                   -103: "bad options",
@@ -95,6 +119,14 @@ ERROR_MESSAGE = {    0: "unknown error",
                   -108: "bad file format",
                   -109: "no file handler",
                   -110: "too large for JPEG",
+                  -111: "no file",
+                  -112: "file permission error",
+                  -113: "disk space",
+                  -114: "read error",
+                  -115: "write error",
+                  -116: "bad block format",
+                  -117: "file path not a file",
+                  -118: "rejected file extension",
                   -201: "bad XML",
                   -202: "bad RDF",
                   -203: "bad XMP",
@@ -1693,10 +1725,14 @@ def check_error(success):
         Return value from library function indicating success or failure.
     """
 
+    success = success & 0xff
     # Unfortunately the success parameter does not seem to always be reliable
     # so we supplement it by explicitly checking the error code.
     ecode = EXEMPI.xmp_get_error()
     if not success or ecode != 0:
-        error_msg = ERROR_MESSAGE[ecode]
+        if ecode in ERROR_MESSAGE:
+            error_msg = ERROR_MESSAGE[ecode]
+        else:
+            error_msg = "Unexpected error code " + str(ecode)
         msg = 'Exempi function failure ("{0}").'.format(error_msg)
         raise XMPError(msg)

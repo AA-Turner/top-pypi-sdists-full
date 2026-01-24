@@ -1,0 +1,3 @@
+from .metadata_generator import generate_function_metadata
+
+generate_function_metadata()

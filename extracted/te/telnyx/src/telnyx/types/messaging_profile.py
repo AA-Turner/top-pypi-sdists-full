@@ -36,11 +36,17 @@ class MessagingProfile(BaseModel):
     enabled: Optional[bool] = None
     """Specifies whether the messaging profile is enabled or not."""
 
+    health_webhook_url: Optional[str] = None
+    """DEPRECATED: health check url service checking"""
+
     mms_fall_back_to_sms: Optional[bool] = None
     """enables SMS fallback for MMS messages."""
 
     mms_transcoding: Optional[bool] = None
     """enables automated resizing of MMS media."""
+
+    mobile_only: Optional[bool] = None
+    """Send messages only to mobile phone numbers."""
 
     name: Optional[str] = None
     """A user friendly name for the messaging profile."""
@@ -56,6 +62,23 @@ class MessagingProfile(BaseModel):
 
     record_type: Optional[Literal["messaging_profile"]] = None
     """Identifies the type of the resource."""
+
+    redaction_enabled: Optional[bool] = None
+    """Indicates whether message content redaction is enabled for this profile."""
+
+    redaction_level: Optional[int] = None
+    """
+    Determines how much information is redacted in messages for privacy or
+    compliance purposes.
+    """
+
+    smart_encoding: Optional[bool] = None
+    """Enables automatic character encoding optimization for SMS messages.
+
+    When enabled, the system automatically selects the most efficient encoding
+    (GSM-7 or UCS-2) based on message content to maximize character limits and
+    minimize costs.
+    """
 
     updated_at: Optional[datetime] = None
     """ISO 8601 formatted date indicating when the resource was updated."""

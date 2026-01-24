@@ -146,10 +146,7 @@ def test_repetition_range_exact():
     """Test repetition range with exact count {n}."""
     before = """root ::= "a"{3}
 """
-    expected = """root ::= (((root_repeat_1 root_repeat_2 root_repeat_3)))
-root_repeat_1 ::= (("a")) (=(root_repeat_2 root_repeat_3))
-root_repeat_2 ::= (("a")) (=(root_repeat_3))
-root_repeat_3 ::= (("a"))
+    expected = """root ::= ((("a" "a" "a")))
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
     after = str(grammar)
@@ -160,11 +157,9 @@ def test_repetition_range_min_max():
     """Test repetition range with min and max {n,m}."""
     before = """root ::= "a"{2,4}
 """
-    expected = """root ::= (((root_repeat_1 root_repeat_2 root_repeat_3 root_repeat_4)))
-root_repeat_1 ::= ("" | ("a")) (=(root_repeat_2 root_repeat_3 root_repeat_4))
-root_repeat_2 ::= ("" | ("a")) (=(root_repeat_3 root_repeat_4))
-root_repeat_3 ::= (("a")) (=(root_repeat_4))
-root_repeat_4 ::= (("a"))
+    expected = """root ::= ((("a" "a" root_1)))
+root_1 ::= ("" | ("a" root_2))
+root_2 ::= ("" | "a")
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
     after = str(grammar)
@@ -175,10 +170,8 @@ def test_repetition_range_min_only():
     """Test repetition range with only min {n,}."""
     before = """root ::= "a"{2,}
 """
-    expected = """root ::= (((root_repeat_1 root_repeat_2 root_repeat_inf)))
-root_repeat_inf ::= ("" | ("a" root_repeat_inf))
-root_repeat_1 ::= (("a")) (=(root_repeat_2 root_repeat_inf))
-root_repeat_2 ::= (("a")) (=(root_repeat_inf))
+    expected = """root ::= ((("a" "a" root_1)))
+root_1 ::= ("" | ("a" root_1))
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
     after = str(grammar)
@@ -273,12 +266,11 @@ rule1 ::= [a-z]{1,3} (=":")
 rule2 ::= [0-9]+ "." [0-9]*
 """
     expected = """root ::= (("start" root_1 "end"))
-rule1 ::= (((rule1_repeat_1 rule1_repeat_2 rule1_repeat_3))) (=((":")))
+rule1 ::= ((([a-z] rule1_1))) (=((":")))
 rule2 ::= ((rule2_1 "." [0-9]*))
 root_1 ::= ((((rule1) | (rule2)) root_1) | ((rule1) | (rule2)))
-rule1_repeat_1 ::= ("" | ([a-z])) (=(rule1_repeat_2 rule1_repeat_3))
-rule1_repeat_2 ::= ("" | ([a-z])) (=(rule1_repeat_3))
-rule1_repeat_3 ::= (([a-z]))
+rule1_1 ::= ("" | ([a-z] rule1_2))
+rule1_2 ::= ("" | [a-z])
 rule2_1 ::= (([0-9] rule2_1) | [0-9])
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
@@ -317,12 +309,11 @@ d ::= ((d_1))
 e ::= (([e]* [f]*) | ([g]*))
 c_1 ::= ("" | ("b" c_1))
 d_1 ::= ("" | (d_1_1 d_1))
-d_1_1 ::= (("bcd") | ("pq"))
+d_1_1 ::= (("b" "c" "d") | ("p" "q"))
 """
 
     grammar = _ebnf_to_grammar_no_normalization(before)
     grammar = GrammarFunctor.structure_normalizer(grammar)
-    grammar = GrammarFunctor.byte_string_fuser(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -335,7 +326,6 @@ rule1 ::= (([abc]* [def]*))
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
     grammar = GrammarFunctor.structure_normalizer(grammar)
-    grammar = GrammarFunctor.byte_string_fuser(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -352,34 +342,30 @@ g ::= "g" {0}
 """
 
     expected = """root ::= ((a b c d e f g))
-a ::= ((a_repeat_1 a_repeat_2))
-b ::= ((b_repeat_1{0, 1} b_repeat_2 b_repeat_3 b_repeat_4 b_repeat_5))
-c ::= ((c_repeat_1 c_repeat_2))
-d ::= ((d_repeat_inf))
-e ::= ((e_repeat_1 e_repeat_2 e_repeat_inf))
-f ::= ((f_repeat_1 f_repeat_2 f_repeat_3))
-g ::= ("")
-a_repeat_1 ::= ("" | ("a")) (=(a_repeat_2))
-a_repeat_2 ::= (("a"))
-b_repeat_1 ::= ((a) | ("b")) (=(b_repeat_2 b_repeat_3 b_repeat_4 b_repeat_5))
-b_repeat_2 ::= ("" | (a) | ("b")) (=(b_repeat_3 b_repeat_4 b_repeat_5))
-b_repeat_3 ::= ("" | (a) | ("b")) (=(b_repeat_4 b_repeat_5))
-b_repeat_4 ::= ("" | (a) | ("b")) (=(b_repeat_5))
-b_repeat_5 ::= ((a) | ("b"))
-c_repeat_1 ::= ("" | ("c")) (=(c_repeat_2))
-c_repeat_2 ::= ("" | ("c"))
-d_repeat_inf ::= ("" | ("d" d_repeat_inf))
-e_repeat_inf ::= ("" | ("e" e_repeat_inf))
-e_repeat_1 ::= (("e")) (=(e_repeat_2 e_repeat_inf))
-e_repeat_2 ::= (("e")) (=(e_repeat_inf))
-f_repeat_1 ::= (("f")) (=(f_repeat_2 f_repeat_3))
-f_repeat_2 ::= (("f")) (=(f_repeat_3))
-f_repeat_3 ::= (("f"))
+a ::= (("a" a_1))
+b ::= ((b_5 b_1))
+c ::= ((c_1))
+d ::= ((d_1))
+e ::= (("e" "e" e_1))
+f ::= (("f" "f" "f"))
+g ::= (())
+a_1 ::= ("" | ("a"))
+b_1 ::= ("" | (b_1_1 b_2))
+b_2 ::= ("" | (b_2_1 b_3))
+b_3 ::= ("" | (b_3_1 b_4))
+b_4 ::= ("" | (a) | ("b"))
+c_1 ::= ("" | ("c" c_2))
+c_2 ::= ("" | ("c"))
+d_1 ::= ("" | ("d" d_1))
+e_1 ::= ("" | ("e" e_1))
+b_5 ::= ((a) | ("b"))
+b_1_1 ::= ((a) | ("b"))
+b_2_1 ::= ((a) | ("b"))
+b_3_1 ::= ((a) | ("b"))
 """
 
     grammar = _ebnf_to_grammar_no_normalization(before)
     grammar = GrammarFunctor.structure_normalizer(grammar)
-    grammar = GrammarFunctor.byte_string_fuser(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -399,7 +385,6 @@ d_choice ::= (("e") | ("d"))
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
     grammar = GrammarFunctor.structure_normalizer(grammar)
-    grammar = GrammarFunctor.byte_string_fuser(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -409,14 +394,13 @@ def test_char():
 rest ::= [a-zA-Z0-9-] [\u0234-\U00000345] [测-试] [\--\]]  rest1
 rest1 ::= "\?\"\'测试あc" "👀" "" [a-a] [b-b]
 """
-    expected = r"""root ::= (([a-z] [A-z] "\u0234\u0345\xff" [\-A-Z] [\-\-] [^a] rest))
+    expected = r"""root ::= (([a-z] [A-z] "\u0234" "\u0345\xff" [\-A-Z] [\-\-] [^a] rest))
 rest ::= (([a-zA-Z0-9\-] [\u0234-\u0345] [\u6d4b-\u8bd5] [\--\]] rest1))
-rest1 ::= (("\?\"\'\u6d4b\u8bd5\u3042c\U0001f440ab"))
+rest1 ::= (("\?\"\'\u6d4b\u8bd5\u3042c" "\U0001f440" "a" "b"))
 """
     # Disable unwrap_nesting_rules to expose the result before unwrapping.
     grammar = _ebnf_to_grammar_no_normalization(before)
     grammar = GrammarFunctor.structure_normalizer(grammar)
-    grammar = GrammarFunctor.byte_string_fuser(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -429,7 +413,7 @@ root::="a"  "b" ("c""d"
 
 "f" | "g"
 """
-    expected = """root ::= (("abcde") | ("f") | ("g"))
+    expected = """root ::= (("a" "b" "c" "d" "e") | ("f") | ("g"))
 """
     grammar = xgr.Grammar.from_ebnf(before)
     after = str(grammar)
@@ -439,8 +423,8 @@ root::="a"  "b" ("c""d"
 def test_nest():
     before = """root::= "a" ("b" | "c" "d") | (("e" "f"))
 """
-    expected = """root ::= (("a" root_1) | ("ef"))
-root_1 ::= (("b") | ("cd"))
+    expected = """root ::= (("a" root_1) | ("e" "f"))
+root_1 ::= (("b") | ("c" "d"))
 """
     grammar = xgr.Grammar.from_ebnf(before)
     after = str(grammar)
@@ -450,7 +434,7 @@ root_1 ::= (("b") | ("cd"))
 def test_empty_parentheses():
     before = """root ::= "a" ( ) "b"
 """
-    expected = """root ::= (("ab"))
+    expected = """root ::= (("a" "b"))
 """
     grammar = xgr.Grammar.from_ebnf(before)
     after = str(grammar)
@@ -498,15 +482,14 @@ empty_test ::= "d" | (("" | "" "") "" | "a" "") | ("" ("" | "")) "" ""
 """
     expected = """root ::= ((or_test sequence_test nested_test empty_test))
 or_test ::= ("" | ("a") | ("b") | ("de") | (or_test) | ([^a-z]))
-sequence_test ::= (("aab" sequence_test_1 "de" sequence_test))
-nested_test ::= (("abcd") | ("a") | ("b") | ("c") | (nested_rest))
-nested_rest ::= (("a") | ("bc") | ("d") | ("ef") | ("g"))
+sequence_test ::= (("a" "a" "b" sequence_test_1 "d" "e" sequence_test))
+nested_test ::= (("a" "b" "c" "d") | ("a") | ("b") | ("c") | (nested_rest))
+nested_rest ::= (("a") | ("b" "c") | ("d") | ("e" "f") | ("g"))
 empty_test ::= ("" | ("d") | ("a"))
 sequence_test_1 ::= (("c") | ("d"))
 """
     grammar = _ebnf_to_grammar_no_normalization(before)
     grammar = GrammarFunctor.structure_normalizer(grammar)
-    grammar = GrammarFunctor.byte_string_fuser(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -697,6 +680,7 @@ sign ::= ("" | ("+") | ("-"))
 """
 
     grammar = xgr.Grammar.from_ebnf(before)
+    grammar = GrammarFunctor.grammar_optimizer(grammar)
     after = str(grammar)
     assert after == expected
 
@@ -789,6 +773,25 @@ def test_error_consecutive_quantifiers():
         RuntimeError, match="EBNF parser error at line 1, column 14: Expect element, but got ?"
     ):
         xgr.Grammar.from_ebnf(grammar_str)
+
+
+def test_repetition_normalizer():
+    """Test the repetition normalizer. If the context is nullable, then the min repetition time will be reduced to 0."""
+    before = "root ::= ([0-9]*){200, 1000}"
+    expected_grammar = r"""root ::= ((root_repeat_1{0, 872} [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]*))
+root_repeat_1 ::= (([0-9]*)) (=([0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]* [0-9]*))
+"""
+    grammar = xgr.Grammar.from_ebnf(before)
+    grammar = GrammarFunctor.grammar_optimizer(grammar)
+    assert expected_grammar == str(grammar)
+
+    before = "root ::= ([0-9]){200, 1000}"
+    expected_grammar = r"""root ::= ((root_repeat_1{72, 872} [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9]))
+root_repeat_1 ::= (([0-9])) (=([0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9] [0-9]))
+"""
+    grammar = xgr.Grammar.from_ebnf(before)
+    grammar = GrammarFunctor.grammar_optimizer(grammar)
+    assert expected_grammar == str(grammar)
 
 
 if __name__ == "__main__":

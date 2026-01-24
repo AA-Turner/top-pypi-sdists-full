@@ -15,7 +15,11 @@ module.
 import os
 
 from nuitka.PythonVersions import python_version
-from nuitka.utils.FileOperations import getFileContents, isFilenameBelowPath
+from nuitka.utils.FileOperations import (
+    getFileContents,
+    getNormalizedPath,
+    isFilenameBelowPath,
+)
 from nuitka.utils.ModuleNames import ModuleName
 from nuitka.utils.Utils import (
     isMacOS,
@@ -107,11 +111,6 @@ def getStandardLibraryPaths():
 
 
 def _isStandardLibraryPath(filename):
-    # In virtualenv, the "site.py" lives in a place that suggests it is not in
-    # standard library, although it is.
-    if os.path.basename(filename) == "site.py":
-        return True
-
     # These never are in standard library paths.
     if (
         "dist-packages" in filename
@@ -133,7 +132,7 @@ _is_standard_library_path_cache = {}
 def isStandardLibraryPath(filename):
     """Check if a path is in the standard library."""
 
-    filename = os.path.normcase(os.path.normpath(filename))
+    filename = os.path.normcase(getNormalizedPath(filename))
 
     if filename not in _is_standard_library_path_cache:
         _is_standard_library_path_cache[filename] = _isStandardLibraryPath(filename)
@@ -407,6 +406,10 @@ _stdlib_no_auto_inclusion_list = (
 
 if not isWin32Windows():
     _stdlib_no_auto_inclusion_list += ("ntpath",)
+
+# This was removed, but can exist in some circumstances still.
+if python_version >= 0x3D0:
+    _stdlib_no_auto_inclusion_list += ("cgi",)
 
 
 def isStandardLibraryNoAutoInclusionModule(module_name):

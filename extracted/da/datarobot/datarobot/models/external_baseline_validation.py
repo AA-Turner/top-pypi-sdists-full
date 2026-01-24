@@ -59,32 +59,26 @@ class ExternalBaselineValidationInfo(APIObject):
 
     _get_url = "projects/{pid}/externalTimeSeriesBaselineDataValidationJobs/{job_id}/"
 
-    _converter = t.Dict(
-        {
-            t.Key("baseline_validation_job_id"): t.String(),
-            t.Key("project_id"): t.String(),
-            t.Key("catalog_version_id"): t.String(),
-            t.Key("target"): t.String(),
-            t.Key("datetime_partition_column"): t.String(),
-            t.Key("is_external_baseline_dataset_valid"): t.Bool(),
-            t.Key("multiseries_id_columns", optional=True): t.List(
-                t.String(), max_length=1, min_length=1
-            ),
-            t.Key("holdout_start_date", optional=True): t.String(),
-            t.Key("holdout_end_date", optional=True): t.String(),
-            t.Key("backtests", optional=True): t.List(
-                t.Dict(
-                    {
-                        t.Key("validation_start_date"): t.String(),
-                        t.Key("validation_end_date"): t.String(),
-                    }
-                )
-            ),
-            t.Key("forecast_window_start", optional=True): t.Int(),
-            t.Key("forecast_window_end", optional=True): t.Int(),
-            t.Key("message", optional=True): t.String(),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("baseline_validation_job_id"): t.String(),
+        t.Key("project_id"): t.String(),
+        t.Key("catalog_version_id"): t.String(),
+        t.Key("target"): t.String(),
+        t.Key("datetime_partition_column"): t.String(),
+        t.Key("is_external_baseline_dataset_valid"): t.Bool(),
+        t.Key("multiseries_id_columns", optional=True): t.List(t.String(), max_length=1, min_length=1),
+        t.Key("holdout_start_date", optional=True): t.String(),
+        t.Key("holdout_end_date", optional=True): t.String(),
+        t.Key("backtests", optional=True): t.List(
+            t.Dict({
+                t.Key("validation_start_date"): t.String(),
+                t.Key("validation_end_date"): t.String(),
+            })
+        ),
+        t.Key("forecast_window_start", optional=True): t.Int(),
+        t.Key("forecast_window_end", optional=True): t.Int(),
+        t.Key("message", optional=True): t.String(),
+    }).ignore_extra("*")
 
     def __init__(
         self,

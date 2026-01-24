@@ -61,6 +61,8 @@ template <typename>
 class basic_string_slice;
 template <typename, typename>
 class basic_string;
+template <typename>
+class utf8_case_insensitive_needle;
 
 using string_span = basic_string_slice<char>;
 using string_view = basic_string_slice<char const>;
@@ -401,7 +403,7 @@ inline static constexpr exclude_overlaps_type exclude_overlaps;
  *  @brief Zero-cost wrapper around the `.find` member function of string-like classes.
  *  @see https://en.cppreference.com/w/cpp/string/basic_string/find
  */
-template <typename string_type_, typename overlaps_type = include_overlaps_type>
+template <typename string_type_, typename overlaps_type_ = include_overlaps_type>
 struct matcher_find {
     using size_type = typename string_type_::size_type;
     string_type_ needle_;
@@ -411,7 +413,7 @@ struct matcher_find {
     size_type operator()(string_type_ haystack) const noexcept { return haystack.find(needle_); }
     size_type skip_length() const noexcept {
         // TODO: Apply Galil rule to match repetitive patterns in strictly linear time.
-        return is_same_type<overlaps_type, include_overlaps_type>::value ? 1 : needle_.length();
+        return is_same_type<overlaps_type_, include_overlaps_type>::value ? 1 : needle_.length();
     }
 };
 
@@ -419,7 +421,7 @@ struct matcher_find {
  *  @brief Zero-cost wrapper around the `.rfind` member function of string-like classes.
  *  @see https://en.cppreference.com/w/cpp/string/basic_string/rfind
  */
-template <typename string_type_, typename overlaps_type = include_overlaps_type>
+template <typename string_type_, typename overlaps_type_ = include_overlaps_type>
 struct matcher_rfind {
     using size_type = typename string_type_::size_type;
     string_type_ needle_;
@@ -429,7 +431,7 @@ struct matcher_rfind {
     size_type operator()(string_type_ haystack) const noexcept { return haystack.rfind(needle_); }
     size_type skip_length() const noexcept {
         // TODO: Apply Galil rule to match repetitive patterns in strictly linear time.
-        return is_same_type<overlaps_type, include_overlaps_type>::value ? 1 : needle_.length();
+        return is_same_type<overlaps_type_, include_overlaps_type>::value ? 1 : needle_.length();
     }
 };
 
@@ -437,56 +439,121 @@ struct matcher_rfind {
  *  @brief Zero-cost wrapper around the `.find_first_of` member function of string-like classes.
  *  @see https://en.cppreference.com/w/cpp/string/basic_string/find_first_of
  */
-template <typename haystack_type, typename needles_type = haystack_type>
+template <typename haystack_type_, typename needles_type_ = haystack_type_>
 struct matcher_find_first_of {
-    using size_type = typename haystack_type::size_type;
-    needles_type needles_;
+    using size_type = typename haystack_type_::size_type;
+    needles_type_ needles_;
     constexpr size_type needle_length() const noexcept { return 1; }
     constexpr size_type skip_length() const noexcept { return 1; }
-    size_type operator()(haystack_type haystack) const noexcept { return haystack.find_first_of(needles_); }
+    size_type operator()(haystack_type_ haystack) const noexcept { return haystack.find_first_of(needles_); }
 };
 
 /**
  *  @brief Zero-cost wrapper around the `.find_last_of` member function of string-like classes.
  *  @see https://en.cppreference.com/w/cpp/string/basic_string/find_last_of
  */
-template <typename haystack_type, typename needles_type = haystack_type>
+template <typename haystack_type_, typename needles_type_ = haystack_type_>
 struct matcher_find_last_of {
-    using size_type = typename haystack_type::size_type;
-    needles_type needles_;
+    using size_type = typename haystack_type_::size_type;
+    needles_type_ needles_;
     constexpr size_type needle_length() const noexcept { return 1; }
     constexpr size_type skip_length() const noexcept { return 1; }
-    size_type operator()(haystack_type haystack) const noexcept { return haystack.find_last_of(needles_); }
+    size_type operator()(haystack_type_ haystack) const noexcept { return haystack.find_last_of(needles_); }
 };
 
 /**
  *  @brief Zero-cost wrapper around the `.find_first_not_of` member function of string-like classes.
  *  @see https://en.cppreference.com/w/cpp/string/basic_string/find_first_not_of
  */
-template <typename haystack_type, typename needles_type = haystack_type>
+template <typename haystack_type_, typename needles_type_ = haystack_type_>
 struct matcher_find_first_not_of {
-    using size_type = typename haystack_type::size_type;
-    needles_type needles_;
+    using size_type = typename haystack_type_::size_type;
+    needles_type_ needles_;
     constexpr size_type needle_length() const noexcept { return 1; }
     constexpr size_type skip_length() const noexcept { return 1; }
-    size_type operator()(haystack_type haystack) const noexcept { return haystack.find_first_not_of(needles_); }
+    size_type operator()(haystack_type_ haystack) const noexcept { return haystack.find_first_not_of(needles_); }
 };
 
 /**
  *  @brief Zero-cost wrapper around the `.find_last_not_of` member function of string-like classes.
  *  @see https://en.cppreference.com/w/cpp/string/basic_string/find_last_not_of
  */
-template <typename haystack_type, typename needles_type = haystack_type>
+template <typename haystack_type_, typename needles_type_ = haystack_type_>
 struct matcher_find_last_not_of {
-    using size_type = typename haystack_type::size_type;
-    needles_type needles_;
+    using size_type = typename haystack_type_::size_type;
+    needles_type_ needles_;
     constexpr size_type needle_length() const noexcept { return 1; }
     constexpr size_type skip_length() const noexcept { return 1; }
-    size_type operator()(haystack_type haystack) const noexcept { return haystack.find_last_not_of(needles_); }
+    size_type operator()(haystack_type_ haystack) const noexcept { return haystack.find_last_not_of(needles_); }
+};
+
+/**
+ *  @brief Zero-cost wrapper around the `.find_newline_utf8` member function of string-like classes.
+ */
+template <typename haystack_type_>
+struct matcher_find_newline_utf8 {
+    using size_type = typename haystack_type_::size_type;
+    size_type last_match_length_ = 0;
+    constexpr size_type needle_length() const noexcept { return last_match_length_; }
+    constexpr size_type skip_length() const noexcept { return last_match_length_; }
+    size_type operator()(haystack_type_ haystack) noexcept { return haystack.find_newline_utf8(last_match_length_); }
+};
+
+/**
+ *  @brief Zero-cost wrapper around the `.find_whitespace_utf8` member function of string-like classes.
+ */
+template <typename haystack_type_>
+struct matcher_find_whitespace_utf8 {
+    using size_type = typename haystack_type_::size_type;
+    size_type last_match_length_ = 0;
+    constexpr size_type needle_length() const noexcept { return last_match_length_; }
+    constexpr size_type skip_length() const noexcept { return last_match_length_; }
+    size_type operator()(haystack_type_ haystack) noexcept { return haystack.find_whitespace_utf8(last_match_length_); }
+};
+
+/**
+ *  @brief Helper to detect if a type has a nested `::string_view` typedef.
+ *         Uses SFINAE with no STL dependencies for `std::enabled_if` or `std::void_t`.
+ */
+template <typename type_>
+struct has_string_view_member_ {
+  private:
+    template <typename candidate_>
+    static char test_(typename candidate_::string_view *);
+    template <typename candidate_>
+    static int test_(...);
+
+  public:
+    static constexpr bool value = sizeof(test_<type_>(0)) == sizeof(char);
+};
+
+/**
+ *  @brief Helper to extract the appropriate view type for a string-like type.
+ *         For StringZilla types, uses the nested ::string_view typedef.
+ *         For STL types (like std::string_view), uses the type itself.
+ */
+template <typename string_type_, bool has_nested_view_ = has_string_view_member_<string_type_>::value>
+struct string_view_for {
+    // Default: use the type itself (for STL types)
+    using type = string_type_;
+};
+
+// Specialization for types with nested ::string_view
+template <typename string_type_>
+struct string_view_for<string_type_, true> {
+    // For StringZilla types with nested ::string_view
+    using type = typename string_type_::string_view;
 };
 
 /**
  *  @brief A range of string slices representing the matches of a substring search.
+ *
+ *  @note Lifetime semantics: Stores forwarded objects (including owning strings) to maintain lifetime.
+ *        Iterators receive lightweight views only, ensuring safe iteration without ownership concerns.
+ *  @note For-loop optimized: Iterators are lightweight views with minimal register pressure, ideal for
+ *        high-performance applications where cache efficiency and register allocation matter.
+ *  @note Sentinel support: Supports sentinel-based iteration via `operator==(end_sentinel_type)` for
+ *        efficient termination without constructing full end iterators.
  *  @note Compatible with C++23 ranges, C++11 string views, and of course, StringZilla.
  *  @see Similar to a pair of `boost::algorithm::find_iterator`.
  */
@@ -495,6 +562,7 @@ class range_matches {
   public:
     using string_type = string_type_;
     using matcher_type = matcher_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
 
   private:
     matcher_type matcher_;
@@ -503,24 +571,24 @@ class range_matches {
   public:
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
-    using value_type = string_type;
-    using pointer = string_type;   // Needed for compatibility with STL container constructors.
-    using reference = string_type; // Needed for compatibility with STL container constructors.
+    using value_type = string_view_type;
+    using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+    using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
     range_matches(string_type haystack, matcher_type needle) noexcept : matcher_(needle), haystack_(haystack) {}
 
     class iterator {
         matcher_type matcher_;
-        string_type remaining_;
+        string_view_type remaining_;
 
       public:
         using iterator_category = std::forward_iterator_tag;
         using difference_type = std::ptrdiff_t;
-        using value_type = string_type;
-        using pointer = string_type;   // Needed for compatibility with STL container constructors.
-        using reference = string_type; // Needed for compatibility with STL container constructors.
+        using value_type = string_view_type;
+        using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+        using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
-        iterator(string_type haystack, matcher_type matcher) noexcept : matcher_(matcher), remaining_(haystack) {
+        iterator(string_view_type haystack, matcher_type matcher) noexcept : matcher_(matcher), remaining_(haystack) {
             auto position = matcher_(remaining_);
             remaining_.remove_prefix(position != string_type::npos ? position : remaining_.size());
         }
@@ -548,8 +616,8 @@ class range_matches {
         bool operator==(end_sentinel_type) const noexcept { return remaining_.empty(); }
     };
 
-    iterator begin() const noexcept { return {haystack_, matcher_}; }
-    iterator end() const noexcept { return {string_type {haystack_.data() + haystack_.size(), 0ull}, matcher_}; }
+    iterator begin() const noexcept { return {string_view_type(haystack_), matcher_}; }
+    iterator end() const noexcept { return {string_view_type(haystack_.data() + haystack_.size(), 0ull), matcher_}; }
     size_type size() const noexcept { return static_cast<size_type>(ssize()); }
     difference_type ssize() const noexcept { return std::distance(begin(), end()); }
     bool empty() const noexcept { return begin() == end_sentinel_type {}; }
@@ -570,6 +638,13 @@ class range_matches {
 
 /**
  *  @brief A range of string slices representing the matches of a @b reverse-order substring search.
+ *
+ *  @note Lifetime semantics: Stores forwarded objects (including owning strings) to maintain lifetime.
+ *        Iterators receive lightweight views only, ensuring safe iteration without ownership concerns.
+ *  @note For-loop optimized: Iterators are lightweight views with minimal register pressure, ideal for
+ *        high-performance applications where cache efficiency and register allocation matter.
+ *  @note Sentinel support: Supports sentinel-based iteration via `operator==(end_sentinel_type)` for
+ *        efficient termination without constructing full end iterators.
  *  @note Compatible with C++23 ranges, C++11 string views, and of course, StringZilla.
  *  @see Similar to a pair of `boost::algorithm::find_iterator`.
  */
@@ -578,12 +653,13 @@ class range_rmatches {
   public:
     using string_type = string_type_;
     using matcher_type = matcher_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
 
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
-    using value_type = string_type;
-    using pointer = string_type;   // Needed for compatibility with STL container constructors.
-    using reference = string_type; // Needed for compatibility with STL container constructors.
+    using value_type = string_view_type;
+    using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+    using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
   private:
     matcher_type matcher_;
@@ -594,16 +670,16 @@ class range_rmatches {
 
     class iterator {
         matcher_type matcher_;
-        string_type remaining_;
+        string_view_type remaining_;
 
       public:
         using iterator_category = std::forward_iterator_tag;
         using difference_type = std::ptrdiff_t;
-        using value_type = string_type;
-        using pointer = string_type;   // Needed for compatibility with STL container constructors.
-        using reference = string_type; // Needed for compatibility with STL container constructors.
+        using value_type = string_view_type;
+        using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+        using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
-        iterator(string_type haystack, matcher_type matcher) noexcept : matcher_(matcher), remaining_(haystack) {
+        iterator(string_view_type haystack, matcher_type matcher) noexcept : matcher_(matcher), remaining_(haystack) {
             auto position = matcher_(remaining_);
             remaining_.remove_suffix(         //
                 position != string_type::npos //
@@ -644,8 +720,8 @@ class range_rmatches {
         bool operator==(end_sentinel_type) const noexcept { return remaining_.empty(); }
     };
 
-    iterator begin() const noexcept { return {haystack_, matcher_}; }
-    iterator end() const noexcept { return {string_type {haystack_.data(), 0ull}, matcher_}; }
+    iterator begin() const noexcept { return {string_view_type(haystack_), matcher_}; }
+    iterator end() const noexcept { return {string_view_type(haystack_.data(), 0ull), matcher_}; }
     size_type size() const noexcept { return static_cast<size_type>(ssize()); }
     difference_type ssize() const noexcept { return std::distance(begin(), end()); }
     bool empty() const noexcept { return begin() == end_sentinel_type {}; }
@@ -666,6 +742,13 @@ class range_rmatches {
 
 /**
  *  @brief A range of string slices for different splits of the data.
+ *
+ *  @note Lifetime semantics: Stores forwarded objects (including owning strings) to maintain lifetime.
+ *        Iterators receive lightweight views only, ensuring safe iteration without ownership concerns.
+ *  @note For-loop optimized: Iterators are lightweight views with minimal register pressure, ideal for
+ *        high-performance applications where cache efficiency and register allocation matter.
+ *  @note Sentinel support: Supports sentinel-based iteration via `operator==(end_sentinel_type)` for
+ *        efficient termination without constructing full end iterators.
  *  @note Compatible with C++23 ranges, C++11 string views, and of course, StringZilla.
  *  @see Similar to a pair of `boost::algorithm::split_iterator`.
  *
@@ -678,12 +761,13 @@ class range_splits {
   public:
     using string_type = string_type_;
     using matcher_type = matcher_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
 
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
-    using value_type = string_type;
-    using pointer = string_type;   // Needed for compatibility with STL container constructors.
-    using reference = string_type; // Needed for compatibility with STL container constructors.
+    using value_type = string_view_type;
+    using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+    using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
   private:
     matcher_type matcher_;
@@ -693,36 +777,50 @@ class range_splits {
     range_splits(string_type haystack, matcher_type needle) noexcept : matcher_(needle), haystack_(haystack) {}
 
     class iterator {
+        char const *start_;      // Start of current segment
+        char const *end_;        // End of haystack (immutable)
+        size_type match_length_; // Length of current segment
         matcher_type matcher_;
-        string_type remaining_;
-        std::size_t length_within_remaining_;
-        bool reached_tail_;
 
       public:
         using iterator_category = std::forward_iterator_tag;
         using difference_type = std::ptrdiff_t;
-        using value_type = string_type;
-        using pointer = string_type;   // Needed for compatibility with STL container constructors.
-        using reference = string_type; // Needed for compatibility with STL container constructors.
+        using value_type = string_view_type;
+        using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+        using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
-        iterator(string_type haystack, matcher_type matcher) noexcept : matcher_(matcher), remaining_(haystack) {
-            auto position = matcher_(remaining_);
-            length_within_remaining_ = position != string_type::npos ? position : remaining_.size();
-            reached_tail_ = false;
+        iterator(string_view_type haystack, matcher_type matcher) noexcept
+            : start_(haystack.data()), end_(haystack.data() + haystack.size()), match_length_(0), matcher_(matcher) {
+            auto position = matcher_(haystack);
+            match_length_ = position != string_type::npos ? position : haystack.size();
         }
 
-        iterator(string_type haystack, matcher_type matcher, end_sentinel_type) noexcept
-            : matcher_(matcher), remaining_(haystack), length_within_remaining_(0), reached_tail_(true) {}
+        iterator(string_view_type haystack, matcher_type matcher, end_sentinel_type) noexcept
+            : start_(haystack.data() + haystack.size() + 1), end_(haystack.data() + haystack.size()), match_length_(0),
+              matcher_(matcher) {}
 
         pointer operator->() const noexcept = delete;
-        value_type operator*() const noexcept { return remaining_.substr(0, length_within_remaining_); }
+        value_type operator*() const noexcept { return string_view_type(start_, match_length_); }
 
         iterator &operator++() noexcept {
-            remaining_.remove_prefix(length_within_remaining_);
-            reached_tail_ = remaining_.empty();
-            remaining_.remove_prefix(matcher_.needle_length() * !reached_tail_);
-            auto position = matcher_(remaining_);
-            length_within_remaining_ = position != string_type::npos ? position : remaining_.size();
+            start_ += match_length_;
+            if (start_ > end_) return *this;
+            // If we were at the end (yielded final empty segment), move past to terminate
+            if (start_ == end_) {
+                ++start_;
+                match_length_ = 0;
+                return *this;
+            }
+            // Skip delimiter
+            start_ += matcher_.needle_length();
+            if (start_ > end_) {
+                match_length_ = 0;
+                return *this;
+            }
+            // Find next delimiter
+            string_view_type remaining(start_, static_cast<size_type>(end_ - start_));
+            auto position = matcher_(remaining);
+            match_length_ = position != string_type::npos ? position : remaining.size();
             return *this;
         }
 
@@ -732,19 +830,15 @@ class range_splits {
             return temp;
         }
 
-        bool operator!=(iterator const &other) const noexcept {
-            return (remaining_.begin() != other.remaining_.begin()) || (reached_tail_ != other.reached_tail_);
-        }
-        bool operator==(iterator const &other) const noexcept {
-            return (remaining_.begin() == other.remaining_.begin()) && (reached_tail_ == other.reached_tail_);
-        }
-        bool operator!=(end_sentinel_type) const noexcept { return !remaining_.empty() || !reached_tail_; }
-        bool operator==(end_sentinel_type) const noexcept { return remaining_.empty() && reached_tail_; }
-        bool is_last() const noexcept { return remaining_.size() == length_within_remaining_; }
+        bool operator!=(iterator const &other) const noexcept { return start_ != other.start_; }
+        bool operator==(iterator const &other) const noexcept { return start_ == other.start_; }
+        bool operator!=(end_sentinel_type) const noexcept { return start_ <= end_; }
+        bool operator==(end_sentinel_type) const noexcept { return start_ > end_; }
+        bool is_last() const noexcept { return start_ + match_length_ == end_; }
     };
 
-    iterator begin() const noexcept { return {haystack_, matcher_}; }
-    iterator end() const noexcept { return {string_type {haystack_.end(), 0}, matcher_, end_sentinel_type {}}; }
+    iterator begin() const noexcept { return {string_view_type(haystack_), matcher_}; }
+    iterator end() const noexcept { return {string_view_type(haystack_.end(), 0), matcher_, end_sentinel_type {}}; }
     size_type size() const noexcept { return static_cast<size_type>(ssize()); }
     difference_type ssize() const noexcept { return std::distance(begin(), end()); }
     constexpr bool empty() const noexcept { return false; }
@@ -765,6 +859,13 @@ class range_splits {
 
 /**
  *  @brief A range of string slices for different splits of the data in @b reverse-order.
+ *
+ *  @note Lifetime semantics: Stores forwarded objects (including owning strings) to maintain lifetime.
+ *        Iterators receive lightweight views only, ensuring safe iteration without ownership concerns.
+ *  @note For-loop optimized: Iterators are lightweight views with minimal register pressure, ideal for
+ *        high-performance applications where cache efficiency and register allocation matter.
+ *  @note Sentinel support: Supports sentinel-based iteration via `operator==(end_sentinel_type)` for
+ *        efficient termination without constructing full end iterators.
  *  @note Compatible with C++23 ranges, C++11 string views, and of course, StringZilla.
  *  @see Similar to a pair of `boost::algorithm::split_iterator`.
  *
@@ -777,12 +878,13 @@ class range_rsplits {
   public:
     using string_type = string_type_;
     using matcher_type = matcher_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
 
     using size_type = std::size_t;
     using difference_type = std::ptrdiff_t;
-    using value_type = string_type;
-    using pointer = string_type;   // Needed for compatibility with STL container constructors.
-    using reference = string_type; // Needed for compatibility with STL container constructors.
+    using value_type = string_view_type;
+    using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+    using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
   private:
     matcher_type matcher_;
@@ -792,42 +894,51 @@ class range_rsplits {
     range_rsplits(string_type haystack, matcher_type needle) noexcept : matcher_(needle), haystack_(haystack) {}
 
     class iterator {
+        char const *start_;      // Start of haystack (immutable)
+        char const *end_;        // Current end position (moves backward)
+        size_type match_length_; // Length of current segment
         matcher_type matcher_;
-        string_type remaining_;
-        std::size_t length_within_remaining_;
-        bool reached_tail_;
 
       public:
         using iterator_category = std::forward_iterator_tag;
         using difference_type = std::ptrdiff_t;
-        using value_type = string_type;
-        using pointer = string_type;   // Needed for compatibility with STL container constructors.
-        using reference = string_type; // Needed for compatibility with STL container constructors.
+        using value_type = string_view_type;
+        using pointer = string_view_type;   // Needed for compatibility with STL container constructors.
+        using reference = string_view_type; // Needed for compatibility with STL container constructors.
 
-        iterator(string_type haystack, matcher_type matcher) noexcept : matcher_(matcher), remaining_(haystack) {
-            auto position = matcher_(remaining_);
-            length_within_remaining_ = position != string_type::npos
-                                           ? remaining_.size() - position - matcher_.needle_length()
-                                           : remaining_.size();
-            reached_tail_ = false;
+        iterator(string_view_type haystack, matcher_type matcher) noexcept
+            : start_(haystack.data()), end_(haystack.data() + haystack.size()), match_length_(0), matcher_(matcher) {
+            auto position = matcher_(haystack);
+            match_length_ =
+                position != string_type::npos ? haystack.size() - position - matcher_.needle_length() : haystack.size();
         }
 
-        iterator(string_type haystack, matcher_type matcher, end_sentinel_type) noexcept
-            : matcher_(matcher), remaining_(haystack), length_within_remaining_(0), reached_tail_(true) {}
+        iterator(string_view_type, matcher_type matcher, end_sentinel_type) noexcept
+            : start_(reinterpret_cast<char const *>(1)), end_(nullptr), match_length_(0), matcher_(matcher) {}
 
         pointer operator->() const noexcept = delete;
-        value_type operator*() const noexcept {
-            return remaining_.substr(remaining_.size() - length_within_remaining_);
-        }
+        value_type operator*() const noexcept { return string_view_type(end_ - match_length_, match_length_); }
 
         iterator &operator++() noexcept {
-            remaining_.remove_suffix(length_within_remaining_);
-            reached_tail_ = remaining_.empty();
-            remaining_.remove_suffix(matcher_.needle_length() * !reached_tail_);
-            auto position = matcher_(remaining_);
-            length_within_remaining_ = position != string_type::npos
-                                           ? remaining_.size() - position - matcher_.needle_length()
-                                           : remaining_.size();
+            end_ -= match_length_;
+            if (end_ < start_) return *this;
+            // If we were at the start (yielded final empty segment), signal termination
+            if (end_ == start_) {
+                end_ = nullptr;
+                start_ = reinterpret_cast<char const *>(1);
+                return *this;
+            }
+            // Skip delimiter
+            end_ -= matcher_.needle_length();
+            if (end_ < start_) {
+                match_length_ = 0;
+                return *this;
+            }
+            // Find next delimiter (searching backwards)
+            string_view_type remaining(start_, static_cast<size_type>(end_ - start_));
+            auto position = matcher_(remaining);
+            match_length_ = position != string_type::npos ? remaining.size() - position - matcher_.needle_length()
+                                                          : remaining.size();
             return *this;
         }
 
@@ -837,19 +948,15 @@ class range_rsplits {
             return temp;
         }
 
-        bool operator!=(iterator const &other) const noexcept {
-            return (remaining_.end() != other.remaining_.end()) || (reached_tail_ != other.reached_tail_);
-        }
-        bool operator==(iterator const &other) const noexcept {
-            return (remaining_.end() == other.remaining_.end()) && (reached_tail_ == other.reached_tail_);
-        }
-        bool operator!=(end_sentinel_type) const noexcept { return !remaining_.empty() || !reached_tail_; }
-        bool operator==(end_sentinel_type) const noexcept { return remaining_.empty() && reached_tail_; }
-        bool is_last() const noexcept { return remaining_.size() == length_within_remaining_; }
+        bool operator!=(iterator const &other) const noexcept { return end_ != other.end_; }
+        bool operator==(iterator const &other) const noexcept { return end_ == other.end_; }
+        bool operator!=(end_sentinel_type) const noexcept { return end_ >= start_; }
+        bool operator==(end_sentinel_type) const noexcept { return end_ < start_; }
+        bool is_last() const noexcept { return end_ - match_length_ == start_; }
     };
 
-    iterator begin() const noexcept { return {haystack_, matcher_}; }
-    iterator end() const noexcept { return {{haystack_.data(), 0ull}, matcher_, end_sentinel_type {}}; }
+    iterator begin() const noexcept { return {string_view_type(haystack_), matcher_}; }
+    iterator end() const noexcept { return {string_view_type(haystack_.data(), 0ull), matcher_, end_sentinel_type {}}; }
     size_type size() const noexcept { return static_cast<size_type>(ssize()); }
     difference_type ssize() const noexcept { return std::distance(begin(), end()); }
     constexpr bool empty() const noexcept { return false; }
@@ -869,136 +976,520 @@ class range_rsplits {
 };
 
 /**
- *  @brief Find all potentially @b overlapping inclusions of a needle substring.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @brief A range view over UTF-8 characters (codepoints) in a string.
+ *
+ *  Iterates over UTF-32 codepoints decoded from UTF-8 bytes using efficient batched decoding.
+ *  Decodes up to 64 characters at a time for performance, then yields them one by one.
+ *
+ *  @tparam string_type_ String type (string_view, string_slice, std::string, etc.)
  */
-template <typename string>
-range_matches<string, matcher_find<string, include_overlaps_type>> find_all(string const &h, string const &n,
-                                                                            include_overlaps_type = {}) noexcept {
+template <typename string_type_>
+class range_utf8_chars {
+  public:
+    using string_type = string_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
+    using value_type = sz_rune_t;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+
+  private:
+    string_type haystack_;
+
+  public:
+    range_utf8_chars() noexcept = default;
+    range_utf8_chars(string_type haystack) noexcept : haystack_(haystack) {}
+
+    class iterator {
+        char const *octets_start_;
+        size_type octets_length_;
+        size_type octets_offset_;
+
+        // Batch buffer for efficient decoding
+        sz_rune_t runes_[64];
+        size_type runes_count_;
+        size_type runes_offset_;
+
+        void decode_batch_() noexcept {
+            if (octets_offset_ >= octets_length_) {
+                runes_count_ = 0;
+                return;
+            }
+
+            size_type chunk_size = octets_length_ - octets_offset_;
+            char const *octets_ptr = octets_start_ + octets_offset_;
+            size_type unpacked_count = 0;
+
+            char const *next_ptr = sz_utf8_unpack_chunk(octets_ptr, chunk_size, runes_, 64, &unpacked_count);
+
+            // Update position
+            size_type bytes_consumed = static_cast<size_type>(next_ptr - octets_ptr);
+            octets_offset_ += bytes_consumed;
+            runes_count_ = unpacked_count;
+            runes_offset_ = 0;
+        }
+
+      public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = sz_rune_t;
+        using difference_type = std::ptrdiff_t;
+        using pointer = sz_rune_t const *;
+        using reference = sz_rune_t;
+
+        iterator() noexcept
+            : octets_start_(nullptr), octets_length_(0), octets_offset_(0), runes_count_(0), runes_offset_(0) {}
+
+        iterator(string_view_type text) noexcept
+            : octets_start_(text.data()), octets_length_(text.size()), octets_offset_(0), runes_count_(0),
+              runes_offset_(0) {
+            decode_batch_();
+        }
+
+        iterator(string_view_type text, end_sentinel_type) noexcept
+            : octets_start_(text.data()), octets_length_(text.size()), octets_offset_(text.size()), runes_count_(0),
+              runes_offset_(0) {}
+
+        reference operator*() const noexcept { return runes_[runes_offset_]; }
+        pointer operator->() const noexcept { return &runes_[runes_offset_]; }
+
+        iterator &operator++() noexcept {
+            runes_offset_++;
+            if (runes_offset_ >= runes_count_) decode_batch_();
+            return *this;
+        }
+
+        iterator operator++(int) noexcept {
+            iterator temp = *this;
+            ++(*this);
+            return temp;
+        }
+
+        /**
+         *  @brief Advance the iterator by @p n UTF-8 codepoints, decoding new batches as needed.
+         *  @note This is forward-only; negative offsets are unsupported. Uses the fast C API to skip bytes.
+         */
+        iterator &operator+=(size_type n) noexcept {
+            if (n == 0 || octets_offset_ >= octets_length_) return *this;
+
+            sz_cptr_t ptr = sz_utf8_find_nth(octets_start_ + octets_offset_, octets_length_ - octets_offset_, n);
+            if (!ptr) {
+                // Past the end.
+                octets_offset_ = octets_length_;
+                runes_count_ = 0;
+                runes_offset_ = 0;
+                return *this;
+            }
+
+            octets_offset_ = static_cast<size_type>(ptr - octets_start_);
+            decode_batch_();
+            return *this;
+        }
+
+        iterator operator+(size_type n) const noexcept {
+            iterator tmp = *this;
+            tmp += n;
+            return tmp;
+        }
+
+        bool operator==(iterator const &other) const noexcept {
+            // Check if both iterators have exhausted their data
+            bool this_at_end = (runes_count_ == 0 && octets_offset_ >= octets_length_);
+            bool other_at_end = (other.runes_count_ == 0 && other.octets_offset_ >= other.octets_length_);
+            if (this_at_end && other_at_end) return true;
+            if (this_at_end || other_at_end) return false;
+            // Both have data: compare positions
+            return octets_offset_ == other.octets_offset_ && runes_offset_ == other.runes_offset_;
+        }
+
+        bool operator==(end_sentinel_type) const noexcept {
+            return runes_count_ == 0 && octets_offset_ >= octets_length_;
+        }
+
+        bool operator!=(iterator const &other) const noexcept { return !(*this == other); }
+        bool operator!=(end_sentinel_type sentinel) const noexcept { return !(*this == sentinel); }
+    };
+
+    iterator begin() const noexcept { return {string_view_type(haystack_)}; }
+    iterator end() const noexcept { return {string_view_type(haystack_), end_sentinel_type {}}; }
+    end_sentinel_type end_sentinel() const noexcept { return {}; }
+
+    /** @brief Count UTF-8 characters in the string. */
+    size_type size() const noexcept {
+        string_view_type view(haystack_);
+        return sz_utf8_count(view.data(), view.size());
+    }
+
+    difference_type ssize() const noexcept { return static_cast<difference_type>(size()); }
+    bool empty() const noexcept { return size() == 0; }
+
+    /** @brief Copies the characters into a container. */
+    template <typename container_>
+    void to(container_ &container) {
+        for (auto ch : *this) container.push_back(ch);
+    }
+
+    /** @brief Copies the characters into a consumed container, returning it at the end. */
+    template <typename container_>
+    container_ to(container_ &&container = {}) {
+        for (auto ch : *this) container.push_back(ch);
+        return std::move(container);
+    }
+};
+
+/**
+ *  @brief A range of string slices split by UTF-8 newline characters.
+ *
+ *  Unlike splitlines() which uses ASCII byteset, this handles full Unicode.
+ *  Splits on all 7 Unicode newline characters + CRLF sequence:
+ *  - U+000A (LF), U+000B (VT), U+000C (FF), U+000D (CR)
+ *  - U+0085 (NEL), U+2028 (LS), U+2029 (PS)
+ *  - U+000D U+000A (CRLF as single delimiter)
+ *
+ *  @tparam string_type_ String type (string_view, string_slice, std::string, etc.)
+ */
+template <typename string_type_>
+class range_utf8_line_splits {
+  public:
+    using string_type = string_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
+    using value_type = string_view_type;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+
+  private:
+    string_type haystack_;
+
+  public:
+    range_utf8_line_splits() noexcept = default;
+    range_utf8_line_splits(string_type haystack) noexcept : haystack_(haystack) {}
+
+    class iterator {
+        char const *start_;      // Start of current segment
+        char const *end_;        // End of original text (immutable)
+        size_type match_length_; // Length of current segment to yield
+
+      public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = string_view_type;
+        using difference_type = std::ptrdiff_t;
+        using pointer = string_view_type;
+        using reference = string_view_type;
+
+        iterator() noexcept : start_(nullptr), end_(nullptr), match_length_(0) {}
+        iterator(string_view_type text) noexcept
+            : start_(text.data()), end_(text.data() + text.size()), match_length_(0) {
+            // Find first segment length
+            size_type newline_length = 0;
+            char const *newline_ptr =
+                sz_utf8_find_newline(start_, static_cast<size_type>(end_ - start_), &newline_length);
+            match_length_ =
+                newline_ptr ? static_cast<size_type>(newline_ptr - start_) : static_cast<size_type>(end_ - start_);
+        }
+        iterator(string_view_type text, end_sentinel_type) noexcept
+            : start_(text.data() + text.size() + 1), end_(text.data() + text.size()), match_length_(0) {}
+
+        reference operator*() const noexcept { return string_view_type(start_, match_length_); }
+        pointer operator->() const noexcept { return string_view_type(start_, match_length_); }
+
+        iterator &operator++() noexcept {
+            start_ += match_length_;
+            if (start_ > end_) return *this;
+            // If we were at the end (yielded final empty segment), move past to terminate
+            if (start_ == end_) {
+                ++start_;
+                match_length_ = 0;
+                return *this;
+            }
+            // Skip delimiter at current position
+            size_type delim_len = 0;
+            char const *delim = sz_utf8_find_newline(start_, static_cast<size_type>(end_ - start_), &delim_len);
+            if (delim == start_) start_ += delim_len;
+            if (start_ > end_) {
+                match_length_ = 0;
+                return *this;
+            }
+            // Find next delimiter
+            delim = sz_utf8_find_newline(start_, static_cast<size_type>(end_ - start_), &delim_len);
+            match_length_ = delim ? static_cast<size_type>(delim - start_) : static_cast<size_type>(end_ - start_);
+            return *this;
+        }
+
+        iterator operator++(int) noexcept {
+            iterator temp = *this;
+            ++(*this);
+            return temp;
+        }
+
+        bool operator==(iterator const &other) const noexcept {
+            bool this_at_end = start_ > end_;
+            bool other_at_end = other.start_ > other.end_;
+            if (this_at_end && other_at_end) return true;
+            if (this_at_end || other_at_end) return false;
+            return start_ == other.start_;
+        }
+
+        bool operator!=(iterator const &other) const noexcept { return !(*this == other); }
+        bool operator==(end_sentinel_type) const noexcept { return start_ > end_; }
+        bool operator!=(end_sentinel_type) const noexcept { return start_ <= end_; }
+    };
+
+    iterator begin() const noexcept { return {string_view_type(haystack_)}; }
+    iterator end() const noexcept { return {string_view_type(haystack_), end_sentinel_type {}}; }
+    end_sentinel_type end_sentinel() const noexcept { return {}; }
+
+    /** @brief Copies the lines into a container. */
+    template <typename container_>
+    void to(container_ &container) {
+        for (auto line : *this) container.push_back(line);
+    }
+
+    /** @brief Copies the lines into a consumed container, returning it at the end. */
+    template <typename container_>
+    container_ to(container_ &&container = {}) {
+        for (auto line : *this) container.push_back(line);
+        return std::move(container);
+    }
+};
+
+/**
+ *  @brief A range of string slices split by UTF-8 whitespace characters.
+ *
+ *  Splits on all 25 Unicode "White_Space" characters.
+ *  N whitespace delimiters yield N+1 segments (including empty segments).
+ *
+ *  @tparam string_type_ String type (string_view, string_slice, std::string, etc.)
+ */
+template <typename string_type_>
+class range_utf8_whitespace_splits {
+  public:
+    using string_type = string_type_;
+    using string_view_type = typename string_view_for<string_type>::type;
+    using value_type = string_view_type;
+    using size_type = std::size_t;
+    using difference_type = std::ptrdiff_t;
+
+  private:
+    string_type haystack_;
+
+  public:
+    range_utf8_whitespace_splits() noexcept = default;
+    range_utf8_whitespace_splits(string_type haystack) noexcept : haystack_(haystack) {}
+
+    class iterator {
+        char const *start_;      // Start of current segment
+        char const *end_;        // End of original text (immutable)
+        size_type match_length_; // Length of current segment
+
+      public:
+        using iterator_category = std::forward_iterator_tag;
+        using value_type = string_view_type;
+        using difference_type = std::ptrdiff_t;
+        using pointer = string_view_type;
+        using reference = string_view_type;
+
+        iterator() noexcept : start_(nullptr), end_(nullptr), match_length_(0) {}
+        iterator(string_view_type text) noexcept
+            : start_(text.data()), end_(text.data() + text.size()), match_length_(0) {
+            // Find first segment length
+            size_type ws_len = 0;
+            char const *ws = sz_utf8_find_whitespace(start_, static_cast<size_type>(end_ - start_), &ws_len);
+            match_length_ = ws ? static_cast<size_type>(ws - start_) : static_cast<size_type>(end_ - start_);
+        }
+        iterator(string_view_type text, end_sentinel_type) noexcept
+            : start_(text.data() + text.size() + 1), end_(text.data() + text.size()), match_length_(0) {}
+
+        reference operator*() const noexcept { return string_view_type(start_, match_length_); }
+        pointer operator->() const noexcept { return string_view_type(start_, match_length_); }
+
+        iterator &operator++() noexcept {
+            start_ += match_length_;
+            if (start_ > end_) return *this;
+            // If we were at the end (yielded final empty segment), move past to terminate
+            if (start_ == end_) {
+                ++start_;
+                match_length_ = 0;
+                return *this;
+            }
+            // Skip delimiter at current position
+            size_type ws_len = 0;
+            char const *ws = sz_utf8_find_whitespace(start_, static_cast<size_type>(end_ - start_), &ws_len);
+            if (ws == start_) start_ += ws_len;
+            if (start_ > end_) {
+                match_length_ = 0;
+                return *this;
+            }
+            // Find next delimiter
+            ws = sz_utf8_find_whitespace(start_, static_cast<size_type>(end_ - start_), &ws_len);
+            match_length_ = ws ? static_cast<size_type>(ws - start_) : static_cast<size_type>(end_ - start_);
+            return *this;
+        }
+
+        iterator operator++(int) noexcept {
+            iterator temp = *this;
+            ++(*this);
+            return temp;
+        }
+
+        bool operator!=(iterator const &other) const noexcept { return start_ != other.start_; }
+        bool operator==(iterator const &other) const noexcept { return start_ == other.start_; }
+        bool operator!=(end_sentinel_type) const noexcept { return start_ <= end_; }
+        bool operator==(end_sentinel_type) const noexcept { return start_ > end_; }
+    };
+
+    iterator begin() const noexcept { return {string_view_type(haystack_)}; }
+    iterator end() const noexcept { return {string_view_type(haystack_), end_sentinel_type {}}; }
+    end_sentinel_type end_sentinel() const noexcept { return {}; }
+
+    /** @brief Copies the words into a container. */
+    template <typename container_>
+    void to(container_ &container) {
+        for (auto word : *this) container.push_back(word);
+    }
+
+    /** @brief Copies the words into a consumed container, returning it at the end. */
+    template <typename container_>
+    container_ to(container_ &&container = {}) {
+        for (auto word : *this) container.push_back(word);
+        return std::move(container);
+    }
+};
+
+/**
+ *  @brief Find all potentially @b overlapping inclusions of a needle substring.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ */
+template <typename string_type_>
+range_matches<string_type_, matcher_find<string_type_, include_overlaps_type>> find_all(
+    string_type_ const &h, string_type_ const &n, include_overlaps_type = {}) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all potentially @b overlapping inclusions of a needle substring in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rmatches<string, matcher_rfind<string, include_overlaps_type>> rfind_all(string const &h, string const &n,
-                                                                               include_overlaps_type = {}) noexcept {
+template <typename string_type_>
+range_rmatches<string_type_, matcher_rfind<string_type_, include_overlaps_type>> rfind_all(
+    string_type_ const &h, string_type_ const &n, include_overlaps_type = {}) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all @b non-overlapping inclusions of a needle substring.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_matches<string, matcher_find<string, exclude_overlaps_type>> find_all(string const &h, string const &n,
-                                                                            exclude_overlaps_type) noexcept {
+template <typename string_type_>
+range_matches<string_type_, matcher_find<string_type_, exclude_overlaps_type>> find_all(
+    string_type_ const &h, string_type_ const &n, exclude_overlaps_type) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all @b non-overlapping inclusions of a needle substring in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rmatches<string, matcher_rfind<string, exclude_overlaps_type>> rfind_all(string const &h, string const &n,
-                                                                               exclude_overlaps_type) noexcept {
+template <typename string_type_>
+range_rmatches<string_type_, matcher_rfind<string_type_, exclude_overlaps_type>> rfind_all(
+    string_type_ const &h, string_type_ const &n, exclude_overlaps_type) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all inclusions of characters from the second string.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_matches<string, matcher_find_first_of<string>> find_all_characters(string const &h, string const &n) noexcept {
+template <typename string_type_>
+range_matches<string_type_, matcher_find_first_of<string_type_>> find_all_characters(string_type_ const &h,
+                                                                                     string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all inclusions of characters from the second string in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rmatches<string, matcher_find_last_of<string>> rfind_all_characters(string const &h, string const &n) noexcept {
+template <typename string_type_>
+range_rmatches<string_type_, matcher_find_last_of<string_type_>> rfind_all_characters(string_type_ const &h,
+                                                                                      string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all characters except the ones in the second string.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_matches<string, matcher_find_first_not_of<string>> find_all_other_characters(string const &h,
-                                                                                   string const &n) noexcept {
+template <typename string_type_>
+range_matches<string_type_, matcher_find_first_not_of<string_type_>> find_all_other_characters(
+    string_type_ const &h, string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Find all characters except the ones in the second string in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rmatches<string, matcher_find_last_not_of<string>> rfind_all_other_characters(string const &h,
-                                                                                    string const &n) noexcept {
+template <typename string_type_>
+range_rmatches<string_type_, matcher_find_last_not_of<string_type_>> rfind_all_other_characters(
+    string_type_ const &h, string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Splits a string around every @b non-overlapping inclusion of the second string.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_splits<string, matcher_find<string, exclude_overlaps_type>> split(string const &h, string const &n) noexcept {
+template <typename string_type_>
+range_splits<string_type_, matcher_find<string_type_, exclude_overlaps_type>> split(string_type_ const &h,
+                                                                                    string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Splits a string around every @b non-overlapping inclusion of the second string in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rsplits<string, matcher_rfind<string, exclude_overlaps_type>> rsplit(string const &h, string const &n) noexcept {
+template <typename string_type_>
+range_rsplits<string_type_, matcher_rfind<string_type_, exclude_overlaps_type>> rsplit(string_type_ const &h,
+                                                                                       string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Splits a string around every character from the second string.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_splits<string, matcher_find_first_of<string>> split_characters(string const &h, string const &n) noexcept {
+template <typename string_type_>
+range_splits<string_type_, matcher_find_first_of<string_type_>> split_characters(string_type_ const &h,
+                                                                                 string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Splits a string around every character from the second string in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rsplits<string, matcher_find_last_of<string>> rsplit_characters(string const &h, string const &n) noexcept {
+template <typename string_type_>
+range_rsplits<string_type_, matcher_find_last_of<string_type_>> rsplit_characters(string_type_ const &h,
+                                                                                  string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Splits a string around every character except the ones from the second string.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_splits<string, matcher_find_first_not_of<string>> split_other_characters(string const &h,
-                                                                               string const &n) noexcept {
+template <typename string_type_>
+range_splits<string_type_, matcher_find_first_not_of<string_type_>> split_other_characters(
+    string_type_ const &h, string_type_ const &n) noexcept {
     return {h, n};
 }
 
 /**
  *  @brief Splits a string around every character except the ones from the second string in @b reverse order.
- *  @tparam string A string-like type, ideally a view, like StringZilla or STL `string_view`.
+ *  @tparam string_type_ A string-like type, ideally a view, like StringZilla or STL `string_view`.
  */
-template <typename string>
-range_rsplits<string, matcher_find_last_not_of<string>> rsplit_other_characters(string const &h,
-                                                                                string const &n) noexcept {
+template <typename string_type_>
+range_rsplits<string_type_, matcher_find_last_not_of<string_type_>> rsplit_other_characters(
+    string_type_ const &h, string_type_ const &n) noexcept {
     return {h, n};
 }
 
@@ -1138,17 +1629,17 @@ class reversed_iterator_for {
  *  @see https://en.wikipedia.org/wiki/Expression_templates
  *  @sa `concatenate` function for usage examples.
  */
-template <typename first_type, typename second_type>
+template <typename first_type_, typename second_type_>
 struct concatenation {
 
-    using value_type = typename first_type::value_type;
+    using value_type = typename first_type_::value_type;
     using pointer = value_type *;
     using const_pointer = value_type const *;
-    using size_type = typename first_type::size_type;
-    using difference_type = typename first_type::difference_type;
+    using size_type = typename first_type_::size_type;
+    using difference_type = typename first_type_::difference_type;
 
-    first_type first;
-    second_type second;
+    first_type_ first;
+    second_type_ second;
 
     std::size_t size() const noexcept { return first.size() + second.size(); }
     std::size_t length() const noexcept { return first.size() + second.size(); }
@@ -1168,9 +1659,55 @@ struct concatenation {
     }
 
     template <typename last_type>
-    concatenation<concatenation<first_type, second_type>, last_type> operator|(last_type &&last) const {
+    concatenation<concatenation<first_type_, second_type_>, last_type> operator|(last_type &&last) const {
         return {*this, last};
     }
+};
+
+#pragma endregion
+
+#pragma region Case-Insensitive Search Pattern
+
+/**
+ *  @brief  Pre-compiled case-insensitive search pattern for UTF-8 strings.
+ *
+ *  Caches metadata for efficient repeated searches with the same needle.
+ *  Useful when searching multiple haystacks for the same pattern.
+ *
+ *  @code{.cpp}
+ *  sz::utf8_case_insensitive_needle pattern("hello");
+ *  for (auto const& haystack : haystacks) {
+ *      auto match = haystack.utf8_case_insensitive_find(pattern);
+ *      if (match) { ... }
+ *  }
+ *  @endcode
+ *
+ *  @tparam char_type_ The character type, usually `char const` or `char`.
+ */
+template <typename char_type_ = char const>
+class utf8_case_insensitive_needle {
+    static_assert(sizeof(char_type_) == 1, "Characters must be a single byte long");
+
+    using char_type = char_type_;
+
+    char_type *needle_;
+    std::size_t length_;
+    mutable sz_utf8_case_insensitive_needle_metadata_t metadata_;
+
+  public:
+    utf8_case_insensitive_needle(char_type *needle, std::size_t length) noexcept
+        : needle_(needle), length_(length), metadata_ {} {}
+
+    utf8_case_insensitive_needle(basic_string_slice<char_type> needle) noexcept
+        : needle_(needle.data()), length_(needle.size()), metadata_ {} {}
+
+    template <std::size_t array_length_>
+    utf8_case_insensitive_needle(char_type (&needle)[array_length_]) noexcept
+        : needle_(needle), length_(array_length_ - 1), metadata_ {} {}
+
+    char_type *data() const noexcept { return needle_; }
+    std::size_t size() const noexcept { return length_; }
+    sz_utf8_case_insensitive_needle_metadata_t const &metadata_ref() const noexcept { return metadata_; }
 };
 
 #pragma endregion
@@ -1268,9 +1805,9 @@ class basic_string_slice {
      *  @brief Formatted output function for compatibility with STL's `std::basic_ostream`.
      *  @throw `std::ios_base::failure` if an exception occurred during output.
      */
-    template <typename stream_traits>
-    friend std::basic_ostream<value_type, stream_traits> &operator<<(std::basic_ostream<value_type, stream_traits> &os,
-                                                                     string_slice const &str) noexcept(false) {
+    template <typename stream_traits_>
+    friend std::basic_ostream<value_type, stream_traits_> &operator<<(
+        std::basic_ostream<value_type, stream_traits_> &os, string_slice const &str) noexcept(false) {
         return os.write(str.data(), str.size());
     }
 
@@ -1756,6 +2293,133 @@ class basic_string_slice {
         return find_last_of(set.inverted(), until);
     }
 
+    /**
+     *  @brief Find the first occurrence Unicode newline in UTF-8 encoding.
+     *  @param[out] match_length Length of the matched newline sequence.
+     */
+    size_type find_newline_utf8(size_type &match_length) const noexcept {
+        auto ptr = sz_utf8_find_newline(start_, length_, &match_length);
+        return ptr ? ptr - start_ : npos;
+    }
+
+    /**
+     *  @brief Find the first occurrence Unicode whitespace in UTF-8 encoding.
+     *  @param[out] match_length Length of the matched whitespace sequence.
+     */
+    size_type find_whitespace_utf8(size_type &match_length) const noexcept {
+        auto ptr = sz_utf8_find_whitespace(start_, length_, &match_length);
+        return ptr ? ptr - start_ : npos;
+    }
+
+    /**
+     *  @brief Find the first occurrence Unicode newline in UTF-8 encoding.
+     *  @param[out] match_length Length of the matched newline sequence.
+     */
+    size_type find_newline_utf8() const noexcept {
+        size_type match_length;
+        return find_newline_utf8(match_length);
+    }
+
+    /**
+     *  @brief Find the first occurrence Unicode whitespace in UTF-8 encoding.
+     *  @param[out] match_length Length of the matched whitespace sequence.
+     */
+    size_type find_whitespace_utf8() const noexcept {
+        size_type match_length;
+        return find_whitespace_utf8(match_length);
+    }
+
+    /**
+     *  @brief Count the number of UTF-8 characters (not bytes) in the string.
+     *  @return Number of UTF-8 codepoints.
+     */
+    size_type utf8_count() const noexcept { return sz_utf8_count(start_, length_); }
+
+    /**
+     *  @brief Find the byte offset of the Nth UTF-8 character.
+     *  @param[in] n Zero-indexed character position.
+     *  @return Byte offset of the Nth character, or npos if string has fewer than n characters.
+     */
+    size_type utf8_find_nth(size_type n) const noexcept {
+        auto ptr = sz_utf8_find_nth(start_, length_, n);
+        return ptr ? ptr - start_ : npos;
+    }
+
+    /**
+     *  @brief Compares two strings lexicographically, ignoring case. If prefix matches, lengths are compared.
+     *  @return 0 if equal, negative if `*this` is less than `other`, positive if `*this` is greater than `other`.
+     */
+    int utf8_case_insensitive_order(string_view other) const noexcept {
+        return (int)sz_utf8_case_insensitive_order(start_, length_, other.data(), other.size());
+    }
+
+    struct sized_match_t {
+        size_type offset {};
+        size_type length {};
+
+        sized_match_t() noexcept = default;
+        sized_match_t(size_type o, size_type l) noexcept : offset(o), length(l) {}
+
+        operator bool() const noexcept { return offset != npos; }
+        bool operator==(sized_match_t const &other) const noexcept {
+            return offset == other.offset && length == other.length;
+        }
+        bool operator!=(sized_match_t const &other) const noexcept {
+            return offset != other.offset || length != other.length;
+        }
+    };
+
+    /**
+     *  @brief Find the byte offset of the first occurrence of a substring.
+     *  @return Offset of the first occurrence or @c npos if not found.
+     */
+    sized_match_t utf8_case_insensitive_find(string_view other) const noexcept {
+        sz_utf8_case_insensitive_needle_metadata_t metadata = {};
+        sz_size_t match_length = 0;
+        auto ptr = sz_utf8_case_insensitive_find(start_, length_, other.data(), other.size(), &metadata, &match_length);
+        if (!ptr) return {npos, static_cast<size_type>(0)};
+        return {static_cast<size_type>(ptr - start_), match_length};
+    }
+
+    /**
+     *  @brief Find the byte offset of the first occurrence of a pre-compiled case-insensitive pattern.
+     *  @param[in] needle A pre-compiled pattern with cached metadata for efficient repeated searches.
+     *  @return Match info with offset and length, or @c npos offset if not found.
+     */
+    template <typename needle_char_type_>
+    sized_match_t utf8_case_insensitive_find(
+        utf8_case_insensitive_needle<needle_char_type_> const &needle) const noexcept {
+        sz_size_t match_length = 0;
+        auto ptr = sz_utf8_case_insensitive_find(start_, length_, needle.data(), needle.size(), &needle.metadata_ref(),
+                                                 &match_length);
+        if (!ptr) return {npos, static_cast<size_type>(0)};
+        return {static_cast<size_type>(ptr - start_), match_length};
+    }
+
+    /**
+     *  @brief Iterate over UTF-8 characters (codepoints) in the string.
+     *  @return A range view over UTF-32 codepoints decoded from UTF-8 bytes.
+     */
+    range_utf8_chars<string_slice> utf8_chars() const noexcept { return {*this}; }
+
+    /**
+     *  @brief Split the string by Unicode newline characters (UTF-8 aware).
+     *  @return A range of string slices split by newlines.
+     *
+     *  Splits on all 7 Unicode newline characters + CRLF sequence.
+     */
+    range_utf8_line_splits<string_slice> utf8_split_lines() const noexcept { return {*this}; }
+
+    /**
+     *  @brief Split the string by Unicode whitespace characters (UTF-8 aware).
+     *  @return A range of non-empty string slices split by whitespace.
+     *
+     *  Splits on all 25 Unicode White_Space characters.
+     *  Consecutive whitespace is treated as a single delimiter.
+     *  Empty segments are skipped.
+     */
+    range_utf8_whitespace_splits<string_slice> utf8_split() const noexcept { return {*this}; }
+
 #pragma endregion
 #pragma region String Arguments
 
@@ -2016,8 +2680,8 @@ class basic_string {
      */
     static_assert(std::is_empty<allocator_type_>::value, "We currently only support stateless allocators");
 
-    template <typename allocator_callback>
-    static status_t _with_alloc(allocator_callback &&callback) noexcept {
+    template <typename allocator_callback_>
+    static status_t _with_alloc(allocator_callback_ &&callback) noexcept {
         return ashvardanian::stringzilla::_with_alloc<allocator_type_>(callback);
     }
 
@@ -2185,9 +2849,9 @@ class basic_string {
      *  @brief Formatted output function for compatibility with STL's `std::basic_ostream`.
      *  @throw `std::ios_base::failure` if an exception occurred during output.
      */
-    template <typename stream_traits>
-    friend std::basic_ostream<value_type, stream_traits> &operator<<(std::basic_ostream<value_type, stream_traits> &os,
-                                                                     basic_string const &str) noexcept(false) {
+    template <typename stream_traits_>
+    friend std::basic_ostream<value_type, stream_traits_> &operator<<(
+        std::basic_ostream<value_type, stream_traits_> &os, basic_string const &str) noexcept(false) {
         return os.write(str.data(), str.size());
     }
 
@@ -2199,8 +2863,8 @@ class basic_string {
 
 #endif
 
-    template <typename first_type, typename second_type>
-    explicit basic_string(concatenation<first_type, second_type> const &expression) noexcept(false) {
+    template <typename first_type_, typename second_type_>
+    explicit basic_string(concatenation<first_type_, second_type_> const &expression) noexcept(false) {
         raise(_with_alloc([&](sz_alloc_type &alloc) {
             sz_ptr_t ptr = sz_string_init_length(&string_, expression.length(), &alloc);
             if (!ptr) return sz_bad_alloc_k;
@@ -2209,8 +2873,8 @@ class basic_string {
         }));
     }
 
-    template <typename first_type, typename second_type>
-    basic_string &operator=(concatenation<first_type, second_type> const &expression) noexcept(false) {
+    template <typename first_type_, typename second_type_>
+    basic_string &operator=(concatenation<first_type_, second_type_> const &expression) noexcept(false) {
         if (!try_assign(expression)) throw std::bad_alloc();
         return *this;
     }
@@ -2265,10 +2929,10 @@ class basic_string {
 #endif // !SZ_AVOID_STL
 
     difference_type ssize() const noexcept { return static_cast<difference_type>(size()); }
-    size_type size() const noexcept { return view().size(); }
+    size_type size() const noexcept { return sz_string_length(&string_); }
     size_type length() const noexcept { return size(); }
     size_type max_size() const noexcept { return npos - 1; }
-    bool empty() const noexcept { return string_.external.length == 0; }
+    bool empty() const noexcept { return sz_string_length(&string_) == 0; }
     size_type capacity() const noexcept {
         sz_ptr_t string_start;
         sz_size_t string_length;
@@ -2772,8 +3436,8 @@ class basic_string {
      *  @param[in] other The concatenation object representing the sequence to assign.
      *  @return `true` if the assignment was successful, `false` otherwise.
      */
-    template <typename first_type, typename second_type>
-    bool try_assign(concatenation<first_type, second_type> const &other) noexcept;
+    template <typename first_type_, typename second_type_>
+    bool try_assign(concatenation<first_type_, second_type_> const &other) noexcept;
 
     /**
      *  @brief Attempts to add a single character to the end of the string.
@@ -2887,8 +3551,9 @@ class basic_string {
         // Update the string length appropriately
         if (actual_count > string_length) {
             string_start[actual_count] = '\0';
-            // ! Knowing the layout of the string, we can perform this operation safely,
-            // ! even if its located on stack.
+            // Safe for both SSO and heap strings: on little-endian, internal.length
+            // overlaps with LSB of external.length, so += affects only the length byte.
+            // On big-endian, the struct layout places them at matching positions.
             string_.external.length += actual_count - string_length;
         }
         else { sz_string_erase(&string_, actual_count, SZ_SIZE_MAX); }
@@ -3507,6 +4172,80 @@ class basic_string {
         sz_lookup((sz_ptr_t)output, (sz_size_t)length, (sz_cptr_t)start, (sz_cptr_t)table.raw());
     }
 
+    /**
+     *  @brief Count UTF-8 characters in the string (not bytes).
+     *  @return The number of UTF-8 codepoints.
+     */
+    size_type utf8_count() const noexcept {
+        sz_ptr_t start;
+        sz_size_t length;
+        sz_string_range(&string_, &start, &length);
+        return sz_utf8_count(start, length);
+    }
+
+    /**
+     *  @brief Find the byte offset of the nth UTF-8 character.
+     *  @param n The character index (0-based).
+     *  @return The byte offset, or npos if n >= character count.
+     */
+    size_type utf8_find_nth(size_type n) const noexcept {
+        sz_ptr_t start;
+        sz_size_t length;
+        sz_string_range(&string_, &start, &length);
+        auto ptr = sz_utf8_find_nth(start, length, n);
+        return ptr ? ptr - start : npos;
+    }
+
+    /**
+     *  @brief Iterate over UTF-8 characters (codepoints) in the string.
+     *  @return A range view over UTF-32 codepoints decoded from UTF-8 bytes.
+     */
+    range_utf8_chars<basic_string> utf8_chars() const noexcept { return {*this}; }
+
+    /**
+     *  @brief Split the string by Unicode newline characters (UTF-8 aware).
+     *  @return A range of string slices split by newlines.
+     *
+     *  Splits on all 7 Unicode newline characters + CRLF sequence.
+     */
+    range_utf8_line_splits<basic_string> utf8_split_lines() const noexcept { return {*this}; }
+
+    /**
+     *  @brief Split the string by Unicode whitespace characters (UTF-8 aware).
+     *  @return A range of non-empty string slices split by whitespace.
+     *
+     *  Splits on all 25 Unicode whitespace characters. Empty segments (consecutive whitespace) are skipped.
+     */
+    range_utf8_whitespace_splits<basic_string> utf8_split() const noexcept { return {*this}; }
+
+    /**
+     *  @brief Apply Unicode case folding to the string in-place.
+     *
+     *  Case folding normalizes text for case-insensitive comparisons by mapping uppercase letters
+     *  to their lowercase equivalents and handling special expansions defined in Unicode CaseFolding.txt.
+     *
+     *  @return `true` if the operation was successful, `false` if memory allocation failed.
+     *  @note The string may grow due to expansions (e.g., U+00DF -> "ss"). Worst-case is 3x expansion.
+     */
+    bool try_utf8_case_fold() noexcept {
+        sz_ptr_t string_start;
+        sz_size_t string_length;
+        sz_size_t string_space;
+        sz_bool_t string_is_external;
+        sz_string_unpack(&string_, &string_start, &string_length, &string_space, &string_is_external);
+
+        // Allocate result buffer (worst-case 3x expansion), fold into it, then swap
+        basic_string result;
+        if (!result.try_resize_and_overwrite(string_length * 3,
+                                             [string_start, string_length](char_type *buf, size_type) {
+                                                 return sz_utf8_case_fold(string_start, string_length, buf);
+                                             }))
+            return false;
+
+        swap(result);
+        return true;
+    }
+
   private:
     template <typename pattern_type>
     bool try_replace_all_(pattern_type pattern, string_view replacement) noexcept;
@@ -3551,8 +4290,9 @@ bool basic_string<char_type_, allocator_>::try_resize(size_type count, value_typ
     if (count > string_length) {
         sz_fill(string_start + string_length, count - string_length, character);
         string_start[count] = '\0';
-        // Knowing the layout of the string, we can perform this operation safely,
-        // even if its located on stack.
+        // Safe for both SSO and heap strings: on little-endian, internal.length
+        // overlaps with LSB of external.length, so += affects only the length byte.
+        // On big-endian, the struct layout places them at matching positions.
         string_.external.length += count - string_length;
     }
     else { sz_string_erase(&string_, count, SZ_SIZE_MAX); }
@@ -3722,8 +4462,8 @@ bool basic_string<char_type_, allocator_>::try_replace_all_(pattern_type pattern
 }
 
 template <typename char_type_, typename allocator_>
-template <typename first_type, typename second_type>
-bool basic_string<char_type_, allocator_>::try_assign(concatenation<first_type, second_type> const &other) noexcept {
+template <typename first_type_, typename second_type_>
+bool basic_string<char_type_, allocator_>::try_assign(concatenation<first_type_, second_type_> const &other) noexcept {
     // We can't just assign the other string state, as its start address may be somewhere else on the stack.
     sz_ptr_t string_start;
     sz_size_t string_length;
@@ -3809,25 +4549,25 @@ struct hash {
 };
 
 /**  @brief SFINAE-type used to infer the resulting type of concatenating multiple string together. */
-template <typename... args_types>
+template <typename... args_types_>
 struct concatenation_result {};
 
-template <typename first_type, typename second_type>
-struct concatenation_result<first_type, second_type> {
-    using type = concatenation<first_type, second_type>;
+template <typename first_type_, typename second_type_>
+struct concatenation_result<first_type_, second_type_> {
+    using type = concatenation<first_type_, second_type_>;
 };
 
-template <typename first_type, typename... following_types>
-struct concatenation_result<first_type, following_types...> {
-    using type = concatenation<first_type, typename concatenation_result<following_types...>::type>;
+template <typename first_type_, typename... following_types_>
+struct concatenation_result<first_type_, following_types_...> {
+    using type = concatenation<first_type_, typename concatenation_result<following_types_...>::type>;
 };
 
 /**
  *  @brief Concatenates two strings into a template expression.
  *  @sa `concatenation` class for more details.
  */
-template <typename first_type, typename second_type>
-concatenation<first_type, second_type> concatenate(first_type &&first, second_type &&second) noexcept(false) {
+template <typename first_type_, typename second_type_>
+concatenation<first_type_, second_type_> concatenate(first_type_ &&first, second_type_ &&second) noexcept(false) {
     return {first, second};
 }
 
@@ -3835,9 +4575,9 @@ concatenation<first_type, second_type> concatenate(first_type &&first, second_ty
  *  @brief Concatenates two or more strings into a template expression.
  *  @sa `concatenation` class for more details.
  */
-template <typename first_type, typename second_type, typename... following_types>
-typename concatenation_result<first_type, second_type, following_types...>::type concatenate(
-    first_type &&first, second_type &&second, following_types &&...following) noexcept(false) {
+template <typename first_type_, typename second_type_, typename... following_types_>
+typename concatenation_result<first_type_, second_type_, following_types_...>::type concatenate(
+    first_type_ &&first, second_type_ &&second, following_types_ &&...following) noexcept(false) {
     // Fold expression like the one below would result in faster compile times,
     // but would incur the penalty of additional `if`-statements in every `append` call.
     // Moreover, those are only supported in C++17 and later.
@@ -3846,10 +4586,10 @@ typename concatenation_result<first_type, second_type, following_types...>::type
     //      result.reserve(total_size);
     //      (result.append(strings), ...);
     return ashvardanian::stringzilla::concatenate( //
-        std::forward<first_type>(first),
+        std::forward<first_type_>(first),
         ashvardanian::stringzilla::concatenate( //
-            std::forward<second_type>(second),  //
-            std::forward<following_types>(following)...));
+            std::forward<second_type_>(second), //
+            std::forward<following_types_>(following)...));
 }
 
 /**

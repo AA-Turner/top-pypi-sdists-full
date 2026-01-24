@@ -16,7 +16,6 @@ from .metrics import *  # noqa: F403
 from .obj import *  # noqa: F403
 from .parallel import *  # noqa: F403
 from .path import *  # noqa: F403
-from .quantstats.reports import HTMLReport, html  # noqa: F401
 from .returns import *  # noqa: F403
 from .shuffle import *  # noqa: F403
 from .signal import *  # noqa: F403

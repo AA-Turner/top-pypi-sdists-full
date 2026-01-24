@@ -3,7 +3,7 @@ Type annotations for clouddirectory service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_clouddirectory/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -35,12 +36,6 @@ from .literals import (
     UpdateActionTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -313,7 +308,7 @@ class ApplySchemaRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -362,13 +357,13 @@ class BatchDetachObjectResponseTypeDef(TypedDict):
 
 
 class BatchListObjectChildrenResponseTypeDef(TypedDict):
-    Children: NotRequired[Dict[str, str]]
+    Children: NotRequired[dict[str, str]]
     NextToken: NotRequired[str]
 
 
 class PathToObjectIdentifiersTypeDef(TypedDict):
     Path: NotRequired[str]
-    ObjectIdentifiers: NotRequired[List[str]]
+    ObjectIdentifiers: NotRequired[list[str]]
 
 
 class ObjectIdentifierAndLinkNameTupleTypeDef(TypedDict):
@@ -377,12 +372,12 @@ class ObjectIdentifierAndLinkNameTupleTypeDef(TypedDict):
 
 
 class BatchListObjectPoliciesResponseTypeDef(TypedDict):
-    AttachedPolicyIds: NotRequired[List[str]]
+    AttachedPolicyIds: NotRequired[list[str]]
     NextToken: NotRequired[str]
 
 
 class BatchListPolicyAttachmentsResponseTypeDef(TypedDict):
-    ObjectIdentifiers: NotRequired[List[str]]
+    ObjectIdentifiers: NotRequired[list[str]]
     NextToken: NotRequired[str]
 
 
@@ -448,7 +443,7 @@ RuleOutputTypeDef = TypedDict(
     "RuleOutputTypeDef",
     {
         "Type": NotRequired[RuleTypeType],
-        "Parameters": NotRequired[Dict[str, str]],
+        "Parameters": NotRequired[dict[str, str]],
     },
 )
 
@@ -802,7 +797,7 @@ class BatchGetObjectAttributesTypeDef(TypedDict):
 
 
 class BatchGetObjectInformationResponseTypeDef(TypedDict):
-    SchemaFacets: NotRequired[List[SchemaFacetTypeDef]]
+    SchemaFacets: NotRequired[list[SchemaFacetTypeDef]]
     ObjectIdentifier: NotRequired[str]
 
 
@@ -920,7 +915,7 @@ class GetAppliedSchemaVersionResponseTypeDef(TypedDict):
 
 
 class GetObjectInformationResponseTypeDef(TypedDict):
-    SchemaFacets: List[SchemaFacetTypeDef]
+    SchemaFacets: list[SchemaFacetTypeDef]
     ObjectIdentifier: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -932,60 +927,60 @@ class GetSchemaAsJsonResponseTypeDef(TypedDict):
 
 
 class GetTypedLinkFacetInformationResponseTypeDef(TypedDict):
-    IdentityAttributeOrder: List[str]
+    IdentityAttributeOrder: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListAppliedSchemaArnsResponseTypeDef(TypedDict):
-    SchemaArns: List[str]
+    SchemaArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListDevelopmentSchemaArnsResponseTypeDef(TypedDict):
-    SchemaArns: List[str]
+    SchemaArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFacetNamesResponseTypeDef(TypedDict):
-    FacetNames: List[str]
+    FacetNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListManagedSchemaArnsResponseTypeDef(TypedDict):
-    SchemaArns: List[str]
+    SchemaArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListObjectChildrenResponseTypeDef(TypedDict):
-    Children: Dict[str, str]
+    Children: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListObjectPoliciesResponseTypeDef(TypedDict):
-    AttachedPolicyIds: List[str]
+    AttachedPolicyIds: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPolicyAttachmentsResponseTypeDef(TypedDict):
-    ObjectIdentifiers: List[str]
+    ObjectIdentifiers: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListPublishedSchemaArnsResponseTypeDef(TypedDict):
-    SchemaArns: List[str]
+    SchemaArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListTypedLinkFacetNamesResponseTypeDef(TypedDict):
-    FacetNames: List[str]
+    FacetNames: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1048,24 +1043,24 @@ class AttributeNameAndValueOutputTypeDef(TypedDict):
 
 
 class BatchListObjectParentPathsResponseTypeDef(TypedDict):
-    PathToObjectIdentifiersList: NotRequired[List[PathToObjectIdentifiersTypeDef]]
+    PathToObjectIdentifiersList: NotRequired[list[PathToObjectIdentifiersTypeDef]]
     NextToken: NotRequired[str]
 
 
 class ListObjectParentPathsResponseTypeDef(TypedDict):
-    PathToObjectIdentifiersList: List[PathToObjectIdentifiersTypeDef]
+    PathToObjectIdentifiersList: list[PathToObjectIdentifiersTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class BatchListObjectParentsResponseTypeDef(TypedDict):
-    ParentLinks: NotRequired[List[ObjectIdentifierAndLinkNameTupleTypeDef]]
+    ParentLinks: NotRequired[list[ObjectIdentifierAndLinkNameTupleTypeDef]]
     NextToken: NotRequired[str]
 
 
 class ListObjectParentsResponseTypeDef(TypedDict):
-    Parents: Dict[str, str]
-    ParentLinks: List[ObjectIdentifierAndLinkNameTupleTypeDef]
+    Parents: dict[str, str]
+    ParentLinks: list[ObjectIdentifierAndLinkNameTupleTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1076,7 +1071,7 @@ class GetDirectoryResponseTypeDef(TypedDict):
 
 
 class ListDirectoriesResponseTypeDef(TypedDict):
-    Directories: List[DirectoryTypeDef]
+    Directories: list[DirectoryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1087,7 +1082,7 @@ FacetAttributeDefinitionOutputTypeDef = TypedDict(
         "Type": FacetAttributeTypeType,
         "DefaultValue": NotRequired[TypedAttributeValueOutputTypeDef],
         "IsImmutable": NotRequired[bool],
-        "Rules": NotRequired[Dict[str, RuleOutputTypeDef]],
+        "Rules": NotRequired[dict[str, RuleOutputTypeDef]],
     },
 )
 TypedLinkAttributeDefinitionOutputTypeDef = TypedDict(
@@ -1098,7 +1093,7 @@ TypedLinkAttributeDefinitionOutputTypeDef = TypedDict(
         "RequiredBehavior": RequiredAttributeBehaviorType,
         "DefaultValue": NotRequired[TypedAttributeValueOutputTypeDef],
         "IsImmutable": NotRequired[bool],
-        "Rules": NotRequired[Dict[str, RuleOutputTypeDef]],
+        "Rules": NotRequired[dict[str, RuleOutputTypeDef]],
     },
 )
 
@@ -1202,7 +1197,7 @@ class LookupPolicyRequestPaginateTypeDef(TypedDict):
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1214,7 +1209,7 @@ class TagResourceRequestTypeDef(TypedDict):
 
 class PolicyToPathTypeDef(TypedDict):
     Path: NotRequired[str]
-    Policies: NotRequired[List[PolicyAttachmentTypeDef]]
+    Policies: NotRequired[list[PolicyAttachmentTypeDef]]
 
 
 RuleUnionTypeDef = Union[RuleTypeDef, RuleOutputTypeDef]
@@ -1229,35 +1224,35 @@ class TypedAttributeValueTypeDef(TypedDict):
 
 
 class BatchGetLinkAttributesResponseTypeDef(TypedDict):
-    Attributes: NotRequired[List[AttributeKeyAndValueOutputTypeDef]]
+    Attributes: NotRequired[list[AttributeKeyAndValueOutputTypeDef]]
 
 
 class BatchGetObjectAttributesResponseTypeDef(TypedDict):
-    Attributes: NotRequired[List[AttributeKeyAndValueOutputTypeDef]]
+    Attributes: NotRequired[list[AttributeKeyAndValueOutputTypeDef]]
 
 
 class BatchListObjectAttributesResponseTypeDef(TypedDict):
-    Attributes: NotRequired[List[AttributeKeyAndValueOutputTypeDef]]
+    Attributes: NotRequired[list[AttributeKeyAndValueOutputTypeDef]]
     NextToken: NotRequired[str]
 
 
 class GetLinkAttributesResponseTypeDef(TypedDict):
-    Attributes: List[AttributeKeyAndValueOutputTypeDef]
+    Attributes: list[AttributeKeyAndValueOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class GetObjectAttributesResponseTypeDef(TypedDict):
-    Attributes: List[AttributeKeyAndValueOutputTypeDef]
+    Attributes: list[AttributeKeyAndValueOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class IndexAttachmentTypeDef(TypedDict):
-    IndexedAttributes: NotRequired[List[AttributeKeyAndValueOutputTypeDef]]
+    IndexedAttributes: NotRequired[list[AttributeKeyAndValueOutputTypeDef]]
     ObjectIdentifier: NotRequired[str]
 
 
 class ListObjectAttributesResponseTypeDef(TypedDict):
-    Attributes: List[AttributeKeyAndValueOutputTypeDef]
+    Attributes: list[AttributeKeyAndValueOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1266,7 +1261,7 @@ class TypedLinkSpecifierOutputTypeDef(TypedDict):
     TypedLinkFacet: TypedLinkSchemaAndFacetNameTypeDef
     SourceObjectReference: ObjectReferenceTypeDef
     TargetObjectReference: ObjectReferenceTypeDef
-    IdentityAttributeValues: List[AttributeNameAndValueOutputTypeDef]
+    IdentityAttributeValues: list[AttributeNameAndValueOutputTypeDef]
 
 
 class FacetAttributeOutputTypeDef(TypedDict):
@@ -1277,18 +1272,18 @@ class FacetAttributeOutputTypeDef(TypedDict):
 
 
 class ListTypedLinkFacetAttributesResponseTypeDef(TypedDict):
-    Attributes: List[TypedLinkAttributeDefinitionOutputTypeDef]
+    Attributes: list[TypedLinkAttributeDefinitionOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class BatchLookupPolicyResponseTypeDef(TypedDict):
-    PolicyToPathList: NotRequired[List[PolicyToPathTypeDef]]
+    PolicyToPathList: NotRequired[list[PolicyToPathTypeDef]]
     NextToken: NotRequired[str]
 
 
 class LookupPolicyResponseTypeDef(TypedDict):
-    PolicyToPathList: List[PolicyToPathTypeDef]
+    PolicyToPathList: list[PolicyToPathTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1299,23 +1294,23 @@ TypedAttributeValueUnionTypeDef = Union[
 
 
 class BatchListAttachedIndicesResponseTypeDef(TypedDict):
-    IndexAttachments: NotRequired[List[IndexAttachmentTypeDef]]
+    IndexAttachments: NotRequired[list[IndexAttachmentTypeDef]]
     NextToken: NotRequired[str]
 
 
 class BatchListIndexResponseTypeDef(TypedDict):
-    IndexAttachments: NotRequired[List[IndexAttachmentTypeDef]]
+    IndexAttachments: NotRequired[list[IndexAttachmentTypeDef]]
     NextToken: NotRequired[str]
 
 
 class ListAttachedIndicesResponseTypeDef(TypedDict):
-    IndexAttachments: List[IndexAttachmentTypeDef]
+    IndexAttachments: list[IndexAttachmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListIndexResponseTypeDef(TypedDict):
-    IndexAttachments: List[IndexAttachmentTypeDef]
+    IndexAttachments: list[IndexAttachmentTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1330,29 +1325,29 @@ class BatchAttachTypedLinkResponseTypeDef(TypedDict):
 
 
 class BatchListIncomingTypedLinksResponseTypeDef(TypedDict):
-    LinkSpecifiers: NotRequired[List[TypedLinkSpecifierOutputTypeDef]]
+    LinkSpecifiers: NotRequired[list[TypedLinkSpecifierOutputTypeDef]]
     NextToken: NotRequired[str]
 
 
 class BatchListOutgoingTypedLinksResponseTypeDef(TypedDict):
-    TypedLinkSpecifiers: NotRequired[List[TypedLinkSpecifierOutputTypeDef]]
+    TypedLinkSpecifiers: NotRequired[list[TypedLinkSpecifierOutputTypeDef]]
     NextToken: NotRequired[str]
 
 
 class ListIncomingTypedLinksResponseTypeDef(TypedDict):
-    LinkSpecifiers: List[TypedLinkSpecifierOutputTypeDef]
+    LinkSpecifiers: list[TypedLinkSpecifierOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListOutgoingTypedLinksResponseTypeDef(TypedDict):
-    TypedLinkSpecifiers: List[TypedLinkSpecifierOutputTypeDef]
+    TypedLinkSpecifiers: list[TypedLinkSpecifierOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class ListFacetAttributesResponseTypeDef(TypedDict):
-    Attributes: List[FacetAttributeOutputTypeDef]
+    Attributes: list[FacetAttributeOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1413,17 +1408,17 @@ class BatchWriteOperationResponseTypeDef(TypedDict):
     AttachObject: NotRequired[BatchAttachObjectResponseTypeDef]
     DetachObject: NotRequired[BatchDetachObjectResponseTypeDef]
     UpdateObjectAttributes: NotRequired[BatchUpdateObjectAttributesResponseTypeDef]
-    DeleteObject: NotRequired[Dict[str, Any]]
-    AddFacetToObject: NotRequired[Dict[str, Any]]
-    RemoveFacetFromObject: NotRequired[Dict[str, Any]]
-    AttachPolicy: NotRequired[Dict[str, Any]]
-    DetachPolicy: NotRequired[Dict[str, Any]]
+    DeleteObject: NotRequired[dict[str, Any]]
+    AddFacetToObject: NotRequired[dict[str, Any]]
+    RemoveFacetFromObject: NotRequired[dict[str, Any]]
+    AttachPolicy: NotRequired[dict[str, Any]]
+    DetachPolicy: NotRequired[dict[str, Any]]
     CreateIndex: NotRequired[BatchCreateIndexResponseTypeDef]
     AttachToIndex: NotRequired[BatchAttachToIndexResponseTypeDef]
     DetachFromIndex: NotRequired[BatchDetachFromIndexResponseTypeDef]
     AttachTypedLink: NotRequired[BatchAttachTypedLinkResponseTypeDef]
-    DetachTypedLink: NotRequired[Dict[str, Any]]
-    UpdateLinkAttributes: NotRequired[Dict[str, Any]]
+    DetachTypedLink: NotRequired[dict[str, Any]]
+    UpdateLinkAttributes: NotRequired[dict[str, Any]]
 
 
 class BatchReadSuccessfulResponseTypeDef(TypedDict):
@@ -1490,7 +1485,7 @@ TypedLinkAttributeDefinitionUnionTypeDef = Union[
 
 
 class BatchWriteResponseTypeDef(TypedDict):
-    Responses: List[BatchWriteOperationResponseTypeDef]
+    Responses: list[BatchWriteOperationResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1650,7 +1645,7 @@ class TypedLinkFacetTypeDef(TypedDict):
 
 
 class BatchReadResponseTypeDef(TypedDict):
-    Responses: List[BatchReadOperationResponseTypeDef]
+    Responses: list[BatchReadOperationResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import re
 import os
 import textwrap
 import time
@@ -21,8 +22,6 @@ import tango.constants
 from tango import (
     AttrData,
     Attr,
-    AttrList,
-    AttributeList,
     AttrDataFormat,
     AttrQuality,
     AttReqType,
@@ -54,6 +53,7 @@ from tango import (
     WAttribute,
 )
 from tango.green import get_executor
+from tango.pyutil import TimedAttrData
 from tango.server import Device
 from tango.server import command, attribute
 from tango.test_utils import (
@@ -77,18 +77,41 @@ from tango.utils import (
 )
 
 
-def test_read_write_attribute(attribute_typed_values, server_green_mode):
+@pytest.mark.parametrize("return_time_quality", [True, False])
+def test_read_write_attribute_all_types(attribute_typed_values, return_time_quality):
     dtype, values, expected = attribute_typed_values
 
+    class TestDevice(Device):
+        _is_allowed = None
+
+        @attribute(
+            dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
+        )
+        def attr(self):
+            if return_time_quality:
+                return self.attr_value, time.time(), AttrQuality.ATTR_VALID
+            else:
+                return self.attr_value
+
+        @attr.write
+        def attr(self, value):
+            self.attr_value = value
+
+    with DeviceTestContext(TestDevice) as proxy:
+        for value in values:
+            proxy.attr = value
+            assert_close(proxy.attr, expected(value))
+
+
+def test_read_write_attribute_with_green_modes(server_green_mode):
     if server_green_mode == GreenMode.Asyncio:
 
         class TestDevice(Device):
             green_mode = server_green_mode
             _is_allowed = None
+            attr_value = None
 
-            @attribute(
-                dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
-            )
+            @attribute(dtype=int, access=AttrWriteType.READ_WRITE)
             async def attr(self):
                 return self.attr_value
 
@@ -109,10 +132,9 @@ def test_read_write_attribute(attribute_typed_values, server_green_mode):
         class TestDevice(Device):
             green_mode = server_green_mode
             _is_allowed = None
+            attr_value = None
 
-            @attribute(
-                dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
-            )
+            @attribute(dtype=int, access=AttrWriteType.READ_WRITE)
             def attr(self):
                 return self.attr_value
 
@@ -130,13 +152,12 @@ def test_read_write_attribute(attribute_typed_values, server_green_mode):
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.make_allowed(True)
-        for value in values:
-            proxy.attr = value
-            assert_close(proxy.attr, expected(value))
+        proxy.attr = 1
+        assert proxy.attr == 1
 
         proxy.make_allowed(False)
         with pytest.raises(DevFailed):
-            proxy.attr = value
+            proxy.attr = 1
         with pytest.raises(DevFailed):
             _ = proxy.attr
 
@@ -195,43 +216,65 @@ def test_attribute_declared_with_typing(attribute_typed_values, return_time_qual
             self.attr_value = value
 
         @attribute(access=AttrWriteType.READ_WRITE)
-        def decorator_tuple_hint(self) -> tuple_hint:
+        def attribute_tuple_hint(self) -> tuple_hint:
             if return_time_quality:
                 return self.attr_value, time.time(), AttrQuality.ATTR_VALID
             return self.attr_value
 
-        @decorator_tuple_hint.write
-        def decorator_tuple_hint(self, value):
+        @attribute_tuple_hint.write
+        def attribute_tuple_hint(self, value):
             self.attr_value = value
 
         @attribute(access=AttrWriteType.READ_WRITE)
-        def decorator_tuple_hint_in_write(self):
+        @general_decorator
+        def attribute_with_decorated_read_method(self) -> tuple_hint:
             if return_time_quality:
                 return self.attr_value, time.time(), AttrQuality.ATTR_VALID
             return self.attr_value
 
-        @decorator_tuple_hint_in_write.write
-        def decorator_tuple_hint_in_write(self, value: tuple_hint):
+        @attribute_with_decorated_read_method.write
+        def attribute_with_decorated_read_method(self, value):
+            self.attr_value = value
+
+        @attribute(access=AttrWriteType.READ_WRITE)
+        def attribute_tuple_hint_in_write(self):
+            if return_time_quality:
+                return self.attr_value, time.time(), AttrQuality.ATTR_VALID
+            return self.attr_value
+
+        @attribute_tuple_hint_in_write.write
+        def attribute_tuple_hint_in_write(self, value: tuple_hint):
+            self.attr_value = value
+
+        @attribute(access=AttrWriteType.READ_WRITE)
+        def attribute_hint_in_decorated_write_method(self):
+            if return_time_quality:
+                return self.attr_value, time.time(), AttrQuality.ATTR_VALID
+            return self.attr_value
+
+        @attribute_hint_in_decorated_write_method.write
+        @general_decorator
+        def attribute_hint_in_decorated_write_method(self, value: tuple_hint):
             self.attr_value = value
 
         @attribute(access=AttrWriteType.READ_WRITE, max_dim_x=5, max_dim_y=5)
-        def decorator_user_size_priority_over_hint(self) -> tuple_hint:
+        def attribute_user_size_priority_over_hint(self) -> tuple_hint:
             if return_time_quality:
                 return self.attr_value, time.time(), AttrQuality.ATTR_VALID
             return self.attr_value
 
-        @decorator_user_size_priority_over_hint.write
-        def decorator_user_size_priority_over_hint(self, value):
+        @attribute_user_size_priority_over_hint.write
+        def attribute_user_size_priority_over_hint(self, value):
             self.attr_value = value
 
         @attribute(access=AttrWriteType.READ_WRITE, max_dim_x=5, max_dim_y=5)
-        def decorator_list_hint(self) -> list_hint:
+        def attribute_list_hint(self) -> list_hint:
             if return_time_quality:
                 return self.attr_value, time.time(), AttrQuality.ATTR_VALID
             return self.attr_value
 
-        @decorator_list_hint.write
-        def decorator_list_hint(self, value: tuple_hint):
+        @attribute_list_hint.write
+        def attribute_list_hint(self, value: tuple_hint):
             self.attr_value = value
 
         @command()
@@ -250,19 +293,25 @@ def test_attribute_declared_with_typing(attribute_typed_values, return_time_qual
 
     with DeviceTestContext(TestDevice) as proxy:
         for value in values:
-            check_attribute_with_size(proxy, "hint_with_tuple", value, 3, 2)
+            check_attribute_with_size(proxy, "hint_with_tuple", value, 3, 4)
             check_attribute_with_size(
                 proxy, "user_size_priority_over_hint", value, 5, 5
             )
             check_attribute_with_size(proxy, "hint_with_list", value, 5, 5)
-            check_attribute_with_size(proxy, "decorator_tuple_hint", value, 3, 2)
+            check_attribute_with_size(proxy, "attribute_tuple_hint", value, 3, 4)
             check_attribute_with_size(
-                proxy, "decorator_tuple_hint_in_write", value, 3, 2
+                proxy, "attribute_with_decorated_read_method", value, 3, 4
             )
             check_attribute_with_size(
-                proxy, "decorator_user_size_priority_over_hint", value, 5, 5
+                proxy, "attribute_tuple_hint_in_write", value, 3, 4
             )
-            check_attribute_with_size(proxy, "decorator_list_hint", value, 5, 5)
+            check_attribute_with_size(
+                proxy, "attribute_hint_in_decorated_write_method", value, 3, 4
+            )
+            check_attribute_with_size(
+                proxy, "attribute_user_size_priority_over_hint", value, 5, 5
+            )
+            check_attribute_with_size(proxy, "attribute_list_hint", value, 5, 5)
 
 
 def test_attribute_self_typed_with_not_defined_name():
@@ -430,13 +479,11 @@ def test_read_write_attribute_decorated_methods(server_green_mode):
             _ = proxy.attr
 
 
-@pytest.mark.parametrize("auto_size", [True, False])
-def test_read_write_wvalue_attribute(attribute_typed_values, auto_size):
+def test_read_write_wvalue_attribute(attribute_typed_values):
     dtype, values, expected = attribute_typed_values
 
     class TestDevice(Device):
         value = None
-        _auto_size = auto_size
 
         attr = attribute(
             dtype=dtype, max_dim_x=3, max_dim_y=3, access=AttrWriteType.READ_WRITE
@@ -448,16 +495,7 @@ def test_read_write_wvalue_attribute(attribute_typed_values, auto_size):
         def write_attr(self, value):
             self.value = value
             w_attr = self.get_device_attr().get_w_attr_by_name("attr")
-            if self._auto_size:
-                w_attr.set_write_value(value)
-            else:
-                fmt = w_attr.get_data_format()
-                if fmt == AttrDataFormat.SPECTRUM:
-                    w_attr.set_write_value(value, len(value))
-                elif fmt == AttrDataFormat.IMAGE:
-                    w_attr.set_write_value(value, len(value[0]), len(value))
-                else:
-                    w_attr.set_write_value(value)
+            w_attr.set_write_value(value)
 
     with DeviceTestContext(TestDevice) as proxy:
         for value in values:
@@ -465,8 +503,65 @@ def test_read_write_wvalue_attribute(attribute_typed_values, auto_size):
             assert_close(proxy.attr, expected(proxy.read_attribute("attr").w_value))
 
 
-def test_write_read_empty_spectrum_attribute(extract_as, base_type):
+def test_get_set_attribute_value_warning_and_alarm_thresholds():
+
+    class TestDevice(Device):
+
+        @attribute(
+            dtype=int,
+            min_value=-21,
+            min_alarm=-11,
+            min_warning=-1,
+            max_warning=1,
+            max_alarm=11,
+            max_value=21,
+        )
+        def attr(self):
+            return 0
+
+        @attr.setter
+        def attr(self, value):
+            pass
+
+        @command()
+        def check_limits(self):
+            multi_attr = self.get_device_attr()
+            attr = multi_attr.get_attr_by_name("attr")
+
+            assert attr.get_min_alarm() == -11
+            assert attr.get_max_alarm() == 11
+            attr.set_min_alarm(-12)
+            attr.set_max_alarm(12)
+            assert attr.get_min_alarm() == -12
+            assert attr.get_max_alarm() == 12
+
+            assert attr.get_min_warning() == -1
+            assert attr.get_max_warning() == 1
+            attr.set_min_warning(-2)
+            attr.set_max_warning(2)
+            assert attr.get_min_warning() == -2
+            assert attr.get_max_warning() == 2
+
+            w_attr = multi_attr.get_w_attr_by_name("attr")
+            assert w_attr.get_min_value() == -21
+            assert w_attr.get_max_value() == 21
+            w_attr.set_min_value(-22)
+            w_attr.set_max_value(22)
+            assert w_attr.get_min_value() == -22
+            assert w_attr.get_max_value() == 22
+
+    with DeviceTestContext(TestDevice) as proxy:
+        proxy.check_limits()
+
+
+@pytest.mark.parametrize(
+    "input_values",
+    [[[], []], [np.empty((0)), np.empty((0, 0))], [np.array([]), np.array([])]],
+    ids=["list", "np.empty", "np.array"],
+)
+def test_write_read_empty_spectrum_image_attribute(extract_as, base_type, input_values):
     requested_type, expected_type = extract_as
+    spectrum_value, image_value = input_values
 
     if requested_type == ExtractAs.Numpy and base_type is str:
         expected_type = tuple
@@ -480,35 +575,61 @@ def test_write_read_empty_spectrum_attribute(extract_as, base_type):
         )
 
     class TestDevice(Device):
-        attr_value = []
+        attr_spectrum_value = spectrum_value
+        attr_image_value = image_value
 
         @attribute(dtype=(base_type,), max_dim_x=3, access=AttrWriteType.READ_WRITE)
-        def attr(self):
-            return self.attr_value
+        def attr_spectrum(self):
+            return self.attr_spectrum_value
 
-        @attr.write
-        def attr(self, value):
-            self.attr_value = value
+        @attr_spectrum.write
+        def attr_spectrum(self, value):
+            self.attr_spectrum_value = value
 
-        @command(dtype_out=bool)
-        def is_attr_empty_list(self):
+        @attribute(
+            dtype=((base_type,),),
+            max_dim_x=3,
+            max_dim_y=3,
+            access=AttrWriteType.READ_WRITE,
+        )
+        def attr_image(self):
+            return self.attr_image_value
+
+        @attr_image.write
+        def attr_image(self, value):
+            self.attr_image_value = value
+
+        @command()
+        def check_attr_is_empty_list(self):
             if base_type in [int, float, bool]:
                 expected_numpy_type = FROM_TANGO_TO_NUMPY_TYPE[TO_TANGO_TYPE[base_type]]
-                assert self.attr_value.dtype == np.dtype(expected_numpy_type)
+                assert self.attr_spectrum_value.dtype == np.dtype(expected_numpy_type)
+                assert self.attr_image_value.dtype == np.dtype(expected_numpy_type)
             else:
-                assert isinstance(self.attr_value, list)
-            assert len(self.attr_value) == 0
+                assert isinstance(self.attr_spectrum_value, list)
+                assert isinstance(self.attr_image_value, list)
+            assert len(self.attr_spectrum_value) == 0
+            assert len(self.attr_image_value) == 0
 
     with DeviceTestContext(TestDevice) as proxy:
         # first we read init value
-        attr_read = proxy.read_attribute("attr", extract_as=requested_type)
+        attr_read = proxy.read_attribute("attr_spectrum", extract_as=requested_type)
+        assert isinstance(attr_read.value, expected_type)
+        assert len(attr_read.value) == 0
+        attr_read = proxy.read_attribute("attr_image", extract_as=requested_type)
         assert isinstance(attr_read.value, expected_type)
         assert len(attr_read.value) == 0
         # then we write empty list and check if it was really written
-        proxy.attr = []
-        proxy.is_attr_empty_list()
+        proxy.attr_spectrum = spectrum_value
+        proxy.attr_image = image_value
+        proxy.check_attr_is_empty_list()
         # and finally, we read it again and check the value and wvalue
-        attr_read = proxy.read_attribute("attr", extract_as=requested_type)
+        attr_read = proxy.read_attribute("attr_spectrum", extract_as=requested_type)
+        assert isinstance(attr_read.value, expected_type)
+        assert len(attr_read.value) == 0
+        assert isinstance(attr_read.w_value, expected_type)
+        assert len(attr_read.w_value) == 0
+        attr_read = proxy.read_attribute("attr_image", extract_as=requested_type)
         assert isinstance(attr_read.value, expected_type)
         assert len(attr_read.value) == 0
         assert isinstance(attr_read.w_value, expected_type)
@@ -535,7 +656,7 @@ def test_write_read_empty_spectrum_attribute_classic_api(
         )
 
     class ClassicAPIClass(DeviceClass):
-        cmd_list = {"is_attr_empty_list": [[DevVoid, "none"], [DevBoolean, "none"]]}
+        cmd_list = {"check_attr_is_empty_list": [[DevVoid, "none"], [DevVoid, "none"]]}
         attr_list = {
             "attr": [[TO_TANGO_TYPE[base_type], SPECTRUM, AttrWriteType.READ_WRITE, 10]]
         }
@@ -554,7 +675,7 @@ def test_write_read_empty_spectrum_attribute_classic_api(
             w_value = attr.get_write_value()
             self.attr_value = w_value
 
-        def is_attr_empty_list(self):
+        def check_attr_is_empty_list(self):
             if base_type in [int, float, bool]:
                 expected_numpy_type = FROM_TANGO_TO_NUMPY_TYPE[TO_TANGO_TYPE[base_type]]
                 assert self.attr_value.dtype == np.dtype(expected_numpy_type)
@@ -569,7 +690,7 @@ def test_write_read_empty_spectrum_attribute_classic_api(
         assert len(attr_read.value) == 0
         # then we write empty list and check if it was really written
         proxy.attr = []
-        proxy.is_attr_empty_list()
+        proxy.check_attr_is_empty_list()
         # and finally, we read it again and check the value and wvalue
         attr_read = proxy.read_attribute("attr", extract_as=requested_type)
         assert isinstance(attr_read.value, expected_type)
@@ -597,11 +718,13 @@ def test_ensure_devstate_is_pytango_enum(attr_data_format, dtype):
     with DeviceTestContext(TestDevice) as proxy:
         states = proxy.any_name_for_state_attribute
         assert states == value
+        if attr_data_format == AttrDataFormat.SCALAR:
+            assert states is value
         check_attr_type(states, attr_data_format, DevState)
 
 
 def test_read_write_attribute_enum(attr_data_format):
-    values = (member.value for member in GoodEnum)
+    values = [member.value for member in GoodEnum]
     enum_labels = get_enum_labels(GoodEnum)
 
     if attr_data_format == AttrDataFormat.SCALAR:
@@ -653,6 +776,7 @@ def test_read_write_attribute_enum(attr_data_format):
             self.attr_from_labels_value = value
 
     with DeviceTestContext(TestDevice) as proxy:
+        # test assigning values (ints)
         for value, label in zip(values, enum_labels):
             nd_value = make_nd_value(value, attr_data_format)
             proxy.attr_from_enum = nd_value
@@ -667,19 +791,25 @@ def test_read_write_attribute_enum(attr_data_format):
             check_attr_type(read_attr, attr_data_format, enum.IntEnum)
             check_read_attr(read_attr, attr_data_format, value, label)
 
+        # test assigning labels (strings)
         for value, label in zip(values, enum_labels):
             nd_label = make_nd_value(label, attr_data_format)
             proxy.attr_from_enum = nd_label
             read_attr = proxy.attr_from_enum
-            assert read_attr == nd_label
             check_attr_type(read_attr, attr_data_format, enum.IntEnum)
             check_read_attr(read_attr, attr_data_format, value, label)
 
             proxy.attr_from_labels = nd_label
             read_attr = proxy.attr_from_labels
-            assert read_attr == nd_label
             check_attr_type(read_attr, attr_data_format, enum.IntEnum)
             check_read_attr(read_attr, attr_data_format, value, label)
+
+        invalid_label = make_nd_value("_DOES_NOT_EXIST_", attr_data_format)
+        expected_match = re.escape(f"Valid values: {enum_labels}")
+        with pytest.raises(AttributeError, match=expected_match):
+            proxy.attr_from_enum = invalid_label
+        with pytest.raises(AttributeError, match=expected_match):
+            proxy.attr_from_labels = invalid_label
 
     with pytest.raises(TypeError) as context:
 
@@ -748,7 +878,7 @@ def test_read_attribute_with_invalid_quality_is_none(attribute_typed_values):
     with DeviceTestContext(TestDevice) as proxy:
         reading = proxy.read_attribute("attr")
         assert reading.value is None
-        assert reading.quality is AttrQuality.ATTR_INVALID
+        assert reading.quality == AttrQuality.ATTR_INVALID
         high_level_value = proxy.attr
         assert high_level_value is None
 
@@ -763,7 +893,7 @@ def test_read_enum_attribute_with_invalid_quality_is_none():
     with DeviceTestContext(TestDevice) as proxy:
         reading = proxy.read_attribute("attr")
         assert reading.value is None
-        assert reading.quality is AttrQuality.ATTR_INVALID
+        assert reading.quality == AttrQuality.ATTR_INVALID
         high_level_value = proxy.attr
         assert high_level_value is None
 
@@ -1071,12 +1201,12 @@ def test_dynamic_attribute_declared_with_typing(attribute_typed_values):
 
     with DeviceTestContext(TestDevice) as proxy:
         for value in values:
-            check_attribute_with_size(proxy, "read_function_tuple_hint", value, 3, 2)
+            check_attribute_with_size(proxy, "read_function_tuple_hint", value, 3, 4)
             check_attribute_with_size(proxy, "read_function_list_hint", value, 5, 5)
             check_attribute_with_size(
                 proxy, "user_size_priority_over_hint", value, 5, 5
             )
-            check_attribute_with_size(proxy, "write_function_tuple_hint", value, 3, 2)
+            check_attribute_with_size(proxy, "write_function_tuple_hint", value, 3, 4)
             check_attribute_with_size(proxy, "write_function_list_hint", value, 5, 5)
 
 
@@ -1421,7 +1551,7 @@ def test_read_write_dynamic_attribute_decorated_shared_user_functions():
 
 
 def test_read_write_dynamic_attribute_enum(attr_data_format):
-    values = (member.value for member in GoodEnum)
+    values = [member.value for member in GoodEnum]
     enum_labels = get_enum_labels(GoodEnum)
 
     if attr_data_format == AttrDataFormat.SCALAR:
@@ -1464,6 +1594,7 @@ def test_read_write_dynamic_attribute_enum(attr_data_format):
             attr = attribute(
                 name="dyn_attr",
                 dtype=attr_type,
+                enum_labels=enum_labels,
                 max_dim_x=3,
                 max_dim_y=3,
                 access=AttrWriteType.READ_WRITE,
@@ -2170,8 +2301,9 @@ def test_polled_attribute(server_green_mode):
             assert dct[attr] == poll_period
 
 
-def test_read_write_dev_encoded(dev_encoded_values):
-    server_green_mode = GreenMode.Synchronous
+@pytest.mark.parametrize("return_type", [tuple, list])
+@pytest.mark.parametrize("return_quality", [True, False])
+def test_read_write_dev_encoded(dev_encoded_values, return_quality, return_type):
 
     def check_ans(raw_ans, expected_type):
         assert len(raw_ans) == 2
@@ -2186,73 +2318,43 @@ def test_read_write_dev_encoded(dev_encoded_values):
             assert isinstance(raw_ans[1], bytearray)
             assert raw_ans[1] == bytearray(UTF8_STRING.encode())
 
-    if server_green_mode == GreenMode.Asyncio:
+    class TestDevice(Device):
+        attr_value = None
+        command_value = None
 
-        class TestDevice(Device):
-            green_mode = server_green_mode
-            attr_value = None
-            command_value = None
+        @attribute(dtype=DevEncoded, access=AttrWriteType.READ_WRITE)
+        def attr(self):
+            if return_quality:
+                return return_type(self.attr_value), time.time(), AttrQuality.ATTR_VALID
+            else:
+                return return_type(self.attr_value)
 
-            @attribute(dtype=DevEncoded, access=AttrWriteType.READ_WRITE)
-            async def attr(self):
-                return self.attr_value
+        @attr.write
+        def attr(self, value):
+            check_ans(value, bytes)
+            self.attr_value = value
 
-            @attr.write
-            async def attr(self, value):
-                check_ans(value, bytes)
-                self.attr_value = value
+        @attribute(dtype=DevEncoded)
+        def attr_time_quality_1(self):
+            return self.attr_value, 1.0, AttrQuality.ATTR_ALARM
 
-            @command(dtype_in=DevEncoded)
-            async def cmd_in(self, value):
-                check_ans(value, bytes)
-                self.command_value = value
+        @attribute(dtype=DevEncoded)
+        def attr_time_quality_2(self):
+            return *self.attr_value, 2.0, AttrQuality.ATTR_WARNING
 
-            @command(dtype_out=DevEncoded)
-            async def cmd_out(self):
-                return self.command_value
+        @command(dtype_in=DevEncoded)
+        def cmd_in(self, value):
+            check_ans(value, bytes)
+            self.command_value = value
 
-            @command(dtype_in=DevEncoded, dtype_out=DevEncoded)
-            async def cmd_in_out(self, value):
-                check_ans(value, bytes)
-                return value
+        @command(dtype_out=DevEncoded)
+        def cmd_out(self):
+            return self.command_value
 
-    else:
-
-        class TestDevice(Device):
-            green_mode = server_green_mode
-            attr_value = None
-            command_value = None
-
-            @attribute(dtype=DevEncoded, access=AttrWriteType.READ_WRITE)
-            def attr(self):
-                return self.attr_value
-
-            @attr.write
-            def attr(self, value):
-                check_ans(value, bytes)
-                self.attr_value = value
-
-            @attribute(dtype=DevEncoded)
-            def attr_time_quality_1(self):
-                return self.attr_value, 1.0, AttrQuality.ATTR_ALARM
-
-            @attribute(dtype=DevEncoded)
-            def attr_time_quality_2(self):
-                return *self.attr_value, 2.0, AttrQuality.ATTR_WARNING
-
-            @command(dtype_in=DevEncoded)
-            def cmd_in(self, value):
-                check_ans(value, bytes)
-                self.command_value = value
-
-            @command(dtype_out=DevEncoded)
-            def cmd_out(self):
-                return self.command_value
-
-            @command(dtype_in=DevEncoded, dtype_out=DevEncoded)
-            def cmd_in_out(self, value):
-                check_ans(value, bytes)
-                return value
+        @command(dtype_in=DevEncoded, dtype_out=DevEncoded)
+        def cmd_in_out(self, value):
+            check_ans(value, bytes)
+            return value
 
     with DeviceTestContext(TestDevice) as proxy:
         proxy.attr = dev_encoded_values
@@ -2268,21 +2370,19 @@ def test_read_write_dev_encoded(dev_encoded_values):
         check_ans(raw_ans.value, bytearray)
         check_ans(raw_ans.w_value, bytearray)
 
-        if server_green_mode == GreenMode.Synchronous:
-            raw_ans = proxy.read_attribute(
-                "attr_time_quality_1", extract_as=ExtractAs.Bytes
-            )
-            check_ans(raw_ans.value, bytes)
-            assert raw_ans.quality == AttrQuality.ATTR_ALARM
-            assert raw_ans.time.tv_sec == 1
+        raw_ans = proxy.read_attribute(
+            "attr_time_quality_1", extract_as=ExtractAs.Bytes
+        )
+        check_ans(raw_ans.value, bytes)
+        assert raw_ans.quality == AttrQuality.ATTR_ALARM
+        assert raw_ans.time.tv_sec == 1
 
-        if server_green_mode == GreenMode.Synchronous:
-            raw_ans = proxy.read_attribute(
-                "attr_time_quality_2", extract_as=ExtractAs.Bytes
-            )
-            check_ans(raw_ans.value, bytes)
-            assert raw_ans.quality == AttrQuality.ATTR_WARNING
-            assert raw_ans.time.tv_sec == 2
+        raw_ans = proxy.read_attribute(
+            "attr_time_quality_2", extract_as=ExtractAs.Bytes
+        )
+        check_ans(raw_ans.value, bytes)
+        assert raw_ans.quality == AttrQuality.ATTR_WARNING
+        assert raw_ans.time.tv_sec == 2
 
         proxy.cmd_in(dev_encoded_values)
         raw_ans = proxy.cmd_out()
@@ -2482,7 +2582,7 @@ def test_dev_encoded_memory_usage():
                 return "bytearray", bytearray(b"c" * LARGE_DATA_SIZE)
 
     with DeviceTestContext(TestDevice) as proxy:
-        last_memory_usage = None
+        last_memory_usage = []
         for cycle in range(NUM_CYCLES):
             proxy.attr_str_write = "str", "a" * LARGE_DATA_SIZE
             proxy.attr_bytes_write = "bytes", b"b" * LARGE_DATA_SIZE
@@ -2509,11 +2609,8 @@ def test_dev_encoded_memory_usage():
             )
 
             current_memory_usage = int(psutil.Process(os.getpid()).memory_info().rss)
-            if cycle > 2:  # first two cycles we memory usage grows....
-                assert np.isclose(
-                    last_memory_usage, current_memory_usage, atol=LARGE_DATA_SIZE / 2
-                )
-            last_memory_usage = current_memory_usage
+            last_memory_usage = np.append(last_memory_usage, current_memory_usage)
+        assert not np.all(np.diff(last_memory_usage) > 0)
 
 
 def test_attribute_list():
@@ -2536,7 +2633,7 @@ def test_attribute_list():
         @command()
         def check_attribute_list(self):
             attribute_list = self.get_device_attr().get_attribute_list()
-            assert isinstance(attribute_list, AttributeList)
+            assert isinstance(attribute_list, tuple)
             assert len(attribute_list) == 4
 
             assert isinstance(attribute_list[0], WAttribute)
@@ -2556,7 +2653,7 @@ def test_attribute_list():
             assert isinstance(multi_class_attribute, MultiClassAttribute)
 
             attr_list = multi_class_attribute.get_attr_list()
-            assert isinstance(attr_list, AttrList)
+            assert isinstance(attr_list, tuple)
 
             assert len(attr_list) == 2
 
@@ -2569,3 +2666,92 @@ def test_attribute_list():
     with DeviceTestContext(TestDevice) as proxy:
         proxy.check_attribute_list()
         proxy.check_attr_list()
+
+
+@pytest.mark.parametrize("set_w_value", [False, True])
+def test_fill_attr_polling_buffer(attribute_typed_values, set_w_value):
+    dtype, values, expected = attribute_typed_values
+
+    start_time = time.time()
+
+    class TestDevice(Device):
+
+        @attribute(
+            dtype=dtype, access=AttrWriteType.READ_WRITE, max_dim_x=3, max_dim_y=3
+        )
+        def attr(self):
+            return values[0]
+
+        @attr.write
+        def attr(self, new_val):
+            pass
+
+        @attribute(dtype=dtype, max_dim_x=3, max_dim_y=3)
+        def attr_2(self):
+            return values[0]
+
+        @command
+        def fill_history(self):
+            data = []
+            for i, val in enumerate(values):
+                t = start_time + i
+                w_val = val if set_w_value else None
+                data.append(TimedAttrData(val, w_value=w_val, time_stamp=t))
+
+            data.append(
+                TimedAttrData(
+                    error=RuntimeError("Test"),
+                    time_stamp=start_time + len(data),
+                )
+            )
+            self.fill_attr_polling_buffer("attr", data)
+
+            # check how auto-convert to list works
+            self.fill_attr_polling_buffer("attr_2", TimedAttrData(values[0]))
+
+    with DeviceTestContext(TestDevice) as proxy:
+        # we do not want, that tango core fills up history automatically
+        proxy.poll_attribute("attr", 0)
+        proxy.poll_attribute("attr_2", 0)
+        proxy.fill_history()
+        history = proxy.attribute_history("attr", 10)
+        assert len(history) == len(values) + 1
+        for ind, attr in enumerate(history[:-1]):
+            assert_close(attr.value, expected(values[ind]))
+            assert attr.quality == AttrQuality.ATTR_VALID
+            assert not attr.has_failed
+            assert_close(start_time + ind, attr.time.totime())
+            if set_w_value:
+                assert_close(attr.w_value, expected(values[ind]))
+
+        assert history[-1].has_failed
+        assert history[-1].quality == AttrQuality.ATTR_INVALID
+
+        history = proxy.attribute_history("attr_2", 10)
+        assert_close(history[0].value, expected(values[0]))
+
+
+def test_removed_dim_parameters():
+    reason = "Note, that dim_x and dim_y arguments are no longer supported"
+
+    class TestDevice(Device):
+        def initialize_dynamic_attributes(self):
+            attr = attribute(name="attr", fget=self.attr, dtype=int)
+            self.add_attribute(attr)
+
+        def attr(self, attr):
+            with pytest.raises(TypeError, match=reason):
+                attr.set_value_date_quality(1, time.time(), AttrQuality.ATTR_VALID, 1)
+            with pytest.raises(TypeError, match=reason):
+                attr.set_value_date_quality(
+                    1, time.time(), AttrQuality.ATTR_VALID, 1, 1
+                )
+            with pytest.raises(TypeError, match=reason):
+                attr.set_value(1, 1)
+            with pytest.raises(TypeError, match=reason):
+                attr.set_value(1, 1, 2)
+
+            return 1
+
+    with DeviceTestContext(TestDevice) as proxy:
+        _ = proxy.attr

@@ -302,3 +302,16 @@ def test_standard_special_forms():
         MetaFromString, match=r"Could not produce a Literal\['foo', 'bar'\] instance from 'foo'"
     ):
         f.from_string("foo")
+
+
+def test_standard_subclass_duplicate():
+    class Parent: ...
+
+    ca = type("Child", (Parent,), {})  # noqa: F841
+    cb = type("Child", (Parent,), {})  # noqa: F841
+
+    f = standard(annotation=Parent)
+    with pytest.raises(
+        MetaFromString, match=r"Multiple subclasses of .*Parent named 'Child': .*Child, .*Child"
+    ):
+        f.from_string("Child")

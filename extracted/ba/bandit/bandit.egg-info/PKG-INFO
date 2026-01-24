@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: bandit
-Version: 1.8.6
+Version: 1.9.3
 Summary: Security oriented static analyser for python code.
 Home-page: https://bandit.readthedocs.io/
 Author: PyCQA
@@ -12,7 +12,6 @@ Project-URL: Source Code, https://github.com/PyCQA/bandit
 Project-URL: Issue Tracker, https://github.com/PyCQA/bandit/issues
 Project-URL: Discord, https://discord.gg/qYxpadCgkx
 Project-URL: Sponsor, https://psfmember.org/civicrm/contribute/transact/?reset=1&id=42
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Information Technology
@@ -22,20 +21,48 @@ Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Security
-Requires-Python: >=3.9
-Provides-Extra: yaml
-Provides-Extra: toml
-Provides-Extra: baseline
-Provides-Extra: sarif
-Provides-Extra: test
+Requires-Python: >=3.10
 License-File: LICENSE
+Requires-Dist: PyYAML>=5.3.1
+Requires-Dist: stevedore>=1.20.0
+Requires-Dist: rich
+Requires-Dist: colorama>=0.3.9; platform_system == "Windows"
+Provides-Extra: yaml
+Requires-Dist: PyYAML; extra == "yaml"
+Provides-Extra: toml
+Requires-Dist: tomli>=1.1.0; python_version < "3.11" and extra == "toml"
+Provides-Extra: baseline
+Requires-Dist: GitPython>=3.1.30; extra == "baseline"
+Provides-Extra: sarif
+Requires-Dist: sarif-om>=1.0.4; extra == "sarif"
+Requires-Dist: jschema-to-python>=1.2.3; extra == "sarif"
+Provides-Extra: test
+Requires-Dist: coverage>=4.5.4; extra == "test"
+Requires-Dist: fixtures>=3.0.0; extra == "test"
+Requires-Dist: flake8>=4.0.0; extra == "test"
+Requires-Dist: stestr>=2.5.0; extra == "test"
+Requires-Dist: testscenarios>=0.5.0; extra == "test"
+Requires-Dist: testtools>=2.3.0; extra == "test"
+Requires-Dist: beautifulsoup4>=4.8.0; extra == "test"
+Requires-Dist: pylint==1.9.4; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 .. image:: https://raw.githubusercontent.com/pycqa/bandit/main/logo/logotype-sm.png
     :alt: Bandit
@@ -182,6 +209,4 @@ The development of Bandit is made possible by the following sponsors:
           :width: 88
 
 If you also ❤️ Bandit, please consider sponsoring.
-
-
 

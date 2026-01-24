@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arelle-release
-Version: 2.37.60
+Version: 2.38.6
 Summary: An open source XBRL platform.
 Author-email: "arelle.org" <support@arelle.org>
 License-Expression: Apache-2.0
@@ -18,33 +18,35 @@ Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Text Processing :: Markup :: XML
-Requires-Python: <3.14,>=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: bottle<0.14,>=0.13
 Requires-Dist: certifi
 Requires-Dist: filelock
 Requires-Dist: isodate<1,>=0
+Requires-Dist: jaconv<1,>=0
 Requires-Dist: jsonschema<5,>=4
 Requires-Dist: lxml!=6.0.0,<7,>=4
 Requires-Dist: numpy<3,>=1
 Requires-Dist: openpyxl<4,>=3
-Requires-Dist: pillow<12,>=10
+Requires-Dist: pillow<13,>=10
 Requires-Dist: pyparsing<4,>=3
 Requires-Dist: python-dateutil<3,>=2
 Requires-Dist: regex
-Requires-Dist: truststore<1,>=0; python_version > "3.9"
+Requires-Dist: truststore<1,>=0
 Requires-Dist: typing-extensions<5,>=4
 Provides-Extra: crypto
 Requires-Dist: pycryptodome<4,>=3; extra == "crypto"
 Provides-Extra: db
+Requires-Dist: cx_Oracle<9,>=8; extra == "db"
 Requires-Dist: pg8000<2,>=1; extra == "db"
 Requires-Dist: PyMySQL<2,>=1; extra == "db"
 Requires-Dist: pyodbc<6,>=4; extra == "db"
@@ -56,8 +58,12 @@ Requires-Dist: matplotlib<4,>=3; extra == "efm"
 Requires-Dist: pytz; extra == "efm"
 Provides-Extra: esef
 Requires-Dist: tinycss2<2,>=1; extra == "esef"
+Provides-Extra: gui
+Requires-Dist: pywin32<400,>=300; sys_platform == "win32" and extra == "gui"
 Provides-Extra: objectmaker
 Requires-Dist: graphviz<1,>=0; extra == "objectmaker"
+Provides-Extra: viewer
+Requires-Dist: ixbrl-viewer<2,>=1; extra == "viewer"
 Provides-Extra: webserver
 Requires-Dist: cheroot<12,>=8; extra == "webserver"
 Requires-Dist: tornado<7,>=6; extra == "webserver"

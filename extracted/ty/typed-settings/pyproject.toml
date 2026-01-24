@@ -13,7 +13,7 @@ dynamic = ["version"]
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Stefan Scherfke", email = "stefan@sofa-rockers.org" },
 ]
@@ -31,11 +31,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python",
@@ -61,11 +61,15 @@ option-groups = [
     "click-option-group",
     "click>=7",
 ]
+dotenv = [
+    "python-dotenv",
+]
 jinja = [
     "jinja2",
 ]
 pydantic = [
-    "pydantic>=2",
+    "pydantic>=2; python_version<'3.14'",
+    "pydantic>=2.12.0a1; python_version>='3.14'",
 ]
 all = [  # All features
     "typed-settings[attrs,cattrs,click,option-groups,jinja,pydantic]",
@@ -156,7 +160,7 @@ filterwarnings = [
 [tool.ruff]
 line-length = 88
 src = ["src", "tests"]
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = [  # see: https://beta.ruff.rs/docs/rules/

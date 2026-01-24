@@ -136,6 +136,9 @@ def luks_data_sources(broker):
             DatasourceProvider(
                 content=filtered_content,
                 relative_path=relative_path,
+                ds=Specs.cryptsetup_luksDump,
+                ctx=broker.get(HostContext),
+                cleaner=broker.get("cleaner"),
             )
         )
 

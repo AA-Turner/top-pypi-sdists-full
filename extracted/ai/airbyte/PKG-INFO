@@ -1,49 +1,45 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: airbyte
-Version: 0.31.3
+Version: 0.36.1
 Summary: PyAirbyte
-Author: Airbyte
-Author-email: contact@airbyte.io
-Requires-Python: >=3.10,<3.13
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: airbyte-api (>=0.52.1,<0.53.0)
-Requires-Dist: airbyte-cdk (>=6.61.6,<7.0.0)
-Requires-Dist: airbyte-protocol-models-pdv2 (>=0.13.0,<0.14.0)
-Requires-Dist: click (>=8.1.7,<9.0.0)
-Requires-Dist: cryptography (>=44.0.0,<45.0.0)
-Requires-Dist: duckdb (>=1.1.0,<2.0.0)
-Requires-Dist: duckdb-engine (>=0.13.2,<0.14.0)
-Requires-Dist: fastmcp (>=2.11.3,<3.0.0)
-Requires-Dist: google-auth (>=2.27.0,<3.0)
-Requires-Dist: google-cloud-bigquery (>=3.12.0,<4.0)
-Requires-Dist: google-cloud-bigquery-storage (>=2.25.0,<3.0.0)
-Requires-Dist: google-cloud-secret-manager (>=2.17.0,<3.0.0)
-Requires-Dist: jsonschema (>=3.2.0,<5.0)
-Requires-Dist: orjson (>=3.10,<4.0)
-Requires-Dist: overrides (>=7.4.0,<8.0.0)
-Requires-Dist: pandas (>=1.5.3,<3.0)
-Requires-Dist: psycopg2-binary (>=2.9.9,<3.0.0)
-Requires-Dist: psycopg[binary,pool] (>=3.1.19,<4.0.0)
-Requires-Dist: pyarrow (>=16.1,<22.0)
-Requires-Dist: pydantic (>=2.0,<=3.0)
+Author-email: Airbyte <contact@airbyte.io>
+License-File: LICENSE.md
+Requires-Python: <3.13,>=3.10
+Requires-Dist: airbyte-api<1.0,>=0.53.0
+Requires-Dist: airbyte-cdk<8.0.0,>=7.3.9
+Requires-Dist: airbyte-protocol-models-pdv2<1.0,>=0.13.0
+Requires-Dist: click<9.0,>=8.1.7
+Requires-Dist: cryptography<45.0.0,>=44.0.0
+Requires-Dist: duckdb-engine==0.17.0
+Requires-Dist: duckdb==1.4.3
+Requires-Dist: fastmcp-extensions<1.0.0,>=0.2.0
+Requires-Dist: fastmcp<3.0.0,>=2.11.3
+Requires-Dist: google-auth<3.0,>=2.27.0
+Requires-Dist: google-cloud-bigquery-storage<3.0,>=2.25.0
+Requires-Dist: google-cloud-bigquery<4.0,>=3.12.0
+Requires-Dist: google-cloud-secret-manager<3.0,>=2.17.0
+Requires-Dist: jsonschema<5.0,>=3.2.0
+Requires-Dist: orjson<4.0,>=3.10
+Requires-Dist: overrides<8.0,>=7.4.0
+Requires-Dist: pandas<3.0,>=1.5.3
+Requires-Dist: psycopg2-binary<3.0,>=2.9.9
+Requires-Dist: psycopg[binary,pool]<4.0,>=3.1.19
+Requires-Dist: pyarrow<22.0,>=16.1
 Requires-Dist: pydantic-core
-Requires-Dist: python-dotenv (>=1.0.1,<2.0.0)
-Requires-Dist: python-ulid (>=3.0.0,<4.0.0)
-Requires-Dist: pytz
-Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
-Requires-Dist: requests (!=3.32.0)
-Requires-Dist: rich (>=13.7.0,<14.0.0)
-Requires-Dist: snowflake-connector-python (>=3.12.2,<4.0.0)
-Requires-Dist: snowflake-sqlalchemy (>=1.6.1,<2.0.0)
-Requires-Dist: sqlalchemy (>=1.4.51,!=2.0.36,<3.0)
-Requires-Dist: sqlalchemy-bigquery (==1.12.0) ; python_version < "3.13"
-Requires-Dist: structlog (>=24.4.0,<25.0.0)
+Requires-Dist: pydantic<3.0,>=2.0
+Requires-Dist: python-dotenv<2.0,>=1.0.1
+Requires-Dist: python-ulid<4.0,>=3.0.0
+Requires-Dist: pyyaml<7.0,>=6.0.2
+Requires-Dist: requests!=3.32.0
+Requires-Dist: rich<14.0,>=13.7.0
+Requires-Dist: snowflake-connector-python<4.0,>=3.12.2
+Requires-Dist: snowflake-sqlalchemy<2.0,>=1.6.1
+Requires-Dist: sqlalchemy-bigquery==1.12.0
+Requires-Dist: sqlalchemy==2.0.43
+Requires-Dist: structlog<25.0,>=24.4.0
 Requires-Dist: typing-extensions
-Requires-Dist: uuid7 (>=0.1.0,<0.2.0)
-Requires-Dist: uv (>=0.5.0,<0.9.0)
+Requires-Dist: uuid7<1.0,>=0.1.0
+Requires-Dist: uv<0.9.0,>=0.5.0
 Description-Content-Type: text/markdown
 
 # PyAirbyte
@@ -137,4 +133,3 @@ Yes, PyAirbyte can use any local install that has a CLI - and will automatically
 ## Changelog and Release Notes
 
 For a version history and list of all changes, please see our [GitHub Releases](https://github.com/airbytehq/PyAirbyte/releases) page.
-

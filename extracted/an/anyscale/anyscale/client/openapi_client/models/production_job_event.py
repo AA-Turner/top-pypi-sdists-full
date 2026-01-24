@@ -37,7 +37,7 @@ class ProductionJobEvent(object):
         'created_at': 'datetime',
         'event_type': 'HaJobStates',
         'error_type': 'HaJobErrorTypes',
-        'level': 'HaJobEventLevel',
+        'level': 'EventLevel',
         'message': 'str',
         'origin': 'HaJobEventOrigin',
         'ha_job_id': 'str',
@@ -201,7 +201,7 @@ class ProductionJobEvent(object):
         Level of Job event  # noqa: E501
 
         :return: The level of this ProductionJobEvent.  # noqa: E501
-        :rtype: HaJobEventLevel
+        :rtype: EventLevel
         """
         return self._level
 
@@ -212,7 +212,7 @@ class ProductionJobEvent(object):
         Level of Job event  # noqa: E501
 
         :param level: The level of this ProductionJobEvent.  # noqa: E501
-        :type: HaJobEventLevel
+        :type: EventLevel
         """
 
         self._level = level

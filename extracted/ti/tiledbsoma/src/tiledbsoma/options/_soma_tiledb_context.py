@@ -8,21 +8,22 @@ import datetime
 import functools
 import threading
 import time
+from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Literal, Mapping, Optional, Union, cast
+from typing import Any, Literal, Optional, Union, cast
 
 from somacore import ContextBase
 from typing_extensions import Self
 
-from .. import pytiledbsoma as clib
-from .._types import OpenTimestamp
-from .._util import ms_to_datetime, to_timestamp_ms
+from tiledbsoma import pytiledbsoma as clib
+from tiledbsoma._types import DataProtocol, OpenTimestamp
+from tiledbsoma._util import ms_to_datetime, to_timestamp_ms
 
 try:
     from tiledb import Ctx as TileDBCtx
 
     TILEDB_EXISTS = True
-except ModuleNotFoundError:
+except (ModuleNotFoundError, ImportError):
     # If we set this to None, then the type hint TileDBCtx | None in the code
     # below will error out with:
     #   TypeError: unsupported operand type(s) for |: 'NoneType' and 'NoneType'
@@ -35,10 +36,7 @@ except ModuleNotFoundError:
 
 def _check_tiledb_ctx() -> None:
     if not TILEDB_EXISTS:
-        raise ModuleNotFoundError(
-            "The 'tiledb' module is required to access 'tiledb_ctx' but is "
-            "not installed."
-        )
+        raise ModuleNotFoundError("The 'tiledb' module is required to access 'tiledb_ctx' but is not installed.")
 
 
 ConfigVal = Union[str, float]
@@ -59,7 +57,7 @@ def _default_config(override: ConfigMap) -> ConfigDict:
     return cfg
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def _default_global_native_context() -> clib.SOMAContext:
     """Lazily builds a default SOMAContext with the default config."""
     return clib.SOMAContext({k: str(v) for k, v in _default_config({}).items()})
@@ -140,7 +138,8 @@ class SOMATileDBContext(ContextBase):
                 that of the time you called ``open``.
 
                 If a value is passed, that timestamp is used as the timestamp
-                to record all operations.
+                to record all operations. A timestamp value of zero (0) is
+                equivalent to current time.
 
                 Set to 0xFFFFFFFFFFFFFFFF (UINT64_MAX) to get the absolute
                 latest revision (i.e., including changes that occur "after"
@@ -151,10 +150,7 @@ class SOMATileDBContext(ContextBase):
                 default settings.
         """
         if tiledb_ctx is not None and tiledb_config is not None:
-            raise ValueError(
-                "only one of tiledb_config or tiledb_ctx"
-                " may be set when constructing a SOMATileDBContext"
-            )
+            raise ValueError("only one of tiledb_config or tiledb_ctx may be set when constructing a SOMATileDBContext")
 
         # A TileDB Context may only be passed if tiledb is installed
         if tiledb_ctx is not None:
@@ -163,9 +159,7 @@ class SOMATileDBContext(ContextBase):
         self._lock = threading.Lock()
         """A lock to ensure single initialization of ``_tiledb_ctx``."""
 
-        self._initial_config: ConfigDict | None = (
-            None if tiledb_config is None else _default_config(tiledb_config)
-        )
+        self._initial_config: ConfigDict | None = None if tiledb_config is None else _default_config(tiledb_config)
         """A dictionary of options to override the default TileDB config.
 
         This includes both the user-provided options and the default options
@@ -207,18 +201,14 @@ class SOMATileDBContext(ContextBase):
                 if self._initial_config is not None:
                     # The user passed in a tiledb_config
                     cfg = self._internal_tiledb_config()
-                    self._native_context = clib.SOMAContext(
-                        {k: str(v) for k, v in cfg.items()}
-                    )
+                    self._native_context = clib.SOMAContext({k: str(v) for k, v in cfg.items()})
                 elif self._tiledb_ctx is not None:
                     # The user passed in a tiledb_ctx; if tiledb is not installed
                     # it should be impossible to enter into this block because
                     # we already check that in the constructor
                     assert TileDBCtx is not None
                     cfg = self._tiledb_ctx.config().dict()
-                    self._native_context = clib.SOMAContext(
-                        {k: str(v) for k, v in cfg.items()}
-                    )
+                    self._native_context = clib.SOMAContext({k: str(v) for k, v in cfg.items()})
                 else:
                     # The user did not provide settings so create a default
                     self._native_context = _default_global_native_context()
@@ -279,11 +269,7 @@ class SOMATileDBContext(ContextBase):
 
         # Our context has not yet been built.
         # We return what will be passed into the context.
-        return (
-            dict(self._initial_config)
-            if self._initial_config is not None
-            else _default_config({})
-        )
+        return dict(self._initial_config) if self._initial_config is not None else _default_config({})
 
     def replace(
         self,
@@ -323,15 +309,10 @@ class SOMATileDBContext(ContextBase):
         with self._lock:
             if tiledb_config is not None:
                 if tiledb_ctx:
-                    raise ValueError(
-                        "Either tiledb_config or tiledb_ctx may be provided"
-                        " to replace(), but not both."
-                    )
-                new_config = cast(ReplaceConfig, self._internal_tiledb_config())
+                    raise ValueError("Either tiledb_config or tiledb_ctx may be provided to replace(), but not both.")
+                new_config = cast("ReplaceConfig", self._internal_tiledb_config())
                 new_config.update(tiledb_config)
-                new_tiledb_config: ConfigDict | None = {
-                    k: v for k, v in new_config.items() if v is not None
-                }
+                new_tiledb_config: ConfigDict | None = {k: v for k, v in new_config.items() if v is not None}
             else:
                 new_tiledb_config = None
 
@@ -354,15 +335,61 @@ class SOMATileDBContext(ContextBase):
         )
 
     def _open_timestamp_ms(self, in_timestamp: OpenTimestamp | None) -> int:
-        """Returns the real timestamp that should be used to open an object."""
-        if in_timestamp is not None:
+        """Returns the real timestamp that should be used to open an object.
+
+        Timestamp values of zero or None are treated as "use default", which results
+        in "current time". This is consistent with other TileDB API (e.g., TileDB-Py).
+        The datetime.datetime epoch is treated as zero/default.
+        """
+        if isinstance(in_timestamp, datetime.datetime):
+            # if a datetime, convert to int/ms
+            in_timestamp = to_timestamp_ms(in_timestamp)
+        if in_timestamp is not None and in_timestamp != 0:
             return to_timestamp_ms(in_timestamp)
-        if self.timestamp_ms is not None:
+        if self.timestamp_ms is not None and self.timestamp_ms != 0:
             return self.timestamp_ms
         return int(time.time() * 1000)
 
+    def data_protocol(self, uri: str) -> DataProtocol:
+        """Return the data protocol in use for this URI and context.
 
-def _validate_soma_tiledb_context(context: Any) -> SOMATileDBContext:
+        Return value will be a data model identifier. Currently one of:
+        * `tiledbv2` - the legacy data model, supported on all storage platforms except Carrara
+        * `tiledbv3` - the new, and currently Carrara-specific, data model.
+
+        See <<LINK>> for more information on the difference between the supported
+        data models.
+
+        Args:
+            uri:
+                An object URI
+
+        Returns:
+            The protocol identifier, currently one of `tiledbv2` or `tiledbv3`
+
+        Lifecycle:
+            Experimental.
+
+        ---
+
+        IMPORTANT: the API signature may change slightly in the near future
+        to align with TileDB-Py.
+
+        In addition, the implementation will evolve to use a new Core API.
+        """
+        protocol: DataProtocol = self.native_context.data_protocol(uri)
+        return protocol
+
+    def is_tiledbv2_uri(self, uri: str) -> bool:
+        """Return True if the URI will use `tiledbv2` semantics."""
+        return self.data_protocol(uri) == "tiledbv2"
+
+    def is_tiledbv3_uri(self, uri: str) -> bool:
+        """Return True if the URI will use `tiledbv3` semantics."""
+        return self.data_protocol(uri) == "tiledbv3"
+
+
+def _validate_soma_tiledb_context(context: Any) -> SOMATileDBContext:  # noqa: ANN401
     """Returns the argument, as long as it's a ``SOMATileDBContext``, or a new
     one if the argument is ``None``. While we already have static type-checking,
     a few things are extra-important to have runtime validation on.  Since it's
@@ -374,7 +401,7 @@ def _validate_soma_tiledb_context(context: Any) -> SOMATileDBContext:
 
     if TILEDB_EXISTS and isinstance(context, TileDBCtx):
         raise TypeError(
-            "context is a tiledb.Ctx, not a SOMATileDBContext -- please wrap it in tiledbsoma.SOMATileDBContext(...)"
+            "context is a tiledb.Ctx, not a SOMATileDBContext -- please wrap it in tiledbsoma.SOMATileDBContext(...)",
         )
 
     if not isinstance(context, SOMATileDBContext):

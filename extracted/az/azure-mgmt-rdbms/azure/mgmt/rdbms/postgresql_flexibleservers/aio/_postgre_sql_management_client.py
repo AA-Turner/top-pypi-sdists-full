@@ -6,56 +6,82 @@
 # Changes may cause incorrect behavior and will be lost if the code is regenerated.
 # --------------------------------------------------------------------------
 
-from typing import Any, Optional, TYPE_CHECKING
+from copy import deepcopy
+from typing import Any, Awaitable, Optional, TYPE_CHECKING, cast
+from typing_extensions import Self
 
-from azure.core.pipeline.transport import AsyncHttpResponse, HttpRequest
+from azure.core.pipeline import policies
+from azure.core.rest import AsyncHttpResponse, HttpRequest
+from azure.core.settings import settings
 from azure.mgmt.core import AsyncARMPipelineClient
-from msrest import Deserializer, Serializer
+from azure.mgmt.core.policies import AsyncARMAutoResourceProviderRegistrationPolicy
+from azure.mgmt.core.tools import get_arm_endpoints
+
+from .. import models as _models
+from .._utils.serialization import Deserializer, Serializer
+from ._configuration import PostgreSQLManagementClientConfiguration
+from .operations import (
+    CheckNameAvailabilityOperations,
+    ConfigurationsOperations,
+    DatabasesOperations,
+    FirewallRulesOperations,
+    GetPrivateDnsZoneSuffixOperations,
+    LocationBasedCapabilitiesOperations,
+    Operations,
+    ServersOperations,
+    VirtualNetworkSubnetUsageOperations,
+)
 
 if TYPE_CHECKING:
-    # pylint: disable=unused-import,ungrouped-imports
+    from azure.core import AzureClouds
     from azure.core.credentials_async import AsyncTokenCredential
 
-from ._configuration import PostgreSQLManagementClientConfiguration
-from .operations import ServersOperations
-from .operations import FirewallRulesOperations
-from .operations import ConfigurationsOperations
-from .operations import CheckNameAvailabilityOperations
-from .operations import LocationBasedCapabilitiesOperations
-from .operations import VirtualNetworkSubnetUsageOperations
-from .operations import Operations
-from .operations import DatabasesOperations
-from .operations import GetPrivateDnsZoneSuffixOperations
-from .. import models
 
-
-class PostgreSQLManagementClient(object):
-    """The Microsoft Azure management API provides create, read, update, and delete functionality for Azure PostgreSQL resources including servers, databases, firewall rules, VNET rules, security alert policies, log files and configurations with new business model.
+class PostgreSQLManagementClient:  # pylint: disable=too-many-instance-attributes
+    """The Azure Database for PostgreSQL management API provides create, read, update, and delete
+    functionality for Azure PostgreSQL resources including servers, databases, firewall rules,
+    network configuration, security alert policies, log files and configurations with new business
+    model.
 
     :ivar servers: ServersOperations operations
     :vartype servers: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.ServersOperations
     :ivar firewall_rules: FirewallRulesOperations operations
-    :vartype firewall_rules: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.FirewallRulesOperations
+    :vartype firewall_rules:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.FirewallRulesOperations
     :ivar configurations: ConfigurationsOperations operations
-    :vartype configurations: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.ConfigurationsOperations
+    :vartype configurations:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.ConfigurationsOperations
     :ivar check_name_availability: CheckNameAvailabilityOperations operations
-    :vartype check_name_availability: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.CheckNameAvailabilityOperations
+    :vartype check_name_availability:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.CheckNameAvailabilityOperations
     :ivar location_based_capabilities: LocationBasedCapabilitiesOperations operations
-    :vartype location_based_capabilities: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.LocationBasedCapabilitiesOperations
+    :vartype location_based_capabilities:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.LocationBasedCapabilitiesOperations
     :ivar virtual_network_subnet_usage: VirtualNetworkSubnetUsageOperations operations
-    :vartype virtual_network_subnet_usage: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.VirtualNetworkSubnetUsageOperations
+    :vartype virtual_network_subnet_usage:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.VirtualNetworkSubnetUsageOperations
     :ivar operations: Operations operations
     :vartype operations: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.Operations
     :ivar databases: DatabasesOperations operations
-    :vartype databases: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.DatabasesOperations
+    :vartype databases:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.DatabasesOperations
     :ivar get_private_dns_zone_suffix: GetPrivateDnsZoneSuffixOperations operations
-    :vartype get_private_dns_zone_suffix: azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.GetPrivateDnsZoneSuffixOperations
-    :param credential: Credential needed for the client to connect to Azure.
+    :vartype get_private_dns_zone_suffix:
+     azure.mgmt.rdbms.postgresql_flexibleservers.aio.operations.GetPrivateDnsZoneSuffixOperations
+    :param credential: Credential needed for the client to connect to Azure. Required.
     :type credential: ~azure.core.credentials_async.AsyncTokenCredential
-    :param subscription_id: The ID of the target subscription.
+    :param subscription_id: The ID of the target subscription. Required.
     :type subscription_id: str
-    :param str base_url: Service URL
-    :keyword int polling_interval: Default waiting time between two polls for LRO operations if no Retry-After header is present.
+    :param base_url: Service URL. Default value is None.
+    :type base_url: str
+    :keyword cloud_setting: The cloud setting for which to get the ARM endpoint. Default value is
+     None.
+    :paramtype cloud_setting: ~azure.core.AzureClouds
+    :keyword api_version: Api Version. Default value is "2021-06-01". Note that overriding this
+     default value may result in unsupported behavior.
+    :paramtype api_version: str
+    :keyword int polling_interval: Default waiting time between two polls for LRO operations if no
+     Retry-After header is present.
     """
 
     def __init__(
@@ -63,60 +89,97 @@ class PostgreSQLManagementClient(object):
         credential: "AsyncTokenCredential",
         subscription_id: str,
         base_url: Optional[str] = None,
+        *,
+        cloud_setting: Optional["AzureClouds"] = None,
         **kwargs: Any
     ) -> None:
+        _cloud = cloud_setting or settings.current.azure_cloud  # type: ignore
+        _endpoints = get_arm_endpoints(_cloud)
         if not base_url:
-            base_url = 'https://management.azure.com'
-        self._config = PostgreSQLManagementClientConfiguration(credential, subscription_id, **kwargs)
-        self._client = AsyncARMPipelineClient(base_url=base_url, config=self._config, **kwargs)
+            base_url = _endpoints["resource_manager"]
+        credential_scopes = kwargs.pop("credential_scopes", _endpoints["credential_scopes"])
+        self._config = PostgreSQLManagementClientConfiguration(
+            credential=credential,
+            subscription_id=subscription_id,
+            cloud_setting=cloud_setting,
+            credential_scopes=credential_scopes,
+            **kwargs
+        )
 
-        client_models = {k: v for k, v in models.__dict__.items() if isinstance(v, type)}
+        _policies = kwargs.pop("policies", None)
+        if _policies is None:
+            _policies = [
+                policies.RequestIdPolicy(**kwargs),
+                self._config.headers_policy,
+                self._config.user_agent_policy,
+                self._config.proxy_policy,
+                policies.ContentDecodePolicy(**kwargs),
+                AsyncARMAutoResourceProviderRegistrationPolicy(),
+                self._config.redirect_policy,
+                self._config.retry_policy,
+                self._config.authentication_policy,
+                self._config.custom_hook_policy,
+                self._config.logging_policy,
+                policies.DistributedTracingPolicy(**kwargs),
+                policies.SensitiveHeaderCleanupPolicy(**kwargs) if self._config.redirect_policy else None,
+                self._config.http_logging_policy,
+            ]
+        self._client: AsyncARMPipelineClient = AsyncARMPipelineClient(
+            base_url=cast(str, base_url), policies=_policies, **kwargs
+        )
+
+        client_models = {k: v for k, v in _models.__dict__.items() if isinstance(v, type)}
         self._serialize = Serializer(client_models)
-        self._serialize.client_side_validation = False
         self._deserialize = Deserializer(client_models)
-
-        self.servers = ServersOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.firewall_rules = FirewallRulesOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.configurations = ConfigurationsOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+        self._serialize.client_side_validation = False
+        self.servers = ServersOperations(self._client, self._config, self._serialize, self._deserialize)
+        self.firewall_rules = FirewallRulesOperations(self._client, self._config, self._serialize, self._deserialize)
+        self.configurations = ConfigurationsOperations(self._client, self._config, self._serialize, self._deserialize)
         self.check_name_availability = CheckNameAvailabilityOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+            self._client, self._config, self._serialize, self._deserialize
+        )
         self.location_based_capabilities = LocationBasedCapabilitiesOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+            self._client, self._config, self._serialize, self._deserialize
+        )
         self.virtual_network_subnet_usage = VirtualNetworkSubnetUsageOperations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.operations = Operations(
-            self._client, self._config, self._serialize, self._deserialize)
-        self.databases = DatabasesOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+            self._client, self._config, self._serialize, self._deserialize
+        )
+        self.operations = Operations(self._client, self._config, self._serialize, self._deserialize)
+        self.databases = DatabasesOperations(self._client, self._config, self._serialize, self._deserialize)
         self.get_private_dns_zone_suffix = GetPrivateDnsZoneSuffixOperations(
-            self._client, self._config, self._serialize, self._deserialize)
+            self._client, self._config, self._serialize, self._deserialize
+        )
 
-    async def _send_request(self, http_request: HttpRequest, **kwargs: Any) -> AsyncHttpResponse:
+    def _send_request(
+        self, request: HttpRequest, *, stream: bool = False, **kwargs: Any
+    ) -> Awaitable[AsyncHttpResponse]:
         """Runs the network request through the client's chained policies.
 
-        :param http_request: The network request you want to make. Required.
-        :type http_request: ~azure.core.pipeline.transport.HttpRequest
-        :keyword bool stream: Whether the response payload will be streamed. Defaults to True.
+        >>> from azure.core.rest import HttpRequest
+        >>> request = HttpRequest("GET", "https://www.example.org/")
+        <HttpRequest [GET], url: 'https://www.example.org/'>
+        >>> response = await client._send_request(request)
+        <AsyncHttpResponse: 200 OK>
+
+        For more information on this code flow, see https://aka.ms/azsdk/dpcodegen/python/send_request
+
+        :param request: The network request you want to make. Required.
+        :type request: ~azure.core.rest.HttpRequest
+        :keyword bool stream: Whether the response payload will be streamed. Defaults to False.
         :return: The response of your network call. Does not do error handling on your response.
-        :rtype: ~azure.core.pipeline.transport.AsyncHttpResponse
+        :rtype: ~azure.core.rest.AsyncHttpResponse
         """
-        path_format_arguments = {
-            'subscriptionId': self._serialize.url("self._config.subscription_id", self._config.subscription_id, 'str', min_length=1),
-        }
-        http_request.url = self._client.format_url(http_request.url, **path_format_arguments)
-        stream = kwargs.pop("stream", True)
-        pipeline_response = await self._client._pipeline.run(http_request, stream=stream, **kwargs)
-        return pipeline_response.http_response
+
+        request_copy = deepcopy(request)
+        request_copy.url = self._client.format_url(request_copy.url)
+        return self._client.send_request(request_copy, stream=stream, **kwargs)  # type: ignore
 
     async def close(self) -> None:
         await self._client.close()
 
-    async def __aenter__(self) -> "PostgreSQLManagementClient":
+    async def __aenter__(self) -> Self:
         await self._client.__aenter__()
         return self
 
-    async def __aexit__(self, *exc_details) -> None:
+    async def __aexit__(self, *exc_details: Any) -> None:
         await self._client.__aexit__(*exc_details)

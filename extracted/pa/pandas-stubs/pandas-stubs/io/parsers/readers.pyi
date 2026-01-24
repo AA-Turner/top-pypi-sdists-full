@@ -1,10 +1,8 @@
-from collections import (
-    abc,
-    defaultdict,
-)
+from collections import defaultdict
 from collections.abc import (
     Callable,
     Hashable,
+    Iterator,
     Mapping,
     Sequence,
 )
@@ -19,7 +17,7 @@ from typing import (
 from pandas.core.frame import DataFrame
 from typing_extensions import Self
 
-from pandas._libs.lib import _NoDefaultDoNotUse
+from pandas._libs.lib import NoDefaultDoNotUse
 from pandas._typing import (
     CompressionOptions,
     CSVEngine,
@@ -34,37 +32,34 @@ from pandas._typing import (
     UsecolsArgType,
 )
 
-from pandas.io.common import IOHandles
-
 @overload
 def read_csv(
     filepath_or_buffer: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str],
     *,
     sep: str | None = ...,
-    delimiter: str | None = ...,
-    header: int | Sequence[int] | Literal["infer"] | None = ...,
+    delimiter: str | None = None,
+    header: int | Sequence[int] | Literal["infer"] | None = "infer",
     names: ListLikeHashable | None = ...,
-    index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType[HashableT] = ...,
-    dtype: DtypeArg | defaultdict | None = ...,
-    engine: CSVEngine | None = ...,
+    index_col: int | str | Sequence[str | int] | Literal[False] | None = None,
+    usecols: UsecolsArgType[HashableT] = None,
+    dtype: DtypeArg | defaultdict[Any, Any] | None = None,
+    engine: CSVEngine | None = None,
     converters: (
         Mapping[int | str, Callable[[str], Any]]
         | Mapping[int, Callable[[str], Any]]
         | Mapping[str, Callable[[str], Any]]
         | None
-    ) = ...,
-    true_values: list[str] | None = ...,
-    false_values: list[str] | None = ...,
-    skipinitialspace: bool = ...,
-    skiprows: int | Sequence[int] | Callable[[int], bool] | None = ...,
-    skipfooter: int = ...,
-    nrows: int | None = ...,
-    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = ...,
-    keep_default_na: bool = ...,
-    na_filter: bool = ...,
-    verbose: bool = ...,
-    skip_blank_lines: bool = ...,
+    ) = None,
+    true_values: list[str] | None = None,
+    false_values: list[str] | None = None,
+    skipinitialspace: bool = False,
+    skiprows: int | Sequence[int] | Callable[[int], bool] | None = None,
+    skipfooter: int = 0,
+    nrows: int | None = None,
+    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
+    keep_default_na: bool = True,
+    na_filter: bool = True,
+    skip_blank_lines: bool = True,
     parse_dates: (
         bool
         | list[int]
@@ -72,64 +67,62 @@ def read_csv(
         | Sequence[Sequence[int]]
         | Mapping[str, Sequence[int | str]]
         | None
-    ) = ...,
-    keep_date_col: bool = ...,
-    date_format: dict[Hashable, str] | str | None = ...,
-    dayfirst: bool = ...,
-    cache_dates: bool = ...,
+    ) = None,
+    keep_date_col: bool = True,
+    date_format: dict[Hashable, str] | str | None = None,
+    dayfirst: bool = False,
+    cache_dates: bool = True,
     iterator: Literal[True],
-    chunksize: int | None = ...,
-    compression: CompressionOptions = ...,
-    thousands: str | None = ...,
-    decimal: str = ...,
-    lineterminator: str | None = ...,
-    quotechar: str = ...,
-    quoting: CSVQuoting = ...,
-    doublequote: bool = ...,
-    escapechar: str | None = ...,
-    comment: str | None = ...,
-    encoding: str | None = ...,
-    encoding_errors: str | None = ...,
-    dialect: str | csv.Dialect | None = ...,
+    chunksize: int | None = None,
+    compression: CompressionOptions = "infer",
+    thousands: str | None = None,
+    decimal: str = ".",
+    lineterminator: str | None = None,
+    quotechar: str = '"',
+    quoting: CSVQuoting = 0,
+    doublequote: bool = True,
+    escapechar: str | None = None,
+    comment: str | None = None,
+    encoding: str | None = None,
+    encoding_errors: str | None = "strict",
+    dialect: str | csv.Dialect | None = None,
     on_bad_lines: (
         Literal["error", "warn", "skip"] | Callable[[list[str]], list[str] | None]
-    ) = ...,
-    delim_whitespace: bool = ...,
-    low_memory: bool = ...,
-    memory_map: bool = ...,
-    float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
-    storage_options: StorageOptions | None = ...,
-    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
+    ) = "error",
+    low_memory: bool = True,
+    memory_map: bool = False,
+    float_precision: Literal["high", "legacy", "round_trip"] | None = None,
+    storage_options: StorageOptions | None = None,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
 ) -> TextFileReader: ...
 @overload
 def read_csv(
     filepath_or_buffer: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str],
     *,
     sep: str | None = ...,
-    delimiter: str | None = ...,
-    header: int | Sequence[int] | Literal["infer"] | None = ...,
+    delimiter: str | None = None,
+    header: int | Sequence[int] | Literal["infer"] | None = "infer",
     names: ListLikeHashable | None = ...,
-    index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType[HashableT] = ...,
-    dtype: DtypeArg | defaultdict | None = ...,
-    engine: CSVEngine | None = ...,
+    index_col: int | str | Sequence[str | int] | Literal[False] | None = None,
+    usecols: UsecolsArgType[HashableT] = None,
+    dtype: DtypeArg | defaultdict[Any, Any] | None = None,
+    engine: CSVEngine | None = None,
     converters: (
         Mapping[int | str, Callable[[str], Any]]
         | Mapping[int, Callable[[str], Any]]
         | Mapping[str, Callable[[str], Any]]
         | None
-    ) = ...,
-    true_values: list[str] | None = ...,
-    false_values: list[str] | None = ...,
-    skipinitialspace: bool = ...,
-    skiprows: int | Sequence[int] | Callable[[int], bool] | None = ...,
-    skipfooter: int = ...,
-    nrows: int | None = ...,
-    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = ...,
-    keep_default_na: bool = ...,
-    na_filter: bool = ...,
-    verbose: bool = ...,
-    skip_blank_lines: bool = ...,
+    ) = None,
+    true_values: list[str] | None = None,
+    false_values: list[str] | None = None,
+    skipinitialspace: bool = False,
+    skiprows: int | Sequence[int] | Callable[[int], bool] | None = None,
+    skipfooter: int = 0,
+    nrows: int | None = None,
+    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
+    keep_default_na: bool = True,
+    na_filter: bool = True,
+    skip_blank_lines: bool = True,
     parse_dates: (
         bool
         | list[int]
@@ -137,34 +130,33 @@ def read_csv(
         | Sequence[Sequence[int]]
         | Mapping[str, Sequence[int | str]]
         | None
-    ) = ...,
-    keep_date_col: bool = ...,
-    date_format: dict[Hashable, str] | str | None = ...,
-    dayfirst: bool = ...,
-    cache_dates: bool = ...,
-    iterator: bool = ...,
+    ) = None,
+    keep_date_col: bool = False,
+    date_format: dict[Hashable, str] | str | None = None,
+    dayfirst: bool = False,
+    cache_dates: bool = True,
+    iterator: bool = False,
     chunksize: int,
-    compression: CompressionOptions = ...,
-    thousands: str | None = ...,
-    decimal: str = ...,
-    lineterminator: str | None = ...,
-    quotechar: str = ...,
-    quoting: CSVQuoting = ...,
-    doublequote: bool = ...,
-    escapechar: str | None = ...,
-    comment: str | None = ...,
-    encoding: str | None = ...,
-    encoding_errors: str | None = ...,
-    dialect: str | csv.Dialect | None = ...,
+    compression: CompressionOptions = "infer",
+    thousands: str | None = None,
+    decimal: str = ".",
+    lineterminator: str | None = None,
+    quotechar: str = '"',
+    quoting: CSVQuoting = 0,
+    doublequote: bool = True,
+    escapechar: str | None = None,
+    comment: str | None = None,
+    encoding: str | None = None,
+    encoding_errors: str | None = "strict",
+    dialect: str | csv.Dialect | None = None,
     on_bad_lines: (
         Literal["error", "warn", "skip"] | Callable[[list[str]], list[str] | None]
-    ) = ...,
-    delim_whitespace: bool = ...,
-    low_memory: bool = ...,
-    memory_map: bool = ...,
-    float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
-    storage_options: StorageOptions | None = ...,
-    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
+    ) = "error",
+    low_memory: bool = True,
+    memory_map: bool = False,
+    float_precision: Literal["high", "legacy", "round_trip"] | None = None,
+    storage_options: StorageOptions | None = None,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
 ) -> TextFileReader: ...
 @overload
 def read_csv(
@@ -176,7 +168,7 @@ def read_csv(
     names: ListLikeHashable | None = ...,
     index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
     usecols: UsecolsArgType[HashableT] = ...,
-    dtype: DtypeArg | defaultdict | None = ...,
+    dtype: DtypeArg | defaultdict[Any, Any] | None = ...,
     engine: CSVEngine | None = ...,
     converters: (
         Mapping[int | str, Callable[[str], Any]]
@@ -193,7 +185,6 @@ def read_csv(
     na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = ...,
     keep_default_na: bool = ...,
     na_filter: bool = ...,
-    verbose: bool = ...,
     skip_blank_lines: bool = ...,
     parse_dates: (
         bool
@@ -203,12 +194,12 @@ def read_csv(
         | Mapping[str, Sequence[int | str]]
         | None
     ) = ...,
-    keep_date_col: bool = ...,
+    keep_date_col: bool = False,
     date_format: dict[Hashable, str] | str | None = ...,
     dayfirst: bool = ...,
     cache_dates: bool = ...,
-    iterator: Literal[False] = ...,
-    chunksize: None = ...,
+    iterator: Literal[False] = False,
+    chunksize: None = None,
     compression: CompressionOptions = ...,
     thousands: str | None = ...,
     decimal: str = ...,
@@ -224,42 +215,40 @@ def read_csv(
     on_bad_lines: (
         Literal["error", "warn", "skip"] | Callable[[list[str]], list[str] | None]
     ) = ...,
-    delim_whitespace: bool = ...,
-    low_memory: bool = ...,
+    low_memory: bool = True,
     memory_map: bool = ...,
     float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
     storage_options: StorageOptions | None = ...,
-    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
 ) -> DataFrame: ...
 @overload
 def read_table(
     filepath_or_buffer: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str],
     *,
     sep: str | None = ...,
-    delimiter: str | None = ...,
-    header: int | Sequence[int] | Literal["infer"] | None = ...,
+    delimiter: str | None = None,
+    header: int | Sequence[int] | Literal["infer"] | None = "infer",
     names: ListLikeHashable | None = ...,
-    index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType[HashableT] = ...,
-    dtype: DtypeArg | defaultdict | None = ...,
-    engine: CSVEngine | None = ...,
+    index_col: int | str | Sequence[str | int] | Literal[False] | None = None,
+    usecols: UsecolsArgType[HashableT] = None,
+    dtype: DtypeArg | defaultdict[Any, Any] | None = None,
+    engine: CSVEngine | None = None,
     converters: (
         Mapping[int | str, Callable[[str], Any]]
         | Mapping[int, Callable[[str], Any]]
         | Mapping[str, Callable[[str], Any]]
         | None
-    ) = ...,
-    true_values: list[str] | None = ...,
-    false_values: list[str] | None = ...,
-    skipinitialspace: bool = ...,
-    skiprows: int | Sequence[int] | Callable[[int], bool] | None = ...,
-    skipfooter: int = ...,
-    nrows: int | None = ...,
-    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = ...,
-    keep_default_na: bool = ...,
-    na_filter: bool = ...,
-    verbose: bool = ...,
-    skip_blank_lines: bool = ...,
+    ) = None,
+    true_values: list[str] | None = None,
+    false_values: list[str] | None = None,
+    skipinitialspace: bool = False,
+    skiprows: int | Sequence[int] | Callable[[int], bool] | None = None,
+    skipfooter: int = 0,
+    nrows: int | None = None,
+    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
+    keep_default_na: bool = True,
+    na_filter: bool = True,
+    skip_blank_lines: bool = True,
     parse_dates: (
         bool
         | list[int]
@@ -267,64 +256,62 @@ def read_table(
         | Sequence[Sequence[int]]
         | Mapping[str, Sequence[int | str]]
         | None
-    ) = ...,
-    infer_datetime_format: bool = ...,
-    keep_date_col: bool = ...,
-    date_format: dict[Hashable, str] | str | None = ...,
-    dayfirst: bool = ...,
-    cache_dates: bool = ...,
+    ) = False,
+    keep_date_col: bool = False,
+    date_format: dict[Hashable, str] | str | None = None,
+    dayfirst: bool = False,
+    cache_dates: bool = True,
     iterator: Literal[True],
-    chunksize: int | None = ...,
-    compression: CompressionOptions = ...,
-    thousands: str | None = ...,
-    decimal: str = ...,
-    lineterminator: str | None = ...,
-    quotechar: str = ...,
-    quoting: CSVQuoting = ...,
-    doublequote: bool = ...,
-    escapechar: str | None = ...,
-    comment: str | None = ...,
-    encoding: str | None = ...,
-    encoding_errors: str | None = ...,
-    dialect: str | csv.Dialect | None = ...,
+    chunksize: int | None = None,
+    compression: CompressionOptions = "infer",
+    thousands: str | None = None,
+    decimal: str = ".",
+    lineterminator: str | None = None,
+    quotechar: str = '"',
+    quoting: CSVQuoting = 0,
+    doublequote: bool = True,
+    escapechar: str | None = None,
+    comment: str | None = None,
+    encoding: str | None = None,
+    encoding_errors: str | None = "strict",
+    dialect: str | csv.Dialect | None = None,
     on_bad_lines: (
         Literal["error", "warn", "skip"] | Callable[[list[str]], list[str] | None]
-    ) = ...,
-    delim_whitespace: bool = ...,
-    low_memory: bool = ...,
-    memory_map: bool = ...,
-    float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
-    storage_options: StorageOptions | None = ...,
+    ) = "error",
+    low_memory: bool = True,
+    memory_map: bool = False,
+    float_precision: Literal["high", "legacy", "round_trip"] | None = None,
+    storage_options: StorageOptions | None = None,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
 ) -> TextFileReader: ...
 @overload
 def read_table(
     filepath_or_buffer: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str],
     *,
     sep: str | None = ...,
-    delimiter: str | None = ...,
-    header: int | Sequence[int] | Literal["infer"] | None = ...,
+    delimiter: str | None = None,
+    header: int | Sequence[int] | Literal["infer"] | None = "infer",
     names: ListLikeHashable | None = ...,
-    index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType[HashableT] = ...,
-    dtype: DtypeArg | defaultdict | None = ...,
-    engine: CSVEngine | None = ...,
+    index_col: int | str | Sequence[str | int] | Literal[False] | None = None,
+    usecols: UsecolsArgType[HashableT] = None,
+    dtype: DtypeArg | defaultdict[Any, Any] | None = None,
+    engine: CSVEngine | None = None,
     converters: (
         Mapping[int | str, Callable[[str], Any]]
         | Mapping[int, Callable[[str], Any]]
         | Mapping[str, Callable[[str], Any]]
         | None
-    ) = ...,
-    true_values: list[str] | None = ...,
-    false_values: list[str] | None = ...,
-    skipinitialspace: bool = ...,
-    skiprows: int | Sequence[int] | Callable[[int], bool] | None = ...,
-    skipfooter: int = ...,
-    nrows: int | None = ...,
-    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = ...,
-    keep_default_na: bool = ...,
-    na_filter: bool = ...,
-    verbose: bool = ...,
-    skip_blank_lines: bool = ...,
+    ) = None,
+    true_values: list[str] | None = None,
+    false_values: list[str] | None = None,
+    skipinitialspace: bool = False,
+    skiprows: int | Sequence[int] | Callable[[int], bool] | None = None,
+    skipfooter: int = 0,
+    nrows: int | None = None,
+    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
+    keep_default_na: bool = True,
+    na_filter: bool = True,
+    skip_blank_lines: bool = True,
     parse_dates: (
         bool
         | list[int]
@@ -332,64 +319,62 @@ def read_table(
         | Sequence[Sequence[int]]
         | Mapping[str, Sequence[int | str]]
         | None
-    ) = ...,
-    infer_datetime_format: bool = ...,
-    keep_date_col: bool = ...,
-    date_format: dict[Hashable, str] | str | None = ...,
-    dayfirst: bool = ...,
-    cache_dates: bool = ...,
-    iterator: bool = ...,
+    ) = False,
+    keep_date_col: bool = False,
+    date_format: dict[Hashable, str] | str | None = None,
+    dayfirst: bool = False,
+    cache_dates: bool = True,
+    iterator: bool = False,
     chunksize: int,
-    compression: CompressionOptions = ...,
-    thousands: str | None = ...,
-    decimal: str = ...,
-    lineterminator: str | None = ...,
-    quotechar: str = ...,
-    quoting: CSVQuoting = ...,
-    doublequote: bool = ...,
-    escapechar: str | None = ...,
-    comment: str | None = ...,
-    encoding: str | None = ...,
-    encoding_errors: str | None = ...,
-    dialect: str | csv.Dialect | None = ...,
+    compression: CompressionOptions = "infer",
+    thousands: str | None = None,
+    decimal: str = ".",
+    lineterminator: str | None = None,
+    quotechar: str = '"',
+    quoting: CSVQuoting = 0,
+    doublequote: bool = True,
+    escapechar: str | None = None,
+    comment: str | None = None,
+    encoding: str | None = None,
+    encoding_errors: str | None = "strict",
+    dialect: str | csv.Dialect | None = None,
     on_bad_lines: (
         Literal["error", "warn", "skip"] | Callable[[list[str]], list[str] | None]
-    ) = ...,
-    delim_whitespace: bool = ...,
-    low_memory: bool = ...,
-    memory_map: bool = ...,
-    float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
-    storage_options: StorageOptions | None = ...,
+    ) = "error",
+    low_memory: bool = True,
+    memory_map: bool = False,
+    float_precision: Literal["high", "legacy", "round_trip"] | None = None,
+    storage_options: StorageOptions | None = None,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
 ) -> TextFileReader: ...
 @overload
 def read_table(
     filepath_or_buffer: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str],
     *,
     sep: str | None = ...,
-    delimiter: str | None = ...,
-    header: int | Sequence[int] | Literal["infer"] | None = ...,
+    delimiter: str | None = None,
+    header: int | Sequence[int] | Literal["infer"] | None = "infer",
     names: ListLikeHashable | None = ...,
-    index_col: int | str | Sequence[str | int] | Literal[False] | None = ...,
-    usecols: UsecolsArgType[HashableT] = ...,
-    dtype: DtypeArg | defaultdict | None = ...,
-    engine: CSVEngine | None = ...,
+    index_col: int | str | Sequence[str | int] | Literal[False] | None = None,
+    usecols: UsecolsArgType[HashableT] = None,
+    dtype: DtypeArg | defaultdict[Any, Any] | None = None,
+    engine: CSVEngine | None = None,
     converters: (
         Mapping[int | str, Callable[[str], Any]]
         | Mapping[int, Callable[[str], Any]]
         | Mapping[str, Callable[[str], Any]]
         | None
-    ) = ...,
-    true_values: list[str] | None = ...,
-    false_values: list[str] | None = ...,
-    skipinitialspace: bool = ...,
-    skiprows: int | Sequence[int] | Callable[[int], bool] | None = ...,
-    skipfooter: int = ...,
-    nrows: int | None = ...,
-    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = ...,
-    keep_default_na: bool = ...,
-    na_filter: bool = ...,
-    verbose: bool = ...,
-    skip_blank_lines: bool = ...,
+    ) = None,
+    true_values: list[str] | None = None,
+    false_values: list[str] | None = None,
+    skipinitialspace: bool = False,
+    skiprows: int | Sequence[int] | Callable[[int], bool] | None = None,
+    skipfooter: int = 0,
+    nrows: int | None = None,
+    na_values: Sequence[str] | Mapping[str, Sequence[str]] | None = None,
+    keep_default_na: bool = True,
+    na_filter: bool = True,
+    skip_blank_lines: bool = True,
     parse_dates: (
         bool
         | list[int]
@@ -397,34 +382,33 @@ def read_table(
         | Sequence[Sequence[int]]
         | Mapping[str, Sequence[int | str]]
         | None
-    ) = ...,
-    infer_datetime_format: bool = ...,
-    keep_date_col: bool = ...,
-    date_format: dict[Hashable, str] | str | None = ...,
-    dayfirst: bool = ...,
-    cache_dates: bool = ...,
-    iterator: Literal[False] = ...,
-    chunksize: None = ...,
-    compression: CompressionOptions = ...,
-    thousands: str | None = ...,
-    decimal: str = ...,
-    lineterminator: str | None = ...,
-    quotechar: str = ...,
-    quoting: CSVQuoting = ...,
-    doublequote: bool = ...,
-    escapechar: str | None = ...,
-    comment: str | None = ...,
-    encoding: str | None = ...,
-    encoding_errors: str | None = ...,
-    dialect: str | csv.Dialect | None = ...,
+    ) = False,
+    keep_date_col: bool = False,
+    date_format: dict[Hashable, str] | str | None = None,
+    dayfirst: bool = False,
+    cache_dates: bool = True,
+    iterator: Literal[False] = False,
+    chunksize: None = None,
+    compression: CompressionOptions = "infer",
+    thousands: str | None = None,
+    decimal: str = ".",
+    lineterminator: str | None = None,
+    quotechar: str = '"',
+    quoting: CSVQuoting = 0,
+    doublequote: bool = True,
+    escapechar: str | None = None,
+    comment: str | None = None,
+    encoding: str | None = None,
+    encoding_errors: str | None = "strict",
+    dialect: str | csv.Dialect | None = None,
     on_bad_lines: (
         Literal["error", "warn", "skip"] | Callable[[list[str]], list[str] | None]
-    ) = ...,
-    delim_whitespace: bool = ...,
-    low_memory: bool = ...,
-    memory_map: bool = ...,
-    float_precision: Literal["high", "legacy", "round_trip"] | None = ...,
-    storage_options: StorageOptions | None = ...,
+    ) = "error",
+    low_memory: bool = True,
+    memory_map: bool = False,
+    float_precision: Literal["high", "legacy", "round_trip"] | None = None,
+    storage_options: StorageOptions | None = None,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
 ) -> DataFrame: ...
 @overload
 def read_fwf(
@@ -433,7 +417,7 @@ def read_fwf(
     colspecs: Sequence[tuple[int, int]] | Literal["infer"] | None = ...,
     widths: Sequence[int] | None = ...,
     infer_nrows: int = ...,
-    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
     date_format: dict[Hashable, str] | str | None = ...,
     iterator: Literal[True],
     chunksize: int | None = ...,
@@ -446,7 +430,7 @@ def read_fwf(
     colspecs: Sequence[tuple[int, int]] | Literal["infer"] | None = ...,
     widths: Sequence[int] | None = ...,
     infer_nrows: int = ...,
-    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
     date_format: dict[Hashable, str] | str | None = ...,
     iterator: bool = ...,
     chunksize: int,
@@ -459,23 +443,22 @@ def read_fwf(
     colspecs: Sequence[tuple[int, int]] | Literal["infer"] | None = ...,
     widths: Sequence[int] | None = ...,
     infer_nrows: int = ...,
-    dtype_backend: DtypeBackend | _NoDefaultDoNotUse = ...,
+    dtype_backend: DtypeBackend | NoDefaultDoNotUse = ...,
     date_format: dict[Hashable, str] | str | None = ...,
-    iterator: Literal[False] = ...,
-    chunksize: None = ...,
+    iterator: Literal[False] = False,
+    chunksize: None = None,
     **kwds: Any,
 ) -> DataFrame: ...
 
-class TextFileReader(abc.Iterator):
+class TextFileReader(Iterator[Any]):
     engine: CSVEngine
     orig_options: Mapping[str, Any]
     chunksize: int | None
     nrows: int | None
     squeeze: bool
-    handles: IOHandles | None
     def __init__(
         self,
-        f: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str] | list,
+        f: FilePath | ReadCsvBuffer[bytes] | ReadCsvBuffer[str] | list[str],
         engine: CSVEngine | None = ...,
         **kwds: Any,
     ) -> None: ...

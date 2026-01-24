@@ -60,6 +60,29 @@ TEST_CASE("Test SizeInfo") {
     CHECK(SizeInfo(5) == 5);
 }
 
+TEST_CASE("ValuesInfo") {
+    static_assert(std::regular<ValuesInfo>);
+
+    SECTION("Construction") {
+        CHECK(ValuesInfo::logical_output() == ValuesInfo(false, true, true));
+        CHECK(ValuesInfo(0, 1, false) == ValuesInfo({0, 1}, false));
+
+        CHECK(ValuesInfo().min <= std::numeric_limits<double>::lowest());
+        CHECK(ValuesInfo().max >= std::numeric_limits<double>::max());
+        CHECK(!ValuesInfo().integral);
+    }
+
+    SECTION("Union") {
+        CHECK((ValuesInfo(-1, 10, true) | ValuesInfo(0, 11, false)) == ValuesInfo(-1, 11, false));
+        CHECK((ValuesInfo(6, 10, false) | ValuesInfo(0, 2, false)) == ValuesInfo(0, 10, false));
+
+        // Inplace
+        auto vi = ValuesInfo(0, 1, true);
+        CHECK((vi |= ValuesInfo(0, 2, true)) == ValuesInfo(0, 2, true));
+        CHECK(vi == ValuesInfo(0, 2, true));
+    }
+}
+
 TEST_CASE("Slice") {
     SECTION("exceptions") {
         CHECK_THROWS_AS(Slice(0, 1, 0), std::invalid_argument);
@@ -458,44 +481,73 @@ TEST_CASE("Update") {
     }
 }
 
-TEST_CASE("Test resulting_shape()") {
+TEST_CASE("Test broadcast_shapes()") {
     SECTION("(256,256,3) x (3,) -> (256,256,3)") {
-        CHECK(std::ranges::equal(broadcast_shape({256, 256, 3}, {3}), std::vector{256, 256, 3}));
+        CHECK_THAT(broadcast_shapes({256, 256, 3}, {3}), RangeEquals({256, 256, 3}));
     }
     SECTION("(8,1,6,1) x (7,1,5) -> (8,7,6,5)") {
-        CHECK(std::ranges::equal(broadcast_shape({8, 1, 6, 1}, {7, 1, 5}),
-                                 std::vector{8, 7, 6, 5}));
+        CHECK_THAT(broadcast_shapes({8, 1, 6, 1}, {7, 1, 5}), RangeEquals({8, 7, 6, 5}));
     }
     SECTION("(7,1,5) x (8,1,6,1) -> (8,7,6,5)") {
-        CHECK(std::ranges::equal(broadcast_shape({7, 1, 5}, {8, 1, 6, 1}),
-                                 std::vector{8, 7, 6, 5}));
+        CHECK_THAT(broadcast_shapes({7, 1, 5}, {8, 1, 6, 1}), RangeEquals({8, 7, 6, 5}));
     }
     SECTION("(5,4) x (1,) -> (5, 4)") {
-        CHECK(std::ranges::equal(broadcast_shape({5, 4}, {1}), std::vector{5, 4}));
+        CHECK_THAT(broadcast_shapes({5, 4}, {1}), RangeEquals({5, 4}));
     }
     SECTION("(5,4) x (4,) -> (5, 4)") {
-        CHECK(std::ranges::equal(broadcast_shape({5, 4}, {4}), std::vector{5, 4}));
+        CHECK_THAT(broadcast_shapes({5, 4}, {4}), RangeEquals({5, 4}));
     }
     SECTION("(15,3,5) x (15,1,5) -> (15,3,5)") {
-        CHECK(std::ranges::equal(broadcast_shape({15, 3, 5}, {15, 1, 5}), std::vector{15, 3, 5}));
+        CHECK_THAT(broadcast_shapes({15, 3, 5}, {15, 1, 5}), RangeEquals({15, 3, 5}));
     }
     SECTION("(15,3,5) x (3,5) -> (15,3,5)") {
-        CHECK(std::ranges::equal(broadcast_shape({15, 3, 5}, {3, 5}), std::vector{15, 3, 5}));
+        CHECK_THAT(broadcast_shapes({15, 3, 5}, {3, 5}), RangeEquals({15, 3, 5}));
     }
     SECTION("(15,3,5) x (3,1) -> (15,3,5)") {
-        CHECK(std::ranges::equal(broadcast_shape({15, 3, 5}, {3, 1}), std::vector{15, 3, 5}));
+        CHECK_THAT(broadcast_shapes({15, 3, 5}, {3, 1}), RangeEquals({15, 3, 5}));
+    }
+    SECTION("(-1,) x (1,) -> (-1,)") { CHECK_THAT(broadcast_shapes({-1}, {1}), RangeEquals({-1})); }
+    SECTION("(1,) x (-1,) -> (-1,)") { CHECK_THAT(broadcast_shapes({1}, {-1}), RangeEquals({-1})); }
+    SECTION("(1,2) x (-1,1) -> (-1,2)") {
+        CHECK_THAT(broadcast_shapes({1, 2}, {-1, 1}), RangeEquals({-1, 2}));
+    }
+    SECTION("() x (0,) -> (0,)") { CHECK_THAT(broadcast_shapes({}, {0}), RangeEquals({0})); }
+    SECTION("(-1,1) x (1,0) -> (3,0)") {
+        CHECK_THAT(broadcast_shapes({-1, 1}, {1, 0}), RangeEquals({-1, 0}));
+    }
+    SECTION("(3,1) x (1,0) -> (3,0)") {
+        CHECK_THAT(broadcast_shapes({3, 1}, {1, 0}), RangeEquals({3, 0}));
+    }
+    SECTION("(3,1) x (0,1,0) -> (0,3,0)") {
+        CHECK_THAT(broadcast_shapes({3, 1}, {0, 1, 0}), RangeEquals({0, 3, 0}));
+    }
+    SECTION("(-1,2) x (-1,1) -> (-1,2)") {
+        CHECK_THAT(broadcast_shapes({-1, 2}, {-1, 1}), RangeEquals({-1, 2}));
+    }
+    SECTION("(1,1) x (-1,) -> invalid") {
+        CHECK_THROWS_WITH(broadcast_shapes({1, 1}, {-1}),
+                          "operands could not be broadcast together with shapes (1, 1) (-1,)");
     }
     SECTION("(3,) x (4,)") {
-        CHECK_THROWS_WITH(broadcast_shape({3}, {4}),
+        CHECK_THROWS_WITH(broadcast_shapes({3}, {4}),
                           "operands could not be broadcast together with shapes (3,) (4,)");
     }
     SECTION("(2,1) x (8,4,3)") {
-        CHECK_THROWS_WITH(broadcast_shape({2, 1}, {8, 4, 3}),
+        CHECK_THROWS_WITH(broadcast_shapes({2, 1}, {8, 4, 3}),
                           "operands could not be broadcast together with shapes (2, 1) (8, 4, 3)");
+    }
+    SECTION("(-1,3) x (8,4,3)") {
+        CHECK_THROWS_WITH(broadcast_shapes({-1, 3}, {8, 4, 3}),
+                          "operands could not be broadcast together with shapes (-1, 3) (8, 4, 3)");
     }
 }
 
 TEST_CASE("Test deduplicate_diff") {
+    SECTION("static asserts") {
+        static_assert(std::ranges::sized_range<deduplicate_diff_view>);
+        static_assert(std::ranges::viewable_range<deduplicate_diff_view>);
+    }
+
     GIVEN("An empty vector of updates") {
         std::vector<Update> updates;
 
@@ -528,6 +580,21 @@ TEST_CASE("Test deduplicate_diff") {
                 deduped.emplace_back(u);
             }
             CHECK_THAT(deduped, RangeEquals({Update(2, 1, 0), Update(3, 0, 1), Update(5, 0, -1)}));
+        }
+
+        THEN("We can use deduplicate_diff_view in a for-loop with a transform") {
+            std::vector<Update> deduped_and_shifted;
+
+            auto shift = [](Update update) -> Update {
+                update.index += 1;
+                return update;
+            };
+
+            for (const auto& u : deduplicate_diff_view(updates) | std::views::transform(shift)) {
+                deduped_and_shifted.emplace_back(u);
+            }
+            CHECK_THAT(deduped_and_shifted,
+                       RangeEquals({Update(3, 1, 0), Update(4, 0, 1), Update(6, 0, -1)}));
         }
     }
 

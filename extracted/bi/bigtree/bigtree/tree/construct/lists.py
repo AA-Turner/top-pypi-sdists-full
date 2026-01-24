@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import List, Tuple, Type, TypeVar
+from typing import TypeVar
 
 from bigtree.node import node
 from bigtree.tree.construct.dataframes import dataframe_to_tree_by_relation
@@ -24,10 +24,10 @@ T = TypeVar("T", bound=node.Node)
 
 
 def list_to_tree(
-    paths: List[str],
+    paths: list[str],
     sep: str = "/",
     duplicate_name_allowed: bool = True,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
     """Construct tree from list of path strings.
 
@@ -44,10 +44,10 @@ def list_to_tree(
     - For example: Path strings should be "a/b", "a/c", "a/b/d" etc. and should not start with another root node
 
     Examples:
-        >>> from bigtree import list_to_tree
+        >>> from bigtree import Tree
         >>> path_list = ["a/b", "a/c", "a/b/d", "a/b/e", "a/c/f", "a/b/e/g", "a/b/e/h"]
-        >>> root = list_to_tree(path_list)
-        >>> root.show()
+        >>> tree = Tree.from_list(path_list)
+        >>> tree.show()
         a
         ├── b
         │   ├── d
@@ -85,11 +85,11 @@ def list_to_tree(
 
 @exceptions.optional_dependencies_pandas
 def list_to_tree_by_relation(
-    relations: List[Tuple[str, str]],
+    relations: list[tuple[str, str]],
     allow_duplicates: bool = False,
-    node_type: Type[T] = node.Node,  # type: ignore[assignment]
+    node_type: type[T] = node.Node,  # type: ignore[assignment]
 ) -> T:
-    """Construct tree from list of tuple containing parent-child names.
+    """Construct tree from an adjacency list; list of tuple containing parent-child names.
 
     Root node is inferred when parent is empty, or when name appears as parent but not as child.
 
@@ -98,10 +98,10 @@ def list_to_tree_by_relation(
     `allow_duplicates` to be True.
 
     Examples:
-        >>> from bigtree import list_to_tree_by_relation
+        >>> from bigtree import Tree
         >>> relations_list = [("a", "b"), ("a", "c"), ("b", "d"), ("b", "e"), ("c", "f"), ("e", "g"), ("e", "h")]
-        >>> root = list_to_tree_by_relation(relations_list)
-        >>> root.show()
+        >>> tree = Tree.from_list_relation(relations_list)
+        >>> tree.show()
         a
         ├── b
         │   ├── d

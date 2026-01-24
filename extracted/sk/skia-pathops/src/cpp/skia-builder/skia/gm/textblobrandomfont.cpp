@@ -23,10 +23,14 @@
 #include "include/core/SkSurfaceProps.h"
 #include "include/core/SkTextBlob.h"
 #include "include/core/SkTypeface.h"
-#include "include/gpu/GrDirectContext.h"
-#include "include/gpu/GrRecordingContext.h"
 #include "tools/ToolUtils.h"
+#include "tools/fonts/FontToolUtils.h"
 #include "tools/fonts/RandomScalerContext.h"
+
+#if defined(SK_GANESH)
+#include "include/gpu/ganesh/GrDirectContext.h"
+#include "include/gpu/ganesh/GrRecordingContext.h"
+#endif
 
 #include <string.h>
 #include <utility>
@@ -54,10 +58,8 @@ protected:
         font.setEdging(SkFont::Edging::kSubpixelAntiAlias);
 
         // Setup our random scaler context
-        auto typeface = ToolUtils::create_portable_typeface("sans-serif", SkFontStyle::Bold());
-        if (!typeface) {
-            typeface = SkTypeface::MakeDefault();
-        }
+        auto typeface = ToolUtils::CreatePortableTypeface("sans-serif", SkFontStyle::Bold());
+        SkASSERT(typeface);
         font.setTypeface(sk_make_sp<SkRandomTypeface>(std::move(typeface), paint, false));
 
         SkScalar y = 0;
@@ -84,12 +86,12 @@ protected:
         y += bounds.fBottom;
 
         // color emoji
-        if (sk_sp<SkTypeface> origEmoji = ToolUtils::emoji_typeface()) {
-            font.setTypeface(sk_make_sp<SkRandomTypeface>(origEmoji, paint, false));
-            const char* emojiText = ToolUtils::emoji_sample_text();
-            font.measureText(emojiText, strlen(emojiText), SkTextEncoding::kUTF8, &bounds);
+        ToolUtils::EmojiTestSample sample = ToolUtils::EmojiSample();
+        if (sample.typeface) {
+            font.setTypeface(sk_make_sp<SkRandomTypeface>(sample.typeface, paint, false));
+            font.measureText(sample.sampleText, strlen(sample.sampleText), SkTextEncoding::kUTF8, &bounds);
             y -= bounds.fTop;
-            ToolUtils::add_to_text_blob(&builder, emojiText, font, 0, y);
+            ToolUtils::add_to_text_blob(&builder, sample.sampleText, font, 0, y);
             y += bounds.fBottom;
         }
 
@@ -97,21 +99,19 @@ protected:
         fBlob = builder.make();
     }
 
-    SkString onShortName() override {
-        return SkString("textblobrandomfont");
-    }
+    SkString getName() const override { return SkString("textblobrandomfont"); }
 
-    SkISize onISize() override {
-        return SkISize::Make(kWidth, kHeight);
-    }
+    SkISize getISize() override { return SkISize::Make(kWidth, kHeight); }
 
     DrawResult onDraw(SkCanvas* canvas, SkString* errorMsg) override {
-        GrDirectContext* dContext = GrAsDirectContext(canvas->recordingContext());
-        bool isGPU = SkToBool(dContext);
+        bool isGPU = false;
+
+#if defined(SK_GANESH)
+        isGPU = isGPU || SkToBool(GrAsDirectContext(canvas->recordingContext()));
+#endif
 
 #if defined(SK_GRAPHITE)
-        skgpu::graphite::Recorder* recorder = canvas->recorder();
-        isGPU = isGPU || SkToBool(recorder);
+        isGPU = isGPU || SkToBool(canvas->recorder());
 #endif
 
         if (!isGPU) {
@@ -157,10 +157,12 @@ protected:
         surface->draw(canvas, 0, 0);
         yOffset += stride;
 
-        if (dContext) {
+#if defined(SK_GANESH)
+        if (auto dContext = GrAsDirectContext(canvas->recordingContext())) {
             // free gpu resources and verify
             dContext->freeGpuResources();
         }
+#endif
 
         canvas->rotate(-0.05f);
         canvas->drawTextBlob(fBlob, 10, yOffset, paint);

@@ -4,10 +4,11 @@ utilities for pyshortcuts
 """
 import os
 import sys
+import io
 from pathlib import Path
 from datetime import datetime
 from string import ascii_letters
-
+from charset_normalizer import from_bytes
 try:
     from pwd import getpwnam
 except ImportError:
@@ -29,6 +30,10 @@ elif sys.platform.startswith('win')  or os.name.startswith('nt'):
     uname = "win"
     scut_ext = "lnk"
     ico_ext = ("ico",)
+
+def get_pyexe():
+    "python executable"
+    return Path(sys.executable).as_posix()
 
 def get_homedir():
     "determine home directory"
@@ -73,6 +78,22 @@ def get_cwd():
         os.chdir(home)
         return home
 
+def mkdir(name, mode=0o775):
+    """create directory (and any intermediate subdirectories)
+
+    Options:
+    --------
+      mode   permission mask to use for creating directory (default=0775)
+    """
+    path = Path(name)
+    if path.exists():
+        if path.is_dir():
+            os.chmod(name, mode)
+        else:
+            raise FileExistsError(f"'{name}' is an existing file")
+    else:
+        os.makedirs(name, mode=mode)
+
 
 def isotime(dtime=None, timespec='seconds', sep=' '):
     """return ISO format of current timestamp:
@@ -83,6 +104,7 @@ def isotime(dtime=None, timespec='seconds', sep=' '):
     elif isinstance(dtime, (float, int)):
         dtime = datetime.fromtimestamp(dtime)
     return datetime.isoformat(dtime, timespec=timespec, sep=sep)
+
 
 BAD_FILECHARS = ';~,`!%$@$&^?*#:"/|\'\\\t\r\n(){}[]<>'
 GOOD_FILECHARS = '_'*len(BAD_FILECHARS)
@@ -108,6 +130,7 @@ def fix_filename(filename, allow_spaces=False):
         fname = fname.replace('__', '_')
     return fname
 
+
 def fix_varname(varname):
     """fix string to be a 'good' variable name."""
     vname = fix_filename(varname, allow_spaces=False)
@@ -121,9 +144,6 @@ def fix_varname(varname):
         vname = vname[:-1]
     return vname
 
-def get_pyexe():
-    "python executable"
-    return Path(sys.executable).resolve().as_posix()
 
 def new_filename(filename):
     """
@@ -159,6 +179,7 @@ def new_filename(filename):
 
     return fpath.as_posix()
 
+
 def bytes2str(s):
     'byte to string conversion'
     if isinstance(s, str):
@@ -167,8 +188,62 @@ def bytes2str(s):
         return s.decode(sys.stdout.encoding)
     return str(s, sys.stdout.encoding)
 
+
 def str2bytes(s):
     'string to byte conversion'
     if isinstance(s, bytes):
         return s
     return bytes(s, sys.stdout.encoding)
+
+
+def strict_ascii(sinp, replacement='_'):
+    """ensure a string to be truly ASCII with all characters below 128
+    replacing characters will char(c) >=128 with 'replacement'"""
+    t = bytes(sinp, 'UTF-8')
+    return ''.join([chr(a) if a < 128 else replacement for a in t])
+
+def pathname(input):
+    """
+    return a full path name from Path().as_posix() given
+    a filename (str or byts) or Path object.
+    """
+    if isinstance(input, bytes):
+        input = str(from_bytes(input).best())
+    if isinstance(input, str):
+        input = Path(input)
+    if not isinstance(input, Path):
+        raise ValueError(f"cannot get Path name from {input}")
+    return input.absolute().as_posix()
+
+def read_textfile(filename, size=None):
+    """read text from a file as string
+
+    Argument
+    --------
+    filename  (str or file): name of file to read or file-like object
+    size  (int or None): maximum number of bytes to read
+
+    Returns
+    -------
+    text of file as string.
+
+    Notes
+    ------
+    1. the encoding is detected with charset_normalizer.from_bytes()
+       which is then used to decode bytes read from file.
+    2. line endings are normalized to be '\n', so that
+       splitting on '\n' will give a list of lines.
+    """
+    text = ''
+
+    def decode(bytedata):
+        return str(from_bytes(bytedata).best())
+
+    if isinstance(filename, io.IOBase):
+        text = filename.read(size)
+        if filename.mode == 'rb':
+            text = decode(text)
+    else:
+        with open(pathname(filename), 'rb') as fh:
+            text = decode(fh.read(size))
+    return text.replace('\r\n', '\n').replace('\r', '\n')

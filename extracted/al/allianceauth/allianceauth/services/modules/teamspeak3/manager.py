@@ -111,11 +111,11 @@ class Teamspeak3Manager:
         outlist = {}
 
         if type(groups) == list:
-            logger.debug("Recieved multiple groups. Iterating.")
+            logger.debug("Received multiple groups. Iterating.")
             for group in groups:
                 outlist[group['keys']['name']] = group['keys']['sgid']
         elif type(groups) == dict:
-            logger.debug("Recieved single group.")
+            logger.debug("Received single group.")
             outlist[groups['keys']['name']] = groups['keys']['sgid']
         logger.debug("Returning name/id pairing: %s" % outlist)
         return outlist

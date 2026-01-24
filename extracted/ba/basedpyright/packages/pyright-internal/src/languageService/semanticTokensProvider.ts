@@ -18,32 +18,47 @@ export enum CustomSemanticTokenTypes {
 }
 
 export enum CustomSemanticTokenModifiers {
-    builtin = 'builtin', // parity with pylance
+    /** built-in symbols (parity with pylance) */
+    builtin = 'builtin',
+    /** distinguishes class/instance variables, especially when these are types/functions/etc. */
+    classMember = 'classMember',
+    /**
+     * Distinguishes function parameters.
+     * Note that this custom modifier exists despite the `parameter` token type so that a parameter
+     * with another token type (e.g. `function` or `class`) can still retain the information
+     * about whether or not it is a parameter.
+     */
+    parameter = 'parameter',
 }
 
 export const tokenTypes: string[] = [
+    SemanticTokenTypes.namespace,
+    SemanticTokenTypes.type,
     SemanticTokenTypes.class,
-    SemanticTokenTypes.parameter,
+    SemanticTokenTypes.enum,
     SemanticTokenTypes.typeParameter,
+    SemanticTokenTypes.parameter,
+    SemanticTokenTypes.variable,
+    SemanticTokenTypes.property,
+    SemanticTokenTypes.enumMember,
     SemanticTokenTypes.function,
     SemanticTokenTypes.method,
-    SemanticTokenTypes.decorator,
-    SemanticTokenTypes.property,
-    SemanticTokenTypes.namespace,
-    SemanticTokenTypes.variable,
-    SemanticTokenTypes.type,
     SemanticTokenTypes.keyword,
+    SemanticTokenTypes.decorator,
     CustomSemanticTokenTypes.selfParameter,
     CustomSemanticTokenTypes.clsParameter,
 ];
 
 export const tokenModifiers: string[] = [
-    SemanticTokenModifiers.definition,
     SemanticTokenModifiers.declaration,
-    SemanticTokenModifiers.async,
+    SemanticTokenModifiers.definition,
     SemanticTokenModifiers.readonly,
+    SemanticTokenModifiers.static,
+    SemanticTokenModifiers.async,
     SemanticTokenModifiers.defaultLibrary,
     CustomSemanticTokenModifiers.builtin,
+    CustomSemanticTokenModifiers.classMember,
+    CustomSemanticTokenModifiers.parameter,
 ];
 
 export const SemanticTokensProviderLegend = {

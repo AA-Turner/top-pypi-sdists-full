@@ -13,9 +13,9 @@ import json
 import uvicorn
 from aiohttp import ClientConnectorError
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
-from swift.llm import AdapterRequest, DeployArguments
+from swift.llm import AdapterRequest, DeployArguments, InferArguments
 from swift.llm.infer.protocol import EmbeddingRequest, MultiModalRequestMixin
 from swift.plugin import InferStats
 from swift.utils import JsonlWriter, get_logger
@@ -30,7 +30,21 @@ class SwiftDeploy(SwiftInfer):
     args_class = DeployArguments
     args: args_class
 
+    @staticmethod
+    def get_infer_engine(args: InferArguments, template=None, **kwargs):
+        if isinstance(args, DeployArguments) and args.infer_backend == 'vllm' and args.vllm_data_parallel_size > 1:
+            if not args.vllm_use_async_engine:
+                raise ValueError('vLLM data parallel requires `vllm_use_async_engine=True` in deploy mode.')
+            engine_kwargs = (kwargs.get('engine_kwargs') or {}).copy()
+            engine_kwargs.setdefault('data_parallel_size', args.vllm_data_parallel_size)
+            kwargs['engine_kwargs'] = engine_kwargs
+            logger.info(f'Enable vLLM data parallel with size {args.vllm_data_parallel_size}.')
+        return SwiftInfer.get_infer_engine(args, template, **kwargs)
+
     def _register_app(self):
+        self.app.get('/health')(self.health)
+        self.app.get('/ping')(self.ping)
+        self.app.post('/ping')(self.ping)
         self.app.get('/v1/models')(self.get_available_models)
         self.app.post('/v1/chat/completions')(self.create_chat_completion)
         self.app.post('/v1/completions')(self.create_completion)
@@ -74,6 +88,17 @@ class SwiftDeploy(SwiftInfer):
             model_list += [name for name in args.adapter_mapping.keys()]
         return model_list
 
+    async def health(self) -> Response:
+        """Health check endpoint."""
+        if self.infer_engine is not None:
+            return Response(status_code=200)
+        else:
+            return Response(status_code=503)
+
+    async def ping(self) -> Response:
+        """Ping check endpoint. Required for SageMaker compatibility."""
+        return await self.health()
+
     async def get_available_models(self):
         model_list = self._get_model_list()
         data = [Model(id=model_id, owned_by=self.args.owned_by) for model_id in model_list]
@@ -116,7 +141,7 @@ class SwiftDeploy(SwiftInfer):
                                                                              (tuple, list)):
                 continue
             for j, content in enumerate(response.choices[i].message.content):
-                if content['type'] == 'image':
+                if isinstance(content, dict) and content['type'] == 'image':
                     b64_image = MultiModalRequestMixin.to_base64(content['image'])
                     response.choices[i].message.content[j]['image'] = f'data:image/jpg;base64,{b64_image}'
 
@@ -224,6 +249,12 @@ def is_accessible(port: int):
     return True
 
 
+def _deploy_main(args):
+    args._init_custom_register()
+    args._import_external_plugins()
+    return deploy_main(args)
+
+
 @contextmanager
 def run_deploy(args: DeployArguments, return_url: bool = False):
     if isinstance(args, DeployArguments) and args.__class__.__name__ == 'DeployArguments':
@@ -237,7 +268,7 @@ def run_deploy(args: DeployArguments, return_url: bool = False):
         deploy_args = DeployArguments(**args_dict)
 
     mp = multiprocessing.get_context('spawn')
-    process = mp.Process(target=deploy_main, args=(deploy_args, ))
+    process = mp.Process(target=_deploy_main, args=(deploy_args, ))
     process.start()
     try:
         while not is_accessible(deploy_args.port):

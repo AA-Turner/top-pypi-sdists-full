@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qase-python-commons
-Version: 4.0.0
+Version: 4.1.10
 Summary: A library for Qase TestOps and Qase Report
 Author-email: Qase Team <support@qase.io>
 Project-URL: Homepage, https://github.com/qase-tms/qase-python/tree/main/qase-python-commons
@@ -21,8 +21,8 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: certifi>=2024.2.2
 Requires-Dist: attrs>=23.2.0
-Requires-Dist: qase-api-client~=2.0.0
-Requires-Dist: qase-api-v2-client~=2.0.0
+Requires-Dist: qase-api-client~=2.0.3
+Requires-Dist: qase-api-v2-client~=2.0.3
 Requires-Dist: more_itertools
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
@@ -31,12 +31,18 @@ Requires-Dist: mock; extra == "testing"
 Requires-Dist: more_itertools; extra == "testing"
 Requires-Dist: requests; extra == "testing"
 Requires-Dist: urllib3; extra == "testing"
+Requires-Dist: freezegun; extra == "testing"
 
 # Qase Python Commons
 
 ## Description
 
-This package contains reporters for Qase TestOps and Qase Report that are used in [qase-pytest](https://github.com/qase-tms/qase-python/tree/master/qase-pytest) and [qase-robotframework](https://github.com/qase-tms/qase-python/tree/master/qase-robotframework).
+This package contains reporters for Qase TestOps and Qase Report that are used in following projects:
+
+- [qase-pytest](https://github.com/qase-tms/qase-python/tree/main/qase-pytest)
+- [qase-robotframework](https://github.com/qase-tms/qase-python/tree/main/qase-robotframework)
+- [qase-behave](https://github.com/qase-tms/qase-python/tree/main/qase-behave)
+- [qase-tavern](https://github.com/qase-tms/qase-python/tree/main/qase-tavern)
 
 ## How to install
 

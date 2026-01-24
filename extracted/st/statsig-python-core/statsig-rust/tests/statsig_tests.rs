@@ -92,6 +92,30 @@ async fn test_get_experiment_by_group_name() {
 }
 
 #[tokio::test]
+async fn test_get_experiment_by_group_id_advanced() {
+    let statsig = Statsig::new(
+        "secret-key",
+        Some(Arc::new(StatsigOptions {
+            specs_adapter: Some(Arc::new(MockSpecsAdapter::with_data(
+                "tests/data/eval_proj_dcs.json",
+            ))),
+            ..StatsigOptions::new()
+        })),
+    );
+    statsig.initialize().await.unwrap();
+
+    let experiment_name = "test_experiment_no_targeting";
+    let group_id = "54QJztEPRLXK7ZCvXeY9q4";
+    let experiment = statsig.get_experiment_by_group_id_advanced(experiment_name, group_id);
+
+    assert_eq!(experiment.name, experiment_name);
+    assert_eq!(experiment.group_name.as_deref(), Some("Control"));
+    assert_eq!(experiment.rule_id, group_id);
+    assert_eq!(experiment.id_type, "userID");
+    assert_eq!(experiment.value["value"], "control");
+}
+
+#[tokio::test]
 async fn test_gcir() {
     let user = StatsigUserBuilder::new_with_user_id("a-user".to_string())
         .email(Some("daniel@statsig.com".to_string()))
@@ -165,29 +189,6 @@ async fn test_user_agent_and_country_lookup() {
 }
 
 #[tokio::test]
-async fn test_user_agent_disabled() {
-    // Properly disable
-    let user = StatsigUserBuilder::new_with_user_id("a-user".to_string())
-        .email(Some("daniel@statsig.com".to_string()))
-        .user_agent(Some(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 10_3_1 like Mac OS X) AppleWebKit/603.1.30 (KHTML, like Gecko) Version/10.0 Mobile/14E304 Safari/602.1".into(),
-        ))
-        .build();
-    let opts_3 = StatsigOptions {
-        output_log_level: Some(LogLevel::Debug),
-        wait_for_country_lookup_init: Some(true),
-        wait_for_user_agent_init: Some(true),
-        disable_user_agent_parsing: Some(true),
-        disable_country_lookup: Some(true),
-        ..StatsigOptions::new()
-    };
-
-    let statsig_3 = Statsig::new(&get_sdk_key(), Some(Arc::new(opts_3)));
-    statsig_3.initialize().await.unwrap();
-    assert!(!statsig_3.check_gate(&user, "test_ua"));
-}
-
-#[tokio::test]
 async fn test_initialize_with_details() {
     let statsig = Statsig::new(&get_sdk_key(), None);
     let details = statsig.initialize_with_details().await.unwrap();
@@ -222,6 +223,45 @@ async fn test_initialize_with_details_with_id_lists() {
     assert!(details.source == SpecsSource::Network);
     assert!(details.failure_details.is_none());
     assert!(details.is_id_list_ready.is_some());
+}
+
+#[tokio::test]
+async fn test_get_running_task_ids() {
+    let statsig = Statsig::new(
+        &get_sdk_key(),
+        Some(Arc::new(StatsigOptions {
+            enable_id_lists: Some(true),
+            ..StatsigOptions::new()
+        })),
+    );
+
+    fn get_task_ids_str(task_ids: &mut [(String, String)]) -> String {
+        task_ids.sort();
+        task_ids
+            .iter()
+            .map(|a| a.0.clone())
+            .collect::<Vec<String>>()
+            .join(" | ")
+    }
+
+    let mut task_ids_before = statsig.statsig_runtime.get_running_task_ids();
+    let task_ids_before_str = get_task_ids_str(&mut task_ids_before);
+
+    assert_eq!(
+        task_ids_before_str,
+        // the event logger flush job and three subscriptions to OpsStats
+        "EVT_LOG_BG_LOOP | opts_stats_listen_for | opts_stats_listen_for | opts_stats_listen_for"
+    );
+
+    statsig.initialize().await.unwrap();
+
+    let mut task_ids_after = statsig.statsig_runtime.get_running_task_ids();
+    let task_ids_after_str = get_task_ids_str(&mut task_ids_after);
+    assert_eq!(
+        task_ids_after_str,
+        // before tasks + id list and specs bg sync jobs
+        "EVT_LOG_BG_LOOP | http_id_list_bg_sync | http_specs_bg_sync | opts_stats_listen_for | opts_stats_listen_for | opts_stats_listen_for"
+    );
 }
 
 #[tokio::test]

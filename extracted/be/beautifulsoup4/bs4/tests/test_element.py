@@ -13,6 +13,7 @@ from bs4.element import (
     NamespacedAttribute,
     ResultSet,
 )
+from bs4.filter import ElementFilter
 
 class TestNamedspacedAttribute:
     def test_name_may_be_none_or_missing(self):
@@ -136,3 +137,42 @@ class TestResultSet:
             """ResultSet object has no attribute "name". You're probably treating a list of elements like a single element. Did you call find_all() when you meant to call find()?"""
             == str(e.value)
         )
+
+    def test_len(self):
+        # The length of a ResultSet is the length of its result sequence.
+        rs = ResultSet(None, [1,2,3])
+        assert len(rs) == 3
+
+    def test_getitem(self):
+        # __getitem__ is delegated to the result sequence.
+        rs = ResultSet(None, [1,2,3])
+        assert rs[1] == 2
+
+    def test_equality(self):
+        # A ResultSet is equal to a list if its result sequence is equal to that list.
+        l = [1, 2, 3]
+        rs1 = ResultSet(None, [1,2,3])
+        assert l == rs1
+        assert l != (1,2,3)
+
+        rs2 = ResultSet(None, [1,2])
+        assert l != rs2
+
+        # A ResultSet is equal to another ResultSet if their results are equal
+        assert rs1 == rs1
+        assert rs1 != rs2
+
+        # Even if the results come from two different sources, the ResultSets are equal.
+        assert ResultSet(ElementFilter(), [1,2,3]) == rs1
+
+    def test_mutability(self):
+        # A ResultSet is mutable. (Lots of external code depends on this.)
+        rs = ResultSet(None, [1,2,3])
+        rs[1] = 4
+        assert rs == [1,4,3]
+
+    def test_add_resultsets_together(self):
+        # ResultSets can be added together like lists. (pandas depends on this.)
+        rs1 = ResultSet(None, [1,2,3])
+        rs2 = ResultSet(None, [4,5,6])
+        assert rs1 + rs2 == [1,2,3,4,5,6]

@@ -21,21 +21,12 @@ void Bluez::init() {
     _conn->init();
     _conn->add_match("type='signal',sender='org.bluez'");
 
-    _bluez_root = std::make_shared<BluezRoot>(_conn, "org.bluez", "/");
+    _bluez_root = SimpleDBus::Proxy::create<BluezRoot>(_conn, "org.bluez", "/");
     _bluez_root->load_managed_objects();
 }
 
 void Bluez::run_async() {
-    // TODO: UNCOMMENT THIS WHEN MIGRATING TO NEW PROXY FORWARDING LOGIC
-    //_conn->read_write_dispatch();
-
-    // BELOW IS THE LEGACY LOGIC
-    _conn->read_write();
-    SimpleDBus::Message message = _conn->pop_message();
-    while (message.is_valid()) {
-        _bluez_root->message_forward(message);
-        message = _conn->pop_message();
-    }
+    _conn->read_write_dispatch();
 }
 
 std::vector<std::shared_ptr<Adapter>> Bluez::get_adapters() { return _bluez_root->get_adapters(); }

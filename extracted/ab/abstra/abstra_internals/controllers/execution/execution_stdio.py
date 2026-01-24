@@ -106,5 +106,18 @@ class BroadcastController:
         if not execution:
             return raw
 
+        if not raw.strip():
+            return raw
+
         short_id = execution.id.split(sep="-")[0]
-        return f"[RUN {short_id}] {raw}" if raw.strip() else raw
+        prefix = f"[RUN {short_id}] "
+
+        lines = raw.splitlines(keepends=True)
+        if len(lines) <= 1:
+            return f"{prefix}{raw}"
+
+        tagged_lines = []
+        for line in lines:
+            tagged_lines.append(f"{prefix}{line}")
+
+        return "".join(tagged_lines)

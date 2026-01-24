@@ -3,49 +3,52 @@ Type annotations for bedrock-data-automation service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_data_automation/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
     ```python
-    from mypy_boto3_bedrock_data_automation.type_defs import AudioExtractionCategoryOutputTypeDef
+    from mypy_boto3_bedrock_data_automation.type_defs import AudioLanguageConfigurationOutputTypeDef
 
-    data: AudioExtractionCategoryOutputTypeDef = ...
+    data: AudioLanguageConfigurationOutputTypeDef = ...
     ```
 """
 
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Union
 
 from .literals import (
     AudioExtractionCategoryTypeType,
+    AudioGenerativeOutputLanguageType,
     AudioStandardGenerativeFieldTypeType,
+    BlueprintOptimizationJobStatusType,
     BlueprintStageFilterType,
     BlueprintStageType,
     DataAutomationProjectStageFilterType,
     DataAutomationProjectStageType,
     DataAutomationProjectStatusType,
+    DataAutomationProjectTypeType,
     DesiredModalityType,
     DocumentExtractionGranularityTypeType,
     DocumentOutputTextFormatTypeType,
     ImageExtractionCategoryTypeType,
     ImageStandardGenerativeFieldTypeType,
+    LanguageType,
+    PIIEntityTypeType,
+    PIIRedactionMaskModeType,
     ResourceOwnerType,
+    SensitiveDataDetectionModeType,
+    SensitiveDataDetectionScopeTypeType,
     StateType,
     TypeType,
     VideoExtractionCategoryTypeType,
     VideoStandardGenerativeFieldTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -54,7 +57,11 @@ else:
 
 __all__ = (
     "AudioExtractionCategoryOutputTypeDef",
+    "AudioExtractionCategoryTypeConfigurationTypeDef",
     "AudioExtractionCategoryTypeDef",
+    "AudioLanguageConfigurationOutputTypeDef",
+    "AudioLanguageConfigurationTypeDef",
+    "AudioOverrideConfigurationOutputTypeDef",
     "AudioOverrideConfigurationTypeDef",
     "AudioStandardExtractionOutputTypeDef",
     "AudioStandardExtractionTypeDef",
@@ -64,8 +71,13 @@ __all__ = (
     "AudioStandardOutputConfigurationTypeDef",
     "BlueprintFilterTypeDef",
     "BlueprintItemTypeDef",
+    "BlueprintOptimizationObjectTypeDef",
+    "BlueprintOptimizationOutputConfigurationTypeDef",
+    "BlueprintOptimizationSampleTypeDef",
     "BlueprintSummaryTypeDef",
     "BlueprintTypeDef",
+    "ChannelLabelingConfigurationTypeDef",
+    "CopyBlueprintStageRequestTypeDef",
     "CreateBlueprintRequestTypeDef",
     "CreateBlueprintResponseTypeDef",
     "CreateBlueprintVersionRequestTypeDef",
@@ -89,6 +101,7 @@ __all__ = (
     "DocumentOutputFormatTypeDef",
     "DocumentOutputTextFormatOutputTypeDef",
     "DocumentOutputTextFormatTypeDef",
+    "DocumentOverrideConfigurationOutputTypeDef",
     "DocumentOverrideConfigurationTypeDef",
     "DocumentStandardExtractionOutputTypeDef",
     "DocumentStandardExtractionTypeDef",
@@ -96,6 +109,8 @@ __all__ = (
     "DocumentStandardOutputConfigurationOutputTypeDef",
     "DocumentStandardOutputConfigurationTypeDef",
     "EncryptionConfigurationTypeDef",
+    "GetBlueprintOptimizationStatusRequestTypeDef",
+    "GetBlueprintOptimizationStatusResponseTypeDef",
     "GetBlueprintRequestTypeDef",
     "GetBlueprintResponseTypeDef",
     "GetDataAutomationProjectRequestTypeDef",
@@ -103,6 +118,7 @@ __all__ = (
     "ImageBoundingBoxTypeDef",
     "ImageExtractionCategoryOutputTypeDef",
     "ImageExtractionCategoryTypeDef",
+    "ImageOverrideConfigurationOutputTypeDef",
     "ImageOverrideConfigurationTypeDef",
     "ImageStandardExtractionOutputTypeDef",
     "ImageStandardExtractionTypeDef",
@@ -110,6 +126,8 @@ __all__ = (
     "ImageStandardGenerativeFieldTypeDef",
     "ImageStandardOutputConfigurationOutputTypeDef",
     "ImageStandardOutputConfigurationTypeDef",
+    "InvokeBlueprintOptimizationAsyncRequestTypeDef",
+    "InvokeBlueprintOptimizationAsyncResponseTypeDef",
     "ListBlueprintsRequestPaginateTypeDef",
     "ListBlueprintsRequestTypeDef",
     "ListBlueprintsResponseTypeDef",
@@ -120,15 +138,24 @@ __all__ = (
     "ListTagsForResourceResponseTypeDef",
     "ModalityProcessingConfigurationTypeDef",
     "ModalityRoutingConfigurationTypeDef",
+    "OverrideConfigurationOutputTypeDef",
     "OverrideConfigurationTypeDef",
+    "OverrideConfigurationUnionTypeDef",
+    "PIIEntitiesConfigurationOutputTypeDef",
+    "PIIEntitiesConfigurationTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "S3ObjectTypeDef",
+    "SensitiveDataConfigurationOutputTypeDef",
+    "SensitiveDataConfigurationTypeDef",
+    "SpeakerLabelingConfigurationTypeDef",
     "SplitterConfigurationTypeDef",
     "StandardOutputConfigurationOutputTypeDef",
     "StandardOutputConfigurationTypeDef",
     "StandardOutputConfigurationUnionTypeDef",
     "TagResourceRequestTypeDef",
     "TagTypeDef",
+    "TranscriptConfigurationTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateBlueprintRequestTypeDef",
     "UpdateBlueprintResponseTypeDef",
@@ -137,6 +164,7 @@ __all__ = (
     "VideoBoundingBoxTypeDef",
     "VideoExtractionCategoryOutputTypeDef",
     "VideoExtractionCategoryTypeDef",
+    "VideoOverrideConfigurationOutputTypeDef",
     "VideoOverrideConfigurationTypeDef",
     "VideoStandardExtractionOutputTypeDef",
     "VideoStandardExtractionTypeDef",
@@ -146,20 +174,17 @@ __all__ = (
     "VideoStandardOutputConfigurationTypeDef",
 )
 
-AudioExtractionCategoryOutputTypeDef = TypedDict(
-    "AudioExtractionCategoryOutputTypeDef",
-    {
-        "state": StateType,
-        "types": NotRequired[List[AudioExtractionCategoryTypeType]],
-    },
-)
-AudioExtractionCategoryTypeDef = TypedDict(
-    "AudioExtractionCategoryTypeDef",
-    {
-        "state": StateType,
-        "types": NotRequired[Sequence[AudioExtractionCategoryTypeType]],
-    },
-)
+
+class AudioLanguageConfigurationOutputTypeDef(TypedDict):
+    inputLanguages: NotRequired[list[LanguageType]]
+    generativeOutputLanguage: NotRequired[AudioGenerativeOutputLanguageType]
+    identifyMultipleLanguages: NotRequired[bool]
+
+
+class AudioLanguageConfigurationTypeDef(TypedDict):
+    inputLanguages: NotRequired[Sequence[LanguageType]]
+    generativeOutputLanguage: NotRequired[AudioGenerativeOutputLanguageType]
+    identifyMultipleLanguages: NotRequired[bool]
 
 
 class ModalityProcessingConfigurationTypeDef(TypedDict):
@@ -170,7 +195,7 @@ AudioStandardGenerativeFieldOutputTypeDef = TypedDict(
     "AudioStandardGenerativeFieldOutputTypeDef",
     {
         "state": StateType,
-        "types": NotRequired[List[AudioStandardGenerativeFieldTypeType]],
+        "types": NotRequired[list[AudioStandardGenerativeFieldTypeType]],
     },
 )
 AudioStandardGenerativeFieldTypeDef = TypedDict(
@@ -194,6 +219,16 @@ class BlueprintItemTypeDef(TypedDict):
     blueprintStage: NotRequired[BlueprintStageType]
 
 
+class BlueprintOptimizationObjectTypeDef(TypedDict):
+    blueprintArn: str
+    stage: NotRequired[BlueprintStageType]
+
+
+class S3ObjectTypeDef(TypedDict):
+    s3Uri: str
+    version: NotRequired[str]
+
+
 class BlueprintSummaryTypeDef(TypedDict):
     blueprintArn: str
     creationTime: datetime
@@ -203,21 +238,15 @@ class BlueprintSummaryTypeDef(TypedDict):
     lastModifiedTime: NotRequired[datetime]
 
 
-BlueprintTypeDef = TypedDict(
-    "BlueprintTypeDef",
-    {
-        "blueprintArn": str,
-        "schema": str,
-        "type": TypeType,
-        "creationTime": datetime,
-        "lastModifiedTime": datetime,
-        "blueprintName": str,
-        "blueprintVersion": NotRequired[str],
-        "blueprintStage": NotRequired[BlueprintStageType],
-        "kmsKeyId": NotRequired[str],
-        "kmsEncryptionContext": NotRequired[Dict[str, str]],
-    },
-)
+class ChannelLabelingConfigurationTypeDef(TypedDict):
+    state: StateType
+
+
+class CopyBlueprintStageRequestTypeDef(TypedDict):
+    blueprintArn: str
+    sourceStage: BlueprintStageType
+    targetStage: BlueprintStageType
+    clientToken: NotRequired[str]
 
 
 class EncryptionConfigurationTypeDef(TypedDict):
@@ -233,7 +262,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -252,6 +281,7 @@ class DataAutomationProjectSummaryTypeDef(TypedDict):
     projectArn: str
     creationTime: datetime
     projectStage: NotRequired[DataAutomationProjectStageType]
+    projectType: NotRequired[DataAutomationProjectTypeType]
     projectName: NotRequired[str]
 
 
@@ -271,7 +301,7 @@ class DocumentBoundingBoxTypeDef(TypedDict):
 DocumentExtractionGranularityOutputTypeDef = TypedDict(
     "DocumentExtractionGranularityOutputTypeDef",
     {
-        "types": NotRequired[List[DocumentExtractionGranularityTypeType]],
+        "types": NotRequired[list[DocumentExtractionGranularityTypeType]],
     },
 )
 DocumentExtractionGranularityTypeDef = TypedDict(
@@ -289,7 +319,7 @@ class DocumentOutputAdditionalFileFormatTypeDef(TypedDict):
 DocumentOutputTextFormatOutputTypeDef = TypedDict(
     "DocumentOutputTextFormatOutputTypeDef",
     {
-        "types": NotRequired[List[DocumentOutputTextFormatTypeType]],
+        "types": NotRequired[list[DocumentOutputTextFormatTypeType]],
     },
 )
 DocumentOutputTextFormatTypeDef = TypedDict(
@@ -306,6 +336,10 @@ class SplitterConfigurationTypeDef(TypedDict):
 
 class DocumentStandardGenerativeFieldTypeDef(TypedDict):
     state: StateType
+
+
+class GetBlueprintOptimizationStatusRequestTypeDef(TypedDict):
+    invocationArn: str
 
 
 class GetBlueprintRequestTypeDef(TypedDict):
@@ -327,7 +361,7 @@ ImageExtractionCategoryOutputTypeDef = TypedDict(
     "ImageExtractionCategoryOutputTypeDef",
     {
         "state": StateType,
-        "types": NotRequired[List[ImageExtractionCategoryTypeType]],
+        "types": NotRequired[list[ImageExtractionCategoryTypeType]],
     },
 )
 ImageExtractionCategoryTypeDef = TypedDict(
@@ -341,7 +375,7 @@ ImageStandardGenerativeFieldOutputTypeDef = TypedDict(
     "ImageStandardGenerativeFieldOutputTypeDef",
     {
         "state": StateType,
-        "types": NotRequired[List[ImageStandardGenerativeFieldTypeType]],
+        "types": NotRequired[list[ImageStandardGenerativeFieldTypeType]],
     },
 )
 ImageStandardGenerativeFieldTypeDef = TypedDict(
@@ -370,6 +404,20 @@ class ModalityRoutingConfigurationTypeDef(TypedDict):
     mov: NotRequired[DesiredModalityType]
 
 
+class PIIEntitiesConfigurationOutputTypeDef(TypedDict):
+    piiEntityTypes: NotRequired[list[PIIEntityTypeType]]
+    redactionMaskMode: NotRequired[PIIRedactionMaskModeType]
+
+
+class PIIEntitiesConfigurationTypeDef(TypedDict):
+    piiEntityTypes: NotRequired[Sequence[PIIEntityTypeType]]
+    redactionMaskMode: NotRequired[PIIRedactionMaskModeType]
+
+
+class SpeakerLabelingConfigurationTypeDef(TypedDict):
+    state: StateType
+
+
 class UntagResourceRequestTypeDef(TypedDict):
     resourceARN: str
     tagKeys: Sequence[str]
@@ -383,7 +431,7 @@ VideoExtractionCategoryOutputTypeDef = TypedDict(
     "VideoExtractionCategoryOutputTypeDef",
     {
         "state": StateType,
-        "types": NotRequired[List[VideoExtractionCategoryTypeType]],
+        "types": NotRequired[list[VideoExtractionCategoryTypeType]],
     },
 )
 VideoExtractionCategoryTypeDef = TypedDict(
@@ -397,7 +445,7 @@ VideoStandardGenerativeFieldOutputTypeDef = TypedDict(
     "VideoStandardGenerativeFieldOutputTypeDef",
     {
         "state": StateType,
-        "types": NotRequired[List[VideoStandardGenerativeFieldTypeType]],
+        "types": NotRequired[list[VideoStandardGenerativeFieldTypeType]],
     },
 )
 VideoStandardGenerativeFieldTypeDef = TypedDict(
@@ -409,26 +457,6 @@ VideoStandardGenerativeFieldTypeDef = TypedDict(
 )
 
 
-class AudioStandardExtractionOutputTypeDef(TypedDict):
-    category: AudioExtractionCategoryOutputTypeDef
-
-
-class AudioStandardExtractionTypeDef(TypedDict):
-    category: AudioExtractionCategoryTypeDef
-
-
-class AudioOverrideConfigurationTypeDef(TypedDict):
-    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
-
-
-class ImageOverrideConfigurationTypeDef(TypedDict):
-    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
-
-
-class VideoOverrideConfigurationTypeDef(TypedDict):
-    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
-
-
 class ListDataAutomationProjectsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -438,11 +466,20 @@ class ListDataAutomationProjectsRequestTypeDef(TypedDict):
 
 
 class CustomOutputConfigurationOutputTypeDef(TypedDict):
-    blueprints: NotRequired[List[BlueprintItemTypeDef]]
+    blueprints: NotRequired[list[BlueprintItemTypeDef]]
 
 
 class CustomOutputConfigurationTypeDef(TypedDict):
     blueprints: NotRequired[Sequence[BlueprintItemTypeDef]]
+
+
+class BlueprintOptimizationOutputConfigurationTypeDef(TypedDict):
+    s3Object: S3ObjectTypeDef
+
+
+class BlueprintOptimizationSampleTypeDef(TypedDict):
+    assetS3Object: S3ObjectTypeDef
+    groundTruthS3Object: S3ObjectTypeDef
 
 
 class UpdateBlueprintRequestTypeDef(TypedDict):
@@ -471,16 +508,6 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Sequence[TagTypeDef]
 
 
-class CreateBlueprintResponseTypeDef(TypedDict):
-    blueprint: BlueprintTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class CreateBlueprintVersionResponseTypeDef(TypedDict):
-    blueprint: BlueprintTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class CreateDataAutomationProjectResponseTypeDef(TypedDict):
     projectArn: str
     projectStage: DataAutomationProjectStageType
@@ -494,24 +521,19 @@ class DeleteDataAutomationProjectResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetBlueprintResponseTypeDef(TypedDict):
-    blueprint: BlueprintTypeDef
+class InvokeBlueprintOptimizationAsyncResponseTypeDef(TypedDict):
+    invocationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListBlueprintsResponseTypeDef(TypedDict):
-    blueprints: List[BlueprintSummaryTypeDef]
+    blueprints: list[BlueprintSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateBlueprintResponseTypeDef(TypedDict):
-    blueprint: BlueprintTypeDef
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -532,7 +554,7 @@ class ListBlueprintsRequestTypeDef(TypedDict):
 
 
 class ListDataAutomationProjectsResponseTypeDef(TypedDict):
-    projects: List[DataAutomationProjectSummaryTypeDef]
+    projects: list[DataAutomationProjectSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -555,11 +577,6 @@ class DocumentOutputFormatOutputTypeDef(TypedDict):
 class DocumentOutputFormatTypeDef(TypedDict):
     textFormat: DocumentOutputTextFormatTypeDef
     additionalFileFormat: DocumentOutputAdditionalFileFormatTypeDef
-
-
-class DocumentOverrideConfigurationTypeDef(TypedDict):
-    splitter: NotRequired[SplitterConfigurationTypeDef]
-    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
 
 
 class ImageStandardExtractionOutputTypeDef(TypedDict):
@@ -587,6 +604,23 @@ class ListDataAutomationProjectsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class SensitiveDataConfigurationOutputTypeDef(TypedDict):
+    detectionMode: SensitiveDataDetectionModeType
+    detectionScope: NotRequired[list[SensitiveDataDetectionScopeTypeType]]
+    piiEntitiesConfiguration: NotRequired[PIIEntitiesConfigurationOutputTypeDef]
+
+
+class SensitiveDataConfigurationTypeDef(TypedDict):
+    detectionMode: SensitiveDataDetectionModeType
+    detectionScope: NotRequired[Sequence[SensitiveDataDetectionScopeTypeType]]
+    piiEntitiesConfiguration: NotRequired[PIIEntitiesConfigurationTypeDef]
+
+
+class TranscriptConfigurationTypeDef(TypedDict):
+    speakerLabeling: NotRequired[SpeakerLabelingConfigurationTypeDef]
+    channelLabeling: NotRequired[ChannelLabelingConfigurationTypeDef]
+
+
 class VideoStandardExtractionOutputTypeDef(TypedDict):
     category: VideoExtractionCategoryOutputTypeDef
     boundingBox: VideoBoundingBoxTypeDef
@@ -597,19 +631,45 @@ class VideoStandardExtractionTypeDef(TypedDict):
     boundingBox: VideoBoundingBoxTypeDef
 
 
-class AudioStandardOutputConfigurationOutputTypeDef(TypedDict):
-    extraction: NotRequired[AudioStandardExtractionOutputTypeDef]
-    generativeField: NotRequired[AudioStandardGenerativeFieldOutputTypeDef]
-
-
-class AudioStandardOutputConfigurationTypeDef(TypedDict):
-    extraction: NotRequired[AudioStandardExtractionTypeDef]
-    generativeField: NotRequired[AudioStandardGenerativeFieldTypeDef]
-
-
 CustomOutputConfigurationUnionTypeDef = Union[
     CustomOutputConfigurationTypeDef, CustomOutputConfigurationOutputTypeDef
 ]
+
+
+class GetBlueprintOptimizationStatusResponseTypeDef(TypedDict):
+    status: BlueprintOptimizationJobStatusType
+    errorType: str
+    errorMessage: str
+    outputConfiguration: BlueprintOptimizationOutputConfigurationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+BlueprintTypeDef = TypedDict(
+    "BlueprintTypeDef",
+    {
+        "blueprintArn": str,
+        "schema": str,
+        "type": TypeType,
+        "creationTime": datetime,
+        "lastModifiedTime": datetime,
+        "blueprintName": str,
+        "blueprintVersion": NotRequired[str],
+        "blueprintStage": NotRequired[BlueprintStageType],
+        "kmsKeyId": NotRequired[str],
+        "kmsEncryptionContext": NotRequired[dict[str, str]],
+        "optimizationSamples": NotRequired[list[BlueprintOptimizationSampleTypeDef]],
+        "optimizationTime": NotRequired[datetime],
+    },
+)
+
+
+class InvokeBlueprintOptimizationAsyncRequestTypeDef(TypedDict):
+    blueprint: BlueprintOptimizationObjectTypeDef
+    samples: Sequence[BlueprintOptimizationSampleTypeDef]
+    outputConfiguration: BlueprintOptimizationOutputConfigurationTypeDef
+    dataAutomationProfileArn: str
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    tags: NotRequired[Sequence[TagTypeDef]]
 
 
 class DocumentStandardOutputConfigurationOutputTypeDef(TypedDict):
@@ -624,14 +684,6 @@ class DocumentStandardOutputConfigurationTypeDef(TypedDict):
     outputFormat: NotRequired[DocumentOutputFormatTypeDef]
 
 
-class OverrideConfigurationTypeDef(TypedDict):
-    document: NotRequired[DocumentOverrideConfigurationTypeDef]
-    image: NotRequired[ImageOverrideConfigurationTypeDef]
-    video: NotRequired[VideoOverrideConfigurationTypeDef]
-    audio: NotRequired[AudioOverrideConfigurationTypeDef]
-    modalityRouting: NotRequired[ModalityRoutingConfigurationTypeDef]
-
-
 class ImageStandardOutputConfigurationOutputTypeDef(TypedDict):
     extraction: NotRequired[ImageStandardExtractionOutputTypeDef]
     generativeField: NotRequired[ImageStandardGenerativeFieldOutputTypeDef]
@@ -642,6 +694,54 @@ class ImageStandardOutputConfigurationTypeDef(TypedDict):
     generativeField: NotRequired[ImageStandardGenerativeFieldTypeDef]
 
 
+class AudioOverrideConfigurationOutputTypeDef(TypedDict):
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    languageConfiguration: NotRequired[AudioLanguageConfigurationOutputTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationOutputTypeDef]
+
+
+class DocumentOverrideConfigurationOutputTypeDef(TypedDict):
+    splitter: NotRequired[SplitterConfigurationTypeDef]
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationOutputTypeDef]
+
+
+class ImageOverrideConfigurationOutputTypeDef(TypedDict):
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationOutputTypeDef]
+
+
+class VideoOverrideConfigurationOutputTypeDef(TypedDict):
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationOutputTypeDef]
+
+
+class AudioOverrideConfigurationTypeDef(TypedDict):
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    languageConfiguration: NotRequired[AudioLanguageConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationTypeDef]
+
+
+class DocumentOverrideConfigurationTypeDef(TypedDict):
+    splitter: NotRequired[SplitterConfigurationTypeDef]
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationTypeDef]
+
+
+class ImageOverrideConfigurationTypeDef(TypedDict):
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationTypeDef]
+
+
+class VideoOverrideConfigurationTypeDef(TypedDict):
+    modalityProcessing: NotRequired[ModalityProcessingConfigurationTypeDef]
+    sensitiveDataConfiguration: NotRequired[SensitiveDataConfigurationTypeDef]
+
+
+class AudioExtractionCategoryTypeConfigurationTypeDef(TypedDict):
+    transcript: NotRequired[TranscriptConfigurationTypeDef]
+
+
 class VideoStandardOutputConfigurationOutputTypeDef(TypedDict):
     extraction: NotRequired[VideoStandardExtractionOutputTypeDef]
     generativeField: NotRequired[VideoStandardGenerativeFieldOutputTypeDef]
@@ -650,6 +750,81 @@ class VideoStandardOutputConfigurationOutputTypeDef(TypedDict):
 class VideoStandardOutputConfigurationTypeDef(TypedDict):
     extraction: NotRequired[VideoStandardExtractionTypeDef]
     generativeField: NotRequired[VideoStandardGenerativeFieldTypeDef]
+
+
+class CreateBlueprintResponseTypeDef(TypedDict):
+    blueprint: BlueprintTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreateBlueprintVersionResponseTypeDef(TypedDict):
+    blueprint: BlueprintTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetBlueprintResponseTypeDef(TypedDict):
+    blueprint: BlueprintTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateBlueprintResponseTypeDef(TypedDict):
+    blueprint: BlueprintTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class OverrideConfigurationOutputTypeDef(TypedDict):
+    document: NotRequired[DocumentOverrideConfigurationOutputTypeDef]
+    image: NotRequired[ImageOverrideConfigurationOutputTypeDef]
+    video: NotRequired[VideoOverrideConfigurationOutputTypeDef]
+    audio: NotRequired[AudioOverrideConfigurationOutputTypeDef]
+    modalityRouting: NotRequired[ModalityRoutingConfigurationTypeDef]
+
+
+class OverrideConfigurationTypeDef(TypedDict):
+    document: NotRequired[DocumentOverrideConfigurationTypeDef]
+    image: NotRequired[ImageOverrideConfigurationTypeDef]
+    video: NotRequired[VideoOverrideConfigurationTypeDef]
+    audio: NotRequired[AudioOverrideConfigurationTypeDef]
+    modalityRouting: NotRequired[ModalityRoutingConfigurationTypeDef]
+
+
+AudioExtractionCategoryOutputTypeDef = TypedDict(
+    "AudioExtractionCategoryOutputTypeDef",
+    {
+        "state": StateType,
+        "types": NotRequired[list[AudioExtractionCategoryTypeType]],
+        "typeConfiguration": NotRequired[AudioExtractionCategoryTypeConfigurationTypeDef],
+    },
+)
+AudioExtractionCategoryTypeDef = TypedDict(
+    "AudioExtractionCategoryTypeDef",
+    {
+        "state": StateType,
+        "types": NotRequired[Sequence[AudioExtractionCategoryTypeType]],
+        "typeConfiguration": NotRequired[AudioExtractionCategoryTypeConfigurationTypeDef],
+    },
+)
+OverrideConfigurationUnionTypeDef = Union[
+    OverrideConfigurationTypeDef, OverrideConfigurationOutputTypeDef
+]
+
+
+class AudioStandardExtractionOutputTypeDef(TypedDict):
+    category: AudioExtractionCategoryOutputTypeDef
+
+
+class AudioStandardExtractionTypeDef(TypedDict):
+    category: AudioExtractionCategoryTypeDef
+
+
+class AudioStandardOutputConfigurationOutputTypeDef(TypedDict):
+    extraction: NotRequired[AudioStandardExtractionOutputTypeDef]
+    generativeField: NotRequired[AudioStandardGenerativeFieldOutputTypeDef]
+
+
+class AudioStandardOutputConfigurationTypeDef(TypedDict):
+    extraction: NotRequired[AudioStandardExtractionTypeDef]
+    generativeField: NotRequired[AudioStandardGenerativeFieldTypeDef]
 
 
 class StandardOutputConfigurationOutputTypeDef(TypedDict):
@@ -673,12 +848,13 @@ class DataAutomationProjectTypeDef(TypedDict):
     projectName: str
     status: DataAutomationProjectStatusType
     projectStage: NotRequired[DataAutomationProjectStageType]
+    projectType: NotRequired[DataAutomationProjectTypeType]
     projectDescription: NotRequired[str]
     standardOutputConfiguration: NotRequired[StandardOutputConfigurationOutputTypeDef]
     customOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
-    overrideConfiguration: NotRequired[OverrideConfigurationTypeDef]
+    overrideConfiguration: NotRequired[OverrideConfigurationOutputTypeDef]
     kmsKeyId: NotRequired[str]
-    kmsEncryptionContext: NotRequired[Dict[str, str]]
+    kmsEncryptionContext: NotRequired[dict[str, str]]
 
 
 StandardOutputConfigurationUnionTypeDef = Union[
@@ -696,8 +872,9 @@ class CreateDataAutomationProjectRequestTypeDef(TypedDict):
     standardOutputConfiguration: StandardOutputConfigurationUnionTypeDef
     projectDescription: NotRequired[str]
     projectStage: NotRequired[DataAutomationProjectStageType]
+    projectType: NotRequired[DataAutomationProjectTypeType]
     customOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
-    overrideConfiguration: NotRequired[OverrideConfigurationTypeDef]
+    overrideConfiguration: NotRequired[OverrideConfigurationUnionTypeDef]
     clientToken: NotRequired[str]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     tags: NotRequired[Sequence[TagTypeDef]]
@@ -709,5 +886,5 @@ class UpdateDataAutomationProjectRequestTypeDef(TypedDict):
     projectStage: NotRequired[DataAutomationProjectStageType]
     projectDescription: NotRequired[str]
     customOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
-    overrideConfiguration: NotRequired[OverrideConfigurationTypeDef]
+    overrideConfiguration: NotRequired[OverrideConfigurationUnionTypeDef]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]

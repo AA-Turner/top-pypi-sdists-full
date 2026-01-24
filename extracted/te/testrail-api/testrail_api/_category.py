@@ -38,6 +38,10 @@ class _MetaCategory:
         self._session = session
         return self
 
+    @staticmethod
+    def _opt(params: dict[Any, Any]) -> dict[Any, Any]:
+        return {k: v for k, v in params.items() if v is not None}
+
     def __get__(self, instance: Session, owner: type[Session]):  # noqa: ANN204 (3.9 and 3.10 no Self)
         return self(instance)
 
@@ -1952,15 +1956,35 @@ class Suites(_MetaCategory):
         """
         return self.s.get(endpoint=f"get_suite/{suite_id}")
 
-    def get_suites(self, project_id: int) -> list[dict]:
+    def get_suites(self, project_id: int, offset: Optional[int] = None, limit: Optional[int] = None) -> dict:
         """
         Returns a list of test suites for a project.
 
         :param project_id:
             The ID of the project
+        :param offset:
+            Where to start counting the suites from the offset.
+        :param limit:
+            The number of suites the response should return.
         :return: response
         """
-        return self.s.get(endpoint=f"get_suites/{project_id}")
+        return self.s.get(endpoint=f"get_suites/{project_id}", params=self._opt({"offset": offset, "limit": limit}))
+
+    def get_suites_bulk(self, project_id: int, **kwargs) -> list[dict]:
+        """
+        Return a list of test suites for a project with pagination.
+
+        :param project_id:
+            The ID of the project
+        :param kwargs:
+            :key offset: int
+                Where to start counting the suites from (the offset)
+            :key limit: int
+                The number of suites the response should return
+        :return: List of test suites
+        :returns: list[dict]
+        """
+        return _bulk_api_method(self.get_suites, "suites", project_id, **kwargs)
 
     def add_suite(self, project_id: int, name: str, **kwargs) -> dict:
         """
@@ -2115,16 +2139,42 @@ class Users(_MetaCategory):
         """
         return self.s.get(endpoint="get_user_by_email", params={"email": email})
 
-    def get_users(self, project_id: Optional[int] = None) -> list[dict]:
+    def get_users(
+        self, project_id: Optional[int] = None, offset: Optional[int] = None, limit: Optional[int] = None
+    ) -> dict:
         """
         Returns a list of users.
 
         :param project_id:
             The ID of the project for which you would like to retrieve user information.
             (Required for non-administrators. Requires TestRail 6.6 or later.)
+        :param offset: int | None
+            Where to start counting the users from the offset.
+        :param limit: int | None
+            The number of users the response should return.
         :return: response
         """
-        return self.s.get(endpoint=f"get_users/{project_id}" if project_id else "get_users")
+        return self.s.get(
+            endpoint=f"get_users/{project_id}" if project_id else "get_users",
+            params=self._opt({"offset": offset, "limit": limit}),
+        )
+
+    def get_users_bulk(self, project_id: Optional[int] = None, **kwargs) -> list[dict]:
+        """
+        Return a list of users with pagination.
+
+        :param project_id:
+            The ID of the project for which you would like to retrieve user information.
+            (Required for non-administrators. Requires TestRail 6.6 or later.)
+        :param kwargs:
+            :key offset: int
+                Where to start counting the users from (the offset)
+            :key limit: int
+                The number of users the response should return
+        :return: List of users
+        :returns: list[dict]
+        """
+        return _bulk_api_method(self.get_users, "users", project_id, **kwargs)
 
 
 class SharedSteps(_MetaCategory):
@@ -2411,3 +2461,42 @@ class Datasets(_MetaCategory):
             The ID of the dataset to be deleted
         """
         return self.s.post(endpoint=f"delete_dataset/{dataset_id}")
+
+
+class Labels(_MetaCategory):
+    """https://support.testrail.com/hc/en-us/articles/38961149782036-Labels."""
+
+    def get_labels(self, project_id: int, offset: Optional[int] = None, limit: Optional[int] = None) -> dict:
+        """
+        Returns an existing label.
+
+        :param project_id: int
+            The ID of the project.
+        :param offset: int | None
+            Where to start counting the test cases from the offset.
+        :param limit: int | None
+            The number of labels the response should return.
+        """
+        return self.s.get(endpoint=f"get_labels/{project_id}", params=self._opt({"offset": offset, "limit": limit}))
+
+    def get_label(self, label_id: int) -> dict:
+        """
+        Returns an existing label.
+
+        :param label_id: int
+            Returns an existing label.
+        """
+        return self.s.get(endpoint=f"get_label/{label_id}")
+
+    def update_label(self, label_id: int, project_id: int, title: str) -> dict:
+        """
+        Updates an existing label.
+
+        :param label_id: int
+            The ID of the label to update.
+        :param project_id: int
+            The ID of the project where the label is to be updated.
+        :param title: str
+            The title of the label. Maximum 20 characters allowed.
+        """
+        return self.s.post(endpoint=f"update_label/{label_id}", json={"title": title, "project_id": project_id})

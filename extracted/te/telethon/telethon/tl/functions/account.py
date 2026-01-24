@@ -6,7 +6,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeAccountDaysTTL, TypeAutoDownloadSettings, TypeAutoSaveSettings, TypeBaseTheme, TypeBirthday, TypeBusinessBotRights, TypeBusinessWorkHours, TypeCodeSettings, TypeEmailVerification, TypeEmailVerifyPurpose, TypeEmojiStatus, TypeGlobalPrivacySettings, TypeInputBusinessAwayMessage, TypeInputBusinessBotRecipients, TypeInputBusinessChatLink, TypeInputBusinessGreetingMessage, TypeInputBusinessIntro, TypeInputChannel, TypeInputCheckPasswordSRP, TypeInputDocument, TypeInputFile, TypeInputGeoPoint, TypeInputNotifyPeer, TypeInputPeer, TypeInputPeerNotifySettings, TypeInputPhoto, TypeInputPrivacyKey, TypeInputPrivacyRule, TypeInputSecureValue, TypeInputTheme, TypeInputThemeSettings, TypeInputUser, TypeInputWallPaper, TypeProfileTab, TypeReactionsNotifySettings, TypeReportReason, TypeSecureCredentialsEncrypted, TypeSecureValueHash, TypeSecureValueType, TypeWallPaperSettings
+    from ...tl.types import TypeAccountDaysTTL, TypeAutoDownloadSettings, TypeAutoSaveSettings, TypeBaseTheme, TypeBirthday, TypeBusinessBotRights, TypeBusinessWorkHours, TypeCodeSettings, TypeEmailVerification, TypeEmailVerifyPurpose, TypeEmojiStatus, TypeGlobalPrivacySettings, TypeInputBusinessAwayMessage, TypeInputBusinessBotRecipients, TypeInputBusinessChatLink, TypeInputBusinessGreetingMessage, TypeInputBusinessIntro, TypeInputChannel, TypeInputCheckPasswordSRP, TypeInputDocument, TypeInputFile, TypeInputGeoPoint, TypeInputNotifyPeer, TypeInputPeer, TypeInputPeerNotifySettings, TypeInputPhoto, TypeInputPrivacyKey, TypeInputPrivacyRule, TypeInputSecureValue, TypeInputTheme, TypeInputThemeSettings, TypeInputUser, TypeInputWallPaper, TypePeerColor, TypeProfileTab, TypeReactionsNotifySettings, TypeReportReason, TypeSecureCredentialsEncrypted, TypeSecureValueHash, TypeSecureValueType, TypeWallPaperSettings
     from ...tl.types.account import TypePasswordInputSettings
 
 
@@ -1523,10 +1523,10 @@ class GetTmpPasswordRequest(TLRequest):
 
 
 class GetUniqueGiftChatThemesRequest(TLRequest):
-    CONSTRUCTOR_ID = 0xfe74ef9f
+    CONSTRUCTOR_ID = 0xe42ce9c9
     SUBCLASS_OF_ID = 0x15c14aa8
 
-    def __init__(self, offset: int, limit: int, hash: int):
+    def __init__(self, offset: str, limit: int, hash: int):
         """
         :returns account.ChatThemes: Instance of either ChatThemesNotModified, ChatThemes.
         """
@@ -1544,15 +1544,15 @@ class GetUniqueGiftChatThemesRequest(TLRequest):
 
     def _bytes(self):
         return b''.join((
-            b'\x9f\xeft\xfe',
-            struct.pack('<i', self.offset),
+            b'\xc9\xe9,\xe4',
+            self.serialize_bytes(self.offset),
             struct.pack('<i', self.limit),
             struct.pack('<q', self.hash),
         ))
 
     @classmethod
     def from_reader(cls, reader):
-        _offset = reader.read_int()
+        _offset = reader.tgread_string()
         _limit = reader.read_int()
         _hash = reader.read_long()
         return cls(offset=_offset, limit=_limit, hash=_hash)
@@ -3181,31 +3181,28 @@ class UpdateBusinessWorkHoursRequest(TLRequest):
 
 
 class UpdateColorRequest(TLRequest):
-    CONSTRUCTOR_ID = 0x7cefa15d
+    CONSTRUCTOR_ID = 0x684d214e
     SUBCLASS_OF_ID = 0xf5b399ac
 
-    def __init__(self, for_profile: Optional[bool]=None, color: Optional[int]=None, background_emoji_id: Optional[int]=None):
+    def __init__(self, for_profile: Optional[bool]=None, color: Optional['TypePeerColor']=None):
         """
         :returns Bool: This type has no constructors.
         """
         self.for_profile = for_profile
         self.color = color
-        self.background_emoji_id = background_emoji_id
 
     def to_dict(self):
         return {
             '_': 'UpdateColorRequest',
             'for_profile': self.for_profile,
-            'color': self.color,
-            'background_emoji_id': self.background_emoji_id
+            'color': self.color.to_dict() if isinstance(self.color, TLObject) else self.color
         }
 
     def _bytes(self):
         return b''.join((
-            b']\xa1\xef|',
-            struct.pack('<I', (0 if self.for_profile is None or self.for_profile is False else 2) | (0 if self.color is None or self.color is False else 4) | (0 if self.background_emoji_id is None or self.background_emoji_id is False else 1)),
-            b'' if self.color is None or self.color is False else (struct.pack('<i', self.color)),
-            b'' if self.background_emoji_id is None or self.background_emoji_id is False else (struct.pack('<q', self.background_emoji_id)),
+            b'N!Mh',
+            struct.pack('<I', (0 if self.for_profile is None or self.for_profile is False else 2) | (0 if self.color is None or self.color is False else 4)),
+            b'' if self.color is None or self.color is False else (self.color._bytes()),
         ))
 
     @classmethod
@@ -3214,14 +3211,10 @@ class UpdateColorRequest(TLRequest):
 
         _for_profile = bool(flags & 2)
         if flags & 4:
-            _color = reader.read_int()
+            _color = reader.tgread_object()
         else:
             _color = None
-        if flags & 1:
-            _background_emoji_id = reader.read_long()
-        else:
-            _background_emoji_id = None
-        return cls(for_profile=_for_profile, color=_color, background_emoji_id=_background_emoji_id)
+        return cls(for_profile=_for_profile, color=_color)
 
 
 class UpdateConnectedBotRequest(TLRequest):

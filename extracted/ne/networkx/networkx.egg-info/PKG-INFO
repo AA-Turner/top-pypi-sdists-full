@@ -1,9 +1,10 @@
 Metadata-Version: 2.4
 Name: networkx
-Version: 3.5
+Version: 3.6.1
 Summary: Python package for creating and manipulating graphs and networks
 Author-email: Aric Hagberg <hagberg@lanl.gov>
 Maintainer-email: NetworkX Developers <networkx-discuss@googlegroups.com>
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://networkx.org/
 Project-URL: Bug Tracker, https://github.com/networkx/networkx/issues
 Project-URL: Documentation, https://networkx.org/documentation/stable/
@@ -16,21 +17,24 @@ Platform: Unix
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
-Requires-Python: >=3.11
+Requires-Python: !=3.14.1,>=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Provides-Extra: benchmarking
+Requires-Dist: asv; extra == "benchmarking"
+Requires-Dist: virtualenv; extra == "benchmarking"
 Provides-Extra: default
 Requires-Dist: numpy>=1.25; extra == "default"
 Requires-Dist: scipy>=1.11.2; extra == "default"
@@ -56,11 +60,17 @@ Requires-Dist: seaborn>=0.13; extra == "example"
 Requires-Dist: cairocffi>=1.7; extra == "example"
 Requires-Dist: igraph>=0.11; extra == "example"
 Requires-Dist: scikit-learn>=1.5; extra == "example"
+Requires-Dist: iplotx>=0.9.0; extra == "example"
 Provides-Extra: extra
 Requires-Dist: lxml>=4.6; extra == "extra"
 Requires-Dist: pygraphviz>=1.14; extra == "extra"
 Requires-Dist: pydot>=3.0.1; extra == "extra"
 Requires-Dist: sympy>=1.10; extra == "extra"
+Provides-Extra: release
+Requires-Dist: build>=0.10; extra == "release"
+Requires-Dist: twine>=4.0; extra == "release"
+Requires-Dist: wheel>=0.40; extra == "release"
+Requires-Dist: changelist==0.5; extra == "release"
 Provides-Extra: test
 Requires-Dist: pytest>=7.2; extra == "test"
 Requires-Dist: pytest-cov>=4.0; extra == "test"
@@ -75,12 +85,8 @@ NetworkX
 
 
 .. image::
-    https://github.com/networkx/networkx/workflows/test/badge.svg?branch=main
-    :target: https://github.com/networkx/networkx/actions?query=workflow%3Atest
-
-.. image::
-    https://codecov.io/gh/networkx/networkx/branch/main/graph/badge.svg?
-    :target: https://app.codecov.io/gh/networkx/networkx/branch/main
+    https://github.com/networkx/networkx/actions/workflows/test.yml/badge.svg?branch=main
+    :target: https://github.com/networkx/networkx/actions/workflows/test.yml
 
 .. image::
     https://img.shields.io/pypi/v/networkx.svg?
@@ -97,6 +103,10 @@ NetworkX
 .. image::
     https://img.shields.io/github/labels/networkx/networkx/good%20first%20issue?color=green&label=contribute
     :target: https://github.com/networkx/networkx/contribute
+
+.. image::
+    https://insights.linuxfoundation.org/api/badge/health-score?project=networkx
+    :target: https://insights.linuxfoundation.org/project/networkx
 
 
 NetworkX is a Python package for the creation, manipulation,

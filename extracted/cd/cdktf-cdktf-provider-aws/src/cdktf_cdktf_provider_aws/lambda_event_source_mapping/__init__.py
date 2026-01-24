@@ -1,7 +1,7 @@
 r'''
 # `aws_lambda_event_source_mapping`
 
-Refer to the Terraform Registry for docs: [`aws_lambda_event_source_mapping`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping).
+Refer to the Terraform Registry for docs: [`aws_lambda_event_source_mapping`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class LambdaEventSourceMapping(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMapping",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping aws_lambda_event_source_mapping}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping aws_lambda_event_source_mapping}.'''
 
     def __init__(
         self,
@@ -89,40 +89,40 @@ class LambdaEventSourceMapping(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping aws_lambda_event_source_mapping} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping aws_lambda_event_source_mapping} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#function_name LambdaEventSourceMapping#function_name}.
-        :param amazon_managed_kafka_event_source_config: amazon_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#amazon_managed_kafka_event_source_config LambdaEventSourceMapping#amazon_managed_kafka_event_source_config}
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#batch_size LambdaEventSourceMapping#batch_size}.
-        :param bisect_batch_on_function_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#bisect_batch_on_function_error LambdaEventSourceMapping#bisect_batch_on_function_error}.
-        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#destination_config LambdaEventSourceMapping#destination_config}
-        :param document_db_event_source_config: document_db_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#document_db_event_source_config LambdaEventSourceMapping#document_db_event_source_config}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#enabled LambdaEventSourceMapping#enabled}.
-        :param event_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#event_source_arn LambdaEventSourceMapping#event_source_arn}.
-        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#filter_criteria LambdaEventSourceMapping#filter_criteria}
-        :param function_response_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#function_response_types LambdaEventSourceMapping#function_response_types}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#id LambdaEventSourceMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#kms_key_arn LambdaEventSourceMapping#kms_key_arn}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_batching_window_in_seconds LambdaEventSourceMapping#maximum_batching_window_in_seconds}.
-        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_record_age_in_seconds LambdaEventSourceMapping#maximum_record_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_retry_attempts LambdaEventSourceMapping#maximum_retry_attempts}.
-        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#metrics_config LambdaEventSourceMapping#metrics_config}
-        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#parallelization_factor LambdaEventSourceMapping#parallelization_factor}.
-        :param provisioned_poller_config: provisioned_poller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#provisioned_poller_config LambdaEventSourceMapping#provisioned_poller_config}
-        :param queues: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#queues LambdaEventSourceMapping#queues}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#region LambdaEventSourceMapping#region}
-        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#scaling_config LambdaEventSourceMapping#scaling_config}
-        :param self_managed_event_source: self_managed_event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#self_managed_event_source LambdaEventSourceMapping#self_managed_event_source}
-        :param self_managed_kafka_event_source_config: self_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#self_managed_kafka_event_source_config LambdaEventSourceMapping#self_managed_kafka_event_source_config}
-        :param source_access_configuration: source_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#source_access_configuration LambdaEventSourceMapping#source_access_configuration}
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#starting_position LambdaEventSourceMapping#starting_position}.
-        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#starting_position_timestamp LambdaEventSourceMapping#starting_position_timestamp}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tags LambdaEventSourceMapping#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tags_all LambdaEventSourceMapping#tags_all}.
-        :param topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#topics LambdaEventSourceMapping#topics}.
-        :param tumbling_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tumbling_window_in_seconds LambdaEventSourceMapping#tumbling_window_in_seconds}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#function_name LambdaEventSourceMapping#function_name}.
+        :param amazon_managed_kafka_event_source_config: amazon_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#amazon_managed_kafka_event_source_config LambdaEventSourceMapping#amazon_managed_kafka_event_source_config}
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#batch_size LambdaEventSourceMapping#batch_size}.
+        :param bisect_batch_on_function_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#bisect_batch_on_function_error LambdaEventSourceMapping#bisect_batch_on_function_error}.
+        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#destination_config LambdaEventSourceMapping#destination_config}
+        :param document_db_event_source_config: document_db_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#document_db_event_source_config LambdaEventSourceMapping#document_db_event_source_config}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#enabled LambdaEventSourceMapping#enabled}.
+        :param event_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_source_arn LambdaEventSourceMapping#event_source_arn}.
+        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#filter_criteria LambdaEventSourceMapping#filter_criteria}
+        :param function_response_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#function_response_types LambdaEventSourceMapping#function_response_types}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#id LambdaEventSourceMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#kms_key_arn LambdaEventSourceMapping#kms_key_arn}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_batching_window_in_seconds LambdaEventSourceMapping#maximum_batching_window_in_seconds}.
+        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_record_age_in_seconds LambdaEventSourceMapping#maximum_record_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_retry_attempts LambdaEventSourceMapping#maximum_retry_attempts}.
+        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#metrics_config LambdaEventSourceMapping#metrics_config}
+        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#parallelization_factor LambdaEventSourceMapping#parallelization_factor}.
+        :param provisioned_poller_config: provisioned_poller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#provisioned_poller_config LambdaEventSourceMapping#provisioned_poller_config}
+        :param queues: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#queues LambdaEventSourceMapping#queues}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#region LambdaEventSourceMapping#region}
+        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#scaling_config LambdaEventSourceMapping#scaling_config}
+        :param self_managed_event_source: self_managed_event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#self_managed_event_source LambdaEventSourceMapping#self_managed_event_source}
+        :param self_managed_kafka_event_source_config: self_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#self_managed_kafka_event_source_config LambdaEventSourceMapping#self_managed_kafka_event_source_config}
+        :param source_access_configuration: source_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#source_access_configuration LambdaEventSourceMapping#source_access_configuration}
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#starting_position LambdaEventSourceMapping#starting_position}.
+        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#starting_position_timestamp LambdaEventSourceMapping#starting_position_timestamp}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tags LambdaEventSourceMapping#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tags_all LambdaEventSourceMapping#tags_all}.
+        :param topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#topics LambdaEventSourceMapping#topics}.
+        :param tumbling_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tumbling_window_in_seconds LambdaEventSourceMapping#tumbling_window_in_seconds}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -190,7 +190,7 @@ class LambdaEventSourceMapping(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the LambdaEventSourceMapping to import.
-        :param import_from_id: The id of the existing LambdaEventSourceMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing LambdaEventSourceMapping that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the LambdaEventSourceMapping to import is found.
         '''
         if __debug__:
@@ -206,12 +206,15 @@ class LambdaEventSourceMapping(
         self,
         *,
         consumer_group_id: typing.Optional[builtins.str] = None,
+        schema_registry_config: typing.Optional[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param schema_registry_config: schema_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_config LambdaEventSourceMapping#schema_registry_config}
         '''
         value = LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig(
-            consumer_group_id=consumer_group_id
+            consumer_group_id=consumer_group_id,
+            schema_registry_config=schema_registry_config,
         )
 
         return typing.cast(None, jsii.invoke(self, "putAmazonManagedKafkaEventSourceConfig", [value]))
@@ -223,7 +226,7 @@ class LambdaEventSourceMapping(
         on_failure: typing.Optional[typing.Union["LambdaEventSourceMappingDestinationConfigOnFailure", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param on_failure: on_failure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#on_failure LambdaEventSourceMapping#on_failure}
+        :param on_failure: on_failure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#on_failure LambdaEventSourceMapping#on_failure}
         '''
         value = LambdaEventSourceMappingDestinationConfig(on_failure=on_failure)
 
@@ -238,9 +241,9 @@ class LambdaEventSourceMapping(
         full_document: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#database_name LambdaEventSourceMapping#database_name}.
-        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#collection_name LambdaEventSourceMapping#collection_name}.
-        :param full_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#full_document LambdaEventSourceMapping#full_document}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#database_name LambdaEventSourceMapping#database_name}.
+        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#collection_name LambdaEventSourceMapping#collection_name}.
+        :param full_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#full_document LambdaEventSourceMapping#full_document}.
         '''
         value = LambdaEventSourceMappingDocumentDbEventSourceConfig(
             database_name=database_name,
@@ -257,7 +260,7 @@ class LambdaEventSourceMapping(
         filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingFilterCriteriaFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#filter LambdaEventSourceMapping#filter}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#filter LambdaEventSourceMapping#filter}
         '''
         value = LambdaEventSourceMappingFilterCriteria(filter=filter)
 
@@ -266,7 +269,7 @@ class LambdaEventSourceMapping(
     @jsii.member(jsii_name="putMetricsConfig")
     def put_metrics_config(self, *, metrics: typing.Sequence[builtins.str]) -> None:
         '''
-        :param metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#metrics LambdaEventSourceMapping#metrics}.
+        :param metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#metrics LambdaEventSourceMapping#metrics}.
         '''
         value = LambdaEventSourceMappingMetricsConfig(metrics=metrics)
 
@@ -280,8 +283,8 @@ class LambdaEventSourceMapping(
         minimum_pollers: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_pollers LambdaEventSourceMapping#maximum_pollers}.
-        :param minimum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#minimum_pollers LambdaEventSourceMapping#minimum_pollers}.
+        :param maximum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_pollers LambdaEventSourceMapping#maximum_pollers}.
+        :param minimum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#minimum_pollers LambdaEventSourceMapping#minimum_pollers}.
         '''
         value = LambdaEventSourceMappingProvisionedPollerConfig(
             maximum_pollers=maximum_pollers, minimum_pollers=minimum_pollers
@@ -296,7 +299,7 @@ class LambdaEventSourceMapping(
         maximum_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_concurrency LambdaEventSourceMapping#maximum_concurrency}.
+        :param maximum_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_concurrency LambdaEventSourceMapping#maximum_concurrency}.
         '''
         value = LambdaEventSourceMappingScalingConfig(
             maximum_concurrency=maximum_concurrency
@@ -311,7 +314,7 @@ class LambdaEventSourceMapping(
         endpoints: typing.Mapping[builtins.str, builtins.str],
     ) -> None:
         '''
-        :param endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#endpoints LambdaEventSourceMapping#endpoints}.
+        :param endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#endpoints LambdaEventSourceMapping#endpoints}.
         '''
         value = LambdaEventSourceMappingSelfManagedEventSource(endpoints=endpoints)
 
@@ -322,12 +325,15 @@ class LambdaEventSourceMapping(
         self,
         *,
         consumer_group_id: typing.Optional[builtins.str] = None,
+        schema_registry_config: typing.Optional[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param schema_registry_config: schema_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_config LambdaEventSourceMapping#schema_registry_config}
         '''
         value = LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig(
-            consumer_group_id=consumer_group_id
+            consumer_group_id=consumer_group_id,
+            schema_registry_config=schema_registry_config,
         )
 
         return typing.cast(None, jsii.invoke(self, "putSelfManagedKafkaEventSourceConfig", [value]))
@@ -1005,29 +1011,50 @@ class LambdaEventSourceMapping(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig",
     jsii_struct_bases=[],
-    name_mapping={"consumer_group_id": "consumerGroupId"},
+    name_mapping={
+        "consumer_group_id": "consumerGroupId",
+        "schema_registry_config": "schemaRegistryConfig",
+    },
 )
 class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig:
     def __init__(
         self,
         *,
         consumer_group_id: typing.Optional[builtins.str] = None,
+        schema_registry_config: typing.Optional[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param schema_registry_config: schema_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_config LambdaEventSourceMapping#schema_registry_config}
         '''
+        if isinstance(schema_registry_config, dict):
+            schema_registry_config = LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig(**schema_registry_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9ae07895fe3063469b17db40b7a275858ff5d4c6bffee563124c804bda7c3861)
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
+            check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if consumer_group_id is not None:
             self._values["consumer_group_id"] = consumer_group_id
+        if schema_registry_config is not None:
+            self._values["schema_registry_config"] = schema_registry_config
 
     @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.'''
         result = self._values.get("consumer_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_registry_config(
+        self,
+    ) -> typing.Optional["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig"]:
+        '''schema_registry_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_config LambdaEventSourceMapping#schema_registry_config}
+        '''
+        result = self._values.get("schema_registry_config")
+        return typing.cast(typing.Optional["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1061,14 +1088,56 @@ class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigOutputReference
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putSchemaRegistryConfig")
+    def put_schema_registry_config(
+        self,
+        *,
+        access_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        event_record_format: typing.Optional[builtins.str] = None,
+        schema_registry_uri: typing.Optional[builtins.str] = None,
+        schema_validation_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#access_config LambdaEventSourceMapping#access_config}
+        :param event_record_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_record_format LambdaEventSourceMapping#event_record_format}.
+        :param schema_registry_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_uri LambdaEventSourceMapping#schema_registry_uri}.
+        :param schema_validation_config: schema_validation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_validation_config LambdaEventSourceMapping#schema_validation_config}
+        '''
+        value = LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig(
+            access_config=access_config,
+            event_record_format=event_record_format,
+            schema_registry_uri=schema_registry_uri,
+            schema_validation_config=schema_validation_config,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putSchemaRegistryConfig", [value]))
+
     @jsii.member(jsii_name="resetConsumerGroupId")
     def reset_consumer_group_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetConsumerGroupId", []))
+
+    @jsii.member(jsii_name="resetSchemaRegistryConfig")
+    def reset_schema_registry_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchemaRegistryConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryConfig")
+    def schema_registry_config(
+        self,
+    ) -> "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference":
+        return typing.cast("LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference", jsii.get(self, "schemaRegistryConfig"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerGroupIdInput")
     def consumer_group_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "consumerGroupIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryConfigInput")
+    def schema_registry_config_input(
+        self,
+    ) -> typing.Optional["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig"]:
+        return typing.cast(typing.Optional["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig"], jsii.get(self, "schemaRegistryConfigInput"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerGroupId")
@@ -1096,6 +1165,657 @@ class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigOutputReference
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__241b103203a35602f493d8495dce6ae9d90c439c6faa223564d7a63305710b64)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_config": "accessConfig",
+        "event_record_format": "eventRecordFormat",
+        "schema_registry_uri": "schemaRegistryUri",
+        "schema_validation_config": "schemaValidationConfig",
+    },
+)
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig:
+    def __init__(
+        self,
+        *,
+        access_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        event_record_format: typing.Optional[builtins.str] = None,
+        schema_registry_uri: typing.Optional[builtins.str] = None,
+        schema_validation_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#access_config LambdaEventSourceMapping#access_config}
+        :param event_record_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_record_format LambdaEventSourceMapping#event_record_format}.
+        :param schema_registry_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_uri LambdaEventSourceMapping#schema_registry_uri}.
+        :param schema_validation_config: schema_validation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_validation_config LambdaEventSourceMapping#schema_validation_config}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a1228503797be6f1fb7ee84671caddc1d96ccb035289d8de7c6cf9f6c984d080)
+            check_type(argname="argument access_config", value=access_config, expected_type=type_hints["access_config"])
+            check_type(argname="argument event_record_format", value=event_record_format, expected_type=type_hints["event_record_format"])
+            check_type(argname="argument schema_registry_uri", value=schema_registry_uri, expected_type=type_hints["schema_registry_uri"])
+            check_type(argname="argument schema_validation_config", value=schema_validation_config, expected_type=type_hints["schema_validation_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_config is not None:
+            self._values["access_config"] = access_config
+        if event_record_format is not None:
+            self._values["event_record_format"] = event_record_format
+        if schema_registry_uri is not None:
+            self._values["schema_registry_uri"] = schema_registry_uri
+        if schema_validation_config is not None:
+            self._values["schema_validation_config"] = schema_validation_config
+
+    @builtins.property
+    def access_config(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig"]]]:
+        '''access_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#access_config LambdaEventSourceMapping#access_config}
+        '''
+        result = self._values.get("access_config")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig"]]], result)
+
+    @builtins.property
+    def event_record_format(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_record_format LambdaEventSourceMapping#event_record_format}.'''
+        result = self._values.get("event_record_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_registry_uri(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_uri LambdaEventSourceMapping#schema_registry_uri}.'''
+        result = self._values.get("schema_registry_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_validation_config(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]]:
+        '''schema_validation_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_validation_config LambdaEventSourceMapping#schema_validation_config}
+        '''
+        result = self._values.get("schema_validation_config")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig",
+    jsii_struct_bases=[],
+    name_mapping={"type": "type", "uri": "uri"},
+)
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig:
+    def __init__(
+        self,
+        *,
+        type: typing.Optional[builtins.str] = None,
+        uri: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9439b3a1f6b624d452711bc1b4072e5ad4709bf627d0f5e42b144e48eefe1ff1)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if type is not None:
+            self._values["type"] = type
+        if uri is not None:
+            self._values["uri"] = uri
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.'''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def uri(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.'''
+        result = self._values.get("uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5ff9494978ec5560b507caf669052b5a124a00e70e99d36fdfeabf3c423cd5fd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8cd212c066733892ac2f3c061249f48df6b45c4d64272f06fcb238ad883e8f33)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dcddf575110667e2f1ecfae2853c2157e61be54499449b173e43c8b0bf3d7a80)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7f3796a43e4e289ff638f3852159c36c185f642c1de05fd40509a8ee9f847081)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__342802512fb8c4a67f2aeabf3298720ed2c6a419c8925c8a89f3bd0311275ffb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a5c8c1d37bc8498378e230d6706158029f3f338a0e189082c87fb5f6cd7fe6c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ec31a9cae0e5bd64c6b40f69ad6ee7df35afc62cd605318e86ad6f2e45e89d53)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetType")
+    def reset_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetType", []))
+
+    @jsii.member(jsii_name="resetUri")
+    def reset_uri(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUri", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="typeInput")
+    def type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="uriInput")
+    def uri_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "uriInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1a055200d74fabbb10b904a2a3ac60e17c38c3bc64e215b6025a85ceb5e210c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="uri")
+    def uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "uri"))
+
+    @uri.setter
+    def uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96961dfe44954843fcbe469268db6fa64365e7bc704c236f5dade2e4070f4b54)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fc6eba6d2672c96c16de1ad747ece15f532c4b05cbc617ad60de024de733f72d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0c2ce45696a4d4f4884210e621e2096f7a585eb7543218ba7a92e5a1caad3eaa)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putAccessConfig")
+    def put_access_config(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__409a99b2353ee73a231c34d8d0fd3df0a28e7aa4442a1694a15837b7c940e57e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAccessConfig", [value]))
+
+    @jsii.member(jsii_name="putSchemaValidationConfig")
+    def put_schema_validation_config(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e12f30e799da5c8df543a64ed5045d5ca16c2aff83a89ef42362b734d97d15c0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putSchemaValidationConfig", [value]))
+
+    @jsii.member(jsii_name="resetAccessConfig")
+    def reset_access_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAccessConfig", []))
+
+    @jsii.member(jsii_name="resetEventRecordFormat")
+    def reset_event_record_format(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEventRecordFormat", []))
+
+    @jsii.member(jsii_name="resetSchemaRegistryUri")
+    def reset_schema_registry_uri(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchemaRegistryUri", []))
+
+    @jsii.member(jsii_name="resetSchemaValidationConfig")
+    def reset_schema_validation_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchemaValidationConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessConfig")
+    def access_config(
+        self,
+    ) -> LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList:
+        return typing.cast(LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList, jsii.get(self, "accessConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaValidationConfig")
+    def schema_validation_config(
+        self,
+    ) -> "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList":
+        return typing.cast("LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList", jsii.get(self, "schemaValidationConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessConfigInput")
+    def access_config_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]], jsii.get(self, "accessConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventRecordFormatInput")
+    def event_record_format_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "eventRecordFormatInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryUriInput")
+    def schema_registry_uri_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "schemaRegistryUriInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaValidationConfigInput")
+    def schema_validation_config_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]], jsii.get(self, "schemaValidationConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventRecordFormat")
+    def event_record_format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "eventRecordFormat"))
+
+    @event_record_format.setter
+    def event_record_format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0242f9a854bf10317f39c8c7aac19b8493e7d705478bcdc802d49b5ae17675a2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventRecordFormat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryUri")
+    def schema_registry_uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "schemaRegistryUri"))
+
+    @schema_registry_uri.setter
+    def schema_registry_uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bafd529b50fdc62b8f211210a3e197809075bc97fb833d08dbebf3c6ca8fca7a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schemaRegistryUri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig]:
+        return typing.cast(typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c914fb09d08a44aa3aab0e6103157903794054ed0acd0244ab9497429d736aa)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig",
+    jsii_struct_bases=[],
+    name_mapping={"attribute": "attribute"},
+)
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig:
+    def __init__(self, *, attribute: typing.Optional[builtins.str] = None) -> None:
+        '''
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#attribute LambdaEventSourceMapping#attribute}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__706d41aa498034f15f6e499755770b0656324eda2504effd714ff32454b5ee21)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if attribute is not None:
+            self._values["attribute"] = attribute
+
+    @builtins.property
+    def attribute(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#attribute LambdaEventSourceMapping#attribute}.'''
+        result = self._values.get("attribute")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5aae456001749e806d28c535f045e0891f6f1b30248717344d32ffd82cd78d66)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__924b8ec357102a191cc46f317fa6e869f57b4c4fa044b8ab9f55c996c1008362)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b1970c3ae4889754beec49df7a38bc7c1fd388b634c4206f00af76687e4865fb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__636105ddd2569e4d550b21f7e69276e32e98beacfaf0a5862e79d3aa6128bb04)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__18e677f6cc2aa33e2dab9cbbe1da71dd6351a0c37db6140372e6ab55f21b0f62)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fd7ed7588e47a3084980edb377c07d2f8085a9ac46e1fa5482cdc00962d80c2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3574d634b835dd3f34c924f6d865e399691fa0d4be95aefad89327ca838f498a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetAttribute")
+    def reset_attribute(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAttribute", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeInput")
+    def attribute_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "attributeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attribute")
+    def attribute(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "attribute"))
+
+    @attribute.setter
+    def attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ebea400851b96720d66e6aaa6029f6edda3577ab160d89524c4c3006693be08c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dd5ddf2b8a0b162c0751ab600550314512e618502c64a22e3aedaa596a5d3c3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
@@ -1193,36 +1913,36 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#function_name LambdaEventSourceMapping#function_name}.
-        :param amazon_managed_kafka_event_source_config: amazon_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#amazon_managed_kafka_event_source_config LambdaEventSourceMapping#amazon_managed_kafka_event_source_config}
-        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#batch_size LambdaEventSourceMapping#batch_size}.
-        :param bisect_batch_on_function_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#bisect_batch_on_function_error LambdaEventSourceMapping#bisect_batch_on_function_error}.
-        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#destination_config LambdaEventSourceMapping#destination_config}
-        :param document_db_event_source_config: document_db_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#document_db_event_source_config LambdaEventSourceMapping#document_db_event_source_config}
-        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#enabled LambdaEventSourceMapping#enabled}.
-        :param event_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#event_source_arn LambdaEventSourceMapping#event_source_arn}.
-        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#filter_criteria LambdaEventSourceMapping#filter_criteria}
-        :param function_response_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#function_response_types LambdaEventSourceMapping#function_response_types}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#id LambdaEventSourceMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#kms_key_arn LambdaEventSourceMapping#kms_key_arn}.
-        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_batching_window_in_seconds LambdaEventSourceMapping#maximum_batching_window_in_seconds}.
-        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_record_age_in_seconds LambdaEventSourceMapping#maximum_record_age_in_seconds}.
-        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_retry_attempts LambdaEventSourceMapping#maximum_retry_attempts}.
-        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#metrics_config LambdaEventSourceMapping#metrics_config}
-        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#parallelization_factor LambdaEventSourceMapping#parallelization_factor}.
-        :param provisioned_poller_config: provisioned_poller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#provisioned_poller_config LambdaEventSourceMapping#provisioned_poller_config}
-        :param queues: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#queues LambdaEventSourceMapping#queues}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#region LambdaEventSourceMapping#region}
-        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#scaling_config LambdaEventSourceMapping#scaling_config}
-        :param self_managed_event_source: self_managed_event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#self_managed_event_source LambdaEventSourceMapping#self_managed_event_source}
-        :param self_managed_kafka_event_source_config: self_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#self_managed_kafka_event_source_config LambdaEventSourceMapping#self_managed_kafka_event_source_config}
-        :param source_access_configuration: source_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#source_access_configuration LambdaEventSourceMapping#source_access_configuration}
-        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#starting_position LambdaEventSourceMapping#starting_position}.
-        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#starting_position_timestamp LambdaEventSourceMapping#starting_position_timestamp}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tags LambdaEventSourceMapping#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tags_all LambdaEventSourceMapping#tags_all}.
-        :param topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#topics LambdaEventSourceMapping#topics}.
-        :param tumbling_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tumbling_window_in_seconds LambdaEventSourceMapping#tumbling_window_in_seconds}.
+        :param function_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#function_name LambdaEventSourceMapping#function_name}.
+        :param amazon_managed_kafka_event_source_config: amazon_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#amazon_managed_kafka_event_source_config LambdaEventSourceMapping#amazon_managed_kafka_event_source_config}
+        :param batch_size: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#batch_size LambdaEventSourceMapping#batch_size}.
+        :param bisect_batch_on_function_error: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#bisect_batch_on_function_error LambdaEventSourceMapping#bisect_batch_on_function_error}.
+        :param destination_config: destination_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#destination_config LambdaEventSourceMapping#destination_config}
+        :param document_db_event_source_config: document_db_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#document_db_event_source_config LambdaEventSourceMapping#document_db_event_source_config}
+        :param enabled: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#enabled LambdaEventSourceMapping#enabled}.
+        :param event_source_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_source_arn LambdaEventSourceMapping#event_source_arn}.
+        :param filter_criteria: filter_criteria block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#filter_criteria LambdaEventSourceMapping#filter_criteria}
+        :param function_response_types: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#function_response_types LambdaEventSourceMapping#function_response_types}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#id LambdaEventSourceMapping#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#kms_key_arn LambdaEventSourceMapping#kms_key_arn}.
+        :param maximum_batching_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_batching_window_in_seconds LambdaEventSourceMapping#maximum_batching_window_in_seconds}.
+        :param maximum_record_age_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_record_age_in_seconds LambdaEventSourceMapping#maximum_record_age_in_seconds}.
+        :param maximum_retry_attempts: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_retry_attempts LambdaEventSourceMapping#maximum_retry_attempts}.
+        :param metrics_config: metrics_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#metrics_config LambdaEventSourceMapping#metrics_config}
+        :param parallelization_factor: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#parallelization_factor LambdaEventSourceMapping#parallelization_factor}.
+        :param provisioned_poller_config: provisioned_poller_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#provisioned_poller_config LambdaEventSourceMapping#provisioned_poller_config}
+        :param queues: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#queues LambdaEventSourceMapping#queues}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#region LambdaEventSourceMapping#region}
+        :param scaling_config: scaling_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#scaling_config LambdaEventSourceMapping#scaling_config}
+        :param self_managed_event_source: self_managed_event_source block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#self_managed_event_source LambdaEventSourceMapping#self_managed_event_source}
+        :param self_managed_kafka_event_source_config: self_managed_kafka_event_source_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#self_managed_kafka_event_source_config LambdaEventSourceMapping#self_managed_kafka_event_source_config}
+        :param source_access_configuration: source_access_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#source_access_configuration LambdaEventSourceMapping#source_access_configuration}
+        :param starting_position: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#starting_position LambdaEventSourceMapping#starting_position}.
+        :param starting_position_timestamp: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#starting_position_timestamp LambdaEventSourceMapping#starting_position_timestamp}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tags LambdaEventSourceMapping#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tags_all LambdaEventSourceMapping#tags_all}.
+        :param topics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#topics LambdaEventSourceMapping#topics}.
+        :param tumbling_window_in_seconds: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tumbling_window_in_seconds LambdaEventSourceMapping#tumbling_window_in_seconds}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1425,7 +2145,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def function_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#function_name LambdaEventSourceMapping#function_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#function_name LambdaEventSourceMapping#function_name}.'''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
         return typing.cast(builtins.str, result)
@@ -1436,14 +2156,14 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig]:
         '''amazon_managed_kafka_event_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#amazon_managed_kafka_event_source_config LambdaEventSourceMapping#amazon_managed_kafka_event_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#amazon_managed_kafka_event_source_config LambdaEventSourceMapping#amazon_managed_kafka_event_source_config}
         '''
         result = self._values.get("amazon_managed_kafka_event_source_config")
         return typing.cast(typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig], result)
 
     @builtins.property
     def batch_size(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#batch_size LambdaEventSourceMapping#batch_size}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#batch_size LambdaEventSourceMapping#batch_size}.'''
         result = self._values.get("batch_size")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1451,7 +2171,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def bisect_batch_on_function_error(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#bisect_batch_on_function_error LambdaEventSourceMapping#bisect_batch_on_function_error}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#bisect_batch_on_function_error LambdaEventSourceMapping#bisect_batch_on_function_error}.'''
         result = self._values.get("bisect_batch_on_function_error")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1461,7 +2181,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingDestinationConfig"]:
         '''destination_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#destination_config LambdaEventSourceMapping#destination_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#destination_config LambdaEventSourceMapping#destination_config}
         '''
         result = self._values.get("destination_config")
         return typing.cast(typing.Optional["LambdaEventSourceMappingDestinationConfig"], result)
@@ -1472,7 +2192,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingDocumentDbEventSourceConfig"]:
         '''document_db_event_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#document_db_event_source_config LambdaEventSourceMapping#document_db_event_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#document_db_event_source_config LambdaEventSourceMapping#document_db_event_source_config}
         '''
         result = self._values.get("document_db_event_source_config")
         return typing.cast(typing.Optional["LambdaEventSourceMappingDocumentDbEventSourceConfig"], result)
@@ -1481,13 +2201,13 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#enabled LambdaEventSourceMapping#enabled}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#enabled LambdaEventSourceMapping#enabled}.'''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def event_source_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#event_source_arn LambdaEventSourceMapping#event_source_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_source_arn LambdaEventSourceMapping#event_source_arn}.'''
         result = self._values.get("event_source_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1497,20 +2217,20 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingFilterCriteria"]:
         '''filter_criteria block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#filter_criteria LambdaEventSourceMapping#filter_criteria}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#filter_criteria LambdaEventSourceMapping#filter_criteria}
         '''
         result = self._values.get("filter_criteria")
         return typing.cast(typing.Optional["LambdaEventSourceMappingFilterCriteria"], result)
 
     @builtins.property
     def function_response_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#function_response_types LambdaEventSourceMapping#function_response_types}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#function_response_types LambdaEventSourceMapping#function_response_types}.'''
         result = self._values.get("function_response_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#id LambdaEventSourceMapping#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#id LambdaEventSourceMapping#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1520,25 +2240,25 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#kms_key_arn LambdaEventSourceMapping#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#kms_key_arn LambdaEventSourceMapping#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def maximum_batching_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_batching_window_in_seconds LambdaEventSourceMapping#maximum_batching_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_batching_window_in_seconds LambdaEventSourceMapping#maximum_batching_window_in_seconds}.'''
         result = self._values.get("maximum_batching_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_record_age_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_record_age_in_seconds LambdaEventSourceMapping#maximum_record_age_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_record_age_in_seconds LambdaEventSourceMapping#maximum_record_age_in_seconds}.'''
         result = self._values.get("maximum_record_age_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def maximum_retry_attempts(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_retry_attempts LambdaEventSourceMapping#maximum_retry_attempts}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_retry_attempts LambdaEventSourceMapping#maximum_retry_attempts}.'''
         result = self._values.get("maximum_retry_attempts")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1548,14 +2268,14 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingMetricsConfig"]:
         '''metrics_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#metrics_config LambdaEventSourceMapping#metrics_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#metrics_config LambdaEventSourceMapping#metrics_config}
         '''
         result = self._values.get("metrics_config")
         return typing.cast(typing.Optional["LambdaEventSourceMappingMetricsConfig"], result)
 
     @builtins.property
     def parallelization_factor(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#parallelization_factor LambdaEventSourceMapping#parallelization_factor}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#parallelization_factor LambdaEventSourceMapping#parallelization_factor}.'''
         result = self._values.get("parallelization_factor")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1565,14 +2285,14 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingProvisionedPollerConfig"]:
         '''provisioned_poller_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#provisioned_poller_config LambdaEventSourceMapping#provisioned_poller_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#provisioned_poller_config LambdaEventSourceMapping#provisioned_poller_config}
         '''
         result = self._values.get("provisioned_poller_config")
         return typing.cast(typing.Optional["LambdaEventSourceMappingProvisionedPollerConfig"], result)
 
     @builtins.property
     def queues(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#queues LambdaEventSourceMapping#queues}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#queues LambdaEventSourceMapping#queues}.'''
         result = self._values.get("queues")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1580,7 +2300,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#region LambdaEventSourceMapping#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#region LambdaEventSourceMapping#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1591,7 +2311,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingScalingConfig"]:
         '''scaling_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#scaling_config LambdaEventSourceMapping#scaling_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#scaling_config LambdaEventSourceMapping#scaling_config}
         '''
         result = self._values.get("scaling_config")
         return typing.cast(typing.Optional["LambdaEventSourceMappingScalingConfig"], result)
@@ -1602,7 +2322,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingSelfManagedEventSource"]:
         '''self_managed_event_source block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#self_managed_event_source LambdaEventSourceMapping#self_managed_event_source}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#self_managed_event_source LambdaEventSourceMapping#self_managed_event_source}
         '''
         result = self._values.get("self_managed_event_source")
         return typing.cast(typing.Optional["LambdaEventSourceMappingSelfManagedEventSource"], result)
@@ -1613,7 +2333,7 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig"]:
         '''self_managed_kafka_event_source_config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#self_managed_kafka_event_source_config LambdaEventSourceMapping#self_managed_kafka_event_source_config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#self_managed_kafka_event_source_config LambdaEventSourceMapping#self_managed_kafka_event_source_config}
         '''
         result = self._values.get("self_managed_kafka_event_source_config")
         return typing.cast(typing.Optional["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig"], result)
@@ -1624,44 +2344,44 @@ class LambdaEventSourceMappingConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSourceAccessConfiguration"]]]:
         '''source_access_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#source_access_configuration LambdaEventSourceMapping#source_access_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#source_access_configuration LambdaEventSourceMapping#source_access_configuration}
         '''
         result = self._values.get("source_access_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSourceAccessConfiguration"]]], result)
 
     @builtins.property
     def starting_position(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#starting_position LambdaEventSourceMapping#starting_position}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#starting_position LambdaEventSourceMapping#starting_position}.'''
         result = self._values.get("starting_position")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def starting_position_timestamp(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#starting_position_timestamp LambdaEventSourceMapping#starting_position_timestamp}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#starting_position_timestamp LambdaEventSourceMapping#starting_position_timestamp}.'''
         result = self._values.get("starting_position_timestamp")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tags LambdaEventSourceMapping#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tags LambdaEventSourceMapping#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tags_all LambdaEventSourceMapping#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tags_all LambdaEventSourceMapping#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def topics(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#topics LambdaEventSourceMapping#topics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#topics LambdaEventSourceMapping#topics}.'''
         result = self._values.get("topics")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def tumbling_window_in_seconds(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#tumbling_window_in_seconds LambdaEventSourceMapping#tumbling_window_in_seconds}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#tumbling_window_in_seconds LambdaEventSourceMapping#tumbling_window_in_seconds}.'''
         result = self._values.get("tumbling_window_in_seconds")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -1689,7 +2409,7 @@ class LambdaEventSourceMappingDestinationConfig:
         on_failure: typing.Optional[typing.Union["LambdaEventSourceMappingDestinationConfigOnFailure", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param on_failure: on_failure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#on_failure LambdaEventSourceMapping#on_failure}
+        :param on_failure: on_failure block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#on_failure LambdaEventSourceMapping#on_failure}
         '''
         if isinstance(on_failure, dict):
             on_failure = LambdaEventSourceMappingDestinationConfigOnFailure(**on_failure)
@@ -1706,7 +2426,7 @@ class LambdaEventSourceMappingDestinationConfig:
     ) -> typing.Optional["LambdaEventSourceMappingDestinationConfigOnFailure"]:
         '''on_failure block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#on_failure LambdaEventSourceMapping#on_failure}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#on_failure LambdaEventSourceMapping#on_failure}
         '''
         result = self._values.get("on_failure")
         return typing.cast(typing.Optional["LambdaEventSourceMappingDestinationConfigOnFailure"], result)
@@ -1731,7 +2451,7 @@ class LambdaEventSourceMappingDestinationConfig:
 class LambdaEventSourceMappingDestinationConfigOnFailure:
     def __init__(self, *, destination_arn: builtins.str) -> None:
         '''
-        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#destination_arn LambdaEventSourceMapping#destination_arn}.
+        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#destination_arn LambdaEventSourceMapping#destination_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__576a0eba521c801c96c7b1d9547be6e63b7785dee36315d6db7b6a0550009ad5)
@@ -1742,7 +2462,7 @@ class LambdaEventSourceMappingDestinationConfigOnFailure:
 
     @builtins.property
     def destination_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#destination_arn LambdaEventSourceMapping#destination_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#destination_arn LambdaEventSourceMapping#destination_arn}.'''
         result = self._values.get("destination_arn")
         assert result is not None, "Required property 'destination_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -1837,7 +2557,7 @@ class LambdaEventSourceMappingDestinationConfigOutputReference(
     @jsii.member(jsii_name="putOnFailure")
     def put_on_failure(self, *, destination_arn: builtins.str) -> None:
         '''
-        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#destination_arn LambdaEventSourceMapping#destination_arn}.
+        :param destination_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#destination_arn LambdaEventSourceMapping#destination_arn}.
         '''
         value = LambdaEventSourceMappingDestinationConfigOnFailure(
             destination_arn=destination_arn
@@ -1899,9 +2619,9 @@ class LambdaEventSourceMappingDocumentDbEventSourceConfig:
         full_document: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#database_name LambdaEventSourceMapping#database_name}.
-        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#collection_name LambdaEventSourceMapping#collection_name}.
-        :param full_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#full_document LambdaEventSourceMapping#full_document}.
+        :param database_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#database_name LambdaEventSourceMapping#database_name}.
+        :param collection_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#collection_name LambdaEventSourceMapping#collection_name}.
+        :param full_document: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#full_document LambdaEventSourceMapping#full_document}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__99fa1653eab5203440a24027f6fb7cd266c7bc10e8f42c1b67ae900538c4fac1)
@@ -1918,20 +2638,20 @@ class LambdaEventSourceMappingDocumentDbEventSourceConfig:
 
     @builtins.property
     def database_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#database_name LambdaEventSourceMapping#database_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#database_name LambdaEventSourceMapping#database_name}.'''
         result = self._values.get("database_name")
         assert result is not None, "Required property 'database_name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def collection_name(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#collection_name LambdaEventSourceMapping#collection_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#collection_name LambdaEventSourceMapping#collection_name}.'''
         result = self._values.get("collection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def full_document(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#full_document LambdaEventSourceMapping#full_document}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#full_document LambdaEventSourceMapping#full_document}.'''
         result = self._values.get("full_document")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2056,7 +2776,7 @@ class LambdaEventSourceMappingFilterCriteria:
         filter: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingFilterCriteriaFilter", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#filter LambdaEventSourceMapping#filter}
+        :param filter: filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#filter LambdaEventSourceMapping#filter}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d530693652faef12942656056ae1f83a1f26c650fdda463d012d77ba0938fadb)
@@ -2071,7 +2791,7 @@ class LambdaEventSourceMappingFilterCriteria:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingFilterCriteriaFilter"]]]:
         '''filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#filter LambdaEventSourceMapping#filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#filter LambdaEventSourceMapping#filter}
         '''
         result = self._values.get("filter")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingFilterCriteriaFilter"]]], result)
@@ -2096,7 +2816,7 @@ class LambdaEventSourceMappingFilterCriteria:
 class LambdaEventSourceMappingFilterCriteriaFilter:
     def __init__(self, *, pattern: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#pattern LambdaEventSourceMapping#pattern}.
+        :param pattern: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#pattern LambdaEventSourceMapping#pattern}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2eaa4309d2e4ea68d137970b0d83165fe3985ebb4115164a7e2a3154ad8dfbfd)
@@ -2107,7 +2827,7 @@ class LambdaEventSourceMappingFilterCriteriaFilter:
 
     @builtins.property
     def pattern(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#pattern LambdaEventSourceMapping#pattern}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#pattern LambdaEventSourceMapping#pattern}.'''
         result = self._values.get("pattern")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2354,7 +3074,7 @@ class LambdaEventSourceMappingFilterCriteriaOutputReference(
 class LambdaEventSourceMappingMetricsConfig:
     def __init__(self, *, metrics: typing.Sequence[builtins.str]) -> None:
         '''
-        :param metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#metrics LambdaEventSourceMapping#metrics}.
+        :param metrics: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#metrics LambdaEventSourceMapping#metrics}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__64e547c770e46f89a09d7d5dcefa3091605d53a49520ddc5ca8700dc17db212a)
@@ -2365,7 +3085,7 @@ class LambdaEventSourceMappingMetricsConfig:
 
     @builtins.property
     def metrics(self) -> typing.List[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#metrics LambdaEventSourceMapping#metrics}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#metrics LambdaEventSourceMapping#metrics}.'''
         result = self._values.get("metrics")
         assert result is not None, "Required property 'metrics' is missing"
         return typing.cast(typing.List[builtins.str], result)
@@ -2451,8 +3171,8 @@ class LambdaEventSourceMappingProvisionedPollerConfig:
         minimum_pollers: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_pollers LambdaEventSourceMapping#maximum_pollers}.
-        :param minimum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#minimum_pollers LambdaEventSourceMapping#minimum_pollers}.
+        :param maximum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_pollers LambdaEventSourceMapping#maximum_pollers}.
+        :param minimum_pollers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#minimum_pollers LambdaEventSourceMapping#minimum_pollers}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__285eb7a002851c3c34556637a5863c987eab1abbf787e75d54f204251fb57d1b)
@@ -2466,13 +3186,13 @@ class LambdaEventSourceMappingProvisionedPollerConfig:
 
     @builtins.property
     def maximum_pollers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_pollers LambdaEventSourceMapping#maximum_pollers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_pollers LambdaEventSourceMapping#maximum_pollers}.'''
         result = self._values.get("maximum_pollers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def minimum_pollers(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#minimum_pollers LambdaEventSourceMapping#minimum_pollers}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#minimum_pollers LambdaEventSourceMapping#minimum_pollers}.'''
         result = self._values.get("minimum_pollers")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2580,7 +3300,7 @@ class LambdaEventSourceMappingScalingConfig:
         maximum_concurrency: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param maximum_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_concurrency LambdaEventSourceMapping#maximum_concurrency}.
+        :param maximum_concurrency: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_concurrency LambdaEventSourceMapping#maximum_concurrency}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d74d6f22823d4447bd30c4463f74cf13e167dc8c449028d50cc2571556d00f80)
@@ -2591,7 +3311,7 @@ class LambdaEventSourceMappingScalingConfig:
 
     @builtins.property
     def maximum_concurrency(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#maximum_concurrency LambdaEventSourceMapping#maximum_concurrency}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#maximum_concurrency LambdaEventSourceMapping#maximum_concurrency}.'''
         result = self._values.get("maximum_concurrency")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -2676,7 +3396,7 @@ class LambdaEventSourceMappingSelfManagedEventSource:
         endpoints: typing.Mapping[builtins.str, builtins.str],
     ) -> None:
         '''
-        :param endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#endpoints LambdaEventSourceMapping#endpoints}.
+        :param endpoints: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#endpoints LambdaEventSourceMapping#endpoints}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6f718d9f0c61db275ede06a61fe886dc168521189524bb83565d3da9c025c48e)
@@ -2687,7 +3407,7 @@ class LambdaEventSourceMappingSelfManagedEventSource:
 
     @builtins.property
     def endpoints(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#endpoints LambdaEventSourceMapping#endpoints}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#endpoints LambdaEventSourceMapping#endpoints}.'''
         result = self._values.get("endpoints")
         assert result is not None, "Required property 'endpoints' is missing"
         return typing.cast(typing.Mapping[builtins.str, builtins.str], result)
@@ -2764,29 +3484,50 @@ class LambdaEventSourceMappingSelfManagedEventSourceOutputReference(
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig",
     jsii_struct_bases=[],
-    name_mapping={"consumer_group_id": "consumerGroupId"},
+    name_mapping={
+        "consumer_group_id": "consumerGroupId",
+        "schema_registry_config": "schemaRegistryConfig",
+    },
 )
 class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig:
     def __init__(
         self,
         *,
         consumer_group_id: typing.Optional[builtins.str] = None,
+        schema_registry_config: typing.Optional[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param consumer_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.
+        :param schema_registry_config: schema_registry_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_config LambdaEventSourceMapping#schema_registry_config}
         '''
+        if isinstance(schema_registry_config, dict):
+            schema_registry_config = LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig(**schema_registry_config)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__552f5accfcb9ea14c92bd78af097762e0ae1236cab5d2bb2ad88f563414bb309)
             check_type(argname="argument consumer_group_id", value=consumer_group_id, expected_type=type_hints["consumer_group_id"])
+            check_type(argname="argument schema_registry_config", value=schema_registry_config, expected_type=type_hints["schema_registry_config"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if consumer_group_id is not None:
             self._values["consumer_group_id"] = consumer_group_id
+        if schema_registry_config is not None:
+            self._values["schema_registry_config"] = schema_registry_config
 
     @builtins.property
     def consumer_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#consumer_group_id LambdaEventSourceMapping#consumer_group_id}.'''
         result = self._values.get("consumer_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_registry_config(
+        self,
+    ) -> typing.Optional["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig"]:
+        '''schema_registry_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_config LambdaEventSourceMapping#schema_registry_config}
+        '''
+        result = self._values.get("schema_registry_config")
+        return typing.cast(typing.Optional["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2820,14 +3561,56 @@ class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigOutputReference(
             check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
         jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
 
+    @jsii.member(jsii_name="putSchemaRegistryConfig")
+    def put_schema_registry_config(
+        self,
+        *,
+        access_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        event_record_format: typing.Optional[builtins.str] = None,
+        schema_registry_uri: typing.Optional[builtins.str] = None,
+        schema_validation_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#access_config LambdaEventSourceMapping#access_config}
+        :param event_record_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_record_format LambdaEventSourceMapping#event_record_format}.
+        :param schema_registry_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_uri LambdaEventSourceMapping#schema_registry_uri}.
+        :param schema_validation_config: schema_validation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_validation_config LambdaEventSourceMapping#schema_validation_config}
+        '''
+        value = LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig(
+            access_config=access_config,
+            event_record_format=event_record_format,
+            schema_registry_uri=schema_registry_uri,
+            schema_validation_config=schema_validation_config,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putSchemaRegistryConfig", [value]))
+
     @jsii.member(jsii_name="resetConsumerGroupId")
     def reset_consumer_group_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetConsumerGroupId", []))
+
+    @jsii.member(jsii_name="resetSchemaRegistryConfig")
+    def reset_schema_registry_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchemaRegistryConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryConfig")
+    def schema_registry_config(
+        self,
+    ) -> "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference":
+        return typing.cast("LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference", jsii.get(self, "schemaRegistryConfig"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerGroupIdInput")
     def consumer_group_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "consumerGroupIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryConfigInput")
+    def schema_registry_config_input(
+        self,
+    ) -> typing.Optional["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig"]:
+        return typing.cast(typing.Optional["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig"], jsii.get(self, "schemaRegistryConfigInput"))
 
     @builtins.property
     @jsii.member(jsii_name="consumerGroupId")
@@ -2860,6 +3643,657 @@ class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigOutputReference(
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig",
+    jsii_struct_bases=[],
+    name_mapping={
+        "access_config": "accessConfig",
+        "event_record_format": "eventRecordFormat",
+        "schema_registry_uri": "schemaRegistryUri",
+        "schema_validation_config": "schemaValidationConfig",
+    },
+)
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig:
+    def __init__(
+        self,
+        *,
+        access_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+        event_record_format: typing.Optional[builtins.str] = None,
+        schema_registry_uri: typing.Optional[builtins.str] = None,
+        schema_validation_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]]]] = None,
+    ) -> None:
+        '''
+        :param access_config: access_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#access_config LambdaEventSourceMapping#access_config}
+        :param event_record_format: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_record_format LambdaEventSourceMapping#event_record_format}.
+        :param schema_registry_uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_uri LambdaEventSourceMapping#schema_registry_uri}.
+        :param schema_validation_config: schema_validation_config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_validation_config LambdaEventSourceMapping#schema_validation_config}
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4091136fcb90bd3f2a82bc4622d711625efb0702680ad1cc3fd6129fe80938f2)
+            check_type(argname="argument access_config", value=access_config, expected_type=type_hints["access_config"])
+            check_type(argname="argument event_record_format", value=event_record_format, expected_type=type_hints["event_record_format"])
+            check_type(argname="argument schema_registry_uri", value=schema_registry_uri, expected_type=type_hints["schema_registry_uri"])
+            check_type(argname="argument schema_validation_config", value=schema_validation_config, expected_type=type_hints["schema_validation_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if access_config is not None:
+            self._values["access_config"] = access_config
+        if event_record_format is not None:
+            self._values["event_record_format"] = event_record_format
+        if schema_registry_uri is not None:
+            self._values["schema_registry_uri"] = schema_registry_uri
+        if schema_validation_config is not None:
+            self._values["schema_validation_config"] = schema_validation_config
+
+    @builtins.property
+    def access_config(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig"]]]:
+        '''access_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#access_config LambdaEventSourceMapping#access_config}
+        '''
+        result = self._values.get("access_config")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig"]]], result)
+
+    @builtins.property
+    def event_record_format(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#event_record_format LambdaEventSourceMapping#event_record_format}.'''
+        result = self._values.get("event_record_format")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_registry_uri(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_registry_uri LambdaEventSourceMapping#schema_registry_uri}.'''
+        result = self._values.get("schema_registry_uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def schema_validation_config(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]]:
+        '''schema_validation_config block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#schema_validation_config LambdaEventSourceMapping#schema_validation_config}
+        '''
+        result = self._values.get("schema_validation_config")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig",
+    jsii_struct_bases=[],
+    name_mapping={"type": "type", "uri": "uri"},
+)
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig:
+    def __init__(
+        self,
+        *,
+        type: typing.Optional[builtins.str] = None,
+        uri: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ae2345971cf9293785fda02130e7db8eb6b99ed8574446874582d3d0a0ca9a80)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument uri", value=uri, expected_type=type_hints["uri"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if type is not None:
+            self._values["type"] = type
+        if uri is not None:
+            self._values["uri"] = uri
+
+    @builtins.property
+    def type(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.'''
+        result = self._values.get("type")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def uri(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.'''
+        result = self._values.get("uri")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6284230dceb744bc128cf944fe93397abd5e968705d9f1075dee9767735dfa5)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__319fc4b2d39eb6c2f7527a836d90305e768acace33e538c79f6c4a7b3cd6240c)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58925c2a19812652cbb71db7b9ed4219d06c3df69d6fa8bfdf6dc0fcbc4ccb64)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2a7ad005fb1ca8b7c0966aee5704c64404d3fa1996e1bca0b6f691724877dc8c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0aba0afc7ce0e69d6ad215e4979c71a95c32e4168ae296224cfd4082fa3b0886)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__da40e67cf3027e978160db7d9fed93e5da7f0fd2286d5f711e551eb135813962)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f36ba9d7cbe90874472cb80660909f45cf623774eec0fac6ebcfdc2a59aee1d4)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetType")
+    def reset_type(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetType", []))
+
+    @jsii.member(jsii_name="resetUri")
+    def reset_uri(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetUri", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="typeInput")
+    def type_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "typeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="uriInput")
+    def uri_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "uriInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="type")
+    def type(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "type"))
+
+    @type.setter
+    def type(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__93126c0cff3eb239b0c76fc007d6d87cb2ecd07a647e3df71782bdb2f0d71e8a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "type", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="uri")
+    def uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "uri"))
+
+    @uri.setter
+    def uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1e94c251504deb20b785832f3b3048d71c0e0236a12ff1c4fef93f80bb37c66a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "uri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__13a047d414e35735a53eb3b4489876fd5156615cdbb935ac93d15015aaff1b82)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__649071ac98193455135cce0cd4ec6b8399e254fa52013bba6c3a86585ea9b16d)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @jsii.member(jsii_name="putAccessConfig")
+    def put_access_config(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig, typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3b26351d072b6afa487c395a95a085179262b63229af2b0eaaf35dec4c75e00b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAccessConfig", [value]))
+
+    @jsii.member(jsii_name="putSchemaValidationConfig")
+    def put_schema_validation_config(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e006640b840713c14a96954a5ac2826f67e23317c213869fa9573555cf8d8ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putSchemaValidationConfig", [value]))
+
+    @jsii.member(jsii_name="resetAccessConfig")
+    def reset_access_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAccessConfig", []))
+
+    @jsii.member(jsii_name="resetEventRecordFormat")
+    def reset_event_record_format(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetEventRecordFormat", []))
+
+    @jsii.member(jsii_name="resetSchemaRegistryUri")
+    def reset_schema_registry_uri(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchemaRegistryUri", []))
+
+    @jsii.member(jsii_name="resetSchemaValidationConfig")
+    def reset_schema_validation_config(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSchemaValidationConfig", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessConfig")
+    def access_config(
+        self,
+    ) -> LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList:
+        return typing.cast(LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList, jsii.get(self, "accessConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaValidationConfig")
+    def schema_validation_config(
+        self,
+    ) -> "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList":
+        return typing.cast("LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList", jsii.get(self, "schemaValidationConfig"))
+
+    @builtins.property
+    @jsii.member(jsii_name="accessConfigInput")
+    def access_config_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]], jsii.get(self, "accessConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventRecordFormatInput")
+    def event_record_format_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "eventRecordFormatInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryUriInput")
+    def schema_registry_uri_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "schemaRegistryUriInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaValidationConfigInput")
+    def schema_validation_config_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig"]]], jsii.get(self, "schemaValidationConfigInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="eventRecordFormat")
+    def event_record_format(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "eventRecordFormat"))
+
+    @event_record_format.setter
+    def event_record_format(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bc5315d585c228e62cf3ab1cfda6ca3425906ad0f23f26e9a5fcde530053a87d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "eventRecordFormat", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="schemaRegistryUri")
+    def schema_registry_uri(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "schemaRegistryUri"))
+
+    @schema_registry_uri.setter
+    def schema_registry_uri(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__42b79e4a061f5609d5150c390057c125e7c6e8a3f319b48b77a5b76a58894936)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "schemaRegistryUri", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig]:
+        return typing.cast(typing.Optional[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0dcd21e333a0a669c9ec805ed4cc1f8e89249ead26ea72d70dc3a1a13e19907f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig",
+    jsii_struct_bases=[],
+    name_mapping={"attribute": "attribute"},
+)
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig:
+    def __init__(self, *, attribute: typing.Optional[builtins.str] = None) -> None:
+        '''
+        :param attribute: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#attribute LambdaEventSourceMapping#attribute}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__eea22668e8fea4cc7ef953eb2cbf279d675a93f856c12642f2a3da6496cac49b)
+            check_type(argname="argument attribute", value=attribute, expected_type=type_hints["attribute"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if attribute is not None:
+            self._values["attribute"] = attribute
+
+    @builtins.property
+    def attribute(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#attribute LambdaEventSourceMapping#attribute}.'''
+        result = self._values.get("attribute")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d005504f203da63ce3b12e4497bb20761397493bcbb7477d782afdd5620e91a9)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3a85f0319ed20d500ac7659fe9c2248184df201c8e01a28551bd8372e235c650)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ce8bbc17bd9f0c0abb8b0414a396e4c29951c904d1cb5bc6c32acdcc8496a77b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4a35dbf88d9ba3870153f22ca1370e614e00b76a73e592e66851ea5ee0f3c232)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__133f00ae0a10da8bde0d683c6e3777d76470032228c871d81b6ad444eef2300a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__05d22328803e023f320240bb26e2d03a3dfd41fd2c7476919b5f154ae262438f)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2cdb761e7be4ea69fded6680c1008be363033b23b585d37dcda1864b2f557df7)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetAttribute")
+    def reset_attribute(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAttribute", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeInput")
+    def attribute_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "attributeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attribute")
+    def attribute(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "attribute"))
+
+    @attribute.setter
+    def attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03443e0e9e0f33ea7f578dd1ac326e25c00969dab5162849caf7f8b6700ed35c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6fb920fd0a17699c0bef047fd39a21dcb38dffd450e0c321ee00380b215c6837)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.lambdaEventSourceMapping.LambdaEventSourceMappingSourceAccessConfiguration",
     jsii_struct_bases=[],
     name_mapping={"type": "type", "uri": "uri"},
@@ -2867,8 +4301,8 @@ class LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigOutputReference(
 class LambdaEventSourceMappingSourceAccessConfiguration:
     def __init__(self, *, type: builtins.str, uri: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.
-        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.
+        :param uri: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4f749b47122b9bf8627a73e0d68e5a12071defd185889c6b9ee5024d6d0c56ea)
@@ -2881,14 +4315,14 @@ class LambdaEventSourceMappingSourceAccessConfiguration:
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#type LambdaEventSourceMapping#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def uri(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/lambda_event_source_mapping#uri LambdaEventSourceMapping#uri}.'''
         result = self._values.get("uri")
         assert result is not None, "Required property 'uri' is missing"
         return typing.cast(builtins.str, result)
@@ -3080,6 +4514,14 @@ __all__ = [
     "LambdaEventSourceMapping",
     "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig",
     "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigOutputReference",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList",
+    "LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference",
     "LambdaEventSourceMappingConfig",
     "LambdaEventSourceMappingDestinationConfig",
     "LambdaEventSourceMappingDestinationConfigOnFailure",
@@ -3102,6 +4544,14 @@ __all__ = [
     "LambdaEventSourceMappingSelfManagedEventSourceOutputReference",
     "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig",
     "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigOutputReference",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigList",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfigOutputReference",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigOutputReference",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigList",
+    "LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfigOutputReference",
     "LambdaEventSourceMappingSourceAccessConfiguration",
     "LambdaEventSourceMappingSourceAccessConfigurationList",
     "LambdaEventSourceMappingSourceAccessConfigurationOutputReference",
@@ -3292,6 +4742,7 @@ def _typecheckingstub__57fc9d9b567503596648cb9a88e55911cf97c51725effa41974546916
 def _typecheckingstub__9ae07895fe3063469b17db40b7a275858ff5d4c6bffee563124c804bda7c3861(
     *,
     consumer_group_id: typing.Optional[builtins.str] = None,
+    schema_registry_config: typing.Optional[typing.Union[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3311,6 +4762,192 @@ def _typecheckingstub__b1bbd65537fdf9a8bed47da88de63a4724981a8abad1ec09f1ca2dc00
 
 def _typecheckingstub__241b103203a35602f493d8495dce6ae9d90c439c6faa223564d7a63305710b64(
     value: typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a1228503797be6f1fb7ee84671caddc1d96ccb035289d8de7c6cf9f6c984d080(
+    *,
+    access_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    event_record_format: typing.Optional[builtins.str] = None,
+    schema_registry_uri: typing.Optional[builtins.str] = None,
+    schema_validation_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9439b3a1f6b624d452711bc1b4072e5ad4709bf627d0f5e42b144e48eefe1ff1(
+    *,
+    type: typing.Optional[builtins.str] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ff9494978ec5560b507caf669052b5a124a00e70e99d36fdfeabf3c423cd5fd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8cd212c066733892ac2f3c061249f48df6b45c4d64272f06fcb238ad883e8f33(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dcddf575110667e2f1ecfae2853c2157e61be54499449b173e43c8b0bf3d7a80(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7f3796a43e4e289ff638f3852159c36c185f642c1de05fd40509a8ee9f847081(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__342802512fb8c4a67f2aeabf3298720ed2c6a419c8925c8a89f3bd0311275ffb(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a5c8c1d37bc8498378e230d6706158029f3f338a0e189082c87fb5f6cd7fe6c0(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ec31a9cae0e5bd64c6b40f69ad6ee7df35afc62cd605318e86ad6f2e45e89d53(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1a055200d74fabbb10b904a2a3ac60e17c38c3bc64e215b6025a85ceb5e210c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96961dfe44954843fcbe469268db6fa64365e7bc704c236f5dade2e4070f4b54(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__fc6eba6d2672c96c16de1ad747ece15f532c4b05cbc617ad60de024de733f72d(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0c2ce45696a4d4f4884210e621e2096f7a585eb7543218ba7a92e5a1caad3eaa(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__409a99b2353ee73a231c34d8d0fd3df0a28e7aa4442a1694a15837b7c940e57e(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e12f30e799da5c8df543a64ed5045d5ca16c2aff83a89ef42362b734d97d15c0(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0242f9a854bf10317f39c8c7aac19b8493e7d705478bcdc802d49b5ae17675a2(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bafd529b50fdc62b8f211210a3e197809075bc97fb833d08dbebf3c6ca8fca7a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c914fb09d08a44aa3aab0e6103157903794054ed0acd0244ab9497429d736aa(
+    value: typing.Optional[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__706d41aa498034f15f6e499755770b0656324eda2504effd714ff32454b5ee21(
+    *,
+    attribute: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5aae456001749e806d28c535f045e0891f6f1b30248717344d32ffd82cd78d66(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__924b8ec357102a191cc46f317fa6e869f57b4c4fa044b8ab9f55c996c1008362(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b1970c3ae4889754beec49df7a38bc7c1fd388b634c4206f00af76687e4865fb(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__636105ddd2569e4d550b21f7e69276e32e98beacfaf0a5862e79d3aa6128bb04(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__18e677f6cc2aa33e2dab9cbbe1da71dd6351a0c37db6140372e6ab55f21b0f62(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fd7ed7588e47a3084980edb377c07d2f8085a9ac46e1fa5482cdc00962d80c2(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3574d634b835dd3f34c924f6d865e399691fa0d4be95aefad89327ca838f498a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ebea400851b96720d66e6aaa6029f6edda3577ab160d89524c4c3006693be08c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dd5ddf2b8a0b162c0751ab600550314512e618502c64a22e3aedaa596a5d3c3(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingAmazonManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3650,6 +5287,7 @@ def _typecheckingstub__ca82dd2b84242acad82c6883bebd93cea9346581689399f883727e4d4
 def _typecheckingstub__552f5accfcb9ea14c92bd78af097762e0ae1236cab5d2bb2ad88f563414bb309(
     *,
     consumer_group_id: typing.Optional[builtins.str] = None,
+    schema_registry_config: typing.Optional[typing.Union[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3669,6 +5307,192 @@ def _typecheckingstub__d8e960270f5884b70648a3fbbbed56d1d11a13b177ec49f5c07bbf4b6
 
 def _typecheckingstub__5f35651559ea6accdc41caeff6ea91750ce0e9c62392d3992ac409086f2b8948(
     value: typing.Optional[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4091136fcb90bd3f2a82bc4622d711625efb0702680ad1cc3fd6129fe80938f2(
+    *,
+    access_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
+    event_record_format: typing.Optional[builtins.str] = None,
+    schema_registry_uri: typing.Optional[builtins.str] = None,
+    schema_validation_config: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ae2345971cf9293785fda02130e7db8eb6b99ed8574446874582d3d0a0ca9a80(
+    *,
+    type: typing.Optional[builtins.str] = None,
+    uri: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6284230dceb744bc128cf944fe93397abd5e968705d9f1075dee9767735dfa5(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__319fc4b2d39eb6c2f7527a836d90305e768acace33e538c79f6c4a7b3cd6240c(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58925c2a19812652cbb71db7b9ed4219d06c3df69d6fa8bfdf6dc0fcbc4ccb64(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2a7ad005fb1ca8b7c0966aee5704c64404d3fa1996e1bca0b6f691724877dc8c(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0aba0afc7ce0e69d6ad215e4979c71a95c32e4168ae296224cfd4082fa3b0886(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__da40e67cf3027e978160db7d9fed93e5da7f0fd2286d5f711e551eb135813962(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f36ba9d7cbe90874472cb80660909f45cf623774eec0fac6ebcfdc2a59aee1d4(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__93126c0cff3eb239b0c76fc007d6d87cb2ecd07a647e3df71782bdb2f0d71e8a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1e94c251504deb20b785832f3b3048d71c0e0236a12ff1c4fef93f80bb37c66a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__13a047d414e35735a53eb3b4489876fd5156615cdbb935ac93d15015aaff1b82(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__649071ac98193455135cce0cd4ec6b8399e254fa52013bba6c3a86585ea9b16d(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3b26351d072b6afa487c395a95a085179262b63229af2b0eaaf35dec4c75e00b(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigAccessConfig, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e006640b840713c14a96954a5ac2826f67e23317c213869fa9573555cf8d8ad(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bc5315d585c228e62cf3ab1cfda6ca3425906ad0f23f26e9a5fcde530053a87d(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__42b79e4a061f5609d5150c390057c125e7c6e8a3f319b48b77a5b76a58894936(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0dcd21e333a0a669c9ec805ed4cc1f8e89249ead26ea72d70dc3a1a13e19907f(
+    value: typing.Optional[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfig],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eea22668e8fea4cc7ef953eb2cbf279d675a93f856c12642f2a3da6496cac49b(
+    *,
+    attribute: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d005504f203da63ce3b12e4497bb20761397493bcbb7477d782afdd5620e91a9(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3a85f0319ed20d500ac7659fe9c2248184df201c8e01a28551bd8372e235c650(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ce8bbc17bd9f0c0abb8b0414a396e4c29951c904d1cb5bc6c32acdcc8496a77b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4a35dbf88d9ba3870153f22ca1370e614e00b76a73e592e66851ea5ee0f3c232(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__133f00ae0a10da8bde0d683c6e3777d76470032228c871d81b6ad444eef2300a(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__05d22328803e023f320240bb26e2d03a3dfd41fd2c7476919b5f154ae262438f(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2cdb761e7be4ea69fded6680c1008be363033b23b585d37dcda1864b2f557df7(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__03443e0e9e0f33ea7f578dd1ac326e25c00969dab5162849caf7f8b6700ed35c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6fb920fd0a17699c0bef047fd39a21dcb38dffd450e0c321ee00380b215c6837(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, LambdaEventSourceMappingSelfManagedKafkaEventSourceConfigSchemaRegistryConfigSchemaValidationConfig]],
 ) -> None:
     """Type checking stubs"""
     pass

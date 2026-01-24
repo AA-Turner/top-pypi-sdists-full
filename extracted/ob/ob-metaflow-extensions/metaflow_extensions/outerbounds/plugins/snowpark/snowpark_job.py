@@ -12,9 +12,9 @@ from .snowpark_exceptions import SnowparkException
 mapping = str.maketrans("0123456789", "abcdefghij")
 
 
-# keep only alpha numeric characters and underscores..
+# keep only alpha numeric characters and dashes..
 def sanitize_name(job_name: str):
-    return "".join(char for char in job_name if char.isalnum() or char == "_")
+    return "".join(char for char in job_name if char.isalnum() or char == "-")
 
 
 # this is not a decorator since the exception imports need to be inside
@@ -199,11 +199,17 @@ class RunningJob(object):
 
     @property
     def status(self):
-        return self.status_obj()[0].get("status")
+        status_list = self.status_obj()
+        if not status_list:
+            return "UNKNOWN"
+        return status_list[0].get("status", "UNKNOWN")
 
     @property
     def message(self):
-        return self.status_obj()[0].get("message")
+        status_list = self.status_obj()
+        if not status_list:
+            return None
+        return status_list[0].get("message")
 
     @property
     def is_waiting(self):

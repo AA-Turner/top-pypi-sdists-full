@@ -380,6 +380,15 @@ z: list[A] = y # E: `list[B]` is not assignable to `list[A]`
 );
 
 testcase!(
+    test_context_return_incompatible_bound,
+    r#"
+def f(x: int | str) -> None: ...
+def g[T: int](x: T) -> T: ...
+f(g(0)) # OK
+"#,
+);
+
+testcase!(
     bug = "Propagating the hint should still allow for a narrower inferred type",
     test_context_return_narrow,
     r#"
@@ -450,7 +459,7 @@ class TD[T](TypedDict):
 
 def test(x: TD[int | str]):
     x = TD(x = 0)
-    assert_type(x, TD[int]) # E: assert_type(TypedDict[TD[int | str]], TypedDict[TD[int]]) failed
+    assert_type(x, TD[int]) # E: assert_type(TD[int | str], TD[int]) failed
 "#,
 );
 
@@ -580,7 +589,7 @@ def f[T]() -> Callable[[T], T]:
 testcase!(
     test_assign_lambda_to_protocol,
     r#"
-from typing import Protocol, reveal_type
+from typing import Protocol
 class Identity(Protocol):
     def __call__[T](self, x: T) -> T:
         return x
@@ -623,5 +632,31 @@ x: TD | dict[str, list[A] | str] = {
     "xs": [B()],
     "y": "foo",
 }
+    "#,
+);
+
+testcase!(
+    test_sequence_hint_for_tuple,
+    r#"
+from typing import Sequence, TypedDict
+class TD(TypedDict):
+    x: int
+x1: Sequence[TD] = ({"x": 0},)
+x2: tuple[int] | Sequence[TD] = ({"x": 0},)
+    "#,
+);
+
+testcase!(
+    test_tuple_union,
+    r#"
+from typing import Sequence, TypedDict
+class TD1(TypedDict):
+    x: int
+class TD2(TypedDict):
+    y: str
+x1: tuple[TD1] | tuple[TD2, ...] = ({"x": 0},)
+x2: tuple[TD1] | tuple[TD2, ...] = ({"y": "a"}, {"y": "b"})
+x3: tuple[TD1] | tuple[TD2] = ({"y": "a"},)
+x4: tuple[TD1] | tuple[TD2, ...] = ({"x": 0}, {"y": "a"})  # E: `tuple[TD1, TD2]` is not assignable to `tuple[TD1] | tuple[TD2, ...]`
     "#,
 );

@@ -1,3 +1,9 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
 from typing import List, Generic, TypeVar, Optional
@@ -24,10 +30,13 @@ class SyncDatasetsIterrows(BaseSyncPage[_T], BasePage[_T], Generic[_T]):
     @override
     def next_page_info(self) -> Optional[PageInfo]:
         next_index = self.next_index
-        if not next_index:
-            return None
+        if next_index is None:
+            return None  # type: ignore[unreachable]
 
-        return PageInfo(params={"start_index": next_index})
+        length = len(self._get_page_items())
+        current_count = next_index + length
+
+        return PageInfo(params={"start_index": current_count})
 
 
 class AsyncDatasetsIterrows(BaseAsyncPage[_T], BasePage[_T], Generic[_T]):
@@ -44,10 +53,13 @@ class AsyncDatasetsIterrows(BaseAsyncPage[_T], BasePage[_T], Generic[_T]):
     @override
     def next_page_info(self) -> Optional[PageInfo]:
         next_index = self.next_index
-        if not next_index:
-            return None
+        if next_index is None:
+            return None  # type: ignore[unreachable]
 
-        return PageInfo(params={"start_index": next_index})
+        length = len(self._get_page_items())
+        current_count = next_index + length
+
+        return PageInfo(params={"start_index": current_count})
 
 
 class SyncOpenAICursorPage(BaseSyncPage[_T], BasePage[_T], Generic[_T]):

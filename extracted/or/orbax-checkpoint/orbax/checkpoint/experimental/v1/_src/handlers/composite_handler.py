@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Defines `CompositeHandler`, a helper component for saving and loading."""
+"""Defines CompositeHandler, a helper component for saving and loading."""
 
 from __future__ import annotations
 
 import asyncio
+import itertools
 from typing import Any, Awaitable
 
 from absl import logging
-from etils import epath
 from orbax.checkpoint._src.metadata import checkpoint as checkpoint_metadata
 from orbax.checkpoint._src.metadata import step_metadata_serialization
 from orbax.checkpoint._src.multihost import multihost
@@ -29,7 +29,7 @@ from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.handlers import registration
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
-from orbax.checkpoint.experimental.v1._src.path import format_utils
+from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 
 
@@ -37,6 +37,15 @@ StepMetadata = checkpoint_metadata.StepMetadata
 CompositeItemMetadata = checkpoint_metadata.CompositeItemMetadata
 
 ORBAX_CHECKPOINT_INDICATOR_FILE = 'orbax.checkpoint'
+
+
+def _subdirs(directory: path_types.Path, *, limit: int = 3) -> list[str]:
+  return list(
+      itertools.islice(
+          (subdir.name for subdir in directory.iterdir() if subdir.is_dir()),
+          limit,
+      )
+  )
 
 
 _V0_ERROR_MESSAGE = (
@@ -47,7 +56,7 @@ _V0_ERROR_MESSAGE = (
 )
 
 
-def _existing_checkpointable_names(directory: epath.Path) -> set[str]:
+def _existing_checkpointable_names(directory: path_types.Path) -> set[str]:
   return {p.name for p in directory.iterdir() if p.is_dir()}
 
 
@@ -57,14 +66,16 @@ async def _create_orbax_identifier_file(
   """Creates a file called `orbax.checkpoint` for easy identification."""
   directory = await directory.await_creation()
   if multihost.is_primary_host(primary_host):
-    await async_path.touch(directory / 'orbax.checkpoint', exist_ok=True)
+    await async_path.touch(
+        directory / ORBAX_CHECKPOINT_INDICATOR_FILE, exist_ok=True
+    )
 
 
 class CompositeHandler:
   """CompositeHandler.
 
-  This class is a helper component for `save_checkpointables` and
-  `load_checkpointables`. It performs a few core functions:
+  This class is a helper component for :py:func:`~.v1.save_checkpointables`,
+  :py:func:`~.v1.load_checkpointables`, etc. It performs a few core functions:
     - Resolves handlers for saving and loading.
     - Saves and loads checkpointables to/from individual subdirectories by
     delegating to the resolved handlers.
@@ -165,7 +176,7 @@ class CompositeHandler:
       abstract_checkpointables = {
           name: None
           for name in handlers_for_load.keys()
-          if name not in format_utils.RESERVED_CHECKPOINTABLE_KEYS
+          if name not in checkpoint_layout.RESERVED_CHECKPOINTABLE_KEYS
           and name in existing_checkpointable_names
       }
     if any(
@@ -265,8 +276,8 @@ class CompositeHandler:
         return saved_metadata.item_handlers  # found step level metadata.
       raise ValueError(
           f'Path at {directory} contains subdirectories:'
-          f' {format_utils.subdirs(directory)}, which are expected to match the'
-          ' keys given by the _CHECKPOINT_METADATA file:'
+          f' {_subdirs(directory)}, which are expected to'
+          ' match the keys given by the _CHECKPOINT_METADATA file:'
           f' {saved_metadata.item_handlers}. If you intended to load a pytree'
           ' checkpoint from the given path, then please consider using'
           ' `loading.load_pytree(..., checkpointable_name=None)` instead.'
@@ -293,8 +304,8 @@ class CompositeHandler:
       if isinstance(saved_metadata.item_handlers, dict):
         raise ValueError(
             f'Path at {directory} contains subdirectories:'
-            f' {format_utils.subdirs(directory)}, which are expected to match'
-            ' the keys given by the _CHECKPOINT_METADATA file:'
+            f' {_subdirs(directory)}, which are expected to'
+            ' match the keys given by the _CHECKPOINT_METADATA file:'
             f' {saved_metadata.item_handlers}. If you intended to load a pytree'
             ' checkpoint from the given path, then please consider using'
             ' `loading.load_pytree(..., checkpointable_name=None)` instead.'

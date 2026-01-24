@@ -1,6 +1,7 @@
 import abc
 from enum import Enum
-from typing import Generic, Iterable, List, Set, Type, TypeVar, Union, cast
+from typing import Generic, TypeVar, cast
+from collections.abc import Iterable
 
 from importlinter.domain.imports import ImportExpression, Module, ModuleExpression
 
@@ -31,8 +32,8 @@ class Field(Generic[FieldValue], abc.ABC):
 
     def __init__(
         self,
-        required: Union[bool, Type[NotSupplied]] = NotSupplied,
-        default: Union[FieldValue, Type[NotSupplied]] = NotSupplied,
+        required: bool | type[NotSupplied] = NotSupplied,
+        default: FieldValue | type[NotSupplied] = NotSupplied,
     ) -> None:
         if default is NotSupplied:
             if required is NotSupplied:
@@ -51,7 +52,7 @@ class Field(Generic[FieldValue], abc.ABC):
         self.default = default
 
     @abc.abstractmethod
-    def parse(self, raw_data: Union[str, List[str]]) -> FieldValue:
+    def parse(self, raw_data: str | list[str]) -> FieldValue:
         """
         Given some raw data supplied by a user, return some clean data.
 
@@ -61,23 +62,23 @@ class Field(Generic[FieldValue], abc.ABC):
         raise NotImplementedError
 
 
-class StringField(Field):
+class StringField(Field[str]):
     """
     A field for single values of strings.
     """
 
-    def parse(self, raw_data: Union[str, List]) -> str:
+    def parse(self, raw_data: str | list) -> str:
         if isinstance(raw_data, list):
             raise ValidationError("Expected a single value, got multiple values.")
         return str(raw_data)
 
 
-class BooleanField(Field):
+class BooleanField(Field[bool]):
     """
     A field for single values of booleans.
     """
 
-    def parse(self, raw_data: Union[str, List]) -> bool:
+    def parse(self, raw_data: str | list) -> bool:
         if isinstance(raw_data, list):
             raise ValidationError("Expected a single value, got multiple values.")
 
@@ -87,6 +88,27 @@ class BooleanField(Field):
             return False
         else:
             raise ValidationError(f"Could not parse a boolean from '{raw_data}'.")
+
+
+class IntegerField(Field[int]):
+    """
+    A field for single values of integers.
+    """
+
+    def __init__(self, *args, minimum: int | None = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.minimum = minimum
+
+    def parse(self, raw_data: str | list[str]) -> int:
+        if isinstance(raw_data, list):
+            raise ValidationError("Expected a single value, got multiple values.")
+        try:
+            integer = int(raw_data)
+        except ValueError:
+            raise ValidationError(f"'{raw_data}' is not an integer.")
+        if self.minimum is not None and integer < self.minimum:
+            raise ValidationError(f"Must be >= {self.minimum}.")
+        return integer
 
 
 class BaseMultipleValueField(Field):
@@ -104,7 +126,7 @@ class BaseMultipleValueField(Field):
         self.subfield = subfield
 
     @abc.abstractmethod
-    def parse(self, raw_data: Union[str, List]) -> Iterable[FieldValue]:
+    def parse(self, raw_data: str | list) -> Iterable[FieldValue]:
         if isinstance(raw_data, tuple):
             raw_data = list(raw_data)
         if not isinstance(raw_data, list):
@@ -129,7 +151,7 @@ class ListField(BaseMultipleValueField):
         field = ListField(subfield=AnotherField())
     """
 
-    def parse(self, raw_data: Union[str, List]) -> List[FieldValue]:
+    def parse(self, raw_data: str | list) -> list[FieldValue]:
         return list(super().parse(raw_data))
 
 
@@ -145,7 +167,7 @@ class SetField(BaseMultipleValueField):
 
     """
 
-    def parse(self, raw_data: Union[str, List]) -> Set[FieldValue]:
+    def parse(self, raw_data: str | list) -> set[FieldValue]:
         return set(super().parse(raw_data))
 
 
@@ -154,7 +176,7 @@ class ModuleField(Field):
     A field for Modules.
     """
 
-    def parse(self, raw_data: Union[str, List]) -> Module:
+    def parse(self, raw_data: str | list) -> Module:
         return Module(StringField().parse(raw_data))
 
 
@@ -169,7 +191,7 @@ class ModuleExpressionField(Field):
         "mypackage.**"
     """
 
-    def parse(self, expression: Union[str, List[str]]) -> ModuleExpression:
+    def parse(self, expression: str | list[str]) -> ModuleExpression:
         if isinstance(expression, list):
             raise ValidationError("Expected a single value, got multiple values.")
 
@@ -201,7 +223,7 @@ class ImportExpressionField(Field):
         "mypackage.**.importer -> mypackage.bar.**"
     """
 
-    def parse(self, raw_data: Union[str, List]) -> ImportExpression:
+    def parse(self, raw_data: str | list) -> ImportExpression:
         string = StringField().parse(raw_data)
         importer, _, imported = string.partition("->")
         # Remove any whitespace around the module string
@@ -242,13 +264,13 @@ class EnumField(Field):
         assert field.parse("") == Color.RED
     """
 
-    def __init__(self, enum: Type[Enum], *args, **kwargs) -> None:
+    def __init__(self, enum: type[Enum], *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self._check_supported_enum_class(enum)
         self.enum = enum
 
-    def parse(self, raw_data: Union[str, List]) -> Enum:
+    def parse(self, raw_data: str | list) -> Enum:
         if isinstance(raw_data, list):
             raise ValidationError("Expected a single value, got multiple values.")
 
@@ -264,10 +286,10 @@ class EnumField(Field):
             values = list(member_by_value.keys())
             expectation_string = ", ".join(f"'{i}'" for i in values[:-1]) + f" or '{values[-1]}'"
             raise ValidationError(
-                f"Invalid value '{stripped_data}': " f"expected {expectation_string}."
+                f"Invalid value '{stripped_data}': expected {expectation_string}."
             )
 
-    def _check_supported_enum_class(self, enum: Type[Enum]) -> None:
+    def _check_supported_enum_class(self, enum: type[Enum]) -> None:
         for member in enum:
             # Check it's a string.
             if not isinstance(member.value, str):

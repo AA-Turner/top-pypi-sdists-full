@@ -1,5 +1,5 @@
 #  -----------------------------------------------------------------------------------------
-#  (C) Copyright IBM Corp. 2025.
+#  (C) Copyright IBM Corp. 2025-2026.
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-import ibm_watsonx_ai._wrappers.requests as requests
 from ibm_watsonx_ai.metanames import RuntimeDefinitionsMetaNames
 from ibm_watsonx_ai.wml_client_error import ResourceIdByNameNotFound
 from ibm_watsonx_ai.wml_resource import WMLResource
@@ -48,7 +47,7 @@ class RuntimeDefinitions(WMLResource):
             meta_props = {
                 client.runtime_definitions.ConfigurationMetaNames.NAME: "custom runtime definition",
                 client.runtime_definitions.ConfigurationMetaNames.DESCRIPTION: "Custom runtime definition created with SDK",
-             }
+            }
 
             client.runtime_definitions.store(meta_props)
 
@@ -64,7 +63,7 @@ class RuntimeDefinitions(WMLResource):
 
         href = self._client._href_definitions.get_runtime_definitions_href()
 
-        creation_response = requests.post(
+        creation_response = self._client.httpx_client.post(
             url=href,
             params=self._client._params(),
             headers=self._client._get_headers(),
@@ -96,7 +95,9 @@ class RuntimeDefinitions(WMLResource):
 
         .. code-block:: python
 
-            runtime_definition_details = client.runtime_definitions.get_details(runtime_definition_id)
+            runtime_definition_details = client.runtime_definitions.get_details(
+                runtime_definition_id
+            )
 
         """
         self._client._check_if_either_is_set()
@@ -115,7 +116,7 @@ class RuntimeDefinitions(WMLResource):
         else:
             url = self._client._href_definitions.get_runtime_definitions_href()
 
-        response = requests.get(
+        response = self._client.httpx_client.get(
             url=url,
             params=params,
             headers=self._client._get_headers(),
@@ -180,6 +181,7 @@ class RuntimeDefinitions(WMLResource):
             runtime_definition_details,
             "runtime_definition_details",
             ["metadata", "guid"],
+            str,
         )
 
     def get_id_by_name(self, runtime_definition_name: str) -> str:
@@ -195,7 +197,9 @@ class RuntimeDefinitions(WMLResource):
 
         .. code-block:: python
 
-            asset_id = client.runtime_definitions.get_id_by_name(runtime_definition_name)
+            asset_id = client.runtime_definitions.get_id_by_name(
+                runtime_definition_name
+            )
 
         """
         RuntimeDefinitions._validate_type(
@@ -224,6 +228,7 @@ class RuntimeDefinitions(WMLResource):
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
+        :raises WMLClientError: if deletion failed
 
         **Example:**
 
@@ -238,7 +243,7 @@ class RuntimeDefinitions(WMLResource):
             runtime_definition_id, "runtime_definition_id", str, True
         )
 
-        response = requests.delete(
+        response = self._client.httpx_client.delete(
             url=self._client._href_definitions.get_runtime_definition_href(
                 runtime_definition_id
             ),
@@ -246,7 +251,7 @@ class RuntimeDefinitions(WMLResource):
             headers=self._client._get_headers(),
         )
 
-        return self._handle_response(204, "delete runtime definition", response)
+        return self._handle_response(204, "delete runtime definition", response)  # type: ignore[return-value]
 
     def update(self, runtime_definition_id: str, changes: dict) -> dict:
         """Updates existing runtime definition asset metadata.
@@ -266,8 +271,7 @@ class RuntimeDefinitions(WMLResource):
             }
 
             runtime_definitions_details = client.runtime_definitions.update(
-                runtime_definition_id,
-                changes=metadata
+                runtime_definition_id, changes=metadata
             )
 
         """
@@ -286,7 +290,7 @@ class RuntimeDefinitions(WMLResource):
         url = self._client._href_definitions.get_runtime_definition_href(
             runtime_definition_id
         )
-        response = requests.put(
+        response = self._client.httpx_client.put(
             url=url,
             json=put_payload,
             params=self._client._params(),

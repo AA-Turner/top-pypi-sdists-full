@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dwave-preprocessing
-Version: 0.6.10
+Version: 0.6.11
 Summary: An API for preprocessing tools
 Home-page: https://github.com/dwavesystems/dwave-preprocessing
+Download-URL: https://github.com/dwavesystems/dwave-preprocessing/releases
 Author: D-Wave Systems Inc.
 Author-email: tools@dwavesys.com
 License: Apache 2.0
-Download-URL: https://github.com/dwavesystems/dwave-preprocessing/releases
-Platform: UNKNOWN
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
@@ -15,14 +14,19 @@ Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: numpy<3.0.0,>=1.21.6
+Requires-Dist: dimod<0.13.0,>=0.12.21
+Dynamic: download-url
+Dynamic: license-file
+Dynamic: requires-dist
 
 .. image:: https://circleci.com/gh/dwavesystems/dwave-preprocessing.svg?style=svg
     :target: https://circleci.com/gh/dwavesystems/dwave-preprocessing
@@ -102,5 +106,3 @@ create a new release note file by running
 You can then edit the file created under ``releasenotes/notes/``.
 Remove any sections not relevant to your changes.
 Commit the file along with your changes.
-
-

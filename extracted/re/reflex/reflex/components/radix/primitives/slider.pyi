@@ -20,7 +20,6 @@ class SliderComponent(RadixPrimitiveComponentWithClassName):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -53,7 +52,6 @@ class SliderComponent(RadixPrimitiveComponentWithClassName):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -65,8 +63,6 @@ class SliderComponent(RadixPrimitiveComponentWithClassName):
         Returns:
             The component.
         """
-
-def on_value_event_spec(value: Var[list[int]]) -> tuple[Var[list[int]]]: ...
 
 class SliderRoot(SliderComponent):
     def add_style(self) -> dict[str, Any] | None: ...
@@ -87,7 +83,6 @@ class SliderRoot(SliderComponent):
         max: Var[int] | int | None = None,
         step: Var[int] | int | None = None,
         min_steps_between_thumbs: Var[int] | int | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -114,8 +109,8 @@ class SliderRoot(SliderComponent):
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
-        on_value_change: EventType[()] | EventType[list[int]] | None = None,
-        on_value_commit: EventType[()] | EventType[list[int]] | None = None,
+        on_value_change: EventType[()] | EventType[list[float]] | None = None,
+        on_value_commit: EventType[()] | EventType[list[float]] | None = None,
         **props,
     ) -> SliderRoot:
         """Create the component.
@@ -124,7 +119,6 @@ class SliderRoot(SliderComponent):
             *children: The children of the component.
             on_value_change: Fired when the value of a thumb changes.
             on_value_commit: Fired when a thumb is released.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -143,7 +137,6 @@ class SliderTrack(SliderComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -176,7 +169,6 @@ class SliderTrack(SliderComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -195,7 +187,6 @@ class SliderRange(SliderComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -228,7 +219,6 @@ class SliderRange(SliderComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -247,7 +237,6 @@ class SliderThumb(SliderComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -280,7 +269,6 @@ class SliderThumb(SliderComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

@@ -7,9 +7,7 @@ import os
 import threading
 import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any, Callable, TypeVar
-
-from typing_extensions import Final, ParamSpec
+from typing import Any, Callable, Final, ParamSpec, TypeVar
 
 DESIRED_CPU_PARALLELISM: int = int(os.getenv("OMP_NUM_THREADS", max(8, os.cpu_count() or 8)))
 """

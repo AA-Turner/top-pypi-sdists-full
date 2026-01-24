@@ -121,6 +121,9 @@ class IDTypes(Enum):
     cluster_log_cloud_resources = "clcr"
     system_cluster_configs = "scc"
     resource_tags = "rtag"
+    user_groups = "ug"
+    user_group_memberships = "ugm"
+    resource_permissions = "rperm"
 
 
 _default_id_length: int = 26

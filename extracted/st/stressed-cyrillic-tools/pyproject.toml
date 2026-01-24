@@ -1,0 +1,16 @@
+[tool.poetry]
+authors = ["Vuizur <Vuizur@users.noreply.github.com>"]
+description = ""
+name = "stressed-cyrillic-tools"
+version = "0.1.15"
+
+[tool.poetry.dependencies]
+python = ">=3.6"
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^0.971"
+pytest = ">=5.0.0"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core>=1.0.0"]

@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -69,12 +70,6 @@ from .type_defs import (
     UpdateSubscriptionRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -85,20 +80,20 @@ __all__ = ("ShieldClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    AccessDeniedForDependencyException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    InternalErrorException: Type[BotocoreClientError]
-    InvalidOperationException: Type[BotocoreClientError]
-    InvalidPaginationTokenException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidResourceException: Type[BotocoreClientError]
-    LimitsExceededException: Type[BotocoreClientError]
-    LockedSubscriptionException: Type[BotocoreClientError]
-    NoAssociatedRoleException: Type[BotocoreClientError]
-    OptimisticLockException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    AccessDeniedForDependencyException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    InternalErrorException: type[BotocoreClientError]
+    InvalidOperationException: type[BotocoreClientError]
+    InvalidPaginationTokenException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidResourceException: type[BotocoreClientError]
+    LimitsExceededException: type[BotocoreClientError]
+    LockedSubscriptionException: type[BotocoreClientError]
+    NoAssociatedRoleException: type[BotocoreClientError]
+    OptimisticLockException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
 
 
 class ShieldClient(BaseClient):
@@ -138,7 +133,7 @@ class ShieldClient(BaseClient):
 
     def associate_drt_log_bucket(
         self, **kwargs: Unpack[AssociateDRTLogBucketRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Authorizes the Shield Response Team (SRT) to access the specified Amazon S3
         bucket containing log data such as Application Load Balancer access logs,
@@ -150,7 +145,7 @@ class ShieldClient(BaseClient):
 
     def associate_drt_role(
         self, **kwargs: Unpack[AssociateDRTRoleRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Authorizes the Shield Response Team (SRT) using the specified role, to access
         your Amazon Web Services account to assist with DDoS attack mitigation during
@@ -162,7 +157,7 @@ class ShieldClient(BaseClient):
 
     def associate_health_check(
         self, **kwargs: Unpack[AssociateHealthCheckRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Adds health-based detection to the Shield Advanced protection for a resource.
 
@@ -172,7 +167,7 @@ class ShieldClient(BaseClient):
 
     def associate_proactive_engagement_details(
         self, **kwargs: Unpack[AssociateProactiveEngagementDetailsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Initializes proactive engagement and sets the list of contacts for the Shield
         Response Team (SRT) to use.
@@ -193,7 +188,7 @@ class ShieldClient(BaseClient):
 
     def create_protection_group(
         self, **kwargs: Unpack[CreateProtectionGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a grouping of protected resources so they can be handled as a
         collective.
@@ -202,7 +197,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#create_protection_group)
         """
 
-    def create_subscription(self) -> Dict[str, Any]:
+    def create_subscription(self) -> dict[str, Any]:
         """
         Activates Shield Advanced for an account.
 
@@ -210,7 +205,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#create_subscription)
         """
 
-    def delete_protection(self, **kwargs: Unpack[DeleteProtectionRequestTypeDef]) -> Dict[str, Any]:
+    def delete_protection(self, **kwargs: Unpack[DeleteProtectionRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes an Shield Advanced <a>Protection</a>.
 
@@ -220,7 +215,7 @@ class ShieldClient(BaseClient):
 
     def delete_protection_group(
         self, **kwargs: Unpack[DeleteProtectionGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the specified protection group.
 
@@ -228,7 +223,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#delete_protection_group)
         """
 
-    def delete_subscription(self) -> Dict[str, Any]:
+    def delete_subscription(self) -> dict[str, Any]:
         """
         Removes Shield Advanced from an account.
 
@@ -308,7 +303,7 @@ class ShieldClient(BaseClient):
 
     def disable_application_layer_automatic_response(
         self, **kwargs: Unpack[DisableApplicationLayerAutomaticResponseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disable the Shield Advanced automatic application layer DDoS mitigation feature
         for the protected resource.
@@ -317,7 +312,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#disable_application_layer_automatic_response)
         """
 
-    def disable_proactive_engagement(self) -> Dict[str, Any]:
+    def disable_proactive_engagement(self) -> dict[str, Any]:
         """
         Removes authorization from the Shield Response Team (SRT) to notify contacts
         about escalations to the SRT and to initiate proactive customer support.
@@ -328,7 +323,7 @@ class ShieldClient(BaseClient):
 
     def disassociate_drt_log_bucket(
         self, **kwargs: Unpack[DisassociateDRTLogBucketRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the Shield Response Team's (SRT) access to the specified Amazon S3
         bucket containing the logs that you shared previously.
@@ -337,7 +332,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#disassociate_drt_log_bucket)
         """
 
-    def disassociate_drt_role(self) -> Dict[str, Any]:
+    def disassociate_drt_role(self) -> dict[str, Any]:
         """
         Removes the Shield Response Team's (SRT) access to your Amazon Web Services
         account.
@@ -348,7 +343,7 @@ class ShieldClient(BaseClient):
 
     def disassociate_health_check(
         self, **kwargs: Unpack[DisassociateHealthCheckRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes health-based detection from the Shield Advanced protection for a
         resource.
@@ -359,7 +354,7 @@ class ShieldClient(BaseClient):
 
     def enable_application_layer_automatic_response(
         self, **kwargs: Unpack[EnableApplicationLayerAutomaticResponseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Enable the Shield Advanced automatic application layer DDoS mitigation for the
         protected resource.
@@ -368,7 +363,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#enable_application_layer_automatic_response)
         """
 
-    def enable_proactive_engagement(self) -> Dict[str, Any]:
+    def enable_proactive_engagement(self) -> dict[str, Any]:
         """
         Authorizes the Shield Response Team (SRT) to use email and phone to notify
         contacts about escalations to the SRT and to initiate proactive customer
@@ -439,7 +434,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#list_tags_for_resource)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates tags for a resource in Shield.
 
@@ -447,7 +442,7 @@ class ShieldClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_shield/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from a resource in Shield.
 
@@ -457,7 +452,7 @@ class ShieldClient(BaseClient):
 
     def update_application_layer_automatic_response(
         self, **kwargs: Unpack[UpdateApplicationLayerAutomaticResponseRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing Shield Advanced automatic application layer DDoS mitigation
         configuration for the specified resource.
@@ -468,7 +463,7 @@ class ShieldClient(BaseClient):
 
     def update_emergency_contact_settings(
         self, **kwargs: Unpack[UpdateEmergencyContactSettingsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the details of the list of email addresses and phone numbers that the
         Shield Response Team (SRT) can use to contact you if you have proactive
@@ -481,7 +476,7 @@ class ShieldClient(BaseClient):
 
     def update_protection_group(
         self, **kwargs: Unpack[UpdateProtectionGroupRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates an existing protection group.
 
@@ -491,7 +486,7 @@ class ShieldClient(BaseClient):
 
     def update_subscription(
         self, **kwargs: Unpack[UpdateSubscriptionRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates the details of an existing subscription.
 

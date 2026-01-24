@@ -1,20 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: audioread
-Version: 3.0.1
+Version: 3.1.0
 Summary: Multi-library, cross-platform audio decoding.
-Author-email: Adrian Sampson <adrian@radbox.org>
-Requires-Python: >=3.6
-Description-Content-Type: text/x-rst
+License-Expression: MIT
+License-File: LICENSE
+Author: Adrian Sampson
+Author-email: adrian@radbox.org
+Requires-Python: >=3.9
 Classifier: Topic :: Multimedia :: Sound/Audio :: Conversion
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Dist: tox ; extra == "test"
-Project-URL: Home, https://github.com/beetbox/audioread
+Classifier: License :: OSI Approved :: MIT License
+Provides-Extra: gi
+Provides-Extra: mad
 Provides-Extra: test
+Requires-Dist: pygobject (>=3.54.2,<4.0.0) ; extra == "gi"
+Requires-Dist: pymad[mad] (>=0.11.3,<0.12.0) ; extra == "mad"
+Requires-Dist: pytest (>=8.4.2) ; extra == "test"
+Requires-Dist: pytest-cov (>=7.0.0) ; extra == "test"
+Requires-Dist: standard-aifc ; python_version >= "3.13"
+Requires-Dist: standard-sunau ; python_version >= "3.13"
+Project-URL: Bug Tracker, https://github.com/beetbox/audioread/issues
+Project-URL: Homepage, https://github.com/beetbox/audioread
+Project-URL: Repository, https://github.com/beetbox/audioread
+Description-Content-Type: text/x-rst
 
 audioread
 =========
@@ -73,7 +85,7 @@ A second optional parameter to ``audio_open`` specifies which backends to try
 ``available_backends`` function to get a list backends that are usable on the
 current system.
 
-Audioread supports Python 3 (3.8+).
+Audioread supports Python 3 (3.9+).
 
 Example
 -------
@@ -93,6 +105,9 @@ FFmpeg with your OS's package manager (e.g., apt or yum) or `using Conda
 
 Version History
 ---------------
+
+3.0.2
+  Support path-like objects (not just strings) in the Core Audio backend.
 
 3.0.1
   Fix a possible deadlock when FFmpeg's version output produces too much data.

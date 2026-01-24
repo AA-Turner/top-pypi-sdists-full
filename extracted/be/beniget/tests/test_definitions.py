@@ -1,22 +1,18 @@
 from textwrap import dedent
 from unittest import TestCase, skipIf
-import gast as ast
+
 import beniget
 import sys
 
+import gast as _gast
+import ast as _ast
 
-class StrictDefUseChains(beniget.DefUseChains):
-    def unbound_identifier(self, name, node):
-        raise RuntimeError(
-            "W: unbound identifier '{}' at {}:{}".format(
-                name, node.lineno, node.col_offset
-            )
-        )
-
+from .test_chains import StrictDefUseChains
 
 class TestGlobals(TestCase):
+    ast = _gast
     def checkGlobals(self, code, ref):
-        node = ast.parse(code)
+        node = self.ast.parse(code)
         c = StrictDefUseChains()
         c.visit(node)
         self.assertEqual(c.dump_definitions(node), ref)
@@ -283,13 +279,16 @@ class TestGlobals(TestCase):
         code = "lambda x: x"
         self.checkGlobals(code, [])
 
+class TestGlobalsStdlib(TestGlobals):
+    ast = _ast
 
 class TestClasses(TestCase):
+    ast = _gast
     def checkClasses(self, code, ref):
-        node = ast.parse(code)
+        node = self.ast.parse(code)
         c = StrictDefUseChains()
         c.visit(node)
-        classes = [n for n in node.body if isinstance(n, ast.ClassDef)]
+        classes = [n for n in node.body if isinstance(n, self.ast.ClassDef)]
         assert len(classes) == 1, "only one top-level function per test case"
         cls = classes[0]
         self.assertEqual(c.dump_definitions(cls), ref)
@@ -298,13 +297,16 @@ class TestClasses(TestCase):
         code = "class C:\n def foo(self):pass\n bar = foo"
         self.checkClasses(code, ["bar", "foo"])
 
+class TestClassesStdlib(TestClasses):
+    ast = _ast
 
 class TestLocals(TestCase):
+    ast = _gast
     def checkLocals(self, code, ref):
-        node = ast.parse(dedent(code))
+        node = self.ast.parse(dedent(code))
         c = StrictDefUseChains()
         c.visit(node)
-        functions = [n for n in node.body if isinstance(n, ast.FunctionDef)]
+        functions = [n for n in node.body if isinstance(n, self.ast.FunctionDef)]
         assert len(functions) == 1, "only one top-level function per test case"
         f = functions[0]
         self.assertEqual(c.dump_definitions(f), ref)
@@ -344,10 +346,10 @@ class TestLocals(TestCase):
     def test_LocalAssignRedef(self):
         code = "def foo(a): a = 1"
         self.checkLocals(code, ["a", "a"])
-    
+
     def test_LocalAssignRedefIfElseOverride(self):
         code = """
-            def foo(): 
+            def foo():
                 if NotImplemented:
                     x = 2
                 else:
@@ -399,20 +401,25 @@ def foo(a):
         else: b = a"""
         self.checkLocals(code, ["a", "b"])
 
+class TestLocalsStdlib(TestLocals):
+    ast = _ast
+
 class TestDefIsLive(TestCase):
 
+    ast = _gast
+
     def checkLocals(self, c, node, ref, only_live=False):
-        self.assertEqual(sorted(c._dump_locals(node, only_live=only_live)), 
+        self.assertEqual(sorted(c._dump_locals(node, only_live=only_live)),
                          sorted(ref))
-    
+
     def checkLiveLocals(self, code, livelocals, locals):
-        node = ast.parse(dedent(code))
+        node = self.ast.parse(dedent(code))
         c = StrictDefUseChains()
         c.visit(node)
         self.checkLocals(c, node, locals)
         self.checkLocals(c, node, livelocals, only_live=True)
         return node, c
-    
+
     def test_LocalAssignRedefIfElseOverride(self):
         code = """
             if NotImplemented:
@@ -422,7 +429,18 @@ class TestDefIsLive(TestCase):
             x = 0
         """
         self.checkLiveLocals(code, ["x:6"], ["x:3,5,6"])
-    
+
+    def test_DeletedLocalAssignRedefIfElseOverride(self):
+        code = """
+            if NotImplemented:
+                x = 2
+            else:
+                x = 3
+            x = 0
+            del x
+        """
+        self.checkLiveLocals(code, [], ["x:3,5,6"])
+
     def test_LocalAssignmentRedefInEachBranch(self):
         code = """
         x = 10
@@ -432,6 +450,18 @@ class TestDefIsLive(TestCase):
             x = 1000
         """
         self.checkLiveLocals(code, ["x:4,6"], ["x:2,4,6"])
+
+    def test_DeletedLocalAssignmentRedefInEachBranch(self):
+        code = """
+        x = 10
+        if NotImplemented:
+            x = 100
+            del x
+        else:
+            x = 1000
+            del x
+        """
+        self.checkLiveLocals(code, [], ["x:2,4,7"])
 
     def test_AssignmentInsideBothBranchesOfTryExcept(self):
         code = """
@@ -443,6 +473,31 @@ class TestDefIsLive(TestCase):
                 x = -1
         """
         self.checkLiveLocals(code, ["x:5,7"], ["x:5,7"])
+
+    def test_BothDeletedAssignmentInsideBothBranchesOfTryExcept(self):
+        code = """
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                x = 10
+                del x
+            except RuntimeError:
+                x = -1
+                del x
+        """
+        self.checkLiveLocals(code, [], ["x:5,8"])
+
+    def test_DeletedAssignmentInsideBothBranchesOfTryExcept(self):
+        code = """
+            try:
+                1 / 0
+            except ZeroDivisionError:
+                x = 10
+                del x
+            except RuntimeError:
+                x = -1
+        """
+        self.checkLiveLocals(code, ["x:8"], ["x:5,8"])
 
     def test_AssignmentOverrideFinallyBlock(self):
         code = """
@@ -456,7 +511,7 @@ class TestDefIsLive(TestCase):
                 x = None
         """
         self.checkLiveLocals(code, ["x:9"], ["x:5,7,9"])
-    
+
     def test_AssignmentSimple(self):
         code = """
             a = 1
@@ -477,7 +532,7 @@ class TestDefIsLive(TestCase):
             self.checkLiveLocals(code, ["sys:2", "_PY37PLUS:4,6"], ["sys:2", "_PY37PLUS:4,6"])
         else:
             self.checkLiveLocals(code, ["sys:None", "_PY37PLUS:4,6"], ["sys:None", "_PY37PLUS:4,6"])
-    
+
     def test_BuiltinNameRedefConditional(self):
         code = '''
         import sys
@@ -490,20 +545,29 @@ class TestDefIsLive(TestCase):
                     pass
         '''
         if sys.version_info>=(3,10):
-            self.checkLiveLocals(code, ['sys:2', 'property:3', 'ExceptionGroup:6'], 
+            self.checkLiveLocals(code, ['sys:2', 'property:3', 'ExceptionGroup:6'],
                                 ['sys:2', 'property:3', 'ExceptionGroup:6'])
         else:
-            self.checkLiveLocals(code, ['sys:None', 'property:3', 'ExceptionGroup:6'], 
+            self.checkLiveLocals(code, ['sys:None', 'property:3', 'ExceptionGroup:6'],
                                 ['sys:None', 'property:3', 'ExceptionGroup:6'])
-    
+
     def test_loop_body_might_not_run(self):
         code = """
         i = 2
-        while int: 
+        while int:
             i = 3
         """
         self.checkLiveLocals(code, ['i:2,4'], ['i:2,4'])
-    
+
+    def test_loop_body_might_not_run_deletion(self):
+        code = """
+        i = 2
+        while int:
+            i = 3
+            del i
+        """
+        self.checkLiveLocals(code, ['i:2'], ['i:2,4'])
+
     def test_var_in_comp_doesnt_kill_upper_scope_var(self):
         code = '''
         x = True
@@ -525,19 +589,19 @@ class TestDefIsLive(TestCase):
         node, c = self.checkLiveLocals(code, ['v:1', 'C:2'], ['v:1', 'C:2'])
         self.checkLocals(c, node.body[-1], ['v:4', '__init__:5'], only_live=True)
         self.checkLocals(c, node.body[-1].body[-1], ['self:5', 'v:7'], only_live=True)
-    
+
     def test_if_body_might_not_run(self):
         code = """
         i = 2
-        if int: 
+        if int:
             i = 3
         """
         self.checkLiveLocals(code, ['i:2,4'], ['i:2,4'])
 
     def test_more_loops(self):
         # All variables here are live for beniget. Constant
-        # folding with control-flow understanding will reveal 
-        # that the else branch of the while loop is unreachable 
+        # folding with control-flow understanding will reveal
+        # that the else branch of the while loop is unreachable
         # (so the k assignment is never executed).
         # But beniget over-approximate this.
         code = '''
@@ -554,6 +618,8 @@ class TestDefIsLive(TestCase):
             else:
                 k = 2
         '''
-        self.checkLiveLocals(code, ['b:2,6', 'v:9,10,4', 'k:10,13'],  
+        self.checkLiveLocals(code, ['b:2,6', 'v:9,10,4', 'k:10,13'],
                                 ['b:2,6', 'v:9,10,4', 'k:10,13'])
 
+class TestDefIsLiveStdlib(TestDefIsLive):
+    ast = _ast

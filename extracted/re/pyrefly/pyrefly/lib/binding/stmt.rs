@@ -5,53 +5,146 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+use pyrefly_graph::index::Idx;
 use pyrefly_python::ast::Ast;
+use pyrefly_python::dunder;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::nesting_context::NestingContext;
 use pyrefly_python::short_identifier::ShortIdentifier;
+use ruff_python_ast::Arguments;
 use ruff_python_ast::AtomicNodeIndex;
 use ruff_python_ast::Expr;
 use ruff_python_ast::ExprCall;
+use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprName;
+use ruff_python_ast::ExprNumberLiteral;
+use ruff_python_ast::ExprSet;
+use ruff_python_ast::ExprTuple;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::Stmt;
 use ruff_python_ast::StmtAssign;
+use ruff_python_ast::StmtExpr;
 use ruff_python_ast::StmtImportFrom;
 use ruff_python_ast::StmtReturn;
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
+use starlark_map::small_set::SmallSet;
 
+use crate::binding::binding::AnnAssignHasValue;
 use crate::binding::binding::AnnotationTarget;
 use crate::binding::binding::Binding;
 use crate::binding::binding::BindingAnnotation;
 use crate::binding::binding::BindingExpect;
 use crate::binding::binding::ExprOrBinding;
-use crate::binding::binding::Initialized;
 use crate::binding::binding::IsAsync;
 use crate::binding::binding::Key;
 use crate::binding::binding::KeyAnnotation;
 use crate::binding::binding::KeyExpect;
 use crate::binding::binding::LinkedKey;
+use crate::binding::binding::NarrowUseLocation;
 use crate::binding::binding::RaisedException;
 use crate::binding::bindings::BindingsBuilder;
-use crate::binding::bindings::MutableCaptureLookupKind;
 use crate::binding::expr::Usage;
 use crate::binding::narrow::NarrowOps;
 use crate::binding::scope::FlowStyle;
 use crate::binding::scope::LoopExit;
-use crate::binding::scope::ScopeKind;
+use crate::binding::scope::Scope;
 use crate::config::error_kind::ErrorKind;
 use crate::error::context::ErrorInfo;
+use crate::export::definitions::MutableCaptureKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
+use crate::export::exports::Exports;
 use crate::export::special::SpecialExport;
-use crate::graph::index::Idx;
 use crate::state::loader::FindError;
+use crate::state::loader::FindingOrError;
 use crate::types::alias::resolve_typeshed_alias;
 use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
 
+/// Checks if an iterable expression is guaranteed to be non-empty and thus
+/// the for-loop body will definitely execute at least once.
+///
+/// Returns true for:
+/// - `range(N)` where N is a positive integer literal
+/// - Non-empty list literals like `[1, 2, 3]`
+/// - Non-empty tuple literals like `(1, 2, 3)`
+/// - Non-empty set literals like `{1, 2, 3}`
+fn is_definitely_nonempty_iterable(iter: &Expr) -> bool {
+    match iter {
+        // Check for range(N) where N is a positive integer literal
+        Expr::Call(ExprCall {
+            func, arguments, ..
+        }) => {
+            // Check if the function is `range` with a single argument and no keywords
+            if let Expr::Name(ExprName { id, .. }) = &**func
+                && id.as_str() == "range"
+                && arguments.keywords.is_empty()
+                && let [arg] = &*arguments.args
+            {
+                // range(stop) - positive stop means at least one iteration
+                // range(start, stop) - we only handle range(stop) for simplicity
+                if let Expr::NumberLiteral(ExprNumberLiteral { value, .. }) = arg
+                    && let Some(n) = value.as_int().and_then(|i| i.as_i64())
+                {
+                    return n > 0;
+                }
+                // Also handle negative literals like range(-5) which iterate 0 times
+                if let Expr::UnaryOp(unary) = arg
+                    && matches!(unary.op, ruff_python_ast::UnaryOp::USub)
+                {
+                    // range(-N) always iterates 0 times
+                    return false;
+                }
+            }
+            false
+        }
+        // Check for non-empty list literals
+        Expr::List(ExprList { elts, .. }) => !elts.is_empty(),
+        // Check for non-empty tuple literals
+        Expr::Tuple(ExprTuple { elts, .. }) => !elts.is_empty(),
+        // Check for non-empty set literals
+        Expr::Set(ExprSet { elts, .. }) => !elts.is_empty(),
+        _ => false,
+    }
+}
+
 impl<'a> BindingsBuilder<'a> {
+    fn assert(&mut self, assert_range: TextRange, mut test: Expr, msg: Option<Expr>) {
+        let test_range = test.range();
+        self.ensure_expr(&mut test, &mut Usage::Narrowing(None));
+        let narrow_ops = NarrowOps::from_expr(self, Some(&test));
+        let static_test = self.sys_info.evaluate_bool(&test);
+        self.insert_binding(Key::Anon(test_range), Binding::Expr(None, test));
+        if let Some(mut msg_expr) = msg {
+            let mut base = self.scopes.clone_current_flow();
+            // Negate the narrowing of the test expression when typechecking
+            // the error message, since we know the assertion was false
+            let negated_narrow_ops = narrow_ops.negate();
+            self.bind_narrow_ops(
+                &negated_narrow_ops,
+                NarrowUseLocation::Span(msg_expr.range()),
+                &Usage::Narrowing(None),
+            );
+            let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
+            self.ensure_expr(&mut msg_expr, msg.usage());
+            let idx = self.insert_binding(
+                KeyExpect(msg_expr.range()),
+                BindingExpect::TypeCheckExpr(msg_expr),
+            );
+            self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
+            self.scopes.swap_current_flow_with(&mut base);
+        };
+        self.bind_narrow_ops(
+            &narrow_ops,
+            NarrowUseLocation::Span(assert_range),
+            &Usage::Narrowing(None),
+        );
+        if let Some(false) = static_test {
+            self.scopes.mark_flow_termination(true);
+        }
+    }
+
     fn bind_unimportable_names(&mut self, x: &StmtImportFrom, as_error: bool) {
         let any = if as_error {
             Type::any_error()
@@ -78,7 +171,6 @@ impl<'a> BindingsBuilder<'a> {
         make_binding: impl FnOnce(Option<Idx<KeyAnnotation>>) -> Binding,
     ) {
         let assigned = self.declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
-        // TODO(stroxler): It probably should be an error if the annotation is ever non-None
         let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
         let binding = make_binding(ann);
         self.insert_binding_current(assigned, binding);
@@ -202,14 +294,14 @@ impl<'a> BindingsBuilder<'a> {
         &mut self,
         name: &Identifier,
         annotation: &mut Expr,
-        is_initialized: Initialized,
+        is_initialized: AnnAssignHasValue,
     ) -> Idx<KeyAnnotation> {
         let ann_key = KeyAnnotation::Annotation(ShortIdentifier::new(name));
         self.ensure_type(annotation, &mut None);
         let ann_val = if let Some(special) = SpecialForm::new(&name.id, annotation) {
             // Special case `_: SpecialForm` declarations (this mainly affects some names declared in `typing.pyi`)
             BindingAnnotation::Type(
-                AnnotationTarget::Assign(name.id.clone(), Initialized::Yes),
+                AnnotationTarget::Assign(name.id.clone(), AnnAssignHasValue::Yes),
                 special.to_type(),
             )
         } else {
@@ -232,9 +324,20 @@ impl<'a> BindingsBuilder<'a> {
     /// If this is the top level, report a type error about the invalid return
     /// and also create a binding to ensure we type check the expression.
     fn record_return(&mut self, mut x: StmtReturn) {
+        // PEP 765: Disallow return in finally block (Python 3.14+)
+        if self.sys_info.version().at_least(3, 14) && self.scopes.in_finally() {
+            self.error(
+                x.range(),
+                ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                "`return` in a `finally` block will silence exceptions".to_owned(),
+            );
+        }
         let mut ret = self.declare_current_idx(Key::ReturnExplicit(x.range()));
         self.ensure_expr_opt(x.value.as_deref_mut(), ret.usage());
-        if let Err((ret, oops_top_level)) = self.scopes.record_or_reject_return(ret, x) {
+        if let Err((ret, oops_top_level)) =
+            self.scopes
+                .record_or_reject_return(ret, x, self.scopes.is_definitely_unreachable())
+        {
             match oops_top_level.value {
                 Some(v) => self.insert_binding_current(ret, Binding::Expr(None, *v)),
                 None => self.insert_binding_current(ret, Binding::Type(Type::None)),
@@ -245,12 +348,25 @@ impl<'a> BindingsBuilder<'a> {
                 "Invalid `return` outside of a function".to_owned(),
             );
         }
-        self.scopes.mark_flow_termination();
+        self.scopes.mark_flow_termination(false);
+    }
+
+    fn find_error(&self, error: &FindError, range: TextRange) {
+        let Some(kind) = error.kind() else {
+            return;
+        };
+        let (ctx, msg) = error.display();
+        self.error_multiline(range, ErrorInfo::new(kind, ctx.as_deref()), msg);
     }
 
     /// Evaluate the statements and update the bindings.
     /// Every statement should end up in the bindings, perhaps with a location that is never used.
     pub fn stmt(&mut self, x: Stmt, parent: &NestingContext) {
+        self.with_semantic_checker(|semantic, context| semantic.visit_stmt(&x, context));
+
+        // Clear last_stmt_expr at the start - will be set again if this is a StmtExpr
+        self.scopes.set_last_stmt_expr(None);
+
         match x {
             Stmt::FunctionDef(x) => {
                 self.function_def(x, parent);
@@ -263,7 +379,7 @@ impl<'a> BindingsBuilder<'a> {
                 for target in &mut x.targets {
                     let mut delete_idx = self.declare_current_idx(Key::Delete(target.range()));
                     if let Expr::Name(name) = target {
-                        self.ensure_mutable_name(name, delete_idx.usage());
+                        self.ensure_expr_name(name, delete_idx.usage());
                         self.scopes.mark_as_deleted(&name.id);
                     } else {
                         self.ensure_expr(target, delete_idx.usage());
@@ -412,8 +528,8 @@ impl<'a> BindingsBuilder<'a> {
                         &name,
                         &mut x.annotation,
                         match (&value, &maybe_ellipses) {
-                            (None, None) => Initialized::No,
-                            _ => Initialized::Yes,
+                            (None, None) => AnnAssignHasValue::No,
+                            _ => AnnAssignHasValue::Yes,
                         },
                     );
                     let canonical_ann_idx = match value {
@@ -433,12 +549,11 @@ impl<'a> BindingsBuilder<'a> {
                                     initial_value: maybe_ellipses,
                                 }
                             } else {
-                                // A flow style might be already set for the
-                                // name, e.g. if it was defined previously.
-                                // If so, we use that style; otherwise, the flow
-                                // style lookup would return an uninitialized
-                                // flow style, which is what we want here.
-                                self.scopes.get_flow_style(&name.id).clone()
+                                // A flow style might be already set for the name, e.g. if it was defined
+                                // already. Otherwise it is uninitialized.
+                                self.scopes
+                                    .current_flow_style(&name.id)
+                                    .unwrap_or(FlowStyle::Uninitialized)
                             },
                         ),
                     };
@@ -505,7 +620,7 @@ impl<'a> BindingsBuilder<'a> {
                     match x.value {
                         Some(value) => self.stmt(
                             Stmt::Assign(StmtAssign {
-                                node_index: AtomicNodeIndex::dummy(),
+                                node_index: AtomicNodeIndex::default(),
                                 range: x.range,
                                 targets: vec![target],
                                 value,
@@ -523,16 +638,11 @@ impl<'a> BindingsBuilder<'a> {
             Stmt::AugAssign(mut x) => {
                 match x.target.as_ref() {
                     Expr::Name(name) => {
-                        // TODO(stroxler): Is this really a good key for an augmented assignment?
-                        // It works okay for type checking, but might have weird effects on the IDE.
                         let mut assigned = self
                             .declare_current_idx(Key::Definition(ShortIdentifier::expr_name(name)));
-                        // Ensure the target name, which must already be in scope (it is part of the implicit dunder method call
-                        // used in augmented assignment).
-                        self.ensure_mutable_name(name, assigned.usage());
+                        // Make sure the name is already initialized - it's current value is part of AugAssign semantics.
+                        self.ensure_expr_name(name, assigned.usage());
                         self.ensure_expr(&mut x.value, assigned.usage());
-                        // TODO(stroxler): Should we really be using `bind_key` here? This will update the
-                        // flow info to define the name, even if it was not previously defined.
                         let ann = self.bind_current(&name.id, &assigned, FlowStyle::Other);
                         let binding = Binding::AugAssign(ann, x.clone());
                         self.insert_binding_current(assigned, binding);
@@ -563,14 +673,14 @@ impl<'a> BindingsBuilder<'a> {
                         // We don't track first-usage in this context, since we won't analyze the usage anyway.
                         let mut e = illegal_target.clone();
                         self.ensure_expr(&mut e, &mut Usage::StaticTypeInformation);
+                        // Even though the assignment target is invalid, we still need to analyze the RHS so errors
+                        // (like invalid walrus targets) are reported.
+                        self.ensure_expr(&mut x.value, &mut Usage::StaticTypeInformation);
                     }
                 }
             }
             Stmt::TypeAlias(mut x) => {
-                if !matches!(
-                    self.scopes.current().kind,
-                    ScopeKind::Module | ScopeKind::Class(_)
-                ) {
+                if !self.scopes.in_module_or_class_top_level() {
                     self.error(
                         x.range,
                         ErrorInfo::Kind(ErrorKind::InvalidSyntax),
@@ -578,10 +688,14 @@ impl<'a> BindingsBuilder<'a> {
                     );
                 }
                 if let Expr::Name(name) = *x.name {
+                    // Create a new scope for the type alias type parameters
+                    self.scopes.push(Scope::type_alias(x.range));
                     if let Some(params) = &mut x.type_params {
                         self.type_params(params);
                     }
                     self.ensure_type(&mut x.value, &mut None);
+                    // Pop the type alias scope before binding the definition
+                    self.scopes.pop();
                     let binding = Binding::ScopedTypeAlias(
                         name.id.clone(),
                         x.type_params.map(|x| *x),
@@ -608,31 +722,60 @@ impl<'a> BindingsBuilder<'a> {
                         "`async for` can only be used inside an async function".to_owned(),
                     );
                 }
+                let mut loop_header_targets = SmallSet::new();
+                Ast::expr_lvalue(&x.target, &mut |name| {
+                    loop_header_targets.insert(name.id.clone());
+                });
+                // Check if the iterable is definitely non-empty before binding
+                // (must be done before x.iter is moved)
+                let loop_definitely_runs = is_definitely_nonempty_iterable(&x.iter);
                 self.bind_target_with_expr(&mut x.target, &mut x.iter, &|expr, ann| {
                     Binding::IterableValue(ann, expr.clone(), IsAsync::new(x.is_async))
                 });
                 // Note that we set up the loop *after* the header is fully bound, because the
-                // loop iterator is only evaluated once before the loop begins.
-                self.setup_loop(x.range, &NarrowOps::new());
+                // loop iterator is only evaluated once before the loop begins. But the loop header
+                // targets - which get re-bound each iteration - are excluded from the loop Phi logic.
+                self.setup_loop(x.range, &loop_header_targets);
                 self.stmts(x.body, parent);
-                self.teardown_loop(x.range, &NarrowOps::new(), x.orelse, parent);
+                self.teardown_loop(
+                    x.range,
+                    &NarrowOps::new(),
+                    x.orelse,
+                    parent,
+                    false,
+                    loop_definitely_runs,
+                );
             }
             Stmt::While(mut x) => {
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
-                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                self.setup_loop(x.range, &narrow_ops);
+                self.setup_loop(x.range, &SmallSet::new());
                 // Note that it is important we ensure *after* we set up the loop, so that both the
                 // narrowing and type checking are aware that the test might be impacted by changes
                 // made in the loop (e.g. if we reassign the test variable).
                 // Typecheck the test condition during solving.
+                self.ensure_expr(&mut x.test, &mut Usage::Narrowing(None));
+                let is_while_true = self.sys_info.evaluate_bool(&x.test) == Some(true);
+                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
+                self.bind_narrow_ops(
+                    &narrow_ops,
+                    NarrowUseLocation::Span(x.range),
+                    &Usage::Narrowing(None),
+                );
                 self.insert_binding(KeyExpect(x.test.range()), BindingExpect::Bool(*x.test));
                 self.stmts(x.body, parent);
-                self.teardown_loop(x.range, &narrow_ops, x.orelse, parent);
+                // For while True: loops, the loop body definitely runs at least once
+                self.teardown_loop(
+                    x.range,
+                    &narrow_ops,
+                    x.orelse,
+                    parent,
+                    is_while_true,
+                    is_while_true,
+                );
             }
             Stmt::If(x) => {
-                let range = x.range;
+                let is_definitely_unreachable = self.scopes.is_definitely_unreachable();
                 let mut exhaustive = false;
-                let mut branches = Vec::new();
+                self.start_fork(x.range);
                 // Type narrowing operations that are carried over from one branch to the next. For example, in:
                 //   if x is None:
                 //     pass
@@ -641,58 +784,66 @@ impl<'a> BindingsBuilder<'a> {
                 // x is bound to Narrow(x, Is(None)) in the if branch, and the negation, Narrow(x, IsNot(None)),
                 // is carried over to the else branch.
                 let mut negated_prev_ops = NarrowOps::new();
-                let mut implicit_else = true;
+                let mut contains_static_test_with_no_else = false;
                 for (range, mut test, body) in Ast::if_branches_owned(x) {
+                    self.start_branch();
+                    self.bind_narrow_ops(
+                        &negated_prev_ops,
+                        NarrowUseLocation::Start(range),
+                        &Usage::Narrowing(None),
+                    );
                     // If there is no test, it's an `else` clause and `this_branch_chosen` will be true.
                     let this_branch_chosen = match &test {
-                        None => Some(true),
-                        Some(x) => self.sys_info.evaluate_bool(x),
+                        None => {
+                            contains_static_test_with_no_else = false;
+                            Some(true)
+                        }
+                        Some(x) => {
+                            let result = self.sys_info.evaluate_bool(x);
+                            if result.is_some() {
+                                contains_static_test_with_no_else = true;
+                            }
+                            result
+                        }
                     };
-                    if this_branch_chosen == Some(false) {
-                        // We definitely won't pick this branch. We still ensure the test
-                        // expression to pick up any names it defines.
-                        self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing);
+                    self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing(None));
+                    let new_narrow_ops = if this_branch_chosen == Some(false) {
+                        // Skip the body in this case - it typically means a check (e.g. a sys version,
+                        // platform, or TYPE_CHECKING check) where the body is not statically analyzable.
+                        self.abandon_branch();
                         continue;
-                    }
-                    self.bind_narrow_ops(&negated_prev_ops, range);
-                    let mut base = self.scopes.clone_current_flow();
-                    self.ensure_expr_opt(test.as_mut(), &mut Usage::Narrowing);
-                    let new_narrow_ops = NarrowOps::from_expr(self, test.as_ref());
+                    } else {
+                        NarrowOps::from_expr(self, test.as_ref())
+                    };
                     if let Some(test_expr) = test {
                         // Typecheck the test condition during solving.
                         self.insert_binding(
                             KeyExpect(test_expr.range()),
                             BindingExpect::Bool(test_expr),
                         );
-                    } else {
-                        implicit_else = false;
                     }
-                    self.bind_narrow_ops(&new_narrow_ops, range);
+                    self.bind_narrow_ops(
+                        &new_narrow_ops,
+                        NarrowUseLocation::Span(range),
+                        &Usage::Narrowing(None),
+                    );
                     negated_prev_ops.and_all(new_narrow_ops.negate());
                     self.stmts(body, parent);
-                    self.scopes.swap_current_flow_with(&mut base);
-                    branches.push(base);
+                    self.finish_branch();
                     if this_branch_chosen == Some(true) {
                         exhaustive = true;
                         break; // We definitely picked this branch if we got here, nothing below is reachable.
                     }
                 }
-                // If the conditions are exhaustive, then we only need to merge the branches.
-                //
-                // Otherwise, we need to merge branches with `base` (which was
-                // the flow above the `If`) because the if might be skipped
-                // entirely.
                 if exhaustive {
-                    self.set_current_flow_to_merged_branches(branches, range);
+                    self.finish_exhaustive_fork();
                 } else {
-                    if implicit_else {
-                        // If there is no explicit else branch, we still want to merge the negated ops
-                        // from the previous branches into the flow env.
-                        // Note, using a default use_range is OK. The range is only needed to make the
-                        // key distinct from other keys.
-                        self.bind_narrow_ops(&negated_prev_ops, TextRange::default());
-                    }
-                    self.merge_branches_into_current(branches, range);
+                    self.finish_non_exhaustive_fork(&negated_prev_ops);
+                }
+                // If we have a statically evaluated test like `sys.version_info`, we should set `is_definitely_unreachable` to false
+                // to reduce false positive unreachable errors, since some code paths can still be hit at runtime
+                if contains_static_test_with_no_else && !is_definitely_unreachable {
+                    self.scopes.set_definitely_unreachable(false);
                 }
             }
             Stmt::With(x) => {
@@ -722,7 +873,9 @@ impl<'a> BindingsBuilder<'a> {
                         );
                     }
                 }
+                self.scopes.enter_with();
                 self.stmts(x.body, parent);
+                self.scopes.exit_with();
             }
             Stmt::Match(x) => {
                 self.stmt_match(x, parent);
@@ -748,12 +901,10 @@ impl<'a> BindingsBuilder<'a> {
                 } else {
                     // If there's no exception raised, don't bother checking the cause.
                 }
-                self.scopes.mark_flow_termination();
+                self.scopes.mark_flow_termination(false);
             }
             Stmt::Try(x) => {
-                let range = x.range;
-                let mut branches = Vec::new();
-                let mut base = self.scopes.clone_current_flow();
+                self.start_fork_and_branch(x.range);
 
                 // We branch before the body, conservatively assuming that any statement can fail
                 // entry -> try -> else -> finally
@@ -762,11 +913,10 @@ impl<'a> BindingsBuilder<'a> {
 
                 self.stmts(x.body, parent);
                 self.stmts(x.orelse, parent);
-                self.scopes.swap_current_flow_with(&mut base);
-                branches.push(base);
+                self.finish_branch();
 
                 for h in x.handlers {
-                    base = self.scopes.clone_current_flow();
+                    self.start_branch();
                     let range = h.range();
                     let h = h.except_handler().unwrap(); // Only one variant for now
                     match (&h.name, h.type_) {
@@ -815,53 +965,32 @@ impl<'a> BindingsBuilder<'a> {
                         self.scopes.mark_as_deleted(&name.id);
                     }
 
-                    self.scopes.swap_current_flow_with(&mut base);
-                    branches.push(base);
+                    self.finish_branch();
                 }
 
-                self.set_current_flow_to_merged_branches(branches, range);
+                self.finish_exhaustive_fork();
+                self.scopes.enter_finally();
                 self.stmts(x.finalbody, parent);
+                self.scopes.exit_finally();
             }
-            Stmt::Assert(mut x) => {
-                let assert_range = x.range();
-                let test_range = x.test.range();
-                self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
-                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
-                let static_test = self.sys_info.evaluate_bool(&x.test);
-                self.insert_binding(Key::Anon(test_range), Binding::Expr(None, *x.test));
-                if let Some(mut msg_expr) = x.msg {
-                    let mut base = self.scopes.clone_current_flow();
-                    // Negate the narrowing of the test expression when typechecking
-                    // the error message, since we know the assertion was false
-                    let negated_narrow_ops = narrow_ops.negate();
-                    self.bind_narrow_ops(&negated_narrow_ops, msg_expr.range());
-                    let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
-                    self.ensure_expr(&mut msg_expr, msg.usage());
-                    let idx = self.insert_binding(
-                        KeyExpect(msg_expr.range()),
-                        BindingExpect::TypeCheckExpr(*msg_expr),
-                    );
-                    self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
-                    self.scopes.swap_current_flow_with(&mut base);
-                };
-                self.bind_narrow_ops(&narrow_ops, assert_range);
-                if let Some(false) = static_test {
-                    self.scopes.mark_flow_termination();
-                }
+            Stmt::Assert(x) => {
+                self.assert(x.range(), *x.test, x.msg.map(|m| *m));
             }
             Stmt::Import(x) => {
                 for x in x.names {
                     let m = ModuleName::from_name(&x.name.id);
-                    if let Err(err @ FindError::NotFound(..)) = self.lookup.get(m) {
-                        let (ctx, msg) = err.display();
-                        self.error_multiline(
-                            x.range,
-                            ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
-                            msg,
-                        );
+                    if let Some(error) = self.lookup.get(m).error() {
+                        self.find_error(&error, x.range);
                     }
                     match x.asname {
                         Some(asname) => {
+                            // `import X as X` is an explicit re-export per Python typing spec.
+                            // Don't flag it as unused.
+                            if asname.id == x.name.id {
+                                self.scopes.register_reexport_import(&asname);
+                            } else {
+                                self.scopes.register_import(&asname);
+                            }
                             self.bind_definition(
                                 &asname,
                                 Binding::Module(m, m.components(), None),
@@ -875,6 +1004,13 @@ impl<'a> BindingsBuilder<'a> {
                                 Key::Import(first.clone(), x.name.range),
                                 Binding::Module(m, vec![first.clone()], module_key),
                             );
+                            // Register the import using the first component (e.g., "os" from "os.path")
+                            // since that's the name that gets bound and used in code
+                            self.scopes.register_import(&Identifier {
+                                node_index: x.name.node_index.clone(),
+                                id: first.clone(),
+                                range: x.name.range,
+                            });
                             self.bind_name(&first, key, FlowStyle::MergeableImport(m));
                         }
                     }
@@ -887,121 +1023,21 @@ impl<'a> BindingsBuilder<'a> {
                     x.module.as_ref().map(|x| &x.id),
                 ) {
                     match self.lookup.get(m) {
-                        Ok(module_exports) => {
-                            let exported = module_exports.exports(self.lookup);
-                            for x in x.names {
-                                if &x.name == "*" {
-                                    for name in module_exports.wildcard(self.lookup).iter_hashed() {
-                                        let key = Key::Import(name.into_key().clone(), x.range);
-                                        if let Some(ExportLocation::ThisModule(Export {
-                                            is_deprecated,
-                                            ..
-                                        })) = exported.get_hashed(name)
-                                            && *is_deprecated
-                                        {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::Deprecated),
-                                                format!("`{name}` is deprecated"),
-                                            );
-                                        }
-                                        let val = if exported.contains_key_hashed(name) {
-                                            Binding::Import(m, name.into_key().clone(), None)
-                                        } else {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
-                                                format!("Could not import `{name}` from `{m}`"),
-                                            );
-                                            Binding::Type(Type::any_error())
-                                        };
-                                        let key = self.insert_binding(key, val);
-                                        self.bind_name(
-                                            name.key(),
-                                            key,
-                                            FlowStyle::Import(m, name.into_key().clone()),
-                                        );
-                                    }
-                                } else {
-                                    let original_name_range = if x.asname.is_some() {
-                                        Some(x.name.range)
-                                    } else {
-                                        None
-                                    };
-                                    let asname = x.asname.unwrap_or_else(|| x.name.clone());
-                                    // A `from x import y` statement is ambiguous; if `x` is a package with
-                                    // an `__init__.py` file, then it might import the name `y` from the
-                                    // module `x` defined by the `__init__.py` file, or it might import a
-                                    // submodule `x.y` of the package `x`.
-                                    //
-                                    // If both are present, generally we prefer the name defined in `x`,
-                                    // but there is an exception: if we are already looking at the
-                                    // `__init__` module of `x`, we always prefer the submodule.
-                                    let val = if (self.module_info.name() != m)
-                                        && exported.contains_key(&x.name.id)
-                                    {
-                                        if let Some(ExportLocation::ThisModule(Export {
-                                            is_deprecated,
-                                            ..
-                                        })) = exported.get(&x.name.id)
-                                            && *is_deprecated
-                                        {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::Deprecated),
-                                                format!("`{}` is deprecated", x.name),
-                                            );
-                                        }
-                                        Binding::Import(m, x.name.id.clone(), original_name_range)
-                                    } else {
-                                        let x_as_module_name = m.append(&x.name.id);
-                                        match self.lookup.get(x_as_module_name) {
-                                            Ok(_) => Binding::Module(
-                                                x_as_module_name,
-                                                x_as_module_name.components(),
-                                                None,
-                                            ),
-                                            Err(FindError::Ignored) => {
-                                                Binding::Type(Type::any_explicit())
-                                            }
-                                            _ => {
-                                                self.error(
-                                                    x.range,
-                                                    ErrorInfo::Kind(
-                                                        ErrorKind::MissingModuleAttribute,
-                                                    ),
-                                                    format!(
-                                                        "Could not import `{}` from `{m}`",
-                                                        x.name.id
-                                                    ),
-                                                );
-                                                Binding::Type(Type::any_error())
-                                            }
-                                        }
-                                    };
-                                    self.bind_definition(
-                                        &asname,
-                                        val,
-                                        FlowStyle::Import(m, x.name.id),
-                                    );
-                                }
+                        FindingOrError::Finding(module_exports) => {
+                            if let Some(error) = module_exports.error {
+                                self.find_error(&error, x.range);
                             }
+                            self.bind_module_exports(x, m, module_exports.finding);
                         }
-                        Err(FindError::Ignored) => self.bind_unimportable_names(&x, false),
-                        Err(err @ (FindError::NoSource(_) | FindError::NotFound(..))) => {
-                            let (ctx, msg) = err.display();
-                            self.error_multiline(
-                                x.range,
-                                ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
-                                msg,
-                            );
-                            self.bind_unimportable_names(&x, true);
+                        FindingOrError::Error(error) => {
+                            self.find_error(&error, x.range);
+                            self.bind_unimportable_names(&x, error.kind().is_some());
                         }
                     }
                 } else {
                     self.error(
                         x.range,
-                        ErrorInfo::Kind(ErrorKind::ImportError),
+                        ErrorInfo::Kind(ErrorKind::MissingImport),
                         format!(
                             "Could not resolve relative import `{}`",
                             ".".repeat(x.level as usize)
@@ -1012,35 +1048,196 @@ impl<'a> BindingsBuilder<'a> {
             }
             Stmt::Global(x) => {
                 for name in x.names {
-                    self.declare_mutable_capture(&name, MutableCaptureLookupKind::Global);
+                    self.declare_mutable_capture(&name, MutableCaptureKind::Global);
                 }
             }
             Stmt::Nonlocal(x) => {
                 for name in x.names {
-                    self.declare_mutable_capture(&name, MutableCaptureLookupKind::Nonlocal);
+                    self.declare_mutable_capture(&name, MutableCaptureKind::Nonlocal);
                 }
+            }
+            Stmt::Expr(StmtExpr {
+                range: expr_range,
+                value:
+                    box Expr::Call(ExprCall {
+                        range: call_range,
+                        func: box Expr::Name(name),
+                        arguments:
+                            Arguments {
+                                range: _,
+                                keywords: _,
+                                args,
+                                ..
+                            },
+                        ..
+                    }),
+                ..
+            }) if name.id.as_str() == "prod_assert" && (args.len() == 1 || args.len() == 2) => {
+                let (test, msg) = if args.len() == 1 {
+                    (args[0].clone(), None)
+                } else if args.len() == 2 {
+                    (args[0].clone(), Some(args[1].clone()))
+                } else {
+                    unreachable!("args.len() can only be 1 or 2")
+                };
+                self.insert_binding(Key::StmtExpr(expr_range), Binding::Type(Type::None));
+                self.assert(call_range, test, msg);
             }
             Stmt::Expr(mut x) => {
                 let mut current = self.declare_current_idx(Key::StmtExpr(x.value.range()));
                 self.ensure_expr(&mut x.value, current.usage());
-                let is_assert_type = matches!(&*x.value,
-                    Expr::Call(ExprCall { func, .. })
-                    if self.as_special_export(func) == Some(SpecialExport::AssertType)
-                );
-                self.insert_binding_current(current, Binding::StmtExpr(*x.value, is_assert_type));
+                let special_export = if let Expr::Call(ExprCall { func, .. }) = &*x.value {
+                    self.as_special_export(func)
+                } else {
+                    None
+                };
+                let key = self
+                    .insert_binding_current(current, Binding::StmtExpr(*x.value, special_export));
+                // Track this StmtExpr as the trailing statement for type-based termination
+                self.scopes.set_last_stmt_expr(Some(key));
+                // TODO(stroxler): PytestNoReturn may now be redundant given type-based termination
+                if special_export == Some(SpecialExport::PytestNoReturn) {
+                    self.scopes.mark_flow_termination(false);
+                }
             }
             Stmt::Pass(_) => { /* no-op */ }
             Stmt::Break(x) => {
-                self.add_loop_exitpoint(LoopExit::Break, x.range);
+                // PEP 765: Disallow break in finally block if not inside a nested loop
+                if self.sys_info.version().at_least(3, 14)
+                    && self.scopes.in_finally()
+                    && !self.scopes.loop_protects_from_finally_exit()
+                {
+                    self.error(
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`break` in a `finally` block will silence exceptions".to_owned(),
+                    );
+                }
+                self.add_loop_exitpoint(LoopExit::Break);
             }
             Stmt::Continue(x) => {
-                self.add_loop_exitpoint(LoopExit::Continue, x.range);
+                // PEP 765: Disallow continue in finally block if not inside a nested loop
+                if self.sys_info.version().at_least(3, 14)
+                    && self.scopes.in_finally()
+                    && !self.scopes.loop_protects_from_finally_exit()
+                {
+                    self.error(
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::InvalidSyntax),
+                        "`continue` in a `finally` block will silence exceptions".to_owned(),
+                    );
+                }
+                self.add_loop_exitpoint(LoopExit::Continue);
             }
-            Stmt::IpyEscapeCommand(x) => self.error(
-                x.range,
-                ErrorInfo::Kind(ErrorKind::Unsupported),
-                "IPython escapes are not supported".to_owned(),
-            ),
+            Stmt::IpyEscapeCommand(x) => {
+                if self.module_info.is_notebook() {
+                    // No-op
+                } else {
+                    self.error(
+                        x.range,
+                        ErrorInfo::Kind(ErrorKind::Unsupported),
+                        "IPython escapes are not supported".to_owned(),
+                    )
+                }
+            }
+        }
+    }
+
+    fn bind_module_exports(&mut self, x: StmtImportFrom, m: ModuleName, module_exports: Exports) {
+        let exported = module_exports.exports(self.lookup);
+        for x in x.names {
+            if &x.name == "*" {
+                for name in module_exports.wildcard(self.lookup).iter_hashed() {
+                    let key = Key::Import(name.into_key().clone(), x.range);
+                    let val = if exported.contains_key_hashed(name) {
+                        Binding::Import(m, name.into_key().clone(), None)
+                    } else {
+                        self.error(
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
+                            format!("Could not import `{name}` from `{m}`"),
+                        );
+                        Binding::Type(Type::any_error())
+                    };
+                    let key = self.insert_binding(key, val);
+                    // Register the imported name from wildcard imports
+                    self.scopes.register_import_with_star(&Identifier {
+                        node_index: AtomicNodeIndex::default(),
+                        id: name.into_key().clone(),
+                        range: x.range,
+                    });
+                    self.bind_name(
+                        name.key(),
+                        key,
+                        FlowStyle::Import(m, name.into_key().clone()),
+                    );
+                }
+            } else {
+                // `from X import Y as Y` is an explicit re-export per Python typing spec.
+                // Check this before consuming x.asname.
+                let is_reexport = x.asname.as_ref().is_some_and(|a| a.id == x.name.id);
+                let original_name_range = if x.asname.is_some() {
+                    Some(x.name.range)
+                } else {
+                    None
+                };
+                let asname = x.asname.unwrap_or_else(|| x.name.clone());
+                // A `from x import y` statement is ambiguous; if `x` is a package with
+                // an `__init__.py` file, then it might import the name `y` from the
+                // module `x` defined by the `__init__.py` file, or it might import a
+                // submodule `x.y` of the package `x`.
+                //
+                // If both are present, generally we prefer the name defined in `x`,
+                // but there is an exception: if we are already looking at the
+                // `__init__` module of `x`, we always prefer the submodule.
+                let val = if (self.module_info.name() != m) && exported.contains_key(&x.name.id) {
+                    if let Some(ExportLocation::ThisModule(Export {
+                        deprecation: Some(deprecation),
+                        ..
+                    })) = exported.get(&x.name.id)
+                    {
+                        let msg =
+                            deprecation.as_error_message(format!("`{}` is deprecated", x.name));
+                        self.error_multiline(x.range, ErrorInfo::Kind(ErrorKind::Deprecated), msg);
+                    }
+                    Binding::Import(m, x.name.id.clone(), original_name_range)
+                } else {
+                    // Try submodule lookup first, then fall back to __getattr__
+                    let x_as_module_name = m.append(&x.name.id);
+                    let (finding, error) = match self.lookup.get(x_as_module_name) {
+                        FindingOrError::Finding(finding) => (true, finding.error),
+                        FindingOrError::Error(error) => (false, Some(error)),
+                    };
+                    let is_not_found = error.is_some_and(|e| matches!(e, FindError::NotFound(..)));
+                    if finding {
+                        Binding::Module(x_as_module_name, x_as_module_name.components(), None)
+                    } else if exported.contains_key(&dunder::GETATTR) {
+                        // Module has __getattr__, which means any attribute can be accessed.
+                        // See: https://typing.python.org/en/latest/guides/writing_stubs.html#incomplete-stubs
+                        Binding::ImportViaGetattr(m, x.name.id.clone())
+                    } else if is_not_found {
+                        self.error(
+                            x.range,
+                            ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
+                            format!("Could not import `{}` from `{m}`", x.name.id),
+                        );
+                        Binding::Type(Type::any_error())
+                    } else {
+                        Binding::Type(Type::any_explicit())
+                    }
+                };
+                // __future__ imports have side effects even if not explicitly used,
+                // so we skip the unused import check for them.
+                // See: https://typing.python.org/en/latest/spec/distributing.html#import-conventions
+                if m == ModuleName::future() {
+                    self.scopes.register_future_import(&asname);
+                } else if is_reexport {
+                    self.scopes.register_reexport_import(&asname);
+                } else {
+                    self.scopes.register_import(&asname);
+                }
+                self.bind_definition(&asname, val, FlowStyle::Import(m, x.name.id));
+            }
         }
     }
 }

@@ -1,12 +1,16 @@
-
 import re
+from typing import TYPE_CHECKING
 
 from .py_utils import parse_int
 
 
+if TYPE_CHECKING:
+    from mjml._types import Direction
+
+
 __all__ = ['shorthandParser', 'borderParser']
 
-def shorthandParser(cssValue, direction):
+def shorthandParser(cssValue: str, direction: "Direction") -> int:
     splittedCssValue = cssValue.split(' ')
 
     top    = 0
@@ -29,11 +33,11 @@ def shorthandParser(cssValue, direction):
 
     directions = {'top': top, 'bottom': bottom, 'left': left, 'right': right}
 
-    value_int = splittedCssValue[directions[direction]] or 0
+    value_int = splittedCssValue[directions[direction]] or "0"
     return parse_int(value_int)
 
 
-def borderParser(border):
+def borderParser(border: str) -> int:
     border_regex = re.compile(r'(?:(?:^| )(\d+))')
     match = border_regex.search(border)
     # Upstream does not have to deal with this case as "parseInt(undefined, 10)"

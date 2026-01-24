@@ -1,46 +1,61 @@
-# Copyright (c) 2023 - 2025 Chair for Design Automation, TUM
-# Copyright (c) 2025 Munich Quantum Software Company GmbH
+#!/usr/bin/env -S uv run --script --quiet
+# Copyright (c) 2023 - 2026 Chair for Design Automation, TUM
+# Copyright (c) 2025 - 2026 Munich Quantum Software Company GmbH
 # All rights reserved.
 #
 # SPDX-License-Identifier: MIT
 #
 # Licensed under the MIT License
 
+# /// script
+# dependencies = ["nox"]
+# ///
+
 """Nox sessions."""
 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import nox
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Generator, Sequence
 
-nox.needs_version = ">=2024.3.2"
+nox.needs_version = ">=2025.10.16"
 nox.options.default_venv_backend = "uv"
 
-nox.options.sessions = ["lint", "tests", "minimums"]
 
-# TODO(burgholzer): Add 3.14 when all dependencies support it. # noqa: FIX002
-#   https://github.com/munich-quantum-toolkit/core/issues/1078
-PYTHON_ALL_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+PYTHON_ALL_VERSIONS = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 if os.environ.get("CI", None):
     nox.options.error_on_missing_interpreters = True
 
 
-@nox.session(reuse_venv=True)
+@contextlib.contextmanager
+def preserve_lockfile() -> Generator[None]:
+    """Preserve the lockfile by moving it to a temporary directory."""
+    with tempfile.TemporaryDirectory() as temp_dir_name:
+        shutil.move("uv.lock", f"{temp_dir_name}/uv.lock")
+        try:
+            yield
+        finally:
+            shutil.move(f"{temp_dir_name}/uv.lock", "uv.lock")
+
+
+@nox.session(reuse_venv=True, default=True)
 def lint(session: nox.Session) -> None:
     """Run the linter."""
-    if shutil.which("pre-commit") is None:
-        session.install("pre-commit")
+    if shutil.which("prek") is None:
+        session.install("prek")
 
-    session.run("pre-commit", "run", "--all-files", *session.posargs, external=True)
+    session.run("prek", "run", "--all-files", *session.posargs, external=True)
 
 
 def _run_tests(
@@ -96,34 +111,35 @@ def _run_tests(
     )
 
 
-@nox.session(reuse_venv=True, python=PYTHON_ALL_VERSIONS)
+@nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, default=True)
 def tests(session: nox.Session) -> None:
     """Run the test suite."""
     _run_tests(session)
 
 
-@nox.session(reuse_venv=True, venv_backend="uv", python=PYTHON_ALL_VERSIONS)
+@nox.session(python=PYTHON_ALL_VERSIONS, reuse_venv=True, venv_backend="uv", default=True)
 def minimums(session: nox.Session) -> None:
     """Test the minimum versions of dependencies."""
-    _run_tests(
-        session,
-        install_args=["--resolution=lowest-direct"],
-        pytest_run_args=["-Wdefault"],
-    )
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
-    session.run("uv", "tree", "--frozen", env=env)
-    session.run("uv", "lock", "--refresh", env=env)
+    with preserve_lockfile():
+        _run_tests(
+            session,
+            install_args=["--resolution=lowest-direct"],
+            pytest_run_args=["-Wdefault"],
+        )
+        env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
+        session.run("uv", "tree", "--frozen", env=env)
 
 
 @nox.session(reuse_venv=True, venv_backend="uv", python=PYTHON_ALL_VERSIONS)
 def qiskit(session: nox.Session) -> None:
     """Tests against the latest version of Qiskit."""
-    _run_tests(
-        session,
-        extra_command=["uv", "pip", "install", "qiskit[qasm3-import] @ git+https://github.com/Qiskit/qiskit.git"],
-    )
-    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
-    session.run("uv", "pip", "show", "qiskit", env=env)
+    with preserve_lockfile():
+        _run_tests(
+            session,
+            extra_command=["uv", "pip", "install", "qiskit[qasm3-import] @ git+https://github.com/Qiskit/qiskit.git"],
+        )
+        env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
+        session.run("uv", "pip", "show", "qiskit", env=env)
 
 
 @nox.session(reuse_venv=True)
@@ -189,3 +205,58 @@ def docs(session: nox.Session) -> None:
         *shared_args,
         env=env,
     )
+
+
+@nox.session(reuse_venv=True, venv_backend="uv")
+def stubs(session: nox.Session) -> None:
+    """Generate type stubs for Python bindings using nanobind."""
+    env = {"UV_PROJECT_ENVIRONMENT": session.virtualenv.location}
+    session.run(
+        "uv",
+        "sync",
+        "--no-dev",
+        "--group",
+        "build",
+        env=env,
+    )
+
+    package_root = Path(__file__).parent / "python" / "mqt" / "core"
+    pattern_file = Path(__file__).parent / "bindings" / "core_patterns.txt"
+
+    session.run(
+        "python",
+        "-m",
+        "nanobind.stubgen",
+        "--recursive",
+        "--include-private",
+        "--output-dir",
+        str(package_root),
+        "--pattern-file",
+        str(pattern_file),
+        "--module",
+        "mqt.core.ir",
+        "--module",
+        "mqt.core.dd",
+        "--module",
+        "mqt.core.fomac",
+        "--module",
+        "mqt.core.na",
+    )
+
+    pyi_files = list(package_root.glob("**/*.pyi"))
+
+    if shutil.which("prek") is None:
+        session.install("prek")
+
+    # Allow both 0 (no issues) and 1 as success codes for fixing up stubs.
+    success_codes = [0, 1]
+    session.run("prek", "run", "license-tools", "--files", *pyi_files, external=True, success_codes=success_codes)
+    session.run("prek", "run", "ruff-check", "--files", *pyi_files, external=True, success_codes=success_codes)
+    session.run("prek", "run", "ruff-format", "--files", *pyi_files, external=True, success_codes=success_codes)
+
+    # Finally, run ruff-check again to ensure everything is clean.
+    session.run("prek", "run", "ruff-check", "--files", *pyi_files, external=True)
+
+
+if __name__ == "__main__":
+    nox.main()

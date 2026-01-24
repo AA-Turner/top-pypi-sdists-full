@@ -16,7 +16,6 @@ short_description: Configure FortiTelemetry profiles.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.10.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -73,6 +72,9 @@ options:
         choices:
           - present
           - absent
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -242,8 +244,8 @@ EXAMPLES = '''
     - name: Configure FortiTelemetry profiles.
       fortinet.fortimanager.fmgr_telemetrycontroller_profile:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -347,6 +349,7 @@ def main():
     module_primary_key = 'name'
     module_arg_spec = {
         'adom': {'required': True, 'type': 'str'},
+        'revision_note': {'type': 'str'},
         'telemetrycontroller_profile': {
             'type': 'dict',
             'v_range': [['7.6.3', '']],
@@ -356,17 +359,17 @@ def main():
                     'type': 'list',
                     'options': {
                         'app-name': {'v_range': [['7.6.3', '']], 'type': 'list', 'elements': 'str'},
-                        'app-throughput': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'atdt-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'dns-time-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'experience-score-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'failure-rate-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
+                        'app-throughput': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'atdt-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'dns-time-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'experience-score-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'failure-rate-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
                         'id': {'v_range': [['7.6.3', '']], 'type': 'int'},
                         'interval': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'jitter-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'latency-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
+                        'jitter-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'latency-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
                         'monitor': {'v_range': [['7.6.3', '']], 'choices': ['disable', 'enable'], 'type': 'str'},
-                        'packet-loss-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
+                        'packet-loss-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
                         'sla': {
                             'v_range': [['7.6.3', '']],
                             'type': 'dict',
@@ -393,9 +396,9 @@ def main():
                                 'ttfb-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'}
                             }
                         },
-                        'tcp-rtt-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'tls-time-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'},
-                        'ttfb-threshold': {'v_range': [['7.6.3', '']], 'type': 'int'}
+                        'tcp-rtt-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'tls-time-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'},
+                        'ttfb-threshold': {'v_range': [['7.6.3', '7.6.3']], 'type': 'int'}
                     },
                     'elements': 'dict'
                 },

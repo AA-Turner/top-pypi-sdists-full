@@ -2,7 +2,6 @@
 igraph library.
 """
 
-
 __license__ = """
 Copyright (C) 2006- The igraph development team
 
@@ -48,8 +47,6 @@ from igraph._igraph import (
     IN,
     InternalError,
     OUT,
-    REWIRING_SIMPLE,
-    REWIRING_SIMPLE_LOOPS,
     STAR_IN,
     STAR_MUTUAL,
     STAR_OUT,
@@ -109,7 +106,9 @@ from igraph.community import (
     _community_multilevel,
     _community_optimal_modularity,
     _community_edge_betweenness,
+    _community_fluid_communities,
     _community_spinglass,
+    _community_voronoi,
     _community_walktrap,
     _k_core,
     _community_leiden,
@@ -225,6 +224,7 @@ from igraph.io.bipartite import (
 from igraph.io.images import _write_graph_to_svg
 from igraph.layout import (
     Layout,
+    align_layout,
     _layout,
     _layout_auto,
     _layout_sugiyama,
@@ -239,6 +239,7 @@ from igraph.operators import (
     intersection,
     operator_method_registry as _operator_method_registry,
 )
+from igraph.rewiring import _rewire
 from igraph.seq import EdgeSeq, VertexSeq, _add_proxy_methods
 from igraph.statistics import (
     FittedPowerLaw,
@@ -581,6 +582,23 @@ class Graph(GraphBase):
         return "weight" in self.edge_attributes()
 
     #############################################
+    # Neighbors
+
+    def predecessors(self, vertex, loops=True, multiple=True):
+        """Returns the predecessors of a given vertex.
+
+        Equivalent to calling the L{Graph.neighbors()} method with mode=C{\"in\"}.
+        """
+        return self.neighbors(vertex, mode="in", loops=loops, multiple=multiple)
+
+    def successors(self, vertex, loops=True, multiple=True):
+        """Returns the successors of a given vertex.
+
+        Equivalent to calling the L{Graph.neighbors()} method with mode=C{\"out\"}.
+        """
+        return self.neighbors(vertex, mode="out", loops=loops, multiple=multiple)
+
+    #############################################
     # Vertex and edge sequence
     @property
     def vs(self):
@@ -615,6 +633,7 @@ class Graph(GraphBase):
     disjoint_union = _operator_method_registry["disjoint_union"]
     union = _operator_method_registry["union"]
     intersection = _operator_method_registry["intersection"]
+    rewire = _rewire
 
     #############################################
     # Adjacency/incidence
@@ -658,7 +677,9 @@ class Graph(GraphBase):
     community_multilevel = _community_multilevel
     community_optimal_modularity = _community_optimal_modularity
     community_edge_betweenness = _community_edge_betweenness
+    community_fluid_communities = _community_fluid_communities
     community_spinglass = _community_spinglass
+    community_voronoi = _community_voronoi
     community_walktrap = _community_walktrap
     k_core = _k_core
     community_leiden = _community_leiden
@@ -687,7 +708,7 @@ class Graph(GraphBase):
 
     ###########################
     # Paths/traversals
-    def get_all_simple_paths(self, v, to=None, cutoff=-1, mode="out"):
+    def get_all_simple_paths(self, v, to=None, minlen=0, maxlen=-1, mode="out", max_results=None):
         """Calculates all the simple paths from a given node to some other nodes
         (or all of them) in a graph.
 
@@ -703,23 +724,19 @@ class Graph(GraphBase):
           paths. This can be a single vertex ID, a list of vertex IDs, a single
           vertex name, a list of vertex names or a L{VertexSeq} object. C{None}
           means all the vertices.
-        @param cutoff: maximum length of path that is considered. If negative,
+        @param minlen: minimum length of path that is considered.
+        @param maxlen: maximum length of path that is considered. If negative,
           paths of all lengths are considered.
         @param mode: the directionality of the paths. C{\"in\"} means to calculate
           incoming paths, C{\"out\"} means to calculate outgoing paths, C{\"all\"} means
           to calculate both ones.
+        @param max_results: the maximum number of results to return. C{None} means
+          no limit on the number of results.
         @return: all of the simple paths from the given node to every other
           reachable node in the graph in a list. Note that in case of mode=C{\"in\"},
           the vertices in a path are returned in reversed order!
         """
-        paths = self._get_all_simple_paths(v, to, cutoff, mode)
-        prev = 0
-        result = []
-        for index, item in enumerate(paths):
-            if item < 0:
-                result.append(paths[prev:index])
-                prev = index + 1
-        return result
+        return self._get_all_simple_paths(v, to, minlen, maxlen, mode, max_results)
 
     def path_length_hist(self, directed=True):
         """Returns the path length histogram of the graph
@@ -782,7 +799,7 @@ class Graph(GraphBase):
 
         return (vids, parents)
 
-    def spanning_tree(self, weights=None, return_tree=True):
+    def spanning_tree(self, weights=None, return_tree=True, method="auto"):
         """Calculates a minimum spanning tree for a graph.
 
         B{Reference}: Prim, R.C. Shortest connection networks and some
@@ -795,11 +812,16 @@ class Graph(GraphBase):
           the minimum spanning tree instead (when C{return_tree} is C{False}).
           The default is C{True} for historical reasons as this argument was
           introduced in igraph 0.6.
+        @param method: the algorithm to use. C{"auto"} means that the algorithm
+          is selected automatically. C{"prim"} means that Prim's algorithm is
+          used. C{"kruskal"} means that Kruskal's algorithm is used.
+          C{"unweighted"} assumes that the graph is unweighted even if weights
+          are provided.
         @return: the spanning tree as a L{Graph} object if C{return_tree}
           is C{True} or the IDs of the edges that constitute the spanning
           tree if C{return_tree} is C{False}.
         """
-        result = GraphBase._spanning_tree(self, weights)
+        result = GraphBase._spanning_tree(self, weights, method)
         if return_tree:
             return self.subgraph_edges(result, delete_vertices=False)
         return result
@@ -951,8 +973,7 @@ class Graph(GraphBase):
     def are_connected(self, *args, **kwds):
         """Deprecated alias to L{Graph.are_adjacent()}."""
         deprecated(
-            "Graph.are_connected() is deprecated; use Graph.are_adjacent() "
-            "instead"
+            "Graph.are_connected() is deprecated; use Graph.are_adjacent() " "instead"
         )
         return self.are_adjacent(*args, **kwds)
 
@@ -1101,7 +1122,9 @@ del (
     _community_multilevel,
     _community_optimal_modularity,
     _community_edge_betweenness,
+    _community_fluid_communities,
     _community_spinglass,
+    _community_voronoi,
     _community_walktrap,
     _k_core,
     _community_leiden,
@@ -1133,6 +1156,7 @@ del (
     _cohesive_blocks,
     _connected_components,
     _add_proxy_methods,
+    _rewire,
 )
 
 # Re-export from _igraph for API docs
@@ -1248,8 +1272,6 @@ __all__ = (
     "GET_ADJACENCY_UPPER",
     "IN",
     "OUT",
-    "REWIRING_SIMPLE",
-    "REWIRING_SIMPLE_LOOPS",
     "STAR_IN",
     "STAR_MUTUAL",
     "STAR_OUT",

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+__all__ = ["straight_pin_slot", "straight_pn_slot"]
+
 from functools import partial
 
 import gdsfactory as gf
@@ -116,3 +118,7 @@ def straight_pin_slot(
 
 
 straight_pn_slot = partial(straight_pin_slot, cross_section=pn)
+
+if __name__ == "__main__":
+    c = straight_pin_slot()
+    c.show()

@@ -182,3 +182,4 @@ class InstallationAction(Enum):
 
 class PackageEcosystem(Enum):
     pip = "pip"
+    npmjs = "npmjs"

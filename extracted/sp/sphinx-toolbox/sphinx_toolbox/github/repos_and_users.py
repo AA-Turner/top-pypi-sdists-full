@@ -52,11 +52,11 @@ __all__ = (
 		)
 
 
-class GitHubObjectLinkNode(nodes.reference):
+class GitHubObjectLinkNode(nodes.reference):  # noqa: PRM002
 	"""
 	Docutils Node to represent a link to a GitHub repository.
 
-	:param repo_name: The full name of the repository, in the form ``owner/name``.
+	:param name: The full name of the repository, in the form ``owner/name``.
 	:param refuri: The URL of the issue / pull request on GitHub.
 
 	.. clearpage::
@@ -96,7 +96,7 @@ def repository_role(
 		lineno: int,
 		inliner: Inliner,
 		options: Dict[str, Any] = {},
-		content: List[str] = []
+		content: List[str] = [],
 		) -> Tuple[List[nodes.reference], List[system_message]]:
 	"""
 	Adds a link to the given repository on GitHub.
@@ -148,7 +148,7 @@ def user_role(
 		lineno: int,
 		inliner: Inliner,
 		options: Dict[str, Any] = {},
-		content: List[str] = []
+		content: List[str] = [],
 		) -> Tuple[List[nodes.reference], List[system_message]]:
 	"""
 	Adds a link to the given user / organization on GitHub.
@@ -199,7 +199,7 @@ def visit_github_object_link_node(translator: HTML5Translator, node: GitHubObjec
 	:param node: The node being visited.
 	"""
 
-	translator.body.append(f'<b class="github-object">')
+	translator.body.append('<b class="github-object">')
 	translator.visit_reference(node)
 
 

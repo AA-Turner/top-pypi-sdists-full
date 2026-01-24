@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ecmwf-datastores-client
-Version: 0.4.0
+Version: 0.4.2
 Summary: ECMWF Data Stores Service (DSS) API Python client
 License:                                  Apache License
                                    Version 2.0, January 2004
@@ -218,6 +218,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
@@ -441,8 +442,8 @@ Interact with a previously submitted job:
 
 >>> remote.collection_id == collection_id
 True
->>> remote.request == request
-True
+>>> remote.request
+{...}
 
 >>> remote.status
 'successful'
@@ -482,10 +483,10 @@ Apply constraints and find the number of available days in a given month:
 
 ## Workflow for developers/contributors
 
-For best experience create a new conda environment (e.g. DEVELOP) with Python 3.11:
+For best experience create a new conda environment (e.g. DEVELOP) with Python 3.12:
 
 ```
-conda create -n DEVELOP -c conda-forge python=3.11
+conda create -n DEVELOP -c conda-forge python=3.12
 conda activate DEVELOP
 ```
 

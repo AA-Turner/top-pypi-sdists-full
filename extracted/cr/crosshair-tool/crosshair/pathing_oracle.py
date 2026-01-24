@@ -1,8 +1,7 @@
-import math
 from collections import defaultdict
 from typing import Counter, Dict, List, Optional, Sequence, Tuple
 
-from z3 import ExprRef
+from z3 import ExprRef  # type: ignore
 
 from crosshair.statespace import (
     AbstractPathingOracle,
@@ -15,7 +14,7 @@ from crosshair.statespace import (
     WorstResultNode,
 )
 from crosshair.util import CrossHairInternal, debug, in_debug
-from crosshair.z3util import z3And, z3Not, z3Or
+from crosshair.z3util import z3And, z3Not
 
 CodeLoc = Tuple[str, ...]
 

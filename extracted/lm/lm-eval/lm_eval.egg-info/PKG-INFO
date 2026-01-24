@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lm_eval
-Version: 0.4.9.1
+Version: 0.4.9.2
 Summary: A framework for evaluating language models
 Author-email: EleutherAI <contact@eleuther.ai>
 License: MIT
@@ -10,12 +10,12 @@ Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: accelerate>=0.26.0
 Requires-Dist: evaluate
-Requires-Dist: datasets<4.0,>=2.16.0
+Requires-Dist: datasets>=2.16.0
 Requires-Dist: evaluate>=0.4.0
 Requires-Dist: jsonlines
 Requires-Dist: numexpr
@@ -112,6 +112,8 @@ Provides-Extra: sentencepiece
 Requires-Dist: sentencepiece>=0.1.98; extra == "sentencepiece"
 Provides-Extra: sparsify
 Requires-Dist: sparsify; extra == "sparsify"
+Provides-Extra: discrim-eval
+Requires-Dist: statsmodels==0.14.4; extra == "discrim-eval"
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
 Requires-Dist: pytest-cov; extra == "testing"
@@ -129,6 +131,7 @@ Requires-Dist: pandas; extra == "zeno"
 Requires-Dist: zeno-client; extra == "zeno"
 Provides-Extra: tasks
 Requires-Dist: lm_eval[acpbench]; extra == "tasks"
+Requires-Dist: lm_eval[discrim_eval]; extra == "tasks"
 Requires-Dist: lm_eval[ifeval]; extra == "tasks"
 Requires-Dist: lm_eval[japanese_leaderboard]; extra == "tasks"
 Requires-Dist: lm_eval[longbench]; extra == "tasks"
@@ -462,12 +465,12 @@ vLLM occasionally differs in output from Huggingface. We treat Huggingface as th
 
 We support SGLang for efficient offline batch inference. Its **[Fast Backend Runtime](https://docs.sglang.ai/index.html)** delivers high performance through optimized memory management and parallel processing techniques. Key features include tensor parallelism, continuous batching, and support for various quantization methods (FP8/INT4/AWQ/GPTQ).
 
-To use SGLang as the evaluation backend, please **install it in advance** via SGLang documents [here](https://docs.sglang.ai/start/install.html#install-sglang).
+To use SGLang as the evaluation backend, please **install it in advance** via SGLang documents [here](https://docs.sglang.io/get_started/install.html#install-sglang).
 
 > [!Tip]
 > Due to the installing method of [`Flashinfer`](https://docs.flashinfer.ai/)-- a fast attention kernel library, we don't include the dependencies of `SGLang` within [pyproject.toml](pyproject.toml). Note that the `Flashinfer` also has some requirements on `torch` version.
 
-SGLang's server arguments are slightly different from other backends, see [here](https://docs.sglang.ai/backend/server_arguments.html) for more information. We provide an example of the usage here:
+SGLang's server arguments are slightly different from other backends, see [here](https://docs.sglang.io/advanced_features/server_arguments.html) for more information. We provide an example of the usage here:
 
 ```bash
 lm_eval --model sglang \

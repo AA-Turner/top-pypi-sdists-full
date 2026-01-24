@@ -204,9 +204,9 @@ def _try_start_server_or_get_url(
     local_host_needs_server = False
     if is_local_host:
         addr = "localhost" if localhost or not isinstance(args_web, str) else args_web
-        urls = [addr]
         if ":" not in addr:
-            urls.append(f"{addr}:{SERVER_PORT}")
+            addr = f"{addr}:{SERVER_PORT}"
+        urls = [addr]
 
         result: ConnectionResult | None = find_good_connection(urls)
         if result is not None:
@@ -328,6 +328,7 @@ def run_client(
     no_platformio: bool = False,
     app: bool = False,  # Use app-like browser experience
     background_update: bool = False,
+    enable_https: bool = True,  # Enable HTTPS for the local server
 ) -> int:
     has_checked_newer_version_yet = False
     compile_server: CompileServer | None = None
@@ -416,6 +417,7 @@ def run_client(
                 compile_server_port=port,
                 open_browser=open_web_browser,
                 app=app,
+                enable_https=enable_https,
             )
         else:
             if result.success:
@@ -452,7 +454,15 @@ def run_client(
     ) -> tuple[bool, CompileResult]:
         changed_files = debounced_sketch_watcher.get_all_changes()
         if changed_files:
-            print(f"\nChanges detected in {changed_files}")
+            # Filter out any fastled_js changes that slipped through
+            sketch_changes = [
+                f for f in changed_files if "fastled_js" not in Path(f).parts
+            ]
+            if not sketch_changes:
+                # All changes were in fastled_js, ignore them
+                return False, last_compiled_result
+            print(f"\nChanges detected in {sketch_changes}")
+            print("Compiling...")
             last_hash_value = last_compiled_result.hash_value
             out = compile_function(last_hash_value=last_hash_value)
             if not out.success:
@@ -598,6 +608,7 @@ def run_client_server(args: Args) -> int:
     build_mode: BuildMode = BuildMode.from_args(args)
     no_platformio = bool(args.no_platformio)
     app = bool(args.app)
+    enable_https = bool(args.enable_https)
 
     if not force_compile and not looks_like_sketch_directory(directory):
         # if there is only one directory in the sketch directory, use that
@@ -662,6 +673,7 @@ def run_client_server(args: Args) -> int:
             no_platformio=no_platformio,
             app=app,
             background_update=background_update,
+            enable_https=enable_https,
         )
     except KeyboardInterrupt:
         return 1

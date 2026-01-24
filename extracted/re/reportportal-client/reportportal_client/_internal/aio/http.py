@@ -24,15 +24,20 @@
 import asyncio
 import sys
 from types import TracebackType
-from typing import Any, Callable, Coroutine, Optional, Type
+from typing import Any, Callable, Coroutine, Optional, Union
 
-from aenum import Enum
-from aiohttp import ClientResponse, ClientResponseError, ClientSession, ServerConnectionError
+from aenum import Enum  # type: ignore
+from aiohttp import ClientResponse, ClientResponseError
+from aiohttp import ClientSession as AioHttpClientSession
+from aiohttp import ServerConnectionError
+
+from reportportal_client._internal.services.auth import AuthAsync
 
 DEFAULT_RETRY_NUMBER: int = 5
 DEFAULT_RETRY_DELAY: float = 0.005
 THROTTLING_STATUSES: set = {425, 429}
 RETRY_STATUSES: set = {408, 500, 502, 503, 507}.union(THROTTLING_STATUSES)
+AUTH_PROBLEM_STATUSES: set = {401, 403}
 
 
 class RetryClass(int, Enum):
@@ -46,7 +51,7 @@ class RetryClass(int, Enum):
 class RetryingClientSession:
     """Class uses aiohttp.ClientSession.request method and adds request retry logic."""
 
-    _client: ClientSession
+    _client: AioHttpClientSession
     __retry_number: int
     __retry_delay: float
 
@@ -68,31 +73,37 @@ class RetryingClientSession:
                                  an error. Real value highly depends on Retry Class and Retry attempt number,
                                  since retries are performed in exponential delay manner
         """
-        self._client = ClientSession(*args, **kwargs)
+        self._client = AioHttpClientSession(*args, **kwargs)
         self.__retry_number = max_retry_number
         self.__retry_delay = base_retry_delay
 
-    async def __nothing(self):
+    async def __nothing(self) -> None:
         pass
 
-    def __sleep(self, retry_num: int, retry_factor: int) -> Coroutine:
-        if retry_num > 0:  # don't wait at the first retry attempt
+    def __sleep(self, retry_num: int, retry_factor: Optional[int]) -> Coroutine:
+        if retry_num > 0 and retry_factor is not None:  # don't wait at the first retry attempt
             delay = (((retry_factor * self.__retry_delay) * 1000) ** retry_num) / 1000
             return asyncio.sleep(delay)
         else:
             return self.__nothing()
 
-    async def __request(self, method: Callable, url, **kwargs: Any) -> ClientResponse:
+    async def __request(
+        self, method: Callable[..., Coroutine[Any, Any, ClientResponse]], url: str, **kwargs: Any
+    ) -> ClientResponse:
         """Make a request and retry if necessary.
 
         The method retries requests depending on error class and retry number. For no-retry errors, such as
         400 Bad Request it just returns result, for cases where it's reasonable to retry it does it in
         exponential manner.
         """
-        result = None
+        result: Optional[ClientResponse] = None
         exceptions = []
+
         for i in range(self.__retry_number + 1):  # add one for the first attempt, which is not a retry
-            retry_factor = None
+            retry_factor: Optional[int] = None
+            if result is not None:
+                # Release previous result to return connection to pool
+                result.release()
             try:
                 result = await method(url, **kwargs)
             except Exception as exc:
@@ -127,6 +138,89 @@ class RetryingClientSession:
                     raise exceptions[-1]
             else:
                 raise exceptions[0]
+        if result is None:
+            raise IOError("Request failed without exceptions")
+        return result
+
+    def get(self, url: str, *, allow_redirects: bool = True, **kwargs: Any) -> Coroutine[Any, Any, ClientResponse]:
+        """Perform HTTP GET request."""
+        return self.__request(self._client.get, url, allow_redirects=allow_redirects, **kwargs)
+
+    def post(self, url: str, *, data: Any = None, **kwargs: Any) -> Coroutine[Any, Any, ClientResponse]:
+        """Perform HTTP POST request."""
+        return self.__request(self._client.post, url, data=data, **kwargs)
+
+    def put(self, url: str, *, data: Any = None, **kwargs: Any) -> Coroutine[Any, Any, ClientResponse]:
+        """Perform HTTP PUT request."""
+        return self.__request(self._client.put, url, data=data, **kwargs)
+
+    def close(self) -> Coroutine[None, None, None]:
+        """Gracefully close internal aiohttp.ClientSession class instance."""
+        return self._client.close()
+
+    async def __aenter__(self) -> "RetryingClientSession":
+        """Auxiliary method which controls what `async with` construction does on block enter."""
+        return self
+
+    async def __aexit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[TracebackType],
+    ) -> None:
+        """Auxiliary method which controls what `async with` construction does on block exit."""
+        await self.close()
+
+
+class ClientSession:
+    """Class wraps aiohttp.ClientSession or RetryingClientSession and adds authentication support."""
+
+    _client: Union[AioHttpClientSession, RetryingClientSession]
+    __auth: Optional[AuthAsync]
+
+    def __init__(
+        self,
+        wrapped: Union[AioHttpClientSession, RetryingClientSession],
+        auth: Optional[AuthAsync] = None,
+    ):
+        """Initialize an instance of the session with arguments.
+
+        :param wrapped: aiohttp.ClientSession or RetryingClientSession instance to wrap
+        :param auth:    authentication instance to use for requests
+        """
+        self._client = wrapped
+        self.__auth = auth
+
+    async def __request(self, method: Callable, url: str, **kwargs: Any) -> ClientResponse:
+        """Make a request with authentication support.
+
+        The method adds Authorization header if auth is configured and handles auth refresh
+        on 401/403 responses.
+        """
+        # Clone kwargs and add Authorization header if auth is configured
+        request_kwargs = kwargs.copy()
+        if self.__auth:
+            auth_header = await self.__auth.get()
+            if auth_header:
+                if "headers" not in request_kwargs:
+                    request_kwargs["headers"] = {}
+                else:
+                    request_kwargs["headers"] = request_kwargs["headers"].copy()
+                request_kwargs["headers"]["Authorization"] = auth_header
+
+        result = await method(url, **request_kwargs)
+
+        # Check for authentication errors
+        if result.status in AUTH_PROBLEM_STATUSES and self.__auth:
+            refreshed_header = await self.__auth.refresh()
+            if refreshed_header:
+                # Release previous result to return connection to pool
+                await result.release()
+                # Retry with new auth header
+                request_kwargs["headers"] = request_kwargs.get("headers", {}).copy()
+                request_kwargs["headers"]["Authorization"] = refreshed_header
+                result = await method(url, **request_kwargs)
+
         return result
 
     def get(self, url: str, *, allow_redirects: bool = True, **kwargs: Any) -> Coroutine[Any, Any, ClientResponse]:
@@ -142,16 +236,16 @@ class RetryingClientSession:
         return self.__request(self._client.put, url, data=data, **kwargs)
 
     def close(self) -> Coroutine:
-        """Gracefully close internal aiohttp.ClientSession class instance."""
+        """Gracefully close internal session instance."""
         return self._client.close()
 
-    async def __aenter__(self) -> "RetryingClientSession":
+    async def __aenter__(self) -> "ClientSession":
         """Auxiliary method which controls what `async with` construction does on block enter."""
         return self
 
     async def __aexit__(
         self,
-        exc_type: Optional[Type[BaseException]],
+        exc_type: Optional[type[BaseException]],
         exc_val: Optional[BaseException],
         exc_tb: Optional[TracebackType],
     ) -> None:

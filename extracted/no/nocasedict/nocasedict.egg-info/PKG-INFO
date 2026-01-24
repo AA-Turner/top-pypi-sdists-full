@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: nocasedict
-Version: 2.1.0
+Version: 2.2.0
 Summary: A case-insensitive list for Python
 Author-email: Andreas Maier <maiera@de.ibm.com>
 Maintainer-email: Andreas Maier <maiera@de.ibm.com>
-License: GNU Lesser General Public License v2 or later (LGPLv2+)
+License-Expression: LGPL-2.1-or-later
 Project-URL: Homepage, https://github.com/pywbem/nocasedict
 Project-URL: Bug Tracker, https://github.com/pywbem/nocasedict/issues
 Project-URL: Documentation, https://nocasedict.readthedocs.io/en/master/
@@ -14,21 +14,19 @@ Keywords: list,case-insensitive
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-License-File: AUTHORS.md
-Requires-Dist: typing-extensions>=4.7.1; python_version >= "3.8" and python_version <= "3.9"
+Requires-Dist: typing-extensions>=4.14.1
 Dynamic: license-file
 
 # nocasedict - A case-insensitive ordered dictionary for Python
@@ -61,14 +59,8 @@ Example:
 The
 [NocaseDict](https://nocasedict.readthedocs.io/en/master/reference.html#nocasedict.NocaseDict)
 class supports the functionality of the built-in
-[dict class of Python 3.8](https://docs.python.org/3.8/library/stdtypes.html#dict)
-on all Python versions it supports.
-
-Limitation: Any functionalities added to the `dict` class in Python 3.9 or
-later are not yet supported. These are:
-
-* `d | other` - Added in Python 3.9.
-* `d |= other` - Added in Python 3.9.
+[dict class of Python 3.14](https://docs.python.org/3.14/library/stdtypes.html#dict)
+on all Python versions it supports (except for being case-insensitive, of course).
 
 The case-insensitivity is achieved by matching any key values as their
 casefolded values. By default, the casefolding is performed with

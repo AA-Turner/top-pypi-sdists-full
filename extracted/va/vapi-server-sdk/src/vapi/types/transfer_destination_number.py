@@ -8,6 +8,7 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.serialization import FieldMetadata
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .transfer_destination_number_message import TransferDestinationNumberMessage
+from .transfer_destination_number_type import TransferDestinationNumberType
 from .transfer_plan import TransferPlan
 
 
@@ -23,7 +24,7 @@ class TransferDestinationNumber(UncheckedBaseModel):
     This accepts a string or a ToolMessageStart class. Latter is useful if you want to specify multiple messages for different languages through the `contents` field.
     """
 
-    type: typing.Literal["number"] = "number"
+    type: TransferDestinationNumberType
     number_e_164_check_enabled: typing_extensions.Annotated[
         typing.Optional[bool], FieldMetadata(alias="numberE164CheckEnabled")
     ] = pydantic.Field(default=None)
@@ -34,7 +35,7 @@ class TransferDestinationNumber(UncheckedBaseModel):
     - `false`: To allow non-E164 numbers like `+001234567890`, `1234`, or `abc`. This is useful for dialing out to non-E164 numbers on your SIP trunks.
     - `true` (default): To allow only E164 numbers like `+14155551234`. This is standard for PSTN calls.
     
-    If `false`, the `number` is still required to only contain alphanumeric characters (regex: `/^\+?[a-zA-Z0-9]+$/`).
+    If `false`, the `number` is still required to only contain alphanumeric characters (regex: `/^\\+?[a-zA-Z0-9]+$/`).
     
     @default true (E164 check is enabled)
     """

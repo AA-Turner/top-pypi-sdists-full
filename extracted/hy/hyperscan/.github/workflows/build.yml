@@ -33,6 +33,8 @@ jobs:
   check_event:
     name: Repo and event checks
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       valid_event: ${{ steps.check.outputs.valid_event }}
     steps:
@@ -51,17 +53,26 @@ jobs:
         # 4. The event is specifically on the 'darvid/python-hyperscan'
         #    repository AND the commit message contains '[build]'.
         if: >
-          (github.event_name != 'push' || github.repository == 'darvid/python-hyperscan') &&
-          ((github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name != github.repository) || (github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, vars.RELEASE_PR_BRANCH || 'create-pull-request'))) ||
-          (github.repository == 'darvid/python-hyperscan' && contains(github.event.head_commit.message, '[build]'))
+          github.event_name == 'pull_request' ||
+          github.event_name == 'workflow_dispatch' ||
+          github.event_name == 'workflow_call' ||
+          (
+            github.event_name == 'push' &&
+            (
+              github.repository == 'darvid/python-hyperscan' ||
+              contains(github.event.head_commit.message, '[build]')
+            )
+          )
         run: |
-          echo "valid_event=true" >> $GITHUB_OUTPUT
+          echo "valid_event=true" >> "$GITHUB_OUTPUT"
 
   check_changes:
     name: Build pre-conditions check
     runs-on: ubuntu-latest
     needs: check_event
     if: needs.check_event.outputs.valid_event == 'true'
+    permissions:
+      contents: read
     outputs:
       should_build: ${{ steps.check.outputs.should_build }}
     steps:
@@ -72,9 +83,11 @@ jobs:
 
       - name: Check if build is needed
         id: check
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           if [[ "${{ inputs.force_build || false }}" == "true" ]]; then
-            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
             echo "Running build because force_build is true"
             exit 0
           fi
@@ -82,37 +95,40 @@ jobs:
           # Check for [build] tag in commit messages or PR title
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             # For PRs, check if PR title contains [build]
-            PR_TITLE="${{ github.event.pull_request.title }}"
             if [[ "$PR_TITLE" == *"[build]"* ]]; then
-              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "should_build=true" >> "$GITHUB_OUTPUT"
               echo "Running build because PR title contains [build]"
               exit 0
             fi
 
-            # Also check all commits in the PR for [build]
+            # Set up PR refs - fetch BOTH base and head to ensure commits are available
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            COMMIT_MSGS=$(git fetch origin $BASE_SHA $HEAD_SHA && git log --format=%B $BASE_SHA..$HEAD_SHA || echo "")
+            git fetch origin "${{ github.event.pull_request.base.ref }}" --quiet || true
+            git fetch origin "pull/${{ github.event.pull_request.number }}/head:pr-head" --quiet || true
+
+            # Check all commits in the PR for [build]
+            COMMIT_MSGS=$(git log --format=%B "${BASE_SHA}..${HEAD_SHA}" 2>/dev/null || echo "")
             if echo "$COMMIT_MSGS" | grep -q "\[build\]"; then
-              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "should_build=true" >> "$GITHUB_OUTPUT"
               echo "Running build because a commit in the PR contains [build]"
               exit 0
             fi
+
+            # Check which files changed in the PR
+            CHANGED_FILES=$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" 2>/dev/null || echo "")
+
+            # Debug: show what we found
+            echo "Changed files in PR:"
+            echo "$CHANGED_FILES"
           else
             # For pushes, check if the head commit message contains [build]
             if [[ "${{ contains(github.event.head_commit.message, '[build]') }}" == "true" ]]; then
-              echo "should_build=true" >> $GITHUB_OUTPUT
+              echo "should_build=true" >> "$GITHUB_OUTPUT"
               echo "Running build because commit message contains [build]"
               exit 0
             fi
-          fi
 
-          # For PRs, compare the PR base with the head
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            BASE_SHA="${{ github.event.pull_request.base.sha }}"
-            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-            CHANGED_FILES=$(git fetch origin $BASE_SHA $HEAD_SHA && git diff --name-only $BASE_SHA $HEAD_SHA || echo "")
-          else
             # For pushes, use the before/after SHAs or fallback to comparing with parent
             BEFORE_SHA="${{ github.event.before }}"
             AFTER_SHA="${{ github.event.after }}"
@@ -122,12 +138,12 @@ jobs:
               CHANGED_FILES=$(git diff --name-only HEAD^ || echo "")
             else
               # Try to fetch the commits first to make sure they exist
-              git fetch --depth=1 origin $BEFORE_SHA || true
-              git fetch --depth=1 origin $AFTER_SHA || true
+              git fetch --depth=1 origin "${BEFORE_SHA}" || true
+              git fetch --depth=1 origin "${AFTER_SHA}" || true
 
               # Check if both SHAs exist in the repository
-              if git cat-file -e $BEFORE_SHA 2>/dev/null && git cat-file -e $AFTER_SHA 2>/dev/null; then
-                CHANGED_FILES=$(git diff --name-only $BEFORE_SHA $AFTER_SHA || echo "")
+              if git cat-file -e "${BEFORE_SHA}" 2>/dev/null && git cat-file -e "${AFTER_SHA}" 2>/dev/null; then
+                CHANGED_FILES=$(git diff --name-only "${BEFORE_SHA}" "${AFTER_SHA}" || echo "")
               else
                 # Fallback to comparing with parent commit
                 echo "Cannot find one of the SHAs, falling back to HEAD^"
@@ -136,21 +152,23 @@ jobs:
             fi
           fi
 
-          if [[ "${{ github.event_name }}" != "pull_request" ]]; then
-            RESULT=1
-            echo "$CHANGED_FILES" | grep -q -E '^(src/hyperscan/|README.md|CMakeLists.txt|pyproject.toml|MANIFEST.in|cmake/|build_tools/)' || RESULT=$?
+          RESULT=0
+          echo "$CHANGED_FILES" | grep -q -E '^(src/hyperscan/|README.md|CMakeLists.txt|pyproject.toml|MANIFEST.in|cmake/)' || RESULT=$?
 
-            if [[ $RESULT -eq 0 ]]; then
-              echo "should_build=true" >> $GITHUB_OUTPUT
-              echo "Running build because relevant files were changed"
+          if [[ "$RESULT" -eq 0 ]]; then
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              echo "Running build because PR touches relevant files"
             else
-              echo "should_build=false" >> $GITHUB_OUTPUT
-              echo "Skipping build because no relevant files were changed and commit doesn't have [build] tag"
+              echo "Running build because relevant files were changed"
             fi
           else
-            # For pull requests, always build (after checking for [build] tag above)
-            echo "should_build=true" >> $GITHUB_OUTPUT
-            echo "Running build for pull request"
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+            if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+              echo "Skipping build because PR does not change build-relevant files and lacks [build] tag"
+            else
+              echo "Skipping build because no relevant files were changed and commit doesn't have [build] tag"
+            fi
           fi
 
   sdist:
@@ -158,6 +176,9 @@ jobs:
     needs: [check_changes, check_event]
     if: needs.check_event.outputs.valid_event == 'true' && needs.check_changes.outputs.should_build == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -168,11 +189,16 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Remove project venv
+        run: python -c "import pathlib, shutil; p = pathlib.Path('.venv'); shutil.rmtree(p) if p.exists() else None"
+
       - name: Set up Python
-        run: uv python install
+        run: uv python install 3.12
 
       - name: Install dependencies
-        run: uv sync --group build --no-install-project
+        run: |
+          uv venv --python 3.12 .venv
+          uv pip install --python .venv --group build --quiet
 
       - name: Build source distribution
         run: uvx --from build pyproject-build --installer=uv --sdist --verbose
@@ -188,44 +214,63 @@ jobs:
     runs-on: ${{ matrix.os }}
     needs: [check_changes, check_event]
     if: needs.check_event.outputs.valid_event == 'true' && needs.check_changes.outputs.should_build == 'true'
+    permissions:
+      contents: read
+      actions: write
     strategy:
       fail-fast: false
       matrix:
         include:
           # 🐧 manylinux x86_64
           - os: ubuntu-24.04
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp310
             platform_id: manylinux_x86_64
           - os: ubuntu-24.04
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp311
             platform_id: manylinux_x86_64
           - os: ubuntu-24.04
-            python: "3.12"
+            host_python: "3.12"
             python_id: cp312
             platform_id: manylinux_x86_64
           - os: ubuntu-24.04
-            python: "3.13"
+            host_python: "3.12"
             python_id: cp313
+            platform_id: manylinux_x86_64
+          - os: ubuntu-24.04
+            host_python: "3.12"
+            python_id: cp314
+            platform_id: manylinux_x86_64
+          - os: ubuntu-24.04
+            host_python: "3.12"
+            python_id: cp314t
             platform_id: manylinux_x86_64
 
           # 🐧 manylinux aarch64
           - os: ubuntu-24.04-arm
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp310
             platform_id: manylinux_aarch64
           - os: ubuntu-24.04-arm
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp311
             platform_id: manylinux_aarch64
           - os: ubuntu-24.04-arm
-            python: "3.12"
+            host_python: "3.12"
             python_id: cp312
             platform_id: manylinux_aarch64
           - os: ubuntu-24.04-arm
-            python: "3.13"
+            host_python: "3.12"
             python_id: cp313
+            platform_id: manylinux_aarch64
+          - os: ubuntu-24.04-arm
+            host_python: "3.12"
+            python_id: cp314
+            platform_id: manylinux_aarch64
+          - os: ubuntu-24.04-arm
+            host_python: "3.12"
+            python_id: cp314t
             platform_id: manylinux_aarch64
 
           # 🐧 manylinux2014 PyPy x86_64
@@ -257,6 +302,14 @@ jobs:
             python: "3.13"
             python_id: cp313
             platform_id: musllinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.14"
+            python_id: cp314
+            platform_id: musllinux_x86_64
+          - os: ubuntu-24.04
+            python: "3.14"
+            python_id: cp314t
+            platform_id: musllinux_x86_64
 
           # 🦀 musllinux ARM
           - os: ubuntu-24.04-arm
@@ -275,59 +328,91 @@ jobs:
             python: "3.13"
             python_id: cp313
             platform_id: musllinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.14"
+            python_id: cp314
+            platform_id: musllinux_aarch64
+          - os: ubuntu-24.04-arm
+            python: "3.14"
+            python_id: cp314t
+            platform_id: musllinux_aarch64
 
           # 🍎 macOS x86_64
           - os: macos-13
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp310
             platform_id: macosx_x86_64
           - os: macos-13
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp311
             platform_id: macosx_x86_64
           - os: macos-13
-            python: "3.12"
+            host_python: "3.12"
             python_id: cp312
             platform_id: macosx_x86_64
           - os: macos-13
-            python: "3.13"
+            host_python: "3.12"
             python_id: cp313
+            platform_id: macosx_x86_64
+          - os: macos-13
+            host_python: "3.12"
+            python_id: cp314
+            platform_id: macosx_x86_64
+          - os: macos-13
+            host_python: "3.12"
+            python_id: cp314t
             platform_id: macosx_x86_64
 
           # 🍎 macOS arm64 (Apple silicon)
           - os: macos-15
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp310
             platform_id: macosx_arm64
           - os: macos-15
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp311
             platform_id: macosx_arm64
           - os: macos-15
-            python: "3.12"
+            host_python: "3.12"
             python_id: cp312
             platform_id: macosx_arm64
           - os: macos-15
-            python: "3.13"
+            host_python: "3.12"
             python_id: cp313
+            platform_id: macosx_arm64
+          - os: macos-15
+            host_python: "3.12"
+            python_id: cp314
+            platform_id: macosx_arm64
+          - os: macos-15
+            host_python: "3.12"
+            python_id: cp314t
             platform_id: macosx_arm64
 
           # 🪟 Windows x86_64
           - os: windows-2025
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp310
             platform_id: win_amd64
           - os: windows-2025
-            python: "3.11"
+            host_python: "3.12"
             python_id: cp311
             platform_id: win_amd64
           - os: windows-2025
-            python: "3.12"
+            host_python: "3.12"
             python_id: cp312
             platform_id: win_amd64
           - os: windows-2025
-            python: "3.13"
+            host_python: "3.12"
             python_id: cp313
+            platform_id: win_amd64
+          - os: windows-2025
+            host_python: "3.12"
+            python_id: cp314
+            platform_id: win_amd64
+          - os: windows-2025
+            host_python: "3.12"
+            python_id: cp314t
             platform_id: win_amd64
 
     steps:
@@ -341,8 +426,33 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Remove project venv
+        run: python -c "import pathlib, shutil; p = pathlib.Path('.venv'); shutil.rmtree(p) if p.exists() else None"
+
+      - name: Install host Python
+        shell: bash
+        run: |
+          PY_VERSION="${{ matrix.host_python }}"
+          if [ -z "$PY_VERSION" ]; then
+            PY_VERSION="${{ matrix.python }}"
+          fi
+          if [ -z "$PY_VERSION" ]; then
+            PY_VERSION="3.12"
+          fi
+          uv python install "$PY_VERSION"
+
       - name: Install build dependencies
-        run: uv sync --group build --no-install-project
+        shell: bash
+        run: |
+          PY_VERSION="${{ matrix.host_python }}"
+          if [ -z "$PY_VERSION" ]; then
+            PY_VERSION="${{ matrix.python }}"
+          fi
+          if [ -z "$PY_VERSION" ]; then
+            PY_VERSION="3.12"
+          fi
+          uv venv --python "$PY_VERSION" .venv
+          uv pip install --python .venv --group build --quiet
 
       - name: Build and test wheels
         env:
@@ -350,8 +460,16 @@ jobs:
           CIBW_ARCHS_LINUX: auto aarch64
           CIBW_BUILD: ${{ matrix.python_id }}-${{ matrix.platform_id }}
           CIBW_BUILD_VERBOSITY: "1"
+        shell: bash
         run: |
-          uv run --no-sync cibuildwheel --output-dir wheelhouse
+          PY_VERSION="${{ matrix.host_python }}"
+          if [ -z "$PY_VERSION" ]; then
+            PY_VERSION="${{ matrix.python }}"
+          fi
+          if [ -z "$PY_VERSION" ]; then
+            PY_VERSION="3.12"
+          fi
+          uv run --python "$PY_VERSION" --no-sync cibuildwheel --output-dir wheelhouse
 
       - name: Save build artifacts
         uses: actions/cache/save@v4

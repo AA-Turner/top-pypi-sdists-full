@@ -21,8 +21,8 @@ mod test;
 
 use markdown::Markdown;
 use match_merger::MatchMerger;
-pub use styles::should_use_color;
-use styles::{PrintStyles, RuleStyle};
+use styles::RuleStyle;
+pub use styles::{should_use_color, PrintStyles};
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum ReportStyle {
@@ -228,7 +228,7 @@ impl PrintProcessor<Buffer> for ColoredProcessor {
         .with_message(rule.get_message(&m))
         .with_notes(notes.clone().into_iter().collect())
         .with_labels(labels);
-      term::emit(&mut *writer, config, &file, &diagnostic)?;
+      term::emit_to_write_style(&mut *writer, config, &file, &diagnostic)?;
     }
     Ok(buffer)
   }

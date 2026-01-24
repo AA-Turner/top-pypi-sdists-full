@@ -67,1476 +67,23 @@ from .. import (
     TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.CfnDevicePoolProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "project_arn": "projectArn",
-        "rules": "rules",
-        "description": "description",
-        "max_devices": "maxDevices",
-        "tags": "tags",
-    },
+from ..interfaces.aws_devicefarm import (
+    DevicePoolReference as _DevicePoolReference_92b3129b,
+    IDevicePoolRef as _IDevicePoolRef_2a77f578,
+    IInstanceProfileRef as _IInstanceProfileRef_9b6bf1ce,
+    INetworkProfileRef as _INetworkProfileRef_321b625c,
+    IProjectRef as _IProjectRef_a22154a0,
+    ITestGridProjectRef as _ITestGridProjectRef_35482f1c,
+    IVPCEConfigurationRef as _IVPCEConfigurationRef_40fa5aa0,
+    InstanceProfileReference as _InstanceProfileReference_a62475fa,
+    NetworkProfileReference as _NetworkProfileReference_56b2af39,
+    ProjectReference as _ProjectReference_96d63247,
+    TestGridProjectReference as _TestGridProjectReference_a420cd7a,
+    VPCEConfigurationReference as _VPCEConfigurationReference_3b070860,
 )
-class CfnDevicePoolProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        project_arn: builtins.str,
-        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDevicePool.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        description: typing.Optional[builtins.str] = None,
-        max_devices: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnDevicePool``.
 
-        :param name: The device pool's name.
-        :param project_arn: The ARN of the project for the device pool.
-        :param rules: The device pool's rules.
-        :param description: The device pool's description.
-        :param max_devices: The number of devices that Device Farm can add to your device pool. Device Farm adds devices that are available and meet the criteria that you assign for the ``rules`` parameter. Depending on how many devices meet these constraints, your device pool might contain fewer devices than the value for this parameter. By specifying the maximum number of devices, you can control the costs that you incur by running tests.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
 
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            cfn_device_pool_props = devicefarm.CfnDevicePoolProps(
-                name="name",
-                project_arn="projectArn",
-                rules=[devicefarm.CfnDevicePool.RuleProperty(
-                    attribute="attribute",
-                    operator="operator",
-                    value="value"
-                )],
-            
-                # the properties below are optional
-                description="description",
-                max_devices=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cdbd0dbaf5eeb8e0d1a370581a06a71801ff0d57bd9fd8d87abcb95e23dea50c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
-            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument max_devices", value=max_devices, expected_type=type_hints["max_devices"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "project_arn": project_arn,
-            "rules": rules,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if max_devices is not None:
-            self._values["max_devices"] = max_devices
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The device pool's name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project_arn(self) -> builtins.str:
-        '''The ARN of the project for the device pool.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-projectarn
-        '''
-        result = self._values.get("project_arn")
-        assert result is not None, "Required property 'project_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def rules(
-        self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDevicePool.RuleProperty"]]]:
-        '''The device pool's rules.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-rules
-        '''
-        result = self._values.get("rules")
-        assert result is not None, "Required property 'rules' is missing"
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDevicePool.RuleProperty"]]], result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The device pool's description.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def max_devices(self) -> typing.Optional[jsii.Number]:
-        '''The number of devices that Device Farm can add to your device pool.
-
-        Device Farm adds devices that are available and meet the criteria that you assign for the ``rules`` parameter. Depending on how many devices meet these constraints, your device pool might contain fewer devices than the value for this parameter.
-
-        By specifying the maximum number of devices, you can control the costs that you incur by running tests.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-maxdevices
-        '''
-        result = self._values.get("max_devices")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnDevicePoolProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.CfnInstanceProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "description": "description",
-        "exclude_app_packages_from_cleanup": "excludeAppPackagesFromCleanup",
-        "package_cleanup": "packageCleanup",
-        "reboot_after_use": "rebootAfterUse",
-        "tags": "tags",
-    },
-)
-class CfnInstanceProfileProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        exclude_app_packages_from_cleanup: typing.Optional[typing.Sequence[builtins.str]] = None,
-        package_cleanup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        reboot_after_use: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnInstanceProfile``.
-
-        :param name: The name of the instance profile.
-        :param description: The description of the instance profile.
-        :param exclude_app_packages_from_cleanup: An array of strings containing the list of app packages that should not be cleaned up from the device after a test run completes. The list of packages is considered only if you set ``packageCleanup`` to ``true`` .
-        :param package_cleanup: When set to ``true`` , Device Farm removes app packages after a test run. The default value is ``false`` for private devices.
-        :param reboot_after_use: When set to ``true`` , Device Farm reboots the instance after a test run. The default value is ``true`` .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            cfn_instance_profile_props = devicefarm.CfnInstanceProfileProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                exclude_app_packages_from_cleanup=["excludeAppPackagesFromCleanup"],
-                package_cleanup=False,
-                reboot_after_use=False,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7392c4b7cccfb4ed48f655dd9ef8cfdda0d147224dceaf92b58913cc7bdedf0a)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument exclude_app_packages_from_cleanup", value=exclude_app_packages_from_cleanup, expected_type=type_hints["exclude_app_packages_from_cleanup"])
-            check_type(argname="argument package_cleanup", value=package_cleanup, expected_type=type_hints["package_cleanup"])
-            check_type(argname="argument reboot_after_use", value=reboot_after_use, expected_type=type_hints["reboot_after_use"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if exclude_app_packages_from_cleanup is not None:
-            self._values["exclude_app_packages_from_cleanup"] = exclude_app_packages_from_cleanup
-        if package_cleanup is not None:
-            self._values["package_cleanup"] = package_cleanup
-        if reboot_after_use is not None:
-            self._values["reboot_after_use"] = reboot_after_use
-        if tags is not None:
-            self._values["tags"] = tags
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the instance profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def exclude_app_packages_from_cleanup(
-        self,
-    ) -> typing.Optional[typing.List[builtins.str]]:
-        '''An array of strings containing the list of app packages that should not be cleaned up from the device after a test run completes.
-
-        The list of packages is considered only if you set ``packageCleanup`` to ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-excludeapppackagesfromcleanup
-        '''
-        result = self._values.get("exclude_app_packages_from_cleanup")
-        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
-
-    @builtins.property
-    def package_cleanup(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''When set to ``true`` , Device Farm removes app packages after a test run.
-
-        The default value is ``false`` for private devices.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-packagecleanup
-        '''
-        result = self._values.get("package_cleanup")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def reboot_after_use(
-        self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''When set to ``true`` , Device Farm reboots the instance after a test run.
-
-        The default value is ``true`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-rebootafteruse
-        '''
-        result = self._values.get("reboot_after_use")
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnInstanceProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.CfnNetworkProfileProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "project_arn": "projectArn",
-        "description": "description",
-        "downlink_bandwidth_bits": "downlinkBandwidthBits",
-        "downlink_delay_ms": "downlinkDelayMs",
-        "downlink_jitter_ms": "downlinkJitterMs",
-        "downlink_loss_percent": "downlinkLossPercent",
-        "tags": "tags",
-        "uplink_bandwidth_bits": "uplinkBandwidthBits",
-        "uplink_delay_ms": "uplinkDelayMs",
-        "uplink_jitter_ms": "uplinkJitterMs",
-        "uplink_loss_percent": "uplinkLossPercent",
-    },
-)
-class CfnNetworkProfileProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        project_arn: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        downlink_bandwidth_bits: typing.Optional[jsii.Number] = None,
-        downlink_delay_ms: typing.Optional[jsii.Number] = None,
-        downlink_jitter_ms: typing.Optional[jsii.Number] = None,
-        downlink_loss_percent: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        uplink_bandwidth_bits: typing.Optional[jsii.Number] = None,
-        uplink_delay_ms: typing.Optional[jsii.Number] = None,
-        uplink_jitter_ms: typing.Optional[jsii.Number] = None,
-        uplink_loss_percent: typing.Optional[jsii.Number] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnNetworkProfile``.
-
-        :param name: The name of the network profile.
-        :param project_arn: The Amazon Resource Name (ARN) of the specified project.
-        :param description: The description of the network profile.
-        :param downlink_bandwidth_bits: The data throughput rate in bits per second, as an integer from 0 to 104857600.
-        :param downlink_delay_ms: Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
-        :param downlink_jitter_ms: Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
-        :param downlink_loss_percent: Proportion of received packets that fail to arrive from 0 to 100 percent.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-        :param uplink_bandwidth_bits: The data throughput rate in bits per second, as an integer from 0 to 104857600.
-        :param uplink_delay_ms: Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
-        :param uplink_jitter_ms: Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
-        :param uplink_loss_percent: Proportion of transmitted packets that fail to arrive from 0 to 100 percent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            cfn_network_profile_props = devicefarm.CfnNetworkProfileProps(
-                name="name",
-                project_arn="projectArn",
-            
-                # the properties below are optional
-                description="description",
-                downlink_bandwidth_bits=123,
-                downlink_delay_ms=123,
-                downlink_jitter_ms=123,
-                downlink_loss_percent=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                uplink_bandwidth_bits=123,
-                uplink_delay_ms=123,
-                uplink_jitter_ms=123,
-                uplink_loss_percent=123
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dd5cc9e50d96fdbb41dccca0bc93936eeaacdb252c6703a366abcfc675c8b32)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument downlink_bandwidth_bits", value=downlink_bandwidth_bits, expected_type=type_hints["downlink_bandwidth_bits"])
-            check_type(argname="argument downlink_delay_ms", value=downlink_delay_ms, expected_type=type_hints["downlink_delay_ms"])
-            check_type(argname="argument downlink_jitter_ms", value=downlink_jitter_ms, expected_type=type_hints["downlink_jitter_ms"])
-            check_type(argname="argument downlink_loss_percent", value=downlink_loss_percent, expected_type=type_hints["downlink_loss_percent"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument uplink_bandwidth_bits", value=uplink_bandwidth_bits, expected_type=type_hints["uplink_bandwidth_bits"])
-            check_type(argname="argument uplink_delay_ms", value=uplink_delay_ms, expected_type=type_hints["uplink_delay_ms"])
-            check_type(argname="argument uplink_jitter_ms", value=uplink_jitter_ms, expected_type=type_hints["uplink_jitter_ms"])
-            check_type(argname="argument uplink_loss_percent", value=uplink_loss_percent, expected_type=type_hints["uplink_loss_percent"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-            "project_arn": project_arn,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if downlink_bandwidth_bits is not None:
-            self._values["downlink_bandwidth_bits"] = downlink_bandwidth_bits
-        if downlink_delay_ms is not None:
-            self._values["downlink_delay_ms"] = downlink_delay_ms
-        if downlink_jitter_ms is not None:
-            self._values["downlink_jitter_ms"] = downlink_jitter_ms
-        if downlink_loss_percent is not None:
-            self._values["downlink_loss_percent"] = downlink_loss_percent
-        if tags is not None:
-            self._values["tags"] = tags
-        if uplink_bandwidth_bits is not None:
-            self._values["uplink_bandwidth_bits"] = uplink_bandwidth_bits
-        if uplink_delay_ms is not None:
-            self._values["uplink_delay_ms"] = uplink_delay_ms
-        if uplink_jitter_ms is not None:
-            self._values["uplink_jitter_ms"] = uplink_jitter_ms
-        if uplink_loss_percent is not None:
-            self._values["uplink_loss_percent"] = uplink_loss_percent
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The name of the network profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def project_arn(self) -> builtins.str:
-        '''The Amazon Resource Name (ARN) of the specified project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-projectarn
-        '''
-        result = self._values.get("project_arn")
-        assert result is not None, "Required property 'project_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''The description of the network profile.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def downlink_bandwidth_bits(self) -> typing.Optional[jsii.Number]:
-        '''The data throughput rate in bits per second, as an integer from 0 to 104857600.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinkbandwidthbits
-        '''
-        result = self._values.get("downlink_bandwidth_bits")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def downlink_delay_ms(self) -> typing.Optional[jsii.Number]:
-        '''Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinkdelayms
-        '''
-        result = self._values.get("downlink_delay_ms")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def downlink_jitter_ms(self) -> typing.Optional[jsii.Number]:
-        '''Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinkjitterms
-        '''
-        result = self._values.get("downlink_jitter_ms")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def downlink_loss_percent(self) -> typing.Optional[jsii.Number]:
-        '''Proportion of received packets that fail to arrive from 0 to 100 percent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinklosspercent
-        '''
-        result = self._values.get("downlink_loss_percent")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def uplink_bandwidth_bits(self) -> typing.Optional[jsii.Number]:
-        '''The data throughput rate in bits per second, as an integer from 0 to 104857600.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinkbandwidthbits
-        '''
-        result = self._values.get("uplink_bandwidth_bits")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def uplink_delay_ms(self) -> typing.Optional[jsii.Number]:
-        '''Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinkdelayms
-        '''
-        result = self._values.get("uplink_delay_ms")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def uplink_jitter_ms(self) -> typing.Optional[jsii.Number]:
-        '''Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinkjitterms
-        '''
-        result = self._values.get("uplink_jitter_ms")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def uplink_loss_percent(self) -> typing.Optional[jsii.Number]:
-        '''Proportion of transmitted packets that fail to arrive from 0 to 100 percent.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinklosspercent
-        '''
-        result = self._values.get("uplink_loss_percent")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnNetworkProfileProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.CfnProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "default_job_timeout_minutes": "defaultJobTimeoutMinutes",
-        "tags": "tags",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnProjectProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        default_job_timeout_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnProject``.
-
-        :param name: The project's name.
-        :param default_job_timeout_minutes: Sets the execution timeout value (in minutes) for a project. All test runs in this project use the specified execution timeout value unless overridden when scheduling a run.
-        :param tags: The tags to add to the resource. A tag is an array of key-value pairs. Tag keys can have a maximum character length of 128 characters. Tag values can have a maximum length of 256 characters.
-        :param vpc_config: The VPC security groups and subnets that are attached to a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            cfn_project_props = devicefarm.CfnProjectProps(
-                name="name",
-            
-                # the properties below are optional
-                default_job_timeout_minutes=123,
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_config=devicefarm.CfnProject.VpcConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-                    vpc_id="vpcId"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6559d9d182fd1fc519eba56cb6cb8709e18e4013a0f927415f794e48faa0066c)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument default_job_timeout_minutes", value=default_job_timeout_minutes, expected_type=type_hints["default_job_timeout_minutes"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if default_job_timeout_minutes is not None:
-            self._values["default_job_timeout_minutes"] = default_job_timeout_minutes
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''The project's name.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def default_job_timeout_minutes(self) -> typing.Optional[jsii.Number]:
-        '''Sets the execution timeout value (in minutes) for a project.
-
-        All test runs in this project use the specified execution timeout value unless overridden when scheduling a run.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-defaultjobtimeoutminutes
-        '''
-        result = self._values.get("default_job_timeout_minutes")
-        return typing.cast(typing.Optional[jsii.Number], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags to add to the resource.
-
-        A tag is an array of key-value pairs. Tag keys can have a maximum character length of 128 characters. Tag values can have a maximum length of 256 characters.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.VpcConfigProperty"]]:
-        '''The VPC security groups and subnets that are attached to a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.VpcConfigProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.CfnTestGridProjectProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "name": "name",
-        "description": "description",
-        "tags": "tags",
-        "vpc_config": "vpcConfig",
-    },
-)
-class CfnTestGridProjectProps:
-    def __init__(
-        self,
-        *,
-        name: builtins.str,
-        description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTestGridProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnTestGridProject``.
-
-        :param name: A human-readable name for the project.
-        :param description: A human-readable description for the project.
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-        :param vpc_config: The VPC security groups and subnets that are attached to a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            cfn_test_grid_project_props = devicefarm.CfnTestGridProjectProps(
-                name="name",
-            
-                # the properties below are optional
-                description="description",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpc_config=devicefarm.CfnTestGridProject.VpcConfigProperty(
-                    security_group_ids=["securityGroupIds"],
-                    subnet_ids=["subnetIds"],
-                    vpc_id="vpcId"
-                )
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e145dbb564c006058fffdd2f8e7b8379a9b6dbbd495c537021b0c7c8704a07f7)
-            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
-            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "name": name,
-        }
-        if description is not None:
-            self._values["description"] = description
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpc_config is not None:
-            self._values["vpc_config"] = vpc_config
-
-    @builtins.property
-    def name(self) -> builtins.str:
-        '''A human-readable name for the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-name
-        '''
-        result = self._values.get("name")
-        assert result is not None, "Required property 'name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def description(self) -> typing.Optional[builtins.str]:
-        '''A human-readable description for the project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-description
-        '''
-        result = self._values.get("description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpc_config(
-        self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTestGridProject.VpcConfigProperty"]]:
-        '''The VPC security groups and subnets that are attached to a project.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-vpcconfig
-        '''
-        result = self._values.get("vpc_config")
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTestGridProject.VpcConfigProperty"]], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnTestGridProjectProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.CfnVPCEConfigurationProps",
-    jsii_struct_bases=[],
-    name_mapping={
-        "service_dns_name": "serviceDnsName",
-        "vpce_configuration_name": "vpceConfigurationName",
-        "vpce_service_name": "vpceServiceName",
-        "tags": "tags",
-        "vpce_configuration_description": "vpceConfigurationDescription",
-    },
-)
-class CfnVPCEConfigurationProps:
-    def __init__(
-        self,
-        *,
-        service_dns_name: builtins.str,
-        vpce_configuration_name: builtins.str,
-        vpce_service_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpce_configuration_description: typing.Optional[builtins.str] = None,
-    ) -> None:
-        '''Properties for defining a ``CfnVPCEConfiguration``.
-
-        :param service_dns_name: The DNS name that Device Farm will use to map to the private service you want to access.
-        :param vpce_configuration_name: The friendly name you give to your VPC endpoint configuration to manage your configurations more easily.
-        :param vpce_service_name: The name of the VPC endpoint service that you want to access from Device Farm. The name follows the format ``com.amazonaws.vpce.us-west-2.vpce-svc-id`` .
-        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-        :param vpce_configuration_description: An optional description that provides details about your VPC endpoint configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            cfn_vPCEConfiguration_props = devicefarm.CfnVPCEConfigurationProps(
-                service_dns_name="serviceDnsName",
-                vpce_configuration_name="vpceConfigurationName",
-                vpce_service_name="vpceServiceName",
-            
-                # the properties below are optional
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )],
-                vpce_configuration_description="vpceConfigurationDescription"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b2fb366fc648b755fe6a00060b1f28d06967c5eb962b685679e28dc9b18a9069)
-            check_type(argname="argument service_dns_name", value=service_dns_name, expected_type=type_hints["service_dns_name"])
-            check_type(argname="argument vpce_configuration_name", value=vpce_configuration_name, expected_type=type_hints["vpce_configuration_name"])
-            check_type(argname="argument vpce_service_name", value=vpce_service_name, expected_type=type_hints["vpce_service_name"])
-            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
-            check_type(argname="argument vpce_configuration_description", value=vpce_configuration_description, expected_type=type_hints["vpce_configuration_description"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "service_dns_name": service_dns_name,
-            "vpce_configuration_name": vpce_configuration_name,
-            "vpce_service_name": vpce_service_name,
-        }
-        if tags is not None:
-            self._values["tags"] = tags
-        if vpce_configuration_description is not None:
-            self._values["vpce_configuration_description"] = vpce_configuration_description
-
-    @builtins.property
-    def service_dns_name(self) -> builtins.str:
-        '''The DNS name that Device Farm will use to map to the private service you want to access.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-servicednsname
-        '''
-        result = self._values.get("service_dns_name")
-        assert result is not None, "Required property 'service_dns_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpce_configuration_name(self) -> builtins.str:
-        '''The friendly name you give to your VPC endpoint configuration to manage your configurations more easily.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-vpceconfigurationname
-        '''
-        result = self._values.get("vpce_configuration_name")
-        assert result is not None, "Required property 'vpce_configuration_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def vpce_service_name(self) -> builtins.str:
-        '''The name of the VPC endpoint service that you want to access from Device Farm.
-
-        The name follows the format ``com.amazonaws.vpce.us-west-2.vpce-svc-id`` .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-vpceservicename
-        '''
-        result = self._values.get("vpce_service_name")
-        assert result is not None, "Required property 'vpce_service_name' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''An array of key-value pairs to apply to this resource.
-
-        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-tags
-        '''
-        result = self._values.get("tags")
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], result)
-
-    @builtins.property
-    def vpce_configuration_description(self) -> typing.Optional[builtins.str]:
-        '''An optional description that provides details about your VPC endpoint configuration.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-vpceconfigurationdescription
-        '''
-        result = self._values.get("vpce_configuration_description")
-        return typing.cast(typing.Optional[builtins.str], result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "CfnVPCEConfigurationProps(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.DevicePoolReference",
-    jsii_struct_bases=[],
-    name_mapping={"device_pool_arn": "devicePoolArn"},
-)
-class DevicePoolReference:
-    def __init__(self, *, device_pool_arn: builtins.str) -> None:
-        '''A reference to a DevicePool resource.
-
-        :param device_pool_arn: The Arn of the DevicePool resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            device_pool_reference = devicefarm.DevicePoolReference(
-                device_pool_arn="devicePoolArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f0d1bf6bb9d2ee54b9b6c8807d2eda6678304f79c9678fbc3667cc30709dcd01)
-            check_type(argname="argument device_pool_arn", value=device_pool_arn, expected_type=type_hints["device_pool_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "device_pool_arn": device_pool_arn,
-        }
-
-    @builtins.property
-    def device_pool_arn(self) -> builtins.str:
-        '''The Arn of the DevicePool resource.'''
-        result = self._values.get("device_pool_arn")
-        assert result is not None, "Required property 'device_pool_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "DevicePoolReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devicefarm.IDevicePoolRef")
-class IDevicePoolRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a DevicePool.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="devicePoolRef")
-    def device_pool_ref(self) -> DevicePoolReference:
-        '''(experimental) A reference to a DevicePool resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IDevicePoolRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a DevicePool.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devicefarm.IDevicePoolRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="devicePoolRef")
-    def device_pool_ref(self) -> DevicePoolReference:
-        '''(experimental) A reference to a DevicePool resource.
-
-        :stability: experimental
-        '''
-        return typing.cast(DevicePoolReference, jsii.get(self, "devicePoolRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IDevicePoolRef).__jsii_proxy_class__ = lambda : _IDevicePoolRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devicefarm.IInstanceProfileRef")
-class IInstanceProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "InstanceProfileReference":
-        '''(experimental) A reference to a InstanceProfile resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IInstanceProfileRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a InstanceProfile.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devicefarm.IInstanceProfileRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> "InstanceProfileReference":
-        '''(experimental) A reference to a InstanceProfile resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("InstanceProfileReference", jsii.get(self, "instanceProfileRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IInstanceProfileRef).__jsii_proxy_class__ = lambda : _IInstanceProfileRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devicefarm.INetworkProfileRef")
-class INetworkProfileRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a NetworkProfile.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="networkProfileRef")
-    def network_profile_ref(self) -> "NetworkProfileReference":
-        '''(experimental) A reference to a NetworkProfile resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _INetworkProfileRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a NetworkProfile.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devicefarm.INetworkProfileRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="networkProfileRef")
-    def network_profile_ref(self) -> "NetworkProfileReference":
-        '''(experimental) A reference to a NetworkProfile resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("NetworkProfileReference", jsii.get(self, "networkProfileRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, INetworkProfileRef).__jsii_proxy_class__ = lambda : _INetworkProfileRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devicefarm.IProjectRef")
-class IProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a Project.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="projectRef")
-    def project_ref(self) -> "ProjectReference":
-        '''(experimental) A reference to a Project resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IProjectRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a Project.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devicefarm.IProjectRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="projectRef")
-    def project_ref(self) -> "ProjectReference":
-        '''(experimental) A reference to a Project resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("ProjectReference", jsii.get(self, "projectRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IProjectRef).__jsii_proxy_class__ = lambda : _IProjectRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devicefarm.ITestGridProjectRef")
-class ITestGridProjectRef(_constructs_77d1e7e8.IConstruct, typing_extensions.Protocol):
-    '''(experimental) Indicates that this resource can be referenced as a TestGridProject.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="testGridProjectRef")
-    def test_grid_project_ref(self) -> "TestGridProjectReference":
-        '''(experimental) A reference to a TestGridProject resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _ITestGridProjectRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a TestGridProject.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devicefarm.ITestGridProjectRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="testGridProjectRef")
-    def test_grid_project_ref(self) -> "TestGridProjectReference":
-        '''(experimental) A reference to a TestGridProject resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("TestGridProjectReference", jsii.get(self, "testGridProjectRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, ITestGridProjectRef).__jsii_proxy_class__ = lambda : _ITestGridProjectRefProxy
-
-
-@jsii.interface(jsii_type="aws-cdk-lib.aws_devicefarm.IVPCEConfigurationRef")
-class IVPCEConfigurationRef(
-    _constructs_77d1e7e8.IConstruct,
-    typing_extensions.Protocol,
-):
-    '''(experimental) Indicates that this resource can be referenced as a VPCEConfiguration.
-
-    :stability: experimental
-    '''
-
-    @builtins.property
-    @jsii.member(jsii_name="vpceConfigurationRef")
-    def vpce_configuration_ref(self) -> "VPCEConfigurationReference":
-        '''(experimental) A reference to a VPCEConfiguration resource.
-
-        :stability: experimental
-        '''
-        ...
-
-
-class _IVPCEConfigurationRefProxy(
-    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
-):
-    '''(experimental) Indicates that this resource can be referenced as a VPCEConfiguration.
-
-    :stability: experimental
-    '''
-
-    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_devicefarm.IVPCEConfigurationRef"
-
-    @builtins.property
-    @jsii.member(jsii_name="vpceConfigurationRef")
-    def vpce_configuration_ref(self) -> "VPCEConfigurationReference":
-        '''(experimental) A reference to a VPCEConfiguration resource.
-
-        :stability: experimental
-        '''
-        return typing.cast("VPCEConfigurationReference", jsii.get(self, "vpceConfigurationRef"))
-
-# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
-typing.cast(typing.Any, IVPCEConfigurationRef).__jsii_proxy_class__ = lambda : _IVPCEConfigurationRefProxy
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.InstanceProfileReference",
-    jsii_struct_bases=[],
-    name_mapping={"instance_profile_arn": "instanceProfileArn"},
-)
-class InstanceProfileReference:
-    def __init__(self, *, instance_profile_arn: builtins.str) -> None:
-        '''A reference to a InstanceProfile resource.
-
-        :param instance_profile_arn: The Arn of the InstanceProfile resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            instance_profile_reference = devicefarm.InstanceProfileReference(
-                instance_profile_arn="instanceProfileArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f61c5f8b856efcb69272f3fa63a31ce27d45f829fd0a9e3a67182847beb93900)
-            check_type(argname="argument instance_profile_arn", value=instance_profile_arn, expected_type=type_hints["instance_profile_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "instance_profile_arn": instance_profile_arn,
-        }
-
-    @builtins.property
-    def instance_profile_arn(self) -> builtins.str:
-        '''The Arn of the InstanceProfile resource.'''
-        result = self._values.get("instance_profile_arn")
-        assert result is not None, "Required property 'instance_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "InstanceProfileReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.NetworkProfileReference",
-    jsii_struct_bases=[],
-    name_mapping={"network_profile_arn": "networkProfileArn"},
-)
-class NetworkProfileReference:
-    def __init__(self, *, network_profile_arn: builtins.str) -> None:
-        '''A reference to a NetworkProfile resource.
-
-        :param network_profile_arn: The Arn of the NetworkProfile resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            network_profile_reference = devicefarm.NetworkProfileReference(
-                network_profile_arn="networkProfileArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bd798c77888e336ccf94bb494cfcd0a28043ba65684209b372a09c1634702ef)
-            check_type(argname="argument network_profile_arn", value=network_profile_arn, expected_type=type_hints["network_profile_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "network_profile_arn": network_profile_arn,
-        }
-
-    @builtins.property
-    def network_profile_arn(self) -> builtins.str:
-        '''The Arn of the NetworkProfile resource.'''
-        result = self._values.get("network_profile_arn")
-        assert result is not None, "Required property 'network_profile_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "NetworkProfileReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.ProjectReference",
-    jsii_struct_bases=[],
-    name_mapping={"project_arn": "projectArn"},
-)
-class ProjectReference:
-    def __init__(self, *, project_arn: builtins.str) -> None:
-        '''A reference to a Project resource.
-
-        :param project_arn: The Arn of the Project resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            project_reference = devicefarm.ProjectReference(
-                project_arn="projectArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d6df3627b8a74273f1b8aa0230f07a8b8e6155a1bcabd0d0ed0095b0db82cb0)
-            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "project_arn": project_arn,
-        }
-
-    @builtins.property
-    def project_arn(self) -> builtins.str:
-        '''The Arn of the Project resource.'''
-        result = self._values.get("project_arn")
-        assert result is not None, "Required property 'project_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "ProjectReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.TestGridProjectReference",
-    jsii_struct_bases=[],
-    name_mapping={"test_grid_project_arn": "testGridProjectArn"},
-)
-class TestGridProjectReference:
-    def __init__(self, *, test_grid_project_arn: builtins.str) -> None:
-        '''A reference to a TestGridProject resource.
-
-        :param test_grid_project_arn: The Arn of the TestGridProject resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            test_grid_project_reference = devicefarm.TestGridProjectReference(
-                test_grid_project_arn="testGridProjectArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79b14ca26c0e784b02905af12b78ad217320fc0597260c74843774a19fd59719)
-            check_type(argname="argument test_grid_project_arn", value=test_grid_project_arn, expected_type=type_hints["test_grid_project_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "test_grid_project_arn": test_grid_project_arn,
-        }
-
-    @builtins.property
-    def test_grid_project_arn(self) -> builtins.str:
-        '''The Arn of the TestGridProject resource.'''
-        result = self._values.get("test_grid_project_arn")
-        assert result is not None, "Required property 'test_grid_project_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "TestGridProjectReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.data_type(
-    jsii_type="aws-cdk-lib.aws_devicefarm.VPCEConfigurationReference",
-    jsii_struct_bases=[],
-    name_mapping={"vpce_configuration_arn": "vpceConfigurationArn"},
-)
-class VPCEConfigurationReference:
-    def __init__(self, *, vpce_configuration_arn: builtins.str) -> None:
-        '''A reference to a VPCEConfiguration resource.
-
-        :param vpce_configuration_arn: The Arn of the VPCEConfiguration resource.
-
-        :exampleMetadata: fixture=_generated
-
-        Example::
-
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_devicefarm as devicefarm
-            
-            v_pCEConfiguration_reference = devicefarm.VPCEConfigurationReference(
-                vpce_configuration_arn="vpceConfigurationArn"
-            )
-        '''
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__483c7a4cbeecbda43618f33bae25f303d5112944f067ed762d50d36932217bdc)
-            check_type(argname="argument vpce_configuration_arn", value=vpce_configuration_arn, expected_type=type_hints["vpce_configuration_arn"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "vpce_configuration_arn": vpce_configuration_arn,
-        }
-
-    @builtins.property
-    def vpce_configuration_arn(self) -> builtins.str:
-        '''The Arn of the VPCEConfiguration resource.'''
-        result = self._values.get("vpce_configuration_arn")
-        assert result is not None, "Required property 'vpce_configuration_arn' is missing"
-        return typing.cast(builtins.str, result)
-
-    def __eq__(self, rhs: typing.Any) -> builtins.bool:
-        return isinstance(rhs, self.__class__) and rhs._values == self._values
-
-    def __ne__(self, rhs: typing.Any) -> builtins.bool:
-        return not (rhs == self)
-
-    def __repr__(self) -> str:
-        return "VPCEConfigurationReference(%s)" % ", ".join(
-            k + "=" + repr(v) for k, v in self._values.items()
-        )
-
-
-@jsii.implements(_IInspectable_c2943556, IDevicePoolRef, _ITaggable_36806126)
+@jsii.implements(_IInspectable_c2943556, _IDevicePoolRef_2a77f578, _ITaggable_36806126)
 class CfnDevicePool(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1550,6 +97,7 @@ class CfnDevicePool(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
@@ -1575,17 +123,18 @@ class CfnDevicePool(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         project_arn: builtins.str,
-        rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnDevicePool.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDevicePool.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
         description: typing.Optional[builtins.str] = None,
         max_devices: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DeviceFarm::DevicePool``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The device pool's name.
@@ -1610,8 +159,31 @@ class CfnDevicePool(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForDevicePool")
+    @builtins.classmethod
+    def arn_for_device_pool(cls, resource: "_IDevicePoolRef_2a77f578") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d4a2d825fe561be1751da0f7b9cec0bb42a3bcc3d9c8de6eb67bb6d16b8b6a0f)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForDevicePool", [resource]))
+
+    @jsii.member(jsii_name="isCfnDevicePool")
+    @builtins.classmethod
+    def is_cfn_device_pool(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnDevicePool.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c4d3ab595f614a456c0a2c8b6d434a265f9422d3cb4c00f146fde41040c50e6a)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnDevicePool", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -1658,15 +230,15 @@ class CfnDevicePool(
 
     @builtins.property
     @jsii.member(jsii_name="devicePoolRef")
-    def device_pool_ref(self) -> DevicePoolReference:
+    def device_pool_ref(self) -> "_DevicePoolReference_92b3129b":
         '''A reference to a DevicePool resource.'''
-        return typing.cast(DevicePoolReference, jsii.get(self, "devicePoolRef"))
+        return typing.cast("_DevicePoolReference_92b3129b", jsii.get(self, "devicePoolRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -1698,14 +270,14 @@ class CfnDevicePool(
     @jsii.member(jsii_name="rules")
     def rules(
         self,
-    ) -> typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDevicePool.RuleProperty"]]]:
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDevicePool.RuleProperty"]]]:
         '''The device pool's rules.'''
-        return typing.cast(typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDevicePool.RuleProperty"]]], jsii.get(self, "rules"))
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDevicePool.RuleProperty"]]], jsii.get(self, "rules"))
 
     @rules.setter
     def rules(
         self,
-        value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnDevicePool.RuleProperty"]]],
+        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDevicePool.RuleProperty"]]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__878e6373669e306e9365c0b15e6adde48fdf3dfe289f45637e1a549ae9da641b)
@@ -1740,12 +312,12 @@ class CfnDevicePool(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5e2cf7f4efbed5d263cca53206f67753b2376cc6beb829af18416bb2774b62a6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -1899,7 +471,164 @@ class CfnDevicePool(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IInstanceProfileRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnDevicePoolProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "project_arn": "projectArn",
+        "rules": "rules",
+        "description": "description",
+        "max_devices": "maxDevices",
+        "tags": "tags",
+    },
+)
+class CfnDevicePoolProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        project_arn: builtins.str,
+        rules: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDevicePool.RuleProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        description: typing.Optional[builtins.str] = None,
+        max_devices: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnDevicePool``.
+
+        :param name: The device pool's name.
+        :param project_arn: The ARN of the project for the device pool.
+        :param rules: The device pool's rules.
+        :param description: The device pool's description.
+        :param max_devices: The number of devices that Device Farm can add to your device pool. Device Farm adds devices that are available and meet the criteria that you assign for the ``rules`` parameter. Depending on how many devices meet these constraints, your device pool might contain fewer devices than the value for this parameter. By specifying the maximum number of devices, you can control the costs that you incur by running tests.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_device_pool_props = devicefarm.CfnDevicePoolProps(
+                name="name",
+                project_arn="projectArn",
+                rules=[devicefarm.CfnDevicePool.RuleProperty(
+                    attribute="attribute",
+                    operator="operator",
+                    value="value"
+                )],
+            
+                # the properties below are optional
+                description="description",
+                max_devices=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cdbd0dbaf5eeb8e0d1a370581a06a71801ff0d57bd9fd8d87abcb95e23dea50c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+            check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument max_devices", value=max_devices, expected_type=type_hints["max_devices"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "project_arn": project_arn,
+            "rules": rules,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if max_devices is not None:
+            self._values["max_devices"] = max_devices
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The device pool's name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The ARN of the project for the device pool.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-projectarn
+        '''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def rules(
+        self,
+    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDevicePool.RuleProperty"]]]:
+        '''The device pool's rules.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-rules
+        '''
+        result = self._values.get("rules")
+        assert result is not None, "Required property 'rules' is missing"
+        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnDevicePool.RuleProperty"]]], result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The device pool's description.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def max_devices(self) -> typing.Optional[jsii.Number]:
+        '''The number of devices that Device Farm can add to your device pool.
+
+        Device Farm adds devices that are available and meet the criteria that you assign for the ``rules`` parameter. Depending on how many devices meet these constraints, your device pool might contain fewer devices than the value for this parameter.
+
+        By specifying the maximum number of devices, you can control the costs that you incur by running tests.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-maxdevices
+        '''
+        result = self._values.get("max_devices")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-devicepool.html#cfn-devicefarm-devicepool-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnDevicePoolProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IInstanceProfileRef_9b6bf1ce, _ITaggable_36806126)
 class CfnInstanceProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -1913,6 +642,7 @@ class CfnInstanceProfile(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
@@ -1934,17 +664,18 @@ class CfnInstanceProfile(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
         exclude_app_packages_from_cleanup: typing.Optional[typing.Sequence[builtins.str]] = None,
-        package_cleanup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        reboot_after_use: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        package_cleanup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        reboot_after_use: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DeviceFarm::InstanceProfile``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the instance profile.
@@ -1969,8 +700,34 @@ class CfnInstanceProfile(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForInstanceProfile")
+    @builtins.classmethod
+    def arn_for_instance_profile(
+        cls,
+        resource: "_IInstanceProfileRef_9b6bf1ce",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1f6a53d5135b7664fb4856232b627a04a21d254e01539e548a5110b2453e4e2d)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForInstanceProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnInstanceProfile")
+    @builtins.classmethod
+    def is_cfn_instance_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnInstanceProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bd4d80bd33efcd4a4a9f571530eccd544577db5e4028bbee6873847c5c58bf72)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnInstanceProfile", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2017,15 +774,15 @@ class CfnInstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="instanceProfileRef")
-    def instance_profile_ref(self) -> InstanceProfileReference:
+    def instance_profile_ref(self) -> "_InstanceProfileReference_a62475fa":
         '''A reference to a InstanceProfile resource.'''
-        return typing.cast(InstanceProfileReference, jsii.get(self, "instanceProfileRef"))
+        return typing.cast("_InstanceProfileReference_a62475fa", jsii.get(self, "instanceProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2075,14 +832,14 @@ class CfnInstanceProfile(
     @jsii.member(jsii_name="packageCleanup")
     def package_cleanup(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''When set to ``true`` , Device Farm removes app packages after a test run.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "packageCleanup"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "packageCleanup"))
 
     @package_cleanup.setter
     def package_cleanup(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94278fbf52719304b1eeb162c050b5e9626d58ff0e40eb901b64a01f27e63972)
@@ -2093,14 +850,14 @@ class CfnInstanceProfile(
     @jsii.member(jsii_name="rebootAfterUse")
     def reboot_after_use(
         self,
-    ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
         '''When set to ``true`` , Device Farm reboots the instance after a test run.'''
-        return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "rebootAfterUse"))
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], jsii.get(self, "rebootAfterUse"))
 
     @reboot_after_use.setter
     def reboot_after_use(
         self,
-        value: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]],
+        value: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__59e2f9337c3eb103f9e3a27518e293407dc94e98fee92f2b33af3b1d9dd60698)
@@ -2109,19 +866,178 @@ class CfnInstanceProfile(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5194955750aa2f8304da100d5f6b3035ceebeb29d5b599f07f657cc4f7516714)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, INetworkProfileRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnInstanceProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "exclude_app_packages_from_cleanup": "excludeAppPackagesFromCleanup",
+        "package_cleanup": "packageCleanup",
+        "reboot_after_use": "rebootAfterUse",
+        "tags": "tags",
+    },
+)
+class CfnInstanceProfileProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        exclude_app_packages_from_cleanup: typing.Optional[typing.Sequence[builtins.str]] = None,
+        package_cleanup: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        reboot_after_use: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnInstanceProfile``.
+
+        :param name: The name of the instance profile.
+        :param description: The description of the instance profile.
+        :param exclude_app_packages_from_cleanup: An array of strings containing the list of app packages that should not be cleaned up from the device after a test run completes. The list of packages is considered only if you set ``packageCleanup`` to ``true`` .
+        :param package_cleanup: When set to ``true`` , Device Farm removes app packages after a test run. The default value is ``false`` for private devices.
+        :param reboot_after_use: When set to ``true`` , Device Farm reboots the instance after a test run. The default value is ``true`` .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_instance_profile_props = devicefarm.CfnInstanceProfileProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                exclude_app_packages_from_cleanup=["excludeAppPackagesFromCleanup"],
+                package_cleanup=False,
+                reboot_after_use=False,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7392c4b7cccfb4ed48f655dd9ef8cfdda0d147224dceaf92b58913cc7bdedf0a)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument exclude_app_packages_from_cleanup", value=exclude_app_packages_from_cleanup, expected_type=type_hints["exclude_app_packages_from_cleanup"])
+            check_type(argname="argument package_cleanup", value=package_cleanup, expected_type=type_hints["package_cleanup"])
+            check_type(argname="argument reboot_after_use", value=reboot_after_use, expected_type=type_hints["reboot_after_use"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if exclude_app_packages_from_cleanup is not None:
+            self._values["exclude_app_packages_from_cleanup"] = exclude_app_packages_from_cleanup
+        if package_cleanup is not None:
+            self._values["package_cleanup"] = package_cleanup
+        if reboot_after_use is not None:
+            self._values["reboot_after_use"] = reboot_after_use
+        if tags is not None:
+            self._values["tags"] = tags
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the instance profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def exclude_app_packages_from_cleanup(
+        self,
+    ) -> typing.Optional[typing.List[builtins.str]]:
+        '''An array of strings containing the list of app packages that should not be cleaned up from the device after a test run completes.
+
+        The list of packages is considered only if you set ``packageCleanup`` to ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-excludeapppackagesfromcleanup
+        '''
+        result = self._values.get("exclude_app_packages_from_cleanup")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def package_cleanup(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''When set to ``true`` , Device Farm removes app packages after a test run.
+
+        The default value is ``false`` for private devices.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-packagecleanup
+        '''
+        result = self._values.get("package_cleanup")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def reboot_after_use(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+        '''When set to ``true`` , Device Farm reboots the instance after a test run.
+
+        The default value is ``true`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-rebootafteruse
+        '''
+        result = self._values.get("reboot_after_use")
+        return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-instanceprofile.html#cfn-devicefarm-instanceprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnInstanceProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _INetworkProfileRef_321b625c, _ITaggable_36806126)
 class CfnNetworkProfile(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2135,6 +1051,7 @@ class CfnNetworkProfile(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
@@ -2162,7 +1079,7 @@ class CfnNetworkProfile(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
@@ -2172,13 +1089,14 @@ class CfnNetworkProfile(
         downlink_delay_ms: typing.Optional[jsii.Number] = None,
         downlink_jitter_ms: typing.Optional[jsii.Number] = None,
         downlink_loss_percent: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         uplink_bandwidth_bits: typing.Optional[jsii.Number] = None,
         uplink_delay_ms: typing.Optional[jsii.Number] = None,
         uplink_jitter_ms: typing.Optional[jsii.Number] = None,
         uplink_loss_percent: typing.Optional[jsii.Number] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DeviceFarm::NetworkProfile``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The name of the network profile.
@@ -2215,8 +1133,34 @@ class CfnNetworkProfile(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForNetworkProfile")
+    @builtins.classmethod
+    def arn_for_network_profile(
+        cls,
+        resource: "_INetworkProfileRef_321b625c",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e5aa4a59eba534bebfee2b72fd1331c9039d882d804a865be36b1dc5cc12677a)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForNetworkProfile", [resource]))
+
+    @jsii.member(jsii_name="isCfnNetworkProfile")
+    @builtins.classmethod
+    def is_cfn_network_profile(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnNetworkProfile.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__771c5e5974f8107891d5a801fbec72238b9af623ee2a02b2d4982a23544a2544)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnNetworkProfile", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2263,15 +1207,15 @@ class CfnNetworkProfile(
 
     @builtins.property
     @jsii.member(jsii_name="networkProfileRef")
-    def network_profile_ref(self) -> NetworkProfileReference:
+    def network_profile_ref(self) -> "_NetworkProfileReference_56b2af39":
         '''A reference to a NetworkProfile resource.'''
-        return typing.cast(NetworkProfileReference, jsii.get(self, "networkProfileRef"))
+        return typing.cast("_NetworkProfileReference_56b2af39", jsii.get(self, "networkProfileRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2366,12 +1310,12 @@ class CfnNetworkProfile(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77650cacecfe99d7da6cd303af7b455933a1f46c7deac85cc197d3802ce9dbff)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2430,7 +1374,250 @@ class CfnNetworkProfile(
         jsii.set(self, "uplinkLossPercent", value) # pyright: ignore[reportArgumentType]
 
 
-@jsii.implements(_IInspectable_c2943556, IProjectRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnNetworkProfileProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "project_arn": "projectArn",
+        "description": "description",
+        "downlink_bandwidth_bits": "downlinkBandwidthBits",
+        "downlink_delay_ms": "downlinkDelayMs",
+        "downlink_jitter_ms": "downlinkJitterMs",
+        "downlink_loss_percent": "downlinkLossPercent",
+        "tags": "tags",
+        "uplink_bandwidth_bits": "uplinkBandwidthBits",
+        "uplink_delay_ms": "uplinkDelayMs",
+        "uplink_jitter_ms": "uplinkJitterMs",
+        "uplink_loss_percent": "uplinkLossPercent",
+    },
+)
+class CfnNetworkProfileProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        project_arn: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        downlink_bandwidth_bits: typing.Optional[jsii.Number] = None,
+        downlink_delay_ms: typing.Optional[jsii.Number] = None,
+        downlink_jitter_ms: typing.Optional[jsii.Number] = None,
+        downlink_loss_percent: typing.Optional[jsii.Number] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        uplink_bandwidth_bits: typing.Optional[jsii.Number] = None,
+        uplink_delay_ms: typing.Optional[jsii.Number] = None,
+        uplink_jitter_ms: typing.Optional[jsii.Number] = None,
+        uplink_loss_percent: typing.Optional[jsii.Number] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnNetworkProfile``.
+
+        :param name: The name of the network profile.
+        :param project_arn: The Amazon Resource Name (ARN) of the specified project.
+        :param description: The description of the network profile.
+        :param downlink_bandwidth_bits: The data throughput rate in bits per second, as an integer from 0 to 104857600.
+        :param downlink_delay_ms: Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
+        :param downlink_jitter_ms: Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
+        :param downlink_loss_percent: Proportion of received packets that fail to arrive from 0 to 100 percent.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+        :param uplink_bandwidth_bits: The data throughput rate in bits per second, as an integer from 0 to 104857600.
+        :param uplink_delay_ms: Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
+        :param uplink_jitter_ms: Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
+        :param uplink_loss_percent: Proportion of transmitted packets that fail to arrive from 0 to 100 percent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_network_profile_props = devicefarm.CfnNetworkProfileProps(
+                name="name",
+                project_arn="projectArn",
+            
+                # the properties below are optional
+                description="description",
+                downlink_bandwidth_bits=123,
+                downlink_delay_ms=123,
+                downlink_jitter_ms=123,
+                downlink_loss_percent=123,
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                uplink_bandwidth_bits=123,
+                uplink_delay_ms=123,
+                uplink_jitter_ms=123,
+                uplink_loss_percent=123
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7dd5cc9e50d96fdbb41dccca0bc93936eeaacdb252c6703a366abcfc675c8b32)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument project_arn", value=project_arn, expected_type=type_hints["project_arn"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument downlink_bandwidth_bits", value=downlink_bandwidth_bits, expected_type=type_hints["downlink_bandwidth_bits"])
+            check_type(argname="argument downlink_delay_ms", value=downlink_delay_ms, expected_type=type_hints["downlink_delay_ms"])
+            check_type(argname="argument downlink_jitter_ms", value=downlink_jitter_ms, expected_type=type_hints["downlink_jitter_ms"])
+            check_type(argname="argument downlink_loss_percent", value=downlink_loss_percent, expected_type=type_hints["downlink_loss_percent"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument uplink_bandwidth_bits", value=uplink_bandwidth_bits, expected_type=type_hints["uplink_bandwidth_bits"])
+            check_type(argname="argument uplink_delay_ms", value=uplink_delay_ms, expected_type=type_hints["uplink_delay_ms"])
+            check_type(argname="argument uplink_jitter_ms", value=uplink_jitter_ms, expected_type=type_hints["uplink_jitter_ms"])
+            check_type(argname="argument uplink_loss_percent", value=uplink_loss_percent, expected_type=type_hints["uplink_loss_percent"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+            "project_arn": project_arn,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if downlink_bandwidth_bits is not None:
+            self._values["downlink_bandwidth_bits"] = downlink_bandwidth_bits
+        if downlink_delay_ms is not None:
+            self._values["downlink_delay_ms"] = downlink_delay_ms
+        if downlink_jitter_ms is not None:
+            self._values["downlink_jitter_ms"] = downlink_jitter_ms
+        if downlink_loss_percent is not None:
+            self._values["downlink_loss_percent"] = downlink_loss_percent
+        if tags is not None:
+            self._values["tags"] = tags
+        if uplink_bandwidth_bits is not None:
+            self._values["uplink_bandwidth_bits"] = uplink_bandwidth_bits
+        if uplink_delay_ms is not None:
+            self._values["uplink_delay_ms"] = uplink_delay_ms
+        if uplink_jitter_ms is not None:
+            self._values["uplink_jitter_ms"] = uplink_jitter_ms
+        if uplink_loss_percent is not None:
+            self._values["uplink_loss_percent"] = uplink_loss_percent
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The name of the network profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def project_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the specified project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-projectarn
+        '''
+        result = self._values.get("project_arn")
+        assert result is not None, "Required property 'project_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''The description of the network profile.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def downlink_bandwidth_bits(self) -> typing.Optional[jsii.Number]:
+        '''The data throughput rate in bits per second, as an integer from 0 to 104857600.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinkbandwidthbits
+        '''
+        result = self._values.get("downlink_bandwidth_bits")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def downlink_delay_ms(self) -> typing.Optional[jsii.Number]:
+        '''Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinkdelayms
+        '''
+        result = self._values.get("downlink_delay_ms")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def downlink_jitter_ms(self) -> typing.Optional[jsii.Number]:
+        '''Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinkjitterms
+        '''
+        result = self._values.get("downlink_jitter_ms")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def downlink_loss_percent(self) -> typing.Optional[jsii.Number]:
+        '''Proportion of received packets that fail to arrive from 0 to 100 percent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-downlinklosspercent
+        '''
+        result = self._values.get("downlink_loss_percent")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def uplink_bandwidth_bits(self) -> typing.Optional[jsii.Number]:
+        '''The data throughput rate in bits per second, as an integer from 0 to 104857600.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinkbandwidthbits
+        '''
+        result = self._values.get("uplink_bandwidth_bits")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def uplink_delay_ms(self) -> typing.Optional[jsii.Number]:
+        '''Delay time for all packets to destination in milliseconds as an integer from 0 to 2000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinkdelayms
+        '''
+        result = self._values.get("uplink_delay_ms")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def uplink_jitter_ms(self) -> typing.Optional[jsii.Number]:
+        '''Time variation in the delay of received packets in milliseconds as an integer from 0 to 2000.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinkjitterms
+        '''
+        result = self._values.get("uplink_jitter_ms")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def uplink_loss_percent(self) -> typing.Optional[jsii.Number]:
+        '''Proportion of transmitted packets that fail to arrive from 0 to 100 percent.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-networkprofile.html#cfn-devicefarm-networkprofile-uplinklosspercent
+        '''
+        result = self._values.get("uplink_loss_percent")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnNetworkProfileProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IProjectRef_a22154a0, _ITaggable_36806126)
 class CfnProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2444,6 +1631,7 @@ class CfnProject(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
@@ -2453,6 +1641,11 @@ class CfnProject(
         
             # the properties below are optional
             default_job_timeout_minutes=123,
+            environment_variables=[devicefarm.CfnProject.EnvironmentVariableProperty(
+                name="name",
+                value="value"
+            )],
+            execution_role_arn="executionRoleArn",
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -2467,19 +1660,24 @@ class CfnProject(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         default_job_timeout_minutes: typing.Optional[jsii.Number] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DeviceFarm::Project``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: The project's name.
         :param default_job_timeout_minutes: Sets the execution timeout value (in minutes) for a project. All test runs in this project use the specified execution timeout value unless overridden when scheduling a run.
+        :param environment_variables: 
+        :param execution_role_arn: 
         :param tags: The tags to add to the resource. A tag is an array of key-value pairs. Tag keys can have a maximum character length of 128 characters. Tag values can have a maximum length of 256 characters.
         :param vpc_config: The VPC security groups and subnets that are attached to a project.
         '''
@@ -2490,14 +1688,39 @@ class CfnProject(
         props = CfnProjectProps(
             name=name,
             default_job_timeout_minutes=default_job_timeout_minutes,
+            environment_variables=environment_variables,
+            execution_role_arn=execution_role_arn,
             tags=tags,
             vpc_config=vpc_config,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForProject")
+    @builtins.classmethod
+    def arn_for_project(cls, resource: "_IProjectRef_a22154a0") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2df4411534f8d1b7522224da68ef2a084232b13a59bb770a98f27a9afac5f844)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForProject", [resource]))
+
+    @jsii.member(jsii_name="isCfnProject")
+    @builtins.classmethod
+    def is_cfn_project(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnProject.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ebb11b7f295a683e3d864afd95b25284ff7a4141388cc458daf2e3ca1f36780)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnProject", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2544,15 +1767,15 @@ class CfnProject(
 
     @builtins.property
     @jsii.member(jsii_name="projectRef")
-    def project_ref(self) -> ProjectReference:
+    def project_ref(self) -> "_ProjectReference_96d63247":
         '''A reference to a Project resource.'''
-        return typing.cast(ProjectReference, jsii.get(self, "projectRef"))
+        return typing.cast("_ProjectReference_96d63247", jsii.get(self, "projectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2581,13 +1804,42 @@ class CfnProject(
         jsii.set(self, "defaultJobTimeoutMinutes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="environmentVariables")
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.EnvironmentVariableProperty"]]]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.EnvironmentVariableProperty"]]]], jsii.get(self, "environmentVariables"))
+
+    @environment_variables.setter
+    def environment_variables(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.EnvironmentVariableProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__373a486494125e07c663db0a2734b701e614d21cacb9d410ac74509468832c43)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "environmentVariables", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRoleArn")
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "executionRoleArn"))
+
+    @execution_role_arn.setter
+    def execution_role_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea505032ef293a7281e50f2583e0c4d2f5e37c724121e4d551db8dc6caa98c13)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags to add to the resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__41fbb1c60eec673fc1dd40b21d96b07f793303fbfbd3ec34d3536f2ad3b05f66)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2597,19 +1849,82 @@ class CfnProject(
     @jsii.member(jsii_name="vpcConfig")
     def vpc_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.VpcConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProject.VpcConfigProperty"]]:
         '''The VPC security groups and subnets that are attached to a project.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProject.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
 
     @vpc_config.setter
     def vpc_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnProject.VpcConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProject.VpcConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d3fa42db493c8ae53f5c45defd768baab8f31711f46fd941b6fdd015f0417e30)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "vpcConfig", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_devicefarm.CfnProject.EnvironmentVariableProperty",
+        jsii_struct_bases=[],
+        name_mapping={"name": "name", "value": "value"},
+    )
+    class EnvironmentVariableProperty:
+        def __init__(self, *, name: builtins.str, value: builtins.str) -> None:
+            '''
+            :param name: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devicefarm-project-environmentvariable.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_devicefarm as devicefarm
+                
+                environment_variable_property = devicefarm.CfnProject.EnvironmentVariableProperty(
+                    name="name",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5937bf09e24572df4c4a53b6d73dbbd301d83d90d6015bf7a59f7ed419d38f45)
+                check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "name": name,
+                "value": value,
+            }
+
+        @builtins.property
+        def name(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devicefarm-project-environmentvariable.html#cfn-devicefarm-project-environmentvariable-name
+            '''
+            result = self._values.get("name")
+            assert result is not None, "Required property 'name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devicefarm-project-environmentvariable.html#cfn-devicefarm-project-environmentvariable-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "EnvironmentVariableProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_devicefarm.CfnProject.VpcConfigProperty",
@@ -2708,7 +2023,165 @@ class CfnProject(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, ITestGridProjectRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "default_job_timeout_minutes": "defaultJobTimeoutMinutes",
+        "environment_variables": "environmentVariables",
+        "execution_role_arn": "executionRoleArn",
+        "tags": "tags",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnProjectProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        default_job_timeout_minutes: typing.Optional[jsii.Number] = None,
+        environment_variables: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.EnvironmentVariableProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        execution_role_arn: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnProject``.
+
+        :param name: The project's name.
+        :param default_job_timeout_minutes: Sets the execution timeout value (in minutes) for a project. All test runs in this project use the specified execution timeout value unless overridden when scheduling a run.
+        :param environment_variables: 
+        :param execution_role_arn: 
+        :param tags: The tags to add to the resource. A tag is an array of key-value pairs. Tag keys can have a maximum character length of 128 characters. Tag values can have a maximum length of 256 characters.
+        :param vpc_config: The VPC security groups and subnets that are attached to a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_project_props = devicefarm.CfnProjectProps(
+                name="name",
+            
+                # the properties below are optional
+                default_job_timeout_minutes=123,
+                environment_variables=[devicefarm.CfnProject.EnvironmentVariableProperty(
+                    name="name",
+                    value="value"
+                )],
+                execution_role_arn="executionRoleArn",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_config=devicefarm.CfnProject.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6559d9d182fd1fc519eba56cb6cb8709e18e4013a0f927415f794e48faa0066c)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument default_job_timeout_minutes", value=default_job_timeout_minutes, expected_type=type_hints["default_job_timeout_minutes"])
+            check_type(argname="argument environment_variables", value=environment_variables, expected_type=type_hints["environment_variables"])
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if default_job_timeout_minutes is not None:
+            self._values["default_job_timeout_minutes"] = default_job_timeout_minutes
+        if environment_variables is not None:
+            self._values["environment_variables"] = environment_variables
+        if execution_role_arn is not None:
+            self._values["execution_role_arn"] = execution_role_arn
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''The project's name.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def default_job_timeout_minutes(self) -> typing.Optional[jsii.Number]:
+        '''Sets the execution timeout value (in minutes) for a project.
+
+        All test runs in this project use the specified execution timeout value unless overridden when scheduling a run.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-defaultjobtimeoutminutes
+        '''
+        result = self._values.get("default_job_timeout_minutes")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def environment_variables(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.EnvironmentVariableProperty"]]]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-environmentvariables
+        '''
+        result = self._values.get("environment_variables")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnProject.EnvironmentVariableProperty"]]]], result)
+
+    @builtins.property
+    def execution_role_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags to add to the resource.
+
+        A tag is an array of key-value pairs. Tag keys can have a maximum character length of 128 characters. Tag values can have a maximum length of 256 characters.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProject.VpcConfigProperty"]]:
+        '''The VPC security groups and subnets that are attached to a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-project.html#cfn-devicefarm-project-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnProject.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _ITestGridProjectRef_35482f1c, _ITaggable_36806126)
 class CfnTestGridProject(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2724,6 +2197,7 @@ class CfnTestGridProject(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
@@ -2747,15 +2221,16 @@ class CfnTestGridProject(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-        vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnTestGridProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTestGridProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DeviceFarm::TestGridProject``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param name: A human-readable name for the project.
@@ -2773,8 +2248,34 @@ class CfnTestGridProject(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForTestGridProject")
+    @builtins.classmethod
+    def arn_for_test_grid_project(
+        cls,
+        resource: "_ITestGridProjectRef_35482f1c",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3d104f6de3ac4b4e9bfff57d38ef6af6a9ab75d6bba50b1156bcb08d58059f52)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTestGridProject", [resource]))
+
+    @jsii.member(jsii_name="isCfnTestGridProject")
+    @builtins.classmethod
+    def is_cfn_test_grid_project(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTestGridProject.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f8e52797012a5a3fea64f0a42e2cbc6265e2f338424fb316c1c739c3df1fb321)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTestGridProject", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -2821,15 +2322,15 @@ class CfnTestGridProject(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="testGridProjectRef")
-    def test_grid_project_ref(self) -> TestGridProjectReference:
+    def test_grid_project_ref(self) -> "_TestGridProjectReference_a420cd7a":
         '''A reference to a TestGridProject resource.'''
-        return typing.cast(TestGridProjectReference, jsii.get(self, "testGridProjectRef"))
+        return typing.cast("_TestGridProjectReference_a420cd7a", jsii.get(self, "testGridProjectRef"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
@@ -2859,12 +2360,12 @@ class CfnTestGridProject(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__839e0e2af77c8f8632b9f83508bf02b7b33847eec29181251d8a3f13e6bb93bd)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -2874,14 +2375,14 @@ class CfnTestGridProject(
     @jsii.member(jsii_name="vpcConfig")
     def vpc_config(
         self,
-    ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTestGridProject.VpcConfigProperty"]]:
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTestGridProject.VpcConfigProperty"]]:
         '''The VPC security groups and subnets that are attached to a project.'''
-        return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTestGridProject.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTestGridProject.VpcConfigProperty"]], jsii.get(self, "vpcConfig"))
 
     @vpc_config.setter
     def vpc_config(
         self,
-        value: typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnTestGridProject.VpcConfigProperty"]],
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTestGridProject.VpcConfigProperty"]],
     ) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__82ba7775df3aab5a721601164793bf3cc9a7f50b0967434f40a6a0e1f4e24d34)
@@ -2985,7 +2486,128 @@ class CfnTestGridProject(
             )
 
 
-@jsii.implements(_IInspectable_c2943556, IVPCEConfigurationRef, _ITaggable_36806126)
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnTestGridProjectProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "name": "name",
+        "description": "description",
+        "tags": "tags",
+        "vpc_config": "vpcConfig",
+    },
+)
+class CfnTestGridProjectProps:
+    def __init__(
+        self,
+        *,
+        name: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTestGridProject.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTestGridProject``.
+
+        :param name: A human-readable name for the project.
+        :param description: A human-readable description for the project.
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+        :param vpc_config: The VPC security groups and subnets that are attached to a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_test_grid_project_props = devicefarm.CfnTestGridProjectProps(
+                name="name",
+            
+                # the properties below are optional
+                description="description",
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpc_config=devicefarm.CfnTestGridProject.VpcConfigProperty(
+                    security_group_ids=["securityGroupIds"],
+                    subnet_ids=["subnetIds"],
+                    vpc_id="vpcId"
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e145dbb564c006058fffdd2f8e7b8379a9b6dbbd495c537021b0c7c8704a07f7)
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpc_config", value=vpc_config, expected_type=type_hints["vpc_config"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "name": name,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpc_config is not None:
+            self._values["vpc_config"] = vpc_config
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''A human-readable name for the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''A human-readable description for the project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpc_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTestGridProject.VpcConfigProperty"]]:
+        '''The VPC security groups and subnets that are attached to a project.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-testgridproject.html#cfn-devicefarm-testgridproject-vpcconfig
+        '''
+        result = self._values.get("vpc_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnTestGridProject.VpcConfigProperty"]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTestGridProjectProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IVPCEConfigurationRef_40fa5aa0, _ITaggable_36806126)
 class CfnVPCEConfiguration(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -2999,6 +2621,7 @@ class CfnVPCEConfiguration(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_devicefarm as devicefarm
@@ -3019,16 +2642,17 @@ class CfnVPCEConfiguration(
 
     def __init__(
         self,
-        scope: _constructs_77d1e7e8.Construct,
+        scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
         service_dns_name: builtins.str,
         vpce_configuration_name: builtins.str,
         vpce_service_name: builtins.str,
-        tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vpce_configuration_description: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''
+        '''Create a new ``AWS::DeviceFarm::VPCEConfiguration``.
+
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param service_dns_name: The DNS name that Device Farm will use to map to the private service you want to access.
@@ -3051,8 +2675,34 @@ class CfnVPCEConfiguration(
 
         jsii.create(self.__class__, self, [scope, id, props])
 
+    @jsii.member(jsii_name="arnForVPCEConfiguration")
+    @builtins.classmethod
+    def arn_for_vpce_configuration(
+        cls,
+        resource: "_IVPCEConfigurationRef_40fa5aa0",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__82554adbe863bf4df225d7b81d737baf8ea355777299dff5e2d25819a43d76a5)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForVPCEConfiguration", [resource]))
+
+    @jsii.member(jsii_name="isCfnVPCEConfiguration")
+    @builtins.classmethod
+    def is_cfn_vpce_configuration(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnVPCEConfiguration.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a934b908049743b98c883b8d520be3c6cfd74704b59c88de0d2b7b0fb682d736)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnVPCEConfiguration", [x]))
+
     @jsii.member(jsii_name="inspect")
-    def inspect(self, inspector: _TreeInspector_488e0dd5) -> None:
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
         '''Examines the CloudFormation resource and discloses attributes.
 
         :param inspector: tree inspector to collect and process attributes.
@@ -3099,15 +2749,15 @@ class CfnVPCEConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="tags")
-    def tags(self) -> _TagManager_0a598cb3:
+    def tags(self) -> "_TagManager_0a598cb3":
         '''Tag Manager which manages the tags for this resource.'''
-        return typing.cast(_TagManager_0a598cb3, jsii.get(self, "tags"))
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "tags"))
 
     @builtins.property
     @jsii.member(jsii_name="vpceConfigurationRef")
-    def vpce_configuration_ref(self) -> VPCEConfigurationReference:
+    def vpce_configuration_ref(self) -> "_VPCEConfigurationReference_3b070860":
         '''A reference to a VPCEConfiguration resource.'''
-        return typing.cast(VPCEConfigurationReference, jsii.get(self, "vpceConfigurationRef"))
+        return typing.cast("_VPCEConfigurationReference_3b070860", jsii.get(self, "vpceConfigurationRef"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceDnsName")
@@ -3150,12 +2800,12 @@ class CfnVPCEConfiguration(
 
     @builtins.property
     @jsii.member(jsii_name="tagsRaw")
-    def tags_raw(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
+    def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''An array of key-value pairs to apply to this resource.'''
-        return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tagsRaw"))
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tagsRaw"))
 
     @tags_raw.setter
-    def tags_raw(self, value: typing.Optional[typing.List[_CfnTag_f6864754]]) -> None:
+    def tags_raw(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bb179a9789e5e93c2563eb8ce552738b43c5fae6e5fd73954a892f883d762ca4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
@@ -3178,6 +2828,139 @@ class CfnVPCEConfiguration(
         jsii.set(self, "vpceConfigurationDescription", value) # pyright: ignore[reportArgumentType]
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_devicefarm.CfnVPCEConfigurationProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "service_dns_name": "serviceDnsName",
+        "vpce_configuration_name": "vpceConfigurationName",
+        "vpce_service_name": "vpceServiceName",
+        "tags": "tags",
+        "vpce_configuration_description": "vpceConfigurationDescription",
+    },
+)
+class CfnVPCEConfigurationProps:
+    def __init__(
+        self,
+        *,
+        service_dns_name: builtins.str,
+        vpce_configuration_name: builtins.str,
+        vpce_service_name: builtins.str,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        vpce_configuration_description: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnVPCEConfiguration``.
+
+        :param service_dns_name: The DNS name that Device Farm will use to map to the private service you want to access.
+        :param vpce_configuration_name: The friendly name you give to your VPC endpoint configuration to manage your configurations more easily.
+        :param vpce_service_name: The name of the VPC endpoint service that you want to access from Device Farm. The name follows the format ``com.amazonaws.vpce.us-west-2.vpce-svc-id`` .
+        :param tags: An array of key-value pairs to apply to this resource. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+        :param vpce_configuration_description: An optional description that provides details about your VPC endpoint configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            from aws_cdk import CfnTag
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_devicefarm as devicefarm
+            
+            cfn_vPCEConfiguration_props = devicefarm.CfnVPCEConfigurationProps(
+                service_dns_name="serviceDnsName",
+                vpce_configuration_name="vpceConfigurationName",
+                vpce_service_name="vpceServiceName",
+            
+                # the properties below are optional
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
+                vpce_configuration_description="vpceConfigurationDescription"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b2fb366fc648b755fe6a00060b1f28d06967c5eb962b685679e28dc9b18a9069)
+            check_type(argname="argument service_dns_name", value=service_dns_name, expected_type=type_hints["service_dns_name"])
+            check_type(argname="argument vpce_configuration_name", value=vpce_configuration_name, expected_type=type_hints["vpce_configuration_name"])
+            check_type(argname="argument vpce_service_name", value=vpce_service_name, expected_type=type_hints["vpce_service_name"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument vpce_configuration_description", value=vpce_configuration_description, expected_type=type_hints["vpce_configuration_description"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "service_dns_name": service_dns_name,
+            "vpce_configuration_name": vpce_configuration_name,
+            "vpce_service_name": vpce_service_name,
+        }
+        if tags is not None:
+            self._values["tags"] = tags
+        if vpce_configuration_description is not None:
+            self._values["vpce_configuration_description"] = vpce_configuration_description
+
+    @builtins.property
+    def service_dns_name(self) -> builtins.str:
+        '''The DNS name that Device Farm will use to map to the private service you want to access.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-servicednsname
+        '''
+        result = self._values.get("service_dns_name")
+        assert result is not None, "Required property 'service_dns_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpce_configuration_name(self) -> builtins.str:
+        '''The friendly name you give to your VPC endpoint configuration to manage your configurations more easily.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-vpceconfigurationname
+        '''
+        result = self._values.get("vpce_configuration_name")
+        assert result is not None, "Required property 'vpce_configuration_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def vpce_service_name(self) -> builtins.str:
+        '''The name of the VPC endpoint service that you want to access from Device Farm.
+
+        The name follows the format ``com.amazonaws.vpce.us-west-2.vpce-svc-id`` .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-vpceservicename
+        '''
+        result = self._values.get("vpce_service_name")
+        assert result is not None, "Required property 'vpce_service_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''An array of key-value pairs to apply to this resource.
+
+        For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ in the *guide* .
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def vpce_configuration_description(self) -> typing.Optional[builtins.str]:
+        '''An optional description that provides details about your VPC endpoint configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devicefarm-vpceconfiguration.html#cfn-devicefarm-vpceconfiguration-vpceconfigurationdescription
+        '''
+        result = self._values.get("vpce_configuration_description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnVPCEConfigurationProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 __all__ = [
     "CfnDevicePool",
     "CfnDevicePoolProps",
@@ -3191,136 +2974,9 @@ __all__ = [
     "CfnTestGridProjectProps",
     "CfnVPCEConfiguration",
     "CfnVPCEConfigurationProps",
-    "DevicePoolReference",
-    "IDevicePoolRef",
-    "IInstanceProfileRef",
-    "INetworkProfileRef",
-    "IProjectRef",
-    "ITestGridProjectRef",
-    "IVPCEConfigurationRef",
-    "InstanceProfileReference",
-    "NetworkProfileReference",
-    "ProjectReference",
-    "TestGridProjectReference",
-    "VPCEConfigurationReference",
 ]
 
 publication.publish()
-
-def _typecheckingstub__cdbd0dbaf5eeb8e0d1a370581a06a71801ff0d57bd9fd8d87abcb95e23dea50c(
-    *,
-    name: builtins.str,
-    project_arn: builtins.str,
-    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDevicePool.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    description: typing.Optional[builtins.str] = None,
-    max_devices: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7392c4b7cccfb4ed48f655dd9ef8cfdda0d147224dceaf92b58913cc7bdedf0a(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    exclude_app_packages_from_cleanup: typing.Optional[typing.Sequence[builtins.str]] = None,
-    package_cleanup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    reboot_after_use: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__7dd5cc9e50d96fdbb41dccca0bc93936eeaacdb252c6703a366abcfc675c8b32(
-    *,
-    name: builtins.str,
-    project_arn: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    downlink_bandwidth_bits: typing.Optional[jsii.Number] = None,
-    downlink_delay_ms: typing.Optional[jsii.Number] = None,
-    downlink_jitter_ms: typing.Optional[jsii.Number] = None,
-    downlink_loss_percent: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    uplink_bandwidth_bits: typing.Optional[jsii.Number] = None,
-    uplink_delay_ms: typing.Optional[jsii.Number] = None,
-    uplink_jitter_ms: typing.Optional[jsii.Number] = None,
-    uplink_loss_percent: typing.Optional[jsii.Number] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6559d9d182fd1fc519eba56cb6cb8709e18e4013a0f927415f794e48faa0066c(
-    *,
-    name: builtins.str,
-    default_job_timeout_minutes: typing.Optional[jsii.Number] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__e145dbb564c006058fffdd2f8e7b8379a9b6dbbd495c537021b0c7c8704a07f7(
-    *,
-    name: builtins.str,
-    description: typing.Optional[builtins.str] = None,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTestGridProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__b2fb366fc648b755fe6a00060b1f28d06967c5eb962b685679e28dc9b18a9069(
-    *,
-    service_dns_name: builtins.str,
-    vpce_configuration_name: builtins.str,
-    vpce_service_name: builtins.str,
-    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
-    vpce_configuration_description: typing.Optional[builtins.str] = None,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f0d1bf6bb9d2ee54b9b6c8807d2eda6678304f79c9678fbc3667cc30709dcd01(
-    *,
-    device_pool_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__f61c5f8b856efcb69272f3fa63a31ce27d45f829fd0a9e3a67182847beb93900(
-    *,
-    instance_profile_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__4bd798c77888e336ccf94bb494cfcd0a28043ba65684209b372a09c1634702ef(
-    *,
-    network_profile_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6d6df3627b8a74273f1b8aa0230f07a8b8e6155a1bcabd0d0ed0095b0db82cb0(
-    *,
-    project_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__79b14ca26c0e784b02905af12b78ad217320fc0597260c74843774a19fd59719(
-    *,
-    test_grid_project_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__483c7a4cbeecbda43618f33bae25f303d5112944f067ed762d50d36932217bdc(
-    *,
-    vpce_configuration_arn: builtins.str,
-) -> None:
-    """Type checking stubs"""
-    pass
 
 def _typecheckingstub__96c6314bfee539a8146973e0d5495e39f622c4c3953e795d05460e2bb76cc8db(
     scope: _constructs_77d1e7e8.Construct,
@@ -3332,6 +2988,18 @@ def _typecheckingstub__96c6314bfee539a8146973e0d5495e39f622c4c3953e795d05460e2bb
     description: typing.Optional[builtins.str] = None,
     max_devices: typing.Optional[jsii.Number] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d4a2d825fe561be1751da0f7b9cec0bb42a3bcc3d9c8de6eb67bb6d16b8b6a0f(
+    resource: _IDevicePoolRef_2a77f578,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c4d3ab595f614a456c0a2c8b6d434a265f9422d3cb4c00f146fde41040c50e6a(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3393,6 +3061,18 @@ def _typecheckingstub__0620996469fe8ee5556b96e0e9cda4bff8b92c7e9aa8aa5903cb6dd04
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cdbd0dbaf5eeb8e0d1a370581a06a71801ff0d57bd9fd8d87abcb95e23dea50c(
+    *,
+    name: builtins.str,
+    project_arn: builtins.str,
+    rules: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDevicePool.RuleProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    description: typing.Optional[builtins.str] = None,
+    max_devices: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6b9dd1552bba1f4a322e22652920f9f1fa8079a149ae08cb1e20455b8f7a548b(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3403,6 +3083,18 @@ def _typecheckingstub__6b9dd1552bba1f4a322e22652920f9f1fa8079a149ae08cb1e20455b8
     package_cleanup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     reboot_after_use: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1f6a53d5135b7664fb4856232b627a04a21d254e01539e548a5110b2453e4e2d(
+    resource: _IInstanceProfileRef_9b6bf1ce,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bd4d80bd33efcd4a4a9f571530eccd544577db5e4028bbee6873847c5c58bf72(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3455,6 +3147,18 @@ def _typecheckingstub__5194955750aa2f8304da100d5f6b3035ceebeb29d5b599f07f657cc4f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7392c4b7cccfb4ed48f655dd9ef8cfdda0d147224dceaf92b58913cc7bdedf0a(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    exclude_app_packages_from_cleanup: typing.Optional[typing.Sequence[builtins.str]] = None,
+    package_cleanup: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    reboot_after_use: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__600f319c8811bcdb37dc45d939671c38345fae417a48df83d7c3947fbe55cf29(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3471,6 +3175,18 @@ def _typecheckingstub__600f319c8811bcdb37dc45d939671c38345fae417a48df83d7c3947fb
     uplink_delay_ms: typing.Optional[jsii.Number] = None,
     uplink_jitter_ms: typing.Optional[jsii.Number] = None,
     uplink_loss_percent: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e5aa4a59eba534bebfee2b72fd1331c9039d882d804a865be36b1dc5cc12677a(
+    resource: _INetworkProfileRef_321b625c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__771c5e5974f8107891d5a801fbec72238b9af623ee2a02b2d4982a23544a2544(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3559,14 +3275,46 @@ def _typecheckingstub__c91f7aaeb08d797687bac8c6cbf867868774ba52b3d695b1a462f3153
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7dd5cc9e50d96fdbb41dccca0bc93936eeaacdb252c6703a366abcfc675c8b32(
+    *,
+    name: builtins.str,
+    project_arn: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    downlink_bandwidth_bits: typing.Optional[jsii.Number] = None,
+    downlink_delay_ms: typing.Optional[jsii.Number] = None,
+    downlink_jitter_ms: typing.Optional[jsii.Number] = None,
+    downlink_loss_percent: typing.Optional[jsii.Number] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    uplink_bandwidth_bits: typing.Optional[jsii.Number] = None,
+    uplink_delay_ms: typing.Optional[jsii.Number] = None,
+    uplink_jitter_ms: typing.Optional[jsii.Number] = None,
+    uplink_loss_percent: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__235d8b8da76a28a97a451896d3b8c3cb58dfdd957be4b441ac00cfaaf1bccf64(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
     name: builtins.str,
     default_job_timeout_minutes: typing.Optional[jsii.Number] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2df4411534f8d1b7522224da68ef2a084232b13a59bb770a98f27a9afac5f844(
+    resource: _IProjectRef_a22154a0,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ebb11b7f295a683e3d864afd95b25284ff7a4141388cc458daf2e3ca1f36780(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3595,6 +3343,18 @@ def _typecheckingstub__acb87f983595b1a8464d152e1854f60b6c281bc9bee144f8c5527ab92
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__373a486494125e07c663db0a2734b701e614d21cacb9d410ac74509468832c43(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnProject.EnvironmentVariableProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea505032ef293a7281e50f2583e0c4d2f5e37c724121e4d551db8dc6caa98c13(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__41fbb1c60eec673fc1dd40b21d96b07f793303fbfbd3ec34d3536f2ad3b05f66(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -3603,6 +3363,14 @@ def _typecheckingstub__41fbb1c60eec673fc1dd40b21d96b07f793303fbfbd3ec34d3536f2ad
 
 def _typecheckingstub__d3fa42db493c8ae53f5c45defd768baab8f31711f46fd941b6fdd015f0417e30(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnProject.VpcConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5937bf09e24572df4c4a53b6d73dbbd301d83d90d6015bf7a59f7ed419d38f45(
+    *,
+    name: builtins.str,
+    value: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3616,6 +3384,18 @@ def _typecheckingstub__5f11fa5faf31c5c93a8a6aafcc76bd21d7e1ba9accf46411ea1e06bd0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__6559d9d182fd1fc519eba56cb6cb8709e18e4013a0f927415f794e48faa0066c(
+    *,
+    name: builtins.str,
+    default_job_timeout_minutes: typing.Optional[jsii.Number] = None,
+    environment_variables: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.EnvironmentVariableProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    execution_role_arn: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__06e22928736806899d37c63a4cf4f8d19875d02a5e91a831c1382fb292ebfa44(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3624,6 +3404,18 @@ def _typecheckingstub__06e22928736806899d37c63a4cf4f8d19875d02a5e91a831c1382fb29
     description: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTestGridProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3d104f6de3ac4b4e9bfff57d38ef6af6a9ab75d6bba50b1156bcb08d58059f52(
+    resource: _ITestGridProjectRef_35482f1c,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f8e52797012a5a3fea64f0a42e2cbc6265e2f338424fb316c1c739c3df1fb321(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3673,6 +3465,16 @@ def _typecheckingstub__461a87a81b78a91ff3aa979869cf6e45bb379336dce9c9deba22bfe05
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__e145dbb564c006058fffdd2f8e7b8379a9b6dbbd495c537021b0c7c8704a07f7(
+    *,
+    name: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTestGridProject.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__5ef2954941f94384014186cbe5af3721ce845014f6d2b72d0ecf56ea0e3af74c(
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
@@ -3682,6 +3484,18 @@ def _typecheckingstub__5ef2954941f94384014186cbe5af3721ce845014f6d2b72d0ecf56ea0
     vpce_service_name: builtins.str,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vpce_configuration_description: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__82554adbe863bf4df225d7b81d737baf8ea355777299dff5e2d25819a43d76a5(
+    resource: _IVPCEConfigurationRef_40fa5aa0,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a934b908049743b98c883b8d520be3c6cfd74704b59c88de0d2b7b0fb682d736(
+    x: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3724,6 +3538,17 @@ def _typecheckingstub__bb179a9789e5e93c2563eb8ce552738b43c5fae6e5fd73954a892f883
 
 def _typecheckingstub__ad8666cad9848e46a023b0491b1f108be17c542f79bd3b15e1249ec20acba18e(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b2fb366fc648b755fe6a00060b1f28d06967c5eb962b685679e28dc9b18a9069(
+    *,
+    service_dns_name: builtins.str,
+    vpce_configuration_name: builtins.str,
+    vpce_service_name: builtins.str,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    vpce_configuration_description: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

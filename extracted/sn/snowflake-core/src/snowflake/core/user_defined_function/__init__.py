@@ -14,6 +14,7 @@ from ._generated.models import (
     ScalaFunction,
     SQLFunction,
     UserDefinedFunction,
+    UserDefinedFunctionArgument,
 )
 from ._user_defined_function import UserDefinedFunctionCollection, UserDefinedFunctionResource
 
@@ -34,4 +35,5 @@ __all__ = [
     "UserDefinedFunction",
     "UserDefinedFunctionResource",
     "UserDefinedFunctionCollection",
+    "UserDefinedFunctionArgument",
 ]

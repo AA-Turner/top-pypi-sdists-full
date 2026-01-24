@@ -13,7 +13,7 @@ if [ "$DISTRIB" == "mamba" ]; then
     if [ "$PLATFORM" != "Linux" ]; then
         conda remove -y memory_profiler
     fi
-    PIP_DEPENDENCIES="jupyterlite-sphinx>=0.17.1 jupyterlite-pyodide-kernel libarchive-c numpy"
+    PIP_DEPENDENCIES="jupyterlite-sphinx>=0.17.1 jupyterlite-pyodide-kernel libarchive-c numpy sphinx-design"
 elif [ "$DISTRIB" == "minimal" ]; then
     PIP_DEPENDENCIES=""
 elif [ "$DISTRIB" == "pip" ]; then
@@ -30,7 +30,10 @@ fi
 
 # Sphinx version
 if [ "$SPHINX_VERSION" == "dev" ]; then
-    PIP_DEPENDENCIES="--upgrade --pre https://api.github.com/repos/sphinx-doc/sphinx/zipball/master --default-timeout=60 --extra-index-url 'https://pypi.anaconda.org/scientific-python-nightly-wheels/simple' $PIP_DEPENDENCIES"
+    # TODO: Reenable once sphinx-design and pydata-sphinx-theme are 9.0+ compatible,
+    # Then also add a sphinx-9 test job
+    # PIP_DEPENDENCIES="--upgrade --pre https://api.github.com/repos/sphinx-doc/sphinx/zipball/master --default-timeout=60 --extra-index-url 'https://pypi.anaconda.org/scientific-python-nightly-wheels/simple' $PIP_DEPENDENCIES"
+    PIP_DEPENDENCIES="--upgrade --pre sphinx<9 --default-timeout=60 --extra-index-url 'https://pypi.anaconda.org/scientific-python-nightly-wheels/simple' $PIP_DEPENDENCIES"
 elif [ "$SPHINX_VERSION" != "default" ]; then
     PIP_DEPENDENCIES="sphinx==${SPHINX_VERSION}.* $PIP_DEPENDENCIES"
 else

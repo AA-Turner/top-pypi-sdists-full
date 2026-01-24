@@ -1,65 +1,45 @@
 Metadata-Version: 2.4
 Name: dramatiq
-Version: 1.18.0
+Version: 2.0.1
 Summary: Background Processing for Python 3.
 Author: Bogdan Popa
 Author-email: bogdan@cleartype.io
 Project-URL: Documentation, https://dramatiq.io
+Project-URL: Changelog, https://dramatiq.io/changelog.html
 Project-URL: Source, https://github.com/Bogdanp/dramatiq
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: System :: Distributed Computing
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: COPYING
 License-File: COPYING.LESSER
-Requires-Dist: prometheus-client>=0.2
 Provides-Extra: gevent
 Requires-Dist: gevent>=1.1; extra == "gevent"
 Provides-Extra: memcached
 Requires-Dist: pylibmc<2.0,>=1.5; extra == "memcached"
+Provides-Extra: prometheus
+Requires-Dist: prometheus-client>=0.2; extra == "prometheus"
 Provides-Extra: rabbitmq
 Requires-Dist: pika<2.0,>=1.0; extra == "rabbitmq"
 Provides-Extra: redis
-Requires-Dist: redis<7.0,>=2.0; extra == "redis"
+Requires-Dist: redis<7.0,>=4.0; extra == "redis"
 Provides-Extra: watch
 Requires-Dist: watchdog>=4.0; extra == "watch"
 Requires-Dist: watchdog_gevent>=0.2; extra == "watch"
 Provides-Extra: all
+Requires-Dist: watchdog_gevent>=0.2; extra == "all"
+Requires-Dist: redis<7.0,>=4.0; extra == "all"
+Requires-Dist: pylibmc<2.0,>=1.5; extra == "all"
 Requires-Dist: watchdog>=4.0; extra == "all"
 Requires-Dist: gevent>=1.1; extra == "all"
-Requires-Dist: pylibmc<2.0,>=1.5; extra == "all"
-Requires-Dist: watchdog_gevent>=0.2; extra == "all"
 Requires-Dist: pika<2.0,>=1.0; extra == "all"
-Requires-Dist: redis<7.0,>=2.0; extra == "all"
-Provides-Extra: dev
-Requires-Dist: watchdog>=4.0; extra == "dev"
-Requires-Dist: gevent>=1.1; extra == "dev"
-Requires-Dist: pylibmc<2.0,>=1.5; extra == "dev"
-Requires-Dist: watchdog_gevent>=0.2; extra == "dev"
-Requires-Dist: pika<2.0,>=1.0; extra == "dev"
-Requires-Dist: redis<7.0,>=2.0; extra == "dev"
-Requires-Dist: alabaster; extra == "dev"
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: sphinxcontrib-napoleon; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: flake8-bugbear; extra == "dev"
-Requires-Dist: flake8-quotes; extra == "dev"
-Requires-Dist: isort; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: bumpversion; extra == "dev"
-Requires-Dist: hiredis; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: wheel; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-benchmark[histogram]; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: tox; extra == "dev"
+Requires-Dist: prometheus-client>=0.2; extra == "all"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -68,7 +48,6 @@ Dynamic: description-content-type
 Dynamic: license-file
 Dynamic: project-url
 Dynamic: provides-extra
-Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 

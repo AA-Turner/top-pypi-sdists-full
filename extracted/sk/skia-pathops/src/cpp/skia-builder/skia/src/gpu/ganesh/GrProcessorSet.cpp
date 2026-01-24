@@ -4,12 +4,11 @@
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
-
-#include "src/core/SkBlendModePriv.h"
-#include "src/gpu/ganesh/GrAppliedClip.h"
-#include "src/gpu/ganesh/GrCaps.h"
 #include "src/gpu/ganesh/GrProcessorSet.h"
-#include "src/gpu/ganesh/GrUserStencilSettings.h"
+
+#include "include/private/base/SkDebug.h"
+#include "src/gpu/ganesh/GrAppliedClip.h"
+#include "src/gpu/ganesh/GrPaint.h"
 #include "src/gpu/ganesh/GrXferProcessor.h"
 #include "src/gpu/ganesh/effects/GrPorterDuffXferProcessor.h"
 
@@ -29,7 +28,7 @@ GrProcessorSet::GrProcessorSet(GrPaint&& paint) : fXP(paint.getXPFactory()) {
     SkDEBUGCODE(paint.fAlive = false;)
 }
 
-GrProcessorSet::GrProcessorSet(SkBlendMode mode) : fXP(SkBlendMode_AsXPFactory(mode)) {}
+GrProcessorSet::GrProcessorSet(SkBlendMode mode) : fXP(GrXPFactory::FromBlendMode(mode)) {}
 
 GrProcessorSet::GrProcessorSet(std::unique_ptr<GrFragmentProcessor> colorFP)
         : fXP((const GrXPFactory*)nullptr) {
@@ -49,7 +48,7 @@ GrProcessorSet::~GrProcessorSet() {
     }
 }
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 SkString GrProcessorSet::dumpProcessors() const {
     SkString result;
     if (this->hasColorFragmentProcessor()) {

@@ -53,152 +53,6 @@ def _CustomJobParameters_to_vertex(
     return to_object
 
 
-def _CustomJobSpec_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["baseOutputDirectory"]) is not None:
-        setv(
-            to_object,
-            ["base_output_directory"],
-            getv(from_object, ["baseOutputDirectory"]),
-        )
-
-    if getv(from_object, ["enableDashboardAccess"]) is not None:
-        setv(
-            to_object,
-            ["enable_dashboard_access"],
-            getv(from_object, ["enableDashboardAccess"]),
-        )
-
-    if getv(from_object, ["enableWebAccess"]) is not None:
-        setv(to_object, ["enable_web_access"], getv(from_object, ["enableWebAccess"]))
-
-    if getv(from_object, ["experiment"]) is not None:
-        setv(to_object, ["experiment"], getv(from_object, ["experiment"]))
-
-    if getv(from_object, ["experimentRun"]) is not None:
-        setv(to_object, ["experiment_run"], getv(from_object, ["experimentRun"]))
-
-    if getv(from_object, ["models"]) is not None:
-        setv(to_object, ["models"], getv(from_object, ["models"]))
-
-    if getv(from_object, ["network"]) is not None:
-        setv(to_object, ["network"], getv(from_object, ["network"]))
-
-    if getv(from_object, ["persistentResourceId"]) is not None:
-        setv(
-            to_object,
-            ["persistent_resource_id"],
-            getv(from_object, ["persistentResourceId"]),
-        )
-
-    if getv(from_object, ["protectedArtifactLocationId"]) is not None:
-        setv(
-            to_object,
-            ["protected_artifact_location_id"],
-            getv(from_object, ["protectedArtifactLocationId"]),
-        )
-
-    if getv(from_object, ["pscInterfaceConfig"]) is not None:
-        setv(
-            to_object,
-            ["psc_interface_config"],
-            getv(from_object, ["pscInterfaceConfig"]),
-        )
-
-    if getv(from_object, ["reservedIpRanges"]) is not None:
-        setv(to_object, ["reserved_ip_ranges"], getv(from_object, ["reservedIpRanges"]))
-
-    if getv(from_object, ["scheduling"]) is not None:
-        setv(to_object, ["scheduling"], getv(from_object, ["scheduling"]))
-
-    if getv(from_object, ["serviceAccount"]) is not None:
-        setv(to_object, ["service_account"], getv(from_object, ["serviceAccount"]))
-
-    if getv(from_object, ["tensorboard"]) is not None:
-        setv(to_object, ["tensorboard"], getv(from_object, ["tensorboard"]))
-
-    if getv(from_object, ["workerPoolSpecs"]) is not None:
-        setv(to_object, ["worker_pool_specs"], getv(from_object, ["workerPoolSpecs"]))
-
-    return to_object
-
-
-def _CustomJobSpec_to_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["base_output_directory"]) is not None:
-        setv(
-            to_object,
-            ["baseOutputDirectory"],
-            getv(from_object, ["base_output_directory"]),
-        )
-
-    if getv(from_object, ["enable_dashboard_access"]) is not None:
-        setv(
-            to_object,
-            ["enableDashboardAccess"],
-            getv(from_object, ["enable_dashboard_access"]),
-        )
-
-    if getv(from_object, ["enable_web_access"]) is not None:
-        setv(to_object, ["enableWebAccess"], getv(from_object, ["enable_web_access"]))
-
-    if getv(from_object, ["experiment"]) is not None:
-        setv(to_object, ["experiment"], getv(from_object, ["experiment"]))
-
-    if getv(from_object, ["experiment_run"]) is not None:
-        setv(to_object, ["experimentRun"], getv(from_object, ["experiment_run"]))
-
-    if getv(from_object, ["models"]) is not None:
-        setv(to_object, ["models"], getv(from_object, ["models"]))
-
-    if getv(from_object, ["network"]) is not None:
-        setv(to_object, ["network"], getv(from_object, ["network"]))
-
-    if getv(from_object, ["persistent_resource_id"]) is not None:
-        setv(
-            to_object,
-            ["persistentResourceId"],
-            getv(from_object, ["persistent_resource_id"]),
-        )
-
-    if getv(from_object, ["protected_artifact_location_id"]) is not None:
-        setv(
-            to_object,
-            ["protectedArtifactLocationId"],
-            getv(from_object, ["protected_artifact_location_id"]),
-        )
-
-    if getv(from_object, ["psc_interface_config"]) is not None:
-        setv(
-            to_object,
-            ["pscInterfaceConfig"],
-            getv(from_object, ["psc_interface_config"]),
-        )
-
-    if getv(from_object, ["reserved_ip_ranges"]) is not None:
-        setv(to_object, ["reservedIpRanges"], getv(from_object, ["reserved_ip_ranges"]))
-
-    if getv(from_object, ["scheduling"]) is not None:
-        setv(to_object, ["scheduling"], getv(from_object, ["scheduling"]))
-
-    if getv(from_object, ["service_account"]) is not None:
-        setv(to_object, ["serviceAccount"], getv(from_object, ["service_account"]))
-
-    if getv(from_object, ["tensorboard"]) is not None:
-        setv(to_object, ["tensorboard"], getv(from_object, ["tensorboard"]))
-
-    if getv(from_object, ["worker_pool_specs"]) is not None:
-        setv(to_object, ["workerPoolSpecs"], getv(from_object, ["worker_pool_specs"]))
-
-    return to_object
-
-
 def _CustomJob_from_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -208,11 +62,7 @@ def _CustomJob_from_vertex(
         setv(to_object, ["display_name"], getv(parent_object, ["displayName"]))
 
     if getv(parent_object, ["jobSpec"]) is not None:
-        setv(
-            to_object,
-            ["job_spec"],
-            _CustomJobSpec_from_vertex(getv(parent_object, ["jobSpec"]), to_object),
-        )
+        setv(to_object, ["job_spec"], getv(parent_object, ["jobSpec"]))
 
     if getv(parent_object, ["encryptionSpec"]) is not None:
         setv(to_object, ["encryption_spec"], getv(parent_object, ["encryptionSpec"]))
@@ -262,11 +112,7 @@ def _CustomJob_to_vertex(
         setv(parent_object, ["displayName"], getv(from_object, ["display_name"]))
 
     if getv(from_object, ["job_spec"]) is not None:
-        setv(
-            parent_object,
-            ["jobSpec"],
-            _CustomJobSpec_to_vertex(getv(from_object, ["job_spec"]), to_object),
-        )
+        setv(parent_object, ["jobSpec"], getv(from_object, ["job_spec"]))
 
     if getv(from_object, ["encryption_spec"]) is not None:
         setv(parent_object, ["encryptionSpec"], getv(from_object, ["encryption_spec"]))
@@ -321,6 +167,22 @@ def _GetCustomJobParameters_to_vertex(
     return to_object
 
 
+def _OptimizeConfig_to_vertex(
+    from_object: Union[dict[str, Any], object],
+    parent_object: Optional[dict[str, Any]] = None,
+) -> dict[str, Any]:
+    to_object: dict[str, Any] = {}
+
+    if getv(from_object, ["optimization_target"]) is not None:
+        setv(
+            parent_object,
+            ["optimizationTarget"],
+            getv(from_object, ["optimization_target"]),
+        )
+
+    return to_object
+
+
 def _OptimizeRequestParameters_to_vertex(
     from_object: Union[dict[str, Any], object],
     parent_object: Optional[dict[str, Any]] = None,
@@ -330,18 +192,11 @@ def _OptimizeRequestParameters_to_vertex(
         setv(to_object, ["content"], getv(from_object, ["content"]))
 
     if getv(from_object, ["config"]) is not None:
-        setv(to_object, ["config"], getv(from_object, ["config"]))
-
-    return to_object
-
-
-def _OptimizeResponseEndpoint_from_vertex(
-    from_object: Union[dict[str, Any], object],
-    parent_object: Optional[dict[str, Any]] = None,
-) -> dict[str, Any]:
-    to_object: dict[str, Any] = {}
-    if getv(from_object, ["content"]) is not None:
-        setv(to_object, ["content"], getv(from_object, ["content"]))
+        setv(
+            to_object,
+            ["config"],
+            _OptimizeConfig_to_vertex(getv(from_object, ["config"]), to_object),
+        )
 
     return to_object
 
@@ -393,10 +248,7 @@ class PromptOptimizer(_api_module.BaseModule):
 
         response = self._api_client.request("post", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _OptimizeResponseEndpoint_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.OptimizeResponseEndpoint._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -449,7 +301,7 @@ class PromptOptimizer(_api_module.BaseModule):
 
         response = self._api_client.request("post", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         if self._api_client.vertexai:
             response_dict = _CustomJob_from_vertex(response_dict)
@@ -502,7 +354,7 @@ class PromptOptimizer(_api_module.BaseModule):
 
         response = self._api_client.request("get", path, request_dict, http_options)
 
-        response_dict = "" if not response.body else json.loads(response.body)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         if self._api_client.vertexai:
             response_dict = _CustomJob_from_vertex(response_dict)
@@ -555,36 +407,45 @@ class PromptOptimizer(_api_module.BaseModule):
 
     def optimize(
         self,
-        method: str,
-        config: types.PromptOptimizerVAPOConfigOrDict,
+        method: types.PromptOptimizerMethod,
+        config: types.PromptOptimizerConfigOrDict,
     ) -> types.CustomJob:
         """Call PO-Data optimizer.
 
         Args:
-          method: The method for optimizing multiple prompts.
-          config: PromptOptimizerVAPOConfig instance containing the
+          method: The method for optimizing multiple prompts. Supported methods:
+            VAPO, OPTIMIZATION_TARGET_GEMINI_NANO.
+          config: PromptOptimizerConfig instance containing the
               configuration for prompt optimization.
         Returns:
           The custom job that was created.
         """
 
-        if method != "vapo":
-            raise ValueError("Only vapo method is currently supported.")
-
         if isinstance(config, dict):
-            config = types.PromptOptimizerVAPOConfig(**config)
+            config = types.PromptOptimizerConfig(**config)
+
+        if not config.config_path:
+            raise ValueError("Config path is required.")
+
+        _OPTIMIZER_METHOD_TO_CONTAINER_URI = {
+            types.PromptOptimizerMethod.VAPO: "us-docker.pkg.dev/vertex-ai/cair/vaipo:preview_v1_0",
+            types.PromptOptimizerMethod.OPTIMIZATION_TARGET_GEMINI_NANO: "us-docker.pkg.dev/vertex-ai/cair/vaipo:preview_android_v1_0",
+        }
+        container_uri = _OPTIMIZER_METHOD_TO_CONTAINER_URI.get(method)
+        if not container_uri:
+            raise ValueError(
+                'Only "VAPO" and "OPTIMIZATION_TARGET_GEMINI_NANO" '
+                "methods are currently supported."
+            )
 
         if config.optimizer_job_display_name:
             display_name = config.optimizer_job_display_name
         else:
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            display_name = f"vapo-optimizer-{timestamp}"
-        wait_for_completion = config.wait_for_completion
-        if not config.config_path:
-            raise ValueError("Config path is required.")
-        bucket = "/".join(config.config_path.split("/")[:-1])
+            display_name = f"{method.value.lower()}-optimizer-{timestamp}"
 
-        container_uri = "us-docker.pkg.dev/vertex-ai/cair/vaipo:preview_v1_0"
+        wait_for_completion = config.wait_for_completion
+        bucket = "/".join(config.config_path.split("/")[:-1])
 
         region = self._api_client.location
         project = self._api_client.project
@@ -636,7 +497,10 @@ class PromptOptimizer(_api_module.BaseModule):
         return job
 
     def optimize_prompt(
-        self, *, prompt: str, config: Optional[types.OptimizeConfig] = None
+        self,
+        *,
+        prompt: str,
+        config: Optional[types.OptimizeConfigOrDict] = None,
     ) -> types.OptimizeResponse:
         """Makes an API request to _optimize_prompt and returns the parsed response.
 
@@ -648,19 +512,53 @@ class PromptOptimizer(_api_module.BaseModule):
 
         Args:
           prompt: The prompt to optimize.
-          config: The configuration for prompt optimization. Currently, config is
-            not supported for a single prompt optimization.
+          config: Optional.The configuration for prompt optimization. To optimize
+            prompts from Android API provide
+            types.OptimizeConfig(
+                optimization_target=types.OptimizeTarget.OPTIMIZATION_TARGET_GEMINI_NANO
+            )
+            For few-shot optimization, provide:
+
+            optim_target = types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_RUBRICS
+            or
+            optim_target = types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_TARGET_RESPONSE
+            types.OptimizeConfig(
+                optimization_target=optim_target,
+                examples_dataframe=dataframe
+            )
+            OPTIMIZATION_TARGET_FEW_SHOT_RUBRICS indicates that the few-shot
+              examples include specific scoring rubrics and their corresponding
+              evaluations.
+            OPTIMIZATION_TARGET_FEW_SHOT_TARGET_RESPONSE indicates that the few-shot
+              examples include a ground-truth target response.
         Returns:
           The parsed response from the API request.
         """
-        if config is not None:
-            raise ValueError(
-                "Currently, config is not supported for a single prompt optimization."
-            )
 
-        prompt = genai_types.Content(parts=[genai_types.Part(text=prompt)], role="user")
+        if isinstance(config, dict):
+            config = types.OptimizeConfig(**config)
+
+        optimization_target: Optional[types.OptimizeTarget] = None
+        if config is not None:
+            optimization_target = config.optimization_target
+
+        final_prompt = prompt
+        if (
+            optimization_target
+            == types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_RUBRICS
+            or optimization_target
+            == types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_TARGET_RESPONSE
+        ):
+            final_prompt = _prompt_optimizer_utils._get_few_shot_prompt(prompt, config)
+
         # TODO: b/435653980 - replace the custom method with a generated method.
-        return self._custom_optimize_prompt(content=prompt)
+        config_for_api = config.model_copy() if config else None
+        return self._custom_optimize_prompt(
+            content=genai_types.Content(
+                parts=[genai_types.Part(text=final_prompt)], role="user"
+            ),
+            config=config_for_api,
+        )
 
     def _custom_optimize_prompt(
         self,
@@ -674,12 +572,15 @@ class PromptOptimizer(_api_module.BaseModule):
         Then gathers the response, concatenates into one string and returns
         the parsed response.
         """
+        if isinstance(config, dict):
+            config.pop("examples_dataframe", None)
+        elif config and hasattr(config, "examples_dataframe"):
+            del config.examples_dataframe
 
         parameter_model = types._OptimizeRequestParameters(
             content=content,
             config=config,
         )
-
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
             raise ValueError("This method is only supported in the Vertex AI client.")
@@ -714,9 +615,6 @@ class PromptOptimizer(_api_module.BaseModule):
         return_value = []
 
         for response_dict in response_list:
-            if self._api_client.vertexai:
-                response_dict = _OptimizeResponseEndpoint_from_vertex(response_dict)
-
             response_value = types.OptimizeResponseEndpoint._from_response(
                 response=response_dict, kwargs=parameter_model.model_dump()
             )
@@ -788,10 +686,7 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
             "post", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
-
-        if self._api_client.vertexai:
-            response_dict = _OptimizeResponseEndpoint_from_vertex(response_dict)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         return_value = types.OptimizeResponseEndpoint._from_response(
             response=response_dict, kwargs=parameter_model.model_dump()
@@ -846,7 +741,7 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
             "post", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         if self._api_client.vertexai:
             response_dict = _CustomJob_from_vertex(response_dict)
@@ -901,7 +796,7 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
             "get", path, request_dict, http_options
         )
 
-        response_dict = "" if not response.body else json.loads(response.body)
+        response_dict = {} if not response.body else json.loads(response.body)
 
         if self._api_client.vertexai:
             response_dict = _CustomJob_from_vertex(response_dict)
@@ -916,8 +811,8 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
     # Todo: b/428953357 - Add example in the README.
     async def optimize(
         self,
-        method: str,
-        config: types.PromptOptimizerVAPOConfigOrDict,
+        method: types.PromptOptimizerMethod,
+        config: types.PromptOptimizerConfigOrDict,
     ) -> types.CustomJob:
         """Call async Vertex AI Prompt Optimizer (VAPO).
 
@@ -927,26 +822,37 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
 
         Example usage:
         client = vertexai.Client(project=PROJECT_NAME, location='us-central1')
-        vapo_config = vertexai.types.PromptOptimizerVAPOConfig(
+        vapo_config = vertexai.types.PromptOptimizerConfig(
             config_path='gs://you-bucket-name/your-config.json',
             service_account=service_account,
         )
         job = await client.aio.prompt_optimizer.optimize(
-            method='vapo', config=vapo_config)
+            method=types.PromptOptimizerMethod.VAPO, config=vapo_config)
 
         Args:
-          method: The method for optimizing multiple prompts (currently only
-            vapo is supported).
-          config: PromptOptimizerVAPOConfig instance containing the
+          method: The method for optimizing multiple prompts. Supported methods:
+            VAPO, OPTIMIZATION_TARGET_GEMINI_NANO.
+          config: PromptOptimizerConfig instance containing the
             configuration for prompt optimization.
         Returns:
           The custom job that was created.
         """
-        if method != "vapo":
-            raise ValueError("Only vapo methods is currently supported.")
-
         if isinstance(config, dict):
-            config = types.PromptOptimizerVAPOConfig(**config)
+            config = types.PromptOptimizerConfig(**config)
+
+        if not config.config_path:
+            raise ValueError("Config path is required.")
+
+        _OPTIMIZER_METHOD_TO_CONTAINER_URI = {
+            types.PromptOptimizerMethod.VAPO: "us-docker.pkg.dev/vertex-ai/cair/vaipo:preview_v1_0",
+            types.PromptOptimizerMethod.OPTIMIZATION_TARGET_GEMINI_NANO: "us-docker.pkg.dev/vertex-ai/cair/vaipo:preview_android_v1_0",
+        }
+        container_uri = _OPTIMIZER_METHOD_TO_CONTAINER_URI.get(method)
+        if not container_uri:
+            raise ValueError(
+                'Only "VAPO" and "OPTIMIZATION_TARGET_GEMINI_NANO" '
+                "methods are currently supported."
+            )
 
         if config.wait_for_completion:
             logger.info(
@@ -957,13 +863,11 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
             display_name = config.optimizer_job_display_name
         else:
             timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-            display_name = f"vapo-optimizer-{timestamp}"
+            display_name = f"{method.value.lower()}-optimizer-{timestamp}"
 
         if not config.config_path:
             raise ValueError("Config path is required.")
         bucket = "/".join(config.config_path.split("/")[:-1])
-
-        container_uri = "us-docker.pkg.dev/vertex-ai/cair/vaipo:preview_v1_0"
 
         region = self._api_client.location
         project = self._api_client.project
@@ -1019,12 +923,15 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
         config: Optional[types.OptimizeConfigOrDict] = None,
     ) -> types.OptimizeResponse:
         """Optimize a single prompt."""
+        if isinstance(config, dict):
+            config.pop("examples_dataframe", None)
+        elif config and hasattr(config, "examples_dataframe"):
+            del config.examples_dataframe
 
         parameter_model = types._OptimizeRequestParameters(
             content=content,
             config=config,
         )
-
         request_url_dict: Optional[dict[str, str]]
         if not self._api_client.vertexai:
             raise ValueError("This method is only supported in the Vertex AI client.")
@@ -1061,9 +968,6 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
         return_value = []
 
         for response_dict in response_list:
-            if self._api_client.vertexai:
-                response_dict = _OptimizeResponseEndpoint_from_vertex(response_dict)
-
             response_value = types.OptimizeResponseEndpoint._from_response(
                 response=response_dict, kwargs=parameter_model.model_dump()
             )
@@ -1086,7 +990,10 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
         return final_response
 
     async def optimize_prompt(
-        self, *, prompt: str, config: Optional[types.OptimizeConfig] = None
+        self,
+        *,
+        prompt: str,
+        config: Optional[types.OptimizeConfigOrDict] = None,
     ) -> types.OptimizeResponse:
         """Makes an async request to _optimize_prompt and returns an optimized prompt.
 
@@ -1097,16 +1004,46 @@ class AsyncPromptOptimizer(_api_module.BaseModule):
 
         Args:
           prompt: The prompt to optimize.
-          config: The configuration for prompt optimization. Currently, config is
-            not supported for a single prompt optimization.
+          config: Optional.The configuration for prompt optimization. To optimize
+            prompts from Android API provide
+            types.OptimizeConfig(
+                optimization_target=types.OptimizeTarget.OPTIMIZATION_TARGET_GEMINI_NANO
+            )
+            For few-shot optimization, provide:
+            optim_target = types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_RUBRICS # or types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_TARGET_RESPONSE
+            types.OptimizeConfig(
+                optimization_target=optim_target,
+                examples_dataframe=dataframe
+            )
+            OPTIMIZATION_TARGET_FEW_SHOT_RUBRICS indicates that the few-shot
+              examples include specific scoring rubrics and their corresponding
+              evaluations.
+            OPTIMIZATION_TARGET_FEW_SHOT_TARGET_RESPONSE indicates that the few-shot
+              examples include a ground-truth target response.
         Returns:
           The parsed response from the API request.
         """
-        if config is not None:
-            raise ValueError(
-                "Currently, config is not supported for a single prompt optimization."
-            )
+        if isinstance(config, dict):
+            config = types.OptimizeConfig(**config)
 
-        prompt = genai_types.Content(parts=[genai_types.Part(text=prompt)], role="user")
+        optimization_target: Optional[types.OptimizeTarget] = None
+        if config is not None:
+            optimization_target = config.optimization_target
+
+        final_prompt = prompt
+        if (
+            optimization_target
+            == types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_RUBRICS
+            or optimization_target
+            == types.OptimizeTarget.OPTIMIZATION_TARGET_FEW_SHOT_TARGET_RESPONSE
+        ):
+            final_prompt = _prompt_optimizer_utils._get_few_shot_prompt(prompt, config)
+
         # TODO: b/435653980 - replace the custom method with a generated method.
-        return await self._custom_optimize_prompt(content=prompt)
+        config_for_api = config.model_copy() if config else None
+        return await self._custom_optimize_prompt(
+            content=genai_types.Content(
+                parts=[genai_types.Part(text=final_prompt)], role="user"
+            ),
+            config=config_for_api,
+        )

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scikit-lego
-Version: 0.9.6
+Version: 0.9.7
 Summary: A collection of lego bricks for scikit-learn pipelines
 Author: Vincent D. Warmerdam, Matthijs Brouns
 Maintainer: Francesco Bruzzesi
@@ -30,22 +30,22 @@ Project-URL: repository, https://github.com/koaning/scikit-lego
 Project-URL: issue-tracker, https://github.com/koaning/scikit-lego/issues
 Project-URL: documentation, https://koaning.github.io/scikit-lego/
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: narwhals>=1.5.0
 Requires-Dist: pandas>=1.1.5
 Requires-Dist: scikit-learn>=1.0
 Requires-Dist: sklearn-compat>=0.1.3
-Requires-Dist: importlib-resources; python_version < "3.9"
 Provides-Extra: cvxpy
 Requires-Dist: cmake; extra == "cvxpy"
 Requires-Dist: osqp; extra == "cvxpy"

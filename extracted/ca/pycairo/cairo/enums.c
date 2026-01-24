@@ -86,21 +86,29 @@ enum_type_register_constant(PyTypeObject *type, const char* name, long value) {
     PyObject *int_obj, *name_obj, *en;
 
     /* Get/Create the int->name mapping */
-    value_map = PyDict_GetItemString(type->tp_dict, map_name);
+    if (PyDict_GetItemStringRef(type->tp_dict, map_name, &value_map) < 0) {
+        return NULL;
+    }
     if (value_map == NULL) {
         value_map = PyDict_New();
-        PyDict_SetItemString(type->tp_dict, map_name, value_map);
-        Py_DECREF(value_map);
+        if (value_map == NULL)
+            return NULL;
+        if (PyDict_SetItemString(type->tp_dict, map_name, value_map) < 0) {
+            Py_DECREF(value_map);
+            return NULL;
+        }
     }
 
     /* Add int->name pair to the mapping */
     int_obj = PyLong_FromLong(value);
     name_obj = PyUnicode_FromString (name);
     if (PyDict_SetItem(value_map, int_obj, name_obj) < 0) {
+        Py_DECREF(value_map);
         Py_DECREF(int_obj);
         Py_DECREF(name_obj);
         return NULL;
     }
+    Py_DECREF(value_map);
     Py_DECREF(int_obj);
     Py_DECREF(name_obj);
 
@@ -112,21 +120,43 @@ enum_type_register_constant(PyTypeObject *type, const char* name, long value) {
     return en;
 }
 
-/* If returns NULL no error is set */
-static PyObject *
-int_enum_get_name(PyObject *obj) {
+/**
+ * Returns -1 on error with *result NULL, and 0 if successful.
+ * *result can be NULL if the name does not exist
+ */
+static int
+int_enum_get_name(PyObject *obj, PyObject **result) {
     PyObject *value_map, *name_obj;
 
-    value_map = PyDict_GetItemString(Py_TYPE(obj)->tp_dict, map_name);
-    if(value_map == NULL)
-        return NULL;
+    if (PyDict_GetItemStringRef(Py_TYPE(obj)->tp_dict, map_name, &value_map) < 0) {
+        *result = NULL;
+        return -1;
+    }
+    if (value_map == NULL) {
+        *result = NULL;
+        return 0;
+    }
 
-    name_obj = PyDict_GetItem(value_map, obj);
-    if(name_obj == NULL)
-        return NULL;
+    if (PyDict_GetItemRef(value_map, obj, &name_obj) < 0) {
+        Py_DECREF(value_map);
+        *result = NULL;
+        return -1;
+    }
+    Py_DECREF(value_map);
 
-    return PyUnicode_FromFormat ("%s.%s", Py_TYPE(obj)->tp_name,
-                                 PyUnicode_AsUTF8(name_obj));
+    if (name_obj == NULL) {
+        *result = NULL;
+        return 0;
+    }
+
+    *result = PyUnicode_FromFormat("%s.%S", Py_TYPE(obj)->tp_name, name_obj);
+    if (*result == NULL) {
+        Py_DECREF(name_obj);
+        return -1;
+    }
+    Py_DECREF(name_obj);
+
+    return 0;
 }
 
 static PyObject *
@@ -134,7 +164,9 @@ int_enum_repr(PyObject *obj)
 {
     PyObject *name_obj;
 
-    name_obj = int_enum_get_name(obj);
+    if (int_enum_get_name(obj, &name_obj) < 0) {
+        return NULL;
+    }
     if(name_obj == NULL)
         return PyLong_Type.tp_repr(obj);
 
@@ -219,8 +251,7 @@ init_enum_type (PyObject *module, const char *name, PyTypeObject *type) {
     if (PyType_Ready(type) < 0)
         return -1;
 
-    Py_INCREF(type);
-    if (PyModule_AddObject(module, name, (PyObject *)type) < 0)
+    if (PyModule_AddObjectRef(module, name, (PyObject *)type) < 0)
         return -1;
 
     return 0;
@@ -236,7 +267,7 @@ format_stride_for_width (PyObject *self, PyObject *args) {
     return NULL;
 
   value = PyLong_AsLong (self);
-  if (PyErr_Occurred())
+  if (value == -1 && PyErr_Occurred())
     return NULL;
   if (value > INT_MAX || value < INT_MIN) {
     PyErr_SetString (PyExc_ValueError, "format value out of range");
@@ -274,7 +305,7 @@ init_enums (PyObject *module) {
 
 #define CONSTANT(t, a, b) \
     ev = enum_type_register_constant(&Pycairo_##t##_Type, #b, CAIRO_##a##_##b); \
-    if (ev == NULL || PyModule_AddObject(module, #a "_" #b, ev) < 0) \
+    if (ev == NULL || PyModule_Add(module, #a "_" #b, ev) < 0) \
         return -1;
 
     ENUM(Antialias);

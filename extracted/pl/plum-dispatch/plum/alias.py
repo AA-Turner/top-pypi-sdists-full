@@ -27,15 +27,14 @@ parsing how unions print.
 """
 
 from functools import wraps
-from typing import List, TypeVar, Union, _type_repr
-
-from .typing import get_args
+from typing import TypeVar, Union, _type_repr, get_args
+from typing_extensions import assert_never
 
 __all__ = ["activate_union_aliases", "deactivate_union_aliases", "set_union_alias"]
 
 UnionT = TypeVar("UnionT")
 
-_union_type = type(Union[int, float])
+_union_type = type(Union[int, float])  # noqa: UP007
 _original_repr = _union_type.__repr__
 _original_str = _union_type.__str__
 
@@ -57,22 +56,17 @@ def _new_repr(self: object) -> str:
     for union, alias in reversed(_ALIASED_UNIONS):
         union_set = set(union)
         if union_set <= args_set:
-            found = False
             for i, arg in enumerate(args):
                 if arg in union_set:
                     found_unions.append(union_set)
                     found_positions.append(i)
                     found_aliases.append(alias)
-                    found = True
                     break
-            if not found:  # pragma: no cover
-                # This branch should never be reached.
-                raise AssertionError(
-                    "Could not identify union. This should never happen."
-                )
+            else:  # pragma: no cover
+                assert_never(union)
 
-    # Delete any unions that are contained in strictly bigger unions. We check for
-    # strictly inequality because any union includes itself.
+    # Delete any unions that are contained in strictly bigger unions. We check
+    # for strictly inequality because any union includes itself.
     for i in range(len(found_unions) - 1, -1, -1):
         for union in found_unions:
             if found_unions[i] < union:
@@ -86,14 +80,14 @@ def _new_repr(self: object) -> str:
     for union in found_unions:
         found_args |= union
 
-    # Insert the aliases right before the first found argument. When we insert an
-    # element, the positions of following insertions need to be appropriately
+    # Insert the aliases right before the first found argument. When we insert
+    # an element, the positions of following insertions need to be appropriately
     # incremented.
     args = list(args)
-    # Sort by insertion position to ensure that all following insertions are at higher
-    # indices. This makes the bookkeeping simple.
+    # Sort by insertion position to ensure that all following insertions are at
+    # higher indices. This makes the bookkeeping simple.
     for delta, (i, alias) in enumerate(
-        sorted(zip(found_positions, found_aliases), key=lambda x: x[0])
+        sorted(zip(found_positions, found_aliases, strict=True), key=lambda x: x[0])
     ):
         args.insert(i + delta, alias)
 
@@ -141,7 +135,7 @@ def deactivate_union_aliases() -> None:
     _union_type.__str__ = _original_str
 
 
-_ALIASED_UNIONS: List = []
+_ALIASED_UNIONS: list = []
 
 
 def set_union_alias(union: UnionT, alias: str) -> UnionT:

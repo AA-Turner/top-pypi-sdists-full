@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: agate-sql
-Version: 0.7.2
+Version: 0.7.3
 Summary: agate-sql adds SQL read/write support to agate.
 Home-page: https://agate-sql.readthedocs.org/
 Author: Christopher Groskopf
@@ -13,11 +13,11 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
@@ -28,10 +28,21 @@ License-File: AUTHORS.rst
 Requires-Dist: agate>=1.5.0
 Requires-Dist: sqlalchemy>=1.4
 Provides-Extra: test
-Requires-Dist: crate; extra == "test"
+Requires-Dist: sqlalchemy-cratedb; extra == "test"
 Requires-Dist: geojson; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: summary
 
 .. image:: https://github.com/wireservice/agate-sql/workflows/CI/badge.svg
     :target: https://github.com/wireservice/agate-sql/actions

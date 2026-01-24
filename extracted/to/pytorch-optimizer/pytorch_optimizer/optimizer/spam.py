@@ -8,16 +8,17 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, LRScheduler
 
 from pytorch_optimizer.base.exception import NoComplexParameterError, NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import BETAS, CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Betas, Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class CosineDecay:
-    r"""Applies cosine decay to a parameter (death_rate), using PyTorch's built-in `CosineAnnealingLR`.
+    """Applies cosine decay to a parameter (death_rate) using PyTorch's built-in `CosineAnnealingLR`.
 
-    :param death_rate: float. initial value to be decayed.
-    :param t_max: int. maximum number of iterations for the decay.
-    :param eta_min: Optional[float]. minimum value of the parameter after decay. defaults to 0.
-    :param last_epoch: Optional[int]. the index of the last epoch. Defaults to -1.
+    Args:
+        death_rate (float): Initial value to be decayed.
+        t_max (int): Maximum number of iterations for the decay.
+        eta_min (Optional[float]): Minimum value of the parameter after decay. Defaults to 0.
+        last_epoch (Optional[int]): The index of the last epoch. Defaults to -1.
     """
 
     def __init__(self, death_rate: float, t_max: int, eta_min: float = 0.0, last_epoch: int = -1):
@@ -27,17 +28,19 @@ class CosineDecay:
         self.eta_min = eta_min
 
     def step(self, current_step: int) -> None:
-        r"""One step of the cosine decay scheduler.
+        """One step of the cosine decay scheduler.
 
-        :param current_step: int. Current step index.
+        Args:
+            current_step (int): Current step index.
         """
         self.cosine_stepper.last_epoch = current_step
         self.cosine_stepper.step()
 
     def get_death_rate(self, current_step: int) -> float:
-        r"""Get the updated rate (death_rate) at the given step.
+        """Get the updated rate (death_rate) at the given step.
 
-        :param current_step: int. Current step index.
+        Args:
+            current_step (int): Current step index.
         """
         if current_step >= self.t_max:
             return self.eta_min
@@ -50,24 +53,25 @@ class CosineDecay:
 class SPAM(BaseOptimizer):
     r"""Spike-Aware Adam with Momentum Reset for Stable LLM Training.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param density: float. density parameter. only used for 2d parameters (e.g. Linear).
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param warmup_epoch: int: number of epochs to warm up. defaults to 50.
-    :param threshold: int. threshold for gradient masking. defaults to 5000.
-    :param grad_accu_steps: int. gradient accumulation steps before threshold-based masking applies. defaults to 20.
-    :param update_proj_gap: int. update projection gap.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        density (float): Density parameter. Only used for 2D parameters (e.g., Linear).
+        weight_decay (float): Weight decay (L2 penalty).
+        warmup_epoch (int): Number of epochs to warm up. Defaults to 50.
+        threshold (int): Threshold for gradient masking. Defaults to 5000.
+        grad_accu_steps (int): Gradient accumulation steps before threshold-based masking applies. Defaults to 20.
+        update_proj_gap (int): Update projection gap.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         density: float = 1.0,
         weight_decay: float = 0.0,
         warmup_epoch: int = 50,
@@ -95,7 +99,7 @@ class SPAM(BaseOptimizer):
         self.update_proj_gap = update_proj_gap
         self.maximize = maximize
 
-        defaults: DEFAULTS = {'lr': lr, 'betas': betas, 'weight_decay': weight_decay, 'eps': eps, **kwargs}
+        defaults: Defaults = {'lr': lr, 'betas': betas, 'weight_decay': weight_decay, 'eps': eps, **kwargs}
 
         super().__init__(params, defaults)
 
@@ -180,12 +184,13 @@ class SPAM(BaseOptimizer):
     def __str__(self) -> str:
         return 'SPAM'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
-        pass
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -193,11 +198,8 @@ class SPAM(BaseOptimizer):
         scale_factor: float = 1.0 - self.warmup.get_death_rate(self.state['current_step'])
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
 
@@ -273,25 +275,26 @@ class SPAM(BaseOptimizer):
 class StableSPAM(BaseOptimizer):
     r"""How to Train in 4-Bit More Stably than 16-Bit Adam.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param betas: BETAS. coefficients used for computing running averages of gradient and the squared hessian trace.
-    :param gamma1: float. gamma1 parameter.
-    :param gamma2: float. gamma2 parameter.
-    :param theta: float. theta parameter.
-    :param t_max: Optional[int]. total number of steps.
-    :param eta_min: float. eta_min of CosineDecay.
-    :param weight_decay: float. weight decay (L2 penalty).
-    :param update_proj_gap: int. update projection gap.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        betas (Betas): Coefficients used for computing running averages of gradient and the squared Hessian trace.
+        gamma1 (float): Gamma1 parameter.
+        gamma2 (float): Gamma2 parameter.
+        theta (float): Theta parameter.
+        t_max (Optional[int]): Total number of steps.
+        eta_min (float): Eta_min of CosineDecay.
+        weight_decay (float): Weight decay (L2 penalty).
+        update_proj_gap (int): Update projection gap.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
-        betas: BETAS = (0.9, 0.999),
+        betas: Betas = (0.9, 0.999),
         gamma1: float = 0.7,
         gamma2: float = 0.9,
         theta: float = 0.999,
@@ -319,14 +322,17 @@ class StableSPAM(BaseOptimizer):
 
         self.total_step: int = 0
 
-        defaults: DEFAULTS = {'lr': lr, 'betas': betas, 'weight_decay': weight_decay, 'eps': eps, **kwargs}
+        defaults: Defaults = {'lr': lr, 'betas': betas, 'weight_decay': weight_decay, 'eps': eps, **kwargs}
 
         super().__init__(params, defaults)
 
     def __str__(self) -> str:
         return 'StableSPAM'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -348,8 +354,8 @@ class StableSPAM(BaseOptimizer):
                 state['m_max_t'] = torch.zeros(1, device=grad.device, dtype=grad.dtype)
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
@@ -359,11 +365,8 @@ class StableSPAM(BaseOptimizer):
         scale: float = self.warmup.get_death_rate(self.total_step) if self.warmup is not None else 1.0
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             beta1, beta2 = group['betas']
             beta1 *= scale
@@ -407,7 +410,9 @@ class StableSPAM(BaseOptimizer):
                 if mask.sum() > 0:
                     grad[mask].div_(max_grad).mul_(m_max_hat)
 
-                grad_norm = torch.norm(grad)
+                grad_norm = torch.linalg.norm(grad)
+                if grad_norm == 0:
+                    continue
 
                 m_norm_t, v_norm_t = state['m_norm_t'], state['v_norm_t']
                 m_norm_t.lerp_(grad_norm, weight=1.0 - self.gamma1 * scale)

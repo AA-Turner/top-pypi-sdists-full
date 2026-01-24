@@ -32,6 +32,7 @@ class UserRole(str, Enum):
     VIEWER = 'Viewer'
     MANAGER = 'Manager'
     DEVELOPER = 'Developer'
+    GLOBALVIEWER = 'GlobalViewer'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

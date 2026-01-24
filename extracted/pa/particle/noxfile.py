@@ -52,7 +52,7 @@ def build(session: nox.Session) -> None:
     )
 
 
-@nox.session(python="3.8", venv_backend="virtualenv")
+@nox.session(python="3.10", venv_backend="virtualenv")
 def zipapp(session: nox.Session) -> None:
     tmpdir = session.create_tmp()
 
@@ -64,7 +64,6 @@ def zipapp(session: nox.Session) -> None:
         "install",
         "--no-compile",
         ".",
-        "importlib_resources",
         "typing_extensions",
         f"--target={tmpdir}",
     )

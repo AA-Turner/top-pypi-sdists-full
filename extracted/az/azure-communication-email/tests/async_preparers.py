@@ -4,7 +4,10 @@
 # license information.
 # --------------------------------------------------------------------------
 import os
+import time
+from azure.core.exceptions import HttpResponseError
 from devtools_testutils import is_live
+
 
 def email_decorator_async(func, **kwargs):
     async def wrapper(self, *args, **kwargs):
@@ -16,7 +19,7 @@ def email_decorator_async(func, **kwargs):
             self.communication_connection_string = "endpoint=https://someEndpoint/;accesskey=someAccessKeyw=="
             self.sender_address = "someSender@contoso.com"
             self.recipient_address = "someRecipient@domain.com"
-    
+
         EXPONENTIAL_BACKOFF = 1.5
         RETRY_COUNT = 0
 
@@ -37,5 +40,5 @@ def email_decorator_async(func, **kwargs):
                     RETRY_COUNT += 1
                     if exc.status_code != 429 or RETRY_COUNT >= 6:
                         raise
-    
+
     return wrapper

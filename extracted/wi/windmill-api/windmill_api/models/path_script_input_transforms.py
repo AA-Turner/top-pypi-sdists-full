@@ -17,7 +17,7 @@ T = TypeVar("T", bound="PathScriptInputTransforms")
 
 @_attrs_define
 class PathScriptInputTransforms:
-    """ """
+    """Map of parameter names to their values (static or JavaScript expressions). These become the script's input arguments"""
 
     additional_properties: Dict[
         str,

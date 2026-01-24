@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djhtml
-Version: 3.0.9
+Version: 3.0.10
 Summary: Django/Jinja template indenter
 Home-page: https://github.com/rtts/djhtml
 Author: Jaap Joris Vens
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown

@@ -50,6 +50,12 @@ from .test_path_writer import TestPathWriter
     type=PERCENTAGE,
 )
 @click.option(
+    '--similarity',
+    'similarity',
+    help='subsetting by similarity from 0 to 1.0. Tests scoring above this value are included in the subset.',
+    type=click.FloatRange(min=0, max=1.0),
+)
+@click.option(
     '--goal-spec',
     'goal_spec',
     help='subsetting by programmatic goal definition',
@@ -242,6 +248,7 @@ def subset(
     test_suite: Optional[str] = None,
     is_get_tests_from_guess: bool = False,
     use_case: Optional[str] = None,
+    similarity: Optional[float] = None,
 ):
     app = context.obj
     tracking_client = TrackingClient(Command.SUBSET, app=app)
@@ -378,6 +385,7 @@ def subset(
             self.output_handler = self._default_output_handler
             self.exclusion_output_handler = self._default_exclusion_output_handler
             self.is_get_tests_from_previous_sessions = is_get_tests_from_previous_sessions
+            self.is_get_tests_from_guess = is_get_tests_from_guess
             self.is_output_exclusion_rules = is_output_exclusion_rules
             self.is_get_tests_from_guess = is_get_tests_from_guess
             super(Optimize, self).__init__(app=app)
@@ -486,6 +494,7 @@ def subset(
                 },
                 "ignoreNewTests": ignore_new_tests,
                 "getTestsFromPreviousSessions": self.is_get_tests_from_previous_sessions,
+                "getTestsFromGuess": self.is_get_tests_from_guess,
             }
 
             if target is not None:
@@ -508,6 +517,11 @@ def subset(
                     "type": "subset-by-goal-spec",
                     "goal": goal_spec
                 }
+            elif similarity is not None:
+                payload["goal"] = {
+                    "type": "subset-by-similarity",
+                    "similarity": similarity
+                }
             else:
                 payload['useServerSideOptimizationTarget'] = True
 
@@ -527,7 +541,7 @@ def subset(
 
         def _collect_potential_test_files(self):
             LOOSE_TEST_FILE_PATTERN = r'(\.(test|spec)\.|_test\.|Test\.|Spec\.|test/|tests/|__tests__/|src/test/)'
-            EXCLUDE_PATTERN = r'\.(xml|json|txt|yml|yaml|md)$'
+            EXCLUDE_PATTERN = r'(BUILD|Makefile|Dockerfile|LICENSE|.gitignore|.gitkeep|.keep|id_rsa|rsa|blank|taglib)|\.(xml|json|jsonl|txt|yml|yaml|toml|md|png|jpg|jpeg|gif|svg|sql|html|css|graphql|proto|gz|zip|rz|bzl|conf|config|snap|pem|crt|key|lock|jpi|hpi|jelly|properties|jar|ini|mod|sum|bmp|env|envrc|sh)$'  # noqa E501
 
             try:
                 git_managed_files = subprocess.run(['git', 'ls-files'], stdout=subprocess.PIPE,
@@ -593,7 +607,7 @@ def subset(
                     print_error_and_die("ERROR: Given arguments did not match any tests. They appear to be incorrect/non-existent.", Tracking.ErrorEvent.USER_ERROR)  # noqa E501
                 else:
                     print_error_and_die(
-                        "ERROR: Expecting tests to be given, but none provided. See https://www.launchableinc.com/docs/features/predictive-test-selection/requesting-and-running-a-subset-of-tests/subsetting-with-the-launchable-cli/ and provide ones, or use the `--get-tests-from-previous-sessions` option",  # noqa E501
+                        "ERROR: Expecting tests to be given, but none provided. See https://help.launchableinc.com/features/predictive-test-selection/requesting-and-running-a-subset-of-tests/subsetting-with-the-launchable-cli/ and provide ones, or use the `--get-tests-from-previous-sessions` option",  # noqa E501
                         Tracking.ErrorEvent.USER_ERROR)
 
             # When Error occurs, return the test name as it is passed.

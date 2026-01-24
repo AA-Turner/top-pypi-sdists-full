@@ -9,37 +9,28 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Literal, Union
+import datetime as _dt
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class NetworkConfiguration(GitHubModel):
-    """Hosted compute network configuration
+class CopilotUsageMetrics1DayReport(GitHubModel):
+    """Copilot Metrics 1 Day Report
 
-    A hosted compute network configuration.
+    Links to download the Copilot usage metrics report for an
+    enterprise/organization for a specific day.
     """
 
-    id: str = Field(description="The unique identifier of the network configuration.")
-    name: str = Field(description="The name of the network configuration.")
-    compute_service: Missing[Literal["none", "actions", "codespaces"]] = Field(
-        default=UNSET,
-        description="The hosted compute service the network configuration supports.",
+    download_links: list[str] = Field(
+        description="The URLs to download the Copilot usage metrics report for the enterprise/organization for the specified day."
     )
-    network_settings_ids: Missing[list[str]] = Field(
-        default=UNSET,
-        description="The unique identifier of each network settings in the configuration.",
-    )
-    created_on: Union[datetime, None] = Field(
-        description="The time at which the network configuration was created, in ISO 8601 format."
+    report_day: _dt.date = Field(
+        description="The day of the report in `YYYY-MM-DD` format."
     )
 
 
-model_rebuild(NetworkConfiguration)
+model_rebuild(CopilotUsageMetrics1DayReport)
 
-__all__ = ("NetworkConfiguration",)
+__all__ = ("CopilotUsageMetrics1DayReport",)

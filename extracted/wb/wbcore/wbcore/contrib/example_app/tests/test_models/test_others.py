@@ -17,25 +17,25 @@ from wbcore.contrib.example_app.models import League, Match, Player, SportPerson
 @pytest.mark.django_db
 class TestPerson:
     def test_str_full(self):
-        person = SportPersonFactory(first_name="Test", last_name="Name")
+        person = SportPersonFactory.create(first_name="Test", last_name="Name")
         assert person.str_full() == "Test Name"
 
     def test_str_full_coach(self):
-        person = SportPersonFactory(first_name="Test", last_name="Name")
-        TeamFactory(coach=person, name="Test Team")
+        person = SportPersonFactory.create(first_name="Test", last_name="Name")
+        TeamFactory.create(coach=person, name="Test Team")
         assert person.str_full() == "Test Name (Coach of Test Team)"
 
     def test_str_full_commissioner(self):
-        commissioner = SportPersonFactory(first_name="Test", last_name="Name")
-        LeagueFactory(commissioner=commissioner, name="Test League")
+        commissioner = SportPersonFactory.create(first_name="Test", last_name="Name")
+        LeagueFactory.create(commissioner=commissioner, name="Test League")
         assert commissioner.str_full() == "Test Name (Commissioner of Test League)"
 
     def test_get_player_fail(self):
-        person = SportPersonFactory()
+        person = SportPersonFactory.create()
         assert person.get_player() is None
 
     def test_get_player_sucess(self):
-        player = PlayerFactory()
+        player = PlayerFactory.create()
         person = SportPerson.objects.get(id=player.pk)
         assert person.get_player() == player
 
@@ -43,15 +43,17 @@ class TestPerson:
 @pytest.mark.django_db
 class TestPlayer:
     def test_str_full(self):
-        player = PlayerFactory(first_name="Test", last_name="Name", current_team=None)
+        player = PlayerFactory.create(first_name="Test", last_name="Name", current_team=None)
         assert player.str_full() == "Test Name"
 
     def test_str_full_team(self):
-        player = PlayerFactory(current_team__name="Test Team", position=None, first_name="Test", last_name="Name")
+        player = PlayerFactory.create(
+            current_team__name="Test Team", position=None, first_name="Test", last_name="Name"
+        )
         assert player.str_full() == "Test Name (Test Team)"
 
     def test_str_full_team_position(self):
-        player = PlayerFactory(
+        player = PlayerFactory.create(
             current_team__name="Test Team", position="Test Position", first_name="Test", last_name="Name"
         )
         assert player.str_full() == "Test Name (Test Position at Test Team)"
@@ -60,19 +62,19 @@ class TestPlayer:
 @pytest.mark.django_db
 class TestRole:
     def test_str(self):
-        role = RoleFactory(title="Test Role")
+        role = RoleFactory.create(title="Test Role")
         assert role.__str__() == "Test Role"
 
 
 @pytest.mark.django_db
 class TestSport:
     def test_str(self):
-        sport = SportFactory(name="Test Sport")
+        sport = SportFactory.create(name="Test Sport")
         assert sport.__str__() == "Test Sport"
 
     def test_post_save(self):
-        sport = SportFactory()
-        league1 = LeagueFactory(sport=sport)
+        sport = SportFactory.create()
+        league1 = LeagueFactory.create(sport=sport)
         old_name = sport.name
         new_name = "New Sport Name"
         sport.name = new_name
@@ -89,12 +91,12 @@ class TestLeague:
         assert league.__str__() == "Test League (Test Sport)"
 
     def test_unique_constraint(self):
-        league = LeagueFactory()
+        league = LeagueFactory.create()
         with pytest.raises(IntegrityError):
             LeagueFactory(name=league.name, sport=league.sport)
 
     def test_post_save(self):
-        commissioner = SportPersonFactory()
+        commissioner = SportPersonFactory.create()
         league = LeagueFactory(commissioner=commissioner)
         old_name = league.name
         new_name = "New League Name"
@@ -117,7 +119,7 @@ class TestTeamResults:
         assert team_results.match_point_difference == difference
 
     def test_unique_constraint(self):
-        team_results = TeamResultsFactory()
+        team_results = TeamResultsFactory.create()
         with pytest.raises(IntegrityError):
             TeamResultsFactory(team=team_results.team, league=team_results.league)
 
@@ -136,7 +138,7 @@ class TestTeam:
         assert team.__str__() == "Test Team"
 
     def test_post_save(self):
-        team = TeamFactory()
+        team = TeamFactory.create()
         old_name = team.name
         player1 = PlayerFactory(current_team=team)
         player2 = PlayerFactory(current_team=team)

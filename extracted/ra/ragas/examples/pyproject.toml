@@ -17,9 +17,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "ragas",  # workspace dependency - version managed by workspace
-    "openai>=1.0.0",  # required for LLM calls in examples
-    "pandas",  # required for benchmark_llm examples
+    "ragas", # workspace dependency - version managed by workspace
+    "openai>=1.0.0", # required for LLM calls in examples
+    "pandas", # required for benchmark_llm examples
+
 ]
 dynamic = ["version", "readme"]
 
@@ -30,12 +31,38 @@ text2sql = [
     "datacompy>=0.8.0", 
     "python-dotenv>=1.0.0",
 ]
+improverag = [
+    "mlflow>=3.1.4",
+    "rank_bm25",
+    "datasets",
+    "langchain",
+    "langchain-community",
+    "tqdm",
+    "python-dotenv>=1.0.0",
+    "openai-agents>=0.2.9",
+]
+llamaindex = [
+    "llama-index>=0.10.0",
+    "llama-index-llms-google-genai",
+    "instructor",
+]
+
+[project.scripts]
+ragas-agent-evals = "ragas_examples.agent_evals.evals:main"
+ragas-benchmark-llm = "ragas_examples.benchmark_llm.evals:main"
+ragas-prompt-evals = "ragas_examples.prompt_evals.evals:main"
+ragas-rag-evals = "ragas_examples.rag_eval.evals:main"
+ragas-workflow-evals = "ragas_examples.workflow_eval.evals:main"
+ragas-improve-rag = "ragas_examples.improve_rag.evals:main"
+ragas-text2sql-evals = "ragas_examples.text2sql.evals:main"
+ragas-llamaindex-agent-evals = "ragas_examples.llamaIndex_agent_evals.evals:main"
+ragas-judge-alignment = "ragas_examples.judge_alignment.evals:main"
 
 [project.urls]
-Homepage = "https://github.com/explodinggradients/ragas"
+Homepage = "https://github.com/vibrantlabsai/ragas"
 Documentation = "https://docs.ragas.io"
-Code = "https://github.com/explodinggradients/ragas"
-Issues = "https://github.com/explodinggradients/ragas/issues"
+Code = "https://github.com/vibrantlabsai/ragas"
+Issues = "https://github.com/vibrantlabsai/ragas/issues"
 
 [tool.setuptools]
 package-dir = {"" = "."}

@@ -68,6 +68,18 @@ class Statistics:
                     and cond.right.schema_column.type
                     not in (OrsoTypes.DATE, OrsoTypes.TIME, OrsoTypes.TIMESTAMP)
                 ]
+                # Handle AnyOp* comparisons where left is a literal and right is an identifier
+                valid_conditions_any = [
+                    cond
+                    for cond in selection
+                    if cond.value == "AnyOpEq"
+                    and cond.left.node_type == NodeType.LITERAL
+                    and cond.right.node_type == NodeType.IDENTIFIER
+                    and cond.right.schema_column.type
+                    not in (OrsoTypes.DATE, OrsoTypes.TIME, OrsoTypes.TIMESTAMP)
+                    and cond.left.schema_column.type
+                    not in (OrsoTypes.DATE, OrsoTypes.TIME, OrsoTypes.TIMESTAMP)
+                ]
 
                 for condition in valid_conditions:
                     column_name = condition.left.source_column.encode()
@@ -87,6 +99,35 @@ class Statistics:
                             skip_blob = True
                             break
 
+                # Evaluate AnyOp* conditions (literal = ANY(column)) safely using element min/max
+                for condition in valid_conditions_any:
+                    column_name = condition.right.source_column.encode()
+                    literal_value = condition.left.value
+                    # Skip NULL literals — unsafe to prune
+                    if literal_value is None:
+                        continue
+                    if type(literal_value) is numpy.datetime64:
+                        # convert to python datetime for consistent to_int conversion
+                        literal_value = literal_value.astype("M8[ms]").astype("O")
+                    if hasattr(literal_value, "item"):
+                        literal_value = literal_value.item()
+                    literal_value = to_int(literal_value)
+                    # Skip NULL_FLAG values (NaN/unconvertible) that appear as the NULL sentinel
+                    NULL_FLAG = -(1 << 63)
+                    if literal_value == NULL_FLAG:
+                        continue
+                    max_value = cached_stats.upper_bounds.get(column_name)
+                    min_value = cached_stats.lower_bounds.get(column_name)
+
+                    if max_value is not None and min_value is not None:
+                        # convert AnyOpEq -> Eq, AnyOpGt -> Gt, etc.
+                        op_name = condition.value[5:]
+                        prune = handlers.get(op_name)
+                        if prune and prune(literal_value, min_value, max_value):
+                            query_statistics.blobs_pruned += 1
+                            skip_blob = True
+                            break
+
             if not skip_blob:
                 new_blob_names.append(blob_name)
 
@@ -101,9 +142,11 @@ class Statistics:
         schema.row_count_metric = statistics.record_count
 
         for column in schema.columns:
-            column.highest_value = statistics.upper_bounds.get(column.name, None)
-            column.lowest_value = statistics.lower_bounds.get(column.name, None)
+            # Statistics dictionaries use bytes keys, so we need to encode the column name
+            column_key = column.name.encode() if isinstance(column.name, str) else column.name
+            column.highest_value = statistics.upper_bounds.get(column_key, None)
+            column.lowest_value = statistics.lower_bounds.get(column_key, None)
             if statistics.null_count:
-                column.null_count = statistics.null_count.get(column.name, None)
+                column.null_count = statistics.null_count.get(column_key, None)
 
         return schema

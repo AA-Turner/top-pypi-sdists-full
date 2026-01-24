@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-arango
-Version: 8.2.2
+Version: 8.2.6
 Summary: Python Driver for ArangoDB
 Author-email: Joohwan Oh <joohwan.oh@outlook.com>
 Maintainer-email: Joohwan Oh <joohwan.oh@outlook.com>, Alexandru Petenchea <alex.petenchea@gmail.com>, Anthony Mahanna <anthony.mahanna@arangodb.com>
@@ -39,19 +39,17 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: urllib3>=1.26.0
 Requires-Dist: requests
 Requires-Dist: requests_toolbelt
 Requires-Dist: PyJWT
-Requires-Dist: setuptools>=42
-Requires-Dist: importlib_metadata>=4.7.1
 Requires-Dist: packaging>=23.1
 Provides-Extra: dev
-Requires-Dist: black>=22.3.0; extra == "dev"
-Requires-Dist: flake8>=4.0.1; extra == "dev"
+Requires-Dist: black==26.1.0; extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
 Requires-Dist: isort>=5.10.1; extra == "dev"
 Requires-Dist: mypy>=0.942; extra == "dev"
 Requires-Dist: mock; extra == "dev"
@@ -61,6 +59,7 @@ Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
 Requires-Dist: sphinx; extra == "dev"
 Requires-Dist: sphinx_rtd_theme; extra == "dev"
 Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: allure-pytest>=2.15; extra == "dev"
 Requires-Dist: types-setuptools; extra == "dev"
 Dynamic: license-file
 

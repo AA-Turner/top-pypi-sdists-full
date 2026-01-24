@@ -9,11 +9,7 @@ def delete(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Delete active scene
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Delete active scene"""
 
 def drop_scene_asset(
     execution_context: int | str | None = None,
@@ -24,10 +20,7 @@ def drop_scene_asset(
 ) -> None:
     """Import scene and set it as the active one in the window
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param session_uid: Session UID, Session UID of the data-block to use by the operator
-    :type session_uid: int | None
     """
 
 def freestyle_add_edge_marks_to_keying_set(
@@ -35,22 +28,14 @@ def freestyle_add_edge_marks_to_keying_set(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add the data paths to the Freestyle Edge Mark property of selected edges to the active keying set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add the data paths to the Freestyle Edge Mark property of selected edges to the active keying set"""
 
 def freestyle_add_face_marks_to_keying_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add the data paths to the Freestyle Face Mark property of selected polygons to the active keying set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add the data paths to the Freestyle Face Mark property of selected polygons to the active keying set"""
 
 def freestyle_alpha_modifier_add(
     execution_context: int | str | None = None,
@@ -62,10 +47,7 @@ def freestyle_alpha_modifier_add(
 ) -> None:
     """Add an alpha transparency modifier to the line style associated with the active lineset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems | None
     """
 
 def freestyle_color_modifier_add(
@@ -78,10 +60,7 @@ def freestyle_color_modifier_add(
 ) -> None:
     """Add a line color modifier to the line style associated with the active lineset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems | None
     """
 
 def freestyle_fill_range_by_selection(
@@ -94,8 +73,6 @@ def freestyle_fill_range_by_selection(
 ) -> None:
     """Fill the Range Min/Max entries by the min/max distance between selected mesh objects and the source object (either a user-specified object or the active camera)
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type, Type of the modifier to work on
 
     COLOR
@@ -106,9 +83,7 @@ def freestyle_fill_range_by_selection(
 
     THICKNESS
     Thickness -- Thickness modifier type.
-        :type type: typing.Literal['COLOR','ALPHA','THICKNESS'] | None
         :param name: Name, Name of the modifier to work on
-        :type name: str
     """
 
 def freestyle_geometry_modifier_add(
@@ -121,10 +96,7 @@ def freestyle_geometry_modifier_add(
 ) -> None:
     """Add a stroke geometry modifier to the line style associated with the active lineset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems | None
     """
 
 def freestyle_lineset_add(
@@ -132,22 +104,14 @@ def freestyle_lineset_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a line set into the list of line sets
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a line set into the list of line sets"""
 
 def freestyle_lineset_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Copy the active line set to the internal clipboard
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Copy the active line set to the internal clipboard"""
 
 def freestyle_lineset_move(
     execution_context: int | str | None = None,
@@ -158,10 +122,7 @@ def freestyle_lineset_move(
 ) -> None:
     """Change the position of the active line set within the list of line sets
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Direction to move the active line set towards
-    :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def freestyle_lineset_paste(
@@ -169,44 +130,28 @@ def freestyle_lineset_paste(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Paste the internal clipboard content to the active line set
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Paste the internal clipboard content to the active line set"""
 
 def freestyle_lineset_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the active line set from the list of line sets
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the active line set from the list of line sets"""
 
 def freestyle_linestyle_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create a new line style, reusable by multiple line sets
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create a new line style, reusable by multiple line sets"""
 
 def freestyle_modifier_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Duplicate the modifier within the list of modifiers
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Duplicate the modifier within the list of modifiers"""
 
 def freestyle_modifier_move(
     execution_context: int | str | None = None,
@@ -217,10 +162,7 @@ def freestyle_modifier_move(
 ) -> None:
     """Move the modifier within the list of modifiers
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Direction to move the chosen modifier towards
-    :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def freestyle_modifier_remove(
@@ -228,22 +170,14 @@ def freestyle_modifier_remove(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the modifier from the list of modifiers
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the modifier from the list of modifiers"""
 
 def freestyle_module_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a style module into the list of modules
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a style module into the list of modules"""
 
 def freestyle_module_move(
     execution_context: int | str | None = None,
@@ -254,10 +188,7 @@ def freestyle_module_move(
 ) -> None:
     """Change the position of the style module within in the list of style modules
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param direction: Direction, Direction to move the chosen style module towards
-    :type direction: typing.Literal['UP','DOWN'] | None
     """
 
 def freestyle_module_open(
@@ -270,12 +201,8 @@ def freestyle_module_open(
 ) -> None:
     """Open a style module file
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param filepath: filepath
-    :type filepath: str
     :param make_internal: Make internal, Make module file internal after loading
-    :type make_internal: bool | None
     """
 
 def freestyle_module_remove(
@@ -283,22 +210,14 @@ def freestyle_module_remove(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the style module from the stack
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the style module from the stack"""
 
 def freestyle_stroke_material_create(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Create Freestyle stroke material for testing
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Create Freestyle stroke material for testing"""
 
 def freestyle_thickness_modifier_add(
     execution_context: int | str | None = None,
@@ -310,10 +229,7 @@ def freestyle_thickness_modifier_add(
 ) -> None:
     """Add a line thickness modifier to the line style associated with the active lineset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param type: Type
-    :type type: bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems | None
     """
 
 def gltf2_action_filter_refresh(
@@ -321,11 +237,7 @@ def gltf2_action_filter_refresh(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Refresh list of actions
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Refresh list of actions"""
 
 def gpencil_brush_preset_add(
     execution_context: int | str | None = None,
@@ -338,14 +250,9 @@ def gpencil_brush_preset_add(
 ) -> None:
     """Add or remove Grease Pencil brush preset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def gpencil_material_preset_add(
@@ -359,14 +266,9 @@ def gpencil_material_preset_add(
 ) -> None:
     """Add or remove Grease Pencil material preset
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of the preset, used to make the path name
-    :type name: str
     :param remove_name: remove_name
-    :type remove_name: bool | None
     :param remove_active: remove_active
-    :type remove_active: bool | None
     """
 
 def new(
@@ -378,8 +280,6 @@ def new(
 ) -> None:
     """Add new scene by type
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     NEW
@@ -393,7 +293,6 @@ def new(
 
     FULL_COPY
     Full Copy -- Make a full copy of the current scene.
-        :type type: typing.Literal['NEW','EMPTY','LINK_COPY','FULL_COPY'] | None
     """
 
 def new_sequencer(
@@ -405,8 +304,6 @@ def new_sequencer(
 ) -> None:
     """Add new scene by type in the sequence editor and assign to active strip
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     NEW
@@ -420,7 +317,6 @@ def new_sequencer(
 
     FULL_COPY
     Full Copy -- Make a full copy of the current scene.
-        :type type: typing.Literal['NEW','EMPTY','LINK_COPY','FULL_COPY'] | None
     """
 
 def new_sequencer_scene(
@@ -432,8 +328,6 @@ def new_sequencer_scene(
 ) -> None:
     """Add new scene to be used by the sequencer
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     NEW
@@ -447,7 +341,6 @@ def new_sequencer_scene(
 
     FULL_COPY
     Full Copy -- Make a full copy of the current scene.
-        :type type: typing.Literal['NEW','EMPTY','LINK_COPY','FULL_COPY'] | None
     """
 
 def render_view_add(
@@ -455,22 +348,14 @@ def render_view_add(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a render view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a render view"""
 
 def render_view_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the selected render view
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the selected render view"""
 
 def view_layer_add(
     execution_context: int | str | None = None,
@@ -481,8 +366,6 @@ def view_layer_add(
 ) -> None:
     """Add a view layer
 
-        :type execution_context: int | str | None
-        :type undo: bool | None
         :param type: Type
 
     NEW
@@ -493,7 +376,6 @@ def view_layer_add(
 
     EMPTY
     Blank -- Add a new view layer with all collections disabled.
-        :type type: typing.Literal['NEW','COPY','EMPTY'] | None
     """
 
 def view_layer_add_aov(
@@ -501,11 +383,7 @@ def view_layer_add_aov(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add a Shader AOV
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add a Shader AOV"""
 
 def view_layer_add_lightgroup(
     execution_context: int | str | None = None,
@@ -516,10 +394,7 @@ def view_layer_add_lightgroup(
 ) -> None:
     """Add a Light Group
 
-    :type execution_context: int | str | None
-    :type undo: bool | None
     :param name: Name, Name of newly created lightgroup
-    :type name: str
     """
 
 def view_layer_add_used_lightgroups(
@@ -527,52 +402,32 @@ def view_layer_add_used_lightgroups(
     undo: bool | None = None,
     /,
 ) -> None:
-    """Add all used Light Groups
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Add all used Light Groups"""
 
 def view_layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove the selected view layer
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove the selected view layer"""
 
 def view_layer_remove_aov(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove Active AOV
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove Active AOV"""
 
 def view_layer_remove_lightgroup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove Active Lightgroup
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove Active Lightgroup"""
 
 def view_layer_remove_unused_lightgroups(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
 ) -> None:
-    """Remove all unused Light Groups
-
-    :type execution_context: int | str | None
-    :type undo: bool | None
-    """
+    """Remove all unused Light Groups"""

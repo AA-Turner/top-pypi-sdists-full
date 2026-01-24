@@ -60,7 +60,11 @@ def lit(value: t.Optional[t.Any] = None) -> Column:
     if isinstance(value, str):
         return Column(expression.Literal.string(value))
     if isinstance(value, float) and value in {float("inf"), float("-inf")}:
-        return Column(expression.Literal.string(str(value)))
+        return Column(
+            expression.cast(
+                expression.Literal.string(str(value)), to=expression.DataType.Type.FLOAT
+            )
+        )
     return Column(value)
 
 
@@ -241,12 +245,12 @@ ceiling = ceil
 
 @meta()
 def cos(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "COS")
+    return Column.invoke_expression_over_column(col, expression.Cos)
 
 
-@meta(unsupported_engines="duckdb")
+@meta()
 def cosh(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "COSH")
+    return Column.invoke_expression_over_column(col, expression.Cosh)
 
 
 @meta()
@@ -309,7 +313,7 @@ def factorial(col: ColumnOrName) -> Column:
     if session._is_bigquery:
         return factorial_from_case_statement(col)
 
-    return Column.invoke_anonymous_function(col, "FACTORIAL")
+    return Column.invoke_expression_over_column(col, expression.Factorial)
 
 
 @meta()
@@ -382,12 +386,12 @@ def sinh(col: ColumnOrName) -> Column:
 
 @meta()
 def tan(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "TAN")
+    return Column.invoke_expression_over_column(col, expression.Tan)
 
 
-@meta(unsupported_engines="duckdb")
+@meta()
 def tanh(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "TANH")
+    return Column.invoke_expression_over_column(col, expression.Tanh)
 
 
 @meta()
@@ -399,7 +403,7 @@ def degrees(col: ColumnOrName) -> Column:
     if session._is_bigquery:
         return degrees_bgutil(col)
 
-    return Column.invoke_anonymous_function(col, "DEGREES")
+    return Column.invoke_expression_over_column(col, expression.Degrees)
 
 
 toDegrees = degrees
@@ -414,7 +418,7 @@ def radians(col: ColumnOrName) -> Column:
     if session._is_bigquery:
         return radians_bgutil(col)
 
-    return Column.invoke_anonymous_function(col, "RADIANS")
+    return Column.invoke_expression_over_column(col, expression.Radians)
 
 
 toRadians = radians
@@ -527,7 +531,7 @@ def kurtosis(col: ColumnOrName) -> Column:
     if session._is_duckdb:
         return kurtosis_from_kurtosis_pop(col)
 
-    return Column.invoke_anonymous_function(col, "KURTOSIS")
+    return Column.invoke_expression_over_column(col, expression.Kurtosis)
 
 
 @meta()
@@ -1078,7 +1082,7 @@ def hour(col: ColumnOrName) -> Column:
     if session._is_bigquery or session._is_postgres:
         return hour_from_extract(col)
 
-    return Column.invoke_anonymous_function(col, "HOUR")
+    return Column.invoke_expression_over_column(col, expression.Hour)
 
 
 @meta()
@@ -1090,7 +1094,7 @@ def minute(col: ColumnOrName) -> Column:
     if session._is_bigquery or session._is_postgres:
         return minute_from_extract(col)
 
-    return Column.invoke_anonymous_function(col, "MINUTE")
+    return Column.invoke_expression_over_column(col, expression.Minute)
 
 
 @meta()
@@ -1102,7 +1106,7 @@ def second(col: ColumnOrName) -> Column:
     if session._is_bigquery or session._is_postgres:
         return second_from_extract(col)
 
-    return Column.invoke_anonymous_function(col, "SECOND")
+    return Column.invoke_expression_over_column(col, expression.Second)
 
 
 @meta()
@@ -1398,7 +1402,7 @@ def next_day(col: ColumnOrName, dayOfWeek: str) -> Column:
     if session._is_bigquery:
         return next_day_bgutil(col, dayOfWeek)
 
-    return Column.invoke_anonymous_function(col, "NEXT_DAY", lit(dayOfWeek))
+    return Column.invoke_expression_over_column(col, expression.NextDay, expression=lit(dayOfWeek))
 
 
 @meta()
@@ -1789,8 +1793,8 @@ def overlay(
         expression.Overlay,
         **{
             "expression": Column(replace).column_expression,
-            "from": lit(pos).column_expression,
-            "for": lit(len).column_expression if len is not None else None,
+            "from_": lit(pos).column_expression,
+            "for_": lit(len).column_expression if len is not None else None,
         },
     )
 
@@ -2075,7 +2079,7 @@ def translate(srcCol: ColumnOrName, matching: str, replace: str) -> Column:
     return Column.invoke_expression_over_column(
         srcCol,
         expression.Translate,
-        **{"from": lit(matching).column_expression, "to": lit(replace).column_expression},
+        **{"from_": lit(matching).column_expression, "to": lit(replace).column_expression},
     )
 
 
@@ -2093,7 +2097,6 @@ def array_agg(col: ColumnOrName) -> Column:
 @meta()
 def array_append(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
     from sqlframe.base.function_alternatives import (
-        array_append_list_append,
         array_append_using_array_cat,
     )
 
@@ -2102,15 +2105,17 @@ def array_append(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
     if session._is_bigquery:
         return array_append_using_array_cat(col, value)
 
-    if session._is_duckdb:
-        return array_append_list_append(col, value)
-
     value = value if isinstance(value, Column) else lit(value)
-    return Column.invoke_anonymous_function(col, "ARRAY_APPEND", value)
+    return Column.invoke_expression_over_column(
+        col, expression.ArrayAppend, expression=value.column_expression
+    )
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "postgres", "snowflake"])
 def array_compact(col: ColumnOrName) -> Column:
+    if _get_session()._is_duckdb:
+        filter_func = get_func_from_session("filter")
+        return filter_func(col, lambda x: x.isNotNull())
     return Column.invoke_anonymous_function(col, "ARRAY_COMPACT")
 
 
@@ -2124,10 +2129,12 @@ def array_insert(
     return Column.invoke_anonymous_function(col, "ARRAY_INSERT", pos, value)  # type: ignore
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "postgres", "snowflake"])
 def array_prepend(col: ColumnOrName, value: ColumnOrLiteral) -> Column:
     value = value if isinstance(value, Column) else lit(value)
-    return Column.invoke_anonymous_function(col, "ARRAY_PREPEND", value)
+    return Column.invoke_expression_over_column(
+        col, expression.ArrayPrepend, expression=value.column_expression
+    )
 
 
 @meta()
@@ -2160,7 +2167,7 @@ def bit_count(col: ColumnOrName) -> Column:
     if session._is_duckdb:
         return Column.invoke_anonymous_function(col, "BIT_COUNT")
 
-    return Column.invoke_expression_over_column(col, expression.BitwiseCountAgg)
+    return Column.invoke_expression_over_column(col, expression.BitwiseCount)
 
 
 @meta(unsupported_engines="*")
@@ -2168,9 +2175,9 @@ def bit_get(col: ColumnOrName, pos: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(col, "BIT_GET", pos)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
 def getbit(col: ColumnOrName, pos: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "GETBIT", pos)
+    return Column.invoke_expression_over_column(col, expression.Getbit, expression=pos)
 
 
 @meta(unsupported_engines=["bigquery", "postgres"])
@@ -2569,6 +2576,12 @@ def sort_array(col: ColumnOrName, asc: t.Optional[bool] = None) -> Column:
     if session._is_snowflake:
         return sort_array_using_array_sort(col, asc)
 
+    if session._is_duckdb:
+        asc = True if asc is None else asc
+        order = "ASC" if asc else "DESC"
+        nulls_order = "NULLS_FIRST" if asc else "NULLS_LAST"
+        return Column.invoke_anonymous_function(col, "list_sort", lit(order), lit(nulls_order))
+
     if asc is not None:
         return Column.invoke_expression_over_column(col, expression.SortArray, asc=lit(asc))
     return Column.invoke_expression_over_column(col, expression.SortArray)
@@ -2615,9 +2628,9 @@ def flatten(col: ColumnOrName) -> Column:
     return Column.invoke_expression_over_column(col, expression.Flatten)
 
 
-@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
+@meta(unsupported_engines=["bigquery", "postgres"])
 def map_keys(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "MAP_KEYS")
+    return Column.invoke_expression_over_column(col, expression.MapKeys)
 
 
 @meta(unsupported_engines=["bigquery", "duckdb", "postgres", "snowflake"])
@@ -2752,7 +2765,7 @@ def forall(col: ColumnOrName, f: t.Callable[[Column], Column]) -> Column:
     return Column.invoke_anonymous_function(col, "FORALL", Column(f_expression))
 
 
-@meta(unsupported_engines=["bigquery", "duckdb", "postgres", "snowflake"])
+@meta(unsupported_engines=["bigquery", "postgres", "snowflake"])
 def filter(
     col: ColumnOrName,
     f: t.Union[t.Callable[[Column], Column], t.Callable[[Column, Column], Column]],
@@ -2921,36 +2934,36 @@ def aes_encrypt(
     return Column.invoke_anonymous_function(input, "AES_ENCRYPT", *columns)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "postgres"])
 def bitmap_bit_position(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "BITMAP_BIT_POSITION")
+    return Column.invoke_expression_over_column(col, expression.BitmapBitPosition)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
 def bitmap_bucket_number(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "BITMAP_BUCKET_NUMBER")
+    return Column.invoke_expression_over_column(col, expression.BitmapBucketNumber)
 
 
 @meta(unsupported_engines="*")
 def bitmap_construct_agg(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "BITMAP_CONSTRUCT_AGG")
+    return Column.invoke_expression_over_column(col, expression.BitmapConstructAgg)
 
 
 @meta(unsupported_engines="*")
 def bitmap_count(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "BITMAP_COUNT")
+    return Column.invoke_expression_over_column(col, expression.BitmapCount)
 
 
 @meta(unsupported_engines="*")
 def bitmap_or_agg(col: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col, "BITMAP_OR_AGG")
+    return Column.invoke_expression_over_column(col, expression.BitmapOrAgg)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "postgres"])
 def to_binary(col: ColumnOrName, format: t.Optional[ColumnOrName] = None) -> Column:
     if format is not None:
-        return Column.invoke_anonymous_function(col, "TO_BINARY", format)
-    return Column.invoke_anonymous_function(col, "TO_BINARY")
+        return Column.invoke_expression_over_column(col, expression.ToBinary, format=format)
+    return Column.invoke_expression_over_column(col, expression.ToBinary)
 
 
 @meta()
@@ -3112,7 +3125,7 @@ def cardinality(col: ColumnOrName) -> Column:
 
 @meta()
 def char(col: ColumnOrName) -> Column:
-    return Column(expression.Chr(expressions=Column.ensure_col(col).column_expression))
+    return Column(expression.Chr(expressions=[Column.ensure_col(col).column_expression]))
 
 
 @meta()
@@ -3190,7 +3203,7 @@ def curdate() -> Column:
     return Column.invoke_anonymous_function(None, "curdate")
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "snowflake"])
 def current_catalog() -> Column:
     """Returns the current catalog.
 
@@ -3205,10 +3218,12 @@ def current_catalog() -> Column:
     |    spark_catalog|
     +-----------------+
     """
-    return Column.invoke_anonymous_function(None, "current_catalog")
+    if _get_session()._is_spark:
+        return Column.invoke_anonymous_function(None, "current_catalog")
+    return Column.invoke_expression_over_column(None, expression.CurrentCatalog)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines="bigquery")
 def current_database() -> Column:
     """Returns the current database.
 
@@ -3223,15 +3238,15 @@ def current_database() -> Column:
     |           default|
     +------------------+
     """
-    return Column.invoke_anonymous_function(None, "current_database")
+    return Column.invoke_expression_over_column(None, expression.CurrentDatabase)
 
 
 current_schema = current_database
 
 
-@meta(unsupported_engines=["*", "databricks"])
+@meta(unsupported_engines="*")
 def current_timezone() -> Column:
-    return Column.invoke_anonymous_function(None, "current_timezone")
+    return Column.invoke_expression_over_column(None, expression.CurrentTimezone)
 
 
 @meta()
@@ -3288,8 +3303,10 @@ def days(col: ColumnOrName) -> Column:
 def elt(*inputs: ColumnOrName) -> Column:
     inputs = ensure_list(inputs)  # type: ignore
     if len(inputs) > 1:
-        return Column.invoke_anonymous_function(inputs[0], "elt", *inputs[1:])
-    return Column.invoke_anonymous_function(inputs[0], "elt")
+        return Column.invoke_expression_over_column(
+            inputs[0], expression.Elt, expressions=inputs[1:]
+        )
+    return Column.invoke_expression_over_column(inputs[0], expression.Elt)
 
 
 @meta()
@@ -3308,9 +3325,9 @@ def endswith(str: ColumnOrName, suffix: ColumnOrName) -> Column:
     )
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
 def equal_null(col1: ColumnOrName, col2: ColumnOrName) -> Column:
-    return Column.invoke_anonymous_function(col1, "equal_null", col2)
+    return Column.invoke_expression_over_column(col1, expression.EqualNull, expression=col2)
 
 
 @meta(unsupported_engines="*")
@@ -3970,7 +3987,7 @@ def json_array_length(col: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(col, "json_array_length")
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "postgres", "snowflake"])
 def json_object_keys(col: ColumnOrName) -> Column:
     """
     Returns all the keys of the outermost JSON object as an array. If a valid JSON object is
@@ -3995,7 +4012,7 @@ def json_object_keys(col: ColumnOrName) -> Column:
     >>> df.select(json_object_keys(df.data).alias('r')).collect()
     [Row(r=None), Row(r=[]), Row(r=['key1', 'key2'])]
     """
-    return Column.invoke_anonymous_function(col, "json_object_keys")
+    return Column.invoke_expression_over_column(col, expression.JSONKeys)
 
 
 @meta(unsupported_engines="postgres")
@@ -4108,7 +4125,7 @@ def left(str: ColumnOrName, len: ColumnOrName) -> Column:
     return Column.invoke_expression_over_column(str, expression.Left, expression=len)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines="bigquery")
 def like(
     str: ColumnOrName, pattern: ColumnOrName, escapeChar: t.Optional["Column"] = None
 ) -> Column:
@@ -4192,7 +4209,7 @@ def ln(col: ColumnOrName) -> Column:
     return Column.invoke_expression_over_column(col, expression.Ln)
 
 
-@meta(unsupported_engines=["*", "databricks"])
+@meta(unsupported_engines=["bigquery", "databricks"])
 def localtimestamp() -> Column:
     """
     Returns the current timestamp without time zone at the start of query evaluation
@@ -4219,7 +4236,9 @@ def localtimestamp() -> Column:
     |2022-08-26 21:28:34.639|
     +-----------------------+
     """
-    return Column.invoke_anonymous_function(None, "localtimestamp")
+    if _get_session()._is_spark:
+        return Column.invoke_anonymous_function(None, "localtimestamp")
+    return Column.invoke_expression_over_column(None, expression.Localtimestamp)
 
 
 @meta(unsupported_engines=["*", "databricks"])
@@ -4570,7 +4589,9 @@ def map_contains_key(col: ColumnOrName, value: t.Any) -> Column:
     +----------------------------------+
     """
     value = lit(value) if not isinstance(value, Column) else value
-    return Column.invoke_anonymous_function(col, "map_contains_key", value)
+    return Column.invoke_expression_over_column(
+        col, expression.MapContainsKey, key=value.column_expression
+    )
 
 
 @meta(unsupported_engines="*")
@@ -4704,7 +4725,7 @@ def mode(col: ColumnOrName) -> Column:
     +------+----------+
     """
 
-    return Column.invoke_anonymous_function(col, "mode")
+    return Column.invoke_expression_over_column(col, expression.Mode)
 
 
 @meta(unsupported_engines="*")
@@ -4881,13 +4902,12 @@ def parse_url(
     >>> df.select(parse_url(df.a, df.b).alias('r')).collect()
     [Row(r='query=1')]
     """
-    if key is not None:
-        return Column.invoke_anonymous_function(url, "parse_url", partToExtract, key)
-    else:
-        return Column.invoke_anonymous_function(url, "parse_url", partToExtract)
+    return Column.invoke_expression_over_column(
+        url, expression.ParseUrl, part_to_extract=partToExtract, key=key
+    )
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "snowflake"])
 def pi() -> Column:
     """Returns Pi.
 
@@ -4902,7 +4922,7 @@ def pi() -> Column:
     |3.141592653589793|
     +-----------------+
     """
-    return Column.invoke_anonymous_function(None, "pi")
+    return Column.invoke_expression_over_column(None, expression.Pi)
 
 
 @meta(unsupported_engines="*")
@@ -5210,7 +5230,7 @@ def regexp(str: ColumnOrName, regexp: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(str, "regexp", regexp)
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "duckdb"])
 def regexp_count(str: ColumnOrName, regexp: ColumnOrName) -> Column:
     r"""Returns a count of the number of times that the Java regex pattern `regexp` is matched
     in the string `str`.
@@ -5239,7 +5259,7 @@ def regexp_count(str: ColumnOrName, regexp: ColumnOrName) -> Column:
     >>> df.select(regexp_count("str", col("regexp")).alias('d')).collect()
     [Row(d=3)]
     """
-    return Column.invoke_anonymous_function(str, "regexp_count", regexp)
+    return Column.invoke_expression_over_column(str, expression.RegexpCount, expression=regexp)
 
 
 @meta(unsupported_engines=["bigquery", "postgres"])
@@ -5438,7 +5458,7 @@ def regr_avgx(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_avgx("y", "x")).first()
     Row(regr_avgx(y, x)=0.999)
     """
-    return Column.invoke_anonymous_function(y, "regr_avgx", x)
+    return Column.invoke_expression_over_column(y, expression.RegrAvgx, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5469,7 +5489,7 @@ def regr_avgy(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_avgy("y", "x")).first()
     Row(regr_avgy(y, x)=9.980732994136464)
     """
-    return Column.invoke_anonymous_function(y, "regr_avgy", x)
+    return Column.invoke_expression_over_column(y, expression.RegrAvgy, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5500,7 +5520,7 @@ def regr_count(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_count("y", "x")).first()
     Row(regr_count(y, x)=1000)
     """
-    return Column.invoke_anonymous_function(y, "regr_count", x)
+    return Column.invoke_expression_over_column(y, expression.RegrCount, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5532,7 +5552,7 @@ def regr_intercept(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_intercept("y", "x")).first()
     Row(regr_intercept(y, x)=-0.04961745990969568)
     """
-    return Column.invoke_anonymous_function(y, "regr_intercept", x)
+    return Column.invoke_expression_over_column(y, expression.RegrIntercept, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5563,7 +5583,7 @@ def regr_r2(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_r2("y", "x")).first()
     Row(regr_r2(y, x)=0.9851908293645436)
     """
-    return Column.invoke_anonymous_function(y, "regr_r2", x)
+    return Column.invoke_expression_over_column(y, expression.RegrR2, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5594,7 +5614,7 @@ def regr_slope(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_slope("y", "x")).first()
     Row(regr_slope(y, x)=10.040390844891048)
     """
-    return Column.invoke_anonymous_function(y, "regr_slope", x)
+    return Column.invoke_expression_over_column(y, expression.RegrSlope, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5625,7 +5645,7 @@ def regr_sxx(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_sxx("y", "x")).first()
     Row(regr_sxx(y, x)=666.9989999999996)
     """
-    return Column.invoke_anonymous_function(y, "regr_sxx", x)
+    return Column.invoke_expression_over_column(y, expression.RegrSxx, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5656,7 +5676,7 @@ def regr_sxy(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_sxy("y", "x")).first()
     Row(regr_sxy(y, x)=6696.93065315148)
     """
-    return Column.invoke_anonymous_function(y, "regr_sxy", x)
+    return Column.invoke_expression_over_column(y, expression.RegrSxy, expression=x)
 
 
 @meta(unsupported_engines="*")
@@ -5687,7 +5707,7 @@ def regr_syy(y: ColumnOrName, x: ColumnOrName) -> Column:
     >>> df.select(regr_syy("y", "x")).first()
     Row(regr_syy(y, x)=68250.53503811295)
     """
-    return Column.invoke_anonymous_function(y, "regr_syy", x)
+    return Column.invoke_expression_over_column(y, expression.RegrSyy, expression=x)
 
 
 @meta()
@@ -6806,7 +6826,7 @@ def weekday(col: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(col, "weekday")
 
 
-@meta(unsupported_engines="*")
+@meta(unsupported_engines=["bigquery", "duckdb", "postgres"])
 def width_bucket(
     v: ColumnOrName,
     min: ColumnOrName,
@@ -6855,7 +6875,9 @@ def width_bucket(
     +----------------------------+
     """
     numBucket = lit(numBucket) if isinstance(numBucket, int) else numBucket
-    return Column.invoke_anonymous_function(v, "width_bucket", min, max, numBucket)
+    return Column.invoke_expression_over_column(
+        v, expression.WidthBucket, min_value=min, max_value=max, num_buckets=numBucket
+    )
 
 
 @meta(unsupported_engines=["*", "spark"])
@@ -7102,6 +7124,15 @@ def years(col: ColumnOrName) -> Column:
     return Column.invoke_anonymous_function(col, "years")
 
 
+@meta(unsupported_engines="postgres")
+def array_reverse(col: ColumnOrName) -> Column:
+    session = _get_session()
+    if session._is_spark or session._is_databricks:
+        reverse_func = get_func_from_session("reverse")
+        return reverse_func(col)
+    return Column.invoke_expression_over_column(col, expression.ArrayReverse)
+
+
 # SQLFrame specific
 @meta()
 def _is_string(col: ColumnOrName) -> Column:
@@ -7185,8 +7216,15 @@ def _get_lambda_from_func(lambda_expression: t.Callable):
             expressions=variables,
         )
 
-    # Handle regular functions and lambdas
-    var_names = lambda_expression.__code__.co_varnames[: lambda_expression.__code__.co_argcount]
+    # Handle regular functions, lambdas, AND built-in functions
+    # Check if function has __code__ attribute (regular Python functions/lambdas)
+    if hasattr(lambda_expression, "__code__"):
+        # Use __code__ for regular functions and lambdas (preserves exact parameter names)
+        var_names = lambda_expression.__code__.co_varnames[: lambda_expression.__code__.co_argcount]
+    else:
+        # Built-in function without __code__ - use parameter names from signature
+        # This handles operator.add, operator.sub, and other built-in functions
+        var_names = param_names  # type: ignore
 
     variables = [expression.to_identifier(x, quoted=_lambda_quoted(x)) for x in var_names]
 

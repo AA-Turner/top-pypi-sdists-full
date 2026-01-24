@@ -148,8 +148,16 @@ class ReturnCreateParams(TypedDict, total=False):
     This is for internal usage and will not be transmitted to the bank.”
     """
 
+    reconciliation_status: Literal["unreconciled", "tentatively_reconciled", "reconciled"]
+    """One of `unreconciled`, `tentatively_reconciled` or `reconciled`."""
+
 
 class Corrections(TypedDict, total=False):
+    """Only relevant for ACH NOC returns.
+
+    This is an object containing all of the new and corrected information provided by the bank that was previously incorrect on the original outgoing payment.
+    """
+
     account_number: Optional[str]
     """
     The updated account number that should replace the one originally used on the

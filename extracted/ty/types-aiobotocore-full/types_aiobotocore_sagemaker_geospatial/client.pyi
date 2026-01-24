@@ -3,7 +3,7 @@ Type annotations for sagemaker-geospatial service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_geospatial/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -68,12 +69,6 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -82,14 +77,14 @@ else:
 __all__ = ("SageMakergeospatialcapabilitiesClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SageMakergeospatialcapabilitiesClient(AioBaseClient):
     """
@@ -128,7 +123,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
 
     async def delete_earth_observation_job(
         self, **kwargs: Unpack[DeleteEarthObservationJobInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this operation to delete an Earth Observation job.
 
@@ -138,7 +133,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
 
     async def delete_vector_enrichment_job(
         self, **kwargs: Unpack[DeleteVectorEnrichmentJobInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this operation to delete a Vector Enrichment job.
 
@@ -281,7 +276,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
 
     async def stop_earth_observation_job(
         self, **kwargs: Unpack[StopEarthObservationJobInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Use this operation to stop an existing earth observation job.
 
@@ -291,7 +286,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
 
     async def stop_vector_enrichment_job(
         self, **kwargs: Unpack[StopVectorEnrichmentJobInputTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Stops the Vector Enrichment job for a given job ARN.
 
@@ -299,7 +294,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_geospatial/client/#stop_vector_enrichment_job)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         The resource you want to tag.
 
@@ -307,7 +302,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker_geospatial/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         The resource you want to untag.
 
@@ -356,7 +351,7 @@ class SageMakergeospatialcapabilitiesClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

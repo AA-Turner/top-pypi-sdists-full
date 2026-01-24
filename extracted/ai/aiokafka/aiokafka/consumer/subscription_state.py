@@ -102,8 +102,7 @@ class SubscriptionState:
             self._subscription_type = subscription_type
         else:
             raise IllegalStateError(
-                "Subscription to topics, partitions and pattern are mutually "
-                "exclusive"
+                "Subscription to topics, partitions and pattern are mutually exclusive"
             )
 
     def _change_subscription(self, subscription: Subscription):
@@ -339,9 +338,9 @@ class Subscription:
 
     def _assign(self, topic_partitions: Iterable[TopicPartition]):
         for tp in topic_partitions:
-            assert (
-                tp.topic in self._topics
-            ), f"Received an assignment for unsubscribed topic: {tp}"
+            assert tp.topic in self._topics, (
+                f"Received an assignment for unsubscribed topic: {tp}"
+            )
 
         if self._assignment is not None:
             self._assignment._unassign()
@@ -391,7 +390,7 @@ class Assignment:
     """
 
     def __init__(self, topic_partitions: Iterable[TopicPartition]):
-        assert isinstance(topic_partitions, (list, set, tuple))
+        assert isinstance(topic_partitions, list | set | tuple)
 
         self._topic_partitions = frozenset(topic_partitions)
 

@@ -7,8 +7,8 @@ import functools
 import inspect
 import sys
 import types
-from collections.abc import Generator, Sequence
-from typing import Any, Callable, Generic, TypeVar, cast
+from collections.abc import Awaitable, Callable, Generator, Sequence
+from typing import Any, Generic, TypeVar, cast
 
 from langchain_core.runnables import Runnable
 from typing_extensions import ParamSpec
@@ -251,7 +251,7 @@ class SyncAsyncFuture(Generic[T], concurrent.futures.Future[T]):
 
 
 def call(
-    func: Callable[P, T],
+    func: Callable[P, Awaitable[T]] | Callable[P, T],
     *args: Any,
     retry_policy: Sequence[RetryPolicy] | None = None,
     cache_policy: CachePolicy | None = None,

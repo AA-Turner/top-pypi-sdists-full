@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: griffe-typingdoc
-Version: 0.2.9
+Version: 0.3.0
 Summary: Griffe extension for PEP 727 – Documentation Metadata in Typing.
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <pawamoy@pm.me>
 License-Expression: ISC

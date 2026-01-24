@@ -15,6 +15,7 @@ namespace slang::ast {
 
 class Compilation;
 
+/// A base class for parameter symbols, both type and value.
 class SLANG_EXPORT ParameterSymbolBase {
 public:
     const Symbol& symbol;
@@ -61,6 +62,8 @@ public:
     bool isFromGenvar() const { return isFromGv; }
     void setIsFromGenvar(bool newIsFromGenvar) { isFromGv = newIsFromGenvar; }
 
+    bool isEvaluating() const { return evaluating; }
+
     void serializeTo(ASTSerializer& serializer) const;
 
 private:
@@ -72,6 +75,7 @@ private:
     bool isFromGv = false;
 };
 
+/// Represents a type parameter.
 class SLANG_EXPORT TypeParameterSymbol final : public Symbol, public ParameterSymbolBase {
 public:
     DeclaredType targetType;
@@ -143,6 +147,8 @@ public:
             resolvePathPulse();
         return pathDest;
     }
+
+    bool isEvaluating() const { return evaluating; }
 
     static void fromSyntax(const Scope& scope, const syntax::SpecparamDeclarationSyntax& syntax,
                            SmallVectorBase<const SpecparamSymbol*>& results);

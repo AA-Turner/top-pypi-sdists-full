@@ -1,4 +1,4 @@
-"""SDL2 Rendering functionality.
+"""SDL Rendering functionality.
 
 .. versionadded:: 13.4
 """
@@ -271,7 +271,7 @@ class Texture:
     def scale_mode(self) -> ScaleMode:
         """Get or set this textures :any:`ScaleMode`.
 
-        ..versionadded:: 19.3
+        .. versionadded:: 19.3
         """
         mode = ffi.new("SDL_ScaleMode*")
         _check(lib.SDL_GetTextureScaleMode(self.p, mode))

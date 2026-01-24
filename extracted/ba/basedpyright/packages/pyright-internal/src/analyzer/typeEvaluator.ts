@@ -28,7 +28,9 @@ import { convertOffsetsToRange, convertOffsetToPosition } from '../common/positi
 import {
     PythonVersion,
     pythonVersion3_11,
+    pythonVersion3_12,
     pythonVersion3_13,
+    pythonVersion3_14,
     pythonVersion3_6,
     pythonVersion3_7,
     pythonVersion3_9,
@@ -230,6 +232,7 @@ import {
     SymbolDeclInfo,
     TypeEvaluator,
     TypeResult,
+    TypedDictItemInfo,
     TypeResultWithNode,
     ValidateArgTypeParams,
     ValidateTypeArgsOptions,
@@ -414,7 +417,7 @@ interface ScopedTypeVarResult {
 
 interface AliasMapEntry {
     alias: string;
-    module: 'builtins' | 'collections' | 'contextlib' | 'self';
+    module: 'builtins' | 'collections' | 'contextlib' | 'internals';
     implicitBaseClass?: string;
     isSpecialForm?: boolean;
     isIllegalInIsinstance?: boolean;
@@ -472,6 +475,7 @@ const nonSubscriptableTypes: Map<string, PythonVersion> = new Map([
     ['contextlib.AbstractContextManager', pythonVersion3_9],
     ['contextlib.AbstractAsyncContextManager', pythonVersion3_9],
     ['queue.Queue', pythonVersion3_9],
+    ['array.array', pythonVersion3_12],
 ]);
 
 // Some types that do not inherit from others are still considered
@@ -1014,6 +1018,8 @@ export function createTypeEvaluator(
             // so don't re-enter this block once we start executing it.
             prefetched = {};
 
+            const fileInfo = AnalyzerNodeInfo.getFileInfo(node);
+
             prefetched.objectClass = getBuiltInType(node, 'object');
             prefetched.typeClass = getBuiltInType(node, 'type');
             prefetched.functionClass = getTypesType(node, 'FunctionType') ?? getBuiltInType(node, 'function');
@@ -1035,12 +1041,20 @@ export function createTypeEvaluator(
             prefetched.strClass = getBuiltInType(node, 'str');
             prefetched.dictClass = getBuiltInType(node, 'dict');
             prefetched.moduleTypeClass = getTypingType(node, 'ModuleType');
-            prefetched.typedDictClass = getTypingType(node, 'TypedDict');
             prefetched.typedDictPrivateClass =
                 getTypeCheckerInternalsType(node, 'TypedDictFallback') ?? getTypingType(node, '_TypedDict');
+            prefetched.typedDictClass = getTypingType(node, 'TypedDict');
             prefetched.awaitableClass = getTypingType(node, 'Awaitable');
             prefetched.mappingClass = getTypingType(node, 'Mapping');
-            prefetched.templateClass = getTypeOfModule(node, 'Template', ['string', 'templatelib']);
+
+            // Don't attempt to resolve the string.templatelib if pyright is configured for
+            // Python 3.13 or older. Doing so will either fail to resolve (if running on Python 3.13
+            // or older) or resolve to the templatelib.py source file (if running on Python 3.14).
+            if (PythonVersion.isGreaterOrEqualTo(fileInfo.executionEnvironment.pythonVersion, pythonVersion3_14)) {
+                prefetched.templateClass = getTypeOfModule(node, 'Template', ['string', 'templatelib']);
+            } else {
+                prefetched.templateClass = UnknownType.create();
+            }
 
             prefetched.supportsKeysAndGetItemClass = getTypeshedType(node, 'SupportsKeysAndGetItem');
             if (!prefetched.supportsKeysAndGetItemClass) {
@@ -1242,7 +1256,8 @@ export function createTypeEvaluator(
             }
 
             case ParseNodeType.Index: {
-                typeResult = getTypeOfIndex(node, flags);
+                // before the access method was configurable, `get` was always used
+                typeResult = getTypeOfIndex(node, { method: 'get' }, flags);
                 break;
             }
 
@@ -2839,6 +2854,20 @@ export function createTypeEvaluator(
                 )
             );
         });
+
+        const extraItemsType = kwargsType.shared.typedDictEntries?.extraItems?.valueType;
+
+        if (extraItemsType && !isNever(extraItemsType)) {
+            FunctionType.addParam(
+                newFunction,
+                FunctionParam.create(
+                    ParamCategory.KwargsDict,
+                    extraItemsType,
+                    FunctionParamFlags.TypeDeclared,
+                    'kwargs'
+                )
+            );
+        }
 
         return newFunction;
     }
@@ -5634,6 +5663,7 @@ export function createTypeEvaluator(
                         match.priv.scopeName,
                         match.priv.scopeType
                     );
+                    type.shared.declaredVariance = match.shared.declaredVariance;
                     return {
                         type,
                         scopeNode,
@@ -6048,7 +6078,16 @@ export function createTypeEvaluator(
             }
 
             case TypeCategory.Module: {
-                const symbol = ModuleType.getField(baseType, memberName);
+                let symbol = ModuleType.getField(baseType, memberName);
+
+                // If the symbol isn't found in the module's symbol table,
+                // see if it's defined in the `ModuleType` class. This is
+                // needed for modules that are synthesized for namespace
+                // packages.
+                if (!symbol && prefetched?.moduleTypeClass && isInstantiableClass(prefetched.moduleTypeClass)) {
+                    symbol = ClassType.getSymbolTable(prefetched.moduleTypeClass).get(memberName);
+                }
+
                 if (symbol && !symbol.isExternallyHidden()) {
                     if (usage.method === 'get') {
                         setSymbolAccessed(fileInfo, symbol, node.d.member);
@@ -7144,7 +7183,11 @@ export function createTypeEvaluator(
         };
     }
 
-    function getTypeOfIndex(node: IndexNode, flags = EvalFlags.None): TypeResult {
+    function getTypeOfIndex(
+        node: IndexNode,
+        usage: EvaluatorUsage = { method: 'get' },
+        flags = EvalFlags.None
+    ): TypeResult {
         const baseTypeResult = getTypeOfExpression(node.d.leftExpr, flags | EvalFlags.IndexBaseDefaults);
 
         // If this is meant to be a type and the base expression is a string expression,
@@ -7190,7 +7233,7 @@ export function createTypeEvaluator(
             }
         }
 
-        const indexTypeResult = getTypeOfIndexWithBaseType(node, baseTypeResult, { method: 'get' }, flags);
+        const indexTypeResult = getTypeOfIndexWithBaseType(node, baseTypeResult, usage, flags);
 
         if (isCodeFlowSupportedForReference(node)) {
             // We limit type narrowing for index expressions to built-in types that are
@@ -7806,6 +7849,8 @@ export function createTypeEvaluator(
         let isRequired = false;
         let isNotRequired = false;
         let isReadOnly = false;
+        const overloadsUsedForCall: FunctionType[] = [];
+        const typedDictItemInfos: TypedDictItemInfo[] = [];
 
         const type = mapSubtypesExpandTypeVars(
             baseTypeResult.type,
@@ -7868,7 +7913,14 @@ export function createTypeEvaluator(
                         }
 
                         if (itemMethodType) {
-                            return getTypeOfIndexedObjectOrClass(node, concreteSubtype, selfType, usage).type;
+                            const typeResult = getTypeOfIndexedObjectOrClass(node, concreteSubtype, selfType, usage);
+                            if (typeResult.overloadsUsedForCall) {
+                                overloadsUsedForCall.push(...typeResult.overloadsUsedForCall);
+                            }
+                            if (typeResult.typedDictItemInfos) {
+                                typedDictItemInfos.push(...typeResult.typedDictItemInfos);
+                            }
+                            return typeResult.type;
                         }
                     }
 
@@ -8008,6 +8060,12 @@ export function createTypeEvaluator(
                     if (typeResult.isIncomplete) {
                         isIncomplete = true;
                     }
+                    if (typeResult.overloadsUsedForCall) {
+                        overloadsUsedForCall.push(...typeResult.overloadsUsedForCall);
+                    }
+                    if (typeResult.typedDictItemInfos) {
+                        typedDictItemInfos.push(...typeResult.typedDictItemInfos);
+                    }
                     return typeResult.type;
                 }
 
@@ -8041,7 +8099,15 @@ export function createTypeEvaluator(
             });
         }
 
-        return { type, isIncomplete, isReadOnly, isRequired, isNotRequired };
+        return {
+            type,
+            isIncomplete,
+            isReadOnly,
+            isRequired,
+            isNotRequired,
+            overloadsUsedForCall,
+            typedDictItemInfos,
+        };
     }
 
     // Determines the effective variance of the type parameters for a generic
@@ -8221,55 +8287,53 @@ export function createTypeEvaluator(
         // the index is a constant number (integer) or a slice with integer
         // start and end values. In these cases, we can determine
         // the exact type by indexing into the tuple type array.
-        if (
-            node.d.items.length === 1 &&
-            !node.d.trailingComma &&
-            !node.d.items[0].d.name &&
-            node.d.items[0].d.argCategory === ArgCategory.Simple &&
-            isClassInstance(baseType)
-        ) {
-            const index0Expr = node.d.items[0].d.valueExpr;
-            const valueType = getTypeOfExpression(index0Expr).type;
-
+        // This is a lambda to minimize the diff from the upstream repository.
+        const tupleConstIndexType = () => {
             if (
-                isClassInstance(valueType) &&
-                ClassType.isBuiltIn(valueType, 'int') &&
-                isLiteralType(valueType) &&
-                typeof valueType.priv.literalValue === 'number'
+                node.d.items.length === 1 &&
+                !node.d.trailingComma &&
+                !node.d.items[0].d.name &&
+                node.d.items[0].d.argCategory === ArgCategory.Simple &&
+                isClassInstance(baseType)
             ) {
-                const indexValue = valueType.priv.literalValue;
-                const tupleType = getSpecializedTupleType(baseType);
+                const index0Expr = node.d.items[0].d.valueExpr;
+                const valueType = getTypeOfExpression(index0Expr).type;
 
-                if (tupleType && tupleType.priv.tupleTypeArgs) {
-                    if (isTupleIndexUnambiguous(tupleType, indexValue)) {
-                        if (indexValue >= 0 && indexValue < tupleType.priv.tupleTypeArgs.length) {
-                            return { type: tupleType.priv.tupleTypeArgs[indexValue].type };
-                        } else if (indexValue < 0 && tupleType.priv.tupleTypeArgs.length + indexValue >= 0) {
-                            return {
-                                type: tupleType.priv.tupleTypeArgs[tupleType.priv.tupleTypeArgs.length + indexValue]
-                                    .type,
-                            };
+                if (
+                    isClassInstance(valueType) &&
+                    ClassType.isBuiltIn(valueType, 'int') &&
+                    isLiteralType(valueType) &&
+                    typeof valueType.priv.literalValue === 'number'
+                ) {
+                    const indexValue = valueType.priv.literalValue;
+                    const tupleType = getSpecializedTupleType(baseType);
+
+                    if (tupleType && tupleType.priv.tupleTypeArgs) {
+                        if (isTupleIndexUnambiguous(tupleType, indexValue)) {
+                            if (indexValue >= 0 && indexValue < tupleType.priv.tupleTypeArgs.length) {
+                                return tupleType.priv.tupleTypeArgs[indexValue].type;
+                            } else if (indexValue < 0 && tupleType.priv.tupleTypeArgs.length + indexValue >= 0) {
+                                return tupleType.priv.tupleTypeArgs[tupleType.priv.tupleTypeArgs.length + indexValue]
+                                    .type;
+                            }
+                        }
+                    }
+                } else if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'slice')) {
+                    const tupleType = getSpecializedTupleType(baseType);
+
+                    if (tupleType && index0Expr.nodeType === ParseNodeType.Slice) {
+                        const slicedTupleType = getSlicedTupleType(evaluatorInterface, tupleType, index0Expr);
+                        if (slicedTupleType) {
+                            return slicedTupleType;
                         }
                     }
                 }
-            } else if (isClassInstance(valueType) && ClassType.isBuiltIn(valueType, 'slice')) {
-                const tupleType = getSpecializedTupleType(baseType);
-
-                if (tupleType && index0Expr.nodeType === ParseNodeType.Slice) {
-                    const slicedTupleType = getSlicedTupleType(evaluatorInterface, tupleType, index0Expr);
-                    if (slicedTupleType) {
-                        return { type: slicedTupleType };
-                    }
-                }
             }
-        }
+            return undefined;
+        };
 
-        // Follow PEP 637 rules for positional and keyword arguments.
-        const positionalArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple && !item.d.name);
+        const positionalArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple);
         const unpackedListArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.UnpackedList);
-
-        const keywordArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.Simple && !!item.d.name);
-        const unpackedDictArgs = node.d.items.filter((item) => item.d.argCategory === ArgCategory.UnpackedDictionary);
 
         let positionalIndexType: Type;
         let isPositionalIndexTypeIncomplete = false;
@@ -8281,29 +8345,93 @@ export function createTypeEvaluator(
             if (typeResult.isIncomplete) {
                 isPositionalIndexTypeIncomplete = true;
             }
-        } else if (positionalArgs.length === 0 && unpackedListArgs.length === 0) {
-            // Handle the case where there are no positionals provided but there are keywords.
-            positionalIndexType = makeTupleObject(evaluatorInterface, []);
         } else {
             // Package up all of the positionals into a tuple.
             const tupleTypeArgs: TupleTypeArg[] = [];
-            positionalArgs.forEach((arg) => {
-                const typeResult = getTypeOfExpression(arg.d.valueExpr);
-                tupleTypeArgs.push({ type: typeResult.type, isUnbounded: false });
-                if (typeResult.isIncomplete) {
-                    isPositionalIndexTypeIncomplete = true;
+
+            const getDeterministicTupleEntries = (type: Type): TupleTypeArg[] | undefined => {
+                let aggregatedArgs: TupleTypeArg[] | undefined;
+                let isDeterministic = true;
+
+                doForEachSubtype(type, (subtype) => {
+                    if (!isDeterministic) {
+                        return;
+                    }
+
+                    const tupleType = getSpecializedTupleType(subtype);
+                    const tupleTypeArgs = tupleType?.priv.tupleTypeArgs;
+
+                    if (
+                        !tupleTypeArgs ||
+                        tupleTypeArgs.some((entry) => entry.isUnbounded || isTypeVarTuple(entry.type))
+                    ) {
+                        isDeterministic = false;
+                        return;
+                    }
+
+                    if (!aggregatedArgs) {
+                        aggregatedArgs = tupleTypeArgs.map((entry) => ({ type: entry.type, isUnbounded: false }));
+                        return;
+                    }
+
+                    if (aggregatedArgs.length !== tupleTypeArgs.length) {
+                        isDeterministic = false;
+                        return;
+                    }
+
+                    for (let i = 0; i < aggregatedArgs.length; i++) {
+                        aggregatedArgs[i] = {
+                            type: combineTypes([aggregatedArgs[i].type, tupleTypeArgs[i].type]),
+                            isUnbounded: false,
+                        };
+                    }
+                });
+
+                if (!isDeterministic || !aggregatedArgs) {
+                    return undefined;
+                }
+
+                return aggregatedArgs;
+            };
+
+            node.d.items.forEach((arg) => {
+                if (arg.d.argCategory === ArgCategory.Simple) {
+                    const typeResult = getTypeOfExpression(arg.d.valueExpr);
+                    tupleTypeArgs.push({ type: typeResult.type, isUnbounded: false });
+                    if (typeResult.isIncomplete) {
+                        isPositionalIndexTypeIncomplete = true;
+                    }
+                    return;
+                }
+
+                if (arg.d.argCategory === ArgCategory.UnpackedList) {
+                    const typeResult = getTypeOfExpression(arg.d.valueExpr);
+                    if (typeResult.isIncomplete) {
+                        isPositionalIndexTypeIncomplete = true;
+                    }
+
+                    const deterministicEntries = getDeterministicTupleEntries(typeResult.type);
+                    if (deterministicEntries) {
+                        appendArray(tupleTypeArgs, deterministicEntries);
+                        return;
+                    }
+
+                    const iterableType =
+                        getTypeOfIterator(typeResult, /* isAsync */ false, arg.d.valueExpr)?.type ??
+                        UnknownType.create();
+                    tupleTypeArgs.push({ type: iterableType, isUnbounded: true });
                 }
             });
 
-            unpackedListArgs.forEach((arg) => {
-                const typeResult = getTypeOfExpression(arg.d.valueExpr);
-                if (typeResult.isIncomplete) {
-                    isPositionalIndexTypeIncomplete = true;
-                }
-                const iterableType =
-                    getTypeOfIterator(typeResult, /* isAsync */ false, arg.d.valueExpr)?.type ?? UnknownType.create();
-                tupleTypeArgs.push({ type: iterableType, isUnbounded: true });
-            });
+            const unboundedCount = tupleTypeArgs.filter((typeArg) => typeArg.isUnbounded).length;
+            if (unboundedCount > 1) {
+                const firstUnboundedIndex = tupleTypeArgs.findIndex((typeArg) => typeArg.isUnbounded);
+                const removedEntries = tupleTypeArgs.splice(firstUnboundedIndex);
+                tupleTypeArgs.push({
+                    type: combineTypes(removedEntries.map((entry) => entry.type)),
+                    isUnbounded: true,
+                });
+            }
 
             positionalIndexType = makeTupleObject(evaluatorInterface, tupleTypeArgs);
         }
@@ -8337,23 +8465,6 @@ export function createTypeEvaluator(
             });
         }
 
-        keywordArgs.forEach((arg) => {
-            argList.push({
-                argCategory: ArgCategory.Simple,
-                valueExpression: arg.d.valueExpr,
-                node: arg,
-                name: arg.d.name,
-            });
-        });
-
-        unpackedDictArgs.forEach((arg) => {
-            argList.push({
-                argCategory: ArgCategory.UnpackedDictionary,
-                valueExpression: arg.d.valueExpr,
-                node: arg,
-            });
-        });
-
         const callResult = validateCallArgs(
             node,
             argList,
@@ -8364,8 +8475,9 @@ export function createTypeEvaluator(
         );
 
         return {
-            type: callResult.returnType ?? UnknownType.create(),
+            type: tupleConstIndexType() ?? callResult.returnType ?? UnknownType.create(),
             isIncomplete: !!callResult.isTypeIncomplete,
+            overloadsUsedForCall: callResult.overloadsUsedForCall,
         };
     }
 
@@ -12615,13 +12727,28 @@ export function createTypeEvaluator(
 
         if (matchResults.argumentErrors) {
             // Evaluate types of all args. This will ensure that referenced symbols are
-            // not reported as unaccessed.
-            argList.forEach((arg) => {
-                if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
-                    getTypeOfExpression(arg.valueExpression);
+            // not reported as unaccessed. Also pass the expected parameter type as
+            // inference context to enable proper completions even when there are errors.
+            matchResults.argParams.forEach((argParam) => {
+                if (argParam.argument.valueExpression && !isSpeculativeModeInUse(argParam.argument.valueExpression)) {
+                    getTypeOfExpression(
+                        argParam.argument.valueExpression,
+                        /* flags */ undefined,
+                        makeInferenceContext(argParam.paramType)
+                    );
                 }
             });
 
+            // Also evaluate any arguments that weren't matched to parameters
+            argList.forEach((arg) => {
+                if (arg.valueExpression && !isSpeculativeModeInUse(arg.valueExpression)) {
+                    // Check if this argument was already evaluated above
+                    const wasEvaluated = matchResults.argParams.some((argParam) => argParam.argument === arg);
+                    if (!wasEvaluated) {
+                        getTypeOfExpression(arg.valueExpression);
+                    }
+                }
+            });
             // Use a return type of Unknown but attach a "possible type" to it
             // so the completion provider can suggest better completions.
             const possibleType = FunctionType.getEffectiveReturnType(typeResult.type);
@@ -12898,7 +13025,10 @@ export function createTypeEvaluator(
             if (argParam.argType) {
                 argType = argParam.argType;
             } else {
-                const argTypeResult = getTypeOfArg(argParam.argument, /* inferenceContext */ undefined);
+                const argTypeResult = getTypeOfArg(
+                    argParam.argument,
+                    makeInferenceContext(argParam.paramType, isTypeIncomplete)
+                );
                 argType = argTypeResult.type;
                 if (argTypeResult.isIncomplete) {
                     isTypeIncomplete = true;
@@ -16982,11 +17112,12 @@ export function createTypeEvaluator(
         } else if (aliasMapEntry.module === 'collections' || aliasMapEntry.module === 'contextlib') {
             // The typing.pyi file imports collections.
             baseClass = getTypeOfModule(node, baseClassName, [aliasMapEntry.module]);
-        } else if (aliasMapEntry.module === 'self') {
-            const symbolWithScope = lookUpSymbolRecursive(node, baseClassName, /* honorCodeFlow */ false);
-            if (symbolWithScope) {
-                baseClass = getEffectiveTypeOfSymbol(symbolWithScope.symbol);
-                // The _TypedDict class is marked as abstract, but the
+        } else if (aliasMapEntry.module === 'internals') {
+            // Handle TypedDict specially.
+            assert(baseClassName === 'TypedDictFallback');
+            baseClass = prefetched?.typedDictPrivateClass;
+            if (baseClass) {
+                // The TypedDictFallback class is marked as abstract, but the
                 // methods that are abstract are overridden and shouldn't
                 // cause the TypedDict to be marked as abstract.
                 if (
@@ -17044,7 +17175,7 @@ export function createTypeEvaluator(
             ['ClassVar', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Final', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Literal', { alias: '', module: 'builtins', isSpecialForm: true }],
-            ['TypedDict', { alias: '_TypedDict', module: 'self' }],
+            ['TypedDict', { alias: 'TypedDictFallback', module: 'internals' }],
             ['Union', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Optional', { alias: '', module: 'builtins', isSpecialForm: true }],
             ['Annotated', { alias: '', module: 'builtins', isSpecialForm: true, isIllegalInIsinstance: true }],
@@ -24269,7 +24400,8 @@ export function createTypeEvaluator(
         // Is it a structural type (i.e. a protocol)? If so, we need to
         // perform a member-by-member check.
         const inheritanceChain: InheritanceChain = [];
-        const isDerivedFrom = ClassType.isDerivedFrom(srcType, destType, inheritanceChain);
+        const allowAnyBase = !(flags & AssignTypeFlags.DisallowSrcDerivedFromAny);
+        const isDerivedFrom = ClassType.isDerivedFrom(srcType, destType, inheritanceChain, allowAnyBase);
 
         // Use the slow path for protocols if the dest doesn't explicitly
         // derive from the source. We also need to use this path if we're
@@ -29013,6 +29145,8 @@ export function createTypeEvaluator(
         getInferredReturnType,
         getBestOverloadForArgs,
         getBuiltInType,
+        getIndexAccessMagicMethodName,
+        getTypeOfIndex,
         getTypeOfMember,
         getTypeOfBoundMember,
         getBoundMagicMethod,

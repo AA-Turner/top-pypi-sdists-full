@@ -33,7 +33,7 @@ import bigframes.features
 import bigframes.pandas
 import bigframes.series as series
 from bigframes.testing.utils import (
-    assert_pandas_df_equal,
+    assert_frame_equal,
     assert_series_equal,
     get_first_file_from_wildcard,
 )
@@ -351,6 +351,41 @@ def test_series_construct_w_json_dtype(json_type):
     assert s[3] == '["a",{"b":1},null]'
     assert pd.isna(s[4])
     assert s[5] == '{"a":{"b":[1,2,3],"c":true}}'
+
+
+def test_series_construct_w_nested_json_dtype():
+    list_data = [
+        [{"key": "1"}],
+        [{"key": None}],
+        [{"key": '["1","3","5"]'}],
+        [{"key": '{"a":1,"b":["x","y"],"c":{"x":[],"z":false}}'}],
+    ]
+    pa_array = pa.array(list_data, type=pa.list_(pa.struct([("key", pa.string())])))
+
+    db_json_arrow_dtype = db_dtypes.JSONArrowType()
+    s = bigframes.pandas.Series(
+        pd.arrays.ArrowExtensionArray(pa_array),  # type: ignore
+        dtype=pd.ArrowDtype(
+            pa.list_(pa.struct([("key", db_json_arrow_dtype)])),
+        ),
+    )
+
+    assert s[0][0]["key"] == "1"
+    assert not s[1][0]["key"]
+    assert s[2][0]["key"] == '["1","3","5"]'
+    assert s[3][0]["key"] == '{"a":1,"b":["x","y"],"c":{"x":[],"z":false}}'
+
+    # Test with pyarrow.json_(pa.string()) if available.
+    if hasattr(pa, "JsonType"):
+        pyarrow_json_dtype = pa.json_(pa.string())
+        s2 = bigframes.pandas.Series(
+            pd.arrays.ArrowExtensionArray(pa_array),  # type: ignore
+            dtype=pd.ArrowDtype(
+                pa.list_(pa.struct([("key", pyarrow_json_dtype)])),
+            ),
+        )
+
+        pd.testing.assert_series_equal(s.to_pandas(), s2.to_pandas())
 
 
 def test_series_keys(scalars_dfs):
@@ -733,10 +768,12 @@ def test_series_replace_nans_with_pd_na(scalars_dfs):
     (
         ({"Hello, World!": "Howdy, Planet!", "T": "R"},),
         ({},),
+        ({0: "Hello, World!"},),
     ),
     ids=[
         "non-empty",
         "empty",
+        "off-type",
     ],
 )
 def test_series_replace_dict(scalars_dfs, replacement_dict):
@@ -764,6 +801,8 @@ def test_series_replace_dict(scalars_dfs, replacement_dict):
 )
 def test_series_interpolate(method):
     pytest.importorskip("scipy")
+    if method == "pad" and pd.__version__.startswith("3."):
+        pytest.skip("pandas 3.0 dropped method='pad'")
 
     values = [None, 1, 2, None, None, 16, None]
     index = [-3.2, 11.4, 3.56, 4, 4.32, 5.55, 76.8]
@@ -776,11 +815,12 @@ def test_series_interpolate(method):
     bf_result = bf_series.interpolate(method=method).to_pandas()
 
     # pd uses non-null types, while bf uses nullable types
-    pd.testing.assert_series_equal(
+    assert_series_equal(
         pd_result,
         bf_result,
         check_index_type=False,
         check_dtype=False,
+        nulls_are_nan=True,
     )
 
 
@@ -994,7 +1034,8 @@ def test_series_int_int_operators_scalar(
     bf_result = maybe_reversed_op(scalars_df["int64_col"], other_scalar).to_pandas()
     pd_result = maybe_reversed_op(scalars_pandas_df["int64_col"], other_scalar)
 
-    assert_series_equal(pd_result, bf_result)
+    # don't check dtype, as pandas is a bit unstable here across versions, esp floordiv
+    assert_series_equal(pd_result, bf_result, check_dtype=False)
 
 
 def test_series_pow_scalar(scalars_dfs):
@@ -1733,7 +1774,7 @@ def test_take(scalars_dfs, indices):
     bf_result = scalars_df.take(indices).to_pandas()
     pd_result = scalars_pandas_df.take(indices)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_nested_filter(scalars_dfs):
@@ -1919,10 +1960,22 @@ def test_mean(scalars_dfs):
     assert math.isclose(pd_result, bf_result)
 
 
-def test_median(scalars_dfs):
+@pytest.mark.parametrize(
+    ("col_name"),
+    [
+        "int64_col",
+        # Non-numeric column
+        "bytes_col",
+        "date_col",
+        "datetime_col",
+        "time_col",
+        "timestamp_col",
+        "string_col",
+    ],
+)
+def test_median(scalars_dfs, col_name):
     scalars_df, scalars_pandas_df = scalars_dfs
-    col_name = "int64_col"
-    bf_result = scalars_df[col_name].median()
+    bf_result = scalars_df[col_name].median(exact=False)
     pd_max = scalars_pandas_df[col_name].max()
     pd_min = scalars_pandas_df[col_name].min()
     # Median is approximate, so just check for plausibility.
@@ -1932,7 +1985,7 @@ def test_median(scalars_dfs):
 def test_median_exact(scalars_dfs):
     scalars_df, scalars_pandas_df = scalars_dfs
     col_name = "int64_col"
-    bf_result = scalars_df[col_name].median(exact=True)
+    bf_result = scalars_df[col_name].median()
     pd_result = scalars_pandas_df[col_name].median()
     assert math.isclose(pd_result, bf_result)
 
@@ -1965,7 +2018,10 @@ def test_series_small_repr(scalars_dfs):
     col_name = "int64_col"
     bf_series = scalars_df[col_name]
     pd_series = scalars_pandas_df[col_name]
-    assert repr(bf_series) == pd_series.to_string(length=False, dtype=True, name=True)
+    with bigframes.pandas.option_context("display.repr_mode", "head"):
+        assert repr(bf_series) == pd_series.to_string(
+            length=False, dtype=True, name=True
+        )
 
 
 def test_sum(scalars_dfs):
@@ -2677,7 +2733,7 @@ def test_diff(scalars_df_index, scalars_pandas_df_index, periods):
 def test_series_pct_change(scalars_df_index, scalars_pandas_df_index, periods):
     bf_result = scalars_df_index["int64_col"].pct_change(periods=periods).to_pandas()
     # cumsum does not behave well on nullable ints in pandas, produces object type and never ignores NA
-    pd_result = scalars_pandas_df_index["int64_col"].pct_change(periods=periods)
+    pd_result = scalars_pandas_df_index["int64_col"].ffill().pct_change(periods=periods)
 
     pd.testing.assert_series_equal(
         bf_result,
@@ -3367,7 +3423,7 @@ def test_to_frame(scalars_dfs):
     bf_result = scalars_df["int64_col"].to_frame().to_pandas()
     pd_result = scalars_pandas_df["int64_col"].to_frame()
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_to_frame_no_name(scalars_dfs):
@@ -3376,7 +3432,7 @@ def test_to_frame_no_name(scalars_dfs):
     bf_result = scalars_df["int64_col"].rename(None).to_frame().to_pandas()
     pd_result = scalars_pandas_df["int64_col"].rename(None).to_frame()
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_to_json(gcs_folder, scalars_df_index, scalars_pandas_df_index):
@@ -3620,7 +3676,7 @@ def test_mask_default_value(scalars_dfs):
     pd_col_masked = pd_col.mask(pd_col % 2 == 1)
     pd_result = pd_col.to_frame().assign(int64_col_masked=pd_col_masked)
 
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_mask_custom_value(scalars_dfs):
@@ -3638,7 +3694,7 @@ def test_mask_custom_value(scalars_dfs):
     # odd so should be left as is, but it is being masked in pandas.
     # Accidentally the bigframes bahavior matches, but it should be updated
     # after the resolution of https://github.com/pandas-dev/pandas/issues/52955
-    assert_pandas_df_equal(bf_result, pd_result)
+    assert_frame_equal(bf_result, pd_result)
 
 
 def test_mask_with_callable(scalars_df_index, scalars_pandas_df_index):
@@ -4089,7 +4145,7 @@ def test_loc_bool_series_default_index(
         scalars_pandas_df_default_index.bool_col
     ]
 
-    assert_pandas_df_equal(
+    assert_frame_equal(
         bf_result.to_frame(),
         pd_result.to_frame(),
     )
@@ -4804,14 +4860,14 @@ def test_series_explode_null(data):
         pytest.param(True, "timestamp_col", "timestamp_col", "1YE"),
     ],
 )
-def test__resample(scalars_df_index, scalars_pandas_df_index, append, level, col, rule):
+def test_resample(scalars_df_index, scalars_pandas_df_index, append, level, col, rule):
     # TODO: supply a reason why this isn't compatible with pandas 1.x
     pytest.importorskip("pandas", minversion="2.0.0")
     scalars_df_index = scalars_df_index.set_index(col, append=append)["int64_col"]
     scalars_pandas_df_index = scalars_pandas_df_index.set_index(col, append=append)[
         "int64_col"
     ]
-    bf_result = scalars_df_index._resample(rule=rule, level=level).min().to_pandas()
+    bf_result = scalars_df_index.resample(rule=rule, level=level).min().to_pandas()
     pd_result = scalars_pandas_df_index.resample(rule=rule, level=level).min()
     pd.testing.assert_series_equal(bf_result, pd_result)
 

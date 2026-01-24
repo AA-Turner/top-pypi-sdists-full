@@ -9,45 +9,44 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Literal
 
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
 
-from .group_0003 import SimpleUser
-from .group_0010 import Integration
-
-
-class RenamedIssueEvent(GitHubModel):
-    """Renamed Issue Event
-
-    Renamed Issue Event
-    """
-
-    id: int = Field()
-    node_id: str = Field()
-    url: str = Field()
-    actor: SimpleUser = Field(title="Simple User", description="A GitHub user.")
-    event: Literal["renamed"] = Field()
-    commit_id: Union[str, None] = Field()
-    commit_url: Union[str, None] = Field()
-    created_at: str = Field()
-    performed_via_github_app: Union[None, Integration, None] = Field()
-    rename: RenamedIssueEventPropRename = Field()
+from .group_0334 import Metadata
 
 
-class RenamedIssueEventPropRename(GitHubModel):
-    """RenamedIssueEventPropRename"""
+class Dependency(GitHubModel):
+    """Dependency"""
 
-    from_: str = Field(alias="from")
-    to: str = Field()
+    package_url: Missing[str] = Field(
+        pattern="^pkg",
+        default=UNSET,
+        description="Package-url (PURL) of dependency. See https://github.com/package-url/purl-spec for more details.",
+    )
+    metadata: Missing[Metadata] = Field(
+        default=UNSET,
+        title="metadata",
+        description="User-defined metadata to store domain-specific information limited to 8 keys with scalar values.",
+    )
+    relationship: Missing[Literal["direct", "indirect"]] = Field(
+        default=UNSET,
+        description="A notation of whether a dependency is requested directly by this manifest or is a dependency of another dependency.",
+    )
+    scope: Missing[Literal["runtime", "development"]] = Field(
+        default=UNSET,
+        description="A notation of whether the dependency is required for the primary build artifact (runtime) or is only used for development. Future versions of this specification may allow for more granular scopes.",
+    )
+    dependencies: Missing[list[str]] = Field(
+        default=UNSET,
+        description="Array of package-url (PURLs) of direct child dependencies.",
+    )
 
 
-model_rebuild(RenamedIssueEvent)
-model_rebuild(RenamedIssueEventPropRename)
+model_rebuild(Dependency)
 
-__all__ = (
-    "RenamedIssueEvent",
-    "RenamedIssueEventPropRename",
-)
+__all__ = ("Dependency",)

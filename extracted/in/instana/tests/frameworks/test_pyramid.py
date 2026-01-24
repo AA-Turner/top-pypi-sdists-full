@@ -1,15 +1,17 @@
 # (c) Copyright IBM Corp. 2021
 # (c) Copyright Instana Inc. 2020
 
-import pytest
-import urllib3
+
 from typing import Generator
 
-from instana.util.ids import hex_id
-import tests.apps.pyramid.pyramid_app
-from tests.helpers import testenv
-from instana.singletons import tracer, agent
+import pytest
+import urllib3
+
+import tests.apps.pyramid.pyramid_app  # noqa: F401
+from instana.singletons import agent, get_tracer
 from instana.span.span import get_current_span
+from instana.util.ids import hex_id
+from tests.helpers import testenv
 
 
 class TestPyramid:
@@ -17,7 +19,8 @@ class TestPyramid:
     def _resource(self) -> Generator[None, None, None]:
         """Clear all spans before a test run"""
         self.http = urllib3.PoolManager()
-        self.recorder = tracer.span_processor
+        self.tracer = get_tracer()
+        self.recorder = self.tracer.span_processor
         self.recorder.clear_spans()
 
     def test_vanilla_requests(self) -> None:
@@ -28,7 +31,7 @@ class TestPyramid:
         assert len(spans) == 1
 
     def test_get_request(self) -> None:
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request("GET", testenv["pyramid_server"] + "/")
 
         spans = self.recorder.queued_spans()
@@ -77,7 +80,9 @@ class TestPyramid:
 
         # wsgi
         assert pyramid_span.n == "wsgi"
-        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(testenv["pyramid_port"])
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
         assert pyramid_span.data["http"]["url"] == "/"
         assert pyramid_span.data["http"]["method"] == "GET"
         assert pyramid_span.data["http"]["status"] == 200
@@ -97,7 +102,7 @@ class TestPyramid:
     def test_synthetic_request(self) -> None:
         headers = {"X-INSTANA-SYNTHETIC": "1"}
 
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request(
                 "GET", testenv["pyramid_server"] + "/", headers=headers
             )
@@ -116,7 +121,7 @@ class TestPyramid:
         assert not test_span.sy
 
     def test_500(self) -> None:
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request("GET", testenv["pyramid_server"] + "/500")
 
         spans = self.recorder.queued_spans()
@@ -161,7 +166,9 @@ class TestPyramid:
 
         # wsgi
         assert pyramid_span.n == "wsgi"
-        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(testenv["pyramid_port"])
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
         assert pyramid_span.data["http"]["url"] == "/500"
         assert pyramid_span.data["http"]["method"] == "GET"
         assert pyramid_span.data["http"]["status"] == 500
@@ -178,8 +185,58 @@ class TestPyramid:
         assert type(urllib3_span.stack) is list
         assert len(urllib3_span.stack) > 1
 
+    def test_return_error_response(self) -> None:
+        with self.tracer.start_as_current_span("test"):
+            response = self.http.request(
+                "GET", testenv["pyramid_server"] + "/return_error_response"
+            )
+
+        spans = self.recorder.queued_spans()
+        assert len(spans) == 3
+
+        pyramid_span = spans[0]
+
+        assert response.status == 500
+
+        assert pyramid_span.n == "wsgi"
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
+        assert pyramid_span.data["http"]["url"] == "/return_error_response"
+        assert pyramid_span.data["http"]["method"] == "GET"
+        assert pyramid_span.data["http"]["status"] == 500
+        assert pyramid_span.data["http"]["error"] == "b'Error'"
+        assert pyramid_span.data["http"]["path_tpl"] == "/return_error_response"
+
+        assert pyramid_span.ec == 1
+
+    def test_fail_with_http_exception(self) -> None:
+        with self.tracer.start_as_current_span("test"):
+            response = self.http.request(
+                "GET", testenv["pyramid_server"] + "/fail_with_http_exception"
+            )
+
+        spans = self.recorder.queued_spans()
+        assert len(spans) == 3
+
+        pyramid_span = spans[0]
+
+        assert response.status == 520
+
+        assert pyramid_span.n == "wsgi"
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
+        assert pyramid_span.data["http"]["url"] == "/fail_with_http_exception"
+        assert pyramid_span.data["http"]["method"] == "GET"
+        assert pyramid_span.data["http"]["status"] == 520
+        assert pyramid_span.data["http"]["error"] == "bad request"
+        assert pyramid_span.data["http"]["path_tpl"] == "/fail_with_http_exception"
+
+        assert pyramid_span.ec == 1
+
     def test_exception(self) -> None:
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request(
                 "GET", testenv["pyramid_server"] + "/exception"
             )
@@ -211,7 +268,9 @@ class TestPyramid:
 
         # wsgi
         assert pyramid_span.n == "wsgi"
-        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(testenv["pyramid_port"])
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
         assert pyramid_span.data["http"]["url"] == "/exception"
         assert pyramid_span.data["http"]["method"] == "GET"
         assert pyramid_span.data["http"]["status"] == 500
@@ -235,7 +294,7 @@ class TestPyramid:
         original_extra_http_headers = agent.options.extra_http_headers
         agent.options.extra_http_headers = ["X-Capture-This", "X-Capture-That"]
 
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request(
                 "GET", testenv["pyramid_server"] + "/response_headers"
             )
@@ -270,7 +329,9 @@ class TestPyramid:
 
         # wsgi
         assert pyramid_span.n == "wsgi"
-        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(testenv["pyramid_port"])
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
         assert pyramid_span.data["http"]["url"] == "/response_headers"
         assert pyramid_span.data["http"]["method"] == "GET"
         assert pyramid_span.data["http"]["status"] == 200
@@ -307,7 +368,7 @@ class TestPyramid:
             "X-Capture-That-Too": "that too",
         }
 
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request(
                 "GET", testenv["pyramid_server"] + "/", headers=request_headers
             )
@@ -341,7 +402,9 @@ class TestPyramid:
 
         # wsgi
         assert pyramid_span.n == "wsgi"
-        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(testenv["pyramid_port"])
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
         assert pyramid_span.data["http"]["url"] == "/"
         assert pyramid_span.data["http"]["method"] == "GET"
         assert pyramid_span.data["http"]["status"] == 200
@@ -367,7 +430,7 @@ class TestPyramid:
         agent.options.extra_http_headers = original_extra_http_headers
 
     def test_scrub_secret_path_template(self) -> None:
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             response = self.http.request(
                 "GET", testenv["pyramid_server"] + "/hello_user/oswald?secret=sshhh"
             )
@@ -419,7 +482,9 @@ class TestPyramid:
 
         # wsgi
         assert pyramid_span.n == "wsgi"
-        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(testenv["pyramid_port"])
+        assert pyramid_span.data["http"]["host"] == "127.0.0.1:" + str(
+            testenv["pyramid_port"]
+        )
         assert pyramid_span.data["http"]["url"] == "/hello_user/oswald"
         assert pyramid_span.data["http"]["method"] == "GET"
         assert pyramid_span.data["http"]["status"] == 200

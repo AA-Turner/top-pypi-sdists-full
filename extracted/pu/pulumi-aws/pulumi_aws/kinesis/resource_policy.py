@@ -149,21 +149,21 @@ class ResourcePolicy(pulumi.CustomResource):
         example = aws.kinesis.ResourcePolicy("example",
             resource_arn=example_aws_kinesis_stream["arn"],
             policy=f\"\"\"{{
-          "Version": "2012-10-17",
-          "Id": "writePolicy",
-          "Statement": [{{
-            "Sid": "writestatement",
-            "Effect": "Allow",
-            "Principal": {{
-              "AWS": "123456789456"
+          \\"Version\\": \\"2012-10-17\\",
+          \\"Id\\": \\"writePolicy\\",
+          \\"Statement\\": [{{
+            \\"Sid\\": \\"writestatement\\",
+            \\"Effect\\": \\"Allow\\",
+            \\"Principal\\": {{
+              \\"AWS\\": \\"123456789456\\"
             }},
-            "Action": [
-              "kinesis:DescribeStreamSummary",
-              "kinesis:ListShards",
-              "kinesis:PutRecord",
-              "kinesis:PutRecords"
+            \\"Action\\": [
+              \\"kinesis:DescribeStreamSummary\\",
+              \\"kinesis:ListShards\\",
+              \\"kinesis:PutRecord\\",
+              \\"kinesis:PutRecords\\"
             ],
-            "Resource": "{example_aws_kinesis_stream["arn"]}"
+            \\"Resource\\": \\"{example_aws_kinesis_stream["arn"]}\\"
           }}]
         }}
         \"\"\")
@@ -171,11 +171,15 @@ class ResourcePolicy(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the Kinesis stream.
+
         Using `pulumi import`, import Kinesis resource policies using the `resource_arn`. For example:
 
-        ```sh
-        $ pulumi import aws:kinesis/resourcePolicy:ResourcePolicy example arn:aws:kinesis:us-west-2:123456789012:stream/example
-        ```
+        % pulumi import aws_kinesis_resource_policy.example arn:aws:kinesis:us-west-2:123456789012:stream/example
 
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -202,21 +206,21 @@ class ResourcePolicy(pulumi.CustomResource):
         example = aws.kinesis.ResourcePolicy("example",
             resource_arn=example_aws_kinesis_stream["arn"],
             policy=f\"\"\"{{
-          "Version": "2012-10-17",
-          "Id": "writePolicy",
-          "Statement": [{{
-            "Sid": "writestatement",
-            "Effect": "Allow",
-            "Principal": {{
-              "AWS": "123456789456"
+          \\"Version\\": \\"2012-10-17\\",
+          \\"Id\\": \\"writePolicy\\",
+          \\"Statement\\": [{{
+            \\"Sid\\": \\"writestatement\\",
+            \\"Effect\\": \\"Allow\\",
+            \\"Principal\\": {{
+              \\"AWS\\": \\"123456789456\\"
             }},
-            "Action": [
-              "kinesis:DescribeStreamSummary",
-              "kinesis:ListShards",
-              "kinesis:PutRecord",
-              "kinesis:PutRecords"
+            \\"Action\\": [
+              \\"kinesis:DescribeStreamSummary\\",
+              \\"kinesis:ListShards\\",
+              \\"kinesis:PutRecord\\",
+              \\"kinesis:PutRecords\\"
             ],
-            "Resource": "{example_aws_kinesis_stream["arn"]}"
+            \\"Resource\\": \\"{example_aws_kinesis_stream["arn"]}\\"
           }}]
         }}
         \"\"\")
@@ -224,11 +228,15 @@ class ResourcePolicy(pulumi.CustomResource):
 
         ## Import
 
+        ### Identity Schema
+
+        #### Required
+
+        - `arn` (String) Amazon Resource Name (ARN) of the Kinesis stream.
+
         Using `pulumi import`, import Kinesis resource policies using the `resource_arn`. For example:
 
-        ```sh
-        $ pulumi import aws:kinesis/resourcePolicy:ResourcePolicy example arn:aws:kinesis:us-west-2:123456789012:stream/example
-        ```
+        % pulumi import aws_kinesis_resource_policy.example arn:aws:kinesis:us-west-2:123456789012:stream/example
 
         :param str resource_name: The name of the resource.
         :param ResourcePolicyArgs args: The arguments to use to populate this resource's properties.

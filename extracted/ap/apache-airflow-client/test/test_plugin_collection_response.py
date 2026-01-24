@@ -38,28 +38,19 @@ class TestPluginCollectionResponse(unittest.TestCase):
                 plugins = [
                     airflow_client.client.models.plugin_response.PluginResponse(
                         appbuilder_menu_items = [
-                            airflow_client.client.models.app_builder_menu_item_response.AppBuilderMenuItemResponse(
-                                category = '', 
-                                href = '', 
-                                name = '', )
+                            { }
                             ], 
                         appbuilder_views = [
-                            airflow_client.client.models.app_builder_view_response.AppBuilderViewResponse(
-                                category = '', 
-                                label = '', 
-                                name = '', 
-                                view = '', )
+                            { }
+                            ], 
+                        external_views = [
+                            { }
                             ], 
                         fastapi_apps = [
-                            airflow_client.client.models.fast_api_app_response.FastAPIAppResponse(
-                                app = '', 
-                                name = '', 
-                                url_prefix = '', )
+                            { }
                             ], 
                         fastapi_root_middlewares = [
-                            airflow_client.client.models.fast_api_root_middleware_response.FastAPIRootMiddlewareResponse(
-                                middleware = '', 
-                                name = '', )
+                            { }
                             ], 
                         flask_blueprints = [
                             ''
@@ -76,6 +67,9 @@ class TestPluginCollectionResponse(unittest.TestCase):
                         name = '', 
                         operator_extra_links = [
                             ''
+                            ], 
+                        react_apps = [
+                            { }
                             ], 
                         source = '', 
                         timetables = [
@@ -89,28 +83,19 @@ class TestPluginCollectionResponse(unittest.TestCase):
                 plugins = [
                     airflow_client.client.models.plugin_response.PluginResponse(
                         appbuilder_menu_items = [
-                            airflow_client.client.models.app_builder_menu_item_response.AppBuilderMenuItemResponse(
-                                category = '', 
-                                href = '', 
-                                name = '', )
+                            { }
                             ], 
                         appbuilder_views = [
-                            airflow_client.client.models.app_builder_view_response.AppBuilderViewResponse(
-                                category = '', 
-                                label = '', 
-                                name = '', 
-                                view = '', )
+                            { }
+                            ], 
+                        external_views = [
+                            { }
                             ], 
                         fastapi_apps = [
-                            airflow_client.client.models.fast_api_app_response.FastAPIAppResponse(
-                                app = '', 
-                                name = '', 
-                                url_prefix = '', )
+                            { }
                             ], 
                         fastapi_root_middlewares = [
-                            airflow_client.client.models.fast_api_root_middleware_response.FastAPIRootMiddlewareResponse(
-                                middleware = '', 
-                                name = '', )
+                            { }
                             ], 
                         flask_blueprints = [
                             ''
@@ -127,6 +112,9 @@ class TestPluginCollectionResponse(unittest.TestCase):
                         name = '', 
                         operator_extra_links = [
                             ''
+                            ], 
+                        react_apps = [
+                            { }
                             ], 
                         source = '', 
                         timetables = [

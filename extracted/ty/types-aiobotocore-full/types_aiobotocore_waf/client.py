@@ -3,7 +3,7 @@ Type annotations for waf service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_waf/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -197,12 +198,6 @@ from .type_defs import (
     UpdateXssMatchSetResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -213,26 +208,26 @@ __all__ = ("WAFClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    ClientError: Type[BotocoreClientError]
-    WAFBadRequestException: Type[BotocoreClientError]
-    WAFDisallowedNameException: Type[BotocoreClientError]
-    WAFEntityMigrationException: Type[BotocoreClientError]
-    WAFInternalErrorException: Type[BotocoreClientError]
-    WAFInvalidAccountException: Type[BotocoreClientError]
-    WAFInvalidOperationException: Type[BotocoreClientError]
-    WAFInvalidParameterException: Type[BotocoreClientError]
-    WAFInvalidPermissionPolicyException: Type[BotocoreClientError]
-    WAFInvalidRegexPatternException: Type[BotocoreClientError]
-    WAFLimitsExceededException: Type[BotocoreClientError]
-    WAFNonEmptyEntityException: Type[BotocoreClientError]
-    WAFNonexistentContainerException: Type[BotocoreClientError]
-    WAFNonexistentItemException: Type[BotocoreClientError]
-    WAFReferencedItemException: Type[BotocoreClientError]
-    WAFServiceLinkedRoleErrorException: Type[BotocoreClientError]
-    WAFStaleDataException: Type[BotocoreClientError]
-    WAFSubscriptionNotFoundException: Type[BotocoreClientError]
-    WAFTagOperationException: Type[BotocoreClientError]
-    WAFTagOperationInternalErrorException: Type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    WAFBadRequestException: type[BotocoreClientError]
+    WAFDisallowedNameException: type[BotocoreClientError]
+    WAFEntityMigrationException: type[BotocoreClientError]
+    WAFInternalErrorException: type[BotocoreClientError]
+    WAFInvalidAccountException: type[BotocoreClientError]
+    WAFInvalidOperationException: type[BotocoreClientError]
+    WAFInvalidParameterException: type[BotocoreClientError]
+    WAFInvalidPermissionPolicyException: type[BotocoreClientError]
+    WAFInvalidRegexPatternException: type[BotocoreClientError]
+    WAFLimitsExceededException: type[BotocoreClientError]
+    WAFNonEmptyEntityException: type[BotocoreClientError]
+    WAFNonexistentContainerException: type[BotocoreClientError]
+    WAFNonexistentItemException: type[BotocoreClientError]
+    WAFReferencedItemException: type[BotocoreClientError]
+    WAFServiceLinkedRoleErrorException: type[BotocoreClientError]
+    WAFStaleDataException: type[BotocoreClientError]
+    WAFSubscriptionNotFoundException: type[BotocoreClientError]
+    WAFTagOperationException: type[BotocoreClientError]
+    WAFTagOperationInternalErrorException: type[BotocoreClientError]
 
 
 class WAFClient(AioBaseClient):
@@ -433,7 +428,7 @@ class WAFClient(AioBaseClient):
 
     async def delete_logging_configuration(
         self, **kwargs: Unpack[DeleteLoggingConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -443,7 +438,7 @@ class WAFClient(AioBaseClient):
 
     async def delete_permission_policy(
         self, **kwargs: Unpack[DeletePermissionPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -887,7 +882,7 @@ class WAFClient(AioBaseClient):
 
     async def put_permission_policy(
         self, **kwargs: Unpack[PutPermissionPolicyRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -895,7 +890,7 @@ class WAFClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_waf/client/#put_permission_policy)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -903,7 +898,7 @@ class WAFClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_waf/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         This is <b>AWS WAF Classic</b> documentation.
 
@@ -1215,7 +1210,7 @@ class WAFClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

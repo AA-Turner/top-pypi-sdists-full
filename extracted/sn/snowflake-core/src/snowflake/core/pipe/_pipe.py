@@ -31,8 +31,8 @@ class PipeCollection(PipeCollectionBase):
 class PipeResource(PipeResourceBase):
     """Represents a reference to a Snowflake pipe.
 
-    With this pipe reference, you can fetch information about pipes, as well
-    as perform certain actions on them.
+    With this pipe reference, you can fetch information about a pipe, as well as perform certain
+    actions on it.
     """
 
     _plural_name = "pipes"

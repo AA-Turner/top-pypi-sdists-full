@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: klepto
-Version: 0.2.7
+Version: 0.2.8
 Summary: persistent caching to memory, disk, or database
 Home-page: https://github.com/uqfoundation/klepto
 Download-URL: https://pypi.org/project/klepto/#files
@@ -20,21 +20,21 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 License-File: LICENSE
-Requires-Dist: pox>=0.3.6
-Requires-Dist: dill>=0.4.0
+Requires-Dist: pox>=0.3.7
+Requires-Dist: dill>=0.4.1
 Provides-Extra: archives
 Requires-Dist: h5py>=2.8.0; extra == "archives"
 Requires-Dist: sqlalchemy>=1.4.0; extra == "archives"
@@ -151,10 +151,10 @@ Requirements
 
 ``klepto`` requires:
 
-    - ``python`` (or ``pypy``), **>=3.8**
+    - ``python`` (or ``pypy``), **>=3.9**
     - ``setuptools``, **>=42**
-    - ``dill``, **>=0.4.0**
-    - ``pox``, **>=0.3.6**
+    - ``dill``, **>=0.4.1**
+    - ``pox``, **>=0.3.7**
 
 Optional requirements:
 

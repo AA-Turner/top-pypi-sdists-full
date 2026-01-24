@@ -58,6 +58,7 @@ struct mjtEnableBit {
     std::make_pair("mjENBL_FWDINV", ::mjtEnableBit::mjENBL_FWDINV),
     std::make_pair("mjENBL_INVDISCRETE", ::mjtEnableBit::mjENBL_INVDISCRETE),
     std::make_pair("mjENBL_MULTICCD", ::mjtEnableBit::mjENBL_MULTICCD),
+    std::make_pair("mjENBL_SLEEP", ::mjtEnableBit::mjENBL_SLEEP),
     std::make_pair("mjNENABLE", ::mjtEnableBit::mjNENABLE)};
 };
 
@@ -394,6 +395,18 @@ struct mjtSameFrame {
     std::make_pair("mjSAMEFRAME_INERTIAROT", ::mjtSameFrame::mjSAMEFRAME_INERTIAROT)};
 };
 
+struct mjtSleepPolicy {
+  static constexpr char name[] = "mjtSleepPolicy";
+  using type = ::mjtSleepPolicy;
+  static constexpr auto values = std::array{
+    std::make_pair("mjSLEEP_AUTO", ::mjtSleepPolicy::mjSLEEP_AUTO),
+    std::make_pair("mjSLEEP_AUTO_NEVER", ::mjtSleepPolicy::mjSLEEP_AUTO_NEVER),
+    std::make_pair("mjSLEEP_AUTO_ALLOWED", ::mjtSleepPolicy::mjSLEEP_AUTO_ALLOWED),
+    std::make_pair("mjSLEEP_NEVER", ::mjtSleepPolicy::mjSLEEP_NEVER),
+    std::make_pair("mjSLEEP_ALLOWED", ::mjtSleepPolicy::mjSLEEP_ALLOWED),
+    std::make_pair("mjSLEEP_INIT", ::mjtSleepPolicy::mjSLEEP_INIT)};
+};
+
 struct mjtLRMode {
   static constexpr char name[] = "mjtLRMode";
   using type = ::mjtLRMode;
@@ -518,6 +531,105 @@ struct mjtTimer {
     std::make_pair("mjTIMER_COL_BROAD", ::mjtTimer::mjTIMER_COL_BROAD),
     std::make_pair("mjTIMER_COL_NARROW", ::mjtTimer::mjTIMER_COL_NARROW),
     std::make_pair("mjNTIMER", ::mjtTimer::mjNTIMER)};
+};
+
+struct mjtSleepState {
+  static constexpr char name[] = "mjtSleepState";
+  using type = ::mjtSleepState;
+  static constexpr auto values = std::array{
+    std::make_pair("mjS_STATIC", ::mjtSleepState::mjS_STATIC),
+    std::make_pair("mjS_ASLEEP", ::mjtSleepState::mjS_ASLEEP),
+    std::make_pair("mjS_AWAKE", ::mjtSleepState::mjS_AWAKE)};
+};
+
+struct mjtGeomInertia {
+  static constexpr char name[] = "mjtGeomInertia";
+  using type = ::mjtGeomInertia;
+  static constexpr auto values = std::array{
+    std::make_pair("mjINERTIA_VOLUME", ::mjtGeomInertia::mjINERTIA_VOLUME),
+    std::make_pair("mjINERTIA_SHELL", ::mjtGeomInertia::mjINERTIA_SHELL)};
+};
+
+struct mjtMeshInertia {
+  static constexpr char name[] = "mjtMeshInertia";
+  using type = ::mjtMeshInertia;
+  static constexpr auto values = std::array{
+    std::make_pair("mjMESH_INERTIA_CONVEX", ::mjtMeshInertia::mjMESH_INERTIA_CONVEX),
+    std::make_pair("mjMESH_INERTIA_EXACT", ::mjtMeshInertia::mjMESH_INERTIA_EXACT),
+    std::make_pair("mjMESH_INERTIA_LEGACY", ::mjtMeshInertia::mjMESH_INERTIA_LEGACY),
+    std::make_pair("mjMESH_INERTIA_SHELL", ::mjtMeshInertia::mjMESH_INERTIA_SHELL)};
+};
+
+struct mjtMeshBuiltin {
+  static constexpr char name[] = "mjtMeshBuiltin";
+  using type = ::mjtMeshBuiltin;
+  static constexpr auto values = std::array{
+    std::make_pair("mjMESH_BUILTIN_NONE", ::mjtMeshBuiltin::mjMESH_BUILTIN_NONE),
+    std::make_pair("mjMESH_BUILTIN_SPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SPHERE),
+    std::make_pair("mjMESH_BUILTIN_HEMISPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_HEMISPHERE),
+    std::make_pair("mjMESH_BUILTIN_CONE", ::mjtMeshBuiltin::mjMESH_BUILTIN_CONE),
+    std::make_pair("mjMESH_BUILTIN_SUPERSPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERSPHERE),
+    std::make_pair("mjMESH_BUILTIN_SUPERTORUS", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERTORUS),
+    std::make_pair("mjMESH_BUILTIN_WEDGE", ::mjtMeshBuiltin::mjMESH_BUILTIN_WEDGE),
+    std::make_pair("mjMESH_BUILTIN_PLATE", ::mjtMeshBuiltin::mjMESH_BUILTIN_PLATE)};
+};
+
+struct mjtBuiltin {
+  static constexpr char name[] = "mjtBuiltin";
+  using type = ::mjtBuiltin;
+  static constexpr auto values = std::array{
+    std::make_pair("mjBUILTIN_NONE", ::mjtBuiltin::mjBUILTIN_NONE),
+    std::make_pair("mjBUILTIN_GRADIENT", ::mjtBuiltin::mjBUILTIN_GRADIENT),
+    std::make_pair("mjBUILTIN_CHECKER", ::mjtBuiltin::mjBUILTIN_CHECKER),
+    std::make_pair("mjBUILTIN_FLAT", ::mjtBuiltin::mjBUILTIN_FLAT)};
+};
+
+struct mjtMark {
+  static constexpr char name[] = "mjtMark";
+  using type = ::mjtMark;
+  static constexpr auto values = std::array{
+    std::make_pair("mjMARK_NONE", ::mjtMark::mjMARK_NONE),
+    std::make_pair("mjMARK_EDGE", ::mjtMark::mjMARK_EDGE),
+    std::make_pair("mjMARK_CROSS", ::mjtMark::mjMARK_CROSS),
+    std::make_pair("mjMARK_RANDOM", ::mjtMark::mjMARK_RANDOM)};
+};
+
+struct mjtLimited {
+  static constexpr char name[] = "mjtLimited";
+  using type = ::mjtLimited;
+  static constexpr auto values = std::array{
+    std::make_pair("mjLIMITED_FALSE", ::mjtLimited::mjLIMITED_FALSE),
+    std::make_pair("mjLIMITED_TRUE", ::mjtLimited::mjLIMITED_TRUE),
+    std::make_pair("mjLIMITED_AUTO", ::mjtLimited::mjLIMITED_AUTO)};
+};
+
+struct mjtAlignFree {
+  static constexpr char name[] = "mjtAlignFree";
+  using type = ::mjtAlignFree;
+  static constexpr auto values = std::array{
+    std::make_pair("mjALIGNFREE_FALSE", ::mjtAlignFree::mjALIGNFREE_FALSE),
+    std::make_pair("mjALIGNFREE_TRUE", ::mjtAlignFree::mjALIGNFREE_TRUE),
+    std::make_pair("mjALIGNFREE_AUTO", ::mjtAlignFree::mjALIGNFREE_AUTO)};
+};
+
+struct mjtInertiaFromGeom {
+  static constexpr char name[] = "mjtInertiaFromGeom";
+  using type = ::mjtInertiaFromGeom;
+  static constexpr auto values = std::array{
+    std::make_pair("mjINERTIAFROMGEOM_FALSE", ::mjtInertiaFromGeom::mjINERTIAFROMGEOM_FALSE),
+    std::make_pair("mjINERTIAFROMGEOM_TRUE", ::mjtInertiaFromGeom::mjINERTIAFROMGEOM_TRUE),
+    std::make_pair("mjINERTIAFROMGEOM_AUTO", ::mjtInertiaFromGeom::mjINERTIAFROMGEOM_AUTO)};
+};
+
+struct mjtOrientation {
+  static constexpr char name[] = "mjtOrientation";
+  using type = ::mjtOrientation;
+  static constexpr auto values = std::array{
+    std::make_pair("mjORIENTATION_QUAT", ::mjtOrientation::mjORIENTATION_QUAT),
+    std::make_pair("mjORIENTATION_AXISANGLE", ::mjtOrientation::mjORIENTATION_AXISANGLE),
+    std::make_pair("mjORIENTATION_XYAXES", ::mjtOrientation::mjORIENTATION_XYAXES),
+    std::make_pair("mjORIENTATION_ZAXIS", ::mjtOrientation::mjORIENTATION_ZAXIS),
+    std::make_pair("mjORIENTATION_EULER", ::mjtOrientation::mjORIENTATION_EULER)};
 };
 
 struct mjtCatBit {
@@ -726,96 +838,6 @@ struct mjtFont {
     std::make_pair("mjFONT_BIG", ::mjtFont::mjFONT_BIG)};
 };
 
-struct mjtGeomInertia {
-  static constexpr char name[] = "mjtGeomInertia";
-  using type = ::mjtGeomInertia;
-  static constexpr auto values = std::array{
-    std::make_pair("mjINERTIA_VOLUME", ::mjtGeomInertia::mjINERTIA_VOLUME),
-    std::make_pair("mjINERTIA_SHELL", ::mjtGeomInertia::mjINERTIA_SHELL)};
-};
-
-struct mjtMeshInertia {
-  static constexpr char name[] = "mjtMeshInertia";
-  using type = ::mjtMeshInertia;
-  static constexpr auto values = std::array{
-    std::make_pair("mjMESH_INERTIA_CONVEX", ::mjtMeshInertia::mjMESH_INERTIA_CONVEX),
-    std::make_pair("mjMESH_INERTIA_EXACT", ::mjtMeshInertia::mjMESH_INERTIA_EXACT),
-    std::make_pair("mjMESH_INERTIA_LEGACY", ::mjtMeshInertia::mjMESH_INERTIA_LEGACY),
-    std::make_pair("mjMESH_INERTIA_SHELL", ::mjtMeshInertia::mjMESH_INERTIA_SHELL)};
-};
-
-struct mjtMeshBuiltin {
-  static constexpr char name[] = "mjtMeshBuiltin";
-  using type = ::mjtMeshBuiltin;
-  static constexpr auto values = std::array{
-    std::make_pair("mjMESH_BUILTIN_NONE", ::mjtMeshBuiltin::mjMESH_BUILTIN_NONE),
-    std::make_pair("mjMESH_BUILTIN_SPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SPHERE),
-    std::make_pair("mjMESH_BUILTIN_HEMISPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_HEMISPHERE),
-    std::make_pair("mjMESH_BUILTIN_CONE", ::mjtMeshBuiltin::mjMESH_BUILTIN_CONE),
-    std::make_pair("mjMESH_BUILTIN_SUPERSPHERE", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERSPHERE),
-    std::make_pair("mjMESH_BUILTIN_SUPERTORUS", ::mjtMeshBuiltin::mjMESH_BUILTIN_SUPERTORUS),
-    std::make_pair("mjMESH_BUILTIN_WEDGE", ::mjtMeshBuiltin::mjMESH_BUILTIN_WEDGE),
-    std::make_pair("mjMESH_BUILTIN_PLATE", ::mjtMeshBuiltin::mjMESH_BUILTIN_PLATE)};
-};
-
-struct mjtBuiltin {
-  static constexpr char name[] = "mjtBuiltin";
-  using type = ::mjtBuiltin;
-  static constexpr auto values = std::array{
-    std::make_pair("mjBUILTIN_NONE", ::mjtBuiltin::mjBUILTIN_NONE),
-    std::make_pair("mjBUILTIN_GRADIENT", ::mjtBuiltin::mjBUILTIN_GRADIENT),
-    std::make_pair("mjBUILTIN_CHECKER", ::mjtBuiltin::mjBUILTIN_CHECKER),
-    std::make_pair("mjBUILTIN_FLAT", ::mjtBuiltin::mjBUILTIN_FLAT)};
-};
-
-struct mjtMark {
-  static constexpr char name[] = "mjtMark";
-  using type = ::mjtMark;
-  static constexpr auto values = std::array{
-    std::make_pair("mjMARK_NONE", ::mjtMark::mjMARK_NONE),
-    std::make_pair("mjMARK_EDGE", ::mjtMark::mjMARK_EDGE),
-    std::make_pair("mjMARK_CROSS", ::mjtMark::mjMARK_CROSS),
-    std::make_pair("mjMARK_RANDOM", ::mjtMark::mjMARK_RANDOM)};
-};
-
-struct mjtLimited {
-  static constexpr char name[] = "mjtLimited";
-  using type = ::mjtLimited;
-  static constexpr auto values = std::array{
-    std::make_pair("mjLIMITED_FALSE", ::mjtLimited::mjLIMITED_FALSE),
-    std::make_pair("mjLIMITED_TRUE", ::mjtLimited::mjLIMITED_TRUE),
-    std::make_pair("mjLIMITED_AUTO", ::mjtLimited::mjLIMITED_AUTO)};
-};
-
-struct mjtAlignFree {
-  static constexpr char name[] = "mjtAlignFree";
-  using type = ::mjtAlignFree;
-  static constexpr auto values = std::array{
-    std::make_pair("mjALIGNFREE_FALSE", ::mjtAlignFree::mjALIGNFREE_FALSE),
-    std::make_pair("mjALIGNFREE_TRUE", ::mjtAlignFree::mjALIGNFREE_TRUE),
-    std::make_pair("mjALIGNFREE_AUTO", ::mjtAlignFree::mjALIGNFREE_AUTO)};
-};
-
-struct mjtInertiaFromGeom {
-  static constexpr char name[] = "mjtInertiaFromGeom";
-  using type = ::mjtInertiaFromGeom;
-  static constexpr auto values = std::array{
-    std::make_pair("mjINERTIAFROMGEOM_FALSE", ::mjtInertiaFromGeom::mjINERTIAFROMGEOM_FALSE),
-    std::make_pair("mjINERTIAFROMGEOM_TRUE", ::mjtInertiaFromGeom::mjINERTIAFROMGEOM_TRUE),
-    std::make_pair("mjINERTIAFROMGEOM_AUTO", ::mjtInertiaFromGeom::mjINERTIAFROMGEOM_AUTO)};
-};
-
-struct mjtOrientation {
-  static constexpr char name[] = "mjtOrientation";
-  using type = ::mjtOrientation;
-  static constexpr auto values = std::array{
-    std::make_pair("mjORIENTATION_QUAT", ::mjtOrientation::mjORIENTATION_QUAT),
-    std::make_pair("mjORIENTATION_AXISANGLE", ::mjtOrientation::mjORIENTATION_AXISANGLE),
-    std::make_pair("mjORIENTATION_XYAXES", ::mjtOrientation::mjORIENTATION_XYAXES),
-    std::make_pair("mjORIENTATION_ZAXIS", ::mjtOrientation::mjORIENTATION_ZAXIS),
-    std::make_pair("mjORIENTATION_EULER", ::mjtOrientation::mjORIENTATION_EULER)};
-};
-
 struct mjtButton {
   static constexpr char name[] = "mjtButton";
   using type = ::mjtButton;
@@ -899,6 +921,7 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtDataType{},
     mjtConDataField{},
     mjtSameFrame{},
+    mjtSleepPolicy{},
     mjtLRMode{},
     mjtFlexSelf{},
     mjtSDFType{},
@@ -908,6 +931,16 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtConstraintState{},
     mjtWarning{},
     mjtTimer{},
+    mjtSleepState{},
+    mjtGeomInertia{},
+    mjtMeshInertia{},
+    mjtMeshBuiltin{},
+    mjtBuiltin{},
+    mjtMark{},
+    mjtLimited{},
+    mjtAlignFree{},
+    mjtInertiaFromGeom{},
+    mjtOrientation{},
     mjtCatBit{},
     mjtMouse{},
     mjtPertBit{},
@@ -923,15 +956,6 @@ static constexpr auto kAllEnums = std::make_tuple(
     mjtDepthMap{},
     mjtFontScale{},
     mjtFont{},
-    mjtGeomInertia{},
-    mjtMeshInertia{},
-    mjtMeshBuiltin{},
-    mjtBuiltin{},
-    mjtMark{},
-    mjtLimited{},
-    mjtAlignFree{},
-    mjtInertiaFromGeom{},
-    mjtOrientation{},
     mjtButton{},
     mjtEvent{},
     mjtItem{},

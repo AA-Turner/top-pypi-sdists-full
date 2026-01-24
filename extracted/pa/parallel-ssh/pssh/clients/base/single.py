@@ -1,19 +1,19 @@
-# This file is part of parallel-ssh.
+#  This file is part of parallel-ssh.
+#  Copyright (C) 2014-2025 Panos Kittenis.
+#  Copyright (C) 2014-2025 parallel-ssh Contributors.
 #
-# Copyright (C) 2014-2022 Panos Kittenis and contributors.
+#  This library is free software; you can redistribute it and/or
+#  modify it under the terms of the GNU Lesser General Public
+#  License as published by the Free Software Foundation, version 2.1.
 #
-# This library is free software; you can redistribute it and/or
-# modify it under the terms of the GNU Lesser General Public
-# License as published by the Free Software Foundation, version 2.1.
+#  This library is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+#  Lesser General Public License for more details.
 #
-# This library is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public
-# License along with this library; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+#  You should have received a copy of the GNU Lesser General Public
+#  License along with this library; if not, write to the Free Software
+#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 
 import logging
 import os
@@ -23,14 +23,14 @@ from warnings import warn
 
 from gevent import sleep, socket, Timeout as GTimeout
 from gevent.hub import Hub
+from gevent.pool import Pool
 from gevent.select import poll, POLLIN, POLLOUT
 from gevent.socket import SHUT_RDWR
-from gevent.pool import Pool
 from ssh2.exceptions import AgentConnectionError, AgentListIdentitiesError, \
     AgentAuthenticationError, AgentGetIdentityError
 from ssh2.utils import find_eol
 
-from ..common import _validate_pkey
+from ..common import _validate_pkey, _validate_api
 from ..reader import ConcurrentRWBuffer
 from ...constants import DEFAULT_RETRIES, RETRY_DELAY
 from ...exceptions import UnknownHostError, AuthenticationError, \
@@ -158,7 +158,9 @@ class InteractiveShell(object):
         self._client._shell(self._chan)
         self._encoding = encoding
         self.output = self._client._make_host_output(
-            self._chan, encoding=encoding, read_timeout=read_timeout)
+            self._chan, encoding=encoding, read_timeout=read_timeout,
+            fully_qualified_command=None,
+        )
 
     @property
     def stdout(self):
@@ -226,6 +228,8 @@ class BaseSSHClient(PollMixIn):
                  _auth_thread_pool=True,
                  identity_auth=True,
                  ipv6_only=False,
+                 compress=False,
+                 keyboard_interactive=False,
                  ):
         super(PollMixIn, self).__init__()
         self._auth_thread_pool = _auth_thread_pool
@@ -233,6 +237,7 @@ class BaseSSHClient(PollMixIn):
         self.alias = alias
         self.user = user if user else getuser()
         self.password = password
+        self.keyboard_interactive = keyboard_interactive
         self.port = port if port else 22
         self.num_retries = num_retries
         self.timeout = timeout if timeout else None
@@ -245,6 +250,9 @@ class BaseSSHClient(PollMixIn):
         self.identity_auth = identity_auth
         self._keepalive_greenlet = None
         self.ipv6_only = ipv6_only
+        self.compress = compress
+        self.keyboard_interactive = keyboard_interactive
+        _validate_api(self.keyboard_interactive, self.password)
         self._pool = Pool()
         self._init()
 
@@ -437,7 +445,7 @@ class BaseSSHClient(PollMixIn):
             msg = "No remaining authentication methods"
             logger.error(msg)
             raise AuthenticationError(msg)
-        logger.debug("Private key auth failed, trying password")
+        logger.debug("Private key auth failed or not enabled, trying password")
         self._password_auth()
 
     def _agent_auth(self):
@@ -465,7 +473,7 @@ class BaseSSHClient(PollMixIn):
     def open_session(self):
         raise NotImplementedError
 
-    def _make_host_output(self, channel, encoding, read_timeout):
+    def _make_host_output(self, channel, encoding, read_timeout, fully_qualified_command=None):
         _stdout_buffer = ConcurrentRWBuffer()
         _stderr_buffer = ConcurrentRWBuffer()
         _stdout_reader, _stderr_reader = self._make_output_readers(
@@ -478,7 +486,7 @@ class BaseSSHClient(PollMixIn):
         host_out = HostOutput(
             host=self.host, alias=self.alias, channel=channel, stdin=Stdin(channel, self),
             client=self, encoding=encoding, read_timeout=read_timeout,
-            buffers=_buffers,
+            buffers=_buffers, fully_qualified_command=fully_qualified_command,
         )
         return host_out
 
@@ -629,7 +637,7 @@ class BaseSSHClient(PollMixIn):
         with GTimeout(seconds=self.timeout):
             channel = self._execute(_command, use_pty=use_pty)
         _timeout = read_timeout if read_timeout else timeout
-        host_out = self._make_host_output(channel, encoding, _timeout)
+        host_out = self._make_host_output(channel, encoding, _timeout, fully_qualified_command=_command)
         return host_out
 
     def _make_sftp(self):

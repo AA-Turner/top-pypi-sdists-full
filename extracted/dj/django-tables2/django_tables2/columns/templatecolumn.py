@@ -8,8 +8,7 @@ from .base import Column, library
 @library.register
 class TemplateColumn(Column):
     """
-    A subclass of `.Column` that renders some template code to use as
-    the cell value.
+    A subclass of `.Column` that renders some template code to use as the cell value.
 
     Arguments:
         template_code (str): template code to render
@@ -19,11 +18,12 @@ class TemplateColumn(Column):
     A `~django.template.Template` object is created from the
     *template_code* or *template_name* and rendered with a context containing:
 
-    - *record*      -- data record for the current row
-    - *value*       -- value from `record` that corresponds to the current column
-    - *default*     -- appropriate default value to use as fallback.
+    - *record*      -- Data record for the current row.
+    - *value*       -- Value from `record` that corresponds to the current column.
+    - *default*     -- Appropriate default value to use as fallback.
     - *row_counter* -- The number of the row this cell is being rendered in.
-    - any context variables passed using the `extra_context` argument to `TemplateColumn`.
+    - *request*.    -- If the table configured using ``RequestConfig(request).configure(table)``.
+    - any context variables passed using the ``extra_context`` argument to `TemplateColumn`.
 
     Example:
 
@@ -62,15 +62,18 @@ class TemplateColumn(Column):
         }
         additional_context.update(self.extra_context)
         with context.update(additional_context):
+            request = getattr(table, "request", None)
             if self.template_code:
+                context["request"] = request
                 return Template(self.template_code).render(context)
             else:
-                return get_template(self.template_name).render(context.flatten())
+                return get_template(self.template_name).render(context.flatten(), request=request)
 
     def value(self, **kwargs):
         """
-        The value returned from a call to `value()` on a `TemplateColumn` is
-        the rendered template with `django.utils.html.strip_tags` applied.
+        Non-HTML value returned from a call to `value()` on a `TemplateColumn`.
+
+        By default this is the rendered template with `django.utils.html.strip_tags` applied.
         Leading and trailing whitespace is stripped.
         """
         html = super().value(**kwargs)

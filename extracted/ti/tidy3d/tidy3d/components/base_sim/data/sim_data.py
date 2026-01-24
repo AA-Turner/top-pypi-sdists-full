@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import pathlib
 from abc import ABC
-from typing import Union
+from os import PathLike
+from typing import Any, Optional, Union
 
 import numpy as np
 import pydantic.v1 as pd
@@ -13,9 +15,10 @@ from tidy3d.components.base import Tidy3dBaseModel, skip_if_fields_missing
 from tidy3d.components.base_sim.data.monitor_data import AbstractMonitorData
 from tidy3d.components.base_sim.simulation import AbstractSimulation
 from tidy3d.components.data.utils import UnstructuredGridDatasetType
+from tidy3d.components.file_util import replace_values
 from tidy3d.components.monitor import AbstractMonitor
 from tidy3d.components.types import FieldVal
-from tidy3d.exceptions import DataError, Tidy3dKeyError, ValidationError
+from tidy3d.exceptions import DataError, FileError, Tidy3dKeyError, ValidationError
 
 
 class AbstractSimulationData(Tidy3dBaseModel, ABC):
@@ -129,6 +132,90 @@ class AbstractSimulationData(Tidy3dBaseModel, ABC):
 
         return field_value
 
+    @staticmethod
+    def _apply_log_scale(
+        field_data: xr.DataArray,
+        vmin: Optional[float] = None,
+        db_factor: float = 1.0,
+    ) -> xr.DataArray:
+        """Prepare field data for log-scale plotting by handling zeros.
+
+        Takes absolute value of the data, replaces zeros with a fill value
+        (to prevent log10(0) warnings), and applies log10 scaling.
+
+        Parameters
+        ----------
+        field_data : xr.DataArray
+            The field data to prepare.
+        vmin : float, optional
+            The minimum value for the color scale. If provided, zeros are replaced
+            with ``10 ** (vmin / db_factor)`` instead of NaN.
+        db_factor : float
+            Factor to multiply the log10 result by (e.g., 20 for dB scale of field,
+            10 for dB scale of power). Default is 1 (pure log10 scale).
+
+        Returns
+        -------
+        xr.DataArray
+            The log-scaled field data.
+        """
+        fill_val = np.nan
+        if vmin is not None:
+            fill_val = 10 ** (vmin / db_factor)
+        field_data = np.abs(field_data)
+        field_data = field_data.where((field_data > 0) | np.isnan(field_data), fill_val)
+        return db_factor * np.log10(field_data)
+
     def get_monitor_by_name(self, name: str) -> AbstractMonitor:
         """Return monitor named 'name'."""
         return self.simulation.get_monitor_by_name(name)
+
+    def to_mat_file(self, fname: PathLike, **kwargs: Any) -> None:
+        """Output the simulation data object as ``.mat`` MATLAB file.
+
+        Parameters
+        ----------
+        fname : PathLike
+            Full path to the output file. Should include ``.mat`` file extension.
+        **kwargs : dict, optional
+            Extra arguments to ``scipy.io.savemat``: see ``scipy`` documentation for more detail.
+
+        Example
+        -------
+        >>> sim_data.to_mat_file('/path/to/file/data.mat') # doctest: +SKIP
+        """
+        # Check .mat file extension is given
+        extension = pathlib.Path(fname).suffixes[0].lower()
+        if len(extension) == 0:
+            raise FileError(f"File '{fname}' missing extension.")
+        if extension != ".mat":
+            raise FileError(f"File '{fname}' should have a .mat extension.")
+
+        # Handle m_dict in kwargs
+        if "m_dict" in kwargs:
+            raise ValueError(
+                "'m_dict' is automatically determined by 'to_mat_file', can't pass to 'savemat'."
+            )
+
+        # Get SimData object as dictionary
+        sim_dict = self.dict()
+
+        # set long field names true by default, otherwise it wont save fields with > 31 characters
+        if "long_field_names" not in kwargs:
+            kwargs["long_field_names"] = True
+
+        # Remove NoneType values from dict
+        # Built from theory discussed in https://github.com/scipy/scipy/issues/3488
+        modified_sim_dict = replace_values(sim_dict, None, [])
+
+        try:
+            from scipy.io import savemat
+
+            savemat(fname, modified_sim_dict, **kwargs)
+        except Exception as e:
+            raise ValueError(
+                "Could not save supplied simulation data to file. As this is an experimental "
+                "feature, we may not be able to support the contents of your dataset. If you "
+                "receive this error, please feel free to raise an issue on our front end "
+                "repository so we can investigate."
+            ) from e

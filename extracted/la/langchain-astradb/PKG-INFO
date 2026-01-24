@@ -1,24 +1,16 @@
 Metadata-Version: 2.1
 Name: langchain-astradb
-Version: 0.6.1
+Version: 1.0.0
 Summary: An integration package connecting Astra DB and LangChain
-Home-page: https://github.com/langchain-ai/langchain-datastax
 License: MIT
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Requires-Dist: astrapy (>=2.0.1,<3.0.0)
-Requires-Dist: langchain-core (>=0.3.74,<1.0.0)
-Requires-Dist: numpy (>=1.21) ; python_version >= "3.10" and python_version < "3.12"
-Requires-Dist: numpy (>=1.21,<2.1.0) ; python_version < "3.10"
-Requires-Dist: numpy (>=1.26) ; python_version >= "3.12" and python_version < "3.13"
-Requires-Dist: numpy (>=2.1.0) ; python_version >= "3.13"
-Project-URL: Repository, https://github.com/langchain-ai/langchain-datastax
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-datastax/tree/main/libs/astradb
+Project-URL: repository, https://github.com/langchain-ai/langchain-datastax
+Requires-Python: <4.0.0,>=3.10.0
+Requires-Dist: langchain-core<2.0.0,>=0.3.74
+Requires-Dist: astrapy<3.0.0,>=2.0.1
+Requires-Dist: numpy>=1.21
+Requires-Dist: numpy>=1.26; python_version >= "3.12"
+Requires-Dist: numpy>=2.1.0; python_version >= "3.13"
 Description-Content-Type: text/markdown
 
 # langchain-astradb
@@ -262,4 +254,3 @@ You have several options:
 - you can ignore the warning because you know your application will never need to store very long textual contents;
 - you can ignore the warning and explicitly instruct the plugin _not to_ create the collection, assuming it exists already (which suppresses the warning): `store = AstraDBVectorStore(..., setup_mode=langchain_astradb.utils.astradb.SetupMode.OFF)`. In this case the collection will be used as-is, no (indexing) questions asked;
 - if you can afford populating the collection anew, you can drop it and re-run the LangChain application: the collection will be created with the optimized indexing settings. **This is the recommended option, when possible**.
-

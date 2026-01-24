@@ -5,19 +5,27 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
-from ...types import Response
+from ...types import UNSET, Response, Unset
 
 
 def _get_kwargs(
     workspace: str,
+    *,
+    only_delete_forks: Union[Unset, None, bool] = UNSET,
 ) -> Dict[str, Any]:
     pass
+
+    params: Dict[str, Any] = {}
+    params["only_delete_forks"] = only_delete_forks
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
     return {
         "method": "delete",
         "url": "/workspaces/delete/{workspace}".format(
             workspace=workspace,
         ),
+        "params": params,
     }
 
 
@@ -41,11 +49,13 @@ def sync_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    only_delete_forks: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """delete workspace (require super admin)
 
     Args:
         workspace (str):
+        only_delete_forks (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -57,6 +67,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        only_delete_forks=only_delete_forks,
     )
 
     response = client.get_httpx_client().request(
@@ -70,11 +81,13 @@ async def asyncio_detailed(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
+    only_delete_forks: Union[Unset, None, bool] = UNSET,
 ) -> Response[Any]:
     """delete workspace (require super admin)
 
     Args:
         workspace (str):
+        only_delete_forks (Union[Unset, None, bool]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -86,6 +99,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         workspace=workspace,
+        only_delete_forks=only_delete_forks,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)

@@ -3,9 +3,10 @@
 
 import numpy as np
 
-from numba import cuda, float32, void
+from numba import cuda
+from numba.cuda import float32, void
 from numba.cuda.testing import unittest, CUDATestCase
-from numba.core import config
+from numba.cuda.core import config
 
 # Ensure the test takes a reasonable amount of time in the simulator
 if config.ENABLE_CUDASIM:

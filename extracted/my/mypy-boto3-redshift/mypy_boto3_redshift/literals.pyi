@@ -3,7 +3,7 @@ Type annotations for redshift service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_redshift/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "ActionTypeType",
+    "ApplicationTypeType",
     "AquaConfigurationStatusType",
     "AquaStatusType",
     "AuthorizationStatusType",
@@ -71,6 +72,8 @@ __all__ = (
     "GetReservedNodeExchangeConfigurationOptionsPaginatorName",
     "GetReservedNodeExchangeOfferingsPaginatorName",
     "ImpactRankingTypeType",
+    "LakehouseIdcRegistrationType",
+    "LakehouseRegistrationType",
     "ListRecommendationsPaginatorName",
     "LogDestinationTypeType",
     "ModeType",
@@ -107,6 +110,7 @@ __all__ = (
 )
 
 ActionTypeType = Literal["recommend-node-config", "resize-cluster", "restore-cluster"]
+ApplicationTypeType = Literal["Lakehouse", "None"]
 AquaConfigurationStatusType = Literal["auto", "disabled", "enabled"]
 AquaStatusType = Literal["applying", "disabled", "enabled"]
 AuthorizationStatusType = Literal["Authorized", "Revoking"]
@@ -163,6 +167,8 @@ GetReservedNodeExchangeConfigurationOptionsPaginatorName = Literal[
 ]
 GetReservedNodeExchangeOfferingsPaginatorName = Literal["get_reserved_node_exchange_offerings"]
 ImpactRankingTypeType = Literal["HIGH", "LOW", "MEDIUM"]
+LakehouseIdcRegistrationType = Literal["Associate", "Disassociate"]
+LakehouseRegistrationType = Literal["Deregister", "Register"]
 ListRecommendationsPaginatorName = Literal["list_recommendations"]
 LogDestinationTypeType = Literal["cloudwatch", "s3"]
 ModeType = Literal["high-performance", "standard"]
@@ -196,7 +202,12 @@ SourceTypeType = Literal[
 ]
 TableRestoreStatusTypeType = Literal["CANCELED", "FAILED", "IN_PROGRESS", "PENDING", "SUCCEEDED"]
 UsageLimitBreachActionType = Literal["disable", "emit-metric", "log"]
-UsageLimitFeatureTypeType = Literal["concurrency-scaling", "cross-region-datasharing", "spectrum"]
+UsageLimitFeatureTypeType = Literal[
+    "concurrency-scaling",
+    "cross-region-datasharing",
+    "extra-compute-for-automatic-optimization",
+    "spectrum",
+]
 UsageLimitLimitTypeType = Literal["data-scanned", "time"]
 UsageLimitPeriodType = Literal["daily", "monthly", "weekly"]
 ZeroETLIntegrationStatusType = Literal[
@@ -229,7 +240,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -299,6 +309,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -344,7 +355,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -397,7 +407,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -436,8 +445,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -472,6 +479,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -481,6 +489,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -491,6 +500,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -512,8 +524,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -528,15 +538,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -567,8 +578,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -608,6 +619,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -677,6 +689,7 @@ RegionName = Literal[
     "ap-southeast-3",
     "ap-southeast-4",
     "ap-southeast-5",
+    "ap-southeast-6",
     "ap-southeast-7",
     "ca-central-1",
     "ca-west-1",

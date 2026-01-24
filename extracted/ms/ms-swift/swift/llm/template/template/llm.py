@@ -10,7 +10,7 @@ from ..template_inputs import StdTemplateInputs
 from ..utils import Prompt
 from .llama import Llama3_2TemplateMeta
 from .qwen import Qwen2VLTemplate, QwenTemplateMeta
-from .utils import DEFAULT_SYSTEM, ChatmlTemplateMeta, ThinkingWithAnswerTemplate
+from .utils import DEFAULT_SYSTEM, ChatmlTemplateMeta
 
 register_template(
     TemplateMeta(
@@ -33,9 +33,41 @@ register_template(
         default_system=DEFAULT_SYSTEM,
     ))
 
-register_template(QwenTemplateMeta(MLLMTemplateType.qwen2_gme, template_cls=Qwen2VLTemplate, suffix=['<|endoftext|>']))
+
+class GMETemplate(Qwen2VLTemplate):
+
+    def _preprocess_inputs(self, inputs: StdTemplateInputs) -> None:
+        super()._preprocess_inputs(inputs)
+        if inputs.messages[-1]['role'] != 'assistant':
+            inputs.messages.append({'role': 'assistant', 'content': ''})
+        return inputs
+
+
+register_template(QwenTemplateMeta(MLLMTemplateType.qwen2_gme, template_cls=GMETemplate, suffix=['<|endoftext|>']))
+
+
+class JinaRerankerM0Template(Qwen2VLTemplate):
+
+    def _preprocess_inputs(self, inputs: StdTemplateInputs) -> None:
+        super()._preprocess_inputs(inputs)
+        instruction = ''
+        if inputs.system is not None:
+            instruction = inputs.system
+            inputs.system = None
+        query = inputs.messages[0]['content']
+        document = inputs.messages[1]['content']
+        user_message = instruction + '\n' + '**Query**:\n' + query + '\n' + '**Document**:\n' + document
+        inputs.messages = [{'role': 'user', 'content': user_message}]
+        return inputs
+
+
 register_template(
-    TemplateMeta(LLMTemplateType.qwen3_emb, suffix=['<|endoftext|>'], prefix=[], chat_sep=[], prompt=['{{QUERY}}']))
+    TemplateMeta(
+        MLLMTemplateType.jina_reranker_m0,
+        template_cls=JinaRerankerM0Template,
+        prefix=[],
+        chat_sep=[],
+        prompt=['{{QUERY}}']))
 
 register_template(
     TemplateMeta(LLMTemplateType.baichuan, prefix=['{{SYSTEM}}'], prompt=[[195], '{{QUERY}}', [196]], chat_sep=[]))
@@ -66,29 +98,6 @@ register_template(
         prompt=['{{SYSTEM}}\n\n', '{{QUERY}}[/INST]'],
         chat_sep=['</s>[INST] '],
         suffix=['</s>']))
-
-today = datetime.now().strftime('%Y-%m-%d')
-
-mistral_2501_system = (
-    'You are Mistral Small 3, a Large Language Model (LLM) created by Mistral AI, a French startup '
-    'headquartered in Paris.\n'
-    f'Your knowledge base was last updated on 2023-10-01. The current date is {today}.\n\n'
-    "When you're not sure about some information, you say that you don't have the information and don't "
-    'make up anything.\n'
-    "If the user's question is not clear, ambiguous, or does not provide enough context for you to accurately answer "
-    'the question, you do not try to answer it right away and you rather ask the user to clarify their request (e.g. '
-    '"What are some good restaurants around me?" => "Where are you?" or "When is the next flight to Tokyo" => "'
-    'Where do you travel from?")')
-
-register_template(
-    TemplateMeta(
-        LLMTemplateType.mistral_2501,
-        prefix=['<s>'],
-        prompt=['[INST]{{QUERY}}[/INST]'],
-        chat_sep=['</s>'],
-        suffix=['</s>'],
-        system_prefix=['<s>[SYSTEM_PROMPT]{{SYSTEM}}[/SYSTEM_PROMPT]'],
-        default_system=mistral_2501_system))
 
 register_template(
     TemplateMeta(
@@ -303,6 +312,16 @@ register_template(
         suffix=['<|eos|>'],
     ))
 
+
+class HunyuanTemplate(Template):
+
+    def _remove_thinking_content(self, content: str) -> str:
+        content = content.split('<answer>')[-1].rstrip()
+        if content.endswith('</answer>'):
+            content = content[:-len('</answer>')]
+        return self.template_meta.history_thinking_prefix + content.strip()
+
+
 register_template(
     TemplateMeta(
         LLMTemplateType.hunyuan,
@@ -311,11 +330,14 @@ register_template(
         prompt=['<｜hy_User｜>{{QUERY}}<｜hy_Assistant｜>'],
         chat_sep=['<｜hy_place▁holder▁no▁2｜>'],
         suffix=['<｜hy_place▁holder▁no▁2｜>'],
-        template_cls=ThinkingWithAnswerTemplate,
+        template_cls=HunyuanTemplate,
+        is_thinking=True,
+        non_thinking_prefix='<think>\n\n</think>\n',
         agent_template='hunyuan_hermes'))
 
 
 class GptTemplate(Template):
+    support_padding_free = False
 
     def _get_gpt_oss_prefix(self):
         today = datetime.now().strftime('%Y-%m-%d')
@@ -327,15 +349,16 @@ class GptTemplate(Template):
     def _swift_prepare_inputs(self, inputs: StdTemplateInputs):
         super()._swift_prepare_inputs(inputs)
         messages = inputs.messages
-        if inputs.system is None:
-            inputs.system = self._get_gpt_oss_prefix()
-        elif not inputs.system.startswith('<|start|>'):
-            inputs.system = self._get_gpt_oss_prefix() + (
-                f'<|start|>developer<|message|># Instructions\n\n{inputs.system}<|end|>')
-        for i, message in enumerate(messages):
-            if message['role'] == 'assistant' and isinstance(message['content'], str):
-                if not message['content'].startswith('<|channel|>'):
-                    message['content'] = '<|channel|>final<|message|>' + message['content']
+        if self.use_chat_template:
+            if inputs.system is None:
+                inputs.system = self._get_gpt_oss_prefix()
+            elif not inputs.system.startswith('<|start|>'):
+                inputs.system = self._get_gpt_oss_prefix() + (
+                    f'<|start|>developer<|message|># Instructions\n\n{inputs.system}<|end|>')
+            for i, message in enumerate(messages):
+                if message['role'] == 'assistant' and isinstance(message['content'], str):
+                    if not message['content'].startswith('<|channel|>'):
+                        message['content'] = '<|channel|>final<|message|>' + message['content']
 
 
 @dataclass
@@ -376,5 +399,65 @@ register_template(
         prompt=['<role>HUMAN</role>{{QUERY}}<role>ASSISTANT</role>'],
         chat_sep=[],
         suffix=['<|endoftext|>'],
-        response_prefix='<think>\n',
+        is_thinking=True,
+        thinking_prefix='<think>\n',
+    ))
+
+register_template(
+    QwenTemplateMeta(
+        LLMTemplateType.iquestcoder,
+        default_system='You are LoopCoder, a helpful assistant developed by IQuest.',
+    ))
+
+
+class YoutuLLMTemplate(Template):
+
+    def _remove_thinking_content(self, content: str) -> str:
+        if '</think>' in content:
+            content = content.rsplit('</think>', 1)[-1].lstrip('\n')
+        return self.template_meta.history_thinking_prefix + content.strip()
+
+    def _add_non_thinking_prefix(self, inputs) -> None:
+        messages = inputs.messages
+        non_thinking_prefix = self.template_meta.non_thinking_prefix
+        if non_thinking_prefix and messages:
+            # Find the last assistant message
+            for i in range(len(messages) - 1, -1, -1):
+                message = messages[i]
+                if message['role'] == 'assistant' and isinstance(message['content'], str):
+                    if '<think>' not in message['content'] and '</think>' not in message['content']:
+                        message['content'] = non_thinking_prefix + message['content']
+                    break
+
+    def _remove_history_thinking(self, inputs) -> None:
+        if self.is_training and self.loss_scale.base_strategy != 'last_round':
+            return
+        messages = inputs.messages
+        first_tool_index = len(messages)
+        for i, message in enumerate(messages):
+            if message['role'] == 'tool' or (message['role'] == 'user' and isinstance(message.get('content'), str)
+                                             and message['content'].startswith('<tool_response>')
+                                             and message['content'].endswith('</tool_response>')):
+                first_tool_index = i
+                break
+        # Only remove thinking content for assistant messages before first_tool_index - 1
+        for i, message in enumerate(messages):
+            if message['role'] == 'assistant' and isinstance(message['content'], str):
+                is_last = (i == len(messages) - 1)
+                if not is_last and i < first_tool_index - 1:
+                    message['content'] = self._remove_thinking_content(message['content'])
+
+
+register_template(
+    TemplateMeta(
+        LLMTemplateType.youtu_llm,
+        template_cls=YoutuLLMTemplate,
+        prefix=[['bos_token_id']],
+        system_prefix=[['bos_token_id'], '{{SYSTEM}}'],
+        prompt=['<|User|>{{QUERY}}<|Assistant|>'],
+        chat_sep=['<|end_of_text|>'],
+        suffix=['<|end_of_text|>'],
+        is_thinking=True,
+        non_thinking_prefix='<think>\n\n</think>\n\n',
+        agent_template='youtu',
     ))

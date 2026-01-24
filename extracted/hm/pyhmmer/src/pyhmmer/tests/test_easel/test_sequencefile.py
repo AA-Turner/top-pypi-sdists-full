@@ -1,38 +1,20 @@
-import copy
-import gc
 import io
 import os
+import platform
 import unittest
 import tempfile
 from itertools import zip_longest
 
 from pyhmmer import easel
 
-from .. import __name__ as __package__
-from .utils import EASEL_FOLDER, resource_files
+from ..utils import EASEL_FOLDER, resource_files
 
 
 class TestSequenceFile(unittest.TestCase):
 
-    def test_guess_alphabet_empty_sequence(self):
-        buffer = io.BytesIO(b">seq1\n\n")
-        self.assertRaises(ValueError, easel.SequenceFile, buffer, format="fasta", digital=True)
-
     def test_init_error_unknownformat(self):
         with self.assertRaises(ValueError):
             _file = easel.SequenceFile("file.x", format="nonsense")
-
-    def test_init_error_empty(self):
-        with tempfile.NamedTemporaryFile() as empty:
-            # without a format argument, we can't determine the file format
-            self.assertRaises(ValueError, easel.SequenceFile, empty.name)
-            # with a format argument, we don't expect the file to be empty
-            self.assertRaises(EOFError, easel.SequenceFile, empty.name, "fasta")
-        with io.BytesIO(b"") as buffer:
-            # without a format argument, we can't determine the file format
-            self.assertRaises(ValueError, easel.SequenceFile, buffer)
-            # with a format argument, we don't expect the file to be empty
-            self.assertRaises(EOFError, easel.SequenceFile, buffer, "fasta")
 
     def test_init_error_filenotfound(self):
         self.assertRaises(
@@ -50,12 +32,12 @@ class TestSequenceFile(unittest.TestCase):
         with easel.SequenceFile(fasta) as f:
             seq1, seq2 = list(f)
 
-        self.assertEqual(seq1.name, b"SNRPA_DROME")
-        self.assertEqual(seq2.name, b"SNRPA_HUMAN")
+        self.assertEqual(seq1.name, "SNRPA_DROME")
+        self.assertEqual(seq2.name, "SNRPA_HUMAN")
 
     def test_parse(self):
         seq = easel.SequenceFile.parse(b"> EcoRI\nGAATTC\n", format="fasta")
-        self.assertEqual(seq.name, b"EcoRI")
+        self.assertEqual(seq.name, "EcoRI")
 
     def test_parse_error_unknownformat(self):
         with self.assertRaises(ValueError):
@@ -67,12 +49,12 @@ class TestSequenceFile(unittest.TestCase):
 
         with easel.SequenceFile(fasta) as f:
             seq = f.read()
-            self.assertEqual(seq.name, b"SNRPA_DROME")
+            self.assertEqual(seq.name, "SNRPA_DROME")
             self.assertTrue(seq.sequence.startswith("MEMLPNQTIY"))
 
         with easel.SequenceFile(fasta) as f:
             seq = f.read(skip_info=True)
-            self.assertEqual(seq.name, b"")
+            self.assertEqual(seq.name, "")
             self.assertTrue(seq.sequence.startswith("MEMLPNQTIY"))
 
     @unittest.skipUnless(os.path.exists(EASEL_FOLDER), "test data not available")
@@ -81,17 +63,19 @@ class TestSequenceFile(unittest.TestCase):
 
         with easel.SequenceFile(fasta) as f:
             seq = f.read()
-            self.assertEqual(seq.name, b"SNRPA_DROME")
+            self.assertEqual(seq.name, "SNRPA_DROME")
             self.assertTrue(seq.sequence.startswith("MEMLPNQTIY"))
 
         with easel.SequenceFile(fasta) as f:
             seq = f.read(skip_sequence=True)
-            self.assertEqual(seq.name, b"SNRPA_DROME")
+            self.assertEqual(seq.name, "SNRPA_DROME")
             self.assertEqual(seq.sequence, "")
 
     @unittest.skipUnless(resource_files, "importlib.resources.files not available")
     def test_ignore_gaps(self):
-        luxc = resource_files(__package__).joinpath("data", "msa", "LuxC.faa")
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "msa", "LuxC.faa")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
         # fails if not ignoring gaps (since if contains gaps)
         with easel.SequenceFile(luxc, "fasta") as seq_file:
             self.assertRaises(ValueError, seq_file.read)
@@ -100,7 +84,89 @@ class TestSequenceFile(unittest.TestCase):
             sequences = list(seq_file)
             self.assertEqual(len(sequences), 13)
 
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    @unittest.skipIf(platform.system() == "Windows", "unsupported on Windows")
+    def test_sequence_index_path(self):
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "seqs", "938293.PRJEB85.HG003687.faa")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
+        if not os.path.exists(luxc.with_suffix(".faa.ssi")):
+            self.skipTest("missing data files")
+        with easel.SequenceFile(luxc, "fasta") as seq_file:
+            self.assertIsNotNone(seq_file.index)
+            self.assertIsNotNone(seq_file.indexed)
+            
+            self.assertEqual(len(seq_file.indexed), 2100)
+            keys = list(seq_file.indexed)
+            self.assertEqual(len(keys), 2100)
+            
+            seq = seq_file.indexed['938293.PRJEB85.HG003684_3']
+            self.assertEqual(seq.name, '938293.PRJEB85.HG003684_3')
+            self.assertTrue(seq.sequence.startswith('MILEAFENIRVDKYISDEFEEIP'))
+
+            with self.assertRaises(KeyError):
+                seq = seq_file.indexed['does not exist']
+    
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    @unittest.skipIf(platform.system() == "Windows", "unsupported on Windows")
+    def test_sequence_index_path_format_error(self):
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "seqs", "938293.PRJEB85.HG003687.faa")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
+        if not os.path.exists(luxc.with_suffix(".faa.ssi")):
+            self.skipTest("missing data files")
+        with easel.SequenceFile(luxc, "uniprot") as seq_file:
+            self.assertIsNotNone(seq_file.index)
+            self.assertIsNotNone(seq_file.indexed)
+            with self.assertRaises(ValueError):
+                seq = seq_file.indexed['938293.PRJEB85.HG003684_1']
+
+    @unittest.skipUnless(resource_files, "importlib.resources.files not available")
+    @unittest.skipIf(platform.system() == "Windows", "unsupported on Windows")
+    def test_sequence_index_fileobj(self):
+        luxc = resource_files("pyhmmer.tests").joinpath("data", "seqs", "938293.PRJEB85.HG003687.faa")
+        if not os.path.exists(luxc):
+            self.skipTest("missing data files")
+        if not os.path.exists(luxc.with_suffix(".faa.ssi")):
+            self.skipTest("missing data files")
+
+        with luxc.open("rb") as src:
+            with easel.SequenceFile(src, "fasta") as seq_file:
+                self.assertIsNone(seq_file.index)
+                self.assertIsNone(seq_file.indexed)
+
+        with easel.SSIReader(luxc.with_suffix(".faa.ssi")) as index:
+            with luxc.open("rb") as src:
+                with easel.SequenceFile(src, "fasta", index=index) as seq_file:
+                    self.assertIsNotNone(seq_file.index)
+                    self.assertIsNotNone(seq_file.indexed)
+                    
+                    self.assertEqual(len(seq_file.indexed), 2100)
+                    keys = list(seq_file.indexed)
+                    self.assertEqual(len(keys), 2100)
+                    
+                    seq = seq_file.indexed['938293.PRJEB85.HG003684_3']
+                    self.assertEqual(seq.name, '938293.PRJEB85.HG003684_3')
+                    self.assertTrue(seq.sequence.startswith('MILEAFENIRVDKYISDEFEEIP'))
+
+                    with self.assertRaises(KeyError):
+                        seq = seq_file.indexed['does not exist']
+
+
 class _TestReadFilename(object):
+
+    def test_init_error_empty(self):
+        try:
+            fd, filename = tempfile.mkstemp(suffix=".msa")
+            self.assertTrue(os.path.exists(filename))
+            # without a format argument, we can't determine the file format
+            self.assertRaises(ValueError, easel.SequenceFile, filename)
+            # with a format argument, we don't expect the file to be empty
+            self.assertRaises(EOFError, easel.SequenceFile, filename, "fasta")
+        finally:
+            os.close(fd)
+            if os.path.exists(filename):
+                os.remove(filename)
 
     def test_read_filename_guess_format(self):
         # check reading a file without specifying the format works
@@ -160,6 +226,17 @@ class _TestReadFilename(object):
 
 
 class _TestReadFileObject(object):
+
+    def test_guess_alphabet_empty_sequence(self):
+        buffer = io.BytesIO(b">seq1\n\n")
+        self.assertRaises(ValueError, easel.SequenceFile, buffer, format="fasta", digital=True)
+
+    def test_init_error_empty(self):
+        with io.BytesIO(b"") as buffer:
+            # without a format argument, we can't determine the file format
+            self.assertRaises(ValueError, easel.SequenceFile, buffer)
+            # with a format argument, we don't expect the file to be empty
+            self.assertRaises(EOFError, easel.SequenceFile, buffer, "fasta")
 
     def test_read_fileobject_guess_format(self):
         # check reading a file while specifying the format works

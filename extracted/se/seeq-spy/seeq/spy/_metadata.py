@@ -14,7 +14,7 @@ import pandas as pd
 from seeq.base import util
 from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
-from seeq.spy import _common, _compatibility, _login
+from seeq.spy import _common, _compatibility, _version
 from seeq.spy._common import EMPTY_GUID
 from seeq.spy._errors import *
 from seeq.spy._metadata_push_results import PushResults, ORIGINAL_INDEX_COLUMN, PushMethod
@@ -122,7 +122,7 @@ def push(session: Session, metadata, workbook_context: WorkbookContext, datasour
     if 'Type' not in metadata_df.columns:
         metadata_df['Type'] = pd.Series(dtype=object)
 
-    if not _login.is_server_version_at_least(64, session=session):
+    if not _version.is_server_version_at_least(64, session=session):
         if 'Asset Group Member' in metadata_df.columns:
             # In R63 and earlier, there is a guard against setting "Asset Group Member" directly. (This property allows
             # users with read-only access to a workbook to still modify an Asset Group. So in R63 and earlier we
@@ -319,10 +319,14 @@ def _process_push_row(session: Session, status: Status, push_context: PushContex
 
     if not _common.present(row_dict, 'Type') or not _is_handled_type(row_dict['Type']):
         if not _common.present(row_dict, 'Formula'):
-            _common.raise_or_catalog(status, df=push_context.push_results, column='Push Result',
-                                     index=index, exception_type=SPyRuntimeError,
-                                     message='Items with no valid type specified cannot be pushed unless they are '
-                                             'calculations. "Formula" column is required for such items.')
+            handled_types_list = [t for t, _ in HANDLED_TYPES]
+            _common.raise_or_catalog(
+                status, df=push_context.push_results, column='Push Result',
+                index=index, exception_type=SPyRuntimeError,
+                message='Items with no valid type specified cannot be pushed unless they are '
+                        'calculations. "Formula" column is required for such items. Valid types '
+                        f'for metadata push: {", ".join(handled_types_list)}.'
+            )
         else:
             formula = _common.get(row_dict, 'Formula')
             if _common.present(row_dict, 'Formula Parameters'):
@@ -1386,7 +1390,7 @@ def _handle_reference_uom(session: Session, definition, key):
         return
 
     unit = definition[key]
-    if _login.is_valid_unit(session, unit):
+    if session.is_valid_unit(unit):
         if unit != 'string':
             definition['Formula'] += f".setUnits('{unit}')"
         else:
@@ -1846,17 +1850,26 @@ def _add_no_dupe(lst, obj, attr='data_id', overwrite=False):
     return 1
 
 
+HANDLED_TYPES = [
+    ('Signal', 'in'),
+    ('Scalar', 'in'),
+    ('Condition', 'in'),
+    ('Chart', 'in'),
+    ('Metric', 'in'),
+    ('Template', 'in'),
+    ('Display', '=='),
+    ('Asset', '=='),
+    ('Datafile', '==')
+]
+
+
 def _is_handled_type(type_value):
     try:
-        return ('Signal' in type_value
-                or 'Scalar' in type_value
-                or 'Condition' in type_value
-                or 'Chart' in type_value
-                or 'Metric' in type_value
-                or 'Template' in type_value
-                or type_value == 'Display'
-                or type_value == 'Asset'
-                or type_value == 'Datafile')
+        for type_str, operator in HANDLED_TYPES:
+            if eval(f'"{type_str}" {operator} "{type_value}"'):
+                return True
+
+        return False
     except TypeError:
         return False
 
@@ -1933,7 +1946,8 @@ def _reify_path(session: Session, status: Status, push_context: PushContext, pat
     return child_data_id
 
 
-def create_datasource(session: Session, datasource=None) -> DatasourceOutputV1:
+def create_datasource(session: Session, datasource=None, *, status: Optional[Status] = None,
+                      dry_run: bool = False) -> Optional[DatasourceOutputV1]:
     items_api = ItemsApi(session.client)
     datasources_api = DatasourcesApi(session.client)
     users_api = UsersApi(session.client)
@@ -1976,12 +1990,37 @@ def create_datasource(session: Session, datasource=None) -> DatasourceOutputV1:
                               f'and ID {datasource_input.datasource_id}')
 
     if len(datasource_output_list.datasources) == 1:
-        return datasource_output_list.datasources[0]
+        datasource_output = datasource_output_list.datasources[0]
+        Status.log_if(status, f'Using existing datasource "{datasource_output.name}" '
+                              f'(ID: {datasource_output.id}, Datasource Class: {datasource_output.datasource_class}, '
+                              f'Datasource ID: {datasource_output.datasource_id})')
+        return datasource_output
+
+    if dry_run:
+        Status.log_if(status, f'[Dry Run] Would create new datasource "{datasource_input.name}" '
+                              f'(Datasource Class: {datasource_input.datasource_class}, '
+                              f'Datasource ID: {datasource_input.datasource_id})')
+
+        # Normally we don't create a "synthetic" output but in the case of the datasource_output we generally
+        # just need the datasource_class / datasource_id to be present downstream so we can still follow most code
+        # paths.
+        return DatasourceOutputV1(
+            id=EMPTY_GUID,
+            name=datasource_input.name,
+            datasource_class=datasource_input.datasource_class,
+            datasource_id=datasource_input.datasource_id
+        )
+
+    Status.log_if(status, f'Creating new datasource "{datasource_input.name}" '
+                          f'(Datasource Class: {datasource_input.datasource_class}, '
+                          f'Datasource ID: {datasource_input.datasource_id})')
 
     datasource_output = datasources_api.create_datasource(body=datasource_input)  # type: DatasourceOutputV1
 
     # Due to CRAB-23806, we have to immediately call get_datasource to get the right set of additional properties
     datasource_output = datasources_api.get_datasource(id=datasource_output.id)
+
+    Status.log_if(status, f'Created datasource "{datasource_output.name}" (ID: {datasource_output.id})')
 
     # We need to add Everyone with Manage permissions so that all users can push asset trees
     identity_preview_list = users_api.autocomplete_users_and_groups(query='Everyone')  # type: IdentityPreviewListV1
@@ -1995,6 +2034,7 @@ def create_datasource(session: Session, datasource=None) -> DatasourceOutputV1:
             break
 
     if everyone_user_group_id:
+        Status.log_if(status, 'Adding "Everyone" user group to datasource access control with Manage permissions')
         items_api.add_access_control_entry(id=datasource_output.id, body=AceInputV1(
             identity_id=everyone_user_group_id,
             permissions=PermissionsV1(manage=True, read=True, write=True)
@@ -2004,7 +2044,8 @@ def create_datasource(session: Session, datasource=None) -> DatasourceOutputV1:
 
 
 def push_access_control(session: Session, item_id: str, acl_df: pd.DataFrame, replace: bool,
-                        disable_permission_inheritance: Optional[bool] = None):
+                        disable_permission_inheritance: Optional[bool] = None,
+                        status: Optional[Status] = None, dry_run: bool = False):
     items_api = ItemsApi(session.client)
     acl_output: AclOutputV1 = items_api.get_access_control(id=item_id)
 
@@ -2013,7 +2054,15 @@ def push_access_control(session: Session, item_id: str, acl_df: pd.DataFrame, re
         disable_permission_inheritance = acl_output.permissions_inheritance_disabled
 
     if disable_permission_inheritance != acl_output.permissions_inheritance_disabled:
-        items_api.set_acl_inheritance(id=item_id, inherit_acl=not disable_permission_inheritance)
+        if not dry_run:
+            Status.log_if(status, f'Setting permission inheritance to '
+                                  f'{"disabled" if disable_permission_inheritance else "enabled"} '
+                                  f'on item ID {item_id}')
+            items_api.set_acl_inheritance(id=item_id, inherit_acl=not disable_permission_inheritance)
+        else:
+            Status.log_if(status, f'[Dry Run] Would set permission inheritance to '
+                                  f'{"disabled" if disable_permission_inheritance else "enabled"} '
+                                  f'on item ID {item_id}')
         acl_output = items_api.get_access_control(id=item_id)
 
     ace_inputs = list()
@@ -2043,10 +2092,11 @@ def push_access_control(session: Session, item_id: str, acl_df: pd.DataFrame, re
         # manage permission can be inherited from a group and by removing the respective permissions we lose the
         # ability to manage the permissions (e.g. agent_api_key gets the manage permission from Agents group in R63+).
         # Any silently-ignored additions will be correctly added after existing ACE entries are removed.
-        for permissions, identity_id in ace_inputs:
-            items_api.add_access_control_entry(id=item_id,
-                                               body=AceInputV1(permissions=permissions,
-                                                               identity_id=identity_id))
+        if not dry_run:
+            for permissions, identity_id in ace_inputs:
+                items_api.add_access_control_entry(id=item_id,
+                                                   body=AceInputV1(permissions=permissions,
+                                                                   identity_id=identity_id))
 
         # It's important to remove the entries that need to be removed before adding the final permissions. Otherwise,
         # if you try to add an ACE that conflicts with an existing entry, it will be silently ignored.
@@ -2055,15 +2105,34 @@ def push_access_control(session: Session, item_id: str, acl_df: pd.DataFrame, re
                 # You can't remove OWNER or inherited permissions
                 continue
 
-            if hasattr(existing_ace, 'used') and getattr(existing_ace, 'used'):
+            if getattr(existing_ace, 'used', False):
                 continue
 
-            items_api.remove_access_control_entry(id=item_id, ace_id=existing_ace.id)
+            permissions = existing_ace.permissions
+            if not dry_run:
+                Status.log_if(status, f'Removing ACE {existing_ace.id} for '
+                                      f'identity ID {existing_ace.identity.id} with permissions '
+                                      f'R: {permissions.read}, W: {permissions.write}, M: {permissions.manage} '
+                                      f'on item ID {item_id}')
+                items_api.remove_access_control_entry(id=item_id, ace_id=existing_ace.id)
+            else:
+                Status.log_if(status, f'[Dry Run] Would remove ACE {existing_ace.id} for '
+                                      f'identity ID {existing_ace.identity.id} with permissions '
+                                      f'R: {permissions.read}, W: {permissions.write}, M: {permissions.manage} '
+                                      f'on item ID {item_id}')
 
     for permissions, identity_id in ace_inputs:
-        items_api.add_access_control_entry(id=item_id,
-                                           body=AceInputV1(permissions=permissions,
-                                                           identity_id=identity_id))
+        if not dry_run:
+            Status.log_if(status, f'Adding ACE for identity ID {identity_id} with permissions '
+                                  f'R: {permissions.read}, W: {permissions.write}, M: {permissions.manage} '
+                                  f'on item ID {item_id}')
+            items_api.add_access_control_entry(id=item_id,
+                                               body=AceInputV1(permissions=permissions,
+                                                               identity_id=identity_id))
+        else:
+            Status.log_if(status, f'[Dry Run] Would add ACE for identity ID {identity_id} with permissions '
+                                  f'R: {permissions.read}, W: {permissions.write}, M: {permissions.manage} '
+                                  f'on item ID {item_id}')
 
 
 def dict_from_scalar_value_output(scalar_value_output):

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -16,10 +17,7 @@ except ImportError:
     specifiers = None  # type: ignore[assignment]
     version = None  # type: ignore[assignment]
 
-from ansible_dev_environment.collection import (
-    Collection,
-    parse_collection_request,
-)
+from ansible_dev_environment.collection import Collection, parse_collection_request
 from ansible_dev_environment.utils import (
     builder_introspect,
     collections_from_requirements,
@@ -283,6 +281,7 @@ class Installer:
             " --force"
         )
         env = {
+            **os.environ,
             "ANSIBLE_GALAXY_COLLECTIONS_PATH_WARNING": str(self._config.args.verbose),
         }
         msg = "Running ansible-galaxy to install non-local collection and it's dependencies."
@@ -551,6 +550,7 @@ class Installer:
             " --force"
         )
         env = {
+            **os.environ,
             "ANSIBLE_GALAXY_COLLECTIONS_PATH_WARNING": str(self._config.args.verbose),
         }
         msg = "Running ansible-galaxy to install a local collection and it's dependencies."
@@ -587,11 +587,13 @@ class Installer:
         self._output.note(msg)
 
     def _swap_editable_collection(self, collection: Collection) -> None:
-        """Swap the installed collection with the current working directory.
+        """Swap the installed collection with selective symlinks.
 
         Args:
             collection: The collection object.
 
+        Raises:
+            SystemExit: If no items are found to symlink.
         """
         msg = f"Swapping {collection.name} with {collection.path}"
         self._output.info(msg)
@@ -604,9 +606,149 @@ class Installer:
             else:
                 shutil.rmtree(collection.site_pkg_path)
 
-        msg = f"Symlinking {collection.site_pkg_path} to {collection.path}"
+        collection.site_pkg_path.mkdir(parents=True, exist_ok=True)
+
+        items_to_symlink = self._get_root_items_to_symlink(collection)
+
+        if not items_to_symlink:
+            err = "No items found to symlink for editable install"
+            self._output.critical(err)
+            raise SystemExit(err)
+        for item_name in items_to_symlink:
+            src = collection.path / item_name
+            dest = collection.site_pkg_path / item_name
+
+            if not src.exists():
+                continue
+
+            dest.symlink_to(src)
+
+        msg = (
+            "Note: If you add new root-level directories or files to your collection, "
+            "you will need to re-run 'ade install -e .' to include them in the editable install."
+        )
+        self._output.note(msg)
+
+    def _get_root_items_to_symlink(self, collection: Collection) -> set[str]:
+        """Determine which root-level items should be symlinked.
+
+        Tries git first, falls back to intelligent filtering of directory contents.
+
+        Args:
+            collection: The collection object.
+
+        Returns:
+            Set of root-level item names to symlink.
+
+        """
+        # Try git-based discovery first
+        items = self._get_git_tracked_root_items(collection)
+
+        if items:
+            msg = "Using git to determine root-level items"
+            self._output.debug(msg)
+            return items
+
+        # Fallback to intelligent filtering
+        msg = "No git repository found, using heuristic filtering"
         self._output.debug(msg)
-        collection.site_pkg_path.symlink_to(collection.path)
+        return self._get_filtered_root_items(collection)
+
+    def _get_git_tracked_root_items(self, collection: Collection) -> set[str]:
+        """Get root-level items from git ls-files.
+
+        Args:
+            collection: The collection object.
+
+        Returns:
+            Set of root-level item names, or empty set if git not available.
+
+        """
+        _, files_stdout = self._find_files_using_git_ls_files(
+            local_repo_path=collection.path,
+        )
+
+        if not files_stdout:
+            return set()
+
+        # Extract unique root-level items from git-tracked paths
+        root_items = set()
+        for line in files_stdout.split("\n"):
+            file_path = line.strip()
+            if not file_path:
+                continue
+
+            # Get the first path component (root-level item)
+            parts = file_path.split("/")
+            if parts:
+                root_items.add(parts[0])
+
+        return root_items
+
+    def _get_filtered_root_items(self, collection: Collection) -> set[str]:
+        """Get root-level items using heuristic filtering.
+
+        Args:
+            collection: The collection object.
+
+        Returns:
+            Set of root-level item names to symlink.
+
+        """
+        exclude_patterns = {
+            # Virtual environments
+            ".venv",
+            "venv",
+            ".virtualenv",
+            "virtualenv",
+            "env",
+            "__pycache__",
+            "*.pyc",
+            "*.pyo",
+            "*.egg-info",
+            ".eggs",
+            "build",
+            "dist",
+            ".tox",
+            ".pytest_cache",
+            ".mypy_cache",
+            ".vscode",
+            ".idea",
+            ".eclipse",
+            "*.swp",
+            "*.swo",
+            ".git",
+            ".hg",
+            ".svn",
+            ".DS_Store",
+            "Thumbs.db",
+            "ansible-*.tar.gz",
+        }
+
+        root_items = set()
+
+        for item in collection.path.iterdir():
+            item_name = item.name
+
+            should_exclude = False
+            for pattern in exclude_patterns:
+                if pattern.startswith("*."):
+                    if item_name.endswith(pattern[1:]):
+                        should_exclude = True
+                        break
+                elif item_name == pattern or item_name.startswith(pattern.rstrip("/")):
+                    should_exclude = True
+                    break
+
+            if should_exclude:
+                msg = f"Excluding {item_name} from editable install"
+                self._output.debug(msg)
+                continue
+
+            # Include all non-excluded items
+            root_items.add(item_name)
+
+        return root_items
 
     def _pip_install(self) -> None:
         """Install the dependencies."""

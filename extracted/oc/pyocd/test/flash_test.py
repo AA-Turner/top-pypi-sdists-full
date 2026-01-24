@@ -1,5 +1,5 @@
 # pyOCD debugger
-# Copyright (c) 2015-2020 Arm Limited
+# Copyright (c) 2015-2020,2025 Arm Limited
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,8 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import print_function
-
 import argparse
 import os
 import sys
@@ -142,6 +140,8 @@ def flash_test(board_id):
         test_pass_count = 0
         test_count = 0
         result = FlashTestResult()
+
+        target.reset_and_halt()
 
         # Test each flash region separately.
         for rom_region in memory_map.iter_matching_regions(type=MemoryType.FLASH, is_testable=True):
@@ -429,4 +429,3 @@ if __name__ == "__main__":
     test = FlashTest()
     result = [test.run(session.board)]
     test.print_perf_info(result)
-

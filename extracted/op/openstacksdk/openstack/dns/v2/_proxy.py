@@ -12,10 +12,13 @@
 
 import typing as ty
 
+from openstack.dns.v2 import blacklist as _blacklist
 from openstack.dns.v2 import floating_ip as _fip
 from openstack.dns.v2 import limit as _limit
+from openstack.dns.v2 import quota as _quota
 from openstack.dns.v2 import recordset as _rs
 from openstack.dns.v2 import service_status as _svc_status
+from openstack.dns.v2 import tld as _tld
 from openstack.dns.v2 import tsigkey as _tsigkey
 from openstack.dns.v2 import zone as _zone
 from openstack.dns.v2 import zone_export as _zone_export
@@ -29,8 +32,10 @@ from openstack import resource
 
 class Proxy(proxy.Proxy):
     _resource_registry = {
+        "blacklist": _blacklist.Blacklist,
         "floating_ip": _fip.FloatingIP,
         "limits": _limit.Limit,
+        "quota": _quota.Quota,
         "recordset": _rs.Recordset,
         "service_status": _svc_status.ServiceStatus,
         "zone": _zone.Zone,
@@ -40,6 +45,7 @@ class Proxy(proxy.Proxy):
         "zone_nameserver": _zone_nameserver.ZoneNameserver,
         "zone_share": _zone_share.ZoneShare,
         "zone_transfer_request": _zone_transfer.ZoneTransferRequest,
+        "tld": _tld.TLD,
     }
 
     # ======== Zones ========
@@ -91,10 +97,9 @@ class Proxy(proxy.Proxy):
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the zone does not exist.
-            When set to ``True``, no exception will be set when attempting to
-            delete a nonexistent zone.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the zone does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent zone.
         :param bool delete_shares: When True, delete the zone shares along with
                                    the zone.
 
@@ -251,9 +256,9 @@ class Proxy(proxy.Proxy):
         :param zone: The value can be the ID of a zone
             or a :class:`~openstack.dns.v2.zone.Zone` instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the zone does not exist. When set to ``True``, no exception will
-            be set when attempting to delete a nonexistent zone.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the zone does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent zone.
 
         :returns: Recordset instance been deleted
         :rtype: :class:`~openstack.dns.v2.recordset.Recordset`
@@ -333,10 +338,9 @@ class Proxy(proxy.Proxy):
         :param zone_import: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_import.ZoneImport` instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the zone does not exist.
-            When set to ``True``, no exception will be set when attempting to
-            delete a nonexistent zone.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the zone does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent zone.
 
         :returns: None
         """
@@ -410,10 +414,9 @@ class Proxy(proxy.Proxy):
         :param zone_export: The value can be the ID of a zone import
             or a :class:`~openstack.dns.v2.zone_export.ZoneExport` instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the zone does not exist.
-            When set to ``True``, no exception will be set when attempting to
-            delete a nonexistent zone.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the zone does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent zone.
 
         :returns: None
         """
@@ -540,10 +543,9 @@ class Proxy(proxy.Proxy):
             or a :class:`~openstack.dns.v2.zone_transfer.ZoneTransferRequest`
             instance.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the zone does not exist.
-            When set to ``True``, no exception will be set when attempting to
-            delete a nonexistent zone.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the zone does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent zone.
 
         :returns: None
         """
@@ -671,10 +673,10 @@ class Proxy(proxy.Proxy):
             share or a :class:`~openstack.dns.v2.zone_share.ZoneShare` instance
             that the zone share belongs to.
         :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.NotFoundException` will be raised when
-            the zone share does not exist.
-            When set to ``True``, no exception will be set when attempting to
-            delete a nonexistent zone share.
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the zone share does not exist. When set to ``True``, no
+            exception will be set when attempting to delete a nonexistent zone
+            share.
 
         :returns: ``None``
         """
@@ -695,6 +697,60 @@ class Proxy(proxy.Proxy):
         """
         return self._list(_limit.Limit, **query)
 
+    # ======== Quotas ========
+    def quotas(self, **query):
+        """Return a generator of quotas
+
+        :param dict query: Optional query parameters to be sent to limit the
+            resources being returned.
+
+        :returns: A generator of quota objects
+        :rtype: :class:`~openstack.dns.v2.quota.Quota`
+        """
+        return self._list(_quota.Quota, **query)
+
+    def get_quota(self, quota):
+        """Get a quota
+
+        :param quota: The value can be the ID of a quota or a
+            :class:`~openstack.dns.v2.quota.Quota` instance.
+            The ID of a quota is the same as the project ID for the quota.
+
+        :returns: One :class:`~openstack.dns.v2.quota.Quota`
+        :raises: :class:`~openstack.exceptions.ResourceNotFound`
+        """
+        return self._get(_quota.Quota, quota)
+
+    def update_quota(self, quota, **attrs):
+        """Update a quota
+
+        :param quota: Either the ID of a quota or a
+            :class:`~openstack.dns.v2.quota.Quota` instance. The ID of a quota
+            is the same as the project ID for the quota.
+        :param dict attrs: The attributes to update on the quota represented
+            by ``quota``.
+
+        :returns: The updated quota
+        :rtype: :class:`~openstack.dns.v2.quota.Quota`
+        """
+        return self._update(_quota.Quota, quota, **attrs)
+
+    def delete_quota(self, quota, ignore_missing=True):
+        """Delete a quota (i.e. reset to the default quota)
+
+        :param quota: The value can be the ID of a quota or a
+            :class:`~openstack.dns.v2.quota.Quota` instance.
+            The ID of a quota is the same as the project ID for the quota.
+        :param bool ignore_missing: When set to ``False``,
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised when
+            the quota does not exist.
+            When set to ``True``, no exception will be set when attempting to
+            delete a nonexistent quota.
+
+        :returns: ``None``
+        """
+        return self._delete(_quota.Quota, quota, ignore_missing=ignore_missing)
+
     # ======== Service Statuses ========
     def service_statuses(self):
         """Retrieve a generator of service statuses
@@ -708,12 +764,223 @@ class Proxy(proxy.Proxy):
         """Get a status of a service in the Designate system
 
         :param service: The value can be the ID of a service
-            or a :class:`~openstack.dns.v2.service_status.ServiceStatus` instance.
+            or a :class:`~openstack.dns.v2.service_status.ServiceStatus`
+            instance.
 
         :returns: ServiceStatus instance.
         :rtype: :class:`~openstack.dns.v2.service_status.ServiceStatus`
         """
         return self._get(_svc_status.ServiceStatus, service)
+
+    # ======== TLDs ========
+    def tlds(self, **query):
+        """Retrieve a generator of tlds
+
+        :param dict query: Optional query parameters to be sent to limit the
+            resources being returned.
+
+            * `name`: TLD Name field.
+
+        :returns: A generator of tld
+            :class:`~openstack.dns.v2.tld.TLD` instances.
+        """
+        return self._list(_tld.TLD, **query)
+
+    def create_tld(self, **attrs):
+        """Create a new tld from attributes
+
+        :param dict attrs: Keyword arguments which will be used to create
+            a :class:`~openstack.dns.v2.tld.TLD`,
+            comprised of the properties on the TLD class.
+        :returns: The results of TLD creation.
+        :rtype: :class:`~openstack.dns.v2.tld.TLD`
+        """
+        return self._create(_tld.TLD, prepend_key=False, **attrs)
+
+    def get_tld(self, tld):
+        """Get a tld
+
+        :param tld: The value can be the ID of a tld
+            or a :class:`~openstack.dns.v2.tld.TLD` instance.
+        :returns: tld instance.
+        :rtype: :class:`~openstack.dns.v2.tld.TLD`
+        """
+        return self._get(_tld.TLD, tld)
+
+    def delete_tld(self, tld, ignore_missing=True):
+        """Delete a tld
+
+        :param tld: The value can be the ID of a tld
+            or a :class:`~openstack.dns.v2.tld.TLD` instance.
+        :param bool ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the tld does not exist. When set to ``True``, no exception
+            will be set when attempting to delete a nonexistent tld.
+
+        :returns: TLD been deleted
+        :rtype: :class:`~openstack.dns.v2.tld.TLD`
+        """
+        return self._delete(
+            _tld.TLD,
+            tld,
+            ignore_missing=ignore_missing,
+        )
+
+    def update_tld(self, tld, **attrs):
+        """Update tld attributes
+
+        :param tld: The id or an instance of
+            :class:`~openstack.dns.v2.tld.TLD`.
+        :param dict attrs: attributes for update on
+            :class:`~openstack.dns.v2.tld.TLD`.
+
+        :rtype: :class:`~openstack.dns.v2.tld.TLD`
+        """
+        return self._update(_tld.TLD, tld, **attrs)
+
+    def find_tld(self, name_or_id, ignore_missing=True):
+        """Find a single tld
+
+        :param name_or_id: The name or ID of a tld
+        :param bool ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.NotFoundException` will be raised
+            when the tld does not exist.
+            When set to ``True``, no exception will be set when attempting
+            to delete a nonexistent tld.
+
+        :returns: :class:`~openstack.dns.v2.tld.TLD`
+        """
+        return self._find(_tld.TLD, name_or_id, ignore_missing=ignore_missing)
+
+    # ====== TSIG keys ======
+    def tsigkeys(self, **query):
+        """Retrieve a generator of zones
+
+        :param dict query: Optional query parameters to be sent to limit the
+            resources being returned.
+
+        :returns: A generator of zone
+            :class: `~openstack.dns.v2.tsigkey.TSIGKey` instances.
+        """
+        return self._list(_tsigkey.TSIGKey, **query)
+
+    def create_tsigkey(self, **attrs):
+        """Create a new tsigkey from attributes
+
+        :param dict attrs: Keyword arguments which will be used to create
+            a :class:`~openstack.dns.v2.tsigkey.Tsigkey`,
+            comprised of the properties on the Tsigkey class.
+        :returns: The results of zone creation.
+        :rtype: :class:`~openstack.dns.v2.tsigkey.Tsigkey`
+        """
+        return self._create(_tsigkey.TSIGKey, prepend_key=False, **attrs)
+
+    def get_tsigkey(self, tsigkey):
+        """Get a zone
+
+        :param tsigkey: The value can be the ID of a tsigkey
+            or a :class:'~openstack.dns.v2.tsigkey.TSIGKey' instance.
+        :returns: A generator of tsigkey
+            :class:'~openstack.dns.v2.tsigkey.TSIGKey' instances.
+        """
+        return self._get(_tsigkey.TSIGKey, tsigkey)
+
+    def delete_tsigkey(
+        self, tsigkey, ignore_missing=True, delete_shares=False
+    ):
+        """Delete a TSIG key
+
+        :param tsigkey: The value can be the ID of a TSIG key
+            or a :class:`~openstack.dns.v2.tsigkey.TSIGKey` instance.
+        :param bool ignore_missing: When set to ``False``
+            :class:`~openstack.exceptions.ResourceNotFound` will be raised when
+            the TSIG key does not exist.
+            When set to ``True``, no exception will be set when attempting to
+            delete a nonexistent TSIG key.
+
+        :returns: TSIG Key that has been deleted
+        :rtype: :class:`~openstack.dns.v2.tsigkey.TSIGKey`
+        """
+
+        return self._delete(
+            _tsigkey.TSIGKey,
+            tsigkey,
+            ignore_missing=ignore_missing,
+            delete_shares=delete_shares,
+        )
+
+    def find_tsigkey(self, name_or_id, ignore_missing=True):
+        """Find a single tsigkey
+
+        :param name_or_id: The name or ID of a tsigkey
+        :param bool ignore_missing: When set to ``False``
+            :class: `!openstack.exceptions.ResourceNotFound` will be raised
+            when the tsigkey does not exit.
+            Wehn set to ``True``, no exception will be set when attempting
+            to delete a nonexitstent zone.
+
+        :returns::class:`~openstack.dns.v2.tsigkey.TSIGKey`
+        """
+        return self._find(
+            _tsigkey.TSIGKey, name_or_id, ignore_missing=ignore_missing
+        )
+
+    # ======== Blacklists ========
+    def blacklists(self, **query):
+        """Retrieve a generator of blacklists
+
+        :returns: A generator of blacklist
+            (:class:`~openstack.dns.v2.blacklist.Blacklist`) instances
+        """
+        return self._list(_blacklist.Blacklist, **query)
+
+    def get_blacklist(self, blacklist):
+        """Get a blacklist
+
+        :param blacklist: The value can be the ID of a blacklist
+            or a :class:`~openstack.dns.v2.blacklist.Blacklist` instance.
+
+        :returns: Blacklist instance.
+        :rtype: :class:`~openstack.dns.v2.blacklist.Blacklist`
+        """
+        return self._get(_blacklist.Blacklist, blacklist)
+
+    def create_blacklist(self, **attrs):
+        """Create a new blacklist
+
+        :param attrs: Keyword arguments which will be used to create
+            a :class:`~openstack.dns.v2.blacklist.Blacklist`,
+            comprised of the properties on the Blacklist class.
+
+        :returns: The results of blacklist creation.
+        :rtype: :class:`~openstack.dns.v2.blacklist.Blacklist`
+        """
+        return self._create(_blacklist.Blacklist, prepend_key=False, **attrs)
+
+    def update_blacklist(self, blacklist, **attrs):
+        """Update blacklist attributes
+
+        :param blacklist: The id or an instance of
+            :class: `~openstack.dns.v2.blacklist.Blacklist`.
+        :param attrs: attributes for update on
+            :class: `~openstack.dns.v2.blacklist.Blacklist`.
+
+        :rtype: :class: `~openstack.dns.v2.blacklist.Blacklist`.
+        """
+        return self._update(_blacklist.Blacklist, blacklist, **attrs)
+
+    def delete_blacklist(self, blacklist, ignore_missing=True):
+        """Delete a blacklist
+
+        :param blacklist: The id or an instance of
+            :class: `~openstack.dns.v2.blacklist.Blacklist`.
+
+        :returns: Blacklist been deleted
+        :rtype: :class:`~openstack.dns.v2.blacklist.Blacklist`
+        """
+        return self._delete(
+            _blacklist.Blacklist, blacklist, ignore_missing=ignore_missing
+        )
 
     # ========== Utilities ==========
     def wait_for_status(
@@ -818,76 +1085,3 @@ class Proxy(proxy.Proxy):
                     filters=filters,
                     resource_evaluation_fn=resource_evaluation_fn,
                 )
-
-    # ====== TSIG keys ======
-    def tsigkeys(self, **query):
-        """Retrieve a generator of zones
-
-        :param dict query: Optional query parameters to be sent to limit the
-            resources being returned.
-
-        :returns: A generator of zone
-            :class: `~openstack.dns.v2.tsigkey.TSIGKey` instances.
-        """
-        return self._list(_tsigkey.TSIGKey, **query)
-
-    def create_tsigkey(self, **attrs):
-        """Create a new tsigkey from attributes
-
-        :param dict attrs: Keyword arguments which will be used to create
-            a :class:`~openstack.dns.v2.tsigkey.Tsigkey`,
-            comprised of the properties on the Tsigkey class.
-        :returns: The results of zone creation.
-        :rtype: :class:`~openstack.dns.v2.tsigkey.Tsigkey`
-        """
-        return self._create(_tsigkey.TSIGKey, prepend_key=False, **attrs)
-
-    def get_tsigkey(self, tsigkey):
-        """Get a zone
-
-        :param tsigkey: The value can be the ID of a tsigkey
-            or a :class:'~openstack.dns.v2.tsigkey.TSIGKey' instance.
-        :returns: A generator of tsigkey
-            :class:'~openstack.dns.v2.tsigkey.TSIGKey' instances.
-        """
-        return self._get(_tsigkey.TSIGKey, tsigkey)
-
-    def delete_tsigkey(
-        self, tsigkey, ignore_missing=True, delete_shares=False
-    ):
-        """Delete a TSIG key
-
-        :param tsigkey: The value can be the ID of a TSIG key
-            or a :class:`~openstack.dns.v2.tsigkey.TSIGKey` instance.
-        :param bool ignore_missing: When set to ``False``
-            :class:`~openstack.exceptions.ResourceNotFound` will be raised when
-            the TSIG key does not exist.
-            When set to ``True``, no exception will be set when attempting to
-            delete a nonexistent TSIG key.
-
-        :returns: TSIG Key that has been deleted
-        :rtype: :class:`~openstack.dns.v2.tsigkey.TSIGKey`
-        """
-
-        return self._delete(
-            _tsigkey.TSIGKey,
-            tsigkey,
-            ignore_missing=ignore_missing,
-            delete_shares=delete_shares,
-        )
-
-    def find_tsigkey(self, name_or_id, ignore_missing=True):
-        """Find a single tsigkey
-
-        :param name_or_id: The name or ID of a tsigkey
-        :param bool ignore_missing: When set to ``False``
-            :class: `!openstack.exceptions.ResourceNotFound` will be raised
-            when the tsigkey does not exit.
-            Wehn set to ``True``, no exception will be set when attempting
-            to delete a nonexitstent zone.
-
-        :returns::class:`~openstack.dns.v2.tsigkey.TSIGKey`
-        """
-        return self._find(
-            _tsigkey.TSIGKey, name_or_id, ignore_missing=ignore_missing
-        )

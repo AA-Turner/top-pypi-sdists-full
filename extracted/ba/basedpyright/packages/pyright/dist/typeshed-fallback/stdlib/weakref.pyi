@@ -4,7 +4,7 @@ from _weakrefset import WeakSet as WeakSet
 from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping
 from types import GenericAlias
 from typing import Any, ClassVar, Generic, TypeVar, final, overload
-from typing_extensions import ParamSpec, Self
+from typing_extensions import ParamSpec, Self, disjoint_base
 
 __all__ = [
     "ref",
@@ -56,6 +56,7 @@ class ProxyType(Generic[_T]):  # "weakproxy"
     def __getattr__(self, attr: str) -> Any: ...
     __hash__: ClassVar[None]  # type: ignore[assignment]
 
+@disjoint_base
 class ReferenceType(Generic[_T]):  # "weakref"
     __callback__: Callable[[Self], Any]
     def __new__(cls, o: _T, callback: Callable[[Self], Any] | None = ..., /) -> Self: ...
@@ -77,6 +78,7 @@ ref = ReferenceType
 # everything below here is implemented in weakref.py
 
 class WeakMethod(ref[_CallableT]):
+    __slots__ = ("_func_ref", "_meth_type", "_alive", "__weakref__")
     def __new__(cls, meth: _CallableT, callback: Callable[[Self], Any] | None = None) -> Self: ...
     def __call__(self) -> _CallableT | None: ...
     def __eq__(self, other: object) -> bool: ...
@@ -144,6 +146,7 @@ class WeakValueDictionary(MutableMapping[_KT, _VT]):
     def __ior__(self, other: Iterable[tuple[_KT, _VT]]) -> Self: ...
 
 class KeyedRef(ref[_T], Generic[_KT, _T]):
+    __slots__ = ("key",)
     key: _KT
     def __new__(type, ob: _T, callback: Callable[[Self], Any], key: _KT) -> Self: ...
     def __init__(self, ob: _T, callback: Callable[[Self], Any], key: _KT) -> None: ...
@@ -199,6 +202,7 @@ class WeakKeyDictionary(MutableMapping[_KT, _VT]):
     def __ior__(self, other: Iterable[tuple[_KT, _VT]]) -> Self: ...
 
 class finalize(Generic[_P, _T]):
+    __slots__ = ()
     def __init__(self, obj: _T, func: Callable[_P, Any], /, *args: _P.args, **kwargs: _P.kwargs) -> None: ...
     def __call__(self, _: Any = None) -> Any | None: ...
     def detach(self) -> tuple[_T, Callable[_P, Any], tuple[Any, ...], dict[str, Any]] | None: ...

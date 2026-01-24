@@ -118,8 +118,6 @@ class SileroVadDataset(Dataset):
 
         assert len(gt) == len(wav) / self.num_samples
 
-        mask[gt == 0]
-
         return wav, gt, mask
 
     def get_ground_truth_annotated(self, annotation, audio_length_samples):
@@ -240,6 +238,7 @@ def train(config,
 
             loss = criterion(stacked, targets)
             loss = (loss * masks).mean()
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             losses.update(loss.item(), masks.numel())

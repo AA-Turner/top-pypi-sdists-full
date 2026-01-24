@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from numpy.polynomial._polybase import ABCPolyBase
 
 
-__version__: Final[Literal["20250818.2.3"]] = "20250818.2.3"
+__version__: Final[Literal["20251206.2.4"]] = "20251206.2.4"
 
 __all__ = (
     "NUMPY_GE_1_22",
@@ -26,6 +26,7 @@ __all__ = (
     "NUMPY_GE_2_1",
     "NUMPY_GE_2_2",
     "NUMPY_GE_2_3",
+    "NUMPY_GE_2_4",
     "ABCPolyBase",
     "CanArray",
     "LiteralFalse",
@@ -47,6 +48,7 @@ __ALL_SET = frozenset(__all__)
 
 
 def __getattr__(name: str, /) -> object:
+
     if name == "StringDType":
         from numpy.dtypes import StringDType
 
@@ -85,6 +87,7 @@ NUMPY_GE_2_0: Final[Literal[True]] = True
 NUMPY_GE_2_1: Final[Literal[True]] = True
 NUMPY_GE_2_2: Final[Literal[True]] = True
 NUMPY_GE_2_3: Final[Literal[True]] = True
+NUMPY_GE_2_4: Final[Literal[True]] = True
 
 
 LiteralTrue: TypeAlias = "Literal[True] | np.bool[Literal[True]]"
@@ -104,4 +107,4 @@ def _check_version() -> bool:
     import numpy as np
 
     np_version = tuple(map(int, np.__version__.split(".", 2)[:2]))
-    return (2, 3) <= np_version < (2, 4)
+    return (2, 4) <= np_version < (2, 5)

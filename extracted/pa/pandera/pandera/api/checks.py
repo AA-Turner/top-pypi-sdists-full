@@ -1,14 +1,13 @@
 """Data validation check definition."""
 
 import re
+from collections.abc import Callable, Iterable
 from typing import (
     Any,
-    Callable,
     Optional,
     TypeVar,
     Union,
 )
-from collections.abc import Iterable
 
 from pandera import errors
 from pandera.api.base.checks import BaseCheck, CheckResult
@@ -22,18 +21,19 @@ class Check(BaseCheck):
     def __init__(
         self,
         check_fn: Callable,
-        groups: Optional[Union[str, list[str]]] = None,
-        groupby: Optional[Union[str, list[str], Callable]] = None,
+        groups: Union[str, list[str]] | None = None,
+        groupby: Union[str, list[str], Callable] | None = None,
         ignore_na: bool = True,
         element_wise: bool = False,
-        name: Optional[str] = None,
-        error: Optional[str] = None,
+        name: str | None = None,
+        error: str | None = None,
         raise_warning: bool = False,
-        n_failure_cases: Optional[int] = None,
-        title: Optional[str] = None,
-        description: Optional[str] = None,
-        statistics: Optional[dict[str, Any]] = None,
-        strategy: Optional[Any] = None,
+        n_failure_cases: int | None = None,
+        title: str | None = None,
+        description: str | None = None,
+        statistics: dict[str, Any] | None = None,
+        strategy: Any | None = None,
+        determined_by_unique: bool = False,
         **check_kwargs,
     ) -> None:
         """Apply a validation function to a data object.
@@ -98,6 +98,12 @@ class Check(BaseCheck):
         :param strategy: A hypothesis strategy, used for implementing data
             synthesis strategies for this check. See the
             :ref:`User Guide <custom-strategies>` for more details.
+        :param determined_by_unique: If True, indicates that this check's
+            result is fully determined by the unique values in the data, meaning
+            duplicate values don't affect the outcome. This enables significant
+            performance optimizations for MultiIndex validation when dealing with
+            large datasets. If True, the check function must produce the same result
+            whether applied to unique values or full values.
         :param check_kwargs: key-word arguments to pass into ``check_fn``
 
         :example:
@@ -177,6 +183,7 @@ class Check(BaseCheck):
         self.n_failure_cases = n_failure_cases
         self.title = title
         self.description = description
+        self.determined_by_unique = determined_by_unique
 
         if groupby is None and groups is not None:
             raise ValueError(
@@ -189,7 +196,7 @@ class Check(BaseCheck):
         self.groupby = groupby
         if isinstance(groups, str):
             groups = [groups]
-        self.groups: Optional[list[str]] = groups
+        self.groups: list[str] | None = groups
 
         self.statistics = statistics or check_kwargs or {}
         self.statistics_args = [*self.statistics.keys()]
@@ -198,7 +205,7 @@ class Check(BaseCheck):
     def __call__(
         self,
         check_obj: Any,
-        column: Optional[str] = None,
+        column: str | None = None,
     ) -> CheckResult:
         """Validate DataFrame or Series.
 
@@ -240,6 +247,7 @@ class Check(BaseCheck):
             "equal_to",
             kwargs,
             error=f"equal_to({value})",
+            defaults={"determined_by_unique": True},
             value=value,
         )
 
@@ -253,6 +261,7 @@ class Check(BaseCheck):
             "not_equal_to",
             kwargs,
             error=f"not_equal_to({value})",
+            defaults={"determined_by_unique": True},
             value=value,
         )
 
@@ -272,6 +281,7 @@ class Check(BaseCheck):
             "greater_than",
             kwargs,
             error=f"greater_than({min_value})",
+            defaults={"determined_by_unique": True},
             min_value=min_value,
         )
 
@@ -289,6 +299,7 @@ class Check(BaseCheck):
             "greater_than_or_equal_to",
             kwargs,
             error=f"greater_than_or_equal_to({min_value})",
+            defaults={"determined_by_unique": True},
             min_value=min_value,
         )
 
@@ -306,6 +317,7 @@ class Check(BaseCheck):
             "less_than",
             kwargs,
             error=f"less_than({max_value})",
+            defaults={"determined_by_unique": True},
             max_value=max_value,
         )
 
@@ -323,14 +335,16 @@ class Check(BaseCheck):
             "less_than_or_equal_to",
             kwargs,
             error=f"less_than_or_equal_to({max_value})",
+            defaults={"determined_by_unique": True},
             max_value=max_value,
         )
 
     @classmethod
     def in_range(
         cls,
-        min_value: T,
-        max_value: T,
+        *args,
+        min_value: T | None = None,
+        max_value: T | None = None,
         include_min: bool = True,
         include_max: bool = True,
         **kwargs,
@@ -340,6 +354,12 @@ class Check(BaseCheck):
         Both endpoints must be a type comparable to the dtype of the
         data object to be validated.
 
+        :param args: Positional arguments. If a single value is provided, it
+            represents the exact value. If two values are provided, they
+            represent min_value and max_value respectively. If three values
+            are provided, they represent min_value, max_value, and include_min
+            respectively. If four values are provided, they represent min_value,
+            max_value, include_min, and include_max respectively.
         :param min_value: Left / lower endpoint of the interval.
         :param max_value: Right / upper endpoint of the interval. Must not be
             smaller than min_value.
@@ -349,7 +369,63 @@ class Check(BaseCheck):
         :param include_max: Defines whether min_value is also an allowed value
             (the default) or whether all values must be strictly smaller than
             max_value.
+
+        :example:
+
+        >>> import pandera as pa
+        >>>
+        >>> positional_check = pa.Check.in_range(0, 1)
+        >>> positional_include_min_check = pa.Check.in_range(0, 1, True)
+        >>> positional_include_min_max_check = pa.Check.in_range(0, 1, True, True)
+        >>> keyword_check = pa.Check.in_range(min_value=0, max_value=1)
+        >>> keyword_include_min_check = pa.Check.in_range(min_value=0, max_value=1, include_min=True)
+        >>> keyword_include_min_max_check = pa.Check.in_range(min_value=0, max_value=1, include_min=True, include_max=True)
         """
+        # Handle positional arguments for backward compatibility
+        # in_range(0, 1) or in_range(0, 1, True, False) should work
+        # Track whether values were provided (vs being default None)
+        min_value_provided = min_value is not None
+        max_value_provided = max_value is not None
+
+        if len(args) >= 2:
+            min_value = args[0]
+            max_value = args[1]
+            min_value_provided = True
+            max_value_provided = True
+        elif len(args) == 1:
+            # If only one positional arg is provided without keyword args,
+            # raise TypeError to match original behavior
+            if not min_value_provided and not max_value_provided:
+                raise TypeError(
+                    "in_range() missing required argument: 'max_value'"
+                )
+            # One positional arg with one keyword arg
+            if not min_value_provided:
+                min_value = args[0]
+                min_value_provided = True
+            elif not max_value_provided:
+                max_value = args[0]
+                max_value_provided = True
+        if len(args) >= 3:
+            include_min = args[2]
+        if len(args) >= 4:
+            include_max = args[3]
+
+        # Check for missing required arguments
+        if not min_value_provided and not max_value_provided:
+            raise TypeError(
+                "in_range() missing required arguments: 'min_value' and 'max_value'"
+            )
+        if not min_value_provided:
+            raise TypeError(
+                "in_range() missing required argument: 'min_value'"
+            )
+        if not max_value_provided:
+            raise TypeError(
+                "in_range() missing required argument: 'max_value'"
+            )
+
+        # Check for invalid None values (explicitly passed)
         if min_value is None:
             raise ValueError("min_value must not be None")
         if max_value is None:
@@ -365,6 +441,7 @@ class Check(BaseCheck):
             "in_range",
             kwargs,
             error=f"in_range({min_value}, {max_value})",
+            defaults={"determined_by_unique": True},
             min_value=min_value,
             max_value=max_value,
             include_min=include_min,
@@ -372,7 +449,9 @@ class Check(BaseCheck):
         )
 
     @classmethod
-    def isin(cls, allowed_values: Iterable, **kwargs) -> "Check":
+    def isin(
+        cls, *args, allowed_values: Iterable | None = None, **kwargs
+    ) -> "Check":
         """Ensure only allowed values occur within a series.
 
         This checks whether all elements of a data object
@@ -382,25 +461,54 @@ class Check(BaseCheck):
         in allowed_values at least once can meet this condition. If you
         want to check for substrings use :meth:`Check.str_contains`.
 
+        :param args: Positional arguments. If a single list/tuple is provided, it
+            represents the allowed values. If multiple values are provided, they
+            represent the allowed values.
         :param allowed_values: The set of allowed values. May be any iterable.
         :param kwargs: key-word arguments passed into the `Check` initializer.
+
+        :example:
+
+        >>> import pandera as pa
+        >>>
+        >>> positional_check = pa.Check.isin([1, 2, 3])
+        >>> positional_values_check = pa.Check.isin(1, 2, 3)
+        >>> keyword_check = pa.Check.isin(allowed_values=[1, 2, 3])
+        >>> keyword_values_check = pa.Check.isin(allowed_values=[1, 2, 3])
         """
+        values: Iterable
+        if allowed_values is not None:
+            values = allowed_values
+        elif len(args) == 1 and hasattr(args[0], "__iter__"):
+            # Single iterable passed as positional arg (including strings)
+            values = args[0]
+        elif args:
+            # Multiple values passed as positional args
+            values = args
+        else:
+            raise ValueError(
+                "Argument allowed_values must be provided. "
+                "Use Check.isin([1, 2, 3]) or Check.isin(allowed_values=[1, 2, 3])"
+            )
         try:
-            allowed_values_mod = frozenset(allowed_values)
+            allowed_values_mod = frozenset(values)
         except TypeError as exc:
             raise ValueError(
-                f"Argument allowed_values must be iterable. Got {allowed_values}"
+                f"Argument allowed_values must be iterable. Got {values}"
             ) from exc
         return cls.from_builtin_check_name(
             "isin",
             kwargs,
-            error=f"isin({allowed_values})",
-            statistics={"allowed_values": allowed_values},
+            error=f"isin({values})",
+            defaults={"determined_by_unique": True},
+            statistics={"allowed_values": values},
             allowed_values=allowed_values_mod,
         )
 
     @classmethod
-    def notin(cls, forbidden_values: Iterable, **kwargs) -> "Check":
+    def notin(
+        cls, *args, forbidden_values: Iterable | None = None, **kwargs
+    ) -> "Check":
         """Ensure some defined values don't occur within a series.
 
         Like :meth:`Check.isin` this check operates on single characters if
@@ -408,23 +516,48 @@ class Check(BaseCheck):
         understood as set of prohibited characters. Any string of length > 1
         can't be in it by design.
 
+        :param args: Positional arguments. If a single list/tuple is provided, it
+            represents the forbidden values. If multiple values are provided, they
+            represent the forbidden values.
         :param forbidden_values: The set of values which should not occur. May
             be any iterable.
         :param raise_warning: if True, check raises SchemaWarning instead of
             SchemaError on validation.
+
+        :example:
+
+        >>> import pandera as pa
+        >>>
+        >>> positional_check = pa.Check.notin([1, 2, 3])
+        >>> positional_values_check = pa.Check.notin(1, 2, 3)
+        >>> keyword_check = pa.Check.notin(forbidden_values=[1, 2, 3])
         """
+        values: Iterable
+        if forbidden_values is not None:
+            values = forbidden_values
+        elif len(args) == 1 and hasattr(args[0], "__iter__"):
+            # Single iterable passed as positional arg (including strings)
+            values = args[0]
+        elif args:
+            # Multiple values passed as positional args
+            values = args
+        else:
+            raise ValueError(
+                "Argument forbidden_values must be provided. "
+                "Use Check.notin([1, 2, 3]) or Check.notin(forbidden_values=[1, 2, 3])"
+            )
         try:
-            forbidden_values_mod = frozenset(forbidden_values)
+            forbidden_values_mod = frozenset(values)
         except TypeError as exc:
             raise ValueError(
-                "Argument forbidden_values must be iterable. "
-                f"Got {forbidden_values}"
+                f"Argument forbidden_values must be iterable. Got {values}"
             ) from exc
         return cls.from_builtin_check_name(
             "notin",
             kwargs,
-            error=f"notin({forbidden_values})",
-            statistics={"forbidden_values": forbidden_values},
+            error=f"notin({values})",
+            defaults={"determined_by_unique": True},
+            statistics={"forbidden_values": values},
             forbidden_values=forbidden_values_mod,
         )
 
@@ -445,6 +578,7 @@ class Check(BaseCheck):
             "str_matches",
             kwargs,
             error=f"str_matches('{pattern}')",
+            defaults={"determined_by_unique": True},
             statistics={"pattern": pattern},
             pattern=pattern,
         )
@@ -468,6 +602,7 @@ class Check(BaseCheck):
             "str_contains",
             kwargs,
             error=f"str_contains('{pattern}')",
+            defaults={"determined_by_unique": True},
             statistics={"pattern": pattern},
             pattern=pattern,
         )
@@ -484,6 +619,7 @@ class Check(BaseCheck):
             "str_startswith",
             kwargs,
             error=f"str_startswith('{string}')",
+            defaults={"determined_by_unique": True},
             string=string,
         )
 
@@ -498,21 +634,61 @@ class Check(BaseCheck):
             "str_endswith",
             kwargs,
             error=f"str_endswith('{string}')",
+            defaults={"determined_by_unique": True},
             string=string,
         )
 
     @classmethod
     def str_length(
         cls,
-        min_value: Optional[int] = None,
-        max_value: Optional[int] = None,
+        *args,
+        min_value: int | None = None,
+        max_value: int | None = None,
+        exact_value: int | None = None,
         **kwargs,
     ) -> "Check":
         """Ensure that the length of strings is within a specified range.
 
+        This method supports multiple calling conventions:
+
+        .. code-block:: python
+
+            Check.str_length(5)  # exact length of 5
+            Check.str_length(1, 5)  # length between 1 and 5 (inclusive)
+            Check.str_length(min_value=1, max_value=5)  # same as above
+            Check.str_length(min_value=1)  # length >= 1
+            Check.str_length(max_value=5)  # length <= 5
+
+        :param args: Positional arguments. If one value is provided, it
+            represents the exact length. If two values are provided, they
+            represent min_value and max_value respectively.
         :param min_value: Minimum length of strings (default: no minimum)
         :param max_value: Maximum length of strings (default: no maximum)
+        :param exact_value: Exact length of strings. (default: no exact value)
+        :param kwargs: key-word arguments passed into the `Check` initializer.
         """
+        if len(args) == 1:
+            # Single positional arg means exact length
+            exact_value = args[0]
+        elif len(args) == 2:
+            # Two positional args means min and max
+            min_value = args[0]
+            max_value = args[1]
+        elif len(args) > 2:
+            raise ValueError(
+                "str_length accepts at most 2 positional arguments "
+                f"(min_value, max_value), got {len(args)}"
+            )
+
+        if exact_value is not None:
+            return cls.from_builtin_check_name(
+                "str_length",
+                kwargs,
+                error=f"str_length({exact_value})",
+                defaults={"determined_by_unique": True},
+                exact_value=exact_value,
+            )
+
         if min_value is None and max_value is None:
             raise ValueError(
                 "At least a minimum or a maximum need to be specified. Got "
@@ -522,8 +698,10 @@ class Check(BaseCheck):
             "str_length",
             kwargs,
             error=f"str_length({min_value}, {max_value})",
+            defaults={"determined_by_unique": True},
             min_value=min_value,
             max_value=max_value,
+            exact_value=exact_value,
         )
 
     @classmethod
@@ -546,6 +724,7 @@ class Check(BaseCheck):
             "unique_values_eq",
             kwargs,
             error=f"unique_values_eq({values})",
+            defaults={"determined_by_unique": True},
             statistics={"values": values_mod},
             values=values_mod,
         )

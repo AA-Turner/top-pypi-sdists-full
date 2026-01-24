@@ -11,6 +11,7 @@ import urllib.parse
 import warnings
 from typing import (
     Any,
+    AsyncIterator,
     Callable,
     Dict,
     Iterator,
@@ -22,7 +23,6 @@ from typing import (
     Type,
     TypeVar,
     Union,
-    cast,
 )
 
 from langchain_core.callbacks.manager import (
@@ -50,9 +50,11 @@ from langchain_core.outputs import (
 )
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
+from langchain_core.utils import get_pydantic_field_names
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from langchain_core.utils.pydantic import is_basemodel_subclass
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
+from langchain_core.utils.utils import _build_model_kwargs
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from langchain_nvidia_ai_endpoints._common import _NVIDIAClient
 from langchain_nvidia_ai_endpoints._statics import Model
@@ -134,11 +136,21 @@ def _url_to_b64_string(image_source: str) -> str:
         raise ValueError(f"Unable to process the provided image source: {e}")
 
 
+def _deep_merge(base: dict, update: dict) -> dict:
+    """Deep merge update dict into base dict."""
+    result = base.copy()
+    for key, value in update.items():
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+            result[key] = _deep_merge(result[key], value)
+        else:
+            result[key] = value
+    return result
+
+
 def _nv_vlm_adjust_input(
     message_dict: Dict[str, Any], model_type: str
 ) -> Dict[str, Any]:
-    """
-    The NVIDIA VLM API input message.content:
+    """The NVIDIA VLM API input `message.content`:
         {
             "role": "user",
             "content": [
@@ -150,7 +162,8 @@ def _nv_vlm_adjust_input(
                 ...
             ]
         }
-    where OpenAI VLM API input message.content:
+
+    where OpenAI VLM API input `message.content`:
         {
             "role": "user",
             "content": [
@@ -165,11 +178,10 @@ def _nv_vlm_adjust_input(
             ]
         }
 
-    This function converts the OpenAI VLM API input message to
-    NVIDIA VLM API input message, in place.
+    This function converts the OpenAI VLM API input message to NVIDIA VLM API input
+    message, in place.
 
-    In the process, it accepts a url or file and converts them to
-    data urls.
+    In the process, it accepts a url or file and converts them to data urls.
     """
     if content := message_dict.get("content"):
         if isinstance(content, list):
@@ -179,6 +191,13 @@ def _nv_vlm_adjust_input(
                         isinstance(part["image_url"], dict)
                         and "url" in part["image_url"]
                     ):
+                        if "detail" in part["image_url"]:
+                            detail = part["image_url"]["detail"]
+                            if detail not in ["auto", "low", "high"]:
+                                raise ValueError(
+                                    f"Invalid detail value: {detail!r}. "
+                                    "Must be one of 'auto', 'low', or 'high'. "
+                                )
                         url = _url_to_b64_string(part["image_url"]["url"])
                         if model_type == "nv-vlm":
                             part["image_url"] = url
@@ -187,74 +206,89 @@ def _nv_vlm_adjust_input(
     return message_dict
 
 
-def _extract_content_after_thinking(content: str) -> str:
-    """
-    Extract content that comes after thinking tags.
+def parse_thinking_content(
+    content: str, *, remove_tags: bool = True
+) -> tuple[str, str, str]:
+    """Parse thinking content from text.
 
-    When thinking mode is enabled, the actual structured output content
-    comes after the </think> closing tag. This function extracts that content
-    while preserving the original content structure.
+    This function handles multiple formats by trying to find the reasoning content
+    1. Content with single </think> tag delimiter
+    2. Content with <think></think> paired tags
+    3. Plain content without reasoning
 
     Args:
         content: The full content including potential thinking tags
+        remove_tags: If True (default), removes tags.
+            If False, keeps for backward compat.
 
     Returns:
-        Content after the last </think> tag, or original content if no thinking tags
+        tuple: (reasoning_content, content_with_tags, content_without_tags)
     """
-    if content and "<think>" in content and "</think>" in content:
-        # Find the last </think> tag and extract content after it
-        think_end = content.rfind("</think>")
-        if think_end != -1:
-            # Extract content after </think> tag
-            actual_content = content[think_end + len("</think>") :].strip()
-            return actual_content
-    return content
+    if not content:
+        return "", "", ""
+
+    # Check for single </think> tag (everything before is reasoning)
+    if "</think>" in content and "<think>" not in content:
+        think_end_idx = content.find("</think>")
+        reasoning_part = content[:think_end_idx]
+        actual_content = content[think_end_idx + len("</think>") :]
+
+        reasoning = reasoning_part.strip("\n").strip()
+        actual = actual_content.strip("\n").strip()
+
+        if remove_tags:
+            return reasoning, actual, actual
+        else:
+            return reasoning, content, actual
+
+    # Check for paired <think></think> tags
+    if "<think>" in content and "</think>" in content:
+        think_start_idx = content.find("<think>")
+        think_end_idx = content.find("</think>")
+
+        # Make sure both tags are in the right order
+        if (
+            think_start_idx != -1
+            and think_end_idx != -1
+            and think_start_idx < think_end_idx
+        ):
+            reasoning_part = content[think_start_idx + len("<think>") : think_end_idx]
+            actual_content = content[think_end_idx + len("</think>") :]
+
+            reasoning = reasoning_part.strip("\n").strip()
+            actual = actual_content.strip("\n").strip()
+
+            if remove_tags:
+                return reasoning, actual, actual
+            else:
+                return reasoning, content, actual
+
+    # No reasoning found, return plain content
+    return "", content, content
 
 
-def _create_thinking_aware_parser(
-    base_parser_class: Type[T_Parser],
-) -> Type[T_Parser]:
+def _is_structured_output(payload: dict) -> bool:
+    """Check if the payload indicates structured output mode.
+
+    Structured output is enabled when nvext contains guided_json or guided_choice.
+
+    Args:
+        payload: The request payload dictionary
+
+    Returns:
+        True if structured output mode is enabled, False otherwise
     """
-    Create a thinking-aware version of any output parser.
-
-    This wrapper extracts content after thinking tags for parsing, but preserves
-    the original content with thinking tags in the response.
-    """
-
-    class ThinkingAwareParser(base_parser_class):  # type: ignore[valid-type,misc]
-        def parse(self, text: str) -> Any:
-            # Extract only the content after thinking tags for parsing
-            actual_content = _extract_content_after_thinking(text)
-            return super().parse(actual_content)
-
-        def parse_result(
-            self, result: List[Generation], *, partial: bool = False
-        ) -> Any:
-            if result and hasattr(result[0], "text"):
-                original_text = result[0].text
-                # Extract only the content after thinking tags for parsing
-                actual_content = _extract_content_after_thinking(original_text)
-
-                # Create a new generation object with extracted content
-                clean_generation = Generation(
-                    text=actual_content, generation_info=result[0].generation_info
-                )
-
-                clean_result = [clean_generation] + result[1:]
-
-                return super().parse_result(clean_result, partial=partial)
-            return super().parse_result(result, partial=partial)
-
-    return cast(Type[T_Parser], ThinkingAwareParser)
+    nvext = payload.get("nvext", {})
+    return bool(nvext and ("guided_json" in nvext or "guided_choice" in nvext))
 
 
 def _nv_vlm_get_asset_ids(
     content: Union[str, List[Union[str, Dict[str, Any]]]],
 ) -> List[str]:
-    """
-    VLM APIs accept asset IDs as input in two forms:
-     - content = [{"image_url": {"url": "data:image/{type};asset_id,{asset_id}"}}*]
-     - content = .*<img src="data:image/{type};asset_id,{asset_id}"/>.*
+    """VLM APIs accept asset IDs as input in two forms:
+
+    - `content = [{"image_url": {"url": "data:image/{type};asset_id,{asset_id}"}}*]`
+    - `content = .*<img src="data:image/{type};asset_id,{asset_id}"/>.*`
 
     This function extracts asset IDs from the message content.
     """
@@ -282,12 +316,12 @@ def _process_for_vlm(
     inputs: List[Dict[str, Any]],
     model: Optional[Model],  # not optional, Optional for type alignment
 ) -> Tuple[List[Dict[str, Any]], Dict[str, str]]:
-    """
-    Process inputs for NVIDIA VLM models.
+    """Process inputs for NVIDIA VLM models.
 
     This function processes the input messages for NVIDIA VLM models.
-    It extracts asset IDs from the input messages and adds them to the
-    headers for the NVIDIA VLM API.
+
+    Extracts asset IDs from the input messages and adds them to the headers for the
+    NVIDIA VLM API.
     """
     if not model or not model.model_type:
         return inputs, {}
@@ -304,91 +338,143 @@ def _process_for_vlm(
     return inputs, extra_headers
 
 
-_DEFAULT_MODEL_NAME: str = "meta/llama-3.1-8b-instruct"
+_DEFAULT_MODEL_NAME: str = "meta/llama3-8b-instruct"
 
 
 class ChatNVIDIA(BaseChatModel):
     """NVIDIA chat model.
 
     Example:
-        .. code-block:: python
+        ```python
+        from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-            from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-
-            model = ChatNVIDIA(model="meta/llama2-70b")
-            response = model.invoke("Hello")
+        model = ChatNVIDIA(model="meta/llama2-70b")
+        response = model.invoke("Hello")
+        ```
     """
 
     model_config = ConfigDict(populate_by_name=True)
 
     _client: _NVIDIAClient = PrivateAttr()
+
     base_url: Optional[str] = Field(
         default=None,
         description="Base url for model listing an invocation",
     )
+
     model: Optional[str] = Field(None, description="Name of the model to invoke")
+
     temperature: Optional[float] = Field(
-        None, description="Sampling temperature in [0, 1]"
+        None,
+        ge=0.0,
+        le=2.0,
+        description="Sampling temperature in [0, 2]",
     )
+
     max_tokens: Optional[int] = Field(
         1024,
+        gt=0,
         description="Maximum # of tokens to generate",
         alias="max_completion_tokens",
     )
-    top_p: Optional[float] = Field(None, description="Top-p for distribution sampling")
-    seed: Optional[int] = Field(None, description="The seed for deterministic results")
-    stop: Optional[Sequence[str]] = Field(None, description="Stop words (cased)")
+
+    top_p: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Top-p for nucleus sampling in [0, 1]",
+    )
+
+    seed: Optional[int] = Field(
+        None,
+        ge=0,
+        description="The seed for deterministic results",
+    )
+
+    stop: Optional[Union[str, List[str]]] = Field(
+        None, description="Stop words (cased)"
+    )
+
     stream_options: Optional[Dict[str, Any]] = Field(
         {"include_usage": True},
         description="Stream options for the model. Set to None to disable",
     )
-    min_tokens: Optional[int] = Field(
-        None, description="Minimum number of tokens to generate"
-    )
-    ignore_eos: Optional[bool] = Field(
-        None, description="Whether to ignore end-of-sequence tokens"
+
+    default_headers: dict = Field(
+        default_factory=dict,
+        description="Default headers merged into all requests.",
     )
 
-    def __init__(self, **kwargs: Any):
+    model_kwargs: Dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Additional model parameters that are not explicitly defined "
+            "to be added during invocation."
+        ),
+    )
+
+    # Reference: https://github.com/langchain-ai/langchain/blob/master/libs/partners/openai/langchain_openai/llms/base.py#L295
+    @model_validator(mode="before")
+    @classmethod
+    def build_extra(cls, values: dict[str, Any]) -> Any:
+        """Build extra kwargs from additional params that were passed in."""
+        all_required_field_names = get_pydantic_field_names(cls)
+        return _build_model_kwargs(values, all_required_field_names)
+
+    def __init__(
+        self,
+        *,
+        model: Optional[str] = None,
+        nvidia_api_key: Optional[str] = None,
+        api_key: Optional[str] = None,
+        base_url: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_completion_tokens: Optional[int] = None,
+        top_p: Optional[float] = None,
+        seed: Optional[int] = None,
+        stop: Optional[Union[str, List[str]]] = None,
+        default_headers: Optional[Dict[str, str]] = None,
+        **kwargs: Any,
+    ):
         """
-        Create a new NVIDIAChat chat model.
+        Create a new `NVIDIAChat` chat model.
 
         This class provides access to a NVIDIA NIM for chat. By default, it
         connects to a hosted NIM, but can be configured to connect to a local NIM
-        using the `base_url` parameter. An API key is required to connect to the
-        hosted NIM.
+        using the `base_url` parameter.
+
+        An API key is required to connect to the hosted NIM.
 
         Args:
-            model (str): The model to use for chat.
-            nvidia_api_key (str): The API key to use for connecting to the hosted NIM.
-            api_key (str): Alternative to nvidia_api_key.
-            base_url (str): The base URL of the NIM to connect to.
-                            Format for base URL is http://host:port
-            temperature (float): Sampling temperature in [0, 1].
-            max_tokens (int): Maximum number of tokens to generate.
-                              Deprecated, use max_completion_tokens instead
-                              max_tokens and max_completion_tokens are aliases.
-                              If both max_tokens and max_completion_tokens are supplied,
-                              max_completion_tokens takes precedence.
-            max_completion_tokens (int): Maximum number of tokens to generate.
-            top_p (float): Top-p for distribution sampling.
-            seed (int): A seed for deterministic results.
-            stop (list[str]): A list of cased stop words.
-            min_tokens (int): Minimum number of tokens to generate.
-            ignore_eos (bool): Whether to ignore end-of-sequence tokens.
+            model: The model to use for chat.
+            nvidia_api_key: The API key to use for connecting to the hosted NIM.
+            api_key: Alternative to `nvidia_api_key`.
+            base_url: The base URL of the NIM to connect to.
 
-        API Key:
-        - The recommended way to provide the API key is through the `NVIDIA_API_KEY`
-            environment variable.
+                Format for base URL is `http://host:port`
+            temperature: Sampling temperature in `[0, 2]`.
+            max_completion_tokens: Maximum number of tokens to generate.
+            top_p: Top-p for distribution sampling in `[0, 1]`.
+            seed: A seed for deterministic results.
+            stop: A string or list of strings specifying stop sequences.
+            default_headers: Default headers merged into all requests.
+            **kwargs: Additional parameters passed to the underlying client.
 
-        Base URL:
+        The recommended way to provide the API key is through the `NVIDIA_API_KEY`
+        environment variable.
+
+        **Base URL:**
+
         - Connect to a self-hosted model with NVIDIA NIM using the `base_url` arg to
-            link to the local host at localhost:8000:
+            link to the local host at `localhost:8000`:
+
+            ```python
             llm = ChatNVIDIA(
                 base_url="http://localhost:8000/v1",
                 model="meta-llama3-8b-instruct"
             )
+            ```
         """
         # Show deprecation warning if max_tokens was used
         if "max_tokens" in kwargs:
@@ -400,11 +486,34 @@ class ChatNVIDIA(BaseChatModel):
                 stacklevel=2,
             )
 
-        super().__init__(**kwargs)
+        init_kwargs: Dict[str, Any] = {}
+        if model is not None:
+            init_kwargs["model"] = model
+        if base_url is not None:
+            init_kwargs["base_url"] = base_url
+        if temperature is not None:
+            init_kwargs["temperature"] = temperature
+        if max_completion_tokens is not None:
+            init_kwargs["max_completion_tokens"] = max_completion_tokens
+        if top_p is not None:
+            init_kwargs["top_p"] = top_p
+        if seed is not None:
+            init_kwargs["seed"] = seed
+        if stop is not None:
+            init_kwargs["stop"] = stop
+        if default_headers is not None:
+            init_kwargs["default_headers"] = default_headers
+
+        init_kwargs.update(kwargs)
+
+        super().__init__(**init_kwargs)
+
         # allow nvidia_base_url as an alternative for base_url
         base_url = kwargs.pop("nvidia_base_url", self.base_url)
+
         # allow nvidia_api_key as an alternative for api_key
-        api_key = kwargs.pop("nvidia_api_key", kwargs.pop("api_key", None))
+        api_key = nvidia_api_key or api_key
+
         # Extract verify_ssl from kwargs, default to True
         verify_ssl = kwargs.pop("verify_ssl", True)
 
@@ -426,9 +535,7 @@ class ChatNVIDIA(BaseChatModel):
 
     @property
     def available_models(self) -> List[Model]:
-        """
-        Get a list of available models that work with ChatNVIDIA.
-        """
+        """Get a list of available models that work with `ChatNVIDIA`."""
         return self._client.get_available_models(self.__class__.__name__)
 
     @classmethod
@@ -436,9 +543,7 @@ class ChatNVIDIA(BaseChatModel):
         cls,
         **kwargs: Any,
     ) -> List[Model]:
-        """
-        Get a list of available models that work with ChatNVIDIA.
-        """
+        """Get a list of available models that work with `ChatNVIDIA`."""
         return cls(**kwargs).available_models
 
     @property
@@ -469,10 +574,130 @@ class ChatNVIDIA(BaseChatModel):
             #  for TypedDict "LangSmithParams"  [typeddict-item]
             # ls_top_p=params.get("top_p", self.top_p),
             # ls_seed=params.get("seed", self.seed),
-            # ls_min_tokens=params.get("min_tokens", self.min_tokens),
-            # ls_ignore_eos=params.get("ignore_eos", self.ignore_eos),
             ls_stop=params.get("stop", self.stop),
         )
+
+    def _prepare_inputs_and_payload(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[Union[List[str], Sequence[str]]] = None,
+        stream: bool = False,
+        **kwargs: Any,
+    ) -> Tuple[List[Dict[str, Any]], Dict[str, Any], Dict[str, str]]:
+        """Prepare inputs and payload for both sync and async methods.
+
+        Args:
+            messages: List of messages
+            stop: Stop words
+            stream: Whether to stream the response
+            kwargs: Additional keyword arguments
+
+        Returns:
+            Tuple of `(inputs, payload, extra_headers)`
+        """
+        inputs = [
+            message
+            for message in [convert_message_to_dict(message) for message in messages]
+        ]
+        inputs, extra_headers = _process_for_vlm(inputs, self._client.model)
+        # Merge default_headers with extra_headers from VLM processing.
+        # VLM headers (auto-generated) take precedence in case of conflicts.
+        if self.default_headers:
+            conflicts = set(self.default_headers.keys()) & set(extra_headers.keys())
+            if conflicts:
+                warnings.warn(
+                    f"default_headers keys {conflicts} conflict with "
+                    f"auto-generated VLM headers and will be overridden. "
+                    f"Remove them from default_headers.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            extra_headers = {**self.default_headers, **extra_headers}
+
+        if stream:
+            payload = self._get_payload(
+                inputs=inputs,
+                stop=stop,
+                stream=True,
+                stream_options=self.stream_options,
+                **kwargs,
+            )
+            # remove stream_options if user set it to None or if model
+            # doesn't support it
+            # todo: get vlm endpoints fixed and remove this
+            #       vlm endpoints do not accept standard stream_options parameter
+            if self.stream_options is None or (
+                self._client.model
+                and self._client.model.model_type
+                and self._client.model.model_type in ["nv-vlm", "qa"]
+            ):
+                payload.pop("stream_options", None)
+        else:
+            payload = self._get_payload(
+                inputs=inputs, stop=stop, stream=False, **kwargs
+            )
+
+        return inputs, payload, extra_headers
+
+    def _process_generate_response(
+        self,
+        response: Any,
+        run_manager: Optional[
+            Union[CallbackManagerForLLMRun, AsyncCallbackManagerForLLMRun]
+        ] = None,
+        structured_output: bool = False,
+    ) -> ChatResult:
+        """Process response for both sync and async generate methods.
+
+        Args:
+            response: Raw response from the API
+            run_manager: Callback manager
+            structured_output: Whether this is structured output mode
+
+        Returns:
+            ChatResult with generated message
+        """
+        responses, _ = self._client.postprocess(response)
+        self._set_callback_out(responses, run_manager)
+        parsed_response = self._custom_postprocess(
+            responses, streaming=False, structured_output=structured_output
+        )
+        # for pre 0.2 compatibility w/ ChatMessage
+        # ChatMessage had a role property that was not present in AIMessage
+        parsed_response.update({"role": "assistant"})
+        generation = ChatGeneration(message=AIMessage(**parsed_response))
+        return ChatResult(generations=[generation], llm_output=responses)
+
+    def _process_stream_chunk(
+        self,
+        response: Any,
+        run_manager: Optional[
+            Union[CallbackManagerForLLMRun, AsyncCallbackManagerForLLMRun]
+        ] = None,
+        structured_output: bool = False,
+    ) -> ChatGenerationChunk:
+        """Process a single stream chunk for both sync and async stream methods.
+
+        Args:
+            response: Raw response chunk from the API
+            run_manager: Callback manager
+            structured_output: Whether this is structured output mode
+
+        Returns:
+            ChatGenerationChunk with the parsed message
+        """
+        self._set_callback_out(response, run_manager)
+        parsed_response = self._custom_postprocess(
+            response, streaming=True, structured_output=structured_output
+        )
+        # for pre 0.2 compatibility w/ ChatMessageChunk
+        # ChatMessageChunk had a role property that was not
+        # present in AIMessageChunk
+        # unfortunately, AIMessageChunk does not have extensible propery
+        # parsed_response.update({"role": "assistant"})
+        message = AIMessageChunk(**parsed_response)
+        chunk = ChatGenerationChunk(message=message)
+        return chunk
 
     def _generate(
         self,
@@ -481,21 +706,13 @@ class ChatNVIDIA(BaseChatModel):
         run_manager: Optional[CallbackManagerForLLMRun] = None,
         **kwargs: Any,
     ) -> ChatResult:
-        inputs = [
-            message
-            for message in [convert_message_to_dict(message) for message in messages]
-        ]
-        inputs, extra_headers = _process_for_vlm(inputs, self._client.model)
-        payload = self._get_payload(inputs=inputs, stop=stop, stream=False, **kwargs)
+        _, payload, extra_headers = self._prepare_inputs_and_payload(
+            messages, stop, stream=False, **kwargs
+        )
         response = self._client.get_req(payload=payload, extra_headers=extra_headers)
-        responses, _ = self._client.postprocess(response)
-        self._set_callback_out(responses, run_manager)
-        parsed_response = self._custom_postprocess(responses, streaming=False)
-        # for pre 0.2 compatibility w/ ChatMessage
-        # ChatMessage had a role property that was not present in AIMessage
-        parsed_response.update({"role": "assistant"})
-        generation = ChatGeneration(message=AIMessage(**parsed_response))
-        return ChatResult(generations=[generation], llm_output=responses)
+        return self._process_generate_response(
+            response, run_manager, _is_structured_output(payload)
+        )
 
     def _stream(
         self,
@@ -505,41 +722,54 @@ class ChatNVIDIA(BaseChatModel):
         **kwargs: Any,
     ) -> Iterator[ChatGenerationChunk]:
         """Allows streaming to model!"""
-        inputs = [
-            message
-            for message in [convert_message_to_dict(message) for message in messages]
-        ]
-        inputs, extra_headers = _process_for_vlm(inputs, self._client.model)
-        payload = self._get_payload(
-            inputs=inputs,
-            stop=stop,
-            stream=True,
-            stream_options=self.stream_options,
-            **kwargs,
+        _, payload, extra_headers = self._prepare_inputs_and_payload(
+            messages, stop, stream=True, **kwargs
         )
-        # remove stream_options if user set it to None or if model doesn't support it
-        # todo: get vlm endpoints fixed and remove this
-        #       vlm endpoints do not accept standard stream_options parameter
-        if self.stream_options is None or (
-            self._client.model
-            and self._client.model.model_type
-            and self._client.model.model_type in ["nv-vlm", "qa"]
-        ):
-            payload.pop("stream_options", None)
+        structured_output = _is_structured_output(payload)
         for response in self._client.get_req_stream(
             payload=payload, extra_headers=extra_headers
         ):
-            self._set_callback_out(response, run_manager)
-            parsed_response = self._custom_postprocess(response, streaming=True)
-            # for pre 0.2 compatibility w/ ChatMessageChunk
-            # ChatMessageChunk had a role property that was not
-            # present in AIMessageChunk
-            # unfortunately, AIMessageChunk does not have extensible propery
-            # parsed_response.update({"role": "assistant"})
-            message = AIMessageChunk(**parsed_response)
-            chunk = ChatGenerationChunk(message=message)
+            chunk = self._process_stream_chunk(response, run_manager, structured_output)
             if run_manager:
                 run_manager.on_llm_new_token(chunk.text, chunk=chunk)
+            yield chunk
+
+    async def _agenerate(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[List[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> ChatResult:
+        """Async version of `_generate`."""
+        _, payload, extra_headers = self._prepare_inputs_and_payload(
+            messages, stop, stream=False, **kwargs
+        )
+        response = await self._client.aget_req(
+            payload=payload, extra_headers=extra_headers
+        )
+        return self._process_generate_response(
+            response, run_manager, _is_structured_output(payload)
+        )
+
+    async def _astream(
+        self,
+        messages: List[BaseMessage],
+        stop: Optional[Sequence[str]] = None,
+        run_manager: Optional[AsyncCallbackManagerForLLMRun] = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """Async version of `_stream`."""
+        _, payload, extra_headers = self._prepare_inputs_and_payload(
+            messages, stop, stream=True, **kwargs
+        )
+        structured_output = _is_structured_output(payload)
+        async for response in self._client.aget_req_stream(
+            payload=payload, extra_headers=extra_headers
+        ):
+            chunk = self._process_stream_chunk(response, run_manager, structured_output)
+            if run_manager:
+                await run_manager.on_llm_new_token(chunk.text, chunk=chunk)
             yield chunk
 
     def _set_callback_out(
@@ -554,20 +784,66 @@ class ChatNVIDIA(BaseChatModel):
                     cb.llm_output = result
 
     def _custom_postprocess(
-        self, msg: dict, streaming: bool = False
+        self, msg: dict, streaming: bool = False, structured_output: bool = False
     ) -> dict:  # todo: remove
         kw_left = msg.copy()
+        content = kw_left.pop("content", "") or ""
+
+        # Extract reasoning: check reasoning_content field first,
+        # then parse <think> tags if needed
+        reasoning_from_reasoning_content = kw_left.pop("reasoning_content", None)
+
+        # Parse thinking content
+        # For structured output: remove tags
+        # For regular output: keep tags for backward compatibility
+        (
+            reasoning_from_tags,
+            content_with_tags,
+            content_without_tags,
+        ) = parse_thinking_content(content, remove_tags=structured_output)
+
+        # Warn user if reasoning was parsed from tags
+        # (only if not provided via reasoning_content field)
+        if reasoning_from_tags and not reasoning_from_reasoning_content:
+            if structured_output:
+                warnings.warn(
+                    "Reasoning content with <think> tags was detected in "
+                    "structured output mode. The tags have been removed from "
+                    "the content to ensure valid structured output. "
+                    "Note: The reasoning will be removed after the output "
+                    "parser extracts the structured object. To preserve "
+                    "reasoning, include a 'reasoning' field in your output "
+                    "schema and ask the model to populate it in the JSON.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            else:
+                warnings.warn(
+                    "Reasoning content was parsed from <think> tags in model "
+                    "output. The tags are currently preserved in the content "
+                    "but will be removed in a future version. The reasoning "
+                    "is available in additional_kwargs['reasoning_content'] "
+                    "and in the reasoning content block in content_blocks. "
+                    "Use reasoning_content instead of parsing tags manually.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+
+        # Prioritize reasoning from reasoning_content field
+        reasoning = reasoning_from_reasoning_content or reasoning_from_tags
+        final_content = content_without_tags if structured_output else content_with_tags
+
         out_dict = {
             "role": kw_left.pop("role", "assistant") or "assistant",
             "name": kw_left.pop("name", None),
             "id": kw_left.pop("id", None),
-            "content": kw_left.pop("content", "") or "",
+            "content": final_content,
             "additional_kwargs": {},
             "response_metadata": {},
         }
 
-        if rc := kw_left.pop("reasoning_content", None):
-            out_dict["additional_kwargs"]["reasoning_content"] = rc
+        if reasoning:
+            out_dict["additional_kwargs"]["reasoning_content"] = reasoning
 
         if token_usage := kw_left.pop("token_usage", None):
             out_dict["usage_metadata"] = {
@@ -621,16 +897,8 @@ class ChatNVIDIA(BaseChatModel):
     def _get_payload(
         self, inputs: Sequence[Dict], **kwargs: Any
     ) -> dict:  # todo: remove
-        """Generates payload for the _NVIDIAClient API to send to service."""
+        """Generates payload for the `_NVIDIAClient` API to send to service."""
         messages: List[Dict[str, Any]] = []
-
-        # Add system message for thinking mode if specified
-        thinking_mode = kwargs.pop("thinking_mode", None)
-        if thinking_mode is not None:
-            content = (
-                "detailed thinking on" if thinking_mode else "detailed thinking off"
-            )
-            messages.append({"role": "system", "content": content})
 
         for msg in inputs:
             if isinstance(msg, str):
@@ -645,6 +913,45 @@ class ChatNVIDIA(BaseChatModel):
                 messages.append(msg)
             else:
                 raise ValueError(f"Unknown message received: {msg} of type {type(msg)}")
+
+        # Handle thinking mode via parameters or prefix to system message
+        thinking_mode = kwargs.pop("thinking_mode", None)
+        if thinking_mode is not None and self._client.model:
+            # Check if model uses param-based thinking
+            thinking_params = (
+                self._client.model.thinking_param_enable
+                if thinking_mode
+                else self._client.model.thinking_param_disable
+            )
+
+            if thinking_params:
+                # Param-based thinking: merge parameters into kwargs
+                kwargs = _deep_merge(kwargs, thinking_params)
+            else:
+                # Tag-based thinking: use system message prefix
+                prefix = (
+                    (self._client.model.thinking_prefix or "")
+                    if thinking_mode
+                    else (self._client.model.no_thinking_prefix or "")
+                )
+
+                if prefix:
+                    # Find existing system message and append prefix
+                    system_msg_found = False
+                    for msg in messages:
+                        if msg.get("role") == "system":
+                            system_msg_found = True
+                            existing_content = msg.get("content", "")
+                            # Append prefix at the end of existing system message
+                            if existing_content:
+                                msg["content"] = f"{existing_content}\n{prefix}"
+                            else:
+                                msg["content"] = prefix
+                            break
+
+                    # If no system message exists, create one with the prefix
+                    if not system_msg_found:
+                        messages.insert(0, {"role": "system", "content": prefix})
 
         # special handling for "stop" because it always comes in kwargs.
         # if user provided "stop" to invoke/stream, it will be non-None
@@ -664,9 +971,10 @@ class ChatNVIDIA(BaseChatModel):
             "top_p": self.top_p,
             "seed": self.seed,
             "stop": self.stop,
-            "min_tokens": self.min_tokens,
-            "ignore_eos": self.ignore_eos,
         }
+
+        # merge model_kwargs first
+        payload.update(self.model_kwargs)
 
         # merge incoming kwargs with attr_kwargs giving preference to
         # the incoming kwargs
@@ -685,30 +993,29 @@ class ChatNVIDIA(BaseChatModel):
             Union[dict, str, Literal["auto", "none", "any", "required"], bool]
         ] = None,
         **kwargs: Any,
-    ) -> Runnable[LanguageModelInput, BaseMessage]:
+    ) -> Runnable[LanguageModelInput, AIMessage]:
         """
         Bind tools to the model.
 
-        Notes:
-         - The `strict` mode is always in effect, if you need it disabled,
-            please file an issue.
+        !!! note
+
+            The `strict` mode is always in effect, if you need it disabled, please file
+            an issue.
 
         Args:
             tools (list): A list of tools to bind to the model.
-            tool_choice (Optional[Union[dict,
-                                        str,
-                                        Literal["auto", "none", "any", "required"],
-                                        bool]]):
-               Control tool choice.
-                 "any" and "required" - force a tool call.
-                 "auto" - let the model decide.
-                 "none" - force no tool call.
-                 string or dict - force a specific tool call.
-                 bool - if True, force a tool call; if False, force no tool call.
-               Defaults to passing no value.
-            **kwargs: Additional keyword arguments.
+            tool_choice: Control tool choice.
 
-        see https://python.langchain.com/v0.1/docs/modules/model_io/chat/function_calling/#request-forcing-a-tool-call
+                Options:
+
+                - `'any'` or `'required'` – Force a tool call.
+                - `'auto'` – Let the model decide.
+                - `'none'` – Force no tool call.
+                - `str` or `dict` – Force a specific tool call.
+                - `bool` – If `True`, force a tool call; if `False`, force no tool call.
+
+                Defaults to passing no value.
+            **kwargs: Additional keyword arguments.
         """
         # check if the model supports tools, warn if it does not
         if self._client.model and not self._client.model.supports_tools:
@@ -782,120 +1089,135 @@ class ChatNVIDIA(BaseChatModel):
 
         Args:
             schema (Union[Dict, Type]): The schema to bind to the model.
-            include_raw (bool): Always False. Passing True raises an error.
+            include_raw (bool): Always `False`. Passing `True` raises an error.
             **kwargs: Additional keyword arguments.
 
-        Notes:
-            - `strict` mode is always in effect, if you need it disabled, please file an issue.
-            - if you need `include_raw=True` consider using an unstructured model and
-               output formatter, or file an issue.
+        !!! note
 
-        The schema can be -
-         0. a dictionary representing a JSON schema
-         1. a Pydantic object
-         2. an Enum
+            - The `strict` mode is always in effect, if you need it disabled, please file
+                an issue.
+            - If you need `include_raw=True` consider using an unstructured model and
+                output formatter, or file an issue.
 
-        0. If a dictionary is provided, the model will return a dictionary. Example:
-        ```
-        json_schema = {
-            "title": "joke",
-            "description": "Joke to tell user.",
-            "type": "object",
-            "properties": {
-                "setup": {
-                    "type": "string",
-                    "description": "The setup of the joke",
+        The schema can be:
+
+        1. A dictionary representing a JSON schema
+        2. A Pydantic object
+        3. An `Enum`
+
+        If a dictionary is provided, the model will return a dictionary.
+
+        !!! example "Dictionary schema"
+            ```python
+            json_schema = {
+                "title": "joke",
+                "description": "Joke to tell user.",
+                "type": "object",
+                "properties": {
+                    "setup": {
+                        "type": "string",
+                        "description": "The setup of the joke",
+                    },
+                    "punchline": {
+                        "type": "string",
+                        "description": "The punchline to the joke",
+                    },
                 },
-                "punchline": {
-                    "type": "string",
-                    "description": "The punchline to the joke",
-                },
-            },
-            "required": ["setup", "punchline"],
-        }
+                "required": ["setup", "punchline"],
+            }
 
-        structured_llm = llm.with_structured_output(json_schema)
-        structured_llm.invoke("Tell me a joke about NVIDIA")
-        # Output: {'setup': 'Why did NVIDIA go broke? The hardware ate all the software.',
-        #          'punchline': 'It took a big bite out of their main board.'}
-        ```
+            structured_llm = llm.with_structured_output(json_schema)
+            structured_llm.invoke("Tell me a joke about NVIDIA")
+            # Output: {'setup': 'Why did NVIDIA go broke? The hardware ate all the software.',
+            #          'punchline': 'It took a big bite out of their main board.'}
+            ```
 
-        1. If a Pydantic schema is provided, the model will return a Pydantic object.
-           Example:
-        ```
-        from pydantic import BaseModel, Field
-        class Joke(BaseModel):
-            setup: str = Field(description="The setup of the joke")
-            punchline: str = Field(description="The punchline to the joke")
+        If a Pydantic schema is provided, the model will return a Pydantic object.
 
-        structured_llm = llm.with_structured_output(Joke)
-        structured_llm.invoke("Tell me a joke about NVIDIA")
-        # Output: Joke(setup='Why did NVIDIA go broke? The hardware ate all the software.',
-        #              punchline='It took a big bite out of their main board.')
-        ```
+        !!! example "Pydantic schema"
 
-        2. If an Enum is provided, all values must be strings, and the model will return
-           an Enum object. Example:
-        ```
-        import enum
-        class Choices(enum.Enum):
-            A = "A"
-            B = "B"
-            C = "C"
+            ```python
+            from pydantic import BaseModel, Field
+            class Joke(BaseModel):
+                setup: str = Field(description="The setup of the joke")
+                punchline: str = Field(description="The punchline to the joke")
 
-        structured_llm = llm.with_structured_output(Choices)
-        structured_llm.invoke("What is the first letter in this list? [X, Y, Z, C]")
-        # Output: <Choices.C: 'C'>
-        ```
+            structured_llm = llm.with_structured_output(Joke)
+            structured_llm.invoke("Tell me a joke about NVIDIA")
+            # Output: Joke(setup='Why did NVIDIA go broke? The hardware ate all the software.',
+            #              punchline='It took a big bite out of their main board.')
+            ```
 
-        Note about streaming: Unlike other streaming responses, the streamed chunks
-        will be increasingly complete. They will not be deltas. The last chunk will
-        contain the complete response.
+        If an `Enum` is provided, all values must be strings, and the model will return
+        an `Enum` object.
 
-        For instance with a dictionary schema, the chunks will be:
-        ```
-        structured_llm = llm.with_structured_output(json_schema)
-        for chunk in structured_llm.stream("Tell me a joke about NVIDIA"):
-            print(chunk)
+        !!! example "Enum schema"
 
-        # Output:
-        # {}
-        # {'setup': ''}
-        # {'setup': 'Why'}
-        # {'setup': 'Why did'}
-        # {'setup': 'Why did N'}
-        # {'setup': 'Why did NVID'}
-        # ...
-        # {'setup': 'Why did NVIDIA go broke? The hardware ate all the software.', 'punchline': 'It took a big bite out of their main board'}
-        # {'setup': 'Why did NVIDIA go broke? The hardware ate all the software.', 'punchline': 'It took a big bite out of their main board.'}
-        ```
+            ```python
+            import enum
+            class Choices(enum.Enum):
+                A = "A"
+                B = "B"
+                C = "C"
 
-        For instnace with a Pydantic schema, the chunks will be:
-        ```
-        structured_llm = llm.with_structured_output(Joke)
-        for chunk in structured_llm.stream("Tell me a joke about NVIDIA"):
-            print(chunk)
+            structured_llm = llm.with_structured_output(Choices)
+            structured_llm.invoke("What is the first letter in this list? [X, Y, Z, C]")
+            # Output: <Choices.C: 'C'>
+            ```
 
-        # Output:
-        # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline=''
-        # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It'
-        # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It took'
-        # ...
-        # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It took a big bite out of their main board'
-        # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It took a big bite out of their main board.'
-        ```
+        ???+ note "Streaming"
 
-        For Pydantic schema and Enum, the output will be None if the response is
-        insufficient to construct the object or otherwise invalid. For instance,
-        ```
-        llm = ChatNVIDIA(max_completion_tokens=1)
-        structured_llm = llm.with_structured_output(Joke)
-        print(structured_llm.invoke("Tell me a joke about NVIDIA"))
+            Unlike other streaming responses, the streamed chunks will be increasingly
+            complete. They will not be deltas. The last chunk will contain the complete
+            response.
 
-        # Output: None
-        ```
+            For instance with a dictionary schema, the chunks will be:
 
-        For more, see https://python.langchain.com/docs/how_to/structured_output/
+            ```python
+            structured_llm = llm.with_structured_output(json_schema)
+            for chunk in structured_llm.stream("Tell me a joke about NVIDIA"):
+                print(chunk)
+
+            # Output:
+            # {}
+            # {'setup': ''}
+            # {'setup': 'Why'}
+            # {'setup': 'Why did'}
+            # {'setup': 'Why did N'}
+            # {'setup': 'Why did NVID'}
+            # ...
+            # {'setup': 'Why did NVIDIA go broke? The hardware ate all the software.', 'punchline': 'It took a big bite out of their main board'}
+            # {'setup': 'Why did NVIDIA go broke? The hardware ate all the software.', 'punchline': 'It took a big bite out of their main board.'}
+            ```
+
+            For instance with a Pydantic schema, the chunks will be:
+
+            ```python
+            structured_llm = llm.with_structured_output(Joke)
+            for chunk in structured_llm.stream("Tell me a joke about NVIDIA"):
+                print(chunk)
+
+            # Output:
+            # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline=''
+            # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It'
+            # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It took'
+            # ...
+            # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It took a big bite out of their main board'
+            # setup='Why did NVIDIA go broke? The hardware ate all the software.' punchline='It took a big bite out of their main board.'
+            ```
+
+            For Pydantic schema and `Enum`, the output will be `None` if the response is
+            insufficient to construct the object or otherwise invalid.
+
+            ```python
+            llm = ChatNVIDIA(max_completion_tokens=1)
+            structured_llm = llm.with_structured_output(Joke)
+            print(structured_llm.invoke("Tell me a joke about NVIDIA"))
+
+            # Output: None
+            ```
+
+            For more, see docs on [structured output](https://docs.langchain.com/oss/python/langchain/structured-output).
         """  # noqa: E501
 
         if "method" in kwargs:
@@ -942,10 +1264,7 @@ class ChatNVIDIA(BaseChatModel):
             )
 
         if isinstance(schema, dict):
-            ThinkingAwareJsonOutputParser = _create_thinking_aware_parser(
-                JsonOutputParser
-            )
-            output_parser: BaseOutputParser = ThinkingAwareJsonOutputParser()
+            output_parser: BaseOutputParser = JsonOutputParser()
             nvext_param: Dict[str, Any] = {"guided_json": schema}
         elif issubclass(schema, enum.Enum):
             # langchain's EnumOutputParser is not in langchain_core
@@ -972,10 +1291,7 @@ class ChatNVIDIA(BaseChatModel):
                     "Enum schema must only contain string choices. "
                     "Use StrEnum or ensure all member values are strings."
                 )
-            ThinkingAwareEnumOutputParser = _create_thinking_aware_parser(
-                EnumOutputParser
-            )
-            output_parser = ThinkingAwareEnumOutputParser(enum=schema)
+            output_parser = EnumOutputParser(enum=schema)
             nvext_param = {"guided_choice": choices}
             guided_schema = choices
 
@@ -994,10 +1310,7 @@ class ChatNVIDIA(BaseChatModel):
                         pass
                     return None
 
-            ThinkingAwarePydanticOutputParser = _create_thinking_aware_parser(
-                ForgivingPydanticOutputParser
-            )
-            output_parser = ThinkingAwarePydanticOutputParser(pydantic_object=schema)
+            output_parser = ForgivingPydanticOutputParser(pydantic_object=schema)
             if hasattr(schema, "model_json_schema"):
                 json_schema = schema.model_json_schema()
             else:
@@ -1032,26 +1345,26 @@ class ChatNVIDIA(BaseChatModel):
         Configure the model to use thinking mode.
 
         Args:
-            enabled (bool): Whether to enable thinking mode. Defaults to True.
+            enabled (bool): Whether to enable thinking mode.
             **kwargs: Additional keyword arguments.
 
         Returns:
             A runnable that will use thinking mode when enabled.
 
         Example:
-            .. code-block:: python
+            ```python
+            from langchain_nvidia_ai_endpoints import ChatNVIDIA
 
-                from langchain_nvidia_ai_endpoints import ChatNVIDIA
+            model = ChatNVIDIA(model="nvidia/nvidia-nemotron-nano-9b-v2")
 
-                model = ChatNVIDIA(model="nvidia/llama-3.1-nemotron-nano-8b-v1")
+            # Enable thinking mode
+            thinking_model = model.with_thinking_mode(enabled=True)
+            response = thinking_model.invoke("Hello")
 
-                # Enable thinking mode
-                thinking_model = model.with_thinking_mode(enabled=True)
-                response = thinking_model.invoke("Hello")
-
-                # Disable thinking mode
-                no_thinking_model = model.with_thinking_mode(enabled=False)
-                response = no_thinking_model.invoke("Hello")
+            # Disable thinking mode
+            no_thinking_model = model.with_thinking_mode(enabled=False)
+            response = no_thinking_model.invoke("Hello")
+            ```
         """
         # check if the model supports thinking mode, warn if it does not
         if self._client.model and not self._client.model.supports_thinking:

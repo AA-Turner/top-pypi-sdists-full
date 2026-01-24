@@ -1,0 +1,48 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at http://mozilla.org/MPL/2.0/.
+---
+loader: taskgraph.loader.transform:loader
+
+kind-dependencies:
+    - docker-image
+
+transforms:
+    - self_taskgraph.transforms.push_image
+    - taskgraph.transforms.run
+    - taskgraph.transforms.task
+
+task-defaults:
+    description: "Upload {name} image to https://hub.docker.com/u/mozillareleases"
+    run:
+        using: run-task
+        checkout: false
+        use-caches: false
+        command: "bash /usr/local/bin/push_image.sh"
+    fetches:
+        image:
+            - artifact: image.tar.zst
+              extract: false
+    run-on-tasks-for: ["github-release"]
+    scopes:
+        - secrets:get:project/taskgraph/level-3/dockerhub
+    worker-type: images
+    worker:
+        docker-image: {"in-tree": "skopeo"}
+        max-run-time: 1800
+        taskcluster-proxy: true
+        chain-of-trust: true
+        env:
+            DOCKER_REPO: "mozillareleases/taskgraph"
+        artifacts:
+            - type: directory
+              name: public/
+              path: /builds/worker/artifacts/
+
+tasks:
+    decision:
+        dependencies:
+            image: docker-image-decision
+    run-task:
+        dependencies:
+            image: docker-image-run-task

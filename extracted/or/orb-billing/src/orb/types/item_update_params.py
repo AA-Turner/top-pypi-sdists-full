@@ -22,8 +22,14 @@ class ItemUpdateParams(TypedDict, total=False):
 
 
 class ExternalConnection(TypedDict, total=False):
+    """
+    Represents a connection between an Item and an external system for invoicing or tax calculation purposes.
+    """
+
     external_connection_name: Required[
         Literal["stripe", "quickbooks", "bill.com", "netsuite", "taxjar", "avalara", "anrok", "numeral"]
     ]
+    """The name of the external system this item is connected to."""
 
     external_entity_id: Required[str]
+    """The identifier of this item in the external system."""

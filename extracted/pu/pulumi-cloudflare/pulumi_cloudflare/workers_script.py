@@ -37,6 +37,7 @@ class WorkersScriptArgs:
                  limits: Optional[pulumi.Input['WorkersScriptLimitsArgs']] = None,
                  logpush: Optional[pulumi.Input[_builtins.bool]] = None,
                  main_module: Optional[pulumi.Input[_builtins.str]] = None,
+                 migrations: Optional[pulumi.Input['WorkersScriptMigrationsArgs']] = None,
                  observability: Optional[pulumi.Input['WorkersScriptObservabilityArgs']] = None,
                  placement: Optional[pulumi.Input['WorkersScriptPlacementArgs']] = None,
                  tail_consumers: Optional[pulumi.Input[Sequence[pulumi.Input['WorkersScriptTailConsumerArgs']]]] = None,
@@ -47,20 +48,21 @@ class WorkersScriptArgs:
         :param pulumi.Input[_builtins.str] script_name: Name of the script, used in URLs and route configuration.
         :param pulumi.Input['WorkersScriptAssetsArgs'] assets: Configuration for assets within a Worker.
         :param pulumi.Input[Sequence[pulumi.Input['WorkersScriptBindingArgs']]] bindings: List of bindings attached to a Worker. You can find more about bindings on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
-        :param pulumi.Input[_builtins.str] body_part: Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        :param pulumi.Input[_builtins.str] body_part: Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         :param pulumi.Input[_builtins.str] compatibility_date: Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] compatibility_flags: Flags that enable or disable certain features in the Workers runtime. Used to enable upcoming features or opt in or out of specific changes not included in a `compatibility_date`.
-        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
-        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Conflicts with `content_file`.
+        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         :param pulumi.Input[_builtins.str] content_sha256: SHA-256 hash of the Worker contents. Used to trigger updates when source code changes. Must be provided when `content_file` is specified.
         :param pulumi.Input[_builtins.str] content_type: Content-Type of the Worker. Required if uploading a non-JavaScript Worker (e.g. "text/x-python").
         :param pulumi.Input[_builtins.bool] keep_assets: Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] keep_bindings: List of binding types to keep from previous_upload.
         :param pulumi.Input['WorkersScriptLimitsArgs'] limits: Limits to apply for this Worker.
         :param pulumi.Input[_builtins.bool] logpush: Whether Logpush is turned on for the Worker.
-        :param pulumi.Input[_builtins.str] main_module: Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        :param pulumi.Input[_builtins.str] main_module: Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        :param pulumi.Input['WorkersScriptMigrationsArgs'] migrations: Migrations to apply for Durable Objects associated with this Worker.
         :param pulumi.Input['WorkersScriptObservabilityArgs'] observability: Observability settings for the Worker.
-        :param pulumi.Input['WorkersScriptPlacementArgs'] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        :param pulumi.Input['WorkersScriptPlacementArgs'] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         :param pulumi.Input[Sequence[pulumi.Input['WorkersScriptTailConsumerArgs']]] tail_consumers: List of Workers that will consume logs from the attached Worker.
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the Worker invocations.
                Available values: "standard", "bundled", "unbound".
@@ -95,6 +97,8 @@ class WorkersScriptArgs:
             pulumi.set(__self__, "logpush", logpush)
         if main_module is not None:
             pulumi.set(__self__, "main_module", main_module)
+        if migrations is not None:
+            pulumi.set(__self__, "migrations", migrations)
         if observability is not None:
             pulumi.set(__self__, "observability", observability)
         if placement is not None:
@@ -156,7 +160,7 @@ class WorkersScriptArgs:
     @pulumi.getter(name="bodyPart")
     def body_part(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         """
         return pulumi.get(self, "body_part")
 
@@ -192,7 +196,7 @@ class WorkersScriptArgs:
     @pulumi.getter
     def content(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
+        Module or Service Worker contents of the Worker. Conflicts with `content_file`.
         """
         return pulumi.get(self, "content")
 
@@ -204,7 +208,7 @@ class WorkersScriptArgs:
     @pulumi.getter(name="contentFile")
     def content_file(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         """
         return pulumi.get(self, "content_file")
 
@@ -288,13 +292,25 @@ class WorkersScriptArgs:
     @pulumi.getter(name="mainModule")
     def main_module(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
         """
         return pulumi.get(self, "main_module")
 
     @main_module.setter
     def main_module(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "main_module", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def migrations(self) -> Optional[pulumi.Input['WorkersScriptMigrationsArgs']]:
+        """
+        Migrations to apply for Durable Objects associated with this Worker.
+        """
+        return pulumi.get(self, "migrations")
+
+    @migrations.setter
+    def migrations(self, value: Optional[pulumi.Input['WorkersScriptMigrationsArgs']]):
+        pulumi.set(self, "migrations", value)
 
     @_builtins.property
     @pulumi.getter
@@ -312,7 +328,7 @@ class WorkersScriptArgs:
     @pulumi.getter
     def placement(self) -> Optional[pulumi.Input['WorkersScriptPlacementArgs']]:
         """
-        Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         """
         return pulumi.get(self, "placement")
 
@@ -371,6 +387,7 @@ class _WorkersScriptState:
                  logpush: Optional[pulumi.Input[_builtins.bool]] = None,
                  main_module: Optional[pulumi.Input[_builtins.str]] = None,
                  migration_tag: Optional[pulumi.Input[_builtins.str]] = None,
+                 migrations: Optional[pulumi.Input['WorkersScriptMigrationsArgs']] = None,
                  modified_on: Optional[pulumi.Input[_builtins.str]] = None,
                  named_handlers: Optional[pulumi.Input[Sequence[pulumi.Input['WorkersScriptNamedHandlerArgs']]]] = None,
                  observability: Optional[pulumi.Input['WorkersScriptObservabilityArgs']] = None,
@@ -384,11 +401,11 @@ class _WorkersScriptState:
         :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input['WorkersScriptAssetsArgs'] assets: Configuration for assets within a Worker.
         :param pulumi.Input[Sequence[pulumi.Input['WorkersScriptBindingArgs']]] bindings: List of bindings attached to a Worker. You can find more about bindings on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
-        :param pulumi.Input[_builtins.str] body_part: Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        :param pulumi.Input[_builtins.str] body_part: Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         :param pulumi.Input[_builtins.str] compatibility_date: Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] compatibility_flags: Flags that enable or disable certain features in the Workers runtime. Used to enable upcoming features or opt in or out of specific changes not included in a `compatibility_date`.
-        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
-        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Conflicts with `content_file`.
+        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         :param pulumi.Input[_builtins.str] content_sha256: SHA-256 hash of the Worker contents. Used to trigger updates when source code changes. Must be provided when `content_file` is specified.
         :param pulumi.Input[_builtins.str] content_type: Content-Type of the Worker. Required if uploading a non-JavaScript Worker (e.g. "text/x-python").
         :param pulumi.Input[_builtins.str] created_on: When the script was created.
@@ -401,12 +418,13 @@ class _WorkersScriptState:
         :param pulumi.Input[_builtins.str] last_deployed_from: The client most recently used to deploy this Worker.
         :param pulumi.Input['WorkersScriptLimitsArgs'] limits: Limits to apply for this Worker.
         :param pulumi.Input[_builtins.bool] logpush: Whether Logpush is turned on for the Worker.
-        :param pulumi.Input[_builtins.str] main_module: Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        :param pulumi.Input[_builtins.str] main_module: Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
         :param pulumi.Input[_builtins.str] migration_tag: The tag of the Durable Object migration that was most recently applied for this Worker.
+        :param pulumi.Input['WorkersScriptMigrationsArgs'] migrations: Migrations to apply for Durable Objects associated with this Worker.
         :param pulumi.Input[_builtins.str] modified_on: When the script was last modified.
         :param pulumi.Input[Sequence[pulumi.Input['WorkersScriptNamedHandlerArgs']]] named_handlers: Named exports, such as Durable Object class implementations and named entrypoints.
         :param pulumi.Input['WorkersScriptObservabilityArgs'] observability: Observability settings for the Worker.
-        :param pulumi.Input['WorkersScriptPlacementArgs'] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        :param pulumi.Input['WorkersScriptPlacementArgs'] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         :param pulumi.Input[_builtins.str] script_name: Name of the script, used in URLs and route configuration.
         :param pulumi.Input[Sequence[pulumi.Input['WorkersScriptTailConsumerArgs']]] tail_consumers: List of Workers that will consume logs from the attached Worker.
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the Worker invocations.
@@ -456,6 +474,8 @@ class _WorkersScriptState:
             pulumi.set(__self__, "main_module", main_module)
         if migration_tag is not None:
             pulumi.set(__self__, "migration_tag", migration_tag)
+        if migrations is not None:
+            pulumi.set(__self__, "migrations", migrations)
         if modified_on is not None:
             pulumi.set(__self__, "modified_on", modified_on)
         if named_handlers is not None:
@@ -513,7 +533,7 @@ class _WorkersScriptState:
     @pulumi.getter(name="bodyPart")
     def body_part(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         """
         return pulumi.get(self, "body_part")
 
@@ -549,7 +569,7 @@ class _WorkersScriptState:
     @pulumi.getter
     def content(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
+        Module or Service Worker contents of the Worker. Conflicts with `content_file`.
         """
         return pulumi.get(self, "content")
 
@@ -561,7 +581,7 @@ class _WorkersScriptState:
     @pulumi.getter(name="contentFile")
     def content_file(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         """
         return pulumi.get(self, "content_file")
 
@@ -717,7 +737,7 @@ class _WorkersScriptState:
     @pulumi.getter(name="mainModule")
     def main_module(self) -> Optional[pulumi.Input[_builtins.str]]:
         """
-        Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
         """
         return pulumi.get(self, "main_module")
 
@@ -736,6 +756,18 @@ class _WorkersScriptState:
     @migration_tag.setter
     def migration_tag(self, value: Optional[pulumi.Input[_builtins.str]]):
         pulumi.set(self, "migration_tag", value)
+
+    @_builtins.property
+    @pulumi.getter
+    def migrations(self) -> Optional[pulumi.Input['WorkersScriptMigrationsArgs']]:
+        """
+        Migrations to apply for Durable Objects associated with this Worker.
+        """
+        return pulumi.get(self, "migrations")
+
+    @migrations.setter
+    def migrations(self, value: Optional[pulumi.Input['WorkersScriptMigrationsArgs']]):
+        pulumi.set(self, "migrations", value)
 
     @_builtins.property
     @pulumi.getter(name="modifiedOn")
@@ -777,7 +809,7 @@ class _WorkersScriptState:
     @pulumi.getter
     def placement(self) -> Optional[pulumi.Input['WorkersScriptPlacementArgs']]:
         """
-        Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         """
         return pulumi.get(self, "placement")
 
@@ -853,6 +885,7 @@ class WorkersScript(pulumi.CustomResource):
                  limits: Optional[pulumi.Input[Union['WorkersScriptLimitsArgs', 'WorkersScriptLimitsArgsDict']]] = None,
                  logpush: Optional[pulumi.Input[_builtins.bool]] = None,
                  main_module: Optional[pulumi.Input[_builtins.str]] = None,
+                 migrations: Optional[pulumi.Input[Union['WorkersScriptMigrationsArgs', 'WorkersScriptMigrationsArgsDict']]] = None,
                  observability: Optional[pulumi.Input[Union['WorkersScriptObservabilityArgs', 'WorkersScriptObservabilityArgsDict']]] = None,
                  placement: Optional[pulumi.Input[Union['WorkersScriptPlacementArgs', 'WorkersScriptPlacementArgsDict']]] = None,
                  script_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -860,7 +893,87 @@ class WorkersScript(pulumi.CustomResource):
                  usage_model: Optional[pulumi.Input[_builtins.str]] = None,
                  __props__=None):
         """
-        !> This resource is no longer recommended. Please use the `Worker`, `WorkerVersion`, and `WorkersDeployment` resources instead. See how to use them in the [developer documentation](https://developers.cloudflare.com/workers/platform/infrastructure-as-code/).
+        > For more direct control over Workers resources, we recommend the beta `Worker`, `WorkerVersion`, and `WorkersDeployment` resources. See how to use them in the [developer documentation](https://developers.cloudflare.com/workers/platform/infrastructure-as-code/).
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+        import pulumi_std as std
+
+        example_workers_script = cloudflare.WorkersScript("example_workers_script",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            script_name="this-is_my_script-01",
+            assets={
+                "config": {
+                    "headers": \"\"\"        /dashboard/*
+                X-Frame-Options: DENY
+
+                /static/*
+                Access-Control-Allow-Origin: *
+        \"\"\",
+                    "redirects": \"\"\"        /foo /bar 301
+                /news/* /blog/:splat
+        \"\"\",
+                    "html_handling": "auto-trailing-slash",
+                    "not_found_handling": "none",
+                    "run_worker_first": False,
+                },
+                "jwt": "jwt",
+            },
+            bindings=[{
+                "name": "MY_ENV_VAR",
+                "text": "my_data",
+                "type": "plain_text",
+            }],
+            compatibility_date="2021-01-01",
+            compatibility_flags=["nodejs_compat"],
+            content_file="worker.js",
+            content_sha256=std.filesha256(input="worker.js").result,
+            keep_assets=False,
+            keep_bindings=["kv_namespace"],
+            limits={
+                "cpu_ms": 50,
+            },
+            logpush=False,
+            main_module="worker.js",
+            migrations={
+                "deleted_classes": ["string"],
+                "new_classes": ["string"],
+                "new_sqlite_classes": ["string"],
+                "new_tag": "v2",
+                "old_tag": "v1",
+                "renamed_classes": [{
+                    "from_": "from",
+                    "to": "to",
+                }],
+                "transferred_classes": [{
+                    "from_": "from",
+                    "from_script": "from_script",
+                    "to": "to",
+                }],
+            },
+            observability={
+                "enabled": True,
+                "head_sampling_rate": 0.1,
+                "logs": {
+                    "enabled": True,
+                    "invocation_logs": True,
+                    "destinations": ["cloudflare"],
+                    "head_sampling_rate": 0.1,
+                    "persist": True,
+                },
+            },
+            placement={
+                "mode": "smart",
+            },
+            tail_consumers=[{
+                "service": "my-log-consumer",
+                "environment": "production",
+                "namespace": "my-namespace",
+            }])
+        ```
 
         ## Import
 
@@ -873,20 +986,21 @@ class WorkersScript(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[Union['WorkersScriptAssetsArgs', 'WorkersScriptAssetsArgsDict']] assets: Configuration for assets within a Worker.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkersScriptBindingArgs', 'WorkersScriptBindingArgsDict']]]] bindings: List of bindings attached to a Worker. You can find more about bindings on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
-        :param pulumi.Input[_builtins.str] body_part: Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        :param pulumi.Input[_builtins.str] body_part: Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         :param pulumi.Input[_builtins.str] compatibility_date: Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] compatibility_flags: Flags that enable or disable certain features in the Workers runtime. Used to enable upcoming features or opt in or out of specific changes not included in a `compatibility_date`.
-        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
-        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Conflicts with `content_file`.
+        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         :param pulumi.Input[_builtins.str] content_sha256: SHA-256 hash of the Worker contents. Used to trigger updates when source code changes. Must be provided when `content_file` is specified.
         :param pulumi.Input[_builtins.str] content_type: Content-Type of the Worker. Required if uploading a non-JavaScript Worker (e.g. "text/x-python").
         :param pulumi.Input[_builtins.bool] keep_assets: Retain assets which exist for a previously uploaded Worker version; used in lieu of providing a completion token.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] keep_bindings: List of binding types to keep from previous_upload.
         :param pulumi.Input[Union['WorkersScriptLimitsArgs', 'WorkersScriptLimitsArgsDict']] limits: Limits to apply for this Worker.
         :param pulumi.Input[_builtins.bool] logpush: Whether Logpush is turned on for the Worker.
-        :param pulumi.Input[_builtins.str] main_module: Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        :param pulumi.Input[_builtins.str] main_module: Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        :param pulumi.Input[Union['WorkersScriptMigrationsArgs', 'WorkersScriptMigrationsArgsDict']] migrations: Migrations to apply for Durable Objects associated with this Worker.
         :param pulumi.Input[Union['WorkersScriptObservabilityArgs', 'WorkersScriptObservabilityArgsDict']] observability: Observability settings for the Worker.
-        :param pulumi.Input[Union['WorkersScriptPlacementArgs', 'WorkersScriptPlacementArgsDict']] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        :param pulumi.Input[Union['WorkersScriptPlacementArgs', 'WorkersScriptPlacementArgsDict']] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         :param pulumi.Input[_builtins.str] script_name: Name of the script, used in URLs and route configuration.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkersScriptTailConsumerArgs', 'WorkersScriptTailConsumerArgsDict']]]] tail_consumers: List of Workers that will consume logs from the attached Worker.
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the Worker invocations.
@@ -899,7 +1013,87 @@ class WorkersScript(pulumi.CustomResource):
                  args: WorkersScriptArgs,
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
-        !> This resource is no longer recommended. Please use the `Worker`, `WorkerVersion`, and `WorkersDeployment` resources instead. See how to use them in the [developer documentation](https://developers.cloudflare.com/workers/platform/infrastructure-as-code/).
+        > For more direct control over Workers resources, we recommend the beta `Worker`, `WorkerVersion`, and `WorkersDeployment` resources. See how to use them in the [developer documentation](https://developers.cloudflare.com/workers/platform/infrastructure-as-code/).
+
+        ## Example Usage
+
+        ```python
+        import pulumi
+        import pulumi_cloudflare as cloudflare
+        import pulumi_std as std
+
+        example_workers_script = cloudflare.WorkersScript("example_workers_script",
+            account_id="023e105f4ecef8ad9ca31a8372d0c353",
+            script_name="this-is_my_script-01",
+            assets={
+                "config": {
+                    "headers": \"\"\"        /dashboard/*
+                X-Frame-Options: DENY
+
+                /static/*
+                Access-Control-Allow-Origin: *
+        \"\"\",
+                    "redirects": \"\"\"        /foo /bar 301
+                /news/* /blog/:splat
+        \"\"\",
+                    "html_handling": "auto-trailing-slash",
+                    "not_found_handling": "none",
+                    "run_worker_first": False,
+                },
+                "jwt": "jwt",
+            },
+            bindings=[{
+                "name": "MY_ENV_VAR",
+                "text": "my_data",
+                "type": "plain_text",
+            }],
+            compatibility_date="2021-01-01",
+            compatibility_flags=["nodejs_compat"],
+            content_file="worker.js",
+            content_sha256=std.filesha256(input="worker.js").result,
+            keep_assets=False,
+            keep_bindings=["kv_namespace"],
+            limits={
+                "cpu_ms": 50,
+            },
+            logpush=False,
+            main_module="worker.js",
+            migrations={
+                "deleted_classes": ["string"],
+                "new_classes": ["string"],
+                "new_sqlite_classes": ["string"],
+                "new_tag": "v2",
+                "old_tag": "v1",
+                "renamed_classes": [{
+                    "from_": "from",
+                    "to": "to",
+                }],
+                "transferred_classes": [{
+                    "from_": "from",
+                    "from_script": "from_script",
+                    "to": "to",
+                }],
+            },
+            observability={
+                "enabled": True,
+                "head_sampling_rate": 0.1,
+                "logs": {
+                    "enabled": True,
+                    "invocation_logs": True,
+                    "destinations": ["cloudflare"],
+                    "head_sampling_rate": 0.1,
+                    "persist": True,
+                },
+            },
+            placement={
+                "mode": "smart",
+            },
+            tail_consumers=[{
+                "service": "my-log-consumer",
+                "environment": "production",
+                "namespace": "my-namespace",
+            }])
+        ```
 
         ## Import
 
@@ -937,6 +1131,7 @@ class WorkersScript(pulumi.CustomResource):
                  limits: Optional[pulumi.Input[Union['WorkersScriptLimitsArgs', 'WorkersScriptLimitsArgsDict']]] = None,
                  logpush: Optional[pulumi.Input[_builtins.bool]] = None,
                  main_module: Optional[pulumi.Input[_builtins.str]] = None,
+                 migrations: Optional[pulumi.Input[Union['WorkersScriptMigrationsArgs', 'WorkersScriptMigrationsArgsDict']]] = None,
                  observability: Optional[pulumi.Input[Union['WorkersScriptObservabilityArgs', 'WorkersScriptObservabilityArgsDict']]] = None,
                  placement: Optional[pulumi.Input[Union['WorkersScriptPlacementArgs', 'WorkersScriptPlacementArgsDict']]] = None,
                  script_name: Optional[pulumi.Input[_builtins.str]] = None,
@@ -968,6 +1163,7 @@ class WorkersScript(pulumi.CustomResource):
             __props__.__dict__["limits"] = limits
             __props__.__dict__["logpush"] = logpush
             __props__.__dict__["main_module"] = main_module
+            __props__.__dict__["migrations"] = migrations
             __props__.__dict__["observability"] = observability
             __props__.__dict__["placement"] = placement
             if script_name is None and not opts.urn:
@@ -1019,6 +1215,7 @@ class WorkersScript(pulumi.CustomResource):
             logpush: Optional[pulumi.Input[_builtins.bool]] = None,
             main_module: Optional[pulumi.Input[_builtins.str]] = None,
             migration_tag: Optional[pulumi.Input[_builtins.str]] = None,
+            migrations: Optional[pulumi.Input[Union['WorkersScriptMigrationsArgs', 'WorkersScriptMigrationsArgsDict']]] = None,
             modified_on: Optional[pulumi.Input[_builtins.str]] = None,
             named_handlers: Optional[pulumi.Input[Sequence[pulumi.Input[Union['WorkersScriptNamedHandlerArgs', 'WorkersScriptNamedHandlerArgsDict']]]]] = None,
             observability: Optional[pulumi.Input[Union['WorkersScriptObservabilityArgs', 'WorkersScriptObservabilityArgsDict']]] = None,
@@ -1037,11 +1234,11 @@ class WorkersScript(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] account_id: Identifier.
         :param pulumi.Input[Union['WorkersScriptAssetsArgs', 'WorkersScriptAssetsArgsDict']] assets: Configuration for assets within a Worker.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkersScriptBindingArgs', 'WorkersScriptBindingArgsDict']]]] bindings: List of bindings attached to a Worker. You can find more about bindings on our docs: https://developers.cloudflare.com/workers/configuration/multipart-upload-metadata/#bindings.
-        :param pulumi.Input[_builtins.str] body_part: Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        :param pulumi.Input[_builtins.str] body_part: Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         :param pulumi.Input[_builtins.str] compatibility_date: Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] compatibility_flags: Flags that enable or disable certain features in the Workers runtime. Used to enable upcoming features or opt in or out of specific changes not included in a `compatibility_date`.
-        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
-        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        :param pulumi.Input[_builtins.str] content: Module or Service Worker contents of the Worker. Conflicts with `content_file`.
+        :param pulumi.Input[_builtins.str] content_file: Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         :param pulumi.Input[_builtins.str] content_sha256: SHA-256 hash of the Worker contents. Used to trigger updates when source code changes. Must be provided when `content_file` is specified.
         :param pulumi.Input[_builtins.str] content_type: Content-Type of the Worker. Required if uploading a non-JavaScript Worker (e.g. "text/x-python").
         :param pulumi.Input[_builtins.str] created_on: When the script was created.
@@ -1054,12 +1251,13 @@ class WorkersScript(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] last_deployed_from: The client most recently used to deploy this Worker.
         :param pulumi.Input[Union['WorkersScriptLimitsArgs', 'WorkersScriptLimitsArgsDict']] limits: Limits to apply for this Worker.
         :param pulumi.Input[_builtins.bool] logpush: Whether Logpush is turned on for the Worker.
-        :param pulumi.Input[_builtins.str] main_module: Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        :param pulumi.Input[_builtins.str] main_module: Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
         :param pulumi.Input[_builtins.str] migration_tag: The tag of the Durable Object migration that was most recently applied for this Worker.
+        :param pulumi.Input[Union['WorkersScriptMigrationsArgs', 'WorkersScriptMigrationsArgsDict']] migrations: Migrations to apply for Durable Objects associated with this Worker.
         :param pulumi.Input[_builtins.str] modified_on: When the script was last modified.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkersScriptNamedHandlerArgs', 'WorkersScriptNamedHandlerArgsDict']]]] named_handlers: Named exports, such as Durable Object class implementations and named entrypoints.
         :param pulumi.Input[Union['WorkersScriptObservabilityArgs', 'WorkersScriptObservabilityArgsDict']] observability: Observability settings for the Worker.
-        :param pulumi.Input[Union['WorkersScriptPlacementArgs', 'WorkersScriptPlacementArgsDict']] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        :param pulumi.Input[Union['WorkersScriptPlacementArgs', 'WorkersScriptPlacementArgsDict']] placement: Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         :param pulumi.Input[_builtins.str] script_name: Name of the script, used in URLs and route configuration.
         :param pulumi.Input[Sequence[pulumi.Input[Union['WorkersScriptTailConsumerArgs', 'WorkersScriptTailConsumerArgsDict']]]] tail_consumers: List of Workers that will consume logs from the attached Worker.
         :param pulumi.Input[_builtins.str] usage_model: Usage model for the Worker invocations.
@@ -1091,6 +1289,7 @@ class WorkersScript(pulumi.CustomResource):
         __props__.__dict__["logpush"] = logpush
         __props__.__dict__["main_module"] = main_module
         __props__.__dict__["migration_tag"] = migration_tag
+        __props__.__dict__["migrations"] = migrations
         __props__.__dict__["modified_on"] = modified_on
         __props__.__dict__["named_handlers"] = named_handlers
         __props__.__dict__["observability"] = observability
@@ -1129,7 +1328,7 @@ class WorkersScript(pulumi.CustomResource):
     @pulumi.getter(name="bodyPart")
     def body_part(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Name of the part in the multipart request that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
+        Name of the uploaded file that contains the script (e.g. the file adding a listener to the `fetch` event). Indicates a `service worker syntax` Worker.
         """
         return pulumi.get(self, "body_part")
 
@@ -1153,7 +1352,7 @@ class WorkersScript(pulumi.CustomResource):
     @pulumi.getter
     def content(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified.
+        Module or Service Worker contents of the Worker. Conflicts with `content_file`.
         """
         return pulumi.get(self, "content")
 
@@ -1161,7 +1360,7 @@ class WorkersScript(pulumi.CustomResource):
     @pulumi.getter(name="contentFile")
     def content_file(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Path to a file containing the Module or Service Worker contents of the Worker. Exactly one of `content` or `content_file` must be specified. Must be paired with `content_sha256`.
+        Path to a file containing the Module or Service Worker contents of the Worker. Conflicts with `content`. Must be paired with `content_sha256`.
         """
         return pulumi.get(self, "content_file")
 
@@ -1265,7 +1464,7 @@ class WorkersScript(pulumi.CustomResource):
     @pulumi.getter(name="mainModule")
     def main_module(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
-        Name of the part in the multipart request that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
+        Name of the uploaded file that contains the main module (e.g. the file exporting a `fetch` handler). Indicates a `module syntax` Worker.
         """
         return pulumi.get(self, "main_module")
 
@@ -1276,6 +1475,14 @@ class WorkersScript(pulumi.CustomResource):
         The tag of the Durable Object migration that was most recently applied for this Worker.
         """
         return pulumi.get(self, "migration_tag")
+
+    @_builtins.property
+    @pulumi.getter
+    def migrations(self) -> pulumi.Output[Optional['outputs.WorkersScriptMigrations']]:
+        """
+        Migrations to apply for Durable Objects associated with this Worker.
+        """
+        return pulumi.get(self, "migrations")
 
     @_builtins.property
     @pulumi.getter(name="modifiedOn")
@@ -1305,7 +1512,7 @@ class WorkersScript(pulumi.CustomResource):
     @pulumi.getter
     def placement(self) -> pulumi.Output['outputs.WorkersScriptPlacement']:
         """
-        Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement).
+        Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify either mode for Smart Placement, or one of region/hostname/host for targeted placement.
         """
         return pulumi.get(self, "placement")
 

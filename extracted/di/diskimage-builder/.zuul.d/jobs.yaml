@@ -1,0 +1,386 @@
+- job:
+    name: dib-functests-base
+    abstract: true
+    parent: base
+    run: playbooks/dib-functests/run.yaml
+    post-run: playbooks/dib-functests/post.yaml
+    timeout: 5400
+    required-projects:
+      - openstack/diskimage-builder
+      - openstack/requirements
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
+
+- job:
+    name: dib-functests
+    description: |
+      This is the base set of stable tests
+    parent: dib-functests-base
+    nodeset:
+      nodes:
+        - name: nested-virt-debian-bookworm
+          label: nested-virt-debian-bookworm
+    vars:
+      dib_functests:
+        - containerfile/jammy-build-succeeds
+        # Disabled until it gets updated to match the version being mirrored
+        #- openeuler-minimal/22.03-LTS-build-succeeds
+        # Image based tests
+        - centos/9-stream-build-succeeds
+        - centos/10-stream-build-succeeds
+        # Containerfile based tests
+        - almalinux-container/almalinux-9-build-succeeds
+        - almalinux-container/almalinux-10-build-succeeds
+        - rocky-container/rocky-9-build-succeeds
+        - rocky-container/rocky-10-build-succeeds
+        # NOTE(rpittau) Fedora 37 is EOL, disalbing this until we move to
+        # Fedora 39 or more recent.
+        #- fedora/build-succeeds
+        # NOTE(ianw) 2022-08-02 : disabled due to upstream
+        # checksum mismatches; see
+        #  https://bugzilla.suse.com/show_bug.cgi?id=1202041
+        # - opensuse/build-succeeds
+        - ubuntu/focal-build-succeeds
+        - ubuntu/jammy-build-succeeds
+        - ubuntu/noble-build-succeeds
+
+# NOTE(ianw) : these jobs are split to keep the build times a bit more
+# reasonable.
+- job:
+    name: dib-functests-arm64-deb
+    description: |
+      ARM64 build tests (Debian-like distros)
+    nodeset: debian-bookworm-arm64
+    parent: dib-functests-base
+    vars:
+      dib_functests:
+        - ubuntu-minimal/focal-arm64-build-succeeds
+        - ubuntu-minimal/jammy-arm64-build-succeeds
+        - ubuntu-minimal/noble-arm64-build-succeeds
+        - debian-minimal/bullseye-arm64-build-succeeds
+        - debian-minimal/bookworm-arm64-build-succeeds
+
+- job:
+    name: dib-functests-arm64-rpm
+    description: |
+      ARM64 build tests (RPM-like distros)
+    nodeset: debian-bookworm-arm64
+    parent: dib-functests-base
+    vars:
+      dib_functests:
+        - almalinux-container/almalinux-9-aarch64-build-succeeds
+        - almalinux-container/almalinux-10-aarch64-build-succeeds
+        - centos-minimal/9-stream-aarch64-build-succeeds
+        - centos-minimal/10-stream-aarch64-build-succeeds
+        # Disabled until it gets updated to match the version being mirrored
+        #- openeuler-minimal/22.03-LTS-build-succeeds
+        - rocky-container/rocky-9-aarch64-build-succeeds
+        - rocky-container/rocky-10-aarch64-build-succeeds
+
+#
+# Build and boot functional tests
+#
+
+- job:
+    name: dib-devstack-functional-src-base
+    abstract: true
+    description: |
+      Base job for DIB functional tests, which build and boot an image
+      under devstack, using source versions of dependencies such as
+      devstack, dib (of course) and glean.
+    parent: devstack
+    pre-run: playbooks/dib-devstack/pre.yaml
+    run: playbooks/dib-devstack/build-boot-run.yaml
+    required-projects:
+      - name: opendev.org/openstack/devstack
+      - name: opendev.org/openstack/diskimage-builder
+      - name: opendev.org/opendev/glean
+      - name: opendev.org/openstack/requirements
+    irrelevant-files:
+      - ^.*\.rst$
+      - ^doc/.*$
+      - ^releasenotes/.*$
+    vars:
+      default_elements:
+        - vm
+        - simple-init
+        - growroot
+        - devuser
+        - openssh-server
+        - journal-to-console
+        - openstack-ci-mirrors
+      build_diskimage_image_name: "{{ diskimage.base_element }}"
+      build_diskimage_formats:
+        - raw
+      build_diskimage_image_root: "{{ ansible_user_dir }}/dib_tmp/dib-images"
+      build_diskimage_elements: >-
+        {{ ( [diskimage.base_element]
+            + default_elements
+            + diskimage.additional_elements|default([]) ) | flatten }}
+      default_diskimage_environment:
+        DIB_CHECKSUM: '1'
+        DIB_DEBUG_TRACE: 1
+        DIB_INSTALLTYPE_simple_init: 'repo'
+        DIB_REPOLOCATION_glean: "{{ ansible_user_dir }}/{{ zuul.projects['opendev.org/opendev/glean'].src_dir }}"
+        DIB_REPOREF_glean: "{{ zuul.projects['opendev.org/opendev/glean'].checkout }}"
+        DIB_RELEASE: "{{ diskimage.release }}"
+        DIB_SHOW_IMAGE_USAGE: '1'
+        ROOT_LABEL: 'gate-rootfs'
+        TMPDIR: "{{ ansible_user_dir }}/dib_tmp"
+      build_diskimage_environment: "{{ default_diskimage_environment|combine(diskimage['env-vars']|default({})) }}"
+      # NOTE(tonyb):  For the time being we need to disable this as the cli-server always uses the
+      #               'devstack-admin' cloud and therefore the private network ends in the wrong
+      #               tennant and causes failures
+      devstack_services:
+        openstack-cli-server: false
+      devstack_localrc:
+        SWIFT_MAX_FILE_SIZE: 5368709122 # 5G + 2 bytes (swift default)
+        SWIFT_LOOPBACK_DISK_SIZE: "6G"  # Alittle more than ^^
+
+- job:
+    name: dib-devstack-functional-openstack-almalinux-8-containerfile-src
+    description: |
+      Test building and booting a AlmaLinux image from a
+      containerfile with devstack and OpenStack (from git)
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: almalinux-container
+        release: '8'
+
+- job:
+    name: dib-devstack-functional-openstack-almalinux-9-containerfile-src
+    description: |
+      Test building and booting a AlmaLinux image from a
+      containerfile with devstack and OpenStack (using released
+      libraries)
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: almalinux-container
+        release: '9'
+
+- job:
+    name: dib-devstack-functional-openstack-almalinux-10-v2-containerfile-src
+    description: |
+      Test building and booting a AlmaLinux image from a
+      containerfile with devstack and OpenStack (using released
+      libraries)
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: almalinux-container
+        env-vars:
+          DIB_CONTAINERFILE_BUILDOPTS: "--platform linux/amd64/v2"
+        release: '10'
+
+- job:
+    name: dib-devstack-functional-openstack-centos-8-stream-src
+    description: |
+      Test building and booting a Centos 8 Stream image with devstack and
+      OpenStack.
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: centos-minimal
+        release: '8-stream'
+
+- job:
+    name: dib-devstack-functional-openstack-centos-9-stream-src
+    description: |
+      Test building and booting a Centos 9 Stream image with devsatck and
+      OpenStack.
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: centos-minimal
+        release: '9-stream'
+
+- job:
+    name: dib-devstack-functional-openstack-centos-10-stream-src
+    description: |
+      Test building and booting a Centos 10 Stream image with devstack and
+      OpenStack.
+    nodeset:
+      nodes:
+        - name: controller
+          label: nested-virt-ubuntu-noble
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: centos-minimal
+        release: '10-stream'
+      devstack_localrc:
+        LIBVIRT_CPU_MODE: custom
+        LIBVIRT_CPU_MODEL: Haswell
+
+- job:
+    name: dib-devstack-functional-openstack-fedora-37-containerfile-src
+    description: |
+      Test building and booting an Fedora image from a
+      containerfile with devstack and OpenStack (using released
+      libraries)
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element : fedora-container
+        release: '37'
+
+- job:
+    name: dib-devstack-functional-openstack-rockylinux-8-containerfile-src
+    description: |
+      Test building and booting a Rocky Linux image from a
+      containerfile with devstack and OpenStack (using released
+      libraries)
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: rocky-container
+        release: '8'
+
+- job:
+    name: dib-devstack-functional-openstack-rockylinux-9-containerfile-src
+    description: |
+      Test building and booting a Rocky Linux image from a
+      containerfile with devstack and OpenStack (using released
+      libraries)
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: rocky-container
+        release: '9'
+
+- job:
+    name: dib-devstack-functional-openstack-rockylinux-10-containerfile-src
+    description: |
+      Test building and booting a Rocky Linux image from a
+      containerfile with Nodepool and OpenStack (using released
+      libraries)
+    nodeset:
+      nodes:
+        - name: controller
+          label: nested-virt-ubuntu-noble
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: rocky-container
+        release: '10'
+      devstack_localrc:
+        LIBVIRT_CPU_MODE: custom
+        LIBVIRT_CPU_MODEL: Haswell
+
+- job:
+    name: dib-devstack-functional-openstack-ubuntu-focal-src
+    description: |
+      Test building and booting an Ubuntu focal image with devstack
+      and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: ubuntu-minimal
+        release: 'focal'
+        env-vars:
+          DIB_APT_LOCAL_CACHE: '0'
+          DIB_DISABLE_APT_CLEANUP: '1'
+          DIB_DEBOOTSTRAP_EXTRA_ARGS: '--no-check-gpg'
+          DIB_DISTRIBUTION_MIRROR: "http://{{ zuul_site_mirror_fqdn }}/ubuntu"
+
+- job:
+    name: dib-devstack-functional-openstack-ubuntu-jammy-src
+    description: |
+      Test building and booting an Ubuntu jammy image with devstack
+      and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: ubuntu-minimal
+        release: 'jammy'
+        env-vars:
+          DIB_APT_LOCAL_CACHE: '0'
+          DIB_DISABLE_APT_CLEANUP: '1'
+          DIB_DEBOOTSTRAP_EXTRA_ARGS: '--no-check-gpg'
+          DIB_DISTRIBUTION_MIRROR: "http://{{ zuul_site_mirror_fqdn }}/ubuntu"
+
+- job:
+    name: dib-devstack-functional-openstack-ubuntu-noble-src
+    description: |
+      Test building and booting Ubuntu Noble with devstack.
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: ubuntu-minimal
+        release: 'noble'
+        env-vars:
+          DIB_APT_LOCAL_CACHE: '0'
+          DIB_DISABLE_APT_CLEANUP: '1'
+          DIB_DEBOOTSTRAP_EXTRA_ARGS: '--no-check-gpg'
+          DIB_DISTRIBUTION_MIRROR: "http://{{ zuul_site_mirror_fqdn }}/ubuntu"
+
+- job:
+    name: dib-devstack-functional-openstack-gentoo-src
+    description: |
+      Test building and booting a Gentoo image with devstack and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: gentoo
+        release: ''
+
+- job:
+    name: dib-devstack-functional-openstack-debian-stretch-src
+    description: |
+      Test building and booting a Debian stretch image with devstack
+      and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: debian-minimal
+        release: 'stretch'
+        env-vars:
+          DIB_APT_LOCAL_CACHE: '0'
+          DIB_DISABLE_APT_CLEANUP: '1'
+          DIB_DEBOOTSTRAP_EXTRA_ARGS: '--no-check-gpg'
+
+- job:
+    name: dib-devstack-functional-openstack-debian-bullseye-src
+    description: |
+      Test building and booting a Debian bullseye image with devstack
+      and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: debian-minimal
+        release: 'bullseye'
+        env-vars:
+          DIB_APT_LOCAL_CACHE: '0'
+          DIB_DISABLE_APT_CLEANUP: '1'
+          DIB_DEBOOTSTRAP_EXTRA_ARGS: '--no-check-gpg'
+          DIB_DISTRIBUTION_MIRROR: "http://{{ zuul_site_mirror_fqdn }}/debian"
+
+- job:
+    name: dib-devstack-functional-openstack-debian-buster-src
+    description: |
+      Test building and booting a Debian buster image with devstack
+      and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: debian-minimal
+        release: 'buster'
+        env-vars:
+          DIB_APT_LOCAL_CACHE: '0'
+          DIB_DISABLE_APT_CLEANUP: '1'
+          DIB_DEBOOTSTRAP_EXTRA_ARGS: '--no-check-gpg'
+
+- job:
+    name: dib-devstack-functional-openstack-opensuse-15-src
+    description: |
+      Test building and booting an openSUSE 15.x image with devstack
+      and OpenStack
+    parent: dib-devstack-functional-src-base
+    vars:
+      diskimage:
+        base_element: opensuse-minimal
+        release: '15.2'

@@ -1,4 +1,5 @@
 import time
+from http import HTTPStatus
 from urllib.parse import parse_qsl, quote, urlencode
 
 from django.core.exceptions import ImproperlyConfigured
@@ -68,19 +69,18 @@ class AppleOAuth2Client(OAuth2Client):
         if pkce_code_verifier:
             data["code_verifier"] = pkce_code_verifier
         self._strip_empty_keys(data)
-        resp = (
-            get_adapter()
-            .get_requests_session()
-            .request(self.access_token_method, url, data=data, headers=self.headers)
-        )
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.request(
+                self.access_token_method, url, data=data, headers=self.headers
+            )
         access_token = None
-        if resp.status_code in [200, 201]:
+        if resp.status_code in [HTTPStatus.OK, HTTPStatus.CREATED]:
             try:
                 access_token = resp.json()
             except ValueError:
                 access_token = dict(parse_qsl(resp.text))
         if not access_token or "access_token" not in access_token:
-            raise OAuth2Error("Error retrieving access token: %s" % resp.content)
+            raise OAuth2Error(f"Error retrieving access token: {resp.content}")
         return access_token
 
     def get_redirect_url(self, authorization_url, scope, extra_params):
@@ -95,4 +95,4 @@ class AppleOAuth2Client(OAuth2Client):
         if self.state:
             params["state"] = self.state
         params.update(extra_params)
-        return "%s?%s" % (authorization_url, urlencode(params, quote_via=quote))
+        return f"{authorization_url}?{urlencode(params, quote_via=quote)}"

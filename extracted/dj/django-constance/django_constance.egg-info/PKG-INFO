@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django-constance
-Version: 4.3.2
+Version: 4.3.4
 Summary: Django live settings with pluggable backends, including Redis.
 Author-email: Jannis Leidel <jannis@leidel.info>
 License: BSD
@@ -14,6 +14,8 @@ Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
+Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English

@@ -3,6 +3,7 @@
 
 import datetime
 import re
+from typing import Optional
 
 
 def get_child_value(data, key):
@@ -98,7 +99,7 @@ def detect_timezone_for_date(
     date: datetime.datetime,
     ref_date: datetime.datetime,
     timezones: list[datetime.timezone],
-) -> datetime.timezone | None:
+) -> Optional[datetime.timezone]:
     """
     Guess an appropriate timezone given a date with an unknown timezone and a
     nearby reference time in any valid timezone.
@@ -109,4 +110,47 @@ def detect_timezone_for_date(
         # be enough to cover clock skew and API processing times.
         if abs(delta) < 20 * 60:
             return tz
+    return None
+
+
+def parse_date_br(date_string: str, tz: datetime.timezone) -> datetime.datetime:
+    """Parse date string in format YYYYMMDD or YYYYMMDDHHMMSS to datetime.
+
+    Used by Brazilian API to parse date strings.
+
+    Args:
+        date_string: Date string in format YYYYMMDD or YYYYMMDDHHMMSS
+        tz: Timezone to apply to the parsed datetime
+
+    Returns:
+        Parsed datetime object with timezone, or None if parsing fails
+    """
+    if not date_string:
+        return None
+
+    # Try full datetime format first (YYYYMMDDHHMMSS)
+    if len(date_string) >= 14:
+        m = re.match(r"(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})", date_string)
+        if m:
+            return datetime.datetime(
+                year=int(m.group(1)),
+                month=int(m.group(2)),
+                day=int(m.group(3)),
+                hour=int(m.group(4)),
+                minute=int(m.group(5)),
+                second=int(m.group(6)),
+                tzinfo=tz,
+            )
+
+    # Try date only format (YYYYMMDD)
+    if len(date_string) >= 8:
+        m = re.match(r"(\d{4})(\d{2})(\d{2})", date_string)
+        if m:
+            return datetime.datetime(
+                year=int(m.group(1)),
+                month=int(m.group(2)),
+                day=int(m.group(3)),
+                tzinfo=tz,
+            )
+
     return None

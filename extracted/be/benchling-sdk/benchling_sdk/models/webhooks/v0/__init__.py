@@ -19,6 +19,14 @@ __all__ = [
     "AssayRunCreatedWebhookV2Type",
     "AssayRunUpdatedFieldsWebhookV2",
     "AssayRunUpdatedFieldsWebhookV2Type",
+    "AutomationFileTransformFailedWebhookV2",
+    "AutomationFileTransformFailedWebhookV2Type",
+    "AutomationFileTransformPendingWebhookV2",
+    "AutomationFileTransformPendingWebhookV2Type",
+    "AutomationFileTransformRunningWebhookV2",
+    "AutomationFileTransformRunningWebhookV2Type",
+    "AutomationFileTransformSucceededWebhookV2",
+    "AutomationFileTransformSucceededWebhookV2Type",
     "CanvasCreatedWebhookV2",
     "CanvasCreatedWebhookV2Beta",
     "CanvasCreatedWebhookV2BetaType",
@@ -27,10 +35,24 @@ __all__ = [
     "CanvasInitializeWebhookV2Type",
     "CanvasInteractionWebhookV2",
     "CanvasInteractionWebhookV2Type",
+    "CustomEntityCreatedWebhookV3",
+    "CustomEntityCreatedWebhookV3Type",
+    "CustomEntityUpdatedWebhookV3",
+    "CustomEntityUpdatedWebhookV3Type",
+    "DnaOligoCreatedWebhookV3",
+    "DnaOligoCreatedWebhookV3Type",
+    "DnaOligoUpdatedWebhookV3",
+    "DnaOligoUpdatedWebhookV3Type",
+    "DnaSequenceCreatedWebhookV3",
+    "DnaSequenceCreatedWebhookV3Type",
+    "DnaSequenceUpdatedWebhookV3",
+    "DnaSequenceUpdatedWebhookV3Type",
     "EntityRegisteredWebhookV2",
     "EntityRegisteredWebhookV2Type",
     "EntryCreatedWebhookV2",
     "EntryCreatedWebhookV2Type",
+    "EntryCreatedWebhookV3",
+    "EntryCreatedWebhookV3Type",
     "EntryUpdatedFieldsWebhookV2",
     "EntryUpdatedFieldsWebhookV2Type",
     "EntryUpdatedReviewRecordWebhookV2",
@@ -52,12 +74,26 @@ __all__ = [
     "LifecycleDeactivateWebhookV0Type",
     "MessageBase",
     "MessageBaseV0",
+    "ProjectCreatedWebhookV3",
+    "ProjectCreatedWebhookV3Type",
+    "ProjectUpdatedWebhookV3",
+    "ProjectUpdatedWebhookV3Type",
     "RequestCreatedWebhookV2",
     "RequestCreatedWebhookV2Type",
     "RequestUpdatedFieldsWebhookV2",
     "RequestUpdatedFieldsWebhookV2Type",
     "RequestUpdatedStatusWebhookV2",
     "RequestUpdatedStatusWebhookV2Type",
+    "RnaOligoCreatedWebhookV3",
+    "RnaOligoCreatedWebhookV3Type",
+    "RnaOligoUpdatedWebhookV3",
+    "RnaOligoUpdatedWebhookV3Type",
+    "RnaSequenceCreatedWebhookV3",
+    "RnaSequenceCreatedWebhookV3Type",
+    "RnaSequenceUpdatedWebhookV3",
+    "RnaSequenceUpdatedWebhookV3Type",
+    "RunCreatedWebhookV3",
+    "RunCreatedWebhookV3Type",
     "UpdateEventBaseWebhookV2",
     "UpdateEventBaseWebhookV2Schematized",
     "V2AssayRunCreatedEvent",
@@ -96,6 +132,9 @@ __all__ = [
     "V2WorkflowTaskUpdatedScheduledOnEventEventType",
     "V2WorkflowTaskUpdatedStatusEvent",
     "V2WorkflowTaskUpdatedStatusEventEventType",
+    "V3EventBase",
+    "V3EventBaseStability",
+    "V3UpdateEventBase",
     "WebhookEnvelopeV0",
     "WebhookEnvelopeV0App",
     "WebhookEnvelopeV0AppDefinition",
@@ -134,6 +173,14 @@ if TYPE_CHECKING:
     import benchling_api_client.webhooks.v0.stable.models.assay_run_created_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.assay_run_updated_fields_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.assay_run_updated_fields_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_failed_webhook_v2
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_failed_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_pending_webhook_v2
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_pending_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_running_webhook_v2
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_running_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_succeeded_webhook_v2
+    import benchling_api_client.webhooks.v0.stable.models.automation_file_transform_succeeded_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2_beta
     import benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2_beta_type
@@ -142,10 +189,24 @@ if TYPE_CHECKING:
     import benchling_api_client.webhooks.v0.stable.models.canvas_initialize_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.canvas_interaction_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.canvas_interaction_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.custom_entity_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.custom_entity_created_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.custom_entity_updated_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.custom_entity_updated_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.dna_oligo_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.dna_oligo_created_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.dna_oligo_updated_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.dna_oligo_updated_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.dna_sequence_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.dna_sequence_created_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.dna_sequence_updated_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.dna_sequence_updated_webhook_v3_type
     import benchling_api_client.webhooks.v0.stable.models.entity_registered_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.entity_registered_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v3_type
     import benchling_api_client.webhooks.v0.stable.models.entry_updated_fields_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.entry_updated_fields_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.entry_updated_review_record_webhook_v2
@@ -167,12 +228,26 @@ if TYPE_CHECKING:
     import benchling_api_client.webhooks.v0.stable.models.lifecycle_deactivate_webhook_v0_type
     import benchling_api_client.webhooks.v0.stable.models.message_base
     import benchling_api_client.webhooks.v0.stable.models.message_base_v0
+    import benchling_api_client.webhooks.v0.stable.models.project_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.project_created_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.project_updated_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.project_updated_webhook_v3_type
     import benchling_api_client.webhooks.v0.stable.models.request_created_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.request_created_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.request_updated_fields_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.request_updated_fields_webhook_v2_type
     import benchling_api_client.webhooks.v0.stable.models.request_updated_status_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.request_updated_status_webhook_v2_type
+    import benchling_api_client.webhooks.v0.stable.models.rna_oligo_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.rna_oligo_created_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.rna_oligo_updated_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.rna_oligo_updated_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.rna_sequence_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.rna_sequence_created_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.rna_sequence_updated_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.rna_sequence_updated_webhook_v3_type
+    import benchling_api_client.webhooks.v0.stable.models.run_created_webhook_v3
+    import benchling_api_client.webhooks.v0.stable.models.run_created_webhook_v3_type
     import benchling_api_client.webhooks.v0.stable.models.update_event_base_webhook_v2
     import benchling_api_client.webhooks.v0.stable.models.update_event_base_webhook_v2_schematized
     import benchling_api_client.webhooks.v0.stable.models.v2_assay_run_created_event
@@ -211,6 +286,9 @@ if TYPE_CHECKING:
     import benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_scheduled_on_event_event_type
     import benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_status_event
     import benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_status_event_event_type
+    import benchling_api_client.webhooks.v0.stable.models.v3_event_base
+    import benchling_api_client.webhooks.v0.stable.models.v3_event_base_stability
+    import benchling_api_client.webhooks.v0.stable.models.v3_update_event_base
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app
     import benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app_definition
@@ -267,6 +345,30 @@ if TYPE_CHECKING:
     AssayRunUpdatedFieldsWebhookV2Type = (
         benchling_api_client.webhooks.v0.stable.models.assay_run_updated_fields_webhook_v2_type.AssayRunUpdatedFieldsWebhookV2Type
     )
+    AutomationFileTransformFailedWebhookV2 = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_failed_webhook_v2.AutomationFileTransformFailedWebhookV2
+    )
+    AutomationFileTransformFailedWebhookV2Type = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_failed_webhook_v2_type.AutomationFileTransformFailedWebhookV2Type
+    )
+    AutomationFileTransformPendingWebhookV2 = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_pending_webhook_v2.AutomationFileTransformPendingWebhookV2
+    )
+    AutomationFileTransformPendingWebhookV2Type = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_pending_webhook_v2_type.AutomationFileTransformPendingWebhookV2Type
+    )
+    AutomationFileTransformRunningWebhookV2 = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_running_webhook_v2.AutomationFileTransformRunningWebhookV2
+    )
+    AutomationFileTransformRunningWebhookV2Type = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_running_webhook_v2_type.AutomationFileTransformRunningWebhookV2Type
+    )
+    AutomationFileTransformSucceededWebhookV2 = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_succeeded_webhook_v2.AutomationFileTransformSucceededWebhookV2
+    )
+    AutomationFileTransformSucceededWebhookV2Type = (
+        benchling_api_client.webhooks.v0.stable.models.automation_file_transform_succeeded_webhook_v2_type.AutomationFileTransformSucceededWebhookV2Type
+    )
     CanvasCreatedWebhookV2 = (
         benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2.CanvasCreatedWebhookV2
     )
@@ -291,6 +393,42 @@ if TYPE_CHECKING:
     CanvasInteractionWebhookV2Type = (
         benchling_api_client.webhooks.v0.stable.models.canvas_interaction_webhook_v2_type.CanvasInteractionWebhookV2Type
     )
+    CustomEntityCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.custom_entity_created_webhook_v3.CustomEntityCreatedWebhookV3
+    )
+    CustomEntityCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.custom_entity_created_webhook_v3_type.CustomEntityCreatedWebhookV3Type
+    )
+    CustomEntityUpdatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.custom_entity_updated_webhook_v3.CustomEntityUpdatedWebhookV3
+    )
+    CustomEntityUpdatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.custom_entity_updated_webhook_v3_type.CustomEntityUpdatedWebhookV3Type
+    )
+    DnaOligoCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.dna_oligo_created_webhook_v3.DnaOligoCreatedWebhookV3
+    )
+    DnaOligoCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.dna_oligo_created_webhook_v3_type.DnaOligoCreatedWebhookV3Type
+    )
+    DnaOligoUpdatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.dna_oligo_updated_webhook_v3.DnaOligoUpdatedWebhookV3
+    )
+    DnaOligoUpdatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.dna_oligo_updated_webhook_v3_type.DnaOligoUpdatedWebhookV3Type
+    )
+    DnaSequenceCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.dna_sequence_created_webhook_v3.DnaSequenceCreatedWebhookV3
+    )
+    DnaSequenceCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.dna_sequence_created_webhook_v3_type.DnaSequenceCreatedWebhookV3Type
+    )
+    DnaSequenceUpdatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.dna_sequence_updated_webhook_v3.DnaSequenceUpdatedWebhookV3
+    )
+    DnaSequenceUpdatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.dna_sequence_updated_webhook_v3_type.DnaSequenceUpdatedWebhookV3Type
+    )
     EntityRegisteredWebhookV2 = (
         benchling_api_client.webhooks.v0.stable.models.entity_registered_webhook_v2.EntityRegisteredWebhookV2
     )
@@ -302,6 +440,12 @@ if TYPE_CHECKING:
     )
     EntryCreatedWebhookV2Type = (
         benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v2_type.EntryCreatedWebhookV2Type
+    )
+    EntryCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v3.EntryCreatedWebhookV3
+    )
+    EntryCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v3_type.EntryCreatedWebhookV3Type
     )
     EntryUpdatedFieldsWebhookV2 = (
         benchling_api_client.webhooks.v0.stable.models.entry_updated_fields_webhook_v2.EntryUpdatedFieldsWebhookV2
@@ -366,6 +510,18 @@ if TYPE_CHECKING:
     MessageBaseV0 = (
         benchling_api_client.webhooks.v0.stable.models.message_base_v0.MessageBaseV0
     )
+    ProjectCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.project_created_webhook_v3.ProjectCreatedWebhookV3
+    )
+    ProjectCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.project_created_webhook_v3_type.ProjectCreatedWebhookV3Type
+    )
+    ProjectUpdatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.project_updated_webhook_v3.ProjectUpdatedWebhookV3
+    )
+    ProjectUpdatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.project_updated_webhook_v3_type.ProjectUpdatedWebhookV3Type
+    )
     RequestCreatedWebhookV2 = (
         benchling_api_client.webhooks.v0.stable.models.request_created_webhook_v2.RequestCreatedWebhookV2
     )
@@ -383,6 +539,36 @@ if TYPE_CHECKING:
     )
     RequestUpdatedStatusWebhookV2Type = (
         benchling_api_client.webhooks.v0.stable.models.request_updated_status_webhook_v2_type.RequestUpdatedStatusWebhookV2Type
+    )
+    RnaOligoCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.rna_oligo_created_webhook_v3.RnaOligoCreatedWebhookV3
+    )
+    RnaOligoCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.rna_oligo_created_webhook_v3_type.RnaOligoCreatedWebhookV3Type
+    )
+    RnaOligoUpdatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.rna_oligo_updated_webhook_v3.RnaOligoUpdatedWebhookV3
+    )
+    RnaOligoUpdatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.rna_oligo_updated_webhook_v3_type.RnaOligoUpdatedWebhookV3Type
+    )
+    RnaSequenceCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.rna_sequence_created_webhook_v3.RnaSequenceCreatedWebhookV3
+    )
+    RnaSequenceCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.rna_sequence_created_webhook_v3_type.RnaSequenceCreatedWebhookV3Type
+    )
+    RnaSequenceUpdatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.rna_sequence_updated_webhook_v3.RnaSequenceUpdatedWebhookV3
+    )
+    RnaSequenceUpdatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.rna_sequence_updated_webhook_v3_type.RnaSequenceUpdatedWebhookV3Type
+    )
+    RunCreatedWebhookV3 = (
+        benchling_api_client.webhooks.v0.stable.models.run_created_webhook_v3.RunCreatedWebhookV3
+    )
+    RunCreatedWebhookV3Type = (
+        benchling_api_client.webhooks.v0.stable.models.run_created_webhook_v3_type.RunCreatedWebhookV3Type
     )
     UpdateEventBaseWebhookV2 = (
         benchling_api_client.webhooks.v0.stable.models.update_event_base_webhook_v2.UpdateEventBaseWebhookV2
@@ -498,6 +684,15 @@ if TYPE_CHECKING:
     V2WorkflowTaskUpdatedStatusEventEventType = (
         benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_status_event_event_type.V2WorkflowTaskUpdatedStatusEventEventType
     )
+    V3EventBase = (
+        benchling_api_client.webhooks.v0.stable.models.v3_event_base.V3EventBase
+    )
+    V3EventBaseStability = (
+        benchling_api_client.webhooks.v0.stable.models.v3_event_base_stability.V3EventBaseStability
+    )
+    V3UpdateEventBase = (
+        benchling_api_client.webhooks.v0.stable.models.v3_update_event_base.V3UpdateEventBase
+    )
     WebhookEnvelopeV0 = (
         benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0.WebhookEnvelopeV0
     )
@@ -586,6 +781,14 @@ else:
         "AssayRunCreatedWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.assay_run_created_webhook_v2_type",
         "AssayRunUpdatedFieldsWebhookV2": "benchling_api_client.webhooks.v0.stable.models.assay_run_updated_fields_webhook_v2",
         "AssayRunUpdatedFieldsWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.assay_run_updated_fields_webhook_v2_type",
+        "AutomationFileTransformFailedWebhookV2": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_failed_webhook_v2",
+        "AutomationFileTransformFailedWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_failed_webhook_v2_type",
+        "AutomationFileTransformPendingWebhookV2": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_pending_webhook_v2",
+        "AutomationFileTransformPendingWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_pending_webhook_v2_type",
+        "AutomationFileTransformRunningWebhookV2": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_running_webhook_v2",
+        "AutomationFileTransformRunningWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_running_webhook_v2_type",
+        "AutomationFileTransformSucceededWebhookV2": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_succeeded_webhook_v2",
+        "AutomationFileTransformSucceededWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.automation_file_transform_succeeded_webhook_v2_type",
         "CanvasCreatedWebhookV2": "benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2",
         "CanvasCreatedWebhookV2Beta": "benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2_beta",
         "CanvasCreatedWebhookV2BetaType": "benchling_api_client.webhooks.v0.stable.models.canvas_created_webhook_v2_beta_type",
@@ -594,10 +797,24 @@ else:
         "CanvasInitializeWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.canvas_initialize_webhook_v2_type",
         "CanvasInteractionWebhookV2": "benchling_api_client.webhooks.v0.stable.models.canvas_interaction_webhook_v2",
         "CanvasInteractionWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.canvas_interaction_webhook_v2_type",
+        "CustomEntityCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.custom_entity_created_webhook_v3",
+        "CustomEntityCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.custom_entity_created_webhook_v3_type",
+        "CustomEntityUpdatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.custom_entity_updated_webhook_v3",
+        "CustomEntityUpdatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.custom_entity_updated_webhook_v3_type",
+        "DnaOligoCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.dna_oligo_created_webhook_v3",
+        "DnaOligoCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.dna_oligo_created_webhook_v3_type",
+        "DnaOligoUpdatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.dna_oligo_updated_webhook_v3",
+        "DnaOligoUpdatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.dna_oligo_updated_webhook_v3_type",
+        "DnaSequenceCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.dna_sequence_created_webhook_v3",
+        "DnaSequenceCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.dna_sequence_created_webhook_v3_type",
+        "DnaSequenceUpdatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.dna_sequence_updated_webhook_v3",
+        "DnaSequenceUpdatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.dna_sequence_updated_webhook_v3_type",
         "EntityRegisteredWebhookV2": "benchling_api_client.webhooks.v0.stable.models.entity_registered_webhook_v2",
         "EntityRegisteredWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.entity_registered_webhook_v2_type",
         "EntryCreatedWebhookV2": "benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v2",
         "EntryCreatedWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v2_type",
+        "EntryCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v3",
+        "EntryCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.entry_created_webhook_v3_type",
         "EntryUpdatedFieldsWebhookV2": "benchling_api_client.webhooks.v0.stable.models.entry_updated_fields_webhook_v2",
         "EntryUpdatedFieldsWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.entry_updated_fields_webhook_v2_type",
         "EntryUpdatedReviewRecordWebhookV2": "benchling_api_client.webhooks.v0.stable.models.entry_updated_review_record_webhook_v2",
@@ -619,12 +836,26 @@ else:
         "LifecycleDeactivateWebhookV0Type": "benchling_api_client.webhooks.v0.stable.models.lifecycle_deactivate_webhook_v0_type",
         "MessageBase": "benchling_api_client.webhooks.v0.stable.models.message_base",
         "MessageBaseV0": "benchling_api_client.webhooks.v0.stable.models.message_base_v0",
+        "ProjectCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.project_created_webhook_v3",
+        "ProjectCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.project_created_webhook_v3_type",
+        "ProjectUpdatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.project_updated_webhook_v3",
+        "ProjectUpdatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.project_updated_webhook_v3_type",
         "RequestCreatedWebhookV2": "benchling_api_client.webhooks.v0.stable.models.request_created_webhook_v2",
         "RequestCreatedWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.request_created_webhook_v2_type",
         "RequestUpdatedFieldsWebhookV2": "benchling_api_client.webhooks.v0.stable.models.request_updated_fields_webhook_v2",
         "RequestUpdatedFieldsWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.request_updated_fields_webhook_v2_type",
         "RequestUpdatedStatusWebhookV2": "benchling_api_client.webhooks.v0.stable.models.request_updated_status_webhook_v2",
         "RequestUpdatedStatusWebhookV2Type": "benchling_api_client.webhooks.v0.stable.models.request_updated_status_webhook_v2_type",
+        "RnaOligoCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.rna_oligo_created_webhook_v3",
+        "RnaOligoCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.rna_oligo_created_webhook_v3_type",
+        "RnaOligoUpdatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.rna_oligo_updated_webhook_v3",
+        "RnaOligoUpdatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.rna_oligo_updated_webhook_v3_type",
+        "RnaSequenceCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.rna_sequence_created_webhook_v3",
+        "RnaSequenceCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.rna_sequence_created_webhook_v3_type",
+        "RnaSequenceUpdatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.rna_sequence_updated_webhook_v3",
+        "RnaSequenceUpdatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.rna_sequence_updated_webhook_v3_type",
+        "RunCreatedWebhookV3": "benchling_api_client.webhooks.v0.stable.models.run_created_webhook_v3",
+        "RunCreatedWebhookV3Type": "benchling_api_client.webhooks.v0.stable.models.run_created_webhook_v3_type",
         "UpdateEventBaseWebhookV2": "benchling_api_client.webhooks.v0.stable.models.update_event_base_webhook_v2",
         "UpdateEventBaseWebhookV2Schematized": "benchling_api_client.webhooks.v0.stable.models.update_event_base_webhook_v2_schematized",
         "V2AssayRunCreatedEvent": "benchling_api_client.webhooks.v0.stable.models.v2_assay_run_created_event",
@@ -663,6 +894,9 @@ else:
         "V2WorkflowTaskUpdatedScheduledOnEventEventType": "benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_scheduled_on_event_event_type",
         "V2WorkflowTaskUpdatedStatusEvent": "benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_status_event",
         "V2WorkflowTaskUpdatedStatusEventEventType": "benchling_api_client.webhooks.v0.stable.models.v2_workflow_task_updated_status_event_event_type",
+        "V3EventBase": "benchling_api_client.webhooks.v0.stable.models.v3_event_base",
+        "V3EventBaseStability": "benchling_api_client.webhooks.v0.stable.models.v3_event_base_stability",
+        "V3UpdateEventBase": "benchling_api_client.webhooks.v0.stable.models.v3_update_event_base",
         "WebhookEnvelopeV0": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0",
         "WebhookEnvelopeV0App": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app",
         "WebhookEnvelopeV0AppDefinition": "benchling_api_client.webhooks.v0.stable.models.webhook_envelope_v0_app_definition",

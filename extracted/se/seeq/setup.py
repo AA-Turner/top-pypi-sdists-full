@@ -2,37 +2,14 @@ from __future__ import annotations
 
 import setuptools
 
-with open("README.md", "r") as fh:
-    long_description = fh.read()
-
+# Metadata is defined in pyproject.toml [project] section to prevent Dynamic fields
+# This setup.py only handles package discovery and build configuration
+# When pyproject.toml [project] section exists, setuptools will use it instead of setup.py metadata
 setuptools.setup(
-    name="seeq",
-    version="66.55.0.20250923",
-    author="Seeq Corporation",
-    author_email="support@seeq.com",
-    description="The Seeq SDK for Python",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url="https://www.seeq.com",
-    project_urls={
-        'Documentation': 'https://python-docs.seeq.com/',
-        'Changelog': 'https://python-docs.seeq.com/changelog.html'
-    },
     packages=setuptools.find_namespace_packages(include=['seeq.sdk', 'seeq.sdk.*']),
     include_package_data=True,
-    install_requires=[
-        # These requirements are for seeq.sdk and should match target/python/requirements.txt
-        'certifi >= 14.05.14',
-        'six >= 1.10',
-        'urllib3 >= 1.15.1, < 3.0.0',
-        'requests >= 2.21.0',
-        'cryptography >= 3.2',
-    ],
-    classifiers=[
-        "Programming Language :: Python :: 2",
-        "Programming Language :: Python :: 3",
-        "License :: Other/Proprietary License",
-        "Operating System :: OS Independent",
-    ],
-    zip_safe=False
+    zip_safe=False,
+    # A bug exists in setuptools where `license-files` is incorrectly marked as dynamic. Rely on `license` in
+    # pyproject.toml until https://github.com/pypa/setuptools/issues/4960 is fixed.
+    license_files=[],
 )

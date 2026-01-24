@@ -38,6 +38,7 @@ class JobQueuesQuery(object):
         'cluster_status': 'SessionState',
         'project_id': 'str',
         'cloud_id': 'str',
+        'archive_status': 'ArchiveStatus',
         'paging': 'PageQuery',
         'sorting_directives': 'list[JobQueueSortDirective]',
         'tags_filter': 'dict(str, list[str])'
@@ -49,12 +50,13 @@ class JobQueuesQuery(object):
         'cluster_status': 'cluster_status',
         'project_id': 'project_id',
         'cloud_id': 'cloud_id',
+        'archive_status': 'archive_status',
         'paging': 'paging',
         'sorting_directives': 'sorting_directives',
         'tags_filter': 'tags_filter'
     }
 
-    def __init__(self, name=None, creator_id=None, cluster_status=None, project_id=None, cloud_id=None, paging=None, sorting_directives=None, tags_filter=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, name=None, creator_id=None, cluster_status=None, project_id=None, cloud_id=None, archive_status=None, paging=None, sorting_directives=None, tags_filter=None, local_vars_configuration=None):  # noqa: E501
         """JobQueuesQuery - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class JobQueuesQuery(object):
         self._cluster_status = None
         self._project_id = None
         self._cloud_id = None
+        self._archive_status = None
         self._paging = None
         self._sorting_directives = None
         self._tags_filter = None
@@ -80,6 +83,8 @@ class JobQueuesQuery(object):
             self.project_id = project_id
         if cloud_id is not None:
             self.cloud_id = cloud_id
+        if archive_status is not None:
+            self.archive_status = archive_status
         if paging is not None:
             self.paging = paging
         if sorting_directives is not None:
@@ -201,6 +206,29 @@ class JobQueuesQuery(object):
         """
 
         self._cloud_id = cloud_id
+
+    @property
+    def archive_status(self):
+        """Gets the archive_status of this JobQueuesQuery.  # noqa: E501
+
+        Filter by archive status. NOT_ARCHIVED shows ACTIVE queues, ARCHIVED shows SEALED queues, ALL shows both.  # noqa: E501
+
+        :return: The archive_status of this JobQueuesQuery.  # noqa: E501
+        :rtype: ArchiveStatus
+        """
+        return self._archive_status
+
+    @archive_status.setter
+    def archive_status(self, archive_status):
+        """Sets the archive_status of this JobQueuesQuery.
+
+        Filter by archive status. NOT_ARCHIVED shows ACTIVE queues, ARCHIVED shows SEALED queues, ALL shows both.  # noqa: E501
+
+        :param archive_status: The archive_status of this JobQueuesQuery.  # noqa: E501
+        :type: ArchiveStatus
+        """
+
+        self._archive_status = archive_status
 
     @property
     def paging(self):

@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import os
 import tempfile
+from typing import Optional
 
 import numpy as np
 import onnx
@@ -18,6 +21,7 @@ logger = logging.getLogger("onnxslim")
 
 DEBUG = bool(os.getenv("ONNXSLIM_DEBUG"))
 AUTO_MERGE = True if os.getenv("ONNXSLIM_AUTO_MERGE") is None else bool(int(os.getenv("ONNXSLIM_AUTO_MERGE")))
+FORCE_ONNXRUNTIME_SHAPE_INFERENCE = bool(os.getenv("ONNXSLIM_FORCE_ONNXRUNTIME_SHAPE_INFERENCE"))
 
 
 def input_shape_modification(model: onnx.ModelProto, input_shapes: str) -> onnx.ModelProto:
@@ -122,6 +126,9 @@ def input_modification(model: onnx.ModelProto, inputs: str) -> onnx.ModelProto:
 def shape_infer(model: onnx.ModelProto):
     """Infer tensor shapes in an ONNX model using symbolic and static shape inference techniques."""
     logger.debug("Start shape inference.")
+    if FORCE_ONNXRUNTIME_SHAPE_INFERENCE:
+        logger.debug("force onnxruntime shape infer.")
+        return SymbolicShapeInference.infer_shapes(model, auto_merge=AUTO_MERGE)
     try:
         logger.debug("try onnxruntime shape infer.")
         model = SymbolicShapeInference.infer_shapes(model, auto_merge=AUTO_MERGE)
@@ -142,7 +149,7 @@ def shape_infer(model: onnx.ModelProto):
     return model
 
 
-def optimize(model: onnx.ModelProto, skip_fusion_patterns: str = None, size_threshold: int = None):
+def optimize(model: onnx.ModelProto, skip_fusion_patterns: str | None = None, size_threshold: int | None = None):
     """Optimize the given ONNX model with options to skip specific fusion patterns and return the optimized model."""
     logger.debug("Start converting model to gs.")
     graph = gs.import_onnx(model).toposort()
@@ -171,11 +178,11 @@ def convert_data_format(model: onnx.ModelProto, dtype: str) -> onnx.ModelProto:
 
         for node in graph.nodes:
             if node.op == "Cast":
-                inp_dtype = [input.dtype for input in node.inputs][0]
+                inp_dtype = next(input.dtype for input in node.inputs)
                 if inp_dtype in [np.float16, np.float32]:
                     node.erase()
                 else:
-                    outp_dtype = [output.dtype for output in node.outputs][0]
+                    outp_dtype = next(output.dtype for output in node.outputs)
                     if outp_dtype == np.float16:
                         node.attrs["to"] = dtype_to_onnx(np.float32)
                         node.outputs[0].dtype = np.float32

@@ -1,16 +1,23 @@
 Metadata-Version: 2.4
 Name: langgraph-supervisor
-Version: 0.0.29
+Version: 0.0.31
 Summary: An implementation of a supervisor multi-agent architecture using LangGraph
 Author-Email: Vadym Barda <19161700+vbarda@users.noreply.github.com >
 License-Expression: MIT
 License-File: LICENSE
+Project-URL: Source, https://github.com/langchain-ai/langgraph-supervisor-py
+Project-URL: Changelog, https://github.com/langchain-ai/langgraph-supervisor-py/releases
+Project-URL: Twitter, https://x.com/LangChainAI
+Project-URL: Slack, https://www.langchain.com/join-community
+Project-URL: Reddit, https://www.reddit.com/r/LangChain/
 Requires-Python: >=3.10
-Requires-Dist: langgraph<0.7.0,>=0.6.0
-Requires-Dist: langchain-core>=0.3.40
+Requires-Dist: langgraph<2.0.0,>=1.0.2
+Requires-Dist: langchain-core<2.0.0,>=1.0.0
 Description-Content-Type: text/markdown
 
 # 🤖 LangGraph Multi-Agent Supervisor
+
+> **Note**: We now recommend using the **supervisor pattern directly via tools** rather than this library for most use cases. The tool-calling approach gives you more control over context engineering and is the recommended pattern in the [LangChain multi-agent guide](https://docs.langchain.com/oss/python/langchain/multi-agent). See our [supervisor tutorial](https://docs.langchain.com/oss/python/langchain/supervisor) for a step-by-step guide. We're making this library compatible with LangChain 1.0 to help users upgrade their existing code. If you find this library solves a problem that can't be easily addressed with the manual supervisor pattern, we'd love to hear about your use case!
 
 A Python library for creating hierarchical multi-agent systems using [LangGraph](https://github.com/langchain-ai/langgraph). Hierarchical systems are a type of [multi-agent](https://langchain-ai.github.io/langgraph/concepts/multi_agent) architecture where specialized agents are coordinated by a central **supervisor** agent. The supervisor controls all communication flow and task delegation, making decisions about which agent to invoke based on the current context and task requirements.
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: consolekit
-Version: 1.9.0
+Version: 1.12.0
 Summary: Additional utilities for click.
 Keywords: click,terminal
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
@@ -149,7 +149,7 @@ consolekit
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/consolekit
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/consolekit/v1.9.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/consolekit/v1.12.0
 	:target: https://github.com/domdfcoding/consolekit/pulse
 	:alt: GitHub commits since tagged version
 
@@ -157,7 +157,7 @@ consolekit
 	:target: https://github.com/domdfcoding/consolekit/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2025
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/consolekit

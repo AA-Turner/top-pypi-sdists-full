@@ -15,6 +15,9 @@ from django.urls import NoReverseMatch, reverse
 from allauth import app_settings as allauth_settings
 
 
+HTTP_USER_AGENT_MAX_LENGTH = 200
+
+
 def serialize_request(request):
     return json.dumps(
         {
@@ -89,7 +92,7 @@ def render_url(request, url_template, **kwargs):
     url = url_template
     for k, v in kwargs.items():
         qi = url.find("?")
-        ki = url.find("{" + k + "}")
+        ki = url.find(f"{{{k}}}")
         if ki < 0:
             raise ImproperlyConfigured(url_template)
         is_query_param = qi >= 0 and ki > qi
@@ -97,7 +100,7 @@ def render_url(request, url_template, **kwargs):
             qv = urlencode({"k": v}).partition("k=")[2]
         else:
             qv = quote(v)
-        url = url.replace("{" + k + "}", qv)
+        url = url.replace(f"{{{k}}}", qv)
     p = urlparse(url)
     if not p.netloc:
         url = request.build_absolute_uri(url)
@@ -153,3 +156,15 @@ def is_headless_request(request: HttpRequest) -> Optional[str]:
     return getattr(
         getattr(getattr(request, "allauth", None), "headless", None), "client", None
     )
+
+
+def get_authorization_credential(
+    request: HttpRequest, auth_scheme: str
+) -> Optional[str]:
+    auth = request.META.get("HTTP_AUTHORIZATION")
+    if not auth:
+        return None
+    parts = auth.split()
+    if not parts or len(parts) != 2 or parts[0].lower() != auth_scheme.lower():
+        return None
+    return parts[1]

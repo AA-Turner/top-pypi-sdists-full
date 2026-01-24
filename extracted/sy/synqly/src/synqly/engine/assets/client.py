@@ -59,8 +59,7 @@ class AssetsClient:
             Start search from cursor position.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to the Assets Filtering Guide.
-            Defaults to no filter. If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to the Assets Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         order : typing.Optional[str]
             Select a field to order the results by. Defaults to `time`. To control the direction of the sorting, append
@@ -711,20 +710,13 @@ class AssetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     def get_labels(
-        self,
-        *,
-        filter: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetLabelsResponse:
         """
         Get labels from an asset inventory system
 
         Parameters
         ----------
-        filter : typing.Optional[str]
-            Filter results by this query. For more information on filtering, refer to the Assets Filtering Guide.
-            Defaults to no filter.
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -739,16 +731,11 @@ class AssetsClient:
         client = SynqlyEngine(
             token="YOUR_TOKEN",
         )
-        client.assets.get_labels(
-            filter="string",
-        )
+        client.assets.get_labels()
         """
         _response = self._client_wrapper.httpx_client.request(
             "v1/assets/labels",
             method="GET",
-            params={
-                "filter": filter,
-            },
             request_options=request_options,
         )
         try:
@@ -805,8 +792,7 @@ class AsyncAssetsClient:
             Start search from cursor position.
 
         filter : typing.Optional[typing.Union[str, typing.Sequence[str]]]
-            Filter results by this query. For more information on filtering, refer to the Assets Filtering Guide.
-            Defaults to no filter. If used more than once, the queries are ANDed together.
+            Filter results by this query. For more information on filtering, refer to the Assets Filtering Guide. Defaults to no filter. If used more than once, the queries are ANDed together.
 
         order : typing.Optional[str]
             Select a field to order the results by. Defaults to `time`. To control the direction of the sorting, append
@@ -1472,20 +1458,13 @@ class AsyncAssetsClient:
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
     async def get_labels(
-        self,
-        *,
-        filter: typing.Optional[str] = None,
-        request_options: typing.Optional[RequestOptions] = None,
+        self, *, request_options: typing.Optional[RequestOptions] = None
     ) -> GetLabelsResponse:
         """
         Get labels from an asset inventory system
 
         Parameters
         ----------
-        filter : typing.Optional[str]
-            Filter results by this query. For more information on filtering, refer to the Assets Filtering Guide.
-            Defaults to no filter.
-
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1505,9 +1484,7 @@ class AsyncAssetsClient:
 
 
         async def main() -> None:
-            await client.assets.get_labels(
-                filter="string",
-            )
+            await client.assets.get_labels()
 
 
         asyncio.run(main())
@@ -1515,9 +1492,6 @@ class AsyncAssetsClient:
         _response = await self._client_wrapper.httpx_client.request(
             "v1/assets/labels",
             method="GET",
-            params={
-                "filter": filter,
-            },
             request_options=request_options,
         )
         try:

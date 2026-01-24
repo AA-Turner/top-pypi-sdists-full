@@ -163,6 +163,7 @@ class TestFSRandomAccessFile : public FSRandomAccessFile {
  private:
   std::unique_ptr<FSRandomAccessFile> target_;
   FaultInjectionTestFS* fs_;
+  const bool is_sst_;
 };
 
 class TestFSSequentialFile : public FSSequentialFileOwnerWrapper {
@@ -222,22 +223,31 @@ class FaultInjectionTestFS : public FileSystemWrapper {
         injected_thread_local_metadata_write_error_(
             DeleteThreadLocalErrorContext),
         ingest_data_corruption_before_write_(false),
-        checksum_handoff_func_type_(kCRC32c),
-        fail_get_file_unique_id_(false),
-        fail_get_file_size_(false) {}
+        checksum_handoff_func_type_(kCRC32c) {}
   virtual ~FaultInjectionTestFS() override { fs_error_.PermitUncheckedError(); }
 
   static const char* kClassName() { return "FaultInjectionTestFS"; }
   const char* Name() const override { return kClassName(); }
 
-  static bool IsInjectedError(const Status& s) {
-    assert(!s.ok());
-    return std::strstr(s.getState(), kInjected.c_str());
+  static bool IsInjectedError(const Status& s,
+                              const std::string& specific_error_marker = "") {
+    if (s.ok()) {
+      return false;
+    }
+    const char* state = s.getState();
+    if (state == nullptr) {
+      return false;
+    }
+    bool is_injected_error = std::strstr(state, kInjected.c_str()) != nullptr;
+    bool is_specific_error =
+        specific_error_marker.empty() ||
+        std::strstr(state, specific_error_marker.c_str()) != nullptr;
+
+    return is_injected_error && is_specific_error;
   }
 
   static bool IsFailedToWriteToWALError(const Status& s) {
-    assert(!s.ok());
-    return std::strstr(s.getState(), kFailedToWriteToWAL.c_str());
+    return IsInjectedError(s, kFailedToWriteToWAL);
   }
 
   IOStatus NewDirectory(const std::string& name, const IOOptions& options,
@@ -485,14 +495,24 @@ class FaultInjectionTestFS : public FileSystemWrapper {
     return fail_get_file_unique_id_;
   }
 
-  void SetFailGetFileSize(bool flag) {
+  void SetFailRandomAccessGetFileSizeSst(bool flag) {
     MutexLock l(&mutex_);
-    fail_get_file_size_ = flag;
+    fail_random_access_get_file_size_sst_ = flag;
   }
 
-  bool ShouldFailGetFileSize() {
+  bool ShouldFailRandomAccessGetFileSizeSst() {
     MutexLock l(&mutex_);
-    return fail_get_file_size_;
+    return fail_random_access_get_file_size_sst_;
+  }
+
+  void SetFailFilesystemGetFileSizeSst(bool flag) {
+    MutexLock l(&mutex_);
+    fail_fs_get_file_size_sst_ = flag;
+  }
+
+  bool ShouldFailFilesystemGetFileSizeSst() {
+    MutexLock l(&mutex_);
+    return fail_fs_get_file_size_sst_;
   }
 
   // Specify what the operation, so we can inject the right type of error
@@ -653,8 +673,9 @@ class FaultInjectionTestFS : public FileSystemWrapper {
   ThreadLocalPtr injected_thread_local_metadata_write_error_;
   bool ingest_data_corruption_before_write_;
   ChecksumType checksum_handoff_func_type_;
-  bool fail_get_file_unique_id_;
-  bool fail_get_file_size_;
+  bool fail_get_file_unique_id_ = false;
+  bool fail_random_access_get_file_size_sst_ = false;
+  bool fail_fs_get_file_size_sst_ = false;
 
   // Inject an error. For a READ operation, a status of IOError(), a
   // corruption in the contents of scratch, or truncation of slice

@@ -57,6 +57,10 @@ write_files:
       function error_exit
       {
         echo "Bootstrap failed with error: $1"
+        # Echo chef-client.log to console logs for debugging
+        echo "========== BEGIN CHEF-CLIENT.LOG =========="
+        cat /var/log/chef-client.log || echo "chef-client.log not found"
+        echo "========== END CHEF-CLIENT.LOG ==========="
         # wait logs flush before signaling the failure
         sleep 10
         # TODO: add possibility to override this behavior and keep the instance for debugging
@@ -65,16 +69,7 @@ write_files:
       }
       function vendor_cookbook
       {
-        mkdir /tmp/cookbooks
-        cd /tmp/cookbooks
-        tar -xzf /etc/chef/aws-parallelcluster-cookbook.tgz
-        HOME_BAK="${!HOME}"
-        export HOME="/tmp"
-        for d in `ls /tmp/cookbooks`; do
-          cd /tmp/cookbooks/$d
-          LANG=en_US.UTF-8 /opt/cinc/embedded/bin/berks vendor /etc/chef/cookbooks --delete || error_exit 'Vendoring cookbook failed.'
-        done;
-        export HOME="${!HOME_BAK}"
+        cd /etc/chef && tar -xzf /etc/chef/aws-parallelcluster-cookbook.tgz --strip-components 1 && rm -f aws-parallelcluster-cookbook.tgz
       }
 
       export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/opt/aws/bin
@@ -113,7 +108,7 @@ write_files:
       export parallelcluster_version=aws-parallelcluster-${ParallelClusterVersion}
       export cookbook_version=${CookbookVersion}
       export chef_version=${ChefVersion}
-      export berkshelf_version=${BerkshelfVersion}
+
       if [ -f /opt/parallelcluster/.bootstrapped ]; then
         installed_version=$(cat /opt/parallelcluster/.bootstrapped)
         if [ "${!cookbook_version}" != "${!installed_version}" ]; then
@@ -154,6 +149,10 @@ MIME-Version: 1.0
 function error_exit
 {
   echo "Timed-out when bootstrapping instance"
+  # Echo chef-client.log to console logs for debugging
+  echo "========== BEGIN CHEF-CLIENT.LOG =========="
+  cat /var/log/chef-client.log || echo "chef-client.log not found"
+  echo "========== END CHEF-CLIENT.LOG ==========="
   sleep 10  # Allow logs to propagate
   shutdown -h now
   exit 1

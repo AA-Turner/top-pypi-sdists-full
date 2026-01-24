@@ -193,13 +193,13 @@ async def handle_post_request(request: ApiRequest) -> Response:
     # Careful ID checks as the integer 0 is a valid ID
     if id_ is not None and method:
         # JSON-RPC request
-        return await handle_jsonrpc_request(request, cast(JsonRpcRequest, message))
+        return await handle_jsonrpc_request(request, cast("JsonRpcRequest", message))
     elif id_ is not None:
         # JSON-RPC response
-        return handle_jsonrpc_response(cast(JsonRpcResponse, message))
+        return handle_jsonrpc_response(cast("JsonRpcResponse", message))
     elif method:
         # JSON-RPC notification
-        return handle_jsonrpc_notification(cast(JsonRpcNotification, message))
+        return handle_jsonrpc_notification(cast("JsonRpcNotification", message))
     else:
         # Invalid message format
         return create_error_response(

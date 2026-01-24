@@ -3,7 +3,7 @@ Type annotations for sso-oidc service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sso_oidc/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,13 +17,8 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -63,7 +58,7 @@ class CreateTokenRequestTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -114,7 +109,7 @@ class CreateTokenWithIAMResponseTypeDef(TypedDict):
     refreshToken: str
     idToken: str
     issuedTokenType: str
-    scope: List[str]
+    scope: list[str]
     awsAdditionalDetails: AwsAdditionalDetailsTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

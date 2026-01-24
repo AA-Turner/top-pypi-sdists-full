@@ -46,8 +46,7 @@
 
 /*----- PROTECTED REGION END -----*/ //	IfchangeServerClass.h
 
-namespace IfchangeServer_ns
-{
+namespace IfchangeServer_ns {
 /*----- PROTECTED REGION ID(IfchangeServerClass::classes for dynamic creation) ENABLED START -----*/
 
 /*----- PROTECTED REGION END -----*/ //	IfchangeServerClass::classes for dynamic creation
@@ -56,20 +55,17 @@ namespace IfchangeServer_ns
 //	Define classes for attributes
 //=========================================
 //	Attribute busy class definition
-class busyAttrib : public Tango::Attr
-{
+class busyAttrib : public Tango::Attr {
   public:
     busyAttrib() :
         Attr("busy", Tango::DEV_BOOLEAN, Tango::READ){};
     ~busyAttrib(){};
 
-    virtual void read(Tango::DeviceImpl *dev, Tango::Attribute &att)
-    {
+    virtual void read(Tango::DeviceImpl *dev, Tango::Attribute &att) {
         (static_cast<IfchangeServer *>(dev))->read_busy(att);
     }
 
-    virtual bool is_allowed(Tango::DeviceImpl *dev, Tango::AttReqType ty)
-    {
+    virtual bool is_allowed(Tango::DeviceImpl *dev, Tango::AttReqType ty) {
         return (static_cast<IfchangeServer *>(dev))->is_busy_allowed(ty);
     }
 };
@@ -78,20 +74,17 @@ class busyAttrib : public Tango::Attr
 //	Define classes for dynamic attributes
 //=========================================
 //	Attribute ioattr class definition
-class ioattrAttrib : public Tango::Attr
-{
+class ioattrAttrib : public Tango::Attr {
   public:
     ioattrAttrib(const string &att_name) :
         Attr(att_name.c_str(), Tango::DEV_DOUBLE, Tango::READ){};
     ~ioattrAttrib(){};
 
-    virtual void read(Tango::DeviceImpl *dev, Tango::Attribute &att)
-    {
+    virtual void read(Tango::DeviceImpl *dev, Tango::Attribute &att) {
         (static_cast<IfchangeServer *>(dev))->read_ioattr(att);
     }
 
-    virtual bool is_allowed(Tango::DeviceImpl *dev, Tango::AttReqType ty)
-    {
+    virtual bool is_allowed(Tango::DeviceImpl *dev, Tango::AttReqType ty) {
         return (static_cast<IfchangeServer *>(dev))->is_ioattr_allowed(ty);
     }
 };
@@ -100,8 +93,7 @@ class ioattrAttrib : public Tango::Attr
 //	Define classes for commands
 //=========================================
 //	Command Add_dynamic class definition
-class Add_dynamicClass : public Tango::Command
-{
+class Add_dynamicClass : public Tango::Command {
   public:
     Add_dynamicClass(const char *name,
                      Tango::CmdArgType in,
@@ -117,15 +109,13 @@ class Add_dynamicClass : public Tango::Command
 
     virtual CORBA::Any *execute(Tango::DeviceImpl *dev, const CORBA::Any &any);
 
-    virtual bool is_allowed(Tango::DeviceImpl *dev, const CORBA::Any &any)
-    {
+    virtual bool is_allowed(Tango::DeviceImpl *dev, const CORBA::Any &any) {
         return (static_cast<IfchangeServer *>(dev))->is_Add_dynamic_allowed(any);
     }
 };
 
 //	Command Delete_Dynamic class definition
-class Delete_DynamicClass : public Tango::Command
-{
+class Delete_DynamicClass : public Tango::Command {
   public:
     Delete_DynamicClass(const char *name,
                         Tango::CmdArgType in,
@@ -141,8 +131,7 @@ class Delete_DynamicClass : public Tango::Command
 
     virtual CORBA::Any *execute(Tango::DeviceImpl *dev, const CORBA::Any &any);
 
-    virtual bool is_allowed(Tango::DeviceImpl *dev, const CORBA::Any &any)
-    {
+    virtual bool is_allowed(Tango::DeviceImpl *dev, const CORBA::Any &any) {
         return (static_cast<IfchangeServer *>(dev))->is_Delete_Dynamic_allowed(any);
     }
 };
@@ -151,8 +140,7 @@ class Delete_DynamicClass : public Tango::Command
 //	Define classes for dynamic commands
 //=========================================
 //	Command iocmd class definition
-class iocmdClass : public Tango::Command
-{
+class iocmdClass : public Tango::Command {
   public:
     iocmdClass(const char *name,
                Tango::CmdArgType in,
@@ -168,8 +156,7 @@ class iocmdClass : public Tango::Command
 
     virtual CORBA::Any *execute(Tango::DeviceImpl *dev, const CORBA::Any &any);
 
-    virtual bool is_allowed(Tango::DeviceImpl *dev, const CORBA::Any &any)
-    {
+    virtual bool is_allowed(Tango::DeviceImpl *dev, const CORBA::Any &any) {
         return (static_cast<IfchangeServer *>(dev))->is_iocmd_allowed(any);
     }
 };

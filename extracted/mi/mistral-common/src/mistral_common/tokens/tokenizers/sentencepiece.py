@@ -3,7 +3,8 @@ import os
 import warnings
 from functools import cached_property
 from pathlib import Path
-from typing import List, Optional, Set, Union
+
+import numpy as np
 
 from mistral_common.exceptions import TokenizerException
 from mistral_common.imports import assert_sentencepiece_installed, is_sentencepiece_installed
@@ -14,11 +15,23 @@ from mistral_common.tokens.tokenizers.base import (
 )
 from mistral_common.tokens.tokenizers.image import ImageConfig, MultiModalVersion
 
+warnings.filterwarnings(
+    action="once",
+    category=FutureWarning,
+    message=r".*`get_control_token` is deprecated.*",
+)
+warnings.filterwarnings(
+    action="once",
+    category=FutureWarning,
+    message=r".*`_control_tokens` is deprecated.*",
+)
+
+
 if is_sentencepiece_installed():
     from sentencepiece import SentencePieceProcessor
 
 
-def is_sentencepiece(path: Union[str, Path]) -> bool:
+def is_sentencepiece(path: str | Path) -> bool:
     r"""Check if the given path is a SentencePiece model."""
     if isinstance(path, str):
         path = Path(path)
@@ -30,7 +43,7 @@ def is_sentencepiece(path: Union[str, Path]) -> bool:
     return path.is_file() and any(path.name.endswith(suffix) for suffix in suffixes)
 
 
-def get_spm_version(tokenizer_filename: Union[str, Path], raise_deprecated: bool = False) -> TokenizerVersion:
+def get_spm_version(tokenizer_filename: str | Path, raise_deprecated: bool = False) -> TokenizerVersion:
     r"""Get the version of the tokenizer from the filename."""
     tokenizer_filename = str(tokenizer_filename)
 
@@ -51,7 +64,7 @@ def get_spm_version(tokenizer_filename: Union[str, Path], raise_deprecated: bool
     return TokenizerVersion(_version_str)
 
 
-def get_image_config(tokenizer_filename: Union[str, Path]) -> Optional[ImageConfig]:
+def get_image_config(tokenizer_filename: str | Path) -> ImageConfig | None:
     r"""Get the image config from the tokenizer filename."""
     tokenizer_filename = str(tokenizer_filename)
 
@@ -70,7 +83,7 @@ def get_image_config(tokenizer_filename: Union[str, Path]) -> Optional[ImageConf
 class SentencePieceTokenizer(Tokenizer):
     r"""[SentencePiece](https://github.com/google/sentencepiece) tokenizer."""
 
-    def __init__(self, model_path: Union[str, Path], tokenizer_version: Optional[TokenizerVersion] = None) -> None:
+    def __init__(self, model_path: str | Path, tokenizer_version: TokenizerVersion | None = None) -> None:
         r"""Initialize the `SentencePieceTokenizer`.
 
         Args:
@@ -104,16 +117,20 @@ class SentencePieceTokenizer(Tokenizer):
         r"""The version of the tokenizer."""
         return self._version
 
-    def get_control_token(self, s: str) -> int:
-        r"""Get the control token for the given string."""
+    def get_special_token(self, s: str) -> int:
+        r"""Get the special token for the given string."""
         return self._model.piece_to_id(s)  # type: ignore
+
+    def get_control_token(self, s: str) -> int:
+        warnings.warn("`get_control_token` is deprecated. Use `get_special_token` instead.", FutureWarning)
+        return self.get_special_token(s)
 
     @property
     def n_words(self) -> int:
         r"""Vocabulary size of the tokenizer."""
         return self._model.vocab_size()  # type: ignore
 
-    def vocab(self) -> List[str]:
+    def vocab(self) -> list[str]:
         r"""All tokens in the vocabulary as strings."""
         return self._vocab
 
@@ -127,11 +144,22 @@ class SentencePieceTokenizer(Tokenizer):
         r"""The end of sentence token id."""
         return self._model.eos_id()  # type: ignore
 
+    def is_special(self, token: int | np.integer | str) -> bool:
+        """Return `True` if the passed `token` is a special token."""
+        if isinstance(token, (int, np.integer)):
+            return self._model.IsControl(int(token))  # type: ignore
+        elif isinstance(token, str):
+            token_int = self._model.piece_to_id(token)
+            return self._model.IsControl(token_int)  # type: ignore
+        else:
+            raise TypeError(f"Expected int or str, got {type(token).__name__}")
+
     @cached_property
-    def _control_tokens(self) -> Set[int]:
+    def _control_tokens(self) -> set[int]:
+        warnings.warn("`_control_tokens` is deprecated. Make use of `is_special` instead.", FutureWarning)
         return {tok for tok in range(self.n_words) if self._model.IsControl(tok)}
 
-    def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
+    def encode(self, s: str, bos: bool, eos: bool) -> list[int]:
         r"""Encode the given string into a list of token ids.
 
         Args:
@@ -143,14 +171,14 @@ class SentencePieceTokenizer(Tokenizer):
             The list of token ids.
         """
         assert isinstance(s, str)
-        t: List[int] = self._model.encode(s)
+        t: list[int] = self._model.encode(s)
         if bos:
             t = [self.bos_id, *t]
         if eos:
             t = [*t, self.eos_id]
         return t
 
-    def decode(self, tokens: List[int], special_token_policy: Optional[SpecialTokenPolicy] = None) -> str:
+    def decode(self, tokens: list[int], special_token_policy: SpecialTokenPolicy | None = None) -> str:
         r"""Decode the given list of token ids into a string.
 
         Note:
@@ -192,28 +220,28 @@ class SentencePieceTokenizer(Tokenizer):
         r"""Convert the given token id to a token piece."""
         return self._model.id_to_piece(token_id)  # type: ignore
 
-    def _decode_with_special_tokens(self, tokens: List[int], special_token_policy: SpecialTokenPolicy) -> str:
-        text = ""
-        curr_tokens: List[int] = []
+    def _decode_with_special_tokens(self, tokens: list[int], special_token_policy: SpecialTokenPolicy) -> str:
+        text_list = []
+        curr_tokens: list[int] = []
         for tok in tokens:
-            if tok in self._control_tokens:
+            if self.is_special(tok):
                 if special_token_policy == SpecialTokenPolicy.RAISE:
                     raise ValueError("Decoding `tokens` that contain special tokens with special_token_policy=RAISE.")
                 if curr_tokens:
-                    text += "".join([self.id_to_piece(tok) for tok in curr_tokens])
+                    text_list.extend([self.id_to_piece(tok) for tok in curr_tokens])
                     curr_tokens = []
 
-                text += self.id_to_piece(tok)
+                text_list.append(self.id_to_piece(tok))
 
             else:
                 curr_tokens.append(tok)
 
         if curr_tokens:
-            text += "".join([self.id_to_piece(tok) for tok in curr_tokens])
+            text_list.extend([self.id_to_piece(tok) for tok in curr_tokens])
 
-        return text
+        return "".join(text_list)
 
-    def to_string(self, tokens: List[int]) -> str:
+    def to_string(self, tokens: list[int]) -> str:
         r"""[DEPRECATED] Converts a list of token ids into a string, keeping special tokens.
 
         Use `decode` with `special_token_policy=SpecialTokenPolicy.KEEP` instead.
@@ -229,7 +257,7 @@ class SentencePieceTokenizer(Tokenizer):
         )
         return self._to_string(tokens)
 
-    def _to_string(self, tokens: List[int]) -> str:
+    def _to_string(self, tokens: list[int]) -> str:
         return self.decode(tokens, special_token_policy=SpecialTokenPolicy.KEEP)
 
     @property

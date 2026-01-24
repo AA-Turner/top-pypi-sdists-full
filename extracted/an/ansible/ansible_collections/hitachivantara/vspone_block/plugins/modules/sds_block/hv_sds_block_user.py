@@ -10,9 +10,9 @@ __metaclass__ = type
 DOCUMENTATION = """
 ---
 module: hv_sds_block_user
-short_description: Create and update users from storage system
+short_description: Create and update users on the storage system
 description:
-  - Create and update users from storage system.
+  - Create and update users on the storage system.
   - For examples, go to URL
     U(https://github.com/hitachi-vantara/vspone-block-ansible/blob/main/playbooks/sds_block_direct/sdsb_users.yml)
 version_added: "4.1.0"
@@ -31,15 +31,16 @@ options:
     description: The level of the user task.
     type: str
     required: false
-    choices: ['present', 'update']
+    choices: ['present', 'update', 'absent', 'add_user_group', 'remove_user_group']
     default: 'present'
   spec:
-    description: Specification for the user to be added to or updated in storage.
+    description: Specification for the user task.
     type: dict
     required: false
     suboptions:
-      user_id:
-        description: User ID (username) to be created or updated.
+      id:
+        description: The user ID. This is an alias of user_id.
+        aliases: ['user_id']
         type: str
         required: false
       password:
@@ -67,6 +68,10 @@ options:
         description: Whether the user can log in to the console.
         type: bool
         default: true
+      is_enabled:
+        description: Enables or disables the user.
+        type: bool
+        default: true
 """
 
 EXAMPLES = """
@@ -79,7 +84,7 @@ EXAMPLES = """
     state: present
     spec:
       user_id: "new_user"
-      password: "new_password"
+      password: "CHANGE_ME_SET_YOUR_PASSWORD"
       user_group_ids:
         - "admin_group"
       authentication: "local"
@@ -94,99 +99,137 @@ EXAMPLES = """
     state: update
     spec:
       user_id: "existing_user"
-      current_password: "current_password"
-      new_password: "updated_password"
+      current_password: "CHANGE_ME_SET_YOUR_PASSWORD"
+      new_password: "CHANGE_ME_SET_YOUR_NEW_PASSWORD"
+
+- name: Update user settings
+  hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+    connection_info:
+      address: sdsb.company.com
+      username: "admin"
+      password: "CHANGE_ME_SET_YOUR_PASSWORD"
+    state: present
+    spec:
+      id: "radey-vps02-admin-5"
+      password: "CHANGE_ME_SET_YOUR_NEW_PASSWORD"
+      is_enabled: false
+
+- name: Delete a user
+  hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+    connection_info:
+      address: sdsb.company.com
+      username: "admin"
+      password: "CHANGE_ME_SET_YOUR_PASSWORD"
+    state: absent
+    spec:
+      id: "radey-vps02-admin-4"
+
+- name: Add user to user groups
+  hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+    connection_info:
+      address: sdsb.company.com
+      username: "admin"
+      password: "CHANGE_ME_SET_YOUR_PASSWORD"
+    state: add_user_group
+    spec:
+      id: "radey-admin"
+      user_group_ids: ["admin_4", "admin_1"]
+
+- name: Remove user to user groups
+  hitachivantara.vspone_block.sds_block.hv_sds_block_user:
+    connection_info:
+      address: sdsb.company.com
+      username: "admin"
+      password: "CHANGE_ME_SET_YOUR_PASSWORD"
+    state: remove_user_group
+    spec:
+      id: "radey-admin"
+      user_group_ids: ["admin_4", "admin_1"]
 """
 
 RETURN = r"""
-ansible_facts:
-  description: >
-    Dictionary containing user account information discovered from the system.
-  returned: always
+users:
+  description: Details of the user retrieved or managed by the module.
   type: dict
+  returned: always
   contains:
-    data:
-      description: List of user account entries.
+    authentication:
+      description: Type of authentication for the user.
+      type: str
+      sample: "local"
+    is_built_in:
+      description: Indicates if the user is a built-in system user.
+      type: bool
+      sample: false
+    is_enabled:
+      description: Indicates if the user account is enabled.
+      type: bool
+      sample: true
+    is_enabled_console_login:
+      description: Indicates if console login is allowed for the user.
+      type: bool
+      sample: true
+    password_expiration_time:
+      description: Expiration time of the user's password in ISO 8601 format.
+      type: str
+      sample: "2025-11-27T10:35:36Z"
+    privileges:
+      description: List of privileges assigned to the user.
       type: list
       elements: dict
       contains:
-        userId:
-          description: Username of the account.
-          type: str
-          sample: "admin"
-        userObjectId:
-          description: Unique object identifier for the user.
-          type: str
-          sample: "admin"
-        passwordExpirationTime:
-          description: Timestamp indicating when the password will expire.
-          type: str
-          sample: "2022-11-30T07:21:21Z"
-        isEnabled:
-          description: Indicates if the user account is enabled.
-          type: bool
-          sample: true
-        userGroups:
-          description: List of groups the user belongs to.
-          type: list
-          elements: dict
-          contains:
-            userGroupId:
-              description: ID of the user group.
-              type: str
-              sample: "SystemAdministrators"
-            userGroupObjectId:
-              description: Object ID of the user group.
-              type: str
-              sample: "SystemAdministrators"
-        isBuiltIn:
-          description: Indicates if the user is a built-in system account.
-          type: bool
-          sample: true
-        authentication:
-          description: Authentication method used by the user (e.g., local or LDAP).
-          type: str
-          sample: "local"
-        roleNames:
-          description: List of roles assigned to the user.
+        role_names:
+          description: List of role names assigned in this privilege.
           type: list
           elements: str
-          sample: ["Security", "Storage", "Monitor", "Service", "Audit", "Resource"]
-        isEnabledConsoleLogin:
-          description: Indicates whether the user can log in to the console.
-          type: bool
-          sample: null
-        vpsId:
-          description: VPS identifier associated with the user account.
+          sample: ["Security", "Monitor"]
+        scope:
+          description: Scope of the privilege.
           type: str
-          sample: "(system)"
-        privileges:
-          description: List of privileges assigned to the user.
-          type: list
-          elements: dict
-          contains:
-            scope:
-              description: Scope to which the privileges apply.
-              type: str
-              sample: "system"
-            roleNames:
-              description: Roles granted within the specified scope.
-              type: list
-              elements: str
-              sample: ["Audit", "Security", "Storage", "Monitor", "Service", "Resource"]
+          sample: "system"
+    role_names:
+      description: Roles assigned to the user.
+      type: list
+      elements: str
+      sample: ["Security", "Monitor"]
+    user_groups:
+      description: User groups the user belongs to.
+      type: list
+      elements: dict
+      contains:
+        user_group_id:
+          description: Identifier of the user group.
+          type: str
+          sample: "SecurityAdministrators"
+        user_group_object_id:
+          description: Object ID of the user group.
+          type: str
+          sample: "SecurityAdministrators"
+    user_id:
+      description: Unique ID of the user.
+      type: str
+      sample: "testqw"
+    user_object_id:
+      description: Object ID of the user.
+      type: str
+      sample: "testqw"
+    vps_id:
+      description: ID of the VPS or system the user belongs to.
+      type: str
+      sample: "(system)"
 """
 
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.sdsb_utils import (
-    SDSBUsersArguments,
+    SDSBUserArguments,
     SDSBParametersManager,
 )
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.hv_log import (
     Log,
 )
 
-from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.sdsb_users_reconciler import (
+from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.reconciler.sdsb_user import (
     SDSBUsersReconciler,
 )
 from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common.ansible_common import (
@@ -194,21 +237,25 @@ from ansible_collections.hitachivantara.vspone_block.plugins.module_utils.common
 )
 
 
-class SDSBBlockFaultDomainFactsManager:
+class SDSBBlockUserManager:
     def __init__(self):
 
         self.logger = Log()
-        self.argument_spec = SDSBUsersArguments().users()
+        self.argument_spec = SDSBUserArguments().users()
         self.module = AnsibleModule(
             argument_spec=self.argument_spec,
             supports_check_mode=True,
         )
-
-        parameter_manager = SDSBParametersManager(self.module.params)
-        self.connection_info = parameter_manager.get_connection_info()
-        self.spec = parameter_manager.get_users_spec()
-        self.state = parameter_manager.get_state()
-        self.logger.writeDebug(f"MOD:hv_sds_user:spec= {self.spec}")
+        try:
+            parameter_manager = SDSBParametersManager(self.module.params)
+            self.connection_info = parameter_manager.get_connection_info()
+            self.spec = parameter_manager.get_users_spec()
+            self.state = parameter_manager.get_state()
+            # self.logger.writeDebug(f"MOD:hv_sds_user:spec= {self.spec}")
+        except Exception as e:
+            self.logger.writeException(e)
+            self.logger.writeInfo("=== End of SDSB User Operation ===")
+            self.module.fail_json(msg=str(e))
 
     def apply(self):
         self.logger.writeInfo("=== Start of SDSB User Operation ===")
@@ -226,21 +273,25 @@ class SDSBBlockFaultDomainFactsManager:
             self.logger.writeInfo("=== End of SDSB User Operation ===")
             self.module.fail_json(msg=str(e))
 
-        msg = None
-        data = {"users": users}
-        if self.state == "present":
-            msg = "User created successfully."
-        elif self.state == "update":
-            msg = "User password updated successfully."
-        data["msg"] = msg
+        msg = self.spec.comments
+        data = {
+            "changed": self.connection_info.changed,
+            "users": users if users else [],
+            "comments": msg if msg else "",
+        }
+        # if self.state == "present":
+        #     msg = "User created successfully."
+        # elif self.state == "update":
+        #     msg = "User password updated successfully."
+        # data["msg"] = msg
         if registration_message:
             data["user_consent_required"] = registration_message
         self.logger.writeInfo("=== End of SDSB User Operation ===")
-        self.module.exit_json(changed=False, ansible_facts=data)
+        self.module.exit_json(**data)
 
 
 def main():
-    obj_store = SDSBBlockFaultDomainFactsManager()
+    obj_store = SDSBBlockUserManager()
     obj_store.apply()
 
 

@@ -5,11 +5,11 @@ build-backend="setuptools.build_meta"
 [project]
 name = "sphinxcontrib-mermaid"
 authors = [{name = "Martín Gaitán", email = "gaitan@gmail.com"}]
-description="Mermaid diagrams in yours Sphinx powered docs"
+description="Mermaid diagrams in your Sphinx-powered docs"
 readme = "docs/readme_pypa.md"
 license = { text = "BSD" }
-version = "1.0.0"
-requires-python = ">=3.8"
+version = "2.0.0"
+requires-python = ">=3.10"
 keywords = ["sphinx", "mermaid", "diagrams", "documentation"]
 
 classifiers = [
@@ -23,16 +23,17 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Documentation",
     "Topic :: Utilities",
 ]
 
 dependencies = [
+    "jinja2",
     "sphinx",
     "pyyaml",
 ]
@@ -81,3 +82,6 @@ section-order = [
 [tool.setuptools.packages.find]
 where = ["./"]
 include = ["sphinxcontrib.mermaid"]
+
+[tool.setuptools.package-data]
+"sphinxcontrib.mermaid" = ["*.css", "*.js"]

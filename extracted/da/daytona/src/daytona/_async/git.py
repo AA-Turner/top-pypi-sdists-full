@@ -1,19 +1,19 @@
 # Copyright 2025 Daytona Platforms Inc.
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import List, Optional
+from __future__ import annotations
 
-from daytona_api_client_async import (
+from daytona_toolbox_api_client_async import (
     GitAddRequest,
+    GitApi,
     GitBranchRequest,
     GitCheckoutRequest,
     GitCloneRequest,
     GitCommitRequest,
-    GitDeleteBranchRequest,
+    GitGitDeleteBranchRequest,
     GitRepoRequest,
     GitStatus,
     ListBranchResponse,
-    ToolboxApi,
 )
 
 from .._utils.errors import intercept_errors
@@ -48,27 +48,24 @@ class AsyncGit:
 
     def __init__(
         self,
-        sandbox_id: str,
-        toolbox_api: ToolboxApi,
+        api_client: GitApi,
     ):
         """Initializes a new Git handler instance.
 
         Args:
-            sandbox_id (str): The Sandbox ID.
-            toolbox_api (ToolboxApi): API client for Sandbox operations.
+            api_client (GitApi): API client for Sandbox Git operations.
         """
-        self._sandbox_id = sandbox_id
-        self._toolbox_api = toolbox_api
+        self._api_client: GitApi = api_client
 
     @intercept_errors(message_prefix="Failed to add files: ")
-    async def add(self, path: str, files: List[str]) -> None:
+    async def add(self, path: str, files: list[str]) -> None:
         """Stages the specified files for the next commit, similar to
         running 'git add' on the command line.
 
         Args:
             path (str): Path to the Git repository root. Relative paths are resolved based on
             the sandbox working directory.
-            files (List[str]): List of file paths or directories to stage, relative to the repository root.
+            files (list[str]): List of file paths or directories to stage, relative to the repository root.
 
         Example:
             ```python
@@ -83,9 +80,8 @@ class AsyncGit:
             ])
             ```
         """
-        await self._toolbox_api.git_add_files(
-            self._sandbox_id,
-            git_add_request=GitAddRequest(path=path, files=files),
+        await self._api_client.add_files(
+            request=GitAddRequest(path=path, files=files),
         )
 
     @intercept_errors(message_prefix="Failed to list branches: ")
@@ -105,8 +101,7 @@ class AsyncGit:
             print(f"Branches: {response.branches}")
             ```
         """
-        return await self._toolbox_api.git_list_branches(
-            self._sandbox_id,
+        return await self._api_client.list_branches(
             path=path,
         )
 
@@ -115,10 +110,10 @@ class AsyncGit:
         self,
         url: str,
         path: str,
-        branch: Optional[str] = None,
-        commit_id: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        branch: str | None = None,
+        commit_id: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         """Clones a Git repository into the specified path. It supports
         cloning specific branches or commits, and can authenticate with the remote
@@ -128,12 +123,12 @@ class AsyncGit:
             url (str): Repository URL to clone from.
             path (str): Path where the repository should be cloned. Relative paths are resolved
             based on the sandbox working directory.
-            branch (Optional[str]): Specific branch to clone. If not specified,
+            branch (str | None): Specific branch to clone. If not specified,
                 clones the default branch.
-            commit_id (Optional[str]): Specific commit to clone. If specified,
+            commit_id (str | None): Specific commit to clone. If specified,
                 the repository will be left in a detached HEAD state at this commit.
-            username (Optional[str]): Git username for authentication.
-            password (Optional[str]): Git password or token for authentication.
+            username (str | None): Git username for authentication.
+            password (str | None): Git password or token for authentication.
 
         Example:
             ```python
@@ -160,15 +155,14 @@ class AsyncGit:
             )
             ```
         """
-        await self._toolbox_api.git_clone_repository(
-            self._sandbox_id,
-            git_clone_request=GitCloneRequest(
+        await self._api_client.clone_repository(
+            request=GitCloneRequest(
                 url=url,
                 branch=branch,
                 path=path,
                 username=username,
                 password=password,
-                commitId=commit_id,
+                commit_id=commit_id,
             ),
         )
 
@@ -185,7 +179,7 @@ class AsyncGit:
             message (str): Commit message describing the changes.
             author (str): Name of the commit author.
             email (str): Email address of the commit author.
-            allow_empty (bool, optional): Allow creating an empty commit when no changes are staged. Defaults to False.
+            allow_empty (bool): Allow creating an empty commit when no changes are staged. Defaults to False.
 
         Example:
             ```python
@@ -200,9 +194,8 @@ class AsyncGit:
             )
             ```
         """
-        response = await self._toolbox_api.git_commit_changes(
-            self._sandbox_id,
-            git_commit_request=GitCommitRequest(
+        response = await self._api_client.commit_changes(
+            request=GitCommitRequest(
                 path=path,
                 message=message,
                 author=author,
@@ -216,8 +209,8 @@ class AsyncGit:
     async def push(
         self,
         path: str,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         """Pushes all local commits on the current branch to the remote
         repository. If the remote repository requires authentication, provide
@@ -226,8 +219,8 @@ class AsyncGit:
         Args:
             path (str): Path to the Git repository root. Relative paths are resolved based on
             the sandbox working directory.
-            username (Optional[str]): Git username for authentication.
-            password (Optional[str]): Git password or token for authentication.
+            username (str | None): Git username for authentication.
+            password (str | None): Git password or token for authentication.
 
         Example:
             ```python
@@ -242,9 +235,8 @@ class AsyncGit:
             )
             ```
         """
-        await self._toolbox_api.git_push_changes(
-            self._sandbox_id,
-            git_repo_request=GitRepoRequest(
+        await self._api_client.push_changes(
+            request=GitRepoRequest(
                 path=path,
                 username=username,
                 password=password,
@@ -255,8 +247,8 @@ class AsyncGit:
     async def pull(
         self,
         path: str,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         """Pulls changes from the remote repository. If the remote repository requires authentication,
         provide username and password/token.
@@ -264,8 +256,8 @@ class AsyncGit:
         Args:
             path (str): Path to the Git repository root. Relative paths are resolved based on
             the sandbox working directory.
-            username (Optional[str]): Git username for authentication.
-            password (Optional[str]): Git password or token for authentication.
+            username (str | None): Git username for authentication.
+            password (str | None): Git password or token for authentication.
 
         Example:
             ```python
@@ -280,9 +272,8 @@ class AsyncGit:
             )
             ```
         """
-        await self._toolbox_api.git_pull_changes(
-            self._sandbox_id,
-            git_repo_request=GitRepoRequest(
+        await self._api_client.pull_changes(
+            request=GitRepoRequest(
                 path=path,
                 username=username,
                 password=password,
@@ -313,8 +304,7 @@ class AsyncGit:
             print(f"Commits behind: {status.behind}")
             ```
         """
-        return await self._toolbox_api.git_get_status(
-            self._sandbox_id,
+        return await self._api_client.get_status(
             path=path,
         )
 
@@ -333,9 +323,8 @@ class AsyncGit:
             await sandbox.git.checkout_branch("workspace/repo", "feature-branch")
             ```
         """
-        await self._toolbox_api.git_checkout_branch(
-            self._sandbox_id,
-            git_checkout_request=GitCheckoutRequest(
+        await self._api_client.checkout_branch(
+            request=GitCheckoutRequest(
                 path=path,
                 branch=branch,
             ),
@@ -356,9 +345,8 @@ class AsyncGit:
             await sandbox.git.create_branch("workspace/repo", "new-feature")
             ```
         """
-        await self._toolbox_api.git_create_branch(
-            self._sandbox_id,
-            git_branch_request=GitBranchRequest(
+        await self._api_client.create_branch(
+            request=GitBranchRequest(
                 path=path,
                 name=name,
             ),
@@ -379,9 +367,8 @@ class AsyncGit:
             await sandbox.git.delete_branch("workspace/repo", "old-feature")
             ```
         """
-        await self._toolbox_api.git_delete_branch(
-            self._sandbox_id,
-            git_delete_branch_request=GitDeleteBranchRequest(
+        await self._api_client.delete_branch(
+            request=GitGitDeleteBranchRequest(
                 path=path,
                 name=name,
             ),

@@ -9,8 +9,7 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
+from typing import Literal, Union
 
 from pydantic import Field
 
@@ -19,53 +18,94 @@ from githubkit.typing import Missing
 from githubkit.utils import UNSET
 
 from .group_0003 import SimpleUser
-from .group_0010 import Integration
 
 
-class Deployment(GitHubModel):
-    """Deployment
+class OrganizationProgrammaticAccessGrantRequest(GitHubModel):
+    """Simple Organization Programmatic Access Grant Request
 
-    A request for a specific ref(branch,sha,tag) to be deployed
+    Minimal representation of an organization programmatic access grant request for
+    enumerations
     """
 
-    url: str = Field()
-    id: int = Field(description="Unique identifier of the deployment")
-    node_id: str = Field()
-    sha: str = Field()
-    ref: str = Field(
-        description="The ref to deploy. This can be a branch, tag, or sha."
+    id: int = Field(
+        description="Unique identifier of the request for access via fine-grained personal access token. The `pat_request_id` used to review PAT requests."
     )
-    task: str = Field(description="Parameter to specify a task to execute")
-    payload: Union[DeploymentPropPayloadOneof0, str] = Field()
-    original_environment: Missing[str] = Field(default=UNSET)
-    environment: str = Field(description="Name for the target deployment environment.")
-    description: Union[str, None] = Field()
-    creator: Union[None, SimpleUser] = Field()
-    created_at: datetime = Field()
-    updated_at: datetime = Field()
-    statuses_url: str = Field()
-    repository_url: str = Field()
-    transient_environment: Missing[bool] = Field(
-        default=UNSET,
-        description="Specifies if the given environment is will no longer exist at some point in the future. Default: false.",
+    reason: Union[str, None] = Field(description="Reason for requesting access.")
+    owner: SimpleUser = Field(title="Simple User", description="A GitHub user.")
+    repository_selection: Literal["none", "all", "subset"] = Field(
+        description="Type of repository selection requested."
     )
-    production_environment: Missing[bool] = Field(
-        default=UNSET,
-        description="Specifies if the given environment is one that end-users directly interact with. Default: false.",
+    repositories_url: str = Field(
+        description="URL to the list of repositories requested to be accessed via fine-grained personal access token. Should only be followed when `repository_selection` is `subset`."
     )
-    performed_via_github_app: Missing[Union[None, Integration, None]] = Field(
-        default=UNSET
+    permissions: OrganizationProgrammaticAccessGrantRequestPropPermissions = Field(
+        description="Permissions requested, categorized by type of permission."
+    )
+    created_at: str = Field(
+        description="Date and time when the request for access was created."
+    )
+    token_id: int = Field(
+        description="Unique identifier of the user's token. This field can also be found in audit log events and the organization's settings for their PAT grants."
+    )
+    token_name: str = Field(
+        description="The name given to the user's token. This field can also be found in an organization's settings page for Active Tokens."
+    )
+    token_expired: bool = Field(
+        description="Whether the associated fine-grained personal access token has expired."
+    )
+    token_expires_at: Union[str, None] = Field(
+        description="Date and time when the associated fine-grained personal access token expires."
+    )
+    token_last_used_at: Union[str, None] = Field(
+        description="Date and time when the associated fine-grained personal access token was last used for authentication."
     )
 
 
-class DeploymentPropPayloadOneof0(ExtraGitHubModel):
-    """DeploymentPropPayloadOneof0"""
+class OrganizationProgrammaticAccessGrantRequestPropPermissions(GitHubModel):
+    """OrganizationProgrammaticAccessGrantRequestPropPermissions
+
+    Permissions requested, categorized by type of permission.
+    """
+
+    organization: Missing[
+        OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOrganization
+    ] = Field(default=UNSET)
+    repository: Missing[
+        OrganizationProgrammaticAccessGrantRequestPropPermissionsPropRepository
+    ] = Field(default=UNSET)
+    other: Missing[
+        OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOther
+    ] = Field(default=UNSET)
 
 
-model_rebuild(Deployment)
-model_rebuild(DeploymentPropPayloadOneof0)
+class OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOrganization(
+    ExtraGitHubModel
+):
+    """OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOrganization"""
+
+
+class OrganizationProgrammaticAccessGrantRequestPropPermissionsPropRepository(
+    ExtraGitHubModel
+):
+    """OrganizationProgrammaticAccessGrantRequestPropPermissionsPropRepository"""
+
+
+class OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOther(
+    ExtraGitHubModel
+):
+    """OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOther"""
+
+
+model_rebuild(OrganizationProgrammaticAccessGrantRequest)
+model_rebuild(OrganizationProgrammaticAccessGrantRequestPropPermissions)
+model_rebuild(OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOrganization)
+model_rebuild(OrganizationProgrammaticAccessGrantRequestPropPermissionsPropRepository)
+model_rebuild(OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOther)
 
 __all__ = (
-    "Deployment",
-    "DeploymentPropPayloadOneof0",
+    "OrganizationProgrammaticAccessGrantRequest",
+    "OrganizationProgrammaticAccessGrantRequestPropPermissions",
+    "OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOrganization",
+    "OrganizationProgrammaticAccessGrantRequestPropPermissionsPropOther",
+    "OrganizationProgrammaticAccessGrantRequestPropPermissionsPropRepository",
 )

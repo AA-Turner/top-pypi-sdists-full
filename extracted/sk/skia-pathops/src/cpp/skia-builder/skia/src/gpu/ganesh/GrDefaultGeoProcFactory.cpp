@@ -7,16 +7,27 @@
 
 #include "src/gpu/ganesh/GrDefaultGeoProcFactory.h"
 
-#include "include/core/SkRefCnt.h"
+#include "include/core/SkMatrix.h"
+#include "include/private/base/SkTo.h"
+#include "include/private/gpu/ganesh/GrTypesPriv.h"
 #include "src/base/SkArenaAlloc.h"
+#include "src/base/SkRandom.h"
+#include "src/core/SkSLTypeShared.h"
 #include "src/gpu/KeyBuilder.h"
-#include "src/gpu/ganesh/GrCaps.h"
+#include "src/gpu/ganesh/GrColor.h"
 #include "src/gpu/ganesh/GrGeometryProcessor.h"
 #include "src/gpu/ganesh/GrProcessorUnitTest.h"
+#include "src/gpu/ganesh/GrShaderVar.h"
+#include "src/gpu/ganesh/GrTestUtils.h"
 #include "src/gpu/ganesh/glsl/GrGLSLFragmentShaderBuilder.h"
+#include "src/gpu/ganesh/glsl/GrGLSLProgramDataManager.h"
 #include "src/gpu/ganesh/glsl/GrGLSLUniformHandler.h"
 #include "src/gpu/ganesh/glsl/GrGLSLVarying.h"
 #include "src/gpu/ganesh/glsl/GrGLSLVertexGeoBuilder.h"
+
+#include <memory>
+
+struct GrShaderCaps;
 
 /*
  * The default Geometry Processor simply takes position and multiplies it by the uniform view
@@ -246,7 +257,7 @@ private:
 
 GR_DEFINE_GEOMETRY_PROCESSOR_TEST(DefaultGeoProc)
 
-#if GR_TEST_UTILS
+#if defined(GPU_TEST_UTILS)
 GrGeometryProcessor* DefaultGeoProc::TestCreate(GrProcessorTestData* d) {
     uint32_t flags = 0;
     if (d->fRandom->nextBool()) {
@@ -318,18 +329,20 @@ GrGeometryProcessor* GrDefaultGeoProcFactory::MakeForDeviceSpace(SkArenaAlloc* a
                                                                  const Coverage& coverage,
                                                                  const LocalCoords& localCoords,
                                                                  const SkMatrix& viewMatrix) {
-    SkMatrix invert = SkMatrix::I();
+    SkMatrix inverse = SkMatrix::I();
     if (LocalCoords::kUnused_Type != localCoords.fType) {
         SkASSERT(LocalCoords::kUsePosition_Type == localCoords.fType);
-        if (!viewMatrix.isIdentity() && !viewMatrix.invert(&invert)) {
+        if (auto inv = viewMatrix.invert()) {
+            inverse = *inv;
+        } else {
             return nullptr;
         }
 
         if (localCoords.hasLocalMatrix()) {
-            invert.postConcat(*localCoords.fMatrix);
+            inverse.postConcat(*localCoords.fMatrix);
         }
     }
 
-    LocalCoords inverted(LocalCoords::kUsePosition_Type, &invert);
+    LocalCoords inverted(LocalCoords::kUsePosition_Type, &inverse);
     return Make(arena, color, coverage, inverted, SkMatrix::I());
 }

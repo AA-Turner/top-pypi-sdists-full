@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cobra
-Version: 0.29.1
+Version: 0.30.0
 Summary: COBRApy is a package for constraint-based modeling of metabolic networks.
 Home-page: https://opencobra.github.io/cobrapy
 Download-URL: https://pypi.org/project/cobra
@@ -32,7 +32,6 @@ Requires-Dist: depinfo~=2.2
 Requires-Dist: diskcache~=5.0
 Requires-Dist: future
 Requires-Dist: httpx~=0.24
-Requires-Dist: importlib_resources
 Requires-Dist: numpy>=1.13
 Requires-Dist: optlang~=1.8
 Requires-Dist: pandas<3.0,>=1.0
@@ -48,6 +47,8 @@ Requires-Dist: black; extra == "development"
 Requires-Dist: bumpversion; extra == "development"
 Requires-Dist: isort; extra == "development"
 Requires-Dist: tox; extra == "development"
+Dynamic: download-url
+Dynamic: license-file
 
 ================================================================
 COBRApy - Constraint-Based Reconstruction and Analysis in Python
@@ -119,7 +120,7 @@ methods both easier to implement and easier to use, thereby bringing the power
 of COBRA to more researchers.
 
 The documentation is browseable online at `readthedocs
-<https://cobrapy.readthedocs.org/en/stable/>`_ and can also be `downloaded
+<https://cobrapy.readthedocs.io/en/latest/>`_ and can also be `downloaded
 <https://readthedocs.org/projects/cobrapy/downloads/>`_.
 
 Please use the `Google Group <http://groups.google.com/group/cobra-pie>`_ for

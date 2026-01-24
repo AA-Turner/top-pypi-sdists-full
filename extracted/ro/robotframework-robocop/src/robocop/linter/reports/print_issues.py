@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import sys
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn
 
 from rich.console import Console
 from rich.markup import escape
+from rich.text import Text
 
 import robocop.linter.reports
 from robocop.files import get_relative_path
@@ -38,7 +40,7 @@ class PrintIssuesReport(robocop.linter.reports.Report):
 
     There are available three different types of output:
 
-    - extended (default), which print issue together with source code::
+    - extended (default), which print issue together with source code:
 
         test.robot:2:14 DEPR02 'Run Keyword If' is deprecated since Robot Framework version 5.*, use 'IF' instead
            |
@@ -48,7 +50,7 @@ class PrintIssuesReport(robocop.linter.reports.Report):
          3 | Suite Teardown  Run Keyword If
          4 | Force Tags         tag
            |
-    - grouped, which prints issues grouped by source files::
+    - grouped, which prints issues grouped by source files:
 
         templated_suite.robot:
           1:1 MISC06 No tests in 'templated_suite.robot' file, consider renaming to 'templated_suite.resource' (can-be-resource-file)
@@ -58,20 +60,20 @@ class PrintIssuesReport(robocop.linter.reports.Report):
           1:1 DOC03 Missing documentation in suite (missing-doc-suite)
           3:17 DEPR02 'Run Keyword If' is deprecated since Robot Framework version 5.*, use 'IF' instead (deprecated-statement)
 
-    - simple, which print issue in one line. It also allows to configure format of message::
+    - simple, which print issue in one line. It also allows to configure format of message:
 
         variable_errors.robot:7:1 [E] ERR01 Robot Framework syntax error: Invalid dictionary variable item '1'. Items must use 'name=value' syntax or be dictionary variables themselves.
         positional_args.robot:3:32 [E] ERR01 Robot Framework syntax error: Positional argument '${arg2}' follows named argument
 
-    You can configure output type with ``output_format``::
+    You can configure output type with ``output_format``:
 
         robocop check --configure print_issues.output_format=grouped
 
-    Format of simple output type can be configured with ``--issue-format`` option::
+    Format of simple output type can be configured with ``--issue-format`` option:
 
         robocop check --issue-format "{source}:{line}:{col} [{severity}] {rule_id} {desc} ({name})"
 
-    Format of extended output type can be configured with ``issue_format`` parameter::
+    Format of extended output type can be configured with ``issue_format`` parameter:
 
         robocop check --configure print_issues.issue_format="{source}"
 
@@ -86,7 +88,7 @@ class PrintIssuesReport(robocop.linter.reports.Report):
         self.diagn_by_source: dict[str, list[Diagnostic]] = {}
         self.output_format = OutputFormat.EXTENDED
         self.issue_format = None
-        self.console = Console(highlight=False, soft_wrap=True)
+        self.console = Console(highlight=False, soft_wrap=True, emoji=False)
         super().__init__(config)
 
     def configure(self, name: str, value: str) -> None:
@@ -145,22 +147,26 @@ class PrintIssuesReport(robocop.linter.reports.Report):
             print()
 
     @staticmethod
-    def _get_source_lines(model: File) -> list[str]:
-        return StatementLinesCollector(model).text.splitlines()
+    def _get_source_lines(model: File | None, source: str | None = None) -> list[str]:
+        if model is not None:
+            return StatementLinesCollector(model).text.splitlines()
+        if source is not None:
+            try:
+                return Path(source).read_text(encoding="utf-8").splitlines()
+            except OSError:
+                return []
+        return []
 
     @staticmethod
-    def _gutter(line_no: int | str, gutter_width: int, indent: str):
-        return f"[cyan]{line_no:>{gutter_width}} |[/cyan]{indent}"
+    def _code_string(line: str, prefix: str) -> str:
+        line = line.rstrip()
+        if line:
+            return prefix + line.expandtabs(4) + "\n"
+        return "\n"
 
-    def _print_lines(self, lines: list[str]) -> None:
-        self.console.print("\n".join(line.expandtabs(4).rstrip() for line in lines))
-
-    def _code_string(self, line: str) -> str:
-        return escape(line.expandtabs(4))
-
-    def _print_issue_with_lines(self, lines: list[str], source_rel_path: Path, diagnostic: Diagnostic) -> None:
+    def _print_issue_with_lines(self, lines: list[str], source_rel_path: Path, diagnostic: Diagnostic) -> Text:
         """
-        Print diagnostic information for a specific range of lines in a source file.
+        Return a Rich Text object containing diagnostic information with source code lines.
 
         It highlights the problematic code section, displays the associated diagnostic message, and provides context
         by showing surrounding lines. The output is formatted with line numbers, gutter separators, and colored text
@@ -175,73 +181,95 @@ class PrintIssuesReport(robocop.linter.reports.Report):
         """
         start_line, end_line = diagnostic.range.start.line, diagnostic.range.end.line
         start_col, end_col = diagnostic.range.start.character, diagnostic.range.end.character
-        issue_format = (
-            self.issue_format if self.issue_format is not None else "{source}:{line}:{col} [red]{rule_id}[/red] {desc}"
-        )
-        issue_msg = issue_format.format(
-            source=source_rel_path,
-            line=start_line,
-            col=start_col,
-            rule_id=diagnostic.rule.rule_id,
-            desc=escape(diagnostic.message),
-        )
-        self.console.print(issue_msg)
+        if self.issue_format is not None:
+            text = Text.from_markup(
+                self.issue_format.format(
+                    source=str(source_rel_path),
+                    line=start_line,
+                    col=start_col,
+                    rule_id=diagnostic.rule.rule_id,
+                    desc=escape(diagnostic.message),
+                )
+            )
+            text.append("\n")
+        else:
+            text = Text(f"{source_rel_path}:{start_line}:{start_col} ")
+            text.append(diagnostic.rule.rule_id, style="red")
+            text.append(f" {diagnostic.message}\n")
         if diagnostic.rule.file_wide_rule or start_line > len(lines):
-            return
+            return text
         start_line = max(start_line, 1)
         end_line = min(end_line, len(lines))
         gutter_width = len(str(end_line)) + 1
-        # multi-line non-empty error lines will require indenting code before/after to match error block
+        gutter_space = " " * gutter_width
+        text_lines: list[tuple[str, str] | str] = [(f"{gutter_space} |\n", "cyan")]
+        # multi-line non-empty error lines will require indenting code before/after to match the error block
         if start_line == end_line or all(not lines[line_no].strip() for line_no in range(start_line, end_line + 1)):
             indent = ""
         else:
             indent = "  "
-        print_lines = [self._gutter(" ", gutter_width, "")]
         # code before issue
         if start_line >= 2 and lines[start_line - 2].strip():  # no empty lines before
-            for line_no in range(start_line - 2, start_line):
-                if line_no < 1:
-                    continue
-                print_lines.append(
-                    f"{self._gutter(line_no, gutter_width, indent)} {self._code_string(lines[line_no - 1])}"
-                )
+            start_line_cut = max(1, start_line - 2)  # take 2 lines before error if the lines exist
+            for line_no in range(start_line_cut, start_line):
+                text_lines.append((f"{line_no:>{gutter_width}} |", "cyan"))
+                text_lines.append(self._code_string(lines[line_no - 1], prefix=f"{indent} "))
         # issue
         if start_line == end_line:  # error in one line (most cases)
-            print_lines.append(
-                f"{self._gutter(start_line, gutter_width, indent)} {self._code_string(lines[start_line - 1])}"
+            text_lines.append((f"{start_line:>{gutter_width}} |", "cyan"))
+            text_lines.append(self._code_string(lines[start_line - 1], prefix=f"{indent} "))
+            text_lines.append((f"{gutter_space} |{indent} ", "cyan"))
+            text_lines.append(
+                (
+                    " " * (start_col - 1) + "^" * max(end_col - start_col, 1) + " " + diagnostic.rule.rule_id + "\n",
+                    "red",
+                )
             )
-            print_lines.append(
-                f"{self._gutter(' ', gutter_width, indent)} "
-                f"[red]{' ' * (start_col - 1)}{'^' * max(end_col - start_col, 1)} {diagnostic.rule.rule_id}[/red]"
-            )
-        else:  # multi line errors, such as SPC05
+        else:  # multi-line errors, such as SPC05
             for line in range(start_line, end_line + 1):
                 sep = "/" if line == start_line else "|"
-                print_lines.append(
-                    f"{self._gutter(line, gutter_width, indent='')} [red]{sep}[/red] "
-                    f"{self._code_string(lines[line - 1])}"
-                )
-            print_lines.append(f"{self._gutter(' ', gutter_width, indent='')} [red]|_^ {diagnostic.rule.rule_id}[/red]")
+                text_lines.append((f"{line:>{gutter_width}} | ", "cyan"))
+                text_lines.append((f"{sep}", "red"))
+                text_lines.append(self._code_string(lines[line - 1], prefix=" "))
+            text_lines.append((f"{gutter_space} |", "cyan"))
+            text_lines.append((f" |_^ {diagnostic.rule.rule_id}\n", "red"))
         # code after issue
         for line_no in range(end_line + 1, end_line + 3):
             if line_no > len(lines) or not lines[line_no - 1].strip():
                 break
-            print_lines.append(f"{self._gutter(line_no, gutter_width, indent)} {self._code_string(lines[line_no - 1])}")
-        print_lines.append(self._gutter(" ", gutter_width, ""))
-        self._print_lines(print_lines)
-        print()
+            text_lines.append((f"{line_no:>{gutter_width}} |{indent}", "cyan"))
+            text_lines.append(self._code_string(lines[line_no - 1], prefix=" "))
+        if diagnostic.rule.fix_suggestion:
+            text_lines.append((f"{gutter_space} | ", "cyan"))
+            text_lines.append(("Suggestion: ", "yellow"))
+            text_lines.append(f"{diagnostic.rule.fix_suggestion}\n")
+        text_lines.append((f"{gutter_space} |\n\n", "cyan"))
+        text.append(Text.assemble(*text_lines))
+        return text
 
     def print_diagnostics_extended(self, diagnostics: Diagnostics) -> None:
+        """
+        Print a diagnostics message with the surrounding source code.
+
+        Messages are aggregated by source file and sent to printing to rich console.
+        """
         cwd = Path.cwd()
         for source, diag_by_source in diagnostics.diag_by_source.items():
             source_rel = get_relative_path(source, cwd)
             source_lines = None
+            text: list[Text] = []
             for diagnostic in diag_by_source:
                 if not source_lines:  # TODO: model should be coming from source, not diagnostics
-                    source_lines = self._get_source_lines(diagnostic.model)
-                self._print_issue_with_lines(source_lines, source_rel, diagnostic)
+                    source_lines = self._get_source_lines(diagnostic.model, source)
+                text.append(self._print_issue_with_lines(source_lines, source_rel, diagnostic))
+            self.console.print(*text, sep="", end="")
 
     def generate_report(self, diagnostics: Diagnostics, **kwargs) -> None:  # noqa: ARG002
+        if self.config.silent:
+            return
+        if hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+            sys.stderr.reconfigure(encoding="utf-8")
         if self.output_format == OutputFormat.SIMPLE:
             self.print_diagnostics_simple(diagnostics)
         elif self.output_format == OutputFormat.GROUPED:

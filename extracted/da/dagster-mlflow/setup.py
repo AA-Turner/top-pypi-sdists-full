@@ -23,18 +23,17 @@ setup(
     description="Package for mlflow Dagster framework components.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-mlflow",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_mlflow_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
+    python_requires=">=3.10,<3.15",
     install_requires=[
-        "dagster==1.11.11",
+        "dagster==1.12.12",
         "mlflow",
-        "pandas",
+        "pandas<3.0.0",
         "protobuf!=5.29.0",  # https://github.com/protocolbuffers/protobuf/issues/19430
     ],
     zip_safe=False,

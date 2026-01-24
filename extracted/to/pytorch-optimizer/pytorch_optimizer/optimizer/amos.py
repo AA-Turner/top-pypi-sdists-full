@@ -4,27 +4,28 @@ import torch
 
 from pytorch_optimizer.base.exception import NoSparseGradientError
 from pytorch_optimizer.base.optimizer import BaseOptimizer
-from pytorch_optimizer.base.type import CLOSURE, DEFAULTS, GROUP, LOSS, PARAMETERS
+from pytorch_optimizer.base.type import Closure, Defaults, Loss, Parameters, ParamGroup
 
 
 class Amos(BaseOptimizer):
-    r"""An Adam-style Optimizer with Adaptive Weight Decay towards Model-Oriented Scale.
+    """An Adam-style Optimizer with Adaptive Weight Decay towards Model-Oriented Scale.
 
-    :param params: PARAMETERS. iterable of parameters to optimize or dicts defining parameter groups.
-    :param lr: float. learning rate.
-    :param beta: float. A float slightly < 1. We recommend setting `1 - beta` to the same order of magnitude as the
-        learning rate. similarity with beta2 in Adam.
-    :param momentum: float. Exponential decay rate for optional moving average of updates.
-    :param extra_l2: float. Additional L2 regularization.
-    :param c_coef: float. Coefficient for decay_factor_c.
-    :param d_coef: float. Coefficient for decay_factor_d.
-    :param eps: float. term added to the denominator to improve numerical stability.
-    :param maximize: bool. maximize the objective with respect to the params, instead of minimizing.
+    Args:
+        params (Parameters): Iterable of parameters to optimize or dicts defining parameter groups.
+        lr (float): Learning rate.
+        beta (float): A float slightly less than 1. Recommended to set `1 - beta` approximately the same magnitude
+            as the learning rate, similar to beta2 in Adam.
+        momentum (float): Exponential decay rate for optional moving average of updates.
+        extra_l2 (float): Additional L2 regularization.
+        c_coef (float): Coefficient for decay_factor_c.
+        d_coef (float): Coefficient for decay_factor_d.
+        eps (float): Term added to the denominator to improve numerical stability.
+        maximize (bool): Maximize the objective with respect to the parameters, instead of minimizing.
     """
 
     def __init__(
         self,
-        params: PARAMETERS,
+        params: Parameters,
         lr: float = 1e-3,
         beta: float = 0.999,
         momentum: float = 0.0,
@@ -45,7 +46,7 @@ class Amos(BaseOptimizer):
         self.d_coef = d_coef
         self.maximize = maximize
 
-        defaults: DEFAULTS = {
+        defaults: Defaults = {
             'lr': lr,
             'beta': beta,
             'momentum': momentum,
@@ -58,7 +59,10 @@ class Amos(BaseOptimizer):
     def __str__(self) -> str:
         return 'Amos'
 
-    def init_group(self, group: GROUP, **kwargs) -> None:
+    def init_group(self, group: ParamGroup, **kwargs) -> None:
+        if 'step' not in group:
+            group['step'] = 0
+
         for p in group['params']:
             if p.grad is None:
                 continue
@@ -85,18 +89,15 @@ class Amos(BaseOptimizer):
         return math.sqrt(1 / p.size(1))
 
     @torch.no_grad()
-    def step(self, closure: CLOSURE = None) -> LOSS:
-        loss: LOSS = None
+    def step(self, closure: Closure = None) -> Loss:
+        loss: Loss = None
         if closure is not None:
             with torch.enable_grad():
                 loss = closure()
 
         for group in self.param_groups:
-            if 'step' not in group:
-                self.init_group(group)
-                group['step'] = 1
-            else:
-                group['step'] += 1
+            self.init_group(group)
+            group['step'] += 1
 
             momentum, beta = group['momentum'], group['beta']
 

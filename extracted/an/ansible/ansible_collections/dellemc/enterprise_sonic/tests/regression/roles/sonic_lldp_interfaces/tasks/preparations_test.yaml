@@ -3,4 +3,12 @@
   dellemc.enterprise_sonic.sonic_lldp_interfaces:
     config: []
     state: deleted
-  ignore_errors: yes
+  failed_when: false
+
+- name: Create network policies
+  dellemc.enterprise_sonic.sonic_network_policy:
+    config:
+      - number: 1
+      - number: 2
+      - number: 3
+  failed_when: false

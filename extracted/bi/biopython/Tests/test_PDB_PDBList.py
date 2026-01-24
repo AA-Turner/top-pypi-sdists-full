@@ -159,6 +159,36 @@ class TestPDBListGetStructure(unittest.TestCase):
             str(context.exception),
         )
 
+    def test_retrieve_pdb_file_not_existing(self):
+        """Tests retrieving a non-existent molecule - returns None and prints error message."""
+        with self.make_temp_directory(os.getcwd()) as tmp:
+            pdblist = PDBList(pdb=tmp)
+            with unittest.patch("sys.stderr") as mock_stderr:
+                result = pdblist.retrieve_pdb_file("zzzz", file_format="pdb")
+                self.assertIsNone(result)
+                self.assertTrue(
+                    any(
+                        "Desired structure not found or download failed." in str(call)
+                        for call in mock_stderr.write.call_args_list
+                    ),
+                    "Error message not printed for non-existent molecule",
+                )
+
+    def test_retrieve_pdb_file_bad_url(self):
+        """Tests retrieving with bad server URL - returns None and prints error message."""
+        with self.make_temp_directory(os.getcwd()) as tmp:
+            pdblist = PDBList(server=" http://something.wrong ", pdb=tmp)
+            with unittest.patch("sys.stderr") as mock_stderr:
+                result = pdblist.retrieve_pdb_file("127d", file_format="pdb")
+                self.assertIsNone(result)
+                self.assertTrue(
+                    any(
+                        "Desired structure not found or download failed." in str(call)
+                        for call in mock_stderr.write.call_args_list
+                    ),
+                    "Error message not printed for bad server URL",
+                )
+
 
 class TestPDBListGetAssembly(unittest.TestCase):
     """Test methods responsible for getting assemblies."""

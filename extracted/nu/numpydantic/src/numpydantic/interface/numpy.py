@@ -28,12 +28,17 @@ class NumpyJsonDict(JsonDict):
     type: Literal["numpy"]
     dtype: str
     value: list
+    # allow shape to be None for backwards compatibility.
+    shape: Union[tuple[int, ...], None] = None
 
     def to_array_input(self) -> ndarray:
         """
         Construct a numpy array
         """
-        return np.array(self.value, dtype=self.dtype)
+        array = np.array(self.value, dtype=self.dtype)
+        if self.shape is not None and array.shape != self.shape:
+            array = self.reshape_input(array, self.shape)
+        return array
 
 
 class NumpyInterface(Interface):
@@ -82,7 +87,11 @@ class NumpyInterface(Interface):
             array = np.array(array)
 
         try:
-            if issubclass(self.dtype, BaseModel) and isinstance(array.flat[0], dict):
+            if (
+                issubclass(self.dtype, BaseModel)
+                and len(array) > 0
+                and isinstance(array.flat[0], dict)
+            ):
                 array = np.vectorize(lambda x: self.dtype(**x))(array)
         except TypeError:
             # fine, dtype isn't a type
@@ -110,6 +119,9 @@ class NumpyInterface(Interface):
 
         if info.round_trip:
             json_array = NumpyJsonDict(
-                type=cls.name, dtype=str(array.dtype), value=json_array
+                type=cls.name,
+                dtype=str(array.dtype),
+                value=json_array,
+                shape=array.shape,
             )
         return json_array

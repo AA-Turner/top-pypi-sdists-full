@@ -118,6 +118,7 @@ class Estimate:
         setup_fee: NotRequired[int]
         start_date: NotRequired[int]
         coupon: NotRequired[str]
+        offline_payment_method: NotRequired[enums.OfflinePaymentMethod]
         free_period: NotRequired[int]
         free_period_unit: NotRequired[enums.FreePeriodUnit]
         contract_term_billing_cycle_on_renewal: NotRequired[int]
@@ -254,6 +255,7 @@ class Estimate:
         trial_end: NotRequired[int]
         setup_fee: NotRequired[int]
         start_date: NotRequired[int]
+        offline_payment_method: NotRequired[enums.OfflinePaymentMethod]
         free_period: NotRequired[int]
         free_period_unit: NotRequired[enums.FreePeriodUnit]
         contract_term_billing_cycle_on_renewal: NotRequired[int]
@@ -605,6 +607,17 @@ class Estimate:
         item_price_id: NotRequired[str]
         quantity: NotRequired[int]
         quantity_in_decimal: NotRequired[str]
+        unit_price: NotRequired[int]
+        unit_price_in_decimal: NotRequired[str]
+
+    class GiftSubscriptionForItemsItemTierParams(TypedDict):
+        item_price_id: NotRequired[str]
+        starting_unit: NotRequired[int]
+        ending_unit: NotRequired[int]
+        price: NotRequired[int]
+        starting_unit_in_decimal: NotRequired[str]
+        ending_unit_in_decimal: NotRequired[str]
+        price_in_decimal: NotRequired[str]
 
     class CreateInvoiceInvoiceParams(TypedDict):
         customer_id: NotRequired[str]
@@ -924,6 +937,7 @@ class Estimate:
         use_existing_balances: NotRequired[bool]
         ignore_scheduled_cancellation: NotRequired[bool]
         ignore_scheduled_changes: NotRequired[bool]
+        exclude_tax_type: NotRequired[enums.ExcludeTaxType]
 
     class AdvanceInvoiceEstimateParams(TypedDict):
         terms_to_charge: NotRequired[int]
@@ -1015,6 +1029,7 @@ class Estimate:
         subscription_items: NotRequired[
             List["Estimate.GiftSubscriptionForItemsSubscriptionItemParams"]
         ]
+        item_tiers: NotRequired[List["Estimate.GiftSubscriptionForItemsItemTierParams"]]
 
     class CreateInvoiceParams(TypedDict):
         invoice: NotRequired["Estimate.CreateInvoiceInvoiceParams"]

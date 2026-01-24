@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, is_dataclass
+from itertools import starmap
 from typing import TypeVar
 
 T = TypeVar("T", bound="DiffBase")
@@ -36,7 +37,7 @@ class DiffBase:
         if isinstance(value, list) and isinstance(default, list):
             if len(value) != len(default):
                 return True
-            return any(self._has_diff(v, d) for v, d in zip(value, default))
+            return any(starmap(self._has_diff, zip(value, default, strict=False)))
         if isinstance(value, dict) and isinstance(default, dict):
             if set(value.keys()) != set(default.keys()):
                 return True
@@ -50,7 +51,7 @@ class DiffBase:
         if isinstance(value, list) and isinstance(default, list):
             diff_items = []
             # Compare items pairwise.
-            for v, d in zip(value, default):
+            for v, d in zip(value, default, strict=False):
                 if self._has_diff(v, d):
                     diff_items.append(self._diff_repr(v, d))
             # Include any extra items in value.
@@ -69,15 +70,17 @@ class DiffBase:
     @classmethod
     def from_hierarchy(cls, configs: list[T]) -> T:
         # This config will accumulate "merged" config options
+        if len(configs) == 1:
+            return configs[0]
         output = cls()
-        for option in cls.__slots__:  # type: ignore
+        for option in cls.__slots__:  # type: ignore[attr-defined]
             if option.startswith("_"):
                 continue
             default = getattr(output, option)
-            if is_dataclass(default):
+            if hasattr(default, "__dataclass_fields__"):
                 # Sub-configs require merging of nested config options
                 sub_configs = [getattr(config, option) for config in configs]
-                merged = type(default).from_hierarchy(sub_configs)  # type: ignore[union-attr]
+                merged = type(default).from_hierarchy(sub_configs)
                 setattr(output, option, merged)
             else:
                 # Primitive config options can be compared directly and do not
@@ -89,7 +92,7 @@ class DiffBase:
                         # As we go from the highest priority to the lowest one,
                         # we can just stop on the first non-default value
                         break
-        return output  # type: ignore
+        return output  # type: ignore[return-value]
 
 
 def _repr(item: object) -> str:

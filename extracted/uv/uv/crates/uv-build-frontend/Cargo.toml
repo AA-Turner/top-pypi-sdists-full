@@ -1,14 +1,14 @@
 [package]
 name = "uv-build-frontend"
-version = "0.0.1"
-description = "Build wheels from source distributions"
+version = "0.0.15"
+description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
 homepage = { workspace = true }
-documentation = { workspace = true }
 repository = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
+readme = "README.md"
 
 [lib]
 doctest = false
@@ -17,6 +17,7 @@ doctest = false
 workspace = true
 
 [dependencies]
+uv-auth = { workspace = true }
 uv-cache-key = { workspace = true }
 uv-configuration = { workspace = true }
 uv-distribution = { workspace = true }

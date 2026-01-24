@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mail-parser-reply
-Version: 1.34
+Version: 1.36
 Summary: 📧 Email reply parser library for Python with multi-language support
 Home-page: https://github.com/alfonsrv/mail-parser-reply
 Author: Alfons R.
@@ -23,16 +23,16 @@ License-File: LICENSE
 [![Python](https://img.shields.io/badge/Made%20with-Python%203.x-blue.svg?style=flat-square&logo=Python&logoColor=white)](https://www.python.org/)
 [![Version](https://img.shields.io/badge/Version-1.3-dc2f02.svg?style=flat-square&logoColor=white)](https://github.com/alfonsrv/mail-parser-reply)
 
-
 ### Multi-language email reply parsing for international environments 🌍
 
 Mail clients handle reply formatting differently, making reliable parsing difficult. Thank god we have
-[standards](https://xkcd.com/927/).  This library splits *text-based* emails into separate replies based on common
+[standards](https://xkcd.com/927/). This library splits *text-based* emails into separate replies based on common
 headers produced by different, multilingual clients usually indicating separation.
 
 Replies can either present the whole mail message body, or strip headers, signatures and common disclaimers if required.
 Currently supported languages are:
 
+* Danish (`da`) 🇩🇰
 * Dutch (`nl`) 🇳🇱
 * English (`en`) 🇬🇧
 * French (`fr`) 🇫🇷
@@ -46,13 +46,11 @@ Currently supported languages are:
 * Korean (`ko`) 🇰🇷 (untested - contributions welcome!)
 * Chinese (`zh`) 🇨🇳 (untested - contributions welcome!)
 
-
 🏳️‍🌈 **Adding more languages is quite easy!**
 
 This is an improved Python implementation of GitHub's Ruby-based [email_reply_parser](https://github.com/github/email_reply_parser/)
 and an adaptation of Zapier's [email-reply-parser](https://github.com/zapier/email-reply-parser) which both split the
 mails in fragments instead of distinct replies. They also only support English.
-
 
 ## ⭐ Features
 
@@ -61,8 +59,7 @@ mails in fragments instead of distinct replies. They also only support English.
 ⭐ Text-based mail parsing  
 ⭐ Detect headers, signatures and disclaimers  
 ⭐ Fully type annotated  
-⭐ Easy-to-read code and well-tested  
-
+⭐ Easy-to-read code and well-tested
 
 ## Overview 🔭
 
@@ -89,13 +86,18 @@ Into just the replied text content:
 Awesome! I haven't had another problem with it.
 ```
 
-
 ## Get started 👾
 
 ### Installation
 
 ```bash
 pip install mail-parser-reply
+```
+
+### Run tests
+
+```bash
+python -m unittest discover test
 ```
 
 ### Parse Replies
@@ -113,7 +115,6 @@ print(mail_message.replies)
 ```python
 latest_reply = EmailReplyParser(languages=languages).parse_reply(text=mail_body)
 ```
-
 
 ### Parser API
 
@@ -143,8 +144,6 @@ EmailReply.headers:              Identified Headers
 EmailReply.signatures:           Identified Signatures
 EmailReply.disclaimers:          Identified disclaimers
 ```
-
-
 
 ---
 

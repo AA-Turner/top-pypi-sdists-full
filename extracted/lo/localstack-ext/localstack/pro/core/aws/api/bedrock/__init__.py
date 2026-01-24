@@ -1,10 +1,11 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Dict, List, Optional, TypedDict
+from typing import TypedDict
 
 from localstack.aws.api import RequestContext, ServiceException, ServiceRequest, handler
 
 AcceptEula = bool
+AccountEnforcedGuardrailConfigurationId = str
 AccountId = str
 AdditionalModelRequestFieldsKey = str
 Arn = str
@@ -55,6 +56,7 @@ CustomModelDeploymentIdentifier = str
 CustomModelName = str
 CustomModelUnitsVersion = str
 EndpointName = str
+EpochCount = int
 ErrorMessage = str
 EvaluationBedrockModelIdentifier = str
 EvaluationDatasetName = str
@@ -73,6 +75,7 @@ FieldForRerankingFieldNameString = str
 FilterKey = str
 Float = float
 FoundationModelArn = str
+GetFoundationModelIdentifier = str
 GuardrailArn = str
 GuardrailBlockedMessaging = str
 GuardrailConfigurationGuardrailIdString = str
@@ -124,6 +127,7 @@ KmsKeyArn = str
 KmsKeyId = str
 KnowledgeBaseId = str
 KnowledgeBaseVectorSearchConfigurationNumberOfResultsInteger = int
+LambdaArn = str
 LogGroupName = str
 MaxResults = int
 MaxTokens = int
@@ -163,6 +167,12 @@ ProvisionedModelArn = str
 ProvisionedModelId = str
 ProvisionedModelName = str
 RAGStopSequencesMemberString = str
+RFTBatchSize = int
+RFTEvalInterval = int
+RFTInferenceMaxTokens = int
+RFTLearningRate = float
+RFTMaxPromptLength = int
+RFTTrainingSamplePerPrompt = int
 RatingScaleItemDefinition = str
 RatingScaleItemValueStringValueString = str
 RequestMetadataMapKeyString = str
@@ -245,6 +255,7 @@ class AutomatedReasoningPolicyBuildResultAssetType(StrEnum):
     BUILD_LOG = "BUILD_LOG"
     QUALITY_REPORT = "QUALITY_REPORT"
     POLICY_DEFINITION = "POLICY_DEFINITION"
+    GENERATED_TEST_CASES = "GENERATED_TEST_CASES"
 
 
 class AutomatedReasoningPolicyBuildWorkflowStatus(StrEnum):
@@ -282,16 +293,27 @@ class CommitmentDuration(StrEnum):
     SixMonths = "SixMonths"
 
 
+class ConfigurationOwner(StrEnum):
+    ACCOUNT = "ACCOUNT"
+
+
 class CustomModelDeploymentStatus(StrEnum):
     Creating = "Creating"
     Active = "Active"
     Failed = "Failed"
 
 
+class CustomModelDeploymentUpdateStatus(StrEnum):
+    Updating = "Updating"
+    UpdateCompleted = "UpdateCompleted"
+    UpdateFailed = "UpdateFailed"
+
+
 class CustomizationType(StrEnum):
     FINE_TUNING = "FINE_TUNING"
     CONTINUED_PRE_TRAINING = "CONTINUED_PRE_TRAINING"
     DISTILLATION = "DISTILLATION"
+    REINFORCEMENT_FINE_TUNING = "REINFORCEMENT_FINE_TUNING"
     IMPORTED = "IMPORTED"
 
 
@@ -467,6 +489,11 @@ class InferenceType(StrEnum):
     PROVISIONED = "PROVISIONED"
 
 
+class InputTags(StrEnum):
+    HONOR = "HONOR"
+    IGNORE = "IGNORE"
+
+
 class JobStatusDetails(StrEnum):
     InProgress = "InProgress"
     Completed = "Completed"
@@ -555,6 +582,12 @@ class ProvisionedModelStatus(StrEnum):
 
 class QueryTransformationType(StrEnum):
     QUERY_DECOMPOSITION = "QUERY_DECOMPOSITION"
+
+
+class ReasoningEffort(StrEnum):
+    low = "low"
+    medium = "medium"
+    high = "high"
 
 
 class RegionAvailability(StrEnum):
@@ -688,7 +721,7 @@ class TooManyTagsException(ServiceException):
     code: str = "TooManyTagsException"
     sender_fault: bool = True
     status_code: int = 400
-    resourceName: Optional[TaggableResourcesArn]
+    resourceName: TaggableResourcesArn | None
 
 
 class ValidationException(ServiceException):
@@ -701,6 +734,33 @@ class ValidationException(ServiceException):
     status_code: int = 400
 
 
+class AccountEnforcedGuardrailInferenceInputConfiguration(TypedDict, total=False):
+    """Account-level enforced guardrail input configuration."""
+
+    guardrailIdentifier: GuardrailIdentifier
+    guardrailVersion: GuardrailNumericalVersion
+    inputTags: InputTags
+
+
+Timestamp = datetime
+
+
+class AccountEnforcedGuardrailOutputConfiguration(TypedDict, total=False):
+    """Account enforced guardrail output configuration."""
+
+    configId: AccountEnforcedGuardrailConfigurationId | None
+    guardrailArn: GuardrailArn | None
+    guardrailId: GuardrailId | None
+    inputTags: InputTags | None
+    guardrailVersion: GuardrailNumericalVersion | None
+    createdAt: Timestamp | None
+    createdBy: String | None
+    updatedAt: Timestamp | None
+    updatedBy: String | None
+    owner: ConfigurationOwner | None
+
+
+AccountEnforcedGuardrailsOutputConfiguration = list[AccountEnforcedGuardrailOutputConfiguration]
 AcknowledgementFormDataBody = bytes
 
 
@@ -708,7 +768,7 @@ class AdditionalModelRequestFieldsValue(TypedDict, total=False):
     pass
 
 
-AdditionalModelRequestFields = Dict[
+AdditionalModelRequestFields = dict[
     AdditionalModelRequestFieldsKey, AdditionalModelRequestFieldsValue
 ]
 
@@ -717,7 +777,7 @@ class AgreementAvailability(TypedDict, total=False):
     """Information about the agreement availability"""
 
     status: AgreementStatus
-    errorMessage: Optional[String]
+    errorMessage: String | None
 
 
 class CustomMetricBedrockEvaluatorModel(TypedDict, total=False):
@@ -728,7 +788,7 @@ class CustomMetricBedrockEvaluatorModel(TypedDict, total=False):
     modelIdentifier: EvaluatorModelIdentifier
 
 
-CustomMetricBedrockEvaluatorModels = List[CustomMetricBedrockEvaluatorModel]
+CustomMetricBedrockEvaluatorModels = list[CustomMetricBedrockEvaluatorModel]
 
 
 class CustomMetricEvaluatorModelConfig(TypedDict, total=False):
@@ -742,8 +802,8 @@ class CustomMetricEvaluatorModelConfig(TypedDict, total=False):
 class RatingScaleItemValue(TypedDict, total=False):
     """Defines the value for one rating in a custom metric rating scale."""
 
-    stringValue: Optional[RatingScaleItemValueStringValueString]
-    floatValue: Optional[Float]
+    stringValue: RatingScaleItemValueStringValueString | None
+    floatValue: Float | None
 
 
 class RatingScaleItem(TypedDict, total=False):
@@ -755,7 +815,7 @@ class RatingScaleItem(TypedDict, total=False):
     value: RatingScaleItemValue
 
 
-RatingScale = List[RatingScaleItem]
+RatingScale = list[RatingScaleItem]
 
 
 class CustomMetricDefinition(TypedDict, total=False):
@@ -774,7 +834,7 @@ class CustomMetricDefinition(TypedDict, total=False):
 
     name: MetricName
     instructions: CustomMetricInstructions
-    ratingScale: Optional[RatingScale]
+    ratingScale: RatingScale | None
 
 
 class AutomatedEvaluationCustomMetricSource(TypedDict, total=False):
@@ -782,10 +842,10 @@ class AutomatedEvaluationCustomMetricSource(TypedDict, total=False):
     Bedrock evaluation job.
     """
 
-    customMetricDefinition: Optional[CustomMetricDefinition]
+    customMetricDefinition: CustomMetricDefinition | None
 
 
-AutomatedEvaluationCustomMetrics = List[AutomatedEvaluationCustomMetricSource]
+AutomatedEvaluationCustomMetrics = list[AutomatedEvaluationCustomMetricSource]
 
 
 class AutomatedEvaluationCustomMetricConfig(TypedDict, total=False):
@@ -811,7 +871,7 @@ class BedrockEvaluatorModel(TypedDict, total=False):
     modelIdentifier: EvaluatorModelIdentifier
 
 
-BedrockEvaluatorModels = List[BedrockEvaluatorModel]
+BedrockEvaluatorModels = list[BedrockEvaluatorModel]
 
 
 class EvaluatorModelConfig(TypedDict, total=False):
@@ -821,16 +881,16 @@ class EvaluatorModelConfig(TypedDict, total=False):
     This model computes all evaluation related metrics.
     """
 
-    bedrockEvaluatorModels: Optional[BedrockEvaluatorModels]
+    bedrockEvaluatorModels: BedrockEvaluatorModels | None
 
 
-EvaluationMetricNames = List[EvaluationMetricName]
+EvaluationMetricNames = list[EvaluationMetricName]
 
 
 class EvaluationDatasetLocation(TypedDict, total=False):
     """The location in Amazon S3 where your prompt dataset is stored."""
 
-    s3Uri: Optional[S3Uri]
+    s3Uri: S3Uri | None
 
 
 class EvaluationDataset(TypedDict, total=False):
@@ -839,7 +899,7 @@ class EvaluationDataset(TypedDict, total=False):
     """
 
     name: EvaluationDatasetName
-    datasetLocation: Optional[EvaluationDatasetLocation]
+    datasetLocation: EvaluationDatasetLocation | None
 
 
 class EvaluationDatasetMetricConfig(TypedDict, total=False):
@@ -852,7 +912,7 @@ class EvaluationDatasetMetricConfig(TypedDict, total=False):
     metricNames: EvaluationMetricNames
 
 
-EvaluationDatasetMetricConfigs = List[EvaluationDatasetMetricConfig]
+EvaluationDatasetMetricConfigs = list[EvaluationDatasetMetricConfig]
 
 
 class AutomatedEvaluationConfig(TypedDict, total=False):
@@ -862,8 +922,8 @@ class AutomatedEvaluationConfig(TypedDict, total=False):
     """
 
     datasetMetricConfigs: EvaluationDatasetMetricConfigs
-    evaluatorModelConfig: Optional[EvaluatorModelConfig]
-    customMetricConfig: Optional[AutomatedEvaluationCustomMetricConfig]
+    evaluatorModelConfig: EvaluatorModelConfig | None
+    customMetricConfig: AutomatedEvaluationCustomMetricConfig | None
 
 
 class AutomatedReasoningLogicStatement(TypedDict, total=False):
@@ -873,10 +933,10 @@ class AutomatedReasoningLogicStatement(TypedDict, total=False):
     """
 
     logic: AutomatedReasoningLogicStatementContent
-    naturalLanguage: Optional[AutomatedReasoningNaturalLanguageStatementContent]
+    naturalLanguage: AutomatedReasoningNaturalLanguageStatementContent | None
 
 
-AutomatedReasoningLogicStatementList = List[AutomatedReasoningLogicStatement]
+AutomatedReasoningLogicStatementList = list[AutomatedReasoningLogicStatement]
 
 
 class AutomatedReasoningCheckScenario(TypedDict, total=False):
@@ -884,10 +944,10 @@ class AutomatedReasoningCheckScenario(TypedDict, total=False):
     false, containing specific logical assignments.
     """
 
-    statements: Optional[AutomatedReasoningLogicStatementList]
+    statements: AutomatedReasoningLogicStatementList | None
 
 
-AutomatedReasoningCheckDifferenceScenarioList = List[AutomatedReasoningCheckScenario]
+AutomatedReasoningCheckDifferenceScenarioList = list[AutomatedReasoningCheckScenario]
 
 
 class AutomatedReasoningCheckNoTranslationsFinding(TypedDict, total=False):
@@ -911,10 +971,10 @@ class AutomatedReasoningCheckInputTextReference(TypedDict, total=False):
     logical elements.
     """
 
-    text: Optional[AutomatedReasoningNaturalLanguageStatementContent]
+    text: AutomatedReasoningNaturalLanguageStatementContent | None
 
 
-AutomatedReasoningCheckInputTextReferenceList = List[AutomatedReasoningCheckInputTextReference]
+AutomatedReasoningCheckInputTextReferenceList = list[AutomatedReasoningCheckInputTextReference]
 
 
 class AutomatedReasoningCheckTranslation(TypedDict, total=False):
@@ -922,14 +982,14 @@ class AutomatedReasoningCheckTranslation(TypedDict, total=False):
     logical statements, including premises, claims, and confidence scores.
     """
 
-    premises: Optional[AutomatedReasoningLogicStatementList]
+    premises: AutomatedReasoningLogicStatementList | None
     claims: AutomatedReasoningLogicStatementList
-    untranslatedPremises: Optional[AutomatedReasoningCheckInputTextReferenceList]
-    untranslatedClaims: Optional[AutomatedReasoningCheckInputTextReferenceList]
+    untranslatedPremises: AutomatedReasoningCheckInputTextReferenceList | None
+    untranslatedClaims: AutomatedReasoningCheckInputTextReferenceList | None
     confidence: AutomatedReasoningCheckTranslationConfidence
 
 
-AutomatedReasoningCheckTranslationList = List[AutomatedReasoningCheckTranslation]
+AutomatedReasoningCheckTranslationList = list[AutomatedReasoningCheckTranslation]
 
 
 class AutomatedReasoningCheckTranslationOption(TypedDict, total=False):
@@ -937,10 +997,10 @@ class AutomatedReasoningCheckTranslationOption(TypedDict, total=False):
     content.
     """
 
-    translations: Optional[AutomatedReasoningCheckTranslationList]
+    translations: AutomatedReasoningCheckTranslationList | None
 
 
-AutomatedReasoningCheckTranslationOptionList = List[AutomatedReasoningCheckTranslationOption]
+AutomatedReasoningCheckTranslationOptionList = list[AutomatedReasoningCheckTranslationOption]
 
 
 class AutomatedReasoningCheckTranslationAmbiguousFinding(TypedDict, total=False):
@@ -948,14 +1008,14 @@ class AutomatedReasoningCheckTranslationAmbiguousFinding(TypedDict, total=False)
     requiring additional context or clarification.
     """
 
-    options: Optional[AutomatedReasoningCheckTranslationOptionList]
-    differenceScenarios: Optional[AutomatedReasoningCheckDifferenceScenarioList]
+    options: AutomatedReasoningCheckTranslationOptionList | None
+    differenceScenarios: AutomatedReasoningCheckDifferenceScenarioList | None
 
 
 class AutomatedReasoningCheckLogicWarning(TypedDict, total=False):
-    type: Optional[AutomatedReasoningCheckLogicWarningType]
-    premises: Optional[AutomatedReasoningLogicStatementList]
-    claims: Optional[AutomatedReasoningLogicStatementList]
+    type: AutomatedReasoningCheckLogicWarningType | None
+    premises: AutomatedReasoningLogicStatementList | None
+    claims: AutomatedReasoningLogicStatementList | None
 
 
 class AutomatedReasoningCheckRule(TypedDict, total=False):
@@ -963,11 +1023,11 @@ class AutomatedReasoningCheckRule(TypedDict, total=False):
     during evaluation.
     """
 
-    id: Optional[AutomatedReasoningPolicyDefinitionRuleId]
-    policyVersionArn: Optional[AutomatedReasoningPolicyArn]
+    id: AutomatedReasoningPolicyDefinitionRuleId | None
+    policyVersionArn: AutomatedReasoningPolicyArn | None
 
 
-AutomatedReasoningCheckRuleList = List[AutomatedReasoningCheckRule]
+AutomatedReasoningCheckRuleList = list[AutomatedReasoningCheckRule]
 
 
 class AutomatedReasoningCheckImpossibleFinding(TypedDict, total=False):
@@ -975,9 +1035,9 @@ class AutomatedReasoningCheckImpossibleFinding(TypedDict, total=False):
     in the premises or rules.
     """
 
-    translation: Optional[AutomatedReasoningCheckTranslation]
-    contradictingRules: Optional[AutomatedReasoningCheckRuleList]
-    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+    translation: AutomatedReasoningCheckTranslation | None
+    contradictingRules: AutomatedReasoningCheckRuleList | None
+    logicWarning: AutomatedReasoningCheckLogicWarning | None
 
 
 class AutomatedReasoningCheckSatisfiableFinding(TypedDict, total=False):
@@ -985,10 +1045,10 @@ class AutomatedReasoningCheckSatisfiableFinding(TypedDict, total=False):
     additional assumptions not provided in the input.
     """
 
-    translation: Optional[AutomatedReasoningCheckTranslation]
-    claimsTrueScenario: Optional[AutomatedReasoningCheckScenario]
-    claimsFalseScenario: Optional[AutomatedReasoningCheckScenario]
-    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+    translation: AutomatedReasoningCheckTranslation | None
+    claimsTrueScenario: AutomatedReasoningCheckScenario | None
+    claimsFalseScenario: AutomatedReasoningCheckScenario | None
+    logicWarning: AutomatedReasoningCheckLogicWarning | None
 
 
 class AutomatedReasoningCheckInvalidFinding(TypedDict, total=False):
@@ -996,9 +1056,9 @@ class AutomatedReasoningCheckInvalidFinding(TypedDict, total=False):
     established rules or premises.
     """
 
-    translation: Optional[AutomatedReasoningCheckTranslation]
-    contradictingRules: Optional[AutomatedReasoningCheckRuleList]
-    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+    translation: AutomatedReasoningCheckTranslation | None
+    contradictingRules: AutomatedReasoningCheckRuleList | None
+    logicWarning: AutomatedReasoningCheckLogicWarning | None
 
 
 class AutomatedReasoningCheckValidFinding(TypedDict, total=False):
@@ -1006,10 +1066,10 @@ class AutomatedReasoningCheckValidFinding(TypedDict, total=False):
     the premises, with no possible alternative interpretations.
     """
 
-    translation: Optional[AutomatedReasoningCheckTranslation]
-    claimsTrueScenario: Optional[AutomatedReasoningCheckScenario]
-    supportingRules: Optional[AutomatedReasoningCheckRuleList]
-    logicWarning: Optional[AutomatedReasoningCheckLogicWarning]
+    translation: AutomatedReasoningCheckTranslation | None
+    claimsTrueScenario: AutomatedReasoningCheckScenario | None
+    supportingRules: AutomatedReasoningCheckRuleList | None
+    logicWarning: AutomatedReasoningCheckLogicWarning | None
 
 
 class AutomatedReasoningCheckFinding(TypedDict, total=False):
@@ -1018,16 +1078,16 @@ class AutomatedReasoningCheckFinding(TypedDict, total=False):
     into other categories based on the policy rules.
     """
 
-    valid: Optional[AutomatedReasoningCheckValidFinding]
-    invalid: Optional[AutomatedReasoningCheckInvalidFinding]
-    satisfiable: Optional[AutomatedReasoningCheckSatisfiableFinding]
-    impossible: Optional[AutomatedReasoningCheckImpossibleFinding]
-    translationAmbiguous: Optional[AutomatedReasoningCheckTranslationAmbiguousFinding]
-    tooComplex: Optional[AutomatedReasoningCheckTooComplexFinding]
-    noTranslations: Optional[AutomatedReasoningCheckNoTranslationsFinding]
+    valid: AutomatedReasoningCheckValidFinding | None
+    invalid: AutomatedReasoningCheckInvalidFinding | None
+    satisfiable: AutomatedReasoningCheckSatisfiableFinding | None
+    impossible: AutomatedReasoningCheckImpossibleFinding | None
+    translationAmbiguous: AutomatedReasoningCheckTranslationAmbiguousFinding | None
+    tooComplex: AutomatedReasoningCheckTooComplexFinding | None
+    noTranslations: AutomatedReasoningCheckNoTranslationsFinding | None
 
 
-AutomatedReasoningCheckFindingList = List[AutomatedReasoningCheckFinding]
+AutomatedReasoningCheckFindingList = list[AutomatedReasoningCheckFinding]
 
 
 class AutomatedReasoningPolicyAddRuleAnnotation(TypedDict, total=False):
@@ -1054,7 +1114,7 @@ class AutomatedReasoningPolicyDefinitionRule(TypedDict, total=False):
 
     id: AutomatedReasoningPolicyDefinitionRuleId
     expression: AutomatedReasoningPolicyDefinitionRuleExpression
-    alternateExpression: Optional[AutomatedReasoningPolicyDefinitionRuleAlternateExpression]
+    alternateExpression: AutomatedReasoningPolicyDefinitionRuleAlternateExpression | None
 
 
 class AutomatedReasoningPolicyAddRuleMutation(TypedDict, total=False):
@@ -1071,10 +1131,10 @@ class AutomatedReasoningPolicyDefinitionTypeValue(TypedDict, total=False):
     """
 
     value: AutomatedReasoningPolicyDefinitionTypeValueName
-    description: Optional[AutomatedReasoningPolicyDefinitionTypeValueDescription]
+    description: AutomatedReasoningPolicyDefinitionTypeValueDescription | None
 
 
-AutomatedReasoningPolicyDefinitionTypeValueList = List[AutomatedReasoningPolicyDefinitionTypeValue]
+AutomatedReasoningPolicyDefinitionTypeValueList = list[AutomatedReasoningPolicyDefinitionTypeValue]
 
 
 class AutomatedReasoningPolicyAddTypeAnnotation(TypedDict, total=False):
@@ -1094,7 +1154,7 @@ class AutomatedReasoningPolicyDefinitionType(TypedDict, total=False):
     """
 
     name: AutomatedReasoningPolicyDefinitionTypeName
-    description: Optional[AutomatedReasoningPolicyDefinitionTypeDescription]
+    description: AutomatedReasoningPolicyDefinitionTypeDescription | None
     values: AutomatedReasoningPolicyDefinitionTypeValueList
 
 
@@ -1108,7 +1168,7 @@ class AutomatedReasoningPolicyAddTypeValue(TypedDict, total=False):
     """
 
     value: AutomatedReasoningPolicyDefinitionTypeValueName
-    description: Optional[AutomatedReasoningPolicyDefinitionTypeValueDescription]
+    description: AutomatedReasoningPolicyDefinitionTypeValueDescription | None
 
 
 class AutomatedReasoningPolicyAddVariableAnnotation(TypedDict, total=False):
@@ -1139,7 +1199,7 @@ class AutomatedReasoningPolicyIngestContentAnnotation(TypedDict, total=False):
     content: AutomatedReasoningPolicyAnnotationIngestContent
 
 
-AutomatedReasoningPolicyDefinitionRuleIdList = List[AutomatedReasoningPolicyDefinitionRuleId]
+AutomatedReasoningPolicyDefinitionRuleIdList = list[AutomatedReasoningPolicyDefinitionRuleId]
 
 
 class AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotation(TypedDict, total=False):
@@ -1147,9 +1207,9 @@ class AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotation(TypedDict, to
     performed on specific test scenarios.
     """
 
-    ruleIds: Optional[AutomatedReasoningPolicyDefinitionRuleIdList]
+    ruleIds: AutomatedReasoningPolicyDefinitionRuleIdList | None
     scenarioExpression: AutomatedReasoningPolicyScenarioExpression
-    feedback: Optional[AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage]
+    feedback: AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage | None
 
 
 class AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotation(TypedDict, total=False):
@@ -1157,7 +1217,7 @@ class AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotation(TypedDict, total=
     specific rules performed during testing or real-world usage.
     """
 
-    ruleIds: Optional[AutomatedReasoningPolicyDefinitionRuleIdList]
+    ruleIds: AutomatedReasoningPolicyDefinitionRuleIdList | None
     feedback: AutomatedReasoningPolicyAnnotationFeedbackNaturalLanguage
 
 
@@ -1190,8 +1250,8 @@ class AutomatedReasoningPolicyUpdateVariableAnnotation(TypedDict, total=False):
     """
 
     name: AutomatedReasoningPolicyDefinitionVariableName
-    newName: Optional[AutomatedReasoningPolicyDefinitionVariableName]
-    description: Optional[AutomatedReasoningPolicyDefinitionVariableDescription]
+    newName: AutomatedReasoningPolicyDefinitionVariableName | None
+    description: AutomatedReasoningPolicyDefinitionVariableDescription | None
 
 
 class AutomatedReasoningPolicyDeleteTypeAnnotation(TypedDict, total=False):
@@ -1214,8 +1274,8 @@ class AutomatedReasoningPolicyUpdateTypeValue(TypedDict, total=False):
     """Represents a modification to a value within an existing custom type."""
 
     value: AutomatedReasoningPolicyDefinitionTypeValueName
-    newValue: Optional[AutomatedReasoningPolicyDefinitionTypeValueName]
-    description: Optional[AutomatedReasoningPolicyDefinitionTypeValueDescription]
+    newValue: AutomatedReasoningPolicyDefinitionTypeValueName | None
+    description: AutomatedReasoningPolicyDefinitionTypeValueDescription | None
 
 
 class AutomatedReasoningPolicyTypeValueAnnotation(TypedDict, total=False):
@@ -1223,12 +1283,12 @@ class AutomatedReasoningPolicyTypeValueAnnotation(TypedDict, total=False):
     updating, or removing specific type values.
     """
 
-    addTypeValue: Optional[AutomatedReasoningPolicyAddTypeValue]
-    updateTypeValue: Optional[AutomatedReasoningPolicyUpdateTypeValue]
-    deleteTypeValue: Optional[AutomatedReasoningPolicyDeleteTypeValue]
+    addTypeValue: AutomatedReasoningPolicyAddTypeValue | None
+    updateTypeValue: AutomatedReasoningPolicyUpdateTypeValue | None
+    deleteTypeValue: AutomatedReasoningPolicyDeleteTypeValue | None
 
 
-AutomatedReasoningPolicyTypeValueAnnotationList = List[AutomatedReasoningPolicyTypeValueAnnotation]
+AutomatedReasoningPolicyTypeValueAnnotationList = list[AutomatedReasoningPolicyTypeValueAnnotation]
 
 
 class AutomatedReasoningPolicyUpdateTypeAnnotation(TypedDict, total=False):
@@ -1237,8 +1297,8 @@ class AutomatedReasoningPolicyUpdateTypeAnnotation(TypedDict, total=False):
     """
 
     name: AutomatedReasoningPolicyDefinitionTypeName
-    newName: Optional[AutomatedReasoningPolicyDefinitionTypeName]
-    description: Optional[AutomatedReasoningPolicyDefinitionTypeDescription]
+    newName: AutomatedReasoningPolicyDefinitionTypeName | None
+    description: AutomatedReasoningPolicyDefinitionTypeDescription | None
     values: AutomatedReasoningPolicyTypeValueAnnotationList
 
 
@@ -1248,26 +1308,23 @@ class AutomatedReasoningPolicyAnnotation(TypedDict, total=False):
     variables, and types.
     """
 
-    addType: Optional[AutomatedReasoningPolicyAddTypeAnnotation]
-    updateType: Optional[AutomatedReasoningPolicyUpdateTypeAnnotation]
-    deleteType: Optional[AutomatedReasoningPolicyDeleteTypeAnnotation]
-    addVariable: Optional[AutomatedReasoningPolicyAddVariableAnnotation]
-    updateVariable: Optional[AutomatedReasoningPolicyUpdateVariableAnnotation]
-    deleteVariable: Optional[AutomatedReasoningPolicyDeleteVariableAnnotation]
-    addRule: Optional[AutomatedReasoningPolicyAddRuleAnnotation]
-    updateRule: Optional[AutomatedReasoningPolicyUpdateRuleAnnotation]
-    deleteRule: Optional[AutomatedReasoningPolicyDeleteRuleAnnotation]
-    addRuleFromNaturalLanguage: Optional[
-        AutomatedReasoningPolicyAddRuleFromNaturalLanguageAnnotation
-    ]
-    updateFromRulesFeedback: Optional[AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotation]
-    updateFromScenarioFeedback: Optional[
-        AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotation
-    ]
-    ingestContent: Optional[AutomatedReasoningPolicyIngestContentAnnotation]
+    addType: AutomatedReasoningPolicyAddTypeAnnotation | None
+    updateType: AutomatedReasoningPolicyUpdateTypeAnnotation | None
+    deleteType: AutomatedReasoningPolicyDeleteTypeAnnotation | None
+    addVariable: AutomatedReasoningPolicyAddVariableAnnotation | None
+    updateVariable: AutomatedReasoningPolicyUpdateVariableAnnotation | None
+    deleteVariable: AutomatedReasoningPolicyDeleteVariableAnnotation | None
+    addRule: AutomatedReasoningPolicyAddRuleAnnotation | None
+    updateRule: AutomatedReasoningPolicyUpdateRuleAnnotation | None
+    deleteRule: AutomatedReasoningPolicyDeleteRuleAnnotation | None
+    addRuleFromNaturalLanguage: AutomatedReasoningPolicyAddRuleFromNaturalLanguageAnnotation | None
+    updateFromRulesFeedback: AutomatedReasoningPolicyUpdateFromRuleFeedbackAnnotation | None
+    updateFromScenarioFeedback: AutomatedReasoningPolicyUpdateFromScenarioFeedbackAnnotation | None
+    ingestContent: AutomatedReasoningPolicyIngestContentAnnotation | None
 
 
-AutomatedReasoningPolicyAnnotationList = List[AutomatedReasoningPolicyAnnotation]
+AutomatedReasoningPolicyAnnotationList = list[AutomatedReasoningPolicyAnnotation]
+AutomatedReasoningPolicyBuildDocumentBlob = bytes
 
 
 class AutomatedReasoningPolicyBuildStepMessage(TypedDict, total=False):
@@ -1279,7 +1336,7 @@ class AutomatedReasoningPolicyBuildStepMessage(TypedDict, total=False):
     messageType: AutomatedReasoningPolicyBuildMessageType
 
 
-AutomatedReasoningPolicyBuildStepMessageList = List[AutomatedReasoningPolicyBuildStepMessage]
+AutomatedReasoningPolicyBuildStepMessageList = list[AutomatedReasoningPolicyBuildStepMessage]
 
 
 class AutomatedReasoningPolicyDefinitionElement(TypedDict, total=False):
@@ -1287,9 +1344,9 @@ class AutomatedReasoningPolicyDefinitionElement(TypedDict, total=False):
     such as a rule, variable, or type definition.
     """
 
-    policyDefinitionVariable: Optional[AutomatedReasoningPolicyDefinitionVariable]
-    policyDefinitionType: Optional[AutomatedReasoningPolicyDefinitionType]
-    policyDefinitionRule: Optional[AutomatedReasoningPolicyDefinitionRule]
+    policyDefinitionVariable: AutomatedReasoningPolicyDefinitionVariable | None
+    policyDefinitionType: AutomatedReasoningPolicyDefinitionType | None
+    policyDefinitionRule: AutomatedReasoningPolicyDefinitionRule | None
 
 
 class AutomatedReasoningPolicyDeleteRuleMutation(TypedDict, total=False):
@@ -1342,15 +1399,15 @@ class AutomatedReasoningPolicyMutation(TypedDict, total=False):
     policy elements.
     """
 
-    addType: Optional[AutomatedReasoningPolicyAddTypeMutation]
-    updateType: Optional[AutomatedReasoningPolicyUpdateTypeMutation]
-    deleteType: Optional[AutomatedReasoningPolicyDeleteTypeMutation]
-    addVariable: Optional[AutomatedReasoningPolicyAddVariableMutation]
-    updateVariable: Optional[AutomatedReasoningPolicyUpdateVariableMutation]
-    deleteVariable: Optional[AutomatedReasoningPolicyDeleteVariableMutation]
-    addRule: Optional[AutomatedReasoningPolicyAddRuleMutation]
-    updateRule: Optional[AutomatedReasoningPolicyUpdateRuleMutation]
-    deleteRule: Optional[AutomatedReasoningPolicyDeleteRuleMutation]
+    addType: AutomatedReasoningPolicyAddTypeMutation | None
+    updateType: AutomatedReasoningPolicyUpdateTypeMutation | None
+    deleteType: AutomatedReasoningPolicyDeleteTypeMutation | None
+    addVariable: AutomatedReasoningPolicyAddVariableMutation | None
+    updateVariable: AutomatedReasoningPolicyUpdateVariableMutation | None
+    deleteVariable: AutomatedReasoningPolicyDeleteVariableMutation | None
+    addRule: AutomatedReasoningPolicyAddRuleMutation | None
+    updateRule: AutomatedReasoningPolicyUpdateRuleMutation | None
+    deleteRule: AutomatedReasoningPolicyDeleteRuleMutation | None
 
 
 class AutomatedReasoningPolicyPlanning(TypedDict, total=False):
@@ -1366,8 +1423,8 @@ class AutomatedReasoningPolicyBuildStepContext(TypedDict, total=False):
     a build step.
     """
 
-    planning: Optional[AutomatedReasoningPolicyPlanning]
-    mutation: Optional[AutomatedReasoningPolicyMutation]
+    planning: AutomatedReasoningPolicyPlanning | None
+    mutation: AutomatedReasoningPolicyMutation | None
 
 
 class AutomatedReasoningPolicyBuildStep(TypedDict, total=False):
@@ -1376,11 +1433,11 @@ class AutomatedReasoningPolicyBuildStep(TypedDict, total=False):
     """
 
     context: AutomatedReasoningPolicyBuildStepContext
-    priorElement: Optional[AutomatedReasoningPolicyDefinitionElement]
+    priorElement: AutomatedReasoningPolicyDefinitionElement | None
     messages: AutomatedReasoningPolicyBuildStepMessageList
 
 
-AutomatedReasoningPolicyBuildStepList = List[AutomatedReasoningPolicyBuildStep]
+AutomatedReasoningPolicyBuildStepList = list[AutomatedReasoningPolicyBuildStep]
 
 
 class AutomatedReasoningPolicyBuildLogEntry(TypedDict, total=False):
@@ -1393,7 +1450,7 @@ class AutomatedReasoningPolicyBuildLogEntry(TypedDict, total=False):
     buildSteps: AutomatedReasoningPolicyBuildStepList
 
 
-AutomatedReasoningPolicyBuildLogEntryList = List[AutomatedReasoningPolicyBuildLogEntry]
+AutomatedReasoningPolicyBuildLogEntryList = list[AutomatedReasoningPolicyBuildLogEntry]
 
 
 class AutomatedReasoningPolicyBuildLog(TypedDict, total=False):
@@ -1404,8 +1461,29 @@ class AutomatedReasoningPolicyBuildLog(TypedDict, total=False):
     entries: AutomatedReasoningPolicyBuildLogEntryList
 
 
-AutomatedReasoningPolicyDisjointedRuleIdList = List[AutomatedReasoningPolicyDefinitionRuleId]
-AutomatedReasoningPolicyDefinitionVariableNameList = List[
+class AutomatedReasoningPolicyGeneratedTestCase(TypedDict, total=False):
+    """Represents a generated test case, consisting of query content, guard
+    content, and expected results.
+    """
+
+    queryContent: AutomatedReasoningPolicyTestQueryContent
+    guardContent: AutomatedReasoningPolicyTestGuardContent
+    expectedAggregatedFindingsResult: AutomatedReasoningCheckResult
+
+
+AutomatedReasoningPolicyGeneratedTestCaseList = list[AutomatedReasoningPolicyGeneratedTestCase]
+
+
+class AutomatedReasoningPolicyGeneratedTestCases(TypedDict, total=False):
+    """Contains a comprehensive test suite generated by the build workflow,
+    providing validation capabilities for automated reasoning policies.
+    """
+
+    generatedTestCases: AutomatedReasoningPolicyGeneratedTestCaseList
+
+
+AutomatedReasoningPolicyDisjointedRuleIdList = list[AutomatedReasoningPolicyDefinitionRuleId]
+AutomatedReasoningPolicyDefinitionVariableNameList = list[
     AutomatedReasoningPolicyDefinitionVariableName
 ]
 
@@ -1419,8 +1497,8 @@ class AutomatedReasoningPolicyDisjointRuleSet(TypedDict, total=False):
     rules: AutomatedReasoningPolicyDisjointedRuleIdList
 
 
-AutomatedReasoningPolicyDisjointRuleSetList = List[AutomatedReasoningPolicyDisjointRuleSet]
-AutomatedReasoningPolicyConflictedRuleIdList = List[AutomatedReasoningPolicyDefinitionRuleId]
+AutomatedReasoningPolicyDisjointRuleSetList = list[AutomatedReasoningPolicyDisjointRuleSet]
+AutomatedReasoningPolicyConflictedRuleIdList = list[AutomatedReasoningPolicyDefinitionRuleId]
 
 
 class AutomatedReasoningPolicyDefinitionTypeValuePair(TypedDict, total=False):
@@ -1432,10 +1510,10 @@ class AutomatedReasoningPolicyDefinitionTypeValuePair(TypedDict, total=False):
     valueName: AutomatedReasoningPolicyDefinitionTypeValueName
 
 
-AutomatedReasoningPolicyDefinitionTypeValuePairList = List[
+AutomatedReasoningPolicyDefinitionTypeValuePairList = list[
     AutomatedReasoningPolicyDefinitionTypeValuePair
 ]
-AutomatedReasoningPolicyDefinitionTypeNameList = List[AutomatedReasoningPolicyDefinitionTypeName]
+AutomatedReasoningPolicyDefinitionTypeNameList = list[AutomatedReasoningPolicyDefinitionTypeName]
 
 
 class AutomatedReasoningPolicyDefinitionQualityReport(TypedDict, total=False):
@@ -1454,9 +1532,9 @@ class AutomatedReasoningPolicyDefinitionQualityReport(TypedDict, total=False):
     disjointRuleSets: AutomatedReasoningPolicyDisjointRuleSetList
 
 
-AutomatedReasoningPolicyDefinitionVariableList = List[AutomatedReasoningPolicyDefinitionVariable]
-AutomatedReasoningPolicyDefinitionRuleList = List[AutomatedReasoningPolicyDefinitionRule]
-AutomatedReasoningPolicyDefinitionTypeList = List[AutomatedReasoningPolicyDefinitionType]
+AutomatedReasoningPolicyDefinitionVariableList = list[AutomatedReasoningPolicyDefinitionVariable]
+AutomatedReasoningPolicyDefinitionRuleList = list[AutomatedReasoningPolicyDefinitionRule]
+AutomatedReasoningPolicyDefinitionTypeList = list[AutomatedReasoningPolicyDefinitionType]
 
 
 class AutomatedReasoningPolicyDefinition(TypedDict, total=False):
@@ -1466,23 +1544,22 @@ class AutomatedReasoningPolicyDefinition(TypedDict, total=False):
     for accuracy and logical consistency.
     """
 
-    version: Optional[AutomatedReasoningPolicyFormatVersion]
-    types: Optional[AutomatedReasoningPolicyDefinitionTypeList]
-    rules: Optional[AutomatedReasoningPolicyDefinitionRuleList]
-    variables: Optional[AutomatedReasoningPolicyDefinitionVariableList]
+    version: AutomatedReasoningPolicyFormatVersion | None
+    types: AutomatedReasoningPolicyDefinitionTypeList | None
+    rules: AutomatedReasoningPolicyDefinitionRuleList | None
+    variables: AutomatedReasoningPolicyDefinitionVariableList | None
 
 
 class AutomatedReasoningPolicyBuildResultAssets(TypedDict, total=False):
     """Contains the various assets generated during a policy build workflow,
-    including logs, quality reports, and the final policy definition.
+    including logs, quality reports, test cases, and the final policy
+    definition.
     """
 
-    policyDefinition: Optional[AutomatedReasoningPolicyDefinition]
-    qualityReport: Optional[AutomatedReasoningPolicyDefinitionQualityReport]
-    buildLog: Optional[AutomatedReasoningPolicyBuildLog]
-
-
-AutomatedReasoningPolicyBuildWorkflowDocumentDocumentBlob = bytes
+    policyDefinition: AutomatedReasoningPolicyDefinition | None
+    qualityReport: AutomatedReasoningPolicyDefinitionQualityReport | None
+    buildLog: AutomatedReasoningPolicyBuildLog | None
+    generatedTestCases: AutomatedReasoningPolicyGeneratedTestCases | None
 
 
 class AutomatedReasoningPolicyBuildWorkflowDocument(TypedDict, total=False):
@@ -1490,13 +1567,13 @@ class AutomatedReasoningPolicyBuildWorkflowDocument(TypedDict, total=False):
     containing the content and metadata needed for policy generation.
     """
 
-    document: AutomatedReasoningPolicyBuildWorkflowDocumentDocumentBlob
+    document: AutomatedReasoningPolicyBuildDocumentBlob
     documentContentType: AutomatedReasoningPolicyBuildDocumentContentType
     documentName: AutomatedReasoningPolicyBuildDocumentName
-    documentDescription: Optional[AutomatedReasoningPolicyBuildDocumentDescription]
+    documentDescription: AutomatedReasoningPolicyBuildDocumentDescription | None
 
 
-AutomatedReasoningPolicyBuildWorkflowDocumentList = List[
+AutomatedReasoningPolicyBuildWorkflowDocumentList = list[
     AutomatedReasoningPolicyBuildWorkflowDocument
 ]
 
@@ -1514,8 +1591,8 @@ class AutomatedReasoningPolicyWorkflowTypeContent(TypedDict, total=False):
     build workflows.
     """
 
-    documents: Optional[AutomatedReasoningPolicyBuildWorkflowDocumentList]
-    policyRepairAssets: Optional[AutomatedReasoningPolicyBuildWorkflowRepairContent]
+    documents: AutomatedReasoningPolicyBuildWorkflowDocumentList | None
+    policyRepairAssets: AutomatedReasoningPolicyBuildWorkflowRepairContent | None
 
 
 class AutomatedReasoningPolicyBuildWorkflowSource(TypedDict, total=False):
@@ -1523,11 +1600,8 @@ class AutomatedReasoningPolicyBuildWorkflowSource(TypedDict, total=False):
     include documents, repair instructions, or other input materials.
     """
 
-    policyDefinition: Optional[AutomatedReasoningPolicyDefinition]
-    workflowContent: Optional[AutomatedReasoningPolicyWorkflowTypeContent]
-
-
-Timestamp = datetime
+    policyDefinition: AutomatedReasoningPolicyDefinition | None
+    workflowContent: AutomatedReasoningPolicyWorkflowTypeContent | None
 
 
 class AutomatedReasoningPolicyBuildWorkflowSummary(TypedDict, total=False):
@@ -1543,7 +1617,7 @@ class AutomatedReasoningPolicyBuildWorkflowSummary(TypedDict, total=False):
     updatedAt: Timestamp
 
 
-AutomatedReasoningPolicyBuildWorkflowSummaries = List[AutomatedReasoningPolicyBuildWorkflowSummary]
+AutomatedReasoningPolicyBuildWorkflowSummaries = list[AutomatedReasoningPolicyBuildWorkflowSummary]
 
 
 class AutomatedReasoningPolicyScenario(TypedDict, total=False):
@@ -1564,14 +1638,14 @@ class AutomatedReasoningPolicySummary(TypedDict, total=False):
 
     policyArn: AutomatedReasoningPolicyArn
     name: AutomatedReasoningPolicyName
-    description: Optional[AutomatedReasoningPolicyDescription]
+    description: AutomatedReasoningPolicyDescription | None
     version: AutomatedReasoningPolicyVersion
     policyId: AutomatedReasoningPolicyId
     createdAt: Timestamp
     updatedAt: Timestamp
 
 
-AutomatedReasoningPolicySummaries = List[AutomatedReasoningPolicySummary]
+AutomatedReasoningPolicySummaries = list[AutomatedReasoningPolicySummary]
 
 
 class AutomatedReasoningPolicyTestCase(TypedDict, total=False):
@@ -1581,15 +1655,15 @@ class AutomatedReasoningPolicyTestCase(TypedDict, total=False):
 
     testCaseId: AutomatedReasoningPolicyTestCaseId
     guardContent: AutomatedReasoningPolicyTestGuardContent
-    queryContent: Optional[AutomatedReasoningPolicyTestQueryContent]
-    expectedAggregatedFindingsResult: Optional[AutomatedReasoningCheckResult]
+    queryContent: AutomatedReasoningPolicyTestQueryContent | None
+    expectedAggregatedFindingsResult: AutomatedReasoningCheckResult | None
     createdAt: Timestamp
     updatedAt: Timestamp
-    confidenceThreshold: Optional[AutomatedReasoningCheckTranslationConfidence]
+    confidenceThreshold: AutomatedReasoningCheckTranslationConfidence | None
 
 
-AutomatedReasoningPolicyTestCaseIdList = List[AutomatedReasoningPolicyTestCaseId]
-AutomatedReasoningPolicyTestCaseList = List[AutomatedReasoningPolicyTestCase]
+AutomatedReasoningPolicyTestCaseIdList = list[AutomatedReasoningPolicyTestCaseId]
+AutomatedReasoningPolicyTestCaseList = list[AutomatedReasoningPolicyTestCase]
 
 
 class AutomatedReasoningPolicyTestResult(TypedDict, total=False):
@@ -1600,13 +1674,13 @@ class AutomatedReasoningPolicyTestResult(TypedDict, total=False):
     testCase: AutomatedReasoningPolicyTestCase
     policyArn: AutomatedReasoningPolicyArn
     testRunStatus: AutomatedReasoningPolicyTestRunStatus
-    testFindings: Optional[AutomatedReasoningCheckFindingList]
-    testRunResult: Optional[AutomatedReasoningPolicyTestRunResult]
-    aggregatedTestFindingsResult: Optional[AutomatedReasoningCheckResult]
+    testFindings: AutomatedReasoningCheckFindingList | None
+    testRunResult: AutomatedReasoningPolicyTestRunResult | None
+    aggregatedTestFindingsResult: AutomatedReasoningCheckResult | None
     updatedAt: Timestamp
 
 
-AutomatedReasoningPolicyTestList = List[AutomatedReasoningPolicyTestResult]
+AutomatedReasoningPolicyTestList = list[AutomatedReasoningPolicyTestResult]
 
 
 class BatchDeleteEvaluationJobError(TypedDict, total=False):
@@ -1616,10 +1690,10 @@ class BatchDeleteEvaluationJobError(TypedDict, total=False):
 
     jobIdentifier: EvaluationJobIdentifier
     code: String
-    message: Optional[String]
+    message: String | None
 
 
-BatchDeleteEvaluationJobErrors = List[BatchDeleteEvaluationJobError]
+BatchDeleteEvaluationJobErrors = list[BatchDeleteEvaluationJobError]
 
 
 class BatchDeleteEvaluationJobItem(TypedDict, total=False):
@@ -1629,8 +1703,8 @@ class BatchDeleteEvaluationJobItem(TypedDict, total=False):
     jobStatus: EvaluationJobStatus
 
 
-BatchDeleteEvaluationJobItems = List[BatchDeleteEvaluationJobItem]
-EvaluationJobIdentifiers = List[EvaluationJobIdentifier]
+BatchDeleteEvaluationJobItems = list[BatchDeleteEvaluationJobItem]
+EvaluationJobIdentifiers = list[EvaluationJobIdentifier]
 
 
 class BatchDeleteEvaluationJobRequest(ServiceRequest):
@@ -1668,7 +1742,7 @@ class S3Config(TypedDict, total=False):
     """S3 configuration for storing log data."""
 
     bucketName: BucketName
-    keyPrefix: Optional[KeyPrefix]
+    keyPrefix: KeyPrefix | None
 
 
 class CloudWatchConfig(TypedDict, total=False):
@@ -1676,7 +1750,7 @@ class CloudWatchConfig(TypedDict, total=False):
 
     logGroupName: LogGroupName
     roleArn: RoleArn
-    largeDataDeliveryS3Config: Optional[S3Config]
+    largeDataDeliveryS3Config: S3Config | None
 
 
 class Tag(TypedDict, total=False):
@@ -1686,23 +1760,24 @@ class Tag(TypedDict, total=False):
     value: TagValue
 
 
-TagList = List[Tag]
+TagList = list[Tag]
 
 
 class CreateAutomatedReasoningPolicyRequest(ServiceRequest):
     name: AutomatedReasoningPolicyName
-    description: Optional[AutomatedReasoningPolicyDescription]
-    clientRequestToken: Optional[IdempotencyToken]
-    policyDefinition: Optional[AutomatedReasoningPolicyDefinition]
-    tags: Optional[TagList]
+    description: AutomatedReasoningPolicyDescription | None
+    clientRequestToken: IdempotencyToken | None
+    policyDefinition: AutomatedReasoningPolicyDefinition | None
+    kmsKeyId: KmsKeyId | None
+    tags: TagList | None
 
 
 class CreateAutomatedReasoningPolicyResponse(TypedDict, total=False):
     policyArn: AutomatedReasoningPolicyArn
     version: AutomatedReasoningPolicyVersion
     name: AutomatedReasoningPolicyName
-    description: Optional[AutomatedReasoningPolicyDescription]
-    definitionHash: Optional[AutomatedReasoningPolicyHash]
+    description: AutomatedReasoningPolicyDescription | None
+    definitionHash: AutomatedReasoningPolicyHash | None
     createdAt: Timestamp
     updatedAt: Timestamp
 
@@ -1710,10 +1785,10 @@ class CreateAutomatedReasoningPolicyResponse(TypedDict, total=False):
 class CreateAutomatedReasoningPolicyTestCaseRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
     guardContent: AutomatedReasoningPolicyTestGuardContent
-    queryContent: Optional[AutomatedReasoningPolicyTestQueryContent]
+    queryContent: AutomatedReasoningPolicyTestQueryContent | None
     expectedAggregatedFindingsResult: AutomatedReasoningCheckResult
-    clientRequestToken: Optional[IdempotencyToken]
-    confidenceThreshold: Optional[AutomatedReasoningCheckTranslationConfidence]
+    clientRequestToken: IdempotencyToken | None
+    confidenceThreshold: AutomatedReasoningCheckTranslationConfidence | None
 
 
 class CreateAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
@@ -1723,16 +1798,16 @@ class CreateAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
 
 class CreateAutomatedReasoningPolicyVersionRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
-    clientRequestToken: Optional[IdempotencyToken]
+    clientRequestToken: IdempotencyToken | None
     lastUpdatedDefinitionHash: AutomatedReasoningPolicyHash
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateAutomatedReasoningPolicyVersionResponse(TypedDict, total=False):
     policyArn: AutomatedReasoningPolicyArn
     version: AutomatedReasoningPolicyVersion
     name: AutomatedReasoningPolicyName
-    description: Optional[AutomatedReasoningPolicyDescription]
+    description: AutomatedReasoningPolicyDescription | None
     definitionHash: AutomatedReasoningPolicyHash
     createdAt: Timestamp
 
@@ -1740,9 +1815,9 @@ class CreateAutomatedReasoningPolicyVersionResponse(TypedDict, total=False):
 class CreateCustomModelDeploymentRequest(ServiceRequest):
     modelDeploymentName: ModelDeploymentName
     modelArn: CustomModelArn
-    description: Optional[CustomModelDeploymentDescription]
-    tags: Optional[TagList]
-    clientRequestToken: Optional[IdempotencyToken]
+    description: CustomModelDeploymentDescription | None
+    tags: TagList | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class CreateCustomModelDeploymentResponse(TypedDict, total=False):
@@ -1758,16 +1833,16 @@ class S3DataSource(TypedDict, total=False):
 class ModelDataSource(TypedDict, total=False):
     """The data source of the model to import."""
 
-    s3DataSource: Optional[S3DataSource]
+    s3DataSource: S3DataSource | None
 
 
 class CreateCustomModelRequest(ServiceRequest):
     modelName: CustomModelName
     modelSourceConfig: ModelDataSource
-    modelKmsKeyArn: Optional[KmsKeyArn]
-    roleArn: Optional[RoleArn]
-    modelTags: Optional[TagList]
-    clientRequestToken: Optional[IdempotencyToken]
+    modelKmsKeyArn: KmsKeyArn | None
+    roleArn: RoleArn | None
+    modelTags: TagList | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class CreateCustomModelResponse(TypedDict, total=False):
@@ -1803,11 +1878,11 @@ class EvaluationPrecomputedRagSourceConfig(TypedDict, total=False):
     you provide your own inference response data.
     """
 
-    retrieveSourceConfig: Optional[EvaluationPrecomputedRetrieveSourceConfig]
-    retrieveAndGenerateSourceConfig: Optional[EvaluationPrecomputedRetrieveAndGenerateSourceConfig]
+    retrieveSourceConfig: EvaluationPrecomputedRetrieveSourceConfig | None
+    retrieveAndGenerateSourceConfig: EvaluationPrecomputedRetrieveAndGenerateSourceConfig | None
 
 
-RAGStopSequences = List[RAGStopSequencesMemberString]
+RAGStopSequences = list[RAGStopSequencesMemberString]
 
 
 class TextInferenceConfig(TypedDict, total=False):
@@ -1815,10 +1890,10 @@ class TextInferenceConfig(TypedDict, total=False):
     the ``RetrieveAndGenerate`` function.
     """
 
-    temperature: Optional[Temperature]
-    topP: Optional[TopP]
-    maxTokens: Optional[MaxTokens]
-    stopSequences: Optional[RAGStopSequences]
+    temperature: Temperature | None
+    topP: TopP | None
+    maxTokens: MaxTokens | None
+    stopSequences: RAGStopSequences | None
 
 
 class KbInferenceConfig(TypedDict, total=False):
@@ -1826,7 +1901,7 @@ class KbInferenceConfig(TypedDict, total=False):
     retrieval and response generation.
     """
 
-    textInferenceConfig: Optional[TextInferenceConfig]
+    textInferenceConfig: TextInferenceConfig | None
 
 
 class GuardrailConfiguration(TypedDict, total=False):
@@ -1841,7 +1916,7 @@ class PromptTemplate(TypedDict, total=False):
     generation.
     """
 
-    textPromptTemplate: Optional[TextPromptTemplate]
+    textPromptTemplate: TextPromptTemplate | None
 
 
 class ExternalSourcesGenerationConfiguration(TypedDict, total=False):
@@ -1849,10 +1924,10 @@ class ExternalSourcesGenerationConfiguration(TypedDict, total=False):
     object.
     """
 
-    promptTemplate: Optional[PromptTemplate]
-    guardrailConfiguration: Optional[GuardrailConfiguration]
-    kbInferenceConfig: Optional[KbInferenceConfig]
-    additionalModelRequestFields: Optional[AdditionalModelRequestFields]
+    promptTemplate: PromptTemplate | None
+    guardrailConfiguration: GuardrailConfiguration | None
+    kbInferenceConfig: KbInferenceConfig | None
+    additionalModelRequestFields: AdditionalModelRequestFields | None
 
 
 class S3ObjectDoc(TypedDict, total=False):
@@ -1867,11 +1942,11 @@ class ExternalSource(TypedDict, total=False):
     """
 
     sourceType: ExternalSourceType
-    s3Location: Optional[S3ObjectDoc]
-    byteContent: Optional[ByteContentDoc]
+    s3Location: S3ObjectDoc | None
+    byteContent: ByteContentDoc | None
 
 
-ExternalSources = List[ExternalSource]
+ExternalSources = list[ExternalSource]
 
 
 class ExternalSourcesRetrieveAndGenerateConfiguration(TypedDict, total=False):
@@ -1881,7 +1956,7 @@ class ExternalSourcesRetrieveAndGenerateConfiguration(TypedDict, total=False):
 
     modelArn: BedrockModelArn
     sources: ExternalSources
-    generationConfiguration: Optional[ExternalSourcesGenerationConfiguration]
+    generationConfiguration: ExternalSourcesGenerationConfiguration | None
 
 
 class QueryTransformationConfiguration(TypedDict, total=False):
@@ -1901,10 +1976,10 @@ class GenerationConfiguration(TypedDict, total=False):
     text chunks.
     """
 
-    promptTemplate: Optional[PromptTemplate]
-    guardrailConfiguration: Optional[GuardrailConfiguration]
-    kbInferenceConfig: Optional[KbInferenceConfig]
-    additionalModelRequestFields: Optional[AdditionalModelRequestFields]
+    promptTemplate: PromptTemplate | None
+    guardrailConfiguration: GuardrailConfiguration | None
+    kbInferenceConfig: KbInferenceConfig | None
+    additionalModelRequestFields: AdditionalModelRequestFields | None
 
 
 class FieldForReranking(TypedDict, total=False):
@@ -1917,7 +1992,7 @@ class FieldForReranking(TypedDict, total=False):
     fieldName: FieldForRerankingFieldNameString
 
 
-FieldsForReranking = List[FieldForReranking]
+FieldsForReranking = list[FieldForReranking]
 
 
 class RerankingMetadataSelectiveModeConfiguration(TypedDict, total=False):
@@ -1926,8 +2001,8 @@ class RerankingMetadataSelectiveModeConfiguration(TypedDict, total=False):
     attributes are considered when reordering search results.
     """
 
-    fieldsToInclude: Optional[FieldsForReranking]
-    fieldsToExclude: Optional[FieldsForReranking]
+    fieldsToInclude: FieldsForReranking | None
+    fieldsToExclude: FieldsForReranking | None
 
 
 class MetadataConfigurationForReranking(TypedDict, total=False):
@@ -1937,7 +2012,7 @@ class MetadataConfigurationForReranking(TypedDict, total=False):
     """
 
     selectionMode: RerankingMetadataSelectionMode
-    selectiveModeConfiguration: Optional[RerankingMetadataSelectiveModeConfiguration]
+    selectiveModeConfiguration: RerankingMetadataSelectiveModeConfiguration | None
 
 
 class VectorSearchBedrockRerankingModelConfiguration(TypedDict, total=False):
@@ -1947,7 +2022,7 @@ class VectorSearchBedrockRerankingModelConfiguration(TypedDict, total=False):
     """
 
     modelArn: BedrockRerankingModelArn
-    additionalModelRequestFields: Optional[AdditionalModelRequestFields]
+    additionalModelRequestFields: AdditionalModelRequestFields | None
 
 
 class VectorSearchBedrockRerankingConfiguration(TypedDict, total=False):
@@ -1957,15 +2032,15 @@ class VectorSearchBedrockRerankingConfiguration(TypedDict, total=False):
     """
 
     modelConfiguration: VectorSearchBedrockRerankingModelConfiguration
-    numberOfRerankedResults: Optional[
-        VectorSearchBedrockRerankingConfigurationNumberOfRerankedResultsInteger
-    ]
-    metadataConfiguration: Optional[MetadataConfigurationForReranking]
+    numberOfRerankedResults: (
+        VectorSearchBedrockRerankingConfigurationNumberOfRerankedResultsInteger | None
+    )
+    metadataConfiguration: MetadataConfigurationForReranking | None
 
 
 class VectorSearchRerankingConfiguration(TypedDict, total=False):
     type: VectorSearchRerankingConfigurationType
-    bedrockRerankingConfiguration: Optional[VectorSearchBedrockRerankingConfiguration]
+    bedrockRerankingConfiguration: VectorSearchBedrockRerankingConfiguration | None
 
 
 class MetadataAttributeSchema(TypedDict, total=False):
@@ -1974,7 +2049,7 @@ class MetadataAttributeSchema(TypedDict, total=False):
     description: MetadataAttributeSchemaDescriptionString
 
 
-MetadataAttributeSchemaList = List[MetadataAttributeSchema]
+MetadataAttributeSchemaList = list[MetadataAttributeSchema]
 
 
 class ImplicitFilterConfiguration(TypedDict, total=False):
@@ -1991,23 +2066,23 @@ class ImplicitFilterConfiguration(TypedDict, total=False):
 RetrievalFilter = TypedDict(
     "RetrievalFilter",
     {
-        "equals": Optional["FilterAttribute"],
-        "notEquals": Optional["FilterAttribute"],
-        "greaterThan": Optional["FilterAttribute"],
-        "greaterThanOrEquals": Optional["FilterAttribute"],
-        "lessThan": Optional["FilterAttribute"],
-        "lessThanOrEquals": Optional["FilterAttribute"],
-        "in": Optional["FilterAttribute"],
-        "notIn": Optional["FilterAttribute"],
-        "startsWith": Optional["FilterAttribute"],
-        "listContains": Optional["FilterAttribute"],
-        "stringContains": Optional["FilterAttribute"],
-        "andAll": Optional["RetrievalFilterList"],
-        "orAll": Optional["RetrievalFilterList"],
+        "equals": "FilterAttribute | None",
+        "notEquals": "FilterAttribute | None",
+        "greaterThan": "FilterAttribute | None",
+        "greaterThanOrEquals": "FilterAttribute | None",
+        "lessThan": "FilterAttribute | None",
+        "lessThanOrEquals": "FilterAttribute | None",
+        "in": "FilterAttribute | None",
+        "notIn": "FilterAttribute | None",
+        "startsWith": "FilterAttribute | None",
+        "listContains": "FilterAttribute | None",
+        "stringContains": "FilterAttribute | None",
+        "andAll": "RetrievalFilterList | None",
+        "orAll": "RetrievalFilterList | None",
     },
     total=False,
 )
-RetrievalFilterList = List[RetrievalFilter]
+RetrievalFilterList = list[RetrievalFilter]
 
 
 class FilterValue(TypedDict, total=False):
@@ -2029,11 +2104,11 @@ class KnowledgeBaseVectorSearchConfiguration(TypedDict, total=False):
     base vector search.
     """
 
-    numberOfResults: Optional[KnowledgeBaseVectorSearchConfigurationNumberOfResultsInteger]
-    overrideSearchType: Optional[SearchType]
-    filter: Optional[RetrievalFilter]
-    implicitFilterConfiguration: Optional[ImplicitFilterConfiguration]
-    rerankingConfiguration: Optional[VectorSearchRerankingConfiguration]
+    numberOfResults: KnowledgeBaseVectorSearchConfigurationNumberOfResultsInteger | None
+    overrideSearchType: SearchType | None
+    filter: RetrievalFilter | None
+    implicitFilterConfiguration: ImplicitFilterConfiguration | None
+    rerankingConfiguration: VectorSearchRerankingConfiguration | None
 
 
 class KnowledgeBaseRetrievalConfiguration(TypedDict, total=False):
@@ -2051,15 +2126,15 @@ class KnowledgeBaseRetrieveAndGenerateConfiguration(TypedDict, total=False):
 
     knowledgeBaseId: KnowledgeBaseId
     modelArn: BedrockModelArn
-    retrievalConfiguration: Optional[KnowledgeBaseRetrievalConfiguration]
-    generationConfiguration: Optional[GenerationConfiguration]
-    orchestrationConfiguration: Optional[OrchestrationConfiguration]
+    retrievalConfiguration: KnowledgeBaseRetrievalConfiguration | None
+    generationConfiguration: GenerationConfiguration | None
+    orchestrationConfiguration: OrchestrationConfiguration | None
 
 
 class RetrieveAndGenerateConfiguration(TypedDict, total=False):
     type: RetrieveAndGenerateType
-    knowledgeBaseConfiguration: Optional[KnowledgeBaseRetrieveAndGenerateConfiguration]
-    externalSourcesConfiguration: Optional[ExternalSourcesRetrieveAndGenerateConfiguration]
+    knowledgeBaseConfiguration: KnowledgeBaseRetrieveAndGenerateConfiguration | None
+    externalSourcesConfiguration: ExternalSourcesRetrieveAndGenerateConfiguration | None
 
 
 class RetrieveConfig(TypedDict, total=False):
@@ -2076,8 +2151,8 @@ class KnowledgeBaseConfig(TypedDict, total=False):
     base and generating responses.
     """
 
-    retrieveConfig: Optional[RetrieveConfig]
-    retrieveAndGenerateConfig: Optional[RetrieveAndGenerateConfiguration]
+    retrieveConfig: RetrieveConfig | None
+    retrieveAndGenerateConfig: RetrieveAndGenerateConfiguration | None
 
 
 class RAGConfig(TypedDict, total=False):
@@ -2085,11 +2160,11 @@ class RAGConfig(TypedDict, total=False):
     generation.
     """
 
-    knowledgeBaseConfig: Optional[KnowledgeBaseConfig]
-    precomputedRagSourceConfig: Optional[EvaluationPrecomputedRagSourceConfig]
+    knowledgeBaseConfig: KnowledgeBaseConfig | None
+    precomputedRagSourceConfig: EvaluationPrecomputedRagSourceConfig | None
 
 
-RagConfigs = List[RAGConfig]
+RagConfigs = list[RAGConfig]
 
 
 class EvaluationPrecomputedInferenceSource(TypedDict, total=False):
@@ -2103,7 +2178,7 @@ class EvaluationPrecomputedInferenceSource(TypedDict, total=False):
 class PerformanceConfiguration(TypedDict, total=False):
     """Contains performance settings for a model."""
 
-    latency: Optional[PerformanceConfigLatency]
+    latency: PerformanceConfigLatency | None
 
 
 class EvaluationBedrockModel(TypedDict, total=False):
@@ -2123,18 +2198,18 @@ class EvaluationBedrockModel(TypedDict, total=False):
     """
 
     modelIdentifier: EvaluationBedrockModelIdentifier
-    inferenceParams: Optional[EvaluationModelInferenceParams]
-    performanceConfig: Optional[PerformanceConfiguration]
+    inferenceParams: EvaluationModelInferenceParams | None
+    performanceConfig: PerformanceConfiguration | None
 
 
 class EvaluationModelConfig(TypedDict, total=False):
     """Defines the models used in the model evaluation job."""
 
-    bedrockModel: Optional[EvaluationBedrockModel]
-    precomputedInferenceSource: Optional[EvaluationPrecomputedInferenceSource]
+    bedrockModel: EvaluationBedrockModel | None
+    precomputedInferenceSource: EvaluationPrecomputedInferenceSource | None
 
 
-EvaluationModelConfigs = List[EvaluationModelConfig]
+EvaluationModelConfigs = list[EvaluationModelConfig]
 
 
 class EvaluationInferenceConfig(TypedDict, total=False):
@@ -2146,8 +2221,8 @@ class EvaluationInferenceConfig(TypedDict, total=False):
     responses for up to two different models.
     """
 
-    models: Optional[EvaluationModelConfigs]
-    ragConfigs: Optional[RagConfigs]
+    models: EvaluationModelConfigs | None
+    ragConfigs: RagConfigs | None
 
 
 class HumanEvaluationCustomMetric(TypedDict, total=False):
@@ -2157,11 +2232,11 @@ class HumanEvaluationCustomMetric(TypedDict, total=False):
     """
 
     name: EvaluationMetricName
-    description: Optional[EvaluationMetricDescription]
+    description: EvaluationMetricDescription | None
     ratingMethod: EvaluationRatingMethod
 
 
-HumanEvaluationCustomMetrics = List[HumanEvaluationCustomMetric]
+HumanEvaluationCustomMetrics = list[HumanEvaluationCustomMetric]
 
 
 class HumanWorkflowConfig(TypedDict, total=False):
@@ -2170,7 +2245,7 @@ class HumanWorkflowConfig(TypedDict, total=False):
     """
 
     flowDefinitionArn: SageMakerFlowDefinitionArn
-    instructions: Optional[HumanTaskInstructions]
+    instructions: HumanTaskInstructions | None
 
 
 class HumanEvaluationConfig(TypedDict, total=False):
@@ -2193,8 +2268,8 @@ class HumanEvaluationConfig(TypedDict, total=False):
     ``EvaluationDatasetMetricConfig``.
     """
 
-    humanWorkflowConfig: Optional[HumanWorkflowConfig]
-    customMetrics: Optional[HumanEvaluationCustomMetrics]
+    humanWorkflowConfig: HumanWorkflowConfig | None
+    customMetrics: HumanEvaluationCustomMetrics | None
     datasetMetricConfigs: EvaluationDatasetMetricConfigs
 
 
@@ -2203,18 +2278,18 @@ class EvaluationConfig(TypedDict, total=False):
     evaluation job.
     """
 
-    automated: Optional[AutomatedEvaluationConfig]
-    human: Optional[HumanEvaluationConfig]
+    automated: AutomatedEvaluationConfig | None
+    human: HumanEvaluationConfig | None
 
 
 class CreateEvaluationJobRequest(ServiceRequest):
     jobName: EvaluationJobName
-    jobDescription: Optional[EvaluationJobDescription]
-    clientRequestToken: Optional[IdempotencyToken]
+    jobDescription: EvaluationJobDescription | None
+    clientRequestToken: IdempotencyToken | None
     roleArn: RoleArn
-    customerEncryptionKeyId: Optional[KmsKeyId]
-    jobTags: Optional[TagList]
-    applicationType: Optional[ApplicationType]
+    customerEncryptionKeyId: KmsKeyId | None
+    jobTags: TagList | None
+    applicationType: ApplicationType | None
     evaluationConfig: EvaluationConfig
     inferenceConfig: EvaluationInferenceConfig
     outputDataConfig: EvaluationOutputDataConfig
@@ -2247,7 +2322,7 @@ class GuardrailCrossRegionConfig(TypedDict, total=False):
     guardrailProfileIdentifier: GuardrailCrossRegionGuardrailProfileIdentifier
 
 
-GuardrailAutomatedReasoningPolicyConfigPoliciesList = List[AutomatedReasoningPolicyArn]
+GuardrailAutomatedReasoningPolicyConfigPoliciesList = list[AutomatedReasoningPolicyArn]
 
 
 class GuardrailAutomatedReasoningPolicyConfig(TypedDict, total=False):
@@ -2256,17 +2331,17 @@ class GuardrailAutomatedReasoningPolicyConfig(TypedDict, total=False):
     """
 
     policies: GuardrailAutomatedReasoningPolicyConfigPoliciesList
-    confidenceThreshold: Optional[AutomatedReasoningConfidenceFilterThreshold]
+    confidenceThreshold: AutomatedReasoningConfidenceFilterThreshold | None
 
 
 class GuardrailContextualGroundingFilterConfig(TypedDict, total=False):
     type: GuardrailContextualGroundingFilterType
     threshold: GuardrailContextualGroundingFilterConfigThresholdDouble
-    action: Optional[GuardrailContextualGroundingAction]
-    enabled: Optional[Boolean]
+    action: GuardrailContextualGroundingAction | None
+    enabled: Boolean | None
 
 
-GuardrailContextualGroundingFiltersConfig = List[GuardrailContextualGroundingFilterConfig]
+GuardrailContextualGroundingFiltersConfig = list[GuardrailContextualGroundingFilterConfig]
 
 
 class GuardrailContextualGroundingPolicyConfig(TypedDict, total=False):
@@ -2281,28 +2356,28 @@ class GuardrailRegexConfig(TypedDict, total=False):
     """The regular expression to configure for the guardrail."""
 
     name: GuardrailRegexConfigNameString
-    description: Optional[GuardrailRegexConfigDescriptionString]
+    description: GuardrailRegexConfigDescriptionString | None
     pattern: GuardrailRegexConfigPatternString
     action: GuardrailSensitiveInformationAction
-    inputAction: Optional[GuardrailSensitiveInformationAction]
-    outputAction: Optional[GuardrailSensitiveInformationAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailSensitiveInformationAction | None
+    outputAction: GuardrailSensitiveInformationAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailRegexesConfig = List[GuardrailRegexConfig]
+GuardrailRegexesConfig = list[GuardrailRegexConfig]
 
 
 class GuardrailPiiEntityConfig(TypedDict, total=False):
     type: GuardrailPiiEntityType
     action: GuardrailSensitiveInformationAction
-    inputAction: Optional[GuardrailSensitiveInformationAction]
-    outputAction: Optional[GuardrailSensitiveInformationAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailSensitiveInformationAction | None
+    outputAction: GuardrailSensitiveInformationAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailPiiEntitiesConfig = List[GuardrailPiiEntityConfig]
+GuardrailPiiEntitiesConfig = list[GuardrailPiiEntityConfig]
 
 
 class GuardrailSensitiveInformationPolicyConfig(TypedDict, total=False):
@@ -2310,39 +2385,39 @@ class GuardrailSensitiveInformationPolicyConfig(TypedDict, total=False):
     for the guardrail.
     """
 
-    piiEntitiesConfig: Optional[GuardrailPiiEntitiesConfig]
-    regexesConfig: Optional[GuardrailRegexesConfig]
+    piiEntitiesConfig: GuardrailPiiEntitiesConfig | None
+    regexesConfig: GuardrailRegexesConfig | None
 
 
 class GuardrailManagedWordsConfig(TypedDict, total=False):
     type: GuardrailManagedWordsType
-    inputAction: Optional[GuardrailWordAction]
-    outputAction: Optional[GuardrailWordAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailWordAction | None
+    outputAction: GuardrailWordAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailManagedWordListsConfig = List[GuardrailManagedWordsConfig]
+GuardrailManagedWordListsConfig = list[GuardrailManagedWordsConfig]
 
 
 class GuardrailWordConfig(TypedDict, total=False):
     """A word to configure for the guardrail."""
 
     text: GuardrailWordConfigTextString
-    inputAction: Optional[GuardrailWordAction]
-    outputAction: Optional[GuardrailWordAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailWordAction | None
+    outputAction: GuardrailWordAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailWordsConfig = List[GuardrailWordConfig]
+GuardrailWordsConfig = list[GuardrailWordConfig]
 
 
 class GuardrailWordPolicyConfig(TypedDict, total=False):
     """Contains details about the word policy to configured for the guardrail."""
 
-    wordsConfig: Optional[GuardrailWordsConfig]
-    managedWordListsConfig: Optional[GuardrailManagedWordListsConfig]
+    wordsConfig: GuardrailWordsConfig | None
+    managedWordListsConfig: GuardrailManagedWordListsConfig | None
 
 
 class GuardrailContentFiltersTierConfig(TypedDict, total=False):
@@ -2354,29 +2429,29 @@ class GuardrailContentFiltersTierConfig(TypedDict, total=False):
     tierName: GuardrailContentFiltersTierName
 
 
-GuardrailModalities = List[GuardrailModality]
+GuardrailModalities = list[GuardrailModality]
 
 
 class GuardrailContentFilterConfig(TypedDict, total=False):
     type: GuardrailContentFilterType
     inputStrength: GuardrailFilterStrength
     outputStrength: GuardrailFilterStrength
-    inputModalities: Optional[GuardrailModalities]
-    outputModalities: Optional[GuardrailModalities]
-    inputAction: Optional[GuardrailContentFilterAction]
-    outputAction: Optional[GuardrailContentFilterAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputModalities: GuardrailModalities | None
+    outputModalities: GuardrailModalities | None
+    inputAction: GuardrailContentFilterAction | None
+    outputAction: GuardrailContentFilterAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailContentFiltersConfig = List[GuardrailContentFilterConfig]
+GuardrailContentFiltersConfig = list[GuardrailContentFilterConfig]
 
 
 class GuardrailContentPolicyConfig(TypedDict, total=False):
     """Contains details about how to handle harmful content."""
 
     filtersConfig: GuardrailContentFiltersConfig
-    tierConfig: Optional[GuardrailContentFiltersTierConfig]
+    tierConfig: GuardrailContentFiltersTierConfig | None
 
 
 class GuardrailTopicsTierConfig(TypedDict, total=False):
@@ -2388,21 +2463,21 @@ class GuardrailTopicsTierConfig(TypedDict, total=False):
     tierName: GuardrailTopicsTierName
 
 
-GuardrailTopicExamples = List[GuardrailTopicExample]
+GuardrailTopicExamples = list[GuardrailTopicExample]
 
 
 class GuardrailTopicConfig(TypedDict, total=False):
     name: GuardrailTopicName
     definition: GuardrailTopicDefinition
-    examples: Optional[GuardrailTopicExamples]
+    examples: GuardrailTopicExamples | None
     type: GuardrailTopicType
-    inputAction: Optional[GuardrailTopicAction]
-    outputAction: Optional[GuardrailTopicAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailTopicAction | None
+    outputAction: GuardrailTopicAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailTopicsConfig = List[GuardrailTopicConfig]
+GuardrailTopicsConfig = list[GuardrailTopicConfig]
 
 
 class GuardrailTopicPolicyConfig(TypedDict, total=False):
@@ -2411,24 +2486,24 @@ class GuardrailTopicPolicyConfig(TypedDict, total=False):
     """
 
     topicsConfig: GuardrailTopicsConfig
-    tierConfig: Optional[GuardrailTopicsTierConfig]
+    tierConfig: GuardrailTopicsTierConfig | None
 
 
 class CreateGuardrailRequest(ServiceRequest):
     name: GuardrailName
-    description: Optional[GuardrailDescription]
-    topicPolicyConfig: Optional[GuardrailTopicPolicyConfig]
-    contentPolicyConfig: Optional[GuardrailContentPolicyConfig]
-    wordPolicyConfig: Optional[GuardrailWordPolicyConfig]
-    sensitiveInformationPolicyConfig: Optional[GuardrailSensitiveInformationPolicyConfig]
-    contextualGroundingPolicyConfig: Optional[GuardrailContextualGroundingPolicyConfig]
-    automatedReasoningPolicyConfig: Optional[GuardrailAutomatedReasoningPolicyConfig]
-    crossRegionConfig: Optional[GuardrailCrossRegionConfig]
+    description: GuardrailDescription | None
+    topicPolicyConfig: GuardrailTopicPolicyConfig | None
+    contentPolicyConfig: GuardrailContentPolicyConfig | None
+    wordPolicyConfig: GuardrailWordPolicyConfig | None
+    sensitiveInformationPolicyConfig: GuardrailSensitiveInformationPolicyConfig | None
+    contextualGroundingPolicyConfig: GuardrailContextualGroundingPolicyConfig | None
+    automatedReasoningPolicyConfig: GuardrailAutomatedReasoningPolicyConfig | None
+    crossRegionConfig: GuardrailCrossRegionConfig | None
     blockedInputMessaging: GuardrailBlockedMessaging
     blockedOutputsMessaging: GuardrailBlockedMessaging
-    kmsKeyId: Optional[KmsKeyId]
-    tags: Optional[TagList]
-    clientRequestToken: Optional[IdempotencyToken]
+    kmsKeyId: KmsKeyId | None
+    tags: TagList | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class CreateGuardrailResponse(TypedDict, total=False):
@@ -2440,8 +2515,8 @@ class CreateGuardrailResponse(TypedDict, total=False):
 
 class CreateGuardrailVersionRequest(ServiceRequest):
     guardrailIdentifier: GuardrailIdentifier
-    description: Optional[GuardrailDescription]
-    clientRequestToken: Optional[IdempotencyToken]
+    description: GuardrailDescription | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class CreateGuardrailVersionResponse(TypedDict, total=False):
@@ -2454,24 +2529,24 @@ class InferenceProfileModelSource(TypedDict, total=False):
     that is the source for an inference profile..
     """
 
-    copyFrom: Optional[InferenceProfileModelSourceArn]
+    copyFrom: InferenceProfileModelSourceArn | None
 
 
 class CreateInferenceProfileRequest(ServiceRequest):
     inferenceProfileName: InferenceProfileName
-    description: Optional[InferenceProfileDescription]
-    clientRequestToken: Optional[IdempotencyToken]
+    description: InferenceProfileDescription | None
+    clientRequestToken: IdempotencyToken | None
     modelSource: InferenceProfileModelSource
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreateInferenceProfileResponse(TypedDict, total=False):
     inferenceProfileArn: InferenceProfileArn
-    status: Optional[InferenceProfileStatus]
+    status: InferenceProfileStatus | None
 
 
-SecurityGroupIds = List[SecurityGroupId]
-SubnetIds = List[SubnetId]
+SecurityGroupIds = list[SecurityGroupId]
+SubnetIds = list[SubnetId]
 
 
 class VpcConfig(TypedDict, total=False):
@@ -2491,23 +2566,23 @@ class SageMakerEndpoint(TypedDict, total=False):
     initialInstanceCount: InstanceCount
     instanceType: InstanceType
     executionRole: RoleArn
-    kmsEncryptionKey: Optional[KmsKeyId]
-    vpc: Optional[VpcConfig]
+    kmsEncryptionKey: KmsKeyId | None
+    vpc: VpcConfig | None
 
 
 class EndpointConfig(TypedDict, total=False):
     """Specifies the configuration for the endpoint."""
 
-    sageMaker: Optional[SageMakerEndpoint]
+    sageMaker: SageMakerEndpoint | None
 
 
 class CreateMarketplaceModelEndpointRequest(ServiceRequest):
     modelSourceIdentifier: ModelSourceIdentifier
     endpointConfig: EndpointConfig
-    acceptEula: Optional[AcceptEula]
+    acceptEula: AcceptEula | None
     endpointName: EndpointName
-    clientRequestToken: Optional[IdempotencyToken]
-    tags: Optional[TagList]
+    clientRequestToken: IdempotencyToken | None
+    tags: TagList | None
 
 
 class MarketplaceModelEndpoint(TypedDict, total=False):
@@ -2517,13 +2592,13 @@ class MarketplaceModelEndpoint(TypedDict, total=False):
 
     endpointArn: Arn
     modelSourceIdentifier: ModelSourceIdentifier
-    status: Optional[Status]
-    statusMessage: Optional[String]
+    status: Status | None
+    statusMessage: String | None
     createdAt: Timestamp
     updatedAt: Timestamp
     endpointConfig: EndpointConfig
     endpointStatus: String
-    endpointStatusMessage: Optional[String]
+    endpointStatusMessage: String | None
 
 
 class CreateMarketplaceModelEndpointResponse(TypedDict, total=False):
@@ -2533,20 +2608,60 @@ class CreateMarketplaceModelEndpointResponse(TypedDict, total=False):
 class CreateModelCopyJobRequest(ServiceRequest):
     sourceModelArn: ModelArn
     targetModelName: CustomModelName
-    modelKmsKeyId: Optional[KmsKeyId]
-    targetModelTags: Optional[TagList]
-    clientRequestToken: Optional[IdempotencyToken]
+    modelKmsKeyId: KmsKeyId | None
+    targetModelTags: TagList | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class CreateModelCopyJobResponse(TypedDict, total=False):
     jobArn: ModelCopyJobArn
 
 
+class RFTHyperParameters(TypedDict, total=False):
+    """Hyperparameters for controlling the reinforcement fine-tuning training
+    process, including learning settings and evaluation intervals.
+    """
+
+    epochCount: EpochCount | None
+    batchSize: RFTBatchSize | None
+    learningRate: RFTLearningRate | None
+    maxPromptLength: RFTMaxPromptLength | None
+    trainingSamplePerPrompt: RFTTrainingSamplePerPrompt | None
+    inferenceMaxTokens: RFTInferenceMaxTokens | None
+    reasoningEffort: ReasoningEffort | None
+    evalInterval: RFTEvalInterval | None
+
+
+class LambdaGraderConfig(TypedDict, total=False):
+    """Configuration for using an AWS Lambda function to grade model responses
+    during reinforcement fine-tuning training.
+    """
+
+    lambdaArn: LambdaArn
+
+
+class GraderConfig(TypedDict, total=False):
+    """Configuration for the grader used in reinforcement fine-tuning to
+    evaluate model responses and provide reward signals.
+    """
+
+    lambdaGrader: LambdaGraderConfig | None
+
+
+class RFTConfig(TypedDict, total=False):
+    """Configuration settings for reinforcement fine-tuning (RFT), including
+    grader configuration and training hyperparameters.
+    """
+
+    graderConfig: GraderConfig | None
+    hyperParameters: RFTHyperParameters | None
+
+
 class TeacherModelConfig(TypedDict, total=False):
     """Details about a teacher model used for model customization."""
 
     teacherModelIdentifier: TeacherModelIdentifier
-    maxResponseLengthForInference: Optional[Integer]
+    maxResponseLengthForInference: Integer | None
 
 
 class DistillationConfig(TypedDict, total=False):
@@ -2560,10 +2675,11 @@ class DistillationConfig(TypedDict, total=False):
 class CustomizationConfig(TypedDict, total=False):
     """A model customization configuration"""
 
-    distillationConfig: Optional[DistillationConfig]
+    distillationConfig: DistillationConfig | None
+    rftConfig: RFTConfig | None
 
 
-ModelCustomizationHyperParameters = Dict[String, String]
+ModelCustomizationHyperParameters = dict[String, String]
 
 
 class OutputDataConfig(TypedDict, total=False):
@@ -2578,7 +2694,7 @@ class Validator(TypedDict, total=False):
     s3Uri: S3Uri
 
 
-Validators = List[Validator]
+Validators = list[Validator]
 
 
 class ValidationDataConfig(TypedDict, total=False):
@@ -2587,7 +2703,7 @@ class ValidationDataConfig(TypedDict, total=False):
     validators: Validators
 
 
-RequestMetadataMap = Dict[RequestMetadataMapKeyString, RequestMetadataMapValueString]
+RequestMetadataMap = dict[RequestMetadataMapKeyString, RequestMetadataMapValueString]
 
 
 class RequestMetadataBaseFilters(TypedDict, total=False):
@@ -2595,11 +2711,11 @@ class RequestMetadataBaseFilters(TypedDict, total=False):
     equal.
     """
 
-    equals: Optional[RequestMetadataMap]
-    notEquals: Optional[RequestMetadataMap]
+    equals: RequestMetadataMap | None
+    notEquals: RequestMetadataMap | None
 
 
-RequestMetadataFiltersList = List[RequestMetadataBaseFilters]
+RequestMetadataFiltersList = list[RequestMetadataBaseFilters]
 
 
 class RequestMetadataFilters(TypedDict, total=False):
@@ -2609,49 +2725,49 @@ class RequestMetadataFilters(TypedDict, total=False):
     ``OR`` logical operators
     """
 
-    equals: Optional[RequestMetadataMap]
-    notEquals: Optional[RequestMetadataMap]
-    andAll: Optional[RequestMetadataFiltersList]
-    orAll: Optional[RequestMetadataFiltersList]
+    equals: RequestMetadataMap | None
+    notEquals: RequestMetadataMap | None
+    andAll: RequestMetadataFiltersList | None
+    orAll: RequestMetadataFiltersList | None
 
 
 class InvocationLogSource(TypedDict, total=False):
     """A storage location for invocation logs."""
 
-    s3Uri: Optional[S3Uri]
+    s3Uri: S3Uri | None
 
 
 class InvocationLogsConfig(TypedDict, total=False):
     """Settings for using invocation logs to customize a model."""
 
-    usePromptResponse: Optional[UsePromptResponse]
+    usePromptResponse: UsePromptResponse | None
     invocationLogSource: InvocationLogSource
-    requestMetadataFilters: Optional[RequestMetadataFilters]
+    requestMetadataFilters: RequestMetadataFilters | None
 
 
 class TrainingDataConfig(TypedDict, total=False):
     """S3 Location of the training data."""
 
-    s3Uri: Optional[S3Uri]
-    invocationLogsConfig: Optional[InvocationLogsConfig]
+    s3Uri: S3Uri | None
+    invocationLogsConfig: InvocationLogsConfig | None
 
 
 class CreateModelCustomizationJobRequest(ServiceRequest):
     jobName: JobName
     customModelName: CustomModelName
     roleArn: RoleArn
-    clientRequestToken: Optional[IdempotencyToken]
+    clientRequestToken: IdempotencyToken | None
     baseModelIdentifier: BaseModelIdentifier
-    customizationType: Optional[CustomizationType]
-    customModelKmsKeyId: Optional[KmsKeyId]
-    jobTags: Optional[TagList]
-    customModelTags: Optional[TagList]
+    customizationType: CustomizationType | None
+    customModelKmsKeyId: KmsKeyId | None
+    jobTags: TagList | None
+    customModelTags: TagList | None
     trainingDataConfig: TrainingDataConfig
-    validationDataConfig: Optional[ValidationDataConfig]
+    validationDataConfig: ValidationDataConfig | None
     outputDataConfig: OutputDataConfig
-    hyperParameters: Optional[ModelCustomizationHyperParameters]
-    vpcConfig: Optional[VpcConfig]
-    customizationConfig: Optional[CustomizationConfig]
+    hyperParameters: ModelCustomizationHyperParameters | None
+    vpcConfig: VpcConfig | None
+    customizationConfig: CustomizationConfig | None
 
 
 class CreateModelCustomizationJobResponse(TypedDict, total=False):
@@ -2663,11 +2779,11 @@ class CreateModelImportJobRequest(ServiceRequest):
     importedModelName: ImportedModelName
     roleArn: RoleArn
     modelDataSource: ModelDataSource
-    jobTags: Optional[TagList]
-    importedModelTags: Optional[TagList]
-    clientRequestToken: Optional[IdempotencyToken]
-    vpcConfig: Optional[VpcConfig]
-    importedModelKmsKeyId: Optional[KmsKeyId]
+    jobTags: TagList | None
+    importedModelTags: TagList | None
+    clientRequestToken: IdempotencyToken | None
+    vpcConfig: VpcConfig | None
+    importedModelKmsKeyId: KmsKeyId | None
 
 
 class CreateModelImportJobResponse(TypedDict, total=False):
@@ -2678,40 +2794,40 @@ class ModelInvocationJobS3OutputDataConfig(TypedDict, total=False):
     """Contains the configuration of the S3 location of the output data."""
 
     s3Uri: S3Uri
-    s3EncryptionKeyId: Optional[KmsKeyId]
-    s3BucketOwner: Optional[AccountId]
+    s3EncryptionKeyId: KmsKeyId | None
+    s3BucketOwner: AccountId | None
 
 
 class ModelInvocationJobOutputDataConfig(TypedDict, total=False):
     """Contains the configuration of the S3 location of the output data."""
 
-    s3OutputDataConfig: Optional[ModelInvocationJobS3OutputDataConfig]
+    s3OutputDataConfig: ModelInvocationJobS3OutputDataConfig | None
 
 
 class ModelInvocationJobS3InputDataConfig(TypedDict, total=False):
     """Contains the configuration of the S3 location of the input data."""
 
-    s3InputFormat: Optional[S3InputFormat]
+    s3InputFormat: S3InputFormat | None
     s3Uri: S3Uri
-    s3BucketOwner: Optional[AccountId]
+    s3BucketOwner: AccountId | None
 
 
 class ModelInvocationJobInputDataConfig(TypedDict, total=False):
     """Details about the location of the input to the batch inference job."""
 
-    s3InputDataConfig: Optional[ModelInvocationJobS3InputDataConfig]
+    s3InputDataConfig: ModelInvocationJobS3InputDataConfig | None
 
 
 class CreateModelInvocationJobRequest(ServiceRequest):
     jobName: ModelInvocationJobName
     roleArn: RoleArn
-    clientRequestToken: Optional[ModelInvocationIdempotencyToken]
+    clientRequestToken: ModelInvocationIdempotencyToken | None
     modelId: ModelId
     inputDataConfig: ModelInvocationJobInputDataConfig
     outputDataConfig: ModelInvocationJobOutputDataConfig
-    vpcConfig: Optional[VpcConfig]
-    timeoutDurationInHours: Optional[ModelInvocationJobTimeoutDurationInHours]
-    tags: Optional[TagList]
+    vpcConfig: VpcConfig | None
+    timeoutDurationInHours: ModelInvocationJobTimeoutDurationInHours | None
+    tags: TagList | None
 
 
 class CreateModelInvocationJobResponse(TypedDict, total=False):
@@ -2730,30 +2846,30 @@ class RoutingCriteria(TypedDict, total=False):
     responseQualityDifference: RoutingCriteriaResponseQualityDifferenceDouble
 
 
-PromptRouterTargetModels = List[PromptRouterTargetModel]
+PromptRouterTargetModels = list[PromptRouterTargetModel]
 
 
 class CreatePromptRouterRequest(ServiceRequest):
-    clientRequestToken: Optional[IdempotencyToken]
+    clientRequestToken: IdempotencyToken | None
     promptRouterName: PromptRouterName
     models: PromptRouterTargetModels
-    description: Optional[PromptRouterDescription]
+    description: PromptRouterDescription | None
     routingCriteria: RoutingCriteria
     fallbackModel: PromptRouterTargetModel
-    tags: Optional[TagList]
+    tags: TagList | None
 
 
 class CreatePromptRouterResponse(TypedDict, total=False):
-    promptRouterArn: Optional[PromptRouterArn]
+    promptRouterArn: PromptRouterArn | None
 
 
 class CreateProvisionedModelThroughputRequest(ServiceRequest):
-    clientRequestToken: Optional[IdempotencyToken]
+    clientRequestToken: IdempotencyToken | None
     modelUnits: PositiveInteger
     provisionedModelName: ProvisionedModelName
     modelId: ModelIdentifier
-    commitmentDuration: Optional[CommitmentDuration]
-    tags: Optional[TagList]
+    commitmentDuration: CommitmentDuration | None
+    tags: TagList | None
 
 
 class CreateProvisionedModelThroughputResponse(TypedDict, total=False):
@@ -2770,11 +2886,20 @@ class CustomModelDeploymentSummary(TypedDict, total=False):
     modelArn: ModelArn
     createdAt: Timestamp
     status: CustomModelDeploymentStatus
-    lastUpdatedAt: Optional[Timestamp]
-    failureMessage: Optional[ErrorMessage]
+    lastUpdatedAt: Timestamp | None
+    failureMessage: ErrorMessage | None
 
 
-CustomModelDeploymentSummaryList = List[CustomModelDeploymentSummary]
+CustomModelDeploymentSummaryList = list[CustomModelDeploymentSummary]
+
+
+class CustomModelDeploymentUpdateDetails(TypedDict, total=False):
+    """Details about an update to a custom model deployment, including the new
+    custom model resource ARN and current update status.
+    """
+
+    modelArn: ModelArn
+    updateStatus: CustomModelDeploymentUpdateStatus
 
 
 class CustomModelSummary(TypedDict, total=False):
@@ -2785,12 +2910,12 @@ class CustomModelSummary(TypedDict, total=False):
     creationTime: Timestamp
     baseModelArn: ModelArn
     baseModelName: ModelName
-    customizationType: Optional[CustomizationType]
-    ownerAccountId: Optional[AccountId]
-    modelStatus: Optional[ModelStatus]
+    customizationType: CustomizationType | None
+    ownerAccountId: AccountId | None
+    modelStatus: ModelStatus | None
 
 
-CustomModelSummaryList = List[CustomModelSummary]
+CustomModelSummaryList = list[CustomModelSummary]
 
 
 class CustomModelUnits(TypedDict, total=False):
@@ -2806,8 +2931,8 @@ class CustomModelUnits(TypedDict, total=False):
     custom model in the Amazon Bedrock user guide.
     """
 
-    customModelUnitsPerModelCopy: Optional[Integer]
-    customModelUnitsVersion: Optional[CustomModelUnitsVersion]
+    customModelUnitsPerModelCopy: Integer | None
+    customModelUnitsVersion: CustomModelUnitsVersion | None
 
 
 class DataProcessingDetails(TypedDict, total=False):
@@ -2815,9 +2940,9 @@ class DataProcessingDetails(TypedDict, total=False):
     sub-task of the job.
     """
 
-    status: Optional[JobStatusDetails]
-    creationTime: Optional[Timestamp]
-    lastModifiedTime: Optional[Timestamp]
+    status: JobStatusDetails | None
+    creationTime: Timestamp | None
+    lastModifiedTime: Timestamp | None
 
 
 class DeleteAutomatedReasoningPolicyBuildWorkflowRequest(ServiceRequest):
@@ -2832,6 +2957,7 @@ class DeleteAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False
 
 class DeleteAutomatedReasoningPolicyRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
+    force: Boolean | None
 
 
 class DeleteAutomatedReasoningPolicyResponse(TypedDict, total=False):
@@ -2864,6 +2990,14 @@ class DeleteCustomModelResponse(TypedDict, total=False):
     pass
 
 
+class DeleteEnforcedGuardrailConfigurationRequest(ServiceRequest):
+    configId: AccountEnforcedGuardrailConfigurationId
+
+
+class DeleteEnforcedGuardrailConfigurationResponse(TypedDict, total=False):
+    pass
+
+
 class DeleteFoundationModelAgreementRequest(ServiceRequest):
     modelId: BedrockModelId
 
@@ -2874,7 +3008,7 @@ class DeleteFoundationModelAgreementResponse(TypedDict, total=False):
 
 class DeleteGuardrailRequest(ServiceRequest):
     guardrailIdentifier: GuardrailIdentifier
-    guardrailVersion: Optional[GuardrailNumericalVersion]
+    guardrailVersion: GuardrailNumericalVersion | None
 
 
 class DeleteGuardrailResponse(TypedDict, total=False):
@@ -2940,16 +3074,16 @@ class DeregisterMarketplaceModelEndpointResponse(TypedDict, total=False):
 class DimensionalPriceRate(TypedDict, total=False):
     """Dimensional price rate."""
 
-    dimension: Optional[String]
-    price: Optional[String]
-    description: Optional[String]
-    unit: Optional[String]
+    dimension: String | None
+    price: String | None
+    description: String | None
+    unit: String | None
 
 
-ErrorMessages = List[ErrorMessage]
-EvaluationBedrockKnowledgeBaseIdentifiers = List[KnowledgeBaseId]
-EvaluationBedrockModelIdentifiers = List[EvaluationBedrockModelIdentifier]
-EvaluationPrecomputedRagSourceIdentifiers = List[EvaluationPrecomputedRagSourceIdentifier]
+ErrorMessages = list[ErrorMessage]
+EvaluationBedrockKnowledgeBaseIdentifiers = list[KnowledgeBaseId]
+EvaluationBedrockModelIdentifiers = list[EvaluationBedrockModelIdentifier]
+EvaluationPrecomputedRagSourceIdentifiers = list[EvaluationPrecomputedRagSourceIdentifier]
 
 
 class EvaluationRagConfigSummary(TypedDict, total=False):
@@ -2959,11 +3093,11 @@ class EvaluationRagConfigSummary(TypedDict, total=False):
     own inference response data.
     """
 
-    bedrockKnowledgeBaseIdentifiers: Optional[EvaluationBedrockKnowledgeBaseIdentifiers]
-    precomputedRagSourceIdentifiers: Optional[EvaluationPrecomputedRagSourceIdentifiers]
+    bedrockKnowledgeBaseIdentifiers: EvaluationBedrockKnowledgeBaseIdentifiers | None
+    precomputedRagSourceIdentifiers: EvaluationPrecomputedRagSourceIdentifiers | None
 
 
-EvaluationPrecomputedInferenceSourceIdentifiers = List[
+EvaluationPrecomputedInferenceSourceIdentifiers = list[
     EvaluationPrecomputedInferenceSourceIdentifier
 ]
 
@@ -2975,8 +3109,8 @@ class EvaluationModelConfigSummary(TypedDict, total=False):
     data.
     """
 
-    bedrockModelIdentifiers: Optional[EvaluationBedrockModelIdentifiers]
-    precomputedInferenceSourceIdentifiers: Optional[EvaluationPrecomputedInferenceSourceIdentifiers]
+    bedrockModelIdentifiers: EvaluationBedrockModelIdentifiers | None
+    precomputedInferenceSourceIdentifiers: EvaluationPrecomputedInferenceSourceIdentifiers | None
 
 
 class EvaluationInferenceConfigSummary(TypedDict, total=False):
@@ -2984,12 +3118,12 @@ class EvaluationInferenceConfigSummary(TypedDict, total=False):
     in a model or Knowledge Base evaluation job.
     """
 
-    modelConfigSummary: Optional[EvaluationModelConfigSummary]
-    ragConfigSummary: Optional[EvaluationRagConfigSummary]
+    modelConfigSummary: EvaluationModelConfigSummary | None
+    ragConfigSummary: EvaluationRagConfigSummary | None
 
 
-EvaluatorModelIdentifiers = List[EvaluatorModelIdentifier]
-EvaluationTaskTypes = List[EvaluationTaskType]
+EvaluatorModelIdentifiers = list[EvaluatorModelIdentifier]
+EvaluationTaskTypes = list[EvaluationTaskType]
 
 
 class EvaluationSummary(TypedDict, total=False):
@@ -3001,15 +3135,15 @@ class EvaluationSummary(TypedDict, total=False):
     creationTime: Timestamp
     jobType: EvaluationJobType
     evaluationTaskTypes: EvaluationTaskTypes
-    modelIdentifiers: Optional[EvaluationBedrockModelIdentifiers]
-    ragIdentifiers: Optional[EvaluationBedrockKnowledgeBaseIdentifiers]
-    evaluatorModelIdentifiers: Optional[EvaluatorModelIdentifiers]
-    customMetricsEvaluatorModelIdentifiers: Optional[EvaluatorModelIdentifiers]
-    inferenceConfigSummary: Optional[EvaluationInferenceConfigSummary]
-    applicationType: Optional[ApplicationType]
+    modelIdentifiers: EvaluationBedrockModelIdentifiers | None
+    ragIdentifiers: EvaluationBedrockKnowledgeBaseIdentifiers | None
+    evaluatorModelIdentifiers: EvaluatorModelIdentifiers | None
+    customMetricsEvaluatorModelIdentifiers: EvaluatorModelIdentifiers | None
+    inferenceConfigSummary: EvaluationInferenceConfigSummary | None
+    applicationType: ApplicationType | None
 
 
-EvaluationSummaries = List[EvaluationSummary]
+EvaluationSummaries = list[EvaluationSummary]
 
 
 class ExportAutomatedReasoningPolicyVersionRequest(ServiceRequest):
@@ -3026,9 +3160,9 @@ class FoundationModelLifecycle(TypedDict, total=False):
     status: FoundationModelLifecycleStatus
 
 
-InferenceTypeList = List[InferenceType]
-ModelCustomizationList = List[ModelCustomization]
-ModelModalityList = List[ModelModality]
+InferenceTypeList = list[InferenceType]
+ModelCustomizationList = list[ModelCustomization]
+ModelModalityList = list[ModelModality]
 
 
 class FoundationModelDetails(TypedDict, total=False):
@@ -3036,14 +3170,14 @@ class FoundationModelDetails(TypedDict, total=False):
 
     modelArn: FoundationModelArn
     modelId: BedrockModelId
-    modelName: Optional[BrandedName]
-    providerName: Optional[BrandedName]
-    inputModalities: Optional[ModelModalityList]
-    outputModalities: Optional[ModelModalityList]
-    responseStreamingSupported: Optional[Boolean]
-    customizationsSupported: Optional[ModelCustomizationList]
-    inferenceTypesSupported: Optional[InferenceTypeList]
-    modelLifecycle: Optional[FoundationModelLifecycle]
+    modelName: BrandedName | None
+    providerName: BrandedName | None
+    inputModalities: ModelModalityList | None
+    outputModalities: ModelModalityList | None
+    responseStreamingSupported: Boolean | None
+    customizationsSupported: ModelCustomizationList | None
+    inferenceTypesSupported: InferenceTypeList | None
+    modelLifecycle: FoundationModelLifecycle | None
 
 
 class FoundationModelSummary(TypedDict, total=False):
@@ -3051,17 +3185,17 @@ class FoundationModelSummary(TypedDict, total=False):
 
     modelArn: FoundationModelArn
     modelId: BedrockModelId
-    modelName: Optional[BrandedName]
-    providerName: Optional[BrandedName]
-    inputModalities: Optional[ModelModalityList]
-    outputModalities: Optional[ModelModalityList]
-    responseStreamingSupported: Optional[Boolean]
-    customizationsSupported: Optional[ModelCustomizationList]
-    inferenceTypesSupported: Optional[InferenceTypeList]
-    modelLifecycle: Optional[FoundationModelLifecycle]
+    modelName: BrandedName | None
+    providerName: BrandedName | None
+    inputModalities: ModelModalityList | None
+    outputModalities: ModelModalityList | None
+    responseStreamingSupported: Boolean | None
+    customizationsSupported: ModelCustomizationList | None
+    inferenceTypesSupported: InferenceTypeList | None
+    modelLifecycle: FoundationModelLifecycle | None
 
 
-FoundationModelSummaryList = List[FoundationModelSummary]
+FoundationModelSummaryList = list[FoundationModelSummary]
 
 
 class GetAutomatedReasoningPolicyAnnotationsRequest(ServiceRequest):
@@ -3088,9 +3222,9 @@ class GetAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False):
     buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
     status: AutomatedReasoningPolicyBuildWorkflowStatus
     buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowType
-    documentName: Optional[AutomatedReasoningPolicyBuildDocumentName]
-    documentContentType: Optional[AutomatedReasoningPolicyBuildDocumentContentType]
-    documentDescription: Optional[AutomatedReasoningPolicyBuildDocumentDescription]
+    documentName: AutomatedReasoningPolicyBuildDocumentName | None
+    documentContentType: AutomatedReasoningPolicyBuildDocumentContentType | None
+    documentDescription: AutomatedReasoningPolicyBuildDocumentDescription | None
     createdAt: Timestamp
     updatedAt: Timestamp
 
@@ -3104,7 +3238,7 @@ class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsRequest(ServiceRequest
 class GetAutomatedReasoningPolicyBuildWorkflowResultAssetsResponse(TypedDict, total=False):
     policyArn: AutomatedReasoningPolicyArn
     buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
-    buildWorkflowAssets: Optional[AutomatedReasoningPolicyBuildResultAssets]
+    buildWorkflowAssets: AutomatedReasoningPolicyBuildResultAssets | None
 
 
 class GetAutomatedReasoningPolicyNextScenarioRequest(ServiceRequest):
@@ -3114,7 +3248,7 @@ class GetAutomatedReasoningPolicyNextScenarioRequest(ServiceRequest):
 
 class GetAutomatedReasoningPolicyNextScenarioResponse(TypedDict, total=False):
     policyArn: AutomatedReasoningPolicyArn
-    scenario: Optional[AutomatedReasoningPolicyScenario]
+    scenario: AutomatedReasoningPolicyScenario | None
 
 
 class GetAutomatedReasoningPolicyRequest(ServiceRequest):
@@ -3126,9 +3260,10 @@ class GetAutomatedReasoningPolicyResponse(TypedDict, total=False):
     name: AutomatedReasoningPolicyName
     version: AutomatedReasoningPolicyVersion
     policyId: AutomatedReasoningPolicyId
-    description: Optional[AutomatedReasoningPolicyDescription]
+    description: AutomatedReasoningPolicyDescription | None
     definitionHash: AutomatedReasoningPolicyHash
-    createdAt: Optional[Timestamp]
+    kmsKeyArn: KmsKeyArn | None
+    createdAt: Timestamp | None
     updatedAt: Timestamp
 
 
@@ -3162,9 +3297,10 @@ class GetCustomModelDeploymentResponse(TypedDict, total=False):
     modelArn: CustomModelArn
     createdAt: Timestamp
     status: CustomModelDeploymentStatus
-    description: Optional[CustomModelDeploymentDescription]
-    failureMessage: Optional[ErrorMessage]
-    lastUpdatedAt: Optional[Timestamp]
+    description: CustomModelDeploymentDescription | None
+    updateDetails: CustomModelDeploymentUpdateDetails | None
+    failureMessage: ErrorMessage | None
+    lastUpdatedAt: Timestamp | None
 
 
 class GetCustomModelRequest(ServiceRequest):
@@ -3174,36 +3310,36 @@ class GetCustomModelRequest(ServiceRequest):
 class ValidatorMetric(TypedDict, total=False):
     """The metric for the validator."""
 
-    validationLoss: Optional[MetricFloat]
+    validationLoss: MetricFloat | None
 
 
-ValidationMetrics = List[ValidatorMetric]
+ValidationMetrics = list[ValidatorMetric]
 
 
 class TrainingMetrics(TypedDict, total=False):
     """Metrics associated with the custom job."""
 
-    trainingLoss: Optional[MetricFloat]
+    trainingLoss: MetricFloat | None
 
 
 class GetCustomModelResponse(TypedDict, total=False):
     modelArn: ModelArn
     modelName: CustomModelName
-    jobName: Optional[JobName]
-    jobArn: Optional[ModelCustomizationJobArn]
-    baseModelArn: Optional[ModelArn]
-    customizationType: Optional[CustomizationType]
-    modelKmsKeyArn: Optional[KmsKeyArn]
-    hyperParameters: Optional[ModelCustomizationHyperParameters]
-    trainingDataConfig: Optional[TrainingDataConfig]
-    validationDataConfig: Optional[ValidationDataConfig]
-    outputDataConfig: Optional[OutputDataConfig]
-    trainingMetrics: Optional[TrainingMetrics]
-    validationMetrics: Optional[ValidationMetrics]
+    jobName: JobName | None
+    jobArn: ModelCustomizationJobArn | None
+    baseModelArn: ModelArn | None
+    customizationType: CustomizationType | None
+    modelKmsKeyArn: KmsKeyArn | None
+    hyperParameters: ModelCustomizationHyperParameters | None
+    trainingDataConfig: TrainingDataConfig | None
+    validationDataConfig: ValidationDataConfig | None
+    outputDataConfig: OutputDataConfig | None
+    trainingMetrics: TrainingMetrics | None
+    validationMetrics: ValidationMetrics | None
     creationTime: Timestamp
-    customizationConfig: Optional[CustomizationConfig]
-    modelStatus: Optional[ModelStatus]
-    failureMessage: Optional[ErrorMessage]
+    customizationConfig: CustomizationConfig | None
+    modelStatus: ModelStatus | None
+    failureMessage: ErrorMessage | None
 
 
 class GetEvaluationJobRequest(ServiceRequest):
@@ -3214,17 +3350,17 @@ class GetEvaluationJobResponse(TypedDict, total=False):
     jobName: EvaluationJobName
     status: EvaluationJobStatus
     jobArn: EvaluationJobArn
-    jobDescription: Optional[EvaluationJobDescription]
+    jobDescription: EvaluationJobDescription | None
     roleArn: RoleArn
-    customerEncryptionKeyId: Optional[KmsKeyId]
+    customerEncryptionKeyId: KmsKeyId | None
     jobType: EvaluationJobType
-    applicationType: Optional[ApplicationType]
+    applicationType: ApplicationType | None
     evaluationConfig: EvaluationConfig
     inferenceConfig: EvaluationInferenceConfig
     outputDataConfig: EvaluationOutputDataConfig
     creationTime: Timestamp
-    lastModifiedTime: Optional[Timestamp]
-    failureMessages: Optional[ErrorMessages]
+    lastModifiedTime: Timestamp | None
+    failureMessages: ErrorMessages | None
 
 
 class GetFoundationModelAvailabilityRequest(ServiceRequest):
@@ -3240,20 +3376,20 @@ class GetFoundationModelAvailabilityResponse(TypedDict, total=False):
 
 
 class GetFoundationModelRequest(ServiceRequest):
-    modelIdentifier: ModelIdentifier
+    modelIdentifier: GetFoundationModelIdentifier
 
 
 class GetFoundationModelResponse(TypedDict, total=False):
-    modelDetails: Optional[FoundationModelDetails]
+    modelDetails: FoundationModelDetails | None
 
 
 class GetGuardrailRequest(ServiceRequest):
     guardrailIdentifier: GuardrailIdentifier
-    guardrailVersion: Optional[GuardrailVersion]
+    guardrailVersion: GuardrailVersion | None
 
 
-GuardrailFailureRecommendations = List[GuardrailFailureRecommendation]
-GuardrailStatusReasons = List[GuardrailStatusReason]
+GuardrailFailureRecommendations = list[GuardrailFailureRecommendation]
+GuardrailStatusReasons = list[GuardrailStatusReason]
 
 
 class GuardrailCrossRegionDetails(TypedDict, total=False):
@@ -3264,11 +3400,11 @@ class GuardrailCrossRegionDetails(TypedDict, total=False):
     Guide <https://docs.aws.amazon.com/bedrock/latest/userguide/guardrails-cross-region.html>`__.
     """
 
-    guardrailProfileId: Optional[GuardrailCrossRegionGuardrailProfileId]
-    guardrailProfileArn: Optional[GuardrailCrossRegionGuardrailProfileArn]
+    guardrailProfileId: GuardrailCrossRegionGuardrailProfileId | None
+    guardrailProfileArn: GuardrailCrossRegionGuardrailProfileArn | None
 
 
-GuardrailAutomatedReasoningPolicyPoliciesList = List[AutomatedReasoningPolicyArn]
+GuardrailAutomatedReasoningPolicyPoliciesList = list[AutomatedReasoningPolicyArn]
 
 
 class GuardrailAutomatedReasoningPolicy(TypedDict, total=False):
@@ -3278,17 +3414,17 @@ class GuardrailAutomatedReasoningPolicy(TypedDict, total=False):
     """
 
     policies: GuardrailAutomatedReasoningPolicyPoliciesList
-    confidenceThreshold: Optional[AutomatedReasoningConfidenceFilterThreshold]
+    confidenceThreshold: AutomatedReasoningConfidenceFilterThreshold | None
 
 
 class GuardrailContextualGroundingFilter(TypedDict, total=False):
     type: GuardrailContextualGroundingFilterType
     threshold: GuardrailContextualGroundingFilterThresholdDouble
-    action: Optional[GuardrailContextualGroundingAction]
-    enabled: Optional[Boolean]
+    action: GuardrailContextualGroundingAction | None
+    enabled: Boolean | None
 
 
-GuardrailContextualGroundingFilters = List[GuardrailContextualGroundingFilter]
+GuardrailContextualGroundingFilters = list[GuardrailContextualGroundingFilter]
 
 
 class GuardrailContextualGroundingPolicy(TypedDict, total=False):
@@ -3301,28 +3437,28 @@ class GuardrailRegex(TypedDict, total=False):
     """The regular expression configured for the guardrail."""
 
     name: GuardrailRegexNameString
-    description: Optional[GuardrailRegexDescriptionString]
+    description: GuardrailRegexDescriptionString | None
     pattern: GuardrailRegexPatternString
     action: GuardrailSensitiveInformationAction
-    inputAction: Optional[GuardrailSensitiveInformationAction]
-    outputAction: Optional[GuardrailSensitiveInformationAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailSensitiveInformationAction | None
+    outputAction: GuardrailSensitiveInformationAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailRegexes = List[GuardrailRegex]
+GuardrailRegexes = list[GuardrailRegex]
 
 
 class GuardrailPiiEntity(TypedDict, total=False):
     type: GuardrailPiiEntityType
     action: GuardrailSensitiveInformationAction
-    inputAction: Optional[GuardrailSensitiveInformationAction]
-    outputAction: Optional[GuardrailSensitiveInformationAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailSensitiveInformationAction | None
+    outputAction: GuardrailSensitiveInformationAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailPiiEntities = List[GuardrailPiiEntity]
+GuardrailPiiEntities = list[GuardrailPiiEntity]
 
 
 class GuardrailSensitiveInformationPolicy(TypedDict, total=False):
@@ -3330,39 +3466,39 @@ class GuardrailSensitiveInformationPolicy(TypedDict, total=False):
     for the guardrail.
     """
 
-    piiEntities: Optional[GuardrailPiiEntities]
-    regexes: Optional[GuardrailRegexes]
+    piiEntities: GuardrailPiiEntities | None
+    regexes: GuardrailRegexes | None
 
 
 class GuardrailManagedWords(TypedDict, total=False):
     type: GuardrailManagedWordsType
-    inputAction: Optional[GuardrailWordAction]
-    outputAction: Optional[GuardrailWordAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailWordAction | None
+    outputAction: GuardrailWordAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailManagedWordLists = List[GuardrailManagedWords]
+GuardrailManagedWordLists = list[GuardrailManagedWords]
 
 
 class GuardrailWord(TypedDict, total=False):
     """A word configured for the guardrail."""
 
     text: GuardrailWordTextString
-    inputAction: Optional[GuardrailWordAction]
-    outputAction: Optional[GuardrailWordAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputAction: GuardrailWordAction | None
+    outputAction: GuardrailWordAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailWords = List[GuardrailWord]
+GuardrailWords = list[GuardrailWord]
 
 
 class GuardrailWordPolicy(TypedDict, total=False):
     """Contains details about the word policy configured for the guardrail."""
 
-    words: Optional[GuardrailWords]
-    managedWordLists: Optional[GuardrailManagedWordLists]
+    words: GuardrailWords | None
+    managedWordLists: GuardrailManagedWordLists | None
 
 
 class GuardrailContentFiltersTier(TypedDict, total=False):
@@ -3375,15 +3511,15 @@ class GuardrailContentFilter(TypedDict, total=False):
     type: GuardrailContentFilterType
     inputStrength: GuardrailFilterStrength
     outputStrength: GuardrailFilterStrength
-    inputModalities: Optional[GuardrailModalities]
-    outputModalities: Optional[GuardrailModalities]
-    inputAction: Optional[GuardrailContentFilterAction]
-    outputAction: Optional[GuardrailContentFilterAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    inputModalities: GuardrailModalities | None
+    outputModalities: GuardrailModalities | None
+    inputAction: GuardrailContentFilterAction | None
+    outputAction: GuardrailContentFilterAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailContentFilters = List[GuardrailContentFilter]
+GuardrailContentFilters = list[GuardrailContentFilter]
 
 
 class GuardrailContentPolicy(TypedDict, total=False):
@@ -3395,8 +3531,8 @@ class GuardrailContentPolicy(TypedDict, total=False):
        body <https://docs.aws.amazon.com/bedrock/latest/APIReference/API_GetGuardrail.html#API_GetGuardrail_ResponseSyntax>`__
     """
 
-    filters: Optional[GuardrailContentFilters]
-    tier: Optional[GuardrailContentFiltersTier]
+    filters: GuardrailContentFilters | None
+    tier: GuardrailContentFiltersTier | None
 
 
 class GuardrailTopicsTier(TypedDict, total=False):
@@ -3408,15 +3544,15 @@ class GuardrailTopicsTier(TypedDict, total=False):
 class GuardrailTopic(TypedDict, total=False):
     name: GuardrailTopicName
     definition: GuardrailTopicDefinition
-    examples: Optional[GuardrailTopicExamples]
-    type: Optional[GuardrailTopicType]
-    inputAction: Optional[GuardrailTopicAction]
-    outputAction: Optional[GuardrailTopicAction]
-    inputEnabled: Optional[Boolean]
-    outputEnabled: Optional[Boolean]
+    examples: GuardrailTopicExamples | None
+    type: GuardrailTopicType | None
+    inputAction: GuardrailTopicAction | None
+    outputAction: GuardrailTopicAction | None
+    inputEnabled: Boolean | None
+    outputEnabled: Boolean | None
 
 
-GuardrailTopics = List[GuardrailTopic]
+GuardrailTopics = list[GuardrailTopic]
 
 
 class GuardrailTopicPolicy(TypedDict, total=False):
@@ -3430,30 +3566,30 @@ class GuardrailTopicPolicy(TypedDict, total=False):
     """
 
     topics: GuardrailTopics
-    tier: Optional[GuardrailTopicsTier]
+    tier: GuardrailTopicsTier | None
 
 
 class GetGuardrailResponse(TypedDict, total=False):
     name: GuardrailName
-    description: Optional[GuardrailDescription]
+    description: GuardrailDescription | None
     guardrailId: GuardrailId
     guardrailArn: GuardrailArn
     version: GuardrailVersion
     status: GuardrailStatus
-    topicPolicy: Optional[GuardrailTopicPolicy]
-    contentPolicy: Optional[GuardrailContentPolicy]
-    wordPolicy: Optional[GuardrailWordPolicy]
-    sensitiveInformationPolicy: Optional[GuardrailSensitiveInformationPolicy]
-    contextualGroundingPolicy: Optional[GuardrailContextualGroundingPolicy]
-    automatedReasoningPolicy: Optional[GuardrailAutomatedReasoningPolicy]
-    crossRegionDetails: Optional[GuardrailCrossRegionDetails]
+    topicPolicy: GuardrailTopicPolicy | None
+    contentPolicy: GuardrailContentPolicy | None
+    wordPolicy: GuardrailWordPolicy | None
+    sensitiveInformationPolicy: GuardrailSensitiveInformationPolicy | None
+    contextualGroundingPolicy: GuardrailContextualGroundingPolicy | None
+    automatedReasoningPolicy: GuardrailAutomatedReasoningPolicy | None
+    crossRegionDetails: GuardrailCrossRegionDetails | None
     createdAt: Timestamp
     updatedAt: Timestamp
-    statusReasons: Optional[GuardrailStatusReasons]
-    failureRecommendations: Optional[GuardrailFailureRecommendations]
+    statusReasons: GuardrailStatusReasons | None
+    failureRecommendations: GuardrailFailureRecommendations | None
     blockedInputMessaging: GuardrailBlockedMessaging
     blockedOutputsMessaging: GuardrailBlockedMessaging
-    kmsKeyArn: Optional[KmsKeyArn]
+    kmsKeyArn: KmsKeyArn | None
 
 
 class GetImportedModelRequest(ServiceRequest):
@@ -3461,16 +3597,16 @@ class GetImportedModelRequest(ServiceRequest):
 
 
 class GetImportedModelResponse(TypedDict, total=False):
-    modelArn: Optional[ImportedModelArn]
-    modelName: Optional[ImportedModelName]
-    jobName: Optional[JobName]
-    jobArn: Optional[ModelImportJobArn]
-    modelDataSource: Optional[ModelDataSource]
-    creationTime: Optional[Timestamp]
-    modelArchitecture: Optional[String]
-    modelKmsKeyArn: Optional[KmsKeyArn]
-    instructSupported: Optional[InstructSupported]
-    customModelUnits: Optional[CustomModelUnits]
+    modelArn: ImportedModelArn | None
+    modelName: ImportedModelName | None
+    jobName: JobName | None
+    jobArn: ModelImportJobArn | None
+    modelDataSource: ModelDataSource | None
+    creationTime: Timestamp | None
+    modelArchitecture: String | None
+    modelKmsKeyArn: KmsKeyArn | None
+    instructSupported: InstructSupported | None
+    customModelUnits: CustomModelUnits | None
 
 
 class GetInferenceProfileRequest(ServiceRequest):
@@ -3480,17 +3616,17 @@ class GetInferenceProfileRequest(ServiceRequest):
 class InferenceProfileModel(TypedDict, total=False):
     """Contains information about a model."""
 
-    modelArn: Optional[FoundationModelArn]
+    modelArn: FoundationModelArn | None
 
 
-InferenceProfileModels = List[InferenceProfileModel]
+InferenceProfileModels = list[InferenceProfileModel]
 
 
 class GetInferenceProfileResponse(TypedDict, total=False):
     inferenceProfileName: InferenceProfileName
-    description: Optional[InferenceProfileDescription]
-    createdAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
+    description: InferenceProfileDescription | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
     inferenceProfileArn: InferenceProfileArn
     models: InferenceProfileModels
     inferenceProfileId: InferenceProfileId
@@ -3503,7 +3639,7 @@ class GetMarketplaceModelEndpointRequest(ServiceRequest):
 
 
 class GetMarketplaceModelEndpointResponse(TypedDict, total=False):
-    marketplaceModelEndpoint: Optional[MarketplaceModelEndpoint]
+    marketplaceModelEndpoint: MarketplaceModelEndpoint | None
 
 
 class GetModelCopyJobRequest(ServiceRequest):
@@ -3515,13 +3651,13 @@ class GetModelCopyJobResponse(TypedDict, total=False):
     status: ModelCopyJobStatus
     creationTime: Timestamp
     targetModelArn: CustomModelArn
-    targetModelName: Optional[CustomModelName]
+    targetModelName: CustomModelName | None
     sourceAccountId: AccountId
     sourceModelArn: ModelArn
-    targetModelKmsKeyArn: Optional[KmsKeyArn]
-    targetModelTags: Optional[TagList]
-    failureMessage: Optional[ErrorMessage]
-    sourceModelName: Optional[CustomModelName]
+    targetModelKmsKeyArn: KmsKeyArn | None
+    targetModelTags: TagList | None
+    failureMessage: ErrorMessage | None
+    sourceModelName: CustomModelName | None
 
 
 class GetModelCustomizationJobRequest(ServiceRequest):
@@ -3533,9 +3669,9 @@ class TrainingDetails(TypedDict, total=False):
     the job.
     """
 
-    status: Optional[JobStatusDetails]
-    creationTime: Optional[Timestamp]
-    lastModifiedTime: Optional[Timestamp]
+    status: JobStatusDetails | None
+    creationTime: Timestamp | None
+    lastModifiedTime: Timestamp | None
 
 
 class ValidationDetails(TypedDict, total=False):
@@ -3543,9 +3679,9 @@ class ValidationDetails(TypedDict, total=False):
     of the job.
     """
 
-    status: Optional[JobStatusDetails]
-    creationTime: Optional[Timestamp]
-    lastModifiedTime: Optional[Timestamp]
+    status: JobStatusDetails | None
+    creationTime: Timestamp | None
+    lastModifiedTime: Timestamp | None
 
 
 class StatusDetails(TypedDict, total=False):
@@ -3565,35 +3701,35 @@ class StatusDetails(TypedDict, total=False):
     -  Failed
     """
 
-    validationDetails: Optional[ValidationDetails]
-    dataProcessingDetails: Optional[DataProcessingDetails]
-    trainingDetails: Optional[TrainingDetails]
+    validationDetails: ValidationDetails | None
+    dataProcessingDetails: DataProcessingDetails | None
+    trainingDetails: TrainingDetails | None
 
 
 class GetModelCustomizationJobResponse(TypedDict, total=False):
     jobArn: ModelCustomizationJobArn
     jobName: JobName
     outputModelName: CustomModelName
-    outputModelArn: Optional[CustomModelArn]
-    clientRequestToken: Optional[IdempotencyToken]
+    outputModelArn: CustomModelArn | None
+    clientRequestToken: IdempotencyToken | None
     roleArn: RoleArn
-    status: Optional[ModelCustomizationJobStatus]
-    statusDetails: Optional[StatusDetails]
-    failureMessage: Optional[ErrorMessage]
+    status: ModelCustomizationJobStatus | None
+    statusDetails: StatusDetails | None
+    failureMessage: ErrorMessage | None
     creationTime: Timestamp
-    lastModifiedTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
+    lastModifiedTime: Timestamp | None
+    endTime: Timestamp | None
     baseModelArn: FoundationModelArn
-    hyperParameters: Optional[ModelCustomizationHyperParameters]
+    hyperParameters: ModelCustomizationHyperParameters | None
     trainingDataConfig: TrainingDataConfig
     validationDataConfig: ValidationDataConfig
     outputDataConfig: OutputDataConfig
-    customizationType: Optional[CustomizationType]
-    outputModelKmsKeyArn: Optional[KmsKeyArn]
-    trainingMetrics: Optional[TrainingMetrics]
-    validationMetrics: Optional[ValidationMetrics]
-    vpcConfig: Optional[VpcConfig]
-    customizationConfig: Optional[CustomizationConfig]
+    customizationType: CustomizationType | None
+    outputModelKmsKeyArn: KmsKeyArn | None
+    trainingMetrics: TrainingMetrics | None
+    validationMetrics: ValidationMetrics | None
+    vpcConfig: VpcConfig | None
+    customizationConfig: CustomizationConfig | None
 
 
 class GetModelImportJobRequest(ServiceRequest):
@@ -3601,19 +3737,19 @@ class GetModelImportJobRequest(ServiceRequest):
 
 
 class GetModelImportJobResponse(TypedDict, total=False):
-    jobArn: Optional[ModelImportJobArn]
-    jobName: Optional[JobName]
-    importedModelName: Optional[ImportedModelName]
-    importedModelArn: Optional[ImportedModelArn]
-    roleArn: Optional[RoleArn]
-    modelDataSource: Optional[ModelDataSource]
-    status: Optional[ModelImportJobStatus]
-    failureMessage: Optional[ErrorMessage]
-    creationTime: Optional[Timestamp]
-    lastModifiedTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
-    vpcConfig: Optional[VpcConfig]
-    importedModelKmsKeyArn: Optional[KmsKeyArn]
+    jobArn: ModelImportJobArn | None
+    jobName: JobName | None
+    importedModelName: ImportedModelName | None
+    importedModelArn: ImportedModelArn | None
+    roleArn: RoleArn | None
+    modelDataSource: ModelDataSource | None
+    status: ModelImportJobStatus | None
+    failureMessage: ErrorMessage | None
+    creationTime: Timestamp | None
+    lastModifiedTime: Timestamp | None
+    endTime: Timestamp | None
+    vpcConfig: VpcConfig | None
+    importedModelKmsKeyArn: KmsKeyArn | None
 
 
 class GetModelInvocationJobRequest(ServiceRequest):
@@ -3622,20 +3758,20 @@ class GetModelInvocationJobRequest(ServiceRequest):
 
 class GetModelInvocationJobResponse(TypedDict, total=False):
     jobArn: ModelInvocationJobArn
-    jobName: Optional[ModelInvocationJobName]
+    jobName: ModelInvocationJobName | None
     modelId: ModelId
-    clientRequestToken: Optional[ModelInvocationIdempotencyToken]
+    clientRequestToken: ModelInvocationIdempotencyToken | None
     roleArn: RoleArn
-    status: Optional[ModelInvocationJobStatus]
-    message: Optional[Message]
+    status: ModelInvocationJobStatus | None
+    message: Message | None
     submitTime: Timestamp
-    lastModifiedTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
+    lastModifiedTime: Timestamp | None
+    endTime: Timestamp | None
     inputDataConfig: ModelInvocationJobInputDataConfig
     outputDataConfig: ModelInvocationJobOutputDataConfig
-    vpcConfig: Optional[VpcConfig]
-    timeoutDurationInHours: Optional[ModelInvocationJobTimeoutDurationInHours]
-    jobExpirationTime: Optional[Timestamp]
+    vpcConfig: VpcConfig | None
+    timeoutDurationInHours: ModelInvocationJobTimeoutDurationInHours | None
+    jobExpirationTime: Timestamp | None
 
 
 class GetModelInvocationLoggingConfigurationRequest(ServiceRequest):
@@ -3645,16 +3781,17 @@ class GetModelInvocationLoggingConfigurationRequest(ServiceRequest):
 class LoggingConfig(TypedDict, total=False):
     """Configuration fields for invocation logging."""
 
-    cloudWatchConfig: Optional[CloudWatchConfig]
-    s3Config: Optional[S3Config]
-    textDataDeliveryEnabled: Optional[Boolean]
-    imageDataDeliveryEnabled: Optional[Boolean]
-    embeddingDataDeliveryEnabled: Optional[Boolean]
-    videoDataDeliveryEnabled: Optional[Boolean]
+    cloudWatchConfig: CloudWatchConfig | None
+    s3Config: S3Config | None
+    textDataDeliveryEnabled: Boolean | None
+    imageDataDeliveryEnabled: Boolean | None
+    embeddingDataDeliveryEnabled: Boolean | None
+    videoDataDeliveryEnabled: Boolean | None
+    audioDataDeliveryEnabled: Boolean | None
 
 
 class GetModelInvocationLoggingConfigurationResponse(TypedDict, total=False):
-    loggingConfig: Optional[LoggingConfig]
+    loggingConfig: LoggingConfig | None
 
 
 class GetPromptRouterRequest(ServiceRequest):
@@ -3664,9 +3801,9 @@ class GetPromptRouterRequest(ServiceRequest):
 class GetPromptRouterResponse(TypedDict, total=False):
     promptRouterName: PromptRouterName
     routingCriteria: RoutingCriteria
-    description: Optional[PromptRouterDescription]
-    createdAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
+    description: PromptRouterDescription | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
     promptRouterArn: PromptRouterArn
     models: PromptRouterTargetModels
     fallbackModel: PromptRouterTargetModel
@@ -3689,9 +3826,9 @@ class GetProvisionedModelThroughputResponse(TypedDict, total=False):
     status: ProvisionedModelStatus
     creationTime: Timestamp
     lastModifiedTime: Timestamp
-    failureMessage: Optional[ErrorMessage]
-    commitmentDuration: Optional[CommitmentDuration]
-    commitmentExpirationTime: Optional[Timestamp]
+    failureMessage: ErrorMessage | None
+    commitmentDuration: CommitmentDuration | None
+    commitmentExpirationTime: Timestamp | None
 
 
 class GetUseCaseForModelAccessRequest(ServiceRequest):
@@ -3715,14 +3852,14 @@ class GuardrailSummary(TypedDict, total=False):
     arn: GuardrailArn
     status: GuardrailStatus
     name: GuardrailName
-    description: Optional[GuardrailDescription]
+    description: GuardrailDescription | None
     version: GuardrailVersion
     createdAt: Timestamp
     updatedAt: Timestamp
-    crossRegionDetails: Optional[GuardrailCrossRegionDetails]
+    crossRegionDetails: GuardrailCrossRegionDetails | None
 
 
-GuardrailSummaries = List[GuardrailSummary]
+GuardrailSummaries = list[GuardrailSummary]
 
 
 class ImportedModelSummary(TypedDict, total=False):
@@ -3731,18 +3868,18 @@ class ImportedModelSummary(TypedDict, total=False):
     modelArn: ImportedModelArn
     modelName: ImportedModelName
     creationTime: Timestamp
-    instructSupported: Optional[InstructSupported]
-    modelArchitecture: Optional[ModelArchitecture]
+    instructSupported: InstructSupported | None
+    modelArchitecture: ModelArchitecture | None
 
 
-ImportedModelSummaryList = List[ImportedModelSummary]
+ImportedModelSummaryList = list[ImportedModelSummary]
 
 
 class InferenceProfileSummary(TypedDict, total=False):
     inferenceProfileName: InferenceProfileName
-    description: Optional[InferenceProfileDescription]
-    createdAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
+    description: InferenceProfileDescription | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
     inferenceProfileArn: InferenceProfileArn
     models: InferenceProfileModels
     inferenceProfileId: InferenceProfileId
@@ -3750,131 +3887,140 @@ class InferenceProfileSummary(TypedDict, total=False):
     type: InferenceProfileType
 
 
-InferenceProfileSummaries = List[InferenceProfileSummary]
+InferenceProfileSummaries = list[InferenceProfileSummary]
 
 
 class LegalTerm(TypedDict, total=False):
     """The legal term of the agreement."""
 
-    url: Optional[String]
+    url: String | None
 
 
 class ListAutomatedReasoningPoliciesRequest(ServiceRequest):
-    policyArn: Optional[AutomatedReasoningPolicyArn]
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    policyArn: AutomatedReasoningPolicyArn | None
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListAutomatedReasoningPoliciesResponse(TypedDict, total=False):
     automatedReasoningPolicySummaries: AutomatedReasoningPolicySummaries
-    nextToken: Optional[PaginationToken]
+    nextToken: PaginationToken | None
 
 
 class ListAutomatedReasoningPolicyBuildWorkflowsRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListAutomatedReasoningPolicyBuildWorkflowsResponse(TypedDict, total=False):
     automatedReasoningPolicyBuildWorkflowSummaries: AutomatedReasoningPolicyBuildWorkflowSummaries
-    nextToken: Optional[PaginationToken]
+    nextToken: PaginationToken | None
 
 
 class ListAutomatedReasoningPolicyTestCasesRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListAutomatedReasoningPolicyTestCasesResponse(TypedDict, total=False):
     testCases: AutomatedReasoningPolicyTestCaseList
-    nextToken: Optional[PaginationToken]
+    nextToken: PaginationToken | None
 
 
 class ListAutomatedReasoningPolicyTestResultsRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
     buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
-    nextToken: Optional[PaginationToken]
-    maxResults: Optional[MaxResults]
+    nextToken: PaginationToken | None
+    maxResults: MaxResults | None
 
 
 class ListAutomatedReasoningPolicyTestResultsResponse(TypedDict, total=False):
     testResults: AutomatedReasoningPolicyTestList
-    nextToken: Optional[PaginationToken]
+    nextToken: PaginationToken | None
 
 
 class ListCustomModelDeploymentsRequest(ServiceRequest):
-    createdBefore: Optional[Timestamp]
-    createdAfter: Optional[Timestamp]
-    nameContains: Optional[ModelDeploymentName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortModelsBy]
-    sortOrder: Optional[SortOrder]
-    statusEquals: Optional[CustomModelDeploymentStatus]
-    modelArnEquals: Optional[CustomModelArn]
+    createdBefore: Timestamp | None
+    createdAfter: Timestamp | None
+    nameContains: ModelDeploymentName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortModelsBy | None
+    sortOrder: SortOrder | None
+    statusEquals: CustomModelDeploymentStatus | None
+    modelArnEquals: CustomModelArn | None
 
 
 class ListCustomModelDeploymentsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    modelDeploymentSummaries: Optional[CustomModelDeploymentSummaryList]
+    nextToken: PaginationToken | None
+    modelDeploymentSummaries: CustomModelDeploymentSummaryList | None
 
 
 class ListCustomModelsRequest(ServiceRequest):
-    creationTimeBefore: Optional[Timestamp]
-    creationTimeAfter: Optional[Timestamp]
-    nameContains: Optional[CustomModelName]
-    baseModelArnEquals: Optional[ModelArn]
-    foundationModelArnEquals: Optional[FoundationModelArn]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortModelsBy]
-    sortOrder: Optional[SortOrder]
-    isOwned: Optional[Boolean]
-    modelStatus: Optional[ModelStatus]
+    creationTimeBefore: Timestamp | None
+    creationTimeAfter: Timestamp | None
+    nameContains: CustomModelName | None
+    baseModelArnEquals: ModelArn | None
+    foundationModelArnEquals: FoundationModelArn | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortModelsBy | None
+    sortOrder: SortOrder | None
+    isOwned: Boolean | None
+    modelStatus: ModelStatus | None
 
 
 class ListCustomModelsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    modelSummaries: Optional[CustomModelSummaryList]
+    nextToken: PaginationToken | None
+    modelSummaries: CustomModelSummaryList | None
+
+
+class ListEnforcedGuardrailsConfigurationRequest(ServiceRequest):
+    nextToken: PaginationToken | None
+
+
+class ListEnforcedGuardrailsConfigurationResponse(TypedDict, total=False):
+    guardrailsConfig: AccountEnforcedGuardrailsOutputConfiguration
+    nextToken: PaginationToken | None
 
 
 class ListEvaluationJobsRequest(ServiceRequest):
-    creationTimeAfter: Optional[Timestamp]
-    creationTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[EvaluationJobStatus]
-    applicationTypeEquals: Optional[ApplicationType]
-    nameContains: Optional[EvaluationJobName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortJobsBy]
-    sortOrder: Optional[SortOrder]
+    creationTimeAfter: Timestamp | None
+    creationTimeBefore: Timestamp | None
+    statusEquals: EvaluationJobStatus | None
+    applicationTypeEquals: ApplicationType | None
+    nameContains: EvaluationJobName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortJobsBy | None
+    sortOrder: SortOrder | None
 
 
 class ListEvaluationJobsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    jobSummaries: Optional[EvaluationSummaries]
+    nextToken: PaginationToken | None
+    jobSummaries: EvaluationSummaries | None
 
 
 class ListFoundationModelAgreementOffersRequest(ServiceRequest):
     modelId: BedrockModelId
-    offerType: Optional[OfferType]
+    offerType: OfferType | None
 
 
 class ValidityTerm(TypedDict, total=False):
     """Describes the validity terms."""
 
-    agreementDuration: Optional[String]
+    agreementDuration: String | None
 
 
 class SupportTerm(TypedDict, total=False):
     """Describes a support term."""
 
-    refundPolicyDescription: Optional[String]
+    refundPolicyDescription: String | None
 
 
-RateCard = List[DimensionalPriceRate]
+RateCard = list[DimensionalPriceRate]
 
 
 class PricingTerm(TypedDict, total=False):
@@ -3889,18 +4035,18 @@ class TermDetails(TypedDict, total=False):
     usageBasedPricingTerm: PricingTerm
     legalTerm: LegalTerm
     supportTerm: SupportTerm
-    validityTerm: Optional[ValidityTerm]
+    validityTerm: ValidityTerm | None
 
 
 class Offer(TypedDict, total=False):
     """An offer dictates usage terms for the model."""
 
-    offerId: Optional[OfferId]
+    offerId: OfferId | None
     offerToken: OfferToken
     termDetails: TermDetails
 
 
-Offers = List[Offer]
+Offers = list[Offer]
 
 
 class ListFoundationModelAgreementOffersResponse(TypedDict, total=False):
@@ -3909,57 +4055,57 @@ class ListFoundationModelAgreementOffersResponse(TypedDict, total=False):
 
 
 class ListFoundationModelsRequest(ServiceRequest):
-    byProvider: Optional[Provider]
-    byCustomizationType: Optional[ModelCustomization]
-    byOutputModality: Optional[ModelModality]
-    byInferenceType: Optional[InferenceType]
+    byProvider: Provider | None
+    byCustomizationType: ModelCustomization | None
+    byOutputModality: ModelModality | None
+    byInferenceType: InferenceType | None
 
 
 class ListFoundationModelsResponse(TypedDict, total=False):
-    modelSummaries: Optional[FoundationModelSummaryList]
+    modelSummaries: FoundationModelSummaryList | None
 
 
 class ListGuardrailsRequest(ServiceRequest):
-    guardrailIdentifier: Optional[GuardrailIdentifier]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
+    guardrailIdentifier: GuardrailIdentifier | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
 
 
 class ListGuardrailsResponse(TypedDict, total=False):
     guardrails: GuardrailSummaries
-    nextToken: Optional[PaginationToken]
+    nextToken: PaginationToken | None
 
 
 class ListImportedModelsRequest(ServiceRequest):
-    creationTimeBefore: Optional[Timestamp]
-    creationTimeAfter: Optional[Timestamp]
-    nameContains: Optional[ImportedModelName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortModelsBy]
-    sortOrder: Optional[SortOrder]
+    creationTimeBefore: Timestamp | None
+    creationTimeAfter: Timestamp | None
+    nameContains: ImportedModelName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortModelsBy | None
+    sortOrder: SortOrder | None
 
 
 class ListImportedModelsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    modelSummaries: Optional[ImportedModelSummaryList]
+    nextToken: PaginationToken | None
+    modelSummaries: ImportedModelSummaryList | None
 
 
 class ListInferenceProfilesRequest(ServiceRequest):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    typeEquals: Optional[InferenceProfileType]
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    typeEquals: InferenceProfileType | None
 
 
 class ListInferenceProfilesResponse(TypedDict, total=False):
-    inferenceProfileSummaries: Optional[InferenceProfileSummaries]
-    nextToken: Optional[PaginationToken]
+    inferenceProfileSummaries: InferenceProfileSummaries | None
+    nextToken: PaginationToken | None
 
 
 class ListMarketplaceModelEndpointsRequest(ServiceRequest):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    modelSourceEquals: Optional[ModelSourceIdentifier]
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    modelSourceEquals: ModelSourceIdentifier | None
 
 
 class MarketplaceModelEndpointSummary(TypedDict, total=False):
@@ -3969,31 +4115,31 @@ class MarketplaceModelEndpointSummary(TypedDict, total=False):
 
     endpointArn: Arn
     modelSourceIdentifier: ModelSourceIdentifier
-    status: Optional[Status]
-    statusMessage: Optional[String]
+    status: Status | None
+    statusMessage: String | None
     createdAt: Timestamp
     updatedAt: Timestamp
 
 
-MarketplaceModelEndpointSummaries = List[MarketplaceModelEndpointSummary]
+MarketplaceModelEndpointSummaries = list[MarketplaceModelEndpointSummary]
 
 
 class ListMarketplaceModelEndpointsResponse(TypedDict, total=False):
-    marketplaceModelEndpoints: Optional[MarketplaceModelEndpointSummaries]
-    nextToken: Optional[PaginationToken]
+    marketplaceModelEndpoints: MarketplaceModelEndpointSummaries | None
+    nextToken: PaginationToken | None
 
 
 class ListModelCopyJobsRequest(ServiceRequest):
-    creationTimeAfter: Optional[Timestamp]
-    creationTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[ModelCopyJobStatus]
-    sourceAccountEquals: Optional[AccountId]
-    sourceModelArnEquals: Optional[ModelArn]
-    targetModelNameContains: Optional[CustomModelName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortJobsBy]
-    sortOrder: Optional[SortOrder]
+    creationTimeAfter: Timestamp | None
+    creationTimeBefore: Timestamp | None
+    statusEquals: ModelCopyJobStatus | None
+    sourceAccountEquals: AccountId | None
+    sourceModelArnEquals: ModelArn | None
+    targetModelNameContains: CustomModelName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortJobsBy | None
+    sortOrder: SortOrder | None
 
 
 class ModelCopyJobSummary(TypedDict, total=False):
@@ -4009,32 +4155,32 @@ class ModelCopyJobSummary(TypedDict, total=False):
     status: ModelCopyJobStatus
     creationTime: Timestamp
     targetModelArn: CustomModelArn
-    targetModelName: Optional[CustomModelName]
+    targetModelName: CustomModelName | None
     sourceAccountId: AccountId
     sourceModelArn: ModelArn
-    targetModelKmsKeyArn: Optional[KmsKeyArn]
-    targetModelTags: Optional[TagList]
-    failureMessage: Optional[ErrorMessage]
-    sourceModelName: Optional[CustomModelName]
+    targetModelKmsKeyArn: KmsKeyArn | None
+    targetModelTags: TagList | None
+    failureMessage: ErrorMessage | None
+    sourceModelName: CustomModelName | None
 
 
-ModelCopyJobSummaries = List[ModelCopyJobSummary]
+ModelCopyJobSummaries = list[ModelCopyJobSummary]
 
 
 class ListModelCopyJobsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    modelCopyJobSummaries: Optional[ModelCopyJobSummaries]
+    nextToken: PaginationToken | None
+    modelCopyJobSummaries: ModelCopyJobSummaries | None
 
 
 class ListModelCustomizationJobsRequest(ServiceRequest):
-    creationTimeAfter: Optional[Timestamp]
-    creationTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[FineTuningJobStatus]
-    nameContains: Optional[JobName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortJobsBy]
-    sortOrder: Optional[SortOrder]
+    creationTimeAfter: Timestamp | None
+    creationTimeBefore: Timestamp | None
+    statusEquals: FineTuningJobStatus | None
+    nameContains: JobName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortJobsBy | None
+    sortOrder: SortOrder | None
 
 
 class ModelCustomizationJobSummary(TypedDict, total=False):
@@ -4044,32 +4190,32 @@ class ModelCustomizationJobSummary(TypedDict, total=False):
     baseModelArn: ModelArn
     jobName: JobName
     status: ModelCustomizationJobStatus
-    statusDetails: Optional[StatusDetails]
-    lastModifiedTime: Optional[Timestamp]
+    statusDetails: StatusDetails | None
+    lastModifiedTime: Timestamp | None
     creationTime: Timestamp
-    endTime: Optional[Timestamp]
-    customModelArn: Optional[CustomModelArn]
-    customModelName: Optional[CustomModelName]
-    customizationType: Optional[CustomizationType]
+    endTime: Timestamp | None
+    customModelArn: CustomModelArn | None
+    customModelName: CustomModelName | None
+    customizationType: CustomizationType | None
 
 
-ModelCustomizationJobSummaries = List[ModelCustomizationJobSummary]
+ModelCustomizationJobSummaries = list[ModelCustomizationJobSummary]
 
 
 class ListModelCustomizationJobsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    modelCustomizationJobSummaries: Optional[ModelCustomizationJobSummaries]
+    nextToken: PaginationToken | None
+    modelCustomizationJobSummaries: ModelCustomizationJobSummaries | None
 
 
 class ListModelImportJobsRequest(ServiceRequest):
-    creationTimeAfter: Optional[Timestamp]
-    creationTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[ModelImportJobStatus]
-    nameContains: Optional[JobName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortJobsBy]
-    sortOrder: Optional[SortOrder]
+    creationTimeAfter: Timestamp | None
+    creationTimeBefore: Timestamp | None
+    statusEquals: ModelImportJobStatus | None
+    nameContains: JobName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortJobsBy | None
+    sortOrder: SortOrder | None
 
 
 class ModelImportJobSummary(TypedDict, total=False):
@@ -4078,30 +4224,30 @@ class ModelImportJobSummary(TypedDict, total=False):
     jobArn: ModelImportJobArn
     jobName: JobName
     status: ModelImportJobStatus
-    lastModifiedTime: Optional[Timestamp]
+    lastModifiedTime: Timestamp | None
     creationTime: Timestamp
-    endTime: Optional[Timestamp]
-    importedModelArn: Optional[ImportedModelArn]
-    importedModelName: Optional[ImportedModelName]
+    endTime: Timestamp | None
+    importedModelArn: ImportedModelArn | None
+    importedModelName: ImportedModelName | None
 
 
-ModelImportJobSummaries = List[ModelImportJobSummary]
+ModelImportJobSummaries = list[ModelImportJobSummary]
 
 
 class ListModelImportJobsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    modelImportJobSummaries: Optional[ModelImportJobSummaries]
+    nextToken: PaginationToken | None
+    modelImportJobSummaries: ModelImportJobSummaries | None
 
 
 class ListModelInvocationJobsRequest(ServiceRequest):
-    submitTimeAfter: Optional[Timestamp]
-    submitTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[ModelInvocationJobStatus]
-    nameContains: Optional[ModelInvocationJobName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortJobsBy]
-    sortOrder: Optional[SortOrder]
+    submitTimeAfter: Timestamp | None
+    submitTimeBefore: Timestamp | None
+    statusEquals: ModelInvocationJobStatus | None
+    nameContains: ModelInvocationJobName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortJobsBy | None
+    sortOrder: SortOrder | None
 
 
 class ModelInvocationJobSummary(TypedDict, total=False):
@@ -4110,40 +4256,40 @@ class ModelInvocationJobSummary(TypedDict, total=False):
     jobArn: ModelInvocationJobArn
     jobName: ModelInvocationJobName
     modelId: ModelId
-    clientRequestToken: Optional[ModelInvocationIdempotencyToken]
+    clientRequestToken: ModelInvocationIdempotencyToken | None
     roleArn: RoleArn
-    status: Optional[ModelInvocationJobStatus]
-    message: Optional[Message]
+    status: ModelInvocationJobStatus | None
+    message: Message | None
     submitTime: Timestamp
-    lastModifiedTime: Optional[Timestamp]
-    endTime: Optional[Timestamp]
+    lastModifiedTime: Timestamp | None
+    endTime: Timestamp | None
     inputDataConfig: ModelInvocationJobInputDataConfig
     outputDataConfig: ModelInvocationJobOutputDataConfig
-    vpcConfig: Optional[VpcConfig]
-    timeoutDurationInHours: Optional[ModelInvocationJobTimeoutDurationInHours]
-    jobExpirationTime: Optional[Timestamp]
+    vpcConfig: VpcConfig | None
+    timeoutDurationInHours: ModelInvocationJobTimeoutDurationInHours | None
+    jobExpirationTime: Timestamp | None
 
 
-ModelInvocationJobSummaries = List[ModelInvocationJobSummary]
+ModelInvocationJobSummaries = list[ModelInvocationJobSummary]
 
 
 class ListModelInvocationJobsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    invocationJobSummaries: Optional[ModelInvocationJobSummaries]
+    nextToken: PaginationToken | None
+    invocationJobSummaries: ModelInvocationJobSummaries | None
 
 
 class ListPromptRoutersRequest(TypedDict, total=False):
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    type: Optional[PromptRouterType]
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    type: PromptRouterType | None
 
 
 class PromptRouterSummary(TypedDict, total=False):
     promptRouterName: PromptRouterName
     routingCriteria: RoutingCriteria
-    description: Optional[PromptRouterDescription]
-    createdAt: Optional[Timestamp]
-    updatedAt: Optional[Timestamp]
+    description: PromptRouterDescription | None
+    createdAt: Timestamp | None
+    updatedAt: Timestamp | None
     promptRouterArn: PromptRouterArn
     models: PromptRouterTargetModels
     fallbackModel: PromptRouterTargetModel
@@ -4151,24 +4297,24 @@ class PromptRouterSummary(TypedDict, total=False):
     type: PromptRouterType
 
 
-PromptRouterSummaries = List[PromptRouterSummary]
+PromptRouterSummaries = list[PromptRouterSummary]
 
 
 class ListPromptRoutersResponse(TypedDict, total=False):
-    promptRouterSummaries: Optional[PromptRouterSummaries]
-    nextToken: Optional[PaginationToken]
+    promptRouterSummaries: PromptRouterSummaries | None
+    nextToken: PaginationToken | None
 
 
 class ListProvisionedModelThroughputsRequest(ServiceRequest):
-    creationTimeAfter: Optional[Timestamp]
-    creationTimeBefore: Optional[Timestamp]
-    statusEquals: Optional[ProvisionedModelStatus]
-    modelArnEquals: Optional[ModelArn]
-    nameContains: Optional[ProvisionedModelName]
-    maxResults: Optional[MaxResults]
-    nextToken: Optional[PaginationToken]
-    sortBy: Optional[SortByProvisionedModels]
-    sortOrder: Optional[SortOrder]
+    creationTimeAfter: Timestamp | None
+    creationTimeBefore: Timestamp | None
+    statusEquals: ProvisionedModelStatus | None
+    modelArnEquals: ModelArn | None
+    nameContains: ProvisionedModelName | None
+    maxResults: MaxResults | None
+    nextToken: PaginationToken | None
+    sortBy: SortByProvisionedModels | None
+    sortOrder: SortOrder | None
 
 
 class ProvisionedModelSummary(TypedDict, total=False):
@@ -4188,18 +4334,18 @@ class ProvisionedModelSummary(TypedDict, total=False):
     modelUnits: PositiveInteger
     desiredModelUnits: PositiveInteger
     status: ProvisionedModelStatus
-    commitmentDuration: Optional[CommitmentDuration]
-    commitmentExpirationTime: Optional[Timestamp]
+    commitmentDuration: CommitmentDuration | None
+    commitmentExpirationTime: Timestamp | None
     creationTime: Timestamp
     lastModifiedTime: Timestamp
 
 
-ProvisionedModelSummaries = List[ProvisionedModelSummary]
+ProvisionedModelSummaries = list[ProvisionedModelSummary]
 
 
 class ListProvisionedModelThroughputsResponse(TypedDict, total=False):
-    nextToken: Optional[PaginationToken]
-    provisionedModelSummaries: Optional[ProvisionedModelSummaries]
+    nextToken: PaginationToken | None
+    provisionedModelSummaries: ProvisionedModelSummaries | None
 
 
 class ListTagsForResourceRequest(ServiceRequest):
@@ -4207,7 +4353,18 @@ class ListTagsForResourceRequest(ServiceRequest):
 
 
 class ListTagsForResourceResponse(TypedDict, total=False):
-    tags: Optional[TagList]
+    tags: TagList | None
+
+
+class PutEnforcedGuardrailConfigurationRequest(ServiceRequest):
+    configId: AccountEnforcedGuardrailConfigurationId | None
+    guardrailInferenceConfig: AccountEnforcedGuardrailInferenceInputConfiguration
+
+
+class PutEnforcedGuardrailConfigurationResponse(TypedDict, total=False):
+    configId: AccountEnforcedGuardrailConfigurationId | None
+    updatedAt: Timestamp | None
+    updatedBy: String | None
 
 
 class PutModelInvocationLoggingConfigurationRequest(ServiceRequest):
@@ -4238,7 +4395,7 @@ class RegisterMarketplaceModelEndpointResponse(TypedDict, total=False):
 class StartAutomatedReasoningPolicyBuildWorkflowRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
     buildWorkflowType: AutomatedReasoningPolicyBuildWorkflowType
-    clientRequestToken: Optional[IdempotencyToken]
+    clientRequestToken: IdempotencyToken | None
     sourceContent: AutomatedReasoningPolicyBuildWorkflowSource
 
 
@@ -4250,8 +4407,8 @@ class StartAutomatedReasoningPolicyBuildWorkflowResponse(TypedDict, total=False)
 class StartAutomatedReasoningPolicyTestWorkflowRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
     buildWorkflowId: AutomatedReasoningPolicyBuildWorkflowId
-    testCaseIds: Optional[AutomatedReasoningPolicyTestCaseIdList]
-    clientRequestToken: Optional[IdempotencyToken]
+    testCaseIds: AutomatedReasoningPolicyTestCaseIdList | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class StartAutomatedReasoningPolicyTestWorkflowResponse(TypedDict, total=False):
@@ -4282,7 +4439,7 @@ class StopModelInvocationJobResponse(TypedDict, total=False):
     pass
 
 
-TagKeyList = List[TagKey]
+TagKeyList = list[TagKey]
 
 
 class TagResourceRequest(ServiceRequest):
@@ -4320,8 +4477,8 @@ class UpdateAutomatedReasoningPolicyAnnotationsResponse(TypedDict, total=False):
 class UpdateAutomatedReasoningPolicyRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
     policyDefinition: AutomatedReasoningPolicyDefinition
-    name: Optional[AutomatedReasoningPolicyName]
-    description: Optional[AutomatedReasoningPolicyDescription]
+    name: AutomatedReasoningPolicyName | None
+    description: AutomatedReasoningPolicyDescription | None
 
 
 class UpdateAutomatedReasoningPolicyResponse(TypedDict, total=False):
@@ -4335,12 +4492,11 @@ class UpdateAutomatedReasoningPolicyTestCaseRequest(ServiceRequest):
     policyArn: AutomatedReasoningPolicyArn
     testCaseId: AutomatedReasoningPolicyTestCaseId
     guardContent: AutomatedReasoningPolicyTestGuardContent
-    queryContent: Optional[AutomatedReasoningPolicyTestQueryContent]
+    queryContent: AutomatedReasoningPolicyTestQueryContent | None
     lastUpdatedAt: Timestamp
     expectedAggregatedFindingsResult: AutomatedReasoningCheckResult
-    confidenceThreshold: Optional[AutomatedReasoningCheckTranslationConfidence]
-    kmsKeyArn: Optional[KmsKeyArn]
-    clientRequestToken: Optional[IdempotencyToken]
+    confidenceThreshold: AutomatedReasoningCheckTranslationConfidence | None
+    clientRequestToken: IdempotencyToken | None
 
 
 class UpdateAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
@@ -4348,20 +4504,29 @@ class UpdateAutomatedReasoningPolicyTestCaseResponse(TypedDict, total=False):
     testCaseId: AutomatedReasoningPolicyTestCaseId
 
 
+class UpdateCustomModelDeploymentRequest(ServiceRequest):
+    modelArn: CustomModelArn
+    customModelDeploymentIdentifier: CustomModelDeploymentIdentifier
+
+
+class UpdateCustomModelDeploymentResponse(TypedDict, total=False):
+    customModelDeploymentArn: CustomModelDeploymentArn
+
+
 class UpdateGuardrailRequest(ServiceRequest):
     guardrailIdentifier: GuardrailIdentifier
     name: GuardrailName
-    description: Optional[GuardrailDescription]
-    topicPolicyConfig: Optional[GuardrailTopicPolicyConfig]
-    contentPolicyConfig: Optional[GuardrailContentPolicyConfig]
-    wordPolicyConfig: Optional[GuardrailWordPolicyConfig]
-    sensitiveInformationPolicyConfig: Optional[GuardrailSensitiveInformationPolicyConfig]
-    contextualGroundingPolicyConfig: Optional[GuardrailContextualGroundingPolicyConfig]
-    automatedReasoningPolicyConfig: Optional[GuardrailAutomatedReasoningPolicyConfig]
-    crossRegionConfig: Optional[GuardrailCrossRegionConfig]
+    description: GuardrailDescription | None
+    topicPolicyConfig: GuardrailTopicPolicyConfig | None
+    contentPolicyConfig: GuardrailContentPolicyConfig | None
+    wordPolicyConfig: GuardrailWordPolicyConfig | None
+    sensitiveInformationPolicyConfig: GuardrailSensitiveInformationPolicyConfig | None
+    contextualGroundingPolicyConfig: GuardrailContextualGroundingPolicyConfig | None
+    automatedReasoningPolicyConfig: GuardrailAutomatedReasoningPolicyConfig | None
+    crossRegionConfig: GuardrailCrossRegionConfig | None
     blockedInputMessaging: GuardrailBlockedMessaging
     blockedOutputsMessaging: GuardrailBlockedMessaging
-    kmsKeyId: Optional[KmsKeyId]
+    kmsKeyId: KmsKeyId | None
 
 
 class UpdateGuardrailResponse(TypedDict, total=False):
@@ -4374,7 +4539,7 @@ class UpdateGuardrailResponse(TypedDict, total=False):
 class UpdateMarketplaceModelEndpointRequest(ServiceRequest):
     endpointArn: Arn
     endpointConfig: EndpointConfig
-    clientRequestToken: Optional[IdempotencyToken]
+    clientRequestToken: IdempotencyToken | None
 
 
 class UpdateMarketplaceModelEndpointResponse(TypedDict, total=False):
@@ -4383,8 +4548,8 @@ class UpdateMarketplaceModelEndpointResponse(TypedDict, total=False):
 
 class UpdateProvisionedModelThroughputRequest(ServiceRequest):
     provisionedModelId: ProvisionedModelId
-    desiredProvisionedModelName: Optional[ProvisionedModelName]
-    desiredModelId: Optional[ModelIdentifier]
+    desiredProvisionedModelName: ProvisionedModelName | None
+    desiredModelId: ModelIdentifier | None
 
 
 class UpdateProvisionedModelThroughputResponse(TypedDict, total=False):
@@ -4392,8 +4557,8 @@ class UpdateProvisionedModelThroughputResponse(TypedDict, total=False):
 
 
 class BedrockApi:
-    service = "bedrock"
-    version = "2023-04-20"
+    service: str = "bedrock"
+    version: str = "2023-04-20"
 
     @handler("BatchDeleteEvaluationJob")
     def batch_delete_evaluation_job(
@@ -4448,6 +4613,7 @@ class BedrockApi:
         description: AutomatedReasoningPolicyDescription | None = None,
         client_request_token: IdempotencyToken | None = None,
         policy_definition: AutomatedReasoningPolicyDefinition | None = None,
+        kms_key_id: KmsKeyId | None = None,
         tags: TagList | None = None,
         **kwargs,
     ) -> CreateAutomatedReasoningPolicyResponse:
@@ -4468,6 +4634,8 @@ class BedrockApi:
         :param policy_definition: The policy definition that contains the formal logic rules, variables,
         and custom variable types used to validate foundation model responses in
         your application.
+        :param kms_key_id: The identifier of the KMS key to use for encrypting the automated
+        reasoning policy and its associated artifacts.
         :param tags: A list of tags to associate with the Automated Reasoning policy.
         :returns: CreateAutomatedReasoningPolicyResponse
         :raises ResourceNotFoundException:
@@ -5185,7 +5353,11 @@ class BedrockApi:
 
     @handler("DeleteAutomatedReasoningPolicy")
     def delete_automated_reasoning_policy(
-        self, context: RequestContext, policy_arn: AutomatedReasoningPolicyArn, **kwargs
+        self,
+        context: RequestContext,
+        policy_arn: AutomatedReasoningPolicyArn,
+        force: Boolean | None = None,
+        **kwargs,
     ) -> DeleteAutomatedReasoningPolicyResponse:
         """Deletes an Automated Reasoning policy or policy version. This operation
         is idempotent. If you delete a policy more than once, each call
@@ -5193,11 +5365,15 @@ class BedrockApi:
 
         :param policy_arn: The Amazon Resource Name (ARN) of the Automated Reasoning policy to
         delete.
+        :param force: Specifies whether to force delete the automated reasoning policy even if
+        it has active resources.
         :returns: DeleteAutomatedReasoningPolicyResponse
         :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
+        :raises ConflictException:
         :raises InternalServerException:
+        :raises ResourceInUseException:
         :raises ThrottlingException:
         """
         raise NotImplementedError
@@ -5225,6 +5401,7 @@ class BedrockApi:
         :raises ValidationException:
         :raises ConflictException:
         :raises InternalServerException:
+        :raises ResourceInUseException:
         :raises ThrottlingException:
         """
         raise NotImplementedError
@@ -5304,6 +5481,22 @@ class BedrockApi:
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises ConflictException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("DeleteEnforcedGuardrailConfiguration")
+    def delete_enforced_guardrail_configuration(
+        self, context: RequestContext, config_id: AccountEnforcedGuardrailConfigurationId, **kwargs
+    ) -> DeleteEnforcedGuardrailConfigurationResponse:
+        """Deletes the account-level enforced guardrail configuration.
+
+        :param config_id: Unique ID for the account enforced configuration.
+        :returns: DeleteEnforcedGuardrailConfigurationResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
         :raises InternalServerException:
         :raises ThrottlingException:
         """
@@ -5742,7 +5935,7 @@ class BedrockApi:
 
     @handler("GetFoundationModel")
     def get_foundation_model(
-        self, context: RequestContext, model_identifier: ModelIdentifier, **kwargs
+        self, context: RequestContext, model_identifier: GetFoundationModelIdentifier, **kwargs
     ) -> GetFoundationModelResponse:
         """Get details about a Amazon Bedrock foundation model.
 
@@ -6193,6 +6386,22 @@ class BedrockApi:
         (``true``) or if they were shared with the current account (``false``).
         :param model_status: The status of them model to filter results by.
         :returns: ListCustomModelsResponse
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("ListEnforcedGuardrailsConfiguration")
+    def list_enforced_guardrails_configuration(
+        self, context: RequestContext, next_token: PaginationToken | None = None, **kwargs
+    ) -> ListEnforcedGuardrailsConfigurationResponse:
+        """Lists the account-level enforced guardrail configurations.
+
+        :param next_token: Opaque continuation token of previous paginated response.
+        :returns: ListEnforcedGuardrailsConfigurationResponse
+        :raises ResourceNotFoundException:
         :raises AccessDeniedException:
         :raises ValidationException:
         :raises InternalServerException:
@@ -6663,6 +6872,28 @@ class BedrockApi:
         """
         raise NotImplementedError
 
+    @handler("PutEnforcedGuardrailConfiguration")
+    def put_enforced_guardrail_configuration(
+        self,
+        context: RequestContext,
+        guardrail_inference_config: AccountEnforcedGuardrailInferenceInputConfiguration,
+        config_id: AccountEnforcedGuardrailConfigurationId | None = None,
+        **kwargs,
+    ) -> PutEnforcedGuardrailConfigurationResponse:
+        """Sets the account-level enforced guardrail configuration.
+
+        :param guardrail_inference_config: Account-level enforced guardrail input configuration.
+        :param config_id: Unique ID for the account enforced configuration.
+        :returns: PutEnforcedGuardrailConfigurationResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises ConflictException:
+        :raises InternalServerException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
     @handler("PutModelInvocationLoggingConfiguration")
     def put_model_invocation_logging_configuration(
         self, context: RequestContext, logging_config: LoggingConfig, **kwargs
@@ -6957,7 +7188,6 @@ class BedrockApi:
         expected_aggregated_findings_result: AutomatedReasoningCheckResult,
         query_content: AutomatedReasoningPolicyTestQueryContent | None = None,
         confidence_threshold: AutomatedReasoningCheckTranslationConfidence | None = None,
-        kms_key_arn: KmsKeyArn | None = None,
         client_request_token: IdempotencyToken | None = None,
         **kwargs,
     ) -> UpdateAutomatedReasoningPolicyTestCaseResponse:
@@ -6972,7 +7202,6 @@ class BedrockApi:
         :param expected_aggregated_findings_result: The updated expected result of the Automated Reasoning check.
         :param query_content: The updated input query or prompt that generated the content.
         :param confidence_threshold: The updated minimum confidence level for logic validation.
-        :param kms_key_arn: The KMS key ARN for encrypting the test at rest.
         :param client_request_token: A unique, case-sensitive identifier to ensure that the operation
         completes no more than one time.
         :returns: UpdateAutomatedReasoningPolicyTestCaseResponse
@@ -6982,6 +7211,29 @@ class BedrockApi:
         :raises ConflictException:
         :raises InternalServerException:
         :raises ResourceInUseException:
+        :raises ThrottlingException:
+        """
+        raise NotImplementedError
+
+    @handler("UpdateCustomModelDeployment")
+    def update_custom_model_deployment(
+        self,
+        context: RequestContext,
+        model_arn: CustomModelArn,
+        custom_model_deployment_identifier: CustomModelDeploymentIdentifier,
+        **kwargs,
+    ) -> UpdateCustomModelDeploymentResponse:
+        """Updates a custom model deployment with a new custom model. This allows
+        you to deploy updated models without creating new deployment endpoints.
+
+        :param model_arn: ARN of the new custom model to deploy.
+        :param custom_model_deployment_identifier: Identifier of the custom model deployment to update with the new custom
+        model.
+        :returns: UpdateCustomModelDeploymentResponse
+        :raises ResourceNotFoundException:
+        :raises AccessDeniedException:
+        :raises ValidationException:
+        :raises InternalServerException:
         :raises ThrottlingException:
         """
         raise NotImplementedError

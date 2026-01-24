@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mpegdash
-Version: 0.4.0
+Version: 0.4.1
 Summary: MPEG-DASH MPD(Media Presentation Description) Parser
 Home-page: https://github.com/sangwonl/python-mpegdash
 Author: sangwonl
@@ -15,6 +15,15 @@ Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: summary
 
 
 # python-mpegdash

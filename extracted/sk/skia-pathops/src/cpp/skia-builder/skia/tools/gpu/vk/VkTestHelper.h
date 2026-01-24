@@ -13,28 +13,46 @@
 #ifdef SK_VULKAN
 
 #include "include/core/SkRefCnt.h"
-#include "include/gpu/vk/GrVkBackendContext.h"
+#include "include/gpu/vk/VulkanBackendContext.h"
 #include "include/gpu/vk/VulkanExtensions.h"
+
+#include "tools/gpu/vk/VkTestUtils.h"
 
 class GrDirectContext;
 class SkSurface;
+struct SkISize;
+
+namespace skiatest {
+    enum class TestType : uint8_t;
+}
+
+namespace skgpu::graphite {
+    class Context;
+    class Recorder;
+}
 
 #define DECLARE_VK_PROC(name) PFN_vk##name fVk##name
 
 class VkTestHelper {
 public:
-    VkTestHelper(bool isProtected) : fIsProtected(isProtected) {}
+    static std::unique_ptr<VkTestHelper> Make(skiatest::TestType, bool isProtected);
 
-    ~VkTestHelper() {
-        this->cleanup();
-    }
+    virtual ~VkTestHelper();
 
-    bool init();
+    virtual bool isValid() const = 0;
 
-    GrDirectContext* directContext() { return fDirectContext.get(); }
+    virtual sk_sp<SkSurface> createSurface(SkISize, bool textureable, bool isProtected) = 0;
+    virtual void submitAndWaitForCompletion(bool* completionMarker) = 0;
 
-private:
-    void cleanup();
+    virtual GrDirectContext* directContext() { return nullptr; }
+    virtual skgpu::graphite::Recorder* recorder() { return nullptr; }
+    virtual skgpu::graphite::Context* context() { return nullptr; }
+
+protected:
+    explicit VkTestHelper(bool isProtected) : fIsProtected(isProtected) {}
+
+    bool setupBackendContext();
+    virtual bool init() = 0;
 
     DECLARE_VK_PROC(DestroyInstance);
     DECLARE_VK_PROC(DeviceWaitIdle);
@@ -58,12 +76,11 @@ private:
     bool fIsProtected = false;
     VkDevice fDevice = VK_NULL_HANDLE;
 
-    skgpu::VulkanExtensions fExtensions;
-    VkPhysicalDeviceFeatures2 fFeatures = {};
-    VkDebugReportCallbackEXT fDebugCallback = VK_NULL_HANDLE;
-    PFN_vkDestroyDebugReportCallbackEXT fDestroyDebugCallback = nullptr;
-    GrVkBackendContext fBackendContext;
-    sk_sp<GrDirectContext> fDirectContext;
+    skgpu::VulkanExtensions fExtensions = {};
+    sk_gpu_test::TestVkFeatures fFeatures = {};
+    VkDebugUtilsMessengerEXT fDebugMessenger = VK_NULL_HANDLE;
+    PFN_vkDestroyDebugUtilsMessengerEXT fDestroyDebugCallback = nullptr;
+    skgpu::VulkanBackendContext fBackendContext;
 };
 
 #undef DECLARE_VK_PROC

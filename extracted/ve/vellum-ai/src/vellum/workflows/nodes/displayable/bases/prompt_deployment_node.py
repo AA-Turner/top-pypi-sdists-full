@@ -1,3 +1,4 @@
+from itertools import chain
 import json
 from uuid import UUID
 from typing import Any, ClassVar, Dict, Generator, Generic, Iterator, List, Optional, Sequence, Set, Union
@@ -62,7 +63,7 @@ class BasePromptDeploymentNode(BasePromptNode, Generic[StateType]):
     release_tag: str = LATEST_RELEASE_TAG
     external_id: Optional[str] = None
 
-    expand_meta: Optional[PromptDeploymentExpandMetaRequest] = None
+    expand_meta: Optional[PromptDeploymentExpandMetaRequest] = PromptDeploymentExpandMetaRequest(finish_reason=True)
     raw_overrides: Optional[RawPromptExecutionOverridesRequest] = None
     expand_raw: Optional[Sequence[str]] = None
     metadata: Optional[Dict[str, Optional[Any]]] = None
@@ -113,12 +114,18 @@ class BasePromptDeploymentNode(BasePromptNode, Generic[StateType]):
         if prompt_event_stream is None:
             try:
                 prompt_event_stream = self._get_prompt_event_stream()
-                next(prompt_event_stream)
+                first_event = next(prompt_event_stream)
             except ApiError as e:
                 if e.status_code and e.status_code < 500 and self.ml_model_fallbacks is not None:
                     prompt_event_stream = self._retry_prompt_stream_with_fallbacks(tried_fallbacks)
                 else:
                     self._handle_api_error(e)
+            else:
+                if first_event.state == "REJECTED":
+                    workflow_error = vellum_error_to_workflow_error(first_event.error)
+                    raise NodeException.of(workflow_error)
+                if first_event.state != "INITIATED":
+                    prompt_event_stream = chain([first_event], prompt_event_stream)
 
         outputs: Optional[List[PromptOutput]] = None
         if prompt_event_stream is not None:
@@ -127,6 +134,8 @@ class BasePromptDeploymentNode(BasePromptNode, Generic[StateType]):
                     continue
                 elif event.state == "STREAMING":
                     yield BaseOutput(name="results", delta=event.output.value)
+                    if event.output.type == "STRING":
+                        yield BaseOutput(name="text", delta=event.output.value)
                 elif event.state == "FULFILLED":
                     outputs = event.outputs
                     yield BaseOutput(name="results", value=event.outputs)
@@ -159,7 +168,9 @@ class BasePromptDeploymentNode(BasePromptNode, Generic[StateType]):
                 try:
                     tried_fallbacks.add(ml_model_fallback)
                     prompt_event_stream = self._get_prompt_event_stream(ml_model_fallback=ml_model_fallback)
-                    next(prompt_event_stream)
+                    first_event = next(prompt_event_stream)
+                    if first_event.state != "INITIATED":
+                        prompt_event_stream = chain([first_event], prompt_event_stream)
                     return prompt_event_stream
                 except ApiError:
                     continue
@@ -248,6 +259,18 @@ class BasePromptDeploymentNode(BasePromptNode, Generic[StateType]):
                     DocumentInputRequest(
                         name=input_name,
                         value=document_value,
+                    )
+                )
+            elif (
+                isinstance(input_value, dict)
+                and "src" in input_value
+                and isinstance(input_value.get("src"), str)
+                and input_value["src"].endswith(".pdf")
+            ):
+                compiled_inputs.append(
+                    DocumentInputRequest(
+                        name=input_name,
+                        value=VellumDocumentRequest.model_validate(input_value),
                     )
                 )
             elif isinstance(input_value, (VellumVideo, VellumVideoRequest)):

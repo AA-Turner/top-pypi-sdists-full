@@ -2,7 +2,8 @@
 import asyncio
 import json
 import logging
-from typing import Any, AsyncGenerator, Dict, Optional
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from ..__version__ import __version__
 from ..exceptions import ConnectionError, StreamClientError
@@ -80,12 +81,12 @@ class AiohttpClient(BaseAsyncClient):
 
     def __init__(
         self,
-        pool_size: Optional[int] = None,
+        pool_size: int | None = None,
         request_timeout: float = defines.DEFAULT_GET_TIMEOUT_SECONDS,
         post_timeout: float = defines.DEFAULT_POST_TIMEOUT_SECONDS,
-        backoff_factor: Optional[float] = DEFAULT_BACKOFF_FACTOR,
-        user_agent: Optional[str] = None,
-        custom_headers: Optional[Dict[str, str]] = None,
+        backoff_factor: float | None = DEFAULT_BACKOFF_FACTOR,
+        user_agent: str | None = None,
+        custom_headers: dict[str, str] | None = None,
         **kwargs,
     ) -> None:
         if not _AIOHTTP_DEPS_INSTALLED:
@@ -94,27 +95,26 @@ class AiohttpClient(BaseAsyncClient):
                 "Please install `stellar-sdk[aiohttp]` to use this feature."
             )
         self.pool_size = pool_size
-        self.backoff_factor: Optional[float] = backoff_factor
+        self.backoff_factor: float | None = backoff_factor
         self.request_timeout: float = request_timeout
         self.post_timeout: float = post_timeout
         self.__kwargs = kwargs
 
-        self.user_agent: Optional[str] = USER_AGENT
+        self.user_agent: str | None = USER_AGENT
         if user_agent:
             self.user_agent = user_agent
 
-        self.headers: dict = {
-            **IDENTIFICATION_HEADERS,
+        self.headers: dict = IDENTIFICATION_HEADERS | {
             "User-Agent": self.user_agent,
         }
 
         if custom_headers:
-            self.headers = {**self.headers, **custom_headers}
+            self.headers = self.headers | custom_headers
 
-        self._session: Optional[aiohttp.ClientSession] = None
-        self._sse_session: Optional[aiohttp.ClientSession] = None
+        self._session: aiohttp.ClientSession | None = None
+        self._sse_session: aiohttp.ClientSession | None = None
 
-    async def get(self, url: str, params: Optional[Dict[str, str]] = None) -> Response:
+    async def get(self, url: str, params: dict[str, str] | None = None) -> Response:
         """Perform HTTP GET request.
 
         :param url: the request url
@@ -138,8 +138,8 @@ class AiohttpClient(BaseAsyncClient):
     async def post(
         self,
         url: str,
-        data: Optional[Dict[str, str]] = None,
-        json_data: Optional[Dict[str, Any]] = None,
+        data: dict[str, str] | None = None,
+        json_data: dict[str, Any] | None = None,
     ) -> Response:
         """Perform HTTP POST request.
 
@@ -168,8 +168,8 @@ class AiohttpClient(BaseAsyncClient):
             raise ConnectionError(e)
 
     async def stream(
-        self, url: str, params: Optional[Dict[str, str]] = None
-    ) -> AsyncGenerator[Dict[str, Any], None]:
+        self, url: str, params: dict[str, str] | None = None
+    ) -> AsyncGenerator[dict[str, Any], None]:
         """Perform Stream request.
 
         :param url: the request url
@@ -185,9 +185,9 @@ class AiohttpClient(BaseAsyncClient):
             timeout = aiohttp.ClientTimeout(total=60 * 5)
             self._sse_session = aiohttp.ClientSession(timeout=timeout)
 
-        query_params = {**params} if params else dict()
+        query_params = params.copy() if params else dict()
 
-        query_params.update(**IDENTIFICATION_HEADERS)
+        query_params |= IDENTIFICATION_HEADERS
         retry = 0.1
 
         while True:

@@ -27,7 +27,7 @@ class GetWorkerResult:
     """
     A collection of values returned by getWorker.
     """
-    def __init__(__self__, account_id=None, created_on=None, id=None, logpush=None, name=None, observability=None, subdomain=None, tags=None, tail_consumers=None, updated_on=None, worker_id=None):
+    def __init__(__self__, account_id=None, created_on=None, id=None, logpush=None, name=None, observability=None, references=None, subdomain=None, tags=None, tail_consumers=None, updated_on=None, worker_id=None):
         if account_id and not isinstance(account_id, str):
             raise TypeError("Expected argument 'account_id' to be a str")
         pulumi.set(__self__, "account_id", account_id)
@@ -46,6 +46,9 @@ class GetWorkerResult:
         if observability and not isinstance(observability, dict):
             raise TypeError("Expected argument 'observability' to be a dict")
         pulumi.set(__self__, "observability", observability)
+        if references and not isinstance(references, dict):
+            raise TypeError("Expected argument 'references' to be a dict")
+        pulumi.set(__self__, "references", references)
         if subdomain and not isinstance(subdomain, dict):
             raise TypeError("Expected argument 'subdomain' to be a dict")
         pulumi.set(__self__, "subdomain", subdomain)
@@ -82,7 +85,7 @@ class GetWorkerResult:
     @pulumi.getter
     def id(self) -> _builtins.str:
         """
-        Identifier.
+        Identifier for the Worker, which can be ID or name.
         """
         return pulumi.get(self, "id")
 
@@ -109,6 +112,14 @@ class GetWorkerResult:
         Observability settings for the Worker.
         """
         return pulumi.get(self, "observability")
+
+    @_builtins.property
+    @pulumi.getter
+    def references(self) -> 'outputs.GetWorkerReferencesResult':
+        """
+        Other resources that reference the Worker and depend on it existing.
+        """
+        return pulumi.get(self, "references")
 
     @_builtins.property
     @pulumi.getter
@@ -144,9 +155,9 @@ class GetWorkerResult:
 
     @_builtins.property
     @pulumi.getter(name="workerId")
-    def worker_id(self) -> Optional[_builtins.str]:
+    def worker_id(self) -> _builtins.str:
         """
-        Identifier.
+        Identifier for the Worker, which can be ID or name.
         """
         return pulumi.get(self, "worker_id")
 
@@ -163,6 +174,7 @@ class AwaitableGetWorkerResult(GetWorkerResult):
             logpush=self.logpush,
             name=self.name,
             observability=self.observability,
+            references=self.references,
             subdomain=self.subdomain,
             tags=self.tags,
             tail_consumers=self.tail_consumers,
@@ -181,12 +193,12 @@ def get_worker(account_id: Optional[_builtins.str] = None,
     import pulumi_cloudflare as cloudflare
 
     example_worker = cloudflare.get_worker(account_id="023e105f4ecef8ad9ca31a8372d0c353",
-        worker_id="023e105f4ecef8ad9ca31a8372d0c353")
+        worker_id="worker_id")
     ```
 
 
     :param _builtins.str account_id: Identifier.
-    :param _builtins.str worker_id: Identifier.
+    :param _builtins.str worker_id: Identifier for the Worker, which can be ID or name.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -201,13 +213,14 @@ def get_worker(account_id: Optional[_builtins.str] = None,
         logpush=pulumi.get(__ret__, 'logpush'),
         name=pulumi.get(__ret__, 'name'),
         observability=pulumi.get(__ret__, 'observability'),
+        references=pulumi.get(__ret__, 'references'),
         subdomain=pulumi.get(__ret__, 'subdomain'),
         tags=pulumi.get(__ret__, 'tags'),
         tail_consumers=pulumi.get(__ret__, 'tail_consumers'),
         updated_on=pulumi.get(__ret__, 'updated_on'),
         worker_id=pulumi.get(__ret__, 'worker_id'))
 def get_worker_output(account_id: Optional[pulumi.Input[_builtins.str]] = None,
-                      worker_id: Optional[pulumi.Input[Optional[_builtins.str]]] = None,
+                      worker_id: Optional[pulumi.Input[_builtins.str]] = None,
                       opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetWorkerResult]:
     """
     ## Example Usage
@@ -217,12 +230,12 @@ def get_worker_output(account_id: Optional[pulumi.Input[_builtins.str]] = None,
     import pulumi_cloudflare as cloudflare
 
     example_worker = cloudflare.get_worker(account_id="023e105f4ecef8ad9ca31a8372d0c353",
-        worker_id="023e105f4ecef8ad9ca31a8372d0c353")
+        worker_id="worker_id")
     ```
 
 
     :param _builtins.str account_id: Identifier.
-    :param _builtins.str worker_id: Identifier.
+    :param _builtins.str worker_id: Identifier for the Worker, which can be ID or name.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -236,6 +249,7 @@ def get_worker_output(account_id: Optional[pulumi.Input[_builtins.str]] = None,
         logpush=pulumi.get(__response__, 'logpush'),
         name=pulumi.get(__response__, 'name'),
         observability=pulumi.get(__response__, 'observability'),
+        references=pulumi.get(__response__, 'references'),
         subdomain=pulumi.get(__response__, 'subdomain'),
         tags=pulumi.get(__response__, 'tags'),
         tail_consumers=pulumi.get(__response__, 'tail_consumers'),

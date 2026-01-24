@@ -10,10 +10,10 @@ steps:
     if [[ $_NEW_VERSION == "default" ]]; then
       echo "Specify _NEW_VERSION"
       exit 1
-    elif [[ $_NEW_VERSION =~ ^[0-9]+.[0-9]+.[0-9]+$ ]]; then
+    elif [[ $_NEW_VERSION =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
       echo "_NEW_VERSION format validated."
     else
-      echo "_NEW_VERSION=$_NEW_VERSION must follow the format '^[0-9]+.[0-9]+.[0-9]+$' (example: 1.2.3)"
+      echo "_NEW_VERSION=$_NEW_VERSION must follow the format '^[0-9]+\.[0-9]+\.[0-9]+$' (example: 1.2.3)"
       exit 1
     fi
 
@@ -122,6 +122,6 @@ substitutions:
   _GITHUB_REPOSITORY: kagglehub
   # Before changing this, ensure there's a matching tag for our bre-built hatch image:
   # https://pantheon.corp.google.com/artifacts/docker/kaggle-cicd/us/tools/hatch?e=13803378&mods=-ai_platform_fake_service&project=kaggle-cicd
-  _PYTHON_VERSION: 3.9.18
+  _PYTHON_VERSION: 3.10.13
   _NEW_VERSION: default
 

@@ -251,7 +251,9 @@ class Scheduler:
             **kwargs,
         )
 
-        self.state_sync.add_interval(snapshot, start, end, is_dev=not is_deployable)
+        self.state_sync.add_interval(
+            snapshot, start, end, is_dev=not is_deployable, last_altered_ts=now_timestamp()
+        )
         return audit_results
 
     def run(
@@ -335,6 +337,7 @@ class Scheduler:
         deployability_index: t.Optional[DeployabilityIndex],
         environment_naming_info: EnvironmentNamingInfo,
         dag: t.Optional[DAG[SnapshotId]] = None,
+        is_restatement: bool = False,
     ) -> t.Dict[Snapshot, Intervals]:
         dag = dag or snapshots_to_dag(merged_intervals)
 
@@ -349,7 +352,7 @@ class Scheduler:
             )
             for snapshot, intervals in merged_intervals.items()
         }
-        snapshot_batches = {}
+        snapshot_batches: t.Dict[Snapshot, Intervals] = {}
         all_unready_intervals: t.Dict[str, set[Interval]] = {}
         for snapshot_id in dag:
             if snapshot_id not in snapshot_intervals:
@@ -361,12 +364,22 @@ class Scheduler:
 
             adapter = self.snapshot_evaluator.get_adapter(snapshot.model_gateway)
 
+            parent_intervals: Intervals = []
+            for parent_id in snapshot.parents:
+                parent_snapshot, _ = snapshot_intervals.get(parent_id, (None, []))
+                if not parent_snapshot or parent_snapshot.is_external:
+                    continue
+
+                parent_intervals.extend(snapshot_batches[parent_snapshot])
+
             context = ExecutionContext(
                 adapter,
                 self.snapshots_by_name,
                 deployability_index,
                 default_dialect=adapter.dialect,
                 default_catalog=self.default_catalog,
+                is_restatement=is_restatement,
+                parent_intervals=parent_intervals,
             )
 
             intervals = self._check_ready_intervals(
@@ -422,6 +435,7 @@ class Scheduler:
         run_environment_statements: bool = False,
         audit_only: bool = False,
         auto_restatement_triggers: t.Dict[SnapshotId, t.List[SnapshotId]] = {},
+        is_restatement: bool = False,
     ) -> t.Tuple[t.List[NodeExecutionFailedError[SchedulingUnit]], t.List[SchedulingUnit]]:
         """Runs precomputed batches of missing intervals.
 
@@ -455,9 +469,12 @@ class Scheduler:
         snapshot_dag = full_dag.subdag(*selected_snapshot_ids_set)
 
         batched_intervals = self.batch_intervals(
-            merged_intervals, deployability_index, environment_naming_info, dag=snapshot_dag
+            merged_intervals,
+            deployability_index,
+            environment_naming_info,
+            dag=snapshot_dag,
+            is_restatement=is_restatement,
         )
-
         self.console.start_evaluation_progress(
             batched_intervals,
             environment_naming_info,
@@ -530,6 +547,10 @@ class Scheduler:
                             execution_time=execution_time,
                         )
                     else:
+                        # If batch_index > 0, then the target table must exist since the first batch would have created it
+                        target_table_exists = (
+                            snapshot.snapshot_id not in snapshots_to_create or node.batch_index > 0
+                        )
                         audit_results = self.evaluate(
                             snapshot=snapshot,
                             environment_naming_info=environment_naming_info,
@@ -540,7 +561,7 @@ class Scheduler:
                             batch_index=node.batch_index,
                             allow_destructive_snapshots=allow_destructive_snapshots,
                             allow_additive_snapshots=allow_additive_snapshots,
-                            target_table_exists=snapshot.snapshot_id not in snapshots_to_create,
+                            target_table_exists=target_table_exists,
                             selected_models=selected_models,
                         )
 
@@ -638,6 +659,7 @@ class Scheduler:
         }
         snapshots_to_create = snapshots_to_create or set()
         original_snapshots_to_create = snapshots_to_create.copy()
+        upstream_dependencies_cache: t.Dict[SnapshotId, t.Set[SchedulingUnit]] = {}
 
         snapshot_dag = snapshot_dag or snapshots_to_dag(batches)
         dag = DAG[SchedulingUnit]()
@@ -649,12 +671,15 @@ class Scheduler:
             snapshot = self.snapshots_by_name[snapshot_id.name]
             intervals = intervals_per_snapshot.get(snapshot.name, [])
 
-            upstream_dependencies: t.List[SchedulingUnit] = []
+            upstream_dependencies: t.Set[SchedulingUnit] = set()
 
             for p_sid in snapshot.parents:
-                upstream_dependencies.extend(
+                upstream_dependencies.update(
                     self._find_upstream_dependencies(
-                        p_sid, intervals_per_snapshot, original_snapshots_to_create
+                        p_sid,
+                        intervals_per_snapshot,
+                        original_snapshots_to_create,
+                        upstream_dependencies_cache,
                     )
                 )
 
@@ -705,29 +730,42 @@ class Scheduler:
         parent_sid: SnapshotId,
         intervals_per_snapshot: t.Dict[str, Intervals],
         snapshots_to_create: t.Set[SnapshotId],
-    ) -> t.List[SchedulingUnit]:
+        cache: t.Dict[SnapshotId, t.Set[SchedulingUnit]],
+    ) -> t.Set[SchedulingUnit]:
         if parent_sid not in self.snapshots:
-            return []
+            return set()
+        if parent_sid in cache:
+            return cache[parent_sid]
 
         p_intervals = intervals_per_snapshot.get(parent_sid.name, [])
 
+        parent_node: t.Optional[SchedulingUnit] = None
         if p_intervals:
             if len(p_intervals) > 1:
-                return [DummyNode(snapshot_name=parent_sid.name)]
-            interval = p_intervals[0]
-            return [EvaluateNode(snapshot_name=parent_sid.name, interval=interval, batch_index=0)]
-        if parent_sid in snapshots_to_create:
-            return [CreateNode(snapshot_name=parent_sid.name)]
+                parent_node = DummyNode(snapshot_name=parent_sid.name)
+            else:
+                interval = p_intervals[0]
+                parent_node = EvaluateNode(
+                    snapshot_name=parent_sid.name, interval=interval, batch_index=0
+                )
+        elif parent_sid in snapshots_to_create:
+            parent_node = CreateNode(snapshot_name=parent_sid.name)
+
+        if parent_node is not None:
+            cache[parent_sid] = {parent_node}
+            return {parent_node}
+
         # This snapshot has no intervals and doesn't need creation which means
         # that it can be a transitive dependency
-        transitive_deps: t.List[SchedulingUnit] = []
+        transitive_deps: t.Set[SchedulingUnit] = set()
         parent_snapshot = self.snapshots[parent_sid]
         for grandparent_sid in parent_snapshot.parents:
-            transitive_deps.extend(
+            transitive_deps.update(
                 self._find_upstream_dependencies(
-                    grandparent_sid, intervals_per_snapshot, snapshots_to_create
+                    grandparent_sid, intervals_per_snapshot, snapshots_to_create, cache
                 )
             )
+        cache[parent_sid] = transitive_deps
         return transitive_deps
 
     def _run_or_audit(
@@ -839,7 +877,9 @@ class Scheduler:
             run_environment_statements=run_environment_statements,
             audit_only=audit_only,
             auto_restatement_triggers=auto_restatement_triggers,
-            selected_models={s.node.dbt_name for s in merged_intervals if s.node.dbt_name},
+            selected_models={
+                s.node.dbt_unique_id for s in merged_intervals if s.node.dbt_unique_id
+            },
         )
 
         return CompletionStatus.FAILURE if errors else CompletionStatus.SUCCESS
@@ -954,6 +994,7 @@ class Scheduler:
                     python_env=signals.python_env,
                     dialect=snapshot.model.dialect,
                     path=snapshot.model._path,
+                    snapshot=snapshot,
                     kwargs=kwargs,
                 )
             except SQLMeshError as e:

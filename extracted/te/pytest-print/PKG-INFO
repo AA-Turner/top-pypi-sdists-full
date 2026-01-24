@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-print
-Version: 1.1.0
+Version: 1.2.0
 Summary: pytest-print adds the printer fixture you can use to print messages to the user (directly to the pytest runner, not stdout)
 Project-URL: Homepage, https://github.com/pytest-dev/pytest-print
 Project-URL: Source, https://github.com/pytest-dev/pytest-print
@@ -33,20 +33,18 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
-Requires-Dist: pytest>=8.3.2
+Requires-Python: >=3.10
+Requires-Dist: pytest>=8.4.2
 Provides-Extra: test
 Requires-Dist: covdefaults>=2.3; extra == 'test'
-Requires-Dist: coverage>=7.6.1; extra == 'test'
-Requires-Dist: pytest-mock>=3.14; extra == 'test'
+Requires-Dist: coverage>=7.10.7; extra == 'test'
+Requires-Dist: pytest-mock>=3.15.1; extra == 'test'
 Description-Content-Type: text/markdown
 
 # pytest-print

@@ -1,9 +1,46 @@
+"""Message catalog wrapper for ttkbootstrap localization.
+
+This module provides a Python interface to the Tcl/Tk msgcat (message catalog)
+system for managing multi-lingual user interfaces. It enables applications to
+translate UI text based on the user's locale.
+
+Classes:
+    MessageCatalog: Static wrapper for Tcl/Tk msgcat commands
+
+The MessageCatalog allows applications to:
+    - Translate strings based on current locale
+    - Set locale preferences
+    - Define message translations for multiple languages
+    - Format translated messages with arguments
+
+See also:
+    https://www.tcl.tk/man/tcl/TclCmd/msgcat.html
+
+Example:
+    ```python
+    from ttkbootstrap.localization import MessageCatalog
+
+    # Set locale
+    MessageCatalog.locale('de')
+
+    # Define German translations
+    MessageCatalog.set('de', 'Hello', 'Hallo')
+    MessageCatalog.set('de', 'Goodbye', 'Auf Wiedersehen')
+
+    # Translate
+    greeting = MessageCatalog.translate('Hello')  # Returns 'Hallo'
+    farewell = MessageCatalog.translate('Goodbye')  # Returns 'Auf Wiedersehen'
+    ```
+"""
+from os import PathLike
+from typing import Any, Optional, Union
+
 from ttkbootstrap.window import get_default_root
 
 
 class MessageCatalog:
     @staticmethod
-    def __join(*args) -> str:
+    def __join(*args: Any) -> str:
         """Join multiple format arguments into a joined argument string."""
         new_args = []
         for arg in args:
@@ -16,7 +53,7 @@ class MessageCatalog:
         return " ".join(new_args)
 
     @staticmethod
-    def translate(src, *fmtargs):
+    def translate(src: str, *fmtargs: Any) -> str:
         """Returns a translation of src according to the user's current
         locale.
 
@@ -49,7 +86,7 @@ class MessageCatalog:
         return root.tk.eval(command)
 
     @staticmethod
-    def locale(newlocale=None):
+    def locale(newlocale: Optional[str] = None) -> str:
         """ "This function sets the locale to newlocale. If newlocale is
         omitted, the current locale is returned, otherwise the current
         locale is set to newlocale. The initial locale defaults to the
@@ -72,15 +109,15 @@ class MessageCatalog:
         return root.tk.eval(f'{command} {newlocale or ""}')
 
     @staticmethod
-    def preferences():
+    def preferences() -> list[str]:
         """Returns an ordered list of the locales preferred by the user,
         based on the user's language specification. The list is ordered
-        from most specific to least preference. If the user has specified
+        from most specific to the least preference. If the user has specified
         LANG=en_US_funky, this method would return {en_US_funky en_US en}.
 
         Returns:
 
-            List[str, ...]:
+            list[str, ...]:
                 Locales preferred by the user.
         """
         root = get_default_root()
@@ -92,7 +129,7 @@ class MessageCatalog:
             return []
 
     @staticmethod
-    def load(dirname):
+    def load(dirname: Union[str, PathLike[str]]) -> int:
         """Searches the specified directory for files that match the
         language specifications returned by `preferences`. Each file
         located is sourced.
@@ -109,14 +146,14 @@ class MessageCatalog:
                 specification and were loaded.
         """
         from pathlib import Path
-        msgs = Path(dirname).as_posix() # format path for tcl/tk
+        msgs = Path(dirname).as_posix()  # format path for tcl/tk
 
         root = get_default_root()
         command = "::msgcat::mcload"
         return int(root.tk.eval(f"{command} [list {msgs}]"))
 
     @staticmethod
-    def set(locale, src, translated=None):
+    def set(locale: str, src: str, translated: Optional[str] = None) -> None:
         """Sets the translation for 'src' to 'translated' in the
         specified locale. If translated is not specified, src is used
         for both.
@@ -137,7 +174,7 @@ class MessageCatalog:
         root.tk.eval('%s %s {%s} {%s}' % (command, locale, src, translated or ""))
 
     @staticmethod
-    def set_many(locale, *args):
+    def set_many(locale: str, *args: str) -> int:
         """Sets the translation for multiple source strings in *args in
         the specified locale and the current namespace. Must be an even
         number of args.
@@ -162,7 +199,7 @@ class MessageCatalog:
         return int(root.tk.eval(out))
 
     @staticmethod
-    def max(*src):
+    def max(*src: str) -> int:
         """Given several source strings, max returns the length of the
         longest translated string. This is useful when designing localized
         GUIs, which may require that all buttons, for example, be a fixed
@@ -184,7 +221,6 @@ class MessageCatalog:
 
 
 if __name__ == "__main__":
-
     # testing
     from ttkbootstrap import localization
 

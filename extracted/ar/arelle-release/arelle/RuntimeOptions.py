@@ -42,6 +42,8 @@ class RuntimeOptions:
     calcPrecision: Optional[int] = None
     calcs: Optional[str] = None
     collectProfileStats: Optional[bool] = None
+    compareInstance: Optional[str] = None
+    compareFormulaOutput: Optional[str] = None
     conceptsFile: Optional[str] = None
     deduplicateFacts: Optional[DeduplicationType] = None
     diagnostics: Optional[bool] = None
@@ -106,6 +108,7 @@ class RuntimeOptions:
     logXmlMaxAttributeLength: Optional[int] = None
     monitorParentProcess: Optional[bool] = None
     noCertificateCheck: Optional[bool] = None
+    optionsFile: Optional[str] = None
     outputAttribution: Optional[str] = None
     packageManifestName: Optional[str] = None
     packages: Optional[list[str]] = None
@@ -129,6 +132,7 @@ class RuntimeOptions:
     skipLoading: Optional[bool] = None
     statusPipe: Optional[str] = None
     tableFile: Optional[str] = None
+    taxonomyPackage: Optional[bool] = None
     testReport: Optional[str] = None
     testReportCols: Optional[int] = None
     testcaseExpectedErrors: Optional[dict[str, list[str]]] = None

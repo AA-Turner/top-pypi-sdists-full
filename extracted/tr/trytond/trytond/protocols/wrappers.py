@@ -4,6 +4,7 @@ import base64
 import gzip
 import logging
 import time
+import zlib
 from functools import wraps
 
 try:
@@ -18,8 +19,7 @@ from werkzeug.utils import redirect, send_file
 from werkzeug.wrappers import Request as _Request
 from werkzeug.wrappers import Response
 
-from trytond import backend, security
-from trytond.config import config, get_hostname
+from trytond import backend, config, security
 from trytond.exceptions import RateLimitException, UserError, UserWarning
 from trytond.pool import Pool
 from trytond.tools import cached_property
@@ -193,7 +193,7 @@ def with_pool(func):
         database_list = Pool.database_list()
         if database_name not in database_list:
             with Transaction().start(None, 0, readonly=True) as transaction:
-                hostname = get_hostname(request.host)
+                hostname = config.get_hostname(request.host)
                 db_list = transaction.database.list(hostname=hostname)
                 if database_name not in db_list:
                     abort(HTTPStatus.NOT_FOUND)
@@ -310,3 +310,21 @@ def user_application(name, json=True):
             return response
         return wrapper
     return decorator
+
+
+class GzipStream:
+    def __init__(self, data, compresslevel=6):
+        if isinstance(data, str):
+            data = [data]
+        self.iterator = data
+        self.compressor = zlib.compressobj(level=compresslevel, wbits=31)
+
+    def __iter__(self):
+        for chunk in self.iterator:
+            data = chunk.encode('utf-8')
+            compressed = self.compressor.compress(data)
+            if compressed:
+                yield compressed
+        tail = self.compressor.flush()
+        if tail:
+            yield tail

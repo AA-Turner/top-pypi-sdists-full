@@ -81,7 +81,7 @@ class DeleteSecretRequest(google.protobuf.message.Message):
 
     NAME_FIELD_NUMBER: builtins.int
     name: builtins.str
-    """The name of the secret"""
+    """Name of the secret"""
     def __init__(
         self,
         *,

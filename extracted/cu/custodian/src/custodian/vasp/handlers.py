@@ -15,7 +15,7 @@ import shutil
 import time
 import warnings
 from collections import Counter
-from math import prod
+from math import ceil, prod
 from typing import ClassVar
 
 import numpy as np
@@ -35,7 +35,7 @@ from custodian.custodian import ErrorHandler
 from custodian.utils import backup
 from custodian.vasp.interpreter import VaspModder
 from custodian.vasp.io import load_outcar, load_vasprun
-from custodian.vasp.utils import increase_k_point_density
+from custodian.vasp.utils import increase_k_point_density, is_valid_poscar
 
 __author__ = (
     "Shyue Ping Ong, William Davidson Richards, Anubhav Jain, Wei Chen, Stephen Dacek, Andrew Rosen, Janosh Riebesell"
@@ -139,6 +139,7 @@ class VaspErrorHandler(ErrorHandler):
         "auto_nbands": ["The number of bands has been changed"],
         "ibzkpt": ["not all point group operations"],
         "fexcf": ["supplied exchange-correlation table"],
+        "spin_polarized_harris": ["Spin polarized Harris functional dynamics is a good joke"],
     }
 
     def __init__(
@@ -225,7 +226,8 @@ class VaspErrorHandler(ErrorHandler):
             # https://www.vasp.at/forum/viewtopic.php?p=14827
             if self.error_count["fexcf"] == 0:
                 # First see if last ionic configuration is more stable on rerun
-                actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
+                if is_valid_poscar("CONTCAR", directory):
+                    actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
             elif self.error_count["fexcf"] == 1 and vi["INCAR"].get("IBRION", -1) == 1:
                 # Try more stable geometry optimization method
                 actions.append({"dict": "INCAR", "action": {"_set": {"IBRION": 2}}})
@@ -468,7 +470,8 @@ class VaspErrorHandler(ErrorHandler):
 
         if "brions" in self.errors:
             # Copy CONTCAR to POSCAR so we do not lose our progress.
-            actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
+            if is_valid_poscar("CONTCAR", directory):
+                actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
 
             # By default, increase POTIM per the VASP error message. But if that does not work,
             # we should try IBRION = 2 since it is less sensitive to POTIM.
@@ -498,8 +501,9 @@ class VaspErrorHandler(ErrorHandler):
 
             ediff = vi["INCAR"].get("EDIFF", 1e-4)
 
-            # Copy CONTCAR to POSCAR. This should always be done so we don't lose our progress.
-            actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
+            # Copy CONTCAR to POSCAR so we don't lose our progress.
+            if is_valid_poscar("CONTCAR", directory):
+                actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
 
             # Tighten EDIFF per the VASP warning message. We tighten it by a factor of 10 unless
             # it is > 1e-6 (in which case we set it to 1e-6) or 1e-8 in which case we stop tightening
@@ -547,11 +551,7 @@ class VaspErrorHandler(ErrorHandler):
         if "eddrmm" in self.errors:
             # RMM algorithm is not stable for this calculation
             # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
-            try:
-                is_contcar = Poscar.from_file(os.path.join(directory, "CONTCAR"))
-            except Exception:
-                is_contcar = False
-            if is_contcar:
+            if is_valid_poscar("CONTCAR", directory):
                 actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
             if vi["INCAR"].get("ALGO", "Normal").lower() in {"fast", "veryfast"}:
                 actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
@@ -569,18 +569,14 @@ class VaspErrorHandler(ErrorHandler):
 
         if "edddav" in self.errors:
             # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
-            try:
-                is_contcar = Poscar.from_file(os.path.join(directory, "CONTCAR"))
-            except Exception:
-                is_contcar = False
-            if is_contcar:
+            if is_valid_poscar("CONTCAR", directory):
                 actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
             if vi["INCAR"].get("ICHARG", 0) < 10:
                 actions.append({"file": "CHGCAR", "action": {"_file_delete": {"mode": "actual"}}})
 
             # This sometimes comes up with ALGO = Fast. We will switch the ALGO.
             if vi["INCAR"].get("ALGO", "Normal").lower() != "all":
-                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All"}}})
+                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
 
             # This can sometimes be due to load-balancing issues for small systems.
             # See bottom of https://www.vasp.at/wiki/index.php/NCORE. A.S.R. ran some
@@ -602,14 +598,13 @@ class VaspErrorHandler(ErrorHandler):
             # Often coincides with algo_tet, in which the algo_tet error handler will also resolve grad_not_orth.
             # When not present alongside algo_tet, the grad_not_orth error is due to how VASP is compiled.
             # Depending on the optimization flag and choice of compiler, the ALGO = All and Damped algorithms
-            # may not work. The only fix is either to change ALGO or to recompile VASP. Since meta-GGAs/hybrids
-            # are often used with ALGO = All (and hybrids are incompatible with ALGO = VeryFast/Fast and slow with
-            # ALGO = Normal), we do not adjust ALGO in these cases.
-            if vi["INCAR"].get("METAGGA", "none") == "none" and not vi["INCAR"].get("LHFCALC", False):
-                if vi["INCAR"].get("ALGO", "Normal").lower() in {"all", "damped"}:
+            # may not work. The only fix is either to change ALGO or to recompile VASP.
+            if vi["INCAR"].get("ALGO", "Normal").lower() in {"all", "conjugate", "damped"}:
+                if vi["INCAR"].get("METAGGA", "none") == "none" and not vi["INCAR"].get("LHFCALC", False):
                     actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Fast"}}})
-                elif 53 <= vi["INCAR"].get("IALGO", 38) <= 58:
-                    actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Fast"}, "_unset": {"IALGO": 38}}})
+                else:
+                    # Meta-GGAs and hybrids should not be run with ALGO = Fast
+                    actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
             if "algo_tet" not in self.errors:
                 warnings.warn(
                     "EDWAV error reported by VASP without a simultaneous algo_tet error. You may wish to consider "
@@ -619,11 +614,7 @@ class VaspErrorHandler(ErrorHandler):
 
         if self.errors & {"zheev", "eddiag"}:
             # Copy CONTCAR to POSCAR if CONTCAR has already been populated.
-            try:
-                is_contcar = Poscar.from_file(os.path.join(directory, "CONTCAR"))
-            except Exception:
-                is_contcar = False
-            if is_contcar:
+            if is_valid_poscar("CONTCAR", directory):
                 actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
             if vi["INCAR"].get("ALGO", "Normal").lower() == "fast":
                 actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
@@ -695,14 +686,13 @@ class VaspErrorHandler(ErrorHandler):
             self.error_count["bravais"] += 1
 
         if "nbands_not_sufficient" in self.errors:
-            # There is something very wrong about the value of NBANDS. We don't make
-            # any updates to NBANDS though because it's likely the user screwed something
-            # up pretty badly during setup. For instance, this has happened to me if
-            # MAGMOM = 2*nan or something similar.
-
-            # Unfixable error. Just return None for actions.
-            warnings.warn("Double-check your INCAR. Something is potentially wrong.", UserWarning)
-            return {"errors": ["nbands_not_sufficient"], "actions": None}
+            outcar = load_outcar(os.path.join(directory, "OUTCAR"))
+            nelect = outcar.nelect
+            nions = len(vi["POSCAR"].structure)
+            ncore = vi["INCAR"].get("NCORE", 1)
+            default_nbands = round(max(nelect / 2 + nions / 2, nelect * 0.6))
+            default_nbands_adjusted = ceil(default_nbands / ncore) * ncore
+            actions.append({"dict": "INCAR", "action": {"_set": {"NBANDS": default_nbands_adjusted}}})
 
         if "set_core_wf" in self.errors:
             # Unfixable error where the solution is to update the POTCARs
@@ -715,6 +705,14 @@ class VaspErrorHandler(ErrorHandler):
             # Unfixable error --- the user made a mistake in the INCAR
             warnings.warn("Looks like you made a typo in the INCAR. Please double-check it.", UserWarning)
             return {"errors": ["read_error"], "actions": None}
+
+        if "spin_polarized_harris" in self.errors:
+            # Unfixable error --- the user made a mistake in the INCAR
+            warnings.warn(
+                "You cannot run a calculation with ICHARG >= 10, ISPIN = 2, and NSW > 0. Try setting NSW = 0.",
+                UserWarning,
+            )
+            return {"errors": ["spin_polarized_harris"], "actions": None}
 
         if "hnform" in self.errors and vi["INCAR"].get("ISYM", 2) > 0:
             # The only solution is to change your k-point grid or disable symmetry
@@ -1050,8 +1048,9 @@ class DriftErrorHandler(ErrorHandler):
         incar = vi["INCAR"]
         outcar = load_outcar(os.path.join(directory, "OUTCAR"))
 
-        # Move CONTCAR to POSCAR
-        actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
+        # Move CONTCAR to POSCAR if valid
+        if is_valid_poscar("CONTCAR", directory):
+            actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
 
         # Set PREC to High so ENAUG can be used to control Augmentation Grid Size
         if incar.get("PREC", "Accurate").lower() != "high":
@@ -1188,14 +1187,14 @@ class UnconvergedErrorHandler(ErrorHandler):
                 # Algo = All is recommended in the VASP manual and some meta-GGAs explicitly
                 # say to set Algo = All for proper convergence. I am using "--" as the check
                 # for METAGGA here because this is the default in the vasprun.xml file
-                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All"}}})
+                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
 
             # If a hybrid is used, do not set Algo = Fast or VeryFast. Hybrid calculations do not
             # support these algorithms, but no warning is printed.
             if v.incar.get("LHFCALC", False):
                 if v.incar.get("ISMEAR", -1) >= 0 or not 50 <= v.incar.get("IALGO", 38) <= 59:
                     if algo != "all":
-                        actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All"}}})
+                        actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
                     # See the VASP manual section on LHFCALC for more information.
                     elif algo != "damped":
                         actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Damped", "TIME": 0.5}}})
@@ -1214,7 +1213,7 @@ class UnconvergedErrorHandler(ErrorHandler):
                 elif algo == "normal" and v.incar.get("ISMEAR", 1) >= 0:
                     # NB: default for ISMEAR is 1. To avoid algo_tet errors, only set
                     # ALGO = ALL if ISMEAR >= 0
-                    actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All"}}})
+                    actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
                 else:
                     # Try mixing as last resort
                     new_settings = {
@@ -1232,10 +1231,9 @@ class UnconvergedErrorHandler(ErrorHandler):
         elif not v.converged_ionic:
             # Just continue optimizing and let other handlers fix ionic
             # optimizer parameters
-            actions += [
-                {"dict": "INCAR", "action": {"_set": {"IBRION": 1}}},
-                {"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}},
-            ]
+            actions.append({"dict": "INCAR", "action": {"_set": {"IBRION": 1}}})
+            if is_valid_poscar("CONTCAR", directory):
+                actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
 
         if actions:
             vi = VaspInput.from_directory(directory)
@@ -1666,7 +1664,7 @@ class NonConvergingErrorHandler(ErrorHandler):
         # manual and some meta-GGAs explicitly say to set Algo = All for proper convergence.
         # I am using "none" here because METAGGA is a string variable and this is the default
         if (incar.get("LHFCALC", False) or incar.get("METAGGA", "none").lower() != "none") and algo != "all":
-            actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All"}}})
+            actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
 
         # Ladder from VeryFast to Fast to Normal to All
         # (except for meta-GGAs and hybrids).
@@ -1678,7 +1676,7 @@ class NonConvergingErrorHandler(ErrorHandler):
             elif algo == "fast":
                 actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "Normal"}}})
             elif algo == "normal" and incar.get("ISMEAR", 1) >= 0:
-                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All"}}})
+                actions.append({"dict": "INCAR", "action": {"_set": {"ALGO": "All", "ISEARCH": 1}}})
             elif algo == "all" or (algo == "normal" and incar.get("ISMEAR", 1) < 0):
                 if amix > 0.1 and bmix > 0.01:
                     # Try linear mixing
@@ -1793,7 +1791,10 @@ class WalltimeHandler(ErrorHandler):
         if self.wall_time:
             run_time = datetime.datetime.now() - self.start_time
             total_secs = run_time.total_seconds()
-            outcar = load_outcar(os.path.join(directory, "OUTCAR"))
+            try:
+                outcar = load_outcar(os.path.join(directory, "OUTCAR"))
+            except Exception:  # Can't perform check if Outcar not valid (e.g. file being written)
+                return False
             if not self.electronic_step_stop:
                 # Determine max time per ionic step.
                 outcar.read_pattern({"timings": r"LOOP\+.+real time(.+)"}, postprocess=float)
@@ -1917,7 +1918,9 @@ class StoppedRunHandler(ErrorHandler):
         i = d["Index"]
         name = shutil.make_archive(os.path.join(directory, f"vasp.chk.{i}"), "gztar")
 
-        actions = [{"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}}]
+        actions = []
+        if is_valid_poscar("CONTCAR", directory):
+            actions.append({"file": "CONTCAR", "action": {"_file_copy": {"dest": "POSCAR"}}})
 
         modder = Modder(actions=[FileActions], directory=directory)
         for action in actions:

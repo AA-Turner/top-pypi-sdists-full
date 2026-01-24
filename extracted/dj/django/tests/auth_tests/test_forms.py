@@ -350,6 +350,9 @@ class BaseUserCreationFormTest(TestDataMixin, TestCase):
                     form.fields[field_name].widget.attrs["autocomplete"], autocomplete
                 )
 
+    def test_user_creation_form_class_getitem(self):
+        self.assertIs(BaseUserCreationForm["MyCustomUser"], BaseUserCreationForm)
+
 
 class CustomUserCreationFormTest(TestDataMixin, TestCase):
 
@@ -576,7 +579,8 @@ class AuthenticationFormTest(TestDataMixin, TestCase):
         ]
     )
     def test_custom_login_allowed_policy(self):
-        # The user is inactive, but our custom form policy allows them to log in.
+        # The user is inactive, but our custom form policy allows them to log
+        # in.
         data = {
             "username": "inactive",
             "password": "password",
@@ -1089,7 +1093,9 @@ class UserChangeFormTest(TestDataMixin, TestCase):
                 "Set password",
             ),
         ]
-        password_reset_link = r'<a class="button" href="([^"]*)">([^<]*)</a>'
+        password_reset_link = (
+            r'<a role="button" class="button" href="([^"]*)">([^<]*)</a>'
+        )
         for username, expected_help_text, expected_button_label in cases:
             with self.subTest(username=username):
                 user = User.objects.get(username=username)
@@ -1264,7 +1270,7 @@ class PasswordResetFormTest(TestDataMixin, TestCase):
                     "Sorry to hear you forgot your password.",
                     None,
                     [to_email],
-                    ["site_monitor@example.com"],
+                    bcc=["site_monitor@example.com"],
                     headers={"Reply-To": "webmaster@example.com"},
                     alternatives=[
                         ("Really sorry to hear you forgot your password.", "text/html")
@@ -1320,9 +1326,9 @@ class PasswordResetFormTest(TestDataMixin, TestCase):
 
     def test_save_plaintext_email(self):
         """
-        Test the PasswordResetForm.save() method with no html_email_template_name
-        parameter passed in.
-        Test to ensure original behavior is unchanged after the parameter was added.
+        Test the PasswordResetForm.save() method with no
+        html_email_template_name parameter passed in. Test to ensure original
+        behavior is unchanged after the parameter was added.
         """
         (user, username, email) = self.create_dummy_user()
         form = PasswordResetForm({"email": email})
@@ -1364,13 +1370,13 @@ class PasswordResetFormTest(TestDataMixin, TestCase):
         self.assertTrue(
             re.match(
                 r"^http://example.com/reset/[\w/-]+",
-                message.get_payload(0).get_payload(),
+                message.get_payload(0).get_content(),
             )
         )
         self.assertTrue(
             re.match(
                 r'^<html><a href="http://example.com/reset/[\w/-]+/">Link</a></html>$',
-                message.get_payload(1).get_payload(),
+                message.get_payload(1).get_content(),
             )
         )
 
@@ -1438,8 +1444,32 @@ class ReadOnlyPasswordHashTest(SimpleTestCase):
             "    <strong>hash</strong>: "
             "       <bdi>WmCkn9**************************************</bdi>"
             "  </p>"
-            '  <p><a class="button" href="../password/">Reset password</a></p>'
+            '  <p><a role="button" class="button" href="../password/">'
+            "Reset password</a></p>"
             "</div>",
+        )
+
+    def test_render_no_password(self):
+        widget = ReadOnlyPasswordHashWidget()
+        self.assertHTMLEqual(
+            widget.render("name", None, {}),
+            "<div><p><strong>No password set.</p><p>"
+            '<a role="button" class="button" href="../password/">Set password</a>'
+            "</p></div>",
+        )
+
+    @override_settings(
+        PASSWORD_HASHERS=["django.contrib.auth.hashers.PBKDF2PasswordHasher"]
+    )
+    def test_render_invalid_password_format(self):
+        widget = ReadOnlyPasswordHashWidget()
+        value = "pbkdf2_sh"
+        self.assertHTMLEqual(
+            widget.render("name", value, {}),
+            "<div><p>"
+            "<strong>Invalid password format or unknown hashing algorithm.</strong>"
+            '</p><p><a role="button" class="button" href="../password/">Reset password'
+            "</a></p></div>",
         )
 
     def test_readonly_field_has_changed(self):

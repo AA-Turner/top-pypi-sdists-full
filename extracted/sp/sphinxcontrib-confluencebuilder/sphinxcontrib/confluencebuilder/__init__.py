@@ -16,6 +16,7 @@ from sphinxcontrib.confluencebuilder.directives import ConfluenceLinkDirective
 from sphinxcontrib.confluencebuilder.directives import ConfluenceMetadataDirective
 from sphinxcontrib.confluencebuilder.directives import ConfluenceNewline
 from sphinxcontrib.confluencebuilder.directives import ConfluencePanelDirective
+from sphinxcontrib.confluencebuilder.directives import ConfluenceTableWidthDirective
 from sphinxcontrib.confluencebuilder.directives import ConfluenceToc
 from sphinxcontrib.confluencebuilder.directives import ConfluenceViewPdfDirective
 from sphinxcontrib.confluencebuilder.directives import JiraDirective
@@ -44,6 +45,7 @@ from sphinxcontrib.confluencebuilder.nodes import confluence_page_generation_not
 from sphinxcontrib.confluencebuilder.nodes import confluence_panel
 from sphinxcontrib.confluencebuilder.nodes import confluence_parameters_fetch
 from sphinxcontrib.confluencebuilder.nodes import confluence_status_inline
+from sphinxcontrib.confluencebuilder.nodes import confluence_table_width
 from sphinxcontrib.confluencebuilder.nodes import confluence_toc
 from sphinxcontrib.confluencebuilder.nodes import confluence_view_pdf
 from sphinxcontrib.confluencebuilder.nodes import jira
@@ -74,14 +76,14 @@ try:
 except ImportError:
     has_imgmath = False
 
-__version__ = '2.14.0'
+__version__ = '3.0.0'
 
 
 def setup(app):
     ConfluenceLogger.initialize()
     cm = app.config_manager_ = ConfigManager(app)
 
-    app.require_sphinx('7.3')
+    app.require_sphinx('8.0')
     app.add_builder(ConfluenceBuilder)
     app.add_builder(ConfluenceReportBuilder)
     app.add_builder(SingleConfluenceBuilder)
@@ -103,6 +105,8 @@ def setup(app):
     cm.add_conf_bool('confluence_publish')
     # API token to authenticate to Confluence API with.
     cm.add_conf('confluence_api_token')
+    # Whether the API token is a scoped token
+    cm.add_conf_bool('confluence_api_token_scoped')
     # PAT to authenticate to Confluence API with.
     cm.add_conf('confluence_publish_token')
     # Password to login to Confluence API with.
@@ -121,6 +125,8 @@ def setup(app):
     cm.add_conf('confluence_code_block_theme', 'confluence')
     # Default alignment for tables, figures, etc.
     cm.add_conf('confluence_default_alignment', 'confluence')
+    # Table width (v2 editor).
+    cm.add_conf('confluence_default_table_width', 'confluence')
     # Do not attempt to pull configuration values from the environment.
     cm.add_conf_bool('confluence_disable_env_conf')
     # Enablement of a generated domain index documents
@@ -167,6 +173,8 @@ def setup(app):
     cm.add_conf_bool('confluence_cleanup_from_root')
     # Enablement of purging legacy child pages.
     cm.add_conf_bool('confluence_cleanup_purge')
+    # Force override for detected Cloud state.
+    cm.add_conf_bool('confluence_cloud')
     # Explicitly prevent page notifications on update.
     cm.add_conf_bool('confluence_disable_notifications')
     # Whether to utilize the full width of a Confluence page.
@@ -193,8 +201,6 @@ def setup(app):
     # (configuration - advanced publishing)
     # Register additional mime types to be selected for image candidates.
     cm.add_conf('confluence_additional_mime_types', 'confluence')
-    # Forcing all assets to be standalone.
-    cm.add_conf_bool('confluence_asset_force_standalone', 'confluence')
     # Tri-state asset handling (auto, force push or disable).
     cm.add_conf_bool('confluence_asset_override')
     # File/path to Certificate Authority
@@ -205,6 +211,8 @@ def setup(app):
     cm.add_conf('confluence_client_cert')
     # Password for client certificate to use for publishing
     cm.add_conf('confluence_client_cert_pass')
+    # Force Cloud v2 page migration/conversion.
+    cm.add_conf_bool('confluence_cloud_v2_migration')
     # Explicitly prevent auto-generation of titles for titleless documents.
     cm.add_conf_bool('confluence_disable_autogen_title')
     # Disable SSL validation with Confluence server.
@@ -239,10 +247,14 @@ def setup(app):
     cm.add_conf_int('confluence_publish_orphan_container')
     # Override the path prefixes for various REST API requests.
     cm.add_conf('confluence_publish_override_api_prefix')
+    # Modifier for postfix hash of published pages.
+    cm.add_conf('confluence_publish_postfix_hash_modifier', 'confluence')
     # Number of attempts permitted when trying to retry a failed API request
     cm.add_conf('confluence_publish_retry_attempts')
     # Duration (in seconds) between retrying failed API requests
     cm.add_conf('confluence_publish_retry_duration')
+    # Publish only new/updates content within the root document's hierarchy.
+    cm.add_conf_bool('confluence_publish_trample')
     # Whether to skip page updates for pages that have inlined comments
     cm.add_conf_bool('confluence_publish_skip_commented_pages')
     # Manipulate a requests instance.
@@ -291,8 +303,6 @@ def setup(app):
     # (configuration - undocumented)
     # Enablement for bulk archiving of packages (for premium environments).
     cm.add_conf_bool('confluence_adv_bulk_archiving')
-    # Force override for detected Cloud state.
-    cm.add_conf_bool('confluence_adv_cloud')
     # Disable any delays when publishing property updates on Cloud
     cm.add_conf_bool('confluence_adv_disable_cloud_prop_delay')
     # Disable any attempts to initialize this extension's custom entities.
@@ -311,36 +321,10 @@ def setup(app):
     cm.add_conf_bool('confluence_adv_quirk_cdata')
     # List of optional features/macros/etc. restricted for use.
     cm.add_conf('confluence_adv_restricted', 'confluence')
-    # Enablement of tracing processed data.
-    cm.add_conf_bool('confluence_adv_trace_data')
-    # Do not cap sections to a maximum of six (6) levels.
-    cm.add_conf_bool('confluence_adv_writer_no_section_cap', 'confluence')
 
     # (configuration - deprecated)
-    # replaced by confluence_cleanup_search_mode
-    cm.add_conf_bool('confluence_adv_aggressive_search')
-    # replaced by confluence_permit_raw_html
-    cm.add_conf_bool('confluence_adv_permit_raw_html')
-    # replaced by confluence_lang_overrides
-    cm.add_conf('confluence_lang_transform', 'confluence')
-    # replaced by confluence_root_homepage
-    cm.add_conf('confluence_master_homepage')
-    # confluence_parent_page supports both names and identifiers
-    cm.add_conf_int('confluence_parent_page_id_check')
-    # replaced by confluence_publish_override_api_prefix
-    cm.add_conf_bool('confluence_publish_disable_api_prefix')
-    # replaced by confluence_publish_allowlist
-    cm.add_conf('confluence_publish_subset')
-    # replaced by confluence_purge_from_root
-    cm.add_conf_bool('confluence_purge_from_master')
-    # replaced by confluence_cleanup_from_root
-    cm.add_conf_bool('confluence_purge_from_root')
-    # replaced by confluence_space_key
-    cm.add_conf('confluence_space_name')
-    # dropped
-    cm.add_conf_bool('confluence_adv_disable_confcloud_74698')
-    cm.add_conf_bool('confluence_adv_disable_confcloud_ieaj')
-    cm.add_conf_int('confluence_max_doc_depth')
+    # replaced by confluence_cloud
+    cm.add_conf_bool('confluence_adv_cloud')
 
     # ##########################################################################
 
@@ -410,6 +394,7 @@ def confluence_builder_inited(app):
         confluence_panel,
         confluence_parameters_fetch,
         confluence_status_inline,
+        confluence_table_width,
         confluence_toc,
         confluence_view_pdf,
         jira,
@@ -432,6 +417,7 @@ def confluence_builder_inited(app):
     app.add_directive('confluence_metadata', ConfluenceMetadataDirective)
     app.add_directive('confluence_newline', ConfluenceNewline)
     app.add_directive('confluence_panel', ConfluencePanelDirective)
+    app.add_directive('confluence_table_width', ConfluenceTableWidthDirective)
     app.add_directive('confluence_toc', ConfluenceToc)
     app.add_directive('confluence_viewpdf', ConfluenceViewPdfDirective)
     app.add_directive('jira', JiraDirective)

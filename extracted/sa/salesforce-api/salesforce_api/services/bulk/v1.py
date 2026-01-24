@@ -1,3 +1,4 @@
+import json
 import time
 from enum import Enum
 from typing import List
@@ -60,12 +61,12 @@ class Client(bulk_base.Client, base.AsyncService):
 
 class Job(base.AsyncService):
     def __init__(self, connection, job_id):
-        super().__init__(connection, 'job/' + job_id)
+        super().__init__(connection, f'job/{job_id}')
         self.job_id = job_id
         self.batches = []
 
     def _set_state(self, new_state: JOB_STATE):
-        result = self._post(data={
+        result = self._post(json={
             'state': new_state.value
         })
 
@@ -107,7 +108,7 @@ class Job(base.AsyncService):
 
     @classmethod
     def create(cls, connection, operation: OPERATION, object_name: str, external_id_field_name: str = None):
-        result = base.AsyncService(connection, 'job')._post(uri='', data={
+        result = base.AsyncService(connection, 'job')._post(json={
             'operation': operation.value,
             'object': object_name,
             'contentType': 'JSON',
@@ -145,11 +146,11 @@ class Batch(base.AsyncService):
     def _convert_result(self, row):
         if row['success']:
             return models.SuccessResultRecord(row['id'], row)
-        error = ', '.join([
+        error = ', '.join(
             x['message']
             for x in row['errors']
-            if x['message'] != None
-        ])
+            if x['message'] is not None
+        )
         return models.FailResultRecord(row['id'], error, row)
 
     def wait(self) -> List[models.ResultRecord]:
@@ -161,5 +162,8 @@ class Batch(base.AsyncService):
 
     @classmethod
     def create(cls, connection, job_id, entries):
-        result = base.AsyncService(connection, f'job/{job_id}/batch')._post(data=entries)
+        result = base.AsyncService(connection, f'job/{job_id}/batch')._post(
+            data=json.dumps(entries, default=str),
+            headers={'Content-type': 'application/json'}
+        )
         return cls(connection, job_id, result['id'])

@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
@@ -30,12 +31,6 @@ from .literals import (
     VariableTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -183,14 +178,14 @@ class BatchGetIncidentFindingsInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
 
 class ChatChannelOutputTypeDef(TypedDict):
-    chatbotSns: NotRequired[List[str]]
-    empty: NotRequired[Dict[str, Any]]
+    chatbotSns: NotRequired[list[str]]
+    empty: NotRequired[dict[str, Any]]
 
 
 class ChatChannelTypeDef(TypedDict):
@@ -404,13 +399,13 @@ class CreateTimelineEventOutputTypeDef(TypedDict):
 
 
 class ListReplicationSetsOutputTypeDef(TypedDict):
-    replicationSetArns: List[str]
+    replicationSetArns: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -466,7 +461,7 @@ class EventSummaryTypeDef(TypedDict):
     eventType: str
     eventUpdatedTime: datetime
     incidentRecordArn: str
-    eventReferences: NotRequired[List[EventReferenceTypeDef]]
+    eventReferences: NotRequired[list[EventReferenceTypeDef]]
 
 
 class TimelineEventTypeDef(TypedDict):
@@ -476,7 +471,7 @@ class TimelineEventTypeDef(TypedDict):
     eventType: str
     eventUpdatedTime: datetime
     incidentRecordArn: str
-    eventReferences: NotRequired[List[EventReferenceTypeDef]]
+    eventReferences: NotRequired[list[EventReferenceTypeDef]]
 
 
 class UpdateTimelineEventInputTypeDef(TypedDict):
@@ -498,8 +493,8 @@ class SsmAutomationOutputTypeDef(TypedDict):
     documentName: str
     roleArn: str
     documentVersion: NotRequired[str]
-    dynamicParameters: NotRequired[Dict[str, DynamicSsmParameterValueTypeDef]]
-    parameters: NotRequired[Dict[str, List[str]]]
+    dynamicParameters: NotRequired[dict[str, DynamicSsmParameterValueTypeDef]]
+    parameters: NotRequired[dict[str, list[str]]]
     targetAccount: NotRequired[SsmTargetAccountType]
 
 
@@ -513,7 +508,7 @@ class SsmAutomationTypeDef(TypedDict):
 
 
 class ListIncidentFindingsOutputTypeDef(TypedDict):
-    findings: List[FindingSummaryTypeDef]
+    findings: list[FindingSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -552,7 +547,7 @@ class ListResponsePlansInputPaginateTypeDef(TypedDict):
 
 
 class GetResourcePoliciesOutputTypeDef(TypedDict):
-    resourcePolicies: List[ResourcePolicyTypeDef]
+    resourcePolicies: list[ResourcePolicyTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -577,9 +572,9 @@ class IncidentRecordTypeDef(TypedDict):
     lastModifiedTime: datetime
     status: IncidentRecordStatusType
     title: str
-    automationExecutions: NotRequired[List[AutomationExecutionTypeDef]]
+    automationExecutions: NotRequired[list[AutomationExecutionTypeDef]]
     chatChannel: NotRequired[ChatChannelOutputTypeDef]
-    notificationTargets: NotRequired[List[NotificationTargetItemTypeDef]]
+    notificationTargets: NotRequired[list[NotificationTargetItemTypeDef]]
     resolvedTime: NotRequired[datetime]
     summary: NotRequired[str]
 
@@ -588,8 +583,8 @@ class IncidentTemplateOutputTypeDef(TypedDict):
     impact: int
     title: str
     dedupeString: NotRequired[str]
-    incidentTags: NotRequired[Dict[str, str]]
-    notificationTargets: NotRequired[List[NotificationTargetItemTypeDef]]
+    incidentTags: NotRequired[dict[str, str]]
+    notificationTargets: NotRequired[list[NotificationTargetItemTypeDef]]
     summary: NotRequired[str]
 
 
@@ -610,7 +605,7 @@ class ItemValueTypeDef(TypedDict):
 
 
 class ListResponsePlansOutputTypeDef(TypedDict):
-    responsePlanSummaries: List[ResponsePlanSummaryTypeDef]
+    responsePlanSummaries: list[ResponsePlanSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -627,7 +622,7 @@ class ReplicationSetTypeDef(TypedDict):
     deletionProtected: bool
     lastModifiedBy: str
     lastModifiedTime: datetime
-    regionMap: Dict[str, RegionInfoTypeDef]
+    regionMap: dict[str, RegionInfoTypeDef]
     status: ReplicationSetStatusType
     arn: NotRequired[str]
 
@@ -660,7 +655,7 @@ class FilterTypeDef(TypedDict):
 
 
 class ListTimelineEventsOutputTypeDef(TypedDict):
-    eventSummaries: List[EventSummaryTypeDef]
+    eventSummaries: list[EventSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -684,7 +679,7 @@ SsmAutomationUnionTypeDef = Union[SsmAutomationTypeDef, SsmAutomationOutputTypeD
 
 
 class ListIncidentRecordsOutputTypeDef(TypedDict):
-    incidentRecordSummaries: List[IncidentRecordSummaryTypeDef]
+    incidentRecordSummaries: list[IncidentRecordSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -714,8 +709,8 @@ class GetReplicationSetOutputTypeDef(TypedDict):
 
 
 class BatchGetIncidentFindingsOutputTypeDef(TypedDict):
-    errors: List[BatchGetIncidentFindingsErrorTypeDef]
-    findings: List[FindingTypeDef]
+    errors: list[BatchGetIncidentFindingsErrorTypeDef]
+    findings: list[FindingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -758,13 +753,13 @@ class RelatedItemTypeDef(TypedDict):
 
 
 class GetResponsePlanOutputTypeDef(TypedDict):
-    actions: List[ActionOutputTypeDef]
+    actions: list[ActionOutputTypeDef]
     arn: str
     chatChannel: ChatChannelOutputTypeDef
     displayName: str
-    engagements: List[str]
+    engagements: list[str]
     incidentTemplate: IncidentTemplateOutputTypeDef
-    integrations: List[IntegrationTypeDef]
+    integrations: list[IntegrationTypeDef]
     name: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -773,7 +768,7 @@ ActionUnionTypeDef = Union[ActionTypeDef, ActionOutputTypeDef]
 
 
 class ListRelatedItemsOutputTypeDef(TypedDict):
-    relatedItems: List[RelatedItemTypeDef]
+    relatedItems: list[RelatedItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

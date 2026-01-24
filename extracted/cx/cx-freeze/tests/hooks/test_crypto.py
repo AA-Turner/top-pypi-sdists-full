@@ -6,9 +6,9 @@ import sys
 
 import pytest
 
-from cx_Freeze._compat import ABI_THREAD, IS_ARM_64, IS_MINGW, IS_WINDOWS
+from cx_Freeze._compat import ABI_THREAD, IS_MINGW
 
-TIMEOUT = 10
+TIMEOUT = 15
 
 zip_packages = pytest.mark.parametrize(
     "zip_packages", [False, True], ids=["", "zip_packages"]
@@ -40,13 +40,7 @@ pyproject.toml
 
 
 @pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="argon2-cffi does not support Windows arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
+    sys.version_info[:2] == (3, 13) and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
     reason="argon2-cffi does not support Python 3.13t",
     strict=True,
@@ -80,7 +74,7 @@ pyproject.toml
     name = "test_bcrypt"
     version = "0.1.2.3"
     dependencies = [
-        "bcrypt<4;python_version <= '3.10'",
+        "bcrypt<4;python_version < '3.11'",
         "bcrypt>=4;python_version >= '3.11'",
     ]
 
@@ -94,12 +88,6 @@ pyproject.toml
 """
 
 
-@pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="bcrypt does not support Windows arm64",
-    strict=True,
-)
 @pytest.mark.venv
 @zip_packages
 def test_bcrypt(tmp_package, zip_packages) -> None:
@@ -147,6 +135,12 @@ pyproject.toml
 """
 
 
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 14) and ABI_THREAD == "t",
+    raises=ModuleNotFoundError,
+    reason="pycryptodome does not support Python 3.14t",
+    strict=True,
+)
 @pytest.mark.venv
 @zip_packages
 def test_crypto(tmp_package, zip_packages) -> None:
@@ -193,13 +187,7 @@ pyproject.toml
 
 
 @pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
-    raises=ModuleNotFoundError,
-    reason="cryptography does not support Windows arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
+    sys.version_info[:2] == (3, 13) and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
     reason="cryptography does not support Python 3.13t",
     strict=True,

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyudev
-Version: 0.24.3
+Version: 0.24.4
 Summary: A libudev binding
 Home-page: http://github.com/pyudev/pyudev
 Author: Sebastian Wiesner
@@ -9,7 +9,6 @@ License: LGPL 2.1+
 Platform: Linux
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: GNU Library or Lesser General Public License (LGPL)
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -18,18 +17,14 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Hardware
 Classifier: Topic :: System :: Operating System Kernels :: Linux
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: COPYING
+Dynamic: license-file
 
 ######
 pyudev
 ######
-
-.. image:: https://secure.travis-ci.org/pyudev/pyudev.png?branch=develop
-   :target: http://travis-ci.org/pyudev/pyudev
-
-http://pyudev.readthedocs.org
 
 pyudev is a LGPL_ licensed, pure Python_ binding for libudev_, the device and
 hardware management and information library for Linux.  It supports almost all

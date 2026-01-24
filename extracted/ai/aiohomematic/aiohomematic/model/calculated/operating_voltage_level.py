@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
+# Copyright (c) 2021-2026
 """Module for calculating the operating voltage level in the sensor category."""
 
 from __future__ import annotations
@@ -10,9 +10,10 @@ from enum import StrEnum
 import logging
 from typing import Any, Final
 
-from aiohomematic.const import CalulatedParameter, DataPointCategory, Parameter, ParameterType, ParamsetKey
-from aiohomematic.model import device as hmd
-from aiohomematic.model.calculated.data_point import CalculatedDataPoint
+from aiohomematic.const import CalculatedParameter, DataPointCategory, Parameter, ParameterType, ParamsetKey
+from aiohomematic.interfaces import ChannelProtocol
+from aiohomematic.model.calculated import CalculatedDataPoint
+from aiohomematic.model.calculated.field import CalculatedDataPointField
 from aiohomematic.model.calculated.support import calculate_operating_voltage_level
 from aiohomematic.model.generic import DpFloat, DpSensor
 from aiohomematic.property_decorators import state_property
@@ -32,64 +33,34 @@ class OperatingVoltageLevel[SensorT: float | None](CalculatedDataPoint[SensorT])
 
     __slots__ = (
         "_battery_data",
-        "_dp_low_bat_limit",
-        "_dp_operating_voltage",
         "_low_bat_limit_default",
         "_voltage_max",
     )
 
-    _calculated_parameter = CalulatedParameter.OPERATING_VOLTAGE_LEVEL
+    _calculated_parameter = CalculatedParameter.OPERATING_VOLTAGE_LEVEL
     _category = DataPointCategory.SENSOR
 
-    def __init__(self, channel: hmd.Channel) -> None:
+    _dp_low_bat_limit: Final = CalculatedDataPointField(
+        parameter=Parameter.LOW_BAT_LIMIT,
+        paramset_key=ParamsetKey.MASTER,
+        dpt=DpFloat,
+        use_device_fallback=True,
+    )
+    _dp_operating_voltage: Final = CalculatedDataPointField(
+        parameter=Parameter.OPERATING_VOLTAGE,
+        paramset_key=ParamsetKey.VALUES,
+        dpt=DpSensor,
+        fallback_parameters=[Parameter.BATTERY_STATE],
+    )
+
+    def __init__(self, *, channel: ChannelProtocol) -> None:
         """Initialize the data point."""
         super().__init__(channel=channel)
         self._type = ParameterType.FLOAT
         self._unit = "%"
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data point fields."""
-        super()._init_data_point_fields()
-        self._battery_data = _get_battery_data(model=self._channel.device.model)
-
-        operating_voltage: DpSensor = self._add_data_point(
-            parameter=Parameter.OPERATING_VOLTAGE, paramset_key=ParamsetKey.VALUES, data_point_type=DpSensor
-        )
-
-        self._dp_operating_voltage: DpSensor = (
-            operating_voltage
-            if isinstance(operating_voltage, DpSensor)
-            else self._add_data_point(
-                parameter=Parameter.BATTERY_STATE, paramset_key=ParamsetKey.VALUES, data_point_type=DpSensor
-            )
-        )
-
-        low_bat_limit: DpSensor = self._add_data_point(
-            parameter=Parameter.LOW_BAT_LIMIT, paramset_key=ParamsetKey.MASTER, data_point_type=DpSensor
-        )
-
-        self._dp_low_bat_limit: DpFloat = (
-            low_bat_limit
-            if isinstance(low_bat_limit, DpFloat)
-            else self._add_device_data_point(
-                channel_address=self.channel.device.address,
-                parameter=Parameter.LOW_BAT_LIMIT,
-                paramset_key=ParamsetKey.MASTER,
-                data_point_type=DpFloat,
-            )
-        )
-
-        self._low_bat_limit_default = (
-            float(self._dp_low_bat_limit.default) if isinstance(self._dp_low_bat_limit, DpFloat) else None
-        )
-        self._voltage_max = (
-            float(_BatteryVoltage.get(self._battery_data.battery) * self._battery_data.quantity)  # type: ignore[operator]
-            if self._battery_data is not None
-            else None
-        )
-
     @staticmethod
-    def is_relevant_for_model(channel: hmd.Channel) -> bool:
+    def is_relevant_for_model(*, channel: ChannelProtocol) -> bool:
         """Return if this calculated data point is relevant for the model."""
         if element_matches_key(
             search_elements=_IGNORE_OPERATING_VOLTAGE_LEVEL_MODELS, compare_with=channel.device.model
@@ -120,9 +91,18 @@ class OperatingVoltageLevel[SensorT: float | None](CalculatedDataPoint[SensorT])
             is not None
         )
 
+    @property
+    def _low_bat_limit(self) -> float | None:
+        """Return the min value."""
+        return (
+            float(self._dp_low_bat_limit.value)
+            if self._dp_low_bat_limit is not None and self._dp_low_bat_limit.value is not None
+            else None
+        )
+
     @state_property
     def additional_information(self) -> dict[str, Any]:
-        """Return additional information about the entity."""
+        """Return additional information about the data point."""
         ainfo = super().additional_information
         if self._battery_data is not None:
             ainfo.update(
@@ -153,12 +133,19 @@ class OperatingVoltageLevel[SensorT: float | None](CalculatedDataPoint[SensorT])
             )
         return None
 
-    @property
-    def _low_bat_limit(self) -> float | None:
-        """Return the min value."""
-        return (
-            float(self._dp_low_bat_limit.value)
-            if self._dp_low_bat_limit is not None and self._dp_low_bat_limit.value is not None
+    def _post_init(self) -> None:
+        """Post action after initialisation of the data point fields."""
+        super()._post_init()
+
+        self._battery_data = _get_battery_data(model=self._channel.device.model)
+        self._low_bat_limit_default = (
+            float(self._dp_low_bat_limit.default)
+            if isinstance(self._dp_low_bat_limit, DpFloat) and self._dp_low_bat_limit.default is not None
+            else None
+        )
+        self._voltage_max = (
+            float(_BatteryVoltage[self._battery_data.battery] * self._battery_data.quantity)
+            if self._battery_data is not None
             else None
         )
 
@@ -285,7 +272,7 @@ _IGNORE_OPERATING_VOLTAGE_LEVEL_MODELS: Final[tuple[str, ...]] = tuple(
 )
 
 
-def _get_battery_data(model: str) -> _BatteryData | None:
+def _get_battery_data(*, model: str) -> _BatteryData | None:
     """Return the battery data by model."""
     model_l = model.lower()
     for battery_data in _OPERATING_VOLTAGE_LEVEL_MODELS.values():

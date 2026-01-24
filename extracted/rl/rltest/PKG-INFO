@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: RLTest
-Version: 0.7.17
+Version: 0.7.20
 Summary: Redis Modules Test Framework, allow to run tests on redis and modules on a variety of environments
 License: BSD-3-Clause
+License-File: LICENSE
 Author: Redis, Inc.
 Author-email: oss@redis.com
 Requires-Python: >=3.7.0
@@ -18,13 +19,14 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Requires-Dist: distro (>=1.5.0,<2.0.0)
 Requires-Dist: progressbar2 (==4.2)
 Requires-Dist: psutil (>=5.9.5,<6.0.0)
 Requires-Dist: pytest (>=7.4,<8.0)
 Requires-Dist: pytest-cov (>=4.1.0,<5.0.0)
-Requires-Dist: redis (>=5.0.0rc2,<6.0.0)
+Requires-Dist: redis (>=5.0.0)
 Project-URL: repository, https://github.com/RedisLabsModules/RLTest
 Description-Content-Type: text/markdown
 

@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from http import HTTPStatus
 
 from django.utils.http import urlencode
 
@@ -21,7 +22,7 @@ class WeixinOAuth2Client(OAuth2Client):
         sorted_params = OrderedDict()
         for param in sorted(params):
             sorted_params[param] = params[param]
-        return "%s?%s" % (authorization_url, urlencode(sorted_params))
+        return f"{authorization_url}?{urlencode(sorted_params)}"
 
     def get_access_token(self, code, pkce_code_verifier=None):
         data = {
@@ -39,14 +40,11 @@ class WeixinOAuth2Client(OAuth2Client):
         if data and pkce_code_verifier:
             data["code_verifier"] = pkce_code_verifier
         # TODO: Proper exception handling
-        resp = (
-            get_adapter()
-            .get_requests_session()
-            .request(self.access_token_method, url, params=params, data=data)
-        )
-        access_token = None
-        if resp.status_code == 200:
-            access_token = resp.json()
-        if not access_token or "access_token" not in access_token:
-            raise OAuth2Error("Error retrieving access token: %s" % resp.content)
-        return access_token
+        with get_adapter().get_requests_session() as sess:
+            resp = sess.request(self.access_token_method, url, params=params, data=data)
+            access_token = None
+            if resp.status_code == HTTPStatus.OK:
+                access_token = resp.json()
+            if not access_token or "access_token" not in access_token:
+                raise OAuth2Error(f"Error retrieving access token: {resp.content}")
+            return access_token

@@ -24,6 +24,8 @@
 #    include <Windows.h>
 #    include <fcntl.h>
 #    include <io.h>
+#    include <process.h>
+
 #else
 #    include <fcntl.h>
 #    include <sys/stat.h>
@@ -288,8 +290,13 @@ std::error_code OS::readFile(const fs::path& path, SmallVector<char>& buffer) {
 
 void OS::writeFile(const fs::path& path, std::string_view contents) {
     if (path == "-") {
-        std::cout.write(contents.data(), (std::streamsize)contents.size());
-        std::cout.flush();
+        if (capturingOutput) {
+            capturedStdout += contents;
+        }
+        else {
+            std::cout.write(contents.data(), (std::streamsize)contents.size());
+            std::cout.flush();
+        }
     }
     else {
         std::ofstream file(path);
@@ -373,6 +380,17 @@ std::string OS::parseEnvVar(const char*& ptr, const char* end) {
         // This is not a possible variable name so just return what we have.
         return "$"s + c;
     }
+}
+
+int OS::getpid() {
+#if defined(_WIN32)
+    return ::_getpid();
+#elif defined(__wasi__)
+    // WASI doesn't have a concept of process IDs
+    return 1;
+#else
+    return ::getpid();
+#endif
 }
 
 } // namespace slang

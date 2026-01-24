@@ -18,10 +18,6 @@ class Spinner(RadixLoadingProp, RadixThemesComponent):
     def create(
         cls,
         *children,
-        size: Breakpoints[str, Literal["1", "2", "3"]]
-        | Literal["1", "2", "3"]
-        | Var[Breakpoints[str, Literal["1", "2", "3"]] | Literal["1", "2", "3"]]
-        | None = None,
         loading: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
@@ -58,7 +54,6 @@ class Spinner(RadixLoadingProp, RadixThemesComponent):
 
         Args:
             *children: Child components.
-            size: The size of the spinner.
             loading: If set, show an rx.spinner instead of the component children.
             style: The style of the component.
             key: A unique key for the component.

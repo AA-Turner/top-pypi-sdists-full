@@ -3,7 +3,7 @@ Type annotations for ivs service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -96,12 +97,6 @@ from .type_defs import (
     UpdatePlaybackRestrictionPolicyResponseTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -112,17 +107,17 @@ __all__ = ("IVSClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ChannelNotBroadcasting: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    PendingVerification: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    StreamUnavailable: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ChannelNotBroadcasting: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    PendingVerification: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    StreamUnavailable: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 
 class IVSClient(BaseClient):
@@ -244,7 +239,7 @@ class IVSClient(BaseClient):
 
     def delete_playback_key_pair(
         self, **kwargs: Unpack[DeletePlaybackKeyPairRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a specified authorization key pair.
 
@@ -457,7 +452,7 @@ class IVSClient(BaseClient):
 
     def start_viewer_session_revocation(
         self, **kwargs: Unpack[StartViewerSessionRevocationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Starts the process of revoking the viewer session associated with a specified
         channel ARN and viewer ID.
@@ -466,7 +461,7 @@ class IVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#start_viewer_session_revocation)
         """
 
-    def stop_stream(self, **kwargs: Unpack[StopStreamRequestTypeDef]) -> Dict[str, Any]:
+    def stop_stream(self, **kwargs: Unpack[StopStreamRequestTypeDef]) -> dict[str, Any]:
         """
         Disconnects the incoming RTMPS stream for the specified channel.
 
@@ -474,7 +469,7 @@ class IVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#stop_stream)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or updates tags for the Amazon Web Services resource with the specified
         ARN.
@@ -483,7 +478,7 @@ class IVSClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ivs/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes tags from the resource with the specified ARN.
 

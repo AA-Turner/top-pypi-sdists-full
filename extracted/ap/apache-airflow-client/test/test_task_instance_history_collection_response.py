@@ -37,16 +37,10 @@ class TestTaskInstanceHistoryCollectionResponse(unittest.TestCase):
             return TaskInstanceHistoryCollectionResponse(
                 task_instances = [
                     airflow_client.client.models.task_instance_history_response.TaskInstanceHistoryResponse(
+                        dag_display_name = '', 
                         dag_id = '', 
                         dag_run_id = '', 
-                        dag_version = airflow_client.client.models.dag_version_response.DagVersionResponse(
-                            bundle_name = '', 
-                            bundle_url = '', 
-                            bundle_version = '', 
-                            created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                            dag_id = '', 
-                            id = '', 
-                            version_number = 56, ), 
+                        dag_version = null, 
                         duration = 1.337, 
                         end_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         executor = '', 
@@ -55,6 +49,7 @@ class TestTaskInstanceHistoryCollectionResponse(unittest.TestCase):
                         map_index = 56, 
                         max_tries = 56, 
                         operator = '', 
+                        operator_name = '', 
                         pid = 56, 
                         pool = '', 
                         pool_slots = 56, 
@@ -63,7 +58,7 @@ class TestTaskInstanceHistoryCollectionResponse(unittest.TestCase):
                         queued_when = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         scheduled_when = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         start_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        state = 'removed', 
+                        state = null, 
                         task_display_name = '', 
                         task_id = '', 
                         try_number = 56, 
@@ -75,16 +70,10 @@ class TestTaskInstanceHistoryCollectionResponse(unittest.TestCase):
             return TaskInstanceHistoryCollectionResponse(
                 task_instances = [
                     airflow_client.client.models.task_instance_history_response.TaskInstanceHistoryResponse(
+                        dag_display_name = '', 
                         dag_id = '', 
                         dag_run_id = '', 
-                        dag_version = airflow_client.client.models.dag_version_response.DagVersionResponse(
-                            bundle_name = '', 
-                            bundle_url = '', 
-                            bundle_version = '', 
-                            created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                            dag_id = '', 
-                            id = '', 
-                            version_number = 56, ), 
+                        dag_version = null, 
                         duration = 1.337, 
                         end_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         executor = '', 
@@ -93,6 +82,7 @@ class TestTaskInstanceHistoryCollectionResponse(unittest.TestCase):
                         map_index = 56, 
                         max_tries = 56, 
                         operator = '', 
+                        operator_name = '', 
                         pid = 56, 
                         pool = '', 
                         pool_slots = 56, 
@@ -101,7 +91,7 @@ class TestTaskInstanceHistoryCollectionResponse(unittest.TestCase):
                         queued_when = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         scheduled_when = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         start_date = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        state = 'removed', 
+                        state = null, 
                         task_display_name = '', 
                         task_id = '', 
                         try_number = 56, 

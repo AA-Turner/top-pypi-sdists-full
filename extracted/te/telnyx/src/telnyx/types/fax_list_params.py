@@ -8,7 +8,7 @@ from typing_extensions import Annotated, TypedDict
 
 from .._utils import PropertyInfo
 
-__all__ = ["FaxListParams", "Filter", "FilterCreatedAt", "FilterDirection", "FilterFrom", "FilterTo", "Page"]
+__all__ = ["FaxListParams", "Filter", "FilterCreatedAt", "FilterDirection", "FilterFrom", "FilterTo"]
 
 
 class FaxListParams(TypedDict, total=False):
@@ -20,14 +20,14 @@ class FaxListParams(TypedDict, total=False):
     filter[from][eq], filter[to][eq]
     """
 
-    page: Page
-    """Consolidated pagination parameter (deepObject style).
+    page_number: Annotated[int, PropertyInfo(alias="page[number]")]
 
-    Originally: page[size], page[number]
-    """
+    page_size: Annotated[int, PropertyInfo(alias="page[size]")]
 
 
 class FilterCreatedAt(TypedDict, total=False):
+    """Date range filtering operations for fax creation timestamp"""
+
     gt: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
     """ISO 8601 date time for filtering faxes created after that date"""
 
@@ -42,16 +42,22 @@ class FilterCreatedAt(TypedDict, total=False):
 
 
 class FilterDirection(TypedDict, total=False):
+    """Direction filtering operations"""
+
     eq: str
     """The direction, inbound or outbound, for filtering faxes sent from this account"""
 
 
 class FilterFrom(TypedDict, total=False):
+    """From number filtering operations"""
+
     eq: str
     """The phone number, in E.164 format for filtering faxes sent from this number"""
 
 
 class FilterTo(TypedDict, total=False):
+    """To number filtering operations"""
+
     eq: str
     """The phone number, in E.164 format for filtering faxes sent to this number"""
 
@@ -66,6 +72,11 @@ _FilterReservedKeywords = TypedDict(
 
 
 class Filter(_FilterReservedKeywords, total=False):
+    """Consolidated filter parameter (deepObject style).
+
+    Originally: filter[created_at][gte], filter[created_at][gt], filter[created_at][lte], filter[created_at][lt], filter[direction][eq], filter[from][eq], filter[to][eq]
+    """
+
     created_at: FilterCreatedAt
     """Date range filtering operations for fax creation timestamp"""
 
@@ -74,11 +85,3 @@ class Filter(_FilterReservedKeywords, total=False):
 
     to: FilterTo
     """To number filtering operations"""
-
-
-class Page(TypedDict, total=False):
-    number: int
-    """Number of the page to be retrieved"""
-
-    size: int
-    """Number of fax resources for the single page returned"""

@@ -3,7 +3,7 @@ Type annotations for apigateway service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_apigateway/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -26,6 +26,7 @@ __all__ = (
     "AccessAssociationSourceTypeType",
     "ApiKeySourceTypeType",
     "ApiKeysFormatType",
+    "ApiStatusType",
     "AuthorizerTypeType",
     "CacheClusterSizeType",
     "CacheClusterStatusType",
@@ -33,6 +34,7 @@ __all__ = (
     "ContentHandlingStrategyType",
     "DocumentationPartTypeType",
     "DomainNameStatusType",
+    "EndpointAccessModeType",
     "EndpointTypeType",
     "GatewayResponseTypeType",
     "GetApiKeysPaginatorName",
@@ -63,6 +65,7 @@ __all__ = (
     "RegionName",
     "ResourceOwnerType",
     "ResourceServiceName",
+    "ResponseTransferModeType",
     "RoutingModeType",
     "SecurityPolicyType",
     "ServiceName",
@@ -73,6 +76,7 @@ __all__ = (
 AccessAssociationSourceTypeType = Literal["VPCE"]
 ApiKeySourceTypeType = Literal["AUTHORIZER", "HEADER"]
 ApiKeysFormatType = Literal["csv"]
+ApiStatusType = Literal["AVAILABLE", "FAILED", "PENDING", "UPDATING"]
 AuthorizerTypeType = Literal["COGNITO_USER_POOLS", "REQUEST", "TOKEN"]
 CacheClusterSizeType = Literal["0.5", "1.6", "118", "13.5", "237", "28.4", "58.2", "6.1"]
 CacheClusterStatusType = Literal[
@@ -96,11 +100,13 @@ DocumentationPartTypeType = Literal[
 ]
 DomainNameStatusType = Literal[
     "AVAILABLE",
+    "FAILED",
     "PENDING",
     "PENDING_CERTIFICATE_REIMPORT",
     "PENDING_OWNERSHIP_VERIFICATION",
     "UPDATING",
 ]
+EndpointAccessModeType = Literal["BASIC", "STRICT"]
 EndpointTypeType = Literal["EDGE", "PRIVATE", "REGIONAL"]
 GatewayResponseTypeType = Literal[
     "ACCESS_DENIED",
@@ -150,10 +156,23 @@ OpType = Literal["add", "copy", "move", "remove", "replace", "test"]
 PutModeType = Literal["merge", "overwrite"]
 QuotaPeriodTypeType = Literal["DAY", "MONTH", "WEEK"]
 ResourceOwnerType = Literal["OTHER_ACCOUNTS", "SELF"]
+ResponseTransferModeType = Literal["BUFFERED", "STREAM"]
 RoutingModeType = Literal[
     "BASE_PATH_MAPPING_ONLY", "ROUTING_RULE_ONLY", "ROUTING_RULE_THEN_BASE_PATH_MAPPING"
 ]
-SecurityPolicyType = Literal["TLS_1_0", "TLS_1_2"]
+SecurityPolicyType = Literal[
+    "SecurityPolicy_TLS12_2018_EDGE",
+    "SecurityPolicy_TLS12_PFS_2025_EDGE",
+    "SecurityPolicy_TLS13_1_2_2021_06",
+    "SecurityPolicy_TLS13_1_2_FIPS_PQ_2025_09",
+    "SecurityPolicy_TLS13_1_2_PFS_PQ_2025_09",
+    "SecurityPolicy_TLS13_1_2_PQ_2025_09",
+    "SecurityPolicy_TLS13_1_3_2025_09",
+    "SecurityPolicy_TLS13_1_3_FIPS_2025_09",
+    "SecurityPolicy_TLS13_2025_EDGE",
+    "TLS_1_0",
+    "TLS_1_2",
+]
 UnauthorizedCacheControlHeaderStrategyType = Literal[
     "FAIL_WITH_403", "SUCCEED_WITHOUT_RESPONSE_HEADER", "SUCCEED_WITH_RESPONSE_HEADER"
 ]
@@ -185,7 +204,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -255,6 +273,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -300,7 +319,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -353,7 +371,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -392,8 +409,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -428,6 +443,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -437,6 +453,7 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
@@ -447,6 +464,9 @@ ServiceName = Literal[
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -468,8 +488,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -484,15 +502,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -523,6 +542,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
     "snow-device-management",
     "snowball",
@@ -563,6 +583,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

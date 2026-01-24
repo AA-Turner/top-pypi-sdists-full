@@ -1,7 +1,7 @@
 use blst::*;
 use chia_sha2::Sha256;
 use chia_traits::chia_error::Result;
-use chia_traits::{read_bytes, Streamable};
+use chia_traits::{Streamable, read_bytes};
 #[cfg(feature = "py-bindings")]
 use pyo3::exceptions::PyNotImplementedError;
 #[cfg(feature = "py-bindings")]
@@ -37,7 +37,7 @@ impl GTElement {
     pub fn to_bytes(&self) -> [u8; Self::SIZE] {
         unsafe {
             let mut bytes = MaybeUninit::<[u8; Self::SIZE]>::uninit();
-            let buf: *const blst_fp12 = &self.0;
+            let buf: *const blst_fp12 = &raw const self.0;
             std::ptr::copy_nonoverlapping(
                 buf.cast::<u8>(),
                 bytes.as_mut_ptr().cast::<u8>(),
@@ -50,7 +50,7 @@ impl GTElement {
 
 impl PartialEq for GTElement {
     fn eq(&self, other: &Self) -> bool {
-        unsafe { blst_fp12_is_equal(&self.0, &other.0) }
+        unsafe { blst_fp12_is_equal(&raw const self.0, &raw const other.0) }
     }
 }
 impl Eq for GTElement {}
@@ -64,7 +64,7 @@ impl Hash for GTElement {
 impl MulAssign<&GTElement> for GTElement {
     fn mul_assign(&mut self, rhs: &GTElement) {
         unsafe {
-            blst_fp12_mul(&mut self.0, &self.0, &rhs.0);
+            blst_fp12_mul(&raw mut self.0, &raw const self.0, &raw const rhs.0);
         }
     }
 }
@@ -74,7 +74,7 @@ impl Mul<&GTElement> for &GTElement {
     fn mul(self, rhs: &GTElement) -> GTElement {
         let gt = unsafe {
             let mut gt = MaybeUninit::<blst_fp12>::uninit();
-            blst_fp12_mul(gt.as_mut_ptr(), &self.0, &rhs.0);
+            blst_fp12_mul(gt.as_mut_ptr(), &raw const self.0, &raw const rhs.0);
             gt.assume_init()
         };
         GTElement(gt)
@@ -120,7 +120,7 @@ impl GTElement {
 
     #[classmethod]
     #[pyo3(name = "from_parent")]
-    pub fn from_parent(_cls: &Bound<'_, PyType>, _instance: &Self) -> PyResult<PyObject> {
+    pub fn from_parent(_cls: &Bound<'_, PyType>, _instance: &Self) -> PyResult<Py<pyo3::PyAny>> {
         Err(PyNotImplementedError::new_err(
             "GTElement does not support from_parent().",
         ))
@@ -146,7 +146,7 @@ mod pybindings {
     use chia_traits::{FromJsonDict, ToJsonDict};
 
     impl ToJsonDict for GTElement {
-        fn to_json_dict(&self, py: Python<'_>) -> PyResult<PyObject> {
+        fn to_json_dict(&self, py: Python<'_>) -> PyResult<Py<pyo3::PyAny>> {
             let bytes = self.to_bytes();
             Ok(("0x".to_string() + &hex::encode(bytes))
                 .into_pyobject(py)?

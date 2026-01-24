@@ -62,6 +62,7 @@ class DisclosureSystem:
         self.validateEntryText = False
         self.allowedExternalHrefPattern = None
         self.allowedImageTypes = None
+        self.arcroleCyclesAllowed = {}
         self.schemaValidateSchema = None
         self.blockDisallowedReferences = False
         self.maxSubmissionSubdirectoryEntryNesting = 0
@@ -79,6 +80,7 @@ class DisclosureSystem:
         self.utrUrl = ["http://www.xbrl.org/utr/utr.xml"]
         self.utrStatusFilters = None
         self.utrTypeEntries = None
+        self.keepOpen: bool = False
         self.identifierSchemePattern = None
         self.identifierValuePattern = None
         self.identifierValueName = None
@@ -182,6 +184,10 @@ class DisclosureSystem:
                                     self.allowedExternalHrefPattern = re.compile(dsElt.get("allowedExternalHrefPattern"))
                                 if dsElt.get("allowedImageTypes"):
                                     self.allowedImageTypes = json.loads(dsElt.get("allowedImageTypes"))
+                                if dsElt.get("arcroleCyclesAllowed"):
+                                    self.arcroleCyclesAllowed = json.loads(dsElt.get("arcroleCyclesAllowed"))
+                                    for arcrole, specSet in self.arcroleCyclesAllowed.items():
+                                        self.arcroleCyclesAllowed[arcrole] = tuple(specSet)
                                 self.blockDisallowedReferences = dsElt.get("blockDisallowedReferences") == "true"
                                 try:
                                     self.maxSubmissionSubdirectoryEntryNesting = int(dsElt.get("maxSubmissionSubdirectoryEntryNesting"))
@@ -209,6 +215,7 @@ class DisclosureSystem:
                                     self.utrUrl = [self.modelManager.cntlr.webCache.normalizeUrl(u, url)
                                                    for u in dsElt.get("utrUrl").split()]
                                 self.utrStatusFilters = dsElt.get("utrStatusFilters")
+                                self.keepOpen = dsElt.get("keepOpen") == "true"
                                 self.identifierSchemePattern = compileAttrPattern(dsElt,"identifierSchemePattern")
                                 self.identifierValuePattern = compileAttrPattern(dsElt,"identifierValuePattern")
                                 self.identifierValueName = dsElt.get("identifierValueName")

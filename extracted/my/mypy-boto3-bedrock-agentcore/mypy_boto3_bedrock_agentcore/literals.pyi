@@ -3,7 +3,7 @@ Type annotations for bedrock-agentcore service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -23,15 +23,19 @@ else:
 
 __all__ = (
     "AutomationStreamStatusType",
-    "BedrockAgentCoreDataPlaneFrontingLayerServiceName",
+    "BedrockAgentCoreServiceName",
     "BrowserSessionStatusType",
     "CodeInterpreterSessionStatusType",
     "ContentBlockTypeType",
+    "ExtractionJobStatusType",
     "ListActorsPaginatorName",
     "ListEventsPaginatorName",
+    "ListMemoryExtractionJobsPaginatorName",
     "ListMemoryRecordsPaginatorName",
     "ListSessionsPaginatorName",
+    "MemoryRecordStatusType",
     "Oauth2FlowTypeType",
+    "OperatorTypeType",
     "PaginatorName",
     "ProgrammingLanguageType",
     "ResourceContentTypeType",
@@ -39,6 +43,7 @@ __all__ = (
     "RetrieveMemoryRecordsPaginatorName",
     "RoleType",
     "ServiceName",
+    "SessionStatusType",
     "TaskStatusType",
     "ToolNameType",
     "ValidationExceptionReasonType",
@@ -48,15 +53,20 @@ AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
 CodeInterpreterSessionStatusType = Literal["READY", "TERMINATED"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
+ExtractionJobStatusType = Literal["FAILED"]
 ListActorsPaginatorName = Literal["list_actors"]
 ListEventsPaginatorName = Literal["list_events"]
+ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
 ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
 ListSessionsPaginatorName = Literal["list_sessions"]
+MemoryRecordStatusType = Literal["FAILED", "SUCCEEDED"]
 Oauth2FlowTypeType = Literal["M2M", "USER_FEDERATION"]
+OperatorTypeType = Literal["EQUALS_TO", "EXISTS", "NOT_EXISTS"]
 ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 ResourceContentTypeType = Literal["blob", "text"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]
+SessionStatusType = Literal["FAILED", "IN_PROGRESS"]
 TaskStatusType = Literal["canceled", "completed", "failed", "submitted", "working"]
 ToolNameType = Literal[
     "executeCode",
@@ -76,7 +86,7 @@ ValidationExceptionReasonType = Literal[
     "IdempotentParameterMismatchException",
     "ResourceConflict",
 ]
-BedrockAgentCoreDataPlaneFrontingLayerServiceName = Literal["bedrock-agentcore"]
+BedrockAgentCoreServiceName = Literal["bedrock-agentcore"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
@@ -103,7 +113,6 @@ ServiceName = Literal[
     "apprunner",
     "appstream",
     "appsync",
-    "apptest",
     "arc-region-switch",
     "arc-zonal-shift",
     "artifact",
@@ -116,8 +125,10 @@ ServiceName = Literal[
     "backup-gateway",
     "backupsearch",
     "batch",
+    "bcm-dashboards",
     "bcm-data-exports",
     "bcm-pricing-calculator",
+    "bcm-recommended-actions",
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
@@ -171,6 +182,7 @@ ServiceName = Literal[
     "comprehend",
     "comprehendmedical",
     "compute-optimizer",
+    "compute-optimizer-automation",
     "config",
     "connect",
     "connect-contact-lens",
@@ -216,7 +228,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -269,7 +280,6 @@ ServiceName = Literal[
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
-    "iotfleethub",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -308,8 +318,6 @@ ServiceName = Literal[
     "location",
     "logs",
     "lookoutequipment",
-    "lookoutmetrics",
-    "lookoutvision",
     "m2",
     "machinelearning",
     "macie2",
@@ -344,6 +352,7 @@ ServiceName = Literal[
     "mq",
     "mturk",
     "mwaa",
+    "mwaa-serverless",
     "neptune",
     "neptune-graph",
     "neptunedata",
@@ -353,18 +362,20 @@ ServiceName = Literal[
     "networkmonitor",
     "notifications",
     "notificationscontacts",
+    "nova-act",
     "oam",
     "observabilityadmin",
     "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
-    "opsworks",
-    "opsworkscm",
     "organizations",
     "osis",
     "outposts",
     "panorama",
+    "partnercentral-account",
+    "partnercentral-benefits",
+    "partnercentral-channel",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -386,8 +397,6 @@ ServiceName = Literal[
     "qapps",
     "qbusiness",
     "qconnect",
-    "qldb",
-    "qldb-session",
     "quicksight",
     "ram",
     "rbin",
@@ -402,15 +411,16 @@ ServiceName = Literal[
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
-    "robomaker",
     "rolesanywhere",
     "route53",
     "route53-recovery-cluster",
     "route53-recovery-control-config",
     "route53-recovery-readiness",
     "route53domains",
+    "route53globalresolver",
     "route53profiles",
     "route53resolver",
+    "rtbfabric",
     "rum",
     "s3",
     "s3control",
@@ -441,8 +451,8 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signin",
     "simspaceweaver",
-    "sms",
     "snow-device-management",
     "snowball",
     "sns",
@@ -482,6 +492,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",
@@ -493,17 +504,13 @@ ServiceName = Literal[
     "xray",
 ]
 ResourceServiceName = Literal[
-    "cloudformation",
-    "cloudwatch",
-    "dynamodb",
-    "ec2",
-    "glacier",
-    "iam",
-    "opsworks",
-    "s3",
-    "sns",
-    "sqs",
+    "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_actors", "list_events", "list_memory_records", "list_sessions", "retrieve_memory_records"
+    "list_actors",
+    "list_events",
+    "list_memory_extraction_jobs",
+    "list_memory_records",
+    "list_sessions",
+    "retrieve_memory_records",
 ]

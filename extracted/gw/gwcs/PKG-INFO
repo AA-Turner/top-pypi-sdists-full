@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: gwcs
-Version: 0.26.0
+Version: 1.0.1
 Summary: Generalized World Coordinate System
-Author-email: gwcs developers <help@stsci.edu>
+Author: gwcs developers
 Project-URL: Homepage, https://github.com/spacetelescope/gwcs
 Project-URL: Tracker, https://github.com/spacetelescope/gwcs/issues
 Project-URL: Documentation, https://gwcs.readthedocs.io/en/stable/
@@ -23,11 +23,11 @@ Requires-Dist: sphinx-astropy; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-asdf; extra == "docs"
 Requires-Dist: furo; extra == "docs"
-Requires-Dist: sphinx-tabs; extra == "docs"
+Requires-Dist: sphinx-inline-tabs; extra == "docs"
 Requires-Dist: matplotlib; extra == "docs"
 Provides-Extra: test
 Requires-Dist: ci-watson>=0.3.0; extra == "test"
-Requires-Dist: pytest>=8.0.0; extra == "test"
+Requires-Dist: pytest>=9.0; extra == "test"
 Requires-Dist: pytest-astropy>=0.11.0; extra == "test"
 Dynamic: license-file
 

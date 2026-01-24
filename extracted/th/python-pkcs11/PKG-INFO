@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-pkcs11
-Version: 0.9.0
+Version: 0.9.3
 Summary: PKCS#11 support for Python
 Author-email: Andrey Kislyuk <kislyuk@gmail.com>, Danielle Madeley <danielle@madeley.id.au>
 Maintainer-email: Andrey Kislyuk <kislyuk@gmail.com>
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security :: Cryptography
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst

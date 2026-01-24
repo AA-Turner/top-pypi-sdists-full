@@ -10,15 +10,29 @@
 # implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 """WSGI middleware for getting microversion info."""
+
+from collections.abc import Sequence
+from typing import Any, Protocol, TYPE_CHECKING
 
 import webob
 import webob.dec
+import webob.exc
 
 import microversion_parse
 
+if TYPE_CHECKING:
+    from _typeshed.wsgi import WSGIApplication
 
-class MicroversionMiddleware(object):
+
+class _JSONFormatter(Protocol):
+    def __call__(
+        self, *, body: str, status: str, title: str, environ: dict[str, Any]
+    ) -> Any: ...
+
+
+class MicroversionMiddleware:
     """WSGI middleware for getting microversion info.
 
     The application will get a WSGI environ with a
@@ -37,8 +51,13 @@ class MicroversionMiddleware(object):
     Otherwise the application is called.
     """
 
-    def __init__(self, application, service_type, versions,
-                 json_error_formatter=None):
+    def __init__(
+        self,
+        application: 'WSGIApplication | None',
+        service_type: str,
+        versions: Sequence[str],
+        json_error_formatter: _JSONFormatter | None = None,
+    ) -> None:
         """Create the WSGI middleware.
 
         :param application: The application hosting the service.
@@ -51,29 +70,35 @@ class MicroversionMiddleware(object):
         """
         self.application = application
         self.service_type = service_type
-        self.microversion_environ = '%s.microversion' % service_type
+        self.microversion_environ = f'{service_type}.microversion'
         self.versions = versions
         self.json_error_formatter = json_error_formatter
 
     @webob.dec.wsgify
-    def __call__(self, req):
+    def __call__(
+        self,
+        req: webob.request.Request,
+    ) -> webob.response.Response | None:
         try:
             microversion = microversion_parse.extract_version(
-                req.headers, self.service_type, self.versions)
+                req.headers, self.service_type, self.versions
+            )
         # TODO(cdent): These error response are not formatted according to
         # api-sig guidelines, unless a json_error_formatter is provided
         # that can do it. For an example, see the placement service.
         except ValueError as exc:
             raise webob.exc.HTTPNotAcceptable(
-                ('Invalid microversion: %(error)s') % {'error': exc},
-                json_formatter=self.json_error_formatter)
+                (f'Invalid microversion: {exc}'),
+                json_formatter=self.json_error_formatter,
+            )
         except TypeError as exc:
             raise webob.exc.HTTPBadRequest(
-                ('Invalid microversion: %(error)s') % {'error': exc},
-                json_formatter=self.json_error_formatter)
+                (f'Invalid microversion: {exc}'),
+                json_formatter=self.json_error_formatter,
+            )
 
         req.environ[self.microversion_environ] = microversion
-        microversion_header = '%s %s' % (self.service_type, microversion)
+        microversion_header = f'{self.service_type} {microversion}'
         standard_header = microversion_parse.STANDARD_HEADER
 
         try:

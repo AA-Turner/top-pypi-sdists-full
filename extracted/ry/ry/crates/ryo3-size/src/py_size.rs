@@ -4,9 +4,10 @@ use pyo3::prelude::*;
 use pyo3::pyclass::CompareOp;
 use pyo3::types::PyTuple;
 use std::ops::{Neg, Not};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy)]
-#[pyclass(name = "Size", frozen)]
+#[pyclass(name = "Size", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 pub struct PySize(size::Size);
 
@@ -72,29 +73,28 @@ impl PySize {
         }
     }
 
-    #[pyo3(signature = (*, base = None, style = None))]
-    fn format(&self, base: Option<Base>, style: Option<Style>) -> String {
+    #[pyo3(
+        signature = (*, base = Base::default(), style = Style::default()),
+        text_signature = "(self, *, base=2, style='default')"
+    )]
+    fn format(&self, base: Base, style: Style) -> String {
         self.0
             .format()
-            .with_base(base.unwrap_or_default().0)
-            .with_style(style.unwrap_or_default().0)
+            .with_base(base.0)
+            .with_style(style.0)
             .to_string()
     }
 
     #[staticmethod]
-    fn parse(size: &str) -> PyResult<Self> {
-        match size::Size::from_str(size) {
-            Ok(s) => Ok(Self(s)),
-            Err(e) => Err(PyValueError::new_err(e.to_string())),
-        }
+    fn from_str(s: &str) -> PyResult<Self> {
+        use ryo3_core::PyFromStr;
+        Self::py_from_str(s)
     }
 
     #[staticmethod]
-    fn from_str(size: &str) -> PyResult<Self> {
-        match size::Size::from_str(size) {
-            Ok(s) => Ok(Self(s)),
-            Err(e) => Err(PyValueError::new_err(e.to_string())),
-        }
+    fn parse(s: &Bound<'_, PyAny>) -> PyResult<Self> {
+        use ryo3_core::PyParse;
+        Self::py_parse(s)
     }
 
     fn __abs__(&self) -> Self {
@@ -365,22 +365,50 @@ impl PySize {
         Self(size::Size::from_tib(size.float64()))
     }
 }
+impl<'py> FromPyObject<'_, 'py> for PySize {
+    type Error = pyo3::PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(s) = obj.cast_exact::<Self>() {
+            Ok(Self::from(s))
+        } else {
+            Err(PyTypeError::new_err("Must be Size"))
+        }
+    }
+}
+
+impl From<Borrowed<'_, '_, Self>> for PySize {
+    fn from(value: Borrowed<'_, '_, Self>) -> Self {
+        Self(value.get().0)
+    }
+}
 
 #[derive(Debug, Clone)]
 struct SizeWrapper(size::Size);
 
-impl FromPyObject<'_> for SizeWrapper {
-    fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-        if let Ok(s) = ob.cast::<PySize>() {
+impl<'py> FromPyObject<'_, 'py> for SizeWrapper {
+    type Error = pyo3::PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(s) = obj.cast::<PySize>() {
             let pysize = s.extract::<PySize>()?;
             Ok(Self(pysize.0))
-        } else if let Ok(i) = ob.extract::<i64>() {
+        } else if let Ok(i) = obj.extract::<i64>() {
             Ok(Self(size::Size::from_const(i)))
-        } else if let Ok(f) = ob.extract::<f64>() {
+        } else if let Ok(f) = obj.extract::<f64>() {
             Ok(Self(size::Size::from_bytes(f)))
         } else {
             Err(PyTypeError::new_err("Must be Size or i64"))
         }
+    }
+}
+
+impl FromStr for PySize {
+    type Err = size::ParseSizeError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let size = size::Size::from_str(s)?;
+        Ok(Self(size))
     }
 }
 

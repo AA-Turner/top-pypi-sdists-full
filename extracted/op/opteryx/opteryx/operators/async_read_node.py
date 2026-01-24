@@ -148,8 +148,8 @@ class AsyncReaderNode(ReaderNode):
                 # Attempt to get an item with a timeout.
                 item = data_queue.get(timeout=0.1)
             except queue.Empty:
-                # Increment stall count if the queue is empty.
-                self.statistics.stalls_reading_from_read_buffer += 1
+                # Increment stall count if the queue is empty (engine waiting on data).
+                self.statistics.stalls_engine_waiting_on_data += 1
                 system_statistics.io_wait_seconds += 0.1
                 continue  # Skip the rest of the loop and try to get an item again.
 
@@ -196,7 +196,7 @@ class AsyncReaderNode(ReaderNode):
                         )
                     raise DataError(f"Unable to read blob {blob_name} - error {err}") from err
                 self.statistics.time_reading_blobs += time.monotonic_ns() - start
-                num_rows, _, morsel = decoded
+                num_rows, _, raw_bytes, morsel = decoded
                 self.statistics.rows_seen += num_rows
 
                 morsel = struct_to_jsonb(morsel)
@@ -207,6 +207,7 @@ class AsyncReaderNode(ReaderNode):
                 self.statistics.blobs_read += 1
                 self.statistics.rows_read += morsel.num_rows
                 self.statistics.bytes_processed += morsel.nbytes
+                self.statistics.bytes_raw += raw_bytes
 
                 self.rows_seen += morsel.num_rows
                 self.blobs_seen += 1

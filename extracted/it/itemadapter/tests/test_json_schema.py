@@ -190,7 +190,6 @@ class JsonSchemaTestCase(unittest.TestCase):
                     "type": "string",
                 }
             },
-            "required": ["name"],
         }
         check_schemas(actual, expected)
 
@@ -517,6 +516,37 @@ class JsonSchemaTestCase(unittest.TestCase):
         }
         check_schemas(actual, expected)
 
+    def test_field_docstring_cleandoc(self):
+        """Test that field docstrings are properly dedented and trimmed."""
+
+        @dataclass
+        class TestItem:
+            foo: str
+            """
+            This is a multiline docstring.
+
+            It has multiple paragraphs and indentation
+            that should be cleaned up.
+            """
+
+        actual = ItemAdapter.get_json_schema(TestItem)
+        expected = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "foo": {
+                    "type": "string",
+                    "description": (
+                        "This is a multiline docstring.\n\n"
+                        "It has multiple paragraphs and indentation\n"
+                        "that should be cleaned up."
+                    ),
+                },
+            },
+            "required": ["foo"],
+        }
+        check_schemas(actual, expected)
+
 
 class CrossNestingTestCase(unittest.TestCase):
     """Test item nesting across different item types, with all supported types
@@ -596,7 +626,6 @@ class CrossNestingTestCase(unittest.TestCase):
                     },
                 }
             },
-            "required": ["nested"],
         }
         check_schemas(actual, expected)
 
@@ -605,7 +634,6 @@ class CrossNestingTestCase(unittest.TestCase):
             "type": "object",
             "additionalProperties": False,
             "properties": {"nested": {}},
-            "required": ["nested"],
         }
         check_schemas(actual, expected)
 

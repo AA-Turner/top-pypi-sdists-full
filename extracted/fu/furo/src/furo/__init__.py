@@ -1,6 +1,6 @@
 """A clean customisable Sphinx documentation theme."""
 
-__version__ = "2025.07.19"
+__version__ = "2025.12.19"
 
 import hashlib
 import logging
@@ -380,7 +380,7 @@ def setup(app: sphinx.application.Sphinx) -> Dict[str, Any]:
     app.require_sphinx("6.0")
 
     app.add_config_value(
-        "pygments_dark_style", default="a11y-dark", rebuild="env", types=[str]
+        "pygments_dark_style", default="native", rebuild="env", types=[str]
     )
 
     app.add_html_theme("furo", str(THEME_PATH))

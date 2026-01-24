@@ -1,8 +1,6 @@
 use crate::rule::{Fix, LintError, LintResult, LintWarning, Rule, Severity};
 use crate::rule_config_serde::RuleConfig;
 use crate::utils::kramdown_utils::is_kramdown_block_attribute;
-use crate::utils::range_utils::LineIndex;
-use crate::utils::table_utils::TableUtils;
 use serde::{Deserialize, Serialize};
 
 /// Rule MD058: Blanks around tables
@@ -55,9 +53,13 @@ impl MD058BlanksAroundTables {
         Self { config }
     }
 
-    /// Check if a line is blank
+    /// Check if a line is blank (including blockquote continuation lines)
+    ///
+    /// Delegates to the shared `is_blank_in_blockquote_context` utility function.
+    /// This ensures consistent blank line detection across all rules that need
+    /// to handle blockquote-prefixed blank lines (MD058, MD065, etc.).
     fn is_blank_line(&self, line: &str) -> bool {
-        line.trim().is_empty()
+        crate::utils::regex_cache::is_blank_in_blockquote_context(line)
     }
 
     /// Count the number of blank lines before a given line index
@@ -101,13 +103,13 @@ impl Rule for MD058BlanksAroundTables {
     }
 
     fn should_skip(&self, ctx: &crate::lint_context::LintContext) -> bool {
-        // Skip if no pipe characters present (no tables)
-        !ctx.content.contains('|')
+        // Skip if no tables present
+        !ctx.likely_has_tables()
     }
 
     fn check(&self, ctx: &crate::lint_context::LintContext) -> LintResult {
         let content = ctx.content;
-        let _line_index = LineIndex::new(content.to_string());
+        let _line_index = &ctx.line_index;
         let mut warnings = Vec::new();
 
         // Early return for empty content or content without tables
@@ -117,8 +119,8 @@ impl Rule for MD058BlanksAroundTables {
 
         let lines: Vec<&str> = content.lines().collect();
 
-        // Use shared table detection for better performance
-        let table_blocks = TableUtils::find_table_blocks(content, ctx);
+        // Use pre-computed table blocks from context
+        let table_blocks = &ctx.table_blocks;
 
         for table_block in table_blocks {
             // Check for sufficient blank lines before table
@@ -132,8 +134,10 @@ impl Rule for MD058BlanksAroundTables {
                         format!("Missing {needed} blank lines before table")
                     };
 
+                    let bq_prefix = ctx.blockquote_prefix_for_blank_line(table_block.start_line);
+                    let replacement = format!("{bq_prefix}\n").repeat(needed);
                     warnings.push(LintWarning {
-                        rule_name: Some(self.name()),
+                        rule_name: Some(self.name().to_string()),
                         message,
                         line: table_block.start_line + 1,
                         column: 1,
@@ -141,8 +145,9 @@ impl Rule for MD058BlanksAroundTables {
                         end_column: 2,
                         severity: Severity::Warning,
                         fix: Some(Fix {
+                            // Insert blank lines at the start of the table line
                             range: _line_index.line_col_to_byte_range(table_block.start_line + 1, 1),
-                            replacement: format!("{}{}", "\n".repeat(needed), lines[table_block.start_line]),
+                            replacement,
                         }),
                     });
                 }
@@ -168,8 +173,10 @@ impl Rule for MD058BlanksAroundTables {
                             format!("Missing {needed} blank lines after table")
                         };
 
+                        let bq_prefix = ctx.blockquote_prefix_for_blank_line(table_block.end_line);
+                        let replacement = format!("{bq_prefix}\n").repeat(needed);
                         warnings.push(LintWarning {
-                            rule_name: Some(self.name()),
+                            rule_name: Some(self.name().to_string()),
                             message,
                             line: table_block.end_line + 1,
                             column: lines[table_block.end_line].len() + 1,
@@ -177,11 +184,12 @@ impl Rule for MD058BlanksAroundTables {
                             end_column: lines[table_block.end_line].len() + 2,
                             severity: Severity::Warning,
                             fix: Some(Fix {
+                                // Insert blank lines at the end of the table's last line
                                 range: _line_index.line_col_to_byte_range(
                                     table_block.end_line + 1,
                                     lines[table_block.end_line].len() + 1,
                                 ),
-                                replacement: format!("{}{}", lines[table_block.end_line], "\n".repeat(needed)),
+                                replacement,
                             }),
                         });
                     }
@@ -194,7 +202,7 @@ impl Rule for MD058BlanksAroundTables {
 
     fn fix(&self, ctx: &crate::lint_context::LintContext) -> Result<String, LintError> {
         let content = ctx.content;
-        let _line_index = LineIndex::new(content.to_string());
+        let _line_index = &ctx.line_index;
 
         let mut warnings = self.check(ctx)?;
         if warnings.is_empty() {
@@ -226,9 +234,10 @@ impl Rule for MD058BlanksAroundTables {
                     1
                 };
 
-                // Add the required number of blank lines
+                // Add the required number of blank lines with blockquote prefix
+                let bq_prefix = ctx.blockquote_prefix_for_blank_line(i);
                 for _ in 0..needed_blanks {
-                    result.push("".to_string());
+                    result.push(bq_prefix.clone());
                 }
                 warnings.remove(idx);
             }
@@ -255,9 +264,10 @@ impl Rule for MD058BlanksAroundTables {
                     1
                 };
 
-                // Add the required number of blank lines
+                // Add the required number of blank lines with blockquote prefix
+                let bq_prefix = ctx.blockquote_prefix_for_blank_line(i);
                 for _ in 0..needed_blanks {
-                    result.push("".to_string());
+                    result.push(bq_prefix.clone());
                 }
                 warnings.remove(idx);
             }
@@ -300,6 +310,7 @@ impl Rule for MD058BlanksAroundTables {
 mod tests {
     use super::*;
     use crate::lint_context::LintContext;
+    use crate::utils::table_utils::TableUtils;
 
     #[test]
     fn test_table_with_blanks() {
@@ -311,7 +322,7 @@ mod tests {
 | Cell 1   | Cell 2   |
 
 Some text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -326,7 +337,7 @@ Some text after.";
 | Cell 1   | Cell 2   |
 
 Some text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -343,7 +354,7 @@ Some text after.";
 |----------|----------|
 | Cell 1   | Cell 2   |
 Some text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 1);
@@ -359,7 +370,7 @@ Some text after.";
 |----------|----------|
 | Cell 1   | Cell 2   |
 Some text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -375,7 +386,7 @@ Some text after.";
 | Cell 1   | Cell 2   |
 
 Some text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // No blank line needed before table at start of document
@@ -390,7 +401,7 @@ Some text after.";
 | Header 1 | Header 2 |
 |----------|----------|
 | Cell 1   | Cell 2   |";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // No blank line needed after table at end of document
@@ -409,7 +420,7 @@ Text between tables.
 |--------|-------|
 | Data 2 | Val 2 |
 Text after second table.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 4);
@@ -435,7 +446,7 @@ Text after second table.";
 | Data 2 | Val 2 |
 
 More text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Tables separated by blank line should be OK
@@ -457,7 +468,7 @@ Text between.
 | Data 2 | Val 2 |
 
 More text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should flag missing blanks around both tables
@@ -474,7 +485,7 @@ More text.";
 |--------|-------|
 | Cell   | Data  |
 Text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         let expected = "Text before.
@@ -499,7 +510,7 @@ Middle
 |----|----|
 | D2 | V2 |
 End";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         let expected = "Start
@@ -522,7 +533,7 @@ End";
     fn test_empty_content() {
         let rule = MD058BlanksAroundTables::default();
         let content = "";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -534,7 +545,7 @@ End";
         let content = "Just regular text.
 No tables here.
 Only paragraphs.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -550,7 +561,7 @@ Only paragraphs.";
 | In  | Code | Block |
 ```
 Text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Tables in code blocks should be ignored
@@ -566,7 +577,7 @@ Text after.";
 | Left     | Center   | Right    |
 | Data     | More     | Info     |
 ## Another Heading";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -585,7 +596,7 @@ Text after.";
 | O   |     | X   |
 
 More text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -600,7 +611,7 @@ More text.";
 | 田中 | 25   | 東京 |
 | 佐藤 | 30   | 大阪 |
 End.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 2);
@@ -616,7 +627,7 @@ End.";
 | Data  | This is an extremely long cell content that goes on |
 
 After.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         assert_eq!(result.len(), 0);
@@ -629,7 +640,7 @@ After.";
 | Header 1 | Header 2 |
 |----------|----------|
 Next paragraph.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should still require blanks around header-only table
@@ -646,7 +657,7 @@ Next paragraph.";
     | Data     | Here  |
 
     More content.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Indented tables should be detected
@@ -661,11 +672,14 @@ Next paragraph.";
 |--------|
 | Column |
 Text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
-        // Single column tables are not detected by table_utils (requires 2+ columns)
-        assert_eq!(result.len(), 0);
+        // Single column tables ARE now detected (fixed to support 1+ columns)
+        // Expects 2 warnings: missing blank before and after table
+        assert_eq!(result.len(), 2);
+        assert!(result[0].message.contains("before"));
+        assert!(result[1].message.contains("after"));
     }
 
     #[test]
@@ -683,7 +697,7 @@ Text after.";
 | Cell   | Data  |
 
 Text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should pass with 1 blank line before (but we configured to require 2)
@@ -706,7 +720,7 @@ Text after.";
 | Cell   | Data  |
 
 More text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should fail with only 1 blank line after (but we configured to require 3)
@@ -727,7 +741,7 @@ More text.";
 |--------|-------|
 | Cell   | Data  |
 More text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should fail both before and after
@@ -749,7 +763,7 @@ More text.";
 |--------|-------|
 | Cell   | Data  |
 More text.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let result = rule.check(&ctx).unwrap();
 
         // Should pass with zero blank lines required
@@ -769,7 +783,7 @@ More text.";
 |--------|-------|
 | Cell   | Data  |
 Text after.";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
         let fixed = rule.fix(&ctx).unwrap();
 
         let expected = "Text before.
@@ -828,7 +842,7 @@ Text after.";
         // Test case from issue #25 - table with very long line
         let rule = MD058BlanksAroundTables::default();
         let content = "# Title\n\nThis is a table:\n\n| Name          | Query                                                    |\n| ------------- | -------------------------------------------------------- |\n| b             | a                                                        |\n| c             | a                                                        |\n| d             | a                                                        |\n| long          | aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa |\n| e             | a                                                        |\n| f             | a                                                        |\n| g             | a                                                        |";
-        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard);
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
 
         // Debug: Print detected table blocks
         let table_blocks = TableUtils::find_table_blocks(content, &ctx);
@@ -851,5 +865,475 @@ Text after.";
 
         // Should not flag any issues since table is complete and doesn't need blanks
         assert_eq!(result.len(), 0, "Should not flag any MD058 issues for a complete table");
+    }
+
+    #[test]
+    fn test_fix_preserves_blockquote_prefix_before_table() {
+        // Issue #268: Fix should insert blockquote-prefixed blank lines inside blockquotes
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> Text before
+> | H1 | H2 |
+> |----|---|
+> | a  | b |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // The blank line inserted before the table should have the blockquote prefix
+        let expected = "> Text before
+>
+> | H1 | H2 |
+> |----|---|
+> | a  | b |";
+        assert_eq!(
+            fixed, expected,
+            "Fix should insert '>' blank line before table, not plain blank line"
+        );
+    }
+
+    #[test]
+    fn test_fix_preserves_blockquote_prefix_after_table() {
+        // Issue #268: Fix should insert blockquote-prefixed blank lines inside blockquotes
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> | H1 | H2 |
+> |----|---|
+> | a  | b |
+> Text after";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // The blank line inserted after the table should have the blockquote prefix
+        let expected = "> | H1 | H2 |
+> |----|---|
+> | a  | b |
+>
+> Text after";
+        assert_eq!(
+            fixed, expected,
+            "Fix should insert '>' blank line after table, not plain blank line"
+        );
+    }
+
+    #[test]
+    fn test_fix_preserves_nested_blockquote_prefix_for_table() {
+        // Nested blockquotes should preserve the full prefix
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = ">> Nested quote
+>> | H1 |
+>> |----|
+>> | a  |
+>> More text";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        // Should insert ">>" blank lines
+        let expected = ">> Nested quote
+>>
+>> | H1 |
+>> |----|
+>> | a  |
+>>
+>> More text";
+        assert_eq!(fixed, expected, "Fix should preserve nested blockquote prefix '>>'");
+    }
+
+    #[test]
+    fn test_fix_preserves_triple_nested_blockquote_prefix_for_table() {
+        // Triple-nested blockquotes should preserve full prefix
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = ">>> Triple nested
+>>> | A | B |
+>>> |---|---|
+>>> | 1 | 2 |
+>>> More text";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        let expected = ">>> Triple nested
+>>>
+>>> | A | B |
+>>> |---|---|
+>>> | 1 | 2 |
+>>>
+>>> More text";
+        assert_eq!(
+            fixed, expected,
+            "Fix should preserve triple-nested blockquote prefix '>>>'"
+        );
+    }
+
+    // =========================================================================
+    // Issue #305: Tables inside blockquotes with existing blank lines
+    // These tests verify that MD058 correctly recognizes blockquote continuation
+    // lines (e.g., ">") as "blank" lines for table spacing purposes.
+    // =========================================================================
+
+    #[test]
+    fn test_is_blank_line_with_blockquote_continuation() {
+        // Unit tests for is_blank_line recognizing blockquote blanks
+        let rule = MD058BlanksAroundTables::default();
+
+        // Regular blank lines
+        assert!(rule.is_blank_line(""));
+        assert!(rule.is_blank_line("   "));
+        assert!(rule.is_blank_line("\t"));
+        assert!(rule.is_blank_line("  \t  "));
+
+        // Blockquote continuation lines (should be treated as blank)
+        assert!(rule.is_blank_line(">"));
+        assert!(rule.is_blank_line("> "));
+        assert!(rule.is_blank_line(">  "));
+        assert!(rule.is_blank_line(">>"));
+        assert!(rule.is_blank_line(">> "));
+        assert!(rule.is_blank_line(">>>"));
+        assert!(rule.is_blank_line("> > "));
+        assert!(rule.is_blank_line("> > > "));
+        assert!(rule.is_blank_line("  >  ")); // With leading/trailing whitespace
+
+        // Lines with content (should NOT be treated as blank)
+        assert!(!rule.is_blank_line("text"));
+        assert!(!rule.is_blank_line("> text"));
+        assert!(!rule.is_blank_line(">> text"));
+        assert!(!rule.is_blank_line("> | table |"));
+        assert!(!rule.is_blank_line("| table |"));
+    }
+
+    #[test]
+    fn test_issue_305_no_warning_blockquote_with_existing_blank_before_table() {
+        // Issue #305: Table inside blockquote with existing blank line before
+        // should NOT trigger MD058 warning
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> Text before
+>
+> | H1 | H2 |
+> |----|---|
+> | a  | b |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should not warn when blockquote already has blank line before table"
+        );
+    }
+
+    #[test]
+    fn test_issue_305_no_warning_blockquote_with_existing_blank_after_table() {
+        // Issue #305: Table inside blockquote with existing blank line after
+        // should NOT trigger MD058 warning
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> | H1 | H2 |
+> |----|---|
+> | a  | b |
+>
+> Text after";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should not warn when blockquote already has blank line after table"
+        );
+    }
+
+    #[test]
+    fn test_issue_305_no_warning_blockquote_with_both_blank_lines() {
+        // Issue #305: Complete example from the issue report
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> The following options are available:
+>
+> | Option | Default   | Description       |
+> |--------|-----------|-------------------|
+> | port   | 3000      | Server port       |
+> | host   | localhost | Server host       |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Issue #305: Should not warn for valid table inside blockquote with blank line"
+        );
+    }
+
+    #[test]
+    fn test_issue_305_no_warning_nested_blockquote_with_blank_lines() {
+        // Nested blockquote with blank lines should not warn
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = ">> Nested text
+>>
+>> | Col1 | Col2 |
+>> |------|------|
+>> | val1 | val2 |
+>>
+>> More text";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should not warn for nested blockquote table with blank lines"
+        );
+    }
+
+    #[test]
+    fn test_issue_305_no_warning_triple_nested_blockquote_with_blank_lines() {
+        // Triple-nested blockquote with blank lines should not warn
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = ">>> Deep nesting
+>>>
+>>> | A | B |
+>>> |---|---|
+>>> | 1 | 2 |
+>>>
+>>> End";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should not warn for triple-nested blockquote table with blank lines"
+        );
+    }
+
+    #[test]
+    fn test_issue_305_fix_does_not_corrupt_valid_blockquote_table() {
+        // Critical: Verify that fix() doesn't corrupt already-valid content
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> Text before
+>
+> | H1 | H2 |
+> |----|---|
+> | a  | b |
+>
+> Text after";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        assert_eq!(fixed, content, "Fix should not modify already-valid blockquote table");
+    }
+
+    #[test]
+    fn test_issue_305_blockquote_blank_with_trailing_space() {
+        // Blockquote blank line with trailing space ("> ") should be recognized
+        let rule = MD058BlanksAroundTables::default();
+
+        // Note: The "> " has a trailing space
+        let content = "> Text before
+>
+> | H1 | H2 |
+> |----|---|
+> | a  | b |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should recognize '> ' (with trailing space) as blank line"
+        );
+    }
+
+    #[test]
+    fn test_issue_305_spaced_nested_blockquote() {
+        // "> > " style nested blockquote should be recognized
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> > Nested text
+> >
+> > | H1 |
+> > |----|
+> > | a  |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should recognize '> > ' style nested blockquote blank line"
+        );
+    }
+
+    #[test]
+    fn test_mixed_regular_and_blockquote_tables() {
+        // Document with both regular tables and blockquote tables
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "# Mixed Content
+
+Regular table:
+
+| A | B |
+|---|---|
+| 1 | 2 |
+
+And a blockquote table:
+
+> Quote text
+>
+> | X | Y |
+> |---|---|
+> | 3 | 4 |
+>
+> End quote
+
+Final paragraph.";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should handle mixed regular and blockquote tables correctly"
+        );
+    }
+
+    #[test]
+    fn test_blockquote_table_at_document_start() {
+        // Table in blockquote at very start of document
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> | H1 | H2 |
+> |----|---|
+> | a  | b |
+>
+> Text after";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should not require blank line before table at document start (even in blockquote)"
+        );
+    }
+
+    #[test]
+    fn test_blockquote_table_at_document_end() {
+        // Table in blockquote at very end of document
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> Text before
+>
+> | H1 | H2 |
+> |----|---|
+> | a  | b |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should not require blank line after table at document end"
+        );
+    }
+
+    #[test]
+    fn test_blockquote_table_missing_blank_still_detected() {
+        // Ensure we still detect ACTUAL missing blank lines in blockquotes
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> Text before
+> | H1 | H2 |
+> |----|---|
+> | a  | b |
+> Text after";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should have 2 warnings: missing blank before AND after table
+        assert_eq!(
+            result.len(),
+            2,
+            "Should still detect missing blank lines in blockquote tables"
+        );
+        assert!(result[0].message.contains("before table"));
+        assert!(result[1].message.contains("after table"));
+    }
+
+    #[test]
+    fn test_blockquote_table_fix_adds_correct_prefix() {
+        // Verify fix adds blockquote-prefixed blank lines when needed
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> Text before
+> | H1 | H2 |
+> |----|---|
+> | a  | b |
+> Text after";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).unwrap();
+
+        let expected = "> Text before
+>
+> | H1 | H2 |
+> |----|---|
+> | a  | b |
+>
+> Text after";
+        assert_eq!(fixed, expected, "Fix should add blockquote-prefixed blank lines");
+    }
+
+    #[test]
+    fn test_multiple_blockquote_tables_with_valid_spacing() {
+        // Multiple tables in same blockquote, all with proper spacing
+        let rule = MD058BlanksAroundTables::default();
+
+        let content = "> First table:
+>
+> | A | B |
+> |---|---|
+> | 1 | 2 |
+>
+> Second table:
+>
+> | X | Y |
+> |---|---|
+> | 3 | 4 |
+>
+> End";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        assert_eq!(
+            result.len(),
+            0,
+            "Should handle multiple blockquote tables with valid spacing"
+        );
+    }
+
+    #[test]
+    fn test_blockquote_table_with_minimum_before_config() {
+        // Test with custom minimum_before config
+        let config = MD058Config {
+            minimum_before: 2,
+            minimum_after: 1,
+        };
+        let rule = MD058BlanksAroundTables::from_config_struct(config);
+
+        let content = "> Text
+>
+> | H1 |
+> |----|
+> | a  |";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        // Should warn because only 1 blank line, but config requires 2
+        assert_eq!(result.len(), 1);
+        assert!(result[0].message.contains("before table"));
     }
 }

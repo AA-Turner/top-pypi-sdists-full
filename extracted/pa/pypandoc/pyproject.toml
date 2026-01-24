@@ -1,8 +1,8 @@
 [tool.poetry]
 name = "pypandoc"
-version = "1.15"
+version = "1.16.2"
 description = "Thin wrapper for pandoc"
-authors = ["JessicaTegner <jessica.tegneroutlook.com>"]
+authors = ["JessicaTegner <jessica@jessicategner.com>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/JessicaTegner/pypandoc"
@@ -17,13 +17,15 @@ classifiers = [
         'Topic :: Text Processing',
         'Topic :: Text Processing :: Filters',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
+        'Programming Language :: Python :: 3.15',
         'Programming Language :: Python :: Implementation :: CPython',
         'Programming Language :: Python :: Implementation :: PyPy'
     ]
@@ -34,10 +36,6 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.7"
-
-[tool.poetry.dev-dependencies]
-pandocfilters = "^1.5"
-setuptools = "68"
 
 [tool.poetry.group.dev.dependencies]
 pandocfilters = "^1.5"
@@ -50,3 +48,9 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.urls]
 "Issue Tracker" = "https://github.com/JessicaTegner/pypandoc/issues"
 
+
+# isort
+# -----
+
+[tool.isort]
+profile = "black"

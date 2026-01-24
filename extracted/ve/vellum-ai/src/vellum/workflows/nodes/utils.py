@@ -3,7 +3,20 @@ import inspect
 import json
 import sys
 from types import ModuleType
-from typing import Any, Callable, Dict, ForwardRef, List, Optional, Type, TypeVar, Union, get_args, get_origin
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    ForwardRef,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+    get_args,
+    get_origin,
+)
 
 from pydantic import BaseModel, create_model
 
@@ -12,8 +25,6 @@ from vellum.workflows.constants import undefined
 from vellum.workflows.errors.types import WorkflowErrorCode
 from vellum.workflows.exceptions import NodeException
 from vellum.workflows.inputs.base import BaseInputs
-from vellum.workflows.nodes import BaseNode
-from vellum.workflows.nodes.bases.base_adornment_node import BaseAdornmentNode
 from vellum.workflows.ports.port import Port
 from vellum.workflows.state.base import BaseState
 from vellum.workflows.types.code_execution_node_wrappers import (
@@ -23,13 +34,16 @@ from vellum.workflows.types.code_execution_node_wrappers import (
     clean_for_dict_wrapper,
 )
 from vellum.workflows.types.core import Json
-from vellum.workflows.types.generics import NodeType
+from vellum.workflows.types.generics import NodeType, import_base_adornment_node
+
+if TYPE_CHECKING:
+    from vellum.workflows.nodes import BaseNode
 
 ADORNMENT_MODULE_NAME = "<adornment>"
 
 
 @cache
-def get_unadorned_node(node: Type[BaseNode]) -> Type[BaseNode]:
+def get_unadorned_node(node: Type["BaseNode"]) -> Type["BaseNode"]:
     wrapped_node = get_wrapped_node(node)
     if wrapped_node is not None:
         return get_unadorned_node(wrapped_node)
@@ -46,20 +60,21 @@ def get_unadorned_port(port: Port) -> Port:
     return getattr(unadorned_node.Ports, port.name)
 
 
-def get_wrapped_node(node: Type[NodeType]) -> Optional[Type[BaseNode]]:
+def get_wrapped_node(node: Type[NodeType]) -> Optional[Type["BaseNode"]]:
+    BaseAdornmentNode = import_base_adornment_node()
     if not issubclass(node, BaseAdornmentNode):
         return None
 
     return node.__wrapped_node__
 
 
-AdornableNode = TypeVar("AdornableNode", bound=BaseNode)
+AdornableNode = TypeVar("AdornableNode", bound="BaseNode")
 
 
 def create_adornment(
     adornable_cls: Type[AdornableNode], attributes: Optional[dict[str, Any]] = None
 ) -> Callable[..., Type["AdornableNode"]]:
-    def decorator(inner_cls: Type[BaseNode]) -> Type["AdornableNode"]:
+    def decorator(inner_cls: Type["BaseNode"]) -> Type["AdornableNode"]:
         # Investigate how to use dependency injection to avoid circular imports
         # https://app.shortcut.com/vellum/story/4116
         from vellum.workflows import BaseWorkflow
@@ -141,7 +156,7 @@ def parse_type_from_str(result_as_str: str, output_type: Any) -> Any:
         else:
             return data
 
-    if output_type is Json:
+    if output_type is Json or output_type is Any or output_type is dict or get_origin(output_type) is dict:
         try:
             data = json.loads(result_as_str)
             # If we got a FunctionCallVellumValue, return just the value

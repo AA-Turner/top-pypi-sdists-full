@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: driftpy
-Version: 0.8.72
+Version: 0.8.88
 Summary: A Python client for the Drift DEX
 Home-page: https://github.com/drift-labs/driftpy
 License: MIT
@@ -26,7 +26,7 @@ Requires-Dist: based58 (==0.1.1)
 Requires-Dist: borsh-construct (==0.1.0)
 Requires-Dist: cachetools (==5.3)
 Requires-Dist: certifi (==2025.1.31)
-Requires-Dist: cffi (==1.15.1)
+Requires-Dist: cffi (==1.17.1)
 Requires-Dist: charset-normalizer (==2.1.1)
 Requires-Dist: construct (==2.10.68)
 Requires-Dist: construct-typing (==0.5.3)
@@ -50,7 +50,7 @@ Requires-Dist: more-itertools (==8.14.0)
 Requires-Dist: numpy (>=1.26.2,<2.0.0)
 Requires-Dist: oslash (==0.6.3)
 Requires-Dist: packaging (==23.1)
-Requires-Dist: protobuf (==5.29.2)
+Requires-Dist: protobuf (>=5.29.2,<6.0.0)
 Requires-Dist: psutil (==5.9.4)
 Requires-Dist: py (==1.11.0)
 Requires-Dist: pycares (==4.3.0)
@@ -75,7 +75,7 @@ Requires-Dist: types-cachetools (==4.2.10)
 Requires-Dist: typing-extensions (>=4.4.0,<5.0.0)
 Requires-Dist: urllib3 (==1.26.13)
 Requires-Dist: websockets (==13.0)
-Requires-Dist: yarl (==1.9.4)
+Requires-Dist: yarl (>=1.9.4,<2.0.0)
 Requires-Dist: zstandard (==0.18.0)
 Project-URL: Documentation, https://drift-labs.github.io/driftpy/
 Description-Content-Type: text/markdown

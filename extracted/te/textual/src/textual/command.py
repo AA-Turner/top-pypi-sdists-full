@@ -524,7 +524,7 @@ class CommandPalette(SystemModalScreen[None]):
 
     AUTO_FOCUS = "CommandInput"
 
-    COMPONENT_CLASSES: ClassVar[set[str]] = {
+    COMPONENT_CLASSES: ClassVar[set[str]] = Screen.COMPONENT_CLASSES | {
         "command-palette--help-text",
         "command-palette--highlight",
     }
@@ -1230,7 +1230,7 @@ class CommandPalette(SystemModalScreen[None]):
                 # decide what to do with it (hopefully it'll run it).
                 self._cancel_gather_commands()
                 self.app.post_message(CommandPalette.Closed(option_selected=True))
-                self.app._delay_update()
+                self.app.delay_update()
                 self.dismiss()
                 self.app.call_later(self._selected_command.command)
 

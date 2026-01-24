@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -74,12 +75,6 @@ from .type_defs import (
     VoteOnProposalInputTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -90,17 +85,17 @@ __all__ = ("ManagedBlockchainClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    IllegalActionException: Type[BotocoreClientError]
-    InternalServiceErrorException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    ResourceAlreadyExistsException: Type[BotocoreClientError]
-    ResourceLimitExceededException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ResourceNotReadyException: Type[BotocoreClientError]
-    ThrottlingException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IllegalActionException: type[BotocoreClientError]
+    InternalServiceErrorException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    ResourceAlreadyExistsException: type[BotocoreClientError]
+    ResourceLimitExceededException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ResourceNotReadyException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 
 class ManagedBlockchainClient(BaseClient):
@@ -189,7 +184,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#create_proposal)
         """
 
-    def delete_accessor(self, **kwargs: Unpack[DeleteAccessorInputTypeDef]) -> Dict[str, Any]:
+    def delete_accessor(self, **kwargs: Unpack[DeleteAccessorInputTypeDef]) -> dict[str, Any]:
         """
         Deletes an accessor that your Amazon Web Services account owns.
 
@@ -197,7 +192,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#delete_accessor)
         """
 
-    def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> Dict[str, Any]:
+    def delete_member(self, **kwargs: Unpack[DeleteMemberInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a member.
 
@@ -205,7 +200,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#delete_member)
         """
 
-    def delete_node(self, **kwargs: Unpack[DeleteNodeInputTypeDef]) -> Dict[str, Any]:
+    def delete_node(self, **kwargs: Unpack[DeleteNodeInputTypeDef]) -> dict[str, Any]:
         """
         Deletes a node that your Amazon Web Services account owns.
 
@@ -332,7 +327,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#list_tags_for_resource)
         """
 
-    def reject_invitation(self, **kwargs: Unpack[RejectInvitationInputTypeDef]) -> Dict[str, Any]:
+    def reject_invitation(self, **kwargs: Unpack[RejectInvitationInputTypeDef]) -> dict[str, Any]:
         """
         Rejects an invitation to join a network.
 
@@ -340,7 +335,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#reject_invitation)
         """
 
-    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Adds or overwrites the specified tags for the specified Amazon Managed
         Blockchain resource.
@@ -349,7 +344,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#tag_resource)
         """
 
-    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Removes the specified tags from the Amazon Managed Blockchain resource.
 
@@ -357,7 +352,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#untag_resource)
         """
 
-    def update_member(self, **kwargs: Unpack[UpdateMemberInputTypeDef]) -> Dict[str, Any]:
+    def update_member(self, **kwargs: Unpack[UpdateMemberInputTypeDef]) -> dict[str, Any]:
         """
         Updates a member configuration with new parameters.
 
@@ -365,7 +360,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#update_member)
         """
 
-    def update_node(self, **kwargs: Unpack[UpdateNodeInputTypeDef]) -> Dict[str, Any]:
+    def update_node(self, **kwargs: Unpack[UpdateNodeInputTypeDef]) -> dict[str, Any]:
         """
         Updates a node configuration with new parameters.
 
@@ -373,7 +368,7 @@ class ManagedBlockchainClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_managedblockchain/client/#update_node)
         """
 
-    def vote_on_proposal(self, **kwargs: Unpack[VoteOnProposalInputTypeDef]) -> Dict[str, Any]:
+    def vote_on_proposal(self, **kwargs: Unpack[VoteOnProposalInputTypeDef]) -> dict[str, Any]:
         """
         Casts a vote for a specified <code>ProposalId</code> on behalf of a member.
 

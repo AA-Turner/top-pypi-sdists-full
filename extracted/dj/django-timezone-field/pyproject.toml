@@ -14,7 +14,7 @@ line_length = 120
 
 [tool.poetry]
 name = "django-timezone-field"
-version = "7.1"
+version = "7.2.1"
 description = "A Django app providing DB, form, and REST framework fields for zoneinfo and pytz timezone objects."
 license = "BSD-2-Clause"
 authors = ["Mike Fogel <mike@fogel.ca>"]
@@ -27,6 +27,8 @@ classifiers = [
     "Framework :: Django :: 4.2",
     "Framework :: Django :: 5.0",
     "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Topic :: Utilities",
@@ -36,7 +38,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-Django = ">=3.2,<6.0"
+Django = ">=3.2,<6.1"
 python = "^3.8"
 "backports.zoneinfo" = { version = "^0.2.1", python = "<3.9" }
 

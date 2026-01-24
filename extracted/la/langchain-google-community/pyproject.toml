@@ -1,145 +1,148 @@
 [build-system]
-requires = [
-    "pdm-backend",
-]
-build-backend = "pdm.backend"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
 name = "langchain-google-community"
-version = "2.0.10"
 description = "An integration package connecting miscellaneous Google's products and LangChain"
-authors = []
-requires-python = ">=3.9"
+license = {text = "MIT"}
 readme = "README.md"
-repository = "https://github.com/langchain-ai/langchain-google"
+authors = []
+
+version = "3.0.5"
+requires-python = ">=3.10.0,<4.0.0"
 dependencies = [
-    "langchain-core>=0.3,<1",
-    "langchain-community>=0.3,<1",
-    "google-api-core>=2.25,<3",
-    "google-api-python-client>=2.161,<3",
-    "google-cloud-core>=2.4.3,<3",
-    "grpcio>=1.74,<2",
-    "google-cloud-modelarmor>=0.2.8",
+    "langgraph>=1.0.4,<2.0.0",
+    "langchain-core>=1.2.5,<2.0.0",
+    "langchain>=1.1.3,<2.0.0",
+    "langchain-community>=0.4.0,<2.0.0",
+    "google-api-core>=2.25.0,<3.0.0",
+    "google-api-python-client>=2.161.0,<3.0.0",
+    "google-cloud-core>=2.4.3,<3.0.0",
+    "grpcio>=1.74.0,<2.0.0",
+    "google-cloud-modelarmor>=0.2.8,<1.0.0",
 ]
 
-[project.license]
-text = "MIT"
-
 [project.urls]
-"Source Code" = "https://github.com/langchain-ai/langchain-google/tree/main/libs/community"
+Homepage = "https://docs.langchain.com/oss/python/integrations/providers/google"
+Documentation = "https://reference.langchain.com/python/integrations/langchain_google_community/"
+Source = "https://github.com/langchain-ai/langchain-google/tree/master/libs/community"
+Changelog = "https://github.com/langchain-ai/langchain-google/releases?q=%22community%22"
+Twitter = "https://x.com/LangChainAI"
+Slack = "https://www.langchain.com/join-community"
+Reddit = "https://www.reddit.com/r/LangChain/"
 
 [project.optional-dependencies]
 bigquery = [
-    "google-cloud-bigquery>=3.21,<4",
-]
-calendar = [
-    "google-auth>=2.36,<3",
-    "google-auth-oauthlib>=1.2,<2",
-]
-docai = [
-    "google-cloud-documentai>=2.26,<3",
-    "google-cloud-contentwarehouse>=0.7.7,<1",
-    "google-cloud-documentai-toolbox>=0.13.3a0,<1",
-    "gapic-google-longrunning>=0.11.2,<1",
-]
-drive = [
-    "google-auth-httplib2>=0.2,<1",
-    "google-auth-oauthlib>=1.2,<2",
-]
-gcs = [
-    "google-cloud-storage>=2.16,<3",
-]
-speech = [
-    "google-cloud-speech>=2.26,<3",
-]
-places = [
-    "googlemaps>=4.10,<5",
-]
-texttospeech = [
-    "google-cloud-texttospeech>=2.16.3,<3",
-]
-translate = [
-    "google-cloud-translate>=3.15.3,<4",
-]
-vertexaisearch = [
-    "google-cloud-discoveryengine>=0.11.14,<1",
-]
-vision = [
-    "google-cloud-vision>=3.7.2,<4",
-]
-gmail = [
-    "google-auth-httplib2>=0.2,<1",
-    "google-auth-oauthlib>=1.2,<2",
-    "beautifulsoup4>=4.12.3,<5",
-]
-featurestore = [
-    "google-cloud-bigquery-storage>=2.6.0,<3",
-    "pandas>=1.0.0; python_version<'3.12'",
-    "pandas>=2.0.0,<3.0; python_version>='3.12'",
+    "google-cloud-bigquery-storage>=2.25.0,<3.0.0",
+    "google-cloud-bigquery>=3.21.0,<4.0.0",
+    "google-cloud-core>=2.4.3,<3.0.0",
+    "google-auth>=2.36.0,<3.0.0",
+    "google-cloud-storage>=2.16.0,<4.0.0",
     "pyarrow>=6.0.1",
-    "db-dtypes>=1.2.0,<2",
-    "google-cloud-aiplatform>=1.56.0,<2",
-    "pydantic>=2.7.4,<3",
 ]
+calendar = ["google-auth>=2.36.0,<3.0.0", "google-auth-oauthlib>=1.2.0,<2.0.0"]
+docai = [
+    "google-cloud-documentai>=2.26.0,<3.0.0",
+    "google-cloud-contentwarehouse>=0.7.7,<1.0.0",
+    #"google-cloud-documentai-toolbox>=0.13.3a0,<1.0.0",
+    "gapic-google-longrunning>=0.11.2,<1.0.0",
+]
+drive = ["google-auth-httplib2>=0.2.0,<1.0.0", "google-auth-oauthlib>=1.2.0,<2.0.0"]
+gcs = ["google-cloud-storage>=2.16.0,<4.0.0"]
+speech = ["google-cloud-speech>=2.26.0,<3.0.0"]
+places = ["googlemaps>=4.10.0,<5.0.0"]
+texttospeech = ["google-cloud-texttospeech>=2.16.3,<3.0.0"]
+translate = ["google-cloud-translate>=3.15.3,<4.0.0"]
+vertexaisearch = ["google-cloud-discoveryengine>=0.11.14,<1.0.0"]
+vision = ["google-cloud-vision>=3.7.2,<4.0.0"]
+gmail = ["google-auth-httplib2>=0.2.0,<1.0.0", "google-auth-oauthlib>=1.2.0,<2.0.0", "beautifulsoup4>=4.12.3,<5.0.0"]
+featurestore = ["google-cloud-bigquery-storage>=2.6.0,<3.0.0", "pandas>=1.0.0; python_version<'3.12'", "pandas>=2.0.0,<3.0.0; python_version>='3.12'", "pyarrow>=6.0.1", "db-dtypes>=1.2.0,<2.0.0", "google-cloud-aiplatform>=1.56.0,<2.0.0", "pydantic>=2.7.4,<3.0.0"]
 
 [dependency-groups]
 test = [
-    "pytest>=7.3,<8",
-    "freezegun>=1.2.2,<2",
-    "pytest-mock>=3.10,<4",
-    "syrupy>=4.0.2,<5",
-    "pytest-watcher>=0.3.4,<1",
-    "pytest-asyncio>=0.21.1,<1",
-    "pytest-retry>=1.7,<2",
-    "pytest-socket>=0.7,<1",
-    "google-cloud-documentai>=2.24.2,<3",
-    "google-cloud-documentai-toolbox>=0.13.3a0,<1; python_version<'3.13'",
-    "google-cloud-bigquery>=3.19,<4",
-    "google-cloud-discoveryengine>=0.11.14,<1",
-    "cloudpickle>=3.0,<4",
+    "pytest>=7.3.0,<8.0.0",
+    "freezegun>=1.2.2,<2.0.0",
+    "pytest-mock>=3.10.0,<4.0.0",
+    "syrupy>=4.0.2,<5.0.0",
+    "pytest-watcher>=0.3.4,<1.0.0",
+    "pytest-asyncio>=0.21.1,<1.0.0",
+    "pytest-retry>=1.7.0,<2.0.0",
+    "pytest-socket>=0.7.0,<1.0.0",
+    "google-cloud-documentai>=2.24.2,<3.0.0",
+    #"google-cloud-documentai-toolbox>=0.13.3a0,<1.0.0",
+    "google-cloud-bigquery>=3.21.0,<4.0.0",
+    "google-cloud-discoveryengine>=0.11.14,<1.0.0",
+    "cloudpickle>=3.0.0,<4.0.0",
 ]
+
 test_integration = [
-    "pillow>=10.1,<11",
+    "pillow>=12.0.0,<13.0.0",
 ]
+
 lint = [
-    "ruff>=0.12.10,<1",
+    "ruff>=0.14.0,<1",
 ]
+
 typing = [
-    "mypy>=1.17.1,<2",
-    "types-requests>=2.28.11.5,<3",
-    "types-google-cloud-ndb>=2.2.0.1,<3",
-    "types-pillow>=10.1.0.2,<11",
-    "types-protobuf>=4.24.0.20240302,<5",
-    "types-beautifulsoup4>=4.12.0,<5",
+    "mypy>=1.17.1,<2.0.0",
+    "types-requests>=2.28.11.5,<3.0.0",
+    "types-google-cloud-ndb>=2.2.0.1,<3.0.0.0",
+    "types-pillow>=10.1.0.2,<11.0.0.0",
+    "types-protobuf>=4.24.0.20240302,<5.0.0.0",
+    "types-beautifulsoup4>=4.12.0,<5.0.0",
 ]
+
 dev = [
-    "pillow>=10.1,<11",
-    "types-requests>=2.31.0.10,<3",
-    "types-pillow>=10.1.0.2,<11",
-    "types-google-cloud-ndb>=2.2.0.1,<3",
+    "pillow>=12.0.0,<13.0.0",
+    "types-requests>=2.31.0.10,<3.0.0.0",
+    "types-pillow>=10.1.0.2,<11.0.0.0",
+    "types-google-cloud-ndb>=2.2.0.1,<3.0.0.0",
 ]
 
 [tool.ruff]
 fix = true
 
+[tool.ruff.format]
+docstring-code-format = true
+
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "I",
+    "E", # pycodestyle
+    "F", # pyflakes
+    "I", # isort
 ]
 
 [tool.mypy]
 disallow_untyped_defs = "True"
 ignore_missing_imports = "True"
 
+[tool.uv]
+constraint-dependencies = [
+    "llvmlite!=0.45.0; sys_platform == 'darwin' and platform_machine == 'arm64'"
+]
+
 [tool.coverage.run]
 omit = [
     "tests/*",
+    "*/site-packages/*",
+    "*/.venv/*",
+    "*/venv/*",
 ]
 
 [tool.pytest.ini_options]
+# --strict-markers will raise errors on unknown marks.
+# https://docs.pytest.org/en/7.1.x/how-to/mark.html#raising-errors-on-unknown-marks
+#
+# https://docs.pytest.org/en/7.1.x/reference/reference.html
+# --strict-config       any warnings encountered while parsing the `pytest`
+#                       section of the configuration file raise errors.
+#
+# https://github.com/tophat/syrupy
+# --snapshot-warn-unused    Prints a warning on unused snapshots rather than fail the test suite.
 addopts = "--snapshot-warn-unused --strict-markers --strict-config --durations=5"
+# Registering custom markers.
+# https://docs.pytest.org/en/7.1.x/example/markers.html#registering-markers
 markers = [
     "requires: mark tests as requiring a specific library",
     "asyncio: mark tests as requiring asyncio",

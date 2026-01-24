@@ -8,12 +8,14 @@ import numpy as np
 from numpy.linalg import lstsq
 from numpy.random import RandomState, standard_normal
 from numpy.testing import assert_allclose
-import pandas
-from pandas import Categorical, DataFrame, Series, date_range, get_dummies
+from pandas import Categorical, DataFrame, Index, Series, date_range, get_dummies
 from pandas.testing import assert_frame_equal, assert_series_equal
+import xarray as xr
+from xarray.core.dtypes import NA
 
 from linearmodels.panel.data import PanelData
 from linearmodels.shared.utility import AttrDict, panel_to_frame
+import linearmodels.typing.data
 
 try:
     import xarray  # noqa: F401
@@ -28,8 +30,8 @@ if not MISSING_XARRAY:
 
 
 def lsdv(
-    y: pandas.DataFrame,
-    x: pandas.DataFrame,
+    y: DataFrame,
+    x: DataFrame,
     has_const=False,
     entity=False,
     time=False,
@@ -88,7 +90,6 @@ def generate_data(
         np.random.seed(12345)
     else:
         np.random.set_state(rng.get_state())
-    import linearmodels.typing.data
 
     n, t, k = ntk
     k += const
@@ -162,8 +163,6 @@ def generate_data(
         return AttrDict(y=y_df, x=x_df, w=w_df, c=c_df, vc1=vc1_df, vc2=vc2_df)
 
     assert datatype == "xarray"
-    import xarray as xr
-    from xarray.core.dtypes import NA
 
     x_xr = xr.DataArray(
         PanelData(x_df).values3d,
@@ -200,13 +199,22 @@ def generate_data(
 
 
 def assert_results_equal(res1, res2, test_fit=True, test_df=True, strict=True):
+
+    def fix_index(x: Series | DataFrame, n: int):
+        if isinstance(x, Series):
+            out = x.iloc[:n].copy()
+        else:
+            out = x.iloc[:n, :n].copy()
+        out.index = Index(out.index.to_list())
+        return out
+
     n = min(res1.params.shape[0], res2.params.shape[0])
 
-    assert_series_equal(res1.params.iloc[:n], res2.params.iloc[:n])
-    assert_series_equal(res1.pvalues.iloc[:n], res2.pvalues.iloc[:n])
-    assert_series_equal(res1.tstats.iloc[:n], res2.tstats.iloc[:n])
-    assert_frame_equal(res1.cov.iloc[:n, :n], res2.cov.iloc[:n, :n])
-    assert_frame_equal(res1.conf_int().iloc[:n], res2.conf_int().iloc[:n])
+    assert_series_equal(res1.params.iloc[:n], fix_index(res2.params, n))
+    assert_series_equal(res1.pvalues.iloc[:n], fix_index(res2.pvalues, n))
+    assert_series_equal(res1.tstats.iloc[:n], fix_index(res2.tstats, n))
+    assert_frame_equal(res1.cov.iloc[:n, :n], fix_index(res2.cov, n))
+    assert_frame_equal(res1.conf_int().iloc[:n], fix_index(res2.conf_int(), n))
 
     assert_allclose(res1.s2, res2.s2)
 

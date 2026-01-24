@@ -17,6 +17,12 @@ class Receipt(BaseObject):
     __items = []
     """Список товаров в заказе. Для чеков по 54-ФЗ: если используете Чеки от ЮKassa, можно передать максимум 80товаров, если используете стороннюю онлайн-кассу, максимум 100 товаров. Для чеков самозанятых — максимум 6 товаров."""  # noqa: E501
 
+    __internet = None
+    """Признак проведения платежа в интернете (тег в 54 ФЗ — 1125) — указывает на оплату через интернет.  Возможные значения: * ~`true` — оплата прошла онлайн, через интернет (например, на вашем сайте или в приложении); * ~`false` — оплата прошла офлайн, при личном взаимодействии (например, в торговой точке или при встрече с курьером). По умолчанию ~`true`. Если вы принимаете платежи офлайн, передайте в запросе значение ~`false`. """  # noqa: E501
+
+    __timezone = None
+    """Номер часовой зоны для адреса, по которому вы принимаете платежи (тег в 54 ФЗ — 1011).  Указывается, только если в чеке есть товары, которые подлежат обязательной маркировке (в `items.mark_code_info` передается параметр `gs_1m`, `short` или `fur`). """  # noqa: E501
+
     __tax_system_code = None
     """Система налогообложения магазина (тег в 54 ФЗ — 1055).  Для сторонних онлайн-касс: обязательный параметр, если вы используете онлайн-кассу Атол Онлайн, обновленную до ФФД 1.2, или у вас несколько систем налогообложения, в остальных случаях не передается. %[Перечень возможных значений](/developers/payment-acceptance/receipts/54fz/other-services/parameters-values#tax-systems)  Для Чеков от ЮKassa: параметр передавать не нужно, ЮKassa его проигнорирует. """  # noqa: E501
 
@@ -84,6 +90,53 @@ class Receipt(BaseObject):
             self.__items = []
         else:
             raise TypeError('Invalid items value type in receipt')
+
+    @property
+    def internet(self):
+        """
+        Возвращает internet модели Receipt.
+
+        :return: internet модели Receipt.
+        :rtype: bool
+        """
+        return self.__internet
+
+    @internet.setter
+    def internet(self, value):
+        """
+        Устанавливает internet модели Receipt.
+
+        :param value: internet модели Receipt.
+        :type value: bool
+        """
+        if isinstance(value, bool):
+            self.__internet = value
+        else:
+            raise TypeError('Invalid internet value type in Receipt')
+
+    @property
+    def timezone(self):
+        """
+        Возвращает timezone модели Receipt.
+
+        :return: timezone модели Receipt.
+        :rtype: int
+        """
+        return self.__timezone
+
+    @timezone.setter
+    def timezone(self, value):
+        """
+        Устанавливает timezone модели Receipt.
+
+        :param value: timezone модели Receipt.
+        :type value: int
+        """
+        if value is not None and value > 11:  # noqa: E501
+            raise ValueError("Invalid value for `timezone`, must be a value less than or equal to `11`")  # noqa: E501
+        if value is not None and value < 1:  # noqa: E501
+            raise ValueError("Invalid value for `timezone`, must be a value greater than or equal to `1`")  # noqa: E501
+        self.__timezone = value
 
     @property
     def tax_system_code(self):

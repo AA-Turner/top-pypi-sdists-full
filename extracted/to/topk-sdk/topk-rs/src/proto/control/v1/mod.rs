@@ -14,6 +14,7 @@ impl field_type::DataType {
             field_type::DataType::Boolean(..) => "boolean".to_string(),
             field_type::DataType::F32Vector(..) => "f32_vector".to_string(),
             field_type::DataType::U8Vector(..) => "u8_vector".to_string(),
+            field_type::DataType::I8Vector(..) => "i8_vector".to_string(),
             field_type::DataType::BinaryVector(..) => "binary_vector".to_string(),
             field_type::DataType::F32SparseVector(..) => "f32_sparse_vector".to_string(),
             field_type::DataType::U8SparseVector(..) => "u8_sparse_vector".to_string(),
@@ -23,6 +24,14 @@ impl field_type::DataType {
                 field_type_list::ListValueType::Float => "list<float>".to_string(),
                 field_type_list::ListValueType::String => "list<string>".to_string(),
                 field_type_list::ListValueType::Unspecified => "list<_>".to_string(),
+            },
+            field_type::DataType::Matrix(matrix) => match matrix.value_type() {
+                field_type_matrix::MatrixValueType::F32 => "matrix<f32>".to_string(),
+                field_type_matrix::MatrixValueType::F16 => "matrix<f16>".to_string(),
+                field_type_matrix::MatrixValueType::F8 => "matrix<f8>".to_string(),
+                field_type_matrix::MatrixValueType::U8 => "matrix<u8>".to_string(),
+                field_type_matrix::MatrixValueType::I8 => "matrix<i8>".to_string(),
+                field_type_matrix::MatrixValueType::Unspecified => "matrix<_>".to_string(),
             },
         }
     }

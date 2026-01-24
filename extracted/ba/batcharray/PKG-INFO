@@ -1,62 +1,57 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: batcharray
-Version: 0.1.0
+Version: 0.3.0
+Dynamic: Maintainer
+Dynamic: Maintainer-email
 Summary: Functions to manipulate NumPy arrays
-Home-page: https://github.com/durandtibo/batcharray
-License: BSD-3-Clause
-Keywords: batch,sequence,numpy,array
-Author: Thibaut Durand
-Author-email: durand.tibo+gh@gmail.com
-Requires-Python: >=3.9,<3.14
+Project-URL: homepage, https://github.com/durandtibo/batcharray
+Project-URL: repository, https://github.com/durandtibo/batcharray
+Project-URL: documentation, https://durandtibo.github.io/batcharray/
+Author-email: Thibaut Durand <durand.tibo+gh@gmail.com>
+License-Expression: BSD-3-Clause
+License-File: LICENSE
+Keywords: array,batch,numpy,sequence
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development :: Libraries
+Requires-Python: >=3.10
+Requires-Dist: coola<1.0,>=0.11.0
+Requires-Dist: numpy<3.0,>=1.22
 Provides-Extra: all
-Requires-Dist: coola (>=0.8.4,<1.0)
-Requires-Dist: numpy (>=1.22,<3.0)
-Project-URL: Repository, https://github.com/durandtibo/batcharray
 Description-Content-Type: text/markdown
 
 # batcharray
 
 <p align="center">
-    <a href="https://github.com/durandtibo/batcharray/actions">
-        <img alt="CI" src="https://github.com/durandtibo/batcharray/workflows/CI/badge.svg">
+    <a href="https://github.com/durandtibo/batcharray/actions/workflows/ci.yaml">
+        <img alt="CI" src="https://github.com/durandtibo/batcharray/actions/workflows/ci.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/batcharray/actions">
-        <img alt="Nightly Tests" src="https://github.com/durandtibo/batcharray/workflows/Nightly%20Tests/badge.svg">
+    <a href="https://github.com/durandtibo/batcharray/actions/workflows/nightly-tests.yaml">
+        <img alt="Nightly Tests" src="https://github.com/durandtibo/batcharray/actions/workflows/nightly-tests.yaml/badge.svg">
     </a>
-    <a href="https://github.com/durandtibo/batcharray/actions">
-        <img alt="Nightly Package Tests" src="https://github.com/durandtibo/batcharray/workflows/Nightly%20Package%20Tests/badge.svg">
+    <a href="https://github.com/durandtibo/batcharray/actions/workflows/nightly-package.yaml">
+        <img alt="Nightly Package Tests" src="https://github.com/durandtibo/batcharray/actions/workflows/nightly-package.yaml/badge.svg">
     </a>
-    <br/>
-    <a href="https://durandtibo.github.io/batcharray/">
-        <img alt="Documentation" src="https://github.com/durandtibo/batcharray/workflows/Documentation%20(stable)/badge.svg">
-    </a>
-    <a href="https://durandtibo.github.io/batcharray/">
-        <img alt="Documentation" src="https://github.com/durandtibo/batcharray/workflows/Documentation%20(unstable)/badge.svg">
-    </a>
-    <br/>
     <a href="https://codecov.io/gh/durandtibo/batcharray">
         <img alt="Codecov" src="https://codecov.io/gh/durandtibo/batcharray/branch/main/graph/badge.svg">
     </a>
-    <a href="https://codeclimate.com/github/durandtibo/batcharray/maintainability">
-        <img src="https://api.codeclimate.com/v1/badges/9907f3838df3b9a1cba8/maintainability" />
+    <br/>
+    <a href="https://durandtibo.github.io/batcharray/">
+        <img alt="Documentation" src="https://github.com/durandtibo/batcharray/actions/workflows/docs.yaml/badge.svg">
     </a>
-    <a href="https://codeclimate.com/github/durandtibo/batcharray/test_coverage">
-        <img src="https://api.codeclimate.com/v1/badges/9907f3838df3b9a1cba8/test_coverage" />
+    <a href="https://durandtibo.github.io/batcharray/dev/">
+        <img alt="Documentation" src="https://github.com/durandtibo/batcharray/actions/workflows/docs-dev.yaml/badge.svg">
     </a>
     <br/>
     <a href="https://github.com/psf/black">
@@ -102,6 +97,7 @@ is the batch axis and the second axis is the sequence axis.
 - [Motivation](#motivation)
 - [Documentation](https://durandtibo.github.io/batcharray/)
 - [Installation](#installation)
+- [Features](#features)
 - [Contributing](#contributing)
 - [API stability](#api-stability)
 - [License](#license)
@@ -147,6 +143,34 @@ function `split_along_batch`:
 
 Please check the documentation to see all the implemented functions.
 
+## Features
+
+`batcharray` provides several modules for different use cases:
+
+- `array`: Functions to manipulate single NumPy arrays with batch and sequence dimensions
+    - Slicing, indexing, and selection operations
+    - Statistical reductions (mean, max, min, etc.)
+    - Sorting and permutation operations
+    - Cumulative operations (cumsum, cumprod)
+    - Support for both regular and masked arrays
+- `nested`: Functions to manipulate nested data structures (dicts, lists) containing arrays
+    - Apply operations to all arrays in a structure simultaneously
+    - Maintain relationships between related arrays
+    - Mathematical operations (abs, exp, log, trigonometric functions)
+    - All operations from `array` module, but for nested structures
+- `computation`: Computation models for abstracting array operations
+    - Automatic selection of appropriate implementation based on array type
+    - Support for regular arrays and masked arrays
+    - Extensible for custom array types
+- `recursive`: Tools for recursively applying functions to nested structures
+    - Traverse complex hierarchies of dicts, lists, and tuples
+    - Apply transformations to specific types
+    - Customizable traversal strategies
+- `utils`: Utility functions for exploring nested structures
+    - Breadth-first search (BFS) for wide structures
+    - Depth-first search (DFS) for deep structures
+    - Helpful for debugging and validation
+
 ## Documentation
 
 - [latest (stable)](https://durandtibo.github.io/batcharray/): documentation from the latest stable
@@ -162,7 +186,7 @@ a [virtual environment](https://packaging.python.org/guides/installing-using-pip
 `batcharray` can be installed from pip using the following command:
 
 ```shell
-pip install batcharray
+uv pip install batcharray
 ```
 
 To make the package as slim as possible, only the minimal packages required to use `batcharray` are
@@ -170,26 +194,28 @@ installed.
 To include all the dependencies, you can use the following command:
 
 ```shell
-pip install batcharray[all]
+uv pip install batcharray[all]
 ```
 
 Please check the [get started page](https://durandtibo.github.io/batcharray/get_started) to see how
 to install only some specific dependencies or other alternatives to install the library.
 The following is the corresponding `batcharray` versions and tested dependencies.
 
-| `batcharray` | `coola`        | `numpy`       | `python`      |
-|--------------|----------------|---------------|---------------|
-| `main`       | `>=0.8.4,<1.0` | `>=1.22,<3.0` | `>=3.9,<3.14` |
-| `0.1.0`      | `>=0.8.4,<1.0` | `>=1.22,<3.0` | `>=3.9,<3.14` |
-| `0.0.3`      | `>=0.3,<1.0`   | `>=1.22,<3.0` | `>=3.9,<3.13` |
-| `0.0.2`      | `>=0.3,<1.0`   | `>=1.22,<2.0` | `>=3.9,<3.13` |
-| `0.0.1`      | `>=0.3,<1.0`   | `>=1.22,<2.0` | `>=3.9,<3.13` |
+| `batcharray` | `coola`        | `numpy`       | `python`       |
+|--------------|----------------|---------------|----------------|
+| `main`       | `>=0.11,<1.0`  | `>=1.22,<3.0` | `>=3.10`       |
+| `0.3.0`      | `>=0.11,<1.0`  | `>=1.22,<3.0` | `>=3.10`       |
+| `0.2.0`      | `>=0.9.1,<1.0` | `>=1.22,<3.0` | `>=3.10,<3.15` |
+| `0.1.0`      | `>=0.8.4,<1.0` | `>=1.22,<3.0` | `>=3.9,<3.14`  |
+| `0.0.3`      | `>=0.3,<1.0`   | `>=1.22,<3.0` | `>=3.9,<3.13`  |
+| `0.0.2`      | `>=0.3,<1.0`   | `>=1.22,<2.0` | `>=3.9,<3.13`  |
+| `0.0.1`      | `>=0.3,<1.0`   | `>=1.22,<2.0` | `>=3.9,<3.13`  |
 
 <sup>*</sup> indicates an optional dependency
 
 ## Contributing
 
-Please check the instructions in [CONTRIBUTING.md](.github/CONTRIBUTING.md).
+Please check the instructions in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Suggestions and Communication
 
@@ -210,4 +236,3 @@ that was using the old version of `batcharray`.
 
 `batcharray` is licensed under BSD 3-Clause "New" or "Revised" license available
 in [LICENSE](LICENSE) file.
-

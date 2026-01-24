@@ -505,3 +505,55 @@ class TestInternalUtils(unittest.TestCase):
                 "Encountered error getting project default tooling environment for project"
                 in context.exception
             )
+
+    def test_get_account_id_from_valid_execution_role_arn(self):
+        """Test successful extraction of account ID from valid ExecutionRoleArn"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = "arn:aws:iam::123456789012:role/SageMakerExecutionRole"
+            account_id = self.utils._get_account_id()
+            self.assertEqual(account_id, "123456789012")
+            mock_get_field.assert_called_once_with("ExecutionRoleArn")
+
+    def test_get_account_id_from_valid_execution_role_arn_with_path(self):
+        """Test extraction with ARN that includes role path"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = (
+                "arn:aws:iam::987654321098:role/service-role/MyExecutionRole"
+            )
+            account_id = self.utils._get_account_id()
+            self.assertEqual(account_id, "987654321098")
+
+    def test_get_account_id_from_execution_role_arn_invalid_format_too_few_parts(self):
+        """Test handling of ARN with too few parts"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = "arn:aws:iam:123456789012"  # Only 4 parts, needs 5+
+            account_id = self.utils._get_account_id()
+            self.assertIsNone(account_id)
+
+    def test_get_account_id_from_execution_role_arn_invalid_format_wrong_service(self):
+        """Test handling of ARN with wrong service (not iam)"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = "arn:aws:s3::123456789012:bucket/my-bucket"
+            account_id = self.utils._get_account_id()
+            self.assertIsNone(account_id)
+
+    def test_get_account_id_from_execution_role_arn_invalid_format_wrong_prefix(self):
+        """Test handling of ARN with wrong prefix (not 'arn')"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = "invalid:aws:iam::123456789012:role/SageMakerRole"
+            account_id = self.utils._get_account_id()
+            self.assertIsNone(account_id)
+
+    def test_get_account_id_execution_role_arn_empty_string(self):
+        """Test handling when ExecutionRoleArn is empty string"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = ""
+            account_id = self.utils._get_account_id()
+            self.assertIsNone(account_id)
+
+    def test_get_account_id_execution_role_arn_none(self):
+        """Test handling when ExecutionRoleArn is None"""
+        with patch.object(self.utils, "_get_field_from_environment") as mock_get_field:
+            mock_get_field.return_value = None
+            account_id = self.utils._get_account_id()
+            self.assertIsNone(account_id)

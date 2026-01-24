@@ -9,29 +9,21 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
-from githubkit.typing import Missing
-from githubkit.utils import UNSET
 
 
-class CodeScanningDefaultSetupUpdateResponse(GitHubModel):
-    """CodeScanningDefaultSetupUpdateResponse
+class ActionsWorkflowAccessToRepository(GitHubModel):
+    """ActionsWorkflowAccessToRepository"""
 
-    You can use `run_url` to track the status of the run. This includes a property
-    status and conclusion.
-    You should not rely on this always being an actions workflow run object.
-    """
-
-    run_id: Missing[int] = Field(
-        default=UNSET, description="ID of the corresponding run."
-    )
-    run_url: Missing[str] = Field(
-        default=UNSET, description="URL of the corresponding run."
+    access_level: Literal["none", "user", "organization", "enterprise"] = Field(
+        description="Defines the level of access that workflows outside of the repository have to actions and reusable workflows within the\nrepository.\n\n`none` means the access is only possible from workflows in this repository. `user` level access allows sharing across user owned private repositories only. `organization` level access allows sharing across the organization. `enterprise` level access allows sharing across the enterprise."
     )
 
 
-model_rebuild(CodeScanningDefaultSetupUpdateResponse)
+model_rebuild(ActionsWorkflowAccessToRepository)
 
-__all__ = ("CodeScanningDefaultSetupUpdateResponse",)
+__all__ = ("ActionsWorkflowAccessToRepository",)

@@ -1,6 +1,7 @@
-from typing import List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from anyscale._private.anyscale_client import AnyscaleClientInterface
+from anyscale._private.models.model_base import ResultIterator
 from anyscale._private.sdk import sdk_docs
 from anyscale._private.sdk.base_sdk import Timer
 from anyscale.cli_logger import BlockLogger
@@ -12,6 +13,8 @@ from anyscale.workspace.commands import (
     _GENERATE_SSH_CONFIG_FILE_EXAMPLE,
     _GET_ARG_DOCSTRINGS,
     _GET_EXAMPLE,
+    _LIST_ARG_DOCSTRINGS,
+    _LIST_EXAMPLE,
     _PULL_ARG_DOCSTRINGS,
     _PULL_EXAMPLE,
     _PUSH_ARG_DOCSTRINGS,
@@ -22,28 +25,40 @@ from anyscale.workspace.commands import (
     _START_EXAMPLE,
     _STATUS_ARG_DOCSTRINGS,
     _STATUS_EXAMPLE,
+    _TAGS_ADD_ARG_DOCSTRINGS,
+    _TAGS_ADD_EXAMPLE,
+    _TAGS_LIST_ARG_DOCSTRINGS,
+    _TAGS_LIST_EXAMPLE,
+    _TAGS_REMOVE_ARG_DOCSTRINGS,
+    _TAGS_REMOVE_EXAMPLE,
     _TERMINATE_ARG_DOCSTRINGS,
     _TERMINATE_EXAMPLE,
     _UPDATE_ARG_DOCSTRINGS,
     _UPDATE_EXAMPLE,
     _WAIT_ARG_DOCSTRINGS,
     _WAIT_EXAMPLE,
-    create,
-    generate_ssh_config_file,
-    get,
-    pull,
-    push,
-    run_command,
-    start,
-    status,
-    terminate,
-    update,
-    wait,
+    add_tags as add_tags,
+    create as create,
+    generate_ssh_config_file as generate_ssh_config_file,
+    get as get,
+    list as list,  # noqa: A004 - claude_comment("claude-opus-4-5", "SDK public API re-export")
+    list_tags as list_tags,
+    pull as pull,
+    push as push,
+    remove_tags as remove_tags,
+    run_command as run_command,
+    start as start,
+    status as status,
+    terminate as terminate,
+    update as update,
+    wait as wait,
 )
 from anyscale.workspace.models import (
     UpdateWorkspaceConfig,
     Workspace,
     WorkspaceConfig,
+    WorkspaceSortField,
+    WorkspaceSortOrder,
     WorkspaceState,
 )
 
@@ -210,7 +225,11 @@ class WorkspaceSDK:
         rsync_args: Optional[List[str]] = None,
         delete: bool = False,
     ):
-        """Pull a file from a workspace."""
+        """Pull a file from a workspace.
+
+        With --delete, files in the local directory that don't exist in the workspace
+        will be removed. Excluded files (like .git) are preserved and not deleted.
+        """
         self._private_sdk.pull(
             name=name,
             id=id,
@@ -237,7 +256,11 @@ class WorkspaceSDK:
         rsync_args: Optional[List[str]] = None,
         delete: bool = False,
     ):
-        """Push a directory to a workspace."""
+        """Push a directory to a workspace.
+
+        With --delete, files in the workspace that don't exist locally will be removed.
+        Excluded files (like .git) are preserved and not deleted.
+        """
         self._private_sdk.push(
             name=name,
             id=id,
@@ -270,6 +293,106 @@ class WorkspaceSDK:
         id: Optional[str] = None,  # noqa: A002
         cloud: Optional[str] = None,
         project: Optional[str] = None,
+        include_config: bool = True,
     ) -> Workspace:
-        """Get a workspace."""
-        return self._private_sdk.get(name=name, id=id, cloud=cloud, project=project)
+        """Get a workspace.
+
+        Args:
+            include_config: If True (default), fetch full workspace config. Set to False for efficiency.
+        """
+        return self._private_sdk.get(
+            name=name,
+            id=id,
+            cloud=cloud,
+            project=project,
+            include_config=include_config,
+        )
+
+    @sdk_docs(
+        doc_py_example=_LIST_EXAMPLE, arg_docstrings=_LIST_ARG_DOCSTRINGS,
+    )
+    def list(  # noqa: F811, A001, PLR0913, PLR0917
+        self,
+        *,
+        workspace_id: Optional[str] = None,
+        name: Optional[str] = None,
+        project: Optional[str] = None,
+        cloud: Optional[str] = None,
+        creator_id: Optional[str] = None,
+        state_filter: Optional[Union[List["WorkspaceState"], List[str]]] = None,
+        tags_filter: Optional[Dict[str, List[str]]] = None,
+        include_config: bool = False,
+        sort_field: Optional[Union[str, "WorkspaceSortField"]] = None,
+        sort_order: Optional[Union[str, "WorkspaceSortOrder"]] = None,
+        max_items: Optional[int] = None,
+        page_size: Optional[int] = None,
+    ) -> ResultIterator[Workspace]:
+        """List workspaces with optional filters.
+
+        Returns an iterator of Workspace objects. By default, filters to non-terminated states
+        and does not fetch expensive config data (set include_config=True if needed).
+        """
+        return self._private_sdk.list(
+            workspace_id=workspace_id,
+            name=name,
+            project=project,
+            cloud=cloud,
+            creator_id=creator_id,
+            state_filter=state_filter,
+            tags_filter=tags_filter,
+            include_config=include_config,
+            sort_field=sort_field,
+            sort_order=sort_order,
+            max_items=max_items,
+            page_size=page_size,
+        )
+
+    @sdk_docs(
+        doc_py_example=_TAGS_ADD_EXAMPLE, arg_docstrings=_TAGS_ADD_ARG_DOCSTRINGS,
+    )
+    def add_tags(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        tags: Dict[str, str],
+    ) -> None:
+        """Upsert (add/update) tag key/value pairs for a workspace."""
+        return self._private_sdk.add_tags(
+            id=id, name=name, cloud=cloud, project=project, tags=tags
+        )
+
+    @sdk_docs(
+        doc_py_example=_TAGS_REMOVE_EXAMPLE, arg_docstrings=_TAGS_REMOVE_ARG_DOCSTRINGS,
+    )
+    def remove_tags(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+        keys: List[str],
+    ) -> None:
+        """Remove tags by key from a workspace."""
+        return self._private_sdk.remove_tags(
+            id=id, name=name, cloud=cloud, project=project, keys=keys
+        )
+
+    @sdk_docs(
+        doc_py_example=_TAGS_LIST_EXAMPLE, arg_docstrings=_TAGS_LIST_ARG_DOCSTRINGS,
+    )
+    def list_tags(  # noqa: F811
+        self,
+        *,
+        id: Optional[str] = None,  # noqa: A002
+        name: Optional[str] = None,
+        cloud: Optional[str] = None,
+        project: Optional[str] = None,
+    ) -> Dict[str, str]:
+        """List tags for a workspace."""
+        return self._private_sdk.list_tags(
+            id=id, name=name, cloud=cloud, project=project
+        )

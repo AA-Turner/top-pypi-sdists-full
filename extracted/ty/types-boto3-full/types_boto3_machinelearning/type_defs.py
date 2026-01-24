@@ -3,7 +3,7 @@ Type annotations for machinelearning service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_machinelearning/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from .literals import (
@@ -32,12 +33,6 @@ from .literals import (
     TaggableResourceTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -140,7 +135,7 @@ class TagTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -306,7 +301,7 @@ class DescribeTagsInputTypeDef(TypedDict):
 
 
 class PerformanceMetricsTypeDef(TypedDict):
-    Properties: NotRequired[Dict[str, str]]
+    Properties: NotRequired[dict[str, str]]
 
 
 class GetBatchPredictionInputTypeDef(TypedDict):
@@ -336,8 +331,8 @@ class PredictInputTypeDef(TypedDict):
 class PredictionTypeDef(TypedDict):
     predictedLabel: NotRequired[str]
     predictedValue: NotRequired[float]
-    predictedScores: NotRequired[Dict[str, float]]
-    details: NotRequired[Dict[DetailsAttributesType, str]]
+    predictedScores: NotRequired[dict[str, float]]
+    details: NotRequired[dict[DetailsAttributesType, str]]
 
 
 class RDSDatabaseCredentialsTypeDef(TypedDict):
@@ -452,7 +447,7 @@ class DeleteTagsOutputTypeDef(TypedDict):
 class DescribeTagsOutputTypeDef(TypedDict):
     ResourceId: str
     ResourceType: TaggableResourceTypeType
-    Tags: List[TagTypeDef]
+    Tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -498,7 +493,7 @@ class UpdateMLModelOutputTypeDef(TypedDict):
 
 
 class DescribeBatchPredictionsOutputTypeDef(TypedDict):
-    Results: List[BatchPredictionTypeDef]
+    Results: list[BatchPredictionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -532,7 +527,7 @@ class GetMLModelOutputTypeDef(TypedDict):
     Status: EntityStatusType
     SizeInBytes: int
     EndpointInfo: RealtimeEndpointInfoTypeDef
-    TrainingParameters: Dict[str, str]
+    TrainingParameters: dict[str, str]
     InputDataLocationS3: str
     MLModelType: MLModelTypeType
     ScoreThreshold: float
@@ -557,7 +552,7 @@ class MLModelTypeDef(TypedDict):
     Status: NotRequired[EntityStatusType]
     SizeInBytes: NotRequired[int]
     EndpointInfo: NotRequired[RealtimeEndpointInfoTypeDef]
-    TrainingParameters: NotRequired[Dict[str, str]]
+    TrainingParameters: NotRequired[dict[str, str]]
     InputDataLocationS3: NotRequired[str]
     Algorithm: NotRequired[Literal["sgd"]]
     MLModelType: NotRequired[MLModelTypeType]
@@ -762,13 +757,13 @@ class RedshiftMetadataTypeDef(TypedDict):
 
 
 class DescribeMLModelsOutputTypeDef(TypedDict):
-    Results: List[MLModelTypeDef]
+    Results: list[MLModelTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
 
 class DescribeEvaluationsOutputTypeDef(TypedDict):
-    Results: List[EvaluationTypeDef]
+    Results: list[EvaluationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -835,6 +830,6 @@ class GetDataSourceOutputTypeDef(TypedDict):
 
 
 class DescribeDataSourcesOutputTypeDef(TypedDict):
-    Results: List[DataSourceTypeDef]
+    Results: list[DataSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]

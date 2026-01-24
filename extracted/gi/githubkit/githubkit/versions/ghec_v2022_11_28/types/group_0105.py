@@ -9,30 +9,31 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing_extensions import NotRequired, TypedDict
-
-from .group_0097 import RepositoryRulesetConditionsPropRefNameType
-from .group_0099 import (
-    RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryPropertyType,
-)
-from .group_0101 import (
-    EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationIdType,
-)
+from typing import Union
+from typing_extensions import TypedDict
 
 
-class EnterpriseRulesetConditionsOneof3Type(TypedDict):
-    """organization_id_and_repository_property
+class CustomPropertyValueType(TypedDict):
+    """Custom Property Value
 
-    Conditions to target organization by id and repositories by property
+    Custom property name and associated value
     """
 
-    organization_id: (
-        EnterpriseRulesetConditionsOrganizationIdTargetPropOrganizationIdType
-    )
-    repository_property: (
-        RepositoryRulesetConditionsRepositoryPropertyTargetPropRepositoryPropertyType
-    )
-    ref_name: NotRequired[RepositoryRulesetConditionsPropRefNameType]
+    property_name: str
+    value: Union[str, list[str], None]
 
 
-__all__ = ("EnterpriseRulesetConditionsOneof3Type",)
+class CustomPropertyValueTypeForResponse(TypedDict):
+    """Custom Property Value
+
+    Custom property name and associated value
+    """
+
+    property_name: str
+    value: Union[str, list[str], None]
+
+
+__all__ = (
+    "CustomPropertyValueType",
+    "CustomPropertyValueTypeForResponse",
+)

@@ -158,8 +158,7 @@ def test_debugprint():
 
     F = D + E
     G = C + F
-    mode = pytensor.compile.get_default_mode().including("fusion")
-    g = pytensor.function([A, B, D, E], G, mode=mode)
+    g = pytensor.function([A, B, D, E], G)
 
     # just test that it work
     s = StringIO()
@@ -250,7 +249,7 @@ def test_debugprint():
     assert s == reference
 
     # Test the `profile` handling when profile data is missing
-    g = pytensor.function([A, B, D, E], G, mode=mode, profile=True)
+    g = pytensor.function([A, B, D, E], G, profile=True)
 
     s = StringIO()
     debugprint(g, file=s, id_type="", print_storage=True)
@@ -291,7 +290,7 @@ def test_debugprint():
     J = dvector()
     s = StringIO()
     debugprint(
-        pytensor.function([A, B, D, J], A + (B.dot(J) - D), mode="FAST_RUN"),
+        pytensor.function([A, B, D, J], A + (B.dot(J) - D), mode="CVM"),
         file=s,
         id_type="",
         print_destroy_map=True,
@@ -301,7 +300,8 @@ def test_debugprint():
     Gemv_op_name = "CGemv" if pytensor.config.blas__ldflags else "Gemv"
     exp_res = dedent(
         r"""
-        Composite{(i2 + (i0 - i1))} 4
+        Composite{(i0 + (i1 - i2))} 4
+        ├─ A
         ├─ ExpandDims{axis=0} v={0: [0]} 3
         """
         f"        │  └─ {Gemv_op_name}{{inplace}} d={{0: [0]}} 2"
@@ -313,17 +313,16 @@ def test_debugprint():
         │     ├─ B
         │     ├─ <Vector(float64, shape=(?,))>
         │     └─ 0.0
-        ├─ D
-        └─ A
+        └─ D
 
         Inner graphs:
 
-        Composite{(i2 + (i0 - i1))}
+        Composite{(i0 + (i1 - i2))}
         ← add 'o0'
-            ├─ i2
-            └─ sub
             ├─ i0
-            └─ i1
+            └─ sub
+            ├─ i1
+            └─ i2
         """
     ).lstrip()
 
@@ -486,7 +485,7 @@ def test_Print(capsys):
 
     fn()
 
-    stdout, stderr = capsys.readouterr()
+    stdout, _stderr = capsys.readouterr()
     assert "hello" in stdout
 
 

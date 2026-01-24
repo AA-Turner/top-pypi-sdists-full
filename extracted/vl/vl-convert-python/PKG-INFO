@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vl-convert-python
-Version: 1.8.0
+Version: 1.9.0.post1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 License-File: LICENSE
@@ -9,7 +9,6 @@ Home-Page: https://github.com/jonmmease/vl-convert
 License: BSD-3-Clause
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Source Code, https://github.com/jonmmease/vl-convert
 
 # Overview
 `vl-convert-python` is a dependency-free Python package for converting [Vega-Lite](https://vega.github.io/vega-lite/) chart specifications into static images (SVG or PNG) or [Vega](https://vega.github.io/vega/) chart specifications.

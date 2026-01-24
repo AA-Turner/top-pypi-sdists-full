@@ -226,6 +226,10 @@ class SgGridIdentityFederation:
         self.parameters = self.na_helper.set_parameters(self.module.params)
         # Calling generic SG rest_api class
         self.rest_api = SGRestAPI(self.module)
+        # Get API version
+        self.rest_api.get_sg_product_version()
+        self.api_version = self.rest_api.get_api_version()
+
         # Checking for the parameters passed and create new parameters list
         self.data = {}
 
@@ -247,7 +251,7 @@ class SgGridIdentityFederation:
             self.data["enableLDAPS"] = False
 
     def get_grid_identity_source(self):
-        api = "api/v3/grid/identity-source"
+        api = "api/%s/grid/identity-source" % self.api_version
         response, error = self.rest_api.get(api)
 
         if error:
@@ -257,7 +261,7 @@ class SgGridIdentityFederation:
         return None
 
     def update_identity_federation(self, test=False):
-        api = "api/v3/grid/identity-source"
+        api = "api/%s/grid/identity-source" % self.api_version
 
         params = {}
 
@@ -268,8 +272,11 @@ class SgGridIdentityFederation:
         if error:
             self.module.fail_json(msg=error, payload=self.data)
 
-        if response is not None:
-            return response["data"]
+        if response:
+            if response.get("status_code") == 204:
+                return response
+            if response.get("status_code") == 200:
+                return response["data"]
         else:
             return None
 

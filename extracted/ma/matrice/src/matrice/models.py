@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import requests
 
 from matrice.dataset import Dataset
-from matrice.utils import handle_response
+from matrice_common.utils import handle_response
 
 
 class Model:

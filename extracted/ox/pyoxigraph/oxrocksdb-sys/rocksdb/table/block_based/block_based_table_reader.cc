@@ -109,8 +109,8 @@ CacheAllocationPtr CopyBufferToHeap(MemoryAllocator* allocator, Slice& buf) {
       CachableEntry<T>* out_parsed_block) const;                               \
   template Status BlockBasedTable::CreateAndPinBlockInCache<T>(                \
       const ReadOptions& ro, const BlockHandle& handle,                        \
-      BlockContents* block_contents, CachableEntry<T>* out_parsed_block)       \
-      const;
+      UnownedPtr<Decompressor> decomp, BlockContents* block_contents,          \
+      CachableEntry<T>* out_parsed_block) const;
 
 INSTANTIATE_BLOCKLIKE_TEMPLATES(ParsedFullFilterBlock);
 INSTANTIATE_BLOCKLIKE_TEMPLATES(DecompressorDict);
@@ -1333,25 +1333,59 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
     s = FindMetaBlock(meta_iter, kUserDefinedIndexPrefix + udi_name,
                       &udi_block_handle);
     if (!s.ok()) {
-      return s;
+      RecordTick(rep_->ioptions.statistics.get(),
+                 SST_USER_DEFINED_INDEX_LOAD_FAIL_COUNT);
+      if (table_options.fail_if_no_udi_on_open) {
+        ROCKS_LOG_ERROR(rep_->ioptions.logger,
+                        "Failed to find the the UDI block %s in file %s; %s",
+                        udi_name.c_str(), rep_->file->file_name().c_str(),
+                        s.ToString().c_str());
+        // MAke the status more informative
+        s = Status::Corruption(s.ToString(), rep_->file->file_name());
+        return s;
+      } else {
+        // Emit a warning, but ignore the error status
+        ROCKS_LOG_WARN(rep_->ioptions.logger,
+                       "Failed to find the the UDI block %s in file %s; %s",
+                       udi_name.c_str(), rep_->file->file_name().c_str(),
+                       s.ToString().c_str());
+        s = Status::OK();
+      }
     }
-    // Read the block, and allocate on heap or pin in cache. The UDI block is
-    // not compressed. RetrieveBlock will verify the checksum.
-    s = RetrieveBlock(prefetch_buffer, ro, udi_block_handle,
-                      rep_->decompressor.get(), &rep_->udi_block,
-                      /*get_context=*/nullptr, lookup_context,
-                      /*for_compaction=*/false, use_cache, /*async_read=*/false,
-                      /*use_block_cache_for_lookup=*/false);
-    if (!s.ok()) {
-      return s;
-    }
-    assert(!rep_->udi_block.IsEmpty());
 
-    std::unique_ptr<UserDefinedIndexReader> udi_reader =
-        table_options.user_defined_index_factory->NewReader(
-            rep_->udi_block.GetValue()->data);
-    index_reader = std::make_unique<UserDefinedIndexReaderWrapper>(
-        udi_name, std::move(index_reader), std::move(udi_reader));
+    // If the UDI block size is 0, that means there's effectively no user
+    // defined index. In that case, skip setting up the reader.
+    if (udi_block_handle.size() > 0) {
+      // Read the block, and allocate on heap or pin in cache. The UDI block is
+      // not compressed. RetrieveBlock will verify the checksum.
+      if (s.ok()) {
+        s = RetrieveBlock(prefetch_buffer, ro, udi_block_handle,
+                          rep_->decompressor.get(), &rep_->udi_block,
+                          /*get_context=*/nullptr, lookup_context,
+                          /*for_compaction=*/false, use_cache,
+                          /*async_read=*/false,
+                          /*use_block_cache_for_lookup=*/false);
+      }
+      if (s.ok()) {
+        assert(!rep_->udi_block.IsEmpty());
+
+        std::unique_ptr<UserDefinedIndexReader> udi_reader;
+        UserDefinedIndexOption udi_option;
+        udi_option.comparator = rep_->internal_comparator.user_comparator();
+        s = table_options.user_defined_index_factory->NewReader(
+            udi_option, rep_->udi_block.GetValue()->data, udi_reader);
+        if (s.ok()) {
+          if (udi_reader) {
+            index_reader = std::make_unique<UserDefinedIndexReaderWrapper>(
+                udi_name, std::move(index_reader), std::move(udi_reader));
+          } else {
+            s = Status::Corruption("Failed to create UDI reader for " +
+                                   udi_name + " in file " +
+                                   rep_->file->file_name());
+          }
+        }
+      }
+    }
   }
 
   rep_->index_reader = std::move(index_reader);
@@ -1359,7 +1393,7 @@ Status BlockBasedTable::PrefetchIndexAndFilterBlocks(
   // The partitions of partitioned index are always stored in cache. They
   // are hence follow the configuration for pin and prefetch regardless of
   // the value of cache_index_and_filter_blocks
-  if (prefetch_all || pin_partition) {
+  if (s.ok() && (prefetch_all || pin_partition)) {
     s = rep_->index_reader->CacheDependencies(ro, pin_partition,
                                               prefetch_buffer);
   }
@@ -1741,13 +1775,55 @@ Status BlockBasedTable::LookupAndPinBlocksInCache(
 
 template <typename TBlocklike>
 Status BlockBasedTable::CreateAndPinBlockInCache(
-    const ReadOptions& ro, const BlockHandle& handle, BlockContents* contents,
+    const ReadOptions& ro, const BlockHandle& handle,
+    UnownedPtr<Decompressor> decomp, BlockContents* contents,
     CachableEntry<TBlocklike>* out_parsed_block) const {
-  return MaybeReadBlockAndLoadToCache(
-      nullptr, ro, handle, rep_->decompressor.get(),
-      /*for_compaction=*/false, out_parsed_block, nullptr, nullptr, contents,
-      /*async_read=*/false,
-      /*use_block_cache_for_lookup=*/true);
+  CompressionType compression_type = GetBlockCompressionType(*contents);
+  // If we don't own the contents and we don't need to decompress, copy
+  // the block to heap in order to have ownership. If decompression is
+  // needed, then the decompressor will allocate a buffer.
+  if (!contents->own_bytes() && compression_type == kNoCompression) {
+    Slice src = Slice(contents->data.data(), BlockSizeWithTrailer(handle));
+    *contents = BlockContents(
+        CopyBufferToHeap(GetMemoryAllocator(rep_->table_options), src),
+        handle.size());
+#ifndef NDEBUG
+    contents->has_trailer = true;
+#endif
+  }
+
+  Status s;
+  if (ro.fill_cache) {
+    s = MaybeReadBlockAndLoadToCache(nullptr, ro, handle, decomp,
+                                     /*for_compaction=*/false, out_parsed_block,
+                                     nullptr, nullptr, contents,
+                                     /*async_read=*/false,
+                                     /*use_block_cache_for_lookup=*/true);
+  }
+
+  if (!s.ok()) {
+    return s;
+  }
+
+  // fill_cache could be false, or no block cache is configured. In that
+  // case, decompress if necessary and take ownership of the block
+  if (out_parsed_block->GetValue() == nullptr && contents != nullptr) {
+    BlockContents tmp_contents;
+    if (compression_type != kNoCompression) {
+      s = DecompressSerializedBlock(contents->data.data(), handle.size(),
+                                    compression_type, *decomp, &tmp_contents,
+                                    rep_->ioptions,
+                                    GetMemoryAllocator(rep_->table_options));
+    } else {
+      tmp_contents = std::move(*contents);
+    }
+    if (s.ok()) {
+      std::unique_ptr<TBlocklike> block_holder;
+      rep_->create_context.Create(&block_holder, std::move(tmp_contents));
+      out_parsed_block->SetOwnedValue(std::move(block_holder));
+    }
+  }
+  return s;
 }
 
 // If contents is nullptr, this function looks up the block caches for the

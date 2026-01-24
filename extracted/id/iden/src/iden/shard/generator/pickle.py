@@ -13,39 +13,41 @@ T = TypeVar("T")
 
 
 class PickleShardGenerator(BaseFileShardGenerator[T]):
-    r"""Implement a pickle shard generator.
+    r"""Implement a pickle shard generator for creating shards with
+    pickle persistence.
+
+    This generator creates shards that store data using Python's pickle
+    protocol, suitable for arbitrary Python objects.
 
     Args:
         data: The data to save in the shard.
         path_uri: The path where to save the URI file.
         path_shard: The path where to save the shard data.
 
-    Example usage:
+    Example:
+        ```pycon
+        >>> import tempfile
+        >>> from pathlib import Path
+        >>> from iden.data.generator import DataGenerator
+        >>> from iden.shard.generator import PickleShardGenerator
+        >>> with tempfile.TemporaryDirectory() as tmpdir:
+        ...     generator = PickleShardGenerator(
+        ...         data=DataGenerator([1, 2, 3]),
+        ...         path_uri=Path(tmpdir).joinpath("uri"),
+        ...         path_shard=Path(tmpdir).joinpath("data"),
+        ...     )
+        ...     generator
+        ...     shard = generator.generate("shard1")
+        ...     shard
+        ...
+        PickleShardGenerator(
+          (path_uri): PosixPath('/.../uri')
+          (path_shard): PosixPath('/.../data')
+          (data): DataGenerator(copy=False)
+        )
+        PickleShard(uri=file:///.../uri/shard1)
 
-    ```pycon
-
-    >>> import tempfile
-    >>> from pathlib import Path
-    >>> from iden.data.generator import DataGenerator
-    >>> from iden.shard.generator import PickleShardGenerator
-    >>> with tempfile.TemporaryDirectory() as tmpdir:
-    ...     generator = PickleShardGenerator(
-    ...         data=DataGenerator([1, 2, 3]),
-    ...         path_uri=Path(tmpdir).joinpath("uri"),
-    ...         path_shard=Path(tmpdir).joinpath("data"),
-    ...     )
-    ...     generator
-    ...     shard = generator.generate("shard1")
-    ...     shard
-    ...
-    PickleShardGenerator(
-      (path_uri): PosixPath('/.../uri')
-      (path_shard): PosixPath('/.../data')
-      (data): DataGenerator(copy=False)
-    )
-    PickleShard(uri=file:///.../uri/shard1)
-
-    ```
+        ```
     """
 
     def _generate(self, data: T, shard_id: str) -> PickleShard[T]:

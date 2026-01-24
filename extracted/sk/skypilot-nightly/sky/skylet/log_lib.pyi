@@ -4,7 +4,7 @@ overloaded type hints for run_with_log(), as we need to determine
 the return type based on the value of require_outputs.
 """
 import typing
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 from typing_extensions import Literal
 
@@ -42,7 +42,7 @@ class _ProcessingArgs:
         ...
 
 
-def _get_context() -> Optional[context.Context]:
+def _get_context() -> Optional[context.SkyPilotContext]:
     ...
 
 
@@ -68,7 +68,8 @@ def run_with_log(cmd: Union[List[str], str],
                  process_stream: bool = ...,
                  line_processor: Optional[log_utils.LineProcessor] = ...,
                  streaming_prefix: Optional[str] = ...,
-                 ray_job_id: Optional[str] = ...,
+                 log_cmd: bool = ...,
+                 timeout: Optional[int] = ...,
                  **kwargs) -> int:
     ...
 
@@ -87,7 +88,8 @@ def run_with_log(cmd: Union[List[str], str],
                  process_stream: bool = ...,
                  line_processor: Optional[log_utils.LineProcessor] = ...,
                  streaming_prefix: Optional[str] = ...,
-                 ray_job_id: Optional[str] = ...,
+                 log_cmd: bool = ...,
+                 timeout: Optional[int] = ...,
                  **kwargs) -> Tuple[int, str, str]:
     ...
 
@@ -106,8 +108,9 @@ def run_with_log(cmd: Union[List[str], str],
                  process_stream: bool = ...,
                  line_processor: Optional[log_utils.LineProcessor] = ...,
                  streaming_prefix: Optional[str] = ...,
-                 ray_job_id: Optional[str] = ...,
-                 **kwargs) -> Union[int, Tuple[int, str, str]]:
+                 log_cmd: bool = ...,
+                 timeout: Optional[int] = ...,
+                 **kwargs) -> Tuple[int, int]:
     ...
 
 
@@ -125,7 +128,8 @@ def run_bash_command_with_log(bash_command: str,
                               log_path: str,
                               env_vars: Optional[Dict[str, str]] = ...,
                               stream_logs: bool = ...,
-                              with_ray: bool = ...):
+                              with_ray: bool = ...,
+                              streaming_prefix: Optional[str] = ...) -> int:
     ...
 
 
@@ -134,7 +138,8 @@ def run_bash_command_with_log_and_return_pid(
         log_path: str,
         env_vars: Optional[Dict[str, str]] = ...,
         stream_logs: bool = ...,
-        with_ray: bool = ...):
+        with_ray: bool = ...,
+        streaming_prefix: Optional[str] = ...) -> Dict[str, Union[int, str]]:
     ...
 
 
@@ -142,4 +147,33 @@ def tail_logs(job_id: int,
               log_dir: Optional[str],
               managed_job_id: Optional[int] = ...,
               follow: bool = ...) -> None:
+    ...
+
+
+def tail_logs_iter(job_id: Optional[int],
+                   log_dir: Optional[str],
+                   managed_job_id: Optional[int] = ...,
+                   follow: bool = ...,
+                   tail: int = ...) -> Iterator[str]:
+    ...
+
+
+class LogBuffer:
+    max_chars: int
+
+    def __init__(self, max_chars: int = ...):
+        ...
+
+    def flush(self) -> str:
+        ...
+
+    def write(self, line: str) -> bool:
+        ...
+
+    def close(self):
+        ...
+
+
+def buffered_iter_with_timeout(buffer: LogBuffer, iterable: Iterable[str],
+                               timeout: float) -> Iterable[str]:
     ...

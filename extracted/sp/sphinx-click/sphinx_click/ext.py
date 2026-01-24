@@ -358,15 +358,20 @@ def _format_command(
 
     # usage
 
-    for line in _format_usage(ctx):
+    lines = list(_format_usage(ctx))
+    if lines:
+        # we use rubric to provide some separation without exploding the table
+        # of contents
+        yield '.. rubric:: Usage'
+        yield ''
+
+    for line in lines:
         yield line
 
     # options
 
     lines = list(_format_options(ctx))
     if lines:
-        # we use rubric to provide some separation without exploding the table
-        # of contents
         yield '.. rubric:: Options'
         yield ''
 

@@ -4,31 +4,33 @@
 import heapq
 import json
 import logging
-from operator import itemgetter
 import os
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import nullcontext
 from copy import deepcopy
+from dataclasses import dataclass, field
+from functools import partial
 from itertools import combinations, count
 from math import ceil, isnan
-from typing import Dict, List, Mapping, Optional, Sequence, Tuple, Union, Callable
+from multiprocessing.managers import SharedMemoryManager
+from operator import itemgetter
+from typing import Optional, Union
 from warnings import warn
-from dataclasses import dataclass, field
-from multiprocessing import shared_memory
-import numpy as np
 
+import numpy as np
+from joblib import Parallel, delayed
 from sklearn.base import (
     BaseEstimator,
     ClassifierMixin,
     RegressorMixin,
-    is_classifier,
-    is_regressor,
 )
+from ...utils._scikit import _is_classifier, _is_regressor
 from sklearn.isotonic import IsotonicRegression
 from sklearn.utils.validation import check_is_fitted
 
 from ... import develop
 from ...api.base import ExplainerMixin
 from ...api.templates import FeatureValueExplanation
-from ...provider import JobLibProvider
 from ...utils._clean_simple import (
     clean_dimensions,
     clean_X_and_init_score,
@@ -44,6 +46,7 @@ from ...utils._explanation import (
 )
 from ...utils._histogram import make_all_histogram_edges
 from ...utils._link import inv_link, link_func
+from ...utils._measure_mem import total_bytes
 from ...utils._misc import clean_index, clean_indexes
 from ...utils._native import Native
 from ...utils._preprocessor import construct_bins
@@ -54,6 +57,7 @@ from ...utils._privacy import (
 )
 from ...utils._rank_interactions import rank_interactions
 from ...utils._seed import normalize_seed
+from ...utils._shared_dataset import SharedDataset
 from ...utils._unify_data import unify_data
 from ._bin import (
     ebm_eval_terms,
@@ -71,8 +75,6 @@ from ._utils import (
     process_terms,
     remove_extra_bins,
 )
-from ...utils._shared_dataset import SharedDataset
-from ...utils._measure_mem import total_bytes
 
 _log = logging.getLogger(__name__)
 
@@ -694,7 +696,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             else:
                 n_classes = native.determine_task(objective)
 
-        if is_classifier(self):
+        if _is_classifier(self):
             if n_classes == Native.Task_Unknown:
                 n_classes = Native.Task_GeneralClassification
             elif n_classes < Native.Task_GeneralClassification:
@@ -702,7 +704,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 _log.error(msg)
                 raise ValueError(msg)
 
-        if is_regressor(self):
+        if _is_regressor(self):
             if n_classes == Native.Task_Unknown:
                 n_classes = Native.Task_Regression
             elif n_classes != Native.Task_Regression:
@@ -750,7 +752,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             if is_differential_privacy
             else Native.LinkFlags_Default
         )
-        objective_code, link, link_param = native.determine_link(
+        objective_code, _, link, link_param = native.determine_link(
             flags, objective, n_classes
         )
 
@@ -1053,7 +1055,41 @@ class EBMModel(ExplainerMixin, BaseEstimator):
 
             exclude_features = {i for i, v in enumerate(monotone_constraints) if v != 0}
 
-        provider = JobLibProvider(n_jobs=self.n_jobs)
+        parallel = Parallel(n_jobs=self.n_jobs)
+        # set common boost arguments
+        booster = partial(
+            boost,
+            n_inner_bags=inner_bags,
+            term_boost_flags=term_boost_flags,
+            learning_rate=self.learning_rate,
+            min_samples_leaf=min_samples_leaf,
+            min_hessian=min_hessian,
+            reg_alpha=reg_alpha,
+            reg_lambda=reg_lambda,
+            max_delta_step=max_delta_step,
+            gain_scale=gain_scale,
+            min_cat_samples=min_cat_samples,
+            cat_smooth=cat_smooth,
+            missing=missing,
+            max_leaves=self.max_leaves,
+            monotone_constraints=monotone_constraints,
+            greedy_ratio=greedy_ratio,
+            cyclic_progress=cyclic_progress,
+            nominal_smoothing=nominal_smoothing,
+            max_rounds=self.max_rounds,
+            early_stopping_tolerance=early_stopping_tolerance,
+            noise_scale=noise_scale_boosting,
+            bin_weights=bin_data_weights,
+            create_booster_flags=(
+                Native.CreateBoosterFlags_DifferentialPrivacy
+                if is_differential_privacy
+                else Native.CreateBoosterFlags_Default
+            ),
+            objective=objective,
+            acceleration=develop.get_option("acceleration"),
+            experimental_params=None,
+            develop_options=develop._develop_options,
+        )
 
         bagged_intercept = np.zeros((self.outer_bags, n_scores), np.float64)
         if not is_differential_privacy:
@@ -1085,38 +1121,37 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                         if sample_weight_local is None
                         else np.asarray(sample_weight_local, np.float64),
                     )
-            elif init_score is None:
-                if (
-                    objective_code == Native.Objective_LogLossBinary
-                    or objective_code == Native.Objective_LogLossMulticlass
-                ):
-                    n_intercept_rounds = 0
-                    for idx in range(self.outer_bags):
-                        bag = internal_bags[idx]
-                        sample_weight_local = sample_weight
-                        y_local = y
-                        if bag is not None:
-                            include_samples = 0 < bag
-                            y_local = y_local[include_samples]
-                            if sample_weight_local is None:
-                                sample_weight_local = bag[include_samples]
-                            else:
-                                sample_weight_local = (
-                                    sample_weight_local[include_samples]
-                                    * bag[include_samples]
-                                )
-
-                        probs = np.bincount(y_local, weights=sample_weight_local)
+            elif init_score is None and objective_code in (
+                Native.Objective_LogLossBinary,
+                Native.Objective_LogLossMulticlass,
+            ):
+                n_intercept_rounds = 0
+                for idx in range(self.outer_bags):
+                    bag = internal_bags[idx]
+                    sample_weight_local = sample_weight
+                    y_local = y
+                    if bag is not None:
+                        include_samples = 0 < bag
+                        y_local = y_local[include_samples]
                         if sample_weight_local is None:
-                            total = probs.sum()
-                            probs = probs.astype(np.float64, copy=False)
+                            sample_weight_local = bag[include_samples]
                         else:
-                            total = np.array(1, np.float64)
-                            native.safe_sum(probs, total, 0)
-                            total = total.item()
+                            sample_weight_local = (
+                                sample_weight_local[include_samples]
+                                * bag[include_samples]
+                            )
 
-                        probs /= total
-                        bagged_intercept[idx, :] = link_func(probs, link, link_param)
+                    probs = np.bincount(y_local, weights=sample_weight_local)
+                    if sample_weight_local is None:
+                        total = probs.sum()
+                        probs = probs.astype(np.float64, copy=False)
+                    else:
+                        total = np.array(1, np.float64)
+                        native.safe_sum(probs, total, 0)
+                        total = total.item()
+
+                    probs /= total
+                    bagged_intercept[idx, :] = link_func(probs, link, link_param)
 
         with SharedDataset() as shared:
             bin_native_by_dimension(
@@ -1131,88 +1166,58 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 shared,
             )
 
-            shm = None
-            try:
-                stop_flag = None
-                shm_name = None
-                if callback is not None:
-                    shm = shared_memory.SharedMemory(create=True, size=1, name=None)
+            with nullcontext() if callback is None else SharedMemoryManager() as smm:
+                if smm is not None:
+                    shm = smm.SharedMemory(size=1)
                     shm_name = shm.name
                     stop_flag = np.ndarray(1, dtype=np.bool_, buffer=shm.buf)
                     stop_flag[0] = False
+                else:
+                    stop_flag = None
+                    shm_name = None
 
-                parallel_args = []
-                for idx in range(self.outer_bags):
-                    early_stopping_rounds_local = early_stopping_rounds
-                    bag = internal_bags[idx]
-                    if bag is None or (bag >= 0).all():
-                        # if there are no validation samples, turn off early stopping
-                        # because the validation metric cannot improve each round
-                        early_stopping_rounds_local = 0
-
-                    init_score_local = init_score
-                    if (
-                        init_score_local is not None
-                        and bag is not None
-                        and np.count_nonzero(bag) != len(bag)
-                    ):
+                results = parallel(
+                    delayed(booster)(
+                        shm_name=shm_name,
+                        bag_idx=idx,
+                        callback=callback,
+                        dataset=(
+                            shared.name if shared.name is not None else shared.dataset
+                        ),
+                        intercept_rounds=n_intercept_rounds,
+                        intercept_learning_rate=develop.get_option(
+                            "intercept_learning_rate"
+                        ),
+                        intercept=bagged_intercept[idx],
+                        bag=internal_bags[idx],
                         # TODO: instead of making these copies we should
                         # put init_score into the native shared dataframe
-                        init_score_local = init_score_local[bag != 0]
-
-                    parallel_args.append(
-                        (
-                            shm_name,
-                            idx,
-                            callback,
-                            shared.name if shared.name is not None else shared.dataset,
-                            n_intercept_rounds,
-                            develop.get_option("intercept_learning_rate"),
-                            bagged_intercept[idx],
-                            bag,
-                            init_score_local,
-                            term_features,
-                            inner_bags,
-                            term_boost_flags,
-                            self.learning_rate,
-                            min_samples_leaf,
-                            min_hessian,
-                            reg_alpha,
-                            reg_lambda,
-                            max_delta_step,
-                            gain_scale,
-                            min_cat_samples,
-                            cat_smooth,
-                            missing,
-                            self.max_leaves,
-                            monotone_constraints,
-                            greedy_ratio,
-                            cyclic_progress,
-                            smoothing_rounds,
-                            nominal_smoothing,
-                            self.max_rounds,
-                            early_stopping_rounds_local,
-                            early_stopping_tolerance,
-                            noise_scale_boosting,
-                            bin_data_weights,
-                            rngs[idx],
-                            (
-                                Native.CreateBoosterFlags_DifferentialPrivacy
-                                if is_differential_privacy
-                                else Native.CreateBoosterFlags_Default
-                            ),
-                            objective,
-                            develop.get_option("acceleration"),
-                            None,
-                            develop._develop_options,
-                        )
+                        init_scores=(
+                            init_score
+                            if (
+                                init_score is None
+                                or internal_bags[idx] is None
+                                or np.count_nonzero(internal_bags[idx])
+                                == len(internal_bags[idx])
+                            )
+                            else init_score[internal_bags[idx] != 0]
+                        ),
+                        term_features=term_features,
+                        smoothing_rounds=smoothing_rounds,
+                        # if there are no validation samples, turn off early stopping
+                        # because the validation metric cannot improve each round
+                        early_stopping_rounds=(
+                            early_stopping_rounds
+                            if (
+                                internal_bags[idx] is not None
+                                and (internal_bags[idx] < 0).any()
+                            )
+                            else 0
+                        ),
+                        rng=rngs[idx],
                     )
-
-                results = provider.parallel(boost, parallel_args)
-
-                # let python reclaim the dataset memory via reference counting
-                # parallel_args holds references to dataset, so must be deleted
-                del parallel_args
+                    for idx in range(self.outer_bags)
+                )
 
                 best_iteration = [[]]
                 models = []
@@ -1284,48 +1289,44 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                     if isinstance(interactions, int):
                         _log.info("Estimating with FAST")
 
-                        parallel_args = []
-                        for idx in range(self.outer_bags):
+                        bagged_ranked_interaction = parallel(
                             # TODO: the combinations below should be selected from the non-excluded features
-                            parallel_args.append(
-                                (
-                                    shm_name,
-                                    idx,
+                            delayed(rank_interactions)(
+                                shm_name=shm_name,
+                                bag_idx=idx,
+                                dataset=(
                                     shared.name
                                     if shared.name is not None
-                                    else shared.dataset,
-                                    bagged_intercept[idx],
-                                    internal_bags[idx],
-                                    scores_bags[idx],
-                                    combinations(range(n_features_in), 2),
-                                    exclude,
-                                    exclude_features,
-                                    interaction_flags,
-                                    max_cardinality,
-                                    min_samples_leaf,
-                                    min_hessian,
-                                    reg_alpha,
-                                    reg_lambda,
-                                    max_delta_step,
-                                    (
-                                        Native.CreateInteractionFlags_DifferentialPrivacy
-                                        if is_differential_privacy
-                                        else Native.CreateInteractionFlags_Default
-                                    ),
-                                    objective,
-                                    develop.get_option("acceleration"),
-                                    None,
-                                    0,
-                                    develop._develop_options,
-                                )
+                                    else shared.dataset
+                                ),
+                                intercept=bagged_intercept[idx],
+                                bag=internal_bags[idx],
+                                init_scores=scores_bags[idx],
+                                iter_term_features=combinations(
+                                    range(n_features_in), 2
+                                ),
+                                exclude=exclude,
+                                exclude_features=exclude_features,
+                                calc_interaction_flags=interaction_flags,
+                                max_cardinality=max_cardinality,
+                                min_samples_leaf=min_samples_leaf,
+                                min_hessian=min_hessian,
+                                reg_alpha=reg_alpha,
+                                reg_lambda=reg_lambda,
+                                max_delta_step=max_delta_step,
+                                create_interaction_flags=(
+                                    Native.CreateInteractionFlags_DifferentialPrivacy
+                                    if is_differential_privacy
+                                    else Native.CreateInteractionFlags_Default
+                                ),
+                                objective=objective,
+                                acceleration=develop.get_option("acceleration"),
+                                experimental_params=None,
+                                n_output_interactions=0,
+                                develop_options=develop._develop_options,
                             )
-
-                        bagged_ranked_interaction = provider.parallel(
-                            rank_interactions, parallel_args
+                            for idx in range(self.outer_bags)
                         )
-
-                        # this holds references to dataset, internal_bags, and scores_bags which we want python to reclaim later
-                        del parallel_args
 
                         # Select merged pairs
                         pair_ranks = {}
@@ -1347,16 +1348,11 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                                     (rank - old_mean) / (n + 1)
                                 )
 
-                        final_ranks = []
-                        total_interactions = 0
-                        for indices in pair_ranks:
-                            heapq.heappush(final_ranks, (pair_ranks[indices], indices))
-                            total_interactions += 1
-
-                        n_interactions = min(interactions, total_interactions)
-                        boost_groups = [
-                            heapq.heappop(final_ranks)[1] for _ in range(n_interactions)
-                        ]
+                        boost_groups = heapq.nsmallest(
+                            interactions,
+                            pair_ranks,
+                            key=lambda indices: (pair_ranks[indices], indices),
+                        )
                     else:
                         # Check and remove duplicate interaction terms
                         uniquifier = set()
@@ -1419,72 +1415,39 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                     if stop_flag is not None and stop_flag[0]:
                         break
 
-                    parallel_args = []
-                    for idx in range(self.outer_bags):
-                        early_stopping_rounds_local = early_stopping_rounds
-                        if (
-                            internal_bags[idx] is None
-                            or (internal_bags[idx] >= 0).all()
-                        ):
-                            # if there are no validation samples, turn off early stopping
-                            # because the validation metric cannot improve each round
-                            early_stopping_rounds_local = 0
-
-                        parallel_args.append(
-                            (
-                                shm_name,
-                                idx,
-                                callback,
+                    results = parallel(
+                        delayed(booster)(
+                            shm_name=shm_name,
+                            bag_idx=idx,
+                            callback=callback,
+                            dataset=(
                                 shared.name
                                 if shared.name is not None
-                                else shared.dataset,
-                                0,  # intercept should already be close for pairs
-                                0.0,  # intercept should already be close for pairs
-                                bagged_intercept[idx],
-                                internal_bags[idx],
-                                scores_bags[idx],
-                                boost_groups,
-                                inner_bags,
-                                term_boost_flags,
-                                self.learning_rate,
-                                min_samples_leaf,
-                                min_hessian,
-                                reg_alpha,
-                                reg_lambda,
-                                max_delta_step,
-                                gain_scale,
-                                min_cat_samples,
-                                cat_smooth,
-                                missing,
-                                self.max_leaves,
-                                monotone_constraints,
-                                greedy_ratio,
-                                cyclic_progress,
-                                interaction_smoothing_rounds,
-                                nominal_smoothing,
-                                self.max_rounds,
-                                early_stopping_rounds_local,
-                                early_stopping_tolerance,
-                                noise_scale_boosting,
-                                bin_data_weights,
-                                rngs[idx],
-                                (
-                                    Native.CreateBoosterFlags_DifferentialPrivacy
-                                    if is_differential_privacy
-                                    else Native.CreateBoosterFlags_Default
-                                ),
-                                objective,
-                                develop.get_option("acceleration"),
-                                None,
-                                develop._develop_options,
-                            )
+                                else shared.dataset
+                            ),
+                            intercept_rounds=0,  # intercept should already be close for pairs
+                            intercept_learning_rate=0.0,  # intercept should already be close for pairs
+                            intercept=bagged_intercept[idx],
+                            bag=internal_bags[idx],
+                            init_scores=scores_bags[idx],
+                            term_features=boost_groups,
+                            smoothing_rounds=interaction_smoothing_rounds,
+                            # if there are no validation samples, turn off early stopping
+                            # because the validation metric cannot improve each round
+                            early_stopping_rounds=(
+                                early_stopping_rounds
+                                if (
+                                    internal_bags[idx] is not None
+                                    and (internal_bags[idx] < 0).any()
+                                )
+                                else 0
+                            ),
+                            rng=rngs[idx],
                         )
-
-                    results = provider.parallel(boost, parallel_args)
+                        for idx in range(self.outer_bags)
+                    )
 
                     # allow python to reclaim these big memory items via reference counting
-                    # this holds references to dataset, scores_bags, and bags
-                    del parallel_args
                     del scores_bags
 
                     best_iteration.append([])
@@ -1506,11 +1469,6 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                     term_features.extend(boost_groups)
 
                     break  # do not loop!
-
-            finally:
-                if shm is not None:
-                    shm.close()
-                    shm.unlink()
 
             best_iteration = np.array(best_iteration, np.int64)
 
@@ -1569,50 +1527,26 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                     intercept += correction
                     bagged_intercept += correction
                 else:
-                    exception, intercept_change, _, _, rng = boost(
-                        None,
-                        0,
-                        None,
-                        shared.dataset,
-                        develop.get_option("n_intercept_rounds_final"),
-                        develop.get_option("intercept_learning_rate"),
-                        np.zeros(n_scores, np.float64),
-                        None,
-                        scores,
-                        [],
-                        0,
-                        term_boost_flags,
-                        self.learning_rate,
-                        0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        0.0,
-                        1.0,
-                        min_cat_samples,
-                        cat_smooth,
-                        missing,
-                        1,
-                        None,
-                        greedy_ratio,
-                        cyclic_progress,
-                        0,
-                        nominal_smoothing,
-                        0,
-                        0,
-                        early_stopping_tolerance,
-                        noise_scale_boosting,
-                        bin_data_weights,
-                        rng,
-                        (
-                            Native.CreateBoosterFlags_DifferentialPrivacy
-                            if is_differential_privacy
-                            else Native.CreateBoosterFlags_Default
+                    exception, intercept_change, _, _, rng = booster(
+                        shm_name=None,
+                        bag_idx=0,
+                        callback=None,
+                        dataset=shared.dataset,
+                        intercept_rounds=develop.get_option("n_intercept_rounds_final"),
+                        intercept_learning_rate=develop.get_option(
+                            "intercept_learning_rate"
                         ),
-                        objective,
-                        Native.AccelerationFlags_NONE,
-                        None,
-                        develop._develop_options,
+                        intercept=np.zeros(n_scores, np.float64),
+                        bag=None,
+                        init_scores=scores,
+                        term_features=[],
+                        n_inner_bags=0,  # overwrite
+                        reg_alpha=0.0,  # overwrite
+                        reg_lambda=0.0,  # overwrite
+                        smoothing_rounds=0,
+                        early_stopping_rounds=0,
+                        rng=rng,
+                        acceleration=Native.AccelerationFlags_NONE,  # overwrite
                     )
                     if exception is not None:
                         raise exception
@@ -1697,23 +1631,32 @@ class EBMModel(ExplainerMixin, BaseEstimator):
         return self
 
     def estimate_mem(self, X, y=None, data_multiplier=0.0):
-        """Estimate memory usage of the model.
+        """Estimate the amount of memory required during the call to the fit
+            function. This estimate does not include the code or data memory used
+            by the calling process, or the amount of code or non-EBM data memory
+            allocated by any child processes started by joblib.  If these need to be
+            included, it is recommended to fit a toy EBM model first with n_jobs
+            and outer_bags set to the numbers that will be used in the final fit and
+            add that value to the estimate provided by this function.
+
         Args:
-            X: {array-like, sparse matrix} of shape (n_samples, n_features). Training data.
-            y: array-like of shape (n_samples,). Target values.
-            data_multiplier: The data in X needs to be allocated by the caller.
-                If data_multiplier is set to 0.0 then this function only estimates the additional
-                memory consumed by the fit function. If data_multiplier is set to 1.0 then
-                it will include the memory allocated to X by the caller. Often the caller will make
-                copies of X before calling fit, and in that case the data_multiplier could be set to a
-                value above 1.0 if the caller would like this function to include that in the memory estimate.
+            X (array-like or sparse matrix): Shape (n_samples, n_features). Training data.
+            y (array-like, optional): Shape (n_samples,). Target values.
+            data_multiplier (float): Controls inclusion of X's memory.
+                If set to 0.0, this function only estimates the additional
+                memory consumed by the fit function. If set to 1.0, it includes
+                the memory allocated to X by the caller. Set above 1.0 to account
+                for extra copies made before calling fit.
 
         Returns:
-            Estimated memory usage in bytes.
-            The estimate does not include the memory from the
-            caller's copy of X, nor the process's code or other data.
-            The estimate will be more accurate for larger datasets.
+            int: Estimated memory usage in bytes.
+                The estimate excludes the memory from the caller's copy of X,
+                and the process's code or other unrelated data. The estimate
+                is more accurate for larger datasets.
         """
+
+        # TODO: include inner_bags
+        # TODO: include sample weights
 
         n_bytes = total_bytes(X)
         if y is not None:
@@ -1721,6 +1664,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
 
         n_bytes = int(n_bytes * data_multiplier)
 
+        is_hessian = True
         if y is not None:
             y_id = id(y)
             n_classes = Native.Task_Unknown
@@ -1743,7 +1687,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 else:
                     n_classes = native.determine_task(objective)
 
-            if is_classifier(self):
+            if _is_classifier(self):
                 if n_classes == Native.Task_Unknown:
                     n_classes = Native.Task_GeneralClassification
                 elif n_classes < Native.Task_GeneralClassification:
@@ -1751,7 +1695,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                     _log.error(msg)
                     raise ValueError(msg)
 
-            if is_regressor(self):
+            if _is_regressor(self):
                 if n_classes == Native.Task_Unknown:
                     n_classes = Native.Task_Regression
                 elif n_classes != Native.Task_Regression:
@@ -1773,6 +1717,10 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 _log.error(msg)
                 raise ValueError(msg)
 
+            _, is_hessian, _, _ = native.determine_link(
+                Native.LinkFlags_Default, objective, n_classes
+            )
+
             if y_id != id(y):
                 # in fit we'll also make a copy of y that cannot be deleted until the end
                 n_bytes += total_bytes(y)
@@ -1793,11 +1741,19 @@ class EBMModel(ExplainerMixin, BaseEstimator):
 
         n_scores = Native.get_count_scores_c(n_classes)
 
+        n_bytes_per_item = n_scores * n_samples * self.outer_bags * np.float32().nbytes
+
+        # boosting requires 1 score, 1 gradient, and often 1 hessian per score, per sample, per outer_bag
+        n_boost_sample_bytes = (3 if is_hessian else 2) * n_bytes_per_item
+
+        # interaction detection requires 1 gradient, and often 1 hessian per score, per sample, per outer_bag
+        n_interaction_detect_sample_bytes = (2 if is_hessian else 1) * n_bytes_per_item
+
         bin_levels = [self.max_bins, self.max_interaction_bins]
 
         binning_result = construct_bins(
             X=X,
-            y=None,
+            y=y,
             sample_weight=None,
             feature_names_given=self.feature_names,
             feature_types_given=self.feature_types,
@@ -1818,11 +1774,10 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             feature_types_in,
             None,
         )
+
         # first calculate the number of cells in the mains for all features
         n_tensor_bytes = sum(
-            2
-            if len(x[0]) == 0
-            else max(x[0].values()) + 2
+            (2 if len(x[0]) == 0 else max(x[0].values()) + 2)
             if isinstance(x[0], dict)
             else len(x[0]) + 3
             for x in bins
@@ -1830,7 +1785,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
         )
         # We have 2 copies of the upate tensors in C++ (current and best) and we extract
         # one more in python for the update before tearning down the C++ data.
-        n_tensor_bytes = n_tensor_bytes * np.float64().nbytes * self.outer_bags * 3
+        n_tensor_bytes *= n_scores * self.outer_bags * 3 * np.float64().nbytes
 
         # One shared memory copy of the data mapped into all processes, plus a copy of
         # the test and train data for each outer bag. Assume all processes are started
@@ -1838,7 +1793,8 @@ class EBMModel(ExplainerMixin, BaseEstimator):
         # When we cannot use shared memory the parent has a copy of the dataset and
         # all the children share one copy.
         max_bytes = (
-            n_bytes_mains
+            n_boost_sample_bytes
+            + n_bytes_mains
             + n_bytes_mains
             + n_bytes_mains * self.outer_bags
             + n_tensor_bytes
@@ -1863,36 +1819,44 @@ class EBMModel(ExplainerMixin, BaseEstimator):
                 None,
             )
 
+            # INTERACTION DETECTION
+
+            # Each outer bag makes a copy of the features. Only the training features
+            # are kept for interaction detection, but don't estimate that for now.
+            interaction_detection_bytes = (
+                n_interaction_detect_sample_bytes
+                + n_bytes_pairs
+                + n_bytes_pairs
+                + n_bytes_pairs * self.outer_bags
+            )
+
+            max_bytes = max(max_bytes, interaction_detection_bytes)
+
+            # PAIR BOOSTING
+
+            # find which bins will be selected for each feature when dealing with pairs
             bin_lengths = [x[0] if len(x) == 1 else x[1] for x in bins if len(x) != 0]
             bin_lengths = [
-                2
-                if len(x) == 0
-                else max(x.values()) + 2
+                (2 if len(x) == 0 else max(x.values()) + 2)
                 if isinstance(x, dict)
                 else len(x) + 3
                 for x in bin_lengths
             ]
             bin_lengths.sort()
-            # we use the 75th percentile bin length to estimate the number of bins
+            # We don't know which features will be selected for interactions, so
+            # use the 75th percentile bin length to estimate the number of bins
             n_bad_case_bins = bin_lengths[len(bin_lengths) // 4 * 3]
 
-            # each outer bag makes a copy of the features. Only the training features
-            # are kept for interaction detection, but don't estimate that for now.
-            interaction_detection_bytes = (
-                n_bytes_pairs + n_bytes_pairs + n_bytes_pairs * self.outer_bags
-            )
-
-            max_bytes = max(max_bytes, interaction_detection_bytes)
-
-            # We have 2 copies of the upate tensors in C++ (current and best) and we extract
+            # We have 2 copies of the update tensors in C++ (current and best) and we extract
             # one more in python for the update before tearning down the C++ data.
             interaction_boosting_bytes = (
-                n_bad_case_bins
+                n_scores
                 * n_bad_case_bins
-                * np.float64().nbytes
-                * self.outer_bags
+                * n_bad_case_bins
                 * interactions
                 * 3
+                * self.outer_bags
+                * np.float64().nbytes
             )
 
             # We merge the interactions together to make a combined interaction
@@ -1904,7 +1868,8 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             # that have more bins.
             interaction_multiple = 4.0 * float(interactions) / float(n_features_in)
             interaction_boosting_bytes += (
-                n_bytes_pairs
+                n_boost_sample_bytes
+                + n_bytes_pairs
                 + n_bytes_pairs
                 + int(n_bytes_pairs * interaction_multiple * self.outer_bags)
             )
@@ -1985,7 +1950,7 @@ class EBMModel(ExplainerMixin, BaseEstimator):
             UNTESTED_from_jsonable(self, jsonable)
         else:
             # file is a file-like object implementing .read()
-            jsonable = json.load(fp)
+            jsonable = json.load(file)
             UNTESTED_from_jsonable(self, jsonable)
         return self
 
@@ -3255,23 +3220,23 @@ class ExplainableBoostingClassifier(ClassifierMixin, EBMModel):
     """
 
     n_features_in_: int
-    term_names_: List[str]
-    bins_: List[Union[List[Dict[str, int]], List[np.ndarray]]]  # np.float64, 1D[cut]
-    feature_names_in_: List[str]
-    feature_types_in_: List[str]
+    term_names_: list[str]
+    bins_: list[Union[list[dict[str, int]], list[np.ndarray]]]  # np.float64, 1D[cut]
+    feature_names_in_: list[str]
+    feature_types_in_: list[str]
     feature_bounds_: np.ndarray  # np.float64, 2D[feature, min_max]
-    term_features_: List[Tuple[int, ...]]
-    bin_weights_: List[np.ndarray]  # np.float64, [bin0...]
-    bagged_scores_: List[np.ndarray]  # np.float64, [bag, bin0..., ?class]
-    term_scores_: List[np.ndarray]  # np.float64, [bin0..., ?class]
-    standard_deviations_: List[np.ndarray]  # np.float64, [bin0..., ?class]
+    term_features_: list[tuple[int, ...]]
+    bin_weights_: list[np.ndarray]  # np.float64, [bin0...]
+    bagged_scores_: list[np.ndarray]  # np.float64, [bag, bin0..., ?class]
+    term_scores_: list[np.ndarray]  # np.float64, [bin0..., ?class]
+    standard_deviations_: list[np.ndarray]  # np.float64, [bin0..., ?class]
     link_: str
     link_param_: float
     bag_weights_: np.ndarray  # np.float64, 1D[bag]
     best_iteration_: np.ndarray  # np.int64, 2D[stage, bag]
 
-    histogram_edges_: List[Union[None, np.ndarray]]  # np.float64, 1D[hist_edge]
-    histogram_weights_: List[np.ndarray]  # np.float64, 1D[hist_bin]
+    histogram_edges_: list[Union[None, np.ndarray]]  # np.float64, 1D[hist_edge]
+    histogram_weights_: list[np.ndarray]  # np.float64, 1D[hist_bin]
     unique_val_counts_: np.ndarray  # np.int64, 1D[feature]
 
     classes_: np.ndarray  # np.int64, np.bool_, or np.unicode_, 1D[class]
@@ -3765,23 +3730,23 @@ class ExplainableBoostingRegressor(RegressorMixin, EBMModel):
     """
 
     n_features_in_: int
-    term_names_: List[str]
-    bins_: List[Union[List[Dict[str, int]], List[np.ndarray]]]  # np.float64, 1D[cut]
-    feature_names_in_: List[str]
-    feature_types_in_: List[str]
+    term_names_: list[str]
+    bins_: list[Union[list[dict[str, int]], list[np.ndarray]]]  # np.float64, 1D[cut]
+    feature_names_in_: list[str]
+    feature_types_in_: list[str]
     feature_bounds_: np.ndarray  # np.float64, 2D[feature, min_max]
-    term_features_: List[Tuple[int, ...]]
-    bin_weights_: List[np.ndarray]  # np.float64, [bin0...]
-    bagged_scores_: List[np.ndarray]  # np.float64, [bag, bin0...]
-    term_scores_: List[np.ndarray]  # np.float64, [bin0...]
-    standard_deviations_: List[np.ndarray]  # np.float64, [bin0...]
+    term_features_: list[tuple[int, ...]]
+    bin_weights_: list[np.ndarray]  # np.float64, [bin0...]
+    bagged_scores_: list[np.ndarray]  # np.float64, [bag, bin0...]
+    term_scores_: list[np.ndarray]  # np.float64, [bin0...]
+    standard_deviations_: list[np.ndarray]  # np.float64, [bin0...]
     link_: str
     link_param_: float
     bag_weights_: np.ndarray  # np.float64, 1D[bag]
     best_iteration_: np.ndarray  # np.int64, 2D[stage, bag]
 
-    histogram_edges_: List[Union[None, np.ndarray]]  # np.float64, 1D[hist_edge]
-    histogram_weights_: List[np.ndarray]  # np.float64, 1D[hist_bin]
+    histogram_edges_: list[Union[None, np.ndarray]]  # np.float64, 1D[hist_edge]
+    histogram_weights_: list[np.ndarray]  # np.float64, 1D[hist_bin]
     unique_val_counts_: np.ndarray  # np.int64, 1D[feature]
 
     intercept_: float
@@ -4042,16 +4007,16 @@ class DPExplainableBoostingClassifier(ClassifierMixin, EBMModel):
     """
 
     n_features_in_: int
-    term_names_: List[str]
-    bins_: List[Union[List[Dict[str, int]], List[np.ndarray]]]  # np.float64, 1D[cut]
-    feature_names_in_: List[str]
-    feature_types_in_: List[str]
+    term_names_: list[str]
+    bins_: list[Union[list[dict[str, int]], list[np.ndarray]]]  # np.float64, 1D[cut]
+    feature_names_in_: list[str]
+    feature_types_in_: list[str]
     feature_bounds_: np.ndarray  # np.float64, 2D[feature, min_max]
-    term_features_: List[Tuple[int, ...]]
-    bin_weights_: List[np.ndarray]  # np.float64, [bin]
-    bagged_scores_: List[np.ndarray]  # np.float64, [bag, bin]
-    term_scores_: List[np.ndarray]  # np.float64, [bin]
-    standard_deviations_: List[np.ndarray]  # np.float64, [bin]
+    term_features_: list[tuple[int, ...]]
+    bin_weights_: list[np.ndarray]  # np.float64, [bin]
+    bagged_scores_: list[np.ndarray]  # np.float64, [bag, bin]
+    term_scores_: list[np.ndarray]  # np.float64, [bin]
+    standard_deviations_: list[np.ndarray]  # np.float64, [bin]
     link_: str
     link_param_: float
     bag_weights_: np.ndarray  # np.float64, 1D[bag]
@@ -4097,7 +4062,7 @@ class DPExplainableBoostingClassifier(ClassifierMixin, EBMModel):
         composition: str = "gdp",
         bin_budget_frac: float = 0.1,
         privacy_bounds: Optional[
-            Union[np.ndarray, Mapping[Union[int, str], Tuple[float, float]]]
+            Union[np.ndarray, Mapping[Union[int, str], tuple[float, float]]]
         ] = None,
     ):
         super().__init__(
@@ -4379,16 +4344,16 @@ class DPExplainableBoostingRegressor(RegressorMixin, EBMModel):
     """
 
     n_features_in_: int
-    term_names_: List[str]
-    bins_: List[Union[List[Dict[str, int]], List[np.ndarray]]]  # np.float64, 1D[cut]
-    feature_names_in_: List[str]
-    feature_types_in_: List[str]
+    term_names_: list[str]
+    bins_: list[Union[list[dict[str, int]], list[np.ndarray]]]  # np.float64, 1D[cut]
+    feature_names_in_: list[str]
+    feature_types_in_: list[str]
     feature_bounds_: np.ndarray  # np.float64, 2D[feature, min_max]
-    term_features_: List[Tuple[int, ...]]
-    bin_weights_: List[np.ndarray]  # np.float64, [bin0...]
-    bagged_scores_: List[np.ndarray]  # np.float64, [bag, bin0..., ?class]
-    term_scores_: List[np.ndarray]  # np.float64, [bin0..., ?class]
-    standard_deviations_: List[np.ndarray]  # np.float64, [bin0..., ?class]
+    term_features_: list[tuple[int, ...]]
+    bin_weights_: list[np.ndarray]  # np.float64, [bin0...]
+    bagged_scores_: list[np.ndarray]  # np.float64, [bag, bin0..., ?class]
+    term_scores_: list[np.ndarray]  # np.float64, [bin0..., ?class]
+    standard_deviations_: list[np.ndarray]  # np.float64, [bin0..., ?class]
     link_: str
     link_param_: float
     bag_weights_: np.ndarray  # np.float64, 1D[bag]
@@ -4436,7 +4401,7 @@ class DPExplainableBoostingRegressor(RegressorMixin, EBMModel):
         composition: str = "gdp",
         bin_budget_frac: float = 0.1,
         privacy_bounds: Optional[
-            Union[np.ndarray, Mapping[Union[int, str], Tuple[float, float]]]
+            Union[np.ndarray, Mapping[Union[int, str], tuple[float, float]]]
         ] = None,
         privacy_target_min: Optional[float] = None,
         privacy_target_max: Optional[float] = None,

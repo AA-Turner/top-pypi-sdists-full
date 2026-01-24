@@ -1,7 +1,6 @@
 from wbcore.metadata.configs.display.configs import preset_config
 
 from .configs import (
-    markdown_config,
     menu_calendar_config,
     menu_config,
     release_note_config,

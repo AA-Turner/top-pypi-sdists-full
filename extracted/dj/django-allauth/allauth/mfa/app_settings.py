@@ -9,7 +9,7 @@ class AppSettings:
     def _setting(self, name, dflt):
         from allauth.utils import get_setting
 
-        return get_setting(self.prefix + name, dflt)
+        return get_setting(f"{self.prefix}{name}", dflt)
 
     @property
     def ADAPTER(self):
@@ -104,6 +104,12 @@ class AppSettings:
     @property
     def TRUST_ENABLED(self) -> bool:
         return self._setting("TRUST_ENABLED", False)
+
+    @property
+    def _TRUST_STAGE_ENABLED(self) -> bool:
+        from allauth.account import app_settings as account_settings
+
+        return self.TRUST_ENABLED or account_settings.LOGIN_BY_CODE_TRUST_ENABLED
 
     @property
     def TRUST_COOKIE_AGE(self) -> timedelta:

@@ -13,6 +13,8 @@ from pinecone_plugins.assistant.data.core.client.model.assistant_file_model impo
 from pinecone_plugins.assistant.data.core.client.model.chat_completion_model import ChatCompletionModel
 from pinecone_plugins.assistant.data.core.client.model.chat_model import ChatModel
 from pinecone_plugins.assistant.data.core.client.model.chat_request import ChatRequest
+from pinecone_plugins.assistant.data.core.client.model.choice_chunk_model import ChoiceChunkModel
+from pinecone_plugins.assistant.data.core.client.model.choice_chunk_model_delta import ChoiceChunkModelDelta
 from pinecone_plugins.assistant.data.core.client.model.choice_model import ChoiceModel
 from pinecone_plugins.assistant.data.core.client.model.citation_model import CitationModel
 from pinecone_plugins.assistant.data.core.client.model.context_model import ContextModel
@@ -35,6 +37,7 @@ from pinecone_plugins.assistant.data.core.client.model.pdf_reference_model impor
 from pinecone_plugins.assistant.data.core.client.model.reference_model import ReferenceModel
 from pinecone_plugins.assistant.data.core.client.model.search_completions import SearchCompletions
 from pinecone_plugins.assistant.data.core.client.model.snippet_model import SnippetModel
+from pinecone_plugins.assistant.data.core.client.model.stream_chat_completion_chunk_model import StreamChatCompletionChunkModel
 from pinecone_plugins.assistant.data.core.client.model.text_reference_model import TextReferenceModel
 from pinecone_plugins.assistant.data.core.client.model.text_snippet_model import TextSnippetModel
 from pinecone_plugins.assistant.data.core.client.model.typed_reference_model import TypedReferenceModel

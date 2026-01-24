@@ -11,12 +11,22 @@ import textwrap
 from collections.abc import Iterator, Mapping, Sequence
 from fnmatch import fnmatch
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Optional, TextIO, TypeVar, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Optional,
+    TextIO,
+    TypeAlias,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import click
 from click_aliases import ClickAliasedGroup
 from dagster_shared.utils import environ
-from typing_extensions import Never, TypeAlias
+from typing_extensions import Never
 
 from dagster_dg_core.error import DgError
 
@@ -135,12 +145,16 @@ def strip_activated_venv_from_env_vars(env: Mapping[str, str]) -> Mapping[str, s
     return {k: v for k, v in env.items() if not k == "VIRTUAL_ENV"}
 
 
-def discover_git_root(path: Path) -> Path:
+def discover_repo_root(path: Path) -> Path:
+    """Find the dagster repo root by looking for python_modules/dagster/.
+
+    This works even when dagster is a subfolder in a monorepo.
+    """
     while path != path.parent:
-        if (path / ".git").exists():
+        if (path / "python_modules" / "dagster").is_dir():
             return path
         path = path.parent
-    raise ValueError("Could not find git root")
+    raise ValueError("Could not find dagster repo root")
 
 
 def discover_venv(path: Path) -> Path:

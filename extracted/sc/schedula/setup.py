@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: UTF-8 -*-
 #
-# Copyright 2015-2024, Vincenzo Arcidiacono;
+# Copyright 2015-2026, Vincenzo Arcidiacono;
 # Licensed under the EUPL (the 'Licence');
 # You may not use this work except in compliance with the Licence.
 # You may obtain a copy of the Licence at: http://ec.europa.eu/idabc/eupl
@@ -90,15 +90,15 @@ if __name__ == '__main__':
     }
     extras['form'] = extras['web'] + [
         'itsdangerous', 'rst2txt', 'flask-sqlalchemy', 'sqlalchemy', 'docutils',
-        'python-dateutil', 'flask-security[common]>=5.6.0', 'flask-caching',
         'flask-babel', 'flask-wtf', 'flask-admin', 'flask-principal', 'asteval',
         'fasteners', 'click', 'gunicorn', 'click_log', 'sherlock', 'flask-mail',
-        'sqlalchemy-file', 'stripe',
+        'flask-security[common]>=5.6.0', 'boto3', 'jsonschema', 'flask-pymongo',
+        'python-dateutil', 'flask-caching', 'stripe', 'sqlalchemy-file',
     ]
-    extras['sphinx'] = ['sphinx>=8.2.3', 'sphinx-click'] + extras['plot']
+    extras['sphinx'] = ['sphinx>=9.0.4', 'sphinx-click'] + extras['plot']
     extras['all'] = sorted(functools.reduce(set.union, extras.values(), set()))
     extras['dev'] = extras['all'] + [
-        'wheel', 'sphinx>=8.2.3', 'gitchangelog', 'mako', 'sphinx_rtd_theme',
+        'wheel', 'sphinx>=9.0.4', 'gitchangelog', 'mako', 'sphinx_rtd_theme',
         'setuptools>=36.0.1', 'sphinxcontrib-restbuilder', 'coveralls', 'polib',
         'requests', 'readthedocs-sphinx-ext', 'twine', 'ddt', 'translators',
         'livereload>=2.6.3'

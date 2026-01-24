@@ -13,6 +13,7 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import NotRequired, TypedDict, TypeAlias
 from .. import _utilities
+from . import outputs
 
 __all__ = [
     'GetInstanceResult',
@@ -26,7 +27,10 @@ class GetInstanceResult:
     """
     A collection of values returned by getInstance.
     """
-    def __init__(__self__, capacity_gib=None, create_time=None, description=None, effective_labels=None, filesystem=None, gke_support_enabled=None, id=None, instance_id=None, labels=None, location=None, mount_point=None, name=None, network=None, per_unit_storage_throughput=None, project=None, pulumi_labels=None, state=None, update_time=None, zone=None):
+    def __init__(__self__, access_rules_options=None, capacity_gib=None, create_time=None, description=None, effective_labels=None, filesystem=None, gke_support_enabled=None, id=None, instance_id=None, kms_key=None, labels=None, location=None, mount_point=None, name=None, network=None, per_unit_storage_throughput=None, placement_policy=None, project=None, pulumi_labels=None, state=None, state_reason=None, update_time=None, zone=None):
+        if access_rules_options and not isinstance(access_rules_options, list):
+            raise TypeError("Expected argument 'access_rules_options' to be a list")
+        pulumi.set(__self__, "access_rules_options", access_rules_options)
         if capacity_gib and not isinstance(capacity_gib, str):
             raise TypeError("Expected argument 'capacity_gib' to be a str")
         pulumi.set(__self__, "capacity_gib", capacity_gib)
@@ -51,6 +55,9 @@ class GetInstanceResult:
         if instance_id and not isinstance(instance_id, str):
             raise TypeError("Expected argument 'instance_id' to be a str")
         pulumi.set(__self__, "instance_id", instance_id)
+        if kms_key and not isinstance(kms_key, str):
+            raise TypeError("Expected argument 'kms_key' to be a str")
+        pulumi.set(__self__, "kms_key", kms_key)
         if labels and not isinstance(labels, dict):
             raise TypeError("Expected argument 'labels' to be a dict")
         pulumi.set(__self__, "labels", labels)
@@ -69,6 +76,9 @@ class GetInstanceResult:
         if per_unit_storage_throughput and not isinstance(per_unit_storage_throughput, str):
             raise TypeError("Expected argument 'per_unit_storage_throughput' to be a str")
         pulumi.set(__self__, "per_unit_storage_throughput", per_unit_storage_throughput)
+        if placement_policy and not isinstance(placement_policy, str):
+            raise TypeError("Expected argument 'placement_policy' to be a str")
+        pulumi.set(__self__, "placement_policy", placement_policy)
         if project and not isinstance(project, str):
             raise TypeError("Expected argument 'project' to be a str")
         pulumi.set(__self__, "project", project)
@@ -78,12 +88,20 @@ class GetInstanceResult:
         if state and not isinstance(state, str):
             raise TypeError("Expected argument 'state' to be a str")
         pulumi.set(__self__, "state", state)
+        if state_reason and not isinstance(state_reason, str):
+            raise TypeError("Expected argument 'state_reason' to be a str")
+        pulumi.set(__self__, "state_reason", state_reason)
         if update_time and not isinstance(update_time, str):
             raise TypeError("Expected argument 'update_time' to be a str")
         pulumi.set(__self__, "update_time", update_time)
         if zone and not isinstance(zone, str):
             raise TypeError("Expected argument 'zone' to be a str")
         pulumi.set(__self__, "zone", zone)
+
+    @_builtins.property
+    @pulumi.getter(name="accessRulesOptions")
+    def access_rules_options(self) -> Sequence['outputs.GetInstanceAccessRulesOptionResult']:
+        return pulumi.get(self, "access_rules_options")
 
     @_builtins.property
     @pulumi.getter(name="capacityGib")
@@ -129,6 +147,11 @@ class GetInstanceResult:
         return pulumi.get(self, "instance_id")
 
     @_builtins.property
+    @pulumi.getter(name="kmsKey")
+    def kms_key(self) -> _builtins.str:
+        return pulumi.get(self, "kms_key")
+
+    @_builtins.property
     @pulumi.getter
     def labels(self) -> Mapping[str, _builtins.str]:
         return pulumi.get(self, "labels")
@@ -159,6 +182,11 @@ class GetInstanceResult:
         return pulumi.get(self, "per_unit_storage_throughput")
 
     @_builtins.property
+    @pulumi.getter(name="placementPolicy")
+    def placement_policy(self) -> _builtins.str:
+        return pulumi.get(self, "placement_policy")
+
+    @_builtins.property
     @pulumi.getter
     def project(self) -> Optional[_builtins.str]:
         return pulumi.get(self, "project")
@@ -172,6 +200,11 @@ class GetInstanceResult:
     @pulumi.getter
     def state(self) -> _builtins.str:
         return pulumi.get(self, "state")
+
+    @_builtins.property
+    @pulumi.getter(name="stateReason")
+    def state_reason(self) -> _builtins.str:
+        return pulumi.get(self, "state_reason")
 
     @_builtins.property
     @pulumi.getter(name="updateTime")
@@ -190,6 +223,7 @@ class AwaitableGetInstanceResult(GetInstanceResult):
         if False:
             yield self
         return GetInstanceResult(
+            access_rules_options=self.access_rules_options,
             capacity_gib=self.capacity_gib,
             create_time=self.create_time,
             description=self.description,
@@ -198,15 +232,18 @@ class AwaitableGetInstanceResult(GetInstanceResult):
             gke_support_enabled=self.gke_support_enabled,
             id=self.id,
             instance_id=self.instance_id,
+            kms_key=self.kms_key,
             labels=self.labels,
             location=self.location,
             mount_point=self.mount_point,
             name=self.name,
             network=self.network,
             per_unit_storage_throughput=self.per_unit_storage_throughput,
+            placement_policy=self.placement_policy,
             project=self.project,
             pulumi_labels=self.pulumi_labels,
             state=self.state,
+            state_reason=self.state_reason,
             update_time=self.update_time,
             zone=self.zone)
 
@@ -217,6 +254,8 @@ def get_instance(instance_id: Optional[_builtins.str] = None,
                  opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetInstanceResult:
     """
     Use this data source to get information about a Lustre instance. For more information see the [API docs](https://cloud.google.com/filestore/docs/lustre/reference/rest/v1/projects.locations.instances).
+
+    ## Example Usage
 
 
     :param _builtins.str instance_id: The instance id of the Lustre instance.
@@ -231,6 +270,7 @@ def get_instance(instance_id: Optional[_builtins.str] = None,
     __ret__ = pulumi.runtime.invoke('gcp:lustre/getInstance:getInstance', __args__, opts=opts, typ=GetInstanceResult).value
 
     return AwaitableGetInstanceResult(
+        access_rules_options=pulumi.get(__ret__, 'access_rules_options'),
         capacity_gib=pulumi.get(__ret__, 'capacity_gib'),
         create_time=pulumi.get(__ret__, 'create_time'),
         description=pulumi.get(__ret__, 'description'),
@@ -239,15 +279,18 @@ def get_instance(instance_id: Optional[_builtins.str] = None,
         gke_support_enabled=pulumi.get(__ret__, 'gke_support_enabled'),
         id=pulumi.get(__ret__, 'id'),
         instance_id=pulumi.get(__ret__, 'instance_id'),
+        kms_key=pulumi.get(__ret__, 'kms_key'),
         labels=pulumi.get(__ret__, 'labels'),
         location=pulumi.get(__ret__, 'location'),
         mount_point=pulumi.get(__ret__, 'mount_point'),
         name=pulumi.get(__ret__, 'name'),
         network=pulumi.get(__ret__, 'network'),
         per_unit_storage_throughput=pulumi.get(__ret__, 'per_unit_storage_throughput'),
+        placement_policy=pulumi.get(__ret__, 'placement_policy'),
         project=pulumi.get(__ret__, 'project'),
         pulumi_labels=pulumi.get(__ret__, 'pulumi_labels'),
         state=pulumi.get(__ret__, 'state'),
+        state_reason=pulumi.get(__ret__, 'state_reason'),
         update_time=pulumi.get(__ret__, 'update_time'),
         zone=pulumi.get(__ret__, 'zone'))
 def get_instance_output(instance_id: Optional[pulumi.Input[_builtins.str]] = None,
@@ -256,6 +299,8 @@ def get_instance_output(instance_id: Optional[pulumi.Input[_builtins.str]] = Non
                         opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetInstanceResult]:
     """
     Use this data source to get information about a Lustre instance. For more information see the [API docs](https://cloud.google.com/filestore/docs/lustre/reference/rest/v1/projects.locations.instances).
+
+    ## Example Usage
 
 
     :param _builtins.str instance_id: The instance id of the Lustre instance.
@@ -269,6 +314,7 @@ def get_instance_output(instance_id: Optional[pulumi.Input[_builtins.str]] = Non
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('gcp:lustre/getInstance:getInstance', __args__, opts=opts, typ=GetInstanceResult)
     return __ret__.apply(lambda __response__: GetInstanceResult(
+        access_rules_options=pulumi.get(__response__, 'access_rules_options'),
         capacity_gib=pulumi.get(__response__, 'capacity_gib'),
         create_time=pulumi.get(__response__, 'create_time'),
         description=pulumi.get(__response__, 'description'),
@@ -277,14 +323,17 @@ def get_instance_output(instance_id: Optional[pulumi.Input[_builtins.str]] = Non
         gke_support_enabled=pulumi.get(__response__, 'gke_support_enabled'),
         id=pulumi.get(__response__, 'id'),
         instance_id=pulumi.get(__response__, 'instance_id'),
+        kms_key=pulumi.get(__response__, 'kms_key'),
         labels=pulumi.get(__response__, 'labels'),
         location=pulumi.get(__response__, 'location'),
         mount_point=pulumi.get(__response__, 'mount_point'),
         name=pulumi.get(__response__, 'name'),
         network=pulumi.get(__response__, 'network'),
         per_unit_storage_throughput=pulumi.get(__response__, 'per_unit_storage_throughput'),
+        placement_policy=pulumi.get(__response__, 'placement_policy'),
         project=pulumi.get(__response__, 'project'),
         pulumi_labels=pulumi.get(__response__, 'pulumi_labels'),
         state=pulumi.get(__response__, 'state'),
+        state_reason=pulumi.get(__response__, 'state_reason'),
         update_time=pulumi.get(__response__, 'update_time'),
         zone=pulumi.get(__response__, 'zone')))

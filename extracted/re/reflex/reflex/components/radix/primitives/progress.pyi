@@ -17,7 +17,6 @@ class ProgressComponent(RadixPrimitiveComponentWithClassName):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -50,7 +49,6 @@ class ProgressComponent(RadixPrimitiveComponentWithClassName):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -72,7 +70,6 @@ class ProgressRoot(ProgressComponent):
         radius: Literal["full", "large", "medium", "none", "small"]
         | Var[Literal["full", "large", "medium", "none", "small"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -106,7 +103,6 @@ class ProgressRoot(ProgressComponent):
         Args:
             *children: The children of the component.
             radius: Override theme radius for progress bar: "none" | "small" | "medium" | "large" | "full"
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -186,7 +182,6 @@ class ProgressIndicator(ProgressComponent):
             ]
         ]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -222,7 +217,6 @@ class ProgressIndicator(ProgressComponent):
             value: The current progress value.
             max: The maximum progress value.
             color_scheme: The color scheme of the progress indicator.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -304,7 +298,6 @@ class Progress(ProgressRoot):
         radius: Literal["full", "large", "medium", "none", "small"]
         | Var[Literal["full", "large", "medium", "none", "small"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -340,7 +333,6 @@ class Progress(ProgressRoot):
             value: The current progress value.
             max: The maximum progress value.
             radius: Override theme radius for progress bar: "none" | "small" | "medium" | "large" | "full"
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -424,7 +416,6 @@ class ProgressNamespace(ComponentNamespace):
         radius: Literal["full", "large", "medium", "none", "small"]
         | Var[Literal["full", "large", "medium", "none", "small"]]
         | None = None,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -460,7 +451,6 @@ class ProgressNamespace(ComponentNamespace):
             value: The current progress value.
             max: The maximum progress value.
             radius: Override theme radius for progress bar: "none" | "small" | "medium" | "large" | "full"
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

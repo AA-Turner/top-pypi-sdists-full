@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import re
 import warnings
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, TypeVar, Union
+from collections.abc import Callable, Sequence
+from typing import Any, TypedDict, TypeVar, cast
 from urllib.parse import urlencode
 
 import numpy
+import pyproj
+import rasterio
 from fastapi import FastAPI
 from fastapi.datastructures import QueryParams
 from fastapi.dependencies.utils import get_dependant, request_params_to_args
 from geojson_pydantic.geometries import MultiPolygon, Polygon
+from morecantile import TileMatrixSet
 from rasterio.dtypes import dtype_ranges
 from rio_tiler.colormap import apply_cmap
 from rio_tiler.errors import InvalidDatatypeWarning
@@ -31,7 +35,7 @@ def rescale_array(
     mask: numpy.ndarray,
     in_range: Sequence[IntervalTuple],
     out_range: Sequence[IntervalTuple] = ((0, 255),),
-    out_dtype: Union[str, numpy.number] = "uint8",
+    out_dtype: str | numpy.number = "uint8",
 ) -> numpy.ndarray:
     """Rescale data array"""
     if len(array.shape) < 3:
@@ -58,13 +62,13 @@ def rescale_array(
 
 def render_image(  # noqa: C901
     image: ImageData,
-    colormap: Optional[ColorMapType] = None,
-    output_format: Optional[ImageType] = None,
+    colormap: ColorMapType | None = None,
+    output_format: ImageType | None = None,
     add_mask: bool = True,
-    rescale: Optional[Sequence[IntervalTuple]] = None,
-    color_formula: Optional[str] = None,
+    rescale: Sequence[IntervalTuple] | None = None,
+    color_formula: str | None = None,
     **kwargs: Any,
-) -> Tuple[bytes, str]:
+) -> tuple[bytes, str]:
     """convert image data to file.
 
     This is adapted from https://github.com/cogeotiff/rio-tiler/blob/066878704f841a332a53027b74f7e0a97f10f4b2/rio_tiler/models.py#L698-L764
@@ -76,17 +80,16 @@ def render_image(  # noqa: C901
         image.apply_color_formula(color_formula)
 
     data, mask = image.data.copy(), image.mask.copy()
-    datatype_range = image.dataset_statistics or (dtype_ranges[str(data.dtype)],)
+    input_range = dtype_ranges[str(data.dtype)]
+    output_range = image.dataset_statistics or (input_range,)
 
     if colormap:
         data, alpha_from_cmap = apply_cmap(data, colormap)
+        output_range = (dtype_ranges[str(data.dtype)],)
         # Combine both Mask from dataset and Alpha band from Colormap
-        mask = numpy.bitwise_and(alpha_from_cmap, mask)
-        datatype_range = (dtype_ranges[str(data.dtype)],)
-
-    # If output_format is not set, we choose between JPEG and PNG
-    if not output_format:
-        output_format = ImageType.jpeg if mask.all() else ImageType.png
+        mask = numpy.where(
+            mask != input_range[0], alpha_from_cmap, output_range[0][0]
+        ).astype(data.dtype)
 
     # format-specific valid dtypes
     format_dtypes = {
@@ -97,6 +100,15 @@ def render_image(  # noqa: C901
         ImageType.jp2: ["uint8", "int16", "uint16"],
     }
 
+    # If output_format is not set, we choose between JPEG and PNG
+    if not output_format:
+        # Check if any alpha value == min datatype value (== Masked)
+        is_masked = (mask == dtype_ranges[str(mask.dtype)][0]).any()
+        output_format = ImageType.png if is_masked else ImageType.jpeg
+        # For automatic format we make sure the output datatype
+        # will be the same for both JPEG and PNG
+        format_dtypes[ImageType.png] = ["uint8"]
+
     valid_dtypes = format_dtypes.get(output_format, [])
     if valid_dtypes and data.dtype not in valid_dtypes:
         warnings.warn(
@@ -105,30 +117,33 @@ def render_image(  # noqa: C901
             InvalidDatatypeWarning,
             stacklevel=1,
         )
-        data = rescale_array(data, mask, in_range=datatype_range)
+        data = rescale_array(data, mask, in_range=output_range)
 
     creation_options = {**kwargs, **output_format.profile}
-    if output_format == ImageType.tif:
+    if output_format.driver == "GTiff":
         if "transform" not in creation_options:
             creation_options.update({"transform": image.transform})
         if "crs" not in creation_options and image.crs:
             creation_options.update({"crs": image.crs})
 
-    if not add_mask:
-        mask = None
-
-    return (
-        render(
+    if add_mask:
+        content = render(
             data,
             mask,
             img_format=output_format.driver,
             **creation_options,
-        ),
-        output_format.mediatype,
-    )
+        )
+    else:
+        content = render(
+            data,
+            img_format=output_format.driver,
+            **creation_options,
+        )
+
+    return content, output_format.mediatype
 
 
-def bounds_to_geometry(bounds: BBox) -> Union[Polygon, MultiPolygon]:
+def bounds_to_geometry(bounds: BBox) -> Polygon | MultiPolygon:
     """Convert bounds to geometry.
 
     Note: if bounds are crossing the dateline separation line, a MultiPolygon geometry will be returned.
@@ -146,14 +161,14 @@ def bounds_to_geometry(bounds: BBox) -> Union[Polygon, MultiPolygon]:
 
 T = TypeVar("T")
 
-ValidParams = Dict[str, Any]
-Errors = List[Any]
+ValidParams = dict[str, Any]
+Errors = list[Any]
 
 
 def get_dependency_query_params(
     dependency: Callable,
-    params: Union[QueryParams, Dict],
-) -> Tuple[ValidParams, Errors]:
+    params: QueryParams | dict,
+) -> tuple[ValidParams, Errors]:
     """Check QueryParams for Query dependency.
 
     1. `get_dependant` is used to get the query-parameters required by the `callable`
@@ -166,15 +181,15 @@ def get_dependency_query_params(
 
     qp = (
         QueryParams(urlencode(params, doseq=True))
-        if isinstance(params, Dict)
+        if isinstance(params, dict)
         else params
     )
     return request_params_to_args(dep.query_params, qp)
 
 
 def deserialize_query_params(
-    dependency: Callable[..., T], params: Union[QueryParams, Dict]
-) -> Tuple[T, Errors]:
+    dependency: Callable[..., T], params: QueryParams | dict
+) -> tuple[T, Errors]:
     """Deserialize QueryParams for given dependency.
 
     Parse params as query params and deserialize with dependency.
@@ -186,9 +201,9 @@ def deserialize_query_params(
 
 
 def extract_query_params(
-    dependencies: List[Callable],
-    params: Union[QueryParams, Dict],
-) -> Tuple[ValidParams, Errors]:
+    dependencies: list[Callable],
+    params: QueryParams | dict,
+) -> tuple[ValidParams, Errors]:
     """Extract query params given list of dependencies."""
     values = {}
     errors = []
@@ -201,7 +216,7 @@ def extract_query_params(
 
 
 def check_query_params(
-    dependencies: List[Callable], params: Union[QueryParams, Dict]
+    dependencies: list[Callable], params: QueryParams | dict
 ) -> bool:
     """Check QueryParams for Query dependency.
 
@@ -214,7 +229,7 @@ def check_query_params(
     """
     qp = (
         QueryParams(urlencode(params, doseq=True))
-        if isinstance(params, Dict)
+        if isinstance(params, dict)
         else params
     )
 
@@ -235,7 +250,7 @@ def check_query_params(
     return True
 
 
-def accept_media_type(accept: str, mediatypes: List[MediaType]) -> Optional[MediaType]:
+def accept_media_type(accept: str, mediatypes: list[MediaType]) -> MediaType | None:
     """Return MediaType based on accept header and available mediatype.
 
     Links:
@@ -314,7 +329,9 @@ def update_openapi(app: FastAPI) -> FastAPI:
     """
     # Find the route for the openapi_url in the app
     openapi_route: Route = next(
-        route for route in app.router.routes if route.path == app.openapi_url
+        cast(Route, route)
+        for route in app.router.routes
+        if route.path == app.openapi_url  # type: ignore
     )
     # Store the old endpoint function so we can call it from the patched function
     old_endpoint = openapi_route.endpoint
@@ -390,3 +407,94 @@ def create_html_response(
             **kwargs,
         },
     )
+
+
+class TMSLimits(TypedDict):
+    """TileMatrixSet Limits model."""
+
+    tileMatrix: str
+    minTileRow: int
+    maxTileRow: int
+    minTileCol: int
+    maxTileCol: int
+
+
+def tms_limits(
+    tms: TileMatrixSet,
+    bounds: tuple[float, float, float, float],
+    zooms: tuple[int, int] | None = None,
+    geographic_crs: pyproj.CRS | rasterio.crs.CRS | None = None,
+) -> list[TMSLimits]:
+    """Generate TileMatrixSet limits for given bounds and zoom levels."""
+    if geographic_crs:
+        geographic_crs = rio_crs_to_pyproj(geographic_crs)
+
+    if zooms:
+        minzoom, maxzoom = zooms
+    else:
+        minzoom, maxzoom = tms.minzoom, tms.maxzoom
+
+    tilematrix_limits: list[TMSLimits] = []
+    for zoom in range(minzoom, maxzoom + 1):
+        matrix = tms.matrix(zoom)
+        ulTile = tms.tile(bounds[0], bounds[3], zoom, geographic_crs=geographic_crs)
+        lrTile = tms.tile(bounds[2], bounds[1], zoom, geographic_crs=geographic_crs)
+        minx, maxx = (min(ulTile.x, lrTile.x), max(ulTile.x, lrTile.x))
+        miny, maxy = (min(ulTile.y, lrTile.y), max(ulTile.y, lrTile.y))
+        tilematrix_limits.append(
+            {
+                "tileMatrix": matrix.id,
+                "minTileRow": max(miny, 0),
+                "maxTileRow": min(maxy, matrix.matrixHeight),
+                "minTileCol": max(minx, 0),
+                "maxTileCol": min(maxx, matrix.matrixWidth),
+            }
+        )
+
+    return tilematrix_limits
+
+
+def tms_limits_to_xml(limits: list[TMSLimits]) -> list[str]:
+    """Convert TMS limits to XML."""
+    xml_limits: list[str] = []
+    for limit in limits:
+        xml_limits.append(
+            f"""<TileMatrixLimits>
+                    <TileMatrix>{limit['tileMatrix']}</TileMatrix>
+                    <MinTileRow>{limit['minTileRow']}</MinTileRow>
+                    <MaxTileRow>{limit['maxTileRow']}</MaxTileRow>
+                    <MinTileCol>{limit['minTileCol']}</MinTileCol>
+                    <MaxTileCol>{limit['maxTileCol']}</MaxTileCol>
+                </TileMatrixLimits>""",
+        )
+
+    return xml_limits
+
+
+def tms_to_xml(tms: TileMatrixSet, minzoom, maxzoom) -> list[str]:
+    """Convert TMS Matrices to XML."""
+    xml_matrices: list[str] = []
+    for zoom in range(minzoom, maxzoom + 1):
+        matrix = tms.matrix(zoom)
+        xml_matrices.append(
+            f"""<TileMatrix>
+                    <ows:Identifier>{matrix.id}</ows:Identifier>
+                    <ScaleDenominator>{matrix.scaleDenominator}</ScaleDenominator>
+                    <TopLeftCorner>{matrix.pointOfOrigin[0]} {matrix.pointOfOrigin[1]}</TopLeftCorner>
+                    <TileWidth>{matrix.tileWidth}</TileWidth>
+                    <TileHeight>{matrix.tileHeight}</TileHeight>
+                    <MatrixWidth>{matrix.matrixWidth}</MatrixWidth>
+                    <MatrixHeight>{matrix.matrixHeight}</MatrixHeight>
+                </TileMatrix>""",
+        )
+
+    return xml_matrices
+
+
+def rio_crs_to_pyproj(crs: pyproj.CRS | rasterio.crs.CRS) -> pyproj.CRS:
+    """Convert rasterio CRS to pyproj CRS."""
+    if isinstance(crs, pyproj.CRS):
+        return crs
+
+    with rasterio.Env(OSR_WKT_FORMAT="WKT2_2018"):
+        return pyproj.CRS.from_user_input(crs)

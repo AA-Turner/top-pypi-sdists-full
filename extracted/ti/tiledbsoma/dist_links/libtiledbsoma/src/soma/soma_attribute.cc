@@ -26,15 +26,15 @@ std::shared_ptr<SOMAColumn> SOMAAttribute::deserialize(
             "'tiledb_attributes'");
     }
 
-    std::vector<std::string>
-        attribute_names = soma_schema[TILEDB_SOMA_SCHEMA_COL_ATTR_KEY]
-                              .template get<std::vector<std::string>>();
+    std::vector<std::string> attribute_names = soma_schema[TILEDB_SOMA_SCHEMA_COL_ATTR_KEY]
+                                                   .template get<std::vector<std::string>>();
 
     if (attribute_names.size() != 1) {
-        throw TileDBSOMAError(fmt::format(
-            "[SOMAAttribute][deserialize] Invalid number of attributes. "
-            "Epected 1, got {}",
-            attribute_names.size()));
+        throw TileDBSOMAError(
+            fmt::format(
+                "[SOMAAttribute][deserialize] Invalid number of attributes. "
+                "Epected 1, got {}",
+                attribute_names.size()));
     }
 
     if (!array.schema().has_attribute(attribute_names[0])) {
@@ -43,116 +43,116 @@ std::shared_ptr<SOMAColumn> SOMAAttribute::deserialize(
     }
 
     auto attribute = array.schema().attribute(attribute_names[0]);
-    auto enumeration_name = AttributeExperimental::get_enumeration_name(
-        ctx, attribute);
+    auto enumeration_name = AttributeExperimental::get_enumeration_name(ctx, attribute);
 
-    std::optional<Enumeration>
-        enumeration = enumeration_name.has_value() ?
-                          std::make_optional(ArrayExperimental::get_enumeration(
-                              ctx, array, enumeration_name.value())) :
-                          std::nullopt;
+    std::optional<Enumeration> enumeration = enumeration_name.has_value() ?
+                                                 std::make_optional(
+                                                     ArrayExperimental::get_enumeration(
+                                                         ctx, array, enumeration_name.value())) :
+                                                 std::nullopt;
 
     return std::make_shared<SOMAAttribute>(attribute, enumeration);
 }
 
 std::shared_ptr<SOMAAttribute> SOMAAttribute::create(
-    std::shared_ptr<Context> ctx,
-    ArrowSchema* schema,
-    std::string_view type_metadata,
-    PlatformConfig platform_config) {
-    auto attribute = ArrowAdapter::tiledb_attribute_from_arrow_schema(
-        ctx, schema, type_metadata, platform_config);
+    std::shared_ptr<Context> ctx, ArrowSchema* schema, std::string_view type_metadata, PlatformConfig platform_config) {
+    auto attribute = ArrowAdapter::tiledb_attribute_from_arrow_schema(ctx, schema, type_metadata, platform_config);
 
-    return std::make_shared<SOMAAttribute>(
-        SOMAAttribute(attribute.first, attribute.second));
+    return std::make_shared<SOMAAttribute>(SOMAAttribute(attribute.first, attribute.second));
 }
 
 void SOMAAttribute::_set_dim_points(ManagedQuery&, const std::any&) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_set_dim_points] Column with name {} is not an index "
-        "column",
-        name()));
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_set_dim_points] Column with name {} is not an index "
+            "column",
+            name()));
 }
 
 void SOMAAttribute::_set_dim_ranges(ManagedQuery&, const std::any&) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_set_dim_ranges] Column with name {} is not an index "
-        "column",
-        name()));
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_set_dim_ranges] Column with name {} is not an index "
+            "column",
+            name()));
 }
 
-void SOMAAttribute::_set_current_domain_slot(
-    NDRectangle&, std::span<const std::any>) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_set_current_domain_slot] Column with name {} is not "
-        "an index column",
-        name()));
+void SOMAAttribute::_set_current_domain_slot(NDRectangle&, std::span<const std::any>) const {
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_set_current_domain_slot] Column with name {} is not "
+            "an index column",
+            name()));
 }
 
 std::pair<bool, std::string> SOMAAttribute::_can_set_current_domain_slot(
     std::optional<NDRectangle>&, std::span<const std::any>) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_set_current_domain_slot] Column with name {} is not "
-        "an index column",
-        name()));
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_set_current_domain_slot] Column with name {} is not "
+            "an index column",
+            name()));
 };
 
 std::any SOMAAttribute::_core_domain_slot() const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_core_domain_slot] Column with name {} is not an "
-        "index column",
-        name()));
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_core_domain_slot] Column with name {} is not an "
+            "index column",
+            name()));
 }
 
 std::any SOMAAttribute::_non_empty_domain_slot(Array&) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_non_empty_domain_slot] Column with name {} is not an "
-        "index column",
-        name()));
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_non_empty_domain_slot] Column with name {} is not an "
+            "index column",
+            name()));
 }
 
-std::any SOMAAttribute::_non_empty_domain_slot_opt(
-    const SOMAContext&, Array&) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_non_empty_domain_slot] Column with name {} is not an "
-        "index column",
-        name()));
+std::any SOMAAttribute::_non_empty_domain_slot_opt(const SOMAContext&, Array&) const {
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_non_empty_domain_slot] Column with name {} is not an "
+            "index column",
+            name()));
 }
 
-std::any SOMAAttribute::_core_current_domain_slot(
-    const SOMAContext&, Array&) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_core_current_domain_slot] Column with name {} is not "
-        "an index column",
-        name()));
+std::any SOMAAttribute::_core_current_domain_slot(const SOMAContext&, Array&) const {
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_core_current_domain_slot] Column with name {} is not "
+            "an index column",
+            name()));
 }
 
 std::any SOMAAttribute::_core_current_domain_slot(NDRectangle&) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][_core_current_domain_slot] Column with name {} is not "
-        "an index column",
-        name()));
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][_core_current_domain_slot] Column with name {} is not "
+            "an index column",
+            name()));
 }
 
 std::pair<ArrowArray*, ArrowSchema*> SOMAAttribute::arrow_domain_slot(
-    const SOMAContext&, Array&, enum Domainish) const {
-    throw TileDBSOMAError(fmt::format(
-        "[SOMAAttribute][arrow_domain_slot] Column with name {} is not an "
-        "index column",
-        name()));
+    const SOMAContext&, Array&, enum Domainish, bool) const {
+    throw TileDBSOMAError(
+        fmt::format(
+            "[SOMAAttribute][arrow_domain_slot] Column with name {} is not an "
+            "index column",
+            name()));
 }
 
 ArrowSchema* SOMAAttribute::arrow_schema_slot(
-    const SOMAContext& ctx, Array& array) const {
+    const SOMAContext& ctx, Array& array, bool downcast_dict_of_large_var) const {
     return ArrowAdapter::arrow_schema_from_tiledb_attribute(
-        attribute, *ctx.tiledb_ctx(), array);
+        attribute, *ctx.tiledb_ctx(), array, downcast_dict_of_large_var);
 }
 
 void SOMAAttribute::serialize(nlohmann::json& columns_schema) const {
     nlohmann::json column;
 
-    column[TILEDB_SOMA_SCHEMA_COL_TYPE_KEY] = static_cast<uint32_t>(
-        soma_column_datatype_t::SOMA_COLUMN_ATTRIBUTE);
+    column[TILEDB_SOMA_SCHEMA_COL_TYPE_KEY] = static_cast<uint32_t>(soma_column_datatype_t::SOMA_COLUMN_ATTRIBUTE);
     column[TILEDB_SOMA_SCHEMA_COL_ATTR_KEY] = {attribute.name()};
 
     columns_schema.push_back(column);

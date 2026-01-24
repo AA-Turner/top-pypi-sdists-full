@@ -21,7 +21,6 @@ module = [
     "isodate.*",
     "jsonschema.*",
     "more_itertools.*",
-    "parse.*",
     "requests.*",
     "werkzeug.*",
 ]
@@ -33,7 +32,7 @@ ignore_missing_imports = true
 
 [tool.poetry]
 name = "openapi-core"
-version = "0.19.5"
+version = "0.22.0"
 description = "client-side and server-side support for the OpenAPI Specification v3"
 authors = ["Artur Maciag <maciag.artur@gmail.com>"]
 license = "BSD-3-Clause"
@@ -47,11 +46,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
@@ -60,26 +60,23 @@ include = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.8.0"
+python = "^3.9.0"
 django = {version = ">=3.0", optional = true}
 falcon = {version = ">=3.0", optional = true}
 flask = {version = "*", optional = true}
 aiohttp = {version = ">=3.0", optional = true}
-starlette = {version = ">=0.26.1,<0.45.0", optional = true}
+starlette = {version = ">=0.26.1,<0.50.0", optional = true}
 isodate = "*"
 more-itertools = "*"
-parse = "*"
 openapi-schema-validator = "^0.6.0"
 openapi-spec-validator = "^0.7.1"
 requests = {version = "*", optional = true}
-# werkzeug 3.1.2 changed the definition of Headers
-# See https://github.com/python-openapi/openapi-core/issues/938
-werkzeug = "<3.1.2"
-jsonschema-path = "^0.3.1"
-jsonschema = "^4.18.0"
+werkzeug = ">=2.1.0"
+jsonschema-path = "^0.3.4"
+jsonschema = "^4.23.0"
 multidict = {version = "^6.0.4", optional = true}
-aioitertools = {version = ">=0.11,<0.13", optional = true}
-fastapi = {version = ">=0.111,<0.116", optional = true}
+aioitertools = {version = ">=0.11,<0.14", optional = true}
+fastapi = {version = ">=0.111,<0.125", optional = true}
 typing-extensions = "^4.8.0"
 
 [tool.poetry.extras]
@@ -92,35 +89,35 @@ aiohttp = ["aiohttp", "multidict"]
 starlette = ["starlette", "aioitertools"]
 
 [tool.poetry.group.dev.dependencies]
-black = ">=23.3,<25.0"
+black = ">=23.3,<26.0"
 django = ">=3.0"
 djangorestframework = "^3.11.2"
 falcon = ">=3.0"
 flask = "*"
-isort = "^5.11.5"
+isort = ">=5.11.5,<7.0.0"
 pre-commit = "*"
 pytest = "^8"
 pytest-flake8 = "*"
 pytest-cov = "*"
 python-multipart = "*"
 responses = "*"
-starlette = ">=0.26.1,<0.45.0"
+starlette = ">=0.26.1,<0.50.0"
 strict-rfc3339 = "^0.7"
 webob = "*"
 mypy = "^1.2"
 httpx = ">=0.24,<0.29"
-deptry = ">=0.11,<0.21"
+deptry = ">=0.11,<0.24"
 aiohttp = "^3.8.4"
-pytest-aiohttp = "^1.0.4"
-bump2version = "^1.0.1"
+pytest-aiohttp = "^1.1.0"
 pyflakes = "^3.1.0"
-fastapi = ">=0.111,<0.116"
+fastapi = ">=0.111,<0.125"
+tbump = "^6.11.0"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.6.1"
-mkdocstrings = {extras = ["python"], version = "^0.26.1"}
+mkdocstrings = {extras = ["python"], version = ">=0.26.1,<0.31.0"}
 mkdocs-material = "^9.5.34"
-griffe-typingdoc = "^0.2.7"
+griffe-typingdoc = ">=0.2.7,<0.4.0"
 
 [tool.pytest.ini_options]
 addopts = """
@@ -147,3 +144,26 @@ line-length = 79
 profile = "black"
 line_length = 79
 force_single_line = true
+
+[tool.tbump]
+github_url = "https://github.com/python-openapi/openapi-core"
+
+[tool.tbump.version]
+current = "0.22.0"
+regex = '''
+  (?P<major>\d+)
+  \.
+  (?P<minor>\d+)
+  \.
+  (?P<patch>\d+)
+  '''
+
+[tool.tbump.git]
+message_template = "Version {new_version}"
+tag_template = "{new_version}"
+
+[[tool.tbump.file]]
+src = "openapi_core/__init__.py"
+
+[[tool.tbump.file]]
+src = "pyproject.toml"

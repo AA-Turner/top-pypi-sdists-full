@@ -9,22 +9,36 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Union
 from typing_extensions import NotRequired, TypedDict
 
 
-class AutolinkType(TypedDict):
-    """Autolink reference
+class NetworkSettingsType(TypedDict):
+    """Hosted compute network settings resource
 
-    An autolink reference.
+    A hosted compute network settings resource.
     """
 
-    id: int
-    key_prefix: str
-    url_template: str
-    is_alphanumeric: bool
-    updated_at: NotRequired[Union[datetime, None]]
+    id: str
+    network_configuration_id: NotRequired[str]
+    name: str
+    subnet_id: str
+    region: str
 
 
-__all__ = ("AutolinkType",)
+class NetworkSettingsTypeForResponse(TypedDict):
+    """Hosted compute network settings resource
+
+    A hosted compute network settings resource.
+    """
+
+    id: str
+    network_configuration_id: NotRequired[str]
+    name: str
+    subnet_id: str
+    region: str
+
+
+__all__ = (
+    "NetworkSettingsType",
+    "NetworkSettingsTypeForResponse",
+)

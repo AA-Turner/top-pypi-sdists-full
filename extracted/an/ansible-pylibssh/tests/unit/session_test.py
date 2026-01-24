@@ -13,6 +13,15 @@ def test_make_session():
     assert Session()
 
 
+def test_make_session_close_connect():
+    """Make sure the session is usable after call to close()."""
+    session = Session()
+    session.close()
+    error_msg = '^ssh connect failed: Hostname required$'
+    with pytest.raises(LibsshSessionException, match=error_msg):
+        session.connect()
+
+
 def test_session_connection_refused(free_port_num):
     """Test that connecting to a missing service raises an error."""
     error_msg = '^ssh connect failed: Connection refused$'

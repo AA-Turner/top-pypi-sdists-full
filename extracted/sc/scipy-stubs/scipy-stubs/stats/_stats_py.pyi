@@ -2,7 +2,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Any, Generic, Literal as L, Never, Protocol, Self, TypeAlias, overload, type_check_only
-from typing_extensions import NamedTuple, TypeVar, deprecated
+from typing_extensions import NamedTuple, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -25,7 +25,6 @@ __all__ = [
     "energy_distance",
     "expectile",
     "f_oneway",
-    "find_repeats",
     "fisher_exact",
     "friedmanchisquare",
     "gmean",
@@ -99,7 +98,10 @@ _RealT_co = TypeVar("_RealT_co", bound=_Real0D, default=_Real0D, covariant=True)
 _IntOrArrayT_co = TypeVar("_IntOrArrayT_co", bound=_ScalarOrND[np.intp], default=_ScalarOrND[np.intp], covariant=True)
 _FloatOrArrayT = TypeVar("_FloatOrArrayT", bound=_ScalarOrND[npc.floating])
 _FloatOrArrayT_co = TypeVar(
-    "_FloatOrArrayT_co", bound=float | _ScalarOrND[npc.floating], default=float | onp.ArrayND[np.float64], covariant=True
+    "_FloatOrArrayT_co",
+    bound=float | npc.floating | onp.ArrayND[npc.floating, Any],
+    default=float | onp.ArrayND[np.float64],
+    covariant=True,
 )
 _FloatOrArrayT2_co = TypeVar(
     "_FloatOrArrayT2_co", bound=float | _ScalarOrND[npc.floating], default=float | onp.ArrayND[np.float64], covariant=True
@@ -124,10 +126,16 @@ _KS2TestMethod: TypeAlias = L["auto", "exact", "asymp"]
 _CombinePValuesMethod: TypeAlias = L["fisher", "pearson", "tippett", "stouffer", "mudholkar_george"]
 _RankMethod: TypeAlias = L["average", "min", "max", "dense", "ordinal"]
 
-_LMomentOrder: TypeAlias = L[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] | npc.integer
-_LMomentOrder1D: TypeAlias = Sequence[_LMomentOrder] | onp.CanArrayND[npc.integer]
 _RealLimits: TypeAlias = tuple[float | _Real0D, float | _Real0D]
 _Weigher: TypeAlias = Callable[[int], float | _Real0D]
+
+_JustAnyShape: TypeAlias = tuple[Never, Never, Never, Never]  # workaround for https://github.com/microsoft/pyright/issues/10232
+_AsFloat64_1D: TypeAlias = onp.ToArrayStrict1D[float, npc.floating64 | npc.integer]
+_AsFloat64_2D: TypeAlias = onp.ToArrayStrict2D[float, npc.floating64 | npc.integer]
+_AsFloat64_ND: TypeAlias = onp.ToArrayND[float, npc.floating64 | npc.integer]
+_AsFloat32_1D: TypeAlias = onp.ToArrayStrict1D[np.float32, np.float32 | np.float16]
+_AsFloat32_2D: TypeAlias = onp.ToArrayStrict2D[np.float32, np.float32 | np.float16]
+_AsFloat32_ND: TypeAlias = onp.ToArrayND[Never, np.float32 | np.float16]
 
 @type_check_only
 class _RVSCallable(Protocol):
@@ -202,10 +210,6 @@ class SigmaclipResult(NamedTuple, Generic[_RealT_co, _FloatOrArrayT_co]):
     clipped: onp.Array1D[_RealT_co]
     lower: _FloatOrArrayT_co
     upper: _FloatOrArrayT_co
-
-class RepeatedResults(NamedTuple):
-    values: onp.Array1D[np.float64]
-    counts: onp.Array1D[np.intp]
 
 @dataclass
 class AlexanderGovernResult:
@@ -529,23 +533,540 @@ def gstd(
     a: onp.ToFloatND, axis: int | None = 0, ddof: int = 1, *, keepdims: bool = False, nan_policy: NanPolicy = "propagate"
 ) -> np.float64 | onp.ArrayND[np.float64]: ...
 
-# TODO(jorenham): improve
+#
+@overload  # ?d ~f64, order: 0d
 def moment(
-    a: onp.ToFloatND,
+    a: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
     order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # ?d ~T: floating, order: 0d
+def moment(
+    a: onp.ArrayND[_FloatT, _JustAnyShape],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> _FloatT | onp.ArrayND[_FloatT]: ...
+@overload  # 1d ~f64, order: 0d
+def moment(
+    a: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # 1d ~T: floating, order: 0d
+def moment(
+    a: onp.ToArrayStrict1D[_FloatT, _FloatT],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # 2d ~f64, order: 0d
+def moment(
+    a: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~T: floating, order: 0d
+def moment(
+    a: onp.ToArrayStrict2D[_FloatT, _FloatT],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.Array1D[_FloatT]: ...
+@overload  # 3d ~f64, order: 0d
+def moment(
+    a: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.Array2D[np.float64]: ...
+@overload  # 3d ~T: floating, order: 0d
+def moment(
+    a: onp.ToArrayStrict3D[_FloatT, _FloatT],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.Array2D[_FloatT]: ...
+@overload  # nd ~f64, order: 0d
+def moment(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64] | Any: ...
+@overload  # nd ~f64, order: 0d, axis=None  (positional)
+def moment(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    order: int,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # nd ~f64, order: 0d, axis=None  (keyword)
+def moment(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    order: int = 1,
+    *,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # nd ~f64, order: nd
+def moment(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    order: onp.ToIntND,
     axis: int | None = 0,
     nan_policy: NanPolicy = "propagate",
     *,
-    center: float | npc.floating | None = None,
-    keepdims: bool = False,
-) -> _FloatOrND: ...
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64]: ...
+@overload  # nd ~f64, keepdims=True
+def moment(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    order: int | onp.ToIntND = 1,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # nd ~T: floating, order: 0d
+def moment(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[_FloatT] | Any: ...
+@overload  # nd ~T: floating, order: 0d, axis=None  (positional)
+def moment(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    order: int,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # nd ~T: floating, order: 0d, axis=None  (keyword)
+def moment(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    order: int = 1,
+    *,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # nd ~T: floating, order: nd
+def moment(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    order: onp.ToIntND,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[_FloatT]: ...
+@overload  # nd ~T: floating, keepdims=True
+def moment(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    order: int | onp.ToIntND = 1,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[True],
+) -> onp.ArrayND[_FloatT]: ...
+@overload  # nd +floating, order: 0d
+def moment(
+    a: onp.ToFloatND,
+    order: int = 1,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> npc.floating | onp.ArrayND[npc.floating]: ...
+@overload  # nd +floating, order: 0d, axis=None  (positional)
+def moment(
+    a: onp.ToFloatND,
+    order: int,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> npc.floating: ...
+@overload  # nd +floating, order: 0d, axis=None  (keyword)
+def moment(
+    a: onp.ToFloatND,
+    order: int = 1,
+    *,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> npc.floating: ...
+@overload  # nd +floating, order: nd
+def moment(
+    a: onp.ToFloatND,
+    order: onp.ToIntND,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[npc.floating]: ...
+@overload  # nd +floating, keepdims=True
+def moment(
+    a: onp.ToFloatND,
+    order: int | onp.ToIntND = 1,
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    center: float | None = None,
+    keepdims: L[True],
+) -> onp.ArrayND[npc.floating]: ...
 
-# TODO(jorenham): improve
+# keep in sync with kurtosis
+@overload  # ?d ~f64
 def skew(
-    a: onp.ToFloatND, axis: int | None = 0, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: bool = False
-) -> _FloatOrND: ...
+    a: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # ?d ~T
+def skew(
+    a: onp.ArrayND[_FloatT, _JustAnyShape],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> _FloatT | onp.ArrayND[_FloatT]: ...
+@overload  # 1d ~f64
+def skew(
+    a: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # 1d ~T
+def skew(
+    a: onp.ToArrayStrict1D[_FloatT, _FloatT],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # 2d ~f64
+def skew(
+    a: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~T
+def skew(
+    a: onp.ToArrayStrict2D[_FloatT, _FloatT],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array1D[_FloatT]: ...
+@overload  # 3d ~f64
+def skew(
+    a: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array2D[np.float64]: ...
+@overload  # 3d ~T
+def skew(
+    a: onp.ToArrayStrict3D[_FloatT, _FloatT],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array2D[_FloatT]: ...
+@overload  # nd ~f64
+def skew(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64] | Any: ...
+@overload  # nd ~f64, axis=None
+def skew(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: None,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # nd ~f64, keepdims=True
+def skew(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int | None = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # nd ~T
+def skew(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    axis: int = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[_FloatT] | Any: ...
+@overload  # nd ~T, axis=None
+def skew(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    axis: None,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # nd ~T, keepdims=True
+def skew(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    axis: int | None = 0,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[_FloatT]: ...
+@overload  # nd +floating
+def skew(
+    a: onp.ToFloatND, axis: int = 0, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: L[False] = False
+) -> onp.ArrayND[npc.floating] | Any: ...
+@overload  # nd +floating, axis=None
+def skew(
+    a: onp.ToFloatND, axis: None, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: L[False] = False
+) -> npc.floating: ...
+@overload  # nd +floating, keepdims=True
+def skew(
+    a: onp.ToFloatND, axis: int | None = 0, bias: bool = True, nan_policy: NanPolicy = "propagate", *, keepdims: L[True]
+) -> onp.ArrayND[npc.floating]: ...
 
-# TODO(jorenham): improve
+# keep in sync with skew
+@overload  # ?d ~f64
+def kurtosis(
+    a: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64 | onp.ArrayND[np.float64]: ...
+@overload  # ?d ~T
+def kurtosis(
+    a: onp.ArrayND[_FloatT, _JustAnyShape],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> _FloatT | onp.ArrayND[_FloatT]: ...
+@overload  # 1d ~f64
+def kurtosis(
+    a: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # 1d ~T
+def kurtosis(
+    a: onp.ToArrayStrict1D[_FloatT, _FloatT],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # 2d ~f64
+def kurtosis(
+    a: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d ~T
+def kurtosis(
+    a: onp.ToArrayStrict2D[_FloatT, _FloatT],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array1D[_FloatT]: ...
+@overload  # 3d ~f64
+def kurtosis(
+    a: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array2D[np.float64]: ...
+@overload  # 3d ~T
+def kurtosis(
+    a: onp.ToArrayStrict3D[_FloatT, _FloatT],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.Array2D[_FloatT]: ...
+@overload  # nd ~f64
+def kurtosis(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64] | Any: ...
+@overload  # nd ~f64, axis=None
+def kurtosis(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: None,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload  # nd ~f64, keepdims=True
+def kurtosis(
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int | None = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
+@overload  # nd ~T
+def kurtosis(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[_FloatT] | Any: ...
+@overload  # nd ~T, axis=None
+def kurtosis(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    axis: None,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> _FloatT: ...
+@overload  # nd ~T, keepdims=True
+def kurtosis(
+    a: onp.ToArrayND[_FloatT, _FloatT],
+    axis: int | None = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[_FloatT]: ...
+@overload  # nd +floating
+def kurtosis(
+    a: onp.ToFloatND,
+    axis: int = 0,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[npc.floating] | Any: ...
+@overload  # nd +floating, axis=None
+def kurtosis(
+    a: onp.ToFloatND,
+    axis: None,
+    fisher: bool = True,
+    bias: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> npc.floating: ...
+@overload  # nd +floating, keepdims=True
 def kurtosis(
     a: onp.ToFloatND,
     axis: int | None = 0,
@@ -553,8 +1074,8 @@ def kurtosis(
     bias: bool = True,
     nan_policy: NanPolicy = "propagate",
     *,
-    keepdims: bool = False,
-) -> _FloatOrND: ...
+    keepdims: L[True],
+) -> onp.ArrayND[npc.floating]: ...
 
 #
 def describe(
@@ -831,14 +1352,47 @@ def iqr(
     keepdims: bool = False,
 ) -> _FloatOrND: ...
 
-# TODO(jorenham): improve
+#
+@overload
+def median_abs_deviation(
+    x: onp.ToFloatStrict1D,
+    axis: int = 0,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload
+def median_abs_deviation(
+    x: onp.ToFloatND,
+    axis: None,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64]: ...
+@overload
+def median_abs_deviation(
+    x: onp.ToFloatND,
+    axis: int = 0,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
+    nan_policy: NanPolicy = "propagate",
+    *,
+    keepdims: L[False] = False,
+) -> onp.ArrayND[np.float64] | Any: ...
+@overload
 def median_abs_deviation(
     x: onp.ToFloatND,
     axis: int | None = 0,
-    center: np.ufunc | _MADCenterFunc = ...,
-    scale: L["normal"] | onp.ToFloat = 1.0,
+    center: np.ufunc | _MADCenterFunc | None = None,
+    scale: L["normal"] | float = 1.0,
     nan_policy: NanPolicy = "propagate",
-) -> _FloatOrND: ...
+    *,
+    keepdims: L[True],
+) -> onp.ArrayND[np.float64]: ...
 
 #
 def sigmaclip(a: onp.ToFloatND, low: float = 4.0, high: float = 4.0) -> SigmaclipResult: ...
@@ -849,8 +1403,28 @@ def trimboth(a: onp.ToFloatND, proportiontocut: float, axis: int | None = 0) -> 
 # TODO(jorenham): improve
 def trim1(a: onp.ToFloatND, proportiontocut: float, tail: _TrimTail = "right", axis: int | None = 0) -> onp.ArrayND[_Real0D]: ...
 
-# TODO(jorenham): improve
-def trim_mean(a: onp.ToFloatND, proportiontocut: float, axis: int | None = 0) -> _FloatOrND: ...
+#
+@overload
+def trim_mean(
+    a: onp.ToFloatStrict1D,
+    proportiontocut: float,
+    axis: int | None = 0,
+    *,
+    nan_policy: NanPolicy = "propagate",
+    keepdims: L[False] = False,
+) -> np.float64: ...
+@overload
+def trim_mean(
+    a: onp.ToFloatND, proportiontocut: float, axis: None, *, nan_policy: NanPolicy = "propagate", keepdims: L[False] = False
+) -> np.float64: ...
+@overload
+def trim_mean(
+    a: onp.ToFloatND, proportiontocut: float, axis: int = 0, *, nan_policy: NanPolicy = "propagate", keepdims: L[False] = False
+) -> _FloatOrND: ...
+@overload
+def trim_mean(
+    a: onp.ToFloatND, proportiontocut: float, axis: int = 0, *, nan_policy: NanPolicy = "propagate", keepdims: L[True]
+) -> onp.ArrayND[np.float64]: ...
 
 # TODO(jorenham): improve
 def f_oneway(
@@ -959,18 +1533,38 @@ def pearsonr(
 ) -> PearsonRResult[npc.floating, np.float64] | PearsonRResult[onp.ArrayND[npc.floating], onp.ArrayND[np.float64]]: ...
 
 #
-def fisher_exact(
-    table: onp.ArrayND[_Real0D], alternative: Alternative | None = None, *, method: ResamplingMethod | None = None
-) -> SignificanceResult[float]: ...
-
-# TODO(jorenham): improve like `pearsonr` (but always return `f64`)
+@overload  # ?d, ?d
 def spearmanr(
-    a: onp.ToFloatND,
-    b: onp.ToFloatND | None = None,
-    axis: int | None = 0,
+    a: onp.ArrayND[npc.floating | npc.integer | np.bool_, _JustAnyShape],
+    b: onp.ArrayND[npc.floating | npc.integer | np.bool_, _JustAnyShape],
+    axis: int = 0,
     nan_policy: NanPolicy = "propagate",
     alternative: Alternative = "two-sided",
-) -> SignificanceResult: ...
+) -> SignificanceResult[np.float64 | onp.Array2D[np.float64]]: ...
+@overload  # 1d, 1d
+def spearmanr(
+    a: onp.ToFloatStrict1D,
+    b: onp.ToFloatStrict1D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+) -> SignificanceResult[np.float64]: ...
+@overload  # 2d, 2d
+def spearmanr(
+    a: onp.ToFloatStrict2D,
+    b: onp.ToFloatStrict2D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+) -> SignificanceResult[onp.Array2D[np.float64]]: ...
+@overload  # axis=None
+def spearmanr(
+    a: onp.ToFloatND, b: onp.ToFloatND, axis: None, nan_policy: NanPolicy = "propagate", alternative: Alternative = "two-sided"
+) -> SignificanceResult[np.float64]: ...
+@overload  # 2d, None
+def spearmanr(
+    a: onp.ToFloat2D, b: None = None, axis: int = 0, nan_policy: NanPolicy = "propagate", alternative: Alternative = "two-sided"
+) -> SignificanceResult[np.float64 | onp.Array2D[np.float64]]: ...
 
 # TODO(jorenham): improve like `pearsonr` (but return `SignificanceResult`, not `PearsonRResult`)
 @overload
@@ -1014,78 +1608,90 @@ def pointbiserialr(
 ) -> SignificanceResult[np.float64 | Any]: ...
 
 #
-@overload
+@overload  # nd, axis=None (default)
 def kendalltau(
-    x: onp.ToFloatND,
-    y: onp.ToFloatND,
+    x: onp.ToComplexND,
+    y: onp.ToComplexND,
     *,
-    axis: None,
+    axis: None = None,
     keepdims: L[False] = False,
     method: _KendallTauMethod = "auto",
     variant: _KendallTauVariant = "b",
     alternative: Alternative = "two-sided",
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[np.float64]: ...
-@overload
+@overload  # ?d, axis: int
 def kendalltau(
-    x: onp.ToFloatStrict1D,
-    y: onp.ToFloatStrict1D,
+    x: onp.ArrayND[npc.number | np.bool_, _JustAnyShape],
+    y: onp.ArrayND[npc.number | np.bool_, _JustAnyShape],
     *,
-    axis: int | None = 0,
+    axis: int,
+    keepdims: L[False] = False,
+    method: _KendallTauMethod = "auto",
+    variant: _KendallTauVariant = "b",
+    alternative: Alternative = "two-sided",
+    nan_policy: NanPolicy = "propagate",
+) -> SignificanceResult[onp.ArrayND[np.float64] | Any]: ...
+@overload  # 1d, axis: int
+def kendalltau(
+    x: onp.ToComplexStrict1D,
+    y: onp.ToComplexStrict1D,
+    *,
+    axis: int,
     keepdims: L[False] = False,
     method: _KendallTauMethod = "auto",
     variant: _KendallTauVariant = "b",
     alternative: Alternative = "two-sided",
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[np.float64]: ...
-@overload
+@overload  # 2d, axis: int
 def kendalltau(
-    x: onp.ToFloatStrict2D,
-    y: onp.ToFloatStrict2D,
+    x: onp.ToComplexStrict2D,
+    y: onp.ToComplexStrict2D,
     *,
-    axis: int = 0,
+    axis: int,
     keepdims: L[False] = False,
     method: _KendallTauMethod = "auto",
     variant: _KendallTauVariant = "b",
     alternative: Alternative = "two-sided",
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[onp.Array1D[np.float64]]: ...
-@overload
+@overload  # 3d, axis: int
 def kendalltau(
-    x: onp.ToFloatStrict3D,
-    y: onp.ToFloatStrict3D,
+    x: onp.ToComplexStrict3D,
+    y: onp.ToComplexStrict3D,
     *,
-    axis: int = 0,
+    axis: int,
     keepdims: L[False] = False,
     method: _KendallTauMethod = "auto",
     variant: _KendallTauVariant = "b",
     alternative: Alternative = "two-sided",
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[onp.Array2D[np.float64]]: ...
-@overload
+@overload  # nd, axis: int
 def kendalltau(
-    x: onp.ToFloatND,
-    y: onp.ToFloatND,
+    x: onp.ToComplexND,
+    y: onp.ToComplexND,
     *,
-    axis: int | None = 0,
+    axis: int,
+    keepdims: bool = False,
+    method: _KendallTauMethod = "auto",
+    variant: _KendallTauVariant = "b",
+    alternative: Alternative = "two-sided",
+    nan_policy: NanPolicy = "propagate",
+) -> SignificanceResult[onp.ArrayND[np.float64] | Any]: ...
+@overload  # ?d, keepdims=True
+def kendalltau(
+    x: onp.ToComplexND,
+    y: onp.ToComplexND,
+    *,
+    axis: int | None = None,
     keepdims: L[True],
     method: _KendallTauMethod = "auto",
     variant: _KendallTauVariant = "b",
     alternative: Alternative = "two-sided",
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[onp.ArrayND[np.float64]]: ...
-@overload
-def kendalltau(
-    x: onp.ToFloatND,
-    y: onp.ToFloatND,
-    *,
-    axis: int | None = 0,
-    keepdims: bool = False,
-    method: _KendallTauMethod = "auto",
-    variant: _KendallTauVariant = "b",
-    alternative: Alternative = "two-sided",
-    nan_policy: NanPolicy = "propagate",
-) -> SignificanceResult[np.float64 | Any]: ...
 
 #
 @overload
@@ -1096,7 +1702,7 @@ def weightedtau(
     weigher: _Weigher | None = None,
     additive: bool = True,
     *,
-    axis: None,
+    axis: None = None,
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[np.float64]: ...
@@ -1108,7 +1714,7 @@ def weightedtau(
     weigher: _Weigher | None = None,
     additive: bool = True,
     *,
-    axis: int | None = 0,
+    axis: int | None = None,
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[np.float64]: ...
@@ -1120,7 +1726,7 @@ def weightedtau(
     weigher: _Weigher | None = None,
     additive: bool = True,
     *,
-    axis: int = 0,
+    axis: int,
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[onp.Array1D[np.float64]]: ...
@@ -1132,7 +1738,7 @@ def weightedtau(
     weigher: _Weigher | None = None,
     additive: bool = True,
     *,
-    axis: int = 0,
+    axis: int,
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[onp.Array2D[np.float64]]: ...
@@ -1144,7 +1750,7 @@ def weightedtau(
     weigher: _Weigher | None = None,
     additive: bool = True,
     *,
-    axis: int | None = 0,
+    axis: int | None = None,
     keepdims: L[True],
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[onp.ArrayND[np.float64]]: ...
@@ -1156,7 +1762,7 @@ def weightedtau(
     weigher: _Weigher | None = None,
     additive: bool = True,
     *,
-    axis: int | None = 0,
+    axis: int | None = None,
     keepdims: bool = False,
     nan_policy: NanPolicy = "propagate",
 ) -> SignificanceResult[np.float64 | Any]: ...
@@ -1206,81 +1812,406 @@ def ttest_ind_from_stats(
     alternative: Alternative = "two-sided",
 ) -> Ttest_indResult: ...
 
-#
-@overload
-def ttest_ind(
-    a: onp.ToFloatND,
-    b: onp.ToFloatND,
-    *,
-    axis: int | None = 0,
-    equal_var: bool = True,
-    nan_policy: NanPolicy = "propagate",
-    permutations: None = None,
-    random_state: None = None,
-    alternative: Alternative = "two-sided",
-    trim: onp.ToFloat = 0,
-    method: ResamplingMethod | None = None,
-    keepdims: bool = False,
-) -> TtestResult: ...
-@overload
-@deprecated(
-    "Argument `random_state` is deprecated, and will be removed in SciPy 1.17. "
-    "Use `method to perform a permutation test."
-)  # fmt: skip
-def ttest_ind(
-    a: onp.ToFloatND,
-    b: onp.ToFloatND,
-    *,
-    axis: int | None = 0,
-    equal_var: bool = True,
-    nan_policy: NanPolicy = "propagate",
-    permutations: None = None,
-    random_state: onp.random.ToRNG | None,
-    alternative: Alternative = "two-sided",
-    trim: onp.ToFloat = 0,
-    method: ResamplingMethod | None = None,
-    keepdims: bool = False,
-) -> TtestResult: ...
-@overload
-@deprecated(
-    "Argument `permutations` is deprecated, and will be removed in SciPy 1.17. "
-    "Use method` to perform a permutation test."
-)  # fmt: skip
-def ttest_ind(
-    a: onp.ToFloatND,
-    b: onp.ToFloatND,
-    *,
-    axis: int | None = 0,
-    equal_var: bool = True,
-    nan_policy: NanPolicy = "propagate",
-    permutations: onp.ToFloat,
-    random_state: None = None,
-    alternative: Alternative = "two-sided",
-    trim: onp.ToFloat = 0,
-    method: ResamplingMethod | None = None,
-    keepdims: bool = False,
-) -> TtestResult: ...
-@overload
-@deprecated(
-    "Arguments {'random_state', 'permutations'} are deprecated, and will be removed in SciPy 1.17. "
-    "Use `method` to perform a permutation test."
-)
-def ttest_ind(
-    a: onp.ToFloatND,
-    b: onp.ToFloatND,
-    *,
-    axis: int | None = 0,
-    equal_var: bool = True,
-    nan_policy: NanPolicy = "propagate",
-    permutations: onp.ToFloat,
-    random_state: onp.random.ToRNG | None,
-    alternative: Alternative = "two-sided",
-    trim: onp.ToFloat = 0,
-    method: ResamplingMethod | None = None,
-    keepdims: bool = False,
-) -> TtestResult: ...
+_AnyFloatSub64T = TypeVar("_AnyFloatSub64T", bound=np.float32 | np.float16)
 
-# TODO(jorenham): improve
+# keep in sync with `ttest_rel`
+@overload  # ?d ~float64
+def ttest_ind(
+    a: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
+    b: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64 | Any]: ...
+@overload  # ?d ~T
+def ttest_ind(
+    a: onp.ArrayND[_AnyFloatSub64T, _JustAnyShape],
+    b: onp.ArrayND[_AnyFloatSub64T, _JustAnyShape],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[_AnyFloatSub64T | Any]: ...
+@overload  # 1d ~f64
+def ttest_ind(
+    a: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64]: ...
+@overload  # 1d ~T
+def ttest_ind(
+    a: onp.ToArrayStrict1D[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayStrict1D[_AnyFloatSub64T, _AnyFloatSub64T],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[_AnyFloatSub64T]: ...
+@overload  # 1d +floating
+def ttest_ind(
+    a: onp.ToFloatStrict1D,
+    b: onp.ToFloatStrict1D,
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64 | Any]: ...
+@overload  # 2d ~f64
+def ttest_ind(
+    a: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array1D[np.float64]]: ...
+@overload  # 2d ~T
+def ttest_ind(
+    a: onp.ToArrayStrict2D[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayStrict2D[_AnyFloatSub64T, _AnyFloatSub64T],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array1D[_AnyFloatSub64T]]: ...
+@overload  # 2d +floating
+def ttest_ind(
+    a: onp.ToFloatStrict2D,
+    b: onp.ToFloatStrict2D,
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array1D[np.float64 | Any]]: ...
+@overload  # 3d ~f64
+def ttest_ind(
+    a: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array2D[np.float64]]: ...
+@overload  # 3d ~T
+def ttest_ind(
+    a: onp.ToArrayStrict3D[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayStrict3D[_AnyFloatSub64T, _AnyFloatSub64T],
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array2D[_AnyFloatSub64T]]: ...
+@overload  # 3d +floating
+def ttest_ind(
+    a: onp.ToFloatStrict3D,
+    b: onp.ToFloatStrict3D,
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array2D[np.float64 | Any]]: ...
+@overload  # nd ~f64, axis=None
+def ttest_ind(  # type: ignore[overload-overlap]
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    *,
+    axis: None,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64]: ...
+@overload  # nd ~f64, keepdims=True
+def ttest_ind(  # type: ignore[overload-overlap]
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    *,
+    axis: int | None = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[True],
+) -> TtestResult[onp.ArrayND[np.float64]]: ...
+@overload  # nd ~T, axis=None
+def ttest_ind(
+    a: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    *,
+    axis: None,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[_AnyFloatSub64T]: ...
+@overload  # nd ~T, keepdims=True
+def ttest_ind(
+    a: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    *,
+    axis: int | None = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[True],
+) -> TtestResult[onp.ArrayND[_AnyFloatSub64T]]: ...
+@overload  # nd +floating, axis=None
+def ttest_ind(
+    a: onp.ToFloatND,
+    b: onp.ToFloatND,
+    *,
+    axis: None,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64 | Any]: ...
+@overload  # nd +floating, keepdims=True
+def ttest_ind(
+    a: onp.ToFloatND,
+    b: onp.ToFloatND,
+    *,
+    axis: int | None = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[True],
+) -> TtestResult[onp.ArrayND[np.float64 | Any]]: ...
+@overload  # nd +floating
+def ttest_ind(
+    a: onp.ToFloatND,
+    b: onp.ToFloatND,
+    *,
+    axis: int = 0,
+    equal_var: bool = True,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    trim: onp.ToFloat = 0,
+    method: ResamplingMethod | None = None,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.ArrayND[np.float64 | Any] | np.float64 | Any]: ...
+
+# keep in sync with `ttest_ind`
+@overload  # ?d ~float64
+def ttest_rel(
+    a: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
+    b: onp.ArrayND[npc.floating64 | npc.integer | np.bool_, _JustAnyShape],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64 | Any]: ...
+@overload  # ?d ~T
+def ttest_rel(
+    a: onp.ArrayND[_AnyFloatSub64T, _JustAnyShape],
+    b: onp.ArrayND[_AnyFloatSub64T, _JustAnyShape],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[_AnyFloatSub64T | Any]: ...
+@overload  # 1d ~f64
+def ttest_rel(
+    a: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayStrict1D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64]: ...
+@overload  # 1d ~T
+def ttest_rel(
+    a: onp.ToArrayStrict1D[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayStrict1D[_AnyFloatSub64T, _AnyFloatSub64T],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[_AnyFloatSub64T]: ...
+@overload  # 1d +floating
+def ttest_rel(
+    a: onp.ToFloatStrict1D,
+    b: onp.ToFloatStrict1D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64 | Any]: ...
+@overload  # 2d ~f64
+def ttest_rel(
+    a: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayStrict2D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array1D[np.float64]]: ...
+@overload  # 2d ~T
+def ttest_rel(
+    a: onp.ToArrayStrict2D[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayStrict2D[_AnyFloatSub64T, _AnyFloatSub64T],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array1D[_AnyFloatSub64T]]: ...
+@overload  # 2d +floating
+def ttest_rel(
+    a: onp.ToFloatStrict2D,
+    b: onp.ToFloatStrict2D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array1D[np.float64 | Any]]: ...
+@overload  # 3d ~f64
+def ttest_rel(
+    a: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayStrict3D[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array2D[np.float64]]: ...
+@overload  # 3d ~T
+def ttest_rel(
+    a: onp.ToArrayStrict3D[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayStrict3D[_AnyFloatSub64T, _AnyFloatSub64T],
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array2D[_AnyFloatSub64T]]: ...
+@overload  # 3d +floating
+def ttest_rel(
+    a: onp.ToFloatStrict3D,
+    b: onp.ToFloatStrict3D,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.Array2D[np.float64 | Any]]: ...
+@overload  # nd ~f64, axis=None
+def ttest_rel(  # type: ignore[overload-overlap]
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64]: ...
+@overload  # nd ~f64, keepdims=True
+def ttest_rel(  # type: ignore[overload-overlap]
+    a: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    b: onp.ToArrayND[float, npc.floating64 | npc.integer | np.bool_],
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[True],
+) -> TtestResult[onp.ArrayND[np.float64]]: ...
+@overload  # nd ~T, axis=None
+def ttest_rel(
+    a: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[_AnyFloatSub64T]: ...
+@overload  # nd ~T, keepdims=True
+def ttest_rel(
+    a: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    b: onp.ToArrayND[_AnyFloatSub64T, _AnyFloatSub64T],
+    axis: int | None = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[True],
+) -> TtestResult[onp.ArrayND[_AnyFloatSub64T]]: ...
+@overload  # nd +floating, axis=None
+def ttest_rel(
+    a: onp.ToFloatND,
+    b: onp.ToFloatND,
+    axis: None,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[np.float64 | Any]: ...
+@overload  # nd +floating, keepdims=True
 def ttest_rel(
     a: onp.ToFloatND,
     b: onp.ToFloatND,
@@ -1288,8 +2219,18 @@ def ttest_rel(
     nan_policy: NanPolicy = "propagate",
     alternative: Alternative = "two-sided",
     *,
-    keepdims: bool = False,
-) -> TtestResult: ...
+    keepdims: L[True],
+) -> TtestResult[onp.ArrayND[np.float64 | Any]]: ...
+@overload  # nd +floating
+def ttest_rel(
+    a: onp.ToFloatND,
+    b: onp.ToFloatND,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+    alternative: Alternative = "two-sided",
+    *,
+    keepdims: L[False] = False,
+) -> TtestResult[onp.ArrayND[np.float64 | Any] | np.float64 | Any]: ...
 
 #
 @overload
@@ -1492,6 +2433,11 @@ def combine_pvalues(
 ) -> SignificanceResult: ...
 
 #
+def fisher_exact(
+    table: onp.ArrayND[_Real0D], alternative: Alternative | None = None, *, method: ResamplingMethod | None = None
+) -> SignificanceResult[float]: ...
+
+#
 def quantile_test_iv(
     x: onp.ToFloatND, q: float | _Real0D, p: float | npc.floating, alternative: Alternative
 ) -> tuple[onp.ArrayND[_Real0D], _Real0D, npc.floating, Alternative]: ...  # undocumented
@@ -1521,36 +2467,61 @@ def energy_distance(
     v_weights: onp.ToFloatND | None = None,
 ) -> np.float64: ...
 
-# TODO(jorenham): improve
+#
+@overload  # axix: None (default)
 def rankdata(
-    a: onp.ToFloatND, method: _RankMethod = "average", *, axis: int | None = None, nan_policy: NanPolicy = "propagate"
-) -> onp.ArrayND[_Real0D]: ...
+    a: onp.ToArrayND, method: _RankMethod = "average", *, axis: None = None, nan_policy: NanPolicy = "propagate"
+) -> onp.Array1D[np.float64]: ...
+@overload  # shape: T, axis: int
+def rankdata(
+    a: onp.Array[_ShapeT], method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
+) -> onp.ArrayND[np.float64, _ShapeT]: ...
+@overload  # shape: 1d, axis: int
+def rankdata(
+    a: Sequence[complex], method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
+) -> onp.Array1D[np.float64]: ...
+@overload  # shape: 2d, axis: int
+def rankdata(
+    a: Sequence[Sequence[complex]], method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
+) -> onp.Array2D[np.float64]: ...
+@overload  # shape: 3d, axis: int
+def rankdata(
+    a: Sequence[Sequence[Sequence[complex]]],
+    method: _RankMethod = "average",
+    *,
+    axis: int = 0,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array3D[np.float64]: ...
+@overload  # shape: ?, axis: int
+def rankdata(
+    a: onp.ToArrayND, method: _RankMethod = "average", *, axis: int = 0, nan_policy: NanPolicy = "propagate"
+) -> onp.ArrayND[np.float64]: ...
 
 #
 def expectile(a: onp.ToFloatND, alpha: float = 0.5, *, weights: onp.ToFloatND | None = None) -> np.float64: ...
 
 #
-@overload
+@overload  # ?d, ?d
 def linregress(
-    x: onp.ToFloatND,
-    y: onp.ToFloatND,
+    x: onp.ArrayND[npc.floating | npc.integer | np.bool_, _JustAnyShape],
+    y: onp.ArrayND[npc.floating | npc.integer | np.bool_, _JustAnyShape],
     alternative: Alternative = "two-sided",
     *,
-    axis: None,
+    axis: int = 0,
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
-) -> LinregressResult[np.float64]: ...
-@overload
+) -> LinregressResult[np.float64 | Any]: ...
+@overload  # 1d, 1d
 def linregress(
     x: onp.ToFloatStrict1D,
     y: onp.ToFloatStrict1D,
     alternative: Alternative = "two-sided",
     *,
-    axis: int | None = 0,
+    axis: int = 0,
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> LinregressResult[np.float64]: ...
-@overload
+@overload  # 2d, 2d
 def linregress(
     x: onp.ToFloatStrict2D,
     y: onp.ToFloatStrict2D,
@@ -1560,7 +2531,7 @@ def linregress(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> LinregressResult[onp.Array1D[np.float64]]: ...
-@overload
+@overload  # 3d, 3d
 def linregress(
     x: onp.ToFloatStrict3D,
     y: onp.ToFloatStrict3D,
@@ -1570,7 +2541,17 @@ def linregress(
     keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
 ) -> LinregressResult[onp.Array2D[np.float64]]: ...
-@overload
+@overload  # nd, nd
+def linregress(
+    x: onp.ToFloatND,
+    y: onp.ToFloatND,
+    alternative: Alternative = "two-sided",
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    nan_policy: NanPolicy = "propagate",
+) -> LinregressResult[np.float64 | Any]: ...
+@overload  # keepdims=True
 def linregress(
     x: onp.ToFloatND,
     y: onp.ToFloatND,
@@ -1580,191 +2561,371 @@ def linregress(
     keepdims: L[True],
     nan_policy: NanPolicy = "propagate",
 ) -> LinregressResult[onp.ArrayND[np.float64]]: ...
-@overload
+@overload  # axis=None
 def linregress(
     x: onp.ToFloatND,
     y: onp.ToFloatND,
     alternative: Alternative = "two-sided",
     *,
-    axis: int | None = 0,
-    keepdims: bool = False,
+    axis: None,
+    keepdims: L[False] = False,
     nan_policy: NanPolicy = "propagate",
-) -> LinregressResult[np.float64 | Any]: ...
-
-#
-@deprecated(
-    "`scipy.stats.find_repeats` is deprecated as of SciPy 1.15.0 and will be removed in SciPy 1.17.0. "
-    "Please use `numpy.unique`/`numpy.unique_counts` instead."
-)
-def find_repeats(arr: onp.ToFloatND) -> RepeatedResults: ...
+) -> LinregressResult[np.float64]: ...
 
 # NOTE: `lmoment` is currently numerically unstable after `order > 16`.
 # See https://github.com/jorenham/Lmo/ for a more stable implementation that additionally supports generalized trimmed TL-moments,
 # multivariate L- and TL-comoments, theoretical L- and TL-moments or `scipy.stats` distributions, and much more ;)
 
-# TODO(jorenham): improve dtype
-@overload  # sample: 1-d, order: 0-d, keepdims: falsy
+#
+@overload  # ?d f64, order: 1d
 def lmoment(
-    sample: onp.ToFloatStrict1D,
-    order: _LMomentOrder,
-    *,
-    axis: L[0, -1] | None = 0,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> np.float32 | np.float64: ...
-@overload  # sample: 1-d, order: 0-d, keepdims: truthy
-def lmoment(
-    sample: onp.ToFloatStrict1D,
-    order: _LMomentOrder,
-    *,
-    axis: L[0, -1] | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array1D[np.float32 | np.float64]: ...
-@overload  # sample: 1-d, order: 1-d, keepdims: falsy
-def lmoment(
-    sample: onp.ToFloatStrict1D,
-    order: _LMomentOrder1D | None = None,
-    *,
-    axis: L[0, -1] | None = 0,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array1D[np.float32 | np.float64]: ...
-@overload  # sample: 1-d, order: 1-d, keepdims: truthy
-def lmoment(
-    sample: onp.ToFloatStrict1D,
-    order: _LMomentOrder1D | None = None,
-    *,
-    axis: L[0, -1] | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array2D[np.float32 | np.float64]: ...
-@overload  # sample: 2-d, order: 0-d, keepdims: falsy
-def lmoment(
-    sample: onp.ToFloatStrict2D,
-    order: _LMomentOrder,
+    sample: onp.ArrayND[npc.floating64 | npc.integer, _JustAnyShape],
+    order: onp.ToInt1D | None = None,
     *,
     axis: int = 0,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: bool = False,
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.Array1D[np.float32 | np.float64]: ...
-@overload  # sample: 2-d, order: 0-d, keepdims: truthy
+) -> onp.ArrayND[np.float64]: ...
+@overload  # ?d f64, order: 0d
 def lmoment(
-    sample: onp.ToFloatStrict2D,
-    order: _LMomentOrder,
-    *,
-    axis: int | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array2D[np.float32 | np.float64]: ...
-@overload  # sample: 2-d, order: 1-d, keepdims: falsy
-def lmoment(
-    sample: onp.ToFloatStrict2D,
-    order: _LMomentOrder1D | None = None,
+    sample: onp.ArrayND[npc.floating64 | npc.integer, _JustAnyShape],
+    order: int,
     *,
     axis: int = 0,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.Array2D[np.float32 | np.float64]: ...
-@overload  # sample: 2-d, order: 1-d, keepdims: truthy
+) -> onp.ArrayND[np.float64] | np.float64: ...
+@overload  # ?d f64, order: 0d, keepdims=True
 def lmoment(
-    sample: onp.ToFloatStrict2D,
-    order: _LMomentOrder1D | None = None,
-    *,
-    axis: int | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array3D[np.float32 | np.float64]: ...
-@overload  # sample: 3-d, order: 0-d, keepdims: falsy
-def lmoment(
-    sample: onp.ToFloatStrict3D,
-    order: _LMomentOrder,
+    sample: onp.ArrayND[npc.floating64 | npc.integer, _JustAnyShape],
+    order: int,
     *,
     axis: int = 0,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.Array2D[np.float32 | np.float64]: ...
-@overload  # sample: 3-d, order: 0-d, keepdims: truthy
+) -> onp.ArrayND[np.float64]: ...
+@overload  # ?d f32, order: 1d
 def lmoment(
-    sample: onp.ToFloatStrict3D,
-    order: _LMomentOrder,
-    *,
-    axis: int | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
-    nan_policy: NanPolicy = "propagate",
-) -> onp.Array3D[np.float32 | np.float64]: ...
-@overload  # sample: 2-d, order: 1-d, keepdims: falsy
-def lmoment(
-    sample: onp.ToFloatStrict3D,
-    order: _LMomentOrder1D | None = None,
+    sample: onp.ArrayND[np.float32 | np.float16, _JustAnyShape],
+    order: onp.ToInt1D | None = None,
     *,
     axis: int = 0,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: bool = False,
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.Array3D[np.float32 | np.float64]: ...
-@overload  # sample: 3-d, order: 1-d, keepdims: truthy
+) -> onp.ArrayND[np.float32]: ...
+@overload  # ?d f32, order: 0d
 def lmoment(
-    sample: onp.ToFloatStrict3D,
-    order: _LMomentOrder1D | None = None,
+    sample: onp.ArrayND[np.float32 | np.float16, _JustAnyShape],
+    order: int,
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float32] | np.float32: ...
+@overload  # ?d f32, order: 0d, keepdims=True
+def lmoment(
+    sample: onp.ArrayND[np.float32 | np.float16, _JustAnyShape],
+    order: int,
+    *,
+    axis: int = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float32]: ...
+@overload  # 1d f64, order: 1d
+def lmoment(
+    sample: _AsFloat64_1D,
+    order: onp.ToInt1D | None = None,
     *,
     axis: int | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.Array[tuple[int, int, int, int], np.float32 | np.float64]: ...
-@overload  # sample: N-d, order: 0-d, keepdims: falsy, axis: None
+) -> onp.Array1D[np.float64]: ...
+@overload  # 1d f64, order: 1d, keepdims=True  # 8
 def lmoment(
-    sample: onp.ToFloatND,
-    order: _LMomentOrder,
+    sample: _AsFloat64_1D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float64]: ...
+@overload  # 1d f64, order: 0d
+def lmoment(
+    sample: _AsFloat64_1D,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64: ...
+@overload  # 1d f64, order: 0d, keepdims=True
+def lmoment(
+    sample: _AsFloat64_1D,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float64]: ...
+@overload  # 1d f32, order: 1d
+def lmoment(
+    sample: _AsFloat32_1D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int | None = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float32]: ...
+@overload  # 1d f32, order: 1d, keepdims=True
+def lmoment(
+    sample: _AsFloat32_1D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float32]: ...
+@overload  # 1d f32, order: 0d
+def lmoment(
+    sample: _AsFloat32_1D,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float32: ...
+@overload  # 1d f32, order: 0d, keepdims=True
+def lmoment(
+    sample: _AsFloat32_1D,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float32]: ...
+@overload  # 2d f64, order: 1d
+def lmoment(
+    sample: _AsFloat64_2D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float64]: ...
+@overload  # 2d f64, order: 1d, keepdims=True
+def lmoment(
+    sample: _AsFloat64_2D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array3D[np.float64]: ...
+@overload  # 2d f64, order: 0d
+def lmoment(
+    sample: _AsFloat64_2D,
+    order: int,
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float64]: ...
+@overload  # 2d f64, order: 0d, keepdims=True
+def lmoment(
+    sample: _AsFloat64_2D,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float64]: ...
+@overload  # 2d f32, order: 1d
+def lmoment(
+    sample: _AsFloat32_2D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float32]: ...
+@overload  # 2d f32, order: 1d, keepdims=True
+def lmoment(
+    sample: _AsFloat32_2D,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array3D[np.float32]: ...
+@overload  # 2d f32, order: 0d
+def lmoment(
+    sample: _AsFloat32_2D,
+    order: int,
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float32]: ...
+@overload  # 2d f32, order: 0d, keepdims=True
+def lmoment(
+    sample: _AsFloat32_2D,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array2D[np.float32]: ...
+@overload  # nd f64, order: 1d
+def lmoment(
+    sample: _AsFloat64_ND,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int = 0,
+    keepdims: bool = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float64]: ...
+@overload  # nd f64, order: 1d, axis=None
+def lmoment(
+    sample: _AsFloat64_ND,
+    order: onp.ToInt1D | None = None,
     *,
     axis: None,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> np.float32 | np.float64: ...
-@overload  # sample: N-d, order: 1-d, keepdims: falsy, axis: None
+) -> onp.Array1D[np.float64]: ...
+@overload  # nd f64, order: 0d
 def lmoment(
-    sample: onp.ToFloatND,
-    order: _LMomentOrder1D | None = None,
+    sample: _AsFloat64_ND,
+    order: int,
     *,
-    axis: None,
-    keepdims: onp.ToFalse = False,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.Array1D[np.float32 | np.float64]: ...
-@overload  # sample: N-d, keepdims: truthy
+) -> onp.ArrayND[np.float64] | np.float64: ...
+@overload  # nd f64, order: 0d, keepdims=True
 def lmoment(
-    sample: onp.ToFloatND,
-    order: _LMomentOrder | _LMomentOrder1D | None = None,
+    sample: _AsFloat64_ND,
+    order: int,
     *,
     axis: int | None = 0,
-    keepdims: onp.ToTrue,
-    sorted: op.CanBool = False,
-    standardize: op.CanBool = True,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
     nan_policy: NanPolicy = "propagate",
-) -> onp.ArrayND[np.float32 | np.float64]: ...
+) -> onp.ArrayND[np.float64]: ...
+@overload  # nd f64, order: 0d, axis=None
+def lmoment(
+    sample: _AsFloat64_ND,
+    order: int,
+    *,
+    axis: None,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float64: ...
+@overload  # nd f32, order: 1d
+def lmoment(
+    sample: _AsFloat32_ND,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: int = 0,
+    keepdims: bool = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float32]: ...
+@overload  # nd f32, order: 1d, axis=None
+def lmoment(
+    sample: _AsFloat32_ND,
+    order: onp.ToInt1D | None = None,
+    *,
+    axis: None,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.Array1D[np.float32]: ...
+@overload  # nd f32, order: 0d
+def lmoment(
+    sample: _AsFloat32_ND,
+    order: int,
+    *,
+    axis: int = 0,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float32] | np.float32: ...
+@overload  # nd f32, order: 0d, keepdims=True
+def lmoment(
+    sample: _AsFloat32_ND,
+    order: int,
+    *,
+    axis: int | None = 0,
+    keepdims: L[True],
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> onp.ArrayND[np.float32]: ...
+@overload  # nd f32, order: 0d, axis=None
+def lmoment(
+    sample: _AsFloat32_ND,
+    order: int,
+    *,
+    axis: None,
+    keepdims: L[False] = False,
+    sorted: bool = False,
+    standardize: bool = True,
+    nan_policy: NanPolicy = "propagate",
+) -> np.float32: ...

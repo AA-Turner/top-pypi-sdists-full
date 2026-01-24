@@ -39,6 +39,7 @@ from typing import Optional
 from typing import Tuple
 from typing import Union
 
+from bytecode import BinaryOp
 from bytecode import Bytecode
 from bytecode import Compare
 from bytecode import Instr
@@ -57,10 +58,6 @@ log = get_logger(__name__)
 
 def _is_identifier(name: str) -> bool:
     return isinstance(name, str) and name.isidentifier()
-
-
-IN_OPERATOR_INSTR = Instr("COMPARE_OP", Compare.IN) if PY < (3, 9) else Instr("CONTAINS_OP", 0)
-NOT_IN_OPERATOR_INSTR = Instr("COMPARE_OP", Compare.NOT_IN) if PY < (3, 9) else Instr("CONTAINS_OP", 1)
 
 
 def short_circuit_instrs(op: str, label: Label) -> List[Instr]:
@@ -91,6 +88,14 @@ def instanceof(value: Any, type_qname: str) -> bool:
     return False
 
 
+def isdefined(predicate: Callable[[Mapping[str, Any]], Any], _locals: Mapping[str, Any]) -> bool:
+    try:
+        predicate(_locals)
+    except BaseException:
+        return False
+    return True
+
+
 def get_local(_locals: Mapping[str, Any], name: str) -> Any:
     try:
         return _locals[name]
@@ -99,6 +104,9 @@ def get_local(_locals: Mapping[str, Any], name: str) -> Any:
 
 
 class DDCompiler:
+    def __init__(self):
+        self._lambda_level = 0
+
     @classmethod
     def __getmember__(cls, o, a):
         return object.__getattribute__(o, a)
@@ -111,24 +119,28 @@ class DDCompiler:
     def __ref__(cls, x):
         return x
 
-    def _make_function(self, ast: DDASTType, args: Tuple[str, ...], name: str) -> FunctionType:
-        compiled = self._compile_predicate(ast)
-        if compiled is None:
-            raise ValueError("Invalid predicate: %r" % ast)
+    def _make_function(self, instrs: List[Instr], args: Tuple[str, ...], name: str) -> FunctionType:
+        abstract_code = Bytecode([*instrs, Instr("RETURN_VALUE")])
 
-        instrs = compiled + [Instr("RETURN_VALUE")]
-        if sys.version_info >= (3, 11):
-            instrs.insert(0, Instr("RESUME", 0))
-
-        abstract_code = Bytecode(instrs)
         abstract_code.argcount = len(args)
         abstract_code.argnames = args
         abstract_code.name = name
 
+        if sys.version_info >= (3, 11):
+            abstract_code.insert(0, Instr("RESUME", 0))
+
         return FunctionType(abstract_code.to_code(), {}, name, (), None)
 
     def _make_lambda(self, ast: DDASTType) -> Callable[[Any, Any], Any]:
-        return self._make_function(ast, ("_dd_it", "_dd_key", "_dd_value", "_locals"), "<lambda>")
+        self._lambda_level += 1
+        if (predicate := self._compile_predicate(ast)) is None:
+            raise ValueError("Invalid predicate: %r" % ast)
+
+        try:
+            return self._make_function(predicate, ("_dd_it", "_dd_key", "_dd_value", "_locals"), "<lambda>")
+        finally:
+            assert self._lambda_level > 0  # nosec
+            self._lambda_level -= 1
 
     def _compile_direct_predicate(self, ast: DDASTType) -> Optional[List[Instr]]:
         # direct_predicate       =>  {"<direct_predicate_type>": <predicate>}
@@ -146,8 +158,11 @@ class DDCompiler:
             raise ValueError("Invalid argument: %r" % arg)
 
         if _type == "isDefined":
-            value.append(Instr("LOAD_FAST", "_locals"))
-            value.append(IN_OPERATOR_INSTR)
+            value = self._call_function(
+                isdefined,
+                [Instr("LOAD_CONST", self._make_function(value, ("_locals",), "<isDefined-predicate>"))],
+                [Instr("LOAD_FAST", "_locals")],
+            )
         else:
             if PY >= (3, 13):
                 # UNARY_NOT requires a boolean value
@@ -192,7 +207,7 @@ class DDCompiler:
                 raise ValueError("Invalid argument: %r" % a)
             if cb is None:
                 raise ValueError("Invalid argument: %r" % b)
-            return cb + ca + [IN_OPERATOR_INSTR]
+            return cb + ca + [Instr("CONTAINS_OP", 0)]
 
         if _type in {"any", "all"}:
             a, b = args
@@ -248,6 +263,9 @@ class DDCompiler:
                 return None
 
             if arg in {"@it", "@key", "@value"}:
+                if self._lambda_level <= 0:
+                    msg = f"Invalid use of {arg} outside of lambda"
+                    raise ValueError(msg)
                 return [Instr("LOAD_FAST", f"_dd_{arg[1:]}")]
 
             return self._call_function(
@@ -290,7 +308,12 @@ class DDCompiler:
                 raise ValueError("Invalid argument: %r" % a)
             if cb is None:
                 raise ValueError("Invalid argument: %r" % b)
-            return cv + ca + cb + [Instr("BUILD_SLICE", 2), Instr("BINARY_SUBSCR")]
+
+            if PY >= (3, 14):
+                subscr_instruction = Instr("BINARY_OP", BinaryOp.SUBSCR)
+            else:
+                subscr_instruction = Instr("BINARY_SUBSCR")
+            return cv + ca + cb + [Instr("BUILD_SLICE", 2), subscr_instruction]
 
         if _type == "filter":
             a, b = args
@@ -361,7 +384,10 @@ class DDCompiler:
         )
 
     def compile(self, ast: DDASTType) -> Callable[[Mapping[str, Any]], Any]:
-        return self._make_function(ast, ("_locals",), "<expr>")
+        if (predicate := self._compile_predicate(ast)) is None:
+            raise ValueError("Invalid predicate: %r" % ast)
+
+        return self._make_function(predicate, ("_locals",), "<expr>")
 
 
 dd_compile = DDCompiler().compile

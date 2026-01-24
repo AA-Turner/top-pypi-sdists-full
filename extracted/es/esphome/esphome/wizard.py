@@ -1,4 +1,4 @@
-import os
+from pathlib import Path
 import random
 import string
 from typing import Literal, NotRequired, TypedDict, Unpack
@@ -213,7 +213,7 @@ class WizardWriteKwargs(TypedDict):
     file_text: NotRequired[str]
 
 
-def wizard_write(path: str, **kwargs: Unpack[WizardWriteKwargs]) -> bool:
+def wizard_write(path: Path, **kwargs: Unpack[WizardWriteKwargs]) -> bool:
     from esphome.components.bk72xx import boards as bk72xx_boards
     from esphome.components.esp32 import boards as esp32_boards
     from esphome.components.esp8266 import boards as esp8266_boards
@@ -256,13 +256,13 @@ def wizard_write(path: str, **kwargs: Unpack[WizardWriteKwargs]) -> bool:
         file_text = wizard_file(**kwargs)
 
     # Check if file already exists to prevent overwriting
-    if os.path.exists(path) and os.path.isfile(path):
+    if path.exists() and path.is_file():
         safe_print(color(AnsiFore.RED, f'The file "{path}" already exists.'))
         return False
 
     write_file(path, file_text)
     storage = StorageJSON.from_wizard(name, name, f"{name}.local", hardware)
-    storage_path = ext_storage_path(os.path.basename(path))
+    storage_path = ext_storage_path(path.name)
     storage.save(storage_path)
 
     return True
@@ -301,7 +301,7 @@ def strip_accents(value: str) -> str:
     )
 
 
-def wizard(path: str) -> int:
+def wizard(path: Path) -> int:
     from esphome.components.bk72xx import boards as bk72xx_boards
     from esphome.components.esp32 import boards as esp32_boards
     from esphome.components.esp8266 import boards as esp8266_boards
@@ -309,14 +309,14 @@ def wizard(path: str) -> int:
     from esphome.components.rp2040 import boards as rp2040_boards
     from esphome.components.rtl87xx import boards as rtl87xx_boards
 
-    if not path.endswith(".yaml") and not path.endswith(".yml"):
+    if path.suffix not in (".yaml", ".yml"):
         safe_print(
-            f"Please make your configuration file {color(AnsiFore.CYAN, path)} have the extension .yaml or .yml"
+            f"Please make your configuration file {color(AnsiFore.CYAN, str(path))} have the extension .yaml or .yml"
         )
         return 1
-    if os.path.exists(path):
+    if path.exists():
         safe_print(
-            f"Uh oh, it seems like {color(AnsiFore.CYAN, path)} already exists, please delete that file first or chose another configuration file."
+            f"Uh oh, it seems like {color(AnsiFore.CYAN, str(path))} already exists, please delete that file first or chose another configuration file."
         )
         return 2
 
@@ -411,9 +411,7 @@ def wizard(path: str) -> int:
             "https://docs.platformio.org/en/latest/platforms/espressif8266.html#boards"
         )
     elif platform == "RP2040":
-        board_link = (
-            "https://www.raspberrypi.com/documentation/microcontrollers/rp2040.html"
-        )
+        board_link = "https://www.raspberrypi.com/documentation/microcontrollers/silicon.html#rp2040"
     elif platform in ["BK72XX", "LN882X", "RTL87XX"]:
         board_link = "https://docs.libretiny.eu/docs/status/supported/"
     else:
@@ -549,13 +547,13 @@ def wizard(path: str) -> int:
     safe_print()
     safe_print(
         color(AnsiFore.CYAN, "DONE! I've now written a new configuration file to ")
-        + color(AnsiFore.BOLD_CYAN, path)
+        + color(AnsiFore.BOLD_CYAN, str(path))
     )
     safe_print()
     safe_print("Next steps:")
     safe_print("  > Follow the rest of the getting started guide:")
     safe_print(
-        "  > https://esphome.io/guides/getting_started_command_line.html#adding-some-features"
+        "  > https://esphome.io/guides/getting_started_command_line/#adding-some-features"
     )
     safe_print("  > to learn how to customize ESPHome and install it to your device.")
     return 0

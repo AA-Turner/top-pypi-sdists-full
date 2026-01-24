@@ -11,10 +11,11 @@ T = TypeVar("T", bound="FlowModuleValue2Type7")
 
 @_attrs_define
 class FlowModuleValue2Type7:
-    """
+    """Pass-through module that returns its input unchanged. Useful for flow structure or as a placeholder
+
     Attributes:
         type (FlowModuleValue2Type7Type):
-        flow (Union[Unset, bool]):
+        flow (Union[Unset, bool]): If true, marks this as a flow identity (special handling)
     """
 
     type: FlowModuleValue2Type7Type

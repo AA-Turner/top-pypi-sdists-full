@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """EnMAP dataset."""
@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from einops import rearrange
 from matplotlib.figure import Figure
-from rasterio.crs import CRS
+from pyproj import CRS
 
 from .errors import RGBBandsMissingError
 from .geo import RasterDataset

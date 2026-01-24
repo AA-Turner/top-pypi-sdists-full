@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import abc
 import datetime
 import typing
@@ -10,7 +10,6 @@ import System
 import System.Threading
 import System.Threading.Tasks
 
-DelegatingHandler = typing.Any
 AuthenticationHeaderValue = typing.Any
 HttpResponseMessage = typing.Any
 
@@ -18,7 +17,44 @@ QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TRequest = typing.TypeV
 QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TResponse = typing.TypeVar("QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TResponse")
 
 
-class TokenType(Enum):
+class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
+    """Represents the base request for obtaining an access token, including brokerage and account information."""
+
+    @property
+    def brokerage(self) -> str:
+        """
+        Gets the name of the brokerage associated with the access token request.
+        The value is normalized to lowercase.
+        """
+        ...
+
+    @property
+    def account_id(self) -> str:
+        """Gets the account identifier (e.g., account number) associated with the brokerage."""
+        ...
+
+    def __init__(self, brokerage: str, account_id: str) -> None:
+        """
+        Initializes a new instance of the AccessTokenMetaDataRequest class.
+        
+        
+        This codeEntityType is protected.
+        
+        :param brokerage: The name of the brokerage making the request. Will be normalized to lowercase.
+        :param account_id: The account number or identifier associated with the brokerage.
+        """
+        ...
+
+    def to_json(self) -> str:
+        """
+        Serializes the request into a compact JSON string with camelCase property naming.
+        
+        :returns: A JSON string representing the current request.
+        """
+        ...
+
+
+class TokenType(IntEnum):
     """Defines the supported types of access tokens used for authentication."""
 
     BEARER = 0
@@ -26,9 +62,6 @@ class TokenType(Enum):
 
     SESSION_TOKEN = 1
     """A Session token, typically used for username/password authorization headers."""
-
-    def __int__(self) -> int:
-        ...
 
 
 class TokenCredentials(System.Object):
@@ -57,7 +90,7 @@ class TokenCredentials(System.Object):
         ...
 
 
-class TokenHandler(DelegatingHandler, metaclass=abc.ABCMeta):
+class TokenHandler(metaclass=abc.ABCMeta):
     """
     Provides base functionality for token-based HTTP request handling,
     including automatic retries and token refresh on unauthorized responses.
@@ -67,10 +100,13 @@ class TokenHandler(DelegatingHandler, metaclass=abc.ABCMeta):
         """
         Initializes a new instance of the TokenHandler class.
         
-        This method is protected.
         
-        :param create_auth_header: An optional delegate for creating an AuthenticationHeaderValue from the token type and access token. If not provided, a default implementation is used.
-        :param retry_interval: An optional time interval to wait between retry attempts when fetching the token or retrying a failed request. If null, the default interval of 5 seconds is used.
+        This codeEntityType is protected.
+        
+        :param create_auth_header: An optional delegate for creating an AuthenticationHeaderValue
+        from the token type and access token. If not provided, a default implementation is used.
+        :param retry_interval: An optional time interval to wait between retry attempts when fetching the token or retrying a failed request.
+        If null, the default interval of 5 seconds is used.
         """
         ...
 
@@ -90,7 +126,8 @@ class TokenHandler(DelegatingHandler, metaclass=abc.ABCMeta):
         Sends an HTTP request synchronously with retry support.
         This override includes token-based authentication and refresh logic on 401 Unauthorized responses.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param request: The HTTP request message to send.
         :param cancellation_token: A cancellation token to cancel operation.
@@ -100,10 +137,11 @@ class TokenHandler(DelegatingHandler, metaclass=abc.ABCMeta):
 
     def send_async(self, request: typing.Any, cancellation_token: System.Threading.CancellationToken) -> System.Threading.Tasks.Task[HttpResponseMessage]:
         """
-        Sends an HTTP request asynchronously by internally invoking the synchronous Send(HttpRequestMessage, CancellationToken) method.
+        Sends an HTTP request asynchronously by internally invoking the synchronous send(HttpRequestMessage, CancellationToken) method.
         This is useful for compatibility with components that require an asynchronous pipeline, even though the core logic is synchronous.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param request: The HTTP request message to send.
         :param cancellation_token: A cancellation token to cancel the operation.
@@ -164,47 +202,12 @@ class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.A
         """
         Initializes a new instance of the AccessTokenMetaDataResponse class.
         
-        This method is protected.
+        
+        This codeEntityType is protected.
         
         :param access_token: The access token string provided by the authentication service.
         :param token_type: The type of the token (e.g., Bearer).
         :param expires: The expiration time of the access token (in UTC), with safety buffer applied.
-        """
-        ...
-
-
-class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
-    """Represents the base request for obtaining an access token, including brokerage and account information."""
-
-    @property
-    def brokerage(self) -> str:
-        """
-        Gets the name of the brokerage associated with the access token request.
-        The value is normalized to lowercase.
-        """
-        ...
-
-    @property
-    def account_id(self) -> str:
-        """Gets the account identifier (e.g., account number) associated with the brokerage."""
-        ...
-
-    def __init__(self, brokerage: str, account_id: str) -> None:
-        """
-        Initializes a new instance of the AccessTokenMetaDataRequest class.
-        
-        This method is protected.
-        
-        :param brokerage: The name of the brokerage making the request. Will be normalized to lowercase.
-        :param account_id: The account number or identifier associated with the brokerage.
-        """
-        ...
-
-    def to_json(self) -> str:
-        """
-        Serializes the request into a compact JSON string with camelCase property naming.
-        
-        :returns: A JSON string representing the current request.
         """
         ...
 

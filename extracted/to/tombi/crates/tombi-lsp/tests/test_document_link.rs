@@ -13,7 +13,7 @@ mod document_link_tests {
                 [package]
                 readme = "README.md"
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![]));
         );
 
@@ -26,7 +26,7 @@ mod document_link_tests {
                 [workspace.package]
                 readme = "README.md"
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     path: project_root_path().join("schemas/Cargo.json"),
@@ -45,7 +45,7 @@ mod document_link_tests {
                 [workspace.dependencies]
                 tombi-lsp.path = "crates/tombi-lsp"
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     path: project_root_path().join("crates/tombi-lsp/Cargo.toml"),
@@ -70,7 +70,7 @@ mod document_link_tests {
                 [workspace.dependencies]
                 serde = "1.0"
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://crates.io/crates/serde",
@@ -90,7 +90,7 @@ mod document_link_tests {
                 [workspace.dependencies]
                 serde_toml = { version = "0.1", package = "toml" }
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://crates.io/crates/toml",
@@ -110,7 +110,7 @@ mod document_link_tests {
                 [workspace.dependencies]
                 serde = { git = "https://github.com/serde-rs/serde" }
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://github.com/serde-rs/serde",
@@ -135,7 +135,7 @@ mod document_link_tests {
                 [dependencies]
                 tombi-lsp.path = "../../crates/tombi-lsp"
                 "#,
-                project_root_path().join("rust/tombi-cli/Cargo.toml"),
+                SourcePath(project_root_path().join("rust/tombi-cli/Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     path: project_root_path().join("crates/tombi-lsp/Cargo.toml"),
@@ -160,7 +160,7 @@ mod document_link_tests {
                 [dependencies]
                 serde = "1.0"
                 "#,
-                project_root_path().join("subcrate/Cargo.toml"),
+                SourcePath(project_root_path().join("subcrate/Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://crates.io/crates/serde",
@@ -180,7 +180,7 @@ mod document_link_tests {
                 [dependencies]
                 serde_toml = { version = "0.1", package = "toml" }
                 "#,
-                project_root_path().join("subcrate/Cargo.toml"),
+                SourcePath(project_root_path().join("subcrate/Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://crates.io/crates/toml",
@@ -200,7 +200,7 @@ mod document_link_tests {
                 [dependencies]
                 serde = { git = "https://github.com/serde-rs/serde" }
                 "#,
-                project_root_path().join("subcrate/Cargo.toml"),
+                SourcePath(project_root_path().join("subcrate/Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://github.com/serde-rs/serde",
@@ -225,7 +225,7 @@ mod document_link_tests {
                 [dependencies]
                 tombi-lsp = { workspace = true, default-features = [] }
                 "#,
-                project_root_path().join("subcrate/Cargo.toml"),
+                SourcePath(project_root_path().join("subcrate/Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     path: project_root_path().join("crates/tombi-lsp/Cargo.toml"),
@@ -247,7 +247,7 @@ mod document_link_tests {
                 [package]
                 workspace = "../../"
                 "#,
-                project_root_path().join("crates/tombi-lsp/Cargo.toml"),
+                SourcePath(project_root_path().join("crates/tombi-lsp/Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     path: project_root_path().join("Cargo.toml"),
@@ -275,7 +275,7 @@ mod document_link_tests {
                 serde = "1.0"
                 tombi-ast = { path = "crates/tombi-ast" }
                 "#,
-                project_root_path().join("Cargo.toml"),
+                SourcePath(project_root_path().join("Cargo.toml")),
             ) -> Ok(Some(vec![
                 {
                     url: "https://crates.io/crates/serde",
@@ -299,6 +299,89 @@ mod document_link_tests {
                 },
             ]));
         );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_bin_path_links_to_target(
+                r#"
+                [[bin]]
+                name = "profile"
+                path = "src/bin/profile.rs"
+                "#,
+                SourcePath(project_root_path().join("crates/tombi-glob/Cargo.toml")),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join("crates/tombi-glob/src/bin/profile.rs"),
+                    range: 2:8..2:26,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::RustSource,
+                }
+            ]));
+        );
+
+        // Tests for platform specific dependencies (Issue #1192)
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_target_dependencies_serde(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                serde = "1.0"
+                "#,
+                SourcePath(project_root_path().join("crates/subcrate/Cargo.toml")),
+            ) -> Ok(Some(vec![
+                {
+                    url: "https://crates.io/crates/serde",
+                    range: 1:0..1:5,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CrateIo,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_target_dependencies_with_workspace(
+                r#"
+                [target.'cfg(unix)'.dependencies]
+                serde = { workspace = true }
+                "#,
+                SourcePath(project_root_path().join("crates/subcrate/Cargo.toml")),
+            ) -> Ok(Some(vec![
+                {
+                    url: "https://crates.io/crates/serde",
+                    range: 1:0..1:5,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CrateIo,
+                },
+                {
+                    path: project_root_path().join("Cargo.toml"),
+                    range: 1:10..1:26,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::WorkspaceCargoToml,
+                }
+            ]));
+        );
+
+        test_document_link!(
+            #[tokio::test]
+            async fn cargo_target_dependencies_with_path(
+                r#"
+                [package]
+                name = "test"
+
+                [target.'cfg(unix)'.dependencies]
+                tombi-ast = { path = "../tombi-ast" }
+                "#,
+                SourcePath(project_root_path().join("crates/tombi-lsp/Cargo.toml")),
+            ) -> Ok(Some(vec![
+                {
+                    path: project_root_path().join("crates/tombi-ast/Cargo.toml"),
+                    range: 4:0..4:9,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                },
+                {
+                    path: project_root_path().join("crates/tombi-ast/Cargo.toml"),
+                    range: 4:22..4:34,
+                    tooltip: tombi_extension_cargo::DocumentLinkToolTip::CargoToml,
+                }
+            ]));
+        );
     }
 
     mod tombi_schema {
@@ -309,13 +392,13 @@ mod document_link_tests {
             async fn tombi_schema_catalog_paths(
                 r#"
                 [schema]
-                catalog = { path = "https://json.schemastore.org/api/json/catalog.json" }
+                catalog = { path = "https://www.schemastore.org/api/json/catalog.json" }
                 "#,
-                project_root_path().join("tombi.toml"),
+                SourcePath(project_root_path().join("tombi.toml")),
             ) -> Ok(Some(vec![
                 {
-                    url: "https://json.schemastore.org/api/json/catalog.json",
-                    range: 1:20..1:70,
+                    url: "https://www.schemastore.org/api/json/catalog.json",
+                    range: 1:20..1:69,
                     tooltip: tombi_extension_tombi::DocumentLinkToolTip::Catalog,
                 }
             ]));
@@ -326,13 +409,13 @@ mod document_link_tests {
             async fn tombi_schema_catalog_path(
                 r#"
                 [schema]
-                catalog = { paths = ["https://json.schemastore.org/api/json/catalog.json"] }
+                catalog = { paths = ["https://www.schemastore.org/api/json/catalog.json"] }
                 "#,
-                project_root_path().join("tombi.toml"),
+                SourcePath(project_root_path().join("tombi.toml")),
             ) -> Ok(Some(vec![
                 {
-                    url: "https://json.schemastore.org/api/json/catalog.json",
-                    range: 1:22..1:72,
+                    url: "https://www.schemastore.org/api/json/catalog.json",
+                    range: 1:22..1:71,
                     tooltip: tombi_extension_tombi::DocumentLinkToolTip::Catalog,
                 }
             ]));
@@ -343,13 +426,13 @@ mod document_link_tests {
             async fn tombi_schemas_path(
                 r#"
                 [[schemas]]
-                path = "json.schemastore.org/tombi.json"
+                path = "www.schemastore.org/tombi.json"
                 "#,
-                project_root_path().join("tombi.toml"),
+                SourcePath(project_root_path().join("tombi.toml")),
             ) -> Ok(Some(vec![
                 {
-                    path: project_root_path().join("json.schemastore.org/tombi.json"),
-                    range: 1:8..1:39,
+                    path: project_root_path().join("www.schemastore.org/tombi.json"),
+                    range: 1:8..1:38,
                     tooltip: tombi_extension_tombi::DocumentLinkToolTip::Schema,
                 }
             ]));
@@ -360,13 +443,13 @@ mod document_link_tests {
             async fn tombi_schemas_remote_path(
                 r#"
                 [[schemas]]
-                path = "https://json.schemastore.org/cargo-make.json"
+                path = "https://www.schemastore.org/cargo-make.json"
                 "#,
-                project_root_path().join("tombi.toml"),
+                SourcePath(project_root_path().join("tombi.toml")),
             ) -> Ok(Some(vec![
                 {
-                    url: "https://json.schemastore.org/cargo-make.json",
-                    range: 1:8..1:52,
+                    url: "https://www.schemastore.org/cargo-make.json",
+                    range: 1:8..1:51,
                     tooltip: tombi_extension_tombi::DocumentLinkToolTip::Schema,
                 }
             ]));
@@ -378,13 +461,11 @@ mod document_link_tests {
 macro_rules! test_document_link {
     // Pattern: with url, with tooltip
     (#[tokio::test] async fn $name:ident(
-        $source:expr,
-        $file_path:expr,
+        $source:expr $(, $arg:expr )* $(,)?
     ) -> Ok(Some(vec![$($document_link:tt),* $(,)?]));) => {
         test_document_link! {
             #[tokio::test] async fn _$name(
-                $source,
-                $file_path,
+                $source $(, $arg)*
             ) -> Ok(Some(vec![
                 $(
                     _document_link!($document_link),
@@ -394,8 +475,7 @@ macro_rules! test_document_link {
     };
     // Fallback: original (for DocumentLink struct literal)
     (#[tokio::test] async fn _$name:ident(
-        $source:expr,
-        $file_path:expr,
+        $source:expr $(, $arg:expr )* $(,)?
     ) -> Ok($expected_links:expr);) => {
         #[tokio::test]
         async fn $name() -> Result<(), Box<dyn std::error::Error>> {
@@ -413,14 +493,123 @@ macro_rules! test_document_link {
 
             tombi_test_lib::init_tracing();
 
+            #[allow(unused)]
+            #[derive(Default)]
+            struct TestConfig {
+                source_file_path: Option<std::path::PathBuf>,
+                schema_file_path: Option<std::path::PathBuf>,
+                subschemas: Vec<SubSchemaPath>,
+                backend_options: tombi_lsp::backend::Options,
+            }
+
+            #[allow(unused)]
+            trait ApplyTestArg {
+                fn apply(self, config: &mut TestConfig);
+            }
+
+            #[allow(unused)]
+            struct SourcePath(std::path::PathBuf);
+
+            impl ApplyTestArg for SourcePath {
+                fn apply(self, config: &mut TestConfig) {
+                    config.source_file_path = Some(self.0);
+                }
+            }
+
+            #[allow(unused)]
+            struct SchemaPath(std::path::PathBuf);
+
+            impl ApplyTestArg for SchemaPath {
+                fn apply(self, config: &mut TestConfig) {
+                    config.schema_file_path = Some(self.0);
+                }
+            }
+
+            #[allow(unused)]
+            struct SubSchemaPath {
+                pub root: String,
+                pub path: std::path::PathBuf,
+            }
+
+            impl ApplyTestArg for SubSchemaPath {
+                fn apply(self, config: &mut TestConfig) {
+                    config.subschemas.push(self);
+                }
+            }
+
+            impl ApplyTestArg for tombi_lsp::backend::Options {
+                fn apply(self, config: &mut TestConfig) {
+                    config.backend_options = self;
+                }
+            }
+
+            #[allow(unused_mut)]
+            let mut config = TestConfig::default();
+            $(ApplyTestArg::apply($arg, &mut config);)*
+
             let (service, _) = LspService::new(|client| {
-                Backend::new(client, &tombi_lsp::backend::Options::default())
+                Backend::new(client, &config.backend_options)
             });
 
             let backend = service.inner();
 
-            let toml_file_url =
-                Url::from_file_path($file_path).expect("failed to convert file path to URL");
+            if let Some(schema_file_path) = config.schema_file_path.as_ref() {
+                let schema_uri = tombi_schema_store::SchemaUri::from_file_path(schema_file_path)
+                    .expect(
+                        format!(
+                            "failed to convert schema path to URL: {}",
+                            schema_file_path.display()
+                        )
+                        .as_str(),
+                    );
+
+                backend
+                    .config_manager
+                    .load_config_schemas(
+                        &[tombi_config::SchemaItem::Root(tombi_config::RootSchema {
+                            toml_version: None,
+                            path: schema_uri.to_string(),
+                            include: vec!["*.toml".to_string()],
+                        })],
+                        None,
+                    )
+                    .await;
+            }
+
+            for subschema in &config.subschemas {
+                let subschema_uri = tombi_schema_store::SchemaUri::from_file_path(&subschema.path)
+                    .expect(
+                        format!(
+                            "failed to convert subschema path to URL: {}",
+                            subschema.path.display()
+                        )
+                        .as_str(),
+                    );
+
+                backend
+                    .config_manager
+                    .load_config_schemas(
+                        &[tombi_config::SchemaItem::Sub(tombi_config::SubSchema {
+                            path: subschema_uri.to_string(),
+                            include: vec!["*.toml".to_string()],
+                            root: subschema.root.clone(),
+                        })],
+                        None,
+                    )
+                    .await;
+            }
+
+            let _temp_file = tempfile::NamedTempFile::with_suffix_in(
+                ".toml",
+                std::env::current_dir().expect("failed to get current directory"),
+            )
+            .expect("failed to create temporary file for test document path");
+
+            let toml_file_url = match config.source_file_path.as_ref() {
+                Some(path) => Url::from_file_path(path)
+                    .expect("failed to convert source file path to URL"),
+                None => return Err("SourcePath(..) is required".into()),
+            };
 
             let toml_text = textwrap::dedent($source).trim().to_string();
 

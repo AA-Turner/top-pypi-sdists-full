@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tockloader
-Version: 1.15.0
+Version: 1.16.0
 Summary: Tockloader is a tool for installing Tock applications.
 Author-email: Tock Project Developers <devel@lists.tockos.org>
 Requires-Python: >= 3.9

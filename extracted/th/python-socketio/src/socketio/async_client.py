@@ -1,4 +1,5 @@
 import asyncio
+import inspect
 import logging
 import random
 
@@ -139,6 +140,7 @@ class AsyncClient(base_client.BaseClient):
             namespaces = [namespaces]
         self.connection_namespaces = namespaces
         self.namespaces = {}
+        self.failed_namespaces = []
         if self._connect_event is None:
             self._connect_event = self.eio.create_event()
         else:
@@ -166,14 +168,16 @@ class AsyncClient(base_client.BaseClient):
                     await asyncio.wait_for(self._connect_event.wait(),
                                            wait_timeout)
                     self._connect_event.clear()
-                    if set(self.namespaces) == set(self.connection_namespaces):
+                    if len(self.namespaces) + len(self.failed_namespaces) == \
+                            len(self.connection_namespaces):
                         break
             except asyncio.TimeoutError:
                 pass
             if set(self.namespaces) != set(self.connection_namespaces):
                 await self.disconnect()
                 raise exceptions.ConnectionError(
-                    'One or more namespaces failed to connect')
+                    'One or more namespaces failed to connect: '
+                    + ', '.join(self.failed_namespaces))
 
         self.connected = True
 
@@ -191,7 +195,6 @@ class AsyncClient(base_client.BaseClient):
             if not self._reconnect_task:
                 if self.eio.state == 'connected':  # pragma: no cover
                     # connected while sleeping above
-                    print('oops')
                     continue
                 break
             await self._reconnect_task
@@ -373,7 +376,7 @@ class AsyncClient(base_client.BaseClient):
         callables."""
         if not callable(value):
             return value
-        if asyncio.iscoroutinefunction(value):
+        if inspect.iscoroutinefunction(value):
             return await value()
         return value()
 
@@ -405,7 +408,7 @@ class AsyncClient(base_client.BaseClient):
             del self.namespaces[namespace]
         if not self.namespaces:
             self.connected = False
-            await self.eio.disconnect(abort=True)
+            await self.eio.disconnect()
 
     async def _handle_event(self, namespace, id, data):
         namespace = namespace or '/'
@@ -435,7 +438,7 @@ class AsyncClient(base_client.BaseClient):
         else:
             del self.callbacks[namespace][id]
         if callback is not None:
-            if asyncio.iscoroutinefunction(callback):
+            if inspect.iscoroutinefunction(callback):
                 await callback(*data)
             else:
                 callback(*data)
@@ -449,6 +452,7 @@ class AsyncClient(base_client.BaseClient):
         elif not isinstance(data, (tuple, list)):
             data = (data,)
         await self._trigger_event('connect_error', namespace, *data)
+        self.failed_namespaces.append(namespace)
         self._connect_event.set()
         if namespace in self.namespaces:
             del self.namespaces[namespace]
@@ -461,7 +465,7 @@ class AsyncClient(base_client.BaseClient):
         # first see if we have an explicit handler for the event
         handler, args = self._get_event_handler(event, namespace, args)
         if handler:
-            if asyncio.iscoroutinefunction(handler):
+            if inspect.iscoroutinefunction(handler):
                 try:
                     try:
                         ret = await handler(*args)
@@ -486,7 +490,7 @@ class AsyncClient(base_client.BaseClient):
                         raise
             return ret
 
-        # or else, forward the event to a namepsace handler if one exists
+        # or else, forward the event to a namespace handler if one exists
         handler, args = self._get_namespace_handler(namespace, args)
         if handler:
             return await handler.trigger_event(event, *args)

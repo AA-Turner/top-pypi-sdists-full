@@ -16,9 +16,11 @@ nav:
       - guides/auth.md
       - guides/schema-conformance.md
       - guides/cicd.md
+      - guides/coverage.md
       - guides/python-apps.md
       - guides/custom-media-types.md
       - guides/custom-serializers.md
+      - guides/custom-response-deserializers.md
       - guides/graphql-custom-scalars.md
       - guides/extending.md
       - guides/extending-cli.md
@@ -40,9 +42,10 @@ nav:
       - Checks: reference/checks.md
       - reference/warnings.md
 
-  - Migration from v3: migration.md
-  - FAQ: faq.md
+  - Trophy Case: reference/trophy-case.md
   - External Resources: resources.md
+  - FAQ: faq.md
+  - Migration from v3: migration.md
 
 theme:
   name: material
@@ -86,9 +89,6 @@ extra:
 
 markdown_extensions:
   - pymdownx.highlight:
-      anchor_linenums: true
-      line_spans: __span
-      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences

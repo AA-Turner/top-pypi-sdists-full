@@ -1,7 +1,10 @@
 [package]
-name = "squawk_parser"
+name = "squawk-parser"
 version.workspace = true
-description = "TBD"
+description.workspace = true
+documentation.workspace = true
+homepage.workspace = true
+repository.workspace = true
 
 authors.workspace = true
 edition.workspace = true
@@ -13,7 +16,7 @@ readme = "README.md"
 doctest = false
 
 [dependencies]
-squawk_lexer.workspace = true
+squawk-lexer.workspace = true
 drop_bomb.workspace = true
 
 [dev-dependencies]
@@ -22,6 +25,7 @@ dir-test.workspace = true
 camino.workspace = true
 pg_query.workspace = true
 xshell.workspace = true
+annotate-snippets.workspace = true
 
 [lints]
 workspace = true

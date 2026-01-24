@@ -23,6 +23,7 @@ class EmissionsData:
     gpu_energy: float
     ram_energy: float
     energy_consumed: float
+    water_consumed: float
     country_name: str
     country_iso_code: str
     region: str
@@ -39,8 +40,13 @@ class EmissionsData:
     latitude: float
     ram_total_size: float
     tracking_mode: str
+    cpu_utilization_percent: float = 0.0
+    gpu_utilization_percent: float = 0.0
+    ram_utilization_percent: float = 0.0
+    ram_used_gb: float = 0.0
     on_cloud: str = "N"
     pue: float = 1
+    wue: float = 0
 
     @property
     def values(self) -> OrderedDict:
@@ -55,6 +61,7 @@ class EmissionsData:
         self.gpu_energy -= previous_emission.gpu_energy
         self.ram_energy -= previous_emission.ram_energy
         self.energy_consumed -= previous_emission.energy_consumed
+        self.water_consumed -= previous_emission.water_consumed
         if delta_duration > 0:
             # emissions_rate in g/s : delta_emissions in kg.CO2 / delta_duration in s
             self.emissions_rate = delta_emissions / delta_duration
@@ -81,6 +88,7 @@ class TaskEmissionsData:
     gpu_energy: float
     ram_energy: float
     energy_consumed: float
+    water_consumed: float
     country_name: str
     country_iso_code: str
     region: str
@@ -97,6 +105,10 @@ class TaskEmissionsData:
     latitude: float
     ram_total_size: float
     tracking_mode: str
+    cpu_utilization_percent: float = 0.0
+    gpu_utilization_percent: float = 0.0
+    ram_utilization_percent: float = 0.0
+    ram_used_gb: float = 0.0
     on_cloud: str = "N"
 
     @property

@@ -1,4 +1,8 @@
-import os
+from __future__ import annotations
+
+import gc
+import json
+import pathlib
 import re
 from concurrent import futures
 from contextlib import nullcontext
@@ -20,11 +24,13 @@ from tiledbsoma import (
     pytiledbsoma,
 )
 from tiledbsoma._collection import CollectionBase
+from tiledbsoma._constants import SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON
 from tiledbsoma.experiment_query import X_as_series
+from tiledbsoma.io import to_anndata as io_to_anndata
 
 from tests._util import raises_no_typeguard
 
-from ._util import ROOT_DATA_DIR
+from ._util import ROOT_DATA_DIR, assert_adata_equal_extra_columns_exempt
 
 # Number of features for the embeddings layer
 N_FEATURES = 50
@@ -125,11 +131,9 @@ def test_experiment_query_all(soma_experiment):
             "label": [str(i) for i in range(11)],
         }
         assert pa.concat_tables(query.X("raw").tables()) == pa.concat_tables(
-            soma_experiment.ms["RNA"].X["raw"].read((slice(None), slice(None))).tables()
+            soma_experiment.ms["RNA"].X["raw"].read((slice(None), slice(None))).tables(),
         )
-        assert query.X("raw").tables().concat() == pa.concat_tables(
-            query.X("raw").tables()
-        )
+        assert query.X("raw").tables().concat() == pa.concat_tables(query.X("raw").tables())
         raw = query.X("raw")
         blockwise = raw.blockwise(axis=0, reindex_disable_on_axis=[1])
         assert sparse.vstack([sp for sp, _ in blockwise.scipy()]).shape == (
@@ -154,14 +158,43 @@ def test_experiment_query_all(soma_experiment):
 
         assert len(ad.layers) == 0
 
-        raw_X = (
-            soma_experiment.ms["RNA"]
-            .X["raw"]
-            .read((slice(None), slice(None)))
-            .tables()
-            .concat()
-        )
-        ad_X_coo = ad.X.tocoo()
+
+@pytest.mark.parametrize("n_obs,n_vars,X_layer_names", [(101, 11, ("data",))])
+def test_experiment_query_to_anndata_no_X(soma_experiment):
+    """When X_name is None, AnnData should have X=None and no layers."""
+    with ExperimentAxisQuery(soma_experiment, "RNA") as query:
+        ad = query.to_anndata(X_name=None)
+        assert ad.X is None
+        assert len(ad.layers) == 0
+        assert ad.n_obs == query.n_obs
+        assert ad.n_vars == query.n_vars
+
+
+@pytest.mark.parametrize("n_obs,n_vars,X_layer_names", [(101, 11, ("data", "raw"))])
+def test_equivalence_default_X_uses_data_when_present(soma_experiment):
+    with ExperimentAxisQuery(soma_experiment, "RNA") as query:
+        ad_query = query.to_anndata()  # default
+        ad_io = io_to_anndata(soma_experiment, "RNA")  # default
+        assert_adata_equal_extra_columns_exempt(ad_query, ad_io)
+
+
+@pytest.mark.parametrize("n_obs,n_vars,X_layer_names", [(101, 11, ("data",))])
+def test_equivalence_X_none_returns_empty_X_and_no_layers(soma_experiment):
+    with ExperimentAxisQuery(soma_experiment, "RNA") as query:
+        ad_query = query.to_anndata(X_name=None)
+        ad_io = io_to_anndata(soma_experiment, "RNA", X_layer_name=None)
+        assert_adata_equal_extra_columns_exempt(ad_query, ad_io)
+
+
+@pytest.mark.parametrize("n_obs,n_vars,X_layer_names", [(101, 11, ("raw",))])
+def test_equivalence_explicit_X_layer(soma_experiment):
+    with ExperimentAxisQuery(soma_experiment, "RNA") as query:
+        ad_query = query.to_anndata("raw")
+        ad_io = io_to_anndata(soma_experiment, "RNA", X_layer_name="raw")
+        assert_adata_equal_extra_columns_exempt(ad_query, ad_io)
+
+        raw_X = soma_experiment.ms["RNA"].X["raw"].read((slice(None), slice(None))).tables().concat()
+        ad_X_coo = ad_query.X.tocoo()
         assert np.array_equal(raw_X["soma_dim_0"], ad_X_coo.row)
         assert np.array_equal(raw_X["soma_dim_1"], ad_X_coo.col)
         assert np.array_equal(raw_X["soma_data"], ad_X_coo.data)
@@ -197,13 +230,7 @@ def test_experiment_query_coords(soma_experiment):
             np.arange(var_slice.start, var_slice.stop + 1),
         )
 
-        raw_X = (
-            soma_experiment.ms["RNA"]
-            .X["raw"]
-            .read((obs_slice, var_slice))
-            .tables()
-            .concat()
-        )
+        raw_X = soma_experiment.ms["RNA"].X["raw"].read((obs_slice, var_slice)).tables().concat()
         assert query.X("raw").tables().concat() == raw_X
         assert query.X("raw").coos().concat() == pa.SparseCOOTensor.from_numpy(
             raw_X["soma_data"].to_numpy(),
@@ -211,7 +238,7 @@ def test_experiment_query_coords(soma_experiment):
                 [
                     raw_X["soma_dim_0"].to_numpy(),
                     raw_X["soma_dim_1"].to_numpy(),
-                ]
+                ],
             ).T,
             shape=soma_experiment.ms["RNA"].X["raw"].shape,
         )
@@ -244,20 +271,9 @@ def test_experiment_query_value_filter2(soma_experiment):
         var_query=soma.AxisQuery(value_filter=f"label not in {var_label_values}"),
     ) as query:
         assert query.n_obs == soma_experiment.obs.count - len(obs_label_values)
-        assert query.n_vars == soma_experiment.ms["RNA"].var.count - len(
-            var_label_values
-        )
-        all_obs_values = set(
-            soma_experiment.obs.read(column_names=["label"])
-            .concat()
-            .to_pandas()["label"]
-        )
-        all_var_values = set(
-            soma_experiment.ms["RNA"]
-            .var.read(column_names=["label"])
-            .concat()
-            .to_pandas()["label"]
-        )
+        assert query.n_vars == soma_experiment.ms["RNA"].var.count - len(var_label_values)
+        all_obs_values = set(soma_experiment.obs.read(column_names=["label"]).concat().to_pandas()["label"])
+        all_var_values = set(soma_experiment.ms["RNA"].var.read(column_names=["label"]).concat().to_pandas()["label"])
         qry_obs_values = set(query.obs().concat()["label"].to_pylist())
         qry_var_values = set(query.var().concat()["label"].to_pylist())
         assert qry_obs_values == all_obs_values.difference(set(obs_label_values))
@@ -293,12 +309,8 @@ def test_experiment_query_combo(soma_experiment):
 
     with soma_experiment.axis_query(
         "RNA",
-        obs_query=soma.AxisQuery(
-            coords=(obs_slice,), value_filter=f"label in {obs_label_values}"
-        ),
-        var_query=soma.AxisQuery(
-            coords=(var_slice,), value_filter=f"label in {var_label_values}"
-        ),
+        obs_query=soma.AxisQuery(coords=(obs_slice,), value_filter=f"label in {obs_label_values}"),
+        var_query=soma.AxisQuery(coords=(var_slice,), value_filter=f"label in {var_label_values}"),
     ) as query:
         assert query.obs().concat()["label"].to_pylist() == obs_label_values
         assert query.var().concat()["label"].to_pylist() == var_label_values
@@ -337,23 +349,15 @@ def test_experiment_query_partitions(soma_experiment):
 def test_experiment_query_result_order(soma_experiment):
     with ExperimentAxisQuery(soma_experiment, "RNA") as query:
         # Since obs is 1-dimensional, row-major and column-major should be the same
-        obs_data_row_major = (
-            query.obs(result_order="row-major").concat()["label"].to_numpy()
-        )
-        obs_data_col_major = (
-            query.obs(result_order="column-major").concat()["label"].to_numpy()
-        )
+        obs_data_row_major = query.obs(result_order="row-major").concat()["label"].to_numpy()
+        obs_data_col_major = query.obs(result_order="column-major").concat()["label"].to_numpy()
         assert np.array_equal(obs_data_row_major, obs_data_col_major)
         assert np.array_equal(np.sort(obs_data_row_major), obs_data_row_major)
         assert np.array_equal(np.sort(obs_data_col_major), obs_data_col_major)
 
         # The same for var
-        var_data_row_major = (
-            query.var(result_order="row-major").concat()["label"].to_numpy()
-        )
-        var_data_col_major = (
-            query.var(result_order="column-major").concat()["label"].to_numpy()
-        )
+        var_data_row_major = query.var(result_order="row-major").concat()["label"].to_numpy()
+        var_data_col_major = query.var(result_order="column-major").concat()["label"].to_numpy()
         assert np.array_equal(var_data_row_major, var_data_col_major)
         assert np.array_equal(np.sort(var_data_row_major), var_data_row_major)
         assert np.array_equal(np.sort(var_data_col_major), var_data_col_major)
@@ -367,7 +371,7 @@ def test_experiment_query_result_order(soma_experiment):
         col = X_tbl["soma_dim_1"].to_numpy()
         data_col_major = X_tbl["soma_data"].to_numpy()
         assert np.array_equal(np.sort(col), col)
-        assert not np.array_equal(data_row_major, data_col_major)
+        assert len(data_row_major) <= 1 or not np.array_equal(data_row_major, data_col_major)
 
 
 @pytest.mark.parametrize("n_obs,n_vars", [(1001, 99)])
@@ -419,20 +423,14 @@ def test_joinid_caching(soma_experiment):
     obs_query = soma.AxisQuery(value_filter="label in ['17', '19', '21']")
     var_query = soma.AxisQuery(coords=(slice(0, 100),))
 
-    with soma_experiment.axis_query(
-        "RNA", obs_query=obs_query, var_query=var_query
-    ) as query1:
+    with soma_experiment.axis_query("RNA", obs_query=obs_query, var_query=var_query) as query1:
         obs = query1.obs().concat()
         var = query1.var().concat()
 
-    with soma_experiment.axis_query(
-        "RNA", obs_query=obs_query, var_query=var_query
-    ) as query2:
+    with soma_experiment.axis_query("RNA", obs_query=obs_query, var_query=var_query) as query2:
         query2.X("A").coos().concat().to_scipy()
 
-    with soma_experiment.axis_query(
-        "RNA", obs_query=obs_query, var_query=var_query
-    ) as query3:
+    with soma_experiment.axis_query("RNA", obs_query=obs_query, var_query=var_query) as query3:
         ad = query3.to_anndata("A", column_names={"obs": ["label"], "var": ["label"]})
 
     assert query1 != query2 and query2 != query3 and query1 != query3
@@ -445,12 +443,8 @@ def test_joinid_caching(soma_experiment):
 @pytest.mark.parametrize("n_obs,n_vars,X_layer_names", [(1001, 99, ["A", "B", "C"])])
 def test_X_layers(soma_experiment):
     """Verify multi-layer-X handling"""
-    A = pa.concat_tables(
-        soma_experiment.ms["RNA"].X["A"].read((slice(None), slice(None))).tables()
-    )
-    B = pa.concat_tables(
-        soma_experiment.ms["RNA"].X["B"].read((slice(None), slice(None))).tables()
-    )
+    A = pa.concat_tables(soma_experiment.ms["RNA"].X["A"].read((slice(None), slice(None))).tables())
+    B = pa.concat_tables(soma_experiment.ms["RNA"].X["B"].read((slice(None), slice(None))).tables())
 
     with soma_experiment.axis_query("RNA") as query:
         ad = query.to_anndata("B", X_layers=["A"])
@@ -514,24 +508,20 @@ def test_error_corners(soma_experiment: Experiment):
         soma_experiment.axis_query("no-such-measurement")
 
     # Unknown X layer name
-    with pytest.raises(KeyError):
-        with soma_experiment.axis_query("RNA") as query:
-            next(query.X("no-such-layer"))
+    with pytest.raises(KeyError), soma_experiment.axis_query("RNA") as query:
+        next(query.X("no-such-layer"))
 
     # Unknown X layer name
-    with pytest.raises(ValueError):
-        with soma_experiment.axis_query("RNA") as query:
-            query.to_anndata("no-such-layer")
+    with pytest.raises(ValueError), soma_experiment.axis_query("RNA") as query:
+        query.to_anndata("no-such-layer")
 
     # Unknown obsp layer name
-    with pytest.raises(ValueError):
-        with soma_experiment.axis_query("RNA") as query:
-            next(query.obsp("no-such-layer"))
+    with pytest.raises(ValueError), soma_experiment.axis_query("RNA") as query:
+        next(query.obsp("no-such-layer"))
 
     # Unknown varp layer name
-    with pytest.raises(ValueError):
-        with soma_experiment.axis_query("RNA") as query:
-            next(query.varp("no-such-layer"))
+    with pytest.raises(ValueError), soma_experiment.axis_query("RNA") as query:
+        next(query.varp("no-such-layer"))
 
     # Illegal layer name type
     for lyr_name in [True, 3, 99.3]:
@@ -568,6 +558,7 @@ def test_query_cleanup(soma_experiment: soma.Experiment):
     "n_obs,n_vars,obsp_layer_names,varp_layer_names,obsm_layer_names,varm_layer_names",
     [(1001, 99, ["foo"], ["bar"], ["baz"], ["quux"])],
 )
+@pytest.mark.medium_runner
 def test_experiment_query_obsp_varp_obsm_varm(soma_experiment):
     obs_slice = slice(3, 72)
     var_slice = slice(7, 21)
@@ -594,44 +585,29 @@ def test_experiment_query_obsp_varp_obsm_varm(soma_experiment):
 
         assert (
             query.obsp("foo").tables().concat()
-            == soma_experiment.ms["RNA"]
-            .obsp["foo"]
-            .read((obs_slice, obs_slice))
-            .tables()
-            .concat()
+            == soma_experiment.ms["RNA"].obsp["foo"].read((obs_slice, obs_slice)).tables().concat()
         )
 
         assert (
             query.varp("bar").tables().concat()
-            == soma_experiment.ms["RNA"]
-            .varp["bar"]
-            .read((var_slice, var_slice))
-            .tables()
-            .concat()
+            == soma_experiment.ms["RNA"].varp["bar"].read((var_slice, var_slice)).tables().concat()
         )
 
         assert (
             query.obsm("baz").tables().concat()
-            == soma_experiment.ms["RNA"]
-            .obsm["baz"]
-            .read((obs_slice, range(N_FEATURES)))
-            .tables()
-            .concat()
+            == soma_experiment.ms["RNA"].obsm["baz"].read((obs_slice, range(N_FEATURES))).tables().concat()
         )
 
         assert (
             query.varm("quux").tables().concat()
-            == soma_experiment.ms["RNA"]
-            .varm["quux"]
-            .read((var_slice, range(N_FEATURES)))
-            .tables()
-            .concat()
+            == soma_experiment.ms["RNA"].varm["quux"].read((var_slice, range(N_FEATURES))).tables().concat()
         )
 
+    del query
+    gc.collect()
 
-@pytest.mark.parametrize(
-    "n_obs,n_vars,obsm_layer_names,varm_layer_names", [(1001, 99, ["foo"], ["bar"])]
-)
+
+@pytest.mark.parametrize("n_obs,n_vars,obsm_layer_names,varm_layer_names", [(1001, 99, ["foo"], ["bar"])])
 def test_experiment_query_to_anndata_obsm_varm(soma_experiment):
     with soma_experiment.axis_query("RNA") as query:
         ad = query.to_anndata("raw", obsm_layers=["foo"], varm_layers=["bar"])
@@ -640,45 +616,35 @@ def test_experiment_query_to_anndata_obsm_varm(soma_experiment):
         assert isinstance(obsm, np.ndarray)
         assert obsm.shape == (query.n_obs, N_FEATURES)
 
-        assert np.array_equal(
-            query.obsm("foo").coos().concat().to_scipy().todense(), obsm
-        )
+        assert np.array_equal(query.obsm("foo").coos().concat().to_scipy().todense(), obsm)
 
         assert set(ad.varm.keys()) == {"bar"}
         varm = ad.varm["bar"]
         assert isinstance(varm, np.ndarray)
         assert varm.shape == (query.n_vars, N_FEATURES)
-        assert np.array_equal(
-            query.varm("bar").coos().concat().to_scipy().todense(), varm
-        )
+        assert np.array_equal(query.varm("bar").coos().concat().to_scipy().todense(), varm)
 
 
-@pytest.mark.parametrize(
-    "n_obs,n_vars,obsp_layer_names,varp_layer_names", [(1001, 99, ["foo"], ["bar"])]
-)
+@pytest.mark.parametrize("n_obs,n_vars,obsp_layer_names,varp_layer_names", [(1001, 99, ["foo"], ["bar"])])
 def test_experiment_query_to_anndata_obsp_varp(soma_experiment):
     with soma_experiment.axis_query("RNA") as query:
         ad = query.to_anndata("raw", obsp_layers=["foo"], varp_layers=["bar"])
         assert set(ad.obsp.keys()) == {"foo"}
         obsp = ad.obsp["foo"]
-        assert isinstance(obsp, sparse.spmatrix)
-        assert sparse.isspmatrix_csr(obsp)
+        assert isinstance(obsp, (sparse.spmatrix, sparse.sparray))
+        assert hasattr(obsp, "format") and obsp.format == "csr"
         assert obsp.shape == (query.n_obs, query.n_obs)
 
         assert (query.obsp("foo").coos().concat().to_scipy() != obsp).nnz == 0
-        assert np.array_equal(
-            query.obsp("foo").coos().concat().to_scipy().todense(), obsp.todense()
-        )
+        assert np.array_equal(query.obsp("foo").coos().concat().to_scipy().todense(), obsp.todense())
 
         assert set(ad.varp.keys()) == {"bar"}
         varp = ad.varp["bar"]
-        assert isinstance(varp, sparse.spmatrix)
-        assert sparse.isspmatrix_csr(varp)
+        assert isinstance(varp, (sparse.spmatrix, sparse.sparray))
+        assert hasattr(varp, "format") and varp.format == "csr"
         assert varp.shape == (query.n_vars, query.n_vars)
         assert (query.varp("bar").coos().concat().to_scipy() != varp).nnz == 0
-        assert np.array_equal(
-            query.varp("bar").coos().concat().to_scipy().todense(), varp.todense()
-        )
+        assert np.array_equal(query.varp("bar").coos().concat().to_scipy().todense(), varp.todense())
 
 
 def test_axis_query():
@@ -701,13 +667,8 @@ def test_axis_query():
     assert AxisQuery(value_filter="foo == 'bar'").value_filter == "foo == 'bar'"
     assert AxisQuery(value_filter="foo == 'bar'").coords == ()
 
-    assert AxisQuery(coords=(slice(1, 100),), value_filter="foo == 'bar'").coords == (
-        slice(1, 100),
-    )
-    assert (
-        AxisQuery(coords=(slice(1, 100),), value_filter="foo == 'bar'").value_filter
-        == "foo == 'bar'"
-    )
+    assert AxisQuery(coords=(slice(1, 100),), value_filter="foo == 'bar'").coords == (slice(1, 100),)
+    assert AxisQuery(coords=(slice(1, 100),), value_filter="foo == 'bar'").value_filter == "foo == 'bar'"
 
     with pytest.raises(TypeError):
         AxisQuery(coords=True)
@@ -727,22 +688,16 @@ def test_X_as_series():
         pa.Table.from_arrays(
             [soma_dim_0, soma_dim_1, soma_data],
             names=["soma_dim_0", "soma_dim_1", "soma_data"],
-        )
+        ),
     )
 
     assert isinstance(ser, pd.Series)
     assert np.array_equal(ser.to_numpy(), soma_data)
-    assert np.array_equal(
-        ser.index.get_level_values("soma_dim_0").to_numpy(), soma_dim_0
-    )
-    assert np.array_equal(
-        ser.index.get_level_values("soma_dim_1").to_numpy(), soma_dim_1
-    )
+    assert np.array_equal(ser.index.get_level_values("soma_dim_0").to_numpy(), soma_dim_0)
+    assert np.array_equal(ser.index.get_level_values("soma_dim_1").to_numpy(), soma_dim_1)
 
 
-@pytest.mark.parametrize(
-    "n_obs,n_vars,obsp_layer_names,varp_layer_names", [(101, 99, ["foo"], ["bar"])]
-)
+@pytest.mark.parametrize("n_obs,n_vars,obsp_layer_names,varp_layer_names", [(101, 99, ["foo"], ["bar"])])
 def test_experiment_query_column_names(soma_experiment):
     """
     Verify that column_names is correctly handled in the various obs/var accessors.
@@ -761,15 +716,9 @@ def test_experiment_query_column_names(soma_experiment):
 
     # column_names only
     with soma_experiment.axis_query("RNA") as query:
-        assert set(next(query.obs(column_names=["soma_joinid"])).column_names) == {
-            "soma_joinid"
-        }
-        assert set(next(query.var(column_names=["soma_joinid"])).column_names) == {
-            "soma_joinid"
-        }
-        ad = query.to_anndata(
-            "raw", column_names={"obs": ["soma_joinid"], "var": ["soma_joinid"]}
-        )
+        assert set(next(query.obs(column_names=["soma_joinid"])).column_names) == {"soma_joinid"}
+        assert set(next(query.var(column_names=["soma_joinid"])).column_names) == {"soma_joinid"}
+        ad = query.to_anndata("raw", column_names={"obs": ["soma_joinid"], "var": ["soma_joinid"]})
         assert set(ad.obs.keys()) == {"soma_joinid"}
         assert set(ad.var.keys()) == {"soma_joinid"}
 
@@ -779,12 +728,8 @@ def test_experiment_query_column_names(soma_experiment):
         assert set(ad.obs.keys()) == {"label"}
         assert set(ad.var.keys()) == {"label"}
 
-        assert set(
-            next(query.obs(column_names=["soma_joinid", "label"])).column_names
-        ) == {"soma_joinid", "label"}
-        assert set(
-            next(query.var(column_names=["soma_joinid", "label"])).column_names
-        ) == {"soma_joinid", "label"}
+        assert set(next(query.obs(column_names=["soma_joinid", "label"])).column_names) == {"soma_joinid", "label"}
+        assert set(next(query.var(column_names=["soma_joinid", "label"])).column_names) == {"soma_joinid", "label"}
         ad = query.to_anndata(
             "raw",
             column_names={
@@ -798,12 +743,8 @@ def test_experiment_query_column_names(soma_experiment):
     # column_names and value_filter
     with soma_experiment.axis_query(
         "RNA",
-        obs_query=AxisQuery(
-            value_filter="label in [" + ",".join(f"'{i}'" for i in range(101)) + "]"
-        ),
-        var_query=AxisQuery(
-            value_filter="label in [" + ",".join(f"'{i}'" for i in range(99)) + "]"
-        ),
+        obs_query=AxisQuery(value_filter="label in [" + ",".join(f"'{i}'" for i in range(101)) + "]"),
+        var_query=AxisQuery(value_filter="label in [" + ",".join(f"'{i}'" for i in range(99)) + "]"),
     ) as query:
         assert set(next(query.obs(column_names=["soma_joinid"])).column_names) == {
             "soma_joinid",
@@ -813,9 +754,7 @@ def test_experiment_query_column_names(soma_experiment):
             "soma_joinid",
             "label",
         }
-        ad = query.to_anndata(
-            "raw", column_names={"obs": ["soma_joinid"], "var": ["soma_joinid"]}
-        )
+        ad = query.to_anndata("raw", column_names={"obs": ["soma_joinid"], "var": ["soma_joinid"]})
         assert set(ad.obs.keys()) == {"soma_joinid", "label"}
         assert set(ad.var.keys()) == {"soma_joinid", "label"}
 
@@ -825,12 +764,8 @@ def test_experiment_query_column_names(soma_experiment):
         assert set(ad.obs.keys()) == {"label"}
         assert set(ad.var.keys()) == {"label"}
 
-        assert set(
-            next(query.obs(column_names=["soma_joinid", "label"])).column_names
-        ) == {"soma_joinid", "label"}
-        assert set(
-            next(query.var(column_names=["soma_joinid", "label"])).column_names
-        ) == {"soma_joinid", "label"}
+        assert set(next(query.obs(column_names=["soma_joinid", "label"])).column_names) == {"soma_joinid", "label"}
+        assert set(next(query.var(column_names=["soma_joinid", "label"])).column_names) == {"soma_joinid", "label"}
         ad = query.to_anndata(
             "raw",
             column_names={
@@ -874,7 +809,7 @@ def add_dataframe(coll: CollectionBase, key: str, sz: int) -> None:
             [
                 ("soma_joinid", pa.int64()),
                 ("label", pa.large_string()),
-            ]
+            ],
         ),
         domain=[[0, sz - 1]],
         index_column_names=["soma_joinid"],
@@ -884,15 +819,17 @@ def add_dataframe(coll: CollectionBase, key: str, sz: int) -> None:
             {
                 "soma_joinid": [i for i in range(sz)],
                 "label": [str(i) for i in range(sz)],
-            }
-        )
+            },
+        ),
     )
 
 
 def add_sparse_array(coll: CollectionBase, key: str, shape: tuple[int, int]) -> None:
     a = coll.add_new_sparse_ndarray(key, type=pa.float32(), shape=shape)
-    tensor = pa.SparseCOOTensor.from_scipy(
-        sparse.random(
+
+    # always have at least one value in the matrix (ARROW-17933)
+    while True:
+        m = sparse.random(
             shape[0],
             shape[1],
             density=0.1,
@@ -900,7 +837,10 @@ def add_sparse_array(coll: CollectionBase, key: str, shape: tuple[int, int]) -> 
             dtype=np.float32,
             random_state=np.random.default_rng(),
         )
-    )
+        if m.nnz > 0:
+            break
+
+    tensor = pa.SparseCOOTensor.from_scipy(m)
     a.write(tensor)
 
 
@@ -925,9 +865,7 @@ def test_experiment_query_uses_threadpool_from_context(soma_experiment):
 
 
 def test_empty_categorical_query(conftest_pbmc_small_exp):
-    q = conftest_pbmc_small_exp.axis_query(
-        measurement_name="RNA", obs_query=AxisQuery(value_filter='groups == "g1"')
-    )
+    q = conftest_pbmc_small_exp.axis_query(measurement_name="RNA", obs_query=AxisQuery(value_filter='groups == "g1"'))
     obs = q.obs().concat()
     assert len(obs) == 44
 
@@ -936,17 +874,13 @@ def test_empty_categorical_query(conftest_pbmc_small_exp):
     assert "g1" in cat
     assert "g2" in cat
 
-    adata = q.to_anndata(
-        column_names={"obs": ["groups"]}, X_name="data", drop_levels=True
-    )
+    adata = q.to_anndata(column_names={"obs": ["groups"]}, X_name="data", drop_levels=True)
     cat = adata.obs["groups"].cat.categories
     assert "g1" in cat
     # Unused categories should not appear
     assert "g2" not in cat
 
-    q = conftest_pbmc_small_exp.axis_query(
-        measurement_name="RNA", obs_query=AxisQuery(value_filter='groups == "foo"')
-    )
+    q = conftest_pbmc_small_exp.axis_query(measurement_name="RNA", obs_query=AxisQuery(value_filter='groups == "foo"'))
     # Empty query on a categorical column raised ArrowInvalid before TileDB 2.21; see
     # https://github.com/single-cell-data/TileDB-SOMA/pull/2299
     m = re.fullmatch(r"libtiledb=(\d+\.\d+\.\d+)", pytiledbsoma.version())
@@ -987,22 +921,29 @@ def test_empty_categorical_query(conftest_pbmc_small_exp):
         ['var_id not in ["S100A6", "CYBA", "NONESUCH"]', 1836],
     ],
 )
-def test_experiment_query_historical(version, obs_params, var_params):
+@pytest.mark.medium_runner
+def test_experiment_query_historical(soma_tiledb_context, version, obs_params, var_params):
     """Checks that experiments written by older versions are still queryable."""
 
     name = "pbmc3k_processed"
     path = ROOT_DATA_DIR / "soma-experiment-versions-2025-04-04" / version / name
     uri = str(path)
-    if not os.path.isdir(uri):
+    if not pathlib.Path(uri).is_dir():
         raise RuntimeError(
-            f"Missing '{uri}' directory. Try running `make data` "
-            "from the TileDB-SOMA project root directory."
+            f"Missing '{uri}' directory. Try running `make data` from the TileDB-SOMA project root directory.",
         )
 
     obs_condition, obs_count = obs_params
     var_condition, var_count = var_params
 
-    with soma.open(uri) as exp:
+    def expected_index_name(df, hint, fallback) -> str:
+        if hint:
+            return json.loads(hint)
+        if fallback in df.columns:
+            return fallback
+        return ""
+
+    with soma.open(uri, context=soma_tiledb_context) as exp:
         query = exp.axis_query(
             measurement_name="RNA",
             obs_query=AxisQuery(value_filter=obs_condition),
@@ -1011,6 +952,87 @@ def test_experiment_query_historical(version, obs_params, var_params):
 
         obs = query.obs().concat()
         assert len(obs) == obs_count
+        obs_index_name = expected_index_name(
+            obs.to_pandas(),
+            exp.obs.metadata.get(SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, None),
+            "obs_id",
+        )
+        del obs
+        gc.collect()
 
         var = query.var().concat()
         assert len(var) == var_count
+        var_index_name = expected_index_name(
+            var.to_pandas(),
+            exp.ms["RNA"].var.metadata.get(SOMA_DATAFRAME_ORIGINAL_INDEX_NAME_JSON, None),
+            "var_id",
+        )
+        del var
+        gc.collect()
+
+        adata = query.to_anndata("data")
+        assert adata.n_obs == obs_count
+        assert adata.n_vars == var_count
+        assert adata.X.shape == (obs_count, var_count)
+        assert adata.obs.index.name == obs_index_name
+        assert adata.var.index.name == var_index_name
+        del adata
+        gc.collect()
+
+        adata = query.to_anndata("data", obs_id_name="obs_id", var_id_name="var_id")
+        assert adata.obs.index.name == "obs_id"
+        assert adata.var.index.name == "var_id"
+        del adata
+        gc.collect()
+
+
+@pytest.mark.parametrize("version", ["1.7.3", "1.12.3", "1.14.5", "1.15.0", "1.15.7", "1.16.1"])
+@pytest.mark.parametrize("obsm_layers", [(), ("X_pca",), ("X_tsne",), ("X_draw_graph_fr", "X_pca", "X_tsne", "X_umap")])
+@pytest.mark.parametrize("obsp_layers", [(), ("connectivities",), ("distances",), ("connectivities", "distances")])
+@pytest.mark.parametrize("varp_layers", [()])
+@pytest.mark.parametrize("varm_layers", [(), ("PCs",)])
+@pytest.mark.medium_runner
+def test_annotation_matrix_slots(
+    soma_tiledb_context, version, obsm_layers, obsp_layers, varm_layers, varp_layers
+) -> None:
+    name = "pbmc3k_processed"
+    path = ROOT_DATA_DIR / "soma-experiment-versions-2025-04-04" / version / name
+    uri = str(path)
+    if not pathlib.Path(uri).is_dir():
+        raise RuntimeError(
+            f"Missing '{uri}' directory. Try running `make data` from the TileDB-SOMA project root directory.",
+        )
+
+    with soma.open(uri, context=soma_tiledb_context) as exp:
+        adata = exp.axis_query(measurement_name="RNA", obs_query=AxisQuery(coords=(slice(0, 199),))).to_anndata(
+            "data",
+            obsm_layers=obsm_layers,
+            obsp_layers=obsp_layers,
+            varp_layers=varp_layers,
+            varm_layers=varm_layers,
+        )
+
+        for m in obsm_layers:
+            assert m in adata.obsm
+            assert adata.obsm[m].dtype == exp.ms["RNA"].obsm[m].schema.field("soma_data").type.to_pandas_dtype()
+            assert adata.obsm[m].shape[0] == adata.shape[0]
+
+        for m in varm_layers:
+            assert m in adata.varm
+            assert adata.varm[m].dtype == exp.ms["RNA"].varm[m].schema.field("soma_data").type.to_pandas_dtype()
+            assert adata.varm[m].shape[0] == adata.shape[1]
+
+        for sm in obsp_layers:
+            assert sm in adata.obsp
+            assert adata.obsp[sm].dtype == exp.ms["RNA"].obsp[sm].schema.field("soma_data").type.to_pandas_dtype()
+            assert adata.obsp[sm].shape[0] == adata.shape[0]
+            assert adata.obsp[sm].shape[1] == adata.shape[0]
+
+        for sm in varp_layers:
+            assert sm in adata.varp
+            assert adata.varp[sm].dtype == exp.ms["RNA"].varp[sm].schema.field("soma_data").type.to_pandas_dtype()
+            assert adata.varp[sm].shape[0] == adata.shape[1]
+            assert adata.varp[sm].shape[1] == adata.shape[1]
+
+    del adata
+    gc.collect()

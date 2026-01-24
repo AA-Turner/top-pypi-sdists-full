@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import shutil
-import socket
 import sys
 import tempfile
 import unittest
@@ -11,8 +10,6 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import click
-import psutil
-import requests
 from importlib.metadata import version
 
 from click.testing import CliRunner
@@ -108,6 +105,64 @@ class TestSafetyCLI(unittest.TestCase):
         # CLI is initialized
         cli.commands = cli.all_commands
         self.cli = cli
+
+        self.get_keys_patcher = patch("safety.auth.cli_utils.get_keys")
+        self.mock_get_keys = self.get_keys_patcher.start()
+        self.mock_get_keys.return_value = {
+            "keys": [
+                {
+                    "kty": "RSA",
+                    "use": "sig",
+                    "n": "_DsW691xjv0VVGV",
+                    "e": "AQAB",
+                    "kid": "uOwPXj-RXVknrMVYGSLYT",
+                    "x5t": "aJd2WhczM5axP9RqaEgv9NGbFrY",
+                    "x5c": ["MIIDBzCCAe+gAwIBAgIJakWt="],
+                    "alg": "RS256",
+                },
+                {
+                    "kty": "RSA",
+                    "use": "sig",
+                    "n": "-8QD5guU-DG5McZQ",
+                    "e": "AQAB",
+                    "kid": "YAOW9ojPUiH78EyxhWit4",
+                    "x5t": "COG9DO5olEWUGCuIyvPvnr26xoQ",
+                    "x5c": ["MIIDBzCCAe+gAwIBAgIJa55+="],
+                    "alg": "RS256",
+                },
+            ]
+        }
+
+        # Set up common fetch_openid_config patch
+        self.fetch_openid_config_patcher = patch(
+            "safety.auth.cli_utils.SafetyAuthSession.fetch_openid_config"
+        )
+        self.mock_fetch_openid_config = self.fetch_openid_config_patcher.start()
+        self.mock_fetch_openid_config.return_value = {
+            "token_endpoint": "https://safetycli.us.auth0.com/oauth/token",
+            "authorization_endpoint": "https://safetycli.us.auth0.com/authorize",
+            "issuer": "https://safetycli.us.auth0.com/",
+            "userinfo_endpoint": "https://safetycli.us.auth0.com/userinfo",
+            "jwks_uri": "https://safetycli.us.auth0.com/.well-known/jwks.json",
+        }
+
+        # Set up common fetch_database_url patch
+        self.fetch_database_url_patcher = patch("safety.safety.fetch_database_url")
+        self.mock_fetch_database_url = self.fetch_database_url_patcher.start()
+        self.mock_fetch_database_url.return_value = {
+            "meta": {"schema_version": "2.0.0"}
+        }
+
+        # Set up common get_server_policies patch
+        self.get_server_policies_patcher = patch("safety.safety.get_server_policies")
+        self.mock_get_server_policies = self.get_server_policies_patcher.start()
+        self.mock_get_server_policies.return_value = (None, None)
+
+    def tearDown(self):
+        # self.inject_session_patcher.stop()
+        self.fetch_openid_config_patcher.stop()
+        self.fetch_database_url_patcher.stop()
+        self.get_server_policies_patcher.stop()
 
     def test_command_line_interface(self):
         runner = CliRunner()
@@ -713,7 +768,12 @@ class TestSafetyCLI(unittest.TestCase):
             mock_get_auth_type: Mock for retrieving the authentication type.
             mock_fetch_database: Mock for database fetching operations.
         """
-        result = self.runner.invoke(self.cli, ["--debug", "scan"])
+
+        test_dir = Path(__file__).parent / "reqs"
+
+        result = self.runner.invoke(
+            self.cli, ["--debug", "scan", "--target", str(test_dir)]
+        )
         assert result.exit_code == 0, (
             f"CLI exited with code {result.exit_code} and output: {result.output} and error: {result.stderr}"
         )
@@ -793,12 +853,14 @@ class TestSafetyCLI(unittest.TestCase):
             (ToolType.PIP, Path("~/.safety_profile")),
             (ToolType.POETRY, Path("~/.safety_profile")),
             (ToolType.UV, Path("~/.safety_profile")),
+            (ToolType.NPM, Path("~/.safety_profile")),
         ]
 
         configure_system_mock.return_value = [
             (ToolType.PIP, Path("~/.pip.conf")),
             (ToolType.POETRY, None),
             (ToolType.UV, Path("~/.uv/config.toml")),
+            (ToolType.NPM, Path("~/.npmrc")),
         ]
 
         # Workarounds
@@ -812,7 +874,7 @@ class TestSafetyCLI(unittest.TestCase):
             "Next steps:",
             "Configured pip’s global index",
             "Aliased pip to safety",
-            "Pip, Poetry and Uv configured and secured",
+            "Pip, Poetry, Uv and Npm configured and secured",
         ]
 
         test_cases = [
@@ -822,9 +884,10 @@ class TestSafetyCLI(unittest.TestCase):
 
         for interactive, outputs, exit_code in test_cases:
             with self.subTest(outputs=outputs, exit_code=exit_code):
-                with patch(
-                    "safety.cli.console", new=test_console
-                ) as t_console, tempfile.TemporaryDirectory() as tempdir:
+                with (
+                    patch("safety.cli.console", new=test_console) as t_console,
+                    tempfile.TemporaryDirectory() as tempdir,
+                ):
                     t_console.is_interactive = interactive
                     result = self.runner.invoke(self.cli, ["init", tempdir])
                     cleaned_stdout = click.unstyle(result.stdout)
@@ -865,93 +928,9 @@ class TestSafetyCLI(unittest.TestCase):
             )
 
 
-class TestNetworkTelemetry(unittest.TestCase):
-    @patch("psutil.net_io_counters")
-    @patch("psutil.net_if_addrs")
-    @patch("psutil.net_connections")
-    @patch("psutil.net_if_stats")
-    @patch("requests.get")
-    def test_get_network_telemetry(
-        self,
-        mock_requests_get,
-        mock_net_if_stats,
-        mock_net_connections,
-        mock_net_if_addrs,
-        mock_net_io_counters,
-    ):
-        # Setup mocks
-        mock_net_io_counters.return_value = Mock(
-            bytes_sent=1000, bytes_recv=2000, packets_sent=10, packets_recv=20
-        )
-        mock_net_if_addrs.return_value = {
-            "eth0": [Mock(family=socket.AF_INET, address="192.168.1.1")]
-        }
-        mock_net_connections.return_value = [
-            Mock(
-                fd=1,
-                family=socket.AF_INET,
-                type=socket.SOCK_STREAM,
-                laddr=Mock(ip="192.168.1.1", port=8080),
-                raddr=Mock(ip="93.184.216.34", port=80),
-                status="ESTABLISHED",
-            )
-        ]
-        mock_net_if_stats.return_value = {
-            "eth0": Mock(isup=True, duplex=2, speed=1000, mtu=1500)
-        }
-
-        mock_response = Mock()
-        mock_response.content = b"a" * 1000  # Mock content length
-        mock_requests_get.return_value = mock_response
-
-        # Run the function
-        from safety.cli import get_network_telemetry
-
-        result = get_network_telemetry()
-
-        # Assert the network telemetry data
-        self.assertEqual(result["bytes_sent"], 1000)
-        self.assertEqual(result["bytes_recv"], 2000)
-        self.assertEqual(result["packets_sent"], 10)
-        self.assertEqual(result["packets_recv"], 20)
-        self.assertIsNotNone(result["download_speed"])
-        self.assertEqual(result["interfaces"], {"eth0": ["192.168.1.1"]})
-        self.assertEqual(result["connections"][0]["laddr"], "192.168.1.1:8080")
-        self.assertEqual(result["connections"][0]["raddr"], "93.184.216.34:80")
-        self.assertEqual(result["connections"][0]["status"], "ESTABLISHED")
-        self.assertEqual(result["interface_stats"]["eth0"]["isup"], True)
-        self.assertEqual(result["interface_stats"]["eth0"]["duplex"], 2)
-        self.assertEqual(result["interface_stats"]["eth0"]["speed"], 1000)
-        self.assertEqual(result["interface_stats"]["eth0"]["mtu"], 1500)
-
-    @patch("requests.get", side_effect=requests.RequestException("Network error"))
-    def test_get_network_telemetry_request_exception(self, mock_requests_get):
-        # Run the function
-        from safety.cli import get_network_telemetry
-
-        result = get_network_telemetry()
-
-        # Assert the download_speed is None and error is captured
-        self.assertIsNone(result["download_speed"])
-        self.assertIn("error", result)
-
-    @patch("psutil.net_io_counters", side_effect=psutil.AccessDenied("Access denied"))
-    def test_get_network_telemetry_access_denied(self, mock_net_io_counters):
-        # Run the function
-        from safety.cli import get_network_telemetry
-
-        result = get_network_telemetry()
-
-        # Assert the error is captured
-        self.assertIn("error", result)
-        self.assertIn("Access denied", result["error"])
-
-
 class TestConfigureLogger(unittest.TestCase):
     @patch("configparser.ConfigParser.read")
-    @patch("safety.cli.get_network_telemetry")
-    def test_configure_logger_debug(self, mock_get_network_telemetry, mock_config_read):
-        mock_get_network_telemetry.return_value = {"dummy_key": "dummy_value"}
+    def test_configure_logger_debug(self, mock_config_read):
         mock_config_read.return_value = None
 
         from safety.cli import configure_logger
@@ -960,18 +939,16 @@ class TestConfigureLogger(unittest.TestCase):
         param = Mock()
         debug = True
 
-        with patch("sys.argv", ["--debug", "true"]), patch(
-            "logging.basicConfig"
-        ) as mock_basicConfig, patch(
-            "configparser.ConfigParser.items", return_value=[("key", "value")]
-        ), patch("configparser.ConfigParser.sections", return_value=["section"]):
+        with (
+            patch("sys.argv", ["--debug", "true"]),
+            patch("logging.basicConfig") as mock_basicConfig,
+            patch("configparser.ConfigParser.items", return_value=[("key", "value")]),
+            patch("configparser.ConfigParser.sections", return_value=["section"]),
+        ):
             configure_logger(ctx, param, debug)
             mock_basicConfig.assert_called_with(
                 format="%(asctime)s %(name)s => %(message)s", level=logging.DEBUG
             )
-
-        # Check if network telemetry logging was called
-        mock_get_network_telemetry.assert_called_once()
 
     @patch("configparser.ConfigParser.read")
     def test_configure_logger_non_debug(self, mock_config_read):

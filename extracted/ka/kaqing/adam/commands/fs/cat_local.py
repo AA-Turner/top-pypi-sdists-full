@@ -1,0 +1,42 @@
+import os
+
+from adam.commands import validate_args
+from adam.commands.command import Command
+from adam.repl_state import ReplState, RequiredState
+from adam.utils import log2
+from adam.utils_local import find_local_files
+
+class CatLocal(Command):
+    COMMAND = ':cat'
+
+    # the singleton pattern
+    def __new__(cls, *args, **kwargs):
+        if not hasattr(cls, 'instance'): cls.instance = super(CatLocal, cls).__new__(cls)
+
+        return cls.instance
+
+    def __init__(self, successor: Command=None):
+        super().__init__(successor)
+
+    def command(self):
+        return CatLocal.COMMAND
+
+    def required(self):
+        return [RequiredState.CLUSTER_OR_POD, RequiredState.APP_APP, ReplState.P]
+
+    def run(self, cmd: str, state: ReplState):
+        if not(args := self.args(cmd)):
+            return super().run(cmd, state)
+
+        with self.validate(args, state) as (args, state):
+            with validate_args(args, state, name='file') as args:
+                os.system(f'cat {args}')
+                log2()
+
+                return state
+
+    def completion(self, state: ReplState):
+        return super().completion(state, lambda: {n: None for n in find_local_files(file_type='f', max_depth=1)}, auto='jit')
+
+    def help(self, state: ReplState):
+        return super().help(state, 'run cat command on local file system', args='<file>')

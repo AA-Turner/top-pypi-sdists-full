@@ -24,9 +24,10 @@ class VolumeArgs:
                  capacity_gib: pulumi.Input[_builtins.str],
                  location: pulumi.Input[_builtins.str],
                  protocols: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]],
-                 share_name: pulumi.Input[_builtins.str],
                  storage_pool: pulumi.Input[_builtins.str],
                  backup_config: Optional[pulumi.Input['VolumeBackupConfigArgs']] = None,
+                 block_devices: Optional[pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]]] = None,
+                 cache_parameters: Optional[pulumi.Input['VolumeCacheParametersArgs']] = None,
                  deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
                  export_policy: Optional[pulumi.Input['VolumeExportPolicyArgs']] = None,
@@ -40,6 +41,7 @@ class VolumeArgs:
                  restore_parameters: Optional[pulumi.Input['VolumeRestoreParametersArgs']] = None,
                  restricted_actions: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  security_style: Optional[pulumi.Input[_builtins.str]] = None,
+                 share_name: Optional[pulumi.Input[_builtins.str]] = None,
                  smb_settings: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  snapshot_directory: Optional[pulumi.Input[_builtins.bool]] = None,
                  snapshot_policy: Optional[pulumi.Input['VolumeSnapshotPolicyArgs']] = None,
@@ -51,10 +53,14 @@ class VolumeArgs:
         :param pulumi.Input[_builtins.str] capacity_gib: Capacity of the volume (in GiB).
         :param pulumi.Input[_builtins.str] location: Name of the pool location. Usually a region name, expect for some STANDARD service level pools which require a zone name.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] protocols: The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
-        :param pulumi.Input[_builtins.str] share_name: Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
+               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         :param pulumi.Input[_builtins.str] storage_pool: Name of the storage pool to create the volume in. Pool needs enough spare capacity to accommodate the volume.
         :param pulumi.Input['VolumeBackupConfigArgs'] backup_config: Backup configuration for the volume.
+               Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]] block_devices: Block device represents the device(s) which are stored in the block volume.
+               Currently, only one block device is permitted per Volume.
+               Structure is documented below.
+        :param pulumi.Input['VolumeCacheParametersArgs'] cache_parameters: Cache parameters for the volume.
                Structure is documented below.
         :param pulumi.Input[_builtins.str] deletion_policy: Policy to determine if the volume should be deleted forcefully.
                Volumes may have nested snapshot resources. Deleting such a volume will fail.
@@ -63,7 +69,9 @@ class VolumeArgs:
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input['VolumeExportPolicyArgs'] export_policy: Export policy of the volume for NFSV3 and/or NFSV4.1 access.
                Structure is documented below.
-        :param pulumi.Input['VolumeHybridReplicationParametersArgs'] hybrid_replication_parameters: The Hybrid Replication parameters for the volume.
+        :param pulumi.Input['VolumeHybridReplicationParametersArgs'] hybrid_replication_parameters: [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+               [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+               are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels as key value pairs. Example: `{ "owner": "Bob", "department": "finance", "purpose": "testing" }`.
@@ -83,6 +91,7 @@ class VolumeArgs:
         :param pulumi.Input[_builtins.str] security_style: Security Style of the Volume. Use UNIX to use UNIX or NFSV4 ACLs for file permissions.
                Use NTFS to use NTFS ACLs for file permissions. Can only be set for volumes which use SMB together with NFS as protocol.
                Possible values are: `NTFS`, `UNIX`.
+        :param pulumi.Input[_builtins.str] share_name: Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] smb_settings: Settings for volumes with SMB access.
                Each value may be one of: `ENCRYPT_DATA`, `BROWSABLE`, `CHANGE_NOTIFY`, `NON_BROWSABLE`, `OPLOCKS`, `SHOW_SNAPSHOT`, `SHOW_PREVIOUS_VERSIONS`, `ACCESS_BASED_ENUMERATION`, `CONTINUOUSLY_AVAILABLE`.
         :param pulumi.Input[_builtins.bool] snapshot_directory: If enabled, a NFS volume will contain a read-only .snapshot directory which provides access to each of the volume's snapshots. Will enable "Previous Versions" support for SMB.
@@ -97,10 +106,13 @@ class VolumeArgs:
         pulumi.set(__self__, "capacity_gib", capacity_gib)
         pulumi.set(__self__, "location", location)
         pulumi.set(__self__, "protocols", protocols)
-        pulumi.set(__self__, "share_name", share_name)
         pulumi.set(__self__, "storage_pool", storage_pool)
         if backup_config is not None:
             pulumi.set(__self__, "backup_config", backup_config)
+        if block_devices is not None:
+            pulumi.set(__self__, "block_devices", block_devices)
+        if cache_parameters is not None:
+            pulumi.set(__self__, "cache_parameters", cache_parameters)
         if deletion_policy is not None:
             pulumi.set(__self__, "deletion_policy", deletion_policy)
         if description is not None:
@@ -127,6 +139,8 @@ class VolumeArgs:
             pulumi.set(__self__, "restricted_actions", restricted_actions)
         if security_style is not None:
             pulumi.set(__self__, "security_style", security_style)
+        if share_name is not None:
+            pulumi.set(__self__, "share_name", share_name)
         if smb_settings is not None:
             pulumi.set(__self__, "smb_settings", smb_settings)
         if snapshot_directory is not None:
@@ -169,25 +183,13 @@ class VolumeArgs:
     def protocols(self) -> pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]:
         """
         The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-        Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+        Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         """
         return pulumi.get(self, "protocols")
 
     @protocols.setter
     def protocols(self, value: pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]):
         pulumi.set(self, "protocols", value)
-
-    @_builtins.property
-    @pulumi.getter(name="shareName")
-    def share_name(self) -> pulumi.Input[_builtins.str]:
-        """
-        Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
-        """
-        return pulumi.get(self, "share_name")
-
-    @share_name.setter
-    def share_name(self, value: pulumi.Input[_builtins.str]):
-        pulumi.set(self, "share_name", value)
 
     @_builtins.property
     @pulumi.getter(name="storagePool")
@@ -213,6 +215,33 @@ class VolumeArgs:
     @backup_config.setter
     def backup_config(self, value: Optional[pulumi.Input['VolumeBackupConfigArgs']]):
         pulumi.set(self, "backup_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="blockDevices")
+    def block_devices(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]]]:
+        """
+        Block device represents the device(s) which are stored in the block volume.
+        Currently, only one block device is permitted per Volume.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "block_devices")
+
+    @block_devices.setter
+    def block_devices(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]]]):
+        pulumi.set(self, "block_devices", value)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheParameters")
+    def cache_parameters(self) -> Optional[pulumi.Input['VolumeCacheParametersArgs']]:
+        """
+        Cache parameters for the volume.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_parameters")
+
+    @cache_parameters.setter
+    def cache_parameters(self, value: Optional[pulumi.Input['VolumeCacheParametersArgs']]):
+        pulumi.set(self, "cache_parameters", value)
 
     @_builtins.property
     @pulumi.getter(name="deletionPolicy")
@@ -258,7 +287,9 @@ class VolumeArgs:
     @pulumi.getter(name="hybridReplicationParameters")
     def hybrid_replication_parameters(self) -> Optional[pulumi.Input['VolumeHybridReplicationParametersArgs']]:
         """
-        The Hybrid Replication parameters for the volume.
+        [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+        [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+        are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
         Structure is documented below.
         """
         return pulumi.get(self, "hybrid_replication_parameters")
@@ -385,6 +416,18 @@ class VolumeArgs:
         pulumi.set(self, "security_style", value)
 
     @_builtins.property
+    @pulumi.getter(name="shareName")
+    def share_name(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
+        """
+        return pulumi.get(self, "share_name")
+
+    @share_name.setter
+    def share_name(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "share_name", value)
+
+    @_builtins.property
     @pulumi.getter(name="smbSettings")
     def smb_settings(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
@@ -466,6 +509,8 @@ class _VolumeState:
     def __init__(__self__, *,
                  active_directory: Optional[pulumi.Input[_builtins.str]] = None,
                  backup_config: Optional[pulumi.Input['VolumeBackupConfigArgs']] = None,
+                 block_devices: Optional[pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]]] = None,
+                 cache_parameters: Optional[pulumi.Input['VolumeCacheParametersArgs']] = None,
                  capacity_gib: Optional[pulumi.Input[_builtins.str]] = None,
                  cold_tier_size_gib: Optional[pulumi.Input[_builtins.str]] = None,
                  create_time: Optional[pulumi.Input[_builtins.str]] = None,
@@ -475,6 +520,7 @@ class _VolumeState:
                  encryption_type: Optional[pulumi.Input[_builtins.str]] = None,
                  export_policy: Optional[pulumi.Input['VolumeExportPolicyArgs']] = None,
                  has_replication: Optional[pulumi.Input[_builtins.bool]] = None,
+                 hot_tier_size_used_gib: Optional[pulumi.Input[_builtins.str]] = None,
                  hybrid_replication_parameters: Optional[pulumi.Input['VolumeHybridReplicationParametersArgs']] = None,
                  kerberos_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  kms_config: Optional[pulumi.Input[_builtins.str]] = None,
@@ -512,6 +558,11 @@ class _VolumeState:
         :param pulumi.Input[_builtins.str] active_directory: Reports the resource name of the Active Directory policy being used. Inherited from storage pool.
         :param pulumi.Input['VolumeBackupConfigArgs'] backup_config: Backup configuration for the volume.
                Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]] block_devices: Block device represents the device(s) which are stored in the block volume.
+               Currently, only one block device is permitted per Volume.
+               Structure is documented below.
+        :param pulumi.Input['VolumeCacheParametersArgs'] cache_parameters: Cache parameters for the volume.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] capacity_gib: Capacity of the volume (in GiB).
         :param pulumi.Input[_builtins.str] cold_tier_size_gib: Output only. Size of the volume cold tier data in GiB.
         :param pulumi.Input[_builtins.str] create_time: Create time of the volume. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
@@ -525,7 +576,10 @@ class _VolumeState:
         :param pulumi.Input['VolumeExportPolicyArgs'] export_policy: Export policy of the volume for NFSV3 and/or NFSV4.1 access.
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] has_replication: Indicates whether the volume is part of a volume replication relationship.
-        :param pulumi.Input['VolumeHybridReplicationParametersArgs'] hybrid_replication_parameters: The Hybrid Replication parameters for the volume.
+        :param pulumi.Input[_builtins.str] hot_tier_size_used_gib: Total hot tier data rounded down to the nearest GiB used by the volume. This field is only used for flex Service Level
+        :param pulumi.Input['VolumeHybridReplicationParametersArgs'] hybrid_replication_parameters: [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+               [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+               are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p).
         :param pulumi.Input[_builtins.str] kms_config: Reports the CMEK policy resurce name being used for volume encryption. Inherited from storage pool.
@@ -545,7 +599,7 @@ class _VolumeState:
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] protocols: The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         :param pulumi.Input[_builtins.str] psa_range: Name of the Private Service Access allocated range. Inherited from storage pool.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] pulumi_labels: The combination of labels configured directly on the resource
                and default labels configured on the provider.
@@ -579,6 +633,10 @@ class _VolumeState:
             pulumi.set(__self__, "active_directory", active_directory)
         if backup_config is not None:
             pulumi.set(__self__, "backup_config", backup_config)
+        if block_devices is not None:
+            pulumi.set(__self__, "block_devices", block_devices)
+        if cache_parameters is not None:
+            pulumi.set(__self__, "cache_parameters", cache_parameters)
         if capacity_gib is not None:
             pulumi.set(__self__, "capacity_gib", capacity_gib)
         if cold_tier_size_gib is not None:
@@ -597,6 +655,8 @@ class _VolumeState:
             pulumi.set(__self__, "export_policy", export_policy)
         if has_replication is not None:
             pulumi.set(__self__, "has_replication", has_replication)
+        if hot_tier_size_used_gib is not None:
+            pulumi.set(__self__, "hot_tier_size_used_gib", hot_tier_size_used_gib)
         if hybrid_replication_parameters is not None:
             pulumi.set(__self__, "hybrid_replication_parameters", hybrid_replication_parameters)
         if kerberos_enabled is not None:
@@ -686,6 +746,33 @@ class _VolumeState:
     @backup_config.setter
     def backup_config(self, value: Optional[pulumi.Input['VolumeBackupConfigArgs']]):
         pulumi.set(self, "backup_config", value)
+
+    @_builtins.property
+    @pulumi.getter(name="blockDevices")
+    def block_devices(self) -> Optional[pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]]]:
+        """
+        Block device represents the device(s) which are stored in the block volume.
+        Currently, only one block device is permitted per Volume.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "block_devices")
+
+    @block_devices.setter
+    def block_devices(self, value: Optional[pulumi.Input[Sequence[pulumi.Input['VolumeBlockDeviceArgs']]]]):
+        pulumi.set(self, "block_devices", value)
+
+    @_builtins.property
+    @pulumi.getter(name="cacheParameters")
+    def cache_parameters(self) -> Optional[pulumi.Input['VolumeCacheParametersArgs']]:
+        """
+        Cache parameters for the volume.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_parameters")
+
+    @cache_parameters.setter
+    def cache_parameters(self, value: Optional[pulumi.Input['VolumeCacheParametersArgs']]):
+        pulumi.set(self, "cache_parameters", value)
 
     @_builtins.property
     @pulumi.getter(name="capacityGib")
@@ -800,10 +887,24 @@ class _VolumeState:
         pulumi.set(self, "has_replication", value)
 
     @_builtins.property
+    @pulumi.getter(name="hotTierSizeUsedGib")
+    def hot_tier_size_used_gib(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        Total hot tier data rounded down to the nearest GiB used by the volume. This field is only used for flex Service Level
+        """
+        return pulumi.get(self, "hot_tier_size_used_gib")
+
+    @hot_tier_size_used_gib.setter
+    def hot_tier_size_used_gib(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "hot_tier_size_used_gib", value)
+
+    @_builtins.property
     @pulumi.getter(name="hybridReplicationParameters")
     def hybrid_replication_parameters(self) -> Optional[pulumi.Input['VolumeHybridReplicationParametersArgs']]:
         """
-        The Hybrid Replication parameters for the volume.
+        [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+        [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+        are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
         Structure is documented below.
         """
         return pulumi.get(self, "hybrid_replication_parameters")
@@ -955,7 +1056,7 @@ class _VolumeState:
     def protocols(self) -> Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]]:
         """
         The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-        Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+        Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         """
         return pulumi.get(self, "protocols")
 
@@ -1208,6 +1309,8 @@ class Volume(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  backup_config: Optional[pulumi.Input[Union['VolumeBackupConfigArgs', 'VolumeBackupConfigArgsDict']]] = None,
+                 block_devices: Optional[pulumi.Input[Sequence[pulumi.Input[Union['VolumeBlockDeviceArgs', 'VolumeBlockDeviceArgsDict']]]]] = None,
+                 cache_parameters: Optional[pulumi.Input[Union['VolumeCacheParametersArgs', 'VolumeCacheParametersArgsDict']]] = None,
                  capacity_gib: Optional[pulumi.Input[_builtins.str]] = None,
                  deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1300,6 +1403,11 @@ class Volume(pulumi.CustomResource):
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[Union['VolumeBackupConfigArgs', 'VolumeBackupConfigArgsDict']] backup_config: Backup configuration for the volume.
                Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['VolumeBlockDeviceArgs', 'VolumeBlockDeviceArgsDict']]]] block_devices: Block device represents the device(s) which are stored in the block volume.
+               Currently, only one block device is permitted per Volume.
+               Structure is documented below.
+        :param pulumi.Input[Union['VolumeCacheParametersArgs', 'VolumeCacheParametersArgsDict']] cache_parameters: Cache parameters for the volume.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] capacity_gib: Capacity of the volume (in GiB).
         :param pulumi.Input[_builtins.str] deletion_policy: Policy to determine if the volume should be deleted forcefully.
                Volumes may have nested snapshot resources. Deleting such a volume will fail.
@@ -1308,7 +1416,9 @@ class Volume(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] description: An optional description of this resource.
         :param pulumi.Input[Union['VolumeExportPolicyArgs', 'VolumeExportPolicyArgsDict']] export_policy: Export policy of the volume for NFSV3 and/or NFSV4.1 access.
                Structure is documented below.
-        :param pulumi.Input[Union['VolumeHybridReplicationParametersArgs', 'VolumeHybridReplicationParametersArgsDict']] hybrid_replication_parameters: The Hybrid Replication parameters for the volume.
+        :param pulumi.Input[Union['VolumeHybridReplicationParametersArgs', 'VolumeHybridReplicationParametersArgsDict']] hybrid_replication_parameters: [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+               [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+               are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p).
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] labels: Labels as key value pairs. Example: `{ "owner": "Bob", "department": "finance", "purpose": "testing" }`.
@@ -1323,7 +1433,7 @@ class Volume(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] protocols: The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         :param pulumi.Input[Union['VolumeRestoreParametersArgs', 'VolumeRestoreParametersArgsDict']] restore_parameters: Used to create this volume from a snapshot (= cloning) or an backup.
                Structure is documented below.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] restricted_actions: List of actions that are restricted on this volume.
@@ -1429,6 +1539,8 @@ class Volume(pulumi.CustomResource):
                  resource_name: str,
                  opts: Optional[pulumi.ResourceOptions] = None,
                  backup_config: Optional[pulumi.Input[Union['VolumeBackupConfigArgs', 'VolumeBackupConfigArgsDict']]] = None,
+                 block_devices: Optional[pulumi.Input[Sequence[pulumi.Input[Union['VolumeBlockDeviceArgs', 'VolumeBlockDeviceArgsDict']]]]] = None,
+                 cache_parameters: Optional[pulumi.Input[Union['VolumeCacheParametersArgs', 'VolumeCacheParametersArgsDict']]] = None,
                  capacity_gib: Optional[pulumi.Input[_builtins.str]] = None,
                  deletion_policy: Optional[pulumi.Input[_builtins.str]] = None,
                  description: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1463,6 +1575,8 @@ class Volume(pulumi.CustomResource):
             __props__ = VolumeArgs.__new__(VolumeArgs)
 
             __props__.__dict__["backup_config"] = backup_config
+            __props__.__dict__["block_devices"] = block_devices
+            __props__.__dict__["cache_parameters"] = cache_parameters
             if capacity_gib is None and not opts.urn:
                 raise TypeError("Missing required property 'capacity_gib'")
             __props__.__dict__["capacity_gib"] = capacity_gib
@@ -1485,8 +1599,6 @@ class Volume(pulumi.CustomResource):
             __props__.__dict__["restore_parameters"] = restore_parameters
             __props__.__dict__["restricted_actions"] = restricted_actions
             __props__.__dict__["security_style"] = security_style
-            if share_name is None and not opts.urn:
-                raise TypeError("Missing required property 'share_name'")
             __props__.__dict__["share_name"] = share_name
             __props__.__dict__["smb_settings"] = smb_settings
             __props__.__dict__["snapshot_directory"] = snapshot_directory
@@ -1503,6 +1615,7 @@ class Volume(pulumi.CustomResource):
             __props__.__dict__["effective_labels"] = None
             __props__.__dict__["encryption_type"] = None
             __props__.__dict__["has_replication"] = None
+            __props__.__dict__["hot_tier_size_used_gib"] = None
             __props__.__dict__["kms_config"] = None
             __props__.__dict__["ldap_enabled"] = None
             __props__.__dict__["mount_options"] = None
@@ -1529,6 +1642,8 @@ class Volume(pulumi.CustomResource):
             opts: Optional[pulumi.ResourceOptions] = None,
             active_directory: Optional[pulumi.Input[_builtins.str]] = None,
             backup_config: Optional[pulumi.Input[Union['VolumeBackupConfigArgs', 'VolumeBackupConfigArgsDict']]] = None,
+            block_devices: Optional[pulumi.Input[Sequence[pulumi.Input[Union['VolumeBlockDeviceArgs', 'VolumeBlockDeviceArgsDict']]]]] = None,
+            cache_parameters: Optional[pulumi.Input[Union['VolumeCacheParametersArgs', 'VolumeCacheParametersArgsDict']]] = None,
             capacity_gib: Optional[pulumi.Input[_builtins.str]] = None,
             cold_tier_size_gib: Optional[pulumi.Input[_builtins.str]] = None,
             create_time: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1538,6 +1653,7 @@ class Volume(pulumi.CustomResource):
             encryption_type: Optional[pulumi.Input[_builtins.str]] = None,
             export_policy: Optional[pulumi.Input[Union['VolumeExportPolicyArgs', 'VolumeExportPolicyArgsDict']]] = None,
             has_replication: Optional[pulumi.Input[_builtins.bool]] = None,
+            hot_tier_size_used_gib: Optional[pulumi.Input[_builtins.str]] = None,
             hybrid_replication_parameters: Optional[pulumi.Input[Union['VolumeHybridReplicationParametersArgs', 'VolumeHybridReplicationParametersArgsDict']]] = None,
             kerberos_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
             kms_config: Optional[pulumi.Input[_builtins.str]] = None,
@@ -1580,6 +1696,11 @@ class Volume(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] active_directory: Reports the resource name of the Active Directory policy being used. Inherited from storage pool.
         :param pulumi.Input[Union['VolumeBackupConfigArgs', 'VolumeBackupConfigArgsDict']] backup_config: Backup configuration for the volume.
                Structure is documented below.
+        :param pulumi.Input[Sequence[pulumi.Input[Union['VolumeBlockDeviceArgs', 'VolumeBlockDeviceArgsDict']]]] block_devices: Block device represents the device(s) which are stored in the block volume.
+               Currently, only one block device is permitted per Volume.
+               Structure is documented below.
+        :param pulumi.Input[Union['VolumeCacheParametersArgs', 'VolumeCacheParametersArgsDict']] cache_parameters: Cache parameters for the volume.
+               Structure is documented below.
         :param pulumi.Input[_builtins.str] capacity_gib: Capacity of the volume (in GiB).
         :param pulumi.Input[_builtins.str] cold_tier_size_gib: Output only. Size of the volume cold tier data in GiB.
         :param pulumi.Input[_builtins.str] create_time: Create time of the volume. A timestamp in RFC3339 UTC "Zulu" format. Examples: "2023-06-22T09:13:01.617Z".
@@ -1593,7 +1714,10 @@ class Volume(pulumi.CustomResource):
         :param pulumi.Input[Union['VolumeExportPolicyArgs', 'VolumeExportPolicyArgsDict']] export_policy: Export policy of the volume for NFSV3 and/or NFSV4.1 access.
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] has_replication: Indicates whether the volume is part of a volume replication relationship.
-        :param pulumi.Input[Union['VolumeHybridReplicationParametersArgs', 'VolumeHybridReplicationParametersArgsDict']] hybrid_replication_parameters: The Hybrid Replication parameters for the volume.
+        :param pulumi.Input[_builtins.str] hot_tier_size_used_gib: Total hot tier data rounded down to the nearest GiB used by the volume. This field is only used for flex Service Level
+        :param pulumi.Input[Union['VolumeHybridReplicationParametersArgs', 'VolumeHybridReplicationParametersArgsDict']] hybrid_replication_parameters: [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+               [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+               are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
                Structure is documented below.
         :param pulumi.Input[_builtins.bool] kerberos_enabled: Flag indicating if the volume is a kerberos volume or not, export policy rules control kerberos security modes (krb5, krb5i, krb5p).
         :param pulumi.Input[_builtins.str] kms_config: Reports the CMEK policy resurce name being used for volume encryption. Inherited from storage pool.
@@ -1613,7 +1737,7 @@ class Volume(pulumi.CustomResource):
         :param pulumi.Input[_builtins.str] project: The ID of the project in which the resource belongs.
                If it is not provided, the provider project is used.
         :param pulumi.Input[Sequence[pulumi.Input[_builtins.str]]] protocols: The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+               Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         :param pulumi.Input[_builtins.str] psa_range: Name of the Private Service Access allocated range. Inherited from storage pool.
         :param pulumi.Input[Mapping[str, pulumi.Input[_builtins.str]]] pulumi_labels: The combination of labels configured directly on the resource
                and default labels configured on the provider.
@@ -1649,6 +1773,8 @@ class Volume(pulumi.CustomResource):
 
         __props__.__dict__["active_directory"] = active_directory
         __props__.__dict__["backup_config"] = backup_config
+        __props__.__dict__["block_devices"] = block_devices
+        __props__.__dict__["cache_parameters"] = cache_parameters
         __props__.__dict__["capacity_gib"] = capacity_gib
         __props__.__dict__["cold_tier_size_gib"] = cold_tier_size_gib
         __props__.__dict__["create_time"] = create_time
@@ -1658,6 +1784,7 @@ class Volume(pulumi.CustomResource):
         __props__.__dict__["encryption_type"] = encryption_type
         __props__.__dict__["export_policy"] = export_policy
         __props__.__dict__["has_replication"] = has_replication
+        __props__.__dict__["hot_tier_size_used_gib"] = hot_tier_size_used_gib
         __props__.__dict__["hybrid_replication_parameters"] = hybrid_replication_parameters
         __props__.__dict__["kerberos_enabled"] = kerberos_enabled
         __props__.__dict__["kms_config"] = kms_config
@@ -1708,6 +1835,25 @@ class Volume(pulumi.CustomResource):
         Structure is documented below.
         """
         return pulumi.get(self, "backup_config")
+
+    @_builtins.property
+    @pulumi.getter(name="blockDevices")
+    def block_devices(self) -> pulumi.Output[Optional[Sequence['outputs.VolumeBlockDevice']]]:
+        """
+        Block device represents the device(s) which are stored in the block volume.
+        Currently, only one block device is permitted per Volume.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "block_devices")
+
+    @_builtins.property
+    @pulumi.getter(name="cacheParameters")
+    def cache_parameters(self) -> pulumi.Output[Optional['outputs.VolumeCacheParameters']]:
+        """
+        Cache parameters for the volume.
+        Structure is documented below.
+        """
+        return pulumi.get(self, "cache_parameters")
 
     @_builtins.property
     @pulumi.getter(name="capacityGib")
@@ -1786,10 +1932,20 @@ class Volume(pulumi.CustomResource):
         return pulumi.get(self, "has_replication")
 
     @_builtins.property
+    @pulumi.getter(name="hotTierSizeUsedGib")
+    def hot_tier_size_used_gib(self) -> pulumi.Output[_builtins.str]:
+        """
+        Total hot tier data rounded down to the nearest GiB used by the volume. This field is only used for flex Service Level
+        """
+        return pulumi.get(self, "hot_tier_size_used_gib")
+
+    @_builtins.property
     @pulumi.getter(name="hybridReplicationParameters")
     def hybrid_replication_parameters(self) -> pulumi.Output[Optional['outputs.VolumeHybridReplicationParameters']]:
         """
-        The Hybrid Replication parameters for the volume.
+        [Volume migration](https://docs.cloud.google.com/netapp/volumes/docs/migrate/ontap/overview) and
+        [external replication](https://docs.cloud.google.com/netapp/volumes/docs/protect-data/replicate-ontap/overview)
+        are two types of Hybrid Replication. This parameter block specifies the parameters for a hybrid replication.
         Structure is documented below.
         """
         return pulumi.get(self, "hybrid_replication_parameters")
@@ -1893,7 +2049,7 @@ class Volume(pulumi.CustomResource):
     def protocols(self) -> pulumi.Output[Sequence[_builtins.str]]:
         """
         The protocol of the volume. Allowed combinations are `['NFSV3']`, `['NFSV4']`, `['SMB']`, `['NFSV3', 'NFSV4']`, `['SMB', 'NFSV3']` and `['SMB', 'NFSV4']`.
-        Each value may be one of: `NFSV3`, `NFSV4`, `SMB`.
+        Each value may be one of: `NFSV3`, `NFSV4`, `SMB`, `ISCSI`.
         """
         return pulumi.get(self, "protocols")
 
@@ -1960,7 +2116,7 @@ class Volume(pulumi.CustomResource):
 
     @_builtins.property
     @pulumi.getter(name="shareName")
-    def share_name(self) -> pulumi.Output[_builtins.str]:
+    def share_name(self) -> pulumi.Output[Optional[_builtins.str]]:
         """
         Share name (SMB) or export path (NFS) of the volume. Needs to be unique per location.
         """

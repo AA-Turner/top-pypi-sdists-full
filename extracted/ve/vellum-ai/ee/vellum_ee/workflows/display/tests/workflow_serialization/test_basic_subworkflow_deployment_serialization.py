@@ -3,7 +3,19 @@ from uuid import uuid4
 
 from deepdiff import DeepDiff
 
-from vellum import WorkflowDeploymentRead
+from vellum import (
+    ReleaseEnvironment,
+    VellumVariable,
+    WorkflowDeploymentRelease,
+    WorkflowDeploymentReleaseWorkflowDeployment,
+    WorkflowDeploymentReleaseWorkflowVersion,
+)
+from vellum.workflows import BaseWorkflow
+from vellum.workflows.inputs import BaseInputs
+from vellum.workflows.nodes import SubworkflowDeploymentNode, TemplatingNode
+from vellum.workflows.nodes.core.try_node.node import TryNode
+from vellum.workflows.outputs import BaseOutputs
+from vellum.workflows.state import BaseState
 from vellum_ee.workflows.display.workflows.get_vellum_workflow_display_class import get_workflow_display
 
 from tests.workflows.basic_subworkflow_deployment.workflow import BasicSubworkflowDeploymentWorkflow
@@ -11,17 +23,24 @@ from tests.workflows.basic_subworkflow_deployment.workflow import BasicSubworkfl
 
 def test_serialize_workflow(vellum_client):
     # GIVEN a Workflow with stubbed out API calls
-    deployment = WorkflowDeploymentRead(
+    deployment_id = str(uuid4())
+    deployment_release = WorkflowDeploymentRelease(
         id=str(uuid4()),
         created=datetime.now(),
-        label="Example Subworkflow Deployment",
-        name="example_subworkflow_deployment",
-        input_variables=[],
-        output_variables=[],
-        last_deployed_on=datetime.now(),
-        last_deployed_history_item_id=str(uuid4()),
+        environment=ReleaseEnvironment(id=str(uuid4()), name="DEVELOPMENT", label="Development"),
+        workflow_version=WorkflowDeploymentReleaseWorkflowVersion(
+            id=str(uuid4()),
+            input_variables=[],
+            output_variables=[],
+        ),
+        deployment=WorkflowDeploymentReleaseWorkflowDeployment(
+            id=deployment_id,
+            name="example_subworkflow_deployment",
+        ),
+        release_tags=[],
+        reviews=[],
     )
-    vellum_client.workflow_deployments.retrieve.return_value = deployment
+    vellum_client.workflow_deployments.retrieve_workflow_deployment_release.return_value = deployment_release
 
     # WHEN we serialize it
     workflow_display = get_workflow_display(workflow_class=BasicSubworkflowDeploymentWorkflow)
@@ -47,6 +66,7 @@ def test_serialize_workflow(vellum_client):
                 "required": True,
                 "default": None,
                 "extensions": {"color": None},
+                "schema": {"type": "string"},
             },
             {
                 "id": "19a78824-9a98-4ae8-a1fc-61f81a422a17",
@@ -55,6 +75,7 @@ def test_serialize_workflow(vellum_client):
                 "required": True,
                 "default": None,
                 "extensions": {"color": None},
+                "schema": {"type": "string"},
             },
         ],
         input_variables,
@@ -83,8 +104,6 @@ def test_serialize_workflow(vellum_client):
 
     # AND its raw data should be what we expect
     workflow_raw_data = serialized_workflow["workflow_raw_data"]
-    assert len(workflow_raw_data["edges"]) == 3
-    assert len(workflow_raw_data["nodes"]) == 4
 
     # AND each node should be serialized correctly
     entrypoint_node = workflow_raw_data["nodes"][0]
@@ -99,17 +118,17 @@ def test_serialize_workflow(vellum_client):
             "source_handle_id": "13d9eb34-aecb-496d-9e57-d5e786b0bc7c",
         },
         "display_data": {
-            "position": {"x": 0.0, "y": -50.0},
+            "position": {"x": 0.0, "y": 0.0},
         },
     }
 
     subworkflow_node = workflow_raw_data["nodes"][1]
     assert subworkflow_node == {
-        "id": "d71f674e-8a6b-44ab-b552-7f4637a4e7a6",
+        "id": "bb98a2c4-c9a7-4c39-8f31-dc7961dc9996",
         "type": "SUBWORKFLOW",
         "inputs": [
             {
-                "id": "be426336-0844-4ebd-8cfe-efef60305b92",
+                "id": "8107cec2-8215-4730-b52c-859e87a1c116",
                 "key": "city",
                 "value": {
                     "rules": [
@@ -122,7 +141,7 @@ def test_serialize_workflow(vellum_client):
                 },
             },
             {
-                "id": "8a7495b1-a7fc-405f-8ef6-ba05dd3f9e5c",
+                "id": "3487e51a-e7fe-4b2c-a1f9-f72c83a329db",
                 "key": "date",
                 "value": {
                     "rules": [
@@ -138,13 +157,13 @@ def test_serialize_workflow(vellum_client):
         "data": {
             "label": "Example Subworkflow Deployment Node",
             "error_output_id": None,
-            "source_handle_id": "ab0db8a9-7b53-4d88-8667-273b31303273",
-            "target_handle_id": "e4d80502-9281-42c8-91e3-10817bcd7d9e",
+            "source_handle_id": "ff99bf0c-c239-4b8b-8ac1-483b134f94f4",
+            "target_handle_id": "d6194ccf-d31b-4846-8e24-3e189d84351a",
             "variant": "DEPLOYMENT",
-            "workflow_deployment_id": deployment.id,
+            "workflow_deployment_id": deployment_id,
             "release_tag": "LATEST",
         },
-        "display_data": {"position": {"x": 200.0, "y": -50.0}},
+        "display_data": {"position": {"x": 0.0, "y": 0.0}},
         "base": {
             "module": ["vellum", "workflows", "nodes", "displayable", "subworkflow_deployment_node", "node"],
             "name": "SubworkflowDeploymentNode",
@@ -154,137 +173,27 @@ def test_serialize_workflow(vellum_client):
             "name": "ExampleSubworkflowDeploymentNode",
         },
         "trigger": {
-            "id": "e4d80502-9281-42c8-91e3-10817bcd7d9e",
+            "id": "d6194ccf-d31b-4846-8e24-3e189d84351a",
             "merge_behavior": "AWAIT_ANY",
         },
-        "ports": [{"id": "ab0db8a9-7b53-4d88-8667-273b31303273", "name": "default", "type": "DEFAULT"}],
+        "ports": [{"id": "ff99bf0c-c239-4b8b-8ac1-483b134f94f4", "name": "default", "type": "DEFAULT"}],
+        "outputs": [
+            {
+                "id": "d901cbed-9905-488c-be62-e2668f85438f",
+                "name": "temperature",
+                "schema": {"type": "number"},
+                "type": "NUMBER",
+                "value": None,
+            },
+            {
+                "id": "68de689c-fe8a-4189-b7d0-82c620ac30f9",
+                "name": "reasoning",
+                "schema": {"type": "string"},
+                "type": "STRING",
+                "value": None,
+            },
+        ],
     }
-
-    assert not DeepDiff(
-        [
-            {
-                "id": "18170041-1a70-4836-9fa0-adceba2a1f4f",
-                "type": "TERMINAL",
-                "base": {
-                    "module": [
-                        "vellum",
-                        "workflows",
-                        "nodes",
-                        "displayable",
-                        "final_output_node",
-                        "node",
-                    ],
-                    "name": "FinalOutputNode",
-                },
-                "definition": None,
-                "data": {
-                    "label": "Final Output",
-                    "name": "temperature",
-                    "target_handle_id": "23117248-df28-4519-bebc-abcb24f966b3",
-                    "output_id": "3f487916-126f-4d6c-95b4-fa72d875b793",
-                    "output_type": "NUMBER",
-                    "node_input_id": "6f4955d8-8a3f-4db7-8293-7affc5877dcd",
-                },
-                "inputs": [
-                    {
-                        "id": "6f4955d8-8a3f-4db7-8293-7affc5877dcd",
-                        "key": "node_input",
-                        "value": {
-                            "rules": [
-                                {
-                                    "type": "NODE_OUTPUT",
-                                    "data": {
-                                        "node_id": "d71f674e-8a6b-44ab-b552-7f4637a4e7a6",
-                                        "output_id": "5170e2fb-2b7c-4cb1-8958-6c0f2a359e1e",
-                                    },
-                                }
-                            ],
-                            "combinator": "OR",
-                        },
-                    }
-                ],
-                "display_data": {"position": {"x": 400.0, "y": -175.0}},
-            },
-            {
-                "id": "94afd0ac-1ec4-486b-a6fb-fa1ec7029d19",
-                "type": "TERMINAL",
-                "base": {
-                    "module": [
-                        "vellum",
-                        "workflows",
-                        "nodes",
-                        "displayable",
-                        "final_output_node",
-                        "node",
-                    ],
-                    "name": "FinalOutputNode",
-                },
-                "definition": None,
-                "data": {
-                    "label": "Final Output",
-                    "name": "reasoning",
-                    "target_handle_id": "c3aeba92-4faf-4814-9842-eec7436ee555",
-                    "output_id": "45d53a1e-26e8-4c43-a010-80d141acc249",
-                    "output_type": "STRING",
-                    "node_input_id": "74337307-3fcb-42c5-9aed-98bd4a79caef",
-                },
-                "inputs": [
-                    {
-                        "id": "74337307-3fcb-42c5-9aed-98bd4a79caef",
-                        "key": "node_input",
-                        "value": {
-                            "rules": [
-                                {
-                                    "type": "NODE_OUTPUT",
-                                    "data": {
-                                        "node_id": "d71f674e-8a6b-44ab-b552-7f4637a4e7a6",
-                                        "output_id": "d9ab77e4-226f-436f-ad70-585b57510001",
-                                    },
-                                }
-                            ],
-                            "combinator": "OR",
-                        },
-                    }
-                ],
-                "display_data": {"position": {"x": 400.0, "y": 75.0}},
-            },
-        ],
-        workflow_raw_data["nodes"][2:],
-        ignore_order=True,
-    )
-
-    # AND each edge should be serialized correctly
-    serialized_edges = workflow_raw_data["edges"]
-    assert not DeepDiff(
-        [
-            {
-                "id": "77f5b6e0-16e3-4bb5-9344-4d9557289802",
-                "source_handle_id": "13d9eb34-aecb-496d-9e57-d5e786b0bc7c",
-                "source_node_id": "f0eea82b-39cc-44e3-9c0d-12205ed5652c",
-                "target_handle_id": "e4d80502-9281-42c8-91e3-10817bcd7d9e",
-                "target_node_id": "d71f674e-8a6b-44ab-b552-7f4637a4e7a6",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "69933897-e91e-4c6c-9ba3-ed3e3c265c73",
-                "source_handle_id": "ab0db8a9-7b53-4d88-8667-273b31303273",
-                "source_node_id": "d71f674e-8a6b-44ab-b552-7f4637a4e7a6",
-                "target_handle_id": "c3aeba92-4faf-4814-9842-eec7436ee555",
-                "target_node_id": "94afd0ac-1ec4-486b-a6fb-fa1ec7029d19",
-                "type": "DEFAULT",
-            },
-            {
-                "id": "86a9af31-f78e-45ac-b170-f66bbba98f9d",
-                "source_handle_id": "ab0db8a9-7b53-4d88-8667-273b31303273",
-                "source_node_id": "d71f674e-8a6b-44ab-b552-7f4637a4e7a6",
-                "target_handle_id": "23117248-df28-4519-bebc-abcb24f966b3",
-                "target_node_id": "18170041-1a70-4836-9fa0-adceba2a1f4f",
-                "type": "DEFAULT",
-            },
-        ],
-        serialized_edges,
-        ignore_order=True,
-    )
 
     # AND the display data should be what we expect
     display_data = workflow_raw_data["display_data"]
@@ -307,3 +216,165 @@ def test_serialize_workflow(vellum_client):
             "workflow",
         ],
     }
+
+
+def test_serialize_workflow__subworkflow_deployment_node_outputs_from_release(vellum_client):
+    """
+    Tests that subworkflow deployment node outputs are populated from the deployment's output variables,
+    and that downstream nodes referencing those outputs correctly reference the subworkflow node.
+    """
+
+    # GIVEN a subworkflow deployment node with foo and bar outputs
+    class SubworkflowDeploymentNodeWithOutputs(SubworkflowDeploymentNode):
+        deployment = "test_subworkflow_deployment"
+
+        class Outputs(BaseOutputs):
+            foo: str
+            bar: int
+
+    # AND a templating node that references both outputs
+    class ConsumingNode(TemplatingNode):
+        template = "foo: {{ foo }}, bar: {{ bar }}"
+        inputs = {
+            "foo": SubworkflowDeploymentNodeWithOutputs.Outputs.foo,
+            "bar": SubworkflowDeploymentNodeWithOutputs.Outputs.bar,
+        }
+
+    class TestWorkflow(BaseWorkflow[BaseInputs, BaseState]):
+        graph = SubworkflowDeploymentNodeWithOutputs >> ConsumingNode
+
+        class Outputs(BaseOutputs):
+            result = ConsumingNode.Outputs.result
+
+    # AND a deployment release with output variables for foo and bar
+    foo_output_id = "11111111-1111-1111-1111-111111111111"
+    bar_output_id = "22222222-2222-2222-2222-222222222222"
+    deployment_release = WorkflowDeploymentRelease(
+        id=str(uuid4()),
+        created=datetime.now(),
+        environment=ReleaseEnvironment(id=str(uuid4()), name="DEVELOPMENT", label="Development"),
+        workflow_version=WorkflowDeploymentReleaseWorkflowVersion(
+            id=str(uuid4()),
+            input_variables=[],
+            output_variables=[
+                VellumVariable(id=foo_output_id, key="foo", type="STRING"),
+                VellumVariable(id=bar_output_id, key="bar", type="NUMBER"),
+            ],
+        ),
+        deployment=WorkflowDeploymentReleaseWorkflowDeployment(
+            id=str(uuid4()),
+            name="test_subworkflow_deployment",
+        ),
+        release_tags=[],
+        reviews=[],
+    )
+    vellum_client.workflow_deployments.retrieve_workflow_deployment_release.return_value = deployment_release
+
+    # WHEN we serialize the workflow
+    workflow_display = get_workflow_display(workflow_class=TestWorkflow)
+    serialized_workflow: dict = workflow_display.serialize()
+
+    # THEN the subworkflow deployment node should have outputs populated from the deployment's output variables
+    workflow_raw_data = serialized_workflow["workflow_raw_data"]
+    subworkflow_node = next(node for node in workflow_raw_data["nodes"] if node["type"] == "SUBWORKFLOW")
+
+    # AND the outputs should contain foo and bar with the correct IDs from the deployment
+    assert subworkflow_node.get("outputs") is not None, "outputs field should not be None"
+    outputs = subworkflow_node["outputs"]
+    assert len(outputs) == 2
+
+    foo_output = next((o for o in outputs if o["name"] == "foo"), None)
+    bar_output = next((o for o in outputs if o["name"] == "bar"), None)
+
+    assert foo_output is not None, "foo output should exist"
+    assert bar_output is not None, "bar output should exist"
+    assert foo_output["id"] == foo_output_id, "foo output ID should match deployment's output variable ID"
+    assert bar_output["id"] == bar_output_id, "bar output ID should match deployment's output variable ID"
+    assert foo_output["type"] == "STRING"
+    assert bar_output["type"] == "NUMBER"
+
+    # AND the consuming node should reference the subworkflow node's outputs
+    consuming_node = next(node for node in workflow_raw_data["nodes"] if node["type"] == "TEMPLATING")
+    consuming_node_inputs = consuming_node["inputs"]
+
+    foo_input = next((inp for inp in consuming_node_inputs if inp["key"] == "foo"), None)
+    bar_input = next((inp for inp in consuming_node_inputs if inp["key"] == "bar"), None)
+
+    assert foo_input is not None, "foo input should exist on consuming node"
+    assert bar_input is not None, "bar input should exist on consuming node"
+
+    # AND the foo input should reference the subworkflow node
+    foo_rule = foo_input["value"]["rules"][0]
+    assert foo_rule["type"] == "NODE_OUTPUT"
+    assert foo_rule["data"]["node_id"] == subworkflow_node["id"]
+    # The output_id should match the foo output from the subworkflow node's outputs list
+    assert foo_rule["data"]["output_id"] == foo_output["id"]
+
+    # AND the bar input should reference the subworkflow node
+    bar_rule = bar_input["value"]["rules"][0]
+    assert bar_rule["type"] == "NODE_OUTPUT"
+    assert bar_rule["data"]["node_id"] == subworkflow_node["id"]
+    # The output_id should match the bar output from the subworkflow node's outputs list
+    assert bar_rule["data"]["output_id"] == bar_output["id"]
+
+
+def test_serialize_workflow__wrapped_subworkflow_deployment_node_calls_build_once(vellum_client):
+    """
+    Tests that a SubworkflowDeploymentNode wrapped in TryNode only calls the deployment
+    release API once during serialization, and that the serialized output contains the
+    correct deployment_id and release_tag.
+    """
+
+    # GIVEN a SubworkflowDeploymentNode wrapped in TryNode
+    @TryNode.wrap()
+    class WrappedSubworkflowDeploymentNode(SubworkflowDeploymentNode):
+        deployment = "test_wrapped_subworkflow_deployment"
+        release_tag = "LATEST"
+
+        class Outputs(BaseOutputs):
+            result: str
+
+    # AND a workflow that uses the wrapped node
+    class TestWorkflow(BaseWorkflow[BaseInputs, BaseState]):
+        graph = WrappedSubworkflowDeploymentNode
+
+        class Outputs(BaseOutputs):
+            final_result = WrappedSubworkflowDeploymentNode.Outputs.result
+
+    # AND a deployment release with specific deployment_id and release_tag
+    deployment_id = "test-deployment-id-12345"
+    result_output_id = "result-output-id-67890"
+    deployment_release = WorkflowDeploymentRelease(
+        id=str(uuid4()),
+        created=datetime.now(),
+        environment=ReleaseEnvironment(id=str(uuid4()), name="DEVELOPMENT", label="Development"),
+        workflow_version=WorkflowDeploymentReleaseWorkflowVersion(
+            id=str(uuid4()),
+            input_variables=[],
+            output_variables=[
+                VellumVariable(id=result_output_id, key="result", type="STRING"),
+            ],
+        ),
+        deployment=WorkflowDeploymentReleaseWorkflowDeployment(
+            id=deployment_id,
+            name="test_wrapped_subworkflow_deployment",
+        ),
+        release_tags=[],
+        reviews=[],
+    )
+    vellum_client.workflow_deployments.retrieve_workflow_deployment_release.return_value = deployment_release
+
+    # WHEN we serialize the workflow
+    workflow_display = get_workflow_display(workflow_class=TestWorkflow)
+    serialized_workflow: dict = workflow_display.serialize()
+
+    # THEN the deployment release API should only be called once
+    assert vellum_client.workflow_deployments.retrieve_workflow_deployment_release.call_count == 1
+
+    # AND the serialized subworkflow node should have the correct deployment_id
+    workflow_raw_data = serialized_workflow["workflow_raw_data"]
+    subworkflow_node = next(node for node in workflow_raw_data["nodes"] if node["type"] == "SUBWORKFLOW")
+    assert subworkflow_node["data"]["workflow_deployment_id"] == deployment_id
+
+    # AND the serialized subworkflow node should have the correct release_tag
+    assert subworkflow_node["data"]["release_tag"] == "LATEST"

@@ -1,3 +1,4 @@
+#![allow(deprecated, reason = "arrow2 migration")]
 use common_error::DaftError;
 use snafu::Snafu;
 
@@ -27,7 +28,7 @@ pub enum Error {
         val: char,
     },
     #[snafu(display("{source}"))]
-    ArrowError { source: arrow2::error::Error },
+    ArrowError { source: daft_arrow::error::Error },
     #[snafu(display("Error joining spawned task: {}", source))]
     JoinError { source: tokio::task::JoinError },
     #[snafu(display(

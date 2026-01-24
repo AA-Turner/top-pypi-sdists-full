@@ -30,6 +30,7 @@ from web3.types import (
     FilterParams,
     LogReceipt,
     SyncProgress,
+    TopicFilter,
     TxData,
 )
 
@@ -50,7 +51,7 @@ TSubscription = TypeVar("TSubscription", bound="EthSubscription[Any]")
 class EthSubscriptionContext(Generic[TSubscription, TSubscriptionResult]):
     def __init__(
         self,
-        async_w3: "AsyncWeb3",
+        async_w3: "AsyncWeb3[Any]",
         subscription: TSubscription,
         result: TSubscriptionResult,
         **kwargs: Any,
@@ -215,7 +216,7 @@ class LogsSubscription(EthSubscription[LogReceipt]):
         address: Optional[
             Union[Address, ChecksumAddress, List[Address], List[ChecksumAddress]]
         ] = None,
-        topics: Optional[List[HexStr]] = None,
+        topics: Optional[Sequence[TopicFilter]] = None,
         handler: LogsSubscriptionHandler = None,
         handler_context: Optional[Dict[str, Any]] = None,
         label: Optional[str] = None,

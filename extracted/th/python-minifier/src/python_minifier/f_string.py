@@ -8,6 +8,7 @@ Mostly because FStrings feel like a hack.
 
 import copy
 import re
+import sys
 
 import python_minifier.ast_compat as ast
 
@@ -58,11 +59,12 @@ class FString(object):
 
         return [x + '}' for x in conversion_candidates]
 
-    def candidates(self):
-        actual_candidates = []
+    def _generate_candidates_with_processor(self, prefix, str_processor):
+        """Generate f-string candidates using the given prefix and string processor function."""
+        candidates = []
 
         for quote in self.allowed_quotes:
-            candidates = ['']
+            quote_candidates = ['']
             debug_specifier_candidates = []
             nested_allowed = copy.copy(self.allowed_quotes)
 
@@ -71,26 +73,24 @@ class FString(object):
 
             for v in self.node.values:
                 if is_constant_node(v, ast.Str):
-
                     # Could this be used as a debug specifier?
-                    if len(candidates) < 10:
+                    if len(quote_candidates) < 10:
                         debug_specifier = re.match(r'.*=\s*$', v.s)
                         if debug_specifier:
-                            # Maybe!
                             try:
-                                debug_specifier_candidates = [x + '{' + v.s for x in candidates]
+                                debug_specifier_candidates = [x + '{' + v.s for x in quote_candidates]
                             except Exception:
                                 continue
 
                     try:
-                        candidates = [x + self.str_for(v.s, quote) for x in candidates]
+                        quote_candidates = [x + str_processor(v.s, quote) for x in quote_candidates]
                     except Exception:
                         continue
                 elif isinstance(v, ast.FormattedValue):
                     try:
                         completed = self.complete_debug_specifier(debug_specifier_candidates, v)
-                        candidates = [
-                            x + y for x in candidates for y in FormattedValue(v, nested_allowed, self.pep701).get_candidates()
+                        quote_candidates = [
+                            x + y for x in quote_candidates for y in FormattedValue(v, nested_allowed, self.pep701).get_candidates()
                         ] + completed
                         debug_specifier_candidates = []
                     except Exception:
@@ -98,12 +98,69 @@ class FString(object):
                 else:
                     raise RuntimeError('Unexpected JoinedStr value')
 
-                actual_candidates += ['f' + quote + x + quote for x in candidates]
+            candidates += [prefix + quote + x + quote for x in quote_candidates]
+
+        return candidates
+
+    def candidates(self):
+        actual_candidates = []
+
+        # Normal f-string candidates
+        actual_candidates += self._generate_candidates_with_processor('f', self.str_for)
+
+        # Raw f-string candidates (if we detect backslashes)
+        if self._contains_literal_backslashes():
+            actual_candidates += self._generate_candidates_with_processor('rf', lambda s, quote: self.raw_str_for(s))
 
         return filter(self.is_correct_ast, actual_candidates)
 
-    def str_for(self, s, quote):
+    def raw_str_for(self, s):
+        """
+        Generate string representation for raw f-strings.
+        Don't escape backslashes like MiniString does.
+        """
         return s.replace('{', '{{').replace('}', '}}')
+
+    def _contains_literal_backslashes(self):
+        """
+        Check if this f-string contains literal backslashes in constant values.
+        This indicates it may need to be a raw f-string.
+        """
+        for node in ast.walk(self.node):
+            if is_constant_node(node, ast.Str):
+                if '\\' in node.s:
+                    return True
+        return False
+
+
+    def str_for(self, s, quote):
+        # Escape null bytes and other characters that can't appear in Python source
+        escaped = ''
+        is_multiline = len(quote) == 3  # Triple-quoted strings
+
+        for c in s:
+            if c == '\0':
+                escaped += '\\x00'
+            elif c == '\n' and not is_multiline:
+                # Only escape newlines in single-quoted strings
+                escaped += '\\n'
+            elif c == '\r':
+                # Always escape carriage returns because Python normalizes them during parsing
+                # This prevents semantic changes (\\r -> \\n) in multiline strings
+                escaped += '\\r'
+            elif c == '\t':
+                # Always escape tabs for consistency (though not strictly necessary in multiline)
+                escaped += '\\t'
+            elif c == '{':
+                escaped += '{{'
+            elif c == '}':
+                escaped += '}}'
+            elif ord(c) < 32 and c not in '\n\r\t':
+                # Escape other control characters
+                escaped += '\\x{:02x}'.format(ord(c))
+            else:
+                escaped += c
+        return escaped
 
 
 class OuterFString(FString):
@@ -285,7 +342,9 @@ class Str(object):
             if literal == '':
                 literal += self.current_quote
 
-            if c == '\n':
+            if c == '\0':
+                literal += '\\x00'
+            elif c == '\n':
                 literal += '\\n'
             elif c == '\r':
                 literal += '\\r'
@@ -302,7 +361,7 @@ class Str(object):
         if self._s == '':
             return str(min(self.allowed_quotes, key=len)) * 2
 
-        if '\0' in self._s or ('\\' in self._s and not self.pep701):
+        if '\\' in self._s and not self.pep701:
             raise ValueError('Impossible to represent a character in f-string expression part')
 
         if not self.pep701 and ('\n' in self._s or '\r' in self._s):
@@ -360,7 +419,35 @@ class FormatSpec(object):
         return candidates
 
     def str_for(self, s):
-        return s.replace('{', '{{').replace('}', '}}')
+        # Special handling for problematic format spec characters that can cause parsing issues
+        # If the format spec contains only braces, it's likely an invalid test case
+
+        # Escape null bytes and other unprintable characters
+        escaped = ''
+        for c in s:
+            if c == '\0':
+                escaped += '\\x00'
+            elif c == '{':
+                escaped += '{{'
+            elif c == '}':
+                escaped += '}}'
+            elif c == '\\':
+                # For Python 3.12+ raw f-string regression (fixed in 3.14rc2), we need to escape backslashes
+                # in format specs so they round-trip correctly
+                if (3, 12) <= sys.version_info < (3, 14):
+                    escaped += '\\\\'
+                else:
+                    escaped += c
+            elif c == '\r':
+                # Always escape carriage returns because Python normalizes them to newlines during parsing
+                # This prevents AST mismatches (\r -> \n normalization)
+                escaped += '\\r'
+            elif ord(c) < 32 and c not in '\t\n':
+                # Escape other control characters except tab, newline
+                escaped += '\\x{:02x}'.format(ord(c))
+            else:
+                escaped += c
+        return escaped
 
 
 class Bytes(object):
@@ -411,7 +498,24 @@ class Bytes(object):
 
             if literal == '':
                 literal = 'b' + self.current_quote
-            literal += chr(b)
+
+            # Handle special characters that need escaping
+            if b == 0:  # null byte
+                literal += '\\x00'
+            elif b == ord('\\'):  # backslash
+                literal += '\\\\'
+            elif b == ord('\n'):  # newline
+                literal += '\\n'
+            elif b == ord('\r'):  # carriage return
+                literal += '\\r'
+            elif b == ord('\t'):  # tab
+                literal += '\\t'
+            elif len(self.current_quote) == 1 and b == ord(self.current_quote):  # single quote character
+                literal += '\\' + self.current_quote
+            elif 32 <= b <= 126:  # printable ASCII
+                literal += chr(b)
+            else:  # other non-printable characters
+                literal += '\\x{:02x}'.format(b)
 
         if literal:
             literal += self.current_quote
@@ -421,8 +525,6 @@ class Bytes(object):
         if self._b == b'':
             return 'b' + str(min(self.allowed_quotes, key=len)) * 2
 
-        if b'\0' in self._b or b'\\' in self._b:
-            raise ValueError('Impossible to represent a %r character in f-string expression part')
 
         if b'\n' in self._b or b'\r' in self._b:
             if '"""' not in self.allowed_quotes and "'''" not in self.allowed_quotes:

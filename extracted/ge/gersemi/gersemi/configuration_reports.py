@@ -3,11 +3,10 @@ import os
 from pathlib import Path
 from typing import Iterable, Optional
 from gersemi.configuration import (
-    make_configuration_file,
     OutcomeConfiguration,
+    make_configuration_file,
 )
 from gersemi.extensions import load_definitions_from_extension
-
 
 NL = "\n"
 
@@ -28,7 +27,7 @@ def prepare_configuration_for_report(
     if configuration_file is not None:
         result["definitions"] = tuple(
             os.path.relpath(p, configuration_file.parent)
-            for p in result.get("definitions", tuple())
+            for p in result.get("definitions", ())
         )
 
     return result
@@ -38,13 +37,10 @@ def minimal_report(
     configuration_file: Optional[Path], configuration: OutcomeConfiguration
 ) -> str:
     c = prepare_configuration_for_report(configuration_file, configuration)
-    filtered = {}
     keys = {f.name: f for f in fields(OutcomeConfiguration)}
-    for name, value in c.items():
-        if value != keys[name].default:
-            filtered[name] = value
+    filtered = {name: value for name, value in c.items() if value != keys[name].default}
 
-    if filtered == dict():
+    if not filtered:
         comparison = "none of the defaults are overridden.\n"
     else:
         comparison = f"""following options differ from default configuration:

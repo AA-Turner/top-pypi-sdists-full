@@ -6,7 +6,7 @@ from typing_extensions import Literal
 
 import httpx
 
-from ..._types import NOT_GIVEN, Body, Query, Headers, NotGiven
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
 from ..._utils import maybe_transform
 from ..._compat import cached_property
 from ...types.v1 import plan_list_params, plan_list_charges_params, plan_list_customers_params
@@ -50,17 +50,19 @@ class PlansResource(SyncAPIResource):
     def list(
         self,
         *,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[PlanListResponse]:
-        """
-        List all available plans.
+        """List all available plans.
+
+        This is a Plans (deprecated) endpoint. New clients
+        should implement using Contracts.
 
         Args:
           limit: Max number of results that should be returned
@@ -103,10 +105,12 @@ class PlansResource(SyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PlanGetDetailsResponse:
-        """
-        Fetch high level details of a specific plan.
+        """Fetch high level details of a specific plan.
+
+        This is a Plans (deprecated)
+        endpoint. New clients should implement using Contracts.
 
         Args:
           extra_headers: Send extra headers
@@ -131,17 +135,19 @@ class PlansResource(SyncAPIResource):
         self,
         *,
         plan_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[PlanListChargesResponse]:
-        """
-        Fetches a list of charges of a specific plan.
+        """Fetches a list of charges of a specific plan.
+
+        This is a Plans (deprecated)
+        endpoint. New clients should implement using Contracts.
 
         Args:
           limit: Max number of results that should be returned
@@ -181,19 +187,20 @@ class PlansResource(SyncAPIResource):
         self,
         *,
         plan_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
-        status: Literal["all", "active", "ended", "upcoming"] | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
+        status: Literal["all", "active", "ended", "upcoming"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[PlanListCustomersResponse]:
         """
         Fetches a list of customers on a specific plan (by default, only currently
-        active plans are included)
+        active plans are included). This is a Plans (deprecated) endpoint. New clients
+        should implement using Contracts.
 
         Args:
           limit: Max number of results that should be returned
@@ -264,17 +271,19 @@ class AsyncPlansResource(AsyncAPIResource):
     def list(
         self,
         *,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PlanListResponse, AsyncCursorPage[PlanListResponse]]:
-        """
-        List all available plans.
+        """List all available plans.
+
+        This is a Plans (deprecated) endpoint. New clients
+        should implement using Contracts.
 
         Args:
           limit: Max number of results that should be returned
@@ -317,10 +326,12 @@ class AsyncPlansResource(AsyncAPIResource):
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> PlanGetDetailsResponse:
-        """
-        Fetch high level details of a specific plan.
+        """Fetch high level details of a specific plan.
+
+        This is a Plans (deprecated)
+        endpoint. New clients should implement using Contracts.
 
         Args:
           extra_headers: Send extra headers
@@ -345,17 +356,19 @@ class AsyncPlansResource(AsyncAPIResource):
         self,
         *,
         plan_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PlanListChargesResponse, AsyncCursorPage[PlanListChargesResponse]]:
-        """
-        Fetches a list of charges of a specific plan.
+        """Fetches a list of charges of a specific plan.
+
+        This is a Plans (deprecated)
+        endpoint. New clients should implement using Contracts.
 
         Args:
           limit: Max number of results that should be returned
@@ -395,19 +408,20 @@ class AsyncPlansResource(AsyncAPIResource):
         self,
         *,
         plan_id: str,
-        limit: int | NotGiven = NOT_GIVEN,
-        next_page: str | NotGiven = NOT_GIVEN,
-        status: Literal["all", "active", "ended", "upcoming"] | NotGiven = NOT_GIVEN,
+        limit: int | Omit = omit,
+        next_page: str | Omit = omit,
+        status: Literal["all", "active", "ended", "upcoming"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
         extra_query: Query | None = None,
         extra_body: Body | None = None,
-        timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[PlanListCustomersResponse, AsyncCursorPage[PlanListCustomersResponse]]:
         """
         Fetches a list of customers on a specific plan (by default, only currently
-        active plans are included)
+        active plans are included). This is a Plans (deprecated) endpoint. New clients
+        should implement using Contracts.
 
         Args:
           limit: Max number of results that should be returned

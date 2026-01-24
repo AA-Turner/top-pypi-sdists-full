@@ -39,6 +39,7 @@ from torch.nn.utils.rnn import pack_padded_sequence
 
 from stanza.models.common.bert_embedding import extract_bert_embeddings
 from stanza.models.common.maxout_linear import MaxoutLinear
+from stanza.models.common.relative_attn import RelativeAttention
 from stanza.models.common.utils import attach_bert_model, unsort
 from stanza.models.common.vocab import PAD_ID, UNK_ID
 from stanza.models.constituency.base_model import BaseModel
@@ -430,6 +431,40 @@ class LSTMModel(BaseModel, nn.Module):
                                                                    self.args['lattn_partitioned'])
                 self.word_input_size = self.word_input_size + self.args['lattn_d_proj']*self.args['lattn_d_l']
 
+        self.rel_attn_forward = None
+        self.rel_attn_reverse = None
+        if self.args.get('use_rattn', False):
+            if not self.args['rattn_cat'] and self.word_input_size % self.args['rattn_heads'] != 0:
+                for rattn_heads in range(self.args['rattn_heads'] // 2):
+                    if self.word_input_size % (self.args['rattn_heads'] + rattn_heads) == 0:
+                        new_rattn_heads = self.args['rattn_heads'] + rattn_heads
+                        break
+                    if self.word_input_size % (self.args['rattn_heads'] - rattn_heads) == 0:
+                        new_rattn_heads = self.args['rattn_heads'] - rattn_heads
+                        break
+                else:
+                    raise ValueError("Number of heads %d does not divide evenly into input size %d" % (self.args['rattn_heads'], self.word_input_size))
+                logger.warning("rattn_heads of %d does not work, but found a similar value of %d which does work", self.args['rattn_heads'], new_rattn_heads)
+                self.args['rattn_heads'] = new_rattn_heads
+
+            if self.args['rattn_forward']:
+                if self.args['rattn_cat']:
+                    self.rel_attn_forward = RelativeAttention(self.word_input_size, self.args['rattn_heads'], window=self.args['rattn_window'], d_output=self.args['rattn_dim'], fudge_output=True, num_sinks=self.args['rattn_sinks'])
+                else:
+                    self.rel_attn_forward = RelativeAttention(self.word_input_size, self.args['rattn_heads'], window=self.args['rattn_window'], num_sinks=self.args['rattn_sinks'])
+
+            if self.args['rattn_reverse']:
+                if self.args['rattn_cat']:
+                    self.rel_attn_reverse = RelativeAttention(self.word_input_size, self.args['rattn_heads'], window=self.args['rattn_window'], reverse=True, d_output=self.args['rattn_dim'], fudge_output=True, num_sinks=self.args['rattn_sinks'])
+                else:
+                    self.rel_attn_reverse = RelativeAttention(self.word_input_size, self.args['rattn_heads'], window=self.args['rattn_window'], reverse=True, num_sinks=self.args['rattn_sinks'])
+
+            if self.args['rattn_forward'] and self.args['rattn_cat']:
+                self.word_input_size += self.rel_attn_forward.d_output
+
+            if self.args['rattn_reverse'] and self.args['rattn_cat']:
+                self.word_input_size += self.rel_attn_reverse.d_output
+
         self.word_lstm = nn.LSTM(input_size=self.word_input_size, hidden_size=self.hidden_size, num_layers=self.num_lstm_layers, bidirectional=True, dropout=self.lstm_layer_dropout)
 
         # after putting the word_delta_tag input through the word_lstm, we get back
@@ -785,6 +820,26 @@ class LSTMModel(BaseModel, nn.Module):
                 labeled_representations = self.label_attention_module(partitioned_embeddings, tagged_word_lists)
             all_word_inputs = [torch.cat((x, y[:x.shape[0], :]), axis=1) for x, y in zip(all_word_inputs, labeled_representations)]
 
+        if self.rel_attn_forward is not None or self.rel_attn_reverse is not None:
+            rattn_inputs = [[x] for x in all_word_inputs]
+
+            if self.rel_attn_forward is not None:
+                if self.args['rattn_use_endpoint_sinks']:
+                    rattn_inputs = [x + [self.rel_attn_forward(x[0].unsqueeze(0), x[0][0]).squeeze(0)] for x in rattn_inputs]
+                else:
+                    rattn_inputs = [x + [self.rel_attn_forward(x[0].unsqueeze(0)).squeeze(0)] for x in rattn_inputs]
+            if self.rel_attn_reverse is not None:
+                if self.args['rattn_use_endpoint_sinks']:
+                    rattn_inputs = [x + [self.rel_attn_reverse(x[0].unsqueeze(0), x[0][-1]).squeeze(0)] for x in rattn_inputs]
+                else:
+                    rattn_inputs = [x + [self.rel_attn_reverse(x[0].unsqueeze(0)).squeeze(0)] for x in rattn_inputs]
+
+            if self.args['rattn_cat']:
+                all_word_inputs = [torch.cat(x, axis=1) for x in rattn_inputs]
+            else:
+                rattn_inputs = [torch.stack(x, axis=2) for x in rattn_inputs]
+                all_word_inputs = [torch.sum(x, axis=2) for x in rattn_inputs]
+
         all_word_inputs = [self.word_dropout(word_inputs) for word_inputs in all_word_inputs]
         packed_word_input = torch.nn.utils.rnn.pack_sequence(all_word_inputs, enforce_sorted=False)
         word_output, _ = self.word_lstm(packed_word_input)
@@ -1088,6 +1143,11 @@ class LSTMModel(BaseModel, nn.Module):
         If is_legal is set to True, will only return legal transitions.
         This means returning None if there are no legal transitions.
         Hopefully the constraints prevent that from happening
+
+        Returns:
+          tensor(batch_size, num_transitions) - final output layer
+          list(Transition) - predicted transitions
+          tensor(batch_size) - the final output specifically for the chosen transition
         """
         predictions = self.forward(states)
         pred_max = torch.argmax(predictions, dim=1)

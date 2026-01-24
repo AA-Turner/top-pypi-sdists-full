@@ -9,6 +9,7 @@ from .ad_hoc_initiated_prompt_execution_meta import AdHocInitiatedPromptExecutio
 from .ad_hoc_rejected_prompt_execution_meta import AdHocRejectedPromptExecutionMeta
 from .ad_hoc_streaming_prompt_execution_meta import AdHocStreamingPromptExecutionMeta
 from .add_openai_api_key_enum import AddOpenaiApiKeyEnum
+from .api_actor_type_enum import ApiActorTypeEnum
 from .api_node_result import ApiNodeResult
 from .api_node_result_data import ApiNodeResultData
 from .api_request_parent_context import ApiRequestParentContext
@@ -27,6 +28,7 @@ from .audio_input_request import AudioInputRequest
 from .audio_prompt_block import AudioPromptBlock
 from .audio_vellum_value import AudioVellumValue
 from .audio_vellum_value_request import AudioVellumValueRequest
+from .auth_type_enum import AuthTypeEnum
 from .base_output import BaseOutput
 from .basic_vectorizer_intfloat_multilingual_e_5_large import BasicVectorizerIntfloatMultilingualE5Large
 from .basic_vectorizer_intfloat_multilingual_e_5_large_request import BasicVectorizerIntfloatMultilingualE5LargeRequest
@@ -53,6 +55,8 @@ from .chat_message_content_request import ChatMessageContentRequest
 from .chat_message_prompt_block import ChatMessagePromptBlock
 from .chat_message_request import ChatMessageRequest
 from .chat_message_role import ChatMessageRole
+from .check_workflow_execution_status_error import CheckWorkflowExecutionStatusError
+from .check_workflow_execution_status_response import CheckWorkflowExecutionStatusResponse
 from .code_execution_node_array_result import CodeExecutionNodeArrayResult
 from .code_execution_node_chat_history_result import CodeExecutionNodeChatHistoryResult
 from .code_execution_node_error_result import CodeExecutionNodeErrorResult
@@ -65,6 +69,7 @@ from .code_execution_node_result_output import CodeExecutionNodeResultOutput
 from .code_execution_node_search_results_result import CodeExecutionNodeSearchResultsResult
 from .code_execution_node_string_result import CodeExecutionNodeStringResult
 from .code_execution_package import CodeExecutionPackage
+from .code_execution_package_request import CodeExecutionPackageRequest
 from .code_execution_runtime import CodeExecutionRuntime
 from .code_executor_input import CodeExecutorInput
 from .code_executor_response import CodeExecutorResponse
@@ -74,12 +79,15 @@ from .compile_prompt_deployment_expand_meta_request import CompilePromptDeployme
 from .compile_prompt_meta import CompilePromptMeta
 from .components_schemas_composio_execute_tool_request import ComponentsSchemasComposioExecuteToolRequest
 from .components_schemas_composio_execute_tool_response import ComponentsSchemasComposioExecuteToolResponse
+from .components_schemas_composio_integration_exec_config import ComponentsSchemasComposioIntegrationExecConfig
 from .components_schemas_composio_tool_definition import ComponentsSchemasComposioToolDefinition
 from .components_schemas_pdf_search_result_meta_source import ComponentsSchemasPdfSearchResultMetaSource
 from .components_schemas_pdf_search_result_meta_source_request import ComponentsSchemasPdfSearchResultMetaSourceRequest
 from .components_schemas_prompt_version_build_config_sandbox import ComponentsSchemasPromptVersionBuildConfigSandbox
+from .components_schemas_slim_composio_tool_definition import ComponentsSchemasSlimComposioToolDefinition
 from .composio_execute_tool_request import ComposioExecuteToolRequest
 from .composio_execute_tool_response import ComposioExecuteToolResponse
+from .composio_integration_exec_config import ComposioIntegrationExecConfig
 from .composio_tool_definition import ComposioToolDefinition
 from .condition_combinator import ConditionCombinator
 from .conditional_node_result import ConditionalNodeResult
@@ -89,6 +97,7 @@ from .container_image_container_image_tag import ContainerImageContainerImageTag
 from .container_image_read import ContainerImageRead
 from .create_test_suite_test_case_request import CreateTestSuiteTestCaseRequest
 from .create_workflow_event_request import CreateWorkflowEventRequest
+from .dataset_row_push_request import DatasetRowPushRequest
 from .delimiter_chunker_config import DelimiterChunkerConfig
 from .delimiter_chunker_config_request import DelimiterChunkerConfigRequest
 from .delimiter_chunking import DelimiterChunking
@@ -120,7 +129,9 @@ from .document_vellum_value_request import DocumentVellumValueRequest
 from .enriched_normalized_completion import EnrichedNormalizedCompletion
 from .entity_status import EntityStatus
 from .entity_visibility import EntityVisibility
+from .environment_display_config import EnvironmentDisplayConfig
 from .environment_enum import EnvironmentEnum
+from .environment_read import EnvironmentRead
 from .ephemeral_prompt_cache_config import EphemeralPromptCacheConfig
 from .ephemeral_prompt_cache_config_type_enum import EphemeralPromptCacheConfigTypeEnum
 from .error_detail_response import ErrorDetailResponse
@@ -135,6 +146,7 @@ from .execute_api_response import ExecuteApiResponse
 from .execute_api_response_json import ExecuteApiResponseJson
 from .execute_prompt_event import ExecutePromptEvent
 from .execute_prompt_response import ExecutePromptResponse
+from .execute_workflow_async_response import ExecuteWorkflowAsyncResponse
 from .execute_workflow_response import ExecuteWorkflowResponse
 from .execute_workflow_workflow_result_event import ExecuteWorkflowWorkflowResultEvent
 from .execution_array_vellum_value import ExecutionArrayVellumValue
@@ -227,6 +239,14 @@ from .initiated_prompt_execution_meta import InitiatedPromptExecutionMeta
 from .initiated_workflow_node_result_event import InitiatedWorkflowNodeResultEvent
 from .instructor_vectorizer_config import InstructorVectorizerConfig
 from .instructor_vectorizer_config_request import InstructorVectorizerConfigRequest
+from .integration import Integration
+from .integration_auth_config_integration import IntegrationAuthConfigIntegration
+from .integration_auth_config_integration_credential import IntegrationAuthConfigIntegrationCredential
+from .integration_credential_access_type import IntegrationCredentialAccessType
+from .integration_name import IntegrationName
+from .integration_provider import IntegrationProvider
+from .integration_read import IntegrationRead
+from .integration_trigger_context import IntegrationTriggerContext
 from .invoked_port import InvokedPort
 from .iteration_state_enum import IterationStateEnum
 from .jinja_prompt_block import JinjaPromptBlock
@@ -291,6 +311,8 @@ from .node_execution_fulfilled_body import NodeExecutionFulfilledBody
 from .node_execution_fulfilled_event import NodeExecutionFulfilledEvent
 from .node_execution_initiated_body import NodeExecutionInitiatedBody
 from .node_execution_initiated_event import NodeExecutionInitiatedEvent
+from .node_execution_log_body import NodeExecutionLogBody
+from .node_execution_log_event import NodeExecutionLogEvent
 from .node_execution_paused_body import NodeExecutionPausedBody
 from .node_execution_paused_event import NodeExecutionPausedEvent
 from .node_execution_rejected_body import NodeExecutionRejectedBody
@@ -346,9 +368,13 @@ from .paginated_document_index_read_list import PaginatedDocumentIndexReadList
 from .paginated_folder_entity_list import PaginatedFolderEntityList
 from .paginated_slim_deployment_read_list import PaginatedSlimDeploymentReadList
 from .paginated_slim_document_list import PaginatedSlimDocumentList
+from .paginated_slim_integration_auth_config_read_list import PaginatedSlimIntegrationAuthConfigReadList
+from .paginated_slim_integration_read_list import PaginatedSlimIntegrationReadList
+from .paginated_slim_tool_definition_list import PaginatedSlimToolDefinitionList
 from .paginated_slim_workflow_deployment_list import PaginatedSlimWorkflowDeploymentList
 from .paginated_test_suite_run_execution_list import PaginatedTestSuiteRunExecutionList
 from .paginated_test_suite_test_case_list import PaginatedTestSuiteTestCaseList
+from .paginated_workflow_deployment_release_list import PaginatedWorkflowDeploymentReleaseList
 from .paginated_workflow_release_tag_read_list import PaginatedWorkflowReleaseTagReadList
 from .paginated_workflow_sandbox_example_list import PaginatedWorkflowSandboxExampleList
 from .parent_context import ParentContext
@@ -356,6 +382,8 @@ from .pdf_search_result_meta_source import PdfSearchResultMetaSource
 from .pdf_search_result_meta_source_request import PdfSearchResultMetaSourceRequest
 from .plain_text_prompt_block import PlainTextPromptBlock
 from .price import Price
+from .private_vectorizer import PrivateVectorizer
+from .private_vectorizer_request import PrivateVectorizerRequest
 from .processing_failure_reason_enum import ProcessingFailureReasonEnum
 from .prompt_block import PromptBlock
 from .prompt_block_state import PromptBlockState
@@ -404,6 +432,7 @@ from .release_tag_source import ReleaseTagSource
 from .replace_test_suite_test_case_request import ReplaceTestSuiteTestCaseRequest
 from .rich_text_child_block import RichTextChildBlock
 from .rich_text_prompt_block import RichTextPromptBlock
+from .runner_config_request import RunnerConfigRequest
 from .sandbox_scenario import SandboxScenario
 from .scenario_input import ScenarioInput
 from .scenario_input_audio_variable_value import ScenarioInputAudioVariableValue
@@ -413,6 +442,7 @@ from .scenario_input_image_variable_value import ScenarioInputImageVariableValue
 from .scenario_input_json_variable_value import ScenarioInputJsonVariableValue
 from .scenario_input_string_variable_value import ScenarioInputStringVariableValue
 from .scenario_input_video_variable_value import ScenarioInputVideoVariableValue
+from .scheduled_trigger_context import ScheduledTriggerContext
 from .search_filters_request import SearchFiltersRequest
 from .search_node_result import SearchNodeResult
 from .search_node_result_data import SearchNodeResultData
@@ -434,9 +464,13 @@ from .sentence_chunker_config import SentenceChunkerConfig
 from .sentence_chunker_config_request import SentenceChunkerConfigRequest
 from .sentence_chunking import SentenceChunking
 from .sentence_chunking_request import SentenceChunkingRequest
+from .severity_enum import SeverityEnum
+from .slim_composio_tool_definition import SlimComposioToolDefinition
 from .slim_deployment_read import SlimDeploymentRead
 from .slim_document import SlimDocument
 from .slim_document_document_to_document_index import SlimDocumentDocumentToDocumentIndex
+from .slim_integration_auth_config_read import SlimIntegrationAuthConfigRead
+from .slim_integration_read import SlimIntegrationRead
 from .slim_release_review import SlimReleaseReview
 from .slim_workflow_deployment import SlimWorkflowDeployment
 from .slim_workflow_execution_read import SlimWorkflowExecutionRead
@@ -576,8 +610,11 @@ from .token_overlapping_window_chunker_config import TokenOverlappingWindowChunk
 from .token_overlapping_window_chunker_config_request import TokenOverlappingWindowChunkerConfigRequest
 from .token_overlapping_window_chunking import TokenOverlappingWindowChunking
 from .token_overlapping_window_chunking_request import TokenOverlappingWindowChunkingRequest
+from .type_checker_enum import TypeCheckerEnum
 from .unit_enum import UnitEnum
+from .update_active_workspace_response import UpdateActiveWorkspaceResponse
 from .upload_document_response import UploadDocumentResponse
+from .uploaded_file_read import UploadedFileRead
 from .upsert_test_suite_test_case_request import UpsertTestSuiteTestCaseRequest
 from .variable_prompt_block import VariablePromptBlock
 from .vellum_audio import VellumAudio
@@ -613,6 +650,7 @@ from .video_input_request import VideoInputRequest
 from .video_prompt_block import VideoPromptBlock
 from .video_vellum_value import VideoVellumValue
 from .video_vellum_value_request import VideoVellumValueRequest
+from .workflow_deployment_display_data import WorkflowDeploymentDisplayData
 from .workflow_deployment_event_executions_response import WorkflowDeploymentEventExecutionsResponse
 from .workflow_deployment_history_item import WorkflowDeploymentHistoryItem
 from .workflow_deployment_parent_context import WorkflowDeploymentParentContext
@@ -620,6 +658,7 @@ from .workflow_deployment_read import WorkflowDeploymentRead
 from .workflow_deployment_release import WorkflowDeploymentRelease
 from .workflow_deployment_release_workflow_deployment import WorkflowDeploymentReleaseWorkflowDeployment
 from .workflow_deployment_release_workflow_version import WorkflowDeploymentReleaseWorkflowVersion
+from .workflow_display_icon import WorkflowDisplayIcon
 from .workflow_error import WorkflowError
 from .workflow_event import WorkflowEvent
 from .workflow_event_error import WorkflowEventError
@@ -662,7 +701,9 @@ from .workflow_node_result_event import WorkflowNodeResultEvent
 from .workflow_node_result_event_state import WorkflowNodeResultEventState
 from .workflow_output import WorkflowOutput
 from .workflow_output_array import WorkflowOutputArray
+from .workflow_output_audio import WorkflowOutputAudio
 from .workflow_output_chat_history import WorkflowOutputChatHistory
+from .workflow_output_document import WorkflowOutputDocument
 from .workflow_output_error import WorkflowOutputError
 from .workflow_output_function_call import WorkflowOutputFunctionCall
 from .workflow_output_image import WorkflowOutputImage
@@ -670,6 +711,7 @@ from .workflow_output_json import WorkflowOutputJson
 from .workflow_output_number import WorkflowOutputNumber
 from .workflow_output_search_results import WorkflowOutputSearchResults
 from .workflow_output_string import WorkflowOutputString
+from .workflow_output_video import WorkflowOutputVideo
 from .workflow_parent_context import WorkflowParentContext
 from .workflow_push_deployment_config_request import WorkflowPushDeploymentConfigRequest
 from .workflow_push_exec_config import WorkflowPushExecConfig
@@ -685,6 +727,7 @@ from .workflow_request_json_input_request import WorkflowRequestJsonInputRequest
 from .workflow_request_number_input_request import WorkflowRequestNumberInputRequest
 from .workflow_request_string_input_request import WorkflowRequestStringInputRequest
 from .workflow_request_video_input_request import WorkflowRequestVideoInputRequest
+from .workflow_resolved_state import WorkflowResolvedState
 from .workflow_result_event import WorkflowResultEvent
 from .workflow_result_event_output_data import WorkflowResultEventOutputData
 from .workflow_result_event_output_data_array import WorkflowResultEventOutputDataArray
@@ -695,9 +738,13 @@ from .workflow_result_event_output_data_json import WorkflowResultEventOutputDat
 from .workflow_result_event_output_data_number import WorkflowResultEventOutputDataNumber
 from .workflow_result_event_output_data_search_results import WorkflowResultEventOutputDataSearchResults
 from .workflow_result_event_output_data_string import WorkflowResultEventOutputDataString
+from .workflow_result_event_state import WorkflowResultEventState
+from .workflow_sandbox_display_data import WorkflowSandboxDisplayData
 from .workflow_sandbox_example import WorkflowSandboxExample
+from .workflow_sandbox_execute_node_response import WorkflowSandboxExecuteNodeResponse
 from .workflow_sandbox_parent_context import WorkflowSandboxParentContext
 from .workflow_stream_event import WorkflowStreamEvent
+from .workspace_display_config import WorkspaceDisplayConfig
 from .workspace_read import WorkspaceRead
 from .workspace_secret_read import WorkspaceSecretRead
 
@@ -709,6 +756,7 @@ __all__ = [
     "AdHocRejectedPromptExecutionMeta",
     "AdHocStreamingPromptExecutionMeta",
     "AddOpenaiApiKeyEnum",
+    "ApiActorTypeEnum",
     "ApiNodeResult",
     "ApiNodeResultData",
     "ApiRequestParentContext",
@@ -727,6 +775,7 @@ __all__ = [
     "AudioPromptBlock",
     "AudioVellumValue",
     "AudioVellumValueRequest",
+    "AuthTypeEnum",
     "BaseOutput",
     "BasicVectorizerIntfloatMultilingualE5Large",
     "BasicVectorizerIntfloatMultilingualE5LargeRequest",
@@ -745,6 +794,8 @@ __all__ = [
     "ChatMessagePromptBlock",
     "ChatMessageRequest",
     "ChatMessageRole",
+    "CheckWorkflowExecutionStatusError",
+    "CheckWorkflowExecutionStatusResponse",
     "CodeExecutionNodeArrayResult",
     "CodeExecutionNodeChatHistoryResult",
     "CodeExecutionNodeErrorResult",
@@ -757,6 +808,7 @@ __all__ = [
     "CodeExecutionNodeSearchResultsResult",
     "CodeExecutionNodeStringResult",
     "CodeExecutionPackage",
+    "CodeExecutionPackageRequest",
     "CodeExecutionRuntime",
     "CodeExecutorInput",
     "CodeExecutorResponse",
@@ -766,12 +818,15 @@ __all__ = [
     "CompilePromptMeta",
     "ComponentsSchemasComposioExecuteToolRequest",
     "ComponentsSchemasComposioExecuteToolResponse",
+    "ComponentsSchemasComposioIntegrationExecConfig",
     "ComponentsSchemasComposioToolDefinition",
     "ComponentsSchemasPdfSearchResultMetaSource",
     "ComponentsSchemasPdfSearchResultMetaSourceRequest",
     "ComponentsSchemasPromptVersionBuildConfigSandbox",
+    "ComponentsSchemasSlimComposioToolDefinition",
     "ComposioExecuteToolRequest",
     "ComposioExecuteToolResponse",
+    "ComposioIntegrationExecConfig",
     "ComposioToolDefinition",
     "ConditionCombinator",
     "ConditionalNodeResult",
@@ -781,6 +836,7 @@ __all__ = [
     "ContainerImageRead",
     "CreateTestSuiteTestCaseRequest",
     "CreateWorkflowEventRequest",
+    "DatasetRowPushRequest",
     "DelimiterChunkerConfig",
     "DelimiterChunkerConfigRequest",
     "DelimiterChunking",
@@ -812,7 +868,9 @@ __all__ = [
     "EnrichedNormalizedCompletion",
     "EntityStatus",
     "EntityVisibility",
+    "EnvironmentDisplayConfig",
     "EnvironmentEnum",
+    "EnvironmentRead",
     "EphemeralPromptCacheConfig",
     "EphemeralPromptCacheConfigTypeEnum",
     "ErrorDetailResponse",
@@ -827,6 +885,7 @@ __all__ = [
     "ExecuteApiResponseJson",
     "ExecutePromptEvent",
     "ExecutePromptResponse",
+    "ExecuteWorkflowAsyncResponse",
     "ExecuteWorkflowResponse",
     "ExecuteWorkflowWorkflowResultEvent",
     "ExecutionArrayVellumValue",
@@ -915,6 +974,14 @@ __all__ = [
     "InitiatedWorkflowNodeResultEvent",
     "InstructorVectorizerConfig",
     "InstructorVectorizerConfigRequest",
+    "Integration",
+    "IntegrationAuthConfigIntegration",
+    "IntegrationAuthConfigIntegrationCredential",
+    "IntegrationCredentialAccessType",
+    "IntegrationName",
+    "IntegrationProvider",
+    "IntegrationRead",
+    "IntegrationTriggerContext",
     "InvokedPort",
     "IterationStateEnum",
     "JinjaPromptBlock",
@@ -979,6 +1046,8 @@ __all__ = [
     "NodeExecutionFulfilledEvent",
     "NodeExecutionInitiatedBody",
     "NodeExecutionInitiatedEvent",
+    "NodeExecutionLogBody",
+    "NodeExecutionLogEvent",
     "NodeExecutionPausedBody",
     "NodeExecutionPausedEvent",
     "NodeExecutionRejectedBody",
@@ -1034,9 +1103,13 @@ __all__ = [
     "PaginatedFolderEntityList",
     "PaginatedSlimDeploymentReadList",
     "PaginatedSlimDocumentList",
+    "PaginatedSlimIntegrationAuthConfigReadList",
+    "PaginatedSlimIntegrationReadList",
+    "PaginatedSlimToolDefinitionList",
     "PaginatedSlimWorkflowDeploymentList",
     "PaginatedTestSuiteRunExecutionList",
     "PaginatedTestSuiteTestCaseList",
+    "PaginatedWorkflowDeploymentReleaseList",
     "PaginatedWorkflowReleaseTagReadList",
     "PaginatedWorkflowSandboxExampleList",
     "ParentContext",
@@ -1044,6 +1117,8 @@ __all__ = [
     "PdfSearchResultMetaSourceRequest",
     "PlainTextPromptBlock",
     "Price",
+    "PrivateVectorizer",
+    "PrivateVectorizerRequest",
     "ProcessingFailureReasonEnum",
     "PromptBlock",
     "PromptBlockState",
@@ -1092,6 +1167,7 @@ __all__ = [
     "ReplaceTestSuiteTestCaseRequest",
     "RichTextChildBlock",
     "RichTextPromptBlock",
+    "RunnerConfigRequest",
     "SandboxScenario",
     "ScenarioInput",
     "ScenarioInputAudioVariableValue",
@@ -1101,6 +1177,7 @@ __all__ = [
     "ScenarioInputJsonVariableValue",
     "ScenarioInputStringVariableValue",
     "ScenarioInputVideoVariableValue",
+    "ScheduledTriggerContext",
     "SearchFiltersRequest",
     "SearchNodeResult",
     "SearchNodeResultData",
@@ -1122,9 +1199,13 @@ __all__ = [
     "SentenceChunkerConfigRequest",
     "SentenceChunking",
     "SentenceChunkingRequest",
+    "SeverityEnum",
+    "SlimComposioToolDefinition",
     "SlimDeploymentRead",
     "SlimDocument",
     "SlimDocumentDocumentToDocumentIndex",
+    "SlimIntegrationAuthConfigRead",
+    "SlimIntegrationRead",
     "SlimReleaseReview",
     "SlimWorkflowDeployment",
     "SlimWorkflowExecutionRead",
@@ -1248,8 +1329,11 @@ __all__ = [
     "TokenOverlappingWindowChunkerConfigRequest",
     "TokenOverlappingWindowChunking",
     "TokenOverlappingWindowChunkingRequest",
+    "TypeCheckerEnum",
     "UnitEnum",
+    "UpdateActiveWorkspaceResponse",
     "UploadDocumentResponse",
+    "UploadedFileRead",
     "UpsertTestSuiteTestCaseRequest",
     "VariablePromptBlock",
     "VellumAudio",
@@ -1285,6 +1369,7 @@ __all__ = [
     "VideoPromptBlock",
     "VideoVellumValue",
     "VideoVellumValueRequest",
+    "WorkflowDeploymentDisplayData",
     "WorkflowDeploymentEventExecutionsResponse",
     "WorkflowDeploymentHistoryItem",
     "WorkflowDeploymentParentContext",
@@ -1292,6 +1377,7 @@ __all__ = [
     "WorkflowDeploymentRelease",
     "WorkflowDeploymentReleaseWorkflowDeployment",
     "WorkflowDeploymentReleaseWorkflowVersion",
+    "WorkflowDisplayIcon",
     "WorkflowError",
     "WorkflowEvent",
     "WorkflowEventError",
@@ -1334,7 +1420,9 @@ __all__ = [
     "WorkflowNodeResultEventState",
     "WorkflowOutput",
     "WorkflowOutputArray",
+    "WorkflowOutputAudio",
     "WorkflowOutputChatHistory",
+    "WorkflowOutputDocument",
     "WorkflowOutputError",
     "WorkflowOutputFunctionCall",
     "WorkflowOutputImage",
@@ -1342,6 +1430,7 @@ __all__ = [
     "WorkflowOutputNumber",
     "WorkflowOutputSearchResults",
     "WorkflowOutputString",
+    "WorkflowOutputVideo",
     "WorkflowParentContext",
     "WorkflowPushDeploymentConfigRequest",
     "WorkflowPushExecConfig",
@@ -1357,6 +1446,7 @@ __all__ = [
     "WorkflowRequestNumberInputRequest",
     "WorkflowRequestStringInputRequest",
     "WorkflowRequestVideoInputRequest",
+    "WorkflowResolvedState",
     "WorkflowResultEvent",
     "WorkflowResultEventOutputData",
     "WorkflowResultEventOutputDataArray",
@@ -1367,9 +1457,13 @@ __all__ = [
     "WorkflowResultEventOutputDataNumber",
     "WorkflowResultEventOutputDataSearchResults",
     "WorkflowResultEventOutputDataString",
+    "WorkflowResultEventState",
+    "WorkflowSandboxDisplayData",
     "WorkflowSandboxExample",
+    "WorkflowSandboxExecuteNodeResponse",
     "WorkflowSandboxParentContext",
     "WorkflowStreamEvent",
+    "WorkspaceDisplayConfig",
     "WorkspaceRead",
     "WorkspaceSecretRead",
 ]

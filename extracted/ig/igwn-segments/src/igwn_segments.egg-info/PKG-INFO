@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: igwn-segments
-Version: 2.1.0
+Version: 2.1.1
 Summary: Representations of semi-open intervals
 Author-email: Kipp Cannon <kipp.cannon@ligo.org>, Tito Dal Canton <tito.canton@ligo.org>, Duncan Macleod <duncan.macleod@ligo.org>, Leo Singer <leo.singer@ligo.org>
 License: GPL-3.0-or-later
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: Intended Audience :: Developers

@@ -1,6 +1,6 @@
 [project]
 name = "onelogin"
-version = "3.2.0"
+version = "3.2.3"
 description = "OneLogin API Python SDK"
 authors = [
     {name = "OneLogin", email = "developers@onelogin.com"}
@@ -34,7 +34,7 @@ requires = ["setuptools>=67.7.1", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["onelogin"]
+packages = {find = {exclude = ["test*", "docs*"]}}
 package-dir = {"" = "."}
 include-package-data = true
 

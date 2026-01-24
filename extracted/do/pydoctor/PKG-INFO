@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydoctor
-Version: 25.4.0
+Version: 25.10.1
 Summary: API doc generator.
 Home-page: https://github.com/twisted/pydoctor
 Author: Michael Hudson-Doyle
@@ -38,7 +38,7 @@ Requires-Dist: attrs
 Requires-Dist: docutils>=0.17
 Requires-Dist: lunr<0.9.0,>=0.6.2
 Requires-Dist: configargparse
-Requires-Dist: toml; python_version < "3.11"
+Requires-Dist: tomli; python_version < "3.11"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
@@ -58,7 +58,7 @@ Requires-Dist: Sphinx; extra == "test"
 Requires-Dist: pytest-subtests; extra == "test"
 Requires-Dist: setuptools; extra == "test"
 Provides-Extra: mypy
-Requires-Dist: mypy>=1.15.0; extra == "mypy"
+Requires-Dist: mypy>=1.16.1; extra == "mypy"
 Requires-Dist: mypy-zope; extra == "mypy"
 Requires-Dist: typing-extensions; extra == "mypy"
 Requires-Dist: hypothesis; extra == "mypy"
@@ -67,7 +67,6 @@ Requires-Dist: sphinx>=3.4.0; extra == "mypy"
 Requires-Dist: twisted; extra == "mypy"
 Requires-Dist: types-requests; extra == "mypy"
 Requires-Dist: types-docutils; extra == "mypy"
-Requires-Dist: types-toml; extra == "mypy"
 Dynamic: description
 Dynamic: license-file
 
@@ -143,6 +142,39 @@ You can select a different format using the ``--docformat`` option or the ``__do
 What's New?
 ~~~~~~~~~~~
 
+pydoctor 25.10.1
+^^^^^^^^^^^^^^^^
+
+* Fix the tag name of the release. 
+
+pydoctor 25.10.0
+^^^^^^^^^^^^^^^^
+
+* Add support for doc-comments as found in Sphinx. Use the special comment formatting ``#:`` to start the comment instead of just ``#``.
+  Comments need to be either on a line of their own before the definition, or immediately after the assignment on the same line. 
+* Fix a bug with inline docstrings, if there is comment in between an assignment and literal string, 
+  the string will not be misinterpreted as being a docstring.
+* Fix a regression that prevented the source link on package' page to be rendered.
+* Improve introspection of C-modules to support data descriptors.
+* Dunders that are not supposed to be part of the API are now ignored when introspecting code.
+* Fix bug, ``ivar`` field and fiends are not ignored anymore in introspected C-modules.
+* Fix bug that would result in duplicated "Cannot find link target" warnings when the 
+  types under a docstring *Attributes* section failed to resolved.
+* Introduce --intersphinx-file option: Use local Sphinx objects inventory file to generate 
+  links to external documentation. If the optional base URL is provided, the links will be 
+  made relative to this base URL. Can be repeated. Format is *PATH_TO_OBJECTS.INV[::BASE_URL]*. 
+* Allow to pass a custom base URL when loading inventory files from URL. The format is
+  *URL_TO_OBJECTS.INV[::BASE_URL]*.
+* Fixes a bug where the `__docformat__` variable of a parent package would be ignored if an import 
+  shortcuts the default processing order, leading to process the docstrings with system's docformat 
+  instead of the one specified in the parent package `__docformat__`.
+* Prefer newer "tomli" package over "toml".
+* Fix a bug that made impossible to highlight some attributes or functions because 
+  their name clashed with other HTML IDs. Custom templates using HTML ID `main` should
+  now use `<main>` tag instead. Custom templates using HTML ID `showPrivate`, `summaryTree`, 
+  `childList`, `splitTables` and `collapseSideBar` should use hyphen-separated ID instead (like `show-private`).
+
+
 pydoctor 25.4.0
 ^^^^^^^^^^^^^^^
 
@@ -201,6 +233,7 @@ pydoctor 24.11.0
 * The generated documentation now includes a help page under the path ``/apidocs-help.html``. 
   This page is accessible by clicking on the information icon in the navbar (``ℹ``).
 * Improve the javascript searching code to better understand terms that contains a dot (``.``).
+
 
 pydoctor 24.3.3
 ^^^^^^^^^^^^^^^

@@ -1,16 +1,20 @@
 import shutil
-import sys
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
+from click.testing import CliRunner
 
 from pydoclint.baseline import (
+    INDENT,
+    SEPARATOR,
     calcUnfixedBaselineViolationsAndRemainingViolations,
     generateBaseline,
     parseBaseline,
     reEvaluateBaseline,
+    updateBaselineWithUnfixedViolations,
 )
-from pydoclint.main import _checkPaths
+from pydoclint.main import _checkPaths, main
 from pydoclint.utils.violation import Violation
 from tests.test_main import DATA_DIR, pythonVersionBelow310
 
@@ -20,7 +24,7 @@ if pythonVersionBelow310():
 
 
 @pytest.fixture
-def baselineFile(tmp_path_factory) -> Path:
+def baselineFile(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp('baseline') / 'test-baseline.txt'
 
 
@@ -28,7 +32,7 @@ def baselineFile(tmp_path_factory) -> Path:
     'style',
     ['google', 'numpy', 'sphinx'],
 )
-def testBaselineCreation(baselineFile, style: str):
+def testBaselineCreation(baselineFile: Path, style: str) -> None:
     violationsInAllFiles = _checkPaths(
         paths=(DATA_DIR / style,),
         style=style,
@@ -46,12 +50,7 @@ def testBaselineCreation(baselineFile, style: str):
         len(violations) == 0
         for filename, violations in remainingViolationsInAllFiles.items()
     )
-    # In the future, this assertion could break if we add new files
-    # to DATA_DIR. But it's good that this could act as a sanity check.
-    if sys.version_info < (3, 10):
-        assert len(unfixedBaselineViolationsInAllFiles) == 27
-    else:
-        assert len(unfixedBaselineViolationsInAllFiles) == 33
+    assert len(unfixedBaselineViolationsInAllFiles) == 34
 
 
 badDocstringFunction = '''
@@ -168,12 +167,18 @@ expectedNewViolations = [
 @pytest.fixture(
     params=list(Path(DATA_DIR / 'numpy' / 'args').rglob('*.py'))[:5]
 )
-def violationsFile(request, tmp_path_factory) -> Path:
+def violationsFile(
+        request: pytest.FixtureRequest,
+        tmp_path_factory: pytest.TempPathFactory,
+) -> Path:
     tmpDir = tmp_path_factory.mktemp('new_violations')
     return shutil.copyfile(request.param, tmpDir / f'{request.param.name}')
 
 
-def testBaselineNewViolations(baselineFile: Path, violationsFile: Path):
+def testBaselineNewViolations(
+        baselineFile: Path,
+        violationsFile: Path,
+) -> None:
     violationsInAllFiles: dict[str, list[Violation]] = _checkPaths(
         (violationsFile.as_posix(),), exclude=EXCLUDE_PATTERN
     )
@@ -198,17 +203,140 @@ def testBaselineNewViolations(baselineFile: Path, violationsFile: Path):
 
     strViolations = [
         str(violation)
-        for violation in list(remainingViolationsInAllFiles.values())[0]
+        for violation in next(iter(remainingViolationsInAllFiles.values()))
     ]
     assert strViolations == expectedNewViolations
 
 
+def testMergeBaselineKeepsUntouchedEntries() -> None:
+    """Ensure untouched baseline entries remain when regenerating."""
+    baseline = {
+        '/tmp/file_a.py': ['DOC101: a'],
+        '/tmp/file_b.py': ['DOC102: b'],
+        '/tmp/file_c.py': ['DOC103: c'],
+    }
+    unfixed = {
+        '/tmp/file_a.py': [],
+        '/tmp/file_b.py': ['DOC999: updated'],
+    }
+    merged = updateBaselineWithUnfixedViolations(
+        baseline=baseline,
+        unfixedBaselineViolations=unfixed,
+    )
+    assert list(merged.keys()) == ['/tmp/file_b.py', '/tmp/file_c.py']
+    assert merged['/tmp/file_b.py'] == ['DOC999: updated']
+    assert merged['/tmp/file_c.py'] == ['DOC103: c']
+
+
+def testAutoRegenerateBaselineOnlyUpdatesSpecifiedFiles(
+        tmp_path: Path,
+) -> None:
+    runner = CliRunner()
+    projectRoot = tmp_path / 'proj'
+    projectRoot.mkdir()
+    baselinePath = projectRoot / 'baseline.txt'
+    fileMap = {
+        'a.py': projectRoot / 'a.py',
+        'b.py': projectRoot / 'b.py',
+        'c.py': projectRoot / 'subdir1' / 'c.py',
+        'd.py': projectRoot / 'subdir1' / 'subdir2' / 'd.py',
+    }
+
+    def writeBadDocstring(path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(badDocstringFunction, encoding='utf-8')
+
+    for path in fileMap.values():
+        writeBadDocstring(path)
+
+    result = runner.invoke(
+        main,
+        [
+            '--baseline',
+            baselinePath.as_posix(),
+            '--generate-baseline=True',
+            projectRoot.as_posix(),
+        ],
+    )
+    assert result.exit_code == 0, result.output
+
+    expectedBaselineAfterFirstRun = (
+        f'{fileMap["a.py"].as_posix()}\n'
+        f'{INDENT}{expectedNewViolations[0]}\n'
+        f'{INDENT}{expectedNewViolations[1]}\n'
+        f'{SEPARATOR}'
+        f'{fileMap["b.py"].as_posix()}\n'
+        f'{INDENT}{expectedNewViolations[0]}\n'
+        f'{INDENT}{expectedNewViolations[1]}\n'
+        f'{SEPARATOR}'
+        f'{fileMap["c.py"].as_posix()}\n'
+        f'{INDENT}{expectedNewViolations[0]}\n'
+        f'{INDENT}{expectedNewViolations[1]}\n'
+        f'{SEPARATOR}'
+        f'{fileMap["d.py"].as_posix()}\n'
+        f'{INDENT}{expectedNewViolations[0]}\n'
+        f'{INDENT}{expectedNewViolations[1]}\n'
+        f'{SEPARATOR}'
+    )
+    assert baselinePath.read_text() == expectedBaselineAfterFirstRun
+
+    fixedDocstring = dedent(
+        '''
+        def bad_docstring_func(arg1: str, arg2: list[int]) -> bool:
+            """Docstring
+
+            Parameters
+            ----------
+            arg1 : str
+                Arg 1
+            arg2 : list[int]
+                Arg 2
+
+            Returns
+            -------
+            bool
+                The return value
+            """
+            return True
+        '''
+    )
+    fileMap['b.py'].write_text(fixedDocstring, encoding='utf-8')
+    fileMap['d.py'].write_text(fixedDocstring, encoding='utf-8')
+
+    rerun = runner.invoke(
+        main,
+        [
+            '--baseline',
+            baselinePath.as_posix(),
+            '--auto-regenerate-baseline=True',
+            fileMap['b.py'].as_posix(),
+            fileMap['d.py'].as_posix(),
+        ],
+    )
+    assert rerun.exit_code == 0, rerun.output
+
+    expectedBaselineAfterSecondRun = (
+        f'{fileMap["a.py"].as_posix()}\n'
+        f'{INDENT}{expectedNewViolations[0]}\n'
+        f'{INDENT}{expectedNewViolations[1]}\n'
+        f'{SEPARATOR}'
+        f'{fileMap["c.py"].as_posix()}\n'
+        f'{INDENT}{expectedNewViolations[0]}\n'
+        f'{INDENT}{expectedNewViolations[1]}\n'
+        f'{SEPARATOR}'
+    )
+    assert baselinePath.read_text() == expectedBaselineAfterSecondRun
+
+
 @pytest.fixture
-def tmpFile(tmp_path_factory) -> Path:
+def tmpFile(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return tmp_path_factory.mktemp('tmp') / 'code.py'
 
 
-def testSomeViolationsAreFixed(baselineFile: Path, tmpFile: Path):
+def testSomeViolationsAreFixed(
+        baselineFile: Path,
+        tmpFile: Path,
+) -> None:
     with tmpFile.open('w', encoding='utf-8') as f:
         f.write(twoFunctionsWithBadDocstrings)
 
@@ -241,7 +369,7 @@ def testSomeViolationsAreFixed(baselineFile: Path, tmpFile: Path):
 def testSomeViolationsAreFixedButNewViolationsOccur(
         baselineFile: Path,
         tmpFile: Path,
-):
+) -> None:
     with tmpFile.open('w', encoding='utf-8') as f:
         f.write(twoFunctionsWithBadDocstrings)
 
@@ -252,8 +380,8 @@ def testSomeViolationsAreFixedButNewViolationsOccur(
     parsedBaseline: dict[str, list[str]] = parseBaseline(baselineFile)
 
     assert parsedBaseline == {
-        tmpFile.as_posix(): expectedNewViolations
-        + [
+        tmpFile.as_posix(): [
+            *expectedNewViolations,
             'DOC101: Function `func2`: Docstring contains fewer arguments than in function signature.',
             'DOC103: Function `func2`: Docstring arguments are different'
             ' from function arguments. (Or could be other formatting'
@@ -291,7 +419,9 @@ def testSomeViolationsAreFixedButNewViolationsOccur(
     ]
 
     assert len(remainingViolationsInAllFiles.keys()) == 1
-    assert list(remainingViolationsInAllFiles.keys())[0] == tmpFile.as_posix()
+    assert (
+        next(iter(remainingViolationsInAllFiles.keys())) == tmpFile.as_posix()
+    )
     assert [
         str(_) for _ in remainingViolationsInAllFiles[tmpFile.as_posix()]
     ] == additionalViolations
@@ -301,8 +431,8 @@ def testBaselineIndent(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    Confirm round trip equality with a space or tab indent in the
-    baseline file.
+    Confirm round trip equality with a space or tab indent in the baseline
+    file.
 
     Parameters
     ----------
@@ -315,7 +445,6 @@ def testBaselineIndent(
     -------
     None
     """
-
     codeFile = tmp_path / 'code.py'
     baselineSpaces = tmp_path / 'baseline_spaces.txt'
     baselineTabs = tmp_path / 'baseline_tabs.txt'
@@ -340,7 +469,12 @@ def testBaselineIndent(
 
 
 @pytest.mark.parametrize(
-    'baselineViolations, actualViolations, expectedUnfixed, expectedRemaining',
+    (
+        'baselineViolations',
+        'actualViolations',
+        'expectedUnfixed',
+        'expectedRemaining',
+    ),
     [
         (
             [],
@@ -443,22 +577,6 @@ def testBaselineIndent(
             [
                 'DOC203: return type(s) in docstring not consistent with the return annotation.',
             ],
-            [
-                Violation(line=0, code=501, msgPrefix='', msgPostfix=''),
-                Violation(line=0, code=502, msgPrefix='', msgPostfix=''),
-            ],
-        ),
-        (  # Everything in baseline is fixed, and new violations found
-            [
-                'DOC201: does not have a return section in docstring',
-                'DOC202: has a return section in docstring, but there are no return statements or annotations',
-                'DOC203: return type(s) in docstring not consistent with the return annotation.',
-            ],
-            [
-                Violation(line=0, code=501, msgPrefix='', msgPostfix=''),
-                Violation(line=0, code=502, msgPrefix='', msgPostfix=''),
-            ],
-            [],
             [
                 Violation(line=0, code=501, msgPrefix='', msgPostfix=''),
                 Violation(line=0, code=502, msgPrefix='', msgPostfix=''),

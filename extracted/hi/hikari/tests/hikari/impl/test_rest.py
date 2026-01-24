@@ -5391,24 +5391,19 @@ class TestRESTClientImplAsync:
         rest_client._request.assert_awaited_once_with(routes.GET_THREAD_MEMBER.compile(channel=55445454, user=45454454))
 
     async def test_fetch_thread_members(self, rest_client: rest.RESTClientImpl):
-        mock_payload_1 = mock.Mock()
-        mock_payload_2 = mock.Mock()
-        mock_payload_3 = mock.Mock()
-        mock_member_1 = mock.Mock()
-        mock_member_2 = mock.Mock()
-        mock_member_3 = mock.Mock()
-        rest_client._request = mock.AsyncMock(return_value=[mock_payload_1, mock_payload_2, mock_payload_3])
-        rest_client._entity_factory.deserialize_thread_member = mock.Mock(
-            side_effect=[mock_member_1, mock_member_2, mock_member_3]
-        )
+        channel = StubModel(123)
+        id = 123
+        stub_iterator = mock.Mock()
 
-        result = await rest_client.fetch_thread_members(StubModel(110101010101))
+        with mock.patch.object(special_endpoints, "ThreadMembersIterator", return_value=stub_iterator) as iterator:
+            assert rest_client.fetch_thread_members(channel, after=id) == stub_iterator
 
-        assert result == [mock_member_1, mock_member_2, mock_member_3]
-        rest_client._request.assert_awaited_once_with(routes.GET_THREAD_MEMBERS.compile(channel=110101010101))
-        rest_client._entity_factory.deserialize_thread_member.assert_has_calls(
-            [mock.call(mock_payload_1), mock.call(mock_payload_2), mock.call(mock_payload_3)]
-        )
+            iterator.assert_called_once_with(
+                entity_factory=rest_client._entity_factory,
+                request_call=rest_client._request,
+                channel=channel,
+                last_id=id,
+            )
 
     async def test_fetch_active_threads(self, rest_client: rest.RESTClientImpl): ...
 
@@ -5546,13 +5541,25 @@ class TestRESTClientImplAsync:
         )
         rest_client._request.assert_awaited_once_with(expected_route, json={}, reason=undefined.UNDEFINED)
 
-    async def test_my_edit_member(self, rest_client):
+    async def test_edit_my_member(self, rest_client, file_resource):
         expected_route = routes.PATCH_MY_GUILD_MEMBER.compile(guild=123)
-        expected_json = {"nick": "test"}
+        expected_json = {"nick": "test", "avatar": "avatar data", "banner": "banner data", "bio": "do not the beanos."}
         rest_client._request = mock.AsyncMock(return_value={"id": "789"})
 
-        result = await rest_client.edit_my_member(StubModel(123), nickname="test", reason="because i can")
-        assert result is rest_client._entity_factory.deserialize_member.return_value
+        avatar_resource = file_resource("avatar data")
+        banner_resource = file_resource("banner data")
+
+        with mock.patch.object(files, "ensure_resource", side_effect=[avatar_resource, banner_resource]):
+            result = await rest_client.edit_my_member(
+                StubModel(123),
+                nickname="test",
+                avatar=avatar_resource,
+                banner=banner_resource,
+                bio="do not the beanos.",
+                reason="because i can",
+            )
+
+            assert result is rest_client._entity_factory.deserialize_member.return_value
 
         rest_client._entity_factory.deserialize_member.assert_called_once_with(
             rest_client._request.return_value, guild_id=123
@@ -5570,6 +5577,19 @@ class TestRESTClientImplAsync:
             rest_client._request.return_value, guild_id=123
         )
         rest_client._request.assert_awaited_once_with(expected_route, json={}, reason=undefined.UNDEFINED)
+
+    async def test_edit_my_member_with_nulls(self, rest_client):
+        expected_route = routes.PATCH_MY_GUILD_MEMBER.compile(guild=123)
+        expected_json = {"nick": None, "avatar": None, "banner": None, "bio": None}
+        rest_client._request = mock.AsyncMock(return_value={"id": "789"})
+
+        result = await rest_client.edit_my_member(StubModel(123), nickname=None, avatar=None, banner=None, bio=None)
+        assert result is rest_client._entity_factory.deserialize_member.return_value
+
+        rest_client._entity_factory.deserialize_member.assert_called_once_with(
+            rest_client._request.return_value, guild_id=123
+        )
+        rest_client._request.assert_awaited_once_with(expected_route, json=expected_json, reason=undefined.UNDEFINED)
 
     async def test_add_role_to_member(self, rest_client):
         expected_route = routes.PUT_GUILD_MEMBER_ROLE.compile(guild=123, user=456, role=789)

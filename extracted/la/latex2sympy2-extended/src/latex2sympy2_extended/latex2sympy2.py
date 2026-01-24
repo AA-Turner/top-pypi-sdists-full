@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 import sympy
 import re
-from sympy import Basic, Matrix, MatrixBase, Number, Pow, Rational, matrix_symbols, simplify, factor, expand, apart, expand_trig
+from sympy import Basic, Matrix, MatrixBase, Number, Pow, Rational, matrix_symbols, simplify, factor, expand, apart, expand_trig, UnevaluatedExpr
 from antlr4 import InputStream, CommonTokenStream
 from antlr4.error.ErrorListener import ErrorListener
-from latex2sympy2_extended.symbols import get_symbol
+from latex2sympy2_extended.symbols import get_symbol, GREEK_LETTER_MAP
 from latex2sympy2_extended.math_normalization import normalize_latex, NormalizationConfig
 from latex2sympy2_extended.antlr_parser import PSParser, PSLexer
 import sympy.functions.elementary.trigonometric as sympy_trig
@@ -943,7 +943,7 @@ class _Latex2Sympy:
                 pass
 
         # find the atom's superscript, and return as a Pow if found
-        if atom_expr.supexpr():
+        if hasattr(atom_expr, 'supexpr') and atom_expr.supexpr():
             supexpr = atom_expr.supexpr()
             func_pow = None
             if supexpr.expr():
@@ -1008,10 +1008,14 @@ class _Latex2Sympy:
             # return the symbol
             return symbol
 
+        elif atom.FUNC_GAMMA():
+            text = atom.FUNC_GAMMA().getText()
+            return get_symbol(text, self.is_real, self.config.lowercase_symbols)
+
         elif atom.PERCENT_NUMBER():
             text = atom.PERCENT_NUMBER().getText().replace("\\%", "").replace("%", "").replace(",", "")
             number = self.parse_number(text)
-            percent = sympy.Mul(number, Rational(1, 100), evaluate=False)
+            percent = sympy.Mul(number, sympy.UnevaluatedExpr(sympy.Rational(1, 100)), evaluate=False)
             return percent
     def parse_number(self, text):
         text = text.replace(",", "")
@@ -1177,7 +1181,8 @@ class _Latex2Sympy:
                 expr = self.handle_ceil(arg)
             elif name == 'det':
                 expr = arg.det()
-            
+            elif name in ["Gamma", "gamma"]:
+                expr = sympy.gamma(arg)
             elif name in ["sin", "cos", "tan", "csc", "sec", "cot"]:
                 if func_pow == -1:
                     name = "a" + name
@@ -1443,7 +1448,7 @@ class _Latex2Sympy:
 # Common regex
 
 def convert_to_pct(number: Number):
-    return sympy.Mul(number, sympy.Rational(1, 100), evaluate=False)
+    return sympy.Mul(number, sympy.UnevaluatedExpr(sympy.Rational(1, 100)), evaluate=False)
 
 def latex2sympy(latex_str: str, variable_values: dict | None = None, is_real=None, convert_degrees: bool = False, normalization_config: NormalizationConfig | None = NormalizationConfig(), conversion_config: ConversionConfig = ConversionConfig()):
     converter = _Latex2Sympy(variable_values, is_real, convert_degrees, config=conversion_config)

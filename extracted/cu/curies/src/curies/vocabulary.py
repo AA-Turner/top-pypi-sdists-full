@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Literal
-
-from typing_extensions import TypeAlias
+from typing import Literal, TypeAlias
 
 from .api import NamedReference
 
@@ -42,6 +40,7 @@ has_description = _r("dcterms", "description", "description")
 has_license = _r("dcterms", "license", "license")
 has_title = _r("dcterms", "title", "title")
 has_contributor = _r("dcterms", "contributor", "contributor")
+has_creator = _r("dcterms", "creator", "creator")
 has_source = _r("dcterms", "source", "source")
 has_date = _r("dcterms", "date", "date")
 
@@ -56,11 +55,43 @@ obo_creation_date = _r("oboInOwl", "creation_date", "creation date")
 
 owl_version_info = _r("owl", "versionInfo", "has version")
 owl_inverse_of = _r("owl", "inverseOf", "inverse of")
+owl_class = _r("owl", "Class", "class")
+owl_object_property = _r("owl", "ObjectProperty", "object property")
+owl_data_property = _r("owl", "DataProperty", "data property")
+owl_annotation_property = _r("owl", "AnnotationProperty", "annotation property")
+owl_named_individual = _r("owl", "NamedIndividual", "named individual")
+
+# SKOS
+
+skos_concept = _r("skos", "Concept", "concept")
+
+# RDFS
+
+rdfs_resource = _r("rdfs", "Resource", "resource")
+rdfs_class = _r("rdfs", "Class", "class")
+rdfs_literal = _r("rdfs", "Literal", "literal")
+rdfs_datatype = _r("rdfs", "Datatype", "datatype")
+rdfs_property = _r("rdfs", "Property", "property")
+
+# SSSOM
+
+composed_entity_expression = _r("sssom", "ComposedEntityExpression", "composed entity expression")
 
 # IAO
 
 has_ontology_root_term = _r("IAO", "0000700", "has ontology root term")
 has_term_editor = _r("IAO", "0000117", "term editor")
+
+
+# Document parts
+title_section = _r("IAO", "0000651", "title section")
+abstract_section = _r("IAO", "0000315", "abstract")
+
+#: A set of document parts that are subclasses of IAO:0000314
+DOCUMENT_PARTS = {
+    title_section,
+    abstract_section,
+}
 
 # Synonyms
 
@@ -166,6 +197,7 @@ broad_match = _r("skos", "broadMatch", "broad match")
 close_match = _r("skos", "closeMatch", "close match")
 related_match = _r("skos", "relatedMatch", "related match")
 
+editor_note = _r("IAO", "0000116", "editor note")
 # `alternate term` and `term replaced by` can also be considered as mapping relations
 alternative_term = _r("IAO", "0000118", "alternative term")
 term_replaced_by = _r("IAO", "0100001", "term replaced by")
@@ -289,3 +321,5 @@ inhibitor_of = _r("RO", "0012006", "is small molecule inhibitor of")
 
 is_model_of = _r("RO", "0003301", "is model of")
 is_marker_for = _r("RO", "0002607", "is marker for")
+
+orthologous_to = _r("RO", "HOM0000017", "in orthology relationship with")

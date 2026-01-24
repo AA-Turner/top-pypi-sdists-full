@@ -23,18 +23,18 @@ setup(
     description="Package for performing ETL/ELT tasks with Dagster.",
     url="https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-embedded-elt",
     classifiers=[
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "License :: OSI Approved :: Apache Software License",
         "Operating System :: OS Independent",
     ],
     packages=find_packages(exclude=["dagster_embedded_elt_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<3.14",
-    install_requires=["dagster==1.11.11", "dagster-sling==0.27.11", "dagster-dlt==0.27.11"],
+    python_requires=">=3.10,<3.15",
+    install_requires=["dagster==1.12.12", "dagster-sling==0.28.12", "dagster-dlt==0.28.12"],
     zip_safe=False,
     extras_require={
         "test": [

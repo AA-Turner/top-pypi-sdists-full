@@ -1,8 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: ccy
-Version: 1.7.1
+Version: 1.7.2
 Summary: Python currencies
 License: BSD
+License-File: LICENSE
 Author: Luca Sbardella
 Author-email: luca@quantmind.com
 Requires-Python: >=3.10
@@ -12,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Provides-Extra: cli
 Provides-Extra: holidays
 Requires-Dist: click (>=8.1.7,<9.0.0) ; extra == "cli"

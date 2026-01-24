@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: patch-ng
-Version: 1.18.1
+Version: 1.19.0
 Summary: Library to parse and apply unified diffs.
 Home-page: https://github.com/conan-io/python-patch
 Author: Conan.io

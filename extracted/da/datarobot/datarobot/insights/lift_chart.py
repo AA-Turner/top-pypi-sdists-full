@@ -35,9 +35,11 @@ class LiftChart(BaseInsight):
         ```
     """
 
-    LIFT_CHART_BINS = t.Dict(
-        {t.Key("actual"): t.Float(), t.Key("predicted"): t.Float(), t.Key("bin_weight"): t.Float()}
-    ).ignore_extra("*")
+    LIFT_CHART_BINS = t.Dict({
+        t.Key("actual"): t.Float(),
+        t.Key("predicted"): t.Float(),
+        t.Key("bin_weight"): t.Float(),
+    }).ignore_extra("*")
 
     INSIGHT_NAME = "liftChart"
     INSIGHT_DATA = {t.Key("bins"): t.List(LIFT_CHART_BINS)}

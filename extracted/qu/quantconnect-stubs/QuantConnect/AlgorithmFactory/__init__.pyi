@@ -1,5 +1,5 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
@@ -9,59 +9,6 @@ import QuantConnect.Interfaces
 import QuantConnect.Util
 import System
 import System.Reflection
-
-
-class DebuggerHelper(System.Object):
-    """Helper class used to start a new debugging session"""
-
-    class DebuggingMethod(Enum):
-        """The different implemented debugging methods"""
-
-        LOCAL_CMDLINE = 0
-        """
-        Local debugging through cmdline.
-        Language.Python will use built in 'pdb'
-        """
-
-        VISUAL_STUDIO = 1
-        """
-        Visual studio local debugging.
-        Language.Python will use 'Python Tools for Visual Studio',
-        attach manually selecting `Python` code type.
-        """
-
-        PTVSD = 2
-        """
-        Python Tool for Visual Studio Debugger for remote python debugging.
-        Language.Python. Deprecated, routes to DebugPy which
-        is it's replacement. Used in the same way.
-        """
-
-        DEBUG_PY = 3
-        """
-        DebugPy - a debugger for Python.
-        Language.Python can use  `Python Extension` in VS Code
-        or attach to Python in Visual Studio
-        """
-
-        PY_CHARM = 4
-        """
-        PyCharm PyDev Debugger for remote python debugging.
-        Language.Python will use 'Python Debug Server' in PyCharm
-        """
-
-        def __int__(self) -> int:
-            ...
-
-    @staticmethod
-    def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], typing.Any]]) -> typing.Tuple[None, typing.Callable[[], typing.Any]]:
-        """
-        Will start a new debugging session
-        
-        :param language: The algorithms programming language
-        :param workers_initialization_callback: Optionally, the debugging method will set an action which the data stack workers should execute so we can debug code executed by them, this is specially important for python.
-        """
-        ...
 
 
 class Loader(System.MarshalByRefObject):
@@ -89,7 +36,11 @@ class Loader(System.MarshalByRefObject):
         :param debugging: True if we are debugging
         :param language: Which language are we trying to load
         :param loader_time_limit: Used to limit how long it takes to create a new instance
-        :param multiple_type_name_resolver_function: Used to resolve multiple type names found in assembly to a single type name, if null, defaults to names => names.SingleOrDefault()  When we search an assembly for derived types of IAlgorithm, sometimes the assembly will contain multiple matching types. This is the case for the QuantConnect.Algorithm assembly in this solution.  In order to pick the correct type, consumers must specify how to pick the type, that's what this function does, it picks the correct type from the list of types found within the assembly.
+        :param multiple_type_name_resolver_function: Used to resolve multiple type names found in assembly to a single type name, if null, defaults to names => names.SingleOrDefault()
+        
+        When we search an assembly for derived types of IAlgorithm, sometimes the assembly will contain multiple matching types. This is the case
+        for the QuantConnect.Algorithm assembly in this solution.  In order to pick the correct type, consumers must specify how to pick the type,
+        that's what this function does, it picks the correct type from the list of types found within the assembly.
         :param worker_thread: The worker thread instance the loader should use
         """
         ...
@@ -128,6 +79,57 @@ class Loader(System.MarshalByRefObject):
         ...
 
     def unload(self) -> None:
+        ...
+
+
+class DebuggerHelper(System.Object):
+    """Helper class used to start a new debugging session"""
+
+    class DebuggingMethod(IntEnum):
+        """The different implemented debugging methods"""
+
+        LOCAL_CMDLINE = 0
+        """
+        Local debugging through cmdline.
+        Language.PYTHON will use built in 'pdb'
+        """
+
+        VISUAL_STUDIO = 1
+        """
+        Visual studio local debugging.
+        Language.PYTHON will use 'Python Tools for Visual Studio',
+        attach manually selecting `Python` code type.
+        """
+
+        PTVSD = 2
+        """
+        Python Tool for Visual Studio Debugger for remote python debugging.
+        Language.PYTHON. Deprecated, routes to DebugPy which
+        is it's replacement. Used in the same way.
+        """
+
+        DEBUG_PY = 3
+        """
+        DebugPy - a debugger for Python.
+        Language.PYTHON can use  `Python Extension` in VS Code
+        or attach to Python in Visual Studio
+        """
+
+        PY_CHARM = 4
+        """
+        PyCharm PyDev Debugger for remote python debugging.
+        Language.PYTHON will use 'Python Debug Server' in PyCharm
+        """
+
+    @staticmethod
+    def initialize(language: QuantConnect.Language, workers_initialization_callback: typing.Optional[typing.Callable[[], typing.Any]]) -> typing.Tuple[None, typing.Callable[[], typing.Any]]:
+        """
+        Will start a new debugging session
+        
+        :param language: The algorithms programming language
+        :param workers_initialization_callback: Optionally, the debugging method will set an action which the data stack workers should execute
+        so we can debug code executed by them, this is specially important for python.
+        """
         ...
 
 

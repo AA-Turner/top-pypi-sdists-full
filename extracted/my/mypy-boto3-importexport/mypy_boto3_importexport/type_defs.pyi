@@ -17,16 +17,11 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 
 from .literals import JobTypeType
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
 else:
@@ -63,7 +58,7 @@ class CancelJobInputTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -125,7 +120,7 @@ class CreateJobOutputTypeDef(TypedDict):
     Signature: str
     SignatureFileContents: str
     WarningMessage: str
-    ArtifactList: List[ArtifactTypeDef]
+    ArtifactList: list[ArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 GetShippingLabelOutputTypeDef = TypedDict(
@@ -153,17 +148,17 @@ class GetStatusOutputTypeDef(TypedDict):
     SignatureFileContents: str
     CurrentManifest: str
     CreationDate: datetime
-    ArtifactList: List[ArtifactTypeDef]
+    ArtifactList: list[ArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateJobOutputTypeDef(TypedDict):
     Success: bool
     WarningMessage: str
-    ArtifactList: List[ArtifactTypeDef]
+    ArtifactList: list[ArtifactTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListJobsOutputTypeDef(TypedDict):
-    Jobs: List[JobTypeDef]
+    Jobs: list[JobTypeDef]
     IsTruncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 

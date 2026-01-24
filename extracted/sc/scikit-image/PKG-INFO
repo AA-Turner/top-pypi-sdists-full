@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: scikit-image
-Version: 0.25.2
+Version: 0.26.0
 Summary: Image processing in Python
 Maintainer-Email: scikit-image developers <skimage-core@discuss.scientific-python.org>
 License: Files: *
@@ -164,10 +164,10 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Scientific/Engineering
@@ -180,7 +180,7 @@ Project-URL: documentation, https://scikit-image.org/docs/stable
 Project-URL: source, https://github.com/scikit-image/scikit-image
 Project-URL: download, https://pypi.org/project/scikit-image/#files
 Project-URL: tracker, https://github.com/scikit-image/scikit-image/issues
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: numpy>=1.24
 Requires-Dist: scipy>=1.11.4
 Requires-Dist: networkx>=3.0
@@ -192,7 +192,7 @@ Requires-Dist: lazy-loader>=0.4
 Provides-Extra: build
 Requires-Dist: meson-python>=0.16; extra == "build"
 Requires-Dist: ninja>=1.11.1.1; extra == "build"
-Requires-Dist: Cython>=3.0.8; extra == "build"
+Requires-Dist: Cython!=3.2.0b1,>=3.0.8; extra == "build"
 Requires-Dist: pythran>=0.16; extra == "build"
 Requires-Dist: numpy>=2.0; extra == "build"
 Requires-Dist: spin==0.13; extra == "build"
@@ -202,7 +202,10 @@ Requires-Dist: pooch>=1.6.0; extra == "data"
 Provides-Extra: developer
 Requires-Dist: pre-commit; extra == "developer"
 Requires-Dist: ipython; extra == "developer"
-Requires-Dist: tomli; python_version < "3.11" and extra == "developer"
+Requires-Dist: docstub==0.3.0.post0; extra == "developer"
+Requires-Dist: scikit-image[asv]; extra == "developer"
+Provides-Extra: asv
+Requires-Dist: asv; sys_platform != "emscripten" and extra == "asv"
 Provides-Extra: docs
 Requires-Dist: sphinx>=8.0; extra == "docs"
 Requires-Dist: sphinx-gallery[parallel]>=0.18; extra == "docs"
@@ -224,26 +227,27 @@ Requires-Dist: scikit-learn>=1.2; extra == "docs"
 Requires-Dist: sphinx_design>=0.5; extra == "docs"
 Requires-Dist: pydata-sphinx-theme>=0.16; extra == "docs"
 Requires-Dist: PyWavelets>=1.6; extra == "docs"
-Requires-Dist: pytest-doctestplus; extra == "docs"
+Requires-Dist: pytest-doctestplus>=1.6.0; extra == "docs"
 Provides-Extra: optional
-Requires-Dist: SimpleITK; extra == "optional"
-Requires-Dist: astropy>=5.0; extra == "optional"
-Requires-Dist: cloudpickle>=1.1.1; extra == "optional"
-Requires-Dist: dask[array]>=2023.2.0; extra == "optional"
-Requires-Dist: matplotlib>=3.7; extra == "optional"
-Requires-Dist: pooch>=1.6.0; extra == "optional"
-Requires-Dist: pyamg>=5.2; extra == "optional"
-Requires-Dist: PyWavelets>=1.6; extra == "optional"
+Requires-Dist: SimpleITK; sys_platform != "emscripten" and extra == "optional"
 Requires-Dist: scikit-learn>=1.2; extra == "optional"
+Requires-Dist: pyamg>=5.2; sys_platform != "emscripten" and python_version < "3.14" and extra == "optional"
+Requires-Dist: scikit-image[optional_free_threaded]; extra == "optional"
+Provides-Extra: optional-free-threaded
+Requires-Dist: astropy>=6.0; extra == "optional-free-threaded"
+Requires-Dist: dask[array]>=2023.2.0; extra == "optional-free-threaded"
+Requires-Dist: matplotlib>=3.7; extra == "optional-free-threaded"
+Requires-Dist: pooch>=1.6.0; sys_platform != "emscripten" and extra == "optional-free-threaded"
+Requires-Dist: PyWavelets>=1.6; extra == "optional-free-threaded"
 Provides-Extra: test
-Requires-Dist: asv; extra == "test"
 Requires-Dist: numpydoc>=1.7; extra == "test"
-Requires-Dist: pooch>=1.6.0; extra == "test"
-Requires-Dist: pytest>=8; extra == "test"
+Requires-Dist: pooch>=1.6.0; sys_platform != "emscripten" and extra == "test"
+Requires-Dist: pytest>=8.3; extra == "test"
 Requires-Dist: pytest-cov>=2.11.0; extra == "test"
+Requires-Dist: pytest-pretty; extra == "test"
 Requires-Dist: pytest-localserver; extra == "test"
 Requires-Dist: pytest-faulthandler; extra == "test"
-Requires-Dist: pytest-doctestplus; extra == "test"
+Requires-Dist: pytest-doctestplus>=1.6.0; extra == "test"
 Description-Content-Type: text/markdown
 
 # scikit-image: Image processing in Python
@@ -251,6 +255,8 @@ Description-Content-Type: text/markdown
 [![Image.sc forum](https://img.shields.io/badge/dynamic/json.svg?label=forum&url=https%3A%2F%2Fforum.image.sc%2Ftags%2Fscikit-image.json&query=%24.topic_list.tags.0.topic_count&colorB=brightgreen&suffix=%20topics&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAABPklEQVR42m3SyyqFURTA8Y2BER0TDyExZ+aSPIKUlPIITFzKeQWXwhBlQrmFgUzMMFLKZeguBu5y+//17dP3nc5vuPdee6299gohUYYaDGOyyACq4JmQVoFujOMR77hNfOAGM+hBOQqB9TjHD36xhAa04RCuuXeKOvwHVWIKL9jCK2bRiV284QgL8MwEjAneeo9VNOEaBhzALGtoRy02cIcWhE34jj5YxgW+E5Z4iTPkMYpPLCNY3hdOYEfNbKYdmNngZ1jyEzw7h7AIb3fRTQ95OAZ6yQpGYHMMtOTgouktYwxuXsHgWLLl+4x++Kx1FJrjLTagA77bTPvYgw1rRqY56e+w7GNYsqX6JfPwi7aR+Y5SA+BXtKIRfkfJAYgj14tpOF6+I46c4/cAM3UhM3JxyKsxiOIhH0IO6SH/A1Kb1WBeUjbkAAAAAElFTkSuQmCC)](https://forum.image.sc/tags/scikit-image)
 [![Stackoverflow](https://img.shields.io/badge/stackoverflow-Ask%20questions-blue.svg)](https://stackoverflow.com/questions/tagged/scikit-image)
 [![project chat](https://img.shields.io/badge/zulip-join_chat-brightgreen.svg)](https://skimage.zulipchat.com)
+[![Scientific Python Ecosystem Coordination](https://img.shields.io/badge/SPEC-0,1,4,6,7,8-green?labelColor=%23004811&color=%235CA038)](https://scientific-python.org/specs/)
+[![LFX Health Score](https://insights.linuxfoundation.org/api/badge/health-score?project=scikit-image-scikit-image)](https://insights.linuxfoundation.org/project/scikit-image-scikit-image)
 
 - **Website (including documentation):** [https://scikit-image.org/](https://scikit-image.org)
 - **Documentation:** [https://scikit-image.org/docs/stable/](https://scikit-image.org/docs/stable/)

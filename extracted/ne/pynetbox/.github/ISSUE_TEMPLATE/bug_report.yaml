@@ -1,7 +1,7 @@
 ---
 name: 🐛 Bug Report
 description: Report a reproducible bug in the current release of pynetbox
-labels: ["type: bug", "status: needs triage"]
+labels: ["app: pynetbox", "type: bug", "status: needs triage"]
 body:
   - type: markdown
     attributes:
@@ -11,7 +11,7 @@ body:
     attributes:
       label: pynetbox version
       description: What version of pynetbox are you currently running?
-      placeholder: v7.5.0
+      placeholder: v7.6.0
     validations:
       required: true
   - type: input

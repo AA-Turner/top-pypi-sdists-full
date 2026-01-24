@@ -16,6 +16,7 @@ from .utils import (docval, get_docval, getargs, ExtenderMeta, get_data_shape, p
 
 from .term_set import TermSet, TermSetWrapper
 
+
 def _set_exp(cls):
     """Set a class as being experimental"""
     cls._experimental = True
@@ -33,7 +34,7 @@ def _exp_warn_msg(cls):
 
 class HERDManager:
     """
-    This class manages whether to set/attach an instance of HERD to the subclass.
+    When this class is used as a mixin for a Container, it enables setting and getting an instance of HERD.
     """
 
     @docval({'name': 'herd', 'type': 'HERD',
@@ -42,10 +43,30 @@ class HERDManager:
         """
         Method to attach an instance of HERD in order to auto-add terms/references to data.
         """
-        self._herd = kwargs['herd']
+        msg = (
+            "link_resources is deprecated and will be removed in HDMF 5.0. "
+            "Use the external_resources property instead."
+        )
+        warn(msg, DeprecationWarning, stacklevel=2)
+        self.external_resources = kwargs['herd']
 
     def get_linked_resources(self):
+        msg = (
+            "get_linked_resources is deprecated and will be removed in HDMF 5.0. "
+            "Use the external_resources property instead."
+        )
+        warn(msg, DeprecationWarning, stacklevel=2)
+        return self.external_resources
+
+    @property
+    def external_resources(self):
         return self._herd if hasattr(self, "_herd") else None
+
+    @external_resources.setter
+    def external_resources(self, herd):
+        if hasattr(self, "_herd"):
+            warn("Reassigning external_resources may lead to unexpected behavior.")
+        self._herd = herd
 
 
 class AbstractContainer(metaclass=ExtenderMeta):
@@ -92,8 +113,10 @@ class AbstractContainer(metaclass=ExtenderMeta):
         return setter
 
     def _get_type_map(self):
+        # TODO: refactor this so that it does not call get_type_map every time an attribute is set
+        # and there is non circular import
         from hdmf.common import get_type_map # circular import
-        return get_type_map()
+        return get_type_map(copy=False)
 
     @property
     def data_type(self):
@@ -114,12 +137,13 @@ class AbstractContainer(metaclass=ExtenderMeta):
         """
         configurator = type_map.type_config
 
-        if len(configurator.path)>0:
-            # The type_map has a config always set; however, when toggled off, the config path is empty.
-            CUR_DIR = os.path.dirname(os.path.realpath(configurator.path[0]))
-            termset_config = configurator.config
-        else:
+        if not configurator.paths:
             return val
+
+        # The type_map has a config always set; however, when toggled off, the config path is empty.
+        # TODO account for more than one different configurator path
+        CUR_DIR = os.path.dirname(os.path.realpath(configurator.paths[0]))
+        termset_config = configurator.config
 
         # If the val has been manually wrapped then skip checking the config for the attr
         if isinstance(val, TermSetWrapper):
@@ -127,44 +151,41 @@ class AbstractContainer(metaclass=ExtenderMeta):
             warn(msg)
             return val
 
-        # check to see that the namespace for the container is in the config
+        # return the value if the namespace for the container is not in the config
         if self.namespace not in termset_config['namespaces']:
-            msg = "%s not found within loaded configuration." % self.namespace
+            return val
+
+        # check to see that the container type is in the config under the namespace
+        config_namespace = termset_config['namespaces'][self.namespace]
+        data_type = self.data_type
+
+        # return the value if the data type for the container is not in the config
+        if data_type not in config_namespace['data_types']:
+            return val
+
+        # Get the ObjectMapper
+        obj_mapper = type_map.get_map(self)
+
+        # Get the spec for the constructor arg
+        spec = obj_mapper.get_carg_spec(arg_name)
+        if spec is None:
+            msg = "Spec not found for %s." % arg_name
             warn(msg)
             return val
-        else:
-            # check to see that the container type is in the config under the namespace
-            config_namespace = termset_config['namespaces'][self.namespace]
-            data_type = self.data_type
 
-            if data_type not in config_namespace['data_types']:
-                msg = '%s not found within the configuration for %s' % (data_type, self.namespace)
-                warn(msg)
-                return val
-            else:
-                # Get the ObjectMapper
-                obj_mapper = type_map.get_map(self)
+        # Get spec attr name
+        mapped_attr_name = obj_mapper.get_attribute(spec)
 
-                # Get the spec for the constructor arg
-                spec = obj_mapper.get_carg_spec(arg_name)
-                if spec is None:
-                    msg = "Spec not found for %s." % arg_name
-                    warn(msg)
-                    return val
+        config_data_type = config_namespace['data_types'][data_type]
+        try:
+            config_termset_path = config_data_type[mapped_attr_name]
+        except KeyError:
+            return val
 
-                # Get spec attr name
-                mapped_attr_name = obj_mapper.get_attribute(spec)
-
-                config_data_type = config_namespace['data_types'][data_type]
-                try:
-                    config_termset_path = config_data_type[mapped_attr_name]
-                except KeyError:
-                    return val
-
-                termset_path = os.path.join(CUR_DIR, config_termset_path['termset'])
-                termset = TermSet(term_schema_path=termset_path)
-                val = TermSetWrapper(value=val, termset=termset)
-                return val
+        termset_path = os.path.join(CUR_DIR, config_termset_path['termset'])
+        termset = TermSet(term_schema_path=termset_path)
+        val = TermSetWrapper(value=val, termset=termset)
+        return val
 
     @classmethod
     def _getter(cls, field):
@@ -701,6 +722,8 @@ class Container(AbstractContainer):
         """Generates HTML for a single field.
 
         This function can be overwritten by a child class to implement customized html representations.
+
+
         """
 
         if isinstance(value, (int, float, str, bool)):
@@ -726,10 +749,15 @@ class Container(AbstractContainer):
         else:
             html_content = f'<span class="field-key">{value}</span>'
 
+        display_name = str(key)
+        if isinstance(value, AbstractContainer):   # Excludes things like LabelledDict, ndarray, etc
+            class_name = type(value).__name__
+            class_name_str = f" <span style='font-weight: normal; color: #888;'>({class_name})</span>"
+            display_name += class_name_str
 
         html_repr = (
             f'<details><summary style="display: list-item; margin-left: {level * 20}px;" '
-            f'class="container-fields field-key" title="{access_code}"><b>{key}</b></summary>'
+            f'class="container-fields field-key" title="{access_code}"><b>{display_name}</b></summary>'
         )
         html_repr += html_content
         html_repr += "</details>"
@@ -1317,6 +1345,38 @@ class MultiContainerInterface(Container):
         get = conf_dict.get('get')
         if get is not None:
             setattr(cls, get, cls.__make_get(get, attr, container_type))
+
+    def _generate_field_html(self, key, value, level, access_code):
+        """Override to flatten single grouping attribute in MultiContainerInterface.
+
+        When a MultiContainerInterface has only one grouping attribute (len(__clsconf__) == 1)
+        and the value is a LabelledDict, the grouping attribute wrapper is redundant since
+        users can access children directly via container["name"] instead of container.attr["name"].
+        This method removes that extra nesting level in the HTML representation.
+
+        Examples of classes that get flattened:
+        - ProcessingModule: flattens "data_interfaces"
+        - Position: flattens "spatial_series"
+        - LFP: flattens "electrical_series"
+        - ImageSegmentation: flattens "plane_segmentations"
+        """
+        # Normalize to list since __clsconf__ can be a dict or a list (e.g. LFP in pynwb uses a list with 1 element)
+        clsconf = self.__clsconf__
+        if isinstance(clsconf, dict):
+            clsconf = [clsconf]
+
+        if len(clsconf) == 1 and isinstance(value, LabelledDict):
+            html_repr = ""
+            for child_name, child_container in value.items():
+                # Strip ".attr_name" from access_code and use direct ["child"] access
+                # e.g. ".spatial_series" becomes "", then we build "['SpatialSeries1']"
+                # This works because __getitem__ is defined for single clsconf (see line __build_class for details)
+                parent_access_code = access_code.rsplit('.', 1)[0]
+                child_access_code = f"{parent_access_code}['{child_name}']"
+                html_repr += super()._generate_field_html(child_name, child_container, level, child_access_code)
+            return html_repr
+
+        return super()._generate_field_html(key, value, level, access_code)
 
 
 class Row(object, metaclass=ExtenderMeta):

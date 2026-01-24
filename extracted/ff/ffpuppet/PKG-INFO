@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffpuppet
-Version: 0.18.4
+Version: 0.18.7
 Summary: A Python module that aids in the automation of Firefox at the process level
 Home-page: https://github.com/MozillaSecurity/ffpuppet
 Author: Tyson Smith
@@ -17,7 +17,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: psutil>=5.9.0
-Requires-Dist: xvfbwrapper>=0.2.9; sys_platform == "linux"
+Requires-Dist: xvfbwrapper>=0.2.10; sys_platform == "linux"
 Provides-Extra: dev
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: tox; extra == "dev"

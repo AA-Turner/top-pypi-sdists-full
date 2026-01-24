@@ -10,6 +10,7 @@ import re
 import sys
 from abc import ABC, abstractmethod
 from array import array
+from bisect import bisect_left
 from numbers import Integral
 from typing import (
     Callable,
@@ -34,6 +35,7 @@ from typing import (
     Union,
     get_type_hints,
 )
+from unittest.mock import patch
 
 import pytest
 import z3  # type: ignore
@@ -278,6 +280,35 @@ def test_int_reverse_operators() -> None:
         return (1 + i) + (1 - i) + (1 / i)
 
     check_states(f, POST_FAIL)
+
+
+def test_int_constant_bounds_tracking(space: StateSpace) -> None:
+    x = proxy_for_type(int, "x")
+    with patch(
+        "crosshair.statespace.StateSpace.choose_possible", return_value=False
+    ) as mock_solver:
+        with ResumedTracing():
+            assert mock_solver.call_count == 0
+            if x < 5:
+                assert False, "Should be unreachable"
+            assert mock_solver.call_count == 1
+            if x < 4:
+                assert False, "Should be unreachable"
+            assert mock_solver.call_count == 1
+            if x > 20:
+                assert False, "Should be unreachable"
+            assert mock_solver.call_count == 2
+            neg_x = -x
+            if neg_x < -30:
+                assert False, "Should be unreachable"
+            assert mock_solver.call_count == 2
+            abs_neg_x = abs(neg_x)
+    with ResumedTracing():
+        assert space.is_possible(neg_x == -5)
+        assert not space.is_possible(neg_x == -4)
+        assert space.is_possible(abs_neg_x == 5)
+        assert not space.is_possible(abs_neg_x == 21)
+        assert not space.is_possible(abs_neg_x != x)
 
 
 @pytest.mark.demo
@@ -1450,13 +1481,22 @@ def test_str_lower():
 
 
 def test_str_title():
-    chr_lj = "\u01C9"  # "lj"
+    chr_lj = "\u01c9"  # "lj"
     chr_Lj = "\u01c8"  # "Lj" (different from "LJ", "\u01c7")
     with standalone_statespace:
         with NoTracing():
             lj = LazyIntSymbolicStr(list(map(ord, chr_lj)))
             lja_b = LazyIntSymbolicStr(list(map(ord, chr_lj + "a_b")))
         assert lja_b.title() == chr_Lj + "a_B"
+
+
+def test_str_translate_on_concrete_map(space):
+    # Simple regression test for a previous crash in smt_fanout
+    tmap = {ord("a"): ord("z")}
+    thestring = proxy_for_type(str, "thestring")
+    with ResumedTracing():
+        space.add(len(thestring) > 0)
+        thestring.translate(tmap)
 
 
 def test_object_deep_realize():
@@ -1746,6 +1786,22 @@ def test_list_mixed_symbolic_and_literal_concat_ok() -> None:
         )
 
     check_states(f, CONFIRMED)
+
+
+def test_list_can_realize_nonzero_length_without_exhausting_other_paths() -> None:
+    def f(x: int, ls: List[int]) -> list[int]:
+        """
+        post: len(_) < 5
+        """
+        lslen = len(ls)
+        with NoTracing():
+            realize(lslen)
+
+        haystack = list(range(1000))
+        y = bisect_left(haystack, x)
+        return ls
+
+    check_states(f, POST_FAIL)
 
 
 def test_list_range_fail() -> None:
@@ -2649,6 +2705,7 @@ if sys.version_info >= (3, 9):
 def test_set_basic_fail() -> None:
     def f(a: Set[int], k: int) -> None:
         """
+        pre: len(a) <= 2
         post[a]: k+1 in a
         """
         a.add(k)

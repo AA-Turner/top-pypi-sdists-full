@@ -1,5 +1,3 @@
-from typing import Optional
-
 import grpc
 from _qwak_proto.qwak.projects.projects_pb2 import (
     CreateProjectRequest,
@@ -8,7 +6,6 @@ from _qwak_proto.qwak.projects.projects_pb2 import (
     ListProjectsRequest,
 )
 from _qwak_proto.qwak.projects.projects_pb2_grpc import ProjectsManagementServiceStub
-from _qwak_proto.qwak.projects.jfrog_project_spec_pb2 import ModelRepositoryJFrogSpec
 from dependency_injector.wiring import Provide, inject
 from qwak.exceptions import QwakException
 from qwak.inner.di_configuration import QwakContainer
@@ -34,16 +31,12 @@ class ProjectsManagementClient:
         self,
         project_name,
         project_description,
-        jfrog_project_key: Optional[str] = None,
     ):
         try:
             return self._projects_management_service.CreateProject(
                 CreateProjectRequest(
                     project_name=project_name,
                     project_description=project_description,
-                    jfrog_spec=ModelRepositoryJFrogSpec(
-                        jfrog_project_key=jfrog_project_key
-                    ),
                 )
             )
 

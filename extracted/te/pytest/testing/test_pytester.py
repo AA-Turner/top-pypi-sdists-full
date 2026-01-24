@@ -799,7 +799,7 @@ def test_pytester_makefile_dot_prefixes_extension_with_warning(
 ) -> None:
     with pytest.raises(
         ValueError,
-        match="pytester.makefile expects a file extension, try .foo.bar instead of foo.bar",
+        match=r"pytester\.makefile expects a file extension, try \.foo\.bar instead of foo\.bar",
     ):
         pytester.makefile("foo.bar", "")
 
@@ -834,3 +834,25 @@ def test_pytester_outcomes_deselected(pytester: Pytester) -> None:
     result.assert_outcomes(passed=1, deselected=1)
     # If deselected is not passed, it is not checked at all.
     result.assert_outcomes(passed=1)
+
+
+def test_pytester_subprocess_with_string_plugins(pytester: Pytester) -> None:
+    """Test that pytester.runpytest_subprocess is OK with named (string)
+    `.plugins`."""
+    pytester.plugins = ["pytester"]
+
+    result = pytester.runpytest_subprocess()
+    assert result.ret == ExitCode.NO_TESTS_COLLECTED
+
+
+def test_pytester_subprocess_with_non_string_plugins(pytester: Pytester) -> None:
+    """Test that pytester.runpytest_subprocess fails with a proper error given
+    non-string `.plugins`."""
+
+    class MyPlugin:
+        pass
+
+    pytester.plugins = [MyPlugin()]
+
+    with pytest.raises(ValueError, match="plugins as objects is not supported"):
+        pytester.runpytest_subprocess()

@@ -1,24 +1,38 @@
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2021-2025 Daniel Perna, SukramJ
-"""Module for data points implemented using the light category."""
+# Copyright (c) 2021-2026
+"""
+Custom light data points for dimmers and colored lighting.
+
+Public API of this module is defined by __all__.
+"""
 
 from __future__ import annotations
 
 from collections.abc import Mapping
-from enum import IntEnum, StrEnum
+from enum import StrEnum
 import math
-from typing import Any, Final, TypedDict, Unpack
+from typing import Final, TypedDict, Unpack
 
-from aiohomematic.const import DataPointCategory, DataPointUsage, Parameter
-from aiohomematic.model import device as hmd
-from aiohomematic.model.custom import definition as hmed
-from aiohomematic.model.custom.const import DeviceProfile, Field
+from aiohomematic.const import DataPointCategory, DataPointUsage, DeviceProfile, Field, Parameter
+from aiohomematic.model.custom.capabilities.light import LightCapabilities
 from aiohomematic.model.custom.data_point import CustomDataPoint
-from aiohomematic.model.custom.support import CustomConfig, ExtendedConfig
+from aiohomematic.model.custom.field import DataPointField
+from aiohomematic.model.custom.mixins import BrightnessMixin, StateChangeArgs, StateChangeTimerMixin, TimerUnitMixin
+from aiohomematic.model.custom.registry import DeviceConfig, DeviceProfileRegistry, ExtendedDeviceConfig
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
-from aiohomematic.model.generic import DpAction, DpFloat, DpInteger, DpSelect, DpSensor, GenericDataPoint
-from aiohomematic.property_decorators import state_property
+from aiohomematic.model.generic import (
+    DpAction,
+    DpActionSelect,
+    DpFloat,
+    DpInteger,
+    DpSelect,
+    DpSensor,
+    GenericDataPointAny,
+)
+from aiohomematic.property_decorators import DelegatedProperty, Kind, state_property
 
+# Activity states indicating LED is active
+_ACTIVITY_STATES_ACTIVE: Final[frozenset[str]] = frozenset({"UP", "DOWN"})
 _DIMMER_OFF: Final = 0.0
 _EFFECT_OFF: Final = "Off"
 _LEVEL_TO_BRIGHTNESS_MULTIPLIER: Final = 100
@@ -31,7 +45,6 @@ _MIN_HUE: Final = 0.0
 _MIN_MIREDS: Final = 153
 _MIN_SATURATION: Final = 0.0
 _NOT_USED: Final = 111600
-_OLD_LEVEL: Final = 1.005
 _SATURATION_MULTIPLIER: Final = 100
 
 
@@ -53,7 +66,7 @@ class _ColorBehaviour(StrEnum):
     ON = "ON"
 
 
-class _FixedColor(StrEnum):
+class FixedColor(StrEnum):
     """Enum with colors."""
 
     BLACK = "BLACK"
@@ -81,18 +94,10 @@ class _StateChangeArg(StrEnum):
     RAMP_TIME = "ramp_time"
 
 
-class _TimeUnit(IntEnum):
-    """Enum with time units."""
-
-    SECONDS = 0
-    MINUTES = 1
-    HOURS = 2
-
-
 _NO_COLOR: Final = (
-    _FixedColor.BLACK,
-    _FixedColor.DO_NOT_CARE,
-    _FixedColor.OLD_VALUE,
+    FixedColor.BLACK,
+    FixedColor.DO_NOT_CARE,
+    FixedColor.OLD_VALUE,
 )
 
 _EXCLUDE_FROM_COLOR_BEHAVIOUR: Final = (
@@ -107,15 +112,88 @@ _OFF_COLOR_BEHAVIOUR: Final = (
     _ColorBehaviour.OLD_VALUE,
 )
 
-_FIXED_COLOR_SWITCHER: Mapping[str, tuple[float, float]] = {
-    _FixedColor.WHITE: (_MIN_HUE, _MIN_SATURATION),
-    _FixedColor.RED: (_MIN_HUE, _MAX_SATURATION),
-    _FixedColor.YELLOW: (60.0, _MAX_SATURATION),
-    _FixedColor.GREEN: (120.0, _MAX_SATURATION),
-    _FixedColor.TURQUOISE: (180.0, _MAX_SATURATION),
-    _FixedColor.BLUE: (240.0, _MAX_SATURATION),
-    _FixedColor.PURPLE: (300.0, _MAX_SATURATION),
+FIXED_COLOR_TO_HS_CONVERTER: Mapping[str, tuple[float, float]] = {
+    FixedColor.WHITE: (_MIN_HUE, _MIN_SATURATION),
+    FixedColor.RED: (_MIN_HUE, _MAX_SATURATION),
+    FixedColor.YELLOW: (60.0, _MAX_SATURATION),
+    FixedColor.GREEN: (120.0, _MAX_SATURATION),
+    FixedColor.TURQUOISE: (180.0, _MAX_SATURATION),
+    FixedColor.BLUE: (240.0, _MAX_SATURATION),
+    FixedColor.PURPLE: (300.0, _MAX_SATURATION),
 }
+
+# ON_TIME_LIST values mapping: (ms_value, enum_string)
+# Used for flash timing in LED sequences
+_ON_TIME_LIST_VALUES: Final[tuple[tuple[int, str], ...]] = (
+    (100, "100MS"),
+    (200, "200MS"),
+    (300, "300MS"),
+    (400, "400MS"),
+    (500, "500MS"),
+    (600, "600MS"),
+    (700, "700MS"),
+    (800, "800MS"),
+    (900, "900MS"),
+    (1000, "1S"),
+    (2000, "2S"),
+    (3000, "3S"),
+    (4000, "4S"),
+    (5000, "5S"),
+)
+_PERMANENTLY_ON: Final = "PERMANENTLY_ON"
+
+# Repetitions constants
+_NO_REPETITION: Final = "NO_REPETITION"
+_INFINITE_REPETITIONS: Final = "INFINITE_REPETITIONS"
+_MAX_REPETITIONS: Final = 18
+
+
+def _convert_repetitions(*, repetitions: int | None) -> str:
+    """
+    Convert repetitions count to REPETITIONS VALUE_LIST value.
+
+    Args:
+        repetitions: Number of repetitions (0=none, 1-18=count, -1=infinite, None=none).
+
+    Returns:
+        VALUE_LIST string (NO_REPETITION, REPETITIONS_001-018, or INFINITE_REPETITIONS).
+
+    Raises:
+        ValueError: If repetitions is outside valid range (-1 to 18).
+
+    """
+    if repetitions is None or repetitions == 0:
+        return _NO_REPETITION
+
+    if repetitions == -1:
+        return _INFINITE_REPETITIONS
+
+    if repetitions < -1 or repetitions > _MAX_REPETITIONS:
+        msg = f"Repetitions must be -1 (infinite), 0 (none), or 1-{_MAX_REPETITIONS}, got {repetitions}"
+        raise ValueError(msg)
+
+    return f"REPETITIONS_{repetitions:03d}"
+
+
+def _convert_flash_time_to_on_time_list(*, flash_time_ms: int | None) -> str:
+    """Convert flash time in milliseconds to nearest ON_TIME_LIST value."""
+    if flash_time_ms is None or flash_time_ms <= 0:
+        return _PERMANENTLY_ON
+
+    # If flash_time is larger than 5000ms, use PERMANENTLY_ON
+    if flash_time_ms > 5000:
+        return _PERMANENTLY_ON
+
+    # Find the closest match
+    best_match = _PERMANENTLY_ON
+    best_diff = math.inf
+
+    for ms_value, enum_str in _ON_TIME_LIST_VALUES:
+        if (diff := abs(ms_value - flash_time_ms)) < best_diff:
+            best_diff = diff
+            best_match = enum_str
+
+    return best_match
 
 
 class LightOnArgs(TypedDict, total=False):
@@ -136,90 +214,77 @@ class LightOffArgs(TypedDict, total=False):
     ramp_time: float
 
 
-class CustomDpDimmer(CustomDataPoint):
-    """Base class for HomeMatic light data point."""
+class SoundPlayerLedOnArgs(LightOnArgs, total=False):
+    """Arguments for CustomDpSoundPlayerLed turn_on method (extends LightOnArgs)."""
 
-    __slots__ = (
-        "_dp_group_level",
-        "_dp_level",
-        "_dp_on_time_value",
-        "_dp_ramp_time_value",
-    )
+    repetitions: int  # 0=none, 1-18=count, -1=infinite (converted to VALUE_LIST entry)
+    flash_time: int  # Flash duration in milliseconds (converted to nearest VALUE_LIST entry)
+
+
+class CustomDpDimmer(StateChangeTimerMixin, BrightnessMixin, CustomDataPoint):
+    """Base class for Homematic light data point."""
+
+    __slots__ = ("_capabilities",)
+
     _category = DataPointCategory.LIGHT
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_level: DpFloat = self._get_data_point(field=Field.LEVEL, data_point_type=DpFloat)
-        self._dp_group_level: DpSensor[float | None] = self._get_data_point(
-            field=Field.GROUP_LEVEL, data_point_type=DpSensor[float | None]
-        )
-        self._dp_on_time_value: DpAction = self._get_data_point(field=Field.ON_TIME_VALUE, data_point_type=DpAction)
-        self._dp_ramp_time_value: DpAction = self._get_data_point(field=Field.RAMP_TIME_VALUE, data_point_type=DpAction)
-
-    @state_property
-    def is_on(self) -> bool | None:
-        """Return true if dimmer is on."""
-        return self._dp_level.value is not None and self._dp_level.value > _DIMMER_OFF
-
-    @state_property
-    def brightness(self) -> int | None:
-        """Return the brightness of this light between min/max brightness."""
-        return int((self._dp_level.value or _MIN_BRIGHTNESS) * _MAX_BRIGHTNESS)
+    # Declarative data point field definitions
+    _dp_group_level: Final = DataPointField(field=Field.GROUP_LEVEL, dpt=DpSensor[float | None])
+    _dp_level: Final = DataPointField(field=Field.LEVEL, dpt=DpFloat)
+    _dp_on_time_value = DataPointField(field=Field.ON_TIME_VALUE, dpt=DpAction)
+    _dp_ramp_time_value = DataPointField(field=Field.RAMP_TIME_VALUE, dpt=DpAction)
 
     @property
     def brightness_pct(self) -> int | None:
         """Return the brightness in percent of this light."""
-        return int((self._dp_level.value or _MIN_BRIGHTNESS) * _LEVEL_TO_BRIGHTNESS_MULTIPLIER)
+        return self.level_to_brightness_pct(self._dp_level.value or _MIN_BRIGHTNESS)
+
+    @property
+    def capabilities(self) -> LightCapabilities:
+        """Return the light capabilities."""
+        if (caps := getattr(self, "_capabilities", None)) is None:
+            caps = self._compute_capabilities()
+            object.__setattr__(self, "_capabilities", caps)
+        return caps
 
     @property
     def group_brightness(self) -> int | None:
         """Return the group brightness of this light between min/max brightness."""
         if self._dp_group_level.value is not None:
-            return int(self._dp_group_level.value * _MAX_BRIGHTNESS)
+            return self.level_to_brightness(self._dp_group_level.value)
         return None
 
     @property
     def group_brightness_pct(self) -> int | None:
         """Return the group brightness in percent of this light."""
         if self._dp_group_level.value is not None:
-            return int(self._dp_group_level.value * _LEVEL_TO_BRIGHTNESS_MULTIPLIER)
+            return self.level_to_brightness_pct(self._dp_group_level.value)
         return None
+
+    @property
+    def has_color_temperature(self) -> bool:
+        """Return True if light currently has color temperature."""
+        return self.color_temp_kelvin is not None
+
+    @property
+    def has_effects(self) -> bool:
+        """Return True if light currently has effects."""
+        return self.effects is not None and len(self.effects) > 0
+
+    @property
+    def has_hs_color(self) -> bool:
+        """Return True if light currently has hs color."""
+        return self.hs_color is not None
+
+    @state_property
+    def brightness(self) -> int | None:
+        """Return the brightness of this light between min/max brightness."""
+        return self.level_to_brightness(self._dp_level.value or _MIN_BRIGHTNESS)
 
     @state_property
     def color_temp_kelvin(self) -> int | None:
         """Return the color temperature in kelvin."""
         return None
-
-    @state_property
-    def hs_color(self) -> tuple[float, float] | None:
-        """Return the hue and saturation color value [float, float]."""
-        return None
-
-    @property
-    def supports_brightness(self) -> bool:
-        """Flag if light supports brightness."""
-        return isinstance(self._dp_level, DpFloat)
-
-    @property
-    def supports_color_temperature(self) -> bool:
-        """Flag if light supports color temperature."""
-        return self.color_temp_kelvin is not None
-
-    @property
-    def supports_effects(self) -> bool:
-        """Flag if light supports effects."""
-        return self.effects is not None and len(self.effects) > 0
-
-    @property
-    def supports_hs_color(self) -> bool:
-        """Flag if light supports color."""
-        return self.hs_color is not None
-
-    @property
-    def supports_transition(self) -> bool:
-        """Flag if light supports transition."""
-        return isinstance(self._dp_ramp_time_value, DpAction)
 
     @state_property
     def effect(self) -> str | None:
@@ -231,51 +296,19 @@ class CustomDpDimmer(CustomDataPoint):
         """Return the supported effects."""
         return None
 
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
-        """Turn the light on."""
-        if (on_time := kwargs.get("on_time")) is not None:
-            self.set_timer_on_time(on_time=on_time)
-        if not self.is_state_change(on=True, **kwargs):
-            return
+    @state_property
+    def hs_color(self) -> tuple[float, float] | None:
+        """Return the hue and saturation color value [float, float]."""
+        return None
 
-        if (timer := self.get_and_start_timer()) is not None:
-            await self._set_on_time_value(on_time=timer, collector=collector)
-        if ramp_time := kwargs.get("ramp_time"):
-            await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
-        if not (brightness := kwargs.get("brightness", self.brightness)):
-            brightness = int(_MAX_BRIGHTNESS)
-        level = brightness / _MAX_BRIGHTNESS
-        await self._dp_level.send_value(value=level, collector=collector)
+    @state_property
+    def is_on(self) -> bool | None:
+        """Return true if dimmer is on."""
+        return self._dp_level.value is not None and self._dp_level.value > _DIMMER_OFF
 
-    @bind_collector()
-    async def turn_off(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOffArgs]) -> None:
-        """Turn the light off."""
-        self.reset_timer_on_time()
-        if not self.is_state_change(off=True, **kwargs):
-            return
-        if ramp_time := kwargs.get("ramp_time"):
-            await self._set_ramp_time_off_value(ramp_time=ramp_time, collector=collector)
-        await self._dp_level.send_value(value=_DIMMER_OFF, collector=collector)
-
-    @bind_collector()
-    async def _set_on_time_value(self, on_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the on time value in seconds."""
-        await self._dp_on_time_value.send_value(value=on_time, collector=collector, do_validate=False)
-
-    async def _set_ramp_time_on_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        await self._dp_ramp_time_value.send_value(value=ramp_time, collector=collector)
-
-    async def _set_ramp_time_off_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
-
-    def is_state_change(self, **kwargs: Any) -> bool:
+    def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:
         """Check if the state changes due to kwargs."""
-        if (on_time_running := self.timer_on_time_running) is not None and on_time_running is True:
-            return True
-        if self.timer_on_time is not None:
+        if self.is_timer_state_change():
             return True
         if kwargs.get(_StateChangeArg.ON_TIME) is not None:
             return True
@@ -297,16 +330,67 @@ class CustomDpDimmer(CustomDataPoint):
             return True
         return super().is_state_change(**kwargs)
 
+    @bind_collector
+    async def turn_off(
+        self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOffArgs]
+    ) -> None:
+        """Turn the light off."""
+        self.reset_timer_on_time()
+        if not self.is_state_change(off=True, **kwargs):
+            return
+        if ramp_time := kwargs.get("ramp_time"):
+            await self._set_ramp_time_off_value(ramp_time=ramp_time, collector=collector)
+        await self._dp_level.send_value(value=_DIMMER_OFF, collector=collector)
+
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+        """Turn the light on."""
+        if (on_time := kwargs.get("on_time")) is not None:
+            self.set_timer_on_time(on_time=on_time)
+        if not self.is_state_change(on=True, **kwargs):
+            return
+
+        if (timer := self.get_and_start_timer()) is not None:
+            await self._set_on_time_value(on_time=timer, collector=collector)
+        if ramp_time := kwargs.get("ramp_time"):
+            await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
+        if not (brightness := kwargs.get("brightness", self.brightness)):
+            brightness = int(_MAX_BRIGHTNESS)
+        level = self.brightness_to_level(brightness)
+        await self._dp_level.send_value(value=level, collector=collector)
+
+    def _compute_capabilities(self) -> LightCapabilities:
+        """Compute static capabilities based on DataPoint types."""
+        return LightCapabilities(
+            brightness=isinstance(self._dp_level, DpFloat),
+            transition=isinstance(getattr(self, "_dp_ramp_time_value", None), DpAction),
+        )
+
+    @bind_collector
+    async def _set_on_time_value(self, *, on_time: float, collector: CallParameterCollector | None = None) -> None:
+        """Set the on time value in seconds."""
+        await self._dp_on_time_value.send_value(value=on_time, collector=collector, do_validate=False)
+
+    async def _set_ramp_time_off_value(
+        self, *, ramp_time: float, collector: CallParameterCollector | None = None
+    ) -> None:
+        """Set the ramp time value in seconds."""
+        await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
+
+    async def _set_ramp_time_on_value(
+        self, *, ramp_time: float, collector: CallParameterCollector | None = None
+    ) -> None:
+        """Set the ramp time value in seconds."""
+        await self._dp_ramp_time_value.send_value(value=ramp_time, collector=collector)
+
 
 class CustomDpColorDimmer(CustomDpDimmer):
-    """Class for HomeMatic dimmer with color data point."""
+    """Class for Homematic dimmer with color data point."""
 
-    __slots__ = ("_dp_color",)
+    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_color: DpInteger = self._get_data_point(field=Field.COLOR, data_point_type=DpInteger)
+    # Declarative data point field definitions
+    _dp_color: Final = DataPointField(field=Field.COLOR, dpt=DpInteger)
 
     @state_property
     def hs_color(self) -> tuple[float, float] | None:
@@ -322,8 +406,8 @@ class CustomDpColorDimmer(CustomDpDimmer):
             return color / 200 * 360, _MAX_SATURATION
         return _MIN_HUE, _MIN_SATURATION
 
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
         """Turn the light on."""
         if not self.is_state_change(on=True, **kwargs):
             return
@@ -337,24 +421,24 @@ class CustomDpColorDimmer(CustomDpDimmer):
 
 
 class CustomDpColorDimmerEffect(CustomDpColorDimmer):
-    """Class for HomeMatic dimmer with color data point."""
+    """Class for Homematic dimmer with color data point."""
 
-    __slots__ = ("_dp_effect",)
+    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
 
     _effects: tuple[str, ...] = (
         _EFFECT_OFF,
         "Slow color change",
         "Medium color change",
         "Fast color change",
-        "Campfire",
+        "Campemit",
         "Waterfall",
         "TV simulation",
     )
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_effect: DpInteger = self._get_data_point(field=Field.PROGRAM, data_point_type=DpInteger)
+    # Declarative data point field definitions
+    _dp_effect: Final = DataPointField(field=Field.PROGRAM, dpt=DpInteger)
+
+    effects: Final = DelegatedProperty[tuple[str, ...] | None](path="_effects", kind=Kind.STATE)
 
     @state_property
     def effect(self) -> str | None:
@@ -363,22 +447,17 @@ class CustomDpColorDimmerEffect(CustomDpColorDimmer):
             return self._effects[int(self._dp_effect.value)]
         return None
 
-    @state_property
-    def effects(self) -> tuple[str, ...] | None:
-        """Return the supported effects."""
-        return self._effects
-
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
         """Turn the light on."""
         if not self.is_state_change(on=True, **kwargs):
             return
 
-        if "effect" not in kwargs and self.supports_effects and self.effect != _EFFECT_OFF:
+        if "effect" not in kwargs and self.has_effects and self.effect != _EFFECT_OFF:
             await self._dp_effect.send_value(value=0, collector=collector, collector_order=5)
 
         if (
-            self.supports_effects
+            self.has_effects
             and (effect := kwargs.get("effect")) is not None
             and (effect_idx := self._effects.index(effect)) is not None
         ):
@@ -388,14 +467,12 @@ class CustomDpColorDimmerEffect(CustomDpColorDimmer):
 
 
 class CustomDpColorTempDimmer(CustomDpDimmer):
-    """Class for HomeMatic dimmer with color temperature."""
+    """Class for Homematic dimmer with color temperature."""
 
-    __slots__ = ("_dp_color_level",)
+    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_color_level: DpFloat = self._get_data_point(field=Field.COLOR_LEVEL, data_point_type=DpFloat)
+    # Declarative data point field definitions
+    _dp_color_level: Final = DataPointField(field=Field.COLOR_LEVEL, dpt=DpFloat)
 
     @state_property
     def color_temp_kelvin(self) -> int | None:
@@ -404,8 +481,8 @@ class CustomDpColorTempDimmer(CustomDpDimmer):
             _MAX_KELVIN / int(_MAX_MIREDS - (_MAX_MIREDS - _MIN_MIREDS) * (self._dp_color_level.value or _DIMMER_OFF))
         )
 
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
         """Turn the light on."""
         if not self.is_state_change(on=True, **kwargs):
             return
@@ -416,62 +493,35 @@ class CustomDpColorTempDimmer(CustomDpDimmer):
         await super().turn_on(collector=collector, **kwargs)
 
 
-class CustomDpIpRGBWLight(CustomDpDimmer):
+class CustomDpIpRGBWLight(TimerUnitMixin, CustomDpDimmer):
     """Class for HomematicIP HmIP-RGBW light data point."""
 
-    __slots__ = (
-        "_dp_activity_state",
-        "_dp_color_temperature_kelvin",
-        "_dp_device_operation_mode",
-        "_dp_effect",
-        "_dp_hue",
-        "_dp_on_time_unit",
-        "_dp_ramp_time_to_off_unit",
-        "_dp_ramp_time_to_off_value",
-        "_dp_ramp_time_unit",
-        "_dp_saturation",
-    )
+    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_activity_state: DpSensor[str | None] = self._get_data_point(
-            field=Field.DIRECTION, data_point_type=DpSensor[str | None]
-        )
-        self._dp_color_temperature_kelvin: DpInteger = self._get_data_point(
-            field=Field.COLOR_TEMPERATURE, data_point_type=DpInteger
-        )
-        self._dp_device_operation_mode: DpSelect = self._get_data_point(
-            field=Field.DEVICE_OPERATION_MODE, data_point_type=DpSelect
-        )
-        self._dp_on_time_unit: DpAction = self._get_data_point(field=Field.ON_TIME_UNIT, data_point_type=DpAction)
-        self._dp_effect: DpAction = self._get_data_point(field=Field.EFFECT, data_point_type=DpAction)
-        self._dp_hue: DpInteger = self._get_data_point(field=Field.HUE, data_point_type=DpInteger)
-        self._dp_ramp_time_to_off_unit: DpAction = self._get_data_point(
-            field=Field.RAMP_TIME_TO_OFF_UNIT, data_point_type=DpAction
-        )
-        self._dp_ramp_time_to_off_value: DpAction = self._get_data_point(
-            field=Field.RAMP_TIME_TO_OFF_VALUE, data_point_type=DpAction
-        )
-        self._dp_ramp_time_unit: DpAction = self._get_data_point(field=Field.RAMP_TIME_UNIT, data_point_type=DpAction)
-        self._dp_saturation: DpFloat = self._get_data_point(field=Field.SATURATION, data_point_type=DpFloat)
+    # Declarative data point field definitions
+    _dp_direction: Final = DataPointField(field=Field.DIRECTION, dpt=DpSensor[str | None])
+    _dp_color_temperature_kelvin: Final = DataPointField(field=Field.COLOR_TEMPERATURE, dpt=DpInteger)
+    _dp_device_operation_mode: Final = DataPointField(field=Field.DEVICE_OPERATION_MODE, dpt=DpSelect)
+    _dp_effect: Final = DataPointField(field=Field.EFFECT, dpt=DpActionSelect)
 
-    @state_property
-    def color_temp_kelvin(self) -> int | None:
-        """Return the color temperature in kelvin."""
-        if not self._dp_color_temperature_kelvin.value:
-            return None
-        return self._dp_color_temperature_kelvin.value
-
-    @state_property
-    def hs_color(self) -> tuple[float, float] | None:
-        """Return the hue and saturation color value [float, float]."""
-        if self._dp_hue.value is not None and self._dp_saturation.value is not None:
-            return self._dp_hue.value, self._dp_saturation.value * _SATURATION_MULTIPLIER
-        return None
+    _dp_hue: Final = DataPointField(field=Field.HUE, dpt=DpInteger)
+    _dp_on_time_unit = DataPointField(field=Field.ON_TIME_UNIT, dpt=DpActionSelect)
+    _dp_ramp_time_to_off_unit: Final = DataPointField(field=Field.RAMP_TIME_TO_OFF_UNIT, dpt=DpActionSelect)
+    _dp_ramp_time_to_off_value: Final = DataPointField(field=Field.RAMP_TIME_TO_OFF_VALUE, dpt=DpAction)
+    _dp_ramp_time_unit = DataPointField(field=Field.RAMP_TIME_UNIT, dpt=DpActionSelect)
+    _dp_saturation: Final = DataPointField(field=Field.SATURATION, dpt=DpFloat)
 
     @property
-    def _relevant_data_points(self) -> tuple[GenericDataPoint, ...]:
+    def _device_operation_mode(self) -> _DeviceOperationMode:
+        """Return the device operation mode."""
+        try:
+            return _DeviceOperationMode(str(self._dp_device_operation_mode.value))
+        except Exception:
+            # Fallback to a sensible default if the value is not set or unexpected
+            return _DeviceOperationMode.RGBW
+
+    @property
+    def _relevant_data_points(self) -> tuple[GenericDataPointAny, ...]:
         """Returns the list of relevant data points. To be overridden by subclasses."""
         if self._device_operation_mode == _DeviceOperationMode.RGBW:
             return (
@@ -487,13 +537,13 @@ class CustomDpIpRGBWLight(CustomDpDimmer):
         return (self._dp_level,)
 
     @property
-    def supports_color_temperature(self) -> bool:
-        """Flag if light supports color temperature."""
+    def has_color_temperature(self) -> bool:
+        """Return True if light currently has color temperature (mode-dependent)."""
         return self._device_operation_mode == _DeviceOperationMode.TUNABLE_WHITE
 
     @property
-    def supports_effects(self) -> bool:
-        """Flag if light supports effects."""
+    def has_effects(self) -> bool:
+        """Return True if light currently has effects (mode-dependent)."""
         return (
             self._device_operation_mode != _DeviceOperationMode.PWM
             and self.effects is not None
@@ -501,8 +551,8 @@ class CustomDpIpRGBWLight(CustomDpDimmer):
         )
 
     @property
-    def supports_hs_color(self) -> bool:
-        """Flag if light supports color."""
+    def has_hs_color(self) -> bool:
+        """Return True if light currently has hs color (mode-dependent)."""
         return self._device_operation_mode in (
             _DeviceOperationMode.RGBW,
             _DeviceOperationMode.RGB,
@@ -523,12 +573,35 @@ class CustomDpIpRGBWLight(CustomDpDimmer):
         return self._get_data_point_usage()
 
     @state_property
+    def color_temp_kelvin(self) -> int | None:
+        """Return the color temperature in kelvin."""
+        if not self._dp_color_temperature_kelvin.value:
+            return None
+        return self._dp_color_temperature_kelvin.value
+
+    @state_property
     def effects(self) -> tuple[str, ...] | None:
         """Return the supported effects."""
         return self._dp_effect.values or ()
 
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+    @state_property
+    def hs_color(self) -> tuple[float, float] | None:
+        """Return the hue and saturation color value [float, float]."""
+        if self._dp_hue.value is not None and self._dp_saturation.value is not None:
+            return self._dp_hue.value, self._dp_saturation.value * _SATURATION_MULTIPLIER
+        return None
+
+    @bind_collector
+    async def turn_off(
+        self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOffArgs]
+    ) -> None:
+        """Turn the light off."""
+        if kwargs.get("on_time") is None and kwargs.get("ramp_time"):
+            await self._set_on_time_value(on_time=_NOT_USED, collector=collector)
+        await super().turn_off(collector=collector, **kwargs)
+
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
         """Turn the light on."""
         if on_time := (kwargs.get("on_time") or self.get_and_start_timer()):
             kwargs["on_time"] = on_time
@@ -543,79 +616,54 @@ class CustomDpIpRGBWLight(CustomDpDimmer):
             await self._dp_color_temperature_kelvin.send_value(value=color_temp_kelvin, collector=collector)
         if on_time is None and kwargs.get("ramp_time"):
             await self._set_on_time_value(on_time=_NOT_USED, collector=collector)
-        if self.supports_effects and (effect := kwargs.get("effect")) is not None:
+        if self.has_effects and (effect := kwargs.get("effect")) is not None:
             await self._dp_effect.send_value(value=effect, collector=collector)
 
         await super().turn_on(collector=collector, **kwargs)
 
-    @bind_collector()
-    async def turn_off(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOffArgs]) -> None:
-        """Turn the light off."""
-        if kwargs.get("on_time") is None and kwargs.get("ramp_time"):
-            await self._set_on_time_value(on_time=_NOT_USED, collector=collector)
-        await super().turn_off(collector=collector, **kwargs)
-
-    @property
-    def _device_operation_mode(self) -> _DeviceOperationMode:
-        """Return the device operation mode."""
-        if (mode := self._dp_device_operation_mode.value) is None:
-            return _DeviceOperationMode.RGBW
-        return _DeviceOperationMode(mode)
-
-    @bind_collector()
-    async def _set_on_time_value(self, on_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the on time value in seconds."""
-        on_time, on_time_unit = _recalc_unit_timer(time=on_time)
-        if on_time_unit is not None:
-            await self._dp_on_time_unit.send_value(value=on_time_unit, collector=collector)
+    @bind_collector
+    async def _set_on_time_value(self, *, on_time: float, collector: CallParameterCollector | None = None) -> None:
+        """Set the on time value with automatic unit conversion."""
+        on_time, on_time_unit = self._recalc_unit_timer(time=on_time)
+        await self._dp_on_time_unit.send_value(value=on_time_unit, collector=collector)
         await self._dp_on_time_value.send_value(value=float(on_time), collector=collector)
 
-    async def _set_ramp_time_on_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        ramp_time, ramp_time_unit = _recalc_unit_timer(time=ramp_time)
-        if ramp_time_unit is not None:
-            await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
+    async def _set_ramp_time_off_value(
+        self, *, ramp_time: float, collector: CallParameterCollector | None = None
+    ) -> None:
+        """Set the ramp time off value with automatic unit conversion."""
+        ramp_time, ramp_time_unit = self._recalc_unit_timer(time=ramp_time)
+        await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
         await self._dp_ramp_time_value.send_value(value=float(ramp_time), collector=collector)
 
-    async def _set_ramp_time_off_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        ramp_time, ramp_time_unit = _recalc_unit_timer(time=ramp_time)
-        if ramp_time_unit is not None:
-            await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
+    async def _set_ramp_time_on_value(
+        self, *, ramp_time: float, collector: CallParameterCollector | None = None
+    ) -> None:
+        """Set the ramp time on value with automatic unit conversion."""
+        ramp_time, ramp_time_unit = self._recalc_unit_timer(time=ramp_time)
+        await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
         await self._dp_ramp_time_value.send_value(value=float(ramp_time), collector=collector)
 
 
-class CustomDpIpDrgDaliLight(CustomDpDimmer):
+class CustomDpIpDrgDaliLight(TimerUnitMixin, CustomDpDimmer):
     """Class for HomematicIP HmIP-DRG-DALI light data point."""
 
-    __slots__ = (
-        "_dp_color_temperature_kelvin",
-        "_dp_effect",
-        "_dp_hue",
-        "_dp_on_time_unit",
-        "_dp_ramp_time_to_off_unit",
-        "_dp_ramp_time_to_off_value",
-        "_dp_ramp_time_unit",
-        "_dp_saturation",
-    )
+    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
 
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_color_temperature_kelvin: DpInteger = self._get_data_point(
-            field=Field.COLOR_TEMPERATURE, data_point_type=DpInteger
-        )
-        self._dp_on_time_unit: DpAction = self._get_data_point(field=Field.ON_TIME_UNIT, data_point_type=DpAction)
-        self._dp_effect: DpAction = self._get_data_point(field=Field.EFFECT, data_point_type=DpAction)
-        self._dp_hue: DpInteger = self._get_data_point(field=Field.HUE, data_point_type=DpInteger)
-        self._dp_ramp_time_to_off_unit: DpAction = self._get_data_point(
-            field=Field.RAMP_TIME_TO_OFF_UNIT, data_point_type=DpAction
-        )
-        self._dp_ramp_time_to_off_value: DpAction = self._get_data_point(
-            field=Field.RAMP_TIME_TO_OFF_VALUE, data_point_type=DpAction
-        )
-        self._dp_ramp_time_unit: DpAction = self._get_data_point(field=Field.RAMP_TIME_UNIT, data_point_type=DpAction)
-        self._dp_saturation: DpFloat = self._get_data_point(field=Field.SATURATION, data_point_type=DpFloat)
+    # Declarative data point field definitions
+    _dp_color_temperature_kelvin: Final = DataPointField(field=Field.COLOR_TEMPERATURE, dpt=DpInteger)
+    _dp_effect: Final = DataPointField(field=Field.EFFECT, dpt=DpActionSelect)
+    _dp_hue: Final = DataPointField(field=Field.HUE, dpt=DpInteger)
+    _dp_on_time_unit = DataPointField(field=Field.ON_TIME_UNIT, dpt=DpActionSelect)
+    _dp_ramp_time_to_off_unit: Final = DataPointField(field=Field.RAMP_TIME_TO_OFF_UNIT, dpt=DpActionSelect)
+    _dp_ramp_time_to_off_value: Final = DataPointField(field=Field.RAMP_TIME_TO_OFF_VALUE, dpt=DpAction)
+    _dp_ramp_time_unit = DataPointField(field=Field.RAMP_TIME_UNIT, dpt=DpActionSelect)
+    _dp_saturation: Final = DataPointField(field=Field.SATURATION, dpt=DpFloat)
+
+    @property
+    def _relevant_data_points(self) -> tuple[GenericDataPointAny, ...]:
+        """Returns the list of relevant data points. To be overridden by subclasses."""
+        return (self._dp_level,)
 
     @state_property
     def color_temp_kelvin(self) -> int | None:
@@ -625,24 +673,19 @@ class CustomDpIpDrgDaliLight(CustomDpDimmer):
         return self._dp_color_temperature_kelvin.value
 
     @state_property
+    def effects(self) -> tuple[str, ...] | None:
+        """Return the supported effects."""
+        return self._dp_effect.values or ()
+
+    @state_property
     def hs_color(self) -> tuple[float, float] | None:
         """Return the hue and saturation color value [float, float]."""
         if self._dp_hue.value is not None and self._dp_saturation.value is not None:
             return self._dp_hue.value, self._dp_saturation.value * _SATURATION_MULTIPLIER
         return None
 
-    @property
-    def _relevant_data_points(self) -> tuple[GenericDataPoint, ...]:
-        """Returns the list of relevant data points. To be overridden by subclasses."""
-        return (self._dp_level,)
-
-    @state_property
-    def effects(self) -> tuple[str, ...] | None:
-        """Return the supported effects."""
-        return self._dp_effect.values or ()
-
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
         """Turn the light on."""
         if not self.is_state_change(on=True, **kwargs):
             return
@@ -655,111 +698,70 @@ class CustomDpIpDrgDaliLight(CustomDpDimmer):
             await self._dp_color_temperature_kelvin.send_value(value=color_temp_kelvin, collector=collector)
         if kwargs.get("on_time") is None and kwargs.get("ramp_time"):
             await self._set_on_time_value(on_time=_NOT_USED, collector=collector)
-        if self.supports_effects and (effect := kwargs.get("effect")) is not None:
+        if self.has_effects and (effect := kwargs.get("effect")) is not None:
             await self._dp_effect.send_value(value=effect, collector=collector)
 
         await super().turn_on(collector=collector, **kwargs)
 
-    @bind_collector()
-    async def _set_on_time_value(self, on_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the on time value in seconds."""
-        on_time, on_time_unit = _recalc_unit_timer(time=on_time)
-        if on_time_unit:
-            await self._dp_on_time_unit.send_value(value=on_time_unit, collector=collector)
-        await self._dp_on_time_value.send_value(value=float(on_time), collector=collector)
 
-    async def _set_ramp_time_on_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        ramp_time, ramp_time_unit = _recalc_unit_timer(time=ramp_time)
-        if ramp_time_unit:
-            await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
-        await self._dp_ramp_time_value.send_value(value=float(ramp_time), collector=collector)
-
-    async def _set_ramp_time_off_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        ramp_time, ramp_time_unit = _recalc_unit_timer(time=ramp_time)
-        if ramp_time_unit:
-            await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
-        await self._dp_ramp_time_value.send_value(value=float(ramp_time), collector=collector)
-
-
-class CustomDpIpFixedColorLight(CustomDpDimmer):
+class CustomDpIpFixedColorLight(TimerUnitMixin, CustomDpDimmer):
     """Class for HomematicIP HmIP-BSL light data point."""
 
-    __slots__ = (
-        "_dp_channel_color",
-        "_dp_color",
-        "_dp_effect",
-        "_dp_on_time_unit",
-        "_dp_ramp_time_unit",
-        "_effect_list",
-    )
+    __slots__ = ("_effect_list",)  # Keep instance variable, descriptors are class-level
+
+    # Declarative data point field definitions
+    _dp_channel_color: Final = DataPointField(field=Field.CHANNEL_COLOR, dpt=DpSensor[str | None])
+    _dp_color: Final = DataPointField(field=Field.COLOR, dpt=DpSelect)
+    _dp_effect: Final = DataPointField(field=Field.COLOR_BEHAVIOUR, dpt=DpSelect)
+    _dp_on_time_unit = DataPointField(field=Field.ON_TIME_UNIT, dpt=DpActionSelect)
+    _dp_ramp_time_unit = DataPointField(field=Field.RAMP_TIME_UNIT, dpt=DpActionSelect)
+
+    _effect_list: tuple[str, ...]
+
+    channel_color_name: Final = DelegatedProperty[str | None](path="_dp_channel_color.value")
+    effects: Final = DelegatedProperty[tuple[str, ...] | None](path="_effect_list", kind=Kind.STATE)
+
+    @property
+    def channel_hs_color(self) -> tuple[float, float] | None:
+        """Return the channel hue and saturation color value [float, float]."""
+        if self._dp_channel_color.value is not None:
+            return FIXED_COLOR_TO_HS_CONVERTER.get(self._dp_channel_color.value, (_MIN_HUE, _MIN_SATURATION))
+        return None
 
     @state_property
     def color_name(self) -> str | None:
         """Return the name of the color."""
-        return self._dp_color.value
-
-    @property
-    def channel_color_name(self) -> str | None:
-        """Return the name of the channel color."""
-        return self._dp_channel_color.value
-
-    def _init_data_point_fields(self) -> None:
-        """Init the data_point fields."""
-        super()._init_data_point_fields()
-        self._dp_color: DpSelect = self._get_data_point(field=Field.COLOR, data_point_type=DpSelect)
-        self._dp_channel_color: DpSensor[str | None] = self._get_data_point(
-            field=Field.CHANNEL_COLOR, data_point_type=DpSensor[str | None]
-        )
-        self._dp_on_time_unit: DpAction = self._get_data_point(field=Field.ON_TIME_UNIT, data_point_type=DpAction)
-        self._dp_ramp_time_unit: DpAction = self._get_data_point(field=Field.RAMP_TIME_UNIT, data_point_type=DpAction)
-        self._dp_effect: DpSelect = self._get_data_point(field=Field.COLOR_BEHAVIOUR, data_point_type=DpSelect)
-        self._effect_list = (
-            tuple(str(item) for item in self._dp_effect.values if item not in _EXCLUDE_FROM_COLOR_BEHAVIOUR)
-            if (self._dp_effect and self._dp_effect.values)
-            else ()
-        )
+        val = self._dp_color.value
+        return val if isinstance(val, str) else None
 
     @state_property
     def effect(self) -> str | None:
         """Return the current effect."""
         if (effect := self._dp_effect.value) is not None and effect in self._effect_list:
-            return effect
+            return effect if isinstance(effect, str) else None
         return None
-
-    @state_property
-    def effects(self) -> tuple[str, ...] | None:
-        """Return the supported effects."""
-        return self._effect_list
 
     @state_property
     def hs_color(self) -> tuple[float, float] | None:
         """Return the hue and saturation color value [float, float]."""
         if (
             self._dp_color.value is not None
-            and (hs_color := _FIXED_COLOR_SWITCHER.get(self._dp_color.value)) is not None
+            and isinstance(self._dp_color.value, str)
+            and (hs_color := FIXED_COLOR_TO_HS_CONVERTER.get(self._dp_color.value)) is not None
         ):
             return hs_color
         return _MIN_HUE, _MIN_SATURATION
 
-    @property
-    def channel_hs_color(self) -> tuple[float, float] | None:
-        """Return the channel hue and saturation color value [float, float]."""
-        if self._dp_channel_color.value is not None:
-            return _FIXED_COLOR_SWITCHER.get(self._dp_channel_color.value, (_MIN_HUE, _MIN_SATURATION))
-        return None
-
-    @bind_collector()
-    async def turn_on(self, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
+    @bind_collector
+    async def turn_on(self, *, collector: CallParameterCollector | None = None, **kwargs: Unpack[LightOnArgs]) -> None:
         """Turn the light on."""
         if not self.is_state_change(on=True, **kwargs):
             return
         if (hs_color := kwargs.get("hs_color")) is not None:
-            simple_rgb_color = _convert_color(hs_color)
+            simple_rgb_color = hs_color_to_fixed_converter(color=hs_color)
             await self._dp_color.send_value(value=simple_rgb_color, collector=collector)
         elif self.color_name in _NO_COLOR:
-            await self._dp_color.send_value(value=_FixedColor.WHITE, collector=collector)
+            await self._dp_color.send_value(value=FixedColor.WHITE, collector=collector)
         if (effect := kwargs.get("effect")) is not None and effect in self._effect_list:
             await self._dp_effect.send_value(value=effect, collector=collector)
         elif self._dp_effect.value not in self._effect_list:
@@ -769,37 +771,18 @@ class CustomDpIpFixedColorLight(CustomDpDimmer):
 
         await super().turn_on(collector=collector, **kwargs)
 
-    @bind_collector()
-    async def _set_on_time_value(self, on_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the on time value in seconds."""
-        on_time, on_time_unit = _recalc_unit_timer(time=on_time)
-        if on_time_unit:
-            await self._dp_on_time_unit.send_value(value=on_time_unit, collector=collector)
-        await self._dp_on_time_value.send_value(value=float(on_time), collector=collector)
+    def _post_init(self) -> None:
+        """Post action after initialisation of the data point fields."""
+        super()._post_init()
 
-    async def _set_ramp_time_on_value(self, ramp_time: float, collector: CallParameterCollector | None = None) -> None:
-        """Set the ramp time value in seconds."""
-        ramp_time, ramp_time_unit = _recalc_unit_timer(time=ramp_time)
-        if ramp_time_unit:
-            await self._dp_ramp_time_unit.send_value(value=ramp_time_unit, collector=collector)
-        await self._dp_ramp_time_value.send_value(value=float(ramp_time), collector=collector)
+        self._effect_list = (
+            tuple(str(item) for item in self._dp_effect.values if item not in _EXCLUDE_FROM_COLOR_BEHAVIOUR)
+            if (self._dp_effect and self._dp_effect.values)
+            else ()
+        )
 
 
-def _recalc_unit_timer(time: float) -> tuple[float, int | None]:
-    """Recalculate unit and value of timer."""
-    ramp_time_unit = _TimeUnit.SECONDS
-    if time == _NOT_USED:
-        return time, None
-    if time > 16343:
-        time /= 60
-        ramp_time_unit = _TimeUnit.MINUTES
-    if time > 16343:
-        time /= 60
-        ramp_time_unit = _TimeUnit.HOURS
-    return time, ramp_time_unit
-
-
-def _convert_color(color: tuple[float, float]) -> str:
+def hs_color_to_fixed_converter(*, color: tuple[float, float]) -> str:
     """
     Convert the given color to the reduced color of the device.
 
@@ -808,216 +791,300 @@ def _convert_color(color: tuple[float, float]) -> str:
     """
     hue: int = int(color[0])
     if int(color[1]) < 5:
-        return _FixedColor.WHITE
+        return FixedColor.WHITE
     if 30 < hue <= 90:
-        return _FixedColor.YELLOW
+        return FixedColor.YELLOW
     if 90 < hue <= 150:
-        return _FixedColor.GREEN
+        return FixedColor.GREEN
     if 150 < hue <= 210:
-        return _FixedColor.TURQUOISE
+        return FixedColor.TURQUOISE
     if 210 < hue <= 270:
-        return _FixedColor.BLUE
+        return FixedColor.BLUE
     if 270 < hue <= 330:
-        return _FixedColor.PURPLE
-    return _FixedColor.RED
+        return FixedColor.PURPLE
+    return FixedColor.RED
 
 
-def make_ip_dimmer(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomematicIP dimmer data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpDimmer,
-        device_profile=DeviceProfile.IP_DIMMER,
-        custom_config=custom_config,
-    )
+class CustomDpSoundPlayerLed(TimerUnitMixin, CustomDpDimmer):
+    """Class for HomematicIP sound player LED data point (HmIP-MP3P channel 6)."""
+
+    __slots__ = ()  # Required to prevent __dict__ creation (descriptors are class-level)
+
+    # Additional declarative data point field definitions for LED channel
+    # Note: _dp_level and _dp_ramp_time_value are inherited from CustomDpDimmer
+    # Map on_time to DURATION_VALUE/UNIT for TimerUnitMixin compatibility (override parent)
+    _dp_on_time_value = DataPointField(field=Field.DURATION_VALUE, dpt=DpAction)
+    _dp_on_time_unit = DataPointField(field=Field.DURATION_UNIT, dpt=DpActionSelect)
+    _dp_ramp_time_unit = DataPointField(field=Field.RAMP_TIME_UNIT, dpt=DpActionSelect)
+    _dp_color: Final = DataPointField(field=Field.COLOR, dpt=DpSelect)
+    _dp_on_time_list: Final = DataPointField(field=Field.ON_TIME_LIST, dpt=DpActionSelect)
+    _dp_repetitions: Final = DataPointField(field=Field.REPETITIONS, dpt=DpActionSelect)
+    _dp_direction: Final = DataPointField(field=Field.DIRECTION, dpt=DpSensor[str | None])
+
+    # Expose available options via DelegatedProperty (from VALUE_LISTs)
+    available_colors: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_color.values", kind=Kind.STATE)
+
+    @state_property
+    def color_name(self) -> str | None:
+        """Return the name of the color."""
+        val = self._dp_color.value
+        return val if isinstance(val, str) else None
+
+    @state_property
+    def hs_color(self) -> tuple[float, float] | None:
+        """Return the hue and saturation color value [float, float]."""
+        if (
+            self._dp_color.value is not None
+            and isinstance(self._dp_color.value, str)
+            and (hs_color := FIXED_COLOR_TO_HS_CONVERTER.get(self._dp_color.value)) is not None
+        ):
+            return hs_color
+        return _MIN_HUE, _MIN_SATURATION
+
+    @bind_collector
+    async def turn_off(
+        self,
+        *,
+        collector: CallParameterCollector | None = None,
+        **kwargs: Unpack[LightOffArgs],
+    ) -> None:
+        """Turn off the LED."""
+        self.reset_timer_on_time()
+        await self._dp_level.send_value(value=0.0, collector=collector)
+        await self._dp_color.send_value(value=FixedColor.BLACK, collector=collector)
+        await self._dp_on_time_value.send_value(value=0, collector=collector)
+
+    @bind_collector
+    async def turn_on(
+        self,
+        *,
+        collector: CallParameterCollector | None = None,
+        **kwargs: Unpack[SoundPlayerLedOnArgs],
+    ) -> None:
+        """
+        Turn on the LED with optional color and brightness settings.
+
+        API is comparable to CustomDpIpFixedColorLight.
+
+        Args:
+            collector: Optional call parameter collector.
+            **kwargs: LED parameters from SoundPlayerLedOnArgs (extends LightOnArgs):
+                brightness: Brightness 0-255 (converted to 0.0-1.0 for device).
+                hs_color: Hue/saturation tuple for color selection.
+                on_time: Duration in seconds (auto-converted to value+unit via TimerUnitMixin).
+                ramp_time: Ramp time in seconds (auto-converted to value+unit via TimerUnitMixin).
+                repetitions: 0=none, 1-18=count, -1=infinite (converted to VALUE_LIST).
+                flash_time: Flash duration in ms (converted to nearest ON_TIME_LIST value).
+
+        """
+        # Handle timer like CustomDpDimmer: store if passed, then retrieve via get_and_start_timer
+        if (on_time_arg := kwargs.get("on_time")) is not None:
+            self.set_timer_on_time(on_time=on_time_arg)
+
+        # Convert brightness from 0-255 to 0.0-1.0
+        brightness_int = kwargs.get("brightness")
+        brightness = self.brightness_to_level(brightness_int) if brightness_int is not None else 1.0
+
+        # Use pre-set timer (from set_timer_on_time) or fall back to kwargs/default
+        on_time = self.get_and_start_timer() or kwargs.get("on_time", 0.0)
+        ramp_time = kwargs.get("ramp_time", 0.0)
+        repetitions_value = _convert_repetitions(repetitions=kwargs.get("repetitions"))
+        flash_time_value = _convert_flash_time_to_on_time_list(flash_time_ms=kwargs.get("flash_time"))
+
+        # Handle color: convert hs_color or default to WHITE (like CustomDpIpFixedColorLight)
+        if (hs_color := kwargs.get("hs_color")) is not None:
+            color = hs_color_to_fixed_converter(color=hs_color)
+        elif self.color_name in _NO_COLOR:
+            color = FixedColor.WHITE
+        else:
+            color = self.color_name or FixedColor.WHITE
+
+        # Send parameters - order matters for batching
+        await self._dp_level.send_value(value=brightness, collector=collector)
+        await self._dp_color.send_value(value=color, collector=collector)
+        await self._dp_on_time_list.send_value(value=flash_time_value, collector=collector)
+        await self._dp_repetitions.send_value(value=repetitions_value, collector=collector)
+        # Use mixin methods for automatic unit conversion
+        await self._set_ramp_time_on_value(ramp_time=ramp_time, collector=collector)
+        await self._set_on_time_value(on_time=on_time, collector=collector)
 
 
-def make_rf_dimmer(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomeMatic classic dimmer data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpDimmer,
-        device_profile=DeviceProfile.RF_DIMMER,
-        custom_config=custom_config,
-    )
+# =============================================================================
+# DeviceProfileRegistry Registration
+# =============================================================================
 
+# Data-driven RF Dimmer registrations: (models, channels or None)
+_RF_DIMMER_REGISTRATIONS: Final[tuple[tuple[str | tuple[str, ...], tuple[int, ...] | None], ...]] = (
+    # Simple RF Dimmer (no specific channels)
+    (("263 132", "263 134", "HSS-DX"), None),
+    ("HM-LC-Dim1T-FM-LF", None),
+    (("HM-LC-Dim1L-Pl-2", "HM-LC-Dim1T-Pl-2"), None),
+    # RF Dimmer with specific channels
+    ("HM-DW-WM", (1, 2, 3, 4)),
+    ("HM-LC-Dim1T-DR", (1, 2, 3)),
+    (("HM-LC-Dim2L-CV", "HM-LC-Dim2L-SM", "HM-LC-Dim2T-SM"), (1, 2)),
+    (("HM-LC-Dim2L-SM-2", "HM-LC-Dim2T-SM-2"), (1, 2, 3, 4, 5, 6)),
+    ("HMW-LC-Dim1L-DR", (3,)),
+    ("OLIGO.smart.iq.HM", (1, 2, 3, 4, 5, 6)),
+)
 
-def make_rf_dimmer_color(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomeMatic classic dimmer with color data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpColorDimmer,
-        device_profile=DeviceProfile.RF_DIMMER_COLOR,
-        custom_config=custom_config,
-    )
+for _models, _channels in _RF_DIMMER_REGISTRATIONS:
+    if _channels is not None:
+        DeviceProfileRegistry.register(
+            category=DataPointCategory.LIGHT,
+            models=_models,
+            data_point_class=CustomDpDimmer,
+            profile_type=DeviceProfile.RF_DIMMER,
+            channels=_channels,
+        )
+    else:
+        DeviceProfileRegistry.register(
+            category=DataPointCategory.LIGHT,
+            models=_models,
+            data_point_class=CustomDpDimmer,
+            profile_type=DeviceProfile.RF_DIMMER,
+        )
 
-
-def make_rf_dimmer_color_fixed(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomeMatic classic dimmer with fixed color data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpColorDimmer,
-        device_profile=DeviceProfile.RF_DIMMER_COLOR_FIXED,
-        custom_config=custom_config,
-    )
-
-
-def make_rf_dimmer_color_effect(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomeMatic classic dimmer and effect with color data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpColorDimmerEffect,
-        device_profile=DeviceProfile.RF_DIMMER_COLOR,
-        custom_config=custom_config,
-    )
-
-
-def make_rf_dimmer_color_temp(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomeMatic classic dimmer with color temperature data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpColorTempDimmer,
-        device_profile=DeviceProfile.RF_DIMMER_COLOR_TEMP,
-        custom_config=custom_config,
-    )
-
-
-def make_rf_dimmer_with_virt_channel(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create HomeMatic classic dimmer data point."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpDimmer,
-        device_profile=DeviceProfile.RF_DIMMER_WITH_VIRT_CHANNEL,
-        custom_config=custom_config,
-    )
-
-
-def make_ip_fixed_color_light(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create fixed color light data points like HmIP-BSL."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpIpFixedColorLight,
-        device_profile=DeviceProfile.IP_FIXED_COLOR_LIGHT,
-        custom_config=custom_config,
-    )
-
-
-def make_ip_simple_fixed_color_light_wired(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create simple fixed color light data points like HmIPW-WRC6."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpIpFixedColorLight,
-        device_profile=DeviceProfile.IP_SIMPLE_FIXED_COLOR_LIGHT_WIRED,
-        custom_config=custom_config,
-    )
-
-
-def make_ip_rgbw_light(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create simple fixed color light data points like HmIP-RGBW."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpIpRGBWLight,
-        device_profile=DeviceProfile.IP_RGBW_LIGHT,
-        custom_config=custom_config,
-    )
-
-
-def make_ip_drg_dali_light(
-    channel: hmd.Channel,
-    custom_config: CustomConfig,
-) -> None:
-    """Create color light data points like HmIP-DRG-DALI."""
-    hmed.make_custom_data_point(
-        channel=channel,
-        data_point_class=CustomDpIpDrgDaliLight,
-        device_profile=DeviceProfile.IP_DRG_DALI,
-        custom_config=custom_config,
-    )
-
-
-# Case for device model is not relevant.
-# HomeBrew (HB-) devices are always listed as HM-.
-DEVICES: Mapping[str, CustomConfig | tuple[CustomConfig, ...]] = {
-    "263 132": CustomConfig(make_ce_func=make_rf_dimmer),
-    "263 133": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "263 134": CustomConfig(make_ce_func=make_rf_dimmer),
-    "HBW-LC4-IN4-DR": CustomConfig(
-        make_ce_func=make_rf_dimmer,
-        channels=(
-            5,
-            6,
-            7,
-            8,
-        ),
-        extended=ExtendedConfig(
-            additional_data_points={
-                1: (
-                    Parameter.PRESS_LONG,
-                    Parameter.PRESS_SHORT,
-                    Parameter.SENSOR,
-                ),
-                2: (
-                    Parameter.PRESS_LONG,
-                    Parameter.PRESS_SHORT,
-                    Parameter.SENSOR,
-                ),
-                3: (
-                    Parameter.PRESS_LONG,
-                    Parameter.PRESS_SHORT,
-                    Parameter.SENSOR,
-                ),
-                4: (
-                    Parameter.PRESS_LONG,
-                    Parameter.PRESS_SHORT,
-                    Parameter.SENSOR,
-                ),
-            }
-        ),
+# RF Dimmer with virtual channels
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models=(
+        "263 133",
+        "HM-LC-AO-SM",
+        "HM-LC-Dim1L-CV",
+        "HM-LC-Dim1L-CV-2",
+        "HM-LC-Dim1L-Pl",
+        "HM-LC-Dim1L-Pl-3",
+        "HM-LC-Dim1PWM-CV",
+        "HM-LC-Dim1PWM-CV-2",
+        "HM-LC-Dim1T-CV",
+        "HM-LC-Dim1T-CV-2",
+        "HM-LC-Dim1T-FM",
+        "HM-LC-Dim1T-FM-2",
+        "HM-LC-Dim1T-Pl",
+        "HM-LC-Dim1T-Pl-3",
+        "HM-LC-Dim1TPBU-FM",
+        "HM-LC-Dim1TPBU-FM-2",
     ),
-    "HBW-LC-RGBWW-IN6-DR": (
-        CustomConfig(
-            make_ce_func=make_rf_dimmer,
+    data_point_class=CustomDpDimmer,
+    profile_type=DeviceProfile.RF_DIMMER_WITH_VIRT_CHANNEL,
+)
+
+# RF Dimmer with color temperature
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HM-LC-DW-WM",
+    data_point_class=CustomDpColorTempDimmer,
+    profile_type=DeviceProfile.RF_DIMMER_COLOR_TEMP,
+    channels=(1, 3, 5),
+)
+
+# RF Dimmer with color and effect
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HM-LC-RGBW-WM",
+    data_point_class=CustomDpColorDimmerEffect,
+    profile_type=DeviceProfile.RF_DIMMER_COLOR,
+)
+
+# Data-driven IP Dimmer registrations: (models, channels)
+_IP_DIMMER_REGISTRATIONS: Final[tuple[tuple[str | tuple[str, ...], tuple[int, ...]], ...]] = (
+    ("HmIP-BDT", (4,)),
+    ("HmIP-DRDI3", (5, 9, 13)),
+    ("HmIP-FDT", (2,)),
+    ("HmIP-PDT", (3,)),
+    ("HmIP-WGT", (2,)),
+    ("HmIPW-DRD3", (2, 6, 10)),
+)
+
+for _models, _channels in _IP_DIMMER_REGISTRATIONS:
+    DeviceProfileRegistry.register(
+        category=DataPointCategory.LIGHT,
+        models=_models,
+        data_point_class=CustomDpDimmer,
+        profile_type=DeviceProfile.IP_DIMMER,
+        channels=_channels,
+    )
+
+# IP Fixed Color Light
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HmIP-BSL",
+    data_point_class=CustomDpIpFixedColorLight,
+    profile_type=DeviceProfile.IP_FIXED_COLOR_LIGHT,
+    channels=(8, 12),
+)
+
+# IP Simple Fixed Color Light (Wired)
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HmIPW-WRC6",
+    data_point_class=CustomDpIpFixedColorLight,
+    profile_type=DeviceProfile.IP_SIMPLE_FIXED_COLOR_LIGHT_WIRED,
+    channels=(7, 8, 9, 10, 11, 12, 13),
+)
+
+# IP RGBW Light
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models=("HmIP-RGBW", "HmIP-LSC"),
+    data_point_class=CustomDpIpRGBWLight,
+    profile_type=DeviceProfile.IP_RGBW_LIGHT,
+)
+
+# IP DRG DALI Light
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HmIP-DRG-DALI",
+    data_point_class=CustomDpIpDrgDaliLight,
+    profile_type=DeviceProfile.IP_DRG_DALI,
+    channels=tuple(range(1, 49)),
+)
+
+# HmIP-SCTH230 (Dimmer with additional sensors)
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HmIP-SCTH230",
+    data_point_class=CustomDpDimmer,
+    profile_type=DeviceProfile.IP_DIMMER,
+    channels=(12,),
+    extended=ExtendedDeviceConfig(
+        additional_data_points={
+            1: (Parameter.CONCENTRATION,),
+            4: (Parameter.HUMIDITY, Parameter.ACTUAL_TEMPERATURE),
+        }
+    ),
+)
+
+# HBW-LC4-IN4-DR (Dimmer with additional inputs)
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HBW-LC4-IN4-DR",
+    data_point_class=CustomDpDimmer,
+    profile_type=DeviceProfile.RF_DIMMER,
+    channels=(5, 6, 7, 8),
+    extended=ExtendedDeviceConfig(
+        additional_data_points={
+            1: (Parameter.PRESS_LONG, Parameter.PRESS_SHORT, Parameter.SENSOR),
+            2: (Parameter.PRESS_LONG, Parameter.PRESS_SHORT, Parameter.SENSOR),
+            3: (Parameter.PRESS_LONG, Parameter.PRESS_SHORT, Parameter.SENSOR),
+            4: (Parameter.PRESS_LONG, Parameter.PRESS_SHORT, Parameter.SENSOR),
+        }
+    ),
+)
+
+# HBW-LC-RGBWW-IN6-DR (Complex device with multiple configs)
+DeviceProfileRegistry.register_multiple(
+    category=DataPointCategory.LIGHT,
+    models="HBW-LC-RGBWW-IN6-DR",
+    configs=(
+        DeviceConfig(
+            data_point_class=CustomDpDimmer,
+            profile_type=DeviceProfile.RF_DIMMER,
             channels=(7, 8, 9, 10, 11, 12),
-            extended=ExtendedConfig(
+            extended=ExtendedDeviceConfig(
                 additional_data_points={
-                    (
-                        1,
-                        2,
-                        3,
-                        4,
-                        5,
-                        6,
-                    ): (
+                    (1, 2, 3, 4, 5, 6): (
                         Parameter.PRESS_LONG,
                         Parameter.PRESS_SHORT,
                         Parameter.SENSOR,
@@ -1025,76 +1092,26 @@ DEVICES: Mapping[str, CustomConfig | tuple[CustomConfig, ...]] = {
                 },
             ),
         ),
-        CustomConfig(
-            make_ce_func=make_rf_dimmer_color_fixed,
+        DeviceConfig(
+            data_point_class=CustomDpColorDimmer,
+            profile_type=DeviceProfile.RF_DIMMER_COLOR_FIXED,
             channels=(13,),
-            extended=ExtendedConfig(fixed_channels={15: {Field.COLOR: Parameter.COLOR}}),
+            extended=ExtendedDeviceConfig(fixed_channel_fields={15: {Field.COLOR: Parameter.COLOR}}),
         ),
-        CustomConfig(
-            make_ce_func=make_rf_dimmer_color_fixed,
+        DeviceConfig(
+            data_point_class=CustomDpColorDimmer,
+            profile_type=DeviceProfile.RF_DIMMER_COLOR_FIXED,
             channels=(14,),
-            extended=ExtendedConfig(fixed_channels={16: {Field.COLOR: Parameter.COLOR}}),
+            extended=ExtendedDeviceConfig(fixed_channel_fields={16: {Field.COLOR: Parameter.COLOR}}),
         ),
     ),
-    "HM-DW-WM": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2, 3, 4)),
-    "HM-LC-AO-SM": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-DW-WM": CustomConfig(make_ce_func=make_rf_dimmer_color_temp, channels=(1, 3, 5)),
-    "HM-LC-Dim1L-CV": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1L-CV-2": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1L-Pl": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1L-Pl-2": CustomConfig(make_ce_func=make_rf_dimmer),
-    "HM-LC-Dim1L-Pl-3": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1PWM-CV": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1PWM-CV-2": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1T-CV": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1T-CV-2": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1T-DR": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2, 3)),
-    "HM-LC-Dim1T-FM": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1T-FM-2": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1T-FM-LF": CustomConfig(make_ce_func=make_rf_dimmer),
-    "HM-LC-Dim1T-Pl": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1T-Pl-2": CustomConfig(make_ce_func=make_rf_dimmer),
-    "HM-LC-Dim1T-Pl-3": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1TPBU-FM": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim1TPBU-FM-2": CustomConfig(make_ce_func=make_rf_dimmer_with_virt_channel),
-    "HM-LC-Dim2L-CV": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2)),
-    "HM-LC-Dim2L-SM": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2)),
-    "HM-LC-Dim2L-SM-2": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2, 3, 4, 5, 6)),
-    "HM-LC-Dim2T-SM": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2)),
-    "HM-LC-Dim2T-SM-2": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2, 3, 4, 5, 6)),
-    "HM-LC-RGBW-WM": CustomConfig(make_ce_func=make_rf_dimmer_color_effect),
-    "HMW-LC-Dim1L-DR": CustomConfig(make_ce_func=make_rf_dimmer, channels=(3,)),
-    "HSS-DX": CustomConfig(make_ce_func=make_rf_dimmer),
-    "HmIP-DRG-DALI": CustomConfig(make_ce_func=make_ip_drg_dali_light, channels=tuple(range(1, 49))),
-    "HmIP-BDT": CustomConfig(make_ce_func=make_ip_dimmer, channels=(4,)),
-    "HmIP-BSL": CustomConfig(make_ce_func=make_ip_fixed_color_light, channels=(8, 12)),
-    "HmIP-DRDI3": CustomConfig(
-        make_ce_func=make_ip_dimmer,
-        channels=(5, 9, 13),
-    ),
-    "HmIP-FDT": CustomConfig(make_ce_func=make_ip_dimmer, channels=(2,)),
-    "HmIP-PDT": CustomConfig(make_ce_func=make_ip_dimmer, channels=(3,)),
-    "HmIP-RGBW": CustomConfig(make_ce_func=make_ip_rgbw_light),
-    "HmIP-LSC": CustomConfig(make_ce_func=make_ip_rgbw_light),
-    "HmIP-SCTH230": CustomConfig(
-        make_ce_func=make_ip_dimmer,
-        channels=(12,),
-        extended=ExtendedConfig(
-            additional_data_points={
-                1: (Parameter.CONCENTRATION,),
-                4: (
-                    Parameter.HUMIDITY,
-                    Parameter.ACTUAL_TEMPERATURE,
-                ),
-            }
-        ),
-    ),
-    "HmIP-WGT": CustomConfig(make_ce_func=make_ip_dimmer, channels=(2,)),
-    "HmIPW-DRD3": CustomConfig(
-        make_ce_func=make_ip_dimmer,
-        channels=(2, 6, 10),
-    ),
-    "HmIPW-WRC6": CustomConfig(make_ce_func=make_ip_simple_fixed_color_light_wired, channels=(7, 8, 9, 10, 11, 12, 13)),
-    "OLIGO.smart.iq.HM": CustomConfig(make_ce_func=make_rf_dimmer, channels=(1, 2, 3, 4, 5, 6)),
-}
-hmed.ALL_DEVICES[DataPointCategory.LIGHT] = DEVICES
+)
+
+# HmIP-MP3P LED Control (channel 6)
+DeviceProfileRegistry.register(
+    category=DataPointCategory.LIGHT,
+    models="HmIP-MP3P",
+    data_point_class=CustomDpSoundPlayerLed,
+    profile_type=DeviceProfile.IP_SOUND_PLAYER_LED,
+    channels=(6,),
+)

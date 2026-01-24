@@ -1,3 +1,4 @@
+import filecmp
 import logging
 import os
 import shlex
@@ -108,6 +109,8 @@ def _copy_package_resource(dest_dir: Path, path: Path, suffix: str = "") -> None
     if not dest.parent.is_dir():
         mkdir(dest.parent)
     if dest.exists():
+        if filecmp.cmp(dest, src, shallow=False):
+            return
         logger.warning(f"{hazard}  Overwriting file {dest!s} with {src!s}")
         safe_unlink(dest)
     if src.exists():
@@ -376,7 +379,7 @@ def package_name_from_spec(package_spec: str, python: str, *, pip_args: List[str
         #       will use the pypi name
         package_name = pypi_name
         logger.info(f"Determined package name: {package_name}")
-        logger.info(f"Package name determined in {time.time()-start_time:.1f}s")
+        logger.info(f"Package name determined in {time.time() - start_time:.1f}s")
         return package_name
 
     # check syntax and clean up spec and pip_args
@@ -387,7 +390,7 @@ def package_name_from_spec(package_spec: str, python: str, *, pip_args: List[str
         venv.create_venv(venv_args=[], pip_args=[])
         package_name = venv.install_package_no_deps(package_or_url=package_spec, pip_args=pip_args)
 
-    logger.info(f"Package name determined in {time.time()-start_time:.1f}s")
+    logger.info(f"Package name determined in {time.time() - start_time:.1f}s")
     return package_name
 
 

@@ -1,28 +1,31 @@
+import threading
+
 import pytest
-
 from crewai.agent import Agent
-from crewai.task import Task
 from crewai.crew import Crew
-from crewai.experimental.evaluation.agent_evaluator import AgentEvaluator
-from crewai.experimental.evaluation.base_evaluator import AgentEvaluationResult
-from crewai.experimental.evaluation import (
-    GoalAlignmentEvaluator,
-    SemanticQualityEvaluator,
-    ToolSelectionEvaluator,
-    ParameterExtractionEvaluator,
-    ToolInvocationEvaluator,
-    ReasoningEfficiencyEvaluator,
-    MetricCategory,
-    EvaluationScore,
-)
-
+from crewai.events.event_bus import crewai_event_bus
 from crewai.events.types.agent_events import (
-    AgentEvaluationStartedEvent,
     AgentEvaluationCompletedEvent,
     AgentEvaluationFailedEvent,
+    AgentEvaluationStartedEvent,
 )
-from crewai.events.event_bus import crewai_event_bus
-from crewai.experimental.evaluation import create_default_evaluator
+from crewai.experimental.evaluation import (
+    EvaluationScore,
+    GoalAlignmentEvaluator,
+    MetricCategory,
+    ParameterExtractionEvaluator,
+    ReasoningEfficiencyEvaluator,
+    SemanticQualityEvaluator,
+    ToolInvocationEvaluator,
+    ToolSelectionEvaluator,
+    create_default_evaluator,
+)
+from crewai.experimental.evaluation.agent_evaluator import AgentEvaluator
+from crewai.experimental.evaluation.base_evaluator import (
+    AgentEvaluationResult,
+    BaseEvaluator,
+)
+from crewai.task import Task
 
 
 class TestAgentEvaluator:
@@ -51,39 +54,55 @@ class TestAgentEvaluator:
         agent_evaluator.set_iteration(3)
         assert agent_evaluator._execution_state.iteration == 3
 
-    @pytest.mark.vcr(filter_headers=["authorization"])
+    @pytest.mark.vcr()
     def test_evaluate_current_iteration(self, mock_crew):
-        agent_evaluator = AgentEvaluator(
-            agents=mock_crew.agents, evaluators=[GoalAlignmentEvaluator()]
-        )
+        with crewai_event_bus.scoped_handlers():
+            agent_evaluator = AgentEvaluator(
+                agents=mock_crew.agents, evaluators=[GoalAlignmentEvaluator()]
+            )
 
-        mock_crew.kickoff()
+            evaluation_condition = threading.Condition()
+            evaluation_completed = False
 
-        results = agent_evaluator.get_evaluation_results()
+            @crewai_event_bus.on(AgentEvaluationCompletedEvent)
+            async def on_evaluation_completed(source, event):
+                nonlocal evaluation_completed
+                with evaluation_condition:
+                    evaluation_completed = True
+                    evaluation_condition.notify()
 
-        assert isinstance(results, dict)
+            mock_crew.kickoff()
 
-        (agent,) = mock_crew.agents
-        (task,) = mock_crew.tasks
+            with evaluation_condition:
+                assert evaluation_condition.wait_for(
+                    lambda: evaluation_completed, timeout=5
+                ), "Timeout waiting for evaluation completion"
 
-        assert len(mock_crew.agents) == 1
-        assert agent.role in results
-        assert len(results[agent.role]) == 1
+            results = agent_evaluator.get_evaluation_results()
 
-        (result,) = results[agent.role]
-        assert isinstance(result, AgentEvaluationResult)
+            assert isinstance(results, dict)
 
-        assert result.agent_id == str(agent.id)
-        assert result.task_id == str(task.id)
+            (agent,) = mock_crew.agents
+            (task,) = mock_crew.tasks
 
-        (goal_alignment,) = result.metrics.values()
-        assert goal_alignment.score == 5.0
+            assert len(mock_crew.agents) == 1
+            assert agent.role in results
+            assert len(results[agent.role]) == 1
 
-        expected_feedback = "The agent's output demonstrates an understanding of the need for a comprehensive document outlining task"
-        assert expected_feedback in goal_alignment.feedback
+            (result,) = results[agent.role]
+            assert isinstance(result, AgentEvaluationResult)
 
-        assert goal_alignment.raw_response is not None
-        assert '"score": 5' in goal_alignment.raw_response
+            assert result.agent_id == str(agent.id)
+            assert result.task_id == str(task.id)
+
+            (goal_alignment,) = result.metrics.values()
+            assert goal_alignment.score == 5.0
+
+            expected_feedback = "The agent's output demonstrates an understanding of the need for a comprehensive document outlining task"
+            assert expected_feedback in goal_alignment.feedback
+
+            assert goal_alignment.raw_response is not None
+            assert '"score": 5' in goal_alignment.raw_response
 
     def test_create_default_evaluator(self, mock_crew):
         agent_evaluator = create_default_evaluator(agents=mock_crew.agents)
@@ -100,105 +119,59 @@ class TestAgentEvaluator:
         ]
 
         assert len(agent_evaluator.evaluators) == len(expected_types)
-        for evaluator, expected_type in zip(agent_evaluator.evaluators, expected_types):
+        for evaluator, expected_type in zip(
+            agent_evaluator.evaluators, expected_types, strict=False
+        ):
             assert isinstance(evaluator, expected_type)
 
-    @pytest.mark.vcr(filter_headers=["authorization"])
-    def test_eval_lite_agent(self):
-        agent = Agent(
-            role="Test Agent",
-            goal="Complete test tasks successfully",
-            backstory="An agent created for testing purposes",
-        )
-
-        with crewai_event_bus.scoped_handlers():
-            events = {}
-
-            @crewai_event_bus.on(AgentEvaluationStartedEvent)
-            def capture_started(source, event):
-                events["started"] = event
-
-            @crewai_event_bus.on(AgentEvaluationCompletedEvent)
-            def capture_completed(source, event):
-                events["completed"] = event
-
-            @crewai_event_bus.on(AgentEvaluationFailedEvent)
-            def capture_failed(source, event):
-                events["failed"] = event
-
-            agent_evaluator = AgentEvaluator(
-                agents=[agent], evaluators=[GoalAlignmentEvaluator()]
-            )
-
-            agent.kickoff(messages="Complete this task successfully")
-
-            assert events.keys() == {"started", "completed"}
-            assert events["started"].agent_id == str(agent.id)
-            assert events["started"].agent_role == agent.role
-            assert events["started"].task_id is None
-            assert events["started"].iteration == 1
-
-            assert events["completed"].agent_id == str(agent.id)
-            assert events["completed"].agent_role == agent.role
-            assert events["completed"].task_id is None
-            assert events["completed"].iteration == 1
-            assert events["completed"].metric_category == MetricCategory.GOAL_ALIGNMENT
-            assert isinstance(events["completed"].score, EvaluationScore)
-            assert events["completed"].score.score == 2.0
-
-            results = agent_evaluator.get_evaluation_results()
-
-            assert isinstance(results, dict)
-
-            (result,) = results[agent.role]
-            assert isinstance(result, AgentEvaluationResult)
-
-            assert result.agent_id == str(agent.id)
-            assert result.task_id == "lite_task"
-
-            (goal_alignment,) = result.metrics.values()
-            assert goal_alignment.score == 2.0
-
-            expected_feedback = "The agent did not demonstrate a clear understanding of the task goal, which is to complete test tasks successfully"
-            assert expected_feedback in goal_alignment.feedback
-
-            assert goal_alignment.raw_response is not None
-            assert '"score": 2' in goal_alignment.raw_response
-
-    @pytest.mark.vcr(filter_headers=["authorization"])
+    @pytest.mark.vcr()
     def test_eval_specific_agents_from_crew(self, mock_crew):
-        agent = Agent(
-            role="Test Agent Eval",
-            goal="Complete test tasks successfully",
-            backstory="An agent created for testing purposes",
-        )
-        task = Task(
-            description="Test task description",
-            agent=agent,
-            expected_output="Expected test output",
-        )
-        mock_crew.agents.append(agent)
-        mock_crew.tasks.append(task)
-
         with crewai_event_bus.scoped_handlers():
+            agent = Agent(
+                role="Test Agent Eval",
+                goal="Complete test tasks successfully",
+                backstory="An agent created for testing purposes",
+            )
+            task = Task(
+                description="Test task description",
+                agent=agent,
+                expected_output="Expected test output",
+            )
+            mock_crew.agents.append(agent)
+            mock_crew.tasks.append(task)
+
             events = {}
+            results_condition = threading.Condition()
+            completed_event_received = False
+
+            agent_evaluator = AgentEvaluator(
+                agents=[agent], evaluators=[GoalAlignmentEvaluator()]
+            )
 
             @crewai_event_bus.on(AgentEvaluationStartedEvent)
-            def capture_started(source, event):
-                events["started"] = event
+            async def capture_started(source, event):
+                if event.agent_id == str(agent.id):
+                    events["started"] = event
 
             @crewai_event_bus.on(AgentEvaluationCompletedEvent)
-            def capture_completed(source, event):
-                events["completed"] = event
+            async def capture_completed(source, event):
+                nonlocal completed_event_received
+                if event.agent_id == str(agent.id):
+                    events["completed"] = event
+                    with results_condition:
+                        completed_event_received = True
+                        results_condition.notify()
 
             @crewai_event_bus.on(AgentEvaluationFailedEvent)
             def capture_failed(source, event):
                 events["failed"] = event
 
-            agent_evaluator = AgentEvaluator(
-                agents=[agent], evaluators=[GoalAlignmentEvaluator()]
-            )
             mock_crew.kickoff()
+
+            with results_condition:
+                assert results_condition.wait_for(
+                    lambda: completed_event_received, timeout=5
+                ), "Timeout waiting for evaluation completed event"
 
             assert events.keys() == {"started", "completed"}
             assert events["started"].agent_id == str(agent.id)
@@ -233,29 +206,32 @@ class TestAgentEvaluator:
             assert goal_alignment.raw_response is not None
             assert '"score": 5' in goal_alignment.raw_response
 
-    @pytest.mark.vcr(filter_headers=["authorization"])
+    @pytest.mark.vcr()
     def test_failed_evaluation(self, mock_crew):
-        (agent,) = mock_crew.agents
-        (task,) = mock_crew.tasks
-
         with crewai_event_bus.scoped_handlers():
-            events = {}
+            (agent,) = mock_crew.agents
+            (task,) = mock_crew.tasks
+
+            events: dict[str, AgentEvaluationStartedEvent | AgentEvaluationCompletedEvent | AgentEvaluationFailedEvent] = {}
+            condition = threading.Condition()
 
             @crewai_event_bus.on(AgentEvaluationStartedEvent)
             def capture_started(source, event):
-                events["started"] = event
+                with condition:
+                    events["started"] = event
+                    condition.notify()
 
             @crewai_event_bus.on(AgentEvaluationCompletedEvent)
             def capture_completed(source, event):
-                events["completed"] = event
+                with condition:
+                    events["completed"] = event
+                    condition.notify()
 
             @crewai_event_bus.on(AgentEvaluationFailedEvent)
             def capture_failed(source, event):
-                events["failed"] = event
-
-            # Create a mock evaluator that will raise an exception
-            from crewai.experimental.evaluation.base_evaluator import BaseEvaluator
-            from crewai.experimental.evaluation import MetricCategory
+                with condition:
+                    events["failed"] = event
+                    condition.notify()
 
             class FailingEvaluator(BaseEvaluator):
                 metric_category = MetricCategory.GOAL_ALIGNMENT
@@ -268,6 +244,13 @@ class TestAgentEvaluator:
             )
             mock_crew.kickoff()
 
+            with condition:
+                success = condition.wait_for(
+                    lambda: "started" in events and "failed" in events,
+                    timeout=10,
+                )
+            assert success, "Timeout waiting for evaluation events"
+
             assert events.keys() == {"started", "failed"}
             assert events["started"].agent_id == str(agent.id)
             assert events["started"].agent_role == agent.role
@@ -279,6 +262,14 @@ class TestAgentEvaluator:
             assert events["failed"].task_id == str(task.id)
             assert events["failed"].iteration == 1
             assert events["failed"].error == "Forced evaluation failure"
+
+            # Wait for results to be stored - the event is emitted before storage
+            with condition:
+                success = condition.wait_for(
+                    lambda: agent.role in agent_evaluator.get_evaluation_results(),
+                    timeout=5,
+                )
+            assert success, "Timeout waiting for evaluation results to be stored"
 
             results = agent_evaluator.get_evaluation_results()
             (result,) = results[agent.role]

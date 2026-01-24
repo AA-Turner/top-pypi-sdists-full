@@ -4,7 +4,7 @@ import re
 import string
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Literal, cast
 
 from sanic.exceptions import ServerError
 
@@ -12,17 +12,15 @@ from sanic.exceptions import ServerError
 if TYPE_CHECKING:
     from sanic.compat import Header
 
-from typing import Literal
 
-
-SameSite = Union[
-    Literal["Strict"],
-    Literal["Lax"],
-    Literal["None"],
-    Literal["strict"],
-    Literal["lax"],
-    Literal["none"],
-]
+SameSite = (
+    Literal["Strict"]
+    | Literal["Lax"]
+    | Literal["None"]
+    | Literal["strict"]
+    | Literal["lax"]
+    | Literal["none"]
+)
 
 DEFAULT_MAX_AGE = 0
 SAMESITE_VALUES = ("strict", "lax", "none")
@@ -440,9 +438,9 @@ class Cookie:
         self._secure = secure
         self._httponly = httponly
         self._partitioned = partitioned
-        self._expires = None
-        self._max_age = None
-        self._samesite = None
+        self._expires: datetime | None = None
+        self._max_age: int | None = None
+        self._samesite: SameSite | None = None
 
         if expires is not None:
             self.expires = expires
@@ -559,7 +557,7 @@ class Cookie:
                 "Cookie 'samesite' property must "
                 f"be one of: {','.join(SAMESITE_VALUES)}"
             )
-        self._samesite = value.title()
+        self._samesite = cast(SameSite, value.title())
 
     @property
     def partitioned(self) -> bool:  # no cov

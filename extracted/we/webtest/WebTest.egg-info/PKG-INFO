@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: WebTest
-Version: 3.0.6
+Version: 3.0.7
 Summary: Helper to test WSGI applications
 Home-page: https://docs.pylonsproject.org/projects/webtest/en/latest/
 Author: Ian Bicking

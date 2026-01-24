@@ -3,7 +3,7 @@ Type annotations for iot-managed-integrations service client paginators.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iot_managed_integrations/paginators/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 

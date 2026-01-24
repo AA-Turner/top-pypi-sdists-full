@@ -7,7 +7,7 @@ import jinja2
 from kodexa import ContentNode
 from kodexa.model.model import Tag, Document
 from kodexa.model.objects import ContentException, Taxon, Taxonomy, Assistant
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from kodexa.utils import snake_to_camel, to_snake, taxon_to_property_name, taxon_to_class_name, taxon_to_group_path
 
@@ -44,6 +44,7 @@ class LLMDataAttribute(BaseModel):
     tag_uuid: Optional[str] = None
     page_number: Optional[int] = None
     exceptions: Optional[list[ContentException]] = None
+    data_features: Optional[dict] = None
 
     def copy_from(self, source: "LLMDataAttribute"):
         self.tag_uuid = source.tag_uuid
@@ -53,6 +54,7 @@ class LLMDataAttribute(BaseModel):
         self.exceptions = source.exceptions
         self.node_uuid_list = source.node_uuid_list
         self.page_number = source.page_number
+        self.data_features = source.data_features
 
     def process_exceptions(self, document: "KodexaDocumentLLMWrapper"):
         # Lets make sure we add all the content exceptions
@@ -110,8 +112,7 @@ class LLMDataObject(BaseModel):
     cell_index: int = 0
     exceptions: Optional[list[ContentException]] = None
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def process_exceptions(self, document: "KodexaDocumentLLMWrapper"):
         # Lets make sure we add all the content exceptions
@@ -346,6 +347,7 @@ class LLMDataObject(BaseModel):
                                 cell_index=self.cell_index,
                                 selector="//word",
                                 confidence=confidence,
+                                data=value.data_features,
                                 group_uuid=self.group_uuid,
                                 parent_group_uuid=parent_group_uuid,
                                 owner_uri=f"assistant://{assistant.id}" if assistant else f"model://taxonomy-llm",
@@ -404,7 +406,7 @@ def get_template_env():
     """
     cli_path = os.path.dirname(os.path.abspath(__file__))
     package_location = os.path.join(cli_path, "templates")
-    template_loader = jinja2.FileSystemLoader([os.getcwd(), package_location])
+    template_loader = jinja2.FileSystemLoader([os.getcwd(), package_location], encoding='utf-8')
     env = jinja2.Environment(loader=template_loader, autoescape=True)
     env.globals["snake_to_camel"] = snake_to_camel
     env.globals["to_snake"] = to_snake
@@ -430,7 +432,7 @@ def write_template(template, output_location, output_filename, context):
     from pathlib import Path
 
     Path(output_location).mkdir(parents=True, exist_ok=True)
-    with open(output_location + "/" + output_filename, "w") as text_file:
+    with open(output_location + "/" + output_filename, "w", encoding='utf-8') as text_file:
         text_file.write(processed_template)
 
 

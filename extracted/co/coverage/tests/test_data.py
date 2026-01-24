@@ -1,5 +1,5 @@
 # Licensed under the Apache License: http://www.apache.org/licenses/LICENSE-2.0
-# For details: https://github.com/nedbat/coveragepy/blob/master/NOTICE.txt
+# For details: https://github.com/coveragepy/coveragepy/blob/main/NOTICE.txt
 
 """Tests for coverage.data, and coverage.sqldata."""
 
@@ -12,13 +12,13 @@ import re
 import sqlite3
 import threading
 
-from collections.abc import Collection, Iterable, Mapping
-from typing import Any, Callable, TypeVar, Union
+from collections.abc import Callable, Collection, Iterable, Mapping
+from typing import Any, TypeVar
 from unittest import mock
 
 import pytest
 
-from coverage.data import CoverageData, combine_parallel_data
+from coverage.data import CoverageData, DataFileClassifier, combine_parallel_data
 from coverage.data import add_data_to_hash, line_counts
 from coverage.exceptions import DataError, NoDataError
 from coverage.files import PathAliases, canonical_filename
@@ -121,7 +121,7 @@ def assert_arcs3_data(covdata: CoverageData) -> None:
     assert covdata.has_arcs()
 
 
-TData = TypeVar("TData", bound=Union[TLineNo, TArc])
+TData = TypeVar("TData", bound=TLineNo | TArc)
 
 
 def dicts_from_sets(file_data: dict[str, set[TData]]) -> dict[str, dict[TData, None]]:
@@ -542,7 +542,7 @@ class CoverageDataTest(CoverageTest):
         ]
 
     def test_add_to_lines_hash_with_missing_file(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/403
+        # https://github.com/coveragepy/coveragepy/issues/403
         covdata = DebugCoverageData()
         covdata.add_lines(LINES_1)
         hasher = mock.Mock()
@@ -553,7 +553,7 @@ class CoverageDataTest(CoverageTest):
         ]
 
     def test_add_to_arcs_hash_with_missing_file(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/403
+        # https://github.com/coveragepy/coveragepy/issues/403
         covdata = DebugCoverageData()
         covdata.add_arcs(ARCS_3)
         covdata.add_file_tracers({"y.py": "hologram_plugin"})
@@ -991,6 +991,7 @@ class CoverageDataFilesTest(CoverageTest):
         self.assert_file_count(glob.escape(basename) + ".*", 0)
 
     def test_meta_data(self) -> None:
+        # TODO: do we care about this?
         # The metadata written to the data file shouldn't interfere with
         # hashing to remove duplicates, except for debug=process, which
         # writes debugging info as metadata.
@@ -999,16 +1000,55 @@ class CoverageDataFilesTest(CoverageTest):
         covdata1.add_lines(LINES_1)
         covdata1.write()
         with sqlite3.connect("meta.1") as con:
-            data = sorted(k for (k,) in con.execute("select key from meta"))
-        assert data == ["has_arcs", "version"]
+            data = {k for (k,) in con.execute("select key from meta")}
+        assert {"has_arcs", "version"} <= data
 
         debug = DebugControlString(options=["process"])
         covdata2 = CoverageData(basename="meta.2", debug=debug)
         covdata2.add_lines(LINES_1)
         covdata2.write()
         with sqlite3.connect("meta.2") as con:
-            data = sorted(k for (k,) in con.execute("select key from meta"))
-        assert data == ["has_arcs", "sys_argv", "version", "when"]
+            data = {k for (k,) in con.execute("select key from meta")}
+        assert {"has_arcs", "sys_argv", "version", "when"} <= data
+
+    def make_data_files(self, spec: str, arcs: bool) -> list[CoverageData]:
+        """Make a number data files.
+
+        `spec` is a string dictating the data for each file. Same characters
+        in spec produce identical data in the corresponding files.
+        """
+        datas = []
+        for ifile, c in enumerate(spec):
+            files_lines = {f"code_{i}.py": list(range(1, 100)) for i in range(10)}
+            files_lines[f"more_code_{c}.py"] = list(range(1, 10, 2))
+            if arcs:
+                files_arcs = {
+                    fname: [(l, 1000) for l in lines] for fname, lines in files_lines.items()
+                }
+                kwargs: dict[str, Any] = {"arcs": files_arcs}
+            else:
+                kwargs = {"lines": files_lines}
+            datas.append(self.make_data_file(".coverage", suffix=str(ifile), **kwargs))
+        return datas
+
+    @pytest.mark.parametrize(
+        "spec, combine_or_skip",
+        [
+            ("abcdef", "cccccc"),
+            ("aaaaaa", "csssss"),
+            ("ababac", "ccsssc"),
+            ("aaaaab", "cssssc"),
+        ],
+    )
+    @pytest.mark.parametrize("arcs", [False, True])
+    def test_skipping_duplicates(self, spec: str, combine_or_skip: str, arcs: bool) -> None:
+        # Check that DataFileClassifier correctly notices when data is
+        # duplicated, and tells us to combine new data and skip duplicates.
+        datas = self.make_data_files(spec, arcs=arcs)
+        classifier = DataFileClassifier()
+        for data_file, c_or_s in zip(datas, combine_or_skip):
+            file_action = classifier.classify(data_file.data_filename())
+            assert file_action[0] == c_or_s
 
 
 class DumpsLoadsTest(CoverageTest):
@@ -1045,7 +1085,7 @@ class NoDiskTest(CoverageTest):
     run_in_temp_dir = False
 
     def test_updating(self) -> None:
-        # https://github.com/nedbat/coveragepy/issues/1323
+        # https://github.com/coveragepy/coveragepy/issues/1323
         a = CoverageData(no_disk=True)
         a.add_lines({"foo.py": [10, 20, 30]})
         assert a.measured_files() == {"foo.py"}

@@ -2,12 +2,7 @@
 import { browser } from "$app/environment";
 
 import { Client } from "@gradio/client";
-import {
-	create_components,
-	type ComponentMeta,
-	type Dependency
-} from "@gradio/core";
-import { get } from "svelte/store";
+
 import type { Config } from "@gradio/client";
 import { MISSING_CREDENTIALS_MSG } from "@gradio/client";
 import { setupi18n } from "@gradio/core";
@@ -15,9 +10,12 @@ import { setupi18n } from "@gradio/core";
 import Blocks from "@gradio/core/blocks";
 import Login from "@gradio/core/login";
 
+export let ssr = true;
+
 export async function load({
 	url,
-	data: { server, port, local_dev_mode, accept_language }
+	data: { server, port, local_dev_mode, accept_language, root_url, mount_path },
+	route
 }): Promise<{
 	Render: typeof Login | typeof Blocks;
 	config: Config;
@@ -27,13 +25,26 @@ export async function load({
 }> {
 	let app: Client;
 	const api_url =
-		browser && !local_dev_mode ? new URL(".", location.href).href : server;
+		browser && !local_dev_mode && root_url
+			? new URL(mount_path || "/", root_url).href
+			: server;
 	const deepLink = url.searchParams.get("deep_link");
+	const headers = new Headers();
+	if (!browser) {
+		headers.append("x-gradio-server", root_url);
+	} else {
+		headers.append(
+			"x-gradio-server",
+			new URL(mount_path, location.origin).href
+		);
+	}
+
 	try {
 		app = await Client.connect(api_url, {
 			with_null_state: true,
 			events: ["data", "log", "status", "render"],
-			query_params: deepLink ? { deep_link: deepLink } : undefined
+			query_params: deepLink ? { deep_link: deepLink } : undefined,
+			headers
 		});
 	} catch (error: any) {
 		const error_message = error.message || "";
@@ -73,7 +84,7 @@ export async function load({
 
 				is_space: false,
 				is_colab: false,
-				show_api: false,
+				footer_links: ["gradio", "settings"],
 				stylesheets: [],
 				protocol: "sse_v3",
 				username: ""
@@ -90,27 +101,11 @@ export async function load({
 
 	let page_config = app.get_url_config(url.toString());
 
-	const { create_layout, layout } = create_components();
-
-	await create_layout({
-		app,
-		components: page_config.components,
-		dependencies: page_config.dependencies,
-		layout: page_config.layout,
-		root: app.config.root + app.config.api_prefix,
-		options: {
-			fill_height: app.config.fill_height ?? false
-		}
-	});
-
-	const layouts = get(layout);
 	await setupi18n(app.config?.i18n_translations || undefined, accept_language);
-
 	return {
 		Render: app.config?.auth_required ? Login : Blocks,
 		config: page_config,
 		api_url,
-		layout: layouts,
 		app
 	};
 }

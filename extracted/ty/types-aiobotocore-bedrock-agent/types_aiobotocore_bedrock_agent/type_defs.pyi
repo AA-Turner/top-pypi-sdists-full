@@ -3,7 +3,7 @@ Type annotations for bedrock-agent service type definitions.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import IO, Any, Union
 
@@ -78,12 +79,6 @@ from .literals import (
     WebScopeTypeType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Mapping, Sequence
-else:
-    from typing import Dict, List, Mapping, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -112,7 +107,10 @@ __all__ = (
     "AssociateAgentCollaboratorResponseTypeDef",
     "AssociateAgentKnowledgeBaseRequestTypeDef",
     "AssociateAgentKnowledgeBaseResponseTypeDef",
+    "AudioConfigurationTypeDef",
+    "AudioSegmentationConfigurationTypeDef",
     "BedrockDataAutomationConfigurationTypeDef",
+    "BedrockEmbeddingModelConfigurationOutputTypeDef",
     "BedrockEmbeddingModelConfigurationTypeDef",
     "BedrockFoundationModelConfigurationTypeDef",
     "BedrockFoundationModelContextEnrichmentConfigurationTypeDef",
@@ -196,6 +194,7 @@ __all__ = (
     "DocumentMetadataTypeDef",
     "DuplicateConditionExpressionFlowValidationDetailsTypeDef",
     "DuplicateConnectionsFlowValidationDetailsTypeDef",
+    "EmbeddingModelConfigurationOutputTypeDef",
     "EmbeddingModelConfigurationTypeDef",
     "EnrichmentStrategyConfigurationTypeDef",
     "FieldForRerankingTypeDef",
@@ -546,6 +545,8 @@ __all__ = (
     "VectorSearchBedrockRerankingModelConfigurationTypeDef",
     "VectorSearchRerankingConfigurationOutputTypeDef",
     "VectorSearchRerankingConfigurationTypeDef",
+    "VideoConfigurationTypeDef",
+    "VideoSegmentationConfigurationTypeDef",
     "WebCrawlerConfigurationOutputTypeDef",
     "WebCrawlerConfigurationTypeDef",
     "WebCrawlerLimitsTypeDef",
@@ -606,7 +607,7 @@ class GuardrailConfigurationTypeDef(TypedDict):
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -617,12 +618,11 @@ class AssociateAgentKnowledgeBaseRequestTypeDef(TypedDict):
     description: str
     knowledgeBaseState: NotRequired[KnowledgeBaseStateType]
 
+class AudioSegmentationConfigurationTypeDef(TypedDict):
+    fixedLengthDuration: int
+
 class BedrockDataAutomationConfigurationTypeDef(TypedDict):
     parsingModality: NotRequired[Literal["MULTIMODAL"]]
-
-class BedrockEmbeddingModelConfigurationTypeDef(TypedDict):
-    dimensions: NotRequired[int]
-    embeddingDataType: NotRequired[EmbeddingDataTypeType]
 
 class ParsingPromptTypeDef(TypedDict):
     parsingPromptText: str
@@ -712,7 +712,7 @@ class CyclicConnectionFlowValidationDetailsTypeDef(TypedDict):
 
 class S3DataSourceConfigurationOutputTypeDef(TypedDict):
     bucketArn: str
-    inclusionPrefixes: NotRequired[List[str]]
+    inclusionPrefixes: NotRequired[list[str]]
     bucketOwnerAccountId: NotRequired[str]
 
 class S3DataSourceConfigurationTypeDef(TypedDict):
@@ -814,7 +814,7 @@ class LexFlowNodeConfigurationTypeDef(TypedDict):
     localeId: str
 
 class LoopFlowNodeConfigurationOutputTypeDef(TypedDict):
-    definition: Dict[str, Any]
+    definition: dict[str, Any]
 
 class LoopFlowNodeConfigurationTypeDef(TypedDict):
     definition: Mapping[str, Any]
@@ -1050,7 +1050,7 @@ class InferenceConfigurationOutputTypeDef(TypedDict):
     topP: NotRequired[float]
     topK: NotRequired[int]
     maximumLength: NotRequired[int]
-    stopSequences: NotRequired[List[str]]
+    stopSequences: NotRequired[list[str]]
 
 class InferenceConfigurationTypeDef(TypedDict):
     temperature: NotRequired[float]
@@ -1222,8 +1222,8 @@ class OpenSearchServerlessFieldMappingTypeDef(TypedDict):
 
 class PatternObjectFilterOutputTypeDef(TypedDict):
     objectType: str
-    inclusionFilters: NotRequired[List[str]]
-    exclusionFilters: NotRequired[List[str]]
+    inclusionFilters: NotRequired[list[str]]
+    exclusionFilters: NotRequired[list[str]]
 
 class PatternObjectFilterTypeDef(TypedDict):
     objectType: str
@@ -1250,7 +1250,7 @@ class PromptModelInferenceConfigurationOutputTypeDef(TypedDict):
     temperature: NotRequired[float]
     topP: NotRequired[float]
     maxTokens: NotRequired[int]
-    stopSequences: NotRequired[List[str]]
+    stopSequences: NotRequired[list[str]]
 
 class PromptMetadataEntryTypeDef(TypedDict):
     key: str
@@ -1289,7 +1289,7 @@ RedshiftProvisionedAuthConfigurationTypeDef = TypedDict(
 )
 
 class RedshiftQueryEngineAwsDataCatalogStorageConfigurationOutputTypeDef(TypedDict):
-    tableNames: List[str]
+    tableNames: list[str]
 
 class RedshiftQueryEngineAwsDataCatalogStorageConfigurationTypeDef(TypedDict):
     tableNames: Sequence[str]
@@ -1323,7 +1323,7 @@ class SeedUrlTypeDef(TypedDict):
 
 class SharePointSourceConfigurationOutputTypeDef(TypedDict):
     domain: str
-    siteUrls: List[str]
+    siteUrls: list[str]
     hostType: Literal["ONLINE"]
     authType: SharePointAuthTypeType
     credentialsSecretArn: str
@@ -1359,7 +1359,7 @@ class TagResourceRequestTypeDef(TypedDict):
     tags: Mapping[str, str]
 
 class ToolInputSchemaOutputTypeDef(TypedDict):
-    json: NotRequired[Dict[str, Any]]
+    json: NotRequired[dict[str, Any]]
 
 class ToolInputSchemaTypeDef(TypedDict):
     json: NotRequired[Mapping[str, Any]]
@@ -1380,11 +1380,14 @@ class UpdateAgentKnowledgeBaseRequestTypeDef(TypedDict):
 
 class VectorSearchBedrockRerankingModelConfigurationOutputTypeDef(TypedDict):
     modelArn: str
-    additionalModelRequestFields: NotRequired[Dict[str, Dict[str, Any]]]
+    additionalModelRequestFields: NotRequired[dict[str, dict[str, Any]]]
 
 class VectorSearchBedrockRerankingModelConfigurationTypeDef(TypedDict):
     modelArn: str
     additionalModelRequestFields: NotRequired[Mapping[str, Mapping[str, Any]]]
+
+class VideoSegmentationConfigurationTypeDef(TypedDict):
+    fixedLengthDuration: int
 
 class WebCrawlerLimitsTypeDef(TypedDict):
     rateLimit: NotRequired[int]
@@ -1395,7 +1398,7 @@ class APISchemaTypeDef(TypedDict):
     payload: NotRequired[str]
 
 class AgentAliasHistoryEventTypeDef(TypedDict):
-    routingConfiguration: NotRequired[List[AgentAliasRoutingConfigurationListItemTypeDef]]
+    routingConfiguration: NotRequired[list[AgentAliasRoutingConfigurationListItemTypeDef]]
     endDate: NotRequired[datetime]
     startDate: NotRequired[datetime]
 
@@ -1406,7 +1409,7 @@ class AgentAliasSummaryTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: datetime
     description: NotRequired[str]
-    routingConfiguration: NotRequired[List[AgentAliasRoutingConfigurationListItemTypeDef]]
+    routingConfiguration: NotRequired[list[AgentAliasRoutingConfigurationListItemTypeDef]]
     aliasInvocationState: NotRequired[AliasInvocationStateType]
 
 class CreateAgentAliasRequestTypeDef(TypedDict):
@@ -1554,17 +1557,17 @@ class GetAgentKnowledgeBaseResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAgentActionGroupsResponseTypeDef(TypedDict):
-    actionGroupSummaries: List[ActionGroupSummaryTypeDef]
+    actionGroupSummaries: list[ActionGroupSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAgentKnowledgeBasesResponseTypeDef(TypedDict):
-    agentKnowledgeBaseSummaries: List[AgentKnowledgeBaseSummaryTypeDef]
+    agentKnowledgeBaseSummaries: list[AgentKnowledgeBaseSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: Dict[str, str]
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PrepareAgentResponseTypeDef(TypedDict):
@@ -1587,8 +1590,8 @@ class UpdateAgentKnowledgeBaseResponseTypeDef(TypedDict):
     agentKnowledgeBase: AgentKnowledgeBaseTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class EmbeddingModelConfigurationTypeDef(TypedDict):
-    bedrockEmbeddingModelConfiguration: NotRequired[BedrockEmbeddingModelConfigurationTypeDef]
+class AudioConfigurationTypeDef(TypedDict):
+    segmentationConfiguration: AudioSegmentationConfigurationTypeDef
 
 class BedrockFoundationModelConfigurationTypeDef(TypedDict):
     modelArn: str
@@ -1614,7 +1617,7 @@ class SystemContentBlockTypeDef(TypedDict):
 class TextPromptTemplateConfigurationOutputTypeDef(TypedDict):
     text: str
     cachePoint: NotRequired[CachePointBlockTypeDef]
-    inputVariables: NotRequired[List[PromptInputVariableTypeDef]]
+    inputVariables: NotRequired[list[PromptInputVariableTypeDef]]
 
 class TextPromptTemplateConfigurationTypeDef(TypedDict):
     text: str
@@ -1622,7 +1625,7 @@ class TextPromptTemplateConfigurationTypeDef(TypedDict):
     inputVariables: NotRequired[Sequence[PromptInputVariableTypeDef]]
 
 class ConditionFlowNodeConfigurationOutputTypeDef(TypedDict):
-    conditions: List[FlowConditionTypeDef]
+    conditions: list[FlowConditionTypeDef]
 
 class ConditionFlowNodeConfigurationTypeDef(TypedDict):
     conditions: Sequence[FlowConditionTypeDef]
@@ -1645,7 +1648,7 @@ CreateFlowAliasResponseTypeDef = TypedDict(
     {
         "name": str,
         "description": str,
-        "routingConfiguration": List[FlowAliasRoutingConfigurationListItemTypeDef],
+        "routingConfiguration": list[FlowAliasRoutingConfigurationListItemTypeDef],
         "concurrencyConfiguration": FlowAliasConcurrencyConfigurationTypeDef,
         "flowId": str,
         "id": str,
@@ -1659,7 +1662,7 @@ FlowAliasSummaryTypeDef = TypedDict(
     "FlowAliasSummaryTypeDef",
     {
         "name": str,
-        "routingConfiguration": List[FlowAliasRoutingConfigurationListItemTypeDef],
+        "routingConfiguration": list[FlowAliasRoutingConfigurationListItemTypeDef],
         "flowId": str,
         "id": str,
         "arn": str,
@@ -1674,7 +1677,7 @@ GetFlowAliasResponseTypeDef = TypedDict(
     {
         "name": str,
         "description": str,
-        "routingConfiguration": List[FlowAliasRoutingConfigurationListItemTypeDef],
+        "routingConfiguration": list[FlowAliasRoutingConfigurationListItemTypeDef],
         "concurrencyConfiguration": FlowAliasConcurrencyConfigurationTypeDef,
         "flowId": str,
         "id": str,
@@ -1698,7 +1701,7 @@ UpdateFlowAliasResponseTypeDef = TypedDict(
     {
         "name": str,
         "description": str,
-        "routingConfiguration": List[FlowAliasRoutingConfigurationListItemTypeDef],
+        "routingConfiguration": list[FlowAliasRoutingConfigurationListItemTypeDef],
         "concurrencyConfiguration": FlowAliasConcurrencyConfigurationTypeDef,
         "flowId": str,
         "id": str,
@@ -1713,7 +1716,7 @@ class CustomOrchestrationTypeDef(TypedDict):
     executor: NotRequired[OrchestrationExecutorTypeDef]
 
 class ListDataSourcesResponseTypeDef(TypedDict):
-    dataSourceSummaries: List[DataSourceSummaryTypeDef]
+    dataSourceSummaries: list[DataSourceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1737,8 +1740,8 @@ SupplementalDataStorageLocationTypeDef = TypedDict(
 )
 
 class RerankingMetadataSelectiveModeConfigurationOutputTypeDef(TypedDict):
-    fieldsToInclude: NotRequired[List[FieldForRerankingTypeDef]]
-    fieldsToExclude: NotRequired[List[FieldForRerankingTypeDef]]
+    fieldsToInclude: NotRequired[list[FieldForRerankingTypeDef]]
+    fieldsToExclude: NotRequired[list[FieldForRerankingTypeDef]]
 
 class RerankingMetadataSelectiveModeConfigurationTypeDef(TypedDict):
     fieldsToInclude: NotRequired[Sequence[FieldForRerankingTypeDef]]
@@ -1749,7 +1752,7 @@ class FlowConnectionConfigurationTypeDef(TypedDict):
     conditional: NotRequired[FlowConditionalConnectionConfigurationTypeDef]
 
 class ListFlowsResponseTypeDef(TypedDict):
-    flowSummaries: List[FlowSummaryTypeDef]
+    flowSummaries: list[FlowSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1784,11 +1787,11 @@ class FlowValidationDetailsTypeDef(TypedDict):
         MissingConnectionConfigurationFlowValidationDetailsTypeDef
     ]
     missingDefaultCondition: NotRequired[MissingDefaultConditionFlowValidationDetailsTypeDef]
-    missingEndingNodes: NotRequired[Dict[str, Any]]
+    missingEndingNodes: NotRequired[dict[str, Any]]
     missingNodeConfiguration: NotRequired[MissingNodeConfigurationFlowValidationDetailsTypeDef]
     missingNodeInput: NotRequired[MissingNodeInputFlowValidationDetailsTypeDef]
     missingNodeOutput: NotRequired[MissingNodeOutputFlowValidationDetailsTypeDef]
-    missingStartingNodes: NotRequired[Dict[str, Any]]
+    missingStartingNodes: NotRequired[dict[str, Any]]
     multipleNodeInputConnections: NotRequired[
         MultipleNodeInputConnectionsFlowValidationDetailsTypeDef
     ]
@@ -1796,7 +1799,7 @@ class FlowValidationDetailsTypeDef(TypedDict):
     unsatisfiedConnectionConditions: NotRequired[
         UnsatisfiedConnectionConditionsFlowValidationDetailsTypeDef
     ]
-    unspecified: NotRequired[Dict[str, Any]]
+    unspecified: NotRequired[dict[str, Any]]
     unknownNodeInput: NotRequired[UnknownNodeInputFlowValidationDetailsTypeDef]
     unknownNodeOutput: NotRequired[UnknownNodeOutputFlowValidationDetailsTypeDef]
     missingLoopInputNode: NotRequired[MissingLoopInputNodeFlowValidationDetailsTypeDef]
@@ -1809,14 +1812,14 @@ class FlowValidationDetailsTypeDef(TypedDict):
     invalidLoopBoundary: NotRequired[InvalidLoopBoundaryFlowValidationDetailsTypeDef]
 
 class ListFlowVersionsResponseTypeDef(TypedDict):
-    flowVersionSummaries: List[FlowVersionSummaryTypeDef]
+    flowVersionSummaries: list[FlowVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class FunctionOutputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
-    parameters: NotRequired[Dict[str, ParameterDetailTypeDef]]
+    parameters: NotRequired[dict[str, ParameterDetailTypeDef]]
     requireConfirmation: NotRequired[RequireConfirmationType]
 
 class FunctionTypeDef(TypedDict):
@@ -1826,7 +1829,7 @@ class FunctionTypeDef(TypedDict):
     requireConfirmation: NotRequired[RequireConfirmationType]
 
 class HierarchicalChunkingConfigurationOutputTypeDef(TypedDict):
-    levelConfigurations: List[HierarchicalChunkingLevelConfigurationTypeDef]
+    levelConfigurations: list[HierarchicalChunkingLevelConfigurationTypeDef]
     overlapTokens: int
 
 class HierarchicalChunkingConfigurationTypeDef(TypedDict):
@@ -1841,7 +1844,7 @@ class PromptConfigurationOutputTypeDef(TypedDict):
     inferenceConfiguration: NotRequired[InferenceConfigurationOutputTypeDef]
     parserMode: NotRequired[CreationModeType]
     foundationModel: NotRequired[str]
-    additionalModelRequestFields: NotRequired[Dict[str, Any]]
+    additionalModelRequestFields: NotRequired[dict[str, Any]]
 
 class PromptConfigurationTypeDef(TypedDict):
     promptType: NotRequired[PromptTypeType]
@@ -1880,10 +1883,10 @@ class IngestionJobTypeDef(TypedDict):
     updatedAt: datetime
     description: NotRequired[str]
     statistics: NotRequired[IngestionJobStatisticsTypeDef]
-    failureReasons: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
 
 class ListKnowledgeBasesResponseTypeDef(TypedDict):
-    knowledgeBaseSummaries: List[KnowledgeBaseSummaryTypeDef]
+    knowledgeBaseSummaries: list[KnowledgeBaseSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1948,12 +1951,12 @@ class ListPromptsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListPromptsResponseTypeDef(TypedDict):
-    promptSummaries: List[PromptSummaryTypeDef]
+    promptSummaries: list[PromptSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class MemoryConfigurationOutputTypeDef(TypedDict):
-    enabledMemoryTypes: List[Literal["SESSION_SUMMARY"]]
+    enabledMemoryTypes: list[Literal["SESSION_SUMMARY"]]
     storageDays: NotRequired[int]
     sessionSummaryConfiguration: NotRequired[SessionSummaryConfigurationTypeDef]
 
@@ -1992,7 +1995,7 @@ class OpenSearchServerlessConfigurationTypeDef(TypedDict):
     fieldMapping: OpenSearchServerlessFieldMappingTypeDef
 
 class PatternObjectFilterConfigurationOutputTypeDef(TypedDict):
-    filters: List[PatternObjectFilterOutputTypeDef]
+    filters: list[PatternObjectFilterOutputTypeDef]
 
 class PatternObjectFilterConfigurationTypeDef(TypedDict):
     filters: Sequence[PatternObjectFilterTypeDef]
@@ -2017,7 +2020,7 @@ class QueryGenerationTableOutputTypeDef(TypedDict):
     name: str
     description: NotRequired[str]
     inclusion: NotRequired[IncludeExcludeType]
-    columns: NotRequired[List[QueryGenerationColumnTypeDef]]
+    columns: NotRequired[list[QueryGenerationColumnTypeDef]]
 
 class QueryGenerationTableTypeDef(TypedDict):
     name: str
@@ -2075,7 +2078,7 @@ class RetrievalFlowNodeServiceConfigurationTypeDef(TypedDict):
     s3: NotRequired[RetrievalFlowNodeS3ConfigurationTypeDef]
 
 class UrlConfigurationOutputTypeDef(TypedDict):
-    seedUrls: NotRequired[List[SeedUrlTypeDef]]
+    seedUrls: NotRequired[list[SeedUrlTypeDef]]
 
 class UrlConfigurationTypeDef(TypedDict):
     seedUrls: NotRequired[Sequence[SeedUrlTypeDef]]
@@ -2083,8 +2086,8 @@ class UrlConfigurationTypeDef(TypedDict):
 ToolChoiceOutputTypeDef = TypedDict(
     "ToolChoiceOutputTypeDef",
     {
-        "auto": NotRequired[Dict[str, Any]],
-        "any": NotRequired[Dict[str, Any]],
+        "auto": NotRequired[dict[str, Any]],
+        "any": NotRequired[dict[str, Any]],
         "tool": NotRequired[SpecificToolChoiceTypeDef],
     },
 )
@@ -2110,10 +2113,13 @@ ToolInputSchemaUnionTypeDef = Union[ToolInputSchemaTypeDef, ToolInputSchemaOutpu
 class TransformationFunctionTypeDef(TypedDict):
     transformationLambdaConfiguration: TransformationLambdaConfigurationTypeDef
 
+class VideoConfigurationTypeDef(TypedDict):
+    segmentationConfiguration: VideoSegmentationConfigurationTypeDef
+
 class WebCrawlerConfigurationOutputTypeDef(TypedDict):
     crawlerLimits: NotRequired[WebCrawlerLimitsTypeDef]
-    inclusionFilters: NotRequired[List[str]]
-    exclusionFilters: NotRequired[List[str]]
+    inclusionFilters: NotRequired[list[str]]
+    exclusionFilters: NotRequired[list[str]]
     scope: NotRequired[WebScopeTypeType]
     userAgent: NotRequired[str]
     userAgentHeader: NotRequired[str]
@@ -2131,23 +2137,23 @@ class AgentAliasTypeDef(TypedDict):
     agentAliasId: str
     agentAliasName: str
     agentAliasArn: str
-    routingConfiguration: List[AgentAliasRoutingConfigurationListItemTypeDef]
+    routingConfiguration: list[AgentAliasRoutingConfigurationListItemTypeDef]
     createdAt: datetime
     updatedAt: datetime
     agentAliasStatus: AgentAliasStatusType
     clientToken: NotRequired[str]
     description: NotRequired[str]
-    agentAliasHistoryEvents: NotRequired[List[AgentAliasHistoryEventTypeDef]]
-    failureReasons: NotRequired[List[str]]
+    agentAliasHistoryEvents: NotRequired[list[AgentAliasHistoryEventTypeDef]]
+    failureReasons: NotRequired[list[str]]
     aliasInvocationState: NotRequired[AliasInvocationStateType]
 
 class ListAgentAliasesResponseTypeDef(TypedDict):
-    agentAliasSummaries: List[AgentAliasSummaryTypeDef]
+    agentAliasSummaries: list[AgentAliasSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAgentCollaboratorsResponseTypeDef(TypedDict):
-    agentCollaboratorSummaries: List[AgentCollaboratorSummaryTypeDef]
+    agentCollaboratorSummaries: list[AgentCollaboratorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2164,12 +2170,12 @@ class UpdateAgentCollaboratorResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListAgentsResponseTypeDef(TypedDict):
-    agentSummaries: List[AgentSummaryTypeDef]
+    agentSummaries: list[AgentSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class ListAgentVersionsResponseTypeDef(TypedDict):
-    agentVersionSummaries: List[AgentVersionSummaryTypeDef]
+    agentVersionSummaries: list[AgentVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2198,7 +2204,7 @@ InlineContentTypeDef = TypedDict(
 
 class MessageOutputTypeDef(TypedDict):
     role: ConversationRoleType
-    content: List[ContentBlockTypeDef]
+    content: list[ContentBlockTypeDef]
 
 class MessageTypeDef(TypedDict):
     role: ConversationRoleType
@@ -2209,7 +2215,7 @@ TextPromptTemplateConfigurationUnionTypeDef = Union[
 ]
 
 class ListFlowAliasesResponseTypeDef(TypedDict):
-    flowAliasSummaries: List[FlowAliasSummaryTypeDef]
+    flowAliasSummaries: list[FlowAliasSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2233,7 +2239,7 @@ class KnowledgeBaseDocumentDetailTypeDef(TypedDict):
     updatedAt: NotRequired[datetime]
 
 class SupplementalDataStorageConfigurationOutputTypeDef(TypedDict):
-    storageLocations: List[SupplementalDataStorageLocationTypeDef]
+    storageLocations: list[SupplementalDataStorageLocationTypeDef]
 
 class SupplementalDataStorageConfigurationTypeDef(TypedDict):
     storageLocations: Sequence[SupplementalDataStorageLocationTypeDef]
@@ -2269,7 +2275,7 @@ FlowValidationTypeDef = TypedDict(
 )
 
 class FunctionSchemaOutputTypeDef(TypedDict):
-    functions: NotRequired[List[FunctionOutputTypeDef]]
+    functions: NotRequired[list[FunctionOutputTypeDef]]
 
 class FunctionSchemaTypeDef(TypedDict):
     functions: NotRequired[Sequence[FunctionTypeDef]]
@@ -2287,7 +2293,7 @@ class ChunkingConfigurationTypeDef(TypedDict):
     semanticChunkingConfiguration: NotRequired[SemanticChunkingConfigurationTypeDef]
 
 class PromptOverrideConfigurationOutputTypeDef(TypedDict):
-    promptConfigurations: List[PromptConfigurationOutputTypeDef]
+    promptConfigurations: list[PromptConfigurationOutputTypeDef]
     overrideLambda: NotRequired[str]
 
 class PromptOverrideConfigurationTypeDef(TypedDict):
@@ -2295,7 +2301,7 @@ class PromptOverrideConfigurationTypeDef(TypedDict):
     overrideLambda: NotRequired[str]
 
 class ListIngestionJobsResponseTypeDef(TypedDict):
-    ingestionJobSummaries: List[IngestionJobSummaryTypeDef]
+    ingestionJobSummaries: list[IngestionJobSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -2340,15 +2346,15 @@ CrawlFilterConfigurationTypeDef = TypedDict(
 class KnowledgeBaseOrchestrationConfigurationOutputTypeDef(TypedDict):
     promptTemplate: NotRequired[KnowledgeBasePromptTemplateTypeDef]
     inferenceConfig: NotRequired[PromptInferenceConfigurationOutputTypeDef]
-    additionalModelRequestFields: NotRequired[Dict[str, Dict[str, Any]]]
+    additionalModelRequestFields: NotRequired[dict[str, dict[str, Any]]]
     performanceConfig: NotRequired[PerformanceConfigurationTypeDef]
 
 class PromptInferenceConfigurationTypeDef(TypedDict):
     text: NotRequired[PromptModelInferenceConfigurationUnionTypeDef]
 
 class QueryGenerationContextOutputTypeDef(TypedDict):
-    tables: NotRequired[List[QueryGenerationTableOutputTypeDef]]
-    curatedQueries: NotRequired[List[CuratedQueryTypeDef]]
+    tables: NotRequired[list[QueryGenerationTableOutputTypeDef]]
+    curatedQueries: NotRequired[list[CuratedQueryTypeDef]]
 
 class QueryGenerationContextTypeDef(TypedDict):
     tables: NotRequired[Sequence[QueryGenerationTableTypeDef]]
@@ -2406,6 +2412,18 @@ class TransformationTypeDef(TypedDict):
     transformationFunction: TransformationFunctionTypeDef
     stepToApply: Literal["POST_CHUNKING"]
 
+class BedrockEmbeddingModelConfigurationOutputTypeDef(TypedDict):
+    dimensions: NotRequired[int]
+    embeddingDataType: NotRequired[EmbeddingDataTypeType]
+    audio: NotRequired[list[AudioConfigurationTypeDef]]
+    video: NotRequired[list[VideoConfigurationTypeDef]]
+
+class BedrockEmbeddingModelConfigurationTypeDef(TypedDict):
+    dimensions: NotRequired[int]
+    embeddingDataType: NotRequired[EmbeddingDataTypeType]
+    audio: NotRequired[Sequence[AudioConfigurationTypeDef]]
+    video: NotRequired[Sequence[VideoConfigurationTypeDef]]
+
 class CreateAgentAliasResponseTypeDef(TypedDict):
     agentAlias: AgentAliasTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2427,33 +2445,21 @@ class CustomContentTypeDef(TypedDict):
 MessageUnionTypeDef = Union[MessageTypeDef, MessageOutputTypeDef]
 
 class DeleteKnowledgeBaseDocumentsResponseTypeDef(TypedDict):
-    documentDetails: List[KnowledgeBaseDocumentDetailTypeDef]
+    documentDetails: list[KnowledgeBaseDocumentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetKnowledgeBaseDocumentsResponseTypeDef(TypedDict):
-    documentDetails: List[KnowledgeBaseDocumentDetailTypeDef]
+    documentDetails: list[KnowledgeBaseDocumentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class IngestKnowledgeBaseDocumentsResponseTypeDef(TypedDict):
-    documentDetails: List[KnowledgeBaseDocumentDetailTypeDef]
+    documentDetails: list[KnowledgeBaseDocumentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListKnowledgeBaseDocumentsResponseTypeDef(TypedDict):
-    documentDetails: List[KnowledgeBaseDocumentDetailTypeDef]
+    documentDetails: list[KnowledgeBaseDocumentDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class VectorKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
-    embeddingModelArn: str
-    embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationTypeDef]
-    supplementalDataStorageConfiguration: NotRequired[
-        SupplementalDataStorageConfigurationOutputTypeDef
-    ]
-
-class VectorKnowledgeBaseConfigurationTypeDef(TypedDict):
-    embeddingModelArn: str
-    embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationTypeDef]
-    supplementalDataStorageConfiguration: NotRequired[SupplementalDataStorageConfigurationTypeDef]
 
 class VectorSearchBedrockRerankingConfigurationOutputTypeDef(TypedDict):
     modelConfiguration: VectorSearchBedrockRerankingModelConfigurationOutputTypeDef
@@ -2466,7 +2472,7 @@ class VectorSearchBedrockRerankingConfigurationTypeDef(TypedDict):
     metadataConfiguration: NotRequired[MetadataConfigurationForRerankingTypeDef]
 
 class ValidateFlowDefinitionResponseTypeDef(TypedDict):
-    validations: List[FlowValidationTypeDef]
+    validations: list[FlowValidationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AgentActionGroupTypeDef(TypedDict):
@@ -2480,7 +2486,7 @@ class AgentActionGroupTypeDef(TypedDict):
     clientToken: NotRequired[str]
     description: NotRequired[str]
     parentActionSignature: NotRequired[ActionGroupSignatureType]
-    parentActionGroupSignatureParams: NotRequired[Dict[str, str]]
+    parentActionGroupSignatureParams: NotRequired[dict[str, str]]
     actionGroupExecutor: NotRequired[ActionGroupExecutorTypeDef]
     apiSchema: NotRequired[APISchemaTypeDef]
     functionSchema: NotRequired[FunctionSchemaOutputTypeDef]
@@ -2505,8 +2511,8 @@ class AgentTypeDef(TypedDict):
     customOrchestration: NotRequired[CustomOrchestrationTypeDef]
     customerEncryptionKeyArn: NotRequired[str]
     preparedAt: NotRequired[datetime]
-    failureReasons: NotRequired[List[str]]
-    recommendedActions: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
+    recommendedActions: NotRequired[list[str]]
     promptOverrideConfiguration: NotRequired[PromptOverrideConfigurationOutputTypeDef]
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
     memoryConfiguration: NotRequired[MemoryConfigurationOutputTypeDef]
@@ -2526,8 +2532,8 @@ class AgentVersionTypeDef(TypedDict):
     foundationModel: NotRequired[str]
     description: NotRequired[str]
     customerEncryptionKeyArn: NotRequired[str]
-    failureReasons: NotRequired[List[str]]
-    recommendedActions: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
+    recommendedActions: NotRequired[list[str]]
     promptOverrideConfiguration: NotRequired[PromptOverrideConfigurationOutputTypeDef]
     guardrailConfiguration: NotRequired[GuardrailConfigurationTypeDef]
     memoryConfiguration: NotRequired[MemoryConfigurationOutputTypeDef]
@@ -2582,18 +2588,24 @@ class WebDataSourceConfigurationTypeDef(TypedDict):
     crawlerConfiguration: NotRequired[WebCrawlerConfigurationTypeDef]
 
 class ToolConfigurationOutputTypeDef(TypedDict):
-    tools: List[ToolOutputTypeDef]
+    tools: list[ToolOutputTypeDef]
     toolChoice: NotRequired[ToolChoiceOutputTypeDef]
 
 ToolSpecificationUnionTypeDef = Union[ToolSpecificationTypeDef, ToolSpecificationOutputTypeDef]
 
 class CustomTransformationConfigurationOutputTypeDef(TypedDict):
     intermediateStorage: IntermediateStorageTypeDef
-    transformations: List[TransformationTypeDef]
+    transformations: list[TransformationTypeDef]
 
 class CustomTransformationConfigurationTypeDef(TypedDict):
     intermediateStorage: IntermediateStorageTypeDef
     transformations: Sequence[TransformationTypeDef]
+
+class EmbeddingModelConfigurationOutputTypeDef(TypedDict):
+    bedrockEmbeddingModelConfiguration: NotRequired[BedrockEmbeddingModelConfigurationOutputTypeDef]
+
+class EmbeddingModelConfigurationTypeDef(TypedDict):
+    bedrockEmbeddingModelConfiguration: NotRequired[BedrockEmbeddingModelConfigurationTypeDef]
 
 class DocumentContentTypeDef(TypedDict):
     dataSourceType: ContentDataSourceTypeType
@@ -2731,7 +2743,7 @@ class SharePointDataSourceConfigurationTypeDef(TypedDict):
     crawlerConfiguration: NotRequired[SharePointCrawlerConfigurationTypeDef]
 
 class RedshiftConfigurationOutputTypeDef(TypedDict):
-    storageConfigurations: List[RedshiftQueryEngineStorageConfigurationOutputTypeDef]
+    storageConfigurations: list[RedshiftQueryEngineStorageConfigurationOutputTypeDef]
     queryEngineConfiguration: RedshiftQueryEngineConfigurationTypeDef
     queryGenerationConfiguration: NotRequired[QueryGenerationConfigurationOutputTypeDef]
 
@@ -2741,9 +2753,9 @@ class RedshiftConfigurationTypeDef(TypedDict):
     queryGenerationConfiguration: NotRequired[QueryGenerationConfigurationTypeDef]
 
 class ChatPromptTemplateConfigurationOutputTypeDef(TypedDict):
-    messages: List[MessageOutputTypeDef]
-    system: NotRequired[List[SystemContentBlockTypeDef]]
-    inputVariables: NotRequired[List[PromptInputVariableTypeDef]]
+    messages: list[MessageOutputTypeDef]
+    system: NotRequired[list[SystemContentBlockTypeDef]]
+    inputVariables: NotRequired[list[PromptInputVariableTypeDef]]
     toolConfiguration: NotRequired[ToolConfigurationOutputTypeDef]
 
 class ToolTypeDef(TypedDict):
@@ -2761,6 +2773,18 @@ class VectorIngestionConfigurationTypeDef(TypedDict):
     customTransformationConfiguration: NotRequired[CustomTransformationConfigurationTypeDef]
     parsingConfiguration: NotRequired[ParsingConfigurationTypeDef]
     contextEnrichmentConfiguration: NotRequired[ContextEnrichmentConfigurationTypeDef]
+
+class VectorKnowledgeBaseConfigurationOutputTypeDef(TypedDict):
+    embeddingModelArn: str
+    embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationOutputTypeDef]
+    supplementalDataStorageConfiguration: NotRequired[
+        SupplementalDataStorageConfigurationOutputTypeDef
+    ]
+
+class VectorKnowledgeBaseConfigurationTypeDef(TypedDict):
+    embeddingModelArn: str
+    embeddingModelConfiguration: NotRequired[EmbeddingModelConfigurationTypeDef]
+    supplementalDataStorageConfiguration: NotRequired[SupplementalDataStorageConfigurationTypeDef]
 
 class KnowledgeBaseDocumentTypeDef(TypedDict):
     content: DocumentContentTypeDef
@@ -2850,7 +2874,7 @@ class DataSourceTypeDef(TypedDict):
     serverSideEncryptionConfiguration: NotRequired[ServerSideEncryptionConfigurationTypeDef]
     vectorIngestionConfiguration: NotRequired[VectorIngestionConfigurationOutputTypeDef]
     dataDeletionPolicy: NotRequired[DataDeletionPolicyType]
-    failureReasons: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
 
 DataSourceConfigurationUnionTypeDef = Union[
     DataSourceConfigurationTypeDef, DataSourceConfigurationOutputTypeDef
@@ -2881,7 +2905,7 @@ class PromptFlowNodeInlineConfigurationOutputTypeDef(TypedDict):
     templateConfiguration: PromptTemplateConfigurationOutputTypeDef
     modelId: str
     inferenceConfiguration: NotRequired[PromptInferenceConfigurationOutputTypeDef]
-    additionalModelRequestFields: NotRequired[Dict[str, Any]]
+    additionalModelRequestFields: NotRequired[dict[str, Any]]
 
 class PromptVariantOutputTypeDef(TypedDict):
     name: str
@@ -2889,8 +2913,8 @@ class PromptVariantOutputTypeDef(TypedDict):
     templateConfiguration: PromptTemplateConfigurationOutputTypeDef
     modelId: NotRequired[str]
     inferenceConfiguration: NotRequired[PromptInferenceConfigurationOutputTypeDef]
-    metadata: NotRequired[List[PromptMetadataEntryTypeDef]]
-    additionalModelRequestFields: NotRequired[Dict[str, Any]]
+    metadata: NotRequired[list[PromptMetadataEntryTypeDef]]
+    additionalModelRequestFields: NotRequired[dict[str, Any]]
     genAiResource: NotRequired[PromptGenAiResourceTypeDef]
 
 class ToolConfigurationTypeDef(TypedDict):
@@ -2940,7 +2964,7 @@ class KnowledgeBaseTypeDef(TypedDict):
     updatedAt: datetime
     description: NotRequired[str]
     storageConfiguration: NotRequired[StorageConfigurationTypeDef]
-    failureReasons: NotRequired[List[str]]
+    failureReasons: NotRequired[list[str]]
 
 KnowledgeBaseConfigurationUnionTypeDef = Union[
     KnowledgeBaseConfigurationTypeDef, KnowledgeBaseConfigurationOutputTypeDef
@@ -2957,7 +2981,7 @@ CreatePromptResponseTypeDef = TypedDict(
         "description": str,
         "customerEncryptionKeyArn": str,
         "defaultVariant": str,
-        "variants": List[PromptVariantOutputTypeDef],
+        "variants": list[PromptVariantOutputTypeDef],
         "id": str,
         "arn": str,
         "version": str,
@@ -2973,7 +2997,7 @@ CreatePromptVersionResponseTypeDef = TypedDict(
         "description": str,
         "customerEncryptionKeyArn": str,
         "defaultVariant": str,
-        "variants": List[PromptVariantOutputTypeDef],
+        "variants": list[PromptVariantOutputTypeDef],
         "id": str,
         "arn": str,
         "version": str,
@@ -2989,7 +3013,7 @@ GetPromptResponseTypeDef = TypedDict(
         "description": str,
         "customerEncryptionKeyArn": str,
         "defaultVariant": str,
-        "variants": List[PromptVariantOutputTypeDef],
+        "variants": list[PromptVariantOutputTypeDef],
         "id": str,
         "arn": str,
         "version": str,
@@ -3005,7 +3029,7 @@ UpdatePromptResponseTypeDef = TypedDict(
         "description": str,
         "customerEncryptionKeyArn": str,
         "defaultVariant": str,
-        "variants": List[PromptVariantOutputTypeDef],
+        "variants": list[PromptVariantOutputTypeDef],
         "id": str,
         "arn": str,
         "version": str,
@@ -3058,8 +3082,8 @@ class ChatPromptTemplateConfigurationTypeDef(TypedDict):
 FlowNodeConfigurationOutputTypeDef = TypedDict(
     "FlowNodeConfigurationOutputTypeDef",
     {
-        "input": NotRequired[Dict[str, Any]],
-        "output": NotRequired[Dict[str, Any]],
+        "input": NotRequired[dict[str, Any]],
+        "output": NotRequired[dict[str, Any]],
         "knowledgeBase": NotRequired[KnowledgeBaseFlowNodeConfigurationOutputTypeDef],
         "condition": NotRequired[ConditionFlowNodeConfigurationOutputTypeDef],
         "lex": NotRequired[LexFlowNodeConfigurationTypeDef],
@@ -3068,11 +3092,11 @@ FlowNodeConfigurationOutputTypeDef = TypedDict(
         "storage": NotRequired[StorageFlowNodeConfigurationTypeDef],
         "agent": NotRequired[AgentFlowNodeConfigurationTypeDef],
         "retrieval": NotRequired[RetrievalFlowNodeConfigurationTypeDef],
-        "iterator": NotRequired[Dict[str, Any]],
-        "collector": NotRequired[Dict[str, Any]],
+        "iterator": NotRequired[dict[str, Any]],
+        "collector": NotRequired[dict[str, Any]],
         "inlineCode": NotRequired[InlineCodeFlowNodeConfigurationTypeDef],
         "loop": NotRequired[LoopFlowNodeConfigurationOutputTypeDef],
-        "loopInput": NotRequired[Dict[str, Any]],
+        "loopInput": NotRequired[dict[str, Any]],
         "loopController": NotRequired[LoopControllerFlowNodeConfigurationTypeDef],
     },
 )
@@ -3085,8 +3109,8 @@ FlowNodeExtraTypeDef = TypedDict(
         "name": str,
         "type": FlowNodeTypeType,
         "configuration": NotRequired[FlowNodeConfigurationOutputTypeDef],
-        "inputs": NotRequired[List[FlowNodeInputTypeDef]],
-        "outputs": NotRequired[List[FlowNodeOutputTypeDef]],
+        "inputs": NotRequired[list[FlowNodeInputTypeDef]],
+        "outputs": NotRequired[list[FlowNodeOutputTypeDef]],
     },
 )
 
@@ -3095,8 +3119,8 @@ class PromptTemplateConfigurationTypeDef(TypedDict):
     chat: NotRequired[ChatPromptTemplateConfigurationUnionTypeDef]
 
 class FlowDefinitionOutputTypeDef(TypedDict):
-    nodes: NotRequired[List[FlowNodeExtraTypeDef]]
-    connections: NotRequired[List[FlowConnectionTypeDef]]
+    nodes: NotRequired[list[FlowNodeExtraTypeDef]]
+    connections: NotRequired[list[FlowConnectionTypeDef]]
 
 class PromptFlowNodeInlineConfigurationTypeDef(TypedDict):
     templateType: PromptTemplateTypeType
@@ -3155,7 +3179,7 @@ GetFlowResponseTypeDef = TypedDict(
         "updatedAt": datetime,
         "version": str,
         "definition": FlowDefinitionOutputTypeDef,
-        "validations": List[FlowValidationTypeDef],
+        "validations": list[FlowValidationTypeDef],
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )

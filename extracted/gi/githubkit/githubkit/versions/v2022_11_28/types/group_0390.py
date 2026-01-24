@@ -9,20 +9,30 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
-from typing import Literal
-from typing_extensions import NotRequired, TypedDict
-
-from .group_0179 import RepositoryRuleTagNamePatternPropParametersType
+from typing_extensions import TypedDict
 
 
-class RepositoryRuleDetailedOneof14Type(TypedDict):
-    """RepositoryRuleDetailedOneof14"""
+class PageBuildStatusType(TypedDict):
+    """Page Build Status
 
-    type: Literal["tag_name_pattern"]
-    parameters: NotRequired[RepositoryRuleTagNamePatternPropParametersType]
-    ruleset_source_type: NotRequired[Literal["Repository", "Organization"]]
-    ruleset_source: NotRequired[str]
-    ruleset_id: NotRequired[int]
+    Page Build Status
+    """
+
+    url: str
+    status: str
 
 
-__all__ = ("RepositoryRuleDetailedOneof14Type",)
+class PageBuildStatusTypeForResponse(TypedDict):
+    """Page Build Status
+
+    Page Build Status
+    """
+
+    url: str
+    status: str
+
+
+__all__ = (
+    "PageBuildStatusType",
+    "PageBuildStatusTypeForResponse",
+)

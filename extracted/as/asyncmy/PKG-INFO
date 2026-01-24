@@ -1,22 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: asyncmy
-Version: 0.2.10
+Version: 0.2.11
 Summary: A fast asyncio MySQL driver
-Home-page: https://github.com/long2ice/asyncmy
-License: Apache-2.0
+License-Expression: Apache-2.0
+License-File: LICENSE
 Keywords: driver,asyncio,mysql
 Author: long2ice
 Author-email: long2ice@gmail.com
-Requires-Python: >=3.8,<4.0
-Classifier: License :: OSI Approved :: Apache Software License
+Requires-Python: >=3.9
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Documentation, https://github.com/long2ice/asyncmy
+Project-URL: Homepage, https://github.com/long2ice/asyncmy
 Project-URL: Repository, https://github.com/long2ice/asyncmy.git
 Description-Content-Type: text/markdown
 

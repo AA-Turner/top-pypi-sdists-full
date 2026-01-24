@@ -42,15 +42,13 @@ class Challenger(APIObject):
 
     _path = "deployments/{}/challengers/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String(),
-            t.Key("name"): t.String(),
-            t.Key("model"): t.Dict().allow_extra("*"),
-            t.Key("model_package"): t.Dict().allow_extra("*"),
-            t.Key("prediction_environment"): t.Dict().allow_extra("*"),
-        }
-    )
+    _converter = t.Dict({
+        t.Key("id"): t.String(),
+        t.Key("name"): t.String(),
+        t.Key("model"): t.Dict().allow_extra("*"),
+        t.Key("model_package"): t.Dict().allow_extra("*"),
+        t.Key("prediction_environment", optional=True): t.Or(t.Dict().allow_extra("*"), t.Null),
+    })
 
     def __init__(
         self,
@@ -114,9 +112,7 @@ class Challenger(APIObject):
         }
         path = cls._path.format(deployment_id)
         response = cls._client.post(path, data=payload)
-        challenger_loc = wait_for_async_resolution(
-            cls._client, response.headers["Location"], max_wait
-        )
+        challenger_loc = wait_for_async_resolution(cls._client, response.headers["Location"], max_wait)
         return cls.get(deployment_id, get_id_from_location(challenger_loc))
 
     @classmethod
@@ -213,9 +209,7 @@ class Challenger(APIObject):
         if prediction_environment_id:
             payload["predictionEnvironmentId"] = prediction_environment_id
         if not payload:
-            raise ValueError(
-                "No update parameters (name and/or prediction_environment_id) provided"
-            )
+            raise ValueError("No update parameters (name and/or prediction_environment_id) provided")
         path = self._path.format(self.deployment_id) + f"{self.id}/"
         response = self._client.patch(path, data=payload)
         updated_challenger = self.from_server_data(response.json())

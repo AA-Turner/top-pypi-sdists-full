@@ -17,15 +17,17 @@ from sphinxcontrib.confluencebuilder.exceptions import ConfluencePagePermissionE
 from sphinxcontrib.confluencebuilder.exceptions import ConfluencePermissionError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluencePublishAncestorError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluencePublishSelfAncestorError
+from sphinxcontrib.confluencebuilder.exceptions import ConfluencePublishTrampleError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluenceUnexpectedCdataError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluenceUnknownInstanceError
 from sphinxcontrib.confluencebuilder.exceptions import ConfluenceUnreconciledPageError
 from sphinxcontrib.confluencebuilder.logger import ConfluenceLogger as logger
 from sphinxcontrib.confluencebuilder.rest import Rest
+from sphinxcontrib.confluencebuilder.std.confluence import API_CLOUD_ENDPOINT
 from sphinxcontrib.confluencebuilder.std.confluence import API_REST_V1
 from sphinxcontrib.confluencebuilder.std.confluence import API_REST_V2
+from sphinxcontrib.confluencebuilder.state import ConfluenceState
 from sphinxcontrib.confluencebuilder.util import ConfluenceUtil
-from sphinxcontrib.confluencebuilder.util import detect_cloud
 from urllib.parse import parse_qsl
 from urllib.parse import urlparse
 import contextlib
@@ -44,15 +46,13 @@ CB_PROP_KEY = 'sphinxcontrib.confluencebuilder'
 
 class ConfluencePublisher:
     def __init__(self):
-        self.cloud = None
         self.space_display_name = None
         self.space_id = None
         self.space_type = None
-        self._ancestors_cache = set()
+        self._ancestors_cache: set[int] = set()
         self._name_cache = {}
 
-    def init(self, config, cloud=None):
-        self.cloud = cloud
+    def init(self, config):
         self.config = config
         self.rest = None
 
@@ -60,10 +60,10 @@ class ConfluencePublisher:
         self.dryrun = config.confluence_publish_dryrun
         self.notify = not config.confluence_disable_notifications
         self.onlynew = config.confluence_publish_onlynew
-        self.parent_id = config.confluence_parent_page_id_check
         self.parent_ref = config.confluence_parent_page
         self.server_url = config.confluence_server_url
         self.space_key = config.confluence_space_key
+        self.trample = config.confluence_publish_trample
         self.watch = config.confluence_watch
 
         # track api prefix values to apply
@@ -71,21 +71,13 @@ class ConfluencePublisher:
         self.APIV1 = prefix_overrides.get('v1', f'{API_REST_V1}/')
         self.APIV2 = prefix_overrides.get('v2', f'{API_REST_V2}/')
 
-        # if a default cloud value is provided, attempt to detect the cloud
-        # type
-        if cloud is None:
-            if config.confluence_adv_cloud is not None:
-                self.cloud = config.confluence_adv_cloud
-            else:
-                self.cloud = detect_cloud(config.confluence_server_url)
-
         # determine api mode to use
         # - if an explicit api mode is configured, use it
         # - if this is a cloud instance, use v2
         # - for all other cases, use v1
         if config.confluence_api_mode:
             self.api_mode = config.confluence_api_mode
-        elif self.cloud:
+        elif self.config.confluence_cloud:
             self.api_mode = 'v2'
         else:
             self.api_mode = 'v1'
@@ -104,6 +96,21 @@ class ConfluencePublisher:
     def connect(self):
         self.rest = Rest(self.config)
         server_url = self.config.confluence_server_url
+
+        # if we have a scoped API token and are not used the newer API endpoint
+        # for the Cloud instance, query for the cloud identifier and adjust the
+        # rest URL to the new API endpoint
+        if self.config.confluence_api_token_scoped and \
+                not server_url.startswith(API_CLOUD_ENDPOINT):
+            base_atlassian_site = server_url.removesuffix('wiki/')
+            rsp = self.rest.get('_edge/tenant_info', url=base_atlassian_site)
+            cloud_id = rsp.get('cloudId')
+            if not cloud_id:
+                msg = 'failed to request cloud identifier for scoped token'
+                raise ConfluenceBadApiError(-1, msg)
+
+            logger.verbose(f'detected cloud identifier: {cloud_id}')
+            self.rest.url = f'{API_CLOUD_ENDPOINT}/{cloud_id}/'
 
         # Example space fetch points:
         # https://sphinxcontrib-confluencebuilder.atlassian.net/wiki/rest/api/space/STABLE
@@ -268,7 +275,7 @@ class ConfluencePublisher:
 
         self.rest.delete(property_path, id_)
 
-    def get_ancestors(self, page_id):
+    def get_ancestors(self, page_id: int) -> set[int]:
         """
         generate a list of ancestors
 
@@ -289,13 +296,13 @@ class ConfluencePublisher:
             rsp = self.rest.get(f'{self.APIV2}pages/{page_id}/ancestors')
 
             for result in rsp['results']:
-                ancestors.add(result['id'])
+                ancestors.add(int(result['id']))
         else:
             _, page = self.get_page_by_id(page_id, 'ancestors')
 
             if 'ancestors' in page:
                 for ancestor in page['ancestors']:
-                    ancestors.add(ancestor['id'])
+                    ancestors.add(int(ancestor['id']))
 
         return ancestors
 
@@ -322,15 +329,7 @@ class ConfluencePublisher:
             msg = 'Configured parent page name does not exist.'
             raise ConfluenceConfigError(msg)
 
-        if self.parent_id and base_page_id != str(self.parent_id):
-            msg = 'Configured parent page ID and name do not match.'
-            raise ConfluenceConfigError(msg)
-
         self._name_cache[base_page_id] = self.parent_ref
-
-        if not base_page_id and self.parent_id:
-            msg = 'Unable to find parent page matching the ID/name provided.'
-            raise ConfluenceConfigError(msg)
 
         return base_page_id
 
@@ -930,9 +929,6 @@ class ConfluencePublisher:
         """
         uploaded_page_id = None
 
-        if self.config.confluence_adv_trace_data:
-            logger.trace('data', data['content'])
-
         if self.dryrun:
             _, page = self.get_page(page_name, 'version,ancestors')
 
@@ -965,6 +961,16 @@ class ConfluencePublisher:
 
         _, page = self.get_page(page_name, expand=expand)
 
+        # if we have a page and a user has requested a forced migration from
+        # legacy to cloud, force convert the page
+        if self.config.confluence_cloud_v2_migration:
+            if page and self.api_mode == 'v2':
+                page_id = page['id']
+                self.rest.put(f'{self.APIV1}content', f'{page_id}/convert')
+
+                # re-fetch page for latest version
+                _, page = self.get_page(page_name, expand=expand)
+
         # if the page is not found, but is determined to be an archived page,
         # Confluence Cloud does not appear to support moving/updating an
         # archived page back into a `current` mode -- instead, try to delete
@@ -978,8 +984,8 @@ class ConfluencePublisher:
                     logger.warn(f'failed archive clean ("{page_name}"): {ex}')
                 page = None
 
-        if self.onlynew and page:
-            self._onlynew('skipping existing page', page['id'])
+        # if a page was found, verify we are allowed to publish
+        if page and not self._check_allowed_page_update(page, parent_id):
             return page['id']
 
         # fetch known properties (associated with this extension) from the page
@@ -1063,7 +1069,7 @@ class ConfluencePublisher:
                 new_labels = None
                 new_prop_requests = []
                 if self.api_mode == 'v2':
-                    # use newer space id refrence for v2
+                    # use newer space id reference for v2
                     new_page.pop('space', None)
                     new_page['spaceId'] = self.space_id
 
@@ -1124,8 +1130,8 @@ class ConfluencePublisher:
                         # reviving a page from the dead.
                         raise
 
-                    if self.onlynew:
-                        self._onlynew('skipping existing page', page['id'])
+                    # if a page was found, verify we are allowed to publish
+                    if not self._check_allowed_page_update(page, parent_id):
                         return page['id']
                 else:
                     if 'id' not in rsp:
@@ -1151,7 +1157,8 @@ class ConfluencePublisher:
 
                     # if we have labels and this is a non-cloud instance,
                     # initial labels need to be applied in their own request
-                    if not self.cloud and self.api_mode == 'v1':
+                    if not self.config.confluence_cloud and \
+                            self.api_mode == 'v1':
                         new_labels = new_page['metadata']['labels']
 
                     # add new labels if we have any to force add
@@ -1287,7 +1294,7 @@ class ConfluencePublisher:
         # cloud -- it seems to take a moment to complete creating or
         # updating properties after we build process a page, and we want
         # to avoid a conflict (409) if possible
-        if self.cloud:
+        if self.config.confluence_cloud:
             if not self.config.confluence_adv_disable_cloud_prop_delay:
                 time.sleep(0.5)
 
@@ -1440,7 +1447,7 @@ class ConfluencePublisher:
             )
             raise ConfluencePermissionError(msg) from ex
 
-    def restrict_ancestors(self, ancestors):
+    def restrict_ancestors(self, ancestors: set[int]):
         """
         restrict the provided ancestors from being changed
 
@@ -1529,6 +1536,96 @@ class ConfluencePublisher:
 
         return page
 
+    def _check_allowed_page_update(self, page, parent_id):
+        """
+        check if a page is allowed to be updated
+
+        Performs checks on whether a page is allowed to be updated based on
+        a project's configuration. This is primarily to handle cases where
+        users do not want to update pages that might move pages outside the
+        hierarchy (e.g. naming conflicts).
+
+        Args:
+            page: the page to be updated
+            parent_id: the new parent id (may be ``None``)
+
+        Returns:
+            whether an update is permitted
+        """
+
+        # never permit any updates if the "only new" flag is set
+        if self.onlynew:
+            self._onlynew('skipping existing page', page['id'])
+            return False
+
+        # if configured not to trample and we have a parent identifier for
+        # this request (i.e. not root and in hierarchy mode), check to see if
+        # the new parent id is part of our documentation tree
+        detected_trample = False
+        while not self.trample and parent_id:
+            page_ancestors = []
+
+            # if no parent, it lives on it's own; flag as trampling space
+            if self.api_mode == 'v2':
+                current_parent_id_str = page.get('parentId')
+                if not current_parent_id_str:
+                    logger.verbose('(trample) detected no parent page')
+                    detected_trample = True
+                    break
+
+                current_parent_id = int(current_parent_id_str)
+            else:
+                if 'ancestors' in page:
+                    page_ancestors = [int(x['id']) for x in page['ancestors']]
+
+                if not page_ancestors:
+                    logger.verbose('(trample) detected no parent page')
+                    detected_trample = True
+                    break
+
+                current_parent_id = page_ancestors[0]
+
+            # check if the parent page has been uploaded, indicating it is
+            # part of our current hierarchy
+            if ConfluenceState.has_upload_id(current_parent_id):
+                break
+
+            # if the parent page is the configured orphan container, this is
+            # a contained page update
+            orphan_container = self.config.confluence_publish_orphan_container
+            if current_parent_id == orphan_container:
+                break
+
+            # if the parent page is the target base page identifier, this is
+            # a contained page update
+            base_page_id = self.get_base_page_id()
+            if current_parent_id == base_page_id:
+                break
+
+            # if the current page is under our base page, this is a contained
+            # page update
+            if not page_ancestors:
+                page_ancestors = self.get_ancestors(int(page['id']))
+            if base_page_id and int(base_page_id) in page_ancestors:
+                break
+
+            # page does not appear to be part of the target's hierarchy
+            detected_trample = True
+            break
+
+        if detected_trample:
+            page_name = page['title']
+
+            webui = page.get('_links', {}).get('webui').removeprefix('/')
+            if webui:
+                webui = f'{self.server_url}{webui}'
+            else:
+                webui = f'(not provided by api; page id: {page["id"]})'
+
+            raise ConfluencePublishTrampleError(page_name, webui)
+
+        return True
+
     def _manage_inlined_comments(self, page, page_name, data):
         """
         manage inlined comments for a page update
@@ -1604,7 +1701,7 @@ class ConfluencePublisher:
         # provided (we try to assume it does, but most likely will use the
         # old paging method). If we detect that a "totalSize" field is
         # provided, the instance should support the "start" field.
-        if not self.cloud:
+        if not self.config.confluence_cloud:
             total_sz = rsp.get('totalSize')
             if total_sz and total_sz > offset:
                 sub_search_fields = dict(fields)
@@ -1665,7 +1762,7 @@ class ConfluencePublisher:
             update_page['version']['minorEdit'] = True
 
         if parent_id:
-            if page['id'] in self._ancestors_cache:
+            if int(page['id']) in self._ancestors_cache:
                 raise ConfluencePublishAncestorError(page_name)
 
             update_page['ancestors'] = [{'id': parent_id}]

@@ -44,14 +44,14 @@ class SAMLProvider(Provider):
     def get_login_url(self, request, **kwargs):
         url = reverse("saml_login", kwargs={"organization_slug": self.app.client_id})
         if kwargs:
-            url = url + "?" + urlencode(kwargs)
+            url = f"{url}?{urlencode(kwargs)}"
         return url
 
     def extract_extra_data(self, data):
         return data.get_attributes()
 
     def extract_uid(self, data):
-        """http://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/csprd01/saml-subject-id-attr-v1.0-csprd01.html
+        """https://docs.oasis-open.org/security/saml-subject-id-attr/v1.0/csprd01/saml-subject-id-attr-v1.0-csprd01.html
 
         Quotes:
 

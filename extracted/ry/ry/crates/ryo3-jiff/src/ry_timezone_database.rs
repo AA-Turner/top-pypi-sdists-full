@@ -1,12 +1,14 @@
 //! python shim for `TimeZoneDatabase`
-use crate::{RyTimeZone, errors::map_py_value_err};
+use crate::RyTimeZone;
 use jiff::tz::TimeZoneDatabase;
 use pyo3::prelude::*;
-#[pyclass(name = "TimeZoneDatabase", frozen)]
+use ryo3_core::map_py_value_err;
+use ryo3_macro_rules::{py_key_error, py_value_err};
+#[pyclass(name = "TimeZoneDatabase", frozen, immutable_type, skip_from_py_object)]
 #[cfg_attr(feature = "ry", pyo3(module = "ry.ryo3"))]
 #[derive(Debug, Clone)]
 pub struct RyTimeZoneDatabase {
-    inner: Option<TimeZoneDatabase>,
+    pub(crate) inner: Option<TimeZoneDatabase>,
 }
 
 impl RyTimeZoneDatabase {
@@ -26,10 +28,6 @@ impl RyTimeZoneDatabase {
         Self::from(TimeZoneDatabase::from_env())
     }
 
-    fn __str__(&self) -> String {
-        self.__repr__()
-    }
-
     fn __repr__(&self) -> String {
         format!("{:?}", self.db())
     }
@@ -41,9 +39,7 @@ impl RyTimeZoneDatabase {
             Ok(tz) => Ok(Some(tz)),
             Err(e) => {
                 if err {
-                    Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                        e.to_string(),
-                    ))
+                    py_value_err!("{e}")
                 } else {
                     Ok(None)
                 }
@@ -62,7 +58,7 @@ impl RyTimeZoneDatabase {
         self.db()
             .get(name)
             .map(RyTimeZone::from)
-            .map_err(|e| PyErr::new::<pyo3::exceptions::PyKeyError, _>(e.to_string()))
+            .map_err(|e| py_key_error!("{e}"))
     }
 
     fn __len__(&self) -> usize {
@@ -95,11 +91,5 @@ impl RyTimeZoneDatabase {
         TimeZoneDatabase::from_concatenated_path(path)
             .map(Self::from)
             .map_err(map_py_value_err)
-    }
-}
-
-impl From<TimeZoneDatabase> for RyTimeZoneDatabase {
-    fn from(db: TimeZoneDatabase) -> Self {
-        Self { inner: Some(db) }
     }
 }

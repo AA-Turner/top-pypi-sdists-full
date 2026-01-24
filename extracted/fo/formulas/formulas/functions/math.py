@@ -255,6 +255,22 @@ def xmround(*args):
 FUNCTIONS['MROUND'] = wrap_func(xmround)
 
 
+def xmultinominal(*args):
+    from . import convert2float
+    args = tuple(flatten(map(replace_empty, args), None))
+    if any(isinstance(v, bool) for v in args):
+        raise FoundError(err=Error.errors['#VALUE!'])
+    nums = np.asarray(tuple(convert2float(*args))).astype(int)
+    if (nums < 0).any():
+        raise FoundError(err=Error.errors['#NUM!'])
+    log_num = math.lgamma(nums.sum() + 1.0)
+    log_den = sum(math.lgamma(x + 1.0) for x in nums)
+    return round(np.exp(log_num - log_den), 11)
+
+
+FUNCTIONS['MULTINOMIAL'] = wrap_func(xmultinominal)
+
+
 def return_func(res, inp):
     shape = np.asarray(inp).shape
     if len(shape) == 2:
@@ -436,6 +452,35 @@ FUNCTIONS['SUMIFS'] = wrap_func(functools.partial(xfilters, xsum))
 FUNCTIONS['SUMSQ'] = wrap_func(functools.partial(
     xsum, func=lambda v: np.sum(np.square(v))
 ))
+
+
+def sumx2my2(array_x, array_y, func=lambda x, y: np.sum(x ** 2 - y ** 2)):
+    raise_errors(array_x, array_y)
+    array_x = np.asarray(array_x).reshape(-1, 1)
+    array_y = np.asarray(array_y).reshape(-1, 1)
+
+    if array_x.size != array_y.size:
+        raise FoundError(err=Error.errors['#N/A'])
+    inp = np.concatenate((array_x, array_y), 1)
+    from .look import _vect_get_type_id
+    inp = replace_empty(inp[(
+            inp != np.array(sh.EMPTY, dtype=object)
+    ).all(axis=1)])
+    inp = inp[(_vect_get_type_id(inp) == 0).all(axis=1)]
+    if inp.size == 0:
+        raise FoundError(err=Error.errors['#DIV/0!'])
+
+    return func(*inp.astype(float).T)
+
+
+FUNCTIONS['SUMX2MY2'] = wrap_func(sumx2my2)
+FUNCTIONS['SUMX2PY2'] = wrap_func(functools.partial(
+    sumx2my2, func=lambda x, y: np.sum(x ** 2 + y ** 2)
+))
+FUNCTIONS['SUMXMY2'] = wrap_func(functools.partial(
+    sumx2my2, func=lambda x, y: np.sum((x - y) ** 2)
+))
+
 FUNCTIONS['TAN'] = wrap_ufunc(np.tan)
 FUNCTIONS['TANH'] = wrap_ufunc(np.tanh)
 

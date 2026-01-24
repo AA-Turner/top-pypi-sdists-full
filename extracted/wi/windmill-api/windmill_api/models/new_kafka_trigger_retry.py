@@ -16,11 +16,13 @@ T = TypeVar("T", bound="NewKafkaTriggerRetry")
 
 @_attrs_define
 class NewKafkaTriggerRetry:
-    """
+    """Retry configuration for failed module executions
+
     Attributes:
-        constant (Union[Unset, NewKafkaTriggerRetryConstant]):
-        exponential (Union[Unset, NewKafkaTriggerRetryExponential]):
-        retry_if (Union[Unset, NewKafkaTriggerRetryRetryIf]):
+        constant (Union[Unset, NewKafkaTriggerRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, NewKafkaTriggerRetryExponential]): Retry with exponential backoff (delay doubles each
+            time)
+        retry_if (Union[Unset, NewKafkaTriggerRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "NewKafkaTriggerRetryConstant"] = UNSET

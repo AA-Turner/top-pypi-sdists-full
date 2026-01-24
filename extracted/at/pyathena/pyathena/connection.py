@@ -262,6 +262,9 @@ class Connection(Generic[ConnectionCursor]):
             "Required argument `s3_staging_dir` or `work_group` not found."
         )
 
+        if self.s3_staging_dir and not self.s3_staging_dir.endswith("/"):
+            self.s3_staging_dir = f"{self.s3_staging_dir}/"
+
         if session:
             self._session = session
         else:

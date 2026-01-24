@@ -15,7 +15,9 @@ namespace slang::ast {
 class SLANG_EXPORT ConversionExpression final : public Expression {
 public:
     /// The kind of conversion.
-    const ConversionKind conversionKind;
+    ConversionKind conversionKind;
+
+    bool isConstCast = false;
 
     ConversionExpression(const Type& type, ConversionKind conversionKind, Expression& operand,
                          SourceRange sourceRange) :
@@ -34,6 +36,7 @@ public:
     ConstantValue evalImpl(EvalContext& context) const;
     std::optional<bitwidth_t> getEffectiveWidthImpl() const;
     EffectiveSign getEffectiveSignImpl(bool isForConversion) const;
+    bool isEquivalentImpl(const ConversionExpression& rhs) const;
 
     ConstantValue applyTo(EvalContext& context, ConstantValue&& value) const;
 

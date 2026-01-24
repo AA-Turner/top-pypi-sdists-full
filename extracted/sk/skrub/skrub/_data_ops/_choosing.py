@@ -110,9 +110,9 @@ class Choice(BaseChoice):
     """A choice among an enumerated set of outcomes."""
 
     outcomes: list[typing.Any]
-    outcome_names: typing.Optional[list[str]]
-    name: typing.Optional[str] = None
-    chosen_outcome_idx: typing.Optional[int] = None
+    outcome_names: list[str] | None
+    name: str | None = None
+    chosen_outcome_idx: int | None = None
 
     def __post_init__(self):
         _check_name(self.name)
@@ -248,7 +248,7 @@ class Choice(BaseChoice):
         if self.outcome_names is None:
             arg = self.outcomes
         else:
-            arg = {name: out for name, out in zip(self.outcome_names, self.outcomes)}
+            arg = dict(zip(self.outcome_names, self.outcomes))
         args_r = _utils.repr_args((arg,), {"name": self.name}, {"name": None})
         return f"choose_from({args_r})"
 
@@ -666,16 +666,24 @@ class NumericChoice(BaseNumericChoice):
     to_int: bool
     name: str
     default_outcome: float
-    chosen_outcome: typing.Optional[typing.Union[int, float]] = None
+    chosen_outcome: int | float | None = None
 
     def __post_init__(self):
         _check_name(self.name)
         _check_bounds(self.low, self.high, self.log)
         _check_default_numeric_outcome(self.default_outcome, self.to_int)
+
+        # if choose_int, sampled values will be truncated to produce int so we
+        # sample in [ low, high+1 [ (otherwise high would be excluded from the
+        # range)
+        offset = 1 - 1e-6 if self.to_int else 0
+
         if self.log:
-            self._distrib = stats.loguniform(self.low, self.high)
+            # loguniform(a, b).support() -> (a, b)
+            self._distrib = stats.loguniform(self.low, self.high + offset)
         else:
-            self._distrib = stats.uniform(self.low, self.high)
+            # uniform(a, b).support() -> (a, a + b)
+            self._distrib = stats.uniform(self.low, self.high - self.low + offset)
 
     def rvs(self, size=None, random_state=None):
         value = self._distrib.rvs(size=size, random_state=random_state)
@@ -711,7 +719,7 @@ class DiscretizedNumericChoice(BaseNumericChoice, Sequence):
     to_int: bool
     name: str
     default_outcome: float
-    chosen_outcome: typing.Optional[typing.Union[int, float]] = None
+    chosen_outcome: int | float | None = None
 
     def __post_init__(self):
         _check_name(self.name)

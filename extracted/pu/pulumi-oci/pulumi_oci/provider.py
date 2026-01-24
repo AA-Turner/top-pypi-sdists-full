@@ -22,6 +22,7 @@ class ProviderArgs:
                  auth: Optional[pulumi.Input[_builtins.str]] = None,
                  config_file_profile: Optional[pulumi.Input[_builtins.str]] = None,
                  disable_auto_retries: Optional[pulumi.Input[_builtins.bool]] = None,
+                 dual_stack_endpoint_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
                  ignore_defined_tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  private_key: Optional[pulumi.Input[_builtins.str]] = None,
@@ -29,6 +30,7 @@ class ProviderArgs:
                  private_key_path: Optional[pulumi.Input[_builtins.str]] = None,
                  realm_specific_service_endpoint_template_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
+                 retries_config_file: Optional[pulumi.Input[_builtins.str]] = None,
                  retry_duration_seconds: Optional[pulumi.Input[_builtins.int]] = None,
                  tenancy_ocid: Optional[pulumi.Input[_builtins.str]] = None,
                  test_time_maintenance_reboot_due: Optional[pulumi.Input[_builtins.str]] = None,
@@ -39,6 +41,7 @@ class ProviderArgs:
         :param pulumi.Input[_builtins.str] config_file_profile: (Optional) The profile name to be used from config file, if not set it will be DEFAULT.
         :param pulumi.Input[_builtins.bool] disable_auto_retries: (Optional) Disable automatic retries for retriable errors.
                Automatic retries were introduced to solve some eventual consistency problems but it also introduced performance issues on destroy operations.
+        :param pulumi.Input[_builtins.bool] dual_stack_endpoint_enabled: (Optional) flags to enable Dual Stack endpoint.
         :param pulumi.Input[_builtins.str] fingerprint: (Optional) The fingerprint for the user's RSA key. This can be found in user settings in the Oracle Cloud Infrastructure console. Required if auth is set to 'ApiKey', ignored otherwise.
         :param pulumi.Input[_builtins.str] private_key: (Optional) A PEM formatted RSA private key for the user.
                A private_key or a private_key_path must be provided if auth is set to 'ApiKey', ignored otherwise.
@@ -47,6 +50,7 @@ class ProviderArgs:
                A private_key or a private_key_path must be provided if auth is set to 'ApiKey', ignored otherwise.
         :param pulumi.Input[_builtins.bool] realm_specific_service_endpoint_template_enabled: (Optional) flags to enable realm specific service endpoint.
         :param pulumi.Input[_builtins.str] region: (Required) The region for API connections (e.g. us-ashburn-1).
+        :param pulumi.Input[_builtins.str] retries_config_file: (Optional) Config file which has the configuration for 4xx and 5xx retries in JSON format
         :param pulumi.Input[_builtins.int] retry_duration_seconds: (Optional) The minimum duration (in seconds) to retry a resource operation in response to an error.
                The actual retry duration may be longer due to jittering of retry operations. This value is ignored if the `disable_auto_retries` field is set to true.
         :param pulumi.Input[_builtins.str] tenancy_ocid: (Optional) The tenancy OCID for a user. The tenancy OCID can be found at the bottom of user settings in the Oracle Cloud Infrastructure console. Required if auth is set to 'ApiKey', ignored otherwise.
@@ -58,6 +62,8 @@ class ProviderArgs:
             pulumi.set(__self__, "config_file_profile", config_file_profile)
         if disable_auto_retries is not None:
             pulumi.set(__self__, "disable_auto_retries", disable_auto_retries)
+        if dual_stack_endpoint_enabled is not None:
+            pulumi.set(__self__, "dual_stack_endpoint_enabled", dual_stack_endpoint_enabled)
         if fingerprint is not None:
             pulumi.set(__self__, "fingerprint", fingerprint)
         if ignore_defined_tags is not None:
@@ -72,6 +78,8 @@ class ProviderArgs:
             pulumi.set(__self__, "realm_specific_service_endpoint_template_enabled", realm_specific_service_endpoint_template_enabled)
         if region is not None:
             pulumi.set(__self__, "region", region)
+        if retries_config_file is not None:
+            pulumi.set(__self__, "retries_config_file", retries_config_file)
         if retry_duration_seconds is not None:
             pulumi.set(__self__, "retry_duration_seconds", retry_duration_seconds)
         if tenancy_ocid is not None:
@@ -117,6 +125,18 @@ class ProviderArgs:
     @disable_auto_retries.setter
     def disable_auto_retries(self, value: Optional[pulumi.Input[_builtins.bool]]):
         pulumi.set(self, "disable_auto_retries", value)
+
+    @_builtins.property
+    @pulumi.getter(name="dualStackEndpointEnabled")
+    def dual_stack_endpoint_enabled(self) -> Optional[pulumi.Input[_builtins.bool]]:
+        """
+        (Optional) flags to enable Dual Stack endpoint.
+        """
+        return pulumi.get(self, "dual_stack_endpoint_enabled")
+
+    @dual_stack_endpoint_enabled.setter
+    def dual_stack_endpoint_enabled(self, value: Optional[pulumi.Input[_builtins.bool]]):
+        pulumi.set(self, "dual_stack_endpoint_enabled", value)
 
     @_builtins.property
     @pulumi.getter
@@ -202,6 +222,18 @@ class ProviderArgs:
         pulumi.set(self, "region", value)
 
     @_builtins.property
+    @pulumi.getter(name="retriesConfigFile")
+    def retries_config_file(self) -> Optional[pulumi.Input[_builtins.str]]:
+        """
+        (Optional) Config file which has the configuration for 4xx and 5xx retries in JSON format
+        """
+        return pulumi.get(self, "retries_config_file")
+
+    @retries_config_file.setter
+    def retries_config_file(self, value: Optional[pulumi.Input[_builtins.str]]):
+        pulumi.set(self, "retries_config_file", value)
+
+    @_builtins.property
     @pulumi.getter(name="retryDurationSeconds")
     def retry_duration_seconds(self) -> Optional[pulumi.Input[_builtins.int]]:
         """
@@ -257,6 +289,7 @@ class Provider(pulumi.ProviderResource):
                  auth: Optional[pulumi.Input[_builtins.str]] = None,
                  config_file_profile: Optional[pulumi.Input[_builtins.str]] = None,
                  disable_auto_retries: Optional[pulumi.Input[_builtins.bool]] = None,
+                 dual_stack_endpoint_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
                  ignore_defined_tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  private_key: Optional[pulumi.Input[_builtins.str]] = None,
@@ -264,6 +297,7 @@ class Provider(pulumi.ProviderResource):
                  private_key_path: Optional[pulumi.Input[_builtins.str]] = None,
                  realm_specific_service_endpoint_template_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
+                 retries_config_file: Optional[pulumi.Input[_builtins.str]] = None,
                  retry_duration_seconds: Optional[pulumi.Input[_builtins.int]] = None,
                  tenancy_ocid: Optional[pulumi.Input[_builtins.str]] = None,
                  test_time_maintenance_reboot_due: Optional[pulumi.Input[_builtins.str]] = None,
@@ -281,6 +315,7 @@ class Provider(pulumi.ProviderResource):
         :param pulumi.Input[_builtins.str] config_file_profile: (Optional) The profile name to be used from config file, if not set it will be DEFAULT.
         :param pulumi.Input[_builtins.bool] disable_auto_retries: (Optional) Disable automatic retries for retriable errors.
                Automatic retries were introduced to solve some eventual consistency problems but it also introduced performance issues on destroy operations.
+        :param pulumi.Input[_builtins.bool] dual_stack_endpoint_enabled: (Optional) flags to enable Dual Stack endpoint.
         :param pulumi.Input[_builtins.str] fingerprint: (Optional) The fingerprint for the user's RSA key. This can be found in user settings in the Oracle Cloud Infrastructure console. Required if auth is set to 'ApiKey', ignored otherwise.
         :param pulumi.Input[_builtins.str] private_key: (Optional) A PEM formatted RSA private key for the user.
                A private_key or a private_key_path must be provided if auth is set to 'ApiKey', ignored otherwise.
@@ -289,6 +324,7 @@ class Provider(pulumi.ProviderResource):
                A private_key or a private_key_path must be provided if auth is set to 'ApiKey', ignored otherwise.
         :param pulumi.Input[_builtins.bool] realm_specific_service_endpoint_template_enabled: (Optional) flags to enable realm specific service endpoint.
         :param pulumi.Input[_builtins.str] region: (Required) The region for API connections (e.g. us-ashburn-1).
+        :param pulumi.Input[_builtins.str] retries_config_file: (Optional) Config file which has the configuration for 4xx and 5xx retries in JSON format
         :param pulumi.Input[_builtins.int] retry_duration_seconds: (Optional) The minimum duration (in seconds) to retry a resource operation in response to an error.
                The actual retry duration may be longer due to jittering of retry operations. This value is ignored if the `disable_auto_retries` field is set to true.
         :param pulumi.Input[_builtins.str] tenancy_ocid: (Optional) The tenancy OCID for a user. The tenancy OCID can be found at the bottom of user settings in the Oracle Cloud Infrastructure console. Required if auth is set to 'ApiKey', ignored otherwise.
@@ -324,6 +360,7 @@ class Provider(pulumi.ProviderResource):
                  auth: Optional[pulumi.Input[_builtins.str]] = None,
                  config_file_profile: Optional[pulumi.Input[_builtins.str]] = None,
                  disable_auto_retries: Optional[pulumi.Input[_builtins.bool]] = None,
+                 dual_stack_endpoint_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  fingerprint: Optional[pulumi.Input[_builtins.str]] = None,
                  ignore_defined_tags: Optional[pulumi.Input[Sequence[pulumi.Input[_builtins.str]]]] = None,
                  private_key: Optional[pulumi.Input[_builtins.str]] = None,
@@ -331,6 +368,7 @@ class Provider(pulumi.ProviderResource):
                  private_key_path: Optional[pulumi.Input[_builtins.str]] = None,
                  realm_specific_service_endpoint_template_enabled: Optional[pulumi.Input[_builtins.bool]] = None,
                  region: Optional[pulumi.Input[_builtins.str]] = None,
+                 retries_config_file: Optional[pulumi.Input[_builtins.str]] = None,
                  retry_duration_seconds: Optional[pulumi.Input[_builtins.int]] = None,
                  tenancy_ocid: Optional[pulumi.Input[_builtins.str]] = None,
                  test_time_maintenance_reboot_due: Optional[pulumi.Input[_builtins.str]] = None,
@@ -347,6 +385,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["auth"] = auth
             __props__.__dict__["config_file_profile"] = config_file_profile
             __props__.__dict__["disable_auto_retries"] = pulumi.Output.from_input(disable_auto_retries).apply(pulumi.runtime.to_json) if disable_auto_retries is not None else None
+            __props__.__dict__["dual_stack_endpoint_enabled"] = pulumi.Output.from_input(dual_stack_endpoint_enabled).apply(pulumi.runtime.to_json) if dual_stack_endpoint_enabled is not None else None
             __props__.__dict__["fingerprint"] = fingerprint
             __props__.__dict__["ignore_defined_tags"] = pulumi.Output.from_input(ignore_defined_tags).apply(pulumi.runtime.to_json) if ignore_defined_tags is not None else None
             __props__.__dict__["private_key"] = None if private_key is None else pulumi.Output.secret(private_key)
@@ -354,6 +393,7 @@ class Provider(pulumi.ProviderResource):
             __props__.__dict__["private_key_path"] = private_key_path
             __props__.__dict__["realm_specific_service_endpoint_template_enabled"] = pulumi.Output.from_input(realm_specific_service_endpoint_template_enabled).apply(pulumi.runtime.to_json) if realm_specific_service_endpoint_template_enabled is not None else None
             __props__.__dict__["region"] = region
+            __props__.__dict__["retries_config_file"] = retries_config_file
             __props__.__dict__["retry_duration_seconds"] = pulumi.Output.from_input(retry_duration_seconds).apply(pulumi.runtime.to_json) if retry_duration_seconds is not None else None
             __props__.__dict__["tenancy_ocid"] = tenancy_ocid
             __props__.__dict__["test_time_maintenance_reboot_due"] = test_time_maintenance_reboot_due
@@ -423,6 +463,14 @@ class Provider(pulumi.ProviderResource):
         (Required) The region for API connections (e.g. us-ashburn-1).
         """
         return pulumi.get(self, "region")
+
+    @_builtins.property
+    @pulumi.getter(name="retriesConfigFile")
+    def retries_config_file(self) -> pulumi.Output[Optional[_builtins.str]]:
+        """
+        (Optional) Config file which has the configuration for 4xx and 5xx retries in JSON format
+        """
+        return pulumi.get(self, "retries_config_file")
 
     @_builtins.property
     @pulumi.getter(name="tenancyOcid")

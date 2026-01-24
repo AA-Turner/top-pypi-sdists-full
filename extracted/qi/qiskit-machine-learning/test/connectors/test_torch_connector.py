@@ -1,6 +1,6 @@
 # This code is part of a Qiskit project.
 #
-# (C) Copyright IBM 2021, 2024.
+# (C) Copyright IBM 2021, 2025.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -12,21 +12,23 @@
 
 """Test Torch Connector."""
 import itertools
-from typing import cast, Union, List, Tuple, Any
+from typing import cast, Any
 
 from test.connectors.test_torch import TestTorch
 
 import numpy as np
 from ddt import ddt, data, unpack, idata
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import RealAmplitudes, ZFeatureMap
+from qiskit.circuit.library import real_amplitudes, z_feature_map
 from qiskit.quantum_info import SparsePauliOp
 
 from qiskit_machine_learning import QiskitMachineLearningError
 from qiskit_machine_learning.connectors import TorchConnector
 from qiskit_machine_learning.connectors.torch_connector import _TorchNNFunction
+from qiskit_machine_learning.primitives import QMLSampler as Sampler, QMLEstimator as Estimator
 from qiskit_machine_learning.neural_networks import SamplerQNN, EstimatorQNN
 from qiskit_machine_learning.connectors.torch_connector import _get_einsum_signature
+from qiskit_machine_learning.utils import algorithm_globals
 
 
 @ddt
@@ -34,6 +36,9 @@ class TestTorchConnector(TestTorch):
     """Torch Connector Tests."""
 
     def setup_test(self):
+
+        algorithm_globals.random_seed = 123
+
         super().setup_test()
         import torch
 
@@ -184,13 +189,14 @@ class TestTorchConnector(TestTorch):
         else:
             output_shape = None
 
-        fmap = ZFeatureMap(num_qubits, reps=1)
-        ansatz = RealAmplitudes(num_qubits, reps=1)
+        fmap = z_feature_map(num_qubits, reps=1)
+        ansatz = real_amplitudes(num_qubits, reps=1)
         qc = QuantumCircuit(num_qubits)
         qc.compose(fmap, inplace=True)
         qc.compose(ansatz, inplace=True)
 
         qnn = SamplerQNN(
+            sampler=Sampler(),
             circuit=qc,
             input_params=fmap.parameters,
             weight_params=ansatz.parameters,
@@ -224,13 +230,14 @@ class TestTorchConnector(TestTorch):
     @unpack
     def test_estimator_qnn(self, num_qubits, observables):
         """Test TorchConnector on EstimatorQNN."""
-        fmap = ZFeatureMap(num_qubits, reps=1)
-        ansatz = RealAmplitudes(num_qubits, reps=1)
+        fmap = z_feature_map(num_qubits, reps=1)
+        ansatz = real_amplitudes(num_qubits, reps=1)
         qc = QuantumCircuit(num_qubits)
         qc.compose(fmap, inplace=True)
         qc.compose(ansatz, inplace=True)
 
         qnn = EstimatorQNN(
+            estimator=Estimator(default_precision=0.01, seed=123),
             circuit=qc,
             observables=observables,
             input_params=fmap.parameters,
@@ -293,7 +300,7 @@ class TestTorchConnector(TestTorch):
             @staticmethod
             def build_circuit(
                 num_weights: int, num_input: int, num_qubits: int = 3
-            ) -> Tuple[QuantumCircuit, List[Parameter], List[Parameter]]:
+            ) -> tuple[QuantumCircuit, list[Parameter], list[Parameter]]:
                 """
                 Build the quantum circuit for the convolutional layer.
 
@@ -304,7 +311,7 @@ class TestTorchConnector(TestTorch):
                         Defaults to 3.
 
                 Returns:
-                    Tuple[QuantumCircuit, List[Parameter], List[Parameter]]: Quantum circuit,
+                    tuple[QuantumCircuit, list[Parameter], list[Parameter]]: Quantum circuit,
                         list of weight parameters, list of input parameters.
                 """
                 qc = QuantumCircuit(num_qubits)
@@ -338,6 +345,7 @@ class TestTorchConnector(TestTorch):
 
                 # Use SamplerQNN to convert the quantum circuit to a PyTorch module
                 return SamplerQNN(
+                    sampler=Sampler(),
                     circuit=qc,
                     weight_params=weight_params,
                     interpret=self.interpret,  # type: ignore
@@ -345,12 +353,12 @@ class TestTorchConnector(TestTorch):
                     output_shape=self.output_channel,
                 )
 
-            def interpret(self, output: Union[float, int]) -> Any:
+            def interpret(self, output: float | int) -> Any:
                 """
                 Interprets the output from the quantum circuit.
 
                 Args:
-                    output (Union[float, int]): Output from the quantum circuit.
+                    output (float | int): Output from the quantum circuit.
 
                 Returns:
                     Any: Remainder of the output divided by the

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use common_error::{DaftError, DaftResult};
 use daft_core::{
     prelude::{DataType, Field, FullNull, Int64Array, Schema, Utf8Array},
@@ -13,7 +15,7 @@ use crate::utils::{
     binary_utf8_evaluate, binary_utf8_to_field, create_broadcasted_str_iter, parse_inputs,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Find;
 
 #[typetag::serde]
@@ -73,15 +75,15 @@ fn find_impl(arr: &Utf8Array, substr: &Utf8Array) -> DaftResult<Int64Array> {
 
     let self_iter = create_broadcasted_str_iter(arr, expected_size);
     let substr_iter = create_broadcasted_str_iter(substr, expected_size);
-    let arrow_result = self_iter
+    let iter = self_iter
         .zip(substr_iter)
         .map(|(val, substr)| match (val, substr) {
             (Some(val), Some(substr)) => Some(val.find(substr).map(|pos| pos as i64).unwrap_or(-1)),
             _ => None,
-        })
-        .collect::<arrow2::array::Int64Array>();
+        });
 
-    let result = Int64Array::from((arr.name(), Box::new(arrow_result)));
+    let result =
+        Int64Array::from_regular_iter(Arc::new(Field::new(arr.name(), DataType::Int64)), iter)?;
     assert_eq!(result.len(), expected_size);
     Ok(result)
 }

@@ -16,7 +16,6 @@ class RadixPrimitiveComponent(Component):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -49,7 +48,6 @@ class RadixPrimitiveComponent(Component):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -67,7 +65,6 @@ class RadixPrimitiveComponentWithClassName(RadixPrimitiveComponent):
     def create(
         cls,
         *children,
-        as_child: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -100,7 +97,6 @@ class RadixPrimitiveComponentWithClassName(RadixPrimitiveComponent):
 
         Args:
             *children: The children of the component.
-            as_child: Change the default rendered element for the one passed as a child.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.
@@ -111,4 +107,47 @@ class RadixPrimitiveComponentWithClassName(RadixPrimitiveComponent):
 
         Returns:
             The component.
+        """
+
+class RadixPrimitiveTriggerComponent(RadixPrimitiveComponent):
+    @classmethod
+    def create(
+        cls,
+        *children,
+        style: Sequence[Mapping[str, Any]]
+        | Mapping[str, Any]
+        | Var[Mapping[str, Any]]
+        | Breakpoints
+        | None = None,
+        key: Any | None = None,
+        id: Any | None = None,
+        ref: Var | None = None,
+        class_name: Any | None = None,
+        custom_attrs: dict[str, Var | Any] | None = None,
+        on_blur: EventType[()] | None = None,
+        on_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_context_menu: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_double_click: EventType[()] | EventType[PointerEventInfo] | None = None,
+        on_focus: EventType[()] | None = None,
+        on_mount: EventType[()] | None = None,
+        on_mouse_down: EventType[()] | None = None,
+        on_mouse_enter: EventType[()] | None = None,
+        on_mouse_leave: EventType[()] | None = None,
+        on_mouse_move: EventType[()] | None = None,
+        on_mouse_out: EventType[()] | None = None,
+        on_mouse_over: EventType[()] | None = None,
+        on_mouse_up: EventType[()] | None = None,
+        on_scroll: EventType[()] | None = None,
+        on_scroll_end: EventType[()] | None = None,
+        on_unmount: EventType[()] | None = None,
+        **props,
+    ) -> RadixPrimitiveTriggerComponent:
+        """Create a new RadixPrimitiveTriggerComponent instance.
+
+        Args:
+            children: The children of the component.
+            props: The properties of the component.
+
+        Returns:
+            The new RadixPrimitiveTriggerComponent instance.
         """

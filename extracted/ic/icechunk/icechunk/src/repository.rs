@@ -13,6 +13,7 @@ use futures::{
     Stream, StreamExt, TryStreamExt,
     stream::{FuturesOrdered, FuturesUnordered},
 };
+use itertools::Itertools;
 use regex::bytes::Regex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -28,7 +29,8 @@ use crate::{
         IcechunkFormatError, IcechunkFormatErrorKind, ManifestId, NodeId, Path,
         SnapshotId,
         snapshot::{
-            ManifestFileInfo, NodeData, Snapshot, SnapshotInfo, SnapshotProperties,
+            ManifestFileInfo, NodeData, NodeType, Snapshot, SnapshotInfo,
+            SnapshotProperties,
         },
         transaction_log::{Diff, DiffBuilder},
     },
@@ -453,6 +455,10 @@ impl Repository {
         &self.asset_manager
     }
 
+    pub fn authorized_virtual_container_prefixes(&self) -> HashSet<String> {
+        self.authorized_virtual_containers.keys().cloned().collect()
+    }
+
     /// Returns the sequence of parents of the current session, in order of latest first.
     #[instrument(skip(self))]
     pub async fn snapshot_ancestry(
@@ -572,7 +578,8 @@ impl Repository {
     pub async fn reset_branch(
         &self,
         branch: &str,
-        snapshot_id: &SnapshotId,
+        to_snapshot_id: &SnapshotId,
+        from_snapshot_id: Option<&SnapshotId>,
     ) -> RepositoryResult<()> {
         if !self.storage.can_write() {
             return Err(RepositoryErrorKind::ReadonlyStorage(
@@ -583,16 +590,19 @@ impl Repository {
         raise_if_invalid_snapshot_id(
             self.storage.as_ref(),
             &self.storage_settings,
-            snapshot_id,
+            to_snapshot_id,
         )
         .await?;
-        let branch_tip = self.lookup_branch(branch).await?;
+        let branch_tip = match from_snapshot_id {
+            Some(snap) => snap,
+            None => &self.lookup_branch(branch).await?,
+        };
         update_branch(
             self.storage.as_ref(),
             &self.storage_settings,
             branch,
-            snapshot_id.clone(),
-            Some(&branch_tip),
+            to_snapshot_id.clone(),
+            Some(branch_tip),
         )
         .await
         .err_into()
@@ -857,7 +867,12 @@ impl Repository {
             // TODO: unnest this code
             if let Ok(snap) = asset_manager.fetch_snapshot(&snapshot_id).await {
                 let snap_c = Arc::clone(&snap);
-                for node in snap.iter_arc() {
+                for node in snap
+                    .iter_arc(&Path::root())
+                    .filter_ok(|node| node.node_type() == NodeType::Array)
+                    // TODO: make configurable
+                    .take(50)
+                {
                     match node {
                         Err(err) => {
                             error!(error=%err, "Error retrieving snapshot nodes");
@@ -870,19 +885,18 @@ impl Repository {
                                         let manifest_id = manifest.object_id;
                                         if let Some(manifest_info) =
                                             snap_c.manifest_info(&manifest_id)
-                                        {
-                                            if loaded_refs + manifest_info.num_chunk_refs
+                                            && loaded_refs + manifest_info.num_chunk_refs
                                                 <= preload_config.max_total_refs()
-                                                && preload_config
-                                                    .preload_if()
-                                                    .matches(&node.path, &manifest_info)
-                                            {
-                                                let size_bytes = manifest_info.size_bytes;
-                                                let asset_manager =
-                                                    Arc::clone(&asset_manager);
-                                                let manifest_id_c = manifest_id.clone();
-                                                let path = node.path.clone();
-                                                futures.push(async move {
+                                            && preload_config
+                                                .preload_if()
+                                                .matches(&node.path, &manifest_info)
+                                        {
+                                            let size_bytes = manifest_info.size_bytes;
+                                            let asset_manager =
+                                                Arc::clone(&asset_manager);
+                                            let manifest_id_c = manifest_id.clone();
+                                            let path = node.path.clone();
+                                            futures.push(async move {
                                                     trace!("Preloading manifest {} for array {}", &manifest_id_c, path);
                                                     if let Err(err) = asset_manager
                                                         .fetch_manifest(
@@ -897,10 +911,8 @@ impl Repository {
                                                         );
                                                     }
                                                 });
-                                                loaded_manifests.insert(manifest_id);
-                                                loaded_refs +=
-                                                    manifest_info.num_chunk_refs;
-                                            }
+                                            loaded_manifests.insert(manifest_id);
+                                            loaded_refs += manifest_info.num_chunk_refs;
                                         }
                                     }
                                 }
@@ -950,13 +962,13 @@ fn validate_credentials(
     creds: &HashMap<String, Option<Credentials>>,
 ) -> RepositoryResult<()> {
     for (url_prefix, cred) in creds {
-        if let Some(cont) = config.get_virtual_chunk_container(url_prefix) {
-            if let Err(error) = cont.validate_credentials(cred.as_ref()) {
-                return Err(RepositoryErrorKind::StorageError(StorageErrorKind::Other(
-                    error,
-                ))
-                .into());
-            }
+        if let Some(cont) = config.get_virtual_chunk_container(url_prefix)
+            && let Err(error) = cont.validate_credentials(cred.as_ref())
+        {
+            return Err(RepositoryErrorKind::StorageError(StorageErrorKind::Other(
+                error,
+            ))
+            .into());
         }
     }
     Ok(())

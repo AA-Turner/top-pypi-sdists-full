@@ -18,6 +18,7 @@
 
 """Converts additional Mozilla files to properties files."""
 
+import sys
 from io import BytesIO
 
 from translate.convert import prop2po
@@ -67,7 +68,7 @@ def it2prop(lines, encoding="cp1252"):
         elif line.lstrip().startswith(";"):
             yield line.replace(";", "#", 1)
         elif line.lstrip().startswith("[") and line.rstrip().endswith("]"):
-            yield "# section: " + line
+            yield f"# section: {line}"
         else:
             yield line
 
@@ -154,9 +155,7 @@ def ini2po(
     )
 
 
-def main(argv=None):
-    import sys
-
+def main(argv=None) -> None:
     lines = sys.stdin.readlines()
     for line in funny2prop(lines):
         sys.stdout.write(line)

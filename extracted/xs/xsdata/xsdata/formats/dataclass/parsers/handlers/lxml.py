@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Any, Optional
+from typing import Any
 
 from lxml import etree
 
@@ -13,7 +13,7 @@ EVENTS = (EventType.START, EventType.END, EventType.START_NS)
 class LxmlEventHandler(XmlHandler):
     """An lxml event handler."""
 
-    def parse(self, source: Any, ns_map: dict[Optional[str], str]) -> Any:
+    def parse(self, source: Any, ns_map: dict[str | None, str]) -> Any:
         """Parse the source XML document.
 
         Args:
@@ -44,7 +44,7 @@ class LxmlEventHandler(XmlHandler):
     def process_context(
         self,
         context: Iterable[tuple[str, Any]],
-        ns_map: dict[Optional[str], str],
+        ns_map: dict[str | None, str],
     ) -> Any:
         """Iterate context and push events to main parser.
 

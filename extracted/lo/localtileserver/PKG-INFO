@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: localtileserver
-Version: 0.10.6
+Version: 0.10.7
 Summary: Locally serve geospatial raster tiles in the Slippy Map standard.
 Author-email: Bane Sullivan <hello@banesullivan.com>
 Project-URL: Documentation, https://localtileserver.banesullivan.com
@@ -11,17 +11,40 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: colormaps
-Provides-Extra: jupyter
-Provides-Extra: helpers
 License-File: LICENSE
+Requires-Dist: click
+Requires-Dist: flask<4,>=2.0.0
+Requires-Dist: Flask-Caching
+Requires-Dist: flask-cors
+Requires-Dist: flask-restx>=1.3.0
+Requires-Dist: rio-tiler
+Requires-Dist: rio-cogeo
+Requires-Dist: requests
+Requires-Dist: server-thread
+Requires-Dist: scooby
+Requires-Dist: werkzeug
+Provides-Extra: colormaps
+Requires-Dist: matplotlib; extra == "colormaps"
+Requires-Dist: cmocean; extra == "colormaps"
+Requires-Dist: colorcet; extra == "colormaps"
+Provides-Extra: jupyter
+Requires-Dist: jupyter-server-proxy; extra == "jupyter"
+Requires-Dist: ipyleaflet; extra == "jupyter"
+Provides-Extra: helpers
+Requires-Dist: shapely; extra == "helpers"
+Dynamic: license-file
+
+### 🚀 Support This Project
+
+If localtileserver saves you time, powers your work, or you need direct help, please consider supporting the project and my efforts:
+
+[![Sponsor](https://img.shields.io/badge/Sponsor%20Bane%20Sullivan-🚀-green?style=for-the-badge)](https://github.com/sponsors/banesullivan)
 
 ![tile-diagram](https://raw.githubusercontent.com/banesullivan/localtileserver/main/imgs/oam-tiles.jpg)
 

@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from functools import partial, reduce
-from typing import Callable, List, Tuple, Any, Optional, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from urllib.parse import quote
 from requests import Response
 
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
 
 class Entity(JsonObject):
     def __init__(self, target_endpoint: str, client: "CloudFoundryClient", *args, **kwargs):
-        super(Entity, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
         self.target_endpoint = target_endpoint
         self.client = client
         try:
@@ -39,7 +40,7 @@ class Entity(JsonObject):
             raise InvalidEntity(**self)
 
 
-EntityBuilder = Callable[[List[Tuple[str, Any]]], Entity]
+EntityBuilder = Callable[[list[tuple[str, Any]]], Entity]
 
 
 class EntityManager(object):
@@ -50,7 +51,7 @@ class EntityManager(object):
     timestamp_parameters = ["timestamp"]
 
     def __init__(
-        self, target_endpoint: str, client: "CloudFoundryClient", entity_uri: str, entity_builder: Optional[EntityBuilder] = None
+        self, target_endpoint: str, client: "CloudFoundryClient", entity_uri: str, entity_builder: EntityBuilder | None = None
     ):
         self.target_endpoint = target_endpoint
         self.entity_uri = entity_uri
@@ -59,7 +60,7 @@ class EntityManager(object):
             entity_builder if entity_builder is not None else lambda pairs: Entity(target_endpoint, client, pairs)
         )
 
-    def _list(self, requested_path: str, entity_builder: Optional[EntityBuilder] = None, **kwargs) -> Pagination[Entity]:
+    def _list(self, requested_path: str, entity_builder: EntityBuilder | None = None, **kwargs) -> Pagination[Entity]:
         url_requested = self._get_url_filtered("%s%s" % (self.target_endpoint, requested_path), **kwargs)
         current_builder = self._get_entity_builder(entity_builder)
         response_json = self._read_response(self.client.get(url_requested), JsonObject)
@@ -68,7 +69,7 @@ class EntityManager(object):
                           lambda page: page["resources"],
                           lambda json_object: current_builder(list(json_object.items())))
 
-    def _next_page(self, current_page: JsonObject) -> Optional[JsonObject]:
+    def _next_page(self, current_page: JsonObject) -> JsonObject | None:
         next_url = current_page.get("next_url")
         if next_url is None:
             return None
@@ -87,16 +88,16 @@ class EntityManager(object):
         url = "%s%s/%s" % (self.target_endpoint, self.entity_uri, resource_id)
         self._delete(url, **kwargs)
 
-    def _get(self, requested_path: str, entity_builder: Optional[EntityBuilder] = None) -> Entity:
+    def _get(self, requested_path: str, entity_builder: EntityBuilder | None = None) -> Entity:
         url = "%s%s" % (self.target_endpoint, requested_path)
         response = self.client.get(url)
         return self._read_response(response, entity_builder)
 
-    def _post(self, url: str, data: Optional[dict] = None, **kwargs):
+    def _post(self, url: str, data: dict | None = None, **kwargs):
         response = self.client.post(url, json=data, **kwargs)
         return self._read_response(response)
 
-    def _put(self, url: str, data: Optional[dict] = None, **kwargs):
+    def _put(self, url: str, data: dict | None = None, **kwargs):
         response = self.client.put(url, json=data, **kwargs)
         return self._read_response(response)
 
@@ -112,7 +113,7 @@ class EntityManager(object):
     def list(self, **kwargs) -> Pagination[Entity]:
         return self._list(self.entity_uri, **kwargs)
 
-    def get_first(self, **kwargs) -> Optional[Entity]:
+    def get_first(self, **kwargs) -> Entity | None:
         kwargs.setdefault("results-per-page", 1)
         for entity in self._list(self.entity_uri, **kwargs):
             return entity
@@ -125,7 +126,7 @@ class EntityManager(object):
             requested_path = "%s/%s/%s" % (self.entity_uri, entity_id, "/".join(extra_paths))
         return self._get(requested_path)
 
-    def _read_response(self, response: Response, other_entity_builder: Optional[EntityBuilder] = None):
+    def _read_response(self, response: Response, other_entity_builder: EntityBuilder | None = None):
         entity_builder = self._get_entity_builder(other_entity_builder)
         result = response.json(object_pairs_hook=JsonObject)
         return entity_builder(list(result.items()))
@@ -134,14 +135,14 @@ class EntityManager(object):
     def _request(**mandatory_parameters) -> Request:
         return Request(**mandatory_parameters)
 
-    def _get_entity_builder(self, entity_builder: Optional[EntityBuilder]) -> EntityBuilder:
+    def _get_entity_builder(self, entity_builder: EntityBuilder | None) -> EntityBuilder:
         if entity_builder is None:
             return self.entity_builder
         else:
             return entity_builder
 
     def _get_url_filtered(self, url: str, **kwargs) -> str:
-        def _append_encoded_parameter(parameters: List[str], args: Tuple[str, Any]) -> List[str]:
+        def _append_encoded_parameter(parameters: list[str], args: tuple[str, Any]) -> list[str]:
             parameter_name, parameter_value = args[0], args[1]
             if parameter_name in self.list_query_parameters:
                 parameters.append("%s=%s" % (parameter_name, str(parameter_value)))

@@ -16,12 +16,13 @@ T = TypeVar("T", bound="UpdateScheduleJsonBodyRetry")
 
 @_attrs_define
 class UpdateScheduleJsonBodyRetry:
-    """The retry configuration for the schedule
+    """Retry configuration for failed module executions
 
     Attributes:
-        constant (Union[Unset, UpdateScheduleJsonBodyRetryConstant]):
-        exponential (Union[Unset, UpdateScheduleJsonBodyRetryExponential]):
-        retry_if (Union[Unset, UpdateScheduleJsonBodyRetryRetryIf]):
+        constant (Union[Unset, UpdateScheduleJsonBodyRetryConstant]): Retry with constant delay between attempts
+        exponential (Union[Unset, UpdateScheduleJsonBodyRetryExponential]): Retry with exponential backoff (delay
+            doubles each time)
+        retry_if (Union[Unset, UpdateScheduleJsonBodyRetryRetryIf]): Conditional retry based on error or result
     """
 
     constant: Union[Unset, "UpdateScheduleJsonBodyRetryConstant"] = UNSET

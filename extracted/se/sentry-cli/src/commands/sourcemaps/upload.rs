@@ -1,6 +1,5 @@
 #![expect(clippy::unwrap_used, reason = "contains legacy code which uses unwrap")]
 
-use std::env;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -10,7 +9,7 @@ use glob::{glob_with, MatchOptions};
 use itertools::Itertools as _;
 use log::{debug, warn};
 
-use crate::api::{Api, ChunkUploadCapability};
+use crate::api::Api;
 use crate::config::Config;
 use crate::constants::DEFAULT_MAX_WAIT;
 use crate::utils::args::validate_distribution;
@@ -193,11 +192,8 @@ pub fn make_command(command: Command) -> Command {
             Arg::new("no_dedupe")
                 .long("no-dedupe")
                 .action(ArgAction::SetTrue)
-                .help(
-                    "Skip artifacts deduplication prior to uploading. \
-                    This will force all artifacts to be uploaded, \
-                    no matter whether they are already present on the server.",
-                ),
+                .hide(true)
+                .help("[DEPRECATED] This flag has no effect and is scheduled for removal."),
         )
         .arg(
             Arg::new("extensions")
@@ -225,17 +221,6 @@ pub fn make_command(command: Command) -> Command {
                     "Fail with a non-zero exit code if the specified source map file cannot be \
                      uploaded.",
                 ),
-        )
-        .arg(
-            Arg::new("use_artifact_bundle")
-                .long("use-artifact-bundle")
-                .action(ArgAction::SetTrue)
-                .help(
-                    "[DEPRECATED] Force artifact bundles to be used for upload, even when not \
-                    supported by the server. This option has always only been intended for \
-                    internal use, and it is now officially deprecated.",
-                )
-                .hide(true),
         )
         // Legacy flag that has no effect, left hidden for backward compatibility
         .arg(
@@ -324,7 +309,7 @@ fn process_sources_from_bundle(
     if !prefixes.contains(&"~") {
         prefixes.push("~");
     }
-    debug!("Prefixes: {:?}", prefixes);
+    debug!("Prefixes: {prefixes:?}");
 
     processor.rewrite(&prefixes)?;
     processor.add_sourcemap_references();
@@ -419,26 +404,20 @@ fn process_sources_from_paths(
 }
 
 pub fn execute(matches: &ArgMatches) -> Result<()> {
+    if matches.get_flag("no_dedupe") {
+        log::warn!(
+            "[DEPRECATION NOTICE] The --no-dedupe flag is deprecated and has no \
+            effect. It will be removed in the next major version."
+        );
+    }
+
     let config = Config::current();
     let version = config.get_release_with_legacy_fallback(matches).ok();
     let org = config.get_org(matches)?;
     let projects = config.get_projects(matches)?;
     let api = Api::current();
     let mut processor = SourceMapProcessor::new();
-    let mut chunk_upload_options = api.authenticated()?.get_chunk_upload_options(&org)?;
-
-    if matches.get_flag("use_artifact_bundle")
-        || env::var("SENTRY_FORCE_ARTIFACT_BUNDLES").ok().as_deref() == Some("1")
-    {
-        log::warn!("The --use-artifact-bundle option and the SENTRY_FORCE_ARTIFACT_BUNDLES environment variable \
-                    are both deprecated, and both will be removed in the next major version.");
-
-        if let Some(ref mut options) = chunk_upload_options {
-            if !options.supports(ChunkUploadCapability::ArtifactBundles) {
-                options.accept.push(ChunkUploadCapability::ArtifactBundles);
-            }
-        }
-    }
+    let chunk_upload_options = api.authenticated()?.get_chunk_upload_options(&org)?;
 
     if matches.contains_id("bundle") && matches.contains_id("bundle_sourcemap") {
         process_sources_from_bundle(matches, &mut processor)?;
@@ -451,14 +430,13 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
     let max_wait = wait_for_secs.map_or(DEFAULT_MAX_WAIT, Duration::from_secs);
     let upload_context = UploadContext {
         org: &org,
-        projects: &projects,
+        projects: projects.as_non_empty_slice(),
         release: version.as_deref(),
         dist: matches.get_one::<String>("dist").map(String::as_str),
         note: matches.get_one::<String>("note").map(String::as_str),
         wait,
         max_wait,
-        dedupe: !matches.get_flag("no_dedupe"),
-        chunk_upload_options: chunk_upload_options.as_ref(),
+        chunk_upload_options: &chunk_upload_options,
     };
 
     if matches.get_flag("strict") {

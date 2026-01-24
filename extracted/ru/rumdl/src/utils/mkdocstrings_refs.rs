@@ -1,3 +1,4 @@
+use regex::Regex;
 /// MkDocstrings cross-references detection utilities
 ///
 /// MkDocstrings provides automatic cross-references to documented code objects
@@ -8,34 +9,26 @@
 /// - `[module.Class][]` - Cross-reference link
 /// - `[text][module.Class]` - Cross-reference with custom text
 /// - `::: module.Class` with options block (YAML indented)
-use lazy_static::lazy_static;
-use regex::Regex;
+use std::sync::LazyLock;
 
-lazy_static! {
-    /// Pattern to match auto-doc insertion markers
-    /// ::: module.path.ClassName or ::: handler:module.path
-    /// Lenient: accepts any non-whitespace after ::: to detect potentially dangerous patterns
-    /// Security validation should happen at a different layer (e.g., a specific rule)
-    static ref AUTODOC_MARKER: Regex = Regex::new(
-        r"^(\s*):::\s+\S+.*$"  // Just need non-whitespace after :::
-    ).unwrap();
+/// Pattern to match auto-doc insertion markers
+/// ::: module.path.ClassName or ::: handler:module.path
+/// Lenient: accepts any non-whitespace after ::: to detect potentially dangerous patterns
+/// Security validation should happen at a different layer (e.g., a specific rule)
+static AUTODOC_MARKER: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"^(\s*):::\s+\S+.*$", // Just need non-whitespace after :::
+    )
+    .unwrap()
+});
 
-    /// Pattern to match cross-reference links in various forms
-    /// [module.Class][], [text][module.Class], [module.Class]
-    static ref CROSSREF_PATTERN: Regex = Regex::new(
+/// Pattern to match cross-reference links in various forms
+/// [module.Class][], [text][module.Class], [module.Class]
+static CROSSREF_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
         r"\[(?:[^\]]*)\]\[[a-zA-Z_][a-zA-Z0-9_]*(?:[:\.][a-zA-Z_][a-zA-Z0-9_]*)*\]|\[[a-zA-Z_][a-zA-Z0-9_]*(?:[:\.][a-zA-Z_][a-zA-Z0-9_]*)*\]\[\]"
-    ).unwrap();
-
-    /// Pattern to match handler options in YAML format (indented under :::)
-    static ref HANDLER_OPTIONS: Regex = Regex::new(
-        r"^(\s{4,})\w+:"
-    ).unwrap();
-
-    /// Pattern to validate module/class names
-    static ref VALID_MODULE_PATH: Regex = Regex::new(
-        r"^[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*$"
-    ).unwrap();
-}
+    ).unwrap()
+});
 
 /// Check if a line is an auto-doc insertion marker
 pub fn is_autodoc_marker(line: &str) -> bool {
@@ -93,20 +86,88 @@ pub fn is_autodoc_options(line: &str, base_indent: usize) -> bool {
     // Options must be indented at least 4 spaces more than the ::: marker
     let line_indent = super::mkdocs_common::get_line_indent(line);
 
-    // Empty lines within options are allowed
-    if line.trim().is_empty() {
-        return true;
-    }
+    // Check if properly indented (at least 4 spaces from base)
+    if line_indent >= base_indent + 4 {
+        // Empty lines that are properly indented are considered part of options
+        if line.trim().is_empty() {
+            return true;
+        }
 
-    // Check if it looks like YAML options (key: value format)
-    if line_indent >= base_indent + 4 && line.contains(':') {
-        return true;
+        // YAML key-value pairs
+        if line.contains(':') {
+            return true;
+        }
+        // YAML list items
+        let trimmed = line.trim_start();
+        if trimmed.starts_with("- ") || trimmed.starts_with("* ") {
+            return true;
+        }
     }
 
     false
 }
 
-/// Check if content at a byte position is within an autodoc block
+/// Pre-compute all autodoc block ranges in the content
+/// Returns a sorted vector of byte ranges for efficient lookup
+pub fn detect_autodoc_block_ranges(content: &str) -> Vec<crate::utils::skip_context::ByteRange> {
+    let mut ranges = Vec::new();
+    let lines: Vec<&str> = content.lines().collect();
+    let mut byte_pos = 0;
+    let mut in_autodoc = false;
+    let mut autodoc_indent = 0;
+    let mut block_start = 0;
+
+    for line in lines {
+        let line_end = byte_pos + line.len();
+
+        // Check if we're starting an autodoc block
+        if is_autodoc_marker(line) {
+            in_autodoc = true;
+            autodoc_indent = get_autodoc_indent(line).unwrap_or(0);
+            block_start = byte_pos;
+        } else if in_autodoc {
+            // Check if we're still in autodoc options
+            if is_autodoc_options(line, autodoc_indent) {
+                // Continue in autodoc block
+            } else {
+                // Not part of options - check if this ends the block
+                // Completely empty lines (no indentation) don't end the block
+                if line.is_empty() {
+                    // Continue in autodoc
+                } else {
+                    // Non-option, non-empty line ends the autodoc block
+                    // Save the range up to the previous line
+                    ranges.push(crate::utils::skip_context::ByteRange {
+                        start: block_start,
+                        end: byte_pos.saturating_sub(1), // Don't include the newline before this line
+                    });
+                    in_autodoc = false;
+                    autodoc_indent = 0;
+                }
+            }
+        }
+
+        // Account for newline character
+        byte_pos = line_end + 1;
+    }
+
+    // If we ended while still in an autodoc block, save it
+    if in_autodoc {
+        ranges.push(crate::utils::skip_context::ByteRange {
+            start: block_start,
+            end: byte_pos.saturating_sub(1),
+        });
+    }
+
+    ranges
+}
+
+/// Check if a position is within any of the pre-computed autodoc block ranges
+pub fn is_within_autodoc_block_ranges(ranges: &[crate::utils::skip_context::ByteRange], position: usize) -> bool {
+    crate::utils::skip_context::is_in_html_comment_ranges(ranges, position)
+}
+
+/// Check if content at a byte position is within an autodoc block (DEPRECATED: use detect_autodoc_block_ranges + is_within_autodoc_block_ranges)
 pub fn is_within_autodoc_block(content: &str, position: usize) -> bool {
     let lines: Vec<&str> = content.lines().collect();
     let mut byte_pos = 0;
@@ -120,18 +181,33 @@ pub fn is_within_autodoc_block(content: &str, position: usize) -> bool {
         if is_autodoc_marker(line) {
             in_autodoc = true;
             autodoc_indent = get_autodoc_indent(line).unwrap_or(0);
+            // Check if position is on the autodoc marker line itself
+            if byte_pos <= position && position <= line_end {
+                return true;
+            }
         } else if in_autodoc {
             // Check if we're still in autodoc options
-            if !is_autodoc_options(line, autodoc_indent) && !line.trim().is_empty() {
-                // Non-option line that's not empty ends the autodoc block
-                in_autodoc = false;
-                autodoc_indent = 0;
+            if is_autodoc_options(line, autodoc_indent) {
+                // This line is part of autodoc options
+                if byte_pos <= position && position <= line_end {
+                    return true;
+                }
+            } else {
+                // Not part of options - check if this ends the block
+                // Completely empty lines (no indentation) don't end the block
+                if line.is_empty() {
+                    // Continue in autodoc
+                } else {
+                    // Non-option, non-empty line ends the autodoc block
+                    in_autodoc = false;
+                    autodoc_indent = 0;
+                    // If the position is on this line, it's NOT in the autodoc block
+                    // (since we just ended the block)
+                    if byte_pos <= position && position <= line_end {
+                        return false;
+                    }
+                }
             }
-        }
-
-        // Check if the position is within this line and we're in an autodoc block
-        if byte_pos <= position && position <= line_end && in_autodoc {
-            return true;
         }
 
         // Account for newline character
@@ -177,9 +253,12 @@ mod tests {
         assert!(is_autodoc_options("    handler: python", 0));
         assert!(is_autodoc_options("    options:", 0));
         assert!(is_autodoc_options("      show_source: true", 0));
-        assert!(is_autodoc_options("", 0)); // Empty lines allowed
+        assert!(!is_autodoc_options("", 0)); // Empty lines are neutral
         assert!(!is_autodoc_options("Not indented", 0));
         assert!(!is_autodoc_options("  Only 2 spaces", 0));
+        // Test YAML list items
+        assert!(is_autodoc_options("            - window", 0));
+        assert!(is_autodoc_options("            - app", 0));
     }
 
     #[test]

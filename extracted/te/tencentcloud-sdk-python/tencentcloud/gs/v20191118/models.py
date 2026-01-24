@@ -470,6 +470,10 @@ class AndroidInstance(AbstractModel):
         :type CreateTime: str
         :param _HostServerSerialNumber: 机箱 ID
         :type HostServerSerialNumber: str
+        :param _ServiceStatus: 服务状态。
+IDLE：未连接
+ESTABLISHED：连接中
+        :type ServiceStatus: str
         """
         self._AndroidInstanceId = None
         self._AndroidInstanceRegion = None
@@ -487,6 +491,7 @@ class AndroidInstance(AbstractModel):
         self._PrivateIP = None
         self._CreateTime = None
         self._HostServerSerialNumber = None
+        self._ServiceStatus = None
 
     @property
     def AndroidInstanceId(self):
@@ -664,6 +669,19 @@ class AndroidInstance(AbstractModel):
     def HostServerSerialNumber(self, HostServerSerialNumber):
         self._HostServerSerialNumber = HostServerSerialNumber
 
+    @property
+    def ServiceStatus(self):
+        r"""服务状态。
+IDLE：未连接
+ESTABLISHED：连接中
+        :rtype: str
+        """
+        return self._ServiceStatus
+
+    @ServiceStatus.setter
+    def ServiceStatus(self, ServiceStatus):
+        self._ServiceStatus = ServiceStatus
+
 
     def _deserialize(self, params):
         self._AndroidInstanceId = params.get("AndroidInstanceId")
@@ -687,6 +705,7 @@ class AndroidInstance(AbstractModel):
         self._PrivateIP = params.get("PrivateIP")
         self._CreateTime = params.get("CreateTime")
         self._HostServerSerialNumber = params.get("HostServerSerialNumber")
+        self._ServiceStatus = params.get("ServiceStatus")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -870,6 +889,117 @@ class AndroidInstanceAppInfo(AbstractModel):
         self._PackageVersion = params.get("PackageVersion")
         self._PackageLabel = params.get("PackageLabel")
         self._VersionName = params.get("VersionName")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class AndroidInstanceBackup(AbstractModel):
+    r"""安卓实例备份
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _BackupId: 备份ID
+        :type BackupId: str
+        :param _State: 备份状态
+        :type State: str
+        :param _Zone: 可用区
+        :type Zone: str
+        :param _Size: 大小，单位 Byte
+        :type Size: int
+        :param _AndroidInstanceId: 备份的安卓实例 ID
+        :type AndroidInstanceId: str
+        :param _CreateTime: 创建时间
+        :type CreateTime: str
+        """
+        self._BackupId = None
+        self._State = None
+        self._Zone = None
+        self._Size = None
+        self._AndroidInstanceId = None
+        self._CreateTime = None
+
+    @property
+    def BackupId(self):
+        r"""备份ID
+        :rtype: str
+        """
+        return self._BackupId
+
+    @BackupId.setter
+    def BackupId(self, BackupId):
+        self._BackupId = BackupId
+
+    @property
+    def State(self):
+        r"""备份状态
+        :rtype: str
+        """
+        return self._State
+
+    @State.setter
+    def State(self, State):
+        self._State = State
+
+    @property
+    def Zone(self):
+        r"""可用区
+        :rtype: str
+        """
+        return self._Zone
+
+    @Zone.setter
+    def Zone(self, Zone):
+        self._Zone = Zone
+
+    @property
+    def Size(self):
+        r"""大小，单位 Byte
+        :rtype: int
+        """
+        return self._Size
+
+    @Size.setter
+    def Size(self, Size):
+        self._Size = Size
+
+    @property
+    def AndroidInstanceId(self):
+        r"""备份的安卓实例 ID
+        :rtype: str
+        """
+        return self._AndroidInstanceId
+
+    @AndroidInstanceId.setter
+    def AndroidInstanceId(self, AndroidInstanceId):
+        self._AndroidInstanceId = AndroidInstanceId
+
+    @property
+    def CreateTime(self):
+        r"""创建时间
+        :rtype: str
+        """
+        return self._CreateTime
+
+    @CreateTime.setter
+    def CreateTime(self, CreateTime):
+        self._CreateTime = CreateTime
+
+
+    def _deserialize(self, params):
+        self._BackupId = params.get("BackupId")
+        self._State = params.get("State")
+        self._Zone = params.get("Zone")
+        self._Size = params.get("Size")
+        self._AndroidInstanceId = params.get("AndroidInstanceId")
+        self._CreateTime = params.get("CreateTime")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -2692,6 +2822,135 @@ class CreateAndroidInstanceADBResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class CreateAndroidInstanceAcceleratorTokenRequest(AbstractModel):
+    r"""CreateAndroidInstanceAcceleratorToken请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AndroidInstanceIds: 实例 ID 列表。每次请求的实例的上限为 500。
+        :type AndroidInstanceIds: list of str
+        :param _UserIP: 用户IP，可以根据该 IP 选择就近加速点。如果不填，将自动选择就近加速点。
+        :type UserIP: str
+        """
+        self._AndroidInstanceIds = None
+        self._UserIP = None
+
+    @property
+    def AndroidInstanceIds(self):
+        r"""实例 ID 列表。每次请求的实例的上限为 500。
+        :rtype: list of str
+        """
+        return self._AndroidInstanceIds
+
+    @AndroidInstanceIds.setter
+    def AndroidInstanceIds(self, AndroidInstanceIds):
+        self._AndroidInstanceIds = AndroidInstanceIds
+
+    @property
+    def UserIP(self):
+        r"""用户IP，可以根据该 IP 选择就近加速点。如果不填，将自动选择就近加速点。
+        :rtype: str
+        """
+        return self._UserIP
+
+    @UserIP.setter
+    def UserIP(self, UserIP):
+        self._UserIP = UserIP
+
+
+    def _deserialize(self, params):
+        self._AndroidInstanceIds = params.get("AndroidInstanceIds")
+        self._UserIP = params.get("UserIP")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class CreateAndroidInstanceAcceleratorTokenResponse(AbstractModel):
+    r"""CreateAndroidInstanceAcceleratorToken返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _Token: token
+        :type Token: str
+        :param _AcceleratorInfo: 加速信息
+        :type AcceleratorInfo: str
+        :param _AndroidInstanceErrors: 安卓实例错误列表。列表包含有问题的安卓实例 ID 以及发生的错误信息。
+        :type AndroidInstanceErrors: list of AndroidInstanceError
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._Token = None
+        self._AcceleratorInfo = None
+        self._AndroidInstanceErrors = None
+        self._RequestId = None
+
+    @property
+    def Token(self):
+        r"""token
+        :rtype: str
+        """
+        return self._Token
+
+    @Token.setter
+    def Token(self, Token):
+        self._Token = Token
+
+    @property
+    def AcceleratorInfo(self):
+        r"""加速信息
+        :rtype: str
+        """
+        return self._AcceleratorInfo
+
+    @AcceleratorInfo.setter
+    def AcceleratorInfo(self, AcceleratorInfo):
+        self._AcceleratorInfo = AcceleratorInfo
+
+    @property
+    def AndroidInstanceErrors(self):
+        r"""安卓实例错误列表。列表包含有问题的安卓实例 ID 以及发生的错误信息。
+        :rtype: list of AndroidInstanceError
+        """
+        return self._AndroidInstanceErrors
+
+    @AndroidInstanceErrors.setter
+    def AndroidInstanceErrors(self, AndroidInstanceErrors):
+        self._AndroidInstanceErrors = AndroidInstanceErrors
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._Token = params.get("Token")
+        self._AcceleratorInfo = params.get("AcceleratorInfo")
+        if params.get("AndroidInstanceErrors") is not None:
+            self._AndroidInstanceErrors = []
+            for item in params.get("AndroidInstanceErrors"):
+                obj = AndroidInstanceError()
+                obj._deserialize(item)
+                self._AndroidInstanceErrors.append(obj)
+        self._RequestId = params.get("RequestId")
+
+
 class CreateAndroidInstanceImageRequest(AbstractModel):
     r"""CreateAndroidInstanceImage请求参数结构体
 
@@ -3184,9 +3443,17 @@ class CreateAndroidInstancesAccessTokenRequest(AbstractModel):
         :type AndroidInstanceIds: list of str
         :param _ExpirationDuration: 有效期，默认为 12 小时，最大为 24 小时。支持 s（秒）、m（分）、h（小时）等单位，比如 12h 表示 12 小时，1h2m3s 表示一小时两分三秒
         :type ExpirationDuration: str
+        :param _Mode: 模式。
+STANDARD：默认值，标准模式
+ACCELERATED：加速模式，该模式需要开通加速服务才能生效
+        :type Mode: str
+        :param _UserIP: 用户 IP。在加速模式下，该字段必填。
+        :type UserIP: str
         """
         self._AndroidInstanceIds = None
         self._ExpirationDuration = None
+        self._Mode = None
+        self._UserIP = None
 
     @property
     def AndroidInstanceIds(self):
@@ -3210,10 +3477,36 @@ class CreateAndroidInstancesAccessTokenRequest(AbstractModel):
     def ExpirationDuration(self, ExpirationDuration):
         self._ExpirationDuration = ExpirationDuration
 
+    @property
+    def Mode(self):
+        r"""模式。
+STANDARD：默认值，标准模式
+ACCELERATED：加速模式，该模式需要开通加速服务才能生效
+        :rtype: str
+        """
+        return self._Mode
+
+    @Mode.setter
+    def Mode(self, Mode):
+        self._Mode = Mode
+
+    @property
+    def UserIP(self):
+        r"""用户 IP。在加速模式下，该字段必填。
+        :rtype: str
+        """
+        return self._UserIP
+
+    @UserIP.setter
+    def UserIP(self, UserIP):
+        self._UserIP = UserIP
+
 
     def _deserialize(self, params):
         self._AndroidInstanceIds = params.get("AndroidInstanceIds")
         self._ExpirationDuration = params.get("ExpirationDuration")
+        self._Mode = params.get("Mode")
+        self._UserIP = params.get("UserIP")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -3816,7 +4109,7 @@ class CreateSessionRequest(AbstractModel):
         :type MinBitrate: int
         :param _Fps: 帧率，可设置为30、45、60、90、120、144
         :type Fps: int
-        :param _UserIp: 【必选】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
+        :param _UserIp: 【推荐填写】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
         :type UserIp: str
         :param _Optimization: 【已废弃】优化项，便于客户灰度开启新的优化项，默认为0
         :type Optimization: int
@@ -3984,7 +4277,7 @@ RunWithoutClient：允许无客户端连接的情况下仍保持云端 App 运�
 
     @property
     def UserIp(self):
-        r"""【必选】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
+        r"""【推荐填写】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
         :rtype: str
         """
         return self._UserIp
@@ -4937,10 +5230,38 @@ class DescribeAndroidInstanceBackupsResponse(AbstractModel):
 
     def __init__(self):
         r"""
+        :param _Backups: 备份列表
+        :type Backups: list of AndroidInstanceBackup
+        :param _TotalCount: 备份总数
+        :type TotalCount: int
         :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
         :type RequestId: str
         """
+        self._Backups = None
+        self._TotalCount = None
         self._RequestId = None
+
+    @property
+    def Backups(self):
+        r"""备份列表
+        :rtype: list of AndroidInstanceBackup
+        """
+        return self._Backups
+
+    @Backups.setter
+    def Backups(self, Backups):
+        self._Backups = Backups
+
+    @property
+    def TotalCount(self):
+        r"""备份总数
+        :rtype: int
+        """
+        return self._TotalCount
+
+    @TotalCount.setter
+    def TotalCount(self, TotalCount):
+        self._TotalCount = TotalCount
 
     @property
     def RequestId(self):
@@ -4955,6 +5276,13 @@ class DescribeAndroidInstanceBackupsResponse(AbstractModel):
 
 
     def _deserialize(self, params):
+        if params.get("Backups") is not None:
+            self._Backups = []
+            for item in params.get("Backups"):
+                obj = AndroidInstanceBackup()
+                obj._deserialize(item)
+                self._Backups.append(obj)
+        self._TotalCount = params.get("TotalCount")
         self._RequestId = params.get("RequestId")
 
 
@@ -6223,6 +6551,85 @@ class DisableAndroidInstancesAppResponse(AbstractModel):
         self._RequestId = params.get("RequestId")
 
 
+class DisconnectAndroidInstanceAcceleratorRequest(AbstractModel):
+    r"""DisconnectAndroidInstanceAccelerator请求参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _AndroidInstanceId: 实例ID
+        :type AndroidInstanceId: str
+        :param _UserId: 用户 ID。用户 ID 为空，将断开该实例的所有用户连接；用户 ID 不为空，只断开该用户的连接。
+        :type UserId: str
+        """
+        self._AndroidInstanceId = None
+        self._UserId = None
+
+    @property
+    def AndroidInstanceId(self):
+        r"""实例ID
+        :rtype: str
+        """
+        return self._AndroidInstanceId
+
+    @AndroidInstanceId.setter
+    def AndroidInstanceId(self, AndroidInstanceId):
+        self._AndroidInstanceId = AndroidInstanceId
+
+    @property
+    def UserId(self):
+        r"""用户 ID。用户 ID 为空，将断开该实例的所有用户连接；用户 ID 不为空，只断开该用户的连接。
+        :rtype: str
+        """
+        return self._UserId
+
+    @UserId.setter
+    def UserId(self, UserId):
+        self._UserId = UserId
+
+
+    def _deserialize(self, params):
+        self._AndroidInstanceId = params.get("AndroidInstanceId")
+        self._UserId = params.get("UserId")
+        memeber_set = set(params.keys())
+        for name, value in vars(self).items():
+            property_name = name[1:]
+            if property_name in memeber_set:
+                memeber_set.remove(property_name)
+        if len(memeber_set) > 0:
+            warnings.warn("%s fileds are useless." % ",".join(memeber_set))
+        
+
+
+class DisconnectAndroidInstanceAcceleratorResponse(AbstractModel):
+    r"""DisconnectAndroidInstanceAccelerator返回参数结构体
+
+    """
+
+    def __init__(self):
+        r"""
+        :param _RequestId: 唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :type RequestId: str
+        """
+        self._RequestId = None
+
+    @property
+    def RequestId(self):
+        r"""唯一请求 ID，由服务端生成，每次请求都会返回（若请求因其他原因未能抵达服务端，则该次请求不会获得 RequestId）。定位问题时需要提供该次请求的 RequestId。
+        :rtype: str
+        """
+        return self._RequestId
+
+    @RequestId.setter
+    def RequestId(self, RequestId):
+        self._RequestId = RequestId
+
+
+    def _deserialize(self, params):
+        self._RequestId = params.get("RequestId")
+
+
 class DisconnectAndroidInstanceRequest(AbstractModel):
     r"""DisconnectAndroidInstance请求参数结构体
 
@@ -7232,10 +7639,15 @@ class InstallAndroidInstancesAppRequest(AbstractModel):
         :type AndroidAppId: str
         :param _AndroidAppVersion: 应用版本
         :type AndroidAppVersion: str
+        :param _InstallationMethod: 安装方式。
+CLEAR_DATA 默认，清理数据
+KEEP_DATA 保留数据
+        :type InstallationMethod: str
         """
         self._AndroidInstanceIds = None
         self._AndroidAppId = None
         self._AndroidAppVersion = None
+        self._InstallationMethod = None
 
     @property
     def AndroidInstanceIds(self):
@@ -7270,11 +7682,25 @@ class InstallAndroidInstancesAppRequest(AbstractModel):
     def AndroidAppVersion(self, AndroidAppVersion):
         self._AndroidAppVersion = AndroidAppVersion
 
+    @property
+    def InstallationMethod(self):
+        r"""安装方式。
+CLEAR_DATA 默认，清理数据
+KEEP_DATA 保留数据
+        :rtype: str
+        """
+        return self._InstallationMethod
+
+    @InstallationMethod.setter
+    def InstallationMethod(self, InstallationMethod):
+        self._InstallationMethod = InstallationMethod
+
 
     def _deserialize(self, params):
         self._AndroidInstanceIds = params.get("AndroidInstanceIds")
         self._AndroidAppId = params.get("AndroidAppId")
         self._AndroidAppVersion = params.get("AndroidAppVersion")
+        self._InstallationMethod = params.get("InstallationMethod")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -8652,9 +9078,12 @@ class ModifyAndroidInstancesUserIdRequest(AbstractModel):
         :type AndroidInstanceIds: list of str
         :param _UserId: 用户 ID
         :type UserId: str
+        :param _ExpirationDuration: 有效时长。如果不填该字段，默认为永久。支持 s（秒）、m（分）、h（小时）、d（天）等单位，比如 12h 表示 12 小时，1h2m3s 表示一小时两分三秒
+        :type ExpirationDuration: str
         """
         self._AndroidInstanceIds = None
         self._UserId = None
+        self._ExpirationDuration = None
 
     @property
     def AndroidInstanceIds(self):
@@ -8678,10 +9107,22 @@ class ModifyAndroidInstancesUserIdRequest(AbstractModel):
     def UserId(self, UserId):
         self._UserId = UserId
 
+    @property
+    def ExpirationDuration(self):
+        r"""有效时长。如果不填该字段，默认为永久。支持 s（秒）、m（分）、h（小时）、d（天）等单位，比如 12h 表示 12 小时，1h2m3s 表示一小时两分三秒
+        :rtype: str
+        """
+        return self._ExpirationDuration
+
+    @ExpirationDuration.setter
+    def ExpirationDuration(self, ExpirationDuration):
+        self._ExpirationDuration = ExpirationDuration
+
 
     def _deserialize(self, params):
         self._AndroidInstanceIds = params.get("AndroidInstanceIds")
         self._UserId = params.get("UserId")
+        self._ExpirationDuration = params.get("ExpirationDuration")
         memeber_set = set(params.keys())
         for name, value in vars(self).items():
             property_name = name[1:]
@@ -10891,7 +11332,7 @@ class TrylockWorkerRequest(AbstractModel):
         :type GameRegion: str
         :param _SetNo: 【废弃】资源池编号
         :type SetNo: int
-        :param _UserIp: 【必选】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
+        :param _UserIp: 【推荐填写】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
         :type UserIp: str
         :param _GroupId: 分组ID
         :type GroupId: str
@@ -10949,7 +11390,7 @@ class TrylockWorkerRequest(AbstractModel):
 
     @property
     def UserIp(self):
-        r"""【必选】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
+        r"""【推荐填写】用户IP，用户客户端的公网IP，用于就近调度，不填将严重影响用户体验
         :rtype: str
         """
         return self._UserIp

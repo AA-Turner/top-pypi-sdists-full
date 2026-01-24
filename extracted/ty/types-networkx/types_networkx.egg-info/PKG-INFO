@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-networkx
-Version: 3.5.0.20250918
+Version: 3.6.1.20251220
 Summary: Typing stubs for networkx
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -22,7 +22,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`networkx`](https://github.com/networkx/networkx) package. It can be used by type checkers
 to check code that uses `networkx`. This version of
 `types-networkx` aims to provide accurate annotations for
-`networkx==3.5`.
+`networkx==3.6.1`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -32,8 +32,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.1
-* [pyright](https://github.com/microsoft/pyright) 1.1.405
+* [mypy](https://github.com/python/mypy/) 1.18.2
+* [pyright](https://github.com/microsoft/pyright) 1.1.407
 
 It was generated from typeshed commit
-[`add4e85823fe0a7e45c51d6d4f3ef46041593bc8`](https://github.com/python/typeshed/commit/add4e85823fe0a7e45c51d6d4f3ef46041593bc8).
+[`bf5b55d7463c620c7b7181d87ae68aba214d56a0`](https://github.com/python/typeshed/commit/bf5b55d7463c620c7b7181d87ae68aba214d56a0).

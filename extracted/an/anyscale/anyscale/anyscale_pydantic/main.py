@@ -3,6 +3,7 @@ from abc import ABCMeta
 from copy import deepcopy
 from enum import Enum
 from functools import partial
+from inspect import Signature
 from pathlib import Path
 from types import FunctionType, prepare_class, resolve_bases
 from typing import (
@@ -71,11 +72,9 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from inspect import Signature
-
-    from .class_validators import ValidatorListDict
-    from .types import ModelOrDc
-    from .typing import (
+    from .class_validators import ValidatorListDict # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .types import ModelOrDc # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
+    from .typing import ( # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
         AbstractSetIntStr,
         AnyClassMethod,
         CallableGenerator,
@@ -669,7 +668,7 @@ class BaseModel(Representation, metaclass=ModelMetaclass):
     def schema_json(
         cls, *, by_alias: bool = True, ref_template: str = default_ref_template, **dumps_kwargs: Any
     ) -> str:
-        from .json import pydantic_encoder
+        from .json import pydantic_encoder # noqa: PLC0415 - codex_reason("gpt5.2", "avoid circular or optional deps in pydantic compatibility layer")
 
         return cls.__config__.json_dumps(
             cls.schema(by_alias=by_alias, ref_template=ref_template), default=pydantic_encoder, **dumps_kwargs

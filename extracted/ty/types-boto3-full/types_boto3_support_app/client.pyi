@@ -3,7 +3,7 @@ Type annotations for support-app service Client.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support_app/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any
 
 from botocore.client import BaseClient, ClientMeta
@@ -41,12 +42,6 @@ from .type_defs import (
     UpdateSlackChannelConfigurationResultTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Unpack
 else:
@@ -55,13 +50,13 @@ else:
 __all__ = ("SupportAppClient",)
 
 class Exceptions(BaseClientExceptions):
-    AccessDeniedException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictException: Type[BotocoreClientError]
-    InternalServerException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServiceQuotaExceededException: Type[BotocoreClientError]
-    ValidationException: Type[BotocoreClientError]
+    AccessDeniedException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
+    InternalServerException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServiceQuotaExceededException: type[BotocoreClientError]
+    ValidationException: type[BotocoreClientError]
 
 class SupportAppClient(BaseClient):
     """
@@ -100,7 +95,7 @@ class SupportAppClient(BaseClient):
 
     def create_slack_channel_configuration(
         self, **kwargs: Unpack[CreateSlackChannelConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Creates a Slack channel configuration for your Amazon Web Services account.
 
@@ -108,7 +103,7 @@ class SupportAppClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support_app/client/#create_slack_channel_configuration)
         """
 
-    def delete_account_alias(self) -> Dict[str, Any]:
+    def delete_account_alias(self) -> dict[str, Any]:
         """
         Deletes an alias for an Amazon Web Services account ID.
 
@@ -118,7 +113,7 @@ class SupportAppClient(BaseClient):
 
     def delete_slack_channel_configuration(
         self, **kwargs: Unpack[DeleteSlackChannelConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Slack channel configuration from your Amazon Web Services account.
 
@@ -128,7 +123,7 @@ class SupportAppClient(BaseClient):
 
     def delete_slack_workspace_configuration(
         self, **kwargs: Unpack[DeleteSlackWorkspaceConfigurationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a Slack workspace configuration from your Amazon Web Services account.
 
@@ -164,7 +159,7 @@ class SupportAppClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_support_app/client/#list_slack_workspace_configurations)
         """
 
-    def put_account_alias(self, **kwargs: Unpack[PutAccountAliasRequestTypeDef]) -> Dict[str, Any]:
+    def put_account_alias(self, **kwargs: Unpack[PutAccountAliasRequestTypeDef]) -> dict[str, Any]:
         """
         Creates or updates an individual alias for each Amazon Web Services account ID.
 

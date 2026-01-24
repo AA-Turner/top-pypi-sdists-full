@@ -91,6 +91,20 @@ def create_or_update_thread(thread_data: dict[str, Any]) -> None:
     author = get_user_or_none(thread_data["author_id"])
     if not author:
         return
+
+    # Preserve author_username from MongoDB (historical username)
+    author_username = thread_data.get("author_username")
+
+    # Preserve retired_username from MongoDB
+    retired_username = thread_data.get("retired_username")
+
+    # If author_username is not provided, use retired_username or fallback to current username
+    if not author_username:
+        if retired_username:
+            author_username = retired_username
+        else:
+            author_username = author.username
+
     mongo_thread_id = str(thread_data["_id"])
     mongo_content, _ = MongoContent.objects.get_or_create(
         mongo_id=mongo_thread_id,
@@ -98,6 +112,8 @@ def create_or_update_thread(thread_data: dict[str, Any]) -> None:
     if not mongo_content.content_object_id:
         thread = CommentThread.objects.create(
             author=author,
+            author_username=author_username,
+            retired_username=retired_username,
             course_id=thread_data["course_id"],
             title=get_trunc_title(thread_data.get("title", "")),
             body=thread_data["body"],
@@ -107,10 +123,14 @@ def create_or_update_thread(thread_data: dict[str, Any]) -> None:
             anonymous_to_peers=thread_data.get("anonymous_to_peers", False),
             closed=thread_data.get("closed", False),
             pinned=thread_data.get("pinned"),
-            created_at=make_aware(thread_data["created_at"]),
-            updated_at=make_aware(thread_data["updated_at"]),
             last_activity_at=make_aware(thread_data["last_activity_at"]),
             commentable_id=thread_data.get("commentable_id"),
+        )
+        # Use QuerySet.update() to preserve original timestamps from MongoDB.
+        # This bypasses Django's auto_now_add and auto_now which ignore explicit values.
+        CommentThread.objects.filter(pk=thread.pk).update(
+            created_at=make_aware(thread_data["created_at"]),
+            updated_at=make_aware(thread_data["updated_at"]),
         )
         mongo_content.content_object_id = thread.pk
         mongo_content.content_type = thread.content_type
@@ -128,6 +148,20 @@ def create_or_update_comment(comment_data: dict[str, Any]) -> None:
     author = get_user_or_none(comment_data["author_id"])
     if not author:
         return
+
+    # Preserve author_username from MongoDB (historical username)
+    author_username = comment_data.get("author_username")
+
+    # Preserve retired_username from MongoDB
+    retired_username = comment_data.get("retired_username")
+
+    # If author_username is not provided, use retired_username or fallback to current username
+    if not author_username:
+        if retired_username:
+            author_username = retired_username
+        else:
+            author_username = author.username
+
     mongo_thread_id = str(comment_data["comment_thread_id"])
     mongo_thread = MongoContent.objects.filter(mongo_id=mongo_thread_id).first()
     if not mongo_thread:
@@ -169,6 +203,8 @@ def create_or_update_comment(comment_data: dict[str, Any]) -> None:
     if not mongo_comment.content_object_id:
         comment = Comment.objects.create(
             author=author,
+            author_username=author_username,
+            retired_username=retired_username,
             comment_thread=thread,
             parent=parent,
             course_id=comment_data["course_id"],
@@ -177,16 +213,19 @@ def create_or_update_comment(comment_data: dict[str, Any]) -> None:
             anonymous_to_peers=comment_data.get("anonymous_to_peers", False),
             endorsed=comment_data.get("endorsed", False),
             child_count=comment_data.get("child_count", 0),
+            depth=1 if parent else 0,
+        )
+        sort_key = f"{parent.pk}-{comment.pk}" if parent else f"{comment.pk}"
+        # Use QuerySet.update() to preserve original timestamps from MongoDB
+        # and set sort_key. This bypasses Django's auto_now_add and auto_now.
+        Comment.objects.filter(pk=comment.pk).update(
             created_at=make_aware(comment_data["created_at"]),
             updated_at=make_aware(comment_data["updated_at"]),
-            depth=1 if parent else 0,
+            sort_key=sort_key,
         )
         mongo_comment.content_object_id = comment.pk
         mongo_comment.content_type = comment.content_type
         mongo_comment.save()
-        sort_key = f"{parent.pk}-{comment.pk}" if parent else f"{comment.pk}"
-        comment.sort_key = sort_key
-        comment.save()
     else:
         comment = Comment.objects.get(pk=mongo_comment.content_object_id)
 
@@ -315,15 +354,31 @@ def migrate_subscriptions(db: Database[dict[str, Any]], content_id: str) -> None
             )
             continue
         if content:
-            Subscription.objects.update_or_create(
+            # Check if subscription already exists
+            existing_sub = Subscription.objects.filter(
                 subscriber=user,
                 source_content_type=content.content_type,
                 source_object_id=content.pk,
-                defaults={
-                    "created_at": sub.get("created_at", timezone.now()),
-                    "updated_at": sub.get("updated_at", timezone.now()),
-                },
-            )
+            ).first()
+            if not existing_sub:
+                # Create new subscription
+                subscription = Subscription.objects.create(
+                    subscriber=user,
+                    source_content_type=content.content_type,
+                    source_object_id=content.pk,
+                )
+                # Use QuerySet.update() to preserve original timestamps from MongoDB.
+                # This bypasses Django's auto_now_add and auto_now.
+                Subscription.objects.filter(pk=subscription.pk).update(
+                    created_at=sub.get("created_at", timezone.now()),
+                    updated_at=sub.get("updated_at", timezone.now()),
+                )
+            else:
+                # Update existing subscription timestamps using QuerySet.update()
+                Subscription.objects.filter(pk=existing_sub.pk).update(
+                    created_at=sub.get("created_at", timezone.now()),
+                    updated_at=sub.get("updated_at", timezone.now()),
+                )
 
 
 def migrate_read_states(db: Database[dict[str, Any]], course_id: str) -> None:

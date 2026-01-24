@@ -34,15 +34,13 @@ from datarobot.utils.pagination import unpaginate
 
 T = TypeVar("T")
 
-use_case_user_trafaret = t.Dict(
-    {
-        t.Key("id"): t.String,
-        t.Key("full_name", optional=True): t.Or(t.String, t.Null),
-        t.Key("email", optional=True): t.Or(t.String, t.Null),
-        t.Key("userhash", optional=True): t.Or(t.String, t.Null),
-        t.Key("username", optional=True): t.Or(t.String, t.Null),
-    }
-).ignore_extra("*")
+use_case_user_trafaret = t.Dict({
+    t.Key("id"): t.String,
+    t.Key("full_name", optional=True): t.Or(t.String, t.Null),
+    t.Key("email", optional=True): t.Or(t.String, t.Null),
+    t.Key("userhash", optional=True): t.Or(t.String, t.Null),
+    t.Key("username", optional=True): t.Or(t.String, t.Null),
+}).ignore_extra("*")
 
 
 @dataclass
@@ -92,17 +90,15 @@ class UseCaseReferenceEntity(APIObject):
         The user who created the link between this entity and the Use Case.
     """
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("entity_type"): t.String,
-            t.Key("entity_id"): t.String,
-            t.Key("experiment_container_id") >> "use_case_id": t.String,
-            t.Key("created_at"): t.String,
-            t.Key("created"): use_case_user_trafaret,
-            t.Key("is_deleted"): t.Bool,
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("entity_type"): t.String,
+        t.Key("entity_id"): t.String,
+        t.Key("experiment_container_id") >> "use_case_id": t.String,
+        t.Key("created_at"): t.String,
+        t.Key("created"): use_case_user_trafaret,
+        t.Key("is_deleted"): t.Bool,
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -124,7 +120,7 @@ class UseCaseReferenceEntity(APIObject):
 
 
 def get_reference_entity_info(
-    entity: Union[UseCaseReferenceEntity, T]
+    entity: Union[UseCaseReferenceEntity, T],
 ) -> Tuple[UseCaseAPIPathEntityType, Optional[str]]:
     """
     Get the entity type and entity id for a reference entity instance
@@ -224,27 +220,25 @@ class UseCase(APIObject, BrowserMixin):
 
     _path = "useCases/"
 
-    _converter = t.Dict(
-        {
-            t.Key("id"): t.String,
-            t.Key("name"): t.String,
-            t.Key("description", optional=True): t.Or(t.String(allow_blank=True), t.Null),
-            t.Key("created_at"): t.String,
-            t.Key("created"): use_case_user_trafaret,
-            t.Key("updated_at"): t.String,
-            t.Key("updated"): use_case_user_trafaret,
-            t.Key("models_count"): t.Int,
-            t.Key("projects_count"): t.Int,
-            t.Key("datasets_count"): t.Int,
-            t.Key("files_count"): t.Int,
-            t.Key("notebooks_count"): t.Int,
-            t.Key("applications_count"): t.Int,
-            t.Key("playgrounds_count", optional=True, default=0): t.Int,
-            t.Key("vector_databases_count", optional=True, default=0): t.Int,
-            t.Key("owners", optional=True): t.List(use_case_user_trafaret),
-            t.Key("members"): t.List(use_case_user_trafaret),
-        }
-    ).ignore_extra("*")
+    _converter = t.Dict({
+        t.Key("id"): t.String,
+        t.Key("name"): t.String,
+        t.Key("description", optional=True): t.Or(t.String(allow_blank=True), t.Null),
+        t.Key("created_at"): t.String,
+        t.Key("created"): use_case_user_trafaret,
+        t.Key("updated_at"): t.String,
+        t.Key("updated"): use_case_user_trafaret,
+        t.Key("models_count"): t.Int,
+        t.Key("projects_count"): t.Int,
+        t.Key("datasets_count"): t.Int,
+        t.Key("files_count"): t.Int,
+        t.Key("notebooks_count"): t.Int,
+        t.Key("applications_count"): t.Int,
+        t.Key("playgrounds_count", optional=True, default=0): t.Int,
+        t.Key("vector_databases_count", optional=True, default=0): t.Int,
+        t.Key("owners", optional=True): t.List(use_case_user_trafaret),
+        t.Key("members"): t.List(use_case_user_trafaret),
+    }).ignore_extra("*")
 
     def __init__(
         self,
@@ -282,9 +276,7 @@ class UseCase(APIObject, BrowserMixin):
         self.playgrounds_count: int = playgrounds_count
         self.vector_databases_count: int = vector_databases_count
         self.members: List[UseCaseUser] = [UseCaseUser(**member) for member in members]
-        self.owners: Optional[List[UseCaseUser]] = (
-            [UseCaseUser(**owner) for owner in owners] if owners else None
-        )
+        self.owners: Optional[List[UseCaseUser]] = [UseCaseUser(**owner) for owner in owners] if owners else None
 
     def __repr__(self) -> str:
         return (
@@ -382,9 +374,7 @@ class UseCase(APIObject, BrowserMixin):
                 get_params.update(search_params)
             else:
                 raise TypeError(
-                    "Provided search_params argument {} is invalid type {}".format(
-                        search_params, type(search_params)
-                    )
+                    "Provided search_params argument {} is invalid type {}".format(search_params, type(search_params))
                 )
         r_data = unpaginate(cls._path, get_params, cls._client)
         return [cls.from_server_data(item) for item in r_data]
@@ -509,9 +499,7 @@ class UseCase(APIObject, BrowserMixin):
         e_type = self._resolve_api_entity(entity_type)
         e_id = entity_id
         if entity and (e_type or entity_id):
-            raise InvalidUsageError(
-                "Can only accept either an entity, or an entity type and entity id."
-            )
+            raise InvalidUsageError("Can only accept either an entity, or an entity type and entity id.")
         if not entity and (not e_type or not entity_id):
             raise InvalidUsageError("Missing entity, or an entity type and entity id.")
         if entity:
@@ -543,9 +531,7 @@ class UseCase(APIObject, BrowserMixin):
         e_type = self._resolve_api_entity(entity_type)
         e_id = entity_id
         if entity and (entity_type or entity_id):
-            raise InvalidUsageError(
-                "Can only accept either an entity, or an entity type and entity id."
-            )
+            raise InvalidUsageError("Can only accept either an entity, or an entity type and entity id.")
         if not entity and (not entity_type or not entity_id):
             raise InvalidUsageError("Missing entity, or an entity type and entity id.")
         if entity:
@@ -627,13 +613,9 @@ class UseCase(APIObject, BrowserMixin):
             ]
             for role in roles
         ):
-            raise InvalidUsageError(
-                "Only NO_ROLE, OWNER, EDITOR, and CONSUMER roles are supported by Use Cases"
-            )
+            raise InvalidUsageError("Only NO_ROLE, OWNER, EDITOR, and CONSUMER roles are supported by Use Cases")
         if any(role.share_recipient_type != SHARING_RECIPIENT_TYPE.USER for role in roles):
-            raise InvalidUsageError(
-                "Use Cases currently only support sharing with users, not organizations."
-            )
+            raise InvalidUsageError("Use Cases currently only support sharing with users, not organizations.")
         formatted_roles = [role.collect_payload() for role in roles]
         payload = {"roles": formatted_roles, "operation": "updateRoles"}
         path = f"{self._path}{self.id}/sharedRoles/"

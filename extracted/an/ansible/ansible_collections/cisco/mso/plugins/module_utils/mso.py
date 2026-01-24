@@ -298,9 +298,94 @@ def ndo_template_object_spec(aliases=None):
     )
 
 
-def ndo_l3out_port_channel_spec(micro_bfd=True):
-    portchannel_spec = dict(
+def ndo_l3out_ptp_spec(aliases=None):
+    return dict(
         type="dict",
+        options=dict(
+            mode=dict(type="str", choices=["multicast_dynamic", "multicast_master", "unicast_master"]),
+            source_address=dict(type="str"),
+            unicast_destinations=dict(type="list", elements="str"),
+            user_profile=dict(
+                type="dict",
+                options=dict(
+                    uuid=dict(type="str"),
+                    reference=dict(
+                        type="dict",
+                        aliases=["ref"],
+                        options=dict(
+                            name=dict(type="str", required=True),
+                            template=dict(type="str"),
+                            template_id=dict(type="str"),
+                        ),
+                        required_one_of=[
+                            ["template", "template_id"],
+                        ],
+                        mutually_exclusive=[
+                            ("template", "template_id"),
+                        ],
+                    ),
+                ),
+                required_one_of=[
+                    ["reference", "uuid"],
+                ],
+                mutually_exclusive=[
+                    ("reference", "uuid"),
+                ],
+            ),
+        ),
+    )
+
+
+def ndo_l3out_virtual_port_channel_spec(side_b=True, secondary_address=False):
+    virtual_port_channel_spec = dict(
+        type="dict",
+        aliases=["vpc"],
+        options=dict(
+            uuid=dict(type="str"),
+            reference=dict(
+                type="dict",
+                aliases=["ref"],
+                options=dict(
+                    name=dict(type="str", required=True),
+                    template=dict(type="str"),
+                    template_id=dict(type="str"),
+                ),
+                required_one_of=[
+                    ["template", "template_id"],
+                ],
+                mutually_exclusive=[
+                    ("template", "template_id"),
+                ],
+            ),
+        ),
+        required_one_of=[
+            ["reference", "uuid"],
+        ],
+        mutually_exclusive=[
+            ("reference", "uuid"),
+        ],
+    )
+
+    if side_b:
+        virtual_port_channel_spec["options"]["side_b_ipv4_address"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_ipv6_address"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_ipv6_link_local_address"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_ipv6_dad"] = dict(type="str", choices=["enabled", "disabled"])
+        virtual_port_channel_spec["options"]["side_b_node_group_policy"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_node_router_id"] = dict(type="str", aliases=["router_id"])
+        virtual_port_channel_spec["options"]["side_b_use_router_id_as_loopback"] = dict(type="bool")
+        virtual_port_channel_spec["options"]["side_b_node_loopback_ip"] = dict(type="str", aliases=["loopback_ip"])
+    if secondary_address:
+        # enforcing default for clarity of module behaviour, this value is not send to API but is just for calculation of VPC path
+        virtual_port_channel_spec["options"]["side_b"] = dict(type="bool", default=False)
+
+    return virtual_port_channel_spec
+
+
+def ndo_l3out_port_channel_spec(micro_bfd=True):
+    port_channel_spec = dict(
+        type="dict",
+        aliases=["pc"],
         options=dict(
             uuid=dict(type="str"),
             reference=dict(
@@ -328,11 +413,11 @@ def ndo_l3out_port_channel_spec(micro_bfd=True):
     )
 
     if micro_bfd:
-        portchannel_spec["options"]["micro_bfd_enabled"] = dict(type="bool")
-        portchannel_spec["options"]["micro_bfd_address"] = dict(type="str")
-        portchannel_spec["options"]["micro_bfd_start_timer"] = dict(type="int")
+        port_channel_spec["options"]["micro_bfd_enabled"] = dict(type="bool")
+        port_channel_spec["options"]["micro_bfd_address"] = dict(type="str")
+        port_channel_spec["options"]["micro_bfd_start_timer"] = dict(type="int")
 
-    return portchannel_spec
+    return port_channel_spec
 
 
 # Copied from ansible's module uri.py (url): https://github.com/ansible/ansible/blob/cdf62edc65f564fff6b7e575e084026fa7faa409/lib/ansible/modules/uri.py
@@ -856,7 +941,7 @@ class MSOModule(object):
                 self.fail_json(msg=msg)
             return {}
 
-    def l3out_interface_request(self, mso_l3out_template, ops, ignore_errors, state, remove_operation):
+    def l3out_interface_request(self, mso_l3out_template, ops, ignore_errors, state, remove_operations):
         """
         Wrapper function to handle the L3Out interface requests and node error responses.
         L3Out node configuration requires an interface to be present for that node.
@@ -867,7 +952,9 @@ class MSOModule(object):
         :param ops: List of operations to send to the API
         :param ignore_errors: List of error strings to ignore
         :param state: Desired state of the L3Out interface (present, absent)
-        :param remove_operation: Operation to remove the node configuration if the interface is absent
+        :param remove_operations: Dictionary of Remove Operations to remove the node configuration if the interface is absent
+            The key in this dictionary is set the error string that indicates which node configuration is invalid.
+            The value is set to the PATCH operation to remove the node configuration.
         :return: Response from the MSO request
         """
 
@@ -876,7 +963,41 @@ class MSOModule(object):
             response = self.request(mso_l3out_template.template_path, method="PATCH", data=ops, ignore_errors=ignore_errors)
             # When the response matches an error string from the ignore errors we need to remove the node configuration
             if response in ignore_errors:
-                ops.append(remove_operation)
+                # Pop the operation from the remove_operations dictionary so it won't be used again
+                # For VPC configurations the remove operations could potentially be multiple
+                remove_op = remove_operations.pop(response)
+                # 1. Insert the remove operation at the beginning of the ops list when no node removal operation is present in ops
+                # 2. Insert the second node operation before the first node operation if index of the node is greater than the first node operation
+                # Example: if ops are:
+                # ["/l3outTemplate/l3outs/0/nodes/0", "/l3outTemplate/l3outs/0/sviInterfaces/0"]
+                # and the remove operation is:
+                # "/l3outTemplate/l3outs/0/nodes/1"
+                # then the ops will be updated to:
+                # ["/l3outTemplate/l3outs/0/nodes/1", "/l3outTemplate/l3outs/0/nodes/0", "/l3outTemplate/l3outs/0/sviInterfaces/0"]
+                # because "/l3outTemplate/l3outs/0/nodes/1" > "/l3outTemplate/l3outs/0/nodes/0" == True
+                # 3. Insert the second node operation after the first node operation if index of the node is smaller than the first node operation
+                # Example: if ops are:
+                # ["/l3outTemplate/l3outs/0/nodes/1", "/l3outTemplate/l3outs/0/sviInterfaces/0"]
+                # and the remove operation is:
+                # "/l3outTemplate/l3outs/0/nodes/0"
+                # then the ops will be updated to:
+                # ["/l3outTemplate/l3outs/0/nodes/1", "/l3outTemplate/l3outs/0/nodes/0", "/l3outTemplate/l3outs/0/sviInterfaces/0"]
+                # because "/l3outTemplate/l3outs/0/nodes/0" > "/l3outTemplate/l3outs/0/nodes/1" == False
+                # Scenario 3 is currently not possible because the API orders the node error by the node index.
+                # This logic is put into place in case the ordering of the nodes in the API changes in the future.
+                if len(ops) == 1 or remove_op.get("path", "") > ops[0].get("path", ""):
+                    ops.insert(0, remove_op)
+                else:
+                    ops.insert(1, remove_op)
+
+                # Remove the error from the ignore_errors list so it won't be retried again
+                ignore_errors.remove(response)
+
+                # Retry the request with the remove operation when there are still remove operations left
+                # If there are no remove operations left, the request will be executed without the remove operation
+                # and the response will be returned as is.
+                if len(remove_operations) != 0:
+                    return self.l3out_interface_request(mso_l3out_template, ops, ignore_errors, state, remove_operations)
             else:
                 return response
 
@@ -1383,14 +1504,14 @@ class MSOModule(object):
                 if key.endswith("Ref"):
                     if key in required:
                         continue
-                    del self.proposed[key]
-                    del self.sent[key]
+                    self.proposed.pop(key, None)
+                    self.sent.pop(key, None)
                     continue
 
                 # Removed unwanted keys
                 elif key in unwanted:
-                    del self.proposed[key]
-                    del self.sent[key]
+                    self.proposed.pop(key, None)
+                    self.sent.pop(key, None)
                     continue
 
         if isinstance(updates, dict):
@@ -1405,12 +1526,12 @@ class MSOModule(object):
                 # Remove unspecified values
                 elif not collate and updates.get(key) is None:
                     if key in self.existing:
-                        del self.sent[key]
+                        self.sent.pop(key, None)
                     continue
 
                 # Remove identical values
                 elif not collate and updates.get(key) == self.existing.get(key):
-                    del self.sent[key]
+                    self.sent.pop(key, None)
                     continue
 
                 # Add everything else
@@ -1777,17 +1898,27 @@ class MSOModule(object):
             except ValueError:
                 return self.fail_json(msg="ERROR: The time must be in 'YYYY-MM-DD HH:MM:SS' format.")
 
-    def get_site_interface_details(self, site_id=None, uuid=None, node=None, port=None, port_channel_uuid=None):
-        if node and port:
-            path = "/sitephysifsummary/site/{0}?node={1}".format(site_id, node)
+    def get_site_interface_details(self, site_id=None, uuid=None, node=None, port=None, port_channel_uuid=None, virtual_port_channel_uuid=None):
+        if port_channel_uuid:
+            path = "/pcsummary/site/{0}?uuid={1}".format(site_id, port_channel_uuid)
+        elif virtual_port_channel_uuid:
+            path = "/vpcsummary/site/{0}?uuid={1}".format(site_id, virtual_port_channel_uuid)
         elif uuid:
             path = "/sitephysifsummary/site/{0}?uuid={1}".format(site_id, uuid)
-        elif port_channel_uuid:
-            path = "/pcsummary/site/{0}?uuid={1}".format(site_id, port_channel_uuid)
+        elif node:
+            path = "/sitephysifsummary/site/{0}?node={1}".format(site_id, node)
 
         site_data = self.request(path, method="GET")
 
-        if uuid:
+        if port_channel_uuid:
+            if site_data.get("spec", {}).get("pcs"):
+                return site_data.get("spec", {}).get("pcs")[0]
+            self.fail_json(msg="The site port channel interface not found. Site ID: {0} and UUID: {1}".format(site_id, port_channel_uuid))
+        elif virtual_port_channel_uuid:
+            if site_data.get("spec", {}).get("vpcs"):
+                return site_data.get("spec", {}).get("vpcs")[0]
+            self.fail_json(msg="The site virtual port channel interface not found. Site ID: {0} and UUID: {1}".format(site_id, virtual_port_channel_uuid))
+        elif uuid:
             if site_data.get("spec", {}).get("monitoringTemplateInterfaces"):
                 return site_data.get("spec", {}).get("monitoringTemplateInterfaces", [])[0]
             else:
@@ -1798,11 +1929,22 @@ class MSOModule(object):
                 if interface.get("port") == port and str(interface.get("node")) == str(node):
                     return interface
             self.fail_json(msg="The site port interface not found. Site ID: {0}, Node: {1} and Path: {2}".format(site_id, node, port))
-        elif port_channel_uuid:
-            if site_data.get("spec", {}).get("pcs"):
-                return site_data.get("spec", {}).get("pcs")[0]
-            self.fail_json(msg="The site port channel interface not found. Site ID: {0} and UUID: {1}".format(site_id, port_channel_uuid))
+        elif node:
+            pod_ids = list(set([interface.get("pod") for interface in site_data.get("spec", {}).get("interfaces", [])]))
+            if len(pod_ids) == 1:
+                # All physical interfaces of a node should belong to the same POD.
+                return pod_ids[0]
+            elif len(pod_ids) == 0:
+                self.fail_json(msg="The site and node not found. Site ID: {0} and Node: {1}".format(site_id, node))
+            elif len(pod_ids) > 1:
+                # This scenario should never be possible but is added in case of faulty return data.
+                self.fail_json(msg="The site and node are found with multiple POD IDs. Site ID: {0}, Node: {1}, POD IDs: {2}".format(site_id, node, pod_ids))
+
         return {}
+
+    def check_template_when_name_is_provided(self, parameter):
+        if parameter and parameter.get("name") and not (parameter.get("template") or parameter.get("template_id")):
+            self.fail_json(msg="Either 'template' or 'template_id' associated with '{}' must be provided".format(parameter.get("name")))
 
 
 def service_node_ref_str_to_dict(serviceNodeRefStr):

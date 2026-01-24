@@ -1,4 +1,4 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
+# Copyright (c) TorchGeo Contributors. All rights reserved.
 # Licensed under the MIT License.
 
 """Copernicus-Bench Flood-S1 dataset."""
@@ -138,7 +138,7 @@ class CopernicusBenchFloodS1(CopernicusBenchBase):
                 if 'date' in match.groupdict():
                     date_str = match.group('date')
                     mint, maxt = disambiguate_timestamp(date_str, self.date_format)
-                    time = (mint + maxt) / 2
+                    time = (mint.timestamp() + maxt.timestamp()) / 2
                     times.append(time)
 
         # Location (only once)

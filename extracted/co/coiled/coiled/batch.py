@@ -17,6 +17,8 @@ def run(
     workspace: str | None = None,
     software: str | None = None,
     container: str | None = None,
+    run_on_host: bool | None = None,
+    cluster_kwargs: dict | None = None,
     env: list | dict | None = None,
     secret_env: list | dict | None = None,
     tag: list | dict | None = None,
@@ -46,7 +48,11 @@ def run(
     package_sync_strict: bool = False,
     package_sync_conda_extras: list | None = None,
     package_sync_ignore: list[str] | None = None,
+    local_upload_path: str | None = None,
+    buffers_to_upload: list[dict] | None = None,
     host_setup_script: str | None = None,
+    host_setup_script_content: str | None = None,
+    command_as_script: bool | None = None,
     ignore_container_entrypoint: bool | None = None,
     job_timeout: str | None = None,
     logger=None,
@@ -61,8 +67,12 @@ def run(
         takes a list of dictionaries, so you can specify multiple environment variables for each task.
         For example, ``[{"FOO": 1, "BAR": 2}, {"FOO": 3, "BAR": 4}]`` will pass ``FOO=1 BAR=2`` to one task and
         ``FOO=3 BAR=4`` to another.
+    buffers_to_upload
+        takes a list of dictionaries, each should have path where file should be written on VM(s)
+        relative to working directory, and ``io.BytesIO`` which provides content of file,
+        for example ``[{"relative_path": "hello.txt", "buffer": io.BytesIO(b"hello")}]``.
     """
-    if isinstance(command, str):
+    if isinstance(command, str) and not command.startswith("#!") and not command_as_script:
         command = shlex.split(command)
 
     env = dict_to_key_val_list(env)
@@ -76,6 +86,8 @@ def run(
         workspace=workspace,
         software=software,
         container=container,
+        run_on_host=run_on_host,
+        cluster_kwargs=cluster_kwargs,
         env=env,
         secret_env=secret_env,
         tag=tag,
@@ -106,7 +118,11 @@ def run(
         package_sync_strict=package_sync_strict,
         package_sync_conda_extras=package_sync_conda_extras,
         package_sync_ignore=package_sync_ignore,
+        local_upload_path=local_upload_path,
+        buffers_to_upload=buffers_to_upload,
         host_setup_script=host_setup_script,
+        host_setup_script_content=host_setup_script_content,
+        command_as_script=command_as_script,
         ignore_container_entrypoint=ignore_container_entrypoint,
         job_timeout=job_timeout,
         logger=logger,

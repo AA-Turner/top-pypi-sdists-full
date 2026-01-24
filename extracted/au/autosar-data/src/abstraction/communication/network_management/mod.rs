@@ -36,6 +36,15 @@ impl NmConfig {
         }
     }
 
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
+    }
+
     #[setter]
     fn set_name(&self, name: &str) -> PyResult<()> {
         self.0.set_name(name).map_err(abstraction_err_to_pyerr)
@@ -119,13 +128,13 @@ impl NmConfig {
     fn nm_clusters(&self) -> NmClusterIterator {
         NmClusterIterator::new(self.0.nm_clusters().filter_map(|cluster| match cluster {
             autosar_data_abstraction::communication::NmCluster::CanNm(cluster) => {
-                Python::with_gil(|py| CanNmCluster(cluster).into_py_any(py).ok())
+                Python::attach(|py| CanNmCluster(cluster).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::NmCluster::FlexrayNm(cluster) => {
-                Python::with_gil(|py| FlexrayNmCluster(cluster).into_py_any(py).ok())
+                Python::attach(|py| FlexrayNmCluster(cluster).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::NmCluster::UdpNm(cluster) => {
-                Python::with_gil(|py| UdpNmCluster(cluster).into_py_any(py).ok())
+                Python::attach(|py| UdpNmCluster(cluster).into_py_any(py).ok())
             }
         }))
     }
@@ -177,13 +186,13 @@ impl NmConfig {
     fn nm_cluster_couplings(&self) -> NmClusterCouplingIterator {
         NmClusterCouplingIterator::new(self.0.nm_cluster_couplings().filter_map(|coupling| match coupling {
             autosar_data_abstraction::communication::NmClusterCoupling::CanNmClusterCoupling(coupling) => {
-                Python::with_gil(|py| CanNmClusterCoupling(coupling).into_py_any(py).ok())
+                Python::attach(|py| CanNmClusterCoupling(coupling).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::NmClusterCoupling::FlexrayNmClusterCoupling(coupling) => {
-                Python::with_gil(|py| FlexrayNmClusterCoupling(coupling).into_py_any(py).ok())
+                Python::attach(|py| FlexrayNmClusterCoupling(coupling).into_py_any(py).ok())
             }
             autosar_data_abstraction::communication::NmClusterCoupling::UdpNmClusterCoupling(coupling) => {
-                Python::with_gil(|py| UdpNmClusterCoupling(coupling).into_py_any(py).ok())
+                Python::attach(|py| UdpNmClusterCoupling(coupling).into_py_any(py).ok())
             }
         }))
     }
@@ -208,12 +217,12 @@ impl NmConfig {
 
 iterator_wrapper!(
     NmClusterIterator,
-    PyObject,
+    Py<PyAny>,
     "Union[CanNmCluster, FlexrayNmCluster, UdpNmCluster]"
 );
 iterator_wrapper!(
     NmClusterCouplingIterator,
-    PyObject,
+    Py<PyAny>,
     "Union[CanNmClusterCoupling, FlexrayNmClusterCoupling, UdpNmClusterCoupling]"
 );
 iterator_wrapper!(NmEcuIterator, NmEcu);
@@ -237,6 +246,15 @@ impl NmEcu {
             Ok(value) => Ok(Self(value)),
             Err(e) => Err(AutosarAbstractionError::new_err(e.to_string())),
         }
+    }
+
+    #[pyo3(signature = (/, *, deep = false))]
+    #[pyo3(text_signature = "(self, /, *, deep: bool = false)")]
+    fn remove(&self, deep: bool) -> PyResult<()> {
+        self.clone()
+            .0
+            .remove(deep)
+            .map_err(abstraction_err_to_pyerr)
     }
 
     #[setter]

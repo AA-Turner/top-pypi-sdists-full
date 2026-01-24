@@ -39,10 +39,11 @@ from typing import cast
 import pytensor
 import pytensor.tensor as pt
 
-from pytensor.graph.basic import Apply, Constant, Variable, ancestors
+from pytensor.graph.basic import Apply, Constant, Variable
 from pytensor.graph.fg import FunctionGraph
 from pytensor.graph.op import Op, compute_test_value
 from pytensor.graph.rewriting.basic import EquilibriumGraphRewriter, node_rewriter
+from pytensor.graph.traversal import ancestors
 from pytensor.ifelse import IfElse, ifelse
 from pytensor.scalar import Switch
 from pytensor.scalar import switch as scalar_switch
@@ -62,7 +63,7 @@ from pytensor.tensor.subtensor import (
     is_basic_idx,
 )
 from pytensor.tensor.type import TensorType
-from pytensor.tensor.type_other import NoneConst, NoneTypeT, SliceConstant, SliceType
+from pytensor.tensor.type_other import NoneConst, NoneTypeT, SliceType
 from pytensor.tensor.variable import TensorVariable
 
 from pymc.logprob.abstract import (
@@ -289,9 +290,10 @@ def find_measurable_index_mixture(fgraph, node):
         # We don't support (non-scalar) integer array indexing as it can pick repeated values,
         # but the Mixture logprob assumes all mixture values are independent
         if any(
-            indices.dtype.startswith("int") and sum(1 - b for b in indices.type.broadcastable) > 0
+            isinstance(indices, TensorVariable)
+            and indices.dtype.startswith("int")
+            and not all(indices.type.broadcastable)
             for indices in mixing_indices
-            if not isinstance(indices, SliceConstant)
         ):
             return None
 

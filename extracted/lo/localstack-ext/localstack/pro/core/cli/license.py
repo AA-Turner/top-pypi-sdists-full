@@ -1,7 +1,7 @@
 import os.path,click
 from localstack.pro.core.bootstrap.licensingv2 import AuthToken,DevLocalstackEnvironment,LicensingError,get_credentials_from_environment,get_licensed_environment
 @click.group(name='license',short_help='(Preview) Manage and verify your LocalStack license',help='\n    (Preview) Manage and verify your LocalStack license.\n\n    Your LocalStack license allows you to use advanced features of LocalStack.\n    ')
-def license():0
+def license()->None:0
 @license.command('info')
 def cmd_info():
 	I='test'
@@ -22,12 +22,12 @@ def cmd_info():
 	F=None
 	if D:
 		try:
-			with open(D,'rb')as J:H=J.read();F=C.parser.parse(H);click.echo(f"license location: {D}");click.echo(f"license: {H.decode('utf-8')}")
+			with open(D,'rb')as J:H=J.read();F=C.parser.parse(H);K=H.decode('utf-8');click.echo(f"license location: {D}");click.echo(f"license: {K}")
 		except LicensingError as B:click.echo(f"license location: {D}");click.echo(f"license: error reading license file {B}")
 	if F:
 		try:C.client.validate_license(C.require_valid_credentials(),F);click.echo('license validity: valid')
 		except LicensingError as B:click.echo(f"license validity: invalid ({B})")
 @license.command('activate')
 def cmd_activate():
-	try:A=get_licensed_environment();A.activate();click.echo('license activation completed');click.echo(f"license: {A.serializer.serialize(A.license).decode('utf-8')}")
-	except LicensingError as B:click.echo(B.get_user_friendly())
+	try:A=get_licensed_environment();A.activate();B=A.serializer.serialize(A.license).decode('utf-8');click.echo('license activation completed');click.echo(f"license: {B}")
+	except LicensingError as C:click.echo(C.get_user_friendly())

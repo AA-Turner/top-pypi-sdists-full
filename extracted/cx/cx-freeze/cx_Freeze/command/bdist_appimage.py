@@ -2,17 +2,17 @@
 
 https://appimage.org/
 https://docs.appimage.org/
-https://docs.appimage.org/packaging-guide/manual.html#ref-manual
+https://docs.appimage.org/packaging-guide/manual.html
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import shutil
 import stat
 from ctypes.util import find_library
-from logging import INFO, WARNING
 from pathlib import Path
 from textwrap import dedent
 from typing import ClassVar
@@ -22,16 +22,23 @@ from zipfile import ZipFile
 from filelock import FileLock
 from setuptools import Command
 
-import cx_Freeze.icons
 from cx_Freeze._compat import IS_LINUX
+from cx_Freeze.common import resource_path
 from cx_Freeze.exception import ExecError, PlatformError
 
 __all__ = ["bdist_appimage"]
 
+logger = logging.getLogger(__name__)
+
 ARCH = platform.machine()
+
 APPIMAGETOOL_RELEASES_URL = "https://github.com/AppImage/appimagetool/releases"
 APPIMAGETOOL_DOWNLOAD = f"download/continuous/appimagetool-{ARCH}.AppImage"
 APPIMAGETOOL_CACHE = f"~/.local/bin/appimagetool-{ARCH}.AppImage"
+
+RUNTIME_RELEASES_URL = "https://github.com/AppImage/type2-runtime/releases"
+RUNTIME_DOWNLOAD = f"download/continuous/runtime-{ARCH}"
+RUNTIME_CACHE = f"~/.cache/cxfreeze/appimage/runtime-{ARCH}"
 
 
 class bdist_appimage(Command):
@@ -40,11 +47,25 @@ class bdist_appimage(Command):
     description = "create a Linux AppImage"
     user_options: ClassVar[list[tuple[str, str | None, str]]] = [
         (
-            "appimagekit=",
+            "appimagetool=",
             None,
-            "path to appimagetool (formerly AppImageKit) "
-            f'[default: "{APPIMAGETOOL_CACHE}"]',
+            f'path to appimagetool [default: "{APPIMAGETOOL_CACHE}"]',
         ),
+        (
+            "runtime-file=",
+            None,
+            f'path to type2 runtime [default: "{RUNTIME_CACHE}"]',
+        ),
+        ("sign", None, "Sign with gpg or gpg2"),
+        ("sign-key=", None, "Key ID to use for gpg/gpg2 signatures"),
+        (
+            "updateinformation=",
+            None,
+            "Embed update information STRING (or 'guess') "
+            "and generate zsync file",
+        ),
+        ("target-name=", None, "name of the file to create"),
+        ("target-version=", None, "version of the file to create"),
         (
             "bdist-base=",
             None,
@@ -65,8 +86,6 @@ class bdist_appimage(Command):
             None,
             "skip rebuilding everything (for testing/debugging)",
         ),
-        ("target-name=", None, "name of the file to create"),
-        ("target-version=", None, "version of the file to create"),
         ("silent", "s", "suppress all output except warnings"),
     ]
     boolean_options: ClassVar[list[str]] = [
@@ -75,15 +94,19 @@ class bdist_appimage(Command):
     ]
 
     def initialize_options(self) -> None:
-        self.appimagekit = None
+        self.appimagetool = None
+        self.runtime_file = None
+        self.sign = None
+        self.sign_key = None
+        self.updateinformation = None
+        self.target_name = None
+        self.target_version = None
 
         self.bdist_base = None
         self.build_dir = None
         self.dist_dir = None
         self.skip_build = None
 
-        self.target_name = None
-        self.target_version = None
         self.fullname = None
         self.silent = None
 
@@ -91,7 +114,7 @@ class bdist_appimage(Command):
 
     def finalize_options(self) -> None:
         if not IS_LINUX:
-            msg = "bdist_appimage is supported only on Linux"
+            msg = "bdist_appimage is only supported on Linux"
             raise PlatformError(msg)
 
         # inherit options
@@ -108,8 +131,14 @@ class bdist_appimage(Command):
         )
         # for the bdist commands, there is a chance that build_exe has already
         # been executed, so check skip_build if build_exe have_run
-        if not self.skip_build and self.distribution.have_run.get("build_exe"):
-            self.skip_build = 1
+        if self.distribution.have_run.get("build_exe"):
+            if not self.skip_build:
+                self.skip_build = 1
+        elif self.silent is not None:
+            self.verbose = not self.silent
+            build_exe = self.distribution.command_obj.get("build_exe")
+            if build_exe:
+                build_exe.silent = 1
 
         if self.target_name is None:
             if self.distribution.metadata.name:
@@ -139,40 +168,37 @@ class bdist_appimage(Command):
             self.app_name = f"{name}-{ARCH}.AppImage"
             self.fullname = name
 
-        if self.silent is not None:
-            self.verbose = 0 if self.silent else 2
-            build_exe = self.distribution.command_obj.get("build_exe")
-            if build_exe:
-                build_exe.silent = self.silent
-
-        # validate or download appimagekit
-        self._get_appimagekit()
-
-    def _get_appimagekit(self) -> None:
-        """Fetch appimagetool from the web if not available locally."""
-        appimagekit = os.path.expanduser(
-            self.appimagekit or APPIMAGETOOL_CACHE
+        # download tools if not in cache
+        self.appimagetool = self._get_file(
+            self.appimagetool or APPIMAGETOOL_CACHE,
+            os.path.join(APPIMAGETOOL_RELEASES_URL, APPIMAGETOOL_DOWNLOAD),
         )
-        appimagekit_dir = os.path.dirname(appimagekit)
-        self.mkpath(appimagekit_dir)
-        with FileLock(appimagekit + ".lock"):
-            if not os.path.exists(appimagekit):
-                self.announce(
-                    "download and install appimagetool from "
-                    f"{APPIMAGETOOL_RELEASES_URL}",
-                    INFO,
+        self.runtime_file = self._get_file(
+            self.runtime_file or RUNTIME_CACHE,
+            os.path.join(RUNTIME_RELEASES_URL, RUNTIME_DOWNLOAD),
+        )
+
+    def _get_file(self, filename: str, full_url: str) -> str:
+        """Fetch 'filename' from the web if not available locally."""
+        filename = os.path.expanduser(filename)
+        self.mkpath(os.path.dirname(filename))
+        with FileLock(filename + ".lock"):
+            if not os.path.exists(filename):
+                msg = (
+                    "download and install "
+                    f"{os.path.basename(filename)} from {full_url}"
                 )
-                urlretrieve(  # noqa: S310
-                    os.path.join(
-                        APPIMAGETOOL_RELEASES_URL, APPIMAGETOOL_DOWNLOAD
-                    ),
-                    appimagekit,
-                )
-                os.chmod(appimagekit, stat.S_IRWXU)
-        self.appimagekit = appimagekit
+                self.announce(msg, logging.INFO)
+                urlretrieve(full_url, filename)  # noqa: S310
+                if os.path.splitext(filename)[1] == ".AppImage":
+                    os.chmod(filename, stat.S_IRWXU)
+        return filename
 
     def run(self) -> None:
-        # Create the application bundle
+        """Create the application bundle.
+
+        https://docs.appimage.org/reference/appdir.html
+        """
         if not self.skip_build:
             self.run_command("build_exe")
 
@@ -183,8 +209,8 @@ class bdist_appimage(Command):
         if os.path.exists(output):
             os.unlink(output)
 
-        # Make AppDir folder
-        appdir = os.path.join(self.bdist_base, "AppDir")
+        # Create AppDir format
+        appdir = os.path.abspath(os.path.join(self.bdist_base, "AppDir"))
         if os.path.exists(appdir):
             self.execute(shutil.rmtree, (appdir,), msg=f"removing {appdir}")
         self.mkpath(appdir)
@@ -203,7 +229,7 @@ class bdist_appimage(Command):
             filename.unlink()
             library_data.unlink()
 
-        # Add icon, desktop file, entrypoint
+        # Add icons, desktop file and entrypoint
         share_icons = os.path.join("share", "icons")
         icons_dir = os.path.join(appdir, share_icons)
         self.mkpath(icons_dir)
@@ -217,13 +243,23 @@ class bdist_appimage(Command):
             )
         if executable.icon is None:
             icon_name = "logox128.png"
-            icon_source_dir = os.path.dirname(cx_Freeze.icons.__file__)
-            self.copy_file(os.path.join(icon_source_dir, icon_name), icons_dir)
+            icon_filename = os.fspath(resource_path(f"icons/{icon_name}"))
+            self.copy_file(icon_filename, icons_dir)
         else:
             icon_name = executable.icon.name
             self.move_file(os.path.join(appdir, icon_name), icons_dir)
         relative_reference = os.path.join(share_icons, icon_name)
+
+        # .DirIcon is a symlink to executable.icon or logox128.png
         origin = os.path.join(appdir, ".DirIcon")
+        self.execute(
+            os.symlink,
+            (relative_reference, origin),
+            msg=f"linking {origin} -> {relative_reference}",
+        )
+        origin = os.path.join(
+            appdir, f"{self.target_name}{os.path.splitext(icon_name)[1]}"
+        )
         self.execute(
             os.symlink,
             (relative_reference, origin),
@@ -238,7 +274,7 @@ class bdist_appimage(Command):
             Comment={self.distribution.get_description()}
             Icon=/{share_icons}/{os.path.splitext(icon_name)[0]}
             Categories=Development;
-            Terminal=true
+            Terminal={"false" if executable.app_type == "gui" else "true"}
             X-AppImage-Arch={ARCH}
             X-AppImage-Name={self.target_name}
             X-AppImage-Version={self.target_version or ""}
@@ -248,14 +284,15 @@ class bdist_appimage(Command):
             os.path.join(appdir, f"{self.target_name}.desktop"),
         )
         entrypoint = f"""\
-            #! /bin/bash
+            #!/bin/sh
             # If running from an extracted image, fix APPDIR
             if [ -z "$APPIMAGE" ]; then
-                self="$(readlink -f -- $0)"
+                self="$(readlink -f -- "$0")"
                 export APPDIR="${{self%/*}}"
             fi
             # Call the application entry point
-            "$APPDIR/{executable.target_name}" "$@"
+            # Use 'exec' to avoid a new process from being started.
+            exec "$APPDIR/{executable.target_name}" "$@"
         """
         self.save_as_file(
             dedent(entrypoint), os.path.join(appdir, "AppRun"), mode="x"
@@ -263,16 +300,47 @@ class bdist_appimage(Command):
 
         # Build an AppImage from an AppDir
         os.environ["ARCH"] = ARCH
-        cmd = [self.appimagekit, "--no-appstream", appdir, output]
+        if self.target_version:
+            os.environ["VERSION"] = self.target_version
+        cmd = [self.appimagetool]
         if find_library("fuse") is None:  # libfuse.so.2 is not found
-            cmd.insert(1, "--appimage-extract-and-run")
-        with FileLock(self.appimagekit + ".lock"):
-            self.spawn(cmd, search_path=0)
+            cmd.append("--appimage-extract-and-run")
+        if self.runtime_file is not None:
+            cmd += ["--runtime-file", self.runtime_file]
+        if self.sign is not None:
+            cmd.append("--sign")
+        if self.sign_key is not None:
+            cmd += ["--sign-key", self.sign_key]
+        if self.updateinformation is not None:
+            if self.updateinformation == "guess":
+                # check for github, travis or gitlab
+                if (
+                    os.environ.get("GITHUB_REPOSITORY")
+                    or os.environ.get("TRAVIS_REPO_SLUG")
+                    or os.environ.get("CI_COMMIT_REF_NAME")
+                ):
+                    if os.environ.get("GITHUB_REPOSITORY"):
+                        # appimagetool requires a GitHub token, but doesn't
+                        # actually use it.
+                        os.environ.setdefault("GITHUB_TOKEN", "fake-token")
+                    cmd.append("--guess")
+            else:
+                cmd += ["--updateinformation", self.updateinformation]
+        if self.verbose >= 1:
+            cmd.append("--verbose")
+        cmd += ["--no-appstream", appdir, output]
+        with FileLock(self.appimagetool + ".lock"):
+            cwd = os.getcwd()
+            os.chdir(self.dist_dir)
+            try:
+                self.spawn(cmd, search_path=0)
+            finally:
+                os.chdir(cwd)
+
+        self.warnings()
         if not os.path.exists(output):
             msg = "Could not build AppImage"
             raise ExecError(msg)
-
-        self.warnings()
 
     def save_as_file(self, data, outfile, mode="r") -> tuple[str, int]:
         """Save an input data to a file respecting verbose, dry-run and force
@@ -283,7 +351,7 @@ class bdist_appimage(Command):
                 self.warn_delayed(f"not creating {outfile} (output exists)")
             return (outfile, 0)
         if self.verbose >= 1:
-            self.announce(f"creating {outfile}", INFO)
+            self.announce(f"creating {outfile}", logging.INFO)
 
         if self.dry_run:
             return (outfile, 1)
@@ -305,4 +373,4 @@ class bdist_appimage(Command):
 
     def warnings(self) -> None:
         for msg in self._warnings:
-            self.announce(f"WARNING: {msg}", WARNING)
+            self.announce(f"WARNING: {msg}", logging.WARNING)

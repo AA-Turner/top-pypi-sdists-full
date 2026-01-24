@@ -18,8 +18,10 @@ import re  # noqa: F401
 import json
 
 
-from typing import Any, Dict
-from pydantic.v1 import StrictStr, Field, BaseModel, Field, StrictStr 
+from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
+from typing_extensions import Annotated
+from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
+from datetime import datetime
 from finbourne_horizon.models.lusid_entity import LusidEntity
 
 class VendorProduct(BaseModel):
@@ -29,7 +31,7 @@ class VendorProduct(BaseModel):
     vendor_name:  StrictStr = Field(...,alias="vendorName") 
     product_name:  StrictStr = Field(...,alias="productName") 
     vendor_product_key:  StrictStr = Field(...,alias="vendorProductKey") 
-    lusid_entity: LusidEntity = Field(..., alias="lusidEntity")
+    lusid_entity: LusidEntity = Field(alias="lusidEntity")
     __properties = ["vendorName", "productName", "vendorProductKey", "lusidEntity"]
 
     class Config:
@@ -85,3 +87,5 @@ class VendorProduct(BaseModel):
             "lusid_entity": LusidEntity.from_dict(obj.get("lusidEntity")) if obj.get("lusidEntity") is not None else None
         })
         return _obj
+
+VendorProduct.update_forward_refs()

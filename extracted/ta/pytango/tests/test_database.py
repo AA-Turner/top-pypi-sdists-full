@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: All Contributors to the PyTango project
 # SPDX-License-Identifier: LGPL-3.0-or-later
+import numpy as np
 import pytest
 
 from tango import Database
@@ -62,4 +63,55 @@ def test_put_remove_attribute_properties(test_database):
     assert_close(
         test_database.get_device_attribute_property(device_name, "attr2"),
         attr2_properties,
+    )
+
+
+class BadReprObj:
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return str(self.value)
+
+    def __repr__(self):
+        return f"don't use the repr! {self.value}"
+
+
+def test_put_get_attribute_properties_string_conversion(test_database):
+    attr_properties = {
+        "attr": {
+            "value0": ["zero"],
+            "value1": ["o", "n", "e"],
+            "value2": [2],
+            "value3": [3.0],
+            "value4": [np.float64(4.0)],
+            "value5": [BadReprObj(5)],
+            "value6": 6,
+            "value7": 7.0,
+            "value8": np.float64(8.0),
+            "value9": BadReprObj(9),
+            "value10": True,
+        }
+    }
+    expected_string_properties = {
+        "attr": {
+            "value0": ["zero"],
+            "value1": ["o", "n", "e"],
+            "value2": ["2"],
+            "value3": ["3.0"],
+            "value4": ["4.0"],
+            "value5": ["5"],
+            "value6": ["6"],
+            "value7": ["7.0"],
+            "value8": ["8.0"],
+            "value9": ["9"],
+            "value10": ["True"],
+        }
+    }
+
+    test_database.put_device_attribute_property(device_name, attr_properties)
+
+    assert_close(
+        test_database.get_device_attribute_property(device_name, "attr"),
+        expected_string_properties,
     )

@@ -1,9 +1,10 @@
-from datetime import time
 import functools
+import sys
+from datetime import time
 
 import pandas as pd
 from pandas.tseries.holiday import AbstractHolidayCalendar
-import sys 
+
 # check python versiOn aNd import accordingly
 if sys.version_info >= (3, 9):
     # For Python 3.9 and later, import directly
@@ -203,11 +204,11 @@ class SIFMAUSExchangeCalendar(MarketCalendar):
         _, gf_12pm_early_closes, thurs_before_gf_2pm_early_closes = self._get_dynamic_gf_rules()
         return [
             (
-                time(12), # SIFMA rule specifies 12:00 PM ET
+                time(12),  # SIFMA rule specifies 12:00 PM ET
                 gf_12pm_early_closes,
             ),
             (
-                time(14), # SIFMA rule specifies 2:00 PM ET
+                time(14),  # SIFMA rule specifies 2:00 PM ET
                 thurs_before_gf_2pm_early_closes,
             ),
         ]

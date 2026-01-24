@@ -1,33 +1,33 @@
-Metadata-Version: 2.1
-Name: flask-cognito-lib
-Version: 1.9.4
+Metadata-Version: 2.4
+Name: flask_cognito_lib
+Version: 1.9.6
 Summary: A Flask extension that supports protecting routes with AWS Cognito following OAuth 2.1 best practices
-Home-page: https://github.com/mblackgeo/flask-cognito-lib
-License: MIT
-Keywords: Flask,Extension,OAuth,Cognito
-Author: mblackgeo
-Author-email: 18327836+mblackgeo@users.noreply.github.com
-Requires-Python: >=3.8, !=2.7.*, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, !=3.4.*, !=3.5.*, !=3.6.*, !=3.7.*
+Project-URL: Homepage, https://github.com/mblackgeo/flask-cognito-lib
+Project-URL: Repository, https://github.com/mblackgeo/flask-cognito-lib
+Author-email: mblackgeo <18327836+mblackgeo@users.noreply.github.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: Cognito,Extension,Flask,OAuth
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Flask
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI :: Middleware
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: Flask (>=2.0,<4.0)
-Requires-Dist: PyJWT[crypto] (>=2.4,<3.0)
-Requires-Dist: cryptography (>=44.0.2,<45.0.0)
-Requires-Dist: requests (>=2.0,<3.0)
-Requires-Dist: urllib3 (<3.0)
-Project-URL: Repository, https://github.com/mblackgeo/flask-cognito-lib
+Requires-Python: !=3.9.0,!=3.9.1,<4.0,>=3.9
+Requires-Dist: cryptography
+Requires-Dist: flask<4.0,>=2.0
+Requires-Dist: pyjwt[crypto]<3.0,>=2.4
+Requires-Dist: requests~=2.0
+Requires-Dist: typing-extensions~=4.0
+Requires-Dist: urllib3<3.0
+Provides-Extra: build
+Requires-Dist: uv~=0.7; extra == 'build'
 Description-Content-Type: text/markdown
 
 # Protect Flask routes with AWS Cognito
@@ -229,25 +229,22 @@ CognitoAuth().init_app(app, cfg=ConfigOverride())
 
 Prerequisites:
 
-* [poetry](https://python-poetry.org/)
-* [pre-commit](https://pre-commit.com/)
+* [uv](https://docs.astral.sh/uv/)
 
-The Makefile includes helpful commands setting a development environment, get started by installing the package into a new environment and setting up pre-commit by running `make install`. Run `make help` to see additional available commands (e.g. linting, testing and so on).
+The Makefile includes helpful commands setting a development environment, get started by installing the package into a new environment by running `make install`. Run `make help` to see additional available commands (e.g. linting, testing and so on).
 
-* [Pytest](https://docs.pytest.org/en/6.2.x/) is used for testing the application (see `/tests`).
+* [Pytest](https://docs.pytest.org/en/) is used for testing the application (see `/tests`).
 * [MkDocs](https://www.mkdocs.org/) is used for generating docs and hosted with GH pages (see `/docs`).
-* Code is linted using [flake8](https://flake8.pycqa.org/en/latest/)
-* Code formatting is validated using [Black](https://github.com/psf/black)
-* [pre-commit](https://pre-commit.com/) is used to run these checks locally before files are pushed to git
+* Code is linted and formatted using [ruff](https://docs.astral.sh/ruff/)
+* Type hints are validated using [mypy](https://mypy.readthedocs.io/en/stable/)
 * The [Github Actions pipeline](.github/workflows/cicd.yml) runs these checks and tests
 * [Semantic-release](https://python-semantic-release.readthedocs.io/en/latest/) is used with [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/) for automated releasing to PyPI
 
 
 ## Contributing
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change. Please make sure to update tests as appropriate and ensure 100% test coverage.
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change. Please make sure to update tests as appropriate and ensure at least 95% test coverage across the whole project.
 
 
 ## Credits
 
 This work started as a fork of the unmaintained [Flask-AWSCognito](https://github.com/cgauge/Flask-AWSCognito) extension, revising the implementation following OAuth 2.1 recommendations, with inspiration from [flask-cognito-auth](https://github.com/shrivastava-v-ankit/flask-cognito-auth). Whilst there are several Cognito extensions available for Flask, none of those implement OAuth 2.1 recommendations, with some plugins not even actively maintained.
-

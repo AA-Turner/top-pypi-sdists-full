@@ -275,11 +275,11 @@ class VolumeGroupSapHana(pulumi.CustomResource):
         import pulumi_azure as azure
         import pulumi_random as random
 
-        example = random.RandomString("example",
+        example = random.index.String("example",
             length=12,
             special=True)
         admin_username = "exampleadmin"
-        admin_password = example.result
+        admin_password = example["result"]
         example_resource_group = azure.core.ResourceGroup("example",
             name=f"{prefix}-resources",
             location=location)
@@ -458,7 +458,7 @@ class VolumeGroupSapHana(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.NetApp` - 2025-01-01
+        * `Microsoft.NetApp` - 2025-06-01
 
         ## Import
 
@@ -492,11 +492,11 @@ class VolumeGroupSapHana(pulumi.CustomResource):
         import pulumi_azure as azure
         import pulumi_random as random
 
-        example = random.RandomString("example",
+        example = random.index.String("example",
             length=12,
             special=True)
         admin_username = "exampleadmin"
-        admin_password = example.result
+        admin_password = example["result"]
         example_resource_group = azure.core.ResourceGroup("example",
             name=f"{prefix}-resources",
             location=location)
@@ -675,7 +675,7 @@ class VolumeGroupSapHana(pulumi.CustomResource):
         <!-- This section is generated, changes will be overwritten -->
         This resource uses the following Azure API Providers:
 
-        * `Microsoft.NetApp` - 2025-01-01
+        * `Microsoft.NetApp` - 2025-06-01
 
         ## Import
 

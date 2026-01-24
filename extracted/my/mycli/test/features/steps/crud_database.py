@@ -75,6 +75,9 @@ def step_see_prompt(context):
 @then("we see help output")
 def step_see_help(context):
     for expected_line in context.fixture_data["help_commands.txt"]:
+        # in case tests are run without extras
+        if 'LLM' in expected_line:
+            continue
         wrappers.expect_exact(context, expected_line, timeout=1)
 
 
@@ -105,6 +108,6 @@ def step_see_db_dropped_no_default(context):
 @then("we see database connected")
 def step_see_db_connected(context):
     """Wait to see drop database output."""
-    wrappers.expect_exact(context, 'You are now connected to database "', timeout=2)
+    wrappers.expect_exact(context, 'connected to database "', timeout=2)
     wrappers.expect_exact(context, '"', timeout=2)
     wrappers.expect_exact(context, f' as user "{context.conf["user"]}"', timeout=2)

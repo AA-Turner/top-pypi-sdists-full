@@ -16,7 +16,6 @@ short_description: Configure SFTP and SCP protocol options.
 description:
     - This module is able to configure a FortiManager device.
     - Examples include all parameters and values which need to be adjusted to data sources before usage.
-
 version_added: "2.1.0"
 author:
     - Xinwei Du (@dux-fortinet)
@@ -64,6 +63,9 @@ options:
         description: The rc codes list with which the conditions to fail will be overriden.
         type: list
         elements: int
+    revision_note:
+        description: The change note that can be specified when an object is created or updated.
+        type: str
     workspace_locking_adom:
         description: The adom to lock for FortiManager running in workspace mode, the value can be global and others including root.
         type: str
@@ -153,6 +155,13 @@ options:
                     - 'static'
                     - 'dynamic'
                     - 'auto-tuning'
+            explicit_ftp_tls:
+                aliases: ['explicit-ftp-tls']
+                type: str
+                description: Explicit ftp tls.
+                choices:
+                    - 'disable'
+                    - 'enable'
 '''
 
 EXAMPLES = '''
@@ -168,8 +177,8 @@ EXAMPLES = '''
     - name: Configure SFTP and SCP protocol options.
       fortinet.fortimanager.fmgr_firewall_profileprotocoloptions_ssh:
         # bypass_validation: false
-        workspace_locking_adom: <value in [global, custom adom including root]>
-        workspace_locking_timeout: 300
+        # workspace_locking_adom: <global or your adom name>
+        # workspace_locking_timeout: 300
         # rc_succeeded: [0, -2, -3, ...]
         # rc_failed: [-2, -3, ...]
         adom: <your own value>
@@ -191,6 +200,7 @@ EXAMPLES = '''
           # tcp_window_minimum: <integer>
           # tcp_window_size: <integer>
           # tcp_window_type: <value in [system, static, dynamic, ...]>
+          # explicit_ftp_tls: <value in [disable, enable]>
 '''
 
 RETURN = '''
@@ -249,6 +259,7 @@ def main():
         'adom': {'required': True, 'type': 'str'},
         'profile-protocol-options': {'type': 'str', 'api_name': 'profile_protocol_options'},
         'profile_protocol_options': {'type': 'str'},
+        'revision_note': {'type': 'str'},
         'firewall_profileprotocoloptions_ssh': {
             'type': 'dict',
             'v_range': [['6.2.2', '']],
@@ -265,7 +276,8 @@ def main():
                 'tcp-window-maximum': {'v_range': [['7.0.0', '']], 'type': 'int'},
                 'tcp-window-minimum': {'v_range': [['7.0.0', '']], 'type': 'int'},
                 'tcp-window-size': {'v_range': [['7.0.0', '']], 'type': 'int'},
-                'tcp-window-type': {'v_range': [['7.0.0', '']], 'choices': ['system', 'static', 'dynamic', 'auto-tuning'], 'type': 'str'}
+                'tcp-window-type': {'v_range': [['7.0.0', '']], 'choices': ['system', 'static', 'dynamic', 'auto-tuning'], 'type': 'str'},
+                'explicit-ftp-tls': {'v_range': [['7.4.8', '7.4.8'], ['7.6.4', '']], 'choices': ['disable', 'enable'], 'type': 'str'}
             }
         }
     }

@@ -1,11 +1,14 @@
 from typing import overload
-from enum import Enum
+from enum import IntEnum
 import datetime
 import typing
 
+import Common.Util
 import QuantConnect
+import QuantConnect.Algorithm
 import QuantConnect.Algorithm.Framework.Alphas
 import QuantConnect.Algorithm.Framework.Alphas.Analysis
+import QuantConnect.Algorithm.Framework.Execution
 import QuantConnect.Algorithm.Framework.Portfolio.SignalExports
 import QuantConnect.AlgorithmFactory.Python.Wrappers
 import QuantConnect.Benchmarks
@@ -43,6 +46,11 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
     @property
     def is_on_end_of_day_symbol_implemented(self) -> bool:
         """True if the underlying python algorithm implements "OnEndOfDay(symbol)\""""
+        ...
+
+    @property
+    def base_algorithm(self) -> QuantConnect.Algorithm.QCAlgorithm:
+        """The wrapped algorithm instance cast to QCAlgorithm"""
         ...
 
     @property
@@ -343,6 +351,11 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
+    @property
+    def execution(self) -> QuantConnect.Algorithm.Framework.Execution.IExecutionModel:
+        """The execution model"""
+        ...
+
     def __init__(self, module_name: str) -> None:
         """
         AlgorithmPythonWrapper constructor.
@@ -360,27 +373,27 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def add_future_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = 0, extended_market_hours: bool = False) -> QuantConnect.Securities.Future.Future:
+    def add_future_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = 0, extended_market_hours: bool = False) -> QuantConnect.Securities.Future.Future:
         """
         Creates and adds a new single Future contract to the algorithm
         
         :param symbol: The futures contract symbol
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this equity. Default is set by security_initializer
         :param extended_market_hours: Use extended market hours data
         :returns: The new Future security.
         """
         ...
 
-    def add_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = 0, extended_market_hours: bool = False) -> QuantConnect.Securities.Option.Option:
+    def add_option_contract(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = 0, extended_market_hours: bool = False) -> QuantConnect.Securities.Option.Option:
         """
         Creates and adds a new single Option contract to the algorithm
         
         :param symbol: The option contract symbol
-        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.Minute
+        :param resolution: The Resolution of market data, Tick, Second, Minute, Hour, or Daily. Default is Resolution.MINUTE
         :param fill_forward: If true, returns the last available data even if none in that timeslice. Default is true
-        :param leverage: The requested leverage for this equity. Default is set by SecurityInitializer
+        :param leverage: The requested leverage for this equity. Default is set by security_initializer
         :param extended_market_hours: Use extended market hours data
         :returns: The new Option security.
         """
@@ -404,7 +417,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     @overload
-    def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
+    def add_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], resolution: typing.Optional[QuantConnect.Resolution] = None, fill_forward: bool = True, leverage: float = ..., extended_market_hours: bool = False, data_mapping_mode: typing.Optional[QuantConnect.DataMappingMode] = None, data_normalization_mode: typing.Optional[QuantConnect.DataNormalizationMode] = None, contract_depth_offset: int = 0) -> QuantConnect.Securities.Security:
         """
         Set a required SecurityType-symbol and resolution for algorithm
         
@@ -415,7 +428,8 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         :param extended_market_hours: Use extended market hours data
         :param data_mapping_mode: The contract mapping mode to use for the security
         :param data_normalization_mode: The price scaling mode to use for the security
-        :param contract_depth_offset: The continuous contract desired offset from the current front month. For example, 0 (default) will use the front month, 1 will use the back month contract
+        :param contract_depth_offset: The continuous contract desired offset from the current front month.
+        For example, 0 (default) will use the front month, 1 will use the back month contract
         :returns: The new Security that was added to the algorithm.
         """
         ...
@@ -452,17 +466,38 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         Get the chart updates since the last request:
         
+        :param clear_chart_data: 
         :returns: List of Chart Updates.
         """
         ...
 
-    def get_last_known_price(self, security: QuantConnect.Securities.Security) -> QuantConnect.Data.BaseData:
+    def get_last_known_price(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.BaseData:
         """
         Get the last known price using the history provider.
         Useful for seeding securities with the correct price
         
-        :param security: Security object for which to retrieve historical data
+        :param symbol: Symbol for which to retrieve historical data
         :returns: A single BaseData object with the last known price.
+        """
+        ...
+
+    @overload
+    def get_last_known_prices(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Yields data to warmup a security for all it's subscribed data types
+        
+        :param symbol: Symbol for which to retrieve historical data
+        :returns: Securities historical data.
+        """
+        ...
+
+    @overload
+    def get_last_known_prices(self, symbols: typing.List[QuantConnect.Symbol]) -> QuantConnect.Data.Market.DataDictionary[typing.Iterable[QuantConnect.Data.BaseData]]:
+        """
+        Yields data to warm up multiple securities for all their subscribed data types
+        
+        :param symbols: The symbols we want to get seed data for
+        :returns: Securities historical data.
         """
         ...
 
@@ -506,7 +541,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def get_parameters(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+    def get_parameters(self) -> Common.Util.ReadOnlyExtendedDictionary[str, str]:
         """Gets a read-only dictionary with all current parameters"""
         ...
 
@@ -514,7 +549,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """Initialise the Algorithm and Prepare Required Data:"""
         ...
 
-    def liquidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract] = None, asynchronous: bool = False, tag: str = "Liquidated", order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
+    def liquidate(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, asynchronous: bool = False, tag: str = "Liquidated", order_properties: QuantConnect.Interfaces.IOrderProperties = None) -> typing.List[QuantConnect.Orders.OrderTicket]:
         """
         Liquidate your portfolio holdings
         
@@ -635,7 +670,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
 
     def on_order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
         """
-        EXPERTS ONLY:: [-!-Async Code-!-]
+        EXPERTS ONLY:: <-!-Async Code-!->
         New order event handler: on order status changes (filled, partially filled, cancelled etc).
         
         :param new_event: Event information
@@ -677,7 +712,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def remove_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], tag: str = None) -> bool:
+    def remove_security(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], tag: str = None) -> bool:
         """
         Removes the security with the specified symbol. This will cancel all
         open orders and then liquidate any existing holdings
@@ -742,7 +777,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         Sets the implementation used to handle messages from the brokerage.
         The default implementation will forward messages to debug or error
-        and when a BrokerageMessageType.Error occurs, the algorithm
+        and when a BrokerageMessageType.ERROR occurs, the algorithm
         is stopped.
         
         :param handler: The message handler to use
@@ -754,7 +789,8 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         Sets the brokerage model used to resolve transaction models, settlement models,
         and brokerage specified ordering behaviors.
         
-        :param brokerage_model: The brokerage model used to emulate the real brokerage
+        :param brokerage_model: The brokerage model used to emulate the real
+        brokerage
         """
         ...
 
@@ -787,7 +823,11 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     def set_date_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """Set the DateTime Frontier: This is the master time and is"""
+        """
+        Set the DateTime Frontier: This is the master time and is
+        
+        :param time: 
+        """
         ...
 
     def set_deployment_target(self, deployment_target: QuantConnect.DeploymentTarget) -> None:
@@ -807,7 +847,7 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         ...
 
     def set_finished_warming_up(self) -> None:
-        """Sets IsWarmingUp to false to indicate this algorithm has finished its warm up"""
+        """Sets is_warming_up to false to indicate this algorithm has finished its warm up"""
         ...
 
     def set_future_chain_provider(self, future_chain_provider: QuantConnect.Interfaces.IFutureChainProvider) -> None:
@@ -918,22 +958,25 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
         """
         ...
 
-    def shortable(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract], short_quantity: float, update_order_id: typing.Optional[int] = None) -> bool:
+    def shortable(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], short_quantity: float, update_order_id: typing.Optional[int] = None) -> bool:
         """
         Determines if the Symbol is shortable at the brokerage
         
         :param symbol: Symbol to check if shortable
         :param short_quantity: Order's quantity to check if it is currently shortable, taking into account current holdings and open orders
-        :param update_order_id: Optionally the id of the order being updated. When updating an order we want to ignore it's submitted short quantity and use the new provided quantity to determine if we can perform the update
+        :param update_order_id: Optionally the id of the order being updated. When updating an order
+        we want to ignore it's submitted short quantity and use the new provided quantity to determine if we
+        can perform the update
         :returns: True if the symbol can be shorted by the requested quantity.
         """
         ...
 
-    def shortable_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> int:
+    def shortable_quantity(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> int:
         """
         Gets the quantity shortable for the given asset
         
-        :returns: Quantity shortable for the given asset. Zero if not shortable, or a number greater than zero if shortable.
+        :returns: Quantity shortable for the given asset. Zero if not
+        shortable, or a number greater than zero if shortable.
         """
         ...
 
@@ -948,15 +991,16 @@ class AlgorithmPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.
 
     def symbol(self, ticker: str) -> QuantConnect.Symbol:
         """
-        Converts the string 'ticker' symbol into a full Symbol object
+        Converts the string 'ticker' symbol into a full symbol object
         This requires that the string 'ticker' has been added to the algorithm
         
-        :param ticker: The ticker symbol. This should be the ticker symbol as it was added to the algorithm
+        :param ticker: The ticker symbol. This should be the ticker symbol
+        as it was added to the algorithm
         :returns: The symbol object mapped to the specified ticker.
         """
         ...
 
-    def ticker(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract]) -> str:
+    def ticker(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
         """
         For the given symbol will resolve the ticker it used at the current algorithm date
         

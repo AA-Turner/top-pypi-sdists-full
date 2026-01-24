@@ -9,20 +9,33 @@ See https://github.com/github/rest-api-description for more information.
 
 from __future__ import annotations
 
+from typing import Literal, Union
+
 from pydantic import Field
 
 from githubkit.compat import GitHubModel, model_rebuild
+from githubkit.typing import Missing
+from githubkit.utils import UNSET
+
+from .group_0074 import SimpleRepository
 
 
-class Link(GitHubModel):
-    """Link
+class DependabotRepositoryAccessDetails(GitHubModel):
+    """Dependabot Repository Access Details
 
-    Hypermedia Link
+    Information about repositories that Dependabot is able to access in an
+    organization
     """
 
-    href: str = Field()
+    default_level: Missing[Union[None, Literal["public", "internal"]]] = Field(
+        default=UNSET,
+        description="The default repository access level for Dependabot updates.",
+    )
+    accessible_repositories: Missing[list[Union[None, SimpleRepository]]] = Field(
+        default=UNSET
+    )
 
 
-model_rebuild(Link)
+model_rebuild(DependabotRepositoryAccessDetails)
 
-__all__ = ("Link",)
+__all__ = ("DependabotRepositoryAccessDetails",)

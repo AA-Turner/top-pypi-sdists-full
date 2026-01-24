@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
+from ..models.create_websocket_trigger_json_body_mode import CreateWebsocketTriggerJsonBodyMode
 from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
@@ -35,7 +36,8 @@ class CreateWebsocketTriggerJsonBody:
         url (str):
         filters (List['CreateWebsocketTriggerJsonBodyFiltersItem']):
         can_return_message (bool):
-        enabled (Union[Unset, bool]):
+        can_return_error_result (bool):
+        mode (Union[Unset, CreateWebsocketTriggerJsonBodyMode]): job trigger mode
         initial_messages (Union[Unset, List[Union['CreateWebsocketTriggerJsonBodyInitialMessagesItemType0',
             'CreateWebsocketTriggerJsonBodyInitialMessagesItemType1']]]):
         url_runnable_args (Union[Unset, CreateWebsocketTriggerJsonBodyUrlRunnableArgs]): The arguments to pass to the
@@ -43,7 +45,7 @@ class CreateWebsocketTriggerJsonBody:
         error_handler_path (Union[Unset, str]):
         error_handler_args (Union[Unset, CreateWebsocketTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
-        retry (Union[Unset, CreateWebsocketTriggerJsonBodyRetry]):
+        retry (Union[Unset, CreateWebsocketTriggerJsonBodyRetry]): Retry configuration for failed module executions
     """
 
     path: str
@@ -52,7 +54,8 @@ class CreateWebsocketTriggerJsonBody:
     url: str
     filters: List["CreateWebsocketTriggerJsonBodyFiltersItem"]
     can_return_message: bool
-    enabled: Union[Unset, bool] = UNSET
+    can_return_error_result: bool
+    mode: Union[Unset, CreateWebsocketTriggerJsonBodyMode] = UNSET
     initial_messages: Union[
         Unset,
         List[
@@ -84,7 +87,11 @@ class CreateWebsocketTriggerJsonBody:
             filters.append(filters_item)
 
         can_return_message = self.can_return_message
-        enabled = self.enabled
+        can_return_error_result = self.can_return_error_result
+        mode: Union[Unset, str] = UNSET
+        if not isinstance(self.mode, Unset):
+            mode = self.mode.value
+
         initial_messages: Union[Unset, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
             initial_messages = []
@@ -122,10 +129,11 @@ class CreateWebsocketTriggerJsonBody:
                 "url": url,
                 "filters": filters,
                 "can_return_message": can_return_message,
+                "can_return_error_result": can_return_error_result,
             }
         )
-        if enabled is not UNSET:
-            field_dict["enabled"] = enabled
+        if mode is not UNSET:
+            field_dict["mode"] = mode
         if initial_messages is not UNSET:
             field_dict["initial_messages"] = initial_messages
         if url_runnable_args is not UNSET:
@@ -174,7 +182,14 @@ class CreateWebsocketTriggerJsonBody:
 
         can_return_message = d.pop("can_return_message")
 
-        enabled = d.pop("enabled", UNSET)
+        can_return_error_result = d.pop("can_return_error_result")
+
+        _mode = d.pop("mode", UNSET)
+        mode: Union[Unset, CreateWebsocketTriggerJsonBodyMode]
+        if isinstance(_mode, Unset):
+            mode = UNSET
+        else:
+            mode = CreateWebsocketTriggerJsonBodyMode(_mode)
 
         initial_messages = []
         _initial_messages = d.pop("initial_messages", UNSET)
@@ -236,7 +251,8 @@ class CreateWebsocketTriggerJsonBody:
             url=url,
             filters=filters,
             can_return_message=can_return_message,
-            enabled=enabled,
+            can_return_error_result=can_return_error_result,
+            mode=mode,
             initial_messages=initial_messages,
             url_runnable_args=url_runnable_args,
             error_handler_path=error_handler_path,

@@ -4,14 +4,13 @@ Tests for "typed_settings.cls_utils".
 
 import dataclasses
 import typing
-from collections.abc import Mapping, Sequence
-from typing import Callable, Optional
+from collections.abc import Callable, Mapping, Sequence
 
 import attrs
 import pydantic
 import pytest
 
-from typed_settings import cls_utils, types
+from typed_settings import cls_attrs, cls_utils, types
 
 
 @attrs.define
@@ -29,7 +28,7 @@ class DataclassCls:
     Test class for "dataclass".
     """
 
-    x: int
+    x: int = 0
 
 
 class PydanticCls(pydantic.BaseModel):
@@ -37,7 +36,7 @@ class PydanticCls(pydantic.BaseModel):
     Test class for "pydantic".
     """
 
-    x: int
+    x: int = 0
 
 
 class NormalClass:
@@ -48,7 +47,7 @@ class NormalClass:
     x: int
 
 
-@pytest.mark.parametrize("cls", [AttrsCls])
+@pytest.mark.parametrize("cls", [AttrsCls, DataclassCls, PydanticCls])
 def test_deep_options(cls: type) -> None:
     """
     "deep_options()" converts similar classes of all suported class libs to the same
@@ -396,12 +395,12 @@ class TestAttrs:
         classes.
         """
 
-        def factory_fn() -> Optional[int]:
+        def factory_fn() -> int | None:
             return None  # pragma: no cover
 
         @attrs.define
         class GrandChild:
-            x: Optional[int] = attrs.field(
+            x: int | None = attrs.field(
                 factory=factory_fn,
                 metadata={
                     "typed-settings": {
@@ -454,7 +453,7 @@ class TestAttrs:
             types.OptionInfo(
                 parent_cls=GrandChild,
                 path="y.y.x",
-                cls=Optional[int],  # type: ignore[arg-type]
+                cls=int | None,  # type: ignore[arg-type]
                 default=attrs.Factory(factory_fn),
                 has_no_default=False,
                 default_is_factory=True,
@@ -527,6 +526,19 @@ class TestAttrs:
         with pytest.raises(NameError, match="name 'Child' is not defined"):
             cls_utils.Attrs.iter_fields(Parent)
 
+    def test_alias(self) -> None:
+        """
+        Alias is used instead of name if defined.
+        """
+
+        @attrs.frozen
+        class Settings:
+            a: int = attrs.field(alias="c")
+            b: int
+
+        options = [o.path for o in cls_utils.Attrs.iter_fields(Settings)]
+        assert options == ["c", "b"]
+
     def test_no_init_no_option(self) -> None:
         """
         No option is generated for an attribute if "init=False".
@@ -546,8 +558,8 @@ class TestAttrs:
         class Settings:
             a: int = 0
             na: int = attrs.field(init=False)
-            n1: Nested1 = Nested1()  # noqa: RUF009
-            n2: Nested2 = Nested2()  # noqa: RUF009
+            n1: Nested1 = Nested1()
+            n2: Nested2 = Nested2()
 
         options = [o.path for o in cls_utils.Attrs.iter_fields(Settings)]
         assert options == ["a", "n1.a", "n2.a"]
@@ -570,14 +582,14 @@ class TestAttrs:
             a: str
             b: Child1
             c: Child2
-            d: int
+            d: int = attrs.field(alias="e")
 
         result = cls_utils.Attrs.fields_to_parent_classes(Parent)
         assert result == {
             "a": Parent,
             "b": Child1,
             "c": Child2,
-            "d": Parent,
+            "e": Parent,
         }
 
     def test_collection_child_options(self) -> None:
@@ -626,7 +638,7 @@ class TestDataclasses:
 
         @dataclasses.dataclass
         class GrandChild:
-            x: Optional[int] = dataclasses.field(
+            x: int | None = dataclasses.field(
                 default=None,
                 metadata={
                     "typed-settings": {
@@ -679,7 +691,7 @@ class TestDataclasses:
             types.OptionInfo(
                 parent_cls=GrandChild,
                 path="y.y.x",
-                cls=Optional[int],  # type: ignore[arg-type]
+                cls=int | None,  # type: ignore[arg-type]
                 default=None,
                 has_no_default=False,
                 default_is_factory=False,
@@ -771,8 +783,8 @@ class TestDataclasses:
         class Settings:
             a: int = 0
             na: int = dataclasses.field(init=False)
-            n1: Nested1 = Nested1()  # noqa: RUF009
-            n2: Nested2 = Nested2()  # noqa: RUF009
+            n1: Nested1 = Nested1()
+            n2: Nested2 = Nested2()
 
         options = [o.path for o in cls_utils.Dataclasses.iter_fields(Settings)]
         assert options == ["a", "n1.a", "n2.a"]
@@ -862,7 +874,7 @@ class TestPydantic:
         from pydantic_core._pydantic_core import PydanticUndefined
 
         class GrandChild(pydantic.BaseModel):
-            x: Optional[int] = pydantic.Field(
+            x: int | None = pydantic.Field(
                 default=None,
                 description="grand child x",
                 json_schema_extra={
@@ -915,7 +927,7 @@ class TestPydantic:
             types.OptionInfo(
                 parent_cls=GrandChild,
                 path="y.y.x",
-                cls=Optional[int],  # type: ignore[arg-type]
+                cls=int | None,  # type: ignore[arg-type]
                 default=None,
                 has_no_default=False,
                 default_is_factory=False,
@@ -977,6 +989,30 @@ class TestPydantic:
         with pytest.raises(NameError, match="name 'Child' is not defined"):
             cls_utils.Pydantic.iter_fields(Parent)
 
+    def test_alias(self) -> None:
+        """
+        Alias is used instead of name if defined.
+        """
+
+        class Settings(pydantic.BaseModel):
+            a: int = pydantic.Field(alias="c")
+            b: int
+
+        options = [o.path for o in cls_utils.Pydantic.iter_fields(Settings)]
+        assert options == ["c", "b"]
+
+    def test_alias_path_or_choices(self) -> None:
+        """
+        Fall back to name if AliasPath or AliasChoices is used.
+        """
+
+        class Settings(pydantic.BaseModel):
+            a: int = pydantic.Field(validation_alias=pydantic.AliasChoices("c", "d"))
+            b: int = pydantic.Field(validation_alias=pydantic.AliasPath("e", 0))
+
+        options = [o.path for o in cls_utils.Pydantic.iter_fields(Settings)]
+        assert options == ["a", "b"]
+
     def test_fields_to_parent_classes(self) -> None:
         """
         If there are only scalar settings, create s single group.
@@ -992,14 +1028,14 @@ class TestPydantic:
             a: str
             b: Child1
             c: Child2
-            d: int
+            d: int = pydantic.Field(alias="e")
 
         result = cls_utils.Pydantic.fields_to_parent_classes(Parent)
         assert result == {
             "a": Parent,
             "b": Child1,
             "c": Child2,
-            "d": Parent,
+            "e": Parent,
         }
 
     def test_collection_child_options(self) -> None:
@@ -1013,3 +1049,132 @@ class TestPydantic:
         result = cls_utils.Pydantic.iter_fields(Nested)
         assert result[0].collection_child_options is not None
         assert result[0].collection_child_options.collection == "mapping"
+
+
+class TestAttrDocstrings:
+    """
+    Tests for extracting "attribute docstrings" from a class' code.
+    """
+
+    @attrs.define
+    class AttrsCls:
+        """
+        Test class for "attrs".
+        """
+
+        a: int = 0
+        b: int = 0
+        """Single line, triple quotes"""
+        c: int = 0
+        "Single line, single quotes"
+        d: int = 0
+        """
+        Multi line!
+
+        ::
+
+            print("Hello, world!")
+        """
+        #: I am not supported (yet?)
+        e: int = 0
+
+    @dataclasses.dataclass
+    class DataclassCls:
+        """
+        Test class for "dataclass".
+        """
+
+        a: int = 0
+        b: int = 0
+        """Single line, triple quotes"""
+        c: int = 0
+        "Single line, single quotes"
+        d: int = 0
+        """
+        Multi line!
+
+        ::
+
+            print("Hello, world!")
+        """
+        #: I am not supported (yet?)
+        e: int = 0
+
+    class PydanticCls(pydantic.BaseModel):
+        """
+        Test class for "pydantic".
+        """
+
+        a: int = 0
+        b: int = 0
+        """Single line, triple quotes"""
+        c: int = 0
+        "Single line, single quotes"
+        d: int = 0
+        """
+        Multi line!
+
+        ::
+
+            print("Hello, world!")
+        """
+        #: I am not supported (yet?)
+        e: int = 0
+
+    @pytest.mark.parametrize("cls", [AttrsCls, DataclassCls, PydanticCls])
+    def test_get_attr_docstrings(self, cls: type) -> None:
+        """
+        Docstrings can be extracted from all supported setting class types.
+        """
+        result = cls_utils._get_attr_docs(cls)
+        assert result == {
+            "b": "Single line, triple quotes",
+            "c": "Single line, single quotes",
+            "d": 'Multi line!\n\n::\n\n    print("Hello, world!")',
+        }
+
+    def test_generated_classes(self) -> None:
+        @attrs.frozen
+        class A: ...
+
+        @attrs.frozen
+        class B: ...
+
+        @attrs.frozen
+        class Base: ...
+
+        Settings = cls_attrs.combine("Settings", Base, {"a": A(), "b": B()})
+
+        cls_utils._get_attr_docs(Settings)
+
+    def test_not_a_class(self) -> None:
+        """
+        The passed object must be a class.
+        """
+        with pytest.raises(TypeError, match="Given object was not a class"):
+            cls_utils._get_attr_docs("I am not a class!")  # type: ignore[arg-type]
+
+    def test_multi_assign(self) -> None:
+        """
+        Multi-assignments are allowed (but I hope not used in practise).
+        """
+
+        class C:
+            a = b = 0
+            """aw yeah"""
+
+        result = cls_utils._get_attr_docs(C)
+        assert result == {"a": "aw yeah", "b": "aw yeah"}
+
+    def test_assign_no_name(self):
+        dct = {}
+
+        class C:
+            a: int = 0
+            """A doc"""
+
+            dct["b"] = 0  # Who does this?!?
+            """Dict doc?"""
+
+        result = cls_utils._get_attr_docs(C)
+        assert result == {"a": "A doc"}

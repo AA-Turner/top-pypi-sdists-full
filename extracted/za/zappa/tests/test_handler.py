@@ -1,4 +1,5 @@
 import unittest
+from typing import Any, Tuple
 
 from mock import Mock
 
@@ -8,35 +9,35 @@ from zappa.utilities import merge_headers
 from .utils import is_base64
 
 
-def no_args():
+def no_args() -> None:
     return
 
 
-def one_arg(first):
+def one_arg(first: Any) -> Any:
     return first
 
 
-def two_args(first, second):
+def two_args(first: Any, second: Any) -> Tuple[Any, Any]:
     return first, second
 
 
-def var_args(*args):
+def var_args(*args: Any) -> Tuple[Any, ...]:
     return args
 
 
-def var_args_with_one(first, *args):
+def var_args_with_one(first: Any, *args: Any) -> Tuple[Any, Any]:
     return first, args[0]
 
 
-def unsupported(first, second, third):
+def unsupported(first: Any, second: Any, third: Any) -> Tuple[Any, Any, Any]:
     return first, second, third
 
 
-def raises_exception(*args, **kwargs):
+def raises_exception(*args: Any, **kwargs: Any) -> None:
     raise Exception("app exception")
 
 
-def handle_bot_intent(event, context):
+def handle_bot_intent(event: Any, context: Any) -> str:
     return "Success"
 
 
@@ -576,9 +577,9 @@ class TestZappa(unittest.TestCase):
 
         self.assertEqual(response, True)
 
-    def test_wsgi_script_name_on_v2_formatted_event(self):
+    def test_wsgi_script_name_on_v2_formatted_event_function_url(self):
         """
-        Ensure that requests with payload format version 2.0 succeed
+        Ensure that requests with payload format version 2.0 succeed (Function URL case - no stage)
         """
         lh = LambdaHandler("tests.test_wsgi_script_name_settings")
 
@@ -595,6 +596,7 @@ class TestZappa(unittest.TestCase):
                     "method": "GET",
                     "path": "/return/request/url",
                 },
+                # No "stage" key - this is a Function URL, not API Gateway v2
             },
             "isBase64Encoded": False,
             "body": "",
@@ -603,7 +605,87 @@ class TestZappa(unittest.TestCase):
         response = lh.handler(event, None)
 
         self.assertEqual(response["statusCode"], 200)
+        # Function URL has no stage, so URL should not include /dev
+        self.assertEqual(
+            response["body"],
+            "https://1234567890.execute-api.us-east-1.amazonaws.com/return/request/url",
+        )
+
+    def test_wsgi_script_name_on_v2_formatted_event_with_stage_in_path(self):
+        """
+        Reproduces issue #1389: API Gateway v2 includes stage name in rawPath
+        When API Gateway v2 sends rawPath="/dev/collection" for stage "dev",
+        the stage prefix should be stripped to get PATH_INFO="/collection"
+        """
+        lh = LambdaHandler("tests.test_wsgi_script_name_settings")
+
+        event = {
+            "version": "2.0",
+            "routeKey": "$default",
+            "rawPath": "/dev/return/request/url",  # Stage "dev" is included in rawPath
+            "rawQueryString": "",
+            "headers": {
+                "host": "1234567890.execute-api.us-east-1.amazonaws.com",
+            },
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": "/dev/return/request/url",
+                },
+                "stage": "dev",
+            },
+            "isBase64Encoded": False,
+            "body": "",
+        }
+        response = lh.handler(event, None)
+
+        self.assertEqual(response["statusCode"], 200)
+        # Expected: stage prefix is stripped, so we get /dev/return/request/url
+        # (the /dev in SCRIPT_NAME + /return/request/url in PATH_INFO)
         self.assertEqual(
             response["body"],
             "https://1234567890.execute-api.us-east-1.amazonaws.com/dev/return/request/url",
         )
+
+    def test_wsgi_environ_fixes_double_prefix_bug(self):
+        """
+        Test that verifies the fix for issue #1389 (double prefix bug).
+        This test calls the /debug/wsgi/environ endpoint to inspect SCRIPT_NAME and PATH_INFO.
+
+        Issue #1389: With API Gateway v2, rawPath="/dev/debug/wsgi/environ" includes the stage.
+        The fix correctly strips the stage prefix from PATH_INFO.
+        SCRIPT_NAME="/dev" and PATH_INFO="/debug/wsgi/environ" (stage stripped)
+        Flask correctly builds: /dev + /debug/wsgi/environ = /dev/debug/wsgi/environ
+        """
+        lh = LambdaHandler("tests.test_wsgi_script_name_settings")
+
+        event = {
+            "version": "2.0",
+            "routeKey": "$default",
+            "rawPath": "/dev/debug/wsgi/environ",  # Stage "dev" is included in rawPath
+            "rawQueryString": "",
+            "headers": {
+                "host": "1234567890.execute-api.us-east-1.amazonaws.com",
+            },
+            "requestContext": {
+                "http": {
+                    "method": "GET",
+                    "path": "/dev/debug/wsgi/environ",
+                },
+                "stage": "dev",
+            },
+            "isBase64Encoded": False,
+            "body": "",
+        }
+        response = lh.handler(event, None)
+
+        self.assertEqual(response["statusCode"], 200)
+        # The response body shows the WSGI environ values
+        # FIXED behavior: SCRIPT_NAME='/dev' PATH_INFO='/debug/wsgi/environ' (stage stripped correctly)
+        # Flask correctly builds URL: /dev + /debug/wsgi/environ = /dev/debug/wsgi/environ
+        print(f"\nDEBUG - Response body: {response['body']}")
+
+        # Verify the fix: stage is stripped from PATH_INFO
+        self.assertIn("SCRIPT_NAME='/dev'", response["body"])
+        self.assertIn("PATH_INFO='/debug/wsgi/environ'", response["body"])  # FIXED: stage stripped
+        self.assertIn("/dev/debug/wsgi/environ", response["body"])  # Correct single prefix!

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jsonargparse"
 dynamic = ["version"]
-description = "Implement minimal boilerplate CLIs derived from type hints and parse from command line, config files and environment variables."
+description = "Minimal effort CLIs derived from type hints and parse from command line, config files and environment variables."
 authors = [
     {name = "Mauricio Villegas", email = "mauricio@omnius.com"},
 ]
@@ -97,7 +97,7 @@ test = [
     "types-PyYAML>=6.0.11",
     "types-requests>=2.28.9",
     "responses>=0.12.0",
-    "pydantic>=2.3.0; python_version < '3.14'",  # restricted until pydantic installs correctly in 3.14
+    "pydantic>=2.3.0",
     "attrs>=22.2.0",
 ]
 test-no-urls = [
@@ -217,23 +217,22 @@ commands =
         from pathlib import Path; \
         from shutil import copy; \
         copy('conftest.py', Path(r'{envtmpdir}', 'conftest.py')); \
-        copy('test_dataclass_like.py', Path(r'{envtmpdir}', 'test_dataclass_like.py'))\
+        copy('test_pydantic.py', Path(r'{envtmpdir}', 'test_pydantic.py'))\
     "
     pip install "pydantic<2"
-    python -m pytest {posargs} {envtmpdir}/test_dataclass_like.py
+    python -m pytest {posargs} {envtmpdir}/test_pydantic.py
 
     # Test with pydantic>=2 importing from pydantic.v1
     python -c "\
         import re, pathlib; \
-        path = pathlib.Path(r'{envtmpdir}', 'test_dataclass_like.py'); \
+        path = pathlib.Path(r'{envtmpdir}', 'test_pydantic.py'); \
         content = path.read_text(); \
         content = re.sub(r'import pydantic', 'import pydantic.v1 as pydantic', content); \
-        content = re.sub(r'test_pydantic_types', '_test_pydantic_types', content); \
         content = re.sub(r'^annotated = [^\\n]*', 'annotated = False', content, flags=re.MULTILINE); \
         path.write_text(content)\
     "
     pip install "pydantic>=2"
-    python -m pytest {posargs} {envtmpdir}/test_dataclass_like.py
+    python -m pytest {posargs} {envtmpdir}/test_pydantic.py
 
 [testenv:without-pyyaml]
 extras = test,coverage,all

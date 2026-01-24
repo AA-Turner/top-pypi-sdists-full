@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 from itertools import chain, groupby, product
-from typing import Iterator
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 
 def filter_for_env(value: str, name: str | None) -> str:
@@ -61,6 +64,7 @@ def expand_factors(value: str) -> Iterator[tuple[list[list[tuple[str, bool]]] | 
 
 def find_factor_groups(value: str) -> Iterator[list[tuple[str, bool]]]:
     """Transform '{py,!pi}-{a,b},c' to [{'py', 'a'}, {'py', 'b'}, {'pi', 'a'}, {'pi', 'b'}, {'c'}]."""
+    value = expand_ranges(value)
     for env in expand_env_with_negation(value):
         result = [name_with_negate(f) for f in env.split("-")]
         yield result

@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.18.7.5+obcheckpoint(0.2.7);ob(v1)                                                    #
-# Generated on 2025-09-23T01:34:30.727367                                                            #
+# MF version: 2.19.17.1+obcheckpoint(0.2.10);ob(v1)                                                  #
+# Generated on 2026-01-22T21:50:04.895025                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ if typing.TYPE_CHECKING:
     import typing
 
 from .config.unified_config import CoreConfig as CoreConfig
+from .config.unified_config import AuthType as AuthType
 from .config.config_utils import MergingNotAllowedFieldsException as MergingNotAllowedFieldsException
 from .config.config_utils import ConfigValidationFailedException as ConfigValidationFailedException
 from .config.config_utils import RequiredFieldMissingException as RequiredFieldMissingException
@@ -20,24 +21,10 @@ CODE_PACKAGE_PREFIX: str
 
 CAPSULE_DEBUG: bool
 
-class classproperty(property, metaclass=type):
-    def __get__(self, owner_self, owner_cls):
-        ...
-    ...
-
 class AppConfigError(Exception, metaclass=type):
     """
     Exception raised when app configuration is invalid.
     """
-    ...
-
-class AuthType(object, metaclass=type):
-    @classmethod
-    def enums(cls):
-        ...
-    @property
-    def default(cls):
-        ...
     ...
 
 class AppConfig(object, metaclass=type):

@@ -11,7 +11,7 @@ from PIL import Image
 async def client() -> fal_client.AsyncClient:
     client = fal_client.AsyncClient()
     try:
-        client._get_key()
+        client._get_auth()
     except fal_client.auth.MissingCredentialsError:
         pytest.skip("No credentials found")
     return client
@@ -180,6 +180,22 @@ async def test_fal_client_upload(
                 message="test",
                 request=httpx.Request("GET", "https://example.com"),
                 response=httpx.Response(status_code=429),
+            ),
+            True,
+        ),
+        (
+            httpx.HTTPStatusError(
+                message="test",
+                request=httpx.Request("GET", "https://example.com"),
+                response=httpx.Response(status_code=502, text="nginx error"),
+            ),
+            True,
+        ),
+        (
+            httpx.HTTPStatusError(
+                message="test",
+                request=httpx.Request("GET", "https://example.com"),
+                response=httpx.Response(status_code=504, text="nginx error"),
             ),
             True,
         ),

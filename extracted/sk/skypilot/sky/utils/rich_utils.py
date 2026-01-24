@@ -193,7 +193,8 @@ class _RevertibleStatus:
                     self.get_status_fn().__exit__(exc_type, exc_val, exc_tb)
                     self.set_status_fn(None)
             else:
-                self.get_status_fn().update(self.previous_message)
+                if self.previous_message is not None:
+                    self.get_status_fn().update(self.previous_message)
 
     def update(self, *args, **kwargs):
         self.get_status_fn().update(*args, **kwargs)
@@ -263,11 +264,12 @@ def safe_logger():
         client_status_obj = _get_client_status()
 
         client_status_live = (client_status_obj is not None and
+                              hasattr(client_status_obj, '_live') and
                               client_status_obj._live.is_started)  # pylint: disable=protected-access
-        if client_status_live:
+        if client_status_live and client_status_obj is not None:
             client_status_obj.stop()
         yield
-        if client_status_live:
+        if client_status_live and client_status_obj is not None:
             client_status_obj.start()
 
 
@@ -421,7 +423,7 @@ async def decode_rich_status_async(
         undecoded_buffer = b''
 
         # Iterate over the response content in chunks
-        async for chunk in response.content.iter_chunked(8192):
+        async for chunk, _ in response.content.iter_chunks():
             if chunk is None:
                 return
 
@@ -481,6 +483,8 @@ async def decode_rich_status_async(
                     line = line[:-2] + '\n'
                 is_payload, line = message_utils.decode_payload(
                     line, raise_for_mismatch=False)
+                if line is None:
+                    continue
                 control = None
                 if is_payload:
                     control, encoded_status = Control.decode(line)

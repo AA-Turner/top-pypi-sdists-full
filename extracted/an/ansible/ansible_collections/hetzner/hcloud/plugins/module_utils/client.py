@@ -33,8 +33,8 @@ def client_check_required_lib():
         raise ClientException(missing_required_lib("python-dateutil"))
 
 
-def _client_resource_not_found(resource: str, param: str | int):
-    return ClientException(f"resource ({resource.rstrip('s')}) does not exist: {param}")
+def client_resource_not_found(resource: str, param: str | int):
+    return ClientException(f"resource ({resource}) does not exist: {param}")
 
 
 def client_get_by_name_or_id(client: Client, resource: str, param: str | int):
@@ -55,13 +55,13 @@ def client_get_by_name_or_id(client: Client, resource: str, param: str | int):
     try:
         int(param)
     except ValueError as exception:
-        raise _client_resource_not_found(resource, param) from exception
+        raise client_resource_not_found(resource.rstrip("s"), param) from exception
 
     try:
         return resource_client.get_by_id(param)
     except APIException as exception:
         if exception.code == "not_found":
-            raise _client_resource_not_found(resource, param) from exception
+            raise client_resource_not_found(resource.rstrip("s"), param) from exception
         raise exception
 
 
@@ -101,8 +101,8 @@ class Client(ClientBase):
         Cached response will not expire, therefore the cached client must not be used
         for long living scopes.
         """
-        self._requests_session = CachedSession()
+        self._client._session = CachedSession()
         try:
             yield
         finally:
-            self._requests_session = requests.Session()
+            self._client._session = requests.Session()

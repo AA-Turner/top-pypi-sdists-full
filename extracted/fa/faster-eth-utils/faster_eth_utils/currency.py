@@ -46,11 +46,12 @@ class denoms:
 
 MIN_WEI: Final = 0
 MAX_WEI: Final = 2**256 - 1
+DECIMAL_ZERO: Final = decimal.Decimal(0)
 
 _NumberType = Union[int, float, str, decimal.Decimal]
 
 
-def _from_wei(number: int, unit_value: decimal.Decimal) -> Union[int, decimal.Decimal]:
+def _from_wei(number: int, unit_value: decimal.Decimal) -> int | decimal.Decimal:
     if number == 0:
         return 0
 
@@ -75,7 +76,7 @@ def _to_wei(number: _NumberType, unit_value: decimal.Decimal) -> int:
     else:
         raise TypeError("Unsupported type. Must be one of integer, float, or string")
 
-    if d_number == decimal.Decimal(0):
+    if d_number == DECIMAL_ZERO:
         return 0
 
     s_number = str(number)
@@ -97,14 +98,15 @@ def _to_wei(number: _NumberType, unit_value: decimal.Decimal) -> int:
     return int(result_value)
 
 
-def from_wei(number: int, unit: str) -> Union[int, decimal.Decimal]:
+def from_wei(number: int, unit: str) -> int | decimal.Decimal:
     """
     Takes a number of wei and converts it to any other ether unit.
     """
-    if unit.lower() not in units:
+    unit_key = unit.lower()
+    if unit_key not in units:
         raise ValueError(f"Unknown unit. Must be one of {'/'.join(units.keys())}")
 
-    unit_value = units[unit.lower()]
+    unit_value = units[unit_key]
 
     return _from_wei(number, unit_value)
 
@@ -113,15 +115,16 @@ def to_wei(number: _NumberType, unit: str) -> int:
     """
     Takes a number of a unit and converts it to wei.
     """
-    if unit.lower() not in units:
+    unit_key = unit.lower()
+    if unit_key not in units:
         raise ValueError(f"Unknown unit. Must be one of {'/'.join(units.keys())}")
 
-    unit_value = units[unit.lower()]
+    unit_value = units[unit_key]
 
     return _to_wei(number, unit_value)
 
 
-def from_wei_decimals(number: int, decimals: int) -> Union[int, decimal.Decimal]:
+def from_wei_decimals(number: int, decimals: int) -> int | decimal.Decimal:
     """
     Takes a number of wei and converts it to a decimal with the specified
     number of decimals.

@@ -1,4 +1,3 @@
-from setuptools import Command
 from setuptools import setup
 
 
@@ -10,42 +9,25 @@ def read(fname):
     return open(os.path.join(_here, fname)).read()
 
 
-class PyTest(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        import subprocess
-        import sys
-
-        errno = subprocess.call([sys.executable, "runtests.py"])
-        raise SystemExit(errno)
-
-
 setup(
     name="pytest-localserver",
     author="Sebastian Rahlf",
     author_email="basti@redtoad.de",
     maintainer="David Zaslavsky",
     maintainer_email="diazona@ellipsix.net",
-    license="MIT License",
+    license_files=["LICENSE"],
+    license_expression="MIT",
     description="pytest plugin to test server connections locally.",
     long_description=read("README.rst"),
     url="https://github.com/pytest-dev/pytest-localserver",
     packages=["pytest_localserver"],
-    python_requires=">=3.6",
+    python_requires=">=3.7",
     install_requires=["werkzeug>=0.10"],
     extras_require={
         "smtp": [
             "aiosmtpd",
         ],
     },
-    cmdclass={"test": PyTest},
     tests_require=["pytest>=2.0.0", "requests"],
     entry_points={"pytest11": ["localserver = pytest_localserver.plugin"]},
     zip_safe=False,
@@ -56,10 +38,8 @@ setup(
         "Operating System :: OS Independent",
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
@@ -67,6 +47,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Topic :: Software Development :: Testing",
     ],
 )

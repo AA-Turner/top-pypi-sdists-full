@@ -1,4 +1,4 @@
-# Copyright 2024 Marimo. All rights reserved.
+# Copyright 2026 Marimo. All rights reserved.
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,6 +12,7 @@ class MarimoCLIState:
     latest_version: Optional[str] = None
     last_checked_at: Optional[str] = None
     accepted_text_to_notebook_terms_at: Optional[str] = None
+    notices: Optional[list[str]] = None
 
 
 FILE_NAME = "state.toml"

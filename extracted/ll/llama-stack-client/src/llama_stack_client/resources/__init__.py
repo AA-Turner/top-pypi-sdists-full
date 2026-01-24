@@ -1,5 +1,19 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+# All rights reserved.
+#
+# This source code is licensed under the terms described in the LICENSE file in
+# the root directory of this source tree.
+
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+from .beta import (
+    BetaResource,
+    AsyncBetaResource,
+    BetaResourceWithRawResponse,
+    AsyncBetaResourceWithRawResponse,
+    BetaResourceWithStreamingResponse,
+    AsyncBetaResourceWithStreamingResponse,
+)
 from .chat import (
     ChatResource,
     AsyncChatResource,
@@ -8,13 +22,13 @@ from .chat import (
     ChatResourceWithStreamingResponse,
     AsyncChatResourceWithStreamingResponse,
 )
-from .eval import (
-    EvalResource,
-    AsyncEvalResource,
-    EvalResourceWithRawResponse,
-    AsyncEvalResourceWithRawResponse,
-    EvalResourceWithStreamingResponse,
-    AsyncEvalResourceWithStreamingResponse,
+from .alpha import (
+    AlphaResource,
+    AsyncAlphaResource,
+    AlphaResourceWithRawResponse,
+    AsyncAlphaResourceWithRawResponse,
+    AlphaResourceWithStreamingResponse,
+    AsyncAlphaResourceWithStreamingResponse,
 )
 from .files import (
     FilesResource,
@@ -31,14 +45,6 @@ from .tools import (
     AsyncToolsResourceWithRawResponse,
     ToolsResourceWithStreamingResponse,
     AsyncToolsResourceWithStreamingResponse,
-)
-from .agents import (
-    AgentsResource,
-    AsyncAgentsResource,
-    AgentsResourceWithRawResponse,
-    AsyncAgentsResourceWithRawResponse,
-    AgentsResourceWithStreamingResponse,
-    AsyncAgentsResourceWithStreamingResponse,
 )
 from .models import (
     ModelsResource,
@@ -64,6 +70,14 @@ from .safety import (
     SafetyResourceWithStreamingResponse,
     AsyncSafetyResourceWithStreamingResponse,
 )
+from .batches import (
+    BatchesResource,
+    AsyncBatchesResource,
+    BatchesResourceWithRawResponse,
+    AsyncBatchesResourceWithRawResponse,
+    BatchesResourceWithStreamingResponse,
+    AsyncBatchesResourceWithStreamingResponse,
+)
 from .inspect import (
     InspectResource,
     AsyncInspectResource,
@@ -71,6 +85,14 @@ from .inspect import (
     AsyncInspectResourceWithRawResponse,
     InspectResourceWithStreamingResponse,
     AsyncInspectResourceWithStreamingResponse,
+)
+from .prompts import (
+    PromptsResource,
+    AsyncPromptsResource,
+    PromptsResourceWithRawResponse,
+    AsyncPromptsResourceWithRawResponse,
+    PromptsResourceWithStreamingResponse,
+    AsyncPromptsResourceWithStreamingResponse,
 )
 from .scoring import (
     ScoringResource,
@@ -88,22 +110,6 @@ from .shields import (
     ShieldsResourceWithStreamingResponse,
     AsyncShieldsResourceWithStreamingResponse,
 )
-from .datasets import (
-    DatasetsResource,
-    AsyncDatasetsResource,
-    DatasetsResourceWithRawResponse,
-    AsyncDatasetsResourceWithRawResponse,
-    DatasetsResourceWithStreamingResponse,
-    AsyncDatasetsResourceWithStreamingResponse,
-)
-from .inference import (
-    InferenceResource,
-    AsyncInferenceResource,
-    InferenceResourceWithRawResponse,
-    AsyncInferenceResourceWithRawResponse,
-    InferenceResourceWithStreamingResponse,
-    AsyncInferenceResourceWithStreamingResponse,
-)
 from .providers import (
     ProvidersResource,
     AsyncProvidersResource,
@@ -120,14 +126,6 @@ from .responses import (
     ResponsesResourceWithStreamingResponse,
     AsyncResponsesResourceWithStreamingResponse,
 )
-from .telemetry import (
-    TelemetryResource,
-    AsyncTelemetryResource,
-    TelemetryResourceWithRawResponse,
-    AsyncTelemetryResourceWithRawResponse,
-    TelemetryResourceWithStreamingResponse,
-    AsyncTelemetryResourceWithStreamingResponse,
-)
 from .vector_io import (
     VectorIoResource,
     AsyncVectorIoResource,
@@ -135,14 +133,6 @@ from .vector_io import (
     AsyncVectorIoResourceWithRawResponse,
     VectorIoResourceWithStreamingResponse,
     AsyncVectorIoResourceWithStreamingResponse,
-)
-from .benchmarks import (
-    BenchmarksResource,
-    AsyncBenchmarksResource,
-    BenchmarksResourceWithRawResponse,
-    AsyncBenchmarksResourceWithRawResponse,
-    BenchmarksResourceWithStreamingResponse,
-    AsyncBenchmarksResourceWithStreamingResponse,
 )
 from .embeddings import (
     EmbeddingsResource,
@@ -159,14 +149,6 @@ from .toolgroups import (
     AsyncToolgroupsResourceWithRawResponse,
     ToolgroupsResourceWithStreamingResponse,
     AsyncToolgroupsResourceWithStreamingResponse,
-)
-from .vector_dbs import (
-    VectorDBsResource,
-    AsyncVectorDBsResource,
-    VectorDBsResourceWithRawResponse,
-    AsyncVectorDBsResourceWithRawResponse,
-    VectorDBsResourceWithStreamingResponse,
-    AsyncVectorDBsResourceWithStreamingResponse,
 )
 from .completions import (
     CompletionsResource,
@@ -192,13 +174,13 @@ from .tool_runtime import (
     ToolRuntimeResourceWithStreamingResponse,
     AsyncToolRuntimeResourceWithStreamingResponse,
 )
-from .post_training import (
-    PostTrainingResource,
-    AsyncPostTrainingResource,
-    PostTrainingResourceWithRawResponse,
-    AsyncPostTrainingResourceWithRawResponse,
-    PostTrainingResourceWithStreamingResponse,
-    AsyncPostTrainingResourceWithStreamingResponse,
+from .conversations import (
+    ConversationsResource,
+    AsyncConversationsResource,
+    ConversationsResourceWithRawResponse,
+    AsyncConversationsResourceWithRawResponse,
+    ConversationsResourceWithStreamingResponse,
+    AsyncConversationsResourceWithStreamingResponse,
 )
 from .vector_stores import (
     VectorStoresResource,
@@ -215,14 +197,6 @@ from .scoring_functions import (
     AsyncScoringFunctionsResourceWithRawResponse,
     ScoringFunctionsResourceWithStreamingResponse,
     AsyncScoringFunctionsResourceWithStreamingResponse,
-)
-from .synthetic_data_generation import (
-    SyntheticDataGenerationResource,
-    AsyncSyntheticDataGenerationResource,
-    SyntheticDataGenerationResourceWithRawResponse,
-    AsyncSyntheticDataGenerationResourceWithRawResponse,
-    SyntheticDataGenerationResourceWithStreamingResponse,
-    AsyncSyntheticDataGenerationResourceWithStreamingResponse,
 )
 
 __all__ = [
@@ -250,36 +224,24 @@ __all__ = [
     "AsyncResponsesResourceWithRawResponse",
     "ResponsesResourceWithStreamingResponse",
     "AsyncResponsesResourceWithStreamingResponse",
-    "AgentsResource",
-    "AsyncAgentsResource",
-    "AgentsResourceWithRawResponse",
-    "AsyncAgentsResourceWithRawResponse",
-    "AgentsResourceWithStreamingResponse",
-    "AsyncAgentsResourceWithStreamingResponse",
-    "DatasetsResource",
-    "AsyncDatasetsResource",
-    "DatasetsResourceWithRawResponse",
-    "AsyncDatasetsResourceWithRawResponse",
-    "DatasetsResourceWithStreamingResponse",
-    "AsyncDatasetsResourceWithStreamingResponse",
-    "EvalResource",
-    "AsyncEvalResource",
-    "EvalResourceWithRawResponse",
-    "AsyncEvalResourceWithRawResponse",
-    "EvalResourceWithStreamingResponse",
-    "AsyncEvalResourceWithStreamingResponse",
+    "PromptsResource",
+    "AsyncPromptsResource",
+    "PromptsResourceWithRawResponse",
+    "AsyncPromptsResourceWithRawResponse",
+    "PromptsResourceWithStreamingResponse",
+    "AsyncPromptsResourceWithStreamingResponse",
+    "ConversationsResource",
+    "AsyncConversationsResource",
+    "ConversationsResourceWithRawResponse",
+    "AsyncConversationsResourceWithRawResponse",
+    "ConversationsResourceWithStreamingResponse",
+    "AsyncConversationsResourceWithStreamingResponse",
     "InspectResource",
     "AsyncInspectResource",
     "InspectResourceWithRawResponse",
     "AsyncInspectResourceWithRawResponse",
     "InspectResourceWithStreamingResponse",
     "AsyncInspectResourceWithStreamingResponse",
-    "InferenceResource",
-    "AsyncInferenceResource",
-    "InferenceResourceWithRawResponse",
-    "AsyncInferenceResourceWithRawResponse",
-    "InferenceResourceWithStreamingResponse",
-    "AsyncInferenceResourceWithStreamingResponse",
     "EmbeddingsResource",
     "AsyncEmbeddingsResource",
     "EmbeddingsResourceWithRawResponse",
@@ -304,12 +266,6 @@ __all__ = [
     "AsyncVectorIoResourceWithRawResponse",
     "VectorIoResourceWithStreamingResponse",
     "AsyncVectorIoResourceWithStreamingResponse",
-    "VectorDBsResource",
-    "AsyncVectorDBsResource",
-    "VectorDBsResourceWithRawResponse",
-    "AsyncVectorDBsResourceWithRawResponse",
-    "VectorDBsResourceWithStreamingResponse",
-    "AsyncVectorDBsResourceWithStreamingResponse",
     "VectorStoresResource",
     "AsyncVectorStoresResource",
     "VectorStoresResourceWithRawResponse",
@@ -322,12 +278,6 @@ __all__ = [
     "AsyncModelsResourceWithRawResponse",
     "ModelsResourceWithStreamingResponse",
     "AsyncModelsResourceWithStreamingResponse",
-    "PostTrainingResource",
-    "AsyncPostTrainingResource",
-    "PostTrainingResourceWithRawResponse",
-    "AsyncPostTrainingResourceWithRawResponse",
-    "PostTrainingResourceWithStreamingResponse",
-    "AsyncPostTrainingResourceWithStreamingResponse",
     "ProvidersResource",
     "AsyncProvidersResource",
     "ProvidersResourceWithRawResponse",
@@ -358,18 +308,6 @@ __all__ = [
     "AsyncShieldsResourceWithRawResponse",
     "ShieldsResourceWithStreamingResponse",
     "AsyncShieldsResourceWithStreamingResponse",
-    "SyntheticDataGenerationResource",
-    "AsyncSyntheticDataGenerationResource",
-    "SyntheticDataGenerationResourceWithRawResponse",
-    "AsyncSyntheticDataGenerationResourceWithRawResponse",
-    "SyntheticDataGenerationResourceWithStreamingResponse",
-    "AsyncSyntheticDataGenerationResourceWithStreamingResponse",
-    "TelemetryResource",
-    "AsyncTelemetryResource",
-    "TelemetryResourceWithRawResponse",
-    "AsyncTelemetryResourceWithRawResponse",
-    "TelemetryResourceWithStreamingResponse",
-    "AsyncTelemetryResourceWithStreamingResponse",
     "ScoringResource",
     "AsyncScoringResource",
     "ScoringResourceWithRawResponse",
@@ -382,16 +320,28 @@ __all__ = [
     "AsyncScoringFunctionsResourceWithRawResponse",
     "ScoringFunctionsResourceWithStreamingResponse",
     "AsyncScoringFunctionsResourceWithStreamingResponse",
-    "BenchmarksResource",
-    "AsyncBenchmarksResource",
-    "BenchmarksResourceWithRawResponse",
-    "AsyncBenchmarksResourceWithRawResponse",
-    "BenchmarksResourceWithStreamingResponse",
-    "AsyncBenchmarksResourceWithStreamingResponse",
     "FilesResource",
     "AsyncFilesResource",
     "FilesResourceWithRawResponse",
     "AsyncFilesResourceWithRawResponse",
     "FilesResourceWithStreamingResponse",
     "AsyncFilesResourceWithStreamingResponse",
+    "BatchesResource",
+    "AsyncBatchesResource",
+    "BatchesResourceWithRawResponse",
+    "AsyncBatchesResourceWithRawResponse",
+    "BatchesResourceWithStreamingResponse",
+    "AsyncBatchesResourceWithStreamingResponse",
+    "AlphaResource",
+    "AsyncAlphaResource",
+    "AlphaResourceWithRawResponse",
+    "AsyncAlphaResourceWithRawResponse",
+    "AlphaResourceWithStreamingResponse",
+    "AsyncAlphaResourceWithStreamingResponse",
+    "BetaResource",
+    "AsyncBetaResource",
+    "BetaResourceWithRawResponse",
+    "AsyncBetaResourceWithRawResponse",
+    "BetaResourceWithStreamingResponse",
+    "AsyncBetaResourceWithStreamingResponse",
 ]

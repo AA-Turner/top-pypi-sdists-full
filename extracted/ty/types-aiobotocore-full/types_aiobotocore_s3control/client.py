@@ -3,7 +3,7 @@ Type annotations for s3control service Client.
 
 [Documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3control/client/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -20,6 +20,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from types import TracebackType
 from typing import Any, overload
 
@@ -192,12 +193,6 @@ from .type_defs import (
     UpdateStorageLensGroupRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Self, Unpack
 else:
@@ -208,19 +203,19 @@ __all__ = ("S3ControlClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    BadRequestException: Type[BotocoreClientError]
-    BucketAlreadyExists: Type[BotocoreClientError]
-    BucketAlreadyOwnedByYou: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    IdempotencyException: Type[BotocoreClientError]
-    InternalServiceException: Type[BotocoreClientError]
-    InvalidNextTokenException: Type[BotocoreClientError]
-    InvalidRequestException: Type[BotocoreClientError]
-    JobStatusException: Type[BotocoreClientError]
-    NoSuchPublicAccessBlockConfiguration: Type[BotocoreClientError]
-    NotFoundException: Type[BotocoreClientError]
-    TooManyRequestsException: Type[BotocoreClientError]
-    TooManyTagsException: Type[BotocoreClientError]
+    BadRequestException: type[BotocoreClientError]
+    BucketAlreadyExists: type[BotocoreClientError]
+    BucketAlreadyOwnedByYou: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    IdempotencyException: type[BotocoreClientError]
+    InternalServiceException: type[BotocoreClientError]
+    InvalidNextTokenException: type[BotocoreClientError]
+    InvalidRequestException: type[BotocoreClientError]
+    JobStatusException: type[BotocoreClientError]
+    NoSuchPublicAccessBlockConfiguration: type[BotocoreClientError]
+    NotFoundException: type[BotocoreClientError]
+    TooManyRequestsException: type[BotocoreClientError]
+    TooManyTagsException: type[BotocoreClientError]
 
 
 class S3ControlClient(AioBaseClient):
@@ -503,7 +498,7 @@ class S3ControlClient(AioBaseClient):
 
     async def delete_job_tagging(
         self, **kwargs: Unpack[DeleteJobTaggingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Removes the entire tag set from the specified S3 Batch Operations job.
 
@@ -543,7 +538,7 @@ class S3ControlClient(AioBaseClient):
 
     async def delete_storage_lens_configuration_tagging(
         self, **kwargs: Unpack[DeleteStorageLensConfigurationTaggingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation is not supported by directory buckets.
 
@@ -1115,7 +1110,7 @@ class S3ControlClient(AioBaseClient):
 
     async def put_job_tagging(
         self, **kwargs: Unpack[PutJobTaggingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Sets the supplied tag-set on an S3 Batch Operations job.
 
@@ -1155,7 +1150,7 @@ class S3ControlClient(AioBaseClient):
 
     async def put_storage_lens_configuration_tagging(
         self, **kwargs: Unpack[PutStorageLensConfigurationTaggingRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation is not supported by directory buckets.
 
@@ -1165,7 +1160,7 @@ class S3ControlClient(AioBaseClient):
 
     async def submit_multi_region_access_point_routes(
         self, **kwargs: Unpack[SubmitMultiRegionAccessPointRoutesRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         This operation is not supported by directory buckets.
 
@@ -1173,7 +1168,7 @@ class S3ControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3control/client/#submit_multi_region_access_point_routes)
         """
 
-    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         Creates a new user-defined tag or updates an existing tag.
 
@@ -1181,7 +1176,7 @@ class S3ControlClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3control/client/#tag_resource)
         """
 
-    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
+    async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         This operation removes the specified user-defined tags from an S3 resource.
 
@@ -1270,7 +1265,7 @@ class S3ControlClient(AioBaseClient):
 
     async def __aexit__(
         self,
-        exc_type: Type[BaseException] | None,
+        exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:

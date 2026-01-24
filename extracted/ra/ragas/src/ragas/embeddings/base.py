@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import typing as t
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import field
 
@@ -25,31 +26,6 @@ if t.TYPE_CHECKING:
 DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 
 
-class DeprecationHelper:
-    """Helper class to handle deprecation warnings for exported classes.
-
-    This class allows deprecated classes to be imported and used while emitting
-    appropriate warnings, including support for class method access.
-    """
-
-    def __init__(self, new_target: t.Type, deprecation_message: str):
-        self.new_target = new_target
-        self.deprecation_message = deprecation_message
-
-    def _warn(self):
-        import warnings
-
-        warnings.warn(self.deprecation_message, DeprecationWarning, stacklevel=3)
-
-    def __call__(self, *args, **kwargs):
-        self._warn()
-        return self.new_target(*args, **kwargs)
-
-    def __getattr__(self, attr):
-        self._warn()
-        return getattr(self.new_target, attr)
-
-
 class BaseRagasEmbedding(ABC):
     """Modern abstract base class for Ragas embedding implementations.
 
@@ -57,6 +33,19 @@ class BaseRagasEmbedding(ABC):
     providers. Implementations should provide both sync and async methods for
     embedding single texts, with batch methods automatically provided.
     """
+
+    def __init__(self, cache: t.Optional[CacheInterface] = None):
+        """Initialize embedding with optional caching.
+
+        Args:
+            cache: Optional cache backend for caching embeddings.
+                Use DiskCacheBackend() for persistent caching.
+        """
+        self.cache = cache
+
+        if self.cache is not None:
+            self.embed_text = cacher(cache_backend=self.cache)(self.embed_text)
+            self.aembed_text = cacher(cache_backend=self.cache)(self.aembed_text)
 
     @abstractmethod
     def embed_text(self, text: str, **kwargs: t.Any) -> t.List[float]:
@@ -272,17 +261,18 @@ class LangchainEmbeddingsWrapper(BaseRagasEmbeddings):
     """
     Wrapper for any embeddings from langchain.
 
-    .. deprecated:: 0.3.0
-        LangchainEmbeddingsWrapper is deprecated and will be removed in a future version.
-        Use the modern embedding providers directly with embedding_factory() instead:
-
-        # Instead of:
-        # embedder = LangchainEmbeddingsWrapper(langchain_embeddings)
-
-        # Use:
-        # embedder = embedding_factory("openai", model="text-embedding-3-small", client=openai_client)
-        # embedder = embedding_factory("huggingface", model="sentence-transformers/all-MiniLM-L6-v2")
-        # embedder = embedding_factory("google", client=vertex_client)
+    # TODO: Revisit deprecation warning
+    # .. deprecated::
+    #     LangchainEmbeddingsWrapper is deprecated and will be removed in a future version.
+    #     Use the modern embedding providers directly with embedding_factory() instead:
+    #
+    #     # Instead of:
+    #     # embedder = LangchainEmbeddingsWrapper(langchain_embeddings)
+    #
+    #     # Use:
+    #     # embedder = embedding_factory("openai", model="text-embedding-3-small", client=openai_client)
+    #     # embedder = embedding_factory("huggingface", model="sentence-transformers/all-MiniLM-L6-v2")
+    #     # embedder = embedding_factory("google", client=vertex_client)
     """
 
     def __init__(
@@ -291,8 +281,6 @@ class LangchainEmbeddingsWrapper(BaseRagasEmbeddings):
         run_config: t.Optional[RunConfig] = None,
         cache: t.Optional[CacheInterface] = None,
     ):
-        import warnings
-
         warnings.warn(
             "LangchainEmbeddingsWrapper is deprecated and will be removed in a future version. "
             "Use the modern embedding providers instead: "
@@ -475,7 +463,8 @@ class HuggingfaceEmbeddings(BaseRagasEmbeddings):
             np.intersect1d(
                 list(MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES.values()),
                 config.architectures or [],
-            )
+            ).size
+            != 0
         )
 
         if self.is_cross_encoder:
@@ -537,17 +526,18 @@ class LlamaIndexEmbeddingsWrapper(BaseRagasEmbeddings):
     """
     Wrapper for any embeddings from llama-index.
 
-    .. deprecated:: 0.3.0
-        LlamaIndexEmbeddingsWrapper is deprecated and will be removed in a future version.
-        Use the modern embedding providers directly with embedding_factory() instead:
-
-        # Instead of:
-        # embedder = LlamaIndexEmbeddingsWrapper(llama_index_embeddings)
-
-        # Use:
-        # embedder = embedding_factory("openai", model="text-embedding-3-small", client=openai_client)
-        # embedder = embedding_factory("huggingface", model="sentence-transformers/all-MiniLM-L6-v2")
-        # embedder = embedding_factory("google", client=vertex_client)
+    # TODO: Revisit deprecation warning
+    # .. deprecated::
+    #     LlamaIndexEmbeddingsWrapper is deprecated and will be removed in a future version.
+    #     Use the modern embedding providers directly with embedding_factory() instead:
+    #
+    #     # Instead of:
+    #     # embedder = LlamaIndexEmbeddingsWrapper(llama_index_embeddings)
+    #
+    #     # Use:
+    #     # embedder = embedding_factory("openai", model="text-embedding-3-small", client=openai_client)
+    #     # embedder = embedding_factory("huggingface", model="sentence-transformers/all-MiniLM-L6-v2")
+    #     # embedder = embedding_factory("google", client=vertex_client)
 
     This class provides a wrapper for llama-index embeddings, allowing them to be used
     within the Ragas framework. It supports both synchronous and asynchronous embedding
@@ -581,8 +571,6 @@ class LlamaIndexEmbeddingsWrapper(BaseRagasEmbeddings):
         run_config: t.Optional[RunConfig] = None,
         cache: t.Optional[CacheInterface] = None,
     ):
-        import warnings
-
         warnings.warn(
             "LlamaIndexEmbeddingsWrapper is deprecated and will be removed in a future version. "
             "Use the modern embedding providers instead: "
@@ -613,12 +601,65 @@ class LlamaIndexEmbeddingsWrapper(BaseRagasEmbeddings):
         return f"{self.__class__.__name__}(embeddings={self.embeddings.__class__.__name__}(...))"
 
 
+def _infer_embedding_provider_from_llm(llm: t.Any) -> str:
+    """
+    Infer the embedding provider from an LLM instance.
+
+    This function attempts to extract the provider information from an LLM object
+    to allow intelligent default selection of matching embedding providers.
+
+    Parameters
+    ----------
+    llm : Any
+        The LLM instance to extract provider information from.
+
+    Returns
+    -------
+    str
+        The inferred provider name, defaults to "openai" if unable to determine.
+    """
+    if llm is None:
+        return "openai"
+
+    # Check for InstructorLLM with provider attribute
+    if hasattr(llm, "provider"):
+        provider = getattr(llm, "provider", "").lower()
+        if provider:
+            return provider
+
+    # Check for other LLM types
+    llm_class_name = llm.__class__.__name__.lower()
+
+    # Map common LLM class patterns to providers
+    provider_mapping = {
+        "anthropic": "anthropic",
+        "claude": "anthropic",
+        "gemini": "google",
+        "google": "google",
+        "vertex": "google",
+        "groq": "groq",
+        "mistral": "mistral",
+        "cohere": "cohere",
+        "openai": "openai",
+        "azure": "azure",
+    }
+
+    for pattern, provider_name in provider_mapping.items():
+        if pattern in llm_class_name:
+            return provider_name
+
+    # Default to OpenAI if unable to determine
+    return "openai"
+
+
 def embedding_factory(
     provider: str = "openai",
     model: t.Optional[str] = None,
     run_config: t.Optional[RunConfig] = None,
     client: t.Optional[t.Any] = None,
     interface: str = "auto",
+    base_url: t.Optional[str] = None,
+    cache: t.Optional[CacheInterface] = None,
     **kwargs: t.Any,
 ) -> t.Union[BaseRagasEmbeddings, BaseRagasEmbedding]:
     """
@@ -643,6 +684,12 @@ def embedding_factory(
     interface : str, optional
         Interface type: "legacy", "modern", or "auto" (default).
         "auto" detects based on parameters.
+    base_url : str, optional
+        Base URL for the API, by default None.
+    cache : CacheInterface, optional
+        Optional cache backend for caching embeddings.
+        Use DiskCacheBackend() for persistent caching across runs.
+        Saves costs and speeds up repeated embedding calls.
     **kwargs : Any
         Additional provider-specific arguments.
 
@@ -661,6 +708,11 @@ def embedding_factory(
     embedder = embedding_factory("openai", "text-embedding-3-small", client=openai_client)
     embedder = embedding_factory("huggingface", "sentence-transformers/all-MiniLM-L6-v2")
     embedder = embedding_factory("google", client=vertex_client, project_id="my-project")
+
+    # With caching
+    from ragas.cache import DiskCacheBackend
+    cache = DiskCacheBackend()
+    embedder = embedding_factory("openai", client=openai_client, cache=cache)
     """
     # Detect if this is a legacy call for backward compatibility
     is_legacy_call = _is_legacy_embedding_call(provider, model, client, interface)
@@ -682,7 +734,7 @@ def embedding_factory(
             if _looks_like_model_name(provider)
             else (model or "text-embedding-ada-002")
         )
-        openai_embeddings = OpenAIEmbeddings(model=model_name)
+        openai_embeddings = OpenAIEmbeddings(model=model_name, base_url=base_url)
         if run_config is not None:
             openai_embeddings.request_timeout = run_config.timeout
         else:
@@ -701,7 +753,11 @@ def embedding_factory(
         )
         return result
 
-    # Modern interface
+    # Modern interface - pass base_url and cache through kwargs for modern providers
+    if base_url is not None:
+        kwargs["base_url"] = base_url
+    if cache is not None:
+        kwargs["cache"] = cache
     result = _create_modern_embedding(provider, model, client, **kwargs)
 
     # Track factory usage (modern)
@@ -765,6 +821,8 @@ def _create_modern_embedding(
     provider: str, model: t.Optional[str], client: t.Optional[t.Any], **kwargs: t.Any
 ) -> BaseRagasEmbedding:
     """Create a modern embedding instance based on the provider."""
+    cache = kwargs.pop("cache", None)
+
     # Handle provider/model string format
     if "/" in provider and model is None:
         provider_name, model_name = provider.split("/", 1)
@@ -782,7 +840,7 @@ def _create_modern_embedding(
         )
 
     # Let the provider class validate and construct itself
-    return provider_cls._from_factory(model=model, client=client, **kwargs)
+    return provider_cls._from_factory(model=model, client=client, cache=cache, **kwargs)
 
 
 def modern_embedding_factory(

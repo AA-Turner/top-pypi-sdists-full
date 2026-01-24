@@ -1,0 +1,29 @@
+name: ctest
+permissions:
+  contents: read
+
+on:
+  - pull_request
+  - push
+
+jobs:
+  ctest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev
+
+      - name: mkdir
+        run: mkdir ${{runner.workspace}}/build
+
+      - name: configure
+        run: cmake -S ${{github.workspace}} -B ${{runner.workspace}}/build
+
+      - name: build
+        run: cmake --build ${{runner.workspace}}/build --target test_executables
+
+      - name: ctest
+        run: ctest --test-dir ${{runner.workspace}}/build

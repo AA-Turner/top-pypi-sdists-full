@@ -19,6 +19,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Mapping
 from typing import Any, overload
 
 from botocore.client import BaseClient, ClientMeta
@@ -84,12 +85,6 @@ from .type_defs import (
     UpdateApplicationRequestTypeDef,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import type as Type
-    from collections.abc import Mapping
-else:
-    from typing import Dict, Mapping, Type
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
 else:
@@ -100,17 +95,17 @@ __all__ = ("ApplicationDiscoveryServiceClient",)
 
 
 class Exceptions(BaseClientExceptions):
-    AuthorizationErrorException: Type[BotocoreClientError]
-    ClientError: Type[BotocoreClientError]
-    ConflictErrorException: Type[BotocoreClientError]
-    HomeRegionNotSetException: Type[BotocoreClientError]
-    InvalidParameterException: Type[BotocoreClientError]
-    InvalidParameterValueException: Type[BotocoreClientError]
-    LimitExceededException: Type[BotocoreClientError]
-    OperationNotPermittedException: Type[BotocoreClientError]
-    ResourceInUseException: Type[BotocoreClientError]
-    ResourceNotFoundException: Type[BotocoreClientError]
-    ServerInternalErrorException: Type[BotocoreClientError]
+    AuthorizationErrorException: type[BotocoreClientError]
+    ClientError: type[BotocoreClientError]
+    ConflictErrorException: type[BotocoreClientError]
+    HomeRegionNotSetException: type[BotocoreClientError]
+    InvalidParameterException: type[BotocoreClientError]
+    InvalidParameterValueException: type[BotocoreClientError]
+    LimitExceededException: type[BotocoreClientError]
+    OperationNotPermittedException: type[BotocoreClientError]
+    ResourceInUseException: type[BotocoreClientError]
+    ResourceNotFoundException: type[BotocoreClientError]
+    ServerInternalErrorException: type[BotocoreClientError]
 
 
 class ApplicationDiscoveryServiceClient(BaseClient):
@@ -150,7 +145,7 @@ class ApplicationDiscoveryServiceClient(BaseClient):
 
     def associate_configuration_items_to_application(
         self, **kwargs: Unpack[AssociateConfigurationItemsToApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Associates one or more configuration items with an application.
 
@@ -188,7 +183,7 @@ class ApplicationDiscoveryServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_discovery/client/#create_application)
         """
 
-    def create_tags(self, **kwargs: Unpack[CreateTagsRequestTypeDef]) -> Dict[str, Any]:
+    def create_tags(self, **kwargs: Unpack[CreateTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Creates one or more tags for configuration items.
 
@@ -198,7 +193,7 @@ class ApplicationDiscoveryServiceClient(BaseClient):
 
     def delete_applications(
         self, **kwargs: Unpack[DeleteApplicationsRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Deletes a list of applications and their associations with configuration items.
 
@@ -206,7 +201,7 @@ class ApplicationDiscoveryServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_discovery/client/#delete_applications)
         """
 
-    def delete_tags(self, **kwargs: Unpack[DeleteTagsRequestTypeDef]) -> Dict[str, Any]:
+    def delete_tags(self, **kwargs: Unpack[DeleteTagsRequestTypeDef]) -> dict[str, Any]:
         """
         Deletes the association between configuration items and one or more tags.
 
@@ -301,7 +296,7 @@ class ApplicationDiscoveryServiceClient(BaseClient):
 
     def disassociate_configuration_items_from_application(
         self, **kwargs: Unpack[DisassociateConfigurationItemsFromApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Disassociates one or more configuration items from an application.
 
@@ -422,7 +417,7 @@ class ApplicationDiscoveryServiceClient(BaseClient):
 
     def update_application(
         self, **kwargs: Unpack[UpdateApplicationRequestTypeDef]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Updates metadata about an application.
 

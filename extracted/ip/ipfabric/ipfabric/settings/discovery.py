@@ -66,7 +66,7 @@ class Discovery(BaseModel):
 
     @model_serializer
     def _ser_model(self) -> dict[str, Any]:
-        ser = dict()
+        ser = {}
         for k, v in self.model_fields.items():
             if v.exclude:
                 continue
@@ -81,8 +81,8 @@ class Discovery(BaseModel):
         return ser
 
     def update_discovery_networks(self, subnets: list, include: bool = False):
-        payload = dict()
-        payload["networks"] = dict()
+        payload = {}
+        payload["networks"] = {}
         if include:
             payload["networks"]["include"] = subnets
             payload["networks"]["exclude"] = self.networks.exclude

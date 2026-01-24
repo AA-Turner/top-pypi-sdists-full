@@ -1,7 +1,7 @@
 r'''
 # `aws_nat_gateway`
 
-Refer to the Terraform Registry for docs: [`aws_nat_gateway`](https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway).
+Refer to the Terraform Registry for docs: [`aws_nat_gateway`](https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,15 +44,16 @@ class NatGateway(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.natGateway.NatGateway",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway aws_nat_gateway}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway aws_nat_gateway}.'''
 
     def __init__(
         self,
         scope: _constructs_77d1e7e8.Construct,
         id_: builtins.str,
         *,
-        subnet_id: builtins.str,
         allocation_id: typing.Optional[builtins.str] = None,
+        availability_mode: typing.Optional[builtins.str] = None,
+        availability_zone_address: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NatGatewayAvailabilityZoneAddress", typing.Dict[builtins.str, typing.Any]]]]] = None,
         connectivity_type: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         private_ip: typing.Optional[builtins.str] = None,
@@ -60,9 +61,11 @@ class NatGateway(
         secondary_allocation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         secondary_private_ip_address_count: typing.Optional[jsii.Number] = None,
         secondary_private_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        subnet_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["NatGatewayTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
         connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
         count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
         depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -71,22 +74,25 @@ class NatGateway(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway aws_nat_gateway} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway aws_nat_gateway} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#subnet_id NatGateway#subnet_id}.
-        :param allocation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#allocation_id NatGateway#allocation_id}.
-        :param connectivity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#connectivity_type NatGateway#connectivity_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#id NatGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#private_ip NatGateway#private_ip}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#region NatGateway#region}
-        :param secondary_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_allocation_ids NatGateway#secondary_allocation_ids}.
-        :param secondary_private_ip_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_private_ip_address_count NatGateway#secondary_private_ip_address_count}.
-        :param secondary_private_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_private_ip_addresses NatGateway#secondary_private_ip_addresses}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#tags NatGateway#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#tags_all NatGateway#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#timeouts NatGateway#timeouts}
+        :param allocation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#allocation_id NatGateway#allocation_id}.
+        :param availability_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_mode NatGateway#availability_mode}.
+        :param availability_zone_address: availability_zone_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone_address NatGateway#availability_zone_address}
+        :param connectivity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#connectivity_type NatGateway#connectivity_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#id NatGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#private_ip NatGateway#private_ip}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#region NatGateway#region}
+        :param secondary_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_allocation_ids NatGateway#secondary_allocation_ids}.
+        :param secondary_private_ip_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_private_ip_address_count NatGateway#secondary_private_ip_address_count}.
+        :param secondary_private_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_private_ip_addresses NatGateway#secondary_private_ip_addresses}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#subnet_id NatGateway#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#tags NatGateway#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#tags_all NatGateway#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#timeouts NatGateway#timeouts}
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#vpc_id NatGateway#vpc_id}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -100,8 +106,9 @@ class NatGateway(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id_", value=id_, expected_type=type_hints["id_"])
         config = NatGatewayConfig(
-            subnet_id=subnet_id,
             allocation_id=allocation_id,
+            availability_mode=availability_mode,
+            availability_zone_address=availability_zone_address,
             connectivity_type=connectivity_type,
             id=id,
             private_ip=private_ip,
@@ -109,9 +116,11 @@ class NatGateway(
             secondary_allocation_ids=secondary_allocation_ids,
             secondary_private_ip_address_count=secondary_private_ip_address_count,
             secondary_private_ip_addresses=secondary_private_ip_addresses,
+            subnet_id=subnet_id,
             tags=tags,
             tags_all=tags_all,
             timeouts=timeouts,
+            vpc_id=vpc_id,
             connection=connection,
             count=count,
             depends_on=depends_on,
@@ -136,7 +145,7 @@ class NatGateway(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NatGateway to import.
-        :param import_from_id: The id of the existing NatGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NatGateway that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NatGateway to import is found.
         '''
         if __debug__:
@@ -147,6 +156,19 @@ class NatGateway(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putAvailabilityZoneAddress")
+    def put_availability_zone_address(
+        self,
+        value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["NatGatewayAvailabilityZoneAddress", typing.Dict[builtins.str, typing.Any]]]],
+    ) -> None:
+        '''
+        :param value: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__59308f3c309101d7a2d494ae6236fed0cc68ca74ec68472606078938d47e805d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast(None, jsii.invoke(self, "putAvailabilityZoneAddress", [value]))
+
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
         self,
@@ -156,9 +178,9 @@ class NatGateway(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#create NatGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#delete NatGateway#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#update NatGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#create NatGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#delete NatGateway#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#update NatGateway#update}.
         '''
         value = NatGatewayTimeouts(create=create, delete=delete, update=update)
 
@@ -167,6 +189,14 @@ class NatGateway(
     @jsii.member(jsii_name="resetAllocationId")
     def reset_allocation_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAllocationId", []))
+
+    @jsii.member(jsii_name="resetAvailabilityMode")
+    def reset_availability_mode(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAvailabilityMode", []))
+
+    @jsii.member(jsii_name="resetAvailabilityZoneAddress")
+    def reset_availability_zone_address(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAvailabilityZoneAddress", []))
 
     @jsii.member(jsii_name="resetConnectivityType")
     def reset_connectivity_type(self) -> None:
@@ -196,6 +226,10 @@ class NatGateway(
     def reset_secondary_private_ip_addresses(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetSecondaryPrivateIpAddresses", []))
 
+    @jsii.member(jsii_name="resetSubnetId")
+    def reset_subnet_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetSubnetId", []))
+
     @jsii.member(jsii_name="resetTags")
     def reset_tags(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTags", []))
@@ -207,6 +241,10 @@ class NatGateway(
     @jsii.member(jsii_name="resetTimeouts")
     def reset_timeouts(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetTimeouts", []))
+
+    @jsii.member(jsii_name="resetVpcId")
+    def reset_vpc_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetVpcId", []))
 
     @jsii.member(jsii_name="synthesizeAttributes")
     def _synthesize_attributes(self) -> typing.Mapping[builtins.str, typing.Any]:
@@ -227,6 +265,21 @@ class NatGateway(
         return typing.cast(builtins.str, jsii.get(self, "associationId"))
 
     @builtins.property
+    @jsii.member(jsii_name="autoProvisionZones")
+    def auto_provision_zones(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "autoProvisionZones"))
+
+    @builtins.property
+    @jsii.member(jsii_name="autoScalingIps")
+    def auto_scaling_ips(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "autoScalingIps"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneAddress")
+    def availability_zone_address(self) -> "NatGatewayAvailabilityZoneAddressList":
+        return typing.cast("NatGatewayAvailabilityZoneAddressList", jsii.get(self, "availabilityZoneAddress"))
+
+    @builtins.property
     @jsii.member(jsii_name="networkInterfaceId")
     def network_interface_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "networkInterfaceId"))
@@ -237,6 +290,21 @@ class NatGateway(
         return typing.cast(builtins.str, jsii.get(self, "publicIp"))
 
     @builtins.property
+    @jsii.member(jsii_name="regionalNatGatewayAddress")
+    def regional_nat_gateway_address(self) -> "NatGatewayRegionalNatGatewayAddressList":
+        return typing.cast("NatGatewayRegionalNatGatewayAddressList", jsii.get(self, "regionalNatGatewayAddress"))
+
+    @builtins.property
+    @jsii.member(jsii_name="regionalNatGatewayAutoMode")
+    def regional_nat_gateway_auto_mode(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "regionalNatGatewayAutoMode"))
+
+    @builtins.property
+    @jsii.member(jsii_name="routeTableId")
+    def route_table_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "routeTableId"))
+
+    @builtins.property
     @jsii.member(jsii_name="timeouts")
     def timeouts(self) -> "NatGatewayTimeoutsOutputReference":
         return typing.cast("NatGatewayTimeoutsOutputReference", jsii.get(self, "timeouts"))
@@ -245,6 +313,18 @@ class NatGateway(
     @jsii.member(jsii_name="allocationIdInput")
     def allocation_id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "allocationIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityModeInput")
+    def availability_mode_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityModeInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneAddressInput")
+    def availability_zone_address_input(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NatGatewayAvailabilityZoneAddress"]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["NatGatewayAvailabilityZoneAddress"]]], jsii.get(self, "availabilityZoneAddressInput"))
 
     @builtins.property
     @jsii.member(jsii_name="connectivityTypeInput")
@@ -310,6 +390,11 @@ class NatGateway(
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, "NatGatewayTimeouts"]], jsii.get(self, "timeoutsInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="vpcIdInput")
+    def vpc_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "vpcIdInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="allocationId")
     def allocation_id(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "allocationId"))
@@ -320,6 +405,18 @@ class NatGateway(
             type_hints = typing.get_type_hints(_typecheckingstub__67e9c8d6493a77538ff4a11354e91b3150c5a83f6b7b607c2a43818023f07826)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "allocationId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityMode")
+    def availability_mode(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "availabilityMode"))
+
+    @availability_mode.setter
+    def availability_mode(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__43d8a330863b02c980a335358f81062e3339c4876c39e9ef41ea11dcae39af59)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityMode", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="connectivityType")
@@ -441,6 +538,283 @@ class NatGateway(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsAll", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="vpcId")
+    def vpc_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "vpcId"))
+
+    @vpc_id.setter
+    def vpc_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4883dfc207ef5afcad21eeb3c2c29227ede28db14a82fe4374e0812856d64357)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "vpcId", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.natGateway.NatGatewayAvailabilityZoneAddress",
+    jsii_struct_bases=[],
+    name_mapping={
+        "allocation_ids": "allocationIds",
+        "availability_zone": "availabilityZone",
+        "availability_zone_id": "availabilityZoneId",
+    },
+)
+class NatGatewayAvailabilityZoneAddress:
+    def __init__(
+        self,
+        *,
+        allocation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+        availability_zone: typing.Optional[builtins.str] = None,
+        availability_zone_id: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#allocation_ids NatGateway#allocation_ids}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone NatGateway#availability_zone}.
+        :param availability_zone_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone_id NatGateway#availability_zone_id}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6c5a7a78778a44fbf961e7c46a875b1203504c1444acf3f2e57783c23ca8f0ce)
+            check_type(argname="argument allocation_ids", value=allocation_ids, expected_type=type_hints["allocation_ids"])
+            check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument availability_zone_id", value=availability_zone_id, expected_type=type_hints["availability_zone_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if allocation_ids is not None:
+            self._values["allocation_ids"] = allocation_ids
+        if availability_zone is not None:
+            self._values["availability_zone"] = availability_zone
+        if availability_zone_id is not None:
+            self._values["availability_zone_id"] = availability_zone_id
+
+    @builtins.property
+    def allocation_ids(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#allocation_ids NatGateway#allocation_ids}.'''
+        result = self._values.get("allocation_ids")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def availability_zone(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone NatGateway#availability_zone}.'''
+        result = self._values.get("availability_zone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def availability_zone_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone_id NatGateway#availability_zone_id}.'''
+        result = self._values.get("availability_zone_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NatGatewayAvailabilityZoneAddress(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class NatGatewayAvailabilityZoneAddressList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.natGateway.NatGatewayAvailabilityZoneAddressList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__777fbac727b605a0502c65ed372a78d65948cea389a0a22b2bdd7876227ce105)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "NatGatewayAvailabilityZoneAddressOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d77f38fb9f73d0f0e7feeef98a36cb452fc2d48451215ed08bfc33fa4427321d)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("NatGatewayAvailabilityZoneAddressOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2023726c994e77040786bdb3343b64c1e24afa8569e336d1321b79366a9dd573)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__950cdfa7167f0519d623e60301ce7c5a9ba1864eeea15bfecd41433dd34a06e1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25d678612766a129f2c28855e644ff1c647a4bb846b2b28129c09019bc75d412)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NatGatewayAvailabilityZoneAddress]]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NatGatewayAvailabilityZoneAddress]]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NatGatewayAvailabilityZoneAddress]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__221ecfa4b10f203cdee6af8a6a904baac0942cc78501350a90a68ea56185f709)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+class NatGatewayAvailabilityZoneAddressOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.natGateway.NatGatewayAvailabilityZoneAddressOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47bcdd856daee474d3ead3df0faa179ef60aa096d17eeb7648a7ad766ef95d32)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @jsii.member(jsii_name="resetAllocationIds")
+    def reset_allocation_ids(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAllocationIds", []))
+
+    @jsii.member(jsii_name="resetAvailabilityZone")
+    def reset_availability_zone(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAvailabilityZone", []))
+
+    @jsii.member(jsii_name="resetAvailabilityZoneId")
+    def reset_availability_zone_id(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetAvailabilityZoneId", []))
+
+    @builtins.property
+    @jsii.member(jsii_name="allocationIdsInput")
+    def allocation_ids_input(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "allocationIdsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneIdInput")
+    def availability_zone_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneInput")
+    def availability_zone_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="allocationIds")
+    def allocation_ids(self) -> typing.List[builtins.str]:
+        return typing.cast(typing.List[builtins.str], jsii.get(self, "allocationIds"))
+
+    @allocation_ids.setter
+    def allocation_ids(self, value: typing.List[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__807ecf73a1e2160c1f596c96a8b5580177aeaa24803a84676ddc78d3de7c2acb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "allocationIds", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZone")
+    def availability_zone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "availabilityZone"))
+
+    @availability_zone.setter
+    def availability_zone(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2353615dbcc138805da4152c44a5b94d57074734da8e48db8931b5a94ea0da77)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneId")
+    def availability_zone_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "availabilityZoneId"))
+
+    @availability_zone_id.setter
+    def availability_zone_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__47015ca6f6d302d0303ca8f9c5ca540eb3d5fb8d51cae0e56007be9461f0cc6b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "availabilityZoneId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, NatGatewayAvailabilityZoneAddress]]:
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, NatGatewayAvailabilityZoneAddress]], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, NatGatewayAvailabilityZoneAddress]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__96cfda7b42dc1c64847928da940306a19329a94b1f10e1548ebc36e60fa61d41)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
 
 @jsii.data_type(
     jsii_type="@cdktf/provider-aws.natGateway.NatGatewayConfig",
@@ -453,8 +827,9 @@ class NatGateway(
         "lifecycle": "lifecycle",
         "provider": "provider",
         "provisioners": "provisioners",
-        "subnet_id": "subnetId",
         "allocation_id": "allocationId",
+        "availability_mode": "availabilityMode",
+        "availability_zone_address": "availabilityZoneAddress",
         "connectivity_type": "connectivityType",
         "id": "id",
         "private_ip": "privateIp",
@@ -462,9 +837,11 @@ class NatGateway(
         "secondary_allocation_ids": "secondaryAllocationIds",
         "secondary_private_ip_address_count": "secondaryPrivateIpAddressCount",
         "secondary_private_ip_addresses": "secondaryPrivateIpAddresses",
+        "subnet_id": "subnetId",
         "tags": "tags",
         "tags_all": "tagsAll",
         "timeouts": "timeouts",
+        "vpc_id": "vpcId",
     },
 )
 class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
@@ -478,8 +855,9 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-        subnet_id: builtins.str,
         allocation_id: typing.Optional[builtins.str] = None,
+        availability_mode: typing.Optional[builtins.str] = None,
+        availability_zone_address: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NatGatewayAvailabilityZoneAddress, typing.Dict[builtins.str, typing.Any]]]]] = None,
         connectivity_type: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
         private_ip: typing.Optional[builtins.str] = None,
@@ -487,9 +865,11 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         secondary_allocation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         secondary_private_ip_address_count: typing.Optional[jsii.Number] = None,
         secondary_private_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+        subnet_id: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeouts: typing.Optional[typing.Union["NatGatewayTimeouts", typing.Dict[builtins.str, typing.Any]]] = None,
+        vpc_id: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
         :param connection: 
@@ -499,18 +879,21 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#subnet_id NatGateway#subnet_id}.
-        :param allocation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#allocation_id NatGateway#allocation_id}.
-        :param connectivity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#connectivity_type NatGateway#connectivity_type}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#id NatGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#private_ip NatGateway#private_ip}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#region NatGateway#region}
-        :param secondary_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_allocation_ids NatGateway#secondary_allocation_ids}.
-        :param secondary_private_ip_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_private_ip_address_count NatGateway#secondary_private_ip_address_count}.
-        :param secondary_private_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_private_ip_addresses NatGateway#secondary_private_ip_addresses}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#tags NatGateway#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#tags_all NatGateway#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#timeouts NatGateway#timeouts}
+        :param allocation_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#allocation_id NatGateway#allocation_id}.
+        :param availability_mode: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_mode NatGateway#availability_mode}.
+        :param availability_zone_address: availability_zone_address block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone_address NatGateway#availability_zone_address}
+        :param connectivity_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#connectivity_type NatGateway#connectivity_type}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#id NatGateway#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param private_ip: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#private_ip NatGateway#private_ip}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#region NatGateway#region}
+        :param secondary_allocation_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_allocation_ids NatGateway#secondary_allocation_ids}.
+        :param secondary_private_ip_address_count: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_private_ip_address_count NatGateway#secondary_private_ip_address_count}.
+        :param secondary_private_ip_addresses: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_private_ip_addresses NatGateway#secondary_private_ip_addresses}.
+        :param subnet_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#subnet_id NatGateway#subnet_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#tags NatGateway#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#tags_all NatGateway#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#timeouts NatGateway#timeouts}
+        :param vpc_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#vpc_id NatGateway#vpc_id}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -525,8 +908,9 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument lifecycle", value=lifecycle, expected_type=type_hints["lifecycle"])
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
             check_type(argname="argument provisioners", value=provisioners, expected_type=type_hints["provisioners"])
-            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument allocation_id", value=allocation_id, expected_type=type_hints["allocation_id"])
+            check_type(argname="argument availability_mode", value=availability_mode, expected_type=type_hints["availability_mode"])
+            check_type(argname="argument availability_zone_address", value=availability_zone_address, expected_type=type_hints["availability_zone_address"])
             check_type(argname="argument connectivity_type", value=connectivity_type, expected_type=type_hints["connectivity_type"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument private_ip", value=private_ip, expected_type=type_hints["private_ip"])
@@ -534,12 +918,12 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument secondary_allocation_ids", value=secondary_allocation_ids, expected_type=type_hints["secondary_allocation_ids"])
             check_type(argname="argument secondary_private_ip_address_count", value=secondary_private_ip_address_count, expected_type=type_hints["secondary_private_ip_address_count"])
             check_type(argname="argument secondary_private_ip_addresses", value=secondary_private_ip_addresses, expected_type=type_hints["secondary_private_ip_addresses"])
+            check_type(argname="argument subnet_id", value=subnet_id, expected_type=type_hints["subnet_id"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument tags_all", value=tags_all, expected_type=type_hints["tags_all"])
             check_type(argname="argument timeouts", value=timeouts, expected_type=type_hints["timeouts"])
-        self._values: typing.Dict[builtins.str, typing.Any] = {
-            "subnet_id": subnet_id,
-        }
+            check_type(argname="argument vpc_id", value=vpc_id, expected_type=type_hints["vpc_id"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
         if connection is not None:
             self._values["connection"] = connection
         if count is not None:
@@ -556,6 +940,10 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["provisioners"] = provisioners
         if allocation_id is not None:
             self._values["allocation_id"] = allocation_id
+        if availability_mode is not None:
+            self._values["availability_mode"] = availability_mode
+        if availability_zone_address is not None:
+            self._values["availability_zone_address"] = availability_zone_address
         if connectivity_type is not None:
             self._values["connectivity_type"] = connectivity_type
         if id is not None:
@@ -570,12 +958,16 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["secondary_private_ip_address_count"] = secondary_private_ip_address_count
         if secondary_private_ip_addresses is not None:
             self._values["secondary_private_ip_addresses"] = secondary_private_ip_addresses
+        if subnet_id is not None:
+            self._values["subnet_id"] = subnet_id
         if tags is not None:
             self._values["tags"] = tags
         if tags_all is not None:
             self._values["tags_all"] = tags_all
         if timeouts is not None:
             self._values["timeouts"] = timeouts
+        if vpc_id is not None:
+            self._values["vpc_id"] = vpc_id
 
     @builtins.property
     def connection(
@@ -642,27 +1034,37 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[typing.List[typing.Union[_cdktf_9a9027ec.FileProvisioner, _cdktf_9a9027ec.LocalExecProvisioner, _cdktf_9a9027ec.RemoteExecProvisioner]]], result)
 
     @builtins.property
-    def subnet_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#subnet_id NatGateway#subnet_id}.'''
-        result = self._values.get("subnet_id")
-        assert result is not None, "Required property 'subnet_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def allocation_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#allocation_id NatGateway#allocation_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#allocation_id NatGateway#allocation_id}.'''
         result = self._values.get("allocation_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def availability_mode(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_mode NatGateway#availability_mode}.'''
+        result = self._values.get("availability_mode")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def availability_zone_address(
+        self,
+    ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NatGatewayAvailabilityZoneAddress]]]:
+        '''availability_zone_address block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#availability_zone_address NatGateway#availability_zone_address}
+        '''
+        result = self._values.get("availability_zone_address")
+        return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NatGatewayAvailabilityZoneAddress]]], result)
+
+    @builtins.property
     def connectivity_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#connectivity_type NatGateway#connectivity_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#connectivity_type NatGateway#connectivity_type}.'''
         result = self._values.get("connectivity_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#id NatGateway#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#id NatGateway#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -672,7 +1074,7 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def private_ip(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#private_ip NatGateway#private_ip}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#private_ip NatGateway#private_ip}.'''
         result = self._values.get("private_ip")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -680,20 +1082,20 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#region NatGateway#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#region NatGateway#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def secondary_allocation_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_allocation_ids NatGateway#secondary_allocation_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_allocation_ids NatGateway#secondary_allocation_ids}.'''
         result = self._values.get("secondary_allocation_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def secondary_private_ip_address_count(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_private_ip_address_count NatGateway#secondary_private_ip_address_count}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_private_ip_address_count NatGateway#secondary_private_ip_address_count}.'''
         result = self._values.get("secondary_private_ip_address_count")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -701,19 +1103,25 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def secondary_private_ip_addresses(
         self,
     ) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#secondary_private_ip_addresses NatGateway#secondary_private_ip_addresses}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#secondary_private_ip_addresses NatGateway#secondary_private_ip_addresses}.'''
         result = self._values.get("secondary_private_ip_addresses")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
+    def subnet_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#subnet_id NatGateway#subnet_id}.'''
+        result = self._values.get("subnet_id")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#tags NatGateway#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#tags NatGateway#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#tags_all NatGateway#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#tags_all NatGateway#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -721,10 +1129,16 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NatGatewayTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#timeouts NatGateway#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#timeouts NatGateway#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NatGatewayTimeouts"], result)
+
+    @builtins.property
+    def vpc_id(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#vpc_id NatGateway#vpc_id}.'''
+        result = self._values.get("vpc_id")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -736,6 +1150,180 @@ class NatGatewayConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return "NatGatewayConfig(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
+
+
+@jsii.data_type(
+    jsii_type="@cdktf/provider-aws.natGateway.NatGatewayRegionalNatGatewayAddress",
+    jsii_struct_bases=[],
+    name_mapping={},
+)
+class NatGatewayRegionalNatGatewayAddress:
+    def __init__(self) -> None:
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "NatGatewayRegionalNatGatewayAddress(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class NatGatewayRegionalNatGatewayAddressList(
+    _cdktf_9a9027ec.ComplexList,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.natGateway.NatGatewayRegionalNatGatewayAddressList",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        wraps_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param wraps_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8dc964b0e8a796a9a2fecf03131b3609115915d2c8f35ba4eb51bd3efbfc568a)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument wraps_set", value=wraps_set, expected_type=type_hints["wraps_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, wraps_set])
+
+    @jsii.member(jsii_name="get")
+    def get(
+        self,
+        index: jsii.Number,
+    ) -> "NatGatewayRegionalNatGatewayAddressOutputReference":
+        '''
+        :param index: the index of the item to return.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__256ca802529368508c18a03e0f3f32e210338f65c74bcee3594ace8dcbbadb0b)
+            check_type(argname="argument index", value=index, expected_type=type_hints["index"])
+        return typing.cast("NatGatewayRegionalNatGatewayAddressOutputReference", jsii.invoke(self, "get", [index]))
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformAttribute")
+    def _terraform_attribute(self) -> builtins.str:
+        '''The attribute on the parent resource this class is referencing.'''
+        return typing.cast(builtins.str, jsii.get(self, "terraformAttribute"))
+
+    @_terraform_attribute.setter
+    def _terraform_attribute(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12e41acc3b27bc84308677abaae8b5d0a94ac5f02d4ec83be6e5d49b821b3ee5)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformAttribute", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="terraformResource")
+    def _terraform_resource(self) -> _cdktf_9a9027ec.IInterpolatingParent:
+        '''The parent resource.'''
+        return typing.cast(_cdktf_9a9027ec.IInterpolatingParent, jsii.get(self, "terraformResource"))
+
+    @_terraform_resource.setter
+    def _terraform_resource(self, value: _cdktf_9a9027ec.IInterpolatingParent) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b96b1b76fe9e656a136002f183a124d351d08f6a019664d1614bf5cdd2bbefb3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "terraformResource", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="wrapsSet")
+    def _wraps_set(self) -> builtins.bool:
+        '''whether the list is wrapping a set (will add tolist() to be able to access an item via an index).'''
+        return typing.cast(builtins.bool, jsii.get(self, "wrapsSet"))
+
+    @_wraps_set.setter
+    def _wraps_set(self, value: builtins.bool) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__1c6b688d7eb9ee49be3f3a8ed910f4375c1ad77d8e330b639f70b604e74c600b)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "wrapsSet", value) # pyright: ignore[reportArgumentType]
+
+
+class NatGatewayRegionalNatGatewayAddressOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.natGateway.NatGatewayRegionalNatGatewayAddressOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+        complex_object_index: jsii.Number,
+        complex_object_is_from_set: builtins.bool,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        :param complex_object_index: the index of this item in the list.
+        :param complex_object_is_from_set: whether the list is wrapping a set (will add tolist() to be able to access an item via an index).
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9510aa671955d8f8518e95ffb38c9d99d5717f7866e23f435481ba587ca354b7)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+            check_type(argname="argument complex_object_index", value=complex_object_index, expected_type=type_hints["complex_object_index"])
+            check_type(argname="argument complex_object_is_from_set", value=complex_object_is_from_set, expected_type=type_hints["complex_object_is_from_set"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute, complex_object_index, complex_object_is_from_set])
+
+    @builtins.property
+    @jsii.member(jsii_name="allocationId")
+    def allocation_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "allocationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="associationId")
+    def association_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "associationId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZone")
+    def availability_zone(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "availabilityZone"))
+
+    @builtins.property
+    @jsii.member(jsii_name="availabilityZoneId")
+    def availability_zone_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "availabilityZoneId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="networkInterfaceId")
+    def network_interface_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "networkInterfaceId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="publicIp")
+    def public_ip(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "publicIp"))
+
+    @builtins.property
+    @jsii.member(jsii_name="status")
+    def status(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "status"))
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(self) -> typing.Optional[NatGatewayRegionalNatGatewayAddress]:
+        return typing.cast(typing.Optional[NatGatewayRegionalNatGatewayAddress], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[NatGatewayRegionalNatGatewayAddress],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__24ad1a88c8e83dfd4f944119576b018997fd782f53ee74cf14ce7f885cad7e56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
 
 
 @jsii.data_type(
@@ -752,9 +1340,9 @@ class NatGatewayTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#create NatGateway#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#delete NatGateway#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#update NatGateway#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#create NatGateway#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#delete NatGateway#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#update NatGateway#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4e353d84fd80d57f86459b5b1ab3f25f2688934923c68276ba30362a286944e1)
@@ -771,19 +1359,19 @@ class NatGatewayTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#create NatGateway#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#create NatGateway#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#delete NatGateway#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#delete NatGateway#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.14.1/docs/resources/nat_gateway#update NatGateway#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.25.0/docs/resources/nat_gateway#update NatGateway#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -902,7 +1490,13 @@ class NatGatewayTimeoutsOutputReference(
 
 __all__ = [
     "NatGateway",
+    "NatGatewayAvailabilityZoneAddress",
+    "NatGatewayAvailabilityZoneAddressList",
+    "NatGatewayAvailabilityZoneAddressOutputReference",
     "NatGatewayConfig",
+    "NatGatewayRegionalNatGatewayAddress",
+    "NatGatewayRegionalNatGatewayAddressList",
+    "NatGatewayRegionalNatGatewayAddressOutputReference",
     "NatGatewayTimeouts",
     "NatGatewayTimeoutsOutputReference",
 ]
@@ -913,8 +1507,9 @@ def _typecheckingstub__2ac6cc0edb0fba435152bb531b1cd8e31f1a471a097fe491aa4a18657
     scope: _constructs_77d1e7e8.Construct,
     id_: builtins.str,
     *,
-    subnet_id: builtins.str,
     allocation_id: typing.Optional[builtins.str] = None,
+    availability_mode: typing.Optional[builtins.str] = None,
+    availability_zone_address: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NatGatewayAvailabilityZoneAddress, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connectivity_type: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     private_ip: typing.Optional[builtins.str] = None,
@@ -922,9 +1517,11 @@ def _typecheckingstub__2ac6cc0edb0fba435152bb531b1cd8e31f1a471a097fe491aa4a18657
     secondary_allocation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     secondary_private_ip_address_count: typing.Optional[jsii.Number] = None,
     secondary_private_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[NatGatewayTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
     count: typing.Optional[typing.Union[jsii.Number, _cdktf_9a9027ec.TerraformCount]] = None,
     depends_on: typing.Optional[typing.Sequence[_cdktf_9a9027ec.ITerraformDependable]] = None,
@@ -945,7 +1542,19 @@ def _typecheckingstub__ec5095ddd70eb03058998d55da33d3efae30cbc3550197e75f4439236
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__59308f3c309101d7a2d494ae6236fed0cc68ca74ec68472606078938d47e805d(
+    value: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NatGatewayAvailabilityZoneAddress, typing.Dict[builtins.str, typing.Any]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__67e9c8d6493a77538ff4a11354e91b3150c5a83f6b7b607c2a43818023f07826(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43d8a330863b02c980a335358f81062e3339c4876c39e9ef41ea11dcae39af59(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1011,6 +1620,92 @@ def _typecheckingstub__3b3d80384f236a81cc861333905ef3caab408976007c732881b86222b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__4883dfc207ef5afcad21eeb3c2c29227ede28db14a82fe4374e0812856d64357(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6c5a7a78778a44fbf961e7c46a875b1203504c1444acf3f2e57783c23ca8f0ce(
+    *,
+    allocation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+    availability_zone: typing.Optional[builtins.str] = None,
+    availability_zone_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__777fbac727b605a0502c65ed372a78d65948cea389a0a22b2bdd7876227ce105(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d77f38fb9f73d0f0e7feeef98a36cb452fc2d48451215ed08bfc33fa4427321d(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2023726c994e77040786bdb3343b64c1e24afa8569e336d1321b79366a9dd573(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__950cdfa7167f0519d623e60301ce7c5a9ba1864eeea15bfecd41433dd34a06e1(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25d678612766a129f2c28855e644ff1c647a4bb846b2b28129c09019bc75d412(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__221ecfa4b10f203cdee6af8a6a904baac0942cc78501350a90a68ea56185f709(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[NatGatewayAvailabilityZoneAddress]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47bcdd856daee474d3ead3df0faa179ef60aa096d17eeb7648a7ad766ef95d32(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__807ecf73a1e2160c1f596c96a8b5580177aeaa24803a84676ddc78d3de7c2acb(
+    value: typing.List[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2353615dbcc138805da4152c44a5b94d57074734da8e48db8931b5a94ea0da77(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__47015ca6f6d302d0303ca8f9c5ca540eb3d5fb8d51cae0e56007be9461f0cc6b(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__96cfda7b42dc1c64847928da940306a19329a94b1f10e1548ebc36e60fa61d41(
+    value: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, NatGatewayAvailabilityZoneAddress]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__123ad192e84bfba2c1244232caaa4947d65850b36a5adcd629d4e33c2b101896(
     *,
     connection: typing.Optional[typing.Union[typing.Union[_cdktf_9a9027ec.SSHProvisionerConnection, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.WinrmProvisionerConnection, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -1020,8 +1715,9 @@ def _typecheckingstub__123ad192e84bfba2c1244232caaa4947d65850b36a5adcd629d4e33c2
     lifecycle: typing.Optional[typing.Union[_cdktf_9a9027ec.TerraformResourceLifecycle, typing.Dict[builtins.str, typing.Any]]] = None,
     provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
     provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
-    subnet_id: builtins.str,
     allocation_id: typing.Optional[builtins.str] = None,
+    availability_mode: typing.Optional[builtins.str] = None,
+    availability_zone_address: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union[NatGatewayAvailabilityZoneAddress, typing.Dict[builtins.str, typing.Any]]]]] = None,
     connectivity_type: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
     private_ip: typing.Optional[builtins.str] = None,
@@ -1029,9 +1725,58 @@ def _typecheckingstub__123ad192e84bfba2c1244232caaa4947d65850b36a5adcd629d4e33c2
     secondary_allocation_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
     secondary_private_ip_address_count: typing.Optional[jsii.Number] = None,
     secondary_private_ip_addresses: typing.Optional[typing.Sequence[builtins.str]] = None,
+    subnet_id: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[NatGatewayTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
+    vpc_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8dc964b0e8a796a9a2fecf03131b3609115915d2c8f35ba4eb51bd3efbfc568a(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    wraps_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__256ca802529368508c18a03e0f3f32e210338f65c74bcee3594ace8dcbbadb0b(
+    index: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12e41acc3b27bc84308677abaae8b5d0a94ac5f02d4ec83be6e5d49b821b3ee5(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b96b1b76fe9e656a136002f183a124d351d08f6a019664d1614bf5cdd2bbefb3(
+    value: _cdktf_9a9027ec.IInterpolatingParent,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1c6b688d7eb9ee49be3f3a8ed910f4375c1ad77d8e330b639f70b604e74c600b(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9510aa671955d8f8518e95ffb38c9d99d5717f7866e23f435481ba587ca354b7(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+    complex_object_index: jsii.Number,
+    complex_object_is_from_set: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__24ad1a88c8e83dfd4f944119576b018997fd782f53ee74cf14ce7f885cad7e56(
+    value: typing.Optional[NatGatewayRegionalNatGatewayAddress],
 ) -> None:
     """Type checking stubs"""
     pass

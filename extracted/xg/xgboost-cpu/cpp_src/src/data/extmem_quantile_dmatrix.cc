@@ -1,5 +1,5 @@
 /**
- * Copyright 2024, XGBoost Contributors
+ * Copyright 2024-2025, XGBoost Contributors
  */
 #include "extmem_quantile_dmatrix.h"
 
@@ -7,6 +7,7 @@
 #include <string>  // for string
 #include <vector>  // for vector
 
+#include "../common/error_msg.h"    // for CacheHostRatio, InconsistentMaxBin
 #include "../tree/param.h"          // FIXME(jiamingy): Find a better way to share this parameter.
 #include "batch_utils.h"            // for CheckParam, RegenGHist
 #include "proxy_dmatrix.h"          // for DataIterProxy
@@ -40,6 +41,7 @@ ExtMemQuantileDMatrix::ExtMemQuantileDMatrix(DataIterHandle iter_handle, DMatrix
 
   BatchParam p{max_bin, tree::TrainParam::DftSparseThreshold()};
   if (ctx.IsCPU()) {
+    CHECK(detail::HostRatioIsAuto(config.cache_host_ratio)) << error::CacheHostRatioNotImpl();
     this->InitFromCPU(&ctx, iter, proxy, p, config.missing, ref);
   } else {
     p.n_prefetch_batches = ::xgboost::cuda_impl::DftPrefetchBatches();
@@ -47,6 +49,8 @@ ExtMemQuantileDMatrix::ExtMemQuantileDMatrix(DataIterHandle iter_handle, DMatrix
   }
   this->batch_ = p;
   this->fmat_ctx_ = ctx;
+
+  SyncCategories(&ctx, info_.Cats(), info_.num_row_ == 0);
 }
 
 ExtMemQuantileDMatrix::~ExtMemQuantileDMatrix() {
@@ -75,8 +79,8 @@ void ExtMemQuantileDMatrix::InitFromCPU(
 
   common::HistogramCuts cuts;
   ExternalDataInfo ext_info;
-  cpu_impl::GetDataShape(ctx, proxy, *iter, missing, &ext_info);
-  ext_info.SetInfo(ctx, &this->info_);
+  cpu_impl::GetDataShape(ctx, proxy, iter.get(), missing, &ext_info);
+  ext_info.SetInfo(ctx, true, &this->info_);
 
   this->n_batches_ = ext_info.n_batches;
 

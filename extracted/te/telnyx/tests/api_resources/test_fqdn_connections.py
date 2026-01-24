@@ -10,12 +10,13 @@ import pytest
 from telnyx import Telnyx, AsyncTelnyx
 from tests.utils import assert_matches_type
 from telnyx.types import (
-    FqdnConnectionListResponse,
+    FqdnConnection,
     FqdnConnectionCreateResponse,
     FqdnConnectionDeleteResponse,
     FqdnConnectionUpdateResponse,
     FqdnConnectionRetrieveResponse,
 )
+from telnyx.pagination import SyncDefaultPagination, AsyncDefaultPagination
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -39,6 +40,7 @@ class TestFqdnConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
             encode_contact_header_enabled=True,
@@ -65,6 +67,11 @@ class TestFqdnConnections:
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
             microsoft_teams_sbc=True,
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "+1234567890",
@@ -181,6 +188,7 @@ class TestFqdnConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=True,
             connection_name="string",
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
@@ -207,6 +215,11 @@ class TestFqdnConnections:
                 "timeout_2xx_secs": 10,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "ani_override",
@@ -277,7 +290,7 @@ class TestFqdnConnections:
     @parametrize
     def test_method_list(self, client: Telnyx) -> None:
         fqdn_connection = client.fqdn_connections.list()
-        assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -294,7 +307,7 @@ class TestFqdnConnections:
             },
             sort="connection_name",
         )
-        assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -304,7 +317,7 @@ class TestFqdnConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         fqdn_connection = response.parse()
-        assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+        assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -314,7 +327,7 @@ class TestFqdnConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             fqdn_connection = response.parse()
-            assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+            assert_matches_type(SyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -382,6 +395,7 @@ class TestAsyncFqdnConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=False,
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
             encode_contact_header_enabled=True,
@@ -408,6 +422,11 @@ class TestAsyncFqdnConnections:
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
             microsoft_teams_sbc=True,
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "+1234567890",
@@ -524,6 +543,7 @@ class TestAsyncFqdnConnections:
             active=True,
             anchorsite_override="Latency",
             android_push_credential_id="06b09dfd-7154-4980-8b75-cebf7a9d4f8e",
+            call_cost_in_webhooks=True,
             connection_name="string",
             default_on_hold_comfort_noise_enabled=True,
             dtmf_type="RFC 2833",
@@ -550,6 +570,11 @@ class TestAsyncFqdnConnections:
                 "timeout_2xx_secs": 10,
             },
             ios_push_credential_id="ec0c8e5d-439e-4620-a0c1-9d9c8d02a836",
+            noise_suppression="both",
+            noise_suppression_details={
+                "attenuation_limit": 80,
+                "engine": "deep_filter_net",
+            },
             onnet_t38_passthrough_enabled=True,
             outbound={
                 "ani_override": "ani_override",
@@ -620,7 +645,7 @@ class TestAsyncFqdnConnections:
     @parametrize
     async def test_method_list(self, async_client: AsyncTelnyx) -> None:
         fqdn_connection = await async_client.fqdn_connections.list()
-        assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -637,7 +662,7 @@ class TestAsyncFqdnConnections:
             },
             sort="connection_name",
         )
-        assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -647,7 +672,7 @@ class TestAsyncFqdnConnections:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         fqdn_connection = await response.parse()
-        assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+        assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
     @pytest.mark.skip(reason="Prism tests are disabled")
     @parametrize
@@ -657,7 +682,7 @@ class TestAsyncFqdnConnections:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             fqdn_connection = await response.parse()
-            assert_matches_type(FqdnConnectionListResponse, fqdn_connection, path=["response"])
+            assert_matches_type(AsyncDefaultPagination[FqdnConnection], fqdn_connection, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

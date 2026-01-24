@@ -80,37 +80,29 @@ class FeatureAssociationMatrix(APIObject):
     """
 
     _path = "projects/{}/featureAssociationMatrix/"
-    _association_strength = t.Dict(
-        {
-            t.Key("feature1"): String(allow_blank=True),
-            t.Key("feature2"): String(allow_blank=True),
-            t.Key("statistic"): t.Float(),
-        }
-    )
-    _association_feature = t.Dict(
-        {
-            t.Key("cluster_sort_index", optional=True): Int(),
-            t.Key("cluster_name", optional=True): String(),
-            t.Key("cluster_id", optional=True): Int(),
-            t.Key("feature"): String(allow_blank=True),
-            t.Key("strength_sort_index"): Int(),
-            t.Key("alphabetic_sort_index"): Int(),
-            t.Key("importance_sort_index"): Int(),
-        }
-    )
-    _converter = t.Dict(
-        {
-            t.Key("strengths"): t.List(_association_strength),
-            t.Key("features"): t.List(_association_feature),
-        }
-    )
-    _query_param_validator = t.Dict(
-        {
-            t.Key("metric", optional=True): t.Enum(*FEATURE_ASSOCIATION_METRIC.ALL),
-            t.Key("type", optional=True): t.Enum(*FEATURE_ASSOCIATION_TYPE.ALL),
-            t.Key("featurelistId", optional=True): t.Or(String(), t.Null()),
-        }
-    )
+    _association_strength = t.Dict({
+        t.Key("feature1"): String(allow_blank=True),
+        t.Key("feature2"): String(allow_blank=True),
+        t.Key("statistic"): t.Float(),
+    })
+    _association_feature = t.Dict({
+        t.Key("cluster_sort_index", optional=True): Int(),
+        t.Key("cluster_name", optional=True): String(),
+        t.Key("cluster_id", optional=True): Int(),
+        t.Key("feature"): String(allow_blank=True),
+        t.Key("strength_sort_index"): Int(),
+        t.Key("alphabetic_sort_index"): Int(),
+        t.Key("importance_sort_index"): Int(),
+    })
+    _converter = t.Dict({
+        t.Key("strengths"): t.List(_association_strength),
+        t.Key("features"): t.List(_association_feature),
+    })
+    _query_param_validator = t.Dict({
+        t.Key("metric", optional=True): t.Enum(*FEATURE_ASSOCIATION_METRIC.ALL),
+        t.Key("type", optional=True): t.Enum(*FEATURE_ASSOCIATION_TYPE.ALL),
+        t.Key("featurelistId", optional=True): t.Or(String(), t.Null()),
+    })
 
     def __init__(
         self,

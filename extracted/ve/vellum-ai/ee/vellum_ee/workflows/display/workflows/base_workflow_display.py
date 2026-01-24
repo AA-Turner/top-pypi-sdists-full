@@ -1,13 +1,34 @@
 from copy import copy
+from enum import Enum
 import fnmatch
 from functools import cached_property
 import importlib
 import inspect
-import json
 import logging
 import os
+import pkgutil
+import re
+import traceback
 from uuid import UUID
-from typing import Any, Dict, ForwardRef, Generic, List, Optional, Tuple, Type, TypeVar, Union, cast, get_args
+from typing import (
+    Any,
+    Dict,
+    ForwardRef,
+    FrozenSet,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+)
+
+import jsonschema
 
 from vellum.client import Vellum as VellumClient
 from vellum.client.core.pydantic_utilities import UniversalBaseModel
@@ -15,7 +36,9 @@ from vellum.workflows import BaseWorkflow
 from vellum.workflows.constants import undefined
 from vellum.workflows.descriptors.base import BaseDescriptor
 from vellum.workflows.edges import Edge
+from vellum.workflows.edges.trigger_edge import TriggerEdge
 from vellum.workflows.events.workflow import NodeEventDisplayContext, WorkflowEventDisplayContext
+from vellum.workflows.exceptions import WorkflowInitializationException
 from vellum.workflows.inputs.base import BaseInputs
 from vellum.workflows.inputs.dataset_row import DatasetRow
 from vellum.workflows.nodes.bases import BaseNode
@@ -23,12 +46,15 @@ from vellum.workflows.nodes.displayable.bases.utils import primitive_to_vellum_v
 from vellum.workflows.nodes.displayable.final_output_node.node import FinalOutputNode
 from vellum.workflows.nodes.utils import get_unadorned_node, get_unadorned_port, get_wrapped_node
 from vellum.workflows.ports import Port
-from vellum.workflows.references import OutputReference, WorkflowInputReference
-from vellum.workflows.state.encoder import DefaultStateEncoder
+from vellum.workflows.references import OutputReference, StateValueReference, WorkflowInputReference
+from vellum.workflows.triggers.base import BaseTrigger
+from vellum.workflows.triggers.chat_message import ChatMessageTrigger
+from vellum.workflows.triggers.integration import IntegrationTrigger
+from vellum.workflows.triggers.manual import ManualTrigger
 from vellum.workflows.types.core import Json, JsonArray, JsonObject
 from vellum.workflows.types.generics import WorkflowType
 from vellum.workflows.types.utils import get_original_base
-from vellum.workflows.utils.uuids import uuid4_from_hash
+from vellum.workflows.utils.uuids import generate_entity_id_from_path, uuid4_from_hash
 from vellum.workflows.vellum_client import create_vellum_client
 from vellum_ee.workflows.display.base import (
     EdgeDisplay,
@@ -37,14 +63,14 @@ from vellum_ee.workflows.display.base import (
     WorkflowInputsDisplay,
     WorkflowMetaDisplay,
     WorkflowOutputDisplay,
+    WorkflowTriggerType,
+    get_trigger_type_mapping,
 )
 from vellum_ee.workflows.display.editor.types import NodeDisplayData, NodeDisplayPosition
-from vellum_ee.workflows.display.exceptions import NodeValidationError
 from vellum_ee.workflows.display.nodes.base_node_display import BaseNodeDisplay
 from vellum_ee.workflows.display.nodes.get_node_display_class import get_node_display_class
 from vellum_ee.workflows.display.nodes.types import NodeOutputDisplay, PortDisplay
 from vellum_ee.workflows.display.nodes.utils import raise_if_descriptor
-from vellum_ee.workflows.display.nodes.vellum.utils import create_node_input
 from vellum_ee.workflows.display.types import (
     EdgeDisplays,
     EntrypointDisplays,
@@ -57,9 +83,27 @@ from vellum_ee.workflows.display.types import (
     WorkflowOutputDisplays,
 )
 from vellum_ee.workflows.display.utils.auto_layout import auto_layout_nodes
+from vellum_ee.workflows.display.utils.exceptions import (
+    StateValidationError,
+    TriggerValidationError,
+    UserFacingException,
+    WorkflowValidationError,
+)
 from vellum_ee.workflows.display.utils.expressions import serialize_value
+from vellum_ee.workflows.display.utils.metadata import (
+    get_entrypoint_edge_id,
+    get_regular_edge_id,
+    get_trigger_edge_id,
+    load_dataset_row_index_to_id_mapping,
+    load_runner_config,
+)
 from vellum_ee.workflows.display.utils.registry import register_workflow_display_class
-from vellum_ee.workflows.display.utils.vellum import infer_vellum_variable_type
+from vellum_ee.workflows.display.utils.triggers import (
+    get_trigger_type,
+    serialize_trigger_attributes,
+    serialize_trigger_display_data,
+)
+from vellum_ee.workflows.display.utils.vellum import compile_descriptor_annotation, infer_vellum_variable_type
 from vellum_ee.workflows.display.workflows.get_vellum_workflow_display_class import get_workflow_display
 
 logger = logging.getLogger(__name__)
@@ -70,16 +114,54 @@ IGNORE_PATTERNS = [
     ".*",
     "node_modules/*",
     "*.log",
+    "metadata.json",
 ]
+
+
+class WorkflowSerializationError(UniversalBaseModel):
+    message: str
+    stacktrace: str
 
 
 class WorkflowSerializationResult(UniversalBaseModel):
     exec_config: Dict[str, Any]
-    errors: List[str]
+    errors: List[WorkflowSerializationError]
     dataset: Optional[List[Dict[str, Any]]] = None
 
 
-class BaseWorkflowDisplay(Generic[WorkflowType]):
+BASE_MODULE_PATH = __name__
+
+
+class _BaseWorkflowDisplayMeta(type):
+    def __new__(mcs, name: str, bases: Tuple[Type[Any], ...], attrs: Dict[str, Any]) -> Type[Any]:
+        cls = super().__new__(mcs, name, bases, attrs)
+
+        # Automatically import all of the node displays now that we don't require the __init__.py file
+        # to do so for us.
+        module_path = cls.__module__
+        if module_path.startswith(BASE_MODULE_PATH):
+            return cls
+
+        nodes_module_path = re.sub(r"\.workflow$", ".nodes", module_path)
+        try:
+            nodes_module = importlib.import_module(nodes_module_path)
+        except Exception:
+            # likely because there are no `.nodes` module in the display workflow's module path
+            return cls
+
+        if not hasattr(nodes_module, "__path__") or not hasattr(nodes_module, "__name__"):
+            return cls
+
+        for info in pkgutil.iter_modules(nodes_module.__path__, nodes_module.__name__ + "."):
+            try:
+                importlib.import_module(info.name)
+            except Exception:
+                continue
+
+        return cls
+
+
+class BaseWorkflowDisplay(Generic[WorkflowType], metaclass=_BaseWorkflowDisplayMeta):
     # Used to specify the display data for a workflow.
     workflow_display: Optional[WorkflowMetaDisplay] = None
 
@@ -123,6 +205,13 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         self._dry_run = dry_run
 
     def serialize(self) -> JsonObject:
+        try:
+            self._workflow.validate()
+        except WorkflowInitializationException as e:
+            self.display_context.add_error(
+                WorkflowValidationError(message=e.message, workflow_class_name=self._workflow.__name__)
+            )
+
         self._serialized_files = [
             "__init__.py",
             "display/*",
@@ -130,17 +219,20 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             "nodes/*",
             "state.py",
             "workflow.py",
+            "triggers/*",
         ]
 
         input_variables: JsonArray = []
         for workflow_input_reference, workflow_input_display in self.display_context.workflow_input_displays.items():
             default = (
                 primitive_to_vellum_value(workflow_input_reference.instance)
-                if workflow_input_reference.instance
+                if workflow_input_reference.instance is not None and workflow_input_reference.instance is not undefined
                 else None
             )
 
             is_required = self._is_reference_required(workflow_input_reference)
+
+            schema = compile_descriptor_annotation(workflow_input_reference)
 
             input_variables.append(
                 {
@@ -150,13 +242,16 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
                     "default": default.dict() if default else None,
                     "required": is_required,
                     "extensions": {"color": workflow_input_display.color},
+                    "schema": schema,
                 }
             )
 
         state_variables: JsonArray = []
         for state_value_reference, state_value_display in self.display_context.state_value_displays.items():
             default = (
-                primitive_to_vellum_value(state_value_reference.instance) if state_value_reference.instance else None
+                primitive_to_vellum_value(state_value_reference.instance)
+                if state_value_reference.instance is not None and state_value_reference.instance is not undefined
+                else None
             )
 
             is_required = self._is_reference_required(state_value_reference)
@@ -175,21 +270,119 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         serialized_nodes: Dict[UUID, JsonObject] = {}
         edges: JsonArray = []
 
-        # Add a single synthetic node for the workflow entrypoint
-        entrypoint_node_id = self.display_context.workflow_display.entrypoint_node_id
-        entrypoint_node_source_handle_id = self.display_context.workflow_display.entrypoint_node_source_handle_id
-        serialized_nodes[entrypoint_node_id] = {
-            "id": str(entrypoint_node_id),
-            "type": "ENTRYPOINT",
-            "inputs": [],
-            "data": {
-                "label": "Entrypoint Node",
-                "source_handle_id": str(entrypoint_node_source_handle_id),
-            },
-            "display_data": self.display_context.workflow_display.entrypoint_node_display.dict(),
-            "base": None,
-            "definition": None,
-        }
+        # Detect duplicate graph paths in the top-level set
+        # Signature includes: regular edges (with port identity) + trigger edges
+        seen_graph_signatures: Set[FrozenSet[Tuple[Literal["regular", "trigger"], int, Type[BaseNode]]]] = set()
+        seen_trigger_edges: Set[Tuple[Type[BaseTrigger], Type[BaseNode]]] = set()
+        trigger_edges: List[TriggerEdge] = []
+        for subgraph in self._workflow.get_subgraphs():
+            # Build signature from regular edges (include port identity to distinguish different ports)
+            edge_signature: Set[Tuple[Any, ...]] = set()
+            for edge in subgraph.edges:
+                # Use port identity (id(port)) to distinguish different ports from the same node
+                edge_signature.add(("regular", id(edge.from_port), get_unadorned_node(edge.to_node)))
+
+            # Include trigger edges in the signature
+            for trigger_edge in subgraph.trigger_edges:
+                edge_signature.add(
+                    ("trigger", id(trigger_edge.trigger_class), get_unadorned_node(trigger_edge.to_node))
+                )
+
+            frozen_signature = frozenset(edge_signature)
+            if frozen_signature and frozen_signature in seen_graph_signatures:
+                self.display_context.add_validation_error(
+                    WorkflowValidationError(
+                        message="Duplicate graph path detected in workflow",
+                        workflow_class_name=self._workflow.__name__,
+                    )
+                )
+            elif frozen_signature:
+                seen_graph_signatures.add(frozen_signature)
+
+            # Collect and deduplicate trigger edges (for the trigger_edges list only)
+            for trigger_edge in subgraph.trigger_edges:
+                edge_key = (trigger_edge.trigger_class, get_unadorned_node(trigger_edge.to_node))
+                if edge_key not in seen_trigger_edges:
+                    seen_trigger_edges.add(edge_key)
+                    trigger_edges.append(trigger_edge)
+
+        # Determine if we need an ENTRYPOINT node and what ID to use
+        manual_trigger_edges = [edge for edge in trigger_edges if issubclass(edge.trigger_class, ManualTrigger)]
+        has_manual_trigger = len(manual_trigger_edges) > 0
+
+        # Determine which nodes have explicit non-trigger entrypoints in the graph
+        # This is used to decide whether to create an ENTRYPOINT node and skip entrypoint edges
+        non_trigger_entrypoint_nodes: Set[Type[BaseNode]] = set()
+        for subgraph in self._workflow.get_subgraphs():
+            if any(True for _ in subgraph.trigger_edges):
+                continue
+            for entrypoint in subgraph.entrypoints:
+                try:
+                    non_trigger_entrypoint_nodes.add(get_unadorned_node(entrypoint))
+                except Exception:
+                    continue
+
+        # Determine if we need an ENTRYPOINT node:
+        # - ManualTrigger: always need ENTRYPOINT (backward compatibility)
+        # - No triggers: always need ENTRYPOINT (traditional workflows)
+        # - Non-trigger entrypoints exist: need ENTRYPOINT for those branches
+        # - Only non-manual triggers with no regular entrypoints: skip ENTRYPOINT
+        has_triggers = len(trigger_edges) > 0
+        needs_entrypoint_node = has_manual_trigger or not has_triggers or len(non_trigger_entrypoint_nodes) > 0
+
+        # Validate that the workflow has at least one trigger or entrypoint node
+        if not has_triggers and len(non_trigger_entrypoint_nodes) == 0:
+            self.display_context.add_validation_error(
+                WorkflowValidationError(
+                    message="Workflow has no triggers and no entrypoint nodes. "
+                    "A workflow must have at least one trigger or one node in its graph.",
+                    workflow_class_name=self._workflow.__name__,
+                )
+            )
+
+        entrypoint_node_id: Optional[UUID] = None
+        entrypoint_node_source_handle_id: Optional[UUID] = None
+        entrypoint_node_display = self.display_context.workflow_display.entrypoint_node_display
+
+        if has_manual_trigger:
+            # ManualTrigger: use trigger ID for ENTRYPOINT node (backward compatibility)
+            trigger_class = manual_trigger_edges[0].trigger_class
+            entrypoint_node_id = trigger_class.__id__
+            entrypoint_node_source_handle_id = self.display_context.workflow_display.entrypoint_node_source_handle_id
+
+            # Add ENTRYPOINT node for ManualTrigger workflows
+            serialized_nodes[entrypoint_node_id] = {
+                "id": str(entrypoint_node_id),
+                "type": "ENTRYPOINT",
+                "inputs": [],
+                "data": {
+                    "label": "Entrypoint Node",
+                    "source_handle_id": str(entrypoint_node_source_handle_id),
+                },
+                "display_data": entrypoint_node_display.dict() if entrypoint_node_display else NodeDisplayData().dict(),
+                "base": None,
+                "definition": None,
+            }
+        elif needs_entrypoint_node:
+            # No triggers or non-trigger entrypoints exist: use workflow_display ENTRYPOINT node
+            entrypoint_node_id = self.display_context.workflow_display.entrypoint_node_id
+            entrypoint_node_source_handle_id = self.display_context.workflow_display.entrypoint_node_source_handle_id
+
+            if entrypoint_node_id is not None and entrypoint_node_source_handle_id is not None:
+                display_data = entrypoint_node_display.dict() if entrypoint_node_display else NodeDisplayData().dict()
+                serialized_nodes[entrypoint_node_id] = {
+                    "id": str(entrypoint_node_id),
+                    "type": "ENTRYPOINT",
+                    "inputs": [],
+                    "data": {
+                        "label": "Entrypoint Node",
+                        "source_handle_id": str(entrypoint_node_source_handle_id),
+                    },
+                    "display_data": display_data,
+                    "base": None,
+                    "definition": None,
+                }
+        # else: only non-manual triggers with no regular entrypoints - skip ENTRYPOINT node
 
         # Add all the nodes in the workflows
         for node in self._workflow.get_all_nodes():
@@ -198,19 +391,26 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             try:
                 try:
                     node.__validate__()
-                except ValueError as validation_error:
+                except (ValueError, jsonschema.exceptions.SchemaError) as validation_error:
                     # Only collect node validation errors directly to errors list, don't raise them
                     self.display_context.add_validation_error(validation_error)
 
                 serialized_node = node_display.serialize(self.display_context)
-            except (NotImplementedError, NodeValidationError) as e:
+            except (NotImplementedError, UserFacingException) as e:
                 self.display_context.add_error(e)
                 self.display_context.add_invalid_node(node)
                 continue
 
-            serialized_nodes[node_display.node_id] = serialized_node
+            # Use wrapped node's ID as dict key for adornment wrappers to prevent overwrites
+            wrapped_node = get_wrapped_node(node)
+            if wrapped_node:
+                wrapped_node_display = self.display_context.node_displays[wrapped_node]
+                dict_key = wrapped_node_display.node_id
+            else:
+                dict_key = node_display.node_id
 
-        synthetic_output_edges: JsonArray = []
+            serialized_nodes[dict_key] = serialized_node
+
         output_variables: JsonArray = []
         output_values: JsonArray = []
         final_output_nodes = [
@@ -218,98 +418,37 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         ]
         final_output_node_outputs = {node.Outputs.value for node in final_output_nodes}
         unreferenced_final_output_node_outputs = final_output_node_outputs.copy()
-        final_output_node_base: JsonObject = {
-            "name": FinalOutputNode.__name__,
-            "module": cast(JsonArray, FinalOutputNode.__module__.split(".")),
-        }
 
-        # Add a synthetic Terminal Node and track the Workflow's output variables for each Workflow output
+        # Track the Workflow's output variables for each Workflow output
         for workflow_output, workflow_output_display in self.display_context.workflow_output_displays.items():
-            final_output_node_id = uuid4_from_hash(f"{self.workflow_id}|node_id|{workflow_output.name}")
             inferred_type = infer_vellum_variable_type(workflow_output)
             # Remove the terminal node output from the unreferenced set
             if isinstance(workflow_output.instance, OutputReference):
                 unreferenced_final_output_node_outputs.discard(workflow_output.instance)
 
-            if workflow_output.instance not in final_output_node_outputs:
-                # Create a synthetic terminal node only if there is no terminal node for this output
-                try:
-                    node_input = create_node_input(
-                        final_output_node_id,
-                        "node_input",
-                        # This is currently the wrapper node's output, but we want the wrapped node
-                        workflow_output.instance,
-                        self.display_context,
-                    )
-                except ValueError as e:
-                    raise ValueError(f"Failed to serialize output '{workflow_output.name}': {str(e)}") from e
-
-                source_node_display: Optional[BaseNodeDisplay]
-                if not node_input.value.rules:
-                    source_node_display = None
-                else:
-                    first_rule = node_input.value.rules[0]
-                    if first_rule.type == "NODE_OUTPUT":
-                        source_node_id = UUID(first_rule.data.node_id)
-                        try:
-                            source_node_display = [
-                                node_display
-                                for node_display in self.display_context.node_displays.values()
-                                if node_display.node_id == source_node_id
-                            ][0]
-                        except IndexError:
-                            source_node_display = None
-                    else:
-                        source_node_display = None
-
-                synthetic_target_handle_id = str(
-                    uuid4_from_hash(f"{self.workflow_id}|target_handle_id|{workflow_output_display.name}")
-                )
-                synthetic_display_data = NodeDisplayData().dict()
-                synthetic_node_label = "Final Output"
-                serialized_nodes[final_output_node_id] = {
-                    "id": str(final_output_node_id),
-                    "type": "TERMINAL",
-                    "data": {
-                        "label": synthetic_node_label,
-                        "name": workflow_output_display.name,
-                        "target_handle_id": synthetic_target_handle_id,
-                        "output_id": str(workflow_output_display.id),
-                        "output_type": inferred_type,
-                        "node_input_id": str(node_input.id),
-                    },
-                    "inputs": [node_input.dict()],
-                    "display_data": synthetic_display_data,
-                    "base": final_output_node_base,
-                    "definition": None,
-                }
-
-                if source_node_display:
-                    source_handle_id = source_node_display.get_source_handle_id(
-                        port_displays=self.display_context.port_displays
-                    )
-
-                    synthetic_output_edges.append(
-                        {
-                            "id": str(uuid4_from_hash(f"{self.workflow_id}|edge_id|{workflow_output_display.name}")),
-                            "source_node_id": str(source_node_display.node_id),
-                            "source_handle_id": str(source_handle_id),
-                            "target_node_id": str(final_output_node_id),
-                            "target_handle_id": synthetic_target_handle_id,
-                            "type": "DEFAULT",
-                        }
-                    )
-
-            elif isinstance(workflow_output.instance, OutputReference):
+            # Update the name of the terminal node if this output references a FinalOutputNode
+            if workflow_output.instance in final_output_node_outputs:
                 terminal_node_id = workflow_output.instance.outputs_class.__parent_class__.__id__
                 serialized_terminal_node = serialized_nodes.get(terminal_node_id)
-                if serialized_terminal_node and isinstance(serialized_terminal_node["data"], dict):
+                if (
+                    serialized_terminal_node
+                    and "data" in serialized_terminal_node
+                    and isinstance(serialized_terminal_node["data"], dict)
+                ):
                     serialized_terminal_node["data"]["name"] = workflow_output_display.name
+
+            try:
+                output_value = self.serialize_value(workflow_output.instance)
+            except UserFacingException as e:
+                self.display_context.add_error(
+                    UserFacingException(f"Failed to serialize output '{workflow_output.name}': {e}")
+                )
+                continue
 
             output_values.append(
                 {
                     "output_variable_id": str(workflow_output_display.id),
-                    "value": serialize_value(self.workflow_id, self.display_context, workflow_output.instance),
+                    "value": output_value,
                 }
             )
 
@@ -325,29 +464,127 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         # raise a serialization error
         if len(unreferenced_final_output_node_outputs) > 0:
             self.display_context.add_error(
-                ValueError("Unable to serialize terminal nodes that are not referenced by workflow outputs.")
+                WorkflowValidationError(
+                    message="Unable to serialize terminal nodes that are not referenced by workflow outputs.",
+                    workflow_class_name=self._workflow.__name__,
+                )
             )
 
-        # Add an edge for each edge in the workflow
+        # Identify nodes that already have trigger edges so we can avoid duplicating entrypoint edges
+        nodes_with_manual_trigger_edges: Set[Type[BaseNode]] = set()
+        nodes_with_non_manual_trigger_edges: Set[Type[BaseNode]] = set()
+        for trigger_edge in trigger_edges:
+            try:
+                unadorned_target_node = get_unadorned_node(trigger_edge.to_node)
+            except Exception:
+                continue
+
+            if issubclass(trigger_edge.trigger_class, ManualTrigger):
+                nodes_with_manual_trigger_edges.add(unadorned_target_node)
+            else:
+                nodes_with_non_manual_trigger_edges.add(unadorned_target_node)
+
+        # Track nodes with explicit entrypoint overrides so we retain their edges even if they have triggers
+        entrypoint_override_nodes: Set[Type[BaseNode]] = set()
+        for entrypoint_node in self.entrypoint_displays.keys():
+            try:
+                entrypoint_override_nodes.add(get_unadorned_node(entrypoint_node))
+            except Exception:
+                continue
+
+        # Add edges from entrypoint first to preserve expected ordering
+        # Note: non_trigger_entrypoint_nodes was computed earlier to determine if we need an ENTRYPOINT node
+
         for target_node, entrypoint_display in self.display_context.entrypoint_displays.items():
             unadorned_target_node = get_unadorned_node(target_node)
+
+            # Skip the auto-generated entrypoint edge when a manual trigger already targets this node or when a
+            # non-manual trigger targets it without an explicit entrypoint override, unless the graph explicitly
+            # defines a non-trigger entrypoint for it.
+            has_manual_trigger = unadorned_target_node in nodes_with_manual_trigger_edges
+            has_non_manual_trigger = unadorned_target_node in nodes_with_non_manual_trigger_edges
+            has_override = unadorned_target_node in entrypoint_override_nodes
+            if (
+                has_manual_trigger or (has_non_manual_trigger and not has_override)
+            ) and unadorned_target_node not in non_trigger_entrypoint_nodes:
+                continue
+
             # Skip edges to invalid nodes
             if self._is_node_invalid(unadorned_target_node):
                 continue
 
+            if entrypoint_node_id is None:
+                continue
+
             target_node_display = self.display_context.node_displays[unadorned_target_node]
+
+            stable_edge_id = get_entrypoint_edge_id(unadorned_target_node, self._workflow.__module__)
+
             entrypoint_edge_dict: Dict[str, Json] = {
-                "id": str(entrypoint_display.edge_display.id),
+                "id": str(stable_edge_id) if stable_edge_id else str(entrypoint_display.edge_display.id),
                 "source_node_id": str(entrypoint_node_id),
                 "source_handle_id": str(entrypoint_node_source_handle_id),
                 "target_node_id": str(target_node_display.node_id),
                 "target_handle_id": str(target_node_display.get_trigger_id()),
                 "type": "DEFAULT",
             }
-            display_data = self._serialize_edge_display_data(entrypoint_display.edge_display)
-            if display_data is not None:
-                entrypoint_edge_dict["display_data"] = display_data
+            edge_display_data = self._serialize_edge_display_data(entrypoint_display.edge_display)
+            if edge_display_data is not None:
+                entrypoint_edge_dict["display_data"] = edge_display_data
             edges.append(entrypoint_edge_dict)
+
+        # Then add trigger edges
+        for trigger_edge in trigger_edges:
+            target_node = trigger_edge.to_node
+            unadorned_target_node = get_unadorned_node(target_node)
+            if issubclass(trigger_edge.trigger_class, ManualTrigger):
+                nodes_with_manual_trigger_edges.add(unadorned_target_node)
+            else:
+                nodes_with_non_manual_trigger_edges.add(unadorned_target_node)
+
+            # Skip edges to invalid nodes
+            if self._is_node_invalid(unadorned_target_node):
+                continue
+
+            target_node_display = self.display_context.node_displays[unadorned_target_node]
+
+            # Get the entrypoint display for this target node (if it exists)
+            target_entrypoint_display = self.display_context.entrypoint_displays.get(target_node)
+            if target_entrypoint_display is None:
+                continue
+
+            trigger_class = trigger_edge.trigger_class
+            trigger_id = trigger_class.__id__
+
+            # Determine source node ID and handle ID based on trigger type
+            if issubclass(trigger_class, ManualTrigger):
+                source_node_id = entrypoint_node_id
+                source_handle_id = entrypoint_node_source_handle_id
+            else:
+                source_node_id = trigger_id
+                source_handle_id = trigger_id
+
+            # Prefer stable id from metadata mapping if present
+            stable_edge_id = get_trigger_edge_id(trigger_class, unadorned_target_node, self._workflow.__module__)
+
+            # Generate a unique fallback edge ID using trigger_id and target_node_id
+            # This ensures multiple triggers targeting the same node get unique edge IDs
+            fallback_edge_id = uuid4_from_hash(
+                f"{self.workflow_id}|trigger_edge|{trigger_id}|{target_node_display.node_id}"
+            )
+
+            trigger_edge_dict: Dict[str, Json] = {
+                "id": str(stable_edge_id) if stable_edge_id else str(fallback_edge_id),
+                "source_node_id": str(source_node_id),
+                "source_handle_id": str(source_handle_id),
+                "target_node_id": str(target_node_display.node_id),
+                "target_handle_id": str(target_node_display.get_trigger_id()),
+                "type": "DEFAULT",
+            }
+            trigger_edge_display_data = self._serialize_edge_display_data(target_entrypoint_display.edge_display)
+            if trigger_edge_display_data is not None:
+                trigger_edge_dict["display_data"] = trigger_edge_display_data
+            edges.append(trigger_edge_dict)
 
         for (source_node_port, target_node), edge_display in self.display_context.edge_displays.items():
             unadorned_source_node_port = get_unadorned_port(source_node_port)
@@ -362,8 +599,15 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             source_node_port_display = self.display_context.port_displays[unadorned_source_node_port]
             target_node_display = self.display_context.node_displays[unadorned_target_node]
 
+            stable_edge_id = get_regular_edge_id(
+                unadorned_source_node_port.node_class,
+                source_node_port_display.id,
+                unadorned_target_node,
+                self._workflow.__module__,
+            )
+
             regular_edge_dict: Dict[str, Json] = {
-                "id": str(edge_display.id),
+                "id": str(stable_edge_id) if stable_edge_id else str(edge_display.id),
                 "source_node_id": str(source_node_port_display.node_id),
                 "source_handle_id": str(source_node_port_display.id),
                 "target_node_id": str(target_node_display.node_id),
@@ -372,27 +616,16 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
                 ),
                 "type": "DEFAULT",
             }
-            display_data = self._serialize_edge_display_data(edge_display)
-            if display_data is not None:
-                regular_edge_dict["display_data"] = display_data
+            regular_edge_display_data = self._serialize_edge_display_data(edge_display)
+            if regular_edge_display_data is not None:
+                regular_edge_dict["display_data"] = regular_edge_display_data
             edges.append(regular_edge_dict)
-
-        edges.extend(synthetic_output_edges)
 
         nodes_list = list(serialized_nodes.values())
         nodes_dict_list = [cast(Dict[str, Any], node) for node in nodes_list if isinstance(node, dict)]
 
-        all_nodes_at_zero = all(
-            (
-                isinstance(node.get("display_data"), dict)
-                and isinstance(node["display_data"].get("position"), dict)
-                and node["display_data"]["position"].get("x", 0) == 0.0
-                and node["display_data"]["position"].get("y", 0) == 0.0
-            )
-            for node in nodes_dict_list
-        )
-
-        should_apply_auto_layout = all_nodes_at_zero and len(nodes_dict_list) > 0
+        workflow_layout = getattr(self._workflow.Display, "layout", None)
+        should_apply_auto_layout = workflow_layout == "auto" and len(nodes_dict_list) > 0
 
         if should_apply_auto_layout:
             try:
@@ -400,27 +633,353 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             except Exception as e:
                 self.display_context.add_error(e)
 
-        return {
-            "workflow_raw_data": {
-                "nodes": cast(JsonArray, nodes_dict_list),
-                "edges": edges,
-                "display_data": self.display_context.workflow_display.display_data.dict(),
-                "definition": {
-                    "name": self._workflow.__name__,
-                    "module": cast(JsonArray, self._workflow.__module__.split(".")),
-                },
-                "output_values": output_values,
+        # Serialize workflow-level trigger if present
+        triggers: Optional[JsonArray] = self._serialize_workflow_trigger()
+
+        workflow_raw_data: JsonObject = {
+            "nodes": cast(JsonArray, nodes_dict_list),
+            "edges": edges,
+            "display_data": self.display_context.workflow_display.display_data.dict(),
+            "definition": {
+                "name": self._workflow.__name__,
+                "module": cast(JsonArray, self._workflow.__module__.split(".")),
             },
+            "output_values": output_values,
+        }
+
+        result: JsonObject = {
+            "workflow_raw_data": workflow_raw_data,
             "input_variables": input_variables,
             "state_variables": state_variables,
             "output_variables": output_variables,
         }
+
+        if triggers is not None:
+            result["triggers"] = triggers
+
+        return result
+
+    def _serialize_workflow_trigger(self) -> Optional[JsonArray]:
+        """
+        Serialize workflow-level trigger information.
+
+        Returns:
+            JsonArray with trigger data if a trigger is present, None otherwise.
+            Each trigger in the array has: id (UUID), type (str), name (str), attributes (list)
+        """
+        # Get all trigger edges from the workflow's subgraphs
+        trigger_edges = []
+        for subgraph in self._workflow.get_subgraphs():
+            trigger_edges.extend(list(subgraph.trigger_edges))
+
+        if not trigger_edges:
+            # No workflow-level trigger defined
+            return None
+
+        unique_trigger_classes = list(dict.fromkeys(edge.trigger_class for edge in trigger_edges))
+
+        trigger_type_mapping = get_trigger_type_mapping()
+        serialized_triggers: List[JsonObject] = []
+        seen_trigger_names: Set[str] = set()
+
+        for trigger_class in unique_trigger_classes:
+            # Get the trigger type from the mapping, or use the utility function
+            trigger_type = trigger_type_mapping.get(trigger_class)
+            if trigger_type is None:
+                trigger_type = get_trigger_type(trigger_class)
+
+            trigger_id = trigger_class.__id__
+
+            # Determine trigger name from the trigger class's __trigger_name__ attribute
+            trigger_name = trigger_class.__trigger_name__
+
+            # Validate that trigger names are unique
+            if trigger_name in seen_trigger_names:
+                self.display_context.add_validation_error(
+                    TriggerValidationError(
+                        message=f"Duplicate trigger name '{trigger_name}' found. Each trigger must have a unique name.",
+                        trigger_class_name=trigger_class.__name__,
+                    )
+                )
+            seen_trigger_names.add(trigger_name)
+
+            # Serialize trigger attributes using the shared utility
+            trigger_attributes = serialize_trigger_attributes(trigger_class)
+
+            trigger_data: JsonObject
+            if trigger_type == WorkflowTriggerType.SCHEDULED:
+                # For scheduled triggers, include cron/timezone at top level
+                config_class = trigger_class.Config
+                cron_value = getattr(config_class, "cron", None)
+                timezone_value = getattr(config_class, "timezone", None)
+
+                trigger_data = {
+                    "id": str(trigger_id),
+                    "type": trigger_type.value,
+                    "name": trigger_name,
+                    "cron": cron_value,
+                    "timezone": timezone_value,
+                    "attributes": trigger_attributes,
+                }
+            else:
+                # For other triggers (integration, etc.)
+                trigger_data = {
+                    "id": str(trigger_id),
+                    "type": trigger_type.value,
+                    "name": trigger_name,
+                    "attributes": trigger_attributes,
+                }
+
+                if trigger_type == WorkflowTriggerType.INTEGRATION and issubclass(trigger_class, IntegrationTrigger):
+                    exec_config = self._serialize_integration_trigger_exec_config(trigger_class)
+                    trigger_data["exec_config"] = exec_config
+
+                    # Validate trigger attributes against the expected types from the API
+                    self._validate_integration_trigger_attributes(trigger_class, trigger_attributes)
+
+                if trigger_type == WorkflowTriggerType.CHAT_MESSAGE and issubclass(trigger_class, ChatMessageTrigger):
+                    chat_exec_config = self._serialize_chat_message_trigger_exec_config(trigger_class)
+                    if chat_exec_config:
+                        trigger_data["exec_config"] = chat_exec_config
+
+            # Serialize display_data using the shared utility
+            display_data = serialize_trigger_display_data(trigger_class, trigger_type)
+
+            # Don't include display_data for manual triggers
+            if display_data and trigger_type != WorkflowTriggerType.MANUAL:
+                trigger_data["display_data"] = display_data
+
+            serialized_triggers.append(trigger_data)
+
+        return cast(JsonArray, serialized_triggers)
 
     def _serialize_edge_display_data(self, edge_display: EdgeDisplay) -> Optional[JsonObject]:
         """Serialize edge display data, returning None if no display data is present."""
         if edge_display.z_index is not None:
             return {"z_index": edge_display.z_index}
         return None
+
+    def _serialize_integration_trigger_exec_config(self, trigger_class: Type[IntegrationTrigger]) -> JsonObject:
+        config_class = trigger_class.Config
+
+        provider = getattr(config_class, "provider", None)
+        if isinstance(provider, Enum):
+            provider = provider.value
+        elif provider is not None:
+            provider = str(provider)
+        slug = getattr(config_class, "slug", None)
+        integration_name = getattr(config_class, "integration_name", None)
+
+        setup_attributes: List[JsonObject] = []
+        raw_setup_attributes = getattr(config_class, "setup_attributes", None)
+
+        if isinstance(raw_setup_attributes, dict):
+            for key, value in raw_setup_attributes.items():
+                attribute_id = str(uuid4_from_hash(f"{trigger_class.__id__}|setup_attribute|{key}"))
+
+                default_json: Optional[JsonObject] = None
+                attribute_type = "STRING"
+
+                if value is not None:
+                    try:
+                        vellum_value = primitive_to_vellum_value(value)
+                        default_json = cast(JsonObject, self._model_dump(vellum_value))
+                        attribute_type = cast(str, default_json.get("type", attribute_type))
+                    except ValueError:
+                        default_json = None
+
+                setup_attributes.append(
+                    cast(
+                        JsonObject,
+                        {
+                            "id": attribute_id,
+                            "key": str(key),
+                            "type": attribute_type,
+                            "required": True,
+                            "default": default_json,
+                            "extensions": {"color": None, "description": None},
+                        },
+                    )
+                )
+
+        return cast(
+            JsonObject,
+            {
+                "type": provider,
+                "slug": slug,
+                "integration_name": integration_name,
+                "setup_attributes": setup_attributes,
+            },
+        )
+
+    def _fetch_integration_trigger_definition(
+        self, provider: str, integration_name: str, trigger_slug: str
+    ) -> Optional[JsonObject]:
+        """
+        Fetch the trigger/tool definition from the API to get the expected attribute types.
+
+        Uses the client's integrations.retrieve_integration_tool_definition method.
+
+        Returns the tool definition with output_parameters (payload schema) if found, None otherwise.
+        For triggers, output_parameters contains the webhook payload schema, while input_parameters
+        contains setup/config arguments.
+        """
+        try:
+            tool_definition = self._client.integrations.retrieve_integration_tool_definition(
+                integration_name=integration_name,
+                integration_provider=provider,
+                tool_name=trigger_slug,
+            )
+            return cast(
+                JsonObject,
+                {
+                    "name": tool_definition.name,
+                    "output_parameters": tool_definition.output_parameters,
+                },
+            )
+        except Exception as e:
+            logger.warning(f"Error fetching tool definition for {trigger_slug}: {e}")
+            return None
+
+    def _validate_integration_trigger_attributes(
+        self,
+        trigger_class: Type[IntegrationTrigger],
+        trigger_attributes: JsonArray,
+    ) -> None:
+        """
+        Validate that the trigger attributes match the expected types from the API.
+
+        Raises TriggerValidationError if there's a type mismatch.
+        """
+        config_class = trigger_class.Config
+        provider = getattr(config_class, "provider", None)
+        if isinstance(provider, Enum):
+            provider = provider.value
+        elif provider is not None:
+            provider = str(provider)
+
+        slug = getattr(config_class, "slug", None)
+        integration_name = getattr(config_class, "integration_name", None)
+
+        if not provider or not slug or not integration_name:
+            return
+
+        trigger_def = self._fetch_integration_trigger_definition(provider, integration_name, slug)
+        if not trigger_def:
+            return
+
+        # output_parameters contains the webhook payload schema for triggers
+        # (input_parameters contains setup/config arguments like team_id)
+        output_parameters = trigger_def.get("output_parameters", {})
+        if not output_parameters or not isinstance(output_parameters, dict):
+            return
+
+        # output_parameters is a JSON Schema object with structure:
+        # {"type": "object", "properties": {"key": {"type": "string"}, ...}, "required": [...]}
+        properties = output_parameters.get("properties", {})
+        if not properties or not isinstance(properties, dict):
+            return
+
+        # Map JSON Schema types to Vellum attribute types
+        json_schema_to_vellum_type: Dict[str, str] = {
+            "string": "STRING",
+            "number": "NUMBER",
+            "integer": "NUMBER",
+            "boolean": "BOOLEAN",
+            "object": "JSON",
+            "array": "ARRAY",
+        }
+
+        expected_types_by_key: Dict[str, str] = {}
+        for key, param_info in properties.items():
+            if not isinstance(param_info, dict):
+                continue
+            param_type = param_info.get("type")
+            if isinstance(param_type, str):
+                vellum_type = json_schema_to_vellum_type.get(param_type)
+                if vellum_type:
+                    expected_types_by_key[key] = vellum_type
+
+        for attr in trigger_attributes:
+            if not isinstance(attr, dict):
+                continue
+            attr_key = attr.get("key")
+            actual_type = attr.get("type")
+            if isinstance(attr_key, str) and isinstance(actual_type, str) and attr_key in expected_types_by_key:
+                expected_type = expected_types_by_key[attr_key]
+                if actual_type != expected_type:
+                    raise TriggerValidationError(
+                        message=f"Attribute '{attr_key}' has type '{actual_type}' but expected type '{expected_type}'. "
+                        "The trigger configuration is invalid or contains unsupported values.",
+                        trigger_class_name=trigger_class.__name__,
+                    )
+
+    def _serialize_chat_message_trigger_exec_config(
+        self, trigger_class: Type[ChatMessageTrigger]
+    ) -> Optional[JsonObject]:
+        config_class = trigger_class.Config
+        output = getattr(config_class, "output", None)
+
+        if output is None:
+            self.display_context.add_validation_error(
+                TriggerValidationError(
+                    message="Chat Trigger output must be specified.",
+                    trigger_class_name=trigger_class.__name__,
+                )
+            )
+            return None
+
+        self._validate_chat_history_state(trigger_class)
+
+        serialized_output = serialize_value(
+            executable_id=trigger_class.__id__,
+            display_context=self.display_context,
+            value=output,
+        )
+
+        return cast(
+            JsonObject,
+            {
+                "output": serialized_output,
+            },
+        )
+
+    def _validate_chat_history_state(self, trigger_class: Type[ChatMessageTrigger]) -> None:
+        state_class = self._workflow.get_state_class()
+
+        if not hasattr(state_class, "chat_history"):
+            self.display_context.add_validation_error(
+                StateValidationError(
+                    message=(
+                        "Chat triggers require a `chat_history` state variable. "
+                        "Add `chat_history: List[ChatMessage] = Field(default_factory=list)` to your state class."
+                    ),
+                    state_class_name=state_class.__name__,
+                    attribute_name="chat_history",
+                )
+            )
+            return
+
+        chat_history_ref = getattr(state_class, "chat_history")
+        if chat_history_ref.instance is None:
+            self.display_context.add_validation_error(
+                StateValidationError(
+                    message=(
+                        "Chat triggers expect chat_history to default to an empty array. "
+                        "Use `Field(default_factory=list)` instead of `= None`."
+                    ),
+                    state_class_name=state_class.__name__,
+                    attribute_name="chat_history",
+                )
+            )
+
+    @staticmethod
+    def _model_dump(value: Any) -> Any:
+        if hasattr(value, "model_dump"):
+            return value.model_dump(mode="json")
+        if hasattr(value, "dict"):
+            return value.dict()
+        return value
 
     def _apply_auto_layout(self, nodes_dict_list: List[Dict[str, Any]], edges: List[Json]) -> None:
         """Apply auto-layout to nodes that are all positioned at (0,0)."""
@@ -480,13 +1039,17 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         node: Type[BaseNode],
         node_display: BaseNodeDisplay,
         node_output_displays: Dict[OutputReference, NodeOutputDisplay],
+        node_displays: NodeDisplays,
+        errors: List[Exception],
     ):
         """This method recursively adds nodes wrapped in decorators to the node_output_displays dictionary."""
 
         inner_node = get_wrapped_node(node)
         if inner_node:
-            inner_node_display = self._get_node_display(inner_node)
-            self._enrich_global_node_output_displays(inner_node, inner_node_display, node_output_displays)
+            inner_node_display = node_displays.get(inner_node) or self._get_node_display(inner_node, errors)
+            self._enrich_global_node_output_displays(
+                inner_node, inner_node_display, node_output_displays, node_displays, errors
+            )
 
         for node_output in node.Outputs:
             if node_output in node_output_displays:
@@ -499,13 +1062,15 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         node: Type[BaseNode],
         node_display: BaseNodeDisplay,
         port_displays: Dict[Port, PortDisplay],
+        node_displays: NodeDisplays,
+        errors: List[Exception],
     ):
         """This method recursively adds nodes wrapped in decorators to the port_displays dictionary."""
 
         inner_node = get_wrapped_node(node)
         if inner_node:
-            inner_node_display = self._get_node_display(inner_node)
-            self._enrich_node_port_displays(inner_node, inner_node_display, port_displays)
+            inner_node_display = node_displays.get(inner_node) or self._get_node_display(inner_node, errors)
+            self._enrich_node_port_displays(inner_node, inner_node_display, port_displays, node_displays, errors)
 
         for port in node.Ports:
             if port in port_displays:
@@ -513,12 +1078,18 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
 
             port_displays[port] = node_display.get_node_port_display(port)
 
-    def _get_node_display(self, node: Type[BaseNode]) -> BaseNodeDisplay:
+    def _get_node_display(self, node: Type[BaseNode], errors: List[Exception]) -> BaseNodeDisplay:
         node_display_class = get_node_display_class(node)
-        return node_display_class()
+        node_display = node_display_class()
+        try:
+            node_display.build(client=self._client)
+        except Exception as e:
+            errors.append(e)
+        return node_display
 
     @cached_property
     def display_context(self) -> WorkflowDisplayContext:
+        errors: List[Exception] = []
         workflow_meta_display = self._generate_workflow_meta_display()
 
         global_node_output_displays: NodeOutputDisplays = (
@@ -540,6 +1111,7 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
                 global_node_displays=global_node_displays,
                 global_node_output_displays=global_node_output_displays,
                 port_displays=port_displays,
+                errors=errors,
             )
 
         workflow_input_displays: WorkflowInputsDisplays = {}
@@ -561,6 +1133,7 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         )
         for state_value in self._workflow.get_state_class():
             state_value_display_overrides = self.state_value_displays.get(state_value)
+            self._validate_state_value_default(state_value, errors)
             state_value_display = self._generate_state_value_display(
                 state_value, overrides=state_value_display_overrides
             )
@@ -625,19 +1198,37 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             port_displays=port_displays,
             workflow_display_class=self.__class__,
             dry_run=self._dry_run,
+            _errors=errors,
         )
 
     def _generate_workflow_meta_display(self) -> WorkflowMetaDisplay:
+        defaults = WorkflowMetaDisplay.get_default(self._workflow)
         overrides = self.workflow_display
-        if overrides:
-            return WorkflowMetaDisplay(
-                entrypoint_node_id=overrides.entrypoint_node_id,
-                entrypoint_node_source_handle_id=overrides.entrypoint_node_source_handle_id,
-                entrypoint_node_display=overrides.entrypoint_node_display,
-                display_data=overrides.display_data,
-            )
 
-        return WorkflowMetaDisplay.get_default(self._workflow)
+        if not overrides:
+            return defaults
+
+        # Merge overrides with defaults - if override provides None, fall back to default
+        entrypoint_node_id = (
+            overrides.entrypoint_node_id if overrides.entrypoint_node_id is not None else defaults.entrypoint_node_id
+        )
+        entrypoint_node_source_handle_id = (
+            overrides.entrypoint_node_source_handle_id
+            if overrides.entrypoint_node_source_handle_id is not None
+            else defaults.entrypoint_node_source_handle_id
+        )
+        entrypoint_node_display = (
+            overrides.entrypoint_node_display
+            if overrides.entrypoint_node_display is not None
+            else defaults.entrypoint_node_display
+        )
+
+        return WorkflowMetaDisplay(
+            entrypoint_node_id=entrypoint_node_id,
+            entrypoint_node_source_handle_id=entrypoint_node_source_handle_id,
+            entrypoint_node_display=entrypoint_node_display,
+            display_data=overrides.display_data,
+        )
 
     def _generate_workflow_input_display(
         self, workflow_input: WorkflowInputReference, overrides: Optional[WorkflowInputsDisplay] = None
@@ -650,12 +1241,12 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             name = overrides.name
             color = overrides.color
         else:
-            workflow_input_id = uuid4_from_hash(f"{self.workflow_id}|inputs|id|{workflow_input.name}")
+            workflow_input_id = workflow_input.id
 
         return WorkflowInputsDisplay(id=workflow_input_id, name=name, color=color)
 
     def _generate_state_value_display(
-        self, state_value: BaseDescriptor, overrides: Optional[StateValueDisplay] = None
+        self, state_value: StateValueReference, overrides: Optional[StateValueDisplay] = None
     ) -> StateValueDisplay:
         state_value_id: UUID
         name = None
@@ -665,9 +1256,24 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             name = overrides.name
             color = overrides.color
         else:
-            state_value_id = uuid4_from_hash(f"{self.workflow_id}|state_values|id|{state_value.name}")
+            state_value_id = state_value.id
 
         return StateValueDisplay(id=state_value_id, name=name, color=color)
+
+    def _validate_state_value_default(self, state_value: StateValueReference, errors: List[Exception]) -> None:
+        default_value = state_value.instance
+
+        if isinstance(default_value, (list, dict, set)):
+            errors.append(
+                StateValidationError(
+                    message=(
+                        "Mutable default value detected. Use Field(default_factory=list) instead of = [] "
+                        "to avoid shared mutable state between instances."
+                    ),
+                    state_class_name=state_value.state_class.__name__,
+                    attribute_name=state_value.name,
+                )
+            )
 
     def _generate_entrypoint_display(
         self,
@@ -689,9 +1295,12 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         target_node_display = node_displays[entrypoint_target]
         target_node_id = target_node_display.node_id
 
-        edge_display = edge_display_overrides or self._generate_edge_display_from_source(
-            entrypoint_node_id, target_node_id
-        )
+        if edge_display_overrides:
+            edge_display = edge_display_overrides
+        elif entrypoint_node_id is not None:
+            edge_display = self._generate_edge_display_from_source(entrypoint_node_id, target_node_id)
+        else:
+            edge_display = EdgeDisplay(id=uuid4_from_hash(f"{self.workflow_id}|id|{target_node_id}"))
 
         return EntrypointDisplay(id=entrypoint_id, edge_display=edge_display)
 
@@ -763,6 +1372,13 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             input.name: display_context.workflow_input_displays[input].id
             for input in display_context.workflow_input_displays
         }
+
+        # Include trigger attributes in workflow_inputs so they appear in the executions list UI
+        for subgraph in self._workflow.get_subgraphs():
+            for trigger_class in subgraph.triggers:
+                for trigger_attr_ref in trigger_class:
+                    if trigger_attr_ref.name not in workflow_inputs:
+                        workflow_inputs[trigger_attr_ref.name] = trigger_attr_ref.id
         node_displays = {
             node.__id__: (node, display_context.node_displays[node]) for node in display_context.node_displays
         }
@@ -811,8 +1427,12 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         global_node_displays: NodeDisplays,
         global_node_output_displays: NodeOutputDisplays,
         port_displays: PortDisplays,
+        errors: List[Exception],
     ) -> None:
-        extracted_node_displays = self._extract_node_displays(node)
+        if node in node_displays:
+            return
+
+        extracted_node_displays = self._extract_node_displays(node, errors)
 
         for extracted_node, extracted_node_display in extracted_node_displays.items():
             if extracted_node not in node_displays:
@@ -821,11 +1441,15 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             if extracted_node not in global_node_displays:
                 global_node_displays[extracted_node] = extracted_node_display
 
-        self._enrich_global_node_output_displays(node, extracted_node_displays[node], global_node_output_displays)
-        self._enrich_node_port_displays(node, extracted_node_displays[node], port_displays)
+        self._enrich_global_node_output_displays(
+            node, extracted_node_displays[node], global_node_output_displays, node_displays, errors
+        )
+        self._enrich_node_port_displays(node, extracted_node_displays[node], port_displays, node_displays, errors)
 
-    def _extract_node_displays(self, node: Type[BaseNode]) -> Dict[Type[BaseNode], BaseNodeDisplay]:
-        node_display = self._get_node_display(node)
+    def _extract_node_displays(
+        self, node: Type[BaseNode], errors: List[Exception]
+    ) -> Dict[Type[BaseNode], BaseNodeDisplay]:
+        node_display = self._get_node_display(node, errors)
         additional_node_displays: Dict[Type[BaseNode], BaseNodeDisplay] = {
             node: node_display,
         }
@@ -833,7 +1457,7 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         # Nodes wrapped in a decorator need to be in our node display dictionary for later retrieval
         inner_node = get_wrapped_node(node)
         if inner_node:
-            inner_node_displays = self._extract_node_displays(inner_node)
+            inner_node_displays = self._extract_node_displays(inner_node, errors)
 
             for node, display in inner_node_displays.items():
                 if node not in additional_node_displays:
@@ -881,6 +1505,92 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
         return cast(Type[WorkflowType], self.__class__.infer_workflow_class())
 
     @staticmethod
+    def _collect_node_classes_from_module(
+        module: Any,
+        expected_module_prefix: str,
+    ) -> List[Type[BaseNode]]:
+        """
+        Collect BaseNode subclasses defined in a module.
+
+        Args:
+            module: The imported module to scan
+            expected_module_prefix: Module path prefix to filter by (e.g., "my_module")
+
+        Returns:
+            List of BaseNode subclasses defined in the module
+        """
+        node_classes: List[Type[BaseNode]] = []
+        for name, attr in vars(module).items():
+            if name.startswith("_"):
+                continue
+
+            if not (inspect.isclass(attr) and issubclass(attr, BaseNode) and attr is not BaseNode):
+                continue
+
+            if not attr.__module__.startswith(expected_module_prefix):
+                continue
+
+            if "<locals>" in attr.__qualname__:
+                continue
+
+            node_classes.append(attr)
+
+        return node_classes
+
+    @staticmethod
+    def _find_orphan_nodes(
+        base_module: str,
+        workflow: Type[BaseWorkflow],
+    ) -> List[Type[BaseNode]]:
+        """
+        Find nodes defined in the workflow package but not included in graph or unused_graphs.
+
+        Scans both the workflow.py file and the nodes/ subpackage for BaseNode subclasses.
+
+        Args:
+            base_module: The base module path (e.g., "my_module")
+            workflow: The workflow class to check
+
+        Returns:
+            List of orphan node classes
+        """
+        workflow_nodes = set(workflow.get_all_nodes())
+        candidate_nodes: List[Type[BaseNode]] = []
+
+        workflow_module_path = f"{base_module}.workflow"
+        try:
+            workflow_module = importlib.import_module(workflow_module_path)
+            candidate_nodes.extend(BaseWorkflowDisplay._collect_node_classes_from_module(workflow_module, base_module))
+        except ImportError:
+            pass
+
+        nodes_package_path = f"{base_module}.nodes"
+        try:
+            nodes_package = importlib.import_module(nodes_package_path)
+            if hasattr(nodes_package, "__path__"):
+                for module_info in pkgutil.walk_packages(nodes_package.__path__, nodes_package.__name__ + "."):
+                    try:
+                        submodule = importlib.import_module(module_info.name)
+                        candidate_nodes.extend(
+                            BaseWorkflowDisplay._collect_node_classes_from_module(submodule, base_module)
+                        )
+                    except Exception:
+                        continue
+        except ImportError:
+            pass
+
+        seen: Set[Type[BaseNode]] = set()
+        orphan_nodes: List[Type[BaseNode]] = []
+        for node in candidate_nodes:
+            if node in seen:
+                continue
+            seen.add(node)
+            if node not in workflow_nodes:
+                orphan_nodes.append(node)
+
+        return orphan_nodes
+
+    @staticmethod
     def serialize_module(
         module: str,
         *,
@@ -905,11 +1615,23 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
             dry_run=dry_run,
         )
 
+        orphan_nodes = BaseWorkflowDisplay._find_orphan_nodes(module, workflow)
+        for orphan_node in orphan_nodes:
+            workflow_display.display_context.add_validation_error(
+                WorkflowValidationError(
+                    message=f"Node '{orphan_node.__name__}' is defined in the module but not included in "
+                    "the workflow's graph or unused_graphs.",
+                    workflow_class_name=workflow.__name__,
+                )
+            )
+
         exec_config = workflow_display.serialize()
         additional_files = workflow_display._gather_additional_module_files(module)
 
         if additional_files:
             exec_config["module_data"] = {"additional_files": cast(JsonObject, additional_files)}
+
+        exec_config["runner_config"] = load_runner_config(module)
 
         dataset = None
         try:
@@ -919,21 +1641,68 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
                 dataset_attr = getattr(sandbox_module, "dataset")
                 if dataset_attr and isinstance(dataset_attr, list):
                     dataset = []
+                    dataset_row_index_to_id = load_dataset_row_index_to_id_mapping(module)
                     for i, inputs_obj in enumerate(dataset_attr):
-                        if isinstance(inputs_obj, DatasetRow):
-                            serialized_inputs = json.loads(json.dumps(inputs_obj.inputs, cls=DefaultStateEncoder))
-                            dataset.append({"label": inputs_obj.label, "inputs": serialized_inputs})
-                        elif isinstance(inputs_obj, BaseInputs):
-                            serialized_inputs = json.loads(json.dumps(inputs_obj, cls=DefaultStateEncoder))
-                            dataset.append({"label": f"Scenario {i + 1}", "inputs": serialized_inputs})
-        except (ImportError, AttributeError):
-            pass
+                        normalized_row = (
+                            DatasetRow(label=f"Scenario {i + 1}", inputs=inputs_obj)
+                            if isinstance(inputs_obj, BaseInputs)
+                            else inputs_obj
+                        )
 
+                        row_data = normalized_row.model_dump(
+                            mode="json",
+                            by_alias=True,
+                            exclude_none=True,
+                            context={
+                                "add_error": workflow_display.display_context.add_validation_error,
+                                "serializer": workflow_display.serialize_value,
+                            },
+                        )
+
+                        if i in dataset_row_index_to_id:
+                            row_data["id"] = dataset_row_index_to_id[i]
+                        elif isinstance(inputs_obj, DatasetRow) and inputs_obj.id is not None:
+                            row_data["id"] = inputs_obj.id
+                        else:
+                            row_data["id"] = str(generate_entity_id_from_path(f"{module}.sandbox.dataset.{i}"))
+
+                        dataset.append(row_data)
+        except ImportError:
+            # No sandbox module exists, which is fine
+            pass
+        except Exception as e:
+            # Capture any other errors (AttributeError, TypeError, etc.) from sandbox module
+            workflow_display.display_context.add_validation_error(e)
+
+        all_errors = list(workflow_display.display_context.errors)
         return WorkflowSerializationResult(
             exec_config=exec_config,
-            errors=[str(error) for error in workflow_display.display_context.errors],
+            errors=[
+                WorkflowSerializationError(
+                    message=str(error),
+                    stacktrace="".join(traceback.format_exception(type(error), error, error.__traceback__)),
+                )
+                for error in all_errors
+            ],
             dataset=dataset,
         )
+
+    def serialize_value(self, value: Any) -> Any:
+        return serialize_value(self.workflow_id, self.display_context, value)
+
+    _INCLUDED_FILE_EXTENSIONS = [".py"]
+    _INCLUDED_FILENAMES = ["metadata.json"]
+
+    @staticmethod
+    def should_include_file(filename: str) -> bool:
+        """Check if a file should be included based on its extension or filename.
+
+        This is used by both the serialization logic and the push API to ensure
+        consistency in which files are included in workflow artifacts.
+        """
+        if filename in BaseWorkflowDisplay._INCLUDED_FILENAMES:
+            return True
+        return any(filename.endswith(ext) for ext in BaseWorkflowDisplay._INCLUDED_FILE_EXTENSIONS)
 
     def _gather_additional_module_files(self, module_path: str) -> Dict[str, str]:
         workflow_module_path = f"{module_path}.workflow"
@@ -948,6 +1717,9 @@ class BaseWorkflowDisplay(Generic[WorkflowType]):
 
         for root, _, filenames in os.walk(module_dir):
             for filename in filenames:
+                if not self.should_include_file(filename):
+                    continue
+
                 file_path = os.path.join(root, filename)
                 relative_path = os.path.relpath(file_path, start=module_dir)
 

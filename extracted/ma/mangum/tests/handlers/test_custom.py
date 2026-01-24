@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 from mangum.types import Headers, LambdaConfig, LambdaContext, LambdaEvent, Scope
 
 
@@ -35,7 +39,7 @@ class CustomHandler:
             "aws.context": self.context,
         }
 
-    def __call__(self, *, status: int, headers: Headers, body: bytes) -> dict:
+    def __call__(self, *, status: int, headers: Headers, body: bytes) -> dict[str, Any]:
         return {"statusCode": status, "headers": {}, "body": body.decode()}
 
 
@@ -59,3 +63,21 @@ def test_custom_handler():
         "server": ("mangum", 8080),
         "type": "http",
     }
+
+
+def test_custom_handler_infer():
+    """Test the infer method of CustomHandler."""
+    event_with_key = {"my-custom-key": 1}
+    event_without_key = {"other-key": 1}
+
+    assert CustomHandler.infer(event_with_key, {}, {"api_gateway_base_path": "/"}) is True
+    assert CustomHandler.infer(event_without_key, {}, {"api_gateway_base_path": "/"}) is False
+
+
+def test_custom_handler_call():
+    """Test the __call__ method of CustomHandler."""
+    event = {"my-custom-key": 1}
+    handler = CustomHandler(event, {}, {"api_gateway_base_path": "/"})
+
+    result = handler(status=200, headers=[], body=b"Hello, World!")
+    assert result == {"statusCode": 200, "headers": {}, "body": "Hello, World!"}

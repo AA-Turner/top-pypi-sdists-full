@@ -6,13 +6,12 @@ import os
 import re
 import shlex
 import subprocess
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 from localstack import config
 from localstack.utils.collections import ensure_list
 from localstack.utils.container_utils.container_client import (
     AccessDenied,
-    BindMount,
     CancellableStream,
     ContainerClient,
     ContainerException,
@@ -21,16 +20,16 @@ from localstack.utils.container_utils.container_client import (
     DockerNotAvailable,
     DockerPlatform,
     LogConfig,
+    Mount,
     NoSuchContainer,
     NoSuchImage,
     NoSuchNetwork,
     NoSuchObject,
     PortMappings,
     RegistryConnectionError,
-    SimpleVolumeBind,
     Ulimit,
     Util,
-    VolumeDirMount,
+    VolumeMappingSpecification,
 )
 from localstack.utils.run import run
 from localstack.utils.strings import first_char_to_upper, to_str
@@ -96,7 +95,7 @@ class CmdDockerClient(ContainerClient):
     different response payloads or error messages returned by the `docker` vs `podman` commands.
     """
 
-    default_run_outfile: Optional[str] = None
+    default_run_outfile: str | None = None
 
     def _docker_cmd(self) -> list[str]:
         """
@@ -289,7 +288,7 @@ class CmdDockerClient(ContainerClient):
                 f"Docker process returned with errorcode {e.returncode}", e.stdout, e.stderr
             ) from e
 
-    def list_containers(self, filter: Union[list[str], str, None] = None, all=True) -> list[dict]:
+    def list_containers(self, filter: list[str] | str | None = None, all=True) -> list[dict]:
         filter = [filter] if isinstance(filter, str) else filter
         cmd = self._docker_cmd()
         cmd.append("ps")
@@ -365,8 +364,8 @@ class CmdDockerClient(ContainerClient):
     def pull_image(
         self,
         docker_image: str,
-        platform: Optional[DockerPlatform] = None,
-        log_handler: Optional[Callable[[str], None]] = None,
+        platform: DockerPlatform | None = None,
+        log_handler: Callable[[str], None] | None = None,
     ) -> None:
         cmd = self._docker_cmd()
         docker_image = self.registry_resolver_strategy.resolve(docker_image)
@@ -420,7 +419,7 @@ class CmdDockerClient(ContainerClient):
         dockerfile_path: str,
         image_name: str,
         context_path: str = None,
-        platform: Optional[DockerPlatform] = None,
+        platform: DockerPlatform | None = None,
     ):
         cmd = self._docker_cmd()
         dockerfile_path = Util.resolve_dockerfile_path(dockerfile_path)
@@ -497,7 +496,7 @@ class CmdDockerClient(ContainerClient):
 
         return CancellableProcessStream(process)
 
-    def _inspect_object(self, object_name_or_id: str) -> dict[str, Union[dict, list, str]]:
+    def _inspect_object(self, object_name_or_id: str) -> dict[str, dict | list | str]:
         cmd = self._docker_cmd()
         cmd += ["inspect", "--format", "{{json .}}", object_name_or_id]
         try:
@@ -524,7 +523,7 @@ class CmdDockerClient(ContainerClient):
             )
         return object_data
 
-    def inspect_container(self, container_name_or_id: str) -> dict[str, Union[dict, str]]:
+    def inspect_container(self, container_name_or_id: str) -> dict[str, dict | str]:
         try:
             return self._inspect_object(container_name_or_id)
         except NoSuchObject as e:
@@ -535,7 +534,7 @@ class CmdDockerClient(ContainerClient):
         image_name: str,
         pull: bool = True,
         strip_wellknown_repo_prefixes: bool = True,
-    ) -> dict[str, Union[dict, list, str]]:
+    ) -> dict[str, dict | list | str]:
         image_name = self.registry_resolver_strategy.resolve(image_name)
         try:
             result = self._inspect_object(image_name)
@@ -577,7 +576,7 @@ class CmdDockerClient(ContainerClient):
                     f"Docker process returned with errorcode {e.returncode}", e.stdout, e.stderr
                 ) from e
 
-    def inspect_network(self, network_name: str) -> dict[str, Union[dict, str]]:
+    def inspect_network(self, network_name: str) -> dict[str, dict | str]:
         try:
             return self._inspect_object(network_name)
         except NoSuchObject as e:
@@ -587,7 +586,7 @@ class CmdDockerClient(ContainerClient):
         self,
         network_name: str,
         container_name_or_id: str,
-        aliases: Optional[list] = None,
+        aliases: list | None = None,
         link_local_ips: list[str] = None,
     ) -> None:
         LOG.debug(
@@ -652,7 +651,7 @@ class CmdDockerClient(ContainerClient):
                 f"Docker process returned with errorcode {e.returncode}", e.stdout, e.stderr
             ) from e
 
-    def login(self, username: str, password: str, registry: Optional[str] = None) -> None:
+    def login(self, username: str, password: str, registry: str | None = None) -> None:
         cmd = self._docker_cmd()
         # TODO specify password via stdin
         cmd += ["login", "-u", username, "-p", password]
@@ -709,13 +708,13 @@ class CmdDockerClient(ContainerClient):
     def exec_in_container(
         self,
         container_name_or_id: str,
-        command: Union[list[str], str],
+        command: list[str] | str,
         interactive=False,
         detach=False,
-        env_vars: Optional[dict[str, Optional[str]]] = None,
-        stdin: Optional[bytes] = None,
-        user: Optional[str] = None,
-        workdir: Optional[str] = None,
+        env_vars: dict[str, str | None] | None = None,
+        stdin: bytes | None = None,
+        user: str | None = None,
+        workdir: str | None = None,
     ) -> tuple[bytes, bytes]:
         env_file = None
         cmd = self._docker_cmd()
@@ -745,7 +744,7 @@ class CmdDockerClient(ContainerClient):
         stdin=None,
         interactive: bool = False,
         attach: bool = False,
-        flags: Optional[str] = None,
+        flags: str | None = None,
     ) -> tuple[bytes, bytes]:
         cmd = self._docker_cmd() + ["start"]
         if flags:
@@ -803,31 +802,31 @@ class CmdDockerClient(ContainerClient):
         action: str,
         image_name: str,
         *,
-        name: Optional[str] = None,
-        entrypoint: Optional[Union[list[str], str]] = None,
+        name: str | None = None,
+        entrypoint: list[str] | str | None = None,
         remove: bool = False,
         interactive: bool = False,
         tty: bool = False,
         detach: bool = False,
-        command: Optional[Union[list[str], str]] = None,
-        volumes: Optional[list[SimpleVolumeBind]] = None,
-        ports: Optional[PortMappings] = None,
-        exposed_ports: Optional[list[str]] = None,
-        env_vars: Optional[dict[str, str]] = None,
-        user: Optional[str] = None,
-        cap_add: Optional[list[str]] = None,
-        cap_drop: Optional[list[str]] = None,
-        security_opt: Optional[list[str]] = None,
-        network: Optional[str] = None,
-        dns: Optional[Union[str, list[str]]] = None,
-        additional_flags: Optional[str] = None,
-        workdir: Optional[str] = None,
-        privileged: Optional[bool] = None,
-        labels: Optional[dict[str, str]] = None,
-        platform: Optional[DockerPlatform] = None,
-        ulimits: Optional[list[Ulimit]] = None,
-        init: Optional[bool] = None,
-        log_config: Optional[LogConfig] = None,
+        command: list[str] | str | None = None,
+        volumes: list[VolumeMappingSpecification] | None = None,
+        ports: PortMappings | None = None,
+        exposed_ports: list[str] | None = None,
+        env_vars: dict[str, str] | None = None,
+        user: str | None = None,
+        cap_add: list[str] | None = None,
+        cap_drop: list[str] | None = None,
+        security_opt: list[str] | None = None,
+        network: str | None = None,
+        dns: str | list[str] | None = None,
+        additional_flags: str | None = None,
+        workdir: str | None = None,
+        privileged: bool | None = None,
+        labels: dict[str, str] | None = None,
+        platform: DockerPlatform | None = None,
+        ulimits: list[Ulimit] | None = None,
+        init: bool | None = None,
+        log_config: LogConfig | None = None,
     ) -> tuple[list[str], str]:
         env_file = None
         cmd = self._docker_cmd() + [action]
@@ -900,7 +899,7 @@ class CmdDockerClient(ContainerClient):
         return cmd, env_file
 
     @staticmethod
-    def _map_to_volume_param(volume: Union[SimpleVolumeBind, BindMount, VolumeDirMount]) -> str:
+    def _map_to_volume_param(volume: VolumeMappingSpecification) -> str:
         """
         Maps the mount volume, to a parameter for the -v docker cli argument.
 
@@ -911,7 +910,8 @@ class CmdDockerClient(ContainerClient):
         :param volume: Either a SimpleVolumeBind, in essence a tuple (host_dir, container_dir), or a VolumeBind object
         :return: String which is passable as parameter to the docker cli -v option
         """
-        if isinstance(volume, (BindMount, VolumeDirMount)):
+        # TODO: move this logic to the VolumeMappingSpecification type
+        if isinstance(volume, Mount):
             return volume.to_str()
         else:
             return f"{volume[0]}:{volume[1]}"
@@ -928,7 +928,7 @@ class CmdDockerClient(ContainerClient):
         )
 
     def _check_output_and_raise_no_such_container_error(
-        self, container_name_or_id: str, output: str, error: Optional[str] = None
+        self, container_name_or_id: str, output: str, error: str | None = None
     ):
         """
         Check the given client invocation output and raise a `NoSuchContainer` exception if it
@@ -938,7 +938,7 @@ class CmdDockerClient(ContainerClient):
         if any(msg.lower() in output.lower() for msg in possible_not_found_messages):
             raise NoSuchContainer(container_name_or_id, stdout=output, stderr=error)
 
-    def _transform_container_labels(self, labels: Union[str, dict[str, str]]) -> dict[str, str]:
+    def _transform_container_labels(self, labels: str | dict[str, str]) -> dict[str, str]:
         """
         Transforms the container labels returned by the docker command from the key-value pair format to a dict
         :param labels: Input string, comma separated key value pairs. Example: key1=value1,key2=value2

@@ -4,9 +4,10 @@ try:
     from ..common.ansible_common import (
         log_entry_exit,
         camel_to_snake_case,
+        volume_id_to_hex_format,
     )
     from ..common.hv_log import Log
-    from ..common.hv_constants import StateValue, ConnectionTypes
+    from ..common.hv_constants import StateValue
     from ..provisioner.vsp_resource_group_provisioner import VSPResourceGroupProvisioner
     from ..provisioner.vsp_volume_prov import VSPVolumeProvisioner
     from ..gateway.vsp_storage_system_gateway import VSPStorageSystemDirectGateway
@@ -17,9 +18,10 @@ except ImportError:
     from common.ansible_common import (
         log_entry_exit,
         camel_to_snake_case,
+        volume_id_to_hex_format,
     )
     from common.hv_log import Log
-    from common.hv_constants import StateValue, ConnectionTypes
+    from common.hv_constants import StateValue
     from provisioner.vsp_resource_group_provisioner import VSPResourceGroupProvisioner
     from provisioner.vsp_volume_prov import VSPVolumeProvisioner
     from gateway.vsp_storage_system_gateway import VSPStorageSystemDirectGateway
@@ -92,20 +94,12 @@ class VSPResourceGroupReconciler:
             if not rg:
                 spec.id = self.create_resource_group(spec)
             else:
-                if (
-                    self.connection_info.connection_type.lower()
-                    == ConnectionTypes.DIRECT
-                ):
-                    spec.id = rg.resourceGroupId
-                else:
-                    spec.id = rg.resourceId
+                spec.id = rg.resourceGroupId
                 self.update_resource_group(rg, spec)
 
             sp_ids = None
-            if self.connection_info.connection_type.lower() == ConnectionTypes.DIRECT:
-                sp_ids = self.provisioner.handle_storage_pools()
-            else:
-                time.sleep(60)
+            sp_ids = self.provisioner.handle_storage_pools()
+
             logger.writeDebug("RC:reconcile_resource_group:spec.id={}", spec.id)
             rg3 = self.provisioner.get_resource_group_by_id(spec.id)
             logger.writeDebug("RC:reconcile_resource_group:rg3={}", rg3)
@@ -211,6 +205,12 @@ class VSPResourceGroupReconciler:
                     iscsi_list.append(f"{hg['port']},{hg['id']}")
                 elif "name" in hg:
                     id = self.provisioner.get_iscsi_id(hg["port"], hg["name"])
+                    if id is None:
+                        logger.writeInfo(
+                            f"Could not find ID for iSCSI {hg['name']} on port {hg['port']}."
+                        )
+                        continue
+                    logger.writeDebug("RC:construct_simple_iscsi_list:id={}", id)
                     iscsi_list.append(f"{hg['port']},{id}")
         logger.writeDebug("RC:construct_simple_iscsi_list:iscsi_list={}", iscsi_list)
         return iscsi_list
@@ -246,10 +246,6 @@ class VSPResourceGroupReconciler:
 
     @log_entry_exit
     def update_add_resource(self, rg, spec):
-        self.update_add_resource_direct(rg, spec)
-
-    @log_entry_exit
-    def update_add_resource_direct(self, rg, spec):
         if rg:
             logger.writeDebug("RC:update_add_resource:rg={}", rg)
         ldevs_to_add = None
@@ -292,7 +288,6 @@ class VSPResourceGroupReconciler:
                 )
                 spec.nvm_subsystem_ids = nvm_subsystems_to_add
         # Handle host groups and iscsi targets in the add resource case
-        logger.writeDebug("RC:update_add_resource:updated spec={}", spec)
         self.add_resource(rg, spec)
         return
 
@@ -325,10 +320,9 @@ class VSPResourceGroupReconciler:
 
         if spec.iscsi_targets:
             iscsi_list = self.construct_simple_iscsi_list(spec)
+            iscsi_targets_to_add = []
+
             if rg.hostGroupIds:
-                iscsi_targets_to_add = (
-                    []
-                )  # list(set(iscsi_list) - set(rg.hostGroupIds))
                 for iscsi in iscsi_list:
                     if str(iscsi) not in rg.hostGroupIds:
                         iscsi_targets_to_add.append(iscsi)
@@ -347,6 +341,9 @@ class VSPResourceGroupReconciler:
                     spec.host_groups_simple = new_host_groups_to_add
                 else:
                     spec.host_groups_simple = iscsi_targets_to_add
+            else:
+                spec.host_groups_simple = iscsi_list
+
         return
 
     @log_entry_exit
@@ -359,6 +356,7 @@ class VSPResourceGroupReconciler:
             if rg_host_list:
                 host_groups_to_remove = list(set(hg_list) & set(rg_host_list))
             spec.host_groups_simple = host_groups_to_remove
+
         if spec.iscsi_targets:
             iscsi_list = self.construct_simple_iscsi_list(spec)
             rg_host_list = rg.hostGroupIds
@@ -438,7 +436,6 @@ class VSPResourceGroupReconciler:
         self.fix_host_groups_for_remove(rg, spec)
         self.fix_ldevs_for_remove(rg, spec)
 
-        logger.writeDebug("RC:remove_resource:spec={}", spec)
         rg_id = self.provisioner.remove_resource(rg, spec)
         logger.writeDebug("RC:remove_resource:ret_data={}", rg_id)
 
@@ -495,7 +492,9 @@ class ResourceGroupInfoExtractor:
             "lockSessionId": int,
             "virtualStorageId": int,
             "ldevs": list[int],
+            "ldevs_hex": list[str],
             "parityGroups": list[str],
+            "externalParityGroups": list[str],
             "ports": list[str],
             "hostGroups": list[dict],
             "iscsiTargets": list[dict],
@@ -547,5 +546,11 @@ class ResourceGroupInfoExtractor:
                     # Handle missing keys by assigning default values
                     # default_value = get_default_value(value_type)
                     # new_dict[cased_key] = default_value
+            if new_dict.get("ldevs_hex") == "" or new_dict.get("ldevs_hex") is None:
+                if new_dict.get("ldevs") is not None and new_dict.get("ldevs") != []:
+                    ldev_ids = new_dict.get("ldevs", None)
+                    new_dict["ldevs_hex"] = [
+                        volume_id_to_hex_format(ldev_id) for ldev_id in ldev_ids
+                    ]
             new_items.append(new_dict)
         return new_items

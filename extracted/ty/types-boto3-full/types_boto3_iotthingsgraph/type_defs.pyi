@@ -3,7 +3,7 @@ Type annotations for iotthingsgraph service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iotthingsgraph/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -17,6 +17,7 @@ Usage::
 from __future__ import annotations
 
 import sys
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Union
 
@@ -32,12 +33,6 @@ from .literals import (
     UploadStatusType,
 )
 
-if sys.version_info >= (3, 9):
-    from builtins import dict as Dict
-    from builtins import list as List
-    from collections.abc import Sequence
-else:
-    from typing import Dict, List, Sequence
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
 else:
@@ -158,7 +153,7 @@ FlowTemplateSummaryTypeDef = TypedDict(
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
-    HTTPHeaders: Dict[str, str]
+    HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
 
@@ -420,7 +415,7 @@ class DescribeNamespaceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFlowTemplateRevisionsResponseTypeDef(TypedDict):
-    summaries: List[FlowTemplateSummaryTypeDef]
+    summaries: list[FlowTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -438,12 +433,12 @@ class GetUploadStatusResponseTypeDef(TypedDict):
     namespaceArn: str
     namespaceName: str
     namespaceVersion: int
-    failureReason: List[str]
+    failureReason: list[str]
     createdDate: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchFlowTemplatesResponseTypeDef(TypedDict):
-    summaries: List[FlowTemplateSummaryTypeDef]
+    summaries: list[FlowTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -465,7 +460,7 @@ class CreateSystemInstanceRequestTypeDef(TypedDict):
     flowActionsRoleArn: NotRequired[str]
 
 class ListTagsForResourceResponseTypeDef(TypedDict):
-    tags: List[TagTypeDef]
+    tags: list[TagTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -483,7 +478,7 @@ class DeploySystemInstanceResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchSystemInstancesResponseTypeDef(TypedDict):
-    summaries: List[SystemInstanceSummaryTypeDef]
+    summaries: list[SystemInstanceSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -496,12 +491,12 @@ class CreateSystemTemplateResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSystemTemplateRevisionsResponseTypeDef(TypedDict):
-    summaries: List[SystemTemplateSummaryTypeDef]
+    summaries: list[SystemTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class SearchSystemTemplatesResponseTypeDef(TypedDict):
-    summaries: List[SystemTemplateSummaryTypeDef]
+    summaries: list[SystemTemplateSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -520,7 +515,7 @@ class SystemInstanceDescriptionTypeDef(TypedDict):
     s3BucketName: NotRequired[str]
     metricsConfiguration: NotRequired[MetricsConfigurationTypeDef]
     validatedNamespaceVersion: NotRequired[int]
-    validatedDependencyRevisions: NotRequired[List[DependencyRevisionTypeDef]]
+    validatedDependencyRevisions: NotRequired[list[DependencyRevisionTypeDef]]
     flowActionsRoleArn: NotRequired[str]
 
 class SearchEntitiesRequestTypeDef(TypedDict):
@@ -531,12 +526,12 @@ class SearchEntitiesRequestTypeDef(TypedDict):
     namespaceVersion: NotRequired[int]
 
 class ListFlowExecutionMessagesResponseTypeDef(TypedDict):
-    messages: List[FlowExecutionMessageTypeDef]
+    messages: list[FlowExecutionMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class SearchFlowExecutionsResponseTypeDef(TypedDict):
-    summaries: List[FlowExecutionSummaryTypeDef]
+    summaries: list[FlowExecutionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -617,16 +612,16 @@ class SearchSystemTemplatesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
 
 class SearchThingsResponseTypeDef(TypedDict):
-    things: List[ThingTypeDef]
+    things: list[ThingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
 class GetEntitiesResponseTypeDef(TypedDict):
-    descriptions: List[EntityDescriptionTypeDef]
+    descriptions: list[EntityDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class SearchEntitiesResponseTypeDef(TypedDict):
-    descriptions: List[EntityDescriptionTypeDef]
+    descriptions: list[EntityDescriptionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

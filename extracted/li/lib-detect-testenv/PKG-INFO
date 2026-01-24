@@ -1,502 +1,418 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: lib_detect_testenv
-Version: 2.0.8
-Summary: detects if pytest or doctest or pyrunner on pycharm is running
-Author-email: Robert Nowotny <bitranox@gmail.com>
-License: MIT
+Version: 3.0.1
+Summary: Detect test environment - pytest, doctest, unittest, or regular execution
 Project-URL: Homepage, https://github.com/bitranox/lib_detect_testenv
-Project-URL: Documentation, https://github.com/bitranox/lib_detect_testenv/blob/master/README.rst
 Project-URL: Repository, https://github.com/bitranox/lib_detect_testenv.git
-Project-URL: Changelog, https://github.com/bitranox/lib_detect_testenv/blob/master/CHANGES.rst
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Natural Language :: English
-Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python
-Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8.0
-Description-Content-Type: text/x-rst
-Provides-Extra: test
+Project-URL: Issues, https://github.com/bitranox/lib_detect_testenv/issues
+Author-email: bitranox <bitranox@gmail.com>
+License: MIT
 License-File: LICENSE
+Keywords: doctest,pytest,test-detection,test-environment,testing,unittest
+Classifier: Environment :: Console
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
+Requires-Python: >=3.9
+Requires-Dist: rich-click>=1.9.4
+Provides-Extra: dev
+Requires-Dist: bandit<1.9,>=1.8.6; (python_version < '3.10') and extra == 'dev'
+Requires-Dist: bandit>=1.9.2; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: build>=1.3.0; extra == 'dev'
+Requires-Dist: codecov-cli>=11.2.6; extra == 'dev'
+Requires-Dist: import-linter<2.6,>=2.5.2; (python_version < '3.10') and extra == 'dev'
+Requires-Dist: import-linter>=2.9; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: pip-audit>=2.10.0; extra == 'dev'
+Requires-Dist: pyright>=1.1.407; extra == 'dev'
+Requires-Dist: pytest-cov>=7.0.0; extra == 'dev'
+Requires-Dist: pytest<9,>=8.4.2; (python_version < '3.10') and extra == 'dev'
+Requires-Dist: pytest>=9.0.2; (python_version >= '3.10') and extra == 'dev'
+Requires-Dist: rtoml>=0.13.0; extra == 'dev'
+Requires-Dist: ruff>=0.14.9; extra == 'dev'
+Requires-Dist: setuptools>=80.9.0; extra == 'dev'
+Requires-Dist: textual>=6.9.0; extra == 'dev'
+Requires-Dist: twine>=6.2.0; extra == 'dev'
+Description-Content-Type: text/markdown
+
+# lib_detect_testenv
+
+<!-- Badges -->
+[![CI](https://github.com/bitranox/lib_detect_testenv/actions/workflows/ci.yml/badge.svg)](https://github.com/bitranox/lib_detect_testenv/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/bitranox/lib_detect_testenv/actions/workflows/codeql.yml/badge.svg)](https://github.com/bitranox/lib_detect_testenv/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Open in Codespaces](https://img.shields.io/badge/Codespaces-Open-blue?logo=github&logoColor=white&style=flat-square)](https://codespaces.new/bitranox/lib_detect_testenv?quickstart=1)
+[![PyPI](https://img.shields.io/pypi/v/lib_detect_testenv.svg)](https://pypi.org/project/lib_detect_testenv/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/lib_detect_testenv.svg)](https://pypi.org/project/lib_detect_testenv/)
+[![Code Style: Ruff](https://img.shields.io/badge/Code%20Style-Ruff-46A3FF?logo=ruff&labelColor=000)](https://docs.astral.sh/ruff/)
+[![codecov](https://codecov.io/gh/bitranox/lib_detect_testenv/graph/badge.svg?token=UFBaUDIgRk)](https://codecov.io/gh/bitranox/lib_detect_testenv)
+[![Maintainability](https://qlty.sh/badges/041ba2c1-37d6-40bb-85a0-ec5a8a0aca0c/maintainability.svg)](https://qlty.sh/gh/bitranox/projects/lib_detect_testenv)
+[![Known Vulnerabilities](https://snyk.io/test/github/bitranox/lib_detect_testenv/badge.svg)](https://snyk.io/test/github/bitranox/lib_detect_testenv)
+[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+
+**Detect test environments: pytest, doctest, and setup.py test**
+
+This library provides utility functions to detect whether your code is running in a test environment. It supports detection of pytest, doctest (including PyCharm's docrunner), and setup.py test execution contexts.
+
+## Table of Contents
+
+- [Installation](#installation)
+- [Usage](#usage)
+  - [Public API](#public-api)
+  - [Quick Start](#quick-start)
+  - [Function Reference](#function-reference)
+- [Development](#development)
+- [Further Documentation](#further-documentation)
+
+## Installation
+
+### Recommended: Install via UV
+
+UV is an ultrafast Python package installer written in Rust (10–20× faster than pip/poetry):
+
+```bash
+# Install uv
+pip install --upgrade uv
+
+# Create and activate a virtual environment (optional but recommended)
+uv venv
+
+# macOS/Linux
+source .venv/bin/activate
+# Windows (PowerShell)
+.venv\Scripts\Activate.ps1
+
+# Install from PyPI
+uv pip install lib_detect_testenv
+```
+
+### Alternative: Install via pip
+
+```bash
+# Upgrade pip first
+python -m pip install --upgrade pip
+
+# Install from PyPI
+python -m pip install --upgrade lib_detect_testenv
+
+# Or install with test dependencies
+python -m pip install --upgrade lib_detect_testenv[test]
+```
+
+For more installation methods (pipx, source builds, etc.), see [INSTALL.md](INSTALL.md).
+
+### Python Version Requirements
+
+- **Python 3.9+** is required
+- Tested on Linux, macOS, and Windows
+- CI runs on CPython 3.9+ and PyPy
 
-lib_detect_testenv
-==================
+## Usage
+
+### Command Line Interface (CLI)
 
+The package provides a CLI for shell scripting and CI/CD integration. All commands use exit codes for programmatic usage.
 
-Version v2.0.8 as of 2023-07-14 see `Changelog`_
+#### Exit Codes
 
-|build_badge| |codeql| |license| |jupyter| |pypi|
-|pypi-downloads| |black| |codecov| |cc_maintain| |cc_issues| |cc_coverage| |snyk|
+All detection commands use a **3-level exit code system**:
 
+| Code | Meaning | Use Case |
+|------|---------|----------|
+| **0** | Test environment **detected** | Success - test env found |
+| **1** | Test environment **not detected** | Normal negative result (not an error) |
+| **2** | **Error occurred** | Command failed (bad arguments, exception) |
 
+This design follows Unix conventions and makes shell scripting intuitive:
 
-.. |build_badge| image:: https://github.com/bitranox/lib_detect_testenv/actions/workflows/python-package.yml/badge.svg
-   :target: https://github.com/bitranox/lib_detect_testenv/actions/workflows/python-package.yml
+```bash
+# Check if in test environment (exit 0 = yes, exit 1 = no)
+if lib_detect_testenv check --quiet; then
+    echo "Running in test mode"
+else
+    echo "Running in production"
+fi
 
+# Handle errors separately
+lib_detect_testenv check --quiet
+case $? in
+    0) echo "Test environment detected" ;;
+    1) echo "No test environment" ;;
+    2) echo "Error occurred" ;;
+esac
+```
 
-.. |codeql| image:: https://github.com/bitranox/lib_detect_testenv/actions/workflows/codeql-analysis.yml/badge.svg?event=push
-   :target: https://github.com//bitranox/lib_detect_testenv/actions/workflows/codeql-analysis.yml
+#### Available Commands
 
-.. |license| image:: https://img.shields.io/github/license/webcomics/pywine.svg
-   :target: http://en.wikipedia.org/wiki/MIT_License
+```bash
+# Test Detection Commands (exit codes: 0=detected, 1=not detected, 2=error)
+lib_detect_testenv check                    # Check any test environment
+lib_detect_testenv check --quiet            # Silent mode, use exit code only
+lib_detect_testenv check --arg-string "pytest test.py"  # Check custom string
 
-.. |jupyter| image:: https://mybinder.org/badge_logo.svg
-   :target: https://mybinder.org/v2/gh/bitranox/lib_detect_testenv/master?filepath=lib_detect_testenv.ipynb
+lib_detect_testenv pytest                   # Check for pytest
+lib_detect_testenv doctest                  # Check for doctest
+lib_detect_testenv setup                    # Check for setup.py
+lib_detect_testenv setup --test-only        # Check for "setup.py test" specifically
 
-.. for the pypi status link note the dashes, not the underscore !
-.. |pypi| image:: https://img.shields.io/pypi/status/lib-detect-testenv?label=PyPI%20Package
-   :target: https://badge.fury.io/py/lib_detect_testenv
+# Utility Commands
+lib_detect_testenv info                     # Show package information
+lib_detect_testenv hello                    # Demo: print greeting
+lib_detect_testenv fail                     # Demo: trigger intentional failure
 
-.. |codecov| image:: https://img.shields.io/codecov/c/github/bitranox/lib_detect_testenv
-   :target: https://codecov.io/gh/bitranox/lib_detect_testenv
+# Help
+lib_detect_testenv --help                   # Show all commands
+lib_detect_testenv check --help             # Command-specific help
+```
 
-.. |cc_maintain| image:: https://img.shields.io/codeclimate/maintainability-percentage/bitranox/lib_detect_testenv?label=CC%20maintainability
-   :target: https://codeclimate.com/github/bitranox/lib_detect_testenv/maintainability
-   :alt: Maintainability
+#### CLI Examples
 
-.. |cc_issues| image:: https://img.shields.io/codeclimate/issues/bitranox/lib_detect_testenv?label=CC%20issues
-   :target: https://codeclimate.com/github/bitranox/lib_detect_testenv/maintainability
-   :alt: Maintainability
+```bash
+# Use in shell scripts
+if lib_detect_testenv check --quiet; then
+    echo "Running in test environment"
+fi
 
-.. |cc_coverage| image:: https://img.shields.io/codeclimate/coverage/bitranox/lib_detect_testenv?label=CC%20coverage
-   :target: https://codeclimate.com/github/bitranox/lib_detect_testenv/test_coverage
-   :alt: Code Coverage
+# Use in CI/CD pipelines
+lib_detect_testenv pytest --quiet && echo "pytest detected"
 
-.. |snyk| image:: https://snyk.io/test/github/bitranox/lib_detect_testenv/badge.svg
-   :target: https://snyk.io/test/github/bitranox/lib_detect_testenv
+# Check with custom arguments
+lib_detect_testenv pytest --arg-string "/pytest/__main__.py"
+```
 
-.. |black| image:: https://img.shields.io/badge/code%20style-black-000000.svg
-   :target: https://github.com/psf/black
+### Python API
 
-.. |pypi-downloads| image:: https://img.shields.io/pypi/dm/lib-detect-testenv
-   :target: https://pypi.org/project/lib-detect-testenv/
-   :alt: PyPI - Downloads
+The library exports the following functions from `lib_detect_testenv`:
 
-detects test environments: pytest, doctest and pycharm docrunner
+```python
+from lib_detect_testenv import (
+    is_testenv_active,      # Detect any test environment
+    is_doctest_active,      # Detect doctest/docrunner
+    is_pytest_active,       # Detect pytest
+    is_setup_active,        # Detect setup.py
+    is_setup_test_active,   # Detect setup.py test
+    is_doctest_in_arg_string,  # Check if doctest in arg string
+    add_path_to_syspath,    # Add path to sys.path
+    PathLikeOrString,       # Type alias for paths
+)
+```
 
-----
+### Quick Start
 
-automated tests, Github Actions, Documentation, Badges, etc. are managed with `PizzaCutter <https://github
-.com/bitranox/PizzaCutter>`_ (cookiecutter on steroids)
+The most common use case is detecting whether any test environment is active:
 
-Python version required: 3.8.0 or newer
+```python
+from lib_detect_testenv import is_testenv_active
 
-tested on recent linux with python 3.8, 3.9, 3.10, 3.11, 3.12-dev, pypy-3.9, pypy-3.10 - architectures: amd64
+if is_testenv_active():
+    print("Running in test environment")
+else:
+    print("Running in production")
+```
 
-`100% code coverage <https://codeclimate.com/github/bitranox/lib_detect_testenv/test_coverage>`_, flake8 style checking ,mypy static type checking ,tested under `Linux, macOS, Windows <https://github.com/bitranox/lib_detect_testenv/actions/workflows/python-package.yml>`_, automatic daily builds and monitoring
+### Function Reference
 
-----
+#### `is_testenv_active(arg_string: Optional[str] = None) -> bool`
 
-- `Try it Online`_
-- `Usage`_
-- `Usage from Commandline`_
-- `Installation and Upgrade`_
-- `Requirements`_
-- `Acknowledgements`_
-- `Contribute`_
-- `Report Issues <https://github.com/bitranox/lib_detect_testenv/blob/master/ISSUE_TEMPLATE.md>`_
-- `Pull Request <https://github.com/bitranox/lib_detect_testenv/blob/master/PULL_REQUEST_TEMPLATE.md>`_
-- `Code of Conduct <https://github.com/bitranox/lib_detect_testenv/blob/master/CODE_OF_CONDUCT.md>`_
-- `License`_
-- `Changelog`_
+Returns `True` if any test environment is detected (pytest, doctest, or setup.py test).
 
-----
+**Parameters:**
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`
 
-Try it Online
--------------
+**Returns:**
+- `True` if test environment is detected
 
-You might try it right away in Jupyter Notebook by using the "launch binder" badge, or click `here <https://mybinder.org/v2/gh/{{rst_include.
-repository_slug}}/master?filepath=lib_detect_testenv.ipynb>`_
+**Example:**
+```python
+from lib_detect_testenv import is_testenv_active
 
-Usage
------------
+# Auto-detect from sys.argv
+if is_testenv_active():
+    print("Test environment detected")
 
-- detect if test environment is active
+# Or pass custom arg string
+if is_testenv_active(arg_string="pytest test.py"):
+    print("pytest detected")
+```
 
-.. code-block:: python
+#### `is_doctest_active(arg_string: Optional[str] = None) -> bool`
 
-    def is_testenv_active(arg_string: Optional[str] = None) -> bool:
-        """
-        returns True if test environment is detected ("pytest", "doctest", "setup.py test")
+Returns `True` if PyCharm's docrunner.py or doctest.py is detected.
 
+**Parameters:**
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`
 
-        Parameter
-        ----------
-        arg_string  : optional, if None : str(sys.argv())
+**Returns:**
+- `True` if doctest/docrunner is detected
 
+**Example:**
+```python
+from lib_detect_testenv import is_doctest_active
 
-        Result
-        ----------
-        True if Test environment is detected
+# Examples
+assert is_doctest_active(arg_string="") == False
+assert is_doctest_active(arg_string="docrunner.py") == True
+assert is_doctest_active(arg_string="doctest.py") == True
+```
 
+#### `is_pytest_active(arg_string: Optional[str] = None) -> bool`
 
-        Exceptions
-        ----------
-        none
+Returns `True` if pytest is detected.
 
+**Parameters:**
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`
 
-        Examples
-        ----------
+**Returns:**
+- `True` if pytest is detected
 
-        >>> assert is_testenv_active() == True
-        """
+**Example:**
+```python
+from lib_detect_testenv import is_pytest_active
 
-- detect if doctest is active
+# Examples
+assert is_pytest_active(arg_string="pytest.py") == True
+assert is_pytest_active(arg_string="/pytest/__main__.py") == True
+assert is_pytest_active(arg_string="python -m pytest") == True
+```
 
-.. code-block:: python
+#### `is_setup_active(arg_string: Optional[str] = None) -> bool`
 
-    def is_doctest_active(arg_string: Optional[str] = None) -> bool:
-        """
-        returns True if pycharm "docrunner.py" or "doctest.py" is detected
+Returns `True` if setup.py is detected.
 
+**Parameters:**
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`
 
-        Parameter
-        ----------
-        arg_string  : optional, if None : str(sys.argv())
+**Returns:**
+- `True` if setup.py is detected
 
+**Example:**
+```python
+from lib_detect_testenv import is_setup_active
 
-        Result
-        ----------
-        True if docrunner is detected
+# Examples
+assert is_setup_active(arg_string="") == False
+assert is_setup_active(arg_string="setup.py") == True
+```
 
+#### `is_setup_test_active(arg_string: Optional[str] = None) -> bool`
 
-        Exceptions
-        ----------
-        none
+Returns `True` if "setup.py test" is detected.
 
-        >>> assert False == is_doctest_active(arg_string="")
-        >>> assert True == is_doctest_active(arg_string="docrunner.py")
-        >>> assert True == is_doctest_active(arg_string="doctest.py")
+**Parameters:**
+- `arg_string` (optional): If `None`, uses `str(sys.argv())`
 
-        """
+**Returns:**
+- `True` if "setup.py test" is detected
 
-- detect if pytest is active
+**Example:**
+```python
+from lib_detect_testenv import is_setup_test_active
 
-.. code-block:: python
+# Examples
+assert is_setup_test_active('') == False
+assert is_setup_test_active('setup.py') == False
+assert is_setup_test_active('setup.py test') == True
+```
 
-    def is_pytest_active(arg_string: Optional[str] = None) -> bool:
-        """
-        returns True if "pytest" is detected
+#### `is_doctest_in_arg_string(arg_string: str) -> bool`
 
+Checks if docrunner.py is present in the argument string.
 
-        Parameter
-        ----------
-        arg_string  : optional, if None : str(sys.argv())
+**Parameters:**
+- `arg_string`: String to check
 
+**Returns:**
+- `True` if docrunner.py is found
 
-        Result
-        ----------
-        True if pytest is detected
+**Example:**
+```python
+from lib_detect_testenv import is_doctest_in_arg_string
 
+# Examples
+assert is_doctest_in_arg_string('test') == False
+assert is_doctest_in_arg_string('test/docrunner.py::::test') == True
+```
 
-        Exceptions
-        ----------
-        none
+#### `add_path_to_syspath(path_to_append: PathLikeOrString) -> None`
 
-        >>> assert True == is_pytest_active(arg_string='pytest.py')
-        >>> assert True == is_pytest_active(arg_string='/pytest/__main__.py')
+Adds a path to `sys.path` if not already present. If the path is a file, its parent directory will be added instead.
 
-        """
+**Parameters:**
+- `path_to_append`: Path to append (string or PathLike object). Will be resolved to absolute path. If it's a file, the parent directory is added.
 
-- detect if setup.py is active
+**Returns:**
+- None
 
-.. code-block:: python
+**Example:**
+```python
+import pathlib
+from lib_detect_testenv import add_path_to_syspath
 
-    def is_setup_active(arg_string: Optional[str] = None) -> bool:
-        """
-        returns True if "setup.py" is detected
+# Add a directory
+add_path_to_syspath(pathlib.Path(__file__).parent)
 
+# Add a file (parent directory will be added)
+add_path_to_syspath(pathlib.Path(__file__))
 
-        Parameter
-        ----------
-        arg_string  : optional, if None : str(sys.argv())
+# Adding the same path twice won't create duplicates
+add_path_to_syspath("/some/path")
+add_path_to_syspath("/some/path")  # No duplicate added
+```
 
+### Common Pattern: Auto-add Package to sys.path in Tests
 
-        Result
-        ----------
-        True if setup.py is detected
+A useful pattern is to automatically add your package directory to `sys.path` when running tests. This is helpful for local testing without installing the package:
 
+```python
+# __init__.py
+from lib_detect_testenv import is_testenv_active, add_path_to_syspath
+import pathlib
 
-        Exceptions
-        ----------
-        none
+if is_testenv_active():
+    # Add parent directory to sys.path for local testing
+    add_path_to_syspath(pathlib.Path(__file__).parent)
+```
 
-        >>> assert False == is_setup_active(arg_string="")
-        >>> assert True == is_setup_active(arg_string="setup.py")
+## Development
 
-        """
+For development setup, testing, and contribution guidelines, see:
 
-- detect if "setup.py test" is active
+- [Development Handbook](DEVELOPMENT.md)
+- [Contributor Guide](CONTRIBUTING.md)
 
-.. code-block:: python
+### Quick Development Setup
 
-    def is_setup_test_active(arg_string: Optional[str] = None) -> bool:
-        """
-        returns True if "setup.py test" is detected
+```bash
+# Clone the repository
+git clone https://github.com/bitranox/lib_detect_testenv.git
+cd lib_detect_testenv
 
+# Run tests (sets up environment, runs tests with coverage)
+make test
 
-        Parameter
-        ----------
-        arg_string  : optional, if None : str(sys.argv())
+# Or use the Python scripts directly
+python -m scripts.test
+```
 
+## Further Documentation
 
-        Result
-        ----------
-        True if "setup.py test" is detected
+- [Install Guide](INSTALL.md) - Detailed installation instructions
+- [Development Handbook](DEVELOPMENT.md) - Development setup and workflows
+- [Contributor Guide](CONTRIBUTING.md) - How to contribute
+- [Changelog](CHANGELOG.md) - Version history
+- [Module Reference](docs/systemdesign/module_reference.md) - Detailed module docs
+- [License](LICENSE) - MIT License
 
+## Acknowledgements
 
-        Exceptions
-        ----------
-        none
+Special thanks to "Uncle Bob" Robert C. Martin for his invaluable books on clean code and clean architecture.
 
-        >>> assert False == is_setup_test_active('')
-        >>> assert False == is_setup_test_active('setup.py')
-        >>> assert True == is_setup_test_active('setup.py test')
+## License
 
-        """
-
-- add a path to the syspath
-
-.. code-block:: python
-
-    def add_path_to_syspath(path_to_append: PathLikeOrString) -> None:
-        """
-        adds a path to the syspath
-
-        Parameter
-        ----------
-        path_to_append
-            the path to append - will be resolved by this function and added to syspath
-            if path_to_append is a file, its parent directory will be added.
-
-
-        Result
-        ----------
-        none
-
-
-        Exceptions
-        ----------
-        none
-
-
-        Examples
-        ----------
-
-        >>> add_path_to_syspath(pathlib.Path(__file__).parent)
-        >>> path1 = str(sys.path)
-        >>> add_path_to_syspath(pathlib.Path(__file__))
-        >>> path2 = str(sys.path)
-        >>> assert path1 == path2
-        """
-
-- put this in Your `__init__.py` to automatically add the package directory to the syspath if the test environment is active.
-  This is useful for local testing of packages.
-
-.. code-block:: python
-
-    # __init__.py :
-    # this should be Your first import in __init__
-    from lib_detect_testenv import *
-    if is_testenv_active():
-        add_path_to_syspath(__file__)
-
-Usage from Commandline
-------------------------
-
-there are no cli commands
-
-Installation and Upgrade
-------------------------
-
-- Before You start, its highly recommended to update pip and setup tools:
-
-
-.. code-block::
-
-    python -m pip --upgrade pip
-    python -m pip --upgrade setuptools
-
-- to install the latest release from PyPi via pip (recommended):
-
-.. code-block::
-
-    python -m pip install --upgrade lib_detect_testenv
-
-
-- to install the latest release from PyPi via pip, including test dependencies:
-
-.. code-block::
-
-    python -m pip install --upgrade lib_detect_testenv[test]
-
-- to install the latest version from github via pip:
-
-
-.. code-block::
-
-    python -m pip install --upgrade git+https://github.com/bitranox/lib_detect_testenv.git
-
-
-- include it into Your requirements.txt:
-
-.. code-block::
-
-    # Insert following line in Your requirements.txt:
-    # for the latest Release on pypi:
-    lib_detect_testenv
-
-    # for the latest development version :
-    lib_detect_testenv @ git+https://github.com/bitranox/lib_detect_testenv.git
-
-    # to install and upgrade all modules mentioned in requirements.txt:
-    python -m pip install --upgrade -r /<path>/requirements.txt
-
-
-- to install the latest development version, including test dependencies from source code:
-
-.. code-block::
-
-    # cd ~
-    $ git clone https://github.com/bitranox/lib_detect_testenv.git
-    $ cd lib_detect_testenv
-    python -m pip install -e .[test]
-
-- via makefile:
-  makefiles are a very convenient way to install. Here we can do much more,
-  like installing virtual environments, clean caches and so on.
-
-.. code-block:: shell
-
-    # from Your shell's homedirectory:
-    $ git clone https://github.com/bitranox/lib_detect_testenv.git
-    $ cd lib_detect_testenv
-
-    # to run the tests:
-    $ make test
-
-    # to install the package
-    $ make install
-
-    # to clean the package
-    $ make clean
-
-    # uninstall the package
-    $ make uninstall
-
-Requirements
-------------
-following modules will be automatically installed :
-
-.. code-block:: bash
-
-    ## Project Requirements
-
-Acknowledgements
-----------------
-
-- special thanks to "uncle bob" Robert C. Martin, especially for his books on "clean code" and "clean architecture"
-
-Contribute
-----------
-
-I would love for you to fork and send me pull request for this project.
-- `please Contribute <https://github.com/bitranox/lib_detect_testenv/blob/master/CONTRIBUTING.md>`_
-
-License
--------
-
-This software is licensed under the `MIT license <http://en.wikipedia.org/wiki/MIT_License>`_
-
----
-
-Changelog
-=========
-
-- new MAJOR version for incompatible API changes,
-- new MINOR version for added functionality in a backwards compatible manner
-- new PATCH version for backwards compatible bug fixes
-
-v2.0.8
----------
-2023-07-14:
-    - remove dependency click
-    - remove dependency cli_exit_tools to avoid circular dependency
-
-v2.0.7
----------
-2023-07-14:
-    - add codeql badge
-    - move 3rd_party_stubs outside the src directory
-    - add pypy 3.10 tests
-    - add python 3.12-dev tests
-
-v2.0.6
----------
-2023-07-13:
-    - require minimum python 3.8
-    - remove python 3.7 tests
-
-v2.0.5
----------
-2023-07-11:
-    - introduce PEP517 packaging standard
-    - introduce pyproject.toml build-system
-    - remove mypy.ini
-    - remove pytest.ini
-    - remove setup.cfg
-    - remove setup.py
-    - remove .bettercodehub.yml
-    - remove .travis.yml
-    - update black config
-    - clean ./tests/test_cli.py
-
-v2.0.4
----------
-2023-06-26: suppress upload of .egg files to pypi.org
-
-v2.0.3
----------
-2023-01-13:
-    - update github actions : checkout@v3 and setup-python@v4
-    - remove "better code" badges
-    - remove python 3.6 tests
-    - add python 3.11 tests
-    - update to pypy 3.9 tests
-
-v2.0.2.2
----------
-2022-06-02: update to github actions checkout@v3 and setup-python@v3
-
-v2.0.2.1
---------
-2022-06-01: update github actions test matrix
-
-v2.0.2
---------
-2022-03-29: remedy mypy Untyped decorator makes function "cli_info" untyped
-
-v2.0.1
---------
-2022-03-25: fix github actions windows test
-
-v2.0.0
--------
-2021-11-23:
-    - add "setup.py test" detection
-
-v1.0.2
--------
-2021-11-22:
-    - remove second github action yml
-    - fix "setup.py test"
-
-v1.0.1
-------
-2021-11-21: implement github actions
-
-v1.0.0
-------
-2021-11-19: initial release
-
+This software is licensed under the [MIT License](LICENSE).

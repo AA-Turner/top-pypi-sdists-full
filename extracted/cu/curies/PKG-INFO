@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: curies
-Version: 0.10.23
+Version: 0.12.9
 Summary: Idiomatic conversion between URIs and compact URIs (CURIEs)
 Project-URL: Bug Tracker, https://github.com/biopragmatics/curies/issues
 Project-URL: Homepage, https://github.com/biopragmatics/curies
@@ -22,16 +22,13 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
-Requires-Dist: eval-type-backport; python_version < '3.10'
+Requires-Python: >=3.10
 Requires-Dist: pydantic>=2.0
-Requires-Dist: pytrie
 Requires-Dist: typing-extensions
 Provides-Extra: docs
 Requires-Dist: sphinx-automodapi; extra == 'docs'

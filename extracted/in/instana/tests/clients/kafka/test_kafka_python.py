@@ -1,5 +1,6 @@
 # (c) Copyright IBM Corp. 2025
 
+
 import os
 from typing import Generator
 
@@ -12,19 +13,18 @@ from opentelemetry.trace import SpanKind
 from opentelemetry.trace.span import format_span_id
 
 from instana.configurator import config
-from instana.options import StandardOptions
-from instana.singletons import agent, tracer
-from instana.util.config import parse_ignored_endpoints_from_yaml
-from tests.helpers import get_first_span_by_filter, testenv
-
 from instana.instrumentation.kafka import kafka_python
 from instana.instrumentation.kafka.kafka_python import (
     clear_context,
-    save_consumer_span_into_context,
     close_consumer_span,
     consumer_span,
+    save_consumer_span_into_context,
 )
+from instana.options import StandardOptions
+from instana.singletons import agent, get_tracer
 from instana.span.span import InstanaSpan
+from instana.util.config import parse_ignored_endpoints_from_yaml
+from tests.helpers import get_first_span_by_filter, testenv
 
 
 class TestKafkaPython:
@@ -33,7 +33,8 @@ class TestKafkaPython:
         """SetUp and TearDown"""
         # setup
         # Clear all spans before a test run
-        self.recorder = tracer.span_processor
+        self.tracer = get_tracer()
+        self.recorder = self.tracer.span_processor
         self.recorder.clear_spans()
 
         # Kafka admin client
@@ -96,8 +97,72 @@ class TestKafkaPython:
         self.kafka_client.close()
 
     def test_trace_kafka_python_send(self) -> None:
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             future = self.producer.send(testenv["kafka_topic"], b"raw_bytes")
+
+        _ = future.get(timeout=10)  # noqa: F841
+
+        spans = self.recorder.queued_spans()
+        assert len(spans) == 2
+
+        kafka_span = spans[0]
+        test_span = spans[1]
+
+        # Same traceId
+        assert test_span.t == kafka_span.t
+
+        # Parent relationships
+        assert kafka_span.p == test_span.s
+
+        # Error logging
+        assert not test_span.ec
+        assert not kafka_span.ec
+
+        assert kafka_span.n == "kafka"
+        assert kafka_span.k == SpanKind.CLIENT
+        assert kafka_span.data["kafka"]["service"] == testenv["kafka_topic"]
+        assert kafka_span.data["kafka"]["access"] == "send"
+
+    def test_trace_kafka_python_send_with_keyword_topic(self) -> None:
+        """Test that tracing works when topic is passed as a keyword argument."""
+        with self.tracer.start_as_current_span("test"):
+            # Pass topic as a keyword argument
+            future = self.producer.send(
+                topic=testenv["kafka_topic"], value=b"raw_bytes"
+            )
+
+        _ = future.get(timeout=10)  # noqa: F841
+
+        spans = self.recorder.queued_spans()
+        assert len(spans) == 2
+
+        kafka_span = spans[0]
+        test_span = spans[1]
+
+        # Same traceId
+        assert test_span.t == kafka_span.t
+
+        # Parent relationships
+        assert kafka_span.p == test_span.s
+
+        # Error logging
+        assert not test_span.ec
+        assert not kafka_span.ec
+
+        assert kafka_span.n == "kafka"
+        assert kafka_span.k == SpanKind.CLIENT
+        assert kafka_span.data["kafka"]["service"] == testenv["kafka_topic"]
+        assert kafka_span.data["kafka"]["access"] == "send"
+
+    def test_trace_kafka_python_send_with_keyword_args(self) -> None:
+        """Test that tracing works when both topic and headers are passed as keyword arguments."""
+        with self.tracer.start_as_current_span("test"):
+            # Pass both topic and headers as keyword arguments
+            future = self.producer.send(
+                topic=testenv["kafka_topic"],
+                value=b"raw_bytes",
+                headers=[("custom-header", b"header-value")],
+            )
 
         _ = future.get(timeout=10)  # noqa: F841
 
@@ -137,7 +202,7 @@ class TestKafkaPython:
             consumer_timeout_ms=1000,
         )
 
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             for msg in consumer:
                 if msg is None:
                     break
@@ -187,7 +252,7 @@ class TestKafkaPython:
             consumer_timeout_ms=1000,
         )
 
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             msg = consumer.poll(timeout_ms=3000)  # noqa: F841
 
         consumer.close()
@@ -229,7 +294,7 @@ class TestKafkaPython:
             consumer_timeout_ms=1000,
         )
 
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             consumer._client = None
 
             try:
@@ -279,7 +344,7 @@ class TestKafkaPython:
             enable_auto_commit=False,
             consumer_timeout_ms=1000,
         )
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             for msg in consumer:
                 if msg is None:
                     break
@@ -289,7 +354,7 @@ class TestKafkaPython:
     @patch.dict(os.environ, {"INSTANA_IGNORE_ENDPOINTS": "kafka"})
     def test_ignore_kafka(self) -> None:
         agent.options.set_trace_configurations()
-        with tracer.start_as_current_span("test"):
+        with self.tracer.start_as_current_span("test"):
             self.producer.send(testenv["kafka_topic"], b"raw_bytes")
             self.producer.flush()
 
@@ -302,7 +367,7 @@ class TestKafkaPython:
     @patch.dict(os.environ, {"INSTANA_IGNORE_ENDPOINTS": "kafka:send"})
     def test_ignore_kafka_producer(self) -> None:
         agent.options.set_trace_configurations()
-        with tracer.start_as_current_span("test-span"):
+        with self.tracer.start_as_current_span("test-span"):
             # Produce some events
             self.producer.send(testenv["kafka_topic"], b"raw_bytes1")
             self.producer.send(testenv["kafka_topic"], b"raw_bytes2")
@@ -351,7 +416,7 @@ class TestKafkaPython:
     )
     def test_ignore_specific_topic(self) -> None:
         agent.options.set_trace_configurations()
-        with tracer.start_as_current_span("test-span"):
+        with self.tracer.start_as_current_span("test-span"):
             # Produce some events
             self.producer.send(testenv["kafka_topic"], b"raw_bytes1")
             self.producer.send(testenv["kafka_topic"] + "_1", b"raw_bytes1")

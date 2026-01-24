@@ -25,6 +25,16 @@ class LogSearchServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_log__pb2.SearchLogEntriesAggregatedRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_log__pb2.SearchLogEntriesAggregatedResponse.FromString,
         )
+        self.GetLogFacets = channel.unary_unary(
+            "/chalk.server.v1.LogSearchService/GetLogFacets",
+            request_serializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetsResponse.FromString,
+        )
+        self.GetLogFacetValues = channel.unary_unary(
+            "/chalk.server.v1.LogSearchService/GetLogFacetValues",
+            request_serializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetValuesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetValuesResponse.FromString,
+        )
 
 
 class LogSearchServiceServicer(object):
@@ -42,6 +52,18 @@ class LogSearchServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetLogFacets(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetLogFacetValues(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_LogSearchServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -54,6 +76,16 @@ def add_LogSearchServiceServicer_to_server(servicer, server):
             servicer.SearchLogEntriesAggregated,
             request_deserializer=chalk_dot_server_dot_v1_dot_log__pb2.SearchLogEntriesAggregatedRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_log__pb2.SearchLogEntriesAggregatedResponse.SerializeToString,
+        ),
+        "GetLogFacets": grpc.unary_unary_rpc_method_handler(
+            servicer.GetLogFacets,
+            request_deserializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetsResponse.SerializeToString,
+        ),
+        "GetLogFacetValues": grpc.unary_unary_rpc_method_handler(
+            servicer.GetLogFacetValues,
+            request_deserializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetValuesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetValuesResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.LogSearchService", rpc_method_handlers)
@@ -112,6 +144,64 @@ class LogSearchService(object):
             "/chalk.server.v1.LogSearchService/SearchLogEntriesAggregated",
             chalk_dot_server_dot_v1_dot_log__pb2.SearchLogEntriesAggregatedRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_log__pb2.SearchLogEntriesAggregatedResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetLogFacets(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.LogSearchService/GetLogFacets",
+            chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetLogFacetValues(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.LogSearchService/GetLogFacetValues",
+            chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetValuesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_log__pb2.GetLogFacetValuesResponse.FromString,
             options,
             channel_credentials,
             insecure,

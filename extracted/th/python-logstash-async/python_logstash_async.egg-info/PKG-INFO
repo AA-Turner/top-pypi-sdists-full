@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: python-logstash-async
-Version: 4.0.2
+Version: 4.1.0
 Summary: Asynchronous Python logging handler for Logstash.
 Home-page: https://github.com/eht16/python-logstash-async
 Author: Enrico Tröger
@@ -22,13 +22,27 @@ Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: limits
-Requires-Dist: pylogbeat
+Requires-Dist: pylogbeat>=2.1.0
 Requires-Dist: requests
 Provides-Extra: dev
 Requires-Dist: django; extra == "dev"
 Requires-Dist: flask; extra == "dev"
 Provides-Extra: docs
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =====================
 python-logstash-async

@@ -1,0 +1,156 @@
+# (C) 2026 GoodData Corporation
+version: 1
+interactions:
+  - request:
+      method: POST
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute
+      body:
+        execution:
+          attributes:
+            - label:
+                identifier:
+                  id: region
+                  type: label
+              localIdentifier: attr1
+          filters: []
+          measures: []
+        resultSpec:
+          dimensions:
+            - itemIdentifiers:
+                - attr1
+              localIdentifier: dim_0
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        Content-Type:
+          - application/json
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '478'
+        Content-Type:
+          - application/json
+        DATE: &id001
+          - PLACEHOLDER
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-Gdc-Cancel-Token:
+          - d072b28b-8ab3-4590-8a77-f94ded78a5a7
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          executionResponse:
+            dimensions:
+              - headers:
+                  - attributeHeader:
+                      localIdentifier: attr1
+                      label:
+                        id: region
+                        type: label
+                      labelName: Region
+                      attribute:
+                        id: region
+                        type: attribute
+                      attributeName: Region
+                      granularity: null
+                      primaryLabel:
+                        id: region
+                        type: label
+                      valueType: TEXT
+                localIdentifier: dim_0
+            links:
+              executionResult: 4b753ea89cddbd819ae9251aef27347b1d9a0d88:c0f96a370b4a014bef90733c1ca2e99ac191d226ce73735c16c1a620fea3e204
+  - request:
+      method: GET
+      uri: http://localhost:3000/api/v1/actions/workspaces/demo/execution/afm/execute/result/4b753ea89cddbd819ae9251aef27347b1d9a0d88%3Ac0f96a370b4a014bef90733c1ca2e99ac191d226ce73735c16c1a620fea3e204?offset=0&limit=512
+      body: null
+      headers:
+        Accept:
+          - application/json
+        Accept-Encoding:
+          - br, gzip, deflate
+        X-GDC-VALIDATE-RELATIONS:
+          - 'true'
+        X-Requested-With:
+          - XMLHttpRequest
+    response:
+      status:
+        code: 200
+        message: OK
+      headers:
+        Cache-Control:
+          - no-cache, no-store, max-age=0, must-revalidate
+        Content-Length:
+          - '536'
+        Content-Type:
+          - application/json
+        DATE: *id001
+        Expires:
+          - '0'
+        Pragma:
+          - no-cache
+        Referrer-Policy:
+          - no-referrer
+        Vary:
+          - Origin
+          - Access-Control-Request-Method
+          - Access-Control-Request-Headers
+        X-Content-Type-Options:
+          - nosniff
+        X-GDC-TRACE-ID: *id001
+        X-Xss-Protection:
+          - '0'
+      body:
+        string:
+          data: []
+          dimensionHeaders:
+            - headerGroups:
+                - headers:
+                    - attributeHeader:
+                        labelValue: Midwest
+                        primaryLabelValue: Midwest
+                    - attributeHeader:
+                        labelValue: Northeast
+                        primaryLabelValue: Northeast
+                    - attributeHeader:
+                        labelValue: South
+                        primaryLabelValue: South
+                    - attributeHeader:
+                        labelValue: Unknown
+                        primaryLabelValue: Unknown
+                    - attributeHeader:
+                        labelValue: West
+                        primaryLabelValue: West
+          grandTotals: []
+          paging:
+            count:
+              - 5
+            offset:
+              - 0
+            total:
+              - 5
+          metadata:
+            dataSourceMessages: []

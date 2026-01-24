@@ -43,6 +43,10 @@ def collect_nested_configs_recursive(
     """
     Recursively collect all nested ConfigMeta classes from a config class.
 
+    Note: This collects ALL nested configs regardless of ConfigContext.
+    TypedDict definitions are always generated for type completeness.
+    The filtering by context only happens for TypedCoreConfig.__init__ parameters.
+
     Args:
         config_class: A class that inherits from ConfigMeta
         visited: Set of already visited class names to avoid infinite recursion
@@ -61,7 +65,7 @@ def collect_nested_configs_recursive(
 
     visited.add(config_class.__name__)
 
-    # First pass: collect immediate nested configs
+    # First pass: collect immediate nested configs (all of them for TypedDict generation)
     for field_name, field_info in config_class._fields.items():
         if ConfigMeta.is_instance(field_info.field_type):
             nested_class = field_info.field_type
@@ -74,6 +78,119 @@ def collect_nested_configs_recursive(
             nested_configs.update(deeper_nested)
 
     return nested_configs
+
+
+def _get_field_help(field_info) -> str:
+    """
+    Get help text from a ConfigField, checking both direct help and cli_meta.help.
+
+    Args:
+        field_info: A ConfigField instance
+
+    Returns:
+        Help text string or empty string if none available
+    """
+    # First check direct help attribute
+    if field_info.help:
+        return field_info.help
+    # Fall back to cli_meta.help if available
+    if (
+        hasattr(field_info, "cli_meta")
+        and field_info.cli_meta
+        and hasattr(field_info.cli_meta, "help")
+    ):
+        return field_info.cli_meta.help or ""
+    return ""
+
+
+def _generate_nested_type_docs(nested_class: Type, indent: str = "    ") -> List[str]:
+    """
+    Generate documentation for nested ConfigMeta class fields.
+
+    Note: Documents ALL fields in nested classes for completeness.
+
+    Args:
+        nested_class: A nested ConfigMeta class
+        indent: The indentation string to use
+
+    Returns:
+        List of documentation lines for the nested fields
+    """
+    lines = []
+    for sub_field_name, sub_field_info in nested_class._fields.items():
+        sub_help = _get_field_help(sub_field_info)
+        sub_type = sub_field_info.field_type
+
+        if ConfigMeta.is_instance(sub_type):
+            sub_type_str = f"{sub_type.__name__}Dict"
+        else:
+            sub_type_str = _get_type_string(sub_type) if sub_type else "Any"
+
+        # Field name and type on one line
+        lines.append(f"{indent}- {sub_field_name} ({sub_type_str})")
+        # Help text on next line with extra indentation
+        if sub_help:
+            lines.append(f"{indent}    {sub_help}")
+
+        # Recursively document deeply nested types
+        if ConfigMeta.is_instance(sub_type):
+            deeper_lines = _generate_nested_type_docs(sub_type, indent + "    ")
+            lines.extend(deeper_lines)
+
+    return lines
+
+
+def _generate_class_docstring(config_class: Type) -> str:
+    """
+    Generate a class-level docstring with parameter descriptions in NumPy/Sphinx style.
+
+    Args:
+        config_class: A class that inherits from ConfigMeta
+
+    Returns:
+        Formatted docstring string for class level
+    """
+    lines = ['"""', "Parameters", "----------"]
+
+    first_param = True
+    for field_name, field_info in config_class._fields.items():
+        # Skip fields not available in programmatic context
+        if not field_info.is_available_in_programmatic():
+            continue
+
+        help_text = _get_field_help(field_info)
+        field_type = field_info.field_type
+        is_experimental = getattr(field_info, "is_experimental", False)
+
+        # Add blank line between parameters (except before the first one)
+        if not first_param:
+            lines.append("")
+        first_param = False
+
+        # Get type string for documentation
+        if ConfigMeta.is_instance(field_type):
+            type_str = f"{field_type.__name__}Dict"
+        else:
+            type_str = _get_type_string(field_type) if field_type else "Any"
+
+        # Build parameter doc line in NumPy style
+        lines.append(f"{field_name} : {type_str}, optional")
+
+        if help_text:
+            lines.append(f"    {help_text}")
+
+        # Add experimental notice as suffix on next line if applicable
+        if is_experimental:
+            lines.append("    [Experimental] May change in the future.")
+
+        # For nested ConfigMeta types, expand their fields
+        if ConfigMeta.is_instance(field_type):
+            nested_docs = _generate_nested_type_docs(field_type, indent="        ")
+            if nested_docs:
+                lines.extend(nested_docs)
+
+    lines.append('"""')
+    return "\n".join(lines)
 
 
 def generate_typed_class_code(config_class: Type) -> str:
@@ -98,6 +215,7 @@ def generate_typed_class_code(config_class: Type) -> str:
     nested_configs = collect_nested_configs_recursive(config_class)
 
     # Generate TypedDict classes for all nested configs
+    # Note: TypedDicts include ALL fields for type completeness (no context filtering)
     for nested_name, nested_class in nested_configs.items():
         dict_name = f"{nested_name}Dict"
         fields = []
@@ -118,6 +236,10 @@ def generate_typed_class_code(config_class: Type) -> str:
     all_assignments = []
 
     for field_name, field_info in config_class._fields.items():
+        # Skip fields not available in programmatic context
+        if not field_info.is_available_in_programmatic():
+            continue
+
         field_type = field_info.field_type
 
         # Handle nested ConfigMeta classes
@@ -147,7 +269,16 @@ def generate_typed_class_code(config_class: Type) -> str:
     else:
         params_with_kwargs = ["        **kwargs"]
 
+    # Generate class-level docstring with parameter help
+    class_docstring = _generate_class_docstring(config_class)
+    # Indent the docstring for class level (4 spaces)
+    indented_class_docstring = "\n".join(
+        "    " + line if line else "" for line in class_docstring.split("\n")
+    )
+
     class_code = f"""class {class_name}:
+{indented_class_docstring}
+
     def __init__(
         self,
 {comma_newline.join(params_with_kwargs)}
@@ -161,12 +292,16 @@ def generate_typed_class_code(config_class: Type) -> str:
         self._kwargs = {{k: v for k, v in self._kwargs.items() if v is not None}}
         self._config_class = {config_class.__name__}
         self._config = self.create_config()
+        self._init()
 
     def create_config(self) -> {config_class.__name__}:
         return {config_class.__name__}.from_dict(self._kwargs)
 
     def to_dict(self) -> Dict[str, Any]:
-        return self._config.to_dict()"""
+        return self._config.to_dict()
+
+    def _init(self):
+        raise NotImplementedError"""
 
     # Combine all code
     full_code = []
@@ -299,6 +434,10 @@ def create_typed_init_class_dynamic(config_class: Type) -> Type:
         annotations: Dict[str, Any] = {"return": type(None)}
 
         for field_name, field_info in config_class._fields.items():
+            # Skip fields not available in programmatic context
+            if not field_info.is_available_in_programmatic():
+                continue
+
             field_type = field_info.field_type
 
             # Handle nested ConfigMeta classes

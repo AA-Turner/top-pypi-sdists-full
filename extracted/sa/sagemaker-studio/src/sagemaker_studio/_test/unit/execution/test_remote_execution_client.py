@@ -213,6 +213,9 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.assertTrue(RemoteExecutionClient.validate_image_version("2.7"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2.8"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2.8.1"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.9.1"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.10"))
+        self.assertTrue(RemoteExecutionClient.validate_image_version("2.11.0"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("2"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3.0.0"))
         self.assertTrue(RemoteExecutionClient.validate_image_version("3.0"))
@@ -224,8 +227,8 @@ class TestRemoteExecutionClient(unittest.TestCase):
         self.assertFalse(RemoteExecutionClient.validate_image_version("2.0.1"))
         self.assertFalse(RemoteExecutionClient.validate_image_version("2.1"))
         self.assertFalse(RemoteExecutionClient.validate_image_version("4.0"))
-        with self.assertRaises(ValidationError):
-            self.assertTrue(RemoteExecutionClient.validate_image_version("latest"))
+
+        self.assertTrue(RemoteExecutionClient.validate_image_version("latest"))
 
     # Test list_executions
     def test_list_executions(self):
@@ -439,6 +442,164 @@ class TestRemoteExecutionClient(unittest.TestCase):
 
         self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
         self.assertEqual(result["tags"], {"a": "b"})
+
+    @patch("uuid.uuid4")
+    def test_start_execution_with_latest_image_version_cpu(self, mock_uuid):
+        """Test that 'latest' image version correctly constructs ECR URI with CPU variant"""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://datazone.amazonaws.com"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.datazone_stage = "prod"
+        self.remote_client.datazone_environment_id = "env-789"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        # Mock EC2 client to return CPU instance (no GPU info)
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m5.large",
+                    "VCpuInfo": {"DefaultVCpus": 2},
+                    "MemoryInfo": {"SizeInMiB": 8192},
+                    # No GpuInfo - this is a CPU instance
+                },
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act
+        result = self.remote_client.start_execution(
+            execution_name="test-job",
+            compute={
+                "instance_type": "ml.m5.large",
+                "image_details": {
+                    "image_name": "sagemaker-distribution-prod",
+                    "image_version": "latest",
+                },
+            },
+            input_config={"notebook_config": {"input_path": "src/test.ipynb"}},
+        )
+
+        # Assert
+        mock_sagemaker_client.create_training_job.assert_called_once()
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # Verify that the ECR URI uses latest-cpu
+        expected_ecr_uri = (
+            "123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-prod:latest-cpu"
+        )
+        self.assertEqual(call_args["AlgorithmSpecification"]["TrainingImage"], expected_ecr_uri)
+        self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
+
+    @patch("uuid.uuid4")
+    def test_start_execution_uses_latest_by_default(self, mock_uuid):
+        """Test that when no image version is specified, it defaults to 'latest'"""
+        # Arrange
+        mock_uuid.return_value = "1234-5678-9012-3456"
+
+        mock_sagemaker_client = Mock()
+        mock_sagemaker_client.create_training_job.return_value = {
+            "TrainingJobArn": "arn:aws:sagemaker:us-west-2:123456123456:training-job/test-job-1234-5678-9012-3456"
+        }
+        self.remote_client.sagemaker_client = mock_sagemaker_client
+        self.remote_client.kms_key_identifier = (
+            "arn:aws:kms:us-west-2:123456123456:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+        )
+        self.remote_client.user_role_arn = "arn:aws:iam::123456123456:role/SageMakerRole"
+        self.remote_client.default_tooling_environment = {
+            "awsAccountId": "123456123456",
+            "awsAccountRegion": "us-west-2",
+            "id": "env-12345",
+            "name": "Default Environment",
+            "provisionedResources": [
+                {"name": "VpcId", "value": "vpc-12345678"},
+                {"name": "SubnetIds", "value": "subnet-12345678,subnet-87654321"},
+                {"name": "SecurityGroupId", "value": "sg-12345678"},
+                {"name": "s3BucketPath", "value": "s3://my-bucket/my-project/"},
+                {"name": "codeRepositoryName", "value": "my-code-repository"},
+            ],
+        }
+        self.remote_client._utils = Mock()
+        self.remote_client._utils._get_project_s3_path.return_value = "s3://my-bucket/my-project/"
+        self.remote_client.domain_identifier = "domain-123"
+        self.remote_client.project_identifier = "project-456"
+        self.remote_client.datazone_endpoint = "https://datazone.amazonaws.com"
+        self.remote_client.datazone_domain_region = "us-west-2"
+        self.remote_client.datazone_stage = "prod"
+        self.remote_client.datazone_environment_id = "env-789"
+        self.remote_client.project_s3_path = "s3://my-bucket/my-project/"
+        self.remote_client.security_group = "sg-12345678"
+        self.remote_client.subnets = ["subnet-12345678"]
+
+        # Mock EC2 client to return CPU instance
+        mock_ec2_client = Mock()
+        mock_ec2_client.describe_instance_types.return_value = {
+            "InstanceTypes": [
+                {
+                    "InstanceType": "m5.large",
+                    "VCpuInfo": {"DefaultVCpus": 2},
+                    "MemoryInfo": {"SizeInMiB": 8192},
+                    # No GpuInfo - this is a CPU instance
+                },
+            ]
+        }
+        self.remote_client.ec2_client = mock_ec2_client
+
+        mock_ssm_client = Mock()
+        mock_ssm_client.get_parameter.return_value = {"Parameter": {"Value": "123456123456"}}
+        self.remote_client.ssm_client = mock_ssm_client
+
+        # Act - No image_details provided, should use defaults
+        result = self.remote_client.start_execution(
+            execution_name="test-job",
+            compute={"instance_type": "ml.m5.large"},
+            input_config={"notebook_config": {"input_path": "src/test.ipynb"}},
+        )
+
+        # Assert
+        mock_sagemaker_client.create_training_job.assert_called_once()
+        call_args = mock_sagemaker_client.create_training_job.call_args[1]
+
+        # Verify that the ECR URI uses latest-cpu by default
+        expected_ecr_uri = (
+            "123456123456.dkr.ecr.us-west-2.amazonaws.com/sagemaker-distribution-prod:latest-cpu"
+        )
+        self.assertEqual(call_args["AlgorithmSpecification"]["TrainingImage"], expected_ecr_uri)
+        self.assertEqual(result["execution_id"], "test-job-1234-5678-9012-3456")
 
     @patch("uuid.uuid4")
     def test_start_execution_with_minimum_input_fields_provided(self, mock_uuid):

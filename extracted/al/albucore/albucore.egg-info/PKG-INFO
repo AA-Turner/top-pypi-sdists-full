@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: albucore
-Version: 0.0.33
+Version: 0.0.36
 Summary: High-performance image processing functions for deep learning and computer vision.
 Author: Vladimir Iglovikov
 Maintainer: Vladimir Iglovikov
@@ -34,26 +34,31 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Image Processing
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy>=1.24.4
-Requires-Dist: typing-extensions>=4.9.0; python_version < "3.10"
-Requires-Dist: stringzilla>=3.10.4
 Requires-Dist: simsimd>=5.9.2
-Requires-Dist: opencv-python-headless>=4.9.0.80
+Requires-Dist: stringzilla>=3.10.4
+Provides-Extra: contrib
+Requires-Dist: opencv-contrib-python>=4.9.0.80; extra == "contrib"
+Provides-Extra: contrib-headless
+Requires-Dist: opencv-contrib-python-headless>=4.9.0.80; extra == "contrib-headless"
+Provides-Extra: gui
+Requires-Dist: opencv-python>=4.9.0.80; extra == "gui"
+Provides-Extra: headless
+Requires-Dist: opencv-python-headless>=4.9.0.80; extra == "headless"
 Dynamic: license-file
-Dynamic: requires-dist
 
 # Albucore: High-Performance Image Processing Functions
 
@@ -76,9 +81,32 @@ Key features:
 
 ## Installation
 
+**Basic installation** (you manage OpenCV separately):
+
 ```bash
 pip install albucore
 ```
+
+**With OpenCV headless** (recommended for servers/CI):
+
+```bash
+pip install albucore[headless]
+```
+
+**With OpenCV GUI support** (for local development with cv2.imshow):
+
+```bash
+pip install albucore[gui]
+```
+
+**With OpenCV contrib modules:**
+
+```bash
+pip install albucore[contrib]              # GUI version
+pip install albucore[contrib-headless]     # Headless version
+```
+
+**Note:** If you already have `opencv-python` or `opencv-contrib-python` installed, just use `pip install albucore` to avoid package conflicts. Albucore will detect and use your existing OpenCV installation.
 
 ## Usage
 
@@ -165,6 +193,8 @@ Albucore provides several useful decorators:
 - `@contiguous`: Ensures arrays are C-contiguous for optimal performance
 - `@uint8_io` and `@float32_io`: Handle automatic type conversions for functions that work best with specific data types
 
+See [docs/decorators.md](docs/decorators.md) for detailed documentation on all decorators.
+
 ## Performance
 
 Albucore uses a combination of techniques to achieve high performance:
@@ -172,6 +202,15 @@ Albucore uses a combination of techniques to achieve high performance:
 1. **Multiple Implementations**: Each function may have several implementations using different backends (NumPy, OpenCV, custom code).
 2. **Automatic Selection**: The library automatically chooses the fastest implementation based on the input image type, size, and number of channels.
 3. **Optimized Algorithms**: Custom implementations are optimized for specific use cases, often outperforming general-purpose libraries.
+
+See [docs/performance-optimization.md](docs/performance-optimization.md) for detailed performance guidelines and best practices.
+
+## Documentation
+
+- [CLAUDE.md](CLAUDE.md) - AI development guidelines for working with this codebase
+- [docs/image-conventions.md](docs/image-conventions.md) - Image shape conventions and requirements
+- [docs/decorators.md](docs/decorators.md) - Decorator usage and patterns
+- [docs/performance-optimization.md](docs/performance-optimization.md) - Performance optimization guidelines
 
 ## License
 
